@@ -9,12 +9,6 @@
  * @boundary PRL-ST-009=System/E2E: 公開入口→Coordinator→Acceptance Decision Store→状態投影
  */
 
-import {
-  type CoordinatorState,
-  decodeRuntimeDomainSnapshot,
-} from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -22,26 +16,33 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-
+import type {
+  CoordinatorAcceptanceDecision,
+  CoordinatorAcceptanceDecisionRecord,
+} from "../../../domain-model/src/index.ts";
+import {
+  type CoordinatorState,
+  decodeRuntimeDomainSnapshot,
+  encodeRuntimeStateValue,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  initializeCoordinatorSnapshot,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { createCoordinatorSnapshotAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
+import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import type { CoordinatorAcceptanceDecision } from "../../../domain-model/src/index.ts";
-
+import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
-import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
-import type { CoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { createCoordinatorSnapshotAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。
@@ -141,7 +142,10 @@ function persistAcceptancePendingState(
   });
   assert.ok(state.state);
   assert.equal(
-    initializeCoordinatorSnapshot(root, repositoryBindingId).status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(root),
+      repositoryBindingId,
+    ).status,
     "completed",
   );
   const ports = createCurrentCoordinatorPersistencePorts(
@@ -421,7 +425,10 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   const repository = createRepository(t);
   const bindingId = "binding-hash-chain";
   assert.equal(
-    initializeCoordinatorSnapshot(repository.root, bindingId).status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(repository.root),
+      bindingId,
+    ).status,
     "completed",
   );
   const created = createCoordinatorState({

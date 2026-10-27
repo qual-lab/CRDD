@@ -12,8 +12,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { API } from "typescript/unstable/sync";
-import { createVirtualFileSystem } from "typescript/unstable/fs";
 import {
   isCallExpression,
   isExportDeclaration,
@@ -28,6 +26,8 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "typescript/unstable/ast";
+import { createVirtualFileSystem } from "typescript/unstable/fs";
+import { API } from "typescript/unstable/sync";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -156,12 +156,7 @@ const SOURCE_ROLES = {
     "selection/resolve.ts",
     "state/initialize.ts",
   ],
-  storage: [
-    "storage/state.ts",
-    "storage/history.ts",
-    "storage/lock.ts",
-    "storage/decision.ts",
-  ],
+  storage: ["decision/store.ts"],
   technicalExecution: [
     "execution/lease.ts",
     "execution/controller.ts",
@@ -175,6 +170,7 @@ const SOURCE_ROLES = {
     "execution/advice.ts",
     "execution/request.ts",
     "execution/settlement.ts",
+    "execution/persistence.ts",
     "execution/validation.ts",
     "execution/kernel-lock.ts",
     "execution/process-safety-state.ts",
@@ -424,7 +420,7 @@ function assertPureImportEdges(
               ].includes(name),
             )) ||
           (module === `${SOURCE_PREFIX}objective/types.ts` &&
-            specifier === "../storage/decision.ts" &&
+            specifier === "../decision/store.ts" &&
             names.length === 1 &&
             names[0] === "openRuntimeOwnedWindowsProjectDecisionStore") ||
           (module === `${SOURCE_PREFIX}objective/types.ts` &&

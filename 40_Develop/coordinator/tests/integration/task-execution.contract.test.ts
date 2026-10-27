@@ -9,8 +9,6 @@
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -19,22 +17,27 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
+import {
+  encodeRuntimeStateValue,
+  initializeCoordinatorSnapshot,
+} from "../../../domain-model/src/index.ts";
+import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
   createCoordinatorExecutionHostPorts,
   describeCoordinatorExecutionContract,
   runCoordinatorOperation as runCoordinatorOperationWithPorts,
 } from "../../src/task/dispatch.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
-import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
-import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
   enqueueProjectOperation,
-  readProjectOperationQueueState,
   readCoordinatorState,
+  readProjectOperationQueueState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
 
@@ -498,7 +501,10 @@ function fixture(
   const root = fs.mkdtempSync(path.join(tests, "project-execution-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const initialized = initializeCoordinatorSnapshot(root, "binding-a");
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+  );
   assert.equal(initialized.status, "completed", initialized.reason);
   const created = createCoordinatorState({
     taskExecutionSelections: taskExecutionSelections(),

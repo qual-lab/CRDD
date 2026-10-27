@@ -4,11 +4,13 @@
  * @trace ARCH-000004
  * @boundary 所属Repositoryの保存Rootと独立した実行Tree。
  */
-import type { CoordinatorWorkspace } from "../../../domain-model/src/index.ts";
+
 import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import type { CoordinatorWorkspace } from "../../../domain-model/src/index.ts";
+import { readCoordinatorWorkspaceState } from "../../../domain-model/src/index.ts";
 import type {
   RepositoryWorktreeResult,
   WorkspaceCandidateResult,
@@ -22,18 +24,17 @@ import {
   mergeWorkspaceCandidate,
   observeRepositoryWorktree,
   removeWorkspaceCandidate,
-  validWorkspaceDisplayName,
   validWorkspaceCandidateRequest,
+  validWorkspaceDisplayName,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
-import { readCoordinatorSnapshot } from "../storage/state.ts";
-import {
-  writeCoordinatorWorkspaceRecord,
-  createCoordinatorSnapshotIntegrationRecordPort,
-} from "./commands.ts";
-
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
+import {
+  createCoordinatorSnapshotIntegrationRecordPort,
+  writeCoordinatorWorkspaceRecord,
+} from "./commands.ts";
 
 /**
  * 計画の品質受入に必要な既存Git採用記録を再観測する。
@@ -53,7 +54,10 @@ export function workspacePlanReadyForAcceptance(
   planRevision: string,
   currentHead: string,
 ): boolean {
-  const read = readCoordinatorSnapshot(root, binding);
+  const read = readCoordinatorWorkspaceState(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   if (read.status !== "completed" || !read.value) return false;
   const plan = read.value.projects.find(
     (p) => p.projectId === projectId && p.milestoneId === milestoneId,
@@ -211,8 +215,8 @@ export function manageCoordinatorWorkspace(
     layout.layout?.kind === "linked_worktree"
   )
     return result;
-  const initial = readCoordinatorSnapshot(
-    request.ownerRepositoryRoot,
+  const initial = readCoordinatorWorkspaceState(
+    verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
     request.repositoryBindingId,
   );
   if (initial.status !== "completed" || !initial.value)
@@ -238,8 +242,8 @@ export function manageCoordinatorWorkspace(
       recoveryId: lease.recoveryId,
     };
   try {
-    const observed = readCoordinatorSnapshot(
-      request.ownerRepositoryRoot,
+    const observed = readCoordinatorWorkspaceState(
+      verifyRuntimePersistenceRepository(request.ownerRepositoryRoot),
       request.repositoryBindingId,
     );
     if (observed.status !== "completed" || !observed.value) {
@@ -817,7 +821,10 @@ export function resolveCoordinatorWorkspaceTaskTarget(
     manualRecoveryRequired: false,
     recoveryId: null,
   });
-  const snapshot = readCoordinatorSnapshot(ownerRepositoryRoot, binding);
+  const snapshot = readCoordinatorWorkspaceState(
+    verifyRuntimePersistenceRepository(ownerRepositoryRoot),
+    binding,
+  );
   if (snapshot.status !== "completed" || !snapshot.value)
     return failed(snapshot.reason);
   const queue = snapshot.value.queueEntries.find(

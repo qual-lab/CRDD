@@ -5,39 +5,42 @@
  * @trace PRL-IT-013
  * @trace ERB-IT-014
  * @level IT
- * @scope 実Git・Filesystem・現在Reader。Kernel排他と境界切断だけを模擬する。
+ * @scope 実Git・Filesystem・正式Readerとの結合と有限結果の公開投影。
  * @boundary PRL-IT-013=Task入場→現在Reader→Repository。
  */
 
-import { COORDINATOR_STATE_SCHEMA } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
-import { stripTypeScriptTypes } from "node:module";
 import * as domain from "../../../domain-model/src/index.ts";
-import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import * as locks from "../../src/execution/kernel-lock.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  encodeRuntimeStateValue,
+} from "../../../domain-model/src/index.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
 
 /**
- * 現在Readerの初回・部分保存・排他終了と入場投影を検証する。
- * @responsibility 旧AppData参照なしの実Root搬送と値相関を確認する。
+ * 本番Host入場から正式Domain Readerへの接続を確認する。
+ * @responsibility Root現在性と正常・不正本文を公開DTOへ搬送する。
  * @trace PRL-IT-013
  * @trace ERB-IT-014
- * @precondition 自己生成Git Repositoryだけを利用する。
- * @stimulus 不在、空領域、正規本文、不正本文、pending、未知物、Root差、境界出現と排他故障。
- * @observation 実Reader結果、Root引数、排他回数、本文とDirectory残存。
- * @oracle 通常Readerは不在拒否、専用入場だけ厳密不存在を許し、全故障は拒否する。
- * @cleanup 全mockを復元し自己生成Rootだけを回収する。
- * @boundary 実Filesystemと模擬Kernel排他。Docker・Provider要求は0。
+ * @precondition 自己生成Gitと新codec合法な状態を使う。
+ * @stimulus 不存在・正常・不正本文・未検証Root・HEAD変更を与える。
+ * @observation 固定DTO、本文とDirectory残存。
+ * @oracle 初回不存在と正常だけavailable、拒否時も本文不変。
+ * @cleanup 自己生成Rootだけを回収する。
+ * @boundary 正式Root APIとHost Inspector。保存内部の故障はDomainが所有する。
  */
-test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否の廃止", async () => {
+test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送する", async () => {
   const area = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       import.meta.dirname,
@@ -46,20 +49,6 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     "current_admission_test",
   );
   const root = fs.mkdtempSync(path.join(area.directory, "current-admission-"));
-  let domainMock: ReturnType<typeof mock.module> | null = null;
-  let kernelMock: ReturnType<typeof mock.module> | null = null;
-  let storeMock: ReturnType<typeof mock.module> | null = null;
-  let ownerModuleMock: ReturnType<typeof mock.module> | null = null;
-  let releaseResult = true;
-  let releaseThrows = false;
-  let live = true;
-  let acquisitions = 0;
-  let releases = 0;
-  let afterAbsent: (() => void) | null = null;
-  let areaFailure: ReturnType<typeof domain.ensureRepositoryRuntimeDataArea> =
-    null;
-  let areaCreations = 0;
-  let areaThrows = false;
   try {
     execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
     execFileSync(
@@ -88,282 +77,23 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
       verified.capability,
     );
     assert.ok(binding);
-    domainMock = mock.module(
-      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...domain,
-          ensureRepositoryRuntimeDataArea: (
-            ...args: Parameters<typeof domain.ensureRepositoryRuntimeDataArea>
-          ) => {
-            if (areaThrows) throw new Error("fixture_partial_area_creation");
-            return (
-              areaFailure ?? domain.ensureRepositoryRuntimeDataArea(...args)
-            );
-          },
-          createCoordinatorRuntimeDataArea: (
-            ...args: Parameters<typeof domain.createCoordinatorRuntimeDataArea>
-          ) => {
-            areaCreations++;
-            return domain.createCoordinatorRuntimeDataArea(...args);
-          },
-          observeRepositoryRuntimeDataArea: (
-            ...args: Parameters<typeof domain.observeRepositoryRuntimeDataArea>
-          ) => {
-            const value = domain.observeRepositoryRuntimeDataArea(...args);
-            if (value.status === "not_observed" && afterAbsent) {
-              const hook = afterAbsent;
-              afterAbsent = null;
-              hook();
-            }
-            return value;
-          },
-        },
-      },
+    const { inspectRuntimeOwnedDockerTaskAdmission: inspect } = await import(
+      "../../src/execution/recovery.ts"
     );
-    kernelMock = mock.module(
-      new URL("../../src/execution/kernel-lock.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...locks,
-          acquireRuntimeOwnedCoordinatorStateKernelLock: () => {
-            acquisitions++;
-            return {
-              assertLive: () => live,
-              release: () => {
-                releases++;
-                if (releaseThrows) throw new Error("fixture_release");
-                return releaseResult;
-              },
-            };
-          },
-        },
-      },
-    );
-    const ownerModule = await import(
-      new URL("../../src/storage/lock.ts?current-admission", import.meta.url)
-        .href
-    );
-    ownerModuleMock = mock.module(
-      new URL("../../src/storage/lock.ts", import.meta.url).href,
-      { namedExports: { ...ownerModule } },
-    );
-    const store = await import(
-      new URL("../../src/storage/state.ts?current-admission", import.meta.url)
-        .href
-    );
-    storeMock = mock.module(
-      new URL("../../src/storage/state.ts", import.meta.url).href,
-      { namedExports: { ...store } },
-    );
-    const taskStore = await import(
-      new URL("../../src/storage/state.ts?area-failure", import.meta.url).href
-    );
-    for (const fault of [
-      "no_effect",
-      "unknown",
-      "cleanup_failed",
-      "owner_release",
-    ]) {
-      const unknown = fault === "unknown";
-      const cleanup = fault !== "cleanup_failed";
-      areaFailure = {
-        status: "blocked",
-        reason: "repository_runtime_data_ignore_registration_blocked",
-        effectIssued: unknown || !cleanup,
-        effectStateUnknown: unknown,
-        effectConfirmation: unknown ? "unknown" : "not_issued",
-        cleanupConfirmed: cleanup,
-        retryAllowed: !unknown && cleanup,
-        recoveryReference: unknown ? "repository-local-ignore.exact" : null,
-        repositoryPathReported: false,
-      };
-      releaseResult = fault !== "owner_release";
-      const beforeReleases = releases;
-      let failure: unknown;
-      try {
-        taskStore.initializeCoordinatorSnapshot(root, "binding-a");
-      } catch (error) {
-        failure = error;
-      }
-      assert.ok(
-        failure instanceof domain.RepositoryRuntimeDataAreaBlockedError,
-      );
-      assert.equal(releases, beforeReleases + 1);
-      assert.equal(areaCreations, 0);
-      assert.equal(
-        fs.existsSync(path.join(root, ".crdd", "coordinator")),
-        false,
-      );
-      const projected = coordinatorDataBoundaryBlocked(failure);
-      assert.equal(projected.reason, areaFailure.reason);
-      assert.equal(projected.effectIssued, areaFailure.effectIssued);
-      assert.equal(projected.effectStateUnknown, unknown);
-      assert.equal(projected.cleanupConfirmed, cleanup && releaseResult);
-      assert.equal(
-        projected.retryAllowed,
-        !unknown && cleanup && releaseResult,
-      );
-      assert.deepEqual(
-        projected.recoveryIds,
-        unknown ? ["repository-local-ignore.exact"] : [],
-      );
-    }
-    areaFailure = null;
-    releaseResult = true;
-    areaThrows = true;
-    const beforeExceptionalRelease = releases;
-    const exceptional = taskStore.initializeCoordinatorSnapshot(
-      root,
-      "binding-a",
-    );
-    assert.equal(exceptional.status, "blocked");
-    assert.equal(exceptional.manualRecoveryRequired, true);
-    assert.equal(releases, beforeExceptionalRelease + 1);
-    assert.equal(areaCreations, 0);
-    areaThrows = false;
-    const owner = await import(
-      new URL(
-        "../../src/execution/recovery.ts?current-admission",
-        import.meta.url,
-      ).href
-    );
-    const inspect = owner.inspectRuntimeOwnedDockerTaskAdmission as (
-      root: unknown,
-    ) => { status: string; reason: string; lockReleased: boolean };
     const current = path.join(root, ".crdd", "coordinator");
-    assert.equal(
-      store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability)
-        .status,
-      "blocked",
-    );
-    assert.deepEqual(inspect(root), {
+    const available = {
       status: "available",
       reason: "coordinator_current_admission_available",
       lockReleased: true,
-    });
-    assert.equal(fs.existsSync(current), false);
-    for (const fault of ["release_false", "release_throw", "not_live"]) {
-      releaseResult = fault !== "release_false";
-      releaseThrows = fault === "release_throw";
-      live = fault !== "not_live";
-      assert.deepEqual(inspect(root), {
-        status: "blocked",
-        reason: "coordinator_current_admission_unconfirmed",
-        lockReleased: fault === "not_live",
-      });
-      assert.equal(fs.existsSync(current), false);
-    }
-    releaseResult = true;
-    releaseThrows = false;
-    live = true;
-    /**
-     * 入場拒否の完全DTOを照合する。
-     * @responsibility 実Readerと最終生存条件変異に同じ拒否Oracleを使う。
-     * @trace PRL-IT-013
-     * @precondition 取得済み排他は正常解放する。
-     * @stimulus 入場結果を渡す。
-     * @observation 可否・固定理由・解放確認の全field。
-     * @oracle 入場拒否かつ排他解放だけを受理する。
-     * @cleanup N/A: 値比較だけ。
-     * @boundary 現在入場DTO。
-     */
-    const assertRefused = (result: unknown) =>
-      assert.deepEqual(JSON.parse(JSON.stringify(result)), {
-        status: "blocked",
-        reason: "coordinator_current_admission_unconfirmed",
-        lockReleased: true,
-      });
-    const releaseBeforeLoss = releases;
-    let invalidations = 0;
-    afterAbsent = () => {
-      live = false;
-      invalidations++;
     };
-    assertRefused(inspect(root));
-    assert.equal(invalidations, 1);
-    assert.equal(afterAbsent, null);
-    assert.equal(releases, releaseBeforeLoss + 1);
+    assert.deepEqual(inspect(root), available);
     assert.equal(fs.existsSync(current), false);
-    live = true;
-    const readerSource = fs.readFileSync(
-      new URL("../../src/storage/state.ts", import.meta.url),
-      "utf8",
+    assert.equal(
+      domain.readRuntimeOwnedCoordinatorAdmissionSnapshot({}).status,
+      "blocked",
     );
-    const branchStart = readerSource.indexOf(
-      '    if (allowUninitialized && initial.status === "not_observed") {',
-    );
-    const branchEnd = readerSource.indexOf(
-      '    if (\n      initial.status !== "ready"',
-      branchStart,
-    );
-    assert.ok(branchStart > 0 && branchEnd > branchStart);
-    const branch = readerSource.slice(branchStart, branchEnd);
-    assert.equal(branch.split("lock.assertLive()").length, 2);
-    const ownerSource = fs.readFileSync(
-      new URL("../../src/execution/recovery.ts", import.meta.url),
-      "utf8",
-    );
-    const inspectorStart = ownerSource.indexOf(
-      "export function inspectRuntimeOwnedDockerTaskAdmission(",
-    );
-    const inspectorEnd = ownerSource.indexOf(
-      "function canonical(",
-      inspectorStart,
-    );
-    assert.ok(inspectorStart > 0 && inspectorEnd > inspectorStart);
-    const inspector = stripTypeScriptTypes(
-      ownerSource.slice(inspectorStart, inspectorEnd),
-    ).replace("export function", "function");
-    for (const [candidate, mutated] of [
-      [branch, false],
-      [branch.replace("lock.assertLive()", "true"), true],
-    ] as const) {
-      const reason = runInNewContext(
-        `let reason = "coordinator_state_read_unconfirmed"; try {${candidate}} catch {} reason;`,
-        {
-          allowUninitialized: true,
-          initial: { status: "not_observed" },
-          verified: { capability: {} },
-          observeRepositoryRuntimeDataArea: () => ({ status: "not_observed" }),
-          repository: { revalidate: () => true },
-          lock: { assertLive: () => false },
-        },
-      );
-      const result = runInNewContext(
-        `${inspector}\ninspectRuntimeOwnedDockerTaskAdmission("fixture");`,
-        {
-          verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
-          readRuntimeOwnedCoordinatorAdmissionSnapshot: () => ({
-            status: "blocked",
-            reason,
-            lockReleased: true,
-            value: null,
-          }),
-        },
-      );
-      if (mutated) assert.throws(() => assertRefused(result));
-      else assertRefused(result);
-    }
-    const headBeforeAbsence = fs.readFileSync(path.join(root, ".git", "HEAD"));
-    try {
-      afterAbsent = () =>
-        fs.writeFileSync(
-          path.join(root, ".git", "HEAD"),
-          "ref: refs/heads/unborn-fixture\n",
-        );
-      assert.equal(inspect(root).status, "blocked");
-      assert.equal(afterAbsent, null);
-      assert.equal(fs.existsSync(current), false);
-    } finally {
-      afterAbsent = null;
-      fs.writeFileSync(path.join(root, ".git", "HEAD"), headBeforeAbsence);
-    }
-    afterAbsent = () => fs.mkdirSync(current, { recursive: true });
-    assert.equal(inspect(root).status, "blocked");
-    assert.equal(afterAbsent, null);
-    assert.equal(inspect(root).status, "blocked");
-    assert.deepEqual(fs.readdirSync(current), []);
+    assert.equal(inspect(path.join(root, "missing")).status, "blocked");
+    fs.mkdirSync(current, { recursive: true });
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
       `${encodeRuntimeStateValue({
@@ -390,47 +120,119 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
         resultReceipts: [],
       })}\n`,
     );
+
     fs.writeFileSync(file, bytes);
-    assert.equal(inspect(root).status, "available");
-    for (const name of [
-      "state.pending.json",
-      "state.lock",
-      "history.pending.jsonl",
-      "unknown.json",
-    ]) {
-      const injected = path.join(current, name);
-      fs.writeFileSync(injected, "foreign", { flag: "wx" });
-      try {
-        assert.equal(inspect(root).status, "blocked");
-        assert.deepEqual(fs.readFileSync(file), bytes);
-        assert.equal(fs.readFileSync(injected, "utf8"), "foreign");
-      } finally {
-        fs.unlinkSync(injected);
-      }
-    }
+    assert.ok(
+      domain.decodeRuntimeDomainSnapshot(bytes, binding.repositoryBinding),
+    );
+    assert.deepEqual(inspect(root), available);
     fs.writeFileSync(file, "invalid");
     assert.equal(inspect(root).status, "blocked");
     assert.equal(fs.readFileSync(file, "utf8"), "invalid");
     fs.writeFileSync(file, bytes);
-    assert.equal(inspect(path.join(root, "missing")).status, "blocked");
     const head = path.join(root, ".git", "HEAD");
-    const originalHead = fs.readFileSync(head);
+    const before = fs.readFileSync(head);
     try {
       fs.writeFileSync(head, "ref: refs/heads/unborn-fixture\n");
       assert.equal(inspect(root).status, "blocked");
     } finally {
-      fs.writeFileSync(head, originalHead);
+      fs.writeFileSync(head, before);
     }
-    assert.equal(inspect(root).status, "available");
-    assert.equal(acquisitions, releases);
+    assert.deepEqual(inspect(root), available);
     assert.deepEqual(fs.readdirSync(current), ["state.json"]);
     assert.deepEqual(fs.readFileSync(file), bytes);
   } finally {
-    storeMock?.restore();
-    ownerModuleMock?.restore();
-    kernelMock?.restore();
-    domainMock?.restore();
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Domainの有限結果と領域失敗をHostの公開結果へ投影する。
+ * @responsibility 内部故障を再現せず、解放・Effect三値とexact参照を保持する。
+ * @trace PRL-IT-013
+ * @trace ERB-IT-014
+ * @precondition 有限の正式結果と実Error型だけを使う。
+ * @stimulus 読取り未確認・初回不存在、四つの領域失敗を与える。
+ * @observation DTO全fieldと回復参照。
+ * @oracle 失敗をavailableへ補完せず、一回のOwner解放不明も公開する。
+ * @cleanup 値だけで外部資源なし。
+ * @boundary Host結果投影。Domain Readerの物理故障はDomain試験が所有する。
+ */
+test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する", () => {
+  const assertRefused = (value: unknown) =>
+    assert.deepEqual(JSON.parse(JSON.stringify(value)), {
+      status: "blocked",
+      reason: "coordinator_current_admission_unconfirmed",
+      lockReleased: true,
+    });
+  const ownerSource = fs.readFileSync(
+    new URL("../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  const inspectorStart = ownerSource.indexOf(
+    "export function inspectRuntimeOwnedDockerTaskAdmission(",
+  );
+  const inspectorEnd = ownerSource.indexOf(
+    "function canonical(",
+    inspectorStart,
+  );
+  assert.ok(inspectorStart > 0 && inspectorEnd > inspectorStart);
+  const inspector = stripTypeScriptTypes(
+    ownerSource.slice(inspectorStart, inspectorEnd),
+  ).replace("export function", "function");
+  // Domain Readerの二つの固定結果に対するHost DTO投影だけを確認する。
+  for (const [reason, mutated] of [
+    ["coordinator_state_read_unconfirmed", false],
+    ["coordinator_state_uninitialized", true],
+  ] as const) {
+    const result = runInNewContext(
+      `${inspector}\ninspectRuntimeOwnedDockerTaskAdmission("fixture");`,
+      {
+        verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+        readRuntimeOwnedCoordinatorAdmissionSnapshot: () => ({
+          status: "blocked",
+          reason,
+          lockReleased: true,
+          value: null,
+        }),
+      },
+    );
+    if (mutated) assert.throws(() => assertRefused(result));
+    else assertRefused(result);
+  }
+
+  for (const fault of [
+    "no_effect",
+    "unknown",
+    "cleanup_failed",
+    "owner_release",
+  ]) {
+    const unknown = fault === "unknown",
+      cleanup = fault !== "cleanup_failed",
+      released = fault !== "owner_release";
+    const error = new domain.RepositoryRuntimeDataAreaBlockedError({
+      status: "blocked",
+      reason: "repository_runtime_data_ignore_registration_blocked",
+      effectIssued: unknown || !cleanup,
+      effectStateUnknown: unknown,
+      effectConfirmation: unknown ? "unknown" : "not_issued",
+      cleanupConfirmed: cleanup,
+      retryAllowed: !unknown && cleanup,
+      recoveryReference: unknown ? "repository-local-ignore.exact" : null,
+      repositoryPathReported: false,
+    });
+    if (!released)
+      error.cause = "coordinator_snapshot_lock_release_unconfirmed";
+    const projected = coordinatorDataBoundaryBlocked(error);
+    assert.equal(projected.reason, error.reason);
+    assert.equal(projected.effectIssued, error.effectIssued);
+    assert.equal(projected.effectStateUnknown, unknown);
+    assert.equal(projected.cleanupConfirmed, cleanup && released);
+    assert.equal(projected.retryAllowed, !unknown && cleanup && released);
+    assert.deepEqual(
+      projected.recoveryIds,
+      unknown ? ["repository-local-ignore.exact"] : [],
+    );
   }
 });
 
@@ -587,6 +389,12 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
   const manifest = JSON.parse(
     fs.readFileSync(new URL("../../symbol.json", import.meta.url), "utf8"),
   );
+  const domainManifest = JSON.parse(
+    fs.readFileSync(
+      new URL("../../../domain-model/symbol.json", import.meta.url),
+      "utf8",
+    ),
+  );
   const suite = manifest.symbols.find(
     (entry: { symbolId: string }) =>
       entry.symbolId === "coordinator.test.integration.current-admission",
@@ -601,13 +409,13 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
   assert.deepEqual(
     suite.verifies.map(
       (id: string) =>
-        manifest.symbols.find(
+        [...manifest.symbols, ...domainManifest.symbols].find(
           (entry: { symbolId: string }) => entry.symbolId === id,
         )?.path,
     ),
     [
       "src/execution/recovery.ts",
-      "src/storage/state.ts",
+      "src/storage/runtime-store.ts",
       "src/execution/result.ts",
     ],
   );
@@ -625,7 +433,6 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
  * @boundary 入場Inspector→Reader。本文codecの成立は前Caseと既存保存試験が所有する。
  */
 test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだけを搬送する", async () => {
-  const store = await import("../../src/storage/state.ts");
   const projection = await import("../../src/execution/result.ts");
   const repositoryRoot = fs.realpathSync(
     path.resolve(import.meta.dirname, "../../../.."),
@@ -633,10 +440,10 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
   let observed: unknown;
   const roots: (string | null)[] = [];
   const mocked = mock.module(
-    new URL("../../src/storage/state.ts", import.meta.url).href,
+    new URL("../../../domain-model/src/index.ts", import.meta.url).href,
     {
       namedExports: {
-        ...store,
+        ...domain,
         readRuntimeOwnedCoordinatorAdmissionSnapshot: (
           root: Parameters<typeof resolveVerifiedRepositoryRoot>[0],
         ) => {

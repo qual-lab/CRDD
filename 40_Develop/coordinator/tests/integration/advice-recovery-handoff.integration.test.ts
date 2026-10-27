@@ -8,19 +8,22 @@
  * @scope 合成Repository、助言代役、実Task Sessionと既存保存。
  * @boundary 助言結果→本番Task受付→実Snapshot。AI／Docker／認証は使用しない。
  */
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import test, { mock } from "node:test";
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import {
+  readCoordinatorQueueEntry,
+  saveRepositoryAiSelection,
+} from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { selectionConfig } from "../fixtures/ai-selection.ts";
-import { saveRepositoryAiSelection } from "../../../domain-model/src/index.ts";
-import { readCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { updateCoordinatorSingleTask } from "../../src/task/queue.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { updateCoordinatorSingleTask } from "../../src/task/queue.ts";
+import { selectionConfig } from "../fixtures/ai-selection.ts";
 
 /**
  * 一回目の助言終了で取得済み参照を保存し、後から別参照を混入できないことを確認する。
@@ -120,13 +123,15 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
   assert.equal(calls, 1);
   assert.deepEqual(outcome.recoveryIds, [hostId, dockerId]);
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const read = readCoordinatorSnapshot(root, binding);
+  const read = readCoordinatorQueueEntry(
+    verified.capability,
+    binding,
+    accepted.requestId,
+  );
   assert.equal(read.status, "completed");
   if (read.status !== "completed" || !read.value)
     throw Error("fixture_snapshot_required");
-  const entry = read.value.queueEntries.find(
-    (item) => item.queueId === accepted.requestId,
-  );
+  const entry = read.value;
   assert.ok(entry?.singleTask);
   assert.deepEqual(entry.singleTask.recoveryIds, [hostId, dockerId]);
   const lease = acquireCoordinatorSnapshotLease(

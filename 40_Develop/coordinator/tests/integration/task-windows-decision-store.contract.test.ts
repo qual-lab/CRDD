@@ -10,12 +10,50 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
+
+/**
+ * 判断保存試験の一時領域を現在Repositoryへ限定する。
+ * @responsibility 自己生成Rootの実体と親を清掃直前にも確認する。
+ * @trace PRL-IT-005
+ * @precondition 現在Repositoryを検証できる。
+ * @stimulus 既存Runtime Data APIから試験Rootを作成する。
+ * @observation Rootの実体と終了後不存在。
+ * @oracle OS一時領域や過去保持物へ書込み・削除しない。
+ * @cleanup このCaseが作ったRootだけを回収する。
+ * @boundary 試験準備のみ。保護されたHostの真正性を主張しない。
+ */
+function fixture(t: test.TestContext) {
+  const parent = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      fileURLToPath(new URL("../../../../", import.meta.url)),
+      "tests",
+    ),
+    "fixture_repository_invalid",
+  ).directory;
+  const root = fs.mkdtempSync(path.join(parent, "crdd-decision-store-"));
+  const identity = fs.lstatSync(root, { bigint: true });
+  t.after(() => {
+    assert.equal(path.dirname(root), parent);
+    assert.equal(fs.realpathSync.native(root), root);
+    const current = fs.lstatSync(root, { bigint: true });
+    assert.equal(current.dev, identity.dev);
+    assert.equal(current.ino, identity.ino);
+    assert.equal(current.birthtimeNs, identity.birthtimeNs);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  return root;
+}
 
 /**
  * recordのTest準備責務を実行する。
@@ -63,8 +101,7 @@ function record(): CoordinatorDecisionRecord {
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("protected decision store retains an immutable CAS generation chain", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-decision-store-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = fixture(t);
   const store = createCoordinatorWindowsDecisionStoreTestingAdapter(root);
   const first = record();
   assert.deepEqual(store.create(first), { status: "completed", value: first });
@@ -110,8 +147,7 @@ test("protected decision store retains an immutable CAS generation chain", (t) =
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("missing generation or changed immutable record fails closed", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-decision-store-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const root = fixture(t);
   const store = createCoordinatorWindowsDecisionStoreTestingAdapter(root);
   const first = record();
   assert.equal((store.create(first) as { status: string }).status, "completed");

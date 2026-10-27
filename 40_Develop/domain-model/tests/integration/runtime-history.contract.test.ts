@@ -10,30 +10,31 @@
  * @boundary PRL-IT-012=Direct Boundary: 履歴Adapter→Repository Filesystem。
  */
 
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
-  readCoordinatorSnapshot,
-  writeCoordinatorSnapshot,
-  initializeCoordinatorSnapshot,
-} from "../../src/storage/state.ts";
-import {
-  transferCoordinatorSnapshotHistory,
-  maintainCoordinatorSnapshot,
-} from "../../src/state/retirement.ts";
+  encodeRuntimeStateValue,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  maintainCoordinatorSnapshotRecords,
+  requireReadyRepositoryRuntimeDataArea,
+  transferCoordinatorSnapshotHistoryRecords,
+} from "../../src/index.ts";
 import {
   inspectCoordinatorHistorySettlement,
   updateCoordinatorHistoryOwned,
   updateCoordinatorHistoryPilot,
-} from "../../src/storage/history.ts";
+} from "../../src/storage/runtime-history.ts";
+import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/runtime-lock.ts";
+import {
+  initializeCoordinatorSnapshot,
+  readCoordinatorSnapshot,
+  writeCoordinatorSnapshot,
+} from "../../src/storage/runtime-store.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");
@@ -80,7 +81,11 @@ test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件�
   );
   try {
     assert.equal(
-      maintainCoordinatorSnapshot(f.root, "binding-a", referenceTime).status,
+      maintainCoordinatorSnapshotRecords(
+        verifiedRoot(f.root),
+        "binding-a",
+        referenceTime,
+      ).status,
       "blocked",
     );
     assert.equal(hits, 1);
@@ -88,8 +93,8 @@ test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件�
     mock.mock.restore();
   }
   assert.equal(fs.existsSync(f.pending), true);
-  const resumed = maintainCoordinatorSnapshot(
-    f.root,
+  const resumed = maintainCoordinatorSnapshotRecords(
+    verifiedRoot(f.root),
     "binding-a",
     referenceTime,
   );
@@ -324,10 +329,12 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
         return Reflect.apply(rename, fs, args);
       },
     );
-    let transferred: ReturnType<typeof transferCoordinatorSnapshotHistory>;
+    let transferred: ReturnType<
+      typeof transferCoordinatorSnapshotHistoryRecords
+    >;
     try {
-      transferred = transferCoordinatorSnapshotHistory(
-        f.root,
+      transferred = transferCoordinatorSnapshotHistoryRecords(
+        verifiedRoot(f.root),
         "binding-a",
         referenceTime,
       );
@@ -356,8 +363,8 @@ test("Host Windows: 終了要約搬送は同じOwnerで二段確定する", (t) 
           "completed",
         );
       }
-      transferred = transferCoordinatorSnapshotHistory(
-        f.root,
+      transferred = transferCoordinatorSnapshotHistoryRecords(
+        verifiedRoot(f.root),
         "binding-a",
         referenceTime,
       );
@@ -443,7 +450,10 @@ function fixture(t: test.TestContext) {
     fs.rmSync(root, { recursive: true, force: true });
     assert.equal(fs.existsSync(root), false);
   });
-  const initialized = initializeCoordinatorSnapshot(root, "binding-a");
+  const initialized = initializeCoordinatorSnapshot(
+    verifiedRoot(root),
+    "binding-a",
+  );
   assert.equal(initialized.status, "completed", initialized.reason);
   const directory = path.join(root, ".crdd", "coordinator");
   return {
@@ -852,3 +862,21 @@ test("Host Windows: 履歴のaliasと観測不能を不存在へ畳まない", (
   assert.deepEqual(fs.readFileSync(f.current), before);
   assert.equal(fs.existsSync(f.pending), false);
 });
+
+/**
+ * 自己生成Rootを既存VCで照合する。
+ * @responsibility 試験の保存先を真正Rootへ固定する。
+ * @trace PRL-IT-012
+ * @precondition fixtureが生成したRepositoryだけを渡す。
+ * @stimulus VCで現在Rootを検証する。
+ * @observation 発行された参照。
+ * @oracle 不明Rootでは試験を停止する。
+ * @cleanup fixtureがRootを清掃する。
+ * @boundary 試験準備。実行Authorityを作らない。
+ */
+function verifiedRoot(root: string) {
+  const observed = verifyRepositoryRoot(root);
+  if (observed.status !== "completed")
+    throw Error("fixture_repository_invalid");
+  return observed.capability;
+}

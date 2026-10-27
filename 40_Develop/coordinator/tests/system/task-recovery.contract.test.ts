@@ -8,33 +8,35 @@
  * @scope Coordinator Objective、Durable State、Recovery、Retry
  * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  initializeCoordinatorSnapshot,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
+import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   settleProjectTaskRecoveryObligation,
 } from "../../src/task/recovery.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
-import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import {
-  registerSyntheticOperations,
-  settleSyntheticOperation,
-} from "../fixtures/task-result-fixture.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import {
   readCoordinatorState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
+import {
+  registerSyntheticOperations,
+  settleSyntheticOperation,
+} from "../fixtures/task-result-fixture.ts";
 
 const revision = "a".repeat(40);
 let fixtureIntakeEpoch = "fixture-epoch";
@@ -102,7 +104,10 @@ function root(t: test.TestContext) {
     fs.rmSync(value, { recursive: true, force: true });
     assert.throws(() => fs.lstatSync(value), { code: "ENOENT" });
   });
-  const initialized = initializeCoordinatorSnapshot(value, "binding-a");
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(value),
+    "binding-a",
+  );
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");

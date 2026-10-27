@@ -9,43 +9,40 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
 
-import {
-  parseHostRecoveryToken,
-  validateHostRecoveryTransitionLineage,
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
-  type CoordinatorStateOperation,
-  createDockerRestartRequestId,
-  isDockerRestartCheckpointSettled,
-} from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
-import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import {
-  planDockerRecoveryResourceExpectations,
+  codexAdviceProviderInitRequired,
   isDockerResourcePurpose,
+  parseDockerTaskRecoveryId,
+  planDockerRecoveryResourceExpectations,
 } from "../../../docker-isolation/src/index.ts";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
-
-import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../src/execution/validation.ts";
 import {
-  prepareCoordinatorStateOperationSnapshot,
+  type CoordinatorStateOperation,
+  coordinatorAuthenticationUnknownCanClose,
+  coordinatorTaskResourcesAreSettled,
+  createDockerRestartRequestId,
   decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  encodeRuntimeStateValue,
+  isDockerRestartCheckpointSettled,
+  parseHostRecoveryToken,
+  prepareCoordinatorStateOperationSnapshot,
+  validateHostRecoveryTransitionLineage,
 } from "../../../domain-model/src/index.ts";
-
 import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   prepareRuntimeOwnedDockerRestart,
   releaseRuntimeOwnedDockerRestartPreparation,
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/execution/recovery.ts";
+import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../src/execution/validation.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
+
 /**
  * restart preparation rejects arbitrary capability and invalid task before publicationを検証する。
  *
@@ -105,30 +102,6 @@ const recoveryBody = stripTypeScriptTypes(
     .slice(recoveryStart, recoveryEnd)
     .replaceAll("export function", "function")
     .replaceAll("export async function", "async function"),
-);
-const storeSource = fs.readFileSync(
-  new URL("../../src/storage/state.ts", import.meta.url),
-  "utf8",
-);
-const storeStart = storeSource.indexOf(
-  "export function writeRuntimeOwnedCoordinatorRecoveryCheckpoint(",
-);
-const storeEnd = storeSource.indexOf("\n/**", storeStart);
-assert.ok(storeStart >= 0 && storeEnd > storeStart);
-const storeBody = stripTypeScriptTypes(
-  storeSource
-    .slice(storeStart, storeEnd)
-    .replace("export function", "function"),
-);
-const cleanupStoreStart = storeSource.indexOf(
-  "export function writeRuntimeOwnedCoordinatorRecoveredHostCleanup(",
-);
-const cleanupStoreEnd = storeSource.indexOf("\n/**", cleanupStoreStart);
-assert.ok(cleanupStoreStart >= 0 && cleanupStoreEnd > cleanupStoreStart);
-const cleanupStoreBody = stripTypeScriptTypes(
-  storeSource
-    .slice(cleanupStoreStart, cleanupStoreEnd)
-    .replace("export function", "function"),
 );
 /**
  * 初期Hostの再導出を実modelへ接続し、依存欠測による偽の拒否を検出する。
@@ -1419,207 +1392,6 @@ test("現在Host不存在遷移は意図保存とexact token確定を一操作�
       );
       assert.equal(f.api.release(fresh.capability), true);
     }
-  }
-});
-
-/**
- * 固定Writer本文が保存済みHost意図以外のtoken変更を拒否する。
- * @responsibility 元版・同操作・既知終了とpending解除を保存要求前に照合する。
- * @trace ERB-IT-014
- * @precondition 本番Writer本文と模擬Reader／候補生成／物理Writerを使う。
- * @stimulus exact後続、意図欠落、別遷移、別token、Owner／資源不明、清掃変更と古い元版を与える。
- * @observation 候補生成数、物理保存要求数と返却status。
- * @oracle exactのHost token確定だけ候補・保存各一回、それ以外は両方0。
- * @cleanup 合成境界だけ。実Storage CAS・Docker・Host処置は対象外。
- * @boundary ERB-IT-014=Related 2 Blocks: 固定途中Writer→候補生成／物理保存。
- */
-test("現在回収Writerは保存済みHost後続tokenと不変欄を共同確認する", () => {
-  for (const fault of [
-    "none",
-    "no_intent",
-    "other_token",
-    "other_transition",
-    "owner",
-    "resource",
-    "cleanup",
-    "pending",
-    "before",
-  ] as const) {
-    const f = fixture("recovery");
-    const tokens = f.installHostTransition("old");
-    const operation = f.snapshot.operations[0];
-    assert.ok(operation);
-    const before = Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
-    const update = {
-      ...operation.host,
-      currentToken: tokens.expectedToken,
-      pendingTransitionJson: null,
-    };
-    if (fault === "no_intent") operation.host.pendingTransitionJson = null;
-    if (fault === "other_token")
-      update.currentToken = tokens.currentToken.replace(/.$/u, "0");
-    if (fault === "other_transition") {
-      const intent = JSON.parse(
-        operation.host.pendingTransitionJson as unknown as string,
-      );
-      intent.nextState = "host_only";
-      operation.host.pendingTransitionJson = JSON.stringify(
-        intent,
-      ) as unknown as null;
-    }
-    if (fault === "owner") operation.execution.ownerEffect = "active";
-    if (fault === "resource") {
-      const resource = operation.resources[0];
-      assert.ok(resource);
-      operation.resources[0] = { ...resource, request: "unknown" };
-    }
-    if (fault === "cleanup") update.cleanup = "confirmed";
-    if (fault === "pending")
-      update.pendingTransitionJson = operation.host.pendingTransitionJson;
-    let prepares = 0,
-      writes = 0;
-    const invoke = runInNewContext(
-      `${storeBody}\nwriteRuntimeOwnedCoordinatorRecoveryCheckpoint`,
-      {
-        Buffer,
-        coordinatorTaskResourcesAreSettled: (
-          value: Parameters<typeof coordinatorTaskResourcesAreSettled>[0],
-        ) =>
-          coordinatorTaskResourcesAreSettled(JSON.parse(JSON.stringify(value))),
-        encodeRuntimeStateValue,
-        readCoordinatorStateSnapshot: () => ({
-          status: "completed",
-          lockReleased: true,
-          value: { snapshot: f.snapshot },
-        }),
-        prepareCoordinatorStateHostSnapshot: () => {
-          prepares++;
-          return Buffer.from("fixed candidate");
-        },
-        writeCoordinatorStateSnapshot: (
-          _owner: unknown,
-          repository: { revalidate: () => boolean } | null,
-        ) => {
-          if (repository === null) return { status: "blocked" };
-          assert.equal(repository.revalidate(), true);
-          writes++;
-          return { status: "completed" };
-        },
-      },
-    );
-    // 故障別の現在本文へ結合し、before故障だけ旧本文を渡す。
-    const currentBefore =
-      fault === "before"
-        ? Buffer.concat([before, Buffer.from(" ")])
-        : Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
-    const result = invoke(
-      { ...f.repository, operationId: "a" },
-      f.token,
-      currentBefore,
-      "host",
-      update,
-      () => true,
-    );
-    assert.equal(
-      result.status,
-      fault === "none" ? "completed" : "blocked",
-      fault,
-    );
-    assert.equal(prepares, fault === "none" ? 1 : 0, fault);
-    assert.equal(writes, fault === "none" ? 1 : 0, fault);
-  }
-});
-
-/**
- * Host清掃確定Writerの固定一欄とOwnerを確認する。
- * @responsibility 汎用checkpointを緩めず、正当な清掃後Ownerだけを既存Writerへ搬送する。
- * @trace ERB-IT-014
- * @precondition 本番Writer本文と合成Reader／物理Writerを使用する。
- * @stimulus 正常と元版差・Owner差・遷移残存・未終端資源・失効を与える。
- * @observation 純粋candidateと物理Writerの到達数、固定Host欄。
- * @oracle 正常だけpendingからconfirmed、拒否時candidate／Writer0。
- * @cleanup N/A: 合成I/Oだけで実資源なし。
- * @boundary ERB-IT-014=Related 2 Blocks: 清掃終端Writer→Reader／物理保存。
- */
-test("現在Host清掃Writerは固定元版・既知終端と保持中Ownerだけを受理する", () => {
-  for (const fault of [
-    "none",
-    "before",
-    "owner",
-    "cleanup",
-    "pending",
-    "active",
-    "resource",
-    "reader",
-    "live",
-  ] as const) {
-    const f = fixture("recovery"),
-      operation = f.snapshot.operations[0];
-    assert.ok(operation);
-    operation.host.cleanup = "pending" as typeof operation.host.cleanup;
-    operation.execution.ownerEffect = "disabled";
-    if (fault === "cleanup") operation.host.cleanup = "not_requested";
-    if (fault === "pending")
-      operation.host.pendingTransitionJson = "{}" as unknown as null;
-    if (fault === "active") operation.execution.ownerEffect = "active";
-    if (fault === "resource")
-      operation.resources = operation.resources.map((resource, index) =>
-        index === 0 ? { ...resource, request: "unknown" } : resource,
-      );
-    const before = Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
-    let candidates = 0,
-      writes = 0;
-    const invoke = runInNewContext(
-      `${cleanupStoreBody}\nwriteRuntimeOwnedCoordinatorRecoveredHostCleanup`,
-      {
-        Buffer,
-        coordinatorTaskResourcesAreSettled: (
-          value: Parameters<typeof coordinatorTaskResourcesAreSettled>[0],
-        ) =>
-          coordinatorTaskResourcesAreSettled(JSON.parse(JSON.stringify(value))),
-        encodeRuntimeStateValue,
-        readCoordinatorStateSnapshot: () => ({
-          status: "completed",
-          lockReleased: fault !== "reader",
-          value: { snapshot: f.snapshot },
-        }),
-        prepareCoordinatorStateHostSnapshot: (
-          _before: Buffer,
-          id: string,
-          host: unknown,
-        ) => {
-          candidates++;
-          assert.equal(id, f.token);
-          assert.deepEqual(JSON.parse(JSON.stringify(host)), {
-            ...operation.host,
-            cleanup: "confirmed",
-          });
-          return Buffer.from("fixed cleanup candidate");
-        },
-        writeCoordinatorStateSnapshot: (
-          _owner: unknown,
-          repository: { revalidate: () => boolean } | null,
-        ) => {
-          if (!repository) return { status: "blocked" };
-          assert.equal(repository.revalidate(), true);
-          writes++;
-          return { status: "completed" };
-        },
-      },
-    );
-    const result = invoke(
-      { ...f.repository, operationId: fault === "owner" ? "other" : "a" },
-      f.token,
-      fault === "before" ? Buffer.concat([before, Buffer.from(" ")]) : before,
-      () => fault !== "live",
-    );
-    assert.equal(
-      result.status,
-      fault === "none" ? "completed" : "blocked",
-      fault,
-    );
-    assert.equal(candidates, fault === "none" ? 1 : 0, fault);
-    assert.equal(writes, fault === "none" ? 1 : 0, fault);
   }
 });
 

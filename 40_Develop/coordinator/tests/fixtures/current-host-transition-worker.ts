@@ -62,11 +62,11 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }}});
       }
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const store = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
+      const store = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const model = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const runtimeDomain = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const historyValues = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-      const stateValues = await import(${JSON.stringify(new URL("../../src/state/validation.ts", import.meta.url).href)});
+      const stateValues = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
@@ -269,7 +269,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(report.reason, 'docker_task_recovery_durable_acceptance_pending');
         } else {
           const authenticationSource = authenticationUnknownRestart ? (await import(${JSON.stringify(new URL("./current-authentication-recovery-cli.ts", import.meta.url).href)})).currentAuthenticationRecoveryCliSource : undefined;
-          const child = spawnSync(process.execPath, authenticationUnknownRestart ? ['--experimental-test-module-mocks','-',resolvedId] : [cli, 'doctor', '--recover-isolation', resolvedId, '--json'], {input:authenticationSource,cwd: process.cwd(), encoding: 'utf8', timeout: restartEntry ? 120000 : 60000, windowsHide: true});
+          const child = spawnSync(process.execPath, authenticationUnknownRestart ? ['--experimental-test-module-mocks','-',resolvedId] : [cli, 'recovery', 'resume', resolvedId, '--json'], {input:authenticationSource,cwd: process.cwd(), encoding: 'utf8', timeout: restartEntry ? 120000 : 60000, windowsHide: true});
           assert.equal(child.error, undefined); assert.equal(child.signal, null); assert.equal(child.status, 0, child.stderr);
           assert.ok(Number.isInteger(child.pid) && child.pid > 0); assert.notEqual(child.pid, process.pid);
           report = JSON.parse(child.stdout);
@@ -293,7 +293,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(JSON.parse(retained.identityJson).consumer, 'orchestrator');
           assert.equal(JSON.parse(retained.identityJson).recoveryCorrelationId, 'upper-current-host');
           const deliveries = state.pendingDeliveries.filter(item => item.recoveryId === resolvedId);
-          assert.equal(deliveries.length, 1); assert.equal(deliveries[0].acceptanceSha256, null);
+          assert.equal(deliveries.length, 1);
+          assert.deepEqual(Object.keys(deliveries[0]).sort(), ['consumer','operationNonce','recoveryId','resultId']);
+          assert.equal(state.resultReceipts.filter(item => item.resultId === deliveries[0].resultId).length, 0);
           const resolved = recovery.resolveRuntimeOwnedDockerTaskCurrentCorrelations(['upper-current-host', 'explicit-absent'], verified.capability);
           assert.equal(resolved.status, 'completed'); assert.equal(resolved.lockReleased, true);
           assert.deepEqual(resolved.bindings, [{correlationId: 'upper-current-host', recoveryId: resolvedId}]);
@@ -740,17 +742,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
               fs.writeFileSync(pendingPath, fixed); fs.writeFileSync(markerPath, marker);
               assert.equal(store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id).status, 'blocked');
               assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
-              const { stripTypeScriptTypes } = await import('node:module');
-              const storeUrl = ${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)};
-              const original = fs.readFileSync(new URL(storeUrl), 'utf8');
-              const readerDisabled = original.replace('if (pending && candidate.equals(before))', 'if (false)');
-              assert.notEqual(readerDisabled, original);
-              const rebased = readerDisabled.replace(/from "([^"]+)"/g, (match, specifier) => specifier.startsWith('.') ? 'from '+JSON.stringify(new URL(specifier, storeUrl).href) : match);
-              const instrumented = await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(rebased)).toString('base64'));
-              assert.equal(instrumented.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id).status, 'completed');
-              const binding = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
-              const repository = binding.borrowRuntimeOwnedCoordinatorRecoveryRepository(verified.capability); assert.ok(repository);
-              const rejected = instrumented.registerRuntimeOwnedCoordinatorRecoveryResultDelivery({ ...repository, operationId: identity.operationId }, id, () => true);
+              const rejected = recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(capability);
               assert.equal(rejected.status, 'blocked'); assert.equal(rejected.filesystemEffectIssued, false);
               assert.deepEqual(fs.readFileSync(statePath), fixed); assert.deepEqual(fs.readFileSync(pendingPath), fixed); assert.deepEqual(fs.readFileSync(markerPath), marker);
               assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), fixedHistory);

@@ -10,10 +10,7 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -21,34 +18,23 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
-import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/execution/recovery.ts";
-import {
   getJsonCommitName,
+  initializeCoordinatorSnapshot,
+  requireReadyRepositoryRuntimeDataArea,
   writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
-
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import {
-  acquireCoordinatorLease,
-  enqueueProjectOperation,
-  readProjectOperationQueueState,
-  readCoordinatorState,
-  selectNextProjectOperation,
-  updateProjectOperationQueueState,
-  writeCoordinatorState,
-} from "../fixtures/task-persistence-fixture.ts";
-import {
-  registerSyntheticOperations,
-  settleSyntheticOperation,
-} from "../fixtures/task-result-fixture.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
+  consumeDockerRecoveryReceiptAfterProjectSettlement,
+  consumeProjectSettledDockerRecoveryWithRuntimeBoundary,
+} from "../../src/execution/recovery.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../../src/task/acceptance.ts";
+import { reserveProjectTaskStart } from "../../src/task/lifecycle.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   settleProjectTaskRecoveryObligation,
@@ -57,7 +43,20 @@ import type {
   CoordinatorSingleTaskAttemptInput,
   CoordinatorSingleTaskResult,
 } from "../../src/task/types.ts";
-import { reserveProjectTaskStart } from "../../src/task/lifecycle.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import {
+  acquireCoordinatorLease,
+  enqueueProjectOperation,
+  readCoordinatorState,
+  readProjectOperationQueueState,
+  selectNextProjectOperation,
+  updateProjectOperationQueueState,
+  writeCoordinatorState,
+} from "../fixtures/task-persistence-fixture.ts";
+import {
+  registerSyntheticOperations,
+  settleSyntheticOperation,
+} from "../fixtures/task-result-fixture.ts";
 
 const revision = "a".repeat(40);
 /**
@@ -189,7 +188,10 @@ function root(t: test.TestContext) {
   ).directory;
   const value = fs.mkdtempSync(path.join(parent, "crdd-project-intake-"));
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
-  const initialized = initializeCoordinatorSnapshot(value, "binding-a");
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(value),
+    "binding-a",
+  );
   assert.equal(initialized.status, "completed");
   fixtureIntakeEpoch = initialized.value as string;
   t.after(() => {

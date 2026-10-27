@@ -4,37 +4,37 @@
  * @responsibility Principal・Root・Revisionを確認し、既存Snapshot Readerと状態投影へ接続する。状態変更は行わない。
  * @trace ARCH-000005
  */
-import {
-  projectCoordinatorCurrentState,
-  type CoordinatorState,
-} from "../../../domain-model/src/index.ts";
-import type { StoreResult } from "./result.ts";
-import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 
-import { projectCoordinatorState } from "./projection.ts";
-import type { CoordinatorStatePort } from "./persistence.ts";
+import type { CoordinatorState } from "../../../domain-model/src/index.ts";
 import {
-  COORDINATOR_STATE_QUERY_CONTRACT,
-  inspectCoordinatorStateQuery,
-} from "./request.ts";
-import type {
-  CoordinatorStateQuery,
-  CoordinatorStateQueryResult,
-} from "./types.ts";
-import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
+  RepositoryRuntimeDataAreaBlockedError,
+  readCoordinatorCurrentState,
+  readCoordinatorExecutionState,
+} from "../../../domain-model/src/index.ts";
 import {
   inspectRepositoryIdentityCandidate,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
+import type { CoordinatorStatePort } from "./persistence.ts";
+import { projectCoordinatorState } from "./projection.ts";
+import {
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  inspectCoordinatorStateQuery,
+} from "./request.ts";
+import type { StoreResult } from "./result.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
 } from "./result.ts";
 import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "./transaction.ts";
-import { readCoordinatorSnapshot } from "../storage/state.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import type {
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+} from "./types.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 
 /**
  * Read-only application entry. It cannot receive a state mutation capability.
@@ -168,8 +168,8 @@ export function executeCoordinatorPublicStateQuery(
   const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
   const adoptedPlan =
     identity && identity.commit !== request.repositoryRevision
-      ? readCoordinatorSnapshot(
-          repositoryRoot,
+      ? readCoordinatorExecutionState(
+          verifyRuntimePersistenceRepository(repositoryRoot),
           deriveCoordinatorRepositoryBindingId(repositoryRoot),
         ).value?.projects.find(
           (plan) =>
@@ -218,8 +218,8 @@ export function executeCoordinatorPublicStateQuery(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const snapshot = readCoordinatorSnapshot(
-    repositoryRoot,
+  const snapshot = readCoordinatorExecutionState(
+    verifyRuntimePersistenceRepository(repositoryRoot),
     deriveCoordinatorRepositoryBindingId(repositoryRoot),
   );
   if (
@@ -310,9 +310,9 @@ export function readCurrentCoordinatorState(
   binding: string,
   projectId: string,
 ): StoreResult<CoordinatorState | null> {
-  return withCoordinatorSnapshotOperation(
-    workingDirectory,
+  return readCoordinatorCurrentState(
+    verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    (current) => projectCoordinatorCurrentState(current, projectId),
+    projectId,
   );
 }

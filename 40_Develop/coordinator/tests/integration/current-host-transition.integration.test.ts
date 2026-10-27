@@ -9,8 +9,6 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Driver→Host／現在状態Writer。
  */
 
-import { COORDINATOR_STATE_SCHEMA } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -19,35 +17,34 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
+  COORDINATOR_STATE_SCHEMA,
+  encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
+import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
+  bindRuntimeOwnedRepositoryOperation,
   borrowOwnedHostRecoverySnapshot,
+  borrowRuntimeOwnedCoordinatorStateRepository,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
-import {
-  bindRuntimeOwnedRepositoryOperation,
-  borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/execution/operation.ts";
 
 import {
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
-  prepareRuntimeOwnedCoordinatorStateInitialization,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorOperationStart,
-  writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/storage/state.ts";
+} from "../../src/execution/persistence.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
-import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 
 /**
  * 実Hostを現在Repositoryへ結合して非秘密の試験Identityを構成する。
@@ -84,7 +81,12 @@ function fixtureOperation(
       consumer: "coordinator_cli",
       operationId: repository.operationId,
       grantRef: "PHMGRANT-FIXTURE",
-      profileId: "PROFILE-123456",
+      executionSelection: executionSelection("executor", {
+        provider: "claude",
+        model: "opus",
+        effort: "medium",
+      }),
+      taskAttempt: 0,
       stableLogicalHomeBindingHash: randomBytes(32).toString("hex"),
       providerHomeIdentityHash: "8".repeat(64),
       providerHomeProtectionHash: "9".repeat(64),
@@ -361,20 +363,25 @@ for (const publicationFault of [
         target.identity.consumer = "workbench";
       targetManagement = target.management;
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: target.repository.repositoryBinding, repositoryBindingId: null, intakeEpoch: null, projects: [], managedExecutions: [], queueEntries: [], workspaces: [], intakeBindings: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
-      assert.equal(
-        prepareRuntimeOwnedCoordinatorStateInitialization(
-          target.management,
-          initial,
-        ).status,
-        "prepared",
+      // Host故障の前提値だけを配置する。初期Writerの保証はDomainの実保存試験が所有する。
+      const snapshotArea = requireReadyRepositoryRuntimeDataArea(
+        ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+          root,
+          "coordinator",
+        ),
+        "fixture_snapshot_area",
       );
-      assert.equal(
-        writeRuntimeOwnedCoordinatorStateSnapshot(target.management, initial)
-          .status,
-        "completed",
+      fs.writeFileSync(
+        path.join(snapshotArea.directory, "state.json"),
+        initial,
+        { flag: "wx" },
       );
+      const seeded = readRuntimeOwnedCoordinatorStateSnapshot(
+        target.management,
+      );
+      assert.equal(seeded.status, "completed", seeded.reason);
       assert.equal(
         saveRuntimeOwnedCoordinatorOperationStart(
           other.management,
@@ -676,7 +683,19 @@ for (const publicationFault of [
         assert.equal(deliveries.length, 1);
         assert.equal(deliveries[0].consumer, "orchestrator");
         assert.equal(deliveries[0].recoveryId, started.recoveryId);
-        assert.equal(deliveries[0].acceptanceSha256, null);
+        assert.deepEqual(Object.keys(deliveries[0]).sort(), [
+          "consumer",
+          "operationNonce",
+          "recoveryId",
+          "resultId",
+        ]);
+        assert.equal(
+          finalState.resultReceipts.filter(
+            (item: { resultId: string }) =>
+              item.resultId === deliveries[0].resultId,
+          ).length,
+          0,
+        );
         assert.equal(
           JSON.parse(finalOperation.identityJson).recoveryCorrelationId,
           "upper-current-host",

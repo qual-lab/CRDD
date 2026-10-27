@@ -5,10 +5,14 @@
  * @boundary 公開初期化要求とRepository-localの現在状態。
  * @security 任意Binding・保存先・既存状態の上書きを要求へ追加しない。
  */
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+
+import {
+  initializeCoordinatorSnapshot,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
-import { initializeCoordinatorSnapshot } from "../storage/state.ts";
 
 /**
  * 初期化する現在位置だけを指定する。
@@ -66,7 +70,7 @@ export function initializeProject(request: ProjectInitializationRequest = {}) {
     });
   }
   return initializeCoordinatorSnapshot(
-    root,
+    verifyRuntimePersistenceRepository(root),
     deriveCoordinatorRepositoryBindingId(root),
   );
 }

@@ -3,15 +3,18 @@
  * @responsibility 同じRootの現在照合、Kernel保持、借用と解放を一つのOwnerへ結合する。
  * @trace ARCH-000004、ARCH-000008
  */
-import type { StoreResult } from "../state/result.ts";
-import { completed } from "../state/result.ts";
-import { blocked } from "../state/result.ts";
-import { verifyRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../execution/kernel-lock.ts";
+
 import {
-  type borrowRuntimeOwnedCoordinatorRecoveryRepository,
-  borrowRuntimeOwnedCoordinatorStorageRepository,
-} from "../execution/operation.ts";
+  type VerifiedRepositoryRoot,
+  verifyRepositoryRootFromWorkingDirectory,
+} from "../../../version-control/src/index.ts";
+import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "./runtime-kernel-lock.ts";
+import {
+  type observeRuntimeRecoveryRepository as borrowRuntimeOwnedCoordinatorRecoveryRepository,
+  observeRuntimeStorageRepository as borrowRuntimeOwnedCoordinatorStorageRepository,
+} from "./runtime-repository.ts";
+import type { StoreResult } from "./runtime-result.ts";
+import { blocked, completed } from "./runtime-result.ts";
 
 /**
  * 同じ短期排他を読取りと保存確定で借用する私有Owner。
@@ -81,13 +84,18 @@ export function readCoordinatorStorageOwnerBinding(owner: object) {
  * @concurrency このOwnerの内部借用ではKernelを再取得しない。
  */
 export function acquireCoordinatorStorageOwner(
-  workingDirectory: string,
+  workingDirectory: string | VerifiedRepositoryRoot,
 ): CoordinatorStorageOwner | null {
-  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
-  const repository =
-    verified.status === "completed"
-      ? borrowRuntimeOwnedCoordinatorStorageRepository(verified.capability)
+  const verified =
+    typeof workingDirectory === "string"
+      ? verifyRepositoryRootFromWorkingDirectory(workingDirectory)
       : null;
+  const repository =
+    typeof workingDirectory !== "string"
+      ? borrowRuntimeOwnedCoordinatorStorageRepository(workingDirectory)
+      : verified?.status === "completed"
+        ? borrowRuntimeOwnedCoordinatorStorageRepository(verified.capability)
+        : null;
   return repository
     ? acquireCoordinatorStorageOwnerForRepository(repository)
     : null;
@@ -225,7 +233,7 @@ export function isLiveCoordinatorStorageOwner(
  * @concurrency 同Rootのcase差と配下起動を同じ排他へ結合する。
  */
 export function acquireCoordinatorSnapshotPilotLock(
-  workingDirectory: string,
+  workingDirectory: string | VerifiedRepositoryRoot,
 ): StoreResult<CoordinatorSnapshotOwner> {
   const owner = acquireCoordinatorStorageOwner(workingDirectory);
   return owner

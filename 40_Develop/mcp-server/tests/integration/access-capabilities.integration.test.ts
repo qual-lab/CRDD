@@ -20,8 +20,6 @@
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
  */
 import assert from "node:assert/strict";
-import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { invokeMcpSource } from "../fixtures/sdk-request.ts";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -40,10 +38,16 @@ import {
   initializeAccessManagementState,
 } from "../../../access-management/src/initialization/execution.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { executeWorkspace as executeWorkspaceCommand } from "../../../coordinator/src/index.ts";
+import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
+import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
+import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
   createFilesystemStoreRoot,
   createMeetingOperations,
   createTopicOperations,
+  initializeCoordinatorSnapshot,
+  saveCoordinatorManagedProject,
 } from "../../../domain-model/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
@@ -51,23 +55,20 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
-import { executeWorkspace as executeWorkspaceCommand } from "../../../coordinator/src/index.ts";
-import { initializeCoordinatorSnapshot } from "../../../coordinator/src/storage/state.ts";
-import { writeCoordinatorSnapshotState } from "../../../coordinator/src/storage/state.ts";
-import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
   createAccessMcpResolver,
-  MCP_CURRENT_ACCESS_TOOL,
   MCP_COORDINATOR_PROTOCOL_VERSION,
+  MCP_CURRENT_ACCESS_TOOL,
+  MCP_EXECUTION_STATUS_TOOL,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_EXECUTION_STATUS_TOOL,
   MCP_TOPIC_MEETING_TOOLS,
   type McpResponse,
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
+import { invokeMcpSource } from "../fixtures/sdk-request.ts";
 
 /**
  * 通常三Roleの本人を他Userから推定せず実HTTPで取得する。
@@ -900,8 +901,12 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       sourceA = expectedSources[0];
     assert.ok(a && b && sourceA);
     const binding = `binding-${createHash("sha256").update(a.target).digest("hex").slice(0, 40)}`;
+    const repository = verifyRepositoryRoot(a.target);
+    assert.equal(repository.status, "completed");
+    if (repository.status !== "completed")
+      throw Error("fixture_repository_invalid");
     assert.equal(
-      initializeCoordinatorSnapshot(a.target, binding).status,
+      initializeCoordinatorSnapshot(repository.capability, binding).status,
       "completed",
     );
     const saved = createCoordinatorState({
@@ -927,10 +932,10 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     });
     assert.ok(saved.state);
     assert.equal(
-      writeCoordinatorSnapshotState(
-        a.target,
+      saveCoordinatorManagedProject(
+        repository.capability,
         binding,
-        JSON.stringify(saved.state),
+        saved.state,
         0,
       ).status,
       "completed",

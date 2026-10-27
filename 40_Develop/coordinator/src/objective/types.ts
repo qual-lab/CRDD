@@ -5,34 +5,31 @@
  * @trace ARCH-000004
  * @boundary Coordinator内のObjective型境界。
  */
-import type { CoordinatorState } from "../../../domain-model/src/index.ts";
 import type {
-  ProjectTaskDefinition,
   CoordinatorObjectivePlan,
+  CoordinatorState,
+  ProjectTaskDefinition,
 } from "../../../domain-model/src/index.ts";
-
+import type { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
 import type {
-  CoordinatorPersistencePorts,
+  cancelRuntimeOwnedCoordinatorTask,
+  captureRuntimeOwnedCoordinatorTaskResultDelivery,
+  startRuntimeOwnedCoordinatorTask,
+} from "../execution/controller.ts";
+import type { resolveTaskExecutionSelections } from "../selection/resolve.ts";
+import type {
   CoordinatorClockIdentityPort,
+  CoordinatorPersistencePorts,
 } from "../state/persistence.ts";
+import type { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
 import type {
   CoordinatorExecutionDependencies,
+  CoordinatorExecutionPublicationObservation,
   CoordinatorProcessSafetyPort,
+  CoordinatorTaskRecoveryHostDependencies,
   CoordinatorTaskRecoveryPort,
 } from "../task/types.ts";
 import type { CoordinatorObjectiveRequest } from "./request.ts";
-import type { resolveTaskExecutionSelections } from "../selection/resolve.ts";
-import type {
-  startRuntimeOwnedCoordinatorTask,
-  cancelRuntimeOwnedCoordinatorTask,
-  captureRuntimeOwnedCoordinatorTaskResultDelivery,
-} from "../execution/controller.ts";
-import type { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
-import type { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
-import type {
-  CoordinatorExecutionPublicationObservation,
-  CoordinatorTaskRecoveryHostDependencies,
-} from "../task/types.ts";
 
 /**
  * Objective実行が必要とする依存契約を定義する。

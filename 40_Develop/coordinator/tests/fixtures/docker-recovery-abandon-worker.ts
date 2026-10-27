@@ -8,13 +8,6 @@
  * @scope 実Root・Host・Home排他・Writer。通常Host試験はHome観測と固定切断hookを模擬する。auth_create_failureはDocker代役と通常例外を確認し、明示したauth_create_unknownだけは専用承認Rootで固定Imageの停止Containerを一件作成する。
  * @boundary 旧Owner Processの終了後の現在回復。専用モードの同期CLI終了は子孫tree／daemon queue終端の証明ではない。
  */
-import { COORDINATOR_STATE_SCHEMA } from "../../../domain-model/src/index.ts";
-import type {
-  CoordinatorStateOperation,
-  CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { executionSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
 import cp from "node:child_process";
@@ -24,6 +17,15 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
+import type {
+  CoordinatorStateOperation,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  encodeRuntimeStateValue,
+} from "../../../domain-model/src/index.ts";
+import { executionSelection } from "./ai-selection.ts";
 
 const mode = process.argv[2];
 assert.ok(
@@ -125,7 +127,10 @@ if (mode !== "recovery") {
   const domain = await import("../../../domain-model/src/index.ts");
   const host = await import("../../src/execution/operation.ts");
   const repository = await import("../../src/execution/operation.ts");
-  const store = await import("../../src/storage/state.ts");
+  const store = {
+    ...domain,
+    ...(await import("../../src/execution/persistence.ts")),
+  };
   const model = await import("../../../domain-model/src/index.ts");
   const homes = await import("../../src/execution/authority.ts");
   const locks = await import("../../src/execution/kernel-lock.ts");
@@ -157,6 +162,7 @@ if (mode !== "recovery") {
       intakeEpoch: null,
       intakeBindings: [],
       projects: [],
+      managedExecutions: [],
       workspaces: [],
       queueEntries: [],
       leaseEvidence: [],
@@ -174,13 +180,18 @@ if (mode !== "recovery") {
       pendingDeliveries: [],
     })}\n`,
   );
-  assert.equal(
-    store.prepareRuntimeOwnedCoordinatorStateInitialization(management, initial)
-      .status,
-    "prepared",
+  const snapshotArea = domain.requireReadyRepositoryRuntimeDataArea(
+    domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      root,
+      "coordinator",
+    ),
+    "abandon_snapshot_fixture",
   );
+  fs.writeFileSync(path.join(snapshotArea.directory, "state.json"), initial, {
+    flag: "wx",
+  });
   assert.equal(
-    store.writeRuntimeOwnedCoordinatorStateSnapshot(management, initial).status,
+    store.readRuntimeOwnedCoordinatorStateSnapshot(management).status,
     "completed",
   );
   const hash = randomBytes(32).toString("hex"),
@@ -331,8 +342,10 @@ if (mode !== "recovery") {
   }
   try {
     const actualStore = await import(
-      new URL("../../src/storage/state.ts?abandon-producer", import.meta.url)
-        .href
+      new URL(
+        "../../src/execution/persistence.ts?abandon-producer",
+        import.meta.url,
+      ).href
     );
     const actualSubmission = await import(
       new URL("../../src/execution/controller.ts", import.meta.url).href
@@ -359,7 +372,7 @@ if (mode !== "recovery") {
       typeof actualStore.checkpointRuntimeOwnedCoordinatorResource
     >[] = [];
     const storeMock = mock.module(
-      new URL("../../src/storage/state.ts", import.meta.url).href,
+      new URL("../../src/execution/persistence.ts", import.meta.url).href,
       {
         namedExports: {
           ...actualStore,
@@ -1262,7 +1275,6 @@ if (mode !== "recovery") {
   let recoveryStoreMock: { restore(): void } | null = null;
   let recoveryHostMock: { restore(): void } | null = null;
   let admissionStoreMock: { restore(): void } | null = null;
-  let admissionSettlementMock: { restore(): void } | null = null;
   let admissionSubmissionMock: { restore(): void } | null = null;
   let admissionHostMock: { restore(): void } | null = null;
   const recoveryAdmissionChecks: string[] = [];
@@ -1382,7 +1394,7 @@ if (mode !== "recovery") {
     assert.deepEqual(violations, [...originals.keys()]);
     violations.splice(0);
     if (admissionVerification === "verify_admission") {
-      const actualStore = await import("../../src/storage/state.ts");
+      const actualStore = await import("../../../domain-model/src/index.ts");
       const actualHost = await import("../../src/execution/operation.ts");
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
@@ -1398,10 +1410,11 @@ if (mode !== "recovery") {
         "writeRuntimeOwnedCoordinatorRecoveryCheckpoint",
         "writeRuntimeOwnedCoordinatorRecoveredHostCleanup",
         "saveRuntimeOwnedCoordinatorOperationStart",
-        "writeRuntimeOwnedCoordinatorStateSnapshot",
+        "completeRuntimeOwnedCoordinatorSettlement",
+        "settleRuntimeOwnedCoordinatorResult",
       ] as const;
       admissionStoreMock = mock.module(
-        new URL("../../src/storage/state.ts", import.meta.url).href,
+        new URL("../../../domain-model/src/index.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualStore,
@@ -1423,35 +1436,6 @@ if (mode !== "recovery") {
       );
       const actualSubmission = await import(
         "../../src/execution/controller.ts"
-      );
-      const actualSettlement = await import(
-        "../../src/execution/settlement.ts"
-      );
-      admissionSettlementMock = mock.module(
-        new URL("../../src/execution/settlement.ts", import.meta.url).href,
-        {
-          namedExports: {
-            ...actualSettlement,
-            ...Object.fromEntries(
-              (
-                [
-                  "completeRuntimeOwnedCoordinatorSettlement",
-                  "settleRuntimeOwnedCoordinatorResult",
-                ] as const
-              ).map((name) => {
-                const original = actualSettlement[name];
-                assert.equal(typeof original, "function");
-                return [
-                  name,
-                  (...args: unknown[]) => {
-                    admissionMutations.push(name);
-                    return Reflect.apply(original, undefined, args);
-                  },
-                ];
-              }),
-            ),
-          },
-        },
       );
       admissionSubmissionMock = mock.module(
         new URL("../../src/execution/controller.ts", import.meta.url).href,
@@ -1493,7 +1477,7 @@ if (mode !== "recovery") {
       );
     }
     if (interruption !== undefined && interruption !== "none") {
-      const actualStore = await import("../../src/storage/state.ts");
+      const actualStore = await import("../../../domain-model/src/index.ts");
       const actualHost = await import("../../src/execution/operation.ts");
       recoveryHostMock = mock.module(
         new URL("../../src/execution/operation.ts", import.meta.url).href,
@@ -1514,7 +1498,7 @@ if (mode !== "recovery") {
         },
       );
       recoveryStoreMock = mock.module(
-        new URL("../../src/storage/state.ts", import.meta.url).href,
+        new URL("../../../domain-model/src/index.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualStore,
@@ -1867,7 +1851,6 @@ if (mode !== "recovery") {
     recoveryStoreMock?.restore();
     recoveryHostMock?.restore();
     admissionStoreMock?.restore();
-    admissionSettlementMock?.restore();
     admissionSubmissionMock?.restore();
     admissionHostMock?.restore();
     for (const [name, original] of originals)

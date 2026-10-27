@@ -3,23 +3,24 @@
  * @responsibility 既存Ownerを接続し、進行・保存規則を再定義しない。
  * @trace ARCH-000004
  */
+
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
-import { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
 import { writeCoordinatorExecutionIntelligenceDiagnostic } from "../execution/diagnostics.ts";
-import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
 import { executeCoordinatorPublicStateQuery } from "../state/query.ts";
-import type {
-  PublicExecutionDependencies,
-  CoordinatorPublicDevelopmentDependencies,
-} from "./types.ts";
+import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
+import { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
 import { executeCoordinatorPublicObjective } from "./execute.ts";
+import type {
+  CoordinatorPublicDevelopmentDependencies,
+  PublicExecutionDependencies,
+} from "./types.ts";
 
 const productionExecutionDependencies: PublicExecutionDependencies =
   Object.freeze({

@@ -8,29 +8,27 @@
  * @scope 自己生成Repository。実Docker・Provider・認証要求0。
  * @boundary 修復呼出し→実Writer、実DI Runtime／Machine。
  */
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import test, { mock, type TestContext } from "node:test";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { createStorageSourceFixture } from "../support/storage-source.ts";
-import { executionSelection } from "../fixtures/ai-selection.ts";
 import { runInThisContext } from "node:vm";
+import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import * as isolation from "../../../docker-isolation/src/index.ts";
 import * as model from "../../../domain-model/src/index.ts";
 import * as domain from "../../../domain-model/src/index.ts";
-import * as bindings from "../../src/execution/operation.ts";
-import * as kernel from "../../src/execution/kernel-lock.ts";
-import * as stateStore from "../../src/storage/state.ts";
-import * as isolation from "../../../docker-isolation/src/index.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import * as stateStore from "../../../domain-model/src/index.ts";
 import {
+  encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import * as bindings from "../../src/execution/operation.ts";
 
 let acquireCount = 0;
 let scope = "c".repeat(64);
@@ -50,6 +48,7 @@ let observeMode: "ready" | "incomplete" | "effect_unknown" | "retained" =
   "incomplete";
 let runtimeEntries = 0;
 let writeCalls = 0;
+let lastWriteResult: unknown = null;
 let lastOutcomeCheckpoint: Buffer | null = null;
 let lastPreOutcomeCheckpoint: Buffer | null = null;
 let lastRepairCompletionBefore: Buffer | null = null;
@@ -134,6 +133,7 @@ const storeModule = {
       const saved = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
         ...args,
       );
+      lastWriteResult = saved;
       if (
         saved.status === "completed" &&
         saved.snapshotConfirmed &&
@@ -351,6 +351,7 @@ function createRepairOwnerFixture() {
   );
   const dependencies = {
     ...model,
+    ...storeModule.namedExports,
     Date,
     createHash,
     randomBytes,
@@ -361,7 +362,6 @@ function createRepairOwnerFixture() {
       bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
     encodeRuntimeStateValue,
     decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
-    ...storeModule.namedExports,
     runDockerRuntimeRepairSession:
       isolationModule.namedExports.runDockerRuntimeRepairSession,
     observeDockerRuntimeRepairRetention:
@@ -814,231 +814,6 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
 });
 
 /**
- * 実保存Moduleの私有ContextとWriterを同じVMへ組み立てる。
- * @responsibility 用途誤配線だけをメモリ変異し、物理境界を実体のまま使う。
- * @trace ERB-IT-014
- * @precondition Repository内の固定Source。依存は実Root／Kernel／Filesystem／model。
- * @stimulus 型・import／export構文の除去後に指定した一条件だけ変更する。
- * @observation 実Writerの出版・読戻し・拒否結果。
- * @oracle 代替classifierや模擬Writerを混入しない。
- * @cleanup Production本文は読取りのみ。
- * @boundary 試験限定VMと実Host保存境界。
- */
-function stateStoreSource(
-  transform: (source: string) => string,
-  overrides: Readonly<Record<string, unknown>> = {},
-) {
-  const store = createStorageSourceFixture(transform, overrides);
-  return {
-    resume: store.resumeRuntimeOwnedCoordinatorRepairPublication,
-    write: store.writeRuntimeOwnedCoordinatorRepairSnapshot,
-    readHistory: store.readRuntimeOwnedCoordinatorRepairHistorySnapshot,
-    advanceHistory: store.advanceRuntimeOwnedCoordinatorRepairHistory,
-    readCompletion: store.readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
-    complete: store.completeRuntimeOwnedCoordinatorRepair,
-  };
-}
-/**
- * 同値進捗の保存入口を実Readerの戻り値契約から独立に反証する。
- * @responsibility Readerの部分成立を保存済み同値へ補完しない。
- * @trace ERB-IT-014
- * @precondition 実modelの正規回収判断と、Reader境界だけを差し替えた本番Writer本文。
- * @stimulus 値欠測、Hash／本文差、解放不明、Kernel内Owner失効。
- * @observation Reader・物理Writer・Contextの到達と公開確認flag。
- * @oracle 完全同値だけcompletedで、Reader後の失敗も変更要求0。
- * @cleanup N/A: メモリVMだけ。
- * @boundary Readerの実観測は別のHost Caseが所有する。
- */
-test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完しない", () => {
-  const binding = "a".repeat(64);
-  const identity = {
-    schema: "crdd-coordinator/runtime-repair-identity/v1",
-    kind: "runtime_repair",
-    operationNonce: "e".repeat(64),
-    operationId: "OP-123456",
-    repositoryBinding: binding,
-    ownerBindingSha256: "b".repeat(64),
-    scopeSha256: "c".repeat(64),
-    consumer: "coordinator_cli",
-  };
-  const started = model.prepareCoordinatorStateRepairSnapshot(
-    null,
-    `${JSON.stringify(identity)}\n`,
-    binding,
-  );
-  assert.ok(started);
-  const raw = JSON.parse(started.toString());
-  const actionNames = [
-    "stop_runtime",
-    "terminate_runtime",
-    "stop_backend",
-    "retain_runtime",
-    "start_runtime",
-    "stop_failed_runtime",
-    "retain_failed_runtime",
-    "retain_auxiliary_runtime",
-    "restart_runtime",
-  ];
-  const directoryNames = ["primary", "failed", "auxiliary"];
-  const technical = {
-    actions: Object.fromEntries(
-      actionNames.map((name) => [
-        name,
-        { intent: "saved", request: "issued", result: "confirmed" },
-      ]),
-    ),
-    directories: Object.fromEntries(
-      directoryNames.map((name, index) => {
-        const exact = { dev: "1", ino: String(index + 2), birthtimeNs: "3" };
-        return [
-          name,
-          {
-            expected: exact,
-            source: { state: "absent", identity: null },
-            retained: { state: "present", identity: exact },
-          },
-        ];
-      }),
-    ),
-    engine: "ready",
-    stale: "retained",
-    hostSafety: "safe",
-    cleanup: "confirmed",
-    cleanupFailure: null,
-  };
-  raw.operations[0] = {
-    ...raw.operations[0],
-    phase: "awaiting_disposition",
-    disposition: "pending_human_decision",
-    checkpoint: technical,
-    outcome: {
-      status: "recovered",
-      reason: "runtime_repair_recovered",
-      cleanupConfirmed: true,
-    },
-  };
-  const waiting = Buffer.from(`${encodeRuntimeStateValue(raw)}\n`);
-  assert.ok(model.decodeRuntimeDomainSnapshot(waiting, binding));
-  const id = raw.operations[0].recoveryId as string;
-  const bytes = model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
-    waiting,
-    id,
-    "2026-10-17T00:00:00.000Z",
-    binding,
-  );
-  assert.ok(bytes);
-  const decoded = model.decodeRuntimeDomainSnapshot(bytes, binding);
-  assert.ok(decoded);
-  for (const mode of [
-    "normal",
-    "blocked",
-    "missing",
-    "release",
-    "hash",
-    "bytes",
-    "owner_lost",
-    "owner_throw",
-    "owner_promise",
-  ] as const) {
-    let reads = 0,
-      writes = 0,
-      contexts = 0;
-    const worker = stateStoreSource(
-      (source) => {
-        const reader = source.indexOf("function readCoordinatorStateSnapshot(");
-        const readerEnd = source.indexOf("\n/**", reader);
-        assert.ok(reader > 0 && readerEnd > reader);
-        let changed =
-          source.slice(0, reader) +
-          "function readCoordinatorStateSnapshot(repository) { return readProbe(repository); }\n" +
-          source.slice(readerEnd);
-        const writer = changed.indexOf(
-          "function writeCoordinatorStateSnapshot(",
-        );
-        const writerEnd = changed.indexOf("\n/**", writer);
-        assert.ok(writer > 0 && writerEnd > writer);
-        changed =
-          changed.slice(0, writer) +
-          "function writeCoordinatorStateSnapshot() { return writeProbe(); }\n" +
-          changed.slice(writerEnd);
-        return changed.replaceAll(
-          "settlements.set(context, {",
-          "contextProbe(); settlements.set(context, {",
-        );
-      },
-      {
-        borrowRuntimeOwnedCoordinatorRecoveryRepository: () => ({
-          repositoryRoot: "unused",
-          repositoryBinding: binding,
-          revalidate: () => true,
-        }),
-        contextProbe: () => contexts++,
-        writeProbe: () => {
-          writes++;
-          return {
-            status: "blocked",
-            snapshotConfirmed: false,
-            filesystemEffectIssued: false,
-            lockReleased: true,
-          };
-        },
-        readProbe: (repository: { revalidate: () => boolean }) => {
-          reads++;
-          if (
-            mode === "owner_lost" ||
-            mode === "owner_throw" ||
-            mode === "owner_promise"
-          )
-            assert.equal(repository.revalidate(), false);
-          return {
-            status: mode === "blocked" ? "blocked" : "completed",
-            lockReleased: mode !== "release",
-            value:
-              mode === "missing"
-                ? null
-                : {
-                    ...decoded,
-                    payloadSha256:
-                      mode === "hash" ? "0".repeat(64) : decoded.payloadSha256,
-                    snapshot:
-                      mode === "bytes"
-                        ? {
-                            ...decoded.snapshot,
-                            revision: decoded.snapshot.revision + 1,
-                          }
-                        : decoded.snapshot,
-                  },
-          };
-        },
-      },
-    );
-    const saved = worker.write(
-      {},
-      id,
-      bytes,
-      bytes,
-      () => {
-        if (reads > 0 && mode === "owner_throw") throw new Error("owner_lost");
-        if (reads > 0 && mode === "owner_promise") return Promise.resolve(true);
-        return !(reads > 0 && mode === "owner_lost");
-      },
-      "disposal_primary",
-    );
-    assert.equal(saved.snapshotConfirmed, mode === "normal", mode);
-    assert.equal(
-      saved.status,
-      mode === "normal" ? "completed" : "blocked",
-      mode,
-    );
-    assert.equal(saved.filesystemEffectIssued, false);
-    assert.equal(saved.lockReleased, mode !== "release");
-    assert.equal(reads, 1);
-    assert.equal(writes, 0);
-    assert.equal(contexts, 0);
-  }
-});
-
-/**
  * 回収判断と進捗の保存を実Writerと同IDの保存再開へ接続する。
  * @responsibility 同値通知を無書込みで確認し、保存切断を技術再発行へ変えない。
  * @trace ERB-IT-014
@@ -1221,7 +996,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     if (stage === "before_rename") {
       assert.ok(fs.readFileSync(stateFile).equals(before));
       assert.ok(fs.readFileSync(pending).equals(candidate));
-      const resumed = stateStoreSource((source) => source).resume(
+      const resumed = stateStore.resumeRuntimeOwnedCoordinatorRepairPublication(
         f.capability,
         id,
         () => true,
@@ -1396,322 +1171,6 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
 });
 
 /**
- * 回収用途別の保存・切断と同値読取りを確認する。
- * @responsibility 通常用途への迂回と同値再書込みを拒否する。
- * @trace ERB-IT-014
- * @precondition 自己生成Rootと模擬DI。
- * @stimulus 三用途の更新、保存前後切断、同値と不正短命物。
- * @observation 元版・改訂・実Filesystem変更・保存結果。
- * @oracle 専用用途だけ保存され、同値は書込み0。
- * @cleanup 既存fixtureで自己生成Rootを回収する。
- * @boundary 実Root／Writer。実Dockerなし。
- */
-test("Host Windows: 修復回収進捗は専用保存と無書込み確認へ接続する", async (t) => {
-  const f = prepareRepairOwnerFixture(t);
-  observeMode = "retained";
-  faultStage = "none";
-  const result = await repairRuntimeOwnedDockerRuntime(
-    f.capability,
-    new AbortController().signal,
-  );
-  assert.ok(result.recoveryId && result.outcomeConfirmed);
-  const id = result.recoveryId;
-  const borrowed = bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(
-    f.capability,
-  );
-  assert.ok(borrowed);
-  const directory = path.dirname(stateFile);
-  const marker = path.join(directory, "state.lock");
-  const pending = path.join(directory, "state.pending.json");
-  const original = fs.readFileSync(stateFile);
-  const acquired = acquireCount,
-    entries = runtimeEntries;
-  const decision = model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
-    original,
-    id,
-    "2026-10-17T00:00:00.000Z",
-    borrowed.repositoryBinding,
-  );
-  assert.ok(decision);
-  assert.equal(
-    model.classifyCoordinatorRepairPublication(
-      original,
-      decision,
-      id,
-      borrowed.repositoryBinding,
-    )?.mode,
-    "disposal_decision",
-  );
-  for (const purpose of [
-    "checkpoint",
-    "session_begin",
-    "disposal_primary",
-  ] as const) {
-    const refused = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
-      f.capability,
-      id,
-      original,
-      decision,
-      () => true,
-      purpose,
-    );
-    assert.equal(refused.snapshotConfirmed, false);
-    assert.equal(refused.filesystemEffectIssued, false);
-    assert.ok(fs.readFileSync(stateFile).equals(original));
-  }
-  for (const bypass of ["outer", "inner", "both"] as const) {
-    const worker = stateStoreSource((source) => {
-      const outer =
-        /!validateRepairWriteCandidate\(\s*before,\s*candidateBytes,\s*recoveryId,\s*purpose,\s*repository\.repositoryBinding,\s*\)/u;
-      const inner =
-        /validateRepairWriteCandidate\(\s*currentBytes,\s*(?:pendingBytes|bytes),\s*currentRepair\.recoveryId,\s*currentRepair\.purpose,\s*repository\.repositoryBinding,\s*\)/gu;
-      assert.equal(source.match(outer)?.length, 1);
-      assert.equal([...source.matchAll(inner)].length, 2);
-      let changed =
-        bypass === "inner" ? source : source.replace(outer, "false");
-      if (bypass !== "outer") changed = changed.replace(inner, "true");
-      return changed;
-    });
-    const rejected = worker.write(
-      f.capability,
-      id,
-      original,
-      decision,
-      () => true,
-      "disposal_primary",
-    );
-    if (bypass === "both") {
-      assert.equal(
-        rejected.snapshotConfirmed,
-        true,
-        "both_guards_removed_must_break_oracle",
-      );
-      assert.throws(() => assert.equal(rejected.snapshotConfirmed, false));
-      fs.writeFileSync(stateFile, original);
-    } else {
-      assert.equal(rejected.snapshotConfirmed, false);
-      assert.equal(rejected.filesystemEffectIssued, false);
-      assert.ok(fs.readFileSync(stateFile).equals(original));
-    }
-  }
-  const saved = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
-    f.capability,
-    id,
-    original,
-    decision,
-    () => true,
-    "disposal_decision",
-  );
-  assert.equal(saved.status, "completed");
-  assert.equal(saved.snapshotConfirmed, true);
-  assert.equal(saved.lockReleased, true);
-  let before = decision;
-  for (const purpose of ["primary", "failed", "auxiliary"] as const) {
-    const value = model.decodeRuntimeDomainSnapshot(
-      before,
-      borrowed.repositoryBinding,
-    );
-    const target = value?.snapshot.operations.find(
-      (item) => item.recoveryId === id,
-    );
-    assert.ok(value && target?.kind === "runtime_repair" && target.disposal);
-    const nextCheckpoint = {
-      ...target.disposal.checkpoint,
-      directories: {
-        ...target.disposal.checkpoint.directories,
-        [purpose]: {
-          intent: "saved",
-          request: "not_issued",
-          absence: "unobserved",
-        },
-      },
-    };
-    const next = model.prepareCoordinatorStateRepairDisposalProgressSnapshot(
-      before,
-      id,
-      purpose,
-      nextCheckpoint,
-      borrowed.repositoryBinding,
-    );
-    assert.ok(next);
-    const writePurpose = `disposal_${purpose}` as const;
-    assert.equal(
-      model.classifyCoordinatorRepairPublication(
-        before,
-        next,
-        id,
-        borrowed.repositoryBinding,
-      )?.mode,
-      writePurpose,
-    );
-    for (const wrong of [
-      "checkpoint",
-      "session_begin",
-      purpose === "primary" ? "disposal_failed" : "disposal_primary",
-    ] as const) {
-      const refused = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
-        f.capability,
-        id,
-        before,
-        next,
-        () => true,
-        wrong,
-      );
-      assert.equal(refused.snapshotConfirmed, false);
-      assert.equal(refused.filesystemEffectIssued, false);
-    }
-    const rename = fs.renameSync,
-      unlink = fs.unlinkSync;
-    let cut = 0;
-    const renameHook = mock.method(
-      fs,
-      "renameSync",
-      (from: fs.PathLike, to: fs.PathLike) => {
-        if (purpose === "primary" && to === stateFile && cut === 0) {
-          cut++;
-          throw new Error("synthetic_disposal_before_rename");
-        }
-        return rename(from, to);
-      },
-    );
-    const unlinkHook = mock.method(fs, "unlinkSync", (file: fs.PathLike) => {
-      if (purpose === "failed" && file === marker && cut === 0) {
-        cut++;
-        throw new Error("synthetic_disposal_after_rename");
-      }
-      return unlink(file);
-    });
-    try {
-      const written = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
-        f.capability,
-        id,
-        before,
-        next,
-        () => true,
-        writePurpose,
-      );
-      assert.equal(written.snapshotConfirmed, purpose === "auxiliary");
-      assert.equal(written.filesystemEffectIssued, true);
-      assert.equal(written.lockReleased, true);
-    } finally {
-      unlinkHook.mock.restore();
-      renameHook.mock.restore();
-    }
-    if (purpose === "primary") {
-      assert.equal(cut, 1);
-      assert.ok(fs.readFileSync(stateFile).equals(before));
-      assert.ok(fs.readFileSync(pending).equals(next));
-      const resumed = stateStoreSource((source) => source).resume(
-        f.capability,
-        id,
-        () => true,
-      );
-      assert.equal(resumed.snapshotConfirmed, true);
-      assert.equal(resumed.filesystemEffectIssued, true);
-      assert.equal(resumed.lockReleased, true);
-    } else if (purpose === "failed") {
-      assert.equal(cut, 1);
-      assert.ok(fs.readFileSync(stateFile).equals(next));
-      assert.equal(fs.existsSync(pending), false);
-      const cleaned = stateStore.cleanupRuntimeOwnedCoordinatorStateMarker(
-        f.capability,
-      );
-      assert.equal(cleaned.storageConfirmed, true);
-      assert.equal(cleaned.markerAbsentConfirmed, true);
-    }
-    assert.ok(fs.readFileSync(stateFile).equals(next));
-    assert.equal(fs.existsSync(marker), false);
-    assert.equal(fs.existsSync(pending), false);
-    const noOpCandidate =
-      model.prepareCoordinatorStateRepairDisposalProgressSnapshot(
-        next,
-        id,
-        purpose,
-        nextCheckpoint,
-        borrowed.repositoryBinding,
-      );
-    assert.ok(noOpCandidate);
-    assert.ok(noOpCandidate.equals(next));
-    const identityBefore = fs.lstatSync(stateFile, { bigint: true });
-    let mutations = 0;
-    const mutationHooks = [
-      "writeFileSync",
-      "renameSync",
-      "unlinkSync",
-      "mkdirSync",
-      "rmSync",
-      "rmdirSync",
-    ] as const;
-    const hooks = mutationHooks.map((name) =>
-      mock.method(fs, name, () => {
-        mutations++;
-        throw new Error("no_op_must_not_write");
-      }),
-    );
-    try {
-      const same = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
-        f.capability,
-        id,
-        next,
-        noOpCandidate,
-        () => true,
-        writePurpose,
-      );
-      assert.equal(same.status, "completed");
-      assert.equal(same.snapshotConfirmed, true);
-      assert.equal(same.filesystemEffectIssued, false);
-      assert.equal(same.lockReleased, true);
-      assert.equal(
-        same.revision,
-        model.decodeRuntimeDomainSnapshot(next, borrowed.repositoryBinding)
-          ?.snapshot.revision,
-      );
-      assert.equal(mutations, 0);
-    } finally {
-      for (const hook of hooks.reverse()) hook.mock.restore();
-    }
-    const identityAfter = fs.lstatSync(stateFile, { bigint: true });
-    assert.equal(identityAfter.ino, identityBefore.ino);
-    assert.equal(identityAfter.mtimeNs, identityBefore.mtimeNs);
-    assert.ok(fs.readFileSync(stateFile).equals(next));
-    for (const entry of ["state.pending.json", "state.lock", "unknown"]) {
-      fs.writeFileSync(path.join(directory, entry), "invalid");
-      try {
-        const rejected = stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot(
-          f.capability,
-          id,
-          next,
-          next,
-          () => true,
-          writePurpose,
-        );
-        assert.equal(rejected.snapshotConfirmed, false);
-        assert.equal(rejected.filesystemEffectIssued, false);
-      } finally {
-        fs.unlinkSync(path.join(directory, entry));
-      }
-    }
-    before = next;
-  }
-  const final = model.decodeRuntimeDomainSnapshot(
-    before,
-    borrowed.repositoryBinding,
-  )?.snapshot.operations[0];
-  const first = model.decodeRuntimeDomainSnapshot(
-    original,
-    borrowed.repositoryBinding,
-  )?.snapshot.operations[0];
-  assert.ok(
-    final?.kind === "runtime_repair" && first?.kind === "runtime_repair",
-  );
-  assert.deepEqual(final.checkpoint, first.checkpoint);
-  assert.deepEqual(final.outcome, first.outcome);
-  assert.equal(final.primaryFailure, first.primaryFailure);
-  assert.equal(acquireCount, acquired);
-  assert.equal(runtimeEntries, entries);
-});
-
-/**
  * 修復終了の除去と有限な保存途中を実Writerで確認する。
  * @responsibility Task用終了Readerへの誤配線と実修復再発行を拒否する。
  * @trace ERB-IT-014
@@ -1804,13 +1263,17 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       if (mode === "missing_history")
         fs.writeFileSync(historyFile, Buffer.alloc(0));
       if (mode === "other_history") fs.writeFileSync(historyFile, otherHistory);
-      const worker = stateStoreSource((source) => source);
+      const worker = stateStore;
       if (mode === "other_history") {
-        const rejected = worker.readCompletion(f.capability, id);
+        const rejected =
+          worker.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
+            f.capability,
+            id,
+          );
         assert.equal(rejected.status, "blocked");
         assert.equal(rejected.currentCompletionPublication, null);
       }
-      const saved = worker.complete(
+      const saved = worker.completeRuntimeOwnedCoordinatorRepair(
         f.capability,
         id,
         () => mode !== "owner_lost",
@@ -1835,7 +1298,10 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       if (success) {
         assert.equal(saved.lockReleased, true);
         assert.equal(
-          worker.readCompletion(f.capability, id).repairCompletionAbsent,
+          worker.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
+            f.capability,
+            id,
+          ).repairCompletionAbsent,
           true,
         );
         assert.equal(
@@ -1853,8 +1319,12 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   fs.writeFileSync(stateFile, candidate);
   fs.writeFileSync(historyFile, history);
   fs.writeFileSync(markerFile, marker);
-  const afterRename = stateStoreSource((source) => source);
-  const absent = afterRename.readCompletion(f.capability, id);
+  const afterRename = stateStore;
+  const absent =
+    afterRename.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
+      f.capability,
+      id,
+    );
   assert.equal(absent.status, "completed");
   assert.equal(absent.repairCompletionAbsent, true);
   assert.equal(absent.repairRetentionReviewAfter, null);
@@ -1865,12 +1335,21 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.equal(cleaned.status, "completed");
   assert.equal(cleaned.markerAbsentConfirmed, true);
   assert.equal(
-    afterRename.readCompletion(f.capability, id).repairCompletionAbsent,
+    afterRename.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
+      f.capability,
+      id,
+    ).repairCompletionAbsent,
     true,
   );
   assert.ok(fs.readFileSync(stateFile).equals(candidate));
   fs.writeFileSync(historyFile, Buffer.alloc(0));
-  assert.equal(afterRename.readCompletion(f.capability, id).status, "blocked");
+  assert.equal(
+    afterRename.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
+      f.capability,
+      id,
+    ).status,
+    "blocked",
+  );
   for (const cut of [
     "rename_before",
     "rename_after",
@@ -1943,33 +1422,6 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
       assert.equal(runtimeEntries, entries);
     });
   }
-  fs.writeFileSync(stateFile, original);
-  fs.writeFileSync(historyFile, otherHistory);
-  const readerNeedle = '(currentCompletionKind === "runtime_repair" && !row)';
-  const writerNeedle =
-    '(currentCompletion.operationKind === "runtime_repair" && !row)';
-  const readerRelaxed = stateStoreSource((source) => {
-    assert.equal(source.split(readerNeedle).length, 2);
-    return source.replace(readerNeedle, "false");
-  });
-  assert.throws(() =>
-    assert.equal(
-      readerRelaxed.readCompletion(f.capability, id).status,
-      "blocked",
-    ),
-  );
-  // Reader側の欠落を仮定しても、排他内Writerが独立に拒否する。
-  const writerRefused = readerRelaxed.complete(f.capability, id, () => true);
-  assert.equal(writerRefused.status, "blocked");
-  assert.equal(writerRefused.filesystemEffectIssued, false);
-  assert.ok(fs.readFileSync(stateFile).equals(original));
-  const writerRelaxed = stateStoreSource((source) => {
-    assert.equal(source.split(writerNeedle).length, 2);
-    return source.replace(readerNeedle, "false").replace(writerNeedle, "false");
-  });
-  const bypass = writerRelaxed.complete(f.capability, id, () => true);
-  assert.throws(() => assert.equal(bypass.status, "blocked"));
-  assert.ok(fs.readFileSync(stateFile).equals(candidate));
   assert.equal(acquireCount, acquired);
   assert.equal(runtimeEntries, entries);
 });
@@ -2981,57 +2433,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
       const acquired = acquireCount,
         entries = runtimeEntries,
         observed = observeCount;
-      const mutant = stateStoreSource((source) => {
-        const token =
-          mode === "session_begin"
-            ? ": publication.mode,"
-            : "!repairPublication?.candidate.equals(bytes)";
-        assert.equal(source.split(token).length - 1, 1);
-        return source.replace(
-          token,
-          mode === "session_begin"
-            ? ': "checkpoint",'
-            : '(repairPublication?.mode === "identity" || !repairPublication?.candidate.equals(bytes))',
-        );
-      }).resume;
-      /**
-       * 同じ物理出版Oracleを正常本文と変異本文へ適用する。
-       * @responsibility 正例がmode固有の配線へ到達することを確認する。
-       * @trace ERB-IT-014
-       * @precondition exact pendingと現在Root。
-       * @stimulus 実Sourceの出版入口。
-       * @observation 保存・読戻し・解放と全byte列。
-       * @oracle 完成共同条件と短命物不存在。
-       * @cleanup 正常出版後の材料は残さない。
-       * @boundary VM private Context→実物理Writer。
-       */
-      const publish = (
-        resume: typeof stateStore.resumeRuntimeOwnedCoordinatorRepairPublication,
-      ) => {
-        const result = resume(f.capability, id, () => true);
-        assert.equal(
-          result.status,
-          "completed",
-          `publication_mode_must_complete:${"reason" in result ? result.reason : "no_pending"}`,
-        );
-        assert.equal(result.snapshotConfirmed, true);
-        assert.equal(result.lockReleased, true);
-        assert.ok(fs.readFileSync(stateFile).equals(candidate));
-        assert.throws(() => fs.lstatSync(pending), { code: "ENOENT" });
-        assert.throws(() => fs.lstatSync(marker), { code: "ENOENT" });
-      };
-      assert.throws(() => publish(mutant), /publication_mode_must_complete/u);
-      assert.ok(fs.readFileSync(stateFile).equals(before));
-      assert.ok(fs.readFileSync(pending).equals(candidate));
-      publish(stateStoreSource((source) => source).resume);
       // 同じ有限形を本番compositionからも通し、publisherのcompletedを保持する。
-      fs.writeFileSync(stateFile, before);
-      fs.writeFileSync(pending, candidate, { flag: "wx" });
-      fs.writeFileSync(
-        marker,
-        `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: binding })}\n`,
-        { flag: "wx" },
-      );
       const cancelled = new AbortController();
       cancelled.abort();
       const throughMain = await repairRuntimeOwnedDockerRuntime(
@@ -3093,118 +2495,13 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
 });
 
 /**
- * 一般の修復保存から履歴確認を作れないことを実Writerで確認する。
- * @responsibility 外側検査の省略でも排他内の履歴用途制限を維持する。
- * @trace ERB-IT-014
- * @precondition 自己生成Repositoryの実修復結果。技術境界は模擬。
- * @stimulus 初回履歴固定とconfirmed更新を通常Writerへ渡し、外側guardだけを省略する。
- * @observation 外側ではI/O0、変異では保存領域読取り到達後の拒否、本文不変。
- * @oracle 専用未接続の候補を通常用途で保存しない。
- * @cleanup 自己生成Rootだけを範囲・実体確認後に削除し不存在確認。
- * @boundary 実Windows Root／Kernel／Writer。履歴出版の肯定証明ではない。
- */
-test("Host Windows: 修復履歴は通常Writerの外側と排他内で拒否する", async (t) => {
-  const f = prepareRepairOwnerFixture(t);
-  observeMode = "ready";
-  faultStage = "none";
-  const result = await repairRuntimeOwnedDockerRuntime(
-    f.capability,
-    new AbortController().signal,
-  );
-  assert.ok(result.recoveryId && result.outcomeConfirmed);
-  const repository = bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(
-    f.capability,
-  );
-  assert.ok(repository);
-  const at = "2026-10-16T00:00:00.000Z";
-  assert.ok(lastOutcomeCheckpoint);
-  const original = Buffer.from(lastOutcomeCheckpoint);
-  fs.writeFileSync(stateFile, original);
-  const initialHistory = model.prepareCoordinatorRepairHistorySnapshot(
-    original,
-    result.recoveryId,
-    at,
-    false,
-    repository.repositoryBinding,
-  );
-  assert.ok(initialHistory);
-  const confirmed = model.prepareCoordinatorRepairHistorySnapshot(
-    initialHistory,
-    result.recoveryId,
-    at,
-    true,
-    repository.repositoryBinding,
-  );
-  assert.ok(confirmed);
-  const acquired = acquireCount,
-    entries = runtimeEntries;
-  const readdir = fs.readdirSync;
-  let reads = 0;
-  const hook = mock.method(
-    fs,
-    "readdirSync",
-    (...args: Parameters<typeof fs.readdirSync>) => {
-      if (args[0] === path.dirname(stateFile)) reads++;
-      return Reflect.apply(readdir, fs, args);
-    },
-  );
-  try {
-    for (const [before, candidate] of [
-      [original, initialHistory],
-      [initialHistory, confirmed],
-    ] as const) {
-      // 後半は未確認履歴を持つcodec合法なfixture。実保存の根拠にはしない。
-      fs.writeFileSync(stateFile, before);
-      for (const bypassOuter of [false, true]) {
-        const writer = stateStoreSource((source) => {
-          if (!bypassOuter) return source;
-          const guard =
-            /target\.summarySha256 !== \(previousTarget\?\.summarySha256 \?\? null\) \|\|\s*encodeRuntimeStateValue\(target\.history\) !==\s*encodeRuntimeStateValue\(previousTarget\?\.history \?\? null\) \|\|/u;
-          assert.equal(source.match(guard)?.length, 1);
-          return source.replace(guard, "");
-        }).write;
-        reads = 0;
-        const blocked = writer(
-          f.capability,
-          result.recoveryId,
-          before,
-          candidate,
-          () => true,
-          "checkpoint",
-        );
-        assert.equal(blocked.status, "blocked");
-        assert.equal(blocked.filesystemEffectIssued, false);
-        assert.equal(blocked.lockReleased, true);
-        assert.equal(reads > 0, bypassOuter, "inner_writer_must_be_reached");
-        assert.ok(fs.readFileSync(stateFile).equals(before));
-        assert.throws(
-          () =>
-            fs.lstatSync(
-              path.join(path.dirname(stateFile), "state.pending.json"),
-            ),
-          { code: "ENOENT" },
-        );
-        assert.throws(
-          () => fs.lstatSync(path.join(path.dirname(stateFile), "state.lock")),
-          { code: "ENOENT" },
-        );
-      }
-    }
-  } finally {
-    hook.mock.restore();
-  }
-  assert.equal(acquireCount, acquired);
-  assert.equal(runtimeEntries, entries);
-});
-
-/**
- * 専用修復履歴を実Writerで固定・出版しfresh Readerで確認する。
- * @responsibility 種別固定と保存段階を実Root／Kernel／Filesystemで照合する。
+ * 実修復Callerから専用履歴と再入場へ接続する。
+ * @responsibility 修復Ownerと公開保存APIを実Root／Kernel／Filesystemで照合する。
  * @trace ERB-IT-014
  * @precondition 自己生成Repositoryの修復処置済み状態。Docker技術境界は模擬。
- * @stimulus 正常出版、五有限形、十一故障・差替え、Owner／operationId差、非空混在、kind／scope／fallback変異。
+ * @stimulus 正常出版、五有限形と五つの保存中断点から同IDで再入場する。
  * @observation state／history／短命File、時刻・Hash、既知Effect、排他解放・Kernel回数、対象外全文、技術入口増分。
- * @oracle exact一段確定、確認済み欠測の再追加0、発行前拒否のEffect0、発行後事実保全、Task fallback0、対象外全文不変。
+ * @oracle exact一段確定、確認済み欠測の再追加0、発行後事実保全、技術再実行0、対象外全文不変。
  * @cleanup 自作Rootだけを実体確認後に削除し不存在を確認する。
  * @boundary 実保存境界。実Docker修復・Provider E2Eの証明ではない。
  */
@@ -3216,7 +2513,17 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     f.capability,
     new AbortController().signal,
   );
-  assert.ok(result.recoveryId && result.outcomeConfirmed);
+  assert.ok(
+    result.recoveryId && result.outcomeConfirmed,
+    JSON.stringify({
+      result,
+      writeCalls,
+      acquireCount,
+      observeCount,
+      lastRuntimeResult,
+      lastWriteResult,
+    }),
+  );
   assert.equal(result.historyConfirmed, true);
   const id = result.recoveryId;
   const borrowed = bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(
@@ -3265,15 +2572,22 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   );
   assert.equal(taskResult.status, "blocked");
   assert.ok(fs.readFileSync(stateFile).equals(original));
-  const first = stateStoreSource((source) => source);
-  const observed = first.readHistory(f.capability, id);
+  const first = stateStore;
+  const observed = first.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
+    f.capability,
+    id,
+  );
   assert.equal(observed.status, "completed");
   assert.equal(observed.currentHistoryPublication?.stage, "checkpoint");
   assert.equal(
     observed.currentHistoryPublication?.operationKind,
     "runtime_repair",
   );
-  const fixed = first.advanceHistory(repository, id, () => true);
+  const fixed = first.advanceRuntimeOwnedCoordinatorRepairHistory(
+    repository,
+    id,
+    () => true,
+  );
   assert.equal(fixed.status, "completed");
   assert.equal(fixed.historyConfirmed, false);
   assert.equal(fixed.lockReleased, true);
@@ -3286,12 +2600,17 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     (item) => item.recoveryId === id,
   );
   assert.ok(fixedOperation?.history && !fixedOperation.history.confirmed);
-  const second = stateStoreSource((source) => source);
+  const second = stateStore;
   assert.equal(
-    second.readHistory(f.capability, id).currentHistoryPublication?.stage,
+    second.readRuntimeOwnedCoordinatorRepairHistorySnapshot(f.capability, id)
+      .currentHistoryPublication?.stage,
     "publish",
   );
-  const published = second.advanceHistory(repository, id, () => true);
+  const published = second.advanceRuntimeOwnedCoordinatorRepairHistory(
+    repository,
+    id,
+    () => true,
+  );
   assert.equal(published.status, "completed");
   assert.equal(published.historyConfirmed, true);
   assert.equal(published.lockReleased, true);
@@ -3349,7 +2668,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         assert.equal(domain.decodeCoordinatorHistoryRows(bytes)?.length, 1);
         fs.writeFileSync(historyFile, bytes);
       }
-      const read = stateStoreSource((source) => source).readHistory(
+      const read = stateStore.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
         f.capability,
         id,
       );
@@ -3379,8 +2698,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   if (fs.existsSync(technicalPending)) fs.unlinkSync(technicalPending);
   fs.writeFileSync(stateFile, currentBytes);
   fs.writeFileSync(historyFile, historyBytes);
-  const third = stateStoreSource((source) => source);
-  const confirmed = third.advanceHistory(repository, id, () => true);
+  const third = stateStore;
+  const confirmed = third.advanceRuntimeOwnedCoordinatorRepairHistory(
+    repository,
+    id,
+    () => true,
+  );
   assert.equal(confirmed.status, "completed");
   assert.equal(confirmed.filesystemEffectIssued, false);
   assert.equal(confirmed.historyConfirmed, true);
@@ -3429,9 +2752,13 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         fs.writeFileSync(historyFile, historyBytes);
       if (cut !== "history_renamed" && cut !== "confirmed_missing")
         fs.writeFileSync(path.join(directory, "state.lock"), markerBytes);
-      const fresh = stateStoreSource((source) => source);
+      const fresh = stateStore;
       const before = fs.readFileSync(stateFile);
-      const observation = fresh.readHistory(f.capability, id);
+      const observation =
+        fresh.readRuntimeOwnedCoordinatorRepairHistorySnapshot(
+          f.capability,
+          id,
+        );
       assert.equal(observation.status, "completed");
       const settled = await repairRuntimeOwnedDockerRuntime(
         f.capability,
@@ -3467,531 +2794,6 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       ])
         assert.equal(fs.existsSync(path.join(directory, name)), false);
     });
-  }
-  fs.writeFileSync(stateFile, checkpointBytes);
-  fs.writeFileSync(historyFile, historyBytes);
-  const ownerRefused = stateStoreSource((source) => source).advanceHistory(
-    repository,
-    id,
-    () => false,
-  );
-  assert.equal(ownerRefused.status, "blocked");
-  assert.equal(ownerRefused.filesystemEffectIssued, false);
-  const wrongOperation = stateStoreSource((source) => source).advanceHistory(
-    { ...repository, operationId: "OP-999999" },
-    id,
-    () => true,
-  );
-  assert.equal(wrongOperation.status, "blocked");
-  assert.equal(wrongOperation.filesystemEffectIssued, false);
-  assert.ok(fs.readFileSync(stateFile).equals(checkpointBytes));
-  assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
-  for (const fault of [
-    "checkpoint_before",
-    "checkpoint_after",
-    "publish_before",
-    "publish_after",
-    "confirm_after",
-    "readback_unknown",
-    "release_unknown",
-    "file_changed",
-    "config_changed",
-    "state_changed",
-    "owner_lost",
-  ] as const) {
-    await t.test(fault, () => {
-      for (const name of [
-        "history.jsonl",
-        "history.pending.jsonl",
-        "state.pending.json",
-        "state.lock",
-      ]) {
-        const file = path.join(directory, name);
-        if (fs.existsSync(file)) fs.unlinkSync(file);
-      }
-      const startsCheckpoint = fault.startsWith("checkpoint_");
-      const before = startsCheckpoint ? original : checkpointBytes;
-      fs.writeFileSync(stateFile, before);
-      if (["confirm_after", "release_unknown", "file_changed"].includes(fault))
-        fs.writeFileSync(historyFile, historyBytes);
-      let hit = 0,
-        locks = 0,
-        renamed = false,
-        ownerLive = true;
-      const configDirectory = path.join(f.root, ".crdd", "config");
-      const configFile = path.join(configDirectory, "coordinator.json");
-      const hostFs = {
-        ...fs,
-        renameSync: (source: fs.PathLike, target: fs.PathLike) => {
-          const watched =
-            startsCheckpoint || fault === "confirm_after"
-              ? String(source) === path.join(directory, "state.pending.json")
-              : String(source) ===
-                path.join(directory, "history.pending.jsonl");
-          if (
-            watched &&
-            hit === 0 &&
-            ["checkpoint_before", "publish_before"].includes(fault)
-          ) {
-            hit++;
-            throw new Error("synthetic_before_rename");
-          }
-          fs.renameSync(source, target);
-          if (watched) renamed = true;
-          if (
-            watched &&
-            hit === 0 &&
-            ["checkpoint_after", "publish_after", "confirm_after"].includes(
-              fault,
-            )
-          ) {
-            hit++;
-            throw new Error("synthetic_after_rename");
-          }
-        },
-      };
-      const worker = stateStoreSource((source) => source, {
-        fs: hostFs,
-        readStableBoundedFileSnapshot: (
-          ...args: Parameters<typeof domain.readStableBoundedFileSnapshot>
-        ) => {
-          if (
-            fault === "readback_unknown" &&
-            renamed &&
-            hit === 0 &&
-            args[0] === historyFile
-          ) {
-            hit++;
-            throw new Error("synthetic_readback_unknown");
-          }
-          return domain.readStableBoundedFileSnapshot(...args);
-        },
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (
-          ...args: Parameters<
-            typeof kernel.acquireRuntimeOwnedCoordinatorStateKernelLock
-          >
-        ) => {
-          const lock = kernel.acquireRuntimeOwnedCoordinatorStateKernelLock(
-            ...args,
-          );
-          locks++;
-          if (lock && locks === 2) {
-            if (fault === "file_changed") {
-              const previous = fs.lstatSync(historyFile, { bigint: true });
-              const temporary = path.join(directory, "replacement.fixture");
-              fs.writeFileSync(temporary, historyBytes);
-              fs.renameSync(temporary, historyFile);
-              assert.notEqual(
-                fs.lstatSync(historyFile, { bigint: true }).ino,
-                previous.ino,
-              );
-              hit++;
-            } else if (fault === "config_changed") {
-              fs.mkdirSync(configDirectory);
-              fs.writeFileSync(
-                configFile,
-                `${JSON.stringify({ schemaRevision: 1, historyRetentionDays: 31 })}\n`,
-              );
-              hit++;
-            } else if (fault === "state_changed") {
-              fs.writeFileSync(stateFile, currentBytes);
-              hit++;
-            } else if (fault === "owner_lost") {
-              ownerLive = false;
-              hit++;
-            }
-            if (fault === "release_unknown")
-              return {
-                ...lock,
-                release: () => {
-                  assert.equal(lock.release(), true);
-                  hit++;
-                  return false;
-                },
-              };
-          }
-          return lock;
-        },
-      });
-      try {
-        const failed = worker.advanceHistory(repository, id, () => ownerLive);
-        assert.equal(hit, 1, "fault_must_be_reached_once");
-        assert.equal(failed.status, "blocked");
-        assert.equal(failed.historyConfirmed, false);
-        assert.equal(failed.lockReleased, fault !== "release_unknown");
-        assert.equal(
-          failed.filesystemEffectIssued,
-          ![
-            "file_changed",
-            "config_changed",
-            "state_changed",
-            "owner_lost",
-          ].includes(fault),
-        );
-        assert.equal(locks, 2, "repair_does_not_retry_or_fallback");
-        if (["file_changed", "config_changed", "owner_lost"].includes(fault))
-          assert.ok(fs.readFileSync(stateFile).equals(before));
-        else if (fault === "state_changed")
-          assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
-        else {
-          let expectedCheckpoint: Buffer = checkpointBytes;
-          let expectedConfirmed: Buffer = currentBytes;
-          if (startsCheckpoint) {
-            const captured = fs.readFileSync(
-              fault === "checkpoint_before"
-                ? path.join(directory, "state.pending.json")
-                : stateFile,
-            );
-            const capturedState = model.decodeRuntimeDomainSnapshot(
-              captured,
-              repository.repositoryBinding,
-            );
-            const capturedOperation = capturedState?.snapshot.operations.find(
-              (item) => item.recoveryId === id,
-            );
-            assert.ok(
-              capturedOperation?.history &&
-                !capturedOperation.history.confirmed,
-            );
-            const rebuilt = model.prepareCoordinatorRepairHistorySnapshot(
-              original,
-              id,
-              capturedOperation.history.occurredAt,
-              false,
-              repository.repositoryBinding,
-            );
-            assert.ok(rebuilt && captured.equals(rebuilt));
-            expectedCheckpoint = rebuilt;
-            const rebuiltConfirmed =
-              model.prepareCoordinatorRepairHistorySnapshot(
-                rebuilt,
-                id,
-                capturedOperation.history.occurredAt,
-                true,
-                repository.repositoryBinding,
-              );
-            assert.ok(rebuiltConfirmed);
-            expectedConfirmed = rebuiltConfirmed;
-          }
-          const fresh = stateStoreSource((source) => source);
-          const resumed = fresh.advanceHistory(repository, id, () => true);
-          assert.equal(resumed.status, "completed");
-          assert.equal(resumed.lockReleased, true);
-          assert.equal(resumed.historyConfirmed, fault !== "checkpoint_before");
-          assert.ok(
-            fs
-              .readFileSync(stateFile)
-              .equals(
-                fault === "checkpoint_before"
-                  ? expectedCheckpoint
-                  : expectedConfirmed,
-              ),
-          );
-          if (fault !== "checkpoint_before") {
-            const expectedLine = model.prepareCoordinatorRepairHistoryLine(
-              expectedConfirmed,
-              id,
-              repository.repositoryBinding,
-            );
-            assert.ok(
-              expectedLine && fs.readFileSync(historyFile).equals(expectedLine),
-            );
-          }
-        }
-      } finally {
-        if (fs.existsSync(configFile)) fs.unlinkSync(configFile);
-        if (fs.existsSync(configDirectory)) fs.rmdirSync(configDirectory);
-      }
-    });
-  }
-  for (const mutant of [
-    "checkpoint_kind",
-    "publish_kind",
-    "physical_publish_kind",
-    "line_kind",
-    "final_kind",
-    "repair_scope",
-  ] as const) {
-    await t.test(mutant, () => {
-      for (const name of [
-        "history.jsonl",
-        "history.pending.jsonl",
-        "state.pending.json",
-        "state.lock",
-      ]) {
-        const file = path.join(directory, name);
-        if (fs.existsSync(file)) fs.unlinkSync(file);
-      }
-      fs.writeFileSync(
-        stateFile,
-        mutant === "checkpoint_kind" || mutant === "repair_scope"
-          ? original
-          : checkpointBytes,
-      );
-      let matches = 0;
-      const changed = stateStoreSource((source) => {
-        if (mutant === "repair_scope") {
-          const pattern =
-            /repairHistoryScopeConfirmed =\s*currentHistory\.operationKind === "runtime_repair";/u;
-          assert.ok(pattern.test(source));
-          return source.replace(
-            pattern,
-            "repairHistoryScopeConfirmed = false;",
-          );
-        }
-        const pattern =
-          mutant === "checkpoint_kind"
-            ? /currentHistory\.operationKind === "runtime_repair"\s*\? prepareCoordinatorRepairHistorySnapshot/u
-            : mutant === "publish_kind" || mutant === "physical_publish_kind"
-              ? /currentHistory\.operationKind === "runtime_repair"\s*\? prepareCoordinatorRepairHistoryPublication/gu
-              : /currentHistory\?\.operationKind === "runtime_repair"\s*\? prepareCoordinatorRepairHistoryLine/gu;
-        const count = [...source.matchAll(new RegExp(pattern.source, "gu"))]
-          .length;
-        assert.equal(count, mutant === "checkpoint_kind" ? 1 : 2);
-        return source.replace(pattern, (value) => {
-          matches++;
-          if (
-            (mutant === "line_kind" && matches !== 1) ||
-            (mutant === "final_kind" && matches !== 2) ||
-            (mutant === "publish_kind" && matches !== 1) ||
-            (mutant === "physical_publish_kind" && matches !== 2)
-          )
-            return value;
-          return value.replace('=== "runtime_repair"', '=== "docker_task"');
-        });
-      });
-      const rejected = changed.advanceHistory(repository, id, () => true);
-      assert.equal(
-        rejected.status,
-        "blocked",
-        "same_positive_oracle_detects_wrong_dispatch",
-      );
-      assert.equal(rejected.filesystemEffectIssued, mutant === "final_kind");
-      assert.ok(
-        fs
-          .readFileSync(stateFile)
-          .equals(
-            mutant === "final_kind"
-              ? currentBytes
-              : mutant === "checkpoint_kind" || mutant === "repair_scope"
-                ? original
-                : checkpointBytes,
-          ),
-      );
-    });
-  }
-  for (const name of [
-    "history.pending.jsonl",
-    "state.pending.json",
-    "state.lock",
-  ]) {
-    const file = path.join(directory, name);
-    if (fs.existsSync(file)) fs.unlinkSync(file);
-  }
-  await t.test("nonempty_other_operations", () => {
-    const hostRecord = {
-      schema: "crdd-coordinator-host-recovery/v1",
-      state: "host_only",
-      rootName: "crdd-coordinator-doctor-fixture",
-      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-      childIdentities: {
-        management: {
-          pathName: "management",
-          dev: "1",
-          ino: "3",
-          birthtimeNs: "4",
-        },
-      },
-      createdAt: "2026-08-25T00:00:00.000Z",
-    };
-    const hostHash = createHash("sha256")
-      .update(`${JSON.stringify(hostRecord)}\n`)
-      .digest("hex");
-    const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
-    const taskIdentity = {
-      schema: "crdd-coordinator/operation-identity/v2",
-      operationNonce: "b".repeat(64),
-      provider: "claude",
-      consumer: "orchestrator",
-      operationId: "OP-234567",
-      grantRef: "PHMGRANT-FIXTURE",
-      executionSelection: executionSelection("executor", {
-        provider: "claude",
-        model: "opus",
-        effort: "low",
-      }),
-      taskAttempt: 0,
-      stableLogicalHomeBindingHash: "c".repeat(64),
-      providerHomeIdentityHash: "8".repeat(64),
-      providerHomeProtectionHash: "9".repeat(64),
-      localUserBindingHash: "6".repeat(64),
-      repositoryBinding: repository.repositoryBinding,
-      ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-      resources: {
-        auth: "crdd-auth-0123456789abcdef",
-        provider: "crdd-claude-0123456789abcdef",
-        proxy: "crdd-proxy-0123456789abcdef",
-        internal: "crdd-internal-0123456789abcdef",
-        egress: "crdd-egress-0123456789abcdef",
-      },
-      images: {
-        provider: `sha256:${"a".repeat(64)}`,
-        proxy: `sha256:${"b".repeat(64)}`,
-      },
-      operationMode: "isolated_task",
-      workspaceMountMode: "read_write",
-      initialHostRecoveryId: token,
-      initialHostRecovery: {
-        token,
-        recordHash: hostHash,
-        directoryIdentity: "1:2:3",
-        markerIdentity: "1:2:4",
-        record: hostRecord,
-      },
-      hostPaths: { root: "host-root", marker: "host-marker" },
-    };
-    const taskBytes = model.prepareCoordinatorStateOperationSnapshot(
-      null,
-      `${JSON.stringify(taskIdentity)}\n`,
-      repository.repositoryBinding,
-    );
-    assert.ok(taskBytes);
-    const task = model.decodeRuntimeDomainSnapshot(
-      taskBytes,
-      repository.repositoryBinding,
-    )?.snapshot.operations[0];
-    assert.ok(task?.kind === "docker_task");
-    const otherBytes = model.prepareCoordinatorStateRepairSnapshot(
-      null,
-      `${JSON.stringify({ ...JSON.parse(operation.identityJson), operationNonce: "f".repeat(64), operationId: "OP-999998" })}\n`,
-      repository.repositoryBinding,
-    );
-    assert.ok(otherBytes);
-    const other = model.decodeRuntimeDomainSnapshot(
-      otherBytes,
-      repository.repositoryBinding,
-    )?.snapshot.operations[0];
-    assert.ok(other?.kind === "runtime_repair");
-    assert.ok(decoded);
-    const mixed = {
-      ...decoded.snapshot,
-      operations: [
-        operation,
-        {
-          ...other,
-          phase: "awaiting_delivery",
-          outcome: {
-            status: "blocked",
-            reason: "runtime_repair_failed_closed",
-            cleanupConfirmed: true,
-          },
-        },
-        {
-          ...task,
-          phase: "settling",
-          lease: "released",
-          host: { ...task.host, cleanup: "confirmed" },
-          execution: { ...task.execution, ownerEffect: "disabled" },
-          outcome: {
-            status: "cancelled",
-            reason: "provider_operation_cancelled",
-            cleanupConfirmed: true,
-          },
-        },
-      ].sort((a, b) =>
-        JSON.parse(a.identityJson).operationNonce.localeCompare(
-          JSON.parse(b.identityJson).operationNonce,
-        ),
-      ),
-      unresolvedRecoveries: [
-        {
-          operationNonce: taskIdentity.operationNonce,
-          recoveryId: task.recoveryId,
-          reason: "provider_operation_cancelled",
-          obligations: ["host_cleanup"],
-        },
-      ],
-      pendingDeliveries: [
-        {
-          operationNonce: taskIdentity.operationNonce,
-          recoveryId: task.recoveryId,
-          resultId: "4".repeat(64),
-          consumer: "orchestrator",
-        },
-      ],
-    };
-    const mixedBytes = Buffer.from(`${encodeRuntimeStateValue(mixed)}\n`);
-    assert.ok(
-      model.decodeRuntimeDomainSnapshot(
-        mixedBytes,
-        repository.repositoryBinding,
-      ),
-    );
-    if (fs.existsSync(historyFile)) fs.unlinkSync(historyFile);
-    fs.writeFileSync(stateFile, mixedBytes);
-    for (const stage of ["checkpoint", "publish"] as const) {
-      const saved = stateStoreSource((source) => source).advanceHistory(
-        repository,
-        id,
-        () => true,
-      );
-      assert.equal(saved.status, "completed");
-      assert.equal(saved.historyConfirmed, stage === "publish");
-      const after = model.decodeRuntimeDomainSnapshot(
-        fs.readFileSync(stateFile),
-        repository.repositoryBinding,
-      );
-      assert.ok(after);
-      assert.deepEqual(
-        after.snapshot.operations.filter((item) => item.recoveryId !== id),
-        mixed.operations.filter((item) => item.recoveryId !== id),
-      );
-      assert.deepEqual(
-        after.snapshot.unresolvedRecoveries,
-        mixed.unresolvedRecoveries,
-      );
-      assert.deepEqual(
-        after.snapshot.pendingDeliveries,
-        mixed.pendingDeliveries,
-      );
-    }
-  });
-  fs.writeFileSync(stateFile, currentBytes);
-  fs.writeFileSync(historyFile, Buffer.concat([historyBytes, historyBytes]));
-  const blocked = third.advanceHistory(repository, id, () => true);
-  assert.equal(blocked.status, "blocked");
-  assert.equal(blocked.filesystemEffectIssued, false);
-  assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
-  for (const mutant of [false, true]) {
-    let locks = 0;
-    const fallbackProbe = stateStoreSource(
-      (source) => {
-        if (!mutant) return source;
-        const pattern =
-          /operationKind === "docker_task" &&\s*observed.status !== "completed"/u;
-        assert.ok(pattern.test(source));
-        return source.replace(pattern, 'observed.status !== "completed"');
-      },
-      {
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (
-          ...args: Parameters<
-            typeof kernel.acquireRuntimeOwnedCoordinatorStateKernelLock
-          >
-        ) => {
-          locks++;
-          return kernel.acquireRuntimeOwnedCoordinatorStateKernelLock(...args);
-        },
-      },
-    );
-    const refused = fallbackProbe.advanceHistory(repository, id, () => true);
-    assert.equal(refused.status, "blocked");
-    assert.equal(refused.filesystemEffectIssued, false);
-    assert.equal(
-      locks,
-      mutant ? 2 : 1,
-      "repair_failure_has_no_task_delivery_fallback",
-    );
-    assert.ok(fs.readFileSync(stateFile).equals(currentBytes));
   }
   assert.equal(acquireCount, acquired);
   assert.equal(runtimeEntries, entries);

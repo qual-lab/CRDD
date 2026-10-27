@@ -109,7 +109,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         }};
       },
     }});
-    const storeUrl = ${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)};
+    const storeUrl = ${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)};
     const store = await import(storeUrl);
     const model = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
     storeMock = mock.module(storeUrl,{namedExports:{...store,
@@ -142,7 +142,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const verified = vc.verifyRepositoryRoot(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
     const read = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
     assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true); assert.deepEqual(read.value.snapshot,initial);
-    process.argv = [process.execPath,cli,'doctor','--recover-isolation',id,'--json'];
+    process.argv = [process.execPath,cli,'recovery','resume',id,'--json'];
     await import(cliUrl);
     assert.equal(process.exitCode,0);
     assert.equal(violations,0); assert.equal(restartCalls,0); assert.equal(removalCalls,0);

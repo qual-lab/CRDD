@@ -9,22 +9,24 @@
  * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
 
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { createCoordinatorSnapshotDecisionRecoveryStore } from "../../src/decision/lifecycle.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
 import type { CoordinatorDecisionRecoveryIntent } from "../../../domain-model/src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+import {
+  encodeRuntimeStateValue,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  initializeCoordinatorSnapshot,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import { createCoordinatorSnapshotDecisionRecoveryStore } from "../../src/decision/lifecycle.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 /**
  * fixtureのTest準備責務を実行する。
@@ -76,7 +78,10 @@ function fixture(t: test.TestContext) {
   assert.equal(state.status, "completed");
   if (state.status !== "completed") throw new Error("fixture_state_invalid");
   assert.equal(
-    initializeCoordinatorSnapshot(root, "binding-a").status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+    ).status,
     "completed",
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");

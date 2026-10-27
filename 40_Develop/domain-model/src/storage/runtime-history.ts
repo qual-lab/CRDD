@@ -3,27 +3,25 @@
  * @responsibility 技術要約と同じ保存Root・短期Owner・保持設定で履歴を確定する。
  * @trace ARCH-000004、ARCH-000008
  */
-import {
-  decodeCoordinatorHistoryRows,
-  prepareCoordinatorHistoryRetention,
-  historyRow,
-  type HistoryRow,
-} from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 
 import fs from "node:fs";
 import path from "node:path";
-import {
-  observeRepositoryRuntimeDataArea,
-  readCoordinatorConfig,
-} from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { readCoordinatorConfig } from "../configuration/read-tool-config.ts";
+import { observeRepositoryRuntimeDataArea } from "../repository/resolve-storage-paths.ts";
+import { encodeRuntimeStateValue } from "../state/codec.ts";
+import {
+  decodeCoordinatorHistoryRows,
+  prepareCoordinatorHistoryRetention,
+} from "../state/history.ts";
+import type { HistoryRow } from "../state/types.ts";
+import { historyRow } from "../state/validation.ts";
 import {
   acquireCoordinatorStorageOwner,
   type CoordinatorStorageOwner,
   isLiveCoordinatorStorageOwner,
-} from "./lock.ts";
-import { readCoordinatorStorageSnapshotOwned } from "./state.ts";
+} from "./runtime-lock.ts";
+import { readCoordinatorStorageSnapshotOwned } from "./runtime-store.ts";
 
 /**
  * 共通履歴の実体を固定して読み取る。

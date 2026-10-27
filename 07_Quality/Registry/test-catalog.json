@@ -3205,9 +3205,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:coordinator-state-model",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/model.contract.test.ts",
+      "id": "domain-model:unit:runtime-transitions",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/storage/runtime-transitions.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5030,30 +5030,7 @@
       ],
       "mandatoryByDefault": true
     },
-    {
-      "id": "coordinator:integration:orchestrator-history",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/task-history.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "project",
-        "runtime",
-        "history"
-      ],
-      "environment": "local_component_boundary",
-      "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
-      ],
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
+    {"id":"domain-model:integration:runtime-history","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-history.contract.test.ts","level":"integration","kind":"contract","semanticTags":["project","runtime","history"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["boundary_result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
     {
       "id": "coordinator:integration:orchestrator-durable-foundation",
       "owner": "coordinator",
@@ -5433,25 +5410,7 @@
       ],
       "mandatoryByDefault": true
     },
-    {
-      "id": "coordinator:integration:test-execution-profile",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "execution",
-        "profile"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
+    {"id":"coordinator:integration:test-execution-profile","owner":"coordinator","path":"40_Develop/coordinator/tests/integration/test-execution-profile.contract.test.ts","level":"integration","kind":"contract","semanticTags":["execution","profile"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["boundary_result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true,"executionProfiles":["restricted_process","windows_process_control"]},
     {
       "id": "coordinator:system:coordinator-docker-recovery-cli",
       "owner": "coordinator",
@@ -8788,33 +8747,7 @@
       ],
       "mandatoryByDefault": true
     },
-    {
-      "id": "coordinator:integration:current-state-marker-cleanup",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/current-state-marker-cleanup.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "recovery",
-        "current-state",
-        "storage",
-        "cleanup"
-      ],
-      "environment": "local_component_boundary",
-      "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
-      ],
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported",
-        "borrowed_owner_held_without_reacquisition",
-        "state_bytes_unchanged_after_read"
-      ],
-      "mandatoryByDefault": true
-    },
+    {"id":"domain-model:integration:runtime-marker-cleanup","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-marker-cleanup.contract.test.ts","level":"integration","kind":"contract","semanticTags":["recovery","current-state","storage","cleanup"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["boundary_result_observed","owned_resources_settled_or_reported","borrowed_owner_held_without_reacquisition","state_bytes_unchanged_after_read"],"mandatoryByDefault":true},
     {
       "id": "coordinator:integration:current-recovery-resources",
       "owner": "coordinator",
@@ -9006,8 +8939,8 @@
     },
     {
       "id": "coordinator:unit:repair-state-model",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/repair-model.contract.test.ts",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/attempt/repair-model.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -10418,6 +10351,21 @@
         "result_observed"
       ],
       "mandatoryByDefault": true
-    }
+    },
+    {"id":"domain-model:integration:runtime-repository","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-repository.contract.test.ts","level":"integration","kind":"contract","semanticTags":["runtime-state","storage","authorization","cas"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["repository_root_exact","unknown_not_absent","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
+    {"id":"domain-model:integration:runtime-core-crud","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-core-crud.contract.test.ts","level":"integration","kind":"contract","semanticTags":["runtime-state","storage","authorization","cas"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["repository_root_exact","unknown_not_absent","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
+    {"id":"coordinator:unit:recovery-start-diagnostic","owner":"coordinator","path":"40_Develop/coordinator/tests/unit/execution/recovery-start-diagnostic.contract.test.ts","level":"unit","kind":"contract","semanticTags":["recovery-start-diagnostic"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"version-control:integration:repository-storage-identity","owner":"version-control","path":"40_Develop/version-control/tests/integration/repository-storage-identity.integration.test.ts","level":"integration","kind":"integration","semanticTags":["repository-storage-identity"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"workbench-server:integration:ai-verification-client","owner":"workbench-server","path":"40_Develop/workbench-server/tests/integration/ai-verification-client.contract.test.ts","level":"integration","kind":"contract","semanticTags":["ai-verification-client"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"workbench-server:integration:ai-verification-timing","owner":"workbench-server","path":"40_Develop/workbench-server/tests/integration/ai-verification-timing.contract.test.ts","level":"integration","kind":"contract","semanticTags":["ai-verification-timing"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"workbench-server:integration:workspace-task-diagnostic","owner":"workbench-server","path":"40_Develop/workbench-server/tests/integration/workspace-task-diagnostic.contract.test.ts","level":"integration","kind":"contract","semanticTags":["workspace-task-diagnostic"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"domain-model:integration:runtime-kernel-lock","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-kernel-lock.contract.test.ts","level":"integration","kind":"contract","semanticTags":["storage","kernel-lock"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"domain-model:integration:runtime-snapshot-lock","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-snapshot-lock.contract.test.ts","level":"integration","kind":"contract","semanticTags":["storage","kernel-lock"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","owned_resources_settled_or_reported"],"mandatoryByDefault":true},
+    {"id":"domain-model:integration:runtime-snapshot-io","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-snapshot-io.contract.test.ts","level":"integration","kind":"contract","semanticTags":["storage","pending","snapshot"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
+    {"id":"domain-model:unit:runtime-codec","owner":"domain-model","path":"40_Develop/domain-model/tests/unit/storage/runtime-codec.contract.test.ts","level":"unit","kind":"contract","semanticTags":["storage","codec","snapshot"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","unknown_not_absent"],"mandatoryByDefault":true},
+    {"id":"domain-model:integration:runtime-settlement","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-settlement.contract.test.ts","level":"integration","kind":"contract","semanticTags":["storage","settlement","history","delivery"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
+    {"id":"domain-model:integration:runtime-repair-storage","owner":"domain-model","path":"40_Develop/domain-model/tests/integration/runtime-repair-storage.contract.test.ts","level":"integration","kind":"contract","semanticTags":["storage","repair","history"],"environment":"local_component_boundary","executionProfiles":["restricted_process","windows_process_control"],"externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
+    {"id":"coordinator:unit:host-observation","owner":"coordinator","path":"40_Develop/coordinator/tests/unit/storage/host-observation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["host","owner","resources","correlation"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["canonical_encoding_observed","hostile_values_rejected","identity_resource_correlation_preserved"],"mandatoryByDefault":true},
+    {"id":"domain-model:unit:task-validation","owner":"domain-model","path":"40_Develop/domain-model/tests/unit/task/validation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["result","acceptance","decoder"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","unknown_not_absent"],"mandatoryByDefault":true}
   ]
 }

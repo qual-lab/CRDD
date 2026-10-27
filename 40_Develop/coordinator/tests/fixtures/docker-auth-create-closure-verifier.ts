@@ -8,15 +8,12 @@
  * @scope 固定Imageの停止Container一件のみ。通常runnerからは実行しない。
  * @boundary 実Docker／実Owner／現在保存。daemon queueや将来の遅延createを証明しない。
  */
-import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
+
 import assert from "node:assert/strict";
 import cp, {
   execFileSync,
-  spawnSync,
   type SpawnSyncReturns,
+  spawnSync,
 } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -28,6 +25,10 @@ import {
   setImmediate as yieldEvents,
 } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import type {
+  CoordinatorStateSnapshot,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
 
 const fixedImage =
   "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
@@ -377,7 +378,7 @@ async function executeApprovedAuthCreateClosure() {
   const cancel = () => abort.abort();
   process.on("SIGINT", cancel);
   const isolation = await import("../../../docker-isolation/src/index.ts");
-  const store = await import("../../src/storage/state.ts");
+  const store = await import("../../../domain-model/src/index.ts");
   let isolationMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
   let storeMock: { restore(): void } | null = null;
@@ -844,7 +845,7 @@ async function executeApprovedAuthCreateClosure() {
     );
     if (absentAuth)
       storeMock = mock.module(
-        new URL("../../src/storage/state.ts", import.meta.url).href,
+        new URL("../../../domain-model/src/index.ts", import.meta.url).href,
         {
           namedExports: {
             ...store,

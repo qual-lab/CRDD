@@ -4,72 +4,71 @@
  * @trace ARCH-000004
  * @trace ARCH-000015
  */
-import {
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
-  type ExecutionSelection,
-  type TaskExecutionSelections,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  inspectSingleTaskRecord,
-  type SingleTaskRecord,
-  type ProjectQueueEntry,
-} from "../../../domain-model/src/index.ts";
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
-import {
-  inspectAiSelectionChoice,
-  hashExecutionSelection,
-} from "../selection/validation.ts";
-
-import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
-import { readRepositoryAiSelection } from "../../../domain-model/src/index.ts";
-import {
-  resolveExecutionSelection,
-  resolveTaskExecutionSelections,
-} from "../selection/resolve.ts";
 
 import { createHash, randomUUID } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
-import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
-import { normalizeRepositoryRelativePath } from "../../../domain-model/src/index.ts";
-
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
 import {
-  readCoordinatorSnapshot,
+  type ExecutionSelection,
   initializeCoordinatorSnapshot,
-} from "../storage/state.ts";
+  inspectExecutionSelection,
+  inspectSingleTaskRecord,
+  inspectTaskExecutionSelections,
+  normalizeRepositoryRelativePath,
+  observeRuntimeOwnedTransientTaskCompletion,
+  type ProjectQueueEntry,
+  readCoordinatorTaskIntakeState,
+  readRepositoryAiSelection,
+  type SingleTaskRecord,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  type TaskExecutionSelections,
+} from "../../../domain-model/src/index.ts";
 import {
-  enqueueCoordinatorSingleTask,
-  updateCoordinatorSingleTask,
-  closeUnstartedCoordinatorSingleTask,
-  createCoordinatorSnapshotStatePort,
-} from "./queue.ts";
-import {
-  reconcileCoordinatorSnapshotLeaseOwnerLoss,
-  acquireCoordinatorSnapshotLease,
-} from "../execution/lease.ts";
-import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
-import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
-import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
-import type { CoordinatorWorkspaceResult } from "../execution/result.ts";
-import {
-  resolveVerifiedRepositoryRoot,
   gitRepositoryRevisionAdapter,
+  resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import {
-  startRuntimeOwnedCoordinatorTask,
+  recoverProviderAdviceHostOperation,
+  runRepositoryAdvice,
+} from "../execution/advice.ts";
+import { readExecutionCancellation } from "../execution/authority.ts";
+import {
   cancelRuntimeOwnedCoordinatorTask,
+  runCoordinatorSingleTaskAttempt,
+  snapshotCoordinatorWorkspaceResult,
+  startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
-import { runRepositoryAdvice } from "../execution/advice.ts";
-import { recoverProviderAdviceHostOperation } from "../execution/advice.ts";
-import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
 import { observeLeaseOwner } from "../execution/kernel-lock.ts";
+import {
+  acquireCoordinatorSnapshotLease,
+  reconcileCoordinatorSnapshotLeaseOwnerLoss,
+} from "../execution/lease.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
-import { observeRuntimeOwnedTransientTaskCompletion } from "../storage/state.ts";
-import { readExecutionCancellation } from "../execution/authority.ts";
+import type { CoordinatorWorkspaceResult } from "../execution/result.ts";
+import {
+  resolveExecutionSelection,
+  resolveTaskExecutionSelections,
+} from "../selection/resolve.ts";
+import {
+  hashExecutionSelection,
+  inspectAiSelectionChoice,
+} from "../selection/validation.ts";
+import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
+import {
+  closeUnstartedCoordinatorSingleTask,
+  createCoordinatorSnapshotStatePort,
+  enqueueCoordinatorSingleTask,
+  updateCoordinatorSingleTask,
+} from "./queue.ts";
 
 /**
  * 単発操作の非永続入力。
@@ -285,7 +284,10 @@ export function createCoordinatorTaskRequests(
   const ports = (epoch: string) =>
     createCoordinatorSnapshotStatePort(deps.root, deps.binding, epoch);
   const recoverRecord = async (requestId: string) => {
-    const current = readCoordinatorSnapshot(deps.root, deps.binding);
+    const current = readCoordinatorTaskIntakeState(
+      verifyRuntimePersistenceRepository(deps.root),
+      deps.binding,
+    );
     const queue =
       current.status === "completed"
         ? current.value?.queueEntries.find(
@@ -540,7 +542,10 @@ export function createCoordinatorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_session_capacity",
         };
-      let current = readCoordinatorSnapshot(deps.root, deps.binding);
+      let current = readCoordinatorTaskIntakeState(
+        verifyRuntimePersistenceRepository(deps.root),
+        deps.binding,
+      );
       if (
         current.status === "completed" &&
         current.value &&
@@ -581,7 +586,10 @@ export function createCoordinatorTaskRequests(
               reason: "orchestrator_task_previous_cleanup_unconfirmed",
             };
         }
-        current = readCoordinatorSnapshot(deps.root, deps.binding);
+        current = readCoordinatorTaskIntakeState(
+          verifyRuntimePersistenceRepository(deps.root),
+          deps.binding,
+        );
       }
       const selection = deps.resolveSelection(command);
       const primary = inspectExecutionSelection(selection?.primary);
@@ -921,7 +929,10 @@ export function createCoordinatorTaskRequests(
         );
       const item = requests.get(requestId);
       if (item) return item.snapshot;
-      const current = readCoordinatorSnapshot(deps.root, deps.binding);
+      const current = readCoordinatorTaskIntakeState(
+        verifyRuntimePersistenceRepository(deps.root),
+        deps.binding,
+      );
       const record =
         current.status === "completed"
           ? current.value?.queueEntries.find(
@@ -1186,7 +1197,7 @@ export function openTaskSession(context: TaskSessionContext) {
   const root = resolveVerifiedRepositoryRoot(rootCapability);
   if (root === null) throw new Error("orchestrator_task_root_invalid");
   const initialized = initializeCoordinatorSnapshot(
-    root,
+    verifyRuntimePersistenceRepository(root),
     deriveCoordinatorRepositoryBindingId(root),
   );
   if (initialized.status !== "completed")

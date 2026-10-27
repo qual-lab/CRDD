@@ -5,44 +5,41 @@
  * @trace ARCH-000005
  */
 
-import {
-  prepareCoordinatorAcceptanceDecisionCreation,
-  projectCoordinatorAcceptanceDecisionRecord,
-  prepareCoordinatorAcceptanceDecisionFinalization,
-  prepareCoordinatorDecisionRecoveryCreation,
-  projectCoordinatorDecisionRecoveryRecord,
-  prepareCoordinatorDecisionRecoveryUpdate,
-} from "../../../domain-model/src/index.ts";
-import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
-
-import type { CoordinatorAcceptanceDecisionStore } from "./types.ts";
 import { createHash, randomBytes } from "node:crypto";
-import type {
-  CoordinatorDecisionCapabilityPort,
-  CoordinatorDecisionStore,
-  CoordinatorDecisionRecoveryStore,
-} from "./types.ts";
-import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import {
   type CoordinatorDecisionRecord,
-  isCoordinatorDecisionRecord,
   type CoordinatorDecisionRecoveryIntent,
+  createCoordinatorAcceptanceDecision,
+  createCoordinatorDecisionRecovery,
+  finalizeCoordinatorAcceptanceDecision,
+  isCoordinatorDecisionRecord,
+  RepositoryRuntimeDataAreaBlockedError,
+  readCoordinatorAcceptanceDecision,
+  readCoordinatorDecisionRecovery,
+  updateCoordinatorDecisionRecovery,
 } from "../../../domain-model/src/index.ts";
-import {
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  inspectCoordinatorDecisionRequest,
-} from "./request.ts";
-import { applyCoordinatorHumanDecision } from "./transition.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
 } from "../state/result.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import {
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  inspectCoordinatorDecisionRequest,
+} from "./request.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "./store.ts";
+import { applyCoordinatorHumanDecision } from "./transition.ts";
+import type {
+  CoordinatorAcceptanceDecisionStore,
+  CoordinatorDecisionCapabilityPort,
+  CoordinatorDecisionRecoveryStore,
+  CoordinatorDecisionStore,
+} from "./types.ts";
 
 /**
  * hashを決定する。
@@ -1247,6 +1244,8 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
   workingDirectory: string,
   binding: string,
 ): CoordinatorAcceptanceDecisionStore {
+  const storageRepository =
+    verifyRuntimePersistenceRepository(workingDirectory);
   return Object.freeze({
     /**
      * 受入判断の初回記録を作成する。
@@ -1264,15 +1263,11 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
      * @concurrency 同じ保存Ownerで処置する。
      */
     create(record) {
-      return withCoordinatorSnapshotOperation(
-        workingDirectory,
+      return createCoordinatorAcceptanceDecision(
+        storageRepository,
         binding,
-        (current) =>
-          prepareCoordinatorAcceptanceDecisionCreation(
-            current,
-            binding,
-            record,
-          ),
+        binding,
+        record,
       );
     },
     /**
@@ -1291,11 +1286,10 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
      * @concurrency 短期保存Ownerを保持する。
      */
     read(recordId) {
-      return withCoordinatorSnapshotOperation(
-        workingDirectory,
+      return readCoordinatorAcceptanceDecision(
+        storageRepository,
         binding,
-        (current) =>
-          projectCoordinatorAcceptanceDecisionRecord(current, recordId),
+        recordId,
       );
     },
     /**
@@ -1314,16 +1308,12 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
      * @concurrency 比較と確定を同じOwnerで行う。
      */
     compareAndSet(expected, next) {
-      return withCoordinatorSnapshotOperation(
-        workingDirectory,
+      return finalizeCoordinatorAcceptanceDecision(
+        storageRepository,
         binding,
-        (current) =>
-          prepareCoordinatorAcceptanceDecisionFinalization(
-            current,
-            binding,
-            expected,
-            next,
-          ),
+        binding,
+        expected,
+        next,
       );
     },
   });
@@ -1348,6 +1338,8 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
   workingDirectory: string,
   binding: string,
 ): CoordinatorDecisionRecoveryStore {
+  const storageRepository =
+    verifyRuntimePersistenceRepository(workingDirectory);
   return Object.freeze({
     /**
      * 判断回復の初回意図を保存する。
@@ -1365,11 +1357,10 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
      * @concurrency 同じ保存Ownerで処置する。
      */
     create(intent) {
-      return withCoordinatorSnapshotOperation(
-        workingDirectory,
+      return createCoordinatorDecisionRecovery(
+        storageRepository,
         binding,
-        (current) =>
-          prepareCoordinatorDecisionRecoveryCreation(current, intent),
+        intent,
       );
     },
     /**
@@ -1388,11 +1379,10 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
      * @concurrency 短期保存Ownerを保持する。
      */
     read(recoveryId) {
-      return withCoordinatorSnapshotOperation(
-        workingDirectory,
+      return readCoordinatorDecisionRecovery(
+        storageRepository,
         binding,
-        (current) =>
-          projectCoordinatorDecisionRecoveryRecord(current, recoveryId),
+        recoveryId,
       );
     },
     /**
@@ -1411,11 +1401,11 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
      * @concurrency 比較と確定を同じOwnerで行う。
      */
     compareAndSet(expected, next) {
-      return withCoordinatorSnapshotOperation(
-        workingDirectory,
+      return updateCoordinatorDecisionRecovery(
+        storageRepository,
         binding,
-        (current) =>
-          prepareCoordinatorDecisionRecoveryUpdate(current, expected, next),
+        expected,
+        next,
       );
     },
   });

@@ -5,191 +5,187 @@
  * @trace ARCH-000008
  */
 
+import { createHash } from "node:crypto";
+import type { Writable } from "node:stream";
+import { setImmediate } from "node:timers/promises";
+import { types as utilTypes } from "node:util";
 import {
+  CLAUDE_TASK_MAXIMUM_TURNS,
+  convertProviderError,
+  evaluateProviderAuthentication,
+  normalizeClaudeStructuredResult,
+  normalizeCodexStructuredResult,
+  parseProviderResult,
+  projectCodexExecutionBoundary,
+} from "../../../ai-adapter/src/index.ts";
+import {
+  type CommandObservation as CommandExecution,
+  classifyDockerCommandException,
+  type classifyDockerCommandExecution,
+  type classifyDockerProcessExit,
+  createDockerIsolationRuntime,
+  type DockerExecutionHooks,
+  type DockerIsolationCommand,
+  type DockerIsolationRuntimePlan,
+  type DockerResourceCleanupObservation,
+  describeDockerCommandSessionContract,
+  describeDockerIsolationExecutionEnvironment,
+  dockerIsolationResourceIdentityIsValid,
+  parseDockerTaskRecoveryId,
+  projectDockerExecutionBoundary,
+  STDERR_LIMIT_BYTES,
+  STDOUT_LIMIT_BYTES,
+  startDockerCommandSessionCandidate,
+} from "../../../docker-isolation/src/index.ts";
+import {
+  type CoordinatorStateTaskOperation,
   type ExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
-  type CoordinatorStateTaskOperation,
   parseHostRecoveryToken,
+  snapshotPlainArray,
+  snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { hashExecutionSelection } from "../selection/validation.ts";
-
+import { requestRuntimeOwnedExternalSendGrant } from "../decision/external-send-grant.ts";
+import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
-  readRuntimeOwnedCoordinatorStateSnapshot,
-  checkpointRuntimeOwnedCoordinatorHost,
   checkpointRuntimeOwnedCoordinatorCleanup,
-} from "../storage/state.ts";
+  checkpointRuntimeOwnedCoordinatorHost,
+  readRuntimeOwnedCoordinatorStateSnapshot,
+} from "../execution/persistence.ts";
+import { hashExecutionSelection } from "../selection/validation.ts";
 import {
-  borrowRuntimeOwnedCoordinatorStateRepository,
-  borrowOwnedHostRecoverySnapshot,
-  completeOwnedDockerSubmissionRecovery,
-  beginOwnedDockerSubmissionRecovery,
+  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
+  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
+} from "../task/dispatch.ts";
+import type {
+  CoordinatorSingleTaskAttemptInput,
+  CoordinatorSingleTaskResult,
+  CoordinatorTaskResultDelivery,
+} from "../task/types.ts";
+import {
+  completeRuntimeOwnedProviderHomeMount,
+  consumeRuntimeOwnedProviderAuthority,
+  consumeRuntimeOwnedProviderHomeMountGrant,
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  issueRuntimeOwnedDelegationSelectionGrant,
+  issueRuntimeOwnedProviderHomeMountGrant,
+  preflightRuntimeOwnedDelegationExecutionSlate,
+  revokeRuntimeOwnedDelegationSelectionGrant,
+  revokeRuntimeOwnedProviderHomeMountGrant,
+  verifyRuntimeOwnedProviderHomeMountCompletion,
+} from "./authority.ts";
+import {
+  createDevelopmentExecutionTiming,
+  reserveRuntimeOwnedDevelopmentMeasurementTask,
+  writeDevelopmentMeasurementProgress,
+} from "./diagnostics.ts";
+import {
+  createProviderObservationOwner,
+  observeCoordinatorTaskCompletion,
+  type ProviderBoundaryDiagnosticNotice,
+  type ProviderProcessStartedNotice,
+  registerRuntimeOwnedProviderSubmissionNotice,
+  registerRuntimeOwnedProviderTerminalObservation,
+  revokeRuntimeOwnedProviderSubmissionNotice,
+} from "./observation.ts";
+import {
+  abandonOwnedHostOperationGenerationLock,
+  activateOwnedHostOperationGenerationLock,
   type BorrowedExecutionTarget,
-  inspectBorrowedExecutionTarget,
-  verifyRuntimeOwnedRepositoryOperation,
-  type ProductionOperationFailure,
+  beginOwnedDockerSubmissionRecovery,
+  bindRuntimeOwnedExecutionSnapshot,
+  bindRuntimeOwnedRepositoryOperation,
+  borrowOwnedDockerExecutionPaths,
+  borrowOwnedHostRecoverySnapshot,
+  borrowRuntimeOwnedCoordinatorStateRepository,
+  captureExecutionChangeSnapshot,
+  cleanupOwnedOperationDirectoriesAsync,
+  completeOwnedDockerSubmissionRecovery,
+  confirmOwnedHostOperationGenerationLockReadiness,
   createProductionOperationRoot,
   createRuntimeOwnedCoordinatorOperation,
-  activateOwnedHostOperationGenerationLock,
-  confirmOwnedHostOperationGenerationLockReadiness,
-  observeOwnedHostOperationGenerationLoss,
-  verifyOwnedOperationCleanupOutcome,
-  cleanupOwnedOperationDirectoriesAsync,
-  throwProductionOperationFailure,
+  inspectBorrowedExecutionTarget,
   inspectRepositoryObjectFormatCandidate,
+  observeOwnedHostOperationGenerationLoss,
+  type ProductionOperationFailure,
   productionOperationFailure,
-  abandonOwnedHostOperationGenerationLock,
-  bindRuntimeOwnedRepositoryOperation,
-  bindRuntimeOwnedExecutionSnapshot,
-  projectReviewerReadContent,
-  captureExecutionChangeSnapshot,
-  verifyExecutionChangeSnapshot,
   projectBorrowedExecutionResult,
-  borrowOwnedDockerExecutionPaths,
+  projectReviewerReadContent,
+  throwProductionOperationFailure,
+  verifyExecutionChangeSnapshot,
+  verifyOwnedOperationCleanupOutcome,
+  verifyRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
-
 import {
-  type CoordinatorTaskRecoveryObligation,
-  bindRuntimeOwnedDockerInitializationFailure,
-  beginRuntimeOwnedDockerRecovery,
+  getRuntimeOwnedProviderDockerAdapter,
+  type Command as isolationExecutionCommand,
+  type PreparedPlan as isolationExecutionPreparedPlan,
+  issueRuntimeOwnedProviderTaskPacket,
+  planIdentity,
+  resolveIsolationCommandInput,
+  revokeRuntimeOwnedProviderTaskPacket,
+  validatePlan,
+} from "./preparation.ts";
+import {
+  isRuntimeProcessEffectBlocked,
+  isRuntimeProcessPoisoned,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "./process-safety-state.ts";
+import {
   abandonRuntimeOwnedDockerRecovery,
-  verifyRuntimeOwnedDockerRecoveryBinding,
+  beginRuntimeOwnedDockerRecovery,
+  bindRuntimeOwnedDockerInitializationFailure,
+  type CoordinatorTaskRecoveryObligation,
   completeRuntimeOwnedDockerRecovery,
-  verifyRuntimeOwnedDockerHomeLeaseRelease,
+  evaluateManagedDockerCleanupEligibility,
+  finalizeRuntimeOwnedDockerRecovery,
+  inspectRuntimeOwnedDockerResourceReceipts,
+  inspectRuntimeOwnedDockerTaskAdmission,
   markRuntimeOwnedDockerResourceSubmission,
+  prepareRuntimeOwnedDockerHostCleanup,
+  readRuntimeOwnedDockerProjectResult,
+  recordRuntimeOwnedDockerAbsence,
+  recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedDockerProviderSubmission,
   recordRuntimeOwnedDockerResourceNotIssued,
   recordRuntimeOwnedDockerResourceReceipt,
-  recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedNormalMountCompletion,
-  readRuntimeOwnedDockerProjectResult,
-  evaluateManagedDockerCleanupEligibility,
-  inspectRuntimeOwnedDockerTaskAdmission,
-  finalizeRuntimeOwnedDockerRecovery,
-  prepareRuntimeOwnedDockerHostCleanup,
-  recordRuntimeOwnedDockerHostCleanupReceipt,
-  inspectRuntimeOwnedDockerResourceReceipts,
+  verifyRuntimeOwnedDockerHomeLeaseRelease,
+  verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./recovery.ts";
-import { createHash } from "node:crypto";
-import { setImmediate } from "node:timers/promises";
-import {
-  verifyRuntimeOwnedProviderHomeMountCompletion,
-  completeRuntimeOwnedProviderHomeMount,
-  consumeRuntimeOwnedProviderAuthority,
-  issueRuntimeOwnedDelegationSelectionGrant,
-  preflightRuntimeOwnedDelegationExecutionSlate,
-  revokeRuntimeOwnedDelegationSelectionGrant,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  issueRuntimeOwnedProviderHomeMountGrant,
-  consumeRuntimeOwnedProviderHomeMountGrant,
-  revokeRuntimeOwnedProviderHomeMountGrant,
-} from "./authority.ts";
-import {
-  type CoordinatorWorkspaceResult,
-  type CoordinatorTaskAttemptResult,
-  ownDataValue,
-  publicVerifiedDockerRecoveryId,
-  type DockerProcessControllerFinalReason,
-  PURPOSES,
-  isDockerSetupCommandPurpose,
-  SETUP_COMMAND_FAILURE_REASONS,
-  type PrimaryFailureDiagnostic,
-  type RecoveryStartFailureDiagnostic,
-  inspectRecoveryStartFailureDiagnostic,
-  inspectProviderExecutionObservation,
-  PROVIDER_EXECUTION_OBSERVATION_KEYS,
-  inspectCandidateValidationFailureDiagnostic,
-  inspectTaskStageDiagnostic,
-  normalizeProviderTaskStructuredResult,
-  isDockerProcessControllerPublicCompletionReason,
-  publicDockerRecoveryStartReason,
-  type CoordinatorTaskPublicReason,
-  COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
-  projectDockerProcessControllerStartResult,
-  projectCoordinatorTaskPublicReason,
-  projectDockerProcessControllerCompletionResult,
-  projectCurrentDockerAdmission,
-  classifyCoordinatorTaskTerminalLifecycleState,
-  projectDevelopmentTaskResultAfterOuterCleanup,
-} from "./result.ts";
-import { types as utilTypes } from "node:util";
-import {
-  type ProviderProcessStartedNotice,
-  observeCoordinatorTaskCompletion,
-  type ProviderBoundaryDiagnosticNotice,
-  createProviderObservationOwner,
-  registerRuntimeOwnedProviderTerminalObservation,
-  registerRuntimeOwnedProviderSubmissionNotice,
-  revokeRuntimeOwnedProviderSubmissionNotice,
-} from "./observation.ts";
 import {
   type CoordinatorTaskAttemptInput,
   snapshotCoordinatorTaskRequest,
 } from "./request.ts";
 import {
-  describeDockerCommandSessionContract,
-  type CommandObservation as CommandExecution,
-  type DockerResourceCleanupObservation,
-  type DockerExecutionHooks,
-  startDockerCommandSessionCandidate,
-  projectDockerExecutionBoundary,
-  parseDockerTaskRecoveryId,
-  dockerIsolationResourceIdentityIsValid,
-  type classifyDockerCommandExecution,
-  type classifyDockerProcessExit,
-  classifyDockerCommandException,
-  type DockerIsolationCommand,
-  STDOUT_LIMIT_BYTES,
-  STDERR_LIMIT_BYTES,
-  createDockerIsolationRuntime,
-  type DockerIsolationRuntimePlan,
-  describeDockerIsolationExecutionEnvironment,
-} from "../../../docker-isolation/src/index.ts";
-import type { Writable } from "node:stream";
-import {
-  projectCodexExecutionBoundary,
-  convertProviderError,
-  evaluateProviderAuthentication,
-  normalizeCodexStructuredResult,
-  normalizeClaudeStructuredResult,
-  parseProviderResult,
-  CLAUDE_TASK_MAXIMUM_TURNS,
-} from "../../../ai-adapter/src/index.ts";
-import {
-  getRuntimeOwnedProviderDockerAdapter,
-  issueRuntimeOwnedProviderTaskPacket,
-  revokeRuntimeOwnedProviderTaskPacket,
-  type PreparedPlan as isolationExecutionPreparedPlan,
-  validatePlan,
-  resolveIsolationCommandInput,
-  planIdentity,
-  type Command as isolationExecutionCommand,
-} from "./preparation.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
-import {
-  poisonRuntimeProcessAfterCleanupUnknown,
-  isRuntimeProcessPoisoned,
-  isRuntimeProcessEffectBlocked,
-} from "./process-safety-state.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../decision/external-send-grant.ts";
-import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
-import {
-  createDevelopmentExecutionTiming,
-  writeDevelopmentMeasurementProgress,
-  reserveRuntimeOwnedDevelopmentMeasurementTask,
-} from "./diagnostics.ts";
-import type {
-  CoordinatorTaskResultDelivery,
-  CoordinatorSingleTaskAttemptInput,
-  CoordinatorSingleTaskResult,
-} from "../task/types.ts";
-import {
-  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-} from "../task/dispatch.ts";
+  COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
+  type CoordinatorTaskAttemptResult,
+  type CoordinatorTaskPublicReason,
+  type CoordinatorWorkspaceResult,
+  classifyCoordinatorTaskTerminalLifecycleState,
+  type DockerProcessControllerFinalReason,
+  inspectCandidateValidationFailureDiagnostic,
+  inspectProviderExecutionObservation,
+  inspectRecoveryStartFailureDiagnostic,
+  inspectTaskStageDiagnostic,
+  isDockerProcessControllerPublicCompletionReason,
+  isDockerSetupCommandPurpose,
+  normalizeProviderTaskStructuredResult,
+  ownDataValue,
+  PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  type PrimaryFailureDiagnostic,
+  PURPOSES,
+  projectCoordinatorTaskPublicReason,
+  projectCurrentDockerAdmission,
+  projectDevelopmentTaskResultAfterOuterCleanup,
+  projectDockerProcessControllerCompletionResult,
+  projectDockerProcessControllerStartResult,
+  publicDockerRecoveryStartReason,
+  publicVerifiedDockerRecoveryId,
+  type RecoveryStartFailureDiagnostic,
+  SETUP_COMMAND_FAILURE_REASONS,
+} from "./result.ts";
 
 /**
  * Host開始の予定保存・実遷移・結果保存を同じ操作へ接続する。

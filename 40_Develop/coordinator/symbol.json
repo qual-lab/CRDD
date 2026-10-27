@@ -4,12 +4,6 @@
   "subsystem": "coordinator",
   "symbols": [
     {
-      "symbolId": "coordinator.test-support.storage-source",
-      "kind": "file",
-      "path": "tests/support/storage-source.ts",
-      "archIds": ["ARCH-000008"]
-    },
-    {
       "symbolId": "coordinator.source.src.execution.lease",
       "kind": "file",
       "path": "src/execution/lease.ts",
@@ -53,15 +47,7 @@
         "ARCH-000008"
       ]
     },
-    {
-      "symbolId": "coordinator.source.src.storage.lock",
-      "kind": "file",
-      "path": "src/storage/lock.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000008"
-      ]
-    },
+
     {
       "symbolId": "coordinator.source.src.task.queue",
       "kind": "file",
@@ -340,20 +326,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.repair-state-model",
-      "kind": "test-suite",
-      "path": "tests/unit/storage/repair-model.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-036"
-      ],
-      "verifies": [
-        "coordinator.state-storage.coordinator-state-model"
-      ]
-    },
-    {
       "symbolId": "coordinator.runtime.general-task-verification-text",
       "kind": "file",
       "path": "tests/fixtures/general-task-verification.txt",
@@ -449,14 +421,7 @@
         "ARCH-000008"
       ]
     },
-    {
-      "symbolId": "coordinator.state-storage.coordinator-state-runtime",
-      "kind": "file",
-      "path": "src/storage/state.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
+
     {
       "symbolId": "coordinator.test.integration.coordinator-state-runtime",
       "kind": "test-suite",
@@ -475,18 +440,11 @@
         "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
+
     {
-      "symbolId": "coordinator.state-storage.coordinator-state-model",
-      "kind": "file",
-      "path": "src/storage/state.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.coordinator-state-model",
+      "symbolId": "coordinator.test.unit.host-observation",
       "kind": "test-suite",
-      "path": "tests/unit/storage/model.contract.test.ts",
+      "path": "tests/unit/storage/host-observation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -494,7 +452,7 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.state-storage.coordinator-state-model",
+        "coordinator.source.src.execution.validation",
         "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
@@ -2572,22 +2530,7 @@
         "coordinator.state-storage.coordinator-state-runtime"
       ]
     },
-    {
-      "symbolId": "coordinator.test.integration.current-state-marker-cleanup",
-      "kind": "test-suite",
-      "path": "tests/integration/current-state-marker-cleanup.contract.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-014",
-        "PRL-IT-011"
-      ],
-      "verifies": [
-        "coordinator.state-storage.coordinator-state-runtime"
-      ]
-    },
+
     {
       "symbolId": "coordinator.test.integration.current-recovery-resources",
       "kind": "test-suite",
@@ -3397,22 +3340,7 @@
         "coordinator.source.src.security.host.orphan.recovery.policy"
       ]
     },
-    {
-      "symbolId": "coordinator.test.integration.orchestrator-history",
-      "kind": "test-suite",
-      "path": "tests/integration/task-history.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-005",
-        "PRL-IT-012"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.orchestrator.history",
-        "coordinator.source.src.security.orchestrator.durable.foundation"
-      ]
-    },
+
     {
       "symbolId": "coordinator.tool.workspace-task-fixture",
       "kind": "file",
@@ -3748,7 +3676,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.windows.decision.store",
       "kind": "file",
-      "path": "src/storage/decision.ts",
+      "path": "src/decision/store.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3777,37 +3705,9 @@
         "ARCH-000004"
       ]
     },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.durable.foundation",
-      "kind": "file",
-      "path": "src/storage/state.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000005",
-        "ARCH-000008"
-      ],
-      "implements": [
-        "orchestrator.project-state-projection",
-        "orchestrator.queue-lease-lifecycle",
-        "orchestrator.acceptance-decision-authority"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.history",
-      "kind": "file",
-      "path": "src/storage/history.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.storage.result-record",
-      "kind": "file",
-      "path": "src/storage/state.ts",
-      "archIds": [
-        "ARCH-000005"
-      ]
-    },
+
+
+
     {
       "symbolId": "orchestrator.storage.types",
       "kind": "file",
@@ -4319,6 +4219,7 @@
       "kind": "test-suite",
       "path": "tests/integration/advice-recovery-handoff.integration.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000005",
         "QA-000006"
       ],
@@ -4525,6 +4426,7 @@
       "archIds": [
         "ARCH-000004"
       ]
-    }
+    },
+    {"symbolId":"coordinator.execution.persistence","kind":"file","path":"src/execution/persistence.ts","archIds":["ARCH-000008"]}
   ]
 }

@@ -9,11 +9,6 @@
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
  */
 
-import { COORDINATOR_STATE_SCHEMA } from "../../../domain-model/src/index.ts";
-import {
-  encodeRuntimeStateValue,
-  RUNTIME_STATE_MAXIMUM_BYTES,
-} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -21,20 +16,23 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
+  COORDINATOR_STATE_SCHEMA,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  RUNTIME_STATE_MAXIMUM_BYTES,
   requireReadyRepositoryRuntimeDataArea,
   sameStableFileIdentity,
-} from "../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/execution/kernel-lock.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
-import { acquireCoordinatorStorageOwner } from "../../src/storage/lock.ts";
-import { decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot } from "../../../domain-model/src/index.ts";
+} from "../../src/index.ts";
+import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireCoordinatorStorageOwner } from "../../src/storage/runtime-lock.ts";
+import { observeRuntimeRecoveryRepository as borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/storage/runtime-repository.ts";
 import {
   cleanupRuntimeOwnedCoordinatorStateMarker,
   readCoordinatorStorageSnapshotOwned,
-} from "../../src/storage/state.ts";
+} from "../../src/storage/runtime-store.ts";
 
 /**
  * markerだけの清掃を、保存本文・実体・取得／解放の全停止点で確認する。
@@ -49,7 +47,7 @@ import {
  */
 test("現在保存marker: exact処置・全文保全・停止と解放の相関", () => {
   const source = fs.readFileSync(
-    new URL("../../src/storage/state.ts", import.meta.url),
+    new URL("../../src/storage/runtime-store.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(
@@ -102,7 +100,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     const binding = "a".repeat(64),
       capability = Object.freeze({});
     const stateBytes = Buffer.from(
-      `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     const files = new Map<string, Buffer>([
       [
@@ -405,7 +403,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       marker = path.join(storage.directory, "state.lock"),
       pending = path.join(storage.directory, "state.pending.json");
     const bytes = Buffer.from(
-      `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     const markerBytes = Buffer.from(
       `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,

@@ -4,71 +4,80 @@
  * @responsibility 同じObjectiveの保存・実行・取消・回復を既存Ownerへ委譲し、進行と公開結果を確定する。
  * @trace ARCH-000004
  */
+
+import { isDeepStrictEqual } from "node:util";
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
-  inspectTaskExecutionSelections,
-  type TaskExecutionSelections,
-  type ProjectTaskRecoveryObligation,
   type CoordinatorState,
+  inspectTaskExecutionSelections,
+  type ProjectTaskRecoveryObligation,
+  readCoordinatorTaskIntakeState,
+  readRepositoryAiSelection,
   snapshotRuntimeStateArray as snapshotPlainArray,
   snapshotRuntimeStateRecord as snapshotPlainRecord,
+  type TaskExecutionSelections,
 } from "../../../domain-model/src/index.ts";
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { isDeepStrictEqual } from "node:util";
-import { runCoordinatorOperation } from "../task/dispatch.ts";
-import { readRepositoryAiSelection } from "../../../domain-model/src/index.ts";
+import { observePlatformFamily } from "../../../platform-access/src/index.ts";
+import {
+  inspectRepositoryIdentityCandidate,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import {
+  runCoordinatorSingleTaskAttempt,
+  snapshotCoordinatorWorkspaceResult,
+} from "../execution/controller.ts";
+import {
+  createCoordinatorWindowsPlatformAdapter,
+  writeCoordinatorRecoveryDiagnostic,
+} from "../execution/diagnostics.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import {
+  consumeDockerRecoveryReceiptAfterProjectSettlement,
+  recoverRuntimeOwnedDockerTaskForCurrentConsumer,
+  resolveRuntimeOwnedDockerTaskCurrentCorrelations,
+} from "../execution/recovery.ts";
 import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
-
-import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
 import { createCoordinatorState } from "../state/create.ts";
-
-import { COORDINATOR_MAXIMUM_TASKS } from "../state/validation.ts";
+import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
+import { projectCoordinatorState } from "../state/projection.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/result.ts";
+import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
+import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
+import {
+  COORDINATOR_MAXIMUM_TASKS,
+  deriveCoordinatorRepositoryBindingId,
+} from "../state/validation.ts";
+import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
+import {
+  createCoordinatorExecutionHostPorts,
+  createCoordinatorTaskRecoveryAdapter,
+  runCoordinatorOperation,
+} from "../task/dispatch.ts";
+import { inspectCoordinatorSnapshotIntake } from "../task/queue.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
 } from "../task/recovery.ts";
-import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
-import { projectCoordinatorState } from "../state/projection.ts";
-
-import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "./plan.ts";
-import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import type {
-  CoordinatorTaskExecution,
   CoordinatorExecutionResult,
+  CoordinatorTaskExecution,
 } from "../task/types.ts";
-import type { CoordinatorObjectiveExecutionDependencies } from "./types.ts";
-import { observePlatformFamily } from "../../../platform-access/src/index.ts";
-import { writeCoordinatorRecoveryDiagnostic } from "../execution/diagnostics.ts";
+import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
+import {
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  inspectCoordinatorObjectivePlan,
+} from "./plan.ts";
 import {
   type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
 } from "./request.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
-import {
-  recoverRuntimeOwnedDockerTaskForCurrentConsumer,
-  resolveRuntimeOwnedDockerTaskCurrentCorrelations,
-} from "../execution/recovery.ts";
-import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
-import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
-} from "../../../version-control/src/index.ts";
-import { inspectCoordinatorObjectivePlan } from "./plan.ts";
-import { createCoordinatorExecutionHostPorts } from "../task/dispatch.ts";
-import { createCoordinatorTaskRecoveryAdapter } from "../task/dispatch.ts";
-import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/result.ts";
-import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
-import { readCoordinatorSnapshot } from "../storage/state.ts";
-import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
-import { inspectCoordinatorSnapshotIntake } from "../task/queue.ts";
-import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../execution/recovery.ts";
-import { createCoordinatorWindowsPlatformAdapter } from "../execution/diagnostics.ts";
 import type {
-  PublicExecutionDependencies,
+  CoordinatorObjectiveExecutionDependencies,
   CoordinatorObjectiveIntakeDependencies,
+  PublicExecutionDependencies,
 } from "./types.ts";
 
 /**
@@ -2063,8 +2072,8 @@ export async function executeCoordinatorPublicObjective(
       "orchestrator_tasks_already_integration_pending",
     ].includes(execution.reason)
   ) {
-    const snapshot = readCoordinatorSnapshot(
-      repositoryRoot,
+    const snapshot = readCoordinatorTaskIntakeState(
+      verifyRuntimePersistenceRepository(repositoryRoot),
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
     );
     const queue =

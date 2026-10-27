@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-文書のMilestone／Roadmap／WBSはCRDD文書が正本、Task分解はCaller、実行はCoordinatorとする[設計](06_Architecture/Details/domain-model/05_Runtime_Domain.md)へ整理した。既存Objective／Milestoneは実行内の集約。自動文書同期・新報告機能なし。Domainへの純粋codec・候補生成・遷移検査の移管に続き、新Schemaのcodec・既存Reader／Writer・利用側をSourceで切り替えた。Lease九・履歴三も接続し、三十二用途の候補本文をDomainへ分離した。Scheduling・実資源観測・回復処置・物理保存はまだCoordinatorが所有する。一般CRUD、Domainへの物理Writer全面移管、既存実データ移行・保存先変更、Core単独成立は未完了。[移管計画と検証範囲](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。
+文書のMilestone／Roadmap／WBSはCRDD文書が正本、Task分解はCaller、実行はCoordinatorとする[設計](06_Architecture/Details/domain-model/05_Runtime_Domain.md)を維持する。共通Reader／Writer・短期保存Owner・五Contextと一回履歴証拠をDomainへ移し、三十二固定用途と一般定義CRUDを同じ実Writerへ接続した。技術保存の37入口は真正Root必須。Scheduling・実Lease・Host／Process観測・実回復処置はCoordinatorに残す。旧試験アダプター二Fileを撤去し、静的七参照に加え検査不足で残っていた動的八参照も試験Ownerへ移管した。動的読取りを含む公開境界検査は内部参照零で成功した。固定全体回帰と最終確認は進行中で、Windows試験の旧CLI・受領field・mock接続の追従漏れも修正して再確認している。実データ移行・保存先変更・Core全体の単独成立は今回のSource移管と区別して未完了とする。[移管計画と検証範囲](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。AI再送・Docker・過去保持物は操作していない。
 
 状態判断・一回使用証拠を各Ownerへ分離し、Storage五File化・対象の分割回帰・独立レビュー残指摘零まで完了。全体一括回帰の初回不合格は保持し、再確認の成功へ置換しない。[対応と検証限界](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)を参照。AI再送・Docker・過去保持物操作なし。
 

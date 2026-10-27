@@ -13,54 +13,85 @@
  * @scope CoordinatorとVersion Control。AIは合成作業のみ。
  * @boundary 実Filesystem／Git／既存操作Lease。Provider・Dockerなし。
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import childProcess, { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import { devNull } from "node:os";
+import path from "node:path";
+import test, { type TestContext } from "node:test";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import test, { type TestContext } from "node:test";
-import { createCoordinatorState } from "../../src/state/create.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import {
-  manageCoordinatorWorkspace,
-  resolveCoordinatorWorkspaceTaskTarget,
-} from "../../src/workspace/operations.ts";
-import {
-  reserveProjectTaskStart,
-  prepareProjectTaskHandoff,
-  observeProjectTaskStarted,
-  settleProjectTask,
-} from "../../src/task/lifecycle.ts";
-import {
-  runCoordinatorOperation,
-  createCoordinatorExecutionHostPorts,
-} from "../../src/task/dispatch.ts";
-import { executeCoordinatorObjective } from "../../src/objective/execute.ts";
+  initializeCoordinatorSnapshot,
+  saveCoordinatorManagedProject,
+  readRuntimeOwnedCoordinatorRecoverySnapshot,
+  projectCoordinatorTaskSnapshot,
+  saveCoordinatorWorkspaceRecord,
+  type CoordinatorWorkspace,
+  encodeRuntimeStateValue,
+} from "../../../domain-model/src/index.ts";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
+import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import {
   executeWorkspace as executeWorkspaceCommand,
   inspectWorkspaceCommand,
   type WorkspaceView,
 } from "../../src/index.ts";
-import {
-  readCoordinatorSnapshot,
-  writeCoordinatorSnapshotState,
-  writeCoordinatorSnapshot,
-} from "../../src/storage/state.ts";
-import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
-import type { CoordinatorWorkspaceRequest } from "../../src/workspace/operations.ts";
-import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
-import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { executeCoordinatorObjective } from "../../src/objective/execute.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
+import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import {
+  createCoordinatorExecutionHostPorts,
+  runCoordinatorOperation,
+} from "../../src/task/dispatch.ts";
+import {
+  observeProjectTaskStarted,
+  prepareProjectTaskHandoff,
+  reserveProjectTaskStart,
+  settleProjectTask,
+} from "../../src/task/lifecycle.ts";
+import type { CoordinatorWorkspaceRequest } from "../../src/workspace/operations.ts";
+import {
+  manageCoordinatorWorkspace,
+  resolveCoordinatorWorkspaceTaskTarget,
+  workspacePlanReadyForAcceptance,
+} from "../../src/workspace/operations.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
+/**
+ * 試験Rootの全区画を正式な回復Readerと純粋投影で観測する。
+ * @responsibility 私有Readerを借用せず実保存結果を照合する。
+ * @trace PRL-IT-013
+ * @precondition 現在Caseの初期化済み合成Repositoryだけを渡す。
+ * @stimulus 真正Rootから有限Readerを呼び同じ検証済み値を投影する。
+ * @observation 世代・対象Binding・全区画の期待値。
+ * @oracle 読取り拒否・Binding差を成功へ補完しない。
+ * @cleanup 既存fixtureの終了hookがRootを回収する。
+ * @boundary 試験の観測。保存・Lock・Authorityは発行しない。
+ */
+function readFixtureSnapshot(root: string, binding: string) {
+  const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
+    verifyRuntimePersistenceRepository(root),
+  );
+  if (read.status !== "completed" || !read.value)
+    return { ...read, value: null };
+  const projected = projectCoordinatorTaskSnapshot(
+    read.value,
+    read.value.snapshot.repositoryBinding,
+  );
+  assert.ok(projected);
+  assert.equal(projected.repositoryBindingId, binding);
+  return { ...read, value: projected };
+}
 
 const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -136,7 +167,10 @@ function fixture(t: TestContext, independent = false) {
   git(root, ["commit", "-m", "base"]);
   const base = git(root, ["rev-parse", "HEAD"]);
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeCoordinatorSnapshot(root, binding);
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
@@ -159,10 +193,10 @@ function fixture(t: TestContext, independent = false) {
   });
   assert.ok(created.state);
   assert.equal(
-    writeCoordinatorSnapshotState(
-      root,
+    saveCoordinatorManagedProject(
+      verifyRuntimePersistenceRepository(root),
       binding,
-      JSON.stringify(created.state),
+      created.state,
       0,
     ).status,
     "completed",
@@ -210,7 +244,7 @@ function fixture(t: TestContext, independent = false) {
    * @boundary 既存Snapshot読取りと実Filesystem。別台帳なし。
    */
   const snapshot = () => {
-    const read = readCoordinatorSnapshot(root, binding);
+    const read = readFixtureSnapshot(root, binding);
     assert.equal(read.status, "completed", JSON.stringify(read));
     if (read.status !== "completed" || !read.value)
       throw new Error("fixture_read_failed");
@@ -1482,10 +1516,10 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
       assert.equal(next.status, "completed", JSON.stringify(next));
       assert.ok(next.state);
       assert.equal(
-        writeCoordinatorSnapshotState(
-          f.root,
+        saveCoordinatorManagedProject(
+          verifyRuntimePersistenceRepository(f.root),
           f.binding,
-          JSON.stringify(next.state),
+          next.state,
           state.generation,
         ).status,
         "completed",
@@ -1655,52 +1689,6 @@ test("Branchだけ残る失敗を同対象で回収し既存Leaseで二重操作
 });
 
 /**
- * 新Snapshotは旧形式を補完せず拒否する。
- * @responsibility 新しい現在集合の欠落を暗黙初期化にしない。
- * @trace PRL-IT-013
- * @precondition 新品の実Store。
- * @stimulus 旧schemaとworkspaces欠落の保存要求。
- * @observation 拒否と元Snapshot。
- * @oracle 改訂・現在値不変。
- * @cleanup fixtureのafter。
- * @boundary 実Snapshot codec／Writer。
- */
-test("旧SnapshotとWorkspace集合欠落を補完しない", (t) => {
-  const f = fixture(t);
-  const before = f.snapshot();
-  const old = {
-    ...before,
-    schema: "crdd-coordinator/orchestrator-snapshot/v2",
-    schemaRevision: 2,
-    snapshotRevision: before.snapshotRevision + 1,
-  };
-  assert.equal(
-    writeCoordinatorSnapshot(
-      f.root,
-      f.binding,
-      JSON.stringify(old),
-      before.snapshotRevision,
-    ).status,
-    "blocked",
-  );
-  assert.deepEqual(f.snapshot(), before);
-  const { workspaces: _removed, ...missing } = before;
-  assert.equal(
-    writeCoordinatorSnapshot(
-      f.root,
-      f.binding,
-      JSON.stringify({
-        ...missing,
-        snapshotRevision: before.snapshotRevision + 1,
-      }),
-      before.snapshotRevision,
-    ).status,
-    "blocked",
-  );
-  assert.deepEqual(f.snapshot(), before);
-});
-
-/**
  * Candidateの成功相関と正当な途中意図を実Writerで区別する。
  * @responsibility 形式だけのfixed／merged昇格を防ぐ。
  * @trace CPR-IT-006
@@ -1732,54 +1720,89 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
     authorize: () => true,
   });
   assert.equal(fixed.status, "completed", JSON.stringify(fixed));
-  const before = f.snapshot();
-  const workspace = before.workspaces[0];
-  const candidate = workspace?.candidate;
-  assert.ok(workspace && candidate);
-  const target = { targetBranch: "main", expectedTargetHead: f.base };
-  for (const invalid of [
-    { ...candidate, target },
-    { ...candidate, disposition: "adopted" },
-    { ...candidate, candidateCommit: null },
-    { ...candidate, lastResult: null },
-    { ...candidate, phase: "merged", disposition: "adopted", target },
-    {
-      ...candidate,
-      lastResult: { ...candidate.lastResult, candidateCommit: f.base },
-    },
-  ]) {
-    const attempted: unknown = {
-      ...before,
-      snapshotRevision: before.snapshotRevision + 1,
-      workspaces: [{ ...workspace, candidate: invalid }],
+  const lease = f.ports.lease.acquire(
+    "project-a",
+    "queue-a",
+    "project-operation",
+  );
+  assert.equal(lease.status, "completed");
+  if (lease.status !== "completed") throw Error("fixture_lease_failed");
+  try {
+    const before = f.snapshot();
+    const workspace = before.workspaces[0];
+    const candidate = workspace?.candidate;
+    assert.ok(workspace && candidate);
+    const target = { targetBranch: "main", expectedTargetHead: f.base };
+    for (const invalid of [
+      { ...candidate, target },
+      { ...candidate, disposition: "adopted" },
+      { ...candidate, candidateCommit: null },
+      { ...candidate, lastResult: null },
+      { ...candidate, phase: "merged", disposition: "adopted", target },
+      {
+        ...candidate,
+        lastResult: { ...candidate.lastResult, candidateCommit: f.base },
+      },
+    ]) {
+      const attempted: unknown = {
+        ...workspace,
+        generation: workspace.generation + 1,
+        candidate: invalid,
+      };
+      assert.equal(
+        saveCoordinatorWorkspaceRecord(
+          verifyRuntimePersistenceRepository(f.root),
+          f.binding,
+          "project-a",
+          "queue-a",
+          lease.value.ownerGeneration,
+          workspace.workspaceId,
+          workspace.generation,
+          attempted as CoordinatorWorkspace,
+          { processId: process.pid, now: () => Date.now() },
+        ).status,
+        "blocked",
+      );
+      assert.deepEqual(f.snapshot(), before);
+    }
+    const pending = {
+      ...workspace,
+      generation: workspace.generation + 1,
+      candidate: { ...candidate, phase: "merging" as const, target },
     };
     assert.equal(
-      writeCoordinatorSnapshot(
-        f.root,
+      saveCoordinatorWorkspaceRecord(
+        verifyRuntimePersistenceRepository(f.root),
         f.binding,
-        JSON.stringify(attempted),
-        before.snapshotRevision,
+        "project-a",
+        "queue-a",
+        lease.value.ownerGeneration,
+        workspace.workspaceId,
+        workspace.generation,
+        pending,
+        { processId: process.pid, now: () => Date.now() },
       ).status,
-      "blocked",
+      "completed",
     );
-    assert.deepEqual(f.snapshot(), before);
+    assert.deepEqual(f.snapshot(), {
+      ...before,
+      snapshotRevision: before.snapshotRevision + 1,
+      queueEntries: before.queueEntries.map((item) =>
+        item.queueId === "queue-a"
+          ? {
+              ...item,
+              workspaceId: pending.workspaceId,
+              generation: item.generation + 1,
+            }
+          : item,
+      ),
+      workspaces: before.workspaces.map((item) =>
+        item.workspaceId === pending.workspaceId ? pending : item,
+      ),
+    });
+  } finally {
+    assert.equal(lease.value.release().status, "completed");
   }
-  const pending: unknown = {
-    ...before,
-    snapshotRevision: before.snapshotRevision + 1,
-    workspaces: [
-      { ...workspace, candidate: { ...candidate, phase: "merging", target } },
-    ],
-  };
-  assert.equal(
-    writeCoordinatorSnapshot(
-      f.root,
-      f.binding,
-      JSON.stringify(pending),
-      before.snapshotRevision,
-    ).status,
-    "completed",
-  );
 });
 
 /**
@@ -1901,26 +1924,20 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     queueId: `prior-${state}`,
     state,
   }));
-  assert.equal(
-    writeCoordinatorSnapshot(
-      f.root,
-      f.binding,
-      JSON.stringify({
-        ...prior,
-        snapshotRevision: prior.snapshotRevision + 1,
-        intakeBindings: [
-          ...prior.intakeBindings,
-          ...terminalQueues.map((entry) => ({
-            queueId: entry.queueId,
-            epoch: prior.intakeEpoch,
-          })),
-        ],
-        queueEntries: [...prior.queueEntries, ...terminalQueues],
-      }),
-      prior.snapshotRevision,
-    ).status,
-    "completed",
+  // 既存の終了Queue二件は今回fixtureの値準備。破棄操作自体は以降の正式入口で検証する。
+  const physical = readRuntimeOwnedCoordinatorRecoverySnapshot(
+    verifyRuntimePersistenceRepository(f.root),
   );
+  assert.equal(physical.status, "completed");
+  assert.ok(physical.value);
+  const fixtureBytes = Buffer.from(
+    `${encodeRuntimeStateValue({ ...physical.value.snapshot, revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, intakeBindings: [...prior.intakeBindings, ...terminalQueues.map((entry) => ({ queueId: entry.queueId, epoch: prior.intakeEpoch }))], queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
+  );
+  fs.writeFileSync(
+    path.join(f.root, ".crdd", "coordinator", "state.json"),
+    fixtureBytes,
+  );
+  assert.equal(readFixtureSnapshot(f.root, f.binding).status, "completed");
   assert.equal(
     f.operate({
       operation: "discard",
@@ -2252,13 +2269,15 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
     });
     const execute = new Function(
       "verifyRepositoryRoot",
+      "verifyRuntimePersistenceRepository",
       "inspectGitRepositoryLayoutCandidate",
-      "readCoordinatorSnapshot",
+      "readCoordinatorWorkspaceState",
       "acquireCoordinatorSnapshotLease",
       "writeCoordinatorWorkspaceRecord",
       `${body}\nreturn manageCoordinatorWorkspace;`,
     )(
       () => ({ status: "completed", capability: {} }),
+      () => Object.freeze({}),
       () => ({ status: "candidate", layout: { kind: "main" } }),
       () => {
         reads++;
@@ -2334,7 +2353,10 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   git(root, ["commit", "-m", "base"]);
   const base = git(root, ["rev-parse", "HEAD"]);
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeCoordinatorSnapshot(root, binding);
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
@@ -2348,7 +2370,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
       initialized.value,
     ),
     snapshot: () => {
-      const read = readCoordinatorSnapshot(root, binding);
+      const read = readFixtureSnapshot(root, binding);
       if (read.status !== "completed" || !read.value)
         throw new Error("fixture_read_failed");
       return read.value;

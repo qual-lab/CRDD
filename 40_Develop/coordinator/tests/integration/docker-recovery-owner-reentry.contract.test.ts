@@ -9,20 +9,6 @@
  * @scope 模擬境界によるProcess内再入場、退避なし／自動破棄保存前中断後の明示保持から実修復API・現在Writer／history／completionを経た同Root Taskへの接続、実Root・Home排他・Hostによる正常終了、認証create切断子の五通常例外。Native・Docker技術は代役とし実Docker処置は行わない。
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
-import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
-import {
-  coordinatorTaskResourcesAreSettled,
-  COORDINATOR_STATE_SCHEMA,
-} from "../../../domain-model/src/index.ts";
-import {
-  createDockerRestartRequestId,
-  isDockerRestartCheckpointSettled,
-} from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { executionSelection } from "../fixtures/ai-selection.ts";
 
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
@@ -30,35 +16,49 @@ import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { createServer } from "node:http";
+import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
+import { mock, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { runInNewContext, runInThisContext } from "node:vm";
+import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import * as isolation from "../../../docker-isolation/src/index.ts";
+import type {
+  CoordinatorStateSnapshot,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
+import * as stateModel from "../../../domain-model/src/index.ts";
+import * as historyValues from "../../../domain-model/src/index.ts";
+import {
+  COORDINATOR_STATE_SCHEMA,
+  coordinatorTaskResourcesAreSettled,
+  createDockerRestartRequestId,
+  encodeRuntimeStateValue,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  isDockerRestartCheckpointSettled,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   requestInChild,
   type VerificationHttpTiming,
 } from "../../../workbench-server/scripts/ai-verification-http.ts";
-import { stripTypeScriptTypes } from "node:module";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import path from "node:path";
-import { mock, test } from "node:test";
-import { runInNewContext, runInThisContext } from "node:vm";
-import { fileURLToPath } from "node:url";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
-import * as controller from "../../src/execution/observation.ts";
-import * as locks from "../../src/execution/kernel-lock.ts";
-import * as hostRuntime from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import * as homes from "../../src/execution/authority.ts";
-import * as repository from "../../src/execution/operation.ts";
-import * as stateModel from "../../../domain-model/src/index.ts";
-import * as historyValues from "../../../domain-model/src/index.ts";
-
-import * as stateRuntime from "../../src/storage/state.ts";
 import * as development from "../../src/execution/diagnostics.ts";
-import * as isolation from "../../../docker-isolation/src/index.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import * as locks from "../../src/execution/kernel-lock.ts";
+import * as controller from "../../src/execution/observation.ts";
+import * as hostRuntime from "../../src/execution/operation.ts";
+import * as repository from "../../src/execution/operation.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
+import { writeRuntimeOwnedCoordinatorRepairSnapshot } from "../../../domain-model/src/index.ts";
+import * as stateRuntime from "../../../domain-model/src/index.ts";
+import {
+  readRuntimeOwnedCoordinatorStateSnapshot,
+  saveRuntimeOwnedCoordinatorOperationStart,
+} from "../../src/execution/persistence.ts";
 
 /**
  * 実初期SnapshotでHost清掃の段階別故障反応を評価する。
@@ -2384,19 +2384,20 @@ for (const { repeatCount, retained } of [
         );
         let writerFault: ReturnType<typeof mock.module> | null = retained
           ? mock.module(
-              new URL("../../src/storage/state.ts", import.meta.url).href,
+              new URL("../../../domain-model/src/index.ts", import.meta.url)
+                .href,
               {
                 namedExports: {
                   ...stateRuntime,
                   writeRuntimeOwnedCoordinatorRepairSnapshot: (
                     ...args: Parameters<
-                      typeof stateRuntime.writeRuntimeOwnedCoordinatorRepairSnapshot
+                      typeof writeRuntimeOwnedCoordinatorRepairSnapshot
                     >
                   ) => {
                     if (args[5] === "disposal_decision") {
                       disposalDecisionRefusals++;
                       assert.equal(disposalDecisionRefusals, 1);
-                      return stateRuntime.writeRuntimeOwnedCoordinatorRepairSnapshot(
+                      return writeRuntimeOwnedCoordinatorRepairSnapshot(
                         null,
                         args[1],
                         args[2],
@@ -2405,9 +2406,7 @@ for (const { repeatCount, retained } of [
                         args[5],
                       );
                     }
-                    return stateRuntime.writeRuntimeOwnedCoordinatorRepairSnapshot(
-                      ...args,
-                    );
+                    return writeRuntimeOwnedCoordinatorRepairSnapshot(...args);
                   },
                 },
               },
@@ -2779,22 +2778,27 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], managedExecutions: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount >= 2) {
-        assert.equal(
-          stateRuntime.prepareRuntimeOwnedCoordinatorStateInitialization(
-            management,
+        // 再入場Caseの初期値を自己生成領域へ配置する。初期化Writerの保証はDomainが検証する。
+        assert.ok(
+          stateModel.decodeRuntimeDomainSnapshot(
             initial,
-          ).status,
-          "prepared",
+            binding.repositoryBinding,
+          ),
         );
-        assert.equal(
-          stateRuntime.writeRuntimeOwnedCoordinatorStateSnapshot(
-            management,
-            initial,
-          ).status,
-          "completed",
+        const stateArea = requireReadyRepositoryRuntimeDataArea(
+          ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+            root,
+            "coordinator",
+          ),
+          "reentry_state_fixture",
+        );
+        fs.writeFileSync(
+          path.join(stateArea.directory, "state.json"),
+          initial,
+          { flag: "wx" },
         );
       } else {
         assert.ok(repairCompletedState);
@@ -2860,11 +2864,10 @@ for (const { repeatCount, retained } of [
           null,
         );
       }
-      const otherStarted =
-        stateRuntime.saveRuntimeOwnedCoordinatorOperationStart(
-          otherManagement,
-          otherIdentity,
-        );
+      const otherStarted = saveRuntimeOwnedCoordinatorOperationStart(
+        otherManagement,
+        otherIdentity,
+      );
       assert.equal(otherStarted.status, "completed");
       assert.ok(otherStarted.recoveryId);
       if (repairHistory)
@@ -2878,10 +2881,7 @@ for (const { repeatCount, retained } of [
           repairCompletedState,
           binding.repositoryBinding,
         );
-        const next =
-          stateRuntime.readRuntimeOwnedCoordinatorStateSnapshot(
-            management,
-          ).value;
+        const next = readRuntimeOwnedCoordinatorStateSnapshot(management).value;
         assert.ok(prior && next);
         assert.equal(next.snapshot.revision, prior.snapshot.revision + 1);
         assert.deepEqual(next.snapshot.previous, {
@@ -2889,11 +2889,11 @@ for (const { repeatCount, retained } of [
           payloadSha256: prior.payloadSha256,
         });
       }
-      const otherBefore = stateRuntime
-        .readRuntimeOwnedCoordinatorStateSnapshot(management)
-        .value?.snapshot.operations.find(
-          (item) => item.recoveryId === otherStarted.recoveryId,
-        );
+      const otherBefore = readRuntimeOwnedCoordinatorStateSnapshot(
+        management,
+      ).value?.snapshot.operations.find(
+        (item) => item.recoveryId === otherStarted.recoveryId,
+      );
       assert.ok(otherBefore);
       assert.equal(
         await hostRuntime.activateOwnedHostOperationGenerationLock(management),
@@ -3041,13 +3041,13 @@ for (const { repeatCount, retained } of [
       );
       const actualStore: typeof stateRuntime = await import(
         new URL(
-          `../../src/storage/state.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          `../../../domain-model/src/index.ts?normal-owner-physical-${repeatCount}-${retained}`,
           import.meta.url,
         ).href
       );
       substitutions.push(
         mock.module(
-          new URL("../../src/storage/state.ts", import.meta.url).href,
+          new URL("../../../domain-model/src/index.ts", import.meta.url).href,
           { namedExports: { ...actualStore } },
         ),
       );
@@ -3072,7 +3072,7 @@ for (const { repeatCount, retained } of [
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
-        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/state.ts", import.meta.url).href}";`,
+        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/execution/persistence.ts", import.meta.url).href}";`,
       ].join("\n");
       const actualHostSubmission = await import(
         `data:text/javascript;base64,${Buffer.from(`// fixture: ${repeatCount}:${retained}\n${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
@@ -4024,107 +4024,110 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         },
       },
     ),
-    mock.module(new URL("../../src/storage/state.ts", import.meta.url).href, {
-      namedExports: {
-        ...Object.fromEntries(
-          Object.entries(stateRuntime).map(([name, value]) => [
-            name,
-            typeof value === "function"
-              ? () => {
-                  throw new Error(`unexpected_storage_call:${name}`);
-                }
-              : value,
-          ]),
-        ),
-        readRuntimeOwnedCoordinatorStateSnapshot: () => ({
-          status: "completed",
-          lockReleased: true,
-          value: { snapshot: { operations } },
-        }),
-        saveRuntimeOwnedCoordinatorOperationStart: (
-          _management: unknown,
-          identityJson: string,
-        ) => {
-          operations = [
-            {
-              kind: "docker_task",
-              recoveryId: "exact-id",
-              identityJson,
-              phase: "executing",
-              lease: "held",
-              execution: {
-                providerStart: "not_started",
-                externalSend: "not_issued",
-                sharedWrite: "not_issued",
-                ownerEffect: "active",
-                workspaceReusable: false,
-              },
-              primaryFailure: null,
-              outcome: null,
-              summarySha256: null,
-              host: {
-                currentToken: "host-token",
-                pendingTransitionJson: null,
-                cleanup: "not_requested",
-              },
-            },
-          ];
-          return {
-            status: startSaveFails ? "blocked" : "completed",
-            reason: startSaveFails ? "start_save_failed" : "saved",
-            snapshotConfirmed: !startSaveFails,
+    mock.module(
+      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...Object.fromEntries(
+            Object.entries(stateRuntime).map(([name, value]) => [
+              name,
+              typeof value === "function"
+                ? () => {
+                    throw new Error(`unexpected_storage_call:${name}`);
+                  }
+                : value,
+            ]),
+          ),
+          readRuntimeOwnedCoordinatorStateSnapshot: () => ({
+            status: "completed",
             lockReleased: true,
-            recoveryId: "exact-id",
-          };
-        },
-        checkpointRuntimeOwnedCoordinatorLifecycle: (
-          _owner: unknown,
-          _recoveryId: unknown,
-          value: unknown,
-        ) => {
-          lifecycleCalls++;
-          savedLifecycle = value;
-          return lifecycleFails
-            ? {
+            value: { snapshot: { operations } },
+          }),
+          saveRuntimeOwnedCoordinatorOperationStart: (
+            _management: unknown,
+            identityJson: string,
+          ) => {
+            operations = [
+              {
+                kind: "docker_task",
+                recoveryId: "exact-id",
+                identityJson,
+                phase: "executing",
+                lease: "held",
+                execution: {
+                  providerStart: "not_started",
+                  externalSend: "not_issued",
+                  sharedWrite: "not_issued",
+                  ownerEffect: "active",
+                  workspaceReusable: false,
+                },
+                primaryFailure: null,
+                outcome: null,
+                summarySha256: null,
+                host: {
+                  currentToken: "host-token",
+                  pendingTransitionJson: null,
+                  cleanup: "not_requested",
+                },
+              },
+            ];
+            return {
+              status: startSaveFails ? "blocked" : "completed",
+              reason: startSaveFails ? "start_save_failed" : "saved",
+              snapshotConfirmed: !startSaveFails,
+              lockReleased: true,
+              recoveryId: "exact-id",
+            };
+          },
+          checkpointRuntimeOwnedCoordinatorLifecycle: (
+            _owner: unknown,
+            _recoveryId: unknown,
+            value: unknown,
+          ) => {
+            lifecycleCalls++;
+            savedLifecycle = value;
+            return lifecycleFails
+              ? {
+                  status: "blocked",
+                  snapshotConfirmed: false,
+                  lockReleased: true,
+                }
+              : {
+                  status: "completed",
+                  snapshotConfirmed: lifecycleConfirmed,
+                  lockReleased: lifecycleLockReleased,
+                };
+          },
+          saveRuntimeOwnedCoordinatorHostCleanupPreparation: (
+            _management: unknown,
+            recoveryId: unknown,
+            before: unknown,
+          ) => {
+            assert.equal(recoveryId, "exact-id");
+            if (fixedBefore) assert.equal(before, fixedBefore);
+            fixedBefore = before;
+            if (pendingFails)
+              return {
                 status: "blocked",
                 snapshotConfirmed: false,
                 lockReleased: true,
-              }
-            : {
-                status: "completed",
-                snapshotConfirmed: lifecycleConfirmed,
-                lockReleased: lifecycleLockReleased,
               };
-        },
-        saveRuntimeOwnedCoordinatorHostCleanupPreparation: (
-          _management: unknown,
-          recoveryId: unknown,
-          before: unknown,
-        ) => {
-          assert.equal(recoveryId, "exact-id");
-          if (fixedBefore) assert.equal(before, fixedBefore);
-          fixedBefore = before;
-          if (pendingFails)
+            assert.ok(operations[0]);
+            operations[0].host = {
+              currentToken: "host-token",
+              pendingTransitionJson: null,
+              cleanup: "pending",
+            };
+            operations[0].lease = "released";
             return {
-              status: "blocked",
-              snapshotConfirmed: false,
+              status: "completed",
+              snapshotConfirmed: true,
               lockReleased: true,
             };
-          assert.ok(operations[0]);
-          operations[0].host = {
-            currentToken: "host-token",
-            pendingTransitionJson: null,
-            cleanup: "pending",
-          };
-          operations[0].lease = "released";
-          return {
-            status: "completed",
-            snapshotConfirmed: true,
-            lockReleased: true,
-          };
+          },
         },
       },
-    }),
+    ),
     mock.module(
       new URL("../../src/execution/settlement.ts", import.meta.url).href,
       {

@@ -8,48 +8,51 @@
  * @scope project、runtime、replanning、and、decision
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import type {
+  CoordinatorDecisionRecord,
+  CoordinatorDecisionRecoveryIntent,
+} from "../../../domain-model/src/index.ts";
 import {
-  enqueueProjectOperation,
-  readProjectOperationQueueState,
-  readCoordinatorState,
-  writeCoordinatorState,
-} from "../fixtures/task-persistence-fixture.ts";
-import { createCoordinatorDecisionCapabilityAdapter } from "../../src/decision/lifecycle.ts";
-import { runCoordinatorOperation as runCoordinatorOperationWithPorts } from "../../src/task/dispatch.ts";
-import { createCoordinatorExecutionHostPorts } from "../../src/task/dispatch.ts";
-import { applyCoordinatorHumanDecision } from "../../src/decision/transition.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
+  decodeRuntimeDomainSnapshot,
+  encodeRuntimeStateValue,
+  hashRuntimeProjectDefinition,
+  initializeCoordinatorSnapshot,
+} from "../../../domain-model/src/index.ts";
 import {
+  createCoordinatorDecisionCapabilityAdapter,
   invalidateCoordinatorHumanDecision,
   issueCoordinatorHumanDecision,
   recoverCoordinatorHumanDecision,
   replaceCoordinatorHumanDecision,
   submitCoordinatorHumanDecision,
 } from "../../src/decision/lifecycle.ts";
+import { applyCoordinatorHumanDecision } from "../../src/decision/transition.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
-import type {
-  CoordinatorDecisionRecord,
-  CoordinatorDecisionRecoveryIntent,
-} from "../../../domain-model/src/index.ts";
 import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,
 } from "../../src/objective/types.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
-  decodeRuntimeDomainSnapshot,
-  encodeRuntimeStateValue,
-  hashRuntimeProjectDefinition,
-} from "../../../domain-model/src/index.ts";
+  createCoordinatorExecutionHostPorts,
+  runCoordinatorOperation as runCoordinatorOperationWithPorts,
+} from "../../src/task/dispatch.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import {
+  enqueueProjectOperation,
+  readCoordinatorState,
+  readProjectOperationQueueState,
+  writeCoordinatorState,
+} from "../fixtures/task-persistence-fixture.ts";
 
 const revision = "a".repeat(40);
 
@@ -167,7 +170,10 @@ function fixture(t: test.TestContext) {
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   assert.equal(
-    initializeCoordinatorSnapshot(root, "binding-a").status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+    ).status,
     "completed",
   );
   const created = createCoordinatorState({

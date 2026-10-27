@@ -7,23 +7,34 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { ProjectResultAcceptance } from "../task/types.ts";
-import type { COORDINATOR_STATE_CONTRACT } from "./validation.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import type { TaskExecutionSelections } from "../ai-selection/types.ts";
-import type { ProjectMilestoneRecord } from "../objective/types.ts";
-import type { ProjectObjectiveRecord } from "../objective/types.ts";
-import type { ProjectTaskRecord } from "../task/types.ts";
-import type { ProjectTaskDefinition } from "../task/types.ts";
-import type { COORDINATOR_STATE_SCHEMA } from "./validation.ts";
 import type { CoordinatorStateOperation } from "../attempt/types.ts";
-import type { ProjectTaskRecoveryObligation } from "../task/types.ts";
-import type { CoordinatorWorkspace } from "../workspace/types.ts";
-import type { ProjectQueueEntry } from "../task/types.ts";
-import type { CoordinatorResultRecord } from "../workspace/types.ts";
-import type { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "./validation.ts";
-import type { CoordinatorAcceptanceDecisionEnvelope } from "../decision/types.ts";
-import type { CoordinatorDecisionRecoveryIntent } from "../decision/types.ts";
-import type { COORDINATOR_DURABLE_FOUNDATION_CONTRACT } from "./validation.ts";
+import type {
+  CoordinatorAcceptanceDecisionEnvelope,
+  CoordinatorDecisionRecoveryIntent,
+} from "../decision/types.ts";
+import type {
+  ProjectMilestoneRecord,
+  ProjectObjectiveRecord,
+} from "../objective/types.ts";
+import type {
+  ProjectQueueEntry,
+  ProjectResultAcceptance,
+  ProjectTaskDefinition,
+  ProjectTaskRecord,
+  ProjectTaskRecoveryObligation,
+} from "../task/types.ts";
+import type {
+  CoordinatorResultRecord,
+  CoordinatorWorkspace,
+} from "../workspace/types.ts";
+import type {
+  COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  COORDINATOR_STATE_CONTRACT,
+  COORDINATOR_STATE_SCHEMA,
+} from "./validation.ts";
 
 /**
  * Taskと技術操作を同じ改訂で保存する閉集合を定義する。
@@ -426,3 +437,101 @@ export type RuntimeDomainSnapshot = CoordinatorUnifiedSnapshot;
  */
 export type RuntimeStoredManagedProject = Omit<CoordinatorState, "tasks"> &
   Readonly<{ tasks: readonly CoordinatorStoredTask[] }>;
+/**
+ * 共通状態の物理改訂と元本文Hashを表す。
+ * @responsibility 業務世代・受付世代とは別の比較交換値を固定する。
+ * @trace ARCH-000008
+ * @shape revision、payloadSha256。
+ * @invariant 二値を同じ確定本文から導く。
+ * @boundary 読取り結果と明示保存要求。
+ * @security 改訂値は認可ではない。
+ * @compatibility 新Schemaの物理改訂だけ。
+ */
+export type StateVersion = Readonly<{
+  revision: number;
+  payloadSha256: string;
+}>;
+/**
+ * 一般定義の認証済みHost接続を表す。
+ * @responsibility 元Rootと認証主体、既存内容権限の同期再照合を結合する。
+ * @trace ARCH-000008
+ * @shape root、principalId、固定用途を受けるrevalidate。
+ * @invariant HTTP入力や保存JSONから復元しない。
+ * @boundary 信頼したHost構成とDomainの一般CRUD。
+ * @security Root確認を操作認可の代用品にしない。
+ * @compatibility 新Role・Grant・Authority発行を追加しない。
+ */
+export type RuntimeAccess = Readonly<{
+  root: VerifiedRepositoryRoot;
+  principalId: string;
+  revalidate: (
+    operation:
+      | "definition.read"
+      | "definition.write"
+      | "decision.read"
+      | "decision.record"
+      | "queue.read"
+      | "queue.enqueue"
+      | "runtime.read",
+    target: Readonly<{ projectId: string; milestoneId: string }>,
+  ) => boolean;
+}>;
+/**
+ * 一般CRUDの固定された保存結果を返す。
+ * @responsibility 出版と解放を区別し不明時の元回復参照を保持する。
+ * @trace ARCH-000008
+ * @shape saved、conflict、blocked又はunknown。
+ * @invariant unknownを再試行許可や成功へ変換しない。
+ * @boundary Domainの保存APIと利用側。
+ * @security 生Error・Path・秘密値を返さない。
+ * @compatibility 保存確認は通常保存・読戻し・排他解放まで。
+ */
+export type RuntimeWriteResult<T> =
+  | Readonly<{ status: "saved"; value: T; version: StateVersion }>
+  | Readonly<{
+      status: "conflict";
+      value: null;
+      reason: "state_changed" | "definition_changed";
+    }>
+  | Readonly<{
+      status: "blocked";
+      value: null;
+      reason:
+        | "input_invalid"
+        | "not_authorized"
+        | "target_referenced"
+        | "target_missing"
+        | "target_exists"
+        | "state_unavailable"
+        | "lock_unavailable";
+    }>
+  | Readonly<{
+      status: "unknown";
+      value: null;
+      reason: "publication_unconfirmed" | "lock_release_unconfirmed";
+      publication: "not_published" | "unconfirmed" | "confirmed";
+      recoveryReferences: readonly string[];
+    }>;
+/**
+ * 一般Queryの値・明示不存在・拒否・観測不能を返す。
+ * @responsibility 対象の不存在と読取り不能を混同しない。
+ * @trace ARCH-000008
+ * @shape available、absent、blocked又はunknown。
+ * @invariant 拒否時は対象存在も値も返さない。
+ * @boundary Domainの一般Query。
+ * @security 現在の認可を返却前に再確認する。
+ * @compatibility 新しいCache・ページングは追加しない。
+ */
+export type RuntimeReadResult<T> =
+  | Readonly<{ status: "available"; value: T; version: StateVersion }>
+  | Readonly<{ status: "absent"; value: null; version: StateVersion | null }>
+  | Readonly<{
+      status: "blocked" | "unknown";
+      value: null;
+      reason:
+        | "input_invalid"
+        | "not_authorized"
+        | "state_unavailable"
+        | "lock_unavailable"
+        | "lock_release_unconfirmed";
+    }>;

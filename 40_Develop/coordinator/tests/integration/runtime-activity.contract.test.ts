@@ -7,7 +7,7 @@
  * @scope Coordinator活動Owner、実Filesystem、Git、状態保存、EI
  * @boundary PPR-IT-012=Adjacent 1 Block: 実Store Reader→活動投影。
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -15,25 +15,28 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  queryActivity as readAuthorizedRuntimeActivity,
-  parseRuntimeActivityObservation,
-} from "../../src/index.ts";
-import { createCoordinatorState } from "../../src/state/create.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { writeCoordinatorSnapshotState } from "../../src/storage/state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import {
   ensureRepositoryRuntimeDataArea,
+  initializeCoordinatorSnapshot,
   requireReadyRepositoryRuntimeDataArea,
+  saveCoordinatorManagedProject,
 } from "../../../domain-model/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
-  writeExecutionIntelligenceEvent,
-  verifyExecutionIntelligenceRepositoryRoot,
   usageNotObserved,
+  verifyExecutionIntelligenceRepositoryRoot,
+  writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import type { ActivityRepository } from "../../src/index.ts";
+import {
+  parseRuntimeActivityObservation,
+  queryActivity as readAuthorizedRuntimeActivity,
+} from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 const projectId = "project-a";
 
 /**
@@ -119,7 +122,10 @@ function state(root: string, revision: string) {
   // 旧Composition式で保存し、新Reader側だけ新helperを使う片方向互換。
   const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
   assert.equal(
-    initializeCoordinatorSnapshot(root, binding).status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+    ).status,
     "completed",
   );
   const created = createCoordinatorState({
@@ -143,10 +149,10 @@ function state(root: string, revision: string) {
   });
   assert.ok(created.state);
   assert.equal(
-    writeCoordinatorSnapshotState(
-      root,
+    saveCoordinatorManagedProject(
+      verifyRuntimePersistenceRepository(root),
       binding,
-      JSON.stringify(created.state),
+      created.state,
       0,
     ).status,
     "completed",

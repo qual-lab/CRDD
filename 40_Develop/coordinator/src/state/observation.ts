@@ -5,38 +5,39 @@
  * @trace ARCH-000004
  */
 
-import {
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
-  snapshotRuntimeStateArray as snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
-import type {
-  RuntimeActivityRequest,
-  ActivityRepository,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  ActivitySource,
-} from "./types.ts";
 import { types as utilTypes } from "node:util";
-import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 import {
+  readCoordinatorExecutionState,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import {
+  readExecutionIntelligence,
   type TaskAttemptExecutionIntelligenceEvent,
   verifyExecutionIntelligenceRepositoryRoot,
-  readExecutionIntelligence,
 } from "../../../execution-intelligence/src/index.ts";
 import {
-  resolveVerifiedRepositoryRoot,
-  observeRepositoryRevision,
   gitRepositoryRevisionAdapter,
+  observeRepositoryRevision,
+  resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import {
-  deriveActivitySourceCorrelation,
-  decodeActivityCursor,
   compareActivityEventPositions,
-  parseRuntimeActivityObservation,
+  decodeActivityCursor,
+  deriveActivitySourceCorrelation,
   encodeActivityCursor,
+  parseRuntimeActivityObservation,
 } from "./projection.ts";
-import { readCoordinatorSnapshot } from "../storage/state.ts";
 import { queryCoordinatorState } from "./query.ts";
+import type {
+  ActivityRepository,
+  ActivitySource,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+} from "./types.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 
 /**
  * 今回要求をI/O前に固定する。
@@ -224,8 +225,8 @@ export async function readAuthorizedRuntimeActivity(
     }
     if (revision === null) stateUnknown = true;
     else {
-      const snapshot = readCoordinatorSnapshot(
-        root,
+      const snapshot = readCoordinatorExecutionState(
+        verifyRuntimePersistenceRepository(root),
         deriveCoordinatorRepositoryBindingId(root),
       );
       if (snapshot.status !== "completed") stateUnknown = true;

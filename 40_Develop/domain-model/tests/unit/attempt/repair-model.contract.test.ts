@@ -1,5 +1,5 @@
 /**
- * Taskと実行環境修復を一つの現在状態へ分離して保存する値契約。
+ * Domainが所有するTaskと実行環境修復の値契約を反証する。
  * @packageDocumentation
  * @responsibility 修復へ偽Task情報を持たせず、対象外操作の保全を反証する。
  * @trace ERB-UT-036
@@ -11,20 +11,21 @@ import {
   COORDINATOR_STATE_SCHEMA,
   decodeRuntimeDomainSnapshot,
   type CoordinatorStateRepairOperation,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/index.ts";
 import {
   encodeRuntimeStateValue as encode,
   RUNTIME_STATE_MAXIMUM_BYTES,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
-import { executionSelection } from "../../fixtures/ai-selection.ts";
 
-import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
+type DockerRuntimeRepairDisposalCheckpoint = NonNullable<
+  CoordinatorStateRepairOperation["disposal"]
+>["checkpoint"];
 import {
   decodeRuntimeDomainSnapshot as decode,
   prepareCoordinatorStateRepairSnapshot as start,
@@ -46,17 +47,17 @@ import {
   prepareCoordinatorRepairHistoryPublication as repairPublication,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/index.ts";
 import {
   prepareCoordinatorStateHistoryLine,
   validateCoordinatorUnifiedTransition,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/index.ts";
 
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
-} from "../../../../domain-model/src/index.ts";
-import { coordinatorRepairCanComplete } from "../../../../domain-model/src/index.ts";
+} from "../../../src/index.ts";
+import { coordinatorRepairCanComplete } from "../../../src/index.ts";
 
 const binding = "a".repeat(64);
 const identity = {
@@ -1315,7 +1316,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   // 履歴受理が将来拡張されても、終了判定自体が成功条件を保持する。
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../../domain-model/src/state/crud.ts", import.meta.url),
+      new URL("../../../src/state/crud.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -2491,7 +2492,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
   };
   reject(publication);
   const source = fs.readFileSync(
-    new URL("../../../../domain-model/src/state/crud.ts", import.meta.url),
+    new URL("../../../src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(
@@ -3254,11 +3255,21 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     consumer: "orchestrator",
     operationId: "OP-234567",
     grantRef: "PHMGRANT-FIXTURE",
-    executionSelection: executionSelection("executor", {
+    // 保存codec用の閉じた合成値。Catalog解決やAI実行の成立を表さない。
+    executionSelection: {
       provider: "claude",
-      model: "opus",
-      effort: "low",
-    }),
+      modelIdentifier: "opus",
+      identifierKind: "alias",
+      reasoningEffort: "low",
+      purpose: "task",
+      catalogIdentity:
+        "5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c",
+      configIdentity:
+        "e70d12e5f16639d9774b9f1f2803deaa37528b28bdf3e938d8badd4f4c5cfb1f",
+      role: "executor",
+      workType: null,
+      source: "explicit",
+    },
     taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
@@ -3459,7 +3470,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const repairPending = preserve(repairHistory);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../../domain-model/src/state/crud.ts", import.meta.url),
+      new URL("../../../src/state/crud.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -3481,10 +3492,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     ].includes(name)
       ? stripTypeScriptTypes(
           fs.readFileSync(
-            new URL(
-              "../../../../domain-model/src/attempt/validation.ts",
-              import.meta.url,
-            ),
+            new URL("../../../src/attempt/validation.ts", import.meta.url),
             "utf8",
           ),
         )

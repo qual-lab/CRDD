@@ -10,40 +10,42 @@
  * @scope project、runtime、public、state
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  initializeCoordinatorSnapshot,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
+  saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
-import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
-import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
 import {
+  COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
   createCoordinatorExecutionIntelligenceDiagnosticReporter,
   createCoordinatorRecoveryDiagnosticReporter,
-  COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/execution/diagnostics.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { saveRepositoryAiSelection } from "../../../domain-model/src/index.ts";
+import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
 import {
-  selectionConfig,
   executionSelection,
+  selectionConfig,
 } from "../fixtures/ai-selection.ts";
 
 /**
@@ -147,7 +149,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     "saved",
   );
   const initialized = initializeCoordinatorSnapshot(
-    root,
+    verifyRuntimePersistenceRepository(root),
     `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
   );
   assert.equal(initialized.status, "completed");

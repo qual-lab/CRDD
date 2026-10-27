@@ -398,13 +398,13 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
       );
     }
   }
-  const childConsumer = fs.readFileSync(
-    path.join(
-      developRoot,
-      "coordinator/tests/integration/coordinator-state-runtime.contract.test.ts",
-    ),
-    "utf8",
-  );
+  const childConsumer = [
+    "coordinator/tests/integration/coordinator-state-runtime.contract.test.ts",
+    "domain-model/tests/integration/runtime-snapshot-io.contract.test.ts",
+    "domain-model/tests/integration/runtime-settlement.contract.test.ts",
+  ]
+    .map((file) => fs.readFileSync(path.join(developRoot, file), "utf8"))
+    .join("\n");
   assert.doesNotMatch(
     childConsumer,
     /version-control\/src\/repository\/location\.ts/u,
@@ -416,7 +416,7 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
       ),
     ].length,
     3,
-    "二段ACK撤去後の三つのfresh child Processは、pending再入場を含め公開Rootだけを使う",
+    "保存Owner分離後も三つのfresh child Processは、pending再入場を含め公開Rootだけを使う",
   );
   const mockConsumer = fs.readFileSync(
     path.join(
@@ -492,6 +492,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/src/execution/operation.ts",
       "40_Develop/coordinator/src/state/observation.ts",
       "40_Develop/coordinator/src/task/requests.ts",
+      "40_Develop/domain-model/src/storage/runtime-repository.ts",
+      "40_Develop/domain-model/src/storage/runtime-store.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
     ],
   );
@@ -666,18 +668,20 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/decision/acceptance.ts",
       "40_Develop/coordinator/src/decision/lifecycle.ts",
       "40_Develop/coordinator/src/execution/diagnostics.ts",
+      "40_Develop/coordinator/src/execution/lease.ts",
       "40_Develop/coordinator/src/execution/operation.ts",
+      "40_Develop/coordinator/src/execution/persistence.ts",
       "40_Develop/coordinator/src/execution/recovery.ts",
       "40_Develop/coordinator/src/objective/execute.ts",
       "40_Develop/coordinator/src/state/initialize.ts",
       "40_Develop/coordinator/src/state/query.ts",
-      "40_Develop/coordinator/src/storage/state.ts",
-      "40_Develop/coordinator/src/storage/history.ts",
-      "40_Develop/coordinator/src/storage/lock.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
+      "40_Develop/domain-model/src/storage/runtime-history.ts",
+      "40_Develop/domain-model/src/storage/runtime-lock.ts",
+      "40_Develop/domain-model/src/storage/runtime-store.ts",
       "40_Develop/execution-intelligence/src/record/recorder.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
       "40_Develop/visual-preview/src/preview/server.ts",
@@ -936,16 +940,15 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/decision/lifecycle.ts",
       "40_Develop/coordinator/src/execution/advice.ts",
       "40_Develop/coordinator/src/execution/diagnostics.ts",
+      "40_Develop/coordinator/src/execution/lease.ts",
       "40_Develop/coordinator/src/execution/operation.ts",
+      "40_Develop/coordinator/src/execution/persistence.ts",
       "40_Develop/coordinator/src/execution/recovery.ts",
       "40_Develop/coordinator/src/objective/execute.ts",
       "40_Develop/coordinator/src/state/observation.ts",
       "40_Develop/coordinator/src/state/initialize.ts",
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/state/types.ts",
-      "40_Develop/coordinator/src/storage/state.ts",
-      "40_Develop/coordinator/src/storage/history.ts",
-      "40_Develop/coordinator/src/storage/lock.ts",
       "40_Develop/coordinator/src/task/requests.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
@@ -956,8 +959,13 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/domain-model/src/repository/observe-symbols.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/repository/types.ts",
+      "40_Develop/domain-model/src/state/types.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
       "40_Develop/domain-model/src/storage/network-policy.ts",
+      "40_Develop/domain-model/src/storage/runtime-history.ts",
+      "40_Develop/domain-model/src/storage/runtime-lock.ts",
+      "40_Develop/domain-model/src/storage/runtime-repository.ts",
+      "40_Develop/domain-model/src/storage/runtime-store.ts",
       "40_Develop/domain-model/src/storage/semantic-store.ts",
       "40_Develop/domain-model/src/storage/temporary-operation.ts",
       "40_Develop/execution-intelligence/src/record/recorder.ts",

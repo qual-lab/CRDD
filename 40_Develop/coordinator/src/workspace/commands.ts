@@ -6,40 +6,40 @@
  * @boundary Workbench／MCPと既存Workspace Owner。
  * @security Root・Binding・内部一時物を公開しない。
  */
-import {
-  prepareCoordinatorIntegrationRecordCreation,
-  prepareCoordinatorWorkspaceRecordUpdate,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  type CoordinatorWorkspace,
-} from "../../../domain-model/src/index.ts";
-import type { StoreResult } from "../state/result.ts";
-import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
-
-import type { CoordinatorIntegrationRecordPort } from "./record.ts";
-import type { IntegrationRecordBinding } from "./record.ts";
 
 import path from "node:path";
 import { types } from "node:util";
 import {
-  inspectWorkspaceFile,
-  inspectWorkspaceCandidatePatch,
-  verifyRepositoryRoot,
-  resolveVerifiedRepositoryRoot,
-  observeLocalChangeSet,
-  gitLocalChangeSetAdapter,
+  type CoordinatorWorkspace,
+  containsRecognizedSecretText,
+  readCoordinatorWorkspaceState,
+  saveCoordinatorIntegrationRecord,
+  saveCoordinatorWorkspaceRecord,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import {
   changedPaths,
+  gitLocalChangeSetAdapter,
+  inspectWorkspaceCandidatePatch,
+  inspectWorkspaceFile,
+  observeLocalChangeSet,
   observeRepositoryWorktree,
-  validWorkspaceDisplayName,
+  resolveVerifiedRepositoryRoot,
   validWorkspaceCandidateRequest,
+  validWorkspaceDisplayName,
+  verifyRepositoryRoot,
   type WorkspaceCandidateSelection,
 } from "../../../version-control/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import type { StoreResult } from "../state/result.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
-import { readCoordinatorSnapshot } from "../storage/state.ts";
 import { manageCoordinatorWorkspace } from "./operations.ts";
-
-import { containsRecognizedSecretText } from "../../../domain-model/src/index.ts";
+import type {
+  CoordinatorIntegrationRecordPort,
+  IntegrationRecordBinding,
+} from "./record.ts";
 
 /**
  * 公開入力の閉じた操作集合。
@@ -450,7 +450,10 @@ export function executeWorkspaceCommand(
   )
     throw new Error("workspace_access_unavailable");
   const binding = deriveCoordinatorRepositoryBindingId(ownerRoot);
-  const snapshot = readCoordinatorSnapshot(ownerRoot, binding);
+  const snapshot = readCoordinatorWorkspaceState(
+    verifyRuntimePersistenceRepository(ownerRoot),
+    binding,
+  );
   if (snapshot.status !== "completed" || !snapshot.value)
     throw new Error("workspace_state_unavailable");
   const current = snapshot.value;
@@ -658,6 +661,9 @@ export function executeWorkspaceCommand(
 export function createCoordinatorSnapshotIntegrationRecordPort(
   binding: IntegrationRecordBinding,
 ): CoordinatorIntegrationRecordPort {
+  const storageRepository = verifyRuntimePersistenceRepository(
+    binding.workingDirectory,
+  );
   return Object.freeze({
     /**
      * 同Identity・同内容に限定して結果を保存する。
@@ -675,11 +681,11 @@ export function createCoordinatorSnapshotIntegrationRecordPort(
      * @concurrency 照合と更新を同じOwnerで行う。
      */
     write(record) {
-      return withCoordinatorSnapshotOperation(
-        binding.workingDirectory,
+      return saveCoordinatorIntegrationRecord(
+        storageRepository,
         binding.repositoryBindingId,
-        (current) =>
-          prepareCoordinatorIntegrationRecordCreation(current, binding, record),
+        binding,
+        record,
       );
     },
   });
@@ -710,19 +716,15 @@ export function writeCoordinatorWorkspaceRecord(
   expectedGeneration: number,
   nextRecord: CoordinatorWorkspace | null,
 ): StoreResult<CoordinatorWorkspace | null> {
-  return withCoordinatorSnapshotOperation(
-    workingDirectory,
+  return saveCoordinatorWorkspaceRecord(
+    verifyRuntimePersistenceRepository(workingDirectory),
     binding,
-    (current) =>
-      prepareCoordinatorWorkspaceRecordUpdate(
-        current,
-        projectId,
-        queueId,
-        ownerGeneration,
-        workspaceId,
-        expectedGeneration,
-        nextRecord,
-        { processId: process.pid, now: () => Date.now() },
-      ),
+    projectId,
+    queueId,
+    ownerGeneration,
+    workspaceId,
+    expectedGeneration,
+    nextRecord,
+    { processId: process.pid, now: () => Date.now() },
   );
 }

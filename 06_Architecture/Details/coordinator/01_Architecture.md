@@ -2201,7 +2201,7 @@ Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease 
 | `storage/lock.ts` | 既存の短期保存Lock、保存Ownerの発行・借用・生存・解放 | Task scheduling、Provider Home／Host／Docker実行排他は持たない。State／History／保護Decisionの既存取得方式と順序を保持 |
 | `storage/state.ts` | 統合SnapshotのSchema・Codec、bounded読取り、元版Hash・Revision・CAS・原子保存・pending再入場・構造不変条件 | Task進行・実行許可・実資源回復・採用判断を決めない。Task／Execution／Decision／WorkspaceとState照会が利用 |
 | `storage/history.ts` | 履歴Codec、pending搬送、確定・読戻し・保持・再入場 | Provider成功・資源不存在を推測しない。各終了OwnerとState退役処理が利用 |
-| `storage/decision.ts` | 既存保護Rootの判断記録、Generation、Hash Chain、読戻し、専用排他 | 判断内容やAuthorityを生成しない。Decisionとその公開利用側が利用 |
+| `decision/store.ts` | 既存保護Rootの判断記録、Generation、Hash Chain、読戻し、専用排他 | 判断内容やAuthorityを生成しない。Decisionとその公開利用側が利用 |
 | Domain `ai-selection/validation.ts`・`storage/ai-selection.ts` | Repository設定の値検査、Expected Identity、既存Filesystem Lock、CASと読戻し | Coordinatorは同梱Catalog値を渡して利用する。設定の物理WriterはDomain。Catalog・進行中の再選定は持たない |
 
 Storageは上記五Fileに固定する。既存の`model.ts`、`current-state.ts`、`settlement-store.ts`をそのまま`state.ts`へ連結しない。`result-record.ts`の意味型とPortは結果受領・Workspaceの責務へ戻し、永続行のCodecだけを保存側へ置く。`state/model.ts`も人間判断・Task値・統合投影・検査へ分解し、`selection/model.ts`は`types.ts`と`validation.ts`へ分ける。型専用Fileに実行時検査を残さず、転送だけの`crud.ts`や互換barrelは作らない。

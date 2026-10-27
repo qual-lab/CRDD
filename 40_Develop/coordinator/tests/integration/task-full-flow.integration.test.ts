@@ -9,16 +9,19 @@
  * @scope project、runtime、full、flow、bounded、integration、execution-intelligence
  * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
-import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import path from "node:path";
 import test from "node:test";
-
+import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  initializeCoordinatorSnapshot,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import {
   BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
   evaluateBoundedIntegratedResult,
@@ -27,28 +30,28 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-import { readCurrentCoordinatorState as readCoordinatorState } from "../../src/state/query.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
-import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
-import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
+import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import {
-  createCoordinatorAcceptanceAuthorityAdapter,
-  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-} from "../../src/decision/request.ts";
-import {
+  createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
+  createCoordinatorDecisionCapabilityAdapter,
   issueCoordinatorHumanDecision,
   submitCoordinatorHumanDecision,
 } from "../../src/decision/lifecycle.ts";
-import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
+import {
+  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+  createCoordinatorAcceptanceAuthorityAdapter,
+} from "../../src/decision/request.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { runCoordinatorObjective } from "../../src/objective/execute.ts";
+import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
 import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,
 } from "../../src/objective/types.ts";
-import { runCoordinatorObjective } from "../../src/objective/execute.ts";
-import { createCoordinatorDecisionCapabilityAdapter } from "../../src/decision/lifecycle.ts";
+import { readCurrentCoordinatorState as readCoordinatorState } from "../../src/state/query.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
 
@@ -173,7 +176,10 @@ function fixture(t: test.TestContext) {
   );
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const initialized = initializeCoordinatorSnapshot(root, "binding-full");
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(root),
+    "binding-full",
+  );
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");
@@ -373,7 +379,7 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const initialized = initializeCoordinatorSnapshot(
-    root,
+    verifyRuntimePersistenceRepository(root),
     "binding-bounded-evaluation",
   );
   assert.equal(initialized.status, "completed");

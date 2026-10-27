@@ -13,8 +13,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
-import { runInThisContext } from "node:vm";
 import { fileURLToPath } from "node:url";
+import { runInThisContext } from "node:vm";
 
 /**
  * 固定scenarioで親統括を一回評価し、境界到達と処置を返す。
@@ -756,7 +756,7 @@ export async function simulateAuthCreateClosure(
     moduleUrl("../../../version-control/src/index.ts"),
     moduleUrl("../../../domain-model/src/index.ts"),
     isolationUrl,
-    moduleUrl("../../src/storage/state.ts"),
+    moduleUrl("../../../domain-model/src/index.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("../../src/execution/recovery.ts?auth-create-parent"),
   ];
@@ -1119,8 +1119,9 @@ export async function simulateAuthCreateClosure(
               )
                 return { status: "blocked" };
             }
-            const writer = mocks.get(moduleUrl("../../src/storage/state.ts"))
-              ?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
+            const writer = mocks.get(
+              moduleUrl("../../../domain-model/src/index.ts"),
+            )?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
               ...args: unknown[]
             ) => {
               status: string;
@@ -1268,7 +1269,7 @@ export async function simulateAuthCreateClosure(
         [
           isolationUrl,
           lifecycleUrl,
-          moduleUrl("../../src/storage/state.ts"),
+          moduleUrl("../../../domain-model/src/index.ts"),
         ].includes(url),
       );
       assert.equal(mocks.has(url), false);

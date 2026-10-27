@@ -398,6 +398,16 @@ L1/L2とFake ExecutorによるL4は実AI不要。L3/L5、Docker実境界、実�
 
 ## 9. 選ばなかった案と実装前の未確定事項
 
+### 2026-10-28の接続結果と残る検証
+
+`9f3599e20`以後の作業候補で、物理Reader／Writer・短期Owner・history I/Oと一回出版証拠をDomainへ移した。新配置と公開境界の正本は[正式詳細設計](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#70-現在の物理接続--2026-10-28)。Coordinatorの旧`storage/state.ts`・`history.ts`・`lock.ts`は撤去し、三十二用途は固定操作から同じDomain Writerへ接続する。任意Snapshot callbackのPackage間搬送はない。
+
+一般初期化・Plan保存、Objective／Taskの個別CRUDと用途別Queryも同じ物理Writerへ接続した。37のHost限定技術保存入口はVCの真正Root参照を必須にし、生Path・偽参照を拒否する。実行・終端のContextは元Owner identityを維持し、新しいMap・Lock・Registryを加えない。一般CRUDのために管理実行・AI選定・完了記録を生成しない。
+
+保護判断Storeを構造Path＋任意callbackのfactoryとしてDomain Rootへ出す案は独立レビューで棄却した。privateの一回Root資格・Native観測・Kernelと不可分の現Host入口を維持する。これは共通Snapshot Writerの残置ではない。共通JSON確定I/Oは従来どおりDomainが所有する。
+
+実データの保存先変更・移行・過去保持物の操作は行っていない。Source側も既存`.crdd/coordinator/`を利用し、新配置候補は有効化しない。Core全体の単独起動、全体回帰、試験所有権の全面追従が成立するまでは本再編を全体完了としない。
+
 | 案 | 採らない理由 |
 |---|---|
 | DomainからCoordinatorを動的importするだけ | 根本の意味Owner・保存・Core CRUDは独立しない |

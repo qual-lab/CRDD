@@ -4,7 +4,7 @@
 
 詳細設計領域: domain-model（Runtime Domain）
 
-状態: Candidate（共有型・値検査のSource移管を開始。保存・公開受付の全面接続と移行は未完了）
+状態: Candidate（共通Reader／Writer・短期排他と一般定義CRUDをSource接続済み。試験所有権の移管・全体検証・実データ移行は未完了）
 
 維持責任者: Qual-Lab
 
@@ -358,6 +358,28 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinatorの静的loadを必須にしない。単なるoptional引数やdynamic importだけで独立成立としない。実行導入時だけCoordinator／Executorを構成し、未導入と実行故障を区別する。既存助言・編集を無断で削除しない。
 
 ## 7. 実装構造・観測
+
+### 7.0 現在の物理接続 — 2026-10-28
+
+以下を現在の配置とする。後続の段落は段階移管時の記録であり、各時点の「未移管」を現在の配置へ読み替えない。
+
+| 実体 | Ownerと入力境界 |
+|---|---|
+| 単一SnapshotのReader／Writer・CAS・pending再入場・出版読戻し | Domain `storage/runtime-store.ts`。技術保存の固定入口はVersion Controlの真正な`VerifiedRepositoryRoot`を必須とし、生Path・構造偽造参照・互換overloadを受けない |
+| 短期保存Owner・実体Map・保存専用Kernel | Domain `storage/runtime-lock.ts`／`runtime-kernel-lock.ts`。同じ参照の現在実体をI/O前後まで再照合し、既存Pipe名・Hash・解放結果を維持する。RootへOwner・handleを公開しない |
+| 履歴の実I/O・保持・一回出版 | Domain `storage/runtime-history.ts`。元操作をkeyにする一回証拠は一実体だけ。通常終端の相関・一回消費は`attempt/settlement.ts`に置く |
+| 一般定義CRUD | `objective/crud.ts`の純粋候補を、同じ`runtime-store.ts`のReader／Writerへ接続。初期化・Plan保存、Objective／Taskの追加・更新・削除と用途別照会はCoordinatorなしで利用する |
+| 元Owner・Home・Host・Processの現在観測 | Coordinator。`execution/persistence.ts`／`settlement.ts`は既存Ownerから有限の同期観測を搬送し、保存Mapや第二Writerを持たない |
+| 実Leaseと資源不存在の観測 | Coordinator `execution/lease.ts`。Domain候補の観測位置・短絡順を維持し、Rootへ生Path観測helperを公開しない |
+| 保護されたHost判断Store | Coordinator `decision/store.ts`を維持。privateの一回Root資格消費・Native観測・Kernelを切り離して構造Path＋callbackのStore factoryをDomain Rootへ公開してはならない。JSONの物理確定primitiveは既存Domain共通保存を利用する |
+
+一般CRUDのHost入力`RuntimeAccess`は現在認可を持ち、真正Rootだけで権限を代用しない。技術保存の真正Rootも実行Authorityではなく、既存Host限定の利用側から渡す。長命Portは構築時の同じ参照を保持し、各保存入口がfreshに再検証する。値と同じ構造のObject、別のRootやcaller指定Pathへの付替えを認めない。
+
+一般定義変更は同じ版・元Hash・対象定義Hashを比較し、参照中・管理実行中の同じProjectは拒否する。別Projectの管理実行、Queue、Operation、unknown、exact回復参照、受領、履歴は変更しない。一般CRUDのための固定選定・実行Owner・完了Evidenceを捏造しない。公開結果は`RuntimeWriteResult<T>`／`RuntimeReadResult<T>`で正常・競合・拒否・不明を分離する。
+
+初期化以外の固定保存入口を経由して初期化を補完しない。初期化は既存Host構築点又は明示的な内容認可付きCore入口だけで行う。生Snapshot Writer、任意取引callback、短期Owner、Kernel取得、自由Pathの試験AdapterはPackage Rootへ公開しない。
+
+Sourceの既存物理保存先は引き続き`.crdd/coordinator/`であり、候補の`.crdd/domain-model/`を有効化しない。今回のSource接続から実データ・保持物の移行又は清掃許可は発生しない。
 
 Source配置の候補はDomainのobjective／task／attempt／decision／workspace／queue／ai-selection／stateとstorageである。型はtypes、局所操作はcrud、値検査はvalidation、読取り投影はquery、物理保存はstorageへ置く。Capability内barrel、public-*.ts、汎用Managerを増やさない。
 

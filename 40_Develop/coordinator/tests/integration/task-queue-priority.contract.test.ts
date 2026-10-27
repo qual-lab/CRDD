@@ -8,26 +8,26 @@
  * @scope project、runtime、queue、priority
  * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
-import fs from "node:fs";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
+import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-
 import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
-  readCoordinatorSnapshot,
-} from "../../src/storage/state.ts";
-import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
-
+  readCoordinatorExecutionState,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
 const revision = "a".repeat(40);
 
@@ -46,10 +46,15 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   const { root, ports } = fixture(t);
   const file = path.join(root, ".crdd", "coordinator", "state.json");
   const before = fs.readFileSync(file);
-  const previous = readCoordinatorSnapshot(root, "binding-a");
+  const previous = readCoordinatorExecutionState(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+  );
   assert.equal(previous.status, "completed");
   if (previous.status !== "completed" || !previous.value)
     throw Error("fixture");
+  assert.ok(previous.value.intakeEpoch);
+  const beforeSnapshot = JSON.parse(before.toString("utf8"));
   assert.equal(ports.state.readState("project-a").status, "completed");
   assert.equal(ports.state.readState("project-b").status, "completed");
   assert.equal(
@@ -74,16 +79,28 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw Error("fixture");
   const after = fs.readFileSync(file);
-  const snapshot = readCoordinatorSnapshot(root, "binding-a");
+  const snapshot = readCoordinatorExecutionState(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+  );
   assert.equal(snapshot.status, "completed");
   if (snapshot.status !== "completed" || !snapshot.value)
     throw Error("fixture");
-  assert.deepEqual(snapshot.value, {
-    ...previous.value,
-    snapshotRevision: previous.value.snapshotRevision + 1,
-    queueEntries: [...previous.value.queueEntries, created.value],
+  assert.deepEqual(snapshot.value.queueEntries, [
+    ...previous.value.queueEntries,
+    created.value,
+  ]);
+  assert.deepEqual(snapshot.value.projects, previous.value.projects);
+  assert.deepEqual(JSON.parse(after.toString("utf8")), {
+    ...beforeSnapshot,
+    revision: beforeSnapshot.revision + 1,
+    previous: {
+      revision: beforeSnapshot.revision,
+      payloadSha256: createHash("sha256").update(before).digest("hex"),
+    },
+    queueEntries: [...beforeSnapshot.queueEntries, created.value],
     intakeBindings: [
-      ...previous.value.intakeBindings,
+      ...beforeSnapshot.intakeBindings,
       { queueId: input.queueId, epoch: previous.value.intakeEpoch },
     ],
   });
@@ -234,7 +251,10 @@ function fixture(
     assert.equal(fs.existsSync(root), false);
   });
   assert.equal(
-    initializeCoordinatorSnapshot(root, binding).status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+    ).status,
     "completed",
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, binding);

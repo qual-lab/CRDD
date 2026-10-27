@@ -1723,6 +1723,33 @@
         "domain-model.artifact-identity",
         "domain-model.artifact-change"
       ]
-    }
+    },
+    {"symbolId":"coordinator.source.src.storage.lock","kind":"file","path":"src/storage/runtime-lock.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"coordinator.state-storage.coordinator-state-runtime","kind":"file","path":"src/storage/runtime-store.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"coordinator.state-storage.coordinator-state-model","kind":"file","path":"src/storage/runtime-store.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"coordinator.source.src.security.orchestrator.durable.foundation","kind":"file","path":"src/storage/runtime-store.ts","archIds":["ARCH-000004","ARCH-000005","ARCH-000008"],"implements":["orchestrator.project-state-projection","orchestrator.queue-lease-lifecycle","orchestrator.acceptance-decision-authority"]},
+    {"symbolId":"coordinator.source.src.security.orchestrator.history","kind":"file","path":"src/storage/runtime-history.ts","archIds":["ARCH-000004"]},
+    {"symbolId":"orchestrator.storage.result-record","kind":"file","path":"src/storage/runtime-store.ts","archIds":["ARCH-000005"]},
+    {"symbolId":"domain-model.storage.runtime-kernel-lock","kind":"file","path":"src/storage/runtime-kernel-lock.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.storage.runtime-result","kind":"file","path":"src/storage/runtime-result.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.storage.runtime-repository","kind":"file","path":"src/storage/runtime-repository.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.attempt.settlement","kind":"file","path":"src/attempt/settlement.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.objective.crud","kind":"file","path":"src/objective/crud.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.test-support.runtime-storage-source","kind":"file","path":"tests/support/runtime-storage-source.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"domain-model.test.integration.runtime-repository","kind":"test-suite","path":"tests/integration/runtime-repository.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-IT-012"],"verifies":["domain-model.storage.runtime-repository","coordinator.state-storage.coordinator-state-runtime","domain-model.objective.crud"]},
+    {"symbolId":"domain-model.test.integration.runtime-core-crud","kind":"test-suite","path":"tests/integration/runtime-core-crud.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-IT-012"],"verifies":["domain-model.storage.runtime-repository","coordinator.state-storage.coordinator-state-runtime","domain-model.objective.crud"]},
+    {"symbolId":"coordinator.test.integration.orchestrator-history","kind":"test-suite","path":"tests/integration/runtime-history.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-IT-005","PRL-IT-012"],"verifies":["coordinator.source.src.security.orchestrator.history","coordinator.source.src.security.orchestrator.durable.foundation"]},
+    {"symbolId":"domain-model.test.integration.runtime-kernel-lock","kind":"test-suite","path":"tests/integration/runtime-kernel-lock.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-003"],"verifies":["domain-model.storage.runtime-kernel-lock"]},
+    {"symbolId":"domain-model.test.integration.runtime-snapshot-lock","kind":"test-suite","path":"tests/integration/runtime-snapshot-lock.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-IT-005"],"verifies":["coordinator.source.src.storage.lock"]},
+    {"symbolId":"domain-model.test-fixture.runtime-kernel-owner","kind":"file","path":"tests/fixtures/runtime-kernel-owner.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"coordinator.test.integration.current-state-marker-cleanup","kind":"test-suite","path":"tests/integration/runtime-marker-cleanup.contract.test.ts","qaIds":["QA-000003","QA-000006"],"localTestIds":["ERB-IT-014","PRL-IT-011"],"verifies":["coordinator.state-storage.coordinator-state-runtime"]},
+    {"symbolId":"domain-model.test-fixture.task-snapshot-lock-owner","kind":"file","path":"tests/fixtures/task-snapshot-lock-owner.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"domain-model.test.integration.runtime-snapshot-io","kind":"test-suite","path":"tests/integration/runtime-snapshot-io.contract.test.ts","qaIds":["QA-000003","QA-000006"],"localTestIds":["PRL-IT-005","PRL-IT-012","PRL-IT-013","ERB-IT-003","ERB-IT-014"],"verifies":["coordinator.state-storage.coordinator-state-runtime","coordinator.source.src.storage.lock"]},
+    {"symbolId":"domain-model.test.unit.runtime-codec","kind":"test-suite","path":"tests/unit/storage/runtime-codec.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.state-storage.coordinator-state-model"]},
+    {"symbolId":"domain-model.test.integration.runtime-settlement","kind":"test-suite","path":"tests/integration/runtime-settlement.contract.test.ts","qaIds":["QA-000003","QA-000006"],"localTestIds":["ERB-IT-003","ERB-IT-014"],"verifies":["domain-model.attempt.settlement","coordinator.state-storage.coordinator-state-runtime"]},
+    {"symbolId":"domain-model.test.integration.runtime-repair-storage","kind":"test-suite","path":"tests/integration/runtime-repair-storage.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-014"],"verifies":["coordinator.state-storage.coordinator-state-runtime"]},
+    {"symbolId":"coordinator.test.unit.coordinator-state-model","kind":"test-suite","path":"tests/unit/storage/runtime-transitions.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.state-storage.coordinator-state-model"]},
+    {"symbolId":"coordinator.test.unit.repair-state-model","kind":"test-suite","path":"tests/unit/attempt/repair-model.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-036"],"verifies":["coordinator.state-storage.coordinator-state-model"]},
+    {"symbolId":"domain-model.test.unit.task-validation","kind":"test-suite","path":"tests/unit/task/validation.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.state-storage.coordinator-state-model"]}
   ]
 }

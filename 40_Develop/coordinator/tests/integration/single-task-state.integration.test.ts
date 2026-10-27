@@ -8,35 +8,35 @@
  * @scope 単発Taskの保存と実排他。Provider／Dockerは使わない。
  * @boundary 実Git、Filesystem、既存Native排他。
  */
-import {
-  inspectSingleTaskRecord,
-  type SingleTaskRecord,
-  type ProjectQueueEntry,
-} from "../../../domain-model/src/index.ts";
+
 import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import fs from "node:fs";
+import { devNull } from "node:os";
+import path from "node:path";
+import test, { mock } from "node:test";
+import * as snapshotStorage from "../../../domain-model/src/index.ts";
+import {
+  initializeCoordinatorSnapshot,
+  inspectSingleTaskRecord,
+  type ProjectQueueEntry,
+  readCoordinatorExecutionState,
+  readCoordinatorTaskIntakeState,
+  type SingleTaskRecord,
+} from "../../../domain-model/src/index.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import {
+  createCoordinatorSnapshotStatePort,
+  enqueueCoordinatorSingleTask,
+  updateCoordinatorSingleTask,
+} from "../../src/task/queue.ts";
+import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 import {
   executionSelection,
   taskExecutionSelections,
 } from "../fixtures/ai-selection.ts";
-import { execFileSync, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import test, { mock } from "node:test";
-import * as snapshotStorage from "../../src/storage/state.ts";
-import { devNull } from "node:os";
-import {
-  initializeCoordinatorSnapshot,
-  readCoordinatorSnapshot,
-} from "../../src/storage/state.ts";
-import {
-  enqueueCoordinatorSingleTask,
-  updateCoordinatorSingleTask,
-  createCoordinatorSnapshotStatePort,
-} from "../../src/task/queue.ts";
-import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
-
-import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 
 /**
  * 計画なしの新品Rootで二回の実行受付と終端を確認する。
@@ -76,7 +76,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   fs.mkdirSync(path.join(root, ".git", "info"));
   fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeCoordinatorSnapshot(root, binding);
+  const initialized = initializeCoordinatorSnapshot(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed") throw new Error("init_failed");
   const record: SingleTaskRecord = {
@@ -220,7 +223,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     const released = lease.release();
     assert.equal(released.status, "completed", JSON.stringify(released));
     // 物理解放後・Queue解放保存前の中断を残し、次の入口で再入場する。
-    const interrupted = readCoordinatorSnapshot(root, binding);
+    const interrupted = readCoordinatorExecutionState(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+    );
     assert.equal(interrupted.status, "completed");
     if (interrupted.status === "completed")
       assert.equal(
@@ -248,13 +254,19 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       .status,
     "completed",
   );
-  const read = readCoordinatorSnapshot(root, binding);
+  const read = readCoordinatorExecutionState(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(read.status, "completed");
   if (read.status !== "completed" || !read.value)
     throw new Error("read_failed");
   assert.equal(read.value.projects.length, 0);
   assert.equal(read.value.queueEntries.length, 2);
-  assert.equal(read.value.historyPending.length, 1);
+  const physical = JSON.parse(
+    fs.readFileSync(path.join(root, ".crdd/coordinator/state.json"), "utf8"),
+  );
+  assert.equal(physical.historyPending.length, 1);
   assert.equal(JSON.stringify(read.value).includes("prompt"), false);
   let calls = 0;
   let cancelProbe = false;
@@ -423,7 +435,10 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(withheld.reason, "orchestrator_task_not_available");
   assert.deepEqual(withheld.facts, []);
   assert.equal(withheld.taskId, null);
-  const after = readCoordinatorSnapshot(root, binding);
+  const after = readCoordinatorExecutionState(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(after.status, "completed");
   if (after.status !== "completed" || !after.value)
     throw new Error("read_failed");
@@ -757,7 +772,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.equal(executions, 0);
   await owner.close();
   assert.equal(
-    initializeCoordinatorSnapshot(root, binding).status,
+    initializeCoordinatorSnapshot(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+    ).status,
     "completed",
   );
   for (const operation of ["cancel", "close"] as const) {
@@ -766,7 +784,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     assert.equal(accepted.status, "accepted");
     assert.ok(accepted.requestId);
     assert.equal(executions, 0);
-    const initial = readCoordinatorSnapshot(root, binding);
+    const initial = readCoordinatorTaskIntakeState(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+    );
     assert.equal(initial.status, "completed");
     if (initial.status !== "completed" || !initial.value)
       throw Error("snapshot_required");
@@ -788,7 +809,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     }
     await owner.close();
     assert.equal((await owner.start(command)).status, "blocked");
-    const final = readCoordinatorSnapshot(root, binding);
+    const final = readCoordinatorTaskIntakeState(
+      verifyRuntimePersistenceRepository(root),
+      binding,
+    );
     assert.equal(final.status, "completed");
     if (final.status !== "completed" || !final.value)
       throw Error("snapshot_required");
@@ -818,7 +842,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     requestId: string;
   };
   assert.equal(lost.status, "accepted");
-  const saved = readCoordinatorSnapshot(root, binding);
+  const saved = readCoordinatorTaskIntakeState(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(saved.status, "completed");
   if (saved.status !== "completed" || !saved.value)
     throw Error("snapshot_required");
@@ -841,7 +868,10 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   assert.deepEqual(recovered.secondaryFailures, []);
   assert.equal(executions, 0);
   await owner.close();
-  const end = readCoordinatorSnapshot(root, binding);
+  const end = readCoordinatorTaskIntakeState(
+    verifyRuntimePersistenceRepository(root),
+    binding,
+  );
   assert.equal(end.status, "completed");
   if (end.status !== "completed" || !end.value)
     throw Error("snapshot_required");
@@ -874,14 +904,27 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
  * @cleanup Module代役をrestoreし同じpendingのcloseを待つ。
  * @boundary 本番Task Ownerと保存primitiveの故障境界。実保存成功は別ITで確認する。
  */
-test("受付前の保存拒否と受付後のLease・開始保存拒否を区別する", async () => {
+test("受付前の保存拒否と受付後のLease・開始保存拒否を区別する", async (t) => {
+  const parent = fs.realpathSync.native(
+    path.resolve(import.meta.dirname, "../../../../.crdd/tests"),
+  );
+  const root = fs.mkdtempSync(path.join(parent, "single-task-admission-"));
+  assert.equal(path.dirname(root), parent);
+  t.after(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  execFileSync("git", ["init", "--template=", "--initial-branch=main", root], {
+    windowsHide: true,
+    stdio: "pipe",
+  });
   for (const stage of ["enqueue", "lease", "starting"] as const) {
     let queue: ProjectQueueEntry | null = null;
     let executions = 0;
     let releases = 0;
     const failures = {
       ...snapshotStorage,
-      readCoordinatorSnapshot: () => ({
+      readCoordinatorTaskIntakeState: () => ({
         status: "completed",
         value: {
           intakeEpoch: "epoch",
@@ -935,11 +978,12 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
       }),
     };
     const storage = mock.module(
-      new URL("../../src/storage/state.ts", import.meta.url).href,
+      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
       {
         namedExports: {
           ...snapshotStorage,
-          readCoordinatorSnapshot: failures.readCoordinatorSnapshot,
+          readCoordinatorTaskIntakeState:
+            failures.readCoordinatorTaskIntakeState,
         },
       },
     );
@@ -981,7 +1025,7 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         moduleUrl.href
       )) as typeof import("../../src/task/requests.ts");
       owner = fresh.createCoordinatorTaskRequests({
-        root: "synthetic-root",
+        root,
         binding: "synthetic-binding",
         projectId: "synthetic-project",
         principalId: "synthetic-user",

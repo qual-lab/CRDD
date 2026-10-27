@@ -9,7 +9,6 @@
  * @boundary 試験Process→Native Lock。利用側試験が終了とLock解放を確認する。
  */
 import {
-  acquireRuntimeOwnedCoordinatorStateKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
 } from "../../src/execution/kernel-lock.ts";
@@ -32,7 +31,7 @@ const lock =
           process.argv[3],
           process.argv[4],
         )
-      : acquireRuntimeOwnedCoordinatorStateKernelLock(mode);
+      : null;
 if (!lock) process.exit(2);
 process.stdout.write("READY\n");
 setInterval(() => {}, 1_000);

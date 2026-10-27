@@ -7,18 +7,18 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
 import {
+  isCoordinatorDecisionRecord,
   readCommittedJson,
   writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
-import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
-import { isCoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
-import type { CoordinatorDecisionStore } from "../decision/types.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "../execution/authority.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
+import type { CoordinatorDecisionStore } from "./types.ts";
 
 export const COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-windows-decision-store/v1" as const;

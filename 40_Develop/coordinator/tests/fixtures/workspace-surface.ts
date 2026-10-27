@@ -6,13 +6,17 @@
  * @scope 呼出し側が生成・清掃する試験Rootのみ。
  * @boundary 外部AI・Docker・通信なし。
  */
-import { taskExecutionSelections } from "./ai-selection.ts";
+
 import assert from "node:assert/strict";
+import {
+  initializeCoordinatorSnapshot,
+  saveCoordinatorManagedProject,
+} from "../../../domain-model/src/index.ts";
+import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
-import { writeCoordinatorSnapshotState } from "../../src/storage/state.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { taskExecutionSelections } from "./ai-selection.ts";
 
 /**
  * 既存Projectと二Queueを実保存する。
@@ -31,7 +35,8 @@ export function prepareWorkspaceSurface(
   base: string,
 ) {
   const binding = deriveCoordinatorRepositoryBindingId(root);
-  const initialized = initializeCoordinatorSnapshot(root, binding);
+  const repository = verifyRuntimePersistenceRepository(root);
+  const initialized = initializeCoordinatorSnapshot(repository, binding);
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
@@ -56,12 +61,7 @@ export function prepareWorkspaceSurface(
   });
   assert.ok(created.state);
   assert.equal(
-    writeCoordinatorSnapshotState(
-      root,
-      binding,
-      JSON.stringify(created.state),
-      0,
-    ).status,
+    saveCoordinatorManagedProject(repository, binding, created.state, 0).status,
     "completed",
   );
   const ports = createCoordinatorSnapshotPersistencePorts(

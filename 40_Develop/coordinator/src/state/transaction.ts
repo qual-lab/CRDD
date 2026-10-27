@@ -3,18 +3,20 @@
  * @responsibility 既存の読取り・保存Portと短期排他・実行Leaseを接続する。
  * @trace ARCH-000004、ARCH-000008
  */
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../../../domain-model/src/index.ts";
-import { acquireCoordinatorSnapshotPilotLock } from "../storage/lock.ts";
-import { completed } from "./result.ts";
-import { blocked } from "./result.ts";
-import { readCoordinatorSnapshotOwned } from "../storage/state.ts";
-import { inspectCoordinatorSnapshotLeaseAcquisitionOwner } from "../execution/lease.ts";
-import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
-import { reconcileCoordinatorSnapshotLeaseOwnerLoss } from "../execution/lease.ts";
-import { createCoordinatorSnapshotStatePort } from "../task/queue.ts";
 
-import type { CoordinatorLeasePort } from "./persistence.ts";
-import type { CoordinatorPersistencePorts } from "./persistence.ts";
+import { readCoordinatorSnapshotIntakeEpoch } from "../../../domain-model/src/index.ts";
+import {
+  acquireCoordinatorSnapshotLease,
+  inspectCoordinatorSnapshotLeaseAcquisitionOwner,
+  reconcileCoordinatorSnapshotLeaseOwnerLoss,
+} from "../execution/lease.ts";
+import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
+import { createCoordinatorSnapshotStatePort } from "../task/queue.ts";
+import type {
+  CoordinatorLeasePort,
+  CoordinatorPersistencePorts,
+} from "./persistence.ts";
+import { blocked, completed } from "./result.ts";
 
 /**
  * 受付以外の既存操作を現在の保存世代へ接続する。
@@ -35,22 +37,18 @@ export function createCurrentCoordinatorPersistencePorts(
   workingDirectory: string,
   binding: string,
 ): CoordinatorPersistencePorts {
-  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
-  if (acquired.status !== "completed")
-    throw new Error("orchestrator_snapshot_not_initialized");
-  const observed = readCoordinatorSnapshotOwned(acquired.value, binding, true);
-  if (!acquired.value.release())
+  const observed = readCoordinatorSnapshotIntakeEpoch(
+    verifyRuntimePersistenceRepository(workingDirectory),
+    binding,
+  );
+  if (observed.reason === "orchestrator_snapshot_lock_release_unconfirmed")
     throw new Error("orchestrator_snapshot_lock_release_unconfirmed");
-  if (
-    observed.status !== "completed" ||
-    !observed.value ||
-    observed.value.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
-  )
+  if (observed.status !== "completed")
     throw new Error("orchestrator_snapshot_not_initialized");
   return createCoordinatorSnapshotPersistencePorts(
     workingDirectory,
     binding,
-    observed.value.intakeEpoch,
+    observed.value,
   );
 }
 

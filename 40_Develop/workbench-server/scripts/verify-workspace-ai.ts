@@ -4,63 +4,60 @@
  * @trace ARCH-000015
  * @security 明示同意した合成内容だけを送信し、本体Repositoryを編集しない。
  */
-import { RUNTIME_STATE_MAXIMUM_BYTES } from "../../domain-model/src/index.ts";
-import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
-import { readRepositoryNetworkPolicies } from "../../coordinator/src/index.ts";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { devNull } from "node:os";
+import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import {
-  verifyRepositoryRoot,
-  resolveVerifiedRepositoryRoot,
-} from "../../version-control/src/index.ts";
-import {
-  resolveRepositoryRuntimeDataPaths,
-  observeRepositoryRuntimeDataArea,
-  readStableBoundedFileSnapshot,
-} from "../../domain-model/src/index.ts";
-import {
-  readRepositoryAiSelection,
-  saveRepositoryAiSelection,
-} from "../../domain-model/src/index.ts";
-import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
+import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 import {
   openTaskSession,
+  readRepositoryNetworkPolicies,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
-import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
   maintainCoordinatorSnapshot,
   transferCoordinatorSnapshotHistory,
 } from "../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/validation.ts";
-import { decodeCoordinatorHistoryRows } from "../../domain-model/src/index.ts";
-
-import { acquireCoordinatorStorageOwner } from "../../coordinator/src/storage/lock.ts";
-import { readCoordinatorStorageSnapshotOwned } from "../../coordinator/src/storage/state.ts";
-import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
+import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
+import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
-  createWorkbenchAiVerificationHttpClient,
-  observeVerificationDockerInventory,
-  assessVerificationDockerInventory,
-  requestInChild,
-  readMain,
-  projectVerificationTransportFailure,
-} from "./ai-verification-http.ts";
+  decodeCoordinatorHistoryRows,
+  observeRepositoryRuntimeDataArea,
+  RUNTIME_STATE_MAXIMUM_BYTES,
+  readRepositoryAiSelection,
+  readRuntimeOwnedCoordinatorRecoverySnapshot,
+  readStableBoundedFileSnapshot,
+  resolveRepositoryRuntimeDataPaths,
+  saveRepositoryAiSelection,
+} from "../../domain-model/src/index.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  verifyRepositoryRoot,
+} from "../../version-control/src/index.ts";
+import { readWorkbenchProjectSurface, startWorkbench } from "../src/index.ts";
 import type {
   WorkbenchAiRequestSnapshot,
   WorkbenchAiRequests,
 } from "../src/server/ai-request/types.ts";
+import {
+  assessVerificationDockerInventory,
+  createWorkbenchAiVerificationHttpClient,
+  observeVerificationDockerInventory,
+  projectVerificationTransportFailure,
+  readMain,
+  requestInChild,
+} from "./ai-verification-http.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
 import {
   captureWorkspaceTaskDiagnostic,
   type RecoveryDiagnosticIdentity,
 } from "./workspace-task-diagnostic.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 
 const projectId = "project.workspace-verification";
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -642,11 +639,17 @@ async function verify(
         recoveryId: string;
       }[] = [];
       try {
-        const storage = acquireCoordinatorStorageOwner(root);
-        if (storage) {
-          try {
-            const read = readCoordinatorStorageSnapshotOwned(storage);
-            if (read.status === "completed") {
+        const currentRoot = verifyRepositoryRoot(root);
+        if (currentRoot.status === "completed") {
+          {
+            const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
+              currentRoot.capability,
+            );
+            if (
+              read.status === "completed" &&
+              read.lockReleased &&
+              read.value
+            ) {
               correlationId =
                 read.value.snapshot.queueEntries.find(
                   (q) => q.queueId === acceptedRequestId,
@@ -691,12 +694,6 @@ async function verify(
                     });
                 }
               }
-            }
-          } finally {
-            if (!storage.release()) {
-              correlationId = null;
-              identities.length = 0;
-              historyIdentities.length = 0;
             }
           }
         }
@@ -787,12 +784,14 @@ function assessFixtureRemoval(
     };
     checkBoundary();
     const readClosed = (historyCount: number, includeTask = false) => {
-      const owner = acquireCoordinatorStorageOwner(root);
-      assert.ok(owner);
-      try {
-        const read = readCoordinatorStorageSnapshotOwned(owner);
+      {
+        const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
+          verifiedRoot.capability,
+        );
         assert.equal(read.status, "completed");
-        if (read.status !== "completed") throw new Error("snapshot_unobserved");
+        assert.equal(read.lockReleased, true);
+        if (read.status !== "completed" || !read.value)
+          throw new Error("snapshot_unobserved");
         let s = read.value.snapshot;
         if (includeTask) {
           const queues = s.queueEntries.filter((q) => q.queueId === requestId);
@@ -1030,8 +1029,6 @@ function assessFixtureRemoval(
             assert.ok(pair.acquired >= 0 && pair.released > pair.acquired);
         }
         return s;
-      } finally {
-        assert.equal(owner.release(), true);
       }
     };
     const historyCount = mode === "isolated" ? 1 : 0;

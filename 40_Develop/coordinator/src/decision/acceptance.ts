@@ -5,34 +5,34 @@
  * @trace ARCH-000004
  */
 
-import type {
-  CoordinatorAcceptanceDecisionResult,
-  CoordinatorAcceptanceDecisionDependencies,
-  CoordinatorAcceptanceDecisionAuthorityBinding,
-} from "./types.ts";
-import {
-  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-  type CoordinatorAcceptanceDecisionRequest,
-  validRequest,
-  createCoordinatorAcceptanceAuthorityAdapter,
-} from "./request.ts";
 import type { CoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
-import { applyCoordinatorAcceptanceDecision } from "./transition.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
   inspectRepositoryIdentityCandidate,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
 } from "../state/result.ts";
-import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
-import { createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore } from "./lifecycle.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
+import { createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore } from "./lifecycle.ts";
+import {
+  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+  type CoordinatorAcceptanceDecisionRequest,
+  createCoordinatorAcceptanceAuthorityAdapter,
+  validRequest,
+} from "./request.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "./store.ts";
+import { applyCoordinatorAcceptanceDecision } from "./transition.ts";
+import type {
+  CoordinatorAcceptanceDecisionAuthorityBinding,
+  CoordinatorAcceptanceDecisionDependencies,
+  CoordinatorAcceptanceDecisionResult,
+} from "./types.ts";
 
 /**
  * 受入判断要求を理由付き停止結果へ変換する。

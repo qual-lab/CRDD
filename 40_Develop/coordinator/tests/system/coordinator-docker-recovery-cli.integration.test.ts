@@ -1069,10 +1069,7 @@ test("CLI共通projectorはHost release不明時もexact IDと再実行command�
   assert.match(human.stdout, new RegExp(hostRecoveryId, "u"));
   assert.match(
     human.stdout,
-    new RegExp(
-      `次の操作: coordinator doctor --recover-isolation ${hostRecoveryId}`,
-      "u",
-    ),
+    new RegExp(`次の操作: coordinator recovery resume ${hostRecoveryId}`, "u"),
   );
   assert.doesNotMatch(human.stdout, /C:\\/u);
 });
