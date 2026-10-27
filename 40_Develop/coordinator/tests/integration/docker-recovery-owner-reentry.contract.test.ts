@@ -52,7 +52,7 @@ import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import * as homes from "../../src/execution/authority.ts";
 import * as repository from "../../src/execution/operation.ts";
 import * as stateModel from "../../src/storage/state.ts";
-import * as historyValues from "../../src/storage/history.ts";
+import * as historyValues from "../../../domain-model/src/index.ts";
 
 import * as stateRuntime from "../../src/storage/state.ts";
 import * as development from "../../src/execution/diagnostics.ts";

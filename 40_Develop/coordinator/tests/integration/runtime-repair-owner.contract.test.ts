@@ -642,7 +642,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   );
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const history = fs.readFileSync(historyFile);
-  const rows = historyValues.decodeCoordinatorHistoryRows(history);
+  const rows = domain.decodeCoordinatorHistoryRows(history);
   assert.equal(rows?.length, 1);
   assert.equal(
     JSON.parse(rows?.[0]?.line ?? "null").summary.disposal.checkpoint
@@ -1368,10 +1368,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       }
       const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
       const history = fs.readFileSync(historyFile);
-      assert.equal(
-        historyValues.decodeCoordinatorHistoryRows(history)?.length,
-        1,
-      );
+      assert.equal(domain.decodeCoordinatorHistoryRows(history)?.length, 1);
       const beforeCompletion = fs.readFileSync(stateFile);
       const ready =
         stateStore.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
@@ -1428,7 +1425,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         `${encodeRuntimeStateValue(legacyRow)}\n`,
       );
       assert.equal(
-        historyValues.decodeCoordinatorHistoryRows(legacyHistory)?.length,
+        domain.decodeCoordinatorHistoryRows(legacyHistory)?.length,
         1,
         "legacy_retained_row_is_codec_legal",
       );
@@ -1830,10 +1827,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   otherRow.summary.operationNonce = "9".repeat(64);
   otherRow.summary.recoveryId = `docker-runtime-repair.${otherRow.summary.operationNonce}.${otherRow.summary.identitySha256}`;
   const otherHistory = Buffer.from(`${encodeRuntimeStateValue(otherRow)}\n`);
-  assert.equal(
-    historyValues.decodeCoordinatorHistoryRows(otherHistory)?.length,
-    1,
-  );
+  assert.equal(domain.decodeCoordinatorHistoryRows(otherHistory)?.length, 1);
   const borrowed = bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(
     f.capability,
   );
@@ -2142,7 +2136,7 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   assert.deepEqual(terminal.operations, []);
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const historyBytes = fs.readFileSync(historyFile);
-  const rows = historyValues.decodeCoordinatorHistoryRows(historyBytes);
+  const rows = domain.decodeCoordinatorHistoryRows(historyBytes);
   assert.equal(rows?.length, 1);
   assert.equal(rows?.[0]?.recoveryId, first.recoveryId);
   const summary = JSON.parse(historyBytes.toString("utf8")).summary;
@@ -2246,9 +2240,8 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
         const expected = fs.readFileSync(cut === "state" ? pending : stateFile);
         if (cut === "history")
           assert.equal(
-            historyValues.decodeCoordinatorHistoryRows(
-              fs.readFileSync(historyPending),
-            )?.length,
+            domain.decodeCoordinatorHistoryRows(fs.readFileSync(historyPending))
+              ?.length,
             1,
           );
         const resumed = await repairRuntimeOwnedDockerRuntime(
@@ -2357,10 +2350,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
       assert.deepEqual(after.pendingDeliveries, before.pendingDeliveries);
       assert.equal(after.revision, before.revision + 4);
       const history = fs.readFileSync(historyFile);
-      assert.equal(
-        historyValues.decodeCoordinatorHistoryRows(history)?.length,
-        1,
-      );
+      assert.equal(domain.decodeCoordinatorHistoryRows(history)?.length, 1);
       const observed = retentionReads;
       assert.equal(observed, 1);
       for (const purpose of ["repair", "retain"] as const) {
@@ -3053,7 +3043,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         })}\n`,
       );
       assert.equal(
-        historyValues.decodeCoordinatorHistoryRows(historyBytes)?.length,
+        domain.decodeCoordinatorHistoryRows(historyBytes)?.length,
         1,
       );
       fs.writeFileSync(history, historyBytes, { flag: "wx" });
@@ -3311,9 +3301,8 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     "history.jsonl",
   );
   assert.equal(
-    historyValues.decodeCoordinatorHistoryRows(
-      fs.readFileSync(initialHistoryFile),
-    )?.length,
+    domain.decodeCoordinatorHistoryRows(fs.readFileSync(initialHistoryFile))
+      ?.length,
     1,
   );
   fs.unlinkSync(initialHistoryFile);
@@ -3394,7 +3383,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   );
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const historyBytes = fs.readFileSync(historyFile);
-  const rows = historyValues.decodeCoordinatorHistoryRows(historyBytes);
+  const rows = domain.decodeCoordinatorHistoryRows(historyBytes);
   assert.equal(rows?.length, 1);
   assert.equal(rows?.[0]?.recoveryId, id);
   assert.ok(lastPreOutcomeCheckpoint);
@@ -3426,10 +3415,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         row.summary.operationId = "OP-999997";
         row.summary.recoveryId = `docker-runtime-repair.${row.summary.operationNonce}.${row.summary.identitySha256}`;
         const bytes = Buffer.from(`${encodeRuntimeStateValue(row)}\n`);
-        assert.equal(
-          historyValues.decodeCoordinatorHistoryRows(bytes)?.length,
-          1,
-        );
+        assert.equal(domain.decodeCoordinatorHistoryRows(bytes)?.length, 1);
         fs.writeFileSync(historyFile, bytes);
       }
       const read = stateStoreSource((source) => source).readHistory(

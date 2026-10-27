@@ -70,7 +70,7 @@ import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../../src/execu
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
-} from "../../../src/storage/history.ts";
+} from "../../../../domain-model/src/index.ts";
 
 import {
   executionSelection,

@@ -94,7 +94,7 @@ import {
   prepareCoordinatorStateResourceSnapshot,
 } from "../../src/storage/state.ts";
 
-import { decodeCoordinatorHistoryRows } from "../../src/storage/history.ts";
+import { decodeCoordinatorHistoryRows } from "../../../domain-model/src/index.ts";
 import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/state.ts";
 
 import {

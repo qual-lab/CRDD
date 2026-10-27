@@ -38,7 +38,7 @@ import {
   transferCoordinatorSnapshotHistory,
 } from "../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/validation.ts";
-import { decodeCoordinatorHistoryRows } from "../../coordinator/src/storage/history.ts";
+import { decodeCoordinatorHistoryRows } from "../../domain-model/src/index.ts";
 
 import { acquireCoordinatorStorageOwner } from "../../coordinator/src/storage/lock.ts";
 import { readCoordinatorStorageSnapshotOwned } from "../../coordinator/src/storage/state.ts";

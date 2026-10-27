@@ -24,7 +24,7 @@ import {
   type DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
 import * as model from "../../src/storage/state.ts";
-import * as historyValues from "../../src/storage/history.ts";
+import * as historyValues from "../../../domain-model/src/index.ts";
 import * as stateValues from "../../src/state/validation.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 

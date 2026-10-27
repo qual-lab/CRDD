@@ -752,3 +752,8 @@ export {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
 } from "./ai-selection/validation.ts";
+
+export {
+  decodeCoordinatorHistoryRows,
+  prepareCoordinatorHistoryRetention,
+} from "./state/history.ts";

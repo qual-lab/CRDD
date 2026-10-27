@@ -65,7 +65,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const store = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
       const model = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
       const runtimeDomain = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-      const historyValues = await import(${JSON.stringify(new URL("../../src/storage/history.ts", import.meta.url).href)});
+      const historyValues = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const stateValues = await import(${JSON.stringify(new URL("../../src/state/validation.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});

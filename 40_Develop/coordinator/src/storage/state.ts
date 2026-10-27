@@ -5,6 +5,8 @@
  */
 import {
   prepareCoordinatorStateHistoryLine,
+  decodeCoordinatorHistoryRows,
+  prepareCoordinatorHistoryRetention,
   validateCoordinatorUnifiedTransition,
   purposeResource,
   validCoordinatorRepairRetentionReceipt,
@@ -57,11 +59,7 @@ import {
 } from "../state/settlement.ts";
 import { normalizeCoordinatorTaskProjects } from "../../../domain-model/src/index.ts";
 
-import {
-  decodeCoordinatorHistoryRows,
-  prepareCoordinatorHistoryRetention,
-  inspectCoordinatorHistorySettlement,
-} from "./history.ts";
+import { inspectCoordinatorHistorySettlement } from "./history.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import {

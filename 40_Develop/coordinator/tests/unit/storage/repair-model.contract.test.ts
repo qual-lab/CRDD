@@ -55,7 +55,7 @@ import {
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
-} from "../../../src/storage/history.ts";
+} from "../../../../domain-model/src/index.ts";
 import { coordinatorRepairCanComplete } from "../../../../domain-model/src/index.ts";
 
 const binding = "a".repeat(64);
