@@ -30,12 +30,17 @@ import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStorageRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
+  borrowRuntimeOwnedCoordinatorRecoveryRepository,
+  borrowRuntimeOwnedCoordinatorSettlementRepository,
   describeRepositoryOperationRuntimeContract,
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "../../src/execution/operation.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import {
+  verifyRepositoryRoot,
+  resolveVerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -213,6 +218,19 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
   const borrowed = borrowRuntimeOwnedCoordinatorStateRepository(management);
   assert.ok(borrowed);
   assert.equal(borrowed.repositoryRoot, fs.realpathSync.native(root));
+  assert.equal(borrowed.purpose, "execution");
+  assert.equal(
+    resolveVerifiedRepositoryRoot(borrowed.root),
+    borrowed.repositoryRoot,
+  );
+  assert.equal(
+    borrowRuntimeOwnedCoordinatorStateRepository(management)?.root,
+    borrowed.root,
+  );
+  assert.equal(Object.keys(borrowed).includes("root"), false);
+  assert.equal(Object.keys(borrowed).includes("purpose"), false);
+  assert.equal("root" in { ...borrowed }, false);
+  assert.equal(JSON.stringify(borrowed).includes('"root"'), false);
   assert.ok(borrowed.logicalRepositoryIdentity);
   assert.ok(borrowed.repositoryInstanceIdentity);
   assert.equal(Object.isFrozen(borrowed), true);
@@ -220,6 +238,7 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
   const publicResult = verifyRuntimeOwnedRepositoryOperation(management);
   assert.ok(publicResult);
   assert.equal("repositoryRoot" in publicResult, false);
+  assert.equal("root" in publicResult, false);
   cleanupOwnedOperationDirectories(owned);
   isCleaned = true;
   assert.equal(borrowed.revalidate(), false);
@@ -257,6 +276,99 @@ function temporaryRepository(t: TestContext, parent = os.tmpdir()) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
+
+/**
+ * 保存移管の四用途が異なる現在性を維持し、内部Rootを値搬送しないことを確認する。
+ * @responsibility 通常操作、業務保存、再入場読取り、終端保存の誤同一視を反証する。
+ * @trace PRL-IT-012
+ * @precondition Repository内の合成Gitと自己生成Operationだけを使用する。
+ * @stimulus 同じ実体のHEADを変更し、最後に操作Ownerを終了する。
+ * @observation 四借用の用途、Root参照、再検証、JSONとspreadを観測する。
+ * @oracle Revisionを要する二用途だけが失効し、終端と業務保存は実体確認を維持する。
+ * @cleanup 生成したOperationと合成Gitだけを既存hookで回収する。
+ * @boundary 操作OwnerとVersion Controlの実観測。保存・Docker・AIは呼ばない。
+ */
+test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬送値へ混入させない", (t) => {
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "coordinator_state_test_root_invalid",
+  );
+  const root = temporaryRepository(t, area.directory);
+  const owned = createOwnedOperationDirectories(area.directory);
+  let cleaned = false;
+  t.after(() => {
+    if (!cleaned) cleanupOwnedOperationDirectories(owned);
+  });
+  const management = createOwnedOperationManagementCapability(
+    createOwnedOperationContextCapability(owned),
+    createOwnedMountCapability(owned),
+  );
+  assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
+  const verified = verifyRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") throw Error("fixture_root_invalid");
+  const execution = borrowRuntimeOwnedCoordinatorStateRepository(management);
+  const storage = borrowRuntimeOwnedCoordinatorStorageRepository(
+    verified.capability,
+  );
+  const recovery = borrowRuntimeOwnedCoordinatorRecoveryRepository(
+    verified.capability,
+  );
+  const settlement =
+    borrowRuntimeOwnedCoordinatorSettlementRepository(management);
+  assert.ok(execution);
+  assert.ok(storage);
+  assert.ok(recovery);
+  assert.ok(settlement);
+  assert.equal(settlement.root, execution.root);
+  assert.equal(storage.root, verified.capability);
+  assert.equal(recovery.root, verified.capability);
+  assert.equal(storage.repositoryBinding, execution.repositoryBinding);
+  assert.equal(recovery.repositoryBinding, execution.repositoryBinding);
+  assert.equal(settlement.repositoryBinding, execution.repositoryBinding);
+  for (const [purpose, repository] of [
+    ["execution", execution],
+    ["storage", storage],
+    ["recovery", recovery],
+    ["settlement", settlement],
+  ] as const) {
+    assert.equal(repository.purpose, purpose);
+    assert.equal(
+      resolveVerifiedRepositoryRoot(repository.root),
+      fs.realpathSync.native(root),
+    );
+    assert.equal(repository.revalidate(), true);
+    assert.equal(Object.isFrozen(repository), true);
+    assert.equal("root" in { ...repository }, false);
+    assert.equal("purpose" in { ...repository }, false);
+    assert.equal(JSON.stringify(repository).includes('"root"'), false);
+    assert.equal(JSON.stringify(repository).includes('"purpose"'), false);
+  }
+  assert.equal("operationId" in storage, false);
+  assert.equal("operationId" in recovery, false);
+  fs.writeFileSync(
+    path.join(root, ".git", "refs", "heads", "main"),
+    `${secondRevision}\n`,
+    "utf8",
+  );
+  assert.equal(execution.revalidate(), false);
+  assert.equal(recovery.revalidate(), false);
+  assert.equal(storage.revalidate(), true);
+  assert.equal(settlement.revalidate(), true);
+  assert.equal(borrowRuntimeOwnedCoordinatorStateRepository(management), null);
+  assert.equal(
+    borrowRuntimeOwnedCoordinatorSettlementRepository(management),
+    null,
+  );
+  cleanupOwnedOperationDirectories(owned);
+  cleaned = true;
+  assert.equal(execution.revalidate(), false);
+  assert.equal(storage.revalidate(), true);
+  assert.equal(settlement.revalidate(), true);
+});
 
 /**
  * 保存借用の一回の再検証はfresh二探索を使い、呼出し間でcacheしない。

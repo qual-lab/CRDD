@@ -34,8 +34,11 @@ export type CoordinatorStorageOwner = Readonly<{
 const storageOwners = new WeakMap<
   object,
   Readonly<{
-    repository: NonNullable<
-      ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
+    repository: Pick<
+      NonNullable<
+        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
+      >,
+      "repositoryRoot" | "repositoryBinding" | "revalidate"
     >;
     lock: NonNullable<
       ReturnType<typeof acquireRuntimeOwnedCoordinatorStateKernelLock>
@@ -106,8 +109,11 @@ export function acquireCoordinatorStorageOwner(
  * @concurrency 取得したOwnerの解放は呼出し側が所有する。
  */
 export function acquireCoordinatorStorageOwnerForRepository(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
+  repository: Pick<
+    NonNullable<
+      ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
+    >,
+    "repositoryRoot" | "repositoryBinding" | "revalidate"
   >,
 ): CoordinatorStorageOwner | null {
   if (!repository) return null;

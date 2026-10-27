@@ -285,6 +285,22 @@ Projectの分解は次の全数対応とする。
 
 Host清掃準備の利用側は任意候補Writerを呼ばず、同じ操作Owner・exact回復参照・固定元版だけを渡す。保存入口が元版の同じOperation、`cleanup:not_requested`、`lease:released`を照合し、`cleanup:pending`だけを導出する。利用側は元版だけを保持し、候補を第二のMapへ保存しない。同じ確定候補が現在版なら読取り・解放確認だけで無書込み成功とし、第三の現在版は拒否する。pending再入場は既存Writerが元版・候補・File実体を再照合する。Host清掃Authorityの取得・消費と物理回収は実行Ownerの責務であり、保存から発行しない。この固定用途化は物理WriterのDomain移管の前提整理であり、移管完了ではない。
 
+<a id="50-save-context"></a>
+### 5.0.2 保存先観測の四用途
+
+物理保存の移管では、既存の四用途を別の固定入口へ接続する。単一の「Owner有効」判定に統合しない。
+
+| 用途 | 移管後も要求する現在性 | 要求しないもの |
+|---|---|---|
+| 通常実行 | 元の操作Owner、operationId、Root実体、発行時Revision | 過去JSONからのOwner復元 |
+| 業務保存 | 元の検証済みRootとStorage Identity | 実行Owner、operationId、実行Commit |
+| 回復読取り | 捕捉したRoot実体とRevision | 書込み・回復Authorityの発行 |
+| 終端保存 | 元operationIdと同じRoot実体、用途限定の一回証拠 | 終了済みOwnerの復活、通常実行の旧Revision一致 |
+
+Rootは既存Version Controlが検証した同一Capabilityを使用し、Callerが返すPath・Hashから再発行しない。Coordinator側の同期再観測は既存結合の現在性確認であり、認可発行ではない。Domain側でRootの解決、元の結合Hash導出、用途・候補・CAS・一回証拠を別に検査する。用途literalだけで真正性を証明しない。
+
+Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存JSON、公開結果へ含めない。接続準備として既存借用へ保持したRoot・用途は非列挙の固定Propertyとし、spreadやJSONによる暗黙搬送をしない。派生値からContextを復元せず、任意Writer・生Kernel handle・汎用Context factoryを公開しない。この準備は物理Writer移管やCore CRUD完成を意味しない。
+
 ### 5.1 区画と更新権限
 
 | 区画 | 意味Owner | 保存時の制約 |

@@ -119,6 +119,23 @@ import {
   borrowRuntimeOwnedCoordinatorStateRepository,
 } from "../execution/operation.ts";
 
+/**
+ * 現行Writer内で既に照合されたRepositoryのI/O用投影。
+ * @responsibility Rootと結合の再観測を保ち、用途別Host Contextを保存値へ含めない。
+ * @trace ARCH-000008
+ * @shape 元のRoot、結合Hash、同期再検証だけ。
+ * @invariant この構造自体をOwner・用途・操作Authorityの証明にしない。
+ * @boundary 保存Module内部限定。移管後の公開Contextではない。
+ * @security 生Root参照や用途識別子をJSONへ複製しない。
+ * @compatibility 既存Writerの構造的入力を狭めも広げもしない。
+ */
+type CoordinatorStorageRepository = Pick<
+  NonNullable<
+    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
+  >,
+  "repositoryRoot" | "repositoryBinding" | "revalidate"
+>;
+
 export const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
 /**
@@ -1178,9 +1195,7 @@ function authenticationUnknownAbsenceChanged(
  * @concurrency 同期保存中もRootと全長期排他を再照合し、終端でContextを破棄する。
  */
 export function writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   observations: unknown,
@@ -1270,9 +1285,7 @@ const settlements = new WeakMap<
   object,
   | {
       kind: "authentication_unknown_closure";
-      repository: NonNullable<
-        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-      > & { operationId: string };
+      repository: CoordinatorStorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer;
       candidate: Buffer;
@@ -1283,9 +1296,7 @@ const settlements = new WeakMap<
   | {
       kind: "runtime_repair";
       purpose: RepairWritePurpose;
-      repository: NonNullable<
-        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-      > & { operationId: string };
+      repository: CoordinatorStorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer | null;
       candidate: Buffer;
@@ -1302,9 +1313,7 @@ const settlements = new WeakMap<
   | {
       kind: "current_completion";
       operationKind: "docker_task" | "runtime_repair";
-      repository: NonNullable<
-        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-      > & { operationId: string };
+      repository: CoordinatorStorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer;
       candidate: Buffer;
@@ -1317,9 +1326,7 @@ const settlements = new WeakMap<
     }
   | {
       kind: "current_delivery";
-      repository: NonNullable<
-        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-      > & { operationId: string };
+      repository: CoordinatorStorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer;
       candidate: Buffer;
@@ -1333,9 +1340,7 @@ const settlements = new WeakMap<
   | {
       kind: "current_history";
       operationKind: "docker_task" | "runtime_repair";
-      repository: NonNullable<
-        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-      > & { operationId: string };
+      repository: CoordinatorStorageRepository & { operationId: string };
       recoveryId: string;
       before: Buffer;
       candidate: Buffer;
@@ -1491,9 +1496,7 @@ const initializations = new WeakMap<
  * @concurrency 既存短期排他と各I/O前後の同Owner確認を使用する。
  */
 export function advanceRuntimeOwnedCoordinatorRecoveryHistory(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   assertOwner: () => boolean,
 ) {
@@ -1521,9 +1524,7 @@ export function advanceRuntimeOwnedCoordinatorRecoveryHistory(
  * @concurrency 同じOwnerの各I/O前後確認と既存単一Writerを使う。
  */
 export function advanceRuntimeOwnedCoordinatorRepairHistory(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   assertOwner: () => boolean,
 ) {
@@ -1551,9 +1552,7 @@ export function advanceRuntimeOwnedCoordinatorRepairHistory(
  * @concurrency 既存Kernel排他と単一Writerを用いる。
  */
 function advanceCoordinatorCurrentHistory(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   assertOwner: () => boolean,
   operationKind: "docker_task" | "runtime_repair",
@@ -1710,9 +1709,7 @@ function advanceCoordinatorCurrentHistory(
  * @concurrency 同じ短期Kernel排他と各I/O前のOwner確認を使う。
  */
 export function registerRuntimeOwnedCoordinatorRecoveryResultDelivery(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   assertOwner: () => boolean,
 ) {
@@ -1922,9 +1919,7 @@ export function readRuntimeOwnedCoordinatorResourcePublicationSnapshot(
  * @concurrency 外側排他を保持し、既存WriterのKernel内でもOwnerを再確認する。
  */
 export function resumeRuntimeOwnedCoordinatorResourcePublication(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   candidate: Buffer,
@@ -6764,9 +6759,7 @@ export function checkpointRuntimeOwnedCoordinatorRestart(
  * @concurrency 通常更新は保持中排他、終端更新は解放済み同Ownerの一回性を確認し、どちらも既存の短期状態排他だけを使う。
  */
 export function writeRuntimeOwnedCoordinatorRestartCheckpoint(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   checkpoint: unknown,
@@ -6843,9 +6836,7 @@ export function writeRuntimeOwnedCoordinatorRestartCheckpoint(
  * @concurrency 解放済みOwnerの一回性と短期Writerによる元版CASを共同使用する。
  */
 export function writeRuntimeOwnedCoordinatorRecoveryTerminal(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   assertOwner: () => boolean,
@@ -6967,9 +6958,7 @@ export function writeRuntimeOwnedCoordinatorRecoveryTerminal(
  * @concurrency Writer内でも既存排他・元版を再確認する。
  */
 export function writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   kind: "resource" | "cleanup" | "host" | "lifecycle",
@@ -7085,9 +7074,7 @@ export function writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
  * @concurrency 更新排他下でも同じOwnerと不存在を再確認する。
  */
 export function writeRuntimeOwnedCoordinatorRecoveredHostCleanup(
-  repository: NonNullable<
-    ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-  > & { operationId: string },
+  repository: CoordinatorStorageRepository & { operationId: string },
   recoveryId: string,
   before: Buffer,
   assertAbsentOwner: () => boolean,

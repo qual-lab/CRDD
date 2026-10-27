@@ -375,6 +375,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
         intakeEpoch: null,
         intakeBindings: [],
         projects: [],
+        managedExecutions: [],
         workspaces: [],
         queueEntries: [],
         leaseEvidence: [],

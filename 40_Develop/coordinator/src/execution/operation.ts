@@ -6567,6 +6567,7 @@ type Binding = Readonly<{
   managementCapability: object;
   operationId: string;
   repositoryRoot: string;
+  verifiedRoot: VerifiedRepositoryRoot;
   repositoryKind: string;
   logicalRepositoryIdentity: string;
   repositoryInstanceIdentity: string;
@@ -6603,6 +6604,7 @@ function observe(repositoryRoot: string) {
   );
   if (!observed) throw new Error("repository_revision_invalid");
   return Object.freeze({
+    verifiedRoot: verified.capability,
     repositoryKind: observed.repositoryForm,
     logicalRepositoryIdentity: observed.repositoryIdentity,
     repositoryInstanceIdentity: observed.repositoryInstanceIdentity,
@@ -6800,7 +6802,7 @@ export function borrowRuntimeOwnedCoordinatorStateRepository(
   try {
     const binding = currentBinding(managementCapability);
     if (!binding) return null;
-    return Object.freeze({
+    const repository = {
       operationId: binding.operationId,
       repositoryRoot: binding.repositoryRoot,
       logicalRepositoryIdentity: binding.logicalRepositoryIdentity,
@@ -6833,7 +6835,18 @@ export function borrowRuntimeOwnedCoordinatorStateRepository(
           return false;
         }
       },
-    });
+    };
+    return Object.freeze(
+      Object.defineProperties(repository, {
+        purpose: { value: "execution" as const },
+        root: { value: binding.verifiedRoot },
+      }),
+    ) as Readonly<
+      typeof repository & {
+        purpose: "execution";
+        root: VerifiedRepositoryRoot;
+      }
+    >;
   } catch {
     return null;
   }
@@ -6891,7 +6904,7 @@ export function borrowRuntimeOwnedCoordinatorStorageRepository(
     const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
     const observed = observeRepositoryStorageIdentity(capability);
     if (!repositoryRoot || !observed) return null;
-    return Object.freeze({
+    const repository = {
       repositoryRoot,
       repositoryBinding: deriveCoordinatorRepositoryStateBinding(
         repositoryRoot,
@@ -6908,7 +6921,18 @@ export function borrowRuntimeOwnedCoordinatorStorageRepository(
             observed.repositoryInstanceIdentity
         );
       },
-    });
+    };
+    return Object.freeze(
+      Object.defineProperties(repository, {
+        purpose: { value: "storage" as const },
+        root: { value: capability },
+      }),
+    ) as Readonly<
+      typeof repository & {
+        purpose: "storage";
+        root: VerifiedRepositoryRoot;
+      }
+    >;
   } catch {
     return null;
   }
@@ -6939,7 +6963,7 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
     );
     if (!repositoryRoot) return null;
     const initial = observe(repositoryRoot);
-    return Object.freeze({
+    const repository = {
       repositoryRoot,
       repositoryBinding: deriveCoordinatorRepositoryStateBinding(
         repositoryRoot,
@@ -6982,7 +7006,18 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
           return false;
         }
       },
-    });
+    };
+    return Object.freeze(
+      Object.defineProperties(repository, {
+        purpose: { value: "recovery" as const },
+        root: { value: rootCapability },
+      }),
+    ) as Readonly<
+      typeof repository & {
+        purpose: "recovery";
+        root: VerifiedRepositoryRoot;
+      }
+    >;
   } catch {
     return null;
   }
@@ -7018,7 +7053,7 @@ export function borrowRuntimeOwnedCoordinatorSettlementRepository(
     binding.managementCapability !== managementCapability
   )
     return null;
-  return Object.freeze({
+  const repository: Omit<typeof ordinary, "purpose" | "root"> = {
     ...ordinary,
     /**
      * 終端保存先の現在実体だけを再確認する。
@@ -7049,7 +7084,18 @@ export function borrowRuntimeOwnedCoordinatorSettlementRepository(
         return false;
       }
     },
-  });
+  };
+  return Object.freeze(
+    Object.defineProperties(repository, {
+      purpose: { value: "settlement" as const },
+      root: { value: ordinary.root },
+    }),
+  ) as Readonly<
+    Omit<typeof repository, "purpose" | "root"> & {
+      purpose: "settlement";
+      root: VerifiedRepositoryRoot;
+    }
+  >;
 }
 
 /**
