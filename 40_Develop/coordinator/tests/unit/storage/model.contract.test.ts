@@ -30,8 +30,9 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, runInThisContext } from "node:vm";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import { createManagedRuntimeSnapshotFixture } from "../../../../domain-model/tests/support/runtime-state.ts";
@@ -4733,6 +4734,164 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       observation: "absent",
     })),
   };
+  const hostPreparationBefore = Buffer.from(
+    `${encodeRuntimeStateValue({
+      ...preparedState.snapshot,
+      operations: [
+        {
+          ...releasedOperation,
+          resources: initialOperation.resources,
+          execution: {
+            ...releasedOperation.execution,
+            providerStart: "not_started",
+            externalSend: "not_issued",
+            sharedWrite: "not_issued",
+          },
+        },
+      ],
+    })}\n`,
+  );
+  assert.ok(decodeCoordinatorStateSnapshot(hostPreparationBefore, binding));
+  const hostPreparationCandidate = prepareCoordinatorStateHostSnapshot(
+    hostPreparationBefore,
+    recoveryId,
+    { ...releasedOperation.host, cleanup: "pending" },
+    binding,
+  );
+  assert.ok(hostPreparationCandidate);
+  let hostPreparationCurrent: Buffer = hostPreparationBefore;
+  let hostPreparationWrites = 0;
+  let hostPreparationOwnerLive = true;
+  let hostPreparationReadLockReleased = true;
+  let hostPreparationLoseOwnerAfterRead = false;
+  const hostPreparationOwner = Object.freeze({});
+  const saveHostPreparation = runInThisContext(
+    `(scope) => { const { encodeRuntimeStateValue, decodeCoordinatorStateSnapshot, prepareCoordinatorStateHostSnapshot, borrowRuntimeOwnedCoordinatorStateRepository, readCoordinatorStateSnapshot, writeCoordinatorStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../../src/storage/state.ts", import.meta.url), "utf8"), "saveRuntimeOwnedCoordinatorHostCleanupPreparation")}\nreturn saveRuntimeOwnedCoordinatorHostCleanupPreparation; }`,
+  )({
+    Buffer,
+    Object,
+    JSON,
+    encodeRuntimeStateValue,
+    decodeCoordinatorStateSnapshot,
+    prepareCoordinatorStateHostSnapshot,
+    borrowRuntimeOwnedCoordinatorStateRepository: (owner: unknown) =>
+      owner === hostPreparationOwner && hostPreparationOwnerLive
+        ? {
+            repositoryBinding: binding,
+            operationId: identity.operationId,
+            revalidate: () => hostPreparationOwnerLive,
+          }
+        : null,
+    readCoordinatorStateSnapshot: () => {
+      if (hostPreparationLoseOwnerAfterRead) hostPreparationOwnerLive = false;
+      return {
+        status: "completed",
+        reason: "observed",
+        lockReleased: hostPreparationReadLockReleased,
+        value: decodeCoordinatorStateSnapshot(hostPreparationCurrent, binding),
+      };
+    },
+    writeCoordinatorStateSnapshot: (
+      owner: unknown,
+      repository: { revalidate: () => boolean },
+      candidate: Buffer,
+      settlement: unknown,
+    ) => {
+      assert.equal(owner, hostPreparationOwner);
+      assert.equal(settlement, null);
+      assert.ok(candidate.equals(hostPreparationCandidate));
+      if (!repository.revalidate())
+        return {
+          status: "blocked",
+          snapshotConfirmed: false,
+          lockReleased: true,
+        };
+      hostPreparationWrites++;
+      hostPreparationCurrent = Buffer.from(candidate);
+      return {
+        status: "completed",
+        snapshotConfirmed: true,
+        lockReleased: true,
+      };
+    },
+  }) as (
+    owner: unknown,
+    id: string,
+    before: unknown,
+  ) => {
+    status: string;
+    snapshotConfirmed: boolean;
+    lockReleased: boolean;
+    filesystemEffectIssued?: boolean;
+  };
+  assert.equal(
+    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
+      .status,
+    "completed",
+  );
+  assert.equal(hostPreparationWrites, 1);
+  const confirmedHostPreparation = decodeCoordinatorStateSnapshot(
+    hostPreparationCandidate,
+    binding,
+  );
+  assert.ok(confirmedHostPreparation);
+  assert.deepEqual(
+    saveHostPreparation(
+      hostPreparationOwner,
+      recoveryId,
+      hostPreparationBefore,
+    ),
+    {
+      status: "completed",
+      reason: "coordinator_state_snapshot_confirmed",
+      revision: confirmedHostPreparation.snapshot.revision,
+      payloadSha256: confirmedHostPreparation.payloadSha256,
+      recoveryIds: [recoveryId],
+      filesystemEffectIssued: false,
+      snapshotConfirmed: true,
+      lockReleased: true,
+    },
+  );
+  assert.equal(hostPreparationWrites, 1, "同じ確定版の再入場は保存しない");
+  for (const [owner, id, before] of [
+    [{}, recoveryId, hostPreparationBefore],
+    [hostPreparationOwner, "other-recovery", hostPreparationBefore],
+    [hostPreparationOwner, recoveryId, prepared],
+    [hostPreparationOwner, recoveryId, hostPreparationCandidate],
+  ] as const)
+    assert.equal(saveHostPreparation(owner, id, before).status, "blocked");
+  hostPreparationCurrent = prepared;
+  assert.equal(
+    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
+      .status,
+    "blocked",
+  );
+  hostPreparationCurrent = hostPreparationBefore;
+  hostPreparationLoseOwnerAfterRead = true;
+  assert.equal(
+    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
+      .status,
+    "blocked",
+  );
+  hostPreparationLoseOwnerAfterRead = false;
+  hostPreparationOwnerLive = true;
+  hostPreparationReadLockReleased = false;
+  assert.equal(
+    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
+      .lockReleased,
+    false,
+  );
+  hostPreparationOwnerLive = false;
+  assert.equal(
+    saveHostPreparation(hostPreparationOwner, recoveryId, hostPreparationBefore)
+      .status,
+    "blocked",
+  );
+  assert.equal(
+    hostPreparationWrites,
+    1,
+    "不正元版・別操作・別Owner・解放不明は保存しない",
+  );
   assert.equal(
     coordinatorReleasedTaskCanObserveHostAbsence(releasedOperation),
     true,

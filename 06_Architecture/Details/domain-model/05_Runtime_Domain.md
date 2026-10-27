@@ -283,6 +283,8 @@ Projectの分解は次の全数対応とする。
 
 五Contextの `before / candidate / assertOwner / used`、`initializations.publicationIssued` と `historyAttempts.issued / pending` は保存JSONのfieldではなく、一回出版の私有証拠である。旧新Mapの併存・二重登録・公開DTO化を行わず、元Controller／Hostのfresh確認とI/O前の消費を維持する。ここがSourceで閉じるまで、Writer全面移管とはしない。
 
+Host清掃準備の利用側は任意候補Writerを呼ばず、同じ操作Owner・exact回復参照・固定元版だけを渡す。保存入口が元版の同じOperation、`cleanup:not_requested`、`lease:released`を照合し、`cleanup:pending`だけを導出する。利用側は元版だけを保持し、候補を第二のMapへ保存しない。同じ確定候補が現在版なら読取り・解放確認だけで無書込み成功とし、第三の現在版は拒否する。pending再入場は既存Writerが元版・候補・File実体を再照合する。Host清掃Authorityの取得・消費と物理回収は実行Ownerの責務であり、保存から発行しない。この固定用途化は物理WriterのDomain移管の前提整理であり、移管完了ではない。
+
 ### 5.1 区画と更新権限
 
 | 区画 | 意味Owner | 保存時の制約 |

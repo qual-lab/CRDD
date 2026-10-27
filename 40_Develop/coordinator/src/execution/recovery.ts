@@ -106,7 +106,7 @@ import {
   writeRuntimeOwnedCoordinatorRecoveryTerminal,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
-  writeRuntimeOwnedCoordinatorStateSnapshot,
+  saveRuntimeOwnedCoordinatorHostCleanupPreparation,
 } from "../storage/state.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
@@ -1143,7 +1143,6 @@ type DurableRecord = {
     token: string;
     tokenMatches: boolean;
     before: Buffer;
-    candidate: Buffer;
   };
 };
 
@@ -4634,9 +4633,10 @@ export function prepareRuntimeOwnedDockerHostCleanup(
   if (!record) return null;
   if (record.hostCleanupPreparation) {
     if (!record.hostCleanupPreparation.tokenMatches) return null;
-    const saved = writeRuntimeOwnedCoordinatorStateSnapshot(
+    const saved = saveRuntimeOwnedCoordinatorHostCleanupPreparation(
       record.managementCapability,
-      record.hostCleanupPreparation.candidate,
+      record.recoveryId,
+      record.hostCleanupPreparation.before,
     );
     if (
       saved.status !== "completed" ||
@@ -4685,12 +4685,12 @@ export function prepareRuntimeOwnedDockerHostCleanup(
     token,
     tokenMatches: token === operation.host.currentToken,
     before,
-    candidate,
   };
   if (token !== operation.host.currentToken) return null;
-  const saved = writeRuntimeOwnedCoordinatorStateSnapshot(
+  const saved = saveRuntimeOwnedCoordinatorHostCleanupPreparation(
     record.managementCapability,
-    candidate,
+    record.recoveryId,
+    before,
   );
   if (
     saved.status !== "completed" ||

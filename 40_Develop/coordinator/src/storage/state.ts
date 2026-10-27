@@ -4439,6 +4439,116 @@ export function writeRuntimeOwnedCoordinatorStateSnapshot(
 }
 
 /**
+ * 同じ操作のHost清掃予定だけを元版から導出して確定する。
+ * @responsibility 任意候補を受け取らず、未要求からpendingへの一差分に保存用途を限定する。
+ * @trace ARCH-000008
+ * @input managementCapability: 元操作Owner、recoveryId: exact参照、beforeBytes: 清掃許可を消費する前の固定元版。
+ * @returns 保存・読戻し・排他解放と発行Effectを区別した既存Writer結果。
+ * @precondition Host清掃Authorityの取得・消費は実行Ownerが行う。
+ * @postcondition 同じ操作・解放済みLeaseから導いた候補以外は保存しない。
+ * @effect 既存Reader／Writerと短期排他だけ。HostやDockerの回収は行わない。
+ * @failure 元版・操作・Owner差、第三の現在版、pending競合、解放不明は拒否する。
+ * @invariant 応答喪失後の同じ確定版は無書込みで確認し、元版や候補を別のMapへ複写しない。
+ * @boundary Host清掃準備と単一Snapshot保存。
+ * @security 保存済みJSONから回収Authorityを生成しない。真正Ownerを各I/Oで再照合する。
+ * @concurrency 元版CAS・pending再入場・解放確認は既存Writerに保持する。
+ */
+export function saveRuntimeOwnedCoordinatorHostCleanupPreparation(
+  managementCapability: unknown,
+  recoveryId: string,
+  beforeBytes: unknown,
+) {
+  const repository =
+    borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+  const before = repository
+    ? decodeCoordinatorStateSnapshot(beforeBytes, repository.repositoryBinding)
+    : null;
+  const operation = before?.snapshot.operations.find(
+    (item): item is CoordinatorStateTaskOperation =>
+      item.kind === "docker_task" && item.recoveryId === recoveryId,
+  );
+  const candidate =
+    repository &&
+    before &&
+    operation &&
+    operation.host.cleanup === "not_requested" &&
+    operation.lease === "released" &&
+    JSON.parse(operation.identityJson).operationId === repository.operationId
+      ? prepareCoordinatorStateHostSnapshot(
+          beforeBytes,
+          recoveryId,
+          { ...operation.host, cleanup: "pending" },
+          repository.repositoryBinding,
+        )
+      : null;
+  if (!candidate || !repository || !before)
+    return Object.freeze({
+      status: "blocked",
+      reason: "coordinator_state_input_invalid",
+      revision: null,
+      payloadSha256: null,
+      recoveryIds: Object.freeze([] as string[]),
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      lockReleased: true,
+    });
+  const current = readCoordinatorStateSnapshot(repository, null);
+  if (!current.lockReleased)
+    return Object.freeze({
+      status: "blocked",
+      reason: current.reason,
+      revision: null,
+      payloadSha256: null,
+      recoveryIds: Object.freeze([recoveryId]),
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      lockReleased: false,
+    });
+  if (
+    current.status === "completed" &&
+    current.value &&
+    Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`).equals(
+      candidate,
+    )
+  )
+    return Object.freeze({
+      status: "completed",
+      reason: "coordinator_state_snapshot_confirmed",
+      revision: current.value.snapshot.revision,
+      payloadSha256: current.value.payloadSha256,
+      recoveryIds: Object.freeze(
+        current.value.snapshot.operations.map((item) => item.recoveryId),
+      ),
+      filesystemEffectIssued: false,
+      snapshotConfirmed: true,
+      lockReleased: true,
+    });
+  if (
+    current.status === "completed" &&
+    current.value &&
+    !Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`).equals(
+      Buffer.from(`${encodeRuntimeStateValue(before.snapshot)}\n`),
+    )
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "coordinator_state_input_invalid",
+      revision: null,
+      payloadSha256: null,
+      recoveryIds: Object.freeze([recoveryId]),
+      filesystemEffectIssued: false,
+      snapshotConfirmed: false,
+      lockReleased: true,
+    });
+  return writeCoordinatorStateSnapshot(
+    managementCapability,
+    repository,
+    candidate,
+    null,
+  );
+}
+
+/**
  * 現在Ownerがexact修復の短命出版だけを既存Writerへ結合する。
  * @responsibility 旧初期化Ownerを復元せず、保存途中の同じ本文だけを確定する。
  * @trace ARCH-000008

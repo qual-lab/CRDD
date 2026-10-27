@@ -3859,7 +3859,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let isReleaseSucceeds = true;
   let startCalls = 0;
   let fixedInputs: unknown[] | null = null;
-  let fixedCandidate: unknown = null;
+  let fixedBefore: unknown = null;
   const providerNotice = Object.freeze({});
   let savedLifecycle: unknown = null;
   let lifecycleConfirmed = true;
@@ -3987,25 +3987,42 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         },
       },
     ),
+    mock.module(
+      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...stateModel,
+          prepareCoordinatorStateOperationSnapshot: (
+            _before: unknown,
+            identityJson: string,
+          ) =>
+            Buffer.from(
+              JSON.stringify({
+                operations: [
+                  { kind: "docker_task", recoveryId: "exact-id", identityJson },
+                ],
+              }),
+            ),
+          decodeRuntimeDomainSnapshot: (bytes: Buffer) => ({
+            snapshot: JSON.parse(bytes.toString("utf8")),
+          }),
+          prepareCoordinatorStateHostSnapshot: () =>
+            Buffer.from("pending-candidate"),
+        },
+      },
+    ),
     mock.module(new URL("../../src/storage/state.ts", import.meta.url).href, {
       namedExports: {
-        ...stateModel,
-        prepareCoordinatorStateOperationSnapshot: (
-          _before: unknown,
-          identityJson: string,
-        ) =>
-          Buffer.from(
-            JSON.stringify({
-              operations: [
-                { kind: "docker_task", recoveryId: "exact-id", identityJson },
-              ],
-            }),
-          ),
-        decodeCoordinatorStateSnapshot: (bytes: Buffer) => ({
-          snapshot: JSON.parse(bytes.toString("utf8")),
-        }),
-        prepareCoordinatorStateHostSnapshot: () =>
-          Buffer.from("pending-candidate"),
+        ...Object.fromEntries(
+          Object.entries(stateRuntime).map(([name, value]) => [
+            name,
+            typeof value === "function"
+              ? () => {
+                  throw new Error(`unexpected_storage_call:${name}`);
+                }
+              : value,
+          ]),
+        ),
         readRuntimeOwnedCoordinatorStateSnapshot: () => ({
           status: "completed",
           lockReleased: true,
@@ -4066,12 +4083,14 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
                 lockReleased: lifecycleLockReleased,
               };
         },
-        writeRuntimeOwnedCoordinatorStateSnapshot: (
+        saveRuntimeOwnedCoordinatorHostCleanupPreparation: (
           _management: unknown,
-          candidate: unknown,
+          recoveryId: unknown,
+          before: unknown,
         ) => {
-          if (fixedCandidate) assert.equal(candidate, fixedCandidate);
-          fixedCandidate = candidate;
+          assert.equal(recoveryId, "exact-id");
+          if (fixedBefore) assert.equal(before, fixedBefore);
+          fixedBefore = before;
           if (pendingFails)
             return {
               status: "blocked",
@@ -4433,7 +4452,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     operations = [];
     hostState = "host_only";
     fixedInputs = null;
-    fixedCandidate = null;
+    fixedBefore = null;
     isProjectDelivery = true;
     const projectPlan = { ...plan, consumer: "orchestrator" as const };
     const projectBegun = runtime.beginRuntimeOwnedDockerRecovery(

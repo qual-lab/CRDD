@@ -86,6 +86,7 @@ import {
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateOperationSnapshot,
+  prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
   prepareCoordinatorStateRepairCheckpointSnapshot,
   prepareCoordinatorStateRepairSessionSnapshot,
@@ -128,6 +129,7 @@ import {
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
   writeRuntimeOwnedCoordinatorStateSnapshot,
+  saveRuntimeOwnedCoordinatorHostCleanupPreparation,
 } from "../../src/storage/state.ts";
 
 const emptyTaskSections = {
@@ -567,6 +569,123 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     repository.repositoryBinding,
   );
   assert.ok(operationBytes);
+  await t.test("Host清掃準備は固定元版から同じpendingを一回確定する", () => {
+    const decoded = decodeCoordinatorStateSnapshot(
+      operationBytes,
+      repository.repositoryBinding,
+    );
+    assert.ok(decoded);
+    const operation = decoded.snapshot.operations.find(
+      (item) => item.kind === "docker_task",
+    );
+    assert.ok(operation?.kind === "docker_task");
+    const before = Buffer.from(
+      `${encodeRuntimeStateValue({
+        ...decoded.snapshot,
+        operations: [
+          {
+            ...operation,
+            lease: "released",
+            execution: {
+              ...operation.execution,
+              providerStart: "not_started",
+              externalSend: "not_issued",
+              sharedWrite: "not_issued",
+              ownerEffect: "disabled",
+              workspaceReusable: false,
+            },
+          },
+        ],
+      })}\n`,
+    );
+    assert.ok(
+      decodeCoordinatorStateSnapshot(before, repository.repositoryBinding),
+    );
+    const candidate = prepareCoordinatorStateHostSnapshot(
+      before,
+      operation.recoveryId,
+      { ...operation.host, cleanup: "pending" },
+      repository.repositoryBinding,
+    );
+    assert.ok(candidate);
+    const target = path.join(area.directory, "state.json");
+    const pending = path.join(area.directory, "state.pending.json");
+    const marker = path.join(area.directory, "state.lock");
+    fs.writeFileSync(target, before);
+    const originalRename = fs.renameSync;
+    const failure = t.mock.method(
+      fs,
+      "renameSync",
+      (...args: Parameters<typeof fs.renameSync>) => {
+        if (String(args[0]) === pending && String(args[1]) === target)
+          throw new Error("injected_host_preparation_rename");
+        return Reflect.apply(originalRename, fs, args);
+      },
+    );
+    try {
+      const first = saveRuntimeOwnedCoordinatorHostCleanupPreparation(
+        management,
+        operation.recoveryId,
+        before,
+      );
+      assert.equal(first.status, "blocked");
+      assert.equal(first.snapshotConfirmed, false);
+      assert.equal(first.filesystemEffectIssued, true);
+      assert.deepEqual(fs.readFileSync(target), before);
+      assert.deepEqual(fs.readFileSync(pending), candidate);
+    } finally {
+      failure.mock.restore();
+    }
+    const published = decodeCoordinatorStateSnapshot(
+      candidate,
+      repository.repositoryBinding,
+    );
+    assert.ok(published);
+    const expected = {
+      status: "completed",
+      reason: "coordinator_state_snapshot_confirmed",
+      revision: published.snapshot.revision,
+      payloadSha256: published.payloadSha256,
+      recoveryIds: [operation.recoveryId],
+      filesystemEffectIssued: true,
+      snapshotConfirmed: true,
+      lockReleased: true,
+    };
+    assert.deepEqual(
+      saveRuntimeOwnedCoordinatorHostCleanupPreparation(
+        management,
+        operation.recoveryId,
+        before,
+      ),
+      expected,
+    );
+    assert.deepEqual(fs.readFileSync(target), candidate);
+    assert.equal(fs.existsSync(pending), false);
+    assert.equal(fs.existsSync(marker), false);
+    assert.deepEqual(
+      saveRuntimeOwnedCoordinatorHostCleanupPreparation(
+        management,
+        operation.recoveryId,
+        before,
+      ),
+      { ...expected, filesystemEffectIssued: false },
+    );
+    fs.writeFileSync(target, before);
+    const wrongPending = Buffer.from("not-the-fixed-candidate\n");
+    fs.writeFileSync(pending, wrongPending, { flag: "wx" });
+    const refused = saveRuntimeOwnedCoordinatorHostCleanupPreparation(
+      management,
+      operation.recoveryId,
+      before,
+    );
+    assert.equal(refused.status, "blocked");
+    assert.equal(refused.filesystemEffectIssued, false);
+    assert.deepEqual(fs.readFileSync(target), before);
+    assert.deepEqual(fs.readFileSync(pending), wrongPending);
+    assert.equal(fs.existsSync(marker), false);
+    fs.unlinkSync(pending);
+    fs.writeFileSync(target, secondBytes);
+  });
   // CLI自身と実Readerを使い、処置境界だけを無Effectの観測へ置き換える。
   const cliIdentity = {
     ...identity,
