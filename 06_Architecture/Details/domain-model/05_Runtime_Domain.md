@@ -387,6 +387,8 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 短期保存時の区画遷移・閉鎖・退役条件もDomain `state/transition.ts`へ実体移管する。Writerが使用する`assertCoordinatorSnapshotTransition`と観測型、Coordinatorの退役処理が使用する四つの既存条件関数をRootから明示公開する。有限の二観測の生成とI/O・現在Owner照合は既存Writer側に残し、同じ短期Owner・元の検査位置で呼ぶ。値又は観測callbackだけを保存Authorityにせず、汎用validator登録・新Map・旧配置の互換Fileは追加しない。これは物理Writer全面移管の前提であり、その完了ではない。
 
+受付世代と同内容再入場の照合は同じ`state/transition.ts`、Task結果受領の競合検査は`task/crud.ts`へ集約する。Queueの事前照合とWriterの排他内fresh照合は同じ二関数を利用し、保存側からCoordinatorの状態判断を逆参照しない。四項目の`ProjectTaskResultFact`はDomain `task/types.ts`が所有し、既存State PortとWriterで共用する。型の共通化で実行時のexact四key検査や元Owner照合を省略しない。Taskの受領・回復状態を更新する残りの実行操作はCoordinatorに保つ。
+
 正規byte表現の生成と内容Hashは、保存候補の同一性・CASを検査する利用側向けに`encodeRuntimeStateValue`・`hashRuntimeStateContent`として公開する。生byteの内部復号、文法の正規表現実体、未利用の局所validatorはRoot公開しない。Hash一致を真正性・操作許可・出版成功へ読み替えない。
 
 本節は既存QA項目の追加シナリオであり、新Local Item・新しい総数を発行しない。値検査・設定保存・入口搬送の限定試験は実施したが、表が要求するCore CRUDと単一保存の全体シナリオは未完了。既存Passや文書レビューを新実装全体の成功根拠にしない。

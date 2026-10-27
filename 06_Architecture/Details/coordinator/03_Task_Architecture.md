@@ -436,7 +436,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 物理保存（4） | `storage/state.ts`; `storage/history.ts`; `storage/lock.ts`; `storage/decision.ts` | 実行Snapshotの保存封筒・bounded codec・CAS・atomic replace・保存一回証拠・再入場を所有する。AI設定のWriterはDomainへ移管済み。実行Snapshot全体の移管は未完了。 |
 | 単発実行・技術接続（15） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/settlement.ts`; `execution/validation.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。保存型はDomainの`attempt/types.ts`を利用する。 |
 | CLI（7） | `cli/command.ts`; `cli/options.ts`; `cli/request.ts`; `cli/authentication.ts`; `cli/doctor.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
-| 区画間の状態整合 | Coordinator `state/settlement.ts`; Domain Model `state/transition.ts` | 復号済み区画の相関・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
+| 区画間の状態整合 | Domain Model `state/transition.ts`・`task/crud.ts` | 復号済み区画の相関・受付・結果受領・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
 | 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | 既存の同意・Policy・一回Grantを保持する。 |
 | 公開入口（2） | `index.ts`; `api.ts` | Rootの公開名・型／値区分を維持する。 |
 

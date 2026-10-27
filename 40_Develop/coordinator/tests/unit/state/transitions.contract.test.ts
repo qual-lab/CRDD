@@ -24,8 +24,8 @@ import { describe, it } from "node:test";
 import {
   acknowledgeProjectDockerRecoveryObligation,
   recordProjectTaskResultAcceptances,
-  hasProjectTaskResultAcceptanceConflict,
 } from "../../../src/task/acceptance.ts";
+import { hasProjectTaskResultAcceptanceConflict } from "../../../../domain-model/src/index.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,

@@ -571,6 +571,7 @@ export {
 export { parseCanonicalReleaseHeader } from "./artifact/document-header.ts";
 export {
   prepareCoordinatorUnifiedTaskSnapshot,
+  hasProjectTaskResultAcceptanceConflict,
   normalizeCoordinatorTaskProjects,
 } from "./task/crud.ts";
 export {
@@ -581,6 +582,7 @@ export {
   coordinatorRejectedAdoptionEvidenceCanRetire,
   coordinatorStandaloneAdoptionIsClosed,
   type CoordinatorSnapshotObservations,
+  coordinatorSnapshotIntakeMatches,
 } from "./state/transition.ts";
 export { parseChangeTraceHeader } from "./artifact/change.ts";
 export {
@@ -682,6 +684,7 @@ export {
 export type {
   ProjectResultAcceptance,
   ProjectTaskRecord,
+  ProjectTaskResultFact,
   ProjectTaskRecoveryObligation,
   ProjectTaskState,
   ProjectTaskStartPhase,

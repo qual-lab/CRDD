@@ -513,3 +513,71 @@ export function associateCoordinatorTaskOperations(
     }),
   }));
 }
+
+/**
+ * Task結果受領集合の遷移が固定本文・初回世代と競合するか判定する。
+ * @responsibility 同一Attemptの受領不変と明示再計画の限定的な置換条件を所有する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input previous: Lock内で読み直した元Project、state: 保存候補。
+ * @returns 受領差が保存を拒否すべき場合だけtrue。
+ * @precondition 両状態は構造検査済み。Writerが元世代と受付結合を別途照合する。
+ * @postcondition 入力を変更せず、受領の欠測を補完しない。
+ * @effect N/A: 同期値判定だけ。
+ * @failure 初回受領の世代差・固定本文変更は競合。
+ * @invariant 判定を実資源回収・保存成功へ読み替えない。
+ * @boundary Taskの受領意味と統合保存Writer。
+ * @security 保存・実行Authorityを発行しない。
+ * @concurrency Writerは同じ短期Lock内のfresh元版に対して呼ぶ。
+ */
+export function hasProjectTaskResultAcceptanceConflict(
+  previous: CoordinatorState | undefined,
+  state: CoordinatorState,
+): boolean {
+  return state.tasks.some((task) => {
+    if (!previous) return task.resultAcceptances.length !== 0;
+    const prior = previous?.tasks.find(
+      (item) => item.definition.id === task.definition.id,
+    );
+    const isSameAttempt =
+      prior?.attemptId === task.attemptId &&
+      prior?.operationId === task.operationId;
+    if (
+      prior?.state === "failed" &&
+      prior.supersededBy === null &&
+      task.state === "superseded" &&
+      task.resultAcceptances.length === 0 &&
+      task.supersededBy !== null &&
+      !previous.tasks.some(
+        (item) => item.definition.id === task.supersededBy,
+      ) &&
+      state.tasks.some(
+        (item) =>
+          item.definition.id === task.supersededBy &&
+          item.definition.objectiveId === prior.definition.objectiveId &&
+          item.attemptId === null &&
+          item.operationId === null &&
+          item.resultAcceptances.length === 0 &&
+          (item.state === "ready" || item.state === "waiting_dependency"),
+      )
+    )
+      return false;
+    if (!isSameAttempt || !prior?.resultAcceptances.length)
+      return task.resultAcceptances.some(
+        (item) => item.settlementGeneration !== state.generation,
+      );
+    return (
+      prior.resultAcceptances.length !== task.resultAcceptances.length ||
+      prior.resultAcceptances.some((item) => {
+        const next = task.resultAcceptances.find(
+          (value) => value.recoveryId === item.recoveryId,
+        );
+        return (
+          !next ||
+          Object.entries(item).some(
+            ([key, value]) => next[key as keyof typeof next] !== value,
+          )
+        );
+      })
+    );
+  });
+}

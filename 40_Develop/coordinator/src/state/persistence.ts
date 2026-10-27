@@ -7,6 +7,7 @@
 
 import type {
   ProjectQueueEntry,
+  ProjectTaskResultFact,
   ProjectQueueState,
   CoordinatorState,
   CoordinatorLeaseKind,
@@ -78,12 +79,7 @@ export type CoordinatorStatePort = Readonly<{
   writeState: (
     state: CoordinatorState,
     expectedGeneration: number,
-    resultFacts?: readonly Readonly<{
-      taskId: string;
-      attemptId: string;
-      operationId: string;
-      recoveryUnresolved: boolean;
-    }>[],
+    resultFacts?: readonly ProjectTaskResultFact[],
   ) => CoordinatorPortResult<CoordinatorState>;
   readState: (
     projectId: string,

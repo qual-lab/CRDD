@@ -68,6 +68,23 @@ export type ProjectResultAcceptance = Readonly<{
 }>;
 
 /**
+ * 同じTask試行から保存へ搬送する結果の元事実。
+ * @responsibility Task・Attempt・Operationの相関と未解決観測を一つの値契約にする。
+ * @trace ARCH-000004、ARCH-000008
+ * @shape taskId、attemptId、operationId、recoveryUnresolvedの四項目。
+ * @invariant 値だけを真正な実行結果・資源回収・保存許可としない。
+ * @boundary Task State Portと保存候補生成。
+ * @security 実行時のexact key検査と元Owner照合は各既存境界で維持する。
+ * @compatibility 既存の匿名四fieldと同じ形状。保存Schemaは変えない。
+ */
+export type ProjectTaskResultFact = Readonly<{
+  taskId: string;
+  attemptId: string;
+  operationId: string;
+  recoveryUnresolved: boolean;
+}>;
+
+/**
  * stateで使用するProject Task 記録の値契約を定義する。
  *
  * @responsibility Project Task 記録のProperty、Identity、状態制約を型境界として所有する。

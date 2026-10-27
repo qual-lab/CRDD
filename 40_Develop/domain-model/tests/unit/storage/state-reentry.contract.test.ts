@@ -9,7 +9,97 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyRuntimeSnapshotReentry } from "../../../src/index.ts";
+import {
+  classifyRuntimeSnapshotReentry,
+  coordinatorSnapshotIntakeMatches,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type CoordinatorSnapshot,
+} from "../../../src/index.ts";
+
+/**
+ * 受付世代と同じ依頼の再入場を局所判定する。
+ * @responsibility Queue不存在と既存Queueの同内容確認を分離する。
+ * @trace PRL-UT-006
+ * @precondition 受付照合が読む値を持つ合成Snapshotを使用する。
+ * @stimulus 新規、同世代・異本文、退役済み世代と不正IDを渡す。
+ * @observation 判定値と元のSnapshot本文を取得する。
+ * @oracle 新規は現在世代だけ、既存Queueは保存された元世代と同じ本文だけを受理する。
+ * @cleanup N/A: メモリ内の局所判定のみ。
+ * @boundary 全体codec・実受付・現在Ownerの検証は別試験が所有する。
+ */
+test("受付照合は新規の現世代と既存Queueの元世代を混同しない", () => {
+  const current: CoordinatorSnapshot = {
+    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+    schemaRevision: 5,
+    repositoryRootHash: "a".repeat(64),
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [],
+    projects: [],
+    queueEntries: [],
+    workspaces: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [],
+  };
+  const intake = {
+    epoch: "epoch-a",
+    queueId: "queue-a",
+    requestHash: "b".repeat(64),
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+  };
+  const before = JSON.stringify(current);
+  assert.equal(coordinatorSnapshotIntakeMatches(current, intake), true);
+  assert.equal(
+    coordinatorSnapshotIntakeMatches(current, {
+      ...intake,
+      epoch: "old-epoch",
+    }),
+    false,
+  );
+  const queued: CoordinatorSnapshot = {
+    ...current,
+    intakeEpoch: "epoch-b",
+    intakeBindings: [{ queueId: intake.queueId, epoch: intake.epoch }],
+    queueEntries: [
+      {
+        workspaceId: null,
+        queueId: intake.queueId,
+        projectId: intake.projectId,
+        milestoneId: intake.milestoneId,
+        requestHash: intake.requestHash,
+        originLane: "interactive",
+        repositoryRevision: "a".repeat(40),
+        scopeHash: "c".repeat(64),
+        state: "queued",
+        generation: 1,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ],
+  };
+  assert.equal(coordinatorSnapshotIntakeMatches(queued, intake), true);
+  for (const changed of [
+    { ...intake, epoch: "epoch-b" },
+    { ...intake, requestHash: "c".repeat(64) },
+    { ...intake, projectId: "project-b" },
+    { ...intake, milestoneId: "milestone-b" },
+    { ...intake, queueId: "" },
+    { ...intake, requestHash: "invalid" },
+  ])
+    assert.equal(coordinatorSnapshotIntakeMatches(queued, changed), false);
+  assert.equal(
+    coordinatorSnapshotIntakeMatches({ ...queued, intakeBindings: [] }, intake),
+    false,
+  );
+  assert.equal(JSON.stringify(current), before);
+});
 
 /**
  * Snapshotの元版と次版のexact内容だけを保存再入場へ分類する。

@@ -188,7 +188,7 @@ const SOURCE_ROLES = {
     "cli/recovery-report.ts",
     "cli/cancellation.ts",
   ],
-  technicalStorage: ["state/settlement.ts"],
+  technicalStorage: [],
   externalSendDecision: [
     "decision/external-send-consent.ts",
     "decision/external-send-grant.ts",

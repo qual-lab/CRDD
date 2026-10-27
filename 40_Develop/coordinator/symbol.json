@@ -45,15 +45,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.state.settlement",
-      "kind": "file",
-      "path": "src/state/settlement.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.state.transaction",
       "kind": "file",
       "path": "src/state/transaction.ts",

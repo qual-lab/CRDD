@@ -29,7 +29,7 @@ import { readExactLeaseEvidence } from "../storage/state.ts";
 import { writeCoordinatorSnapshotState } from "../storage/state.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 import { coordinatorSnapshotLeaseResourcesAbsent } from "../storage/state.ts";
-import { coordinatorSnapshotIntakeMatches } from "../state/settlement.ts";
+import { coordinatorSnapshotIntakeMatches } from "../../../domain-model/src/index.ts";
 
 import type { CoordinatorLease } from "../state/persistence.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";

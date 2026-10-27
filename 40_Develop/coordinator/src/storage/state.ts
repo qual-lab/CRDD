@@ -65,7 +65,10 @@ import {
   RUNTIME_STATE_MAXIMUM_BYTES,
 } from "../../../domain-model/src/index.ts";
 
-import { coordinatorSnapshotIntakeMatches } from "../state/settlement.ts";
+import {
+  coordinatorSnapshotIntakeMatches,
+  type ProjectTaskResultFact,
+} from "../../../domain-model/src/index.ts";
 
 import { inspectCoordinatorHistorySettlement } from "./history.ts";
 import { createHash, randomUUID } from "node:crypto";
@@ -73,10 +76,9 @@ import { types } from "node:util";
 import {
   parseDockerTaskRecoveryId,
   dockerRuntimeRepairDisposalIsSettled,
-} from "../../../docker-isolation/src/index.ts";
-import type { CoordinatorStatePort } from "../state/persistence.ts";
+} from "../../../domain-model/src/index.ts";
 
-import { hasProjectTaskResultAcceptanceConflict } from "../task/acceptance.ts";
+import { hasProjectTaskResultAcceptanceConflict } from "../../../domain-model/src/index.ts";
 
 import {
   assertCoordinatorSnapshotTransition,
@@ -836,7 +838,7 @@ export function writeCoordinatorSnapshotState(
     projectId: string;
     milestoneId: string;
   }>,
-  resultFacts: Parameters<CoordinatorStatePort["writeState"]>[2] = [],
+  resultFacts: readonly ProjectTaskResultFact[] = [],
 ): StoreResult<CoordinatorState> {
   let state: CoordinatorState;
   try {
