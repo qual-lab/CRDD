@@ -14,6 +14,10 @@ import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import test from "node:test";
 import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {
@@ -327,14 +331,19 @@ test("読取り助言Task契約は結果契約とEffect 0を固定する", () =>
  * @stimulus Repository Project Contextを専用Task Packetへ固定してDispatchするの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
+ * @cleanup 自己生成した合成Git Repositoryだけを終了hookで回収する。
+ * @boundary ERB-UT-023=Direct Boundary: 合成Repository→本番読取り境界→模擬Dispatch。外部AIなし。
  */
-test("Repository Project Contextを専用Task Packetへ固定してDispatchする", async () => {
-  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    process.cwd(),
+test("Repository Project Contextを専用Task Packetへ固定してDispatchする", async (t) => {
+  const directory = createRepositoryTestDirectory("advice-packet-");
+  const root = directory.path;
+  t.after(directory.cleanup);
+  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  fs.writeFileSync(
+    path.join(root, "PROJECT_CONTEXT.md"),
+    "# Synthetic Project Context\nStatus: ready\n",
   );
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = verifyRepositoryRoot(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   let observedTask:

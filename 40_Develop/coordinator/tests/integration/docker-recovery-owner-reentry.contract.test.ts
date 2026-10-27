@@ -3887,6 +3887,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     consumer: "orchestrator",
   });
   const hostSubmission = await import("../../src/execution/controller.ts");
+  const hostPersistence = await import("../../src/execution/persistence.ts");
   const mocks = [
     mock.module(
       new URL("../../src/execution/controller.ts", import.meta.url).href,
@@ -4005,6 +4006,43 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       {
         namedExports: {
           ...stateModel,
+          readRuntimeOwnedCoordinatorSettlementResult: (
+            receivedContext: unknown,
+            consumer: unknown,
+          ) => {
+            assert.equal(receivedContext, context);
+            assert.equal(consumer, "orchestrator");
+            return {
+              status: "completed",
+              lockReleased: resultReadLockReleased,
+              value: projectResult,
+            };
+          },
+          captureRuntimeOwnedCoordinatorSettlementInputs: (
+            _context: unknown,
+            host: unknown,
+            docker: unknown,
+          ) => {
+            if (fixedInputs)
+              return fixedInputs[0] === host && fixedInputs[1] === docker;
+            if (host !== cleanup || docker !== completion) return false;
+            fixedInputs = [host, docker];
+            return true;
+          },
+          settleRuntimeOwnedCoordinatorResult: (
+            _context: unknown,
+            host: unknown,
+            docker: unknown,
+          ) => {
+            driverCalls++;
+            assert.equal(host, cleanup);
+            assert.equal(docker, completion);
+            return {
+              status: driverFails ? "blocked" : "completed",
+              filesystemEffectIssued: true,
+              deliveryPending: isProjectDelivery,
+            };
+          },
           prepareCoordinatorStateOperationSnapshot: (
             _before: unknown,
             identityJson: string,
@@ -4025,11 +4063,11 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../../domain-model/src/index.ts", import.meta.url).href,
+      new URL("../../src/execution/persistence.ts", import.meta.url).href,
       {
         namedExports: {
           ...Object.fromEntries(
-            Object.entries(stateRuntime).map(([name, value]) => [
+            Object.entries(hostPersistence).map(([name, value]) => [
               name,
               typeof value === "function"
                 ? () => {
@@ -4134,43 +4172,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         namedExports: {
           prepareRuntimeOwnedCoordinatorSettlement: () =>
             contextFails ? null : context,
-          readRuntimeOwnedCoordinatorSettlementResult: (
-            receivedContext: unknown,
-            consumer: unknown,
-          ) => {
-            assert.equal(receivedContext, context);
-            assert.equal(consumer, "orchestrator");
-            return {
-              status: "completed",
-              lockReleased: resultReadLockReleased,
-              value: projectResult,
-            };
-          },
-          captureRuntimeOwnedCoordinatorSettlementInputs: (
-            _context: unknown,
-            host: unknown,
-            docker: unknown,
-          ) => {
-            if (fixedInputs)
-              return fixedInputs[0] === host && fixedInputs[1] === docker;
-            if (host !== cleanup || docker !== completion) return false;
-            fixedInputs = [host, docker];
-            return true;
-          },
-          settleRuntimeOwnedCoordinatorResult: (
-            _context: unknown,
-            host: unknown,
-            docker: unknown,
-          ) => {
-            driverCalls++;
-            assert.equal(host, cleanup);
-            assert.equal(docker, completion);
-            return {
-              status: driverFails ? "blocked" : "completed",
-              filesystemEffectIssued: true,
-              deliveryPending: isProjectDelivery,
-            };
-          },
         },
       },
     ),

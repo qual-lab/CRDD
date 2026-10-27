@@ -38,12 +38,22 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
     source.slice(start, end).replace("export ", ""),
   );
   let snapshot: unknown;
+  const verifiedRoot = Object.freeze({});
   const ready = new Function(
-    "readCoordinatorSnapshot",
+    "readCoordinatorWorkspaceState",
+    "verifyRuntimePersistenceRepository",
     "validWorkspaceCandidateRequest",
     `${code}; return workspacePlanReadyForAcceptance;`,
   )(
-    () => ({ status: "completed", value: snapshot }),
+    (root: unknown, binding: unknown) => {
+      assert.equal(root, verifiedRoot);
+      assert.equal(binding, "binding");
+      return { status: "completed", value: snapshot };
+    },
+    (root: unknown) => {
+      assert.equal(root, "root");
+      return verifiedRoot;
+    },
     validWorkspaceCandidateRequest,
   ) as (...args: string[]) => boolean;
   const base = "a".repeat(40),

@@ -15,6 +15,7 @@ import { sourceDeclaration } from "../../../domain-model/tests/support/source-de
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 
 let spawnCalls = 0;
+let storageOwnerCalls = 0;
 
 await mock.module(
   new URL("../../src/execution/diagnostics.ts", import.meta.url).href,
@@ -36,6 +37,10 @@ await mock.module(
   new URL("../../../platform-access/src/index.ts", import.meta.url).href,
   {
     namedExports: {
+      acquireNamedPipeKernelLock: () => {
+        storageOwnerCalls += 1;
+        throw new Error("storage_owner_must_not_be_acquired");
+      },
       WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE:
         "fixed_test_environment_unavailable",
       describeProviderHomeObservationContract,
@@ -135,6 +140,7 @@ for (const outcome of candidateOutcomes) {
   assert.equal(outcome.manualRecoveryRequired, false);
 }
 assert.equal(spawnCalls, 0);
+assert.equal(storageOwnerCalls, 0);
 
 const isCapabilityIssued =
   providerOutcome.observationCapability !== null ||

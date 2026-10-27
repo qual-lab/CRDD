@@ -4,6 +4,7 @@
  * @responsibility pending・marker・観測不能・境界置換の保存保証を所有する。
  * @trace PRL-IT-005
  * @trace PRL-IT-012
+ * @trace ERB-IT-004
  * @trace ERB-IT-014
  * @level IT
  * @scope 自己生成Repositoryと同一Processの故障注入。
@@ -369,6 +370,28 @@ const emptyTaskSections = {
   decisionRecoveries: [],
   resultReceipts: [],
 };
+
+/**
+ * 保存の実行観測依存をDomainの有限Repository観測へ限定する。
+ * @responsibility 移管前のController値依存禁止を新しい保存Ownerで維持する。
+ * @trace ERB-IT-004
+ * @precondition 現行保存Sourceだけを読む。
+ * @stimulus 型消去後のimportを照合する。
+ * @observation 禁止依存と有限観測Moduleへの直接接続。
+ * @oracle Controllerへ依存せずruntime-repositoryへ接続する。
+ * @cleanup 読取りだけで資源なし。
+ * @boundary Domain保存OwnerのSource境界。Host・Dockerは実行しない。
+ */
+test("保存観測はControllerに依存せず有限Repository観測へ接続する", () => {
+  const runtime = stripTypeScriptTypes(
+    fs.readFileSync(
+      new URL("../../src/storage/runtime-store.ts", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.doesNotMatch(runtime, /from\s+["'][^"']*controller\.ts["']/);
+  assert.match(runtime, /from\s+["'][^"']*runtime-repository\.ts["']/);
+});
 
 const storeSource = fs.readFileSync(
   new URL("../../src/storage/runtime-store.ts", import.meta.url),
