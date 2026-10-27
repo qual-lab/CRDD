@@ -203,6 +203,29 @@ export type ProjectTaskRecoveryKind =
 export type ProjectDockerRecoveryAcknowledgement = ProjectResultAcceptance;
 
 /**
+ * state-portで使用するCoordinator Queue Enqueue 入力の値契約を定義する。
+ *
+ * @responsibility Coordinator Queue Enqueue 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorQueueEnqueueInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorQueueEnqueueInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorQueueEnqueueInputの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorQueueEnqueueInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorQueueEnqueueInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorQueueEnqueueInput = Omit<
+  ProjectQueueEntry,
+  | "state"
+  | "generation"
+  | "ownerGeneration"
+  | "resumeCondition"
+  | "resultReference"
+  | "singleTask"
+  | "milestoneId"
+> &
+  Readonly<{ milestoneId: string }>;
+
+/**
  * queueで使用するProject Queue Entryの値契約を定義する。
  *
  * @responsibility Project Queue EntryのProperty、Identity、状態制約を型境界として所有する。

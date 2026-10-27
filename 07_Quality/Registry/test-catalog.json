@@ -3227,6 +3227,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "domain-model:unit:task-queue",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/task/queue.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["task", "queue", "intake"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "domain-model:unit:workspace-crud",
       "owner": "domain-model",
       "path": "40_Develop/domain-model/tests/unit/workspace/crud.contract.test.ts",

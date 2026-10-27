@@ -4,6 +4,10 @@
  * @trace ARCH-000004、ARCH-000008
  */
 import {
+  inspectCoordinatorQueueIntake,
+  projectCoordinatorQueueProjectState,
+  prepareCoordinatorQueueEntryCreation,
+  projectCoordinatorQueueEntry,
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   leaseIdentity,
   validId,
@@ -29,7 +33,6 @@ import { readExactLeaseEvidence } from "../storage/state.ts";
 import { writeCoordinatorSnapshotState } from "../storage/state.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 import { coordinatorSnapshotLeaseResourcesAbsent } from "../storage/state.ts";
-import { coordinatorSnapshotIntakeMatches } from "../../../domain-model/src/index.ts";
 
 import type { CoordinatorLease } from "../state/persistence.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";
@@ -111,13 +114,7 @@ export function inspectCoordinatorSnapshotIntake(
   return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current) =>
-      coordinatorSnapshotIntakeMatches(current, intake)
-        ? completed("orchestrator_intake_verified", {
-            next: null,
-            value: true as const,
-          })
-        : blocked("orchestrator_intake_epoch_retired"),
+    (current) => inspectCoordinatorQueueIntake(current, intake),
   );
 }
 
@@ -163,90 +160,17 @@ export function createCoordinatorSnapshotStatePort(
         resultFacts,
       ),
     readState: (projectId) =>
-      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
-        if (!validId(projectId))
-          return blocked("orchestrator_state_identity_invalid");
-        return completed("orchestrator_state_observed", {
-          next: null,
-          value:
-            current.projects.find((item) => item.projectId === projectId) ??
-            null,
-        });
-      }),
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) =>
+        projectCoordinatorQueueProjectState(current, projectId),
+      ),
     enqueueOperation: (input) =>
-      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
-        const existing = current.queueEntries.find(
-          (item) => item.queueId === input.queueId,
-        );
-        if (existing) {
-          const epoch = current.intakeBindings.find(
-            (item) => item.queueId === input.queueId,
-          )?.epoch;
-          return epoch === intakeEpoch &&
-            existing.requestHash === input.requestHash &&
-            existing.projectId === input.projectId &&
-            existing.milestoneId === input.milestoneId
-            ? completed("orchestrator_queue_request_reused", {
-                next: null,
-                value: existing,
-              })
-            : blocked("orchestrator_queue_identity_conflict");
-        }
-        if (current.intakeEpoch !== intakeEpoch)
-          return blocked("orchestrator_intake_epoch_retired");
-        const value: ProjectQueueEntry = {
-          ...input,
-          workspaceId: input.workspaceId ?? null,
-          state: "queued",
-          generation: 1,
-          ownerGeneration: null,
-          resumeCondition: null,
-          resultReference: null,
-        };
-        if (
-          !validQueueEntry(value) ||
-          value.singleTask !== undefined ||
-          !current.projects.some((item) => item.projectId === value.projectId)
-        )
-          return blocked("orchestrator_queue_input_invalid");
-        if (
-          value.workspaceId != null &&
-          (!current.queueEntries.some(
-            (entry) =>
-              entry.projectId === value.projectId &&
-              entry.workspaceId === value.workspaceId,
-          ) ||
-            !current.workspaces.some(
-              (entry) =>
-                entry.workspaceId === value.workspaceId &&
-                entry.phase === "ready" &&
-                entry.holdUntil === null,
-            ))
-        )
-          return blocked("orchestrator_workspace_not_ready");
-        return completed("orchestrator_queue_entry_durable", {
-          next: {
-            ...current,
-            queueEntries: [...current.queueEntries, value],
-            intakeBindings: [
-              ...current.intakeBindings,
-              { queueId: value.queueId, epoch: intakeEpoch },
-            ],
-          },
-          value,
-        });
-      }),
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) =>
+        prepareCoordinatorQueueEntryCreation(current, intakeEpoch, input),
+      ),
     readQueue: (queueId) =>
-      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
-        if (!validId(queueId))
-          return blocked("orchestrator_queue_input_invalid");
-        const value = current.queueEntries.find(
-          (item) => item.queueId === queueId,
-        );
-        return value
-          ? completed("orchestrator_queue_observed", { next: null, value })
-          : blocked("orchestrator_queue_observation_unknown");
-      }),
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) =>
+        projectCoordinatorQueueEntry(current, queueId),
+      ),
     selectNextOperation: () =>
       withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
         const orderedTasks = [...current.queueEntries].sort((a, b) =>

@@ -9,6 +9,45 @@ import { types } from "node:util";
 import type { CoordinatorSnapshot } from "./types.ts";
 import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA, validId } from "./validation.ts";
 /**
+ * QueueのState Portが照会するProject現在値を投影する。
+ * @responsibility State Port固有のID拒否と不存在nullを維持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input current: fresh元Snapshot、projectId: 対象Project ID。
+ * @returns 元の結果封筒で固定候補又は投影を返す。
+ * @precondition 既存短期Ownerがfresh SnapshotとRepository結合を検証済み。
+ * @postcondition 元Snapshotと対象外の区画を変更しない。
+ * @effect N/A: 同期の値操作だけ。
+ * @failure 元の検査順と固定理由で拒否する。
+ * @invariant 候補を保存完了、現在認可、実行順序決定や回復成立にしない。
+ * @boundary Coordinatorの検証済み値と既存の単一Writer。
+ * @security 保存Owner・任意Snapshot callback・実行Authorityを公開しない。
+ * @concurrency 同じ短期Owner内のfresh元版へ適用し、保存CAS・解放は既存Writerが所有する。
+ */
+
+export function projectCoordinatorQueueProjectState(
+  current: CoordinatorSnapshot,
+  projectId: string,
+) {
+  if (!validId(projectId))
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "orchestrator_state_identity_invalid",
+      value: null,
+      manualRecoveryRequired: false,
+      recoveryId: null,
+    });
+  return Object.freeze({
+    status: "completed" as const,
+    reason: "orchestrator_state_observed",
+    value: {
+      next: null,
+      value:
+        current.projects.find((item) => item.projectId === projectId) ?? null,
+    },
+  });
+}
+
+/**
  * 検証済みSnapshotからProjectの現在値だけを投影する。
  * @responsibility 既存のSchema・ID共同検査と不存在のnullを維持する。
  * @trace ARCH-000004、ARCH-000008

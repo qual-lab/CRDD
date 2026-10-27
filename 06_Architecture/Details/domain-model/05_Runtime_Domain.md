@@ -394,6 +394,10 @@ Workspaceの統合結果候補と現在記録更新は`workspace/crud.ts`の`pre
 
 Workspace更新のProcess IDはCoordinatorがそのcallback内で取得して値渡しする。破棄履歴の時刻観測は無名の有限同期`now:()=>number`だけを渡し、Domainは成功する削除候補の末尾で表示時刻・履歴検査用現在時刻の順に二回呼ぶ。拒否・非削除・統合結果・Project投影では呼ばない。Domain自身がambient現在時刻や実Processを観測する方式、汎用時計Frameworkは追加しない。候補は実Owner・実資源不存在・保存成功の証明ではない。Queue所属・Lease値・元世代・対象・値形式・使用中・他Queue・保留・処置確認の判定順と固定理由を維持する。
 
+計画TaskのQueue受付照合・追加候補・一件投影は`task/queue.ts`の`inspectCoordinatorQueueIntake`／`prepareCoordinatorQueueEntryCreation`／`projectCoordinatorQueueEntry`が所有する。State Port固有のProject照会は`state/crud.ts`の`projectCoordinatorQueueProjectState`を使う。既存の現在状態照会とは、Schema検査範囲・不正IDの固定理由が異なるため機械的に統合しない。既存`CoordinatorQueueEnqueueInput`の宣言は`task/types.ts`へ実体移管し、計画Queueに必要なMilestoneを必須のまま保つ。任意Taskの自動生成や汎用Queue Registryは追加しない。
+
+interactive優先・active Owner中の待機化・scheduled再開を決める実行選択と、owner-loss／exact回復による再開判定はCoordinatorが所有する。これらが純粋な値処理でも、Domainの局所CRUDへ移さない。Domain候補は既存の同内容相関・発行時受付世代・Project存在・Workspace所属／ready／保留検査を維持し、Coordinatorは元の短期Owner内で呼び、保存・解放・失敗を同じ位置で確定する。
+
 正規byte表現の生成と内容Hashは、保存候補の同一性・CASを検査する利用側向けに`encodeRuntimeStateValue`・`hashRuntimeStateContent`として公開する。生byteの内部復号、文法の正規表現実体、未利用の局所validatorはRoot公開しない。Hash一致を真正性・操作許可・出版成功へ読み替えない。
 
 本節は既存QA項目の追加シナリオであり、新Local Item・新しい総数を発行しない。値検査・設定保存・入口搬送の限定試験は実施したが、表が要求するCore CRUDと単一保存の全体シナリオは未完了。既存Passや文書レビューを新実装全体の成功根拠にしない。

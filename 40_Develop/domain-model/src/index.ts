@@ -8,6 +8,13 @@
  * @security Rootへの集約はAuthorityを追加せず、各実体の入力検証・Repository範囲・非公開内部操作の境界を維持する。
  */
 export { parseUnambiguousJsonDocument } from "./plain-data/json.ts";
+export {
+  inspectCoordinatorQueueIntake,
+  prepareCoordinatorQueueEntryCreation,
+  projectCoordinatorQueueEntry,
+} from "./task/queue.ts";
+export { projectCoordinatorQueueProjectState } from "./state/crud.ts";
+export type { CoordinatorQueueEnqueueInput } from "./task/types.ts";
 export { projectCoordinatorCurrentState } from "./state/crud.ts";
 export {
   prepareCoordinatorIntegrationRecordCreation,

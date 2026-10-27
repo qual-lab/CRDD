@@ -18,7 +18,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import {
+  initializeCoordinatorSnapshot,
+  readCoordinatorSnapshot,
+} from "../../src/storage/state.ts";
+import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 
 import { createCoordinatorState } from "../../src/state/create.ts";
@@ -26,6 +30,99 @@ import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../do
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
 const revision = "a".repeat(40);
+
+/**
+ * Domain固定候補を実Queue Portの受付・読取り・保存へ接続する。
+ * @responsibility 新規一改訂と同値再入場・照会・拒否の無書込みを共同確認する。
+ * @trace PRL-IT-011
+ * @precondition 自己生成Gitと実Reader/Writer/Kernel、既存fixtureのProject保存。
+ * @stimulus 新規Queue追加、同ID再送、不正ID、内容差、既存受付の照合を実Portから呼ぶ。
+ * @observation 状態本文、改訂、Queue値、対象外区画、exact拒否理由。
+ * @oracle 新規だけ一改訂し、照会/再送/拒否はbytesと他区画を保全する。
+ * @cleanup 既存fixture hookが自己所有Rootだけを回収する。
+ * @boundary Domain候補→既存単一Writer。実AI・Docker・Scheduling判断の成立は対象外。
+ */
+test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は書き換えない", (t) => {
+  const { root, ports } = fixture(t);
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const before = fs.readFileSync(file);
+  const previous = readCoordinatorSnapshot(root, "binding-a");
+  assert.equal(previous.status, "completed");
+  if (previous.status !== "completed" || !previous.value)
+    throw Error("fixture");
+  assert.equal(ports.state.readState("project-a").status, "completed");
+  assert.equal(ports.state.readState("project-b").status, "completed");
+  assert.equal(
+    ports.state.readState("../escape").reason,
+    "orchestrator_state_identity_invalid",
+  );
+  assert.equal(
+    ports.state.readQueue("queue-a").reason,
+    "orchestrator_queue_observation_unknown",
+  );
+  assert.deepEqual(fs.readFileSync(file), before);
+  const input = {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: hash("request"),
+    originLane: "interactive" as const,
+    repositoryRevision: revision,
+    scopeHash: hash("scope"),
+  };
+  const created = ports.state.enqueueOperation(input);
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw Error("fixture");
+  const after = fs.readFileSync(file);
+  const snapshot = readCoordinatorSnapshot(root, "binding-a");
+  assert.equal(snapshot.status, "completed");
+  if (snapshot.status !== "completed" || !snapshot.value)
+    throw Error("fixture");
+  assert.deepEqual(snapshot.value, {
+    ...previous.value,
+    snapshotRevision: previous.value.snapshotRevision + 1,
+    queueEntries: [...previous.value.queueEntries, created.value],
+    intakeBindings: [
+      ...previous.value.intakeBindings,
+      { queueId: input.queueId, epoch: previous.value.intakeEpoch },
+    ],
+  });
+  const found = ports.state.readQueue("queue-a");
+  assert.equal(found.status, "completed");
+  assert.deepEqual(found.value, created.value);
+  assert.equal(
+    ports.state.enqueueOperation(input).reason,
+    "orchestrator_queue_request_reused",
+  );
+  assert.equal(
+    ports.state.enqueueOperation({ ...input, requestHash: hash("other") })
+      .reason,
+    "orchestrator_queue_identity_conflict",
+  );
+  assert.equal(
+    ports.state.readQueue("../escape").reason,
+    "orchestrator_queue_input_invalid",
+  );
+  const intake = {
+    epoch: previous.value.intakeEpoch,
+    queueId: input.queueId,
+    requestHash: input.requestHash,
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+  };
+  assert.equal(
+    inspectCoordinatorSnapshotIntake(root, "binding-a", intake).status,
+    "completed",
+  );
+  assert.equal(
+    inspectCoordinatorSnapshotIntake(root, "binding-a", {
+      ...intake,
+      requestHash: hash("other"),
+    }).reason,
+    "orchestrator_intake_epoch_retired",
+  );
+  assert.deepEqual(fs.readFileSync(file), after);
+});
 
 /**
  * 新版保存と競合試験の自己所有Repositoryを構築する。
