@@ -9,6 +9,19 @@
  * @scope 模擬境界によるProcess内再入場、退避なし／自動破棄保存前中断後の明示保持から実修復API・現在Writer／history／completionを経た同Root Taskへの接続、実Root・Home排他・Hostによる正常終了、認証create切断子の五通常例外。Native・Docker技術は代役とし実Docker処置は行わない。
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
+import type {
+  CoordinatorStateSnapshot,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
+import {
+  coordinatorTaskResourcesAreSettled,
+  COORDINATOR_STATE_SCHEMA,
+} from "../../../domain-model/src/index.ts";
+import {
+  createDockerRestartRequestId,
+  isDockerRestartCheckpointSettled,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 
 import assert from "node:assert/strict";
@@ -39,14 +52,8 @@ import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import * as homes from "../../src/execution/authority.ts";
 import * as repository from "../../src/execution/operation.ts";
 import * as stateModel from "../../src/storage/state.ts";
-import * as executionValues from "../../src/execution/validation.ts";
 import * as historyValues from "../../src/storage/history.ts";
-import type * as executionRecords from "../../src/execution/types.ts";
-import * as stateValues from "../../src/state/validation.ts";
-import {
-  createDockerRestartRequestId,
-  isDockerRestartCheckpointSettled,
-} from "../../src/execution/result.ts";
+
 import * as stateRuntime from "../../src/storage/state.ts";
 import * as development from "../../src/execution/diagnostics.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
@@ -66,7 +73,7 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
  * @boundary 本番Host清掃Ownerと下位Reader／Writer／Host観測の論理接続。
  */
 function verifyCurrentHostCleanupFailureBoundaries(
-  snapshot: stateModel.CoordinatorStateSnapshot,
+  snapshot: CoordinatorStateSnapshot,
   recoveryId: string,
 ): void {
   const source = fs.readFileSync(
@@ -107,20 +114,18 @@ function verifyCurrentHostCleanupFailureBoundaries(
     cleanupBody.slice(beforeEffectEnd);
   const mutantBody = [...bodies.slice(0, -1), mutantCleanup].join("\n");
   assert.notEqual(mutantBody, body);
-  const initialBytes = Buffer.from(
-    `${stateValues.encodeCoordinatorStateValue(snapshot)}\n`,
-  );
+  const initialBytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
   const verified = stateModel.decodeCoordinatorStateSnapshot(
     initialBytes,
     snapshot.repositoryBinding,
   );
   assert.ok(verified);
   const found = verified.snapshot.operations.find(
-    (item): item is executionRecords.CoordinatorStateTaskOperation =>
+    (item): item is CoordinatorStateTaskOperation =>
       item.kind === "docker_task" && item.recoveryId === recoveryId,
   );
   assert.ok(found);
-  const target: executionRecords.CoordinatorStateTaskOperation = found;
+  const target: CoordinatorStateTaskOperation = found;
   const identity = JSON.parse(target.identityJson);
   const retiredCandidate = stateModel.prepareCoordinatorStateLifecycleSnapshot(
     initialBytes,
@@ -299,11 +304,10 @@ function verifyCurrentHostCleanupFailureBoundaries(
       return { status: "completed", lockReleased, value };
     }
     const dependencies = {
-      coordinatorTaskResourcesAreSettled:
-        executionValues.coordinatorTaskResourcesAreSettled,
+      coordinatorTaskResourcesAreSettled: coordinatorTaskResourcesAreSettled,
       isDockerRestartCheckpointSettled,
       dockerRecoveryPreparations: preparations,
-      encodeCoordinatorStateValue: stateValues.encodeCoordinatorStateValue,
+      encodeRuntimeStateValue: encodeRuntimeStateValue,
       decodeCoordinatorStateSnapshot: stateModel.decodeCoordinatorStateSnapshot,
       prepareCoordinatorStateOperationSnapshot:
         stateModel.prepareCoordinatorStateOperationSnapshot,
@@ -505,7 +509,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
       true,
     );
     const operation = value.snapshot.operations.find(
-      (item): item is executionRecords.CoordinatorStateTaskOperation =>
+      (item): item is CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     assert.ok(operation);
@@ -691,7 +695,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
   assert.ok(changedHashSnapshot.previous);
   changedHashSnapshot.previous.payloadSha256 = "0".repeat(64);
   const changedHashBytes = Buffer.from(
-    `${stateValues.encodeCoordinatorStateValue(changedHashSnapshot)}\n`,
+    `${encodeRuntimeStateValue(changedHashSnapshot)}\n`,
   );
   assert.ok(
     stateModel.decodeCoordinatorStateSnapshot(
@@ -1297,27 +1301,27 @@ for (const producerMode of [
         assert.ok(start > 0 && end > start);
         const body = stripTypeScriptTypes(source.slice(start, end));
         const evaluate = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeCoordinatorStateValue, isDockerRestartCheckpointSettled) { ${body}; return isUnsubmittedInitialTaskHost; })`,
+          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeCoordinatorStateSnapshot,
-          stateValues.encodeCoordinatorStateValue,
+          encodeRuntimeStateValue,
           isDockerRestartCheckpointSettled,
         );
         const comparisonStart = body.lastIndexOf("return (");
         assert.ok(comparisonStart > 0);
         assert.equal(
-          body.split("encodeCoordinatorStateValue(operation)").length - 1,
+          body.split("encodeRuntimeStateValue(operation)").length - 1,
           1,
         );
         const comparisonOmitted = `${body.slice(0, comparisonStart)}return true;\n}`;
         assert.notEqual(comparisonOmitted, body);
         const evaluateMutant = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeCoordinatorStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isUnsubmittedInitialTaskHost; })`,
+          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeCoordinatorStateSnapshot,
-          stateValues.encodeCoordinatorStateValue,
+          encodeRuntimeStateValue,
           isDockerRestartCheckpointSettled,
         );
         let legalRejections = 0;
@@ -1340,9 +1344,7 @@ for (const producerMode of [
               item.recoveryId === changed.recoveryId ? changed : item,
           );
           const decoded = stateModel.decodeCoordinatorStateSnapshot(
-            Buffer.from(
-              `${stateValues.encodeCoordinatorStateValue(candidate)}\n`,
-            ),
+            Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
             before.repositoryBinding,
           );
           assert.ok(decoded, "negative_must_be_codec_legal");
@@ -1387,11 +1389,11 @@ for (const producerMode of [
           "!isDockerRestartCheckpointSettled(operation.dockerRestart)";
         assert.equal(body.split(restartGuard).length - 1, 1);
         const guardMutant = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeCoordinatorStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isUnsubmittedInitialTaskHost; })`,
+          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeCoordinatorStateSnapshot,
-          stateValues.encodeCoordinatorStateValue,
+          encodeRuntimeStateValue,
           isDockerRestartCheckpointSettled,
         );
         const restartOperation = {
@@ -1416,9 +1418,7 @@ for (const producerMode of [
               item.recoveryId === retired.recoveryId ? changed : item,
           );
           const decoded = stateModel.decodeCoordinatorStateSnapshot(
-            Buffer.from(
-              `${stateValues.encodeCoordinatorStateValue(candidate)}\n`,
-            ),
+            Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
             before.repositoryBinding,
           );
           assert.ok(decoded, "restart_candidate_must_be_codec_legal");
@@ -1501,9 +1501,7 @@ for (const producerMode of [
             );
             assert.equal(
               stateModel.decodeCoordinatorStateSnapshot(
-                Buffer.from(
-                  `${stateValues.encodeCoordinatorStateValue(invalid)}\n`,
-                ),
+                Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
                 before.repositoryBinding,
               ),
               null,
@@ -1686,7 +1684,7 @@ for (const producerMode of [
       const otherHostBefore = captureOtherHost();
       if (producerMode === "state_saved") {
         const retired = stateModel.prepareCoordinatorStateLifecycleSnapshot(
-          Buffer.from(`${stateValues.encodeCoordinatorStateValue(before)}\n`),
+          Buffer.from(`${encodeRuntimeStateValue(before)}\n`),
           emitted.recoveryId,
           {
             phase: "settling",
@@ -2727,9 +2725,7 @@ for (const { repeatCount, retained } of [
           ).toISOString();
           assert.throws(() =>
             assertRepairHistory(
-              Buffer.from(
-                `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
-              ),
+              Buffer.from(`${encodeRuntimeStateValue(changed)}\n`),
             ),
           );
           const duplicated = Buffer.concat([repairHistory, repairHistory]);
@@ -2783,7 +2779,7 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${stateValues.encodeCoordinatorStateValue({ schema: stateModel.COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${encodeRuntimeStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount >= 2) {
         assert.equal(

@@ -3,24 +3,27 @@
  * @responsibility 移管元と同じ状態値・相関を扱い、保存・実行Effectを発行しない。
  * @trace ARCH-000004、ARCH-000008
  */
-import type { HistoryRow } from "../storage/history.ts";
-import { encodeCoordinatorStateValue } from "./validation.ts";
-import type { CoordinatorSnapshot } from "../storage/state.ts";
 import {
-  prepareCoordinatorStateHistoryLine,
+  type HistoryRow,
+  type CoordinatorSnapshot,
   type decodeCoordinatorUnifiedSnapshot,
-} from "../storage/state.ts";
-import { projectCoordinatorTaskSettlement } from "./settlement.ts";
+  projectCoordinatorTaskSettlement,
+  type LeaseEvidenceEnvelope,
+  hasRuntimeStateKeys as exactKeys,
+  leaseIdentity,
+  isRuntimeStateObject as plainObject,
+  type ProjectQueueEntry,
+  type SingleTaskRecord,
+  type CoordinatorResultRecord,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+
+import { prepareCoordinatorStateHistoryLine } from "../storage/state.ts";
+
 import { coordinatorRepairCanComplete } from "../execution/validation.ts";
-import type { LeaseEvidenceEnvelope } from "../storage/state.ts";
-import { exactKeys } from "./validation.ts";
-import { leaseIdentity } from "./validation.ts";
-import { plainObject } from "./validation.ts";
-import type { CoordinatorDecisionRecoveryIntent } from "../decision/records.ts";
-import { normalizeRepositoryRelativePath } from "./validation.ts";
-import type { ProjectQueueEntry } from "../task/types.ts";
-import type { SingleTaskRecord } from "../task/types.ts";
-import type { CoordinatorResultRecord } from "../workspace/record.ts";
+
+import type { CoordinatorDecisionRecoveryIntent } from "../../../domain-model/src/index.ts";
+import { normalizeRepositoryRelativePath } from "../../../domain-model/src/index.ts";
 
 /**
  * 同じ短期保存Ownerで利用する現在観測の契約。
@@ -66,8 +69,7 @@ export function assertCoordinatorSnapshotTransition(
     if (
       current?.leaseIntents.some(
         (item) =>
-          encodeCoordinatorStateValue(item) ===
-          encodeCoordinatorStateValue(intent),
+          encodeRuntimeStateValue(item) === encodeRuntimeStateValue(intent),
       )
     )
       continue;
@@ -127,7 +129,7 @@ export function assertCoordinatorSnapshotTransition(
             ),
         )
         .map((queue) =>
-          encodeCoordinatorStateValue([queue.projectId, queue.milestoneId]),
+          encodeRuntimeStateValue([queue.projectId, queue.milestoneId]),
         ),
     );
     const currentEvidenceIds = new Set(
@@ -153,7 +155,7 @@ export function assertCoordinatorSnapshotTransition(
       for (const old of current.acceptanceDecisions) {
         if (
           retiredMilestones.has(
-            encodeCoordinatorStateValue([
+            encodeRuntimeStateValue([
               old.record.projectId,
               old.record.milestoneId,
             ]),
@@ -172,8 +174,7 @@ export function assertCoordinatorSnapshotTransition(
         if (
           !payload.acceptanceDecisions.some(
             (item) =>
-              encodeCoordinatorStateValue(item) ===
-              encodeCoordinatorStateValue(old),
+              encodeRuntimeStateValue(item) === encodeRuntimeStateValue(old),
           )
         )
           throw new Error("snapshot_acceptance_decision_removed");
@@ -192,8 +193,7 @@ export function assertCoordinatorSnapshotTransition(
         );
         if (
           !next ||
-          (encodeCoordinatorStateValue(next) !==
-            encodeCoordinatorStateValue(old) &&
+          (encodeRuntimeStateValue(next) !== encodeRuntimeStateValue(old) &&
             (next.generation !== old.generation + 1 ||
               [
                 "recordId",
@@ -215,8 +215,7 @@ export function assertCoordinatorSnapshotTransition(
         if (
           !payload[collection].some(
             (item) =>
-              encodeCoordinatorStateValue(item) ===
-              encodeCoordinatorStateValue(old),
+              encodeRuntimeStateValue(item) === encodeRuntimeStateValue(old),
           )
         )
           if (
@@ -305,8 +304,7 @@ export function assertCoordinatorSnapshotTransition(
       if (
         !payload.historyPending.some(
           (item) =>
-            encodeCoordinatorStateValue(item) ===
-            encodeCoordinatorStateValue(old),
+            encodeRuntimeStateValue(item) === encodeRuntimeStateValue(old),
         ) &&
         owner.historySettlement(old) === null
       )
@@ -316,8 +314,7 @@ export function assertCoordinatorSnapshotTransition(
       if (
         payload.leaseIntents.some(
           (item) =>
-            encodeCoordinatorStateValue(item) ===
-            encodeCoordinatorStateValue(old),
+            encodeRuntimeStateValue(item) === encodeRuntimeStateValue(old),
         )
       )
         continue;
@@ -396,16 +393,16 @@ export function assertCoordinatorSnapshotTransition(
             "operationId",
           ].some(
             (key) =>
-              encodeCoordinatorStateValue(
+              encodeRuntimeStateValue(
                 old.singleTask?.[key as keyof SingleTaskRecord],
               ) !==
-              encodeCoordinatorStateValue(
+              encodeRuntimeStateValue(
                 next.singleTask?.[key as keyof SingleTaskRecord],
               ),
           ) ||
           (old.singleTask.adviceOperation !== undefined &&
-            encodeCoordinatorStateValue(old.singleTask.adviceOperation) !==
-              encodeCoordinatorStateValue(next.singleTask.adviceOperation)) ||
+            encodeRuntimeStateValue(old.singleTask.adviceOperation) !==
+              encodeRuntimeStateValue(next.singleTask.adviceOperation)) ||
           (old.singleTask.phase === "settled" &&
             (old.singleTask.status !== next.singleTask.status ||
               old.singleTask.reason !== next.singleTask.reason ||
@@ -420,8 +417,8 @@ export function assertCoordinatorSnapshotTransition(
       if (
         old.singleTask &&
         next?.singleTask &&
-        encodeCoordinatorStateValue(old.singleTask) !==
-          encodeCoordinatorStateValue(next.singleTask)
+        encodeRuntimeStateValue(old.singleTask) !==
+          encodeRuntimeStateValue(next.singleTask)
       ) {
         const unstartedRejection =
           old.singleTask.phase === "accepted" &&
@@ -469,8 +466,7 @@ export function assertCoordinatorSnapshotTransition(
             next[key as keyof ProjectQueueEntry] !==
             old[key as keyof ProjectQueueEntry],
         ) ||
-        (encodeCoordinatorStateValue(next) !==
-          encodeCoordinatorStateValue(old) &&
+        (encodeRuntimeStateValue(next) !== encodeRuntimeStateValue(old) &&
           next.generation !== old.generation + 1) ||
         current.intakeBindings.find((item) => item.queueId === old.queueId)
           ?.epoch !==
@@ -486,8 +482,8 @@ export function assertCoordinatorSnapshotTransition(
       if (
         next &&
         next.milestoneId === old.milestoneId &&
-        encodeCoordinatorStateValue(next.taskExecutionSelections) !==
-          encodeCoordinatorStateValue(old.taskExecutionSelections)
+        encodeRuntimeStateValue(next.taskExecutionSelections) !==
+          encodeRuntimeStateValue(old.taskExecutionSelections)
       )
         throw new Error("snapshot_project_selection_changed");
       if (
@@ -503,8 +499,7 @@ export function assertCoordinatorSnapshotTransition(
         throw new Error("snapshot_project_milestone_still_referenced");
       if (
         !next ||
-        (encodeCoordinatorStateValue(next) !==
-          encodeCoordinatorStateValue(old) &&
+        (encodeRuntimeStateValue(next) !== encodeRuntimeStateValue(old) &&
           next.generation !== old.generation + 1)
       )
         throw new Error("snapshot_project_generation_invalid");
@@ -605,8 +600,8 @@ export function coordinatorQueueIsClosed(
         receipt.value.beforeRevision !== candidate.value.baseRevision ||
         !Array.isArray(receipt.value.changedPaths) ||
         !Array.isArray(candidate.value.changedPaths) ||
-        encodeCoordinatorStateValue([...receipt.value.changedPaths].sort()) !==
-          encodeCoordinatorStateValue([...candidate.value.changedPaths].sort())
+        encodeRuntimeStateValue([...receipt.value.changedPaths].sort()) !==
+          encodeRuntimeStateValue([...candidate.value.changedPaths].sort())
       )
         return false;
     }
@@ -865,8 +860,8 @@ export function validateCoordinatorSettlementTransition(
       if (
         replacement &&
         replacement.milestoneId === old.milestoneId &&
-        encodeCoordinatorStateValue(replacement.taskExecutionSelections) !==
-          encodeCoordinatorStateValue(old.taskExecutionSelections)
+        encodeRuntimeStateValue(replacement.taskExecutionSelections) !==
+          encodeRuntimeStateValue(old.taskExecutionSelections)
       )
         return false;
     }
@@ -886,8 +881,8 @@ export function validateCoordinatorSettlementTransition(
       const retained = receipts.get(receipt.recoveryId);
       if (
         retained
-          ? encodeCoordinatorStateValue(receipt) !==
-            encodeCoordinatorStateValue(retained)
+          ? encodeRuntimeStateValue(receipt) !==
+            encodeRuntimeStateValue(retained)
           : next.snapshot.projects.some(
               (project) => project.projectId === receipt.projectId,
             )
@@ -1014,8 +1009,7 @@ export function validateCoordinatorSettlementTransition(
           if (
             !before ||
             !after ||
-            encodeCoordinatorStateValue(before) !==
-              encodeCoordinatorStateValue(after)
+            encodeRuntimeStateValue(before) !== encodeRuntimeStateValue(after)
           )
             return false;
         }

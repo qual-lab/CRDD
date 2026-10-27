@@ -5,6 +5,7 @@
  * @trace ARCH-000004
  */
 
+import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
 import { performance } from "node:perf_hooks";
 import fs from "node:fs";
 import {
@@ -90,7 +91,7 @@ import {
   requireDockerProbeRecoveryMounts,
   describeDockerProbeResource,
 } from "../../../docker-isolation/src/index.ts";
-import { parseHostRecoveryToken } from "./result.ts";
+
 import {
   describeProviderBillingPolicy,
   PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,

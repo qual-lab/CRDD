@@ -4,16 +4,23 @@
  * @responsibility 同じObjectiveの保存・実行・取消・回復を既存Ownerへ委譲し、進行と公開結果を確定する。
  * @trace ARCH-000004
  */
+import {
+  inspectTaskExecutionSelections,
+  type TaskExecutionSelections,
+  type ProjectTaskRecoveryObligation,
+  type CoordinatorState,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { isDeepStrictEqual } from "node:util";
 import { runCoordinatorOperation } from "../task/dispatch.ts";
-import { readRepositoryAiSelection } from "../storage/ai-selection.ts";
+import { readRepositoryAiSelection } from "../../../domain-model/src/index.ts";
 import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
-import { inspectTaskExecutionSelections } from "../selection/validation.ts";
-import type { TaskExecutionSelections } from "../selection/types.ts";
+
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
 import { createCoordinatorState } from "../state/create.ts";
-import type { ProjectTaskRecoveryObligation } from "../task/types.ts";
-import type { CoordinatorState } from "../state/types.ts";
+
 import { COORDINATOR_MAXIMUM_TASKS } from "../state/validation.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
@@ -23,10 +30,7 @@ import {
 } from "../task/recovery.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
 import { projectCoordinatorState } from "../state/projection.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../state/validation.ts";
+
 import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "./plan.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import type {
@@ -36,7 +40,6 @@ import type {
 import type { CoordinatorObjectiveExecutionDependencies } from "./types.ts";
 import { observePlatformFamily } from "../../../platform-access/src/index.ts";
 import { writeCoordinatorRecoveryDiagnostic } from "../execution/diagnostics.ts";
-import { createHash } from "node:crypto";
 import {
   type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
@@ -379,6 +382,7 @@ export async function executeCoordinatorObjective(
   const requestHash = dependencies.clockIdentity.createContentHash(
     JSON.stringify({
       ...request,
+      plan,
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
       acceptanceCriteria: [...request.acceptanceCriteria],
       allowedPaths: [...request.allowedPaths],
@@ -1713,26 +1717,6 @@ export function inspectCoordinatorWorkspaceResults(
 }
 
 /**
- * 指定した構成要素を用途別の安定Identityへ変換する。
- *
- * @responsibility 入力した構成要素と用途prefixのHash生成を所有する。
- * @trace ARCH-000004
- * @input prefix: string、parts: readonly string[]
- * @returns stableの計算結果を返す。
- * @precondition 「prefix: string、parts: readonly string[]」がstableの入力契約を満たす。
- * @postcondition stableの責務を完了した結果だけを返す。
- * @effect N/A: stableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: stableは独自の失敗分岐を所有しない。
- * @invariant stableは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: stableはProcess内の同一Subsystemで完結する。
- * @security N/A: stableはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: stableは共有非同期状態を持たない同期処理である。
- */
-function stable(prefix: string, ...parts: readonly string[]) {
-  return `${prefix}-${createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 40)}`;
-}
-
-/**
  * 公開Objectiveを既存のSingle Task入力へ変換する。
  *
  * @responsibility Coordinator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -1873,7 +1857,10 @@ export async function executeCoordinatorPublicObjective(
             value: null,
             reason: root.reason,
           });
-        const configured = readRepositoryAiSelection(root.capability);
+        const configured = readRepositoryAiSelection(
+          root.capability,
+          getAiModelCatalog().catalog,
+        );
         if (configured.status !== "available")
           return Object.freeze({
             status: "blocked" as const,
@@ -1945,35 +1932,7 @@ export async function executeCoordinatorPublicObjective(
        * @concurrency N/A: planObjectiveは共有非同期状態を持たない同期処理である。
        */
       planObjective(request: CoordinatorObjectiveRequest) {
-        const objectiveId = stable(
-          "objective",
-          request.projectId,
-          request.milestoneId,
-          request.requestId,
-        );
-        const taskId = stable("task", objectiveId);
-        return Object.freeze({
-          milestoneAcceptanceCriteria: Object.freeze([
-            ...request.acceptanceCriteria,
-          ]),
-          objectives: Object.freeze([
-            {
-              id: objectiveId,
-              acceptanceCriteria: Object.freeze([
-                ...request.acceptanceCriteria,
-              ]),
-            },
-          ]),
-          tasks: Object.freeze([
-            {
-              id: taskId,
-              objectiveId,
-              dependencies: Object.freeze([]),
-              allowedPaths: Object.freeze([...request.allowedPaths]),
-              conflictKeys: Object.freeze([...request.allowedPaths]),
-            },
-          ]),
-        });
+        return request.plan;
       },
       /**
        * Task Executionsを構築する。
@@ -1995,18 +1954,20 @@ export async function executeCoordinatorPublicObjective(
         return state.tasks
           .filter((task) => task.state !== "superseded")
           .map((task) => {
-            const objective = state.objectives.find(
-              (candidate) =>
-                candidate.definition.id === task.definition.objectiveId,
+            const input = request.taskInputs.find(
+              (candidate) => candidate.taskId === task.definition.id,
             );
+            if (!input) throw new Error("coordinator_task_input_missing");
             return Object.freeze({
               taskId: task.definition.id,
               repositoryRoot,
               taskRequest: buildObjectiveTaskRequest(
                 Object.freeze({
                   ...request,
+                  objective: input.objective,
+                  readPaths: input.readPaths,
                   acceptanceCriteria: Object.freeze([
-                    ...(objective?.definition.acceptanceCriteria ?? []),
+                    ...input.acceptanceCriteria,
                   ]),
                   allowedPaths: Object.freeze([
                     ...task.definition.allowedPaths,
@@ -2269,6 +2230,7 @@ export async function runCoordinatorObjective(
     requestHash: hostPorts.clockIdentity.createContentHash(
       JSON.stringify({
         ...request,
+        plan,
         authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
         acceptanceCriteria: [...request.acceptanceCriteria],
         allowedPaths: [...request.allowedPaths],

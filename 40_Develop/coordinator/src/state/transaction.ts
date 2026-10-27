@@ -3,6 +3,7 @@
  * @responsibility 既存の読取り・保存Portと短期排他・実行Leaseを接続する。
  * @trace ARCH-000004、ARCH-000008
  */
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../../../domain-model/src/index.ts";
 import { acquireCoordinatorSnapshotPilotLock } from "../storage/lock.ts";
 import { completed } from "./result.ts";
 import { blocked } from "./result.ts";
@@ -11,7 +12,7 @@ import { inspectCoordinatorSnapshotLeaseAcquisitionOwner } from "../execution/le
 import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
 import { reconcileCoordinatorSnapshotLeaseOwnerLoss } from "../execution/lease.ts";
 import { createCoordinatorSnapshotStatePort } from "../task/queue.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
+
 import type { CoordinatorLeasePort } from "./persistence.ts";
 import type { CoordinatorPersistencePorts } from "./persistence.ts";
 

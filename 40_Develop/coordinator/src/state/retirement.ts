@@ -3,6 +3,11 @@
  * @responsibility 履歴確定と受付世代切替を調整し、未解決状態を保全する。
  * @trace ARCH-000004、ARCH-000008
  */
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type HistoryRow,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import type { StoreResult } from "./result.ts";
 import { observeCoordinatorSnapshotObligations } from "../storage/state.ts";
 import { completed } from "./result.ts";
@@ -12,10 +17,9 @@ import { coordinatorQueueIsClosed } from "./transition.ts";
 import { coordinatorAdoptionWasRejected } from "./transition.ts";
 import { coordinatorRejectedAdoptionEvidenceCanRetire } from "./transition.ts";
 import { coordinatorStandaloneAdoptionIsClosed } from "./transition.ts";
-import { encodeCoordinatorStateValue } from "./validation.ts";
+
 import { randomUUID } from "node:crypto";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
-import type { HistoryRow } from "../storage/history.ts";
+
 import { inspectCoordinatorHistorySettlement } from "../storage/history.ts";
 import { updateCoordinatorHistoryOwned } from "../storage/history.ts";
 
@@ -109,7 +113,7 @@ export function maintainCoordinatorSnapshot(
       const trimmed = updateCoordinatorHistoryOwned(
         owner,
         current.historyPending.length
-          ? encodeCoordinatorStateValue(current.historyPending)
+          ? encodeRuntimeStateValue(current.historyPending)
           : null,
         now,
       );
@@ -305,7 +309,7 @@ export function transferCoordinatorSnapshotHistory(
       if (current.historyPending.length) {
         const saved = updateCoordinatorHistoryOwned(
           owner,
-          encodeCoordinatorStateValue(current.historyPending),
+          encodeRuntimeStateValue(current.historyPending),
           now,
         );
         if (saved.status !== "completed") return blocked(saved.reason, true);

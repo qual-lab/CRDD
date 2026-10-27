@@ -7,8 +7,8 @@
  * @effect N/A: 入力文字列だけを分類する。
  * @security 生出力を公開結果や例外へ複製しない。
  */
-import { parseUnambiguousJsonDocument } from "./json.ts";
-import type { AiProvider } from "./types.ts";
+import type { AiProvider } from "../../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
 
 /**
  * 非正常終了から判別する共通の失敗理由を表す。

@@ -23,7 +23,7 @@ Workbench経由の合成Contextは、Metadataと見出しだけでなく、現�
 - 合成保存・読戻しを外部AIなしで確認し、拒否・unknown時はAIを起動しない。既存Repositoryや由来不明のGit領域を、このfixture準備の対象へ広げない。
 - 正常・失敗時とも今回のexact試験物だけを非使用・非link・外部Worktreeなしの確認後に回収し、不明な回復参照や残存を強制削除しない。
 
-準備不足の拒否と明示準備後の保存は、既存`RCM-IT-005`の[AI選択Store契約試験](../40_Develop/coordinator/tests/integration/ai-selection-store.contract.test.ts)で照合する。この局所確認は実AI・認証・Dockerの成立を示さない。
+準備不足の拒否と明示準備後の保存は、既存`RCM-IT-005`の[AI選択Store契約試験](../40_Develop/domain-model/tests/integration/ai-selection-store.contract.test.ts)で照合する。この局所確認は実AI・認証・Dockerの成立を示さない。
 
 ## 開発実測入力の新方式への移行
 

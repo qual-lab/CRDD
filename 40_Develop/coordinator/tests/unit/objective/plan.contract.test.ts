@@ -11,6 +11,7 @@
  */
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../../domain-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
@@ -25,21 +26,23 @@ import {
 } from "../../../src/objective/plan.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../../src/objective/request.ts";
 
-const objectiveRequest = Object.freeze({
-  requestId: "request-a",
-  projectId: "project-a",
-  milestoneId: "milestone-a",
-  repositoryRevision: "a".repeat(40),
-  objective: "限定された成果物を更新する",
-  acceptanceCriteria: Object.freeze(["成果物が受入条件を満たす"]),
-  allowedPaths: Object.freeze(["40_Develop/coordinator"]),
-  readPaths: Object.freeze(["06_Architecture/orchestrator"]),
-  maximumConcurrency: 2,
-  maximumReplans: 1,
-  originLane: "interactive" as const,
-  adoptResult: false,
-  intakeEpoch: "fixture-epoch",
-});
+const objectiveRequest = Object.freeze(
+  withCallerPlan({
+    requestId: "request-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    objective: "限定された成果物を更新する",
+    acceptanceCriteria: Object.freeze(["成果物が受入条件を満たす"]),
+    allowedPaths: Object.freeze(["40_Develop/coordinator"]),
+    readPaths: Object.freeze(["06_Architecture/orchestrator"]),
+    maximumConcurrency: 2,
+    maximumReplans: 1,
+    originLane: "interactive" as const,
+    adoptResult: false,
+    intakeEpoch: "fixture-epoch",
+  }),
+);
 
 const COORDINATOR_OBJECTIVE_PLAN = Object.freeze({
   milestoneAcceptanceCriteria: Object.freeze(["全Taskを統合できる"]),

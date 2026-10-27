@@ -8,16 +8,16 @@
  * @scope 実本文・実decoderと模擬Artifact／KnownFolder／factory。
  * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 固定composition→技術factory。
  */
+import {
+  decodeDockerRuntimeRepairCheckpoint as decode,
+  dockerRuntimeRepairCheckpointIsSettled,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
-import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
-  dockerRuntimeRepairCheckpointIsSettled,
-} from "../../src/docker-desktop/repair-state.ts";
 
 /**
  * 正常三用途と一軸拒否を同じ元checkpointへ適用する。

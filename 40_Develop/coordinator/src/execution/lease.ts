@@ -3,6 +3,19 @@
  * @responsibility 実発行Leaseと証拠の寿命を所有し、既存の保存・Kernel排他へ接続する。
  * @trace ARCH-000004、ARCH-000008
  */
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type LeaseEvidenceEnvelope,
+  type LeaseKind,
+  hashRuntimeStateValueText as digest,
+  hasRuntimeStateKeys as exactKeys,
+  leaseAcquisitionRecoveryId,
+  leaseIdentity,
+  isRuntimeStateObject as plainObject,
+  validId,
+  type ProjectQueueEntry,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { resolveCoordinatorNamedPaths } from "../storage/state.ts";
 import { assertCoordinatorArea } from "../storage/state.ts";
 import { assertCoordinatorAreaUnchanged } from "../storage/state.ts";
@@ -15,23 +28,15 @@ import { envelope } from "../storage/state.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 import { coordinatorSnapshotLeaseResourcesAbsent } from "../storage/state.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
+
 import { randomUUID } from "node:crypto";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
-import type { LeaseEvidenceEnvelope } from "../storage/state.ts";
-import type { LeaseKind } from "../storage/state.ts";
-import { digest } from "../state/validation.ts";
-import { exactKeys } from "../state/validation.ts";
-import { leaseAcquisitionRecoveryId } from "../state/validation.ts";
-import { leaseIdentity } from "../state/validation.ts";
-import { plainObject } from "../state/validation.ts";
-import { validId } from "../state/validation.ts";
+
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
 import type { CoordinatorLeaseAcquisitionResolution } from "../state/persistence.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
-import type { ProjectQueueEntry } from "../task/types.ts";
+
 import fs from "node:fs";
 import path from "node:path";
 
@@ -366,8 +371,7 @@ export function acquireCoordinatorSnapshotLease(
         current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
         !current.leaseIntents.some(
           (item) =>
-            encodeCoordinatorStateValue(item) ===
-            encodeCoordinatorStateValue(intent),
+            encodeRuntimeStateValue(item) === encodeRuntimeStateValue(intent),
         )
       )
         return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
@@ -869,20 +873,20 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         ) !== initial.rootIdentity ||
-        encodeCoordinatorStateValue(
+        encodeRuntimeStateValue(
           current.leaseIntents.filter(
             (item) =>
               item.projectId === projectId &&
               item.queueId === queueId &&
               item.kind === kind,
           ),
-        ) !== encodeCoordinatorStateValue(ownIntents) ||
-        encodeCoordinatorStateValue(
+        ) !== encodeRuntimeStateValue(ownIntents) ||
+        encodeRuntimeStateValue(
           kind === "project-operation"
             ? (current.queueEntries.find((item) => item.queueId === queueId) ??
                 null)
             : null,
-        ) !== encodeCoordinatorStateValue(initial.queue)
+        ) !== encodeRuntimeStateValue(initial.queue)
       )
         return blocked(
           "orchestrator_lease_recovery_state_mismatch",
@@ -894,8 +898,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       );
       if (
         existing &&
-        encodeCoordinatorStateValue(existing) !==
-          encodeCoordinatorStateValue(pending)
+        encodeRuntimeStateValue(existing) !== encodeRuntimeStateValue(pending)
       )
         return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
       return completed("orchestrator_lease_recovery_intent_durable", {
@@ -976,13 +979,13 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         ) !== initial.rootIdentity ||
-        encodeCoordinatorStateValue(
+        encodeRuntimeStateValue(
           kind === "project-operation"
             ? (current.queueEntries.find((item) => item.queueId === queueId) ??
                 null)
             : null,
-        ) !== encodeCoordinatorStateValue(initial.queue) ||
-        encodeCoordinatorStateValue(
+        ) !== encodeRuntimeStateValue(initial.queue) ||
+        encodeRuntimeStateValue(
           current.leaseIntents.filter(
             (item) =>
               item.projectId === projectId &&
@@ -990,7 +993,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
               item.kind === kind,
           ),
         ) !==
-          encodeCoordinatorStateValue(
+          encodeRuntimeStateValue(
             ownIntents.some((item) => item.phase === "recovery_pending")
               ? ownIntents
               : [...ownIntents, pending],

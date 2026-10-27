@@ -5,16 +5,19 @@
  * @trace ARCH-000005
  */
 
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  hashRuntimeStateValueText as digest,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { completed } from "../state/result.ts";
 import { blocked as storeBlocked } from "../state/result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
-import { digest } from "../state/validation.ts";
-import { COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT } from "./records.ts";
-import type { CoordinatorAcceptanceDecisionEnvelope } from "./records.ts";
-import { validCoordinatorAcceptanceDecisionRecord } from "./records.ts";
-import { validCoordinatorDecisionRecoveryIntent } from "./records.ts";
+
+import { COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT } from "../../../domain-model/src/index.ts";
+import type { CoordinatorAcceptanceDecisionEnvelope } from "../../../domain-model/src/index.ts";
+import { validCoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
+import { validCoordinatorDecisionRecoveryIntent } from "../../../domain-model/src/index.ts";
 import type { CoordinatorAcceptanceDecisionStore } from "./types.ts";
 import { createHash, randomBytes } from "node:crypto";
 import type {
@@ -27,7 +30,7 @@ import {
   type CoordinatorDecisionRecord,
   isCoordinatorDecisionRecord,
   type CoordinatorDecisionRecoveryIntent,
-} from "./records.ts";
+} from "../../../domain-model/src/index.ts";
 import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
   inspectCoordinatorDecisionRequest,
@@ -1375,8 +1378,8 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
           );
           if (
             !first ||
-            encodeCoordinatorStateValue(first.record) !==
-              encodeCoordinatorStateValue(expected)
+            encodeRuntimeStateValue(first.record) !==
+              encodeRuntimeStateValue(expected)
           )
             return storeBlocked(
               "orchestrator_acceptance_record_generation_mismatch",
@@ -1393,7 +1396,7 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
             repositoryBindingId: binding,
             recordId: expected.recordId,
             generation: 2,
-            previousHash: digest(encodeCoordinatorStateValue(first)),
+            previousHash: digest(encodeRuntimeStateValue(first)),
             record: next,
           };
           return completed("orchestrator_acceptance_record_finalized", {
@@ -1540,8 +1543,8 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
           );
           if (
             !prior ||
-            encodeCoordinatorStateValue(prior.value) !==
-              encodeCoordinatorStateValue(expected)
+            encodeRuntimeStateValue(prior.value) !==
+              encodeRuntimeStateValue(expected)
           )
             return storeBlocked(
               "orchestrator_decision_recovery_generation_mismatch",

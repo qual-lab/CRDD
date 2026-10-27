@@ -7,6 +7,7 @@
  * @scope Docker比較、公開HTTP搬送、一次失敗と終了観測。
  * @boundary 合成inventory／有限Owner→正式試験Source。実Provider成功の根拠ではない。
  */
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
-import { saveRepositoryAiSelection } from "../../../coordinator/src/storage/ai-selection.ts";
+import { saveRepositoryAiSelection } from "../../../domain-model/src/index.ts";
 import {
   initializeCoordinatorSnapshot,
   readCoordinatorSnapshot,
@@ -2296,6 +2297,7 @@ for (const transport of ["tool-child-process"] as const) {
         verified.capability,
         { expectedIdentity: null, config: selectionConfig() },
         () => true,
+        getAiModelCatalog().catalog,
       ).status,
       "saved",
     );

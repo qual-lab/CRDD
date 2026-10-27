@@ -3,13 +3,7 @@
  * @responsibility 保存封筒・bounded codec・CAS・atomic replace・一回保存証拠・中断再入場を所有する。状態遷移判断は各Ownerへ委ねる。
  * @trace ARCH-000004、ARCH-000008
  */
-import type {
-  CoordinatorResultRecord,
-  CoordinatorWorkspace,
-} from "../workspace/record.ts";
 import {
-  validCoordinatorExecutionState,
-  validateCoordinatorOperationTransitions,
   purposeResource,
   validCoordinatorRepairRetentionReceipt,
   coordinatorRepairRetentionMatchesCheckpoint,
@@ -18,40 +12,54 @@ import {
   coordinatorAuthenticationClosureEvidence,
   coordinatorTaskResourcesAreSettled,
   coordinatorRepairCanSummarize,
+  validCoordinatorTaskState,
+  validCoordinatorState,
+  validQueueEntry,
+  hasRuntimeStateRecordKeys as exactRecordKeys,
+  isSha256Hex,
+  hasRuntimeStateKeys as exactKeys,
+  isRuntimeStateObject as plainObject,
+  hashRuntimeStateValueText as digest,
+  validId,
+  type CoordinatorStateTaskOperation,
+  type CoordinatorStateRepairOperation,
+  coordinatorRepairSummaryBytes,
+  coordinatorRepairHistoryLineBytes,
+  isDockerRestartCheckpointSettled,
+  type CoordinatorState,
+  coordinatorConsumerCompletionPolicy,
+  decodeCoordinatorUnifiedSnapshot,
+  COORDINATOR_STATE_SCHEMA,
+  coordinatorOperationSummaryBytes,
+  coordinatorHistoryLineBytes,
+  COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
+  validLeaseEvidence,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  type CoordinatorSnapshot,
+  type CoordinatorStateSnapshot,
+  type LeaseEvidenceEnvelope,
+  type RuntimeStateEnvelope as Envelope,
+  type LeaseEvidenceContent,
+  type LeaseKind,
+} from "../../../domain-model/src/index.ts";
+import {
+  encodeRuntimeStateValue,
+  RUNTIME_STATE_MAXIMUM_BYTES,
+} from "../../../domain-model/src/index.ts";
+
+import {
+  validateCoordinatorOperationTransitions,
   coordinatorRepairCanComplete,
 } from "../execution/validation.ts";
 import {
   associateCoordinatorTaskOperations,
   normalizeCoordinatorTaskProjects,
-  projectCoordinatorTaskSettlement,
   coordinatorSnapshotIntakeMatches,
-  validCoordinatorTaskState,
 } from "../state/settlement.ts";
-import { validCoordinatorState, validQueueEntry } from "../task/validation.ts";
-import {
-  exactRecordKeys,
-  isSha256Hex,
-  HASH,
-  exactKeys,
-  plainObject,
-  digest,
-  validId,
-  encodeCoordinatorStateValue,
-} from "../state/validation.ts";
-import type {
-  CoordinatorStateTaskOperation,
-  CoordinatorStateRepairOperation,
-  CoordinatorStateOperation,
-} from "../execution/types.ts";
-import {
-  coordinatorRepairSummaryBytes,
-  coordinatorRepairHistoryLineBytes,
-  isDockerRestartCheckpointSettled,
-} from "../execution/result.ts";
+
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
-  type HistoryRow,
   inspectCoordinatorHistorySettlement,
 } from "./history.ts";
 import { createHash, randomUUID } from "node:crypto";
@@ -65,26 +73,10 @@ import {
   validateDockerRuntimeRepairDisposalTransition,
   dockerRuntimeRepairDisposalIsSettled,
 } from "../../../docker-isolation/src/index.ts";
-import type {
-  CoordinatorDecisionRecoveryIntent,
-  CoordinatorAcceptanceDecisionEnvelope,
-} from "../decision/records.ts";
-import type {
-  CoordinatorLeaseKind,
-  CoordinatorStatePort,
-} from "../state/persistence.ts";
-import type { CoordinatorState } from "../state/types.ts";
-import {
-  coordinatorConsumerCompletionPolicy,
-  decodeProjectResultAcceptance,
-  hasProjectTaskResultAcceptanceConflict,
-} from "../task/acceptance.ts";
-import type {
-  ProjectQueueEntry,
-  ProjectResultAcceptance,
-  ProjectTaskRecord,
-  ProjectTaskRecoveryObligation,
-} from "../task/types.ts";
+import type { CoordinatorStatePort } from "../state/persistence.ts";
+
+import { hasProjectTaskResultAcceptanceConflict } from "../task/acceptance.ts";
+
 import {
   assertCoordinatorSnapshotTransition,
   validateCoordinatorSettlementTransition,
@@ -113,6 +105,10 @@ import {
   ensureRepositoryRuntimeDataArea,
   readCoordinatorConfig,
   readStableBoundedFileSnapshot,
+  readRuntimeStateFile,
+  createRuntimeStatePendingFile,
+  flushRuntimeStateFile,
+  classifyRuntimeSnapshotReentry,
   type StableFileIdentity,
   sameStableFileIdentity,
 } from "../../../domain-model/src/index.ts";
@@ -129,93 +125,6 @@ import {
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
 } from "../execution/operation.ts";
-
-/**
- * CoordinatorのTaskと技術実行を閉じた保存形式として検証する。
- * @responsibility Task・Queue・Workspaceと固定操作情報、現在資源、未解決回復、受領、履歴の構造・相関を所有する。
- * @trace ARCH-000004、ARCH-000008
- */
-
-export const COORDINATOR_STATE_SCHEMA = "crdd-coordinator/current-state/v5";
-
-export const MAX_COORDINATOR_STATE_BYTES = 16 * 1024 * 1024;
-
-/**
- * Coordinator現在状態の保存途中から予定できる次処置を分類する。
- *
- * @responsibility 元版・次版のexact内容結合と初回条件を照合し、不明な状態を停止へ分類する。
- * @trace ARCH-000008
- * @input current: 正規Fileの閉じた観測、pending: 検証済みSnapshotの版・結合・exact bytes Hash、repositoryBinding: 期待するRepository結合、rootState: 初回Root条件の観測。
- * @returns publish_pending、remove_pendingまたはblockedという処置候補を返す。
- * @precondition 呼出し側がSnapshot全体を検証し、Hashをexact UTF-8 bytesから取得している。
- * @postcondition 元版結合または確定済み同内容の確認なしに処置候補を返さない。
- * @effect N/A: File、Lock、Process、Dockerを操作しない純粋な判定である。
- * @failure 不正な版、結合差、同版異内容、既知元版喪失、観測不能はblockedへ分類する。
- * @invariant 正規Fileの観測不能を不存在へ変換せず、履歴から旧状態を復元しない。
- * @boundary 検証済みSnapshotのIdentityと再入場処置候補の境界。全Snapshotの妥当性検証は所有しない。
- * @security 返却値は保存・削除・次EffectのAuthorityでも、cleanup成立の証明でもない。
- * @concurrency N/A: 排他を取得しない。利用側が同じ短期排他内でfresh観測と実処置を所有する。
- */
-export function classifyCoordinatorSnapshotReentry(
-  current:
-    | Readonly<{
-        status: "present";
-        revision: number;
-        repositoryBinding: string;
-        payloadSha256: string;
-      }>
-    | Readonly<{ status: "absent" }>
-    | Readonly<{ status: "unknown" }>,
-  pending: Readonly<{
-    revision: number;
-    previous: Readonly<{ revision: number; payloadSha256: string }> | null;
-    repositoryBinding: string;
-    payloadSha256: string;
-  }>,
-  repositoryBinding: string,
-  rootState: "new" | "existing" | "unknown",
-) {
-  if (
-    repositoryBinding.length === 0 ||
-    pending.repositoryBinding !== repositoryBinding ||
-    !Number.isSafeInteger(pending.revision) ||
-    pending.revision < 1 ||
-    !/^[a-f0-9]{64}$/.test(pending.payloadSha256) ||
-    (pending.previous === null
-      ? pending.revision !== 1
-      : !Number.isSafeInteger(pending.previous.revision) ||
-        pending.previous.revision < 1 ||
-        pending.previous.revision >= Number.MAX_SAFE_INTEGER ||
-        pending.revision !== pending.previous.revision + 1 ||
-        !/^[a-f0-9]{64}$/.test(pending.previous.payloadSha256))
-  )
-    return "blocked" as const;
-  if (current.status === "unknown" || rootState === "unknown")
-    return "blocked" as const;
-  if (current.status === "absent")
-    return pending.previous === null && rootState === "new"
-      ? ("publish_pending" as const)
-      : ("blocked" as const);
-  if (
-    current.repositoryBinding !== repositoryBinding ||
-    !Number.isSafeInteger(current.revision) ||
-    current.revision < 1 ||
-    !/^[a-f0-9]{64}$/.test(current.payloadSha256)
-  )
-    return "blocked" as const;
-  if (
-    current.revision === pending.revision &&
-    current.payloadSha256 === pending.payloadSha256
-  )
-    return "remove_pending" as const;
-  if (
-    pending.previous !== null &&
-    current.revision === pending.previous.revision &&
-    current.payloadSha256 === pending.previous.payloadSha256
-  )
-    return "publish_pending" as const;
-  return "blocked" as const;
-}
 
 /**
  * 二組四観測を同じauth unknownへだけ保存する候補を導出する。
@@ -246,8 +155,8 @@ export function prepareCoordinatorAuthenticationUnknownClosureSnapshot(
     if (
       !current ||
       typeof recoveryId !== "string" ||
-      encodeCoordinatorStateValue(observationsValue) !==
-        encodeCoordinatorStateValue([
+      encodeRuntimeStateValue(observationsValue) !==
+        encodeRuntimeStateValue([
           { round: 1, name: "absent", name_label: "absent" },
           { round: 2, name: "absent", name_label: "absent" },
         ])
@@ -293,7 +202,7 @@ export function prepareCoordinatorAuthenticationUnknownClosureSnapshot(
             },
       ),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -305,136 +214,6 @@ export function prepareCoordinatorAuthenticationUnknownClosureSnapshot(
     return null;
   }
 }
-
-/**
- * Repository一つの未終了集合を保持する。
- * @responsibility 単調改訂、元内容Hash、操作参照と未受理結果を型として分離する。
- * @trace ARCH-000008
- * @shape 固定schema、改訂相関、Repository結合と三つの現在集合。
- * @invariant 履歴や候補本体を現在集合へ蓄積しない。
- * @boundary 保存Ownerと状態利用側。
- * @security JSONは実資源観測やAuthorityの代わりではない。
- * @compatibility 最新schemaのみ。移行はフロントAIが所有する。
- */
-type CoordinatorExecutionStateSnapshot = Readonly<{
-  schema: typeof COORDINATOR_STATE_SCHEMA;
-  revision: number;
-  previous: Readonly<{ revision: number; payloadSha256: string }> | null;
-  repositoryBinding: string;
-  operations: readonly CoordinatorStateOperation[];
-  unresolvedRecoveries: readonly Readonly<{
-    operationNonce: string;
-    recoveryId: string;
-    reason: string;
-    obligations: readonly (
-      | "docker_resources"
-      | "host_cleanup"
-      | "lease_release"
-      | "result_delivery"
-    )[];
-  }>[];
-  pendingDeliveries: readonly Readonly<{
-    operationNonce: string;
-    recoveryId: string;
-    resultId: string;
-    consumer: "orchestrator";
-  }>[];
-}>;
-
-/**
- * Taskが所有する終端観測と技術Operation参照を区別する。
- * @responsibility 技術状態のコピーではなく、Task境界固有の元事実を表す。
- * @trace ARCH-000004、ARCH-000008
- * @shape 未終端、未発行、技術保存を持たないExecutor結果、又はexact Operation参照。
- * @invariant 空のOperation集合から未発行又は回収完了を生成しない。
- * @boundary 単一保存codec内部のTask投影。Package公開APIではない。
- * @security 値を実行・削除・回復のAuthorityにしない。
- * @compatibility 既存公開Taskの真偽値は投影結果として維持する。
- */
-export type CoordinatorTaskSettlementFact =
-  | Readonly<{ kind: "pending" }>
-  | Readonly<{ kind: "unissued" }>
-  | Readonly<{
-      kind: "executor_result";
-      cleanupConfirmed: boolean;
-      recoveryUnresolved: boolean;
-    }>
-  | Readonly<{
-      kind: "operations";
-      recoveryIds: readonly string[];
-      resultUnresolved: boolean;
-    }>;
-
-/**
- * 単一保存内のTaskを、技術状態の複製を持たない値として定義する。
- * @responsibility 終端元事実と受領参照を保存し、公開Taskの導出値を分離する。
- * @trace ARCH-000004、ARCH-000008
- * @shape 既存Taskの業務値、settlement、受領IDと回復参照。
- * @invariant 受領本文と技術cleanupの正本をTaskへ複製しない。
- * @boundary 保存codec内部。公開Task DTOは既存契約を維持する。
- * @security 値から実行Authorityを復元しない。
- * @compatibility 本番切替前の純粋モデルであり、旧保存Readerではない。
- */
-export type CoordinatorStoredTask = Omit<
-  ProjectTaskRecord,
-  | "cleanupConfirmed"
-  | "recoveryUnresolved"
-  | "resultAcceptances"
-  | "recoveryObligations"
-> &
-  Readonly<{
-    settlement: CoordinatorTaskSettlementFact;
-    resultAcceptanceIds: readonly string[];
-    recoveryObligations: readonly (
-      | Readonly<{ kind: "docker"; recoveryId: string }>
-      | Readonly<{
-          kind: Exclude<ProjectTaskRecoveryObligation["kind"], "docker">;
-          recoveryId: string;
-          phase: Exclude<
-            ProjectTaskRecoveryObligation["phase"],
-            "acknowledged"
-          >;
-        }>
-    )[];
-  }>;
-
-/**
- * Taskと技術操作を同じ改訂で保存する閉集合を定義する。
- * @responsibility 改訂・元Hash・物理結合を一組にし、受領本文を一度だけ保持する。
- * @trace ARCH-000004、ARCH-000008
- * @shape 平坦な現在区画。Task未初期化時は業務結合と受付世代がともにnull。
- * @invariant 二つの旧Snapshotや二重の受領Hashを内包しない。
- * @boundary 単一Writerへ接続する値モデル。
- * @security Schema成立を実資源観測や保存成功へ昇格しない。
- * @compatibility 最新形式だけを定義し、旧形式の変換は行わない。
- */
-export type CoordinatorUnifiedSnapshot = Omit<
-  CoordinatorExecutionStateSnapshot,
-  "schema" | "pendingDeliveries"
-> &
-  Omit<
-    CoordinatorSnapshot,
-    | "schema"
-    | "schemaRevision"
-    | "repositoryRootHash"
-    | "snapshotRevision"
-    | "repositoryBindingId"
-    | "intakeEpoch"
-    | "projects"
-  > &
-  Readonly<{
-    schema: "crdd-coordinator/current-state/v5";
-    repositoryBindingId: string | null;
-    intakeEpoch: string | null;
-    projects: readonly (Omit<CoordinatorState, "tasks"> &
-      Readonly<{
-        tasks: readonly CoordinatorStoredTask[];
-      }>)[];
-    resultReceipts: readonly ProjectResultAcceptance[];
-    pendingDeliveries: CoordinatorExecutionStateSnapshot["pendingDeliveries"];
-  }>;
-
-export type CoordinatorStateSnapshot = CoordinatorUnifiedSnapshot;
 
 const EMPTY_COORDINATOR_TASK_SECTIONS = {
   repositoryBindingId: null,
@@ -551,7 +330,7 @@ export function prepareCoordinatorStateOperationSnapshot(
       unresolvedRecoveries: current?.snapshot.unresolvedRecoveries ?? [],
       pendingDeliveries: current?.snapshot.pendingDeliveries ?? [],
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -639,7 +418,7 @@ export function prepareCoordinatorStateRepairSnapshot(
       unresolvedRecoveries: current?.snapshot.unresolvedRecoveries ?? [],
       pendingDeliveries: current?.snapshot.pendingDeliveries ?? [],
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -679,7 +458,7 @@ export function prepareCoordinatorStateRepairCheckpointSnapshot(
       repositoryBinding,
     );
     if (!current) return null;
-    const value = JSON.parse(encodeCoordinatorStateValue(update));
+    const value = JSON.parse(encodeRuntimeStateValue(update));
     if (
       !exactRecordKeys(value, [
         "phase",
@@ -706,7 +485,7 @@ export function prepareCoordinatorStateRepairCheckpointSnapshot(
         item === target ? { ...item, ...value } : item,
       ),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -770,7 +549,7 @@ export function prepareCoordinatorStateRepairSessionSnapshot(
         item === target ? { ...item, checkpoint } : item,
       ),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransitionValue(
       currentBytes,
       bytes,
@@ -815,13 +594,13 @@ export function prepareCoordinatorStateRepairRetentionHandoffSnapshot(
         operation.kind === "runtime_repair" &&
         operation.recoveryId === recoveryId,
     );
-    const captured = JSON.parse(encodeCoordinatorStateValue(receipt));
+    const captured = JSON.parse(encodeRuntimeStateValue(receipt));
     if (
       !current ||
       !target ||
       !Buffer.isBuffer(currentBytes) ||
       !currentBytes.equals(
-        Buffer.from(`${encodeCoordinatorStateValue(current.snapshot)}\n`),
+        Buffer.from(`${encodeRuntimeStateValue(current.snapshot)}\n`),
       ) ||
       target.summarySha256 !== null ||
       target.history !== null ||
@@ -843,7 +622,7 @@ export function prepareCoordinatorStateRepairRetentionHandoffSnapshot(
     )
       return null;
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue({
+      `${encodeRuntimeStateValue({
         ...current.snapshot,
         revision: current.snapshot.revision + 1,
         previous: {
@@ -970,7 +749,7 @@ export function prepareCoordinatorStateRepairDisposalDecisionSnapshot(
     !current ||
     !Buffer.isBuffer(currentBytes) ||
     !currentBytes.equals(
-      Buffer.from(`${encodeCoordinatorStateValue(current.snapshot)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(current.snapshot)}\n`),
     ) ||
     typeof recoveryId !== "string" ||
     typeof decidedAt !== "string" ||
@@ -1022,7 +801,7 @@ export function prepareCoordinatorStateRepairDisposalDecisionSnapshot(
         : item,
     ),
   };
-  const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+  const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
   return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
     ? bytes
     : null;
@@ -1060,7 +839,7 @@ export function prepareCoordinatorStateRepairDisposalProgressSnapshot(
     !captured ||
     !Buffer.isBuffer(currentBytes) ||
     !currentBytes.equals(
-      Buffer.from(`${encodeCoordinatorStateValue(current.snapshot)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(current.snapshot)}\n`),
     ) ||
     typeof recoveryId !== "string"
   )
@@ -1086,8 +865,8 @@ export function prepareCoordinatorStateRepairDisposalProgressSnapshot(
   )
     return null;
   if (
-    encodeCoordinatorStateValue(target.disposal.checkpoint) ===
-    encodeCoordinatorStateValue(captured)
+    encodeRuntimeStateValue(target.disposal.checkpoint) ===
+    encodeRuntimeStateValue(captured)
   )
     return Buffer.from(currentBytes);
   const next = {
@@ -1106,7 +885,7 @@ export function prepareCoordinatorStateRepairDisposalProgressSnapshot(
         : item,
     ),
   };
-  const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+  const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
   return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
     ? bytes
     : null;
@@ -1190,12 +969,12 @@ export function classifyCoordinatorRepairPublication(
     !next ||
     (currentBytes !== null && !before) ||
     !pendingBytes.equals(
-      Buffer.from(`${encodeCoordinatorStateValue(next.snapshot)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(next.snapshot)}\n`),
     ) ||
     (before &&
       (!Buffer.isBuffer(currentBytes) ||
         !currentBytes.equals(
-          Buffer.from(`${encodeCoordinatorStateValue(before.snapshot)}\n`),
+          Buffer.from(`${encodeRuntimeStateValue(before.snapshot)}\n`),
         )))
   )
     return null;
@@ -1325,7 +1104,7 @@ function prepareCoordinatorStateOperationCheckpoint(
       repositoryBinding,
     );
     if (!current || typeof recoveryId !== "string") return null;
-    const resource = JSON.parse(encodeCoordinatorStateValue(resourceValue));
+    const resource = JSON.parse(encodeRuntimeStateValue(resourceValue));
     const operation = current.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
@@ -1353,8 +1132,7 @@ function prepareCoordinatorStateOperationCheckpoint(
       resource?.observation === "absent" &&
       !operation.resources.some(
         (item) =>
-          encodeCoordinatorStateValue(item) ===
-          encodeCoordinatorStateValue(resource),
+          encodeRuntimeStateValue(item) === encodeRuntimeStateValue(resource),
       )
     )
       return null;
@@ -1387,7 +1165,7 @@ function prepareCoordinatorStateOperationCheckpoint(
             },
       ),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -1551,9 +1329,7 @@ export function prepareCoordinatorStateCleanupSnapshot(
       repositoryBinding,
     );
     if (!current || typeof recoveryId !== "string") return null;
-    const observations = JSON.parse(
-      encodeCoordinatorStateValue(observationsValue),
-    );
+    const observations = JSON.parse(encodeRuntimeStateValue(observationsValue));
     const operation = current.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
@@ -1602,7 +1378,7 @@ export function prepareCoordinatorStateCleanupSnapshot(
                 dockerId: resource.dockerId,
                 evidenceSha256: createHash("sha256")
                   .update(
-                    encodeCoordinatorStateValue({
+                    encodeRuntimeStateValue({
                       recoveryId,
                       previousPayloadSha256: current.payloadSha256,
                       observation: observed,
@@ -1624,7 +1400,7 @@ export function prepareCoordinatorStateCleanupSnapshot(
         item === operation ? { ...item, resources } : item,
       ),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -1670,7 +1446,7 @@ export function prepareCoordinatorStateReferencesSnapshot(
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     const nonce = parseDockerTaskRecoveryId(recoveryId)?.operationNonce;
-    const references = JSON.parse(encodeCoordinatorStateValue(referencesValue));
+    const references = JSON.parse(encodeRuntimeStateValue(referencesValue));
     if (
       !operation ||
       !nonce ||
@@ -1721,7 +1497,7 @@ export function prepareCoordinatorStateReferencesSnapshot(
         return first < second ? -1 : first > second ? 1 : 0;
       }),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -1825,7 +1601,7 @@ export function prepareCoordinatorStateResultDeliverySnapshot(
       (item): item is CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
-    const consumers = JSON.parse(encodeCoordinatorStateValue(consumersValue));
+    const consumers = JSON.parse(encodeRuntimeStateValue(consumersValue));
     const identity = operation ? JSON.parse(operation.identityJson) : null;
     const requiredConsumers =
       identity?.consumer === "orchestrator" ? ["orchestrator"] : [];
@@ -1841,8 +1617,8 @@ export function prepareCoordinatorStateResultDeliverySnapshot(
       operation.execution.ownerEffect !== "disabled" ||
       !coordinatorTaskResourcesAreSettled(operation) ||
       !Array.isArray(consumers) ||
-      encodeCoordinatorStateValue(consumers) !==
-        encodeCoordinatorStateValue(requiredConsumers)
+      encodeRuntimeStateValue(consumers) !==
+        encodeRuntimeStateValue(requiredConsumers)
     )
       return null;
     const nonce = identity.operationNonce;
@@ -1882,76 +1658,6 @@ export function prepareCoordinatorStateResultDeliverySnapshot(
   } catch {
     return null;
   }
-}
-
-/**
- * 検証済み操作の要約本文を一意に符号化する。
- * @responsibility 内容Hashと履歴行Hashの共通の内容投影を所有する。
- * @trace ARCH-000008
- * @input operation: 復号済み操作。
- * @returns 正規UTF-8本文と末尾LF。
- * @precondition 呼出し元が操作構造を検証する。
- * @postcondition history確認情報とPathを本文へ含めない。
- * @effect N/A: メモリ内の符号化。
- * @failure 不正JSON値は例外。
- * @invariant 確認済み更新で履歴行の内容を変えない。
- * @boundary 現在状態と要約内容。
- * @security 非Authorityの内容だけを返す。
- * @concurrency N/A: 保存を行わない。
- */
-export function coordinatorOperationSummaryBytes(
-  operation: CoordinatorStateTaskOperation,
-): Buffer {
-  const identity = JSON.parse(operation.identityJson);
-  const legacy = (schema: string) => ({
-    schema,
-    ...(operation.dockerRestart === null
-      ? {}
-      : { dockerRestart: operation.dockerRestart }),
-    operationId: identity.operationId,
-    operationNonce: identity.operationNonce,
-    recoveryId: operation.recoveryId,
-    identitySha256: operation.identitySha256,
-    primaryFailure: operation.primaryFailure,
-    execution: operation.execution,
-    outcome: operation.outcome,
-    hostCleanup: operation.host.cleanup,
-    lease: operation.lease,
-  });
-  const oldBytes = Buffer.from(
-    `${encodeCoordinatorStateValue(legacy(operation.dockerRestart === null ? "crdd-coordinator/operation-summary/v2" : "crdd-coordinator/operation-summary/v3"))}\n`,
-  );
-  if (
-    (identity.consumer !== "workbench" &&
-      identity.consumer !== "coordinator_cli") ||
-    typeof identity.recoveryCorrelationId !== "string"
-  )
-    return oldBytes;
-  if (
-    operation.summarySha256 !== null &&
-    createHash("sha256").update(oldBytes).digest("hex") ===
-      operation.summarySha256
-  )
-    return oldBytes;
-  return Buffer.from(
-    `${encodeCoordinatorStateValue({
-      schema: "crdd-coordinator/operation-summary/v4",
-      consumer: identity.consumer,
-      recoveryCorrelationId: identity.recoveryCorrelationId ?? null,
-      ...(operation.dockerRestart === null
-        ? {}
-        : { dockerRestart: operation.dockerRestart }),
-      operationId: identity.operationId,
-      operationNonce: identity.operationNonce,
-      recoveryId: operation.recoveryId,
-      identitySha256: operation.identitySha256,
-      primaryFailure: operation.primaryFailure,
-      execution: operation.execution,
-      outcome: operation.outcome,
-      hostCleanup: operation.host.cleanup,
-      lease: operation.lease,
-    })}\n`,
-  );
 }
 
 /**
@@ -2052,7 +1758,7 @@ export function prepareCoordinatorRepairHistorySnapshot(
     )
       return null;
     if (operation.history.confirmed === confirmed)
-      return Buffer.from(`${encodeCoordinatorStateValue(current.snapshot)}\n`);
+      return Buffer.from(`${encodeRuntimeStateValue(current.snapshot)}\n`);
   } else if (confirmed) return null;
   const history = {
     occurredAt,
@@ -2062,7 +1768,7 @@ export function prepareCoordinatorRepairHistorySnapshot(
     confirmed,
   };
   const candidate = Buffer.from(
-    `${encodeCoordinatorStateValue({
+    `${encodeRuntimeStateValue({
       ...current.snapshot,
       revision: current.snapshot.revision + 1,
       previous: {
@@ -2144,7 +1850,7 @@ function copyCoordinatorRepairHistoryBytes(input: unknown): Buffer | null {
     if (
       !Number.isSafeInteger(length) ||
       length < 0 ||
-      length > MAX_COORDINATOR_STATE_BYTES
+      length > RUNTIME_STATE_MAXIMUM_BYTES
     )
       return null;
     const buffer = Object.getOwnPropertyDescriptor(
@@ -2236,36 +1942,6 @@ export function prepareCoordinatorRepairHistoryPublication(
 }
 
 /**
- * 固定した要約時刻を含む履歴行を符号化する。
- * @responsibility 確認状態を除外したexact行Identityを所有する。
- * @trace ARCH-000008
- * @input operation: 検証済み操作、occurredAt: 最初の正規UTC時刻。
- * @returns 履歴行の正規本文。
- * @precondition 時刻と操作内容を呼出し元で確認する。
- * @postcondition confirmedを行Hashへ含めない。
- * @effect N/A: メモリ内の符号化。
- * @failure 不正内容は例外。
- * @invariant 再入場の現在時刻で行を再生成しない。
- * @boundary 操作の終了要約と時刻込み履歴行。
- * @security 生出力やPathを追加しない。
- * @concurrency N/A: 保存を行わない。
- */
-export function coordinatorHistoryLineBytes(
-  operation: CoordinatorStateTaskOperation,
-  occurredAt: string,
-): Buffer {
-  return Buffer.from(
-    `${encodeCoordinatorStateValue({
-      schema: "crdd-coordinator/history-row/v2",
-      occurredAt,
-      summary: JSON.parse(
-        coordinatorOperationSummaryBytes(operation).toString("utf8"),
-      ),
-    })}\n`,
-  );
-}
-
-/**
  * 保存済みcheckpointから同じ終了履歴行を導出する。
  * @responsibility 要約・初回時刻とexact行Hashの共通符号化を履歴Writerへ渡す。
  * @trace ARCH-000008
@@ -2341,7 +2017,7 @@ export function prepareCoordinatorRecoveredHistoryPublication(
       if (
         !Number.isSafeInteger(length) ||
         length < 0 ||
-        length > MAX_COORDINATOR_STATE_BYTES
+        length > RUNTIME_STATE_MAXIMUM_BYTES
       )
         return null;
       const buffer = Object.getOwnPropertyDescriptor(
@@ -2484,7 +2160,7 @@ export function prepareCoordinatorStateHistorySnapshot(
           : { ...item, summarySha256: summary.summarySha256, history },
       ),
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     return validateCoordinatorStateTransition(
       currentBytes,
       bytes,
@@ -2492,61 +2168,6 @@ export function prepareCoordinatorStateHistorySnapshot(
     )
       ? bytes
       : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 保存Bufferを一意なJSON値として安全に復号する。
- * @responsibility intrinsic Buffer境界、UTF-8、深度・容量と正規encodingを検査する。
- * @trace ARCH-000008
- * @input input: 未信頼のBuffer候補。
- * @returns 不変JSON値と本文Hash、又はnull。意味Schemaは呼出し側が検査する。
- * @precondition N/A: 任意の入力を拒否可能な境界として扱う。
- * @postcondition Proxyや入力側のlength Getterを評価せず一意byte形式だけを受理する。
- * @effect N/A: メモリ内の復号だけ。
- * @failure 不正Buffer、UTF-8、JSON、容量・深度超過、非正規encodingはnull。
- * @invariant Propertyの重複や順序差を黙って正規化しない。
- * @boundary Buffer byte列と意味検証前のJSON値。
- * @security 本文を実資源不存在、所有権または処置許可へ昇格しない。
- * @concurrency N/A: 保存や共有状態更新を行わない。
- */
-function decodeCoordinatorCanonicalBytes(input: unknown) {
-  try {
-    if (types.isProxy(input) || !Buffer.isBuffer(input)) return null;
-    const intrinsic = Object.getPrototypeOf(Uint8Array.prototype);
-    const length = Object.getOwnPropertyDescriptor(
-      intrinsic,
-      "byteLength",
-    )?.get?.call(input);
-    if (
-      !Number.isSafeInteger(length) ||
-      length === 0 ||
-      length > MAX_COORDINATOR_STATE_BYTES
-    )
-      return null;
-    const buffer = Object.getOwnPropertyDescriptor(
-      intrinsic,
-      "buffer",
-    )?.get?.call(input);
-    const offset = Object.getOwnPropertyDescriptor(
-      intrinsic,
-      "byteOffset",
-    )?.get?.call(input);
-    const bytes = Buffer.from(new Uint8Array(buffer, offset, length));
-    const text = new TextDecoder("utf-8", {
-      fatal: true,
-      ignoreBOM: true,
-    }).decode(bytes);
-    const parsed = JSON.parse(text, (_key, value) =>
-      value && typeof value === "object" ? Object.freeze(value) : value,
-    );
-    if (`${encodeCoordinatorStateValue(parsed)}\n` !== text) return null;
-    return Object.freeze({
-      value: parsed as unknown,
-      payloadSha256: createHash("sha256").update(bytes).digest("hex"),
-    });
   } catch {
     return null;
   }
@@ -2575,302 +2196,6 @@ export function decodeCoordinatorStateSnapshot(
   payloadSha256: string;
 }> | null {
   return decodeCoordinatorUnifiedSnapshot(input, repositoryBinding);
-}
-
-/**
- * 単一保存の全区画とTask・操作・受領の参照を復号する。
- * @responsibility 導出値と受領本文の二重保存、孤立参照、部分操作集合を拒否する。
- * @trace ARCH-000004、ARCH-000008
- * @input input: 正規UTF-8 Buffer、repositoryBinding: 現在の物理結合。
- * @returns 保存値、公開Task投影、内容Hash。拒否時はnull。
- * @precondition 本関数は純粋codecであり本番Writerへの切替を意味しない。
- * @postcondition 旧Attemptの受領は固定Scopeに残り、新Attemptへ流用できない。
- * @effect N/A: メモリ内の復号・投影だけ。
- * @failure 旧形式、二重情報、孤立・重複参照、未確認履歴の受領はnull。
- * @invariant 空の操作集合を未発行や回収成功へ補完しない。
- * @boundary 保存値とTask公開DTO。旧保存Snapshotを内包しない。
- * @security codec成功を実保存、回収、受領Authorityとして利用しない。
- * @concurrency N/A: Lock、外部Reader、Writerを呼ばない。
- */
-export function decodeCoordinatorUnifiedSnapshot(
-  input: unknown,
-  repositoryBinding: unknown,
-): Readonly<{
-  snapshot: CoordinatorUnifiedSnapshot;
-  projects: readonly CoordinatorState[];
-  payloadSha256: string;
-}> | null {
-  try {
-    if (!isSha256Hex(repositoryBinding)) return null;
-    const decoded = decodeCoordinatorCanonicalBytes(input);
-    const value = decoded?.value;
-    if (
-      !decoded ||
-      !exactRecordKeys(value, [
-        "schema",
-        "revision",
-        "previous",
-        "repositoryBinding",
-        "operations",
-        "unresolvedRecoveries",
-        "pendingDeliveries",
-        "repositoryBindingId",
-        "intakeEpoch",
-        "intakeBindings",
-        "projects",
-        "queueEntries",
-        "workspaces",
-        "leaseEvidence",
-        "leaseIntents",
-        "results",
-        "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
-        "resultReceipts",
-      ])
-    )
-      return null;
-    const snapshot = value as CoordinatorUnifiedSnapshot;
-    if (
-      snapshot.schema !== "crdd-coordinator/current-state/v5" ||
-      snapshot.repositoryBinding !== repositoryBinding ||
-      !Number.isSafeInteger(snapshot.revision) ||
-      snapshot.revision < 1 ||
-      (snapshot.revision === 1
-        ? snapshot.previous !== null
-        : !exactRecordKeys(snapshot.previous, ["revision", "payloadSha256"]) ||
-          snapshot.previous?.revision !== snapshot.revision - 1 ||
-          !isSha256Hex(snapshot.previous?.payloadSha256)) ||
-      !Array.isArray(snapshot.pendingDeliveries) ||
-      !snapshot.pendingDeliveries.every((delivery) =>
-        exactRecordKeys(delivery, [
-          "operationNonce",
-          "recoveryId",
-          "resultId",
-          "consumer",
-        ]),
-      ) ||
-      !validCoordinatorExecutionState(
-        {
-          ...snapshot,
-          pendingDeliveries: snapshot.pendingDeliveries,
-        },
-        repositoryBinding,
-      ) ||
-      !Array.isArray(snapshot.resultReceipts) ||
-      !Array.isArray(snapshot.projects)
-    )
-      return null;
-
-    const receipts = new Map<string, ProjectResultAcceptance>();
-    for (const item of snapshot.resultReceipts) {
-      const receipt = decodeProjectResultAcceptance(item);
-      const project = snapshot.projects.find(
-        (entry) => entry.projectId === receipt?.projectId,
-      );
-      if (
-        !receipt ||
-        receipts.has(receipt.recoveryId) ||
-        !project ||
-        receipt.repositoryBinding !== repositoryBinding ||
-        receipt.repositoryBindingId !== snapshot.repositoryBindingId ||
-        receipt.milestoneId !== project.milestoneId ||
-        receipt.settlementGeneration > project.generation ||
-        !project.tasks.some(
-          (task: CoordinatorStoredTask) =>
-            task.definition.id === receipt.taskId,
-        ) ||
-        snapshot.pendingDeliveries.some(
-          (delivery) => delivery.recoveryId === receipt.recoveryId,
-        )
-      )
-        return null;
-      const operation = snapshot.operations.find(
-        (entry) => entry.recoveryId === receipt.recoveryId,
-      );
-      if (
-        operation &&
-        (operation.kind !== "docker_task" ||
-          operation.history?.confirmed !== true ||
-          operation.summarySha256 !== receipt.resultId ||
-          projectCoordinatorTaskSettlement(
-            {
-              kind: "operations",
-              recoveryIds: [receipt.recoveryId],
-              resultUnresolved: false,
-            },
-            snapshot,
-          )?.cleanupConfirmed !== true ||
-          snapshot.unresolvedRecoveries.some(
-            (recovery) => recovery.recoveryId === receipt.recoveryId,
-          ) ||
-          (JSON.parse(operation.identityJson).recoveryCorrelationId ??
-            JSON.parse(operation.identityJson).operationId) !==
-            receipt.operationId)
-      )
-        return null;
-      receipts.set(receipt.recoveryId, item);
-    }
-
-    const claimedOperations = new Set<string>();
-    const projects: CoordinatorState[] = [];
-    for (const project of snapshot.projects) {
-      if (!Array.isArray(project.tasks)) return null;
-      const tasks: ProjectTaskRecord[] = [];
-      for (const task of project.tasks) {
-        if (
-          !exactRecordKeys(task, [
-            "definition",
-            "state",
-            "attemptId",
-            "operationId",
-            "authorityBindingId",
-            "startPhase",
-            "settlement",
-            "recoveryObligations",
-            "resultAcceptanceIds",
-            "candidateId",
-            "retryCount",
-            "supersededBy",
-          ]) ||
-          !Array.isArray(task.resultAcceptanceIds) ||
-          new Set(task.resultAcceptanceIds).size !==
-            task.resultAcceptanceIds.length ||
-          !Array.isArray(task.recoveryObligations)
-        )
-          return null;
-        const settlement = projectCoordinatorTaskSettlement(
-          task.settlement,
-          snapshot,
-        );
-        if (!settlement) return null;
-        const matching = snapshot.operations
-          .filter((operation) => {
-            if (operation.kind !== "docker_task" || task.operationId === null)
-              return false;
-            const identity = JSON.parse(operation.identityJson);
-            return (
-              identity.consumer === "orchestrator" &&
-              (identity.recoveryCorrelationId ?? identity.operationId) ===
-                task.operationId
-            );
-          })
-          .map((operation) => operation.recoveryId);
-        const referenced =
-          task.settlement.kind === "operations"
-            ? task.settlement.recoveryIds
-            : [];
-        if (
-          matching.length !== referenced.length ||
-          matching.some((id) => !referenced.includes(id)) ||
-          referenced.some((id: string) => claimedOperations.has(id))
-        )
-          return null;
-        for (const id of referenced) claimedOperations.add(id);
-        const resultAcceptances: ProjectResultAcceptance[] = [];
-        for (const id of task.resultAcceptanceIds) {
-          const receipt = receipts.get(id);
-          if (!receipt) return null;
-          resultAcceptances.push(receipt);
-        }
-        const recoveryObligations: ProjectTaskRecoveryObligation[] = [];
-        for (const obligation of task.recoveryObligations) {
-          if (obligation.kind !== "docker") {
-            if (!exactRecordKeys(obligation, ["kind", "recoveryId", "phase"]))
-              return null;
-            recoveryObligations.push(obligation);
-            continue;
-          }
-          if (!exactRecordKeys(obligation, ["kind", "recoveryId"])) return null;
-          const acknowledgement = receipts.get(obligation.recoveryId);
-          if (acknowledgement) {
-            recoveryObligations.push({
-              ...obligation,
-              phase: "acknowledged",
-              acknowledgement,
-            });
-            continue;
-          }
-          const observed = projectCoordinatorTaskSettlement(
-            {
-              kind: "operations",
-              recoveryIds: [obligation.recoveryId],
-              resultUnresolved: false,
-            },
-            snapshot,
-          );
-          if (!observed) return null;
-          recoveryObligations.push({
-            ...obligation,
-            phase: observed.cleanupConfirmed ? "settled" : "required",
-          });
-        }
-        const {
-          settlement: _settlement,
-          resultAcceptanceIds: _ids,
-          recoveryObligations: _obligations,
-          ...record
-        } = task;
-        tasks.push(
-          Object.freeze({
-            ...record,
-            ...settlement,
-            resultAcceptances,
-            recoveryObligations,
-          }),
-        );
-      }
-      projects.push(Object.freeze({ ...project, tasks: Object.freeze(tasks) }));
-    }
-    const taskSections = {
-      ...snapshot,
-      repositoryBindingId: snapshot.repositoryBindingId ?? "",
-      intakeEpoch: snapshot.intakeEpoch ?? "",
-      projects,
-    };
-    if (
-      snapshot.repositoryBindingId === null ||
-      snapshot.intakeEpoch === null
-    ) {
-      if (
-        snapshot.repositoryBindingId !== null ||
-        snapshot.intakeEpoch !== null ||
-        snapshot.resultReceipts.length !== 0 ||
-        [
-          "projects",
-          "queueEntries",
-          "intakeBindings",
-          "workspaces",
-          "leaseEvidence",
-          "leaseIntents",
-          "results",
-          "historyPending",
-          "acceptanceDecisions",
-          "decisionRecoveries",
-        ].some(
-          (key) =>
-            !Array.isArray(
-              (snapshot as unknown as Record<string, unknown>)[key],
-            ) ||
-            ((snapshot as unknown as Record<string, unknown[]>)[key]?.length ??
-              -1) !== 0,
-        )
-      )
-        return null;
-    } else if (
-      !validId(snapshot.repositoryBindingId) ||
-      !validId(snapshot.intakeEpoch) ||
-      !validCoordinatorTaskState(taskSections, snapshot.repositoryBindingId)
-    )
-      return null;
-    return Object.freeze({
-      snapshot,
-      projects: Object.freeze(projects),
-      payloadSha256: decoded.payloadSha256,
-    });
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -2954,8 +2279,8 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
       currentBytes,
       repositoryBinding,
     );
-    const state: unknown = JSON.parse(encodeCoordinatorStateValue(stateValue));
-    const facts: unknown = JSON.parse(encodeCoordinatorStateValue(resultFacts));
+    const state: unknown = JSON.parse(encodeRuntimeStateValue(stateValue));
+    const facts: unknown = JSON.parse(encodeRuntimeStateValue(resultFacts));
     if (
       !current ||
       current.snapshot.repositoryBindingId === null ||
@@ -2996,7 +2321,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
         payloadSha256: current.payloadSha256,
       },
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     const decoded = decodeCoordinatorUnifiedSnapshot(bytes, repositoryBinding);
     return decoded &&
       validateCoordinatorUnifiedTransition(
@@ -3004,9 +2329,9 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
         bytes,
         repositoryBinding,
       ) &&
-      encodeCoordinatorStateValue(
+      encodeRuntimeStateValue(
         decoded.projects.find((p) => p.projectId === state.projectId),
-      ) === encodeCoordinatorStateValue(state)
+      ) === encodeRuntimeStateValue(state)
       ? bytes
       : null;
   } catch {
@@ -3082,8 +2407,8 @@ export function prepareCoordinatorUnifiedTaskSections(
       currentBytes,
       repositoryBinding,
     );
-    const view: unknown = JSON.parse(encodeCoordinatorStateValue(viewValue));
-    const facts: unknown = JSON.parse(encodeCoordinatorStateValue(factsValue));
+    const view: unknown = JSON.parse(encodeRuntimeStateValue(viewValue));
+    const facts: unknown = JSON.parse(encodeRuntimeStateValue(factsValue));
     if (
       !current ||
       !plainObject(view) ||
@@ -3119,7 +2444,7 @@ export function prepareCoordinatorUnifiedTaskSections(
         payloadSha256: current.payloadSha256,
       },
     };
-    const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
     const decoded = decodeCoordinatorUnifiedSnapshot(bytes, repositoryBinding);
     return decoded &&
       validateCoordinatorUnifiedTransition(
@@ -3127,9 +2452,9 @@ export function prepareCoordinatorUnifiedTaskSections(
         bytes,
         repositoryBinding,
       ) &&
-      encodeCoordinatorStateValue(
+      encodeRuntimeStateValue(
         projectCoordinatorTaskSnapshot(decoded, rootHash),
-      ) === encodeCoordinatorStateValue(view)
+      ) === encodeRuntimeStateValue(view)
       ? bytes
       : null;
   } catch {
@@ -3221,7 +2546,7 @@ export function prepareCoordinatorStateCompletionSnapshot(
       (value) => value.recoveryId !== recoveryId,
     ),
   };
-  const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+  const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
   return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
     ? bytes
     : null;
@@ -3277,7 +2602,7 @@ export function prepareCoordinatorStateRepairCompletionSnapshot(
       (item) => item.recoveryId !== recoveryId,
     ),
   };
-  const bytes = Buffer.from(`${encodeCoordinatorStateValue(next)}\n`);
+  const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
   return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
     ? bytes
     : null;
@@ -3347,10 +2672,10 @@ export function classifyCoordinatorResourcePublication(
       !current ||
       !pending ||
       !currentBytes.equals(
-        Buffer.from(`${encodeCoordinatorStateValue(current.snapshot)}\n`),
+        Buffer.from(`${encodeRuntimeStateValue(current.snapshot)}\n`),
       ) ||
       !pendingBytes.equals(
-        Buffer.from(`${encodeCoordinatorStateValue(pending.snapshot)}\n`),
+        Buffer.from(`${encodeRuntimeStateValue(pending.snapshot)}\n`),
       )
     )
       return null;
@@ -3367,8 +2692,8 @@ export function classifyCoordinatorResourcePublication(
     if (currentBytes.equals(pendingBytes)) return "remove_pending";
     const changed = next.resources.filter(
       (resource, index) =>
-        encodeCoordinatorStateValue(resource) !==
-        encodeCoordinatorStateValue(prior.resources[index]),
+        encodeRuntimeStateValue(resource) !==
+        encodeRuntimeStateValue(prior.resources[index]),
     );
     const resource = changed[0];
     const previous = prior.resources.find(
@@ -3445,11 +2770,11 @@ function validateCoordinatorStateTransitionValue(
       if (
         businessKeys.some(
           (key) =>
-            encodeCoordinatorStateValue(current.snapshot[key]) !==
-            encodeCoordinatorStateValue(next.snapshot[key]),
+            encodeRuntimeStateValue(current.snapshot[key]) !==
+            encodeRuntimeStateValue(next.snapshot[key]),
         ) ||
-        encodeCoordinatorStateValue(expectedProjects) !==
-          encodeCoordinatorStateValue(next.snapshot.projects)
+        encodeRuntimeStateValue(expectedProjects) !==
+          encodeRuntimeStateValue(next.snapshot.projects)
       )
         return false;
     } else if (
@@ -3477,173 +2802,7 @@ function validateCoordinatorStateTransitionValue(
   }
 }
 
-export const COORDINATOR_DURABLE_FOUNDATION_CONTRACT =
-  "crdd-coordinator/orchestrator-durable-foundation/v1" as const;
-
-/**
- * durable-foundationで使用するLease Kindの値契約を定義する。
- *
- * @responsibility Lease KindのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape LeaseKindが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LeaseKindで宣言した値と責務の対応を維持する。
- * @boundary N/A: LeaseKindの宣言は外部境界を開かない。
- * @security LeaseKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility LeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type LeaseKind = CoordinatorLeaseKind;
-
-/**
- * durable-foundationで使用するEnvelopeの値契約を定義する。
- *
- * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Envelopeで宣言した値と責務の対応を維持する。
- * @boundary N/A: Envelopeの宣言は外部境界を開かない。
- * @security EnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Envelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type Envelope = Readonly<{
-  schema: typeof COORDINATOR_DURABLE_FOUNDATION_CONTRACT;
-  schemaRevision: 1;
-  recordKind: "project-state" | "queue-entry" | "lease-evidence";
-  repositoryBindingId: string;
-  projectId: string;
-  createdGeneration: number;
-  updatedGeneration: number;
-  contentHash: string;
-  content: unknown;
-}>;
-
 export const MAX_RECORD_BYTES = 16 * 1024 * 1024;
-
-export const COORDINATOR_PROJECT_SNAPSHOT_SCHEMA =
-  "crdd-coordinator/project-snapshot/v5";
-
-/**
- * Lease Evidenceが有効か判定する。
- *
- * @responsibility Lease Evidenceの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns validLeaseEvidenceの計算結果を返す。
- * @precondition 「value: unknown」がvalidLeaseEvidenceの入力契約を満たす。
- * @postcondition validLeaseEvidenceの責務を完了した結果だけを返す。
- * @effect N/A: validLeaseEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validLeaseEvidenceは独自の失敗分岐を所有しない。
- * @invariant validLeaseEvidenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validLeaseEvidenceはProcess内の同一Subsystemで完結する。
- * @security validLeaseEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validLeaseEvidenceは共有非同期状態を持たない同期処理である。
- */
-export function validLeaseEvidence(value: unknown) {
-  return (
-    plainObject(value) &&
-    exactKeys(value, [
-      "kind",
-      "queueId",
-      "ownerGeneration",
-      "ownerProcessId",
-      "disposition",
-    ]) &&
-    (value.kind === "project-operation" ||
-      value.kind === "canonical-adoption") &&
-    validId(value.queueId) &&
-    validId(value.ownerGeneration) &&
-    Number.isSafeInteger(value.ownerProcessId) &&
-    Number(value.ownerProcessId) > 0 &&
-    (value.disposition === "acquired" ||
-      value.disposition === "released" ||
-      value.disposition === "recovered_after_owner_loss" ||
-      value.disposition === "acquisition_unknown_closed")
-  );
-}
-
-/**
- * durable-foundationで使用するLease Evidence Contentの値契約を定義する。
- *
- * @responsibility Lease Evidence ContentのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape LeaseEvidenceContentが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LeaseEvidenceContentで宣言した値と責務の対応を維持する。
- * @boundary N/A: LeaseEvidenceContentの宣言は外部境界を開かない。
- * @security LeaseEvidenceContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility LeaseEvidenceContentの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type LeaseEvidenceContent = Readonly<{
-  kind: LeaseKind;
-  queueId: string;
-  ownerGeneration: string;
-  ownerProcessId: number;
-  disposition:
-    | "acquired"
-    | "released"
-    | "recovered_after_owner_loss"
-    | "acquisition_unknown_closed";
-}>;
-
-/**
- * durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
- *
- * @responsibility Lease Evidence EnvelopeのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape LeaseEvidenceEnvelopeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LeaseEvidenceEnvelopeで宣言した値と責務の対応を維持する。
- * @boundary N/A: LeaseEvidenceEnvelopeの宣言は外部境界を開かない。
- * @security LeaseEvidenceEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility LeaseEvidenceEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type LeaseEvidenceEnvelope = Envelope &
-  Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
-
-/**
- * 一体保存する現在状態の閉じた値契約を定義する。
- * @responsibility 既存値と受付世代、途中Lease、履歴未確定搬送を保持する。
- * @trace ARCH-000004
- * @shape 保存情報、受付結合、Project、Queue、Lease、結果、未搬送終了要約。
- * @invariant 保護DecisionとOS handleを保存しない。保存と受付の世代を分離する。
- * @boundary Repository-localの現在状態。
- * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
- */
-export type CoordinatorSnapshot = Readonly<{
-  workspaces: readonly CoordinatorWorkspace[];
-  repositoryRootHash: string;
-  repositoryBindingId: string;
-  snapshotRevision: number;
-  intakeEpoch: string;
-  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
-  projects: readonly CoordinatorState[];
-  queueEntries: readonly ProjectQueueEntry[];
-  leaseEvidence: readonly LeaseEvidenceEnvelope[];
-  leaseIntents: readonly Readonly<{
-    projectId: string;
-    queueId: string;
-    kind: LeaseKind;
-    ownerGeneration: string;
-    ownerProcessId: number;
-    recoveryId: string;
-    phase:
-      | "acquisition_pending"
-      | "acquisition_reserved"
-      | "lock_owned"
-      | "release_pending"
-      | "recovery_pending";
-    physicalIdentity?: string | null;
-  }>[];
-  results: readonly CoordinatorResultRecord[];
-  historyPending: readonly HistoryRow[];
-}> &
-  Readonly<{
-    schema: typeof COORDINATOR_PROJECT_SNAPSHOT_SCHEMA;
-    schemaRevision: 5;
-    acceptanceDecisions: readonly CoordinatorAcceptanceDecisionEnvelope[];
-    decisionRecoveries: readonly Readonly<{
-      generation: number;
-      value: CoordinatorDecisionRecoveryIntent;
-    }>[];
-  }>;
 
 /**
  * 現在状態の全区画と既存結合を検証する。
@@ -3691,7 +2850,7 @@ export function validCoordinatorSnapshot(
       value.repositoryBindingId !== binding ||
       value.repositoryRootHash !== rootHash ||
       !validId(binding) ||
-      !HASH.test(rootHash) ||
+      !isSha256Hex(rootHash) ||
       !validId(value.intakeEpoch) ||
       !Number.isSafeInteger(value.snapshotRevision) ||
       Number(value.snapshotRevision) < 1
@@ -4076,7 +3235,7 @@ export function envelope(
     (recordKind === "lease-evidence" && !validLeaseEvidence(content))
   )
     throw new Error("orchestrator_record_content_invalid");
-  const serialized = encodeCoordinatorStateValue(content);
+  const serialized = encodeRuntimeStateValue(content);
   const record = Object.freeze({
     schema: COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
     schemaRevision: 1 as const,
@@ -4145,7 +3304,7 @@ export function readEnvelopeFile(directory: string, name: string): Envelope {
     !Number.isSafeInteger(parsed.updatedGeneration) ||
     parsed.createdGeneration < 1 ||
     parsed.updatedGeneration < parsed.createdGeneration ||
-    parsed.contentHash !== digest(encodeCoordinatorStateValue(parsed.content))
+    parsed.contentHash !== digest(encodeRuntimeStateValue(parsed.content))
   )
     throw new Error("orchestrator_record_invalid");
   if (
@@ -4360,7 +3519,7 @@ export function initializeCoordinatorSnapshot(
       const saved = writeCoordinatorSnapshotOwned(
         owner,
         binding,
-        encodeCoordinatorStateValue(payload),
+        encodeRuntimeStateValue(payload),
         revision,
       );
       result =
@@ -4455,13 +3614,12 @@ export function writeCoordinatorSnapshotState(
       );
       if (
         previous?.generation === expectedGeneration + 1 &&
-        encodeCoordinatorStateValue(previous) ===
-          encodeCoordinatorStateValue(state)
+        encodeRuntimeStateValue(previous) === encodeRuntimeStateValue(state)
       ) {
         const saved = writeCoordinatorSnapshotOwned(
           lock,
           binding,
-          encodeCoordinatorStateValue(current),
+          encodeRuntimeStateValue(current),
           current.snapshotRevision - 1,
           resultFacts.map((fact) => ({ ...fact, projectId: state.projectId })),
         );
@@ -4482,7 +3640,7 @@ export function writeCoordinatorSnapshotState(
         const saved = writeCoordinatorSnapshotOwned(
           lock,
           binding,
-          encodeCoordinatorStateValue({
+          encodeRuntimeStateValue({
             ...current,
             snapshotRevision: current.snapshotRevision + 1,
             projects,
@@ -4542,7 +3700,7 @@ export function readCoordinatorSnapshotOwned(
   if (!observed.value)
     return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
   const decoded = decodeCoordinatorUnifiedSnapshot(
-    Buffer.from(`${encodeCoordinatorStateValue(observed.value.snapshot)}\n`),
+    Buffer.from(`${encodeRuntimeStateValue(observed.value.snapshot)}\n`),
     lock.repositoryBinding,
   );
   if (!decoded)
@@ -4650,9 +3808,7 @@ export function writeCoordinatorSnapshotOwned(
     let current: CoordinatorSnapshot | null = null;
     if (observed.status === "completed" && observed.value) {
       const decoded = decodeCoordinatorUnifiedSnapshot(
-        Buffer.from(
-          `${encodeCoordinatorStateValue(observed.value.snapshot)}\n`,
-        ),
+        Buffer.from(`${encodeRuntimeStateValue(observed.value.snapshot)}\n`),
         lock.repositoryBinding,
       );
       if (!decoded)
@@ -4668,8 +3824,7 @@ export function writeCoordinatorSnapshotOwned(
         !(
           current &&
           current.snapshotRevision === payload.snapshotRevision &&
-          encodeCoordinatorStateValue(current) ===
-            encodeCoordinatorStateValue(payload)
+          encodeRuntimeStateValue(current) === encodeRuntimeStateValue(payload)
         )
       )
         return blocked("orchestrator_snapshot_revision_conflict");
@@ -4677,8 +3832,7 @@ export function writeCoordinatorSnapshotOwned(
       return blocked(observed.reason, true);
     if (
       current &&
-      encodeCoordinatorStateValue(current) !==
-        encodeCoordinatorStateValue(payload)
+      encodeRuntimeStateValue(current) !== encodeRuntimeStateValue(payload)
     )
       assertCoordinatorSnapshotTransition(
         current,
@@ -4750,7 +3904,7 @@ export function withCoordinatorSnapshotOperation<T>(
         const saved = writeCoordinatorSnapshotOwned(
           owner,
           binding,
-          encodeCoordinatorStateValue({
+          encodeRuntimeStateValue({
             ...applied.value.next,
             snapshotRevision: observed.value.snapshotRevision + 1,
           }),
@@ -4963,8 +4117,8 @@ function authenticationUnknownAbsenceChanged(
             : null;
         return (
           !priorResource ||
-          encodeCoordinatorStateValue(priorResource) !==
-            encodeCoordinatorStateValue(resource)
+          encodeRuntimeStateValue(priorResource) !==
+            encodeRuntimeStateValue(resource)
         );
       }),
   );
@@ -5007,7 +4161,7 @@ export function writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
     if (assertOwner() !== true || !repository.revalidate()) return blocked();
     const fixedBefore = Buffer.from(before);
     const fixedObservations: unknown = JSON.parse(
-      encodeCoordinatorStateValue(observations),
+      encodeRuntimeStateValue(observations),
     );
     const candidate = prepareCoordinatorAuthenticationUnknownClosureSnapshot(
       fixedBefore,
@@ -5219,7 +4373,7 @@ export function saveRuntimeOwnedCoordinatorOperationStart(
     });
   const candidateBytes = current.value
     ? prepareCoordinatorStateOperationSnapshot(
-        Buffer.from(`${encodeCoordinatorStateValue(current.value.snapshot)}\n`),
+        Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
         identityJson,
         repository.repositoryBinding,
       )
@@ -5906,7 +5060,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
           throw new Error("file");
         const observed = readStableBoundedFileSnapshot(
           file,
-          name === "state.lock" ? 1024 : MAX_COORDINATOR_STATE_BYTES,
+          name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
         );
         const final = fs.lstatSync(file, { bigint: true });
         if (
@@ -5962,7 +5116,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
         const file = path.join(area.directory, name);
         const current = readStableBoundedFileSnapshot(
           file,
-          name === "state.lock" ? 1024 : MAX_COORDINATOR_STATE_BYTES,
+          name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
         );
         const before = original.get(name);
         if (
@@ -6477,7 +5631,7 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
       lockReleased: current.lockReleased,
     });
   const next = prepareCoordinatorStateResourceSnapshot(
-    Buffer.from(`${encodeCoordinatorStateValue(current.value.snapshot)}\n`),
+    Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
     recoveryId,
     { ...resource, request: "not_issued", observation: "unobserved" },
     repository.repositoryBinding,
@@ -6630,7 +5784,7 @@ export function projectRegisteredCoordinatorResult(
     identity.consumer !== consumer
   )
     return Object.freeze(rejected);
-  const bytes = Buffer.from(`${encodeCoordinatorStateValue(current)}\n`);
+  const bytes = Buffer.from(`${encodeRuntimeStateValue(current)}\n`);
   const fixed = prepareCoordinatorStateResultDeliverySnapshot(
     bytes,
     recoveryId,
@@ -6856,7 +6010,7 @@ export function readCoordinatorStateSnapshot(
       throw new Error("file");
     const observed = readStableBoundedFileSnapshot(
       file,
-      MAX_COORDINATOR_STATE_BYTES,
+      RUNTIME_STATE_MAXIMUM_BYTES,
     );
     const decoded = decodeCoordinatorStateSnapshot(
       observed.bytes,
@@ -6895,7 +6049,7 @@ export function readCoordinatorStateSnapshot(
         throw new Error("completion_history_file");
       completedHistory = readStableBoundedFileSnapshot(
         completedHistoryFile,
-        MAX_COORDINATOR_STATE_BYTES,
+        RUNTIME_STATE_MAXIMUM_BYTES,
       );
       const rows = decodeCoordinatorHistoryRows(completedHistory.bytes);
       const row = rows?.find((entry) => entry.recoveryId === target);
@@ -6946,7 +6100,7 @@ export function readCoordinatorStateSnapshot(
         throw new Error("pending_file");
       pending = readStableBoundedFileSnapshot(
         pendingFile,
-        MAX_COORDINATOR_STATE_BYTES,
+        RUNTIME_STATE_MAXIMUM_BYTES,
       );
       if (
         !classifyCoordinatorResourcePublication(
@@ -6981,7 +6135,7 @@ export function readCoordinatorStateSnapshot(
       )
         throw new Error("host_cleanup_reentry_target_invalid");
       const current = Buffer.from(
-        `${encodeCoordinatorStateValue(decoded.snapshot)}\n`,
+        `${encodeRuntimeStateValue(decoded.snapshot)}\n`,
       );
       const candidate =
         operation.host.cleanup === "confirmed"
@@ -7003,7 +6157,7 @@ export function readCoordinatorStateSnapshot(
           throw new Error("pending_file");
         pending = readStableBoundedFileSnapshot(
           pendingFile,
-          MAX_COORDINATOR_STATE_BYTES,
+          RUNTIME_STATE_MAXIMUM_BYTES,
         );
         if (
           operation.host.cleanup === "confirmed" ||
@@ -7063,7 +6217,7 @@ export function readCoordinatorStateSnapshot(
         throw new Error("repair_completion_history_invalid");
       recoveryHistory = readStableBoundedFileSnapshot(
         historyFile,
-        MAX_COORDINATOR_STATE_BYTES,
+        RUNTIME_STATE_MAXIMUM_BYTES,
       );
       const rows = decodeCoordinatorHistoryRows(recoveryHistory.bytes);
       const row = rows?.find(
@@ -7182,7 +6336,7 @@ export function readCoordinatorStateSnapshot(
           throw new Error("history_file");
         const contents = readStableBoundedFileSnapshot(
           target,
-          MAX_COORDINATOR_STATE_BYTES,
+          RUNTIME_STATE_MAXIMUM_BYTES,
         );
         if (name === "history.jsonl") recoveryHistory = contents;
         else if (name === "history.pending.jsonl")
@@ -7190,7 +6344,7 @@ export function readCoordinatorStateSnapshot(
         else pending = contents;
       }
       const before = Buffer.from(
-        `${encodeCoordinatorStateValue(decoded.snapshot)}\n`,
+        `${encodeRuntimeStateValue(decoded.snapshot)}\n`,
       );
       let candidate: Buffer | null = null;
       let stage: "checkpoint" | "publish" | "confirmed" | null = null;
@@ -7655,8 +6809,8 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
     return rejected("coordinator_state_owner_invalid");
   const issued = owner as CoordinatorStorageOwner;
   try {
-    const view: unknown = JSON.parse(encodeCoordinatorStateValue(viewValue));
-    const facts: unknown = JSON.parse(encodeCoordinatorStateValue(factsValue));
+    const view: unknown = JSON.parse(encodeRuntimeStateValue(viewValue));
+    const facts: unknown = JSON.parse(encodeRuntimeStateValue(factsValue));
     if (
       !view ||
       typeof view !== "object" ||
@@ -7712,7 +6866,7 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
     let bytes: Buffer | null = null;
     if (observed.status === "completed" && observed.value) {
       before = Buffer.from(
-        `${encodeCoordinatorStateValue(observed.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(observed.value.snapshot)}\n`,
       );
       const currentTask = decodeCoordinatorUnifiedSnapshot(
         before,
@@ -7722,12 +6876,12 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
         return rejected("coordinator_task_publication_input_invalid");
       if (
         observed.value.snapshot.revision === view.snapshotRevision &&
-        encodeCoordinatorStateValue(
+        encodeRuntimeStateValue(
           projectCoordinatorTaskSnapshot(
             currentTask,
             issued.repositoryRootHash,
           ),
-        ) === encodeCoordinatorStateValue(view)
+        ) === encodeRuntimeStateValue(view)
       )
         bytes = before;
       else if (observed.value.snapshot.revision === expectedRevision)
@@ -7760,7 +6914,7 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
         ...sections
       } = view;
       bytes = Buffer.from(
-        `${encodeCoordinatorStateValue({
+        `${encodeRuntimeStateValue({
           ...sections,
           schema: COORDINATOR_STATE_SCHEMA,
           revision: 1,
@@ -8128,7 +7282,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
         throw new Error("file");
       const value = readStableBoundedFileSnapshot(
         file,
-        name === "state.lock" ? 1024 : MAX_COORDINATOR_STATE_BYTES,
+        name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
       );
       if (!sameStableFileIdentity(value.identity, stat))
         throw new Error("changed");
@@ -8171,7 +7325,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
       const file = path.join(area.directory, name);
       const value = readStableBoundedFileSnapshot(
         file,
-        name === "state.lock" ? 1024 : MAX_COORDINATOR_STATE_BYTES,
+        name === "state.lock" ? 1024 : RUNTIME_STATE_MAXIMUM_BYTES,
       );
       if (
         !sameStableFileIdentity(previous.identity, value.identity) ||
@@ -8350,26 +7504,23 @@ export function writeRuntimeOwnedCoordinatorRepairSnapshot(
       !candidate ||
       !target ||
       target.summarySha256 !== (previousTarget?.summarySha256 ?? null) ||
-      encodeCoordinatorStateValue(target.history) !==
-        encodeCoordinatorStateValue(previousTarget?.history ?? null) ||
+      encodeRuntimeStateValue(target.history) !==
+        encodeRuntimeStateValue(previousTarget?.history ?? null) ||
       (before !== null && !previous) ||
-      encodeCoordinatorStateValue(
+      encodeRuntimeStateValue(
         previous?.snapshot.operations.filter(
           (operation) => operation.recoveryId !== recoveryId,
         ) ?? [],
       ) !==
-        encodeCoordinatorStateValue(
+        encodeRuntimeStateValue(
           candidate.snapshot.operations.filter(
             (operation) => operation.recoveryId !== recoveryId,
           ),
         ) ||
-      encodeCoordinatorStateValue(
-        previous?.snapshot.unresolvedRecoveries ?? [],
-      ) !==
-        encodeCoordinatorStateValue(candidate.snapshot.unresolvedRecoveries) ||
-      encodeCoordinatorStateValue(
-        previous?.snapshot.pendingDeliveries ?? [],
-      ) !== encodeCoordinatorStateValue(candidate.snapshot.pendingDeliveries) ||
+      encodeRuntimeStateValue(previous?.snapshot.unresolvedRecoveries ?? []) !==
+        encodeRuntimeStateValue(candidate.snapshot.unresolvedRecoveries) ||
+      encodeRuntimeStateValue(previous?.snapshot.pendingDeliveries ?? []) !==
+        encodeRuntimeStateValue(candidate.snapshot.pendingDeliveries) ||
       !validateRepairWriteCandidate(
         before,
         candidateBytes,
@@ -8400,7 +7551,7 @@ export function writeRuntimeOwnedCoordinatorRepairSnapshot(
         observed.lockReleased &&
         observed.value.payloadSha256 === previous?.payloadSha256 &&
         Buffer.from(
-          `${encodeCoordinatorStateValue(observed.value.snapshot)}\n`,
+          `${encodeRuntimeStateValue(observed.value.snapshot)}\n`,
         ).equals(before) &&
         observed.value.snapshot.operations.filter(
           (item) =>
@@ -8561,7 +7712,7 @@ function prepareCoordinatorStateWrite(
       )
     : null;
   const bytes = candidate
-    ? Buffer.from(`${encodeCoordinatorStateValue(candidate.snapshot)}\n`)
+    ? Buffer.from(`${encodeRuntimeStateValue(candidate.snapshot)}\n`)
     : null;
   const attempt = {
     revision: candidate?.snapshot.revision ?? null,
@@ -8818,37 +7969,13 @@ function commitCoordinatorStateSnapshotOwned(
         | "history.jsonl"
         | "history.pending.jsonl",
     ) => {
-      assertBoundary();
-      const file = path.join(directory, name);
-      let metadata: fs.Stats;
-      try {
-        metadata = fs.lstatSync(file);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        if (fileIdentities.has(name)) throw new Error("file_disappeared");
-        assertBoundary();
-        return null;
-      }
-      if (
-        !metadata.isFile() ||
-        metadata.isSymbolicLink() ||
-        metadata.nlink !== 1
-      )
-        throw new Error("file");
-      const observed = readStableBoundedFileSnapshot(
-        file,
-        MAX_COORDINATOR_STATE_BYTES,
+      return readRuntimeStateFile(
+        directory,
+        name,
+        fileIdentities,
+        RUNTIME_STATE_MAXIMUM_BYTES,
+        assertBoundary,
       );
-      const expectedIdentity = fileIdentities.get(name);
-      if (
-        expectedIdentity &&
-        !sameStableFileIdentity(expectedIdentity, observed.identity)
-      )
-        throw new Error("file_replaced");
-      fileIdentities.set(name, observed.identity);
-      if (fs.lstatSync(file).nlink !== 1) throw new Error("links");
-      assertBoundary();
-      return observed.bytes;
     };
     /**
      * 固定の短命Fileを排他的に作成してflushする。
@@ -8869,18 +7996,17 @@ function commitCoordinatorStateSnapshotOwned(
       name: "state.pending.json" | "state.lock" | "history.pending.jsonl",
       content: Buffer,
     ) => {
-      assertBoundary();
-      filesystemEffectIssued = true;
-      const fd = fs.openSync(path.join(directory, name), "wx", 0o600);
-      try {
-        fs.writeFileSync(fd, content);
-        fs.fsyncSync(fd);
-        fileIdentities.set(name, fs.fstatSync(fd, { bigint: true }));
-      } finally {
-        fs.closeSync(fd);
-      }
-      const saved = read(name);
-      if (!saved?.equals(content)) throw new Error("readback");
+      createRuntimeStatePendingFile(
+        directory,
+        name,
+        content,
+        fileIdentities,
+        RUNTIME_STATE_MAXIMUM_BYTES,
+        assertBoundary,
+        () => {
+          filesystemEffectIssued = true;
+        },
+      );
     };
     assertBoundary();
     const names = fs.readdirSync(directory);
@@ -9019,31 +8145,27 @@ function commitCoordinatorStateSnapshotOwned(
         target?.kind !== "runtime_repair" ||
         (beforeTarget && beforeTarget.kind !== "runtime_repair") ||
         target.summarySha256 !== (beforeTarget?.summarySha256 ?? null) ||
-        encodeCoordinatorStateValue(target.history) !==
-          encodeCoordinatorStateValue(beforeTarget?.history ?? null) ||
+        encodeRuntimeStateValue(target.history) !==
+          encodeRuntimeStateValue(beforeTarget?.history ?? null) ||
         JSON.parse(target.identityJson).operationId !==
           repository.operationId ||
         (beforeTarget && beforeTarget.identityJson !== target.identityJson) ||
-        encodeCoordinatorStateValue(
+        encodeRuntimeStateValue(
           current?.snapshot.operations.filter(
             (operation) => operation.recoveryId !== currentRepair.recoveryId,
           ) ?? [],
         ) !==
-          encodeCoordinatorStateValue(
+          encodeRuntimeStateValue(
             candidate.snapshot.operations.filter(
               (operation) => operation.recoveryId !== currentRepair.recoveryId,
             ),
           ) ||
-        encodeCoordinatorStateValue(
+        encodeRuntimeStateValue(
           current?.snapshot.unresolvedRecoveries ?? [],
         ) !==
-          encodeCoordinatorStateValue(
-            candidate.snapshot.unresolvedRecoveries,
-          ) ||
-        encodeCoordinatorStateValue(
-          current?.snapshot.pendingDeliveries ?? [],
-        ) !==
-          encodeCoordinatorStateValue(candidate.snapshot.pendingDeliveries) ||
+          encodeRuntimeStateValue(candidate.snapshot.unresolvedRecoveries) ||
+        encodeRuntimeStateValue(current?.snapshot.pendingDeliveries ?? []) !==
+          encodeRuntimeStateValue(candidate.snapshot.pendingDeliveries) ||
         currentRepair.assertOwner() !== true
       )
         throw new Error("repair_writer_scope_invalid");
@@ -9092,8 +8214,8 @@ function commitCoordinatorStateSnapshotOwned(
         taskPublication.rootHash,
       );
       if (
-        encodeCoordinatorStateValue(projected) !==
-        encodeCoordinatorStateValue(taskPublication.view)
+        encodeRuntimeStateValue(projected) !==
+        encodeRuntimeStateValue(taskPublication.view)
       )
         throw new Error("task_publication_view_invalid");
       for (const fact of taskPublication.facts) {
@@ -9571,7 +8693,7 @@ function commitCoordinatorStateSnapshotOwned(
         repository.repositoryBinding,
       );
       if (!pending) throw new Error("pending");
-      const treatment = classifyCoordinatorSnapshotReentry(
+      const treatment = classifyRuntimeSnapshotReentry(
         current
           ? {
               status: "present",
@@ -9626,8 +8748,8 @@ function commitCoordinatorStateSnapshotOwned(
       !taskPublication &&
       settlement?.deliveryRegistration === undefined &&
       !currentDelivery &&
-      encodeCoordinatorStateValue(current?.snapshot.pendingDeliveries ?? []) !==
-        encodeCoordinatorStateValue(candidate.snapshot.pendingDeliveries)
+      encodeRuntimeStateValue(current?.snapshot.pendingDeliveries ?? []) !==
+        encodeRuntimeStateValue(candidate.snapshot.pendingDeliveries)
     )
       throw new Error("delivery_owner_required");
     if (settlement && !savedTerminalConfirmed) {
@@ -9637,10 +8759,8 @@ function commitCoordinatorStateSnapshotOwned(
         (!current ||
           current.snapshot.operations.length !==
             candidate.snapshot.operations.length ||
-          encodeCoordinatorStateValue(current.snapshot.unresolvedRecoveries) !==
-            encodeCoordinatorStateValue(
-              candidate.snapshot.unresolvedRecoveries,
-            ) ||
+          encodeRuntimeStateValue(current.snapshot.unresolvedRecoveries) !==
+            encodeRuntimeStateValue(candidate.snapshot.unresolvedRecoveries) ||
           (settlement.deliveryRegistration === undefined &&
             current.snapshot.pendingDeliveries.length !==
               candidate.snapshot.pendingDeliveries.length))
@@ -9662,8 +8782,8 @@ function commitCoordinatorStateSnapshotOwned(
             (value) => value.recoveryId === previous.recoveryId,
           );
           if (
-            encodeCoordinatorStateValue(retained) !==
-            encodeCoordinatorStateValue(previous)
+            encodeRuntimeStateValue(retained) !==
+            encodeRuntimeStateValue(previous)
           )
             throw new Error("repair_state_changed_by_task_settlement");
           continue;
@@ -9683,15 +8803,14 @@ function commitCoordinatorStateSnapshotOwned(
         }
         if (previous.recoveryId !== settlement.recoveryId) {
           if (
-            encodeCoordinatorStateValue(previous) !==
-            encodeCoordinatorStateValue(next)
+            encodeRuntimeStateValue(previous) !== encodeRuntimeStateValue(next)
           )
             throw new Error("settlement_other_operation");
           continue;
         }
         if (
-          encodeCoordinatorStateValue(previous.resources) !==
-          encodeCoordinatorStateValue(next.resources)
+          encodeRuntimeStateValue(previous.resources) !==
+          encodeRuntimeStateValue(next.resources)
         ) {
           const observedBytes = settlement.dockerTerminal
             ? prepareCoordinatorStateCleanupSnapshot(
@@ -9713,22 +8832,18 @@ function commitCoordinatorStateSnapshotOwned(
             : null;
           if (
             !observedOperation ||
-            encodeCoordinatorStateValue(observedOperation.resources) !==
-              encodeCoordinatorStateValue(next.resources)
+            encodeRuntimeStateValue(observedOperation.resources) !==
+              encodeRuntimeStateValue(next.resources)
           )
             throw new Error("settlement_resource_observation_invalid");
         }
-        const nextPrimaryFailure = encodeCoordinatorStateValue(
-          next.primaryFailure,
-        );
+        const nextPrimaryFailure = encodeRuntimeStateValue(next.primaryFailure);
         if (
           settlement.dockerTerminal
             ? nextPrimaryFailure !==
-              encodeCoordinatorStateValue(
-                settlement.dockerTerminal.primaryFailure,
-              )
+              encodeRuntimeStateValue(settlement.dockerTerminal.primaryFailure)
             : nextPrimaryFailure !==
-              encodeCoordinatorStateValue(previous.primaryFailure)
+              encodeRuntimeStateValue(previous.primaryFailure)
         )
           throw new Error("settlement_primary_failure_unconfirmed");
         if (
@@ -9771,8 +8886,7 @@ function commitCoordinatorStateSnapshotOwned(
         if (
           !next ||
           (previous.recoveryId !== settlement.recoveryId &&
-            encodeCoordinatorStateValue(previous) !==
-              encodeCoordinatorStateValue(next))
+            encodeRuntimeStateValue(previous) !== encodeRuntimeStateValue(next))
         )
           throw new Error("settlement_delivery");
       }
@@ -9789,8 +8903,8 @@ function commitCoordinatorStateSnapshotOwned(
       if (operation.kind !== "docker_task") {
         if (
           (!previous ||
-            encodeCoordinatorStateValue(previous) !==
-              encodeCoordinatorStateValue(operation)) &&
+            encodeRuntimeStateValue(previous) !==
+              encodeRuntimeStateValue(operation)) &&
           currentRepair?.recoveryId !== operation.recoveryId &&
           !(
             repairHistoryScopeConfirmed &&
@@ -9828,8 +8942,8 @@ function commitCoordinatorStateSnapshotOwned(
         !currentHistory &&
         (((settlement?.historyInitial || settlement?.historyPublish) &&
           operation.recoveryId === settlement.recoveryId) ||
-          encodeCoordinatorStateValue(operation.history) !==
-            encodeCoordinatorStateValue(previous?.history ?? null))
+          encodeRuntimeStateValue(operation.history) !==
+            encodeRuntimeStateValue(previous?.history ?? null))
       ) {
         if (
           (!settlement?.historyInitial && !settlement?.historyPublish) ||
@@ -9896,8 +9010,8 @@ function commitCoordinatorStateSnapshotOwned(
       }
       if (
         (!previous ||
-          encodeCoordinatorStateValue(previous) !==
-            encodeCoordinatorStateValue(operation)) &&
+          encodeRuntimeStateValue(previous) !==
+            encodeRuntimeStateValue(operation)) &&
         JSON.parse(operation.identityJson).operationId !==
           repository.operationId
       )
@@ -9918,8 +9032,7 @@ function commitCoordinatorStateSnapshotOwned(
         );
         if (
           !previous ||
-          encodeCoordinatorStateValue(previous) !==
-            encodeCoordinatorStateValue(item)
+          encodeRuntimeStateValue(previous) !== encodeRuntimeStateValue(item)
         ) {
           const operation = candidate.snapshot.operations.find(
             (value): value is CoordinatorStateTaskOperation =>
@@ -10055,26 +9168,15 @@ function commitCoordinatorStateSnapshotOwned(
           freshConfig.config.historyRetentionDays !== days
         )
           throw new Error("history_config_changed");
-        assertBoundary();
-        const historyFd = fs.openSync(
-          path.join(directory, "history.pending.jsonl"),
-          "r+",
+        flushRuntimeStateFile(
+          directory,
+          "history.pending.jsonl",
+          fileIdentities,
+          assertBoundary,
+          () => {
+            filesystemEffectIssued = true;
+          },
         );
-        try {
-          const expected = fileIdentities.get("history.pending.jsonl");
-          if (
-            !expected ||
-            !sameStableFileIdentity(
-              expected,
-              fs.fstatSync(historyFd, { bigint: true }),
-            )
-          )
-            throw new Error("history_pending_replaced");
-          filesystemEffectIssued = true;
-          fs.fsyncSync(historyFd);
-        } finally {
-          fs.closeSync(historyFd);
-        }
         if (!read("history.pending.jsonl")?.equals(after))
           throw new Error("history_pending_changed");
         assertBoundary();
@@ -10108,26 +9210,15 @@ function commitCoordinatorStateSnapshotOwned(
         fs.unlinkSync(path.join(directory, "history.pending.jsonl"));
         fileIdentities.delete("history.pending.jsonl");
       }
-      const historyIdentity = fileIdentities.get("history.jsonl");
-      const canonicalHistoryFd = fs.openSync(
-        path.join(directory, "history.jsonl"),
-        "r+",
+      flushRuntimeStateFile(
+        directory,
+        "history.jsonl",
+        fileIdentities,
+        assertBoundary,
+        () => {
+          filesystemEffectIssued = true;
+        },
       );
-      try {
-        if (
-          !historyIdentity ||
-          !sameStableFileIdentity(
-            historyIdentity,
-            fs.fstatSync(canonicalHistoryFd, { bigint: true }),
-          )
-        )
-          throw new Error("history_canonical_replaced");
-        assertBoundary();
-        filesystemEffectIssued = true;
-        fs.fsyncSync(canonicalHistoryFd);
-      } finally {
-        fs.closeSync(canonicalHistoryFd);
-      }
       const savedRows = decodeCoordinatorHistoryRows(read("history.jsonl"));
       if (
         !savedRows?.some(
@@ -10192,19 +9283,15 @@ function commitCoordinatorStateSnapshotOwned(
           : !sameCurrent?.equals(currentBytes))
       )
         throw new Error("changed");
-      assertBoundary();
-      const fd = fs.openSync(path.join(directory, "state.pending.json"), "r+");
-      try {
-        const expected = fileIdentities.get("state.pending.json");
-        if (
-          !expected ||
-          !sameStableFileIdentity(expected, fs.fstatSync(fd, { bigint: true }))
-        )
-          throw new Error("pending_replaced");
-        fs.fsyncSync(fd);
-      } finally {
-        fs.closeSync(fd);
-      }
+      flushRuntimeStateFile(
+        directory,
+        "state.pending.json",
+        fileIdentities,
+        assertBoundary,
+        () => {
+          filesystemEffectIssued = true;
+        },
+      );
       if (!read("state.pending.json")?.equals(bytes))
         throw new Error("pending_changed");
       const target = read("state.json");
@@ -10452,7 +9539,7 @@ function checkpointRuntimeOwnedCoordinatorValue(
   )
     return blocked;
   const currentBytes = Buffer.from(
-    `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+    `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
   );
   const prepare = {
     resource: prepareCoordinatorStateResourceSnapshot,
@@ -10476,8 +9563,8 @@ function checkpointRuntimeOwnedCoordinatorValue(
     );
     if (
       !candidate ||
-      encodeCoordinatorStateValue(candidate.snapshot.pendingDeliveries) !==
-        encodeCoordinatorStateValue(current.value.snapshot.pendingDeliveries)
+      encodeRuntimeStateValue(candidate.snapshot.pendingDeliveries) !==
+        encodeRuntimeStateValue(current.value.snapshot.pendingDeliveries)
     )
       return blocked;
   }
@@ -10555,7 +9642,7 @@ export function writeRuntimeOwnedCoordinatorRestartCheckpoint(
         lockReleased: current.lockReleased,
       });
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const operation = current.value.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
@@ -10645,7 +9732,7 @@ export function writeRuntimeOwnedCoordinatorRecoveryTerminal(
         lockReleased: current.lockReleased,
       });
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const operation = current.value.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
@@ -10756,7 +9843,7 @@ export function writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
         lockReleased: current.lockReleased,
       });
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const operation = current.value.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
@@ -10771,7 +9858,7 @@ export function writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
       !assertOwner()
     )
       return blocked();
-    const update = JSON.parse(encodeCoordinatorStateValue(value));
+    const update = JSON.parse(encodeRuntimeStateValue(value));
     if (kind === "host" && update.cleanup === "confirmed") return blocked();
     if (
       kind === "host" &&
@@ -10797,8 +9884,8 @@ export function writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
     if (
       kind === "lifecycle" &&
       (update.lease !== operation.lease ||
-        encodeCoordinatorStateValue(update.outcome) !==
-          encodeCoordinatorStateValue(operation.outcome) ||
+        encodeRuntimeStateValue(update.outcome) !==
+          encodeRuntimeStateValue(operation.outcome) ||
         update.summarySha256 !== operation.summarySha256)
     )
       return blocked();
@@ -10879,7 +9966,7 @@ export function writeRuntimeOwnedCoordinatorRecoveredHostCleanup(
         lockReleased: current.lockReleased,
       });
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const operation = current.value.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>

@@ -11,6 +11,7 @@
  */
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
@@ -41,7 +42,7 @@ import {
   submitCoordinatorHumanDecision,
 } from "../../src/decision/lifecycle.ts";
 import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import type { CoordinatorDecisionRecord } from "../../src/decision/records.ts";
+import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
 import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,
@@ -176,21 +177,23 @@ function fixture(t: test.TestContext) {
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");
-  const request = Object.freeze({
-    requestId: "request-full",
-    projectId: "project-full",
-    milestoneId: "milestone-full",
-    repositoryRevision: revision,
-    objective: "Create the bounded result.",
-    acceptanceCriteria: Object.freeze(["result accepted"]),
-    allowedPaths: Object.freeze(["result.txt"]),
-    readPaths: Object.freeze(["README.md"]),
-    maximumConcurrency: 1,
-    maximumReplans: 2,
-    originLane: "interactive" as const,
-    adoptResult: false,
-    intakeEpoch: initialized.value,
-  });
+  const request = Object.freeze(
+    withCallerPlan({
+      requestId: "request-full",
+      projectId: "project-full",
+      milestoneId: "milestone-full",
+      repositoryRevision: revision,
+      objective: "Create the bounded result.",
+      acceptanceCriteria: Object.freeze(["result accepted"]),
+      allowedPaths: Object.freeze(["result.txt"]),
+      readPaths: Object.freeze(["README.md"]),
+      maximumConcurrency: 1,
+      maximumReplans: 2,
+      originLane: "interactive" as const,
+      adoptResult: false,
+      intakeEpoch: initialized.value,
+    }),
+  );
   let attempts = 0;
   const dependencies = {
     authenticatedPrincipalId: "principal-full",
@@ -376,21 +379,23 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_bootstrap_failed");
-  const request = Object.freeze({
-    requestId: "request-bounded-evaluation",
-    projectId: "project-bounded-evaluation",
-    milestoneId: "milestone-bounded-evaluation",
-    repositoryRevision: revision,
-    objective: "Produce and integrate two independent bounded results.",
-    acceptanceCriteria: Object.freeze(["both results accepted"]),
-    allowedPaths: Object.freeze(["result-a.txt", "result-b.txt"]),
-    readPaths: Object.freeze(["README.md"]),
-    maximumConcurrency: 2,
-    maximumReplans: 0,
-    originLane: "interactive" as const,
-    adoptResult: false,
-    intakeEpoch: initialized.value,
-  });
+  const request = Object.freeze(
+    withCallerPlan({
+      requestId: "request-bounded-evaluation",
+      projectId: "project-bounded-evaluation",
+      milestoneId: "milestone-bounded-evaluation",
+      repositoryRevision: revision,
+      objective: "Produce and integrate two independent bounded results.",
+      acceptanceCriteria: Object.freeze(["both results accepted"]),
+      allowedPaths: Object.freeze(["result-a.txt", "result-b.txt"]),
+      readPaths: Object.freeze(["README.md"]),
+      maximumConcurrency: 2,
+      maximumReplans: 0,
+      originLane: "interactive" as const,
+      adoptResult: false,
+      intakeEpoch: initialized.value,
+    }),
+  );
   let active = 0;
   let maximumActive = 0;
   const lifecycle: string[] = [];

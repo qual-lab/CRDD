@@ -9,10 +9,20 @@
  * @boundary ERB-IT-003=Direct Boundary: 現在状態Writer→Repository-local Filesystem。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
+
 import {
-  coordinatorStateContentHash,
-  encodeCoordinatorStateValue,
-} from "../../src/state/validation.ts";
+  COORDINATOR_STATE_SCHEMA,
+  coordinatorTaskResourcesAreSettled,
+  coordinatorAuthenticationUnknownCanClose,
+  type CoordinatorStateOperation,
+  type CoordinatorStateTaskOperation,
+  createDockerRestartRequestId,
+  type DockerRestartCheckpoint,
+} from "../../../domain-model/src/index.ts";
+import {
+  hashRuntimeStateContent,
+  encodeRuntimeStateValue,
+} from "../../../domain-model/src/index.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 
 import assert from "node:assert/strict";
@@ -70,7 +80,6 @@ import {
   borrowRuntimeOwnedCoordinatorStateRepository,
 } from "../../src/execution/operation.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
@@ -84,20 +93,10 @@ import {
   prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
 } from "../../src/storage/state.ts";
-import {
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
-} from "../../src/execution/validation.ts";
-import type {
-  CoordinatorStateOperation,
-  CoordinatorStateTaskOperation,
-} from "../../src/execution/types.ts";
+
 import { decodeCoordinatorHistoryRows } from "../../src/storage/history.ts";
 import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/state.ts";
-import {
-  createDockerRestartRequestId,
-  type DockerRestartCheckpoint,
-} from "../../src/execution/result.ts";
+
 import {
   prepareRuntimeOwnedCoordinatorSettlement,
   publishRuntimeOwnedCoordinatorHistory,
@@ -229,7 +228,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     unresolvedRecoveries: [],
     pendingDeliveries: [],
   };
-  const firstBytes = Buffer.from(`${encodeCoordinatorStateValue(first)}\n`);
+  const firstBytes = Buffer.from(`${encodeRuntimeStateValue(first)}\n`);
   assert.equal(
     readRuntimeOwnedCoordinatorStateSnapshot(management).status,
     "blocked",
@@ -265,10 +264,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(readFirst.status, "completed");
   assert.equal(readFirst.lockReleased, true);
   assert.equal(readFirst.value?.snapshot.revision, 1);
-  assert.equal(
-    readFirst.value?.payloadSha256,
-    coordinatorStateContentHash(first),
-  );
+  assert.equal(readFirst.value?.payloadSha256, hashRuntimeStateContent(first));
   assert.equal(readRuntimeOwnedCoordinatorStateSnapshot({}).status, "blocked");
   const recoveryRead = readRuntimeOwnedCoordinatorRecoverySnapshot(
     verifiedRoot.capability,
@@ -404,10 +400,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     revision: 2,
     previous: {
       revision: 1,
-      payloadSha256: coordinatorStateContentHash(first),
+      payloadSha256: hashRuntimeStateContent(first),
     },
   };
-  const secondBytes = Buffer.from(`${encodeCoordinatorStateValue(second)}\n`);
+  const secondBytes = Buffer.from(`${encodeRuntimeStateValue(second)}\n`);
   // 同じ本文への実体差し替えを、公開前の再観測で拒否する。
   const originalFsync = fs.fsyncSync;
   let isReplaced = false;
@@ -819,9 +815,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       );
       assert.ok(oldOperation);
       oldOperation.execution.ownerEffect = ownerEffect;
-      const fixtureBytes = Buffer.from(
-        `${encodeCoordinatorStateValue(fixture)}\n`,
-      );
+      const fixtureBytes = Buffer.from(`${encodeRuntimeStateValue(fixture)}\n`);
       fs.writeFileSync(path.join(area.directory, "state.json"), fixtureBytes);
       const prior = readRuntimeOwnedCoordinatorRecoverySnapshot(
         verifiedRoot.capability,
@@ -847,7 +841,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.equal(actual.status, "completed");
       assert.ok(actual.value);
       const expected = JSON.parse(
-        encodeCoordinatorStateValue(prior.value.snapshot),
+        encodeRuntimeStateValue(prior.value.snapshot),
       );
       expected.revision++;
       expected.previous = {
@@ -863,7 +857,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.deepEqual(actual.value.snapshot, expected);
       assert.equal(
         actual.value.payloadSha256,
-        coordinatorStateContentHash(expected),
+        hashRuntimeStateContent(expected),
       );
     }
     fs.writeFileSync(
@@ -1453,9 +1447,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     (item: { kind?: unknown }) => item.kind === "docker_task",
   ).recoveryId =
     `docker-task.${identity.stableLogicalHomeBindingHash}.${identity.operationNonce}.${legacyHash}`;
-  const legacyBytes = Buffer.from(
-    `${encodeCoordinatorStateValue(legacyState)}\n`,
-  );
+  const legacyBytes = Buffer.from(`${encodeRuntimeStateValue(legacyState)}\n`);
   for (const fixtureName of ["state.json", "state.pending.json"]) {
     const fixturePath = path.join(area.directory, fixtureName);
     fs.writeFileSync(fixturePath, legacyBytes);
@@ -2401,7 +2393,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const direct = writeRuntimeOwnedCoordinatorStateSnapshot(
       management,
       Buffer.from(
-        `${encodeCoordinatorStateValue({
+        `${encodeRuntimeStateValue({
           ...JSON.parse(beforeReferenceUpdates.toString("utf8")),
           pendingDeliveries: value.deliveries,
         })}\n`,
@@ -2669,7 +2661,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   initialContextFixture.unresolvedRecoveries = [];
   fs.writeFileSync(
     path.join(area.directory, "state.json"),
-    `${encodeCoordinatorStateValue(initialContextFixture)}\n`,
+    `${encodeRuntimeStateValue(initialContextFixture)}\n`,
   );
   transientRecoveryIds.add(initialDriverRecoveryId);
   const initialDriverSettlement =
@@ -2707,7 +2699,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     fixture.unresolvedRecoveries = [];
     fs.writeFileSync(
       path.join(area.directory, "state.json"),
-      `${encodeCoordinatorStateValue(fixture)}\n`,
+      `${encodeRuntimeStateValue(fixture)}\n`,
     );
     const context = historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
@@ -2787,9 +2779,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       execution: { ...value.execution, ownerEffect: "disabled" },
     })),
   };
-  const terminalBytes = Buffer.from(
-    `${encodeCoordinatorStateValue(terminal)}\n`,
-  );
+  const terminalBytes = Buffer.from(`${encodeRuntimeStateValue(terminal)}\n`);
   const unconfirmed = writeRuntimeOwnedCoordinatorSettlement(
     settlement,
     terminalBytes,
@@ -2846,7 +2836,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     (item: { kind?: unknown }) => item.kind === "docker_task",
   ).primaryFailure = null;
   const diagnosticBeforeBytes = Buffer.from(
-    `${encodeCoordinatorStateValue(diagnosticBefore)}\n`,
+    `${encodeRuntimeStateValue(diagnosticBefore)}\n`,
   );
   fs.writeFileSync(
     path.join(area.directory, "state.json"),
@@ -2962,7 +2952,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     createHash("sha256").update(terminalBytes).digest("hex"),
   );
   const missingTargetBytes = Buffer.from(
-    `${encodeCoordinatorStateValue({ ...terminal, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+    `${encodeRuntimeStateValue({ ...terminal, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
   );
   const stateFile = path.join(area.directory, "state.json");
   fs.writeFileSync(stateFile, missingTargetBytes);
@@ -3025,7 +3015,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   for (const invalid of [unsafe, unprovenCleanup, unprovenLease]) {
     const unsafeSaved = writeRuntimeOwnedCoordinatorSettlement(
       settlement,
-      Buffer.from(`${encodeCoordinatorStateValue(invalid)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
       cleanupOutcome,
     );
     assert.equal(unsafeSaved.status, "blocked");
@@ -3074,7 +3064,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.ok(summary);
   const occurredAt = "2026-10-08T00:00:00.000Z";
   const line = Buffer.from(
-    `${encodeCoordinatorStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: JSON.parse(summary.summaryBytes.toString("utf8")) })}\n`,
+    `${encodeRuntimeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: JSON.parse(summary.summaryBytes.toString("utf8")) })}\n`,
   );
   for (const confirmed of [false, true]) {
     const bypass = {
@@ -3096,7 +3086,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     };
     const rejected = writeRuntimeOwnedCoordinatorSettlement(
       settlement,
-      Buffer.from(`${encodeCoordinatorStateValue(bypass)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(bypass)}\n`),
       cleanupOutcome,
     );
     assert.equal(rejected.status, "blocked");
@@ -3127,10 +3117,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       outcome: { ...value.outcome, cleanupConfirmed: true },
     })),
   };
-  fs.writeFileSync(
-    stateFile,
-    `${encodeCoordinatorStateValue(historyFixture)}\n`,
-  );
+  fs.writeFileSync(stateFile, `${encodeRuntimeStateValue(historyFixture)}\n`);
   const beforeResultRegistration = fs.readFileSync(stateFile);
   for (const [hostResult, completion, consumers] of [
     [{ ...cleanupOutcome }, simulatedCompletion, ["orchestrator"]],
@@ -3297,9 +3284,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ),
     },
   ]) {
-    const invalidBytes = Buffer.from(
-      `${encodeCoordinatorStateValue(invalid)}\n`,
-    );
+    const invalidBytes = Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`);
     try {
       fs.writeFileSync(stateFile, invalidBytes);
       const rejectedRead =
@@ -3579,7 +3564,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     evidenceSha256: "c".repeat(64),
   };
   const identifiedFixed = prepareCoordinatorStateHistorySnapshot(
-    Buffer.from(`${encodeCoordinatorStateValue(identifiedFixture)}\n`),
+    Buffer.from(`${encodeRuntimeStateValue(identifiedFixture)}\n`),
     operation.recoveryId,
     "2026-10-08T00:00:00.000Z",
     false,
@@ -3656,7 +3641,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   ).history = null;
   initialDriverFixture.pendingDeliveries = [];
   const initialDriverBytes = Buffer.from(
-    `${encodeCoordinatorStateValue(initialDriverFixture)}\n`,
+    `${encodeRuntimeStateValue(initialDriverFixture)}\n`,
   );
   fs.writeFileSync(stateFile, initialDriverBytes);
   try {
@@ -3767,7 +3752,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     ).history = null;
     fixture.pendingDeliveries = [];
     fixture.unresolvedRecoveries = [];
-    fs.writeFileSync(stateFile, `${encodeCoordinatorStateValue(fixture)}\n`);
+    fs.writeFileSync(stateFile, `${encodeRuntimeStateValue(fixture)}\n`);
     fs.unlinkSync(historyFile);
     const transientDriver = historyRuntime.settleRuntimeOwnedCoordinatorResult(
       transient.driverContext,
@@ -3786,7 +3771,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     );
     fs.writeFileSync(historyFile, firstHistory);
     const transientFixed = prepareCoordinatorStateHistorySnapshot(
-      Buffer.from(`${encodeCoordinatorStateValue(fixture)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(fixture)}\n`),
       transient.recoveryId,
       "2026-10-08T00:00:00.000Z",
       false,
@@ -4653,7 +4638,7 @@ for (const issuedFailure of [false, true]) {
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
-      `${encodeCoordinatorStateValue({ ...emptyTaskSections, schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeRuntimeStateValue({ ...emptyTaskSections, schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     assert.equal(
       prepareRuntimeOwnedCoordinatorStateInitialization(management, initial)
@@ -4771,7 +4756,7 @@ for (const issuedFailure of [false, true]) {
     const checkpoint = saved.value.snapshot.operations.find(
       (
         x,
-      ): x is import("../../src/execution/types.ts").CoordinatorStateTaskOperation =>
+      ): x is import("../../../domain-model/src/index.ts").CoordinatorStateTaskOperation =>
         x.kind === "docker_task" && x.recoveryId === start.recoveryId,
     )?.dockerRestart;
     assert.deepEqual(checkpoint, {
@@ -5058,7 +5043,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       unresolvedRecoveries: [],
       pendingDeliveries: [],
     };
-    const before = Buffer.from(`${encodeCoordinatorStateValue(snapshot)}\n`);
+    const before = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
     const decodedBefore = decodeCoordinatorStateSnapshot(
       before,
       repository.repositoryBinding,
@@ -5382,7 +5367,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           isDockerResourcePurpose,
           planDockerRecoveryResourceExpectations,
           codexAdviceProviderInitRequired: () => false,
-          encodeCoordinatorStateValue,
+          encodeRuntimeStateValue,
           decodeCoordinatorStateSnapshot,
           assertCurrentRecoveryOwner: () => {
             events.push("owner");
@@ -5640,7 +5625,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       },
     };
     const terminalBytes = Buffer.from(
-      `${encodeCoordinatorStateValue({ ...last.snapshot, operations: [terminalTask] })}\n`,
+      `${encodeRuntimeStateValue({ ...last.snapshot, operations: [terminalTask] })}\n`,
     );
     assert.ok(
       decodeCoordinatorStateSnapshot(
@@ -5661,7 +5646,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       ),
     };
     const corruptBytes = Buffer.from(
-      `${encodeCoordinatorStateValue({ ...last.snapshot, operations: [corruptTask] })}\n`,
+      `${encodeRuntimeStateValue({ ...last.snapshot, operations: [corruptTask] })}\n`,
     );
     assert.ok(
       decodeCoordinatorStateSnapshot(
@@ -5785,7 +5770,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         };
       if (mutation === "restart_unknown_shape")
         row.summary.dockerRestart = { unexpected: true };
-      const line = `${encodeCoordinatorStateValue(row)}\n`;
+      const line = `${encodeRuntimeStateValue(row)}\n`;
       if (mutation.startsWith("restart_"))
         assert.equal(decodeCoordinatorHistoryRows(Buffer.from(line)), null);
       fs.writeFileSync(
@@ -5943,7 +5928,7 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
       hostCleanup: "confirmed",
       lease: "released",
     };
-    const line = `${encodeCoordinatorStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-10-25T00:00:00.000Z", summary })}\n`;
+    const line = `${encodeRuntimeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-10-25T00:00:00.000Z", summary })}\n`;
     const decoded = decodeCoordinatorHistoryRows(Buffer.from(line));
     assert.ok(decoded);
     assert.deepEqual(
@@ -6451,12 +6436,12 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   );
   assert.ok(observed && prior);
   assert.equal(
-    encodeCoordinatorStateValue(
+    encodeRuntimeStateValue(
       observed.snapshot.operations.find(
         (item) => item.recoveryId === recoveryId,
       ),
     ),
-    encodeCoordinatorStateValue(prior.snapshot.operations[0]),
+    encodeRuntimeStateValue(prior.snapshot.operations[0]),
   );
   assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
   const failedRoot = path.join(root, "failed-initialization");

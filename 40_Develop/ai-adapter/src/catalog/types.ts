@@ -1,10 +1,13 @@
+import type {
+  AiProvider,
+  AiReasoningEffort,
+} from "../../../domain-model/src/index.ts";
 /**
  * 技術CatalogのModel・用途・Effortと選定結果の型を定義する。
  *
  * @responsibility 実利用される値契約だけを所有し、実行・保存・認可を開始しない。
  * @trace ARCH-000010
  */
-import type { AiProvider, AiReasoningEffort } from "../provider/types.ts";
 
 /**
  * Model識別子と確認済みの実行対応を表す。
@@ -39,22 +42,4 @@ export type AiModelCatalog = Readonly<{
   contract: "crdd/ai-model-catalog";
   contractRevision: 1;
   models: readonly AiModelDefinition[];
-}>;
-
-/**
- * 一回の実行へ適用できる技術構成を表す。
- * @responsibility 選択した識別子の意味を用途・Effortとともに固定する。
- * @trace ARCH-000010
- * @shape Modelの識別方式と一つの用途・Effort。
- * @invariant Provider aliasをexactModelIdへ読み替えない。
- * @boundary 技術検証とCoordinatorの選定固定。
- * @security 値の妥当性だけで実行を許可しない。
- * @compatibility 新形式の実行選定値である。
- */
-export type AiModelSelection = Readonly<{
-  provider: AiProvider;
-  modelIdentifier: string;
-  identifierKind: "exact" | "alias";
-  reasoningEffort: AiReasoningEffort;
-  purpose: "advice" | "task";
 }>;

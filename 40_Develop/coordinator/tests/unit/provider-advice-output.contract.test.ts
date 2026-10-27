@@ -8,10 +8,10 @@
  * @scope coordinator、contract、node_process
  * @boundary Provider固有Transportと共通助言Normalizerの局所境界。
  */
+import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/result.ts";
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
   parseProviderResult,

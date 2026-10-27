@@ -1,5 +1,35 @@
 # QA-000003 Project実行と回復の検証定義
 
+## Runtime Domainの追加シナリオ — 2026-10-27
+
+Caller Task Graphの[公開入力契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#caller-task-graph-intake)を既存PRL-IT-012／013とPRL-ST-001の下位シナリオへ接続する。すべてNot Run。新しいLocal Itemや結果件数は発行しない。
+
+| 反証する条件 | 必要な観測／Oracle |
+|---|---|
+| Task A→Bの依存とTask固有指示・条件・Path | Fake Executorの入力と順序、Task別Review入力を比較する。global objective／Objective条件で欠測補完されない |
+| taskInputsの欠落・重複・余分、Task定義の重複・孤立・循環 | 受付／Provider Effect前に拒否。明示された拒否段階と件数、既存正本不変を観測 |
+| 書込み範囲外・読取り範囲外・Path境界／不正入力 | read/writeそれぞれの既存正規化・包含検査を通ること、指示文字列で権限が拡大しないこと |
+| 同IDで指示・条件・依存・宣言順だけ変更 | Planと全Task入力を含む受付Hashの不一致、AI再実行0、既存状態・元参照保全 |
+| 全体128KiB等のTransport量・要素数・文字数境界 | 現行上限を維持。Task数に応じた自動緩和・切り捨て・別Store退避なし |
+| Owner喪失後にHashだけ残存、新Task指示欠測 | 本文復元・自動再開・指示生成0。停止前に完了したTaskやunknown・未解決参照を巻き戻さない |
+| CLI／MCP等の旧形式・新形式・取消／応答喪失 | 新版の閉じた入力、既存同ID照会・取消・exact回復参照。互換包装や再POSTによる自動再送なし |
+
+Task実行／Review条件、Objectiveの集約受入条件、実行全体のMilestone条件は別のOracleで確認する。Task成功から上位acceptや文書更新を自動生成しない。Mapだけで実保存・Process終了・実AIを成立扱いにせず、各既存QA Ownerの必要な実境界へ接続する。
+
+文書のMilestone／Roadmap／WBSと実行状態の[用途境界](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を既存PRL-IT-008／012へ接続する。実行内Objective／MilestoneのacceptedやTask completedだけで文書の進捗・正式受入を変更しないこと、Callerが明示した文書処理以外の文書更新を発行しないことを負例とする。小・中規模Taskの分解済み入力はCallerの責務であり、自動文書解析・WBS生成・同期を新しい完了条件にしない。現行公開入口の1 Objective＋1 Task包装と目標のTask Graph搬送を区別し、後者はNot Run。値・APIの移管が文書管理の別正本を作らないことを確認する。
+
+[API・状態境界の引渡し](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を既存項目の下位シナリオとして受け取る。新しいLocal Itemを発行せず、旧Passを継承しない。以下はすべてNot Run。
+
+| 既存項目 | 対象／正常条件と反証 | 観測・終了条件 |
+|---|---|---|
+| PRL-IT-012、PRL-ST-001 | Coordinatorを読込み不能にしてDomain／MCP／WBのPlan・Task・判断・設定の許可されたCRUDと再読。Coreから暗黙実行・Provider認証・Docker呼出しを反証 | 実module閉包、公開結果、外部呼出し件数、Server／子Process終了・試験Root回収。単なるoptional引数や未起動だけでは合格にしない |
+| PRL-UT-006、PRL-IT-012 | 全体改訂／Hashと対象定義Hashを別々に不一致にし、定義編集・削除・判断を拒否。技術field混入、別対象同本文、参照中の定義変更を反証 | before／after全区画、対象Hash、拒否理由。非対象・Automation・受領・元unknown参照が不変 |
+| PRL-IT-012 | 検証済みRootだけ有効、内容権限失効、処置直前／返却前失効、偽Context、Catalog偽造・未照合 | 認可確認位置、値の非開示、出版発行0又は元unknown、固定選定不変。生出力・資格を記録しない |
+| PRL-UT-006、PRL-IT-013 | 五種Context・初期化・履歴の正規順序、一回消費、偽造・再使用・Owner失効・別種類を反証 | 元Ownerの各I/O前後確認、失敗後も再使用不可、同じexact回復参照。保存から技術終了を推定しない |
+| PRL-IT-013 | Domainへ移した固定ファイルI/Oの同名置換・既観測消失・nlink・過大・不正名、Owner前後失効、open／write／fsync／close故障、読戻し不成立 | 同じ実体Mapと動的境界照合、open前のEffect記録、例外伝播、失敗後の残存保持を合成Filesystemで確認。低水準I/O成功をWriter全面移管・Core CRUD完成としない |
+
+既存判断・根拠ID・受入の接続確認は同正本§4.1へ記録した。既存属性で進め、新しい非管理完了API・状態を追加しない。PRL-IT-008の既存6件は今回成功したが、元のMap結合に限り、新Domain・実保存・Surface接続はNot Run。根拠IDだけでTask完了・cleanupを生成できない負例は維持する。保存先は未有効。外部AI・Docker実境界・保持物は今回の文書反映に含めない。
+
 ## 検証HTTP子の診断追加（ERB-IT-021）
 
 正常応答・終了0でもstderr警告があれば既存どおり拒否し、最初のProcess故障段階、終了値、固定Signal分類、警告バイト数、終了要求の有無だけを保持する。後続のpipe故障・終了通知による一次段階の上書き、終了要求から終了確認への昇格、不正frame・未知診断fieldの受理、生出力・秘密値の搬送を反証する。HTTP15秒・親監視20秒・終了確認2秒は維持し、通常完了・切断・期限・同ID取消・回復参照の保持を既存結合試験で確認する。検証Toolの成功を実Provider E2E成立へ換算しない。

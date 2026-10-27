@@ -5,8 +5,9 @@
  * @trace RCM-IT-005
  * @level IT
  * @scope 新形式AI選択Storeと既存Repository Root・Filesystem排他。
- * @boundary RCM-IT-005=Direct Boundary: Coordinator Store→Repository-local Filesystem。
+ * @boundary RCM-IT-005=Direct Boundary: Domain Store→Repository-local Filesystem。
  */
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -18,11 +19,11 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import {
-  AI_SELECTION_MAXIMUM_BYTES,
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../src/storage/ai-selection.ts";
-import { validateAiSelectionConfig } from "../../src/selection/resolve.ts";
+} from "../../../domain-model/src/index.ts";
+import { validateAiSelectionConfig } from "../../src/index.ts";
+import { AI_SELECTION_MAXIMUM_BYTES } from "../../src/storage/ai-selection.ts";
 import * as domain from "../../../domain-model/src/index.ts";
 
 /**
@@ -116,6 +117,7 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
     f.capability,
     { expectedIdentity: null, config: config() },
     () => true,
+    getAiModelCatalog().catalog,
   );
   assert.equal(rejected.status, "blocked", JSON.stringify(rejected));
   assert.equal(
@@ -127,7 +129,10 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
   assert.equal(rejected.setupFailure?.effectStateUnknown, false);
   assert.equal(rejected.setupFailure?.cleanupConfirmed, true);
   assert.equal(rejected.setupFailure?.recoveryReference, null);
-  assert.equal(readRepositoryAiSelection(f.capability).status, "missing");
+  assert.equal(
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    "missing",
+  );
   assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
 
   // 空templateを使う検証入口自身の準備。製品のGit境界拒否は変更しない。
@@ -137,10 +142,12 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
     f.capability,
     { expectedIdentity: null, config: config() },
     () => true,
+    getAiModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   assert.equal(
-    readRepositoryAiSelection(f.capability).snapshot?.identity,
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
+      .snapshot?.identity,
     saved.snapshot?.identity,
   );
   assert.match(
@@ -163,7 +170,10 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
  */
 test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) => {
   const f = fixture(t);
-  assert.equal(readRepositoryAiSelection(f.capability).status, "missing");
+  assert.equal(
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    "missing",
+  );
   for (const authorize of [
     () => false,
     () => {
@@ -175,12 +185,16 @@ test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) 
         f.capability,
         { expectedIdentity: null, config: config() },
         authorize,
+        getAiModelCatalog().catalog,
       ).status,
       "blocked",
     );
   }
   const fake = Object.freeze({}) as typeof f.capability;
-  assert.equal(readRepositoryAiSelection(fake).status, "blocked");
+  assert.equal(
+    readRepositoryAiSelection(fake, getAiModelCatalog().catalog).status,
+    "blocked",
+  );
   assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
 });
 
@@ -201,12 +215,14 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
     f.capability,
     { expectedIdentity: null, config: config() },
     () => true,
+    getAiModelCatalog().catalog,
   );
   assert.equal(first.status, "saved", JSON.stringify(first));
   if (first.status !== "saved") assert.fail("saved required");
   fs.writeFileSync(f.file, JSON.stringify(first.snapshot.config));
   assert.equal(
-    readRepositoryAiSelection(f.capability).snapshot?.identity,
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
+      .snapshot?.identity,
     first.snapshot.identity,
   );
   const changed = config();
@@ -217,6 +233,7 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
       f.capability,
       { expectedIdentity: null, config: changed },
       () => true,
+      getAiModelCatalog().catalog,
     ).status,
     "conflict",
   );
@@ -225,6 +242,7 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
     f.capability,
     { expectedIdentity: first.snapshot.identity, config: changed },
     () => true,
+    getAiModelCatalog().catalog,
   );
   assert.equal(next.status, "saved", JSON.stringify(next));
   assert.notEqual(next.snapshot?.identity, first.snapshot.identity);
@@ -252,7 +270,11 @@ test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否す
     Buffer.alloc(AI_SELECTION_MAXIMUM_BYTES + 1, 32),
   ]) {
     fs.writeFileSync(f.file, bytes);
-    assert.equal(readRepositoryAiSelection(f.capability).status, "blocked");
+    assert.equal(
+      readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
+        .status,
+      "blocked",
+    );
   }
   const huge = config();
   huge.workTypes.coding.label = "あ".repeat(AI_SELECTION_MAXIMUM_BYTES / 2);
@@ -261,13 +283,14 @@ test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否す
       f.capability,
       { expectedIdentity: null, config: huge },
       () => true,
+      getAiModelCatalog().catalog,
     ).reason,
     "ai_selection_file_too_large",
   );
   fs.writeFileSync(f.file, JSON.stringify(config()));
   fs.linkSync(f.file, path.join(f.directory, "other.json"));
   assert.equal(
-    readRepositoryAiSelection(f.capability).reason,
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).reason,
     "ai_selection_file_invalid",
   );
 });
@@ -287,7 +310,10 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
   const f = fixture(t);
   const value = config();
   value.workTypes.coding.label = "あ";
-  const normalized = validateAiSelectionConfig(value);
+  const normalized = validateAiSelectionConfig(
+    value,
+    getAiModelCatalog().catalog,
+  );
   assert.equal(normalized.status, "valid");
   assert.ok(normalized.value);
   const size = Buffer.byteLength(
@@ -298,6 +324,7 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
     f.capability,
     { expectedIdentity: null, config: value },
     () => true,
+    getAiModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   assert.equal(fs.statSync(f.file).size, AI_SELECTION_MAXIMUM_BYTES);
@@ -307,12 +334,16 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
       f.capability,
       { expectedIdentity: saved.snapshot?.identity, config: value },
       () => true,
+      getAiModelCatalog().catalog,
     ).reason,
     "ai_selection_file_too_large",
   );
   fs.renameSync(f.file, path.join(f.directory, "linked.json"));
   fs.symlinkSync(path.join(f.directory, "linked.json"), f.file, "file");
-  assert.equal(readRepositoryAiSelection(f.capability).status, "blocked");
+  assert.equal(
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    "blocked",
+  );
   fs.unlinkSync(f.file);
   fs.writeFileSync(f.file, JSON.stringify(config()));
   let swaps = 0;
@@ -330,7 +361,10 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
       },
     }),
   );
-  assert.equal(readRepositoryAiSelection(f.capability).status, "blocked");
+  assert.equal(
+    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    "blocked",
+  );
   mocked.mock.restore();
   assert.equal(swaps, 1);
   assert.equal(fs.existsSync(path.join(f.directory, "replaced.json")), true);
@@ -355,6 +389,7 @@ test("保存前失効と保存後失効を区別する", (t) => {
       f.capability,
       { expectedIdentity: null, config: config() },
       () => ++calls <= limit,
+      getAiModelCatalog().catalog,
     );
     if (limit <= 2) {
       assert.equal(result.status, "blocked");
@@ -365,7 +400,11 @@ test("保存前失効と保存後失効を区別する", (t) => {
       assert.equal(result.publication, "confirmed");
       assert.equal(result.snapshot, null);
       assert.equal(result.cleanupConfirmed, true);
-      assert.equal(readRepositoryAiSelection(f.capability).status, "available");
+      assert.equal(
+        readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
+          .status,
+        "available",
+      );
     }
     assert.deepEqual(
       fs.readdirSync(f.directory),
@@ -451,6 +490,7 @@ test("保存・公開・回収の故障を成功や不存在へ畳まない", (t
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
+      getAiModelCatalog().catalog,
     );
     fault.mock.restore();
     rename.mock.restore();
@@ -572,6 +612,7 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
+      getAiModelCatalog().catalog,
     );
     for (const item of [open, close, rename, unlink, rm]) item.mock.restore();
     assert.equal(closeFailures, 1);
@@ -633,6 +674,7 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
+      getAiModelCatalog().catalog,
     );
     mocked.mock.restore();
     assert.equal(result.status, "unknown");
@@ -640,7 +682,11 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
     assert.equal(result.cleanupConfirmed, false);
     assert.ok(result.temporary?.identity);
     assert.equal(fs.existsSync(targetPath), true);
-    assert.equal(readRepositoryAiSelection(f.capability).status, "missing");
+    assert.equal(
+      readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
+        .status,
+      "missing",
+    );
     assert.equal(
       fs.existsSync(
         path.join(
@@ -696,6 +742,7 @@ test("領域確保の元失敗契約とexact回復参照を保持する", async 
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
+      getAiModelCatalog().catalog,
     );
     assert.equal(result.status, "unknown");
     if (result.status !== "unknown") assert.fail("unknown required");
@@ -744,10 +791,15 @@ test("不正な保存受付はhookも認可も実行しない", (t) => {
     ),
   ])
     assert.equal(
-      saveRepositoryAiSelection(f.capability, value, () => {
-        authorizations++;
-        return true;
-      }).status,
+      saveRepositoryAiSelection(
+        f.capability,
+        value,
+        () => {
+          authorizations++;
+          return true;
+        },
+        getAiModelCatalog().catalog,
+      ).status,
       "blocked",
     );
   assert.equal(hooks, 0);

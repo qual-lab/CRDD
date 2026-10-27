@@ -6,6 +6,10 @@
  * @security 保存・外部実行・Authorityの発行は行わない。
  */
 import {
+  inspectTaskExecutionSelections,
+  type TaskExecutionSelections,
+} from "../../../domain-model/src/index.ts";
+import {
   COORDINATOR_MAXIMUM_CONCURRENCY,
   COORDINATOR_MAXIMUM_OBJECTIVES,
   COORDINATOR_MAXIMUM_TASKS,
@@ -13,13 +17,11 @@ import {
   validRevision,
   uniqueStrings,
 } from "./validation.ts";
-import type { ProjectObjectiveDefinition } from "../objective/types.ts";
-import type { ProjectTaskDefinition } from "../task/types.ts";
+import type { ProjectObjectiveDefinition } from "../../../domain-model/src/index.ts";
+import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
 import type { StateResult } from "./types.ts";
 import { snapshotDefinition, hasCycle } from "../task/lifecycle.ts";
 import { projectState } from "./projection.ts";
-import { inspectTaskExecutionSelections } from "../selection/validation.ts";
-import type { TaskExecutionSelections } from "../selection/types.ts";
 
 /**
  * Objective Definitionを所有Snapshotへ変換する。

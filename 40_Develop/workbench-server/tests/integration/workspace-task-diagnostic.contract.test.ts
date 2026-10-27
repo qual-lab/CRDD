@@ -927,7 +927,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
           lstatSync: () => ({ isSymbolicLink: () => false, nlink: 1 }),
         },
         assert,
-        MAX_COORDINATOR_STATE_BYTES: 4096,
+        RUNTIME_STATE_MAXIMUM_BYTES: 4096,
         readStableBoundedFileSnapshot: () => ({
           bytes: Buffer.from("synthetic"),
         }),

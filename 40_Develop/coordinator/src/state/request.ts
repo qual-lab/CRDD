@@ -5,8 +5,8 @@
  * @trace ARCH-000004
  */
 
+import { snapshotRuntimeStateRecord as snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import type { CoordinatorStateQuery } from "./types.ts";
-import { snapshotPlainRecord } from "./validation.ts";
 
 export const COORDINATOR_STATE_QUERY_CONTRACT =
   "crdd-coordinator/orchestrator-state-query/v1" as const;

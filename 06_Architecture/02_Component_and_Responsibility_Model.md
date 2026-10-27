@@ -1,5 +1,11 @@
 # Component／責務モデル
 
+## Core独立の責務差分 — 2026-10-27
+
+業務計画の正本はCRDD文書、計画とTask分解はCaller、渡されたTaskの実行調整はCoordinatorとする。Domainの実行依頼モデルを文書側Milestone／Roadmap／WBSモデルへ拡張しない。[用途境界](Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を参照する。
+
+[Runtime Domain契約](Details/domain-model/05_Runtime_Domain.md)を目標Owner分担とする。Domainは定義・局所CRUDと共通保存、Coordinatorは選択・Claim／再試行の横断調停、Executorは単一試行を所有する。ExecutorはLibraryであり、新しい常駐Process・Queue・Domain Storeを持たない。既存DI／PA・AI Adapter・VC・Access Managementの技術責務は再実装しない。この差分は設計であり本番移管は未完了。
+
 Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/coordinator/05_Workspace.md#3-packageの責務と依存方向)へ接続する。物理統合後は単一CoordinatorがWorkspace・Task・採用判断と単発Executionを別責務として所有する。Git操作はVersion Control、隔離資源の技術操作はDocker Isolationが所有する。以下の旧構成のCandidate Store・Workbench専用AI処理・二Package図は移行元の比較対象であり、現行構成や新版の検証根拠ではない。
 
 Status: Candidate (v0.22 responsibility reorganization)

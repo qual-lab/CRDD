@@ -5,12 +5,12 @@
  * @trace ARCH-000004
  */
 
+import { snapshotRuntimeStateRecord as snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import type { CoordinatorAcceptanceDecisionAuthorityPort } from "./types.ts";
 import type {
   CoordinatorAcceptanceTarget,
   CoordinatorAcceptanceDecision,
-} from "./types.ts";
-import { snapshotPlainRecord } from "../state/validation.ts";
+} from "../../../domain-model/src/index.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 

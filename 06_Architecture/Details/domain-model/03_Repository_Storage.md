@@ -1,5 +1,9 @@
 # `.crdd` Runtime Dataの目標Architecture
 
+## 共通状態保存の追加契約 — 2026-10-27
+
+[Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。`.crdd/domain-model/`への移動は第一候補・未有効であり、既存Root／Schemaを空で初期化せず、フロントAI移行と新Schema固定を先行条件とする。
+
 [Workspace配置契約](../coordinator/05_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
 
 借用実行Treeの内部Directory保護は、既存`storage/ensure-area.ts`の`checkRepositoryRuntimeDataProtectionDirectory`へ委譲する。検証Root能力とobserve／prepareを受け、ready／absent／blockedだけを返しraw Rootは公開しない。observeは作成0、prepareは真正不存在の場合だけ空Directory一件を作り、既存内容・子領域・状態・Ignore・台帳・Lockを変更しない。link・File・観測不能は停止する。この空Mount先をWorktree内へのRuntime正本保存許可と扱わない。

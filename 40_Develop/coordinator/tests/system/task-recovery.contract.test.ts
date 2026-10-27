@@ -10,6 +10,7 @@
  */
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -122,7 +123,7 @@ function root(t: test.TestContext) {
  * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function request(overrides: Record<string, unknown> = {}) {
-  return {
+  return withCallerPlan({
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -137,7 +138,7 @@ function request(overrides: Record<string, unknown> = {}) {
     adoptResult: false,
     intakeEpoch: fixtureIntakeEpoch,
     ...overrides,
-  };
+  });
 }
 
 /**

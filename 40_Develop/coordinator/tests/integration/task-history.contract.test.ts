@@ -9,7 +9,8 @@
  * @scope Coordinator履歴保存。
  * @boundary PRL-IT-012=Direct Boundary: 履歴Adapter→Repository Filesystem。
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -56,7 +57,7 @@ test("Host Windows: 通常保守も同じ要約batchで再入場し退役条件�
   const saved = writeCoordinatorSnapshot(
     f.root,
     "binding-a",
-    encodeCoordinatorStateValue({
+    encodeRuntimeStateValue({
       ...current.value,
       snapshotRevision: current.value.snapshotRevision + 1,
       historyPending: records,
@@ -501,7 +502,7 @@ test("Host Windows: 履歴は30日だけで回収し件数で削除しない", (
   const body = rows
     .map((record) => {
       const value = JSON.parse(record);
-      return `${encodeCoordinatorStateValue({
+      return `${encodeRuntimeStateValue({
         schema: "crdd-coordinator/history-row/v2",
         occurredAt: value.occurredAt,
         summary: { schema: "crdd-coordinator/task-summary/v1", record: value },

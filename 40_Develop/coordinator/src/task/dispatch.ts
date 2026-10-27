@@ -3,6 +3,12 @@
  * @responsibility Taskの実行順序と保存・結果受領・配送終了を所有する。
  * @trace ARCH-000004
  */
+import {
+  type ProjectTaskRecoveryKind,
+  type ProjectResultAcceptance,
+  type CoordinatorState,
+  decodeProjectResultAcceptance,
+} from "../../../domain-model/src/index.ts";
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
@@ -22,12 +28,7 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import type {
-  ProjectTaskRecoveryKind,
-  ProjectResultAcceptance,
-} from "./types.ts";
-import type { CoordinatorState } from "../state/types.ts";
-import { decodeProjectResultAcceptance } from "./acceptance.ts";
+
 import {
   validIdentity,
   isCoordinatorRecoveryIdentity,

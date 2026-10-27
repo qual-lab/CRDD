@@ -1,5 +1,17 @@
 # CRDD検証設計
 
+## Core独立・共通保存の検証計画 — 2026-10-27
+
+分解済みTask Graph受付は[QA-000003の追加反例](Definitions/QA-000003/quality_definition.md)を、まず合成Plan＋Fake Executorの非AI結合へ接続する。Task別指示・条件の混線、1対1欠測、Path越境、同ID内容差、Owner喪失、部分実行後停止、旧新入力・Transport上限を確認する。本文は保存せず、Hash保持を再開能力の証明としない。Source接続・検証結果は未取得。
+
+対象は実行依頼の共通モデル・保存と任意実行の分離である。文書計画→Taskの自動変換や実行状態→文書進捗の自動同期は実装対象・完成条件へ追加しない。既存Objective／Milestoneの用途・Callerの分解済みTask搬送・明示された文書処理範囲はQA-000003の追加条件へ接続し、移管先・公開入口の実装まではNot Runとする。
+
+[Runtime Domainの引渡し](../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を、QA-000003とQA-000008の既存項目に下位シナリオとして具体化した。新契約の結果はすべてNot Runで、既存項目数・過去Passを変更しない。
+
+順序はL1のDomain／実保存、L2のCoordinator読込み不能なMCP／Workbench、L4のFake Executorによる調停を先行させる。実AI／実Dockerを使うL3／L5は別の実行許可とし、L1／L2の成立を待たせない。Core CRUDからAI・Docker・Git・認証が呼ばれない負対照、Automation保全、二重CAS、現在認可、五Contextの偽造・再使用、実保存の中断窓をそれぞれ観測する。
+
+基準版の局所Evidenceは能力対応の比較材料であって、新Packageの実装・結合・安全保証を代替しない。新しい報告Lifecycleは追加せず、元受入前提、根拠IDとEvidence本文検証の違い、技術完了の偽造拒否を維持する。保存先を試験Fixtureで有効化済みとしない。
+
 状態: v0.21.0 Canonical
 担当責任者: Qual-Lab
 最終更新日: 2026-09-19

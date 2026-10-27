@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  */
 
+import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
 import type { CoordinatorWorkspaceResult } from "./result.ts";
 import {
   type WorkspaceInventoryEntry as InventoryEntry,
@@ -34,7 +35,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { initializeWindowsHostRecordNamespace } from "../../../platform-access/src/index.ts";
 import { loadHostRecoveryRecordByToken } from "./recovery.ts";
-import { formatHostRecoveryToken, parseHostRecoveryToken } from "./result.ts";
+import { formatHostRecoveryToken } from "./result.ts";
 import {
   acquireRuntimeOwnedHostOperationSupervisorLock,
   acquireRuntimeOwnedHostOperationKernelLock,

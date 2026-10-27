@@ -6,19 +6,26 @@
  * @boundary Workbench／MCPと既存Workspace Owner。
  * @security Root・Binding・内部一時物を公開しない。
  */
+import {
+  validCoordinatorResultRecord,
+  hashRuntimeStateValueText as digest,
+  validCoordinatorWorkspace,
+  historyRow,
+  COORDINATOR_INTEGRATION_CONTRACT,
+  type CoordinatorResultRecord,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  type CoordinatorWorkspace,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import type { StoreResult } from "../state/result.ts";
 import { completed } from "../state/result.ts";
 import { blocked } from "../state/result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
-import { validCoordinatorResultRecord } from "./record.ts";
-import { digest } from "../state/validation.ts";
+
 import type { CoordinatorIntegrationRecordPort } from "./record.ts";
 import type { IntegrationRecordBinding } from "./record.ts";
-import { validCoordinatorWorkspace } from "./record.ts";
-import { historyRow } from "../storage/history.ts";
-import { COORDINATOR_INTEGRATION_CONTRACT } from "./record.ts";
-import type { CoordinatorResultRecord } from "./record.ts";
+
 import path from "node:path";
 import { types } from "node:util";
 import {
@@ -34,14 +41,11 @@ import {
   validWorkspaceCandidateRequest,
   type WorkspaceCandidateSelection,
 } from "../../../version-control/src/index.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../state/validation.ts";
+
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { readCoordinatorSnapshot } from "../storage/state.ts";
 import { manageCoordinatorWorkspace } from "./operations.ts";
-import type { CoordinatorWorkspace } from "./record.ts";
+
 import { containsRecognizedSecretText } from "../../../domain-model/src/index.ts";
 
 /**
@@ -690,7 +694,7 @@ export function createCoordinatorSnapshotIntegrationRecordPort(
             milestoneId: binding.milestoneId,
             queueId: binding.queueId,
             identity: record.identity,
-            contentHash: digest(encodeCoordinatorStateValue(record.value)),
+            contentHash: digest(encodeRuntimeStateValue(record.value)),
             value: record.value,
           };
           if (!validCoordinatorResultRecord(value))
@@ -714,8 +718,7 @@ export function createCoordinatorSnapshotIntegrationRecordPort(
           );
           if (
             old &&
-            encodeCoordinatorStateValue(old) !==
-              encodeCoordinatorStateValue(value)
+            encodeRuntimeStateValue(old) !== encodeRuntimeStateValue(value)
           )
             return blocked("orchestrator_result_identity_conflict");
           return completed("orchestrator_result_durable", {

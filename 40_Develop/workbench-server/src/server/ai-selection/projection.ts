@@ -14,7 +14,7 @@ import {
 import {
   readRepositoryAiSelection,
   type AiSelectionReadResult,
-} from "../../../../coordinator/src/index.ts";
+} from "../../../../domain-model/src/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../../version-control/src/index.ts";
 
 /**
@@ -52,6 +52,6 @@ export function readWorkbenchAiSelectionSurface(
 ): WorkbenchAiSelectionSurface {
   return Object.freeze({
     catalog: getAiModelCatalog(),
-    selection: readRepositoryAiSelection(root),
+    selection: readRepositoryAiSelection(root, getAiModelCatalog().catalog),
   });
 }

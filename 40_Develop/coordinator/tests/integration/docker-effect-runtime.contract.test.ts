@@ -8,6 +8,7 @@
  * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
+import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
 import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/preparation.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashProviderAdviceCommand } from "../../src/execution/preparation.ts";
@@ -36,7 +37,7 @@ import {
   verifyOwnedOperationManagementMountBinding,
   verifyOwnedOperationCleanupOutcome,
 } from "../../src/execution/operation.ts";
-import { parseHostRecoveryToken } from "../../src/execution/result.ts";
+
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   planDockerIsolationCommands,

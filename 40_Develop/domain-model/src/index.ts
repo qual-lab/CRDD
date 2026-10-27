@@ -7,6 +7,55 @@
  * @effect Moduleの公開だけで操作は実行しない。公開操作の呼出しでは、各Ownerの契約に従いRepository読取り、認可済みCRUD、用途限定保存・排他・回収を行い得る。
  * @security Rootへの集約はAuthorityを追加せず、各実体の入力検証・Repository範囲・非公開内部操作の境界を維持する。
  */
+export { parseUnambiguousJsonDocument } from "./plain-data/json.ts";
+export type {
+  CoordinatorAcceptanceTarget,
+  CoordinatorAcceptanceDecision,
+  CoordinatorAcceptanceDecisionInput,
+  CoordinatorAcceptanceDecisionRecord,
+  CoordinatorAcceptanceDecisionEnvelope,
+  CoordinatorDecisionRecord,
+  CoordinatorDecisionRecoveryIntent,
+} from "./decision/types.ts";
+export {
+  COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+  isCoordinatorDecisionRecord,
+  validCoordinatorAcceptanceDecisionRecord,
+  validCoordinatorDecisionRecoveryIntent,
+} from "./decision/validation.ts";
+export {
+  validateAiSelectionConfig,
+  type AiSelectionConfigResult,
+} from "./ai-selection/validation.ts";
+export type {
+  AiSelectionCatalog,
+  AiSelectionRole,
+  AiSelectionChoice,
+  AiSelectionConfig,
+  AiSelectionSnapshot,
+} from "./ai-selection/types.ts";
+export {
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+  type AiSelectionReadResult,
+  type AiSelectionSaveResult,
+  type AiSelectionTemporaryReference,
+} from "./storage/ai-selection.ts";
+export { normalizeRepositoryRelativePath } from "./repository/path.ts";
+export {
+  inspectExecutionPlan,
+  type ExecutionPlanScope,
+} from "./objective/validation.ts";
+export { inspectCallerTaskInputs } from "./objective/validation.ts";
+export type { ProjectTaskDefinition, CallerTaskInput } from "./task/types.ts";
+export type {
+  CoordinatorObjectivePlan,
+  ProjectObjectiveState,
+  ProjectMilestoneState,
+  ProjectObjectiveDefinition,
+  ProjectObjectiveRecord,
+  ProjectMilestoneRecord,
+} from "./objective/types.ts";
 export {
   type DomainIssue,
   type DomainLocation,
@@ -108,6 +157,19 @@ export {
   sameStableFileIdentity,
   type StableFileIdentity,
 } from "./storage/bounded-file-snapshot.ts";
+export {
+  readRuntimeStateFile,
+  createRuntimeStatePendingFile,
+  flushRuntimeStateFile,
+  classifyRuntimeSnapshotReentry,
+  type RuntimeStateFileName,
+  type RuntimeStatePendingFileName,
+} from "./storage/state.ts";
+export {
+  RUNTIME_STATE_MAXIMUM_BYTES,
+  encodeRuntimeStateValue,
+  hashRuntimeStateContent,
+} from "./state/codec.ts";
 export type {
   MeetingState,
   MeetingRecord,
@@ -533,3 +595,148 @@ export {
   containsRecognizedSecretMaterial,
   describeSecretMaterialPolicyContract,
 } from "./plain-data/secret-validation.ts";
+
+export {
+  decodeCoordinatorUnifiedSnapshot,
+  isSha256Hex,
+  exactRecordKeys as hasRuntimeStateRecordKeys,
+  projectCoordinatorTaskSettlement,
+  validId,
+  validCoordinatorTaskState,
+  COORDINATOR_STATE_CONTRACT,
+  COORDINATOR_STATE_SCHEMA,
+  coordinatorOperationSummaryBytes,
+  coordinatorHistoryLineBytes,
+  snapshotPlainRecord as snapshotRuntimeStateRecord,
+  plainObject as isRuntimeStateObject,
+  exactKeys as hasRuntimeStateKeys,
+  COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
+  validLeaseEvidence,
+  digest as hashRuntimeStateValueText,
+  leaseIdentity,
+  leaseAcquisitionRecoveryId,
+  historyRow,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  snapshotPlainArray as snapshotRuntimeStateArray,
+  validResultReference,
+} from "./state/validation.ts";
+
+export type {
+  CoordinatorUnifiedSnapshot,
+  CoordinatorState,
+  CoordinatorStoredTask,
+  CoordinatorSnapshot,
+  CoordinatorStateSnapshot,
+  CoordinatorTaskSettlementFact,
+  LeaseEvidenceEnvelope,
+  Envelope as RuntimeStateEnvelope,
+  LeaseEvidenceContent,
+  HistoryRow,
+  LeaseKind,
+  CoordinatorLeaseKind,
+} from "./state/types.ts";
+
+export {
+  validCoordinatorRepairOperation,
+  coordinatorOperationNonce,
+  parseDockerTaskRecoveryId,
+  decodeDockerRestartCheckpoint,
+  createDockerRestartRequestId,
+  isDockerRestartCheckpointSettled,
+  purposeResource,
+  parseHostRecoveryToken,
+  validateHostRecoveryTransitionLineage,
+  validCoordinatorPrimaryFailure,
+  validCoordinatorOutcome,
+  coordinatorTaskResourcesAreSettled,
+  validCoordinatorRepairRetentionReceipt,
+  coordinatorRepairRetentionMatchesCheckpoint,
+  coordinatorRepairCanSummarize,
+  coordinatorRepairSummaryBytes,
+  coordinatorRepairHistoryLineBytes,
+  dockerProcessControllerPublicCompletionReasons,
+  coordinatorAuthenticationClosureEvidence,
+  validCoordinatorRepairSummary,
+  PROVIDER_ADVICE_OUTPUT_REASONS,
+  coordinatorAuthenticationUnknownCanClose,
+} from "./attempt/validation.ts";
+
+export type {
+  ProjectResultAcceptance,
+  ProjectTaskRecord,
+  ProjectTaskRecoveryObligation,
+  ProjectTaskState,
+  ProjectTaskStartPhase,
+  ProjectTaskRecoveryKind,
+  ProjectDockerRecoveryAcknowledgement,
+  ProjectQueueEntry,
+  SingleTaskRecord,
+  ProjectQueueState,
+} from "./task/types.ts";
+
+export {
+  decodeProjectResultAcceptance,
+  validCoordinatorState,
+  validQueueEntry,
+  coordinatorConsumerCompletionPolicy,
+  inspectSingleTaskRecord,
+} from "./task/validation.ts";
+
+export type {
+  CoordinatorStateTaskOperation,
+  CoordinatorStateRepairOperation,
+  CoordinatorStateOperation,
+  DockerRestartCheckpoint,
+  ProviderTurnCountDiagnostic,
+  CoordinatorRepairRetentionReceipt,
+} from "./attempt/types.ts";
+
+export type {
+  TaskExecutionSelections,
+  ExecutionSelection,
+  AiModelSelection,
+  AiProvider,
+  AiReasoningEffort,
+} from "./ai-selection/types.ts";
+
+export type {
+  DockerRuntimeRepairCheckpoint,
+  DockerRuntimeRepairDisposalCheckpoint,
+  DockerRuntimeRepairRetentionTargets,
+} from "./attempt/repair-types.ts";
+
+export {
+  validCoordinatorWorkspace,
+  validCoordinatorResultRecord,
+  validWorkspaceDisplayName,
+  COORDINATOR_INTEGRATION_CONTRACT,
+  validWorkspaceCandidateRequest,
+  isWorkspaceCommitId,
+} from "./workspace/validation.ts";
+
+export type {
+  CoordinatorWorkspace,
+  CoordinatorResultRecord,
+  CoordinatorWorkspaceCandidate,
+  RepositoryWorktreeResult,
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+  RepositoryWorktreeObservation,
+  WorkspaceCandidateSelection,
+  WorkspaceCandidateTemporary,
+} from "./workspace/types.ts";
+
+export {
+  decodeDockerRuntimeRepairCheckpoint,
+  decodeDockerRuntimeRepairDisposalCheckpoint,
+  dockerRuntimeRepairDisposalIsSettled,
+  dockerRuntimeRepairCheckpointIsSettled,
+  actions as RUNTIME_REPAIR_ACTIONS,
+  directories as RUNTIME_REPAIR_DIRECTORIES,
+  decodeDockerRuntimeRepairRetentionTargets,
+} from "./attempt/repair-validation.ts";
+
+export {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+} from "./ai-selection/validation.ts";

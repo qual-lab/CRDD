@@ -4,8 +4,14 @@
  * @trace ARCH-000004
  */
 
-import { COORDINATOR_STATE_CONTRACT } from "./validation.ts";
-import { inspectTaskExecutionSelections } from "../selection/validation.ts";
+import {
+  COORDINATOR_STATE_CONTRACT,
+  inspectTaskExecutionSelections,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  type ProjectTaskState,
+  type CoordinatorState,
+} from "../../../domain-model/src/index.ts";
 import type {
   ActivitySource,
   RuntimeActivityEvent,
@@ -15,15 +21,12 @@ import type {
 } from "./types.ts";
 import { createHash } from "node:crypto";
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
   COORDINATOR_MAXIMUM_OBJECTIVES,
   COORDINATOR_MAXIMUM_TASKS,
   PROJECT_OBJECTIVE_STATES,
   PROJECT_TASK_STATES,
 } from "./validation.ts";
-import type { ProjectTaskState } from "../task/types.ts";
-import type { CoordinatorState } from "./types.ts";
+
 import { types as utilTypes } from "node:util";
 import {
   validId,

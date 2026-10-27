@@ -107,7 +107,7 @@ process.stdin.on("data", (chunk) => {
           reason: isCancelled
             ? "orchestrator_task_recovery_required"
             : "orchestrator_acceptance_decision_required",
-          contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
           requestId: "request-a",
           projectId: "project-a",
           milestoneId: "milestone-a",

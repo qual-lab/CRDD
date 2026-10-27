@@ -9,6 +9,10 @@
  * @scope 統括本文の単独故障・変異、標準bridgeの構成・段階比較、値相関・実入口拒否と清掃前実体。
  * @boundary 合成統括は実codec／Owner／Native／Docker／再起動を証明しない。実Filesystem処置は自己生成試験Rootだけ。
  */
+import type {
+  CoordinatorStateSnapshot,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,8 +24,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
 import { fileURLToPath } from "node:url";
-import type { CoordinatorStateSnapshot } from "../../src/storage/state.ts";
-import type { CoordinatorStateTaskOperation } from "../../src/execution/types.ts";
+
 import {
   captureAuthCreateCleanupTree,
   projectAuthCreateDefaultBridge,

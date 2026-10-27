@@ -5,7 +5,23 @@
  * @trace ARCH-000008
  */
 
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
+import {
+  type ExecutionSelection,
+  inspectExecutionSelection,
+  coordinatorConsumerCompletionPolicy,
+  type CoordinatorStateOperation,
+  type CoordinatorStateRepairOperation,
+  type CoordinatorStateTaskOperation,
+  type CoordinatorStateSnapshot,
+  coordinatorAuthenticationUnknownCanClose,
+  coordinatorTaskResourcesAreSettled,
+  createDockerRestartRequestId,
+  type DockerRestartCheckpoint,
+  isDockerRestartCheckpointSettled,
+  parseHostRecoveryToken,
+  validateHostRecoveryTransitionLineage,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -36,17 +52,10 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import type { ExecutionSelection } from "../selection/types.ts";
-import { inspectExecutionSelection } from "../selection/validation.ts";
-import { coordinatorConsumerCompletionPolicy } from "../task/acceptance.ts";
+
 import { readCurrentCoordinatorState as readCoordinatorState } from "../state/query.ts";
-import type {
-  CoordinatorStateOperation,
-  CoordinatorStateRepairOperation,
-  CoordinatorStateTaskOperation,
-} from "./types.ts";
+
 import {
-  type CoordinatorStateSnapshot,
   decodeCoordinatorStateSnapshot,
   prepareCoordinatorRepairHistorySummary,
   prepareCoordinatorStateHostSnapshot,
@@ -58,11 +67,7 @@ import {
   prepareCoordinatorStateRepairSessionSnapshot,
   prepareCoordinatorStateRepairSnapshot,
 } from "../storage/state.ts";
-import {
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorReleasedTaskCanObserveHostAbsence,
-  coordinatorTaskResourcesAreSettled,
-} from "./validation.ts";
+import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
 import {
   captureRuntimeOwnedCoordinatorSettlementInputs,
   prepareRuntimeOwnedCoordinatorSettlement,
@@ -137,14 +142,7 @@ import {
   verifyHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
 } from "./operation.ts";
-import {
-  createDockerRestartRequestId,
-  type DockerRestartCheckpoint,
-  isDockerRestartCheckpointSettled,
-  parseHostRecoveryToken,
-  type RecoveryStartFailureDiagnostic,
-  validateHostRecoveryTransitionLineage,
-} from "./result.ts";
+import type { RecoveryStartFailureDiagnostic } from "./result.ts";
 
 /**
  * docker-cleanup-eligibilityで使用するDocker 清掃 Handoff 候補の値契約を定義する。
@@ -1575,14 +1573,14 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
               : readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
     cleanupConfirmed &&= current.lockReleased;
     let before = Buffer.from(
-      `${encodeCoordinatorStateValue(initial.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(initial.value.snapshot)}\n`,
     );
     if (
       current.status !== "completed" ||
       !current.value ||
       !current.lockReleased ||
       !Buffer.from(
-        `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
       ).equals(before) ||
       (publication &&
         (!current.hostCleanupPublication ||
@@ -1642,7 +1640,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
         !current.value ||
         !current.lockReleased ||
         !Buffer.from(
-          `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+          `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
         ).equals(initial.resourcePublication.candidate)
       ) {
         reason = "docker_task_recovery_resource_publication_unconfirmed";
@@ -1750,7 +1748,7 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
   try {
     if (!assertCurrentRecoveryOwner(capability, record)) return false;
     const checkpointValue =
-      kind === "host" ? JSON.parse(encodeCoordinatorStateValue(value)) : value;
+      kind === "host" ? JSON.parse(encodeRuntimeStateValue(value)) : value;
     if (absentHostCheckpoint) {
       const current = decodeCoordinatorStateSnapshot(
         record.before,
@@ -1764,8 +1762,8 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
         !operation ||
         !coordinatorReleasedTaskCanObserveHostAbsence(operation) ||
         operation.host.cleanup !== "not_requested" ||
-        encodeCoordinatorStateValue(checkpointValue) !==
-          encodeCoordinatorStateValue({ ...operation.host, cleanup: "pending" })
+        encodeRuntimeStateValue(checkpointValue) !==
+          encodeRuntimeStateValue({ ...operation.host, cleanup: "pending" })
       )
         return false;
     }
@@ -1799,7 +1797,7 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
     )
       return false;
     record.before = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const confirmed = assertCurrentRecoveryOwner(capability, record);
     record.persistenceFailed = !confirmed;
@@ -1865,7 +1863,7 @@ function retireRuntimeOwnedDockerTaskExecutionOwner(
       !current.value ||
       !current.lockReleased ||
       !Buffer.from(
-        `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
       ).equals(record.before)
     ) {
       record.persistenceFailed = true;
@@ -2862,9 +2860,9 @@ export function recoverRuntimeOwnedDockerTaskResources(
       read.status !== "completed" ||
       !read.value ||
       !read.lockReleased ||
-      !Buffer.from(
-        `${encodeCoordinatorStateValue(read.value.snapshot)}\n`,
-      ).equals(record.before)
+      !Buffer.from(`${encodeRuntimeStateValue(read.value.snapshot)}\n`).equals(
+        record.before,
+      )
     ) {
       record.persistenceFailed = true;
       throw new Error("docker_task_recovery_boundary_changed");
@@ -3044,7 +3042,7 @@ export function recoverRuntimeOwnedDockerTaskResources(
       )
         return result(false, "docker_task_recovery_checkpoint_unconfirmed");
       record.before = Buffer.from(
-        `${encodeCoordinatorStateValue(read.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(read.value.snapshot)}\n`,
       );
       record.persistenceFailed = !assertCurrentRecoveryOwner(
         capability,
@@ -3229,8 +3227,8 @@ function isUnsubmittedInitialTaskHost(
   )
     return false;
   return (
-    encodeCoordinatorStateValue(operation) ===
-    encodeCoordinatorStateValue({
+    encodeRuntimeStateValue(operation) ===
+    encodeRuntimeStateValue({
       ...initial,
       phase: "settling",
       dockerRestart: operation.dockerRestart,
@@ -3279,7 +3277,7 @@ export function confirmRuntimeOwnedDockerTaskHostAbsence(
       !current.value ||
       !current.lockReleased ||
       !Buffer.from(
-        `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
       ).equals(record.before)
     )
       throw new Error("docker_task_recovery_boundary_changed");
@@ -3349,7 +3347,7 @@ export function confirmRuntimeOwnedDockerTaskHostAbsence(
         !beforeEffect.value ||
         !beforeEffect.lockReleased ||
         !Buffer.from(
-          `${encodeCoordinatorStateValue(beforeEffect.value.snapshot)}\n`,
+          `${encodeRuntimeStateValue(beforeEffect.value.snapshot)}\n`,
         ).equals(record.before) ||
         !assertCurrentRecoveryOwner(capability, record)
       )
@@ -3424,7 +3422,7 @@ export function cleanupRuntimeOwnedDockerTaskHost(
       !current.value ||
       !current.lockReleased ||
       !Buffer.from(
-        `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
       ).equals(record.before)
     )
       throw new Error("docker_task_recovery_boundary_changed");
@@ -3489,7 +3487,7 @@ export function cleanupRuntimeOwnedDockerTaskHost(
         !beforeEffect.value ||
         !beforeEffect.lockReleased ||
         !Buffer.from(
-          `${encodeCoordinatorStateValue(beforeEffect.value.snapshot)}\n`,
+          `${encodeRuntimeStateValue(beforeEffect.value.snapshot)}\n`,
         ).equals(record.before) ||
         !assertCurrentRecoveryOwner(capability, record)
       )
@@ -3562,9 +3560,9 @@ export function cleanupRuntimeOwnedDockerTaskHost(
       !after.lockReleased ||
       after.value.snapshot.revision !== saved.revision ||
       after.value.payloadSha256 !== saved.payloadSha256 ||
-      !Buffer.from(
-        `${encodeCoordinatorStateValue(after.value.snapshot)}\n`,
-      ).equals(expected) ||
+      !Buffer.from(`${encodeRuntimeStateValue(after.value.snapshot)}\n`).equals(
+        expected,
+      ) ||
       !assertCurrentRecoveryOwner(capability, record)
     )
       return false;
@@ -4670,7 +4668,7 @@ export function prepareRuntimeOwnedDockerHostCleanup(
   if (!repository || current.status !== "completed" || !current.value)
     return null;
   const before = Buffer.from(
-    `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+    `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
   );
   const candidate = prepareCoordinatorStateHostSnapshot(
     before,
@@ -4975,7 +4973,7 @@ export function prepareRuntimeOwnedDockerRestart(
     const current = readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
     observationCleanupConfirmed &&= current.lockReleased;
     const before = Buffer.from(
-      `${encodeCoordinatorStateValue(initial.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(initial.value.snapshot)}\n`,
     );
     if (
       !locks.every((lock) => lock.assertLive()) ||
@@ -4984,7 +4982,7 @@ export function prepareRuntimeOwnedDockerRestart(
       !current.value ||
       !current.lockReleased ||
       !Buffer.from(
-        `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
       ).equals(before)
     )
       throw new Error("docker_restart_boundary_changed");
@@ -5105,7 +5103,7 @@ export function verifyRuntimeOwnedDockerRestartPreparation(
       !!current.value &&
       current.lockReleased &&
       Buffer.from(
-        `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+        `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
       ).equals(record.before)
     );
   } catch {
@@ -5177,12 +5175,12 @@ export function persistRuntimeOwnedDockerRestartCheckpoint(
     );
     if (
       !operation ||
-      encodeCoordinatorStateValue(operation.dockerRestart) !==
-        encodeCoordinatorStateValue(checkpoint)
+      encodeRuntimeStateValue(operation.dockerRestart) !==
+        encodeRuntimeStateValue(checkpoint)
     )
       return false;
     record.before = Buffer.from(
-      `${encodeCoordinatorStateValue(observed.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(observed.value.snapshot)}\n`,
     );
     record.checkpoint = operation.dockerRestart;
     record.persistenceFailed = false;
@@ -5937,7 +5935,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           !currentOwner() ||
           signal.aborted ||
           !Buffer.from(
-            `${encodeCoordinatorStateValue(read.value.snapshot)}\n`,
+            `${encodeRuntimeStateValue(read.value.snapshot)}\n`,
           ).equals(expectedBytes)
         )
           return false;
@@ -5951,9 +5949,9 @@ export async function repairRuntimeOwnedDockerRuntime(
           matches[0]?.identityJson === identityJson &&
           matches[0].disposition === "discard" &&
           matches[0].disposal?.decidedAt === decidedAt &&
-          encodeCoordinatorStateValue(
+          encodeRuntimeStateValue(
             matches[0].disposal.checkpoint.directories[purpose],
-          ) === encodeCoordinatorStateValue(item)
+          ) === encodeRuntimeStateValue(item)
         );
       };
       if (!canDispose()) return false;
@@ -6056,7 +6054,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         )
           break;
         const canonical = Buffer.from(
-          `${encodeCoordinatorStateValue(read.value.snapshot)}\n`,
+          `${encodeRuntimeStateValue(read.value.snapshot)}\n`,
         );
         if (
           !prepareCoordinatorRepairHistorySummary(
@@ -6387,9 +6385,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         !currentOwner()
       )
         return stopped();
-      bytes = Buffer.from(
-        `${encodeCoordinatorStateValue(read.value.snapshot)}\n`,
-      );
+      bytes = Buffer.from(`${encodeRuntimeStateValue(read.value.snapshot)}\n`);
       const repairs = read.value.snapshot.operations.filter(
         (item): item is CoordinatorStateRepairOperation =>
           item.kind === "runtime_repair",
@@ -6655,8 +6651,8 @@ export async function repairRuntimeOwnedDockerRuntime(
             : null;
           if (
             !preparedTarget ||
-            encodeCoordinatorStateValue(preparedTarget.checkpoint) !==
-              encodeCoordinatorStateValue(value.checkpoint) ||
+            encodeRuntimeStateValue(preparedTarget.checkpoint) !==
+              encodeRuntimeStateValue(value.checkpoint) ||
             !save(candidate, "session_begin")
           )
             return false;

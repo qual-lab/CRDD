@@ -13,7 +13,9 @@
  * @scope coordinator、task、runtime
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -24,7 +26,7 @@ import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "../../src/execution/diagnostics.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/result.ts";
+
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -1900,7 +1902,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
               reason: "provider_result_invalid",
               obligations: ["docker_resources"],
             });
-          bytes = Buffer.from(`${encodeCoordinatorStateValue(mutated)}\n`);
+          bytes = Buffer.from(`${encodeRuntimeStateValue(mutated)}\n`);
           assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
         }
         const next = prepareCoordinatorStateOperationSnapshot(
@@ -1963,7 +1965,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           resources,
         };
         bytes = Buffer.from(
-          `${encodeCoordinatorStateValue({ ...snapshot, operations: snapshot.operations.map((item) => (item.recoveryId === operation.recoveryId ? settled : item)) })}\n`,
+          `${encodeRuntimeStateValue({ ...snapshot, operations: snapshot.operations.map((item) => (item.recoveryId === operation.recoveryId ? settled : item)) })}\n`,
         );
         assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
         return true;

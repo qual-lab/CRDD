@@ -4,13 +4,18 @@
  * @trace ARCH-000010
  * @trace ARCH-000015
  */
-import type { AiProvider, AiReasoningEffort } from "./types.ts";
+
+import type {
+  AiProvider,
+  AiReasoningEffort,
+  AiModelSelection,
+} from "../../../domain-model/src/index.ts";
 import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../../../domain-model/src/index.ts";
 import { types as utilTypes } from "node:util";
-import type { AiModelSelection } from "../catalog/types.ts";
+
 import { resolveAiModelSelection } from "../catalog/resolve.ts";
 import {
   planCodexAdviceCommand,

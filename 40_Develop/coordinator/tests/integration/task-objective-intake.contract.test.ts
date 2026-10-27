@@ -9,9 +9,11 @@
  * @scope project、runtime、objective、intake
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -307,7 +309,7 @@ async function abandonProjectOperationAcquisition(
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function request(overrides: Record<string, unknown> = {}) {
-  return {
+  return withCallerPlan({
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -322,7 +324,7 @@ function request(overrides: Record<string, unknown> = {}) {
     adoptResult: false,
     intakeEpoch: fixtureIntakeEpoch,
     ...overrides,
-  };
+  });
 }
 /**
  * completedのTest準備責務を実行する。
@@ -882,7 +884,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       else envelope.queueEntries[0].projectId = "project-unbound";
       fs.writeFileSync(
         record,
-        `${encodeCoordinatorStateValue(envelope)}\n`,
+        `${encodeRuntimeStateValue(envelope)}\n`,
         "utf8",
       );
     }

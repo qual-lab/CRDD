@@ -8,7 +8,8 @@
  * @scope project、runtime、decision、recovery、store
  * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -21,7 +22,7 @@ import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { createCoordinatorSnapshotDecisionRecoveryStore } from "../../src/decision/lifecycle.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import type { CoordinatorDecisionRecoveryIntent } from "../../src/decision/records.ts";
+import type { CoordinatorDecisionRecoveryIntent } from "../../../domain-model/src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
@@ -224,7 +225,7 @@ test("未知の判断回復欄は現在状態を置換せず停止する", (t) =
   const file = path.join(root, ".crdd", "coordinator", "state.json");
   const saved = JSON.parse(fs.readFileSync(file, "utf8"));
   saved.decisionRecoveries[0].value.unexpected = true;
-  fs.writeFileSync(file, `${encodeCoordinatorStateValue(saved)}\n`);
+  fs.writeFileSync(file, `${encodeRuntimeStateValue(saved)}\n`);
   const before = fs.readFileSync(file);
   const observed = createCoordinatorSnapshotDecisionRecoveryStore(
     root,

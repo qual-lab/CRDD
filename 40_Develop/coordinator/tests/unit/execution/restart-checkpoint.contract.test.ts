@@ -7,6 +7,11 @@
  * @scope 再起動現在値の純粋なHash・復号・遷移。
  * @boundary N/A: メモリ内だけ。実処置・Writer・排他を実行しない。
  */
+import {
+  createDockerRestartRequestId,
+  decodeDockerRestartCheckpoint,
+  isDockerRestartCheckpointSettled,
+} from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -14,12 +19,7 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
-import {
-  createDockerRestartRequestId,
-  decodeDockerRestartCheckpoint,
-  isDockerRestartCheckpointSettled,
-  validateDockerRestartCheckpointTransition,
-} from "../../../src/execution/result.ts";
+import { validateDockerRestartCheckpointTransition } from "../../../src/execution/result.ts";
 
 const repositoryBinding = "a".repeat(64);
 const identitySha256 = "b".repeat(64);

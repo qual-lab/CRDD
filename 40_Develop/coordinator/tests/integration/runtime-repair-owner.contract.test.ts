@@ -8,6 +8,7 @@
  * @scope 自己生成Repository。実Docker・Provider・認証要求0。
  * @boundary 修復呼出し→実Writer、実DI Runtime／Machine。
  */
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -23,7 +24,7 @@ import * as stateValues from "../../src/state/validation.ts";
 import * as executionValues from "../../src/execution/validation.ts";
 import * as executionResults from "../../src/execution/result.ts";
 import * as stateSettlement from "../../src/state/settlement.ts";
-import * as taskValues from "../../src/task/validation.ts";
+import * as taskValues from "../../../domain-model/src/index.ts";
 import * as taskAcceptance from "../../src/task/acceptance.ts";
 import * as stateTransitions from "../../src/state/transition.ts";
 import * as stateResults from "../../src/state/result.ts";
@@ -705,7 +706,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
   assert.ok(snapshot);
   fs.writeFileSync(
     stateFile,
-    `${stateValues.encodeCoordinatorStateValue({ ...snapshot.snapshot, operations: [] })}\n`,
+    `${encodeRuntimeStateValue({ ...snapshot.snapshot, operations: [] })}\n`,
   );
   fs.writeFileSync(historyFile, historyBytes);
   const refused =
@@ -764,6 +765,10 @@ function stateStoreSource(
     ...storageOwners,
     ...observationValues,
     ...historyValues,
+    exactRecordKeys: domain.hasRuntimeStateRecordKeys,
+    digest: domain.hashRuntimeStateValueText,
+    plainObject: domain.isRuntimeStateObject,
+    exactKeys: domain.hasRuntimeStateKeys,
     dockerRuntimeRepairDisposalIsSettled:
       isolation.dockerRuntimeRepairDisposalIsSettled,
     ...bindings,
@@ -870,9 +875,7 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
       cleanupConfirmed: true,
     },
   };
-  const waiting = Buffer.from(
-    `${stateValues.encodeCoordinatorStateValue(raw)}\n`,
-  );
+  const waiting = Buffer.from(`${encodeRuntimeStateValue(raw)}\n`);
   assert.ok(model.decodeCoordinatorStateSnapshot(waiting, binding));
   const id = raw.operations[0].recoveryId as string;
   const bytes = model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
@@ -1085,7 +1088,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       );
       assert.ok(decodedCandidate);
       const changed = Buffer.from(
-        `${stateValues.encodeCoordinatorStateValue({
+        `${encodeRuntimeStateValue({
           ...decodedCandidate.snapshot,
           operations: decodedCandidate.snapshot.operations.map((item) =>
             item.kind !== "runtime_repair" || item.recoveryId !== id
@@ -1279,10 +1282,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         else if (fault === "bad_deadline")
           changed.summary.retention.reviewAfter = "2026-10-24T00:00:00.001Z";
         else changed.summary.retention.targets.primary.ino += "1";
-        fs.writeFileSync(
-          historyFile,
-          `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
-        );
+        fs.writeFileSync(historyFile, `${encodeRuntimeStateValue(changed)}\n`);
         const refused =
           stateStore.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
             f.capability,
@@ -1314,7 +1314,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const legacyRow = JSON.parse(history.toString());
       delete legacyRow.summary.retention;
       const legacyHistory = Buffer.from(
-        `${stateValues.encodeCoordinatorStateValue(legacyRow)}\n`,
+        `${encodeRuntimeStateValue(legacyRow)}\n`,
       );
       assert.equal(
         historyValues.decodeCoordinatorHistoryRows(legacyHistory)?.length,
@@ -1718,9 +1718,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   const otherRow = JSON.parse(history.toString("utf8"));
   otherRow.summary.operationNonce = "9".repeat(64);
   otherRow.summary.recoveryId = `docker-runtime-repair.${otherRow.summary.operationNonce}.${otherRow.summary.identitySha256}`;
-  const otherHistory = Buffer.from(
-    `${stateValues.encodeCoordinatorStateValue(otherRow)}\n`,
-  );
+  const otherHistory = Buffer.from(`${encodeRuntimeStateValue(otherRow)}\n`);
   assert.equal(
     historyValues.decodeCoordinatorHistoryRows(otherHistory)?.length,
     1,
@@ -2202,7 +2200,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
       assert.equal(completion.retentionReviewAfter, savedReceipt.reviewAfter);
       const rawRetained =
         model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-          Buffer.from(`${stateValues.encodeCoordinatorStateValue(before)}\n`),
+          Buffer.from(`${encodeRuntimeStateValue(before)}\n`),
           first.recoveryId,
           {
             decidedAt: savedReceipt.decidedAt,
@@ -2878,7 +2876,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
           },
         };
         before = Buffer.from(
-          `${stateValues.encodeCoordinatorStateValue({ ...saved, operations: [other] })}\n`,
+          `${encodeRuntimeStateValue({ ...saved, operations: [other] })}\n`,
         );
         assert.ok(model.decodeCoordinatorStateSnapshot(before, binding));
         fs.writeFileSync(stateFile, before);
@@ -2916,7 +2914,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         { flag: "wx" },
       );
       const historyBytes = Buffer.from(
-        `${stateValues.encodeCoordinatorStateValue({
+        `${encodeRuntimeStateValue({
           schema: "crdd-coordinator/history-row/v2",
           occurredAt: "2026-10-16T00:00:00.000Z",
           summary: {
@@ -3129,7 +3127,7 @@ test("Host Windows: 修復履歴は通常Writerの外側と排他内で拒否す
         const writer = stateStoreSource((source) => {
           if (!bypassOuter) return source;
           const guard =
-            /target\.summarySha256 !== \(previousTarget\?\.summarySha256 \?\? null\) \|\|\s*encodeCoordinatorStateValue\(target\.history\) !==\s*encodeCoordinatorStateValue\(previousTarget\?\.history \?\? null\) \|\|/u;
+            /target\.summarySha256 !== \(previousTarget\?\.summarySha256 \?\? null\) \|\|\s*encodeRuntimeStateValue\(target\.history\) !==\s*encodeRuntimeStateValue\(previousTarget\?\.history \?\? null\) \|\|/u;
           assert.equal(source.match(guard)?.length, 1);
           return source.replace(guard, "");
         }).write;
@@ -3316,9 +3314,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         row.summary.identitySha256 = "e".repeat(64);
         row.summary.operationId = "OP-999997";
         row.summary.recoveryId = `docker-runtime-repair.${row.summary.operationNonce}.${row.summary.identitySha256}`;
-        const bytes = Buffer.from(
-          `${stateValues.encodeCoordinatorStateValue(row)}\n`,
-        );
+        const bytes = Buffer.from(`${encodeRuntimeStateValue(row)}\n`);
         assert.equal(
           historyValues.decodeCoordinatorHistoryRows(bytes)?.length,
           1,
@@ -3892,9 +3888,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         },
       ],
     };
-    const mixedBytes = Buffer.from(
-      `${stateValues.encodeCoordinatorStateValue(mixed)}\n`,
-    );
+    const mixedBytes = Buffer.from(`${encodeRuntimeStateValue(mixed)}\n`);
     assert.ok(
       model.decodeCoordinatorStateSnapshot(
         mixedBytes,

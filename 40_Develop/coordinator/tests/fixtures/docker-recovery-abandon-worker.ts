@@ -8,6 +8,12 @@
  * @scope 実Root・Host・Home排他・Writer。通常Host試験はHome観測と固定切断hookを模擬する。auth_create_failureはDocker代役と通常例外を確認し、明示したauth_create_unknownだけは専用承認Rootで固定Imageの停止Containerを一件作成する。
  * @boundary 旧Owner Processの終了後の現在回復。専用モードの同期CLI終了は子孫tree／daemon queue終端の証明ではない。
  */
+import { COORDINATOR_STATE_SCHEMA } from "../../../domain-model/src/index.ts";
+import type {
+  CoordinatorStateOperation,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { executionSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
@@ -18,10 +24,6 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
-import type {
-  CoordinatorStateOperation,
-  CoordinatorStateTaskOperation,
-} from "../../src/execution/types.ts";
 
 const mode = process.argv[2];
 assert.ok(
@@ -125,7 +127,6 @@ if (mode !== "recovery") {
   const repository = await import("../../src/execution/operation.ts");
   const store = await import("../../src/storage/state.ts");
   const model = await import("../../src/storage/state.ts");
-  const stateValues = await import("../../src/state/validation.ts");
   const homes = await import("../../src/execution/authority.ts");
   const locks = await import("../../src/execution/kernel-lock.ts");
   const area = domain.requireReadyRepositoryRuntimeDataArea(
@@ -150,8 +151,8 @@ if (mode !== "recovery") {
     repository.borrowRuntimeOwnedCoordinatorStateRepository(other);
   assert.ok(binding && otherBinding);
   const initial = Buffer.from(
-    `${stateValues.encodeCoordinatorStateValue({
-      schema: model.COORDINATOR_STATE_SCHEMA,
+    `${encodeRuntimeStateValue({
+      schema: COORDINATOR_STATE_SCHEMA,
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -546,7 +547,7 @@ if (mode !== "recovery") {
             absence: null,
           });
           authExpectedBytes = Buffer.from(
-            `${stateValues.encodeCoordinatorStateValue(savedIntent.value.snapshot)}\n`,
+            `${encodeRuntimeStateValue(savedIntent.value.snapshot)}\n`,
           );
           const hostPaths =
             host.borrowOwnedHostRecoverySnapshot(management).hostPaths;
@@ -733,7 +734,7 @@ if (mode !== "recovery") {
           assert.ok(savedUnknown.value);
           assert.deepEqual(
             Buffer.from(
-              `${stateValues.encodeCoordinatorStateValue(savedUnknown.value.snapshot)}\n`,
+              `${encodeRuntimeStateValue(savedUnknown.value.snapshot)}\n`,
             ),
             expectedUnknown,
           );
@@ -1643,7 +1644,6 @@ if (mode !== "recovery") {
           );
     if (admissionVerification === "verify_admission") {
       const model = await import("../../src/storage/state.ts");
-      const stateValues = await import("../../src/state/validation.ts");
       const baselineBytes = fs.readFileSync(statePath);
       const baselineFiles = captureCoordinatorFiles();
       const pendingPath = path.join(
@@ -1703,9 +1703,7 @@ if (mode !== "recovery") {
             assert.ok(candidate);
             const changed = JSON.parse(candidate.toString());
             changed.previous.payloadSha256 = "0".repeat(64);
-            const bytes = Buffer.from(
-              `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
-            );
+            const bytes = Buffer.from(`${encodeRuntimeStateValue(changed)}\n`);
             assert.ok(
               model.decodeCoordinatorStateSnapshot(
                 bytes,
@@ -1722,9 +1720,7 @@ if (mode !== "recovery") {
               before.repositoryBinding === "0".repeat(64)
                 ? "1".repeat(64)
                 : "0".repeat(64);
-            const bytes = Buffer.from(
-              `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
-            );
+            const bytes = Buffer.from(`${encodeRuntimeStateValue(changed)}\n`);
             assert.equal(
               model.decodeCoordinatorStateSnapshot(
                 bytes,

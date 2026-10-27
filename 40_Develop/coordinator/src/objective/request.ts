@@ -4,13 +4,20 @@
  * @responsibility CoordinatorObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../state/validation.ts";
-import { normalizeRepositoryRelativePath } from "../state/validation.ts";
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import {
+  normalizeRepositoryRelativePath,
+  inspectExecutionPlan,
+  inspectCallerTaskInputs,
+  type CoordinatorObjectivePlan,
+  type CallerTaskInput,
+} from "../../../domain-model/src/index.ts";
 import { inspectAiSelectionChoice } from "../selection/validation.ts";
-import type { AiSelectionChoice } from "../selection/types.ts";
+import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
 
 /**
  * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
@@ -30,6 +37,8 @@ export type CoordinatorObjectiveRequest = Readonly<{
   milestoneId: string;
   repositoryRevision: string;
   objective: string;
+  plan: CoordinatorObjectivePlan;
+  taskInputs: readonly CallerTaskInput[];
   acceptanceCriteria: readonly string[];
   allowedPaths: readonly string[];
   readPaths: readonly string[];
@@ -153,6 +162,8 @@ function inspectStrings(
 }
 
 const REQUIRED_REQUEST_KEYS = Object.freeze([
+  "plan",
+  "taskInputs",
   "intakeEpoch",
   "requestId",
   "projectId",
@@ -272,7 +283,22 @@ export function inspectCoordinatorObjectiveRequest(
         !validId(replacement.replacementRequestId)))
   )
     return null;
+  const plan = inspectExecutionPlan(request.plan, { allowedPaths });
+  if (
+    !plan ||
+    JSON.stringify(plan.milestoneAcceptanceCriteria) !==
+      JSON.stringify(acceptanceCriteria)
+  )
+    return null;
+  const taskInputs = inspectCallerTaskInputs(
+    plan,
+    request.taskInputs,
+    readPaths,
+  );
+  if (!taskInputs) return null;
   return Object.freeze({
+    plan,
+    taskInputs,
     intakeEpoch: request.intakeEpoch,
     requestId: request.requestId,
     projectId: request.projectId,

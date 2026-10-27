@@ -18,6 +18,10 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { readExecutionCancellation } from "../../src/execution/authority.ts";
 import * as coordinator from "../../src/index.ts";
+import {
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "../../../domain-model/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -401,7 +405,7 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
  * @precondition 統合後の単一公開Moduleを読込み済みである。
  * @stimulus 公開値とPackage exportsを列挙する。
  * @observation Export名、関数型と業務入口の解決先を取得する。
- * @oracle 宣言済み39実行値とexact一致し、内部Factory・Writerと旧Package入口が存在しない。
+ * @oracle 宣言済み37実行値とexact一致し、設定保存はDomainだけが公開する。
  * @cleanup N/A: Sourceを読み取るだけで実行、書込みや資源取得を発行しない。
  * @boundary PRL-IT-012=Direct Boundary: 公開ModuleとPackage設定。
  */
@@ -436,7 +440,6 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "parseRuntimeActivityObservation",
     "queryActivity",
     "queryState",
-    "readRepositoryAiSelection",
     "readRepositoryNetworkPolicies",
     "recoverExecution",
     "repairDockerRuntime",
@@ -444,9 +447,12 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "retainRepair",
     "runObjective",
     "runTask",
-    "saveRepositoryAiSelection",
     "submitDecision",
   ]);
+  assert.equal(Object.hasOwn(coordinator, "readRepositoryAiSelection"), false);
+  assert.equal(Object.hasOwn(coordinator, "saveRepositoryAiSelection"), false);
+  assert.equal(typeof readRepositoryAiSelection, "function");
+  assert.equal(typeof saveRepositoryAiSelection, "function");
   for (const value of [
     coordinator.runObjective,
     coordinator.submitDecision,

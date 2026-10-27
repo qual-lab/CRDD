@@ -4,6 +4,7 @@
  * @responsibility stableDirectoryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -19,7 +20,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { readRepositoryAiSelection } from "../src/index.ts";
+import { readRepositoryAiSelection } from "../../domain-model/src/index.ts";
 import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
@@ -72,7 +73,10 @@ function readVerificationAiSelectionIdentity(root: string): string | null {
   try {
     const verified = verifyRepositoryRoot(root);
     if (verified.status !== "completed") return null;
-    const read = readRepositoryAiSelection(verified.capability);
+    const read = readRepositoryAiSelection(
+      verified.capability,
+      getAiModelCatalog().catalog,
+    );
     if (read.status !== "available") return null;
     for (const provider of ["codex", "claude"] as const) {
       const selected = resolveTaskExecutionSelections(read.snapshot.config, {
@@ -493,9 +497,35 @@ async function main() {
     maximumReplans: 0,
     originLane: "interactive",
   });
+  const plan = Object.freeze({
+    milestoneAcceptanceCriteria: commonFields.acceptanceCriteria,
+    objectives: [
+      {
+        id: "objective-verification",
+        acceptanceCriteria: commonFields.acceptanceCriteria,
+      },
+    ],
+    tasks: [
+      {
+        id: "task-verification",
+        objectiveId: "objective-verification",
+        dependencies: [],
+        allowedPaths: commonFields.allowedPaths,
+        conflictKeys: commonFields.allowedPaths,
+      },
+    ],
+  });
+  const taskInputs = [
+    {
+      taskId: "task-verification",
+      objective: commonFields.objective,
+      acceptanceCriteria: commonFields.acceptanceCriteria,
+      readPaths: commonFields.readPaths,
+    },
+  ];
   const objectives = Object.freeze([
-    objective(commonFields, runId, "codex", false),
-    objective(commonFields, runId, "claude", true),
+    objective({ ...commonFields, plan, taskInputs }, runId, "codex", false),
+    objective({ ...commonFields, plan, taskInputs }, runId, "claude", true),
   ]);
 
   const normalRuns = [];

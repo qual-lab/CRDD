@@ -8,6 +8,11 @@
  * @scope 単発Taskの保存と実排他。Provider／Dockerは使わない。
  * @boundary 実Git、Filesystem、既存Native排他。
  */
+import {
+  inspectSingleTaskRecord,
+  type SingleTaskRecord,
+  type ProjectQueueEntry,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
@@ -30,9 +35,7 @@ import {
 } from "../../src/task/queue.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
-import { inspectSingleTaskRecord } from "../../src/task/validation.ts";
-import type { SingleTaskRecord } from "../../src/task/types.ts";
-import type { ProjectQueueEntry } from "../../src/task/types.ts";
+
 import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 
 /**

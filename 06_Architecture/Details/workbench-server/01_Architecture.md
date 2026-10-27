@@ -1,5 +1,9 @@
 # CROS Workbench詳細設計
 
+## Core API接続の目標 — 2026-10-27
+
+[Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へServerが直接接続する。Coreの設定・定義・状態表示にCoordinator・MCP・Provider認証を要求せず、現在認可と対象改訂をServerで再確認する。BrowserへRoot能力・生Controller・Host Pathを渡さない。既存助言・Workspace編集は無断撤去せず、任意実行の構成へ分離する。Core独立の本番接続・Browser検証は未実施。
+
 ## 検証HTTP子Processの失敗診断
 
 検証HTTP子への入力はstdinのEOF待ちを使わず、Node標準IPCで一つのJSON文字列だけを送る。子は一件受領後にIPCを切断してから検査・HTTPへ進み、型不正・parse拒否・HTTP失敗でも通信路を残さない。親の256KiB事前検査と子のUTF-8容量再検査、曖昧JSON・閉じたshape・loopback／固定route検査は維持する。親のstdioはstdin ignore・stdout/stderr pipe・ipcを明示し、send例外／callback失敗／channel欠測・送信前切断は既存pipe故障へ接続する。send falseはbackpressureとして再送せず既存監視で待つ。送信後のdisconnect自体を入力受理又はHTTP成功の証明にせず、従来のframeと実closeを共同確認する。Token／Formはargv・env・File・logへ移さず、追加のRuntime子・Worker・Queueを作らない。未到達・子早期終了・取消も既存の有限監視と元子一回の終了要求で扱う。

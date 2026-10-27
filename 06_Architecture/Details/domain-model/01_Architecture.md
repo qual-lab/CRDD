@@ -1,5 +1,11 @@
 # Domain Modelの責務境界
 
+## Runtime Domainの設計正本 — 2026-10-27
+
+移管するPlan／Objective／MilestoneはCallerが渡す実行依頼の値であり、CRDD文書側のMilestone／Roadmap／WBSの別正本ではない。[文書・Caller・実行の境界](05_Runtime_Domain.md#document-and-execution-ownership)を適用し、文書への自動同期や上位計画の再作成をDomain機能として増やさない。
+
+[Runtime DomainのAPI・単一保存契約](05_Runtime_Domain.md)が、Plan／Objective／Milestone／Task・判断・論理Workspace・Queue／Attempt値・AI設定と共通保存を具体化する。Domainは局所CRUDを所有するが、Scheduling・Authority発行・Provider／Docker／Git実行・資源不存在判断を引き取らない。本書以下のRuntime状態非所有の記述は技術実行の意味Ownerに関する旧断面であり、新しい業務状態・共通保存の移管対象を除外しない。Source・公開API・保存切替は未実装。
+
 ### Repository追加通信設定の読取り — 2026-10-21
 
 `configuration/network-policy.ts`は`version:1`と`allowedHosts`の値契約、既定npm／PyPI三Host、重複Keyを拒否するJSON解析を所有する。最大32要素、各253文字、Fileは16KiB以内とする。Hostnameの技術的可否・Provider固定集合・通信許可は所有しない。
@@ -242,6 +248,7 @@ Topic／Meeting一覧の純粋入力検査は公開`validateTopicMeetingListInpu
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | [Runtime Domain](05_Runtime_Domain.md)がCoreの定義・局所CRUD・共通保存と、管理実行からの独立を具体化する。技術実行のAuthority・資源判定は所有しない。 | Partial |
 | [ARCH-000001](../../Definitions/ARCH-000001/architecture_definition.md) | Artifact解析、Relation構築等の共通能力と、Checker固有の判定・結果表現を分ける。 | Covered |
 | [ARCH-000002](../../Definitions/ARCH-000002/architecture_definition.md) | Consumer Closureを含む共通Relation能力を、Checker以外の利用側も同じ意味で利用できる境界にする。 | Covered |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Reality TraceabilityをChecker Ruleから分離し、実装・試験Symbolの中立な観測能力として公開する。 | Covered |

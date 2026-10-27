@@ -11,8 +11,8 @@ import {
   readCommittedJson,
   writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
-import type { CoordinatorDecisionRecord } from "../decision/records.ts";
-import { isCoordinatorDecisionRecord } from "../decision/records.ts";
+import type { CoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
+import { isCoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
 import type { CoordinatorDecisionStore } from "../decision/types.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,

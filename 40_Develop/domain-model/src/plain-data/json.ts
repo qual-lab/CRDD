@@ -1,5 +1,5 @@
 /**
- * Provider出力の曖昧でないJSON構文解析を所有する。
+ * 曖昧でないJSON構文解析を所有する。
  *
  * @responsibility 重複key・不正文法・末尾データを拒否し、ProviderのEnvelope判定と分離する。
  * @trace ARCH-000015

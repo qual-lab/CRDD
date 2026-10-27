@@ -4,12 +4,15 @@
  * @responsibility 元のRuntimeと状態実体を保ち、隔離実行と結果受領のLifecycleを収束させる。
  * @trace ARCH-000008
  */
-import type { ExecutionSelection } from "../selection/types.ts";
+
 import {
+  type ExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
-  hashExecutionSelection,
-} from "../selection/validation.ts";
+  type CoordinatorStateTaskOperation,
+  parseHostRecoveryToken,
+} from "../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../selection/validation.ts";
 
 import {
   readRuntimeOwnedCoordinatorStateSnapshot,
@@ -44,8 +47,7 @@ import {
   projectBorrowedExecutionResult,
   borrowOwnedDockerExecutionPaths,
 } from "./operation.ts";
-import type { CoordinatorStateTaskOperation } from "./types.ts";
-import { parseHostRecoveryToken } from "./result.ts";
+
 import {
   type CoordinatorTaskRecoveryObligation,
   bindRuntimeOwnedDockerInitializationFailure,

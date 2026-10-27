@@ -21,15 +21,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.execution.types",
-      "kind": "file",
-      "path": "src/execution/types.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.execution.validation",
       "kind": "file",
       "path": "src/execution/validation.ts",
@@ -90,37 +81,6 @@
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.storage.ai-selection",
-      "kind": "file",
-      "path": "src/storage/ai-selection.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.ai-selection-store",
-      "kind": "test-suite",
-      "path": "tests/integration/ai-selection-store.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-IT-005"
-      ],
-      "verifies": [
-        "coordinator.storage.ai-selection",
-        "coordinator.selection.resolve"
-      ]
-    },
-    {
-      "symbolId": "coordinator.selection.types",
-      "kind": "file",
-      "path": "src/selection/types.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {
@@ -2044,20 +2004,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.state-storage.snapshot-reentry",
-      "kind": "test-suite",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "path": "tests/unit/storage/model-reentry.contract.test.ts",
-      "verifies": [
-        "coordinator.state-storage.coordinator-state-model"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.doctor",
       "kind": "test-suite",
       "path": "tests/unit/execution/diagnostics.contract.test.ts",
@@ -3914,22 +3860,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.decision.acceptance-decision-record",
-      "kind": "file",
-      "path": "src/decision/records.ts",
-      "archIds": [
-        "ARCH-000005"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.decision.decision-recovery-record",
-      "kind": "file",
-      "path": "src/decision/records.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.orchestrator.task.recovery.adapter",
       "kind": "file",
       "path": "src/task/dispatch.ts",
@@ -4338,14 +4268,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.source.src.ports.decision.port",
-      "kind": "file",
-      "path": "src/decision/records.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "orchestrator.source.src.ports.acceptance.decision.port",
       "kind": "file",
       "path": "src/decision/types.ts",
@@ -4418,14 +4340,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.task.single-task-record",
-      "kind": "file",
-      "path": "src/task/validation.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "orchestrator.task.requests",
       "kind": "file",
       "path": "src/task/requests.ts",
@@ -4447,8 +4361,14 @@
       "symbolId": "coordinator.test.advice-recovery-handoff",
       "kind": "test-suite",
       "path": "tests/integration/advice-recovery-handoff.integration.test.ts",
-      "qaIds": ["QA-000005", "QA-000006"],
-      "localTestIds": ["CPR-IT-004", "PRL-IT-013"],
+      "qaIds": [
+        "QA-000005",
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "CPR-IT-004",
+        "PRL-IT-013"
+      ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.production.runtime",
         "orchestrator.task.requests",

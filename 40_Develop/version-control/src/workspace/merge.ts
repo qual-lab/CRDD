@@ -4,6 +4,11 @@
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
+import {
+  isWorkspaceCommitId,
+  type WorkspaceCandidateRequest,
+  type WorkspaceCandidateResult,
+} from "../../../domain-model/src/index.ts";
 import fs from "node:fs";
 import path from "node:path";
 import type { VerifiedRepositoryRoot } from "../repository/location.ts";
@@ -12,9 +17,6 @@ import {
   operateCandidate,
   verifyCandidate,
   temporaryIdentity,
-  oid,
-  type WorkspaceCandidateRequest,
-  type WorkspaceCandidateResult,
 } from "./candidate.ts";
 
 /**
@@ -43,8 +45,8 @@ export function mergeWorkspaceCandidate(
 ): WorkspaceCandidateResult {
   return operateCandidate(capability, request, (ctx, result) => {
     if (
-      !oid.test(target.candidateCommit) ||
-      !oid.test(target.expectedTargetHead) ||
+      !isWorkspaceCommitId(target.candidateCommit) ||
+      !isWorkspaceCommitId(target.expectedTargetHead) ||
       target.candidateCommit.length !== request.baseCommit.length ||
       target.expectedTargetHead.length !== request.baseCommit.length ||
       !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(target.targetBranch)
@@ -92,7 +94,7 @@ export function mergeWorkspaceCandidate(
         target.candidateCommit,
       ]);
       if (preview.status === 1) throw new Error("candidate_conflict");
-      if (preview.status !== 0 || !oid.test(preview.stdout.trim()))
+      if (preview.status !== 0 || !isWorkspaceCommitId(preview.stdout.trim()))
         throw new Error("candidate_preview_unavailable");
       return preview.stdout.trim();
     };
@@ -111,7 +113,7 @@ export function mergeWorkspaceCandidate(
     )
       throw new Error("candidate_target_mismatch");
     const head = run(["rev-parse", "--verify", "HEAD"]);
-    if (head.status !== 0 || !oid.test(head.stdout.trim()))
+    if (head.status !== 0 || !isWorkspaceCommitId(head.stdout.trim()))
       throw new Error("candidate_target_unavailable");
     const current = head.stdout.trim();
     const parents = run(["rev-list", "--parents", "-n", "1", current]);
@@ -226,7 +228,7 @@ export function mergeWorkspaceCandidate(
     const tree = run(["rev-parse", `${observed}^{tree}`]);
     if (
       after.status !== 0 ||
-      !oid.test(observed) ||
+      !isWorkspaceCommitId(observed) ||
       afterParents.status !== 0 ||
       afterParents.stdout.trim() !==
         `${observed} ${current} ${target.candidateCommit}` ||

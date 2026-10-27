@@ -1,5 +1,9 @@
 # 配置／実行モデル
 
+## Core独立の配置条件 — 2026-10-27
+
+[Runtime Domain契約](Details/domain-model/05_Runtime_Domain.md)のCore構成は、Coordinator／Executorが読込み不能でもMCP／Workbenchから定義CRUD・保存・再読が成立することを要求する。ExecutorはLibraryで、別ServerやWorkerを新設しない。保存先domain-modelへの切替は未有効で、実Owner・旧新状態・履歴／pendingを確認する別Gateとする。既存保持物の調査・移動・削除をこの設計から許可しない。
+
 [Workspaceの配置契約](Details/coordinator/05_Workspace.md#4-配置とroot解決)によりTool Runtimeと製品Repositoryを分離する。単体起動は共有資格初期化を必須にせず、共有配置では各操作を現在認可する。WorkbenchとMCPは独立Processで同じPackage APIを使い、共通Memory QueueやMCP常時起動を仮定しない。製品固有状態は対象Repositoryへ保持。linked worktreeからも所属Repositoryを検証し、Tool Runtimeやnested worktree配下へ暗黙保存しない。Multi-host共有排他は対象外。
 
 Status: Candidate (v0.22 responsibility reorganization)

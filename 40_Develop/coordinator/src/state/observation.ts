@@ -5,6 +5,10 @@
  * @trace ARCH-000004
  */
 
+import {
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+} from "../../../domain-model/src/index.ts";
 import type {
   RuntimeActivityRequest,
   ActivityRepository,
@@ -13,11 +17,7 @@ import type {
   ActivitySource,
 } from "./types.ts";
 import { types as utilTypes } from "node:util";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-  deriveCoordinatorRepositoryBindingId,
-} from "./validation.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 import {
   type TaskAttemptExecutionIntelligenceEvent,
   verifyExecutionIntelligenceRepositoryRoot,

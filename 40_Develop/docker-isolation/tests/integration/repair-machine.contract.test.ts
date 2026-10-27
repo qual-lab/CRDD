@@ -7,6 +7,11 @@
  * @scope 内部Machineと模擬技術境界。実Docker・Native・Provider要求0。
  * @boundary ERB-IT-014=Direct Boundary: 修復Machine→保存通知／技術Adapter。
  */
+import {
+  decodeDockerRuntimeRepairCheckpoint as decode,
+  dockerRuntimeRepairCheckpointIsSettled,
+  type DockerRuntimeRepairCheckpoint as Checkpoint,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -14,12 +19,7 @@ import { runInThisContext } from "node:vm";
 import { types } from "node:util";
 import test from "node:test";
 import { runDockerRuntimeRepairMachine as run } from "../../src/docker-desktop/repair.ts";
-import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
-  validateDockerRuntimeRepairCheckpointTransition as transition,
-  dockerRuntimeRepairCheckpointIsSettled,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
-} from "../../src/docker-desktop/repair-state.ts";
+import { validateDockerRuntimeRepairCheckpointTransition as transition } from "../../src/docker-desktop/repair-state.ts";
 
 const names = [
   "stop_runtime",

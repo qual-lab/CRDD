@@ -4,14 +4,18 @@
  * @trace ARCH-000008
  * @security 保存済み値から実行・回復Authorityを復元しない。
  */
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
+
+import {
+  coordinatorConsumerCompletionPolicy,
+  type CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { borrowRuntimeOwnedDockerTerminalObservations } from "./observation.ts";
 import {
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   captureOwnedOperationCleanupVerification,
 } from "./operation.ts";
-import { coordinatorConsumerCompletionPolicy } from "../task/acceptance.ts";
-import type { CoordinatorStateTaskOperation } from "./types.ts";
+
 import {
   decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateCleanupSnapshot,
@@ -304,7 +308,7 @@ export function settleRuntimeOwnedCoordinatorResult(
   if (!operation) return refused();
   if (operation.summarySha256 === null) {
     const before = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const cleanedBytes = prepareCoordinatorStateCleanupSnapshot(
       before,
@@ -337,7 +341,7 @@ export function settleRuntimeOwnedCoordinatorResult(
     };
     const saved = writeRuntimeOwnedCoordinatorSettlement(
       context,
-      Buffer.from(`${encodeCoordinatorStateValue(candidate)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
       cleanupOutcome,
       dockerCompletion,
     );
@@ -352,7 +356,7 @@ export function settleRuntimeOwnedCoordinatorResult(
       });
   } else {
     const observed = prepareCoordinatorStateCleanupSnapshot(
-      Buffer.from(`${encodeCoordinatorStateValue(current.value.snapshot)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
       settlement.recoveryId,
       terminal.resources,
       settlement.repository.repositoryBinding,
@@ -378,10 +382,10 @@ export function settleRuntimeOwnedCoordinatorResult(
           resource.observation !== previous.observation
         );
       }) ||
-      encodeCoordinatorStateValue(operation.primaryFailure) !==
-        encodeCoordinatorStateValue(terminal.primaryFailure) ||
-      encodeCoordinatorStateValue(operation.outcome) !==
-        encodeCoordinatorStateValue(outcome) ||
+      encodeRuntimeStateValue(operation.primaryFailure) !==
+        encodeRuntimeStateValue(terminal.primaryFailure) ||
+      encodeRuntimeStateValue(operation.outcome) !==
+        encodeRuntimeStateValue(outcome) ||
       operation.host.cleanup !== "confirmed" ||
       operation.lease !== "released" ||
       !terminal.homeLeaseReleased ||
@@ -516,9 +520,7 @@ export function writeRuntimeOwnedCoordinatorHistoryCheckpoint(
   const candidate =
     current.value && operation
       ? prepareCoordinatorStateHistorySnapshot(
-          Buffer.from(
-            `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
-          ),
+          Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
           settlement.recoveryId,
           operation.history?.occurredAt ?? new Date().toISOString(),
           false,
@@ -584,7 +586,7 @@ export function registerRuntimeOwnedCoordinatorSettlementResultDeliveries(
       lockReleased: current.lockReleased,
     });
   const candidate = prepareCoordinatorStateResultDeliverySnapshot(
-    Buffer.from(`${encodeCoordinatorStateValue(current.value.snapshot)}\n`),
+    Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
     settlement.recoveryId,
     consumers,
     settlement.repository.repositoryBinding,
@@ -649,7 +651,7 @@ export function completeRuntimeOwnedCoordinatorSettlement(
         lockReleased: current.lockReleased,
       });
     const before = Buffer.from(
-      `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(current.value.snapshot)}\n`,
     );
     const candidate = prepareCoordinatorStateCompletionSnapshot(
       before,
@@ -745,7 +747,7 @@ export function publishRuntimeOwnedCoordinatorHistory(
   )
     return writeRuntimeOwnedCoordinatorSettlement(
       context,
-      Buffer.from(`${encodeCoordinatorStateValue(current.value.snapshot)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
       cleanupOutcome,
       dockerCompletion,
     );
@@ -757,13 +759,9 @@ export function publishRuntimeOwnedCoordinatorHistory(
   const candidate =
     current.value && operation?.history
       ? operation.history.confirmed
-        ? Buffer.from(
-            `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
-          )
+        ? Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`)
         : prepareCoordinatorStateHistorySnapshot(
-            Buffer.from(
-              `${encodeCoordinatorStateValue(current.value.snapshot)}\n`,
-            ),
+            Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
             settlement.recoveryId,
             operation.history.occurredAt,
             true,

@@ -1,103 +1,16 @@
 /**
- * decision-portに属する責務をまとめる。
- *
- * @responsibility CoordinatorDecisionRecordを中心とする実装、型および境界を同じModuleで所有する。
- * @trace ARCH-000004
+ * 判断記録の閉形式と保存世代の相関を検査する。
+ * @packageDocumentation
+ * @responsibility 記録値の検査だけを所有し、認可・Capability発行・保存・状態適用を行わない。
+ * @trace ARCH-000004、ARCH-000005、ARCH-000008
+ * @boundary Domain内の値検査。Coordinator・Provider・OSへの依存なし。
  */
-
 import type {
-  CoordinatorAcceptanceTarget,
-  CoordinatorAcceptanceDecision,
+  CoordinatorAcceptanceDecisionRecord,
+  CoordinatorDecisionRecord,
+  CoordinatorDecisionRecoveryIntent,
+  CoordinatorAcceptanceDecisionEnvelope as Envelope,
 } from "./types.ts";
-
-/**
- * 一回のObjective／Milestone受入判断記録を定義する。
- *
- * @responsibility 判断Identity、対象、根拠、状態適用前後および記録Dispositionを耐久境界として所有する。
- * @trace ARCH-000005
- * @shape 一つの明示判断とその適用状態を表す。
- * @invariant Capability秘密値、Task作成情報またはProvider Effect情報を保持しない。
- * @boundary Coordinator Coreと受入判断Storeの境界。
- * @security Authority秘密値を保存せず、検証済みPrincipalとBindingだけを保持する。
- * @compatibility `prepared`から`finalized`への一方向遷移を維持する。
- */
-export type CoordinatorAcceptanceDecisionRecord = Readonly<{
-  recordId: string;
-  decisionId: string;
-  sourceSpecId: "SPEC-000002";
-  projectId: string;
-  milestoneId: string;
-  repositoryRevision: string;
-  expectedGeneration: number;
-  target: CoordinatorAcceptanceTarget;
-  targetId: string;
-  decision: CoordinatorAcceptanceDecision;
-  criterionEvidenceIds: readonly string[];
-  principalId: string;
-  disposition: "prepared" | "finalized";
-  newGeneration: number | null;
-}>;
-
-/**
- * decision-portで使用するCoordinator Decision 記録の値契約を定義する。
- *
- * @responsibility Coordinator Decision 記録のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorDecisionRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorDecisionRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorDecisionRecordの宣言は外部境界を開かない。
- * @security N/A: CoordinatorDecisionRecordはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorDecisionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorDecisionRecord = Readonly<{
-  recordId: string;
-  decisionId: string;
-  projectId: string;
-  milestoneId: string;
-  queueId: string;
-  repositoryRevision: string;
-  expectedGeneration: number;
-  principalId: string;
-  allowedOptions: readonly ("resume" | "cancel")[];
-  capabilityHash: string;
-  expiresAtEpochMs: number;
-  disposition:
-    | "pending"
-    | "prepared"
-    | "finalized"
-    | "invalidated"
-    | "expired"
-    | "recovery_required";
-  applicationId: string | null;
-  selectedOption: "resume" | "cancel" | null;
-  newGeneration: number | null;
-  replacementRequestId: string | null;
-}>;
-
-/**
- * decision-portで使用するCoordinator Decision 回復 Intentの値契約を定義する。
- *
- * @responsibility Coordinator Decision 回復 IntentのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorDecisionRecoveryIntentが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorDecisionRecoveryIntentで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorDecisionRecoveryIntentの宣言は外部境界を開かない。
- * @security N/A: CoordinatorDecisionRecoveryIntentはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorDecisionRecoveryIntentの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorDecisionRecoveryIntent = Readonly<{
-  recoveryId: string;
-  recordId: string;
-  projectId: string;
-  milestoneId: string;
-  queueId: string;
-  applicationId: string | null;
-  expectedGeneration: number;
-  newGeneration: number | null;
-  observedDisposition: CoordinatorDecisionRecord["disposition"] | "unknown";
-  unknownBoundary: string;
-  disposition: "required" | "settled";
-}>;
 
 const COORDINATOR_DECISION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 
@@ -222,26 +135,6 @@ export const COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-acceptance-decision-store/v1" as const;
 
 /**
- * Acceptance Decision Recordの耐久世代Envelopeを定義する。
- *
- * @responsibility Binding、Record Identity、世代、前世代HashおよびRecord本体を一つの耐久契約へ閉じる。
- * @trace ARCH-000005
- * @shape generation 1のprepared Recordまたはgeneration 2のfinalized Recordと、その前世代参照を表す。
- * @invariant generation 1はpreviousHashを持たず、generation 2はgeneration 1のHashを持つ。
- * @boundary Coordinator Acceptance Decision StoreとRepository-local JSONの型境界。
- * @security 秘密値、CapabilityまたはHost絶対Pathを保持しない。
- * @compatibility contract値とgeneration意味を変更せず、利用側は宣言済みPropertyだけへ依存する。
- */
-type Envelope = Readonly<{
-  contract: typeof COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT;
-  repositoryBindingId: string;
-  recordId: string;
-  generation: 1 | 2;
-  previousHash: string | null;
-  record: CoordinatorAcceptanceDecisionRecord;
-}>;
-
-/**
  * Acceptance Decision Recordの構造を検査する。
  *
  * @responsibility 耐久化可能な固定Property、Identity、Source、判断およびDispositionを検証する。
@@ -338,7 +231,6 @@ function validEnvelope(
 }
 
 export {
-  type Envelope as CoordinatorAcceptanceDecisionEnvelope,
   validRecord as validCoordinatorAcceptanceDecisionRecord,
   validEnvelope as validCoordinatorAcceptanceDecisionEnvelope,
 };

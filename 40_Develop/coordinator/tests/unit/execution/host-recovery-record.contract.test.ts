@@ -8,11 +8,10 @@
  * @scope Host記録と状態遷移相関
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
  */
+import { validateHostRecoveryTransitionLineage } from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-
-import { validateHostRecoveryTransitionLineage } from "../../../src/execution/result.ts";
 
 const ROOT_NAME = "crdd-coordinator-doctor-fixture";
 const NONCE = "01234567-89ab-cdef-0123-456789abcdef";

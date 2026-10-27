@@ -4,6 +4,7 @@
  * @trace ARCH-000004
  * @boundary 所属Repositoryの保存Rootと独立した実行Tree。
  */
+import type { CoordinatorWorkspace } from "../../../domain-model/src/index.ts";
 import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
@@ -31,7 +32,7 @@ import {
   writeCoordinatorWorkspaceRecord,
   createCoordinatorSnapshotIntegrationRecordPort,
 } from "./commands.ts";
-import type { CoordinatorWorkspace } from "./record.ts";
+
 import type { CoordinatorLease } from "../state/persistence.ts";
 
 /**

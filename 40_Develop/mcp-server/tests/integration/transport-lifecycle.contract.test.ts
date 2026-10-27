@@ -10,6 +10,7 @@
  * @boundary EST-IT-001=Direct Boundary: CLI／MCP Adapter→Application Contract / EST-IT-002=Adjacent 1 Block: Transport stream→Adapter→Application入口
  */
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { request as httpRequest } from "node:http";
 import { createConnection } from "node:net";
 import { PassThrough, Readable, Writable } from "node:stream";
@@ -577,7 +578,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           const cancel = () => {
             wasCancelled = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v2",
               status: "cancelled",
               reason: "orchestrator_parent_lost",
               requestId: "integration-request",
@@ -611,7 +612,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           "io.modelcontextprotocol/clientCapabilities": {},
         },
         name: "crdd.run_objective",
-        arguments: {
+        arguments: withCallerPlan({
           requestId: "integration-request",
           projectId: "integration-project",
           milestoneId: "integration-milestone",
@@ -625,7 +626,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
           originLane: "interactive",
           adoptResult: false,
           intakeEpoch: "fixture-epoch",
-        },
+        }),
       },
     })}\n`,
   );

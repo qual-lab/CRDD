@@ -4,17 +4,20 @@
  * @trace ARCH-000015
  * @security 本文・資格を保存せず、編集・採用・再送・再起動を行わない。
  */
+import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
-  type AiSelectionChoice,
   openTaskSession,
-  readRepositoryAiSelection,
   readRepositoryNetworkPolicies,
 } from "../../coordinator/src/index.ts";
+import {
+  type AiSelectionChoice,
+  readRepositoryAiSelection,
+} from "../../domain-model/src/index.ts";
 import {
   gitRepositoryRevisionAdapter,
   verifyRepositoryRoot,
@@ -77,7 +80,10 @@ async function main() {
     )
   )
     throw new Error("docker_preflight_unconfirmed");
-  const selection = readRepositoryAiSelection(verified.capability);
+  const selection = readRepositoryAiSelection(
+    verified.capability,
+    getAiModelCatalog().catalog,
+  );
   if (selection.status !== "available")
     throw new Error("ai_selection_not_configured");
   const configHash = selection.snapshot.identity;
@@ -88,8 +94,8 @@ async function main() {
   };
   const permitted = () =>
     hash(JSON.stringify(canonical())) === hash(JSON.stringify(before)) &&
-    readRepositoryAiSelection(verified.capability).snapshot?.identity ===
-      configHash;
+    readRepositoryAiSelection(verified.capability, getAiModelCatalog().catalog)
+      .snapshot?.identity === configHash;
   const surface = await readWorkbenchProjectSurface(root);
   const owner = openTaskSession({
     rootCapability: verified.capability,

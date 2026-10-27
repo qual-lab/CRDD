@@ -7,15 +7,22 @@
 import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
+  type ExecutionSelection,
+  type TaskExecutionSelections,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  inspectSingleTaskRecord,
+  type SingleTaskRecord,
+  type ProjectQueueEntry,
+} from "../../../domain-model/src/index.ts";
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import {
   inspectAiSelectionChoice,
   hashExecutionSelection,
 } from "../selection/validation.ts";
-import type {
-  ExecutionSelection,
-  TaskExecutionSelections,
-  AiSelectionChoice,
-} from "../selection/types.ts";
-import { readRepositoryAiSelection } from "../storage/ai-selection.ts";
+
+import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
+import { readRepositoryAiSelection } from "../../../domain-model/src/index.ts";
 import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
@@ -23,14 +30,9 @@ import {
 
 import { createHash, randomUUID } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
-import {
-  normalizeRepositoryRelativePath,
-  snapshotPlainRecord,
-  snapshotPlainArray,
-  deriveCoordinatorRepositoryBindingId,
-} from "../state/validation.ts";
-import { inspectSingleTaskRecord } from "./validation.ts";
-import type { SingleTaskRecord, ProjectQueueEntry } from "./types.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
+import { normalizeRepositoryRelativePath } from "../../../domain-model/src/index.ts";
+
 import {
   readCoordinatorSnapshot,
   initializeCoordinatorSnapshot,
@@ -1266,7 +1268,10 @@ export function openTaskSession(context: TaskSessionContext) {
     observeRevision: () =>
       gitRepositoryRevisionAdapter(root)?.revisionIdentity ?? null,
     resolveSelection: (command) => {
-      const read = readRepositoryAiSelection(rootCapability);
+      const read = readRepositoryAiSelection(
+        rootCapability,
+        getAiModelCatalog().catalog,
+      );
       if (read.status !== "available") return null;
       const request = {
         workType: command.workType,

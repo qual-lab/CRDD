@@ -8,6 +8,7 @@
  * @scope 合成Repository、助言代役、実Task Sessionと既存保存。
  * @boundary 助言結果→本番Task受付→実Snapshot。AI／Docker／認証は使用しない。
  */
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,7 +16,7 @@ import { execFileSync } from "node:child_process";
 import test, { mock } from "node:test";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
-import { saveRepositoryAiSelection } from "../../src/storage/ai-selection.ts";
+import { saveRepositoryAiSelection } from "../../../domain-model/src/index.ts";
 import { readCoordinatorSnapshot } from "../../src/storage/state.ts";
 import { updateCoordinatorSingleTask } from "../../src/task/queue.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
@@ -73,6 +74,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     verified.capability,
     { expectedIdentity: null, config: selectionConfig() },
     () => true,
+    getAiModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved");
   const hostId = "host.synthetic-handoff";

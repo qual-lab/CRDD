@@ -10,6 +10,7 @@
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。 / PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -28,6 +29,63 @@ import {
 import { protocolError } from "../../src/request/validation.ts";
 
 const revision = "a".repeat(40);
+
+/**
+ * MCPから二Taskの実行内容をDomain検査経由で搬送する。
+ * @trace PRL-UT-014
+ * @precondition Taskの実行はFake依存で置き換える。
+ * @stimulus 依存する二Taskと、Task入力が欠落する要求を送る。
+ * @observation 実行入口の呼出し回数と受領値。
+ * @oracle 正常値だけ一回渡り、欠落は実行前に拒否する。
+ * @cleanup 局所値のみ。外部Transport・AI・Dockerを使用しない。
+ * @boundary MCP handler→Coordinator要求検査→Domain検査。
+ */
+test("MCPは複数Taskの計画と個別入力を対応付けて搬送する", async () => {
+  const base = objective();
+  const task = base.plan.tasks[0];
+  const taskInput = base.taskInputs[0];
+  assert.ok(task && taskInput);
+  const input = {
+    ...base,
+    plan: {
+      ...base.plan,
+      tasks: [task, { ...task, id: "task-b", dependencies: [task.id] }],
+    },
+    taskInputs: [
+      taskInput,
+      { ...taskInput, taskId: "task-b", objective: "二番目の指示" },
+    ],
+  };
+  let calls = 0;
+  const baseline = dependencies();
+  const deps = dependencies({
+    runObjective: async (value, signal, authentication) => {
+      calls++;
+      assert.deepEqual(value, input);
+      assert.ok(Object.isFrozen(value.taskInputs));
+      return baseline.runObjective(value, signal, authentication);
+    },
+  });
+  const envelope = (argumentsValue: unknown) =>
+    request("tools/call", {
+      _meta: META,
+      name: MCP_COORDINATOR_OBJECTIVE_TOOL,
+      arguments: argumentsValue,
+    });
+  const result = await handleMcpCoordinatorRequest(
+    envelope(input),
+    deps,
+    new AbortController().signal,
+  );
+  assert.equal((result.result as { isError: boolean }).isError, false);
+  const rejected = await handleMcpCoordinatorRequest(
+    envelope({ ...input, taskInputs: [taskInput] }),
+    deps,
+    new AbortController().signal,
+  );
+  assert.equal(rejected.error?.code, -32602);
+  assert.equal(calls, 1);
+});
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
@@ -59,7 +117,7 @@ test("MCPは品質判断待ちと受入済み読取りの結果を保持する",
         assert.ok(Object.isFrozen(observed));
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
-          contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
           status: "blocked",
           reason: "orchestrator_quality_acceptance_required",
           requestId: observed.requestId,
@@ -218,7 +276,7 @@ function request(method: string, params: unknown, id = 1) {
  * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 function objective() {
-  return {
+  return withCallerPlan({
     requestId: "request-a",
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -232,7 +290,7 @@ function objective() {
     originLane: "interactive",
     adoptResult: false,
     intakeEpoch: "fixture-epoch",
-  };
+  });
 }
 
 /**
@@ -408,7 +466,7 @@ function dependencies(
 ): McpCoordinatorDependencies {
   return {
     runObjective: async (input) => ({
-      contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+      contract: "crdd-coordinator/orchestrator-objective-intake/v2",
       status: "completed",
       reason: "objective_complete",
       cleanupConfirmed: true,
@@ -552,7 +610,9 @@ test("MCP Schemaは分類と明示選択をObjectiveだけの任意項目とし�
   );
   assert.equal(schema.required.includes("choice"), false);
   assert.equal(schema.required.includes("intakeEpoch"), true);
-  assert.equal(schema.required.length, 13);
+  assert.equal(schema.required.includes("plan"), true);
+  assert.equal(schema.required.includes("taskInputs"), true);
+  assert.equal(schema.required.length, 15);
   assert.equal(schema.additionalProperties, false);
   for (const tool of tools.filter(
     (tool) => tool.name !== MCP_COORDINATOR_OBJECTIVE_TOOL,
@@ -763,7 +823,7 @@ test("MCP Objective uses the common semantic entry and preserves cancellation", 
         assert.equal(signal, controller.signal);
         assert.deepEqual(authentication, { principalId: "principal-a" });
         return {
-          contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
@@ -927,7 +987,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
       }),
       dependencies({
         runObjective: async () => ({
-          contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+          contract: "crdd-coordinator/orchestrator-objective-intake/v2",
           status: "completed",
           reason: "accepted",
           cleanupConfirmed: true,
@@ -971,7 +1031,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
  */
 test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再構成する", async () => {
   const base = {
-    contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+    contract: "crdd-coordinator/orchestrator-objective-intake/v2",
     status: "blocked",
     reason: "recovery_required",
     requestId: "request-a",
@@ -1723,7 +1783,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
  */
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpCoordinatorAdapterContract(), {
-    contract: "crdd-mcp/coordinator-adapter/v3",
+    contract: "crdd-mcp/coordinator-adapter/v4",
     protocolVersion: MCP_COORDINATOR_PROTOCOL_VERSION,
     tools: [
       MCP_COORDINATOR_OBJECTIVE_TOOL,

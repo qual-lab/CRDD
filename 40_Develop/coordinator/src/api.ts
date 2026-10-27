@@ -68,21 +68,7 @@ export function authenticateProvider(
   return runProviderAuthenticationRequest("login", request, signal);
 }
 
-export {
-  readRepositoryAiSelection,
-  saveRepositoryAiSelection,
-} from "./storage/ai-selection.ts";
-export type {
-  AiSelectionReadResult,
-  AiSelectionSaveResult,
-} from "./storage/ai-selection.ts";
-export type {
-  AiSelectionChoice,
-  AiSelectionConfig,
-  AiSelectionRole,
-  AiSelectionSnapshot,
-  ExecutionSelection,
-} from "./selection/types.ts";
+export type { ExecutionSelection } from "../../domain-model/src/index.ts";
 export type { SingleTaskCommand } from "./task/requests.ts";
 
 export { inspectAiSelectionChoice } from "./selection/validation.ts";

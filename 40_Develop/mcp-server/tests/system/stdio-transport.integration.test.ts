@@ -9,6 +9,7 @@
  * @boundary EST-ST-012=System/E2E: MCP stdio入口→Application→応答stream
  */
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { PassThrough, Readable, Writable } from "node:stream";
@@ -419,7 +420,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v2",
               status: "cancelled",
               reason: "orchestrator_parent_lost",
               requestId: "request-parent-loss",
@@ -454,7 +455,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
         "io.modelcontextprotocol/clientCapabilities": {},
       },
       name: "crdd.run_objective",
-      arguments: {
+      arguments: withCallerPlan({
         requestId: "request-parent-loss",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -468,7 +469,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
         originLane: "interactive",
         adoptResult: false,
         intakeEpoch: "fixture-epoch",
-      },
+      }),
     },
   };
   input.end(`${JSON.stringify(objectiveRequest)}\n`);
@@ -505,7 +506,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         "io.modelcontextprotocol/clientCapabilities": {},
       },
       name: "crdd.run_objective",
-      arguments: {
+      arguments: withCallerPlan({
         requestId: "request-recovery",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -519,7 +520,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         originLane: "interactive",
         adoptResult: false,
         intakeEpoch: "fixture-epoch",
-      },
+      }),
     },
   };
   const result = await runMcpCoordinatorStdio(

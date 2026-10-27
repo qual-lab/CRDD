@@ -8,7 +8,8 @@
  * @scope 自己生成Repository内の合成保存だけ。Docker・Providerなし。
  * @boundary 合成技術Operation→統合保存codecと実Filesystem。
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { executionSelection } from "./ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -178,7 +179,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     reason: "provider_operation_completed",
     cleanupConfirmed: true,
   };
-  let bytes: Buffer = Buffer.from(`${encodeCoordinatorStateValue(state)}\n`);
+  let bytes: Buffer = Buffer.from(`${encodeRuntimeStateValue(state)}\n`);
   assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
   const at = new Date().toISOString();
   for (const confirmed of [false, true]) {

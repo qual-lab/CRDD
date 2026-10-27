@@ -7,6 +7,10 @@
  * @scope 内部生涯管理。実Docker・Native・外部AI要求0。
  * @boundary 実Session所有処理と有限Native代役。実Processの終了証明とは区別する。
  */
+import {
+  decodeDockerRuntimeRepairCheckpoint as decode,
+  type DockerRuntimeRepairCheckpoint as Checkpoint,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
@@ -19,9 +23,7 @@ import { ownDockerRepairNativeSession as run } from "../../src/docker-desktop/re
 import { runDockerRuntimeRepairSessionUsing as runSession } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition as transition,
-  decodeDockerRuntimeRepairCheckpoint as decode,
   prepareDockerRuntimeRepairSessionCheckpoint,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
 } from "../../src/docker-desktop/repair-state.ts";
 import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 

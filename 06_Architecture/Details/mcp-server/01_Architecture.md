@@ -1,10 +1,14 @@
 # MCP Transportアーキテクチャ
 
+## Core API接続の目標 — 2026-10-27
+
+[Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へ直接接続する。Coreの定義CRUD・QueryはCoordinatorをloadせず提供し、管理実行は明示導入時だけ既存実行Ownerへ接続する。現在認証・対象認可を検証済みRootと区別し、Host専用ContextをMCP入力から再構成しない。APIの内部型をそのまま通信Schemaへ露出せず、Sourceと通信契約の追従・独立起動試験は未実施。
+
 ## 公式SDK移行の実装境界 — 2026-10-20
 
 ### Coordinator統合後の通信名 — 2026-10-22
 
-Task状態のTool名は`crdd.get_coordinator_state`、起動構成の依存keyは`coordinator`とする。旧Tool名は一覧・Call受付から除き、旧構成keyは値が未定義でも拒否する。互換aliasを追加しない。Adapterの説明契約は`crdd-mcp/coordinator-adapter/v3`、`projectModelOwnership`は`coordinator`へ切り替える。Protocol版`2026-07-28`、認証・取消・終了の意味は変更しない。
+Task状態のTool名は`crdd.get_coordinator_state`、起動構成の依存keyは`coordinator`とする。旧Tool名は一覧・Call受付から除き、旧構成keyは値が未定義でも拒否する。互換aliasを追加しない。Adapterの説明契約は`crdd-mcp/coordinator-adapter/v4`とし、Objective要求は`plan`と`taskInputs`を必須とする。`projectModelOwnership`は調停側の`coordinator`を表す。Protocol版`2026-07-28`、認証・取消・終了の意味は変更しない。
 
 MCP内部の診断reasonは`mcp_*`へ統一する。ただし、Coordinatorから返る保存契約・Task結果reasonは別の移行単位として維持する。旧通信名の撤去は、保存Schemaや保持中の回復参照を変更する根拠にはしない。
 

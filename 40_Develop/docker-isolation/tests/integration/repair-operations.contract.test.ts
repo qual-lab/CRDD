@@ -7,6 +7,10 @@
  * @scope 実Docker・Native・外部AI要求0。実Directory factoryは別契約試験。
  * @boundary 実修復Adapter・Machineと有限OS代役。実Host修復の成立は主張しない。
  */
+import {
+  decodeDockerRuntimeRepairCheckpoint as decode,
+  type DockerRuntimeRepairCheckpoint as Checkpoint,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getEventListeners } from "node:events";
@@ -23,9 +27,7 @@ import { createDockerDesktopRepairOperations as operations } from "../../src/doc
 import { runDockerRuntimeRepairSessionUsing as run } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition as transition,
-  decodeDockerRuntimeRepairCheckpoint as decode,
   prepareDockerRuntimeRepairSessionCheckpoint,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
 } from "../../src/docker-desktop/repair-state.ts";
 import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 

@@ -1,5 +1,11 @@
 # CRDD参照Toolのアーキテクチャ
 
+## Core独立の目標設計 — 2026-10-27
+
+文書のMilestone／Roadmap／WBSと正式判断はCRDD文書群が正本。フロントAI等のCallerが実行依頼へ分解して渡し、Coordinatorは小・中規模Taskの実行・調整に限定する。[文書と実行状態の分担](Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)に従い、既存Objective／Milestoneは実行内の集約として扱う。Domainへの値・保存の移管で文書側の第二正本や自動同期を作らない。
+
+[Runtime DomainのAPI・単一保存契約](Details/domain-model/05_Runtime_Domain.md)を、Core定義・局所CRUD・共通保存の設計正本とする。Domainが定義と局所状態、任意のCoordinatorが横断調停、Executor Libraryが単一試行を所有する。MCP／WorkbenchはDomainへ直接接続し、Core利用にCoordinatorの読込み・Provider認証・Dockerを要求しない。既存の単一Snapshot／CAS・実行Lease・真正証拠を維持する。以下のCoordinator中心記述は移管元の比較基準であり、この目標のSource実装・保存切替・QA成立は未完了である。既存属性のみの方針を承認済みとし、既存判断・根拠ID・受入条件をDomainへ移す。新しい報告機能は追加せず、保存先有効化の条件は同正本§9へ分離する。
+
 2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/coordinator/05_Workspace.md)を横断契約とする。2026-10-22の物理統合後は単一Coordinator内で、Task／Objectiveが仕事を進行し、Executionが単発AIを実行する。Direct／IsolatedとRepository所有の境界を維持する。以下の二Package図と基準版Readyは統合前の比較対象であり、現行構成又は新版の品質根拠として扱わない。保存統合・実境界・全体QAは未完了である。
 
 Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
@@ -55,7 +61,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | 決定論的なRepository検査、文書構造検査、意味レビューへの案内 | UI-000001、UI-000018 | SPEC-000001、SPEC-000023 | Checker CoreとCRDD現行Profile |
 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
-| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Coordinator内Task／Objective |
+| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | 目標: Domain局所管理／任意Coordinator調停／Executor試行 |
 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Contextを含むProject／Milestone／Objective／Task状態と複数Project比較の読取り投影、およびObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | UI-000004、UI-000007 | SPEC-000002、SPEC-000006、SPEC-000007、SPEC-000011 | Project Management Projection／Objective・Milestone Acceptance Decision Record |
 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの日常操作、Outcome処置、Action移管、Relation整合および安全な削除を成立させる | UI-000009 | SPEC-000013 | Project Operation Context |
 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
@@ -80,7 +86,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000001 | Checker | 機械確認から意味採否・独立レビューを生成しない。 |
 | ARCH-000002 | 移行手順と各Consumer Owner | 全利用側・配布・署名経路を処置する。旧形式の移行はFront AIへ渡す。 |
 | ARCH-000003 | Quality／変更追跡と検証Runner | 試験登録と実行集合の一致を確認し、部分Passを全体Readyとしない。 |
-| ARCH-000004 | Coordinator内のTask／Objective → Execution → AI Adapter | 仕事の進行、単発実行、AI固有差を分離する。隔離・資源回収の技術処置はDocker Isolationが所有する。 |
+| ARCH-000004 | 目標: Domain定義・局所CRUD／共通保存 → 任意Coordinator → Executor Library → AI Adapter／DI | Coreは管理実行を必要としない。実行の横断調停と単一試行、隔離技術のOwnerを分ける。目標のSource接続は未実装。 |
 | ARCH-000005 | Domain Modelの読取り投影、Coordinator内のObjective／Milestone Acceptance Decision Recordによる限定受入判断 | 読取りから書込みAuthorityを生成しない。 |
 | ARCH-000006 | Domain ModelのTopic／Meeting API | 業務状態と人間の採否を共通保存へ吸収しない。 |
 | ARCH-000007 | Execution Intelligence Reader | 観測・欠測と評価候補を分ける。 |

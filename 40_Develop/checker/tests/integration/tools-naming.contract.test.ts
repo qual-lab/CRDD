@@ -292,7 +292,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./catalog/resolve.ts",
       "./provider/types.ts",
       "./catalog/types.ts",
-      "./provider/json.ts",
+      "../../domain-model/src/index.ts",
       "./codex/plan.ts",
       "./authentication/plan.ts",
       "./codex/result.ts",
@@ -364,7 +364,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./decision/acceptance.ts",
       "./decision/external-send-policy.ts",
       "./decision/lifecycle.ts",
-      "./decision/records.ts",
       "./decision/request.ts",
       "./decision/types.ts",
       "./execution/advice.ts",
@@ -412,6 +411,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000008",
     requiredTags: ["boundary", "effect", "security"],
     exportedModules: [
+      "./ai-selection/types.ts",
+      "./ai-selection/validation.ts",
       "./activity/federate-relations.ts",
       "./activity/operations.ts",
       "./activity/types.ts",
@@ -454,12 +455,17 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./configuration/storage-paths.ts",
       "./configuration/types.ts",
       "./configuration/validate-declarations.ts",
+      "./decision/types.ts",
+      "./decision/validation.ts",
       "./meeting/create-operations.ts",
       "./meeting/markdown.ts",
       "./meeting/types.ts",
+      "./objective/types.ts",
+      "./objective/validation.ts",
       "./outcome.ts",
       "./plain-data/secret-validation.ts",
       "./plain-data/snapshot.ts",
+      "./plain-data/json.ts",
       "./project-context/candidate-decision.ts",
       "./project-context/inspect.ts",
       "./project-context/parse-context.ts",
@@ -478,6 +484,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./reality-traceability/validate-manifest.ts",
       "./repository/create-observer.ts",
       "./repository/observe-symbols.ts",
+      "./repository/path.ts",
       "./repository/require-storage-area.ts",
       "./repository/resolve-storage-paths.ts",
       "./repository/types.ts",
@@ -486,6 +493,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./semantic/publish.ts",
       "./semantic/relations.ts",
       "./storage/bounded-file-snapshot.ts",
+      "./storage/ai-selection.ts",
+      "./storage/state.ts",
       "./storage/committed-json.ts",
       "./storage/ensure-area.ts",
       "./storage/network-policy.ts",
@@ -495,6 +504,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./storage/types.ts",
       "./test-catalog/inspect.ts",
       "./test-catalog/plan.ts",
+      "./task/types.ts",
       "./topic/create-operations.ts",
       "./topic/markdown.ts",
       "./topic/types.ts",
@@ -731,11 +741,11 @@ test("Checker文書受付は工程別Repository観測へ接続し旧Profileを�
     ["quality", "inspectQualityRepository"],
   ]) {
     const source = fs.readFileSync(
-      path.join(checkerRoot, "src/repository", module + ".ts"),
+      path.join(checkerRoot, "src/repository", `${module}.ts`),
       "utf8",
     );
-    assert.match(source, new RegExp("export function " + name + "\\(", "u"));
-    assert.match(repository, new RegExp(name + "\\(", "u"));
+    assert.match(source, new RegExp(`export function ${name}\\(`, "u"));
+    assert.match(repository, new RegExp(`${name}\\(`, "u"));
   }
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -3952,7 +3962,7 @@ test("types.tsは型宣言だけを許可し実行値と空集合を拒否する
     },
     {
       valid: true,
-      body: 'import { type Value } from "./dependency.ts"; export interface Contract {} export { type Value };',
+      body: 'import type { Value } from "./dependency.ts"; export interface Contract {} export { type Value };',
     },
     {
       valid: true,

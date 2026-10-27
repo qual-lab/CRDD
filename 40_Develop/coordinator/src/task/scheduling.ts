@@ -1,11 +1,12 @@
+import type {
+  ProjectTaskRecord,
+  CoordinatorState,
+} from "../../../domain-model/src/index.ts";
 /**
  * 容量・依存・変更対象の競合から実行可能なTaskを選択する。
  * @responsibility 容量・依存・変更対象の競合から実行可能なTaskを選択する。
  * @trace ARCH-000004
  */
-
-import type { ProjectTaskRecord } from "./types.ts";
-import type { CoordinatorState } from "../state/types.ts";
 
 /**
  * For Capacityが有効な状態か判定する。

@@ -3,7 +3,8 @@
  * @responsibility 同梱構成を不変値へ固定し、役割選択・保存・認可を所有しない。
  * @trace ARCH-000010
  */
-import type { AiReasoningEffort } from "../provider/types.ts";
+
+import type { AiReasoningEffort } from "../../../domain-model/src/index.ts";
 import type { AiModelCatalog, AiModelDefinition } from "./types.ts";
 import {
   snapshotPlainRecord,

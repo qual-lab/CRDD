@@ -16,7 +16,7 @@ import {
   validRequest,
   createCoordinatorAcceptanceAuthorityAdapter,
 } from "./request.ts";
-import type { CoordinatorAcceptanceDecisionRecord } from "./records.ts";
+import type { CoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
 import { applyCoordinatorAcceptanceDecision } from "./transition.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import {

@@ -4,12 +4,12 @@
  * @responsibility 値モデルの純粋な再入場分類を全組合せと反例で確認する。
  * @trace PRL-UT-006
  * @level UT
- * @scope Coordinator保存状態の局所判定。
+ * @scope 共通保存状態の局所判定。
  * @boundary Process内の純粋判定。実保存・資源回収の証明ではない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyCoordinatorSnapshotReentry } from "../../../src/storage/state.ts";
+import { classifyRuntimeSnapshotReentry } from "../../../src/index.ts";
 
 /**
  * Snapshotの元版と次版のexact内容だけを保存再入場へ分類する。
@@ -22,7 +22,7 @@ import { classifyCoordinatorSnapshotReentry } from "../../../src/storage/state.t
  * @cleanup N/A: 純粋判定でFile、Lock、Processを作成しない。
  * @boundary N/A: 保存とDockerを呼ばない局所の状態分類である。
  */
-test("Coordinator Snapshotは元版・次版のexact内容と結合を照合する", () => {
+test("Runtime Snapshotは元版・次版のexact内容と結合を照合する", () => {
   const previousHash = "a".repeat(64);
   const nextHash = "b".repeat(64);
   const pending = {
@@ -38,7 +38,7 @@ test("Coordinator Snapshotは元版・次版のexact内容と結合を照合す�
     payloadSha256: previousHash,
   };
   assert.equal(
-    classifyCoordinatorSnapshotReentry(
+    classifyRuntimeSnapshotReentry(
       current,
       pending,
       "repository-a",
@@ -47,7 +47,7 @@ test("Coordinator Snapshotは元版・次版のexact内容と結合を照合す�
     "publish_pending",
   );
   assert.equal(
-    classifyCoordinatorSnapshotReentry(
+    classifyRuntimeSnapshotReentry(
       { ...current, revision: 2, payloadSha256: nextHash },
       pending,
       "repository-a",
@@ -67,7 +67,7 @@ test("Coordinator Snapshotは元版・次版のexact内容と結合を照合す�
     { status: "absent" as const },
   ]) {
     assert.equal(
-      classifyCoordinatorSnapshotReentry(
+      classifyRuntimeSnapshotReentry(
         observation,
         pending,
         "repository-a",
@@ -77,12 +77,7 @@ test("Coordinator Snapshotは元版・次版のexact内容と結合を照合す�
     );
   }
   assert.equal(
-    classifyCoordinatorSnapshotReentry(
-      current,
-      pending,
-      "repository-a",
-      "unknown",
-    ),
+    classifyRuntimeSnapshotReentry(current, pending, "repository-a", "unknown"),
     "blocked",
   );
 });
@@ -107,7 +102,7 @@ test("Coordinator Snapshotの初回条件は不存在と観測不能を区別す
   };
   for (const rootState of ["new", "existing", "unknown"] as const) {
     assert.equal(
-      classifyCoordinatorSnapshotReentry(
+      classifyRuntimeSnapshotReentry(
         { status: "absent" },
         pending,
         "repository-a",
@@ -116,7 +111,7 @@ test("Coordinator Snapshotの初回条件は不存在と観測不能を区別す
       rootState === "new" ? "publish_pending" : "blocked",
     );
     assert.equal(
-      classifyCoordinatorSnapshotReentry(
+      classifyRuntimeSnapshotReentry(
         { status: "unknown" },
         pending,
         "repository-a",
@@ -126,7 +121,7 @@ test("Coordinator Snapshotの初回条件は不存在と観測不能を区別す
     );
   }
   assert.equal(
-    classifyCoordinatorSnapshotReentry(
+    classifyRuntimeSnapshotReentry(
       { status: "present", ...pending },
       pending,
       "repository-a",
@@ -183,7 +178,7 @@ test("Coordinator Snapshotは不正な改訂相関とHashを拒否する", () =>
   ]) {
     const before = JSON.stringify(candidate);
     assert.equal(
-      classifyCoordinatorSnapshotReentry(
+      classifyRuntimeSnapshotReentry(
         current,
         candidate,
         "repository-a",
@@ -194,7 +189,7 @@ test("Coordinator Snapshotは不正な改訂相関とHashを拒否する", () =>
     assert.equal(JSON.stringify(candidate), before);
   }
   assert.equal(
-    classifyCoordinatorSnapshotReentry(current, pending, "", "existing"),
+    classifyRuntimeSnapshotReentry(current, pending, "", "existing"),
     "blocked",
   );
 });

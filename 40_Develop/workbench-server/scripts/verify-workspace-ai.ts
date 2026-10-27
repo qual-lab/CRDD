@@ -4,6 +4,8 @@
  * @trace ARCH-000015
  * @security 明示同意した合成内容だけを送信し、本体Repositoryを編集しない。
  */
+import { RUNTIME_STATE_MAXIMUM_BYTES } from "../../domain-model/src/index.ts";
+import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { readRepositoryNetworkPolicies } from "../../coordinator/src/index.ts";
 import { execFileSync } from "node:child_process";
@@ -24,7 +26,7 @@ import {
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../coordinator/src/index.ts";
+} from "../../domain-model/src/index.ts";
 import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   openTaskSession,
@@ -37,7 +39,7 @@ import {
 } from "../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/validation.ts";
 import { decodeCoordinatorHistoryRows } from "../../coordinator/src/storage/history.ts";
-import { MAX_COORDINATOR_STATE_BYTES } from "../../coordinator/src/storage/state.ts";
+
 import { acquireCoordinatorStorageOwner } from "../../coordinator/src/storage/lock.ts";
 import { readCoordinatorStorageSnapshotOwned } from "../../coordinator/src/storage/state.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
@@ -240,6 +242,7 @@ async function verify(
       },
     },
     () => true,
+    getAiModelCatalog().catalog,
   );
   if (savedSelection.status !== "saved")
     throw new Error("fixture_ai_selection_unavailable");
@@ -247,8 +250,8 @@ async function verify(
   const permitted = () =>
     hash(fs.readFileSync(path.join(root, "PROJECT_CONTEXT.md"))) ===
       contextHash &&
-    readRepositoryAiSelection(verified.capability).snapshot?.identity ===
-      configIdentity;
+    readRepositoryAiSelection(verified.capability, getAiModelCatalog().catalog)
+      .snapshot?.identity === configIdentity;
   assert.equal(
     (await readWorkbenchProjectSurface(root)).context.projectId,
     projectId,
@@ -665,19 +668,14 @@ async function verify(
                   recoveryId: operation.recoveryId,
                 });
               }
-              const historyFile = path.join(
-                root,
-                ".crdd",
-                "coordinator",
-                "history.jsonl",
-              );
+              const historyFile = path.join(paths.coordinator, "history.jsonl");
               if (fs.existsSync(historyFile)) {
                 const metadata = fs.lstatSync(historyFile);
                 assert.equal(metadata.isSymbolicLink(), false);
                 assert.equal(metadata.nlink, 1);
                 const history = readStableBoundedFileSnapshot(
                   historyFile,
-                  MAX_COORDINATOR_STATE_BYTES,
+                  RUNTIME_STATE_MAXIMUM_BYTES,
                 );
                 const rows = decodeCoordinatorHistoryRows(history.bytes);
                 assert.ok(rows, "diagnostic_history_invalid");
@@ -767,6 +765,12 @@ function assessFixtureRemoval(
       assert.deepEqual(task.secondaryFailures, []);
     }
     const root = path.join(parent, mode);
+    const verifiedRoot = verifyRepositoryRoot(root);
+    assert.equal(verifiedRoot.status, "completed");
+    if (verifiedRoot.status !== "completed")
+      throw new Error("fixture_root_invalid");
+    const paths = resolveRepositoryRuntimeDataPaths(verifiedRoot.capability);
+    assert.ok(paths, "fixture_runtime_paths_unavailable");
     const checkBoundary = () => {
       assert.equal(path.resolve(parent), parent);
       assert.equal(fs.realpathSync.native(parent), parent);
@@ -1076,7 +1080,7 @@ function assessFixtureRemoval(
         git(root, ["rev-parse", `${evidence.candidateCommit}^{tree}`]),
       );
     }
-    const leases = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    const leases = path.join(paths.temporary, "orchestrator-leases");
     try {
       const entry = fs.lstatSync(leases);
       assert.equal(entry.isSymbolicLink(), false);

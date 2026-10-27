@@ -118,13 +118,11 @@ const SOURCE_ROLES = {
     "state/projection.ts",
     "state/types.ts",
     "decision/types.ts",
-    "decision/records.ts",
     "decision/request.ts",
     "state/persistence.ts",
     "state/create.ts",
     "state/validation.ts",
     "decision/transition.ts",
-    "task/validation.ts",
     "objective/request.ts",
     "objective/types.ts",
     "objective/plan.ts",
@@ -135,7 +133,6 @@ const SOURCE_ROLES = {
     "task/lifecycle.ts",
     "task/acceptance.ts",
     "task/recovery.ts",
-    "selection/types.ts",
     "selection/validation.ts",
   ],
   workflow: [
@@ -160,7 +157,6 @@ const SOURCE_ROLES = {
     "state/initialize.ts",
   ],
   storage: [
-    "storage/ai-selection.ts",
     "storage/state.ts",
     "storage/history.ts",
     "storage/lock.ts",
@@ -180,7 +176,6 @@ const SOURCE_ROLES = {
     "execution/request.ts",
     "execution/settlement.ts",
     "execution/validation.ts",
-    "execution/types.ts",
     "execution/kernel-lock.ts",
     "execution/process-safety-state.ts",
   ],
@@ -457,11 +452,106 @@ function assertPureImportEdges(
         `private type dependency: ${module} -> ${specifier} (${names.join(", ")})`,
       );
     } else if (
-      module === `${SOURCE_PREFIX}selection/validation.ts` &&
       specifier === "../../../domain-model/src/index.ts" &&
       resolved === "40_Develop/domain-model/src/index.ts" &&
-      names.length === 1 &&
-      names[0] === "snapshotPlainRecord"
+      names.length > 0 &&
+      names.every((name) => {
+        const allowed: Readonly<Record<string, readonly string[]>> = {
+          "state/projection.ts": [
+            "COORDINATOR_STATE_CONTRACT",
+            "CoordinatorState",
+            "ProjectTaskState",
+            "inspectTaskExecutionSelections",
+            "snapshotRuntimeStateArray",
+            "snapshotRuntimeStateRecord",
+          ],
+          "state/types.ts": [
+            "CoordinatorState",
+            "ProjectMilestoneState",
+            "ProjectObjectiveState",
+            "ProjectTaskState",
+          ],
+          "decision/types.ts": [
+            "CoordinatorAcceptanceDecision",
+            "CoordinatorAcceptanceDecisionRecord",
+            "CoordinatorAcceptanceTarget",
+            "CoordinatorDecisionRecord",
+            "CoordinatorDecisionRecoveryIntent",
+          ],
+          "decision/request.ts": [
+            "CoordinatorAcceptanceDecision",
+            "CoordinatorAcceptanceTarget",
+            "snapshotRuntimeStateRecord",
+          ],
+          "state/persistence.ts": [
+            "CoordinatorLeaseKind",
+            "CoordinatorState",
+            "ProjectQueueEntry",
+            "ProjectQueueState",
+          ],
+          "state/create.ts": [
+            "ProjectObjectiveDefinition",
+            "ProjectTaskDefinition",
+            "TaskExecutionSelections",
+            "inspectTaskExecutionSelections",
+          ],
+          "state/validation.ts": [
+            "COORDINATOR_STATE_CONTRACT",
+            "normalizeRepositoryRelativePath",
+          ],
+          "decision/transition.ts": [
+            "CoordinatorAcceptanceDecisionInput",
+            "CoordinatorState",
+          ],
+          "objective/request.ts": [
+            "AiSelectionChoice",
+            "CallerTaskInput",
+            "CoordinatorObjectivePlan",
+            "inspectCallerTaskInputs",
+            "inspectExecutionPlan",
+            "normalizeRepositoryRelativePath",
+            "snapshotRuntimeStateArray",
+            "snapshotRuntimeStateRecord",
+          ],
+          "objective/types.ts": [
+            "CoordinatorObjectivePlan",
+            "CoordinatorState",
+            "ProjectTaskDefinition",
+          ],
+          "objective/plan.ts": [
+            "CoordinatorObjectivePlan",
+            "inspectExecutionPlan",
+          ],
+          "state/result.ts": ["RepositoryRuntimeDataAreaBlockedError"],
+          "task/types.ts": ["ProjectTaskRecoveryKind"],
+          "state/request.ts": ["snapshotRuntimeStateRecord"],
+          "task/scheduling.ts": ["CoordinatorState", "ProjectTaskRecord"],
+          "task/lifecycle.ts": [
+            "CoordinatorState",
+            "ProjectMilestoneState",
+            "ProjectTaskDefinition",
+            "ProjectTaskRecord",
+            "ProjectTaskRecoveryKind",
+            "ProjectTaskRecoveryObligation",
+            "ProjectTaskState",
+          ],
+          "task/acceptance.ts": [
+            "CoordinatorState",
+            "ProjectDockerRecoveryAcknowledgement",
+            "ProjectResultAcceptance",
+            "decodeProjectResultAcceptance",
+          ],
+          "task/recovery.ts": ["CoordinatorState", "ProjectTaskRecoveryKind"],
+          "selection/validation.ts": [
+            "AiSelectionChoice",
+            "inspectExecutionSelection",
+            "snapshotPlainRecord",
+          ],
+        };
+        return (
+          allowed[module.slice(SOURCE_PREFIX.length)]?.includes(name) === true
+        );
+      })
     ) {
       // 通常データの同期的な値検査だけを共有し、Package全体は許可しない。
     } else

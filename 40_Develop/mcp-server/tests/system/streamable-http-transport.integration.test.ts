@@ -9,6 +9,7 @@
  * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
  */
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import {
   Client,
   StreamableHTTPClientTransport,
@@ -1686,7 +1687,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
           const cancel = () => {
             isCancellationObserved = true;
             resolve({
-              contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+              contract: "crdd-coordinator/orchestrator-objective-intake/v2",
               status: "cancelled",
               reason: "orchestrator_transport_disconnected",
               requestId: "objective-a",
@@ -1716,7 +1717,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
     params: {
       _meta: META,
       name: "crdd.run_objective",
-      arguments: {
+      arguments: withCallerPlan({
         requestId: "objective-a",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -1730,7 +1731,7 @@ test("HTTP response切断は進行中Objectiveへ取消を伝播して終了時�
         originLane: "interactive",
         adoptResult: false,
         intakeEpoch: "fixture-epoch",
-      },
+      }),
     },
   };
   const pending = fetch(
@@ -1792,7 +1793,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
             markAborted?.();
             releaseHandler = () =>
               resolve({
-                contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+                contract: "crdd-coordinator/orchestrator-objective-intake/v2",
                 status: "cancelled",
                 reason: "orchestrator_transport_shutdown",
                 requestId: "objective-signal",
@@ -1821,7 +1822,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
     params: {
       _meta: META,
       name: "crdd.run_objective",
-      arguments: {
+      arguments: withCallerPlan({
         requestId: "objective-signal",
         projectId: "project-a",
         milestoneId: "milestone-a",
@@ -1835,7 +1836,7 @@ test("公開Launcherのsignal所有は実行中Applicationの取消とjoin完了
         originLane: "interactive",
         adoptResult: false,
         intakeEpoch: "fixture-epoch",
-      },
+      }),
     },
   };
   const response = fetch(

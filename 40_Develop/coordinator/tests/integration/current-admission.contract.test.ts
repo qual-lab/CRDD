@@ -8,7 +8,9 @@
  * @scope 実Git・Filesystem・現在Reader。Kernel排他と境界切断だけを模擬する。
  * @boundary PRL-IT-013=Task入場→現在Reader→Repository。
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { COORDINATOR_STATE_SCHEMA } from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -22,7 +24,6 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
-import { COORDINATOR_STATE_SCHEMA } from "../../src/storage/state.ts";
 
 /**
  * 現在Readerの初回・部分保存・排他終了と入場投影を検証する。
@@ -365,7 +366,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     assert.deepEqual(fs.readdirSync(current), []);
     const file = path.join(current, "state.json");
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue({
+      `${encodeRuntimeStateValue({
         schema: COORDINATOR_STATE_SCHEMA,
         revision: 1,
         previous: null,

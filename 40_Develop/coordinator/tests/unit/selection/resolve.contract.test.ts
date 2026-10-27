@@ -7,6 +7,10 @@
  * @scope selection/resolveの新規選定、selection/modelの保存値codec、AI Adapterの技術選定。
  * @boundary 同一Process内。保存・認証・外部AI・Dockerを使用しない。
  */
+import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+} from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -14,11 +18,7 @@ import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
-import {
-  inspectExecutionSelection,
-  hashExecutionSelection,
-  inspectTaskExecutionSelections,
-} from "../../../src/selection/validation.ts";
+import { hashExecutionSelection } from "../../../src/selection/validation.ts";
 
 /**
  * 編集と独立レビューを同じ受付時設定へ固定する。

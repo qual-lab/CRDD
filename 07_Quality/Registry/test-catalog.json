@@ -3294,8 +3294,8 @@
     },
     {
       "id": "coordinator:integration:ai-selection-store",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/ai-selection-store.contract.test.ts",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/ai-selection-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3313,6 +3313,32 @@
         "publication_cleanup_distinguished",
         "provider_effect_zero"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:integration:state-io",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/state-io.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["storage", "identity", "failure"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["effect_recorded_before_create", "identity_preserved", "failure_propagated"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:objective:validation",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/objective/validation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["objective", "plan", "validation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["input_fixed", "invalid_input_rejected", "provider_effect_zero"],
       "mandatoryByDefault": true
     },
     {
@@ -6481,8 +6507,8 @@
     },
     {
       "id": "coordinator:unit:state-storage:settlement-store",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/model-reentry.contract.test.ts",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/storage/state-reentry.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

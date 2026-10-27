@@ -7,6 +7,20 @@
 
 ## 現在状態
 
+Callerの分解済みTask群を渡す[公開入力契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#caller-task-graph-intake)をDomain検査・Coordinator本番組立て・MCPへ接続した。Plan＋Task別入力を1対1で受け、受付Hashに結合し、欠測補完・文書同期・新Storeを追加しない。AI選択設定の型・検査・保存と共通JSON解析、固定状態ファイルI/OをDomainへ移した。二Taskの本番組立て・実保存・再入場10件、設定保存11件、依存・閉集合・I/O24件、状態・公開契約等75件、公開境界12件は成功し、限定独立レビューは残指摘0。一般CRUD・Writer全面移管・Core単独稼働は未完了。Domain全回帰は既存台帳不整合による3試験不合格、Root Checkerも3,722エラーで全体不合格を維持する。詳細と中断試験の未確定清掃は[実施計画](runtime-responsibility-realignment-plan.md#7-現在の未確定事項と次作業)へ記録した。AI・Docker・過去保持物は操作していない。
+
+人間確認に基づき、CRDD文書群がMilestone／Roadmap／WBSの正本、CallerであるフロントAI等がTaskを計画・分解、Coordinatorが渡された小・中規模Taskを実行する分担へArchitecture／計画を整理した。既存Objective／Milestoneは実行依頼内のTask群／全体の受入・判断待ち・回復集約で、文書の同名概念との自動対応はない。基準版の1 Objective＋1 Task包装と、今回接続した分解済みTask搬送を区別する。文書処理はCallerの明示Taskに限り、自動同期・自動WBS生成・別の業務計画正本は追加しない。
+
+既存判断・EvidenceとTaskの完了／受入の接続をSourceで確認した。[正本の接続確認](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md)のとおり、判断記録・根拠ID・局所受入を維持してDomainへ移し、新しい非管理完了機能は追加しない。現行のTask終端は管理実行の相関とcleanup、受入はObjective／Milestoneの既存状態を要求する。根拠IDの検査はEvidence本文・品質の自動検証ではない。既存Map結合6件は今回成功、新Package・実保存・公開Surfaceの成立ではない。既存属性のみとし、保存切替は実装・合成検証後に確認する順序を承認済みとして整理した。AI・Docker・保持物は操作しない。
+
+2026-10-27、CoreをCoordinator非依存にするRuntime責務再編案を受領し、[基盤機能中心の再編計画](runtime-responsibility-realignment-plan.md)で調査・段階設計を開始した。基準は`5dae71084`。直前のStorage五File化を土台に、Domainの正本・共通保存、任意のCoordinator、LibraryのみのExecutorを分ける。以下のAccess Management段階の結果は先行の区切りであり、新方針の実装・保存移行・実AI成立を示さない。AI再送・Docker・過去保持物の操作は継続して対象外とする。
+
+同日の初回Sourceバッチとして共有型七宣言・計画値検査・Path規則をDomainへ移し、Coordinator利用側と試験を追従した。外部AIなしの対象43件と四Packageの型検査は成功した。保存・CRUD・複数Task公開受付の全面接続は未完了であり、全体回帰完了・Core単独稼働・移行完了とはしない。今回の限定確認と残件は上記計画の現在地に記録する。
+
+現行74 Source Fileの宣言索引、Root公開73項目、MCP／Workbench・配布入口・直接試験利用側を[Domain・共通保存の棚卸しとAfter案](runtime-domain-storage-after.md)へ整理した。Domainの局所CRUDと技術実行の確定を分け、単一Snapshot／CAS・短期排他・一回使用証拠を維持する候補である。全宣言の移管実装・Core独立の実証・正式Architecture切替は未完了であり、保存先も有効化しない。
+
+後続で[API入出力・単一保存の設計正本](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md)を作成し、基本設計・Domain／Coordinator／MCP／WorkbenchとQA-000003／000008へ反映した。設計の具体化であり、Source・保存Schema有効化・Runtimeは変更していない。当初Draftとした属性・非管理完了報告の扱いは上記の判断・接続確認へ更新した。新契約の追加シナリオは既存QA項目内ですべてNot Runとし、旧結果を継承しない。
+
 Access Management再編のSource・保存・Host CLI・Workbench／MCPの専門Owner接続と旧CROS／REST／Gateway撤去は候補実装済み。WorkbenchはLocal／共有配置とも同Hostの専門APIへ直接接続し、MCPに依存しない。承認済みPortfolio部分表示を含む対象回帰480件成功・失敗0、人間UAT1件Skip、Source／契約と結果同期の最終限定独立確認残指摘0。今回の区切りは成立し、コミット・プッシュ後に計画済みのDocker周りの責務分離へ進む。[現在の計画](second-stage-plan.md#今回の区切りと後続e2e--2026-10-14)と[集約検証結果](Evidence/261014_access-management-verification.md)を現在判断の参照先とする。
 
 実Hostの初回設定・鍵操作の縦断と人間UATは人間判断により後続E2Eへ保持する。正式191項目の全体評価、全体Checker未合格、持越しDocker／Coordinator／Orchestratorの大改修は未完了であり、今回の区切りをCHG全体完了・リリース可能へ拡張しない。追加の人間判断は現在ない。

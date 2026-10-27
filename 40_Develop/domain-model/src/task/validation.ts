@@ -1,215 +1,93 @@
 /**
- * 単発Task記録の閉形式と段階相関を検査する。
- * @responsibility 単発Task記録の閉形式と段階相関を検査する。
+ * 実行状態の共有値・純粋検査を所有する。
+ * @packageDocumentation
+ * @responsibility 既存の保存形状・相関・三値を保持し、実行・資源観測・Authorityを発行しない。
  * @trace ARCH-000004
- * @boundary Coordinatorの状態値と意味Owner。
- * @security 保存・外部実行・Authorityの発行は行わない。
+ * @trace ARCH-000008
+ * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import { HASH } from "../state/validation.ts";
-import { REVISION } from "../state/validation.ts";
-import { exactKeys } from "../state/validation.ts";
-import { plainObject } from "../state/validation.ts";
-import { stringArray } from "../state/validation.ts";
-import { nullableId } from "../state/validation.ts";
-import { nullableCandidateId } from "../state/validation.ts";
-import { nullableRecoveryId } from "../state/validation.ts";
-import { decodeProjectResultAcceptance } from "./acceptance.ts";
-import type { ProjectTaskRecoveryObligation } from "./types.ts";
-import { nullableResultReference } from "../state/validation.ts";
-import { validId } from "../state/validation.ts";
-import { inspectTaskExecutionSelections } from "../selection/validation.ts";
+import type { ProjectResultAcceptance } from "./types.ts";
+import { snapshotPlainRecord } from "../state/validation.ts";
 import type { CoordinatorState } from "../state/types.ts";
-import { singleTaskQueueIsConsistent } from "../state/validation.ts";
+import { plainObject } from "../state/validation.ts";
+import { exactKeys } from "../state/validation.ts";
+import { inspectTaskExecutionSelections } from "../ai-selection/validation.ts";
+import { validId } from "../state/validation.ts";
+import { REVISION } from "../state/validation.ts";
+import { nullableId } from "../state/validation.ts";
+import { stringArray } from "../state/validation.ts";
+import { nullableCandidateId } from "../state/validation.ts";
 import type { ProjectQueueEntry } from "./types.ts";
-import type { ProjectQueueState } from "./types.ts";
+import { singleTaskQueueIsConsistent } from "../state/validation.ts";
 import type { SingleTaskRecord } from "./types.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../state/validation.ts";
-import { inspectExecutionSelection } from "../selection/validation.ts";
-
-const KEYS = new Set([
-  "principalId",
-  "mode",
-  "executionSelection",
-  "taskId",
-  "attemptId",
-  "operationId",
-  "phase",
-  "status",
-  "reason",
-  "cleanupConfirmed",
-  "recoveryIds",
-]);
-
-const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+import { HASH } from "../state/validation.ts";
+import type { ProjectQueueState } from "./types.ts";
+import { nullableResultReference } from "../state/validation.ts";
+import type { ProjectTaskRecoveryObligation } from "./types.ts";
+import { nullableRecoveryId } from "../state/validation.ts";
+import { inspectExecutionSelection } from "../ai-selection/validation.ts";
+import { snapshotPlainArray } from "../state/validation.ts";
 
 /**
- * 保存する単発記録を閉検査し独立Snapshotにする。
- * @responsibility getter／Proxyと本文混入、終端の相関違反を拒否する。
+ * 新しい結果受理本文の閉じた形式を検査する。
+ * @responsibility 欠落・追加項目・旧形式と不正な識別子、Hash、世代を拒否する。
  * @trace ARCH-000004
- * @input 未検証の記録。
- * @returns 検証済み凍結値、又はnull。
- * @precondition Authorityは呼出し元で検証する。
- * @postcondition 元入力の後続変更から分離する。
- * @effect なし。
- * @failure 不足・過剰・相関不一致はnull。
- * @invariant 不明を成功・回復なしへ丸めない。
- * @boundary Snapshot codec。
- * @security 保存fieldを固定し秘密・本文を許可しない。
- * @concurrency 同期の値検査のみ。
+ * @input value: 未検証の受理本文。
+ * @returns 検査済み固定本文、またはnull。
+ * @precondition N/A: 任意の入力を拒否可能な境界として扱う。
+ * @postcondition 初回受理世代や入力の値を補完・更新しない。
+ * @effect N/A: 局所値の検査だけ。
+ * @failure 不正本文、getter、Proxy、欠落、旧項目、空値はnull。
+ * @invariant 形式成立を保存・受理・cleanup成立へ昇格しない。
+ * @boundary 上位の保存本文とその利用側。
+ * @security 外部Authorityを発行せず入力の関数を呼ばない。
+ * @concurrency N/A: 共有状態を持たない同期処理。
  */
-export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
-  const value =
-    snapshotPlainRecord(raw, KEYS) ??
-    snapshotPlainRecord(raw, new Set([...KEYS, "adviceOperation"]));
+export function decodeProjectResultAcceptance(
+  value: unknown,
+): ProjectResultAcceptance | null {
+  const acceptance = snapshotPlainRecord(
+    value,
+    new Set([
+      "repositoryBindingId",
+      "projectId",
+      "milestoneId",
+      "taskId",
+      "attemptId",
+      "operationId",
+      "recoveryId",
+      "settlementGeneration",
+      "repositoryBinding",
+      "resultId",
+      "consumer",
+    ]),
+  );
   if (
-    !value ||
-    Object.keys(value).length !==
-      KEYS.size + (Object.hasOwn(value, "adviceOperation") ? 1 : 0)
-  )
-    return null;
-  const adviceOperation = Object.hasOwn(value, "adviceOperation")
-    ? snapshotPlainRecord(
-        value.adviceOperation,
-        new Set(["operationId", "hostRecoveryId"]),
-      )
-    : null;
-  if (
-    Object.hasOwn(value, "adviceOperation") &&
-    (!adviceOperation ||
-      Object.keys(adviceOperation).length !== 2 ||
-      typeof adviceOperation.operationId !== "string" ||
-      !ID.test(adviceOperation.operationId) ||
-      typeof adviceOperation.hostRecoveryId !== "string" ||
-      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}$/u.test(
-        adviceOperation.hostRecoveryId,
-      ) ||
-      value.mode !== "read_only_advice" ||
-      value.phase === "accepted")
-  )
-    return null;
-  for (const key of ["principalId", "taskId", "attemptId", "operationId"])
-    if (typeof value[key] !== "string" || !ID.test(value[key])) return null;
-  if (
-    typeof value.mode !== "string" ||
-    !["read_only_advice", "workspace_edit"].includes(value.mode) ||
-    !inspectExecutionSelection(value.executionSelection) ||
-    inspectExecutionSelection(value.executionSelection)?.role !==
-      (value.mode === "read_only_advice" ? "advice" : "executor") ||
-    typeof value.phase !== "string" ||
-    !["accepted", "starting", "running", "settled"].includes(value.phase) ||
-    typeof value.status !== "string" ||
-    !["pending", "completed", "blocked", "cancelled", "unknown"].includes(
-      value.status,
-    ) ||
-    typeof value.cleanupConfirmed !== "boolean" ||
-    !(
-      value.reason === null ||
-      (typeof value.reason === "string" &&
-        /^[a-z][a-z0-9_]{0,255}$/u.test(value.reason))
-    )
-  )
-    return null;
-  const recoveries = snapshotPlainArray(value.recoveryIds, 64);
-  if (recoveries.status !== "ok") return null;
-  const recoveryIds: string[] = [];
-  for (const recoveryId of recoveries.value) {
-    if (
-      typeof recoveryId !== "string" ||
-      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}$/u.test(recoveryId)
-    )
-      return null;
-    recoveryIds.push(recoveryId);
-  }
-  if (new Set(recoveryIds).size !== recoveryIds.length) return null;
-  if (value.phase !== "settled") {
-    if (
-      value.status !== "pending" ||
-      value.reason !== null ||
-      value.cleanupConfirmed ||
-      recoveryIds.length
-    )
-      return null;
-  } else if (
-    value.status === "pending" ||
-    (["completed", "cancelled"].includes(value.status) &&
-      (!value.cleanupConfirmed || recoveryIds.length))
-  )
-    return null;
-  return Object.freeze({
-    ...value,
-    executionSelection: inspectExecutionSelection(value.executionSelection),
-    ...(adviceOperation
-      ? { adviceOperation: Object.freeze(adviceOperation) }
-      : {}),
-    recoveryIds: Object.freeze(recoveryIds),
-  }) as SingleTaskRecord;
-}
-
-export const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
-  "queued",
-  "leased",
-  "running",
-  "waiting_foreground",
-  "integration_pending",
-  "replan_required",
-  "human_decision_required",
-  "recovery_required",
-  "completed",
-  "cancelled",
-]);
-
-/**
- * Task Lifecycle Tupleが有効か判定する。
- *
- * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input task: CoordinatorState["tasks"][number]
- * @returns validTaskLifecycleTupleの計算結果を返す。
- * @precondition 「task: CoordinatorState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
- * @postcondition validTaskLifecycleTupleの責務を完了した結果だけを返す。
- * @effect N/A: validTaskLifecycleTupleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validTaskLifecycleTupleは独自の失敗分岐を所有しない。
- * @invariant validTaskLifecycleTupleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validTaskLifecycleTupleはProcess内の同一Subsystemで完結する。
- * @security validTaskLifecycleTupleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validTaskLifecycleTupleは共有非同期状態を持たない同期処理である。
- */
-export function validTaskLifecycleTuple(
-  task: CoordinatorState["tasks"][number],
-) {
-  const isAttempt = task.attemptId !== null;
-  const isOperation = task.operationId !== null;
-  const isAuthority = task.authorityBindingId !== null;
-  if (["planned", "waiting_dependency", "ready"].includes(task.state))
-    return (
-      task.startPhase === "none" && !isAttempt && !isOperation && !isAuthority
-    );
-  if (task.state === "starting" && task.startPhase === "reserved")
-    return isAttempt && !isOperation && isAuthority;
-  if (task.state === "starting" && task.startPhase === "handoff_prepared")
-    return isAttempt && isOperation && isAuthority;
-  if (task.state === "running")
-    return (
-      task.startPhase === "running" && isAttempt && isOperation && isAuthority
-    );
-  if (
+    !acceptance ||
     [
-      "cleanup_pending",
-      "completed",
-      "failed",
-      "cancelled",
-      "recovery_required",
-      "superseded",
-    ].includes(task.state)
+      "repositoryBindingId",
+      "projectId",
+      "milestoneId",
+      "taskId",
+      "attemptId",
+      "operationId",
+      "recoveryId",
+    ].some(
+      (key) =>
+        typeof acceptance[key] !== "string" ||
+        acceptance[key].length === 0 ||
+        acceptance[key].length > 1024,
+    ) ||
+    !Number.isSafeInteger(acceptance.settlementGeneration) ||
+    Number(acceptance.settlementGeneration) < 1 ||
+    acceptance.consumer !== "orchestrator" ||
+    [acceptance.repositoryBinding, acceptance.resultId].some(
+      (item) => typeof item !== "string" || !/^[a-f0-9]{64}$/u.test(item),
+    )
   )
-    return (
-      task.startPhase === "settled" && isAttempt && isOperation && isAuthority
-    );
-  return false;
+    return null;
+  return Object.freeze(acceptance) as ProjectResultAcceptance;
 }
 
 /**
@@ -488,6 +366,30 @@ export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
 }
 
 /**
+ * 本番利用側に固定された結果受領方式を返す。
+ * @responsibility 一時的な返却と後続再開用の耐久ACKを区別する。
+ * @trace ARCH-000008
+ * @input consumer: 固定組立てが選択した利用側識別子。
+ * @returns transient、durable、または未知利用側のnull。
+ * @precondition N/A: 未知値も受け取り拒否する。
+ * @postcondition Coordinatorの耐久受領を入力指定で降格しない。
+ * @effect N/A: 値の同期判定だけで保存や配送を行わない。
+ * @failure 未知識別子・非文字列ではnull。
+ * @invariant 受領方式は資源回収やCandidate保全の証明ではない。
+ * @boundary 本番組立ての利用側と保存モデルの固定契約。
+ * @security Objectの変換・getter・Proxyを評価しない。
+ * @concurrency N/A: 共有状態を変更しない。
+ */
+export function coordinatorConsumerCompletionPolicy(
+  consumer: unknown,
+): "transient" | "durable" | null {
+  if (consumer === "orchestrator") return "durable";
+  if (consumer === "coordinator_cli" || consumer === "workbench")
+    return "transient";
+  return null;
+}
+
+/**
  * recovery Obligationsを決定する。
  *
  * @responsibility recovery Obligationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -648,3 +550,185 @@ export function resultAcceptances(
   }
   return true;
 }
+
+/**
+ * Task Lifecycle Tupleが有効か判定する。
+ *
+ * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input task: CoordinatorState["tasks"][number]
+ * @returns validTaskLifecycleTupleの計算結果を返す。
+ * @precondition 「task: CoordinatorState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
+ * @postcondition validTaskLifecycleTupleの責務を完了した結果だけを返す。
+ * @effect N/A: validTaskLifecycleTupleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validTaskLifecycleTupleは独自の失敗分岐を所有しない。
+ * @invariant validTaskLifecycleTupleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validTaskLifecycleTupleはProcess内の同一Subsystemで完結する。
+ * @security validTaskLifecycleTupleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validTaskLifecycleTupleは共有非同期状態を持たない同期処理である。
+ */
+export function validTaskLifecycleTuple(
+  task: CoordinatorState["tasks"][number],
+) {
+  const isAttempt = task.attemptId !== null;
+  const isOperation = task.operationId !== null;
+  const isAuthority = task.authorityBindingId !== null;
+  if (["planned", "waiting_dependency", "ready"].includes(task.state))
+    return (
+      task.startPhase === "none" && !isAttempt && !isOperation && !isAuthority
+    );
+  if (task.state === "starting" && task.startPhase === "reserved")
+    return isAttempt && !isOperation && isAuthority;
+  if (task.state === "starting" && task.startPhase === "handoff_prepared")
+    return isAttempt && isOperation && isAuthority;
+  if (task.state === "running")
+    return (
+      task.startPhase === "running" && isAttempt && isOperation && isAuthority
+    );
+  if (
+    [
+      "cleanup_pending",
+      "completed",
+      "failed",
+      "cancelled",
+      "recovery_required",
+      "superseded",
+    ].includes(task.state)
+  )
+    return (
+      task.startPhase === "settled" && isAttempt && isOperation && isAuthority
+    );
+  return false;
+}
+
+/**
+ * 保存する単発記録を閉検査し独立Snapshotにする。
+ * @responsibility getter／Proxyと本文混入、終端の相関違反を拒否する。
+ * @trace ARCH-000004
+ * @input 未検証の記録。
+ * @returns 検証済み凍結値、又はnull。
+ * @precondition Authorityは呼出し元で検証する。
+ * @postcondition 元入力の後続変更から分離する。
+ * @effect なし。
+ * @failure 不足・過剰・相関不一致はnull。
+ * @invariant 不明を成功・回復なしへ丸めない。
+ * @boundary Snapshot codec。
+ * @security 保存fieldを固定し秘密・本文を許可しない。
+ * @concurrency 同期の値検査のみ。
+ */
+export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
+  const value =
+    snapshotPlainRecord(raw, KEYS) ??
+    snapshotPlainRecord(raw, new Set([...KEYS, "adviceOperation"]));
+  if (
+    !value ||
+    Object.keys(value).length !==
+      KEYS.size + (Object.hasOwn(value, "adviceOperation") ? 1 : 0)
+  )
+    return null;
+  const adviceOperation = Object.hasOwn(value, "adviceOperation")
+    ? snapshotPlainRecord(
+        value.adviceOperation,
+        new Set(["operationId", "hostRecoveryId"]),
+      )
+    : null;
+  if (
+    Object.hasOwn(value, "adviceOperation") &&
+    (!adviceOperation ||
+      Object.keys(adviceOperation).length !== 2 ||
+      typeof adviceOperation.operationId !== "string" ||
+      !ID.test(adviceOperation.operationId) ||
+      typeof adviceOperation.hostRecoveryId !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}$/u.test(
+        adviceOperation.hostRecoveryId,
+      ) ||
+      value.mode !== "read_only_advice" ||
+      value.phase === "accepted")
+  )
+    return null;
+  for (const key of ["principalId", "taskId", "attemptId", "operationId"])
+    if (typeof value[key] !== "string" || !ID.test(value[key])) return null;
+  if (
+    typeof value.mode !== "string" ||
+    !["read_only_advice", "workspace_edit"].includes(value.mode) ||
+    !inspectExecutionSelection(value.executionSelection) ||
+    inspectExecutionSelection(value.executionSelection)?.role !==
+      (value.mode === "read_only_advice" ? "advice" : "executor") ||
+    typeof value.phase !== "string" ||
+    !["accepted", "starting", "running", "settled"].includes(value.phase) ||
+    typeof value.status !== "string" ||
+    !["pending", "completed", "blocked", "cancelled", "unknown"].includes(
+      value.status,
+    ) ||
+    typeof value.cleanupConfirmed !== "boolean" ||
+    !(
+      value.reason === null ||
+      (typeof value.reason === "string" &&
+        /^[a-z][a-z0-9_]{0,255}$/u.test(value.reason))
+    )
+  )
+    return null;
+  const recoveries = snapshotPlainArray(value.recoveryIds, 64);
+  if (recoveries.status !== "ok") return null;
+  const recoveryIds: string[] = [];
+  for (const recoveryId of recoveries.value) {
+    if (
+      typeof recoveryId !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,1023}$/u.test(recoveryId)
+    )
+      return null;
+    recoveryIds.push(recoveryId);
+  }
+  if (new Set(recoveryIds).size !== recoveryIds.length) return null;
+  if (value.phase !== "settled") {
+    if (
+      value.status !== "pending" ||
+      value.reason !== null ||
+      value.cleanupConfirmed ||
+      recoveryIds.length
+    )
+      return null;
+  } else if (
+    value.status === "pending" ||
+    (["completed", "cancelled"].includes(value.status) &&
+      (!value.cleanupConfirmed || recoveryIds.length))
+  )
+    return null;
+  return Object.freeze({
+    ...value,
+    executionSelection: inspectExecutionSelection(value.executionSelection),
+    ...(adviceOperation
+      ? { adviceOperation: Object.freeze(adviceOperation) }
+      : {}),
+    recoveryIds: Object.freeze(recoveryIds),
+  }) as SingleTaskRecord;
+}
+
+export const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
+  "queued",
+  "leased",
+  "running",
+  "waiting_foreground",
+  "integration_pending",
+  "replan_required",
+  "human_decision_required",
+  "recovery_required",
+  "completed",
+  "cancelled",
+]);
+
+export const KEYS = new Set([
+  "principalId",
+  "mode",
+  "executionSelection",
+  "taskId",
+  "attemptId",
+  "operationId",
+  "phase",
+  "status",
+  "reason",
+  "cleanupConfirmed",
+  "recoveryIds",
+]);
+
+export const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;

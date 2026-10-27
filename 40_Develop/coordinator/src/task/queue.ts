@@ -3,6 +3,19 @@
  * @responsibility 受付世代・Queue遷移を判定し、既存の短期保存トランザクション内で確定する。
  * @trace ARCH-000004、ARCH-000008
  */
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  leaseIdentity,
+  validId,
+  validResultReference,
+  validQueueEntry,
+  type ProjectQueueEntry,
+  type ProjectQueueState,
+  type SingleTaskRecord,
+  inspectSingleTaskRecord,
+  historyRow,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { resolveCoordinatorNamedPaths } from "../storage/state.ts";
 import { assertCoordinatorArea } from "../storage/state.ts";
 import { assertCoordinatorAreaUnchanged } from "../storage/state.ts";
@@ -17,20 +30,12 @@ import { writeCoordinatorSnapshotState } from "../storage/state.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 import { coordinatorSnapshotLeaseResourcesAbsent } from "../storage/state.ts";
 import { coordinatorSnapshotIntakeMatches } from "../state/settlement.ts";
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
-import { leaseIdentity } from "../state/validation.ts";
-import { validId } from "../state/validation.ts";
-import { validResultReference } from "../state/validation.ts";
-import { validQueueEntry } from "./validation.ts";
+
 import type { CoordinatorLease } from "../state/persistence.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";
-import type { ProjectQueueEntry } from "./types.ts";
-import type { ProjectQueueState } from "./types.ts";
-import type { SingleTaskRecord } from "./types.ts";
-import { inspectSingleTaskRecord } from "./validation.ts";
+
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
-import { historyRow } from "../storage/history.ts";
+
 import path from "node:path";
 
 export const QUEUE_TRANSITIONS = Object.freeze({
@@ -152,7 +157,7 @@ export function createCoordinatorSnapshotStatePort(
       writeCoordinatorSnapshotState(
         workingDirectory,
         binding,
-        encodeCoordinatorStateValue(state),
+        encodeRuntimeStateValue(state),
         expectedGeneration,
         intake,
         resultFacts,
@@ -662,8 +667,8 @@ export function enqueueCoordinatorSingleTask(
           keys.every((key) => existing[key] === input[key]) &&
           identityKeys.every(
             (key) =>
-              encodeCoordinatorStateValue(existing.singleTask?.[key]) ===
-              encodeCoordinatorStateValue(input.singleTask?.[key]),
+              encodeRuntimeStateValue(existing.singleTask?.[key]) ===
+              encodeRuntimeStateValue(input.singleTask?.[key]),
           )
           ? completed("orchestrator_single_task_reused", {
               next: null,
@@ -760,8 +765,8 @@ export function updateCoordinatorSingleTask(
       if (
         identityKeys.some(
           (key) =>
-            encodeCoordinatorStateValue(previous.singleTask?.[key]) !==
-            encodeCoordinatorStateValue(record[key]),
+            encodeRuntimeStateValue(previous.singleTask?.[key]) !==
+            encodeRuntimeStateValue(record[key]),
         )
       )
         return blocked("orchestrator_single_task_identity_conflict");
@@ -776,8 +781,8 @@ export function updateCoordinatorSingleTask(
         )
           return blocked("orchestrator_single_task_terminal_identity_conflict");
         if (
-          encodeCoordinatorStateValue(previous.singleTask) ===
-          encodeCoordinatorStateValue(record)
+          encodeRuntimeStateValue(previous.singleTask) ===
+          encodeRuntimeStateValue(record)
         )
           return completed("orchestrator_single_task_already_saved", {
             next: null,

@@ -8,6 +8,7 @@
  * @scope 現在checkpoint、公開DI入力、通知保存と外側排他。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番組立て→DI公開相当driverと実Machine。
  */
+import { decodeDockerRestartCheckpoint } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 import { spawnSync } from "node:child_process";
@@ -17,10 +18,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { restartDockerRuntimeForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import {
-  decodeDockerRestartCheckpoint,
-  validateDockerRestartCheckpointTransition,
-} from "../../src/execution/result.ts";
+import { validateDockerRestartCheckpointTransition } from "../../src/execution/result.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
 /**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。

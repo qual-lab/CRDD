@@ -11,7 +11,7 @@ import {
 import type {
   AiSelectionRole,
   AiSelectionChoice,
-} from "../../src/selection/types.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * 五役割と分類の試験専用設定を返す。

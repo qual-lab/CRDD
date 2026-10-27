@@ -5,20 +5,17 @@
  * @trace ARCH-000004
  */
 
-import type { COORDINATOR_STATE_CONTRACT } from "./validation.ts";
 import type {
-  ProjectObjectiveRecord,
-  ProjectMilestoneRecord,
-} from "../objective/types.ts";
-import type { ProjectTaskRecord } from "../task/types.ts";
-import type { TaskExecutionSelections } from "../selection/types.ts";
+  ProjectTaskState,
+  CoordinatorState,
+} from "../../../domain-model/src/index.ts";
+
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import type { COORDINATOR_STATE_QUERY_CONTRACT } from "./request.ts";
 import type {
   ProjectMilestoneState,
   ProjectObjectiveState,
-} from "../objective/types.ts";
-import type { ProjectTaskState } from "../task/types.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * 一Repositoryの読取り入力。
@@ -206,32 +203,6 @@ export type CoordinatorProjection = Readonly<{
     | "human_decision"
     | "recover"
     | "complete";
-}>;
-
-/**
- * stateで使用するCoordinator 状態の値契約を定義する。
- *
- * @responsibility Coordinator 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorStateの宣言は外部境界を開かない。
- * @security N/A: CoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorState = Readonly<{
-  contract: typeof COORDINATOR_STATE_CONTRACT;
-  taskExecutionSelections: TaskExecutionSelections;
-  projectId: string;
-  milestoneId: string;
-  repositoryRevision: string;
-  generation: number;
-  ownerGeneration: string;
-  decisionApplicationId: string | null;
-  maximumConcurrency: number;
-  milestone: ProjectMilestoneRecord;
-  objectives: readonly ProjectObjectiveRecord[];
-  tasks: readonly ProjectTaskRecord[];
 }>;
 
 /**

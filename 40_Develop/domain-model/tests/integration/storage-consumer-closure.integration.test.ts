@@ -17,6 +17,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const RESOLVER_PATH =
   "40_Develop/domain-model/src/repository/resolve-storage-paths.ts";
 const RUNTIME_STORAGE_OWNERS = new Set([
+  "40_Develop/domain-model/src/storage/ai-selection.ts",
   "40_Develop/domain-model/src/storage/network-policy.ts",
   RESOLVER_PATH,
   "40_Develop/domain-model/src/repository/require-storage-area.ts",
@@ -48,8 +49,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
   "40_Develop/coordinator/scripts/prepare-codex-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
-  "40_Develop/coordinator/src/storage/ai-selection.ts",
-  "40_Develop/coordinator/src/storage/state.ts",
+  "40_Develop/coordinator/src/execution/lease.ts",
   "40_Develop/coordinator/src/storage/state.ts",
   "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
@@ -64,7 +64,7 @@ const COORDINATOR_BLOCKED_PROJECTION =
   "40_Develop/coordinator/src/state/result.ts";
 const coordinatorStoreFactoryNames = [
   "createCoordinatorPersistencePorts",
-  "createCoordinatorDecisionRecoveryStore",
+  "createCoordinatorSnapshotDecisionRecoveryStore",
   "createCoordinatorAcceptanceDecisionStore",
 ] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =

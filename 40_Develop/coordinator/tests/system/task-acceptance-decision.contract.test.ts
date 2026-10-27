@@ -8,7 +8,12 @@
  * @scope coordinator、orchestrator、runtime-data、repository-local-store
  * @boundary PRL-ST-009=System/E2E: 公開入口→Coordinator→Acceptance Decision Store→状態投影
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import {
+  type CoordinatorState,
+  decodeCoordinatorUnifiedSnapshot,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -21,8 +26,8 @@ import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../do
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
 import { createCoordinatorState } from "../../src/state/create.ts";
-import type { CoordinatorAcceptanceDecision } from "../../src/decision/types.ts";
-import type { CoordinatorState } from "../../src/state/types.ts";
+import type { CoordinatorAcceptanceDecision } from "../../../domain-model/src/index.ts";
+
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -30,14 +35,13 @@ import {
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
 import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
-import type { CoordinatorAcceptanceDecisionRecord } from "../../src/decision/records.ts";
+import type { CoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { createCoordinatorSnapshotAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
 import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
-import { decodeCoordinatorUnifiedSnapshot } from "../../src/storage/state.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。
@@ -499,11 +503,7 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   const previousHash = second.previousHash;
   assert.notEqual(previousHash, "f".repeat(64));
   second.previousHash = "f".repeat(64);
-  fs.writeFileSync(
-    statePath,
-    `${encodeCoordinatorStateValue(saved)}\n`,
-    "utf8",
-  );
+  fs.writeFileSync(statePath, `${encodeRuntimeStateValue(saved)}\n`, "utf8");
   const before = fs.readFileSync(statePath);
   const observed = createCoordinatorSnapshotAcceptanceDecisionStore(
     repository.root,
@@ -515,7 +515,7 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   assert.deepEqual(fs.readFileSync(statePath), before);
   second.previousHash = previousHash;
   assert.equal(
-    `${encodeCoordinatorStateValue(saved)}\n`,
+    `${encodeRuntimeStateValue(saved)}\n`,
     original.toString("utf8"),
   );
 });

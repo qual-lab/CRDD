@@ -1,5 +1,9 @@
 # 故障／回復／耐障害モデル
 
+## Core保存失敗と技術回復の分離 — 2026-10-27
+
+[Runtime Domain保存契約](Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)は、競合・出版前拒否・発行後確認不能・排他解放不明を区別する。Core編集で既存unknown・未解決義務・exact回復参照を消さず、保存成功を実行終了・回収・受領にしない。通常完了とRecoveryの真正証拠も代用不可。新しい回復Registryや自動再送は追加せず、未解決Automationの保全不能な更新だけを拒否する。
+
 Workspace方式の失敗・取消・親喪失・Merge途中失敗・採用後保存失敗は[状態と終了条件](Details/coordinator/05_Workspace.md#5-状態競合終了条件)へ接続する。実行資源cleanupと継続Workspace破棄は別であり、取消で既存dirty・他Task成果を削除／resetしない。Git部分成立・元失敗・同対象参照を保持し、観測不能を不存在や再実行許可にしない。以下の旧方式の成功は新方式へ継承しない。
 
 Status: Candidate (v0.22 responsibility reorganization)

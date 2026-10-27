@@ -4,6 +4,10 @@
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
+import type {
+  RepositoryWorktreeResult,
+  RepositoryWorktreeObservation,
+} from "../../../domain-model/src/index.ts";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { devNull } from "node:os";
@@ -13,50 +17,6 @@ import {
   type VerifiedRepositoryRoot,
 } from "../repository/location.ts";
 import { resolveRepositoryGitLayout } from "../repository/layout.ts";
-
-/**
- * 登録・実体・Refを独立観測した値。
- * @responsibility 不存在と観測不能を混同せず、部分状態を表す。
- * @trace ARCH-000009
- * @shape 登録、実体、専用Branch、変更とlock。
- * @invariant branchHeadのnullは専用Ref不存在、headのnullは登録HEADなし、dirtyのnullは状態未取得。観測不能時は結果全体のobservationがnull。
- * @boundary Git／Filesystemの観測結果。
- * @security PathとBranchは固定相対値のみ。
- * @compatibility 上位Task保存Schemaではない。
- */
-export type RepositoryWorktreeObservation = Readonly<{
-  registered: boolean;
-  directoryPresent: boolean;
-  branchHead: string | null;
-  head: string | null;
-  locked: boolean;
-  prunable: boolean;
-  dirty: boolean | null;
-}>;
-
-/**
- * 要求と終了段階を結合した結果。
- * @responsibility 発行前拒否と発行後不明、部分削除を区別する。
- * @trace ARCH-000009
- * @shape 固定対象、一次理由、Effect発行と段階別不存在。
- * @invariant 完了は実観測後だけ。失敗時も同対象を保持する。
- * @boundary Package公開API。
- * @security この値自体は削除Authorityではない。
- * @compatibility 呼出し元が採否・非使用を所有する。
- */
-export type RepositoryWorktreeResult = Readonly<{
-  status: "completed" | "blocked";
-  reason: string;
-  workspaceId: string;
-  relativePath: string | null;
-  branch: string | null;
-  expectedCommit: string | null;
-  effectIssued: boolean;
-  worktreeRemoved: boolean | null;
-  branchRemoved: boolean | null;
-  workspaceDirectoryRetained: boolean | null;
-  observation: RepositoryWorktreeObservation | null;
-}>;
 
 type RecordEntry = {
   root: string;

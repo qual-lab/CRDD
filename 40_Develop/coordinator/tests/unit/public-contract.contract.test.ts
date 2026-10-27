@@ -9,6 +9,7 @@
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
 
 import {
@@ -16,7 +17,7 @@ import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
 } from "../../src/decision/request.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
-import { isCoordinatorDecisionRecord } from "../../src/decision/records.ts";
+import { isCoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
 import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/state/result.ts";
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -25,6 +26,80 @@ import {
 } from "../../src/task/dispatch.ts";
 
 const repositoryRevision = "a".repeat(40);
+
+/**
+ * 複数Taskの入力相関を公開要求から検査する。
+ * @trace PRL-UT-014
+ * @precondition 三層の条件が異なる合成二Taskを用意する。
+ * @stimulus 正常値と欠落・余剰・重複・循環・範囲外を渡す。
+ * @observation 検査結果と不変Snapshot。
+ * @oracle Taskの指示を補完せず、全入力を一対一で保持する。
+ * @cleanup 局所値のみ。AI・Docker・Filesystemを使用しない。
+ * @boundary 公開要求→Domain値検査。
+ */
+test("公開GraphはTask別の指示を固定し不正な相関を拒否する", () => {
+  const base = objectiveRequest();
+  const firstTask = base.plan.tasks[0];
+  const firstInput = base.taskInputs[0];
+  assert.ok(firstTask && firstInput);
+  const secondTask = {
+    ...firstTask,
+    id: "task-b",
+    dependencies: [firstTask.id],
+  };
+  const secondInput = {
+    ...firstInput,
+    taskId: "task-b",
+    objective: "二番目の指示",
+    acceptanceCriteria: ["Task固有条件"],
+  };
+  const input = {
+    ...base,
+    plan: { ...base.plan, tasks: [firstTask, secondTask] },
+    taskInputs: [firstInput, secondInput],
+  };
+  const result = inspectCoordinatorObjectiveRequest(input);
+  assert.ok(result);
+  assert.deepEqual(result.plan, input.plan);
+  assert.deepEqual(result.taskInputs[1]?.acceptanceCriteria, ["Task固有条件"]);
+  secondInput.objective = "後発変更";
+  assert.equal(result.taskInputs[1]?.objective, "二番目の指示");
+  assert.ok(Object.isFrozen(result.taskInputs));
+  for (const invalid of [
+    { ...input, taskInputs: [firstInput] },
+    { ...input, taskInputs: [firstInput, firstInput] },
+    {
+      ...input,
+      taskInputs: [firstInput, { ...secondInput, taskId: "unknown" }],
+    },
+    {
+      ...input,
+      taskInputs: [firstInput, { ...secondInput, readPaths: ["outside.txt"] }],
+    },
+    {
+      ...input,
+      plan: {
+        ...input.plan,
+        tasks: [firstTask, { ...secondTask, dependencies: ["missing"] }],
+      },
+    },
+    {
+      ...input,
+      plan: {
+        ...input.plan,
+        tasks: [{ ...firstTask, dependencies: ["task-b"] }, secondTask],
+      },
+    },
+    { ...input, plan: { ...input.plan, tasks: [firstTask, firstTask] } },
+    {
+      ...input,
+      plan: { ...input.plan, milestoneAcceptanceCriteria: ["別条件"] },
+    },
+    { ...input, plan: undefined },
+    { ...input, taskInputs: undefined },
+  ])
+    assert.equal(inspectCoordinatorObjectiveRequest(invalid), null);
+});
 
 /**
  * Execution Portは既存Single Task結果契約を意味変更せず所有するを検証する。
@@ -126,7 +201,7 @@ test("単発結果検査は閉形式とRuntime発行回復参照の相関を維�
  * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 function objectiveRequest() {
-  return {
+  return withCallerPlan({
     requestId: "request-1",
     projectId: "project-1",
     milestoneId: "milestone-1",
@@ -140,7 +215,7 @@ function objectiveRequest() {
     originLane: "interactive",
     adoptResult: false,
     intakeEpoch: "fixture-epoch",
-  } as const;
+  } as const);
 }
 
 /**

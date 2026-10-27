@@ -1,5 +1,13 @@
 # CoordinatorのTask・Objective管理アーキテクチャ
 
+## 共通定義と実行Admissionの分離 — 2026-10-27
+
+次の公開受付は[Caller Task Graph入力](../domain-model/05_Runtime_Domain.md#caller-task-graph-intake)を目標とする。PlanのTask定義とTask別の既存実行指示・Review条件を厳密に結合し、本文を保存せず同じ受付Hashへ固定する。現在の1＋1包装と共通指示コピーは置換対象で、API・Schema・CLI／MCPの新形式追従は未実装。新しい計画器・自動再送・文書同期は作らない。
+
+ここでいうObjective／Milestoneは[実行内の集約](../domain-model/05_Runtime_Domain.md#document-and-execution-ownership)であり、CRDD文書の目標／Milestone／WBSと自動対応しない。実行Taskの計画分解はCallerが所有する。現行の公開planObjectiveは1 Objective＋1 Taskへの機械変換であり、文書解析やCallerの複数Task搬送の完成を意味しない。文書更新は明示的な依頼範囲に限り、結果から上位文書の進捗・採用を生成しない。
+
+[Runtime Domainの公開操作](../domain-model/05_Runtime_Domain.md#runtime-domain-api)を定義・判断・受付の正本とする。Plan保存は実行受付ではなく、受付も開始ではない。Coordinatorは同じ定義改訂をAdmissionへ渡し、Scheduling・Claimと実行権限の横断調停を所有する。定義変更・対象Hash・CAS・管理実行記録の相関を維持し、Task編集からAttempt／cleanupを変更させない。既存判断記録・根拠ID・局所受入をDomainへ移し、技術完了・Queue／Workspace相関は元Ownerで維持する。非管理完了APIを追加せず、既存受入条件も緩めない。
+
 <a id="task-acceptance-execution-boundary"></a>
 
 ## Taskの耐久受付と実行開始の分離 — 2026-10-25
@@ -200,7 +208,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 人間判断の一回利用秘密値と照合Hashは`src/decision/decision-capability-adapter.ts`が生成する。上位判断の発行・置換・失効契約が利用し、Provider認証やCoordinatorの実行Capabilityへ転用しない。秘密値の保存・公開範囲は既存判断契約を維持する。
 
-受入判断Record・世代相関は`decision/records.ts`、判断回復Intentは`decision/records.ts`で検査し、統合保存モデルが同じSnapshotへ接続する。未知欄・Identity差・世代連鎖不整合は拒否してbytesを保全する。Host保護判断の別保存・世代チェーンは維持し、通常履歴の期限処理へ混ぜない。
+受入判断Record・世代相関と判断回復IntentはDomainの`decision/validation.ts`で検査し、記録型は同じDomainの`decision/types.ts`が所有する。統合保存モデルは同じSnapshotへ接続する。未知欄・Identity差・世代連鎖不整合は拒否してbytesを保全する。Host保護判断の別保存・世代チェーンは維持し、通常履歴の期限処理へ混ぜない。
 
 上位Attempt・判断権限・Revisionと単一Taskの対応付けは`src/task/single-task-adapter.ts`が所有する。CoordinatorのTask専用公開入口を呼び、開始時の上位相関を完了待機中に置き換えない。Task開始・取消・完了形状と下位回復参照の検証はCoordinatorが所有する。Coordinator Rootの上位再exportは撤去済みで、共通Task公開面を推移的に読み込む。CLI配送と保存Root参照は切替済みで、全本番利用側と旧実Runtime Rootの処置は継続中であり、この接続だけを全体完成としない。
 
@@ -422,17 +430,17 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（22） | `state/projection.ts`; `state/types.ts`; `decision/types.ts`; `decision/records.ts`; `decision/request.ts`; `state/persistence.ts`; `state/create.ts`; `state/validation.ts`; `decision/transition.ts`; `task/validation.ts`; `objective/request.ts`; `objective/types.ts`; `objective/plan.ts`; `state/result.ts`; `task/types.ts`; `state/request.ts`; `task/scheduling.ts`; `task/lifecycle.ts`; `task/acceptance.ts`; `task/recovery.ts`; `selection/types.ts`; `selection/validation.ts` | 閉じた値検査と純粋遷移。時刻・乱数・I/Oを取得しない。 |
+| 純粋判定・値契約（19） | `state/projection.ts`; `state/types.ts`; `decision/types.ts`; `decision/request.ts`; `state/persistence.ts`; `state/create.ts`; `state/validation.ts`; `decision/transition.ts`; `objective/request.ts`; `objective/types.ts`; `objective/plan.ts`; `state/result.ts`; `task/types.ts`; `state/request.ts`; `task/scheduling.ts`; `task/lifecycle.ts`; `task/acceptance.ts`; `task/recovery.ts`; `selection/validation.ts` | 閉じた値検査と純粋遷移。共通保存値の型・codecはDomainを参照し、時刻・乱数・I/Oを取得しない。 |
 | 業務操作（9） | `state/retirement.ts`; `state/observation.ts`; `decision/lifecycle.ts`; `decision/acceptance.ts`; `objective/execute.ts`; `objective/replan.ts`; `state/query.ts`; `task/dispatch.ts`; `workspace/record.ts` | 受付・進行・読取り・受理・退役を調停し、保存と技術実行へ委譲する。 |
 | 接続・組立て（8） | `state/transaction.ts`; `task/queue.ts`; `objective/composition.ts`; `task/requests.ts`; `workspace/commands.ts`; `workspace/operations.ts`; `selection/resolve.ts`; `state/initialize.ts` | 専門Ownerを既存の保存トランザクションと公開操作へ接続する。 |
-| 物理保存（5） | `storage/ai-selection.ts`; `storage/state.ts`; `storage/history.ts`; `storage/lock.ts`; `storage/decision.ts` | 保存封筒・bounded codec・CAS・atomic replace・保存一回証拠・再入場を所有する。 |
-| 単発実行・技術接続（16） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/settlement.ts`; `execution/validation.ts`; `execution/types.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。 |
+| 物理保存（4） | `storage/state.ts`; `storage/history.ts`; `storage/lock.ts`; `storage/decision.ts` | 実行Snapshotの保存封筒・bounded codec・CAS・atomic replace・保存一回証拠・再入場を所有する。AI設定のWriterはDomainへ移管済み。実行Snapshot全体の移管は未完了。 |
+| 単発実行・技術接続（15） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/settlement.ts`; `execution/validation.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。保存型はDomainの`attempt/types.ts`を利用する。 |
 | CLI（7） | `cli/command.ts`; `cli/options.ts`; `cli/request.ts`; `cli/authentication.ts`; `cli/doctor.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
 | 区画間の状態整合（2） | `state/settlement.ts`; `state/transition.ts` | 復号済み区画の相関・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
 | 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | 既存の同意・Policy・一回Grantを保持する。 |
 | 公開入口（2） | `index.ts`; `api.ts` | Rootの公開名・型／値区分を維持する。 |
 
-`selection/types.ts`は設定・固定選定の共有型、`selection/validation.ts`は保存選定の純粋検査と内容Hashを所有する。復元は当時の十項目の閉形式を検査するだけで、現在Catalogによる新規選定・認証・実行許可と区別する。`selection/resolve.ts`は現在Catalogとの技術照合を所有し、状態復元から呼ばない。Task保存と回復への実接続は再設計計画の別Schema単位であり、codec追加だけで成立したとは表示しない。
+設定・固定選定の共有型と閉形式検査はDomainの`ai-selection/types.ts`・`validation.ts`が所有する。Coordinatorの`selection/validation.ts`は実行時の内容Hash照合を所有する。復元は当時の十項目の閉形式を検査するだけで、現在Catalogによる新規選定・認証・実行許可と区別する。`selection/resolve.ts`は現在Catalogとの技術照合を所有し、状態復元から呼ばない。新Schema・一般CRUD・Writer全面移管は別の実装段階であり、codecの依存分離だけで成立したとは表示しない。
 
 現行Source全数を重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 

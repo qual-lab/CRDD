@@ -244,7 +244,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
 | Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
-| Repository Worktree Management | `RepositoryWorktreeObservation`、`RepositoryWorktreeResult`、`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree` |
+| Repository Worktree Management | `createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree`。観測・結果の共有値型はDomain Modelが所有する |
 | Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
 | Workspace読取り観測 | `WorkspaceInventoryEntry`、`inspectWorkspaceInventory`、`readWorkspaceFileContent`、`isWorkspaceRelativePath` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |

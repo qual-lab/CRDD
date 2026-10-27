@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+文書のMilestone／Roadmap／WBSはCRDD文書が正本、Task分解はCaller、実行はCoordinatorとする[設計](06_Architecture/Details/domain-model/05_Runtime_Domain.md)へ整理した。既存Objective／Milestoneは実行内の集約。自動文書同期・新報告機能なし。Domainへの値・保存移管と単一CASを維持し、Source移管・新契約試験は未実施。
+
 状態判断・一回使用証拠を各Ownerへ分離し、Storage五File化・対象の分割回帰・独立レビュー残指摘零まで完了。全体一括回帰の初回不合格は保持し、再確認の成功へ置換しない。[対応と検証限界](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)を参照。AI再送・Docker・過去保持物操作なし。
 
 先行の認証確認診断是正は`81d9647a4`でcommit・push済み。Coordinator332件、Workbench HTTP／診断30件と独立レビューを確認したが、実AI編集E2E成立とは扱わない。[診断是正と状態Ownerの調査](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#auth-create-diagnostic-minimal-fix-20261027)を参照する。

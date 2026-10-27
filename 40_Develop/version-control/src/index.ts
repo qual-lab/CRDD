@@ -77,20 +77,24 @@ export {
   inspectWorkspaceFile,
   inspectWorkspaceCandidatePatch,
   removeWorkspaceCandidate,
+} from "./workspace/candidate.ts";
+export {
   validWorkspaceDisplayName,
   validWorkspaceCandidateRequest,
   type WorkspaceCandidateRequest,
   type WorkspaceCandidateResult,
   type WorkspaceCandidateSelection,
   type WorkspaceCandidateTemporary,
-} from "./workspace/candidate.ts";
+} from "../../domain-model/src/index.ts";
 export {
   createRepositoryWorktree,
   disposeRepositoryWorktree,
   observeRepositoryWorktree,
-  type RepositoryWorktreeObservation,
-  type RepositoryWorktreeResult,
 } from "./workspace/worktree.ts";
+export type {
+  RepositoryWorktreeObservation,
+  RepositoryWorktreeResult,
+} from "../../domain-model/src/index.ts";
 export { gitRepositoryWorktreeViewAdapter } from "./repository/worktree-view.ts";
 export {
   changedPaths,

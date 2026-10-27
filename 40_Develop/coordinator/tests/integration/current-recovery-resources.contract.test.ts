@@ -8,6 +8,11 @@
  * @scope 本番回収・Coordinator待機本文、模擬現在状態、実空configとspawnSync差替え。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
+import {
+  isDockerRestartCheckpointSettled,
+  coordinatorTaskResourcesAreSettled,
+  coordinatorAuthenticationUnknownCanClose,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
@@ -18,11 +23,7 @@ import test, { mock, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual, types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
-import { isDockerRestartCheckpointSettled } from "../../src/execution/result.ts";
-import {
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
-} from "../../src/execution/validation.ts";
+
 import {
   createDockerOperationRecoveryExecutor,
   createDockerResourceRecoveryExecutor,
@@ -66,7 +67,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
     "export function",
     "function",
   );
-  const guardStart = wrapper.indexOf("      encodeCoordinatorStateValue(");
+  const guardStart = wrapper.indexOf("      encodeRuntimeStateValue(");
   const guardEnd = wrapper.indexOf(
     "      !validateRepairWriteCandidate(",
     guardStart,
@@ -148,7 +149,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
             snapshot: JSON.parse(value.toString("utf8")),
           }),
           validateCoordinatorStateTransition: () => true,
-          encodeCoordinatorStateValue: JSON.stringify,
+          encodeRuntimeStateValue: JSON.stringify,
           writeCoordinatorStateSnapshot: (_owner: unknown, root: unknown) => {
             if (root) requests++;
             return { status: "blocked", filesystemEffectIssued: false };
@@ -192,7 +193,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
             current: { snapshot: before },
             currentBytes: beforeBytes,
             bytes,
-            encodeCoordinatorStateValue: JSON.stringify,
+            encodeRuntimeStateValue: JSON.stringify,
             proceed: () => continuations++,
           },
         );
@@ -305,7 +306,7 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
           Buffer,
           types: utilTypes,
           settlements: new WeakMap(),
-          encodeCoordinatorStateValue: JSON.stringify,
+          encodeRuntimeStateValue: JSON.stringify,
           decodeCoordinatorStateSnapshot: (value: Buffer) => ({
             snapshot: JSON.parse(value.toString()),
           }),
@@ -475,7 +476,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
           }),
           decodeCoordinatorStateSnapshot: () => ({ snapshot: candidate }),
           validateCoordinatorStateTransition: () => true,
-          encodeCoordinatorStateValue: JSON.stringify,
+          encodeRuntimeStateValue: JSON.stringify,
           prepareCoordinatorStateInitialization: () => {
             if (create && mode !== "init_rejected") fs.mkdirSync(directory);
             return {
@@ -662,7 +663,7 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
               currentRepair: null,
               repairHistoryScopeConfirmed: false,
               currentHistory: null,
-              encodeCoordinatorStateValue: JSON.stringify,
+              encodeRuntimeStateValue: JSON.stringify,
               proceed: () => {
                 continuations++;
               },
@@ -862,7 +863,7 @@ test("現在回収退役: 元版・三排他・保存読戻しと非対象保持
         Object,
         JSON,
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        encodeCoordinatorStateValue: JSON.stringify,
+        encodeRuntimeStateValue: JSON.stringify,
         verifyHostOperationRecoveryGeneration() {
           if (scenario === "marker") throw new Error("marker");
         },
@@ -1520,7 +1521,7 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
     const environment = {
       Buffer,
       dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-      encodeCoordinatorStateValue: encode,
+      encodeRuntimeStateValue: encode,
       coordinatorTaskResourcesAreSettled: () => true,
       assertCurrentRecoveryOwner: () =>
         !(scenario === "owner_lost_after_pending" && stages.length > 0),
@@ -1664,7 +1665,7 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
       {
         Buffer,
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
-        encodeCoordinatorStateValue: JSON.stringify,
+        encodeRuntimeStateValue: JSON.stringify,
         assertCurrentRecoveryOwner: () => scenario !== "owner",
         decodeCoordinatorStateSnapshot: () => ({ snapshot }),
         coordinatorReleasedTaskCanObserveHostAbsence: () =>
@@ -3435,7 +3436,7 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
         Buffer,
         isDockerRestartCheckpointSettled,
         coordinatorTaskResourcesAreSettled,
-        encodeCoordinatorStateValue: JSON.stringify,
+        encodeRuntimeStateValue: JSON.stringify,
         readCoordinatorStateSnapshot: () => ({
           status: "completed",
           lockReleased: true,
@@ -3819,7 +3820,7 @@ function fixture(
       if (mode === "inspect-owner-lost") live = true;
       return observed;
     },
-    encodeCoordinatorStateValue: JSON.stringify,
+    encodeRuntimeStateValue: JSON.stringify,
     codexAdviceProviderInitRequired: () => false,
     decodeCoordinatorStateSnapshot: (bytes: Buffer, binding: string) => {
       assert.equal(binding, record.repository.repositoryBinding);

@@ -8,14 +8,6 @@
  */
 export {
   type AuthenticationRequest,
-  readRepositoryAiSelection,
-  saveRepositoryAiSelection,
-  type AiSelectionReadResult,
-  type AiSelectionSaveResult,
-  type AiSelectionChoice,
-  type AiSelectionConfig,
-  type AiSelectionRole,
-  type AiSelectionSnapshot,
   type ExecutionSelection,
   type SingleTaskCommand,
   inspectAiSelectionChoice,

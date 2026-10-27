@@ -23,7 +23,7 @@ import type { PortfolioProjection } from "../../../../domain-model/src/index.ts"
 import type {
   AiSelectionSaveResult,
   AiSelectionSnapshot,
-} from "../../../../coordinator/src/index.ts";
+} from "../../../../domain-model/src/index.ts";
 import type { WorkbenchAiSelectionSurface } from "../../server/ai-selection/projection.ts";
 import type { WorkbenchAiRequestSnapshot } from "../../server/ai-request/types.ts";
 import type { CredentialAdministrationSnapshot } from "../../../../access-management/src/index.ts";

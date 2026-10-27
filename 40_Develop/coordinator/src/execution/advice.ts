@@ -7,9 +7,9 @@
  */
 import {
   inspectExecutionSelection,
-  hashExecutionSelection,
-} from "../selection/validation.ts";
-import type { ExecutionSelection } from "../selection/types.ts";
+  type ExecutionSelection,
+} from "../../../domain-model/src/index.ts";
+import { hashExecutionSelection } from "../selection/validation.ts";
 
 import {
   type ProviderAdviceExecutionPlan,

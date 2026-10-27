@@ -8,6 +8,7 @@
  * @scope orchestrator、acceptance-decision、authority、store、state
  * @boundary PRL-IT-008=Direct Boundary: SPEC入力→Acceptance Decision Port→Decision Store
  */
+import type { CoordinatorState } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -19,7 +20,7 @@ import {
 import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { applyCoordinatorAcceptanceDecision } from "../../src/decision/transition.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import type { CoordinatorState } from "../../src/state/types.ts";
+
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -27,7 +28,7 @@ import {
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
 import { createCoordinatorAcceptanceAuthorityAdapter } from "../../src/decision/request.ts";
-import type { CoordinatorAcceptanceDecisionRecord } from "../../src/decision/records.ts";
+import type { CoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
 import type { CoordinatorAcceptanceDecisionStore } from "../../src/decision/types.ts";
 import type { CoordinatorPortResult } from "../../src/state/result.ts";
 import type { CoordinatorStatePort } from "../../src/state/persistence.ts";

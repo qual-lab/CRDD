@@ -35,20 +35,22 @@ export {
   observeDockerRuntimeRepairRetention,
 } from "./docker-desktop/repair-session.ts";
 export {
-  type DockerRuntimeRepairCheckpoint,
-  type DockerRuntimeRepairRetentionTargets,
-  decodeDockerRuntimeRepairRetentionTargets,
-  type DockerRuntimeRepairDisposalCheckpoint,
   createDockerRuntimeRepairDisposalCheckpoint,
-  decodeDockerRuntimeRepairDisposalCheckpoint,
   validateDockerRuntimeRepairDisposalTransition,
-  dockerRuntimeRepairDisposalIsSettled,
-  decodeDockerRuntimeRepairCheckpoint,
-  dockerRuntimeRepairCheckpointIsSettled,
   prepareDockerRuntimeRepairSessionCheckpoint,
   validateDockerRuntimeRepairCheckpointTransition,
   validateDockerRuntimeRepairSessionCheckpoint,
 } from "./docker-desktop/repair-state.ts";
+export {
+  type DockerRuntimeRepairCheckpoint,
+  type DockerRuntimeRepairRetentionTargets,
+  decodeDockerRuntimeRepairRetentionTargets,
+  type DockerRuntimeRepairDisposalCheckpoint,
+  decodeDockerRuntimeRepairDisposalCheckpoint,
+  dockerRuntimeRepairDisposalIsSettled,
+  decodeDockerRuntimeRepairCheckpoint,
+  dockerRuntimeRepairCheckpointIsSettled,
+} from "../../domain-model/src/index.ts";
 export {
   type DockerRuntimeBackendState,
   observeDockerRuntimeBackendState,
@@ -186,7 +188,7 @@ export {
   type DockerNetworkPolicyResult,
 } from "./network/policy.ts";
 
-export { parseDockerTaskRecoveryId } from "./cleanup/recovery-identity.ts";
+export { parseDockerTaskRecoveryId } from "../../domain-model/src/index.ts";
 export {
   type DockerMounts,
   type LoadedDockerRecovery,

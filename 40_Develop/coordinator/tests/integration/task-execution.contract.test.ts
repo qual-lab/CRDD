@@ -8,7 +8,8 @@
  * @scope project、runtime、execution
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -24,7 +25,7 @@ import {
   runCoordinatorOperation as runCoordinatorOperationWithPorts,
 } from "../../src/task/dispatch.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import type { ProjectTaskDefinition } from "../../src/task/types.ts";
+import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
@@ -218,9 +219,7 @@ for (const mode of [
               }));
             fs.writeFileSync(
               history,
-              rows
-                .map((row) => `${encodeCoordinatorStateValue(row)}\n`)
-                .join(""),
+              rows.map((row) => `${encodeRuntimeStateValue(row)}\n`).join(""),
             );
           }
           if (mode === "history_unconfirmed") {
@@ -228,7 +227,7 @@ for (const mode of [
             const state = JSON.parse(fs.readFileSync(file, "utf8"));
             for (const operation of state.operations)
               operation.history.confirmed = false;
-            fs.writeFileSync(file, `${encodeCoordinatorStateValue(state)}\n`);
+            fs.writeFileSync(file, `${encodeRuntimeStateValue(state)}\n`);
           }
           return mode === "cancelled"
             ? { ...result, status: "cancelled", reason: "fixture_cancelled" }
@@ -261,7 +260,7 @@ for (const mode of [
         if (fault === "state") {
           const value = JSON.parse(before.toString());
           value.revision += 1;
-          fs.writeFileSync(file, `${encodeCoordinatorStateValue(value)}\n`);
+          fs.writeFileSync(file, `${encodeRuntimeStateValue(value)}\n`);
         }
         const fixedState = fs.readFileSync(file);
         const fixedPending = fs.readFileSync(pending);

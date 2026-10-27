@@ -1,5 +1,9 @@
 # Quality Integration
 
+## Core独立契約の統合状態 — 2026-10-27
+
+DomainのAPI入出力・単一保存設計を、[ARCH追加分析](Analysis/ARCH/quality_analysis.md)、[QA-000003](Definitions/QA-000003/quality_definition.md)、[QA-000008](Definitions/QA-000008/quality_definition.md)、[検証計画](03_Verification_Design.md)へ接続した。既存項目の下位シナリオであり、新契約は全件Not Run。Source未実装、保存Schema／配置切替未実施、実AI・Docker・保持物操作なし。過去の199項目の記録を新契約の達成数へ換算せず、全体品質・Release可能とはしない。
+
 B2の端末出力移管で補助Unit項目`EST-UT-016`を追加し、現在の設計集合は13定義・199 Local Itemとなった。検証項目の閉包へ反映したが、正式Pass数・過去Evidenceは更新しない。以下の198項目等の集合は各追加時点の基準として区別する。
 
 ## Workbench Framework移行の検証接続（2026-10-20、未評価）

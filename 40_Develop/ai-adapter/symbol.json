@@ -83,14 +83,6 @@
       ]
     },
     {
-      "symbolId": "ai-adapter.output.unambiguous-json-document",
-      "kind": "file",
-      "path": "src/provider/json.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "ai-adapter.authentication-policy",
       "kind": "file",
       "path": "src/authentication/policy.ts",

@@ -40,7 +40,7 @@ import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "..
 import type {
   CoordinatorDecisionRecord,
   CoordinatorDecisionRecoveryIntent,
-} from "../../src/decision/records.ts";
+} from "../../../domain-model/src/index.ts";
 import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,

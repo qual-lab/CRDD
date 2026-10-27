@@ -12,7 +12,7 @@ import { readCredentialAdministrationState } from "../../../../access-management
 import type {
   AiSelectionSaveResult,
   AiSelectionSnapshot,
-} from "../../../../coordinator/src/index.ts";
+} from "../../../../domain-model/src/index.ts";
 import type {
   PortfolioProjection,
   TopicMeetingPage,

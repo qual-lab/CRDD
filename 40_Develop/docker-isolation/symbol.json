@@ -10,12 +10,6 @@
       "archIds": ["ARCH-000008"]
     },
     {
-      "symbolId": "docker-isolation.cleanup.recovery-identity",
-      "kind": "file",
-      "path": "src/cleanup/recovery-identity.ts",
-      "archIds": ["ARCH-000008"]
-    },
-    {
       "symbolId": "docker-isolation.test.unit.network-proxy",
       "kind": "test-suite",
       "path": "tests/unit/network/proxy.contract.test.ts",

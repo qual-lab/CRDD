@@ -673,7 +673,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/storage/state.ts",
       "40_Develop/coordinator/src/storage/history.ts",
-      "40_Develop/coordinator/src/storage/state.ts",
+      "40_Develop/coordinator/src/storage/lock.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
@@ -943,14 +943,14 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/state/initialize.ts",
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/state/types.ts",
-      "40_Develop/coordinator/src/storage/ai-selection.ts",
       "40_Develop/coordinator/src/storage/state.ts",
       "40_Develop/coordinator/src/storage/history.ts",
-      "40_Develop/coordinator/src/storage/state.ts",
+      "40_Develop/coordinator/src/storage/lock.ts",
       "40_Develop/coordinator/src/task/requests.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
       "40_Develop/domain-model/src/configuration/read-tool-config.ts",
+      "40_Develop/domain-model/src/storage/ai-selection.ts",
       "40_Develop/domain-model/src/project-context/read-context.ts",
       "40_Develop/domain-model/src/repository/create-observer.ts",
       "40_Develop/domain-model/src/repository/observe-symbols.ts",
@@ -1005,7 +1005,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
     "40_Develop/coordinator/src/workspace/commands.ts",
     "40_Develop/coordinator/src/workspace/operations.ts",
-    "40_Develop/coordinator/src/workspace/record.ts",
   ]);
 });
 

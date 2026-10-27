@@ -5,6 +5,12 @@
  * @trace ARCH-000008
  * @boundary 元Sessionは同子を回収し、終了後回収・保持照合は新Repair Sessionを取得しない。現在の許可と真正Writerは上位Ownerが所有する。
  */
+import {
+  decodeDockerRuntimeRepairCheckpoint as decode,
+  dockerRuntimeRepairCheckpointIsSettled,
+  type DockerRuntimeRepairCheckpoint as Checkpoint,
+  type DockerRuntimeRepairRetentionTargets,
+} from "../../../domain-model/src/index.ts";
 import type {
   DockerDesktopRepairNativeHelperOutcome,
   DockerDesktopRepairNativeHelperSession,
@@ -15,13 +21,7 @@ import {
   dockerDesktopDistributionRoot,
   describeDockerRuntimeArtifactTrustContract,
 } from "../docker-cli/trust.ts";
-import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
-  dockerRuntimeRepairCheckpointIsSettled,
-  prepareDockerRuntimeRepairSessionCheckpoint,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
-  type DockerRuntimeRepairRetentionTargets,
-} from "./repair-state.ts";
+import { prepareDockerRuntimeRepairSessionCheckpoint } from "./repair-state.ts";
 import { runDockerRuntimeRepairMachine } from "./repair.ts";
 import { startDockerDesktopRepairHelper } from "../../../platform-access/src/index.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";

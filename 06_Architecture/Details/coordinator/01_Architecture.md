@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Core独立後の目標責務 — 2026-10-27
+
+CoordinatorはCallerが計画・分解した小・中規模Taskを実行・調整する。CRDD文書群のMilestone／Roadmap／WBSを自律管理するOwnerではない。[既存Objective／Milestoneの用途](../domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を維持し、実行状態と文書を自動同期しない。文書処理もCallerから明示Taskとして受ける。
+
+[Runtime Domain契約](../domain-model/05_Runtime_Domain.md)に定義・局所CRUD・共通保存を移し、Coordinatorは任意の横断調停Ownerとする。単一試行の真正証拠・取消・終了はExecutor Library、技術処置は既存DI／PAへ接続する。現在の単一CoordinatorのSource・APIは移管元であり、以下の実装済み記述を目標の実装成立に流用しない。真正Mapと五Contextの接続を確認するまで旧経路は撤去しない。
+
 ## 認証確認の失敗診断
 
 認証確認Containerの起動・接続が応答した場合は、出力上限・Signal・終了値欠測を先に除外し、既存AI Adapterによる`authenticationStatus`（`confirmed`／`unconfirmed`／`unknown`）を任意の一次失敗診断として保持する。これは認証確認出力の意味だけを表し、非0終了の拒否、後続認証Gate、実行許可を変更しない。次のCommand開始時に診断値を消去し、別用途の失敗へ混入させない。
@@ -608,7 +614,7 @@ Host Operation
 
 ## 7. Authorityと外部送信
 
-Taskの清掃可否判定は`src/execution/recovery.ts`、現在入場と回復結果の公開投影は`src/execution/result.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法はDocker Isolationの`cleanup/recovery-identity.ts`へ集約し、現在状態、CLI、回復Callerと結果公開がDI Rootの同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
+Taskの清掃可否判定は`src/execution/recovery.ts`、現在入場と回復結果の公開投影は`src/execution/result.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法はDomain Modelの`attempt/validation.ts`へ集約し、現在状態、CLI、回復Callerと結果公開がDomain Rootの同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
 
 Repository読取り、外部送信、Provider起動、候補書込み、候補export、Docker復旧は別Authorityである。RoleはAuthorityを意味しない。
 
@@ -2196,7 +2202,7 @@ Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease 
 | `storage/state.ts` | 統合SnapshotのSchema・Codec、bounded読取り、元版Hash・Revision・CAS・原子保存・pending再入場・構造不変条件 | Task進行・実行許可・実資源回復・採用判断を決めない。Task／Execution／Decision／WorkspaceとState照会が利用 |
 | `storage/history.ts` | 履歴Codec、pending搬送、確定・読戻し・保持・再入場 | Provider成功・資源不存在を推測しない。各終了OwnerとState退役処理が利用 |
 | `storage/decision.ts` | 既存保護Rootの判断記録、Generation、Hash Chain、読戻し、専用排他 | 判断内容やAuthorityを生成しない。Decisionとその公開利用側が利用 |
-| `storage/ai-selection.ts` | Repository設定の読書き、Schema、Expected Identity、既存Filesystem Lock、CASと読戻し | Catalog・選定Policy・進行中の再選定は持たない。Selection管理と実行準備が利用 |
+| Domain `ai-selection/validation.ts`・`storage/ai-selection.ts` | Repository設定の値検査、Expected Identity、既存Filesystem Lock、CASと読戻し | Coordinatorは同梱Catalog値を渡して利用する。設定の物理WriterはDomain。Catalog・進行中の再選定は持たない |
 
 Storageは上記五Fileに固定する。既存の`model.ts`、`current-state.ts`、`settlement-store.ts`をそのまま`state.ts`へ連結しない。`result-record.ts`の意味型とPortは結果受領・Workspaceの責務へ戻し、永続行のCodecだけを保存側へ置く。`state/model.ts`も人間判断・Task値・統合投影・検査へ分解し、`selection/model.ts`は`types.ts`と`validation.ts`へ分ける。型専用Fileに実行時検査を残さず、転送だけの`crud.ts`や互換barrelは作らない。
 

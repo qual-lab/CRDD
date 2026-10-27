@@ -5,15 +5,12 @@
  * @boundary Repository設定・Task選定値と利用側。
  * @security 選定値から実行Authorityを発行しない。
  */
-import { types as utilTypes } from "node:util";
+import { inspectExecutionSelection } from "../../../domain-model/src/index.ts";
 import { createHash } from "node:crypto";
 import type { AiReasoningEffort } from "../../../ai-adapter/src/index.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import type {
-  AiSelectionChoice,
-  ExecutionSelection,
-  TaskExecutionSelections,
-} from "./types.ts";
+
+import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
 
 /**
  * 明示選択の三項目を独立した値へ固定する。
@@ -51,161 +48,6 @@ export function inspectAiSelectionChoice(
     model: value.model,
     effort: value.effort as AiReasoningEffort,
   });
-}
-
-/**
- * 保存済みの役割別選定を現在設定で解き直さず検査する。
- * @responsibility stage間で選定組を混ぜない閉形式codecを所有する。
- * @trace ARCH-000004
- * @input candidate: 未信頼の二役割選定。
- * @returns 独立した不変値、不正時null。
- * @precondition 実行可否と認可は別のOwnerが確認する。
- * @postcondition 元のModel・alias・分類・選定元を維持する。
- * @effect N/A: 局所値検査だけ。
- * @failure 不足・過剰・Proxy・accessor・相関不正はnull。
- * @invariant 現在Catalog・設定Store・I/Oを参照しない。
- * @boundary 保存codecと実行Owner。
- * @security 選定の復元を実行許可にしない。
- * @concurrency 同期処理で元入力へ書き込まない。
- */
-export function inspectTaskExecutionSelections(
-  candidate: unknown,
-): TaskExecutionSelections | null {
-  if (
-    !candidate ||
-    typeof candidate !== "object" ||
-    utilTypes.isProxy(candidate)
-  )
-    return null;
-  const prototype = Object.getPrototypeOf(candidate);
-  if (prototype !== Object.prototype && prototype !== null) return null;
-  const descriptors = Object.getOwnPropertyDescriptors(candidate);
-  if (Reflect.ownKeys(descriptors).length !== 2) return null;
-  const values = ["executor", "reviewer"].map((key) => {
-    const descriptor = descriptors[key];
-    return descriptor && "value" in descriptor && descriptor.enumerable
-      ? inspectExecutionSelection(descriptor.value)
-      : null;
-  });
-  const [executor, reviewer] = values;
-  if (
-    !executor ||
-    !reviewer ||
-    executor.role !== "executor" ||
-    reviewer.role !== "independent_reviewer" ||
-    reviewer.source === "explicit" ||
-    executor.configIdentity !== reviewer.configIdentity ||
-    executor.catalogIdentity !== reviewer.catalogIdentity ||
-    executor.workType !== reviewer.workType
-  )
-    return null;
-  return Object.freeze({ executor, reviewer });
-}
-
-/**
- * 保存された選定を現在Catalogで解き直さず独立値へ取り出す。
- * @responsibility 選定の十項目と相関だけを閉じて検査する。
- * @trace ARCH-000004
- * @input candidate: 保存済み又は搬送された未信頼選定。
- * @returns 不変な選定値、又はnull。
- * @precondition 新規実行の技術可否は別の技術Catalog検査を通す。
- * @postcondition alias・選定元・当時の内容Identityをそのまま保持する。
- * @effect N/A: 同期的な値検査と独立Objectの構築だけ。
- * @failure 不足・過剰・実行Property・相関不正はnull。
- * @invariant 復元成功は現在の実行許可や利用可能性を意味しない。
- * @boundary 保存選定とTask／Packetの値搬送。
- * @security Proxy・Getterを実行せず、Authorityを生成しない。
- * @concurrency 一度捕捉したdata descriptorの値だけを使用する。
- */
-export function inspectExecutionSelection(
-  candidate: unknown,
-): ExecutionSelection | null {
-  try {
-    if (
-      candidate === null ||
-      typeof candidate !== "object" ||
-      utilTypes.isProxy(candidate)
-    )
-      return null;
-    const prototype = Object.getPrototypeOf(candidate);
-    if (prototype !== Object.prototype && prototype !== null) return null;
-    const descriptors = Object.getOwnPropertyDescriptors(candidate);
-    const keys = [
-      "provider",
-      "modelIdentifier",
-      "identifierKind",
-      "reasoningEffort",
-      "purpose",
-      "catalogIdentity",
-      "configIdentity",
-      "role",
-      "workType",
-      "source",
-    ] as const;
-    const actual = Reflect.ownKeys(descriptors);
-    if (
-      actual.length !== keys.length ||
-      actual.some(
-        (key) =>
-          typeof key !== "string" || !keys.some((expected) => expected === key),
-      )
-    )
-      return null;
-    const value: Record<string, unknown> = Object.create(null);
-    for (const key of keys) {
-      const descriptor = descriptors[key];
-      if (
-        !descriptor ||
-        !Object.hasOwn(descriptor, "value") ||
-        descriptor.enumerable !== true ||
-        Object.hasOwn(descriptor, "get") ||
-        Object.hasOwn(descriptor, "set")
-      )
-        return null;
-      value[key] = descriptor.value;
-    }
-    if (
-      (value.provider !== "codex" && value.provider !== "claude") ||
-      typeof value.modelIdentifier !== "string" ||
-      !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(value.modelIdentifier) ||
-      (value.identifierKind !== "exact" && value.identifierKind !== "alias") ||
-      typeof value.reasoningEffort !== "string" ||
-      !["low", "medium", "high", "xhigh", "max"].includes(
-        value.reasoningEffort,
-      ) ||
-      (value.purpose !== "advice" && value.purpose !== "task") ||
-      typeof value.catalogIdentity !== "string" ||
-      !/^[a-f0-9]{64}$/u.test(value.catalogIdentity) ||
-      typeof value.configIdentity !== "string" ||
-      !/^[a-f0-9]{64}$/u.test(value.configIdentity) ||
-      typeof value.role !== "string" ||
-      ![
-        "coordinator",
-        "executor",
-        "independent_reviewer",
-        "result_integration",
-        "advice",
-      ].includes(value.role) ||
-      !(
-        value.workType === null ||
-        (typeof value.workType === "string" &&
-          /^[a-z0-9][a-z0-9._-]*$/u.test(value.workType))
-      ) ||
-      typeof value.source !== "string" ||
-      !["explicit", "work_type_override", "role_default"].includes(
-        value.source,
-      ) ||
-      (value.source === "work_type_override" && value.workType === null) ||
-      value.purpose !==
-        (["executor", "independent_reviewer"].includes(value.role)
-          ? "task"
-          : "advice")
-    )
-      return null;
-    return Object.freeze({ ...value }) as ExecutionSelection;
-  } catch {
-    return null;
-  }
 }
 
 /**

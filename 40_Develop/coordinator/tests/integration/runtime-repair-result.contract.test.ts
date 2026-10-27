@@ -8,6 +8,8 @@
  * @scope メモリ境界。保存故障・終了・回収Caller。実Docker・Native・Provider・Filesystem書込み0。
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
+import type { CoordinatorStateRepairOperation } from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 import fs from "node:fs";
@@ -23,7 +25,6 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import * as model from "../../src/storage/state.ts";
 import * as historyValues from "../../src/storage/history.ts";
-import type * as executionRecords from "../../src/execution/types.ts";
 import * as stateValues from "../../src/state/validation.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 
@@ -177,9 +178,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       !rows
     )
       return refused;
-    const before = Buffer.from(
-      `${stateValues.encodeCoordinatorStateValue(value.snapshot)}\n`,
-    );
+    const before = Buffer.from(`${encodeRuntimeStateValue(value.snapshot)}\n`);
     if (
       operation.phase === "awaiting_disposition" ||
       !model.prepareCoordinatorRepairHistorySummary(before, id, binding)
@@ -272,9 +271,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       JSON.parse(operation.identityJson).operationId,
       repository.operationId,
     );
-    const before = Buffer.from(
-      `${stateValues.encodeCoordinatorStateValue(value.snapshot)}\n`,
-    );
+    const before = Buffer.from(`${encodeRuntimeStateValue(value.snapshot)}\n`);
     const publication =
       operation.history === null
         ? null
@@ -395,13 +392,14 @@ function fixture(transform: (source: string) => string = (source) => source) {
       : refused;
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,verifyRepositoryRoot,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,verifyRepositoryRoot,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
     randomBytes,
     randomUUID,
     ...model,
     ...stateValues,
+    encodeRuntimeStateValue,
     Date: class extends Date {
       constructor(value?: string | number) {
         super(value ?? state.historyAt);
@@ -1542,7 +1540,7 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
     assert.ok(target.checkpoint);
     const retained =
       model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-        Buffer.from(`${stateValues.encodeCoordinatorStateValue(before)}\n`),
+        Buffer.from(`${encodeRuntimeStateValue(before)}\n`),
         target.recoveryId,
         {
           decidedAt: f.state.historyAt,
@@ -1630,7 +1628,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
       const value = f.snapshot();
       assert.ok(value);
       f.state.bytes = Buffer.from(
-        `${stateValues.encodeCoordinatorStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
+        `${encodeRuntimeStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
       );
       assert.ok(
         model.decodeCoordinatorStateSnapshot(f.state.bytes, "a".repeat(64)),
@@ -1966,7 +1964,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
  */
 function assertRepairResultFields(
   result: Awaited<ReturnType<typeof repairRuntimeOwnedDockerRuntime>>,
-  target: executionRecords.CoordinatorStateRepairOperation,
+  target: CoordinatorStateRepairOperation,
   mode: ReturnType<typeof fixture>["state"]["mode"],
   close: ReturnType<typeof fixture>["state"]["close"],
 ) {
@@ -2374,7 +2372,7 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
                 }
               : prior;
     f.state.bytes = Buffer.from(
-      `${stateValues.encodeCoordinatorStateValue({ ...snapshot, operations: [changed] })}\n`,
+      `${encodeRuntimeStateValue({ ...snapshot, operations: [changed] })}\n`,
     );
     assert.ok(
       model.decodeCoordinatorStateSnapshot(f.state.bytes, "a".repeat(64)),

@@ -37,7 +37,7 @@ import {
 } from "../request/validation.ts";
 
 export const MCP_COORDINATOR_ADAPTER_CONTRACT =
-  "crdd-mcp/coordinator-adapter/v3" as const;
+  "crdd-mcp/coordinator-adapter/v4" as const;
 /**
  * adapterで使用するMcp Coordinator Dependenciesの値契約を定義する。
  *
@@ -950,6 +950,8 @@ export const MCP_COORDINATOR_DECISION_TOOL = "crdd.submit_decision" as const;
 export const MCP_COORDINATOR_STATE_TOOL = "crdd.get_coordinator_state" as const;
 
 export const objectiveKeys = new Set([
+  "plan",
+  "taskInputs",
   "intakeEpoch",
   "requestId",
   "projectId",
@@ -1059,6 +1061,69 @@ export function getMcpCoordinatorToolDefinitions() {
       "検証済みProjectへObjectiveを登録し、Coordinatorで実行します。",
       {
         intakeEpoch: id,
+        plan: {
+          type: "object",
+          additionalProperties: false,
+          required: ["milestoneAcceptanceCriteria", "objectives", "tasks"],
+          properties: {
+            milestoneAcceptanceCriteria: list(128),
+            objectives: {
+              type: "array",
+              minItems: 1,
+              maxItems: 128,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["id", "acceptanceCriteria"],
+                properties: { id, acceptanceCriteria: list(128) },
+              },
+            },
+            tasks: {
+              type: "array",
+              minItems: 1,
+              maxItems: 1024,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "id",
+                  "objectiveId",
+                  "dependencies",
+                  "allowedPaths",
+                  "conflictKeys",
+                ],
+                properties: {
+                  id,
+                  objectiveId: id,
+                  dependencies: { ...list(128), minItems: 0 },
+                  allowedPaths: list(128),
+                  conflictKeys: { ...list(128), minItems: 0 },
+                },
+              },
+            },
+          },
+        },
+        taskInputs: {
+          type: "array",
+          minItems: 1,
+          maxItems: 1024,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "taskId",
+              "objective",
+              "acceptanceCriteria",
+              "readPaths",
+            ],
+            properties: {
+              taskId: id,
+              objective: { type: "string", minLength: 1, maxLength: 16_384 },
+              acceptanceCriteria: list(128),
+              readPaths: list(128),
+            },
+          },
+        },
         requestId: id,
         projectId: id,
         milestoneId: id,

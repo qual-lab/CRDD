@@ -9,6 +9,7 @@
  * @boundary N/A: Provider、公開CLIと永続Runtimeを起動しない。
  */
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
 import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
@@ -16,21 +17,23 @@ import { buildObjectiveTaskRequest } from "../../src/objective/execute.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
-const objective = Object.freeze({
-  requestId: "request-1",
-  projectId: "project-1",
-  milestoneId: "milestone-1",
-  repositoryRevision: "a".repeat(40),
-  objective: "合成fixtureの搬送だけを確認する",
-  acceptanceCriteria: Object.freeze(["外部処理を起動しない"]),
-  allowedPaths: Object.freeze(["fixture.txt"]),
-  readPaths: Object.freeze(["fixture.txt"]),
-  maximumConcurrency: 1,
-  maximumReplans: 0,
-  originLane: "interactive" as const,
-  adoptResult: false,
-  intakeEpoch: "fixture-epoch",
-});
+const objective = Object.freeze(
+  withCallerPlan({
+    requestId: "request-1",
+    projectId: "project-1",
+    milestoneId: "milestone-1",
+    repositoryRevision: "a".repeat(40),
+    objective: "合成fixtureの搬送だけを確認する",
+    acceptanceCriteria: Object.freeze(["外部処理を起動しない"]),
+    allowedPaths: Object.freeze(["fixture.txt"]),
+    readPaths: Object.freeze(["fixture.txt"]),
+    maximumConcurrency: 1,
+    maximumReplans: 0,
+    originLane: "interactive" as const,
+    adoptResult: false,
+    intakeEpoch: "fixture-epoch",
+  }),
+);
 
 /**
  * 明示固定選定の全入力組合せをTaskの閉じた検査へ接続する。

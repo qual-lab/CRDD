@@ -8,7 +8,8 @@
  * @scope project、runtime、integration、record、adapter
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -281,7 +282,7 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
   ]) {
     const saved = JSON.parse(original);
     Object.assign(saved.results[0], change);
-    fs.writeFileSync(file, `${encodeCoordinatorStateValue(saved)}\n`);
+    fs.writeFileSync(file, `${encodeRuntimeStateValue(saved)}\n`);
     const before = fs.readFileSync(file);
     const observed = readCoordinatorSnapshot(root, "binding-a");
     assert.equal(observed.status, "blocked", JSON.stringify(change));

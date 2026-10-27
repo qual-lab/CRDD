@@ -8,6 +8,7 @@
  * @scope 自己生成Repository-local試験領域、初期化子Process、Host／Probe tokenとmarker。Probe記録試験はDockerを使用しない。
  * @boundary ERB-IT-003／PRL-IT-013=Direct Boundary: 明示親のHost初期化・Process消失・記録Reader→実Process／Filesystem。
  */
+import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -30,10 +31,7 @@ import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
 } from "../../../docker-isolation/src/index.ts";
-import {
-  formatHostRecoveryToken,
-  parseHostRecoveryToken,
-} from "../../src/execution/result.ts";
+import { formatHostRecoveryToken } from "../../src/execution/result.ts";
 import {
   loadHostRecoveryRecordByToken,
   observeHostRecoveryCleanup,

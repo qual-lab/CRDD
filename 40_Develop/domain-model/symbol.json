@@ -3,6 +3,120 @@
   "contractRevision": 1,
   "subsystem": "domain-model",
   "symbols": [
+    { "symbolId": "domain-model.state.codec", "kind": "file", "path": "src/state/codec.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
+    { "symbolId": "domain-model.state.types", "kind": "file", "path": "src/state/types.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
+    { "symbolId": "domain-model.state.validation", "kind": "file", "path": "src/state/validation.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
+    { "symbolId": "domain-model.attempt.repair-types", "kind": "file", "path": "src/attempt/repair-types.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "domain-model.attempt.repair-validation", "kind": "file", "path": "src/attempt/repair-validation.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "domain-model.task.types", "kind": "file", "path": "src/task/types.ts", "archIds": ["ARCH-000004"] },
+    { "symbolId": "domain-model.workspace.types", "kind": "file", "path": "src/workspace/types.ts", "archIds": ["ARCH-000004"] },
+    { "symbolId": "domain-model.workspace.validation", "kind": "file", "path": "src/workspace/validation.ts", "archIds": ["ARCH-000004"] },
+    {
+      "symbolId": "docker-isolation.cleanup.recovery-identity",
+      "kind": "file",
+      "path": "src/attempt/validation.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "orchestrator.task.single-task-record",
+      "kind": "file",
+      "path": "src/task/validation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.selection.types",
+      "kind": "file",
+      "path": "src/ai-selection/types.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.execution.types",
+      "kind": "file",
+      "path": "src/attempt/types.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.state-storage.snapshot-reentry",
+      "kind": "test-suite",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-UT-006"],
+      "path": "tests/unit/storage/state-reentry.contract.test.ts",
+      "verifies": ["domain-model.storage.state-io"]
+    },
+    {
+      "symbolId": "orchestrator.decision.acceptance-decision-record",
+      "kind": "file",
+      "path": "src/decision/types.ts",
+      "archIds": ["ARCH-000005"]
+    },
+    {
+      "symbolId": "orchestrator.decision.decision-recovery-record",
+      "kind": "file",
+      "path": "src/decision/types.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "orchestrator.source.src.ports.decision.port",
+      "kind": "file",
+      "path": "src/decision/validation.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "domain-model.decision.validation",
+      "kind": "file",
+      "path": "src/decision/validation.ts",
+      "archIds": ["ARCH-000004", "ARCH-000005", "ARCH-000008"]
+    },
+    {
+      "symbolId": "domain-model.storage.state-io",
+      "kind": "file",
+      "path": "src/storage/state.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "domain-model.test.integration.state-io",
+      "kind": "test-suite",
+      "path": "tests/integration/state-io.integration.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-IT-013"],
+      "verifies": ["domain-model.storage.state-io"]
+    },
+    {
+      "symbolId": "ai-adapter.output.unambiguous-json-document",
+      "kind": "file",
+      "path": "src/plain-data/json.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.storage.ai-selection",
+      "kind": "file",
+      "path": "src/storage/ai-selection.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.test.integration.ai-selection-store",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-selection-store.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-IT-005"],
+      "verifies": [
+        "coordinator.storage.ai-selection",
+        "domain-model.ai-selection.validation"
+      ]
+    },
+    {
+      "symbolId": "domain-model.ai-selection.validation",
+      "kind": "file",
+      "path": "src/ai-selection/validation.ts",
+      "archIds": ["ARCH-000004", "ARCH-000008"]
+    },
     {
       "symbolId": "coordinator.source.src.security.secret.material.policy",
       "kind": "file",

@@ -6,6 +6,11 @@
  */
 
 import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+  type ExecutionSelection,
+} from "../../../domain-model/src/index.ts";
+import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../../../domain-model/src/index.ts";
@@ -49,12 +54,8 @@ import {
   describeDockerProviderExecutionLocations,
   planDockerAuthenticationCommands,
 } from "../../../docker-isolation/src/index.ts";
-import {
-  inspectExecutionSelection,
-  inspectTaskExecutionSelections,
-  hashExecutionSelection,
-} from "../selection/validation.ts";
-import type { ExecutionSelection } from "../selection/types.ts";
+import { hashExecutionSelection } from "../selection/validation.ts";
+
 import fs from "node:fs";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";
 

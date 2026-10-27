@@ -17,7 +17,7 @@ import type {
   AiSelectionSaveResult,
   AiSelectionChoice,
   AiSelectionRole,
-} from "../../../../coordinator/src/index.ts";
+} from "../../../../domain-model/src/index.ts";
 import type { AiModelCatalogSnapshot } from "../../../../ai-adapter/src/index.ts";
 import { WorkbenchPanel, ActionTokenInput } from "./elements.ts";
 import { requestWorkbench } from "../api/connection.ts";

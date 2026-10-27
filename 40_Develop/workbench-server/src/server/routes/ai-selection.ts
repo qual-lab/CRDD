@@ -7,6 +7,7 @@
  * @effect 明示POSTだけが対象Repository設定を保存する。
  * @security Host Catalog、Credential、Provider実行を扱わない。
  */
+import { getAiModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import { parseUnambiguousJsonDocument } from "../../../../ai-adapter/src/index.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout as yieldToTransport } from "node:timers/promises";
@@ -19,7 +20,7 @@ import {
   saveRepositoryAiSelection,
   type AiSelectionReadResult,
   type AiSelectionSaveResult,
-} from "../../../../coordinator/src/index.ts";
+} from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
@@ -205,8 +206,13 @@ export async function handleAiSelection({
         access.root,
         { expectedIdentity, config },
         access.authorize,
+        getAiModelCatalog().catalog,
       );
-    } else result = readRepositoryAiSelection(access.root);
+    } else
+      result = readRepositoryAiSelection(
+        access.root,
+        getAiModelCatalog().catalog,
+      );
     const body = JSON.stringify(result);
     await yieldToTransport(0);
     if (requestSignal.aborted || response.destroyed) return;

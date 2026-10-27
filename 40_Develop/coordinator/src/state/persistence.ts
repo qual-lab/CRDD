@@ -5,8 +5,12 @@
  * @trace ARCH-000004
  */
 
-import type { ProjectQueueEntry, ProjectQueueState } from "../task/types.ts";
-import type { CoordinatorState } from "./types.ts";
+import type {
+  ProjectQueueEntry,
+  ProjectQueueState,
+  CoordinatorState,
+  CoordinatorLeaseKind,
+} from "../../../domain-model/src/index.ts";
 import type { CoordinatorPortResult } from "./result.ts";
 
 /**
@@ -154,19 +158,6 @@ export type CoordinatorClockIdentityPort = Readonly<{
   createStableId: (prefix: string, parts: readonly string[]) => string;
   createContentHash: (content: string) => string;
 }>;
-
-/**
- * lease-portで使用するCoordinator Lease Kindの値契約を定義する。
- *
- * @responsibility Coordinator Lease KindのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorLeaseKindが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorLeaseKindで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorLeaseKindの宣言は外部境界を開かない。
- * @security N/A: CoordinatorLeaseKindはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorLeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorLeaseKind = "project-operation" | "canonical-adoption";
 
 /**
  * lease-portで使用するCoordinator Leaseの値契約を定義する。

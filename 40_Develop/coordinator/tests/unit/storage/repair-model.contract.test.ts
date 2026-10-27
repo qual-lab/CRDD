@@ -7,6 +7,15 @@
  * @scope v2-only、variant Identity、修復checkpoint、対象外全文。
  * @boundary N/A: メモリ値だけ。Writer・実修復は対象外。
  */
+import {
+  COORDINATOR_STATE_SCHEMA,
+  decodeCoordinatorUnifiedSnapshot,
+  type CoordinatorStateRepairOperation,
+} from "../../../../domain-model/src/index.ts";
+import {
+  encodeRuntimeStateValue as encode,
+  RUNTIME_STATE_MAXIMUM_BYTES,
+} from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -14,10 +23,9 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { encodeCoordinatorStateValue as encode } from "../../../src/state/validation.ts";
+
 import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
 import {
-  COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot as decode,
   prepareCoordinatorStateRepairSnapshot as start,
   prepareCoordinatorStateRepairCheckpointSnapshot as checkpoint,
@@ -36,14 +44,12 @@ import {
   prepareCoordinatorRepairHistorySnapshot as repairHistory,
   prepareCoordinatorRepairHistoryLine as repairLine,
   prepareCoordinatorRepairHistoryPublication as repairPublication,
-  MAX_COORDINATOR_STATE_BYTES,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
-  decodeCoordinatorUnifiedSnapshot,
   validateCoordinatorUnifiedTransition,
 } from "../../../src/storage/state.ts";
-import type { CoordinatorStateRepairOperation } from "../../../src/execution/types.ts";
+
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
@@ -1317,7 +1323,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   const end = source.indexOf("/**", begin);
   assert.ok(begin >= 0 && end > begin);
   const compile = runInThisContext(
-    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${source.slice(begin, end)}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
+    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${source.slice(begin, end)}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
   );
   const baseline = decode(confirmed, binding);
   assert.ok(baseline);
@@ -1388,7 +1394,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     // codecと要約を意図的に受理させ、終了関数自身の拒否を観測する。
     const guarded = compile({
       decodeCoordinatorStateSnapshot: () => value,
-      encodeCoordinatorStateValue: encode,
+      encodeRuntimeStateValue: encode,
       prepareCoordinatorRepairHistorySummary: () => ({}),
       coordinatorRepairCanComplete,
     }) as typeof completeRepair;
@@ -2023,7 +2029,7 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
     repairPublication(
       initialHistory,
       id,
-      Buffer.alloc(MAX_COORDINATOR_STATE_BYTES + 1),
+      Buffer.alloc(RUNTIME_STATE_MAXIMUM_BYTES + 1),
       null,
       30,
       binding,
@@ -2501,7 +2507,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
     "expected !== null",
   );
   const mutant = runInThisContext(
-    `(function(decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,validateCoordinatorStateRepairDisposalTransition,validateCoordinatorStateRepairRetentionHandoffTransition){${changed};return classifyCoordinatorRepairPublication;})`,
+    `(function(decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,validateCoordinatorStateRepairDisposalTransition,validateCoordinatorStateRepairRetentionHandoffTransition){${changed};return classifyCoordinatorRepairPublication;})`,
   )(
     decode,
     encode,
@@ -3473,7 +3479,10 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     ].includes(name)
       ? stripTypeScriptTypes(
           fs.readFileSync(
-            new URL("../../../src/execution/result.ts", import.meta.url),
+            new URL(
+              "../../../../domain-model/src/attempt/validation.ts",
+              import.meta.url,
+            ),
             "utf8",
           ),
         )
@@ -3579,10 +3588,10 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const completionNeedle = "item.recoveryId !== recoveryId";
   assert.equal(completionBody.split(completionNeedle).length, 2);
   const completionMutant = runInThisContext(
-    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${completionBody.replace(completionNeedle, "false")}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
+    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${completionBody.replace(completionNeedle, "false")}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
   )({
     decodeCoordinatorStateSnapshot: decode,
-    encodeCoordinatorStateValue: encode,
+    encodeRuntimeStateValue: encode,
     prepareCoordinatorRepairHistorySummary: repairSummary,
     coordinatorRepairCanComplete,
   }) as typeof completeRepair;
@@ -3590,11 +3599,11 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const original = body("prepareCoordinatorRepairHistorySnapshot");
   assert.equal(original.split("...current.snapshot,").length, 2);
   const mutant = runInThisContext(
-    `(function(deps){const {createHash,decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,validateCoordinatorStateTransition}=deps; ${body("coordinatorRepairSummaryBytes")} ${body("coordinatorRepairHistoryLineBytes")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; return prepareCoordinatorRepairHistorySnapshot;})`,
+    `(function(deps){const {createHash,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,validateCoordinatorStateTransition}=deps; ${body("coordinatorRepairSummaryBytes")} ${body("coordinatorRepairHistoryLineBytes")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; return prepareCoordinatorRepairHistorySnapshot;})`,
   )({
     createHash,
     decodeCoordinatorStateSnapshot: decode,
-    encodeCoordinatorStateValue: encode,
+    encodeRuntimeStateValue: encode,
     prepareCoordinatorRepairHistorySummary: repairSummary,
     validateCoordinatorStateTransition,
   }) as typeof repairHistory;

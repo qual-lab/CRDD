@@ -9,6 +9,10 @@
  * @scope project、runtime、state
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
+import {
+  decodeProjectResultAcceptance,
+  type CoordinatorState,
+} from "../../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
@@ -16,7 +20,7 @@ import fs from "node:fs";
 import { types as utilTypes } from "node:util";
 import vm from "node:vm";
 import { describe, it } from "node:test";
-import { decodeProjectResultAcceptance } from "../../../src/task/acceptance.ts";
+
 import {
   acknowledgeProjectDockerRecoveryObligation,
   recordProjectTaskResultAcceptances,
@@ -31,8 +35,8 @@ import {
 import { applyCoordinatorAcceptanceDecision } from "../../../src/decision/transition.ts";
 import { createCoordinatorState } from "../../../src/state/create.ts";
 import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
-import type { CoordinatorState } from "../../../src/state/types.ts";
-import type { ProjectTaskDefinition } from "../../../src/task/types.ts";
+
+import type { ProjectTaskDefinition } from "../../../../domain-model/src/index.ts";
 import {
   applyCoordinatorPartialReplan,
   observeProjectTaskStarted,
@@ -144,7 +148,10 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   assert.equal(acceptance.settlementGeneration, 7);
   const hostValue = Object.getOwnPropertyDescriptor(Object.prototype, "value");
   const helperSource = fs.readFileSync(
-    new URL("../../../src/state/validation.ts", import.meta.url),
+    new URL(
+      "../../../../domain-model/src/state/validation.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const executable = [

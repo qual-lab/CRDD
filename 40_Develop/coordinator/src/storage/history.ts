@@ -3,19 +3,27 @@
  * @responsibility 技術要約と同じ保存Root・短期Owner・保持設定で履歴を確定する。
  * @trace ARCH-000004、ARCH-000008
  */
-import { exactRecordKeys } from "../state/validation.ts";
-import { isSha256Hex } from "../state/validation.ts";
-import { MAX_COORDINATOR_STATE_BYTES } from "./state.ts";
-import { validCoordinatorRepairSummary } from "../execution/validation.ts";
-import { validCoordinatorPrimaryFailure } from "../execution/validation.ts";
-import { validCoordinatorOutcome } from "../execution/validation.ts";
+import {
+  hasRuntimeStateRecordKeys as exactRecordKeys,
+  isSha256Hex,
+  validCoordinatorRepairSummary,
+  validCoordinatorPrimaryFailure,
+  validCoordinatorOutcome,
+  isDockerRestartCheckpointSettled,
+  coordinatorConsumerCompletionPolicy,
+  historyRow,
+  type HistoryRow,
+} from "../../../domain-model/src/index.ts";
+import {
+  RUNTIME_STATE_MAXIMUM_BYTES,
+  encodeRuntimeStateValue,
+} from "../../../domain-model/src/index.ts";
+
 import { decodeCoordinatorStateSnapshot } from "./state.ts";
-import { ID } from "../state/validation.ts";
+
 import { createHash } from "node:crypto";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
-import { isDockerRestartCheckpointSettled } from "../execution/result.ts";
-import { coordinatorConsumerCompletionPolicy } from "../task/acceptance.ts";
-import { encodeCoordinatorStateValue } from "../state/validation.ts";
+
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -100,7 +108,7 @@ function readHistoryFile(file: string): Buffer | null {
  */
 function taskHistoryLine(row: HistoryRow): Buffer {
   return Buffer.from(
-    `${encodeCoordinatorStateValue({
+    `${encodeRuntimeStateValue({
       schema: "crdd-coordinator/history-row/v2",
       occurredAt: row.occurredAt,
       summary: { schema: "crdd-coordinator/task-summary/v1", record: row },
@@ -157,7 +165,7 @@ export function updateCoordinatorHistoryOwned(
       return blocked;
     const directory = area.directory;
     const stateBytes = Buffer.from(
-      `${encodeCoordinatorStateValue(state.value.snapshot)}\n`,
+      `${encodeRuntimeStateValue(state.value.snapshot)}\n`,
     );
     const currentFile = path.join(directory, "history.jsonl"),
       pendingFile = path.join(directory, "history.pending.jsonl");
@@ -376,7 +384,7 @@ export function inspectCoordinatorHistorySettlement(
  */
 export function decodeCoordinatorHistoryRows(bytes: unknown) {
   try {
-    if (!Buffer.isBuffer(bytes) || bytes.length > MAX_COORDINATOR_STATE_BYTES)
+    if (!Buffer.isBuffer(bytes) || bytes.length > RUNTIME_STATE_MAXIMUM_BYTES)
       return null;
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     if (!Buffer.from(text, "utf8").equals(bytes)) return null;
@@ -394,7 +402,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
             !exactRecordKeys(row, ["schema", "occurredAt", "summary"]) ||
             row.schema !== "crdd-coordinator/history-row/v2" ||
             !exactRecordKeys(summary, ["schema", "record"]) ||
-            `${encodeCoordinatorStateValue(row)}\n` !== `${line}\n`
+            `${encodeRuntimeStateValue(row)}\n` !== `${line}\n`
           )
             throw new Error("task_history_row_invalid");
           const record = historyRow(summary.record, Date.parse(row.occurredAt));
@@ -408,7 +416,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
             recoveryId,
             lineSha256: createHash("sha256").update(`${line}\n`).digest("hex"),
             summarySha256: createHash("sha256")
-              .update(`${encodeCoordinatorStateValue(summary)}\n`)
+              .update(`${encodeRuntimeStateValue(summary)}\n`)
               .digest("hex"),
           });
         }
@@ -419,7 +427,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
             typeof row.occurredAt !== "string" ||
             !Number.isFinite(Date.parse(row.occurredAt)) ||
             new Date(row.occurredAt).toISOString() !== row.occurredAt ||
-            `${encodeCoordinatorStateValue(row)}\n` !== `${line}\n` ||
+            `${encodeRuntimeStateValue(row)}\n` !== `${line}\n` ||
             !validCoordinatorRepairSummary(summary) ||
             (summary.retention !== undefined &&
               row.occurredAt !== summary.retention.decidedAt) ||
@@ -436,7 +444,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
             recoveryId: summary.recoveryId as string,
             lineSha256: createHash("sha256").update(`${line}\n`).digest("hex"),
             summarySha256: createHash("sha256")
-              .update(`${encodeCoordinatorStateValue(summary)}\n`)
+              .update(`${encodeRuntimeStateValue(summary)}\n`)
               .digest("hex"),
           });
         }
@@ -447,7 +455,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
           !Number.isFinite(Date.parse(row.occurredAt)) ||
           new Date(Date.parse(row.occurredAt)).toISOString() !==
             row.occurredAt ||
-          `${encodeCoordinatorStateValue(row)}\n` !== `${line}\n` ||
+          `${encodeRuntimeStateValue(row)}\n` !== `${line}\n` ||
           !exactRecordKeys(summary, [
             "schema",
             ...(summary?.schema === "crdd-coordinator/operation-summary/v4"
@@ -531,7 +539,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
           recoveryId: summary.recoveryId as string,
           lineSha256: createHash("sha256").update(`${line}\n`).digest("hex"),
           summarySha256: createHash("sha256")
-            .update(`${encodeCoordinatorStateValue(summary)}\n`)
+            .update(`${encodeRuntimeStateValue(summary)}\n`)
             .digest("hex"),
         });
       });
@@ -622,141 +630,4 @@ export function prepareCoordinatorHistoryRetention(
       .join(""),
     "utf8",
   );
-}
-
-/**
- * 終了要約の固定値を定義する。
- *
- * @responsibility 自由記述を持たない履歴の値契約を所有する。
- * @trace ARCH-000004
- * @shape id、occurredAt、outcome、primaryFailure、cleanup。
- * @invariant 制御状態やAuthorityを含まない。
- * @boundary 履歴保存境界。
- * @security Prompt、秘密値、Pathを許可しない。
- * @compatibility 試行契約であり現在のPortを置換しない。
- */
-export type HistoryRow = Readonly<{
-  id: string;
-  occurredAt: string;
-  outcome: "completed" | "failed" | "cancelled";
-  primaryFailure:
-    | null
-    | "execution"
-    | "storage"
-    | "delivery"
-    | "cleanup"
-    | "cancel";
-  cleanup: "confirmed" | "unknown" | "not_required";
-}>;
-
-/**
- * JSONの閉じたProperty集合を確認する。
- *
- * @responsibility 未知のPropertyや配列を拒否する。
- * @trace ARCH-000004
- * @input 未検証値と許可Key。
- * @returns 閉じたObject。
- * @precondition JSONから得た値。
- * @postcondition Keyの過不足を拒否済み。
- * @effect N/A: 局所値のみ。
- * @failure 不正shapeで例外。
- * @invariant 未知値を既知へ畳まない。
- * @boundary JSON入力。
- * @security 許可外情報を保存しない。
- * @concurrency N/A: 同期判定。
- */
-export function closedObject(
-  value: unknown,
-  keys: readonly string[],
-): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("shape");
-  const record = value as Record<string, unknown>;
-  const actualKeys = Object.keys(record).sort();
-  if (JSON.stringify(actualKeys) !== JSON.stringify([...keys].sort()))
-    throw new Error("keys");
-  return record;
-}
-
-/**
- * UTC時刻を検証する。
- *
- * @responsibility 不正値と未来時刻を拒否する。
- * @trace ARCH-000004
- * @input ISO時刻と現在時刻。
- * @returns 検証済みISO時刻。
- * @precondition 現在時刻は安全な整数。
- * @postcondition 正規UTC表現で未来ではない。
- * @effect N/A: 局所値のみ。
- * @failure 時刻不正で例外。
- * @invariant 時計逆行を期限切れへ畳まない。
- * @boundary 保存時刻。
- * @security 時刻からAuthorityを発行しない。
- * @concurrency N/A: 同期判定。
- */
-export function timestamp(value: unknown, now: number): string {
-  if (typeof value !== "string") throw new Error("time");
-  const milliseconds = Date.parse(value);
-  if (
-    !Number.isSafeInteger(milliseconds) ||
-    new Date(milliseconds).toISOString() !== value ||
-    milliseconds > now
-  )
-    throw new Error("time");
-  return value;
-}
-
-/**
- * 終了要約を固定順序へ検証する。
- *
- * @responsibility 保存可能な分類だけを受け入れる。
- * @trace ARCH-000004
- * @input JSON値と現在時刻。
- * @returns 閉じた終了要約。
- * @precondition 入力はJSON由来。
- * @postcondition ID、時刻、分類を検証済み。
- * @effect N/A: 局所値のみ。
- * @failure 許可外値で例外。
- * @invariant 未解決義務を履歴へ移さない。
- * @boundary 終了要約入力。
- * @security 自由記述や秘密値を拒否する。
- * @concurrency N/A: 同期判定。
- */
-export function historyRow(value: unknown, now: number): HistoryRow {
-  const row = closedObject(value, [
-    "id",
-    "occurredAt",
-    "outcome",
-    "primaryFailure",
-    "cleanup",
-  ]);
-  if (typeof row.id !== "string" || !ID.test(row.id)) throw new Error("id");
-  if (
-    row.outcome !== "completed" &&
-    row.outcome !== "failed" &&
-    row.outcome !== "cancelled"
-  )
-    throw new Error("outcome");
-  if (
-    row.primaryFailure !== null &&
-    row.primaryFailure !== "execution" &&
-    row.primaryFailure !== "storage" &&
-    row.primaryFailure !== "delivery" &&
-    row.primaryFailure !== "cleanup" &&
-    row.primaryFailure !== "cancel"
-  )
-    throw new Error("failure");
-  if (
-    row.cleanup !== "confirmed" &&
-    row.cleanup !== "unknown" &&
-    row.cleanup !== "not_required"
-  )
-    throw new Error("cleanup");
-  return {
-    id: row.id,
-    occurredAt: timestamp(row.occurredAt, now),
-    outcome: row.outcome,
-    primaryFailure: row.primaryFailure,
-    cleanup: row.cleanup,
-  };
 }

@@ -8,7 +8,17 @@
  * @scope 現在Snapshot、準備Map、全Scopeの排他順、要求checkpoint。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import {
+  parseHostRecoveryToken,
+  validateHostRecoveryTransitionLineage,
+  coordinatorTaskResourcesAreSettled,
+  coordinatorAuthenticationUnknownCanClose,
+  type CoordinatorStateOperation,
+  createDockerRestartRequestId,
+  isDockerRestartCheckpointSettled,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createHash } from "node:crypto";
@@ -23,24 +33,13 @@ import {
   isDockerResourcePurpose,
 } from "../../../docker-isolation/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
-import {
-  parseHostRecoveryToken,
-  validateHostRecoveryTransitionLineage,
-} from "../../src/execution/result.ts";
-import {
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorReleasedTaskCanObserveHostAbsence,
-} from "../../src/execution/validation.ts";
+
+import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../src/execution/validation.ts";
 import {
   prepareCoordinatorStateOperationSnapshot,
   decodeCoordinatorStateSnapshot,
 } from "../../src/storage/state.ts";
-import type { CoordinatorStateOperation } from "../../src/execution/types.ts";
-import {
-  createDockerRestartRequestId,
-  isDockerRestartCheckpointSettled,
-} from "../../src/execution/result.ts";
+
 import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   prepareRuntimeOwnedDockerRestart,
@@ -249,8 +248,8 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
   ] as const) {
     const calls = { restart: 0, prepare: 0, decode: 0 };
     const context = {
-      encodeCoordinatorStateValue: (value: unknown) =>
-        encodeCoordinatorStateValue(JSON.parse(JSON.stringify(value))),
+      encodeRuntimeStateValue: (value: unknown) =>
+        encodeRuntimeStateValue(JSON.parse(JSON.stringify(value))),
       isDockerRestartCheckpointSettled: (value: unknown) => {
         calls.restart++;
         return isDockerRestartCheckpointSettled(
@@ -528,8 +527,8 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     parseDockerTaskRecoveryId,
     parseHostRecoveryToken,
     // VM内の自己生成plain値は、実codecへ渡す前に同RealmのJSON値へ揃える。
-    encodeCoordinatorStateValue: (value: unknown) =>
-      encodeCoordinatorStateValue(JSON.parse(JSON.stringify(value))),
+    encodeRuntimeStateValue: (value: unknown) =>
+      encodeRuntimeStateValue(JSON.parse(JSON.stringify(value))),
     createDockerRestartRequestId,
     isDockerRestartCheckpointSettled: (value: unknown) =>
       isDockerRestartCheckpointSettled(JSON.parse(JSON.stringify(value))),
@@ -643,7 +642,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     ) => {
       const prior = JSON.parse(before.toString());
       return Buffer.from(
-        `${encodeCoordinatorStateValue({ ...prior, revision: prior.revision + 1, operations: prior.operations.map((item: { recoveryId: string }) => (item.recoveryId === recoveryId ? { ...item, host: JSON.parse(JSON.stringify(value)) } : item)) })}\n`,
+        `${encodeRuntimeStateValue({ ...prior, revision: prior.revision + 1, operations: prior.operations.map((item: { recoveryId: string }) => (item.recoveryId === recoveryId ? { ...item, host: JSON.parse(JSON.stringify(value)) } : item)) })}\n`,
       );
     },
     writeRuntimeOwnedCoordinatorRecoveredHostCleanup: (
@@ -734,7 +733,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
           ? {
               snapshot,
               payloadSha256: createHash("sha256")
-                .update(`${encodeCoordinatorStateValue(snapshot)}\n`)
+                .update(`${encodeRuntimeStateValue(snapshot)}\n`)
                 .digest("hex"),
             }
           : null,
@@ -755,10 +754,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     ) => {
       writes++;
       assert.ok(live());
-      assert.equal(
-        before.toString(),
-        `${encodeCoordinatorStateValue(snapshot)}\n`,
-      );
+      assert.equal(before.toString(), `${encodeRuntimeStateValue(snapshot)}\n`);
       if (writerFault || writerFaultAt === writes)
         return {
           status: "blocked",
@@ -783,7 +779,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
         lockReleased: true,
         revision: snapshot.revision,
         payloadSha256: createHash("sha256")
-          .update(`${encodeCoordinatorStateValue(snapshot)}\n`)
+          .update(`${encodeRuntimeStateValue(snapshot)}\n`)
           .digest("hex"),
       };
     },
@@ -803,10 +799,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
           : `save:${_kind}`,
       );
       assert.ok(live());
-      assert.equal(
-        before.toString(),
-        `${encodeCoordinatorStateValue(snapshot)}\n`,
-      );
+      assert.equal(before.toString(), `${encodeRuntimeStateValue(snapshot)}\n`);
       if (writerFault || writerFaultAt === writes)
         return {
           status: "blocked",
@@ -861,7 +854,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
         lockReleased: true,
         revision: snapshot.revision,
         payloadSha256: createHash("sha256")
-          .update(`${encodeCoordinatorStateValue(snapshot)}\n`)
+          .update(`${encodeRuntimeStateValue(snapshot)}\n`)
           .digest("hex"),
       };
     },
@@ -1276,7 +1269,7 @@ test("現在Host不存在遷移は意図保存とexact token確定を一操作�
     const tokens = f.installHostTransition("old");
     const operation = f.snapshot.operations[0];
     assert.ok(operation);
-    const before = encodeCoordinatorStateValue(f.snapshot);
+    const before = encodeRuntimeStateValue(f.snapshot);
     const prepared = f.api.prepare(f.token, f.root);
     assert.equal(prepared.status, "prepared");
     assert.equal(
@@ -1289,7 +1282,7 @@ test("現在Host不存在遷移は意図保存とexact token確定を一操作�
       "generic Writer must not bypass Host observation",
     );
     assert.equal(f.writes, 0);
-    assert.equal(encodeCoordinatorStateValue(f.snapshot), before);
+    assert.equal(encodeRuntimeStateValue(f.snapshot), before);
     assert.equal(f.api.confirmHost(prepared.capability), false);
     assert.equal(f.hostTransitions, 0);
     assert.equal(f.api.release(prepared.capability), true);
@@ -1456,7 +1449,7 @@ test("現在回収Writerは保存済みHost後続tokenと不変欄を共同確�
     const tokens = f.installHostTransition("old");
     const operation = f.snapshot.operations[0];
     assert.ok(operation);
-    const before = Buffer.from(`${encodeCoordinatorStateValue(f.snapshot)}\n`);
+    const before = Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
     const update = {
       ...operation.host,
       currentToken: tokens.expectedToken,
@@ -1493,7 +1486,7 @@ test("現在回収Writerは保存済みHost後続tokenと不変欄を共同確�
           value: Parameters<typeof coordinatorTaskResourcesAreSettled>[0],
         ) =>
           coordinatorTaskResourcesAreSettled(JSON.parse(JSON.stringify(value))),
-        encodeCoordinatorStateValue,
+        encodeRuntimeStateValue,
         readCoordinatorStateSnapshot: () => ({
           status: "completed",
           lockReleased: true,
@@ -1518,7 +1511,7 @@ test("現在回収Writerは保存済みHost後続tokenと不変欄を共同確�
     const currentBefore =
       fault === "before"
         ? Buffer.concat([before, Buffer.from(" ")])
-        : Buffer.from(`${encodeCoordinatorStateValue(f.snapshot)}\n`);
+        : Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
     const result = invoke(
       { ...f.repository, operationId: "a" },
       f.token,
@@ -1573,7 +1566,7 @@ test("現在Host清掃Writerは固定元版・既知終端と保持中Ownerだ�
       operation.resources = operation.resources.map((resource, index) =>
         index === 0 ? { ...resource, request: "unknown" } : resource,
       );
-    const before = Buffer.from(`${encodeCoordinatorStateValue(f.snapshot)}\n`);
+    const before = Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
     let candidates = 0,
       writes = 0;
     const invoke = runInNewContext(
@@ -1584,7 +1577,7 @@ test("現在Host清掃Writerは固定元版・既知終端と保持中Ownerだ�
           value: Parameters<typeof coordinatorTaskResourcesAreSettled>[0],
         ) =>
           coordinatorTaskResourcesAreSettled(JSON.parse(JSON.stringify(value))),
-        encodeCoordinatorStateValue,
+        encodeRuntimeStateValue,
         readCoordinatorStateSnapshot: () => ({
           status: "completed",
           lockReleased: fault !== "reader",

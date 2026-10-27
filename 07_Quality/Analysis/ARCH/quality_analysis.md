@@ -1,5 +1,13 @@
 # Architecture工程のQuality分析
 
+## Core独立契約からの追加導出 — 2026-10-27
+
+ARCH-000004の責務確認により、文書群のMilestone／Roadmap／WBSとRuntime集約を区別する。Callerが計画分解・文書反映を所有する境界をQA-000003のPRL-IT-008／012へ導出し、自動同期を検証対象Capabilityとして新設しない。現行の機械的包装を分解済みTask Graph受付の成立と扱わない。
+
+[Runtime Domain正本](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)のruntime-domain.core-independent／definition-boundary／current-access／selectionをQA-000003へ、atomic-preservation／publication／migration-gateをQA-000008へ、一回性は両Ownerの既存項目へ接続する。ARCH-000004の定義・実行分離、ARCH-000008の観測・真正証拠、ARCH-000011の保存／排他を検証する。
+
+正常・境界・異常・回復の各反例はQA定義の追加シナリオを正本とする。設計反映と試験結果を分け、全件Not Run。新Local Itemや新しい試験総数を導出していない。
+
 成果物種別: Quality分析（ARCH観点）
 分析Origin: `ARCH`
 状態: Canonical

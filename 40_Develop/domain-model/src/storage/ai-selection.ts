@@ -16,11 +16,14 @@ import {
   resolveFilesystemStorePath,
   snapshotPlainRecord,
   withFilesystemStoreLock,
-} from "../../../domain-model/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
+} from "../index.ts";
+import { parseUnambiguousJsonDocument } from "../plain-data/json.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import { validateAiSelectionConfig } from "../selection/resolve.ts";
-import type { AiSelectionSnapshot } from "../selection/types.ts";
+import { validateAiSelectionConfig } from "../ai-selection/validation.ts";
+import type {
+  AiSelectionSnapshot,
+  AiSelectionCatalog,
+} from "../ai-selection/types.ts";
 
 export const AI_SELECTION_MAXIMUM_BYTES = 1024 * 1024;
 const CONFIG_FILE = "ai-selection.json";
@@ -143,6 +146,7 @@ type ConfigAreaFailure = Extract<
  */
 function inspectSelectionFile(
   capability: VerifiedRepositoryRoot,
+  catalog: AiSelectionCatalog,
 ): Readonly<{ result: AiSelectionReadResult; bytes: Buffer | null }> {
   const blocked = (
     reason: Extract<AiSelectionReadResult, { status: "blocked" }>["reason"],
@@ -223,7 +227,7 @@ function inspectSelectionFile(
     } catch {
       return blocked("ai_selection_config_invalid");
     }
-    const checked = validateAiSelectionConfig(raw);
+    const checked = validateAiSelectionConfig(raw, catalog);
     return checked.status === "valid"
       ? Object.freeze({
           result: Object.freeze({
@@ -256,8 +260,9 @@ function inspectSelectionFile(
  */
 export function readRepositoryAiSelection(
   capability: VerifiedRepositoryRoot,
+  catalog: AiSelectionCatalog,
 ): AiSelectionReadResult {
-  return inspectSelectionFile(capability).result;
+  return inspectSelectionFile(capability, catalog).result;
 }
 
 /**
@@ -326,6 +331,7 @@ export function saveRepositoryAiSelection(
   capability: VerifiedRepositoryRoot,
   candidate: unknown,
   authorize: () => boolean,
+  catalog: AiSelectionCatalog,
 ): AiSelectionSaveResult {
   const blocked = (reason: string): AiSelectionSaveResult =>
     Object.freeze({ status: "blocked", reason, snapshot: null });
@@ -340,7 +346,7 @@ export function saveRepositoryAiSelection(
         !/^[a-f0-9]{64}$/u.test(request.expectedIdentity)))
   )
     return blocked("ai_selection_save_request_invalid");
-  const checked = validateAiSelectionConfig(request.config);
+  const checked = validateAiSelectionConfig(request.config, catalog);
   if (checked.status !== "valid") return blocked(checked.reason);
   const payload = Buffer.from(
     `${JSON.stringify(checked.value.config, null, 2)}\n`,
@@ -402,7 +408,7 @@ export function saveRepositoryAiSelection(
       root,
       "ai-selection.lock",
       (): AiSelectionSaveResult => {
-        const current = readRepositoryAiSelection(capability);
+        const current = readRepositoryAiSelection(capability, catalog);
         if (current.status === "blocked") return blocked(current.reason);
         if (!matchesExpected(current, request.expectedIdentity))
           return Object.freeze({
@@ -455,7 +461,10 @@ export function saveRepositoryAiSelection(
             !prepared.bytes.equals(payload)
           )
             throw Error("stage");
-          const beforePublication = readRepositoryAiSelection(capability);
+          const beforePublication = readRepositoryAiSelection(
+            capability,
+            catalog,
+          );
           if (beforePublication.status === "blocked")
             result = blocked(beforePublication.reason);
           else if (
@@ -476,7 +485,7 @@ export function saveRepositoryAiSelection(
               resolveFilesystemStorePath(root, CONFIG_FILE),
             );
             owned = false;
-            const readback = inspectSelectionFile(capability);
+            const readback = inspectSelectionFile(capability, catalog);
             if (
               readback.result.status !== "available" ||
               readback.result.snapshot.identity !== checked.value.identity ||

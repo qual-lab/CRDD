@@ -5,6 +5,10 @@
  * @trace ARCH-000004
  */
 import {
+  snapshotRuntimeStateArray as snapshotPlainArray,
+  snapshotRuntimeStateRecord as snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
 } from "../task/lifecycle.ts";
@@ -14,12 +18,8 @@ import type {
   CoordinatorReplanInput,
   CoordinatorReplanClassifier,
 } from "./types.ts";
-import type { ProjectTaskDefinition } from "../task/types.ts";
+import type { ProjectTaskDefinition } from "../../../domain-model/src/index.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../state/validation.ts";
 
 export const COORDINATOR_REPLANNING_CONTRACT =
   "crdd-coordinator/orchestrator-replanning/v1" as const;

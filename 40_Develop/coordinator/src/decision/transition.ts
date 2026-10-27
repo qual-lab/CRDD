@@ -5,8 +5,9 @@
  * @boundary Coordinatorの状態値と意味Owner。
  * @security 保存・外部実行・Authorityの発行は行わない。
  */
-import type { CoordinatorAcceptanceDecisionInput } from "./types.ts";
-import type { CoordinatorState, StateResult } from "../state/types.ts";
+import type { CoordinatorState } from "../../../domain-model/src/index.ts";
+import type { CoordinatorAcceptanceDecisionInput } from "../../../domain-model/src/index.ts";
+import type { StateResult } from "../state/types.ts";
 import { validIdentity } from "../state/validation.ts";
 import { projectState } from "../state/projection.ts";
 

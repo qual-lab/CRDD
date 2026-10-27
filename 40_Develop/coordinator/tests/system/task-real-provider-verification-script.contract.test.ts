@@ -12,6 +12,7 @@
  */
 import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
@@ -342,7 +343,7 @@ const semantic = (
           : status === "blocked"
             ? "orchestrator_acceptance_decision_required"
             : "orchestrator_milestone_accepted",
-      contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+      contract: "crdd-coordinator/orchestrator-objective-intake/v2",
       requestId: "request-a",
       projectId: "project-a",
       milestoneId: "milestone-a",
@@ -3276,7 +3277,7 @@ test("実Provider Toolはchoiceと検証分類を持つ現在Objectiveを構築�
     const request = JSON.parse(
       JSON.stringify(
         create(
-          {
+          withCallerPlan({
             intakeEpoch: "epoch-a",
             repositoryRevision: "a".repeat(40),
             objective: "合成一行を変更",
@@ -3286,7 +3287,7 @@ test("実Provider Toolはchoiceと検証分類を持つ現在Objectiveを構築�
             maximumConcurrency: 1,
             maximumReplans: 0,
             originLane: "interactive",
-          },
+          }),
           "run",
           provider,
           false,

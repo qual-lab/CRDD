@@ -5,12 +5,12 @@
  * @trace ARCH-000008
  * @boundary Package内部。Native取得・回収、上位状態・Path・保存実装は所有しない。
  */
-import { types } from "node:util";
 import {
   decodeDockerRuntimeRepairCheckpoint as decode,
-  validateDockerRuntimeRepairCheckpointTransition as transition,
   type DockerRuntimeRepairCheckpoint as Checkpoint,
-} from "./repair-state.ts";
+} from "../../../domain-model/src/index.ts";
+import { types } from "node:util";
+import { validateDockerRuntimeRepairCheckpointTransition as transition } from "./repair-state.ts";
 import type { DockerRepairEngineState } from "./engine.ts";
 
 const actions = [

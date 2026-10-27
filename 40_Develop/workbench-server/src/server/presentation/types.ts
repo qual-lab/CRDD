@@ -6,7 +6,7 @@
  * @boundary Workbench起動Composition・HTTP受付・表示投影。
  * @security 資格、認可結果、Task正本、実行Owner、共有AI Sessionを保持せず、公開APIへexportしない。
  */
-import type { AiSelectionSaveResult } from "../../../../coordinator/src/index.ts";
+import type { AiSelectionSaveResult } from "../../../../domain-model/src/index.ts";
 import type { ChangePublicationResult } from "../../../../version-control/src/index.ts";
 import type { WorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type { WorkbenchAiRequestSnapshot } from "../ai-request/types.ts";

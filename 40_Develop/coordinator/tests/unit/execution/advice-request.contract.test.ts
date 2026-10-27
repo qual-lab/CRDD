@@ -8,9 +8,10 @@
  * @scope coordinator、contract、node_process
  * @boundary Workbench Application PortとCoordinator依頼種別別Executorの局所境界。
  */
+import type { ExecutionSelection } from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import type { ExecutionSelection } from "../../../src/selection/types.ts";
+
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import { createHash } from "node:crypto";
 import test from "node:test";

@@ -4,18 +4,19 @@
  * @trace ARCH-000004
  */
 
+import {
+  type CoordinatorState,
+  type ProjectDockerRecoveryAcknowledgement,
+  type ProjectResultAcceptance,
+  decodeProjectResultAcceptance,
+} from "../../../domain-model/src/index.ts";
 import { projectState } from "../state/projection.ts";
-import type { CoordinatorState, StateResult } from "../state/types.ts";
+import type { StateResult } from "../state/types.ts";
 import {
   isCoordinatorRecoveryIdentity,
-  snapshotPlainRecord,
   validIdentity,
 } from "../state/validation.ts";
 import { replaceTask } from "./lifecycle.ts";
-import type {
-  ProjectDockerRecoveryAcknowledgement,
-  ProjectResultAcceptance,
-} from "./types.ts";
 
 /**
  * 清掃済み通常Taskの結果受領集合を同じ現在状態へ固定する。
@@ -218,91 +219,6 @@ export function acknowledgeProjectDockerRecoveryObligation(
     state: projectState({ ...state, generation: state.generation + 1, tasks }),
     taskIds: Object.freeze([acceptance.taskId]),
   });
-}
-
-/**
- * 新しい結果受理本文の閉じた形式を検査する。
- * @responsibility 欠落・追加項目・旧形式と不正な識別子、Hash、世代を拒否する。
- * @trace ARCH-000004
- * @input value: 未検証の受理本文。
- * @returns 検査済み固定本文、またはnull。
- * @precondition N/A: 任意の入力を拒否可能な境界として扱う。
- * @postcondition 初回受理世代や入力の値を補完・更新しない。
- * @effect N/A: 局所値の検査だけ。
- * @failure 不正本文、getter、Proxy、欠落、旧項目、空値はnull。
- * @invariant 形式成立を保存・受理・cleanup成立へ昇格しない。
- * @boundary 上位の保存本文とその利用側。
- * @security 外部Authorityを発行せず入力の関数を呼ばない。
- * @concurrency N/A: 共有状態を持たない同期処理。
- */
-export function decodeProjectResultAcceptance(
-  value: unknown,
-): ProjectResultAcceptance | null {
-  const acceptance = snapshotPlainRecord(
-    value,
-    new Set([
-      "repositoryBindingId",
-      "projectId",
-      "milestoneId",
-      "taskId",
-      "attemptId",
-      "operationId",
-      "recoveryId",
-      "settlementGeneration",
-      "repositoryBinding",
-      "resultId",
-      "consumer",
-    ]),
-  );
-  if (
-    !acceptance ||
-    [
-      "repositoryBindingId",
-      "projectId",
-      "milestoneId",
-      "taskId",
-      "attemptId",
-      "operationId",
-      "recoveryId",
-    ].some(
-      (key) =>
-        typeof acceptance[key] !== "string" ||
-        acceptance[key].length === 0 ||
-        acceptance[key].length > 1024,
-    ) ||
-    !Number.isSafeInteger(acceptance.settlementGeneration) ||
-    Number(acceptance.settlementGeneration) < 1 ||
-    acceptance.consumer !== "orchestrator" ||
-    [acceptance.repositoryBinding, acceptance.resultId].some(
-      (item) => typeof item !== "string" || !/^[a-f0-9]{64}$/u.test(item),
-    )
-  )
-    return null;
-  return Object.freeze(acceptance) as ProjectResultAcceptance;
-}
-
-/**
- * 本番利用側に固定された結果受領方式を返す。
- * @responsibility 一時的な返却と後続再開用の耐久ACKを区別する。
- * @trace ARCH-000008
- * @input consumer: 固定組立てが選択した利用側識別子。
- * @returns transient、durable、または未知利用側のnull。
- * @precondition N/A: 未知値も受け取り拒否する。
- * @postcondition Coordinatorの耐久受領を入力指定で降格しない。
- * @effect N/A: 値の同期判定だけで保存や配送を行わない。
- * @failure 未知識別子・非文字列ではnull。
- * @invariant 受領方式は資源回収やCandidate保全の証明ではない。
- * @boundary 本番組立ての利用側と保存モデルの固定契約。
- * @security Objectの変換・getter・Proxyを評価しない。
- * @concurrency N/A: 共有状態を変更しない。
- */
-export function coordinatorConsumerCompletionPolicy(
-  consumer: unknown,
-): "transient" | "durable" | null {
-  if (consumer === "orchestrator") return "durable";
-  if (consumer === "coordinator_cli" || consumer === "workbench")
-    return "transient";
-  return null;
 }
 
 /**

@@ -8,12 +8,13 @@
  * @scope project、runtime、state、query、public
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
+import type { CoordinatorState } from "../../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
-import type { CoordinatorState } from "../../../src/state/types.ts";
+
 import { inspectCoordinatorStateQuery } from "../../../src/state/request.ts";
 import { inspectCoordinatorStateQueryResult } from "../../../src/state/projection.ts";
 import { queryCoordinatorState } from "../../../src/state/query.ts";

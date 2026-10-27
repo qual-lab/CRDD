@@ -8,6 +8,10 @@
  * @scope 固定Imageの停止Container一件のみ。通常runnerからは実行しない。
  * @boundary 実Docker／実Owner／現在保存。daemon queueや将来の遅延createを証明しない。
  */
+import type {
+  CoordinatorStateSnapshot,
+  CoordinatorStateTaskOperation,
+} from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import cp, {
   execFileSync,
@@ -24,8 +28,6 @@ import {
   setImmediate as yieldEvents,
 } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import type { CoordinatorStateSnapshot } from "../../src/storage/state.ts";
-import type { CoordinatorStateTaskOperation } from "../../src/execution/types.ts";
 
 const fixedImage =
   "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";

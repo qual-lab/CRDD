@@ -1,3 +1,4 @@
+import type { AiProvider } from "../../../domain-model/src/index.ts";
 /**
  * Providerの認証確認用CLI記述を所有する。
  *
@@ -6,8 +7,6 @@
  * @trace ARCH-000010
  * @boundary AI Adapterの固定CLI記述とCoordinatorの認証確認実行の間。
  */
-
-import type { AiProvider } from "../provider/types.ts";
 
 const AUTHENTICATION_DEFINITIONS = Object.freeze({
   codex: Object.freeze({

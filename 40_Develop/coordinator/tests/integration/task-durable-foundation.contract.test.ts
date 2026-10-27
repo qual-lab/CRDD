@@ -9,7 +9,12 @@
  * @scope project、runtime、durable、foundation
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
-import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
+
+import {
+  type CoordinatorState,
+  decodeCoordinatorUnifiedSnapshot,
+} from "../../../domain-model/src/index.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -22,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import type { CoordinatorState } from "../../src/state/types.ts";
+
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -32,7 +37,7 @@ import {
 import type {
   CoordinatorAcceptanceDecisionRecord,
   CoordinatorDecisionRecoveryIntent,
-} from "../../src/decision/records.ts";
+} from "../../../domain-model/src/index.ts";
 import {
   acquireCoordinatorSnapshotLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
@@ -59,7 +64,6 @@ import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
 import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
 import { acquireRuntimeOwnedProjectStateKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
-  decodeCoordinatorUnifiedSnapshot,
   projectCoordinatorTaskSnapshot,
   prepareCoordinatorUnifiedTaskSnapshot,
 } from "../../src/storage/state.ts";
@@ -2450,7 +2454,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
           queueId: "queue-a",
           identity: "result-a",
           contentHash: createHash("sha256")
-            .update(encodeCoordinatorStateValue(resultValue))
+            .update(encodeRuntimeStateValue(resultValue))
             .digest("hex"),
           value: resultValue,
         },
@@ -3010,8 +3014,8 @@ function storedEnvelopeBytes(state: CoordinatorState, baseJson: string) {
   assert.ok(bytes);
   return (
     bytes.length +
-    Buffer.byteLength(encodeCoordinatorStateValue(state)) -
-    Buffer.byteLength(encodeCoordinatorStateValue(slim))
+    Buffer.byteLength(encodeRuntimeStateValue(state)) -
+    Buffer.byteLength(encodeRuntimeStateValue(slim))
   );
 }
 
@@ -3310,11 +3314,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   payload.projects[0] = {
     contract: "crdd-coordinator/project-state/v2",
   };
-  fs.writeFileSync(
-    record,
-    `${encodeCoordinatorStateValue(rewritten)}\n`,
-    "utf8",
-  );
+  fs.writeFileSync(record, `${encodeRuntimeStateValue(rewritten)}\n`, "utf8");
   const invalidBytes = fs.readFileSync(record);
   assert.equal(
     ports.state.readState("project-a").reason,
@@ -3391,7 +3391,7 @@ test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
     item.mutate(task);
     fs.writeFileSync(
       location,
-      `${encodeCoordinatorStateValue(envelope)}\n`,
+      `${encodeRuntimeStateValue(envelope)}\n`,
       "utf8",
     );
 
@@ -3451,7 +3451,7 @@ test("PR-D-A-01 現行Envelope破損と未確定pendingを拒否して保全す�
     if (mode !== "pending-residue")
       fs.writeFileSync(
         location,
-        `${encodeCoordinatorStateValue(envelope)}\n`,
+        `${encodeRuntimeStateValue(envelope)}\n`,
         "utf8",
       );
     const before = fs.readFileSync(location);
@@ -3507,11 +3507,7 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
   const queue = payload.queueEntries[0];
   if (!queue) throw new Error("fixture_queue_missing");
   queue.recordKind = "unknown";
-  fs.writeFileSync(
-    location,
-    `${encodeCoordinatorStateValue(record)}\n`,
-    "utf8",
-  );
+  fs.writeFileSync(location, `${encodeRuntimeStateValue(record)}\n`, "utf8");
   const before = fs.readFileSync(location);
   const result = ports.state.enqueueOperation(input);
   assert.equal(result.status, "blocked");
@@ -4552,11 +4548,7 @@ test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (
         ? "other-owner"
         : `lease-acquisition-${"0".repeat(40)}`;
     record.leaseIntents.push(release);
-    fs.writeFileSync(
-      location,
-      `${encodeCoordinatorStateValue(record)}\n`,
-      "utf8",
-    );
+    fs.writeFileSync(location, `${encodeRuntimeStateValue(record)}\n`, "utf8");
     const before = fs.readFileSync(location);
     const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
     const names = fs.readdirSync(locks);
@@ -4937,13 +4929,9 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
   assert.ok(released);
   released.content.queueId = "queue-b";
   released.contentHash = createHash("sha256")
-    .update(encodeCoordinatorStateValue(released.content))
+    .update(encodeRuntimeStateValue(released.content))
     .digest("hex");
-  fs.writeFileSync(
-    location,
-    `${encodeCoordinatorStateValue(snapshot)}\n`,
-    "utf8",
-  );
+  fs.writeFileSync(location, `${encodeRuntimeStateValue(snapshot)}\n`, "utf8");
   const before = fs.readFileSync(location);
   const settlement = ports.state.settleQueueLeaseRelease(
     "queue-a",
@@ -4963,11 +4951,7 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
     (item: { content: { disposition: string } }) =>
       item.content.disposition !== "released",
   );
-  fs.writeFileSync(
-    location,
-    `${encodeCoordinatorStateValue(missing)}\n`,
-    "utf8",
-  );
+  fs.writeFileSync(location, `${encodeRuntimeStateValue(missing)}\n`, "utf8");
   const missingBytes = fs.readFileSync(location);
   let observations = 0;
   const retry = ports.lease.reconcileOperationOwnerLoss(
@@ -5040,11 +5024,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
   const record = JSON.parse(originalBytes.toString("utf8"));
   const acquired = record.leaseEvidence[0];
   record.leaseEvidence.push({ ...acquired, content: {} });
-  fs.writeFileSync(
-    location,
-    `${encodeCoordinatorStateValue(record)}\n`,
-    "utf8",
-  );
+  fs.writeFileSync(location, `${encodeRuntimeStateValue(record)}\n`, "utf8");
   const before = fs.readFileSync(location);
   const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
   const names = fs.readdirSync(locks);
@@ -5267,7 +5247,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
     assert.ok(view);
     const viewOverhead =
       Buffer.byteLength(
-        encodeCoordinatorStateValue({
+        encodeRuntimeStateValue({
           ...view,
           snapshotRevision: view.snapshotRevision + 1,
           projects: [probe],

@@ -1,5 +1,11 @@
 # Project実行のArchitecture定義
 
+## Core独立方針の設計伝播 — 2026-10-27
+
+Project-level状態は実行依頼に結合したRuntime状態を意味する。CRDD文書群のMilestone／Roadmap／WBSは文書側が正本であり、Callerが計画分解したTaskを本領域へ渡す。既存Objective／Milestoneの受入は実行内の判断で、文書側完了の自動更新ではない。[用途確認](../../Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を参照し、新しい同期機構を追加しない。
+
+目的・Task・判断の定義管理を単一実行Runtimeの導入条件から独立させる。目標OwnerはDomainの局所CRUD・共通保存、任意Coordinatorの横断調停、Executorの単一試行であり、具体契約は[Runtime Domain詳細](../../Details/domain-model/05_Runtime_Domain.md)を参照する。既存の認可・受付と開始の区別・Effect／回復相関を緩和しない。本書以下のCoordinator中心の配置は移管元の比較で、新目標の実装成立は未確認。新しい要求・ARCH-ID・常駐実行基盤を追加するものではない。
+
 成果物種別: Architecture定義
 Architecture ID: `ARCH-000004`
 状態: Canonical

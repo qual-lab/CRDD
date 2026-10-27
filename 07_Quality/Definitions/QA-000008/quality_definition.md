@@ -1,5 +1,18 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## Runtime Domain共通保存の追加シナリオ — 2026-10-27
+
+[単一保存契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)と[検証への引渡し](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を既存RDL項目へ接続する。新Local Item・総数変更は行わず、すべてNot Run。
+
+| 既存項目 | 入力・刺激／Oracle | 終了後に確認するもの |
+|---|---|---|
+| RDL-IT-001、RDL-IT-003 | 管理実行区画を持つ状態へCore更新、ClaimとCoreの同時CAS、対象Hashのみ／全体Hashのみ差。一方だけ確定、古いAutomationの上書き0 | 元unknown・Recovery ID・Lease・受領・配送・履歴pendingと非対象の相関保全。Docker／Provider呼出し0 |
+| RDL-IT-003、RDL-ST-002 | 実Filesystemのwrite／replace／読戻し／Lock解放／応答喪失、history確定後state未確認を分けて刺激 | 保存発行と確定・解放を区別した結果。元改訂・行Hash・時刻・exact参照を保持し、重複append・自動再送0 |
+| RDL-IT-001、RDL-IT-004 | 合成の旧新領域、未解決あり、Owner不明、未知Schema、既存v5の管理必須fieldをCoreに流用する候補 | 不在を新品扱いしない。旧新対応の全数表と別有効化承認がない間は実移行・削除0 |
+| RDL-UT-005、RDL-IT-003 | state16MiB、UTF-8・Root・実体差、既存pending、一般JSON sidecarとの取り違え | 上限境界、観測不能と不存在の区別、短期Owner終了確認。Lock marker削除を排他解放としない |
+
+一回出版・五Contextの技術的成立確認はQA-000003の追加シナリオを併用し、同じ実測を二重の結果数へ数えない。Schemaのfield対応と新識別子、フロントAI移行の具体手順は実装前の検証入力であり、今回の資料追加だけで完成としない。
+
 ## Coordinatorの単一保存・履歴移送 — 2026-10-22
 
 [単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)へ既存`RDL-IT-001`／003／004、`RDL-ST-002`、`RDL-UT-005`の条件を追加する。新方式はNot Runで、旧二Stateの成功結果を継承しない。

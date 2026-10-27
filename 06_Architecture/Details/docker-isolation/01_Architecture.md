@@ -40,7 +40,7 @@ ProxyはDNS応答の重複を除いた最大32アドレスを検査し、一つ�
 
 ### Docker固有記録の所有者
 
-`cleanup/recovery-identity.ts`はDocker Task回復IDの固定文法を、`cleanup/probe-record.ts`はProbe記録と技術資源のRoot／子実体照合を所有する。Coordinatorの旧Storageから処理を移管し、互換Fileを残さない。記録Schema、token形式、保存Path、Hash、nonce、読戻し・差替え拒否と書込み順序は維持する。実行許可・上位Task・配送・Host終端の保存は所有しない。
+Docker Task回復IDの固定文法と修復checkpointの純粋な保存値codecはDomain Modelの`attempt/validation.ts`・`repair-validation.ts`が所有する。`cleanup/probe-record.ts`はProbe記録と技術資源のRoot／子実体照合を所有する。旧Fileの互換入口は残さない。記録Schema、token形式、保存Path、Hash、nonce、読戻し・差替え拒否と書込み順序は維持する。実資源観測・現在Owner・技術遷移はDocker Isolationに残り、codec成功を資源不存在や実行許可の証明にしない。
 
 | 公開操作 | 境界 |
 |---|---|

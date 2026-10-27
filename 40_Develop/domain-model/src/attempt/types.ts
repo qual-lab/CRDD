@@ -1,14 +1,16 @@
 /**
- * execution/types.tsの値契約と判定を所有する。
- * @responsibility 移管元と同じ状態値・相関を扱い、保存・実行Effectを発行しない。
- * @trace ARCH-000004、ARCH-000008
+ * 実行状態の共有値・純粋検査を所有する。
+ * @packageDocumentation
+ * @responsibility 既存の保存形状・相関・三値を保持し、実行・資源観測・Authorityを発行しない。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
+
 import type { purposeResource } from "./validation.ts";
-import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
-import type { DockerRuntimeRepairCheckpoint } from "../../../docker-isolation/src/index.ts";
-import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../docker-isolation/src/index.ts";
-import type { DockerRuntimeRepairRetentionTargets } from "../../../docker-isolation/src/index.ts";
-import type { DockerRestartCheckpoint } from "./result.ts";
+import type { DockerRuntimeRepairCheckpoint } from "./repair-types.ts";
+import type { DockerRuntimeRepairDisposalCheckpoint } from "./repair-types.ts";
+import type { DockerRuntimeRepairRetentionTargets } from "./repair-types.ts";
 
 /**
  * 一操作の固定情報と更新可能な現在値を分ける。
@@ -152,6 +154,51 @@ export type CoordinatorStateRepairOperation = Readonly<{
 export type CoordinatorStateOperation =
   | CoordinatorStateTaskOperation
   | CoordinatorStateRepairOperation;
+
+/**
+ * 一操作に一度だけ結合する再起動要求の現在値。
+ * @responsibility 未発行・受付・完了、清掃不要と清掃結果を分ける。
+ * @trace ARCH-000008
+ * @shape 固定要求ID、Scope Hash、要求状態、回収状態、一次確定結果。
+ * @invariant 結果・ID・Scopeを置換せず、過去unknownを成功へ推定しない。
+ * @boundary Repository-local現在状態。
+ * @security Hashと保存状態は操作Authorityを発行しない。
+ * @compatibility 最新構造だけ。旧phaseと署名chainは受理しない。
+ */
+export type DockerRestartCheckpoint = Readonly<{
+  requestId: string;
+  scopeSha256: string;
+  request: "not_issued" | "unknown" | "issued" | "confirmed";
+  cleanup: "not_required" | "pending" | "confirmed" | "unknown";
+  result: Readonly<{
+    status: "completed" | "blocked";
+    reason: string;
+    request: "not_issued" | "unknown" | "issued" | "confirmed";
+    effectOutcomeUnknown: boolean;
+  }> | null;
+}>;
+
+/**
+ * 拒否したTurn metadataの有無・型・有限数値だけを表す。
+ * @responsibility 未信頼文字列・Object本文を診断へ複製しない。
+ * @trace ARCH-000015
+ * @shape 欠落を区別する固定型名と、有限数値を正規化した短い文字列表記又はnull。
+ * @invariant 観測値は受理判定や実行許可を変更しない。
+ * @boundary Provider出力の抽出と上位の一次失敗診断。
+ * @security 数値以外の実値・生Envelopeを含めない。
+ * @compatibility 既存結果への任意の診断追加。
+ */
+export type ProviderTurnCountDiagnostic = Readonly<{
+  valueType:
+    | "missing"
+    | "null"
+    | "boolean"
+    | "number"
+    | "string"
+    | "array"
+    | "object";
+  numberText: string | null;
+}>;
 
 /**
  * 明示保持を利用者管理へ引き渡すための固定情報。

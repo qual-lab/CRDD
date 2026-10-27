@@ -10,7 +10,9 @@
  * @scope project、runtime、public、state
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -38,7 +40,7 @@ import {
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { saveRepositoryAiSelection } from "../../src/storage/ai-selection.ts";
+import { saveRepositoryAiSelection } from "../../../domain-model/src/index.ts";
 import {
   selectionConfig,
   executionSelection,
@@ -140,6 +142,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       verified.capability,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
+      getAiModelCatalog().catalog,
     ).status,
     "saved",
   );
@@ -153,6 +156,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   const decisionStore =
     createCoordinatorWindowsDecisionStoreTestingAdapter(decisionRoot);
   let taskStarts = 0;
+  const deliveredRequests: Readonly<Record<string, unknown>>[] = [];
   let shouldBlockExecutionPublication = false;
   let shouldThrowFromPublicationObserver = false;
   const publicationObservations: object[] = [];
@@ -175,6 +179,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     ) => {
       taskStarts += 1;
       const delivered = taskRequest as Readonly<Record<string, unknown>>;
+      deliveredRequests.push(delivered);
       const selections = delivered.taskExecutionSelections as {
         executor: unknown;
         reviewer: unknown;
@@ -286,7 +291,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(before.status, "completed");
   assert.equal(before.observationState, "absent");
   const result = await runtime.run(
-    {
+    withCallerPlan({
       requestId: "request-public-runtime",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
@@ -301,7 +306,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
-    },
+    }),
     new AbortController().signal,
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
@@ -309,7 +314,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(result.status, "blocked", JSON.stringify(result));
   assert.equal(result.reason, "orchestrator_quality_acceptance_required");
   const resumedPending = await runtime.run(
-    {
+    withCallerPlan({
       requestId: "request-public-runtime",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
@@ -324,7 +329,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
-    },
+    }),
     new AbortController().signal,
     root,
     { principalId: "local-user-test-user" },
@@ -451,7 +456,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     intakeEpoch = after.intakeEpoch;
   assert.equal(
     result.contract,
-    "crdd-coordinator/orchestrator-objective-intake/v1",
+    "crdd-coordinator/orchestrator-objective-intake/v2",
   );
   assert.equal(result.requestId, "request-public-runtime");
   assert.equal(result.projectId, "project-public-runtime");
@@ -460,7 +465,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   assert.equal(result.effectState, "settled");
   assert.equal(taskStarts, 1);
   const cleanupBlocked = await runtime.run(
-    {
+    withCallerPlan({
       requestId: "request-candidate-cleanup-blocked",
       projectId: "project-candidate-cleanup-blocked",
       milestoneId: "milestone-candidate-cleanup-blocked",
@@ -475,7 +480,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: true,
       intakeEpoch,
-    },
+    }),
     new AbortController().signal,
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
@@ -514,7 +519,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     source: "single_task_verified_completion",
   });
   const replay = await runtime.run(
-    {
+    withCallerPlan({
       requestId: "request-public-runtime",
       projectId: "project-public-runtime",
       milestoneId: "milestone-public-runtime",
@@ -529,7 +534,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
-    },
+    }),
     new AbortController().signal,
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
@@ -540,7 +545,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
 
   shouldBlockExecutionPublication = true;
   const publicationBlocked = await runtime.run(
-    {
+    withCallerPlan({
       requestId: "request-public-runtime-publication-blocked",
       projectId: "project-public-runtime-publication-blocked",
       milestoneId: "milestone-public-runtime-publication-blocked",
@@ -555,7 +560,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
-    },
+    }),
     new AbortController().signal,
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
@@ -573,7 +578,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
 
   shouldThrowFromPublicationObserver = true;
   const diagnosticFailed = await runtime.run(
-    {
+    withCallerPlan({
       requestId: "request-public-runtime-diagnostic-failed",
       projectId: "project-public-runtime-diagnostic-failed",
       milestoneId: "milestone-public-runtime-diagnostic-failed",
@@ -588,7 +593,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
-    },
+    }),
     new AbortController().signal,
     root,
     Object.freeze({ principalId: "local-user-test-user" }),
@@ -599,6 +604,111 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     "orchestrator_quality_acceptance_required",
   );
   assert.equal(taskStarts, 3);
+  shouldBlockExecutionPublication = false;
+  shouldThrowFromPublicationObserver = false;
+  const graphRequest = {
+    ...withCallerPlan({
+      requestId: "request-public-runtime-two-tasks",
+      projectId: "project-public-runtime-two-tasks",
+      milestoneId: "milestone-public-runtime-two-tasks",
+      repositoryRevision: revision,
+      objective: "Execute two distinct caller Tasks.",
+      acceptanceCriteria: ["both caller Tasks completed"],
+      allowedPaths: ["result.txt", "second.txt"],
+      readPaths: ["result.txt", "second.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
+      adoptResult: false,
+      intakeEpoch,
+    }),
+    plan: {
+      milestoneAcceptanceCriteria: ["both caller Tasks completed"],
+      objectives: [
+        { id: "objective-graph", acceptanceCriteria: ["graph accepted"] },
+      ],
+      tasks: [
+        {
+          id: "task-first",
+          objectiveId: "objective-graph",
+          dependencies: [],
+          allowedPaths: ["result.txt"],
+          conflictKeys: ["shared-tree"],
+        },
+        {
+          id: "task-second",
+          objectiveId: "objective-graph",
+          dependencies: ["task-first"],
+          allowedPaths: ["second.txt"],
+          conflictKeys: ["shared-tree"],
+        },
+      ],
+    },
+    taskInputs: [
+      {
+        taskId: "task-first",
+        objective: "Implement the first result.",
+        acceptanceCriteria: ["first result verified"],
+        readPaths: ["result.txt"],
+      },
+      {
+        taskId: "task-second",
+        objective: "Test the second result.",
+        acceptanceCriteria: ["second result verified"],
+        readPaths: ["second.txt"],
+      },
+    ],
+  };
+  const graphResult = await runtime.run(
+    graphRequest,
+    new AbortController().signal,
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(
+    graphResult.reason,
+    "orchestrator_quality_acceptance_required",
+    JSON.stringify(graphResult),
+  );
+  assert.equal(taskStarts, 5);
+  assert.deepEqual(
+    deliveredRequests.slice(-2).map((request) => ({
+      objective: request.objective,
+      acceptanceCriteria: request.acceptanceCriteria,
+      readPaths: request.readPaths,
+      allowedPaths: request.allowedPaths,
+    })),
+    graphRequest.taskInputs.map((input, index) => ({
+      objective: input.objective,
+      acceptanceCriteria: input.acceptanceCriteria,
+      readPaths: input.readPaths,
+      allowedPaths: graphRequest.plan.tasks[index]?.allowedPaths,
+    })),
+  );
+  const graphReplay = await runtime.run(
+    graphRequest,
+    new AbortController().signal,
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(graphReplay.reason, "orchestrator_quality_acceptance_required");
+  assert.equal(taskStarts, 5);
+  const changedGraph = await runtime.run(
+    {
+      ...graphRequest,
+      taskInputs: graphRequest.taskInputs.map((input, index) =>
+        index === 1 ? { ...input, objective: "Different Task body." } : input,
+      ),
+    },
+    new AbortController().signal,
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(changedGraph.status, "blocked");
+  assert.equal(changedGraph.reason, "orchestrator_intake_epoch_retired");
+  assert.equal(changedGraph.effectState, "no_effect");
+  assert.equal(taskStarts, 5);
 });
 
 class ControlledDiagnosticStream extends Writable {

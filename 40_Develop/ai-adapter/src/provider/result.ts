@@ -4,8 +4,13 @@
  * @responsibility 用途ごとの容量・Envelope・拒否順序を区別し、生出力を公開しない。
  * @trace ARCH-000015
  */
-import { parseUnambiguousJsonDocument } from "./json.ts";
-import type { AiProvider } from "./types.ts";
+import type {
+  AiProvider,
+  PROVIDER_ADVICE_OUTPUT_REASONS,
+  ProviderTurnCountDiagnostic,
+} from "../../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
+
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 const TASK_MAXIMUM_RAW_BYTES = 65_536;
 
@@ -42,28 +47,6 @@ export type ProviderResultReason =
   | Exclude<ReturnType<typeof extractProviderTaskEnvelope>["reason"], null>
   | (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number]
   | "provider_result_input_invalid";
-
-/**
- * 拒否したTurn metadataの有無・型・有限数値だけを表す。
- * @responsibility 未信頼文字列・Object本文を診断へ複製しない。
- * @trace ARCH-000015
- * @shape 欠落を区別する固定型名と、有限数値を正規化した短い文字列表記又はnull。
- * @invariant 観測値は受理判定や実行許可を変更しない。
- * @boundary Provider出力の抽出と上位の一次失敗診断。
- * @security 数値以外の実値・生Envelopeを含めない。
- * @compatibility 既存結果への任意の診断追加。
- */
-export type ProviderTurnCountDiagnostic = Readonly<{
-  valueType:
-    | "missing"
-    | "null"
-    | "boolean"
-    | "number"
-    | "string"
-    | "array"
-    | "object";
-  numberText: string | null;
-}>;
 
 /**
  * 解析値と固定拒否理由を型で区別する。
@@ -524,19 +507,6 @@ function extractProviderTaskEnvelope(
 export const PROVIDER_ADVICE_OUTPUT_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-output";
 export const PROVIDER_ADVICE_OUTPUT_CONTRACT_REVISION = 1;
-
-export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
-  "workbench_ai_provider_output_invalid",
-  "workbench_ai_codex_output_invalid",
-  "workbench_ai_codex_completion_invalid",
-  "workbench_ai_codex_tool_event_forbidden",
-  "workbench_ai_codex_final_message_invalid",
-  "workbench_ai_claude_envelope_invalid",
-  "workbench_ai_claude_completion_invalid",
-  "workbench_ai_claude_turn_count_invalid",
-  "workbench_ai_claude_metadata_invalid",
-  "workbench_ai_claude_structured_output_invalid",
-] as const);
 
 const ADVICE_MAXIMUM_RAW_BYTES = 262_144;
 const MAXIMUM_EVENTS = 4_096;

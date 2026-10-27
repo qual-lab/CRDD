@@ -8,6 +8,7 @@
  * @scope Repository別選定、Context読取り、助言の一回実行境界。
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
+import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../fixtures/network-policy.ts";
 import { execFileSync } from "node:child_process";
@@ -21,7 +22,7 @@ import { selectionConfig } from "../fixtures/ai-selection.ts";
 import {
   readRepositoryAiSelection,
   saveRepositoryAiSelection,
-} from "../../src/storage/ai-selection.ts";
+} from "../../../domain-model/src/index.ts";
 import { resolveExecutionSelection } from "../../src/selection/resolve.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../src/execution/advice.ts";
@@ -199,11 +200,16 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     const root = verifyRepositoryRoot(fixture);
     assert.equal(root.status, "completed");
     if (root.status !== "completed") throw Error("root_invalid");
-    assert.equal(readRepositoryAiSelection(root.capability).status, "missing");
+    assert.equal(
+      readRepositoryAiSelection(root.capability, getAiModelCatalog().catalog)
+        .status,
+      "missing",
+    );
     const saved = saveRepositoryAiSelection(
       root.capability,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
+      getAiModelCatalog().catalog,
     );
     assert.equal(saved.status, "saved", JSON.stringify(saved));
     if (saved.status !== "saved") throw Error("save_failed");
@@ -225,6 +231,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       root.capability,
       { expectedIdentity: saved.snapshot.identity, config: next },
       () => true,
+      getAiModelCatalog().catalog,
     );
     assert.equal(changed.status, "saved");
     if (changed.status !== "saved") throw Error("change_failed");
@@ -312,7 +319,10 @@ test("旧Profile設定と破損設定を既定Modelへ補正しない", async ()
         body,
         "utf8",
       );
-      const read = readRepositoryAiSelection(root.capability);
+      const read = readRepositoryAiSelection(
+        root.capability,
+        getAiModelCatalog().catalog,
+      );
       assert.equal(read.status, "blocked");
       assert.equal(read.snapshot, null);
     }

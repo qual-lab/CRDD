@@ -4,8 +4,11 @@
  * @trace ARCH-000004
  */
 
-import type { ProjectTaskRecoveryKind } from "./types.ts";
-import type { CoordinatorState, StateResult } from "../state/types.ts";
+import type {
+  ProjectTaskRecoveryKind,
+  CoordinatorState,
+} from "../../../domain-model/src/index.ts";
+import type { StateResult } from "../state/types.ts";
 import {
   isCoordinatorRecoveryIdentity,
   validIdentity,

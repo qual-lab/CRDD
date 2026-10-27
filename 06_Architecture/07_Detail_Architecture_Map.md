@@ -38,9 +38,9 @@ Quality／Development
 | [ai-adapter](Details/ai-adapter/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
 | [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Superseded |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
-| [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000008、ARCH-000010、ARCH-000012、ARCH-000014、ARCH-000015 | Task／Objectiveの進行・状態・明示受入判断と単発実行、実行Authority、AI Adapter接続、資源回収、通知と結果搬送。[Task設計](Details/coordinator/03_Task_Architecture.md)・[状態詳細](Details/coordinator/04_Task_Detailed_Design.md)・[Workspace](Details/coordinator/05_Workspace.md)も同じOwnerに属する | Candidate |
+| [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000008、ARCH-000010、ARCH-000012、ARCH-000014、ARCH-000015 | 目標は共通DomainとExecutorを使う任意の横断調停。[Task設計](Details/coordinator/03_Task_Architecture.md)・[状態詳細](Details/coordinator/04_Task_Detailed_Design.md)・[Workspace](Details/coordinator/05_Workspace.md)の既存実装は移管元。Domain定義・共通Writer・単一試行を重複所有しない | Candidate／移管未実装 |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
-| [domain-model](Details/domain-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Domain Modelの用途別公開入口、共通意味、活動CRUD、投影と保存部品。Runtime状態・Git確定・公開は所有しない | Candidate |
+| [domain-model](Details/domain-model/01_Architecture.md) | ARCH-000001、ARCH-000002、ARCH-000004、ARCH-000005、ARCH-000006、ARCH-000008、ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Domainの共通意味・局所CRUD・投影・保存。[Runtime Domain](Details/domain-model/05_Runtime_Domain.md)が定義・管理実行記録の分離、API入出力、単一CASを所有する。Scheduling・技術実行・Gitは所有しない | Candidate／新Core Source未実装 |
 | [cros（旧比較資料）](Details/cros/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000013、ARCH-000015、ARCH-000016 | 旧Packageは撤去済み。認証・認可はAccess Management、ContextはDomain、活動・Profileは専門Ownerが所有する。旧本文のCoveredを新版へ流用しない | Historical Comparison／全体検証は未完了 |
 | [docker-isolation](Details/docker-isolation/01_Architecture.md) | ARCH-000004、ARCH-000008 | 許可済みDocker／Processの隔離、実資源Lifecycle、失敗・回復・清掃後観測。新Workspace方式の実境界はOPEN | Candidate／Partial |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
@@ -64,7 +64,7 @@ Quality／Development
 | ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker、domain-model |
 | ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | checker、contract-migration、domain-model、version-control |
 | ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control、verification-runner、visual-preview |
-| ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | ai-adapter、coordinator、docker-isolation、platform-access |
+| ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | ai-adapter、coordinator、domain-model、docker-isolation、platform-access |
 | ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | coordinator、cros、domain-model、mcp-server、workbench-server |
 | ARCH-000006 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | cros、domain-model、workbench-server |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | coordinator、execution-intelligence |

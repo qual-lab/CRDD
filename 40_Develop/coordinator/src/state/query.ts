@@ -4,13 +4,16 @@
  * @responsibility Principal・Root・Revisionを確認し、既存Snapshot Readerと状態投影へ接続する。状態変更は行わない。
  * @trace ARCH-000005
  */
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+  validId,
+  type CoordinatorState,
+} from "../../../domain-model/src/index.ts";
 import type { StoreResult } from "./result.ts";
 import { completed } from "./result.ts";
 import { blocked } from "./result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
-import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
-import { validId } from "./validation.ts";
-import type { CoordinatorState } from "./types.ts";
+
 import { projectCoordinatorState } from "./projection.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
 import {

@@ -1,5 +1,7 @@
 # CRDD内部ツールの品質の現在状態
 
+Core独立の[Runtime Domain設計](../06_Architecture/Details/domain-model/05_Runtime_Domain.md)を正式ArchitectureとQA-000003／000008へ接続した。API入出力・認可・定義Hash／単一CAS・一回性の追加シナリオはすべてNot Run。Source未実装・保存切替未実施であり、既存項目の成功数を新版へ流用しない。全体検査未合格、実AI・Docker・保持物の非操作を維持する。
+
 2026-10-24の公開操作・認証・AI選択再設計は、実装・本番接続と追従漏れ是正後の非AI影響回帰を限定完了した。初回全体及び影響四Suiteの不合格、是正後の範囲別成功、実AI・認証・人間確認・実移行の未実施は[現在の限定結果](../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)を正本とする。正式199項目の全数再評価、既存横断QA不合格、main統合・Releaseの判定は変更しない。以下は各記録当時の対象版に限定する。
 
 B2の端末出力移管では、低層stream反証を補助Unit項目`EST-UT-016`へ接続し、現設計集合を13定義・199 Local Itemへ更新した。集約表の件数更新は全体Passの増加ではない。以下の198項目等の記述は追加前の対象に限り、現在の全数再評価は未完了である。

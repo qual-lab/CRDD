@@ -15,6 +15,7 @@
  */
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
+import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import childProcess, { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -2425,7 +2426,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
         },
       },
     },
-    {
+    withCallerPlan({
       intakeEpoch: initial.intakeEpoch,
       requestId: "request-observation",
       projectId: "project-a",
@@ -2439,7 +2440,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
       maximumReplans: 0,
       originLane: "interactive",
       adoptResult: false,
-    },
+    }),
     new AbortController().signal,
   );
   assert.equal(result.status, "completed", JSON.stringify(result));

@@ -1,5 +1,11 @@
 # Runtime／Data Flowモデル
 
+## Coreと任意実行の目標Flow — 2026-10-27
+
+上流の流れは「CRDD文書をCallerが読む → フロントAI等がTaskを計画・分解 → 実行依頼を明示搬送 → Coordinatorが実行 → Callerへ結果返却」である。必要な文書更新はCallerが別途判断・実施し、委譲するなら文書処理自体をTaskにする。Runtimeのaccepted／completedから文書の完了を自動反映する矢印は設けない。
+
+Coreは「MCP／Workbench → 現在認可 → Domain局所操作 → 単一保存CAS → 読戻し・結果」で閉じる。管理実行は「共通Planの同じ改訂 → Coordinator Admission／選択 → Executor → 既存AI Adapter／DI／PA → 元観測の保存・結果伝播」であり、独自Plan正本を追加しない。[保存の更新順序](Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)を参照する。目標の実装・実境界検証は未完了。
+
 新方式の流れは[Workspace契約§3〜5](Details/coordinator/05_Workspace.md#3-packageの責務と依存方向)を正本とする。明示対象→現在認可→Coordinator内のTask／Objective→Execution→AI Adapter／DI→結果・必要なGit成果→人間判断であり、CRUDはDomainへ直接接続できる。コード成果の固定と提案一般の保存を分ける。旧Bundle Storeや二Packageを通る以下の経路は統合前の比較対象で、新方式の接続済み根拠にしない。
 
 Status: Candidate (v0.22 responsibility reorganization)

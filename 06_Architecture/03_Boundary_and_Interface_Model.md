@@ -1,5 +1,9 @@
 # 境界／Interfaceモデル
 
+## Core APIの境界 — 2026-10-27
+
+[API入出力正本](Details/domain-model/05_Runtime_Domain.md#runtime-domain-api)に従い、検証済みRootと現在の内容認可を区別する。定義編集は全体CASと対象定義Hashを照合し、技術実行状態・Authority・cleanup・受領は入力不可とする。Contextは信頼したHost構成からだけ渡し、HTTP／MCPのJSONから再構成しない。Core状態照会でDocker／Providerを起動せず、Coreと任意実行を同じ公開成功にまとめない。
+
 Workspace新方式の情報境界は[DI共通隔離方針](Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)へ接続する。開発用`.env`の読取りリスクを受容し、本番Secretは通常開発環境へ置かない。Direct／Candidateで同じ安全原則を使うが、用途別RW・Git／内部状態書込み禁止・認証保護・外部送信同意を維持する。全秘密fileの隠蔽や独自Secret管理は要求しない。
 
 Workspace再編では[対象と権限の契約](Details/coordinator/05_Workspace.md#2-方式識別所有境界)を適用する。RepositoryとWorkspaceを相関し、既存の内容領域workspaceId(s)はcontentAreaId(s)へ意味を維持して改名する。閲覧許可をWorkspace操作許可へ転用しない。Workbench／MCPは専門APIへ直接接続する対等な入口で、通常AI実行はCoordinator内Task／Objectiveへ搬送する。具体API・保存Schemaは未決であり、既存通信の変更は未実施。
