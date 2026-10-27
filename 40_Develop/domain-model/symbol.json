@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "domain-model",
   "symbols": [
+    { "symbolId": "domain-model.task.crud", "kind": "file", "path": "src/task/crud.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
+    { "symbolId": "domain-model.state.transition", "kind": "file", "path": "src/state/transition.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
     { "symbolId": "domain-model.state.codec", "kind": "file", "path": "src/state/codec.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
     { "symbolId": "domain-model.state.types", "kind": "file", "path": "src/state/types.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
     { "symbolId": "domain-model.state.validation", "kind": "file", "path": "src/state/validation.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },

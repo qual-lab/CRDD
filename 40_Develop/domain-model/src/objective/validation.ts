@@ -8,7 +8,10 @@
 import type {
   CoordinatorObjectivePlan,
   ProjectObjectiveDefinition,
+  ProjectObjectiveRecord,
+  ProjectMilestoneRecord,
 } from "./types.ts";
+import type { RuntimeProjectDefinition } from "../state/types.ts";
 import type { ProjectTaskDefinition, CallerTaskInput } from "../task/types.ts";
 import {
   snapshotPlainArray,
@@ -157,6 +160,63 @@ export function inspectExecutionPlan(
     )
   )
     return null;
+  const plan = inspectExecutionPlanDefinition(raw);
+  return plan?.tasks.every((task) =>
+    task.allowedPaths.every((candidate) =>
+      pathWithin(candidate, allowedRoots.value as readonly string[]),
+    ),
+  )
+    ? plan
+    : null;
+}
+
+/**
+ * 実行設定や認可範囲を要求せず、計画定義そのものを検査する。
+ * @responsibility 既存の閉形式・件数・ID・Path文法・DAG条件を共有する。
+ * @trace ARCH-000004
+ * @input raw: 未信頼の計画定義。
+ * @returns 不変の完全定義、またはnull。
+ * @precondition N/A: 任意値を拒否可能。
+ * @postcondition AI選定・Owner・実行状態を補完しない。
+ * @effect N/A: メモリ内の検査だけ。
+ * @failure 欠測・不正形状・循環・不正文法はnull。
+ * @invariant 定義の有効性は実行範囲への認可ではない。
+ * @boundary Core定義と管理実行の範囲検査を分離する。
+ * @security 実行利用側はinspectExecutionPlanで外側範囲も検査する。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function inspectExecutionPlanDefinition(
+  raw: unknown,
+): CoordinatorObjectivePlan | null {
+  const plan = inspectRuntimePlanDefinition(raw);
+  return plan &&
+    plan.objectives.length > 0 &&
+    plan.tasks.length > 0 &&
+    plan.objectives.every((objective) =>
+      plan.tasks.some((task) => task.objectiveId === objective.id),
+    )
+    ? plan
+    : null;
+}
+
+/**
+ * 一般CRUDの合法な中間保存を含む定義集合を検査する。
+ * @responsibility 空集合・未割当Objectiveを実行開始と区別し、参照・DAG・文法を固定する。
+ * @trace ARCH-000004
+ * @input raw: 未信頼の定義集合。
+ * @returns 不変定義、またはnull。
+ * @precondition N/A: 任意値を拒否可能。
+ * @postcondition 偽Task・Selection・Ownerを生成しない。
+ * @effect N/A: メモリ内の値検査。
+ * @failure 重複・不正参照・循環・不正文法はnull。
+ * @invariant Coreの合法性を管理実行の完全性や認可へ読み替えない。
+ * @boundary Core定義と実行受付を明示的に区別する。
+ * @security 実行利用側は必ずinspectExecutionPlanを使用する。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function inspectRuntimePlanDefinition(
+  raw: unknown,
+): CoordinatorObjectivePlan | null {
   const plan = snapshotPlainRecord(
     raw,
     new Set(["milestoneAcceptanceCriteria", "objectives", "tasks"] as const),
@@ -172,9 +232,7 @@ export function inspectExecutionPlan(
   if (
     !milestoneAcceptanceCriteria ||
     rawObjectives.status !== "ok" ||
-    rawTasks.status !== "ok" ||
-    rawObjectives.value.length === 0 ||
-    rawTasks.value.length === 0
+    rawTasks.status !== "ok"
   )
     return null;
   const objectives: ProjectObjectiveDefinition[] = [];
@@ -213,7 +271,7 @@ export function inspectExecutionPlan(
       !allowedPaths ||
       !conflictKeys ||
       !allowedPaths.every((candidate) =>
-        pathWithin(candidate, allowedRoots.value as readonly string[]),
+        repositoryPathWithin(candidate, [candidate]),
       )
     )
       return null;
@@ -236,9 +294,6 @@ export function inspectExecutionPlan(
       (task) =>
         !objectiveIds.has(task.objectiveId) ||
         task.dependencies.some((id) => !taskIds.has(id)),
-    ) ||
-    objectives.some(
-      (objective) => !tasks.some((task) => task.objectiveId === objective.id),
     )
   )
     return null;
@@ -263,6 +318,145 @@ export function inspectExecutionPlan(
     milestoneAcceptanceCriteria,
     objectives: Object.freeze(objectives),
     tasks: Object.freeze(tasks),
+  });
+}
+
+/**
+ * 実行資格を含まないProject定義の閉じた保存値を検査する。
+ * @responsibility 対象ID・改訂・判断値とCore計画を一つの不変値へ固定する。
+ * @trace ARCH-000004
+ * @input raw: 新形式のProject定義候補。
+ * @returns 完全に検査したCore値、又はnull。
+ * @precondition N/A: 未信頼値を拒否できる。
+ * @postcondition Task定義を一度だけ保持し、SelectionやOwnerを補完しない。
+ * @effect N/A: 局所値の検査のみ。
+ * @failure 不正Schema・ID・改訂・記録値・依存参照はnull。
+ * @invariant 記録の状態値は実行許可や新たな完了報告ではない。
+ * @boundary Core定義と管理実行記録。
+ * @security Getter・Proxyを評価しない。保存・認可を発行しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function inspectRuntimeProjectDefinition(
+  raw: unknown,
+): RuntimeProjectDefinition | null {
+  const project = snapshotPlainRecord(
+    raw,
+    new Set([
+      "contract",
+      "projectId",
+      "milestoneId",
+      "repositoryRevision",
+      "generation",
+      "decisionApplicationId",
+      "milestone",
+      "objectives",
+      "tasks",
+    ]),
+  );
+  if (
+    project?.contract !== "crdd-domain/project-state/v1" ||
+    !validId(project.projectId) ||
+    !validId(project.milestoneId) ||
+    typeof project.repositoryRevision !== "string" ||
+    !/^[a-f0-9]{40,64}$/u.test(project.repositoryRevision) ||
+    !Number.isSafeInteger(project.generation) ||
+    Number(project.generation) < 1 ||
+    (project.decisionApplicationId !== null &&
+      !validId(project.decisionApplicationId))
+  )
+    return null;
+  const milestone = snapshotPlainRecord(
+    project.milestone,
+    new Set(["id", "acceptanceCriteria", "state", "criterionEvidenceIds"]),
+  );
+  const objectives = snapshotPlainArray(project.objectives, 128);
+  if (
+    !milestone ||
+    milestone.id !== project.milestoneId ||
+    typeof milestone.state !== "string" ||
+    ![
+      "planned",
+      "executing",
+      "integrating",
+      "human_decision_required",
+      "recovery_required",
+      "accepted",
+      "returned",
+      "cancelled",
+    ].includes(milestone.state) ||
+    objectives.status !== "ok"
+  )
+    return null;
+  const milestoneEvidence = inspectStrings(
+    milestone.criterionEvidenceIds,
+    128,
+    512,
+    true,
+  );
+  if (!milestoneEvidence) return null;
+  const records: ProjectObjectiveRecord[] = [];
+  for (const rawObjective of objectives.value) {
+    const objective = snapshotPlainRecord(
+      rawObjective,
+      new Set(["definition", "state", "criterionEvidenceIds"]),
+    );
+    if (
+      !objective ||
+      typeof objective.state !== "string" ||
+      ![
+        "planned",
+        "executing",
+        "integration_pending",
+        "accepted",
+        "returned",
+        "blocked",
+        "cancelled",
+      ].includes(objective.state)
+    )
+      return null;
+    const evidence = inspectStrings(
+      objective.criterionEvidenceIds,
+      128,
+      512,
+      true,
+    );
+    if (!evidence) return null;
+    records.push({
+      definition: objective.definition as ProjectObjectiveDefinition,
+      state: objective.state as ProjectObjectiveRecord["state"],
+      criterionEvidenceIds: evidence,
+    });
+  }
+  const definition = inspectRuntimePlanDefinition({
+    milestoneAcceptanceCriteria: milestone.acceptanceCriteria,
+    objectives: records.map((record) => record.definition),
+    tasks: project.tasks,
+  });
+  if (!definition) return null;
+  return Object.freeze({
+    contract: "crdd-domain/project-state/v1",
+    projectId: project.projectId,
+    milestoneId: project.milestoneId,
+    repositoryRevision: project.repositoryRevision,
+    generation: Number(project.generation),
+    decisionApplicationId: project.decisionApplicationId as string | null,
+    milestone: Object.freeze({
+      id: project.milestoneId,
+      acceptanceCriteria: definition.milestoneAcceptanceCriteria,
+      state: milestone.state as ProjectMilestoneRecord["state"],
+      criterionEvidenceIds: milestoneEvidence,
+    }),
+    objectives: Object.freeze(
+      records.map((record, index) =>
+        Object.freeze({
+          ...record,
+          definition: definition.objectives[
+            index
+          ] as ProjectObjectiveDefinition,
+        }),
+      ),
+    ),
+    tasks: definition.tasks,
   });
 }
 

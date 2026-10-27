@@ -13,6 +13,7 @@ import type { TaskExecutionSelections } from "../ai-selection/types.ts";
 import type { ProjectMilestoneRecord } from "../objective/types.ts";
 import type { ProjectObjectiveRecord } from "../objective/types.ts";
 import type { ProjectTaskRecord } from "../task/types.ts";
+import type { ProjectTaskDefinition } from "../task/types.ts";
 import type { COORDINATOR_STATE_SCHEMA } from "./validation.ts";
 import type { CoordinatorStateOperation } from "../attempt/types.ts";
 import type { ProjectTaskRecoveryObligation } from "../task/types.ts";
@@ -353,3 +354,72 @@ export type CoordinatorLeaseKind = "project-operation" | "canonical-adoption";
 export type ArraySnapshot<T> =
   | Readonly<{ status: "ok"; value: readonly T[] }>
   | Readonly<{ status: "blocked"; value: null }>;
+
+/**
+ * 実行設定を必須にしない計画定義と局所判断の正本。
+ * @responsibility Task定義を一度だけ保持し、技術試行fieldを含めない。
+ * @trace ARCH-000004
+ * @shape 既存対象ID・改訂・世代・Milestone／Objective記録とTask定義。
+ * @invariant Selection・Owner・AttemptをCore初期化のために生成しない。
+ * @boundary 共通Domainの定義と管理実行の分離。
+ * @security 定義保存は実行・受入・文書更新の許可ではない。
+ * @compatibility 新形式だけ。旧Fileの変換はフロントAIが所有する。
+ */
+export type RuntimeProjectDefinition = Omit<
+  CoordinatorState,
+  | "contract"
+  | "taskExecutionSelections"
+  | "ownerGeneration"
+  | "maximumConcurrency"
+  | "tasks"
+> &
+  Readonly<{
+    contract: "crdd-domain/project-state/v1";
+    tasks: readonly ProjectTaskDefinition[];
+  }>;
+
+/**
+ * 同じSnapshotの定義Hashへ結合した管理実行記録。
+ * @responsibility 固定選定・実行Owner・試行値を定義の複製なしに保持する。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @shape 対象ID・定義Hash・固定選定・Owner世代・同時数とTask ID別の技術値。
+ * @invariant definitionはprojectsだけに置き、Task行は同じ定義のIDを参照する。
+ * @boundary 共通保存と任意の実行調停。
+ * @security 記録値を現在の実行資格として使用しない。
+ * @compatibility 欠測を未実行へ補完しない。
+ */
+export type RuntimeManagedExecution = Pick<
+  CoordinatorState,
+  | "projectId"
+  | "milestoneId"
+  | "taskExecutionSelections"
+  | "ownerGeneration"
+  | "maximumConcurrency"
+> &
+  Readonly<{
+    definitionHash: string;
+    tasks: readonly (Omit<CoordinatorStoredTask, "definition"> &
+      Readonly<{ taskId: string }>)[];
+  }>;
+
+/**
+ * Core定義と管理実行を同じ改訂で保存する新しい閉集合。
+ * @responsibility 単一CAS・技術unknown・元参照と、定義一箇所の正本を維持する。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @shape 既存共通区画とprojects／managedExecutionsの参照分離。
+ * @invariant 新しいState File・Registry・二重Writerを持たない。
+ * @boundary 新Schemaの値モデル。保存先有効化は別の条件。
+ * @security codec成立から認可・出版・資源不存在を推定しない。
+ * @compatibility crdd-domain/runtime-state/v1のみを表す。
+ */
+export type RuntimeDomainSnapshot = Omit<
+  CoordinatorUnifiedSnapshot,
+  "schema" | "projects"
+> &
+  Readonly<{
+    schema: "crdd-domain/runtime-state/v1";
+    projects: readonly RuntimeProjectDefinition[];
+    managedExecutions: readonly RuntimeManagedExecution[];
+  }>;

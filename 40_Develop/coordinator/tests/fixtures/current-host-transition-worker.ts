@@ -34,12 +34,11 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const identities = snapshot.operations.map(item => {
             assert.equal(item.kind, 'docker_task');
             const parsed = item.recoveryId.split('.');
-            return {recoveryId:item.recoveryId, identitySha256:item.identitySha256, home:parsed[1], host:record.parseHostRecoveryToken(item.host.currentToken)};
+            return {recoveryId:item.recoveryId, identitySha256:item.identitySha256, home:parsed[1], host:runtimeDomain.parseHostRecoveryToken(item.host.currentToken)};
           }).sort((left,right) => left.recoveryId.localeCompare(right.recoveryId));
           assert.equal(identities.length, 2);
           const scopeSha256 = createHash('sha256').update(JSON.stringify({schema:'crdd-coordinator/docker-restart-scope/v1',repositoryBinding:snapshot.repositoryBinding,identities})).digest('hex');
-          const restartModel = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
-          assert.equal(input.requestId, restartModel.createDockerRestartRequestId(snapshot.repositoryBinding,target.identitySha256,target.recoveryId,scopeSha256));
+          assert.equal(input.requestId, runtimeDomain.createDockerRestartRequestId(snapshot.repositoryBinding,target.identitySha256,target.recoveryId,scopeSha256));
           restartExpectedBytes = before;
           const initial = {requestId:input.requestId,scopeSha256,request:'not_issued',cleanup:'not_required',result:null};
           assert.equal(input.beforeRequest(), true);
@@ -65,6 +64,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
       const store = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
       const model = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
+      const runtimeDomain = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const historyValues = await import(${JSON.stringify(new URL("../../src/storage/history.ts", import.meta.url).href)});
       const stateValues = await import(${JSON.stringify(new URL("../../src/state/validation.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
@@ -126,7 +126,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const acquired = [];
         try {
           for(const item of snapshot.operations) {
-            const hostIdentity = record.parseHostRecoveryToken(item.host.currentToken);
+            const hostIdentity = runtimeDomain.parseHostRecoveryToken(item.host.currentToken);
             const hostLock = kernel.acquireRuntimeOwnedHostOperationKernelLock(hostIdentity.rootName,hostIdentity.nonce); assert.ok(hostLock); acquired.push(hostLock);
             const homeLock = kernel.acquireRuntimeOwnedLogicalProviderHomeKernelLock(item.recoveryId.split('.')[1]); assert.ok(homeLock); acquired.push(homeLock);
           }
@@ -382,7 +382,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(prepared.capability).filesystemEffectIssued, false);
           assert.equal(store.readRuntimeOwnedCoordinatorRecoveryResult(verified.capability, id).status, 'completed');
         }
-        const after = fs.readFileSync(statePath), line = model.prepareCoordinatorStateHistoryLine(after, id, observed.value.snapshot.repositoryBinding);
+        const after = fs.readFileSync(statePath), line = runtimeDomain.prepareCoordinatorStateHistoryLine(after, id, observed.value.snapshot.repositoryBinding);
         assert.ok(line); assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), line);
         assert.equal(recovery.completeRuntimeOwnedDockerTaskRecoveryHistory(prepared.capability).filesystemEffectIssued, false);
         assert.deepEqual(fs.readFileSync(statePath), after);
@@ -649,7 +649,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const historyFault = process.argv[3].startsWith('history_') ? process.argv[3] : null;
         if(historyFault) {
           const fixed = model.prepareCoordinatorStateHistorySnapshot(Buffer.from(stateValues.encodeRuntimeStateValue(terminalExpected)+'\\n'), id, new Date().toISOString(), false, terminalExpected.repositoryBinding);
-          const line = model.prepareCoordinatorStateHistoryLine(fixed, id, terminalExpected.repositoryBinding);
+          const line = runtimeDomain.prepareCoordinatorStateHistoryLine(fixed, id, terminalExpected.repositoryBinding);
           const row = JSON.parse(line.toString()), nonce = 'f'.repeat(64);
           row.occurredAt = new Date(Date.now()-45*86400000).toISOString(); row.summary.operationNonce = nonce;
           row.summary.recoveryId = 'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+row.summary.identitySha256;
@@ -688,7 +688,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.ok(historyState);
         const historyOperation = historyState.snapshot.operations.find(item => item.recoveryId === id);
         assert.ok(historyOperation.history.confirmed);
-        const historyLine = model.prepareCoordinatorStateHistoryLine(fs.readFileSync(statePath), id, terminalExpected.repositoryBinding);
+        const historyLine = runtimeDomain.prepareCoordinatorStateHistoryLine(fs.readFileSync(statePath), id, terminalExpected.repositoryBinding);
         assert.ok(historyLine); assert.deepEqual(fs.readFileSync(path.join(path.dirname(statePath), 'history.jsonl')), historyLine);
         const historyBefore = fs.readFileSync(statePath);
         if(!historyFault) { assert.equal(recovery.completeRuntimeOwnedDockerTaskRecoveryHistory(capability).historyConfirmed, true); assert.equal(versions.length, 7); }

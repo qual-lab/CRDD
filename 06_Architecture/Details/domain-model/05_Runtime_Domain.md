@@ -118,6 +118,8 @@ Contextは認証済み主体・同じRootへ結合する。入口と、短期排
 | `queryQueue` | `Target` | 受付状態と観測。Claim／Dispatchなし |
 | `queryRuntimeState` | `Target` | Coreの定義・判断とAutomationの許可された投影。次Taskの選択・実行なし |
 | `queryExecutionStatus` | `Target & {limit:number; cursor?:string}` | 現行の上限・Cursor・observed／absent／unknownを維持した実行状況。EIの実績分析とは別 |
+| `decodeRuntimeDomainSnapshot` | 正規UTF-8 byte列とRepository結合 | 新Schemaの正本・管理実行のメモリ投影・本文Hash、又はnull。旧Schemaを受理しない純粋codec。物理保存や認可成立を示さない |
+| `hashRuntimeProjectDefinition` | 検査済みCore Project | 対象IDと計画定義の正規値へ結合するHash。状態・Owner・処置許可は含まない |
 | `readRepositoryAiSelection` | 検証済みRootと信頼したHostの非秘密Catalog値 | 現行available／missing／blockedとidentityを維持。Catalogを要求本文から取得しない |
 | `saveRepositoryAiSelection` | 既存config・expected identity・認可・信頼したCatalog値の結合 | 現行saved／conflict／blocked／unknownと元参照を維持。state.jsonとの二File同時更新を新設しない |
 
@@ -126,6 +128,8 @@ Query集合は現在Snapshotの有限サイズ制約（16MiB）内を対象と�
 `PlanDefinition`は既存`milestoneAcceptanceCriteria/objectives/tasks`の集合、`ObjectiveDefinition`は`id/acceptanceCriteria`、`TaskDefinition`は`id/objectiveId/dependencies/allowedPaths/conflictKeys`に限る。新たな`planId/goal/title/sourceDocuments`を上記の型に暗黙追加しない。値は不変の通常データへ固定し、未知key、getter／Proxy、不正ID・Path値をEffect前に拒否する。
 
 Plan保存と個別CRUDは同じ定義を変更し、Taskを二重保存しない。人間は既存属性だけで移管する方針を承認した。新しいPlan ID・Task属性・外部完了報告APIを追加しない。Workspace作成・固定・Merge・削除は既存VC APIと現在認可を使う別操作で、`queryWorkspaces`から発行しない。
+
+個別CRUDの途中ではObjective／Taskが空、Task未作成、未割当Objectiveが存在する定義を許す。Taskが存在すればObjective参照・依存先・重複・循環・Path文法・件数上限は必須とする。`savePlan`と管理実行導入は完全定義（Objective／Taskが各1件以上、全ObjectiveへのTask割当）を要求し、実行受付はさらに認可済み外側Path範囲を検査する。Coreの作成途中を実行可能へ補完しない。
 
 <a id="caller-task-graph-intake"></a>
 ### 3.1 Callerが分解したTask群の公開受付
@@ -275,6 +279,8 @@ Projectの分解は次の全数対応とする。
 
 管理実行行がないCore Taskには、上記の試行fieldを要求しない。管理実行行が存在すれば既存必須値・相関検査をすべて要求し、欠測を未実行へ直さない。対象定義を参照する受付・試行・判断・Candidateが残る間は、その定義の変更・削除を拒否する。無関係なCore対象の更新は技術区画をexactに保全する。同じ改訂に対するCore更新と技術更新の片方だけがCAS成立し、自動再試行しない。
 
+管理実行の`definitionHash`はProject／Milestone IDと、受入条件・Objective定義・Task定義の正規値から導く。現在の判断状態やOwner世代を定義Hashへ混在させない。管理Task行は定義と同じ宣言順・ID集合を要求し、別Taskの値を順序補正で取り込まない。純粋な新codecはこの参照を同一Snapshot内で検査する。管理用の既存Task DTOへの変換はメモリ上の導出だけであり、旧形式の保存やCore-only対象への架空Owner・Selection生成ではない。
+
 五Contextの `before / candidate / assertOwner / used`、`initializations.publicationIssued` と `historyAttempts.issued / pending` は保存JSONのfieldではなく、一回出版の私有証拠である。旧新Mapの併存・二重登録・公開DTO化を行わず、元Controller／Hostのfresh確認とI/O前の消費を維持する。ここがSourceで閉じるまで、Writer全面移管とはしない。
 
 ### 5.1 区画と更新権限
@@ -361,6 +367,17 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 完全codecの依存閉包では、状態・Task・Workspace・固定選定・修復checkpointの保存型と純粋検査をDomainへ移した。`state/codec.ts`は正規JSON byte表現・UTF-8・既存容量上限・Hash、`state/validation.ts`は単一Snapshot全体の閉形式と参照相関を所有する。技術値の復号は`attempt/validation.ts`・`repair-validation.ts`で行い、実資源観測・現在Ownerの真正証拠・技術遷移の許可は上位の既存Ownerに残す。DomainからCoordinator・AI Adapter・Docker Isolationをimportしない。公開値は実利用に限定し、固定検査集合は利用側から変更できない。
 
 この移管時点では既存v5 Schemaを保持しており、§5.0.1の新Schema、一般CRUD、Snapshot Writer全面移管、Core単独成立は未完了である。値codecの成功と、物理保存・現在認可・資源不存在・新Schemaへの切替は別の成立条件とする。
+
+後続の値境界では、`inspectRuntimePlanDefinition`をCoreの作成途中、`inspectExecutionPlanDefinition`を完全定義、既存`inspectExecutionPlan`を外側Path範囲込みの実行受付へ分離した。`RuntimeProjectDefinition / RuntimeManagedExecution / RuntimeDomainSnapshot`と新形式専用codecを実装し、Rootから新codecと定義Hashを明示公開した。既存の受領・終端・参照相関は共通の純粋投影を再利用する。Core-only値・管理行欠測・Hash差・未割当Objective・Task順序差を反証したが、本番Writerはまだ既存形式を使用している。これは新Schemaの値検査成立であり、保存切替・一般CRUD・Writer全面移管の完了ではない。
+
+| 移管した純粋処理 | 現在のOwner | 本番との接続範囲 |
+|---|---|---|
+| Task更新候補・受領と技術参照の正規化 | `task/crud.ts` | 正規化は既存WriterがDomain Rootから利用する。一般CRUDの永続化APIではない |
+| 単一保存の改訂・受領不変性・Operation除去相関 | `state/transition.ts` | 既存Writerの共通遷移検査。内側の受領遷移検査は非公開 |
+| 修復終了の値条件 | `attempt/validation.ts` | 既存の技術状態検査・Writerから利用する。実資源の観測や処置許可ではない |
+| 保存済み要約からの固定履歴行導出 | `state/validation.ts` | 元内容・行Hashを保持し、物理履歴出版は既存保存Ownerに残る |
+
+上表の移管では関数本文を維持し、履歴行のDecoderだけは同じDomain codecへの旧委譲を直結した。旧Coordinatorの定義・互換re-exportは撤去し、利用側と子Process試験本文もDomain Rootへ接続した。五Context・初期化・一回履歴出版を伴う物理Writerはまだ移管していない。
 
 正規byte表現の生成と内容Hashは、保存候補の同一性・CASを検査する利用側向けに`encodeRuntimeStateValue`・`hashRuntimeStateContent`として公開する。生byteの内部復号、文法の正規表現実体、未利用の局所validatorはRoot公開しない。Hash一致を真正性・操作許可・出版成功へ読み替えない。
 

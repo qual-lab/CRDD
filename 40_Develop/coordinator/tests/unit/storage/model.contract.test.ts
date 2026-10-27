@@ -35,6 +35,11 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
+import {
+  decodeRuntimeDomainSnapshot,
+  hashRuntimeProjectDefinition,
+  type RuntimeProjectDefinition,
+} from "../../../../domain-model/src/index.ts";
 
 import {
   classifyCoordinatorResourcePublication,
@@ -43,7 +48,6 @@ import {
   prepareCoordinatorRecoveredHistoryPublication,
   prepareCoordinatorStateCleanupSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
-  prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateHistorySummary,
   prepareCoordinatorStateHostSnapshot,
@@ -53,11 +57,14 @@ import {
   prepareCoordinatorStateResourceSnapshot,
   prepareCoordinatorStateRestartSnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
-  prepareCoordinatorUnifiedTaskSnapshot,
   validateCoordinatorStateTransition,
-  validateCoordinatorUnifiedTransition,
   validCoordinatorSnapshot,
 } from "../../../src/storage/state.ts";
+import {
+  prepareCoordinatorStateHistoryLine,
+  prepareCoordinatorUnifiedTaskSnapshot,
+  validateCoordinatorUnifiedTransition,
+} from "../../../../domain-model/src/index.ts";
 
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../../src/execution/validation.ts";
 import {
@@ -109,6 +116,198 @@ function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
     resultReceipts: [],
   };
 }
+
+/**
+ * 新SchemaでCore定義を管理実行から独立して復号する。
+ * @responsibility 架空の実行選定・Ownerの補完と孤立した管理参照を反証する。
+ * @trace PRL-UT-006
+ * @precondition メモリ内の通常データだけを使う。
+ * @stimulus 空Core・完全定義・管理参照と欠測／不一致を復号する。
+ * @observation 正本、管理投影、Hashとnull結果。
+ * @oracle 定義は一箇所、管理投影は完全な参照時だけ成立する。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary 新codecだけ。本番Writer切替・Core CRUDの完成を示さない。
+ */
+test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
+  const empty = {
+    ...emptyUnifiedSnapshot(),
+    schema: "crdd-domain/runtime-state/v1",
+    repositoryBindingId: "binding-a",
+    intakeEpoch: "epoch-a",
+    managedExecutions: [],
+  };
+  const core: RuntimeProjectDefinition = {
+    contract: "crdd-domain/project-state/v1",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    generation: 1,
+    decisionApplicationId: null,
+    milestone: {
+      id: "milestone-a",
+      acceptanceCriteria: ["done"],
+      state: "planned",
+      criterionEvidenceIds: [],
+    },
+    objectives: [],
+    tasks: [],
+  };
+  const encode = (value: unknown) =>
+    Buffer.from(`${encodeRuntimeStateValue(value)}\n`);
+  const coreOnly = { ...empty, projects: [core] };
+  const read = decodeRuntimeDomainSnapshot(encode(coreOnly), binding);
+  assert.ok(read);
+  assert.deepEqual(read.snapshot, coreOnly);
+  assert.deepEqual(read.projects, []);
+  assert.equal(
+    decodeRuntimeDomainSnapshot(encode(emptyUnifiedSnapshot()), binding),
+    null,
+  );
+  for (const invalid of [
+    { ...coreOnly, managedExecutions: undefined },
+    { ...coreOnly, managedExecutions: [{}] },
+    { ...coreOnly, projects: [core, core] },
+    { ...coreOnly, operations: [{}] },
+    { ...coreOnly, repositoryBindingId: null },
+  ]) {
+    if (invalid.managedExecutions === undefined) {
+      const { managedExecutions: _missing, ...missing } = invalid;
+      assert.equal(decodeRuntimeDomainSnapshot(encode(missing), binding), null);
+    } else
+      assert.equal(decodeRuntimeDomainSnapshot(encode(invalid), binding), null);
+  }
+  const definition: RuntimeProjectDefinition = {
+    ...core,
+    objectives: [
+      {
+        definition: { id: "objective-a", acceptanceCriteria: ["done"] },
+        state: "planned",
+        criterionEvidenceIds: [],
+      },
+    ],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["src/a.ts"],
+        conflictKeys: [],
+      },
+    ],
+  };
+  const managed = {
+    projectId: core.projectId,
+    milestoneId: core.milestoneId,
+    definitionHash: hashRuntimeProjectDefinition(definition),
+    taskExecutionSelections: taskExecutionSelections(),
+    ownerGeneration: "owner-a",
+    maximumConcurrency: 1,
+    tasks: [
+      {
+        taskId: "task-a",
+        state: "planned",
+        attemptId: null,
+        operationId: null,
+        authorityBindingId: null,
+        startPhase: "none",
+        settlement: { kind: "pending" },
+        recoveryObligations: [],
+        resultAcceptanceIds: [],
+        candidateId: null,
+        retryCount: 0,
+        supersededBy: null,
+      },
+    ],
+  };
+  const complete = {
+    ...empty,
+    projects: [definition],
+    managedExecutions: [managed],
+  };
+  const unassigned = {
+    ...definition,
+    objectives: [
+      ...definition.objectives,
+      {
+        definition: { id: "objective-b", acceptanceCriteria: ["unassigned"] },
+        state: "planned" as const,
+        criterionEvidenceIds: [],
+      },
+    ],
+  };
+  assert.equal(
+    decodeRuntimeDomainSnapshot(
+      encode({
+        ...complete,
+        projects: [unassigned],
+        managedExecutions: [
+          {
+            ...managed,
+            definitionHash: hashRuntimeProjectDefinition(unassigned),
+          },
+        ],
+      }),
+      binding,
+    ),
+    null,
+  );
+  const projected = decodeRuntimeDomainSnapshot(encode(complete), binding);
+  assert.ok(projected);
+  assert.deepEqual(projected.snapshot, complete);
+  assert.deepEqual(
+    projected.projects[0]?.tasks[0]?.definition,
+    definition.tasks[0],
+  );
+  const firstDefinition = definition.tasks[0];
+  const firstManaged = managed.tasks[0];
+  assert.ok(firstDefinition && firstManaged);
+  const twoDefinitions = {
+    ...definition,
+    tasks: [firstDefinition, { ...firstDefinition, id: "task-b" }],
+  };
+  const twoManaged = {
+    ...managed,
+    definitionHash: hashRuntimeProjectDefinition(twoDefinitions),
+    tasks: [firstManaged, { ...firstManaged, taskId: "task-b" }],
+  };
+  const ordered = {
+    ...complete,
+    projects: [twoDefinitions],
+    managedExecutions: [twoManaged],
+  };
+  assert.ok(decodeRuntimeDomainSnapshot(encode(ordered), binding));
+  assert.equal(
+    decodeRuntimeDomainSnapshot(
+      encode({
+        ...ordered,
+        managedExecutions: [
+          { ...twoManaged, tasks: [...twoManaged.tasks].reverse() },
+        ],
+      }),
+      binding,
+    ),
+    null,
+  );
+  for (const changed of [
+    { ...managed, definitionHash: "f".repeat(64) },
+    { ...managed, milestoneId: "other" },
+    { ...managed, tasks: [] },
+    { ...managed, tasks: [managed.tasks[0], managed.tasks[0]] },
+    { ...managed, ownerGeneration: null },
+    { ...managed, taskExecutionSelections: null },
+    {
+      ...managed,
+      tasks: [{ ...managed.tasks[0], definition: definition.tasks[0] }],
+    },
+  ])
+    assert.equal(
+      decodeRuntimeDomainSnapshot(
+        encode({ ...complete, managedExecutions: [changed] }),
+        binding,
+      ),
+      null,
+    );
+});
 
 /**
  * 単一SchemaのRoot結合と未初期化区画を反証する。
@@ -888,6 +1087,29 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(
     prepareCoordinatorStateOperationSnapshot(null, identityJson, binding),
     "正常な初期Host証明を現行model自身が受理する",
+  );
+  const technical = decodeCoordinatorStateSnapshot(
+    prepareCoordinatorStateOperationSnapshot(null, identityJson, binding),
+    binding,
+  );
+  assert.ok(technical);
+  const domainTechnical = {
+    ...technical.snapshot,
+    schema: "crdd-domain/runtime-state/v1",
+    managedExecutions: [],
+  };
+  const domainRead = decodeRuntimeDomainSnapshot(
+    Buffer.from(`${encodeRuntimeStateValue(domainTechnical)}\n`),
+    binding,
+  );
+  assert.ok(domainRead);
+  assert.deepEqual(
+    domainRead.snapshot.operations,
+    technical.snapshot.operations,
+  );
+  assert.deepEqual(
+    domainRead.snapshot.unresolvedRecoveries,
+    technical.snapshot.unresolvedRecoveries,
   );
   for (const invalidIdentity of [
     { ...identity, schema: "crdd-coordinator/operation-identity/v1" },

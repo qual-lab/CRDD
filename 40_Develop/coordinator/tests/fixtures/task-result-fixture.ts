@@ -19,9 +19,9 @@ import {
   decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateResultDeliverySnapshot,
 } from "../../src/storage/state.ts";
+import { prepareCoordinatorStateHistoryLine } from "../../../domain-model/src/index.ts";
 
 /**
  * fixture本文のSHA-256を計算する。

@@ -45,16 +45,18 @@ import {
   prepareCoordinatorRepairHistoryLine as repairLine,
   prepareCoordinatorRepairHistoryPublication as repairPublication,
   prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
-  validateCoordinatorUnifiedTransition,
 } from "../../../src/storage/state.ts";
+import {
+  prepareCoordinatorStateHistoryLine,
+  validateCoordinatorUnifiedTransition,
+} from "../../../../domain-model/src/index.ts";
 
 import {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
 } from "../../../src/storage/history.ts";
-import { coordinatorRepairCanComplete } from "../../../src/execution/validation.ts";
+import { coordinatorRepairCanComplete } from "../../../../domain-model/src/index.ts";
 
 const binding = "a".repeat(64);
 const identity = {

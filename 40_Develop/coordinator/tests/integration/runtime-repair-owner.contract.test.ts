@@ -14,7 +14,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import test, { mock, type TestContext } from "node:test";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { sourceDeclaration } from "../support/source-declaration.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { types } from "node:util";
@@ -73,7 +75,7 @@ let pauseBeforeDisposal = true;
 let retentionReads = 0;
 let refuseDisposalProgress = false;
 const disposalCalls: string[] = [];
-mock.module("../../src/storage/state.ts", {
+const storeModule = {
   namedExports: {
     ...stateStore,
     completeRuntimeOwnedCoordinatorRepair: (
@@ -162,9 +164,9 @@ mock.module("../../src/storage/state.ts", {
       return saved;
     },
   },
-});
+};
 
-mock.module("../../../docker-isolation/src/index.ts", {
+const isolationModule = {
   namedExports: {
     ...isolation,
     observeDockerRuntimeRepairRetention: (
@@ -339,10 +341,112 @@ mock.module("../../../docker-isolation/src/index.ts", {
       });
     },
   },
-});
-const { repairRuntimeOwnedDockerRuntime } = await import(
-  "../../src/execution/recovery.ts"
-);
+};
+
+/**
+ * 実修復関数の本文だけを、実Writerと明示的な模擬技術境界へ接続する。
+ * @responsibility Moduleの先行評価順に依存せず、実Docker処理を呼出し対象から除外する。
+ * @trace ERB-IT-014
+ * @precondition Repository内の固定Sourceと既存の保存・技術fixtureだけを使用する。
+ * @stimulus 実関数本文を型除去し、有限な名前付き依存へ結合する。
+ * @observation 実Writerの保存・故障注入と模擬技術処理への到達数。
+ * @oracle 技術三操作は同じ明示fixtureのみ。欠落依存を実処理で補完しない。
+ * @cleanup N/A: 組立て自体はメモリだけ。試験Rootは各Caseの終了hookが回収する。
+ * @boundary 実Filesystem保存と模擬Docker。公開API全体の実境界成立とは区別する。
+ */
+function createRepairOwnerFixture() {
+  const body = sourceDeclaration(
+    fs.readFileSync(
+      new URL("../../src/execution/recovery.ts", import.meta.url),
+      "utf8",
+    ),
+    "repairRuntimeOwnedDockerRuntime",
+  );
+  const dependencies = {
+    Date,
+    createHash,
+    randomBytes,
+    randomUUID,
+    observeRepositoryRuntimeDataArea: domain.observeRepositoryRuntimeDataArea,
+    verifyRepositoryRoot,
+    borrowRuntimeOwnedCoordinatorRecoveryRepository:
+      bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
+    encodeRuntimeStateValue,
+    ...storeModule.namedExports,
+    runDockerRuntimeRepairSession:
+      isolationModule.namedExports.runDockerRuntimeRepairSession,
+    observeDockerRuntimeRepairRetention:
+      isolationModule.namedExports.observeDockerRuntimeRepairRetention,
+    disposeDockerRuntimeRepairDirectory:
+      isolationModule.namedExports.disposeDockerRuntimeRepairDirectory,
+    dockerRuntimeRepairCheckpointIsSettled:
+      isolation.dockerRuntimeRepairCheckpointIsSettled,
+    dockerRuntimeRepairDisposalIsSettled:
+      isolation.dockerRuntimeRepairDisposalIsSettled,
+  };
+  const names = [
+    "Date",
+    "createHash",
+    "randomBytes",
+    "randomUUID",
+    "observeRepositoryRuntimeDataArea",
+    "verifyRepositoryRoot",
+    "runDockerRuntimeRepairSession",
+    "dockerRuntimeRepairCheckpointIsSettled",
+    "borrowRuntimeOwnedCoordinatorRecoveryRepository",
+    "decodeCoordinatorStateSnapshot",
+    "encodeRuntimeStateValue",
+    "prepareCoordinatorStateRepairSnapshot",
+    "prepareCoordinatorStateRepairCheckpointSnapshot",
+    "prepareCoordinatorStateRepairSessionSnapshot",
+    "prepareCoordinatorStateRepairRetentionHandoffSnapshot",
+    "observeDockerRuntimeRepairRetention",
+    "prepareCoordinatorRepairHistorySummary",
+    "readRuntimeOwnedCoordinatorRepairHistorySnapshot",
+    "advanceRuntimeOwnedCoordinatorRepairHistory",
+    "readRuntimeOwnedCoordinatorRepairCompletionSnapshot",
+    "completeRuntimeOwnedCoordinatorRepair",
+    "resumeRuntimeOwnedCoordinatorRepairPublication",
+    "cleanupRuntimeOwnedCoordinatorStateMarker",
+    "readRuntimeOwnedCoordinatorRecoverySnapshot",
+    "writeRuntimeOwnedCoordinatorRepairSnapshot",
+    "prepareCoordinatorStateRepairDisposalDecisionSnapshot",
+    "prepareCoordinatorStateRepairDisposalProgressSnapshot",
+    "disposeDockerRuntimeRepairDirectory",
+    "dockerRuntimeRepairDisposalIsSettled",
+  ] as const;
+  const realOperations = {
+    runDockerRuntimeRepairSession: isolation.runDockerRuntimeRepairSession,
+    observeDockerRuntimeRepairRetention:
+      isolation.observeDockerRuntimeRepairRetention,
+    disposeDockerRuntimeRepairDirectory:
+      isolation.disposeDockerRuntimeRepairDirectory,
+  };
+  for (const name of [
+    "runDockerRuntimeRepairSession",
+    "observeDockerRuntimeRepairRetention",
+    "disposeDockerRuntimeRepairDirectory",
+  ] as const) {
+    assert.notEqual(
+      dependencies[name],
+      realOperations[name],
+      `real Docker dependency rejected: ${name}`,
+    );
+  }
+  for (const name of names)
+    assert.notEqual(
+      dependencies[name],
+      undefined,
+      `missing fixture dependency: ${name}`,
+    );
+  return runInThisContext(
+    `(function(deps){ const {${names.join(",")}} = deps; ${body}; return repairRuntimeOwnedDockerRuntime; })`,
+  )(
+    dependencies,
+  ) as typeof import("../../src/execution/recovery.ts").repairRuntimeOwnedDockerRuntime;
+}
+
+const repairRuntimeOwnedDockerRuntime = createRepairOwnerFixture();
 
 /**
  * 保存故障ごとに独立したRepositoryを用意する。
@@ -735,14 +839,21 @@ function stateStoreSource(
   transform: (source: string) => string,
   overrides: Readonly<Record<string, unknown>> = {},
 ) {
-  const source = stripTypeScriptTypes(
-    fs.readFileSync(
-      new URL("../../src/storage/state.ts", import.meta.url),
-      "utf8",
-    ),
-  )
-    .replace(/^import[\s\S]*?;\r?\n/gmu, "")
-    .replace(/^export\s+/gmu, "");
+  // 移管先の関数を実Moduleから借りると、その内部依存には故障注入が
+  // 届かない。同じ実Sourceの保存閉包を一つの試験VMへ組み立てる。
+  const source = [
+    "../../src/storage/lock.ts",
+    "../../../domain-model/src/storage/state.ts",
+    "../../src/storage/state.ts",
+  ]
+    .map((file) =>
+      stripTypeScriptTypes(
+        fs.readFileSync(new URL(file, import.meta.url), "utf8"),
+      )
+        .replace(/^import[\s\S]*?;\r?\n/gmu, "")
+        .replace(/^export\s+/gmu, ""),
+    )
+    .join("\n");
   const body = transform(source);
   const dependencies = {
     createHash,
@@ -3787,7 +3898,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       consumer: "orchestrator",
       operationId: "OP-234567",
       grantRef: "PHMGRANT-FIXTURE",
-      profileId: "PROFILE-123456",
+      executionSelection: executionSelection("executor", {
+        provider: "claude",
+        model: "opus",
+        effort: "low",
+      }),
+      taskAttempt: 0,
       stableLogicalHomeBindingHash: "c".repeat(64),
       providerHomeIdentityHash: "8".repeat(64),
       providerHomeProtectionHash: "9".repeat(64),
@@ -3884,7 +4000,6 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
           recoveryId: task.recoveryId,
           resultId: "4".repeat(64),
           consumer: "orchestrator",
-          acceptanceSha256: null,
         },
       ],
     };

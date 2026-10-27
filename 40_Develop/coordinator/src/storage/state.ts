@@ -4,6 +4,8 @@
  * @trace ARCH-000004、ARCH-000008
  */
 import {
+  prepareCoordinatorStateHistoryLine,
+  validateCoordinatorUnifiedTransition,
   purposeResource,
   validCoordinatorRepairRetentionReceipt,
   coordinatorRepairRetentionMatchesCheckpoint,
@@ -47,15 +49,13 @@ import {
   RUNTIME_STATE_MAXIMUM_BYTES,
 } from "../../../domain-model/src/index.ts";
 
-import {
-  validateCoordinatorOperationTransitions,
-  coordinatorRepairCanComplete,
-} from "../execution/validation.ts";
+import { validateCoordinatorOperationTransitions } from "../execution/validation.ts";
+import { coordinatorRepairCanComplete } from "../../../domain-model/src/index.ts";
 import {
   associateCoordinatorTaskOperations,
-  normalizeCoordinatorTaskProjects,
   coordinatorSnapshotIntakeMatches,
 } from "../state/settlement.ts";
+import { normalizeCoordinatorTaskProjects } from "../../../domain-model/src/index.ts";
 
 import {
   decodeCoordinatorHistoryRows,
@@ -79,7 +79,6 @@ import { hasProjectTaskResultAcceptanceConflict } from "../task/acceptance.ts";
 
 import {
   assertCoordinatorSnapshotTransition,
-  validateCoordinatorSettlementTransition,
   type CoordinatorSnapshotObservations,
 } from "../state/transition.ts";
 import { type StoreResult, completed, blocked } from "../state/result.ts";
@@ -1942,45 +1941,6 @@ export function prepareCoordinatorRepairHistoryPublication(
 }
 
 /**
- * 保存済みcheckpointから同じ終了履歴行を導出する。
- * @responsibility 要約・初回時刻とexact行Hashの共通符号化を履歴Writerへ渡す。
- * @trace ARCH-000008
- * @input currentBytes: 現在状態、recoveryId: 対象、repositoryBinding: 検証済み結合。
- * @returns 正規UTF-8行と末尾LF、またはnull。
- * @precondition 対象の要約と初回時刻がcheckpointへ固定済みである。
- * @postcondition 確認状態を行へ含めず、初回と確認済みで同じ本文を返す。
- * @effect N/A: メモリ内の検証と符号化だけ。
- * @failure 未固定、別対象、不正状態や行Hash不一致はnull。
- * @invariant 行の導出を物理保存、終端確認、削除許可にしない。
- * @boundary 現在状態の固定相関と履歴保存の値境界。
- * @security 任意の履歴本文、Path、秘密値を受けない。
- * @concurrency 保存と元版の再照合は物理Writerが所有する。
- */
-export function prepareCoordinatorStateHistoryLine(
-  currentBytes: unknown,
-  recoveryId: unknown,
-  repositoryBinding: unknown,
-): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
-  const operation = current?.snapshot.operations.find(
-    (value): value is CoordinatorStateTaskOperation =>
-      value.kind === "docker_task" && value.recoveryId === recoveryId,
-  );
-  if (!operation?.history) return null;
-  const bytes = coordinatorHistoryLineBytes(
-    operation,
-    operation.history.occurredAt,
-  );
-  return createHash("sha256").update(bytes).digest("hex") ===
-    operation.history.lineSha256
-    ? bytes
-    : null;
-}
-
-/**
  * 現在終端の履歴出版候補を固定時刻と全文から再導出する。
  * @responsibility Process内の過去試行情報を復元せず、同じ行・保持設定・pendingを照合する。
  * @trace ARCH-000008
@@ -2196,147 +2156,6 @@ export function decodeCoordinatorStateSnapshot(
   payloadSha256: string;
 }> | null {
   return decodeCoordinatorUnifiedSnapshot(input, repositoryBinding);
-}
-
-/**
- * 単一保存の改訂、受領不変性と操作除去の同更新を検査する。
- * @responsibility 部分ACK、旧受領の付替え、参照だけ残る操作除去を拒否する。
- * @trace ARCH-000004、ARCH-000008
- * @input currentBytes: 現在本文又は初回null、nextBytes: 次本文、repositoryBinding: 物理結合。
- * @returns 共通保存遷移の必要条件が成立する場合だけtrue。
- * @precondition 操作固有の許可、実資源、Task業務遷移は別途既存Ownerが検証する。
- * @postcondition 初回受領世代と固定本文を維持し、除去と参照置換を一候補で照合する。
- * @effect N/A: メモリ内の比較だけ。
- * @failure 改訂不一致、受領差替え、履歴・終端未確認、部分更新はfalse。
- * @invariant 本検査だけで任意の業務・技術更新を許可しない。
- * @boundary 単一Writerの共通CAS候補。Writerへの本番接続は別処置。
- * @security 保存値から実資源不存在やAuthority失効を推定しない。
- * @concurrency 実排他・fresh読取り・保存確定は既存Writerが所有する。
- */
-export function validateCoordinatorUnifiedTransition(
-  currentBytes: unknown,
-  nextBytes: unknown,
-  repositoryBinding: unknown,
-): boolean {
-  try {
-    const next = decodeCoordinatorUnifiedSnapshot(nextBytes, repositoryBinding);
-    if (!next) return false;
-    if (currentBytes === null)
-      return (
-        next.snapshot.revision === 1 &&
-        next.snapshot.previous === null &&
-        next.snapshot.resultReceipts.length === 0
-      );
-    const current = decodeCoordinatorUnifiedSnapshot(
-      currentBytes,
-      repositoryBinding,
-    );
-    if (
-      !current ||
-      next.snapshot.revision !== current.snapshot.revision + 1 ||
-      next.snapshot.previous?.revision !== current.snapshot.revision ||
-      next.snapshot.previous.payloadSha256 !== current.payloadSha256 ||
-      (current.snapshot.repositoryBindingId !== null &&
-        next.snapshot.repositoryBindingId !==
-          current.snapshot.repositoryBindingId)
-    )
-      return false;
-    return validateCoordinatorSettlementTransition(
-      current,
-      next,
-      currentBytes,
-      repositoryBinding,
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Taskの確定済み業務更新を単一保存の一改訂へ組み込む。
- * @responsibility 受領本文を一度保持し、同じ更新で配送待ち・終端操作・参照を整理する。
- * @trace ARCH-000004、ARCH-000008
- * @input currentBytes: 元本文、stateValue: 業務更新済み公開State、expectedGeneration: 元業務世代、repositoryBinding: 物理結合、resultFacts: 同じAttemptで新たに得たTask結果の不明事実。
- * @returns 既存区画を保持した次本文、又はnull。
- * @precondition Task Ownerが受付・Lease・業務遷移を既存境界で検証する。
- * @postcondition 投影した公開Stateが指定更新と完全一致する場合だけ候補を返す。
- * @effect N/A: メモリ内の候補生成だけ。保存・回収・Provider要求なし。
- * @failure 世代競合、受領差替え、不足参照、未確認終端、導出状態不一致はnull。
- * @invariant Root未初期化を暗黙初期化せず、旧受領と他Projectを保持する。
- * @boundary Task更新と単一Writerに渡す正規候補。
- * @security 候補生成は実受領・実回収・保存Authorityではない。
- * @concurrency 元本文と実排他は同じWriter Owner内で再照合する。
- */
-export function prepareCoordinatorUnifiedTaskSnapshot(
-  currentBytes: unknown,
-  stateValue: unknown,
-  expectedGeneration: unknown,
-  repositoryBinding: unknown,
-  resultFacts: unknown = [],
-): Buffer | null {
-  try {
-    const current = decodeCoordinatorUnifiedSnapshot(
-      currentBytes,
-      repositoryBinding,
-    );
-    const state: unknown = JSON.parse(encodeRuntimeStateValue(stateValue));
-    const facts: unknown = JSON.parse(encodeRuntimeStateValue(resultFacts));
-    if (
-      !current ||
-      current.snapshot.repositoryBindingId === null ||
-      !validCoordinatorState(state) ||
-      !Number.isSafeInteger(expectedGeneration) ||
-      Number(expectedGeneration) < 0 ||
-      state.generation !== Number(expectedGeneration) + 1 ||
-      (current.snapshot.projects.find((p) => p.projectId === state.projectId)
-        ?.generation ?? 0) !== expectedGeneration ||
-      !Array.isArray(facts) ||
-      !facts.every((f) =>
-        exactRecordKeys(f, [
-          "taskId",
-          "attemptId",
-          "operationId",
-          "recoveryUnresolved",
-        ]),
-      )
-    )
-      return null;
-    const states = current.projects.some((p) => p.projectId === state.projectId)
-      ? current.projects.map((p) =>
-          p.projectId === state.projectId ? state : p,
-        )
-      : [...current.projects, state];
-    const sections = normalizeCoordinatorTaskProjects(
-      current,
-      states,
-      facts.map((f) => ({ ...f, projectId: state.projectId })),
-    );
-    if (!sections) return null;
-    const next = {
-      ...current.snapshot,
-      ...sections,
-      revision: current.snapshot.revision + 1,
-      previous: {
-        revision: current.snapshot.revision,
-        payloadSha256: current.payloadSha256,
-      },
-    };
-    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-    const decoded = decodeCoordinatorUnifiedSnapshot(bytes, repositoryBinding);
-    return decoded &&
-      validateCoordinatorUnifiedTransition(
-        currentBytes,
-        bytes,
-        repositoryBinding,
-      ) &&
-      encodeRuntimeStateValue(
-        decoded.projects.find((p) => p.projectId === state.projectId),
-      ) === encodeRuntimeStateValue(state)
-      ? bytes
-      : null;
-  } catch {
-    return null;
-  }
 }
 
 /**

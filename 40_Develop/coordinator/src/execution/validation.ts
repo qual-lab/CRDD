@@ -6,7 +6,6 @@
 import {
   type CoordinatorStateSnapshot,
   type CoordinatorStateTaskOperation,
-  type CoordinatorStateRepairOperation,
   isDockerRestartCheckpointSettled,
   coordinatorOperationNonce,
   coordinatorTaskResourcesAreSettled,
@@ -16,9 +15,6 @@ import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { validateDockerRuntimeRepairCheckpointTransition } from "../../../docker-isolation/src/index.ts";
 import { validateDockerRuntimeRepairSessionCheckpoint } from "../../../docker-isolation/src/index.ts";
 import { validateDockerRestartCheckpointTransition } from "./result.ts";
-
-import { dockerRuntimeRepairCheckpointIsSettled } from "../../../docker-isolation/src/index.ts";
-import { dockerRuntimeRepairDisposalIsSettled } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 解放済みで五資源が既知終端の操作だけをHost不存在観測へ接続する。
@@ -51,61 +47,6 @@ export function coordinatorReleasedTaskCanObserveHostAbsence(
         resource.request === "identified" && resource.observation === "absent",
     ) &&
     coordinatorTaskResourcesAreSettled(operation)
-  );
-}
-
-/**
- * 修復専用の終端・処置・履歴条件を同じ判定で確認する。
- * @responsibility Taskの配送・ACK条件を修復へ流用せず、二つの保存codecで条件を共用する。
- * @trace ARCH-000008
- * @input operation: codec検証済み修復、snapshot: 同じ保存の回復・配送区画。
- * @returns 終了条件が成立する場合だけtrue。
- * @precondition 物理Ownerが現在の保存資格と履歴読戻しを別途確認する。
- * @postcondition 保存値や他操作を変更しない。
- * @effect N/A: メモリ内の同期比較だけ。
- * @failure 未回収かつ引渡し未確定の保持物・未終端・未確認履歴・同ID参照はfalse。
- * @invariant 通常更新の暗黙除去拒否とTask終了契約を変更しない。
- * @boundary 修復現在状態と既存completion Writer。
- * @security 候補生成を削除許可や実資源不存在の観測にしない。
- * @concurrency 元版・履歴・現在Ownerの再照合は物理Writerが所有する。
- */
-export function coordinatorRepairCanComplete(
-  operation: CoordinatorStateRepairOperation,
-  snapshot: Readonly<{
-    unresolvedRecoveries: readonly Readonly<{ recoveryId: string }>[];
-    pendingDeliveries: readonly Readonly<{ recoveryId: string }>[];
-  }>,
-): boolean {
-  return !(
-    operation.phase !== "settling" ||
-    operation.outcome?.status !== "recovered" ||
-    operation.outcome.reason !== "runtime_repair_recovered" ||
-    operation.outcome.cleanupConfirmed !== true ||
-    operation.primaryFailure !== null ||
-    operation.checkpoint?.engine !== "ready" ||
-    operation.checkpoint.hostSafety !== "safe" ||
-    operation.checkpoint.cleanup !== "confirmed" ||
-    operation.checkpoint.cleanupFailure !== null ||
-    !dockerRuntimeRepairCheckpointIsSettled(operation.checkpoint) ||
-    !(
-      (operation.disposition === "not_applicable" &&
-        operation.checkpoint.stale === "absent") ||
-      (operation.disposition === "discard" &&
-        operation.checkpoint.stale === "retained" &&
-        operation.disposal !== null &&
-        dockerRuntimeRepairDisposalIsSettled(operation.disposal.checkpoint)) ||
-      (operation.disposition === "retained_by_human_decision" &&
-        operation.checkpoint.stale === "retained" &&
-        operation.retention !== undefined)
-    ) ||
-    operation.history?.confirmed !== true ||
-    JSON.parse(operation.identityJson).consumer !== "coordinator_cli" ||
-    snapshot.unresolvedRecoveries.some(
-      (item) => item.recoveryId === operation.recoveryId,
-    ) ||
-    snapshot.pendingDeliveries.some(
-      (item) => item.recoveryId === operation.recoveryId,
-    )
   );
 }
 

@@ -38,6 +38,279 @@ import { types as utilTypes } from "node:util";
 import type { ProjectQueueEntry } from "../task/types.ts";
 import type { SingleTaskRecord } from "../task/types.ts";
 import type { ArraySnapshot } from "./types.ts";
+import type {
+  RuntimeDomainSnapshot,
+  RuntimeProjectDefinition,
+} from "./types.ts";
+import {
+  inspectExecutionPlanDefinition,
+  inspectRuntimeProjectDefinition,
+} from "../objective/validation.ts";
+import { hashRuntimeStateContent } from "./codec.ts";
+
+/**
+ * 保存済みcheckpointから同じ終了履歴行を導出する。
+ * @responsibility 要約・初回時刻とexact行Hashの共通符号化を履歴Writerへ渡す。
+ * @trace ARCH-000008
+ * @input currentBytes: 現在状態、recoveryId: 対象、repositoryBinding: 検証済み結合。
+ * @returns 正規UTF-8行と末尾LF、またはnull。
+ * @precondition 対象の要約と初回時刻がcheckpointへ固定済みである。
+ * @postcondition 確認状態を行へ含めず、初回と確認済みで同じ本文を返す。
+ * @effect N/A: メモリ内の検証と符号化だけ。
+ * @failure 未固定、別対象、不正状態や行Hash不一致はnull。
+ * @invariant 行の導出を物理保存、終端確認、削除許可にしない。
+ * @boundary 現在状態の固定相関と履歴保存の値境界。
+ * @security 任意の履歴本文、Path、秘密値を受けない。
+ * @concurrency 保存と元版の再照合は物理Writerが所有する。
+ */
+export function prepareCoordinatorStateHistoryLine(
+  currentBytes: unknown,
+  recoveryId: unknown,
+  repositoryBinding: unknown,
+): Buffer | null {
+  const current = decodeCoordinatorUnifiedSnapshot(
+    currentBytes,
+    repositoryBinding,
+  );
+  const operation = current?.snapshot.operations.find(
+    (value): value is CoordinatorStateTaskOperation =>
+      value.kind === "docker_task" && value.recoveryId === recoveryId,
+  );
+  if (!operation?.history) return null;
+  const bytes = coordinatorHistoryLineBytes(
+    operation,
+    operation.history.occurredAt,
+  );
+  return createHash("sha256").update(bytes).digest("hex") ===
+    operation.history.lineSha256
+    ? bytes
+    : null;
+}
+
+/**
+ * 対象IDを含む計画定義だけの内容Hashを導出する。
+ * @responsibility 判断状態・管理実行値を定義同一性から分離する。
+ * @trace ARCH-000004
+ * @input project: 検査済みCore Project。
+ * @returns 対象と正規化定義へ結合したSHA-256。
+ * @precondition 呼出し側がCore定義の値検査を完了している。
+ * @postcondition 判断・Ownerの変化だけでは定義Hashを変更しない。
+ * @effect N/A: 値のHash計算だけ。
+ * @failure 通常データでない値は共通encoderが拒否する。
+ * @invariant 対象IDを除いた本文だけのHashへ置換しない。
+ * @boundary 同じSnapshot内の定義と管理実行参照。
+ * @security Hashを操作許可として使用しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function hashRuntimeProjectDefinition(
+  project: RuntimeProjectDefinition,
+): string {
+  return hashRuntimeStateContent({
+    projectId: project.projectId,
+    milestoneId: project.milestoneId,
+    definition: {
+      milestoneAcceptanceCriteria: project.milestone.acceptanceCriteria,
+      objectives: project.objectives.map((objective) => objective.definition),
+      tasks: project.tasks,
+    },
+  });
+}
+
+/**
+ * Core定義と管理実行参照を分離した新形式だけを復号する。
+ * @responsibility 完全な区画検査・単一定義・管理行の一対一参照と既存の終端相関を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input input: 正規byte列、repositoryBinding: 対象Repository結合。
+ * @returns 正本、管理実行のメモリ投影、本文Hash。拒否時null。
+ * @precondition N/A: 未信頼byte列を拒否可能。
+ * @postcondition Coreのみの対象に架空のOwner・Selection・Taskを生成しない。
+ * @effect N/A: 値検査・メモリ投影だけ。
+ * @failure 旧Schema、欠測、重複、孤立、定義Hash差、技術相関差はnull。
+ * @invariant 管理投影は保存正本ではなく、Task定義はprojectsだけに保存する。
+ * @boundary 新Schemaのcodec。保存先切替・Writer確定とは別。
+ * @security unknown・元参照を保ち、現在Authorityを復元しない。
+ * @concurrency N/A: 同期の値検査。
+ */
+export function decodeRuntimeDomainSnapshot(
+  input: unknown,
+  repositoryBinding: unknown,
+): Readonly<{
+  snapshot: RuntimeDomainSnapshot;
+  projects: readonly CoordinatorState[];
+  payloadSha256: string;
+}> | null {
+  try {
+    if (!isSha256Hex(repositoryBinding)) return null;
+    const decoded = decodeRuntimeStateBytes(input);
+    const value = decoded?.value;
+    if (
+      !decoded ||
+      !exactRecordKeys(value, [
+        "schema",
+        "revision",
+        "previous",
+        "repositoryBinding",
+        "operations",
+        "unresolvedRecoveries",
+        "pendingDeliveries",
+        "repositoryBindingId",
+        "intakeEpoch",
+        "intakeBindings",
+        "projects",
+        "managedExecutions",
+        "queueEntries",
+        "workspaces",
+        "leaseEvidence",
+        "leaseIntents",
+        "results",
+        "historyPending",
+        "acceptanceDecisions",
+        "decisionRecoveries",
+        "resultReceipts",
+      ])
+    )
+      return null;
+    const snapshot = value as RuntimeDomainSnapshot;
+    if (
+      snapshot.schema !== "crdd-domain/runtime-state/v1" ||
+      snapshot.repositoryBinding !== repositoryBinding ||
+      !Number.isSafeInteger(snapshot.revision) ||
+      snapshot.revision < 1 ||
+      (snapshot.revision === 1
+        ? snapshot.previous !== null
+        : !exactRecordKeys(snapshot.previous, ["revision", "payloadSha256"]) ||
+          snapshot.previous?.revision !== snapshot.revision - 1 ||
+          !isSha256Hex(snapshot.previous?.payloadSha256)) ||
+      !validCoordinatorExecutionState(snapshot, repositoryBinding) ||
+      !Array.isArray(snapshot.pendingDeliveries) ||
+      !snapshot.pendingDeliveries.every((delivery) =>
+        exactRecordKeys(delivery, [
+          "operationNonce",
+          "recoveryId",
+          "resultId",
+          "consumer",
+        ]),
+      ) ||
+      !Array.isArray(snapshot.projects) ||
+      !Array.isArray(snapshot.managedExecutions) ||
+      !Array.isArray(snapshot.resultReceipts)
+    )
+      return null;
+    const definitions: RuntimeProjectDefinition[] = [];
+    for (const raw of snapshot.projects) {
+      const definition = inspectRuntimeProjectDefinition(raw);
+      if (
+        !definition ||
+        definitions.some((item) => item.projectId === definition.projectId)
+      )
+        return null;
+      definitions.push(definition);
+    }
+    if (
+      snapshot.repositoryBindingId === null &&
+      (definitions.length > 0 || snapshot.managedExecutions.length > 0)
+    )
+      return null;
+    const projects: CoordinatorUnifiedSnapshot["projects"][number][] = [];
+    const seen = new Set<string>();
+    for (const execution of snapshot.managedExecutions) {
+      if (
+        !exactRecordKeys(execution, [
+          "projectId",
+          "milestoneId",
+          "definitionHash",
+          "taskExecutionSelections",
+          "ownerGeneration",
+          "maximumConcurrency",
+          "tasks",
+        ]) ||
+        seen.has(execution.projectId) ||
+        !Array.isArray(execution.tasks)
+      )
+        return null;
+      const definition = definitions.find(
+        (item) =>
+          item.projectId === execution.projectId &&
+          item.milestoneId === execution.milestoneId,
+      );
+      if (
+        !definition ||
+        !inspectExecutionPlanDefinition({
+          milestoneAcceptanceCriteria: definition.milestone.acceptanceCriteria,
+          objectives: definition.objectives.map(
+            (objective) => objective.definition,
+          ),
+          tasks: definition.tasks,
+        }) ||
+        execution.definitionHash !== hashRuntimeProjectDefinition(definition) ||
+        execution.tasks.length !== definition.tasks.length
+      )
+        return null;
+      const taskIds = new Set<string>();
+      const tasks: CoordinatorStoredTask[] = [];
+      for (const task of execution.tasks) {
+        if (
+          !exactRecordKeys(task, [
+            "taskId",
+            "state",
+            "attemptId",
+            "operationId",
+            "authorityBindingId",
+            "startPhase",
+            "settlement",
+            "recoveryObligations",
+            "resultAcceptanceIds",
+            "candidateId",
+            "retryCount",
+            "supersededBy",
+          ]) ||
+          taskIds.has(task.taskId)
+        )
+          return null;
+        const taskDefinition = definition.tasks.find(
+          (item) => item.id === task.taskId,
+        );
+        if (!taskDefinition) return null;
+        if (definition.tasks[tasks.length]?.id !== task.taskId) return null;
+        taskIds.add(task.taskId);
+        const { taskId: _taskId, ...record } = task;
+        tasks.push(Object.freeze({ ...record, definition: taskDefinition }));
+      }
+      seen.add(execution.projectId);
+      const { contract: _contract, tasks: _definitions, ...core } = definition;
+      projects.push(
+        Object.freeze({
+          ...core,
+          contract: "crdd-coordinator/project-state/v2",
+          taskExecutionSelections: execution.taskExecutionSelections,
+          ownerGeneration: execution.ownerGeneration,
+          maximumConcurrency: execution.maximumConcurrency,
+          tasks: Object.freeze(tasks),
+        }),
+      );
+    }
+    const { managedExecutions: _managed, ...sections } = snapshot;
+    const projection = projectRuntimeSnapshotSections(
+      {
+        ...sections,
+        schema: "crdd-coordinator/current-state/v5",
+        projects: Object.freeze(projects),
+      },
+      repositoryBinding,
+      decoded.payloadSha256,
+      definitions,
+    );
+    return projection
+      ? Object.freeze({
+          snapshot,
+          projects: projection.projects,
+          payloadSha256: decoded.payloadSha256,
+        })
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 単一保存の全区画とTask・操作・受領の参照を復号する。
@@ -124,212 +397,12 @@ export function decodeCoordinatorUnifiedSnapshot(
     )
       return null;
 
-    const receipts = new Map<string, ProjectResultAcceptance>();
-    for (const item of snapshot.resultReceipts) {
-      const receipt = decodeProjectResultAcceptance(item);
-      const project = snapshot.projects.find(
-        (entry) => entry.projectId === receipt?.projectId,
-      );
-      if (
-        !receipt ||
-        receipts.has(receipt.recoveryId) ||
-        !project ||
-        receipt.repositoryBinding !== repositoryBinding ||
-        receipt.repositoryBindingId !== snapshot.repositoryBindingId ||
-        receipt.milestoneId !== project.milestoneId ||
-        receipt.settlementGeneration > project.generation ||
-        !project.tasks.some(
-          (task: CoordinatorStoredTask) =>
-            task.definition.id === receipt.taskId,
-        ) ||
-        snapshot.pendingDeliveries.some(
-          (delivery) => delivery.recoveryId === receipt.recoveryId,
-        )
-      )
-        return null;
-      const operation = snapshot.operations.find(
-        (entry) => entry.recoveryId === receipt.recoveryId,
-      );
-      if (
-        operation &&
-        (operation.kind !== "docker_task" ||
-          operation.history?.confirmed !== true ||
-          operation.summarySha256 !== receipt.resultId ||
-          projectCoordinatorTaskSettlement(
-            {
-              kind: "operations",
-              recoveryIds: [receipt.recoveryId],
-              resultUnresolved: false,
-            },
-            snapshot,
-          )?.cleanupConfirmed !== true ||
-          snapshot.unresolvedRecoveries.some(
-            (recovery) => recovery.recoveryId === receipt.recoveryId,
-          ) ||
-          (JSON.parse(operation.identityJson).recoveryCorrelationId ??
-            JSON.parse(operation.identityJson).operationId) !==
-            receipt.operationId)
-      )
-        return null;
-      receipts.set(receipt.recoveryId, item);
-    }
-
-    const claimedOperations = new Set<string>();
-    const projects: CoordinatorState[] = [];
-    for (const project of snapshot.projects) {
-      if (!Array.isArray(project.tasks)) return null;
-      const tasks: ProjectTaskRecord[] = [];
-      for (const task of project.tasks) {
-        if (
-          !exactRecordKeys(task, [
-            "definition",
-            "state",
-            "attemptId",
-            "operationId",
-            "authorityBindingId",
-            "startPhase",
-            "settlement",
-            "recoveryObligations",
-            "resultAcceptanceIds",
-            "candidateId",
-            "retryCount",
-            "supersededBy",
-          ]) ||
-          !Array.isArray(task.resultAcceptanceIds) ||
-          new Set(task.resultAcceptanceIds).size !==
-            task.resultAcceptanceIds.length ||
-          !Array.isArray(task.recoveryObligations)
-        )
-          return null;
-        const settlement = projectCoordinatorTaskSettlement(
-          task.settlement,
-          snapshot,
-        );
-        if (!settlement) return null;
-        const matching = snapshot.operations
-          .filter((operation) => {
-            if (operation.kind !== "docker_task" || task.operationId === null)
-              return false;
-            const identity = JSON.parse(operation.identityJson);
-            return (
-              identity.consumer === "orchestrator" &&
-              (identity.recoveryCorrelationId ?? identity.operationId) ===
-                task.operationId
-            );
-          })
-          .map((operation) => operation.recoveryId);
-        const referenced =
-          task.settlement.kind === "operations"
-            ? task.settlement.recoveryIds
-            : [];
-        if (
-          matching.length !== referenced.length ||
-          matching.some((id) => !referenced.includes(id)) ||
-          referenced.some((id: string) => claimedOperations.has(id))
-        )
-          return null;
-        for (const id of referenced) claimedOperations.add(id);
-        const resultAcceptances: ProjectResultAcceptance[] = [];
-        for (const id of task.resultAcceptanceIds) {
-          const receipt = receipts.get(id);
-          if (!receipt) return null;
-          resultAcceptances.push(receipt);
-        }
-        const recoveryObligations: ProjectTaskRecoveryObligation[] = [];
-        for (const obligation of task.recoveryObligations) {
-          if (obligation.kind !== "docker") {
-            if (!exactRecordKeys(obligation, ["kind", "recoveryId", "phase"]))
-              return null;
-            recoveryObligations.push(obligation);
-            continue;
-          }
-          if (!exactRecordKeys(obligation, ["kind", "recoveryId"])) return null;
-          const acknowledgement = receipts.get(obligation.recoveryId);
-          if (acknowledgement) {
-            recoveryObligations.push({
-              ...obligation,
-              phase: "acknowledged",
-              acknowledgement,
-            });
-            continue;
-          }
-          const observed = projectCoordinatorTaskSettlement(
-            {
-              kind: "operations",
-              recoveryIds: [obligation.recoveryId],
-              resultUnresolved: false,
-            },
-            snapshot,
-          );
-          if (!observed) return null;
-          recoveryObligations.push({
-            ...obligation,
-            phase: observed.cleanupConfirmed ? "settled" : "required",
-          });
-        }
-        const {
-          settlement: _settlement,
-          resultAcceptanceIds: _ids,
-          recoveryObligations: _obligations,
-          ...record
-        } = task;
-        tasks.push(
-          Object.freeze({
-            ...record,
-            ...settlement,
-            resultAcceptances,
-            recoveryObligations,
-          }),
-        );
-      }
-      projects.push(Object.freeze({ ...project, tasks: Object.freeze(tasks) }));
-    }
-    const taskSections = {
-      ...snapshot,
-      repositoryBindingId: snapshot.repositoryBindingId ?? "",
-      intakeEpoch: snapshot.intakeEpoch ?? "",
-      projects,
-    };
-    if (
-      snapshot.repositoryBindingId === null ||
-      snapshot.intakeEpoch === null
-    ) {
-      if (
-        snapshot.repositoryBindingId !== null ||
-        snapshot.intakeEpoch !== null ||
-        snapshot.resultReceipts.length !== 0 ||
-        [
-          "projects",
-          "queueEntries",
-          "intakeBindings",
-          "workspaces",
-          "leaseEvidence",
-          "leaseIntents",
-          "results",
-          "historyPending",
-          "acceptanceDecisions",
-          "decisionRecoveries",
-        ].some(
-          (key) =>
-            !Array.isArray(
-              (snapshot as unknown as Record<string, unknown>)[key],
-            ) ||
-            ((snapshot as unknown as Record<string, unknown[]>)[key]?.length ??
-              -1) !== 0,
-        )
-      )
-        return null;
-    } else if (
-      !validId(snapshot.repositoryBindingId) ||
-      !validId(snapshot.intakeEpoch) ||
-      !validCoordinatorTaskState(taskSections, snapshot.repositoryBindingId)
-    )
-      return null;
-    return Object.freeze({
+    return projectRuntimeSnapshotSections(
       snapshot,
-      projects: Object.freeze(projects),
-      payloadSha256: decoded.payloadSha256,
-    });
+      repositoryBinding,
+      decoded.payloadSha256,
+      snapshot.projects,
+    );
   } catch {
     return null;
   }
@@ -508,6 +581,41 @@ export function validCoordinatorTaskState(
   >,
   binding: string,
 ): boolean {
+  if (
+    !Array.isArray(snapshot.projects) ||
+    !snapshot.projects.every(validCoordinatorState)
+  )
+    return false;
+  return validRuntimeTaskReferences(snapshot, binding);
+}
+
+/**
+ * 定義の存在と受付・判断・Lease等の共通参照を同じSnapshotで検査する。
+ * @responsibility CoreのみのProjectも正本の対象集合へ含め、技術状態を補完しない。
+ * @trace ARCH-000004、ARCH-000008
+ * @input snapshot: 個別モデルの検査後の共通区画、binding: Repository結合。
+ * @returns 参照相関をすべて満たす場合true。
+ * @precondition 区画は正規JSONの復号結果であり、Project値は呼出し側が検査済み。
+ * @postcondition 定義対象の不存在と不正な参照を区別せず成功へ補完しない。
+ * @effect N/A: 値検査だけ。
+ * @failure 不正・重複・孤立参照はfalse。
+ * @invariant Projectの値検査は呼出し側のCore／管理実行Ownerが行う。
+ * @boundary 定義と管理実行の共通保存内参照。
+ * @security 記録を現在の権限や実資源不存在の証拠にしない。
+ * @concurrency N/A: 同期の局所処理。
+ */
+function validRuntimeTaskReferences(
+  snapshot: Omit<
+    CoordinatorSnapshot,
+    | "schema"
+    | "schemaRevision"
+    | "repositoryRootHash"
+    | "snapshotRevision"
+    | "projects"
+  > &
+    Readonly<{ projects: readonly Readonly<{ projectId: string }>[] }>,
+  binding: string,
+): boolean {
   for (const key of [
     "intakeBindings",
     "projects",
@@ -518,10 +626,7 @@ export function validCoordinatorTaskState(
     "historyPending",
   ] as const)
     if (!Array.isArray(snapshot[key])) return false;
-  if (
-    !(snapshot.projects as unknown[]).every(validCoordinatorState) ||
-    !(snapshot.queueEntries as unknown[]).every(validQueueEntry)
-  )
+  if (!(snapshot.queueEntries as unknown[]).every(validQueueEntry))
     return false;
   if (
     !Array.isArray(snapshot.workspaces) ||
@@ -1608,4 +1713,233 @@ export function validResultReference(value: unknown): value is string {
     value.length <= 512 &&
     /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
   );
+}
+
+/**
+ * 技術記録を完全な値へ投影し、定義集合との相関を検査する。
+ * @responsibility 受領本文・終端導出・exact操作参照を一度だけ実装する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input snapshot: 共通区画と管理Task値、Repository結合、本文Hash、定義対象集合。
+ * @returns 検査済み投影、又はnull。
+ * @precondition 正規JSONから得た共通区画と検査済み定義対象を受け取る。
+ * @postcondition 同じ受領を別Task・別世代へ流用しない。
+ * @effect N/A: 局所の値検査だけ。
+ * @failure 欠測・不一致・孤立参照はnull。
+ * @invariant Coreだけの対象に偽のTask・Selection・Ownerを作らない。
+ * @boundary 正本と管理実行用のメモリ投影。旧形式Readerではない。
+ * @security 成功から保存確定・実資源不存在・現在Authorityを推定しない。
+ * @concurrency N/A: 同期の局所処理。
+ */
+function projectRuntimeSnapshotSections(
+  snapshot: CoordinatorUnifiedSnapshot,
+  repositoryBinding: string,
+  payloadSha256: string,
+  definitionProjects: readonly Readonly<{ projectId: string }>[],
+) {
+  const receipts = new Map<string, ProjectResultAcceptance>();
+  for (const item of snapshot.resultReceipts) {
+    const receipt = decodeProjectResultAcceptance(item);
+    const project = snapshot.projects.find(
+      (entry) => entry.projectId === receipt?.projectId,
+    );
+    if (
+      !receipt ||
+      receipts.has(receipt.recoveryId) ||
+      !project ||
+      receipt.repositoryBinding !== repositoryBinding ||
+      receipt.repositoryBindingId !== snapshot.repositoryBindingId ||
+      receipt.milestoneId !== project.milestoneId ||
+      receipt.settlementGeneration > project.generation ||
+      !project.tasks.some(
+        (task: CoordinatorStoredTask) => task.definition.id === receipt.taskId,
+      ) ||
+      snapshot.pendingDeliveries.some(
+        (delivery) => delivery.recoveryId === receipt.recoveryId,
+      )
+    )
+      return null;
+    const operation = snapshot.operations.find(
+      (entry) => entry.recoveryId === receipt.recoveryId,
+    );
+    if (
+      operation &&
+      (operation.kind !== "docker_task" ||
+        operation.history?.confirmed !== true ||
+        operation.summarySha256 !== receipt.resultId ||
+        projectCoordinatorTaskSettlement(
+          {
+            kind: "operations",
+            recoveryIds: [receipt.recoveryId],
+            resultUnresolved: false,
+          },
+          snapshot,
+        )?.cleanupConfirmed !== true ||
+        snapshot.unresolvedRecoveries.some(
+          (recovery) => recovery.recoveryId === receipt.recoveryId,
+        ) ||
+        (JSON.parse(operation.identityJson).recoveryCorrelationId ??
+          JSON.parse(operation.identityJson).operationId) !==
+          receipt.operationId)
+    )
+      return null;
+    receipts.set(receipt.recoveryId, item);
+  }
+
+  const claimedOperations = new Set<string>();
+  const projects: CoordinatorState[] = [];
+  for (const project of snapshot.projects) {
+    if (!Array.isArray(project.tasks)) return null;
+    const tasks: ProjectTaskRecord[] = [];
+    for (const task of project.tasks) {
+      if (
+        !exactRecordKeys(task, [
+          "definition",
+          "state",
+          "attemptId",
+          "operationId",
+          "authorityBindingId",
+          "startPhase",
+          "settlement",
+          "recoveryObligations",
+          "resultAcceptanceIds",
+          "candidateId",
+          "retryCount",
+          "supersededBy",
+        ]) ||
+        !Array.isArray(task.resultAcceptanceIds) ||
+        new Set(task.resultAcceptanceIds).size !==
+          task.resultAcceptanceIds.length ||
+        !Array.isArray(task.recoveryObligations)
+      )
+        return null;
+      const settlement = projectCoordinatorTaskSettlement(
+        task.settlement,
+        snapshot,
+      );
+      if (!settlement) return null;
+      const matching = snapshot.operations
+        .filter((operation) => {
+          if (operation.kind !== "docker_task" || task.operationId === null)
+            return false;
+          const identity = JSON.parse(operation.identityJson);
+          return (
+            identity.consumer === "orchestrator" &&
+            (identity.recoveryCorrelationId ?? identity.operationId) ===
+              task.operationId
+          );
+        })
+        .map((operation) => operation.recoveryId);
+      const referenced =
+        task.settlement.kind === "operations"
+          ? task.settlement.recoveryIds
+          : [];
+      if (
+        matching.length !== referenced.length ||
+        matching.some((id) => !referenced.includes(id)) ||
+        referenced.some((id: string) => claimedOperations.has(id))
+      )
+        return null;
+      for (const id of referenced) claimedOperations.add(id);
+      const resultAcceptances: ProjectResultAcceptance[] = [];
+      for (const id of task.resultAcceptanceIds) {
+        const receipt = receipts.get(id);
+        if (!receipt) return null;
+        resultAcceptances.push(receipt);
+      }
+      const recoveryObligations: ProjectTaskRecoveryObligation[] = [];
+      for (const obligation of task.recoveryObligations) {
+        if (obligation.kind !== "docker") {
+          if (!exactRecordKeys(obligation, ["kind", "recoveryId", "phase"]))
+            return null;
+          recoveryObligations.push(obligation);
+          continue;
+        }
+        if (!exactRecordKeys(obligation, ["kind", "recoveryId"])) return null;
+        const acknowledgement = receipts.get(obligation.recoveryId);
+        if (acknowledgement) {
+          recoveryObligations.push({
+            ...obligation,
+            phase: "acknowledged",
+            acknowledgement,
+          });
+          continue;
+        }
+        const observed = projectCoordinatorTaskSettlement(
+          {
+            kind: "operations",
+            recoveryIds: [obligation.recoveryId],
+            resultUnresolved: false,
+          },
+          snapshot,
+        );
+        if (!observed) return null;
+        recoveryObligations.push({
+          ...obligation,
+          phase: observed.cleanupConfirmed ? "settled" : "required",
+        });
+      }
+      const {
+        settlement: _settlement,
+        resultAcceptanceIds: _ids,
+        recoveryObligations: _obligations,
+        ...record
+      } = task;
+      tasks.push(
+        Object.freeze({
+          ...record,
+          ...settlement,
+          resultAcceptances,
+          recoveryObligations,
+        }),
+      );
+    }
+    projects.push(Object.freeze({ ...project, tasks: Object.freeze(tasks) }));
+  }
+  const taskSections = {
+    ...snapshot,
+    repositoryBindingId: snapshot.repositoryBindingId ?? "",
+    intakeEpoch: snapshot.intakeEpoch ?? "",
+    projects,
+  };
+  if (snapshot.repositoryBindingId === null || snapshot.intakeEpoch === null) {
+    if (
+      snapshot.repositoryBindingId !== null ||
+      snapshot.intakeEpoch !== null ||
+      snapshot.resultReceipts.length !== 0 ||
+      [
+        "projects",
+        "queueEntries",
+        "intakeBindings",
+        "workspaces",
+        "leaseEvidence",
+        "leaseIntents",
+        "results",
+        "historyPending",
+        "acceptanceDecisions",
+        "decisionRecoveries",
+      ].some(
+        (key) =>
+          !Array.isArray(
+            (snapshot as unknown as Record<string, unknown>)[key],
+          ) ||
+          ((snapshot as unknown as Record<string, unknown[]>)[key]?.length ??
+            -1) !== 0,
+      )
+    )
+      return null;
+  } else if (
+    !validId(snapshot.repositoryBindingId) ||
+    !validId(snapshot.intakeEpoch) ||
+    !projects.every(validCoordinatorState) ||
+    !validRuntimeTaskReferences(
+      { ...taskSections, projects: definitionProjects },
+      snapshot.repositoryBindingId,
+    )
+  )
+    return null;
+  return Object.freeze({
+    snapshot,
+    projects: Object.freeze(projects),
+    payloadSha256,
+  });
 }

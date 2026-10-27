@@ -63,10 +63,8 @@ import {
 import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
 import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
 import { acquireRuntimeOwnedProjectStateKernelLock } from "../../src/execution/kernel-lock.ts";
-import {
-  projectCoordinatorTaskSnapshot,
-  prepareCoordinatorUnifiedTaskSnapshot,
-} from "../../src/storage/state.ts";
+import { projectCoordinatorTaskSnapshot } from "../../src/storage/state.ts";
+import { prepareCoordinatorUnifiedTaskSnapshot } from "../../../domain-model/src/index.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 

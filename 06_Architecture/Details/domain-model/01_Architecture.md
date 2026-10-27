@@ -4,7 +4,7 @@
 
 移管するPlan／Objective／MilestoneはCallerが渡す実行依頼の値であり、CRDD文書側のMilestone／Roadmap／WBSの別正本ではない。[文書・Caller・実行の境界](05_Runtime_Domain.md#document-and-execution-ownership)を適用し、文書への自動同期や上位計画の再作成をDomain機能として増やさない。
 
-[Runtime DomainのAPI・単一保存契約](05_Runtime_Domain.md)が、Plan／Objective／Milestone／Task・判断・論理Workspace・Queue／Attempt値・AI設定と共通保存を具体化する。Domainは局所CRUDを所有するが、Scheduling・Authority発行・Provider／Docker／Git実行・資源不存在判断を引き取らない。本書以下のRuntime状態非所有の記述は技術実行の意味Ownerに関する旧断面であり、新しい業務状態・共通保存の移管対象を除外しない。Source・公開API・保存切替は未実装。
+[Runtime DomainのAPI・単一保存契約](05_Runtime_Domain.md)が、Plan／Objective／Milestone／Task・判断・論理Workspace・Queue／Attempt値・AI設定と共通保存を具体化する。Domainは局所CRUDを所有するが、Scheduling・Authority発行・Provider／Docker／Git実行・資源不存在判断を引き取らない。本書以下のRuntime状態非所有の記述は技術実行の意味Ownerに関する旧断面であり、新しい業務状態・共通保存の移管対象を除外しない。共有値・codec・AI設定保存・純粋なTask更新と遷移はSourceへ移管中で、一般CRUD・共通Writer全面接続・保存切替は未完了である。
 
 ### Repository追加通信設定の読取り — 2026-10-21
 

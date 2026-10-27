@@ -570,6 +570,11 @@ export {
 } from "./artifact/release.ts";
 
 export { parseCanonicalReleaseHeader } from "./artifact/document-header.ts";
+export {
+  prepareCoordinatorUnifiedTaskSnapshot,
+  normalizeCoordinatorTaskProjects,
+} from "./task/crud.ts";
+export { validateCoordinatorUnifiedTransition } from "./state/transition.ts";
 export { parseChangeTraceHeader } from "./artifact/change.ts";
 export {
   getJsonCommitName,
@@ -598,6 +603,9 @@ export {
 
 export {
   decodeCoordinatorUnifiedSnapshot,
+  prepareCoordinatorStateHistoryLine,
+  decodeRuntimeDomainSnapshot,
+  hashRuntimeProjectDefinition,
   isSha256Hex,
   exactRecordKeys as hasRuntimeStateRecordKeys,
   projectCoordinatorTaskSettlement,
@@ -623,6 +631,9 @@ export {
 
 export type {
   CoordinatorUnifiedSnapshot,
+  RuntimeDomainSnapshot,
+  RuntimeProjectDefinition,
+  RuntimeManagedExecution,
   CoordinatorState,
   CoordinatorStoredTask,
   CoordinatorSnapshot,
@@ -652,6 +663,7 @@ export {
   validCoordinatorRepairRetentionReceipt,
   coordinatorRepairRetentionMatchesCheckpoint,
   coordinatorRepairCanSummarize,
+  coordinatorRepairCanComplete,
   coordinatorRepairSummaryBytes,
   coordinatorRepairHistoryLineBytes,
   dockerProcessControllerPublicCompletionReasons,

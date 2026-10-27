@@ -14,6 +14,11 @@ import {
   normalizeRepositoryRelativePath,
 } from "../../../src/index.ts";
 import { repositoryPathWithin } from "../../../src/repository/path.ts";
+import {
+  inspectExecutionPlanDefinition,
+  inspectRuntimePlanDefinition,
+  inspectRuntimeProjectDefinition,
+} from "../../../src/objective/validation.ts";
 
 function plan() {
   return {
@@ -30,6 +35,155 @@ function plan() {
     ],
   };
 }
+
+/**
+ * 一般CRUDの中間定義と実行受付を混同しない。
+ * @trace PPR-UT-006
+ * @precondition 実行設定や外部資源を持たない値だけを使う。
+ * @stimulus 空計画、Task作成前、未割当Objective、完成計画を検査する。
+ * @observation Core検査と実行受付の返却値。
+ * @oracle 作成途中はCoreだけが受理し、完全定義だけが実行受付を通る。
+ * @cleanup 局所値のみ。
+ * @boundary 保存や実行開始は行わない。
+ */
+test("Coreの作成途中の計画は実行開始可能な計画ではない", () => {
+  const complete = plan();
+  const drafts = [
+    { ...complete, objectives: [], tasks: [] },
+    { ...complete, tasks: [] },
+    {
+      ...complete,
+      objectives: [
+        ...complete.objectives,
+        { id: "objective-b", acceptanceCriteria: ["未割当"] },
+      ],
+    },
+  ];
+  for (const draft of drafts) {
+    const core = inspectRuntimePlanDefinition(draft);
+    assert.ok(core);
+    assert.ok(Object.isFrozen(core));
+    assert.equal(inspectExecutionPlanDefinition(draft), null);
+    assert.equal(inspectExecutionPlan(draft, { allowedPaths: ["src"] }), null);
+  }
+  assert.ok(inspectRuntimePlanDefinition(complete));
+  assert.ok(inspectExecutionPlanDefinition(complete));
+  assert.ok(inspectExecutionPlan(complete, { allowedPaths: ["src"] }));
+});
+
+/**
+ * Coreの中間保存でも既存の構造検査を維持する。
+ * @trace PPR-UT-006
+ * @precondition 不正参照・重複・循環・上限超過の値を作る。
+ * @stimulus Core検査と実行受付へ同じ反例を渡す。
+ * @observation 両方のnull結果。
+ * @oracle 未完成を許しても不正な定義は受理しない。
+ * @cleanup 局所値のみ。
+ * @boundary 純粋な値検査。
+ */
+test("Coreと実行受付は不正参照・重複・循環・上限超過を共に拒否する", () => {
+  const complete = plan();
+  const task = complete.tasks[0];
+  assert.ok(task);
+  const invalid = [
+    { ...complete, objectives: [] },
+    {
+      ...complete,
+      objectives: [...complete.objectives, ...complete.objectives],
+    },
+    { ...complete, tasks: [task, task] },
+    { ...complete, tasks: [{ ...task, dependencies: ["absent"] }] },
+    { ...complete, tasks: [{ ...task, dependencies: [task.id] }] },
+    { ...complete, tasks: [{ ...task, allowedPaths: ["../outside"] }] },
+    { ...complete, tasks: Array.from({ length: 1025 }, () => task) },
+  ];
+  for (const value of invalid) {
+    assert.equal(inspectRuntimePlanDefinition(value), null);
+    assert.equal(inspectExecutionPlanDefinition(value), null);
+    assert.equal(inspectExecutionPlan(value, { allowedPaths: ["src"] }), null);
+  }
+});
+
+/**
+ * 新Project形式の保存値は実行設定を要求しない。
+ * @trace PPR-UT-006
+ * @precondition 空のCore定義と既存形式の判断値だけを用意する。
+ * @stimulus 定義を検査し、未知技術field・不正ID・改訂・Getterを渡す。
+ * @observation 不変のCore値、拒否結果と副作用件数。
+ * @oracle 実行Ownerを補完せず、不正値を実行しない。
+ * @cleanup 局所値のみ。
+ * @boundary 型・値境界だけ。保存先や本番Schemaの切替を証明しない。
+ */
+test("Core Projectの新形式は実行資格なしで固定し未知値を拒否する", () => {
+  const input = {
+    contract: "crdd-domain/project-state/v1",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    generation: 1,
+    decisionApplicationId: null,
+    milestone: {
+      id: "milestone-a",
+      acceptanceCriteria: ["完了条件"],
+      state: "planned",
+      criterionEvidenceIds: [],
+    },
+    objectives: [],
+    tasks: [],
+  };
+  const result = inspectRuntimeProjectDefinition(input);
+  assert.ok(result);
+  assert.ok(Object.isFrozen(result.milestone));
+  assert.equal(Object.hasOwn(result, "ownerGeneration"), false);
+  assert.equal(Object.hasOwn(result, "taskExecutionSelections"), false);
+  input.milestone.acceptanceCriteria[0] = "変更";
+  assert.deepEqual(result.milestone.acceptanceCriteria, ["完了条件"]);
+  for (const invalid of [
+    { ...input, ownerGeneration: "owner" },
+    { ...input, projectId: "../bad" },
+    { ...input, generation: 0 },
+    { ...input, repositoryRevision: "bad" },
+    { ...input, milestone: { ...input.milestone, id: "other" } },
+    { ...input, contract: "crdd-coordinator/project-state/v2" },
+  ])
+    assert.equal(inspectRuntimeProjectDefinition(invalid), null);
+  let effects = 0;
+  assert.equal(
+    inspectRuntimeProjectDefinition({
+      ...input,
+      milestone: {
+        ...input.milestone,
+        state: {
+          toString() {
+            effects++;
+            return "planned";
+          },
+        },
+      },
+    }),
+    null,
+  );
+  const accessor = Object.defineProperty({ ...input }, "tasks", {
+    enumerable: true,
+    get() {
+      effects++;
+      return [];
+    },
+  });
+  assert.equal(inspectRuntimeProjectDefinition(accessor), null);
+  assert.equal(
+    inspectRuntimeProjectDefinition(
+      new Proxy(input, {
+        ownKeys() {
+          effects++;
+          return [];
+        },
+      }),
+    ),
+    null,
+  );
+  assert.equal(effects, 0);
+});
 
 /**
  * 設定・Provider・実行状態なしで定義を固定する。
@@ -87,6 +241,16 @@ test("Domainの計画検査はAccessor・Proxy・未知field・範囲外を拒�
     },
   });
   assert.equal(inspectExecutionPlan(proxy, { allowedPaths: ["src"] }), null);
+  assert.equal(inspectRuntimePlanDefinition(proxy), null);
+  const accessor = Object.defineProperty(plan(), "tasks", {
+    enumerable: true,
+    get() {
+      effects++;
+      return [];
+    },
+  });
+  assert.equal(inspectRuntimePlanDefinition(accessor), null);
+  assert.equal(inspectRuntimePlanDefinition({ ...plan(), extra: true }), null);
   assert.equal(
     inspectExecutionPlan({ ...plan(), extra: true }, { allowedPaths: ["src"] }),
     null,
