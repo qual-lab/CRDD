@@ -347,6 +347,18 @@ Executorの静的検査込み回帰六件はすべて成功。明示CLI入口も
 
 この補助は試験用Hostの接続であり、実試験入口全体の準備完了ではない。実AIへ進むには、固定合成入力・Model選定・初回同意、Home観測と同期排他取得、固定計画構築、試験用子Processの終了／取消とRoot保持・清掃を明示CLIへ接続する必要がある。元HostのOS喪失回復や本番耐久Stateを代替したとは表示しない。
 
+#### 単段実試験CLIの非AI接続 — 2026-10-28
+
+`scripts/verify-provider-real.ts`に固定計画表示と明示実行を分けた試験入口を追加した。合成Contextのみ、Codex `gpt-6.1-sol`／Claude `claude-opus-5-5`のmedium助言一回、Repository非mount・tools／session無効とする。TTY同意後だけ一子を起動し、固定計画・既存Home観測／同期排他・前段の試験Hostへ接続する。製品Host・State・Queue・Recovery機構は追加せず、本番Source・Schema・期限・安全判定は変更しない。
+
+独立確認の三指摘に従い、Git確認を同意後へ移し、Coordinator依存拒否hookをプロジェクト依存のロード前へ置いた。親子で元回復参照をEffect前に受け渡し、結果喪失時も保持する。監督上限では取消後に既存猶予で子closeを待ち、未観測ならRootを一切更新しない。取消競合・未知結果は成功清掃へ進めず、close観測後だけ非秘密結果と七日後の再評価時刻を記録する。生Provider出力は保存しない。
+
+再確認の二指摘も反映した。正常清掃には回復IPCとACK送信成功を必須とし、close後の保存記録からの参照回収を成功条件の代用にしない。開始前の固定理由だけを列挙して保持し、未知の例外本文は従来どおり汎用理由へ閉じる。Home不一致と解放拒否が重なっても一次理由を維持する。
+
+ACK送信callbackと子の結果・closeの順序は保証されないため、相関済み結果は送信発行後に保持し、正常清掃にはcallback成功とcloseを共同要求する。callback欠測でも既存監督上限を解除せず、失敗時に保持する。新しいIPC通知や製品待機Gateは作らない。
+
+追加五Caseは、純粋計画とEffect前拒否、子の十条件、親の十五条件、静的依存変異、実IPC子の不正計画／開始前取消を確認した。最終候補のExecutor全回帰は一実行十四件成功・失敗零・取消零、二十TypeScriptの整形・型・警告を失敗とするLintも成功。Catalogは417件validである。修正版の独立再確認は残指摘零で、この試験入口の非AI接続範囲を閉じる。対象三文書とExecutor Symbolの指摘は零、参照展開五十七文書の既存3,050指摘による全体不合格は維持する。Native・Lease・Host又はforkの代役範囲を明示し、実Provider・Home・Dockerの成立とは扱わない。今回、実AI・Docker照会／操作・実Home・認証情報・過去保持物を操作していない。実送信は固定入力・Model・Image・回数・新品Rootと回収の範囲を別途承認後に行う。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

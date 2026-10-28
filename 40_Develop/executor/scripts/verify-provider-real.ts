@@ -1,0 +1,1260 @@
+/**
+ * 合成Contextだけを使うExecutor単段試験の明示CLI。
+ * @packageDocumentation
+ * @responsibility 計画表示・TTY同意・一子の実行と終了後清掃を接続する。
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
+ * @boundary 試験専用。実行は用途限定承認と端末確認の両方を必要とする。
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash, randomBytes, randomInt } from "node:crypto";
+import { fork, spawnSync } from "node:child_process";
+import { registerHooks } from "node:module";
+import type { ProviderAdvicePacket } from "../src/index.ts";
+registerHooks({
+  resolve(s, c, n) {
+    const r = n(s, c);
+    if (r.url.includes("/coordinator/"))
+      throw Error("trial_coordinator_forbidden");
+    return r;
+  },
+});
+const { resolveAiModelSelection, planProviderExecution } = await import(
+  "../../ai-adapter/src/index.ts"
+);
+const {
+  describeDockerProviderExecutionLocations,
+  describeDockerProxyTopology,
+} = await import("../../docker-isolation/src/index.ts");
+const {
+  hashExecutionSelection,
+  readCommittedJson,
+  writeCommittedJson,
+  removeCommittedJson,
+} = await import("../../domain-model/src/index.ts");
+const {
+  observeWindowsProviderHome,
+  acquireNamedPipeKernelLock,
+  readConfirmationCodeOutcome,
+} = await import("../../platform-access/src/index.ts");
+const {
+  buildProviderDockerExecutionPlan,
+  bindProviderAdviceCommand,
+  hashProviderAdviceCommand,
+  describeAdviceResultSchema,
+  normalizeAdviceResult,
+  describeDockerProcessControllerContract,
+  validatePlan,
+  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
+  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
+} = await import("../src/index.ts");
+const { createStandaloneProviderAttemptHost } = await import(
+  "./provider-attempt-host.ts"
+);
+const { homePipeName } = await import("./verify-provider-home.ts");
+
+const reference = "synthetic-context";
+const prompt =
+  "Synthetic Context [synthetic-context]: A demo application has one pending documentation task. No implementation has started. The next option is to write a short plan. Read only this context. Do not use tools. Return the requested structured advice with one short fact and one next option, each referencing synthetic-context. Use empty sharedAnalysis and additionalInferences arrays. Do not include repository paths or credentials.";
+const script = fileURLToPath(import.meta.url);
+const digest = (value: string) =>
+  createHash("sha256").update(value).digest("hex");
+
+/**
+ * 固定合成入力・Model・Imageだけを副作用なしで示す。
+ * @responsibility 表示内容と実際の送信内容を同一に固定する。
+ * @trace ERB-IT-002
+ * @input provider: exact二値。
+ * @returns 承認対象の非秘密計画。
+ * @effect N/A: 同梱Catalogと純粋builderだけ。
+ * @failure 未対応Model／用途は停止。
+ * @boundary 計画は現在の認証・Image存在・実行許可を証明しない。
+ */
+export function describeStandaloneProviderTrial(provider: unknown) {
+  if (provider !== "codex" && provider !== "claude")
+    throw Error("trial_provider_invalid");
+  const model = provider === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
+  const selected = resolveAiModelSelection({
+    provider,
+    modelIdentifier: model,
+    reasoningEffort: "medium",
+    purpose: "advice",
+  });
+  if (selected.status !== "resolved") throw Error("trial_model_unavailable");
+  const generated = planProviderExecution(
+    {
+      provider,
+      purpose: "advice",
+      modelSelection: {
+        provider: selected.value.provider,
+        modelIdentifier: selected.value.modelIdentifier,
+        identifierKind: selected.value.identifierKind,
+        reasoningEffort: selected.value.reasoningEffort,
+      },
+      resultSchema: describeAdviceResultSchema(),
+    },
+    describeDockerProviderExecutionLocations(provider, "advice"),
+  );
+  if (generated.status !== "ready") throw Error("trial_command_unavailable");
+  const command = bindProviderAdviceCommand(generated.plan);
+  return Object.freeze({
+    contract: "crdd/executor/standalone-trial/v1",
+    provider,
+    model,
+    effort: "medium" as const,
+    prompt,
+    promptSha256: digest(prompt),
+    providerImageDigest: command.fixedImageDigest,
+    proxyImageDigest: describeDockerProxyTopology(provider).imageDigest,
+    repositoryMounted: false,
+    workspaceMounted: false,
+    toolsAllowed: false,
+    sessionPersistenceAllowed: false,
+    maximumProviderRequests: 1,
+  });
+}
+
+/**
+ * 同じ固定合成Packetと観測済みHomeを既存計画へ束縛する。
+ * @responsibility 選定・Prompt・非共有境界・Commandの相関を保つ。
+ * @trace ERB-IT-002
+ * @input spec: 固定記述、root: 新品Root、home: 現観測候補。
+ * @returns 既存validatePlanを満たす助言専用計画。
+ * @effect 暗号学的乱数で今回の名前だけを生成する。
+ * @failure 役割・Model・Prompt・Mount差で停止。
+ * @boundary 任意Prompt・任意Path・編集操作を受け付けない。
+ */
+export function buildStandaloneTrialPlan(
+  spec: ReturnType<typeof describeStandaloneProviderTrial>,
+  root: string,
+  home: Extract<
+    ReturnType<typeof observeWindowsProviderHome>,
+    { status: "candidate" }
+  >,
+  homePath: string,
+) {
+  if (
+    JSON.stringify(spec) !==
+    JSON.stringify(describeStandaloneProviderTrial(spec.provider))
+  )
+    throw Error("trial_spec_changed");
+  const operationId = `OP-${BigInt(`0x${randomBytes(12).toString("hex")}`)
+    .toString()
+    .padStart(6, "0")}`;
+  const selected = resolveAiModelSelection({
+    provider: spec.provider,
+    modelIdentifier: spec.model,
+    reasoningEffort: spec.effort,
+    purpose: "advice",
+  });
+  if (selected.status !== "resolved") throw Error("trial_selection_invalid");
+  const selection = {
+    ...selected.value,
+    configIdentity: digest(JSON.stringify(spec)),
+    role: "advice" as const,
+    workType: null,
+    source: "explicit" as const,
+  };
+  const planned = planProviderExecution(
+    {
+      provider: spec.provider,
+      purpose: "advice",
+      modelSelection: {
+        provider: selected.value.provider,
+        modelIdentifier: selected.value.modelIdentifier,
+        identifierKind: selected.value.identifierKind,
+        reasoningEffort: selected.value.reasoningEffort,
+      },
+      resultSchema: describeAdviceResultSchema(),
+    },
+    describeDockerProviderExecutionLocations(spec.provider, "advice"),
+  );
+  if (planned.status !== "ready") throw Error("trial_command_invalid");
+  const command = bindProviderAdviceCommand(planned.plan);
+  const packetRef = `ADVICEPKT-${randomBytes(16).toString("hex").toUpperCase()}`;
+  const commandHash = hashProviderAdviceCommand(command);
+  if (!commandHash) throw Error("trial_command_hash_invalid");
+  const packetBase = {
+    contract: PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
+    contractRevision: PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
+    packetRef,
+    operationId,
+    executionSelection: selection,
+    provider: spec.provider,
+    taskHash: digest(prompt),
+    projectionHash: digest(reference),
+    commandHash,
+    repositoryMounted: false as const,
+    workspaceMounted: false as const,
+    toolsAllowed: false as const,
+    sessionPersistenceAllowed: false as const,
+  } as const;
+  const packet: ProviderAdvicePacket = Object.freeze({
+    ...packetBase,
+    packetHash: digest(
+      JSON.stringify({ ...packetBase, providerPromptSha256: digest(prompt) }),
+    ),
+    providerCommand: command,
+    providerPrompt: prompt,
+  });
+  const selectionHash = hashExecutionSelection(selection);
+  if (!selectionHash) throw Error("trial_selection_hash_invalid");
+  const built = buildProviderDockerExecutionPlan(
+    spec.provider,
+    { randomBytes },
+    {
+      operationId,
+      createdAt: new Date().toISOString(),
+      mounts: {
+        workspace: path.join(root, "work"),
+        providerHome: homePath,
+        tmp: path.join(root, "tmp"),
+        events: path.join(root, "events"),
+        projection: path.join(root, "projection"),
+        management: path.join(root, "management"),
+      },
+    },
+    {
+      grant: {
+        ...home,
+        operationId,
+        grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
+      },
+      activeMountCapability: {},
+    },
+    {
+      selectionRecordId: `MODELSEL-${randomBytes(12).toString("hex").toUpperCase()}`,
+      operationId,
+      executorProvider: spec.provider,
+      executionSelection: selection,
+      selectionHash,
+      taskAttempt: 0,
+      model: spec.model,
+      effort: spec.effort,
+      speedMode: "normal",
+      selectionNotice: "explicit_synthetic_trial",
+    },
+    homePath,
+    Date.now(),
+    performance.now(),
+    null,
+    packet,
+    null,
+    "coordinator_cli",
+  );
+  if (!built) throw Error("trial_plan_unavailable");
+  const plan = Object.freeze({
+    ...built,
+    consumer: "coordinator_cli" as const,
+    authorityUseCapability: {},
+  });
+  if (
+    !validatePlan(plan, path.join(root, "tmp")) ||
+    plan.operationMode !== "workbench_advice" ||
+    plan.workspaceSourcePath !== null ||
+    plan.providerInput !== prompt ||
+    plan.executionSelection.purpose !== "advice" ||
+    plan.executionSelection.role !== "advice" ||
+    plan.providerImageDigest !== spec.providerImageDigest
+  )
+    throw Error("trial_boundary_invalid");
+  return plan;
+}
+
+type TrialResult = Readonly<{
+  status: "completed" | "blocked" | "cancelled";
+  reason: string | null;
+  recoveryId: string | null;
+  cleanupConfirmed: boolean;
+  releaseConfirmed: boolean;
+  terminalSaved: boolean;
+  nativeCleanupConfirmed: boolean;
+  adviceConfirmed: boolean;
+  resultSha256: string | null;
+  resultBytes: number;
+}>;
+
+/**
+ * 一つの子Process内で観測・排他・単段実行をjoinする。
+ * @responsibility 失敗時にexact参照とRootを保持し、再試行しない。
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
+ * @input 承認済み固定Provider・IDと同一子の取消通知。
+ * @returns 生出力・Home metadataなしの限定結果。
+ * @precondition 親の同意とIPC相関が確認済み。
+ * @postcondition 元completionを待ち、未確認を成功にしない。
+ * @effect 新品Root・既存Native二観測・同期排他・固定Executor一回。
+ * @failure 取得null／保存拒否／終了不明はRoot保持。
+ * @invariant Signalは同じControlへ配送し、Task再送・別回復を作らない。
+ * @boundary 試験用Hostだけ。本番Host喪失回復の代替ではない。
+ * @security 認証値・AI本文・stdout/stderrを記録しない。
+ * @concurrency 同じ試行の取消を一回要求してcompletionをjoinする。
+ */
+export async function runStandaloneProviderTrial(
+  provider: unknown,
+  runId: unknown,
+  signal: AbortSignal,
+  onRoot: (root: string) => Promise<void> = async () => {},
+  onRecovery: (id: string) => Promise<void> = async () => {},
+): Promise<TrialResult> {
+  const spec = describeStandaloneProviderTrial(provider);
+  if (
+    typeof runId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9-]{7,63}$/u.test(runId)
+  )
+    throw Error("trial_id_invalid");
+  const repository = fs.realpathSync(
+    fileURLToPath(new URL("../../../", import.meta.url)),
+  );
+  const parent = path.join(repository, ".crdd", "tests");
+  for (const directory of [path.dirname(parent), parent]) {
+    if (!fs.existsSync(directory)) fs.mkdirSync(directory);
+    if (
+      fs.lstatSync(directory).isSymbolicLink() ||
+      fs.realpathSync(directory).toLowerCase() !== directory.toLowerCase()
+    )
+      throw Error("trial_parent_invalid");
+  }
+  if (signal.aborted) throw Error("trial_cancelled_before_root");
+  const root = path.join(parent, `executor-real-${spec.provider}-${runId}`);
+  fs.mkdirSync(root);
+  await onRoot(root);
+  let reason: string | null = null,
+    recoveryId: string | null = null,
+    nativeCleanupConfirmed = true,
+    releaseConfirmed = false,
+    terminalSaved = false,
+    cleanupConfirmed = false,
+    adviceConfirmed = false,
+    resultSha256: string | null = null,
+    resultBytes = 0;
+  let lease: ReturnType<typeof acquireNamedPipeKernelLock> = null,
+    releaseAttempted = false,
+    startAttempted = false,
+    preEffect = false;
+  let cancelCurrent: (() => Promise<unknown>) | null = null;
+  let cancellation: Promise<unknown> | null = null;
+  const cancel = () => {
+    if (cancelCurrent && !cancellation)
+      cancellation = cancelCurrent().catch(() => {
+        reason ??= "trial_cancel_unconfirmed";
+      });
+  };
+  signal.addEventListener("abort", cancel);
+  try {
+    const local = process.env.LOCALAPPDATA;
+    if (
+      !local ||
+      !path.win32.isAbsolute(local) ||
+      path.win32.normalize(local) !== local
+    )
+      throw Error("trial_environment_invalid");
+    const homePath = path.win32.join(
+      local,
+      "Qual-Lab",
+      "CRDD",
+      "ProviderHomes",
+      spec.provider,
+    );
+    nativeCleanupConfirmed = false;
+    const first = observeWindowsProviderHome(spec.provider, homePath);
+    nativeCleanupConfirmed =
+      (!first.processEffectIssued || first.helperExitConfirmed) &&
+      first.filesystemEffectIssued === false;
+    if (
+      first.status !== "candidate" ||
+      !first.processEffectIssued ||
+      !first.helperExitConfirmed ||
+      !first.artifactVerifiedBeforeAndAfter ||
+      first.filesystemEffectIssued
+    )
+      throw Error("trial_home_unconfirmed");
+    lease = acquireNamedPipeKernelLock(
+      homePipeName(first.stableLogicalHomeBindingHash),
+    );
+    if (!lease) throw Error("trial_lease_acquisition_unknown");
+    nativeCleanupConfirmed = false;
+    const second = observeWindowsProviderHome(spec.provider, homePath);
+    nativeCleanupConfirmed =
+      (!second.processEffectIssued || second.helperExitConfirmed) &&
+      second.filesystemEffectIssued === false;
+    if (
+      second.status !== "candidate" ||
+      !second.processEffectIssued ||
+      !second.helperExitConfirmed ||
+      !second.artifactVerifiedBeforeAndAfter ||
+      second.filesystemEffectIssued ||
+      !lease.assertLive() ||
+      [
+        "providerHomeIdentityHash",
+        "providerHomeProtectionHash",
+        "localUserBindingHash",
+        "stableLogicalHomeBindingHash",
+      ].some((key) => Reflect.get(first, key) !== Reflect.get(second, key))
+    )
+      throw Error("trial_home_changed_or_unconfirmed");
+    const plan = buildStandaloneTrialPlan(spec, root, second, homePath);
+    const original = lease;
+    const host = createStandaloneProviderAttemptHost(root, plan, {
+      assertLive: () => original.assertLive(),
+      release: () => {
+        if (releaseAttempted) return false;
+        releaseAttempted = true;
+        releaseConfirmed = original.release() === true;
+        return releaseConfirmed;
+      },
+    });
+    recoveryId = host.recoveryId;
+    await onRecovery(recoveryId);
+    fs.mkdirSync(path.join(root, "tmp"));
+    fs.mkdirSync(path.join(root, "management"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    if (signal.aborted || !lease.assertLive())
+      throw Error("trial_cancelled_or_lease_lost_before_start");
+    startAttempted = true;
+    const started = host.start();
+    if (started.status !== "started") {
+      preEffect = started.dockerEffectStarted === false;
+      reason = started.reason;
+      cleanupConfirmed = started.cleanupConfirmed;
+    } else {
+      cancelCurrent = () =>
+        host.runtime.cancel(started.controlCapability, host.management);
+      if (signal.aborted) cancel();
+      const result = await started.completion;
+      if (cancellation) await cancellation;
+      if (result.status !== "completed") reason ??= result.reason;
+      cleanupConfirmed = result.cleanupConfirmed;
+      resultSha256 = result.resultSha256;
+      resultBytes = result.resultBytes;
+      terminalSaved = host.recordTerminal(result);
+      const normalized = result.normalizedResult;
+      if (
+        normalized &&
+        typeof normalized === "object" &&
+        Object.hasOwn(normalized, "adviceJson")
+      ) {
+        const advice = normalizeAdviceResult(
+          Reflect.get(normalized, "adviceJson"),
+          [reference],
+        );
+        adviceConfirmed = advice.status === "confirmed";
+      }
+      if (result.status === "completed" && (!terminalSaved || !adviceConfirmed))
+        reason ??= "trial_terminal_or_advice_unconfirmed";
+    }
+  } catch (error) {
+    const fixedReason = error instanceof Error ? error.message : null;
+    reason ??=
+      fixedReason !== null &&
+      [
+        "trial_environment_invalid",
+        "trial_home_unconfirmed",
+        "trial_lease_acquisition_unknown",
+        "trial_home_changed_or_unconfirmed",
+        "trial_cancelled_or_lease_lost_before_start",
+      ].includes(fixedReason)
+        ? fixedReason
+        : "trial_failed_closed";
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    if (lease && !releaseAttempted && (!startAttempted || preEffect)) {
+      releaseAttempted = true;
+      try {
+        releaseConfirmed = lease.release() === true;
+      } catch {
+        releaseConfirmed = false;
+      }
+    }
+  }
+  if (signal.aborted) reason ??= "trial_cancelled";
+  if (!releaseConfirmed) reason ??= "trial_home_release_unconfirmed";
+  if (!nativeCleanupConfirmed) reason ??= "trial_native_cleanup_unconfirmed";
+  return Object.freeze({
+    status:
+      reason === null &&
+      cleanupConfirmed &&
+      releaseConfirmed &&
+      terminalSaved &&
+      nativeCleanupConfirmed &&
+      adviceConfirmed
+        ? "completed"
+        : signal.aborted
+          ? "cancelled"
+          : "blocked",
+    reason,
+    recoveryId,
+    cleanupConfirmed,
+    releaseConfirmed,
+    terminalSaved,
+    nativeCleanupConfirmed,
+    adviceConfirmed,
+    resultSha256,
+    resultBytes,
+  });
+}
+
+/**
+ * 子の有限結果を閉じた非秘密形式として確認する。
+ * @responsibility 例外本文や生出力を親の結果へ混入させない。
+ * @trace ERB-IT-004
+ * @input IPC値。
+ * @returns 正規結果かnull。
+ * @effect N/A: 値検査だけ。
+ * @failure 欠落・余分field・不正値を拒否。
+ * @boundary 子Processから親の表示・清掃判断。
+ */
+function trialResult(value: unknown): TrialResult | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  )
+    return null;
+  const v = value as Record<string, unknown>;
+  if (
+    Object.keys(v).sort().join(",") !==
+    [
+      "status",
+      "reason",
+      "recoveryId",
+      "cleanupConfirmed",
+      "releaseConfirmed",
+      "terminalSaved",
+      "nativeCleanupConfirmed",
+      "adviceConfirmed",
+      "resultSha256",
+      "resultBytes",
+    ]
+      .sort()
+      .join(",")
+  )
+    return null;
+  if (
+    !["completed", "blocked", "cancelled"].includes(String(v.status)) ||
+    !(
+      v.reason === null ||
+      (typeof v.reason === "string" && /^[a-z0-9_]{1,160}$/u.test(v.reason))
+    ) ||
+    !(
+      v.recoveryId === null ||
+      (typeof v.recoveryId === "string" &&
+        /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+          v.recoveryId,
+        ))
+    ) ||
+    !(
+      v.resultSha256 === null ||
+      (typeof v.resultSha256 === "string" &&
+        /^[a-f0-9]{64}$/u.test(v.resultSha256))
+    ) ||
+    !Number.isSafeInteger(v.resultBytes) ||
+    Number(v.resultBytes) < 0
+  )
+    return null;
+  if (
+    [
+      "cleanupConfirmed",
+      "releaseConfirmed",
+      "terminalSaved",
+      "nativeCleanupConfirmed",
+      "adviceConfirmed",
+    ].some((key) => typeof v[key] !== "boolean")
+  )
+    return null;
+  if (
+    v.status === "completed" &&
+    (v.reason !== null ||
+      !v.recoveryId ||
+      !v.resultSha256 ||
+      Number(v.resultBytes) === 0 ||
+      [
+        "cleanupConfirmed",
+        "releaseConfirmed",
+        "terminalSaved",
+        "nativeCleanupConfirmed",
+        "adviceConfirmed",
+      ].some((key) => v[key] !== true))
+  )
+    return null;
+  return Object.freeze({ ...v }) as TrialResult;
+}
+
+/**
+ * 試験Rootの現在実体を非秘密の文字列組へ投影する。
+ * @responsibility 親子間と清掃直前の対象取り違えを拒否する。
+ * @trace ERB-IT-004
+ * @input exact Path。
+ * @returns dev・ino・birthtimeNs。
+ * @effect metadata読取り。
+ * @failure 非Directory・linkは停止。
+ * @boundary 今回の自己生成Rootのみ。
+ */
+function rootIdentity(root: string) {
+  const s = fs.lstatSync(root, { bigint: true });
+  if (!s.isDirectory() || s.isSymbolicLink()) throw Error("trial_root_changed");
+  return [s.dev, s.ino, s.birthtimeNs].map(String).join(":");
+}
+
+/**
+ * 元確定JSONと空の用途別Directoryだけを終了後に回収する。
+ * @responsibility 子closeと元終端確認を清掃の前提にする。
+ * @trace ERB-IT-004
+ * @input exact Root・初回Identity・元限定結果。
+ * @returns 回収と不存在の確認結果。
+ * @precondition 親が同一子の正常closeと単一相関結果を確認済み。
+ * @effect 今回Rootの既知File・空Directoryの通常削除だけ。
+ * @failure partial・未知名・link・記録不整合は保持。再試行なし。
+ * @boundary 過去保持物やDocker資源を削除しない。
+ */
+export function cleanupStandaloneTrialRoot(
+  root: string,
+  identity: string,
+  result: TrialResult,
+) {
+  try {
+    if (result.status !== "completed" || rootIdentity(root) !== identity)
+      return false;
+    const repository = fs.realpathSync(
+      fileURLToPath(new URL("../../../", import.meta.url)),
+    );
+    const expectedParent = path.join(repository, ".crdd", "tests");
+    const provider = /^executor-real-(codex|claude)-[A-Za-z0-9-]{8,64}$/u.exec(
+      path.basename(root),
+    )?.[1];
+    if (
+      !provider ||
+      path.dirname(root).toLowerCase() !== expectedParent.toLowerCase() ||
+      fs.realpathSync(root).toLowerCase() !== root.toLowerCase() ||
+      result.recoveryId?.split(".")[2] !== digest(root)
+    )
+      return false;
+    const names = fs.readdirSync(root);
+    const files = names
+      .filter((name) => /^event-[0-9]{3}\.json$/u.test(name))
+      .sort();
+    const allowed = new Set([
+      ...files,
+      ...files.map((name) => `${name}.crdd-commit.json`),
+      "tmp",
+      "management",
+    ]);
+    if (
+      !files.length ||
+      files.length > 100 ||
+      names.length !== files.length * 2 + 2 ||
+      names.some((name) => !allowed.has(name))
+    )
+      return false;
+    let operationId: string | null = null;
+    const kinds: string[] = [];
+    for (const [i, name] of files.entries()) {
+      if (name !== `event-${String(i + 1).padStart(3, "0")}.json`) return false;
+      for (const file of [name, `${name}.crdd-commit.json`]) {
+        const stat = fs.lstatSync(path.join(root, file));
+        if (
+          !stat.isFile() ||
+          stat.isSymbolicLink() ||
+          stat.nlink !== 1 ||
+          stat.size > 32 * 1024
+        )
+          return false;
+      }
+      const record = readCommittedJson(path.join(root, name), name).value;
+      if (!record || typeof record !== "object") return false;
+      const v = record as Record<string, unknown>;
+      if (
+        typeof v.operationId !== "string" ||
+        !/^OP-[A-Z0-9-]{6,80}$/u.test(v.operationId) ||
+        v.recoveryId !== result.recoveryId ||
+        v.sequence !== i + 1 ||
+        typeof v.recordedAt !== "string" ||
+        !Number.isFinite(Date.parse(v.recordedAt)) ||
+        v.provider !== provider ||
+        typeof v.kind !== "string"
+      )
+        return false;
+      operationId ??= v.operationId;
+      if (v.operationId !== operationId) return false;
+      kinds.push(v.kind);
+      const fixed = [
+        "kind",
+        "recordedAt",
+        "operationId",
+        "provider",
+        "recoveryId",
+        "sequence",
+      ];
+      const fields: Record<string, string[]> = {
+        recovery_opened: [],
+        recovery_handoff: [],
+        submission_planned: ["purpose"],
+        receipt_recorded: ["purpose", "dockerId"],
+        resource_not_issued: ["purpose"],
+        provider_submission: [],
+        absence_observed: ["resources"],
+        home_release_requested: [],
+        home_released: [],
+        mount_recorded: [],
+        recovery_closed: [],
+        terminal_received: ["status", "reason", "resultSha256", "resultBytes"],
+      };
+      if (
+        !Object.hasOwn(fields, v.kind) ||
+        Object.keys(v).sort().join(",") !==
+          [...fixed, ...(fields[v.kind] ?? [])].sort().join(",")
+      )
+        return false;
+      const purposes = [
+        "create_provider",
+        "create_proxy",
+        "create_subscription_auth_probe",
+        "create_internal_network",
+        "create_egress_network",
+      ];
+      if (
+        [
+          "submission_planned",
+          "receipt_recorded",
+          "resource_not_issued",
+        ].includes(v.kind) &&
+        !purposes.includes(String(v.purpose))
+      )
+        return false;
+      if (
+        v.kind === "receipt_recorded" &&
+        (typeof v.dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(v.dockerId))
+      )
+        return false;
+      if (v.kind === "absence_observed") {
+        if (
+          !Array.isArray(v.resources) ||
+          v.resources.length !== 5 ||
+          new Set(v.resources.map((r) => r?.purpose)).size !== 5 ||
+          v.resources.some(
+            (r) =>
+              !r ||
+              Object.keys(r).sort().join(",") !==
+                ["purpose", "plannedResourceName", "dockerId", "observation"]
+                  .sort()
+                  .join(",") ||
+              !purposes.includes(r.purpose) ||
+              typeof r.plannedResourceName !== "string" ||
+              !/^crdd-[a-z]+-[a-f0-9]{16}$/u.test(r.plannedResourceName) ||
+              !["absent", "not_requested"].includes(r.observation) ||
+              !(
+                r.dockerId === null ||
+                (typeof r.dockerId === "string" &&
+                  /^[a-f0-9]{64}$/u.test(r.dockerId))
+              ) ||
+              (r.observation === "not_requested" && r.dockerId !== null),
+          )
+        )
+          return false;
+      }
+      if (
+        v.kind === "terminal_received" &&
+        (v.status !== "completed" ||
+          v.resultSha256 !== result.resultSha256 ||
+          v.resultBytes !== result.resultBytes)
+      )
+        return false;
+    }
+    if (
+      kinds[0] !== "recovery_opened" ||
+      kinds[1] !== "recovery_handoff" ||
+      kinds.at(-1) !== "terminal_received" ||
+      !kinds.includes("recovery_closed") ||
+      !kinds.includes("home_released") ||
+      !kinds.includes("absence_observed")
+    )
+      return false;
+    if (
+      [
+        "recovery_opened",
+        "recovery_handoff",
+        "absence_observed",
+        "home_released",
+        "recovery_closed",
+        "terminal_received",
+      ].some((kind) => kinds.filter((value) => value === kind).length !== 1) ||
+      !(
+        kinds.indexOf("absence_observed") < kinds.indexOf("home_released") &&
+        kinds.indexOf("home_released") < kinds.indexOf("recovery_closed")
+      )
+    )
+      return false;
+    for (const name of ["tmp", "management"]) {
+      const p = path.join(root, name),
+        s = fs.lstatSync(p);
+      if (
+        !s.isDirectory() ||
+        s.isSymbolicLink() ||
+        fs.readdirSync(p).length !== 0
+      )
+        return false;
+    }
+    if (rootIdentity(root) !== identity) return false;
+    for (const name of files) removeCommittedJson(path.join(root, name), name);
+    for (const name of ["tmp", "management"])
+      fs.rmdirSync(path.join(root, name));
+    fs.rmdirSync(root);
+    return !fs.existsSync(root);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 同意確認後の一子だけを監督し、close後に限定清掃する。
+ * @responsibility 通信結果と子終了・記録・回収を別々に確認する。
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
+ * @input CLI引数。Providerとrun-id以外を受け付けない。
+ * @returns 表示済み有限結果に対応する終了値。
+ * @precondition 実行前に用途限定の人間承認を取得済み。
+ * @postcondition 実行・取消・終了不明で自動再送・強制清掃しない。
+ * @effect TTY確認、既存Reader一回、Node子一件、今回Rootの結果記録と限定清掃。
+ * @failure 不明時はexact Rootを表示し七日後を再評価時刻とする。
+ * @invariant 計画表示・同意不成立ではHome・Root・Docker・AI Effect零。
+ * @boundary 検証CLIのみ。製品Coordinatorには変更しない。
+ * @security 子stdout/stderrは常時drainし、本文を保持・表示しない。
+ * @concurrency 同じnonceの一結果と子closeを要求し、期限超過は取消して不明として保持する。
+ */
+export async function runStandaloneProviderTrialCli(args: readonly string[]) {
+  if (args[0] === "--describe" && args.length === 2) {
+    process.stdout.write(
+      `${JSON.stringify(describeStandaloneProviderTrial(args[1]))}\n`,
+    );
+    return 0;
+  }
+  if (
+    args[0] !== "--run" ||
+    args.length !== 3 ||
+    typeof args[2] !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9-]{7,63}$/u.test(args[2])
+  )
+    throw Error("usage_describe_provider_or_run_provider_runid");
+  const spec = describeStandaloneProviderTrial(args[1]),
+    runId = args[2];
+  if (!process.stdin.isTTY || !process.stdout.isTTY)
+    throw Error("trial_tty_required");
+  const repository = fs.realpathSync(
+    fileURLToPath(new URL("../../../", import.meta.url)),
+  );
+  const root = path.join(
+    repository,
+    ".crdd",
+    "tests",
+    `executor-real-${spec.provider}-${runId}`,
+  );
+  if (fs.existsSync(root)) throw Error("trial_root_already_exists");
+  const challenge = String(randomInt(100000, 1000000));
+  const cancellation = new AbortController();
+  const abort = () => cancellation.abort();
+  process.once("SIGINT", abort);
+  try {
+    await new Promise<void>((resolve, reject) =>
+      process.stdout.write(
+        "外部AI送信・Docker隔離を使う合成読取り一回の確認です。既存Provider Homeをmountします。Repository／Workspaceは共有しません。tools／sessionは無効です。\n" +
+          JSON.stringify(spec) +
+          "\n許可する場合だけ、この端末に " +
+          challenge +
+          " を入力してください。コードはチャットへ貼らないでください。\n",
+        (error) => (error ? reject(error) : resolve()),
+      ),
+    );
+    const consent = await readConfirmationCodeOutcome(0, cancellation.signal);
+    if (
+      consent.status !== "completed" ||
+      consent.line !== challenge ||
+      cancellation.signal.aborted
+    ) {
+      process.stdout.write(
+        `${JSON.stringify({
+          status: "blocked",
+          reason: "trial_consent_unconfirmed",
+          effectIssued: false,
+        })}\n`,
+      );
+      return 2;
+    }
+    const git = spawnSync(
+      "git",
+      ["-C", path.dirname(script), "rev-parse", "--show-toplevel"],
+      { encoding: "utf8", timeout: 15000, windowsHide: true },
+    );
+    if (
+      git.error ||
+      git.signal ||
+      git.status !== 0 ||
+      fs.realpathSync(git.stdout.trim()).toLowerCase() !==
+        repository.toLowerCase()
+    )
+      throw Error("trial_repository_invalid");
+    const nonce = randomBytes(32).toString("hex"),
+      specHash = digest(JSON.stringify(spec));
+    const environment: Record<string, string> = {};
+    for (const name of [
+      "SystemRoot",
+      "WINDIR",
+      "LOCALAPPDATA",
+      "USERPROFILE",
+    ]) {
+      const value = process.env[name];
+      if (value) environment[name] = value;
+    }
+    const child = fork(script, ["--worker", nonce], {
+      cwd: repository,
+      env: environment,
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+    });
+    let identity: string | null = null,
+      result: TrialResult | null = null,
+      protocolFailure = false,
+      resultCount = 0,
+      outputSeen = false,
+      cancelSent = false,
+      closeObserved = false,
+      recoveryAckIssued = false,
+      recoveryAcknowledged = false;
+    let knownRecoveryId: string | null = null;
+    const sendCancel = () => {
+      if (!cancelSent && child.connected) {
+        cancelSent = true;
+        child.send({ kind: "cancel", nonce }, () => {});
+      }
+    };
+    cancellation.signal.addEventListener("abort", sendCancel);
+    child.stdout?.on("data", (chunk) => {
+      if (chunk.length) outputSeen = true;
+    });
+    child.stderr?.on("data", () => {});
+    const closed = await new Promise<boolean>((resolve) => {
+      const contract = describeDockerProcessControllerContract();
+      let graceTimer: ReturnType<typeof setTimeout> | null = null;
+      let ackSettled = false,
+        closeSucceeded = false;
+      const settle = () => {
+        if (!closeObserved || (recoveryAckIssued && !ackSettled)) return;
+        clearTimeout(timer);
+        if (graceTimer) clearTimeout(graceTimer);
+        resolve(closeSucceeded);
+      };
+      const timer = setTimeout(
+        () => {
+          protocolFailure = true;
+          sendCancel();
+          graceTimer = setTimeout(() => {
+            if (child.connected) child.disconnect();
+            child.unref();
+            child.stdout?.destroy();
+            child.stderr?.destroy();
+            resolve(false);
+          }, contract.cancellationGraceMs);
+        },
+        contract.providerTimeoutMs +
+          contract.setupTimeoutMs * (9 + 5 * 8 + 2) +
+          contract.cancellationGraceMs * 2,
+      );
+      child.on("message", (raw: unknown) => {
+        if (!raw || typeof raw !== "object") {
+          protocolFailure = true;
+          sendCancel();
+          return;
+        }
+        const v = raw as Record<string, unknown>;
+        if (v.nonce !== nonce) {
+          protocolFailure = true;
+          sendCancel();
+          return;
+        }
+        if (
+          v.kind === "recovery" &&
+          Object.keys(v).length === 3 &&
+          identity !== null &&
+          knownRecoveryId === null &&
+          typeof v.recoveryId === "string" &&
+          /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+            v.recoveryId,
+          ) &&
+          v.recoveryId.split(".")[2] === digest(root)
+        ) {
+          knownRecoveryId = v.recoveryId;
+          recoveryAckIssued = true;
+          child.send({ kind: "recovery_ack", nonce }, (error) => {
+            ackSettled = true;
+            if (error) {
+              protocolFailure = true;
+              sendCancel();
+            } else recoveryAcknowledged = true;
+            settle();
+          });
+          return;
+        }
+        if (
+          v.kind === "root" &&
+          Object.keys(v).length === 2 &&
+          identity === null
+        ) {
+          try {
+            identity = rootIdentity(root);
+            child.send({ kind: "root_ack", nonce }, () => {});
+          } catch {
+            protocolFailure = true;
+            sendCancel();
+          }
+          return;
+        }
+        if (
+          v.kind === "result" &&
+          Object.keys(v).length === 3 &&
+          identity !== null &&
+          resultCount++ === 0
+        ) {
+          result = trialResult(v.result);
+          if (
+            !result ||
+            !recoveryAckIssued ||
+            knownRecoveryId === null ||
+            result.recoveryId !== knownRecoveryId
+          ) {
+            protocolFailure = true;
+            sendCancel();
+          }
+          return;
+        }
+        protocolFailure = true;
+        sendCancel();
+      });
+      child.once("error", () => {
+        protocolFailure = true;
+      });
+      child.once("close", (code, signal) => {
+        closeObserved = true;
+        closeSucceeded = signal === null && code === 0;
+        settle();
+      });
+      child.once("spawn", () =>
+        child.send(
+          { kind: "run", nonce, provider: spec.provider, runId, specHash },
+          (error) => {
+            if (error) {
+              protocolFailure = true;
+              sendCancel();
+            }
+          },
+        ),
+      );
+    });
+    cancellation.signal.removeEventListener("abort", sendCancel);
+    const finalResult = result as TrialResult | null;
+    if (closeObserved && identity !== null && knownRecoveryId === null) {
+      try {
+        if (rootIdentity(root) !== identity) throw Error("trial_root_changed");
+        const saved = readCommittedJson(
+          path.join(root, "event-001.json"),
+          "event-001.json",
+        ).value;
+        if (saved && typeof saved === "object") {
+          const v = saved as Record<string, unknown>;
+          if (
+            v.kind === "recovery_opened" &&
+            typeof v.recoveryId === "string" &&
+            /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+              v.recoveryId,
+            ) &&
+            v.recoveryId.split(".")[2] === digest(root)
+          )
+            knownRecoveryId = v.recoveryId;
+        }
+      } catch {}
+    }
+    const clean =
+      closed &&
+      !cancellation.signal.aborted &&
+      !cancelSent &&
+      !protocolFailure &&
+      recoveryAcknowledged &&
+      !outputSeen &&
+      resultCount === 1 &&
+      finalResult !== null &&
+      identity !== null &&
+      cleanupStandaloneTrialRoot(root, identity, finalResult);
+    const reviewAfter = new Date(Date.now() + 7 * 86400_000).toISOString();
+    let retentionRecordConfirmed = false;
+    if (!clean && identity !== null && closeObserved) {
+      try {
+        if (rootIdentity(root) !== identity) throw Error("trial_root_changed");
+        const value = {
+          contract: "crdd/executor/trial-outcome/v1",
+          provider: spec.provider,
+          runId,
+          reviewAfter,
+          childCloseConfirmed: closed,
+          childCloseObserved: closeObserved,
+          recoveryId: knownRecoveryId,
+          protocolFailure,
+          unexpectedStdout: outputSeen,
+          result: finalResult,
+        };
+        const written = writeCommittedJson(root, "outcome.json", runId, value);
+        const read = readCommittedJson(written.target, runId);
+        retentionRecordConfirmed =
+          read.hash === written.hash &&
+          JSON.stringify(read.value) === JSON.stringify(value);
+      } catch {
+        retentionRecordConfirmed = false;
+      }
+    }
+    process.stdout.write(
+      `${JSON.stringify({
+        status: clean ? "completed" : "blocked",
+        reason: clean
+          ? null
+          : (finalResult?.reason ??
+            (cancellation.signal.aborted
+              ? "trial_cancelled"
+              : "trial_completion_unconfirmed")),
+        provider: spec.provider,
+        runId,
+        childCloseConfirmed: closed,
+        childCloseObserved: closeObserved,
+        recoveryId: knownRecoveryId,
+        result: finalResult,
+        fixtureCleanupConfirmed: clean,
+        fixtureRoot: clean ? null : root,
+        reviewAfter: clean ? null : reviewAfter,
+        retentionRecordConfirmed,
+      })}\n`,
+    );
+    return clean ? 0 : 2;
+  } finally {
+    process.removeListener("SIGINT", abort);
+  }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === script) {
+  if (process.argv[2] === "--worker") {
+    const nonce = process.argv[3];
+    if (
+      !process.send ||
+      !process.connected ||
+      process.argv.length !== 4 ||
+      !nonce ||
+      !/^[a-f0-9]{64}$/u.test(nonce)
+    )
+      throw Error("trial_worker_parent_required");
+    const controller = new AbortController();
+    let received = false,
+      ack: (() => void) | null = null,
+      expectedAck: string | null = null;
+    process.on("disconnect", () => controller.abort());
+    process.on("message", (raw: unknown) => {
+      if (!raw || typeof raw !== "object") {
+        controller.abort();
+        return;
+      }
+      const value = raw as Record<string, unknown>;
+      if (value.nonce !== nonce) {
+        controller.abort();
+        return;
+      }
+      if (value.kind === "cancel" && Object.keys(value).length === 2) {
+        controller.abort();
+        return;
+      }
+      if (
+        value.kind === expectedAck &&
+        Object.keys(value).length === 2 &&
+        ack
+      ) {
+        const ready = ack;
+        ack = null;
+        expectedAck = null;
+        ready();
+        return;
+      }
+      if (received || value.kind !== "run" || Object.keys(value).length !== 5) {
+        controller.abort();
+        return;
+      }
+      received = true;
+      void (async () => {
+        const spec = describeStandaloneProviderTrial(value.provider);
+        if (
+          value.specHash !== digest(JSON.stringify(spec)) ||
+          controller.signal.aborted
+        )
+          throw Error("trial_worker_request_invalid");
+        const result = await runStandaloneProviderTrial(
+          value.provider,
+          value.runId,
+          controller.signal,
+          async () => {
+            await new Promise<void>((resolve, reject) => {
+              ack = resolve;
+              expectedAck = "root_ack";
+              controller.signal.addEventListener(
+                "abort",
+                () => reject(Error("trial_root_ack_cancelled")),
+                { once: true },
+              );
+              process.send?.({ kind: "root", nonce }, (error: Error | null) => {
+                if (error) reject(error);
+              });
+            });
+          },
+          async (recoveryId) => {
+            await new Promise<void>((resolve, reject) => {
+              if (controller.signal.aborted) {
+                reject(Error("trial_recovery_ack_cancelled"));
+                return;
+              }
+              expectedAck = "recovery_ack";
+              ack = resolve;
+              const abort = () => reject(Error("trial_recovery_ack_cancelled"));
+              controller.signal.addEventListener("abort", abort, {
+                once: true,
+              });
+              process.send?.(
+                { kind: "recovery", nonce, recoveryId },
+                (error: Error | null) => {
+                  if (error) reject(error);
+                },
+              );
+            });
+          },
+        );
+        await new Promise<void>((resolve, reject) =>
+          process.send?.(
+            { kind: "result", nonce, result },
+            (error: Error | null) => (error ? reject(error) : resolve()),
+          ),
+        );
+      })()
+        .catch(() => {
+          process.exitCode = 2;
+        })
+        .finally(() => {
+          if (process.connected) process.disconnect();
+        });
+    });
+  } else {
+    try {
+      process.exitCode = await runStandaloneProviderTrialCli(
+        process.argv.slice(2),
+      );
+    } catch {
+      process.stdout.write(
+        `${JSON.stringify({
+          status: "blocked",
+          reason: "trial_entry_failed_closed",
+        })}\n`,
+      );
+      process.exitCode = 2;
+    }
+  }
+}

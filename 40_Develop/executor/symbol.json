@@ -100,6 +100,22 @@
       "verifies": []
     },
     {
+      "symbolId": "executor.verification.provider-real",
+      "kind": "verification-tool",
+      "path": "scripts/verify-provider-real.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "verifies": []
+    },
+    {
+      "symbolId": "executor.test.integration.provider-real-cli",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-real-cli.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "verifies": ["executor.verification.provider-real"]
+    },
+    {
       "symbolId": "executor.verification.attempt-host",
       "kind": "verification-tool",
       "path": "scripts/provider-attempt-host.ts",

@@ -36,7 +36,7 @@ import {
  * @security 名前をcheckpoint又は公開結果へ保存しない。
  * @concurrency N/A: 同期の局所計算だけ。
  */
-function homePipeName(hash: string) {
+export function homePipeName(hash: string) {
   if (!/^[0-9a-f]{64}$/u.test(hash)) throw new Error("home_hash_invalid");
   const identity = createHash("sha256")
     .update("crdd-logical-provider-home-kernel-lock-v1\0")

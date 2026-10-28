@@ -8,6 +8,8 @@
 
 単段試験Hostは実確定JSONと既存Executorを用い、下位DIと同期Leaseだけを代役化する。Effect前の回復記録・同ID引渡し、五資源の提出／Receipt相関、通知中だけの元参照照合、清掃後の一回解放、元終端だけの保存を検査する。正常・取消・清掃不明・排他喪失・解放拒否／例外・回復開始／Provider通知／不存在／終端保存拒否を負例とし、実Worker終了・Home観測・本番保存・Host喪失回復の成立へ拡張しない。
 
+実試験CLIは純粋計画・非TTY拒否、子内の固定助言計画／Home差替え／取消join／取得解放不明、親の同意不成立／別nonce／重複結果／非零close／stdout混入／close不明を分けて検査する。Native・Lease・Host又はforkを用途別に代役化し、実確定JSONの清掃拒否を確認する。取消後の遅延close・結果喪失・取消と成功の競合・切断済み子も反例とし、元回復参照とclose未観測時のRoot無変更を確認する。Coordinatorの静的依存を混入させた変異を先行hookで拒否し、実IPC子では不正計画と開始前取消をHome／Root作成前に拒否する。fork代役によるclose試験は実Provider子の終了確認ではなく、実境界の検証義務を残す。実送信時は表示された合成入力・Model・固定Source・一回上限と当該Rootの回収までを別途承認する。
+
 再実行入口は`executor/scripts/verify-provider-attempt.ts`とし、既存ITから同じ関数を呼ぶ。import時の書込み・Process生成零、専用fixture排他取得後だけの同期保存Gate、確定JSONのIdentity・Hash・本文読戻し、不正／コピー／失効／Gate例外時の保存零、排他解放後の再取得、全子終了後の確認・通常清掃を検査する。本番共有Home／Host排他・認証・Runtime state保存の代用とはしない。
 
 [Executor詳細](../06_Architecture/Details/executor/01_Architecture.md)を既存ERB-IT-002／004へ接続する。準備二Mapと観測二Mapは新Owner内へ移し、元通知の同期登録・失効、元result借用と候補／本番交差拒否を確認する。独立子ProcessのCoordinator解決拒否と不正開始のEffect零、Coordinator既存の編集→レビュー→是正→再レビュー・取消・Owner喪失を別々のOracleで確認する。単独の候補生涯と、本番Factoryの配線・実計画投影は有限代役で別構成として検査し、正常・取消join・清掃不明・通知保存例外の元参照を照合する。Module代役下の配線確認を、本番Docker Runtime内部・耐久保存・実資源不存在・Host喪失の成立へ換算しない。Domainのcodec・Writer・CAS・schema・hash領域は変更しない。実Docker・外部AI・過去保持物は対象外。非AI結果をL3／L5又は全体QAのPassへ昇格しない。
