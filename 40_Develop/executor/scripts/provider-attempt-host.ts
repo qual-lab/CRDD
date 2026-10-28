@@ -298,7 +298,8 @@ export function createStandaloneProviderAttemptHost(
       receipts[key].submitted = true;
       return true;
     },
-    recordResourceReceipt: (r, purpose, id) => {
+    recordResourceReceipt: (r, purpose, rawId) => {
+      const id = typeof rawId === "string" ? rawId.trim() : "";
       if (
         r !== recovery ||
         !Object.hasOwn(expected, purpose) ||

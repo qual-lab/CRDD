@@ -389,6 +389,24 @@ Platform Accessの無出力Lock Workerだけ、親側stdioをresumeからdestroy
 
 最終候補の非AI回帰はExecutor一実行十四件、Platform Access一実行138件がすべて成功した。両Packageの整形・型・警告を失敗とするLint、Catalog417件の検査も成功。試験Hostの十三条件、CLI子の十条件、親の二十二条件は各Case内の反例であり、独立Case件数へ水増ししない。独立再レビューは残指摘零。更新四文書・両Package対象の文書指摘は零で、参照展開七十二文書の既存3,131指摘による全体不合格は残す。今回の是正は非AI限定完了であり、実auth createの一次故障確定、再送成功、保持Container／Root回収又は全体QA完了ではない。現在、この最小是正の範囲で新たな人間判断はない。再送・保持物処置は別の明示判断とする。
 
+#### 修正版Codex単段一回の受領停止 — 2026-10-29
+
+人間の追加承認に従い、固定`26953699203d902eb6696eb4585aa7f693042565`、同じ合成入力・Codex `gpt-6.1-sol` medium・固定Imageで`EXEC-20261028-02`を一回だけ実行した。Engine・二固定Image・稼働Container零を事前に確認し、新品Rootを使用した。通常の端末同意後、終了値二、`blocked / docker_process_controller_cleanup_unconfirmed`。Claude・再送・Docker再起動・Image更新・過去保持物操作はしていない。
+
+今回は子の`closeConfirmed/closeObserved`がともにtrue、非秘密結果の保存確認もtrueだった。一次故障は`create_subscription_auth_probe`の`resource_receipt_record / docker_resource_receipt_unavailable`、Handle取得・応答観測はtrue、Receipt保存false。Docker応答は終了零・stdout65byte・stderr零で、Provider本体開始の観測false、助言結果なし。元回復参照は`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.b330e6ca77e38a120132e4d371c7d90021b12a214d6240ec789432fc2e51c37e.1ac5f92f5f7643e8eb8b69abe4609fbf3a5df687f6feb38aa2653c0c6214272c`で保持する。Root `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261028-02`は書き換えず保持し、再評価時刻は2026-11-04T14:58:31.859Z。過去の試験結果を今回成功へ書き換えない。
+
+Source照合で、DIは作成stdoutをそのままReceipt callbackへ渡し、本番Coordinatorは`rawDockerId.trim()`後に64hex検査する一方、新試験Hostは生文字列を直接64hex検査していた。実callback本文を使ったメモリ内の非AI反証で、64byteは受理・書込み一回、LF付き65byte及びCRLF付き66byteは拒否・書込み零となった。今回の65byte応答・受領段階拒否と一致し、試験Hostの改行正規化欠落を原因として特定する。生Docker応答を保存・表示しておらず、過去01試験の直接原因までは同一と断定しない。最小是正は既存本番の正規化へ試験Hostを揃え、正常fixtureを改行付き応答へ追従させることであり、DIや本番受付の安全判定・期限を変える必要はない。実装はこの結果記録時点で未実施。
+
+今回の予定記録には`crdd-auth-635e3f731c491fd4`と所有labelがあり、実ID `3daf7e0772fb93b04b33c7c5a6892c8cd9d61ff2e378012903b71e0a3cebab6d`の現在構成・固定Image・作成時刻・未起動PID零・Network none・Home読取り専用・再起動なしとの一致を確認できた。試験Node零、同labelの専用Network零も確認した。回収前の初回照合はPowerShellの日時自動型変換で文字列比較が不一致となり、削除前に停止した。値と型を確認し、DateTimeの最小値を未起動として同じ全条件を再照合した後、承認済み今回資源だけを実ID・forceなしで削除した。実IDとexact名の双方の不存在を確認済み。Root・旧Container等は不変更。この物理回収を元の技術履歴のcleanup成功や排他解放確認へ遡及変換しない。
+
+#### 試験Receiptの改行正規化 — 2026-10-29
+
+人間の指示に従い、単段試験HostのReceipt callbackだけを、本番Coordinatorと同じ`typeof rawId === "string" ? rawId.trim() : ""`の後に既存64hex検査を行う形へ揃えた。新しい共通Parser・API・State・Recoveryは追加せず、DI・本番Coordinator・保存guard・Timeout・命名・回収許可は変更しない。
+
+既存Host結合の通常応答をLF付きへ変更し、裸IDとCRLF付き正常応答、短いID・複数ID・途中改行・非16進文字・大文字・空値の拒否を追加した。保存Receiptは五用途とも正規化済み64桁、拒否時はReceipt保存零・認証Probe以降の未発行・同回復参照保持を照合する。既存十三条件と合わせて一Case内二十一条件であり、独立Case件数とは分ける。実AI・Docker照会／操作・実Home・保持Rootは操作していない。
+
+独立確認のMinor一件に従い、不正Receipt六条件すべてで結果の回復IDと開始時の元IDを直接比較するassertを追加した。最終候補のExecutor全回帰は一実行十四件成功・不合格零・取消零、整形・型・警告を失敗とするLintも成功。再レビューは残指摘零。対象三文書・Executorの文書指摘は零で、参照展開五十七文書の既存3,050指摘による全体不合格は維持する。実AI成功・過去試験の解消・保持Root回収をこの非AI結果から主張せず、再送は別の明示承認後とする。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。
