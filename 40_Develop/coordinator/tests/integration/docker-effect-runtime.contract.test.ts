@@ -14,7 +14,7 @@ import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashProviderAdviceCommand } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../src/selection/validation.ts";
+import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
 import path from "node:path";

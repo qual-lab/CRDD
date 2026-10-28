@@ -17,7 +17,7 @@ import {
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../../../src/execution/process-safety-state.ts";
 
-import { hashExecutionSelection } from "../../../src/selection/validation.ts";
+import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import {

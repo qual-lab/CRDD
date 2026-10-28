@@ -59,7 +59,7 @@ import {
 import {
   hashExecutionSelection,
   inspectAiSelectionChoice,
-} from "../selection/validation.ts";
+} from "../../../domain-model/src/index.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";

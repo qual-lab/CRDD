@@ -3433,6 +3433,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "domain-model:unit:ai-selection:validation",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/ai-selection/validation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["ai-selection", "validation", "content-identity", "core-independence"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["invalid_stored_selection_rejected", "input_snapshot_immutable", "selection_identity_preserved", "coordinator_not_loaded", "provider_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:selection:resolve",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/selection/resolve.contract.test.ts",

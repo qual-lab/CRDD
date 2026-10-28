@@ -71,7 +71,6 @@ export function authenticateProvider(
 export type { ExecutionSelection } from "../../domain-model/src/index.ts";
 export type { SingleTaskCommand } from "./task/requests.ts";
 
-export { inspectAiSelectionChoice } from "./selection/validation.ts";
 export {
   openTaskSession,
   runTask,

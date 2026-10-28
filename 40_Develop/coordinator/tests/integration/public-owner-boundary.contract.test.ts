@@ -423,7 +423,6 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "getAuthenticationStatus",
     "getCapabilities",
     "initializeProject",
-    "inspectAiSelectionChoice",
     "inspectCoordinatorDecisionRequest",
     "inspectCoordinatorObjectiveRequest",
     "inspectCoordinatorStateQuery",

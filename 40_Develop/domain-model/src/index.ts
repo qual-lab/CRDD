@@ -43,6 +43,8 @@ export type {
 export {
   type AiSelectionConfigResult,
   inspectExecutionSelection,
+  inspectAiSelectionChoice,
+  hashExecutionSelection,
   inspectTaskExecutionSelections,
   validateAiSelectionConfig,
 } from "./ai-selection/validation.ts";

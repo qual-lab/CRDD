@@ -16,7 +16,7 @@ import {
   type CoordinatorObjectivePlan,
   type CallerTaskInput,
 } from "../../../domain-model/src/index.ts";
-import { inspectAiSelectionChoice } from "../selection/validation.ts";
+import { inspectAiSelectionChoice } from "../../../domain-model/src/index.ts";
 import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
 
 /**

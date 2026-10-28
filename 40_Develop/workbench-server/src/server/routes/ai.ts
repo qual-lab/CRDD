@@ -9,7 +9,7 @@
  * @security 要求前段の資格と現在認可を使用し、新しい保存状態・再送・回復処理を追加しない。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { inspectAiSelectionChoice } from "../../../../coordinator/src/index.ts";
+import { inspectAiSelectionChoice } from "../../../../domain-model/src/index.ts";
 import { parseUnambiguousJsonDocument } from "../../../../ai-adapter/src/index.ts";
 import type {
   WorkbenchAiRequestSnapshot,

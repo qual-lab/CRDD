@@ -54,7 +54,7 @@ import {
   describeDockerProviderExecutionLocations,
   planDockerAuthenticationCommands,
 } from "../../../docker-isolation/src/index.ts";
-import { hashExecutionSelection } from "../selection/validation.ts";
+import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 
 import fs from "node:fs";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";

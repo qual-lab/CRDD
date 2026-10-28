@@ -18,7 +18,7 @@ import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
-import { hashExecutionSelection } from "../../../src/selection/validation.ts";
+import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 
 /**
  * 編集と独立レビューを同じ受付時設定へ固定する。

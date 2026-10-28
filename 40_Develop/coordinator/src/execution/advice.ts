@@ -9,7 +9,7 @@ import {
   inspectExecutionSelection,
   type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
-import { hashExecutionSelection } from "../selection/validation.ts";
+import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 
 import {
   type ProviderAdviceExecutionPlan,

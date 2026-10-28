@@ -10,7 +10,6 @@ export {
   type AuthenticationRequest,
   type ExecutionSelection,
   type SingleTaskCommand,
-  inspectAiSelectionChoice,
   openTaskSession,
   runTask,
   inspectSingleTaskCommand,

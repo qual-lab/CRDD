@@ -166,6 +166,14 @@
       "archIds": ["ARCH-000004", "ARCH-000008"]
     },
     {
+      "symbolId": "domain-model.test.unit.ai-selection.validation",
+      "kind": "test-suite",
+      "path": "tests/unit/ai-selection/validation.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-UT-001"],
+      "verifies": ["domain-model.ai-selection.validation"]
+    },
+    {
       "symbolId": "coordinator.source.src.security.secret.material.policy",
       "kind": "file",
       "path": "src/plain-data/secret-validation.ts",

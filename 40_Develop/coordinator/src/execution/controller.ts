@@ -53,7 +53,7 @@ import {
   checkpointRuntimeOwnedCoordinatorHost,
   readRuntimeOwnedCoordinatorStateSnapshot,
 } from "../execution/persistence.ts";
-import { hashExecutionSelection } from "../selection/validation.ts";
+import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,

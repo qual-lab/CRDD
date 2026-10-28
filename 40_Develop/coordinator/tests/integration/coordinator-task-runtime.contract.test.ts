@@ -44,7 +44,7 @@ import {
   executionSelection as createExecutionSelection,
   type executionSelection,
 } from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../src/selection/validation.ts";
+import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {

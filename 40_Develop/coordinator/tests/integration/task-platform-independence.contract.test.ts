@@ -133,7 +133,6 @@ const SOURCE_ROLES = {
     "task/lifecycle.ts",
     "task/acceptance.ts",
     "task/recovery.ts",
-    "selection/validation.ts",
   ],
   workflow: [
     "state/retirement.ts",
@@ -500,6 +499,7 @@ function assertPureImportEdges(
             "CoordinatorState",
           ],
           "objective/request.ts": [
+            "inspectAiSelectionChoice",
             "AiSelectionChoice",
             "CallerTaskInput",
             "CoordinatorObjectivePlan",
@@ -538,11 +538,6 @@ function assertPureImportEdges(
             "decodeProjectResultAcceptance",
           ],
           "task/recovery.ts": ["CoordinatorState", "ProjectTaskRecoveryKind"],
-          "selection/validation.ts": [
-            "AiSelectionChoice",
-            "inspectExecutionSelection",
-            "snapshotPlainRecord",
-          ],
         };
         return (
           allowed[module.slice(SOURCE_PREFIX.length)]?.includes(name) === true
@@ -746,10 +741,10 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
   const snapshotEdge = {
     specifier: "../../../domain-model/src/index.ts",
     typeOnly: false,
-    names: ["snapshotPlainRecord"],
+    names: ["inspectAiSelectionChoice"],
   };
   assert.doesNotThrow(() =>
-    assertPureImportEdges(`${SOURCE_PREFIX}selection/validation.ts`, {
+    assertPureImportEdges(`${SOURCE_PREFIX}objective/request.ts`, {
       isConsistent: true,
       edges: [snapshotEdge],
     }),
@@ -761,7 +756,7 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
   ])
     assert.throws(
       () =>
-        assertPureImportEdges(`${SOURCE_PREFIX}selection/validation.ts`, {
+        assertPureImportEdges(`${SOURCE_PREFIX}objective/request.ts`, {
           isConsistent: true,
           edges: [{ ...snapshotEdge, names }],
         }),

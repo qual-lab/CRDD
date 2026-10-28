@@ -58,14 +58,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.selection.validation",
-      "kind": "file",
-      "path": "src/selection/validation.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "coordinator.selection.resolve",
       "kind": "file",
       "path": "src/selection/resolve.ts",
@@ -85,7 +77,7 @@
       ],
       "verifies": [
         "coordinator.selection.types",
-        "coordinator.selection.validation",
+        "domain-model.ai-selection.validation",
         "coordinator.selection.resolve"
       ]
     },
@@ -4334,7 +4326,7 @@
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.source.src.public.contract.objective.request",
         "coordinator.selection.types",
-        "coordinator.selection.validation",
+        "domain-model.ai-selection.validation",
         "coordinator.selection.resolve"
       ]
     },

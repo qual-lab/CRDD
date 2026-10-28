@@ -363,6 +363,8 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 
 以下を現在の配置とする。後続の段落は段階移管時の記録であり、各時点の「未移管」を現在の配置へ読み替えない。
 
+明示選択の`inspectAiSelectionChoice`と固定選定の`hashExecutionSelection`は`ai-selection/validation.ts`へ集約する。Domainの既存`AiSelectionChoice`で型を閉じ、現在Catalog・認証・利用可能性・実行Authorityは検査しない。既存の閉形式拒否・Getter／Proxy非実行・Hash byteを維持し、CoordinatorとWorkbenchはDomain Root APIから利用する。この純粋検査の独立成立だけをCore全体の単独成立とは扱わない。
+
 | 実体 | Ownerと入力境界 |
 |---|---|
 | 単一SnapshotのReader／Writer・CAS・pending再入場・出版読戻し | Domain `storage/runtime-store.ts`。技術保存の固定入口はVersion Controlの真正な`VerifiedRepositoryRoot`を必須とし、生Path・構造偽造参照・互換overloadを受けない |

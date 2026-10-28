@@ -2745,7 +2745,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../src/selection/validation.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/controller.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
