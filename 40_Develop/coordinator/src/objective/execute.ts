@@ -23,10 +23,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import {
-  runCoordinatorSingleTaskAttempt,
-  snapshotCoordinatorWorkspaceResult,
-} from "../execution/controller.ts";
+import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
 import {
   createCoordinatorWindowsPlatformAdapter,
   writeCoordinatorRecoveryDiagnostic,
@@ -41,13 +38,10 @@ import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
 import { createCoordinatorState } from "../state/create.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
 import { projectCoordinatorState } from "../state/projection.ts";
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/result.ts";
+
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
-import {
-  COORDINATOR_MAXIMUM_TASKS,
-  deriveCoordinatorRepositoryBindingId,
-} from "../state/validation.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
 import {
   createCoordinatorExecutionHostPorts,
@@ -66,14 +60,8 @@ import type {
   CoordinatorTaskExecution,
 } from "../task/types.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import {
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  inspectCoordinatorObjectivePlan,
-} from "./plan.ts";
-import {
-  type CoordinatorObjectiveRequest,
-  inspectCoordinatorObjectiveRequest,
-} from "./request.ts";
+import { inspectCoordinatorObjectivePlan } from "./plan.ts";
+
 import type {
   CoordinatorObjectiveExecutionDependencies,
   CoordinatorObjectiveIntakeDependencies,
@@ -1664,68 +1652,6 @@ export function createCoordinatorObjectiveResult(
 }
 
 /**
- * Taskに結合したWorkspace観測を公開用の閉じた値へ写す。
- * @responsibility 試行相関・対象一致・欠測と観測不能を維持する。
- * @trace ARCH-000004
- * @input raw: 観測配列、expectedWorkspaceId: 要求対象（省略時も配列内の対象一致を検査）。
- * @returns 凍結した観測配列。不正又は重複はnull。
- * @precondition N/A: 外部由来のunknownを受ける。
- * @postcondition 元値の後続変更を公開結果へ搬送しない。
- * @effect N/A: 値検査と複製だけ。
- * @failure getter・Proxy・別対象・不明を空配列へ変換しない。
- * @invariant 変更観測は採用・Commit・Mergeの完了ではない。
- * @boundary Coordinator結果とWorkbench／MCPの公開投影。
- * @security 本文・絶対Path・Authorityを追加しない。
- * @concurrency 同期処理で共有状態を持たない。
- */
-export function inspectCoordinatorWorkspaceResults(
-  raw: unknown,
-  expectedWorkspaceId?: string | null,
-): NonNullable<CoordinatorExecutionResult["workspaceResults"]> | null {
-  const array = snapshotPlainArray(raw, COORDINATOR_MAXIMUM_TASKS);
-  if (array.status !== "ok" || array.value.length === 0) return null;
-  const entries: NonNullable<
-    CoordinatorExecutionResult["workspaceResults"]
-  >[number][] = [];
-  const attempts = new Set<string>();
-  const operations = new Set<string>();
-  let workspaceId = expectedWorkspaceId;
-  for (const value of array.value) {
-    const entry = snapshotPlainRecord(
-      value,
-      new Set(["taskId", "attemptId", "operationId", "result"] as const),
-    );
-    if (
-      !entry ||
-      !validId(entry.taskId) ||
-      !validId(entry.attemptId) ||
-      !validId(entry.operationId) ||
-      attempts.has(entry.attemptId) ||
-      operations.has(entry.operationId)
-    )
-      return null;
-    const result = snapshotCoordinatorWorkspaceResult(entry.result);
-    if (
-      !result ||
-      (workspaceId !== undefined && result.workspaceId !== workspaceId)
-    )
-      return null;
-    workspaceId = result.workspaceId;
-    attempts.add(entry.attemptId);
-    operations.add(entry.operationId);
-    entries.push(
-      Object.freeze({
-        taskId: entry.taskId,
-        attemptId: entry.attemptId,
-        operationId: entry.operationId,
-        result,
-      }),
-    );
-  }
-  return Object.freeze(entries);
-}
-
-/**
  * 公開Objectiveを既存のSingle Task入力へ変換する。
  *
  * @responsibility Coordinator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
@@ -2313,3 +2239,12 @@ export async function runCoordinatorObjective(
     });
   return result;
 }
+
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
+import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../../domain-model/src/index.ts";
+import {
+  type CoordinatorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+} from "../../../domain-model/src/index.ts";
+
+import { inspectCoordinatorWorkspaceResults } from "../../../domain-model/src/index.ts";

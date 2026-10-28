@@ -15,8 +15,6 @@ import test from "node:test";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
 
-import { inspectCoordinatorStateQuery } from "../../../src/state/request.ts";
-import { inspectCoordinatorStateQueryResult } from "../../../src/state/projection.ts";
 import { queryCoordinatorState } from "../../../src/state/query.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 
@@ -214,3 +212,6 @@ test("観測不能と既存Recovery義務をEffect発行と混同しない", () 
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.effectState, "no_effect");
 });
+
+import { inspectCoordinatorStateQuery } from "../../../../domain-model/src/index.ts";
+import { inspectCoordinatorStateQueryResult } from "../../../../domain-model/src/index.ts";

@@ -47,7 +47,6 @@
         "ARCH-000008"
       ]
     },
-
     {
       "symbolId": "coordinator.source.src.task.queue",
       "kind": "file",
@@ -413,7 +412,6 @@
         "ARCH-000008"
       ]
     },
-
     {
       "symbolId": "coordinator.test.integration.coordinator-state-runtime",
       "kind": "test-suite",
@@ -432,7 +430,6 @@
         "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
-
     {
       "symbolId": "coordinator.test.unit.host-observation",
       "kind": "test-suite",
@@ -2522,7 +2519,6 @@
         "coordinator.state-storage.coordinator-state-runtime"
       ]
     },
-
     {
       "symbolId": "coordinator.test.integration.current-recovery-resources",
       "kind": "test-suite",
@@ -3332,7 +3328,6 @@
         "coordinator.source.src.security.host.orphan.recovery.policy"
       ]
     },
-
     {
       "symbolId": "coordinator.tool.workspace-task-fixture",
       "kind": "file",
@@ -3697,9 +3692,6 @@
         "ARCH-000004"
       ]
     },
-
-
-
     {
       "symbolId": "orchestrator.storage.types",
       "kind": "file",
@@ -4149,14 +4141,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.source.src.public.contract.objective.request",
-      "kind": "file",
-      "path": "src/objective/request.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "orchestrator.source.src.public.contract.decision.request",
       "kind": "file",
       "path": "src/decision/request.ts",
@@ -4387,14 +4371,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.state.request",
-      "kind": "file",
-      "path": "src/state/request.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "coordinator.cli.authentication",
       "kind": "file",
       "path": "src/cli/authentication.ts",
@@ -4419,6 +4395,13 @@
         "ARCH-000004"
       ]
     },
-    {"symbolId":"coordinator.execution.persistence","kind":"file","path":"src/execution/persistence.ts","archIds":["ARCH-000008"]}
+    {
+      "symbolId": "coordinator.execution.persistence",
+      "kind": "file",
+      "path": "src/execution/persistence.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    }
   ]
 }

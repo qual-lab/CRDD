@@ -12,34 +12,6 @@ import { createHash } from "node:crypto";
 
 export const COORDINATOR_MAXIMUM_CONCURRENCY = 5;
 
-export const COORDINATOR_MAXIMUM_OBJECTIVES = 128;
-
-export const COORDINATOR_MAXIMUM_TASKS = 1024;
-
-export const PROJECT_OBJECTIVE_STATES = Object.freeze([
-  "planned",
-  "executing",
-  "integration_pending",
-  "accepted",
-  "returned",
-  "blocked",
-  "cancelled",
-] as const);
-
-export const PROJECT_TASK_STATES = Object.freeze([
-  "planned",
-  "waiting_dependency",
-  "ready",
-  "starting",
-  "running",
-  "cleanup_pending",
-  "completed",
-  "failed",
-  "cancelled",
-  "recovery_required",
-  "superseded",
-] as const);
-
 /**
  * Identityが有効か判定する。
  *

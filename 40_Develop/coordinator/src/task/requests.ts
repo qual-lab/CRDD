@@ -38,7 +38,6 @@ import { readExecutionCancellation } from "../execution/authority.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   runCoordinatorSingleTaskAttempt,
-  snapshotCoordinatorWorkspaceResult,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
 import { observeLeaseOwner } from "../execution/kernel-lock.ts";
@@ -51,7 +50,7 @@ import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
-import type { CoordinatorWorkspaceResult } from "../execution/result.ts";
+
 import {
   resolveExecutionSelection,
   resolveTaskExecutionSelections,
@@ -1581,3 +1580,6 @@ export async function runTask(
   }
   return Object.freeze(result);
 }
+
+import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";

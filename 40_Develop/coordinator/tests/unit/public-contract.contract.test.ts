@@ -12,13 +12,8 @@ import assert from "node:assert/strict";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
 
-import {
-  inspectCoordinatorDecisionRequest,
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-} from "../../src/decision/request.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import { isCoordinatorDecisionRecord } from "../../../domain-model/src/index.ts";
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/state/result.ts";
+
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
@@ -424,6 +419,13 @@ test("Objectiveの明示選択は不正形式・Accessor・Proxyを実行せず�
     null,
   );
 });
+
+import {
+  inspectCoordinatorDecisionRequest,
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+} from "../../../domain-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
 
 /**
  * Objective要求は未知field・accessor・ProxyをEffect前に拒否するを検証する。

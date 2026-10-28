@@ -21,17 +21,11 @@ import {
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
-import {
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  coordinatorDataBoundaryBlocked,
-} from "../state/result.ts";
+import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
-import {
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  inspectCoordinatorDecisionRequest,
-} from "./request.ts";
+
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./store.ts";
 import { applyCoordinatorHumanDecision } from "./transition.ts";
 import type {
@@ -1318,6 +1312,12 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
     },
   });
 }
+
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
+import {
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  inspectCoordinatorDecisionRequest,
+} from "../../../domain-model/src/index.ts";
 
 /**
  * 統合保存上の判断回復Storeを構築する。

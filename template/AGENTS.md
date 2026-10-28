@@ -157,6 +157,8 @@ Manifest、外部送信Policyおよび上記二つのTool設定は非秘密の�
 
 ## 工程実行と引き渡し
 
+MCPとWorkbenchの既定起動は基盤機能（Core）だけを構成する。単体MCPでCoordinator実行も提供する場合は`node 00_CRDD/template/tools/crdd-mcp-server.ts --automation --stdio`又は`--automation --http --port <port>`を使う。`--automation`は先頭に置き、`--cros`とは併用しない。Workbenchでは`--automation`を明示して既存AI操作を追加する。旧来のAI有効な起動設定はフロントAIが明示指定へ更新し、Core起動の成功をAI実行の成立と扱わない。
+
 課題探索・要求形成、UX、IA、UI、振る舞い仕様、アーキテクチャ、実装、検証を実行・監査する場合は、対象工程文書の工程契約を正本とする。入口、変換、必要な責務の網羅、出口、工程判定基準、監査チェックリストをプロンプト、作業手順、エージェント定義で再定義しない。
 
 各工程は、自身が所有する品質条件に対する検証義務と検証観点を育てる。検証項目をテストケースだけに限定せず、専門家レビュー、計測、分析、利用者評価等を対象に応じて使用する。品質保証成果物、専門品質確認、検証結果、現在の品質状態、Quality Centerは`00_CRDD/16_Quality_Assurance.md`を正本とする。

@@ -20,20 +20,11 @@ import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts"
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
 import { projectCoordinatorState } from "./projection.ts";
-import {
-  COORDINATOR_STATE_QUERY_CONTRACT,
-  inspectCoordinatorStateQuery,
-} from "./request.ts";
+
 import type { StoreResult } from "./result.ts";
-import {
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  coordinatorDataBoundaryBlocked,
-} from "./result.ts";
+import { coordinatorDataBoundaryBlocked } from "./result.ts";
 import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "./transaction.ts";
-import type {
-  CoordinatorStateQuery,
-  CoordinatorStateQueryResult,
-} from "./types.ts";
+
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 
 /**
@@ -316,3 +307,13 @@ export function readCurrentCoordinatorState(
     projectId,
   );
 }
+
+import {
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  inspectCoordinatorStateQuery,
+} from "../../../domain-model/src/index.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";
+import type {
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+} from "../../../domain-model/src/index.ts";

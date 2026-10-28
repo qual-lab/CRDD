@@ -5,8 +5,8 @@
  * @trace ARCH-000004
  */
 
-import { snapshotRuntimeStateRecord as snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import type { CoordinatorStateQuery } from "./types.ts";
+import { snapshotPlainRecord } from "./validation.ts";
+import type { CoordinatorStateQuery } from "./projection-types.ts";
 
 export const COORDINATOR_STATE_QUERY_CONTRACT =
   "crdd-coordinator/orchestrator-state-query/v1" as const;
@@ -33,7 +33,7 @@ const queryKeys = new Set([
  * @security N/A: validIdはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
  */
-export function validId(value: unknown): value is string {
+function validId(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
@@ -56,7 +56,7 @@ export function validId(value: unknown): value is string {
  * @security N/A: validRevisionはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: validRevisionは共有非同期状態を持たない同期処理である。
  */
-export function validRevision(value: unknown): value is string {
+function validRevision(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{40,64}$/u.test(value);
 }
 

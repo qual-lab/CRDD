@@ -2,6 +2,8 @@
 
 ## Core独立後の目標責務 — 2026-10-27
 
+2026-10-28の公開入口分離では、Objective／Decision／状態照会／Workspaceの純粋な入力・結果検査と観測型をDomainへ実体移管した。[移管先の一覧](../domain-model/05_Runtime_Domain.md#2-共通入力返却値)を参照する。Coordinator Rootの同名公開は同じDomain宣言の再公開であり、検査実装を二重保持しない。`state/projection.ts`には投影生成とSchedulerへの接続だけを残し、実行判断をDomainへ移さない。Executor実体の切出しと単一試行への本番接続は別の未完了作業である。
+
 CoordinatorはCallerが計画・分解した小・中規模Taskを実行・調整する。CRDD文書群のMilestone／Roadmap／WBSを自律管理するOwnerではない。[既存Objective／Milestoneの用途](../domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を維持し、実行状態と文書を自動同期しない。文書処理もCallerから明示Taskとして受ける。
 
 [Runtime Domain契約](../domain-model/05_Runtime_Domain.md)に定義・局所CRUD・共通保存を移し、Coordinatorは任意の横断調停Ownerとする。単一試行の真正証拠・取消・終了はExecutor Library、技術処置は既存DI／PAへ接続する。現在の単一CoordinatorのSource・APIは移管元であり、以下の実装済み記述を目標の実装成立に流用しない。真正Mapと五Contextの接続を確認するまで旧経路は撤去しない。

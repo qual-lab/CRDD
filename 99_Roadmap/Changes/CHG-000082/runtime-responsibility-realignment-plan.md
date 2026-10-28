@@ -143,6 +143,28 @@ A〜CはCoreのAPI成立に必要な保存境界を先に確定する依存順�
 
 局所四Suiteは26件成功。最初の新規Hash試験は合成Model名の転記不一致で二成功・一不合格となり、基準の`historical-model`へfixtureを一致させてから上記四Suiteを確認した。既存Hash期待値・拒否条件は変更していない。追加の利用側六Suiteは79件成功、Domain／Coordinator／Workbenchの型検査も成功した。独立レビューのMinor一件（新UTの台帳登録漏れ）を是正し、新UT三件再成功・Catalog409件valid・限定再レビュー残指摘零。変更した三文書の指摘は零で、参照展開先にはbroken-link 263件が残る。展開範囲は前段の文書検査と異なり、全体文書QAの合格又は263件の新旧全件照合を主張しない。変更Sourceの整形・Lintは警告／Error零（既存の情報診断三件）、diff check成功。今回の純粋検査移管だけを閉じ、D〜G全体完了は未宣言。人間確認は保存先一件だけが回答待ちである。
 
+#### Dの公開Root独立とWorkbench接続
+
+`281a324b3`後の候補では、公開入力・観測の純粋型／検査をDomainの意味Ownerへ移し、Scheduler・投影生成・実行AuthorityはCoordinatorへ残した。同期MCP Inspectorと既存公開名は同じDomain実体を利用する。MCPの任意Workspace／活動Reader、Workbenchの任意活動／Workspace／通信設定Readerは使用時だけ固定Ownerを読み込み、待機後の取消・認可・Rootを再照合する。汎用loader、Registry、Queueは追加しない。
+
+Workbenchへ`GET/POST /api/runtime-definition`を接続した。既存Origin・Action Token・共有development権限又は起動Hostのローカル操作主体を使い、Domainの初期化・Plan保存・Objective／Task CRUD・Queryへ直接配送する。新しい計画UI、文書同期、実行権限は作らない。既定binはCoreだけを起動し、旧来のAI利用を続ける起動設定にはフロントAIが`--automation`を追記する。Library利用側の明示AI注入は維持する。
+
+Coordinator／ExecutorのModule解決を拒否した子Processで、MCP Rootの本番FactoryとWorkbench Rootの実HTTPから保存・再読取り・CASを確認した。Workbenchは3MiB超の合法Planも同じ16MiB Writer制限内で保存し、Form搬送上限を超える宣言は拒否して全文不変を確認した。待機中失効・取消・切断は当該Source区間の有限代役でReader零を確認し、実HTTP正常経路の成立と区別した。bin構成も実entryを使い、既定Core／明示Automation／不正引数を確認した。
+
+先行MCP全回帰は105件成功。Workbench先行全回帰は110件中107成功・3不合格、Domain先行全回帰も不合格だった。後者の公開API期待一覧二件、Workbenchの型import位置を誤読する検査、期限超過した固定日付の合成Event、検証Script切出し旧位置を追従し、対象別の再確認は成功した。製品の保持期間・安全判定・Timeoutは緩和していない。最新Workbench独立接続Suiteは3件成功。独立再レビューは先行のBody上限・待機後認可・bin試験の指摘を解消し、追加Source指摘零。対象全回帰は更新候補で再実行中であり、先行失敗を成功へ書き換えない。
+
+更新候補のDomain全回帰は468件成功・不合格零、Workbench全回帰は111件成功・不合格零で終了した。Coordinatorの公開値・実状態投影・依存境界の関連34件と、Domain／Workbench／MCPの静的checkも成功。文書検査は今回の正本・計画・Context七文書に指摘零、参照展開先の過去リンク等3,367件は不合格のまま保持する。過去Evidenceは修正しない。
+
+その後、配布MCP Launcherに残ったCoordinator静的参照を検出した。Node版本検査を現在Processの既存下限確認へ閉じ、単体`--automation`明示時だけ四操作を固定Moduleから構成する。既定local stdio／HTTPへ既存Workspace対象解決を使うCore RuntimeAccessを接続し、Manifest・Root・取消・projectId／repositoryIdを要求ごとに再確認する。CROSは既存AM認可を維持し、未接続のCROS＋Automationを64で拒否する。Module解決拒否下の実配布入口でも保存・再読取り・CASが成功した。入口変更後のMCP全回帰も105件成功・不合格零・取消零で終了し、stdioの実CRUD、HTTPの実ListenerとTool一覧、対象ID不一致、Node版、Owner欠測と不正引数拒否を確認した。追加独立レビューのSource指摘は零。自動実行有効時の実AI成立をこの非AI回帰から推定しない。
+
+Catalogは411件の登録整合を確認したが、411件の試験成功を意味しない。保存先Eは回答待ちで既存配置を維持し、FのProvider単段Executor抽出とGの本番調停接続は別の未完了作業である。Fの着手前照合では、単段準備・Process／取消・join・結果・元回復証拠を一体で移し、Task全体の順序・Workspace・共通Host清掃をCoordinatorへ残す必要を確認した。現在混在するControlRecordを丸ごと渡す移管、証拠Mapの二重登録、ExecutorからCoordinator内部を参照する暫定接続は採らない。実AI・Docker・過去保持物を操作していない。
+
+#### Fの単段移管に対する着手前照合
+
+Dの今回の非AI公開接続候補は、基準`281a324b3`と`40_Develop`／`template/tools`のtracked差分及び新規File本文を結合したSHA-256 `2a4134f5acb5ca208e118755a37228cda8e35a58317b72a31521a1a658dfe328`で特定する。独立最終確認の旧時点文書表現一件を時点限定へ是正し、MCPの同種表現も追従した。Source契約の追加指摘は零。Dの今回範囲は限定完了とし、Eの保存先判断、F／G、実AI／Docker、人間操作、CRDD全体QA又はRelease完了へ拡張しない。
+
+Fの原子的な移管単位は`executeStage`だけではなく、単段準備、Process開始／取消／join、結果正規化と元Docker回復証拠の閉包である。`ControlRecord`のTask全体と単段字段を分け、後者の真正MapをExecutorへ一実体移管する。Coordinatorは現在Attemptの不透明Controlと終了後の不透明証拠を保持し、Task配列の順序・再試行・Workspaceと共通Host清掃を所有する。共通Host清掃前の各Attemptの準備、元清掃結果後の確定又は不明時の放棄は用途固定操作として接続し、汎用callback／新Registry／二重Mapは作らない。`result.ts`・`operation.ts`・`recovery.ts`の丸ごと移動は循環と上位責務流入を生むため、宣言単位で分割する。この照合は実装・回帰の完成ではない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

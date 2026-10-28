@@ -56,6 +56,23 @@ CRDD文書とCoordinator状態の自動同期、文書からの自動WBS生成�
 <a id="runtime-domain-api"></a>
 ## 2. 共通入力・返却値
 
+### 公開入力・観測値のSource所有者 — 2026-10-28
+
+Core入口をCoordinatorのModule読込みから独立させるため、実行を発行しない既存の値契約を次へ移す。公開名・Contract文字列・結果fieldと拒否条件は変更せず、同じ実体をMCP／WorkbenchとCoordinatorが利用する。
+
+| Source | 所有する意味 | 移さない処理 |
+|---|---|---|
+| `state/projection-types.ts` | 状態照会・実行観測の非秘密な共有型 | 実観測・Scheduler |
+| `state/projection.ts` | 公開投影と外側結果の閉形式・相関、既存件数上限 | 次Task選択、投影生成の実行判断 |
+| `state/activity.ts` | 観測値の検査、出所・Cursorの符号化と相関 | 履歴の実取得、認可、実行再開 |
+| `state/query.ts` | 状態照会要求の閉形式 | 状態Readerの起動構成 |
+| `objective/request.ts` | 分解済み計画の公開入力・Task入力の相関検査 | 受付・Queue・実行・再試行 |
+| `decision/request.ts` | 人間判断要求の値検査 | 現在Authorityの検証・判断保存 |
+| `workspace/command.ts` | Workspace明示操作の閉じた入力 | Git処置・Workspace寿命管理 |
+| `workspace/result.ts` | 内容を含まない変更観測の閉形式・相関 | 実Filesystem観測・採用 |
+
+Coordinatorの`state/projection.ts`には投影生成とSchedulerとの接続を残す。Coordinatorの公開名は同じDomain実体を再公開して既存Consumerを保つが、新しいCore ConsumerはDomainの標準入口へ直接接続する。型や純粋Validatorの移管を、Executor又はCoordinator任意化の完成とは扱わない。
+
 以下は実装する型の入出力定義であって、新しい権限発行Frameworkではない。Contextは信頼したHost構成からだけ渡し、HTTP／MCPのJSON入力に含めない。
 
 ```ts

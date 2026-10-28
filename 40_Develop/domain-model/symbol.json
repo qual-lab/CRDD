@@ -1758,6 +1758,14 @@
     {"symbolId":"domain-model.test.integration.runtime-repair-storage","kind":"test-suite","path":"tests/integration/runtime-repair-storage.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-014"],"verifies":["coordinator.state-storage.coordinator-state-runtime"]},
     {"symbolId":"coordinator.test.unit.coordinator-state-model","kind":"test-suite","path":"tests/unit/storage/runtime-transitions.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.state-storage.coordinator-state-model"]},
     {"symbolId":"coordinator.test.unit.repair-state-model","kind":"test-suite","path":"tests/unit/attempt/repair-model.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-036"],"verifies":["coordinator.state-storage.coordinator-state-model"]},
-    {"symbolId":"domain-model.test.unit.task-validation","kind":"test-suite","path":"tests/unit/task/validation.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.state-storage.coordinator-state-model"]}
+    {"symbolId":"domain-model.test.unit.task-validation","kind":"test-suite","path":"tests/unit/task/validation.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.state-storage.coordinator-state-model"]},
+    {"symbolId":"orchestrator.source.src.public.contract.objective.request","kind":"file","path":"src/objective/request.ts","archIds":["ARCH-000004"]},
+    {"symbolId":"coordinator.state.request","kind":"file","path":"src/state/query.ts","archIds":["ARCH-000004"]},
+    {"symbolId":"domain-model.decision.request","kind":"file","path":"src/decision/request.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.state.activity","kind":"file","path":"src/state/activity.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.state.projection-types","kind":"file","path":"src/state/projection-types.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.state.projection","kind":"file","path":"src/state/projection.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.workspace.command","kind":"file","path":"src/workspace/command.ts","archIds":["ARCH-000004","ARCH-000008"]},
+    {"symbolId":"domain-model.workspace.result","kind":"file","path":"src/workspace/result.ts","archIds":["ARCH-000004","ARCH-000008"]}
   ]
 }

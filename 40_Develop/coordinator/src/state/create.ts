@@ -11,8 +11,6 @@ import {
 } from "../../../domain-model/src/index.ts";
 import {
   COORDINATOR_MAXIMUM_CONCURRENCY,
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
   validIdentity,
   validRevision,
   uniqueStrings,
@@ -218,3 +216,8 @@ export function createCoordinatorState(
     taskIds: Object.freeze(tasks.map((task) => task.definition.id)),
   });
 }
+
+import {
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+} from "../../../domain-model/src/index.ts";

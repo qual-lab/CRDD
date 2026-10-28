@@ -14,7 +14,7 @@ import test from "node:test";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
 import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
 import { buildObjectiveTaskRequest } from "../../src/objective/execute.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";
+
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
 const objective = Object.freeze(
@@ -110,3 +110,5 @@ test("Objectiveの固定選定は全八組合せでTask契約へexactに搬送�
     assert.equal(Object.hasOwn(task, "decisionCapabilityReplacement"), false);
   }
 });
+
+import { inspectCoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";

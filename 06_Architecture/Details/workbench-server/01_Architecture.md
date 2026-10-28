@@ -1,8 +1,16 @@
 # CROS Workbench詳細設計
 
+## Core定義の直接操作と任意Automation — 2026-10-28
+
+`GET /api/runtime-definition`は`operation=plan/objectives/tasks`、`projectId`、`milestoneId`を受ける。`POST /api/runtime-definition`は既存Origin・Action Token保護のFormで`command` JSONを一度だけ受け、Domainの初期化・Plan保存・Objective／Task CRUDへ直接接続する。共有接続では`repositoryId`も指定し、Access Managementの現在development内容権限へ結合する。ローカルは起動Host利用者が同じ検証済みRootを操作し、Action TokenをユーザーIdentityと解釈しない。
+
+閉入力、全体CAS・対象Hash、Domainの保存結果・unknown・exact参照を保持し、競合の再送、AI実行、判断承認、Queue投入、文書計画の同期は行わない。Form上限はDomainの16MiB上限へpercent encoding最悪三倍と固定field分を加えた有限値とし、保存の上限自体は変更しない。計画編集用の新UIは追加せず、公開HTTP操作の接続を扱う。
+
+公開RootはCoordinator／ExecutorのModule読込みを要求しない。公開binも既定はCoreだけを構成し、`--automation`を明示した場合だけ従来のTask Sessionを追加する。既存の単体／`--cros`・port指定は保ち、従来のAI付き起動はフロントAIが`--automation`付きへ更新する。既存Runtimeの自動移行やAI機能の削除ではない。Workspace実行・活動照会・実効通信設定は、任意機能を使う要求でだけ固定Ownerを読み、待機後に取消・現在認可／Rootを再確認する。
+
 ## Core API接続の目標 — 2026-10-27
 
-[Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へServerが直接接続する。Coreの設定・定義・状態表示にCoordinator・MCP・Provider認証を要求せず、現在認可と対象改訂をServerで再確認する。BrowserへRoot能力・生Controller・Host Pathを渡さない。既存助言・Workspace編集は無断撤去せず、任意実行の構成へ分離する。Core独立の本番接続・Browser検証は未実施。
+[Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へServerが直接接続する。Coreの設定・定義・状態表示にCoordinator・MCP・Provider認証を要求せず、現在認可と対象改訂をServerで再確認する。BrowserへRoot能力・生Controller・Host Pathを渡さない。既存助言・Workspace編集は無断撤去せず、任意実行の構成へ分離する。2026-10-27時点ではCore独立の本番接続・Browser検証は未実施だった。現在のHTTP接続と限定確認は上節を参照し、新しい計画編集UIは追加しない。Executor分離・Coordinator任意化・実AI境界は未完了である。
 
 ## 検証HTTP子Processの失敗診断
 

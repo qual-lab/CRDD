@@ -60,6 +60,7 @@ import {
 import { handleManagementRequest } from "./routes/management.ts";
 import { handleAiRequestAction, handleSharedAiRequest } from "./routes/ai.ts";
 import { handleAiSelection } from "./routes/ai-selection.ts";
+import { handleRuntimeDefinition } from "./routes/runtime-definition.ts";
 import { handleRepositoryAction } from "./routes/repository.ts";
 import { handleRecordAction } from "./routes/record.ts";
 import { handleRepositoryView } from "./routes/repository-view.ts";
@@ -264,7 +265,8 @@ export async function startWorkbench(
   };
   const activityReader =
     request.activityReader ??
-    (request.localAccessRoot === undefined &&
+    (request.aiRequests !== undefined &&
+    request.localAccessRoot === undefined &&
     presentation.projectSurface !== undefined
       ? createRepositoryWorkbenchActivityReader(
           repositoryRoot,
@@ -398,7 +400,10 @@ export async function startWorkbench(
         });
         return;
       }
-      if (method === "GET" || method === "HEAD") {
+      if (
+        (method === "GET" || method === "HEAD") &&
+        requestPath !== "/api/runtime-definition"
+      ) {
         if (
           await handleSharedView({
             response,
@@ -422,6 +427,8 @@ export async function startWorkbench(
           return;
       }
       const sharedActionRoute =
+        ((method === "GET" || method === "POST") &&
+          requestPath === "/api/runtime-definition") ||
         (method === "POST" && requestPath === "/topic-meeting/action") ||
         (method === "POST" && requestPath === "/ai-selection/action") ||
         ((method === "GET" || method === "HEAD") &&
@@ -440,6 +447,27 @@ export async function startWorkbench(
       }
     }
     const address = server.address();
+    if (
+      requestPath === "/api/runtime-definition" &&
+      (method === "GET" || method === "POST")
+    ) {
+      await handleRuntimeDefinition({
+        incoming,
+        response,
+        requestSignal,
+        requestUrl,
+        origin:
+          publicOrigin?.origin ??
+          (address && typeof address !== "string"
+            ? `http://${HOST}:${address.port}`
+            : null),
+        actionToken,
+        capability: verification.capability,
+        localAccessRoot: request.localAccessRoot,
+        credentialAdministration,
+      });
+      return;
+    }
     if (
       (method === "GET" || method === "HEAD") &&
       requestPath === "/api/ai-selection"

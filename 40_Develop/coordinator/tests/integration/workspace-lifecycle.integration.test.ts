@@ -41,7 +41,6 @@ import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import {
   executeWorkspace as executeWorkspaceCommand,
-  inspectWorkspaceCommand,
   type WorkspaceView,
 } from "../../src/index.ts";
 import { executeCoordinatorObjective } from "../../src/objective/execute.ts";
@@ -2477,3 +2476,5 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
   assert.equal(f.snapshot().queueEntries[0]?.state, "integration_pending");
 });
+
+import { inspectWorkspaceCommand } from "../../../domain-model/src/index.ts";

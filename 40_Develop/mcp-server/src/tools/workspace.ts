@@ -5,10 +5,6 @@
  * @trace ARCH-000013
  * @boundary MCP ProtocolとWorkspace Owner。
  */
-import {
-  executeWorkspace,
-  inspectWorkspaceCommand,
-} from "../../../coordinator/src/index.ts";
 import { snapshotPlainRecord } from "../request/snapshot.ts";
 import {
   callKeys,
@@ -232,6 +228,12 @@ export async function handleMcpWorkspaceRequest(
   try {
     const access = resolve(args.repositoryId);
     if (!access) throw new Error("workspace_access_unavailable");
+    const { executeWorkspace } = await import(
+      "../../../coordinator/src/index.ts"
+    );
+    if (signal.aborted)
+      return protocolError(request.id, -32800, "Request cancelled");
+    if (!access.authorize()) throw new Error("workspace_access_unavailable");
     const result = executeWorkspace(
       access.ownerRoot,
       access.projectId,
@@ -249,3 +251,5 @@ export async function handleMcpWorkspaceRequest(
     return protocolError(request.id, -32603, "Workspace outcome unavailable");
   }
 }
+
+import { inspectWorkspaceCommand } from "../../../domain-model/src/index.ts";

@@ -18,13 +18,8 @@ import { createCoordinatorState } from "../../../src/state/create.ts";
 import {
   createCoordinatorObjectiveResult,
   createCoordinatorTaskExecutionSet,
-  inspectCoordinatorWorkspaceResults,
 } from "../../../src/objective/execute.ts";
-import {
-  inspectCoordinatorObjectivePlan,
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-} from "../../../src/objective/plan.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../../src/objective/request.ts";
+import { inspectCoordinatorObjectivePlan } from "../../../src/objective/plan.ts";
 
 const objectiveRequest = Object.freeze(
   withCallerPlan({
@@ -316,3 +311,7 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
   assert.equal(unknown.reason, "original_cleanup_failure");
   assert.equal(unknown.cleanupConfirmed, false);
 });
+
+import { inspectCoordinatorWorkspaceResults } from "../../../../domain-model/src/index.ts";
+import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "../../../../domain-model/src/index.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../../domain-model/src/index.ts";

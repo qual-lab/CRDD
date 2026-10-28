@@ -915,12 +915,16 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
       "utf8",
     );
     const begin = source.indexOf("const historyFile =");
-    const end = source.indexOf("\n            }\n          } finally", begin);
+    const end = source.indexOf(
+      "\n            }\n          }\n        }\n      } catch",
+      begin,
+    );
     assert.ok(begin > 0 && end > begin);
     const result = runInNewContext(
       `const historyIdentities=[];${stripTypeScriptTypes(source.slice(begin, end))};historyIdentities`,
       {
         root: "synthetic",
+        paths: { coordinator: "synthetic/.crdd/coordinator" },
         path: { join: (...parts: string[]) => parts.join("/") },
         fs: {
           existsSync: () => true,

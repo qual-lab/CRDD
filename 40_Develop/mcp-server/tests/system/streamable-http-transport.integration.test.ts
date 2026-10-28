@@ -614,12 +614,21 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
   const entry = fileURLToPath(
     new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
   );
-  const child = spawn(process.execPath, [entry, "--http", "--port", "0"], {
-    cwd: path.dirname(entry),
-    env: { ...process.env, CRDD_MCP_HTTP_BEARER_TOKEN: TOKEN },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-  });
+  const hook =
+    "data:text/javascript," +
+    encodeURIComponent(
+      `import {registerHooks} from 'node:module';registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/'))throw Error('automation_unavailable');return n(s,c);}});`,
+    );
+  const child = spawn(
+    process.execPath,
+    ["--import", hook, entry, "--http", "--port", "0"],
+    {
+      cwd: path.dirname(entry),
+      env: { ...process.env, CRDD_MCP_HTTP_BEARER_TOKEN: TOKEN },
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    },
+  );
   try {
     const port = await waitForListeningPort(child);
     const body = {
@@ -647,6 +656,23 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
       result.result._meta["io.modelcontextprotocol/serverInfo"].name,
       "crdd-mcp",
     );
+    const listed = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "POST",
+      headers: headers("tools/list"),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "core-tools",
+        method: "tools/list",
+        params: { _meta: META },
+      }),
+    });
+    assert.equal(listed.status, 200);
+    const names = (
+      (await listed.json()) as { result: { tools: { name: string }[] } }
+    ).result.tools.map((tool) => tool.name);
+    assert.ok(names.includes("crdd.get_runtime_definition"));
+    assert.ok(names.includes("crdd.manage_runtime_definition"));
+    assert.equal(names.includes("crdd.get_coordinator_state"), false);
   } finally {
     if (child.exitCode === null) child.kill();
     await new Promise<void>((resolve) => {

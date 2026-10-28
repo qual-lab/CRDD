@@ -903,3 +903,64 @@ export {
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
 } from "./workspace/validation.ts";
+
+export type {
+  ActivityRepository,
+  ActivitySource,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+  CoordinatorProjection,
+} from "./state/projection-types.ts";
+
+export {
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  inspectCoordinatorStateQuery,
+} from "./state/query.ts";
+
+export {
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  PROJECT_OBJECTIVE_STATES,
+  PROJECT_TASK_STATES,
+  inspectCoordinatorProjection,
+  inspectCoordinatorStateQueryResult,
+  isCoordinatorProjectionSemanticallyValid,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+} from "./state/projection.ts";
+
+export {
+  deriveActivitySourceCorrelation,
+  decodeActivityCursor,
+  encodeActivityCursor,
+  compareActivityEventPositions,
+  inspectRuntimeActivityObservation,
+  parseRuntimeActivityObservation,
+} from "./state/activity.ts";
+
+export {
+  type CoordinatorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+} from "./objective/request.ts";
+
+export {
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  type CoordinatorDecisionRequest,
+  inspectCoordinatorDecisionRequest,
+} from "./decision/request.ts";
+
+export {
+  snapshotCoordinatorWorkspaceResult,
+  inspectCoordinatorWorkspaceResults,
+} from "./workspace/result.ts";
+
+export {
+  type WorkspaceCommand,
+  inspectWorkspaceCommand,
+} from "./workspace/command.ts";
+
+export type { CoordinatorWorkspaceResult } from "./workspace/types.ts";

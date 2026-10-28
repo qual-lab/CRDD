@@ -2516,24 +2516,6 @@ export type CoordinatorTaskAttemptResult = Readonly<{
 }>;
 
 /**
- * 借用Treeの開始後変更について観測できた範囲を返す。
- * @responsibility 欠測と変更なし、採用と観測を混同しない。
- * @trace ARCH-000004
- * @shape Workspace ID、変更Path又はnull、所属Tree変更、帰属未確定、削除非発行。
- * @invariant 内容・Host Path・新しいAuthorityを含めない。
- * @boundary Task完了から上位Attempt。
- * @security 相対Pathだけを認可済み利用側へ渡す。
- * @compatibility 非借用の旧結果では省略する。
- */
-export type CoordinatorWorkspaceResult = Readonly<{
-  workspaceId: string | null;
-  changedPaths: readonly string[] | null;
-  canonicalRepositoryChanged: boolean | null;
-  changeAttribution: "unattributed";
-  workspaceDeletionIssued: false;
-}>;
-
-/**
  * Host 回復 Tokenを表示形式へ整形する。
  *
  * @responsibility Host 回復 Tokenの入力値、表示規則、機密を含めない出力境界を所有する。
@@ -2556,3 +2538,5 @@ export function formatHostRecoveryToken(
 ) {
   return `host.${rootName}.${nonce}.${recordHash}`;
 }
+
+import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";

@@ -8,7 +8,6 @@
  * @security 既存の認可・取消・情報境界を維持し、新しい保存状態や自動再送を追加しない。
  */
 import type { ServerResponse } from "node:http";
-import { readRepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import {
@@ -40,7 +39,6 @@ import {
   evaluateAiProfileManagementPermission,
 } from "../../../../access-management/src/index.ts";
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
-import { queryActivity } from "../../../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   gitRepositoryWorktreeViewAdapter,
@@ -256,6 +254,20 @@ export async function handleSharedView({
         if (requestSignal.aborted || response.destroyed) return true;
         try {
           const cursor = requestUrl.searchParams.get("runtimeCursor");
+          const { queryActivity } = await import(
+            "../../../../coordinator/src/index.ts"
+          );
+          if (requestSignal.aborted || response.destroyed) return true;
+          if (
+            !sameAccessCollection(
+              currentCollection,
+              resolveRepositoryAccessCollection(
+                credentialAdministration.root,
+                credentialAdministration.token,
+              ),
+            )
+          )
+            throw new Error("workbench_activity_unavailable");
           const observation = await queryActivity(
             {
               projectId: selected.manifest.projectId,
@@ -352,9 +364,22 @@ export async function handleSharedView({
           )
         )
           throw new Error("workbench_selected_content_unavailable");
-        const network = selected.workspaceIds.includes("development")
-          ? readRepositoryNetworkPolicies(selected.root)
-          : null;
+        let network = null;
+        if (selected.workspaceIds.includes("development")) {
+          const owner = await import("../../../../coordinator/src/index.ts");
+          if (requestSignal.aborted || response.destroyed) return true;
+          if (
+            !sameAccessCollection(
+              currentCollection,
+              resolveRepositoryAccessCollection(
+                credentialAdministration.root,
+                credentialAdministration.token,
+              ),
+            )
+          )
+            throw new Error("workbench_selected_content_unavailable");
+          network = owner.readRepositoryNetworkPolicies(selected.root);
+        }
         model = {
           ...model,
           aiSelection: sharedSelection,

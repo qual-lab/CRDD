@@ -162,7 +162,6 @@ import {
   COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
   type CoordinatorTaskAttemptResult,
   type CoordinatorTaskPublicReason,
-  type CoordinatorWorkspaceResult,
   classifyCoordinatorTaskTerminalLifecycleState,
   type DockerProcessControllerFinalReason,
   inspectCandidateValidationFailureDiagnostic,
@@ -534,101 +533,6 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
 }
 
 const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
-
-/**
- * Workspace観測の閉じた値をsnapshotする。
- * @responsibility 欠測・null・空配列と方式別の変更相関を維持する。
- * @trace ARCH-000004
- * @input 未検証の観測値。
- * @returns 凍結metadata又はnull。
- * @precondition N/A: unknownを受ける。
- * @postcondition 元値の変更を搬送しない。
- * @effect N/A: 値検査のみ。
- * @failure 不正・不整合・getterはnull。
- * @invariant Pathは相対値であり内容・Host所在を含まない。
- * @boundary Coordinator結果から認可済み上位。
- * @security Authorityを新設しない。
- * @concurrency 純粋同期処理。
- */
-export function snapshotCoordinatorWorkspaceResult(
-  raw: unknown,
-): CoordinatorWorkspaceResult | null {
-  try {
-    if (!isPlainContainer(raw)) return null;
-    const keys = [
-      "workspaceId",
-      "changedPaths",
-      "canonicalRepositoryChanged",
-      "changeAttribution",
-      "workspaceDeletionIssued",
-    ];
-    if (
-      Reflect.ownKeys(raw).length !== keys.length ||
-      keys.some(
-        (key) =>
-          !Object.hasOwn(
-            Object.getOwnPropertyDescriptor(raw, key) ?? {},
-            "value",
-          ),
-      )
-    )
-      return null;
-    const id = ownDataProperty(raw, "workspaceId");
-    const paths = ownDataProperty(raw, "changedPaths");
-    const changed = ownDataProperty(raw, "canonicalRepositoryChanged");
-    if (
-      (id !== null &&
-        (typeof id !== "string" ||
-          !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(id))) ||
-      ownDataProperty(raw, "changeAttribution") !== "unattributed" ||
-      ownDataProperty(raw, "workspaceDeletionIssued") !== false ||
-      (changed !== null && typeof changed !== "boolean")
-    )
-      return null;
-    let snapshot: readonly string[] | null = null;
-    if (paths !== null) {
-      if (
-        !Array.isArray(paths) ||
-        utilTypes.isProxy(paths) ||
-        paths.length > 1000 ||
-        Reflect.ownKeys(paths).length !== paths.length + 1
-      )
-        return null;
-      const values: string[] = [];
-      for (let index = 0; index < paths.length; index++) {
-        const value = ownDataProperty(paths, String(index));
-        if (
-          typeof value !== "string" ||
-          value.length === 0 ||
-          Buffer.byteLength(value) > 1024 ||
-          /[\\:\0\r\n]/u.test(value) ||
-          value
-            .split("/")
-            .some((part) => part === "" || part === "." || part === "..")
-        )
-          return null;
-        values.push(value);
-      }
-      if (new Set(values).size !== values.length) return null;
-      snapshot = Object.freeze(values);
-    }
-    if (
-      id === null
-        ? changed !== (snapshot === null ? null : snapshot.length > 0)
-        : changed !== false
-    )
-      return null;
-    return Object.freeze({
-      workspaceId: id,
-      changedPaths: snapshot,
-      canonicalRepositoryChanged: changed,
-      changeAttribution: "unattributed",
-      workspaceDeletionIssued: false,
-    });
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Pre-effect rejections thrown by the current Single Task Runtime before any
@@ -8373,3 +8277,7 @@ export function describeCoordinatorSingleTaskAdapterContract() {
       "pre_effect_and_confirmed_post_effect_cleanup_normalized_to_project_cancelled_other_effect_era_results_preserved",
   });
 }
+
+import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
+
+import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";

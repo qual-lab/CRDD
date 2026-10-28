@@ -3,7 +3,7 @@
 /**
  * 配布RepositoryからCROS MCP接続を起動する。
  *
- * @responsibility CLI引数に応じてMCP TransportとCoordinator公開境界を構成する。
+ * @responsibility Coreを既定とし、明示した単体AutomationだけCoordinator公開境界へ接続する。
  * @trace ARCH-000012
  */
 
@@ -35,13 +35,6 @@ import { createMeetingOperations } from "../../40_Develop/domain-model/src/index
 import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
 import {
-  observeClientPrincipal,
-  submitDecision,
-  runObjective,
-  queryState,
-} from "../../40_Develop/coordinator/src/index.ts";
-import { isSupportedNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
-import {
   resolveHostRootInput,
   readExistingHostRoot,
   readHostInitializationState,
@@ -69,14 +62,14 @@ function printHelp(): void {
       "CRDD MCP起動入口",
       "",
       "使い方:",
-      "  crdd-mcp-server --stdio",
-      "  crdd-mcp-server --http --port <port>",
+      "  crdd-mcp-server [--automation] --stdio",
+      "  crdd-mcp-server [--automation] --http --port <port>",
       "  crdd-mcp-server --cros --http --port <port>",
       "",
       `MCP Protocol: ${MCP_COORDINATOR_PROTOCOL_VERSION}`,
       "HTTPは127.0.0.1だけで待ち受け、CRDD_MCP_HTTP_BEARER_TOKENが必要です。",
       "--crosでは既存Host設定を使用し、各HTTP要求のユーザー資格を検証します。固定Transport Tokenとの混在とstdioは利用できません。",
-      "MCPは外部ClientからCoordinatorの公開APIへ接続する独立した入口です。",
+      "既定はCoreです。--automationで単体RepositoryのCoordinator実行を追加します。",
       "",
     ].join("\n"),
   );
@@ -89,16 +82,24 @@ function printHelp(): void {
  * @trace ARCH-000012
  * @input N/A: Processへ固定された公開入口を使用する。
  * @returns MCP Coordinatorが利用する依存集合を返す。
- * @precondition CoordinatorとCoordinatorの公開入口が読込み済みである。
+ * @precondition 単体Automationの引数・Runtime版が検証済みである。
  * @postcondition 各MCP操作が対応する一つの公開入口へ接続される。
- * @effect N/A: 依存関数を構成するだけで操作を実行しない。
- * @failure N/A: 局所Objectの構成に独自の失敗分岐を持たない。
+ * @effect 固定Coordinator Moduleを読み込む。Provider処理は発行しない。
+ * @failure Module又は必須操作が欠測なら起動前停止し、Coreだけへfallbackしない。
  * @invariant MCP入口から内部実装へ直接接続しない。
  * @boundary MCP TransportとCoordinator公開契約の境界。
  * @security Client認証を省略せず、認証結果を各操作へ渡す。
  * @concurrency 各要求のSignalと認証Contextを要求単位で保持する。
  */
-function coordinatorDependencies(): McpCoordinatorDependencies {
+async function coordinatorDependencies(): Promise<McpCoordinatorDependencies> {
+  const { observeClientPrincipal, runObjective, submitDecision, queryState } =
+    await import("../../40_Develop/coordinator/src/index.ts");
+  if (
+    ![observeClientPrincipal, runObjective, submitDecision, queryState].every(
+      (value) => typeof value === "function",
+    )
+  )
+    throw new Error("mcp_automation_unavailable");
   return {
     authenticateClient: observeClientPrincipal,
     runObjective: (request, signal, authentication) =>
@@ -159,47 +160,69 @@ async function readRepositoryPortfolio(workingDirectory: string) {
  * @responsibility CoordinatorとRepository Project Contextの依存を分離して合成する。
  * @trace ARCH-000005
  * @trace ARCH-000012
- * @input N/A: Processの現在Repositoryを使用する。
+ * @input automation: 明示した単体実行の有効化。Rootは現在Repositoryだけ。
  * @returns 合成MCP Applicationの依存集合を返す。
- * @precondition Coordinator公開入口とProject Context Readerが読込み済みである。
+ * @precondition CLI文法・Runtime版・Transport条件を検証済みである。
  * @postcondition Runtime操作とContext読取りが別の専門依存に保持される。
- * @effect N/A: 依存関数を構成するだけで操作を実行しない。
- * @failure N/A: 局所Objectの構成に独自の失敗分岐を持たない。
+ * @effect Rootを検証し、Automation明示時だけ固定Coordinator Moduleを読み込む。
+ * @failure Root又は明示Owner不明は起動前停止する。
  * @invariant Project ContextをCoordinator状態へ変換しない。
  * @boundary MCP CLI Composition Rootと専門Adapter群の境界。
  * @security Repository単体利用ではCredentialを要求せず、現在Repositoryだけを読む。
  * @concurrency 各呼出しが独立したSnapshotを取得する。
  */
-function createRequestRoutingDependencies(): McpServerDependencies {
+async function createRequestRoutingDependencies(
+  automation: boolean,
+): Promise<McpServerDependencies> {
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
+  const workspace: NonNullable<McpServerDependencies["workspace"]> = (
+    repositoryId,
+  ) => {
+    const verified = verifyRepositoryRoot(repositoryRoot);
+    if (verified.status !== "completed") return null;
+    const observer = createFilesystemRepositoryObservationPort(
+      verified.capability,
+      1_048_576,
+    );
+    const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
+    const source = file.status === "resolved" ? file.source : null;
+    const manifest =
+      source === null ? null : inspectRepositoryManifest(JSON.parse(source));
+    if (!manifest || manifest.repositoryId !== repositoryId) return null;
+    return {
+      ownerRoot: repositoryRoot,
+      projectId: manifest.projectId,
+      authorize: () => {
+        if (
+          resolveVerifiedRepositoryRoot(verified.capability) !== repositoryRoot
+        )
+          return false;
+        const fresh = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
+        return fresh.status === "resolved" && fresh.source === source;
+      },
+    };
+  };
   return {
-    coordinator: coordinatorDependencies(),
-    workspace: (repositoryId) => {
-      const verified = verifyRepositoryRoot(repositoryRoot);
+    ...(automation ? { coordinator: await coordinatorDependencies() } : {}),
+    workspace,
+    runtimeDefinition: (repositoryId, signal) => {
+      if (signal.aborted) return null;
+      const access = workspace(repositoryId);
+      if (!access) return null;
+      const verified = verifyRepositoryRoot(access.ownerRoot);
       if (verified.status !== "completed") return null;
-      const observer = createFilesystemRepositoryObservationPort(
-        verified.capability,
-        1_048_576,
-      );
-      const file = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
-      const source = file.status === "resolved" ? file.source : null;
-      const manifest =
-        source === null ? null : inspectRepositoryManifest(JSON.parse(source));
-      if (!manifest || manifest.repositoryId !== repositoryId) return null;
       return {
-        ownerRoot: repositoryRoot,
-        projectId: manifest.projectId,
-        authorize: () => {
-          if (
-            resolveVerifiedRepositoryRoot(verified.capability) !==
-            repositoryRoot
-          )
-            return false;
-          const fresh = observer.observeFile(REPOSITORY_MANIFEST_RELATIVE_PATH);
-          return fresh.status === "resolved" && fresh.source === source;
-        },
+        root: verified.capability,
+        principalId: "local-mcp-user",
+        revalidate: (operation, target) =>
+          !signal.aborted &&
+          ["definition.read", "definition.write"].includes(operation) &&
+          target.projectId === access.projectId &&
+          resolveVerifiedRepositoryRoot(verified.capability) ===
+            repositoryRoot &&
+          access.authorize(),
       };
     },
     projectContext: {
@@ -229,19 +252,32 @@ function createRequestRoutingDependencies(): McpServerDependencies {
  * @concurrency Signal終了とTransport処理を同じServer Lifecycleへ収束させる。
  */
 async function main(): Promise<number> {
-  if (!isSupportedNodeRuntime(process.versions.node)) {
+  // 信頼した現在Processの版だけを確認する。任意文字列の公開検査APIではない。
+  const version = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.exec(
+    process.versions.node,
+  );
+  const [major, minor, patch] = version?.slice(1).map(Number) ?? [];
+  if (
+    ![major, minor, patch].every(Number.isSafeInteger) ||
+    (major ?? -1) < 24 ||
+    (major === 24 && (minor ?? -1) < 12)
+  ) {
     process.stderr.write(
       "CRDD MCP requires a preverified Node.js 24.12.0 or newer executable.\n",
     );
     return 2;
   }
-  const args = process.argv.slice(2);
+  const originalArgs = process.argv.slice(2);
+  const automation = originalArgs[0] === "--automation";
+  const args = automation ? originalArgs.slice(1) : originalArgs;
+  if (args.includes("--automation")) return 64;
+  if (automation && args.includes("--cros")) return 64;
   if (args.length === 1 && ["--help", "-h"].includes(args[0] ?? "")) {
     printHelp();
     return 0;
   }
   if (args.length === 1 && args[0] === "--stdio") {
-    const routing = createRequestRoutingDependencies();
+    const routing = await createRequestRoutingDependencies(automation);
     const result = await runMcpStdio(
       createMcpServerFactory(routing),
       process.stdin,
@@ -257,7 +293,7 @@ async function main(): Promise<number> {
     transportArgs[1] !== "--port"
   ) {
     process.stderr.write(
-      "使い方: crdd-mcp-server --stdio | crdd-mcp-server [--cros] --http --port <port>\n",
+      "使い方: crdd-mcp-server [--automation] --stdio | crdd-mcp-server [--automation] --http --port <port> | crdd-mcp-server --cros --http --port <port>\n",
     );
     return 64;
   }
@@ -304,7 +340,7 @@ async function main(): Promise<number> {
     );
   } else {
     if (!bearerToken) return 64;
-    const routing = createRequestRoutingDependencies();
+    const routing = await createRequestRoutingDependencies(automation);
     server = await startMcpStreamableHttp(createMcpServerFactory(routing), {
       port,
       bearerToken,

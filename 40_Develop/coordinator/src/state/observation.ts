@@ -22,21 +22,9 @@ import {
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
-import {
-  compareActivityEventPositions,
-  decodeActivityCursor,
-  deriveActivitySourceCorrelation,
-  encodeActivityCursor,
-  parseRuntimeActivityObservation,
-} from "./projection.ts";
+
 import { queryCoordinatorState } from "./query.ts";
-import type {
-  ActivityRepository,
-  ActivitySource,
-  RuntimeActivityEvent,
-  RuntimeActivityObservation,
-  RuntimeActivityRequest,
-} from "./types.ts";
+
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 
 /**
@@ -337,3 +325,18 @@ export async function readAuthorizedRuntimeActivity(
   if (result === null) throw new Error("runtime_activity_result_invalid");
   return result;
 }
+
+import {
+  compareActivityEventPositions,
+  decodeActivityCursor,
+  deriveActivitySourceCorrelation,
+  encodeActivityCursor,
+  parseRuntimeActivityObservation,
+} from "../../../domain-model/src/index.ts";
+import type {
+  ActivityRepository,
+  ActivitySource,
+  RuntimeActivityEvent,
+  RuntimeActivityObservation,
+  RuntimeActivityRequest,
+} from "../../../domain-model/src/index.ts";

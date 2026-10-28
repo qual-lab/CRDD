@@ -6,7 +6,7 @@
  */
 
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import type { CoordinatorWorkspaceResult } from "./result.ts";
+
 import {
   type WorkspaceInventoryEntry as InventoryEntry,
   inspectWorkspaceInventory as inventory,
@@ -7227,3 +7227,5 @@ export function describeRepositoryOperationRuntimeContract() {
     providerEffectAllowed: false,
   });
 }
+
+import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";

@@ -1,14 +1,15 @@
 /**
  * Core定義ToolをDomainの実保存へ接続する。
  * @packageDocumentation
- * @responsibility Coordinator非読込のTool単位でCRUD・CAS・拒否・再読取りを反証する。
+ * @responsibility Coordinator非読込の公開RootとSDKでCRUD・CAS・拒否・再読取りを反証する。
  * @trace PRL-IT-012
  * @level IT
- * @scope tools/runtimeの閉入力と一般定義保存。Server Rootの読込閉包は別の未完了検証。
+ * @scope Package Root・本番Factory・Core Toolの閉入力と一般定義保存。
  * @boundary 子Process→MCP Tool→Domain→自己生成Filesystemと既存短期排他。
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -143,7 +144,7 @@ test("Core定義Toolは不正・未許可操作・開始前取消を配送しな
  * @cleanup 子をjoinし、既存helperでexact試験Rootを削除する。
  * @boundary 子ProcessとDomain実Filesystem。AI・Dockerは呼ばない。
  */
-test("Core定義Tool単体はCoordinatorなしで保存・再読取り・CASを維持する", (t) => {
+test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する", (t) => {
   const directory = createRepositoryTestDirectory("mcp-runtime-definition-");
   t.after(directory.cleanup);
   const root = directory.path;
@@ -160,7 +161,8 @@ test("Core定義Tool単体はCoordinatorなしで保存・再読取り・CASを�
     `${"1".repeat(40)}\n`,
   );
   const modules = {
-    runtime: new URL("../../src/tools/runtime.ts", import.meta.url).href,
+    runtime: new URL("../../src/index.ts", import.meta.url).href,
+    sdk: new URL("../fixtures/sdk-request.ts", import.meta.url).href,
     vc: new URL("../../../version-control/src/index.ts", import.meta.url).href,
   };
   const output = execFileSync(
@@ -175,6 +177,8 @@ test("Core定義Tool単体はCoordinatorなしで保存・再読取り・CASを�
       return next(specifier, context);
     }});
     const runtime = await import(${JSON.stringify(modules.runtime)});
+    const sdk = await import(${JSON.stringify(modules.sdk)});
+    assert.equal(runtime.inspectMcpCoordinatorObjectiveResult(null),null);
     const vc = await import(${JSON.stringify(modules.vc)});
     const verified = vc.verifyRepositoryRoot(${JSON.stringify(root)});
     assert.equal(verified.status, "completed");
@@ -183,7 +187,8 @@ test("Core定義Tool単体はCoordinatorなしで保存・再読取り・CASを�
     const target = {projectId:"project",milestoneId:"milestone"};
     let id = 0;
     const call = async (name, command) => {
-      const response = await runtime.handleMcpRuntimeRequest({jsonrpc:"2.0", id:++id, method:"tools/call",params:{name,arguments:{repositoryId:"repository",command:{...target,...command}},_meta:${JSON.stringify(META)}}}, () => access, new AbortController().signal);
+      const source=runtime.createMcpServerFactory({runtimeDefinition:()=>access});
+      const response = await sdk.invokeMcpSource(source,{jsonrpc:"2.0", id:++id, method:"tools/call",params:{name,arguments:{repositoryId:"repository",command:{...target,...command}},_meta:${JSON.stringify(META)}}},new AbortController().signal);
       assert.equal(response.error, undefined, JSON.stringify(response));
       return response.result.structuredContent;
     };
@@ -218,6 +223,171 @@ test("Core定義Tool単体はCoordinatorなしで保存・再読取り・CASを�
     { encoding: "utf8", stdio: "pipe", timeout: 60_000 },
   );
   assert.equal(output, "core_tool_crud_passed");
+  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".crdd", "config", "repository-manifest.json"),
+    JSON.stringify({
+      schema: "crdd/repository-manifest/v2",
+      projectId: "project",
+      repositoryId: "repository",
+      displayName: "合成",
+      repositoryRole: "development",
+      capabilities: ["domain-model", "mcp-server"],
+      contextSurfaces: ["crdd-context"],
+      externalSendPolicy: "config/external-send-policy.json",
+    }),
+  );
+  const hook =
+    "data:text/javascript," +
+    encodeURIComponent(
+      `import {registerHooks} from 'node:module';registerHooks({resolve(s,c,n){if(s.includes('coordinator/')||s.includes('executor/'))throw Error('automation_unavailable');return n(s,c);}});`,
+    );
+  const entry = fileURLToPath(
+    new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url),
+  );
+  const entryCall = (request: unknown, args = ["--stdio"]) =>
+    JSON.parse(
+      execFileSync(process.execPath, ["--import", hook, entry, ...args], {
+        cwd: root,
+        input: JSON.stringify(request) + "\n",
+        encoding: "utf8",
+        stdio: "pipe",
+        windowsHide: true,
+        timeout: 10000,
+      }),
+    );
+  const listed = entryCall({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/list",
+    params: { _meta: META },
+  });
+  const names = listed.result.tools.map((tool: { name: string }) => tool.name);
+  assert.ok(names.includes(MCP_RUNTIME_READ_TOOL));
+  assert.ok(names.includes(MCP_RUNTIME_MANAGE_TOOL));
+  assert.equal(names.includes("crdd.get_coordinator_state"), false);
+  const observed = entryCall(
+    packet(MCP_RUNTIME_READ_TOOL, {
+      operation: "plan",
+      projectId: "project",
+      milestoneId: "milestone",
+    }),
+  ).result.structuredContent;
+  assert.equal(observed.status, "available");
+  const created = entryCall(
+    packet(MCP_RUNTIME_MANAGE_TOOL, {
+      operation: "task.create",
+      projectId: "project",
+      milestoneId: "milestone",
+      expected: observed.version,
+      definition: {
+        id: "entry-task",
+        objectiveId: "objective",
+        dependencies: [],
+        allowedPaths: ["src/entry.ts"],
+        conflictKeys: [],
+      },
+    }),
+  ).result.structuredContent;
+  assert.equal(created.status, "saved", JSON.stringify(created));
+  const stale = entryCall(
+    packet(MCP_RUNTIME_MANAGE_TOOL, {
+      operation: "task.create",
+      projectId: "project",
+      milestoneId: "milestone",
+      expected: observed.version,
+      definition: {
+        id: "entry-task-2",
+        objectiveId: "objective",
+        dependencies: [],
+        allowedPaths: ["src/entry.ts"],
+        conflictKeys: [],
+      },
+    }),
+  ).result.structuredContent;
+  assert.equal(stale.status, "conflict");
+  const tasks = entryCall(
+    packet(MCP_RUNTIME_READ_TOOL, {
+      operation: "tasks",
+      projectId: "project",
+      milestoneId: "milestone",
+    }),
+  ).result.structuredContent;
+  assert.equal(tasks.value.length, 2);
+  const stateFile = path.join(root, ".crdd", "coordinator", "state.json");
+  const before = fs.readFileSync(stateFile);
+  const wrongRepository = packet(MCP_RUNTIME_READ_TOOL, {
+    operation: "plan",
+    projectId: "project",
+    milestoneId: "milestone",
+  });
+  wrongRepository.params.arguments.repositoryId = "other";
+  const denied = entryCall(wrongRepository);
+  assert.ok(denied.error || denied.result?.isError);
+  assert.equal(
+    entryCall(
+      packet(MCP_RUNTIME_READ_TOOL, {
+        operation: "plan",
+        projectId: "other",
+        milestoneId: "milestone",
+      }),
+    ).result.structuredContent.status,
+    "blocked",
+  );
+  assert.deepEqual(fs.readFileSync(stateFile), before);
+  for (const args of [
+    ["--cros", "--automation", "--http", "--port", "0"],
+    ["--stdio", "--automation"],
+    ["--automation", "--automation", "--stdio"],
+  ]) {
+    assert.throws(
+      () => entryCall({}, args),
+      (error: unknown) => (error as { status: number }).status === 64,
+    );
+  }
+  assert.throws(
+    () => entryCall({}, ["--automation", "--stdio"]),
+    (error: unknown) => {
+      const child = error as { status: number; stdout: string };
+      return child.status === 2 && child.stdout === "";
+    },
+  );
+  for (const version of [
+    "24.11.9",
+    "24.12.0-preview",
+    "024.12.0",
+    "9007199254740992.0.0",
+  ]) {
+    assert.throws(
+      () =>
+        execFileSync(
+          process.execPath,
+          [
+            "--import",
+            hook,
+            "--eval",
+            `Object.defineProperty(process.versions,'node',{value:${JSON.stringify(version)}});process.argv=['node',${JSON.stringify(entry)},'--stdio'];await import(${JSON.stringify(new URL("../../../../template/tools/crdd-mcp-server.ts", import.meta.url).href)});`,
+          ],
+          {
+            cwd: root,
+            input: "",
+            encoding: "utf8",
+            stdio: "pipe",
+            timeout: 10000,
+            windowsHide: true,
+          },
+        ),
+      (error: unknown) => {
+        const child = error as { status: number; stderr: string };
+        return (
+          child.status === 2 &&
+          child.stderr.includes(
+            "CRDD MCP requires a preverified Node.js 24.12.0",
+          )
+        );
+      },
+    );
+  }
   assert.equal(
     fs.existsSync(path.join(root, ".crdd", "coordinator", "state.json")),
     true,

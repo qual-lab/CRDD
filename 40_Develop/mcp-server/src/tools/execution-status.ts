@@ -6,10 +6,7 @@
  * @trace ARCH-000007
  * @trace ARCH-000012
  */
-import {
-  parseRuntimeActivityObservation,
-  type RuntimeActivityObservation,
-} from "../../../coordinator/src/index.ts";
+
 import {
   snapshotPlainRecord,
   snapshotOpenPlainRecord,
@@ -179,3 +176,8 @@ export async function handleMcpExecutionStatusRequest(
     isError: observation === null,
   });
 }
+
+import {
+  parseRuntimeActivityObservation,
+  type RuntimeActivityObservation,
+} from "../../../domain-model/src/index.ts";

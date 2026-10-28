@@ -10,7 +10,7 @@
  * @scope project、runtime、real、provider、verification、script
  * @boundary PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
+
 import assert from "node:assert/strict";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
@@ -95,6 +95,8 @@ test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない",
     );
   }
 });
+
+import { inspectCoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。

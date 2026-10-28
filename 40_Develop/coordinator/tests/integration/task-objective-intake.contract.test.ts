@@ -32,7 +32,7 @@ import {
   consumeProjectSettledDockerRecoveryWithRuntimeBoundary,
 } from "../../src/execution/recovery.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
-import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
+
 import { acknowledgeProjectDockerRecoveryObligation } from "../../src/task/acceptance.ts";
 import { reserveProjectTaskStart } from "../../src/task/lifecycle.ts";
 import {
@@ -2466,3 +2466,5 @@ for (const interruption of [
     assert.equal(attempts, 2);
   });
 }
+
+import { inspectCoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";

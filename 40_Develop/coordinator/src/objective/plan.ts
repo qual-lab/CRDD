@@ -9,13 +9,6 @@ import {
   inspectExecutionPlan,
   type CoordinatorObjectivePlan,
 } from "../../../domain-model/src/index.ts";
-import {
-  inspectCoordinatorObjectiveRequest,
-  type CoordinatorObjectiveRequest,
-} from "./request.ts";
-
-export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
-  "crdd-coordinator/orchestrator-objective-intake/v2" as const;
 
 /**
  * 要求と計画を検査して不変の値を返す。
@@ -35,3 +28,8 @@ export function inspectCoordinatorObjectivePlan(
     ? inspectExecutionPlan(raw, { allowedPaths: accepted.allowedPaths })
     : null;
 }
+
+import {
+  inspectCoordinatorObjectiveRequest,
+  type CoordinatorObjectiveRequest,
+} from "../../../domain-model/src/index.ts";

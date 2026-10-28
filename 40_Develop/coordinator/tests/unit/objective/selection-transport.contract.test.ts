@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { withCallerPlan } from "../../../../domain-model/tests/fixtures/execution-plan.ts";
 import test from "node:test";
-import { inspectCoordinatorObjectiveRequest } from "../../../src/index.ts";
+
 import { buildObjectiveTaskRequest } from "../../../src/objective/execute.ts";
 import { resolveTaskExecutionSelections } from "../../../src/selection/resolve.ts";
 import { selectionConfig } from "../../fixtures/ai-selection.ts";
@@ -95,3 +95,5 @@ test("Objective選定は全八組合せでTask契約へexactに搬送する", ()
     }
   }
 });
+
+import { inspectCoordinatorObjectiveRequest } from "../../../../domain-model/src/index.ts";

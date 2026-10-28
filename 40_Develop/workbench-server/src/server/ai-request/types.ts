@@ -9,7 +9,6 @@
  * @security Promptや結果をRepository、URL、logへ保存せず、秘密値を入力契約へ含めない。
  */
 import type {
-  CoordinatorWorkspaceResult,
   SingleTaskCommand,
   ExecutionSelection,
 } from "../../../../coordinator/src/index.ts";
@@ -76,3 +75,5 @@ export type WorkbenchAiRequests = Readonly<{
   cancel: (requestId: string) => Promise<WorkbenchAiRequestSnapshot>;
   close?: () => Promise<void>;
 }>;
+
+import type { CoordinatorWorkspaceResult } from "../../../../domain-model/src/index.ts";

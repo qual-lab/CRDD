@@ -29,7 +29,6 @@ import type {
   CoordinatorTaskRecoveryHostDependencies,
   CoordinatorTaskRecoveryPort,
 } from "../task/types.ts";
-import type { CoordinatorObjectiveRequest } from "./request.ts";
 
 /**
  * Objective実行が必要とする依存契約を定義する。
@@ -226,3 +225,5 @@ export type CoordinatorReplanClassifier = (
     repositoryRevision: string;
   }>,
 ) => unknown;
+
+import type { CoordinatorObjectiveRequest } from "../../../domain-model/src/index.ts";

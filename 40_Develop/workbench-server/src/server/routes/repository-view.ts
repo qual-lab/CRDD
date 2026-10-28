@@ -9,7 +9,6 @@
  */
 import { getAiModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import type { ServerResponse } from "node:http";
-import { readRepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
 import { readRepositoryAiSelection } from "../../../../domain-model/src/index.ts";
 import { readWorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
@@ -41,6 +40,7 @@ import type {
 } from "../../../../domain-model/src/index.ts";
 import {
   type VerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRoot,
   type RepositoryWorktreeTreePage,
   type RepositoryWorktreeFileDiff,
   gitRepositoryWorktreeViewAdapter,
@@ -268,10 +268,14 @@ export async function handleRepositoryView({
       worktreeView,
       selectedRepositoryId,
     );
-    const network =
-      aiRequests === undefined
-        ? null
-        : readRepositoryNetworkPolicies(capability);
+    let network = null;
+    if (aiRequests !== undefined) {
+      const owner = await import("../../../../coordinator/src/index.ts");
+      if (requestSignal.aborted || response.destroyed) return;
+      if (resolveVerifiedRepositoryRoot(capability) !== repositoryRoot)
+        throw new Error("workbench_repository_unavailable");
+      network = owner.readRepositoryNetworkPolicies(capability);
+    }
     const clientModel = {
       ...baseModel,
       aiRequest: {

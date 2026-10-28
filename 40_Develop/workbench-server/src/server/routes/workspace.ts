@@ -19,10 +19,6 @@ import {
   type FilesystemStoreRoot,
 } from "../../../../domain-model/src/index.ts";
 import {
-  executeWorkspace,
-  inspectWorkspaceCommand,
-} from "../../../../coordinator/src/index.ts";
-import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
 } from "../../../../version-control/src/index.ts";
@@ -158,6 +154,10 @@ export async function handleWorkspaceAction({
       };
     }
     dispatched = true;
+    const { executeWorkspace } = await import(
+      "../../../../coordinator/src/index.ts"
+    );
+    if (requestSignal.aborted || response.destroyed) return;
     const result = executeWorkspace(
       ownerRoot,
       projectId,
@@ -186,3 +186,5 @@ export async function handleWorkspaceAction({
     }
   }
 }
+
+import { inspectWorkspaceCommand } from "../../../../domain-model/src/index.ts";

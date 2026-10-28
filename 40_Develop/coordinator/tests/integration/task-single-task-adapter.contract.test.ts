@@ -21,7 +21,6 @@ import {
 } from "../../src/execution/controller.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
-import { snapshotCoordinatorWorkspaceResult } from "../../src/execution/controller.ts";
 
 /**
  * 変更観測の意味と閉じた形を固定する。
@@ -1498,3 +1497,5 @@ test("Provider Accessorを実行せず欠測互換から除外する", async () 
   assert.equal(result.reason, "single_task_completion_observation_invalid");
   assert.equal(result.manualRecoveryRequired, true);
 });
+
+import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";

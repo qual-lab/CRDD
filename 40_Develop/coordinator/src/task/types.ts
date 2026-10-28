@@ -5,7 +5,7 @@
  */
 
 import type { ProjectTaskRecoveryKind } from "../../../domain-model/src/index.ts";
-import type { CoordinatorWorkspaceResult } from "../execution/result.ts";
+
 import type {
   COORDINATOR_EXECUTION_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -473,3 +473,5 @@ export type CoordinatorProcessSafetyPort = Readonly<{
   ) => Readonly<{ processIdentity: string; recoveryId: string }> | null;
   poisonAfterCleanupUnknown: () => void;
 }>;
+
+import type { CoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";

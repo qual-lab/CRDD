@@ -123,12 +123,10 @@ const SOURCE_ROLES = {
     "state/create.ts",
     "state/validation.ts",
     "decision/transition.ts",
-    "objective/request.ts",
     "objective/types.ts",
     "objective/plan.ts",
     "state/result.ts",
     "task/types.ts",
-    "state/request.ts",
     "task/scheduling.ts",
     "task/lifecycle.ts",
     "task/acceptance.ts",
@@ -216,7 +214,7 @@ test("Taskの純粋契約はExecutionの指定型だけを型専用で参照す�
     ],
   };
   const workspace = {
-    specifier: "../execution/result.ts",
+    specifier: "../../../domain-model/src/index.ts",
     typeOnly: true,
     names: ["CoordinatorWorkspaceResult"],
   };
@@ -258,7 +256,7 @@ test("Task共有型のContract参照は二定数の型専用辺だけを許可�
     "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
   ] as const;
   const workspace = {
-    specifier: "../execution/result.ts",
+    specifier: "../../../domain-model/src/index.ts",
     typeOnly: true,
     names: ["CoordinatorWorkspaceResult"],
   };
@@ -363,7 +361,9 @@ function assertPureImportEdges(
       (edge) => edge.specifier === "./dispatch.ts",
     );
     const workspaceEdges = scan.edges.filter(
-      (edge) => edge.specifier === "../execution/result.ts",
+      (edge) =>
+        edge.specifier === "../../../domain-model/src/index.ts" &&
+        edge.names.includes("CoordinatorWorkspaceResult"),
     );
     const names = contractEdges.flatMap((edge) => edge.names);
     const workspaceNames = workspaceEdges.flatMap((edge) => edge.names);
@@ -454,18 +454,14 @@ function assertPureImportEdges(
         const allowed: Readonly<Record<string, readonly string[]>> = {
           "state/projection.ts": [
             "COORDINATOR_STATE_CONTRACT",
+            "CoordinatorProjection",
             "CoordinatorState",
-            "ProjectTaskState",
+            "PROJECT_OBJECTIVE_STATES",
+            "PROJECT_TASK_STATES",
             "inspectTaskExecutionSelections",
-            "snapshotRuntimeStateArray",
-            "snapshotRuntimeStateRecord",
+            "isCoordinatorProjectionSemanticallyValid",
           ],
-          "state/types.ts": [
-            "CoordinatorState",
-            "ProjectMilestoneState",
-            "ProjectObjectiveState",
-            "ProjectTaskState",
-          ],
+          "state/types.ts": ["CoordinatorState"],
           "decision/types.ts": [
             "CoordinatorAcceptanceDecision",
             "CoordinatorAcceptanceDecisionRecord",
@@ -476,15 +472,18 @@ function assertPureImportEdges(
           "decision/request.ts": [
             "CoordinatorAcceptanceDecision",
             "CoordinatorAcceptanceTarget",
-            "snapshotRuntimeStateRecord",
           ],
           "state/persistence.ts": [
             "CoordinatorLeaseKind",
+            "CoordinatorQueueEnqueueInput",
             "CoordinatorState",
             "ProjectQueueEntry",
             "ProjectQueueState",
+            "ProjectTaskResultFact",
           ],
           "state/create.ts": [
+            "COORDINATOR_MAXIMUM_OBJECTIVES",
+            "COORDINATOR_MAXIMUM_TASKS",
             "ProjectObjectiveDefinition",
             "ProjectTaskDefinition",
             "TaskExecutionSelections",
@@ -498,29 +497,26 @@ function assertPureImportEdges(
             "CoordinatorAcceptanceDecisionInput",
             "CoordinatorState",
           ],
-          "objective/request.ts": [
-            "inspectAiSelectionChoice",
-            "AiSelectionChoice",
-            "CallerTaskInput",
-            "CoordinatorObjectivePlan",
-            "inspectCallerTaskInputs",
-            "inspectExecutionPlan",
-            "normalizeRepositoryRelativePath",
-            "snapshotRuntimeStateArray",
-            "snapshotRuntimeStateRecord",
-          ],
           "objective/types.ts": [
             "CoordinatorObjectivePlan",
+            "CoordinatorObjectiveRequest",
             "CoordinatorState",
             "ProjectTaskDefinition",
           ],
           "objective/plan.ts": [
             "CoordinatorObjectivePlan",
+            "CoordinatorObjectiveRequest",
+            "inspectCoordinatorObjectiveRequest",
             "inspectExecutionPlan",
           ],
-          "state/result.ts": ["RepositoryRuntimeDataAreaBlockedError"],
-          "task/types.ts": ["ProjectTaskRecoveryKind"],
-          "state/request.ts": ["snapshotRuntimeStateRecord"],
+          "state/result.ts": [
+            "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
+            "RepositoryRuntimeDataAreaBlockedError",
+          ],
+          "task/types.ts": [
+            "CoordinatorWorkspaceResult",
+            "ProjectTaskRecoveryKind",
+          ],
           "task/scheduling.ts": ["CoordinatorState", "ProjectTaskRecord"],
           "task/lifecycle.ts": [
             "CoordinatorState",
@@ -741,10 +737,10 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
   const snapshotEdge = {
     specifier: "../../../domain-model/src/index.ts",
     typeOnly: false,
-    names: ["inspectAiSelectionChoice"],
+    names: ["inspectExecutionPlan"],
   };
   assert.doesNotThrow(() =>
-    assertPureImportEdges(`${SOURCE_PREFIX}objective/request.ts`, {
+    assertPureImportEdges(`${SOURCE_PREFIX}objective/plan.ts`, {
       isConsistent: true,
       edges: [snapshotEdge],
     }),
@@ -756,7 +752,7 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
   ])
     assert.throws(
       () =>
-        assertPureImportEdges(`${SOURCE_PREFIX}objective/request.ts`, {
+        assertPureImportEdges(`${SOURCE_PREFIX}objective/plan.ts`, {
           isConsistent: true,
           edges: [{ ...snapshotEdge, names }],
         }),

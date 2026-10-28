@@ -26,7 +26,6 @@ import {
   type ProjectContextSource,
 } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import { queryActivity } from "../../../coordinator/src/index.ts";
 import { createMcpServerFactory } from "./server.ts";
 import { createInitialConnectionHandler } from "./initial-connection.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
@@ -154,6 +153,17 @@ export function createAccessMcpResolver(
                 };
               });
               if (signal.aborted)
+                throw new Error("runtime_activity_unavailable");
+              const { queryActivity } = await import(
+                "../../../coordinator/src/index.ts"
+              );
+              if (
+                signal.aborted ||
+                !sameAccessCollection(
+                  collection,
+                  resolveRepositoryAccessCollection(root, token),
+                )
+              )
                 throw new Error("runtime_activity_unavailable");
               return queryActivity({ ...query, repositories }, signal);
             },

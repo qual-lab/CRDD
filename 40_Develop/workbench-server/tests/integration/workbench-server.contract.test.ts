@@ -3160,21 +3160,29 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
     assert.equal(
       writeExecutionIntelligenceEvent(
         verified.root,
-        event("project-a", "task-old", "2026-09-28T00:00:00.000Z"),
+        event(
+          "project-a",
+          "task-old",
+          new Date(Date.now() - 120000).toISOString(),
+        ),
       ).status,
       "completed",
     );
     assert.equal(
       writeExecutionIntelligenceEvent(
         verified.root,
-        event("project-a", "task-new", "2026-09-28T00:01:00.000Z"),
+        event(
+          "project-a",
+          "task-new",
+          new Date(Date.now() - 60000).toISOString(),
+        ),
       ).status,
       "completed",
     );
     assert.equal(
       writeExecutionIntelligenceEvent(
         verified.root,
-        event("project-b", "task-hidden", "2026-09-28T00:02:00.000Z"),
+        event("project-b", "task-hidden", new Date().toISOString()),
       ).status,
       "completed",
     );

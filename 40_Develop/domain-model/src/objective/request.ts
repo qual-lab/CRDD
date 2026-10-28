@@ -1,24 +1,21 @@
 /**
- * objective-requestに属する責務をまとめる。
- *
- * @responsibility CoordinatorObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * 呼出し元が分解した実行依頼の公開入力を検査する。
+ * @packageDocumentation
+ * @responsibility 計画・Task別入力・固定対象を閉形式へ写し、受付や実行許可を発行しない。
  * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @boundary 未信頼要求とDomainの値契約。
  */
-
 import {
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
-import {
-  normalizeRepositoryRelativePath,
-  inspectExecutionPlan,
-  inspectCallerTaskInputs,
-  type CoordinatorObjectivePlan,
-  type CallerTaskInput,
-} from "../../../domain-model/src/index.ts";
-import { inspectAiSelectionChoice } from "../../../domain-model/src/index.ts";
-import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
-
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../state/validation.ts";
+import { normalizeRepositoryRelativePath } from "../repository/path.ts";
+import { inspectExecutionPlan, inspectCallerTaskInputs } from "./validation.ts";
+import type { CoordinatorObjectivePlan } from "./types.ts";
+import type { CallerTaskInput } from "../task/types.ts";
+import { inspectAiSelectionChoice } from "../ai-selection/validation.ts";
+import type { AiSelectionChoice } from "../ai-selection/types.ts";
 /**
  * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
  *
@@ -329,3 +326,5 @@ export function inspectCoordinatorObjectiveRequest(
       : {}),
   });
 }
+export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
+  "crdd-coordinator/orchestrator-objective-intake/v2" as const;

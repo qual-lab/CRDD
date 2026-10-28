@@ -1,5 +1,15 @@
 # QA-000003 Project実行と回復の検証定義
 
+### Core公開入口の分離確認 — 2026-10-28
+
+`PRL-IT-012`ではCoordinator／ExecutorのModule解決を拒否した実子ProcessからMCPとWorkbenchのPackage Rootを読み、正式Factory／HTTPを通して初期化・定義CRUD・保存・再読取り・古いCAS拒否を確認する。MCPの既存同期結果Inspectorも同条件で同期呼出しし、単体Toolだけの読込み成功で上位入口の成立を代用しない。Automation区画の非対象保全と保存不明は既存Domain実保存シナリオで別に確認する。
+
+Workbenchの公開binでは既定Coreと明示`--automation`を分け、前者は実行Owner読込み零、後者だけ同じ既存Task Sessionを構成する。有限代役を使うbin構成試験と、実HTTP／実保存試験を別の根拠とする。共有接続の動的読込み待機中の失効・Root差・取消では、Policy又はWorkspaceの実観測前に停止する。定義POSTの有限搬送上限はDomain上限に整合させ、大きい合法入力を別仕様として拒否しない。上限超・不正Token・閉入力違反では保存Effect零を確認する。
+
+これらの結果は変更計画へ記録し、Executor単独・全結合実AI・保存先の実データ移行又はQA項目全体の合格へ拡張しない。
+
+MCPの配布Launcherも同じModule拒否条件で実起動し、既定stdioでCore Toolの列挙・保存・再読取り・CASと対象ID不一致を確認する。HTTP入口は拒否hook下の実ListenerでdiscoverとCore Tool集合を確認する。明示AutomationのOwner欠測は起動失敗であり、Core-onlyへのfallbackは禁止する。不正なNode版、Automationの位置・重複・CROS併用は起動前拒否として反証する。Transportの合成Tokenは本番Credentialではなく、Domainの認可・OS本人証明と同一視しない。
+
 ## Runtime Domainの追加シナリオ — 2026-10-27
 
 Caller Task Graphの[公開入力契約](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#caller-task-graph-intake)を既存PRL-IT-012／013とPRL-ST-001の下位シナリオへ接続する。すべてNot Run。新しいLocal Itemや結果件数は発行しない。

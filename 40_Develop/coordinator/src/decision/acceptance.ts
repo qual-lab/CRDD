@@ -11,10 +11,7 @@ import {
   inspectRepositoryIdentityCandidate,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import {
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  coordinatorDataBoundaryBlocked,
-} from "../state/result.ts";
+import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
@@ -484,3 +481,5 @@ export function runCoordinatorPublicAcceptanceDecision(
     authenticationContext,
   );
 }
+
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";

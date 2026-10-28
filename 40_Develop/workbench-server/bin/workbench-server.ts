@@ -20,7 +20,6 @@ import {
   readExistingHostRoot,
   readHostInitializationState,
 } from "../../access-management/src/index.ts";
-import { openTaskSession } from "../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -44,11 +43,15 @@ import {
 async function startRepositoryWorkbench(
   repositoryRoot: string,
   port: number,
+  automation: boolean,
 ): Promise<WorkbenchHandle> {
+  if (!automation)
+    return startWorkbench({ workingDirectory: repositoryRoot, port });
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("verified_repository_root_required");
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
+  const { openTaskSession } = await import("../../coordinator/src/index.ts");
   const aiRequests = openTaskSession({
     rootCapability: verified.capability,
     projectId: surface.context.projectId,
@@ -84,28 +87,33 @@ async function startFromCommandLine(): Promise<WorkbenchHandle | null> {
   const args = process.argv.slice(2);
   if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
     process.stdout.write(
-      "使い方: workbench-server [--cros] [--port <port>]\n単体は現在Repository固定、--crosは既存Host設定を使用します。資格はBrowserで入力してください。\n",
+      "使い方: workbench-server [--cros] [--automation] [--port <port>]\n単体は現在Repository固定、--crosは既存Host設定を使用します。--automationでAI実行を追加します。資格はBrowserで入力してください。\n",
     );
     return null;
   }
-  const cros = args[0] === "--cros";
-  const remaining = cros ? args.slice(1) : args;
+  const automation = args.includes("--automation");
+  const coreArgs = args.filter((value) => value !== "--automation");
+  const cros = coreArgs[0] === "--cros";
+  const remaining = cros ? coreArgs.slice(1) : coreArgs;
   const port = remaining.length === 0 ? 0 : Number(remaining[1]);
   if (
+    args.filter((value) => value === "--automation").length > 1 ||
     (remaining.length !== 0 &&
       (remaining.length !== 2 || remaining[0] !== "--port")) ||
     !Number.isInteger(port) ||
     port < 0 ||
     port > 65535
   ) {
-    process.stderr.write("使い方: workbench-server [--cros] [--port <port>]\n");
+    process.stderr.write(
+      "使い方: workbench-server [--cros] [--automation] [--port <port>]\n",
+    );
     process.exitCode = 64;
     return null;
   }
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
-  if (!cros) return startRepositoryWorkbench(repositoryRoot, port);
+  if (!cros) return startRepositoryWorkbench(repositoryRoot, port, automation);
   const configuration = await readWorkbenchServerConfiguration(repositoryRoot);
   const input = resolveHostRootInput(process.env);
   const root = input && readExistingHostRoot(input);
@@ -114,18 +122,25 @@ async function startFromCommandLine(): Promise<WorkbenchHandle | null> {
   const initialization = readHostInitializationState(root);
   if (initialization.status === "fresh" || initialization.status === "unknown")
     throw new Error("workbench_host_initialization_unavailable");
+  const taskOwner = automation
+    ? await import("../../coordinator/src/index.ts")
+    : null;
   return startWorkbench({
     workingDirectory: repositoryRoot,
     port,
     localAccessRoot: root,
     ...configuration,
-    sharedAiRequestsFactory: (root, projectId, principalId, authorize) =>
-      openTaskSession({
-        rootCapability: root,
-        projectId,
-        principalId,
-        authorize,
-      }),
+    ...(taskOwner === null
+      ? {}
+      : {
+          sharedAiRequestsFactory: (root, projectId, principalId, authorize) =>
+            taskOwner.openTaskSession({
+              rootCapability: root,
+              projectId,
+              principalId,
+              authorize,
+            }),
+        }),
   });
 }
 

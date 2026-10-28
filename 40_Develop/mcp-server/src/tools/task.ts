@@ -8,21 +8,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../request/snapshot.ts";
-import {
-  inspectCoordinatorDecisionRequest,
-  inspectCoordinatorObjectiveRequest,
-  inspectCoordinatorWorkspaceResults,
-  inspectCoordinatorStateQuery,
-  inspectCoordinatorStateQueryResult,
-  isCoordinatorObjectiveProjectionCorrelationValid,
-  isCoordinatorProjectionSemanticallyValid,
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  type CoordinatorProjection,
-} from "../../../coordinator/src/index.ts";
+
 import {
   callKeys,
   discoverKeys,
@@ -1222,3 +1208,19 @@ export function getMcpCoordinatorToolDefinitions() {
     ),
   ]);
 }
+
+import {
+  inspectCoordinatorDecisionRequest,
+  inspectCoordinatorObjectiveRequest,
+  inspectCoordinatorWorkspaceResults,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  type CoordinatorProjection,
+} from "../../../domain-model/src/index.ts";

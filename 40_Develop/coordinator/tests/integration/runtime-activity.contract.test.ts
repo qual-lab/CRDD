@@ -28,11 +28,8 @@ import {
 } from "../../../execution-intelligence/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import type { ActivityRepository } from "../../src/index.ts";
-import {
-  parseRuntimeActivityObservation,
-  queryActivity as readAuthorizedRuntimeActivity,
-} from "../../src/index.ts";
+
+import { queryActivity as readAuthorizedRuntimeActivity } from "../../src/index.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -712,3 +709,6 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   assert.equal(all.events[2]?.eventId, older.eventId);
   assert.ok(parseRuntimeActivityObservation(all));
 });
+
+import type { ActivityRepository } from "../../../domain-model/src/index.ts";
+import { parseRuntimeActivityObservation } from "../../../domain-model/src/index.ts";

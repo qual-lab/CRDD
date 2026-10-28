@@ -34,7 +34,7 @@ import {
   isCoordinatorRecoveryIdentity,
 } from "../state/validation.ts";
 import { types as utilTypes } from "node:util";
-import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
+
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -1687,6 +1687,8 @@ export function createCoordinatorTaskAttemptEvent(
     },
   });
 }
+
+import { snapshotCoordinatorWorkspaceResult } from "../../../domain-model/src/index.ts";
 
 /**
  * 検証済みRepositoryへTask Attemptの実行記録を公開する。
