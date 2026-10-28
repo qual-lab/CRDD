@@ -748,7 +748,7 @@ Project ID: \`PRJ-001\`
  * @trace CPR-IT-010
  * @precondition 検証済みRepository内の自己生成Rootに両種別の正本を用意する。
  * @stimulus 第一子の実Lock取得後、第二子の同改訂更新を実行し、第一子を解放する。
- * @observation 子のclose、結果、正本bytes・改訂、Lockと短命Fileの不存在を確認する。
+ * @observation 子のclose、結果、正本bytes・改訂、Lockと短命Fileの不存在、失敗時だけ最大4096 bytesのstderrを確認する。
  * @oracle 第二子はEffect 0で拒否され、第一子と後続更新だけが改訂を進める。
  * @cleanup releaseを試み、所有子をjoinしてから自己生成Rootを回収する。
  * @boundary 取得順を固定した協調Writer競合。異常死・同時open勝者・親差替え・電源断は対象外。
@@ -817,6 +817,8 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
     const children: Array<{
       child: ReturnType<typeof spawn>;
       closed: boolean;
+      stderr: Buffer;
+      stderrTruncated: boolean;
       done: Promise<{
         code: number | null;
         signal: string | null;
@@ -848,17 +850,28 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
             lock,
             mode,
           ],
-          { stdio: "ignore" },
+          { stdio: ["ignore", "ignore", "pipe"] },
         );
         const observed = {
           child,
           closed: false,
+          stderr: Buffer.alloc(0),
+          stderrTruncated: false,
           done: Promise.resolve({
             code: null as number | null,
             signal: null as string | null,
             error: null as Error | null,
           }),
         };
+        child.stderr?.on("data", (chunk: Buffer) => {
+          const remaining = 4096 - observed.stderr.length;
+          if (chunk.length > remaining) observed.stderrTruncated = true;
+          if (remaining > 0)
+            observed.stderr = Buffer.concat([
+              observed.stderr,
+              chunk.subarray(0, remaining),
+            ]);
+        });
         observed.done = new Promise((resolve) => {
           let spawnError: Error | null = null;
           child.once("error", (error) => {
@@ -888,11 +901,11 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
             assert.ok(Date.now() < deadline, "第二子closeの期限");
             await delay(10);
           }
-          assert.deepEqual(await observed.done, {
-            code: 0,
-            signal: null,
-            error: null,
-          });
+          assert.deepEqual(
+            await observed.done,
+            { code: 0, signal: null, error: null },
+            `${observed.stderr.toString("utf8")}${observed.stderrTruncated ? " [stderr truncated]" : ""}`,
+          );
           const outcome = JSON.parse(fs.readFileSync(result, "utf8"));
           assert.equal(outcome.status, "blocked");
           assert.equal(outcome.reason, "record_revision_conflict");
@@ -911,11 +924,11 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
         assert.ok(Date.now() < deadline, "第一子closeの期限");
         await delay(10);
       }
-      assert.deepEqual(await first.done, {
-        code: 0,
-        signal: null,
-        error: null,
-      });
+      assert.deepEqual(
+        await first.done,
+        { code: 0, signal: null, error: null },
+        `${first.stderr.toString("utf8")}${first.stderrTruncated ? " [stderr truncated]" : ""}`,
+      );
       const accepted = JSON.parse(
         fs.readFileSync(path.join(scope, "hold.json"), "utf8"),
       );

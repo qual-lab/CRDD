@@ -213,6 +213,38 @@ Source・Oracle・配置・公開境界の独立レビューは、是正後の�
 
 未完了はHの実AI／Docker・人間操作、実データ移行、正式QAの全数再評価とRelease判断である。Domain全回帰のWindows rename EPERM一件は上段の担当・再評価条件で独立追跡し、全体品質の成功とはしない。これらをF／GのSource移管済み表示で覆わない。現在の指定Source範囲を閉じるための人間判断はない。AI再送・Docker照会／操作・認証情報・過去保持物の読取り又は操作は実施していない。
 
+<a id="windows-document-rename-investigation"></a>
+
+#### Windows文書保存の拒否切り分けとHの準備 — 2026-10-28
+
+`954100163`の後続調査であり、F／Gの製品Sourceを変更しない。対象はDomainのTopic／Meeting保存境界と既存CPR-IT-010の協調Writer試験。新品のRepository内合成Rootだけを使い、過去保持物・既存状態・認証・実AI・Dockerは操作しない。保存・改訂・排他・読戻しの契約は不変で、製品のretry、期限変更、権限緩和、新しい回復処理は追加しない。Source／Oracleの限定独立レビューと文書の参照確認を適用し、準拠・Release判断の変更や監査は今回対象外とする。
+
+既存九件は八成功・一不合格。協調Writerの第一子が終了1となるが、従来の`stdio: ignore`で一次理由を失っていた。試験だけを`ignore / ignore / pipe`へ変更し、stderrを常時drainして先頭4096 bytesだけをメモリ保持し、close後のassert失敗補助に使う。Fileへ保存せず、上限後もpipeを消費する。code／signal／spawn error、十秒期限、release・kill・join、全子close後だけのRoot回収は維持する。診断追加後の九件も八成功・一不合格で、第一子の`rename`がNode v24.19.0／libuv 1.52.1で`EPERM / errno -4048`を返したことを確認した。改善又は成功へ読み替えない。
+
+| CRDDを通さないNode標準比較 | 固定した例数 | 観測 |
+|---|---:|---|
+| 親Process・直前読取りなし | 8 | rename成功8 |
+| 親Process・直前lstat／読取りあり | 8 | rename成功8 |
+| 子Process・直前読取りなし | 8 | rename成功7、同じEPERM一件 |
+| 子Process・直前lstat／読取りあり | 8 | rename成功8 |
+
+比較は今回専用の非link試験親から生成したRootで、各例に新規の`record.md`=`BASE`と`.record.md.tmp`=`NEXT`を通常writeして閉じ、同じNodeの`fs.renameSync`を一度だけ呼んだ。子は固定`--input-type=module --eval`のNode組込みfsだけで動作し、CRDD Module・Writer・Lock・状態を読み込まない。これは同じ拒否をCRDDなしで再現した根拠であり、全EPERMの原因が同一又はCRDDに他の問題がないという証明ではない。
+
+追加の参照元照会は、新品Root内の子rename最大十六例・最初の失敗で停止する有限比較とした。十三例目で同じ拒否を観測し、そのtemp／target二FileだけをWindows標準Restart Managerの`RmRegisterResources`／`RmGetList`へ渡した。両File属性は32（読み取り専用bitなし）、Start／Register／List／Endはすべて0、照会時点のprocess一覧は空だった。停止・再起動APIは呼んでいない。後追い照会であり、一時的なhandleやKernel／セキュリティ製品等の拒否を排除できず、原因をAV・ACL・特定Processへ断定しない。[libuv 1.52.1のWindows rename](https://github.com/libuv/libuv/blob/v1.52.1/src/win/fs.c)と[Windowsの照会API](https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmgetlist)は一般的意味の参照だけに使い、ローカルの原因証拠としない。
+
+比較の全子終了・今回Rootの通常削除と不存在を確認し、短命診断Script三件も削除・不存在確認した。生の診断書庫、製品用計測Framework、Native部品は追加しない。恒久差分は既存試験の有限stderr観測だけである。Domain型検査、変更試験の整形・警告を失敗とするLintは成功、Source・Oracle・結果とH条件の限定独立レビューは残指摘零。Windows保存の不合格自体は未解消で、担当Qual-Lab、再評価はWindowsファイルI/Oの拒否元を限定観測できる時又は実行環境変更時とする。OS監視やセキュリティ設定の変更を今回のSource調査許可から推定しない。
+
+Hは次の条件候補へ分ける。まだ実行許可を取得又は消費したとは扱わない。
+
+| 段階 | 送信・モデル・上限候補 | 前提・停止・回収 |
+|---|---|---|
+| Executor単独の読取り | 合成Contextと固定質問のみ。Codex `gpt-6.1-sol`／medium、Claude `claude-opus-5-5`／mediumを各一回、合計最大二回 | Coordinator解決拒否下で正常・取消・Host終了の非AI構成を先に固定する。既存Task検証ToolはCoordinator経由のため、単独実試験の代用にしない。独立実試験の準備は未完了 |
+| Coordinator結合・Direct／Isolated | 合成`source.txt`・既存dirty／stage／未追跡確認用File・合成Context・固定指示と差分だけ。Codex編集→Claudeレビュー、必要な既存限定是正一回と再レビューまで。二Task、AI起動は合計最大八回 | 固定版で非AI事前確認・独立確認を先行。Task全体の自動再試行なし。不明な失敗で停止し、今回の資源だけ既存処理で回収する |
+
+使用Imageは現行Sourceの固定Codex CLI 0.164.0（Task digest `832019e6…a4a4`、助言用 `112a73d8…6de3`）、Claude Code 2.1.310（`612433b7…c51f`）、共通Proxy（`4270d4dc…3766`）を候補とし、Image取得・更新は含めない。これはSourceの指定値であり、Engine・実Image・モデル利用可否は未確認。実施時の承認はDocker読取り照会・既存Subscription認証領域の用途限定使用・Provider通信・合成内容の外部送信・今回作成資源の回収までを明示する。Container／Networkは各同時最大二、Engine停止・固定Image欠測・事前確認失敗では停止する。Docker起動／再起動／修復、API Key fallback、実Repository本文送信、過去保持物操作は含めない。
+
+今回のWindows拒否は、実試験の保存・回収も止め得る未解消Riskである。Source診断の完了を環境正常化と扱わず、現時点では実AIを開始しない。まず独立Executorの非AI試験構成と事前条件を具体化し、未解消環境Riskを再評価してから、確定した送信本文・固定Commit・回数・exact試験Root・清掃条件を人間へ提示する。未準備の実試験を今承認させない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。
