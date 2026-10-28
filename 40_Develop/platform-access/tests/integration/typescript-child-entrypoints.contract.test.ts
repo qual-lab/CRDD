@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import {
   acquireNamedPipeKernelLock,
   acquireNamedPipeKernelLockOutcome,
@@ -98,6 +99,49 @@ test("Lock Workerは親Consoleへpipeせず実errorとexitを通知する", asyn
   assert.notEqual(code, 0);
   assert.equal(process.stderr.listenerCount("error"), errors);
   assert.equal(process.stderr.listenerCount("close"), closes);
+});
+
+/**
+ * 実Wrapperの無出力Workerが通信とunref終了を両立する。
+ * @responsibility stdioの破棄をWorker停止やLock解放と同一視しない。
+ * @trace ERB-IT-002
+ * @precondition 実Workerを有限の共有状態・message実装へ差し替え、OS Pipeを作らない。
+ * @stimulus release通信、unref親終了、旧resume構成の変異。
+ * @observation 共有状態、実exit、親stdoutと終了値。
+ * @oracle 通信は正常、無出力、unref親はWorkerの期限終了に拘束されない。
+ * @cleanup 子とWorkerは有限終了し、異常時は今回Nodeだけを有界停止する。
+ * @boundary 実OS排他の取得・解放成立はこの代役から主張しない。
+ */
+test("無出力Workerは通信を維持しunref親の終了を妨げない", () => {
+  const entry = new URL("../../src/process/child.ts", import.meta.url).href;
+  for (const mode of ["release", "unref", "old_resume"]) {
+    const source = `
+      import assert from 'node:assert/strict';import threads from 'node:worker_threads';import {registerHooks,syncBuiltinESMExports} from 'node:module';
+      const RealWorker=threads.Worker;const mode=${JSON.stringify(mode)};
+      if(mode==='old_resume')registerHooks({load(u,c,n){const r=n(u,c);if(u===${JSON.stringify(entry)})return {...r,source:String(r.source).replaceAll('worker.stdout.destroy();','worker.stdout.resume();').replaceAll('worker.stderr.destroy();','worker.stderr.resume();')};return r;}});
+      threads.Worker=class extends RealWorker{constructor(url,options){assert.ok(url.href.endsWith('/lock/worker.ts'));super(new URL('data:text/javascript,'+encodeURIComponent(
+        "import {parentPort,workerData} from 'node:worker_threads';const state=new Int32Array(workerData.state);Atomics.store(state,0,1);parentPort.postMessage('held');const timer=setTimeout(()=>{Atomics.store(state,0,3);parentPort.close();},1000);parentPort.once('message',v=>{if(v==='release'){clearTimeout(timer);Atomics.store(state,0,2);parentPort.postMessage('released');parentPort.close();}});"
+      )),options);}};syncBuiltinESMExports();
+      const {createRuntimeLocalTypeScriptWorker}=await import(${JSON.stringify(entry)});const state=new Int32Array(new SharedArrayBuffer(4));
+      const w=createRuntimeLocalTypeScriptWorker('kernel_lock_worker',{env:{},workerData:{state:state.buffer}});
+      let errors=0;w.on('error',()=>errors++);
+      if(mode==='release'){assert.equal(w.stdout.destroyed,true);assert.equal(w.stderr.destroyed,true);let held=false,released=false;w.on('message',v=>{if(v==='held'){held=true;assert.equal(Atomics.load(state,0),1);w.postMessage('release');}if(v==='released')released=true;});await new Promise(resolve=>w.once('exit',resolve));assert.equal(errors,0);assert.equal(held,true);assert.equal(released,true);assert.equal(Atomics.load(state,0),2);process.stdout.write('confirmed');}
+      else{w.unref();process.on('exit',()=>{if(Atomics.load(state,0)===3)process.exitCode=3;process.stdout.write('confirmed');});}
+    `;
+    const child = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", source],
+      {
+        encoding: "utf8",
+        timeout: 5000,
+        windowsHide: true,
+      },
+    );
+    assert.equal(child.error, undefined, mode);
+    assert.equal(child.signal, null, mode);
+    assert.equal(child.status, mode === "old_resume" ? 3 : 0, child.stderr);
+    assert.equal(child.stdout, "confirmed", mode);
+  }
 });
 
 /**

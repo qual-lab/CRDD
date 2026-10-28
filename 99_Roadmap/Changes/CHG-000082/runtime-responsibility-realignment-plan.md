@@ -359,6 +359,36 @@ ACK送信callbackと子の結果・closeの順序は保証されないため、�
 
 追加五Caseは、純粋計画とEffect前拒否、子の十条件、親の十五条件、静的依存変異、実IPC子の不正計画／開始前取消を確認した。最終候補のExecutor全回帰は一実行十四件成功・失敗零・取消零、二十TypeScriptの整形・型・警告を失敗とするLintも成功。Catalogは417件validである。修正版の独立再確認は残指摘零で、この試験入口の非AI接続範囲を閉じる。対象三文書とExecutor Symbolの指摘は零、参照展開五十七文書の既存3,050指摘による全体不合格は維持する。Native・Lease・Host又はforkの代役範囲を明示し、実Provider・Home・Dockerの成立とは扱わない。今回、実AI・Docker照会／操作・実Home・認証情報・過去保持物を操作していない。実送信は固定入力・Model・Image・回数・新品Rootと回収の範囲を別途承認後に行う。
 
+#### 単段Codex一回試験の停止と保持 — 2026-10-28
+
+人間が固定合成入力・両Provider各一回・固定Image・今回資源のみの回収を承認した。`f5127a3487531169eeac288ef3b622950731c5b1`でEngine（Linux／29.8.1）と固定Provider二Image・Proxy Imageの存在を読取り確認し、稼働Container零の後、Codexだけを`EXEC-20261028-01`として一回開始した。端末内の通常同意後、結果は`blocked / docker_process_controller_cleanup_unconfirmed`、終了値二。Claudeは未実施、再送・Docker再起動・Image更新・過去保持物操作はしていない。
+
+返却値は`childCloseConfirmed=false`、`childCloseObserved=false`、`cleanupConfirmed=false`、`releaseConfirmed=false`、`terminalSaved=false`、`nativeCleanupConfirmed=true`、`adviceConfirmed=false`だった。元回復参照は`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.e0e9ff0d111436dc423da7a23537ed57fad656bd7a4d3e84537104dd67b1d7db.cda506a0f8e80edf52c6ac09c40cbe83921ccccb4c0559fde5ba424710c66ab7`。`C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261028-01`は保持し、再評価時刻は2026-11-04T13:45:10.136Zとする。親は子close未観測なのでRootへ結果を書かず、`retentionRecordConfirmed=false`を返した。端末の有限結果を本節へ記録し、生出力は保存しない。
+
+今回Rootには`recovery_opened`、`recovery_handoff`、`submission_planned`（`create_subscription_auth_probe`）の確定JSON三件だけがあり、Receipt・不存在・排他解放・終端保存の記録はない。後続の読取りで試験ScriptのNodeは零件。Container候補`6d28583322a6ed96ea3cd2fdc94efe3eabaccd8b6fa65830e7726c25d7c16d91`（`crdd-auth-a11dcaf2206e91a5`）は13:31:36Z作成、固定Codex Image、未起動・PID零・Network none・再起動なし・Home読取り専用だった。専用Networkは一覧になく、既存停止Container等は不変更。現時点のProcess不存在を、返却時のclose観測成立へ書き換えない。
+
+作成拒否ではなく、作成要求以後の応答受領・記録の未確定が残る。保存記録はランダムContainer名／実IDとの結合を欠き、時刻・構成の一致だけで今回所有を断定しない。この候補とRootは削除せず保持し、今回資源としてのexact対象判断又は既存記録からの追加相関が必要。一次故障の詳細、子close未観測の理由、実AI実行の成立は未確定で、試験全体は不合格のまま扱う。
+
+#### 単段試験停止の非AI調査 — 2026-10-28
+
+今回保持Root・Sourceだけを読み、実AI・Docker再要求／再起動・実Home再取得・保持物変更は行わず切り分けた。既存所有Process APIに120ms後に合成65byteを返す自己生成Nodeだけを接続すると、五msの初回待機は未観測、後の待機では終了零・65byte・close確認となった。要求先が完了していても最初の待機にReceiptが届くとは限らないことを再現したが、今回Dockerの応答遅延の原因や実待機時間を特定した結果ではない。予定保存13:31:25.682Z、実行config作成約13:31:28Z、Container作成13:31:36.452Zであり、予定保存からの約10.77秒をそのまま十秒のコマンド待機超過とは扱わない。
+
+子終了未観測には独立した有力要因がある。既存Platform AccessのWorker組立は`stdout:true`／`stderr:true`をresumeし、同期排他側はWorkerをunrefする。実Pipeを作らない有限Worker比較で、800ms後に終了するWorkerをunrefしたNodeはdrainなし約98ms、同じ構成のdrainあり約914msで終了した。別比較でもdrain約918ms、後からpauseしても約923msで、pauseだけでは解消しなかった。試験Hostは清掃不明時に排他を保持し、試験子のfinallyも開始後は解放しないため、結果送信後も排他Workerのstdioが子の終了を妨げ得る。実試験中のactive handleを採取していないため、これを唯一の残留要因とは断定しない。
+
+一次原因を確定できない理由もSourceで確認した。Executorは既存`reportProviderBoundaryDiagnostic`へ一次故障の段階・Handle取得・応答観測・Receipt・固定例外分類を通知するが、今回の試験Hostはこのcallbackを接続していなかった。さらに`recordTerminal`は清掃成立時だけ保存するため、今回の失敗では一次診断が残らない。`submission_planned`にも既存計画が持つ予定名／labelを保存せず、plan Hashだけからランダム資源名を復元できない。このため残存候補のexact所有相関も不足している。
+
+最小是正候補は、試験Hostが既存の閉じた非秘密一次診断を受け取り、作成前の予定名・所有labelを同じ試験記録へ残すこと、及び失敗結果後の試験子終了と排他Workerのstdio所有を既存Platform Accessの範囲で整理することである。新しいState・Registry・Recovery、Timeout延長、名前だけの削除は提案しない。今回の一次故障がコマンド待機・応答搬送・Receipt保存のどれかはなお未確定。調査段階では製品Source・試験Source・保持Rootを変更していない。
+
+#### 単段試験の最小是正と非AI確認 — 2026-10-28
+
+着手前整合で、解放失敗後の診断保存は既存Owner条件に適合しないと確認した。Writerのguardを緩めず、境界終了通知の相関済み一次故障と固定boolをメモリへ保持し、既存結果IPCの閉じた`diagnostic`へ載せた。解放成功後だけ同じ投影を確定JSONへ保存し、拒否・不明後は書かない。診断保存失敗は既存の非介入通知契約に従い実行判定を変えない。予定記録には既存の資源名・所有labelを加え、清掃側も完全キーと文法を検査する。過去保持Rootは新形式へ書き換えない。
+
+Platform Accessの無出力Lock Workerだけ、親側stdioをresumeからdestroyへ変更した。Worker・共有状態・message・error／exit・取得解放処理・期限は不変。有限Workerを実helperへ接続し、release通信／共有状態・通常終了、unref親終了、旧resume変異の終了拘束を確認する。既存の実Worker入力失敗によるerror／exit検査も維持する。これらを実Home・Dockerや今回保持物の回収成功へ換算しない。実AI再送・Docker・過去保持物は未操作である。
+
+独立レビューの予定相関一指摘を是正し、試験Root清掃に五用途各一件、単一label、終了観測との予定名完全一致を要求した。両CLI代役の正常fixtureを五予定・Receipt・終了観測へ揃え、異label・重複purpose・別の合法Provider名・終了観測側だけの名差を拒否する。これはRoot清掃前の照合であり、Dockerの資源名生成や削除許可は変更しない。
+
+最終候補の非AI回帰はExecutor一実行十四件、Platform Access一実行138件がすべて成功した。両Packageの整形・型・警告を失敗とするLint、Catalog417件の検査も成功。試験Hostの十三条件、CLI子の十条件、親の二十二条件は各Case内の反例であり、独立Case件数へ水増ししない。独立再レビューは残指摘零。更新四文書・両Package対象の文書指摘は零で、参照展開七十二文書の既存3,131指摘による全体不合格は残す。今回の是正は非AI限定完了であり、実auth createの一次故障確定、再送成功、保持Container／Root回収又は全体QA完了ではない。現在、この最小是正の範囲で新たな人間判断はない。再送・保持物処置は別の明示判断とする。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

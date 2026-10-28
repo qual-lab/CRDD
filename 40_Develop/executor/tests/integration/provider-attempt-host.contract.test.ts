@@ -43,7 +43,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
     const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
     let fixture=null;
     mock.module(${JSON.stringify(url("../../../domain-model/src/index.ts"))},{namedExports:{...domain,
-      writeCommittedJson:(d,n,k,v)=>{if(fixture?.failKind===v.kind)throw Error('synthetic_save_refusal');return domain.writeCommittedJson(d,n,k,v);},
+      writeCommittedJson:(d,n,k,v)=>{if(v.kind==='execution_settled')fixture.diagnosticWrites++;if(fixture?.failKind===v.kind)throw Error('synthetic_save_refusal');return domain.writeCommittedJson(d,n,k,v);},
       readCommittedJson:(file,key)=>{if(fixture?.mode==='read_after_write')throw Error('synthetic_read_refusal');return domain.readCommittedJson(file,key);}
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
@@ -58,6 +58,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
             return di.startDockerCommandSessionCandidate(purposes,{
               startCommand:purpose=>({started:async()=>true,wait:async()=>{
                 assert.equal(f.live,true);f.commands.push(purpose);
+                if(purpose==='create_subscription_auth_probe'&&f.mode==='auth_wait_unknown')return null;
                 if(purpose==='start_provider_attached'&&f.mode==='cancel'){f.waiting.resolve();await f.wait.promise;}
                 return {status:0,signal:null,stderr:'',outputExceeded:false,stdout:
                   purpose.startsWith('create_')?String(purposes.indexOf(purpose)+1).repeat(64):
@@ -68,7 +69,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
                 assert.equal(f.live,true);const receipts=inspectReceipts(r);assert.ok(receipts);f.cleanup=true;
                 const names={create_provider:f.plan.providerContainerName,create_proxy:f.plan.proxyContainerName,create_subscription_auth_probe:f.plan.authContainerName,create_internal_network:f.plan.internalNetworkName,create_egress_network:f.plan.egressNetworkName};
                 f.resources=Object.entries(names).map(([purpose,plannedResourceName])=>({purpose,plannedResourceName,dockerId:receipts[purpose].dockerId,observation:receipts[purpose].submitted?'absent':'not_requested'}));
-                cleanupResult={confirmed:f.mode!=='cleanup_unknown',processTreeTerminated:true,containersAbsent:f.mode!=='cleanup_unknown',networksAbsent:f.mode!=='cleanup_unknown',resourceObservations:f.mode==='cleanup_unknown'?null:f.resources};return cleanupResult;
+                const unknown=['cleanup_unknown','auth_wait_unknown'].includes(f.mode);cleanupResult={confirmed:!unknown,processTreeTerminated:true,containersAbsent:!unknown,networksAbsent:!unknown,resourceObservations:unknown?null:f.resources};return cleanupResult;
               },verifyCleanup:value=>value===cleanupResult?cleanupResult.resourceObservations:null
             },hooks);
           },
@@ -81,7 +82,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))}));
     const parent=path.join(repository,'.crdd','tests');assert.equal(fs.lstatSync(parent).isSymbolicLink(),false);
     const root=fs.mkdtempSync(path.join(parent,'executor-host-contract-'));const identity=fs.statSync(root,{bigint:true});
-    for(const mode of ['normal','cancel','cleanup_unknown','lease_lost','release_false','release_throw','recovery_opened','read_after_write','provider_submission','absence_observed','terminal_received']){
+    for(const mode of ['normal','cancel','cleanup_unknown','auth_wait_unknown','lease_lost','release_false','release_throw','recovery_opened','read_after_write','provider_submission','absence_observed','terminal_received','execution_settled']){
       const directory=path.join(root,mode);fs.mkdirSync(directory);const authority={},mount={};
       const selection={provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task',catalogIdentity:'a'.repeat(64),configIdentity:'b'.repeat(64),role:'executor',workType:null,source:'explicit'};
       const built=api.buildProviderDockerExecutionPlan('claude',{randomBytes},
@@ -90,7 +91,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
         {selectionRecordId:'MODELSEL-12345678',operationId:'OP-123456',executorProvider:'claude',executionSelection:selection,selectionHash:domain.hashExecutionSelection(selection),taskAttempt:0,model:'opus',effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
         'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
       assert.ok(built);const plan=Object.freeze({...built,authorityUseCapability:authority});
-      const f={root:directory,plan,mode,failKind:mode,live:true,releaseCount:0,starts:0,cleanup:false,commands:[],resources:null,waiting:Promise.withResolvers(),wait:Promise.withResolvers()};fixture=f;
+      const f={root:directory,plan,mode,failKind:mode,live:true,releaseCount:0,diagnosticWrites:0,starts:0,cleanup:false,commands:[],resources:null,waiting:Promise.withResolvers(),wait:Promise.withResolvers()};fixture=f;
       const host=createStandaloneProviderAttemptHost(directory,plan,{assertLive:()=>f.live,release:()=>{
         f.releaseCount++;assert.equal(f.cleanup||f.starts===0,true);if(mode==='release_throw')throw Error('synthetic_release');if(mode==='release_false')return false;f.live=false;return true;
       }});
@@ -104,8 +105,10 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
         assert.equal(started.status,'started',mode);
         if(mode==='cancel'){await f.waiting.promise;await host.runtime.cancel(started.controlCapability,host.management);}
         const result=await started.completion;
-        const released=!['cleanup_unknown','absence_observed','release_false','release_throw'].includes(mode);
-        assert.equal(f.releaseCount,['cleanup_unknown','absence_observed'].includes(mode)?0:1,mode);assert.equal(f.live,!released,mode);
+        const released=!['cleanup_unknown','auth_wait_unknown','absence_observed','release_false','release_throw'].includes(mode);
+        assert.equal(f.releaseCount,['cleanup_unknown','auth_wait_unknown','absence_observed'].includes(mode)?0:1,mode);assert.equal(f.live,!released,mode);
+        const diagnostic=host.readDiagnostic();assert.ok(diagnostic);assert.equal(diagnostic.cleanupConfirmed,result.cleanupConfirmed);
+        if(mode==='auth_wait_unknown'){assert.equal(diagnostic.primaryFailure.purpose,'create_subscription_auth_probe');assert.equal(diagnostic.primaryFailure.responseObserved,false);assert.equal(diagnostic.primaryFailure.receiptRecorded,false);assert.equal(diagnostic.primaryFailure.commandHandleObtained,true);}
         const terminal=host.runtime.borrowTerminalObservations(result,host.management,plan.operationId,host.recoveryId);
         if(terminal)assert.equal(terminal.homeLeaseReleased,released,mode);
         if(mode==='terminal_received')assert.throws(()=>host.recordTerminal(result));else assert.equal(host.recordTerminal(result),released,mode);
@@ -119,6 +122,9 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
       if(f.starts){assert.equal(records[0].kind,'recovery_opened');assert.equal(records[1].kind,'recovery_handoff');}
       for(const value of records){assert.equal(value.recoveryId,host.recoveryId);assert.equal(value.operationId,plan.operationId);assert.equal(value.provider,'claude');for(const key of ['providerHomeSourcePath','providerHomeIdentityHash','providerHomeProtectionHash','localUserBindingHash','stableLogicalHomeBindingHash','normalizedResult'])assert.equal(Object.hasOwn(value,key),false);}
       if(mode==='normal'){const kinds=records.map(v=>v.kind);assert.ok(kinds.indexOf('absence_observed')<kinds.indexOf('home_released'));assert.ok(kinds.indexOf('home_released')<kinds.indexOf('recovery_closed'));assert.equal(kinds.at(-1),'terminal_received');}
+      for(const value of records.filter(v=>v.kind==='submission_planned')){assert.equal(value.plannedResourceName,({create_provider:plan.providerContainerName,create_proxy:plan.proxyContainerName,create_subscription_auth_probe:plan.authContainerName,create_internal_network:plan.internalNetworkName,create_egress_network:plan.egressNetworkName})[value.purpose]);assert.equal(value.ownershipLabel,plan.ownershipLabel);}
+      if(['cleanup_unknown','auth_wait_unknown','absence_observed','release_false','release_throw'].includes(mode)){assert.equal(records.some(v=>v.kind==='execution_settled'),false);assert.equal(f.diagnosticWrites,0);}
+      if(mode==='execution_settled'){assert.ok(host.readDiagnostic());assert.equal(records.some(v=>v.kind==='execution_settled'),false);}
       // All resources are synthetic: this is not cleanup of an unknown OS lease.
       for(const name of fs.readdirSync(directory)){assert.match(name,/^event-[0-9]{3}\\.json(?:\\.crdd-commit\\.json)?$/);const stat=fs.lstatSync(path.join(directory,name));assert.equal(stat.isFile(),true);assert.equal(stat.isSymbolicLink(),false);assert.equal(stat.nlink,1);}
       fs.rmSync(directory,{recursive:true});assert.equal(fs.existsSync(directory),false);

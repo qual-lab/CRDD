@@ -4,6 +4,8 @@
 
 ### Provider単段Executor分離の非AI確認 — 2026-10-28
 
+失敗診断の接続では、作成応答未観測・清掃不明・排他解放拒否／例外でも一次診断が結果IPCに残り、解放不明後の診断Writer呼出しが零であることを確認する。予定資源名／labelの一致と清掃側の閉形式検査、生出力fieldの拒否、診断保存拒否が実行結果を変更しないことも反証する。Platform Accessの無出力Workerは、実helper＋有限代役Workerで共有状態・release通信・error／exit・unref親終了を分け、旧resume構成の変異を同じ終了Oracleで拒否する。実Home／Dockerは使わず、Worker stdioの破棄を排他解放成功へ換算しない。
+
 実Homeの事前確認用Scriptは別入口に分け、Platform observer／Named Pipeは代役化して、初回拒否・再観測差・観測／checkpoint例外・取得不能／不明・解放不明を反証する。元Lockの解放一回、未知時のRoot保持、非秘密checkpointと既存Pipe名の式互換を確認する。実Native・共有Home観測・OS排他取得は、この試験から成功としない。
 
 単段試験Hostは実確定JSONと既存Executorを用い、下位DIと同期Leaseだけを代役化する。Effect前の回復記録・同ID引渡し、五資源の提出／Receipt相関、通知中だけの元参照照合、清掃後の一回解放、元終端だけの保存を検査する。正常・取消・清掃不明・排他喪失・解放拒否／例外・回復開始／Provider通知／不存在／終端保存拒否を負例とし、実Worker終了・Home観測・本番保存・Host喪失回復の成立へ拡張しない。

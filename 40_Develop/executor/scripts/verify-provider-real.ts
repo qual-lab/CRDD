@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { fork, spawnSync } from "node:child_process";
 import { registerHooks } from "node:module";
+import { isDeepStrictEqual } from "node:util";
 import type { ProviderAdvicePacket } from "../src/index.ts";
 registerHooks({
   resolve(s, c, n) {
@@ -47,6 +48,7 @@ const {
   normalizeAdviceResult,
   describeDockerProcessControllerContract,
   validatePlan,
+  isPrimaryFailureDiagnostic,
   PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
   PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
 } = await import("../src/index.ts");
@@ -274,6 +276,9 @@ type TrialResult = Readonly<{
   adviceConfirmed: boolean;
   resultSha256: string | null;
   resultBytes: number;
+  diagnostic: ReturnType<
+    ReturnType<typeof createStandaloneProviderAttemptHost>["readDiagnostic"]
+  >;
 }>;
 
 /**
@@ -335,6 +340,7 @@ export async function runStandaloneProviderTrial(
     startAttempted = false,
     preEffect = false;
   let cancelCurrent: (() => Promise<unknown>) | null = null;
+  let diagnostic: TrialResult["diagnostic"] = null;
   let cancellation: Promise<unknown> | null = null;
   const cancel = () => {
     if (cancelCurrent && !cancellation)
@@ -424,6 +430,7 @@ export async function runStandaloneProviderTrial(
         host.runtime.cancel(started.controlCapability, host.management);
       if (signal.aborted) cancel();
       const result = await started.completion;
+      diagnostic = host.readDiagnostic();
       if (cancellation) await cancellation;
       if (result.status !== "completed") reason ??= result.reason;
       cleanupConfirmed = result.cleanupConfirmed;
@@ -493,7 +500,37 @@ export async function runStandaloneProviderTrial(
     adviceConfirmed,
     resultSha256,
     resultBytes,
+    diagnostic,
   });
+}
+
+/**
+ * 既存の非秘密一次故障と終了観測だけを受理する。
+ * @responsibility 診断をAuthorityや清掃成功の代用にしない。
+ * @trace ERB-IT-004
+ * @input IPC又は今回記録の診断値。
+ * @returns 閉じた形式ならtrue。
+ * @effect N/A: 値検査のみ。
+ * @failure 余分field・生例外・不正値は拒否する。
+ * @boundary 試験子から親の有限結果。
+ */
+function isTrialDiagnostic(value: unknown): boolean {
+  if (value === null) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  const flags = [
+    "providerProcessStartedObserved",
+    "processTreeTerminationObserved",
+    "containersAbsentObserved",
+    "networksAbsentObserved",
+    "cleanupConfirmed",
+  ];
+  return (
+    Object.keys(v).sort().join(",") ===
+      [...flags, "primaryFailure"].sort().join(",") &&
+    isPrimaryFailureDiagnostic(v.primaryFailure) &&
+    flags.every((key) => typeof v[key] === "boolean")
+  );
 }
 
 /**
@@ -527,6 +564,7 @@ function trialResult(value: unknown): TrialResult | null {
       "adviceConfirmed",
       "resultSha256",
       "resultBytes",
+      "diagnostic",
     ]
       .sort()
       .join(",")
@@ -551,7 +589,8 @@ function trialResult(value: unknown): TrialResult | null {
         /^[a-f0-9]{64}$/u.test(v.resultSha256))
     ) ||
     !Number.isSafeInteger(v.resultBytes) ||
-    Number(v.resultBytes) < 0
+    Number(v.resultBytes) < 0 ||
+    !isTrialDiagnostic(v.diagnostic)
   )
     return null;
   if (
@@ -649,6 +688,8 @@ export function cleanupStandaloneTrialRoot(
     )
       return false;
     let operationId: string | null = null;
+    let ownershipLabel: string | null = null;
+    const plannedNames = new Map<string, string>();
     const kinds: string[] = [];
     for (const [i, name] of files.entries()) {
       if (name !== `event-${String(i + 1).padStart(3, "0")}.json`) return false;
@@ -690,7 +731,11 @@ export function cleanupStandaloneTrialRoot(
       const fields: Record<string, string[]> = {
         recovery_opened: [],
         recovery_handoff: [],
-        submission_planned: ["purpose"],
+        submission_planned: [
+          "purpose",
+          "plannedResourceName",
+          "ownershipLabel",
+        ],
         receipt_recorded: ["purpose", "dockerId"],
         resource_not_issued: ["purpose"],
         provider_submission: [],
@@ -700,6 +745,14 @@ export function cleanupStandaloneTrialRoot(
         mount_recorded: [],
         recovery_closed: [],
         terminal_received: ["status", "reason", "resultSha256", "resultBytes"],
+        execution_settled: [
+          "primaryFailure",
+          "providerProcessStartedObserved",
+          "processTreeTerminationObserved",
+          "containersAbsentObserved",
+          "networksAbsentObserved",
+          "cleanupConfirmed",
+        ],
       };
       if (
         !Object.hasOwn(fields, v.kind) ||
@@ -724,12 +777,47 @@ export function cleanupStandaloneTrialRoot(
       )
         return false;
       if (
+        v.kind === "submission_planned" &&
+        (typeof v.plannedResourceName !== "string" ||
+          !/^crdd-[a-z]+-[a-f0-9]{16}$/u.test(v.plannedResourceName) ||
+          typeof v.ownershipLabel !== "string" ||
+          !/^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
+            v.ownershipLabel,
+          ) ||
+          (v.purpose === "create_provider" &&
+            !v.plannedResourceName.startsWith(`crdd-${provider}-`)) ||
+          (v.purpose !== "create_provider" &&
+            v.plannedResourceName !==
+              `crdd-${({ create_proxy: "proxy", create_subscription_auth_probe: "auth", create_internal_network: "internal", create_egress_network: "egress" } as Record<string, string>)[String(v.purpose)]}-${v.ownershipLabel.split("=")[1]}`))
+      )
+        return false;
+      if (v.kind === "submission_planned") {
+        if (
+          plannedNames.has(String(v.purpose)) ||
+          (ownershipLabel !== null && ownershipLabel !== v.ownershipLabel)
+        )
+          return false;
+        ownershipLabel = String(v.ownershipLabel);
+        plannedNames.set(String(v.purpose), String(v.plannedResourceName));
+      }
+      if (v.kind === "execution_settled") {
+        const projection = Object.fromEntries(
+          Object.entries(v).filter(([key]) => !fixed.includes(key)),
+        );
+        if (
+          !isTrialDiagnostic(projection) ||
+          !isDeepStrictEqual(projection, result.diagnostic)
+        )
+          return false;
+      }
+      if (
         v.kind === "receipt_recorded" &&
         (typeof v.dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(v.dockerId))
       )
         return false;
       if (v.kind === "absence_observed") {
         if (
+          plannedNames.size !== 5 ||
           !Array.isArray(v.resources) ||
           v.resources.length !== 5 ||
           new Set(v.resources.map((r) => r?.purpose)).size !== 5 ||
@@ -741,6 +829,7 @@ export function cleanupStandaloneTrialRoot(
                   .sort()
                   .join(",") ||
               !purposes.includes(r.purpose) ||
+              plannedNames.get(r.purpose) !== r.plannedResourceName ||
               typeof r.plannedResourceName !== "string" ||
               !/^crdd-[a-z]+-[a-f0-9]{16}$/u.test(r.plannedResourceName) ||
               !["absent", "not_requested"].includes(r.observation) ||
@@ -779,6 +868,7 @@ export function cleanupStandaloneTrialRoot(
         "home_released",
         "recovery_closed",
         "terminal_received",
+        "execution_settled",
       ].some((kind) => kinds.filter((value) => value === kind).length !== 1) ||
       !(
         kinds.indexOf("absence_observed") < kinds.indexOf("home_released") &&

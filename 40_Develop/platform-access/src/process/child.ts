@@ -167,7 +167,7 @@ function entrypointFor(
  * @returns createRuntimeLocalTypeScriptWorkerの計算結果を返す。
  * @precondition 「role: RuntimeLocalTypeScriptChildRole、options: WorkerOptions」がcreateRuntimeLocalTypeScriptWorkerの入力契約を満たす。
  * @postcondition createRuntimeLocalTypeScriptWorkerの責務を完了した結果だけを返す。
- * @effect 固定Workerを生成し、stdout／stderrを排出してerror／exit通知を保持する。
+ * @effect 無出力Workerの親側stdioを閉じ、error／exit通知を保持する。
  * @failure createRuntimeLocalTypeScriptWorkerは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
  * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
@@ -181,14 +181,18 @@ export function createRuntimeLocalTypeScriptWorker(
   if (options.eval === true)
     throw new Error("runtime_local_typescript_child_worker_eval_forbidden");
   const entrypoint = entrypointFor(role, "worker");
-  // worker kindはLock用途だけ。状態／error／exitを維持し、Console pipeを持たせない。
+  if (entrypoint.role !== "kernel_lock_worker")
+    throw new Error(
+      "runtime_local_typescript_child_worker_output_contract_unknown",
+    );
+  // 閉集合の無出力Lock Workerだけ。stdioでunrefを妨げず、通信と状態を維持する。
   const worker = new Worker(new URL(entrypoint.relativePath, import.meta.url), {
     ...options,
     stdout: true,
     stderr: true,
   });
-  worker.stdout.resume();
-  worker.stderr.resume();
+  worker.stdout.destroy();
+  worker.stderr.destroy();
   return worker;
 }
 

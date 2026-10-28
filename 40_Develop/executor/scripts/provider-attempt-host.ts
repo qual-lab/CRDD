@@ -20,6 +20,8 @@ import {
   createProviderExecutor,
   planIdentity,
   validatePlan,
+  isPrimaryFailureDiagnostic,
+  type ProviderAttemptDiagnosticNotice,
   type PreparedPlan,
   type ProviderExecutorHost,
 } from "../src/index.ts";
@@ -112,6 +114,20 @@ export function createStandaloneProviderAttemptHost(
   >[1] = null;
   let mountResult: Readonly<{ status: string }> | null = null;
   let runtime: ReturnType<typeof createProviderExecutor>;
+  let diagnostic: Readonly<
+    Pick<
+      Extract<
+        ProviderAttemptDiagnosticNotice,
+        { event: "coordinator_provider_boundary_settled" }
+      >,
+      | "primaryFailure"
+      | "providerProcessStartedObserved"
+      | "processTreeTerminationObserved"
+      | "containersAbsentObserved"
+      | "networksAbsentObserved"
+      | "cleanupConfirmed"
+    >
+  > | null = null;
   /** 現Root・元計画と必要な保持状態を再確認する。
    * @responsibility 別Ownerや差替え後の保存を拒否する。
    * @trace ERB-IT-004
@@ -168,6 +184,36 @@ export function createStandaloneProviderAttemptHost(
     return true;
   }
   const host: ProviderExecutorHost = {
+    reportProviderBoundaryDiagnostic: async (notice) => {
+      if (
+        notice.event !== "coordinator_provider_boundary_settled" ||
+        notice.operationId !== plan.operationId ||
+        notice.provider !== plan.provider ||
+        notice.recoveryId !== recoveryId ||
+        diagnostic !== null ||
+        !isPrimaryFailureDiagnostic(notice.primaryFailure)
+      )
+        return false;
+      const projection = {
+        primaryFailure: notice.primaryFailure,
+        providerProcessStartedObserved: notice.providerProcessStartedObserved,
+        processTreeTerminationObserved: notice.processTreeTerminationObserved,
+        containersAbsentObserved: notice.containersAbsentObserved,
+        networksAbsentObserved: notice.networksAbsentObserved,
+        cleanupConfirmed: notice.cleanupConfirmed,
+      };
+      if (
+        Object.entries(projection).some(
+          ([key, value]) =>
+            key !== "primaryFailure" && typeof value !== "boolean",
+        )
+      )
+        return false;
+      diagnostic = Object.freeze(projection);
+      // 解放拒否・不明後はWriterを呼ばず、同じ結果IPCでだけ搬送する。
+      if (released) save("execution_settled", projection, false);
+      return true;
+    },
     verifyRevision: (m) => m === management && current(!released),
     consumePreparedPlan: (p, m) => {
       if (p !== prepared || m !== management || consumed || !current(true))
@@ -244,7 +290,11 @@ export function createStandaloneProviderAttemptHost(
       if (r !== recovery || !Object.hasOwn(expected, purpose)) return false;
       const key = purpose as keyof DockerResourceReceipts;
       if (receipts[key].submitted) return false;
-      save("submission_planned", { purpose });
+      save("submission_planned", {
+        purpose,
+        plannedResourceName: expected[key],
+        ownershipLabel: plan.ownershipLabel,
+      });
       receipts[key].submitted = true;
       return true;
     },
@@ -378,6 +428,7 @@ export function createStandaloneProviderAttemptHost(
     management,
     recovery,
     recoveryId,
+    readDiagnostic: () => diagnostic,
     start: () =>
       runtime.start(
         prepared,
