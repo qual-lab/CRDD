@@ -407,6 +407,26 @@ Source照合で、DIは作成stdoutをそのままReceipt callbackへ渡し、�
 
 独立確認のMinor一件に従い、不正Receipt六条件すべてで結果の回復IDと開始時の元IDを直接比較するassertを追加した。最終候補のExecutor全回帰は一実行十四件成功・不合格零・取消零、整形・型・警告を失敗とするLintも成功。再レビューは残指摘零。対象三文書・Executorの文書指摘は零で、参照展開五十七文書の既存3,050指摘による全体不合格は維持する。実AI成功・過去試験の解消・保持Root回収をこの非AI結果から主張せず、再送は別の明示承認後とする。
 
+#### 改行是正後Codex単段一回の意味検査停止 — 2026-10-29
+
+人間の明示承認後、固定`c39556a4f656b8d04a6251235c6ee81c11cdeab7`で同じ合成入力・Codex `gpt-6.1-sol` medium・固定Imageを使用し、`EXEC-20261029-01`を一回だけ実行した。Engine・固定Image・稼働Container零と新品Rootを確認し、端末内の通常同意を経た。結果は終了値二、`blocked / trial_terminal_or_advice_unconfirmed`。Claude・再送・Docker再起動・Image更新・過去保持物操作はしていない。
+
+今回の五作成Receiptはすべて保存され、Provider開始観測true、一次技術故障null、技術清掃・資源不存在・排他解放・元終端保存・Native終了・子closeはすべて確認済みだった。元の技術終端は`completed / provider_operation_completed`。結果本文は保存せず、705byteとSHA-256 `cf016bd4d5e77ed27a4e09d58b91327cc2742f6e36a065a23dbd05b91d18321f`だけを保持する。助言内容確認はfalseであり、読取り助言試験全体のPassとは扱わない。
+
+回復参照`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.8750919c28c18965845772766aa84ac1c3ad604059867b12d76739452db83437.35ef9374e96c1a2894d77dd9a933ef043708ad956cd16301caca49f1eaeeb0e9`、Root `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261029-01`、再評価時刻2026-11-04T15:42:51.953Zを同じ有限結果へ保持する。今回Rootには予定・Receipt各五、Provider提出、五資源不存在、Home解放・Mount終了・回復終了・境界終了・元終端の計二十確定イベントがあり、親の結果保存も確認済み。試験Rootは不合格時の既存保持条件に従い変更・削除しない。資源清掃確認とRoot保持を分ける。
+
+非AIのSource照合では、Executorは`adviceJson`を持つ正規化済みEnvelopeを返し、試験CLIも同じfieldを参照するため、外側の受渡し形式の不一致は確認されなかった。技術completedの経路は同Envelope生成を通る一方、試験CLIが`normalizeAdviceResult`の不合格理由を捨てて共通理由へまとめるため、Schema・Identity・項目／許可参照等の詳細な内容拒否を今回の保存結果から特定できない。生出力を復元・再送して推測しない。最小是正候補は既存Normalizerの閉じた理由コードを既存reasonへ接続することであり、新しいログ機構や生出力保存を必要としない。この結果記録時点ではSourceを変更していない。
+
+#### 助言試験の正式契約提示と意味検査接続 — 2026-10-29
+
+人間の「非AI照合後、次のCodex実試験まで一気に進める」指示に従い、合成指示と結果契約を照合した。Codex助言計画は`--output-schema`を使わないPrompt方式だが、従来の単段試験Promptは正式なcontract値・Revision・必須fieldを示していなかった。既存`describeAdviceResultSchema()`をJSON化してexact許可参照集合とともにPromptへ追加した。合成Context・Model・effort・Image・回数・読取り境界は不変で、Repository本文・Credential・過去出力は追加しない。変更後Promptの全文とHashは送信前の通常表示へ接続する。過去の生出力は保持していないため、この不足を前回の唯一の拒否原因とは断定しない。
+
+内容検査だけの不合格は既存Normalizerの固定理由を既存reasonへ接続する。ただし実行失敗と元終端保存失敗を優先し、Envelope欠測は従来の共通未確認理由に留める。新しい状態・診断Framework・保存field・公開API・Timeoutは追加しない。
+
+新しい一CaseはPlatform Home観測・NamedPipe Lease・Docker Isolation Runtimeの物理処置と清掃／資源観測を有限代役化し、Command stdoutへ合成Envelopeを与える。試験Host・Executor・AI Adapter Parser・内容Normalizerは実体へ接続する。両Provider正常、Schema extra／missing、Contract／Revision／status、空全区分・不正項目・投影外参照・Transport不成立とCodex重複Keyの計二十一条件を区別した。生Envelopeや助言本文は記録せず、元回復参照・五Receipt・終了・清掃を確認して今回の合成Rootだけを回収する。既存の全Host代役Caseにも内容理由・実行理由・終端保存理由の優先順位を追加した。回帰・独立確認後、承認済み新品Codex一回へ進み、失敗時は再試行しない。
+
+最終SourceのExecutor全回帰は一実行十五件成功・失敗零・取消零、整形・型・警告を失敗とするLintも成功した。独立レビューの代役境界表現Minor一件をTest Header・Quality・本節で是正し、再レビューは残指摘零。対象三文書・Executorの文書指摘は零、参照展開五十七文書の既存3,050指摘は別範囲として残す。変更後合成Promptは2,188byte、SHA-256 `d2bd19238cf922b19daa1b9149db188f55dbaf8869369d915e1fd01670af46f5`。この非AI確認から実AI成功を主張せず、次に固定Sourceで承認済みCodex一回だけを実行する。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

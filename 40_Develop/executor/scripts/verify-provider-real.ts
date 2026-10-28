@@ -58,8 +58,12 @@ const { createStandaloneProviderAttemptHost } = await import(
 const { homePipeName } = await import("./verify-provider-home.ts");
 
 const reference = "synthetic-context";
-const prompt =
-  "Synthetic Context [synthetic-context]: A demo application has one pending documentation task. No implementation has started. The next option is to write a short plan. Read only this context. Do not use tools. Return the requested structured advice with one short fact and one next option, each referencing synthetic-context. Use empty sharedAnalysis and additionalInferences arrays. Do not include repository paths or credentials.";
+const prompt = [
+  "Synthetic Context [synthetic-context]: A demo application has one pending documentation task. No implementation has started. The next option is to write a short plan. Read only this context. Do not use tools. Return the requested structured advice with one short fact and one next option, each referencing synthetic-context. Use empty sharedAnalysis and additionalInferences arrays. Do not include repository paths or credentials.",
+  "Return only one JSON object matching this exact JSON Schema:",
+  JSON.stringify(describeAdviceResultSchema()),
+  `Allowed references: ${JSON.stringify([reference])}`,
+].join("\n");
 const script = fileURLToPath(import.meta.url);
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -448,6 +452,8 @@ export async function runStandaloneProviderTrial(
           [reference],
         );
         adviceConfirmed = advice.status === "confirmed";
+        if (result.status === "completed" && terminalSaved && !adviceConfirmed)
+          reason ??= advice.reason;
       }
       if (result.status === "completed" && (!terminalSaved || !adviceConfirmed))
         reason ??= "trial_terminal_or_advice_unconfirmed";

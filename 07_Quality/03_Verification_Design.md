@@ -4,6 +4,8 @@
 
 ### Provider単段Executor分離の非AI確認 — 2026-10-28
 
+合成助言は正式Schema・許可参照がPromptに含まれることを検査する。Platform Home観測・NamedPipe Lease・Docker Isolation Runtimeの物理処置と清掃／資源観測を有限代役化し、Command stdoutへ合成Envelopeを与える。試験Host・Executor・AI Adapter Parser・内容Normalizerは実体を通す。両Providerの正常、余分／欠落field、Contract／Revision／status、空全区分、不正項目、投影外参照、Transport拒否を区別する。Codexの重複Keyは最終Agent文字列から内容検査へ届くため別反例とする。実行失敗・元終端保存失敗の一次理由は内容拒否で上書きしない。合成Envelopeの成功を、実AIのSchema準拠保証や前回結果の理由確定へ換算しない。
+
 Receiptの通常代役は実CLIと同じLF付きIDを返し、裸ID・CRLFも確認する。短いID・複数ID・途中改行・非16進文字・大文字・空値は受領段階で拒否し、Receipt保存零・後続Provider未発行・同回復参照保持を確認する。五資源の保存IDがすべて改行なしの64桁であることを照合し、実Docker再実行の代替とはしない。
 
 失敗診断の接続では、作成応答未観測・清掃不明・排他解放拒否／例外でも一次診断が結果IPCに残り、解放不明後の診断Writer呼出しが零であることを確認する。予定資源名／labelの一致と清掃側の閉形式検査、生出力fieldの拒否、診断保存拒否が実行結果を変更しないことも反証する。Platform Accessの無出力Workerは、実helper＋有限代役Workerで共有状態・release通信・error／exit・unref親終了を分け、旧resume構成の変異を同じ終了Oracleで拒否する。実Home／Dockerは使わず、Worker stdioの破棄を排他解放成功へ換算しない。
