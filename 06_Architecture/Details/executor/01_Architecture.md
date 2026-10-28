@@ -113,6 +113,8 @@ Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従�
 
 試験用の組立は製品Hostとは区別する。`scripts/verify-provider-attempt.ts`は明示呼出し時だけ非AI検証を開始し、既存ITも同じ関数を使う。試験の新品Repository-local Rootに限る排他と、Domainの既存確定JSON保存・読戻しを接続し、元通知の同期Gate、コピー・失効の拒否、終端相関を確認する。生成物は全子Process終了後に確認して回収し、確認不能ならexact Rootを報告する。これは試験fixture専用排他とイベントcommitであり、本番共有Home／Host排他、認証、Runtime state Writer又はRecovery保存の成立ではない。製品用Hostや保存Frameworkを新設せず、必要な有限試験構成をscripts／tests内に置ける。
 
+実Homeの事前確認は別の明示入口`scripts/verify-provider-home.ts <provider> <run-id>`とする。固定Provider一値の既存Home metadataをPlatform Accessで観測し、既存と同じProviderHome Pipe名を使って共有排他を一回取得する。保持中の再観測と四Hash一致を要求し、元Lockの解放・終了を確認する。Native・取得・解放の未知は別に保持し、試験checkpointだけを残して停止する。checkpointへHome Path・Hash・SID・ACL・認証内容は保存しない。通常の単独非AI入口からは呼ばず、実行は用途限定の別承認を必要とする。これは事前観測であり、認証状態、AI実行許可、試行全体を覆うHome保持又は本番Host回復の成立ではない。
+
 ## 4. 検証と未実施境界
 
 既存ERB-IT-002／004の反例を維持し、Provider両方の準備一回性、候補Owner交差、通知失効、元結果の相関、正常・取消・開始失敗・清掃不明・Owner喪失を非AIで確認する。Task段階順序はCoordinatorの既存有限試験で確認する。

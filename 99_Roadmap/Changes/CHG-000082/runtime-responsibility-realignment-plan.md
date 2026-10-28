@@ -312,6 +312,27 @@ Executorの静的検査込み回帰六件はすべて成功。明示CLI入口も
 
 同作業の初回整形では、Biomeが既存IT Fileへの書込みにWindows error 1224（ユーザーマップセクションで開いたFileへの操作拒否）を返した。整形差分を限定編集した後の整形確認・型・Lint・回帰は成功した。これは別要求・別Fileの追加観測であり、先のNode rename EPERMと同じ原因又は特定Processによる保持とは断定しない。監視・OS設定変更・Docker・認証・AI・過去保持物操作は行っていない。
 
+<a id="executor-home-preflight-entry"></a>
+
+#### 実Home事前確認の別入口 — 2026-10-28
+
+実AIへ進む前の認証領域metadata・共有排他の確認だけを、`executor/scripts/verify-provider-home.ts <codex|claude> <run-id>`へ接続した。通常`verify:standalone`やpackage importから実Homeを観測しない。製品Source／API・Home・Credentialの配置・既存Lock契約は変更しない。実行は一Providerのexact一回について別途承認してから行い、今回はPlatform observer／Lockを代役化した非AI試験だけを実施する。
+
+| 境界 | 処置 |
+|---|---|
+| Home選択 | `LOCALAPPDATA/Qual-Lab/CRDD/ProviderHomes/{provider}`だけ。任意Home Path・作成・修復・ACL変更は受け付けない |
+| 観測 | 既存Native helperの候補・現Provider・終了確認・Artifact前後一致・Filesystem Effect零を要求する。保持中に再観測し四Hash一致を確認する |
+| 排他 | 既存Platform Accessの非同期Named Pipe取得・解放をそのまま使用する。既存ProviderHome名のSHA-256 domain・prefix・slice・入力制約をSource Oracleで照合し、三変異を拒否する。Coordinator Moduleはロードしない |
+| 失敗 | Native発行・取得・解放の不明を分け、取得後の再観測又は保存がthrowしても元Lockを一回だけ解放する。再取得・自動再試行は行わない |
+| 試験記録 | 検証Repository内の新品`.crdd/tests/executor-home-{provider}-{run-id}/`だけ。Provider、非秘密試験ID、段階、一致bool、七日後の再評価時刻を既存確定JSONで保存・読戻しする。Home Path・四Hash・SID・ACL・Credential本文は残さない |
+| 清掃 | 資源終了を確認した場合だけRoot Identity・非link・許容File・nlinkを照合し、既存確定JSON削除と空Root削除・不存在確認。未知又は部分保存はexact Rootを報告して保持する。七日経過だけで消さない |
+
+新ITは十八の有限条件と排他名Oracleを二Caseにまとめ、観測／排他を代役にして実Homeへ触れない。合成のunknown負例が残した自己生成Rootは、実資源がすべて代役であることを前提に、試験が内容・非link・自己IDを確認して回収する。これを実Homeのunknown回収と混同しない。正常importのobserver／Lock呼出し零、不正Provider／run-idのEffect前拒否も確認する。Catalog・Symbol・Architecture・検証設計へ追従し、新Host Framework、Registry、製品用State又は回復処理を追加しない。
+
+この入口の成功は「観測一致と、その事前確認のLock解放・試験Root回収」を意味するだけで、ログイン成功・AI実行許可・試行中の共有Home保持・本番Runtime state保存・Recovery完了を意味しない。これらの実行接続は残件として維持する。実AI・Docker・実認証内容・過去保持物を操作していない。
+
+静的検査を含むExecutor回帰は八件成功、単独非AI CLIも成功、Catalogは415項目validだった。限定独立レビューで候補受理時のNative Process発行確認と、発行済み・終了未確認の反例不足一件を検出した。両観測で発行済みを要求し、初回／保持中の終了未知と未発行候補を追加して再レビュー残指摘零とした。十八条件は二Case内の条件数であり、回帰八件とは別の母集団である。変更三文書・Executor Symbolの文書検査指摘は零、参照展開五十七文書の他CHG本文3,050指摘は不合格のまま保持する。実Homeの事前確認は未実行で、次の人間判断は固定Provider一値・exact試験Rootに限定したNative metadata観測二回以下と既存共有排他取得・解放一回の操作承認とする。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

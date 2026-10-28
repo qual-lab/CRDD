@@ -100,6 +100,22 @@
       "verifies": []
     },
     {
+      "symbolId": "executor.verification.provider-home",
+      "kind": "verification-tool",
+      "path": "scripts/verify-provider-home.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "verifies": []
+    },
+    {
+      "symbolId": "executor.test.integration.provider-home-boundary",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-home-boundary.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "verifies": ["executor.verification.provider-home"]
+    },
+    {
       "symbolId": "executor.test.unit.observation",
       "kind": "test-suite",
       "path": "tests/unit/observation.contract.test.ts",
