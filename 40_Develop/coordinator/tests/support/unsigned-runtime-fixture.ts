@@ -48,6 +48,7 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
     const components = new Set([
       "ai-adapter",
       "coordinator",
+      "executor",
       "docker-isolation",
       "platform-access",
       "domain-model",

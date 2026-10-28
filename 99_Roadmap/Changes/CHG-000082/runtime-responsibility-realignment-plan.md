@@ -1,7 +1,7 @@
 # 基盤機能中心のRuntime責務再編計画
 
 - 対象: CRDD v0.22 / CHG-000082
-- 状態: 調査・段階計画。目標方針の入力を受領済み、詳細契約・Source移管は未完了。
+- 状態: A〜GのSource移管・公開接続済み。F／Gの固定回帰は最終確認中。Hの実AI／Docker、人間操作、実データ移行は未実施。
 - 基準: `5dae7108436205ecf7804d7898b1aecc2e8ce85b`
 - 入力: 人間提示「Runtime Responsibility Realignment」。同文書の確認HEAD `81d9647a4`と旧Source名は基準当時の参照であり、旧構造を復活させない。
 - 責任者: Qual-Lab
@@ -190,6 +190,12 @@ Dの今回の非AI公開接続候補は、基準`281a324b3`と`40_Develop`／`te
 Windows保存の先行六Caseは四成功・二不合格。終端と清掃の代役が移管後に同一Moduleとなり二重mockした一件は、終端区間後のrestoreで是正し、子Caseを含む二件が再成功した。正常Owner一回・保持あり・二回は先行成功、三回＋HTTPの15秒超過は単独実行で同じ期限のまま成功した。単独時のHTTP応答は約10.4秒。並行実行負荷が原因だったと断定せず、期限とOracleは変更しない。旧Path変異の検査も同じ検証関数へ正常／変異本文を渡す形へ補強し、独立再レビューは残指摘零。
 
 Catalog414件valid、関連台帳二十八件成功、変更対象文書のChecker指摘零。Repository全体Checkerは別範囲の3,723指摘によりexit 1で、全体QA成功ではない。Domain広域では台帳期待集合の追従一件と子Process競合二件を検出した。前者は新Ownerをexact集合へ追加し、後二件は同じ期限で単独再成功した。全体の先行不合格を取り消さず、固定候補のDomain／Coordinator広域回帰終端は継続確認する。Source限定Passとこれらの未確定結果を区別する。
+
+Domainの後続固定全実行は476件中475成功・一不合格・取消零だった。Topic／Meeting協調Writerの後続更新でWindows `rename` がEPERMを返した。同CaseとKernel競合の単独二件は成功し、さらに同保存Suite九件の単独実行では協調Writerが成功した一方、別の読戻し反例が同じrename拒否で不合格だった。拒否を許容するOracle、製品の再試行、期限変更は追加しない。失敗時の元syscall・source/destinationと自己生成Rootは試験結果で特定し、既存保持物は調べていない。
+
+独立したSource確認で、このStoreと同Suiteは基準版から差分零、今回のDomain製品差分は台帳検査だけであり、Executor抽出から当該保存への依存経路はなかった。temporary descriptorのclose後rename、両子Processのclose／join後更新、各故障注入のfinally復元も確認した。原因をOSやAVへ断定せず、F／Gとは独立した既存Windows保存境界の未解消観測として分離する。担当責任者はQual-Lab、再評価契機はDomain保存境界の是正又は同じ固定SourceのWindows再現確認。保留中はDomain広域全成功・全体QA成立を主張できないが、現在のF／G移管の追加Source変更や危険な許容緩和を要しない。Source限定の完成と全体QAを分ける。
+
+Coordinatorの固定全回帰は終了値1で終了した。保持した末尾診断は、新しいExecutorを未署名配布fixtureの複製対象へ含めなかったための`ERR_MODULE_NOT_FOUND`だった。末尾だけの出力から全不合格の件数・原因を推定せず、この実行を成功としない。既存components集合へExecutor一件だけを加え、利用側三Suite三十件は再成功した。製品Source・安全判定・Timeoutは変更していない。Architecture詳細MapのExecutor領域と二つの逆参照、Domain→Executorの既存台帳Binding、品質案内の旧未実装表示も追従した。限定独立レビューは残指摘零。修正後の全回帰では最終集計と不合格行を保持して確定する。
 
 Fの原子的な移管単位は`executeStage`だけではなく、単段準備、Process開始／取消／join、結果正規化と元Docker回復証拠の閉包である。`ControlRecord`のTask全体と単段字段を分け、後者の真正MapをExecutorへ一実体移管する。Coordinatorは現在Attemptの不透明Controlと終了後の不透明証拠を保持し、Task配列の順序・再試行・Workspaceと共通Host清掃を所有する。共通Host清掃前の各Attemptの準備、元清掃結果後の確定又は不明時の放棄は用途固定操作として接続し、汎用callback／新Registry／二重Mapは作らない。`result.ts`・`operation.ts`・`recovery.ts`の丸ごと移動は循環と上位責務流入を生むため、宣言単位で分割する。この照合は実装・回帰の完成ではない。
 

@@ -6,11 +6,11 @@
 
 [Executor詳細](../06_Architecture/Details/executor/01_Architecture.md)を既存ERB-IT-002／004へ接続する。準備二Mapと観測二Mapは新Owner内へ移し、元通知の同期登録・失効、元result借用と候補／本番交差拒否を確認する。独立子ProcessのCoordinator解決拒否と不正開始のEffect零、Coordinator既存の編集→レビュー→是正→再レビュー・取消・Owner喪失を別々のOracleで確認する。Domainのcodec・Writer・CAS・schema・hash領域は変更しない。実Docker・外部AI・過去保持物は対象外。非AI結果をL3／L5又は全体QAのPassへ昇格しない。
 
-分解済みTask Graph受付は[QA-000003の追加反例](Definitions/QA-000003/quality_definition.md)を、まず合成Plan＋Fake Executorの非AI結合へ接続する。Task別指示・条件の混線、1対1欠測、Path越境、同ID内容差、Owner喪失、部分実行後停止、旧新入力・Transport上限を確認する。本文は保存せず、Hash保持を再開能力の証明としない。Source接続・検証結果は未取得。
+分解済みTask Graph受付は[QA-000003の追加反例](Definitions/QA-000003/quality_definition.md)を、まず合成Plan＋Fake Executorの非AI結合へ接続する。Task別指示・条件の混線、1対1欠測、Path越境、同ID内容差、Owner喪失、部分実行後停止、旧新入力・Transport上限を確認する。本文は保存せず、Hash保持を再開能力の証明としない。Source接続と取得済みの非AI結果は[移管記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ接続し、正式項目全体の成立とは区別する。
 
-対象は実行依頼の共通モデル・保存と任意実行の分離である。文書計画→Taskの自動変換や実行状態→文書進捗の自動同期は実装対象・完成条件へ追加しない。既存Objective／Milestoneの用途・Callerの分解済みTask搬送・明示された文書処理範囲はQA-000003の追加条件へ接続し、移管先・公開入口の実装まではNot Runとする。
+対象は実行依頼の共通モデル・保存と任意実行の分離である。文書計画→Taskの自動変換や実行状態→文書進捗の自動同期は実装対象・完成条件へ追加しない。既存Objective／Milestoneの用途・Callerの分解済みTask搬送・明示された文書処理範囲はQA-000003の追加条件へ接続し、Source接続と実行結果を照合して評価する。局所成功又は過去のPassだけで未実施の追加条件を成立へ変更しない。
 
-[Runtime Domainの引渡し](../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を、QA-000003とQA-000008の既存項目に下位シナリオとして具体化した。新SchemaのSource接続に伴う限定試験結果は[移管計画](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。codec・既存Writerの部分成立を、一般CRUD・Domainの物理Writer全面移管・Core独立・移行の上位項目Passへ昇格しない。既存項目数・過去Passを変更しない。
+[Runtime Domainの引渡し](../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-quality)を、QA-000003とQA-000008の既存項目に下位シナリオとして具体化した。新Schema・共通保存・一般CRUD・Core独立の各Source接続に伴う限定結果は[移管計画](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。前段のcodec・旧Writerの部分成立や現在の局所結果を、これら上位項目又は実データ移行の正式Passへ流用しない。既存項目数・過去Passを変更しない。
 
 順序はL1のDomain／実保存、L2のCoordinator読込み不能なMCP／Workbench、L4のFake Executorによる調停を先行させる。実AI／実Dockerを使うL3／L5は別の実行許可とし、L1／L2の成立を待たせない。Core CRUDからAI・Docker・Git・認証が呼ばれない負対照、Automation保全、二重CAS、現在認可、五Contextの偽造・再使用、実保存の中断窓をそれぞれ観測する。
 

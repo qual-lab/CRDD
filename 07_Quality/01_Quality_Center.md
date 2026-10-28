@@ -1,6 +1,6 @@
 # CRDD内部ツールの品質の現在状態
 
-Core独立の[Runtime Domain設計](../06_Architecture/Details/domain-model/05_Runtime_Domain.md)を正式ArchitectureとQA-000003／000008へ接続した。API入出力・認可・定義Hash／単一CAS・一回性の追加シナリオはすべてNot Run。Source未実装・保存切替未実施であり、既存項目の成功数を新版へ流用しない。全体検査未合格、実AI・Docker・保持物の非操作を維持する。
+Core独立の[Runtime Domain設計](../06_Architecture/Details/domain-model/05_Runtime_Domain.md)に基づく共通保存・一般CRUD・公開入口、Provider単段のExecutor分離と任意Coordinator接続はSourceへ反映した。非AIの確認結果・不合格・適用範囲は[責務再編の検証記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。Sourceの保存先切替と実データ移行を区別し、正式項目の全数再評価、実AI／Docker、人間操作、全体QA／Releaseの成立へ換算しない。DomainのWindows rename拒否は未解消で、Coordinator全回帰は終端確認中。実AI・Docker・過去保持物は操作していない。
 
 2026-10-24の公開操作・認証・AI選択再設計は、実装・本番接続と追従漏れ是正後の非AI影響回帰を限定完了した。初回全体及び影響四Suiteの不合格、是正後の範囲別成功、実AI・認証・人間確認・実移行の未実施は[現在の限定結果](../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)を正本とする。正式199項目の全数再評価、既存横断QA不合格、main統合・Releaseの判定は変更しない。以下は各記録当時の対象版に限定する。
 

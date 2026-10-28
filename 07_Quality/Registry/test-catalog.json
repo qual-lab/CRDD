@@ -1263,6 +1263,13 @@
   ],
   "consumerBindings": [
     {
+      "producerOwner": "domain-model",
+      "producerPaths": ["40_Develop/domain-model/src"],
+      "consumerOwner": "executor",
+      "consumerStatic": true,
+      "testIds": ["executor:integration:public-boundary", "executor:unit:preparation"]
+    },
+    {
       "producerOwner": "executor",
       "producerPaths": ["40_Develop/executor/src"],
       "consumerOwner": "coordinator",

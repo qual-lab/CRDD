@@ -2,7 +2,7 @@
 
 ## Core独立契約の統合状態 — 2026-10-27
 
-DomainのAPI入出力・単一保存設計を、[ARCH追加分析](Analysis/ARCH/quality_analysis.md)、[QA-000003](Definitions/QA-000003/quality_definition.md)、[QA-000008](Definitions/QA-000008/quality_definition.md)、[検証計画](03_Verification_Design.md)へ接続した。既存項目の下位シナリオであり、新契約は全件Not Run。Source未実装、保存Schema／配置切替未実施、実AI・Docker・保持物操作なし。過去の199項目の記録を新契約の達成数へ換算せず、全体品質・Release可能とはしない。
+DomainのAPI入出力・単一保存設計を、[ARCH追加分析](Analysis/ARCH/quality_analysis.md)、[QA-000003](Definitions/QA-000003/quality_definition.md)、[QA-000008](Definitions/QA-000008/quality_definition.md)、[検証計画](03_Verification_Design.md)へ接続した。設計時点ではSource未実装・追加条件は全件Not Runだった。その後の共通保存・CRUD・公開入口・Executor分離のSource接続と非AI結果は[移管記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を正本とし、当初の未実装表示を現在状態へ流用しない。実データ移行・実AI／Docker・人間操作は別に未実施であり、過去の199項目や局所成功を新契約全体の達成数へ換算せず、全体品質・Release可能とはしない。
 
 B2の端末出力移管で補助Unit項目`EST-UT-016`を追加し、現在の設計集合は13定義・199 Local Itemとなった。検証項目の閉包へ反映したが、正式Pass数・過去Evidenceは更新しない。以下の198項目等の集合は各追加時点の基準として区別する。
 
