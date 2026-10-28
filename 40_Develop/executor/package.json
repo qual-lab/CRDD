@@ -11,7 +11,8 @@
     "typecheck": "tsc -p ./tsconfig.json",
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
-    "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/**/*.test.ts"
+    "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/**/*.test.ts",
+    "verify:standalone": "node ./scripts/verify-provider-attempt.ts"
   },
   "engines": { "node": ">=24.12.0" },
   "devDependencies": {

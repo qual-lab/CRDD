@@ -111,6 +111,8 @@ Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ�
 
 Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従来の用途固定同期callbackだけを渡す。Map搬送・二重登録・Domain→Executor依存を作らない。生Provider出力・認証値は保存せず、既存の閉じた診断だけを搬送する。
 
+試験用の組立は製品Hostとは区別する。`scripts/verify-provider-attempt.ts`は明示呼出し時だけ非AI検証を開始し、既存ITも同じ関数を使う。試験の新品Repository-local Rootに限る排他と、Domainの既存確定JSON保存・読戻しを接続し、元通知の同期Gate、コピー・失効の拒否、終端相関を確認する。生成物は全子Process終了後に確認して回収し、確認不能ならexact Rootを報告する。これは試験fixture専用排他とイベントcommitであり、本番共有Home／Host排他、認証、Runtime state Writer又はRecovery保存の成立ではない。製品用Hostや保存Frameworkを新設せず、必要な有限試験構成をscripts／tests内に置ける。
+
 ## 4. 検証と未実施境界
 
 既存ERB-IT-002／004の反例を維持し、Provider両方の準備一回性、候補Owner交差、通知失効、元結果の相関、正常・取消・開始失敗・清掃不明・Owner喪失を非AIで確認する。Task段階順序はCoordinatorの既存有限試験で確認する。

@@ -4,6 +4,8 @@
 
 ### Provider単段Executor分離の非AI確認 — 2026-10-28
 
+再実行入口は`executor/scripts/verify-provider-attempt.ts`とし、既存ITから同じ関数を呼ぶ。import時の書込み・Process生成零、専用fixture排他取得後だけの同期保存Gate、確定JSONのIdentity・Hash・本文読戻し、不正／コピー／失効／Gate例外時の保存零、排他解放後の再取得、全子終了後の確認・通常清掃を検査する。本番共有Home／Host排他・認証・Runtime state保存の代用とはしない。
+
 [Executor詳細](../06_Architecture/Details/executor/01_Architecture.md)を既存ERB-IT-002／004へ接続する。準備二Mapと観測二Mapは新Owner内へ移し、元通知の同期登録・失効、元result借用と候補／本番交差拒否を確認する。独立子ProcessのCoordinator解決拒否と不正開始のEffect零、Coordinator既存の編集→レビュー→是正→再レビュー・取消・Owner喪失を別々のOracleで確認する。単独の候補生涯と、本番Factoryの配線・実計画投影は有限代役で別構成として検査し、正常・取消join・清掃不明・通知保存例外の元参照を照合する。Module代役下の配線確認を、本番Docker Runtime内部・耐久保存・実資源不存在・Host喪失の成立へ換算しない。Domainのcodec・Writer・CAS・schema・hash領域は変更しない。実Docker・外部AI・過去保持物は対象外。非AI結果をL3／L5又は全体QAのPassへ昇格しない。
 
 分解済みTask Graph受付は[QA-000003の追加反例](Definitions/QA-000003/quality_definition.md)を、まず合成Plan＋Fake Executorの非AI結合へ接続する。Task別指示・条件の混線、1対1欠測、Path越境、同ID内容差、Owner喪失、部分実行後停止、旧新入力・Transport上限を確認する。本文は保存せず、Hash保持を再開能力の証明としない。Source接続と取得済みの非AI結果は[移管記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ接続し、正式項目全体の成立とは区別する。
