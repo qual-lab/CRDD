@@ -211,7 +211,7 @@ Provider単段のExecutor移管と、Domain＋Executorを使う任意Coordinator
 
 Source・Oracle・配置・公開境界の独立レビューは、是正後の残指摘零。最後の二試験Fileは整形・警告を失敗とするLintを通過し、既存の情報診断二件をErrorへ換算しない。品質案内の古い未実装表示と詳細設計Mapの登録漏れも是正した。変更した品質三文書と詳細Mapの文書指摘は零、同検査から展開した参照先3,333指摘は別範囲で不合格を維持する。先行Repository全体3,723指摘とは母集団が異なり、その全件解消とはしない。結果本文は既存の本計画とTool出力に限定し、実行ごとの巨大なEvidence又はログ書庫は追加しない。再実行入口は各Packageの既存test／checkと上記二Suiteである。
 
-未完了はHの実AI／Docker・人間操作、実データ移行、正式QAの全数再評価とRelease判断である。Domain全回帰のWindows rename EPERM一件は上段の担当・再評価条件で独立追跡し、全体品質の成功とはしない。これらをF／GのSource移管済み表示で覆わない。現在の指定Source範囲を閉じるための人間判断はない。AI再送・Docker照会／操作・認証情報・過去保持物の読取り又は操作は実施していない。
+未完了はHの実AI／Docker・人間操作、実データ移行、正式QAの全数再評価とRelease判断である。Domain全回帰のWindows rename EPERM一件は上段の担当・再評価条件で独立追跡し、全体品質の成功とはしない。これらをF／GのSource移管済み表示で覆わない。F／Gの既存Source移管範囲を閉じるための追加判断はない。Hの単独実AIに独立Hostを要求するかは下段の人間判断待ちである。AI再送・Docker照会／操作・認証情報・過去保持物の読取り又は操作は実施していない。
 
 <a id="windows-document-rename-investigation"></a>
 
@@ -270,6 +270,26 @@ Hは次の条件候補へ分ける。まだ実行許可を取得又は消費し�
 前段の正常、wait中取消とjoin、清掃不明、同期通知保存例外のOracleを両構成で維持する。元結果・別Owner・別Runtimeの交差拒否に加え、本番公開Verifierへ元清掃結果、コピー、別回復／管理参照を渡して元結果だけを受理することを確認する。候補と同じ合成Claude Probeであり、本番Docker Runtime内部、両Providerの実実行、耐久保存、実Process／Container不存在、Host喪失後の回収は未確認。Hの実試験準備全体は完成扱いにしない。
 
 追加後のExecutor `npm test`は静的検査を含め六件成功。一Case内の二構成×四条件を独立した八件へ水増ししない。Catalogは414項目valid、限定独立レビューは指摘零。変更三文書の指摘は零、参照展開した五十七文書では他のCHG本文に3,050指摘があり、その範囲は不合格のまま保持する。前段の十七文書・十三指摘とは母集団が異なり、増減の比較には使わない。本番DIでのReceipt借用は同一参照搬送までで、実Runtime内の利用成立とは区別する。実AI・Docker照会／操作・認証情報・過去保持物操作はなし。Windows保存拒否の未解消Riskを維持し、製品修正やretryで覆わない。
+
+<a id="executor-real-boundary-host-decision"></a>
+
+#### HのHost接続判断とWindows追加切り分け — 2026-10-28
+
+人間から残件①単独実試験準備・②実Docker／実AI・③Windows保存拒否の対応を指示された。製品変更、新Host、実送信、Docker操作又はOS保護設定変更の許可まで拡張しない。Sourceと既存保証を照合した結果、次の判断待ちを検出した。
+
+| 残件 | 現在分かったこと | 処置／未完了 |
+|---|---|---|
+| ①単独実試験準備 | 公開ExecutorはHostを受けるLibraryであり、本番HostはCoordinatorの`operation`／`authority`／`preparation`／`recovery`の私有Owner、Home／Host排他、同期保存へ結合する。Domainの保存APIと公開Plan builderだけでは元Capabilityの発行元を代替できない | 新Hostを複製せず、単独性は非AI、実境界は既存Coordinator経由へ分ける案を提示。判断前に完成条件を書き換えず、独立実試験準備の完了とはしない |
+| ②実Docker／実AI | 既存Coordinatorの正式入口から同じExecutor本体へ接続できる。独立Hostを使う経路はない | 上記の検証分割判断後、送信本文・モデル・回数・exact試験Rootと回収範囲を確定して別途承認へ渡す。まだ起動・送信しない |
+| ③Windows保存拒否 | CRDDなしのNode標準renameで再度EPERMが発生。Win32直接比較は有限例ですべて成功 | 拒否元は未確定。retry、期限／安全判定緩和、OS設定変更、新回復機構は追加しない |
+
+①の棚卸しは作成担当と別の読取り専用確認者が同じ結論となった。既存保証を模した成功callbackを実Effectへ接続する案は、私有Ownerと耐久保存を検証したことにならないため採らない。新しい独立Hostを要求する場合は、実行Authority、元操作、Home／Host排他、Recoveryと保存を新たに設計・移管する範囲変更になる。現時点の推奨はHost新設を行わない分割検証であり、人間判断待ちとする。
+
+③の追加比較は`2026-10-28T09:06:38.251Z`〜`09:06:41.115Z`、新品Root `C:\project\CRDD\.crdd\tests\rename-native-boundary-WRNOKu`だけを使用した。各子Processが`BASE`のtargetと`NEXT`のtempを書いて閉じ、一回だけ置換する。各方式は最大十六例、最初の失敗でその方式を停止し、再試行しない。Node子は十五成功・十六例目で`EPERM / errno -4048`、Python ctypesからの`MoveFileExW(MOVEFILE_REPLACE_EXISTING)`は十六成功・各直後Win32 error 0だった。成功時はtarget本文とtemp不存在を確認した。全子の通常終了、Root内が自己生成の二種File・固定本文・非linkだけであること、通常削除とRoot不存在、短命Script削除と不存在を確認した。実資源・過去保持物は対象外である。
+
+Win32直接比較は[公式APIの失敗直後error観測](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)へ接続するための別経路であり、Nodeで失敗した同じ要求のWin32 errorを捕捉したものではない。両方式の例数・Process構成差と発生頻度があり、Node／libuv固有故障又はAV原因とは断定しない。失敗時刻の前五秒・後十秒だけ、既存Defender Operationalの1123／1124を読取り照会した。通常環境はアクセス拒否、許可された読取り環境では該当時間・IDのイベントなしだった。これはDefender一般や他製品・一時handleの影響不存在の証明ではない。監視有効化・監視用Driver導入・除外・保護解除・修復・再起動は行っていない。原因をさらに限定するには失敗要求時点のOS側観測が必要だが、今回はその監視を開始しない。担当Qual-Lab、再評価は用途限定のOS観測を承認できる時又は環境変更時とする。
+
+限定独立レビューは判断不要／判断待ちの対象範囲一件を明確化し、再確認で残指摘零。変更計画の文書指摘は零、参照展開十三文書の十三指摘は旧CHG本体の過去Pathリンクに限定され、その検査範囲は不合格のまま保持する。今回は製品Source・試験定義を変更せず、上記の有限実測と文書確認だけを実施した。①〜③全体の完了、Windows原因特定又は実AI実施とは表示しない。
 
 #### Dの内容認可とMCP定義操作の限定接続
 
