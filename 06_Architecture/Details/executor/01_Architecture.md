@@ -117,7 +117,9 @@ Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従�
 
 独立ロードはCoordinator解決を拒否する子Processで実施し、不正開始のEffect零を検査する。これを正常な実Docker／実AI実行の証明にしない。実境界のL3／L5、人間操作、実データ移行は別途許可・検証であり、今回のSource移管から完了としない。結果と適用範囲は[移管計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。
 
-同じ独立子Processで、既存の隔離候補と実Controller／DI command sessionに合成Plan・有限CommandHandle・Host callbackを接続する。正常終了、wait中の取消とjoin、清掃不明、同期通知保存例外を検査し、元回復参照・一回消費・通知失効・別Owner拒否を確認する。この試験はClaude形式の合成Probeを用い、両Providerの実行成立、本番Factoryの固定Docker接続、耐久保存、実Process／Container不存在、Host Process喪失時の回収を証明しない。
+同じ独立子Processで、既存の隔離候補と実Controller／DI command sessionに合成Plan・有限CommandHandle・Host callbackを接続する。正常終了、wait中の取消とjoin、清掃不明、同期通知保存例外を検査し、元回復参照・一回消費・通知失効・別Owner拒否を確認する。
+
+本番Factoryの配線は、子Process内でDocker Isolation RootのFactory一つだけをModule代役へ替えて別構成で検査する。実公開builderと計画検査・投影を使い、下位へ渡すidentity／構成／stdin／元Ownerと元清掃結果を照合する。代役Runtimeは公開の候補sessionへ有限CommandHandleを渡すもので、本番Docker Runtime内部ではない。Hostから余剰に渡した実行primitiveの利用と外部Process起動は拒否する。両構成ともClaude形式の合成Probeであり、両Providerの実実行、固定Docker Runtime内部、耐久保存、実Process／Container不存在、Host Process喪失時の回収は未検証とする。
 
 ## 現行実装との照合
 

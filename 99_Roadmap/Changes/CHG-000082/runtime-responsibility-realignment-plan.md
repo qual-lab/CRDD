@@ -259,6 +259,18 @@ Hは次の条件候補へ分ける。まだ実行許可を取得又は消費し�
 
 これは候補上の有限結合であり、本番`createProviderExecutor`の固定Docker接続、両Providerの実実行、耐久Recovery保存、実Process／Container不存在、Host Process喪失後の回収は未確認。Hの独立実試験準備全体は未完了のままとする。外部AI・Docker照会／操作・認証情報・過去保持物の読取り又は操作は行わない。Windows保存拒否の未解消Riskも変更しない。
 
+<a id="executor-production-factory-non-ai-wiring"></a>
+
+#### Executor本番Factory配線の非AI確認 — 2026-10-28
+
+基準`fdb43e73d`からの検証追加で、製品Source・API・保存・Timeoutは不変。前段と同じERB-IT-002／004と詳細設計を使い、読取り専用の着手前照合で候補生涯と本番Factory配線の保証範囲を分けた。既存Case内で候補／本番Factoryの二構成へ同じ四条件を適用し、新しい試験Framework、製品用注入API、永続状態又はLockは作らない。
+
+子Process内でCoordinatorの解決を拒否し、Executor import前にDocker Isolation Rootの`createDockerIsolationRuntime`だけをModule代役へ替える。他exportは実namespaceを維持し、代役Runtimeは既存公開の候補sessionへ有限CommandHandleを渡す。本番構成の計画は公開builderで生成して実`validatePlan`と投影へ通す。Factory生成各一回、入力が元の所在／Receipt借用二つだけであること、identity・構成・stdin・回復／管理Ownerの同一性、元清掃結果のVerifier搬送を確認する。Hostへ余剰に置いた実行・清掃primitiveは利用零、子内の外部Process生成APIも拒否して呼出し零を検査する。
+
+前段の正常、wait中取消とjoin、清掃不明、同期通知保存例外のOracleを両構成で維持する。元結果・別Owner・別Runtimeの交差拒否に加え、本番公開Verifierへ元清掃結果、コピー、別回復／管理参照を渡して元結果だけを受理することを確認する。候補と同じ合成Claude Probeであり、本番Docker Runtime内部、両Providerの実実行、耐久保存、実Process／Container不存在、Host喪失後の回収は未確認。Hの実試験準備全体は完成扱いにしない。
+
+追加後のExecutor `npm test`は静的検査を含め六件成功。一Case内の二構成×四条件を独立した八件へ水増ししない。Catalogは414項目valid、限定独立レビューは指摘零。変更三文書の指摘は零、参照展開した五十七文書では他のCHG本文に3,050指摘があり、その範囲は不合格のまま保持する。前段の十七文書・十三指摘とは母集団が異なり、増減の比較には使わない。本番DIでのReceipt借用は同一参照搬送までで、実Runtime内の利用成立とは区別する。実AI・Docker照会／操作・認証情報・過去保持物操作はなし。Windows保存拒否の未解消Riskを維持し、製品修正やretryで覆わない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

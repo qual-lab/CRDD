@@ -94,17 +94,32 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @precondition 新品子ProcessでCoordinatorの解決を禁止する。
- * @stimulus 正常、wait中取消、清掃不明、同期通知保存例外を各一回実行する。
+ * @stimulus 候補と本番Factory配線の各構成で正常、wait中取消、清掃不明、同期通知保存例外を実行する。
  * @observation 九purposeの順序、開始・wait・終了回数、元通知と終端相関。
  * @oracle 取消はjoinと清掃まで未完了、不明はexact回復参照保持、コピー・別Ownerは拒否。
  * @cleanup 全completionを待ち、子Processの期限内終了を確認する。外部試験物なし。
- * @boundary 合成Plan・試験候補の結合。本番Factory、実Docker・Process不存在、耐久保存は未検証。
+ * @boundary 候補の生涯と本番Factoryの配線。DI RuntimeをModule代役にし、実Docker・Process不存在、耐久保存は未検証。
  */
-test("Executor単独候補は正常・取消・清掃不明・通知例外を元Ownerで終了する", () => {
+test("Executor単独の候補・本番Factory配線は四つの終了条件と元Ownerを維持する", () => {
   const root = new URL("../../src/index.ts", import.meta.url).href;
+  const isolationRoot = new URL(
+    "../../../docker-isolation/src/index.ts",
+    import.meta.url,
+  ).href;
+  const domainRoot = new URL(
+    "../../../domain-model/src/index.ts",
+    import.meta.url,
+  ).href;
   const script = `
     import assert from 'node:assert/strict';
     import {registerHooks} from 'node:module';
+    import {mock} from 'node:test';
+    import childProcess from 'node:child_process';
+    import {syncBuiltinESMExports} from 'node:module';
+    let externalProcessCalls=0;
+    for(const method of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork'])
+      childProcess[method]=()=>{externalProcessCalls++;throw Error('external_process_forbidden');};
+    syncBuiltinESMExports();
     let coordinatorResolutions=0;
     registerHooks({resolve(s,c,n){
       const resolved=n(s,c);
@@ -114,17 +129,61 @@ test("Executor単独候補は正常・取消・清掃不明・通知例外を元
       }
       return resolved;
     }});
-    const {createIsolatedDockerProcessControllerCandidate:create}=await import(${JSON.stringify(root)});
+    const isolation=await import(${JSON.stringify(isolationRoot)});
+    const {hashExecutionSelection}=await import(${JSON.stringify(domainRoot)});
+    let currentFixture=null,factoryCalls=0,forbiddenCalls=0;
+    mock.module(${JSON.stringify(isolationRoot)}, {namedExports:{...isolation,
+      createDockerIsolationRuntime:(input)=>{
+        factoryCalls++;
+        const fixture=currentFixture;
+        assert.deepEqual(Object.keys(input).sort(),['borrowPaths','inspectReceipts']);
+        assert.equal(input.borrowPaths,fixture.host.borrowPaths);
+        assert.equal(input.inspectReceipts,fixture.host.inspectReceipts);
+        const cleanupResults=new WeakMap();
+        const cleanup=async()=>{
+          const result=await fixture.deps.cleanupOwnedResources();
+          fixture.cleanupResult=result;
+          cleanupResults.set(result,true);return result;
+        };
+        const verify=(result,identity,recovery,management)=>{
+          fixture.verifications++;
+          assert.equal(identity,api.planIdentity(fixture.plan));
+          assert.equal(recovery,fixture.recovery);
+          assert.equal(management,fixture.management);
+          return cleanupResults.has(result)?result.resourceObservations:null;
+        };
+        return {
+          startCommand:()=>{throw Error('unexpected_primitive_call');},
+          startExecution:(projected,recovery,management,hooks)=>{
+            fixture.starts++;
+            assert.equal(projected.identity,api.planIdentity(fixture.plan));
+            assert.deepEqual(projected.configuration,api.resolveIsolationCommandInput(fixture.plan,fixture.tmp));
+            assert.equal(projected.stdin,fixture.plan.providerInput);
+            assert.equal(recovery,fixture.recovery);assert.equal(management,fixture.management);
+            return isolation.startDockerCommandSessionCandidate(purposes,{
+              startCommand:purpose=>fixture.deps.startCommand({purpose}),
+              cleanup,verifyCleanup:result=>verify(result,projected.identity,recovery,management)
+            },hooks);
+          },
+          cleanupOwnedResources:()=>{throw Error('unexpected_duplicate_cleanup');},
+          verifyCleanupOutcome:verify
+        };
+      }
+    }});
+    const api=await import(${JSON.stringify(root)});
+    const create=api.createIsolatedDockerProcessControllerCandidate;
     const purposes=[
       'create_subscription_auth_probe','start_subscription_auth_probe_attached',
       'create_internal_network','create_egress_network','create_proxy',
       'connect_proxy_egress','create_provider','start_proxy','start_provider_attached'
     ];
+    const terminals=[];
+    for(const mode of ['candidate','production_factory']){
     for(const scenario of ['normal','cancel','cleanup_unknown','submission_throw']){
       const management={},prepared={},mount={},authority={},recovery={};
       const recoveryId='docker-task.'+'d'.repeat(64)+'.'+'e'.repeat(64)+'.'+'f'.repeat(64);
       const suffix='0101010101010101';
-      const plan={
+      let plan={
         provider:'claude',consumer:'coordinator_cli',operationId:'OP-123456',
         grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
         executionSelection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',
@@ -143,6 +202,23 @@ test("Executor単独候補は正常・取消・清掃不明・通知例外を元
         providerInput:null,workspaceSourcePath:null,workspaceMountMode:null,networkPolicy:null,
         commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
       };
+      const tmp='C:/synthetic-not-accessed/tmp';
+      if(mode==='production_factory'){
+        const built=api.buildProviderDockerExecutionPlan('claude',
+          {randomBytes:size=>Buffer.alloc(size,1)},
+          {operationId:plan.operationId,createdAt:'2026-10-28T00:00:00.000Z',mounts:{
+            workspace:'C:/synthetic-not-accessed/work',providerHome:'C:/synthetic-not-accessed/home',
+            tmp,events:'C:/synthetic-not-accessed/events',projection:'C:/synthetic-not-accessed/projection',
+            management:'C:/synthetic-not-accessed/management'}},
+          {grant:{...plan},activeMountCapability:mount},
+          {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:'claude',
+            executionSelection:plan.executionSelection,selectionHash:hashExecutionSelection(plan.executionSelection),
+            taskAttempt:0,model:'opus',effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
+          'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
+        assert.ok(built);
+        plan=Object.freeze({...built,authorityUseCapability:authority});
+        assert.equal(api.validatePlan(plan,tmp),true);
+      }
       const resources=[
         ['create_egress_network',plan.egressNetworkName],
         ['create_internal_network',plan.internalNetworkName],
@@ -217,8 +293,16 @@ test("Executor単独候補は正常・取消・清掃不明・通知例外を元
           return true;
         }
       };
-      const runtime=create(deps);
-      assert.equal(runtime.productionAuthority,false);
+      const unavailable=()=>{forbiddenCalls++;throw Error('host_primitive_forbidden');};
+      const host={...deps,borrowPaths:m=>{
+        assert.equal(m,management);return {tmp};
+      },inspectReceipts:unavailable,startCommand:unavailable,startExecution:unavailable,
+        cleanupOwnedResources:unavailable,verifyCleanupOutcome:unavailable};
+      currentFixture={deps,host,plan,tmp,recovery,management,starts:0,verifications:0};
+      const callsBefore=factoryCalls;
+      const runtime=mode==='candidate'?create(deps):api.createProviderExecutor(host);
+      assert.equal(factoryCalls-callsBefore,mode==='candidate'?0:1);
+      if(mode==='candidate')assert.equal(runtime.productionAuthority,false);
       const started=runtime.start(prepared,management,(r,id)=>{
         assert.equal(r,recovery);assert.equal(id,recoveryId);events.push('handoff');return true;
       });
@@ -277,16 +361,34 @@ test("Executor単独候補は正常・取消・清掃不明・通知例外を元
         [result,management,plan.operationId,'other']])
         assert.equal(runtime.borrowTerminalObservations(r,m,op,id),null);
       assert.equal(create(deps).borrowTerminalObservations(result,management,plan.operationId,recoveryId),null);
+      for(const previous of terminals)
+        assert.equal(runtime.borrowTerminalObservations(previous.result,previous.management,plan.operationId,recoveryId),null);
+      terminals.push({result,management});
+      if(mode==='production_factory'){
+        assert.equal(currentFixture.starts,1);
+        assert.ok(currentFixture.verifications>0);
+        const original=currentFixture.cleanupResult;
+        assert.ok(original);
+        assert.equal(runtime.verifyCleanupOutcome(original,plan,recovery,management),scenario==='cleanup_unknown'?null:resources);
+        assert.equal(runtime.verifyCleanupOutcome({...original},plan,recovery,management),null);
+        assert.equal(runtime.verifyCleanupOutcome(original,plan,{},management),null);
+        assert.equal(runtime.verifyCleanupOutcome(original,plan,recovery,{}),null);
+        assert.equal(runtime.verifyCleanupOutcome({},plan,recovery,management),null);
+      }
       const count=calls.length;
       providerWait.resolve();cleanupWait.resolve();await Promise.resolve();
       assert.equal(calls.length,count);
       assert.equal((await runtime.cancel(started.controlCapability,management)).status,'blocked');
     }
+    }
+    assert.equal(factoryCalls,4);
+    assert.equal(forbiddenCalls,0);
+    assert.equal(externalProcessCalls,0);
     assert.equal(coordinatorResolutions,0);
   `;
   const child = spawnSync(
     process.execPath,
-    ["--input-type=module", "-e", script],
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", script],
     {
       encoding: "utf8",
       timeout: 15_000,
