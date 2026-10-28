@@ -2,6 +2,12 @@
 
 ## Core独立・共通保存の検証計画 — 2026-10-27
 
+### 編集E2E試験領域の分離 — 2026-10-29
+
+`verify-workspace-ai.ts`はRepository-local testsの実体確認とDocker一覧読取り後に、`mkdtempSync`で新品の`workspace-ai-*`を一件確保する。固定日付Rootを再利用せず、追加設定・Registry・互換読取りは持たない。作成後の実体確認・子Directory作成失敗では、exact Rootと固定理由をconsoleへ返して保持し、未確認Rootへ結果Fileを書いたり削除したりしない。正常・親領域拒否・realpath差・Root link・mkdir拒否を有限代役で確認する。
+
+`--preflight`は編集を合成File更新で代替し、公開HTTP・本番保存・候補固定・二親Merge・既存dirty／stage保全・Worktree／Branch回収を確認する。AI Client生成・Provider送信は行わず、Dockerは既存一覧比較のみ。実AI編集・レビューの成立や全体QA合格とは区別する。AI受付／観測十五秒・Workspace操作六十秒は変更しない。
+
 ### Provider単段Executor分離の非AI確認 — 2026-10-28
 
 正常終了後の試験清掃は、Claudeの既知の空`tmp/claude-65534/`だけを受理し、Codexでの同名残存・未知名・File・非空・子link・子Identity差・中間tmpのlink化／Identity差を拒否する。LinkとIdentity差はmetadataの有限代役であり、実OSでの競合耐性を証明するものではない。拒否時は子rmdir零・確定イベントbytes保全を確認する。再帰削除・製品Recovery・過去Rootの処置を追加しない。

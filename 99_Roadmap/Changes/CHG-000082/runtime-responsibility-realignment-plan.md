@@ -455,6 +455,36 @@ exact回復参照`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9
 
 初回Formatterの書込みはWindows mapped-file拒否1224で実施できず、指摘された改行一箇所をpatchで整形して最終確認は成功した。修正前のClaude実試験の終了値二は変更せず、今回の実Rootと過去保持Rootは操作していない。AI再送・Docker照会／再起動・Image更新も行っていない。Source是正と非AI清掃試験の成立であり、保持済み実Rootの清掃完了や編集E2Eの合格とは区別する。
 
+#### 今回Claude保持Rootの承認済み回収と編集E2E残件 — 2026-10-29
+
+人間が`EXEC-20261029-03`のRoot確認後回収を明示承認した。試験Node零、元記録にある五資源のID／予定名が現Docker一覧にないことを読取り確認した。Rootと祖先の実体・非link、exact回復参照、元結果の全成功条件、二十確定イベントのHash／Provider／sequence、許可されたFile集合・非link／単一link、空management、tmp直下の既知空子一件を再照合した。保持結果の元Hashは`3b99eeb08c01266e9a9f4bdfd0e59b64ae0d82010d9134e5f96640fae318bedd`。CHGに元結果を保持し、outcomeの確定Pairを既存削除APIで回収した後、修正済みの限定清掃関数で今回Rootを回収した。fixtureCleanupConfirmedとRoot不存在はtrue。短命清掃Scriptも撤去・不存在確認済みである。
+
+短命Script初回はimport相対Pathの誤りで評価前に停止し、対象変更なしだった。参照先だけ修正した後に上記回収を一回実施した。元の実試験終了値二は書き換えず、「Claude単段の実行・内容確認成功、試験Toolの清掃拒否、後日の承認済み清掃完了」として区別する。AI再送・Docker再起動・Image更新・他の保持Root操作はない。
+
+次のDirect／Isolated編集E2Eの残件は次のとおり。今回は棚卸しだけで実行・Source変更はしていない。
+
+| 残件 | 必要な確認と処置 |
+|---|---|
+| 新品の試験入口 | 現`verify-workspace-ai.ts`は`workspace-ai-20261026/{preflight,edit}`を固定参照し、両Directoryが既に存在する。既存物を削除・再利用せず、新品の有限試験識別子とRootへ入口を最小追従する必要がある |
+| 非AI本番結合 | 最新保存・Executor接続で、公開HTTP受付→状態観測→終了とDirect／IsolatedのGit操作・既存dirty／stage保全・回収を事前確認する。AI受付／観測十五秒、Workspace操作六十秒は維持し、実行OwnerをHTTP子へ移さない |
+| 送信範囲の確定 | 合成Context・source.txt・固定指示・差分だけ、Codex `gpt-6.1-sol` medium編集→Claude `claude-opus-5-5` mediumレビュー、必要なら既存限定是正一回と再レビュー。二方式各一Task、上限八AI起動を候補とし、新品Root・固定Commit／Image・失敗停止／回収範囲を実行前に再提示して承認を得る |
+| 実AI編集の成立 | Directは現在Tree編集・既存dirty／stage保全・自動Commitなし。Isolatedは独立Worktree編集後、試験内の明示選択だけ固定し、二親MergeとBranch／Worktree回収を確認する。読取り単段の成功から推定しない |
+| 終了・記録 | 不明な失敗は再試行せず同じ参照で保持。今回資源の終了・不存在・Root回収と固定結果を確認し、過去失敗や全体QAと区別する |
+
+#### 新品試験領域と非AI編集事前確認 — 2026-10-29
+
+人間の1・2実施指示に従い、検証Toolの固定日付Rootを、確認済みRepository-local tests内の標準`mkdtempSync("workspace-ai-")`へ置換した。CLI引数・送信条件・製品Source・HTTP期限・既存清掃Gateは変更せず、設定・Registry・互換処理を追加しない。Docker一覧確認後だけ新品Rootを作り、exact Pathを既存結果へ載せる。独立レビューで作成後失敗時のPath欠落を検出し、Root検査・子Directory作成を捕捉して未確認Rootへの書込み・削除なしでexact Pathを返すよう是正した。正常・作成前拒否・realpath差・Root link・mkdir拒否を同じVMで反証し、再レビューは残指摘零だった。
+
+今回の非AI事前確認は新品`C:\project\CRDD\.crdd\tests\workspace-ai-vlNwOC`で一回実行し、終了値零。Direct／IsolatedともlimitedProbePassed・closeConfirmed・runtimeClean・workspaceClean true、既存変更保全・成果Byte検証を確認した。Isolatedは候補固定・二親Merge・候補終了・WorktreeとBranch回収まで確認した。Docker比較はverified／observed_inventory_unchangedで追加・削除Container／Network零、Source不変、両fixture回収Gate eligible、fixtureRootsRemoved true、清掃失敗零だった。AI Client開始・外部AI送信は行っていない。
+
+合成Gitの詳細は一時成果物として回収し、IsolatedのBase `3bc95bfaec486b1b4ada53d8d5f2dc65b3971b17`、Candidate `f4063de4ddabfbb23564e08626b5d9165ef63941`、Merge `c5e88e158638e89ad0170a7603fc6e7a4ddee044`と二親関係の確認結果だけを残す。引渡しJSONのSHA-256は`40aafd71cadd38d01940b87b637567893f29db8352c63ed35887fe9994678db7`。試験本体が合成fixtureを回収した後、残るresult.json一件だけ・非Reparse・結果全成功を再確認し、Fileと空親Directory二階層を非再帰削除して今回Root不存在を確認した。旧固定日付Root・他の過去保持物には触れていない。
+
+静的確認はWorkbenchの整形・型・警告を失敗とするLintとclient Buildが成功（既存情報診断五件）。制限環境の対象三十件はHTTP応答前の二件不合格、通常環境の先行実行は三十件成功だった。最終候補の途中再確認にはHTTP時刻順序Oracle一件の不合格があり、個別でも再現した。判定を変えず数値だけの診断を追加した後の個別一件は成功したが、失敗時の値は旧Assertionに含まれず、原因解消とは断定しない。最終候補の固定回帰は別記し、過去runの不合格を上書きしない。
+
+最終候補の対象二Suiteは、一実行三十件成功・失敗零・取消零・skip零（約九十秒）で終了した。先行runや個別成功との合算ではない。最後の文書・診断差分も独立レビュー残指摘零。diff checkは成功し、今回の非AI事前確認と新品Root対応を完了した。途中の時刻順序不合格の原因未確定は維持し、全体QA又は実AI成功へ拡張しない。
+
+次は、この非AI成立を実AI編集の合格へ読み替えず、新品試験Root・固定Source／Image・合成送信本文・Codex編集／Claudeレビュー・上限回数・失敗時停止／回収範囲を改めて提示して承認を得る。今回の許可では実AIを開始しない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

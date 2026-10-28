@@ -1171,16 +1171,6 @@ async function main() {
   );
   const sourceBefore = observeRuntimeOwnedDevelopmentSource();
   assert.ok(sourceBefore, "verification_source_unobserved");
-  const trialRoot = path.join(runtimePaths.tests, "workspace-ai-20261026");
-  if (!fs.existsSync(trialRoot)) fs.mkdirSync(trialRoot);
-  assert.equal(fs.realpathSync.native(trialRoot), trialRoot);
-  assert.equal(fs.lstatSync(trialRoot).isSymbolicLink(), false);
-  const parent = path.join(trialRoot, preflight ? "preflight" : "edit");
-  assert.equal(
-    fs.existsSync(parent),
-    false,
-    "verification_root_already_exists",
-  );
   const before = observeVerificationDockerInventory();
   assert.ok(before, "docker_unobserved");
   assert.equal(
@@ -1190,16 +1180,37 @@ async function main() {
     false,
     "docker_not_idle",
   );
-  fs.mkdirSync(parent);
+  const trialRoot = fs.mkdtempSync(
+    path.join(runtimePaths.tests, "workspace-ai-"),
+  );
+  const parent = path.join(trialRoot, preflight ? "preflight" : "edit");
   const results: Record<string, unknown>[] = [];
   const report: Record<string, unknown> = {
     contract: "crdd/workspace-ai-verification",
     preflightOnly: preflight,
+    trialRoot,
     fullE2eVerified: false,
     rawProviderOutputReported: false,
     results,
     fixtureRootsRemoved: false,
   };
+  try {
+    assert.equal(path.dirname(trialRoot), runtimePaths.tests);
+    assert.equal(fs.realpathSync.native(trialRoot), trialRoot);
+    assert.equal(fs.lstatSync(trialRoot).isDirectory(), true);
+    assert.equal(fs.lstatSync(trialRoot).isSymbolicLink(), false);
+    assert.equal(
+      fs.existsSync(parent),
+      false,
+      "verification_root_already_exists",
+    );
+    fs.mkdirSync(parent);
+  } catch {
+    report.preflightFailure = "verification_root_unconfirmed";
+    console.log(JSON.stringify(report));
+    process.exitCode = 2;
+    return;
+  }
   try {
     for (const mode of ["direct", "isolated"] as const) {
       const result = await verify(parent, mode, preflight);

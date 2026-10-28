@@ -73,7 +73,10 @@ function assertReadonlyTiming(input: unknown) {
     return value;
   };
   const integer = (v: unknown, minimum = 0) => {
-    assert.ok(typeof v === "number" && Number.isSafeInteger(v) && v >= minimum);
+    assert.ok(
+      typeof v === "number" && Number.isSafeInteger(v) && v >= minimum,
+      JSON.stringify({ value: v, minimum }),
+    );
     return v as number;
   };
   const value = record(
@@ -614,8 +617,15 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
     "storage-blocked",
     "unexpected-mode",
     "duplicate-mode",
+    "fresh-realpath-mismatch",
+    "fresh-root-link",
+    "fresh-parent-create-fails",
   ]) {
     let writes = 0;
+    let freshRoots = 0;
+    let verifyCalls = 0;
+    let deletions = 0;
+    let consoleReport = "";
     let sourceReads = 0;
     const saved: string[] = [];
     const processState = {
@@ -660,30 +670,51 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           eligible: scenario !== "storage-blocked",
           reason: "synthetic",
         }),
-        verify: async (_parent: string, mode: string) => ({
-          mode:
-            scenario === "unexpected-mode"
-              ? "../escape"
-              : scenario === "duplicate-mode"
-                ? "direct"
-                : mode,
-          limitedProbePassed: scenario !== "task-failed-clean",
-          runtimeClean: true,
-          workspaceClean: true,
-          closeConfirmed: true,
-          task: { primaryFailure: null },
-        }),
+        verify: async (_parent: string, mode: string) => {
+          verifyCalls++;
+          return {
+            mode:
+              scenario === "unexpected-mode"
+                ? "../escape"
+                : scenario === "duplicate-mode"
+                  ? "direct"
+                  : mode,
+            limitedProbePassed: scenario !== "task-failed-clean",
+            runtimeClean: true,
+            workspaceClean: true,
+            closeConfirmed: true,
+            task: { primaryFailure: null },
+          };
+        },
         fs: {
+          mkdtempSync: (prefix: string) => {
+            assert.equal(
+              prefix,
+              path.join(processState.cwd(), ".crdd", "tests", "workspace-ai-"),
+            );
+            freshRoots++;
+            writes++;
+            return `${prefix}fresh-${freshRoots}`;
+          },
           lstatSync: () => ({
             isDirectory: () => true,
-            isSymbolicLink: () => scenario === "linked-parent",
+            isSymbolicLink: () =>
+              ["linked-parent", "fresh-root-link"].includes(scenario),
           }),
-          realpathSync: { native: (value: string) => value },
+          realpathSync: {
+            native: (value: string) =>
+              scenario === "fresh-realpath-mismatch"
+                ? `${value}-different`
+                : value,
+          },
           existsSync: () => false,
           mkdirSync: () => {
+            if (scenario === "fresh-parent-create-fails")
+              throw new Error("synthetic_mkdir_failure");
             writes++;
           },
           rmSync: (value: string) => {
+            deletions++;
             if (scenario === "cleanup-fails" && value.endsWith("direct"))
               throw new Error("EPERM");
           },
@@ -692,15 +723,39 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
             saved.push(value);
           },
         },
-        console: { log: () => undefined },
+        console: {
+          log: (value: string) => {
+            consoleReport = value;
+          },
+        },
       },
     );
     if (scenario === "linked-parent") {
       await assert.rejects(execution, /verification_parent_invalid/u);
       assert.equal(writes, 0);
+      assert.equal(freshRoots, 0);
+    } else if (scenario.startsWith("fresh-")) {
+      await execution;
+      const report = JSON.parse(consoleReport);
+      assert.equal(freshRoots, 1);
+      assert.equal(verifyCalls, 0);
+      assert.equal(deletions, 0);
+      assert.equal(saved.length, 0);
+      assert.equal(
+        report.trialRoot,
+        path.join(processState.cwd(), ".crdd", "tests", "workspace-ai-fresh-1"),
+      );
+      assert.equal(report.fixtureRootsRemoved, false);
+      assert.equal(report.preflightFailure, "verification_root_unconfirmed");
+      assert.equal(processState.exitCode, 2);
     } else {
       await execution;
       const report = JSON.parse(saved.at(-1) ?? "null");
+      assert.equal(freshRoots, 1);
+      assert.equal(
+        report.trialRoot,
+        path.join(processState.cwd(), ".crdd", "tests", "workspace-ai-fresh-1"),
+      );
       assert.equal(
         report.results.length,
         scenario === "task-failed-clean" ? 1 : 2,
