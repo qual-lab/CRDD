@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-文書上のMilestone／Roadmap／WBSはCRDD文書群、Task分解は呼出し側、実行はCoordinatorが所有する。共通Reader／Writer・短期保存Owner・一回使用証拠と一般CRUDはDomainへ接続し、Host／Home／Process・長期Lease・実回復はCoordinatorに残した。旧保存内部参照と試験Adapter二Fileは撤去済み。対象の非AI回帰と独立レビューまで完了した。実データ移行・保存先変更・Core全体の単独成立とは区別する。[設計](06_Architecture/Details/domain-model/05_Runtime_Domain.md)と[移管・検証記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。AI再送・Docker・過去保持物は操作していない。
+文書上のMilestone／Roadmap／WBSはCRDD文書群、Task分解は呼出し側、実行はCoordinatorが所有する。共通保存と一般CRUDのDomain移管後、既存development権限によるMCP Core定義操作を接続した。Tool単体のCoordinator読込み不能試験は成立したが、MCP Root全体・WorkbenchのCore独立接続、Executor分離とCoordinator任意化は未完了。ExecutorはProvider単段を一試行とし、順序・再試行判断をCoordinatorへ残す人間判断を反映した。保存先変更は確認待ちで有効化していない。[設計](06_Architecture/Details/domain-model/05_Runtime_Domain.md)と[移管・検証記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。AI再送・Docker・過去保持物は操作していない。
 
 状態判断・一回使用証拠を各Ownerへ分離し、Storage五File化・対象の分割回帰・独立レビュー残指摘零まで完了。全体一括回帰の初回不合格は保持し、再確認の成功へ置換しない。[対応と検証限界](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)を参照。AI再送・Docker・過去保持物操作なし。
 

@@ -137,11 +137,21 @@ A〜CはCoreのAPI成立に必要な保存境界を先に確定する依存順�
 | F | Provider単段を一Attemptとする案を提示。編集→レビュー→是正の順序判断はCoordinatorへ残す | ExecutorへSnapshot・Queue・Lease・再試行方針を丸ごと渡さない。取消／join・unknown・exact回復参照を維持 |
 | G | Dの実読込み閉包とFの契約を確定してから、既存調停をDomain＋Executorへ接続する | Fakeでも実際と同じ開始・取消・完了契約を使用。Domainとの二重状態・保存・新Registryを増やさない |
 
-人間確認は、保存先、Executorの粒度、Core編集の既存内容権限への対応とローカル操作主体である。技術的なTool名やFile配置だけを理由に新たな承認段階を増やさない。既存の助言・編集・Workspace操作は任意機能として保全し、Core独立のために無断撤去しない。
+人間確認は、保存先、Executorの粒度、Core編集の既存内容権限への対応とローカル操作主体である。2026-10-28に後二点は承認された。ExecutorはProvider単段を一試行とし、編集→レビュー→是正の順序・Queue・再試行判断はCoordinatorに残す。Core定義編集は既存development内容権限へ対応し、ローカルWorkbenchは既存入口保護の下で起動Host利用者の操作として扱う。Browser接続元のOS本人証明や新しい認証・権限設定を追加しない。保存先は引き続き回答待ちで、物理保存先を変更しない。技術的なTool名やFile配置だけを理由に新たな承認段階を増やさない。既存の助言・編集・Workspace操作は任意機能として保全し、Core独立のために無断撤去しない。
 
 判断不要な最初の差分として、`inspectAiSelectionChoice`／`hashExecutionSelection`をDomainの`ai-selection/validation.ts`へ集約した。型はDomainの既存`AiSelectionChoice`で閉じ、AI Adapterへの逆依存を追加しない。Coordinatorの旧File・Root再exportを撤去し、Workbenchの明示選択検査・内部利用側・Symbol・試験Oracleを直接接続した。Network PolicyのDocker構成やAuthorityは移していない。これはDの部分接続であり、Core全体の単独成立ではない。
 
-局所四Suiteは26件成功。最初の新規Hash試験は合成Model名の転記不一致で二成功・一不合格となり、基準の`historical-model`へfixtureを一致させてから上記四Suiteを確認した。既存Hash期待値・拒否条件は変更していない。追加の利用側六Suiteは79件成功、Domain／Coordinator／Workbenchの型検査も成功した。独立レビューのMinor一件（新UTの台帳登録漏れ）を是正し、新UT三件再成功・Catalog409件valid・限定再レビュー残指摘零。変更した三文書の指摘は零で、参照展開先にはbroken-link 263件が残る。展開範囲は前段の文書検査と異なり、全体文書QAの合格又は263件の新旧全件照合を主張しない。変更Sourceの整形・Lintは警告／Error零（既存の情報診断三件）、diff check成功。今回の純粋検査移管だけを閉じ、D〜G全体完了は未宣言。三つの人間確認への回答待ちである。
+局所四Suiteは26件成功。最初の新規Hash試験は合成Model名の転記不一致で二成功・一不合格となり、基準の`historical-model`へfixtureを一致させてから上記四Suiteを確認した。既存Hash期待値・拒否条件は変更していない。追加の利用側六Suiteは79件成功、Domain／Coordinator／Workbenchの型検査も成功した。独立レビューのMinor一件（新UTの台帳登録漏れ）を是正し、新UT三件再成功・Catalog409件valid・限定再レビュー残指摘零。変更した三文書の指摘は零で、参照展開先にはbroken-link 263件が残る。展開範囲は前段の文書検査と異なり、全体文書QAの合格又は263件の新旧全件照合を主張しない。変更Sourceの整形・Lintは警告／Error零（既存の情報診断三件）、diff check成功。今回の純粋検査移管だけを閉じ、D〜G全体完了は未宣言。人間確認は保存先一件だけが回答待ちである。
+
+#### Dの内容認可とMCP定義操作の限定接続
+
+承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。
+
+MCPのCore定義二ToolをDomainの既存初期化・CRUD・Queryへ直接接続した。閉じた操作入力、既存CAS、対象Hash、結果のunknown・exact参照を保持し、AI起動・Queue・判断承認を行わない。実子ProcessでCoordinator／ExecutorのModule解決を拒否し、Tool単体の初期化・CRUD・再読取り・CAS拒否を確認した。ただしMCP Rootには既存実行Toolからの静的到達が残るため、Server全体のCore単独成立ではない。WorkbenchのCore公開接続、Executor実体移管、Coordinator任意化も未完了である。
+
+初回の内容認可結合では同一要求内で資格照合が繰り返され、合成状態の初期化・保存・読取りは約37.6秒だった。同じbytesへの結合を保つ一要求一回照合に変更後、同じCaseは約18.7秒で成功した。この有限計測を任意環境の性能保証へ一般化せず、Timeout・安全条件を緩和していない。局所試験では資格照合回数、未対応操作／別ProjectのI/O零、上記の拒否条件を固定した。
+
+現在候補のAccess Management全回帰は173件成功・不合格零。Core Tool三件も成功した。MCPの初回通常環境全回帰は105件中104成功・一不合格で、追加二Toolへの一覧期待数追従漏れだけだった。修正後の当該Case成功に続き、全回帰一実行でも105件成功・不合格零・取消零となった。両Packageの整形・型・警告を失敗とするLint、台帳410件、diff checkは成功。限定独立レビューはSourceと文書のMinorを是正して残指摘零。変更した五文書の指摘は零、参照展開先のbroken-link 266件は別範囲として残す。先行の制限環境ではLink作成とloopbackが拒否され、MCPの一実行を中断した。その実行を成功又は全試験物不存在とは扱わず、過去保持物の探索・清掃へ拡張しない。AI・Docker・過去Runtime／保持物を操作していない。
 
 - AのFile別宣言群・Root公開73項目・静的利用側を棚卸しし、B／Cの具体Afterを提示した。続いて[Runtime Domain正本](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md)にAPI入出力・単一保存・認可／CAS・一回性を具体化し、正式Architecture／Qualityへ接続した。宣言ごとの最終依存閉包、保存Schemaの全field対応と新識別子、五Contextのfresh確認搬送、実装接続は未完了。既存判断・根拠ID・局所受入を確認し、そのままDomainへ移す方針で、新しい非管理完了機能は追加しない。
 - Eの保存先と手順、既存Workbench AI依頼の扱い、Plan確定と判断操作の現在認可は、該当実装へ入る前に具体例と影響を示して確認する。

@@ -15,9 +15,17 @@ import crypto, { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import {
+  initializeRuntimeState,
+  queryPlan,
+  savePlan,
+} from "../../../../domain-model/src/index.ts";
 import { readCurrentAccessState as readCurrentAccess } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,
+  resolveRuntimeContentAccess,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
 } from "../../../src/index.ts";
@@ -36,6 +44,351 @@ import {
   prepare,
   repositoryFixture,
 } from "../storage/fixture.ts";
+
+/**
+ * 同要求の資格照合再利用が失敗・取消・解放不明を迂回しない。
+ * @responsibility 実Storeを未解放にせず、制御境界の故障を反証する。
+ * @trace RFD-IT-013
+ * @precondition 同じ実関数をVMへ読み、各I/Oだけを合成値へ固定する。
+ * @stimulus 同版byte差、Root差、pending故障、解放不明、読取り中取消を与える。
+ * @observation KDF・Lock・読取り回数とContext結果。
+ * @oracle KDFは初回一回だけ、反例は全て拒否、対応外操作でI/O零。
+ * @cleanup N/A: 外部資源・実Lockを作らない。
+ * @boundary 現在認可Contextの分岐。実認証／実Filesystemの証拠とは区別する。
+ */
+test("Core定義Contextの要求内照合は解放不明・byte差・取消で拒否する", async (t) => {
+  const source = fs.readFileSync(
+    new URL("../../../src/repository/resolve.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("export function resolveRuntimeContentAccess(");
+  const end = source.indexOf("/**", start + 1);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(source.slice(start, end)).replace(
+    "export function",
+    "function",
+  );
+  for (const fault of [
+    "release",
+    "bytes",
+    "root",
+    "pending",
+    "abort",
+  ] as const) {
+    await t.test(fault, () => {
+      const controller = new AbortController();
+      const root = {};
+      const changedRoot = {};
+      let activeFault: string | null = null;
+      let kdf = 0,
+        reads = 0,
+        locks = 0;
+      const actor = { revision: 3, userId: "user", credentialId: "credential" };
+      const factory = runInNewContext(`${body};resolveRuntimeContentAccess`, {
+        locked: (_root: unknown, invoke: () => unknown) => {
+          locks++;
+          const result = invoke();
+          return activeFault === "release" ? { status: "unavailable" } : result;
+        },
+        readCurrent: () => {
+          reads++;
+          if (activeFault === "abort") controller.abort();
+          return {
+            state: { revision: 3 },
+            bytes: Buffer.from(
+              activeFault === "bytes" ? "changed" : "original",
+            ),
+          };
+        },
+        readCredentialId: () => "credential",
+        resolveCredentialAuthentication: () => {
+          kdf++;
+          return actor;
+        },
+        selectConnectionAuthentication: () => ({ status: "normal" }),
+        selectRepositoryAccess: () => ({}),
+        settlePending: () => {
+          if (activeFault === "pending") throw new Error("pending");
+        },
+        observeRepositoryAccess: () => ({
+          root: activeFault === "root" ? changedRoot : root,
+          revision: 3,
+          repositoryId: "repository",
+          workspaceId: "development",
+          bindingId: "binding",
+          manifest: { projectId: "project" },
+        }),
+        resolveVerifiedRepositoryRoot: (value: unknown) =>
+          value === root ? "/initial" : "/changed",
+        hash: (bytes: Buffer) =>
+          createHash("sha256").update(bytes).digest("hex"),
+      });
+      const access = factory({}, "token", "repository", controller.signal);
+      assert.ok(access);
+      const target = { projectId: "project", milestoneId: "milestone" };
+      assert.equal(access.revalidate("definition.read", target), true);
+      assert.equal(access.revalidate("definition.write", target), true);
+      assert.equal(kdf, 1);
+      const before = { reads, locks, kdf };
+      assert.equal(access.revalidate("queue.enqueue", target), false);
+      assert.equal(
+        access.revalidate("definition.write", {
+          ...target,
+          projectId: "foreign",
+        }),
+        false,
+      );
+      assert.deepEqual({ reads, locks, kdf }, before);
+      activeFault = fault;
+      assert.equal(access.revalidate("definition.write", target), false);
+      assert.equal(kdf, 1);
+    });
+  }
+});
+
+/**
+ * 通常の開発権限をCoreの現在認可へ結合する。
+ * @responsibility 主体・対象・現在版と取消を要求内に固定する。
+ * @trace RFD-IT-013
+ * @precondition 自己生成の管理Storeと公開済みRepository。
+ * @stimulus 定義操作、対象差、未許可操作、取消、資格失効を与える。
+ * @observation Context・再確認結果と管理Store本文。
+ * @oracle developmentだけで定義編集可能、承認／Queue投入は不可、変更後は拒否する。
+ * @cleanup 既存Fixtureが今回の管理RootとRepositoryだけを回収する。
+ * @boundary 公開AM APIと実Filesystem／Domain Context。
+ */
+test("Core定義Contextは既存開発権限・同じ主体・現在版に限定する", (t) => {
+  const f = contentFixture(t);
+  const controller = new AbortController();
+  const target = {
+    projectId: f.target.manifest.projectId,
+    milestoneId: "milestone.test",
+  };
+  const before = fs.readFileSync(
+    path.join(f.directory, "access-management.json"),
+  );
+  const kdf = t.mock.method(crypto, "scryptSync");
+  const access = resolveRuntimeContentAccess(
+    f.root,
+    f.tokens.developer,
+    f.target.manifest.repositoryId,
+    controller.signal,
+  );
+  assert.ok(access);
+  assert.equal(kdf.mock.callCount(), 1);
+  assert.equal(
+    access.principalId,
+    f.state.users.find((user) => user.role === "developer")?.userId,
+  );
+  for (const operation of [
+    "definition.read",
+    "definition.write",
+    "decision.read",
+    "queue.read",
+    "runtime.read",
+  ] as const)
+    assert.equal(access.revalidate(operation, target), true, operation);
+  assert.equal(kdf.mock.callCount(), 1);
+  assert.ok(
+    resolveRuntimeContentAccess(
+      f.root,
+      f.tokens.developer,
+      f.target.manifest.repositoryId,
+      controller.signal,
+    ),
+  );
+  assert.equal(kdf.mock.callCount(), 2);
+  kdf.mock.restore();
+  const open = t.mock.method(fs, "openSync");
+  assert.equal(access.revalidate("decision.record", target), false);
+  assert.equal(access.revalidate("queue.enqueue", target), false);
+  assert.equal(
+    access.revalidate("definition.write", { ...target, projectId: "other" }),
+    false,
+  );
+  assert.equal(open.mock.callCount(), 0);
+  open.mock.restore();
+  assert.equal(
+    resolveRuntimeContentAccess(
+      f.root,
+      f.tokens.administrator,
+      f.target.manifest.repositoryId,
+      controller.signal,
+    ),
+    null,
+  );
+  assert.deepEqual(
+    fs.readFileSync(path.join(f.directory, "access-management.json")),
+    before,
+  );
+  controller.abort();
+  assert.equal(access.revalidate("definition.write", target), false);
+  assert.equal(
+    resolveRuntimeContentAccess(
+      f.root,
+      f.tokens.developer,
+      f.target.manifest.repositoryId,
+      controller.signal,
+    ),
+    null,
+  );
+});
+
+/**
+ * 認可済みContextを後の資格・内容変更へ流用させない。
+ * @responsibility 権限確認を構築時だけで終えない。
+ * @trace RFD-IT-013
+ * @precondition 自己生成資格とRepositoryで一Contextを作る。
+ * @stimulus 資格失効又はManifest変更を行う。
+ * @observation 既存Contextの再確認と保存本文。
+ * @oracle どちらもfalseで、再確認は状態を変更しない。
+ * @cleanup Fixtureが今回のRootだけを回収する。
+ * @boundary 現在認証・公開対象観測とCore操作前の再確認。
+ */
+test("Core定義Contextは失効とManifest差替えで拒否する", async (t) => {
+  for (const fault of [
+    "revoked",
+    "same-revision",
+    "role",
+    "exposure",
+    "manifest",
+    "pending",
+  ] as const) {
+    await t.test(fault, (current) => {
+      const f = contentFixture(current);
+      const access = resolveRuntimeContentAccess(
+        f.root,
+        f.tokens.developer,
+        f.target.manifest.repositoryId,
+        new AbortController().signal,
+      );
+      assert.ok(access);
+      if (["revoked", "same-revision", "role", "exposure"].includes(fault)) {
+        const stored = readAccessManagementState(f.root);
+        assert.equal(stored.status, "completed");
+        if (stored.status !== "completed") return;
+        const state = structuredClone(stored.value);
+        const user = state.users.find(
+          (candidate) => candidate.role === "developer",
+        );
+        assert.ok(user);
+        if (fault === "revoked") {
+          for (const credential of state.credentials)
+            if (credential.userId === user.userId) credential.revoked = true;
+          state.revision++;
+        } else if (fault === "same-revision") user.username = "changed";
+        else if (fault === "role") user.role = "manager";
+        else state.exposure = [];
+        fs.writeFileSync(
+          path.join(f.directory, "access-management.json"),
+          bytes(state),
+        );
+      } else if (fault === "manifest") {
+        fs.writeFileSync(
+          f.target.manifestPath,
+          JSON.stringify({ ...f.target.manifest, displayName: "changed" }),
+        );
+      } else {
+        fs.writeFileSync(
+          path.join(f.directory, "access-management.pending.json"),
+          "{}",
+        );
+      }
+      const before = fs.readFileSync(
+        path.join(f.directory, "access-management.json"),
+      );
+      assert.equal(
+        access.revalidate("definition.write", {
+          projectId: f.target.manifest.projectId,
+          milestoneId: "milestone.test",
+        }),
+        false,
+      );
+      assert.deepEqual(
+        fs.readFileSync(path.join(f.directory, "access-management.json")),
+        before,
+      );
+    });
+  }
+});
+
+/**
+ * 現在内容認可からDomainの実保存までを結合する。
+ * @responsibility 認可Contextの模擬成功と本番Writer接続を区別する。
+ * @trace RFD-IT-013
+ * @precondition 自己生成の管理StoreとGit構造だけを使う。
+ * @stimulus 明示初期化・Plan保存・再読取りを同じ要求Contextで行う。
+ * @observation 保存結果、再読取り、各操作の有限計測。
+ * @oracle 開発権限だけで同じDomain Writerへ接続し、認可区画を変更しない。
+ * @cleanup 既存Fixtureが今回のRootだけを回収する。
+ * @boundary AM現在権限→Domain実Writerと既存OS排他。
+ */
+test("Core定義Contextを実Writerの初期化・Plan保存・再読取りへ接続する", (t) => {
+  const f = contentFixture(t);
+  fs.writeFileSync(
+    path.join(f.target.directory, ".git", "HEAD"),
+    "ref: refs/heads/main\n",
+  );
+  fs.writeFileSync(
+    path.join(f.target.directory, ".git", "refs", "heads", "main"),
+    `${"1".repeat(40)}\n`,
+  );
+  const access = resolveRuntimeContentAccess(
+    f.root,
+    f.tokens.developer,
+    f.target.manifest.repositoryId,
+    new AbortController().signal,
+  );
+  assert.ok(access);
+  const target = {
+    projectId: f.target.manifest.projectId,
+    milestoneId: "milestone.test",
+  };
+  const before = fs.readFileSync(
+    path.join(f.directory, "access-management.json"),
+  );
+  const started = performance.now();
+  const initial = initializeRuntimeState(access, {
+    ...target,
+    expectedAbsence: true,
+  });
+  const initializedAt = performance.now();
+  assert.equal(initial.status, "saved", JSON.stringify(initial));
+  if (initial.status !== "saved") return;
+  const saved = savePlan(access, {
+    ...target,
+    expected: initial.version,
+    expectedDefinitionHash: null,
+    definition: {
+      milestoneAcceptanceCriteria: ["確認"],
+      objectives: [{ id: "objective", acceptanceCriteria: ["確認"] }],
+      tasks: [
+        {
+          id: "task",
+          objectiveId: "objective",
+          dependencies: [],
+          allowedPaths: ["src/code.ts"],
+          conflictKeys: [],
+        },
+      ],
+    },
+  });
+  const savedAt = performance.now();
+  assert.equal(saved.status, "saved", JSON.stringify(saved));
+  const read = queryPlan(access, target);
+  assert.equal(read.status, "available", JSON.stringify(read));
+  assert.deepEqual(
+    fs.readFileSync(path.join(f.directory, "access-management.json")),
+    before,
+  );
+  t.diagnostic(
+    JSON.stringify({
+      initializeMs: Math.round(initializedAt - started),
+      saveMs: Math.round(savedAt - initializedAt),
+      readMs: Math.round(performance.now() - savedAt),
+    }),
+  );
+});
 
 /**
  * 三Roleの本人表示と内容・公開範囲の交差を確認する。

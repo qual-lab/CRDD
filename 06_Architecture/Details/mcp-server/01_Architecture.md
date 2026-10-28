@@ -1,5 +1,11 @@
 # MCP Transportアーキテクチャ
 
+## Core実行依頼定義の直接接続 — 2026-10-28
+
+`tools/runtime.ts`はDomainの一般定義CRUDだけへ直接接続する。`crdd.get_runtime_definition`（plan/objectives/tasks）と`crdd.manage_runtime_definition`（initialize、plan.save、objective.create/update/delete、task.create/update/delete）の二Toolを、要求別Factoryの`runtimeDefinition`構成から登録する。AM認証構成は既存development内容権限を`resolveRuntimeContentAccess`で要求内Contextへ変換する。入力は`repositoryId`と操作別の閉じた`command`であり、Root・主体・認可関数をClientから受け取らない。Plan等の意味・DAG・参照・CASはDomainが検査する。
+
+応答はDomain結果を`structuredContent`と表示用textへ同じ内容で搬送する。unknown、競合、公開可能なexact回復参照を保持し、通信失敗を無保存又は再送許可に変換しない。AI実行・判断承認・Queue投入・文書同期は提供しない。Tool単体のCoordinator非読込と実Writer接続は、Server Root全体のCoordinator非読込成立とは別に確認する。既存任意Toolの読込み閉包が残る間はCore全体の成立を表示しない。
+
 ## Core API接続の目標 — 2026-10-27
 
 [Domain API入出力](../domain-model/05_Runtime_Domain.md#runtime-domain-api)へ直接接続する。Coreの定義CRUD・QueryはCoordinatorをloadせず提供し、管理実行は明示導入時だけ既存実行Ownerへ接続する。現在認証・対象認可を検証済みRootと区別し、Host専用ContextをMCP入力から再構成しない。APIの内部型をそのまま通信Schemaへ露出せず、Sourceと通信契約の追従・独立起動試験は未実施。

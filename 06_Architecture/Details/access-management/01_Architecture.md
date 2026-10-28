@@ -26,6 +26,10 @@ bin/access-management.ts           Process入口と取消通知
 
 `repository/resolve.ts`はRepository固有の現在認可・公開範囲・実Rootを照合し、単体または集合を返す。添付案の`authorization/repository.ts`は作らない。`authorization/management.ts`は管理権限判定と対象別の非秘密な結果を所有し、User／Repositoryの変更そのものを引き取らない。AI Profile管理の小さな認可判定はここへ統合する。
 
+Core一般CRUDへの`resolveRuntimeContentAccess(root, token, repositoryId, signal)`も`repository/resolve.ts`が所有する。通常本人とdevelopment内容権限を同じ管理改訂で取得し、主体・資格・Repository・公開範囲・Binding・Manifest・真正Root・Projectを要求内Contextへ結合する。定義の読取り／編集と既存記録の読取りだけを許し、`decision.record`と`queue.enqueue`は認可再読前に拒否する。現在認可の失効・改訂差・実体不明・取消・例外はfalse又はnullであり、Rootの技術確認だけを認可へ昇格しない。Context・Tokenの永続化や要求間cache、新Role・Grant・Lockは追加しない。MCP／Workbenchはこの同じ公開APIを利用する。
+
+Contextの初回は一つの既存Lock内で現在状態読取り・KDFによる資格照合・通常接続判定・内容範囲・pending処置・Repository実体観測を行う。要求内closureへ保持するのは非秘密actor・現在改訂・確認したraw byteの既存SHA-256・Repository相関だけで、完全SnapshotやVerifierを複製しない。再確認は毎回同じLock下で現在byteと改訂の完全一致、通常接続・内容範囲、pending、Root／Manifest／Bindingのfresh観測と解放確認を行う。同一要求内でこの全条件が維持された場合だけKDFの同じ計算を繰り返さない。状態が変われば新しい許可へ追従せず拒否し、別要求は再びKDFを行う。Hash単独を認可とせず、長期cache・TTL・認証結果Map・新しい証拠Frameworkは作らない。
+
 ### 公開と内部利用の区別
 
 公開動詞はコーディング規約に従い、権限評価を`evaluate…Permission`、既存属性・状態の変更を`update*`へ揃える。`evaluateAiProfileManagementPermission`は現在資格の認証を伴う評価であり、渡されたRoleだけを評価する`evaluateManagementPermission`とI/O・入力が異なる。名前の統一を理由に両者の認証・Lock境界を統合しない。`updateCredentialPresentationState`は出来事の追記ではなく、同じ資格の提示状態を更新する内部Consumer用APIである。

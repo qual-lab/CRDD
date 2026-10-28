@@ -14,6 +14,7 @@ import {
   resolveRepositoryAccessCollection,
   sameAccessCollection,
   resolveRepositoryAccess,
+  resolveRuntimeContentAccess,
 } from "../../../access-management/src/index.ts";
 import {
   createPortfolioProjection,
@@ -66,6 +67,13 @@ export function createAccessMcpResolver(
       async createServer(request, signal, observe) {
         return createMcpServerFactory({
           accessManagement: { root, token },
+          runtimeDefinition: (repositoryId, currentSignal) =>
+            resolveRuntimeContentAccess(
+              root,
+              token,
+              repositoryId,
+              currentSignal,
+            ),
           workspace: (repositoryId) => {
             const initial = resolveRepositoryAccess(
               root,

@@ -14,6 +14,11 @@ export {
   MCP_CURRENT_ACCESS_TOOL,
 } from "./tools/access-management.ts";
 export {
+  MCP_RUNTIME_READ_TOOL,
+  MCP_RUNTIME_MANAGE_TOOL,
+  type RuntimeContentAccessResolver,
+} from "./tools/runtime.ts";
+export {
   describeMcpCoordinatorAdapterContract,
   handleMcpCoordinatorRequest,
   inspectMcpCoordinatorObjectiveResult,

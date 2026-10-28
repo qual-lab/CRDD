@@ -4,6 +4,20 @@
   "subsystem": "mcp-server",
   "symbols": [
     {
+      "symbolId": "mcp.runtime-definition",
+      "kind": "file",
+      "path": "src/tools/runtime.ts",
+      "archIds": ["ARCH-000008", "ARCH-000012", "ARCH-000013"]
+    },
+    {
+      "symbolId": "mcp.test.integration.runtime-definition",
+      "kind": "test-suite",
+      "path": "tests/integration/runtime-definition.contract.test.ts",
+      "qaIds": ["QA-000003"],
+      "localTestIds": ["PRL-IT-012"],
+      "verifies": ["mcp.runtime-definition", "access-management.repository-access"]
+    },
+    {
       "symbolId": "mcp.workspace.adapter",
       "kind": "file",
       "path": "src/tools/workspace.ts",

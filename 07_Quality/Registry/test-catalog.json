@@ -1456,6 +1456,19 @@
   ],
   "tests": [
     {
+      "id": "mcp:integration:runtime-definition",
+      "owner": "mcp-server",
+      "path": "40_Develop/mcp-server/tests/integration/runtime-definition.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["runtime-state", "core-independence", "authorization", "cas"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["input_hooks_not_executed", "rejection_preserves_state", "coordinator_not_loaded", "provider_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "platform-access:unit:terminal-console",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/unit/terminal/console.contract.test.ts",

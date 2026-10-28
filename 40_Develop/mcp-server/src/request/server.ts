@@ -13,6 +13,11 @@ import {
   type ListToolsResult,
 } from "@modelcontextprotocol/server";
 import type { TopicMeetingAccess } from "../../../domain-model/src/index.ts";
+import {
+  getMcpRuntimeToolDefinitions,
+  handleMcpRuntimeRequest,
+  type RuntimeContentAccessResolver,
+} from "../tools/runtime.ts";
 import { snapshotPlainRecord } from "./snapshot.ts";
 import { handleMcpDiscoverRequest } from "./discover.ts";
 import {
@@ -82,6 +87,7 @@ export type McpServerDependencies = Readonly<{
   accessManagement?: McpAccessManagementContext;
   topicMeeting?: TopicMeetingAccess;
   topicMeetingRepositoryResolver?: TopicMeetingAccessResolver;
+  runtimeDefinition?: RuntimeContentAccessResolver;
 }>;
 
 /**
@@ -112,6 +118,7 @@ export function createMcpServerFactory(
     runtimeActivity,
     topicMeeting,
     topicMeetingRepositoryResolver,
+    runtimeDefinition,
   } = dependencies;
   return {
     async createServer(rawRequest, signal, observe) {
@@ -156,6 +163,12 @@ export function createMcpServerFactory(
         definitions: readonly { name: string }[];
         invoke: McpRequestHandler;
       }[] = [];
+      if (runtimeDefinition)
+        bindings.push({
+          definitions: getMcpRuntimeToolDefinitions(),
+          invoke: (raw, current) =>
+            handleMcpRuntimeRequest(raw, runtimeDefinition, current),
+        });
       if (workspace)
         bindings.push({
           definitions: getMcpWorkspaceToolDefinitions(),

@@ -29,6 +29,8 @@ Core起動・CRUDはCoordinatorが読込み不能な構成でも成立させる�
 <a id="document-and-execution-ownership"></a>
 ### 1.1 CRDD文書・呼出し側・実行状態の責務
 
+2026-10-28の人間判断により、ExecutorはProviderの単段実行を一試行とする。Codex編集、Claudeレビュー、Codex限定是正はそれぞれ別の試行であり、その順序・再試行・Queue・計画はCoordinatorが所有する。CoreのPlan／Objective／Task定義編集は既存Repositoryのdevelopment内容権限へ対応する。ローカルWorkbenchは起動Host利用者の操作として既存の入口保護を使い、Browser接続元OS本人を証明したとは扱わない。新しいUser・Role・認証方式は追加しない。AI実行・承認・資格管理の権限は別のままである。
+
 | 対象 | 正本／担当 | 境界 |
 |---|---|---|
 | Milestone・Roadmap・WBS・正式判断・Evidence | CRDD文書群。人間／フロントAIが既存工程・権限に従って記録・更新 | Runtime状態の複製や自動同期先ではない |
@@ -350,6 +352,10 @@ Host Contextは元の借用から明示的に渡し、HTTP／MCP入力、保存J
 通常履歴は既存30日・設定可能の保持を使い、未解決・pending・必要な受領を期限で除去しない。正式Evidenceの保存とは別とする。今回、Runtime・履歴・保持物の読取り／移行／削除は行わない。
 
 ## 6. 配置・移行と利用側
+
+Core定義のMCP公開は二Toolに限定する。`crdd.get_runtime_definition`は`plan/objectives/tasks`の用途別照会、`crdd.manage_runtime_definition`は明示初期化・Plan保存・Objective／Taskの作成／更新／削除を受ける。どちらも`repositoryId`と閉じた`command`を必須とする。初期化は既存の不存在条件、それ以外の変更は全体CASを要求し、既存定義の更新・削除では対象定義Hashも照合する。Plan新規保存時の対象定義Hashは既存契約どおりnullであり、作成操作へ架空の旧Hashを要求しない。自動再取得・再適用・実行開始を行わない。判断の承認・Queue投入・Managed Executionの更新は含めない。Domainの結果を`structuredContent`へ搬送し、保存不明とexact回復参照を失敗メッセージへ潰さない。
+
+共有接続はAMの`resolveRuntimeContentAccess`が通常本人・development許可・Repository登録・公開範囲・同じ管理改訂・Manifest・Rootへ結合する。Domainの`RuntimeAccess.revalidate`は処置前と返却前にも同じ条件を検査する。操作Context・Tokenは要求内だけに置き、Store・cache・公開応答へ含めない。これは現在認可の接続であり、新しい権限発行ではない。
 
 保存先`.crdd/domain-model/{state.json,state.lock,state.pending.json,history.jsonl}`は第一候補であり有効化しない。製品コードは新形式だけ、旧形式移行はフロントAIの確認手順という既存方針を維持する。
 

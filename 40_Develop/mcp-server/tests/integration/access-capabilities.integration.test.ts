@@ -65,6 +65,8 @@ import {
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_TOPIC_MEETING_TOOLS,
+  MCP_RUNTIME_READ_TOOL,
+  MCP_RUNTIME_MANAGE_TOOL,
   type McpResponse,
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
@@ -131,7 +133,9 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
         required: [],
         properties: {},
       });
-      assert.equal(tools.length, role === "developer" ? 18 : 28);
+      assert.equal(tools.length, role === "developer" ? 20 : 30);
+      assert.ok(tools.some((tool) => tool.name === MCP_RUNTIME_READ_TOOL));
+      assert.ok(tools.some((tool) => tool.name === MCP_RUNTIME_MANAGE_TOOL));
       assert.equal(
         tools.some((tool) => tool.name === "crdd.register_repository"),
         false,
@@ -272,7 +276,7 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
       listRequest,
       new AbortController().signal,
     );
-    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 18);
+    assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 20);
     const before = fs.readFileSync(f.current);
     const deniedRead = await (
       await call(base, f.token, "crdd.list_access_users", {})
@@ -304,8 +308,8 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
         }[];
       }
     ).tools;
-    assert.equal(tools.length, 28);
-    assert.equal(new Set(tools.map((tool) => tool.name)).size, 28);
+    assert.equal(tools.length, 30);
+    assert.equal(new Set(tools.map((tool) => tool.name)).size, 30);
     assert.equal(
       tools.some((tool) => tool.name === "crdd.update_user_role"),
       true,
@@ -1953,12 +1957,19 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
         MCP_EXECUTION_STATUS_TOOL,
         MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
+        MCP_RUNTIME_READ_TOOL,
+        MCP_RUNTIME_MANAGE_TOOL,
       ].sort(),
     );
     for (const tool of tools) {
       const topicMeeting =
         MCP_TOPIC_MEETING_TOOLS.includes(tool.name as never) ||
-        ["crdd.get_workspace", "crdd.manage_workspace"].includes(tool.name);
+        [
+          "crdd.get_workspace",
+          "crdd.manage_workspace",
+          MCP_RUNTIME_READ_TOOL,
+          MCP_RUNTIME_MANAGE_TOOL,
+        ].includes(tool.name);
       assert.equal(
         Object.hasOwn(tool.inputSchema.properties, "repositoryId"),
         topicMeeting,
@@ -2070,6 +2081,8 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
         MCP_EXECUTION_STATUS_TOOL,
         MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
+        MCP_RUNTIME_READ_TOOL,
+        MCP_RUNTIME_MANAGE_TOOL,
       ].sort(),
     );
     const controller = new AbortController();

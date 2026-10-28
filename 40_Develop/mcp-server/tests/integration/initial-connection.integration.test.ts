@@ -222,8 +222,8 @@ test("初回HTTPは完全discover一回だけ出版して次要求を通常へ�
     });
     const listed = await next.json();
     assert.ok(Array.isArray(listed.result.tools));
-    // 通常十八操作と管理十操作。Repository登録と旧Profile四操作は公開しない。
-    assert.equal(listed.result.tools.length, 28);
+    // 通常十八操作とCore定義二操作、管理十操作。登録と旧Profile操作は公開しない。
+    assert.equal(listed.result.tools.length, 30);
     assert.equal(
       listed.result.tools.some((tool: { name: string }) =>
         tool.name.includes("ai_profile"),

@@ -10,15 +10,17 @@ import {
   type FilesystemStoreRoot,
   inspectRepositoryManifest,
   REPOSITORY_MANIFEST_RELATIVE_PATH,
+  type RuntimeAccess,
 } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
+import { selectConnectionAuthentication } from "../initialization/connection.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";
-import { readCurrent, settlePending } from "../storage/store.ts";
+import { hash, readCurrent, settlePending } from "../storage/store.ts";
 import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { deriveRepositoryBindingId } from "./binding.ts";
@@ -28,6 +30,171 @@ import type {
   RepositoryAccessCollectionResult,
   RepositoryAccessResult,
 } from "./types.ts";
+
+/**
+ * 現在の開発権限をCore定義操作の要求内Contextへ結合する。
+ * @responsibility 本人・登録・公開範囲・改訂・Rootを処置直前と返却前に再確認する。
+ * @trace ARCH-000013
+ * @trace ARCH-000008
+ * @input root、token、repositoryId、signal: 信頼したHostの要求内接続。
+ * @returns DomainのRuntimeAccess、又は非開示拒否のnull。
+ * @precondition 呼出元がProtocol入力を検査し、同じ要求のSignalを渡す。
+ * @postcondition 定義編集と読取りだけを既存development権限へ対応付ける。
+ * @effect 既存の認証・Repository読取りと短期Lock。新状態・資格・Lockなし。
+ * @failure 認証・改訂・実体・Binding・Project不一致、取消、観測不能は拒否する。
+ * @invariant 判断の承認・Queue投入・実行Authorityを発行しない。
+ * @boundary Access Managementの現在内容認可とDomainの一般CRUD。
+ * @security Tokenは要求内closureだけに置き、Contextを保存・cache・公開しない。
+ * @concurrency 各呼出しで既存Ownerを再観測し、要求間でContextを再利用しない。
+ */
+export function resolveRuntimeContentAccess(
+  root: FilesystemStoreRoot,
+  token: string,
+  repositoryId: string,
+  signal: AbortSignal,
+): RuntimeAccess | null {
+  const unavailable = {
+    status: "unavailable" as const,
+    reason: "runtime_content_access_unavailable",
+    publication: "not_attempted" as const,
+    revision: null,
+    cleanupConfirmed: false,
+  };
+  try {
+    if (
+      signal.aborted ||
+      typeof repositoryId !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId) ||
+      !readCredentialId(token)
+    )
+      return null;
+    const initial = locked(root, () => {
+      try {
+        const current = readCurrent(root);
+        if (signal.aborted) return unavailable;
+        const actor = resolveCredentialAuthentication(token, current.state);
+        if (
+          !actor ||
+          signal.aborted ||
+          selectConnectionAuthentication(current.state, actor)?.status !==
+            "normal"
+        )
+          return unavailable;
+        const registration = selectRepositoryAccess(
+          current.state,
+          actor,
+          repositoryId,
+          "development",
+        );
+        if (!registration || signal.aborted) return unavailable;
+        settlePending(root, current, () => {});
+        if (signal.aborted) return unavailable;
+        const access = observeRepositoryAccess(
+          registration,
+          current.state.revision,
+          "development",
+        );
+        const resolvedRoot =
+          access && resolveVerifiedRepositoryRoot(access.root);
+        if (!access || !resolvedRoot || signal.aborted) return unavailable;
+        return {
+          status: "completed" as const,
+          value: {
+            actor,
+            access,
+            resolvedRoot,
+            fingerprint: hash(current.bytes),
+          },
+          revision: current.state.revision,
+          publication: "not_attempted" as const,
+          cleanupConfirmed: true as const,
+        };
+      } catch {
+        return unavailable;
+      }
+    });
+    if (signal.aborted || initial.status !== "completed") return null;
+    const fixed = initial.value;
+    const manifest = JSON.stringify(fixed.access.manifest);
+    return Object.freeze({
+      root: fixed.access.root,
+      principalId: fixed.actor.userId,
+      revalidate: (operation, target) => {
+        try {
+          if (
+            signal.aborted ||
+            ![
+              "definition.read",
+              "definition.write",
+              "decision.read",
+              "queue.read",
+              "runtime.read",
+            ].includes(operation) ||
+            target.projectId !== fixed.access.manifest.projectId
+          )
+            return false;
+          const current = locked(root, () => {
+            try {
+              const observed = readCurrent(root);
+              if (
+                signal.aborted ||
+                observed.state.revision !== fixed.actor.revision ||
+                hash(observed.bytes) !== fixed.fingerprint ||
+                selectConnectionAuthentication(observed.state, fixed.actor)
+                  ?.status !== "normal"
+              )
+                return unavailable;
+              const registration = selectRepositoryAccess(
+                observed.state,
+                fixed.actor,
+                repositoryId,
+                "development",
+              );
+              if (!registration || signal.aborted) return unavailable;
+              settlePending(root, observed, () => {});
+              if (signal.aborted) return unavailable;
+              const access = observeRepositoryAccess(
+                registration,
+                observed.state.revision,
+                "development",
+              );
+              const valid =
+                !signal.aborted &&
+                access !== null &&
+                access.revision === fixed.access.revision &&
+                access.repositoryId === fixed.access.repositoryId &&
+                access.workspaceId === fixed.access.workspaceId &&
+                access.bindingId === fixed.access.bindingId &&
+                JSON.stringify(access.manifest) === manifest &&
+                resolveVerifiedRepositoryRoot(fixed.access.root) ===
+                  fixed.resolvedRoot &&
+                resolveVerifiedRepositoryRoot(access.root) ===
+                  fixed.resolvedRoot;
+              return {
+                status: "completed" as const,
+                value: valid,
+                revision: observed.state.revision,
+                publication: "not_attempted" as const,
+                cleanupConfirmed: true as const,
+              };
+            } catch {
+              return unavailable;
+            }
+          });
+          return (
+            !signal.aborted &&
+            current.status === "completed" &&
+            current.value === true
+          );
+        } catch {
+          return false;
+        }
+      },
+    } satisfies RuntimeAccess);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 同じ要求の公開前後で現在認可集合の契約値を比較する。

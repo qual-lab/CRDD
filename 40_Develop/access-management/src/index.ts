@@ -10,6 +10,7 @@
  */
 
 export { readCurrentAccess } from "./authorization/current.ts";
+export { resolveRuntimeContentAccess } from "./repository/resolve.ts";
 export {
   type AiProfileManagementPermission,
   evaluateManagementPermission,
