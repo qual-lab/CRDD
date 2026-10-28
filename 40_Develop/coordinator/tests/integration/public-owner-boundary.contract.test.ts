@@ -14,8 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
-import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { readExecutionCancellation } from "../../src/execution/authority.ts";
 import * as coordinator from "../../src/index.ts";
 import {
@@ -307,23 +307,20 @@ test("移管したTask Readerは128KiBと厳格な入力拒否を維持する", 
  * 受付後の例外でも元の再観測参照と終了失敗を保持する。
  * @responsibility CLI実関数のwait／close拒否を有限Ownerで反証する。
  * @trace PRL-IT-012
- * @precondition 子Process内の既存Module境界だけを代役化する。
+ * @precondition 実runTaskの宣言だけを既存AST補助で選び、VM内のSession境界だけを代役化する。
  * @stimulus 受付成功後にwaitとcloseが例外化する。
- * @observation stdout一件、元requestId、開始／待機／終了回数。
+ * @observation 返却結果一件、元requestId、開始／待機／終了回数。
  * @oracle 非成功、参照維持、close一回、再送なし。
- * @cleanup 子Processの終了を待ち、Filesystem生成・AI起動を行わない。
- * @boundary 実CLIと有限Owner。Docker／Provider実証ではない。
+ * @cleanup AST補助がAPIとSnapshotを閉じ、VMではFilesystem生成・AI起動を行わない。
+ * @boundary 実runTask本文とVM内の有限Owner。実CLI／Docker／Provider実証ではない。
  */
 test("単発操作は受付後の待機・終了例外でも元依頼IDを保持する", async () => {
   const source = fs.readFileSync(
     new URL("../../src/task/requests.ts", import.meta.url),
     "utf8",
   );
-  const body = stripTypeScriptTypes(
-    source
-      .slice(source.indexOf("export async function runTask("))
-      .replace("export ", ""),
-  );
+  const body = sourceDeclaration(source, "runTask");
+  assert.match(body, /^async function runTask\(/u);
   for (const fault of [
     "none",
     "start",

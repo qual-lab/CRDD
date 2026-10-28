@@ -164,6 +164,7 @@ const SOURCE_ROLES = {
     "execution/observation.ts",
     "execution/diagnostics.ts",
     "execution/preparation.ts",
+    "execution/provider-executor.ts",
     "execution/advice.ts",
     "execution/request.ts",
     "execution/settlement.ts",

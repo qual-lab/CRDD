@@ -12,9 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-文書上のMilestone／Roadmap／WBSはCRDD文書群、Task分解は呼出し側、実行はCoordinatorが所有する。共通モデル・CRUD・保存はDomain、Provider一段の準備・開始・取消・終了証拠は[Executor](06_Architecture/Details/executor/01_Architecture.md)、段階順序・Workspace・Host保存は任意のCoordinatorへ分離した。MCP／Workbenchは既定Coreのみ、AI利用時だけ`--automation`を明示する。Executor5件・関連324件・MCP105件・Workbench111件、保存の個別反例と独立レビュー残指摘0を確認したが、今回のDomain／Coordinator全回帰は終端確認中である。共通保存先`.crdd/domain-model/`はSource切替済みで、実データ移行は行っていない。実AI／Docker・人間操作・全体QAの成立は別に評価する。[移管・検証記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。AI再送・Docker・過去保持物は操作していない。
+文書上のMilestone／Roadmap／WBSはCRDD文書群、Task分解は呼出し側、Taskの実行順序・再試行・調停はCoordinatorが所有する。共通モデル・CRUD・保存はDomain、Provider一段の準備・開始・取消・終了証拠は[Executor](06_Architecture/Details/executor/01_Architecture.md)、段階順序・Workspace・Host保存は任意のCoordinatorへ分離した。MCP／Workbenchは既定Coreのみ、AI利用時だけ`--automation`を明示する。対象Source移管と非AI確認は限定完了。Coordinator全回帰1,795件の二不合格は試験追従を是正し、二Suite十五件が別実行で成功した。Domain全回帰476件のWindows rename拒否一件は未解消で、全体QA合格ではない。共通保存先`.crdd/domain-model/`はSource切替済み、実データ移行・実AI／Docker・人間操作は未実施。[最終結果と残る範囲](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#executor-optional-final-results)を参照。AI再送・Docker・過去保持物は操作していない。
 
-状態判断・一回使用証拠を各Ownerへ分離し、Storage五File化・対象の分割回帰・独立レビュー残指摘零まで完了。全体一括回帰の初回不合格は保持し、再確認の成功へ置換しない。[対応と検証限界](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)を参照。AI再送・Docker・過去保持物操作なし。
+保存の旧候補の結果は[状態Owner分離の記録](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)に保持する。現在の移管結果へ流用しない。
 
 先行の認証確認診断是正は`81d9647a4`でcommit・push済み。Coordinator332件、Workbench HTTP／診断30件と独立レビューを確認したが、実AI編集E2E成立とは扱わない。[診断是正と状態Ownerの調査](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#auth-create-diagnostic-minimal-fix-20261027)を参照する。
 

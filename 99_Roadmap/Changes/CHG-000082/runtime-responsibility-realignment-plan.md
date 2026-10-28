@@ -1,7 +1,7 @@
 # 基盤機能中心のRuntime責務再編計画
 
 - 対象: CRDD v0.22 / CHG-000082
-- 状態: A〜GのSource移管・公開接続済み。F／Gの固定回帰は最終確認中。Hの実AI／Docker、人間操作、実データ移行は未実施。
+- 状態: A〜GのSource移管・公開接続と対象非AI確認は限定完了。全体回帰の不合格と是正後の限定成功は区別する。Hの実AI／Docker、人間操作、実データ移行は未実施。
 - 基準: `5dae7108436205ecf7804d7898b1aecc2e8ce85b`
 - 入力: 人間提示「Runtime Responsibility Realignment」。同文書の確認HEAD `81d9647a4`と旧Source名は基準当時の参照であり、旧構造を復活させない。
 - 責任者: Qual-Lab
@@ -197,7 +197,21 @@ Domainの後続固定全実行は476件中475成功・一不合格・取消零�
 
 Coordinatorの固定全回帰は終了値1で終了した。保持した末尾診断は、新しいExecutorを未署名配布fixtureの複製対象へ含めなかったための`ERR_MODULE_NOT_FOUND`だった。末尾だけの出力から全不合格の件数・原因を推定せず、この実行を成功としない。既存components集合へExecutor一件だけを加え、利用側三Suite三十件は再成功した。製品Source・安全判定・Timeoutは変更していない。Architecture詳細MapのExecutor領域と二つの逆参照、Domain→Executorの既存台帳Binding、品質案内の旧未実装表示も追従した。限定独立レビューは残指摘零。修正後の全回帰では最終集計と不合格行を保持して確定する。
 
-Fの原子的な移管単位は`executeStage`だけではなく、単段準備、Process開始／取消／join、結果正規化と元Docker回復証拠の閉包である。`ControlRecord`のTask全体と単段字段を分け、後者の真正MapをExecutorへ一実体移管する。Coordinatorは現在Attemptの不透明Controlと終了後の不透明証拠を保持し、Task配列の順序・再試行・Workspaceと共通Host清掃を所有する。共通Host清掃前の各Attemptの準備、元清掃結果後の確定又は不明時の放棄は用途固定操作として接続し、汎用callback／新Registry／二重Mapは作らない。`result.ts`・`operation.ts`・`recovery.ts`の丸ごと移動は循環と上位責務流入を生むため、宣言単位で分割する。この照合は実装・回帰の完成ではない。
+着手前照合の履歴: Fの原子的な移管単位は`executeStage`だけではなく、単段準備、Process開始／取消／join、結果正規化と元Docker回復証拠の閉包とした。`ControlRecord`のTask全体と単段字段を分け、後者の真正MapをExecutorへ一実体移管する方針を採用した。Coordinatorは現在Attemptの不透明Controlと終了後の不透明証拠を保持し、Task配列の順序・再試行・Workspaceと共通Host清掃を所有する。共通Host清掃前の各Attemptの準備、元清掃結果後の確定又は不明時の放棄は用途固定操作として接続し、汎用callback／新Registry／二重Mapは作らない。`result.ts`・`operation.ts`・`recovery.ts`の丸ごと移動は循環と上位責務流入を生むため、宣言単位で分割した。この着手前判断自体を実装・回帰の根拠にはしない。
+
+<a id="executor-optional-final-results"></a>
+
+#### F／Gの指定範囲の最終結果 — 2026-10-28
+
+Provider単段のExecutor移管と、Domain＋Executorを使う任意Coordinatorの本番接続・重複撤去は、Sourceと対象非AI確認の範囲で完了した。実装は`3836e96a97be55a35ef159f86423fdbc6ed89bca`、配布fixture・台帳・設計対応の追従は`03a730a4d3e1cf4030b5489008d4948b68f703eb`でcommit・pushした。後続差分は試験二Fileと最終記録だけで、製品Sourceは前者から不変である。
+
+固定`03a730a4d`のCoordinator `npm run test:portable`は1,795件中1,788成功・二不合格・対象外五・取消零、終了値1、約54分14秒だった。対象外は未許可の実Docker関連四件・実Provider一件で、Host Windows専用Gateもこの母集団の外である。不合格は公開操作試験の関数切出しが末尾importまでVMへ渡した構文エラーと、責務一覧への`execution/provider-executor.ts`登録漏れの二件だった。単独再現で原因を確認し、前者は既存の中立AST補助によるexact宣言抽出と関数形状確認へ、後者は技術実行集合への一件追従へ是正した。六つの失敗・取消条件、元依頼ID、終了失敗、秘密詳細非公開と、純粋閉包・全数一致・変異拒否は維持した。
+
+是正後の二Suite全十五件は一実行ですべて成功した。固定全回帰一回の二不合格を消さず、1,795件の単一再成功とは表示しない。配布fixture三Suite三十件、Executor五件、関連三百二十四件、MCP百五件、Workbench百十一件、Windows保存の範囲別確認もそれぞれ別実行の根拠として保持する。今回の差分から実AI／Dockerの成功を推定しない。
+
+Source・Oracle・配置・公開境界の独立レビューは、是正後の残指摘零。最後の二試験Fileは整形・警告を失敗とするLintを通過し、既存の情報診断二件をErrorへ換算しない。品質案内の古い未実装表示と詳細設計Mapの登録漏れも是正した。変更した品質三文書と詳細Mapの文書指摘は零、同検査から展開した参照先3,333指摘は別範囲で不合格を維持する。先行Repository全体3,723指摘とは母集団が異なり、その全件解消とはしない。結果本文は既存の本計画とTool出力に限定し、実行ごとの巨大なEvidence又はログ書庫は追加しない。再実行入口は各Packageの既存test／checkと上記二Suiteである。
+
+未完了はHの実AI／Docker・人間操作、実データ移行、正式QAの全数再評価とRelease判断である。Domain全回帰のWindows rename EPERM一件は上段の担当・再評価条件で独立追跡し、全体品質の成功とはしない。これらをF／GのSource移管済み表示で覆わない。現在の指定Source範囲を閉じるための人間判断はない。AI再送・Docker照会／操作・認証情報・過去保持物の読取り又は操作は実施していない。
 
 #### Dの内容認可とMCP定義操作の限定接続
 
