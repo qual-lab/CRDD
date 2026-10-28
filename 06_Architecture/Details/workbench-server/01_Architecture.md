@@ -20,6 +20,8 @@
 
 読取り検証Toolの`httpTiming`は、固定段階（initial／start／observe／cancel／close）とClient／Server／Ownerそれぞれの観測番号、要求開始・headers受信・本文完了・親close処理、Server受信・finish、Owner.observe開始・終了の時刻だけを保持する。各配列は最大512件で超過はdroppedへ計上し、本文・Token・生URLは保持しない。ClientとServerの番号は独立した相関候補で、同一IDの証明ではない。時刻・固定経路・段階と欠測を併せて評価し、未完了・相関候補複数・上限超過から正常を補完しない。診断購読は対象listenerのloopback portと固定経路に限定し、Client終了後、Server／Task Ownerの終了待ちより先に解除する。snapshotは取得時点であり、解除前に開始したOwner観測の終了時計は後で確定し得る。製品HTTP・Task Lifecycle・期限・認可を変更しない。
 
+編集検証Toolも同じ三境界時計を再利用する。Owner.observe wrapper・Client callback・Server bind・固定段階・購読解除を一組で接続し、最後に既存evidenceの`httpTiming`へ投影する。Workspace操作の時計は従来の別投影を維持し、Task観測と混同しない。欠測・相関候補複数を単一の停止区間へ補完せず、計測の成功を実AI編集又は全体QAの成立へ拡張しない。
+
 検証ToolだけのHTTP子Processは、既存の拒否理由に任意の`clientProcess`診断を添える。値は最初の故障段階、終了値、固定Signal分類、stderrバイト数、終了要求の有無だけとし、生出力・自由な例外文・Tokenは含めない。起動・pipe・出力上限・警告・監視期限の最初の故障は後続通知で上書きしない。Process終了後のframe／失敗frame／応答frameの拒否は別段階にする。
 
 警告だけでも拒否する現行条件、同IDの取消と回復参照は維持する。検証Toolのexact Route `/workspace/action` はget等を含む全操作でHTTP上限60秒・親の子Process監視65秒とする。AI受付・取消の `/ai-request/action` と、AI状態観測を含むWorkbench viewの `/api/workbench-view?route=%2F` はHTTP15秒・親20秒を維持する。子の終了確認2秒は共通で、任意の期限を受け取る公開入力は追加しない。60秒は有限の待機上限であり、あらゆるRepositoryの成功や性能を保証しない。終了要求を終了確認やTask取消成功と同一視せず、Taskの一次結果とHTTP故障を分離する。正常な通信失敗frameの子側診断はそのまま保ち、親Process故障の診断を通信原因へ置換しない。

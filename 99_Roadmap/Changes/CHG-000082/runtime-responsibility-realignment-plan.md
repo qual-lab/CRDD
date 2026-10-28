@@ -499,6 +499,41 @@ exact回復参照`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9
 
 今回Rootの物理清掃は人間の今回資源回収承認内で実施した。exact解決Path、祖先と全内容の非Reparse、今回Rootがeditだけ・editがdirectとresult.jsonだけ、元結果Hash、未解決状態零、同Taskの取消確定、合成四Fileの元内容、Git Worktreeが今回direct一件だけであることを照合して、今回Rootだけを通常削除し不存在を再確認した。親Path補助照会の`Split-Path -LiteralPath -Parent`にはPowerShell引数不適合が出た。exact解決Pathと祖先・内容の検査は別に成立しており、終了後は`Path.GetDirectoryName`でも意図した親を照合した。ACL修復・属性の再構成は行っていない。実AI再送・Docker再起動・Image更新・過去保持物操作もない。元の失敗結果を成功へ変更せず、実AI編集E2Eは未成立である。
 
+#### HTTP観測期限とCode Modeエラーの非AI切り分け — 2026-10-29
+
+人間の調査指示に従い、Sourceと既存の有限診断を照合した。製品Source・判定・期限は変更せず、AI再送・Docker照会／作成／再起動・過去保持物操作は行っていない。外部参照には公開Codexの版固定Sourceだけを用い、内部試験内容・Path・結果は送っていない。
+
+| 対象 | 確認した事実 | 原因の確定限界と最小案 |
+|---|---|---|
+| HTTP状態取得 | 検証ClientのobserveはTask専用照会でなく`readMain`の画面全体GETを使う。Ownerは同一OwnerのMapにあるSnapshotを現在認可後に返し、Task完了Promiseをawaitしない。後段にはTopic／Meeting等の同期読取りがある。編集Toolは既存の三境界時計を接続せず、失敗結果からServer受信前／Owner内／画面生成後段を分離できない | 十五秒そのものの原因は未確定。既存`createReadonlyVerificationTiming`を、読取りTool同様にClient callback・Server bind・Owner observe wrapper・stage設定・dispose／snapshotまで一組で編集Toolへ接続する。新ログ基盤、Worker、Queueや期限延長は不要 |
+| Code Mode | `itemErrorCodeModeCount`はerror項目のmessageに対する正規表現件数。Host起動・handshake・実行物なしの合成三入力が、すべてparser confirmed／Code Mode一件／command零へ同じく投影された。Task計画はHost有効・in-process fallback禁止・Code Mode only。DockerfileにはCLIと同じ版・隣接位置のHostがある | 実Hostの具体故障は旧記録から復元不能。Host不足・起動失敗・初期通信失敗を断定しない。まず本番同等の固定Image／uid／mount／seccompで非AIのsession開始→固定計算→応答→終了を確認する経路を特定する。現試験のHost `--help`とCodex sandboxはこの代用ではない。推測したprotocol harness、Host無効化やfallback許可を追加しない |
+
+HTTPの既存実保存結合一Caseへ、メモリ内CPUサンプリングとevent loop遅延計測を一時適用した。一件成功、約81.1秒、計測付きの最大event loop遅延12,440ms。CRDD Source内の自己sampleはPlatform Accessの同期`waitForState`約5,209ms、Version Controlの`readStableFileBytes`約694ms、`parseNarrowRepositoryConfig`約442msなどだった。サンプルは計測付き全試験の累積であり、単一HTTP要求の占有時間や実AI失敗時の内訳ではない。同期`Atomics.wait`とRepository実体再確認がHTTP処理を止め得ることはSourceと整合するが、今回十五秒Timeoutの再現・唯一原因の証明とはしない。Profile本文・生出力・プロンプトはFileへ保存せず、短命計測Scriptと試験helperの合成Rootは終了後不存在を確認した。
+
+固定版の公式Sourceでは、[InstallContext](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/install-context/src/lib.rs)が同梱資源又はCLI隣接のHostを解決し、[remote_session](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/code-mode/src/remote_session.rs)は存在検査とsession生成を分ける。[connection](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/code-mode/src/remote_session/connection.rs)もspawnとhandshakeを別に扱う。したがってImage内の配置・`--help`・助言成功だけでは、編集時のHost session成立を証明できない。これらは一般的意味の参照であり、今回の実故障を直接観測した根拠ではない。
+
+読取り専用の独立確認では、二つを独立事実として扱う方針が妥当であることを確認した。HTTP時計は三境界を一組で接続すること、Code Mode分類を後で加える場合も生message非公開・未知分類・件数相関・現行exact診断Schemaの影響を維持すること、固定Imageの実証には実行条件の提示と別の許可が必要であることを確認した。今回の調査では実装を開始しない。次はまず既存時計の接続と非AIの段階保存／並行HTTP反例を具体化し、Hostの非AI実証経路が成立しなければ不明のまま人間へ戻す。
+
+#### 編集Toolへの既存HTTP時計接続と非AI結果 — 2026-10-29
+
+人間の指示に従い、`verify-workspace-ai.ts`へ読取りToolと同じ`createReadonlyVerificationTiming`を接続した。Server生成前に時計を作り、Owner.observe wrapper、loopback Server bind、初回GET／Client callback、start／observe／cancel／close段階、Client終了後のdisposeとOwner終了後snapshotを一組で用いる。投影は既存evidenceのhttpTimingへ追加し、上限512件・本文／Token非保存・元Task結果不変を維持する。製品Source・HTTP API・十五秒／六十秒期限・Authority・保存guardは変更していない。
+
+既存取消十一条件にcallback・段階・購読解除の確認を追従した。既存の実保存HTTP Caseには同じ時計を接続し、正常完了保存と同IDの状態取得をPromise.allで並行要求する。実Owner・実Writer・公開HTTP・HTTP子Processは通すが、executeと認可callbackは合成で、AI／Dockerは使わない。Promise.allから厳密な時間重複又は実AI失敗の再現を推定しない。
+
+最初の対象二Suiteは三十件成功だった。完了保存に並行した状態GETは、要求開始→Server受信3,302ms、Server受信→finish233ms、対応Owner.observe0ms、要求開始→headers3,539ms、本文→親close32ms。Owner観測十二件の最大も計測上0msで、欠測計上零・購読解除済みだった。この合成条件では主要な待ちをServer受信前へ分離できたが、socket／OS配送とmain event loop停止の内訳はこの時計だけでは区別しない。先行の同期保存・Lock待ちのSource／計測と整合する一方、実AI時十五秒の唯一原因とは確定しない。Ownerは合成認可callbackであり、実試験の設定再観測費用まで零と主張しない。
+
+独立レビューのMinor一件は、試験の応答喪失用startを直前のcancel段階で記録していた点だった。手動POST前をstart・受付後GET前をobserveへ合わせ、存在確認Oracleを追加した。元の切断・同ID継続・取消・保存・回収条件は変更しない。FormatterのWindows mapped-file拒否1224は、指示された整形をpatchで反映して最終Formatで確認した。新しいPromise変数に明示型を付け、整形・型・警告を失敗とするLintは成功（既存情報診断五件）。最終対象回帰と再レビューは以下で確定する。
+
+最終候補の対象二Suiteは一実行三十件成功・失敗零・取消零・skip零（約65.8秒）で終了した。段階追従後の並行GETはClient→Server4,045ms、Server465ms、対応Owner0ms、headers到達4,507ms。複数回の値を一runへ合算しない。限定独立再レビューは残指摘零。試験helperの清掃条件と元結果を維持し、今回の時計接続を完了したが、実AI時十五秒の根本原因又は全体QAの合格を宣言しない。
+
+#### Code Mode非AI実証の承認候補 — 2026-10-29
+
+今回は条件整理だけで、実Containerを作らない。固定Codex Task Image `sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4`に同梱された0.164.0のHostを使う。公式版固定の[message](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/code-mode-protocol/src/host/message.rs)と[codec](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/code-mode-protocol/src/host/codec.rs)に沿う一時的・用途固定のClientで、初期通信→session/open→固定計算→結果→session/shutdown→子終了を確認する案とする。仕様を推測せず、実装前に必要fieldと版の整合を確認する。恒久API・Package・汎用Client・独自Protocolは新設しない。Host単独の成功を本番CLI経路の成功へ拡張しない。
+
+承認が必要な実Effectは、稼働確認後の自己生成Container最大一件と、Repository内新品`.crdd/tests/code-mode-non-ai-*`だけ。network=none、認証情報・Repository本文・Provider設定を渡さず、空の合成Work／Home／tmpと本番同等の非root UID・read-only root・cap-drop・no-new-privileges・seccompを使う。外部AI呼出し・Image取得／更新・再起動／修復はしない。固定計算だけで外部Tool callbackを要求した場合は拒否して停止する。開始・初期通信・計算・終了の固定段階と終了値のみを残し、生stderr・本文を恒久保存しない。失敗時は自動再試行せず、同じ実IDの今回資源だけを確認して回収する。Engine停止／Image欠測／別のDocker作業中はEffect前停止。既存Container・Image・Volume・過去保持物は操作しない。この実行許可はまだ得ていない。
+
+実行許可を提示する際の回収条件は、作成応答の元実ID・同じ構成／所有・停止状態、試験Rootと祖先のIdentity・非linkを確認できた場合だけ通常回収する。作成結果・終了・Identityのいずれかが観測不能なら、確定済みのexact ID／Rootを保持し、自動再試行・force cleanup・別ID再構成は行わない。session/shutdownの受理を終了へ丸めず、transport close・Host子Process exit・Container停止を別々に確認する。元の旧失敗又は過去保持物へ適用しない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

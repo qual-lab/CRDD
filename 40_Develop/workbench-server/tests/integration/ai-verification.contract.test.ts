@@ -238,6 +238,8 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
   ]) {
     let starts = 0;
     let observes = 0;
+    const timingStages: string[] = [];
+    let timingDisposed = false;
     const events: string[] = [];
     const transport = new Error("workbench_verification_transport_failed", {
       cause: {
@@ -259,6 +261,15 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
       Error,
       Buffer,
       process: { stderr: {} },
+      timing: {
+        bind: () => undefined,
+        setStage: (stage: string) => timingStages.push(stage),
+        client: () => undefined,
+        dispose: () => {
+          timingDisposed = true;
+        },
+        snapshot: () => ({ subscriptionsClosed: timingDisposed }),
+      },
       captureWorkspaceTaskDiagnostic: () => ({
         available: true,
         finish: () => ({ captureStatus: "captured", events: [], closed: true }),
@@ -299,31 +310,37 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
         throw new Error("unexpected_workspace_operation");
       },
       readMain: async () => ({ actionToken: "synthetic" }),
-      createWorkbenchAiVerificationHttpClient: async () => ({
-        start: async () => {
-          starts++;
-          if (scenario === "before-accept") throw transport;
-          if (scenario === "accept-unknown")
-            throw new Error("workbench_ai_http_start_outcome_unknown");
-          return { status: "accepted", requestId: snapshot.requestId };
-        },
-        observe: async () => {
-          observes++;
-          if (scenario !== "success") throw transport;
-          return {
-            ...snapshot,
-            status: "completed",
-            executionStatus: "completed",
-            workspaceResult: {
-              workspaceId: null,
-              changedPaths: ["source.txt"],
-            },
-          };
-        },
-        cancel: async () => {
-          throw new Error("unexpected_http_retry");
-        },
-      }),
+      createWorkbenchAiVerificationHttpClient: async (
+        _url: string,
+        observeTiming: unknown,
+      ) => {
+        assert.equal(typeof observeTiming, "function");
+        return {
+          start: async () => {
+            starts++;
+            if (scenario === "before-accept") throw transport;
+            if (scenario === "accept-unknown")
+              throw new Error("workbench_ai_http_start_outcome_unknown");
+            return { status: "accepted", requestId: snapshot.requestId };
+          },
+          observe: async () => {
+            observes++;
+            if (scenario !== "success") throw transport;
+            return {
+              ...snapshot,
+              status: "completed",
+              executionStatus: "completed",
+              workspaceResult: {
+                workspaceId: null,
+                changedPaths: ["source.txt"],
+              },
+            };
+          },
+          cancel: async () => {
+            throw new Error("unexpected_http_retry");
+          },
+        };
+      },
       owner: {
         cancel: async (id: string) => {
           assert.equal(id, snapshot.requestId);
@@ -352,12 +369,16 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
       handle: {
         baseUrl: "http://synthetic.invalid",
         close: async () => {
+          assert.equal(timingDisposed, true);
           events.push("close");
           if (scenario === "close-fails") throw new Error("synthetic-secret");
         },
       },
     });
     assert.equal(starts, 1, scenario);
+    assert.equal(result.httpTiming.subscriptionsClosed, true);
+    assert.equal(timingStages.at(-1), "close");
+    assert.ok(timingStages.includes("start"));
     assert.equal(
       observes,
       ["before-accept", "accept-unknown"].includes(scenario) ? 0 : 1,
@@ -2226,6 +2247,7 @@ for (const transport of ["tool-child-process"] as const) {
       ReturnType<typeof createWorkbenchAiVerificationHttpClient>
     > | null = null;
     const timings: VerificationHttpTiming[] = [];
+    const boundaryTiming = createReadonlyVerificationTiming();
     const serverTimings: {
       receivedAt: number;
       acceptedAt: number | null;
@@ -2259,6 +2281,7 @@ for (const transport of ["tool-child-process"] as const) {
       try {
         await client?.close?.();
       } finally {
+        boundaryTiming.dispose();
         requestChannel.unsubscribe(onRequest);
         if (handle) await handle.close();
         else await owner?.close();
@@ -2439,6 +2462,8 @@ for (const transport of ["tool-child-process"] as const) {
       port: 0,
       aiRequests: {
         ...taskOwner,
+        observe: (requestId) =>
+          boundaryTiming.observeOwner(() => taskOwner.observe(requestId)),
         start: async (command) => {
           requests++;
           const result = await taskOwner.start(command);
@@ -2451,10 +2476,12 @@ for (const transport of ["tool-child-process"] as const) {
       },
     });
     const baseUrl = handle.baseUrl;
+    boundaryTiming.bind(baseUrl);
     client = await createWorkbenchAiVerificationHttpClient(
       baseUrl,
       (timing) => {
         timings.push(timing);
+        boundaryTiming.client(timing);
       },
     );
     const network = readRepositoryNetworkPolicies(verified.capability);
@@ -2471,6 +2498,7 @@ for (const transport of ["tool-child-process"] as const) {
       workspaceId: null,
     };
     for (const mode of ["normal", "cancel"] as const) {
+      boundaryTiming.setStage("start");
       const started = new Promise<void>((resolve) => {
         observedStarted = resolve;
       });
@@ -2479,6 +2507,7 @@ for (const transport of ["tool-child-process"] as const) {
       assert.equal(accepted.status, "accepted");
       assert.ok(accepted.requestId);
       await started;
+      boundaryTiming.setStage("observe");
       assert.equal(
         (await client.observe(accepted.requestId)).status,
         "running",
@@ -2486,9 +2515,19 @@ for (const transport of ["tool-child-process"] as const) {
       if (mode === "normal") {
         const complete = release as (() => void) | null;
         assert.ok(complete);
+        const duringSettlement: Promise<WorkbenchAiRequestSnapshot> =
+          client.observe(accepted.requestId);
         complete();
-        await taskOwner.wait(accepted.requestId);
+        const [, observedDuringSettlement] = await Promise.all([
+          taskOwner.wait(accepted.requestId),
+          duringSettlement,
+        ]);
+        assert.equal(observedDuringSettlement.requestId, accepted.requestId);
+        assert.ok(
+          ["running", "completed"].includes(observedDuringSettlement.status),
+        );
       }
+      boundaryTiming.setStage(mode === "normal" ? "observe" : "cancel");
       const result: WorkbenchAiRequestSnapshot =
         mode === "normal"
           ? await client.observe(accepted.requestId)
@@ -2506,6 +2545,7 @@ for (const transport of ["tool-child-process"] as const) {
       observedStarted = resolve;
     });
     dropResponse = true;
+    boundaryTiming.setStage("start");
     await new Promise<void>((resolve, reject) => {
       disconnectedRequest = httpRequest(
         new URL("/ai-request/action", baseUrl),
@@ -2538,6 +2578,7 @@ for (const transport of ["tool-child-process"] as const) {
     const signal = currentSignal as AbortSignal | null;
     assert.ok(signal);
     assert.equal(signal.aborted, false);
+    boundaryTiming.setStage("observe");
     const observed = (await readMain(handle.baseUrl)).aiRequest.snapshot;
     assert.equal(observed?.requestId, lastRequestId);
     assert.equal(observed?.status, "running");
@@ -2582,11 +2623,27 @@ for (const transport of ["tool-child-process"] as const) {
       assert.ok(item.headersAt - item.startedAt < 15_000);
       assert.ok(item.completedAt - item.startedAt < 15_000);
     }
+    boundaryTiming.dispose();
+    const timingSnapshot = boundaryTiming.snapshot();
+    assertReadonlyTiming(timingSnapshot);
+    assert.ok(timingSnapshot.owners.length > 0);
+    assert.ok(timingSnapshot.servers.length > 0);
+    assert.ok(
+      timingSnapshot.servers.some(
+        (row) => row.stage === "start" && row.route === "action",
+      ),
+    );
+    assert.ok(
+      timingSnapshot.servers.some(
+        (row) => row.stage === "observe" && row.route === "view",
+      ),
+    );
     t.diagnostic(
       JSON.stringify({
         transport,
         clientIntervals: timings,
         serverIntervals: serverTimings,
+        boundaryTiming: timingSnapshot,
       }),
     );
     assert.equal(serverTimings.length, 4);

@@ -4,6 +4,8 @@
 
 ### 編集E2E試験領域の分離 — 2026-10-29
 
+編集Toolは既存の有限Client／Server／Owner時計も使用する。既存取消の十一条件でcallback・段階・解除済み投影を照合し、実保存HTTPでは正常完了保存と同IDの状態取得を並行要求として確認する。Promise.allだけで保存処理との厳密な時間重複を主張しない。start／observe／cancel／closeの実操作と時計段階を合わせ、Client終了後・Owner終了待ち前に購読を解除する。本文・Tokenは記録せず、十五秒期限は不変である。
+
 `verify-workspace-ai.ts`はRepository-local testsの実体確認とDocker一覧読取り後に、`mkdtempSync`で新品の`workspace-ai-*`を一件確保する。固定日付Rootを再利用せず、追加設定・Registry・互換読取りは持たない。作成後の実体確認・子Directory作成失敗では、exact Rootと固定理由をconsoleへ返して保持し、未確認Rootへ結果Fileを書いたり削除したりしない。正常・親領域拒否・realpath差・Root link・mkdir拒否を有限代役で確認する。
 
 `--preflight`は編集を合成File更新で代替し、公開HTTP・本番保存・候補固定・二親Merge・既存dirty／stage保全・Worktree／Branch回収を確認する。AI Client生成・Provider送信は行わず、Dockerは既存一覧比較のみ。実AI編集・レビューの成立や全体QA合格とは区別する。AI受付／観測十五秒・Workspace操作六十秒は変更しない。

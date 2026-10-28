@@ -54,6 +54,7 @@ import {
   requestInChild,
 } from "./ai-verification-http.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
+import { createReadonlyVerificationTiming } from "./ai-verification-timing.ts";
 import {
   captureWorkspaceTaskDiagnostic,
   type RecoveryDiagnosticIdentity,
@@ -259,10 +260,15 @@ async function verify(
     principalId: "local-workbench-user",
     authorize: permitted,
   });
+  const timing = createReadonlyVerificationTiming();
   const handle = await startWorkbench({
     workingDirectory: root,
     port: 0,
-    aiRequests: owner,
+    aiRequests: {
+      ...owner,
+      observe: (requestId) =>
+        timing.observeOwner(() => owner.observe(requestId)),
+    },
   });
   const workspaceId = randomUUID();
   const common = { projectId, queueId: "queue-a", workspaceId };
@@ -307,7 +313,8 @@ async function verify(
       result.secondaryFailures?.length === 0;
   };
   try {
-    const model = await readMain(handle.baseUrl);
+    timing.bind(handle.baseUrl);
+    const model = await readMain(handle.baseUrl, timing.client);
     const workspace = async (command: Record<string, unknown>) => {
       const response = await requestInChild(
         handle.baseUrl,
@@ -364,8 +371,12 @@ async function verify(
         true,
         "recovery_diagnostic_collector_unavailable",
       );
-      client = await createWorkbenchAiVerificationHttpClient(handle.baseUrl);
+      client = await createWorkbenchAiVerificationHttpClient(
+        handle.baseUrl,
+        timing.client,
+      );
       step = "start";
+      timing.setStage("start");
       const start = await client.start({
         expectedNetworkPolicyHash: (() => {
           const network = readRepositoryNetworkPolicies(verified.capability);
@@ -387,6 +398,7 @@ async function verify(
       acceptedRequestId = start.requestId;
       const deadline = Date.now() + 20 * 60_000;
       step = "observe";
+      timing.setStage("observe");
       let result = await client.observe(start.requestId);
       while (
         ["accepted", "running"].includes(result.status) &&
@@ -397,6 +409,7 @@ async function verify(
       }
       if (["accepted", "running"].includes(result.status)) {
         step = "cancel_timeout";
+        timing.setStage("cancel");
         result = await client.cancel(start.requestId);
         evidence.timedOut = true;
       }
@@ -605,6 +618,7 @@ async function verify(
       // 取消結果と最初の通信失敗は別の事実として保存し、Taskを再送しない。
       try {
         evidence.cancellationRequested = true;
+        timing.setStage("cancel");
         const result = await owner.cancel(acceptedRequestId);
         recordTask(result);
         evidence.cancellationResultObserved = true;
@@ -615,6 +629,7 @@ async function verify(
       }
     }
   } finally {
+    timing.setStage("close");
     let clientClosed = false;
     try {
       await client?.close?.();
@@ -622,6 +637,8 @@ async function verify(
     } catch {
       evidence.clientCloseFailure =
         "workbench_verification_client_process_cleanup_unknown";
+    } finally {
+      timing.dispose();
     }
     try {
       await handle.close();
@@ -630,6 +647,7 @@ async function verify(
       evidence.closeConfirmed = false;
       evidence.closeFailure = "workbench_close_failed";
     }
+    evidence.httpTiming = timing.snapshot();
     if (diagnosticCapture) {
       let correlationId: string | null = null;
       const identities: RecoveryDiagnosticIdentity[] = [];
