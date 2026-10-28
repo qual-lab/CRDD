@@ -335,6 +335,18 @@ Executorの静的検査込み回帰六件はすべて成功。明示CLI入口も
 
 承認後、2026-10-28 19:52 JSTにCodex一回の実Home事前確認を実施した。対象はcleanな`d93570650a15f81064cc064519a10b7d67d0926d`、実行は`node 40_Develop/executor/scripts/verify-provider-home.ts codex HOME-CODEX-20261028-01`。sandboxの`LOCALAPPDATA`が別領域を指していたため、その環境では起動せず、承認済み実行環境の当該子Process内だけ`C:\Users\nakas\AppData\Local`を明示した。OS設定・Home内容は変更していない。Exit 0、`status=observed`、`reason=null`、`observationMatched=true`、`resourceCleanupConfirmed=true`、`fixtureCleanupConfirmed=true`、`fixtureRoot=null`となった。実行後の別照会でも`C:\project\CRDD\.crdd\tests\executor-home-codex-HOME-CODEX-20261028-01`の不存在を確認した。認証状態の検査・AI送信・Docker操作はすべて未実施で、Claudeや過去保持物へ範囲を拡大していない。生metadata・四Hash・認証内容のログは保存せず、実行方法と非秘密結果だけを本段落へ記録する。この結果は事前観測・排他終了・試験物回収に限定し、試行全体の排他・本番保存・Recovery又は実AI成功の根拠にはしない。
 
+#### 単段試験Hostの保存・排他接続 — 2026-10-28
+
+続く非AI実装は`scripts/provider-attempt-host.ts`に限定した。既存の固定`createProviderExecutor`とDomain確定JSONを使用し、一回限りの元管理・準備・回復参照、五資源の提出前記録とReceipt、同期通知照合、元清掃結果・元終端の保存を接続する。任意Rootではなく同Repositoryの`.crdd/tests/`配下の新品領域だけを受け付ける。製品API・Coordinator・保存Schemaを変更せず、新しい製品Host・Registry・State・Lock・回復Frameworkは追加しない。
+
+排他は既存の同期Named Pipe APIを呼出し側が取得して渡す構成とした。非同期解放では同期の`completeMount`に終了事実を渡せないという当初の見立ては、既存同期APIを確認して訂正した。開始・所在借用・記録前に元排他の`assertLive`を確認し、五資源の明示不存在記録後だけ`release`を一回呼ぶ。解放状態到達を同じ元回復・管理・操作参照へ結合し、`verifyHomeLeaseRelease`で確認する。既存同期APIの成功はWorker最終exit確認とは異なるため、外側の子Process終了確認と、解放不明時のRoot保持を別の条件とする。今回その実OS経路は実行していない。
+
+独立子Processの新ITは下位DI／Leaseだけを代役化し、実Writerを使用する。正常・取消・清掃不明・排他喪失・解放拒否／例外・四種の書込み拒否・書込み確定後の読戻し拒否を十一条件、一Caseで検査した。回復IDは既存形式に従いHome結合を含むが、四Hashの個別field、Home Path、認証内容、生Provider出力は保存しない。各イベントに`recordedAt`を付ける。未知負例のRootは実資源がすべて代役であることを前提に、試験自身が自己生成Fileの内容・非link・nlinkを確認して回収する。初回試験で元計画が開始境界で正規化コピーされることと既存回復IDのHome結合順序への追従漏れを検出し、元Capability照合を保持して是正した。初回が残した空の今回Root一件も確認後に通常削除・不存在確認した。実AI・Docker・実Home・過去保持物へは接続しない。
+
+限定独立レビューで回復開始の保存失敗時にexact参照を失う一件を検出した。書込み前拒否と確定後読戻し拒否の双方で同じ回復IDを返し、新Effectを開始せず、元生存Leaseだけ一回解放する経路へ是正した。記録Rootは保持し、保存再試行・強制清掃は追加しない。再レビューは残指摘零。静的検査を含むExecutor回帰は九件すべて成功、Catalogは416項目valid、変更三文書・Executor Symbolの指摘は零だった。参照展開五十七文書の他CHG本文3,050指摘による全体不合格は維持する。十一条件を十一の独立Caseや実OS検証へ水増ししない。
+
+この補助は試験用Hostの接続であり、実試験入口全体の準備完了ではない。実AIへ進むには、固定合成入力・Model選定・初回同意、Home観測と同期排他取得、固定計画構築、試験用子Processの終了／取消とRoot保持・清掃を明示CLIへ接続する必要がある。元HostのOS喪失回復や本番耐久Stateを代替したとは表示しない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

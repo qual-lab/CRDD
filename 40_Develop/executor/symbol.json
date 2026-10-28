@@ -100,6 +100,22 @@
       "verifies": []
     },
     {
+      "symbolId": "executor.verification.attempt-host",
+      "kind": "verification-tool",
+      "path": "scripts/provider-attempt-host.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "verifies": []
+    },
+    {
+      "symbolId": "executor.test.integration.attempt-host",
+      "kind": "test-suite",
+      "path": "tests/integration/provider-attempt-host.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "verifies": ["executor.verification.attempt-host"]
+    },
+    {
       "symbolId": "executor.verification.provider-home",
       "kind": "verification-tool",
       "path": "scripts/verify-provider-home.ts",

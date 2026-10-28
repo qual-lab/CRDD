@@ -115,6 +115,8 @@ Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従�
 
 実Homeの事前確認は別の明示入口`scripts/verify-provider-home.ts <provider> <run-id>`とする。固定Provider一値の既存Home metadataをPlatform Accessで観測し、既存と同じProviderHome Pipe名を使って共有排他を一回取得する。保持中の再観測と四Hash一致を要求し、元Lockの解放・終了を確認する。Native・取得・解放の未知は別に保持し、試験checkpointだけを残して停止する。checkpointへHome Path・Hash・SID・ACL・認証内容は保存しない。通常の単独非AI入口からは呼ばず、実行は用途限定の別承認を必要とする。これは事前観測であり、認証状態、AI実行許可、試行全体を覆うHome保持又は本番Host回復の成立ではない。
 
+単段実試験の組立補助`scripts/provider-attempt-host.ts`は、呼出し側が検証・取得した同期Home排他と固定計画を受ける。一回限りの元管理・準備・回復参照、五資源の提出前記録／Receipt、同期通知照合、DIの元清掃結果、元終端だけを同じ新品試験Rootの確定JSON列へ接続する。生存確認は開始・所在借用・保存ごとに行い、技術清掃の明示不存在記録後だけ元排他を一回解放する。失敗時のretry・強制清掃・別回復参照は作らない。同期解放が返すのは既存Coordinatorと同じ解放状態到達であり、Worker最終exitまでのcleanup証明とは区別する。呼出し側の子Process終了確認と残存時のRoot保持が必要である。補助自体はHome観測・排他取得・試験Root作成・同意を代行せず、製品Host保存やHost喪失後の回復機能を提供しない。
+
 ## 4. 検証と未実施境界
 
 既存ERB-IT-002／004の反例を維持し、Provider両方の準備一回性、候補Owner交差、通知失効、元結果の相関、正常・取消・開始失敗・清掃不明・Owner喪失を非AIで確認する。Task段階順序はCoordinatorの既存有限試験で確認する。

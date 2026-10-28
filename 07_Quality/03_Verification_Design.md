@@ -6,6 +6,8 @@
 
 実Homeの事前確認用Scriptは別入口に分け、Platform observer／Named Pipeは代役化して、初回拒否・再観測差・観測／checkpoint例外・取得不能／不明・解放不明を反証する。元Lockの解放一回、未知時のRoot保持、非秘密checkpointと既存Pipe名の式互換を確認する。実Native・共有Home観測・OS排他取得は、この試験から成功としない。
 
+単段試験Hostは実確定JSONと既存Executorを用い、下位DIと同期Leaseだけを代役化する。Effect前の回復記録・同ID引渡し、五資源の提出／Receipt相関、通知中だけの元参照照合、清掃後の一回解放、元終端だけの保存を検査する。正常・取消・清掃不明・排他喪失・解放拒否／例外・回復開始／Provider通知／不存在／終端保存拒否を負例とし、実Worker終了・Home観測・本番保存・Host喪失回復の成立へ拡張しない。
+
 再実行入口は`executor/scripts/verify-provider-attempt.ts`とし、既存ITから同じ関数を呼ぶ。import時の書込み・Process生成零、専用fixture排他取得後だけの同期保存Gate、確定JSONのIdentity・Hash・本文読戻し、不正／コピー／失効／Gate例外時の保存零、排他解放後の再取得、全子終了後の確認・通常清掃を検査する。本番共有Home／Host排他・認証・Runtime state保存の代用とはしない。
 
 [Executor詳細](../06_Architecture/Details/executor/01_Architecture.md)を既存ERB-IT-002／004へ接続する。準備二Mapと観測二Mapは新Owner内へ移し、元通知の同期登録・失効、元result借用と候補／本番交差拒否を確認する。独立子ProcessのCoordinator解決拒否と不正開始のEffect零、Coordinator既存の編集→レビュー→是正→再レビュー・取消・Owner喪失を別々のOracleで確認する。単独の候補生涯と、本番Factoryの配線・実計画投影は有限代役で別構成として検査し、正常・取消join・清掃不明・通知保存例外の元参照を照合する。Module代役下の配線確認を、本番Docker Runtime内部・耐久保存・実資源不存在・Host喪失の成立へ換算しない。Domainのcodec・Writer・CAS・schema・hash領域は変更しない。実Docker・外部AI・過去保持物は対象外。非AI結果をL3／L5又は全体QAのPassへ昇格しない。
