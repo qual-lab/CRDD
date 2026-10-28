@@ -882,20 +882,43 @@ export function cleanupStandaloneTrialRoot(
       )
     )
       return false;
+    let claudeTemporaryIdentity: string | null = null;
+    const claudeTemporary = path.join(root, "tmp", "claude-65534");
+    const directoryIdentities = new Map<string, string>();
     for (const name of ["tmp", "management"]) {
       const p = path.join(root, name),
         s = fs.lstatSync(p);
+      if (!s.isDirectory() || s.isSymbolicLink()) return false;
+      directoryIdentities.set(name, rootIdentity(p));
+      const children = fs.readdirSync(p);
+      if (children.length === 0) continue;
       if (
-        !s.isDirectory() ||
-        s.isSymbolicLink() ||
-        fs.readdirSync(p).length !== 0
+        provider !== "claude" ||
+        name !== "tmp" ||
+        children.length !== 1 ||
+        children[0] !== "claude-65534"
       )
         return false;
+      claudeTemporaryIdentity = rootIdentity(claudeTemporary);
+      if (fs.readdirSync(claudeTemporary).length !== 0) return false;
     }
     if (rootIdentity(root) !== identity) return false;
+    for (const [name, expected] of directoryIdentities)
+      if (rootIdentity(path.join(root, name)) !== expected) return false;
+    if (claudeTemporaryIdentity !== null) {
+      if (rootIdentity(claudeTemporary) !== claudeTemporaryIdentity)
+        return false;
+      fs.rmdirSync(claudeTemporary);
+    }
     for (const name of files) removeCommittedJson(path.join(root, name), name);
-    for (const name of ["tmp", "management"])
+    for (const name of ["tmp", "management"]) {
+      if (
+        rootIdentity(root) !== identity ||
+        rootIdentity(path.join(root, name)) !== directoryIdentities.get(name)
+      )
+        return false;
       fs.rmdirSync(path.join(root, name));
+    }
     fs.rmdirSync(root);
     return !fs.existsSync(root);
   } catch {

@@ -276,7 +276,8 @@ test("単段CLI親は同意・IPC・終了・清掃を分離する", () => {
         else if(message.kind==='root_ack'){
           assert.equal(message.nonce,input.nonce);
           const recoveryId='docker-task.'+'d'.repeat(64)+'.'+createHash('sha256').update(root).digest('hex')+'.'+'f'.repeat(64);
-          const resources=['create_provider','create_proxy','create_subscription_auth_probe','create_internal_network','create_egress_network'].map((purpose,index)=>({purpose,plannedResourceName:'crdd-'+['codex','proxy','auth','internal','egress'][index]+'-'+'a'.repeat(16),dockerId:String(index+1).repeat(64),observation:'absent'}));
+          const resources=['create_provider','create_proxy','create_subscription_auth_probe','create_internal_network','create_egress_network'].map((purpose,index)=>({purpose,plannedResourceName:'crdd-'+[input.provider,'proxy','auth','internal','egress'][index]+'-'+'a'.repeat(16),dockerId:String(index+1).repeat(64),observation:'absent'}));
+          if(mode.startsWith('tmp_')){const p=path.join(root,'tmp',mode==='tmp_unknown'?'unexpected':'claude-65534');if(mode==='tmp_file')fs.writeFileSync(p,'synthetic');else{fs.mkdirSync(p);if(mode==='tmp_nonempty')fs.writeFileSync(path.join(p,'keep.txt'),'synthetic');}}
           const diagnostic={primaryFailure:null,providerProcessStartedObserved:true,processTreeTerminationObserved:true,containersAbsentObserved:true,networksAbsentObserved:true,cleanupConfirmed:true};
           const records=[{kind:'recovery_opened'},{kind:'recovery_handoff'},...resources.flatMap(r=>[{kind:'submission_planned',purpose:r.purpose,plannedResourceName:r.plannedResourceName,ownershipLabel:'crdd.coordinator.runtime='+'a'.repeat(16)},{kind:'receipt_recorded',purpose:r.purpose,dockerId:r.dockerId}]),...['absence_observed','home_release_requested','home_released','mount_recorded','recovery_closed','execution_settled','terminal_received'].map(kind=>({kind}))];
           if(mode==='bad_planned_name')records.find(v=>v.kind==='submission_planned'&&v.purpose==='create_subscription_auth_probe').plannedResourceName='crdd-auth-'+'b'.repeat(16);
@@ -308,10 +309,14 @@ test("単段CLI親は同意・IPC・終了・清掃を分離する", () => {
       queueMicrotask(()=>emitter.emit('spawn'));return emitter;
     });syncBuiltinESMExports();
     const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
-    for(mode of ['consent_mismatch','normal','wrong_nonce','duplicate_result','nonzero_close','stdout','close_unknown','disconnected_no_close','cancel_completed','result_lost','late_close','missing_recovery','ack_late','ack_error','ack_missing','failed_diag','raw_diag','bad_planned_name','mixed_label','duplicate_purpose','bad_provider_name','bad_absence_name']){
+    const originalLstat=fs.lstatSync,originalRmdir=fs.rmdirSync;let temporaryReads=0,ancestorReads=0,childRemovals=0;
+    mock.method(fs,'rmdirSync',(p,...args)=>{if(String(p).endsWith(path.join('tmp','claude-65534')))childRemovals++;return originalRmdir(p,...args);});
+    mock.method(fs,'lstatSync',(p,options)=>{const s=originalLstat(p,options);if(String(p)===path.join(root??'','tmp')&&options?.bigint&&++ancestorReads>1){if(mode==='tmp_parent_link')return {...s,isDirectory:()=>true,isSymbolicLink:()=>true};if(mode==='tmp_parent_changed')return {...s,ino:s.ino+1n,isDirectory:()=>true,isSymbolicLink:()=>false};}if(String(p).endsWith(path.join('tmp','claude-65534'))){if(mode==='tmp_link')return {...s,isDirectory:()=>true,isSymbolicLink:()=>true};if(mode==='tmp_changed'&&options?.bigint&&++temporaryReads>1)return {...s,ino:s.ino+1n,isDirectory:()=>true,isSymbolicLink:()=>false};}return s;});
+    for(mode of ['consent_mismatch','normal','wrong_nonce','duplicate_result','nonzero_close','stdout','close_unknown','disconnected_no_close','cancel_completed','result_lost','late_close','missing_recovery','ack_late','ack_error','ack_missing','failed_diag','raw_diag','bad_planned_name','mixed_label','duplicate_purpose','bad_provider_name','bad_absence_name','tmp_empty','tmp_codex','tmp_unknown','tmp_file','tmp_nonempty','tmp_link','tmp_changed','tmp_parent_link','tmp_parent_changed']){
       forks=0;cancelCount=0;gitCalls=0;output=[];root=null;challenge=null;timeoutDelay=null;beforeWait=null;
-      const code=await api.runStandaloneProviderTrialCli(['--run','codex','fixture-'+randomUUID()]);const result=output.at(-1);
-      const success=['normal','ack_late'].includes(mode);
+      temporaryReads=0;ancestorReads=0;childRemovals=0;
+      const code=await api.runStandaloneProviderTrialCli(['--run',mode.startsWith('tmp_')&&mode!=='tmp_codex'?'claude':'codex','fixture-'+randomUUID()]);const result=output.at(-1);
+      const success=['normal','ack_late','tmp_empty'].includes(mode);
       assert.equal(code,success?0:2,mode);assert.equal(forks,mode==='consent_mismatch'?0:1,mode);
       if(mode==='consent_mismatch'){assert.equal(result.effectIssued,false);assert.equal(gitCalls,0);assert.equal(root,null);continue;}
       assert.equal(gitCalls,1);
@@ -319,10 +324,11 @@ test("単段CLI親は同意・IPC・終了・清掃を分離する", () => {
       if(mode==='failed_diag'){assert.equal(result.result.diagnostic.primaryFailure.stage,'command_wait');assert.equal(result.result.diagnostic.cleanupConfirmed,false);}
       if(mode==='raw_diag'){assert.equal(result.result,null);assert.equal(JSON.stringify(result).includes('forbidden'),false);}
       if(success)assert.equal(fs.existsSync(root),false);else{
+        if(mode.startsWith('tmp_')){assert.equal(childRemovals,0,mode);for(const [name,bytes] of beforeWait){if(bytes!==null)assert.equal(fs.readFileSync(path.join(root,name)).toString('base64'),bytes,mode+':'+name);}}
         assert.equal(fs.existsSync(root),true);assert.equal(result.fixtureRoot,root);assert.equal(result.retentionRecordConfirmed,!['close_unknown','disconnected_no_close'].includes(mode));
         assert.equal(result.recoveryId,'docker-task.'+'d'.repeat(64)+'.'+createHash('sha256').update(root).digest('hex')+'.'+'f'.repeat(64));
         if(['close_unknown','disconnected_no_close'].includes(mode)){assert.equal(result.childCloseObserved,false);assert.deepEqual(fs.readdirSync(root).sort().map(name=>[name,fs.lstatSync(path.join(root,name)).isFile()?fs.readFileSync(path.join(root,name)).toString('base64'):null]),beforeWait);}
-        assert.equal(fs.lstatSync(root).isSymbolicLink(),false);for(const name of fs.readdirSync(root)){const p=path.join(root,name),s=fs.lstatSync(p);assert.equal(s.isSymbolicLink(),false);if(s.isDirectory())assert.equal(fs.readdirSync(p).length,0);else{assert.equal(s.isFile(),true);assert.equal(s.nlink,1);assert.match(name,/^(event-[0-9]{3}|outcome)\\.json(?:\\.crdd-commit\\.json)?$/);}}
+        assert.equal(fs.lstatSync(root).isSymbolicLink(),false);for(const name of fs.readdirSync(root)){const p=path.join(root,name),s=fs.lstatSync(p);assert.equal(s.isSymbolicLink(),false);if(s.isDirectory()){const children=fs.readdirSync(p);assert.equal(children.length,name==='tmp'&&mode.startsWith('tmp_')?1:0);if(children.length){const q=path.join(p,children[0]),stat=originalLstat(q);assert.equal(stat.isSymbolicLink(),false);assert.equal(stat.isDirectory(),mode!=='tmp_file');if(mode==='tmp_nonempty')assert.equal(fs.readFileSync(path.join(q,'keep.txt'),'utf8'),'synthetic');}}else{assert.equal(s.isFile(),true);assert.equal(s.nlink,1);assert.match(name,/^(event-[0-9]{3}|outcome)\\.json(?:\\.crdd-commit\\.json)?$/);}}
         fs.rmSync(root,{recursive:true});assert.equal(fs.existsSync(root),false);
       }
       if(['wrong_nonce','duplicate_result','close_unknown','cancel_completed','late_close','missing_recovery'].includes(mode))assert.equal(cancelCount,1,mode);

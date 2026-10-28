@@ -4,6 +4,8 @@
 
 ### Provider単段Executor分離の非AI確認 — 2026-10-28
 
+正常終了後の試験清掃は、Claudeの既知の空`tmp/claude-65534/`だけを受理し、Codexでの同名残存・未知名・File・非空・子link・子Identity差・中間tmpのlink化／Identity差を拒否する。LinkとIdentity差はmetadataの有限代役であり、実OSでの競合耐性を証明するものではない。拒否時は子rmdir零・確定イベントbytes保全を確認する。再帰削除・製品Recovery・過去Rootの処置を追加しない。
+
 合成助言は正式Schema・許可参照がPromptに含まれることを検査する。Platform Home観測・NamedPipe Lease・Docker Isolation Runtimeの物理処置と清掃／資源観測を有限代役化し、Command stdoutへ合成Envelopeを与える。試験Host・Executor・AI Adapter Parser・内容Normalizerは実体を通す。両Providerの正常、余分／欠落field、Contract／Revision／status、空全区分、不正項目、投影外参照、Transport拒否を区別する。Codexの重複Keyは最終Agent文字列から内容検査へ届くため別反例とする。実行失敗・元終端保存失敗の一次理由は内容拒否で上書きしない。合成Envelopeの成功を、実AIのSchema準拠保証や前回結果の理由確定へ換算しない。
 
 Receiptの通常代役は実CLIと同じLF付きIDを返し、裸ID・CRLFも確認する。短いID・複数ID・途中改行・非16進文字・大文字・空値は受領段階で拒否し、Receipt保存零・後続Provider未発行・同回復参照保持を確認する。五資源の保存IDがすべて改行なしの64桁であることを照合し、実Docker再実行の代替とはしない。

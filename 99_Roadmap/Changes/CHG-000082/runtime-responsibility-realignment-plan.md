@@ -427,6 +427,34 @@ Source照合で、DIは作成stdoutをそのままReceipt callbackへ渡し、�
 
 最終SourceのExecutor全回帰は一実行十五件成功・失敗零・取消零、整形・型・警告を失敗とするLintも成功した。独立レビューの代役境界表現Minor一件をTest Header・Quality・本節で是正し、再レビューは残指摘零。対象三文書・Executorの文書指摘は零、参照展開五十七文書の既存3,050指摘は別範囲として残す。変更後合成Promptは2,188byte、SHA-256 `d2bd19238cf922b19daa1b9149db188f55dbaf8869369d915e1fd01670af46f5`。この非AI確認から実AI成功を主張せず、次に固定Sourceで承認済みCodex一回だけを実行する。
 
+#### 正式契約提示後のCodex単段成功とClaude事前確認 — 2026-10-29
+
+固定Source `bcb17d141186b1a5d2a7ce336fea329d066f3a24`で、承認済みCodex単段試験 `EXEC-20261029-02`を一回実行した。Engine・二つの固定Image・稼働Container零・新品Rootを事前確認し、端末の通常同意後に送信した。Modelは`gpt-6.1-sol`／medium、合成Promptは上段の2,188byte・同一Hashである。結果は`completed`、reason null、`TRIAL_EXIT=0`だった。
+
+助言内容検査・元終端保存・技術清掃・排他解放・Native終了・子closeがすべてtrue、一次故障null、Provider開始・Process tree終了・Container／Network不存在の各観測もtrueだった。結果本文は保存せず、755byteとSHA-256 `3c34de1949cb8c891b5e327b340ab30a18537fb447fc69e1cbdd79571374c297`だけを記録する。exact回復参照は`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.497a85c62b98a72875e8d25cd4fc6988f6efaa7de49618c6feea20ad7d1f2163.d14e739aac921a38fd0bd3f677eda256728ccf581c0b3bb662103b4e390002eb`である。
+
+試験結果のfixtureCleanupConfirmedはtrue、fixtureRoot／reviewAfterはnullだった。終了後の読取り確認でも今回Root `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261029-02`は不存在、試験CLIのNode Processは零だった。過去保持物は操作していない。この合格はCodex単段読取り助言の範囲に限定し、Claude・Direct／Isolated編集E2E・全体QAの合格へ拡張しない。
+
+続くClaude事前確認は、記録更新と既存Source／試験の照合として実施する。新しい契約・状態・権限・判定・実装は追加しない。純粋な計画表示で`claude-opus-5-5`／medium、同じ合成Prompt・正式Schema・exact許可参照、固定Provider Image `sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f`と固定Proxyを確認した。既存の両Provider二十一条件は、実Parser・Normalizerと試験Hostを接続し、物理Home・Lease・Dockerは有限代役である。したがって実認証・Image存在・実通信の成立までは証明しない。今回はClaude送信・Docker照会／操作・過去保持物操作を行わず、実試験は送信範囲の承認後に一回だけとする。
+
+Claude事前照合後のExecutor通常入口は整形・型・警告を失敗とするLintを通過し、全十五件成功・失敗零・取消零・skip零だった。ClaudeはCLIの`--json-schema`にも同じSchemaを渡し、共通Promptと別契約を作らない。両Providerの結果は共通Normalizerへ接続し、終端保存・実行失敗の優先順位と正常時限定のRoot回収条件を維持する。今回の更新は既存実測と照合結果の記録だけであり、新しい設計判断やSource変更を含まない。Codex合格の撤回・過去失敗の上書きはせず、Claude実送信の承認待ちとする。
+
+#### Claude単段の実行成功と試験清掃拒否 — 2026-10-29
+
+人間の承認後、同じSourceと合成Promptで`EXEC-20261029-03`を一回実行した。Claude `claude-opus-5-5`／medium、固定Imageは上段の値で、Engine・Image存在・稼働Container零・新品Rootを確認し、端末内同意を経た。内側結果はcompleted、reason null、助言内容・元終端保存・技術清掃・排他解放・Native終了・子closeはすべて確認済み。一次故障null、Provider開始・Process tree終了・Container／Network不存在の観測もtrue。結果本文は保存せず、2,492byteとSHA-256 `effedd9974e5c94d10548193c431ef11b2a8851ef6a1db1eb5ed4bd92af54550`を記録する。
+
+外側は`blocked / trial_completion_unconfirmed`、`TRIAL_EXIT=2`だった。親の確定結果ではprotocolFailure／unexpectedStdoutともfalse。今回Rootの二十確定イベントは終了まで揃っているが、`tmp/claude-65534/`という空の通常Directoryが残り、試験清掃の「tmp直下が空」という条件に一致しない。Nodeのlstat／readdirでも非Symlink・子零、managementは空、試験Node Process零を読取り確認した。これは助言又はDocker技術清掃の失敗ではなく、試験Rootの清掃条件と実残存の不一致である。正常清掃条件を緩和・再実行せず、Rootは保持した。
+
+exact回復参照`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.4a0badc3d71d52243f4770cac7b36316445905834c8be7aad05afca1af838088.4672f65b39be3cf868ebf177fc6c68e2a86ccbcf34cf53b6654b40e56dbc3953`、Root `C:\project\CRDD\.crdd\tests\executor-real-claude-EXEC-20261029-03`、再評価時刻2026-11-04T16:55:09.177Zを同じ結果で保持する。再送・Docker再起動・Image更新・過去保持物操作なし。次の最小是正候補は、試験Toolだけで今回Root内の既知の空Directoryを非Link・Identity・範囲確認後に回収可能にすることであり、任意の再帰削除や製品Recovery追加は行わない。実試験全体は清掃未完のため合格へ変更しない。
+
+#### Claude試験Toolの既知空Directory回収是正 — 2026-10-29
+
+人間の継続指示に従い、製品Sourceではなく試験Toolの正常終了後清掃だけを是正した。Claude・固定名`tmp/claude-65534/`・単一子・空・非linkを条件とし、Root・tmp・management・対象子のIdentityを捕捉して削除直前に再照合する。通常rmdirのみで、未知名・File・非空・Codex同名・観測不能・Identity差は保持する。Scope／名前／内容の一般化、再帰削除、製品Recovery、追加Lockはない。
+
+独立レビューで中間tmpの再照合不足を一件検出し、祖先のIdentity保存と削除直前照合を追加した。既存のIPC／終端条件に加え、既知空子成功・Codex非該当・未知名・File・非空・子link／Identity差・親link／Identity差の九条件を同じ親CLI試験へ接続した。Link／Identity差はmetadataの有限代役で、実OS競合耐性の証明ではない。拒否時の子rmdir零と既存確定イベントbytes不変を確認する。最終Executor通常入口は整形・型・警告を失敗とするLint、全十五件成功・失敗零・取消零・skip零。独立再レビューは残指摘零、diff checkも成功した。
+
+初回Formatterの書込みはWindows mapped-file拒否1224で実施できず、指摘された改行一箇所をpatchで整形して最終確認は成功した。修正前のClaude実試験の終了値二は変更せず、今回の実Rootと過去保持Rootは操作していない。AI再送・Docker照会／再起動・Image更新も行っていない。Source是正と非AI清掃試験の成立であり、保持済み実Rootの清掃完了や編集E2Eの合格とは区別する。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。
