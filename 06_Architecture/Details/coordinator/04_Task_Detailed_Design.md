@@ -10,7 +10,7 @@ Cの物理統合により、本書が所有するTask・Objective・状態保存
 
 ## 単一保存方式の採用とLifecycle — 2026-10-22
 
-状態: 単一Writer・共通Owner・統合保存Root・履歴・耐久受領のSource接続、旧二段ACK経路の撤去・試験移行、外部AIなしの最終固定回帰は完了し、限定独立再確認済み。現在状態はRepository-localの`.crdd/coordinator/state.json`、通常終了要約は同じ領域の`history.jsonl`、運用設定は`.crdd/config/coordinator.json`へ統合する。旧二Writerの上へ第三の同期層を追加せず、旧保存形式の移行はフロントAI手順が所有する。現在の検証結果と未確認範囲は[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)を参照する。
+状態: 単一Writer・共通Owner・統合保存Root・履歴・耐久受領のSource接続、旧二段ACK経路の撤去・試験移行、外部AIなしの最終固定回帰は完了し、限定独立再確認済み。現在状態はRepository-localの`.crdd/domain-model/state.json`、通常終了要約は同じ領域の`history.jsonl`、運用設定は`.crdd/config/coordinator.json`へ統合する。旧二Writerの上へ第三の同期層を追加せず、旧保存形式の移行はフロントAI手順が所有する。現在の検証結果と未確認範囲は[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)を参照する。
 
 ### 保存する事実と寿命
 
@@ -121,7 +121,7 @@ Workspace方式の目標は[作業領域の横断契約](05_Workspace.md)に従�
 
 ### Repository別AI選定の保存境界
 
-Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表示・更新Snapshotは`crdd-coordinator/project-snapshot/v5`とする。物理Fileは引き続き単一の`coordinator/state.json`であり、新しい保存先や二重Writerを作らない。
+Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表示・更新Snapshotは`crdd-coordinator/project-snapshot/v5`とする。物理Fileは引き続き単一の`domain-model/state.json`であり、新しい保存先や二重Writerを作らない。
 
 | 所有する値 | 寿命と更新条件 |
 |---|---|
@@ -258,7 +258,7 @@ Executionの開始・終了通知だけではTask／Queueの保存確定は成�
 
 Report revision 11の`completed`は、予定した検証結果を確認した意味であり、取消後の上位回復義務が解消した意味ではない。各公開結果にcleanup未確認・手動回復要・Process再起動要・Effect不明が残る場合は、Report上位にも保守的に保持する。取消は同Identityの完全なProvider清掃通知を必要とし、正常完了またはProcess Tree終了を許す。開始直後に親を強制終了する別試験は、旧親からの清掃通知を仮定せず、強制終了確認とfresh再入場・耐久ACK・現在終了確定で対象操作を確認する。試験用Processの成功を実Provider E2E成立へ昇格しない。
 
-保存統合Bでは、検証したRepository Rootの`.crdd/coordinator/`へTask進行と技術実行を一体保存する。[単一保存Lifecycle](#unified-storage-lifecycle)を正本とし、旧Orchestratorの保存先・物理Envelope・Writerを並行運用しない。上表のRecordは論理責務として維持し、ファイル統合によって判断Authorityや仕事全体の一括確定を追加保証しない。旧E2E清掃・初期化の[歴史記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)は、新方式の成立根拠へ流用しない。
+保存統合Bでは、検証したRepository Rootの`.crdd/domain-model/`へTask進行と技術実行を一体保存する。[単一保存Lifecycle](#unified-storage-lifecycle)を正本とし、旧Orchestratorの保存先・物理Envelope・Writerを並行運用しない。上表のRecordは論理責務として維持し、ファイル統合によって判断Authorityや仕事全体の一括確定を追加保証しない。旧E2E清掃・初期化の[歴史記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)は、新方式の成立根拠へ流用しない。
 
 | ファイル | 所有する内容・終了条件 |
 |---|---|

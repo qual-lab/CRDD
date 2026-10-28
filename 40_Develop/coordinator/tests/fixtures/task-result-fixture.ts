@@ -48,7 +48,7 @@ export function registerSyntheticOperations(
   operationId: string,
   count = 2,
 ) {
-  const directory = path.join(root, ".crdd", "coordinator");
+  const directory = path.join(root, ".crdd", "domain-model");
   const file = path.join(directory, "state.json");
   let bytes: Buffer = fs.readFileSync(file);
   const binding = JSON.parse(bytes.toString()).repositoryBinding as string;
@@ -155,7 +155,7 @@ export function registerSyntheticOperations(
  * @effect fixtureのstate.jsonとhistory.jsonlを更新する。
  */
 export function settleSyntheticOperation(root: string, recoveryId: string) {
-  const directory = path.join(root, ".crdd", "coordinator");
+  const directory = path.join(root, ".crdd", "domain-model");
   const file = path.join(directory, "state.json");
   const state = JSON.parse(fs.readFileSync(file, "utf8"));
   const binding = state.repositoryBinding as string;

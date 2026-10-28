@@ -89,7 +89,7 @@ function seedSnapshot(
   const verified = verifyRuntimePersistenceRepository(root);
   const initialized = initializeCoordinatorSnapshot(verified, "binding-a");
   assert.equal(initialized.status, "completed");
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const bytes = fs.readFileSync(file);
   const binding = fixtureRepositoryHash(root);
   const current = decodeRuntimeDomainSnapshot(bytes, binding);
@@ -170,7 +170,7 @@ function readFixtureSnapshot(root: string, binding: string) {
   if (observed.status !== "completed" || observed.value === null)
     return { ...observed, value: null };
   const bytes = fs.readFileSync(
-    path.join(root, ".crdd", "coordinator", "state.json"),
+    path.join(root, ".crdd", "domain-model", "state.json"),
     "utf8",
   );
   const projected = taskView(root, bytes);
@@ -247,7 +247,7 @@ for (const fault of ["unobservable", "alias"] as const) {
     assert.ok(lockName);
     const lockPath = path.join(locks, lockName);
     const lockMetadata = fs.lstatSync(lockPath);
-    const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
     const beforeBytes = fs.readFileSync(statePath);
     const original = fs.lstatSync;
     if (fault === "alias") {
@@ -419,7 +419,7 @@ test("snapshot production: public initialization is explicit and idempotent", (t
   assert.equal(first.status, "completed");
   assert.equal(second.status, "completed");
   assert.equal(second.value, first.value);
-  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "coordinator")), [
+  assert.deepEqual(fs.readdirSync(path.join(root, ".crdd", "domain-model")), [
     "state.json",
   ]);
   assert.equal(fs.existsSync(path.join(root, ".crdd", "orchestrator")), false);
@@ -624,7 +624,7 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   const queued = readFixtureSnapshot(root, "binding-a").value;
   assert.ok(queued);
   const beforeRetirement = fs.readFileSync(
-    path.join(root, ".crdd", "coordinator", "state.json"),
+    path.join(root, ".crdd", "domain-model", "state.json"),
     "utf8",
   );
   assert.equal(
@@ -642,7 +642,7 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   );
   assert.equal(
     fs.readFileSync(
-      path.join(root, ".crdd", "coordinator", "state.json"),
+      path.join(root, ".crdd", "domain-model", "state.json"),
       "utf8",
     ),
     beforeRetirement,
@@ -687,7 +687,7 @@ test("snapshot production: retire closed queue and reject old intake", (t) => {
   );
   const historyRows = fs
     .readFileSync(
-      path.join(root, ".crdd", "coordinator", "history.jsonl"),
+      path.join(root, ".crdd", "domain-model", "history.jsonl"),
       "utf8",
     )
     .trim()
@@ -775,7 +775,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       }).status,
       "completed",
     );
-    const current = path.join(root, ".crdd", "coordinator", "state.json");
+    const current = path.join(root, ".crdd", "domain-model", "state.json");
     if (mode === "never_acquired") {
       const bytes = fs.readFileSync(current, "utf8");
       const absent = reconcileCoordinatorSnapshotLeaseOwnerLoss(
@@ -832,9 +832,9 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       assert.equal(acquired.status, "blocked");
       // 本試験が所有する失敗候補を戻し、回収入口の現在状態からの処置だけを評価する。
       fs.unlinkSync(
-        path.join(root, ".crdd", "coordinator", "state.pending.json"),
+        path.join(root, ".crdd", "domain-model", "state.pending.json"),
       );
-      fs.unlinkSync(path.join(root, ".crdd", "coordinator", "state.lock"));
+      fs.unlinkSync(path.join(root, ".crdd", "domain-model", "state.lock"));
     } else assert.equal(acquired.status, "completed");
     const statePort = ports.state;
     if (mode === "bound" && acquired.status === "completed") {
@@ -959,7 +959,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
       if (mode === "save_failure") {
         const stateBytes = fs.readFileSync(current, "utf8");
         const pending = fs.readFileSync(
-          path.join(root, ".crdd", "coordinator", "state.pending.json"),
+          path.join(root, ".crdd", "domain-model", "state.pending.json"),
           "utf8",
         );
         let pendingCallbackCalls = 0;
@@ -981,7 +981,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         assert.equal(fs.readFileSync(current, "utf8"), stateBytes);
         assert.equal(
           fs.readFileSync(
-            path.join(root, ".crdd", "coordinator", "state.pending.json"),
+            path.join(root, ".crdd", "domain-model", "state.pending.json"),
             "utf8",
           ),
           pending,
@@ -997,7 +997,7 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         );
         fs.writeFileSync(current, fixtureBytes);
         fs.unlinkSync(
-          path.join(root, ".crdd", "coordinator", "state.pending.json"),
+          path.join(root, ".crdd", "domain-model", "state.pending.json"),
         );
       }
     } else {
@@ -1093,7 +1093,7 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
       decisionRecoveries: [],
     };
     assert.equal(seedSnapshot(root, payload).status, "completed");
-    const directory = path.join(root, ".crdd", "coordinator");
+    const directory = path.join(root, ".crdd", "domain-model");
     const current = path.join(directory, "state.json");
     if (failure === "intent_release_confirmation") {
       const original = Atomics.load;
@@ -1174,7 +1174,7 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
           failed.recoveryId,
           JSON.parse(
             fs.readFileSync(
-              path.join(oldRoot, ".crdd", "coordinator", "state.json"),
+              path.join(oldRoot, ".crdd", "domain-model", "state.json"),
               "utf8",
             ),
           ).leaseIntents[0].recoveryId,
@@ -1369,7 +1369,7 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
   };
   assert.equal(store.read("missing").value, null);
   assert.equal(store.create(decision).status, "completed");
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file, "utf8");
   assert.equal(store.create(decision).status, "blocked");
   const finalized = {
@@ -1447,11 +1447,11 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
     throw new Error("snapshot_fixture_failed");
   assert.equal(observed.value.decisionRecoveries[0]?.generation, 2);
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "coordinator", "state")),
+    fs.existsSync(path.join(root, ".crdd", "domain-model", "state")),
     false,
   );
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "coordinator", "recovery")),
+    fs.existsSync(path.join(root, ".crdd", "domain-model", "recovery")),
     false,
   );
   const results = createCoordinatorSnapshotIntegrationRecordPort({
@@ -1488,7 +1488,7 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
     "blocked",
   );
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "coordinator", "results")),
+    fs.existsSync(path.join(root, ".crdd", "domain-model", "results")),
     false,
   );
   const ports = createCoordinatorSnapshotPersistencePorts(
@@ -1639,7 +1639,7 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
     [],
   );
   assert.deepEqual(
-    fs.readdirSync(path.join(root, ".crdd", "coordinator")).sort(),
+    fs.readdirSync(path.join(root, ".crdd", "domain-model")).sort(),
     ["state.json"],
   );
 });
@@ -1755,7 +1755,7 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
     resultId: "b".repeat(64),
     consumer: "orchestrator" as const,
   };
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const bytes = fs.readFileSync(file);
   for (const resultAcceptances of [
     [acceptance],
@@ -1853,7 +1853,7 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
     scopeHash: "c".repeat(64),
   };
   assert.equal(port.enqueueOperation(input).status, "completed");
-  const current = path.join(root, ".crdd", "coordinator", "state.json");
+  const current = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(current, "utf8");
   assert.equal(port.enqueueOperation(input).status, "completed");
   assert.equal(fs.readFileSync(current, "utf8"), before);
@@ -2061,7 +2061,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
       ).status,
       "completed",
     );
-    const current = path.join(root, ".crdd", "coordinator", "state.json");
+    const current = path.join(root, ".crdd", "domain-model", "state.json");
     const before = fs.readFileSync(current, "utf8");
     assert.deepEqual(readFixtureSnapshot(root, "binding-a").value, payload);
     const next = { ...payload, snapshotRevision: payload.snapshotRevision + 1 };
@@ -2070,7 +2070,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const pendingPath = path.join(
       root,
       ".crdd",
-      "coordinator",
+      "domain-model",
       "state.pending.json",
     );
     fs.writeFileSync(pendingPath, pending);
@@ -2159,11 +2159,11 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const pending = path.join(
       root,
       ".crdd",
-      "coordinator",
+      "domain-model",
       "state.pending.json",
     );
     if (fs.existsSync(pending)) fs.unlinkSync(pending);
-    const marker = path.join(root, ".crdd", "coordinator", "state.lock");
+    const marker = path.join(root, ".crdd", "domain-model", "state.lock");
     if (fs.existsSync(marker)) fs.unlinkSync(marker);
     assert.equal(lease.value.release().status, "completed");
   }
@@ -2182,7 +2182,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function stateDirectory(root: string) {
-  return path.join(root, ".crdd", "coordinator", "state", "project-a");
+  return path.join(root, ".crdd", "domain-model", "state", "project-a");
 }
 
 /**
@@ -2198,7 +2198,7 @@ function stateDirectory(root: string) {
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function queueDirectory(root: string) {
-  return path.join(root, ".crdd", "coordinator", "queues", "queue-a");
+  return path.join(root, ".crdd", "domain-model", "queues", "queue-a");
 }
 
 /**
@@ -2340,11 +2340,11 @@ test("一般CRUDは既存の管理実行・待機受付・技術区画を保全�
   if (observed.status !== "available" && observed.status !== "absent") return;
   assert.ok(observed.version);
   if (!observed.version) throw new Error("fixture_state_version_missing");
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = JSON.parse(fs.readFileSync(file, "utf8"));
   assert.equal(before.managedExecutions.length, 1);
   assert.equal(before.queueEntries.length, 1);
-  const history = path.join(root, ".crdd", "coordinator", "history.jsonl");
+  const history = path.join(root, ".crdd", "domain-model", "history.jsonl");
   const occurredAt = "2026-10-28T00:00:00.000Z";
   const historyBytes = Buffer.from(
     `${encodeRuntimeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: { schema: "crdd-coordinator/task-summary/v1", record: { id: "synthetic-history", occurredAt, outcome: "completed", primaryFailure: null, cleanup: "confirmed" } } })}\n`,
@@ -2411,7 +2411,7 @@ test("PR-D-N-01 durably creates and reads generation-bound Project State", (t) =
   assert.equal(read.status, "completed");
   assert.deepEqual(read.value, state);
 
-  const target = path.join(root, ".crdd", "coordinator", "state.json");
+  const target = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(target);
   const replay = ports.state.writeState(state, 0);
   assert.equal(replay.status, "completed");
@@ -2487,7 +2487,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   );
   const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
   assert.equal(ports.state.writeState(state, 0).status, "completed");
-  const record = path.join(root, ".crdd", "coordinator", "state.json");
+  const record = path.join(root, ".crdd", "domain-model", "state.json");
   const original = JSON.parse(fs.readFileSync(record, "utf8")) as Record<
     string,
     unknown
@@ -2575,7 +2575,7 @@ test("PR-D-A-01 rejects impossible Task state and identity tuples", (t) => {
       "completed",
       item.name,
     );
-    const location = path.join(root, ".crdd", "coordinator", "state.json");
+    const location = path.join(root, ".crdd", "domain-model", "state.json");
     const envelope = JSON.parse(fs.readFileSync(location, "utf8")) as {
       projects: { tasks: Record<string, unknown>[] }[];
       contentHash: string;
@@ -2634,7 +2634,7 @@ test("PR-D-A-01 現行Envelope破損と未確定pendingを拒否して保全す�
     );
     const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
     assert.equal(ports.state.writeState(state, 0).status, "completed", mode);
-    const directory = path.join(root, ".crdd", "coordinator");
+    const directory = path.join(root, ".crdd", "domain-model");
     const location = path.join(directory, "state.json");
     const pending = path.join(directory, "state.pending.json");
     const envelope = JSON.parse(fs.readFileSync(location, "utf8"));
@@ -2698,7 +2698,7 @@ test("PR-D-A-01 rejects an unknown queue record kind on exact retry", (t) => {
     scopeHash: "c".repeat(64),
   };
   assert.equal(ports.state.enqueueOperation(input).status, "completed");
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   const record = JSON.parse(fs.readFileSync(location, "utf8")) as Record<
     string,
     unknown
@@ -2755,7 +2755,7 @@ test("PR-D-Q-00 selects only queues owned by the requested Project binding", (t)
     }).status,
     "completed",
   );
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(location);
   const selectedA = ports.state.selectNextOperation();
   const selectedB = readFixtureSnapshot(root, "binding-b");
@@ -2921,7 +2921,7 @@ test("PR-D-A-01 現行QueueのIdentity変更を再送・更新で拒否する", 
       );
       assert.equal(lease.status, "completed");
       if (lease.status !== "completed") throw new Error("lease_fixture_failed");
-      const location = path.join(root, ".crdd", "coordinator", "state.json");
+      const location = path.join(root, ".crdd", "domain-model", "state.json");
       let original: Buffer | null = null;
       try {
         assert.equal(
@@ -3090,7 +3090,7 @@ test("PR-D-A-01 Lease終了保存失敗は回復参照を保全して再取得�
   );
   assert.equal(acquired.status, "completed");
   if (acquired.status !== "completed") throw new Error("lease_fixture_failed");
-  const directory = path.join(root, ".crdd", "coordinator");
+  const directory = path.join(root, ".crdd", "domain-model");
   const current = path.join(directory, "state.json");
   const pending = path.join(directory, "state.pending.json");
   const before = JSON.parse(fs.readFileSync(current, "utf8"));
@@ -3250,7 +3250,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
     ],
     { windowsHide: true, encoding: "utf8" },
   );
-  const current = path.join(root, ".crdd", "coordinator", "state.json");
+  const current = path.join(root, ".crdd", "domain-model", "state.json");
   const acquiredSnapshot = JSON.parse(fs.readFileSync(current, "utf8"));
   const recoveryId = acquiredSnapshot.leaseIntents[0].recoveryId;
   const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
@@ -3330,7 +3330,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
     ],
     { windowsHide: true, encoding: "utf8" },
   );
-  const current = path.join(root, ".crdd", "coordinator", "state.json");
+  const current = path.join(root, ".crdd", "domain-model", "state.json");
   const before = JSON.parse(fs.readFileSync(current, "utf8"));
   const recoveryId = before.leaseIntents[0].recoveryId;
   const blockedAcquire = ports.lease.acquire(
@@ -3411,7 +3411,7 @@ test("PR-A-04 classifies a late contender against a live owner as unavailable", 
     while (!fs.existsSync(signal) && Date.now() < deadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(fs.existsSync(signal), true);
-    const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
     const before = fs.readFileSync(statePath);
     const contender = ports.lease.acquire(
       "project-a",
@@ -3475,7 +3475,7 @@ test("PR-A-04 keeps pre-publication contention effect-free and recovers only aft
     while (!fs.existsSync(signal) && Date.now() < deadline)
       await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(fs.existsSync(signal), true);
-    const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+    const statePath = path.join(root, ".crdd", "domain-model", "state.json");
     const before = fs.readFileSync(statePath);
     const snapshot = readFixtureSnapshot(root, "binding-a");
     assert.equal(snapshot.status, "completed");
@@ -3752,7 +3752,7 @@ test("PR-A-04 leaves mismatched acquisition and release identities unchanged", (
     );
     assert.equal(lease.status, "completed");
     if (lease.status !== "completed") throw new Error("lease_fixture_failed");
-    const location = path.join(root, ".crdd", "coordinator", "state.json");
+    const location = path.join(root, ".crdd", "domain-model", "state.json");
     const originalBytes = fs.readFileSync(location);
     const record = JSON.parse(originalBytes.toString("utf8"));
     const owned = record.leaseIntents.at(-1);
@@ -3816,7 +3816,7 @@ test("PR-D-A-01 現行取得前の破損・未確定保存・既存排他を保�
     const lockName = fs.readdirSync(locks)[0];
     if (lockName === undefined) throw new Error("lease_resource_missing");
     assert.equal(initial.value.release().status, "completed");
-    const directory = path.join(root, ".crdd", "coordinator");
+    const directory = path.join(root, ".crdd", "domain-model");
     const location = path.join(directory, "state.json");
     const pending = path.join(directory, "state.pending.json");
     if (scenario === "malformed-state")
@@ -3915,7 +3915,7 @@ test("PR-A-04 clears Queue ownership only after exact lease release settlement",
       terminalIntent.value.ownerGeneration,
     lease.value.ownerGeneration,
   );
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(location);
   assert.equal(
     ports.state.settleQueueLeaseRelease(
@@ -4134,7 +4134,7 @@ test("PR-A-04 requires exact Queue-bound lease evidence before clearing ownershi
     generation += 1;
   }
   assert.equal(lease.value.release().status, "completed");
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   const originalBytes = fs.readFileSync(location);
   const snapshot = JSON.parse(originalBytes.toString("utf8"));
   const released = snapshot.leaseEvidence.find(
@@ -4234,7 +4234,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
     }).status,
     "completed",
   );
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   const originalBytes = fs.readFileSync(location);
   const record = JSON.parse(originalBytes.toString("utf8"));
   const acquired = record.leaseEvidence[0];
@@ -4270,7 +4270,7 @@ test("PR-A-04 rejects malformed pre-existing recovered evidence", (t) => {
  */
 test("PR-A-04 does not steal a lease from a live or unobservable owner", (t) => {
   const { root, ports } = currentQueueFixture(t);
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   assert.equal(
     ports.state.enqueueOperation({
       queueId: "queue-a",

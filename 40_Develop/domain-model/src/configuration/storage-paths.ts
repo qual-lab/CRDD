@@ -14,7 +14,7 @@ export const TESTS_RELATIVE_PATH = ".crdd/tests" as const;
 
 export const REPOSITORY_AREAS = Object.freeze([
   "config",
-  "coordinator",
+  "domain-model",
   "execution-intelligence",
   "candidates",
   "workspaces",
@@ -26,7 +26,7 @@ export const REPOSITORY_AREAS = Object.freeze([
 
 export const AREA_PATH_KEYS = Object.freeze({
   config: "config",
-  coordinator: "coordinator",
+  "domain-model": "domainModel",
   "execution-intelligence": "executionIntelligence",
   candidates: "candidates",
   workspaces: "workspaces",

@@ -99,7 +99,7 @@ A〜CはCoreのAPI成立に必要な保存境界を先に確定する依存順�
 ## 5. Runtime移行と既存方針の扱い
 
 - 製品コードは新形式だけを扱い、旧形式移行はフロントAIの確認手順とする従来判断を維持する。添付§8.5の保全条件は、その手順と実行時の新領域有効化条件へ具体化する。自動Migration／互換読取りFrameworkを追加しない。
-- `.crdd/domain-model/`は保存先第一候補であり、今回確定・移行済みとは表示しない。旧新競合、中断、現在Owner、未解決Recovery、履歴・pendingの整合、有効化、旧領域退役を別Gateで確認する。今回の保持領域を調査・試験に使わない。
+- `.crdd/domain-model/`は2026-10-28に人間が採用した。Sourceの新配置への接続と、実データの移行・有効化を区別する。旧新競合、中断、現在Owner、未解決Recovery、履歴・pendingの整合、有効化、旧領域退役を別Gateで確認する。今回の保持領域を調査・試験に使わない。
 - `.crdd/config/ai-selection.json`は維持する。Catalogの内容はAI Adapter、設定の意味はDomain、現在の実行許可はCoordinator／Executorとする。
 - 添付の`.crdd`直下禁止は今回のRuntime Fileへ適用する。文書化正本にある`external-send-policy.json`の既存例外は無断で撤去・一般変更しない。
 - Core／Optionalの区別は新しいServer製品や分散Systemではない。同Process内の関数呼出しで成立する境界へIPC、Queue、Registryを追加しない。
@@ -133,11 +133,11 @@ A〜CはCoreのAPI成立に必要な保存境界を先に確定する依存順�
 | 段階 | 現在確認した不足と処置 | 変更してはならないもの／検証 |
 |---|---|---|
 | D | MCPのTool群とWorkbenchの活動・Workspace・通信設定RouteがCoordinatorへ静的到達する。CoreのDomain操作と任意実行の構成を分離し、一般CRUDの現在認可を接続する | Coordinator読込み拒否の実子Processで起動・CRUD・保存・再読取りを確認。Automation区画の全文保全、失効・CAS・対象参照拒否を維持 |
-| E | `.crdd/domain-model/`の採用を人間へ確認。state／history／pending／短期lockを一組にする移行・切戻し手順を固定する | 実保持物を移動しない。旧新競合・未解決Owner／Recovery・観測不能で空初期化しない。自動互換読取りを作らない |
+| E | `.crdd/domain-model/`は2026-10-28に承認済み。state／history／pending／短期lockを一組にする移行・切戻し手順を固定する | 実保持物を移動しない。旧新競合・未解決Owner／Recovery・観測不能で空初期化しない。自動互換読取りを作らない |
 | F | Provider単段を一Attemptとする案を提示。編集→レビュー→是正の順序判断はCoordinatorへ残す | ExecutorへSnapshot・Queue・Lease・再試行方針を丸ごと渡さない。取消／join・unknown・exact回復参照を維持 |
 | G | Dの実読込み閉包とFの契約を確定してから、既存調停をDomain＋Executorへ接続する | Fakeでも実際と同じ開始・取消・完了契約を使用。Domainとの二重状態・保存・新Registryを増やさない |
 
-人間確認は、保存先、Executorの粒度、Core編集の既存内容権限への対応とローカル操作主体である。2026-10-28に後二点は承認された。ExecutorはProvider単段を一試行とし、編集→レビュー→是正の順序・Queue・再試行判断はCoordinatorに残す。Core定義編集は既存development内容権限へ対応し、ローカルWorkbenchは既存入口保護の下で起動Host利用者の操作として扱う。Browser接続元のOS本人証明や新しい認証・権限設定を追加しない。保存先は引き続き回答待ちで、物理保存先を変更しない。技術的なTool名やFile配置だけを理由に新たな承認段階を増やさない。既存の助言・編集・Workspace操作は任意機能として保全し、Core独立のために無断撤去しない。
+人間確認は、保存先、Executorの粒度、Core編集の既存内容権限への対応とローカル操作主体である。2026-10-28に後二点は承認された。ExecutorはProvider単段を一試行とし、編集→レビュー→是正の順序・Queue・再試行判断はCoordinatorに残す。Core定義編集は既存development内容権限へ対応し、ローカルWorkbenchは既存入口保護の下で起動Host利用者の操作として扱う。Browser接続元のOS本人証明や新しい認証・権限設定を追加しない。保存先も続く人間のOKにより`.crdd/domain-model/`へ確定した。Source切替と実データの移行許可は区別し、実保持物は操作しない。技術的なTool名やFile配置だけを理由に新たな承認段階を増やさない。既存の助言・編集・Workspace操作は任意機能として保全し、Core独立のために無断撤去しない。
 
 判断不要な最初の差分として、`inspectAiSelectionChoice`／`hashExecutionSelection`をDomainの`ai-selection/validation.ts`へ集約した。型はDomainの既存`AiSelectionChoice`で閉じ、AI Adapterへの逆依存を追加しない。Coordinatorの旧File・Root再exportを撤去し、Workbenchの明示選択検査・内部利用側・Symbol・試験Oracleを直接接続した。Network PolicyのDocker構成やAuthorityは移していない。これはDの部分接続であり、Core全体の単独成立ではない。
 
@@ -157,11 +157,27 @@ Coordinator／ExecutorのModule解決を拒否した子Processで、MCP Rootの�
 
 その後、配布MCP Launcherに残ったCoordinator静的参照を検出した。Node版本検査を現在Processの既存下限確認へ閉じ、単体`--automation`明示時だけ四操作を固定Moduleから構成する。既定local stdio／HTTPへ既存Workspace対象解決を使うCore RuntimeAccessを接続し、Manifest・Root・取消・projectId／repositoryIdを要求ごとに再確認する。CROSは既存AM認可を維持し、未接続のCROS＋Automationを64で拒否する。Module解決拒否下の実配布入口でも保存・再読取り・CASが成功した。入口変更後のMCP全回帰も105件成功・不合格零・取消零で終了し、stdioの実CRUD、HTTPの実ListenerとTool一覧、対象ID不一致、Node版、Owner欠測と不正引数拒否を確認した。追加独立レビューのSource指摘は零。自動実行有効時の実AI成立をこの非AI回帰から推定しない。
 
-Catalogは411件の登録整合を確認したが、411件の試験成功を意味しない。保存先Eは回答待ちで既存配置を維持し、FのProvider単段Executor抽出とGの本番調停接続は別の未完了作業である。Fの着手前照合では、単段準備・Process／取消・join・結果・元回復証拠を一体で移し、Task全体の順序・Workspace・共通Host清掃をCoordinatorへ残す必要を確認した。現在混在するControlRecordを丸ごと渡す移管、証拠Mapの二重登録、ExecutorからCoordinator内部を参照する暫定接続は採らない。実AI・Docker・過去保持物を操作していない。
+Catalogは411件の登録整合を確認したが、411件の試験成功を意味しない。このD検証時点では保存先Eは回答待ちで既存配置を維持していた。続くEの採用・検証は下節に示す。FのProvider単段Executor抽出とGの本番調停接続は別の未完了作業である。Fの着手前照合では、単段準備・Process／取消・join・結果・元回復証拠を一体で移し、Task全体の順序・Workspace・共通Host清掃をCoordinatorへ残す必要を確認した。現在混在するControlRecordを丸ごと渡す移管、証拠Mapの二重登録、ExecutorからCoordinator内部を参照する暫定接続は採らない。実AI・Docker・過去保持物を操作していない。
 
-#### Fの単段移管に対する着手前照合
+
+
+#### Eの保存先採用とSource切替 — 2026-10-28
+
+人間の「OK」により共通保存先を`.crdd/domain-model/`へ統一する。Sourceの名前付き領域とPath fieldを`domain-model`／`domainModel`へ切り替え、Reader・Writer・history・Queue／Lease・公開入口・検証Scriptと合成試験を追従する。旧aliasは追加しない。Schema・CAS・Hash domain・Kernel Pipe名・真正Mapと一回使用証拠は変えない。`.crdd/config/coordinator.json`とその保持値も維持する。
+
+着手前照合では、公開初期化へフロントAI手順だけを要求しても旧領域のある空初期化を防げないことを確認した。固定旧Pathのmetadata不存在だけを作成前・初回出版境界で検査し、ENOENT以外は拒否する最小処置を採用した。これは旧内容・旧SchemaのReader又は探索ではなく、自動移行・移動・削除も行わない。旧領域のDirectory／File／junction／観測不能、親置換、保存直前の後発出現と、新正本存在時の旧残置を区別した。新しい台帳・State・Lock Frameworkはない。
+
+合成8件は成功。初回はQueryへ余分なexpectedAbsenceを渡したfixture不備、後続では保存Source試験の新private guard依存の追従漏れを検出し、拒否条件を緩めず是正した。全回帰・利用側結合・独立レビューは進行中であり、E完了とはまだ表示しない。[フロントAI移行・切戻し](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)を整備し、新書込み後の単純切戻しを禁止した。templateの共通状態placeholderは真正不存在の初期化と矛盾するため撤去し、初期化時だけ作成する。実保持物と旧実データは操作していない。
+
+その後、Domain全回帰一実行474件とCoordinator／MCP／Workbenchの関連結合49件が全成功した。全回帰後に追加した親置換・出版直前出現を含む限定matrix八件、初回出版失敗とCore CRUD四件も別実行で成功した。これらを476件の単一runへ合算しない。制限環境でjunction作成がEPERMとなった一実行は不合格として区別し、通常実行環境では同じ八件が成功した。型検査で検出した試験mockのundefined対応も修正後に確認した。Domain／Coordinator／MCP／Workbenchの静的check、Catalog411登録整合、diff checkを通過した。
+
+独立レビューの現行設計旧配置一件と、出版中断時のmarker／pending保持Oracle不足一件を是正した。同じmarker schema／Bindingでpendingを正規decodeし、再呼出し時の両bytes不変・正本不存在を確認した。限定再レビュー残指摘零。Domain05後段の旧配置維持記述も、当初時点と現在採用後を分けて同期した。EのSource切替・合成検証・移行手順は限定完了とするが、実データ移行・切戻し実行・過去保持物・F／G・実AI／Dockerの成立を含めない。
+
+変更対象九文書の検査指摘は零。参照展開先にはbroken-link／anchor等3,374件が残り、全体文書検査はexit 1である。前段とは対象正本・展開先集合が異なるため、3,367件との差分を今回の新規故障数と断定せず、全体QA合格も主張しない。
 
 Dの今回の非AI公開接続候補は、基準`281a324b3`と`40_Develop`／`template/tools`のtracked差分及び新規File本文を結合したSHA-256 `2a4134f5acb5ca208e118755a37228cda8e35a58317b72a31521a1a658dfe328`で特定する。独立最終確認の旧時点文書表現一件を時点限定へ是正し、MCPの同種表現も追従した。Source契約の追加指摘は零。Dの今回範囲は限定完了とし、Eの保存先判断、F／G、実AI／Docker、人間操作、CRDD全体QA又はRelease完了へ拡張しない。
+
+#### Fの単段移管に対する着手前照合
 
 Fの原子的な移管単位は`executeStage`だけではなく、単段準備、Process開始／取消／join、結果正規化と元Docker回復証拠の閉包である。`ControlRecord`のTask全体と単段字段を分け、後者の真正MapをExecutorへ一実体移管する。Coordinatorは現在Attemptの不透明Controlと終了後の不透明証拠を保持し、Task配列の順序・再試行・Workspaceと共通Host清掃を所有する。共通Host清掃前の各Attemptの準備、元清掃結果後の確定又は不明時の放棄は用途固定操作として接続し、汎用callback／新Registry／二重Mapは作らない。`result.ts`・`operation.ts`・`recovery.ts`の丸ごと移動は循環と上位責務流入を生むため、宣言単位で分割する。この照合は実装・回帰の完成ではない。
 

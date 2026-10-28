@@ -54,7 +54,7 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     config: path.join(root, "config"),
     repositoryManifest: path.join(root, "config", "repository-manifest.json"),
     externalSendPolicy: path.join(root, "config", "external-send-policy.json"),
-    coordinator: path.join(root, "coordinator"),
+    domainModel: path.join(root, "domain-model"),
     executionIntelligence: path.join(root, "execution-intelligence"),
     candidates: path.join(root, "candidates"),
     workspaces: path.join(root, "workspaces"),

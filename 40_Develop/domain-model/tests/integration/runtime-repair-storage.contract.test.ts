@@ -388,7 +388,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   const stateArea = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       root,
-      "coordinator",
+      "domain-model",
     ),
     "repair_storage_fixture",
   );

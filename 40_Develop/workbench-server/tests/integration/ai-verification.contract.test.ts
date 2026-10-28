@@ -2208,7 +2208,7 @@ for (const transport of ["tool-child-process"] as const) {
         if (handle) await handle.close();
         else await owner?.close();
       }
-      const file = path.join(root, ".crdd/coordinator/state.json");
+      const file = path.join(root, ".crdd/domain-model/state.json");
       if (fs.existsSync(file)) {
         const state = JSON.parse(fs.readFileSync(file, "utf8"));
         assert.deepEqual(state.operations, []);

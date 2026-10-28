@@ -394,7 +394,7 @@ test("履歴一件不明・出所重複と状態pendingを独立判定する", a
   assert.ok(a.revision);
   state(a.root, a.revision);
   fs.writeFileSync(
-    path.join(a.root, ".crdd", "coordinator", "state.pending.json"),
+    path.join(a.root, ".crdd", "domain-model", "state.pending.json"),
     "broken",
   );
   result = await readAuthorizedRuntimeActivity({

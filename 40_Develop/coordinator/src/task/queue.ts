@@ -292,8 +292,8 @@ export function createCoordinatorSnapshotStatePort(
             if (!paths) throw new Error("orchestrator_repository_root_invalid");
             const boundary = assertCoordinatorArea(
               repositoryRoot,
-              "coordinator",
-              paths.coordinator,
+              "domain-model",
+              paths.domainModel,
             );
             const identity = leaseIdentity(
               binding,
@@ -307,7 +307,7 @@ export function createCoordinatorSnapshotStatePort(
               return false;
             assertCoordinatorAreaUnchanged(
               repositoryRoot,
-              "coordinator",
+              "domain-model",
               boundary,
             );
             return true;

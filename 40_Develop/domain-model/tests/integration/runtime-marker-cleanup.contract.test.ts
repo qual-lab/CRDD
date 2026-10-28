@@ -96,7 +96,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     "post_identity_changed",
   ] as const) {
     const root = path.resolve("marker-fixture"),
-      directory = path.join(root, ".crdd", "coordinator");
+      directory = path.join(root, ".crdd", "domain-model");
     const binding = "a".repeat(64),
       capability = Object.freeze({});
     const stateBytes = Buffer.from(
@@ -396,7 +396,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     );
     assert.ok(repository);
     const storage = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "coordinator"),
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
       "marker_storage",
     );
     const state = path.join(storage.directory, "state.json"),

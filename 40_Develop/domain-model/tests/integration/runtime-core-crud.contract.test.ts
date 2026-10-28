@@ -17,6 +17,7 @@ import {
   createTask,
   deleteObjective,
   deleteTask,
+  decodeRuntimeDomainSnapshot,
   initializeRuntimeState,
   queryPlan,
   queryTasks,
@@ -28,6 +29,178 @@ import {
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
+
+/**
+ * 旧領域の残置から新しい空状態を作らない。
+ * @responsibility 移行の未知と新規Repositoryをmetadata境界で区別する。
+ * @trace PRL-IT-012
+ * @precondition 既存helperが所有する合成Rootのみ。
+ * @stimulus 旧Directory・File・link・観測不能を用意して同じ公開初期化を呼ぶ。
+ * @observation 公開拒否、旧内容の保全、新領域とstateの不存在。
+ * @oracle 処置前の不明は作成零。出版中の後発出現はunknownとpendingを保持し、再入場で上書きしない。
+ * @cleanup mockを復元し、自己生成Rootだけを既存helperで回収する。
+ * @boundary 公開Core APIと実Filesystem。過去保持物は使わない。
+ */
+test("保存先切替は旧領域の存在と観測不能を空初期化へ変換しない", async (t) => {
+  for (const kind of [
+    "directory",
+    "file",
+    "link",
+    "unobservable",
+    "parent_changed",
+    "appears_before_publish",
+    "absent",
+  ])
+    await t.test(kind, () => {
+      const directory = createRepositoryTestDirectory("runtime-area-switch-");
+      try {
+        const root = directory.path;
+        fs.mkdirSync(path.join(root, ".git", "refs", "heads"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(root, ".git", "info"));
+        fs.writeFileSync(
+          path.join(root, ".git", "info", "exclude"),
+          ".crdd/\n",
+        );
+        fs.writeFileSync(
+          path.join(root, ".git", "config"),
+          "[core]\nrepositoryformatversion = 0\nbare = false\n",
+        );
+        fs.writeFileSync(
+          path.join(root, ".git", "HEAD"),
+          "ref: refs/heads/main\n",
+        );
+        fs.writeFileSync(
+          path.join(root, ".git", "refs", "heads", "main"),
+          "1".repeat(40) + "\n",
+        );
+        fs.mkdirSync(path.join(root, ".crdd"));
+        const legacy = path.join(root, ".crdd", "coordinator");
+        const current = path.join(root, ".crdd", "domain-model");
+        if (kind === "directory") fs.mkdirSync(legacy);
+        if (kind === "file") fs.writeFileSync(legacy, "synthetic old state");
+        if (kind === "link") {
+          const target = path.join(root, "synthetic-old-target");
+          fs.mkdirSync(target);
+          fs.symlinkSync(target, legacy, "junction");
+        }
+        const verified = verifyRepositoryRoot(root);
+        assert.equal(verified.status, "completed");
+        if (verified.status !== "completed") return;
+        const access: RuntimeAccess = {
+          root: verified.capability,
+          principalId: "synthetic",
+          revalidate: () => true,
+        };
+        const request = {
+          projectId: "project",
+          milestoneId: "milestone",
+          expectedAbsence: true,
+        } as const;
+        const original = fs.lstatSync;
+        let mock: ReturnType<typeof t.mock.method> | undefined;
+        let legacyObserved = false;
+        if (kind === "unobservable" || kind === "parent_changed")
+          mock = t.mock.method(fs, "lstatSync", ((
+            ...args: Parameters<typeof fs.lstatSync>
+          ) => {
+            if (String(args[0]) === legacy) {
+              legacyObserved = true;
+              throw Object.assign(new Error("synthetic"), {
+                code: kind === "unobservable" ? "EACCES" : "ENOENT",
+              });
+            }
+            const observed = original(...args);
+            if (
+              kind === "parent_changed" &&
+              legacyObserved &&
+              String(args[0]) === path.join(root, ".crdd") &&
+              typeof observed?.ino === "bigint"
+            ) {
+              const changed = Object.create(observed);
+              Object.defineProperty(changed, "ino", {
+                value: observed.ino + 1n,
+              });
+              return changed;
+            }
+            return observed;
+          }) as typeof fs.lstatSync);
+        const originalOpen = fs.openSync;
+        const openMock =
+          kind === "appears_before_publish"
+            ? t.mock.method(fs, "openSync", ((
+                ...args: Parameters<typeof fs.openSync>
+              ) => {
+                if (
+                  String(args[0]) ===
+                    path.join(current, "state.pending.json") &&
+                  !fs.existsSync(legacy)
+                )
+                  fs.mkdirSync(legacy);
+                return originalOpen(...args);
+              }) as typeof fs.openSync)
+            : undefined;
+        let result: ReturnType<typeof initializeRuntimeState>;
+        try {
+          result = initializeRuntimeState(access, request);
+        } finally {
+          mock?.mock.restore();
+          openMock?.mock.restore();
+        }
+        if (kind === "appears_before_publish") {
+          assert.equal(result.status, "unknown", JSON.stringify(result));
+          assert.equal(result.reason, "publication_unconfirmed");
+          assert.equal(fs.existsSync(path.join(current, "state.json")), false);
+          assert.equal(fs.existsSync(legacy), true);
+          const markerFile = path.join(current, "state.lock");
+          const pendingFile = path.join(current, "state.pending.json");
+          const marker = fs.readFileSync(markerFile);
+          const pending = fs.readFileSync(pendingFile);
+          const markerValue = JSON.parse(marker.toString("utf8"));
+          assert.equal(markerValue.schema, "crdd-coordinator/state-lock/v1");
+          assert.ok(
+            decodeRuntimeDomainSnapshot(pending, markerValue.repositoryBinding),
+          );
+          const repeated = initializeRuntimeState(access, request);
+          assert.notEqual(repeated.status, "saved");
+          assert.deepEqual(fs.readFileSync(markerFile), marker);
+          assert.deepEqual(fs.readFileSync(pendingFile), pending);
+          assert.equal(fs.existsSync(path.join(current, "state.json")), false);
+        } else if (kind !== "absent") {
+          assert.equal(result.status, "blocked", JSON.stringify(result));
+          assert.equal(fs.existsSync(current), false);
+          if (kind === "file")
+            assert.equal(
+              fs.readFileSync(legacy, "utf8"),
+              "synthetic old state",
+            );
+        } else {
+          assert.equal(result.status, "saved", JSON.stringify(result));
+          assert.equal(fs.existsSync(path.join(current, "state.json")), true);
+          fs.mkdirSync(legacy);
+          const bytes = fs.readFileSync(path.join(current, "state.json"));
+          assert.notEqual(
+            queryPlan(access, {
+              projectId: request.projectId,
+              milestoneId: request.milestoneId,
+            }).status,
+            "blocked",
+          );
+          assert.equal(
+            initializeRuntimeState(access, request).status,
+            "blocked",
+          );
+          assert.deepEqual(
+            fs.readFileSync(path.join(current, "state.json")),
+            bytes,
+          );
+        }
+      } finally {
+        directory.cleanup();
+      }
+    });
+});
 
 /**
  * 新Schemaの一般CRUDが同じReader・Writerへ本番接続していることを確認する。
@@ -173,7 +346,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
     expectedDefinitionHash: changed.value.definitionHash,
   });
   assert.equal(removed.status, "saved", JSON.stringify(removed));
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const state = JSON.parse(before.toString("utf8"));
   assert.equal(state.schema, "crdd-domain/runtime-state/v1");
@@ -272,12 +445,12 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
           },
         ],
       };
-      const file = path.join(root, ".crdd", "coordinator", "state.json");
+      const file = path.join(root, ".crdd", "domain-model", "state.json");
       const before = fs.readFileSync(file);
       const pending = path.join(
         root,
         ".crdd",
-        "coordinator",
+        "domain-model",
         "state.pending.json",
       );
       let injected = 0,
@@ -414,7 +587,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
         principalId: "test-principal",
         revalidate: () => true,
       };
-      const file = path.join(root, ".crdd", "coordinator", "state.json");
+      const file = path.join(root, ".crdd", "domain-model", "state.json");
       let injected = 0;
       const fixture = createRuntimeStorageSourceFixture(undefined, {
         fs: {
@@ -438,7 +611,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
       assert.equal(fs.existsSync(file), after);
       assert.equal(
         fs.existsSync(
-          path.join(root, ".crdd", "coordinator", "state.pending.json"),
+          path.join(root, ".crdd", "domain-model", "state.pending.json"),
         ),
         !after,
       );

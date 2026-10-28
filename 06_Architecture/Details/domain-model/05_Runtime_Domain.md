@@ -374,7 +374,7 @@ Core定義のMCP公開は二Toolに限定する。`crdd.get_runtime_definition`�
 
 共有接続はAMの`resolveRuntimeContentAccess`が通常本人・development許可・Repository登録・公開範囲・同じ管理改訂・Manifest・Rootへ結合する。Domainの`RuntimeAccess.revalidate`は処置前と返却前にも同じ条件を検査する。操作Context・Tokenは要求内だけに置き、Store・cache・公開応答へ含めない。これは現在認可の接続であり、新しい権限発行ではない。
 
-保存先`.crdd/domain-model/{state.json,state.lock,state.pending.json,history.jsonl}`は第一候補であり有効化しない。製品コードは新形式だけ、旧形式移行はフロントAIの確認手順という既存方針を維持する。
+保存先`.crdd/domain-model/{state.json,state.lock,state.pending.json,history.jsonl,history.pending.jsonl}`は2026-10-28に人間が採用した。製品コードは新配置だけへ接続し、旧形式・旧配置の実データ移行はフロントAI手順とする。名前付きPathは`domainModel`へ統一し旧aliasは残さない。保持設定`.crdd/config/coordinator.json`は今回変更しない。[配置・初期化境界](03_Repository_Storage.md#共通状態保存の配置切替--2026-10-28)と[移行・切戻し手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ接続する。
 
 移行前に旧新Rootの対応、実Owner非稼働、未解決義務・受付・受領・履歴／pendingの整合、コピー後読戻し、旧新同時更新禁止、有効化と切戻し可能条件を確定する。新側不存在を新品許可にしない。初期化APIも未知の旧領域を自動清掃しない。設定`.crdd/config/ai-selection.json`は既存位置を維持する。
 
@@ -404,7 +404,7 @@ MCP／Workbenchは共通Domainへ直接接続し、Core構成ではCoordinator�
 
 初期化以外の固定保存入口を経由して初期化を補完しない。初期化は既存Host構築点又は明示的な内容認可付きCore入口だけで行う。生Snapshot Writer、任意取引callback、短期Owner、Kernel取得、自由Pathの試験AdapterはPackage Rootへ公開しない。
 
-Sourceの既存物理保存先は引き続き`.crdd/coordinator/`であり、候補の`.crdd/domain-model/`を有効化しない。今回のSource接続から実データ・保持物の移行又は清掃許可は発生しない。
+当初のSource接続時点では旧物理保存先を維持していたが、2026-10-28の人間承認後は`.crdd/domain-model/`へ切り替える。旧`.crdd/coordinator/`は移行元であり、現在Reader・通常Writerの参照先にはしない。Source接続から実データ・保持物の移行又は清掃許可は発生しない。
 
 Source配置の候補はDomainのobjective／task／attempt／decision／workspace／queue／ai-selection／stateとstorageである。型はtypes、局所操作はcrud、値検査はvalidation、読取り投影はquery、物理保存はstorageへ置く。Capability内barrel、public-*.ts、汎用Managerを増やさない。
 
@@ -497,6 +497,6 @@ Lease記録の九用途はDomain `attempt/lease.ts`の固定候補・投影が�
 |---|---|---|
 | Plan ID・Task属性 | 既存Project／Milestone＋定義Hash、既存属性のみで進める案を人間承認済み | 新属性・新IDは今回追加しない。保存Schemaの技術的分解とは別に扱う |
 | 既存判断・根拠と受入 | §4.1の既存記録・根拠ID・局所条件をDomainへ移す方針。非管理完了機能の追加案は撤回 | Evidence本文の自動検証・任意Taskの手動完了を新設しない。元の受入前提と利用側未接続は保持 |
-| 保存先の切替 | 実装・合成検証後、フロントAI手順と旧新確認を提示する順序を人間承認済み | 実保存先の有効化・保持物操作の許可は別。今回まだ動かさない |
+| 保存先の切替 | `.crdd/domain-model/`の採用とSource切替を2026-10-28に人間承認済み | 実データ移行・保持物操作の許可は別。フロントAI手順と旧新確認の条件を守り、今回実データは動かさない |
 
 移管を止める新しい業務機能の採否判断は現在ない。Schema全field・現在認可・五Context・Callerが分解済みTask群を渡す公開契約の具体接続を実装前に固定し、既存で未接続の利用側を完成済みとはしない。文書の自動同期や上位計画の再実装を、この差の解消手段にしない。実AI・Docker・保持物の操作許可は本書から発生しない。

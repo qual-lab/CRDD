@@ -389,7 +389,7 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   );
   assert.deepEqual(paths?.allowedTopLevelAreas, [
     "config",
-    "coordinator",
+    "domain-model",
     "execution-intelligence",
     "candidates",
     "workspaces",
@@ -399,8 +399,8 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
     "tmp",
   ]);
   assert.equal(
-    paths?.coordinator,
-    path.join(repositoryRoot, ".crdd", "coordinator"),
+    paths?.domainModel,
+    path.join(repositoryRoot, ".crdd", "domain-model"),
   );
 });
 

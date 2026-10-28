@@ -134,6 +134,7 @@ import {
 } from "../storage/bounded-file-snapshot.ts";
 import {
   createCoordinatorRuntimeDataArea,
+  assertRuntimeStateInitializationBoundary,
   ensureRepositoryRuntimeDataArea,
 } from "../storage/ensure-area.ts";
 import {
@@ -329,7 +330,7 @@ export function resolveCoordinatorNamedPaths(workingDirectory: string) {
  */
 export function observeCoordinatorArea(
   repositoryRoot: string,
-  area: "coordinator" | "tmp",
+  area: "domain-model" | "tmp",
 ) {
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
@@ -364,7 +365,7 @@ export function observeCoordinatorArea(
  */
 export function assertCoordinatorArea(
   repositoryRoot: string,
-  area: "coordinator" | "tmp",
+  area: "domain-model" | "tmp",
   directory: string,
 ) {
   const observation = observeCoordinatorArea(repositoryRoot, area);
@@ -390,7 +391,7 @@ export function assertCoordinatorArea(
  */
 export function assertCoordinatorAreaUnchanged(
   repositoryRoot: string,
-  area: "coordinator" | "tmp",
+  area: "domain-model" | "tmp",
   initial: Exclude<RepositoryRuntimeDataAreaObservation, { status: "blocked" }>,
 ) {
   const current = observeCoordinatorArea(repositoryRoot, area);
@@ -2125,7 +2126,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
       if (verified.status !== "completed") throw new Error("root");
       const area = observeRepositoryRuntimeDataArea(
         verified.capability,
-        "coordinator",
+        "domain-model",
       );
       if (
         area.status !== "ready" ||
@@ -2207,7 +2208,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
         throw new Error("changed");
       const currentArea = observeRepositoryRuntimeDataArea(
         verified.capability,
-        "coordinator",
+        "domain-model",
       );
       if (
         currentArea.status !== "ready" ||
@@ -3059,12 +3060,12 @@ export function readCoordinatorStateSnapshot(
       throw new Error("owner");
     const initial = observeRepositoryRuntimeDataArea(
       verified.capability,
-      "coordinator",
+      "domain-model",
     );
     if (allowUninitialized && initial.status === "not_observed") {
       const fresh = observeRepositoryRuntimeDataArea(
         verified.capability,
-        "coordinator",
+        "domain-model",
       );
       if (
         fresh.status === "not_observed" &&
@@ -3726,7 +3727,7 @@ export function readCoordinatorStateSnapshot(
     if (freshRoot.status !== "completed") throw new Error("root");
     const fresh = observeRepositoryRuntimeDataArea(
       freshRoot.capability,
-      "coordinator",
+      "domain-model",
     );
     if (
       !repository.revalidate() ||
@@ -4032,6 +4033,7 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
       );
       if (!decodeRuntimeDomainSnapshot(bytes, issued.repositoryBinding))
         return rejected("coordinator_task_publication_input_invalid");
+      assertRuntimeStateInitializationBoundary(verified.capability);
       filesystemEffectIssued = true;
       const temporary = requireReadyRepositoryRuntimeDataArea(
         ensureRepositoryRuntimeDataArea(verified.capability, "tmp"),
@@ -4474,7 +4476,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
       throw new Error("owner");
     const area = observeRepositoryRuntimeDataArea(
       verified.capability,
-      "coordinator",
+      "domain-model",
     );
     if (
       area.status !== "ready" ||
@@ -4557,7 +4559,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
     }
     const final = observeRepositoryRuntimeDataArea(
       verified.capability,
-      "coordinator",
+      "domain-model",
     );
     if (
       !assertOwner() ||
@@ -5120,7 +5122,7 @@ function commitCoordinatorStateSnapshotOwned(
     if (verified.status !== "completed") throw new Error("root");
     const initial = observeRepositoryRuntimeDataArea(
       verified.capability,
-      "coordinator",
+      "domain-model",
     );
     if (
       initial.status !== "ready" ||
@@ -5129,6 +5131,7 @@ function commitCoordinatorStateSnapshotOwned(
       throw new Error("area");
     const directory = initial.directory;
     const fileIdentities = new Map<string, StableFileIdentity>();
+    let initializationBoundaryRequired = false;
     /**
      * 保存I/Oの前後で同じ操作Ownerと領域を再確認する。
      * @responsibility Rootと.crddとcoordinator領域の置換を拒否する。
@@ -5162,9 +5165,11 @@ function commitCoordinatorStateSnapshotOwned(
       }
       const fresh = verifyRepositoryRoot(repository.repositoryRoot);
       if (fresh.status !== "completed") throw new Error("root");
+      if (initializationBoundaryRequired)
+        assertRuntimeStateInitializationBoundary(fresh.capability);
       const observed = observeRepositoryRuntimeDataArea(
         fresh.capability,
-        "coordinator",
+        "domain-model",
       );
       if (
         observed.status !== "ready" ||
@@ -5257,6 +5262,8 @@ function commitCoordinatorStateSnapshotOwned(
     if (oldMarker !== null && !oldMarker.equals(marker))
       throw new Error("marker");
     let currentBytes = read("state.json");
+    initializationBoundaryRequired = currentBytes === null;
+    if (initializationBoundaryRequired) assertBoundary();
     let current =
       currentBytes === null
         ? null
@@ -9269,6 +9276,7 @@ export function initializeRuntimeState(
       before.reason === "coordinator_state_uninitialized" &&
       repository.revalidate()
     ) {
+      assertRuntimeStateInitializationBoundary(access.root);
       effects = true;
       const binding =
         "binding-" +

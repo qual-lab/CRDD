@@ -314,7 +314,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     }),
   ).result.structuredContent;
   assert.equal(tasks.value.length, 2);
-  const stateFile = path.join(root, ".crdd", "coordinator", "state.json");
+  const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(stateFile);
   const wrongRepository = packet(MCP_RUNTIME_READ_TOOL, {
     operation: "plan",
@@ -389,7 +389,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     );
   }
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "coordinator", "state.json")),
+    fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
     true,
   );
 });

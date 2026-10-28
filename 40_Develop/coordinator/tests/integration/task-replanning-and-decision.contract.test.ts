@@ -293,7 +293,7 @@ async function failTask(root: string) {
 test("bounded partial replan supersedes the failed task and returns the queue to ready", async (t) => {
   const { root, input } = fixture(t);
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
-  const stateFile = path.join(root, ".crdd/coordinator/state.json");
+  const stateFile = path.join(root, ".crdd/domain-model/state.json");
   const beforeBytes = fs.readFileSync(stateFile);
   const beforeValue = JSON.parse(beforeBytes.toString("utf8"));
   const before = decodeRuntimeDomainSnapshot(

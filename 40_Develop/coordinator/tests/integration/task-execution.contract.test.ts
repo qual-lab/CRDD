@@ -203,7 +203,7 @@ for (const mode of [
           const history = path.join(
             root,
             ".crdd",
-            "coordinator",
+            "domain-model",
             "history.jsonl",
           );
           if (mode === "history_missing") fs.unlinkSync(history);
@@ -226,7 +226,7 @@ for (const mode of [
             );
           }
           if (mode === "history_unconfirmed") {
-            const file = path.join(root, ".crdd", "coordinator", "state.json");
+            const file = path.join(root, ".crdd", "domain-model", "state.json");
             const state = JSON.parse(fs.readFileSync(file, "utf8"));
             for (const operation of state.operations)
               operation.history.confirmed = false;
@@ -245,7 +245,7 @@ for (const mode of [
       assert.equal(outcome.status, "blocked");
       assert.ok(publication.args);
       const args = publication.args;
-      const area = path.join(root, ".crdd", "coordinator");
+      const area = path.join(root, ".crdd", "domain-model");
       const file = path.join(area, "state.json");
       const pending = path.join(area, "state.pending.json");
       const marker = path.join(area, "state.lock");
@@ -370,7 +370,7 @@ for (const mode of [
     );
     const savedRoot = JSON.parse(
       fs.readFileSync(
-        path.join(root, ".crdd", "coordinator", "state.json"),
+        path.join(root, ".crdd", "domain-model", "state.json"),
         "utf8",
       ),
     );
@@ -1421,7 +1421,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
  */
 test("PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservable", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const location = path.join(root, ".crdd", "coordinator", "state.json");
+  const location = path.join(root, ".crdd", "domain-model", "state.json");
   const original = fs.openSync;
   let isInjected = false;
   let outcome: Awaited<ReturnType<typeof runCoordinatorOperation>>;

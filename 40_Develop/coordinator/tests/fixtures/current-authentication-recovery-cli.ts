@@ -20,7 +20,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   const id = process.argv[2];
   const cliUrl = ${JSON.stringify(new URL("../../bin/coordinator.ts", import.meta.url).href)};
   const cli = fileURLToPath(cliUrl);
-  const statePath = path.join(process.cwd(),'.crdd','coordinator','state.json');
+  const statePath = path.join(process.cwd(),'.crdd',"domain-model",'state.json');
   const initialBytes = fs.readFileSync(statePath), initial = JSON.parse(initialBytes);
   const target = initial.operations.find(item => item.recoveryId === id);
   assert.ok(target && target.kind === 'docker_task');

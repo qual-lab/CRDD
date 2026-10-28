@@ -21,6 +21,7 @@ import * as plainData from "../../src/plain-data/snapshot.ts";
 import * as kernel from "../../src/storage/runtime-kernel-lock.ts";
 import * as storageRepository from "../../src/storage/runtime-repository.ts";
 import * as stateResults from "../../src/storage/runtime-result.ts";
+import { assertRuntimeStateInitializationBoundary } from "../../src/storage/ensure-area.ts";
 /**
  * 現行の実Writer・Lock・固定I/Oを一つの同期依存閉包へ接続する。
  * @responsibility 一つのfixture内でMapを一実体としてReader／Writerで共有する。
@@ -71,6 +72,7 @@ export function createRuntimeStorageSourceFixture(
     ...stateResults,
     ...plainData,
     ...definitionCandidates,
+    assertRuntimeStateInitializationBoundary,
     decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
     exactRecordKeys: domain.hasRuntimeStateRecordKeys,
     digest: domain.hashRuntimeStateValueText,

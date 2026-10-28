@@ -45,8 +45,8 @@ import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
  */
 test("選択観測例外は実Storeの固定拒否と解放へ閉じる", (t) => {
   const { root } = fixture(t);
-  const stateFile = path.join(root, ".crdd", "coordinator", "state.json");
-  const historyFile = path.join(root, ".crdd", "coordinator", "history.jsonl");
+  const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
+  const historyFile = path.join(root, ".crdd", "domain-model", "history.jsonl");
   const before = fs.readFileSync(stateFile);
   const historyBefore = fs.existsSync(historyFile)
     ? fs.readFileSync(historyFile)
@@ -161,11 +161,11 @@ test("Workspace時計例外は実Storeの固定拒否と解放へ閉じる", (t)
       { processId: process.pid, now: () => 0 },
     );
     assert.equal(saved.status, "completed", saved.reason);
-    const stateFile = path.join(root, ".crdd", "coordinator", "state.json");
+    const stateFile = path.join(root, ".crdd", "domain-model", "state.json");
     const historyFile = path.join(
       root,
       ".crdd",
-      "coordinator",
+      "domain-model",
       "history.jsonl",
     );
     const before = fs.readFileSync(stateFile);
@@ -344,7 +344,7 @@ test("integration records are immutable and an identical retry is idempotent", (
     value: { status: "candidate", changedPaths: ["result.txt"] },
   };
   assert.equal(records.write(record).status, "completed");
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   assert.equal(records.write(record).status, "completed");
   assert.deepEqual(fs.readFileSync(file), before);
@@ -356,7 +356,7 @@ test("integration records are immutable and an identical retry is idempotent", (
   assert.equal(observed.value?.results.length, 1);
   assert.equal(observed.value?.results[0]?.identity, "candidate-a");
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "coordinator", "results")),
+    fs.existsSync(path.join(root, ".crdd", "domain-model", "results")),
     false,
   );
 });
@@ -413,7 +413,7 @@ test("an identity collision is blocked without replacing the first record", (t) 
     value: { afterRevision: "a".repeat(40) },
   };
   assert.equal(records.write(first).status, "completed");
-  const target = path.join(root, ".crdd", "coordinator", "state.json");
+  const target = path.join(root, ".crdd", "domain-model", "state.json");
   const original = fs.readFileSync(target);
   const collision = records.write({
     ...first,
@@ -447,7 +447,7 @@ test("invalid path identities fail before creating a record directory", (t) => {
   const { root } = fixture(t);
   const escaped = `escape-${path.basename(root)}`;
   const outside = path.join(root, "..", escaped);
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const result = adapter(root, `../${escaped}`).write({
     kind: "integration",
@@ -481,7 +481,7 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
     }).status,
     "completed",
   );
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const original = fs.readFileSync(file, "utf8");
   for (const change of [
     { unexpected: true },

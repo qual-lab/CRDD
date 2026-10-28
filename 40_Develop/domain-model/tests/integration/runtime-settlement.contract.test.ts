@@ -399,7 +399,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   const area = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       root,
-      "coordinator",
+      "domain-model",
     ),
     "settlement_fixture",
   );
@@ -2016,7 +2016,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     const area = domain.requireReadyRepositoryRuntimeDataArea(
       domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
         root,
-        "coordinator",
+        "domain-model",
       ),
       "auth_owner_fixture",
     );

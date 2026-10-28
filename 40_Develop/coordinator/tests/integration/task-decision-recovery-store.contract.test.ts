@@ -147,7 +147,7 @@ test("independent decision recovery intent survives a fresh store and settles by
     "binding-a",
   );
   const value = intent();
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const initialRevision = JSON.parse(fs.readFileSync(file, "utf8")).revision;
   assert.equal((first.create(value) as { status: string }).status, "completed");
   const createdBytes = fs.readFileSync(file);
@@ -208,7 +208,7 @@ test("recovery intent store rejects duplicate creation and a stale CAS", (t) => 
   );
   const value = intent();
   assert.equal((store.create(value) as { status: string }).status, "completed");
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   assert.equal((store.create(value) as { status: string }).status, "blocked");
   const stale = Object.freeze({ ...value, unknownBoundary: "queue_update" });
@@ -248,7 +248,7 @@ test("未知の判断回復欄は現在状態を置換せず停止する", (t) =
   );
   const value = intent();
   assert.equal((store.create(value) as { status: string }).status, "completed");
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const saved = JSON.parse(fs.readFileSync(file, "utf8"));
   saved.decisionRecoveries[0].value.unexpected = true;
   fs.writeFileSync(file, `${encodeRuntimeStateValue(saved)}\n`);

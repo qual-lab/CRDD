@@ -197,7 +197,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     readRuntimeOwnedCoordinatorRecoverySnapshot(verifiedRoot.capability).status,
     "blocked",
   );
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "coordinator")), false);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const first = {
     ...emptyTaskSections,
     schema: COORDINATOR_STATE_SCHEMA,
@@ -209,7 +209,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     pendingDeliveries: [],
   };
   const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "coordinator"),
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
     "state_root",
   );
   const second = {
@@ -501,7 +501,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const cliState = path.join(
       workingDirectory,
       ".crdd",
-      "coordinator",
+      "domain-model",
       "state.json",
     );
     if (workingDirectory === otherRoot)
@@ -2562,7 +2562,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const freshArea = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
         freshRoot,
-        "coordinator",
+        "domain-model",
       ),
       "fresh_state_root",
     );
@@ -3009,7 +3009,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   const failedOwned = createOwnedOperationDirectories(failedTests.directory);
   const originalReadDirectory = fs.readdirSync;
-  const failedArea = path.join(failedRoot, ".crdd", "coordinator");
+  const failedArea = path.join(failedRoot, ".crdd", "domain-model");
   let areaReads = 0;
   let isWriterRefused = false;
   try {
@@ -3156,7 +3156,7 @@ for (const issuedFailure of [false, true]) {
       decodeCoordinatorStateSnapshot(initial, repository.repositoryBinding),
     );
     const initialArea = requireReadyRepositoryRuntimeDataArea(
-      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "coordinator"),
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
       "auth_initial_fixture",
     );
     fs.writeFileSync(path.join(initialArea.directory, "state.json"), initial, {
@@ -3307,7 +3307,7 @@ for (const issuedFailure of [false, true]) {
     assert.deepEqual(after.value.snapshot.pendingDeliveries, []);
     const rows = fs
       .readFileSync(
-        path.join(root, ".crdd", "coordinator", "history.jsonl"),
+        path.join(root, ".crdd", "domain-model", "history.jsonl"),
         "utf8",
       )
       .trim()
@@ -3562,7 +3562,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       repository.repositoryBinding,
     );
     assert.ok(decodedBefore);
-    const directory = path.join(root, ".crdd", "coordinator");
+    const directory = path.join(root, ".crdd", "domain-model");
     fs.mkdirSync(directory, { recursive: true });
     const file = path.join(directory, "state.json");
     fs.writeFileSync(file, before);
@@ -4586,7 +4586,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     ).filesystemEffectIssued,
     false,
   );
-  assert.equal(fs.existsSync(path.join(root, ".crdd", "coordinator")), false);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const saved = writeRuntimeOwnedCoordinatorRepairSnapshot(
     verified.capability,
     recoveryId,
@@ -4598,7 +4598,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   assert.equal(saved.status, "completed");
   assert.equal(saved.snapshotConfirmed, true);
   assert.equal(saved.lockReleased, true);
-  const directory = path.join(root, ".crdd", "coordinator");
+  const directory = path.join(root, ".crdd", "domain-model");
   const state = path.join(directory, "state.json");
   assert.ok(fs.readFileSync(state).equals(first));
   assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
@@ -4937,7 +4937,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   );
   const failedId = failedValue?.snapshot.operations[0]?.recoveryId;
   assert.ok(failedId);
-  const failedDirectory = path.join(failedRoot, ".crdd", "coordinator");
+  const failedDirectory = path.join(failedRoot, ".crdd", "domain-model");
   let sawCreatedArea = false;
   const lost = writeRuntimeOwnedCoordinatorRepairSnapshot(
     failedVerified.capability,

@@ -5,6 +5,7 @@
  * @trace ARCH-000011
  */
 import fs from "node:fs";
+import path from "node:path";
 import { gitRepositoryLocalIgnoreAdapter } from "../../../version-control/src/index.ts";
 import {
   registerRepositoryLocalIgnore,
@@ -98,14 +99,14 @@ function ensureCanonicalDirectory(target: string): void {
 }
 
 /**
- * 最新Coordinator領域を既存領域の再利用なしに新規作成する。
+ * 共通状態領域を既存領域の再利用なしに新規作成する。
  * @responsibility Runtime Data Ownerで親境界と排他的mkdirの新規作成事実を結合する。
  * @trace ARCH-000011
  * @input capability: 検証済みRepository Root。
  * @returns 新規領域の境界観測とEffect情報、または停止。
  * @precondition Repository-localの.crdd親が既に正規配置で存在する。
  * @postcondition 既存ready領域を新品として返さない。
- * @effect 固定coordinator領域だけを排他的に作成する。
+ * @effect 固定domain-model領域だけを排他的に作成する。
  * @failure 既存領域、alias、親置換、観測不能では停止し、自動削除しない。
  * @invariant 空観測やensureによる再利用を初期化証拠にしない。
  * @boundary Runtime Dataの領域作成からCoordinator初期化Owner。
@@ -126,8 +127,9 @@ export function createCoordinatorRuntimeDataArea(
       fs.realpathSync.native(paths.root) !== paths.root
     )
       throw new Error("parent");
+    assertRuntimeStateInitializationBoundary(capability);
     if (
-      observeRepositoryRuntimeDataArea(capability, "coordinator").status !==
+      observeRepositoryRuntimeDataArea(capability, "domain-model").status !==
       "not_observed"
     )
       throw new Error("existing");
@@ -135,17 +137,18 @@ export function createCoordinatorRuntimeDataArea(
     if (root.dev !== before.dev || root.ino !== before.ino)
       throw new Error("parent_changed");
     effectIssued = true;
-    fs.mkdirSync(paths.coordinator, { mode: 0o700 });
+    fs.mkdirSync(paths.domainModel, { mode: 0o700 });
+    assertRuntimeStateInitializationBoundary(capability);
     const after = fs.lstatSync(paths.root, { bigint: true });
     const observation = observeRepositoryRuntimeDataArea(
       capability,
-      "coordinator",
+      "domain-model",
     );
     if (
       root.dev !== after.dev ||
       root.ino !== after.ino ||
       observation.status !== "ready" ||
-      fs.readdirSync(paths.coordinator).length !== 0
+      fs.readdirSync(paths.domainModel).length !== 0
     )
       throw new Error("changed");
     return Object.freeze({
@@ -160,6 +163,63 @@ export function createCoordinatorRuntimeDataArea(
       effectIssued,
     });
   }
+}
+
+/**
+ * 旧保存先を残した空の新版初期化を拒否する。
+ * @responsibility 旧領域の明示不存在と親の同一性だけを検査する。
+ * @trace ARCH-000011
+ * @input capability: 現在の真正Repository Root。
+ * @returns N/A: 存在又は観測不能なら例外。
+ * @precondition 呼出し側が同じ既存保存排他を保持する。
+ * @postcondition 内容・旧Schemaを読まず、ENOENTだけを不存在として受理する。
+ * @effect 固定旧Pathと親のmetadata読取りのみ。作成・移動・削除なし。
+ * @failure 存在、link、観測不能、親置換では停止する。
+ * @invariant 移行完了や旧Effectの終了を推定しない。
+ * @boundary 共通保存の初期化とフロントAIの明示移行。
+ * @security 任意Pathを受けず、内容や存在を公開結果へ開示しない。
+ * @concurrency 同じKernel排他下で処置直前と出版境界を再確認する。
+ */
+export function assertRuntimeStateInitializationBoundary(
+  capability: VerifiedRepositoryRoot,
+): void {
+  const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
+  if (!paths) throw new Error("runtime_initialization_boundary_unavailable");
+  let before: fs.BigIntStats | null = null;
+  try {
+    before = fs.lstatSync(paths.root, { bigint: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (
+    before &&
+    (!before.isDirectory() ||
+      before.isSymbolicLink() ||
+      fs.realpathSync.native(paths.root) !== paths.root)
+  )
+    throw new Error("runtime_initialization_boundary_unavailable");
+  try {
+    fs.lstatSync(path.join(paths.root, "coordinator"));
+    throw new Error("runtime_initialization_boundary_unavailable");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  let after: fs.BigIntStats | null = null;
+  try {
+    after = fs.lstatSync(paths.root, { bigint: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (
+    before === null
+      ? after !== null
+      : !after?.isDirectory() ||
+        after.isSymbolicLink() ||
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        fs.realpathSync.native(paths.root) !== paths.root
+  )
+    throw new Error("runtime_initialization_boundary_unavailable");
 }
 
 /**

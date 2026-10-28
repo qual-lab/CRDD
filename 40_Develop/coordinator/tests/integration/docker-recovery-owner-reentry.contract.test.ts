@@ -1263,7 +1263,7 @@ for (const producerMode of [
           { code: "ENOENT" },
         );
       }
-      const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+      const statePath = path.join(root, ".crdd", "domain-model", "state.json");
       const before = JSON.parse(fs.readFileSync(statePath, "utf8"));
       const target = before.operations.find(
         (item: { recoveryId: string }) =>
@@ -2143,7 +2143,7 @@ for (const fault of [
         report.dockerCalls,
         fault === "image" ? ["image"] : ["image", "create", "inspect"],
       );
-      const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+      const statePath = path.join(root, ".crdd", "domain-model", "state.json");
       const bytes = fs.readFileSync(statePath);
       assert.equal(
         createHash("sha256").update(bytes).digest("hex"),
@@ -2178,8 +2178,8 @@ for (const fault of [
         assert.equal(fs.lstatSync(location).isSymbolicLink(), false);
       for (const name of [
         "unexpected-finally",
-        ".crdd/coordinator/state.lock",
-        ".crdd/coordinator/state.pending.json",
+        ".crdd/domain-model/state.lock",
+        ".crdd/domain-model/state.pending.json",
       ])
         assert.throws(() => fs.lstatSync(path.join(root, name)), {
           code: "ENOENT",
@@ -2379,7 +2379,7 @@ for (const { repeatCount, retained } of [
         const repairStatePath = path.join(
           root,
           ".crdd",
-          "coordinator",
+          "domain-model",
           "state.json",
         );
         let writerFault: ReturnType<typeof mock.module> | null = retained
@@ -2791,7 +2791,7 @@ for (const { repeatCount, retained } of [
         const stateArea = requireReadyRepositoryRuntimeDataArea(
           ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
             root,
-            "coordinator",
+            "domain-model",
           ),
           "reentry_state_fixture",
         );
@@ -2804,7 +2804,7 @@ for (const { repeatCount, retained } of [
         assert.ok(repairCompletedState);
         assert.deepEqual(
           fs.readFileSync(
-            path.join(root, ".crdd", "coordinator", "state.json"),
+            path.join(root, ".crdd", "domain-model", "state.json"),
           ),
           repairCompletedState,
         );
@@ -2873,7 +2873,7 @@ for (const { repeatCount, retained } of [
       if (repairHistory)
         assertRepairHistory(
           fs.readFileSync(
-            path.join(root, ".crdd", "coordinator", "history.jsonl"),
+            path.join(root, ".crdd", "domain-model", "history.jsonl"),
           ),
         );
       if (repairCompletedState) {
@@ -3105,7 +3105,7 @@ for (const { repeatCount, retained } of [
         ).href
       );
       assert.ok(ownerRuntime);
-      const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+      const statePath = path.join(root, ".crdd", "domain-model", "state.json");
       const completedOperations = new Map<string, unknown>();
       const nonces = new Set<string>();
       for (let round = 0; round < repeatCount; round++) {
@@ -3123,7 +3123,7 @@ for (const { repeatCount, retained } of [
         if (repairHistory)
           assertRepairHistory(
             fs.readFileSync(
-              path.join(root, ".crdd", "coordinator", "history.jsonl"),
+              path.join(root, ".crdd", "domain-model", "history.jsonl"),
             ),
           );
         const capability: object = begun.recoveryCapability;
@@ -3395,7 +3395,7 @@ for (const { repeatCount, retained } of [
       if (repairHistory)
         assertRepairHistory(
           fs.readFileSync(
-            path.join(root, ".crdd", "coordinator", "history.jsonl"),
+            path.join(root, ".crdd", "domain-model", "history.jsonl"),
           ),
         );
       assert.equal(fs.existsSync(owned.root), false);

@@ -27,7 +27,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(++restartCalls, 1);
           assert.equal(input.signal.aborted, false);
           assert.equal(input.verifyBoundary(), true);
-          const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+          const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
           const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
           const target = snapshot.operations.find(item => item.recoveryId === process.argv[2]);
           assert.ok(target && target.dockerRestart === null);
@@ -74,7 +74,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
       if(restartEntry) {
         const restart = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
-        const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
         const target = snapshot.operations.find(item => item.recoveryId === id);
         const unrequested = ['create_egress_network','create_internal_network','create_provider','create_proxy','create_subscription_auth_probe'].map(purpose => ({purpose,request:authenticationUnknownRestart && purpose === 'create_subscription_auth_probe'?'unknown':'not_requested',dockerId:null,receiptSource:null,observation:'unobserved',absence:null}));
@@ -151,7 +151,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(durableConsumer) {
           assert.equal(identity.recoveryCorrelationId, 'upper-current-host');
           assert.notEqual(identity.recoveryCorrelationId, identity.operationId);
-          const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+          const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
           const bytes = fs.readFileSync(statePath);
           const refused = recovery.resolveRuntimeOwnedDockerTaskCurrentCorrelations(['upper-current-host', 'explicit-absent'], {...verified.capability});
           assert.equal(refused.status, 'blocked');
@@ -248,7 +248,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
                   Mounts:[{Type:'bind',Destination:'/provider-home',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/tmp',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/work',RW:identity.workspaceMountMode !== 'read_only',Propagation:'rprivate'}],
                 }]);
                 if(calls === 2) {
-                  const fresh = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.crdd','coordinator','state.json')));
+                  const fresh = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.crdd',"domain-model",'state.json')));
                   const freshResource = fresh.operations.find(item => item.recoveryId === resolvedId).resources.find(item => item.purpose === 'create_provider');
                   assert.equal(freshResource.request, 'identified'); assert.equal(freshResource.dockerId, dockerId);
                   stdout = dockerId+'\\n';
@@ -286,7 +286,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(report.locksReleased, true); assert.equal(report.historyConfirmed, true);
         assert.deepEqual(Object.keys(report).sort(), ['contract','status','reason','recoveryId','dockerCleanupConfirmed','hostCleanupConfirmed','locksReleased','historyConfirmed','deliveryPending','operationRetained','operationRemovalConfirmed','taskRecoveryCompleted','cleanupReason',...(!identifiedProvider ? ['cliCleanupConfirmed','cliCleanupReason'] : [])].sort());
         if(durableConsumer) {
-          const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+          const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
           const bytes = fs.readFileSync(statePath), state = JSON.parse(bytes);
           const retained = state.operations.find(item => item.recoveryId === resolvedId);
           assert.ok(retained);
@@ -305,11 +305,11 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(handoffFailure) {
           assert.equal(failureReached, 1); assert.equal(handoffWrites, 0);
           for(const file of [identity.hostPaths.root, identity.hostPaths.marker]) assert.throws(() => fs.lstatSync(file), {code: 'ENOENT'});
-          for(const file of ['state.pending.json', 'state.lock', 'history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(process.cwd(), '.crdd', 'coordinator', file)), {code: 'ENOENT'});
+          for(const file of ['state.pending.json', 'state.lock', 'history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(process.cwd(), '.crdd', "domain-model", file)), {code: 'ENOENT'});
           const saved = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
           assert.equal(saved.status, 'completed');
           assert.deepEqual(saved.value.snapshot.operations, before.value.snapshot.operations.filter(item => item.recoveryId !== id));
-          const history = historyValues.decodeCoordinatorHistoryRows(fs.readFileSync(path.join(process.cwd(), '.crdd', 'coordinator', 'history.jsonl')));
+          const history = historyValues.decodeCoordinatorHistoryRows(fs.readFileSync(path.join(process.cwd(), '.crdd', "domain-model", 'history.jsonl')));
           assert.ok(history);
           const row = history.find(item => item.recoveryId === id); assert.ok(row);
           const summary = JSON.parse(row.line).summary;
@@ -323,7 +323,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       }
       if(process.argv[3] === 'recover_history' || process.argv[3] === 'recover_delivery') {
         const recoveringDelivery = process.argv[3] === 'recover_delivery';
-        const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const hasTemporary = ['state.lock', 'state.pending.json', 'history.pending.jsonl'].some(name => fs.existsSync(path.join(path.dirname(statePath), name)));
         assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, hasTemporary ? 'blocked' : 'completed');
         const observed = recoveringDelivery ? store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id) : store.readRuntimeOwnedCoordinatorCurrentHistorySnapshot(verified.capability, id);
@@ -392,7 +392,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         process.stdout.write('history_publication_recovered'); return;
       }
       if(process.argv[3] === 'recover_cleanup') {
-        const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const pendingPath = path.join(path.dirname(statePath), 'state.pending.json');
         const lockPath = path.join(path.dirname(statePath), 'state.lock');
         assert.equal(store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability).status, 'blocked');
@@ -460,7 +460,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(result.recoveryId, id); assert.equal(result.dockerCleanupConfirmed, true); assert.equal(result.hostCleanupConfirmed, true);
         assert.equal(result.locksReleased, true); assert.equal(result.historyConfirmed, true); assert.equal(result.deliveryPending, false);
         assert.equal(result.operationRetained, true); assert.equal(result.taskRecoveryCompleted, false); assert.ok(result.preparation);
-        const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json'), before = fs.readFileSync(statePath);
+        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json'), before = fs.readFileSync(statePath);
         const historyPath = path.join(path.dirname(statePath), 'history.jsonl'), historyBefore = fs.readFileSync(historyPath);
         const protectedPaths = new Set([...['state.json', 'history.jsonl', 'state.pending.json', 'state.lock', 'history.pending.jsonl'].map(name => path.join(path.dirname(statePath), name)), hostRoot, hostMarker]);
         const originals = { openSync: fs.openSync, closeSync: fs.closeSync, writeFileSync: fs.writeFileSync, appendFileSync: fs.appendFileSync, writeSync: fs.writeSync, renameSync: fs.renameSync, unlinkSync: fs.unlinkSync, truncateSync: fs.truncateSync, mkdirSync: fs.mkdirSync, rmdirSync: fs.rmdirSync, rmSync: fs.rmSync };
@@ -552,7 +552,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const middleBytes = Buffer.from(stateValues.encodeRuntimeStateValue(middle)+'\\n');
       const final = { ...middle, revision: middle.revision+1, previous: { revision: middle.revision, payloadSha256: createHash('sha256').update(middleBytes).digest('hex') }, operations: middle.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, currentToken: expectedToken, pendingTransitionJson: null } } : item) };
       const finalBytes = Buffer.from(stateValues.encodeRuntimeStateValue(final)+'\\n');
-      const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
+      const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
       const versions = [], rename = fs.renameSync, open = fs.openSync;
       const publicationFault = process.argv[3] === 'null_outcome' || process.argv[3].startsWith('history_') || process.argv[3].startsWith('delivery_') || process.argv[3] === 'workbench_transient' ? 'none' : process.argv[3];
       let injectCleanupFault = false, faultInjected = false;
@@ -771,7 +771,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }
       }
       if(process.argv[3] === 'delivery_none') {
-        const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json'), before = fs.readFileSync(statePath);
+        const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json'), before = fs.readFileSync(statePath);
         const refused = recovery.completeRuntimeOwnedDockerTaskTransientRecovery(capability);
         assert.equal(refused.status, 'blocked'); assert.equal(refused.filesystemEffectIssued, false);
         assert.deepEqual(fs.readFileSync(statePath), before);

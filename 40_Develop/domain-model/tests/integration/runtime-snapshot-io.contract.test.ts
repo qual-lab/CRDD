@@ -188,7 +188,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
       assert.equal(releases, beforeReleases + 1);
       assert.equal(areaCreations, 0);
       assert.equal(
-        fs.existsSync(path.join(root, ".crdd", "coordinator")),
+        fs.existsSync(path.join(root, ".crdd", "domain-model")),
         false,
       );
       assert.equal(
@@ -227,7 +227,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         observed.status === "completed" ? observed.capability : null,
       );
     };
-    const current = path.join(root, ".crdd", "coordinator");
+    const current = path.join(root, ".crdd", "domain-model");
     assert.equal(
       store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability)
         .status,
@@ -935,7 +935,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
     },
   );
   assert.equal(reserved.status, "completed", JSON.stringify(reserved));
-  const current = path.join(root, ".crdd", "coordinator", "state.json");
+  const current = path.join(root, ".crdd", "domain-model", "state.json");
   const leaseSnapshot = readCoordinatorSnapshot(root, "binding-a").value;
   assert.ok(leaseSnapshot);
   {
@@ -980,7 +980,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
     const pendingPath = path.join(
       root,
       ".crdd",
-      "coordinator",
+      "domain-model",
       "state.pending.json",
     );
     const pendingBytes = `${JSON.stringify({
@@ -1069,7 +1069,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
     const pendingPath = path.join(
       root,
       ".crdd",
-      "coordinator",
+      "domain-model",
       "state.pending.json",
     );
     const pending: string = `${JSON.stringify({ payload: invalid, contentHash: createHash("sha256").update(JSON.stringify(invalid)).digest("hex"), baseRevision: payload.snapshotRevision, baseHash: createHash("sha256").update(before).digest("hex") })}\n`;
@@ -1092,7 +1092,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   const pendingPath = path.join(
     root,
     ".crdd",
-    "coordinator",
+    "domain-model",
     "state.pending.json",
   );
   fs.writeFileSync(pendingPath, pending);
@@ -1307,7 +1307,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     "prepared",
   );
   const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "coordinator"),
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
     "state_root",
   );
   assert.equal(
@@ -1402,7 +1402,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   );
   const verifiedOtherRoot = verifyRepositoryRoot(otherRoot);
   assert.ok(verifiedOtherRoot.capability);
-  const otherArea = path.join(otherRoot, ".crdd", "coordinator");
+  const otherArea = path.join(otherRoot, ".crdd", "domain-model");
   fs.mkdirSync(otherArea, { recursive: true });
   fs.writeFileSync(path.join(otherArea, "state.json"), firstBytes, {
     flag: "wx",
@@ -1850,7 +1850,7 @@ test("Task保存のpending作成前失敗は自分のmarkerだけ回収する", 
         initializeCoordinatorSnapshot(root, "binding-a").status,
         "completed",
       );
-      const directory = path.join(root, ".crdd", "coordinator");
+      const directory = path.join(root, ".crdd", "domain-model");
       const current = path.join(directory, "state.json");
       const pending = path.join(directory, "state.pending.json");
       const marker = path.join(directory, "state.lock");
@@ -1993,7 +1993,7 @@ test("名前付きareaの観測不能は現行Snapshot Readerを停止する", (
     initializeCoordinatorSnapshot(root, "binding-a").status,
     "completed",
   );
-  const runtime = path.join(root, ".crdd", "coordinator");
+  const runtime = path.join(root, ".crdd", "domain-model");
   const location = path.join(runtime, "state.json");
   const beforeBytes = fs.readFileSync(location);
   const original = fs.lstatSync;
@@ -2026,7 +2026,7 @@ test("名前付きareaの観測不能は現行Snapshot Readerを停止する", (
 test("名前付き空areaの途中置換はSnapshot Readerを停止する", (t) => {
   const { root } = fixture(t);
   const runtime = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "coordinator"),
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
     "fixture_area_invalid",
   ).directory;
   const prior = path.join(root, "prior-runtime-area");
@@ -2245,7 +2245,7 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   };
   assert.equal(seedSnapshot(root, payload).status, "completed");
   assert.deepEqual(readCoordinatorSnapshot(root, "binding-a").value, payload);
-  const directory = path.join(root, ".crdd", "coordinator");
+  const directory = path.join(root, ".crdd", "domain-model");
   const current = path.join(directory, "state.json");
   const before = fs.readFileSync(current, "utf8");
   assert.equal(readCoordinatorSnapshot(root, "binding-b").status, "blocked");
@@ -2357,8 +2357,13 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
     acceptanceDecisions: [],
     decisionRecoveries: [],
   };
-  const current = path.join(root, ".crdd", "coordinator", "state.json");
-  const pending = path.join(root, ".crdd", "coordinator", "state.pending.json");
+  const current = path.join(root, ".crdd", "domain-model", "state.json");
+  const pending = path.join(
+    root,
+    ".crdd",
+    "domain-model",
+    "state.pending.json",
+  );
   assert.equal(seedSnapshot(root, payload).status, "completed");
   const first = fs.readFileSync(current, "utf8");
   assert.deepEqual(readCoordinatorSnapshot(root, "binding-a").value, payload);
@@ -2492,7 +2497,7 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
       "blocked",
     );
     assert.equal(
-      fs.existsSync(path.join(root, ".crdd", "coordinator", "state.json")),
+      fs.existsSync(path.join(root, ".crdd", "domain-model", "state.json")),
       false,
     );
   }
@@ -2535,7 +2540,7 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
   assert.equal(fs.existsSync(otherRuntime), false);
   for (const name of ["state.json", "state.pending.json", "state.lock"])
     assert.equal(
-      fs.existsSync(path.join(root, ".crdd", "coordinator", name)),
+      fs.existsSync(path.join(root, ".crdd", "domain-model", name)),
       false,
     );
 });
@@ -2655,7 +2660,7 @@ function stateWithStoredBytes(
 }
 
 function stateDirectory(root: string) {
-  return path.join(root, ".crdd", "coordinator", "state", "project-a");
+  return path.join(root, ".crdd", "domain-model", "state", "project-a");
 }
 
 /**
@@ -2681,7 +2686,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
       initializeCoordinatorSnapshot(root, "binding-a").status,
       "completed",
     );
-    const location = path.join(root, ".crdd", "coordinator", "state.json");
+    const location = path.join(root, ".crdd", "domain-model", "state.json");
     const baseJson = fs.readFileSync(location, "utf8");
     const repository = verifyRepositoryRoot(root);
     assert.equal(repository.status, "completed");
@@ -2719,7 +2724,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
       assert.equal(fs.readFileSync(location, "utf8"), baseJson);
       assert.equal(
         fs.existsSync(
-          path.join(root, ".crdd", "coordinator", "state.pending.json"),
+          path.join(root, ".crdd", "domain-model", "state.pending.json"),
         ),
         false,
       );
@@ -2751,7 +2756,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
     "completed",
   );
   const baseJson = fs.readFileSync(
-    path.join(root, ".crdd", "coordinator", "state.json"),
+    path.join(root, ".crdd", "domain-model", "state.json"),
     "utf8",
   );
   const binding = JSON.parse(baseJson).repositoryBinding as string;

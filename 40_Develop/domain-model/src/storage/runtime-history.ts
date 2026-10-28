@@ -137,7 +137,7 @@ export function updateCoordinatorHistoryOwned(
     if (root.status !== "completed") return blocked;
     const area = observeRepositoryRuntimeDataArea(
       root.capability,
-      "coordinator",
+      "domain-model",
     );
     const policy = readCoordinatorConfig(root.capability);
     const state = readCoordinatorStorageSnapshotOwned(owner, "history");
@@ -157,7 +157,7 @@ export function updateCoordinatorHistoryOwned(
     const assertOwner = () => {
       const fresh = observeRepositoryRuntimeDataArea(
         root.capability,
-        "coordinator",
+        "domain-model",
       );
       const config = readCoordinatorConfig(root.capability);
       if (
@@ -313,7 +313,7 @@ export function inspectCoordinatorHistorySettlement(
     if (root.status !== "completed") return null;
     const area = observeRepositoryRuntimeDataArea(
       root.capability,
-      "coordinator",
+      "domain-model",
     );
     const policy = readCoordinatorConfig(root.capability);
     if (
@@ -335,7 +335,7 @@ export function inspectCoordinatorHistorySettlement(
     );
     const final = observeRepositoryRuntimeDataArea(
       root.capability,
-      "coordinator",
+      "domain-model",
     );
     const finalPolicy = readCoordinatorConfig(root.capability);
     return matched &&

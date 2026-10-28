@@ -44,7 +44,7 @@ const revision = "a".repeat(40);
  */
 test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は書き換えない", (t) => {
   const { root, ports } = fixture(t);
-  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const file = path.join(root, ".crdd", "domain-model", "state.json");
   const before = fs.readFileSync(file);
   const previous = readCoordinatorExecutionState(
     verifyRuntimePersistenceRepository(root),

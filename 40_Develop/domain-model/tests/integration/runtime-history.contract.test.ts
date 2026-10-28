@@ -455,7 +455,7 @@ function fixture(t: test.TestContext) {
     "binding-a",
   );
   assert.equal(initialized.status, "completed", initialized.reason);
-  const directory = path.join(root, ".crdd", "coordinator");
+  const directory = path.join(root, ".crdd", "domain-model");
   return {
     root,
     directory,

@@ -924,7 +924,7 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
       `const historyIdentities=[];${stripTypeScriptTypes(source.slice(begin, end))};historyIdentities`,
       {
         root: "synthetic",
-        paths: { coordinator: "synthetic/.crdd/coordinator" },
+        paths: { domainModel: "synthetic/.crdd/domain-model" },
         path: { join: (...parts: string[]) => parts.join("/") },
         fs: {
           existsSync: () => true,

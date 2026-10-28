@@ -2,6 +2,8 @@
 
 ### Core公開入口の分離確認 — 2026-10-28
 
+共通保存先の切替は既存`PRL-IT-012`／`PRL-IT-013`へ接続する。自己生成Rootで旧領域のDirectory・File・junction・観測不能・親実体差を用意し、空初期化の処置前拒否を確認する。初回出版中の後発出現はunknownと同じmarker／pendingを保持し、再入場の上書き零・両本文不変・正本不存在を観測する。新正本成立後の通常Reader／Writerは旧領域を探索せず、Schema・CAS・Kernel排他・一回使用証拠を維持する。これは実データ移行・旧保持物の回収試験ではない。
+
 `PRL-IT-012`ではCoordinator／ExecutorのModule解決を拒否した実子ProcessからMCPとWorkbenchのPackage Rootを読み、正式Factory／HTTPを通して初期化・定義CRUD・保存・再読取り・古いCAS拒否を確認する。MCPの既存同期結果Inspectorも同条件で同期呼出しし、単体Toolだけの読込み成功で上位入口の成立を代用しない。Automation区画の非対象保全と保存不明は既存Domain実保存シナリオで別に確認する。
 
 Workbenchの公開binでは既定Coreと明示`--automation`を分け、前者は実行Owner読込み零、後者だけ同じ既存Task Sessionを構成する。有限代役を使うbin構成試験と、実HTTP／実保存試験を別の根拠とする。共有接続の動的読込み待機中の失効・Root差・取消では、Policy又はWorkspaceの実観測前に停止する。定義POSTの有限搬送上限はDomain上限に整合させ、大きい合法入力を別仕様として拒否しない。上限超・不正Token・閉入力違反では保存Effect零を確認する。

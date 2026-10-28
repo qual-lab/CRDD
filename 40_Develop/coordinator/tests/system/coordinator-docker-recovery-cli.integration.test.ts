@@ -708,7 +708,7 @@ test("現在回復rendererは完了と耐久受領待ちを区別する", () => 
 function invokeCli(isJson: boolean) {
   const stateFile = path.resolve(
     import.meta.dirname,
-    "../../../../.crdd/coordinator/state.json",
+    "../../../../.crdd/domain-model/state.json",
   );
   const before = fs.existsSync(stateFile)
     ? createHash("sha256").update(fs.readFileSync(stateFile)).digest("hex")

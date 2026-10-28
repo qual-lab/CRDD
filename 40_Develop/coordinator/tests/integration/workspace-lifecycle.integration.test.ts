@@ -1933,7 +1933,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     `${encodeRuntimeStateValue({ ...physical.value.snapshot, revision: physical.value.snapshot.revision + 1, previous: { revision: physical.value.snapshot.revision, payloadSha256: physical.value.payloadSha256 }, intakeBindings: [...prior.intakeBindings, ...terminalQueues.map((entry) => ({ queueId: entry.queueId, epoch: prior.intakeEpoch }))], queueEntries: [...prior.queueEntries, ...terminalQueues] })}\n`,
   );
   fs.writeFileSync(
-    path.join(f.root, ".crdd", "coordinator", "state.json"),
+    path.join(f.root, ".crdd", "domain-model", "state.json"),
     fixtureBytes,
   );
   assert.equal(readFixtureSnapshot(f.root, f.binding).status, "completed");

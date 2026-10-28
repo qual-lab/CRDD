@@ -671,7 +671,7 @@ async function verify(
                   recoveryId: operation.recoveryId,
                 });
               }
-              const historyFile = path.join(paths.coordinator, "history.jsonl");
+              const historyFile = path.join(paths.domainModel, "history.jsonl");
               if (fs.existsSync(historyFile)) {
                 const metadata = fs.lstatSync(historyFile);
                 assert.equal(metadata.isSymbolicLink(), false);

@@ -80,7 +80,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
     const { inspectRuntimeOwnedDockerTaskAdmission: inspect } = await import(
       "../../src/execution/recovery.ts"
     );
-    const current = path.join(root, ".crdd", "coordinator");
+    const current = path.join(root, ".crdd", "domain-model");
     const available = {
       status: "available",
       reason: "coordinator_current_admission_available",

@@ -1,8 +1,12 @@
 # `.crdd` Runtime Dataの目標Architecture
 
-## 共通状態保存の追加契約 — 2026-10-27
+## 共通状態保存の配置切替 — 2026-10-28
 
-[Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。`.crdd/domain-model/`への移動は第一候補・未有効であり、既存Root／Schemaを空で初期化せず、フロントAI移行と新Schema固定を先行条件とする。
+[Runtime Domain保存契約](05_Runtime_Domain.md#runtime-domain-storage)が、単一Snapshot／CAS、局所定義と管理実行記録の分離、現在認可との結合、五種一回使用Context・初期化・履歴出版の物理順序を所有する。本書は名前付きRoot・配置・保持・清掃を継続して所有し、同じAPIや状態遷移を複製しない。人間承認により共通保存先を`.crdd/domain-model/`へ統一する。製品は新配置だけを読み書きし、実データの移行・切戻しは[フロントAI手順](../../../19_Workflows/01_Coordinator_Runtime.md#runtime-domain-storage-migration)へ分離する。今回のSource切替は実データ移行済みを意味しない。
+
+公開Pathは`domainModel`、名前付き領域は`domain-model`だけとし、旧`coordinator`のaliasは持たない。空初期化では旧固定Pathのmetadataだけを検査し、ENOENTだけを許可する。旧領域の存在・観測不能・親置換は新規作成を拒否する。内容、旧codec、Fallback、移動・清掃は製品へ追加しない。移行済みの新しい正本が存在する場合、その読取りを旧領域探索へ結合しない。
+
+`state.lock`は保存途中の耐久markerであり、短期Kernel排他の生きたhandleではない。Kernel名・Repository Root由来のHashは維持して旧新版の排他を分断しない。保持設定は現行の`.crdd/config/coordinator.json`を引き続きDomainの履歴Ownerが読む。設定名の変更や保持値の黙示初期化は今回行わない。templateには共通状態領域の`.gitkeep`を置かず、真正不存在からの明示初期化だけで生成する。
 
 [Workspace配置契約](../coordinator/05_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
 
@@ -121,7 +125,7 @@ Related:
    │  ├─ repository-manifest.json             Project Identity、役割、Capability宣言
    │  └─ external-send-policy.json            外部送信の情報分類、送信先、条件
    │
-   ├─ coordinator/                         [D/W] Task進行・技術実行の現在状態
+   ├─ domain-model/                        [D/W] 共通定義・Task進行・技術実行の現在状態
    │  ├─ state.json                           単一改訂の現在状態
    │  ├─ state.lock                           保存中だけのmarker
    │  ├─ state.pending.json                   保存中の候補
@@ -178,15 +182,16 @@ Related:
 | `.crdd/orchestrator/` | `.crdd/coordinator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さず、現在状態・要約履歴・短命保存物の再入場保証を維持する。 |
 | `.crdd/config/orchestrator.json` | `.crdd/config/coordinator.json` | フロントAIが保持日数を照合して引き継ぐ。両設定の値が異なる場合は人間判断へ戻し、Runtimeによる旧設定探索は行わない。 |
 | orchestrator設定例・Schema | coordinator設定例・Schema | Taskと技術履歴の同一Owner化へ追従し、旧Reader・配布例・Schemaを撤去する。Execution Intelligenceとは統合しない。 |
-| `.crdd/coordinator/`、`.crdd/execution-intelligence/` | 同名を維持 | Coordinatorは業務と技術実行の一つの保存Owner、Execution Intelligenceは非Authorityの分析履歴Ownerとし、正本を複製しない。 |
+| `.crdd/coordinator/` | `.crdd/domain-model/` | 共通保存をDomainへ移す。上節とフロントAI移行手順に従い、過去状態を空初期化又は自動変換しない。 |
+| `.crdd/execution-intelligence/` | 同名を維持 | 非Authorityの分析履歴Ownerとし、共通の現在状態を複製しない。 |
 
-最新の単一保存・設定契約は[詳細設計](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)が所有する。移行前の基準ツリーと旧設定名を新構成の配置指示として使用しない。旧設定Reader・配布例・Schemaは撤去し、実設定は値の一致を確認してCoordinator設定へ一本化する。未解決の旧実行記録は設定整理に巻き込まない。
+共通保存の配置・公開契約は[Runtime Domain](05_Runtime_Domain.md)、Task側の論理Lifecycleは[詳細設計](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)が所有する。移行前の基準ツリーと旧設定名を新構成の配置指示として使用しない。旧設定Reader・配布例・Schemaは撤去し、実設定は値の一致を確認してCoordinator設定へ一本化する。未解決の旧実行記録は設定整理に巻き込まない。
 
 以前のOrchestrator保存への切替結果は[歴史記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)として維持し、保存統合Bの検証根拠へ流用しない。Bでは旧形式のRuntime変換を行わず、フロントAIが対象と未解決参照を確認して移行する。②の保持物は別判断まで移行・清掃の対象にしない。
 
 ```text
 .crdd/
-├ coordinator/
+├ domain-model/
 │  ├ state.json
 │  ├ state.lock
 │  ├ state.pending.json
@@ -198,14 +203,14 @@ Related:
 
 `state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。Coordinator固有署名方式の撤去に伴い、署名専用の`tmp/signature/`プロファイルをSourceから除去した。通常の一時操作v3は維持する。旧入力拒否・通常保存・再入場を含むDomain全122件と限定独立確認を通過した。初回の競合試験1件Timeoutは原因未確定として変更計画に保持し、再実行成功で初回記録を置換しない。Docker現在状態の切替は別に処置する。
 
-状態のSchema、保存確定、履歴搬送と移行は[Orchestrator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
+状態のSchema・物理保存は[Runtime Domain](05_Runtime_Domain.md)、Taskの進行・履歴条件は[Coordinator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
 
 ## 3. 各領域の意味
 
 | 領域 | 所有する情報 | 主な終了条件 |
 |---|---|---|
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
-| `coordinator/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | [単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。別寿命のcaller接続は[既存契約](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)を維持する |
+| `domain-model/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | Domainが物理保存を所有し、[単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。別寿命のcaller接続は[既存契約](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)を維持する |
 | `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |
@@ -356,7 +361,7 @@ Recovery記録は、状態遷移、再入場および解消を所有するCompon
 
 | Recovery対象 | 保存先 |
 |---|---|
-| Queue、Decision、Integration、Project State | `coordinator/state.json`内の既存の未解決区画・参照。専用Directoryを追加しない |
+| Queue、Decision、Integration、Project State | `domain-model/state.json`内の既存の未解決区画・参照。専用Directoryを追加しない |
 | Candidate適用・rollback | `candidates/<candidate-id>/recovery/` |
 | Release staging、署名、Promotion | `release/<candidate-id>/recovery/` |
 | Docker、子Process、Host Resource | 対象を所有するPlatform／Runtimeの保護領域 |

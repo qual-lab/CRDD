@@ -1555,7 +1555,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 ### 現在状態と履歴を分ける縮小設計
 
-保存統合Bの現行配置は、検証したRepository Root直下の`.crdd/coordinator/`にある`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`、`history.pending.jsonl`である。配置の共通責務は[Runtime Data](../domain-model/03_Repository_Storage.md#compact-owner-layout)、単一保存の契約は[Task詳細設計](04_Task_Detailed_Design.md#compact-runtime-storage)を正本とする。旧形式は移行元であり並行運用しない。Source接続と、固定全回帰・実境界の成立確認は区別する。
+共通保存の物理OwnerはDomain Modelであり、現在の配置は、検証したRepository Root直下の`.crdd/domain-model/`にある`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`、`history.pending.jsonl`である。配置の共通責務は[Runtime Data](../domain-model/03_Repository_Storage.md#compact-owner-layout)、単一保存の契約は[Task詳細設計](04_Task_Detailed_Design.md#compact-runtime-storage)を正本とする。旧形式は移行元であり並行運用しない。Source接続と、固定全回帰・実境界の成立確認は区別する。
 
 | 情報 | 所有・終了条件 |
 |---|---|

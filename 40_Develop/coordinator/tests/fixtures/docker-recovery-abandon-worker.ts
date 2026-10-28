@@ -76,7 +76,7 @@ const verified = vc.verifyRepositoryRoot(root);
 assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 assert.equal(vc.resolveVerifiedRepositoryRoot(verified.capability), root);
-const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+const statePath = path.join(root, ".crdd", "domain-model", "state.json");
 
 /**
  * 自己生成Coordinator領域の全実体と本文を捕捉する。
@@ -183,7 +183,7 @@ if (mode !== "recovery") {
   const snapshotArea = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       root,
-      "coordinator",
+      "domain-model",
     ),
     "abandon_snapshot_fixture",
   );
@@ -1255,7 +1255,7 @@ if (mode !== "recovery") {
     distribution,
     "template",
     "tools",
-    "coordinator",
+    "domain-model",
     "windows-x64",
     "crdd-platform-access.exe",
   );

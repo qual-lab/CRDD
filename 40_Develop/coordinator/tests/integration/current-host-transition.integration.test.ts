@@ -369,7 +369,7 @@ for (const publicationFault of [
       const snapshotArea = requireReadyRepositoryRuntimeDataArea(
         ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
           root,
-          "coordinator",
+          "domain-model",
         ),
         "fixture_snapshot_area",
       );
@@ -425,7 +425,12 @@ for (const publicationFault of [
               : "create_provider"),
         );
         assert.ok(resource);
-        const statePath = path.join(root, ".crdd", "coordinator", "state.json");
+        const statePath = path.join(
+          root,
+          ".crdd",
+          "domain-model",
+          "state.json",
+        );
         const requests =
           publicationFault === "restart_auth_cli_entry"
             ? (["intent_saved", "unknown"] as const)
@@ -589,12 +594,12 @@ for (const publicationFault of [
         "history.pending.jsonl",
       ])
         assert.throws(
-          () => fs.lstatSync(path.join(root, ".crdd", "coordinator", file)),
+          () => fs.lstatSync(path.join(root, ".crdd", "domain-model", file)),
           { code: "ENOENT" },
         );
       const finalState = JSON.parse(
         fs.readFileSync(
-          path.join(root, ".crdd", "coordinator", "state.json"),
+          path.join(root, ".crdd", "domain-model", "state.json"),
           "utf8",
         ),
       );
@@ -630,7 +635,7 @@ for (const publicationFault of [
         );
         const rows = fs
           .readFileSync(
-            path.join(root, ".crdd", "coordinator", "history.jsonl"),
+            path.join(root, ".crdd", "domain-model", "history.jsonl"),
             "utf8",
           )
           .trim()

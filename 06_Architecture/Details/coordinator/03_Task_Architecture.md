@@ -194,7 +194,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 段階5Cでは上位Attemptの記録変換を本領域の`src/task/execution-intelligence-adapter.ts`へ移し、公開入口から利用する。認証済みPrincipalと受入判断の一致検査も`src/decision/acceptance-authority-adapter.ts`で所有し、本領域の本番組立ては同じ公開入口を利用する。物理親Directoryは`40_Develop/coordinator`、Package名は`@qual-lab/crdd-coordinator`へ切替済みである。共通実行・通知と全利用側の接続確認は未完了である。下位Coordinatorの共通Operation記録と上位Attempt記録を重複発行しない責務は維持する。
 
-旧State／Queue／Leaseの移行入力Readerは本番へ残さず、移行はフロントAIの明示手順が所有する。現在Readerは不存在・観測不能・Root置換を区別し、既存意図・証拠とexact参照を保全する。保存先は`.crdd/coordinator/state.json`、通常終了要約は同領域の`history.jsonl`、保持設定は`.crdd/config/coordinator.json`へ統一する。保存形式の変更で業務進行・判断・終了条件を緩めない。保持②は移行・清掃の対象にしない。
+旧State／Queue／Leaseの移行入力Readerは本番へ残さず、移行はフロントAIの明示手順が所有する。現在Readerは不存在・観測不能・Root置換を区別し、既存意図・証拠とexact参照を保全する。保存先は`.crdd/domain-model/state.json`、通常終了要約は同領域の`history.jsonl`、保持設定は`.crdd/config/coordinator.json`へ統一する。保存形式の変更で業務進行・判断・終了条件を緩めない。保持②は移行・清掃の対象にしない。
 
 本番の上位組立ては`src/objective/composition.ts`、`src/decision/lifecycle.ts`、`src/state/query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続も`src/objective/composition.ts`が所有する。Principal観測は`src/decision/lifecycle.ts`、Workspace利用・固定・採否は`src/workspace/operations.ts`、保護された判断世代の保存は`src/decision/store.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
 

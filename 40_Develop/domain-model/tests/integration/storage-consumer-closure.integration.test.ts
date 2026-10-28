@@ -230,7 +230,7 @@ function violations(sources: SourceSet): string[] {
       ),
     ].flatMap((match) => (match[1] ? [match[1]] : []));
     const properties =
-      "config|orchestrator|coordinator|executionIntelligence|verification|candidates|workspaces|release|communication|tests|temporary";
+      "config|orchestrator|coordinator|domainModel|executionIntelligence|verification|candidates|workspaces|release|communication|tests|temporary";
     if (
       pathSets.some((name) =>
         new RegExp(
@@ -407,7 +407,7 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
     "40_Develop/future-tool/src/consumer.ts",
     [
       "const paths = resolveRepositoryRuntimeDataPaths(capability);",
-      "const parent = path.dirname(paths.coordinator);",
+      "const parent = path.dirname(paths.domainModel);",
     ].join("\n"),
   );
   assert.ok(

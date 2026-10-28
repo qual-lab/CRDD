@@ -492,7 +492,7 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   const statePath = path.join(
     repository.root,
     ".crdd",
-    "coordinator",
+    "domain-model",
     "state.json",
   );
   const initialRevision = JSON.parse(

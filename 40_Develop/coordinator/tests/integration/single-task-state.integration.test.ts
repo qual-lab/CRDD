@@ -264,7 +264,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(read.value.projects.length, 0);
   assert.equal(read.value.queueEntries.length, 2);
   const physical = JSON.parse(
-    fs.readFileSync(path.join(root, ".crdd/coordinator/state.json"), "utf8"),
+    fs.readFileSync(path.join(root, ".crdd/domain-model/state.json"), "utf8"),
   );
   assert.equal(physical.historyPending.length, 1);
   assert.equal(JSON.stringify(read.value).includes("prompt"), false);
@@ -882,7 +882,7 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
   );
   assert.deepEqual(end.value.leaseIntents, []);
   const technical = JSON.parse(
-    fs.readFileSync(path.join(root, ".crdd/coordinator/state.json"), "utf8"),
+    fs.readFileSync(path.join(root, ".crdd/domain-model/state.json"), "utf8"),
   ) as {
     operations: unknown[];
     unresolvedRecoveries: unknown[];

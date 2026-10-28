@@ -869,7 +869,7 @@ export function resolveCoordinatorNamedPaths(workingDirectory: string) {
  */
 function observeCoordinatorArea(
   repositoryRoot: string,
-  area: "coordinator" | "tmp",
+  area: "domain-model" | "tmp",
 ) {
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
@@ -904,7 +904,7 @@ function observeCoordinatorArea(
  */
 export function assertCoordinatorArea(
   repositoryRoot: string,
-  area: "coordinator" | "tmp",
+  area: "domain-model" | "tmp",
   directory: string,
 ) {
   const observation = observeCoordinatorArea(repositoryRoot, area);
@@ -930,7 +930,7 @@ export function assertCoordinatorArea(
  */
 export function assertCoordinatorAreaUnchanged(
   repositoryRoot: string,
-  area: "coordinator" | "tmp",
+  area: "domain-model" | "tmp",
   initial: Exclude<RepositoryRuntimeDataAreaObservation, { status: "blocked" }>,
 ) {
   const current = observeCoordinatorArea(repositoryRoot, area);
