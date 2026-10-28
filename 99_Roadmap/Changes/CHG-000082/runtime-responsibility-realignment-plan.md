@@ -316,7 +316,7 @@ Executorの静的検査込み回帰六件はすべて成功。明示CLI入口も
 
 #### 実Home事前確認の別入口 — 2026-10-28
 
-実AIへ進む前の認証領域metadata・共有排他の確認だけを、`executor/scripts/verify-provider-home.ts <codex|claude> <run-id>`へ接続した。通常`verify:standalone`やpackage importから実Homeを観測しない。製品Source／API・Home・Credentialの配置・既存Lock契約は変更しない。実行は一Providerのexact一回について別途承認してから行い、今回はPlatform observer／Lockを代役化した非AI試験だけを実施する。
+実AIへ進む前の認証領域metadata・共有排他の確認だけを、`executor/scripts/verify-provider-home.ts <codex|claude> <run-id>`へ接続した。通常`verify:standalone`やpackage importから実Homeを観測しない。製品Source／API・Home・Credentialの配置・既存Lock契約は変更しない。実行は一Providerのexact一回について別途承認してから行い、実装時はPlatform observer／Lockを代役化した非AI試験だけを実施した。
 
 | 境界 | 処置 |
 |---|---|
@@ -331,7 +331,9 @@ Executorの静的検査込み回帰六件はすべて成功。明示CLI入口も
 
 この入口の成功は「観測一致と、その事前確認のLock解放・試験Root回収」を意味するだけで、ログイン成功・AI実行許可・試行中の共有Home保持・本番Runtime state保存・Recovery完了を意味しない。これらの実行接続は残件として維持する。実AI・Docker・実認証内容・過去保持物を操作していない。
 
-静的検査を含むExecutor回帰は八件成功、単独非AI CLIも成功、Catalogは415項目validだった。限定独立レビューで候補受理時のNative Process発行確認と、発行済み・終了未確認の反例不足一件を検出した。両観測で発行済みを要求し、初回／保持中の終了未知と未発行候補を追加して再レビュー残指摘零とした。十八条件は二Case内の条件数であり、回帰八件とは別の母集団である。変更三文書・Executor Symbolの文書検査指摘は零、参照展開五十七文書の他CHG本文3,050指摘は不合格のまま保持する。実Homeの事前確認は未実行で、次の人間判断は固定Provider一値・exact試験Rootに限定したNative metadata観測二回以下と既存共有排他取得・解放一回の操作承認とする。
+静的検査を含むExecutor回帰は八件成功、単独非AI CLIも成功、Catalogは415項目validだった。限定独立レビューで候補受理時のNative Process発行確認と、発行済み・終了未確認の反例不足一件を検出した。両観測で発行済みを要求し、初回／保持中の終了未知と未発行候補を追加して再レビュー残指摘零とした。十八条件は二Case内の条件数であり、回帰八件とは別の母集団である。変更三文書・Executor Symbolの文書検査指摘は零、参照展開五十七文書の他CHG本文3,050指摘は不合格のまま保持する。この事前検証時点では実Home確認は未実行で、固定Provider一値・exact試験Rootに限定したNative metadata観測二回以下と既存共有排他取得・解放一回の操作承認を求めた。
+
+承認後、2026-10-28 19:52 JSTにCodex一回の実Home事前確認を実施した。対象はcleanな`d93570650a15f81064cc064519a10b7d67d0926d`、実行は`node 40_Develop/executor/scripts/verify-provider-home.ts codex HOME-CODEX-20261028-01`。sandboxの`LOCALAPPDATA`が別領域を指していたため、その環境では起動せず、承認済み実行環境の当該子Process内だけ`C:\Users\nakas\AppData\Local`を明示した。OS設定・Home内容は変更していない。Exit 0、`status=observed`、`reason=null`、`observationMatched=true`、`resourceCleanupConfirmed=true`、`fixtureCleanupConfirmed=true`、`fixtureRoot=null`となった。実行後の別照会でも`C:\project\CRDD\.crdd\tests\executor-home-codex-HOME-CODEX-20261028-01`の不存在を確認した。認証状態の検査・AI送信・Docker操作はすべて未実施で、Claudeや過去保持物へ範囲を拡大していない。生metadata・四Hash・認証内容のログは保存せず、実行方法と非秘密結果だけを本段落へ記録する。この結果は事前観測・排他終了・試験物回収に限定し、試行全体の排他・本番保存・Recovery又は実AI成功の根拠にはしない。
 
 #### Dの内容認可とMCP定義操作の限定接続
 
