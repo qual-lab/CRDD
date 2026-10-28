@@ -1,7 +1,7 @@
 /**
  * Coordinatorを読み込めない環境で単段Executorの公開境界を確認する。
  * @packageDocumentation
- * @responsibility 独立ロード・不正開始の無Effect拒否と私有Ownerの非公開を検査する。
+ * @responsibility 独立ロード・有限代役上の単段生涯と私有Ownerの非公開を検査する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @level IT
@@ -73,6 +73,216 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     assert.equal((await runtime.cancel(null,null)).status,'blocked');
     assert.equal(calls,0);
     assert.equal(runtime.borrowTerminalObservations({}, {}, 'op', 'recovery'),null);
+  `;
+  const child = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", script],
+    {
+      encoding: "utf8",
+      timeout: 15_000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 0, child.stderr);
+});
+
+/**
+ * Coordinatorなしの単段開始から終了相関までを反証する。
+ * @responsibility 有限Command代役と実Controller・DI sessionの正常・取消・不明を確認する。
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
+ * @precondition 新品子ProcessでCoordinatorの解決を禁止する。
+ * @stimulus 正常、wait中取消、清掃不明、同期通知保存例外を各一回実行する。
+ * @observation 九purposeの順序、開始・wait・終了回数、元通知と終端相関。
+ * @oracle 取消はjoinと清掃まで未完了、不明はexact回復参照保持、コピー・別Ownerは拒否。
+ * @cleanup 全completionを待ち、子Processの期限内終了を確認する。外部試験物なし。
+ * @boundary 合成Plan・試験候補の結合。本番Factory、実Docker・Process不存在、耐久保存は未検証。
+ */
+test("Executor単独候補は正常・取消・清掃不明・通知例外を元Ownerで終了する", () => {
+  const root = new URL("../../src/index.ts", import.meta.url).href;
+  const script = `
+    import assert from 'node:assert/strict';
+    import {registerHooks} from 'node:module';
+    let coordinatorResolutions=0;
+    registerHooks({resolve(s,c,n){
+      const resolved=n(s,c);
+      if(resolved.url.includes('/coordinator/')){
+        coordinatorResolutions++;
+        throw Error('coordinator_unavailable');
+      }
+      return resolved;
+    }});
+    const {createIsolatedDockerProcessControllerCandidate:create}=await import(${JSON.stringify(root)});
+    const purposes=[
+      'create_subscription_auth_probe','start_subscription_auth_probe_attached',
+      'create_internal_network','create_egress_network','create_proxy',
+      'connect_proxy_egress','create_provider','start_proxy','start_provider_attached'
+    ];
+    for(const scenario of ['normal','cancel','cleanup_unknown','submission_throw']){
+      const management={},prepared={},mount={},authority={},recovery={};
+      const recoveryId='docker-task.'+'d'.repeat(64)+'.'+'e'.repeat(64)+'.'+'f'.repeat(64);
+      const suffix='0101010101010101';
+      const plan={
+        provider:'claude',consumer:'coordinator_cli',operationId:'OP-123456',
+        grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
+        executionSelection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',
+          reasoningEffort:'low',purpose:'task',catalogIdentity:'a'.repeat(64),
+          configIdentity:'b'.repeat(64),role:'executor',workType:null,source:'explicit'},
+        activeMountCapability:mount,authorityUseCapability:authority,
+        providerHomeSourcePath:'C:\\synthetic-not-accessed\\home',
+        providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),
+        localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),
+        authContainerName:'crdd-auth-'+suffix,providerContainerName:'crdd-claude-'+suffix,
+        proxyContainerName:'crdd-proxy-'+suffix,internalNetworkName:'crdd-internal-'+suffix,
+        egressNetworkName:'crdd-egress-'+suffix,ownershipLabel:'crdd.coordinator.runtime='+suffix,
+        providerImageDigest:'sha256:'+'1'.repeat(64),proxyImageDigest:'sha256:'+'2'.repeat(64),
+        subscriptionOffering:'claude_max',selectedModel:'opus',selectedEffort:'low',
+        operationMode:'boolean_probe',taskRole:null,taskPacketRef:null,taskPacketHash:null,
+        providerInput:null,workspaceSourcePath:null,workspaceMountMode:null,networkPolicy:null,
+        commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
+      };
+      const resources=[
+        ['create_egress_network',plan.egressNetworkName],
+        ['create_internal_network',plan.internalNetworkName],
+        ['create_provider',plan.providerContainerName],
+        ['create_proxy',plan.proxyContainerName],
+        ['create_subscription_auth_probe',plan.authContainerName]
+      ].map(([purpose,plannedResourceName])=>Object.freeze({purpose,plannedResourceName,
+        dockerId:null,observation:'absent'}));
+      const calls=[],events=[],notices=[];
+      let consumed=false,cleanups=0,mounts=0,finalizations=0;
+      const providerWaiting=Promise.withResolvers();
+      const providerWait=Promise.withResolvers();
+      const cleanupEntered=Promise.withResolvers();
+      const cleanupWait=Promise.withResolvers();
+      const deps={
+        effectExecutorAvailable:true,
+        verifyRevision:()=>({revisionCurrent:true}),
+        consumePreparedPlan:(p,m)=>{
+          if(p!==prepared||m!==management||consumed)return null;
+          consumed=true;return plan;
+        },
+        consumeProviderAuthority:(a,mt,m)=>{
+          assert.equal(a,authority);assert.equal(mt,mount);assert.equal(m,management);
+          return {operationId:plan.operationId,provider:plan.provider,
+            providerHomeMountGrantRef:plan.grantRef,runtimeAuthorityIssued:true,providerEffectAllowed:true};
+        },
+        beginRecovery:()=>({status:'ready',recoveryId,recoveryCapability:recovery}),
+        verifyRecoveryBinding:(r,id,m,h)=>r===recovery&&id===recoveryId&&m===management&&h==='d'.repeat(64),
+        startCommand:(command)=>{
+          const count={purpose:command.purpose,started:0,wait:0,terminated:0};calls.push(count);
+          return {
+            started:async()=>{count.started++;return true;},
+            wait:async()=>{
+              count.wait++;
+              if(command.purpose==='start_provider_attached'&&scenario==='cancel'){
+                providerWaiting.resolve();await providerWait.promise;events.push('wait_returned');
+              }
+              return {status:0,signal:null,stderr:'',outputExceeded:false,stdout:
+                command.purpose==='start_subscription_auth_probe_attached'
+                  ?JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',
+                    forcedLoginMethod:'claudeai',subscriptionType:'max'})
+                  :command.purpose==='start_provider_attached'
+                    ?JSON.stringify({type:'result',subtype:'success',is_error:false,
+                      num_turns:2,total_cost_usd:0,structured_output:{status:true}})+'\\n':''};
+            },
+            terminateAndWait:async()=>{
+              count.terminated++;events.push('terminated');providerWait.resolve();return true;
+            }
+          };
+        },
+        cleanupOwnedResources:async()=>{
+          cleanups++;events.push('cleanup_entered');cleanupEntered.resolve();
+          if(scenario==='cancel')await cleanupWait.promise;
+          events.push('cleanup_returned');
+          return {confirmed:scenario!=='cleanup_unknown',processTreeTerminated:true,
+            containersAbsent:scenario!=='cleanup_unknown',networksAbsent:scenario!=='cleanup_unknown',
+            resourceObservations:scenario==='cleanup_unknown'?null:resources};
+        },
+        completeMount:()=>{mounts++;return {status:'completed'};},
+        completeRecovery:()=>{finalizations++;return {status:'completed',recoveryFinalizationCapability:{}};},
+        recordDockerAbsence:(_r,observed)=>{assert.equal(observed,resources);return true;},
+        recordMountCompletion:()=>true,
+        markResourceSubmission:()=>true,
+        recordResourceReceipt:()=>true,
+        recordProviderSubmission:(r,notice)=>{
+          assert.equal(r,recovery);notices.push(notice);
+          assert.equal(runtime.verifyProviderSubmissionNotice(notice,recovery,management,plan.operationId,recoveryId),true);
+          assert.equal(runtime.verifyProviderSubmissionNotice({...notice},recovery,management,plan.operationId,recoveryId),false);
+          assert.equal(runtime.verifyProviderSubmissionNotice(notice,{},management,plan.operationId,recoveryId),false);
+          assert.equal(runtime.verifyProviderSubmissionNotice(notice,recovery,{},plan.operationId,recoveryId),false);
+          if(scenario==='submission_throw')throw Error('synthetic_submission_failure');
+          return true;
+        }
+      };
+      const runtime=create(deps);
+      assert.equal(runtime.productionAuthority,false);
+      const started=runtime.start(prepared,management,(r,id)=>{
+        assert.equal(r,recovery);assert.equal(id,recoveryId);events.push('handoff');return true;
+      });
+      assert.equal(started.status,'started',scenario);
+      assert.equal(runtime.start(prepared,management).status,'blocked');
+      let settled=false;
+      const completion=started.completion.then(result=>{settled=true;return result;});
+      if(scenario==='cancel'){
+        await providerWaiting.promise;
+        assert.equal((await runtime.cancel(started.controlCapability,{})).status,'blocked');
+        const cancelling=runtime.cancel(started.controlCapability,management);
+        await cleanupEntered.promise;
+        assert.equal(settled,false);
+        assert.equal(calls.at(-1).terminated,1);
+        assert.ok(events.indexOf('terminated')<events.indexOf('wait_returned'));
+        assert.ok(events.indexOf('wait_returned')<events.indexOf('cleanup_entered'));
+        cleanupWait.resolve();
+        const cancelled=await cancelling;
+        assert.equal(cancelled.status,'requested');
+        assert.equal(cancelled.reason,'provider_cancellation_requested');
+        assert.equal(cancelled.cancellationRequested,true);
+        assert.equal(cancelled.processTerminationObserved,true);
+      }
+      const result=await completion;
+      assert.equal(cleanups,1);
+      assert.equal(events[0],'handoff');
+      const expected=scenario==='submission_throw'?purposes.slice(0,-1):purposes;
+      assert.deepEqual(calls.map(c=>c.purpose),expected);
+      for(const call of calls){
+        assert.equal(call.started,call.purpose==='start_provider_attached'?1:0,call.purpose);
+        assert.equal(call.wait,1,call.purpose);
+      }
+      assert.equal(calls.reduce((n,c)=>n+c.terminated,0),scenario==='cancel'?1:0);
+      assert.equal(result.status,scenario==='normal'?'completed':scenario==='cancel'?'cancelled':'blocked');
+      assert.equal(result.cleanupConfirmed,scenario!=='cleanup_unknown');
+      assert.equal(result.manualRecoveryRequired,scenario==='cleanup_unknown');
+      assert.equal(result.recoveryId,scenario==='cleanup_unknown'?recoveryId:null);
+      assert.equal(mounts,scenario==='cleanup_unknown'?0:1);
+      assert.equal(finalizations,mounts);
+      assert.equal(notices.length,1);
+      if(scenario==='normal'){
+        assert.match(result.resultSha256,/^[a-f0-9]{64}$/);
+        assert.ok(result.resultBytes>0);
+      } else assert.equal(result.resultSha256,null);
+      if(scenario==='cleanup_unknown')
+        assert.equal(result.reason,'docker_process_controller_cleanup_unconfirmed');
+      if(scenario==='submission_throw')
+        assert.equal(result.reason,'docker_process_controller_execution_failed_closed');
+      for(const notice of notices)
+        assert.equal(runtime.verifyProviderSubmissionNotice(notice,recovery,management,plan.operationId,recoveryId),false);
+      const terminal=runtime.borrowTerminalObservations(result,management,plan.operationId,recoveryId);
+      if(scenario==='cleanup_unknown')assert.equal(terminal,null);
+      else {assert.ok(terminal,scenario);assert.equal(terminal.resources,resources);}
+      for(const [r,m,op,id] of [[{...result},management,plan.operationId,recoveryId],
+        [result,{},plan.operationId,recoveryId],[result,management,'OP-654321',recoveryId],
+        [result,management,plan.operationId,'other']])
+        assert.equal(runtime.borrowTerminalObservations(r,m,op,id),null);
+      assert.equal(create(deps).borrowTerminalObservations(result,management,plan.operationId,recoveryId),null);
+      const count=calls.length;
+      providerWait.resolve();cleanupWait.resolve();await Promise.resolve();
+      assert.equal(calls.length,count);
+      assert.equal((await runtime.cancel(started.controlCapability,management)).status,'blocked');
+    }
+    assert.equal(coordinatorResolutions,0);
   `;
   const child = spawnSync(
     process.execPath,

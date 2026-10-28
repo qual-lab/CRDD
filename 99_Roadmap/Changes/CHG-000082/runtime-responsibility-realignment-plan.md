@@ -245,6 +245,20 @@ Hは次の条件候補へ分ける。まだ実行許可を取得又は消費し�
 
 今回のWindows拒否は、実試験の保存・回収も止め得る未解消Riskである。Source診断の完了を環境正常化と扱わず、現時点では実AIを開始しない。まず独立Executorの非AI試験構成と事前条件を具体化し、未解消環境Riskを再評価してから、確定した送信本文・固定Commit・回数・exact試験Root・清掃条件を人間へ提示する。未準備の実試験を今承認させない。
 
+<a id="executor-standalone-non-ai-lifecycle"></a>
+
+#### Executor独立候補の非AI生涯確認 — 2026-10-28
+
+変更分類は検証追加。基準`70d09a0bb`の製品Source・API・保存契約は変更しない。既存ERB-IT-002／004とExecutor詳細設計へ照合し、読取り専用の着手前確認後、既存`public-boundary.contract.test.ts`へ一Caseを追加する。専門観点は単段の取消・終了相関と証拠のOwner結合。Source／Oracleの独立レビューと変更文書の参照検査を行い、準拠・Release監査は契約変更も完成宣言もないため対象外とする。新しい公開注入口、Framework、状態、Lock、外部試験物は追加しない。
+
+新品Node子ProcessがExecutorのimport前にCoordinator解決拒否hookを登録し、解決試行零を検査する。既存の隔離候補Factory・実Controller・実DI command sessionを使い、合成Planと有限CommandHandle、Host callbackだけを代役にする。Claude形式の合成Probeについて正常、wait未完了中の取消、清掃不明、同期通知保存例外を各一回検査する。九purposeの順序、各handleの開始確認・wait回数、取消時の終了一回、wait終了後の清掃一回、清掃を返すまでcompletion未確定、後着解決による追加要求零を確認する。準備参照の再利用は拒否し、回復引渡しを最初の要求前に検査する。
+
+清掃不明はblocked・清掃未確認・手動回復必要・同じexact回復参照・結果Hash非発行を共同検査し、不在証拠の欠測を終端観測へ登録しない。正常・取消・通知例外の元終端観測は元result／管理参照／操作ID／回復IDだけで借用でき、コピー・別Owner・別候補Runtimeを拒否する。元通知は同期callback内だけ有効とし、正常・取消・例外後すべてで失効を検査する。全completionと子Processの十五秒以内終了を確認する。
+
+追加後のExecutor `npm test`は整形・型・警告を失敗とするLintを含め六件すべて成功。追加一Case内の四条件と既存五件を別件数へ水増ししない。Catalogは414項目validであり、414件の試験実行ではない。独立レビューの二指摘は取消APIの返却値・順序と通知保存例外の固定理由を追記し、再回帰後の再レビューは残指摘零。例外は既存の実行catchによる固定理由、false返却は保存拒否理由として区別し、製品側を変更しない。変更文書二件の指摘は零、参照展開した十七文書の十三指摘は旧CHG本体の過去Pathリンクに限定され、別範囲の不合格として保持する。全体QAの合格へ換算しない。
+
+これは候補上の有限結合であり、本番`createProviderExecutor`の固定Docker接続、両Providerの実実行、耐久Recovery保存、実Process／Container不存在、Host Process喪失後の回収は未確認。Hの独立実試験準備全体は未完了のままとする。外部AI・Docker照会／操作・認証情報・過去保持物の読取り又は操作は行わない。Windows保存拒否の未解消Riskも変更しない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

@@ -117,6 +117,8 @@ Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従�
 
 独立ロードはCoordinator解決を拒否する子Processで実施し、不正開始のEffect零を検査する。これを正常な実Docker／実AI実行の証明にしない。実境界のL3／L5、人間操作、実データ移行は別途許可・検証であり、今回のSource移管から完了としない。結果と適用範囲は[移管計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。
 
+同じ独立子Processで、既存の隔離候補と実Controller／DI command sessionに合成Plan・有限CommandHandle・Host callbackを接続する。正常終了、wait中の取消とjoin、清掃不明、同期通知保存例外を検査し、元回復参照・一回消費・通知失効・別Owner拒否を確認する。この試験はClaude形式の合成Probeを用い、両Providerの実行成立、本番Factoryの固定Docker接続、耐久保存、実Process／Container不存在、Host Process喪失時の回収を証明しない。
+
 ## 現行実装との照合
 
 元の単段実装を上記Sourceへ移管した。計画・入力・取消・失敗結果の意味を変えず、Coordinatorの順序管理と保存を用途固定接続へ残す。非AI回帰と独立確認の結果は[移管計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を正本とし、本書の設計評価とは区別する。実AI／Docker成立、実データ移行、全体QA／Releaseは本書から主張しない。
