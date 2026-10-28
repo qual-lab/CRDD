@@ -9,20 +9,20 @@
  * @boundary Unit TestとPacket Runtimeの公開APIの間。
  */
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../src/execution/result.ts";
+import { describeAdviceResultSchema } from "../../../../executor/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { describe, it } from "node:test";
-import type { ProviderAdviceCommand } from "../../../src/execution/preparation.ts";
+import type { ProviderAdviceCommand } from "../../../../executor/src/index.ts";
 import {
   consumeRuntimeOwnedProviderAdvicePacket,
   describeProviderAdvicePacketContract,
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,
-  hashProviderAdviceCommand,
 } from "../../../src/execution/preparation.ts";
+import { hashProviderAdviceCommand } from "../../../../executor/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
+import { bindProviderAdviceCommand } from "../../../../executor/src/index.ts";
 
 const sha = "a".repeat(64);
 

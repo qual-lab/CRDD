@@ -2,6 +2,8 @@
 
 ## Core独立の目標設計 — 2026-10-27
 
+2026-10-28のSource配置はDomainの共通モデル・保存と、任意のCoordinator、[Provider単段Executor](Details/executor/01_Architecture.md)へ分離する。MCP／WorkbenchのCore既定起動とAutomation明示読込みは維持する。Executorは保存・Queue・Task全体の進行を持たず、Coordinatorはその公開Rootから一段ずつ実行する。以下の旧比較基準を現在のSource未接続又は実境界成功へ読み替えない。最新の成立範囲は[移管計画](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照する。
+
 文書のMilestone／Roadmap／WBSと正式判断はCRDD文書群が正本。フロントAI等のCallerが実行依頼へ分解して渡し、Coordinatorは小・中規模Taskの実行・調整に限定する。[文書と実行状態の分担](Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)に従い、既存Objective／Milestoneは実行内の集約として扱う。Domainへの値・保存の移管で文書側の第二正本や自動同期を作らない。
 
 [Runtime DomainのAPI・単一保存契約](Details/domain-model/05_Runtime_Domain.md)を、Core定義・局所CRUD・共通保存の設計正本とする。Domainが定義と局所状態、任意のCoordinatorが横断調停、Executor Libraryが単一試行を所有する。MCP／WorkbenchはDomainへ直接接続し、Core利用にCoordinatorの読込み・Provider認証・Dockerを要求しない。既存の単一Snapshot／CAS・実行Lease・真正証拠を維持する。以下のCoordinator中心記述は移管元の比較基準であり、この目標のSource実装・保存切替・QA成立は未完了である。既存属性のみの方針を承認済みとし、既存判断・根拠ID・受入条件をDomainへ移す。新しい報告機能は追加せず、保存先有効化の条件は同正本§9へ分離する。

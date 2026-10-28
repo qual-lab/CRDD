@@ -14,10 +14,12 @@ import test from "node:test";
 import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-diagnostic.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
-  PROVIDER_EXECUTION_OBSERVATION_KEYS,
   inspectTaskStageDiagnostic,
-  inspectProviderExecutionObservation,
 } from "../../../coordinator/src/execution/result.ts";
+import {
+  PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  inspectProviderExecutionObservation,
+} from "../../../executor/src/index.ts";
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;

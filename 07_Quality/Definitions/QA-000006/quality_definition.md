@@ -271,6 +271,8 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 
 ### Architecture詳細設計入力
 
+[Executor](../../../06_Architecture/Details/executor/01_Architecture.md)の単段実行・同期証拠・取消／終了待ちを、既存`ERB-IT-002`／`ERB-IT-004`の移管後反例へ接続する。新しいLocal Itemを増やさず、非AIのMap・元object照合を実Docker／実Provider成功に読み替えない。
+
 `ARCH-000008`とDocker Isolation詳細設計の環境観測・unknown保持から、`ERB-UT-034`へbackend一覧の純粋分類を導出する。旧WSL試験の`PRL-UT-006`はTask状態／Authority義務であり、この分類へ流用しない。関連する上位義務は`ERB-IT-014`／`ERB-ST-009`であり、UT成功は実環境観測・停止・回復・Authorityの成立を代替しない。
 
 Engine観測移管では既存`ERB-IT-014`／`ERB-IT-001`へ、再起動と修復の固定構成差、Publisher前後変化、明示pipe不存在と観測不能、close不明を接続する。回収不明は同一操作の初回・待機再観測で共有し、以後の観測0、最終blocked、元のexact IDとNative固有cleanup値保持を確認する。移管した三Caseの判定内容は維持し、合成境界の成功を実Publisher・実pipe・再起動完了へ拡張しない。新Local Itemは追加しない。
@@ -279,6 +281,7 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
+| [executor](../../../06_Architecture/Details/executor/01_Architecture.md) | Provider単段の準備・取消・終了待ちと元通知／元結果の相関。`ERB-IT-002`／`ERB-IT-004`へ移管後反例を接続する。 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復。7.5.1の未改造公式CLI・Docker隔離は`ERB-IT-031`で配布と公開起動を確認する。通知と最終結果は`ERB-UT-023`、同11節を含む公開CLIの取消・親Process喪失は`ERB-ST-030`で確認する。旧内部改造の024～029は現行の要求集合から外す。 |
 | [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | Provider構造化結果の純粋解析・正規化／拒否を`ERB-UT-032`、Subscription限定の方針記述を`ERB-UT-033`へ接続する。実CLI、課金、Process、取消、cleanupは別の義務である。 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |

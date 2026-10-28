@@ -116,7 +116,7 @@ import {
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
 } from "./kernel-lock.ts";
-import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./observation.ts";
+import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-executor.ts";
 import {
   acquireHostOperationRecoveryGeneration,
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -132,7 +132,7 @@ import {
   verifyHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
 } from "./operation.ts";
-import type { RecoveryStartFailureDiagnostic } from "./result.ts";
+import type { RecoveryStartFailureDiagnostic } from "../../../executor/src/index.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
 

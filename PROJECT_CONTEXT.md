@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-文書上のMilestone／Roadmap／WBSはCRDD文書群、Task分解は呼出し側、実行はCoordinatorが所有する。共通保存・一般CRUDと公開入力検査はDomainへ接続し、Coordinator／Executorを読込み拒否した子ProcessでMCP Root・配布入口とWorkbench Rootの実HTTPから保存・再読取りを確認した。単体MCP／Workbenchの既定起動はCoreのみ、AI利用時は`--automation`を明示する。Domain468件・Workbench111件・MCP105件の各全回帰が成功し、対象独立レビュー指摘は是正済みである。Executor分離とCoordinator任意化は未完了。ExecutorはProvider単段を一試行とし、順序・再試行判断はCoordinatorへ残す。共通保存先`.crdd/domain-model/`は承認済みでSource切替・合成検証・限定独立確認を完了した（Domain474件、関連結合49件、後続matrix八件は別実行）。実データ移行は行っていない。[設計](06_Architecture/Details/domain-model/05_Runtime_Domain.md)と[移管・検証記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。AI再送・Docker・過去保持物は操作していない。
+文書上のMilestone／Roadmap／WBSはCRDD文書群、Task分解は呼出し側、実行はCoordinatorが所有する。共通モデル・CRUD・保存はDomain、Provider一段の準備・開始・取消・終了証拠は[Executor](06_Architecture/Details/executor/01_Architecture.md)、段階順序・Workspace・Host保存は任意のCoordinatorへ分離した。MCP／Workbenchは既定Coreのみ、AI利用時だけ`--automation`を明示する。Executor5件・関連324件・MCP105件・Workbench111件、保存の個別反例と独立レビュー残指摘0を確認したが、今回のDomain／Coordinator全回帰は終端確認中である。共通保存先`.crdd/domain-model/`はSource切替済みで、実データ移行は行っていない。実AI／Docker・人間操作・全体QAの成立は別に評価する。[移管・検証記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を参照。AI再送・Docker・過去保持物は操作していない。
 
 状態判断・一回使用証拠を各Ownerへ分離し、Storage五File化・対象の分割回帰・独立レビュー残指摘零まで完了。全体一括回帰の初回不合格は保持し、再確認の成功へ置換しない。[対応と検証限界](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)を参照。AI再送・Docker・過去保持物操作なし。
 

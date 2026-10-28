@@ -13,27 +13,22 @@ import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
   createProviderDockerRuntimeDependencies,
-  createProviderDockerRuntimeState,
-  createProviderDockerRuntimeAdapterCandidate,
   describeProviderDockerRuntimeAdapterContract,
 } from "../../../src/execution/preparation.ts";
+import { createProviderDockerRuntimeAdapterCandidate } from "../../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../src/execution/result.ts";
+import { describeAdviceResultSchema } from "../../../../executor/src/index.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test, { mock } from "node:test";
 import fs from "node:fs";
-import { createProviderDockerBlockedResult } from "../../../src/execution/preparation.ts";
-import {
-  cancelProviderDockerPreparation,
-  consumeProviderDockerPreparation,
-} from "../../../src/execution/preparation.ts";
+import { createProviderDockerBlockedResult } from "../../../../executor/src/index.ts";
 import { fileURLToPath } from "node:url";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
-import { bindDockerIsolationRuntime } from "../../../src/execution/controller.ts";
+import { bindDockerIsolationRuntime } from "../../../../executor/src/index.ts";
 import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
+import { bindProviderAdviceCommand } from "../../../../executor/src/index.ts";
 
 /**
  * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。
@@ -89,22 +84,6 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
   }
   assert.equal(Number.isFinite(first.wallNow()), true);
   assert.equal(Number.isFinite(first.monotonicNow()), true);
-  const codexOwner = createProviderDockerRuntimeState<"codex">(first);
-  const otherCodexOwner = createProviderDockerRuntimeState<"codex">(first);
-  const claudeOwner = createProviderDockerRuntimeState<"claude">(first);
-  const prepared = Object.freeze({});
-  const management = Object.freeze({});
-  codexOwner.managementCapabilities.set(prepared, management);
-  assert.equal(codexOwner.managementCapabilities.get(prepared), management);
-  for (const other of [otherCodexOwner, claudeOwner]) {
-    assert.equal(Object.isFrozen(other), true);
-    assert.notEqual(codexOwner.prepared, other.prepared);
-    assert.notEqual(
-      codexOwner.managementCapabilities,
-      other.managementCapabilities,
-    );
-    assert.equal(other.managementCapabilities.has(prepared), false);
-  }
   const result = createProviderDockerBlockedResult("fixed_preparation_failure");
   assert.equal(Object.isFrozen(result), true);
   assert.deepEqual(result, {
@@ -1314,121 +1293,6 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
     contract.processController,
     "production_runtime_owned_controller_and_fixed_docker_effect_connected",
   );
-});
-
-/**
- * 共通準備Lifecycleは参照一致・二時計・回収順序を保持する。
- *
- * @responsibility 共通化による管理不一致の受理、期限緩和、回収未確認の参照消失を反証する。
- * @trace PRL-UT-014
- * @precondition Providerごとの独立した二WeakMapと同期回収観測を用意する。
- * @stimulus 管理不一致、新鮮消費、30秒境界と逆行・不明時計、回収失敗を適用する。
- * @observation 計画Identity、二Storeの残存、失効とMount解放の順序を観測する。
- * @oracle 新鮮値だけを一回消費し、期限切れは回収順序を維持し、Mount未確認では参照を残す。
- * @cleanup N/A: WeakMapだけを操作し、実AuthorityやMountを発行しない。
- * @boundary PRL-UT-014=Direct Boundary: Provider準備Owner→共通Lifecycle
- */
-test("共通準備Lifecycleは管理一致・二時計境界・回収未確認の保持を両Providerで維持する", () => {
-  for (const provider of ["codex", "claude"] as const) {
-    for (const scenario of [
-      "fresh",
-      "expired",
-      "monotonic_expired",
-      "reversed",
-      "unknown",
-      "mount_unknown",
-      "revoke_failed",
-    ] as const) {
-      const capability = {};
-      const management = {};
-      const plan = Object.freeze({
-        operationId: "fixture-operation",
-        grantRef: "fixture-grant",
-        activeMountCapability: {},
-        authorityControlCapability: {},
-        preparedWallClockMs: 0,
-        preparedMonotonicMs: 0,
-        provider,
-      });
-      const effects: string[] = [];
-      const state = {
-        prepared: new WeakMap([[capability, plan]]),
-        managementCapabilities: new WeakMap([[capability, management]]),
-        wallNow: () =>
-          scenario === "fresh" || scenario === "monotonic_expired"
-            ? 29_999
-            : scenario === "reversed"
-              ? -1
-              : scenario === "unknown"
-                ? Number.NaN
-                : 30_000,
-        monotonicNow: () => (scenario === "fresh" ? 29_999 : 30_000),
-        revokeProviderAuthority: () => {
-          effects.push("revoke");
-          return {
-            status: scenario === "revoke_failed" ? "blocked" : "revoked",
-          };
-        },
-        completeMount: () => {
-          effects.push("mount");
-          return {
-            status: scenario === "mount_unknown" ? "unknown" : "completed",
-          };
-        },
-      };
-      assert.equal(
-        consumeProviderDockerPreparation(state, capability, {}),
-        null,
-      );
-      assert.deepEqual(effects, []);
-      assert.strictEqual(state.prepared.get(capability), plan);
-      if (scenario === "mount_unknown" || scenario === "revoke_failed") {
-        const result = cancelProviderDockerPreparation(
-          state,
-          provider,
-          (reason) => ({
-            status: "blocked" as const,
-            reason,
-            operationId: null,
-            grantRef: null,
-          }),
-          capability,
-          management,
-        );
-        assert.equal(
-          result.reason,
-          `${provider}_docker_runtime_${scenario === "mount_unknown" ? "mount_release_unconfirmed" : "authority_revoke_invalid"}`,
-        );
-        assert.equal(result.status, "blocked");
-        assert.deepEqual(effects, ["revoke", "mount"]);
-        assert.equal(
-          state.prepared.has(capability),
-          scenario === "mount_unknown",
-        );
-        assert.equal(
-          state.managementCapabilities.has(capability),
-          scenario === "mount_unknown",
-        );
-      } else {
-        const consumed = consumeProviderDockerPreparation(
-          state,
-          capability,
-          management,
-        );
-        assert.strictEqual(consumed, scenario === "fresh" ? plan : null);
-        assert.deepEqual(
-          effects,
-          scenario === "fresh" ? [] : ["revoke", "mount"],
-        );
-        assert.equal(state.prepared.has(capability), false);
-        assert.equal(state.managementCapabilities.has(capability), false);
-        assert.equal(
-          consumeProviderDockerPreparation(state, capability, management),
-          null,
-        );
-      }
-    }
-  }
 });
 
 /**

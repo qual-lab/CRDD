@@ -12,17 +12,17 @@ import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
-  createProviderDockerRuntimeAdapterCandidate,
   describeProviderDockerRuntimeAdapterContract,
 } from "../../../src/execution/preparation.ts";
+import { createProviderDockerRuntimeAdapterCandidate } from "../../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../src/execution/result.ts";
+import { describeAdviceResultSchema } from "../../../../executor/src/index.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test from "node:test";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
+import { bindProviderAdviceCommand } from "../../../../executor/src/index.ts";
 
 const fixedSelection = executionSelection("independent_reviewer", {
   provider: "claude",

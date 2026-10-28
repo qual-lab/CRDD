@@ -5,7 +5,7 @@
  */
 import * as runtimeStore from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { verifyRuntimeOwnedDockerUnissuedNotice } from "./observation.ts";
+import { verifyRuntimeOwnedDockerUnissuedNotice } from "./provider-executor.ts";
 import { borrowRuntimeOwnedCoordinatorStateRepository } from "./operation.ts";
 
 /**

@@ -2,6 +2,10 @@
 
 ## Core独立・共通保存の検証計画 — 2026-10-27
 
+### Provider単段Executor分離の非AI確認 — 2026-10-28
+
+[Executor詳細](../06_Architecture/Details/executor/01_Architecture.md)を既存ERB-IT-002／004へ接続する。準備二Mapと観測二Mapは新Owner内へ移し、元通知の同期登録・失効、元result借用と候補／本番交差拒否を確認する。独立子ProcessのCoordinator解決拒否と不正開始のEffect零、Coordinator既存の編集→レビュー→是正→再レビュー・取消・Owner喪失を別々のOracleで確認する。Domainのcodec・Writer・CAS・schema・hash領域は変更しない。実Docker・外部AI・過去保持物は対象外。非AI結果をL3／L5又は全体QAのPassへ昇格しない。
+
 分解済みTask Graph受付は[QA-000003の追加反例](Definitions/QA-000003/quality_definition.md)を、まず合成Plan＋Fake Executorの非AI結合へ接続する。Task別指示・条件の混線、1対1欠測、Path越境、同ID内容差、Owner喪失、部分実行後停止、旧新入力・Transport上限を確認する。本文は保存せず、Hash保持を再開能力の証明としない。Source接続・検証結果は未取得。
 
 対象は実行依頼の共通モデル・保存と任意実行の分離である。文書計画→Taskの自動変換や実行状態→文書進捗の自動同期は実装対象・完成条件へ追加しない。既存Objective／Milestoneの用途・Callerの分解済みTask搬送・明示された文書処理範囲はQA-000003の追加条件へ接続し、移管先・公開入口の実装まではNot Runとする。

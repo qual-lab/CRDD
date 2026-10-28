@@ -61,7 +61,7 @@ import {
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
-import * as dockerController from "../../src/execution/observation.ts";
+import * as dockerController from "../../src/execution/provider-executor.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -1689,31 +1689,34 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let notIssuedActive = true;
   let notIssuedChecks = 0;
   let expireAfterPrecheck = false;
-  const notIssuedMock = t.mock.module("../../src/execution/observation.ts", {
-    namedExports: {
-      ...dockerController,
-      verifyRuntimeOwnedDockerUnissuedNotice: (
-        notice: unknown,
-        recovery: unknown,
-        owner: unknown,
-        purpose: unknown,
-        actualOperation: unknown,
-        recoveryId: unknown,
-      ) => {
-        notIssuedChecks++;
-        return (
-          notIssuedActive &&
-          (!expireAfterPrecheck || notIssuedChecks === 1) &&
-          notice === notIssuedNotice &&
-          recovery === notIssuedRecovery &&
-          owner === management &&
-          purpose === resource.purpose &&
-          actualOperation === repository.operationId &&
-          recoveryId === operation.recoveryId
-        );
+  const notIssuedMock = t.mock.module(
+    "../../src/execution/provider-executor.ts",
+    {
+      namedExports: {
+        ...dockerController,
+        verifyRuntimeOwnedDockerUnissuedNotice: (
+          notice: unknown,
+          recovery: unknown,
+          owner: unknown,
+          purpose: unknown,
+          actualOperation: unknown,
+          recoveryId: unknown,
+        ) => {
+          notIssuedChecks++;
+          return (
+            notIssuedActive &&
+            (!expireAfterPrecheck || notIssuedChecks === 1) &&
+            notice === notIssuedNotice &&
+            recovery === notIssuedRecovery &&
+            owner === management &&
+            purpose === resource.purpose &&
+            actualOperation === repository.operationId &&
+            recoveryId === operation.recoveryId
+          );
+        },
       },
     },
-  });
+  );
   try {
     const unissuedRuntime: typeof import("../../src/execution/persistence.ts") =
       await import(
@@ -2273,55 +2276,58 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const observedProviderId: string | null = null;
   const observedProviderObservation = "absent";
   const transientRecoveryIds = new Set<string>();
-  t.mock.module("../../src/execution/observation.ts", {
-    namedExports: {
-      ...dockerController,
-      /**
-       * Filesystem履歴試験に固定したDocker終了観測を返す。
-       * @responsibility 実Dockerを起動せず保存処理だけを刺激する。
-       * @trace ERB-IT-003
-       * @precondition 同じfixture結果と操作を指定する。
-       * @stimulus 模擬Controller終了結果をWriterへ渡す。
-       * @observation Owner、操作ID、回復IDの一致。
-       * @oracle 一致時だけ五用途の未要求とLease終了を返す。
-       * @cleanup TestContextがModule差替えを解除する。
-       * @boundary 模擬Docker観測から実Filesystem Writer。
-       */
-      borrowRuntimeOwnedDockerTerminalObservations(
-        result: unknown,
-        owner: unknown,
-        id: unknown,
-        ref: unknown,
-      ) {
-        if (
-          result !== simulatedCompletion ||
-          owner !== management ||
-          id !== repository.operationId ||
-          (ref !== operation.recoveryId &&
-            (typeof ref !== "string" || !transientRecoveryIds.has(ref)))
-        )
-          return null;
-        return Object.freeze({
-          resources: operation.resources.map((item) => ({
-            purpose: item.purpose,
-            plannedResourceName: cleanupObservations.find(
-              (value) => value.purpose === item.purpose,
-            )?.plannedResourceName,
-            dockerId:
-              item.purpose === "create_provider" ? observedProviderId : null,
-            observation:
-              item.purpose === "create_provider" && observedProviderId
-                ? observedProviderObservation
-                : "not_requested",
-          })),
-          homeLeaseReleased: true,
-          mountLeaseReleased: true,
-          recoveryCompleted: true,
-          primaryFailure: lifecycle.primaryFailure,
-        });
+  const terminalMock = t.mock.module(
+    "../../src/execution/provider-executor.ts",
+    {
+      namedExports: {
+        ...dockerController,
+        /**
+         * Filesystem履歴試験に固定したDocker終了観測を返す。
+         * @responsibility 実Dockerを起動せず保存処理だけを刺激する。
+         * @trace ERB-IT-003
+         * @precondition 同じfixture結果と操作を指定する。
+         * @stimulus 模擬Controller終了結果をWriterへ渡す。
+         * @observation Owner、操作ID、回復IDの一致。
+         * @oracle 一致時だけ五用途の未要求とLease終了を返す。
+         * @cleanup TestContextがModule差替えを解除する。
+         * @boundary 模擬Docker観測から実Filesystem Writer。
+         */
+        borrowRuntimeOwnedDockerTerminalObservations(
+          result: unknown,
+          owner: unknown,
+          id: unknown,
+          ref: unknown,
+        ) {
+          if (
+            result !== simulatedCompletion ||
+            owner !== management ||
+            id !== repository.operationId ||
+            (ref !== operation.recoveryId &&
+              (typeof ref !== "string" || !transientRecoveryIds.has(ref)))
+          )
+            return null;
+          return Object.freeze({
+            resources: operation.resources.map((item) => ({
+              purpose: item.purpose,
+              plannedResourceName: cleanupObservations.find(
+                (value) => value.purpose === item.purpose,
+              )?.plannedResourceName,
+              dockerId:
+                item.purpose === "create_provider" ? observedProviderId : null,
+              observation:
+                item.purpose === "create_provider" && observedProviderId
+                  ? observedProviderObservation
+                  : "not_requested",
+            })),
+            homeLeaseReleased: true,
+            mountLeaseReleased: true,
+            recoveryCompleted: true,
+            primaryFailure: lifecycle.primaryFailure,
+          });
+        },
       },
     },
-  });
+  );
 
   const ownerSettlement = (await import(
     new URL(
@@ -2385,6 +2391,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     settledRead.value,
   );
   fs.unlinkSync(historyFile);
+  // 終端観測の区間を閉じてから、同じOwnerの清掃証拠を別区間で差し替える。
+  terminalMock.restore();
   // 初回開始は空Snapshotを別保存せず、同じ操作を含む初版を確定する。
   const freshRoot = path.join(root, "fresh-start");
   execFileSync("git", ["init", "--quiet", freshRoot], { windowsHide: true });
@@ -2655,26 +2663,31 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       dockerId: null,
       observation: "not_requested",
     }));
-    const dockerEffects = await import("../../src/execution/controller.ts");
+    const dockerEffects = await import(
+      "../../src/execution/provider-executor.ts"
+    );
     const mountRuntime = await import("../../src/execution/authority.ts");
-    const cleanupMock = t.mock.module("../../src/execution/controller.ts", {
-      namedExports: {
-        ...dockerEffects,
-        verifyRuntimeOwnedDockerCleanupOutcome(
-          result: unknown,
-          plan: unknown,
-          recovery: unknown,
-          owner: unknown,
-        ) {
-          return result === acceptedCleanup &&
-            plan === completionPlan &&
-            recovery === recoveryCapability &&
-            owner === freshManagement
-            ? cleanupObservations
-            : null;
+    const cleanupMock = t.mock.module(
+      "../../src/execution/provider-executor.ts",
+      {
+        namedExports: {
+          ...dockerEffects,
+          verifyRuntimeOwnedDockerCleanupOutcome(
+            result: unknown,
+            plan: unknown,
+            recovery: unknown,
+            owner: unknown,
+          ) {
+            return result === acceptedCleanup &&
+              plan === completionPlan &&
+              recovery === recoveryCapability &&
+              owner === freshManagement
+              ? cleanupObservations
+              : null;
+          },
         },
       },
-    });
+    );
     const mountMock = t.mock.module("../../src/execution/authority.ts", {
       namedExports: {
         ...mountRuntime,
@@ -2746,7 +2759,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       const hostImports = [
         'import { createHash } from "node:crypto";',
         `import { hashExecutionSelection } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
-        `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/controller.ts", import.meta.url).href}";`,
+        `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/provider-executor.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,

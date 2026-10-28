@@ -6,6 +6,7 @@
  */
 
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
+import type { ExecutionPaths } from "../../../executor/src/index.ts";
 
 import {
   type WorkspaceInventoryEntry as InventoryEntry,
@@ -1927,26 +1928,6 @@ export type OwnedOperationDirectories = {
   directories: OperationDirectories | null;
   hostRecoveryId: string | null;
 };
-
-/**
- * execution-environmentで使用する所有 Mount Pathsの値契約を定義する。
- *
- * @responsibility 所有 Mount PathsのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape OwnedMountPathsが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OwnedMountPathsで宣言した値と責務の対応を維持する。
- * @boundary N/A: OwnedMountPathsの宣言は外部境界を開かない。
- * @security OwnedMountPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OwnedMountPathsの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type OwnedMountPaths = Readonly<{
-  workspace: string;
-  providerHome: string;
-  tmp: string;
-  events: string;
-  projection: string;
-  management: string;
-}>;
 
 /**
  * execution-environmentで使用するHost 記録 Childの値契約を定義する。
@@ -5515,7 +5496,7 @@ export function createOwnedMountCapability(
  * @responsibility 所有 Mount Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
- * @returns OwnedMountPathsを返す。
+ * @returns ExecutionPathsを返す。
  * @precondition 「capability: unknown」がverifyOwnedMountCapabilityの入力契約を満たす。
  * @postcondition verifyOwnedMountCapabilityの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedMountCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -5527,7 +5508,7 @@ export function createOwnedMountCapability(
  */
 export function verifyOwnedMountCapability(
   capability: unknown,
-): OwnedMountPaths {
+): ExecutionPaths {
   const mount = isObject(capability)
     ? (mountCapabilities.get(capability) ?? null)
     : null;
@@ -5728,7 +5709,7 @@ export function verifyOwnedOperationManagementCapability(
  * @responsibility 所有 Operation Management Mount Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、mountCapability: unknown
- * @returns Readonly<{ operationId: string; createdAt: string; mounts: OwnedMountPaths; }>を返す。
+ * @returns Readonly<{ operationId: string; createdAt: string; mounts: ExecutionPaths; }>を返す。
  * @precondition 「managementCapability: unknown、mountCapability: unknown」がverifyOwnedOperationManagementMountBindingの入力契約を満たす。
  * @postcondition verifyOwnedOperationManagementMountBindingの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedOperationManagementMountBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -5744,7 +5725,7 @@ export function verifyOwnedOperationManagementMountBinding(
 ): Readonly<{
   operationId: string;
   createdAt: string;
-  mounts: OwnedMountPaths;
+  mounts: ExecutionPaths;
 }> {
   const management = isObject(managementCapability)
     ? (operationManagementCapabilities.get(managementCapability) ?? null)

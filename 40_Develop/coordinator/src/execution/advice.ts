@@ -34,7 +34,8 @@ import { createFilesystemRepositoryObservationPort } from "../../../domain-model
 import {
   normalizeAdviceResult,
   publicVerifiedDockerRecoveryId,
-} from "./result.ts";
+  type ProviderAdviceResultItem,
+} from "../../../executor/src/index.ts";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -69,7 +70,7 @@ import {
 import {
   startRuntimeOwnedDockerProcessController,
   cancelRuntimeOwnedDockerProcessController,
-} from "./controller.ts";
+} from "./provider-executor.ts";
 import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
@@ -2217,23 +2218,6 @@ export type CoordinatorAiRequestInput = Readonly<{
 }>;
 
 /**
- * 単発AI依頼の開始・観測・取消境界で使用するCoordinatorAiResultItemの構造を固定する。
- *
- * @responsibility 単発AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
- * @trace ARCH-000015
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
- * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
- * @boundary 本ModuleとConsumerの型境界。
- * @security 秘密値または未許可のPathを公開値へ追加しない。
- * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
- */
-
-export type CoordinatorAiResultItem = Readonly<{
-  text: string;
-  references: readonly string[];
-}>;
-
-/**
  * 単発AI依頼の開始・観測・取消境界で使用するCoordinatorAiRequestResultの構造を固定する。
  *
  * @responsibility 単発AI依頼の開始・観測・取消境界が受け渡す値、状態および制約を一つの型契約として保持する。
@@ -2248,10 +2232,10 @@ export type CoordinatorAiResultItem = Readonly<{
 export type CoordinatorAiRequestResult = Readonly<{
   status: "completed" | "blocked" | "unknown";
   reason: string | null;
-  facts: readonly CoordinatorAiResultItem[];
-  sharedAnalysis: readonly CoordinatorAiResultItem[];
-  additionalInferences: readonly CoordinatorAiResultItem[];
-  nextOptions: readonly CoordinatorAiResultItem[];
+  facts: readonly ProviderAdviceResultItem[];
+  sharedAnalysis: readonly ProviderAdviceResultItem[];
+  additionalInferences: readonly ProviderAdviceResultItem[];
+  nextOptions: readonly ProviderAdviceResultItem[];
   candidate: null;
 }>;
 

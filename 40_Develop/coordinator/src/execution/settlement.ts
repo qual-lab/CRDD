@@ -7,7 +7,7 @@ import * as runtimeSettlement from "../../../domain-model/src/index.ts";
 import {
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "./observation.ts";
+} from "./provider-executor.ts";
 import {
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,

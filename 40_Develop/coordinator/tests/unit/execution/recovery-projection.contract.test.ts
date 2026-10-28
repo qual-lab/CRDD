@@ -11,10 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  projectDockerRecoveryAdmission,
-  publicDockerRecoveryStartReason,
-} from "../../../src/execution/result.ts";
+import { projectDockerRecoveryAdmission } from "../../../src/execution/result.ts";
+import { publicDockerRecoveryStartReason } from "../../../../executor/src/index.ts";
 
 /**
  * observationのTest準備責務を実行する。

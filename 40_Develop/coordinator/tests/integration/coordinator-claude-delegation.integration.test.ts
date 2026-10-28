@@ -8,13 +8,13 @@
  * @scope coordinator、claude、delegation
  * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
  */
-import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/preparation.ts";
+import { createProviderDockerRuntimeAdapterCandidate } from "../../../executor/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/controller.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../../executor/src/index.ts";
 import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority.ts";
 
 /**

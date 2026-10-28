@@ -48,7 +48,7 @@ import {
 import * as homes from "../../src/execution/authority.ts";
 import * as development from "../../src/execution/diagnostics.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
-import * as controller from "../../src/execution/observation.ts";
+import * as controller from "../../src/execution/provider-executor.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
 import * as repository from "../../src/execution/operation.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
@@ -2990,7 +2990,8 @@ for (const { repeatCount, retained } of [
       };
       substitutions.push(
         mock.module(
-          new URL("../../src/execution/observation.ts", import.meta.url).href,
+          new URL("../../src/execution/provider-executor.ts", import.meta.url)
+            .href,
           {
             namedExports: {
               ...controller,
@@ -3918,7 +3919,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../src/execution/observation.ts", import.meta.url).href,
+      new URL("../../src/execution/provider-executor.ts", import.meta.url).href,
       {
         namedExports: {
           ...controller,

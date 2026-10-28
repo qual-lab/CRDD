@@ -157,6 +157,7 @@ test("Docker Isolation全試験を収集し上位の同名試験を混同しな�
   assert.deepEqual(selectRegressionStaticOwners(catalog, changed, selected), [
     "coordinator",
     "docker-isolation",
+    "executor",
   ]);
   for (const file of [
     "docker-isolation-host.integration.test.ts",
@@ -294,6 +295,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "docker-isolation",
       "domain-model",
       "execution-intelligence",
+      "executor",
       "mcp-server",
       "platform-access",
       "version-control",

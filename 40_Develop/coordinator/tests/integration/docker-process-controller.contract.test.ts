@@ -21,125 +21,27 @@ import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
+import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/controller.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
-  createIsolatedDockerProcessControllerCandidate,
-  createRuntimeOwnedLifecycleNoticeReporter,
-  describeDockerProcessControllerContract,
   startRuntimeOwnedDockerProcessController,
-} from "../../src/execution/controller.ts";
+} from "../../src/execution/provider-executor.ts";
+import {
+  createIsolatedDockerProcessControllerCandidate,
+  describeDockerProcessControllerContract,
+} from "../../../executor/src/index.ts";
 import {
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
-} from "../../src/execution/result.ts";
+} from "../../../executor/src/index.ts";
 import {
-  createProviderObservationOwner,
-  verifyRuntimeOwnedDockerProviderSubmissionNotice,
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../../src/execution/observation.ts";
+} from "../../src/execution/provider-executor.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../src/execution/preparation.ts";
-
-/**
- * 観測Ownerの交差と元object・通知寿命を反証する。
- * @responsibility Ownerと元objectの相関を検査する。
- * @trace ERB-IT-002
- * @trace ERB-IT-004
- * @precondition 本番とは別の候補Owner二つを生成する。
- * @stimulus 元通知の登録・照合・失効と終端結果の借用を行う。
- * @observation 元object、コピー、別Ownerと本番Readerの返値。
- * @oracle 同じOwnerの元objectだけを受理し、失効後は拒否する。
- * @cleanup N/A: 外部資源なし。局所Ownerは試験後に到達不能となる。
- * @boundary ERB-IT-002=Adjacent 1 Block: 候補Controller→観測Owner→本番Reader
- */
-test("観測Ownerは候補間・本番間の流用と失効後の通知を拒否する", () => {
-  const first = createProviderObservationOwner();
-  const second = createProviderObservationOwner();
-  const owner = Object.freeze({});
-  const recovery = Object.freeze({});
-  const notice = Object.freeze({});
-  const result = Object.freeze({});
-  const args = [
-    notice,
-    recovery,
-    owner,
-    "start_provider_attached",
-    "op",
-    "recovery",
-    "provider_submission",
-  ] as const;
-  first.registerSubmission(
-    notice,
-    Object.freeze({
-      recoveryCapability: recovery,
-      managementCapability: owner,
-      purpose: "start_provider_attached",
-      operationId: "op",
-      recoveryId: "recovery",
-      kind: "provider_submission",
-    }),
-  );
-  assert.equal(first.verifyUnissuedNotice(...args), true);
-  assert.equal(second.verifyUnissuedNotice(...args), false);
-  assert.equal(
-    first.verifyUnissuedNotice(
-      { ...notice },
-      recovery,
-      owner,
-      "start_provider_attached",
-      "op",
-      "recovery",
-      "provider_submission",
-    ),
-    false,
-  );
-  assert.equal(
-    verifyRuntimeOwnedDockerProviderSubmissionNotice(
-      notice,
-      recovery,
-      owner,
-      "op",
-      "recovery",
-    ),
-    false,
-  );
-  first.revokeSubmission(notice);
-  assert.equal(first.verifyUnissuedNotice(...args), false);
-  first.registerTerminal(
-    result,
-    Object.freeze({
-      managementCapability: owner,
-      operationId: "op",
-      recoveryId: "recovery",
-      resources: [],
-      primaryFailure: null,
-      mountLeaseReleased: true,
-      recoveryCompleted: true,
-      homeLeaseReleased: true,
-    }),
-  );
-  assert.ok(first.borrowTerminalObservations(result, owner, "op", "recovery"));
-  assert.equal(
-    second.borrowTerminalObservations(result, owner, "op", "recovery"),
-    null,
-  );
-  assert.equal(
-    first.borrowTerminalObservations({ ...result }, owner, "op", "recovery"),
-    null,
-  );
-  assert.equal(
-    borrowRuntimeOwnedDockerTerminalObservations(
-      result,
-      owner,
-      "op",
-      "recovery",
-    ),
-    null,
-  );
-});
+import { bindProviderAdviceCommand } from "../../../executor/src/index.ts";
 
 /**
  * 実行調整への値依存を照合Ownerへ戻さない。
@@ -181,7 +83,7 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
   const runtime = (name: string) => stripTypeScriptTypes(source(name));
   assert.match(
     runtime("execution/recovery.ts"),
-    /from\s+["'][^"']*observation\.ts["']/,
+    /from\s+["'][^"']*provider-executor\.ts["']/,
   );
   const recoveryControllerImports = [
     ...runtime("execution/recovery.ts").matchAll(

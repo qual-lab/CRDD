@@ -10,7 +10,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { inspectRecoveryStartFailureDiagnostic } from "../../../src/execution/result.ts";
+import { inspectRecoveryStartFailureDiagnostic } from "../../../../executor/src/index.ts";
 
 const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 

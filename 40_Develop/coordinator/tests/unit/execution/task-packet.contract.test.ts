@@ -30,7 +30,7 @@ import {
   describeProviderTaskPacketRuntimeContract,
 } from "../../../src/execution/preparation.ts";
 import { compileExternalSendScopeHash } from "../../../src/decision/external-send-grant.ts";
-import { normalizeProviderTaskStructuredResult } from "../../../src/execution/result.ts";
+import { normalizeProviderTaskStructuredResult } from "../../../../executor/src/index.ts";
 
 const operationFixture = createRepositoryTestDirectory("task-packet-network-");
 /**

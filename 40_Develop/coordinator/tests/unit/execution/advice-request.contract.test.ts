@@ -28,7 +28,7 @@ import {
   describeAdviceResultContract,
   normalizeAdviceResult,
   PROVIDER_ADVICE_RESULT_CONTRACT,
-} from "../../../src/execution/result.ts";
+} from "../../../../executor/src/index.ts";
 import {
   describeAdviceTaskContract,
   prepareAdviceTask,

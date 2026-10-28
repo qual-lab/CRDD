@@ -179,6 +179,18 @@ Dの今回の非AI公開接続候補は、基準`281a324b3`と`40_Develop`／`te
 
 #### Fの単段移管に対する着手前照合
 
+続くSource実装では、Provider単段の準備・計画・Process開始／取消／join・結果正規化と通知／終端Mapを`40_Develop/executor`へ宣言単位で移管した。[Executor詳細](../../../06_Architecture/Details/executor/01_Architecture.md)を正式な境界の正本とする。Coordinatorには選定・送信同意・Task段階順序・Workspace・共通Host清掃と保存を残し、`execution/provider-executor.ts`の固定一実体へ接続した。DomainのCAS・Schema・Hash領域・Kernel・保存先を変更せず、新Registry／State／Worker／Lockを追加していない。
+
+既存の準備Mapとcontrols、通知・終端の私有Mapはそれぞれ元Owner単位で一実体とし、三保存利用側は同じ本番Verifierへ直接接続する。通知登録→同期保存→finally失効、元result借用を保持し、Mapや生WriterをRootへ公開しない。本番Factoryは固定Docker Isolation、試験候補は別Map・本番Authorityなしとする。Module初期化の相互参照は同じSingletonへの関数宣言で束縛し、実行中の遅延Loaderを追加しない。
+
+先行関連324件と独立Root／Map／準備の五件は成功した。独立レビューでは保存・回復試験の旧mock先一群を検出し、新しいVerifier Ownerへ追従した。型契約の同形二宣言もExecutor側へ一本化した。CatalogとSymbolは実移管先へ接続し、歴史的Evidenceは変更しない。AI・Docker照会／操作・認証情報・過去保持物の操作はない。
+
+固定Sourceは基準`f7326f45e4f9e2c7f62de849fc68f55ae4e50afc`、tracked `40_Develop`差分と新規18FileのPath・NUL・本文を順に連結したSHA-256 `148b47293f01603e49e7c40534e1ae129bfdae1876f133d7897b0ea2972b3f96`で特定する。Executorの五件はCoordinator解決拒否、準備Map分離、同期通知失効、元結果と別Owner拒否、同じOracleによる旧Path変異拒否を確認した。最新通常Windowsの関連324件、MCP105件、Workbench111件の各全実行は別々に成功した。制限環境の同関連試験では実子Process取消が終了不明で失敗し、通常環境で324件全成功した結果と区別する。
+
+Windows保存の先行六Caseは四成功・二不合格。終端と清掃の代役が移管後に同一Moduleとなり二重mockした一件は、終端区間後のrestoreで是正し、子Caseを含む二件が再成功した。正常Owner一回・保持あり・二回は先行成功、三回＋HTTPの15秒超過は単独実行で同じ期限のまま成功した。単独時のHTTP応答は約10.4秒。並行実行負荷が原因だったと断定せず、期限とOracleは変更しない。旧Path変異の検査も同じ検証関数へ正常／変異本文を渡す形へ補強し、独立再レビューは残指摘零。
+
+Catalog414件valid、関連台帳二十八件成功、変更対象文書のChecker指摘零。Repository全体Checkerは別範囲の3,723指摘によりexit 1で、全体QA成功ではない。Domain広域では台帳期待集合の追従一件と子Process競合二件を検出した。前者は新Ownerをexact集合へ追加し、後二件は同じ期限で単独再成功した。全体の先行不合格を取り消さず、固定候補のDomain／Coordinator広域回帰終端は継続確認する。Source限定Passとこれらの未確定結果を区別する。
+
 Fの原子的な移管単位は`executeStage`だけではなく、単段準備、Process開始／取消／join、結果正規化と元Docker回復証拠の閉包である。`ControlRecord`のTask全体と単段字段を分け、後者の真正MapをExecutorへ一実体移管する。Coordinatorは現在Attemptの不透明Controlと終了後の不透明証拠を保持し、Task配列の順序・再試行・Workspaceと共通Host清掃を所有する。共通Host清掃前の各Attemptの準備、元清掃結果後の確定又は不明時の放棄は用途固定操作として接続し、汎用callback／新Registry／二重Mapは作らない。`result.ts`・`operation.ts`・`recovery.ts`の丸ごと移動は循環と上位責務流入を生むため、宣言単位で分割する。この照合は実装・回帰の完成ではない。
 
 #### Dの内容認可とMCP定義操作の限定接続

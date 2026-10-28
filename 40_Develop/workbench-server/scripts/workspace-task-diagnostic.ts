@@ -7,11 +7,13 @@
 import type { Writable } from "node:stream";
 import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
 import {
-  inspectRecoveryStartFailureDiagnostic,
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
-  isPrimaryFailureDiagnostic,
 } from "../../coordinator/src/execution/result.ts";
+import {
+  inspectRecoveryStartFailureDiagnostic,
+  isPrimaryFailureDiagnostic,
+} from "../../executor/src/index.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
 
 type Event = Extract<

@@ -1,0 +1,142 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "executor",
+  "symbols": [
+    {
+      "symbolId": "coordinator.execution.provider-result-reasons",
+      "kind": "file",
+      "path": "src/result/validation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.execution.provider-observation",
+      "kind": "file",
+      "path": "src/attempt/observation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.provider.execution-plan",
+      "kind": "file",
+      "path": "src/attempt/plan.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.provider.preparation-lifecycle",
+      "kind": "file",
+      "path": "src/attempt/preparation.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.process.controller",
+      "kind": "file",
+      "path": "src/attempt/controller.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.docker.effect.runtime",
+      "kind": "file",
+      "path": "src/attempt/isolation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
+      "kind": "file",
+      "path": "src/result/normalization.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.provider.task.structured.result",
+      "kind": "file",
+      "path": "src/result/normalization.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "executor.source.index",
+      "kind": "file",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.source.attempt.execute",
+      "kind": "file",
+      "path": "src/attempt/execute.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.source.attempt.types",
+      "kind": "file",
+      "path": "src/attempt/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.observation",
+      "kind": "test-suite",
+      "path": "tests/unit/observation.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.execution.provider-observation",
+        "coordinator.source.src.security.docker.process.controller"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.preparation",
+      "kind": "test-suite",
+      "path": "tests/unit/preparation.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.provider.preparation-lifecycle"
+      ]
+    },
+    {
+      "symbolId": "executor.test.integration.public-boundary",
+      "kind": "test-suite",
+      "path": "tests/integration/public-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.execution.provider-observation",
+        "coordinator.source.src.security.docker.process.controller"
+      ]
+    }
+  ]
+}

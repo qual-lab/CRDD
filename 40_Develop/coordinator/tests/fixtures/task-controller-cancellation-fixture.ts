@@ -13,11 +13,11 @@
 import { executionSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/controller.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../../executor/src/index.ts";
 import {
   projectDockerProcessControllerStartResult,
   projectDockerProcessControllerCompletionResult,
-} from "../../src/execution/result.ts";
+} from "../../../executor/src/index.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 

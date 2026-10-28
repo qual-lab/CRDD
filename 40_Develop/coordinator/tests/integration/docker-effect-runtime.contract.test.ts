@@ -9,9 +9,9 @@
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/preparation.ts";
+import { createProviderDockerRuntimeAdapterCandidate } from "../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { hashProviderAdviceCommand } from "../../src/execution/preparation.ts";
+import { hashProviderAdviceCommand } from "../../../executor/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
@@ -45,14 +45,14 @@ import {
   type DockerExecutionHooks,
   type DockerIsolationRuntimePlan,
 } from "../../../docker-isolation/src/index.ts";
+import { verifyRuntimeOwnedDockerCleanupOutcome } from "../../src/execution/provider-executor.ts";
 import {
   bindDockerIsolationRuntime,
   describeDockerEffectRuntimeContract,
-  verifyRuntimeOwnedDockerCleanupOutcome,
-} from "../../src/execution/controller.ts";
-import { describeAdviceResultSchema } from "../../src/execution/result.ts";
+} from "../../../executor/src/index.ts";
+import { describeAdviceResultSchema } from "../../../executor/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../src/execution/preparation.ts";
+import { bindProviderAdviceCommand } from "../../../executor/src/index.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。

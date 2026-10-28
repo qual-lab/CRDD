@@ -2,11 +2,11 @@
 
 ## Core独立後の目標責務 — 2026-10-27
 
-2026-10-28の公開入口分離では、Objective／Decision／状態照会／Workspaceの純粋な入力・結果検査と観測型をDomainへ実体移管した。[移管先の一覧](../domain-model/05_Runtime_Domain.md#2-共通入力返却値)を参照する。Coordinator Rootの同名公開は同じDomain宣言の再公開であり、検査実装を二重保持しない。`state/projection.ts`には投影生成とSchedulerへの接続だけを残し、実行判断をDomainへ移さない。Executor実体の切出しと単一試行への本番接続は別の未完了作業である。
+2026-10-28の公開入口分離では、Objective／Decision／状態照会／Workspaceの純粋な入力・結果検査と観測型をDomainへ実体移管した。[移管先の一覧](../domain-model/05_Runtime_Domain.md#2-共通入力返却値)を参照する。Coordinator Rootの同名公開は同じDomain宣言の再公開であり、検査実装を二重保持しない。`state/projection.ts`には投影生成とSchedulerへの接続だけを残し、実行判断をDomainへ移さない。続く[Executor分離](../executor/01_Architecture.md)では単段準備・Process制御・結果正規化・観測Mapを実体移管し、`execution/provider-executor.ts`で同じ一つの本番Runtimeへ接続する。Task順序・Workspace・共通Host清掃と保存はCoordinatorに残す。実AI／Docker境界の検証完了とは区別する。
 
 CoordinatorはCallerが計画・分解した小・中規模Taskを実行・調整する。CRDD文書群のMilestone／Roadmap／WBSを自律管理するOwnerではない。[既存Objective／Milestoneの用途](../domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を維持し、実行状態と文書を自動同期しない。文書処理もCallerから明示Taskとして受ける。
 
-[Runtime Domain契約](../domain-model/05_Runtime_Domain.md)に定義・局所CRUD・共通保存を移し、Coordinatorは任意の横断調停Ownerとする。単一試行の真正証拠・取消・終了はExecutor Library、技術処置は既存DI／PAへ接続する。現在の単一CoordinatorのSource・APIは移管元であり、以下の実装済み記述を目標の実装成立に流用しない。真正Mapと五Contextの接続を確認するまで旧経路は撤去しない。
+[Runtime Domain契約](../domain-model/05_Runtime_Domain.md)に定義・局所CRUD・共通保存を移し、Coordinatorは任意の横断調停Ownerとする。単一試行の真正証拠・取消・終了はExecutor Library、技術処置は既存DI／PAへ接続する。旧単一Coordinatorの記述は移管前の比較基準であり、現在の成立範囲は[移管・検証記録](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)で確認する。真正Mapと五Contextの対応を保持し、非AI確認を実Provider／実Docker境界の完成へ流用しない。
 
 ## 認証確認の失敗診断
 
