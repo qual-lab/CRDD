@@ -1,5 +1,9 @@
 # CROS Workbench詳細設計
 
+## AI編集検証とHTTP検証の分離 — 2026-10-30
+
+実AI編集ToolのTask完了待機とWorkspace操作を既存Coordinator Package APIへ直結し、Workbench Server起動・画面全体GET・定期HTTP照会を外す。実行終了後はDomain正本の同Request状態と照合する。画面情報の取得失敗を実AIの実行失敗へ読み替えない。HTTP受付・表示・取消の非AI結合試験は維持し、Browser向けHTTPや製品UIの契約は変更しない。一時回答本文は元Ownerが所有し、Domainへ追加永続化しない。実AI E2Eの結果をWorkbench HTTPの成立根拠に使わず、既知の受信前待機・event loop停止は独立した未解決故障として保持する。
+
 ## 検証HTTPの受信前待機の観測 — 2026-10-29
 
 検証専用Clientは一要求の`requestCreatedAt`と`headersSendingAt`を既存時刻へ加える。[Undiciの診断契約](https://undici.nodejs.org/api/DiagnosticsChannel)に従い、前者は要求object生成、後者はsocketへの最初のbyte書込み直前であり、送達・Server受理の証明ではない。同じrequest objectだけを相関に用い、本文・Header・socket・URLを診断結果へ複製しない。欠測を0へ補完せずnullで保持し、専用Processの終了と購読解除を維持する。

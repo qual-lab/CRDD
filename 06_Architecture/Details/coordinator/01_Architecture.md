@@ -1,5 +1,13 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 実行完了とSurface表示の検証分離 — 2026-10-30
+
+ExecutorはProvider一段、Coordinatorは複数段の順序・取消・終了を所有し、共通状態の定義・保存・照会はDomain Modelが所有する。実AI編集の検証Toolは既存の`openTaskSession`のstart／wait／cancel／closeと公開Workspace操作を利用し、Workbench Serverを起動せず画面全体GETで進行を判定しない。通常の二十分試験期限は同じTaskへのAbortSignalとexact Request IDの一回取消へ接続し、Timerと元Ownerの終了を確認する。Task取消SignalをWorkspace操作へ流用しない。
+
+終了後はDomain Readerで同じRoot・Project・Requestの記録をfreshに読み、settled、実行status／reason／cleanup／回復参照、Owner解放・Lease Intent終端を公開結果と照合する。回答本文やWorkspaceResultは元Ownerから受け取り、Domainへ表示本文を追加保存しない。本文の欠測と、保存された実行状態の完了／不明は異なる事実である。Domain不一致・読取り不能・Owner終了不明は成功又は清掃成立に補完しない。新しいQueue・Worker・永続状態・監視機構は追加しない。
+
+この検証はCoordinator／Executor／Domain／Gitの直接境界を対象とし、Workbench／MCPのTransport成立の証拠とはしない。BrowserとServerのHTTP、および現行の一時回答を含むSurface公開契約は変更しない。HTTP受付・表示・取消・応答喪失・期限の確認は非AIの独立した結合試験で維持する。HTTP受信前の停止故障は未解決事項として保持し、ポーリングの撤去だけを原因解明・修復と表示しない。
+
 ## 公開Taskの成功理由と一次失敗 — 2026-10-29
 
 単発Taskの公開Snapshotは、公開statusと保存記録のstatusがともに`completed`の場合だけ`primaryFailure:null`とし、成功理由は`reason`へ保持する。片側だけの完了、blocked・cancelled・unknown、記録欠測の既存理由・回復参照・副次失敗をこの条件で消去しない。保存状態・履歴Schema・状態遷移・清掃成立条件は変更しない。成功理由が一次失敗にも複写され、実AI編集成功後の検証Tool清掃Gateが拒否した不整合に対する、表示投影の限定是正である。

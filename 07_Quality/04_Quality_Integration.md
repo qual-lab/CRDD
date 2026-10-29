@@ -1,5 +1,11 @@
 # Quality Integration
 
+## 実AI編集とHTTP照会の検証分離 — 2026-10-30
+
+ERB-IT-021の編集ToolはCoordinator公開APIで受付・wait・exact同ID取消・closeを行い、Domain保存の同Request終端を照合する。新しい試験専用子ではAI開始を禁止し、Docker観測だけを合成化し、実Git・Domain保存・両Workspaceの候補固定／二親Merge／回収を確認する。HTTPを使う既存の通常受付・取消・応答喪失・期限の試験は別に維持する。
+
+開始拒否、wait失敗、期限Abortと取消一回、取消失敗／別ID／未回収、close失敗、Domain欠測／Lock未解放／別ID／非終端／status・reason・cleanup・回復参照・Project・Owner・Lease不一致を反証する。正常結果があってもDomain照合不能なら編集検証成功を返さない。元結果・一次理由と回復参照、既存の全清掃Gate・Source不変確認を維持する。実AI再送・実Docker・過去保持物操作はこの非AI検証に含めず、UI／HTTPの既知故障を解消済みとは扱わない。
+
 ## 公開Taskの成功理由と一次失敗の分離 — 2026-10-29
 
 PRL-UT-006では公開・保存の両completedだけ一次失敗nullとし、成功reason保持、片側完了・取消・失敗・不明・記録欠測の既存原因とexact回復参照の保全を確認する。ERB-IT-021の本番Owner／実保存／HTTP子Client結合では、非nullの成功理由がreasonへ残りprimaryFailureだけnullとなることと、取消理由が消えないことを確認する。既存の十五秒期限・清掃Gateは維持し、外部AI・Docker・過去保持物操作は行わない。過去実試験の終了値2を遡及変更せず、今回の非AI是正を再実AIの成功又は元試験の終了値0とは扱わない。

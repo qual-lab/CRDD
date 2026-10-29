@@ -992,6 +992,69 @@ Direct Requestは`request-2b0656c9-7180-4710-add0-5570d513528f`、Isolatedは`re
 
 PRL-UT-006へ製品view本文の境界行列を追加し、ERB-IT-021の本番Owner・実保存・HTTP子Client結合へ非null成功reasonと取消reasonの相関assertを追加した。初回の試験型検査で行列tupleの未確定要素型を検出し、値を変えずconst tupleへ追従後、両Package型検査、Workbench check、Coordinator変更Fileのformat／lint、局所二件が成功した。Workbench関連二Suite三十件とCoordinatorの公開契約・Owner境界・回復参照三Suite二十一件が成功。独立レビューは残指摘零。続く単発Taskの実保存回帰四件も成功し、自己生成Rootの不存在を確認した。差分検査も成功。AI再送・Docker照会／操作・過去保持物操作は行っていない。過去一回の終了値2を変更せず、今回の非AI確認を実AI終了値0の観測として扱わない。
 
+#### 成功時primaryFailure是正後の同条件再確認：着手 — 2026-10-29／30
+
+人間はcommit・push後の同条件再試験を明示した。修正と前回結果を`2fd35fb5ffa64f52667f7ff27fa96eedf8b6e5b5`でcommit・pushし、Sourceクリーンを確認した。前回と同じ新品合成Direct→成功時だけIsolated、Codex GPT-6.1 Sol／medium編集・Claude Opus 5.5／mediumレビュー、既存限定是正込み全体最大八段、一Task一回・失敗時再送なし、今回物のみ回収という範囲を維持する。Docker再起動・Image更新・過去保持物操作は行わない。
+
+Engine linux29.8.1・稼働Container零と既存固定Image三件を読取り確認後、新品`C:\project\CRDD\.crdd\tests\workspace-ai-WLbiJV`で非AI事前確認を行った。終了値零、両方式limitedProbePassed／runtimeClean／workspaceClean／closeConfirmed true、両清掃Gate eligible・fixtureRootsRemoved true、Git候補固定・二親Merge・候補終了・Worktree／Branch回収、既存変更保全、Source不変、Docker前後差零を確認した。result SHA-256は`df3deaf195784c65a126fd3561d742c9779e13f3dcf61d7c0d01949fc6d6bffb`。
+
+23:59:44 JSTに外部対話端末PID31980を起動し、承認済み実AI一回を通常`--external-send-confirmed`で開始した。今回専用Rootは`C:\project\CRDD\.crdd\tests\workspace-ai-Uvd2mD`。通常送信確認は人間が端末内で行い、確認コードや生出力は自動保存しない。現在は実行終了待ちで、今回の結果・回収成立は未確定である。日付境界をまたいでも同じ一回として扱い、新たな再送枠を追加しない。
+
+非AI事前確認の引渡しJSONは、exact Root・全三entry・nonreparse・上記Hash・両成功と清掃条件を再照合後、File一件と空親二Directoryだけを非再帰の通常削除で回収した。`workspace-ai-WLbiJV`の不存在を確認済み。
+
+#### 是正後の同条件一回：HTTP期限による停止結果 — 2026-10-30
+
+人間申告は`E2E_EXIT=2`。今回Requestは`request-9811ef06-a7a9-4c71-8df3-2ea9229b62cd`、操作相関は`operation-b2c94137-b879-4deb-9425-d246d27a7306`。DirectのCodex編集は一段正常終了、source.txtは`DIRECT_OK\n`となり、changedPathsは一件で一致した。既知Code Mode警告一件を観測したがCommandは一件開始・完了・exit0、技術一次失敗なし。ClaudeはContainer作成・Process開始前に取消され、レビューとIsolatedは未開始。Taskの再送はしていない。
+
+停止はobserveのGET21でheaders_unobserved／timedOut trueの十五秒期限。Client開始1793286053485、要求生成3497、送出直前3501、Server受信1793286068242、応答終了8501、Client期限終了8503（同じ先頭時刻桁を省略）。送出直前からServer受信14741ms、受信から応答終了259ms、Owner照会17ms。Server event loopの最大停止はexpected1793286053429→observed1793286068241、14812msでこの要求区間と重なる。受信前待機と処理停止の相関は観測されたが、占有していた処理・同期I/O・CPU・OS待ちの原因は未確定。前回のprimaryFailure混入／最終清掃判定とは別の停止であり、今回成功終端へ到達していないため実AIで修正済み清掃Gateの通過は未確認。
+
+同ID取消後はTask／execution cancelled、reason／primaryFailureは`single_task_cancelled_after_effect_cleanup`、cleanup true、回復参照・副次失敗は空、Client／Owner終了確認済み。Codex・未開始ReviewerともContainer／Network不存在とcleanup true。今回Container追加／削除は零、既存二Containerは不変更。標準bridgeはID `c9ba8af9270f77fcd2631e4676351b4ae984bb6151bfa34c9ebdfbc7978ff72b`から`5b1b08c0cbbc017830bef0cc72f669ffbc383ba52a991d4501218dd8e4ee28fa`へ変わったが、比較では標準構成同一・既存利用者資源保持だった。変更原因は未確定で、標準Networkを回収対象にしない。こちらからDocker再起動・Image更新は発行していない。Source不変、原result SHA-256は`dbbe262002d74b4c588024d4d4cd13c39cb3bae2031ec7514fc4d5f95db3f4e0`。
+
+今回の通常File入口で既存Domain Readerを用い、同Requestのsettled／cancelled・Owner世代null・cleanup true・回復参照空、履歴cancelled／cleanup confirmed、Lease取得・解放の同一対、未解決技術区画零・結果零を確認した。Gitは元Base・共有indexのstaged.txt・既存dirty／未追跡・Sourceの合成一行を保持し、main一Branch・自己Worktree一件のみ。既存maintainは一件を正式退役、transferは記録零、再読で未解決義務・履歴待ち・Lease証拠零と元二Queueだけへの復帰を確認した。元結果と終了値2は改変せず、今回物だけの物理清掃へ進む。過去保持物は調査・変更していない。
+
+今回Rootの全通常File36・Directory36、全File nlink1・linkなし、inventory SHA-256 `1b7fb4757eb97e634f1a9f362e304fd79790eee01171d0a28e861ac711310363`を確認し、元結果Hash・exact Root・祖先nonreparseを再照合した。今回Git object十四FileのReadOnlyと空`.git`一件のHiddenだけを解除し、通常Fileと空Directoryを非再帰で個別削除した。`workspace-ai-Uvd2mD`の不存在を確認済み。今回の物理残存は零。追加AI試験・製品修正は実施していない。
+
+#### 実AI編集とHTTP表示の検証分離 — 2026-10-30
+
+人間は実AI実行確認とWorkbench画面確認の混在を解消する方針を採用した。着手前の独立照合で、既存公開APIだけで成立すること、元Owner・現在認可・二十分試験期限・取消・元結果・Domain照合・既存清掃Gateを維持する条件を確認した。変更分類は検証経路の責務是正であり、製品のTask Lifecycle・保存Schema・HTTP契約・十五秒期限を変更しない。Source／契約の独立レビューと変更意味に対応した非AI結合回帰を実施し、準拠基準・リリース条件の変更や実AI再送を対象にしない。
+
+`verify-workspace-ai.ts`はWorkbench Server起動、画面全体GET、HTTP Client生成と定期状態pollを撤去し、同じ`openTaskSession`のstart／wait／cancel／closeへ接続した。Workspaceは公開`executeWorkspace`へ従来のcommand順・現在認可を渡す。Task用AbortSignalをWorkspace操作へ流用しない。Timerは開始前に設置し全分岐で解除、期限時は同じRequestを一回取消して終了を待つ。新Worker・Queue・公開API・Registry・Stateは追加しない。Toolの既存物理配置を理由に製品Package依存や公開境界は変更しない。
+
+wait結果は本文を永続化せず元Ownerから取得し、freshなDomain Readerで同Root・Project・Request・Principal・Task／Attempt／Operation ID、settled、status／reason／cleanup／回復参照、Owner解放・Lease Intent終端を照合する。照会不能・不一致は成功へ補完しない。Domainの本文欠測は実行状態の不明を意味せず、一時本文のために新Storeを作らない。既存の最終清掃Gate・Git／Workspace／Docker inventory照合は省略しない。HTTP表示・受付・取消・応答喪失の既存非AI試験は別に維持し、過去のHTTP受信前停止の原因究明・修復済みとは表示しない。
+
+新しい試験専用子`workspace-package-preflight.ts`では、AI開始を固定拒否しDocker一覧だけを合成代役にして、正式Toolの両方式を実Git・Domain保存・候補固定・二親Merge・候補終了・Worktree／Branch回収まで通す。成功後はresult JSON一致、exact tests親・prefix・実体・唯一entry・nlinkを照合し、引渡しFileと空親だけをunlink／rmdirする。外部AI・実Docker・過去保持物操作は行わない。
+
+初回の39件回帰はSource／Fixture追従の途中で行列一件が不整合となり38成功・1失敗、追従後の固定候補では39件成功した。これを最終修正後へ流用しない。独立レビューで「wait結果の保存前に取消結果待機が失敗すると元結果・回復参照を失う」Moderate一件と反例不足Minor一件を検出した。元waitを先に保持し、同ID取消結果が確認できたときだけ更新、取消例外／別IDでは元結果と固定副次失敗を保持する順序へ是正した。開始の通常拒否、Task／Operation不一致、期限取消の例外／別IDの反例を追加し、局所行列とWorkbench checkが成功、再レビュー残指摘零。最終修正後の固定候補で三Suite三十九件が全成功した。Package直結の両方式事前確認では実Git・Domain保存・Merge・回収と引渡し親の不存在を確認した。Workbench check、差分検査、独立再レビュー残指摘零。実AI・実Docker・過去保持物操作は実施しておらず、新経路での実AI編集の再成立やHTTP実故障の解消は未検証である。
+
+#### HTTP分離後の一回実AI編集：承認と事前確認 — 2026-10-30
+
+人間は新しいPackage直接経路の一回を承認した。合成Context・source.txt・固定指示・差分だけ、Codex `gpt-6.1-sol`／medium編集→Claude `claude-opus-5-5`／mediumレビュー、Direct→成功時だけIsolated各一Task、既存限定是正一回・再レビュー込み全体最大八Provider段を維持する。Task再送・Docker再起動・Image更新・過去保持物操作は含めない。基準Commitは`2fd35fb5ffa64f52667f7ff27fa96eedf8b6e5b5`、そこへ最終非AI回帰・独立レビュー済みの未Commit差分を加えた候補であり、基準Commit単体の実測とは表示しない。実行Tool SHA-256は`323f595dae4f330ad33bae6b320d7c8f637f87f232761f862c97232d157e0881`。
+
+Engine linux29.8.1・稼働Container零・既存三固定Imageを読取り確認した。新品`C:\project\CRDD\.crdd\tests\workspace-ai-TvLDzU`の非AI事前確認は終了値零、両方式limitedProbePassed／runtimeClean／workspaceClean／closeConfirmed true、既存変更保全・候補固定・二親Merge・Worktree／Branch回収・両削除Gate・Source不変・Docker前後差零を確認した。HTTP Server起動・画面GET・pollは行っていない。引渡しJSON SHA-256は`a6e74aaca85d255280bf1e8187732ebd521b75ab061d474ca23fadfab57db06c`。
+
+00:35:46 JSTに外部対話端末PID22988を起動し、通常`--external-send-confirmed`の一回を開始した。今回実AI専用Rootは`C:\project\CRDD\.crdd\tests\workspace-ai-hiBbKw`。通常送信同意は端末内で人間が行い、生出力・確認コードをFile／Logへ保存しない。実行終了・結果・今回物の回収は現在未確定である。
+
+非AI事前確認の引渡しJSONと空親は、exact Root・全三entry・nonreparse・Hash・両方式の清掃条件を再照合後、File一件と空Directory二件だけを非再帰の通常削除で回収した。`workspace-ai-TvLDzU`の不存在を確認済み。
+
+<a id="workspace-direct-api-real-ai-pass-20261030"></a>
+
+#### HTTP分離後の一回実AI編集：両方式の限定合格 — 2026-10-30
+
+人間申告は`E2E_EXIT=0`。元resultの確認でも両方式limitedProbePassed／stateVerified／runtimeClean／workspaceClean／closeConfirmed true、Task／execution completed、primaryFailure null、回復参照・副次失敗は空だった。成功理由はreasonに残り、前回のprimaryFailure混入による清掃拒否は今回発生していない。各方式はCodex編集→Claudeレビューの二段だけ、全体四Provider起動であり、Claudeはいずれもapproved・finding零、限定是正・Task再送は不要だった。
+
+| 方式 | Request ID | 確認結果 |
+| --- | --- | --- |
+| Direct | `request-9b02e429-e41c-4840-bd8f-19329aa8881e` | `DIRECT_OK\n`の10byte／Hash一致、changedPaths一件、既存dirty／stage／未追跡保全、同RequestのDomain終端相関 |
+| Isolated | `request-f07bcba8-6536-417a-b7c7-7bc694b5208d` | `ISOLATED_OK\n`の12byte／Hash一致、Domain終端相関、候補固定・Merge・候補終了・Workspace回収 |
+
+Isolated候補Commitは`da7753609dadec2caecdf772f2e02f4ae72cf083`、Mergeは`33dce3de866946266a5585e747e4ca783c4c84be`。固定Toolの実行時assertで二親相関、Candidate／MergeのTree一致、Worktree／専用Ref不存在を検査してからlimitedProbePassedへ進む。これら細部を結果JSONの専用field単独から推測したのではなく、実行Source不変と当該Oracle成立へ結合した確認である。四Provider段の境界診断は、正常終了・Process Tree終了・Container／Network不存在・cleanup trueを全て確認した。既知Code Mode警告は両Codexで一件ずつ残るが、Command開始・完了・exit0と編集成立が観測され、故障件数へ読み替えない。
+
+両fixtureRemovalGateはexact一件ずつeligible／fixture_closed_and_unreferenced、fixtureRootsRemoved true、cleanupFailures空。Source不変で、Tool Hashは着手時の`323f595dae4f330ad33bae6b320d7c8f637f87f232761f862c97232d157e0881`と一致した。今回Node Processの終了を再観測済み。Docker一覧は既存二Containerのみ、今回物は残っていない。標準bridgeのIDは`5b1b08c0cbbc017830bef0cc72f669ffbc383ba52a991d4501218dd8e4ee28fa`から`f725e643d2eaf00fc4968cc7e1036616178414f90a723985ed297d0a8a4a2f3d`へ変わり、既存利用者資源保全・system構成一致として分類された。raw inventory完全不変とは主張せず、原因未確定の標準Networkは操作しない。Docker再起動・Image更新・過去保持物操作は発行していない。
+
+元result SHA-256は`f00cf580f625cb09647cdde83941c2248eaede5be53c09d78b658d9af4247bef`。独立の結果相関レビューは残指摘零。結果自身のfullE2eVerified falseを維持し、今回の主張は承認済みの直接API版一回で両方式の限定Task・保存・診断・回収が共同成立した範囲とする。Workbench HTTP故障の修復、全CRDD QA、一般的な再現性、全機能E2Eへ拡張しない。残る引渡しresult.jsonと空親だけを内容・Root確認後に回収する。
+
+引渡しJSONは、両Task／Domain相関・清掃Gate・Source不変・元Hash・exact Root・祖先／全三entryのnonreparseと唯一Fileを再確認後、通常削除した。空editと自己Rootは非再帰rmdirで回収し、`workspace-ai-hiBbKw`の不存在を確認済み。今回の物理残存は零。既存Docker資源・標準Network・過去保持物は不変更。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

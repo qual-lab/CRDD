@@ -19,6 +19,74 @@ import path, { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+
+/**
+ * UIを起動せず公開Package API・実Git・Domain保存の事前確認を結合する。
+ * @trace ERB-IT-021
+ * @precondition Repository-local tests親と固定Node。Docker観測は合成、AI開始は禁止。
+ * @stimulus 専用子で正式Toolのpreflightを一回実行する。
+ * @observation 両方式の変更・候補固定・二親Merge・回収と子終了。
+ * @oracle 両方式成功・Source不変・全清掃Gate成立。HTTP／実AI／実Dockerを呼ばない。
+ * @cleanup Gate成立済みの引渡しFileと空親だけを範囲確認後に削除する。
+ * @boundary 正式Tool→Coordinator／Domain／Version Control。
+ */
+test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで完了する", () => {
+  const repository = path.resolve(import.meta.dirname, "../../../..");
+  const output = execFileSync(
+    process.execPath,
+    [
+      "--experimental-test-module-mocks",
+      fileURLToPath(
+        new URL("../fixtures/workspace-package-preflight.ts", import.meta.url),
+      ),
+    ],
+    {
+      cwd: repository,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 180_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  const report = JSON.parse(output.trim().split(/\r?\n/u).at(-1) ?? "null");
+  assert.equal(report.preflightOnly, true);
+  assert.equal(report.fixtureRootsRemoved, true);
+  assert.equal(report.sourceUnchanged, true);
+  assert.equal(report.resources.status, "verified");
+  assert.deepEqual(
+    report.results.map((r: { mode: string }) => r.mode),
+    ["direct", "isolated"],
+  );
+  for (const result of report.results) {
+    for (const key of [
+      "limitedProbePassed",
+      "runtimeClean",
+      "workspaceClean",
+      "closeConfirmed",
+    ])
+      assert.equal(result[key], true);
+    assert.equal(result.httpTiming, undefined);
+  }
+  const root = report.trialRoot;
+  assert.equal(path.dirname(root), path.join(repository, ".crdd", "tests"));
+  assert.ok(path.basename(root).startsWith("workspace-ai-"));
+  assert.equal(fs.realpathSync.native(root), root);
+  assert.equal(fs.lstatSync(root).isSymbolicLink(), false);
+  assert.deepEqual(fs.readdirSync(root), ["preflight"]);
+  const parent = path.join(root, "preflight");
+  assert.equal(fs.lstatSync(parent).isSymbolicLink(), false);
+  assert.deepEqual(fs.readdirSync(parent), ["result.json"]);
+  const resultFile = path.join(parent, "result.json");
+  const stat = fs.lstatSync(resultFile);
+  assert.equal(stat.isFile(), true);
+  assert.equal(stat.isSymbolicLink(), false);
+  assert.equal(stat.nlink, 1);
+  assert.deepEqual(JSON.parse(fs.readFileSync(resultFile, "utf8")), report);
+  fs.unlinkSync(resultFile);
+  fs.rmdirSync(parent);
+  fs.rmdirSync(root);
+  assert.equal(fs.existsSync(root), false);
+});
 import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
 import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
@@ -242,10 +310,16 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
  * @responsibility 編集試験の失敗後処置を実本文と有限Ownerで確認する。
  * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
-test("Workspace試験は通信失敗後に同じTaskの取消結果を保存してから閉じる", async () => {
+test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時だけ同ID取消する", async () => {
   const source = fs.readFileSync(
     new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
     "utf8",
+  );
+  assert.equal(
+    /startWorkbench|requestInChild|readMain|createWorkbenchAiVerificationHttpClient/.test(
+      source,
+    ),
+    false,
   );
   const start = source.indexOf("  const workspaceId = randomUUID();");
   const end = source.indexOf("\n  return evidence;", start);
@@ -253,10 +327,29 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
   const body = stripTypeScriptTypes(
     `(async () => { ${source.slice(start, end)}\nreturn evidence; })()`,
   );
+  const stateFailures = [
+    "state-missing",
+    "state-blocked",
+    "state-lock",
+    "state-nonterminal",
+    "state-status",
+    "state-reason",
+    "state-cleanup",
+    "state-recovery",
+    "state-owner",
+    "state-lease",
+    "state-project",
+    "state-other-id",
+    "state-principal",
+    "state-attempt",
+    "state-task",
+    "state-operation",
+  ];
   for (const scenario of [
     "success",
     "before-accept",
-    "accept-unknown",
+    "start-blocked",
+    "wait-fails",
     "cancel-clean",
     "cancel-unknown",
     "cancel-throws",
@@ -265,52 +358,73 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
     "cancel-secondary-missing",
     "cancel-other-id",
     "close-fails",
+    "deadline",
+    "deadline-cancel-throws",
+    "deadline-cancel-other-id",
+    ...stateFailures,
   ]) {
-    let starts = 0;
-    let observes = 0;
-    const timingStages: string[] = [];
-    let timingDisposed = false;
+    let starts = 0,
+      waits = 0,
+      cancels = 0,
+      closes = 0,
+      cleared = 0;
+    let expire = () => {};
     const events: string[] = [];
-    const transport = new Error("workbench_verification_transport_failed", {
-      cause: {
-        failureClass: "headers_unobserved",
-        timedOut: true,
-        transportCode: "ECONNRESET",
-        secret: "synthetic-secret",
-      },
-    });
+    const success = scenario === "success" || stateFailures.includes(scenario);
     const snapshot = {
       requestId: "request-synthetic",
+      taskId: "task-synthetic",
+      attemptId: "attempt-synthetic",
+      operationId: "operation-synthetic",
       status: "blocked",
       reason: "synthetic_failure",
+      executionStatus: "blocked",
       cleanupConfirmed: true,
-      recoveryIds: [],
-      secondaryFailures: [],
+      recoveryIds: [] as string[],
+      secondaryFailures: [] as string[],
+    };
+    const complete = {
+      ...snapshot,
+      status: "completed",
+      executionStatus: "completed",
+      reason: "coordinator_task_workspace_review_completed",
+      primaryFailure: null,
+      workspaceResult: { workspaceId: null, changedPaths: ["source.txt"] },
+    };
+    const cancelResult = () => {
+      if (scenario === "cancel-throws" || scenario === "deadline-cancel-throws")
+        throw Error("synthetic-secret");
+      if (
+        scenario === "cancel-other-id" ||
+        scenario === "deadline-cancel-other-id"
+      )
+        return { ...snapshot, requestId: "other" };
+      if (scenario === "cancel-unknown")
+        return {
+          ...snapshot,
+          status: "unknown",
+          cleanupConfirmed: false,
+          recoveryIds: ["recovery-synthetic"],
+        };
+      if (scenario === "cancel-running")
+        return { ...snapshot, status: "running" };
+      if (scenario === "cancel-secondary")
+        return { ...snapshot, secondaryFailures: ["synthetic_secondary"] };
+      if (scenario === "cancel-secondary-missing")
+        return { ...snapshot, secondaryFailures: undefined };
+      if (scenario === "deadline")
+        return {
+          ...snapshot,
+          status: "cancelled",
+          executionStatus: "cancelled",
+        };
+      return snapshot;
     };
     const result = await runInNewContext(body, {
       Error,
       Buffer,
+      AbortController,
       process: { stderr: {} },
-      timing: {
-        bind: () => undefined,
-        setStage: (stage: string) => timingStages.push(stage),
-        client: () => undefined,
-        dispose: () => {
-          timingDisposed = true;
-        },
-        snapshot: () => ({ subscriptionsClosed: timingDisposed }),
-      },
-      captureWorkspaceTaskDiagnostic: () => ({
-        available: true,
-        finish: () => ({ captureStatus: "captured", events: [], closed: true }),
-      }),
-      acquireCoordinatorStorageOwner: () => null,
-      verifyWorkspaceOutputBytes,
-      verified: { capability: Object.freeze({}) },
-      readRepositoryNetworkPolicies: () => ({
-        status: "ready",
-        policies: { codex: { policyHash: "a".repeat(64) } },
-      }),
       assert,
       path,
       mode: "direct",
@@ -321,7 +435,71 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
       projectId: "synthetic",
       randomUUID: () => "workspace-id",
       hash: () => "fixed-hash",
-      projectVerificationTransportFailure,
+      verifyWorkspaceOutputBytes,
+      setTimeout: (callback: () => void, ms: number) => {
+        assert.equal(ms, 20 * 60_000);
+        expire = callback;
+        return 1;
+      },
+      clearTimeout: () => {
+        cleared++;
+      },
+      captureWorkspaceTaskDiagnostic: () => ({
+        available: true,
+        finish: () => ({ captureStatus: "captured", events: [], closed: true }),
+      }),
+      verified: { capability: {} },
+      verifyRepositoryRoot: () => ({ status: "blocked" }),
+      readRepositoryNetworkPolicies: () => ({
+        status: "ready",
+        policies: { codex: { policyHash: "a".repeat(64) } },
+      }),
+      readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
+        if (scenario === "state-blocked") return { status: "blocked" };
+        const singleTask = {
+          principalId:
+            scenario === "state-principal" ? "other" : "local-workbench-user",
+          taskId: scenario === "state-task" ? "other" : snapshot.taskId,
+          attemptId:
+            scenario === "state-attempt" ? "other" : snapshot.attemptId,
+          operationId:
+            scenario === "state-operation" ? "other" : snapshot.operationId,
+          phase: scenario === "state-nonterminal" ? "running" : "settled",
+          status:
+            scenario === "state-status"
+              ? "unknown"
+              : success
+                ? "completed"
+                : "cancelled",
+          reason:
+            scenario === "state-reason"
+              ? "other"
+              : success
+                ? complete.reason
+                : snapshot.reason,
+          cleanupConfirmed: scenario !== "state-cleanup",
+          recoveryIds: scenario === "state-recovery" ? ["other"] : [],
+        };
+        const queue = {
+          queueId: scenario === "state-other-id" ? "other" : snapshot.requestId,
+          projectId: scenario === "state-project" ? "other" : "synthetic",
+          ownerGeneration: scenario === "state-owner" ? "live" : null,
+          singleTask,
+        };
+        return {
+          status: "completed",
+          lockReleased: scenario !== "state-lock",
+          value: {
+            snapshot: {
+              queueEntries: scenario === "state-missing" ? [] : [queue],
+              leaseIntents:
+                scenario === "state-lease"
+                  ? [{ queueId: snapshot.requestId }]
+                  : [],
+            },
+          },
+        };
+      },
       git: (_root: string, args: string[]) =>
         args[0] === "rev-parse" ? "base" : "staged.txt",
       fs: {
@@ -336,111 +514,107 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
           return encoding ? content : Buffer.from(content);
         },
       },
-      requestInChild: () => {
-        throw new Error("unexpected_workspace_operation");
+      executeWorkspace: () => {
+        throw Error("unexpected_workspace_operation");
       },
-      readMain: async () => ({ actionToken: "synthetic" }),
-      createWorkbenchAiVerificationHttpClient: async (
-        _url: string,
-        observeTiming: unknown,
-      ) => {
-        assert.equal(typeof observeTiming, "function");
-        return {
-          start: async () => {
-            starts++;
-            if (scenario === "before-accept") throw transport;
-            if (scenario === "accept-unknown")
-              throw new Error("workbench_ai_http_start_outcome_unknown");
-            return { status: "accepted", requestId: snapshot.requestId };
-          },
-          observe: async () => {
-            observes++;
-            if (scenario !== "success") throw transport;
-            return {
-              ...snapshot,
-              status: "completed",
-              executionStatus: "completed",
-              workspaceResult: {
-                workspaceId: null,
-                changedPaths: ["source.txt"],
-              },
-            };
-          },
-          cancel: async () => {
-            throw new Error("unexpected_http_retry");
-          },
-        };
-      },
+      permitted: () => true,
       owner: {
+        start: async (_command: unknown, signal: AbortSignal) => {
+          starts++;
+          assert.equal(signal.aborted, false);
+          if (scenario === "before-accept") throw Error("task_start_failed");
+          if (scenario === "start-blocked")
+            return {
+              status: "blocked",
+              requestId: null,
+              reason: "synthetic_rejected",
+            };
+          return { status: "accepted", requestId: snapshot.requestId };
+        },
+        wait: async (id: string) => {
+          waits++;
+          assert.equal(id, snapshot.requestId);
+          events.push("wait");
+          if (scenario.startsWith("deadline")) {
+            expire();
+            if (scenario !== "deadline")
+              return {
+                ...snapshot,
+                status: "cancelled",
+                executionStatus: "cancelled",
+                reason: "original_terminal",
+                recoveryIds: ["same-exact-recovery"],
+              };
+            return cancelResult();
+          }
+          if (!success) throw Error("task_wait_failed");
+          return complete;
+        },
         cancel: async (id: string) => {
+          cancels++;
           assert.equal(id, snapshot.requestId);
           events.push("cancel");
           await Promise.resolve();
           events.push("cancel-result");
-          if (scenario === "cancel-throws") throw new Error("synthetic-secret");
-          if (scenario === "cancel-other-id")
-            return { ...snapshot, requestId: "other" };
-          if (scenario === "cancel-unknown")
-            return {
-              ...snapshot,
-              status: "unknown",
-              cleanupConfirmed: false,
-              recoveryIds: ["recovery-synthetic"],
-            };
-          if (scenario === "cancel-running")
-            return { ...snapshot, status: "running" };
-          if (scenario === "cancel-secondary")
-            return { ...snapshot, secondaryFailures: ["synthetic_secondary"] };
-          if (scenario === "cancel-secondary-missing")
-            return { ...snapshot, secondaryFailures: undefined };
-          return snapshot;
+          return cancelResult();
         },
-      },
-      handle: {
-        baseUrl: "http://synthetic.invalid",
         close: async () => {
-          assert.equal(timingDisposed, true);
+          closes++;
           events.push("close");
-          if (scenario === "close-fails") throw new Error("synthetic-secret");
+          if (scenario === "close-fails") throw Error("synthetic-secret");
         },
       },
     });
     assert.equal(starts, 1, scenario);
-    assert.equal(result.httpTiming.subscriptionsClosed, true);
-    assert.equal(timingStages.at(-1), "close");
-    assert.ok(timingStages.includes("start"));
     assert.equal(
-      observes,
-      ["before-accept", "accept-unknown"].includes(scenario) ? 0 : 1,
+      waits,
+      ["before-accept", "start-blocked"].includes(scenario) ? 0 : 1,
       scenario,
     );
-    if (["success", "before-accept", "accept-unknown"].includes(scenario))
-      assert.deepEqual(events, ["close"], scenario);
-    else
-      assert.deepEqual(events, ["cancel", "cancel-result", "close"], scenario);
-    assert.equal(result.limitedProbePassed, scenario === "success", scenario);
-    if (scenario !== "success") assert.ok(result.primaryFailure);
-    if (!["success", "accept-unknown"].includes(scenario)) {
-      assert.equal(
-        result.primaryFailure,
-        "workbench_verification_transport_failed",
+    assert.equal(closes, 1, scenario);
+    assert.ok(cleared >= 1, scenario);
+    assert.equal(
+      cancels,
+      success || ["before-accept", "start-blocked"].includes(scenario) ? 0 : 1,
+      scenario,
+    );
+    assert.equal(events.at(-1), "close", scenario);
+    if (cancels)
+      assert.ok(
+        events.indexOf("cancel-result") < events.indexOf("close"),
+        scenario,
       );
-      assert.equal(result.transportFailure.timedOut, true);
-      assert.equal(result.transportFailure.transportCode, "ECONNRESET");
-    }
+    assert.equal(result.limitedProbePassed, scenario === "success", scenario);
     assert.equal(
-      result.runtimeClean,
-      ["success", "cancel-clean", "close-fails"].includes(scenario),
+      result.stateVerified,
+      scenario === "success" || scenario === "deadline" ? true : undefined,
       scenario,
     );
-    assert.equal(result.closeConfirmed, scenario !== "close-fails");
+    assert.equal(result.closeConfirmed, scenario !== "close-fails", scenario);
+    if (stateFailures.includes(scenario)) {
+      assert.equal(result.task.status, "completed");
+      assert.equal(result.failureStep, "verify_state");
+    }
+    if (scenario.startsWith("deadline")) assert.equal(result.timedOut, true);
+    if (scenario.startsWith("deadline-cancel")) {
+      assert.equal(result.task.requestId, snapshot.requestId);
+      assert.equal(result.task.reason, "original_terminal");
+      assert.equal(result.task.cleanupConfirmed, true);
+      assert.equal(result.task.recoveryIds[0], "same-exact-recovery");
+      assert.equal(result.cancellationResultObserved, false);
+    }
     if (scenario === "cancel-unknown")
       assert.equal(result.task.recoveryIds[0], "recovery-synthetic");
     if (scenario === "cancel-secondary")
       assert.equal(result.task.secondaryFailures[0], "synthetic_secondary");
-    if (scenario === "cancel-secondary-missing")
-      assert.equal(result.task.secondaryFailures, undefined);
-    if (["cancel-throws", "cancel-other-id"].includes(scenario))
+    if (
+      [
+        "cancel-throws",
+        "cancel-other-id",
+        "deadline-cancel-throws",
+        "deadline-cancel-other-id",
+      ].includes(scenario)
+    )
       assert.equal(
         result.cancellationFailure,
         "workspace_verification_cancel_unconfirmed",

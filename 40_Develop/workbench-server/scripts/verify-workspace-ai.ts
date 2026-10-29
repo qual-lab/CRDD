@@ -1,5 +1,5 @@
 /**
- * 合成RepositoryのDirect／Isolatedを公開HTTPと実AIで一回ずつ確認する。
+ * 合成RepositoryのDirect／IsolatedをCoordinator公開APIとDomain保存で確認する。
  * @responsibility 固定入力、既存変更保全、候補固定・採用・清掃の実測を結合する。
  * @trace ARCH-000015
  * @security 明示同意した合成内容だけを送信し、本体Repositoryを編集しない。
@@ -11,11 +11,12 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { devNull } from "node:os";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 import {
   openTaskSession,
+  executeWorkspace,
+  type TaskSession,
   readRepositoryNetworkPolicies,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
@@ -40,21 +41,11 @@ import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { readWorkbenchProjectSurface, startWorkbench } from "../src/index.ts";
-import type {
-  WorkbenchAiRequestSnapshot,
-  WorkbenchAiRequests,
-} from "../src/server/ai-request/types.ts";
 import {
   assessVerificationDockerInventory,
-  createWorkbenchAiVerificationHttpClient,
   observeVerificationDockerInventory,
-  projectVerificationTransportFailure,
-  readMain,
-  requestInChild,
 } from "./ai-verification-http.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
-import { createReadonlyVerificationTiming } from "./ai-verification-timing.ts";
 import {
   captureWorkspaceTaskDiagnostic,
   type RecoveryDiagnosticIdentity,
@@ -250,25 +241,11 @@ async function verify(
       contextHash &&
     readRepositoryAiSelection(verified.capability, getAiModelCatalog().catalog)
       .snapshot?.identity === configIdentity;
-  assert.equal(
-    (await readWorkbenchProjectSurface(root)).context.projectId,
-    projectId,
-  );
   const owner = openTaskSession({
     rootCapability: verified.capability,
     projectId,
     principalId: "local-workbench-user",
     authorize: permitted,
-  });
-  const timing = createReadonlyVerificationTiming();
-  const handle = await startWorkbench({
-    workingDirectory: root,
-    port: 0,
-    aiRequests: {
-      ...owner,
-      observe: (requestId) =>
-        timing.observeOwner(() => owner.observe(requestId)),
-    },
   });
   const workspaceId = randomUUID();
   const common = { projectId, queueId: "queue-a", workspaceId };
@@ -276,8 +253,19 @@ async function verify(
   let runtimeClean = false;
   let workspaceClean = mode === "direct";
   let acceptedRequestId: string | null = null;
-  let client: WorkbenchAiRequests | null = null;
-  let clientCleanupUnconfirmed = false;
+  const deadline = new AbortController();
+  let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
+  let cancellation: Promise<Awaited<
+    ReturnType<TaskSession["cancel"]>
+  > | null> | null = null;
+  const cancelOnce = () => {
+    assert.ok(acceptedRequestId, "cancel_request_missing");
+    if (cancellation === null) {
+      evidence.cancellationRequested = true;
+      cancellation = owner.cancel(acceptedRequestId).catch(() => null);
+    }
+    return cancellation;
+  };
   let diagnosticCapture: ReturnType<
     typeof captureWorkspaceTaskDiagnostic
   > | null = null;
@@ -289,7 +277,7 @@ async function verify(
     limitedProbePassed: false,
   };
   const initialIndex = hash(fs.readFileSync(path.join(root, ".git", "index")));
-  const recordTask = (result: WorkbenchAiRequestSnapshot) => {
+  const recordTask = (result: Awaited<ReturnType<TaskSession["wait"]>>) => {
     assert.equal(
       result.requestId,
       acceptedRequestId,
@@ -313,26 +301,8 @@ async function verify(
       result.secondaryFailures?.length === 0;
   };
   try {
-    timing.bind(handle.baseUrl);
-    const model = await readMain(handle.baseUrl, timing.client);
-    const workspace = async (command: Record<string, unknown>) => {
-      const response = await requestInChild(
-        handle.baseUrl,
-        "/workspace/action",
-        new URLSearchParams({
-          actionToken: model.actionToken,
-          repositoryId: `repository.workspace-${mode}`,
-          command: JSON.stringify(command),
-        }),
-        (timing) => {
-          const observations =
-            (evidence.workspaceHttpTimings as unknown[] | undefined) ?? [];
-          observations.push({ operation: command.operation, ...timing });
-          evidence.workspaceHttpTimings = observations;
-        },
-      );
-      assert.equal(response.status, 200, "workspace_http_rejected");
-      return JSON.parse(response.body) as {
+    const workspace = async (command: Record<string, unknown>) =>
+      executeWorkspace(root, projectId, command, permitted) as {
         data: {
           status?: string;
           reason?: string;
@@ -341,7 +311,6 @@ async function verify(
           patch?: string;
         };
       };
-    };
     if (mode === "isolated") {
       const created = await workspace({
         ...common,
@@ -371,49 +340,110 @@ async function verify(
         true,
         "recovery_diagnostic_collector_unavailable",
       );
-      client = await createWorkbenchAiVerificationHttpClient(
-        handle.baseUrl,
-        timing.client,
-      );
       step = "start";
-      timing.setStage("start");
-      const start = await client.start({
-        expectedNetworkPolicyHash: (() => {
-          const network = readRepositoryNetworkPolicies(verified.capability);
-          if (network.status !== "ready")
-            throw new Error("network_policy_unavailable");
-          return network.policies.codex.policyHash;
-        })(),
-        mode: "workspace_edit",
-        workType: "coding",
-        prompt: `合成試験です。source.txtだけを${JSON.stringify(expected)}という一行（末尾改行あり）に変更してください。他のファイル・Git・.crddは変更せず、Commit等のGit操作をしないでください。完了時のchangedPathsはsource.txtだけです。`,
-        contextReferences: ["PROJECT_CONTEXT.md"],
-        allowedPaths: ["source.txt"],
-        externalSendConfirmed: true,
-        workspaceId: mode === "direct" ? null : workspaceId,
-      });
+      deadlineTimer = setTimeout(() => {
+        evidence.timedOut = true;
+        deadline.abort();
+        if (acceptedRequestId !== null) void cancelOnce();
+      }, 20 * 60_000);
+      const start = await owner.start(
+        {
+          expectedNetworkPolicyHash: (() => {
+            const network = readRepositoryNetworkPolicies(verified.capability);
+            if (network.status !== "ready")
+              throw new Error("network_policy_unavailable");
+            return network.policies.codex.policyHash;
+          })(),
+          mode: "workspace_edit",
+          workType: "coding",
+          prompt: `合成試験です。source.txtだけを${JSON.stringify(expected)}という一行（末尾改行あり）に変更してください。他のファイル・Git・.crddは変更せず、Commit等のGit操作をしないでください。完了時のchangedPathsはsource.txtだけです。`,
+          contextReferences: ["PROJECT_CONTEXT.md"],
+          allowedPaths: ["source.txt"],
+          externalSendConfirmed: true,
+          workspaceId: mode === "direct" ? null : workspaceId,
+        },
+        deadline.signal,
+      );
       assert.equal(start.status, "accepted", "edit_start_rejected");
       assert.ok(start.requestId);
       evidence.requestId = start.requestId;
       acceptedRequestId = start.requestId;
-      const deadline = Date.now() + 20 * 60_000;
-      step = "observe";
-      timing.setStage("observe");
-      let result = await client.observe(start.requestId);
-      while (
-        ["accepted", "running"].includes(result.status) &&
-        Date.now() < deadline
-      ) {
-        await delay(1500);
-        result = await client.observe(start.requestId);
-      }
-      if (["accepted", "running"].includes(result.status)) {
-        step = "cancel_timeout";
-        timing.setStage("cancel");
-        result = await client.cancel(start.requestId);
-        evidence.timedOut = true;
-      }
+      step = "wait";
+      if (deadline.signal.aborted) await cancelOnce();
+      let result = await owner.wait(start.requestId);
       recordTask(result);
+      if (cancellation !== null) {
+        const cancelled = await cancellation;
+        try {
+          assert.ok(cancelled, "workspace_verification_cancel_unconfirmed");
+          recordTask(cancelled);
+        } catch {
+          evidence.cancellationResultObserved = false;
+          evidence.cancellationFailure =
+            "workspace_verification_cancel_unconfirmed";
+          throw new Error("workspace_verification_cancel_unconfirmed");
+        }
+        result = cancelled;
+        evidence.cancellationResultObserved = true;
+      }
+      clearTimeout(deadlineTimer);
+      deadlineTimer = null;
+      step = "verify_state";
+      const saved = readRuntimeOwnedCoordinatorRecoverySnapshot(
+        verified.capability,
+      );
+      assert.equal(saved.status, "completed", "task_state_unavailable");
+      assert.equal(saved.lockReleased, true, "task_state_lock_unreleased");
+      if (saved.status !== "completed" || !saved.value)
+        throw new Error("task_state_unavailable");
+      const records = saved.value.snapshot.queueEntries.filter(
+        (q) => q.queueId === start.requestId,
+      );
+      assert.equal(records.length, 1, "task_state_identity_mismatch");
+      const queue = records[0];
+      assert.ok(queue?.singleTask, "task_state_missing");
+      assert.equal(queue.projectId, projectId, "task_state_project_mismatch");
+      assert.equal(queue.ownerGeneration, null, "task_state_owner_unreleased");
+      assert.equal(
+        saved.value.snapshot.leaseIntents.some(
+          (l) => l.queueId === start.requestId,
+        ),
+        false,
+        "task_state_lease_pending",
+      );
+      assert.equal(queue.singleTask.phase, "settled", "task_state_nonterminal");
+      assert.equal(
+        queue.singleTask.principalId,
+        "local-workbench-user",
+        "task_state_principal_mismatch",
+      );
+      for (const key of ["taskId", "attemptId", "operationId"] as const)
+        assert.equal(
+          queue.singleTask[key],
+          result[key],
+          "task_state_execution_identity_mismatch",
+        );
+      assert.equal(
+        queue.singleTask.status,
+        result.executionStatus,
+        "task_state_status_mismatch",
+      );
+      assert.equal(
+        queue.singleTask.reason,
+        result.reason,
+        "task_state_reason_mismatch",
+      );
+      assert.equal(
+        queue.singleTask.cleanupConfirmed,
+        result.cleanupConfirmed,
+        "task_state_cleanup_mismatch",
+      );
+      assert.deepEqual(
+        queue.singleTask.recoveryIds,
+        result.recoveryIds,
+        "task_state_recovery_mismatch",
+      );
+      evidence.stateVerified = true;
       step = "verify_result";
       assert.equal(result.status, "completed", "edit_task_not_completed");
       assert.equal(
@@ -590,36 +620,17 @@ async function verify(
         ? message
         : "workspace_verification_exception";
     evidence.failureStep = step;
-    evidence.transportFailure = projectVerificationTransportFailure(error);
-    clientCleanupUnconfirmed =
-      error instanceof Error &&
-      (error.message ===
-        "workbench_verification_client_process_cleanup_unknown" ||
-        (error.message === "workbench_ai_http_start_outcome_unknown" &&
-          error.cause !== null &&
-          typeof error.cause === "object" &&
-          "clientCleanupConfirmed" in error.cause &&
-          error.cause.clientCleanupConfirmed === false));
     if (
-      error instanceof Error &&
-      error.message === "workbench_ai_http_start_outcome_unknown" &&
-      error.cause &&
-      typeof error.cause === "object" &&
-      "requestId" in error.cause &&
-      typeof error.cause.requestId === "string"
-    )
-      acceptedRequestId = error.cause.requestId;
-    if (
-      (step === "observe" || step === "start") &&
+      (step === "wait" || step === "start") &&
       acceptedRequestId !== null &&
       evidence.task === undefined
     ) {
-      // 通信経路が壊れていても、既存Ownerの同じTaskだけを一回取消・回収する。
-      // 取消結果と最初の通信失敗は別の事実として保存し、Taskを再送しない。
+      // 開始・終了待機が失敗しても、同じOwnerの同じTaskだけを一回取消・回収する。
+      // 取消結果と最初の失敗は別の事実として保存し、Taskを再送しない。
       try {
         evidence.cancellationRequested = true;
-        timing.setStage("cancel");
-        const result = await owner.cancel(acceptedRequestId);
+        const result = await cancelOnce();
+        assert.ok(result, "workspace_verification_cancel_unconfirmed");
         recordTask(result);
         evidence.cancellationResultObserved = true;
       } catch {
@@ -629,25 +640,15 @@ async function verify(
       }
     }
   } finally {
-    timing.setStage("close");
-    let clientClosed = false;
+    if (deadlineTimer !== null) clearTimeout(deadlineTimer);
     try {
-      await client?.close?.();
-      clientClosed = !clientCleanupUnconfirmed;
-    } catch {
-      evidence.clientCloseFailure =
-        "workbench_verification_client_process_cleanup_unknown";
-    } finally {
-      timing.dispose();
-    }
-    try {
-      await handle.close();
-      evidence.closeConfirmed = clientClosed;
+      if (cancellation !== null) await cancellation;
+      await owner.close();
+      evidence.closeConfirmed = true;
     } catch {
       evidence.closeConfirmed = false;
-      evidence.closeFailure = "workbench_close_failed";
+      evidence.closeFailure = "task_owner_close_failed";
     }
-    evidence.httpTiming = timing.snapshot();
     if (diagnosticCapture) {
       let correlationId: string | null = null;
       const identities: RecoveryDiagnosticIdentity[] = [];
@@ -1159,7 +1160,7 @@ function assessFixtureRemoval(
 /**
  * 承認された新品の一回だけを実行し、自己生成Rootを限定回収する。
  * @trace ARCH-000015
- * @effect 合成Repository・既存Runtime・公開HTTPだけ。Docker再起動や再試行なし。
+ * @effect 合成Repository・既存Runtime・公開Package APIだけ。UI Server・HTTP照会なし。
  * @failure 不明な状態は保持して停止し、既存Rootへ再入場しない。
  */
 async function main() {
