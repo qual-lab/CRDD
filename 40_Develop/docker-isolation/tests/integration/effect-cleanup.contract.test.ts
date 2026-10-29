@@ -349,7 +349,7 @@ test("通常Runtimeは保護付きWorkspaceの五Mountを照合して回収す�
             CapDrop: ["ALL"],
             CapAdd: null,
             SecurityOpt: ["no-new-privileges"],
-            PidsLimit: 64,
+            PidsLimit: 0,
             Init: false,
           },
           NetworkSettings: { Networks: { [c.internalNetworkName]: {} } },
@@ -1122,7 +1122,7 @@ test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒�
           };
           observed.HostConfig = {
             ...(observed.HostConfig as Record<string, unknown>),
-            PidsLimit: 64,
+            PidsLimit: 0,
             Init: init,
           };
           observed.Mounts = ["/provider-home", "/tmp"].map((destination) => ({
@@ -1255,7 +1255,7 @@ test("通常清掃でProxyと認証ProbeのInit未指定を解釈する", async 
           const hostConfig = observed.HostConfig as Record<string, unknown>;
           if (init === undefined) delete hostConfig.Init;
           else hostConfig.Init = init;
-          hostConfig.PidsLimit = purpose === "proxy" ? 64 : 32;
+          hostConfig.PidsLimit = 0;
           if (purpose === "proxy") {
             hostConfig.Tmpfs = { "/tmp": "rw,noexec,nosuid,size=16777216" };
             observed.Mounts = [];

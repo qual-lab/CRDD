@@ -30,7 +30,7 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  *
  * @responsibility 同梱JSONの欠落、構文不正とSchema不正を旧値へのfallbackにしないことを反証する。
  * @trace RCM-IT-005
- * @precondition 現行catalog.tsをRepository-localの独立Fixtureへ複製する。
+ * @precondition 現行resolve.ts／validation.tsをRepository-localの独立Fixtureへ複製する。
  * @stimulus 正常、欠落、構文不正およびSchema不正のJSONで順にModuleを読み込む。
  * @observation 子Process終了、Signal、成功markerと期待する停止理由を観測する。
  * @oracle 正常だけmarkerを返し、不正三条件は非0で停止する。
@@ -48,10 +48,11 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
       "utf8",
     );
     const dependency = '"../../../domain-model/src/index.ts"';
-    assert.equal(source.split(dependency).length, 2);
+    // 型importと実行時importの両方を同じ正式Ownerへ向ける。
+    assert.equal(source.split(dependency).length, 3);
     await writeFile(
       path.join(fixture, "validation.ts"),
-      source.replace(
+      source.replaceAll(
         dependency,
         JSON.stringify(
           pathToFileURL(
@@ -70,10 +71,10 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
       path.join(sourceRoot, "resolve.ts"),
       "utf8",
     );
-    assert.equal(resolver.split(dependency).length, 2);
+    assert.equal(resolver.split(dependency).length, 3);
     await writeFile(
       path.join(fixture, "catalog.ts"),
-      resolver.replace(
+      resolver.replaceAll(
         dependency,
         JSON.stringify(
           pathToFileURL(

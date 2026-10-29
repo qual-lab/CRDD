@@ -398,7 +398,7 @@ function exactContainerRunner(overrides: Record<string, unknown> = {}) {
       CapDrop: Object.freeze(["ALL"]),
       CapAdd: Object.freeze([]),
       SecurityOpt: Object.freeze(["no-new-privileges:true"]),
-      PidsLimit: 64,
+      PidsLimit: 0,
     }),
     NetworkSettings: Object.freeze({
       Networks: Object.freeze({
@@ -486,7 +486,7 @@ function exactProxyRunner(networkNames: readonly string[]) {
       CapDrop: Object.freeze(["ALL"]),
       CapAdd: Object.freeze([]),
       SecurityOpt: Object.freeze(["no-new-privileges:true"]),
-      PidsLimit: 64,
+      PidsLimit: 0,
       Tmpfs: Object.freeze({
         "/tmp": "rw,noexec,nosuid,size=16777216",
       }),
@@ -531,7 +531,7 @@ function exactAuthRunner(networkNames: readonly string[] = ["none"]) {
       CapDrop: Object.freeze(["ALL"]),
       CapAdd: Object.freeze([]),
       SecurityOpt: Object.freeze(["no-new-privileges:true"]),
-      PidsLimit: 32,
+      PidsLimit: 0,
     }),
     NetworkSettings: Object.freeze({
       Networks: Object.freeze(

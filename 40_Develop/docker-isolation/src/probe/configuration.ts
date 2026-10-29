@@ -162,8 +162,7 @@ export function dockerProbeConfigurationMatches(
   if (
     ownProbeInspectValue(host, "NetworkMode") !== "none" ||
     ownProbeInspectValue(host, "ReadonlyRootfs") !== true ||
-    ownProbeInspectValue(host, "Privileged") !== false ||
-    Number(ownProbeInspectValue(host, "PidsLimit")) !== 64
+    ownProbeInspectValue(host, "Privileged") !== false
   )
     return false;
   const capDrop = ownProbeInspectValue(host, "CapDrop");

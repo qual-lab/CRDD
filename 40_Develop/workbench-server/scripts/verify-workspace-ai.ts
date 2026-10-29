@@ -1165,7 +1165,16 @@ function assessFixtureRemoval(
 async function main() {
   const argument = process.argv.slice(2).join(" ");
   const preflight = argument === "--preflight";
-  if (!preflight && argument !== "--external-send-confirmed") {
+  const directDiagnostic =
+    argument === "--external-send-confirmed-direct-diagnostic";
+  const modes = directDiagnostic
+    ? (["direct"] as const)
+    : (["direct", "isolated"] as const);
+  if (
+    !preflight &&
+    !directDiagnostic &&
+    argument !== "--external-send-confirmed"
+  ) {
     process.stderr.write(
       "合成編集E2Eの明示承認後に --external-send-confirmed を指定してください。\n",
     );
@@ -1209,6 +1218,7 @@ async function main() {
     trialRoot,
     fullE2eVerified: false,
     rawProviderOutputReported: false,
+    ...(directDiagnostic ? { instrumentedDiagnostic: true } : {}),
     results,
     fixtureRootsRemoved: false,
   };
@@ -1230,7 +1240,7 @@ async function main() {
     return;
   }
   try {
-    for (const mode of ["direct", "isolated"] as const) {
+    for (const mode of modes) {
       const result = await verify(parent, mode, preflight);
       results.push(result);
       if (result.limitedProbePassed !== true || result.closeConfirmed !== true)
@@ -1264,11 +1274,8 @@ async function main() {
       assert.equal(fs.realpathSync.native(parent), parent);
       assert.equal(path.dirname(parent), trialRoot);
       const failures: string[] = [];
-      assert.deepEqual(results.map((result) => result.mode).sort(), [
-        "direct",
-        "isolated",
-      ]);
-      for (const mode of ["direct", "isolated"] as const) {
+      assert.deepEqual(results.map((result) => result.mode).sort(), [...modes]);
+      for (const mode of modes) {
         try {
           const evidence = results.find((result) => result.mode === mode);
           assert.ok(evidence, "fixture_result_missing");
@@ -1287,9 +1294,7 @@ async function main() {
       report.fixtureCleanupFailures = failures;
       report.fixtureRootsRemoved =
         failures.length === 0 &&
-        ["direct", "isolated"].every(
-          (mode) => !fs.existsSync(path.join(parent, mode)),
-        );
+        modes.every((mode) => !fs.existsSync(path.join(parent, mode)));
     } catch {
       report.fixtureCleanupFailures = ["fixture_root_or_removal_unconfirmed"];
     }
@@ -1318,7 +1323,7 @@ async function main() {
   }
   console.log(JSON.stringify(report));
   process.exitCode =
-    results.length === 2 &&
+    results.length === modes.length &&
     results.every((r) => r.limitedProbePassed === true) &&
     cleanup &&
     resources.status === "verified" &&
@@ -1327,8 +1332,9 @@ async function main() {
     report.sourceUnchanged === true
       ? 0
       : 2;
+  return report;
 }
-await main().catch(() => {
+export const verificationResult = await main().catch(() => {
   process.stderr.write("workspace_verification_preflight_failed\n");
   process.exitCode = 2;
 });

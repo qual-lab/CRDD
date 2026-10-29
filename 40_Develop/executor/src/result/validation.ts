@@ -339,12 +339,27 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
   );
 }
 
+/** error本文の語句観測。相互排他の原因分類ではない。 */
+const ITEM_ERROR_MENTION_KEYS = [
+  "itemErrorHostMentionCount",
+  "itemErrorSpawnMentionCount",
+  "itemErrorProtocolMentionCount",
+  "itemErrorConnectionMentionCount",
+  "itemErrorToolMentionCount",
+  "itemErrorPermissionMentionCount",
+  "itemErrorMissingPathMentionCount",
+  "itemErrorTimeoutMentionCount",
+  "itemErrorUnclassifiedCount",
+] as const;
+
 /** Provider実行観測の閉じた診断項目。実行許可・清掃判定には使用しない。 */
 export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
   "transport",
   "turnCompleted",
   "itemErrorCount",
   "itemErrorCodeModeCount",
+  "itemErrorKnownWarningTextCount",
+  ...ITEM_ERROR_MENTION_KEYS,
   "commandExecutionStartedCount",
   "commandExecutionCompletedCount",
   "commandExecutionFailedCount",
@@ -381,12 +396,24 @@ export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
  * @trace ERB-IT-021
  */
 export function inspectProviderExecutionObservation(raw: unknown) {
+  const withoutWarningText = new Set(
+    [...PROVIDER_EXECUTION_OBSERVATION_KEYS].filter(
+      (key) => key !== "itemErrorKnownWarningTextCount",
+    ),
+  );
+  const withoutMentions = new Set(
+    [...withoutWarningText].filter(
+      (key) => !(ITEM_ERROR_MENTION_KEYS as readonly string[]).includes(key),
+    ),
+  );
   const observation =
     snapshotPlainRecord(raw, PROVIDER_EXECUTION_OBSERVATION_KEYS) ??
+    snapshotPlainRecord(raw, withoutWarningText) ??
+    snapshotPlainRecord(raw, withoutMentions) ??
     snapshotPlainRecord(
       raw,
       new Set(
-        [...PROVIDER_EXECUTION_OBSERVATION_KEYS].filter(
+        [...withoutMentions].filter(
           (key) => key !== "itemErrorCount" && key !== "itemErrorCodeModeCount",
         ),
       ),
@@ -405,6 +432,38 @@ export function inspectProviderExecutionObservation(raw: unknown) {
         (observation.itemErrorCount as number))
   )
     return null;
+  if (
+    Object.hasOwn(observation, "itemErrorKnownWarningTextCount") &&
+    (!Number.isSafeInteger(observation.itemErrorKnownWarningTextCount) ||
+      (observation.itemErrorKnownWarningTextCount as number) < 0 ||
+      (observation.itemErrorKnownWarningTextCount as number) >
+        (observation.itemErrorCount as number))
+  )
+    return null;
+  // 旧観測の欠測は補完しない。新fieldは全件・有限・総数以下だけを受理する。
+  if (
+    ITEM_ERROR_MENTION_KEYS.some((key) => Object.hasOwn(observation, key)) &&
+    !ITEM_ERROR_MENTION_KEYS.every(
+      (key) =>
+        Number.isSafeInteger(observation[key]) &&
+        (observation[key] as number) >= 0 &&
+        (observation[key] as number) <= (observation.itemErrorCount as number),
+    )
+  )
+    return null;
+  if (Object.hasOwn(observation, "itemErrorUnclassifiedCount")) {
+    const classified =
+      (observation.itemErrorCount as number) -
+      (observation.itemErrorUnclassifiedCount as number);
+    const mentions = ITEM_ERROR_MENTION_KEYS.filter(
+      (key) => key !== "itemErrorUnclassifiedCount",
+    ).map((key) => observation[key] as number);
+    if (
+      mentions.some((count) => count > classified) ||
+      mentions.reduce((sum, count) => sum + count, 0) < classified
+    )
+      return null;
+  }
   const countKeys = [
     "commandExecutionStartedCount",
     "commandExecutionCompletedCount",

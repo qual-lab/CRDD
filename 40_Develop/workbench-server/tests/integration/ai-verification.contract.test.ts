@@ -81,11 +81,17 @@ function assertReadonlyTiming(input: unknown) {
   };
   const value = record(
     input,
-    "limit,dropped,subscriptionsClosed,clients,servers,owners",
+    "limit,dropped,subscriptionsClosed,loopDelay,clients,servers,owners",
   );
   assert.equal(value.limit, 512);
   integer(value.dropped);
   assert.equal(value.subscriptionsClosed, true);
+  if (value.loopDelay !== null) {
+    const delay = record(value.loopDelay, "expectedAt,observedAt,delayMs");
+    const expected = integer(delay.expectedAt, 1);
+    const observed = integer(delay.observedAt, expected);
+    assert.equal(integer(delay.delayMs), observed - expected);
+  }
   for (const kind of ["clients", "servers", "owners"] as const) {
     const rows = value[kind];
     assert.ok(Array.isArray(rows) && rows.length <= 512);
@@ -93,7 +99,7 @@ function assertReadonlyTiming(input: unknown) {
       const r = record(
         row,
         kind === "clients"
-          ? "ordinal,stage,routeKind,method,route,startedAt,headersAt,completedAt,closedAt"
+          ? "ordinal,stage,routeKind,method,route,startedAt,requestCreatedAt,headersSendingAt,headersAt,completedAt,closedAt"
           : kind === "servers"
             ? "ordinal,stage,route,receivedAt,finishedAt"
             : "ordinal,serverOrdinal,stage,startedAt,completedAt",
@@ -115,9 +121,17 @@ function assertReadonlyTiming(input: unknown) {
         );
         const start = integer(r.startedAt, 1);
         const completed = integer(r.completedAt, start);
+        for (const name of ["requestCreatedAt", "headersSendingAt"])
+          if (r[name] !== null) assert.ok(integer(r[name], start) <= completed);
+        if (r.headersSendingAt !== null) {
+          assert.notEqual(r.requestCreatedAt, null);
+          assert.ok(Number(r.headersSendingAt) >= Number(r.requestCreatedAt));
+        }
         if (r.headersAt !== null) {
           integer(r.headersAt, start);
           assert.ok(Number(r.headersAt) <= completed);
+          if (r.headersSendingAt !== null)
+            assert.ok(Number(r.headersAt) >= Number(r.headersSendingAt));
         }
         integer(r.closedAt, completed);
       } else if (kind === "servers") {
@@ -145,6 +159,7 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
     limit: 512,
     dropped: 0,
     subscriptionsClosed: true,
+    loopDelay: null,
     clients: [
       {
         ordinal: 1,
@@ -153,6 +168,8 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
         method: "GET",
         route: "/api/workbench-view?route=%2F",
         startedAt: 1,
+        requestCreatedAt: null,
+        headersSendingAt: null,
         headersAt: null,
         completedAt: 2,
         closedAt: 3,
@@ -182,6 +199,16 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
     { ...value, secret: "synthetic-secret" },
     { ...value, dropped: -1 },
     { ...value, subscriptionsClosed: false },
+    { ...value, loopDelay: { expectedAt: 1, observedAt: 3, delayMs: 1 } },
+    {
+      ...value,
+      loopDelay: {
+        expectedAt: 1,
+        observedAt: 3,
+        delayMs: 2,
+        text: "synthetic-secret",
+      },
+    },
     { ...value, clients: Array(513).fill(value.clients[0]) },
     ...[
       { stage: "synthetic-secret" },
@@ -189,6 +216,9 @@ test("読取り計測summaryは閉じた型と上限・欠測を検査する", (
       { route: "synthetic-secret" },
       { startedAt: -1 },
       { headersAt: 4 },
+      { requestCreatedAt: -1 },
+      { headersSendingAt: 1 },
+      { requestCreatedAt: 1, headersSendingAt: 2, headersAt: 1 },
       { closedAt: 1 },
       { secret: "synthetic-secret" },
     ].map((change) => ({
@@ -626,10 +656,11 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
   );
   const body = source.slice(
     source.indexOf("async function main()"),
-    source.lastIndexOf("await main().catch"),
+    source.lastIndexOf("export const verificationResult"),
   );
   for (const scenario of [
     "success",
+    "direct-diagnostic",
     "cleanup-fails",
     "task-failed-clean",
     "linked-parent",
@@ -650,7 +681,13 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
     let sourceReads = 0;
     const saved: string[] = [];
     const processState = {
-      argv: ["node", "probe", "--preflight"],
+      argv: [
+        "node",
+        "probe",
+        scenario === "direct-diagnostic"
+          ? "--external-send-confirmed-direct-diagnostic"
+          : "--preflight",
+      ],
       cwd: () => path.resolve("fixture"),
       exitCode: 0,
       stderr: { write: () => undefined },
@@ -779,7 +816,9 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
       );
       assert.equal(
         report.results.length,
-        scenario === "task-failed-clean" ? 1 : 2,
+        scenario === "task-failed-clean" || scenario === "direct-diagnostic"
+          ? 1
+          : 2,
       );
       assert.equal(report.results[0].task.primaryFailure, null);
       assert.equal(
@@ -794,7 +833,16 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
       );
       assert.equal(sourceReads, 2);
       assert.equal(report.sourceUnchanged, !scenario.startsWith("source-"));
-      assert.equal(processState.exitCode, scenario === "success" ? 0 : 2);
+      assert.equal(
+        processState.exitCode,
+        scenario === "success" || scenario === "direct-diagnostic" ? 0 : 2,
+      );
+      if (scenario === "direct-diagnostic") {
+        assert.equal(verifyCalls, 1);
+        assert.equal(report.results[0].mode, "direct");
+        assert.equal(report.instrumentedDiagnostic, true);
+        assert.equal(report.fullE2eVerified, false);
+      }
       if (scenario === "cleanup-fails")
         assert.deepEqual(report.fixtureCleanupFailures, [
           "direct_fixture_removal_failed",

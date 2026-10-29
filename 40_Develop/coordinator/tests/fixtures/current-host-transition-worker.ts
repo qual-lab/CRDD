@@ -243,7 +243,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
                 if(calls === 1) stdout = JSON.stringify([{
                   Id:dockerId, Name:'/'+identity.resources.provider,
                   Config:{Labels:{'crdd.coordinator.runtime':identity.ownershipLabel.split('=')[1]}, Image:identity.images.provider, User:'65534:65534'},
-                  HostConfig:{ReadonlyRootfs:true, Privileged:false, CapDrop:['ALL'], CapAdd:null, SecurityOpt:['no-new-privileges'], PidsLimit:64, Init:false},
+                  HostConfig:{ReadonlyRootfs:true, Privileged:false, CapDrop:['ALL'], CapAdd:null, SecurityOpt:['no-new-privileges'], PidsLimit: 0, Init:false},
                   NetworkSettings:{Networks:{[identity.resources.internal]:{}}},
                   Mounts:[{Type:'bind',Destination:'/provider-home',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/tmp',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/work',RW:identity.workspaceMountMode !== 'read_only',Propagation:'rprivate'}],
                 }]);

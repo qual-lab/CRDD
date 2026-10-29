@@ -1,5 +1,25 @@
 # Quality Integration
 
+## Docker独自PID上限の撤廃 — 2026-10-29
+
+人間が採用した独自上限撤廃に合わせ、各Containerの生成引数へPID上限を付けないこと、構成照合・回収でPidsLimitの欠測／null／0／-1／外部設定値を固定値不一致として拒否しないことを非AIで確認する。Identity・Image・UID・RO root・capability・Init・Mount・Networkの既存反例は維持する。実Dockerの新規起動・実AI・過去保持物処置は別途承認対象であり、非AI回帰を編集E2E成立へ読み替えない。
+
+## HTTP受信前待機の非AI切り分け — 2026-10-29
+
+ERB-IT-021の検証Clientで要求生成・Header送出直前の時刻を閉形式で搬送し、欠測、逆順、区間外、余分fieldを反証する。専用HTTP子と合成Serverだけで、Server側event loopを有限停止してもClientは送出直前へ到達し、Server受信前の遅延として区別できることを確認する。既存の独立Server＋親22秒停止、通常・切断・15秒期限、同ID取消、応答喪失後の継続を維持する。Observer例外は元結果を変えず、本文を保存せず、時計購読とTimerは終了する。これを過去の実AI試験における停止原因の確定、実AI E2E成功、Timeout緩和の根拠には使わない。
+
+## 合成Taskの説明文限定確認 — 2026-10-29
+
+既存ERB-IT-002の試験専用観測では、元normalizerの返却object／例外同一性、再解析・Secret検査の例外、2048 UTF-8 byte超過・制御文字・Path・秘密風値、呼出し欠測・余剰・role順序差・複数Task・清掃不明を非AIで反証する。専用子Processで実consumerへのModule接続と終了を確認する。ERB-IT-021ではDirect一Taskだけの検証分岐を確認し、Isolatedへ自動進行させない。本文は表示代役への受渡し以外へ返さず、結果JSON・File・自動Logへ保存しない。実AI・端末表示は別途承認が必要であり、未信頼の説明文を故障の実測へ昇格しない。
+
+表示前に結果記録成功とDirect一件の試験物処置結果の相関を確認する。物理削除済みを必須とはせず、故障証拠の意図的保持と実行資源cleanupを区別する。実consumer接続試験は、専用子の実Controller→有限Command→結果正規化→終了の経路でCodex編集・Claudeレビューを順に確認し、実Docker・認証・外部AIは使わない。
+
+## Codex内部errorの有限診断 — 2026-10-29
+
+固定CLIがWarningもerror型へ投影することを前提に、既知警告文面との補助一致を検査する。同一messageのWarning投影と通常ErrorItemの区別不能、全文定型の前後差・改行・未知本文・上限超過の不一致、総数と未分類件数の非減算、本文非搬送をERB-UT-032で反証する。ERB-IT-021では閉形式・総数上限・旧field欠測を維持し、この一致をTask成功や警告由来の確定へ使わない。
+
+既存ERB-UT-032／ERB-IT-021で、[AI Adapterの語句観測契約](../06_Architecture/Details/ai-adapter/01_Architecture.md)を検証する。Host起動・protocol・Tool等の合成errorが異なる有限観測へ変換されること、複数語句の重複、未分類・message欠測、本文／Path／秘密風値の非搬送を確認する。Executorの閉形式検査は部分field、総数超過、負数・非整数・非有限値と未分類との矛盾を拒否する。旧診断の欠測を零補完せず、Coordinatorの公開投影と検証Toolまで値を維持する。語句の観測だけで実Hostの故障原因・発生点・権限不足を確定せず、非AI試験を実AI E2E成功へ算入しない。実行許可・採否・清掃・Timeoutの条件は変更しない。
+
 ## Core独立契約の統合状態 — 2026-10-27
 
 DomainのAPI入出力・単一保存設計を、[ARCH追加分析](Analysis/ARCH/quality_analysis.md)、[QA-000003](Definitions/QA-000003/quality_definition.md)、[QA-000008](Definitions/QA-000008/quality_definition.md)、[検証計画](03_Verification_Design.md)へ接続した。設計時点ではSource未実装・追加条件は全件Not Runだった。その後の共通保存・CRUD・公開入口・Executor分離のSource接続と非AI結果は[移管記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を正本とし、当初の未実装表示を現在状態へ流用しない。実データ移行・実AI／Docker・人間操作は別に未実施であり、過去の199項目や局所成功を新契約全体の達成数へ換算せず、全体品質・Release可能とはしない。

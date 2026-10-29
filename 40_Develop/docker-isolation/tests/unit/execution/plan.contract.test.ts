@@ -45,6 +45,12 @@ test("固定command照合は用途・順序・全argvの差を拒否する", () 
   const input = inputFixture();
   const commands = planDockerIsolationCommands(input);
   assert.ok(commands);
+  assert.equal(
+    commands.some((command) =>
+      command.argv.some((value) => value.startsWith("--pids-limit")),
+    ),
+    false,
+  );
   const first = commands[0];
   assert.ok(first);
   assert.equal(dockerIsolationCommandsMatch(input, commands), true);
@@ -203,7 +209,7 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
   const configuredProxy = configured.find(
     (item) => item.purpose === "create_proxy",
   );
-  assert.equal(configuredProxy?.argv.length, 24);
+  assert.equal(configuredProxy?.argv.length, 23);
   assert.equal(
     projectDockerProxyConfiguration(
       configured.map((item) =>
@@ -273,26 +279,26 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
     },
   );
   for (const argv of [
-    proxy.argv.filter((_, index) => index !== 18),
+    proxy.argv.filter((_, index) => index !== 17),
     [
       ...proxy.argv.slice(0, -1),
       "--env",
-      proxy.argv[18] as string,
+      proxy.argv[17] as string,
       input.proxyImageDigest,
     ],
     [...proxy.argv, `CRDD_PROXY_AUTH=${"7".repeat(64)}`],
     proxy.argv.map((value, index) =>
-      index === 18 ? "CRDD_PROXY_PROFILE=codex" : value,
+      index === 17 ? "CRDD_PROXY_PROFILE=codex" : value,
     ),
     proxy.argv.map((value, index) =>
-      index === 18 ? "CRDD_PROXY_AUTH=bad" : value,
+      index === 17 ? "CRDD_PROXY_AUTH=bad" : value,
     ),
-    proxy.argv.map((value, index) => (index === 17 ? "--unknown" : value)),
+    proxy.argv.map((value, index) => (index === 16 ? "--unknown" : value)),
     proxy.argv.map((value, index) =>
-      index === 18
-        ? (proxy.argv[20] as string)
-        : index === 20
-          ? (proxy.argv[18] as string)
+      index === 17
+        ? (proxy.argv[19] as string)
+        : index === 19
+          ? (proxy.argv[17] as string)
           : value,
     ),
   ])
@@ -321,7 +327,7 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
   const otherProfile = {
     ...proxy,
     argv: proxy.argv.map((value, index) =>
-      index === 20 ? "CRDD_PROXY_PROFILE=claude" : value,
+      index === 19 ? "CRDD_PROXY_PROFILE=claude" : value,
     ),
   };
   assert.equal(
@@ -335,7 +341,7 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
     const boundary: { purpose: string; argv: readonly string[] } = {
       ...proxy,
       argv: proxy.argv.map((value, index) =>
-        index === 20 ? `CRDD_PROXY_PROFILE=${profile}` : value,
+        index === 19 ? `CRDD_PROXY_PROFILE=${profile}` : value,
       ),
     };
     assert.equal(
@@ -444,11 +450,11 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
  * @precondition 移管前に同じ人工入力で取得した固定SHA256を使う。
  * @stimulus 24構成の九操作を構築する。
  * @observation 順序付きJSON全文のSHA256と計画数。
- * @oracle 個別flagだけでなくpayload・順序・全argvが前候補と一致する。
+ * @oracle PID上限指定だけを復元した全文が前候補と一致する。
  * @cleanup N/A: 値だけ。
  * @boundary N/A: 純粋計画。
  */
-test("Proxy包装集約は24構成の九argv全文を変更しない", () => {
+test("24構成の九argvはPID上限指定だけを撤廃する", () => {
   const plans = [];
   for (const profile of ["codex", "claude"])
     for (const workspace of [
@@ -475,8 +481,34 @@ test("Proxy包装集約は24構成の九argv全文を変更しない", () => {
           plans.push(plan);
         }
   assert.equal(plans.length, 24);
+  const previousPlans = plans.map((plan) =>
+    plan.map((command) => {
+      const limit =
+        command.purpose === "create_subscription_auth_probe"
+          ? "32"
+          : command.purpose === "create_proxy" ||
+              command.purpose === "create_provider"
+            ? "64"
+            : null;
+      if (limit === null) return command;
+      const index = command.argv.indexOf("--user=65534:65534");
+      assert.ok(index >= 0);
+      assert.equal(
+        command.argv.some((value) => value.startsWith("--pids-limit")),
+        false,
+      );
+      return {
+        ...command,
+        argv: [
+          ...command.argv.slice(0, index),
+          `--pids-limit=${limit}`,
+          ...command.argv.slice(index),
+        ],
+      };
+    }),
+  );
   assert.equal(
-    createHash("sha256").update(JSON.stringify(plans)).digest("hex"),
+    createHash("sha256").update(JSON.stringify(previousPlans)).digest("hex"),
     "036f75bfd667da709b6b7af63f3f441685b67a051956e26dd8e87e3d3370a0cf",
   );
 });
@@ -686,12 +718,12 @@ test("資源Identityの八項目と五名重複は同じDI文法で拒否する"
  * @trace ERB-UT-023
  * @precondition 最大64環境変数・256payload・全optional構成を使う。
  * @stimulus 実planner最大形とcommands／argvの各＋1を投影する。
- * @observation 9command・428argvの実測値と受理／null。
+ * @observation 9command・427argvの実測値と受理／null。
  * @oracle descriptor全走査前の上限が固定producerを切詰めない。
  * @cleanup N/A: 実資源なし。
  * @boundary N/A: 値の計画と診断のみ。
  */
-test("診断上限は現planner最大9command・428argvを受け各＋1を拒否する", () => {
+test("診断上限は現planner最大9command・427argvを受け各＋1を拒否する", () => {
   const input = inputFixture();
   const commands = planDockerIsolationCommands({
     ...input,
@@ -724,7 +756,7 @@ test("診断上限は現planner最大9command・428argvを受け各＋1を拒否
   assert.equal(commands.length, 9);
   const command = commands.find((item) => item.purpose === "create_provider");
   assert.ok(command);
-  assert.equal(command.argv.length, 428);
+  assert.equal(command.argv.length, 427);
   assert.equal(
     projectDockerExecutionBoundary(commands, input.executionImageDigest)
       ?.payloadArgv.length,
@@ -850,7 +882,7 @@ test("診断descriptorは隔離VMの継承value・継承必須keyを受理しな
     delete Object.prototype["0"];
     JSON.stringify({normal, accessorRejected, indexRejected, purposeRejected, missingRejected, missingPurposeRejected, missingArgvRejected, sparseRejected, reads});`;
   const prelude =
-    "const DIAGNOSTIC_COMMAND_LIMIT = 9; const DIAGNOSTIC_CREATE_ARGUMENT_LIMIT = 428;";
+    "const DIAGNOSTIC_COMMAND_LIMIT = 9; const DIAGNOSTIC_CREATE_ARGUMENT_LIMIT = 427;";
   const actual = JSON.parse(
     vm.runInNewContext(
       prelude + body + probe,

@@ -17,6 +17,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import {
   projectVerificationTransportFailure,
@@ -136,6 +137,8 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
     let requests = 0;
     let disconnects = 0;
     const output: string[] = [];
+    const subscriptions = new Map<string, unknown>();
+    let subscribed = 0;
     const fake = Object.assign(new EventEmitter(), {
       connected: true,
       send: () => true,
@@ -157,6 +160,19 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
       process: fake,
       parseUnambiguousJsonDocument,
       projectVerificationTransportFailure,
+      subscribe: (name: string, callback: unknown) => {
+        assert.ok(
+          ["undici:request:create", "undici:client:sendHeaders"].includes(name),
+        );
+        assert.equal(subscriptions.has(name), false);
+        subscriptions.set(name, callback);
+        subscribed++;
+      },
+      unsubscribe: (name: string, callback: unknown) => {
+        if (subscriptions.has(name))
+          assert.equal(subscriptions.get(name), callback);
+        subscriptions.delete(name);
+      },
       requestBounded: async () => {
         requests++;
         if (scenario === "http-failure") throw Error("synthetic-secret");
@@ -190,6 +206,65 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
     assert.equal(disconnects, 1);
     assert.equal(fake.listenerCount("message"), 0);
     assert.equal(fake.listenerCount("disconnect"), 0);
+    assert.equal(subscriptions.size, 0);
+    assert.equal(
+      subscribed,
+      ["double", "http-failure"].includes(scenario) ? 2 : 0,
+    );
+  }
+});
+
+/**
+ * Client送出後のServer event loop停止を、受信後の処理時間と区別する。
+ * @trace ERB-IT-021
+ * @boundary 合成loopback一要求。AI・Docker・Repository入力なし。
+ * @cleanup Client実close、時計解除、Server socketとServer closeを確認する。
+ */
+test("HTTP送出時計はServer受信前のevent loop待ちを区別する", async () => {
+  const server = createServer((_request, response) =>
+    response.end("synthetic"),
+  );
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  const base = `http://127.0.0.1:${address.port}`;
+  const timing = createReadonlyVerificationTiming();
+  timing.bind(base);
+  try {
+    const pending = requestInChild(
+      base,
+      "/api/workbench-view?route=%2F",
+      undefined,
+      timing.client,
+    );
+    // 独立Clientは進めたまま、Serverを所有するこのevent loopだけ有限停止する。
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500);
+    assert.equal((await pending).status, 200);
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const result = timing.snapshot();
+    const client = result.clients[0],
+      received = result.servers[0];
+    assert.ok(client && received && result.loopDelay);
+    assert.ok(
+      client.requestCreatedAt !== null && client.headersSendingAt !== null,
+    );
+    assert.ok(client.startedAt <= client.requestCreatedAt);
+    assert.ok(client.requestCreatedAt <= client.headersSendingAt);
+    assert.ok(client.headersSendingAt < received.receivedAt);
+    assert.ok(received.receivedAt - client.headersSendingAt > 300);
+    assert.ok(result.loopDelay.delayMs > 1000);
+    assert.ok(
+      client.headersAt !== null && client.headersAt - client.startedAt < 15_000,
+    );
+  } finally {
+    timing.dispose();
+    const closed = timing.snapshot();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    assert.deepEqual(timing.snapshot(), closed);
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 });
 
@@ -328,6 +403,10 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "late-close-unknown",
     "timing-missing",
     "timing-reversed",
+    "dispatch-missing",
+    "dispatch-reversed",
+    "dispatch-outside",
+    "response-before-send",
   ] as const;
   for (const { route, scenario } of [
     "/workspace/action",
@@ -374,7 +453,13 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       location: "/#ai-request" as string | null,
       body: "" as string | null,
       failure: null as unknown,
-      timing: { startedAt: 1, headersAt: 2 as number | null, completedAt: 3 },
+      timing: {
+        startedAt: 1,
+        requestCreatedAt: 1,
+        headersSendingAt: 1,
+        headersAt: 2 as number | null,
+        completedAt: 3,
+      },
     };
     const invoke = runInNewContext(`${body}\nrequestInChild`, {
       URL,
@@ -478,6 +563,22 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
                 output = output.replace(',"completedAt":3', "");
               if (scenario === "timing-reversed")
                 output = output.replace('"completedAt":3', '"completedAt":1');
+              if (scenario === "dispatch-missing")
+                output = output.replace(',"requestCreatedAt":1', "");
+              if (scenario === "dispatch-reversed")
+                output = output.replace(
+                  '"requestCreatedAt":1',
+                  '"requestCreatedAt":2',
+                );
+              if (scenario === "dispatch-outside")
+                output = output.replace(
+                  '"headersSendingAt":1',
+                  '"headersSendingAt":4',
+                );
+              if (scenario === "response-before-send")
+                output = output
+                  .replace('"headersSendingAt":1', '"headersSendingAt":2')
+                  .replace('"headersAt":2', '"headersAt":1');
               child.stdout.emit("data", Buffer.from(output));
               if (
                 scenario === "payload-no-close" ||

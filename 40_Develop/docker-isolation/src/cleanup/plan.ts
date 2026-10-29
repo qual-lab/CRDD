@@ -293,8 +293,7 @@ export function dockerAuthenticationResourceConfigurationMatches(
     host.SecurityOpt.length !== 1 ||
     !["no-new-privileges", "no-new-privileges:true"].includes(
       String(host.SecurityOpt[0]),
-    ) ||
-    host.PidsLimit !== (command.purpose === "create_probe" ? 32 : 64)
+    )
   )
     return false;
   if (!dockerContainerInitObservationMatches(host, false)) return false;
@@ -684,7 +683,6 @@ export function dockerResourceConfigurationMatches(
     const securityOptions = Array.isArray(hostConfig?.SecurityOpt)
       ? hostConfig.SecurityOpt.map(String)
       : [];
-    const expectedPids = purpose === "create_subscription_auth_probe" ? 32 : 64;
     const bindMounts = Array.isArray(resource.Mounts)
       ? (resource.Mounts as Array<Record<string, unknown>>).filter(
           (mount) => mount.Type === "bind",
@@ -774,7 +772,6 @@ export function dockerResourceConfigurationMatches(
       securityOptions.some((option) =>
         option.startsWith("no-new-privileges"),
       ) &&
-      hostConfig?.PidsLimit === expectedPids &&
       dockerContainerInitObservationMatches(
         hostConfig,
         purpose === "create_provider" && initRequired,

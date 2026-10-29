@@ -138,8 +138,8 @@ function resolveFixedCodexExecutorSeccompProfile(
 }
 
 const DIAGNOSTIC_COMMAND_LIMIT = 9;
-// 固定包装172引数（最大64環境変数と通信設定の大小文字環境を含む）＋既存payload上限256。
-const DIAGNOSTIC_CREATE_ARGUMENT_LIMIT = 428;
+// 固定包装171引数（最大64環境変数と通信設定の大小文字環境を含む）＋既存payload上限256。
+const DIAGNOSTIC_CREATE_ARGUMENT_LIMIT = 427;
 
 /**
  * 固定Proxy Containerの包装を一箇所で構築する。
@@ -179,7 +179,6 @@ function planProxyContainerArguments(
     label,
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",
-    "--pids-limit=64",
     "--user=65534:65534",
     "--tmpfs",
     "/tmp:rw,noexec,nosuid,size=16777216",
@@ -204,7 +203,7 @@ function planProxyContainerArguments(
  * @postcondition raw argvを返さず、実行許可も発行しない。
  * @effect N/A: own dataの有界snapshotと純粋照合だけ。
  * @failure 欠測・重複・型不正・包装差・payload追加はnull。
- * @invariant imageは最後の単一位置引数。env名・順序と22／24引数の包装を固定する。
+ * @invariant imageは最後の単一位置引数。env名・順序と21／23引数の包装を固定する。
  * @boundary 保存済みDocker包装と上位意味相関。
  * @security getter・Proxyを評価せずtokenをlogへ出力しない。
  * @concurrency N/A: 同期処理。
@@ -241,27 +240,27 @@ export function projectDockerProxyConfiguration(
       found = true;
       candidate = args.value;
     }
-    const values = snapshotDockerBoundaryArray(candidate, 24);
+    const values = snapshotDockerBoundaryArray(candidate, 23);
     if (
-      (values?.length !== 22 && values?.length !== 24) ||
+      (values?.length !== 21 && values?.length !== 23) ||
       values.some((value) => typeof value !== "string")
     )
       return null;
     const argv = values as string[];
-    const token = argv[18]?.startsWith("CRDD_PROXY_AUTH=")
-      ? argv[18].slice(16)
+    const token = argv[17]?.startsWith("CRDD_PROXY_AUTH=")
+      ? argv[17].slice(16)
       : "";
-    const profile = argv[20]?.startsWith("CRDD_PROXY_PROFILE=")
-      ? argv[20].slice(19)
+    const profile = argv[19]?.startsWith("CRDD_PROXY_PROFILE=")
+      ? argv[19].slice(19)
       : "";
     const networkPolicy =
-      argv.length === 24 && argv[22]?.startsWith("CRDD_PROXY_NETWORK_POLICY=")
+      argv.length === 23 && argv[21]?.startsWith("CRDD_PROXY_NETWORK_POLICY=")
         ? parseDockerNetworkPolicy(
-            JSON.parse(argv[22].slice("CRDD_PROXY_NETWORK_POLICY=".length)),
+            JSON.parse(argv[21].slice("CRDD_PROXY_NETWORK_POLICY=".length)),
           )
         : null;
     if (
-      argv.length === 24 &&
+      argv.length === 23 &&
       (!networkPolicy || networkPolicy.provider !== profile)
     )
       return null;
@@ -449,7 +448,6 @@ export function projectDockerExecutionBoundary(
       "--network",
       "--cap-drop",
       "--security-opt",
-      "--pids-limit",
       "--user",
       "--workdir",
     ]);
@@ -874,7 +872,6 @@ export function planDockerIsolationCommands(
       input.ownershipLabel,
       "--cap-drop=ALL",
       "--security-opt=no-new-privileges",
-      "--pids-limit=32",
       "--user=65534:65534",
       "--env",
       "HOME=/provider-home",
@@ -929,7 +926,6 @@ export function planDockerIsolationCommands(
       ...(seccompProfilePath
         ? [`--security-opt=seccomp=${seccompProfilePath}`]
         : []),
-      "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",
       ...executionEnvironmentEntries,

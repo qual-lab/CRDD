@@ -356,6 +356,42 @@ function extractProviderTaskEnvelope(
         ),
       ),
     );
+    // 語句の観測だけを残す。発生段階・因果関係や実行可否へ昇格しない。
+    const itemErrorMessages = itemEvents
+      .filter(
+        (event) =>
+          event.type === "item.completed" &&
+          (event.item as Record<string, unknown>).type === "error",
+      )
+      .map((event) => {
+        const message = (event.item as Record<string, unknown>).message;
+        return typeof message === "string" ? message : "";
+      });
+    const itemErrorPatterns = {
+      itemErrorHostMentionCount: /\bhost\b/iu,
+      itemErrorSpawnMentionCount:
+        /\bspawn(?:ing|ed)?\b|failed to (?:start|launch)|could not (?:start|launch)/iu,
+      itemErrorProtocolMentionCount: /\bhandshake\b|\bprotocol\b/iu,
+      itemErrorConnectionMentionCount:
+        /\bdisconnect(?:ed|ion)?\b|connection (?:closed|reset|refused)|broken pipe|\beof\b/iu,
+      itemErrorToolMentionCount: /\btools?\b|\bdelegat(?:e|ed|ion)\b/iu,
+      itemErrorPermissionMentionCount:
+        /permission denied|operation not permitted|access denied|read-only file system/iu,
+      itemErrorMissingPathMentionCount:
+        /no such file or directory|file not found|executable not found/iu,
+      itemErrorTimeoutMentionCount: /\btimeout\b|timed out|deadline exceeded/iu,
+    };
+    const itemErrorMentions = Object.fromEntries(
+      Object.entries(itemErrorPatterns).map(([key, pattern]) => [
+        key,
+        itemErrorMessages.filter((message) => pattern.test(message)).length,
+      ]),
+    );
+    // 固定0.164.0のWarning文面との一致だけ。元通知種別や非故障を証明しない。
+    const knownWarningTextPatterns = [
+      /^Under-development features enabled: [a-z][a-z0-9_]*(?:, [a-z][a-z0-9_]*)*\. Under-development features are incomplete and may behave unpredictably\. To suppress this warning, set `suppress_unstable_features_warning = true` in .+\.$/u,
+      /^Code Mode is enabled in configuration, but model `[a-z0-9][a-z0-9._-]{0,127}` does not advertise Code Mode support\. This may degrade model performance\. Disable `features\.code_mode` and `features\.code_mode_only`, or select a model whose metadata enables Code Mode\.$/u,
+    ];
     codexExecutionObservation = Object.freeze({
       transport: "fixed_cli_jsonl_v0_164_0",
       turnCompleted: true,
@@ -371,6 +407,19 @@ function extractProviderTaskEnvelope(
           typeof (event.item as Record<string, unknown>).message === "string" &&
           /code[ _-]?mode/iu.test(
             (event.item as Record<string, unknown>).message as string,
+          ),
+      ).length,
+      ...itemErrorMentions,
+      itemErrorKnownWarningTextCount: itemErrorMessages.filter(
+        (message) =>
+          message.length <= 4096 &&
+          !/[\r\n\u2028\u2029]/u.test(message) &&
+          knownWarningTextPatterns.some((pattern) => pattern.test(message)),
+      ).length,
+      itemErrorUnclassifiedCount: itemErrorMessages.filter(
+        (message) =>
+          !Object.values(itemErrorPatterns).some((pattern) =>
+            pattern.test(message),
           ),
       ).length,
       commandExecutionStartedCount: countItems("command_execution"),

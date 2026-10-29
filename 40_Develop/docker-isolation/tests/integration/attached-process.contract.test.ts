@@ -277,6 +277,12 @@ test("認証NetworkのReceiptはcreateと即時inspectの実ID・構成一致後
   for (const matches of [true, false]) {
     const input = authenticationInput();
     const plan = planDockerAuthenticationCommands(input);
+    assert.equal(
+      plan.commands.some((item) =>
+        item.argv.some((arg) => arg.startsWith("--pids-limit")),
+      ),
+      false,
+    );
     const command = plan.commands.find(
       (item) => item.purpose === "create_internal_network",
     );
@@ -739,7 +745,6 @@ test("同期診断のcreateと不存在Filterを閉じた用途から構築す�
     "--read-only",
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",
-    "--pids-limit=64",
     "--user=65532:65532",
   ])
     assert.ok(argv.includes(value));

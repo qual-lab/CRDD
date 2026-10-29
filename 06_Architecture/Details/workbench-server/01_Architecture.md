@@ -1,5 +1,11 @@
 # CROS Workbench詳細設計
 
+## 検証HTTPの受信前待機の観測 — 2026-10-29
+
+検証専用Clientは一要求の`requestCreatedAt`と`headersSendingAt`を既存時刻へ加える。[Undiciの診断契約](https://undici.nodejs.org/api/DiagnosticsChannel)に従い、前者は要求object生成、後者はsocketへの最初のbyte書込み直前であり、送達・Server受理の証明ではない。同じrequest objectだけを相関に用い、本文・Header・socket・URLを診断結果へ複製しない。欠測を0へ補完せずnullで保持し、専用Processの終了と購読解除を維持する。
+
+Serverを所有する検証Processは、100msの短命Timerで最も大きい一回の遅延区間`expectedAt/observedAt/delayMs`だけを保持する。これはevent loopの処理機会が遅れた観測であり、同期I/O・CPU・OSスケジューリング等の原因判定ではない。時刻未採取はnull、観測終了でTimerを解除し、製品Serverへ常駐監視を追加しない。Client送出直前・Server受信・Owner処理・応答と区間を照合し、最悪Timer区間が一致しないだけで他の停止不存在を推定しない。HTTP15秒／Workspace60秒、取消・元結果・資源回収は変更しない。
+
 ## Core定義の直接操作と任意Automation — 2026-10-28
 
 `GET /api/runtime-definition`は`operation=plan/objectives/tasks`、`projectId`、`milestoneId`を受ける。`POST /api/runtime-definition`は既存Origin・Action Token保護のFormで`command` JSONを一度だけ受け、Domainの初期化・Plan保存・Objective／Task CRUDへ直接接続する。共有接続では`repositoryId`も指定し、Access Managementの現在development内容権限へ結合する。ローカルは起動Host利用者が同じ検証済みRootを操作し、Action TokenをユーザーIdentityと解釈しない。

@@ -124,7 +124,6 @@ import {
 } from "./result.ts";
 import {
   inspectProviderExecutionObservation,
-  PROVIDER_EXECUTION_OBSERVATION_KEYS,
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
   publicVerifiedDockerRecoveryId,
@@ -2074,10 +2073,7 @@ function projectExecutorResultDiagnostics(value: unknown) {
     1_000,
   );
   const verificationCount = ownPlainDataValue(value, "verificationCount");
-  const observation = snapshotPlainRecord(
-    ownPlainDataValue(value, "providerExecutionObservation"),
-    PROVIDER_EXECUTION_OBSERVATION_KEYS,
-  );
+  const observation = ownPlainDataValue(value, "providerExecutionObservation");
   if (
     status !== "completed" ||
     changedPaths.status !== "ok" ||

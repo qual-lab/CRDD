@@ -409,7 +409,6 @@ test("固定Probe作成は元payloadと二保存の間の一要求を維持す�
       "crdd.coordinator.probe=probe-123",
       "--cap-drop=ALL",
       "--security-opt=no-new-privileges",
-      "--pids-limit=64",
       "--user=65532:65532",
       "--workdir=/operation/workspace",
       "--env",

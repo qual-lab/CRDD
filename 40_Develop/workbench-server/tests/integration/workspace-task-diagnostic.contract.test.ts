@@ -11,6 +11,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
+import { parseProviderResult } from "../../../ai-adapter/src/index.ts";
 import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-diagnostic.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
@@ -378,6 +379,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
         ...base,
         itemErrorCount: total,
         itemErrorCodeModeCount: code,
+        itemErrorUnclassifiedCount: total,
       }) !== null,
       valid,
     );
@@ -387,7 +389,17 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     ...missing
   } = base;
   assert.equal(inspectProviderExecutionObservation(missing), null);
-  const old = { ...missing, transport: "fixed_cli_jsonl_v0_149_1" };
+  const old: Record<string, unknown> = {
+    ...missing,
+    transport: "fixed_cli_jsonl_v0_149_1",
+  };
+  for (const key of Object.keys(old))
+    if (
+      key.endsWith("MentionCount") ||
+      key === "itemErrorUnclassifiedCount" ||
+      key === "itemErrorKnownWarningTextCount"
+    )
+      delete old[key];
   assert.deepEqual(inspectProviderExecutionObservation(old), old);
   assert.equal(
     inspectProviderExecutionObservation({ ...old, itemErrorCount: 1 }),
@@ -397,6 +409,166 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     inspectProviderExecutionObservation({ ...base, itemErrorCount: "private" }),
     null,
   );
+  for (const key of Object.keys(base).filter(
+    (name) =>
+      name.endsWith("MentionCount") || name === "itemErrorUnclassifiedCount",
+  )) {
+    for (const value of [
+      -1,
+      2,
+      0.5,
+      "DO_NOT_RETAIN",
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ])
+      assert.equal(
+        inspectProviderExecutionObservation({
+          ...base,
+          itemErrorCount: 1,
+          [key]: value,
+        }),
+        null,
+      );
+    const partial = { ...base };
+    delete partial[key];
+    assert.equal(inspectProviderExecutionObservation(partial), null);
+  }
+  const previous = Object.fromEntries(
+    Object.entries(base).filter(
+      ([key]) =>
+        !key.endsWith("MentionCount") &&
+        key !== "itemErrorUnclassifiedCount" &&
+        key !== "itemErrorKnownWarningTextCount",
+    ),
+  );
+  const inspected = inspectProviderExecutionObservation(previous);
+  assert.deepEqual(inspected, previous);
+  assert.equal(
+    Object.hasOwn(inspected ?? {}, "itemErrorHostMentionCount"),
+    false,
+  );
+  const { itemErrorKnownWarningTextCount: _warning, ...previousMentions } =
+    base;
+  assert.deepEqual(
+    inspectProviderExecutionObservation(previousMentions),
+    previousMentions,
+  );
+  for (const value of [
+    -1,
+    2,
+    0.5,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    "private",
+  ])
+    assert.equal(
+      inspectProviderExecutionObservation({
+        ...base,
+        itemErrorCount: 1,
+        itemErrorUnclassifiedCount: 1,
+        itemErrorKnownWarningTextCount: value,
+      }),
+      null,
+    );
+  const raw = [
+    {
+      type: "item.completed",
+      item: {
+        type: "error",
+        message: "Code Mode host spawn failed: permission denied DO_NOT_RETAIN",
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "agent_message",
+        text: JSON.stringify({
+          status: "completed",
+          summary: "synthetic",
+          changedPaths: [],
+          verification: [],
+        }),
+      },
+    },
+    { type: "turn.completed" },
+  ]
+    .map((entry) => JSON.stringify(entry))
+    .join("\n");
+  const parsed = parseProviderResult({
+    provider: "codex",
+    purpose: "task",
+    taskRole: "executor",
+    raw,
+  });
+  assert.equal(parsed.status, "confirmed");
+  const projection = inspectTaskStageDiagnostic({
+    taskRole: "executor",
+    result: {
+      ...candidateEvent().diagnostic,
+      pathsMatch: true,
+      candidatePathCount: 0,
+      reportedPathCount: 0,
+      providerExecutionObservation: parsed.codexExecutionObservation,
+    },
+  });
+  assert.ok(projection);
+  assert.equal(
+    JSON.stringify(projection).includes('"itemErrorHostMentionCount":1'),
+    true,
+  );
+  assert.equal(JSON.stringify(projection).includes("DO_NOT_RETAIN"), false);
+  const warning =
+    "Under-development features enabled: code_mode. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /DO_NOT_RETAIN/config.toml.";
+  const warningParsed = parseProviderResult({
+    provider: "codex",
+    purpose: "task",
+    taskRole: "executor",
+    raw: raw.replace(
+      "Code Mode host spawn failed: permission denied DO_NOT_RETAIN",
+      warning,
+    ),
+  });
+  const warningProjection = inspectTaskStageDiagnostic({
+    taskRole: "executor",
+    result: {
+      ...candidateEvent().diagnostic,
+      pathsMatch: true,
+      candidatePathCount: 0,
+      reportedPathCount: 0,
+      providerExecutionObservation: warningParsed.codexExecutionObservation,
+    },
+  });
+  assert.ok(warningProjection);
+  assert.equal(
+    JSON.stringify(warningProjection).includes(
+      '"itemErrorKnownWarningTextCount":1',
+    ),
+    true,
+  );
+  assert.equal(
+    JSON.stringify(warningProjection).includes('"itemErrorCount":1'),
+    true,
+  );
+  assert.equal(
+    JSON.stringify(warningProjection).includes(
+      '"itemErrorUnclassifiedCount":1',
+    ),
+    true,
+  );
+  assert.equal(
+    JSON.stringify(warningProjection).includes("DO_NOT_RETAIN"),
+    false,
+  );
+  for (const invalid of [
+    { ...base, itemErrorCount: 1 },
+    {
+      ...base,
+      itemErrorCount: 1,
+      itemErrorUnclassifiedCount: 1,
+      itemErrorHostMentionCount: 1,
+    },
+  ])
+    assert.equal(inspectProviderExecutionObservation(invalid), null);
 });
 
 /** 完了を期待する段階の欠測・逆順は、Task成功や取得成功へ補完しない。 */

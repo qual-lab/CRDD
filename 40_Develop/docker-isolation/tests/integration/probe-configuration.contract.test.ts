@@ -89,7 +89,7 @@ function fixture(t: TestContext) {
       NetworkMode: "none",
       ReadonlyRootfs: true,
       Privileged: false,
-      PidsLimit: 64,
+      PidsLimit: 0,
       CapDrop: ["ALL"],
       CapAdd: null,
       Devices: null,
@@ -438,7 +438,7 @@ test("Probe観測と回収はfresh構成・実ID・三軸を同じ技術群で�
  * @precondition 実三Directoryと独立inspectの正対照がある。
  * @stimulus 各Docker fieldと候補集合を単独変更する。
  * @observation boolean、入力不変、plannerの固定値。
- * @oracle 正常だけ一致。既存の文字列pids・追加SecurityOpt・null/空Capabilityは維持。
+ * @oracle 正常だけ一致。PID上限は要求せず、追加SecurityOpt・null/空Capabilityの扱いを維持。
  * @cleanup fixtureの終了hookで回収する。
  * @boundary 実Filesystem照合。Docker要求0。
  */
@@ -459,6 +459,15 @@ test("Probe構成の固定fieldとpayload候補を等価に照合する", (t) =>
     "crdd.coordinator.probe=probe-123",
   );
   assert.equal(args.at(-3), f.inspect.Config.Image);
+  assert.equal(
+    args.some((value) => value.startsWith("--pids-limit")),
+    false,
+  );
+  for (const value of [undefined, null, 0, -1, 64, 256]) {
+    const input = structuredClone(f.inspect);
+    changeField(input, "HostConfig.PidsLimit", value);
+    assert.equal(dockerProbeConfigurationMatches(input, f.expected), true);
+  }
   for (const candidate of f.expected.sourceCandidates) {
     const value = structuredClone(f.inspect);
     value.Config.Cmd[1] = candidate;
@@ -486,7 +495,6 @@ test("Probe構成の固定fieldとpayload候補を等価に照合する", (t) =>
     ["HostConfig.NetworkMode", "bridge"],
     ["HostConfig.ReadonlyRootfs", false],
     ["HostConfig.Privileged", true],
-    ["HostConfig.PidsLimit", 63],
     ["HostConfig.CapDrop", []],
     ["HostConfig.CapAdd", ["ALL"]],
     ["HostConfig.Devices", [{}]],
@@ -503,7 +511,6 @@ test("Probe構成の固定fieldとpayload候補を等価に照合する", (t) =>
     );
   }
   const permissive = structuredClone(f.inspect);
-  changeField(permissive, "HostConfig.PidsLimit", "64");
   changeField(permissive, "HostConfig.CapAdd", []);
   changeField(permissive, "HostConfig.Devices", []);
   permissive.HostConfig.SecurityOpt.push("another-option");

@@ -24,6 +24,9 @@ export type VerificationHttpTiming = Readonly<{
   method: "GET" | "POST";
   route: string;
   startedAt: number;
+  requestCreatedAt: number | null;
+  /** socketへの最初のbyte書込み直前。Server受理や送達の証明ではない。 */
+  headersSendingAt: number | null;
   headersAt: number | null;
   completedAt: number;
   /** 親event loopがclose callbackを処理した時刻。子の実終了時刻ではない。 */
@@ -249,15 +252,27 @@ export async function requestInChild(
     frame.version !== 1 ||
     !timing ||
     Object.keys(timing).sort().join(",") !==
-      "completedAt,headersAt,startedAt" ||
+      "completedAt,headersAt,headersSendingAt,requestCreatedAt,startedAt" ||
     !Number.isSafeInteger(timing.startedAt) ||
     Number(timing.startedAt) <= 0 ||
     !Number.isSafeInteger(timing.completedAt) ||
     Number(timing.completedAt) < Number(timing.startedAt) ||
+    ![timing.requestCreatedAt, timing.headersSendingAt].every(
+      (at) =>
+        at === null ||
+        (Number.isSafeInteger(at) &&
+          Number(at) >= Number(timing.startedAt) &&
+          Number(at) <= Number(timing.completedAt)),
+    ) ||
+    (timing.headersSendingAt !== null &&
+      (timing.requestCreatedAt === null ||
+        Number(timing.headersSendingAt) < Number(timing.requestCreatedAt))) ||
     (timing.headersAt !== null &&
       (!Number.isSafeInteger(timing.headersAt) ||
         Number(timing.headersAt) < Number(timing.startedAt) ||
-        Number(timing.headersAt) > Number(timing.completedAt)))
+        Number(timing.headersAt) > Number(timing.completedAt) ||
+        (timing.headersSendingAt !== null &&
+          Number(timing.headersAt) < Number(timing.headersSendingAt))))
   )
     throw processFailure("frame");
   try {
@@ -265,6 +280,14 @@ export async function requestInChild(
       method: form === undefined ? "GET" : "POST",
       route,
       startedAt: Number(timing.startedAt),
+      requestCreatedAt:
+        timing.requestCreatedAt === null
+          ? null
+          : Number(timing.requestCreatedAt),
+      headersSendingAt:
+        timing.headersSendingAt === null
+          ? null
+          : Number(timing.headersSendingAt),
       headersAt: timing.headersAt === null ? null : Number(timing.headersAt),
       completedAt: Number(timing.completedAt),
       closedAt: Date.now(),

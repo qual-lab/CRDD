@@ -7,6 +7,7 @@
  * @security Provider資格・Root Capability・環境・再送・redirect・子孫生成を持たない。
  */
 import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
+import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import {
   projectVerificationTransportFailure,
   requestBounded,
@@ -14,6 +15,32 @@ import {
 
 let startedAt = Date.now();
 let headersAt: number | null = null;
+let requestCreatedAt: number | null = null;
+let headersSendingAt: number | null = null;
+let observedRequest: object | null = null;
+// 専用一要求Process内だけの観測。本文・Header・socketを保持しない。
+const created = (message: unknown) => {
+  try {
+    const request = (message as { request: object }).request;
+    if (observedRequest === null && request && typeof request === "object") {
+      observedRequest = request;
+      requestCreatedAt = Date.now();
+    }
+  } catch {
+    /* 計測故障はHTTP結果を変えない。 */
+  }
+};
+const sending = (message: unknown) => {
+  try {
+    if (
+      (message as { request: object }).request === observedRequest &&
+      headersSendingAt === null
+    )
+      headersSendingAt = Date.now();
+  } catch {
+    /* 計測故障はHTTP結果を変えない。 */
+  }
+};
 try {
   const message = await new Promise<unknown>((resolve, reject) => {
     if (!process.connected || !process.send) {
@@ -66,6 +93,8 @@ try {
     ].includes(value.route)
   )
     throw Error("input_invalid");
+  subscribe("undici:request:create", created);
+  subscribe("undici:client:sendHeaders", sending);
   const response = await requestBounded(
     value.baseUrl,
     value.route,
@@ -80,7 +109,13 @@ try {
       version: 1,
       ...response,
       failure: null,
-      timing: { startedAt, headersAt, completedAt: Date.now() },
+      timing: {
+        startedAt,
+        requestCreatedAt,
+        headersSendingAt,
+        headersAt,
+        completedAt: Date.now(),
+      },
     }),
   );
 } catch (error) {
@@ -92,8 +127,18 @@ try {
       location: null,
       body: null,
       failure,
-      timing: { startedAt, headersAt, completedAt: Date.now() },
+      timing: {
+        startedAt,
+        requestCreatedAt,
+        headersSendingAt,
+        headersAt,
+        completedAt: Date.now(),
+      },
     }),
   );
   process.exitCode = failure ? 2 : 1;
+} finally {
+  unsubscribe("undici:request:create", created);
+  unsubscribe("undici:client:sendHeaders", sending);
+  observedRequest = null;
 }

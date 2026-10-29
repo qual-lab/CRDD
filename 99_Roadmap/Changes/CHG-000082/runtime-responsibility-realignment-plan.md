@@ -530,9 +530,433 @@ HTTPの既存実保存結合一Caseへ、メモリ内CPUサンプリングとeve
 
 今回は条件整理だけで、実Containerを作らない。固定Codex Task Image `sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4`に同梱された0.164.0のHostを使う。公式版固定の[message](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/code-mode-protocol/src/host/message.rs)と[codec](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/code-mode-protocol/src/host/codec.rs)に沿う一時的・用途固定のClientで、初期通信→session/open→固定計算→結果→session/shutdown→子終了を確認する案とする。仕様を推測せず、実装前に必要fieldと版の整合を確認する。恒久API・Package・汎用Client・独自Protocolは新設しない。Host単独の成功を本番CLI経路の成功へ拡張しない。
 
-承認が必要な実Effectは、稼働確認後の自己生成Container最大一件と、Repository内新品`.crdd/tests/code-mode-non-ai-*`だけ。network=none、認証情報・Repository本文・Provider設定を渡さず、空の合成Work／Home／tmpと本番同等の非root UID・read-only root・cap-drop・no-new-privileges・seccompを使う。外部AI呼出し・Image取得／更新・再起動／修復はしない。固定計算だけで外部Tool callbackを要求した場合は拒否して停止する。開始・初期通信・計算・終了の固定段階と終了値のみを残し、生stderr・本文を恒久保存しない。失敗時は自動再試行せず、同じ実IDの今回資源だけを確認して回収する。Engine停止／Image欠測／別のDocker作業中はEffect前停止。既存Container・Image・Volume・過去保持物は操作しない。この実行許可はまだ得ていない。
+承認が必要な実Effectは、稼働確認後の自己生成Container最大一件と、Repository内新品`.crdd/tests/code-mode-non-ai-*`だけ。network=none、認証情報・Repository本文・Provider設定を渡さず、空の合成Work／Home／tmpと本番同等の非root UID・read-only root・cap-drop・no-new-privileges・seccompを使う。外部AI呼出し・Image取得／更新・再起動／修復はしない。固定計算だけで外部Tool callbackを要求した場合は拒否して停止する。開始・初期通信・計算・終了の固定段階と終了値のみを残し、生stderr・本文を恒久保存しない。失敗時は自動再試行せず、同じ実IDの今回資源だけを確認して回収する。Engine停止／Image欠測／別のDocker作業中はEffect前停止。既存Container・Image・Volume・過去保持物は操作しない。提示時点では未承認であり、その後の人間承認に基づく一回結果を次項に記録する。
+
+#### Code Mode非AI実証の一回結果 — 2026-10-29
+
+人間が上記範囲を承認後、Source `19c4f51b3771ef3b3b11325dd23d33d769d8bc6c`を基準に、一時的な用途固定Clientだけを作成した。公式0.164.0の四メッセージと4-byte little-endian frameを使用し、固定計算`text(String(1 + 1));`、有効Tool零、全応答上限16 frame／一frame 65,536 byte／応答期限30秒とした。局所self-testは正常四メッセージと負例十件が成功。独立レビューで後続stdout受理・欠測cell ID受理を実行前に是正し、再確認の残指摘は零だった。`cell/closed`は任意通知として、ID確定後の同session／同cell一回だけを受理し、必須の終了証拠とは混同しない。
+
+| 確認対象 | 一回の実測結果 |
+| --- | --- |
+| 実行境界 | 既存固定Image、network none、UID 65534:65534、read-only root、cap-drop ALL、no-new-privileges、既存seccomp、pids-limit 64。四Mount以外のRepository／認証情報は渡さない |
+| Host同一性 | 同梱`codex-code-mode-host`のSHA-256 `8ee4f472e92ac226a189e98998633b2d07f989f208515750764db660369f2926`が一致 |
+| 非AI動作 | handshake、session/open、固定計算結果`2`、session/shutdownの全応答を確認。外部Tool要求零、stderr零 |
+| 終了 | stdin close、Host exit 0、stdout EOF、stderr読取り終了、Container exited／ExitCode 0。OOMKilled false、Restarting false、RestartCount 0 |
+| 実環境の補助観測 | CPU 24、開始前pids 1、上限64。上限枯渇の再現なし |
+
+実Container IDは`ae2a90a03b890be48c9bfe1decc096ea02ace6f0ca7de3c2c367140cd09cb3c4`、作成・起動は各一回。開始／終了は2026-10-29T02:38:23.493751387Z／02:38:23.956127038Z。元ID・Image・Config・MountとHostConfigを再照合し、未指定`OomKillDisable`だけ作成時false／終了後nullという表現差を検出した。指定した安全設定ではなく、他項目はexact一致、OOM／再起動も否定できたため、独立確認後この一field・一Containerだけを限定判断して通常rmした。boolean差を一般許容する比較器や回復処理は追加していない。元IDの一覧取得成功・該当零によりContainer不存在を確認した。
+
+新品Rootは`C:\project\CRDD\.crdd\tests\code-mode-non-ai-20261029-01`、Identity `1687905628:35465847067816461:1793241181982825500`。Client SHA-256は`6b1c9d744e0c68face1344c2e366a65b14f803469e70ddc85f28215805b700ac`。回収前に祖先・全子の十二Identityと非リンク、全六entryのallowlist、Client Hash、元ID領収書を再照合し、work／home／tmpは空だった。確認した二fileと空の四子Directory・Rootだけを通常の非再帰削除で回収し、Root不存在を確認した。強制属性解除・ACL修復は行わず、今回の試験物の残存はない。生出力を保存せず、本番Source・期限・安全判定は変更していない。
+
+この成功は固定Image／当該隔離条件下の公式Host単独動作を示す。過去のCode Mode項目エラーの原因や、Codex CLIからのHost接続、実AI編集E2Eの成立を証明しない。AI再送・Docker再起動・Image更新・過去保持物操作は行っていない。
+
+#### Codex CLIとHost単独試験の条件差 — 2026-10-29
+
+今回の許可は外部AIなしの調査と最小案の整理である。現行Sourceの読取りと正式な計画APIの純粋呼出しだけで照合し、新しいContainer・CLI Process・認証操作は発行しない。本番Source・設定・安全判定・Timeoutも変更しない。
+
+| 境界 | Host単独試験 | 本番の編集計画 | 今回の判定 |
+| --- | --- | --- | --- |
+| 実体と外側隔離 | 固定Task Image、公式Host、UID 65534、既存seccomp、pids64、空Work・bind tmp | 同じTask Image／UID／seccomp／pids64、bind Work・tmp | 基本配置・計算・終了は成立。CLIを含むProcess数・並行条件の成立までは未確認 |
+| Host起動・接続 | PythonからHost絶対Pathを直接spawn、固定hello/open/execute | Codex `exec`が設定を解釈してHostを解決・起動・通信 | CLIによるPath解決、起動、handshake、routingは未検証。直接試験の成功で置換しない |
+| Homeと環境 | 空Homeをread-only、Host環境はHOME／TMPDIR／PATHのみ | Host側で準備したHomeをread-write、CLIへCODEX_HOME、Proxy環境を渡す | Home／環境の差はあるが、原因と確認されていない。秘密値は読まず再現入力へ渡さない |
+| 計算とTool | 固定計算、enabled_tools空、delegate要求は拒否 | shell_tool／unified_exec有効。CLIが編集用Toolを提供 | delegate処理、コマンド隔離、実ファイル編集を単独試験は通らない。故障の優先原因と断定しない |
+| 内側の権限 | Codex CLIの権限profileを経由しない | root deny、minimal read、Workspace write、Codex実行Fileだけ追加read、コマンド通信禁止 | 隣接Host／bwrapを使う段階と権限評価の関係は未確認。追加allowが必要とはまだ判断しない |
+| Provider結果 | protocolと計算値・終了を直接検査 | output-schemaとJSONLへ投影 | 既存itemErrorCodeModeCountはerror本文の語句一致件数で、Host開始・handshake・delegateの段階を特定しない |
+
+`ai-adapter/src/codex/plan.ts`の編集計画は、GPT-6.1 Solにcode_mode／code_mode_host／code_mode_onlyを指定し、in-process fallbackを禁止する。助言計画もHostを使用するがshell_tool／unified_execを無効化し、read-only sandboxを使う。このSource差を実編集故障の反証とは扱わない。現行の[公式設定文書](https://learn.chatgpt.com/docs/config-file/config-reference)にもCode Mode・権限profileはあるが、稼働中の固定0.164.0と同版の契約を示すものではないため、現行文書のkeyへ機械追従しない。
+
+結論は具体原因未確定である。Host実体の基本不成立やHost単独でのpids64枯渇を支持する結果はなく、残る候補はCLIの設定解釈／Host解決・起動・通信、Home／環境、Tool委譲／内側sandboxである。過去の生出力は保存しておらず、旧件数から失敗段階を復元できない。独立確認で「Tool委譲を優先原因」とする推定を取り下げ、同列の未確定候補へ整理した。
+
+最小案は製品変更なしで、次の二境界を分ける。第一に固定CLIの既存sandbox入口と同じ権限profileで、合成Workへの固定command一件を非AI実証する。これで確認できるのはコマンド隔離経路であり、Host接続の成立とは別である。第二にCLI→Hostの起動・handshake・delegateを非AIで発火できる既存の正式入口があるか、固定版で先に確認する。現SourceのCRDD公開入口では、その非AI発火を確認していない。入口がなければ独自fake Provider／汎用Host Client／CLI改造を追加せず、その範囲を未確認として残す。通常の`codex exec`を非AI確認のつもりで起動しない。実Containerでの追加検証にはImage・引数・mount・回収範囲を固定して別途許可を得る。現時点ではHost追加allow、root read化、fallback許可、Timeout延長、Image更新を是正として採用しない。
+
+#### CLI内側sandboxの非AI確認案 — 2026-10-29
+
+OpenAI Docsで[CLIのsandbox入口](https://learn.chatgpt.com/docs/cli/reference)を確認した。現在の文書は`codex sandbox linux`、名前付き権限profile、作業Directory、設定overrideと`--`以後の固定commandという入口を説明する。ただし固定0.164.0の実helpに代わる根拠ではない。既存Docker ProbeはPythonのFilesystem／Network確認であり、このCLI内側の経路を呼ばないため、成功結果を流用しない。
+
+追加許可を得る場合の範囲は、同じ固定Task Image `sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4`から新品Container一件・起動一回とする。exact local Imageがない場合はpull／buildせずEffect零で停止する。network none、認証情報／Repository本文なし、同じ非root／read-only root／cap-drop／no-new-privileges／seccomp／pids64を維持し、空の合成Work・Home・tmpと読取り専用の固定試験入力だけを使う。新品Rootは`C:\project\CRDD\.crdd\tests\codex-sandbox-non-ai-20261029-01`であり、実行前準備としてinput/probe.pyだけを作成した。Docker照会・作成・起動はまだ行っていない。
+
+Container内では第一に固定CLIの`sandbox linux --help`だけを読む。名前付きprofile・cd・configの必要optionが確認できなければ固定分類を残して停止し、別引数の試行や通常execへの代替をしない。一致した場合だけ、既存編集profileと同じroot deny／minimal read／Workspace write／Codex File read／network falseで、合成Work内の一Fileに既知文字列を書き、読戻し一致・通常削除を行う固定command一件を実行する。git／内部状態の空の保護領域は外側のread-only mountで維持する。この実行はモデル、Provider認証、Host protocol、Task受付を使わず、CLI sandbox・コマンド起動・合成File操作の可否だけを判定する。
+
+試験入力は`input/probe.py`、SHA-256 `2fc7cda5a655834df07590a08bcc75fed0f873ce2408afa7b2905222b4d2712a`。入力Fileを読み込んだ局所self-testは固定commandの構文・shell不使用のargv・環境変数集合を確認し、外部Process零で成功した。独立確認の出力無制限保持指摘を是正し、両streamを並行読取り、合計65,536 byte以内だけを保持して超過時は元Process groupへTERM一回・五秒の終了確認へ接続する。64KiB境界・超過時buffer不増加・TERM一回と終了未確認の負例を有限代役で確認した。Container入口は`python3 -B /probe/probe.py`、内側のcommandは`/usr/local/bin/python3 -I -B -c <固定Source>`でshellを使わない。固定Sourceは`/work/sandbox-probe.txt`が未存在であることを確認し、`CRDD_SANDBOX_NON_AI\n`を書き、同bytesを読戻し、unlink後に`CRDD_SANDBOX_OK`だけを出す。モデル・任意command・本文・認証値を引数へ入れない。
+
+MountはRoot内input→`/probe`（RO）、work→`/work`（RW）、home→`/provider-home`（RW）、tmp→`/tmp`（RW）、guards/git→`/work/.git`（RO）、guards/internal→`/work/.crdd`（RO）に固定する。work内の二mountpointも空で事前作成する。正常時の合成probe Fileは不存在、保護二領域は空のままとし、準備済み入口・元ID領収書以外の新規entryは清掃前に確認する。元ID領収書はRoot直下`trial.json`だけで、trial／sourceCommit／rootIdentity／image／probeSha256／containerIdの六fieldに固定する。作成応答後の元64桁hexを保存・読戻し確認してからだけstartする。これは不変の作成応答領収書であって現在状態ではなく、state fieldを設けず、未開始又は開始済みの判断材料へ転用しない。親喪失後は元IDで現状態を観測し、開始可否にかかわらず同じ試験を再実行しない。領収書の欠測／不一致ではstart零で停止し、要求結果又は終了が不明なら同じ元IDを保持する。CLIが作るHome／tmp内の未知entryを名前だけで一括削除せず、確認不能なら保持する。この正例はprofile指定の受理とWorkspace操作の成立だけを示し、root deny／minimal read／network falseの各強制を独立証明しない。外側DockerのRO／network noneによる拒否を内側の保証へ算入しない。
+
+help・commandごとの有界待機と出力量、元子Processの終了、元Container構成・停止・IDを確認し、失敗時の再試行・Timeout延長・追加capabilityは行わない。結果は固定段階・終了値・分類だけを記録し、生出力を恒久保存しない。今回の既知内容とIdentityを照合できる試験物だけを通常回収し、観測不能・未知内容はexact参照付きで保持する。Image取得／更新、Docker Engine／daemon起動・再起動・修復、既存資源・過去保持物への処置は含めない。これは承認候補であり、実Containerの処置はまだ行っていない。
+
+#### CLI内側sandbox非AI試験の一回停止 — 2026-10-29
+
+上記範囲を人間が承認した後、Engine linux 29.8.1、exact local Image存在・稼働Container零、probe Hash・既存seccomp Hash、Rootと祖先／全初期子の非Link・Identityを確認した。新品Containerの作成応答は64桁元IDとして受領し、不変領収書の保存・読戻しと六Mount／Image／UID／read-only root／network none／seccomp／pids64の照合後、一回だけstartした。
+
+結果は`blocked / fixed_cli_help_mismatch`、stage `help`、helpConfirmed false、commandStarted false、commandExitCode nullだった。Containerは2026-10-29T05:37:50.670886073Z開始・05:37:51.300447905Z終了、exited／ExitCode 2、OOMKilled false、Restarting false、RestartCount 0。attach呼出し自体の終了値は1で、Containerの終了値とは区別する。固定File操作、CLI内側sandboxの成立、Host接続は未確認である。
+
+停止条件は、helpの終了値非零又は必要option（permission-profile／cd／config）の欠測のどちらかだった。今回の有限結果はその内訳を保持しておらず、CLI本体の故障、option名の違い、help出力先の差のいずれかを断定しない。検証Toolの診断不足があり、次に是正するならhelp終了値・各option検出のboolean・stdout／stderr byte数だけを既存結果へ追加するのが最小候補である。生help／stderrの保存、新しい状態・Registry、別引数へのfallback、製品権限の緩和は不要であり、今回は追加実行をしない。
+
+元Container IDは`ab0354f449b67716df0bd00c34c3e0f2d946691b1d6688082ea17655a1f44fd0`。Root Identityは`1687905628:39969446695535305:1793246950934337900`、入力Hashは前項と一致する。停止後の全Config／MountとHostConfigは未指定OomKillDisableのfalse→null以外一致した。回収直前にも停止・元ID・全設定を再照合し、この未指定fieldだけを今回の表現差として限定判断した。元IDへ通常rm一回を実行し、一覧取得成功・該当零によってContainer不存在を確認した。
+
+RootにはCLI補助用の空lock二件・空Directoryと、固定CLIのContainer内Pathを指すsymbolic link三件が残った。Node lstat／readlinkで追跡せず検査し、三件ともtargetは`/opt/crdd/providers/codex/0.164.0/codex`、Windowsのreparse tagは0xa000001dだった。独立確認後、初期十六Identityと全二十二entryの現在Identity／単一link／bytes／Hash／link targetを再照合した。link三件はFile.Deleteでentry自身だけを除去し、空lock二件・既知probe／領収書と空の既知Directoryだけを通常・非再帰削除した。Root不存在を確認し、今回の試験物は回収完了。link先・任意の再帰削除・強制属性解除・ACL修復は扱っていない。AI送信・Docker Engine再起動・Image更新・過去保持物操作・失敗後の再試行は行っていない。
+
+#### help診断の最小是正・非AI局所確認 — 2026-10-29
+
+人間の継続指示に従い、新品の`C:\project\CRDD\.crdd\tests\codex-sandbox-help-20261029-02\input\probe.py`だけを準備した。前回Rootや試験を再利用せず、製品Sourceは変更しない。SHA-256は`9d9e9ab298bf693fbe0dde69f209862a2f98e2cf89c493477ddaff04c571586e`。既存の固定CLI・30秒待機・合計64KiB保持上限・元Process groupへのTERM一回と五秒終了確認を維持し、実行対象を`sandbox linux --help`一回だけへ縮小した。通常exec、固定File操作、引数fallback、Provider認証・モデル呼出しの経路は持たせない。
+
+診断はhelpExitCode、helpStdoutBytes／helpStderrBytes、permission-profile／cd／configのstdout／stderr別検出boolean、複数形permissions-profileの診断booleanだけを返す。生help／stderr・未知本文を返さず、helpが完了しなければ各観測はnull、helpObserved falseとして失敗を保持する。成功条件は終了値零かつ必要な三optionがstdoutに存在すること。stderr側だけ又は複数形の検出を成功・自動切替へ使わない。独立確認の部分一致指摘を受け、optionの前後境界を照合し、cd-root／config-file／連結文字列／別suffixの誤検出を拒否した。これは試験の確認条件の是正であり、本番のAuthority・保存・安全判定へ変更を加えない。
+
+局所self-testは、正常・非零終了・stderrのみ・option不足・複数形・本文非公開・部分一致反例・equals／comma表記の十一診断条件、64KiB境界と超過時buffer不増加、終了確認の有限代役二条件を確認し成功した。外部Process起動零であり、実CLI・Docker・実OSの取消成立を証明しない。WindowsでPythonを`-B`指定し、bytecode生成を避けた。Docker照会／作成／起動、AI再送、過去保持物操作は実施しておらず、元のhelp停止原因も未確定のままとする。
+
+次の実行は別途承認後、新品Container一件で固定Image・network none・同じ非root／RO／seccomp／pids64・空Work／Home／tmpとRO試験入力だけを使い、上記help一回と今回試験物の確認後回収に限定する。Engine停止・Image欠測はEffect前停止、失敗時再試行なし、観測不能・未知内容はexact Root／ID付きで保持する。File操作を含む前回の実行許可を再利用せず、helpだけへ縮小した範囲を提示する。この準備入力は次回試験後に回収し、未使用の場合は2026-11-05を再評価日とする。新しい恒久Tool・公開API・Registry・Recoveryは追加しない。
+
+#### help専用診断付き一回実行 — 2026-10-29
+
+人間の承認後、同じSource `19c4f51b3771ef3b3b11325dd23d33d769d8bc6c`・固定Image・入力Hashでhelpだけを一回実行した。Engine linux 29.8.1、local Imageのexact一致、稼働Container零、Root／祖先／初期全子十一Identity、四Mount、非root／read-only root／network none／seccomp／pids64、元ID領収書の読戻しを確認後にstartした。Container IDは`85bc5708881df683140d2144fbcafbd0be0144e90d940c7bf606cc311197f4e8`、Root Identityは`1687905628:24769797951586580:1793258453100230500`。
+
+| 診断 | 一回の観測 |
+| --- | --- |
+| 結果 | blocked、stage help、reason help_command_nonzero |
+| help | 観測完了、終了値101、stdout 0 byte、stderr 216 byte |
+| 必須option | permission-profile／cd／configはstdout／stderrとも未検出。複数形permissions-profileも未検出 |
+| 後続 | commandStarted false。固定File操作、Host接続、AI呼出しはいずれも未実行 |
+| 外側終了 | Container exited／ExitCode 2、attach呼出し終了値1。OOMKilled false、Restarting false、RestartCount 0 |
+
+Container開始／終了は2026-10-29T08:12:20.815682212Z／08:12:21.411011176Z。前回のhelp mismatchは、今回の条件では「help自体の非零終了」であり、正常helpにoptionが不足した結果ではないと切り分けられた。ただしstderrは本文を保存せずbyte数だけを記録したため、具体的な内部故障は未確定である。終了値101だけからpanicや権限・Process数枯渇等の原因を断定せず、製品設定・Image・Timeoutの是正へ進まない。失敗後の再試行は行わない。
+
+今回RootにはCLI由来の空lock二件、空Directoryと固定CLI Pathを指すlink三件を検出し、他の新規本文Fileはなかった。元IDと停止・構成を再照合し、未指定OomKillDisableのfalse→nullだけを今回の表現差として限定した上で通常rm一回、一覧取得成功・該当零によりContainer不存在を確認した。初期十一Identityと全十七entryの現在Identity／単一link／bytes／Hash／link targetを再照合し、三件のreparse tag 0xa000001dを個別確認してlink自身だけをFile.Deleteした。空lock二件と既知probe／領収書、既知の空Directoryだけを非再帰・通常削除し、Root不存在まで確認した。今回の物理残存はない。link先・ACL・強制削除・任意再帰は扱わず、AI再送・Docker Engine起動／再起動／修復・Image更新・過去保持物操作は行っていない。
+
+#### stderrの有限診断準備 — 2026-10-29
+
+次の継続指示に対し、未承認の再試行はせず、新品`C:\project\CRDD\.crdd\tests\codex-sandbox-help-20261029-03\input\probe.py`を準備した。SHA-256は`b4f9e4903d07e01f3cbdfff5703b6423650ca6933cf9b89429e49fe2b20e243a`。help一回だけの経路・30秒期限・合計64KiB上限・TERM一回と五秒終了確認・既存成功条件は不変。stderr本文をメモリ内で、panic／Thread生成／Signal処理／Runtime言及／資源不足／権限／File欠測／Memory／sandbox言及／引数拒否の十boolean、`Os { code }`又は`os error`に限定した0〜65535のOS番号（重複除去・昇順・最大八件）へ変換する。任意本文・Path・一般的な数字を返さず、空・未分類・番号打切りを明示する。これは語句の観測であり、原因の確定ではない。
+
+外部Process零の局所確認でhelp十一条件、分類九条件、64KiB境界と終了の有限代役二条件が成功。本文非搬送、一般code表記・六桁番号の拒否、最大八件も反証し、独立レビュー残指摘零。製品Source・設定・Image・安全判定は変更しない。実CLI／Docker・AI・過去保持物は操作していない。次は同じ固定Image・隔離条件、空Work／Home／tmp・RO入力、exact元ID領収書と通常回収の既存条件を用い、別途承認した新品Container一件でhelpだけを一回実行する。File操作・通常exec・AI・fallback・自動再試行は含めず、Engine停止・Image欠測では停止する。準備入力は試験後に回収し、未使用時は2026-11-05に再評価する。
+
+#### 診断付きhelp確認の事前停止 — 2026-10-29
+
+人間が上記一回と今回試験物の回収を承認した後、入力・seccompのHashとSource HEADの一致を確認した。最初のEngine読取りが接続先`dockerDesktopLinuxEngine`のpipe欠測で失敗したため、その場で停止した。Image照会・稼働資源照会・Container作成／起動・CLI helpは未実施。これはCLIの終了値101の再現結果ではなく、Engineへ接続できないためのEffect前停止である。Engine起動／再起動・修復・再試行は行わず、AI送信・過去保持物操作もない。今回Rootには準備済みinput/probe.pyだけがあり、既知Hash・exact配置・祖先を含む非link・単一link・全entryを確認して、そのFileと空のinput／Rootだけを非再帰・通常回収した。Root不存在を確認し、今回の物理残存はない。実試験の失敗原因分類は未取得のまま保持する。
+
+#### 通常起動後の診断付きhelp一回結果 — 2026-10-29
+
+人間がDocker Desktopの通常起動とhelp一回・今回物回収を明示承認した。公式配置のDesktop実行物の署名Valid／Docker Incを確認し、非表示の通常起動一回でEngine linux 29.8.1が応答した。再起動・修復はしない。固定Task Imageの存在・exact一致、稼働Container零を確認し、新品Root `C:\project\CRDD\.crdd\tests\codex-sandbox-help-20261029-04`へ前回レビュー済みと同じ入力Hash `b4f9e4903d07e01f3cbdfff5703b6423650ca6933cf9b89429e49fe2b20e243a`を復元した。Root Identityは`1687905628:52072870694109774:1793272535309933200`。入力の局所self-test十一help／九分類／終了二条件も再確認した。
+
+元Container IDは`aca4d91eb695bbb7425384eb4f1dbd804bced9f4f75fec06b29354a3c8a58b12`。作成応答・exact領収書保存と読戻し・固定Image／四Mount／network none／UID 65534／RO root／既存seccomp／pids64の照合後、help一回だけを実行した。開始／終了は2026-10-29T11:16:26.268895227Z／11:16:26.933974846Z。結果はblocked／help_command_nonzero、helpObserved true、helpExitCode 101、stdout 0 byte／stderr 216 byte、必要三optionと複数形は両stream未検出、commandStarted falseだった。Containerはexited／ExitCode 2、attach終了値1、OOMKilled false／Restarting false／RestartCount 0。
+
+stderrの固定診断はrecognized_markers、panic／missingFile／sandboxMentionがtrue、OSエラー番号は`[2]`・打切りなし。他の七markerは未検出だった。同じstderrで三つの固定markerを検出した事実と、それらの因果関係は区別する。具体的な欠測Path・発生点・sandbox補助Fileとの因果はまだ未確定であり、marker未検出をThread／資源不足等の不存在証明へ使わず、番号だけからbwrap欠測や権限故障を断定しない。直接確認できたのはhelp Processの非零終了と正常help本文の非観測までであり、製品権限・Timeout・Imageを変更せず、再試行しない。生stderrは保存していない。固定File操作・Host接続・AIはいずれも未実行。
+
+停止・元ID・Config／Mountを再照合し、未指定OomKillDisableのfalse→nullだけを今回の表現差として限定判断して、通常rm一回と一覧上の不存在を確認した。Rootの初期十一Identityと全十七entryの現在Identity／nlink／bytes／Hash／link targetを再照合。固定CLIを指す三linkはreparse tag 0xa000001dを個別確認してFile.Deleteでentry自身だけを削除し、既知の空lock二件・probe・領収書と空Directoryだけを非再帰で通常削除した。Root不存在を確認し、今回の物理残存はない。Desktopは通常起動後のままとし、AI送信・Docker再起動・Image取得／更新・過去保持物操作はしていない。
+
+#### 固定版Source照合による検証呼出しの不一致 — 2026-10-29
+
+調査指示に対して実行を繰り返さず、Build入力が示す公式Commit `6aaac694803004a63c6f393d153c96d22521a6b9`のSourceと現行Dockerfileを読取り照合した。現行一般文書から推定したCLI構造を固定版へ当てはめたことが誤りだった。
+
+固定版の[CLI定義](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/cli/src/main.rs#L437)は`SandboxCommand`にHost別引数をflattenし、OS名によるlinux subcommandを持たない。Linuxでは[LandlockCommand](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/cli/src/lib.rs#L96)の末尾可変長commandとして解釈する。公式のhelp試験も`codex sandbox --help`を使う。したがって当方の`codex sandbox linux --help`はhelpを読む呼出しではなく、隔離内の対象commandに`linux --help`を渡す誤った形である。これは検証Toolの固定版契約不一致として特定した。
+
+[Linux実行処理](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/linux-sandbox/src/linux_run_main.rs#L1094)には、対象commandへのexecvp失敗でpanicする経路がある。存在しないlinuxコマンドの発行は、今回のpanic／missingFile／sandboxMentionとOS番号2に整合する有力な説明である。ただし生本文を保持していないため、元のpanic発生箇所と完全に一致した実証とは区別する。Image内のbwrap欠測・配置不整合が確認されたとは扱わない。
+
+配置側では、Dockerfileのbwrap先`/opt/crdd/providers/codex/0.164.0/codex-resources/bwrap`は[固定版の探索候補](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/linux-sandbox/src/bundled_bwrap.rs#L112)の第一候補に一致する。HostのCLI隣接配置も[InstallContextのfallback](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/install-context/src/lib.rs#L160)と一致する。これはSourceとBuild定義の照合であり、今回Imageを再抽出して実Fileの現存・動作を確認した結果ではない。配置変更やImage更新を行う根拠はない。
+
+過去記録の解釈を訂正する。`commandStarted=false`は検証wrapperの後続固定File操作が未開始であることしか示さず、CLI内部のsandbox／command経路の未開始を証明しない。上段の「helpだけ」「sandbox本体未開始」は当時の意図・解釈であり、固定版Source照合後の事実として再利用しない。合成Workの固定File操作・AI・Provider認証は実行しておらず、外側network noneと空の限定Mount、今回分の確認後回収は維持される。この問題を元の実AI編集E2EのCode Mode故障原因へ一般化しない。
+
+最小是正案は検証入力だけの変更で、helpを`codex sandbox --help`、別途許可した固定commandを`codex sandbox --permission-profile crdd-executor ... -- /usr/local/bin/python3 ...`とし、誤ったlinux要素を除去する。固定版Sourceの構文と一致する正例・旧呼出しを拒否する負例を局所確認してから、必要な一回の実境界確認を別途提示する。自動的な別引数再試行、恒久互換層、Image／Host配置変更、権限緩和、Timeout延長は不要。今回は調査・記録のみであり、修正版の実行・AI送信・Docker操作・過去保持物操作はしていない。
+
+#### help呼出しの最小是正・局所試験と一回確認条件 — 2026-10-29
+
+人間の実装指示に従い、新品Root `C:\project\CRDD\.crdd\tests\codex-sandbox-help-20261029-05`の`input/probe.py`へ検証入力を準備した。SHA-256は`3543cb42d11e69c3b2cbee3beb320a1edc6858b902f4c28c2d9c370c8e4b4f6c`。起動引数を固定tupleの`(CLI, sandbox, --help)`へ修正し、spawn前にもこのexact集合を照合する。旧linux要素・通常exec・余分な引数を拒否し、他の引数へ自動切替しない。既存のstderr有限分類、30秒、64KiB、TERM一回＋五秒終了確認、help成功条件は維持する。製品Source・Image・配置・権限は変更しない。`commandStarted`はwrapper後続File操作だけを指すとコメントへ明記し、CLI内部のEffect零を示すfieldとして扱わない。
+
+WindowsのPythonを`-B`で実行した局所self-testは、起動引数四条件、help十一条件、分類九条件、main搬送二条件、終了の有限代役二条件、64KiB境界が成功した。旧呼出しをmainへ与えた場合はspawnを拒否する代役を設定し、`help_invocation_invalid`で閉じることを確認した。正常helpの搬送も同じmainで確認したが、外部Process起動は零であり、実CLI／Containerの成功とは区別する。Docker照会・実行、AI送信・過去保持物操作はしていない。
+
+| 修正版一回確認の条件 | 固定する範囲 |
+| --- | --- |
+| Image | 既存localの`sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4`。取得・更新・Buildなし |
+| 回数・処理 | 新品Container最大一件、起動一回、CLIは上記help一回のみ。固定File操作・通常exec・Host／AI呼出しなし |
+| 隔離 | network none、非root 65534、RO root、cap-drop ALL、no-new-privileges、既存seccomp、pids64。秘密・認証情報・Repository本文なし |
+| Mount | Root内input→/probeはRO、空work→/work・home→/provider-home・tmp→/tmpはRW。Root外のMountなし |
+| 前提 | Engine・exact Image・他の稼働Containerなし・入力Hash・Root／祖先Identity・非linkを確認。Engine停止・Image欠測・他作業中は要求前停止し、起動／再起動／修復しない |
+| 領収書 | 作成応答後の元IDと六fieldの不変trial.jsonを保存・読戻し確認し、元ID構成照合後だけstart。現在状態や未開始証明へ転用しない |
+| 結果 | helpの終了値零と必要option三つのstdout exact検出。成功してもCLI help面の確認だけで、sandbox実行・権限制御・Host接続・編集E2Eの成立へ拡張しない |
+| 失敗・回収 | 再試行なし。同じ元IDの停止・構成を確認して通常rm／不存在確認。Root全entry・Identity・Hashと補助link自身を再照合して既知物だけ通常・非再帰回収。不明はexact Root／IDと再評価日を記録して保持 |
+
+これは条件の整理と局所確認までで、実行承認はまだ求める段階である。準備入力は承認後の試験終了時に回収し、未使用又は残存時の再評価日は2026-11-05とする。過去保持物を対象に含めず、正常起動や失敗を過去の不明事実へ上書きしない。
+
+#### 修正版helpの一回成功と回収 — 2026-10-29
+
+人間の承認後、Source `19c4f51b3771ef3b3b11325dd23d33d769d8bc6c`・同じ固定Task Image・上記入力Hashで`codex sandbox --help`を一回実行した。Engine linux 29.8.1、local Image exact一致、稼働Container零、Rootと祖先・初期全子十一Identity、四Mount・隔離条件、元ID領収書の保存・読戻しを確認してからstartした。実IDは`ad31eb7e442b1db7dc63a43d8cf9c402257e6c26dc81ad0767d022cd7bd38e18`、Root Identityは`1687905628:40532396647466567:1793273097947772000`。
+
+結果はcompleted／reason null、helpObserved true／helpConfirmed true、help終了値0、stdout 1,932 byte／stderr 0 byte。permission-profile／cd／configの三つをstdoutでexact検出し、stderr診断はemptyだった。開始／終了は2026-10-29T11:28:07.743409650Z／11:28:08.205410795Z。Containerもexited／ExitCode 0、attach呼出し終了値0、OOMKilled false／Restarting false／RestartCount 0。Image・権限・Host配置・Timeoutを変えず、検証呼出しのlinux除去後にhelpの正常応答を確認した。旧panicの生本文を復元したものではなく、元の実AI編集E2EのCode Mode故障原因や解消は依然として別の未確認事項である。help成功をsandbox内のcommand／権限制御／Host接続の成立へ算入しない。
+
+元ID・停止・Config／Mountを再照合し、未指定OomKillDisableのfalse→nullだけを今回の表現差として限定判断した。通常rm一回後、一覧取得成功・該当零でContainer不存在を確認。Rootは初期十一Identityと全十四entryの現在Identity／nlink／bytes／Hash／link targetを再照合し、既知の三linkは各reparse tag 0xa000001dを確認してentry自身だけをFile.Deleteした。空lock一件・既知probe／領収書・空Directoryだけを通常・非再帰削除し、Root不存在を確認した。今回の残存はない。再試行・AI送信・Docker Engineの起動／再起動・Image取得／更新・過去保持物操作は行っていない。
+
+#### sandbox固定commandの非AI確認条件案 — 2026-10-29
+
+今回は条件整理だけで、実行コード・試験Rootはまだ作成せず、Docker照会・起動も行わない。承認後に局所試験と独立確認を終えてから、既存の用途固定試験と同じ有界Process処理で実行する。新しい公開API・Registry・Lock・Recovery・Provider代役は作らない。
+
+対象は既存local Task Image `sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4`の公式Codex 0.164.0。新品Container最大一件・起動一回、CLIも一回のみ。先に成功したhelpを再実行せず、正しい構文`codex sandbox --permission-profile crdd-executor --cd /work --config ... -- /usr/local/bin/python3 -I -B -c <固定Source>`を使う。設定は現在の編集計画と同じdefault_permissions、root deny／minimal read／Workspace write／Codex実行File read、コマンドnetwork falseとする。余分なlinux要素・shell・通常exec・Host／モデル・認証処理は使わない。
+
+実際の引数は次のexact配列だけに閉じる。CLIは`/opt/crdd/providers/codex/0.164.0/codex`、SOURCEは下記271 byteのSourceだけであり、実装時に同じHashを再照合する。CONFIG_1〜3の個数・値・順序を固定し、製品Plan全体やcode_mode／Host／model／認証設定を展開しない。
+
+```text
+CONFIG_1 = default_permissions="crdd-executor"
+CONFIG_2 = permissions.crdd-executor.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="write"},"/opt/crdd/providers/codex/0.164.0/codex"="read"}
+CONFIG_3 = permissions.crdd-executor.network.enabled=false
+ARGV = [CLI, "sandbox", "--permission-profile", "crdd-executor", "--cd", "/work",
+        "--config", CONFIG_1, "--config", CONFIG_2, "--config", CONFIG_3,
+        "--", "/usr/local/bin/python3", "-I", "-B", "-c", SOURCE]
+```
+
+Container入口は直前の試験と同じ`python3 -B /probe/probe.py`に固定し、用途固定の監督コードから上記CLIを子一件だけspawnする。shellを経由しない。実行前の局所試験は旧linux・exec・separator欠測・config欠測／余剰／並替え・Source Hash差をすべてspawn零で拒否する。既存`coordinator/tests/integration/codex-executor-sandbox.integration.test.ts`にも正しいsandbox入口と権限設定抽出があるが、Host help・Home読書き拒否等を含む別範囲の試験であり、shell包装・回収処理も今回条件と異なるため、そのまま一括実行しない。恒久Frameworkを追加せず、確認対象を今回の固定commandへ限定する。
+
+固定SourceはUTF-8・271 byte、SHA-256 `c45e2ed831c36651e11f581f210ffecc4dfcfbd741de2ccc1c729d867f686b4a`。内容は次の一つだけとする。
+
+```python
+import os
+p="/work/sandbox-probe.txt"
+data=b"CRDD_SANDBOX_NON_AI\n"
+fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+with os.fdopen(fd,"wb") as f:
+    f.write(data)
+with open(p,"rb") as f:
+    assert f.read()==data
+os.unlink(p)
+print("CRDD_SANDBOX_OK")
+```
+
+| 項目 | 承認を求める限定範囲 |
+| --- | --- |
+| Root | `C:\project\CRDD\.crdd\tests\codex-sandbox-command-20261029-01`のみ。実Repository本文・Git管理領域・認証領域は渡さない |
+| 外側隔離 | network none、UID 65534:65534、RO root、cap-drop ALL、no-new-privileges、既存seccomp、pids64。Image取得／Build／更新なし、Network／Volume作成なし |
+| Mount | Root内input→/probeはRO、空work→/work・home→/provider-home・tmp→/tmpはRW。空guards/git→/work/.gitとguards/internal→/work/.crddはRO、mountpointも事前に空で作成する |
+| 一時的Effect | 上記合成File一件の排他的作成・既知bytes書込み・読戻し一致・unlink。CLIがHome／tmpへ作る補助物は今回Root内だけで確認・回収する |
+| 実行前 | Engine応答、exact local Image、他の稼働Containerなし、固定引数／Source Hash、Root／祖先／全初期子のIdentity・非link、既存seccompを確認。元作成IDの不変領収書を保存・読戻し後、構成照合してstart |
+| 前提不成立 | Engine停止、Image欠測、他のDocker作業、Root／構成不一致はEffect前停止。Desktop／Engine起動・再起動／修復、代替Image、別引数へのfallbackは行わない |
+| 有界処理 | CLIは30秒・stdout/stderr合計64KiB。期限／出力量超過では元Process groupへTERM一回、五秒の終了観測。再試行・期限延長・追加capabilityなし |
+| 成功条件 | CLI終了値0とexact成功marker、固定File不存在・workの予定外変更なし、元子ProcessとContainerの終了、正常回収と不存在を別々に確認する。stderrは既存の非秘密分類・byte数だけを記録 |
+| 回収 | 元IDと同じ構成・停止を確認した今回Containerだけ通常rm。Root全entry／Identity／nlink／bytes／Hash、既知linkはtargetとreparseを照合してlink自身だけを除去。既知Fileと空Directoryを非再帰・通常削除し、Root不存在確認。force／ACL修復／過去物処置なし |
+| 不明・残存 | 作成・終了・内容・同一性が不明なら再試行・強制回収をせず、exact Root／IDと未解決点を記録して保持。既定七日で再評価し、期限だけで削除しない |
+
+この一正例で示せるのは、同じ名前付きprofileを指定したCLI sandbox経路で固定File操作を実行できたことまでである。root deny／minimal read／network falseの各規則の独立した強制証明ではなく、外側DockerのRO／network noneを内側の保証へ重複算入しない。Host接続・Code Mode・実AI編集E2Eの成立も主張しない。承認対象は、この一回の合成File操作と今回物の確認後回収であり、AI送信・Docker再起動・過去保持物操作を含めない。
+
+#### sandbox固定commandの一回成功と回収 — 2026-10-29
+
+人間の承認後、上記のexact引数・三config・固定Sourceだけを使う用途固定入力を準備した。probe SHA-256は`478ffaab75a74156a0f76e613ff1778fc3e106e22c5bd3d1cdb9ed7f83432072`。旧linux／exec／separator欠測／config欠測・余剰・並替え／Source差／期待Source Hash差の八条件は、Popen拒否代役下でspawn零・fixed_argv_invalidへ閉じた。271 byteとSource Hash、64KiB境界・終了の有限代役二条件も成功。独立レビュー残指摘零を確認してから実行へ進んだ。
+
+Engine linux 29.8.1、既存local Image exact一致・稼働Container零、Root／祖先／全初期子十六Identityと非linkを確認し、新品Container一件を作成した。元IDは`2733f9e480f538f1cc4ae05130d8c51d4809c13f65e77cd2d3cd98e308790ca8`、Root Identityは`1687905628:49539595902085877:1793274008325595400`。不変領収書の保存・読戻し、六Mount・固定Image・既存隔離条件を照合後、一回startした。開始／終了は2026-10-29T11:41:31.287438029Z／11:41:32.038969606Z。
+
+結果はcompleted／reason null、CLI観測完了・終了値0、stdout 16 byteのexact成功marker、stderr 0 byte。固定SourceによるFile作成・既知bytes読戻し・unlinkを確認し、監督側のFile不存在とWork全体が空の二保護Directoryだけであることもtrueだった。Containerはexited／ExitCode 0、attach終了値0、OOMKilled false／Restarting false／RestartCount 0。これは現在の名前付きprofileを指定したCLI sandbox経路の正例成立であり、各規則の独立した強制、Host接続、Code Mode又は実AI編集E2Eの成立ではない。
+
+終了後に同じ元ID・Config／Mount・停止を照合し、未指定OomKillDisableのfalse→nullだけを今回の表現差として限定した上で、通常rm一回と一覧上の不存在を確認した。Rootの初期十六Identityと全二十二entryの現在Identity／nlink／bytes／Hash／link targetを再照合。既知の三linkは各reparse tag 0xa000001dを確認してentry自身だけをFile.Deleteし、空lock二件・既知probe／領収書・空Directoryだけを非再帰・通常削除した。Root不存在を確認し、今回の物理残存はない。再試行・help再実行・AI送信・Docker Engineの起動／再起動・Image取得／更新・過去保持物操作は行っていない。製品Source・設定・権限・Timeoutも不変である。
 
 実行許可を提示する際の回収条件は、作成応答の元実ID・同じ構成／所有・停止状態、試験Rootと祖先のIdentity・非linkを確認できた場合だけ通常回収する。作成結果・終了・Identityのいずれかが観測不能なら、確定済みのexact ID／Rootを保持し、自動再試行・force cleanup・別ID再構成は行わない。session/shutdownの受理を終了へ丸めず、transport close・Host子Process exit・Container停止を別々に確認する。元の旧失敗又は過去保持物へ適用しない。
+
+#### sandbox確認後の接続棚卸しと非AI再確認 — 2026-10-29
+
+固定command成功後、既存の編集試験・Provider計画・利用側契約を照合した。`verify-workspace-ai.ts --preflight`はAI分岐を通らず、合成Fileを試験自身で編集してWorkspaceの固定・統合・終了を確認する。CLI→Host→Toolを発火する検査ではない。現在のCRDD Sourceと試験の確認範囲には、この三者を非AIで一括実証する既存入口は見つかっていない。公式CLI全体にその入口が存在しないとは断定しない。新しいfake Provider・Host Client・Workerを追加せず、Host単体とsandbox単体の成功をCode Mode又は元の編集故障の解消へ読み替えない。
+
+Source `19c4f51b3771ef3b3b11325dd23d33d769d8bc6c`の二Suiteを外部AIなしで実行し、18件中16成功・2不合格だった。失敗は公開HTTP試験mainと実保存付きHTTPの子Client境界で、headers_unobserved／timedOut falseとなり、15秒超過とは異なる。通常のローカル接続を許可した環境で同じ二Caseだけを実行し、2件とも成功・終了値0（約58秒）を確認した。実保存Caseは通常完了・取消・応答喪失後の同ID継続、Owner終了と現在の未解決区画の不存在、自己生成Rootの清掃hook完了を確認する。三POSTの本文受領は約0.92秒・0.90秒・3.61秒で既存15秒内だった。先行不合格を上書きせず、18件の単一成功runとも表示しない。モデル選定二件を含む他の16成功は最初の実行結果である。製品Source・権限・Timeoutは変更せず、Docker照会／操作・外部AI・過去保持物操作はしていない。
+
+次に実AIへ進む場合は、新品のRepository内試験Rootで既存Direct／Isolated各一Taskを順次実行する案とする。送信対象は合成Context、合成source.txtと固定編集指示、レビューに必要な合成差分だけであり、本体Context・Source・秘密値は送らない。Codex `gpt-6.1-sol`／mediumで編集、Claude `claude-opus-5-5`／mediumでレビューし、既存の限定是正一回と再レビューを含め各Task最大四段・全体最大八Provider起動とする。Task全体の再試行はしない。Directは既存dirty／stage／未追跡内容の保全、Isolatedは明示固定・二親Merge・Branch／Worktree終了まで既存試験で照合する。既存固定Image・現在の隔離条件・HTTP十五秒を維持し、元のHTTP遅延・Code Mode故障の診断を接続する。失敗時は次のTaskへ進まず、同ID取消・終了確認と今回物の安全な回収だけを行い、不明資源はexact参照付きで保持する。Docker再起動・Image更新・過去保持物操作は含めない。この送信と今回物回収には改めて人間の承認が必要であり、本段階では実施していない。
+
+上記段落の限定独立レビューは残指摘零。二Suiteの母集団、別runの分離、非AI成功の限界、Provider最大起動数と未承認送信の境界をSourceへ照合した。差分の空白検査も成功した。
+
+#### 承認済み編集E2EのDirect停止 — 2026-10-29
+
+人間の承認後、Engine linux 29.8.1・稼働Container零・既存Codex／Claude／Proxy固定Imageのexact存在を確認した。新品`workspace-ai-E6SEIF`の非AI事前確認はDirect／Isolatedとも成功し、既存dirty／stage保全・候補固定・二親Merge・Workspace終了と試験Repository回収を確認した。実AI端末の初回起動は空白を含むNode Pathの引用符がStart-Process搬送で失われて失敗した。Node Processと新Root未生成を読取り確認してから、固定起動コマンドだけをEncodedCommandで搬送し直した。AIの再送ではなく、検証Tool自体の未起動の是正である。
+
+実AIの新品Rootは`C:\project\CRDD\.crdd\tests\workspace-ai-mlV1po`。Directの受付IDは`request-a7ef658e-26bd-4673-ab86-8b7393bca0c9`、相関参照は`operation-ee49d66e-2658-4a49-a137-c857d35dd128`。編集→レビュー→許可済み限定是正→再レビューの四段まで実行し、Taskは`coordinator_task_independent_review_not_approved`でblocked、試験は`edit_task_not_completed`／verify_result、E2E_EXIT=2で停止した。Isolatedは未実行で、Task全体の再試行はしていない。
+
+CodexのAttempt 0／1は両方turnCompleted true、Code Modeを言及するitem error各一件、commandExecution／fileChangeは各零だった。source.txtはBASEのまま、changedPathsは空。Claudeは各回changes_requested・指摘一件を返した。これは編集未成立をレビューが拒否した観測であり、CLI→Hostのspawn・handshake・delegateのどこでCode Modeが失敗したかは、現在の有限診断だけでは特定できない。item errorの本文や生出力は保存せず、単体sandbox成功によってこの故障が解消したとはしない。
+
+今回のHTTPは62要求すべてでheadersを受領し、最長約14.139秒、transportFailure nullだった。15秒超過は今回再現せず、元のHTTP問題全般の解消とは断定しない。四Provider境界すべてでProcess完了／終了、Container・Network不存在、cleanupConfirmedを確認し、一次技術失敗はnull。TaskのcleanupConfirmed／Owner close／runtimeClean／workspaceCleanはtrue、Recovery参照は空。既存Docker inventoryは保全され、標準NetworkのID差だけを既存比較が区別してverifiedとした。標準Network自体を清掃対象にしない。
+
+試験mainの物理Root回収は、成功時の二mode集合を要求する既存Gateで停止し、`fixture_root_or_removal_unconfirmed`を記録した。これはContainer／Network／Task operation等の実行資源の回収不明ではなく、二mode成功用の集合検査を満たさないため、自己生成Rootが既知残存してmainの自動削除対象にならなかった結果である。今回の清掃前確認では現在operations／unresolvedRecoveries／pendingDeliveries／leaseIntentsは零、同じTaskはsettled／blocked・Owner世代null・cleanup true・Recovery参照空、Gitは自己Root一Worktree・mainだけ、共有先WorktreeやCandidate Branchはない。dirty／stage／未追跡は合成の元内容だけである。実AI試験Rootは35通常File・36Directory、全File nlink 1・reparse零、内容Hash `54c07090e7e122fbe5b064c37ddfec927fbc1b686a79cca71af37bf32e9f5667`。非AI事前Rootは結果JSON一File・二Directory、内容Hash `d3f194892a68d12b02743a9a725d69bd6c79e97c736a9b004ac58d0885fe4603`。試験Node不存在・稼働Container零も再確認した。過去物を調査／削除対象へ広げず、この二つの自己生成Rootだけを承認済み清掃対象とする。
+
+清掃では自己生成Git object十四FileのReadOnlyだけを解除し、通常Fileと空Directoryを個別削除した。空の`.git` DirectoryはHidden属性によって最初の通常削除が拒否された。残存全三Directoryだけを再確認し、当該空DirectoryのHiddenだけを解除して通常削除した。ACL修復・force／再帰削除・他Root処置は行っていない。結果要約を本段落へ残した後、実AI／事前確認の両Rootの不存在を確認し、今回の物理残存は零となった。次の調査は既存Code Mode診断の不足区間に限定し、追加AI送信や設定緩和を本結果から許可しない。
+
+#### Direct停止後のCode Mode診断経路の調査 — 2026-10-29
+
+今回の指示は原因調査であり、製品実装・設定変更、AI再送、新しいContainer、Docker再起動、Image更新、過去保持物の読取り／変更は行わない。現行Source・設計・直前の要約と、公開された一般的なCodex設定文書だけを照合した。現行の[CLI参照](https://learn.chatgpt.com/docs/cli/reference)と[権限profile](https://learn.chatgpt.com/docs/permissions)の説明は固定0.164.0のHost内部故障の根拠にはならず、旧版へ設定を機械追従させない。
+
+診断の縮約点はAI Adapter `provider/result.ts`の`itemErrorCodeModeCount`である。元JSONLのerror itemのmessageをメモリ内で受け取り、保存用にはerror item総数と、message由来では`/code[ _-]?mode/iu`の一致件数だけを返す。Executor `result/normalization.ts`はその観測値を`providerExecutionObservation`へ搬送し、`result/validation.ts`は閉じたfieldと上限を検査する。これらの利用側にHost起動・接続・委譲の段階情報が隠れているわけではない。生出力を後から読む経路や、清掃した試験Rootを再構築する経路は作らない。
+
+外部Effectなしの純粋比較で、Host spawnの権限拒否・handshakeの不一致・Tool委譲の利用不能を表す三つの合成messageを、正式な`parseProviderResult`へ同じEnvelopeで渡した。三入力ともparser confirmed・Code Mode件数一件・command／fileChange零で、返却診断全文が同一となることをassertした。これは分類の情報落ちの再現であり、実故障が三候補のいずれかだという実証ではない。既存Codex結果・選定Consumerの二Suiteも7件全成功。合成内部errorを含んでもSchema上の完了をconfirmedとする既存契約を確認したが、これをTask採用・実編集成功へ解釈しない。内部error一件だけで常にTaskを拒否する変更は、回復可能な中間errorまで止める可能性があり、この調査では採用しない。
+
+現時点の結論は、CLI／Hostの具体的故障原因は未確定、既存観測からその区間を復元できない原因は診断の縮約で確定、という二点である。隣接Host／bwrapの配置、同じ名前付きprofileのsandbox正例、Host単独計算成功は保全するが、CLI→Host接続の成功へ合算しない。特に権限設定の明示readがCLI実体だけであることは照合したが、Hostがその制限内で起動されると確認していないため、Host Path追加allowを是正とはしない。
+
+最小是正案は、新しいLog／State／Managerを作らず、既存error itemのメモリ内分類に「Host・spawn・handshake／protocol・接続終了・Tool・権限・欠測・Timeoutを言及したか」と未分類件数を閉じた有限観測として追加することである。語句の言及と実際の発生点は区別し、本文・Path・Command・任意error codeを保持せず、成功判定・権限・Timeout・Imageは変えない。改訂する場合はAI Adapterの返却型・分類、Executorの閉形式検査、既存Coordinator／検証Toolの搬送と合成負例を同時に追従する。固定版で一意なerror code又は接頭辞を確認できたものだけを段階分類へ昇格し、それ以外は候補markerのままにする。実装はまだ行っていない。分類の非AI確認と独立レビューを終える前に、同じ広い実AI E2Eを再送しない。
+
+#### Code Modeの非秘密診断の最小是正 — 2026-10-29
+
+人間の継続指示に基づき、上段の診断追加だけを実装した。AI Adapterの既存error item処理へ八つの`itemError*MentionCount`と`itemErrorUnclassifiedCount`を追加し、message本文はメモリ内だけで処理する。Code Modeの一般語だけでは分類済みとせず、message欠測も未分類へ含める。同じitemの複数語句は独立に数え、原因・発生点は確定しない。新しい公開関数、Log、State、Registry、Managerは追加していない。
+
+Executorの閉形式検査は、九fieldの全件存在又は全欠測だけを受理し、旧観測を零補完しない。負数・非整数・非有限・総数超過、分類済み件数と未分類件数の矛盾を拒否する。Coordinator公開投影は同じ検査へ直接接続し、搬送前の新field集合だけへの二重固定を除いた。Workbench試験で正式parserから段階診断への新値保全と秘密風本文の非搬送を確認した。Envelope・採否・認証・Authority・清掃条件・Timeout・Imageは変更していない。Architectureと既存Quality義務への接続も追従した。
+
+最終局所三Suiteは36件全成功。Executor全回帰は15件全成功。Coordinator Task Runtime全体は制限環境で157件中156成功・一件junction作成EPERM、同じ一件の通常環境成功に続き、Suite全体を通常環境で157件全成功として再確認した。先行不合格と別runを区別し、合算しない。四Packageの型検査、変更七TypeScriptの整形・警告を失敗とするLint、diff checkが成功した。初回Workbench型検査の試験Record型不足、及びCoordinatorの有限代役が旧診断のままで新期待値と一致しなかった追従漏れは是正して再確認した。製品の拒否条件を緩めていない。
+
+AI Adapter全回帰は27件中26成功・一不合格。残る`catalog-loading.contract.test.ts`は、同梱Catalogの検査Source内にDomain importが一箇所という置換前提を持つが、基準HEADの同じSourceにも二箇所のimportがあり、split長3対期待2で停止する。今回そのSourceと試験は変更しておらず、診断追加の成功へ混入せず既存試験追従の別件として保持する。全Package回帰成功又は全体QA完了とは表示しない。
+
+限定独立レビューは指摘零。語句分類の重複・未分類・旧欠測・相関、閉形式と秘密非搬送、Coordinator／Workbenchへの搬送をSourceで反証した。実AIは再送せず、Docker・Image・過去保持物も操作していない。次の実AIではこの新診断を使えるが、今回の非AI成功で旧故障原因が確定又は解消したとは扱わない。
+
+#### Catalog試験の既存追従漏れの是正 — 2026-10-29
+
+人間の継続指示に基づき、上段で別件として保持したCatalog試験一件を是正した。製品の`catalog/validation.ts`と`catalog/resolve.ts`は各々Domainの型import・実行時importを持つため、独立fixtureへの複製時に二参照を同じ正式Ownerへ置換する。試験のexact出現数期待を二参照へ追従し、replaceAllを使用した。正例、JSON欠落・構文不正・Schema不正の子Process終了値／固定理由／成功marker不存在というOracleと、fixtureのfinally清掃は変更しない。製品Source・拒否条件・Catalog値は不変である。
+
+修正後のAI Adapter全回帰は27件すべて成功、整形・型検査・警告を失敗とするLintも成功した。先行26成功・一不合格を撤回せず、追従後の別runとして記録する。実AI再送、Docker／Image操作、過去保持物の操作は行っていない。次の実AI確認では、前段で追加した有限語句診断を使い、同じ合成内容・Codex GPT-6.1 Sol medium／Claude Opus 5.5 medium、Direct成功後だけIsolatedへ進む一回の編集E2Eを改めて提示する。Task全体の自動再試行・新しい実行管理は追加しない。
+
+#### 新診断付き編集E2Eの一回停止 — 2026-10-29
+
+人間の明示承認後、Engine linux 29.8.1・稼働Container零と既存固定Codex／Claude／Proxy Imageのexact存在を確認し、新品`C:\project\CRDD\.crdd\tests\workspace-ai-LY1F33`で既存編集E2Eを一回実行した。通常の送信同意は対話端末で行う。Direct受付IDは`request-7f4daa4f-6210-4fad-8d9a-3063ef70bd3f`、相関参照は`operation-894710c5-faf5-4d28-a0df-8fad941b62f3`。編集→レビュー→承認範囲の限定是正→再レビューの四段で停止し、Isolatedは未実行、Task全体の再試行はしていない。Taskの一次結果は`coordinator_task_independent_review_not_approved`、試験は`edit_task_not_completed`／verify_result、E2E_EXIT=2。実行Sourceの不変も確認した。
+
+新診断の九fieldは保存結果まで搬送されている。Codexの初回／限定是正はいずれもCode Mode言及error一件・未分類一件、八mentionは全零、turnCompleted true、commandExecution／fileChangeは零、source.txtはBASE、changedPaths空だった。Claudeは両回changes_requested・指摘一件を返した。新観測が欠測したのではなく、実errorが今回の有限語句に一致しなかった結果である。marker零をHost／起動／接続／権限問題の不存在へ解釈せず、実故障の原因・段階は引き続き未確定とする。単に同じ広いE2Eを再送したり、推測で権限・Imageを変える根拠にはならない。生Provider出力・エラー本文は保存していない。
+
+HTTPは59要求すべてheaders受領・最長12.696秒、transportFailure nullで、今回も15秒超過は再現しなかった。四Provider境界すべてでProcess完了／終了、Container・Network不存在、cleanup true・技術一次失敗nullを観測した。Taskのcleanup true・Owner close true・runtimeClean／workspaceClean true・Recovery参照空。既存Docker inventoryは保全され、標準NetworkのID差だけを既存比較が区別してverifiedとした。標準Networkは今回清掃の対象にしない。
+
+試験mainは前回同様、二mode成功集合を満たさず`fixture_root_or_removal_unconfirmed`で物理Rootの自動削除を停止した。清掃前の再確認ではoperations／unresolvedRecoveries／pendingDeliveries／leaseIntentsは零、同Taskはsettled／blocked・Owner世代null・cleanup true・回復参照空だった。Gitは自己Root一Worktree・mainだけで、追加Candidate Branchや共有Git先はなく、元の合成dirty／stage／未追跡を保全している。試験Node不存在・稼働Container零、空のLease領域を確認。全35通常File・36Directoryはlinkなし、全File nlink 1、内容Hash `3cfb8a3a22e6ef9d77ad2a5eade2676ceaba88677fc2bd85cd524cce08a44395`で記録し、この自己生成Rootだけを承認済み清掃対象とする。過去保持物は調査・清掃対象へ広げていない。
+
+その後、Rootと既知祖先の非reparse・全七十子entry・既知属性集合を再照合し、今回Git objectのReadOnlyと空`.git` DirectoryのHiddenだけを解除して、通常Fileと空Directoryを個別削除した。force／再帰削除・ACL修復を行わず、Root不存在を確認した。今回の物理残存は零であり、Docker再起動・Image更新・過去保持物操作は行っていない。今回の有限分類では原因特定に十分でなかったことを保持し、追加実AIは停止したまま、次は固定版のerror定型と既存観測点の照合を先に行う。
+
+#### 固定CLIのWarningとerror itemの意味の再確認 — 2026-10-29
+
+固定配布Commit `6aaac694803004a63c6f393d153c96d22521a6b9`の公開SourceをGitHub接続で読取り確認した。内部Source・認証・実Repository本文は外部へ送らず、公開Repository・Commit・Source Pathだけを照会した。AI再送・Docker照会／操作・Image更新・過去保持物操作・製品実装変更は行っていない。
+
+重要な訂正として、固定版[JSONL出力](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/exec/src/event_processor_with_jsonl_output.rs#L409)の`collect_warning`は、Warningを`item.completed`の`ErrorItem`へ変換する。ConfigWarningも同じitem型へ投影し、いずれもCodexStatusはRunningを維持する。従って`itemErrorCount`は実行故障の件数ではなく、警告を含み得るJSONLのerror型item数である。過去段落と会話で「Code Mode実行エラーが編集を止めた」と因果を読ませた説明は、現在の観測では確定できないとして訂正する。編集／File変更が成立せずレビューが拒否した事実は維持する。
+
+[固定版features](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/features/src/lib.rs#L1198)は`code_mode`／`code_mode_only`をUnderDevelopmentとして登録し、同Fileの`unstable_features_warning_event`は明示有効化された開発中機能を列挙する警告を生成する。CRDDの編集計画は両者を明示有効化し、助言計画にある`suppress_unstable_features_warning=true`を持たない。この警告は、現在の八語句分類に一致しないままCode Mode件数に一致し得る。正式parserへ同版の警告形式を合成入力して、confirmed・総数一・Code Mode一・未分類一・全mention零になることをassertした。今回の保存観測と同じ値になる反例であり、今回の実messageがこの警告と同一だと復元した証拠ではない。
+
+もう一つの[モデル対応警告](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/core/src/session/code_mode_warning.rs#L5)も同じ合成投影となる。ただし固定同梱[models.json](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/models-manager/models.json#L177)のGPT-6.1 Solは`tool_mode=code_mode_only`を持つため、同梱定義だけを前提にその警告が発火したとは判断しない。実行時に取得したModel metadataは今回照会しておらず、モデル非対応を原因にしない。
+
+[Host接続](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/code-mode/src/remote_session/connection.rs#L158)の固定Sourceは、通常の子Process生成とhello／handshakeを分け、具体的なHost起動・接続失敗はその定型を持つ。Host spawn自体をCRDDの名前付きコマンドsandboxへ通す処理ではない。gRPC接続の別実装もあるが、固定Featureの既定はfalseでCRDD計画にもその有効化はないため、過去の非AIprotocol試験と本番protocolが異なるとはこの調査から断定しない。Host読取りallow追加やgRPC切替は是正として採用しない。
+
+次の最小案は、既存error item解析で固定版の既知Warning文面とのexact一致を非秘密の補助件数として追加することである。JSONLで元通知種別は失われるため、この一致だけでWarning由来又は非故障とは確定せず、既存itemErrorCount・未分類件数から除外しない。未知itemを成功又は警告へ丸めず、生本文を保存せず、単に警告を非表示にして解消扱いにもしない。新Manager・Log・Stateは不要である。Warning通知と同じmessageの通常ErrorItemの区別不能も非AI反例として固定してから、編集未成立そのものの観測・指示・結果契約を再評価する。同じ広い実AI E2Eの追加再送は、今回の確認には含めない。
+
+#### 既知警告文面の補助一致と非AI確認 — 2026-10-29
+
+人間の継続指示に基づき、既存観測へ`itemErrorKnownWarningTextCount`一fieldだけを追加した。固定CLIの開発中機能警告とModel Code Mode対応警告について、可変部分を限定した全文テンプレート一致を4096 UTF-16 code unit以内・改行なしで判定する。本文・Path・Model値を返さず、元通知がWarningか通常ErrorItemかを断定しない。総数・Code Mode件数・八語句分類・未分類件数は従来どおり独立保持し、一致を減算・非故障・Task成功へ利用しない。
+
+Executorの同じ閉形式検査へ新fieldの0〜総数・safe integerを接続した。新field欠測の直前形式、語句分類導入前、従来0.149の既知形式も、それぞれexact集合のまま受理し、欠測を零補完しない。利用側の期待値と有限代役、正式parserから段階診断までの結合を追従した。固定文面・前後の余分文字・大小文字差・改行・未知本文・message欠測・上限超過、同じ文面を持つ通常ErrorItemとの区別不能、総数・未分類の非減算・秘密風値の非搬送を反証した。Architecture／Qualityの説明もerror型がWarningを含み得る意味へ訂正した。
+
+AI Adapter全28件、Executor全15件、Coordinator Task Runtime全157件、利用側の結果正規化／診断三十件が、それぞれ別runで全成功した。初回局所三Suite三十七件とは重複を合算しない。四Package型検査、変更六Sourceの整形・警告を失敗とするLint、diff checkが成功し、独立Sourceレビューは残指摘零。新しい公開関数・Manager・Log・State・Registryを追加せず、実行許可・採否・権限・Timeout・Image・清掃条件は不変である。
+
+この変更は診断の意味の誤認を避けるための補助であり、旧実messageを復元した結果でも、編集故障の解消でもない。AI再送、Docker照会／操作、Image更新、過去保持物操作は行っていない。
+
+#### 編集未成立の入力と結果契約の非AI照合 — 2026-10-29
+
+既知Warning補助の追加後、実AIを再送せず、現在の指示・Path・Mount・正規化のSource接続を確認した。Workbenchの固定依頼はTask objectiveへ入り、`readPaths`は`PROJECT_CONTEXT.md`にallowedPathsを加える。Task PacketはExecutorへ/work内・allowedPathsだけの編集、利用可能なFilesystem／Shell・Python／POSIX text Toolの使用、実File確認を指示する。Executor計画はexecutor役割でread_write、Docker計画も/workへRW bindし、Gitと内部状態だけをROで保護する。今回Sourceの確認範囲で、ExecutorへReviewerの読取り専用指示やread_only Mountが混入する接続漏れは見つかっていない。ただし現在のSource照合を、過去の実Container全構成の再観測やAIによる入力理解の証明にはしない。
+
+結果の意味は二層に分かれる。`codex-executor-result.json`とPacket指示は`status=completed`の形を指定し、変更がなければchangedPaths空を許可する。Executor `result/normalization.ts`はsummaryの形式を検査するが、上位へはstatus・changedPaths・verificationCountと有限技術観測だけを渡し、summary本文は返さない。従って「変更不要」と「Toolが利用できず変更できなかった」をsummaryだけに書いた二つの合成結果は、同じcompleted／変更零の正規化結果になる。正式公開normalizerへ二入力を渡して両方confirmed・正規化結果のdeepEqual・summary不存在を非AIでassertした。これは説明が失われる境界の確認であり、今回の実summaryがどちらだったかの復元ではない。
+
+このSchema受理はTaskの目標達成や採用を意味せず、実Fileと独立レビューが別に検査する。今回もレビューは拒否しており、このSource照合を成功判定の緩和、全noopの拒否、新しい失敗State又はRecovery追加の根拠にしない。現時点で編集未成立の原因は未確定のままである。
+
+次の調査案は、同じ広い四段E2Eを繰り返したり説明語句のcounterを増やす前に、一回の合成Executor診断に限って、既存構造化結果のsummaryを正規化で捨てる直前に確認する方式を検討することである。Provider生JSONL・資格情報・生stderrは対象外、summaryも未信頼のProvider申告として実故障の証明と分ける。ただしこれは現在の自由記述非公開境界を一時的に変更するため、実装・表示・AI送信へ進む前に、exactな確認先・UTF-8 byte上限・送信内容・回数・回収条件、同一Attempt／Recovery相関、改行／制御文字拒否、認識済みSecret検査不成立時の非表示、端末・Log・診断・Fileへの非保存と終了後の参照破棄を具体化し、人間承認を得る。表示先自体が履歴を保持する場合に「メモリだけなので非保存」とは扱わない。別Attempt・秘密風値・検査例外・上限超過は表示零／保存零を確認する。方式は未確定であり、今回の指示から非公開境界変更の許可は推定しない。製品コード・成功条件・権限・Timeoutを変更せず、AI再送・Docker照会／操作・過去保持物操作は行っていない。
+
+#### 試験限定summary確認の構成候補 — 2026-10-29
+
+既存`createProviderExecutor`のHost契約と単独試験入口を確認した。元Provider stdoutはExecutor内部の`acceptOutput`でだけ正規化され、試験Hostにもsummary本文を渡す既存callbackはない。従って本番APIの無条件拡張、有限診断への自由記述追加、HostやDocker起動の複製は採用しない。NodeのModule試験機能は既存Executor試験で使用しているが、summary観測に流用できることはまだ非AIの接続確認が必要である。
+
+最小候補は、検証Tool専用の新品子Processで、対象consumerをimportする前に元normalizerを呼ぶ薄い観測を置く方法とする。元関数へ同じ引数を一回だけ渡し、同じ返却object又は同じ例外を返す。元がconfirmedの時だけ同じrawを既存公開Parserで再解析し、最初のCodex／executor呼出しからsummary候補一件だけを確認する。normalizerの引数にはTask／Attempt／Recovery IDがないため、このseam自身がexact identityを検証したとは表示しない。同時Task一件・専用子Process・呼出順による限定結合であり、identityは外側の既存Task lifecycle結果から別に確認する。本文は元Task終了と外側結果・観測順の確認後にだけ表示可能とし、異なるTask・並行Task・role／provider順序差・呼出し欠測又は予期しない重複は表示零へ閉じる。既存の限定是正に伴う二回目Executorのsummaryは取得・表示しない。
+
+認証・同意・Authority・Process・取消・回収・採否は代役化しない。再解析・Secret検査・表示が失敗しても元return object／例外を変えず、観測側だけ固定理由へ閉じる。Module観測を含むため、この結果を通常Source無計測のE2E成功とは表示しない。元normalizer throw、再解析／検査throw、呼出し零・余剰・順序差、二Task並行、元結果・清掃不変を非AIで確認する。観測復元は専用子Processの終了まで確認し、mock.restoreだけから既読consumerの復元を推定しない。新しい製品公開API・永続State・Log・汎用hook Frameworkは作らない。
+
+実行候補は新品合成RepositoryのDirect一Taskだけとし、Isolatedへ自動進行しない。合成Context・source.txtの固定一行編集指示・合成差分だけを送り、Codex GPT-6.1 Sol mediumの編集とClaude Opus 5.5 mediumのレビュー、既存限定是正一回・再レビューを含め最大四Provider起動とする。単段だけを見てTaskのOwner／レビューを迂回する経路は作らず、Task全体再試行はしない。既存固定Imageと通常同意・隔離・Home排他を使用し、今回自己生成したRoot／資源だけを同じID・内容・停止の確認後に回収する。Docker再起動・Image更新・過去保持物操作は含めない。
+
+表示は最初のCodex Executorのsummary一件だけ、UTF-8最大2048 byte・単一行・制御文字とPath表現拒否・既存認識済みSecret検査成立を条件とする。欠測・上限超過・検査例外・相関不明では本文を表示せず、固定理由だけを残す。切詰めや伏字で許可条件を満たした扱いにしない。本文をFile／自動Log／耐久診断／公開APIへ保存せず、元JSONL・stderr・資格情報は表示しない。判定に使った本文の参照は確認後に破棄する。表示してもProviderの未信頼な申告であり、OS／Host故障の事実へ昇格しない。
+
+従来の「端末も含め非保存」をそのまま満たす案ではない。普段の外部端末へ表示すれば、端末を閉じるまでスクロールバックに残り、利用者側の記録機能があれば別途保存され得る。この残存条件を明示して人間が受容した場合だけ、端末への一回表示を限定例外とする。Chatや結果JSONへ本文を貼らせず、確認後は利用者に原因候補の要約だけを返してもらう。例外を受容しない場合は本文表示をしない。専用Viewerや新しい一時GUI基盤で回避する実装は追加しない。
+
+上記は承認候補の具体化だけであり、summary観測の実装・本文表示・AI送信は未実施。方式の非AI成立を確認できなければ実AIへ進まず、別の製品hook追加へ自動拡張しない。
+
+#### 試験限定summary確認の実装・非AI確認 — 2026-10-29
+
+人間の限定承認を受け、Executorの試験用観測とWorkbenchのDirect専用入口を接続した。製品公開API・結果正規化・採否・Timeout・保持／回収条件は変更していない。既存normalizerを同じ引数で一回呼び、元返却object／例外を維持する。最初のCodex説明文だけを検査済みメモリ値として保持し、元Task終了・実行資源cleanup・外側相関・試験物処置結果・結果記録成功を確認後に端末へ一回表示する。故障証拠フォルダの保持と実行資源cleanupは区別する。本文の自動保存・自動Log・公開結果への追加は行わず、端末scrollback残存だけが今回の受容範囲となる。
+
+非AIで、検査拒否・検査例外・表示例外・一回表示・二回目Executorの非採取・欠測／余剰／別role／複数Task・処置欠測・結果書込み失敗・安全保持を確認した。新品Node子では実Controllerと有限Commandを使い、Codex編集→Claudeレビューの正規normalizer接続、九purpose順序、各cleanup一回、子終了を確認した。未承認／非対話端末は64で拒否する。HTTPを含む試験Tool回帰16件、構造化結果と診断30件が成功し、Executor／Workbenchの型検査が成功した。独立レビューの2指摘（処置結果の確認不足、接続試験の到達不足）は是正し、再レビュー残指摘0。実AIは本項記録時点では未実施であり、通常無計測E2E成功へ換算しない。
+
+次の実行は承認済みの新品合成Direct一Taskだけとし、Codex gpt-6.1-sol／mediumとClaude claude-opus-5-5／medium、既存限定是正込み最大4段を維持する。Isolated・自動再試行・Docker再起動・Image更新・過去保持物操作へ拡張しない。端末の通常送信同意は引き続き利用者が入力する。
+
+#### Direct説明文診断の実測結果 — 2026-10-29
+
+承認済みの一回を新品領域`.crdd/tests/workspace-ai-SzDdsl/`で実行し、人間申告の終了値は`DIAGNOSTIC_EXIT=2`だった。Isolated・自動再試行・Docker再起動・Image更新は行っていない。Requestは`request-dcd0b3e3-3921-415c-bde4-bfb05c050433`、相関は`operation-42241c65-0037-4f74-be78-209d58c3b9e2`。Codex初回とClaude初回レビューの2段結果を観測し、Claudeはchanges_requested／finding 1。是正Codexは準備後の取消境界だけがあり、Provider作成・開始・完了は未観測だった。
+
+一次失敗は状態GETの`headers_unobserved`／15秒Timeout。該当Client ordinal32は発行1793279607327、応答Header未受領、期限確定1793279622338（15011ms）、終了1793279623063。対応Server ordinal32の受信観測1793279622788はClient発行から15461ms後、応答終了1793279623062（受信後274ms）。Owner状態照会は受信後19msで終了した。この区間はServer受信観測以前の待機が支配的だが、Client送出・接続待ちとServer event loop待ちの内訳は既存時点だけでは断定しない。Timeoutを延長せず、同じTaskの取消を行い、status cancelled／phase settled／cleanup true／Recovery参照0で終了を確認した。
+
+Codex初回はturnCompleted true、error型1件、CodeMode語句1件、既知警告文面一致1件、command／fileChange 0件、候補Path 0件。既知警告文面一致は警告由来やHost故障の確定には使わない。合成sourceはBASEのまま。段階結果2件と終了境界3件（未開始の是正段を含む）が一致しないため、今回の説明文表示Gateは不成立となる。本文は保存していないため後から復元せず、説明文による原因確認は未完とする。通常無計測E2E成功へ算入しない。
+
+初回2段と未開始是正段の全境界でProcess終了・Container不存在・Network不存在・cleanup true。Task Owner／HTTP Client終了、排他取得と解放の同一Owner相関、operations／pendingDeliveries／unresolvedRecoveries／leaseIntents各0を確認した。既存の合成queue-a／queue-bとready定義は未起動のfixture入力であり実行中ではない。Dockerの現況に今回資源はなく、既存停止Container2件は不変更。標準bridge ID差は既存比較でverified、追加利用者資源なし。試験フォルダは成功成果条件を満たさず自動保持されたため、Front AIが今回Rootだけの安全清掃を確認する。清掃前inventoryは35 File／36 Directory／89291 byte、全File nlink1・Reparseなし、inventory SHA-256 `c53e7f1e4fafb61bb69b93846d225ece9712785cc4035f79703240e2a4ff69b6`。過去保持物は操作しない。
+
+今回Rootの清掃は完了した。実行Node PID35584と同試験を参照するNodeの不存在、Git worktreeが合成main一件だけであること、元dirty／stage／untrackedとBASEの保持、リンクなし・File単一linkと上記inventoryを確認した。35 Fileを個別削除し、自己生成Git objectのReadOnly属性と空の`.git`のHidden属性だけを解除して、36 Directoryを空確認後に削除した。Root不存在を再確認済み。ACL・製品Git履歴・認証・過去保持物・既存Docker資源は変更していない。
+
+#### HTTP受信前待機の非AI切り分け — 2026-10-29
+
+対象は検証Toolの実装詳細とQualityの観測根拠に限定した。着手前に同一Taskの取消・子close・Server終了・本文非保存、HTTP15秒／Workspace60秒、公開API不変更を既存Source／Workbench設計へ照合した。実装・技術品質の独立レビュー、文書の直接伝播・リンク確認を行い、製品機能・決定権限・準拠基準・Releaseを変えないため全体準拠監査とRelease判断は発火させない。AI送信・Docker照会／操作・過去保持物操作は今回行っていない。
+
+既存Client frameへ要求生成とHeader送出直前の時刻を追加し、同じrequest objectだけを相関させた。送出直前は送達証明ではない。Serverを所有する検証Processには短命Timerの最大遅延一区間だけを加え、同期I/O・CPU・OS待ち等の原因断定とは区別した。欠測null、時刻範囲・因果順序・余分field拒否、終了時の同callback購読解除・Timer解除を維持する。新しい保存・監視Process・Worker・Queue・Recoveryは作っていない。
+
+新品の独立HTTP Clientと合成loopback Serverで、Server側だけ1.5秒停止してもClientは送出直前へ進むこと、送出直前→Server受信300ms超、Timer遅延1000ms超を確認した。これは非AIでの因果反例であり、以前の15秒Timeoutの同一原因証明ではない。親22秒停止＋独立Serverでは子HTTPが15秒以内に成立する既存反例も維持した。過去実測には新しい時刻がないため、過去原因の確定や本文の復元はできない。
+
+最終候補のClient／HTTP試験24件は全成功（58.85秒）。型検査・変更5 FileのLint／整形・diff検査も成功。独立レビューのMinor2件（応答Headerが送出前となる逆順拒否、購読解除の試験代役不足）を是正し、局所3件と全24件を再確認、再レビュー残指摘0。変更対象は検証Toolだけであり、本番Coordinatorの修正完了・実AI編集成功・過去故障の解消とは表示しない。次の実測を行う場合は既存の実AI送信承認を別に確認し、無断再送しない。
+
+#### 新HTTP診断付きDirect一回の実測 — 2026-10-29
+
+人間の再承認後、Engine29.8.1／稼働Container0／既存固定Image3件を読取り確認し、非AIの観測2件と閉形式3件を再確認して、新品`.crdd/tests/workspace-ai-WVzi8a/`のDirect一Taskだけを実行した。Requestは`request-ea3ddf6b-93d0-4e07-a353-a3e727b7aa34`、相関は`operation-4f24f13a-a5bd-44e0-ae82-6a78aa904fc3`。Codex gpt-6.1-sol／medium、Claude claude-opus-5-5／mediumで編集→レビュー→限定是正→再レビューの4段が終了した。Isolated・Task再試行・Docker再起動・Image更新は行っていない。
+
+人間申告は`summaryInspection.displayed=true`／`summary_displayed_after_task_close`、`DIAGNOSTIC_EXIT=2`。説明文の限定確認は成立したが、未信頼のProvider申告は実基盤故障の確定根拠にしない。本文を本記録・File・自動Logへ複製せず、表示済み内容は端末scrollbackの限定受容として扱う。機械的なTask結果はblocked／`coordinator_task_independent_review_not_approved`。Codex両回とも候補Path0、command／fileChangeイベント0、turnCompleted true、error型1件／CodeMode語句1件／既知警告文面一致1件。Claude両回ともchanges_requested／finding1。合成sourceはBASEのままであり、編集E2E不合格は維持する。
+
+HTTP58要求は全Headerを受領し、transportFailureなし。最大Header待機はordinal25の14574ms。Client開始1793280792218、要求生成1793280792230、送出直前1793280792234、Server受信1793280806526、応答終了1793280806787、Client Header受領1793280806792。送出直前→受信は14292ms、受信後応答261ms、Owner照会16ms。受信前の待機が支配的と分かったが、送出直前は送達証明ではない。Server側Timerの最大遅延は別の時間帯（expected1793280889033／observed1793280903567／delay14534ms）で、同区間に重なるClient要求は記録されていない。Server処理停滞の存在とHTTP最大待機の直接因果を同一視しない。今回Timeoutがなかったことも過去故障の解消証明ではない。
+
+全4段のProvider作成・開始・終了とProcess終了・Container不存在・Network不存在・cleanup trueを観測。Taskはphase settled、Recovery参照0、secondaryFailure0、operations／pendingDeliveries／unresolvedRecoveries／leaseIntents各0、同Ownerの排他取得・解放が相関した。試験Node PID37016と同試験参照Nodeの不存在、合成mainだけのGit worktree、元dirty／stage／untracked保持を確認した。Docker現況に今回資源なし、既存停止Container2件と利用者Networkは不変更、標準bridge ID差だけを既存比較がverifiedとした。成功成果条件未達で自動保持された今回Rootを、既存の人間承認に従いFront AIが清掃する。事前inventoryは35 File／36 Directory／119732 byte、全File nlink1／Reparseなし、SHA-256 `52a6faa9e7422b61841e2bf3acda848905dce09bfa93773634eb5b7a646a06f4`。過去保持物は対象外。
+
+今回の35 Fileは個別削除し、自己生成Git objectのReadOnly属性と空の`.git`のHidden属性だけを解除して、36 Directoryを空確認後に削除した。`workspace-ai-WVzi8a`の不存在を再確認済み。ACL・本体Git履歴・既存Docker資源・認証・過去保持物は変更していない。追加再実行はしていない。
+
+#### 実編集と成功済み非AI試験の起動条件照合 — 2026-10-29
+
+今回は読取り調査と純粋な計画生成・既存試験だけを実施し、AI送信・Docker照会／操作・過去保持物操作・製品Source変更は行っていない。現行`planProviderExecution`へgpt-6.1-sol／medium／executorを渡し、成功済み固定commandと同じpermissions三設定（root deny／minimal read／workspace write、network false）、作業場所`/work`、stdin入力、code_mode_only・Host有効／fallback禁止、shell／unified_exec有効をassertした。AI Adapter回帰28件成功。実編集入力のexecutor指示は編集とPython／POSIX Toolの利用を許可しており、助言用のTool禁止指示を渡す構成ではない。
+
+| 観点 | 成功済み非AI確認 | 実AI編集 | 残る確認 |
+| --- | --- | --- | --- |
+| 固定実行物 | 同じTask Image／CLI0.164.0／Host | 同じ固定Identity | 別版・別Imageの差を示す根拠なし |
+| 外側隔離 | UID65534・RO root・cap-drop・no-new-privileges・seccomp・pids64 | 同じ固定方針 | 同時Process／補助Threadの総量は未計測 |
+| 内側権限・作業場所 | 三permissionsと/workで固定Pythonの作成・読戻し・削除成功 | 同じ三permissionsと/workを計画 | 実AIによるTool委譲と同じ経路の成功ではない |
+| 起動順 | Host単独の固定計算、CLI sandbox→固定commandを別々に確認 | CLI→Host→Code Mode→nested Tool→sandbox | 接続・委譲のどこが未成立かは不明 |
+| 入力・承認 | 固定commandを直接指定。Model・自動承認・JSON結果Schemaなし | stdin Task Packet、Model選択、approve-for-me、結果Schema | 明示的な構成差だが、不具合の確定ではない |
+| Home・通信 | 空Home・network none・認証なし | 既存認証Homeと限定Proxy | 非AI確認から本番Home／Proxyの成立を推定しない |
+
+固定版公式Source Commit`6aaac694803004a63c6f393d153c96d22521a6b9`を追加確認した。[CLI起動](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/arg0/src/lib.rs)はTokio multi-thread、[Host起動](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/code-mode-host/src/main.rs)はcurrent-threadである。従って「両者が各々CPU数のworker poolを持つ」という単純仮説は採用しない。補助Thread／子Processを含むpids64不足は未証明であり、上限引上げの根拠にはしない。
+
+[固定JSONL変換](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/exec/src/event_processor_with_jsonl_output.rs)の`map_item_with_id`はCode Mode cell／Toolの全面投影をせず、対応外をNoneにする。[Code Mode実行](https://github.com/openai/codex/blob/6aaac694803004a63c6f393d153c96d22521a6b9/codex-rs/core/src/tools/code_mode/execute_handler.rs)の開始・初回結果失敗はモデル向け`RespondToModel`へ返る。そのためcommand／FileChange零や既知警告一致だけで、Host未起動・Code Mode未発火・具体故障原因を証明できない。新しいcounterの追加、権限・期限・Image変更は採用しない。
+
+調査結論の独立レビューは限定Pass／残指摘0。次の候補は、同一cgroup内でCLIとHostを独立二Processとして同時稼働させる非AIの資源観測であり、実行は未承認・未実施。共存成功をCLIによるHost解決／spawn／handshake／Tool委譲の成立とは扱わず、離散samplingで瞬間peak不存在や本番最大資源量を証明しない。実施するなら開始前・両者稼働時・終了後のpids current／max／拒否counterと元PID終了を相関し、秘密なし・network none・固定Image・pids64を維持して、一回の試験物だけを回収する条件を別途固定する。
+
+#### 非AI CLI／Host共存試験の実行前固定 — 2026-10-29
+
+人間が同時稼働一回と今回物回収を承認した。対象Rootは`C:\project\CRDD\.crdd\tests\codex-cli-host-coexist-20261029-01`のみ。現行固定Codex Task Imageでnetwork none、UID65534、RO root、cap-drop ALL、no-new-privileges、既存seccomp、pids64を維持する。inputだけRO、空work／home／tmpはRW、work内.git／.crddに空guardsをROで重ねる。認証・Repository本文・Proxy・外部AIは使用しない。製品Source・設定・上限・Image・過去保持物は変更しない。
+
+用途固定probe SHA-256 `404601768eef123d72794a05fbf8f34c8ea75dc94c244176e4fe23574819c795`。CLI argvは現行公開Planのgpt-6.1-sol／medium／executorから生成した全argvとexact一致した。stdinへ一byteも渡さず独立CLI Processを保持し、独立Hostへ公式V1 protocolのhello／open／固定計算`text(String(1 + 1));`／shutdownを送る。空EOFによるCLI exit1＋入力なしmarker、Host計算2＋EOF／exit0、元Process終了、pids current基準復帰・拒否counter不増・既知resource error未観測を共同確認する。30秒、stream各64KiB、Host16frame、各元Process groupへ必要時TERM一回と5秒の終了確認。失敗は再試行しない。生出力はメモリ処理だけで、有限段階・数値・元PID・終了値だけを残す。
+
+局所の正常／不正結果3負例、資源観測の正常／欠測・残存・拒否counter・既知error4負例、全argv一致を確認。独立レビューの終了Gate不足を是正して、再レビュー残指摘0。同一cgroupの独立二Process共存だけを評価し、CLIによるHost解決／接続／Tool委譲、本番最大資源量、離散samplingによるpeak不存在へ主張を拡張しない。Engine29.8.1・固定Image存在・稼働Container0、Root祖先の非linkを確認した。作成元IDの領収書と構成照合後に一回だけ起動し、未知ならその元ID／Rootを保持する。
+
+#### 非AI CLI／Host共存の一回結果 — 2026-10-29
+
+元Container ID`a4811f84b4566a8b6ede59cbfdfa4c1c6c5e876cf98fca4986f9d247c35a9d6a`を作成一回・起動一回で使用した。元ID領収書をRoot内で保存・読戻しし、固定Image、停止状態、UID、pids64、RO root、security設定、exact六Mountと起動内容を照合して起動した。開始2026-10-29T14:10:37.646573039Z、終了14:10:39.298950616Z、attach0、Container exited／exit0／OOMKilled false／Restarting false／RestartCount0。非AI結果はcompleted／reason null、Host固定計算と空stdinのCLI生存・元子終了・資源数基準復帰がすべて確認された。
+
+| 時点 | cgroup pids.current | CLI Thread数 | Host Thread数 | pids.events max |
+| --- | ---: | ---: | ---: | ---: |
+| 開始前 | 1 | 未起動 | 未起動 | 0 |
+| CLI生存 | 36 | 35 | 未起動 | 0 |
+| 両者生存 | 40 | 36 | 3 | 0 |
+| 固定計算後 | 57 | 36 | 20 | 0 |
+| 両者終了後 | 1 | 終了 | 終了 | 0 |
+
+元CLI PID7はTask入力を一byteも受けず、空EOF後exit1＋既知の入力なしmarker、stdout0 byte／stderr30 byte。元Host PID44はhello／open／固定計算2／shutdown／EOF／exit0、stdout725 byte／stderr0 byte。生streamは保存せず、resource errorの既知語句観測false、childCloseConfirmed／resourceClosureConfirmed true。CLI自生成のSQLite・補助link等は空の試験Homeにだけ生成され、今回物として確認・回収する。取得した最大sample57は上限64の残り7を示すが、瞬間peakや実編集時の総量ではない。今回pids上限拒否がないことは、この独立二Process共存の範囲だけの結果であり、CLI→Host接続／Tool委譲・実AI故障の原因確定・上限変更の根拠とはしない。
+
+Root Identity`1687905628:118500965196179391:1793282760398252300`は不変。回収前に全34 entry（通常File18・既知Linux symbolic link3・Directory13）の非link境界・通常File nlink1・bytes／Hash、既知link targetが同梱CLI exact Pathであることを確認した。inventory SHA-256 `32a774c9e5c2bb6b00451b5a79c0273f214cd75bd749cab04c8d4c8c07d21c23`。workとguardsは空の保護Directoryだけで、未知の編集成果はない。過去保持物は不変更。元ID・停止・構成を再照合して通常rmし、今回Rootだけを非再帰・通常削除する。
+
+今回のContainerは元IDで通常rmし、一覧照会成功・該当0で不存在を確認した。回収前照合のPowerShell式が正常な`CapAdd=null`を配列1件と数えたため一度停止したが、読取りで追加Capabilityなしと確認し、当該式だけnull判定へ修正した。実Container設定・製品コード・上限は変更せず、再試験もしない。既知Linux link3件はreparse tag0xa000001dとexact target確認後にlink自身だけをFile.Deleteし、通常File18件と空Directory13件を通常・非再帰削除した。Root不存在を確認済みで、今回の物理残存は0。CLI自生成DBも回収し、生streamやDBの複製は残していない。Docker再起動・Image更新・過去保持物操作は行っていない。
+
+人間からpids64自体の必要性を再質問された。今回の承認は上限不変更なので値は維持したが、独立CLI＋Hostの固定計算だけでsample57まで達することから、64の適正性は別途見直す必要がある。PID上限による資源枯渇防止の目的と、64という固定値の妥当性を分離し、制限を置くことだけを安全性・実用性の成立根拠にしない。現試験ではpids.events拒否0なので実AI失敗の原因を確定せず、設定変更の採用と追加実測は人間判断へ戻す。
+
+#### Docker独自PID上限の撤廃 — 2026-10-29
+
+人間は固定64を別の大きな値へ置換する案ではなく、CRDDによるProcess／Thread数制限そのものの撤廃を採用した。AI実行・助言・認証確認・login・Proxy・診断の全生成経路から`--pids-limit`を削除し、inspectの`PidsLimit`を構成成立・回収の必要条件から外した。`-1`の指定、新設定、自動算定、監視、回復機構は追加していない。Docker／Hostが独立して持つ既定値や資源制約は変更しておらず、全実環境で無制限になるという保証ではない。大量Process生成によるHost資源圧迫の残存リスクはある。
+
+Image・実ID・名前・label、非root、RO root、capability削減、no-new-privileges、seccomp、Mount、通信、Init、取消・回収の条件は維持した。Proxyの固定包装は21／23引数へ、診断入力上限は固定包装171＋payload256＝427引数へ追従した。24構成の全argvへ旧PID指定だけを試験内で復元すると旧golden Hashと一致し、他の包装・payload変更がないことを確認する。過去Evidence・保持物・既存Containerは変更しない。
+
+非AI回帰の初回で、Proxy位置指定・期待値の追従漏れと、既存Engine試験の`node:fs`模擬がDomain側のnamed importへ未追従であることを検出した。前者は短縮後の位置へ修正し、後者は同じ模擬objectをdefault／named両方へ渡した。実Filesystemへ迂回させず、試験の拒否・回収条件は変更していない。
+
+最終確認はDocker Isolationのformat／型／lint成功（既存の情報通知2件、warning／errorなし）、通常回帰291件成功・失敗0・実境界2件skip。Executorのcheck・17件成功。Coordinator通常／実Docker試験用の型検査成功、関連4Suite（認証create・回復再入場・Host移行・Process Controller）129件成功。独立レビューの試験位置漏れ1件を修正・再確認し、残指摘0。`git diff --check`成功。実Docker・実AI・Image更新・過去保持物操作は今回実施していない。これらの非AI結果を過去のCode Mode故障の原因確定、Direct／Isolated編集E2E成功とは扱わない。
 
 #### Dの内容認可とMCP定義操作の限定接続
 

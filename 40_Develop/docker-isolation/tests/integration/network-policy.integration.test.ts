@@ -630,8 +630,6 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
         "--cap-drop=ALL",
         "--security-opt",
         "no-new-privileges",
-        "--pids-limit",
-        "64",
         "--label",
         `${label}=${trial}`,
       ];

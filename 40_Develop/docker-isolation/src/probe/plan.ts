@@ -199,7 +199,6 @@ export function planDockerProbeCommand(
         resource.label,
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
-        "--pids-limit=64",
         "--user=65532:65532",
         "--workdir=/operation/workspace",
         "--env",

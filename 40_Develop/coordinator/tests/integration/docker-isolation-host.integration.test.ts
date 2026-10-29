@@ -186,7 +186,6 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
     assert.equal(value.HostConfig.NetworkMode, "none");
     assert.equal(value.HostConfig.ReadonlyRootfs, true);
     assert.equal(value.HostConfig.Privileged, false);
-    assert.equal(value.HostConfig.PidsLimit, 32);
     assert.deepEqual(value.HostConfig.Tmpfs, {
       "/tmp": "rw,nosuid,nodev,size=16m",
     });
@@ -239,8 +238,6 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
         "ALL",
         "--security-opt",
         "no-new-privileges",
-        "--pids-limit",
-        "32",
         "--tmpfs",
         "/tmp:rw,nosuid,nodev,size=16m",
         "--mount",
@@ -1394,7 +1391,6 @@ test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で�
     assert.equal(value.HostConfig.NetworkMode, "none");
     assert.equal(value.HostConfig.ReadonlyRootfs, true);
     assert.equal(value.HostConfig.Privileged, false);
-    assert.equal(value.HostConfig.PidsLimit, 32);
     assert.deepEqual(value.HostConfig.CapDrop, ["ALL"]);
     assert.deepEqual(value.HostConfig.SecurityOpt, ["no-new-privileges"]);
     assert.deepEqual(value.Mounts, []);
@@ -1440,7 +1436,6 @@ test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で�
           "--read-only",
           "--cap-drop=ALL",
           "--security-opt=no-new-privileges",
-          "--pids-limit=32",
           "--user=65534:65534",
           "--workdir=/work",
           "--name",

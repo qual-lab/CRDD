@@ -95,6 +95,142 @@ test("Task内部エラーはツール未使用と区別し本文を返さない"
   }
 });
 
+/** 語句観測を区別し、本文・Path・秘密値を診断へ搬送しない。
+ * @trace ERB-UT-032
+ * @boundary N/A: 合成JSONLの純粋解析だけで外部Effectなし。
+ */
+test("内部エラーの語句観測は重複・未分類・欠測を区別する", () => {
+  const cases: readonly [unknown, readonly string[]][] = [
+    [
+      "Code Mode host spawn failed: permission denied /secret/DO_NOT_RETAIN",
+      ["Host", "Spawn", "Permission"],
+    ],
+    ["Code Mode handshake protocol mismatch", ["Protocol"]],
+    ["Code Mode delegated tool unavailable", ["Tool"]],
+    ["Code Mode connection closed: broken pipe EOF", ["Connection"]],
+    [
+      "Code Mode executable not found: no such file or directory",
+      ["MissingPath"],
+    ],
+    ["Code Mode timed out: deadline exceeded", ["Timeout"]],
+    ["Code Mode unavailable", []],
+    [null, []],
+  ];
+  const signatures = new Set<string>();
+  for (const [message, mentions] of cases) {
+    const raw = [
+      { type: "item.completed", item: { type: "error", message } },
+      {
+        type: "item.completed",
+        item: {
+          type: "agent_message",
+          text: JSON.stringify({
+            status: "completed",
+            summary: "synthetic",
+            changedPaths: [],
+            verification: [],
+          }),
+        },
+      },
+      { type: "turn.completed" },
+    ]
+      .map((event) => JSON.stringify(event))
+      .join("\n");
+    const result = parseProviderResult({
+      provider: "codex",
+      purpose: "task",
+      taskRole: "executor",
+      raw,
+    });
+    assert.equal(result.status, "confirmed");
+    const observed = result.codexExecutionObservation;
+    assert.ok(observed);
+    for (const name of [
+      "Host",
+      "Spawn",
+      "Protocol",
+      "Connection",
+      "Tool",
+      "Permission",
+      "MissingPath",
+      "Timeout",
+    ])
+      assert.equal(
+        observed[`itemError${name}MentionCount`],
+        mentions.includes(name) ? 1 : 0,
+      );
+    assert.equal(
+      observed.itemErrorUnclassifiedCount,
+      mentions.length === 0 ? 1 : 0,
+    );
+    assert.equal(observed.itemErrorCount, 1);
+    assert.equal(JSON.stringify(observed).includes("DO_NOT_RETAIN"), false);
+    assert.equal(JSON.stringify(observed).includes("/secret"), false);
+    signatures.add(JSON.stringify(observed));
+  }
+  assert.equal(signatures.size, cases.length);
+});
+
+/** 既知警告文面との一致は元通知種別・非故障を表さず、総数も減算しない。
+ * @trace ERB-UT-032
+ * @boundary N/A: 同版の公開定型を合成JSONLへ投影する純粋試験。
+ */
+test("既知Warning文面は補助一致だけを返し未知のerrorを警告へ丸めない", () => {
+  const unstable =
+    "Under-development features enabled: code_mode, code_mode_only. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /DO_NOT_RETAIN/config.toml.";
+  const unsupported =
+    "Code Mode is enabled in configuration, but model `synthetic-model` does not advertise Code Mode support. This may degrade model performance. Disable `features.code_mode` and `features.code_mode_only`, or select a model whose metadata enables Code Mode.";
+  for (const [message, expected] of [
+    [unstable, 1],
+    [unsupported, 1],
+    [`prefix ${unstable}`, 0],
+    [`${unstable} extra`, 0],
+    [`${unstable}\n`, 0],
+    [unstable.replace("features enabled", "Features enabled"), 0],
+    ["Code Mode unavailable", 0],
+    [null, 0],
+    [unstable.replace("/DO_NOT_RETAIN", `/${"x".repeat(4096)}`), 0],
+  ] as const) {
+    const observations: string[] = [];
+    // CLIのWarning投影と同文の通常ErrorItemはJSONLでは区別できない。
+    for (const _origin of ["warning_projection", "ordinary_error_item"]) {
+      const raw = [
+        { type: "item.completed", item: { type: "error", message } },
+        {
+          type: "item.completed",
+          item: {
+            type: "agent_message",
+            text: JSON.stringify({
+              status: "completed",
+              summary: "synthetic",
+              changedPaths: [],
+              verification: [],
+            }),
+          },
+        },
+        { type: "turn.completed" },
+      ]
+        .map((event) => JSON.stringify(event))
+        .join("\n");
+      const result = parseProviderResult({
+        provider: "codex",
+        purpose: "task",
+        taskRole: "executor",
+        raw,
+      });
+      assert.equal(result.status, "confirmed");
+      const value = result.codexExecutionObservation;
+      assert.ok(value);
+      assert.equal(value.itemErrorKnownWarningTextCount, expected);
+      assert.equal(value.itemErrorCount, 1);
+      assert.equal(value.itemErrorUnclassifiedCount, 1);
+      assert.equal(JSON.stringify(value).includes("DO_NOT_RETAIN"), false);
+      observations.push(JSON.stringify(value));
+    }
+    assert.equal(observations[0], observations[1]);
+  }
+});
+
 /**
  * Codexの単一exact Resultだけを正規化するを検証する。
  *

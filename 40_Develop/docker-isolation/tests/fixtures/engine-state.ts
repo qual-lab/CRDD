@@ -111,22 +111,24 @@ await mock.module("node:child_process", {
     },
   },
 });
-await mock.module("node:fs", {
-  defaultExport: {
-    ...fs,
-    openSync: (endpoint: unknown, flags: unknown) => {
-      pipes.push(["open", endpoint, flags]);
-      if (scenario === "absent")
-        throw Object.assign(new Error("fixture"), { code: "ENOENT" });
-      if (scenario === "pipe-fault")
-        throw Object.assign(new Error("fixture"), { code: "EACCES" });
-      return 1;
-    },
-    closeSync: (handle: unknown) => {
-      pipes.push(["close", injectCloseMismatch ? 2 : handle]);
-      if (scenario === "close-fault") throw new Error("fixture");
-    },
+const fixtureFs = {
+  ...fs,
+  openSync: (endpoint: unknown, flags: unknown) => {
+    pipes.push(["open", endpoint, flags]);
+    if (scenario === "absent")
+      throw Object.assign(new Error("fixture"), { code: "ENOENT" });
+    if (scenario === "pipe-fault")
+      throw Object.assign(new Error("fixture"), { code: "EACCES" });
+    return 1;
   },
+  closeSync: (handle: unknown) => {
+    pipes.push(["close", injectCloseMismatch ? 2 : handle]);
+    if (scenario === "close-fault") throw new Error("fixture");
+  },
+};
+await mock.module("node:fs", {
+  defaultExport: fixtureFs,
+  namedExports: fixtureFs,
 });
 const api = await import("../../src/index.ts");
 const observed =

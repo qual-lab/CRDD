@@ -36,6 +36,13 @@ export function createReadonlyVerificationTiming() {
   let clientOrdinal = 0;
   let serverOrdinal = 0;
   let ownerOrdinal = 0;
+  let loopTimer: ReturnType<typeof setInterval> | null = null;
+  let lastLoopAt = 0;
+  let loopDelay: {
+    expectedAt: number;
+    observedAt: number;
+    delayMs: number;
+  } | null = null;
   const clients: (VerificationHttpTiming & {
     ordinal: number;
     stage: Stage;
@@ -114,6 +121,19 @@ export function createReadonlyVerificationTiming() {
       )
         throw Error("readonly_timing_binding_invalid");
       port = Number(url.port);
+      lastLoopAt = Date.now();
+      loopTimer = setInterval(() => {
+        const observedAt = Date.now(),
+          expectedAt = lastLoopAt + 100;
+        const delayMs = Math.max(0, observedAt - expectedAt);
+        if (
+          observedAt >= expectedAt &&
+          (loopDelay === null || delayMs > loopDelay.delayMs)
+        )
+          loopDelay = { expectedAt, observedAt, delayMs };
+        lastLoopAt = observedAt;
+      }, 100);
+      loopTimer.unref();
       subscribe("http.server.request.start", receive);
       subscribe("http.server.response.finish", finish);
       bound = true;
@@ -141,6 +161,8 @@ export function createReadonlyVerificationTiming() {
               ? "/api/workbench-view?route=%2F"
               : "/ai-request/action",
           startedAt: timing.startedAt,
+          requestCreatedAt: timing.requestCreatedAt,
+          headersSendingAt: timing.headersSendingAt,
           headersAt: timing.headersAt,
           completedAt: timing.completedAt,
           closedAt: timing.closedAt,
@@ -178,6 +200,10 @@ export function createReadonlyVerificationTiming() {
       }
     },
     dispose() {
+      if (loopTimer !== null) {
+        clearInterval(loopTimer);
+        loopTimer = null;
+      }
       if (bound) {
         unsubscribe("http.server.request.start", receive);
         unsubscribe("http.server.response.finish", finish);
@@ -191,6 +217,7 @@ export function createReadonlyVerificationTiming() {
         limit,
         dropped,
         subscriptionsClosed: closed && !bound,
+        loopDelay: loopDelay === null ? null : { ...loopDelay },
         clients: clients.map((row) => ({ ...row })),
         servers: servers.map((row) => ({ ...row })),
         owners: owners.map((row) => ({ ...row })),

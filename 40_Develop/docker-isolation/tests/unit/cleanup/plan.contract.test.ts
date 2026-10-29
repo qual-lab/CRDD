@@ -342,7 +342,7 @@ test("認証Probeは実IDと元createの構成全体を照合する", () => {
       CapDrop: ["ALL"],
       CapAdd: null,
       SecurityOpt: ["no-new-privileges"],
-      PidsLimit: 32,
+      PidsLimit: 0,
       Init: false,
       NetworkMode: "none",
       Tmpfs: null,
@@ -446,7 +446,7 @@ function fixture() {
       CapDrop: ["ALL"],
       CapAdd: null,
       SecurityOpt: ["no-new-privileges"],
-      PidsLimit: 64,
+      PidsLimit: 0,
       Init: true,
     },
     NetworkSettings: {
@@ -479,13 +479,21 @@ function fixture() {
  * @precondition 正常Fixtureから一条件ずつ差替える。
  * @stimulus 同じ期待値で正常・不正観測値を照合する。
  * @observation 構成判定のtrue／falseを取得する。
- * @oracle Id、Name、Image、User、rootfs、privileged、cap、pids、Init、Mountの不一致は拒否する。
+ * @oracle Id、Name、Image、User、rootfs、privileged、cap、Init、Mountの不一致は拒否する。PID上限は要求しない。
  * @cleanup N/A: 値だけを照合する。
  * @boundary N/A: trueは実所有・削除許可の証明ではない。
  */
 test("Identityと隔離構成のいずれかの差を受理しない", () => {
   const { resource, expectation } = fixture();
   assert.equal(dockerResourceConfigurationMatches(resource, expectation), true);
+  for (const PidsLimit of [undefined, null, 0, -1, 64, 256])
+    assert.equal(
+      dockerResourceConfigurationMatches(
+        { ...resource, HostConfig: { ...resource.HostConfig, PidsLimit } },
+        expectation,
+      ),
+      true,
+    );
   const invalid: readonly unknown[] = [
     null,
     [],
@@ -505,7 +513,6 @@ test("Identityと隔離構成のいずれかの差を受理しない", () => {
       HostConfig: { ...resource.HostConfig, CapAdd: ["SYS_ADMIN"] },
     },
     { ...resource, HostConfig: { ...resource.HostConfig, SecurityOpt: [] } },
-    { ...resource, HostConfig: { ...resource.HostConfig, PidsLimit: 65 } },
     { ...resource, HostConfig: { ...resource.HostConfig, Init: false } },
     {
       ...resource,

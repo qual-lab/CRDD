@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    { "symbolId": "executor.verification.task-summary-observation", "kind": "file", "path": "scripts/task-summary-observation.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.test.integration.task-summary-observation", "kind": "test-suite", "path": "tests/integration/task-summary-observation.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-002"], "verifies": ["executor.verification.task-summary-observation"] },
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",

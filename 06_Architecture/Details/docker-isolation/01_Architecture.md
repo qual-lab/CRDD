@@ -1,5 +1,11 @@
 # Docker隔離の詳細設計
 
+## Process／Thread数の独自上限撤廃 — 2026-10-29
+
+人間判断により、CRDDはAI実行・助言・認証確認／login・Proxy・診断用Containerへ`--pids-limit`を指定しない。従来の32／64固定値を別値や`-1`へ置換せず、用途別設定、自動算定、監視・回復機構も追加しない。実行時構成照合と回収判定は`HostConfig.PidsLimit`をCRDDの必要条件として解釈しない。Docker／Host側の独立した設定は変更せず、CRDDの指定撤廃を実環境全体の無制限保証とは扱わない。
+
+Model／CLIのThread数変化や通常のBuild・Testを独自固定値で妨げないことを優先し、Process大量生成による実行環境の資源圧迫リスクを受容する。非root・read-only root・capability削減・no-new-privileges・seccomp・Mount／通信制限・元資源Identity照合・取消と回収は維持する。過去Evidenceの当時のpids値は書き換えず、保持中資源の操作・既存Containerの設定変更はこの撤廃に含めない。設定撤廃だけで過去の編集失敗の原因確定や解消を主張しない。
+
 ## Provider CLI更新 — 2026-10-25
 
 今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
@@ -233,7 +239,7 @@ Attach試験用の三シナリオと観測待機は製品Coordinatorから撤去
 
 Probeの本番固定bindingは既存`probe/execute.ts`が所有する。生成順は対応platform確認→CLI snapshot観測→上位の同期management読取り一回→固定env領域生成とし、CLI観測失敗と上位Mount読取り失敗を同じ理由へ畳まない。読取りcallbackは返却後保持せず、上位Host型や保存処理をDIへ持ち込まない。Promise・不正な所在では環境領域を作らず停止する。bindingは同操作のsnapshotと環境だけをclosure所有し、fresh CLI検証は生成時でなく各要求直前に維持する。通常・四故障・取消・稼働残存・fresh回復のすべてで、途中再生成せず同じbindingを用いる。回復時は上位の世代取得とrecord／Root／child検証後に生成し、Host相関と最終公開は上位が所有する。
 
-Probeのinspect構成と三つのbind mountの実体照合は、DIの`probe/configuration.ts`が所有する。上位は同じProbeのid／probeId、必須profile、workspace／providerHome／tmpの三PathをDIの純粋describeへ渡し、期待構成を投影する。現行profileは一候補、旧record採用一箇所の明示`legacy_recovery`だけ固定六候補を選ぶ。欠測・空・未知profileへ候補集合を補完しない。構成判定は投影済み候補へのmembershipを照合し、上位の6領域全体、Host能力、保存Ownerを受け取らない。固定Image／Name／Label、pids64、三RW mount等の現行条件を維持する。Filesystemは各mountで観測側→期待側の順に各一回realpathを読み、例外はfalse、Windowsはen-US小文字、他OSは完全一致とする。これは実資源の包括的な安全性や新しいAuthorityを与える処理ではない。
+Probeのinspect構成と三つのbind mountの実体照合は、DIの`probe/configuration.ts`が所有する。上位は同じProbeのid／probeId、必須profile、workspace／providerHome／tmpの三PathをDIの純粋describeへ渡し、期待構成を投影する。現行profileは一候補、旧record採用一箇所の明示`legacy_recovery`だけ固定六候補を選ぶ。欠測・空・未知profileへ候補集合を補完しない。構成判定は投影済み候補へのmembershipを照合し、上位の6領域全体、Host能力、保存Ownerを受け取らない。固定Image／Name／Label、三RW mount等の現行条件を維持する。Filesystemは各mountで観測側→期待側の順に各一回realpathを読み、例外はfalse、Windowsはen-US小文字、他OSは完全一致とする。これは実資源の包括的な安全性や新しいAuthorityを与える処理ではない。
 
 診断Probeの作成IDと三軸（実ID・名前・Label）の不存在応答は、DIの`probe/result.ts`が純粋分類する。作成は既存条件どおりerrorなし・終了値0・完全64桁IDだけをconfirmedとし、三軸不存在は各応答が成功・UTF-8 64KiB以内・不正／重複IDなしで、すべて空の場合だけconfirmedとする。失敗・欠測・残存を空集合へ補完しない。上位は分類値を使っても、Host遷移・保存確定・世代排他・Authorityを下位へ移さず、現在Taskの異なる隔離構成へProbeを偽装しない。移管で分類条件を強化・緩和しない。
 
@@ -436,7 +442,7 @@ Package Rootの`src/index.ts`から必要な操作と型だけを明示exportす
 
 現在操作用の回収接続は借用管理Directory内へ`docker-recovery-config-`接頭辞の一意短命子を作り、既存三資源操作とcloseだけを提供する。作成直前の同期Owner確認、親と自作子の実体、空状態を照合する。既存同接頭辞の残存はfile／linkも含め96件まで数えるが、採用・変更・削除しない。自作Identityを取得できなかった途中失敗は清掃不明として同じHost Rootへ残す。closeはOwner失効後も捕捉済み親・子実体だけを再確認し、空の自作子を非再帰で削除して明示不存在を確認する。別試行や隣接物へ削除を広げず、二度目closeは追加Effect 0。同一Local Userを信頼する既存境界の現在観測であり、敵対的な同一UserによるPath使用中の差替えを原子的に排除する保証は追加しない。
 
-技術入力は、操作相関、Container／Network名、実Image digest、期待構成、限定stdinと検証済みProvider起動記述とする。Docker argv全体・任意環境・任意Mountは公開入力にしない。閉じたpurposeから、Network、read-only、cap-drop、no-new-privileges、pids、User、Mount modeと出力上限を下位Ownerが構築・再検査する。Provider argv／環境の記述は上限付きpayloadとしてContainer内へ搬送するだけで、モデル・役割等の値が含まれても、その意味や許可を下位が所有・判定しない。
+技術入力は、操作相関、Container／Network名、実Image digest、期待構成、限定stdinと検証済みProvider起動記述とする。Docker argv全体・任意環境・任意Mountは公開入力にしない。閉じたpurposeから、Network、read-only、cap-drop、no-new-privileges、User、Mount modeと出力上限を下位Ownerが構築・再検査する。Provider argv／環境の記述は上限付きpayloadとしてContainer内へ搬送するだけで、モデル・役割等の値が含まれても、その意味や許可を下位が所有・判定しない。
 
 Task Packet、モデル選定、送信同意、User Credential、業務結果は所有しない。上位は同じ生涯の計画を検証し、下位も資源名・構成・コマンド所属・入力上限をEffect前に照合する。単なる文字列Pathを所有許可へ昇格しない。
 
@@ -568,7 +574,7 @@ Process開始factの通知は同期であり、上位のReporter／Task開始保
 
 試験用Candidateは`productionAuthority:false`を固定し、本番FactoryのCLI／Process／Filesystem primitiveを差替え可能にしない。Candidate表示だけから注入primitiveのEffect 0や本番の清掃真正性を推定しない。上位の元Runtime／元計画／両Ownerの照合は維持する。
 
-診断入力は全descriptor取得前にcommands上限9、create argv上限428へ制限する。428は固定包装172（最大64環境変数・全optional構成）と既存payload上限256から導く現planner限定値であり、汎用Docker parserの上限ではない。包装の分離値が欠けた形や次optionを値にした形は拒否し、image以後のpayloadへこの判定を適用しない。descriptor集合の必須keyと各valueはown propertyで確認し、継承された値を実入力へ採用しない。
+診断入力は全descriptor取得前にcommands上限9、create argv上限427へ制限する。427は固定包装171（最大64環境変数・全optional構成）と既存payload上限256から導く現planner限定値であり、汎用Docker parserの上限ではない。包装の分離値が欠けた形や次optionを値にした形は拒否し、image以後のpayloadへこの判定を適用しない。descriptor集合の必須keyと各valueはown propertyで確認し、継承された値を実入力へ採用しない。
 
 実行前の構成診断では、`execution/plan.ts`の`projectDockerExecutionBoundary`がexactな`create_provider`一件を選び、固定包装optionのarityを先頭から消費して最初の位置引数を計画のimage digestへ照合する。外側からread-only・非root user・workdirの三値だけを投影し、以後の引数は解釈せず凍結コピーとして私有呼出しへ渡す。payload内の同名flagや同digestは外側の設定へ数えない。不正shape・欠測・重複・未対応包装はnullであり、上位のfalse投影は確認不能を閉じた診断値へ写すだけで、設定不存在・隔離成立・処置許可を証明しない。生argvを通知・ログ・永続値へ追加しない。
 
