@@ -1,7 +1,7 @@
 /**
  * Provider単段の技術結果と非秘密診断を検査する。
  * @packageDocumentation
- * @responsibility 生出力の閉形式検査と元レビュー結果の一回使用証拠を所有し、Task進行は管理しない。
+ * @responsibility 技術結果・回復参照・非秘密診断の閉形式検査を所有し、Task進行や是正証拠の発行を行わない。
  * @trace ARCH-000008
  * @boundary Provider結果と上位の受入・保存の間。
  */
@@ -10,7 +10,10 @@ import {
   dockerProcessControllerPublicCompletionReasons,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
+import type {
+  DockerProcessControllerPublicCompletionReason,
+  RecoveryStartFailureDiagnostic,
+} from "./types.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 
 export const PURPOSES = Object.freeze([
@@ -97,21 +100,35 @@ export function isDockerSetupCommandPurpose(
   );
 }
 
+export const PROVIDER_RESULT_MAXIMUM_RAW_BYTES = 65_536;
+
 /**
- * Docker Process Controllerの最終理由を表す。
- *
- * @responsibility 公開失敗理由と完了・取消理由の閉じた型境界を所有する。
- * @trace ARCH-000008
- * @shape 固定公開理由へ完了と取消の二状態を加えた文字列unionである。
- * @invariant 未知理由またはProvider生出力を含まない。
- * @boundary Docker Process Controller内部結果から最終公開結果への境界。
- * @security 固定理由だけを公開する。
- * @compatibility 利用側は宣言済みの最終理由だけへ依存する。
+ * 正規化結果で使用する文字列の空値・前後空白・NUL・UTF-8容量を検査する。
+ * @responsibility TaskとAdviceが同じ既存の文字列条件を利用する。
+ * @trace ARCH-000015
+ * @input value: 未検査値、maximumBytes: 用途側が所有する容量上限。
+ * @returns 条件を満たす文字列だけtrue。
+ * @precondition 容量上限は各結果契約の定数。
+ * @postcondition 入力を変更せず、Authorityや参照許可を付与しない。
+ * @effect N/A: 純粋な値検査。
+ * @failure 不正な値はfalse。
+ * @invariant Provider生出力を保存・公開しない。
+ * @boundary Executor内部の結果検査。
+ * @security 秘密不存在や意味上の妥当性を証明しない。
+ * @concurrency N/A: 同期処理。
  */
-export type DockerProcessControllerFinalReason =
-  | DockerProcessControllerPublicCompletionReason
-  | "provider_operation_completed"
-  | "provider_operation_cancelled";
+export function validResultString(
+  value: unknown,
+  maximumBytes: number,
+): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim() === value &&
+    value.length > 0 &&
+    !value.includes("\0") &&
+    Buffer.byteLength(value, "utf8") <= maximumBytes
+  );
+}
 
 /**
  * 値がDocker Process Controllerの公開完了理由か判定する。
@@ -134,45 +151,6 @@ export function isDockerProcessControllerPublicCompletionReason(
 ): value is DockerProcessControllerPublicCompletionReason {
   return typeof value === "string" && blockedCompletionReasons.has(value);
 }
-
-/**
- * 最初の失敗を後続の清掃結果と分けて説明する。
- *
- * @responsibility 固定段階と理由、要求・応答・記録の異なる観測を保持する。
- * @trace ARCH-000008
- * @shape 固定用途、段階、理由、例外分類と三つの観測値。
- * @invariant Handle取得をDocker受理、応答を記録成功と同一視しない。
- * @boundary Controllerから受動診断の利用側への搬送。
- * @security 自由文、Path、argv、Provider出力や秘密値を含めない。
- * @compatibility 診断は実行・清掃・Recoveryの判定を変更しない。
- */
-export type PrimaryFailureDiagnostic = Readonly<{
-  purpose: string | null;
-  stage:
-    | "submission_record"
-    | "command_restriction"
-    | "command_start"
-    | "provider_start_observation"
-    | "command_wait"
-    | "execution_classification"
-    | "resource_receipt_record"
-    | "subscription_auth_verification"
-    | "provider_result_normalization";
-  reason: DockerProcessControllerFinalReason;
-  exceptionCode: string | null;
-  commandHandleObtained: boolean;
-  responseObserved: boolean;
-  receiptRecorded: boolean;
-  /** 診断専用。confirmedでも非0終了を実行許可へ変換しない。 */
-  authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
-  /** Claude助言のTurn拒否だけに付く非秘密metadata。 */
-  turnCountDiagnostic?: ProviderTurnCountDiagnostic;
-  commandObservation: Readonly<{
-    exitCode: number | null;
-    stdoutBytes: number;
-    stderrBytes: number;
-  }> | null;
-}>;
 
 /**
  * 一次失敗の固定診断だけを受理する。
@@ -524,12 +502,6 @@ export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
   "home_lock_release",
   "unknown",
 ] as const);
-
-/** 開始Ownerから受動診断へ渡す固定段階と、取得済みの場合だけの元参照。 */
-export type RecoveryStartFailureDiagnostic = Readonly<{
-  stage: (typeof RECOVERY_START_FAILURE_STAGES)[number];
-  recoveryId: string | null;
-}>;
 
 /** 診断の未知値・余分な内容を拒否し、Authorityを伴わない値へ閉じる。 */
 export function inspectRecoveryStartFailureDiagnostic(
@@ -909,20 +881,6 @@ export function projectDockerProcessControllerCompletionResult(
 const blockedCompletionReasons = new Set<string>(
   dockerProcessControllerPublicCompletionReasons,
 );
-
-/**
- * Docker Process Controllerが公開できる完了理由を表す。
- *
- * @responsibility 清掃後に上位へ公開できる固定理由の型境界を所有する。
- * @trace ARCH-000008
- * @shape 固定Registry要素だけからなる文字列unionである。
- * @invariant Provider生出力や未登録理由を含まない。
- * @boundary Docker Process Controller結果から上位Coordinator結果への投影境界。
- * @security 固定語彙だけを許可し、秘密値や自由文を搬送しない。
- * @compatibility 利用側は公開Registryに含まれる理由だけへ依存する。
- */
-export type DockerProcessControllerPublicCompletionReason =
-  (typeof dockerProcessControllerPublicCompletionReasons)[number];
 
 const recoveryStartReasonClass = new Map<string, string>([
   [

@@ -1,8 +1,8 @@
 /**
- * coordinator:unit:provider-task-structured-resultの検証範囲を定義する。
+ * Executorの編集・レビュー結果正規化の検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:unit:provider-task-structured-resultが所有する検証責務を実行する。
+ * @responsibility Executorの編集・レビュー結果正規化が所有する検証責務を実行する。
  * @trace RCM-UT-016
  * @level UT
  * @scope provider、task、structured、result
@@ -15,7 +15,8 @@ import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/index.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
-} from "../../../../executor/src/index.ts";
+  consumeProviderTaskRemediation,
+} from "../../../src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 
 const EXECUTOR = JSON.stringify({
@@ -41,7 +42,7 @@ const TASK_WORKLOAD = Object.freeze({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 function normalizeFixtureTaskResult(
   provider: unknown,
@@ -82,7 +83,7 @@ const REVIEWER = JSON.stringify({
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 function claude(structuredOutput: unknown, overrides = {}) {
   return JSON.stringify({
@@ -106,7 +107,7 @@ function claude(structuredOutput: unknown, overrides = {}) {
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 function claudeReviewer(result: unknown, overrides = {}) {
   return JSON.stringify({
@@ -130,7 +131,7 @@ function claudeReviewer(result: unknown, overrides = {}) {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => {
   const codex = normalizeFixtureTaskResult(
@@ -187,7 +188,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投影する", () => {
   const raw = [
@@ -279,7 +280,7 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計する", () => {
   const commands = [0, 1, 126, 127, 42, null].flatMap((exitCode, index) => [
@@ -371,7 +372,7 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由だけを分類する", () => {
   const commands = [
@@ -447,7 +448,7 @@ test("Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否する", () => {
   for (const value of [
@@ -530,7 +531,7 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する", () => {
   const invalidDocument = normalizeFixtureTaskResult(
@@ -571,7 +572,7 @@ test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Claude Envelope拒否を値の非公開と受理条件を維持して分類する", () => {
   const cases = [
@@ -622,7 +623,7 @@ test("Claude Envelope拒否を値の非公開と受理条件を維持して分�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Provider Result拒否はrawを出さず固定理由で意味分類する", () => {
   const cases = [
@@ -669,7 +670,7 @@ test("Provider Result拒否はrawを出さず固定理由で意味分類する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否する", () => {
   const executorCases = [
@@ -743,7 +744,7 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Reviewerの外形拒否は本文を出さず構造条件ごとに分類する", () => {
   const cases = [
@@ -785,7 +786,7 @@ test("Reviewerの外形拒否は本文を出さず構造条件ごとに分類す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("ClaudeのCLI計画上限と報告metadataを比較せず受理する", () => {
   const expectedLimits = {
@@ -879,7 +880,7 @@ test("ClaudeのCLI計画上限と報告metadataを比較せず受理する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("作業量の有限見積りは全推論で一致し、報告回数とCLI上限を比較しない", () => {
   for (const [
@@ -955,7 +956,7 @@ test("作業量の有限見積りは全推論で一致し、報告回数とCLI�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("不明または予算超過の作業量を旧固定値へfallbackしない", () => {
   for (const workload of [
@@ -1027,7 +1028,7 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("Claude不正Turn metadata、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
@@ -1081,7 +1082,7 @@ test("Claude不正Turn metadata、不正cost、重複JSON key、複数document�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理する", () => {
   assert.equal(
@@ -1114,7 +1115,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
@@ -1145,4 +1146,34 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
     "bounded_untrusted_defect_claim_after_secret_screening",
   );
   assert.equal(contract.credentialAbsenceVerified, false);
+});
+
+/**
+ * 真正レビューが発行した限定是正Capabilityを同じModuleで一回だけ消費する。
+ * @responsibility コピー・別object・再消費による所見再送を拒否する。
+ * @trace RCM-UT-016
+ * @precondition 合成Reviewer Envelopeと一件の所見。
+ * @stimulus 原Capability、コピー、別object、消費済みを渡す。
+ * @observation findingsとnull、元結果とHashの保全。
+ * @oracle 原本一回だけ成功し、他はnull。
+ * @cleanup N/A: WeakMapと合成値だけ。
+ * @boundary Executorの公開正規化と私有の一回使用証拠。
+ */
+test("限定是正の一回消費は結果分割後も元の真正Capabilityだけを受理する", () => {
+  const result = normalizeFixtureTaskResult(
+    "claude",
+    "reviewer",
+    "medium",
+    claudeReviewer(REVIEWER),
+  );
+  assert.equal(result.status, "confirmed");
+  const normalized = result.normalizedResult;
+  assert.ok(normalized && "remediationCapability" in normalized);
+  const capability = normalized.remediationCapability;
+  assert.equal(consumeProviderTaskRemediation({}), null);
+  assert.equal(consumeProviderTaskRemediation({ ...capability }), null);
+  const consumed = consumeProviderTaskRemediation(capability);
+  assert.ok(consumed);
+  assert.equal(consumed.findings.length, 1);
+  assert.equal(consumeProviderTaskRemediation(capability), null);
 });

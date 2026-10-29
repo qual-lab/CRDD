@@ -6,7 +6,7 @@
  * @boundary 製品APIではない。Module計測付き診断で、通常E2Eの成立根拠にしない。
  */
 import { mock } from "node:test";
-import * as original from "../src/result/normalization.ts";
+import * as original from "../src/result/task.ts";
 import { parseProviderResult } from "../../ai-adapter/src/index.ts";
 import { containsRecognizedSecretMaterial } from "../../domain-model/src/index.ts";
 
@@ -256,7 +256,7 @@ export function installTaskSummaryObservation() {
     secret: containsRecognizedSecretMaterial,
   });
   const replacement = mock.module(
-    new URL("../src/result/normalization.ts", import.meta.url).href,
+    new URL("../src/result/task.ts", import.meta.url).href,
     {
       namedExports: {
         ...original,

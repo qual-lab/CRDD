@@ -1,5 +1,27 @@
 # QA-000006 外部実行境界の検証定義
 
+## Executor単独Packageの確認範囲 — 2026-10-30
+
+単独Packageの確認では、上位のTask順序・Workbench HTTP・MCP搬送を完成条件へ混ぜない。ExecutorのRoot APIから一Provider一試行を確認し、計画、準備、開始、通知、取消、結果、清掃、元証拠の相関を別々に検査する。既存の`ERB-IT-002`／`ERB-IT-004`、`RCM-UT-016`、`ERB-UT-023`を利用し、新しい検証台帳やRuntime機構は作らない。
+
+| 保証と主な反例 | 単独で再実行する試験 | 観測する終了条件 |
+|---|---|---|
+| CoordinatorなしのRootロード、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map非公開 |
+| 準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | executor/tests/unit/preparation.contract.test.ts | 両ProviderのMap分離。回収不明を消費成功にしない |
+| Codex／Claude、候補／本番Factory配線、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 用途順序、取消後join、単一清掃、元回復参照、通知失効、元終端、試験排他解放と新品Root処置 |
+| 元通知・コピー・別Owner・失効後 | executor/tests/unit/observation.contract.test.ts | 私有証拠の相関と失効 |
+| 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 五清掃条件32組合せ×三状態で未確定を成功にしない。元回復参照を維持 |
+| 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/result/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
+| 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/result/advice.contract.test.ts | Envelope除去と意味検査を区別。失敗は本文なし |
+| 試験HostのReceipt・保存拒否・排他解放・元終端 | executor/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
+| Home事前確認の観測不能・元Lock・既存名導出 | executor/tests/integration/provider-home-boundary.contract.test.ts | 模擬サービス上の有限取得・解放と不明保持。実Homeには触れない |
+| 単段検証CLIの同意、IPC、異常close、取消、親切断、診断、保持・清掃 | executor/tests/integration/provider-real-cli.contract.test.ts | 子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
+| 診断表示の元結果保全・参照URL・非表示条件・専用Process終了 | executor/tests/integration/task-summary-observation.contract.test.ts | 本文を保存せず、不成立を非表示にする |
+
+全件成功は、この表の非AI境界に対する結果であり、あらゆるOS故障・Docker故障・Provider障害を網羅したとの表明ではない。本番Factory試験は固定Docker Isolation Factoryのみを有限代役へ置き換える。実Engine、実Home排他、認証、実Container回収、Host喪失の実境界は模擬結果から成立としない。既存のCodex／Claude単段実試験とDirect／Isolated実試験はCHGの対象改訂版付き結果を参照し、今回の等価な配置整理で新たに再送しない。
+
+この表の網羅対象は公開責務と終了条件であり、行coverage率や件数だけでPackage全体の安全性を証明しない。実境界の保証に影響する変更が見つかった場合は、影響と限定試験条件を先に提示する。
+
 ## 最新版CLIと指定Modelの非AI確認 — 2026-10-25
 
 `ERB-IT-004`で、Codex Task／助言の共通CLI・Host・bwrapの由来とHash、用途別レシピ、Task時の固定Schemaを再構成する。Host欠測・Hash差・誤レシピではContextへの書込み0とする。`ERB-IT-002`で現行固定ImageとGPT-6.1 Solの計画から権限引数を取得し、合成Workspaceの書込み、Provider Homeの読取り・書込み拒否、sentinel不変、network none・read-only root、Hostのhelp終了、Container停止・exact ID回収・不存在を実観測する。Hostのhelp終了はModel実行中のRPC・Tool処理の実証ではない。

@@ -11,7 +11,6 @@ import {
   evaluateProviderAuthentication,
   normalizeClaudeStructuredResult,
   normalizeCodexStructuredResult,
-  parseProviderResult,
   projectCodexExecutionBoundary,
 } from "../../../ai-adapter/src/index.ts";
 import {
@@ -34,9 +33,6 @@ import { inspectExecutionSelection } from "../../../domain-model/src/index.ts";
 import {
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
-  type DockerProcessControllerFinalReason,
-  type PrimaryFailureDiagnostic,
-  type RecoveryStartFailureDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
   isDockerProcessControllerPublicCompletionReason,
   isDockerSetupCommandPurpose,
@@ -44,7 +40,13 @@ import {
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,
 } from "../result/validation.ts";
-import { normalizeProviderTaskStructuredResult } from "../result/normalization.ts";
+import type {
+  DockerProcessControllerFinalReason,
+  PrimaryFailureDiagnostic,
+  RecoveryStartFailureDiagnostic,
+} from "../result/types.ts";
+import { normalizeProviderTaskStructuredResult } from "../result/task.ts";
+import { normalizeProviderAdviceOutput } from "../result/advice.ts";
 import {
   createProviderObservationOwner,
   type ProviderAttemptDiagnosticNotice as ProviderBoundaryDiagnosticNotice,
@@ -1240,10 +1242,7 @@ async function executePlan(
                 plan.taskWorkload,
               )
             : plan.operationMode === "workbench_advice"
-              ? normalizeWorkbenchAdviceProviderResult(
-                  plan.provider,
-                  execution.stdout,
-                )
+              ? normalizeProviderAdviceOutput(plan.provider, execution.stdout)
               : plan.provider === "codex"
                 ? normalizeCodexStructuredResult(execution.stdout)
                 : normalizeClaudeStructuredResult(execution.stdout);
@@ -1576,53 +1575,6 @@ async function executePlan(
     );
   }
   return finalResult;
-}
-
-/**
- * Workbench助言Provider出力をProcess Controllerの内部正規形へ変換する。
- *
- * @responsibility Provider Envelopeを除去し、助言JSONだけをcleanup後の内部結果へ保持する。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input provider: 実行Provider、stdout: 固定CLIの標準出力。
- * @returns confirmed時はadviceJsonを持つ内部正規形、失敗時は拒否理由。
- * @precondition workbench_advice PlanのProvider Processが終了している。
- * @postcondition 生Envelope、Session、CostおよびTool出力をnormalizedResultへ含めない。
- * @effect N/A: 出力検証と値生成だけを行う。
- * @failure Provider固有完了条件を満たさない出力をblockedへ閉じる。
- * @invariant 参照許可集合による意味検証は上位Advice Executorが所有する。
- * @boundary Provider CLI出力とCoordinator内部助言JSONの間。
- * @security 生Provider出力を公開結果へ複製しない。
- * @concurrency N/A: 共有状態を変更しない同期処理である。
- */
-function normalizeWorkbenchAdviceProviderResult(
-  provider: "codex" | "claude",
-  stdout: string,
-) {
-  const extracted = parseProviderResult({
-    provider,
-    purpose: "advice",
-    raw: stdout,
-  });
-  return extracted.status === "confirmed" && typeof extracted.value === "string"
-    ? Object.freeze({
-        status: "confirmed" as const,
-        reason: null,
-        normalizedResult: Object.freeze({
-          contract: "crdd-coordinator/workbench-ai-advice-provider-output",
-          contractRevision: 1,
-          adviceJson: extracted.value,
-        }),
-      })
-    : Object.freeze({
-        status: "blocked" as const,
-        reason:
-          extracted.error?.reason ?? "workbench_ai_provider_output_invalid",
-        normalizedResult: null,
-        ...(extracted.turnCountDiagnostic === undefined
-          ? {}
-          : { turnCountDiagnostic: extracted.turnCountDiagnostic }),
-      });
 }
 
 /**

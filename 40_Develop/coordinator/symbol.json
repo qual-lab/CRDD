@@ -2350,22 +2350,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.provider-task-structured-result",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/task-structured-result.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-UT-016"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.claude.execution.plan",
-        "coordinator.source.src.security.provider.task.structured.result",
-        "ai-adapter.output.task-envelope"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.release-identity-grammar",
       "kind": "test-suite",
       "path": "tests/unit/release-identity-grammar.contract.test.ts",

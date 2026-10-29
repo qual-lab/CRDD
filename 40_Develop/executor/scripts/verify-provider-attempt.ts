@@ -136,9 +136,10 @@ export function verifyStandaloneProviderAttempt() {
       'connect_proxy_egress','create_provider','start_proxy','start_provider_attached'
     ];
     const terminals=[];
+    for(const provider of ['codex','claude']){
     for(const mode of ['candidate','production_factory']){
     for(const scenario of ['normal','cancel','cleanup_unknown','submission_throw']){
-      const directory=path.join(fixtureRoot,mode+'-'+scenario);
+      const directory=path.join(fixtureRoot,provider+'-'+mode+'-'+scenario);
       fs.mkdirSync(directory);
       const lock=path.join(directory,'fixture.lock');
       const descriptor=fs.openSync(lock,'wx');
@@ -151,7 +152,7 @@ export function verifyStandaloneProviderAttempt() {
       const commit=(kind,owner=management,gate=()=>true)=>{
         if(!lockHeld||owner!==management||gate()!==true)return false;
         const name='event-'+String(++sequence).padStart(3,'0')+'.json';
-        const value={kind,operationId:'OP-123456',recoveryId,sequence,provider:'claude'};
+        const value={kind,operationId:'OP-123456',recoveryId,sequence,provider};
         const written=writeCommittedJson(directory,name,name,value);
         const read=readCommittedJson(written.target,name);
         assert.equal(read.hash,written.hash);
@@ -167,36 +168,36 @@ export function verifyStandaloneProviderAttempt() {
       assert.equal(fs.readFileSync(lock,'utf8'),'executor-standalone-fixture');
       const suffix='0101010101010101';
       let plan={
-        provider:'claude',consumer:'coordinator_cli',operationId:'OP-123456',
+        provider,consumer:'coordinator_cli',operationId:'OP-123456',
         grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
-        executionSelection:{provider:'claude',modelIdentifier:'opus',identifierKind:'alias',
+        executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-5.5':'opus',identifierKind:provider==='codex'?'exact':'alias',
           reasoningEffort:'low',purpose:'task',catalogIdentity:'a'.repeat(64),
           configIdentity:'b'.repeat(64),role:'executor',workType:null,source:'explicit'},
         activeMountCapability:mount,authorityUseCapability:authority,
         providerHomeSourcePath:'C:\\synthetic-not-accessed\\home',
         providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),
         localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),
-        authContainerName:'crdd-auth-'+suffix,providerContainerName:'crdd-claude-'+suffix,
+        authContainerName:'crdd-auth-'+suffix,providerContainerName:'crdd-'+provider+'-'+suffix,
         proxyContainerName:'crdd-proxy-'+suffix,internalNetworkName:'crdd-internal-'+suffix,
         egressNetworkName:'crdd-egress-'+suffix,ownershipLabel:'crdd.coordinator.runtime='+suffix,
         providerImageDigest:'sha256:'+'1'.repeat(64),proxyImageDigest:'sha256:'+'2'.repeat(64),
-        subscriptionOffering:'claude_max',selectedModel:'opus',selectedEffort:'low',
+        subscriptionOffering:provider==='codex'?'chatgpt_subscription_oauth':'claude_max',selectedModel:provider==='codex'?'gpt-5.5':'opus',selectedEffort:'low',
         operationMode:'boolean_probe',taskRole:null,taskPacketRef:null,taskPacketHash:null,
         providerInput:null,workspaceSourcePath:null,workspaceMountMode:null,networkPolicy:null,
         commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
       };
       const tmp='C:/synthetic-not-accessed/tmp';
       if(mode==='production_factory'){
-        const built=api.buildProviderDockerExecutionPlan('claude',
+        const built=api.buildProviderDockerExecutionPlan(provider,
           {randomBytes:size=>Buffer.alloc(size,1)},
           {operationId:plan.operationId,createdAt:'2026-10-28T00:00:00.000Z',mounts:{
             workspace:'C:/synthetic-not-accessed/work',providerHome:'C:/synthetic-not-accessed/home',
             tmp,events:'C:/synthetic-not-accessed/events',projection:'C:/synthetic-not-accessed/projection',
             management:'C:/synthetic-not-accessed/management'}},
           {grant:{...plan},activeMountCapability:mount},
-          {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:'claude',
+          {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,
             executionSelection:plan.executionSelection,selectionHash:hashExecutionSelection(plan.executionSelection),
-            taskAttempt:0,model:'opus',effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
+            taskAttempt:0,model:plan.selectedModel,effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
           'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
         assert.ok(built);
         plan=Object.freeze({...built,authorityUseCapability:authority});
@@ -244,11 +245,11 @@ export function verifyStandaloneProviderAttempt() {
               }
               return {status:0,signal:null,stderr:'',outputExceeded:false,stdout:
                 command.purpose==='start_subscription_auth_probe_attached'
-                  ?JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',
-                    forcedLoginMethod:'claudeai',subscriptionType:'max'})
+                  ?(provider==='codex'?'Logged in using ChatGPT':JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',
+                    forcedLoginMethod:'claudeai',subscriptionType:'max'}))
                   :command.purpose==='start_provider_attached'
-                    ?JSON.stringify({type:'result',subtype:'success',is_error:false,
-                      num_turns:2,total_cost_usd:0,structured_output:{status:true}})+'\\n':''};
+                    ?(provider==='codex'?JSON.stringify({status:true}):JSON.stringify({type:'result',subtype:'success',is_error:false,
+                      num_turns:2,total_cost_usd:0,structured_output:{status:true}})+'\\n'):''};
             },
             terminateAndWait:async()=>{
               count.terminated++;events.push('terminated');providerWait.resolve();return true;
@@ -327,7 +328,7 @@ export function verifyStandaloneProviderAttempt() {
         assert.equal(call.wait,1,call.purpose);
       }
       assert.equal(calls.reduce((n,c)=>n+c.terminated,0),scenario==='cancel'?1:0);
-      assert.equal(result.status,scenario==='normal'?'completed':scenario==='cancel'?'cancelled':'blocked');
+      assert.equal(result.status,scenario==='normal'?'completed':scenario==='cancel'?'cancelled':'blocked',provider+':'+mode+':'+scenario+':'+result.reason);
       assert.equal(result.cleanupConfirmed,scenario!=='cleanup_unknown');
       assert.equal(result.manualRecoveryRequired,scenario==='cleanup_unknown');
       assert.equal(result.recoveryId,scenario==='cleanup_unknown'?recoveryId:null);
@@ -390,7 +391,8 @@ export function verifyStandaloneProviderAttempt() {
       assert.ok(sequence>0);
     }
     }
-    assert.equal(factoryCalls,4);
+    }
+    assert.equal(factoryCalls,8);
     assert.equal(forbiddenCalls,0);
     assert.equal(externalProcessCalls,0);
     assert.equal(coordinatorResolutions,0);
@@ -433,7 +435,7 @@ export function verifyStandaloneProviderAttempt() {
     for (const entry of fs.readdirSync(fixtureRoot)) {
       assert.match(
         entry,
-        /^(candidate|production_factory)-(normal|cancel|cleanup_unknown|submission_throw)$/,
+        /^(codex|claude)-(candidate|production_factory)-(normal|cancel|cleanup_unknown|submission_throw)$/,
       );
       const directory = path.join(fixtureRoot, entry);
       assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
@@ -466,7 +468,7 @@ export function verifyStandaloneProviderAttempt() {
             );
           } else {
             assert.equal(value.operationId, "OP-123456");
-            assert.equal(value.provider, "claude");
+            assert.equal(value.provider, entry.split("-")[0]);
             assert.equal(
               value.recoveryId,
               `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,

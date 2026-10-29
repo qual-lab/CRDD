@@ -23,19 +23,15 @@ export {
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
   isDockerSetupCommandPurpose,
-  type DockerProcessControllerFinalReason,
   isDockerProcessControllerPublicCompletionReason,
-  type PrimaryFailureDiagnostic,
   isPrimaryFailureDiagnostic,
   PROVIDER_EXECUTION_OBSERVATION_KEYS,
   inspectProviderExecutionObservation,
   RECOVERY_START_FAILURE_STAGES,
-  type RecoveryStartFailureDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
   ownDataValue,
   projectDockerProcessControllerStartResult,
   projectDockerProcessControllerCompletionResult,
-  type DockerProcessControllerPublicCompletionReason,
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,
 } from "./result/validation.ts";
@@ -45,14 +41,22 @@ export {
   consumeProviderTaskRemediation,
   normalizeProviderTaskStructuredResult,
   describeProviderTaskStructuredResultContract,
+} from "./result/task.ts";
+export {
   PROVIDER_ADVICE_RESULT_CONTRACT,
   PROVIDER_ADVICE_RESULT_CONTRACT_REVISION,
-  type AdviceResult,
-  type ProviderAdviceResultItem,
   normalizeAdviceResult,
   describeAdviceResultContract,
   describeAdviceResultSchema,
-} from "./result/normalization.ts";
+} from "./result/advice.ts";
+export type {
+  AdviceResult,
+  ProviderAdviceResultItem,
+  DockerProcessControllerFinalReason,
+  DockerProcessControllerPublicCompletionReason,
+  PrimaryFailureDiagnostic,
+  RecoveryStartFailureDiagnostic,
+} from "./result/types.ts";
 export {
   validatePlan,
   planIdentity,

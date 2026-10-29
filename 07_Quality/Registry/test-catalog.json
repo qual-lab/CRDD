@@ -7372,8 +7372,8 @@
     },
     {
       "id": "coordinator:unit:provider-task-structured-result",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/task-structured-result.contract.test.ts",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/result/task.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7386,7 +7386,7 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed"
+        "result_observed", "original_object_only", "single_use_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -10433,6 +10433,8 @@
     {"id":"coordinator:unit:host-observation","owner":"coordinator","path":"40_Develop/coordinator/tests/unit/storage/host-observation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["host","owner","resources","correlation"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["canonical_encoding_observed","hostile_values_rejected","identity_resource_correlation_preserved"],"mandatoryByDefault":true},
     {"id":"domain-model:unit:task-validation","owner":"domain-model","path":"40_Develop/domain-model/tests/unit/task/validation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["result","acceptance","decoder"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","unknown_not_absent"],"mandatoryByDefault":true},
     {"id":"workbench:integration:runtime-definition","owner":"workbench-server","path":"40_Develop/workbench-server/tests/integration/runtime-definition.contract.test.ts","level":"integration","kind":"contract","semanticTags":["runtime","definition","crud","core","storage"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
+    {"id":"executor:unit:controller-result","owner":"executor","path":"40_Develop/executor/tests/unit/controller.contract.test.ts","level":"unit","kind":"contract","semanticTags":["controller","cleanup","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["cleanup_conditions_correlated","exact_recovery_reference_preserved","result_only_after_completed_cleanup"],"mandatoryByDefault":true},
+    {"id":"executor:unit:advice-result","owner":"executor","path":"40_Develop/executor/tests/unit/result/advice.contract.test.ts","level":"unit","kind":"contract","semanticTags":["provider","advice","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected","raw_output_not_reported"],"mandatoryByDefault":true},
     {"id":"executor:unit:observation","owner":"executor","path":"40_Develop/executor/tests/unit/observation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","observation","identity"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["original_object_only","notification_revoked","cross_owner_rejected"],"mandatoryByDefault":true},
     {"id":"executor:unit:preparation","owner":"executor","path":"40_Develop/executor/tests/unit/preparation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","preparation","single-use"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["single_use_preserved","owner_maps_separate","unknown_preserved"],"mandatoryByDefault":true},
     {"id":"executor:integration:public-boundary","owner":"executor","path":"40_Develop/executor/tests/integration/public-boundary.contract.test.ts","level":"integration","kind":"contract","semanticTags":["attempt","public-api","dependency","fixture-storage"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["coordinator_not_loaded","invalid_start_effect_zero","private_maps_not_exposed","fixture_lock_released","fixture_events_committed","fixture_root_absent_or_reported"],"mandatoryByDefault":true},

@@ -30,7 +30,7 @@ import {
   prepareProviderEnvironment,
   type ProviderAdvicePlan,
 } from "../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../result/normalization.ts";
+import { describeAdviceResultSchema } from "../result/advice.ts";
 import { createHash } from "node:crypto";
 import type {
   PreparedPlan,

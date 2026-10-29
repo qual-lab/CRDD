@@ -1055,6 +1055,42 @@ Isolated候補Commitは`da7753609dadec2caecdf772f2e02f4ae72cf083`、Mergeは`33d
 
 引渡しJSONは、両Task／Domain相関・清掃Gate・Source不変・元Hash・exact Root・祖先／全三entryのnonreparseと唯一Fileを再確認後、通常削除した。空editと自己Rootは非再帰rmdirで回収し、`workspace-ai-hiBbKw`の不存在を確認済み。今回の物理残存は零。既存Docker資源・標準Network・過去保持物は不変更。
 
+#### Executor単独の構造整理と確認範囲 — 2026-10-30
+
+基準Commitは`bd881667`。先行の直接API版検証整理はこのCommitへ保存済みであり、今回の依頼にpushは含めない。対象はExecutor内部の責務配置と非AI確認で、Workbench／MCP／Coordinatorの機能拡張・実AI再送・Docker操作・過去保持物の処置は対象外とする。
+
+変更分類は内部Refactorと検証配置の移管。正本はExecutor詳細設計・QA-000006・既存Test Catalog／Symbol、直接利用側はExecutor内Controller／Plan／診断ToolとRoot型利用側である。着手前の独立照合で、結果契約・拒否理由・元WeakMap・一回使用・consumerのIdentity結合・検証Toolのimportとmock URLを維持する方針を確認した。文書の整合と横断影響をレビュー対象とし、準拠基準の変更・Release判断・外部通信がないため準拠監査と実境界再試験は今回追加しない。
+
+| 対象 | 処置 | 保持する保証 |
+|---|---|---|
+| result/normalization.ts | task.ts／advice.tsへ分割し旧ファイルを撤去 | Taskの編集・レビュー意味、助言の許可参照、契約値・改訂・理由 |
+| 結果の共有型 | result/types.tsへ移管。共通の成否形は内部型照合だけに利用 | Root公開名・推論型・返却field。Runtime値を追加しない |
+| Controller内の助言Envelope変換 | advice.tsへ移管 | AI Adapterの共通parseProviderResult、診断と失敗順序 |
+| 共通文字列・byte上限 | 既存validation.tsの内部公開へ集約 | 条件・上限不変。Rootへ公開しない |
+| 限定是正証拠 | task.ts内の一つのWeakMapで発行・消費 | 原本一回だけ、コピー・別object・再使用は拒否 |
+| attempt/plan.ts／consumer | 維持 | 実行計画とTask Graphを混同せず、回復Identityを変えない |
+| Controller本体 | 単一生涯を維持 | 開始・取消・join・清掃を行数だけで分割しない |
+| 結果検査UT | 純粋なTask全件とAdvice三件をExecutorへ移管 | 安定Test／Symbol ID維持。上位Packet結合は旧Ownerに残す |
+
+公開責務別の正常・準正常・異常・終了後条件と試験の対応は[QA-000006](../../../07_Quality/Definitions/QA-000006/quality_definition.md#executor単独packageの確認範囲--2026-10-30)に集約した。新しい検証Registry・State・Lock・Runnerは作成しない。Result coverageの実行入口はExecutorへ置き、Coordinator側は自分のRuntime／Packet試験だけを保持する。
+
+先行の独立レビュー二指摘は、Controller終端試験を専用ファイル・Catalog／Symbolへ分離し、移管した結果coverage入口をExecutorへ移すことで是正した。製品契約・Root API集合・元証拠に退行は検出されていない。結果型の追加整理を含む最終39件・型検査・整形・Lintと再レビューを完了し、今回の単独非AI確認範囲は完了、残指摘零と判定する。現在、人間による判断は必要ない。
+
+| 実行済み確認 | 結果と範囲 |
+|---|---|
+| Executor通常確認 | 型移管後の最終39件成功、型検査・整形・Lint成功 |
+| Result coverage入口 | 22件成功。coverage値はロードした他Packageも含むためPackage安全性の百分率としない |
+| Coordinator Runtime／Packet coverage入口 | 168件成功 |
+| 直接影響する助言／Task Packet四Suite | 30件成功 |
+| Controller既存全体Suite | 通常Windows環境で115件成功。制限環境では実子孫終了確認二件が不成立だったため、期限・判定を変えず通常環境で確認 |
+| Workbench診断搬送の既存Suite | 14件成功。新しいWorkbench機能の成立とはしない |
+| Catalog／Symbol | 台帳420件valid、SymbolのRepository／Domain指摘零 |
+| 型利用側 | Coordinator・Workbench・MCPの型検査成功。機能拡張や通信試験とは区別する |
+| 今回変更した四文書 | 対象文書自身の指摘零。参照先へ拡張された検査は538診断を含み全体Passとはしない |
+| 全体文書検査 | 履歴を含む全体は3,721診断で不合格。今回のSource成功を全CRDD文書合格へ拡張しない |
+
+実AI・Dockerは実行せず、既存の対象版付き実試験結果を保持する。今回生成した合成試験物の処置は各既存試験の終了条件に従い、過去保持物は操作しない。既存の実境界結果や模擬試験から、任意のOS／Provider故障の完全網羅を主張しない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

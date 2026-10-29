@@ -94,8 +94,10 @@ executor/src/
 │ ├ isolation.ts              既存Docker Isolationへの薄い接続
 │ └ observation.ts            通知・終端の私有Mapと元object照合
 └ result/
-  ├ normalization.ts          助言・編集・レビューの結果正規化
-  └ validation.ts             技術結果・非秘密診断の閉形式検査
+  ├ types.ts                  公開・共有結果型と非秘密診断型
+  ├ task.ts                   編集・レビューの結果検査と是正証拠の一回消費
+  ├ advice.ts                 助言Envelope変換・許可参照検査・結果Schema
+  └ validation.ts             技術結果・非秘密診断・共通文字列の閉形式検査
 ```
 
 本番入口`createProviderExecutor(host)`は固定Docker Isolationを構成し、`start`、`cancel`、`verifyProviderSubmissionNotice`、`verifyUnissuedNotice`、`borrowTerminalObservations`、`verifyCleanupOutcome`を返す。`start`は元準備・管理参照と同期の回復引渡しを取り、開始結果の`completion`を同一試行の終了まで待つ。取消要求の返却だけで終了成立とはしない。新しいRequest／Result SchemaやTimeoutは導入しない。
@@ -103,6 +105,26 @@ executor/src/
 準備入口`createProviderDockerRuntimeAdapterCandidate`は既存の有限Host操作からProvider別の一回準備を構成する。名称のcandidateは既存API名であり、自由なProcess実装を本番へ注入する意味ではない。純粋な計画・正規化・閉形式検査は同じRootから利用する。任意のProcess代役を受ける`createIsolatedDockerProcessControllerCandidate`は本番Authorityを持たず、別のcontrols／観測Mapを使う。
 
 Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ生成する固定接続部。旧Controllerには単段Controller実装を残さない。保存・確定・回復の三利用側はこの同じ実体のVerifierを使う。初期化中の相互参照は関数宣言の束縛だけとし、構築中に実行せず、追加Loaderや遅延Registryを置かない。
+
+### 内部整理の境界
+
+`attempt/plan.ts`が扱うのは一試行の実行計画であり、Task Graphや段階順序ではないため、名前の種類だけで分割しない。`controller.ts`は開始・取消・終了待機・清掃の一つの生涯を所有する。今回は純粋な助言Envelope変換だけを`result/advice.ts`へ移し、Controllerを行数だけで分割しない。
+
+結果の検査と公開契約は`result/task.ts`と`result/advice.ts`が所有する。公開・共有型は`result/types.ts`へ集約し、型だけの利用側は検査実装から読み込まない。共通の成否と内容有無は内部の`NormalizedProviderResult<T>`で型照合するが、用途別fieldと既存の推論型・返却値は変えない。限定是正証拠の発行・一回消費は同じ`task.ts`内の一つのWeakMapを利用する。共通のbyte上限・文字列検査は既存`validation.ts`内の非Root公開処理とし、新しいbarrelや互換転送ファイルは作らない。
+
+Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProviderResult()`へ委譲する。Executorはその結果に対し、編集Path・レビュー所見・助言の許可参照という用途固有の内容を検査する。共通化のためだけのNormalizer入口や汎用変換Frameworkは追加しない。
+
+`consumer`の既存値は表示の振分けではなく、選定・回復・終了証拠のIdentityへ結合されるため維持する。値の改名・撤去は保存と利用側の別変更となる。Root公開API、通信契約、改訂値、拒否理由、結果fieldの意味は今回変更しない。
+
+| 公開API群 | 所有者 | 役割 |
+|---|---|---|
+| `createProviderExecutor`、Controller契約、試験候補 | attempt | 単段開始、同じControlの取消、終了・清掃証拠の検証 |
+| 準備Adapter、計画構築・検査・Identity・Command結合 | attempt | 一回使用の準備と固定入力。Task進行を管理しない |
+| Task結果正規化・契約・是正証拠消費 | result/task.ts | 編集・レビュー結果を検査する |
+| 助言結果正規化・契約・Schema | result/advice.ts | 許可参照に限定した助言を返す |
+| 技術結果・診断・回復参照の検査と投影 | result/validation.ts | 閉形式の結果を公開する。状態を進めない |
+
+製品CLIは追加しない。scriptsは有限検証専用で、ライブラリのRoot APIを置き換えない。
 
 ## 3. 生涯と証拠
 
@@ -141,7 +163,7 @@ Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従�
 
 同じ独立子Processで、既存の隔離候補と実Controller／DI command sessionに合成Plan・有限CommandHandle・Host callbackを接続する。正常終了、wait中の取消とjoin、清掃不明、同期通知保存例外を検査し、元回復参照・一回消費・通知失効・別Owner拒否を確認する。
 
-本番Factoryの配線は、子Process内でDocker Isolation RootのFactory一つだけをModule代役へ替えて別構成で検査する。実公開builderと計画検査・投影を使い、下位へ渡すidentity／構成／stdin／元Ownerと元清掃結果を照合する。代役Runtimeは公開の候補sessionへ有限CommandHandleを渡すもので、本番Docker Runtime内部ではない。Hostから余剰に渡した実行primitiveの利用と外部Process起動は拒否する。両構成ともClaude形式の合成Probeであり、両Providerの実実行、固定Docker Runtime内部、耐久保存、実Process／Container不存在、Host Process喪失時の回収は未検証とする。
+本番Factoryの配線は、子Process内でDocker Isolation RootのFactory一つだけをModule代役へ替えて別構成で検査する。実公開builderと計画検査・投影を使い、下位へ渡すidentity／構成／stdin／元Ownerと元清掃結果を照合する。代役Runtimeは公開の候補sessionへ有限CommandHandleを渡すもので、本番Docker Runtime内部ではない。Hostから余剰に渡した実行primitiveの利用と外部Process起動は拒否する。両構成をCodex／Claude形式の合成Probeで確認する。固定Docker Runtime内部、実Process／Container不存在、Host Process喪失時の回収はこの模擬試験の対象外とする。実境界の既存結果はCHGの対象版付き記録を参照し、本体等価の配置変更を再送の理由にしない。
 
 ## 現行実装との照合
 

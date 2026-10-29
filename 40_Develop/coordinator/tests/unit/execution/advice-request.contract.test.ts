@@ -19,16 +19,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import test from "node:test";
+import { PROVIDER_ADVICE_RESULT_CONTRACT } from "../../../../executor/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../../version-control/src/index.ts";
-import {
-  describeAdviceResultContract,
-  normalizeAdviceResult,
-  PROVIDER_ADVICE_RESULT_CONTRACT,
-} from "../../../../executor/src/index.ts";
 import {
   describeAdviceTaskContract,
   prepareAdviceTask,
@@ -86,123 +82,6 @@ const COMPLETED = Object.freeze({
     }),
   ]),
   candidate: null,
-});
-
-/**
- * 読取り助言の単一JSONを許可済み根拠参照へ拘束するを検証する。
- *
- * @responsibility 読取り助言の単一JSONを許可済み根拠参照へ拘束するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 読取り助言の単一JSONを許可済み根拠参照へ拘束するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("読取り助言の単一JSONを許可済み根拠参照へ拘束する", () => {
-  const raw = JSON.stringify({
-    contract: PROVIDER_ADVICE_RESULT_CONTRACT,
-    contractRevision: 1,
-    status: "completed",
-    facts: [{ text: "現在状態", references: ["PROJECT_CONTEXT.md#current"] }],
-    sharedAnalysis: [],
-    additionalInferences: [
-      { text: "日程リスク", references: ["99_Roadmap/01_Roadmap.md#risk"] },
-    ],
-    nextOptions: [
-      { text: "次の確認", references: ["PROJECT_CONTEXT.md#next"] },
-    ],
-  });
-  const result = normalizeAdviceResult(raw, [
-    "PROJECT_CONTEXT.md#current",
-    "99_Roadmap/01_Roadmap.md#risk",
-    "PROJECT_CONTEXT.md#next",
-  ]);
-  assert.equal(result.status, "confirmed");
-  assert.deepEqual(result.normalizedResult?.facts, [
-    { text: "現在状態", references: ["PROJECT_CONTEXT.md#current"] },
-  ]);
-  assert.equal(result.rawOutputReported, false);
-});
-
-/**
- * 読取り投影外参照・根拠なし・曖昧JSONを拒否するを検証する。
- *
- * @responsibility 読取り投影外参照・根拠なし・曖昧JSONを拒否するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 読取り投影外参照・根拠なし・曖昧JSONを拒否するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () => {
-  const fixture = {
-    contract: PROVIDER_ADVICE_RESULT_CONTRACT,
-    contractRevision: 1,
-    status: "completed",
-    facts: [{ text: "現在状態", references: ["PROJECT_CONTEXT.md#current"] }],
-    sharedAnalysis: [],
-    additionalInferences: [],
-    nextOptions: [],
-  };
-  const allowedResults = ["PROJECT_CONTEXT.md#current"];
-  assert.equal(
-    normalizeAdviceResult(
-      JSON.stringify({
-        ...fixture,
-        facts: [{ text: "推測", references: ["SECRET.md#unknown"] }],
-      }),
-      allowedResults,
-    ).status,
-    "blocked",
-  );
-  assert.equal(
-    normalizeAdviceResult(
-      JSON.stringify({
-        ...fixture,
-        facts: [{ text: "根拠なし", references: [] }],
-      }),
-      allowedResults,
-    ).status,
-    "blocked",
-  );
-  assert.equal(
-    normalizeAdviceResult(
-      `${JSON.stringify(fixture)}${JSON.stringify(fixture)}`,
-      allowedResults,
-    ).status,
-    "blocked",
-  );
-  assert.equal(
-    normalizeAdviceResult(
-      '{"contract":"crdd-coordinator/workbench-ai-advice-result","contract":"duplicate"}',
-      allowedResults,
-    ).status,
-    "blocked",
-  );
-});
-
-/**
- * 読取り助言結果契約は上限と生出力非公開を固定するを検証する。
- *
- * @responsibility 読取り助言結果契約は上限と生出力非公開を固定するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 読取り助言結果契約は上限と生出力非公開を固定するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("読取り助言結果契約は上限と生出力非公開を固定する", () => {
-  const contract = describeAdviceResultContract();
-  assert.equal(contract.contractRevision, 1);
-  assert.equal(contract.duplicateKeysAllowed, false);
-  assert.equal(contract.outOfProjectionReferencesAllowed, false);
-  assert.equal(contract.rawOutputReported, false);
 });
 
 /**

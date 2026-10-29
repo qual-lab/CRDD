@@ -8,7 +8,7 @@ import type { DockerResourceCleanupObservation } from "../../../docker-isolation
 import type {
   PrimaryFailureDiagnostic,
   RecoveryStartFailureDiagnostic,
-} from "../result/validation.ts";
+} from "../result/types.ts";
 /**
  * 一試行の非秘密診断を表す。
  * @responsibility 構成・回復開始失敗・終了観測を相関した閉じた通知へ限定する。

@@ -3,6 +3,12 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    {
+      "symbolId": "executor.result.types",
+      "kind": "file",
+      "path": "src/result/types.ts",
+      "archIds": ["ARCH-000008", "ARCH-000015"]
+    },
     { "symbolId": "executor.verification.task-summary-observation", "kind": "file", "path": "scripts/task-summary-observation.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "executor.test.integration.task-summary-observation", "kind": "test-suite", "path": "tests/integration/task-summary-observation.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-002"], "verifies": ["executor.verification.task-summary-observation"] },
     {
@@ -56,7 +62,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/result/normalization.ts",
+      "path": "src/result/advice.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -64,7 +70,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/result/normalization.ts",
+      "path": "src/result/task.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -196,6 +202,38 @@
         "coordinator.execution.provider-observation",
         "coordinator.source.src.security.docker.process.controller"
       ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.provider-task-structured-result",
+      "kind": "test-suite",
+      "path": "tests/unit/result/task.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.claude.execution.plan",
+        "coordinator.source.src.security.provider.task.structured.result",
+        "ai-adapter.output.task-envelope"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.advice-result",
+      "kind": "test-suite",
+      "path": "tests/unit/result/advice.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-UT-023"],
+      "verifies": ["coordinator.source.src.security.workbench.ai.advice.result"]
+    },
+    {
+      "symbolId": "executor.test.unit.controller-result",
+      "kind": "test-suite",
+      "path": "tests/unit/controller.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-004"],
+      "verifies": ["coordinator.source.src.security.docker.process.controller"]
     }
   ]
 }

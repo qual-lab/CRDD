@@ -756,7 +756,7 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 | execution/observation.ts | 利用可否の観測とTask完了の上位投影。技術証拠Mapを二重保持しない |
 | execution/authority.ts | 新規操作の現在のAuthority。履歴unknownを成功へ変えない |
 | execution/preparation.ts | Packet・Selection・Home・送信範囲を固定し、単段準備をExecutorへ渡す |
-| Executor attempt/preparation.ts・result/normalization.ts | 準備値・真正レビューに結合した限定是正許可の一回消費。Task段階の順序は持たない |
+| Executor attempt/preparation.ts・result/task.ts | 準備値・真正レビューに結合した限定是正許可の一回消費。Task段階の順序は持たない |
 | execution/controller.ts | 同Owner内の段階順序、真正レビュー結果、候補・入力整合、取消と次stage発行 |
 | execution/recovery.ts | 未解決実行の回復と、既存の通常技術終了への接続。Owner喪失後に未発行stageを再開しない |
 | execution/provider-executor.ts | 同じ本番Executorの開始・取消・元証拠照合への用途固定接続 |
