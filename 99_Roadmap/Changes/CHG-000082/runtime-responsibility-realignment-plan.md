@@ -958,6 +958,40 @@ Image・実ID・名前・label、非root、RO root、capability削減、no-new-p
 
 最終確認はDocker Isolationのformat／型／lint成功（既存の情報通知2件、warning／errorなし）、通常回帰291件成功・失敗0・実境界2件skip。Executorのcheck・17件成功。Coordinator通常／実Docker試験用の型検査成功、関連4Suite（認証create・回復再入場・Host移行・Process Controller）129件成功。独立レビューの試験位置漏れ1件を修正・再確認し、残指摘0。`git diff --check`成功。実Docker・実AI・Image更新・過去保持物操作は今回実施していない。これらの非AI結果を過去のCode Mode故障の原因確定、Direct／Isolated編集E2E成功とは扱わない。
 
+#### PID上限撤廃後の一回編集E2E：承認と事前確認 — 2026-10-29
+
+固定Sourceは`f748c8da8cf4a9faabdd1f6a44feeca1e796df26`。人間は新品合成RepositoryでDirect→成功時だけIsolatedを各一Task、Codex `gpt-6.1-sol`／medium編集とClaude `claude-opus-5-5`／mediumレビュー、既存限定是正一回・再レビューまで全体最大八Provider段を承認した。送信は合成Context・source.txt・固定指示・差分だけ。Task全体再試行、Docker再起動、Image更新、過去保持物操作は含まない。失敗時は次方式を開始せず同ID取消・終了確認と今回物の安全な回収だけを行い、確認不能は同じ回復参照で保持する。通常送信同意は対話端末で人間が入力する。
+
+Engine linux 29.8.1・稼働Container零・既存Codex／Claude／Proxy固定Digest三件の存在を読取り確認した。既存created認証Container一件・旧exited Container一件と四Networkは基準観測にだけ使用し、操作しない。独立Source照合は残指摘零。非AI三Suiteは制限環境でloopback応答前の通信失敗五件（33成功／38件）を検出したが、Source・期限を変えず通常のローカル通信権限で同じ38件が成功した。失敗を隠さず、前者を実AI故障又はPID撤廃故障と断定しない。
+
+新品`C:\project\CRDD\.crdd\tests\workspace-ai-qsjifi`の`--preflight`は終了値零、両方式limitedProbePassed／runtimeClean／workspaceClean／closeConfirmed true、Directの既存dirty／stage／未追跡保全、Isolatedの候補固定・二親Merge・候補終了・Worktree／Branch回収が成立した。Docker前後差は追加／削除零・既存inventory保持・system構成一致、Source不変。両fixtureの回収Gateはeligibleで削除済み。引渡し用result.jsonと空親だけをFront AIの確認後清掃対象とする。実AIはこの事前確認に含まれない。
+
+非AI引渡しJSONのSHA-256は`642cb90b819299423d0017458fdb2aea589f01eee6c1c98d8b881aa40bfe1abb`。exact Rootと通常Directory／File二entry、結果の両方式成功・回収Gate・Source不変を再照合し、このJSONと空親二Directoryだけを非再帰の通常削除で清掃した。`workspace-ai-qsjifi`の不存在を確認済み。
+
+23:37 JSTに外部対話端末PID33576を起動し、通常の`--external-send-confirmed`一回を開始した。今回実AI専用Rootは`C:\project\CRDD\.crdd\tests\workspace-ai-JDuqVH`。Sourceの起動引用符はEncodedCommand内で固定し、生出力の自動保存はしない。現在は人間の通常送信同意と実行終了待ちであり、成功・回収済みとは表示しない。
+
+#### PID上限撤廃後の一回編集E2E：実結果と清掃判定の不整合 — 2026-10-29
+
+人間申告は`E2E_EXIT=2`。再送はしていない。一方、元resultではDirect／IsolatedともlimitedProbePassed／runtimeClean／workspaceClean／closeConfirmed true、Task／execution completed、Claudeレビューapproved・finding零だった。各方式はCodex編集→Claudeレビューの二段だけ、全体四Provider起動で、限定是正は不要。Directは`DIRECT_OK\n`の10byteと既存dirty／stage／未追跡の保全を確認した。Isolatedは`ISOLATED_OK\n`の12byte、候補固定Commit `e1f3c70e93488cac512540d9ec906ef8ecd8b104`、二親Merge `72e6ec63e4aeb30184a1a366d8c196f8caaab43f`、候補終了・Worktree／Branch回収まで成功した。HTTP通信失敗なし、Header待機最大はDirect10000ms／Isolated13688msで、十五秒期限は変更していない。Source不変。
+
+Direct Requestは`request-2b0656c9-7180-4710-add0-5570d513528f`、Isolatedは`request-89097feb-a8c6-47b2-b237-990a95bcf936`。四段ともProvider正常終了・Process Tree終了・Container／Network不存在・cleanup true。今回Docker資源の前後差は零で、既存created認証Container・旧exited Container・四Networkを変更していない。
+
+終了値2の直接理由は両fixtureRemovalGateが`fixture_cleanup_unconfirmed`となったこと。公開Task Snapshotは成功時も`primaryFailure: coordinator_task_workspace_review_completed`を返し、試験Gateはnullを要求していた。`coordinator/src/task/requests.ts`のSnapshot構築が`primaryFailure: record ? record.reason : reason`として成功reasonを複写することを確認した。これをProvider故障、編集不成立又はDocker回収失敗とは扱わない。元報告の`fullE2eVerified:false`、削除失敗、終了値2は変更しない。正式入口の成功時primaryFailureと清掃試験の契約整合は未是正であり、次の最小修正候補とする。
+
+通常File入口の既存Domain Readerで両Taskのsettled／completed・cleanup true・recoveryIds空と同Request履歴のcompleted／cleanup confirmed／primaryFailure nullを確認した。技術操作・未解決回復・配送待ち・Lease Intent・Workspaceは零。inline入口ではReader確認が不成立で、通常入口の初回は相対import誤りでEffect前に停止した。この診断上の失敗は製品故障へ読み替えない。
+
+独立確認後、今回清掃だけのメモリ内投影として、元のreasonとprimaryFailureが同じ既知成功reasonであること、freshな同Request履歴がprimaryFailure nullであることを全件assertしたうえで、Task投影の当該fieldだけを正本から取り出した。元result.jsonは改変せず、既存assessFixtureRemoval本文・maintain／transfer・再読・Git／Lease／Root条件を省略せず再利用した。最初の別JavaScript実行領域での評価は配列prototype差で拒否され、同領域の未変更本文では両Gateがeligible／fixture_closed_and_unreferencedとなった。これを汎用例外・新しい回復機構・製品修正として追加していない。
+
+元result SHA-256は`d8811a3e56fab154fa83d4f71f886ed224fe3aa846ae53530902fe0f3625a416`。今回Root全体は通常File74・Directory73、全File nlink1、symbolic linkなし、inventory SHA-256 `e381ff0125114beb89941bdac5553eb0c2d99f7e1aafcf677cb97f383e70abb3`。試験Nodeの終了とDocker基準復帰を再観測し、今回の合成Git・終了済み状態・非秘密結果・短命確認入口だけを清掃対象とする。過去保持物は対象外。編集成功と上限撤廃の時間的相関はあるが、この一回だけから旧故障の原因がPID64だったとは確定しない。
+
+清掃時にexact絶対Root・全147entryの範囲・nonreparse・件数・元結果Hashを再確認した。ReadOnlyは今回合成Git objectの31Fileだけ、Hiddenは今回の空`.git`二Directoryだけと照合し、その属性だけを解除して通常File74件・空Directory73件を非再帰で個別回収した。`workspace-ai-JDuqVH`の不存在を確認済みで、今回の物理残存は零。ACL修復・force／再帰削除・AI再送・Docker再起動・Image更新・過去保持物操作はなし。元実行の終了値2と清掃判定の未是正事項は維持し、手動清掃を元試験の終了値0へ遡及しない。
+
+#### 成功時primaryFailureの最小是正 — 2026-10-29
+
+人間の継続指示により、`task/requests.ts`の公開view投影一箇所だけを変更した。公開statusと記録statusの両方がcompletedの場合だけprimaryFailure null、成功理由はreasonへ維持する。blocked／cancelled／unknown、記録欠測、公開側又は保存側の片側だけcompletedでは従来理由を保全する。回復参照・副次失敗・保存Schema・遷移・清掃Gate・HTTP期限に変更はない。新API・State・回復機構は追加しない。
+
+PRL-UT-006へ製品view本文の境界行列を追加し、ERB-IT-021の本番Owner・実保存・HTTP子Client結合へ非null成功reasonと取消reasonの相関assertを追加した。初回の試験型検査で行列tupleの未確定要素型を検出し、値を変えずconst tupleへ追従後、両Package型検査、Workbench check、Coordinator変更Fileのformat／lint、局所二件が成功した。Workbench関連二Suite三十件とCoordinatorの公開契約・Owner境界・回復参照三Suite二十一件が成功。独立レビューは残指摘零。続く単発Taskの実保存回帰四件も成功し、自己生成Rootの不存在を確認した。差分検査も成功。AI再送・Docker照会／操作・過去保持物操作は行っていない。過去一回の終了値2を変更せず、今回の非AI確認を実AI終了値0の観測として扱わない。
+
 #### Dの内容認可とMCP定義操作の限定接続
 
 承認済みdevelopment権限に基づき、Access Managementの`repository/resolve.ts`へ要求内の`resolveRuntimeContentAccess`を接続した。既存の同じ短期Lock内で現在状態・資格認証・内容認可・保留材料・Repository実体を確認する。Domainの各I/O確認点では同じ改訂と元bytesのHashを照合し、認可・実体・manifestを取り直す。資格の高コスト照合は要求ごとに一回だけで、後続は同じ元bytesへの結合を検査する。次要求とのcache共有、TTL、Snapshot保持、新State／Lockはない。失効、同改訂本文変更、Role／Exposure変更、manifest変更、保留不成立、Root差、取消、Lock解放不明は許可へ変換しない。

@@ -2487,7 +2487,9 @@ for (const transport of ["tool-child-process"] as const) {
         return {
           mode: "read_only_advice",
           status: signal.aborted ? "cancelled" : "completed",
-          reason: signal.aborted ? "synthetic_cancelled" : null,
+          reason: signal.aborted
+            ? "synthetic_cancelled"
+            : "coordinator_task_workspace_review_completed",
           cleanupConfirmed: true,
           recoveryIds: [],
           advice: signal.aborted
@@ -2585,6 +2587,16 @@ for (const transport of ["tool-child-process"] as const) {
         mode === "normal" ? "completed" : "cancelled",
       );
       assert.equal(result.cleanupConfirmed, true);
+      assert.equal(
+        result.reason,
+        mode === "normal"
+          ? "coordinator_task_workspace_review_completed"
+          : "synthetic_cancelled",
+      );
+      assert.equal(
+        result.primaryFailure,
+        mode === "normal" ? null : "synthetic_cancelled",
+      );
       assert.deepEqual(result.recoveryIds, []);
       assert.deepEqual(result.secondaryFailures, []);
     }

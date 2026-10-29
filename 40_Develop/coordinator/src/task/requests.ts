@@ -1005,7 +1005,7 @@ export function createCoordinatorTaskRequests(
  * @input 依頼ID、記録、状態と固定理由。
  * @returns 非Authorityの表示値。
  * @precondition 上位で閲覧認可する。
- * @postcondition 候補採用・変更帰属を主張しない。
+ * @postcondition 候補採用・変更帰属を主張しない。公開・実行の両状態がcompletedなら成功理由はreasonだけへ残す。
  * @effect なし。
  * @failure 欠測はunknown。
  * @invariant 本文を永続化しない。
@@ -1035,7 +1035,12 @@ function view(
     attemptId: record?.attemptId ?? null,
     operationId: record?.operationId ?? null,
     executionStatus: record?.status ?? null,
-    primaryFailure: record ? record.reason : reason,
+    primaryFailure:
+      status === "completed" && record?.status === "completed"
+        ? null
+        : record
+          ? record.reason
+          : reason,
     cleanupConfirmed: record?.cleanupConfirmed ?? false,
     recoveryIds: record?.recoveryIds ?? [],
     secondaryFailures: [] as readonly string[],

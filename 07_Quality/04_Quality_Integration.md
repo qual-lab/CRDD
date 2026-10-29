@@ -1,5 +1,9 @@
 # Quality Integration
 
+## 公開Taskの成功理由と一次失敗の分離 — 2026-10-29
+
+PRL-UT-006では公開・保存の両completedだけ一次失敗nullとし、成功reason保持、片側完了・取消・失敗・不明・記録欠測の既存原因とexact回復参照の保全を確認する。ERB-IT-021の本番Owner／実保存／HTTP子Client結合では、非nullの成功理由がreasonへ残りprimaryFailureだけnullとなることと、取消理由が消えないことを確認する。既存の十五秒期限・清掃Gateは維持し、外部AI・Docker・過去保持物操作は行わない。過去実試験の終了値2を遡及変更せず、今回の非AI是正を再実AIの成功又は元試験の終了値0とは扱わない。
+
 ## Docker独自PID上限の撤廃 — 2026-10-29
 
 人間が採用した独自上限撤廃に合わせ、各Containerの生成引数へPID上限を付けないこと、構成照合・回収でPidsLimitの欠測／null／0／-1／外部設定値を固定値不一致として拒否しないことを非AIで確認する。Identity・Image・UID・RO root・capability・Init・Mount・Networkの既存反例は維持する。実Dockerの新規起動・実AI・過去保持物処置は別途承認対象であり、非AI回帰を編集E2E成立へ読み替えない。

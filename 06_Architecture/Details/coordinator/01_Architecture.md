@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 公開Taskの成功理由と一次失敗 — 2026-10-29
+
+単発Taskの公開Snapshotは、公開statusと保存記録のstatusがともに`completed`の場合だけ`primaryFailure:null`とし、成功理由は`reason`へ保持する。片側だけの完了、blocked・cancelled・unknown、記録欠測の既存理由・回復参照・副次失敗をこの条件で消去しない。保存状態・履歴Schema・状態遷移・清掃成立条件は変更しない。成功理由が一次失敗にも複写され、実AI編集成功後の検証Tool清掃Gateが拒否した不整合に対する、表示投影の限定是正である。
+
 ## Core独立後の目標責務 — 2026-10-27
 
 2026-10-28の公開入口分離では、Objective／Decision／状態照会／Workspaceの純粋な入力・結果検査と観測型をDomainへ実体移管した。[移管先の一覧](../domain-model/05_Runtime_Domain.md#2-共通入力返却値)を参照する。Coordinator Rootの同名公開は同じDomain宣言の再公開であり、検査実装を二重保持しない。`state/projection.ts`には投影生成とSchedulerへの接続だけを残し、実行判断をDomainへ移さない。続く[Executor分離](../executor/01_Architecture.md)では単段準備・Process制御・結果正規化・観測Mapを実体移管し、`execution/provider-executor.ts`で同じ一つの本番Runtimeへ接続する。Task順序・Workspace・共通Host清掃と保存はCoordinatorに残す。実AI／Docker境界の検証完了とは区別する。
