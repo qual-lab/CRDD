@@ -3,44 +3,79 @@
   "contractRevision": 1,
   "subsystem": "docker-isolation",
   "symbols": [
-    { "symbolId": "docker-isolation.test.unit.execution-binding", "kind": "test-suite", "path": "tests/unit/execution/binding.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-UT-023"], "verifies": ["docker-isolation.execution.binding"] },
-    { "symbolId": "docker-isolation.execution.binding", "kind": "file", "path": "src/execution/binding.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     {
-      "symbolId": "docker-isolation.cleanup.probe-record",
+      "symbolId": "docker-isolation.test.unit.execution-binding",
+      "kind": "test-suite",
+      "path": "tests/unit/execution/binding.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.execution.binding"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.execution.binding",
       "kind": "file",
-      "path": "src/cleanup/probe-record.ts",
-      "archIds": ["ARCH-000008"]
+      "path": "src/execution/binding.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.unit.network-proxy",
       "kind": "test-suite",
       "path": "tests/unit/network/proxy.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-023"],
-      "verifies": ["docker-isolation.network.policy"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.network.policy"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.network-policy",
       "kind": "test-suite",
       "verificationTarget": "environment",
       "path": "tests/integration/network-policy.integration.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
       "verifies": []
     },
     {
       "symbolId": "docker-isolation.network.policy",
       "kind": "file",
       "path": "src/network/policy.ts",
-      "archIds": ["ARCH-000004", "ARCH-000008"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.unit.network-policy",
       "kind": "test-suite",
       "path": "tests/unit/network/policy.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-023"],
-      "verifies": ["docker-isolation.network.policy"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.network.policy"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.direct-mount-boundary",
@@ -298,6 +333,8 @@
       ],
       "verifies": [
         "docker-isolation.desktop.repair-machine",
+        "docker-isolation.desktop.technical-state",
+        "docker-isolation.desktop.technical-validation",
         "domain-model.attempt.repair-validation"
       ]
     },
@@ -786,6 +823,22 @@
       "symbolId": "ai-adapter.codex.distribution",
       "kind": "file",
       "path": "src/image/assets.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.desktop.technical-state",
+      "kind": "file",
+      "path": "src/docker-desktop/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.desktop.technical-validation",
+      "kind": "file",
+      "path": "src/docker-desktop/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]

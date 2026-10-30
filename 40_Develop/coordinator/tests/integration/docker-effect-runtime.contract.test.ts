@@ -13,7 +13,10 @@ import { createAttemptPreparation } from "../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashAdviceCommand } from "../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
-import { executionSelection } from "../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  attemptSelection,
+} from "../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
@@ -50,7 +53,7 @@ import {
   bindIsolationRuntime,
   describeIsolationContract,
 } from "../../../executor/src/index.ts";
-import { describeAdviceResultSchema } from "../../../domain-model/src/index.ts";
+import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { bindAdviceCommand } from "../../../docker-isolation/src/index.ts";
 
@@ -144,7 +147,7 @@ function createPlanFixture(
         operationId,
         executorProvider: provider,
         model,
-        executionSelection: selected,
+        ...attemptSelection(selected),
         selectionHash: hashExecutionSelection(selected) as string,
         taskAttempt: 0 as const,
         effort: isCompatibilityTask ? ("medium" as const) : ("low" as const),
@@ -207,7 +210,7 @@ function createPlanFixture(
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId,
-        executionSelection: selected,
+        ...attemptSelection(selected),
         provider,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),

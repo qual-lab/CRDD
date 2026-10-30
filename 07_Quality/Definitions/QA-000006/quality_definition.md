@@ -1,15 +1,21 @@
 # QA-000006 外部実行境界の検証定義
 
+## Docker IsolationのDomain非依存化 — 2026-10-30
+
+`ERB-IT-014`で技術checkpointとDomain保存受理を同じ正常・欠測・余剰・全field／enum差・nested Proxy／Accessor・凍結DTO・通知遷移・回復ID入力で照合する。本番Machineの通知列は上位の保存decoder／transitionも通す。DI型の成立を保存成功や資源観測と同義にしない。新品Processで相互Package解決を拒否して両Rootが開始でき、DIが記録Writer／Readerを公開しないことを確認する。
+
+`ERB-IT-003`／`PRL-IT-013`のProbe記録の実保存・Hash・token・Root／子実体・部分欠測・置換・故障OracleはCoordinator新Ownerへ追従し、診断の二保存と取消・公開結果の相関を維持する。DI公開API exact集合、coverage母集団、Symbolの一実体配置、検証記録Toolも追従する。実AI・Docker再起動・過去保持物はこの確認で操作せず、通常回帰と実境界の未実施を分ける。
+
 ## Task／Advice共通入口・結果とOwner移管 — 2026-10-30
 
 薄型化の確認では、Docker構成の初回createと開始時verifyを同じ`bindProviderCommand`へ接続し、正規構成の一致とAuthority原本の照合を別々に反証する。DIの`tests/unit/execution/binding.contract.test.ts`は両Provider・三用途、Token搬送方式、Digest、Role／Mount、部分Token差、九Commandの用途・順序・全argv差を確認する。既存Executor／Coordinator試験は原本一回消費、別Owner・コピー・Revision差・借用Path差・Effect前拒否を維持する。元Tokenを全出現箇所で変えたコピーは構成比較だけで拒否できると主張しない。
 
-Task内容の直接検査はDomainの`tests/unit/attempt/task-result.contract.test.ts`が所有し、余剰・欠測field、Path traversal、大小文字重複、件数上限、所見field、decision相関、getter／Proxyを検査する。Executorの既存結果試験はAI Adapter EnvelopeからDomainまでの結合、固定理由、実行観測の搬送を確認する。Probeの共通解析はAI Adapterの既存Codex結果Suiteで両Providerを確認する。是正Capability・一回消費・次試行AuthorityをDomainへ移さない。
+Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。Domainにあった内容検査は保存Consumerがなく、元UTをAI Adapterの`tests/unit/provider/task-result.contract.test.ts`と`advice-result.contract.test.ts`へ移管した。既存の`tests/integration/catalog-loading.contract.test.ts`で欠測・余剰field、Path traversal、大小文字重複、件数上限、所見field、decision相関、getter／Proxy、全拒否理由と固定Schema／Command Hashを確認する。Executorの既存結果試験はEnvelopeから内容検査までの結合、固定理由、実行観測の搬送を確認する。Domainの保存Schema・Writer・遷移は変更せず、是正Capability・一回消費・次試行AuthorityはCoordinatorに残す。
 
 | 確認対象 | 所有する試験 | 正常・反証条件 |
 |---|---|---|
 | 共通`prepare(AttemptInput)` | 両Providerの準備契約、DI接続代役 | 用途別exact field、一回消費、別Owner・選定差替え・取消・期限の拒否 |
-| 助言内容 | Domain `tests/unit/attempt/advice.contract.test.ts` | 四区分・容量・重複JSON Key・許可参照。ExecutorはEnvelope解析との接続を検査 |
+| 助言内容 | AI Adapter `tests/unit/provider/advice-result.contract.test.ts` | 四区分・容量・重複JSON Key・許可参照。ExecutorはEnvelope解析との接続を検査 |
 | 共通completion | Executor単独試験・公開境界試験 | Task／Adviceとも清掃後の型付き内容。旧六中間APIがRootへ存在しない |
 | 是正許可のOwner | Executor `review-delivery.contract.test.ts`とCoordinator Task Packet契約 | 清掃後の固定callbackだけで許可を付加。欠測・例外でも内容完了を改ざんせず許可なし。同一操作・初回レビュー・一回消費を要求し、コピー・別操作・再レビューを拒否 |
 | Command結合 | Coordinatorの既存助言Command／Packet契約 | DIへ移したHashの同一性、同意前Schema固定、Command差替え拒否 |
@@ -786,6 +792,14 @@ Codexの内部error Itemは総件数とCode Mode文字列一致件数だけを�
 - 三Stageの実Writer処理と単純loopback状態照会を重ね、Server受信→同期処理→応答終了の順序と、子Clientの十五秒以内完了・実終了を確認すること。各受領／確定の有限時計だけを診断し、本文・Path・資格値は記録しない。
 - Workbenchの本番HTTP回帰を別に確認し、単純応答試験を全画面Route又は実AI編集の成功へ流用しない。十五秒期限やWriterの不一致拒否を緩和しない。
 - 成功receipt後の制御返却でscheduled callbackが次receiptより先に処理されること。取消時も新Provider・再送を発行せず全終端を待つこと。実HTTPではServer受信→初回receipt→応答finish→後続receiptの順を確認し、単一receiptの最大遅延まで保証したとは扱わない。
+
+ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範囲で次を確認する。これは実AI・Docker操作の許可ではない。
+
+- Domain解決を拒否した新品ProcessでExecutor公開Rootをロードでき、局所捕捉・内部理由表を公開しない。
+- 技術六項目の欠測・余剰・不正用途／役割・Model／Effort／識別種別差、完全選定の混入、Hash不正とPacket不一致を拒否する。準備後の変更を開始時にも検査する。
+- Proxy・accessor・特殊prototype・symbol key・疎配列を実行せず拒否し、入力・許可参照を独立した不変値へ固定する。
+- 完了理由の発行集合とDomain保存受理集合を双方向に照合し、未知・欠測を受理しない。旧診断の完全形と新診断の部分欠測を混同しない。
+- 上位の完全選定借用は同じ有効Operation・選定ID・Hash・試行番号だけを受理し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術六項目へ置換しない。
 
 ## Checklist
 

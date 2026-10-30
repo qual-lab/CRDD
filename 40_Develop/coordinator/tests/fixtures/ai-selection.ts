@@ -11,7 +11,49 @@ import {
 import type {
   AiSelectionRole,
   AiSelectionChoice,
+  ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
+import {
+  inspectExecutionSelection,
+  hashExecutionSelection,
+} from "../../../domain-model/src/index.ts";
+
+/**
+ * 上位fixtureの完全選定をExecutor向けの技術値へ投影する。
+ * @responsibility 正常時は六項目と完全Hash、不正値は拒否試験用にそのまま搬送する。
+ * @trace ERB-UT-023
+ * @precondition 試験の合成値だけを受ける。
+ * @stimulus 完全値又は意図した不正値を渡す。
+ * @observation 技術投影と相関Hash。
+ * @oracle 保存元情報を正常な下位入力に含めない。
+ * @cleanup N/A: 局所値だけ。
+ * @boundary 上位代役とExecutorの入力。
+ */
+export function attemptSelection(candidate: unknown) {
+  const v = inspectExecutionSelection(candidate);
+  const value = v
+    ? Object.freeze({
+        provider: v.provider,
+        modelIdentifier: v.modelIdentifier,
+        identifierKind: v.identifierKind,
+        reasoningEffort: v.reasoningEffort,
+        purpose: v.purpose,
+        role: v.role,
+      })
+    : candidate;
+  return {
+    executionSelection: value as Pick<
+      ExecutionSelection,
+      | "provider"
+      | "modelIdentifier"
+      | "identifierKind"
+      | "reasoningEffort"
+      | "purpose"
+      | "role"
+    >,
+    selectionHash: hashExecutionSelection(candidate) ?? "invalid",
+  };
+}
 
 /**
  * 五役割と分類の試験専用設定を返す。

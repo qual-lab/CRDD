@@ -1638,6 +1638,70 @@ Rootは`C:\project\CRDD\.crdd\tests\executor-real-claude-EXEC-20261030-07`、元
 
 今回予定した両Providerの編集・レビュー・開始後取消の機能確認は、06〜11の限定結果で完了した。06／07の親Tool不合格は履歴上そのまま保持し、内部機能成功と後から確認した限定回収を区別する。08〜11は修正後の名前非依存清掃を含めTool終了値0だった。既存の助言実確認と併せ、単独Executorの承認済み固定条件の確認結果であり、全Provider障害、上位連携、物理Workspace引渡し、全体QA又はリリース準備完了へ一般化しない。自動再送・追加AI試行はしていない。
 
+##### Executor・AI Adapter・Docker IsolationのDomain非依存化（2026-10-30、進行中）
+
+人間はこの三PackageについてDomain Modelへの依存を外し、新しい共通ライブラリは設けず、永続化の方法・保存先・読戻しを上位Ownerが所有する境界を採用した。他の五PackageのDomain依存は今回の撤去対象にしない。試験Harnessの合成記録は製品の永続化とは分け、製品公開RootとsrcからDomainをロードしないことを完成条件とする。実AI・Docker・過去保持物の操作は行わない。
+
+| 対象契約 | 宣言・処理Owner | 上位の責務／維持条件 |
+|---|---|---|
+| Provider・Effort・Model選定の技術値・Turn診断 | AI Adapter | Repositoryの選定設定・選定理由・保存世代はDomain／Coordinator |
+| Provider入力／出力の検査 | AI Adapter | 保存形式とは分け、未信頼入力の拒否を維持 |
+| 一試行の入力・技術結果・通知 | Executor | 完全な保存選定を上位で照合し、確定した実行情報を渡す |
+| Docker回復DTO・技術遷移・回復ID | Docker Isolation | callbackで上位へ通知し、上位が保存・再入場を所有 |
+| 現在状態・Task／Operation・保存Writer | 既存Domain／Coordinator | 保存Schema・Version・履歴・exact回復参照・一回使用保証を無断で変更しない |
+
+最初にProvider共有四型の実宣言をAI Adapterの既存provider/typesへ戻し、Domainはtype-onlyで利用する。内部型の値域・readonly・optional性は変更せず、既存公開名も維持する。残る実行時のDomain検査参照がある間は移管途中であり、この型単位だけを非依存化完了又は独立した確定候補としない。各段階で静的型検査・公開型・既存正常／不正入力反例を確認し、最終候補はDomain解決を拒否した新品Processで三公開Rootのロードを反証する。新しいStore・Lock・監視・Recovery・保存用の中継Frameworkは作らない。
+
+###### AI Adapter先行移管の結果
+
+AI AdapterのsrcからDomain参照を撤去した。四技術型はprovider/types、入力捕捉は内部provider/input、JSON応答解析は内部provider/jsonが所有する。Domainは四型をtype-onlyで利用し保存形式は不変。新Package・保存・Authorityは追加しない。双方を相手Package解決拒否で新品Processへ読み込めること、発行理由と保存受理理由のexact一致を確認した。DomainからAI Adapterへのruntime理由参照案は独立レビューで拒否し撤去した。
+
+AI Adapter check・31件、利用側6Packageの型検査、試験台帳426件valid、独立再レビュー残Must-fix零。Domain checkも終了値0だが既存informational lint 19件は残る。広域保存試験は初回95／99成功で、実ハードリンクを制限環境が拒否した4件を自己生成Rootに限る実行条件で別途確認し全件成功した。先行Executor40／41は親fixture子の30秒超過による不合格として保持し、保存試験終了後の単独回帰はcheck・41件成功（約105.5秒）。Timeout・安全判定は変更していない。初回結果と別確認を合算して広域全体Passにはしない。
+
+Catalog単独importの循環は依存なしinputへ分離して是正した。Windows Node 24.19の不正Schema未捕捉終了時のlibuv assertionは、試験子が期待するModule拒否をcatchして理由と終了値1を返す最小追従で解消した。製品側の拒否は維持する。Docker Isolationのcheckpoint／回復ID、Executorの保存選定・Domain内容検査への依存は残っており、三Package全体は未完了。実AI・Docker・過去保持物は操作していない。
+
+###### Docker Isolationの技術契約と上位保存の分離
+
+Docker IsolationのsrcからDomainへのimport／再exportを撤去した。Desktopの技術checkpoint型と純粋な検査は既存docker-desktop配下が所有し、Domainは保存Schemaの受理検査を独立して維持する。全field・enum・不正値・accessor／Proxy・freeze・実通知列の契約照合で意味の一致を確認する。callbackの回数・通知時点・保存確定待ち条件は変更しない。回復ID解析も同じ文法を維持し、保存用Probe tokenとは区別する。
+
+実際のProbe記録Reader／Writerは、唯一の製品ConsumerであるCoordinatorのstate/probe-recordへ全体移管した。Schema、Hash、token、実体照合、原子的保存手順は変えず、Docker Isolationの公開Rootから保存APIを撤去した。関連する実Consumer、試験、coverage母集団、同一Symbol ID、Architecture／Qualityを追従する。新しい保存先・Store・Lock・互換層は追加しない。
+
+Docker Isolationのcheckと通常297件は295件成功・失敗零・実Docker条件付き2件skip。Coordinatorの保存・診断Consumer関連40件と既存Host操作排他49件も成功した。新品ProcessでDomain／Coordinator解決を拒否したDocker Isolation公開Rootの読込みと、逆にDocker Isolation解決を拒否したDomain公開Rootの読込みを確認した。実AI・Docker・過去保持物は操作していない。
+
+広域命名検査は既存のRust名、Executor公開Root母集団、MCP Header、制限環境のlink作成拒否で6件不合格を残す。dynamic Fake Provider coverageの実行も、受動診断のHost記録初期化失敗とNodeの実験機能警告で未成立。対象7 Suiteを通常実行して32／33成功・診断初期化1件失敗を確認した。今回のProbe保存移管専用試験の成功を、これら広域検査全体のPassへ換算しない。独立レビューは別途最終候補へ実施し、ExecutorのDomain依存撤去は次段階に残る。
+
+独立レビューの新技術Symbol二件と既存repair-machine試験の接続漏れを是正した。対象18件とCatalog 426件validを再確認し、再レビューの残Must-fixは零。Source境界・上位保存移管の限定成立であり、広域coverage／Checker未成立と三Package全体の未完了は維持する。今回、人間の追加判断は不要である。
+
+###### Executorの応答内容境界の先行移管
+
+ExecutorのDomain非依存化は、結果境界、完全選定、局所入力・技術理由の順に分ける。最初の結果境界では、Provider応答のTask／Advice内容検査とSchemaをAI Adapterの既存provider配下へ一実体移管する。Domainに残す保存受理codec案は、実際の保存Consumerがないことを確認して棄却した。元UTと安定Symbol／Test IDを移し、Domainの旧実体・公開APIは撤去する。Executor・Coordinatorの直接助言経路・検証Toolは応答Ownerを使用する。Schema bytes・Command Hash・理由・返却形・freeze・許可参照を維持し、Domainの保存Schema・Writer・遷移は変更しない。
+
+汎用JSON parserはAI Adapterの内部へ隠し、Coordinator／Workbenchの一般JSON読取りはDomainの既存公開APIへ戻す。新しいcallback・Store・Packageは追加しない。是正許可は既存Coordinatorが所有し、Task内容正規化で発行しない。実AI・Docker・過去保持物は対象外。完全選定の上位検査・技術投影と、Executor内部の技術理由／入力取得の整理が残る間は、Executor全体を非依存化完了としない。
+
+移管元Git基準の二Sourceと、移管先の本文をコメント・import・空白を除いて比較し、両方同値を確認した。これは今回だけの移管確認とし、将来の正当な改訂を妨げるSource Hash固定試験は追加しない。恒久契約は元UTと全拒否理由・Schema SHA-256 `e07a0664795c7db8387927bf9c63fb565f7ec4e105f897d2ecf972d4dac27ff2`、両Providerの固定Command Hashで確認する。
+
+一実体移管後のAI Adapter全36件、Executor check・全41件（約104.6秒）、Domain公開境界13件、Coordinatorの直接助言・Packet・準備57件が成功した。Domain checkは終了値0で既存informational lint19件を残す。Coordinator／Workbenchの型検査、Catalog426件valid、Symbol観測13 manifestのIssue零も確認した。前段DI試験の非公開Domain参照はRootへ追従し、専用APIを増やさず公開prepare／decodeと明示的な拒否条件へ照合して対象12件成功を確認した。
+
+Workbenchの合成HTTP利用側は初回7／10成功・3失敗だった。専用合成子の一回診断で`connect EACCES 127.0.0.1`を確認し、接続制限のない条件で同じ10件を再実行して全件成功した。初回を成功へ改変せず、15秒期限・安全判定・本番処理は変更しない。実AI・Dockerへの通信はない。
+
+独立レビューはSource・公開入口・一実体・利用側・文書の残Must-fix零を確認した。追加の文書検査で、旧Task内容UTの`RCM-UT-016`がDomain Outcomeの検証項目を誤参照していた既存不整合を確認した。安定Symbol／Catalog IDと試験本文を維持し、レビューで意味を照合した既存`ERB-UT-023`へHeader・Symbolの対応を修正した。過去Evidenceは変更しない。これは①の限定成立で、②完全選定と③局所入力・技術理由、三Package全体、全体QAは未完了である。
+
+最終の文書検査は対象五文書の指摘零・Symbol指摘零で、Local ID不整合の解消を確認した。scope拡張に含まれる過去CHG等のbroken link／anchor 3,356件は残り、検査全体の終了値は1のままである。対象範囲の成立をRepository全体Passへ換算しない。独立最終確認は残Must-fix零。
+
+###### Executorの技術選定・局所入力と上位保存の接続
+
+Executorの製品Sourceから残るDomain参照を撤去した。完全選定はCoordinatorが既存Grantの一回消費点で検査・Hash算出し、Executorへは技術六項目と不透明なselectionHashだけを渡す。準備と開始の両方で用途・役割・Model・Effort・識別種別・Packetの相関を検査し、Process内の試行Identityを技術値とHashへ変更する。保存SchemaのIdentityとは区別する。
+
+完全選定が既存v2回復Identityに必要なため、既存Operationの管理recordへstage別固定五slotだけ保持する。独立確認で最初の単一値案は二段目レビューを拒否すると判明し、編集0／1・レビュー0／1・助言0へ修正した。同slotは完全一致のみ、異なる再結合は拒否する。借用は有効Owner・ID・Hash・attempt・exact六項目を再検査し、旧保存Ownerへだけ完全値を渡す。保存形式・回復ID・失効・再入場は不変で、新Map・Registry・Lock・永続状態は追加しない。
+
+用途限定の入力捕捉と許可参照検査は内部attempt/validationへ、技術理由の発行集合は内部result/validationへ置く。Domain保存受理とのexact parityを固定し、Proxy・accessor・特殊prototype・欠測・余剰・疎配列を拒否する。一般的な公開Snapshot APIを作らず、技術検査からAuthorityを発行しない。Source・公開入口・上位接続・保存Identityの独立レビューは残Must-fix零。
+
+局所6件、Coordinatorの対象非Host167件、実Operation結合・借用2件が成功した。Coordinator checkは終了値0（既存informational lint 98件）で、台帳426件valid・Symbol 13 manifestのissue零を確認した。先行の広域対象実行には制限環境のHost操作／rename／symlinkによる不合格を残し、非Host結果へ合算しない。Executor全回帰は旧fixture追従後42／43成功で、残る親CLI合成試験は30秒子期限超過だった。同じ試験の単独確認は成功したが全回帰Passへ換算しない。既存62ケースを重複・欠落なしに21／10／9／13／9件へ分け、子期限・Oracle・本番処理は維持して最終回帰を確認する。実AI・Docker・過去保持物は操作しない。
+
+最終の固定SourceでExecutorのcheckと全43件が成功した（約109.3秒）。親CLI試験の全62ケース、子の30秒期限、取消・清掃Oracleは不変であり、分割による欠落・重複零を独立確認した。先行の42／43不合格と単独成功は履歴として維持し、この最終一実行の結果と混同しない。三Packageの製品SourceにはDomain参照がなく、保存を上位へ閉じたSource境界の整理は完了した。Repository全体QA、既存の広域coverage／文書履歴指摘、実AI／Dockerでの再検証成立へは一般化しない。現在、追加の人間判断は不要であり、コミット・プッシュは未実施。
+
+最終文書確認は今回の対象五ファイルの指摘零、参照展開先を含む既存指摘3,356件で検査全体の終了値1を維持した。追加したQuality本文を既存Checklistの外へ配置し、項目集合・配置契約は変更していない。独立確認のSource／保存境界と試験分割の残Must-fixは零。
+
 ##### 人間判断による暫定拒否の撤去と通常入口への復帰
 
 前段の「全Tool制限の未検証を理由にguard維持」という判断は、今回の人間判断で変更する。既存のDocker隔離・用途別Mount・レビューのread-only条件・認証領域保護・通信制御・元回復参照・取消と回収を保護境界とし、全Tool不使用証明を追加の起動／完成条件にしない。Dockerが許可Mount内の読取りまで禁止するとは主張しない。過去の未検証判断や実測記録はそのまま保持する。

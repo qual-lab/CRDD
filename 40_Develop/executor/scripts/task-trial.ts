@@ -154,6 +154,14 @@ export function buildTaskTrialPlan(
     source: "explicit" as const,
   });
   const selectionHash = hashExecutionSelection(selection);
+  const technicalSelection = Object.freeze({
+    provider: selection.provider,
+    modelIdentifier: selection.modelIdentifier,
+    identifierKind: selection.identifierKind,
+    reasoningEffort: selection.reasoningEffort,
+    purpose: selection.purpose,
+    role: selection.role,
+  });
   const policy = prepareDockerNetworkPolicy(spec.provider, []);
   if (!selectionHash || policy.status !== "ready")
     throw Error("trial_selection_hash_invalid");
@@ -190,7 +198,7 @@ export function buildTaskTrialPlan(
       selectionRecordId: `MODELSEL-${randomBytes(12).toString("hex").toUpperCase()}`,
       operationId,
       executorProvider: spec.provider,
-      executionSelection: selection,
+      executionSelection: technicalSelection,
       selectionHash,
       taskAttempt: 0,
       model: spec.model,

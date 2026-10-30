@@ -199,7 +199,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
     const executor=await import(${JSON.stringify(url("../../src/index.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
-    const schema=domain.describeAdviceResultSchema();
+    const schema=(await import(${JSON.stringify(url("../../../ai-adapter/src/index.ts"))})).describeAdviceResultSchema();
     for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[]),'task_edit','task_review',...(provider==='codex'?['task_review_command']:[]),'task_cancel','task_cancel_duplicate']){
       const trialMode=mode==='task_edit'?'edit':mode.startsWith('task_review')?'review':mode.startsWith('task_cancel')?'cancel':'advice';
       const spec=api.describeStandaloneProviderTrial(provider,trialMode);if(trialMode==='advice')assert.ok(spec.prompt.includes(JSON.stringify(schema)));assert.equal(createHash('sha256').update(spec.prompt).digest('hex'),spec.promptSha256);
@@ -323,7 +323,13 @@ test("単段CLI子の固定計画・取消・保持を確認する", () => {
  */
 test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する", () => {
   const url = (value: string) => new URL(value, import.meta.url).href;
-  for (const group of ["protocol", "fixture", "temporary"] as const) {
+  for (const group of [
+    "protocol",
+    "fixture",
+    "temporary",
+    "temporary-tree",
+    "codex-temporary",
+  ] as const) {
     const child = spawnSync(
       process.execPath,
       [
@@ -399,7 +405,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
     mock.method(fs,'opendirSync',(p,...args)=>{if(mode==='tmp_tree_root_inventory'&&String(p)===root&&++rootInventoryReads===2)fs.writeFileSync(path.join(root,'late-entry.txt'),'synthetic late entry');if(mode==='tmp_tree_read_failure'&&String(p).endsWith('nested'))throw Error('synthetic_read_failure');if(mode==='tmp_tree_limit'&&String(p).endsWith('nested')){let count=0;return {readSync:()=>++count<=10001?{name:'entry-'+count}:null,closeSync:()=>{}};}const directory=originalOpen(p,...args);if(mode==='tmp_tree_inventory'&&String(p).endsWith('claude-65534')&&++inventoryReads>1){let added=false;const read=directory.readSync.bind(directory);directory.readSync=()=>{const entry=read();if(entry)return entry;if(!added){added=true;return {name:'late-entry'};}return null;};}return directory;});
     mock.method(fs,'rmdirSync',(p,...args)=>{if(root&&String(p).startsWith(path.join(root,'tmp')+path.sep))temporaryEffects++;if(String(p).endsWith(path.join('tmp','claude-65534')))childRemovals++;return originalRmdir(p,...args);});
     mock.method(fs,'lstatSync',(p,options)=>{const s=originalLstat(p,options);if(String(p).endsWith('runtime.bin')){const leaf={...s,isFile:()=>s.isFile(),isDirectory:()=>s.isDirectory(),isSymbolicLink:()=>s.isSymbolicLink()};if(mode==='tmp_tree_link')return {...leaf,isSymbolicLink:()=>true};if(mode==='tmp_tree_special')return {...leaf,isDirectory:()=>false,isFile:()=>false};if(mode==='tmp_tree_nlink')return {...leaf,nlink:options?.bigint?2n:2};if(options?.bigint&&++leafReads>1){if(mode==='tmp_tree_changed')return {...leaf,ino:s.ino+1n};if(mode==='tmp_tree_size')return {...leaf,size:s.size+1n};if(mode==='tmp_tree_mtime')return {...leaf,mtimeNs:s.mtimeNs+1n};}}if(String(p).endsWith(path.join('codex-bwrap-synthetic-mount-targets-65534','lock'))){if(mode==='codex_tmp_link')return {...s,isFile:()=>true,isSymbolicLink:()=>true};if(mode==='codex_tmp_nlink')return {...s,nlink:options?.bigint?2n:2,isFile:()=>true,isSymbolicLink:()=>false};}if(String(p)===path.join(root??'','tmp')&&options?.bigint&&++ancestorReads>1){if(mode==='tmp_parent_link')return {...s,isDirectory:()=>true,isSymbolicLink:()=>true};if(mode==='tmp_parent_changed')return {...s,ino:s.ino+1n,isDirectory:()=>true,isSymbolicLink:()=>false};}if(String(p).endsWith(path.join('tmp','claude-65534'))){if(mode==='tmp_link')return {...s,isDirectory:()=>true,isSymbolicLink:()=>true};if(mode==='tmp_changed'&&options?.bigint&&++temporaryReads>1)return {...s,ino:s.ino+1n,isDirectory:()=>true,isSymbolicLink:()=>false};}return s;});
-    for(mode of ['normal','wrong_nonce','duplicate_result','nonzero_close','stdout','close_unknown','disconnected_no_close','cancel_completed','result_lost','late_close','missing_recovery','ack_late','ack_error','ack_missing','failed_diag','raw_diag','bad_planned_name','mixed_label','duplicate_purpose','bad_provider_name','bad_absence_name','tmp_empty','tmp_codex','tmp_unknown','tmp_file','tmp_nonempty','tmp_link','tmp_changed','tmp_parent_link','tmp_parent_changed','tmp_tree','tmp_tree_link','tmp_tree_nlink','tmp_tree_special','tmp_tree_realpath','tmp_tree_read_failure','tmp_tree_limit','tmp_tree_changed','tmp_tree_size','tmp_tree_mtime','tmp_tree_inventory','tmp_tree_remove_failure','tmp_tree_root_inventory','task_edit','task_review','task_cancel','task_cancel_completed','task_review_cancelled','task_cancel_partial','task_wrong_mode','codex_tmp_none','codex_tmp_daemon','codex_tmp_empty','codex_tmp_lock','codex_tmp_both','codex_tmp_nonzero','codex_tmp_extra','codex_tmp_link','codex_tmp_nlink','preparation_failed','preparation_failed_null','preparation_failed_unknown'].filter(value=>${JSON.stringify(group)}==='temporary'?/^(tmp_|codex_tmp_)/.test(value):${JSON.stringify(group)}==='fixture'?/^(task_|preparation_)/.test(value):!/^(tmp_|codex_tmp_|task_|preparation_)/.test(value))){
+    for(mode of ['normal','wrong_nonce','duplicate_result','nonzero_close','stdout','close_unknown','disconnected_no_close','cancel_completed','result_lost','late_close','missing_recovery','ack_late','ack_error','ack_missing','failed_diag','raw_diag','bad_planned_name','mixed_label','duplicate_purpose','bad_provider_name','bad_absence_name','tmp_empty','tmp_codex','tmp_unknown','tmp_file','tmp_nonempty','tmp_link','tmp_changed','tmp_parent_link','tmp_parent_changed','tmp_tree','tmp_tree_link','tmp_tree_nlink','tmp_tree_special','tmp_tree_realpath','tmp_tree_read_failure','tmp_tree_limit','tmp_tree_changed','tmp_tree_size','tmp_tree_mtime','tmp_tree_inventory','tmp_tree_remove_failure','tmp_tree_root_inventory','task_edit','task_review','task_cancel','task_cancel_completed','task_review_cancelled','task_cancel_partial','task_wrong_mode','codex_tmp_none','codex_tmp_daemon','codex_tmp_empty','codex_tmp_lock','codex_tmp_both','codex_tmp_nonzero','codex_tmp_extra','codex_tmp_link','codex_tmp_nlink','preparation_failed','preparation_failed_null','preparation_failed_unknown'].filter(value=>${JSON.stringify(group)}==='temporary'?/^tmp_/.test(value)&&!value.startsWith('tmp_tree'):${JSON.stringify(group)}==='temporary-tree'?value.startsWith('tmp_tree'):${JSON.stringify(group)}==='codex-temporary'?value.startsWith('codex_tmp_'):${JSON.stringify(group)}==='fixture'?/^(task_|preparation_)/.test(value):!/^(tmp_|codex_tmp_|task_|preparation_)/.test(value))){
       forks=0;cancelCount=0;gitCalls=0;output=[];root=null;timeoutDelay=null;beforeWait=null;
       temporaryReads=0;ancestorReads=0;childRemovals=0;leafReads=0;inventoryReads=0;temporaryEffects=0;rootInventoryReads=0;
       const trialMode=mode.startsWith('preparation_failed')||mode.startsWith('codex_tmp_')?'edit':mode.startsWith('task_')?(mode.includes('cancel')&&!mode.includes('review')?'cancel':mode.includes('review')?'review':'edit'):'advice';
@@ -427,7 +433,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
       ],
       { encoding: "utf8", timeout: 30000, windowsHide: true },
     );
-    assert.equal(child.error, undefined);
+    assert.equal(child.error, undefined, `synthetic_group:${group}`);
     assert.equal(child.signal, null);
     assert.equal(child.status, 0, child.stderr);
   }

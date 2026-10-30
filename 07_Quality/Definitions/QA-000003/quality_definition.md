@@ -407,7 +407,7 @@ doctor、修復Owner／結果、再起動、Probeの要求・完了・取消・e
 
 Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は承認済み目標OwnerのDomain Model `plain-data/secret-validation.ts`へ移し、同じSymbol・条件・返却値、getter／Proxy等の既存反証と、Workspace・Decision・実行入力・結果取込の全利用側を照合する。移管だけを未知Secret不存在の保証へ拡張しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
 
-Docker固有記録の移管では、DI Rootから回復ID・Probe記録を利用する既存Callerと、Coordinatorに残すHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
+Docker固有記録の移管では、DI Rootの技術回復IDと、Coordinatorのstate/probe-recordが所有するProbe保存・読戻し、およびHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
 
 固定選定の実行接続では、完全選定十項目の各一項目差、操作・役割・試行番号・Packet Hash差、別stageのGrant、更新時の意味差、旧Profile／Route入力の拒否を反証する。既存のTTL・一回消費・失効・Home排他・取消・回収Oracleは維持する。Operation Identity v2／現在StateとProject Snapshot v5は旧形式を補完せず拒否し、保存・読戻し後だけDocker Effectへ進む。Owner喪失の再入場では現在設定／Catalogの読取りと本文再実行を0件とする。合成試験の成功は実AI・実認証・実Docker、人間操作又は公開利用側の全面切替を証明しない。
 

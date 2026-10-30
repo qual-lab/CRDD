@@ -4,7 +4,7 @@
  * @responsibility Codexのboolean Probe出力を単一JSON・容量・exact status条件で解析し、確認と拒否を区別する。
  * @trace ARCH-000015
  */
-import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
 export const CODEX_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/codex-structured-result";

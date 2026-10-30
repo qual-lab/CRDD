@@ -2,6 +2,8 @@
 
 ## 技術カタログとRepository別AI選択の新形式 — 2026-10-24
 
+AI AdapterのDomain非依存化では、`RCM-IT-005`の新品Node ProcessでDomainへのModule解決を拒否して公開Root・Catalogが利用できることを確認する。Catalogの正常・欠落・不正JSON・Schema不正も同じ内部入力検査へ接続し、失敗を成功へ補完しない。試験子は予期するModule拒否を捕捉して終了値1と固定理由を返し、Windows Nodeの未捕捉例外終了と区別する。Domainが保存に利用する四技術型の値域・readonly・optional性と既存公開名を維持し、各利用側の型検査と保存codecの反例へ接続する。
+
 2026-10-25の指定Model更新では、`RCM-UT-001`と`RCM-IT-005`でCodex `gpt-6.1-sol`／Claude `claude-opus-5-5`のexact識別子とmediumを、五役割の設定からProvider計画へ無変換で搬送することを確認する。未知Model、alias誤指定、Task入力とのEffort不一致と暗黙の旧Model fallbackを拒否する。Codex reviewerも通常入口で構築し、同じModel・Effort、read-only sandbox、never承認、Shell／unified exec無効、通信制限を確認する。全Tool不使用の証明を追加の起動条件にせず、標準の独立レビュー担当をClaudeとする既定選択は変更しない。Image・実Sandboxの成立は[外部境界の検証定義](../QA-000006/quality_definition.md)が所有し、この純粋結合の成功を実アカウントでの利用成功へ換算しない。
 
 `RCM-UT-001/002`へ、新しい技術Catalogと選択設定の純粋検査を接続する。AI AdapterのCatalog検査・選定と、Coordinatorの`selection/resolve`は、未知field・Getter／Proxy・重複・役割／分類参照不整合、用途／Effort不対応、aliasをexactと誤認する結果、暗黙fallbackを反証する。五役割と任意分類、明示指定→分類上書き→役割既定値、内容Identityと元入力からの分離を確認する。

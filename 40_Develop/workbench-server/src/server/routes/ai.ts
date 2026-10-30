@@ -10,7 +10,7 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { inspectAiSelectionChoice } from "../../../../domain-model/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../../domain-model/src/index.ts";
 import type {
   WorkbenchAiRequestSnapshot,
   WorkbenchAiRequests,

@@ -13,6 +13,8 @@ import fs from "node:fs";
 import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import {
   createDockerTaskRecoveryExecutor,
   createDockerIsolationRuntime,
@@ -25,10 +27,45 @@ const platformAccessRoot = path.resolve(
   sourceRoot,
   "../../platform-access/src/index.ts",
 );
-const domainModelRoot = path.resolve(
-  sourceRoot,
-  "../../domain-model/src/index.ts",
-);
+
+/**
+ * 相手Packageを解決できない新品ProcessでDIとDomainの独立開始を確認する。
+ * @responsibility 型だけでなく間接実行時依存と永続APIの再流入を反証する。
+ * @trace ERB-IT-014
+ * @precondition 子ProcessではModule読込みと純粋な回復ID解析だけを行う。
+ * @stimulus DIではDomain／Coordinatorを、DomainではDIを解決拒否する。
+ * @observation 終了値と固定marker。
+ * @oracle 両公開Rootが開始でき、DIに記録保存APIがない。
+ * @cleanup 子Processの正常close。生成物なし。
+ * @boundary 実Docker・Native処置・保存・実AIは実行しない。
+ */
+test("DIとDomainは相互の実行時依存なしで公開Rootを開始する", () => {
+  for (const owner of ["docker-isolation", "domain-model"]) {
+    const target = path.resolve(sourceRoot, "../../", owner, "src/index.ts");
+    const blocked =
+      owner === "docker-isolation"
+        ? ["domain-model", "coordinator"]
+        : ["docker-isolation"];
+    const code = `import { registerHooks } from 'node:module';
+      const blocked=${JSON.stringify(blocked)};
+      registerHooks({resolve(s,c,next){const r=next(s,c);if(blocked.some(name=>r.url.includes('/'+name+'/')))throw Error('owner_forbidden');return r;}});
+      const api=await import(${JSON.stringify(pathToFileURL(target).href)});
+      if(${JSON.stringify(owner)}==='docker-isolation'){
+        if('writeDockerProbeRecoveryRecord' in api || 'loadDockerProbeRecoveryRecord' in api)throw Error('persistence_exposed');
+        if(api.parseDockerTaskRecoveryId('docker-task.'+'a'.repeat(64)+'.'+'b'.repeat(64)+'.'+'c'.repeat(64))===null)throw Error('recovery_parser_invalid');
+      }
+      console.log('OWNER_INDEPENDENT');`;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", code],
+      { encoding: "utf8", timeout: 15000, windowsHide: true },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "OWNER_INDEPENDENT");
+  }
+});
 
 /**
  * 現在の限定構文から読める依存先を配置契約へ照合する。
@@ -38,11 +75,20 @@ const domainModelRoot = path.resolve(
  * @precondition fileは固定Sourceまたはメモリ内負例の所在である。
  * @stimulus literalのimport／再exportとdynamic importを読み取る。
  * @observation 不許可の依存先または非literal dynamicでassertionが失敗する。
- * @oracle Node builtin、同src内、PA／Domain Modelの宣言済みRootだけを許可する。
+ * @oracle Node builtin、同src内、PAの宣言済みRootだけを許可する。
  * @cleanup N/A: 読取りと文字列処理だけ。
  * @boundary 通常Source配置の回帰であり任意TypeScript構文の完全検査ではない。
  */
 function assertDependencyBoundary(file: string, text: string) {
+  // 既存Command結合が使う一つの技術記述型だけを許可し、値依存は許可しない。
+  text = text.replace(
+    /\bimport type\s*\{\s*ProviderAdvicePlan\s*\}\s*from\s*["']([^"']+)["'];/gu,
+    (statement, specifier: string) =>
+      path.resolve(path.dirname(file), specifier) ===
+      path.resolve(sourceRoot, "../../ai-adapter/src/index.ts")
+        ? ""
+        : statement,
+  );
   for (const match of text.matchAll(/\bimport\s*\(([^)]*)\)/gu)) {
     assert.match(
       match[1]?.trim() ?? "",
@@ -61,7 +107,6 @@ function assertDependencyBoundary(file: string, text: string) {
     const relative = path.relative(sourceRoot, resolved);
     assert.ok(
       resolved === platformAccessRoot ||
-        resolved === domainModelRoot ||
         (relative !== ".." &&
           !relative.startsWith(`..${path.sep}`) &&
           !path.isAbsolute(relative)),
@@ -119,13 +164,14 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
     'import fs from "node:fs";',
     'import type { Value } from "./execution/plan.ts";',
     'export { Value } from "../../platform-access/src/index.ts";',
-    'import { Value } from "../../domain-model/src/index.ts";',
+    'import type { ProviderAdvicePlan } from "../../ai-adapter/src/index.ts";',
     'const selected = import("./execution/plan.ts");',
     'const marker = Buffer.from("CRDDDR06");',
   ])
     assert.doesNotThrow(() => assertDependencyBoundary(file, text));
   for (const owner of [
     "coordinator",
+    "domain-model",
     "orchestrator",
     "ai-adapter",
     "workbench-server",

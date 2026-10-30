@@ -8,8 +8,9 @@
  * @security 検査の成功から認証成立・実行Authority・隔離成立を推定しない。
  */
 
-import type { AiProvider } from "../../../domain-model/src/index.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import type { AiProvider } from "./types.ts";
+
+import { snapshotPlainRecord } from "./input.ts";
 import { CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES } from "../claude/plan.ts";
 import { CODEX_FORBIDDEN_ENVIRONMENT_NAMES } from "../codex/plan.ts";
 

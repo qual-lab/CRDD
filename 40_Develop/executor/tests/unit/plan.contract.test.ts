@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isPlanValid,
+  planIdentity,
   resolveValidatedPlan,
 } from "../../src/attempt/isolation.ts";
 import type { ProviderAttemptPlan } from "../../src/attempt/types.ts";
@@ -64,6 +65,14 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     { commands: probe.commands.map((c) => ({ ...c, argv: ["bad\0arg"] })) },
     { activeMountCapability: null },
     { stableLogicalHomeBindingHash: "bad" },
+    { selectionHash: "bad" },
+    { selectionHash: "A".repeat(64) },
+    {
+      executionSelection: {
+        ...probe.executionSelection,
+        configIdentity: "a".repeat(64),
+      },
+    },
   ])
     assert.equal(
       isPlanValid({ ...probe, ...overrides } as unknown as ProviderAttemptPlan),
@@ -75,4 +84,31 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
   );
   assert.equal(isPlanValid({ ...advice, taskRole: "executor" }), false);
   assert.equal(resolveValidatedPlan(probe, "C:/synthetic/tmp"), null);
+  for (const overrides of [
+    { selectionHash: "f".repeat(64) },
+    { selectionRecordId: "MODELSEL-87654321" },
+    { taskAttempt: 1 as const },
+    {
+      executionSelection: {
+        ...probe.executionSelection,
+        identifierKind: "exact" as const,
+      },
+    },
+    {
+      executionSelection: {
+        ...probe.executionSelection,
+        modelIdentifier: "other-model",
+      },
+    },
+    {
+      executionSelection: {
+        ...probe.executionSelection,
+        reasoningEffort: "high" as const,
+      },
+    },
+  ])
+    assert.notEqual(
+      planIdentity(probe),
+      planIdentity({ ...probe, ...overrides }),
+    );
 });

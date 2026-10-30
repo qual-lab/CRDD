@@ -12,6 +12,7 @@ import {
 import {
   verifyRuntimeOwnedRepositoryOperation,
   borrowOwnedDockerExecutionPaths,
+  borrowOwnedOperationExecutionSelection,
 } from "./operation.ts";
 import { getRuntimeOwnedProviderDockerAdapter } from "./preparation.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "./controller.ts";
@@ -41,7 +42,21 @@ const executor = createExecutor({
       management,
     ) ??
     getRuntimeOwnedProviderDockerAdapter("codex").consume(prepared, management),
-  beginRecovery: beginRuntimeOwnedDockerRecovery,
+  beginRecovery: (plan, management, observeFailure) => {
+    const complete = borrowOwnedOperationExecutionSelection(
+      management,
+      plan.selectionRecordId,
+      plan.selectionHash,
+      plan.taskAttempt,
+      plan.executionSelection,
+    );
+    if (!complete) return null;
+    return beginRuntimeOwnedDockerRecovery(
+      { ...plan, executionSelection: complete },
+      management,
+      observeFailure,
+    );
+  },
   bindInitializationFailure: bindRuntimeOwnedDockerInitializationFailure,
   abandonRecovery: abandonRuntimeOwnedDockerRecovery,
   verifyRecoveryBinding: verifyRuntimeOwnedDockerRecoveryBinding,

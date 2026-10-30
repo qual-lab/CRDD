@@ -9,6 +9,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ATTEMPT_COMPLETION_REASONS,
+  isAttemptFailureReason,
+} from "../../../src/result/validation.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";
+
+/**
+ * 発行する技術理由と保存受理する理由の集合をexact照合する。
+ * @responsibility 片側追加・欠落・未知値を黙って受理しない。
+ * @trace ERB-IT-004
+ * @precondition 固定の二集合だけを使用する。
+ * @stimulus 全要素と未知・大文字・欠測相当を検査する。
+ * @observation 配列の一致と拒否結果。
+ * @oracle 同じ順序・一意集合で、未知理由を正規化しない。
+ * @cleanup N/A: 局所値だけ。
+ * @boundary Executor発行とDomain保存受理。保存処理は呼ばない。
+ */
+test("技術理由は保存受理集合と一致し未知・欠測・余剰を拒否する", () => {
+  assert.deepEqual(
+    ATTEMPT_COMPLETION_REASONS,
+    dockerProcessControllerPublicCompletionReasons,
+  );
+  assert.equal(
+    new Set(ATTEMPT_COMPLETION_REASONS).size,
+    ATTEMPT_COMPLETION_REASONS.length,
+  );
+  for (const reason of ATTEMPT_COMPLETION_REASONS)
+    assert.equal(isAttemptFailureReason(reason), true);
+  for (const reason of [
+    null,
+    undefined,
+    "",
+    "unknown",
+    ...ATTEMPT_COMPLETION_REASONS.map((r) => r.toUpperCase()),
+  ])
+    assert.equal(isAttemptFailureReason(reason), false);
+});
+import {
   snapshotReadyRecovery,
   snapshotBlockedRecoveryWithExactId,
 } from "../../../src/result/validation.ts";

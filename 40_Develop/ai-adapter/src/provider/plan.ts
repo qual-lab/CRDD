@@ -9,11 +9,9 @@ import type {
   AiProvider,
   AiReasoningEffort,
   AiModelSelection,
-} from "../../../domain-model/src/index.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
+} from "./types.ts";
+
+import { snapshotPlainRecord, snapshotPlainArray } from "./input.ts";
 import { types as utilTypes } from "node:util";
 
 import { resolveAiModelSelection } from "../catalog/resolve.ts";

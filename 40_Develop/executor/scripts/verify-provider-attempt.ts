@@ -187,6 +187,9 @@ export function verifyStandaloneProviderAttempt() {
         providerInput:null,workspaceSourcePath:null,workspaceMountMode:null,networkPolicy:null,
         commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
       };
+      const fullSelection=plan.executionSelection;
+      const selectionHash=hashExecutionSelection(fullSelection);
+      plan={...plan,selectionHash,executionSelection:{provider:fullSelection.provider,modelIdentifier:fullSelection.modelIdentifier,identifierKind:fullSelection.identifierKind,reasoningEffort:fullSelection.reasoningEffort,purpose:fullSelection.purpose,role:fullSelection.role}};
       const tmp='C:/synthetic-not-accessed/tmp';
       if(mode==='production_factory'){
         const built=preparationInput.buildProviderDockerExecutionPlan(provider,
@@ -197,7 +200,7 @@ export function verifyStandaloneProviderAttempt() {
             management:'C:/synthetic-not-accessed/management'}},
           {grant:{...plan},activeMountCapability:mount},
           {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,
-            executionSelection:plan.executionSelection,selectionHash:hashExecutionSelection(plan.executionSelection),
+            executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,
             taskAttempt:0,model:plan.selectedModel,effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
           'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
         assert.ok(built);

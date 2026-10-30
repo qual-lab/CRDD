@@ -46,6 +46,9 @@ test("公開する固定検査集合は利用側から変更できない", () =>
     assert.equal(JSON.stringify(value), before);
   }
   for (const name of [
+    "parseAdviceResult",
+    "describeAdviceResultSchema",
+    "inspectTaskResultContent",
     "finalReasons",
     "INTEGRATION_RECORD_IDENTITY",
     "INTEGRATION_BINDING_IDENTITY",

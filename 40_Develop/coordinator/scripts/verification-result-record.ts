@@ -18,7 +18,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../../docker-isolation/src/index.ts";
+import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
 import { inspectRepositoryRevisionCandidate } from "../../version-control/src/index.ts";

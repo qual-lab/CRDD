@@ -5,10 +5,11 @@
  * @trace ARCH-000010
  * @trace ARCH-000015
  */
-import type { AiModelSelection } from "../../../domain-model/src/index.ts";
+import type { AiModelSelection } from "../provider/types.ts";
+
 import type { AiModelCatalog } from "./types.ts";
 import { createHash } from "node:crypto";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "../provider/input.ts";
 import modelCatalogData from "./model-catalog.json" with { type: "json" };
 import { validateAiModelCatalog } from "./validation.ts";
 const modelCatalogSnapshot: AiModelCatalogSnapshot = (() => {

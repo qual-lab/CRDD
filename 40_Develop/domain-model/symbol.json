@@ -3,10 +3,6 @@
   "contractRevision": 1,
   "subsystem": "domain-model",
   "symbols": [
-    { "symbolId": "domain-model.attempt.task-result", "kind": "file", "path": "src/attempt/task-result.ts", "archIds": ["ARCH-000015"] },
-    { "symbolId": "domain-model.test.unit.task-result", "kind": "test-suite", "path": "tests/unit/attempt/task-result.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["RCM-UT-016"], "verifies": ["domain-model.attempt.task-result"] },
-    { "symbolId": "domain-model.attempt.advice", "kind": "file", "path": "src/attempt/advice.ts", "archIds": ["ARCH-000015"] },
-    { "symbolId": "domain-model.test.unit.advice-result", "kind": "test-suite", "path": "tests/unit/attempt/advice.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-UT-023"], "verifies": ["domain-model.attempt.advice"] },
     { "symbolId": "domain-model.test.unit.history-candidates", "kind": "test-suite", "path": "tests/unit/state/history-candidates.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["domain-model.state.history"] },
     { "symbolId": "domain-model.attempt.lease", "kind": "file", "path": "src/attempt/lease.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
     { "symbolId": "domain-model.test.unit.lease-candidates", "kind": "test-suite", "path": "tests/unit/attempt/lease-candidates.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["domain-model.attempt.lease"] },

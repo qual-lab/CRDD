@@ -20,11 +20,10 @@ import {
   type DockerIsolationCommand,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  inspectExecutionSelection,
-  hashExecutionSelection,
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
+  captureAttemptInput,
+  captureAllowedReferences,
+  inspectAttemptSelection,
+} from "./validation.ts";
 import {
   bindIsolationRuntime,
   resolveProviderExecution,
@@ -513,22 +512,7 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
   return Object.freeze({
     productionAuthority: false as const,
     prepare: (input: AttemptInput) => {
-      const common = [
-        "purpose",
-        "managementCapability",
-        "mountCapability",
-        "mountAuthorizationCapability",
-        "selectionUseCapability",
-        "recoveryCorrelationId",
-        "consumer",
-      ];
-      const value =
-        snapshotPlainRecord(
-          input,
-          new Set([...common, "packetCapability", "packetOwnerCapability"]),
-        ) ??
-        snapshotPlainRecord(input, new Set([...common, "packetCapability"])) ??
-        snapshotPlainRecord(input, new Set(common));
+      const value = captureAttemptInput(input);
       if (
         !value ||
         (value.purpose !== "task" &&
@@ -832,13 +816,9 @@ export function buildProviderDockerExecutionPlan(
   recoveryCorrelationId: string | null,
   consumer: "coordinator_cli" | "workbench" | "orchestrator",
 ) {
-  const referenceSnapshot = advicePacket
-    ? snapshotPlainArray<string>(advicePacket.allowedReferences, 256)
+  const adviceAllowedReferences = advicePacket
+    ? captureAllowedReferences(advicePacket.allowedReferences)
     : null;
-  const adviceAllowedReferences =
-    referenceSnapshot?.status === "ok"
-      ? Object.freeze([...referenceSnapshot.value])
-      : null;
   if (
     consumer !== "coordinator_cli" &&
     consumer !== "workbench" &&
@@ -864,14 +844,13 @@ export function buildProviderDockerExecutionPlan(
   const claude = execution.provider === "claude" ? execution : null;
   const assets = describeDockerProviderAssets(provider);
   const egress = describeDockerProxyTopology(provider);
-  const selection = inspectExecutionSelection(
+  const selection = inspectAttemptSelection(
     consumedModelSelection.executionSelection,
   );
   if (
     !selection ||
     selection.provider !== provider ||
-    hashExecutionSelection(selection) !==
-      consumedModelSelection.selectionHash ||
+    !/^[a-f0-9]{64}$/u.test(consumedModelSelection.selectionHash) ||
     consumedModelSelection.executorProvider !== provider ||
     consumedModelSelection.operationId !== binding.operationId ||
     activation.grant.provider !== provider ||
@@ -886,13 +865,15 @@ export function buildProviderDockerExecutionPlan(
     !validateProviderModelId(consumedModelSelection.model).value ||
     ((taskPacket !== null || advicePacket !== null) &&
       (!("modelIdentifier" in execution) ||
-        consumedModelSelection.model !== execution.modelIdentifier)) ||
+        consumedModelSelection.model !== execution.modelIdentifier ||
+        !("identifierKind" in execution) ||
+        selection.identifierKind !== execution.identifierKind)) ||
     execution.provider !== provider ||
     (taskPacket !== null && advicePacket !== null) ||
     (taskPacket !== null &&
       (taskPacket.operationId !== binding.operationId ||
         taskPacket.promptTransport !== "provider_stdin_only" ||
-        taskPacket.selectionHash !== hashExecutionSelection(selection) ||
+        taskPacket.selectionHash !== consumedModelSelection.selectionHash ||
         taskPacket.taskAttempt !== consumedModelSelection.taskAttempt ||
         selection.role !==
           (taskPacket.taskRole === "executor"
@@ -900,27 +881,21 @@ export function buildProviderDockerExecutionPlan(
             : "independent_reviewer"))) ||
     (advicePacket !== null &&
       (advicePacket.operationId !== binding.operationId ||
-        hashExecutionSelection(advicePacket.executionSelection) !==
-          hashExecutionSelection(selection) ||
+        advicePacket.selectionHash !== consumedModelSelection.selectionHash ||
+        JSON.stringify(
+          inspectAttemptSelection(advicePacket.executionSelection),
+        ) !== JSON.stringify(selection) ||
         selection.role !== "advice" ||
         advicePacket.provider !== provider ||
         advicePacket.providerCommand.provider !== provider ||
-        (provider === "claude" &&
-          advicePacket.providerCommand.modelIdentifier !==
-            consumedModelSelection.model) ||
+        advicePacket.providerCommand.modelIdentifier !==
+          consumedModelSelection.model ||
+        advicePacket.providerCommand.identifierKind !==
+          selection.identifierKind ||
         advicePacket.providerCommand.reasoningEffort !==
           consumedModelSelection.effort ||
         !adviceAllowedReferences ||
         adviceAllowedReferences.length === 0 ||
-        adviceAllowedReferences.some(
-          (value) =>
-            typeof value !== "string" ||
-            value.length === 0 ||
-            value.includes("\0") ||
-            Buffer.byteLength(value, "utf8") > 512,
-        ) ||
-        new Set(adviceAllowedReferences).size !==
-          adviceAllowedReferences.length ||
         advicePacket.repositoryMounted !== false ||
         advicePacket.workspaceMounted !== false ||
         advicePacket.toolsAllowed !== false ||
@@ -954,7 +929,8 @@ export function buildProviderDockerExecutionPlan(
     recoveryCorrelationId,
     consumer,
     grantRef: activation.grant.grantRef,
-    executionSelection: consumedModelSelection.executionSelection,
+    executionSelection: selection,
+    selectionHash: consumedModelSelection.selectionHash,
     taskAttempt: consumedModelSelection.taskAttempt,
     activeMountCapability: activation.activeMountCapability,
     providerHomeSourcePath,

@@ -75,22 +75,24 @@ import {
   createDockerProbeRuntimeBinding,
   type DockerProbeProfile,
   type classifyDockerProbeExecution,
-  type DockerMounts,
   inspectDockerProbeContainer,
   describeDockerProbeConfiguration,
   observeDockerProbeContainerAbsence,
   cleanupDockerProbeContainer,
   observeDockerProbeEngine,
-  writeDockerProbeRecoveryRecord,
   createDockerProbeContainer,
   runDockerProbeToCompletion,
   runDockerProbeCancellation,
   startDockerProbeResidue,
+  describeDockerProbeResource,
+} from "../../../docker-isolation/src/index.ts";
+import {
+  type DockerMounts,
+  writeDockerProbeRecoveryRecord,
   parseDockerProbeRecoveryToken,
   loadDockerProbeRecoveryRecord,
   requireDockerProbeRecoveryMounts,
-  describeDockerProbeResource,
-} from "../../../docker-isolation/src/index.ts";
+} from "../state/probe-record.ts";
 
 import {
   describeProviderBillingPolicy,

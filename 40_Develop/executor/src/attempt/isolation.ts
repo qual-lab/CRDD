@@ -20,7 +20,7 @@ import {
   bindAdviceCommand,
   hashAdviceCommand,
 } from "../../../docker-isolation/src/index.ts";
-import { inspectExecutionSelection } from "../../../domain-model/src/index.ts";
+import { inspectAttemptSelection } from "./validation.ts";
 import {
   type DockerIsolationCommandInput,
   bindProviderCommand,
@@ -35,7 +35,7 @@ import {
   describeProviderAuthentication,
   type ProviderAdvicePlan,
 } from "../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../domain-model/src/index.ts";
+import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
 import { PURPOSES } from "../result/validation.ts";
 import type {
   PreparedPlan,
@@ -491,19 +491,26 @@ export function resolveValidatedPlan(
   const expectedAdviceCommandHash = expectedAdviceCommand
     ? hashAdviceCommand(expectedAdviceCommand)
     : null;
-  const fixedSelection = inspectExecutionSelection(plan.executionSelection);
+  const fixedSelection = inspectAttemptSelection(plan.executionSelection);
   const isProviderBindingValid =
     fixedSelection !== null &&
     fixedSelection.provider === plan.provider &&
     fixedSelection.modelIdentifier === plan.selectedModel &&
     fixedSelection.reasoningEffort === plan.selectedEffort &&
     fixedSelection.purpose === (isAdvicePlan ? "advice" : "task") &&
+    (plan.operationMode !== "isolated_task" ||
+      fixedSelection.role ===
+        (plan.taskRole === "executor" ? "executor" : "independent_reviewer")) &&
+    (!isAdvicePlan || fixedSelection.role === "advice") &&
+    (!("identifierKind" in execution) ||
+      fixedSelection.identifierKind === execution.identifierKind) &&
     plan.subscriptionOffering ===
       describeProviderAuthentication(plan.provider).offering;
   if (
     !/^OP-[0-9]{6,}$/u.test(plan.operationId) ||
     !/^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) ||
     !isProviderBindingValid ||
+    !/^[a-f0-9]{64}$/u.test(plan.selectionHash) ||
     !/^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) ||
     !dockerIsolationResourceIdentityIsValid({
       authenticationContainerName: plan.authContainerName,
@@ -602,6 +609,7 @@ export function planIdentity(plan: PreparedPlan) {
       JSON.stringify({
         operationId: plan.operationId,
         executionSelection: plan.executionSelection,
+        selectionHash: plan.selectionHash,
         taskAttempt: plan.taskAttempt,
         selectionRecordId: plan.selectionRecordId,
         operationMode: plan.operationMode,
@@ -646,7 +654,8 @@ export function isPlanValid(plan: ProviderAttemptPlan) {
     (plan.recoveryCorrelationId == null ||
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plan.recoveryCorrelationId)) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
-    inspectExecutionSelection(plan.executionSelection)?.provider ===
+    /^[a-f0-9]{64}$/u.test(plan.selectionHash) &&
+    inspectAttemptSelection(plan.executionSelection)?.provider ===
       plan.provider &&
     (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
     /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&

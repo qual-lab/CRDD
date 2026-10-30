@@ -16,7 +16,7 @@ import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
 import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
 
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
 import {
   compileExternalSendPolicyCandidate,
   describeExternalSendPolicyRuntimeContract,

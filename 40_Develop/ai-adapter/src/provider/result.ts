@@ -4,14 +4,22 @@
  * @responsibility 用途ごとの容量・Envelope・拒否順序を区別し、生出力を公開しない。
  * @trace ARCH-000015
  */
-import type {
-  AiProvider,
-  PROVIDER_ADVICE_OUTPUT_REASONS,
-  ProviderTurnCountDiagnostic,
-} from "../../../domain-model/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
+import type { AiProvider, ProviderTurnCountDiagnostic } from "./types.ts";
+export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
+  "workbench_ai_provider_output_invalid",
+  "workbench_ai_codex_output_invalid",
+  "workbench_ai_codex_completion_invalid",
+  "workbench_ai_codex_tool_event_forbidden",
+  "workbench_ai_codex_final_message_invalid",
+  "workbench_ai_claude_envelope_invalid",
+  "workbench_ai_claude_completion_invalid",
+  "workbench_ai_claude_turn_count_invalid",
+  "workbench_ai_claude_metadata_invalid",
+  "workbench_ai_claude_structured_output_invalid",
+] as const);
+import { parseUnambiguousJsonDocument } from "./json.ts";
 
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "./input.ts";
 import { normalizeCodexStructuredResult } from "../codex/result.ts";
 import { normalizeClaudeStructuredResult } from "../claude/result.ts";
 const TASK_MAXIMUM_RAW_BYTES = 65_536;

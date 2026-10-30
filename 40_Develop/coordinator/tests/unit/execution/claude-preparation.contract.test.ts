@@ -8,7 +8,10 @@
  * @scope claude、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
-import { executionSelection } from "../../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  attemptSelection,
+} from "../../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
@@ -16,7 +19,7 @@ import {
 } from "../../../src/execution/preparation.ts";
 import { createAttemptPreparation } from "../../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../domain-model/src/index.ts";
+import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test from "node:test";
@@ -33,7 +36,7 @@ const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
   executorProvider: "claude" as const,
-  executionSelection: fixedSelection,
+  ...attemptSelection(fixedSelection),
   selectionHash: hashExecutionSelection(fixedSelection) as string,
   taskAttempt: 0 as const,
   model: fixedSelection.modelIdentifier,
@@ -218,11 +221,13 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
   const fixture = createFixture({
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
-      executionSelection: executionSelection("advice", {
-        provider: "claude",
-        model: "opus",
-        effort: "low",
-      }),
+      ...attemptSelection(
+        executionSelection("advice", {
+          provider: "claude",
+          model: "opus",
+          effort: "low",
+        }),
+      ),
       selectionHash: hashExecutionSelection(
         executionSelection("advice", {
           provider: "claude",
@@ -237,11 +242,13 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
-        executionSelection: executionSelection("advice", {
-          provider: "claude",
-          model: "opus",
-          effort: "low",
-        }),
+        ...attemptSelection(
+          executionSelection("advice", {
+            provider: "claude",
+            model: "opus",
+            effort: "low",
+          }),
+        ),
         provider: "claude" as const,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
@@ -687,11 +694,13 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
   const fixture = createFixture({
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
-      executionSelection: executionSelection("executor", {
-        provider: "claude",
-        model: "opus",
-        effort: "low",
-      }),
+      ...attemptSelection(
+        executionSelection("executor", {
+          provider: "claude",
+          model: "opus",
+          effort: "low",
+        }),
+      ),
       selectionHash: hashExecutionSelection(
         executionSelection("executor", {
           provider: "claude",
@@ -978,8 +987,12 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
       },
     });
   const fixture = createFixture({
-    consumeModelSelection: (selection, management) =>
-      selectionRuntime.consume(selection, management),
+    consumeModelSelection: (selection, management) => {
+      const consumed = selectionRuntime.consume(selection, management);
+      return consumed
+        ? { ...consumed, ...attemptSelection(consumed.executionSelection) }
+        : null;
+    },
   });
   const issued = selectionRuntime.issue(fixture.managementCapability, {
     operationId: "OP-123456",

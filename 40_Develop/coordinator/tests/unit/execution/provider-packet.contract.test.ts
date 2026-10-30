@@ -9,7 +9,7 @@
  * @boundary Unit TestとPacket Runtimeの公開APIの間。
  */
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../domain-model/src/index.ts";
+import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { describe, it } from "node:test";

@@ -8,7 +8,7 @@
  * @security Host Catalog、Credential、Provider実行を扱わない。
  */
 import { getAiModelCatalog } from "../../../../ai-adapter/src/index.ts";
-import { parseUnambiguousJsonDocument } from "../../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../../domain-model/src/index.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { setTimeout as yieldToTransport } from "node:timers/promises";
 import {

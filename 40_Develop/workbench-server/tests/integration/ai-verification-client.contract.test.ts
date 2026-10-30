@@ -18,7 +18,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
 import {
   projectVerificationTransportFailure,
   requestInChild,

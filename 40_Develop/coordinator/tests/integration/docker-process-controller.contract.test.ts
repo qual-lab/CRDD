@@ -9,7 +9,10 @@
  * @scope docker、process、controller
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
-import { executionSelection } from "../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  attemptSelection,
+} from "../fixtures/ai-selection.ts";
 
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
@@ -163,11 +166,13 @@ function createPlan(
     consumer: "coordinator_cli" as const,
     operationId: "OP-123456",
     grantRef: "PHMGRANT-123456",
-    executionSelection: executionSelection("executor", {
-      provider: "claude",
-      model: "opus",
-      effort: "low",
-    }),
+    ...attemptSelection(
+      executionSelection("executor", {
+        provider: "claude",
+        model: "opus",
+        effort: "low",
+      }),
+    ),
     taskAttempt: 0 as const,
     activeMountCapability,
     authorityUseCapability,
@@ -732,22 +737,24 @@ function createFixture(
   const plan = Object.freeze({
     networkPolicy: null,
     ...createPlan(activeMountCapability, authorityUseCapability),
-    executionSelection: executionSelection(
-      planOverrides.operationMode === "workbench_advice"
-        ? "advice"
-        : planOverrides.taskRole === "reviewer"
-          ? "independent_reviewer"
-          : "executor",
-      {
-        provider: planOverrides.provider === "codex" ? "codex" : "claude",
-        model:
-          planOverrides.provider === "codex"
-            ? planOverrides.operationMode === "workbench_advice"
-              ? "gpt-5.6-sol"
-              : "gpt-5.5"
-            : "opus",
-        effort: "low",
-      },
+    ...attemptSelection(
+      executionSelection(
+        planOverrides.operationMode === "workbench_advice"
+          ? "advice"
+          : planOverrides.taskRole === "reviewer"
+            ? "independent_reviewer"
+            : "executor",
+        {
+          provider: planOverrides.provider === "codex" ? "codex" : "claude",
+          model:
+            planOverrides.provider === "codex"
+              ? planOverrides.operationMode === "workbench_advice"
+                ? "gpt-5.6-sol"
+                : "gpt-5.5"
+              : "opus",
+          effort: "low",
+        },
+      ),
     ),
     ...planOverrides,
   });

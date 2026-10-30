@@ -14,9 +14,9 @@
 
 ## 1. 責務・依存・成立範囲
 
-編集・レビューの内容規則は`attempt/task-result.ts`の`inspectTaskResultContent`が所有する。解析済み値からexact key、Path、件数、decisionとfindingsの相関、所見Hashを検査し、Provider Envelope・Turn観測・実行・是正Capabilityは扱わない。所見本文は認可された内部利用側へ渡し、通常の試行内容には診断投影だけを含める。Task／Adviceとも内容の正本はDomain、実行LifecycleはExecutor、次試行許可はCoordinatorへ分ける。
+編集・レビューのProvider応答内容規則はAI Adapterの`provider/task-result.ts`が所有する。旧Domainの同名実体は保存処理から利用されていなかったため、元試験とともに一実体移管して撤去した。内容正規化はAI Adapter、一試行の実行LifecycleはExecutor、次試行許可はCoordinatorが担当する。Domainの保存Schema・Writer・遷移は変更しない。
 
-助言内容の値モデル・JSON Schema・許可参照検査は`attempt/advice.ts`が所有する。公開操作は`parseAdviceResult(raw, allowedReferences)`と`describeAdviceResultSchema()`であり、ProviderのEnvelope解析・起動・清掃・次試行許可は含めない。ExecutorはAI Adapterの共通解析後にこの検査へ接続し、同意前のPrompt生成も同じSchemaを使う。DomainからAI Adapter／Executorへの実行値依存は追加しない。
+助言応答の値モデル・JSON Schema・許可参照検査はAI Adapterの`provider/advice-result.ts`へ移管した。Domainから旧API・型・実体を再公開せず、AI Adapter／Executorへの実行値依存も追加しない。Providerを実行する利用側がAI Adapterの公開内容検査・Schemaを直接使い、同意前のPrompt生成も同じSchemaへ接続する。
 
 | Owner | 所有するもの | 所有しないもの |
 |---|---|---|
@@ -26,7 +26,7 @@
 | Executor | 単一Attempt、取消・期限・Effect・終了・結果と元回復参照の調整 | 独立Queue、Domain Store、Planの再構築、常駐Server |
 | 既存専門Package | Access Managementの認証・認可、VCのGit、AI AdapterのCatalog・CLI差、DI／PAの隔離・OS | 他Ownerの状態の複製 |
 
-DomainはCoordinator／Executorを実行値importしない。AI Adapterは既にDomainのplain-dataへ依存するため、逆方向の実行値importも作らない。信頼したHostがCatalog APIから必要な非秘密値を取得して設定検査へ渡す。Catalogの内容・真正性判断をBrowser入力へ委譲しない。
+DomainはCoordinator／Executorを実行値importしない。DomainとAI Adapterは相互にruntime importせず、それぞれの用途に限定した入力検査を所有する。信頼したHostがCatalog APIから必要な非秘密値を取得して設定検査へ渡す。Catalogの内容・真正性判断をBrowser入力へ委譲しない。
 
 Core起動・CRUDはCoordinatorが読込み不能な構成でも成立させる。未解決Automation区画があっても、その保全可能なCore読取り・編集にDocker確認やProvider認証を追加しない。
 
@@ -416,7 +416,7 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 続くSource更新で、Domainの計画検査へID相関・依存循環拒否と`CallerTaskInput`の一対一固定を追加し、Coordinatorの受付Hash二箇所・Task別入力搬送・MCPの閉Schemaを接続した。Objective受付結果は`crdd-coordinator/orchestrator-objective-intake/v2`、MCP Adapter説明はv4。保存SchemaやMCP Protocol版は変更しない。
 
-設定の`ai-selection/types.ts`・`ai-selection/validation.ts`・`storage/ai-selection.ts`はDomainが所有する。技術Catalogの値は信頼したHostがAI Adapterから得て検査・読取り・保存へ明示注入し、HTTP／MCPの要求から受け取らない。Storeは既存1MiB上限・固定Path・CAS・短期排他・出版読戻し・一時物参照を保つ。共通JSON解析も`plain-data/json.ts`へ移し、AI Adapterは同じ関数を利用する。Workbenchの設定入口はDomainへ直接接続する。Coordinatorの実行Snapshot WriterとPlan／Task／Decisionの一般CRUDは引き続き未完了であり、Core全体の単独稼働を完成としない。
+設定の`ai-selection/types.ts`・`ai-selection/validation.ts`・`storage/ai-selection.ts`はDomainが所有する。技術Catalogの値は信頼したHostがAI Adapterから得て検査・読取り・保存へ明示注入し、HTTP／MCPの要求から受け取らない。Storeは既存1MiB上限・固定Path・CAS・短期排他・出版読戻し・一時物参照を保つ。Domainの一般JSON解析は`plain-data/json.ts`が所有する。AI AdapterはProvider境界内の独立parserを内部利用し、Domainへ依存しない。Workbenchの設定入口はDomainへ直接接続する。Coordinatorの実行Snapshot WriterとPlan／Task／Decisionの一般CRUDは引き続き未完了であり、Core全体の単独稼働を完成としない。
 
 共通保存の`storage/state.ts`は、固定五ファイルの読取りと三つの確定前ファイルの排他的作成を所有する。`readRuntimeStateFile`と`createRuntimeStatePendingFile`は同じ取引の実体Map・既存Owner照合を受け、現在境界の確認、nlink、上限、wx、発行前記録、fsync、close、読戻しの既存順序を保持する。ファイル名は実行時にも閉集合検査する。任意Snapshot・認可・状態遷移・CASを受け持つAPIではなく、Context消費、技術状態判断と取引全体の確定は今回まだCoordinatorに残る。新しい保存先・Lock・Registryは追加しない。
 

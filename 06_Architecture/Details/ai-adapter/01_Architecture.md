@@ -106,7 +106,15 @@ AI Adapter 技術Catalog → CoordinatorのRepository選定
                         AI Adapter 結果変換
 ```
 
-WorkbenchはCoordinatorの設定Reader／CAS Writerを使い、AMが共有管理の認可を担当する。MCPは旧Profile四管理Toolを提供しない。AI AdapterはRepository／Host設定の保存・Role判定・管理通信を行わない。Domain ModelのPlain Data検査へ直接依存し、Coordinatorの内部へ逆importしない。
+WorkbenchはCoordinatorの設定Reader／CAS Writerを使い、AMが共有管理の認可を担当する。MCPは旧Profile四管理Toolを提供しない。AI AdapterはRepository／Host設定の保存・Role判定・管理通信を行わない。Domain Model・Coordinatorへは、型参照や再exportを含め依存しない。
+
+Provider・Effort・技術Model選定・Turn診断の宣言は既存`provider/types.ts`が所有する。Repository設定の役割・分類・選定元・内容IdentityはDomain／上位Ownerが保持し、技術値の宣言をDomainの保存型から逆輸入しない。既存の型名・値域と保存形式は変えない。
+
+Provider入力は内部の`provider/input.ts`で通常Object／Arrayを捕捉し、応答JSONは`provider/json.ts`で重複key・不正文法・余剰文字を拒否する。Catalog検査からProvider計画へ循環しない純粋Moduleに閉じ、保存機能や共通ライブラリを新設しない。Domainの保存入力検査とは適用境界を分け、AI Adapterの入力検査からDomainを呼ばない。汎用JSON解析は内部に隠し、上位の一般JSON読取りはDomainの既存APIを使う。
+
+Provider応答の共通内容正規化は`provider/task-result.ts`（編集・レビュー）と`provider/advice-result.ts`（助言・許可参照・Schema）が所有する。公開の`inspectTaskResultContent`、`parseAdviceResult`、`describeAdviceResultSchema`と結果型をExecutor／Coordinatorが使用する。Envelope抽出の`parseProviderResult`と内容検査を混同せず、既存の拒否順序・理由・返却shapeを維持する。是正許可の発行はCoordinatorに残す。
+
+Domainにあった同じ内容検査は保存処理から利用されていなかったため、元試験とともにAI Adapterへ一実体移管し、Domainの旧ファイル・公開APIは撤去する。正規値・欠測・余剰・動的Property・不正所見・許可外参照と全拒否理由を元契約へ照合する。SchemaのJSON bytesと既存Command Hashも同一とし、Domainの保存Schema・Writer・遷移は変更しない。
 
 ## 4. Schemaと拒否境界
 
@@ -181,7 +189,7 @@ Claudeの非0終了では、NULなし・UTF-8 64KiB以下の曖昧でない単�
 src/
 ├ index.ts
 ├ catalog/          types.ts / resolve.ts / validation.ts / model-catalog.json
-├ provider/         types.ts / plan.ts / result.ts / error.ts / validation.ts / json.ts
+├ provider/         types.ts / plan.ts / result.ts / task-result.ts / advice-result.ts / error.ts / validation.ts / input.ts / json.ts
 ├ authentication/   plan.ts / result.ts / policy.ts
 ├ billing/          policy.ts
 ├ codex/            plan.ts / result.ts と内部固定Schema

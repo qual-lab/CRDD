@@ -8,7 +8,10 @@
  * @scope codex、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
-import { executionSelection } from "../../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  attemptSelection,
+} from "../../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
@@ -17,7 +20,7 @@ import {
 } from "../../../src/execution/preparation.ts";
 import { createAttemptPreparation } from "../../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../domain-model/src/index.ts";
+import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test, { mock } from "node:test";
@@ -118,7 +121,7 @@ const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
   executorProvider: "codex" as const,
-  executionSelection: fixedSelection,
+  ...attemptSelection(fixedSelection),
   selectionHash: hashExecutionSelection(fixedSelection) as string,
   taskAttempt: 0 as const,
   model: fixedSelection.modelIdentifier,
@@ -224,7 +227,7 @@ function createFixture(
       assert.equal(management, managementCapability);
       return Object.freeze({
         ...MODEL_SELECTION,
-        executionSelection: selected,
+        ...attemptSelection(selected),
         selectionHash: hashExecutionSelection(selected) as string,
         model: selected.modelIdentifier,
         effort: selected.reasoningEffort,
@@ -316,11 +319,13 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
     {
       consumeModelSelection: () => ({
         ...MODEL_SELECTION,
-        executionSelection: executionSelection("advice", {
-          provider: "codex",
-          model: "gpt-5.6-sol",
-          effort: "low",
-        }),
+        ...attemptSelection(
+          executionSelection("advice", {
+            provider: "codex",
+            model: "gpt-5.6-sol",
+            effort: "low",
+          }),
+        ),
         selectionHash: hashExecutionSelection(
           executionSelection("advice", {
             provider: "codex",
@@ -336,11 +341,13 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
           contractRevision: 2,
           packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
           operationId: "OP-123456",
-          executionSelection: executionSelection("advice", {
-            provider: "codex",
-            model: "gpt-5.6-sol",
-            effort: "low",
-          }),
+          ...attemptSelection(
+            executionSelection("advice", {
+              provider: "codex",
+              model: "gpt-5.6-sol",
+              effort: "low",
+            }),
+          ),
           provider: "codex" as const,
           taskHash: "2".repeat(64),
           projectionHash: "3".repeat(64),
@@ -1083,8 +1090,12 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
     });
   const fixture = createFixture(
     {
-      consumeModelSelection: (selection, management) =>
-        selectionRuntime.consume(selection, management),
+      consumeModelSelection: (selection, management) => {
+        const consumed = selectionRuntime.consume(selection, management);
+        return consumed
+          ? { ...consumed, ...attemptSelection(consumed.executionSelection) }
+          : null;
+      },
     },
     true,
   );
@@ -1376,7 +1387,7 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
       {
         consumeModelSelection: () => ({
           ...MODEL_SELECTION,
-          executionSelection: selected as typeof original,
+          ...attemptSelection(selected as typeof original),
           selectionHash: hashExecutionSelection(selected) ?? "0".repeat(64),
           model:
             typeof selected.modelIdentifier === "string"

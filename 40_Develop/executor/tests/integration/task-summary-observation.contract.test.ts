@@ -279,7 +279,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
         const suffix='0101010101010101';
         const plan={provider,consumer:'coordinator_cli',operationId:'OP-123456',
           grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
-          executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-6.1-sol':'opus',identifierKind:provider==='codex'?'exact':'alias',reasoningEffort:'medium',purpose:'task',catalogIdentity:'a'.repeat(64),configIdentity:'b'.repeat(64),role:provider==='codex'?'executor':'independent_reviewer',workType:null,source:'explicit'},
+          executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-6.1-sol':'opus',identifierKind:provider==='codex'?'exact':'alias',reasoningEffort:'medium',purpose:'task',role:provider==='codex'?'executor':'independent_reviewer'},selectionHash:'e'.repeat(64),
           activeMountCapability:mount,authorityUseCapability:authority,
           providerHomeSourcePath:'C:/synthetic-not-accessed/home',providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64),
           authContainerName:'crdd-auth-'+suffix,providerContainerName:'crdd-'+provider+'-'+suffix,proxyContainerName:'crdd-proxy-'+suffix,internalNetworkName:'crdd-internal-'+suffix,egressNetworkName:'crdd-egress-'+suffix,ownershipLabel:'crdd.coordinator.runtime='+suffix,

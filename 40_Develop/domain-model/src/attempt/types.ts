@@ -1,3 +1,5 @@
+import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
+export type { ProviderTurnCountDiagnostic };
 /**
  * 実行状態の共有値・純粋検査を所有する。
  * @packageDocumentation
@@ -176,28 +178,6 @@ export type DockerRestartCheckpoint = Readonly<{
     request: "not_issued" | "unknown" | "issued" | "confirmed";
     effectOutcomeUnknown: boolean;
   }> | null;
-}>;
-
-/**
- * 拒否したTurn metadataの有無・型・有限数値だけを表す。
- * @responsibility 未信頼文字列・Object本文を診断へ複製しない。
- * @trace ARCH-000015
- * @shape 欠落を区別する固定型名と、有限数値を正規化した短い文字列表記又はnull。
- * @invariant 観測値は受理判定や実行許可を変更しない。
- * @boundary Provider出力の抽出と上位の一次失敗診断。
- * @security 数値以外の実値・生Envelopeを含めない。
- * @compatibility 既存結果への任意の診断追加。
- */
-export type ProviderTurnCountDiagnostic = Readonly<{
-  valueType:
-    | "missing"
-    | "null"
-    | "boolean"
-    | "number"
-    | "string"
-    | "array"
-    | "object";
-  numberText: string | null;
 }>;
 
 /**

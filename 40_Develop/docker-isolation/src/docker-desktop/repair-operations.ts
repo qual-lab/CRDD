@@ -5,10 +5,8 @@
  * @trace ARCH-000008
  * @boundary DI内部。保存Owner・Root・上位の復旧判断を所有しない。
  */
-import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
-} from "../../../domain-model/src/index.ts";
+import type { DockerRuntimeRepairCheckpoint as Checkpoint } from "./types.ts";
+import { decodeDockerRuntimeRepairCheckpoint as decode } from "./validation.ts";
 import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 import type { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 

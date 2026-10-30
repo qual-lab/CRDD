@@ -52,15 +52,17 @@ ProxyはDNS応答の重複を除いた最大32アドレスを検査し、一つ�
 
 ### Docker固有記録の所有者
 
-Docker Task回復IDの固定文法と修復checkpointの純粋な保存値codecはDomain Modelの`attempt/validation.ts`・`repair-validation.ts`が所有する。`cleanup/probe-record.ts`はProbe記録と技術資源のRoot／子実体照合を所有する。旧Fileの互換入口は残さない。記録Schema、token形式、保存Path、Hash、nonce、読戻し・差替え拒否と書込み順序は維持する。実資源観測・現在Owner・技術遷移はDocker Isolationに残り、codec成功を資源不存在や実行許可の証明にしない。
+Docker IsolationはDomain Modelへ依存せず、永続記録の保存・読戻し・上位の再開判断を所有しない。修復Machineが受け取り通知する技術状態は`docker-desktop/types.ts`、その純粋検査・技術遷移は`docker-desktop/validation.ts`が所有する。Docker Task回復IDの技術入力解析は`cleanup/resource.ts`に閉じる。Domainは従来の保存Schema・保存受理遷移を独立して保持し、どちらの公開Rootも相手Packageをロードせず開始できる。正常通知・異常値・遷移の一致は非AI契約試験で固定し、保存状態を二重保持しない。
+
+`onPrepared`／`onCheckpoint`等の既存callbackの時点・回数・同期保存Gateを維持する。上位は通知値を保存側の検査へ通して確定し、拒否又は例外では下位の追加Effectを止める。技術DTOの成立を保存成功・資源不存在・実行許可へ読み替えない。新しいStore・Registry・Lock・保存用Portは追加しない。
+
+Probe記録は唯一の製品利用側であるCoordinatorの`state/probe-record.ts`へ移した。上位の記録OwnerはDI公開の固定資源記述を参照するが、DIは記録Writer／Readerを呼ばず再公開もしない。詳細は[Coordinatorの保存境界](../coordinator/01_Architecture.md#probe記録の保存owner)を参照する。記録Schema、token形式、保存Path、Hash、nonce、読戻し・差替え拒否と書込み順序は維持し、旧Fileの互換入口は残さない。
 
 | 公開操作 | 境界 |
 |---|---|
 | `parseDockerTaskRecoveryId` | 固定三成分の解析またはnull。解析だけで実行／回収資格を発行しない |
-| `formatDockerIsolationRecoveryToken`、`isDockerIsolationRecoveryIdCandidate`、`parseDockerProbeRecoveryToken` | Probe回復参照の整形・文法確認・解析。旧参照を同じ形式で保持 |
-| `writeDockerProbeRecoveryRecord`、`loadDockerProbeRecoveryRecord` | 渡されたmanagement／Root内の既存固定記録を保存・読戻し。新しい保管領域や探索Registryを作らない |
-| `classifyDockerProbeRecoveryChildren`、`requireDockerProbeRecoveryMounts` | 元Rootと子実体を照合し、欠測・置換・linkを拒否。観測を処置許可へ昇格しない |
-| `DockerMounts`、`LoadedDockerRecovery` | 上記操作に渡す／返す既存の型。実装Owner移管だけで新fieldを追加しない |
+| 修復checkpointのdecode・settled判定 | 受け取った技術値だけを検査し、保存記録を探索・読戻ししない |
+| Probe記録のtoken・Writer／Reader・Root／子照合・型 | DI公開から撤去。Coordinatorの記録Ownerが既存契約を維持する |
 
 CoordinatorはDI Rootへ接続し、DIはCoordinatorをimportしない。Host終端記録、再起動要求とRepositoryの相関、現在状態のWriterと配送は上位Ownerに残す。汎用JSON確定Journalを名前だけでDocker責務へ移さず、新しいLock・Recovery機構は追加しない。
 

@@ -1,7 +1,5 @@
-import type {
-  AiProvider,
-  AiReasoningEffort,
-} from "../../../domain-model/src/index.ts";
+import type { AiProvider, AiReasoningEffort } from "../provider/types.ts";
+
 /**
  * 技術CatalogのModel・用途・Effortと選定結果の型を定義する。
  *

@@ -5,7 +5,8 @@
  * @trace ARCH-000008
  * @boundary DI内部。固定factory由来の対象だけを扱いRoot公開APIにはしない。
  */
-import type { DockerRuntimeRepairCheckpoint } from "../../../domain-model/src/index.ts";
+import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
+
 import fs from "node:fs";
 import path from "node:path";
 import { setImmediate as yieldToOwner } from "node:timers/promises";

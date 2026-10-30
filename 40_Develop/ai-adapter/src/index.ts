@@ -52,10 +52,7 @@ export {
   type ProviderResultReason,
   type ProviderResultParseResult,
 } from "./provider/result.ts";
-export {
-  PROVIDER_ADVICE_OUTPUT_REASONS,
-  type ProviderTurnCountDiagnostic,
-} from "../../domain-model/src/index.ts";
+export { PROVIDER_ADVICE_OUTPUT_REASONS } from "./provider/result.ts";
 export {
   describeProviderBillingPolicy,
   PROVIDER_BILLING_POLICY_CONTRACT,
@@ -71,14 +68,23 @@ export type {
   AiModelSelectionResult,
 } from "./catalog/resolve.ts";
 export type { AiModelCatalog, AiModelDefinition } from "./catalog/types.ts";
-export type { AiModelSelection } from "../../domain-model/src/index.ts";
-
 export type {
   AiProvider,
   AiReasoningEffort,
-} from "../../domain-model/src/index.ts";
+  AiModelSelection,
+  ProviderTurnCountDiagnostic,
+} from "./provider/types.ts";
 
-export { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
+export { inspectTaskResultContent } from "./provider/task-result.ts";
+export type { TaskReviewFinding } from "./provider/task-result.ts";
+export {
+  parseAdviceResult,
+  describeAdviceResultSchema,
+} from "./provider/advice-result.ts";
+export type {
+  AdviceResult,
+  AdviceResultItem,
+} from "./provider/advice-result.ts";
 export {
   CODEX_EXECUTION_PLAN_CONTRACT,
   CODEX_EXECUTION_PLAN_CONTRACT_REVISION,

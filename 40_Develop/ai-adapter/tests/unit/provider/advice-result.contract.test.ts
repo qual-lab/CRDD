@@ -11,7 +11,7 @@ import test from "node:test";
 import {
   parseAdviceResult as normalizeAdviceResult,
   describeAdviceResultContract,
-} from "../../../src/attempt/advice.ts";
+} from "../../../src/provider/advice-result.ts";
 
 /**
  * 読取り助言の単一JSONを許可済み根拠参照へ拘束するを検証する。

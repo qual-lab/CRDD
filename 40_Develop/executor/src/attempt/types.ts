@@ -5,7 +5,27 @@
  * @trace ARCH-000008
  * @trace ARCH-000015
  */
-import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
+import type { AiModelSelection } from "../../../ai-adapter/src/index.ts";
+
+/**
+ * 一試行へ搬送する技術選定を表す。
+ * @responsibility 実行構成と役割だけを型で保持し、保存元・設定世代を持たない。
+ * @trace ARCH-000015
+ * @shape 五つの技術値と既存役割。
+ * @invariant 完全選定の検査・Hash・Authorityは上位が所有する。
+ * @boundary 上位選定Ownerと一試行の準備・開始。
+ * @security この値だけで実行を許可しない。
+ * @compatibility 保存Schemaではなく同期Host搬送契約である。
+ */
+export type AttemptSelection = AiModelSelection &
+  Readonly<{
+    role:
+      | "coordinator"
+      | "executor"
+      | "independent_reviewer"
+      | "result_integration"
+      | "advice";
+  }>;
 import type {
   CommandObservation as CommandExecution,
   DockerExecutionHooks,
@@ -120,7 +140,8 @@ export type PreparedPlan = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
   grantRef: string;
-  executionSelection: ExecutionSelection;
+  executionSelection: AttemptSelection;
+  selectionHash: string;
   taskAttempt: 0 | 1;
   activeMountCapability: object;
   authorityUseCapability: object;
@@ -192,7 +213,8 @@ export type AdvicePacket = Readonly<{
   allowedReferences: readonly string[];
   packetRef: string;
   operationId: string;
-  executionSelection: ExecutionSelection;
+  executionSelection: AttemptSelection;
+  selectionHash: string;
   provider: "codex" | "claude";
   taskHash: string;
   projectionHash: string;
@@ -212,9 +234,9 @@ import type { AdviceCommand } from "../../../docker-isolation/src/index.ts";
 /**
  * 共通実行計画が照合する消費済みModel選定の値契約。
  *
- * @responsibility 操作・Providerと受付時の完全選定の相関を保持する。
+ * @responsibility 操作・Providerと上位で固定した技術選定の相関を保持する。
  * @trace ARCH-000015
- * @shape 選定ID、操作ID、実行Provider、完全選定、Hash、Attempt、Model、努力量、速度と通知。
+ * @shape 選定ID、操作ID、実行Provider、技術六項目、完全選定Hash、Attempt、Model、努力量、速度と通知。
  * @invariant 選定の発行・消費は既存Ownerが行い、この型から権限を導出しない。
  * @boundary 選定OwnerとCoordinatorの実行計画構築の間。
  * @security 不透明Capabilityや認証情報を含めない。
@@ -224,7 +246,7 @@ export type ModelSelection = Readonly<{
   selectionRecordId: string;
   operationId: string;
   executorProvider: "codex" | "claude";
-  executionSelection: ExecutionSelection;
+  executionSelection: AttemptSelection;
   selectionHash: string;
   taskAttempt: 0 | 1;
   model: string;
@@ -466,7 +488,8 @@ export type PreparedAttemptPlan<P extends "codex" | "claude"> = Readonly<{
   recoveryCorrelationId: string | null;
   consumer: "coordinator_cli" | "workbench" | "orchestrator";
   grantRef: string;
-  executionSelection: ExecutionSelection;
+  executionSelection: AttemptSelection;
+  selectionHash: string;
   taskAttempt: 0 | 1;
   activeMountCapability: object;
   authorityUseCapability: object;
@@ -516,7 +539,7 @@ export type PreparedAttemptPlan<P extends "codex" | "claude"> = Readonly<{
     : Readonly<Record<never, never>>);
 
 /**
- * 準備Ownerが消費したModel選定の完全な値契約を定義する。
+ * 上位Ownerが消費したModel選定の技術投影を定義する。
  *
  * @responsibility 共通計画の使用fieldと既存の委譲相関fieldを保持する。
  * @trace ARCH-000015

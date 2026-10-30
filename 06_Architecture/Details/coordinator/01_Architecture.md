@@ -1,8 +1,14 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Probe記録の保存Owner
+
+`state/probe-record.ts`は上位診断が使う既存Probe記録の保存・読戻し・token／Hash・Root／子実体照合を所有する。Docker Isolationから本文同値で移管し、`execution/diagnostics.ts`と検証記録Toolが直接利用する。固定Image・Name・LabelはDIの既存`describeDockerProbeResource`から取得し、この保存ModuleからDocker要求は発行しない。DIへの互換再exportや新しいStore・Registryを作らない。
+
+作成前と実ID確定後の二保存、既知Path・Schema・UUID・nonce・Hash・失敗理由・保存順序・差替え拒否・元回復参照は変えない。Host／Taskの保存WriterやDomainの保存Schemaへ一般化せず、既存のProbe診断記録として扱う。現在の移管は過去保持物の書換え・回収を許可しない。
+
 ## Executor共通入口と次試行の責任
 
-Task／AdviceともExecutorの`prepare(AttemptInput)`→`start`→`completion`へ接続する。Coordinatorは用途別の入力を上位で確定するが、Executorの結果normalizerを直接公開APIとして組み立てない。助言の内容SchemaはDomain、Docker Commandの結合とHashはDocker Isolationから取得する。
+Task／AdviceともExecutorの`prepare(AttemptInput)`→`start`→`completion`へ接続する。Coordinatorは用途別の入力を上位で確定するが、Executorの結果normalizerを直接公開APIとして組み立てない。助言の内容検査・SchemaはAI Adapter、Docker Commandの結合とHashはDocker Isolationから取得する。Domainの保存Schema・Writer・遷移はこの内容移管で変更しない。
 
 初回レビューの検査済み所見は固定Host callbackから既存の操作・復帰済み試行と照合し、`execution/preparation.ts`の一つのWeakMapへ次試行許可を登録する。同一操作・初回レビューだけを対象とし、一回消費する。二回目レビュー・別操作・コピー・消費済み参照は許可しない。登録不能時もレビュー内容の完了は維持するが、許可なしで是正試行を開始しない。永続終了保存と現在のAuthority・同意・Workspace整合性を省略しない。
 
@@ -186,7 +192,7 @@ Task回復の技術接続はDIの固定`createDockerTaskRecoveryExecutor`へ、�
 
 診断ProbeのHost状態遷移は、既存`execution/operation.ts`が所有する。開始・作成前取消は同Ownerの既存遷移へ委譲し、不存在確定は元Host markerの保存・token更新・元Capabilityへの採用を同じ順序で行う。Probeは遷移結果を受け渡すだけでmarkerを直接更新しない。明示Rootを使う再入場と生存OwnerのCapability経路を区別し、新しい状態・Lock・共有管理を追加しない。この配置だけからDocker資源不存在の成立は主張しない。
 
-Host回復token・遷移lineage・再起動checkpointの純粋なcodecは`execution/result.ts`、実記録のFilesystem保存／読取りと回復Lifecycleは`execution/recovery.ts`、診断Probe記録はDocker Isolationの`cleanup/probe-record.ts`が所有する。保存モデルは純粋なcodecへ直接依存し、値検査のために回復Runtimeを読み込まない。診断本体は各OwnerのWriter／Readerを明示呼出しし、作成前とID確定後の二保存、fresh回復時のRoot・実体照合から技術観測への順序を維持する。Writerは固定資源記述を記録するだけでCLIやEngineを判定しない。Host／ProbeのSchemaとtoken文法は別のまま、現在形式だけを扱い、互換中継は追加しない。
+Host回復token・遷移lineage・再起動checkpointの純粋なcodecは`execution/result.ts`、実記録のFilesystem保存／読取りと回復Lifecycleは`execution/recovery.ts`、診断Probe記録は上位Coordinatorの`state/probe-record.ts`が所有する。保存モデルは純粋なcodecへ直接依存し、値検査のために回復Runtimeを読み込まない。診断本体は各OwnerのWriter／Readerを明示呼出しし、作成前とID確定後の二保存、fresh回復時のRoot・実体照合から技術観測への順序を維持する。Writerは固定資源記述を記録するだけでCLIやEngineを判定しない。Host／ProbeのSchemaとtoken文法は別のまま、現在形式だけを扱い、互換中継は追加しない。
 
 <a id="repair-directory-disposition"></a>
 
@@ -799,6 +805,8 @@ AI選定は受付時のRepository設定Snapshotから確定する。五つの役
 Model Grantは30秒・一回消費のProcess内値であり、操作ID・固定選定・試行番号だけを受理する。技術Catalogで現在もそのModel・Effort・用途を実行できるか検査するが、Repository設定を読み直して別の希望へ選び直さない。Home再観測とMount照合後に旧Grantを失効し、同じ完全選定と操作・試行番号で更新したGrantだけを実行直前へ渡す。Provider、十項目又は試行番号の差、失効・更新失敗はEffect前に停止する。失効観測不能を清掃成功へ変換せず、既存のProcess再利用禁止を維持する。
 
 Task Packetは役割・試行番号・完全選定Hashを固定本文へ結合し、準備側でModel Grantの値と照合する。助言も同じ完全選定を用い、role=advice、purpose=advice、Provider・Model・Effortと実Commandの一致を検査する。助言用の送信GrantはTask／通信条件と選定Hashへ限定する。新しい選定Store・Registry・Lockは作らない。実行前には既存のOperation Identity保存・読戻しを完了し、そのstageの完全選定をv2 Identityへ一回記録する。Owner喪失後は保存された元Identityによる回収・終了だけとし、現在設定による本文再送・未発行stageの再作成を行わない。
+
+上記の完全選定はCoordinator側の契約であり、ExecutorへRepository設定の解釈や保存を委譲しない。既存Model Grantの一回消費点で完全値を検査・Hash算出し、Executorには六技術項目と`selectionHash`だけを渡す。完全値は新Mapではなく既存Operation管理recordへ同じ選定ID・試行番号と共に不変結合し、元Ownerの失効と共に解放する。回復開始時は有効な管理参照、選定ID、Hash、試行番号、全技術項目の一致を確認してから元完全値を保存Ownerへ渡す。下位から完全値を再受理せず、Hashだけで実行許可を発行しない。既存のv2保存Identity、回復ID、短期排他、期限、再入場条件は変更しない。
 
 固定開発版によるProvider実測は、検証済みのSource、Native成果物、Repository、期限、Task数およびCLI呼出し数へ閉じた開発Sessionだけを発行し、Release AuthorityまたはProvider送信Authorityを与えない。このSession開始時に外部送信とは別の対話確認を重ねない。実際のProvider送信は通常運用と同じ初期外部送信許可だけが制御し、永続境界が同じ間は既存許可を再利用する。許可が存在しない、変更・失効・取消された、または状態を確認できない場合は、Provider Effect前に初期確認へ戻るかEffect 0で停止する。固定開発版のIdentityやTask上限から、外部送信範囲、実行AuthorityまたはRelease Authorityを拡張してはならない。
 

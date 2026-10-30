@@ -5,7 +5,7 @@
  * @security 生出力・任意本文は保持せず、別Taskの診断を受領しない。
  */
 import type { Writable } from "node:stream";
-import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,

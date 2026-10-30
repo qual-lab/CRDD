@@ -1,4 +1,5 @@
-import type { AiProvider } from "../../../domain-model/src/index.ts";
+import type { AiProvider } from "../provider/types.ts";
+
 /**
  * Providerの認証確認用CLI記述を所有する。
  *

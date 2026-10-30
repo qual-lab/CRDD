@@ -8,7 +8,130 @@
  * @boundary Executorの準備Owner。
  */
 import assert from "node:assert/strict";
+import {
+  captureAttemptInput,
+  captureAllowedReferences,
+  inspectAttemptSelection,
+} from "../../src/attempt/validation.ts";
 import test from "node:test";
+
+/**
+ * 用途限定の捕捉と六技術項目を動的値から分離する。
+ * @responsibility Domain非依存化で拒否条件を欠落させない。
+ * @trace ERB-IT-004
+ * @precondition 合成値のみ。
+ * @stimulus 各field欠測・余剰・prototype・getter・Proxy・疎配列を渡す。
+ * @observation null又は独立した凍結値、getter／trap零。
+ * @oracle 保存元情報を受けず、実行Propertyを評価しない。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary 上位Hostと準備・開始の局所値。
+ */
+test("用途限定入力は動的値・完全選定・欠測を拒否し技術六項目だけを固定する", () => {
+  let calls = 0;
+  const selection = {
+    provider: "codex",
+    modelIdentifier: "gpt-6.1-sol",
+    identifierKind: "exact",
+    reasoningEffort: "medium",
+    purpose: "task",
+    role: "executor",
+  };
+  const input = {
+    purpose: "probe",
+    managementCapability: {},
+    mountCapability: {},
+    mountAuthorizationCapability: {},
+    selectionUseCapability: {},
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  };
+  for (const [base, inspect] of [
+    [selection, inspectAttemptSelection],
+    [input, captureAttemptInput],
+  ] as const) {
+    assert.ok(inspect(base));
+    for (const key of Object.keys(base)) {
+      const missing: Record<string, unknown> = { ...base };
+      delete missing[key];
+      assert.equal(inspect(missing), null);
+      const dynamic = Object.defineProperty({ ...base }, key, {
+        get() {
+          calls++;
+          return "injected";
+        },
+        enumerable: true,
+      });
+      assert.equal(inspect(dynamic), null);
+      const hidden = Object.defineProperty({ ...base }, key, {
+        value: "injected",
+        enumerable: false,
+      });
+      assert.equal(inspect(hidden), null);
+    }
+    for (const bad of [
+      { ...base, extra: true },
+      { ...base, [Symbol("x")]: true },
+      Object.assign(Object.create({ inherited: true }), base),
+      new Proxy(base, {
+        ownKeys() {
+          calls++;
+          throw Error("must_not_read");
+        },
+      }),
+    ])
+      assert.equal(inspect(bad), null);
+  }
+  for (const key of Object.keys(selection))
+    for (const bad of [null, "", {}, [], true])
+      assert.equal(inspectAttemptSelection({ ...selection, [key]: bad }), null);
+  assert.equal(
+    inspectAttemptSelection({ ...selection, purpose: "advice" }),
+    null,
+  );
+  assert.equal(
+    inspectAttemptSelection({ ...selection, catalogIdentity: "a".repeat(64) }),
+    null,
+  );
+  assert.equal(
+    inspectAttemptSelection({ ...selection, configIdentity: "b".repeat(64) }),
+    null,
+  );
+  const captured = inspectAttemptSelection(selection);
+  assert.ok(captured && Object.isFrozen(captured));
+  assert.notEqual(captured, selection);
+  const references = ["synthetic"];
+  const fixed = captureAllowedReferences(references);
+  references.push("later");
+  assert.deepEqual(fixed, ["synthetic"]);
+  assert.ok(Object.isFrozen(fixed));
+  const sparse = new Array(1);
+  const dynamic = Object.defineProperty(["synthetic"], "0", {
+    get() {
+      calls++;
+      return "injected";
+    },
+    enumerable: true,
+  });
+  for (const bad of [
+    [],
+    sparse,
+    dynamic,
+    ["x", "x"],
+    [""],
+    ["x\0"],
+    ["x".repeat(513)],
+    new Array(257).fill("x"),
+    Object.assign(["x"], { extra: true }),
+    new Proxy(["x"], {
+      ownKeys() {
+        calls++;
+        throw Error("must_not_read");
+      },
+    }),
+  ])
+    assert.equal(captureAllowedReferences(bad), null);
+  assert.equal(calls, 0);
+});
 import {
   cancelProviderDockerPreparation,
   consumeProviderDockerPreparation,

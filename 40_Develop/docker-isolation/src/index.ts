@@ -34,16 +34,18 @@ export {
   type DockerRuntimeRepairDisposalInput,
   observeDockerRuntimeRepairRetention,
 } from "./docker-desktop/repair-session.ts";
+export type {
+  DockerRuntimeRepairCheckpoint,
+  DockerRuntimeRepairRetentionTargets,
+  DockerRuntimeRepairDisposalCheckpoint,
+} from "./docker-desktop/types.ts";
 export {
-  type DockerRuntimeRepairCheckpoint,
-  type DockerRuntimeRepairRetentionTargets,
   decodeDockerRuntimeRepairRetentionTargets,
-  type DockerRuntimeRepairDisposalCheckpoint,
   decodeDockerRuntimeRepairDisposalCheckpoint,
   dockerRuntimeRepairDisposalIsSettled,
   decodeDockerRuntimeRepairCheckpoint,
   dockerRuntimeRepairCheckpointIsSettled,
-} from "../../domain-model/src/index.ts";
+} from "./docker-desktop/validation.ts";
 export {
   type DockerRuntimeBackendState,
   observeDockerRuntimeBackendState,
@@ -181,18 +183,7 @@ export {
   type DockerNetworkPolicyResult,
 } from "./network/policy.ts";
 
-export { parseDockerTaskRecoveryId } from "../../domain-model/src/index.ts";
-export {
-  type DockerMounts,
-  type LoadedDockerRecovery,
-  formatDockerIsolationRecoveryToken,
-  isDockerIsolationRecoveryIdCandidate,
-  parseDockerProbeRecoveryToken,
-  writeDockerProbeRecoveryRecord,
-  loadDockerProbeRecoveryRecord,
-  classifyDockerProbeRecoveryChildren,
-  requireDockerProbeRecoveryMounts,
-} from "./cleanup/probe-record.ts";
+export { parseDockerTaskRecoveryId } from "./cleanup/resource.ts";
 export {
   bindAdviceCommand,
   hashAdviceCommand,

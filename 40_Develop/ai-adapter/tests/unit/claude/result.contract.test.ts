@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseUnambiguousJsonDocument } from "../../../src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../src/provider/json.ts";
 
 import {
   describeClaudeStructuredResultContract,

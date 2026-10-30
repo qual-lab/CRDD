@@ -5,7 +5,13 @@
  * @trace ARCH-000008
  */
 
-import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
+import {
+  parseHostRecoveryToken,
+  inspectExecutionSelection,
+  snapshotPlainRecord,
+  hashExecutionSelection,
+  type ExecutionSelection,
+} from "../../../domain-model/src/index.ts";
 import type { AttemptPaths } from "../../../executor/src/index.ts";
 
 import {
@@ -2203,6 +2209,19 @@ type OperationManagementIdentity = Readonly<{
   owned: object;
   operationId: string;
   createdAt: string;
+  executionSelections?: Readonly<
+    Partial<
+      Record<
+        "executor0" | "reviewer0" | "executor1" | "reviewer1" | "advice0",
+        Readonly<{
+          selectionRecordId: string;
+          selection: ExecutionSelection;
+          selectionHash: string;
+          taskAttempt: 0 | 1;
+        }>
+      >
+    >
+  >;
 }>;
 
 /**
@@ -5699,6 +5718,138 @@ export function verifyOwnedOperationManagementCapability(
     createdAt: binding.createdAt,
     managementScopeBound: true as const,
   });
+}
+
+/**
+ * 消費した完全選定を既存Operation Ownerへ結合する。
+ * @responsibility Executorへ保存元を渡さず同じOwnerで保存Identityを維持する。
+ * @trace ARCH-000015
+ * @input 現在の管理参照、選定ID、完全選定と試行番号。
+ * @returns 元Ownerへの結合が成立した場合だけtrue。
+ * @precondition 上位の選定Capability消費後に呼ぶ。
+ * @postcondition 既存WeakMapの同じ管理recordの固定五用途だけに不変値を保持する。
+ * @effect Process内の既存recordを更新する。保存・資源取得なし。
+ * @failure 別Owner・不正値・異なる再結合はfalse。
+ * @invariant 新しいMap・永続状態・Authorityを追加しない。
+ * @boundary Coordinator内の選定OwnerとOperation保存Owner。
+ * @security 選定Hashを権限へ変換しない。
+ * @concurrency 同期結合しOperationの既存失効と共に解放する。
+ */
+export function bindOwnedOperationExecutionSelection(
+  management: unknown,
+  selectionRecordId: string,
+  candidate: unknown,
+  taskAttempt: 0 | 1,
+): boolean {
+  try {
+    verifyOwnedOperationManagementCapability(management);
+    const binding = operationManagementCapabilities.get(management as object);
+    const selection = inspectExecutionSelection(candidate);
+    const selectionHash = hashExecutionSelection(selection);
+    if (
+      !binding ||
+      !selection ||
+      !selectionHash ||
+      !/^MODELSEL-[A-Z0-9-]{8,80}$/u.test(selectionRecordId) ||
+      (taskAttempt !== 0 && taskAttempt !== 1)
+    )
+      return false;
+    const slot =
+      selection.purpose === "advice" &&
+      selection.role === "advice" &&
+      taskAttempt === 0
+        ? "advice0"
+        : selection.purpose === "task" && selection.role === "executor"
+          ? taskAttempt === 0
+            ? "executor0"
+            : "executor1"
+          : selection.purpose === "task" &&
+              selection.role === "independent_reviewer"
+            ? taskAttempt === 0
+              ? "reviewer0"
+              : "reviewer1"
+            : null;
+    if (!slot) return false;
+    const next = Object.freeze({
+      selectionRecordId,
+      selection,
+      selectionHash,
+      taskAttempt,
+    });
+    if (binding.executionSelections?.[slot])
+      return (
+        JSON.stringify(binding.executionSelections[slot]) ===
+        JSON.stringify(next)
+      );
+    operationManagementCapabilities.set(
+      management as object,
+      Object.freeze({
+        ...binding,
+        executionSelections: Object.freeze({
+          ...binding.executionSelections,
+          [slot]: next,
+        }),
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 元Operationに結合した完全選定だけを保存Ownerへ貸し出す。
+ * @responsibility 管理参照・選定ID・完全Hash・試行番号・exact六技術項目の一致を要求する。
+ * @trace ARCH-000015
+ * @input 現在の管理参照と技術計画の非Authority相関。
+ * @returns 元の完全選定又はnull。
+ * @precondition 同じOperation Ownerが現在も有効である。
+ * @postcondition 下位から完全選定を再受理しない。
+ * @effect 元OwnerのFilesystem実体確認だけ。
+ * @failure 欠測・失効・別相関はnull。
+ * @invariant 記録を新しい実行許可へ昇格しない。
+ * @boundary Coordinatorの実行と保存Identityの組立て。
+ * @security 公開Rootへ返却しない。
+ * @concurrency 同期借用。新しい排他を作らない。
+ */
+export function borrowOwnedOperationExecutionSelection(
+  management: unknown,
+  selectionRecordId: string,
+  selectionHash: string,
+  taskAttempt: 0 | 1,
+  technicalSelection: unknown,
+) {
+  try {
+    verifyOwnedOperationManagementCapability(management);
+    const keys = new Set([
+      "provider",
+      "modelIdentifier",
+      "identifierKind",
+      "reasoningEffort",
+      "purpose",
+      "role",
+    ]);
+    const technical = snapshotPlainRecord(technicalSelection, keys);
+    if (!technical || Object.keys(technical).length !== keys.size) return null;
+    const selections = operationManagementCapabilities.get(
+      management as object,
+    )?.executionSelections;
+    for (const value of Object.values(selections ?? {})) {
+      if (
+        value.selectionRecordId === selectionRecordId &&
+        value.selectionHash === selectionHash &&
+        value.taskAttempt === taskAttempt &&
+        [...keys].every(
+          (key) =>
+            technical[key] === value.selection[key as keyof ExecutionSelection],
+        )
+      )
+        return value.selection;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**

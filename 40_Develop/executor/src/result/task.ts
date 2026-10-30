@@ -1,12 +1,12 @@
 /**
- * Provider解析とDomainのTask内容検査を単段結果へ接続する。
+ * AI AdapterのProvider解析とTask内容検査を単段結果へ接続する。
  * @packageDocumentation
  * @responsibility Envelope・内容・実行観測の結果を結合し、是正許可を発行しない。
  * @trace ARCH-000015
  * @boundary Provider結果と呼出し元の受入の間。
  */
 import type { NormalizedProviderResult } from "./types.ts";
-import { inspectTaskResultContent } from "../../../domain-model/src/index.ts";
+import { inspectTaskResultContent } from "../../../ai-adapter/src/index.ts";
 import {
   evaluateProviderTaskScope,
   parseProviderResult,

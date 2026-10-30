@@ -72,12 +72,15 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   const script = `
     import assert from 'node:assert/strict';
     import {registerHooks} from 'node:module';
+    let blockDomain=true;
     registerHooks({resolve(s,c,n){
       const resolved=n(s,c);
       if(resolved.url.includes('/coordinator/'))throw Error('coordinator_unavailable');
+      if(blockDomain&&resolved.url.includes('/domain-model/'))throw Error('domain_unavailable');
       return resolved;
     }});
     const api=await import(${JSON.stringify(root)});
+    blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
       "PREPARATION_LIFETIME_MS",
       "bindIsolationRuntime",
@@ -95,6 +98,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       "buildProviderDockerExecutionPlan", "validatePlan", "planIdentity",
       "resolveIsolationCommandInput", "PURPOSES", "SETUP_COMMAND_FAILURE_REASONS",
       "ATTEMPT_OBSERVATION_KEYS", "ADVICE_INPUT_CONTRACT", "ADVICE_INPUT_CONTRACT_REVISION",
+      "captureAttemptInput", "captureAllowedReferences", "inspectAttemptSelection", "ATTEMPT_COMPLETION_REASONS",
       "ADVICE_RESULT_CONTRACT", "ADVICE_RESULT_CONTRACT_REVISION"])
       assert.equal(name in api,false,name);
     for(const name of ['createProviderObservationOwner','createProviderAttemptRuntime','registerSubmission','registerTerminal'])
@@ -196,7 +200,7 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
     );
     assert.doesNotMatch(
       source,
-      /(?:from\s*|import\s*\()["'][^"']*coordinator\//,
+      /(?:from\s*|import\s*\()["'][^"']*(?:coordinator|domain-model)\//,
     );
   }
   const coordinator = new URL(

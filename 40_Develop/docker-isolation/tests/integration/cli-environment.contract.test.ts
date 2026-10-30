@@ -137,17 +137,13 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
   ].sort();
   const actualExports = Object.keys(dockerIsolation).sort();
   expectedExports.push(
+    "bindAdviceCommand",
+    "bindProviderCommand",
+    "hashAdviceCommand",
     "inspectDockerProbeContainer",
     "observeDockerProbeContainerAbsence",
     "cleanupDockerProbeContainer",
     "parseDockerTaskRecoveryId",
-    "formatDockerIsolationRecoveryToken",
-    "isDockerIsolationRecoveryIdCandidate",
-    "parseDockerProbeRecoveryToken",
-    "writeDockerProbeRecoveryRecord",
-    "loadDockerProbeRecoveryRecord",
-    "classifyDockerProbeRecoveryChildren",
-    "requireDockerProbeRecoveryMounts",
   );
   expectedExports.sort();
   assert.deepEqual(actualExports, expectedExports);

@@ -6,14 +6,14 @@
  * @trace ARCH-000015
  * @boundary Executorの結果Ownerと利用側の型境界。
  */
-import type { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
+import type { ATTEMPT_COMPLETION_REASONS } from "./validation.ts";
 import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 import type { RECOVERY_START_FAILURE_STAGES } from "./validation.ts";
 import type { DockerResourceCleanupObservation } from "../../../docker-isolation/src/index.ts";
 import type { createExecutor } from "../attempt/preparation.ts";
 import type { createFinalResult } from "./attempt.ts";
 import type { normalizeTaskResult } from "./task.ts";
-import type { AdviceResult } from "../../../domain-model/src/index.ts";
+import type { AdviceResult } from "../../../ai-adapter/src/index.ts";
 import type {
   normalizeCodexStructuredResult,
   normalizeClaudeStructuredResult,
@@ -85,7 +85,7 @@ export type AttemptContent =
       ReturnType<typeof normalizeClaudeStructuredResult>["normalizedResult"]
     >;
 
-export type { TaskReviewFinding as ReviewFinding } from "../../../domain-model/src/index.ts";
+export type { TaskReviewFinding as ReviewFinding } from "../../../ai-adapter/src/index.ts";
 
 /**
  * 同じ実行Ownerの開始・取消・下位清掃確認を持つExecutor。
@@ -145,7 +145,7 @@ export type NormalizedProviderResult<T> =
   | Readonly<{ status: "confirmed"; normalizedResult: T }>
   | Readonly<{ status: "blocked"; reason: string; normalizedResult: null }>;
 
-export type { AdviceResult } from "../../../domain-model/src/index.ts";
+export type { AdviceResult } from "../../../ai-adapter/src/index.ts";
 
 /**
  * Docker Process Controllerの最終理由を表す。
@@ -219,5 +219,4 @@ export type RecoveryStartFailureDiagnostic = Readonly<{
  * @security 固定語彙だけを許可し、秘密値や自由文を搬送しない。
  * @compatibility 利用側は公開Registryに含まれる理由だけへ依存する。
  */
-export type AttemptFailureReason =
-  (typeof dockerProcessControllerPublicCompletionReasons)[number];
+export type AttemptFailureReason = (typeof ATTEMPT_COMPLETION_REASONS)[number];

@@ -3,7 +3,14 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
-    {"symbolId":"coordinator.execution.provider-executor","kind":"file","path":"src/execution/provider-executor.ts","archIds":["ARCH-000008"]},
+    {
+      "symbolId": "coordinator.execution.provider-executor",
+      "kind": "file",
+      "path": "src/execution/provider-executor.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
     {
       "symbolId": "coordinator.source.src.execution.lease",
       "kind": "file",
@@ -4320,6 +4327,14 @@
       "symbolId": "coordinator.execution.persistence",
       "kind": "file",
       "path": "src/execution/persistence.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.cleanup.probe-record",
+      "kind": "file",
+      "path": "src/state/probe-record.ts",
       "archIds": [
         "ARCH-000008"
       ]

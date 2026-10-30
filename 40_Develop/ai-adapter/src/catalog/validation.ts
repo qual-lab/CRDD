@@ -4,12 +4,10 @@
  * @trace ARCH-000010
  */
 
-import type { AiReasoningEffort } from "../../../domain-model/src/index.ts";
+import type { AiReasoningEffort } from "../provider/types.ts";
+
 import type { AiModelCatalog, AiModelDefinition } from "./types.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord, snapshotPlainArray } from "../provider/input.ts";
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
 const EFFORTS = new Set<AiReasoningEffort>([
   "low",

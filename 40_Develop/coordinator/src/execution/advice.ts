@@ -10,7 +10,7 @@ import {
   type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
-import { parseAdviceResult as normalizeAdviceResult } from "../../../domain-model/src/index.ts";
+import { parseAdviceResult as normalizeAdviceResult } from "../../../ai-adapter/src/index.ts";
 
 import {
   type ProviderAdviceExecutionPlan,
@@ -33,7 +33,7 @@ import {
 import { readRepositoryNetworkPolicies } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
 import { resolveRecoveryReference } from "../../../executor/src/index.ts";
-import type { AdviceResultItem } from "../../../domain-model/src/index.ts";
+import type { AdviceResultItem } from "../../../ai-adapter/src/index.ts";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";

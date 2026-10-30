@@ -1,5 +1,5 @@
 /**
- * Docker Probeの回復記録を読み書きする。
+ * CoordinatorがDocker Probeの回復記録を保存・読戻しする。
  *
  * @responsibility exact token、記録bytes、Rootと子実体の照合・記録保存を所有する。Docker技術要求は発行しない。
  * @trace ARCH-000008
@@ -7,7 +7,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { describeDockerProbeResource } from "../probe/plan.ts";
+import { describeDockerProbeResource } from "../../../docker-isolation/src/index.ts";
 
 /**
  * docker-isolationで使用するEntity Typeの値契約を定義する。

@@ -1,22 +1,19 @@
 /**
- * 編集・レビューの内容Schemaと検査済み所見を所有する。
+ * Provider編集・レビュー応答の内容Schemaと検査済み所見を所有する。
  * @packageDocumentation
  * @responsibility Provider搬送・実行・再試行許可を扱わず、内容の閉形式を検査する。
  * @trace ARCH-000015
  */
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../plain-data/snapshot.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "./input.ts";
 /**
  * 内容検査を通ったレビュー所見を表す。
  * @responsibility 内容の利用側へ本文と検査済み相関を渡す。
  * @trace ARCH-000015
  * @shape 重要度・Path・分類・受入条件番号・本文とHash。
  * @invariant 通常結果へ本文を載せない。
- * @boundary Domain内容検査と、認可を確認する利用側。
+ * @boundary Provider応答内容検査と、認可を確認する利用側。
  * @security 未信頼本文は同意・秘密検査を迂回する許可ではない。
  * @compatibility 移管前の所見検査条件を維持する。
  */
@@ -44,7 +41,7 @@ export type TaskReviewFinding = Readonly<{
  * @effect N/A: 値検査だけ。
  * @failure キー数又は存在差はfalse。
  * @invariant 内容の正しさや実行許可を推測しない。
- * @boundary Domainの内容検査内部。
+ * @boundary AI Adapterの内容検査内部。
  * @security 秘密不存在の証明ではない。
  * @concurrency N/A: 共有状態なし。
  */
@@ -65,7 +62,7 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
  * @effect N/A: 値検査だけ。
  * @failure 空・NUL・周辺空白・容量超過はfalse。
  * @invariant 内容の正しさや実行許可を推測しない。
- * @boundary Domainの内容検査内部。
+ * @boundary AI Adapterの内容検査内部。
  * @security 秘密不存在の証明ではない。
  * @concurrency N/A: 共有状態なし。
  */
@@ -363,7 +360,7 @@ function reviewerResult(value: Record<string, unknown>) {
  * @effect N/A: 値検査と非秘密Hash計算のみ。
  * @failure 不正field・Path・件数・decision相関は拒否する。
  * @invariant 所見本文は内部搬送用で、通常内容にはHash投影だけを返す。
- * @boundary DomainのTask内容と単段実行の接続。
+ * @boundary AI AdapterのTask内容と単段実行の接続。
  * @security getter・Proxyを評価せず、次試行Capabilityを発行しない。
  * @concurrency N/A: 共有状態なし。
  */

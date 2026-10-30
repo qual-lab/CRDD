@@ -4,10 +4,7 @@
  * @responsibility Codex固有の引数・配布要件・制約と非秘密の構成分類を生成し、実起動・認可・回収を所有しない。
  * @trace ARCH-000010
  */
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../provider/input.ts";
 import { describeProviderBillingPolicy } from "../billing/policy.ts";
 import { resolveAiModelSelection } from "../catalog/resolve.ts";
 import type {

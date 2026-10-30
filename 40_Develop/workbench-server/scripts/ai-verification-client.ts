@@ -6,7 +6,7 @@
  * @boundary 一件のIPC入力に限定したactionToken/Formと公開HTTP。Task Ownerは親に残す。
  * @security Provider資格・Root Capability・環境・再送・redirect・子孫生成を持たない。
  */
-import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import {
   projectVerificationTransportFailure,

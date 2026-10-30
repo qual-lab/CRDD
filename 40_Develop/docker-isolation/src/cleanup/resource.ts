@@ -167,6 +167,32 @@ export function recoverObservedDockerResource(
   );
 }
 
+const DOCKER_TASK_RECOVERY_ID =
+  /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u;
+
+/**
+ * Docker Taskの元回復参照を技術境界で解析する。
+ * @responsibility 三成分の固定文法を検査し、値から操作Authorityを発行しない。
+ * @trace ARCH-000008
+ * @input token: 未信頼値。
+ * @returns 三Hash成分と元token、又はnull。
+ * @effect N/A: 文字列だけを同期検査する。
+ * @failure 文字列以外・長さ・大文字・余剰成分はnull。
+ * @boundary Domainの保存受理parserとは独立したDI技術入力。
+ */
+export function parseDockerTaskRecoveryId(token: unknown) {
+  if (typeof token !== "string") return null;
+  const match = DOCKER_TASK_RECOVERY_ID.exec(token);
+  return match?.[1] && match[2] && match[3]
+    ? Object.freeze({
+        token,
+        stableLogicalHomeBindingHash: match[1],
+        operationNonce: match[2],
+        baseHash: match[3],
+      })
+    : null;
+}
+
 /**
  * 作成結果不明の予定資源を現在観測から識別する。
  *

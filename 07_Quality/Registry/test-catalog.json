@@ -3574,7 +3574,9 @@
       "semanticTags": [
         "technical-catalog",
         "module-loader",
-        "initialization-failure"
+        "initialization-failure",
+        "response-normalization",
+        "domain-independence"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -3582,6 +3584,9 @@
       "postconditions": [
         "bundled_json_missing_syntax_schema_rejected",
         "invalid_catalog_no_fallback",
+        "response_content_closed_and_all_reasons_preserved",
+        "schema_and_command_hash_unchanged",
+        "domain_runtime_dependency_absent",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
@@ -10434,9 +10439,9 @@
     {"id":"domain-model:unit:task-validation","owner":"domain-model","path":"40_Develop/domain-model/tests/unit/task/validation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["result","acceptance","decoder"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","unknown_not_absent"],"mandatoryByDefault":true},
     {"id":"workbench:integration:runtime-definition","owner":"workbench-server","path":"40_Develop/workbench-server/tests/integration/runtime-definition.contract.test.ts","level":"integration","kind":"contract","semanticTags":["runtime","definition","crud","core","storage"],"environment":"local_component_boundary","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed","rejection_preserves_state","lock_release_observed"],"mandatoryByDefault":true},
     {"id":"executor:unit:controller-result","owner":"executor","path":"40_Develop/executor/tests/unit/controller.contract.test.ts","level":"unit","kind":"contract","semanticTags":["controller","cleanup","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["cleanup_conditions_correlated","exact_recovery_reference_preserved","result_only_after_completed_cleanup"],"mandatoryByDefault":true},
-    {"id":"domain-model:unit:task-result","owner":"domain-model","path":"40_Develop/domain-model/tests/unit/attempt/task-result.contract.test.ts","level":"unit","kind":"contract","semanticTags":["task","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected","raw_output_not_reported"],"mandatoryByDefault":true},
+    {"id":"domain-model:unit:task-result","owner":"ai-adapter","path":"40_Develop/ai-adapter/tests/unit/provider/task-result.contract.test.ts","level":"unit","kind":"contract","semanticTags":["task","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected","raw_output_not_reported"],"mandatoryByDefault":true},
     {"id":"docker-isolation:unit:execution-binding","owner":"docker-isolation","path":"40_Develop/docker-isolation/tests/unit/execution/binding.contract.test.ts","level":"unit","kind":"contract","semanticTags":["execution","plan"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected"],"mandatoryByDefault":true},
-    {"id":"domain-model:unit:advice-result","owner":"domain-model","path":"40_Develop/domain-model/tests/unit/attempt/advice.contract.test.ts","level":"unit","kind":"contract","semanticTags":["advice","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected","raw_output_not_reported"],"mandatoryByDefault":true},
+    {"id":"domain-model:unit:advice-result","owner":"ai-adapter","path":"40_Develop/ai-adapter/tests/unit/provider/advice-result.contract.test.ts","level":"unit","kind":"contract","semanticTags":["advice","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected","raw_output_not_reported"],"mandatoryByDefault":true},
     {"id":"executor:unit:advice-result","owner":"executor","path":"40_Develop/executor/tests/unit/result/advice.contract.test.ts","level":"unit","kind":"contract","semanticTags":["provider","advice","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","out_of_scope_rejected","raw_output_not_reported"],"mandatoryByDefault":true},
     {"id":"executor:unit:review-delivery","owner":"executor","path":"40_Develop/executor/tests/unit/review-delivery.contract.test.ts","level":"unit","kind":"contract","semanticTags":["provider","review","result"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["closed_result_validated","raw_output_not_reported"],"mandatoryByDefault":true},
     {"id":"executor:unit:observation","owner":"executor","path":"40_Develop/executor/tests/unit/observation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","observation","diagnostic"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["passive_callback_failure_contained","configured_boundary_projected","no_raw_output"],"mandatoryByDefault":true},

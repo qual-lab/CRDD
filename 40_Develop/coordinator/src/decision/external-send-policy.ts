@@ -17,7 +17,7 @@ import {
   type DockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 
-import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
+import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
 import { verifyOwnedOperationManagementCapability } from "../execution/operation.ts";
 import {
   snapshotPlainArray,

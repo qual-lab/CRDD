@@ -6,10 +6,116 @@
  * @boundary Provider結果と上位の受入・保存の間。
  */
 import { types as utilTypes } from "node:util";
-import {
-  dockerProcessControllerPublicCompletionReasons,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
+import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/index.ts";
+
+export const ATTEMPT_COMPLETION_REASONS = Object.freeze([
+  "provider_deadline_exceeded",
+  "docker_setup_deadline_exceeded",
+  "provider_output_limit_exceeded",
+  "provider_process_signalled",
+  "provider_process_exit_nonzero",
+  "provider_subscription_quota_exhausted",
+  "provider_authentication_expired",
+  "provider_operation_budget_exceeded",
+  "provider_turn_limit_exceeded",
+  "provider_structured_output_retry_exhausted",
+  "provider_invocation_rejected",
+  "provider_network_unavailable",
+  "provider_service_unavailable",
+  "docker_setup_create_subscription_auth_probe_failed",
+  "docker_setup_start_subscription_auth_probe_attached_failed",
+  "docker_setup_create_internal_network_failed",
+  "docker_setup_create_egress_network_failed",
+  "docker_setup_create_proxy_failed",
+  "docker_setup_connect_proxy_egress_failed",
+  "docker_setup_create_provider_failed",
+  "docker_setup_start_proxy_failed",
+  "docker_setup_command_failed",
+  "docker_resource_submission_record_unavailable",
+  "docker_resource_receipt_unavailable",
+  "docker_process_controller_execution_restricted",
+  "provider_subscription_auth_not_confirmed",
+  "provider_result_invalid",
+  "workbench_ai_advice_result_identity_invalid",
+  "workbench_ai_advice_result_input_invalid",
+  "workbench_ai_advice_result_items_invalid",
+  "workbench_ai_advice_result_schema_invalid",
+  ...PROVIDER_ADVICE_OUTPUT_REASONS,
+  "provider_task_result_input_invalid",
+  "provider_task_result_json_invalid",
+  "provider_task_result_envelope_status_invalid",
+  "provider_task_result_turn_count_invalid",
+  "provider_task_result_turn_limit_mismatch",
+  "provider_task_result_cost_metadata_invalid",
+  "provider_task_reviewer_result_transport_invalid",
+  "provider_task_executor_shape_invalid",
+  "provider_task_reviewer_shape_invalid",
+  "provider_task_reviewer_keys_invalid",
+  "provider_task_reviewer_decision_invalid",
+  "provider_task_reviewer_summary_invalid",
+  "provider_task_reviewer_findings_invalid",
+  "provider_task_reviewer_finding_invalid",
+  "provider_task_reviewer_decision_inconsistent",
+  "docker_process_controller_execution_failed_closed",
+  "docker_process_controller_provider_start_failed",
+  "docker_process_controller_provider_start_observation_failed",
+  "repository_revision_changed",
+] as const);
+
+/**
+ * 技術結果の固定field集合を動的Propertyなしに捕捉する。
+ * @responsibility 既存診断shapeの受理順序を変えず値を局所化する。
+ * @trace ARCH-000008
+ * @input 未検査値とこのModule内の固定Key集合。
+ * @returns 凍結した浅い値又はnull。
+ * @precondition 永続化・保存Schemaの判断は行わない。
+ * @postcondition getter・Proxy・継承値を評価しない。
+ * @effect N/A: 同期の検査のみ。
+ * @failure 不正shape・取得不能はnull。
+ * @invariant 観測不能を成功へ補完しない。
+ * @boundary 結果・診断の内部捕捉。
+ * @security 任意のfieldを公開結果へ混入させない。
+ * @concurrency N/A: 共有状態なし。
+ */
+function snapshotPlainRecord<const K extends string>(
+  value: unknown,
+  allowedKeys: ReadonlySet<K>,
+): Readonly<Record<K, unknown>> | null {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      utilTypes.isProxy(value) ||
+      Array.isArray(value)
+    )
+      return null;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== allowedKeys.size ||
+      keys.some((key) => typeof key !== "string" || !allowedKeys.has(key as K))
+    )
+      return null;
+    const snapshot = Object.create(null) as Record<K, unknown>;
+    for (const key of allowedKeys) {
+      const descriptor = descriptors[key];
+      if (
+        !descriptor ||
+        !Object.hasOwn(descriptor, "value") ||
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        descriptor.enumerable !== true
+      )
+        return null;
+      snapshot[key] = descriptor.value;
+    }
+    return Object.freeze(snapshot);
+  } catch {
+    return null;
+  }
+}
 import type {
   AttemptFailureReason,
   RecoveryStartFailureDiagnostic,
@@ -272,9 +378,7 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
       "subscription_auth_verification",
       "provider_result_normalization",
     ].includes(record.stage) &&
-    dockerProcessControllerPublicCompletionReasons.some(
-      (reason) => reason === record.reason,
-    ) &&
+    ATTEMPT_COMPLETION_REASONS.some((reason) => reason === record.reason) &&
     (record.exceptionCode === null ||
       (typeof record.exceptionCode === "string" &&
         [
@@ -870,9 +974,7 @@ export function projectAttemptResult(
   return Object.freeze({ ...record, recoveryId });
 }
 
-const blockedCompletionReasons = new Set<string>(
-  dockerProcessControllerPublicCompletionReasons,
-);
+const blockedCompletionReasons = new Set<string>(ATTEMPT_COMPLETION_REASONS);
 
 // 現行Hostの開始・在庫投影が返す有限理由だけを受ける。
 // 旧保存方式のProducer不在理由を分類契約として保持しない。未知値は従来どおりunavailable。

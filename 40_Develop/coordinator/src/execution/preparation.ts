@@ -32,7 +32,7 @@ import {
   resolveAiModelSelection,
   type AiReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../domain-model/src/index.ts";
+import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
 import { createHash, randomBytes } from "node:crypto";
 import {
   snapshotPlainRecord,
@@ -45,6 +45,7 @@ import {
   verifyOwnedOperationManagementMountBinding,
   readBorrowedExecutionBinding,
   verifyOwnedOperationManagementCapability,
+  bindOwnedOperationExecutionSelection,
 } from "./operation.ts";
 import {
   activateRuntimeOwnedProviderHomeMount,
@@ -570,12 +571,75 @@ export function createProviderDockerRuntimeDependencies() {
     wallNow: Date.now,
     monotonicNow: performance.now.bind(performance),
     randomBytes,
-    consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
+    consumeModelSelection: consumeAttemptModelSelection,
     consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
     consumeAdvicePacket: consumeRuntimeOwnedProviderAdvicePacket,
     issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
     revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
   });
+}
+
+/**
+ * 完全選定を検査して一試行に必要な技術値だけへ投影する。
+ * @responsibility 保存元情報と完全選定Hashを上位で確定し下位へ相関を搬送する。
+ * @trace ARCH-000015
+ * @input 完全な選定候補。
+ * @returns 技術六項目と導出Hash、不正時null。
+ * @precondition AuthorityとCapabilityの一回消費は既存Ownerが担当する。
+ * @postcondition Catalog／設定Identity・分類・選定元をExecutorへ渡さない。
+ * @effect N/A: 純粋検査とHash計算だけ。
+ * @failure 完全選定の拒否では技術投影を生成しない。
+ * @invariant 呼出し側が申告したHashで検査を代替しない。
+ * @boundary Coordinatorの完全選定とExecutorの技術選定。
+ * @security HashはAuthorityではない。
+ * @concurrency 元値から独立した凍結値を返す。
+ */
+function projectAttemptSelection(candidate: unknown) {
+  const selection = inspectExecutionSelection(candidate);
+  const selectionHash = hashExecutionSelection(selection);
+  if (!selection || !selectionHash) return null;
+  return Object.freeze({
+    selectionHash,
+    executionSelection: Object.freeze({
+      provider: selection.provider,
+      modelIdentifier: selection.modelIdentifier,
+      identifierKind: selection.identifierKind,
+      reasoningEffort: selection.reasoningEffort,
+      purpose: selection.purpose,
+      role: selection.role,
+    }),
+  });
+}
+
+/**
+ * 元選定を一回消費し既存Operationへ結合してから技術投影する。
+ * @responsibility 完全値とHashの照合をExecutorへ委譲しない。
+ * @trace ARCH-000015
+ * @input 元選定の利用参照と同じOperationの管理参照。
+ * @returns 技術六項目を持つ消費結果又はnull。
+ * @precondition 既存の選定一回消費を使用する。
+ * @postcondition 完全値は上位Ownerだけに残る。
+ * @effect 既存のProcess内選定消費とOperation結合。
+ * @failure 不正・Hash差・結合拒否はnull。
+ * @invariant 新しいMap・保存・Authorityを作らない。
+ * @boundary 完全選定Ownerと一試行Host搬送。
+ * @security 申告Hashだけで通過させない。
+ * @concurrency 同期の一回消費点を維持する。
+ */
+function consumeAttemptModelSelection(use: unknown, management: unknown) {
+  const consumed = consumeRuntimeOwnedDelegationSelectionGrant(use, management);
+  if (!consumed) return null;
+  const projected = projectAttemptSelection(consumed.executionSelection);
+  return projected &&
+    projected.selectionHash === consumed.selectionHash &&
+    bindOwnedOperationExecutionSelection(
+      management,
+      consumed.selectionRecordId,
+      consumed.executionSelection,
+      consumed.taskAttempt,
+    )
+    ? Object.freeze({ ...consumed, ...projected })
+    : null;
 }
 
 const productionAdapters = Object.freeze({
@@ -955,6 +1019,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     ]),
   );
   const fixed = inspectExecutionSelection(snapshot?.executionSelection);
+  const projected = projectAttemptSelection(fixed);
   const allowedReferences = normalizedStrings(
     snapshot?.allowedReferences,
     256,
@@ -963,6 +1028,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
   if (
     !snapshot ||
     !fixed ||
+    !projected ||
     !allowedReferences ||
     new Set(allowedReferences).size !== allowedReferences.length
   )
@@ -1038,9 +1104,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     contractRevision: ADVICE_INPUT_CONTRACT_REVISION,
     packetRef,
     operationId: input.operationId,
-    executionSelection: inspectExecutionSelection(
-      input.executionSelection,
-    ) as ExecutionSelection,
+    ...projected,
     provider: input.provider,
     taskHash: input.taskHash,
     projectionHash: input.projectionHash,

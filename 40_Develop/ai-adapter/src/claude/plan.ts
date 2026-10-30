@@ -5,7 +5,7 @@
  * @trace ARCH-000010
  */
 
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "../provider/input.ts";
 import { describeProviderBillingPolicy } from "../billing/policy.ts";
 import type {
   ProviderModelSelection,

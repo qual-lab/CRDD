@@ -46,7 +46,7 @@ const { bindAdviceCommand, hashAdviceCommand } = await import(
   "../../docker-isolation/src/index.ts"
 );
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
-  await import("../../domain-model/src/index.ts");
+  await import("../../ai-adapter/src/index.ts");
 const { buildProviderDockerExecutionPlan } = await import(
   "../src/attempt/preparation.ts"
 );
@@ -177,6 +177,16 @@ export function buildStandaloneTrialPlan(
     workType: null,
     source: "explicit" as const,
   };
+  const selectionHash = hashExecutionSelection(selection);
+  if (!selectionHash) throw Error("trial_selection_hash_invalid");
+  const technicalSelection = Object.freeze({
+    provider: selection.provider,
+    modelIdentifier: selection.modelIdentifier,
+    identifierKind: selection.identifierKind,
+    reasoningEffort: selection.reasoningEffort,
+    purpose: selection.purpose,
+    role: selection.role,
+  });
   const planned = planProviderExecution(
     {
       provider: spec.provider,
@@ -199,7 +209,8 @@ export function buildStandaloneTrialPlan(
   const packetBase = {
     packetRef,
     operationId,
-    executionSelection: selection,
+    executionSelection: technicalSelection,
+    selectionHash,
     provider: spec.provider,
     taskHash: digest(prompt),
     projectionHash: digest(reference),
@@ -218,8 +229,6 @@ export function buildStandaloneTrialPlan(
     providerCommand: command,
     providerPrompt: prompt,
   });
-  const selectionHash = hashExecutionSelection(selection);
-  if (!selectionHash) throw Error("trial_selection_hash_invalid");
   const built = buildProviderDockerExecutionPlan(
     spec.provider,
     { randomBytes },
@@ -247,7 +256,7 @@ export function buildStandaloneTrialPlan(
       selectionRecordId: `MODELSEL-${randomBytes(12).toString("hex").toUpperCase()}`,
       operationId,
       executorProvider: spec.provider,
-      executionSelection: selection,
+      executionSelection: technicalSelection,
       selectionHash,
       taskAttempt: 0,
       model: spec.model,

@@ -1,10 +1,10 @@
 /**
- * 助言結果の内容モデル・JSON Schema・参照検査を所有する。
+ * Provider助言応答の内容・JSON Schema・参照検査を所有する。
  * @packageDocumentation
  * @responsibility Provider Envelopeや実行状態を扱わず、四区分の内容だけを検査する。
  * @trace ARCH-000015
  */
-import { parseUnambiguousJsonDocument } from "../plain-data/json.ts";
+import { parseUnambiguousJsonDocument } from "./json.ts";
 /**
  * 検査済み助言の一項目を表す。
  * @responsibility 説明本文と読取り投影の参照を一つの値契約へまとめる。
@@ -47,7 +47,7 @@ export type AdviceResult = Readonly<{
  * @trace ARCH-000015
  * @shape confirmedと値、又はblockedと固定理由。
  * @invariant 拒否時は部分的な内容を返さない。
- * @boundary Domainの純粋な内容検査。
+ * @boundary AI Adapterの純粋な内容検査。
  * @security 実行許可・Provider認証を表さない。
  * @compatibility 移管前の内容検査の結果形を維持する。
  */
@@ -66,7 +66,7 @@ const MAXIMUM_RAW_BYTES = 65_536;
  * @effect N/A: 同期の値検査のみ。
  * @failure 不適合値はfalse。
  * @invariant 文字列の意味上の正しさを推定しない。
- * @boundary Domainの内容検査内部。
+ * @boundary AI Adapterの内容検査内部。
  * @security 秘密不存在やアクセス許可を証明しない。
  * @concurrency N/A: 共有状態なし。
  */
@@ -397,7 +397,7 @@ const adviceResultSchema = Object.freeze({
 /**
  * Providerの出力制約へ渡す共通助言結果Schemaを公開する。
  *
- * @responsibility 四区分の結果意味と項目制約をExecutorで所有し、ProviderのCLI計画には中立な値として渡す。
+ * @responsibility 四区分の結果意味と項目制約をAI Adapterで所有し、ProviderのCLI計画には中立な値として渡す。
  * @trace ARCH-000015
  * @input N/A: 現行の固定結果契約を投影する。
  * @returns 不変な助言結果JSON Schema。
@@ -406,7 +406,7 @@ const adviceResultSchema = Object.freeze({
  * @effect N/A: 固定Objectを返すだけである。
  * @failure N/A: 失敗分岐を持たない。
  * @invariant Provider差によって結果の意味を変更しない。
- * @boundary Executorの結果契約とAI AdapterのCLI出力制約の間。
+ * @boundary AI Adapterの内容SchemaとExecutor／Coordinatorの計画・結果検査の間。
  * @security Schemaだけで参照を許可せず、呼出し側が渡す許可集合を結果検査で照合する。
  * @concurrency N/A: 共有可変状態を持たない。
  */

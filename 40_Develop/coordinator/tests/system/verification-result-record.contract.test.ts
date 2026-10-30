@@ -30,7 +30,7 @@ import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
-} from "../../../docker-isolation/src/index.ts";
+} from "../../src/state/probe-record.ts";
 import { formatHostRecoveryToken } from "../../src/execution/result.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
