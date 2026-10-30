@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    { "symbolId": "executor.verification.task-trial", "kind": "file", "path": "scripts/task-trial.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "executor.test.unit.review-delivery", "kind": "test-suite", "path": "tests/unit/review-delivery.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["coordinator.source.src.security.docker.process.controller"] },
     {
       "symbolId": "executor.result.types",

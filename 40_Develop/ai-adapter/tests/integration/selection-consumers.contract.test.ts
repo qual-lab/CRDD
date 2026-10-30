@@ -86,16 +86,16 @@ test("技術Catalogの明示選定をProvider計画へ無変換で搬送する",
 
 /**
  * 新ModelのRepository設定を同じ選定のまま実行計画へ搬送する。
- * @responsibility exact Modelとmedium、Code Mode条件、未検証reviewer拒否を検証する。
+ * @responsibility exact Modelとmedium、両役割のCode Mode条件を検証する。
  * @trace RCM-IT-005
  * @precondition 新Model二件が同梱Catalogにあり、配置は固定構成Ownerから取得する。
  * @stimulus 五役割を選定し、Task計画と不正選定を生成する。
  * @observation Model・Effort・argv・拒否理由と不変の権限制限。
- * @oracle Modelを旧版へ補完せず、未検証のCodex reviewerと不一致を起動前に拒否する。
+ * @oracle Modelを旧版へ補完せず、reviewerのread-only／never／network／Code Mode Host条件と不正選定の起動前拒否を維持する。
  * @cleanup N/A: 値検査だけで外部実行・保存なし。
  * @boundary RCM-IT-005=Direct Boundary: Repository選定→Provider計画→固定配置。
  */
-test("新Model設定はmediumを維持しCodex Code Modeの未検証役割を拒否する", () => {
+test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接続する", () => {
   const codex = { provider: "codex", model: "gpt-6.1-sol", effort: "medium" };
   const claude = {
     provider: "claude",
@@ -169,13 +169,38 @@ test("新Model設定はmediumを維持しCodex Code Modeの未検証役割を拒
   ])
     assert.ok(plan.plan.argv.includes(expected));
   assert.equal(plan.plan.commandNetworkAccessAllowed, false);
-  assert.equal(
-    planProviderExecution({
+  const reviewer = planProviderExecution(
+    {
       ...request,
       input: { ...request.input, taskRole: "reviewer" },
-    }).status,
-    "blocked",
+    },
+    describeDockerProviderExecutionLocations("codex", "task"),
   );
+  assert.equal(reviewer.status, "ready");
+  if (reviewer.status !== "ready") throw Error("reviewer_plan_blocked");
+  assert.equal(reviewer.plan.exactModel, codex.model);
+  for (const expected of [
+    "features.code_mode=true",
+    "features.shell_tool=false",
+    "features.unified_exec=false",
+    'approval_policy="never"',
+    "permissions.crdd-reviewer.network.enabled=false",
+  ])
+    assert.ok(reviewer.plan.argv.includes(expected));
+  assert.equal(
+    reviewer.plan.argv[reviewer.plan.argv.indexOf("--sandbox") + 1],
+    "read-only",
+  );
+  assert.equal(reviewer.plan.argv.includes("--approve-for-me"), false);
+  const commandPath =
+    describeDockerProviderExecutionLocations("codex", "task").commandPath ??
+    "codex";
+  for (const expected of [
+    "features.code_mode_only=true",
+    "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
+    `permissions.crdd-reviewer.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="read"},"${commandPath}"="read"}`,
+  ])
+    assert.ok(reviewer.plan.argv.includes(expected));
   assert.equal(
     planProviderExecution({
       ...request,

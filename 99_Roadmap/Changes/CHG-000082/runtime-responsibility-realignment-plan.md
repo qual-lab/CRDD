@@ -1503,3 +1503,145 @@ Executorの回復理由変換は現行Host契約の七理由へ縮小した。Pr
 先行候補で開始した広域回帰は338件中334成功・四不合格で終了した。Windows制限環境のjunction一件・子孫終了二件は通常環境で同じ三件を再確認して成功。残る助言試験一件は許可参照の入力欠測と旧結果wrapperへの期待を現行契約へ追従し、関連三件の再実行が成功した。この広域実行はSource更新中に継続していたため、最終固定候補の全件成功とは表示せず、別実行の結果を合算しない。
 
 実AI、Docker、過去保持物の照会・操作は行っていない。今回の完了は上記Source責務整理・対象非AI確認・独立レビューの範囲であり、実境界E2E、Repository全体QA又はRelease完了を意味しない。現在、この範囲で追加の人間判断は必要ない。
+
+#### 単段実AI試験の端末確認撤廃 — 2026-10-30
+
+人間が会話で送信内容・モデル・回数・回収範囲を承認した後にも端末コードを要求する二重確認を、検証Toolだけから撤去する判断を明示承認した。`verify-provider-real.ts --run <provider> <run-id>`は端末の有無によらず明示実行できる。承認は呼出し前の運用前提であり、CLIが会話の承認を機械検証するという意味ではない。恒常的な無承認実行許可、製品入口の同意・認可変更、承認台帳又は新しいFrameworkは追加しない。
+
+TTY検査・乱数確認コード・確認ReaderとそのUIだけを削除した。固定Provider／モデル／合成Prompt・引数拒否・RootとGitの照合・単一子・元Recovery参照ACK・期限・取消join・清掃条件は維持する。`--describe`と不正引数はEffect零、承認済みの正しい`--run`は一回実行、既存Rootは拒否、終了不明・入力不整合は既存の保持結果へ閉じる。過去Evidenceは変更しない。
+
+対象六試験は非AIで成功した。独立レビューのP2一件を是正し、stdin／stdoutの両方が非TTY、確認Reader呼出し禁止、確認プロンプトなしの条件で既存の正常・取消・異常close・IPC不一致・保持／限定清掃を検査する。整形・型・Lintと、最終Executor全40試験は成功した。独立再確認の文言P3も同期済みで、残Must-fixは零。実AI送信・Docker作成削除・再起動・Image更新・過去保持物操作はこのSource変更と非AI回帰では行っていない。
+
+#### 端末不要化後の両Provider単段実AI結果 — 2026-10-30
+
+会話の用途限定承認を受け、上記非AI回帰・独立確認後にCodex `EXEC-20261030-02`とClaude `EXEC-20261030-03`を順番に各一回実行した。基準Commitは`be73d0ddc`に上記の試験CLI変更を適用したSourceで、実行中にSourceは変更していない。送信は両方とも固定合成Contextと正式Schemaだけ、Prompt SHA-256は`214e2c38c50edb5e2affc4c6579d2cd543c7321e40848b2cc31a42232d3d2bd3`。Repository／Workspaceのmount、tools、session永続化、API key fallbackは使用しない。
+
+| 項目 | Codex | Claude |
+|---|---|---|
+| Model／推論 | gpt-6.1-sol／medium | claude-opus-5-5／medium |
+| 固定Image | sha256:112a73d8576b6aa3e04db76b5fee98a0f5636f5ca539ef039aa555ccd9b76de3 | sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f |
+| 終了値／状態 | 0／completed | 0／completed |
+| 内容検査・終了保存・技術清掃・排他解放・Native終了・子close | すべてtrue | すべてtrue |
+| 結果bytes／SHA-256 | 693／27c68edcb52b6e84618b1f1de760d198df135c3af7464417ca20caff0039172d | 2306／e88ff4d83a8e2cdde9ca3761b6a46afeaf6934d11ca907683858d6949221e44f |
+| 試験Root清掃 | true、不存在確認 | true、不存在確認 |
+
+共通Proxy Imageは`sha256:4270d4dc5c3cddd9733712eb202309a51250b858a53e68882889edc88f413766`。事前にEngine linux 29.8.1、固定三Image、稼働Container零を読取り確認した。両結果は一次故障null、Provider開始・Process tree終了・Container／Network不存在観測true。終了後一覧に今回Networkはなく、exact試験Root二件も不存在だった。既存停止Container二件と既存Networkは操作しない。
+
+Codexのexact回復参照は`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.5d74592838624664e076f82ad82a92be4cb81439d60f24a63f3f34850bb61fa6.804fa54f803660e7ccd991881ced0c2c7339453fee3e5e7cb34da9f061ba2f1a`、Claudeは`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.ead2cab3759421f75af4b66e57b780d098d057be83a602002b5729324db7876e.976a6487b17226cc918f04b067f425275d83ee25494ee8765bfef2d37afaf625`である。生Provider本文・認証値は保存しない。再送、Docker起動／再起動／修復、Image取得／更新、過去保持物操作は行っていない。
+
+この合格はExecutor単独の固定合成読取り助言を両Providerで確認した範囲に限定する。編集・レビュー、Direct／Isolated、Workbench／MCP／Coordinator連携、全体QAやReleaseの新しい合格根拠へ拡張しない。
+
+#### 単段Task検証とCodex reviewer暫定制約の再評価 — 2026-10-30
+
+人間はCodex編集→Claudeレビュー、Claude編集→Codexレビュー、両Provider開始後取消の最大六試行を承認した。モデルはGPT-6.1 Sol／mediumとOpus 5.5／medium、送信は固定合成File・指示・差分だけ。各CLIは一試行しか実行せず、六回の上限は実行者が承認済みrun一覧を逐次実行して管理する。新しい上限台帳・Runner・Queueは作らない。途中失敗では追加送信を停止し、当該資源の既存清掃又は保持だけを行う。
+
+非AI事前確認で、Codex GPT-6.1 Sol reviewerはAI AdapterがCode ModeのTool制限未検証として拒否することを再確認した。これは公式非対応の証明ではなく、Commit `c875b8899`で採用したCRDDの暫定制約である。人間は今回この制約の解除可否を確認することを追加で承認した。
+
+製品Sourceのguardは変更しない。試験fixture `codex-review-candidate.ts`だけが、明示したreview候補Processで元Source Hash `dc9d18fc01d3188403a53fc86fa29db7136c0001be72c7090ba422b20682cd70`・canonical URL・exact二行の一箇所を照合してProcess内で置換する。適用は親とIPC子で各一回。通常入口は引き続き拒否し、別用途・Provider・余剰引数・Source差・不正IPCを拒否する。候補一回は承認済み六試行のCodex reviewer一回に数え、追加送信しない。
+
+reviewerがFileを自分で読むという先行の試験案は現契約と不一致だったため訂正した。両Providerとも固定の合成内容・差分をstdinの読取り投影で渡す。各試行は新品Rootを使い、編集で検査したexact bytesとHashが同じ内容をレビュー入力へ再構成する。物理Workspaceの引渡し、Coordinatorの順序制御又は全E2Eとは主張しない。Code Modeで全Tool禁止を証明したとは扱わず、観測可能なCommand／FileChange各零とworkのbytes／Identity不変、正規結果、元終了保存・清掃・Home解放・子closeを別々に確認する。
+
+既存単一子監督を共有して有限modeだけ追加した。Taskの入力と物理Oracleは`scripts/task-trial.ts`、元Control・Receipt・同期保存・DI清掃は既存Host、close後の既知Fileと空Directory回収は既存親CLIが所有する。試験結果はv2へ更新し、`contentConfirmed`・mode・非Authorityの合成fixture実体receiptを閉形式で搬送する。未知File、partial、link、nlink差、Identity変更、取消成功／通常成功の取違え、欠測、保存・close不明は保持。過去v1記録や過去保持Rootは操作・自動移行しない。
+
+##### Codex reviewer候補一回の停止と非AI切り分け
+
+最終候補のExecutor全42試験と整形・型・Lintが成功し、独立レビューの二指摘（候補workerへ正常specを接続する反例、開始通知重複）を是正して残指摘零となった後、`EXEC-20261030-04`を一回だけ開始した。Model／mediumとTask Image `sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4`、Proxy Imageは上段の固定値。Prompt Hashは`289d5129dcb144993e5224fd32e4d773b5ffc6e5c05cd238b0c30bcf1523af7a`、合成内容Hashは`096e4d095df60962108e4627846909dbdee1d35965f7892c2af0a6961b37c101`だった。
+
+結果は`blocked / trial_completion_unconfirmed`、親Tool終了値1。子closeは確認済みだが回復参照と受理結果はnull、今回Rootにはoutcomeの確定Pairだけが残った。Root／run-idは`C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261030-04`、元outcome Hashは`8894c41a78f2baeccb9456a2d01b6514d564ffb12cee8d1c2450f28a4b6511cc`。元記録の再評価時刻は2026-11-06T08:06:55.477Z、protocolFailure true、unexpectedStdout false、result nullである。Docker前後一覧は既存停止Container二件・既存Network四件のままで、試験資源は増えていない。回復参照ACKを経る開始経路へは未到達であり、この停止をCodexレビュー又は制約解除の可否を示す実測としない。再送は行わず、他の五試行も未開始とした。
+
+非AIでは、候補loaderを継承するESM Workerが`review_candidate_entry_invalid / exit1`となる一方、CJS eval Workerは正常に動く差を再現した。実排他WorkerもESMかつexecArgv継承であり、今回停止と整合する。ただし当時の有限準備結果が受理されなかったため、元停止の内部理由の一意な直接観測ではない。最小是正は試験loaderの適用をmain threadへ限定すること。IPC子は独立Processのmain threadなので候補適用を維持し、補助Workerにはhookを追加しない。
+
+併せて、Task準備拒否のfixtureReceipt nullを親の閉形式検査が拒否し、有限理由を失う不一致を修正した。元回復参照未発行・未ACK、blocked、結果／終端／清掃未成立の閉条件だけで元理由を保持する。ACK後のexact参照照合、成功判定、技術清掃条件は変更しない。補助ESM Workerの正常終了と、親が準備拒否をprotocolFailureへ畳まず保持する非AI二試験は成功した。製品guard、実AI再送、Docker再起動、Image更新又は過去保持物操作は行っていない。
+
+独立確認により、回復参照未発行の受理理由も実Sourceの五つの固定準備理由へ限定した。null・任意文字列・取消／清掃系理由をこの経路で受理せず、負例を追加する。既存event-001から元参照を再観測できたのに結果の参照がnullである場合もprotocolFailureを維持する。増えた親試験Caseの一Process実行は既存30秒監督を超えたため、Caseを通信・相関とfixture・準備拒否の二つの相補集合へ分け、各Processの30秒と製品Timeoutは変更しない。
+
+今回のexact Rootは、子close、Docker一覧の不変、許可名が既知outcome pairだけ、非link・単一link、元Hashとrun-idの読戻しを確認した。元結果は上記に記録したまま、Domain既存の確定Pair削除でこの一組だけを回収し、空Rootの実体不変を再確認して非再帰削除・不存在を確認した。OSのProcess一覧照会は権限不足で観測不能だったため、表示された空件数をProcess不存在の根拠には使っていない。元試験CLIの子close確認と、所有する実資源の既存保証を区別する。既存Container、Network、過去保持物は操作していない。再試験は未実施であり、Codex reviewerの暫定制約は未解除である。
+
+最終修正候補のExecutor `npm run test`は、整形・型・Lintと全43試験が終了値零、失敗・取消・skip零で完了した（約77.3秒）。先行の42成功や30秒監督による不合格を合算・改変しない。独立Source再確認は残Must-fix零で、回復前の固定理由・補助Worker除外・通常guard維持・相補Case分割を確認した。今回のCodexレビュー候補は失敗記録のまま保持し、この非AI成功を実AIレビュー又は制約解除の成立へ換算しない。次に必要なのは修正版候補の一回再試験に対する人間の承認であり、自動再送は行わない。
+
+##### 修正版Codex reviewer候補の承認済み一回結果
+
+人間の再承認後、`EXEC-20261030-05`を同じ合成内容・GPT-6.1 Sol／medium・固定Task／Proxy Image・同じPrompt Hashで一回だけ実行した。事前にEngine linux 29.8.1、固定二Image、稼働Container零、新品Rootを確認した。製品の暫定guardは変更せず、Source Hashは試験前後とも`dc9d18fc01d3188403a53fc86fa29db7136c0001be72c7090ba422b20682cd70`で一致した。
+
+| 観点 | 実測結果 |
+|---|---|
+| 親Tool／内側結果 | 終了値0、両方completed、reason null |
+| レビュー内容 | 正規approved・finding零、contentConfirmed true |
+| 観測可能なTool分類 | Command開始0、FileChange開始0 |
+| 合成作業領域 | exact内容・単一link・元DirectoryとsourceのIdentity不変を確認 |
+| 技術終了 | Provider開始、Process tree終了、Container／Network不存在の観測true、一次故障null |
+| 終了保存・解放 | terminalSaved／releaseConfirmed／nativeCleanupConfirmed true |
+| 親子終了・試験Root | childCloseConfirmed／Observed true、fixtureCleanupConfirmed true、Root不存在を再観測 |
+| 結果本文の扱い | 生本文非保存。809bytes、SHA-256 `2e48c8f0f7705fd1ef2a0d5d148765471d551d29b97e76efc237d59af6dc6463`のみ記録 |
+
+exact回復参照は`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.fef1e48f6a18f35cb8afbc3cec2e4f06037f9a6241d567030d42a2cea7597505.da0bc84a86fa2aab352af3b959231dc766fd8639b88cc0c36bc4926d25c0e98e`。今回Rootは`C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261030-05`であり、終了後に不存在を確認した。既存Container二件は同じID・状態のまま、Network名は既存のbridge／host／jarvis_default／noneだけだった。組込みbridgeのIDのみ`355950117cb7`から`f79de70036ff`へ変わったことを別観測として記録する。原因は未調査で、Docker再起動・修復を発行した根拠又は全環境不変の根拠にしない。今回の所有Networkは元実IDで回収・不存在確認済みであり、既存カスタムNetworkのIDは不変である。
+
+この成功は、固定条件でCodex Code Mode reviewerの正規レビューと終了生涯が実行可能だったことを示す。Code ModeのすべてのTool呼出し・ファイル非読取りを証明せず、未観測Toolを零へ補完しない。正式なguard撤去又は権限方針変更はまだ実施していない。前回失敗は変更せず、追加送信・再試行、Docker再起動、Image更新、過去保持物操作は行っていない。他の編集・レビュー・取消試行の成立へ拡張しない。
+
+##### 通常入口のCodex編集と試験清掃の追従（2026-10-30）
+
+`EXEC-20261030-06`の編集内容と物理Fileは一致し、内部結果はcompleted、一次故障null、技術清掃・解放・終端保存・内容確認・子closeは成立した。結果本文は保存せず、1803bytesとSHA-256 `d88166ca8e851b13c7df9c4d6fbb56dfe8db31b1a7767320b09df8e459333ba6`を記録する。一方、既知Codex tmp生成物の清掃が未対応で、親Tool終了値1、公開結果blocked／trial_completion_unconfirmedとなった。後続07〜11は停止し、再送していない。
+
+今回Rootは`C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261030-06`。元outcome Hashは`a12cb6547a0a261664b574890fb2b499e164f98268291e19f3ae1b1cda007a5c`、再評価時刻は2026-11-06T08:38:44.135Z、protocolFailure／unexpectedStdoutはfalse。元回復参照は`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.b2d9fbdb3bb91add053a5341f46adf57b82c05897b163b26eac7a64087f32dde.a0486511cce0c127d9290a67b9562f66104a43ec999ab3f102486ff4f9a86fe0`である。
+
+非AI照会では、daemon領域は空、bwrap領域のlockは0バイト・通常File・非link・単一linkだった。これらだけをCodex Taskの有限清掃対象へ追加し、全棚卸しと削除直前の実体再照合を必須とする。未知内容・link・複数link・Identity差・観測不能は保持する。元不合格と追従後の回収結果を分離し、製品Recovery・再帰削除は追加しない。
+
+清掃追従後のExecutor `npm run test`は、整形・型・Lintと全41件が成功し、失敗・取消・skipは零（約87.7秒）。独立Source／文書レビューは残Must-fix零で完了した。Codexの既知tmpの零件・単独・両方・空・lock0を受理し、非空lock・余分なFile・link・複数linkを拒否する反例と既存の親子実体変更反例を確認した。
+
+今回Root06について、元outcome Hash、確定Pairの読戻し、非link・単一link、run-id、元resultとRoot Identityを再照合し、既存APIでoutcome pairを除去した後、同じ清掃関数へ元result／Identity／edit modeを一回だけ渡した。清掃trueとRoot不存在を直接確認した。元Tool終了値1は変更せず、正常編集の成立と追従後の清掃成立を区別する。Docker一覧も試験Container／Networkの残存なし、既存二Containerと四Networkは直前観測と同じID・状態だった。過去保持物操作・AI再送・Docker再起動・Image更新は行っていない。
+
+全AI確認は未完了で、後続五試行は再開承認待ち。全項目成立後という条件を維持し、まだコミット・プッシュしない。
+
+##### 残る五試行の再開承認後のClaudeレビュー（2026-10-30）
+
+人間の再開承認後、Engine linux 29.8.1、固定Task／Proxy Image、新品Root五件と既存停止Container二件を読取り確認し、`EXEC-20261030-07`のClaude Opus 5.5／mediumレビューを一回実行した。合成内容・Prompt Hash・Imageは先行計画と同一で、実Repository本文は送信していない。
+
+内部結果はcompleted／reason null、contentConfirmed true。Provider開始・Process tree終了・Container／Network不存在・cleanup・release・terminal保存・Native清掃・子closeは成立し、一次故障nullだった。生本文は保存せず、1795bytes、SHA-256 `ea61d5b35edf5f49f494ed9f365642722ddaa9f7868b664f398178eb4da75c92`のみ記録する。一方、親Tool終了値1、公開結果blocked／trial_completion_unconfirmed、fixtureCleanupConfirmed falseとなったため、08〜11の後続四試行は未実行で停止した。AIの再送・再試行は行っていない。
+
+Rootは`C:\project\CRDD\.crdd\tests\executor-real-claude-EXEC-20261030-07`、元outcome Hashは`86bae882f8ce0a335ff788927194ae58e8fae55a6a86bd62d58c25812b20be22`、再評価時刻2026-11-06T08:54:43.765Z。元回復参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.eec22054e88863718ff6c5f3c8ca352be84ea99c571c2b771ac0cd13f7f5ab46.e1d706e32d0e299327b0e91ebffcbdcc8b8386085a538642981e490e617a2563`。試験資源はDocker一覧に残らず、既存二Containerは同じID・状態だった。標準bridgeのID変更は別観測であり、全環境不変とは主張しない。
+
+清掃不成立の原因は`tmp/claude-65534/fswatch-probe-AIjAix/probe`の残存だった。exact子一件、通常File・非link・単一link・2bytes、SHA-256 `8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61`を読取り確認した。既存の自動試験清掃はClaude親が空である条件なので、余分なFileを保持する挙動は契約どおりである。この観測だけで一般清掃の許可範囲を拡張せず、今回の実体・Hashを再照合する限定回収と、後続実行の扱いを分ける。全AI確認は未完了であり、コミット・プッシュはまだ行わない。
+
+独立確認の残Must-fix零を確認後、Root07・元outcome pair／Hash・close・元result・全20イベントの確定Pairと参照相関・全inventoryを照合した。probeまでの各Directory Identity、File Identity・2bytes・単一link・指定Hashを削除直前にも再照合し、probe一件を通常unlink、空のfswatch Directoryだけを通常rmdirした。outcomeを再照合して既存APIで除去した後、元result／Root Identity／reviewを従来清掃関数へ一回渡し、清掃trueとRoot不存在を直接確認した。元不合格は改変せず、未確認のfswatch生成物をSourceの一般許可対象には追加していない。再帰削除・force・実AI再送・後続四試行・Docker再起動・Image更新・過去保持物への操作は行っていない。
+
+##### 試験所有tmpの名前非依存清掃への変更（2026-10-30）
+
+二回の実AI成功後に試験清掃だけが不成立となったため、人間はProvider生成物ごとの名前allowlistを廃し、終了後の今回所有tmpをまとめて回収する方針を採用した。変更は検証Toolだけで、Executor本体・AI Adapterの実行条件・Docker境界・Timeout・取消／元回復参照の意味を変えない。実AI再送、Docker操作、過去保持物への適用は対象外とする。
+
+既存の元Root・確定イベント・技術清掃・Home解放・子closeの共同条件を維持し、tmp全treeを反復・逐次列挙で棚卸しする。通常File／Directoryだけを許可し、link・File複数link・特殊File・lexical／realpath差・観測不能を拒否する。metadataメモリ量の上限だけを合計10,000 entryとし、File容量・名前・階層の独自制限は設けない。本文読取り／Hash照合はしない。全棚卸し後、各削除直前にRoot・tmp・全祖先の実体と残る子一覧・対象FileのIdentity／mode／size／mtimeを再照合し、内側から通常unlink／rmdirする。tmp全体が完了するまでwork・management・確定イベントを除去しない。
+
+初回棚卸し不成立は削除零、処置開始後の同時変異・Filesystem失敗は対象の処置前に停止し、先行tmp削除は巻き戻さない。既存Rootと結果を保持して未完了を返す。新しいLock・監視・Registry・Recovery・原子的削除Framework、再帰force削除は追加しない。Sourceの着手前独立照合では、本文を読まない清掃にFile容量上限を追加する必要がないことを再確認し、metadata entry上限だけに絞った。
+
+最終候補のExecutor `npm run test`は、整形・型・Lintと全41件が成功、失敗・取消・skip零（約105.2秒）。独立レビューのRoot直下inventory再照合不足一件を是正し、最初のtmp削除前・各tmp削除前・work前後・各確定Pair前・用途Directory前・Root最終削除前に元Root実体と残る名前集合をexact比較する。期待集合は正常削除後だけ更新する。Rootへの遅延File追加でtmp削除零・既存イベント不変・追加File保持、途中unlink失敗で先行空Directory不存在・失敗File残存を直接確認した。再レビューは残Must-fix零、`git diff --check`も成功した。この非AI確認は残る実AI四試行の成立へ換算しない。今回、実AI・Docker・過去保持物の操作はなく、全AI確認後というコミット・プッシュ条件も維持する。
+
+##### 残る四試行の実AI確認と回収完了（2026-10-30）
+
+人間の実施指示後、Engine linux 29.8.1、既存の固定Task／Proxy Image、新品Root四件を読取り確認し、以下を通常入口で各一回、逐次実行した。合成source.txt・固定指示・内容／差分だけを使用し、GPT-6.1 Sol／mediumとOpus 5.5／medium、Image、Timeout、送信・取消条件を変更していない。
+
+| 試行 | 確認対象 | 内側の正規結果 | 親Tool・今回Root |
+|---|---|---|---|
+| EXEC-20261030-08 | Claude編集 | completed、内容と実File一致、1972bytes、SHA-256 `0b49930e6cfe9b7ce4e59dd5c42cf19c1ae1f7906a4a32ad95b8c329d7d1c0d6` | 終了値0、清掃成立・直接不存在確認 |
+| EXEC-20261030-09 | Codexレビュー | completed、正規レビューと物理Oracle成立、817bytes、SHA-256 `ea45b5fb6225162a5c259dfa3eb31be548e66f1d63d34ac263e66710ac0b21b0` | 終了値0、清掃成立・直接不存在確認 |
+| EXEC-20261030-10 | Codex開始後取消 | cancelled／provider_operation_cancelled、cancellationConfirmed true、結果Hash null／0bytes | 終了値0、期待した取消と清掃成立・直接不存在確認 |
+| EXEC-20261030-11 | Claude開始後取消 | cancelled／provider_operation_cancelled、cancellationConfirmed true、結果Hash null／0bytes | 終了値0、期待した取消と清掃成立・直接不存在確認 |
+
+全四試行でProvider Process開始・Process tree終了・Container／Network不存在・cleanup・Home解放・終端保存・Native清掃・親子closeはtrue、一次故障null。取消試行のcontentConfirmed falseを正常結果受理へ読み替えず、開始通知後の同Controlへの一回取消と終了joinを確認した。遠隔Provider側の内部処理停止までは主張しない。Codexレビューの観測可能なCommand／FileChange開始はともに0だが、全Tool不使用証明や追加Gateへ昇格しない。本文・認証値は保存しない。
+
+元回復参照は次のとおりで、最初の結果から終了まで同一参照を維持した。
+
+- 08: `docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.00c7026202e5ddc4d5767a252d4e129bb5d66663994bf9ade81b4003834f4829.8eace28914856129eacf4274c63b7f92a84d395fe3fae1b20a3874fac8a27c0c`
+- 09: `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.2d27fed4f566fbc901da8c2f6f720766d790b7b458e4287f4df9b34709bc220f.2febb123595d2a48bbca9cb630dcb2caabdecad5761dc18b2726065d9a16d9b4`
+- 10: `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.e143edcd33944ed8329442de460dc964546c26ddfb72305d69ab71b50ff32b64.f7f06a1d09d35122463a7ec403a06063a027b7a5fb622ac4103613ec04d331a2`
+- 11: `docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.00ad2d8667d3b4c9e2202bc0fc228d0d809cd1845e73135b4f1b275be9bae7f6.8286241b84e34993ba363086dc0d3ddac4a8e6525596ccbf36b6d502f0c9f444`
+
+今回Rootは`.crdd/tests/executor-real-claude-EXEC-20261030-08`、`executor-real-codex-EXEC-20261030-09`、`executor-real-codex-EXEC-20261030-10`、`executor-real-claude-EXEC-20261030-11`の四件だけで、親の清掃trueに加え終了後の直接照会でも不存在を確認した。Docker後一覧は試験資源なし、既存二Containerの実ID・状態と既存カスタムNetworkは保全されている。標準bridgeのIDは事前`2d3bda916e30`から事後`7eb2236f1a9c`へ変化したことを別観測として保持し、原因や全環境不変を断定しない。Docker再起動・修復・Image更新・既存資源削除・過去保持物操作は発行していない。
+
+今回予定した両Providerの編集・レビュー・開始後取消の機能確認は、06〜11の限定結果で完了した。06／07の親Tool不合格は履歴上そのまま保持し、内部機能成功と後から確認した限定回収を区別する。08〜11は修正後の名前非依存清掃を含めTool終了値0だった。既存の助言実確認と併せ、単独Executorの承認済み固定条件の確認結果であり、全Provider障害、上位連携、物理Workspace引渡し、全体QA又はリリース準備完了へ一般化しない。自動再送・追加AI試行はしていない。
+
+##### 人間判断による暫定拒否の撤去と通常入口への復帰
+
+前段の「全Tool制限の未検証を理由にguard維持」という判断は、今回の人間判断で変更する。既存のDocker隔離・用途別Mount・レビューのread-only条件・認証領域保護・通信制御・元回復参照・取消と回収を保護境界とし、全Tool不使用証明を追加の起動／完成条件にしない。Dockerが許可Mount内の読取りまで禁止するとは主張しない。過去の未検証判断や実測記録はそのまま保持する。
+
+AI Adapterの`codex_task_reviewer_code_mode_not_verified`二行を撤去し、計画契約を改訂17へ更新した。既存のCLI設定・Model／Effort・read-only sandbox・root deny／minimal read／workspace read／CLI read・never承認・Shell／unified exec無効・Code Mode公式Hostとin-process fallback無効・通信条件は変更しない。特殊Source置換loaderと専用試験／symbolを削除し、両Providerの通常Task APIと通常IPCへ戻す。件数が一件でも正規review・物理Oracle・終了条件が成立する非AI反例を追加し、Tool観測件数は診断に限定する。
+
+今回の実AI再確認は通常入口で六試行を逐次実行する。`EXEC-20261030-06` Codex編集、07 Claudeレビュー、08 Claude編集、09 Codexレビュー、10 Codex開始後取消、11 Claude開始後取消。各一回、合成source.txt・固定指示・内容／差分のみ、同じGPT-6.1 Sol／mediumとOpus 5.5／medium・固定Imageを使用する。各試行は新品Rootで、レビューは編集成功時の検査済みexact bytes／Hashと同じ内容を投影する。物理Workspace引渡しや上位連携は対象外とする。どれかが失敗すれば後続の送信を停止し、自動再試行・Docker再起動・Image更新・過去保持物操作を行わない。全項目が成立した場合だけコミット・プッシュする。

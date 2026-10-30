@@ -48,6 +48,7 @@ export function createStandaloneProviderAttemptHost(
   directory: string,
   plan: PreparedPlan & { readonly consumer: "coordinator_cli" },
   lease: NonNullable<ReturnType<typeof acquireNamedPipeKernelLock>>,
+  onProviderStarted?: () => void,
 ) {
   const root = fs.realpathSync(directory);
   const repository = fs.realpathSync(
@@ -189,6 +190,18 @@ export function createStandaloneProviderAttemptHost(
     return true;
   }
   const host: ExecutorHost = {
+    reportProviderProcessStarted: async (notice) => {
+      if (
+        notice.event !== "coordinator_provider_process_started" ||
+        notice.operationId !== plan.operationId ||
+        notice.provider !== plan.provider ||
+        notice.taskRole !== plan.taskRole ||
+        !current(true)
+      )
+        return false;
+      onProviderStarted?.();
+      return true;
+    },
     reportProviderBoundaryDiagnostic: async (notice) => {
       if (
         notice.event !== "coordinator_provider_boundary_settled" ||

@@ -178,13 +178,15 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 
 単段試験HostのReceiptは、本番Coordinatorと同じくDocker stdoutを`trim()`してから64桁の小文字16進IDとして検査・保存する。複数ID・途中改行・不正文字は拒否し、正常な行末を作成失敗へ読み替えない。生応答は保存しない。
 
-正常終了後の試験Root清掃は、Claudeの固定Imageが残す`tmp/claude-65534/`だけを既知の空Directoryとして扱える。Root・tmp・management・対象子の非linkと実体Identityを確認し、削除直前にも照合する。Codex・未知名・File・非空・実体変更・観測不能はこの処置の対象外で、記録を保持する。任意の再帰削除、製品Recovery、過去の保持Rootへの適用を追加しない。
+試験所有`tmp/`の清掃は、Providerの生成物名やFile内容に依存させない。元Root・確定イベント・実行終了・資源回収・Home解放・子Process終了が共同成立した場合だけ、今回Rootの`tmp/`内の通常FileとDirectoryを対象にする。Fileは非link・単一link、Directoryも非link、全対象はlexical Pathとrealpathが一致することを要求する。本文やHashは取得せず、全treeの実体・Fileのsize／mtime／mode・各Directoryの子一覧を削除前に棚卸しする。メモリ使用を有限にするため逐次列挙でFile／Directory合計10,000 entry以内とし、超過は削除前に停止する。File容量・階層・名前の独自制限は追加しない。
+
+tmpは内側から通常unlink／rmdirで回収し、各削除直前に元Root、tmp、全祖先の実体・残るべき子一覧と対象metadataを再照合する。tmp全体の清掃が終わるまで作業領域・確定イベント・managementは削除しない。初回棚卸し不成立では削除零、開始後の同時変更・Filesystem故障ではその対象の処置前に停止し、先行したtmp削除を取り消さず、残存Rootと結果を保持して未完了を返す。OS上の任意の同時改変に対する原子的削除保証は主張しない。新Lock・監視・Recovery・再帰force削除は追加せず、製品領域、OS tmp、過去保持Rootには適用しない。work・management・確定記録の既存の限定契約は維持する。
 
 単段試験Hostの作成前記録はpurpose・既存計画の予定資源名・所有labelを持つ。これは予定の相関であり、Docker受理・実在・削除許可ではない。正常時の試験Root清掃は、五用途各一件・単一label・終了資源観測との予定名完全一致も要求する。既存の境界終了通知から、同じ操作・Provider・回復参照に一致する一次故障と固定終了boolだけを受け取り、試験結果IPCの`diagnostic`へ載せる。排他解放成功後だけ同じ投影を確定JSONへ保存し、解放拒否・不明後は書かずメモリから搬送する。診断保存失敗で実行結果を変更せず、生本文・例外本文・Home情報は保存しない。通知の受領をWorker exit・子close・清掃成功の証明にしない。
 
-単段実試験CLIは`scripts/verify-provider-real.ts --describe <provider>`と`--run <provider> <run-id>`を分ける。前者は固定合成Context・Model／medium・Image Digestと非共有境界の純粋表示だけを行う。後者は入力・出力TTYと一回の確認コード一致後だけ、nonce結合したIPC子一件を開始する。子はRoot確定の親確認後、既存Home二観測・同期排他・固定助言計画・試験Hostへ接続する。Repository／Workspaceはmountせず、tools／session無効・API Key fallbackなし・Provider一回だけとする。取消・親切断は同Controlへ伝えcompletionをjoinし、親は一つの相関結果と子closeを共同確認する。既存単段期限から導いた試験監督上限を超えた場合は取消し、終了不明・Root保持とし、実行期限を緩和したり強制成功へ変更しない。
+単段実試験CLIは`scripts/verify-provider-real.ts --describe <provider>`と`--run <provider> <run-id>`を分ける。前者は固定合成Context・Model／medium・Image Digestと非共有境界の純粋表示だけを行う。後者は会話等で用途・送信内容・モデル・回数・回収範囲について事前の人間承認を取得した実行者が明示的に呼び出す。端末の有無や確認コード入力は要求せず、nonce結合したIPC子一件を開始する。承認の永続台帳・自動判定・別の確認Frameworkは追加しない。子はRoot確定の親確認後、既存Home二観測・同期排他・固定助言計画・試験Hostへ接続する。Repository／Workspaceはmountせず、tools／session無効・API Key fallbackなし・Provider一回だけとする。取消・親切断は同Controlへ伝えcompletionをjoinし、親は一つの相関結果と子closeを共同確認する。既存単段期限から導いた試験監督上限を超えた場合は取消し、終了不明・Root保持とし、実行期限を緩和したり強制成功へ変更しない。
 
-親は子close前に試験Rootを清掃・更新しない。Effect前に子が元回復参照を親へ渡し、親の受領確認後だけ開始する。結果搬送を失っても同じ参照を保持する。監督上限では同Controlへ一回取消し、既存取消猶予内でcloseを待つ。close未観測ではRootを更新せず、そのexact Pathと既知参照を報告する。元終端保存・exact回復参照・同期解放・技術清掃・正常closeの共同成立後、初回Root Identity、連番の確定JSONと既知Schema、非link・nlink、全用途Directoryの空を確認して既存削除へ接続する。取消・未知名・partial・内容不整合等では清掃せず、closeを観測した場合だけ当該Rootに非秘密の結果と七日後の再評価時刻を保存する。期限だけで削除しない。子stdout／stderrはdrainするが本文を保存・表示しない。固定Imageの存在・Engineの使用可否と外部送信は別途承認された読取り確認・一回試験で検証し、このCLI実装や代役試験から成立としない。
+親は子close前に試験Rootを清掃・更新しない。Effect前に子が元回復参照を親へ渡し、親の受領確認後だけ開始する。結果搬送を失っても同じ参照を保持する。監督上限では同Controlへ一回取消し、既存取消猶予内でcloseを待つ。close未観測ではRootを更新せず、そのexact Pathと既知参照を報告する。元終端保存・exact回復参照・同期解放・技術清掃・正常closeの共同成立後、初回Root Identity、連番の確定JSONと既知Schema、非link・nlink、tmpの所有範囲とwork／managementの個別条件を確認して既存削除へ接続する。期待と異なる終端・tmp外の未知名・partial・内容不整合等では清掃せず、closeを観測した場合だけ当該Rootに非秘密の結果と七日後の再評価時刻を保存する。期限だけで削除しない。子stdout／stderrはdrainするが本文を保存・表示しない。固定Imageの存在・Engineの使用可否と外部送信は別途承認された読取り確認・一回試験で検証し、このCLI実装や代役試験から成立としない。
 
 既存ERB-IT-002／004の反例を維持し、Provider両方の準備一回性、候補Owner交差、固定callback接続、元結果の相関、正常・取消・開始失敗・清掃不明・Owner喪失を非AIで確認する。Task段階順序はCoordinatorの既存有限試験で確認する。
 
@@ -195,6 +197,20 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 本番Factoryの配線は、子Process内でDocker Isolation RootのFactory一つだけをModule代役へ替えて別構成で検査する。実公開builderと計画検査・投影を使い、下位へ渡すidentity／構成／stdin／元Ownerと元清掃結果を照合する。代役Runtimeは公開の候補sessionへ有限CommandHandleを渡すもので、本番Docker Runtime内部ではない。Hostから余剰に渡した実行primitiveの利用と外部Process起動は拒否する。両構成をCodex／Claude形式の合成Probeで確認する。固定Docker Runtime内部、実Process／Container不存在、Host Process喪失時の回収はこの模擬試験の対象外とする。実境界の既存結果はCHGの対象版付き記録を参照し、本体等価の配置変更を再送の理由にしない。
 
 ## 現行実装との照合
+
+### 単段編集・レビュー・取消の検証候補
+
+検証CLIの有限modeは`advice`（省略時）、`edit`、`review`、`cancel`である。製品APIとTaskの順序管理は変更しない。既存の一子監督・同期Home排他・提出前記録・Receipt・元回復参照・終了保存・close後の限定清掃を共有し、合成Taskの記述・構築・物理検査だけを`scripts/task-trial.ts`へ置く。試験結果契約はv2とし、内容確認は`contentConfirmed`へ統一する。過去v1の記録を読む互換Readerや保持物移行は追加しない。
+
+編集は新品Root内の`work/source.txt`だけを`BASE`から`EDITED_OK`（各末尾LF）へ変更する。保護用の空`.git`・`.crdd`は既存の三Mount構成で読取り専用とする。レビューは同じ検査済みbytesと差分を固定の読取り投影として標準入力で受け、ファイル読取り・ツール利用を指示しない。各試行は新品Rootを使うため、これは内容Hashで相関する単段確認であり、物理Workspaceの引渡し又はCoordinatorの順序制御の検証ではない。
+
+取消は同じ操作・Provider・役割の開始通知を受け、同じControlへ一回要求しcompletionをjoinする。開始観測・取消要求の受理と終了観測・`cancelled`終端・元回復参照・清掃・Home解放・保存・子closeを共同確認する。`completed`を取消成功に読み替えない。取消後のFileが既知の二値以外、未知File／Directory、link、nlink差、実体変更、部分保存又は観測不能なら保持する。正常時も親の子close後に、元RootとDirectoryの実体・既知Fileの内容と単一linkを再照合し、通常unlinkと内側からの空Directory削除だけを行う。
+
+人間の判断によりCodex GPT-6.1 Sol reviewerの暫定拒否を撤去し、通常のAI Adapter／Executor APIへ接続する。検証用Source置換ローダーとその専用試験は廃止する。既存のProvider・mode・Model・Effort・Packet・Mount相関、nonce・spec Hash・一回消費・回復参照・終了確認を維持し、不正な入力・余剰引数は開始前停止する。
+
+元回復参照の発行前に準備が拒否された場合も、有限の理由と終了結果をIPCで保持する。これは回復参照null・blocked・fixture未確定・実行結果／終端／技術清掃未成立の閉条件に限定する。回復ACKを既に発行・受領した操作へ適用せず、同じexact参照の一致は引き続き必須とする。準備拒否を回収完了へ変換せず、子close後に既知記録を保持して個別に処置する。
+
+Code Modeの全Tool不使用又は全ファイル非読取りの証明は追加の完成条件にしない。観測できるCommand／FileChange件数は診断情報であり、件数だけで実行を拒否・成功化しない。レビュー用workのbytes／Identity不変、正規レビュー結果、元終了保存・清掃・解放を共同確認する。既存のread-only Mount／sandboxと認証領域の保護・通信制御・隔離を維持し、許可Mount内の読取りをDockerが禁止するとは扱わない。新しいRunner、Queue、Registry、Lock又は永続許可台帳は設けない。
 
 元の単段実装を上記Sourceへ移管した。計画・入力・取消・失敗結果の意味を変えず、Coordinatorの順序管理と保存を用途固定接続へ残す。非AI回帰と独立確認の結果は[移管計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を正本とし、本書の設計評価とは区別する。実AI／Docker成立、実データ移行、全体QA／Releaseは本書から主張しない。
 

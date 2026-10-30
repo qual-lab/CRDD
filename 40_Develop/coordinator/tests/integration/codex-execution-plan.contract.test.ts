@@ -458,7 +458,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
  */
 test("CLI公開契約は通常速度・API課金禁止を明示し配布検証を持たない", () => {
   const contract = describeProviderExecution("codex");
-  assert.equal(contract.contractRevision, 16);
+  assert.equal(contract.contractRevision, 17);
   assert.equal("distributionVerification" in contract, false);
   assert.equal("distributionIdentity" in contract, false);
 

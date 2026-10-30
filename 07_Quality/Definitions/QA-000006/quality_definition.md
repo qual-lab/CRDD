@@ -33,10 +33,13 @@ Task内容の直接検査はDomainの`tests/unit/attempt/task-result.contract.te
 | 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/result/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
 | 試験HostのReceipt・保存拒否・排他解放・元終端 | executor/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
 | Home事前確認の観測不能・元Lock・既存名導出 | executor/tests/integration/provider-home-boundary.contract.test.ts | 模擬サービス上の有限取得・解放と不明保持。実Homeには触れない |
-| 単段検証CLIの同意、IPC、異常close、取消、親切断、診断、保持・清掃 | executor/tests/integration/provider-real-cli.contract.test.ts | 子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
+| 単段検証CLIの非対話実行、IPC、異常close、取消、親切断、診断、保持・清掃 | executor/tests/integration/provider-real-cli.contract.test.ts | 事前の人間承認を前提とし、非TTY・確認入力禁止の代役でも同じ有限試験が成立。子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
+| 単段Taskの編集・投影レビュー・開始後取消 | 同上。入力・物理Oracleはexecutor/scripts/task-trial.ts | TaskのModel・役割・三Mount・単一File・内容Hash・Directory Identityを照合。通常／cancelの終端相互取違え、未知生成物・partial・実体変更は保持。両Providerのreviewerを通常APIへ接続。Tool件数は診断に限定し、正規review結果・物理Oracleが成立する反例では件数だけで拒否しない。全Tool禁止証明は追加の完成条件にしない |
 | 診断表示の元結果保全・参照URL・非表示条件・専用Process終了 | executor/tests/integration/task-summary-observation.contract.test.ts | 本文を保存せず、不成立を非表示にする |
 
 全件成功は、この表の非AI境界に対する結果であり、あらゆるOS故障・Docker故障・Provider障害を網羅したとの表明ではない。本番Factory試験は固定Docker Isolation Factoryのみを有限代役へ置き換える。実Engine、実Home排他、認証、実Container回収、Host喪失の実境界は模擬結果から成立としない。既存のCodex／Claude単段実試験とDirect／Isolated実試験はCHGの対象改訂版付き結果を参照し、今回の等価な配置整理で新たに再送しない。
+
+単段CLIの清掃試験では、今回所有tmpの任意名・多段Directory・空／非空通常Fileを回収する。名前allowlistは持たない。非link・単一link・realpath一致、全treeのmetadataと子一覧、10,000 entryの逐次列挙を検査する。link・特殊File・realpath差・読取り不能・entry超過・親inventory差・File Identity／size／mtime差は保持する。初回棚卸し不成立は削除零、途中失敗は残存を保持し、tmp完了前に作業領域・終了記録を除去しない。元結果と物理清掃は別々に確認する。
 
 この表の網羅対象は公開責務と終了条件であり、行coverage率や件数だけでPackage全体の安全性を証明しない。実境界の保証に影響する変更が見つかった場合は、影響と限定試験条件を先に提示する。
 

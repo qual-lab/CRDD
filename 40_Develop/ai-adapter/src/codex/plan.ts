@@ -56,7 +56,7 @@ export function projectCodexExecutionBoundary(candidate: unknown) {
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 16;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 17;
 
 export const CODEX_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
   "OPENAI_API_KEY",
@@ -199,7 +199,7 @@ export function planCodexReadOnlyProbe(
  * @precondition 入力・役割・推論強度と選定のProvider・識別方式・技術対応を関数内で再照合する。
  * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: Taskの起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
- * @failure 不正shape・役割・選定不一致と、未検証のCode Mode reviewerを拒否する。
+ * @failure 不正shape・役割・選定不一致を拒否する。
  * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
  * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planCodexIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
@@ -247,8 +247,6 @@ export function planCodexIsolatedTask(
     return blocked("codex_task_execution_plan_selection_invalid");
   const model = resolved.value.modelIdentifier;
   const codeMode = model === "gpt-6.1-sol";
-  if (codeMode && value.taskRole === "reviewer")
-    return blocked("codex_task_reviewer_code_mode_not_verified");
 
   const effort = value.effort as "low" | "medium" | "high";
   const taskRole = value.taskRole as "executor" | "reviewer";

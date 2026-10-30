@@ -1,18 +1,19 @@
 /**
- * 合成Contextだけを使うExecutor単段試験の明示CLI。
+ * 合成入力だけを使うExecutor単段試験の明示CLI。
  * @packageDocumentation
- * @responsibility 計画表示・TTY同意・一子の実行と終了後清掃を接続する。
+ * @responsibility 計画表示・明示実行・一子の実行と終了後清掃を接続する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
- * @boundary 試験専用。実行は用途限定承認と端末確認の両方を必要とする。
+ * @boundary 試験専用。実行前に会話等で用途限定承認を取得する。端末入力は要求しない。
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash, randomBytes, randomInt } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { fork, spawnSync } from "node:child_process";
 import { registerHooks } from "node:module";
 import { isDeepStrictEqual } from "node:util";
+import type { TrialMode, TaskFixtureReceipt } from "./task-trial.ts";
 import type { AdvicePacket } from "../src/attempt/types.ts";
 registerHooks({
   resolve(s, c, n) {
@@ -35,11 +36,9 @@ const {
   writeCommittedJson,
   removeCommittedJson,
 } = await import("../../domain-model/src/index.ts");
-const {
-  observeWindowsProviderHome,
-  acquireNamedPipeKernelLock,
-  readConfirmationCodeOutcome,
-} = await import("../../platform-access/src/index.ts");
+const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
+  "../../platform-access/src/index.ts"
+);
 const { describeExecutorContract, isPrimaryFailureDiagnostic } = await import(
   "../src/index.ts"
 );
@@ -56,6 +55,14 @@ const { createStandaloneProviderAttemptHost } = await import(
   "./provider-attempt-host.ts"
 );
 const { homePipeName } = await import("./verify-provider-home.ts");
+
+const {
+  describeTaskTrial,
+  buildTaskTrialPlan,
+  createTaskTrialFixture,
+  verifyTaskTrialResult,
+  cleanupTaskTrialFixture,
+} = await import("./task-trial.ts");
 
 const reference = "synthetic-context";
 const prompt = [
@@ -78,9 +85,13 @@ const digest = (value: string) =>
  * @failure 未対応Model／用途は停止。
  * @boundary 計画は現在の認証・Image存在・実行許可を証明しない。
  */
-export function describeStandaloneProviderTrial(provider: unknown) {
+export function describeStandaloneProviderTrial(
+  provider: unknown,
+  mode: TrialMode = "advice",
+) {
   if (provider !== "codex" && provider !== "claude")
     throw Error("trial_provider_invalid");
+  if (mode !== "advice") return describeTaskTrial(provider, mode);
   const model = provider === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
   const selected = resolveAiModelSelection({
     provider,
@@ -106,7 +117,8 @@ export function describeStandaloneProviderTrial(provider: unknown) {
   if (generated.status !== "ready") throw Error("trial_command_unavailable");
   const command = bindAdviceCommand(generated.plan);
   return Object.freeze({
-    contract: "crdd/executor/standalone-trial/v1",
+    contract: "crdd/executor/standalone-trial/v2",
+    mode: "advice" as const,
     provider,
     model,
     effort: "medium" as const,
@@ -127,10 +139,10 @@ export function describeStandaloneProviderTrial(provider: unknown) {
  * @responsibility 選定・Prompt・非共有境界・Commandの相関を保つ。
  * @trace ERB-IT-002
  * @input spec: 固定記述、root: 新品Root、home: 現観測候補。
- * @returns 既存resolveValidatedPlanを満たす助言専用計画。
+ * @returns 既存resolveValidatedPlanを満たす固定用途の計画。
  * @effect 暗号学的乱数で今回の名前だけを生成する。
  * @failure 役割・Model・Prompt・Mount差で停止。
- * @boundary 任意Prompt・任意Path・編集操作を受け付けない。
+ * @boundary 任意Prompt・任意Pathを受け付けず、編集は固定合成Fileだけ。
  */
 export function buildStandaloneTrialPlan(
   spec: ReturnType<typeof describeStandaloneProviderTrial>,
@@ -143,9 +155,11 @@ export function buildStandaloneTrialPlan(
 ) {
   if (
     JSON.stringify(spec) !==
-    JSON.stringify(describeStandaloneProviderTrial(spec.provider))
+    JSON.stringify(describeStandaloneProviderTrial(spec.provider, spec.mode))
   )
     throw Error("trial_spec_changed");
+  if (spec.mode !== "advice")
+    return buildTaskTrialPlan(spec, root, home, homePath);
   const operationId = `OP-${BigInt(`0x${randomBytes(12).toString("hex")}`)
     .toString()
     .padStart(6, "0")}`;
@@ -269,6 +283,13 @@ export function buildStandaloneTrialPlan(
 }
 
 type TrialResult = Readonly<{
+  mode: TrialMode;
+  fixtureReceipt: TaskFixtureReceipt | null;
+  cancellationConfirmed: boolean;
+  reviewToolObservation: Readonly<{
+    commandExecutionStartedCount: number;
+    fileChangeStartedCount: number;
+  }> | null;
   status: "completed" | "blocked" | "cancelled";
   reason: string | null;
   recoveryId: string | null;
@@ -276,7 +297,7 @@ type TrialResult = Readonly<{
   releaseConfirmed: boolean;
   terminalSaved: boolean;
   nativeCleanupConfirmed: boolean;
-  adviceConfirmed: boolean;
+  contentConfirmed: boolean;
   resultSha256: string | null;
   resultBytes: number;
   diagnostic: ReturnType<
@@ -306,8 +327,9 @@ export async function runStandaloneProviderTrial(
   signal: AbortSignal,
   onRoot: (root: string) => Promise<void> = async () => {},
   onRecovery: (id: string) => Promise<void> = async () => {},
+  mode: TrialMode = "advice",
 ): Promise<TrialResult> {
-  const spec = describeStandaloneProviderTrial(provider);
+  const spec = describeStandaloneProviderTrial(provider, mode);
   if (
     typeof runId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9-]{7,63}$/u.test(runId)
@@ -335,9 +357,14 @@ export async function runStandaloneProviderTrial(
     releaseConfirmed = false,
     terminalSaved = false,
     cleanupConfirmed = false,
-    adviceConfirmed = false,
+    contentConfirmed = false,
     resultSha256: string | null = null,
     resultBytes = 0;
+  let fixtureReceipt: TaskFixtureReceipt | null = null;
+  let processStartedCount = 0,
+    cancelCount = 0,
+    cancellationConfirmed = false;
+  let reviewToolObservation: TrialResult["reviewToolObservation"] = null;
   let lease: ReturnType<typeof acquireNamedPipeKernelLock> = null,
     releaseAttempted = false,
     startAttempted = false,
@@ -346,10 +373,21 @@ export async function runStandaloneProviderTrial(
   let diagnostic: TrialResult["diagnostic"] = null;
   let cancellation: Promise<unknown> | null = null;
   const cancel = () => {
-    if (cancelCurrent && !cancellation)
-      cancellation = cancelCurrent().catch(() => {
-        reason ??= "trial_cancel_unconfirmed";
-      });
+    if (cancelCurrent && !cancellation) {
+      cancelCount++;
+      cancellation = cancelCurrent()
+        .then((value) => {
+          cancellationConfirmed =
+            !!value &&
+            typeof value === "object" &&
+            Reflect.get(value, "status") === "requested" &&
+            Reflect.get(value, "processTerminationObserved") === true;
+          return value;
+        })
+        .catch(() => {
+          reason ??= "trial_cancel_unconfirmed";
+        });
+    }
   };
   signal.addEventListener("abort", cancel);
   try {
@@ -406,15 +444,24 @@ export async function runStandaloneProviderTrial(
       throw Error("trial_home_changed_or_unconfirmed");
     const plan = buildStandaloneTrialPlan(spec, root, second, homePath);
     const original = lease;
-    const host = createStandaloneProviderAttemptHost(root, plan, {
-      assertLive: () => original.assertLive(),
-      release: () => {
-        if (releaseAttempted) return false;
-        releaseAttempted = true;
-        releaseConfirmed = original.release() === true;
-        return releaseConfirmed;
+    const host = createStandaloneProviderAttemptHost(
+      root,
+      plan,
+      {
+        assertLive: () => original.assertLive(),
+        release: () => {
+          if (releaseAttempted) return false;
+          releaseAttempted = true;
+          releaseConfirmed = original.release() === true;
+          return releaseConfirmed;
+        },
       },
-    });
+      () => {
+        processStartedCount++;
+        if (mode === "cancel") queueMicrotask(cancel);
+      },
+    );
+    if (mode !== "advice") fixtureReceipt = createTaskTrialFixture(root, mode);
     recoveryId = host.recoveryId;
     await onRecovery(recoveryId);
     fs.mkdirSync(path.join(root, "tmp"));
@@ -441,7 +488,51 @@ export async function runStandaloneProviderTrial(
       resultBytes = result.resultBytes;
       terminalSaved = host.recordTerminal(result);
       const normalized = result.normalizedResult;
-      if (
+      if (mode === "cancel") {
+        contentConfirmed = false;
+        if (
+          result.status !== "cancelled" ||
+          processStartedCount !== 1 ||
+          cancelCount !== 1 ||
+          !cancellationConfirmed ||
+          result.reason !== "provider_operation_cancelled"
+        )
+          reason = "trial_cancellation_unconfirmed";
+      } else if (mode !== "advice" && fixtureReceipt) {
+        contentConfirmed = verifyTaskTrialResult(
+          root,
+          mode,
+          fixtureReceipt,
+          normalized,
+        );
+        if (mode === "review" && spec.provider === "codex") {
+          const observed =
+            normalized && typeof normalized === "object"
+              ? Reflect.get(normalized, "providerExecutionObservation")
+              : null;
+          if (
+            observed &&
+            typeof observed === "object" &&
+            ["commandExecutionStartedCount", "fileChangeStartedCount"].every(
+              (k) =>
+                Number.isSafeInteger(Reflect.get(observed, k)) &&
+                Reflect.get(observed, k) >= 0 &&
+                Reflect.get(observed, k) <= 4096,
+            )
+          )
+            reviewToolObservation = Object.freeze({
+              commandExecutionStartedCount: Reflect.get(
+                observed,
+                "commandExecutionStartedCount",
+              ),
+              fileChangeStartedCount: Reflect.get(
+                observed,
+                "fileChangeStartedCount",
+              ),
+            });
+        }
+        if (!contentConfirmed) reason ??= "trial_task_content_unconfirmed";
+      } else if (
         normalized &&
         typeof normalized === "object" &&
         Object.hasOwn(normalized, "facts")
@@ -459,11 +550,14 @@ export async function runStandaloneProviderTrial(
           }),
           [reference],
         );
-        adviceConfirmed = advice.status === "confirmed";
-        if (result.status === "completed" && terminalSaved && !adviceConfirmed)
+        contentConfirmed = advice.status === "confirmed";
+        if (result.status === "completed" && terminalSaved && !contentConfirmed)
           reason ??= advice.reason;
       }
-      if (result.status === "completed" && (!terminalSaved || !adviceConfirmed))
+      if (
+        result.status === "completed" &&
+        (!terminalSaved || !contentConfirmed)
+      )
         reason ??= "trial_terminal_or_advice_unconfirmed";
     }
   } catch (error) {
@@ -494,15 +588,23 @@ export async function runStandaloneProviderTrial(
   if (!releaseConfirmed) reason ??= "trial_home_release_unconfirmed";
   if (!nativeCleanupConfirmed) reason ??= "trial_native_cleanup_unconfirmed";
   return Object.freeze({
+    mode,
+    fixtureReceipt,
+    cancellationConfirmed,
+    reviewToolObservation,
     status:
       reason === null &&
       cleanupConfirmed &&
       releaseConfirmed &&
       terminalSaved &&
       nativeCleanupConfirmed &&
-      adviceConfirmed
+      contentConfirmed
         ? "completed"
-        : signal.aborted
+        : signal.aborted ||
+            (mode === "cancel" &&
+              reason === "provider_operation_cancelled" &&
+              cancelCount === 1 &&
+              cancellationConfirmed)
           ? "cancelled"
           : "blocked",
     reason,
@@ -511,7 +613,7 @@ export async function runStandaloneProviderTrial(
     releaseConfirmed,
     terminalSaved,
     nativeCleanupConfirmed,
-    adviceConfirmed,
+    contentConfirmed,
     resultSha256,
     resultBytes,
     diagnostic,
@@ -557,7 +659,36 @@ function isTrialDiagnostic(value: unknown): boolean {
  * @failure 欠落・余分field・不正値を拒否。
  * @boundary 子Processから親の表示・清掃判断。
  */
-function trialResult(value: unknown): TrialResult | null {
+function parseMode(value: unknown): TrialMode {
+  if (value === undefined) return "advice";
+  if (
+    value !== "advice" &&
+    value !== "edit" &&
+    value !== "review" &&
+    value !== "cancel"
+  )
+    throw Error("trial_mode_invalid");
+  return value;
+}
+function validFixtureReceipt(value: unknown): value is TaskFixtureReceipt {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  const valid = (x: unknown) =>
+    typeof x === "string" && /^[0-9]+:[0-9]+:[0-9]+$/.test(x);
+  return (
+    Object.keys(v).sort().join(",") ===
+      "directories,rootIdentity,sourceIdentity" &&
+    valid(v.rootIdentity) &&
+    Array.isArray(v.directories) &&
+    v.directories.length === 3 &&
+    v.directories.every(valid) &&
+    valid(v.sourceIdentity)
+  );
+}
+function trialResult(
+  value: unknown,
+  mode: TrialMode = "advice",
+): TrialResult | null {
   if (
     !value ||
     typeof value !== "object" ||
@@ -565,17 +696,46 @@ function trialResult(value: unknown): TrialResult | null {
   )
     return null;
   const v = value as Record<string, unknown>;
+  if (v.mode !== mode || typeof v.cancellationConfirmed !== "boolean")
+    return null;
+  if (v.reviewToolObservation !== null) {
+    if (
+      mode !== "review" ||
+      !v.reviewToolObservation ||
+      typeof v.reviewToolObservation !== "object"
+    )
+      return null;
+    const o = v.reviewToolObservation as Record<string, unknown>;
+    if (
+      Object.keys(o).sort().join(",") !==
+        "commandExecutionStartedCount,fileChangeStartedCount" ||
+      Object.values(o).some(
+        (n) => !Number.isSafeInteger(n) || Number(n) < 0 || Number(n) > 4096,
+      )
+    )
+      return null;
+  }
+  if (
+    mode === "advice"
+      ? v.fixtureReceipt !== null
+      : !validFixtureReceipt(v.fixtureReceipt) && !beforeRecoveryFailure(v)
+  )
+    return null;
   if (
     Object.keys(v).sort().join(",") !==
     [
       "status",
+      "mode",
+      "fixtureReceipt",
+      "cancellationConfirmed",
+      "reviewToolObservation",
       "reason",
       "recoveryId",
       "cleanupConfirmed",
       "releaseConfirmed",
       "terminalSaved",
       "nativeCleanupConfirmed",
-      "adviceConfirmed",
+      "contentConfirmed",
       "resultSha256",
       "resultBytes",
       "diagnostic",
@@ -613,7 +773,7 @@ function trialResult(value: unknown): TrialResult | null {
       "releaseConfirmed",
       "terminalSaved",
       "nativeCleanupConfirmed",
-      "adviceConfirmed",
+      "contentConfirmed",
     ].some((key) => typeof v[key] !== "boolean")
   )
     return null;
@@ -628,11 +788,41 @@ function trialResult(value: unknown): TrialResult | null {
         "releaseConfirmed",
         "terminalSaved",
         "nativeCleanupConfirmed",
-        "adviceConfirmed",
+        "contentConfirmed",
       ].some((key) => v[key] !== true))
   )
     return null;
   return Object.freeze({ ...v }) as TrialResult;
+}
+
+/**
+ * 回復参照発行前の準備拒否を、清掃成功とは別に搬送する。
+ * @responsibility 元の固定理由を落とさず、資源終了・実行成功を補完しない。
+ * @trace ERB-IT-004
+ * @effect N/A: 閉形式結果の値照合だけ。
+ * @boundary 回復ACK前の失敗結果だけ。ACK後は元回復参照一致が必須。
+ */
+function beforeRecoveryFailure(value: Readonly<Record<string, unknown>>) {
+  return (
+    [
+      "trial_environment_invalid",
+      "trial_home_unconfirmed",
+      "trial_lease_acquisition_unknown",
+      "trial_home_changed_or_unconfirmed",
+      "trial_failed_closed",
+    ].includes(String(value.reason)) &&
+    value.status === "blocked" &&
+    value.recoveryId === null &&
+    value.fixtureReceipt === null &&
+    value.cancellationConfirmed === false &&
+    value.cleanupConfirmed === false &&
+    value.terminalSaved === false &&
+    value.contentConfirmed === false &&
+    value.resultSha256 === null &&
+    value.resultBytes === 0 &&
+    value.diagnostic === null &&
+    value.reviewToolObservation === null
+  );
 }
 
 /**
@@ -652,23 +842,45 @@ function rootIdentity(root: string) {
 }
 
 /**
- * 元確定JSONと空の用途別Directoryだけを終了後に回収する。
+ * 元確定JSON・検査済み作業領域・試験所有tmpを終了後に回収する。
  * @responsibility 子closeと元終端確認を清掃の前提にする。
  * @trace ERB-IT-004
  * @input exact Root・初回Identity・元限定結果。
  * @returns 回収と不存在の確認結果。
  * @precondition 親が同一子の正常closeと単一相関結果を確認済み。
- * @effect 今回Rootの既知File・空Directoryの通常削除だけ。
- * @failure partial・未知名・link・記録不整合は保持。再試行なし。
+ * @effect 今回Root内だけで通常unlink・内側からのrmdir・確定JSON除去を行う。
+ * @failure link・特殊File・実体差・棚卸し超過・記録不整合は保持。再試行なし。
  * @boundary 過去保持物やDocker資源を削除しない。
  */
 export function cleanupStandaloneTrialRoot(
   root: string,
   identity: string,
   result: TrialResult,
+  mode: TrialMode = "advice",
 ) {
   try {
-    if (result.status !== "completed" || rootIdentity(root) !== identity)
+    if (
+      result.mode !== mode ||
+      rootIdentity(root) !== identity ||
+      (mode === "cancel"
+        ? result.status !== "cancelled" ||
+          result.reason !== "provider_operation_cancelled" ||
+          !result.cancellationConfirmed ||
+          result.contentConfirmed ||
+          result.resultSha256 !== null ||
+          result.resultBytes !== 0 ||
+          result.diagnostic?.providerProcessStartedObserved !== true
+        : result.status !== "completed" || !result.contentConfirmed)
+    )
+      return false;
+    if (
+      ![
+        result.cleanupConfirmed,
+        result.releaseConfirmed,
+        result.terminalSaved,
+        result.nativeCleanupConfirmed,
+      ].every((v) => v === true)
+    )
       return false;
     const repository = fs.realpathSync(
       fileURLToPath(new URL("../../../", import.meta.url)),
@@ -693,11 +905,12 @@ export function cleanupStandaloneTrialRoot(
       ...files.map((name) => `${name}.crdd-commit.json`),
       "tmp",
       "management",
+      ...(mode === "advice" ? [] : ["work"]),
     ]);
     if (
       !files.length ||
       files.length > 100 ||
-      names.length !== files.length * 2 + 2 ||
+      names.length !== files.length * 2 + 2 + (mode === "advice" ? 0 : 1) ||
       names.some((name) => !allowed.has(name))
     )
       return false;
@@ -859,7 +1072,11 @@ export function cleanupStandaloneTrialRoot(
       }
       if (
         v.kind === "terminal_received" &&
-        (v.status !== "completed" ||
+        (v.status !== (mode === "cancel" ? "cancelled" : "completed") ||
+          (mode === "cancel"
+            ? v.reason !== "provider_operation_cancelled"
+            : v.reason !== null &&
+              v.reason !== "provider_operation_completed") ||
           v.resultSha256 !== result.resultSha256 ||
           v.resultBytes !== result.resultBytes)
       )
@@ -890,43 +1107,163 @@ export function cleanupStandaloneTrialRoot(
       )
     )
       return false;
-    let claudeTemporaryIdentity: string | null = null;
-    const claudeTemporary = path.join(root, "tmp", "claude-65534");
     const directoryIdentities = new Map<string, string>();
     for (const name of ["tmp", "management"]) {
-      const p = path.join(root, name),
-        s = fs.lstatSync(p);
-      if (!s.isDirectory() || s.isSymbolicLink()) return false;
-      directoryIdentities.set(name, rootIdentity(p));
-      const children = fs.readdirSync(p);
-      if (children.length === 0) continue;
+      const target = path.join(root, name);
+      directoryIdentities.set(name, rootIdentity(target));
+      if (name === "management" && fs.readdirSync(target).length !== 0)
+        return false;
+    }
+    const temporaryRoot = path.join(root, "tmp");
+    const metadataLimit = 10_000;
+    const childNames = (target: string) => {
+      const directory = fs.opendirSync(target);
+      const names: string[] = [];
+      try {
+        for (
+          let entry = directory.readSync();
+          entry;
+          entry = directory.readSync()
+        ) {
+          if (names.length === metadataLimit)
+            throw Error("trial_tmp_inventory_limit");
+          names.push(entry.name);
+        }
+      } finally {
+        directory.closeSync();
+      }
+      return names.sort();
+    };
+    const remainingRootNames = new Set(names);
+    const verifyRootInventory = () => {
       if (
-        provider !== "claude" ||
-        name !== "tmp" ||
-        children.length !== 1 ||
-        children[0] !== "claude-65534"
+        rootIdentity(root) !== identity ||
+        !isDeepStrictEqual(childNames(root), [...remainingRootNames].sort())
+      )
+        throw Error("trial_root_inventory_changed");
+    };
+    const temporaryMetadata = (target: string) => {
+      const relative = path.relative(temporaryRoot, target);
+      if (
+        path.isAbsolute(relative) ||
+        relative === ".." ||
+        relative.startsWith(`..${path.sep}`)
+      )
+        throw Error("trial_tmp_outside");
+      const stat = fs.lstatSync(target, { bigint: true });
+      if (
+        stat.isSymbolicLink() ||
+        (!stat.isDirectory() && (!stat.isFile() || stat.nlink !== 1n)) ||
+        fs.realpathSync(target) !== target
+      )
+        throw Error("trial_tmp_entry_invalid");
+      return {
+        identity: [stat.dev, stat.ino, stat.birthtimeNs].map(String).join(":"),
+        directory: stat.isDirectory(),
+        mode: stat.mode,
+        size: stat.size,
+        modified: stat.mtimeNs,
+      };
+    };
+    const inventory = new Map<
+      string,
+      {
+        metadata: ReturnType<typeof temporaryMetadata>;
+        children: string[] | null;
+      }
+    >();
+    const pending = [temporaryRoot];
+    while (pending.length) {
+      const target = pending.pop() as string;
+      const metadata = temporaryMetadata(target);
+      const children = metadata.directory ? childNames(target) : null;
+      inventory.set(target, { metadata, children });
+      if (
+        inventory.size + pending.length + (children?.length ?? 0) >
+        metadataLimit
       )
         return false;
-      claudeTemporaryIdentity = rootIdentity(claudeTemporary);
-      if (fs.readdirSync(claudeTemporary).length !== 0) return false;
+      for (const child of children ?? [])
+        pending.push(path.join(target, child));
     }
-    if (rootIdentity(root) !== identity) return false;
+    const verifyTemporaryEntry = (target: string) => {
+      const expected = inventory.get(target);
+      if (!expected) throw Error("trial_tmp_entry_missing");
+      const current = temporaryMetadata(target);
+      if (
+        current.identity !== expected.metadata.identity ||
+        current.directory !== expected.metadata.directory ||
+        current.mode !== expected.metadata.mode ||
+        (!current.directory &&
+          (current.size !== expected.metadata.size ||
+            current.modified !== expected.metadata.modified)) ||
+        (expected.children !== null &&
+          !isDeepStrictEqual(childNames(target), expected.children))
+      )
+        throw Error("trial_tmp_entry_changed");
+    };
+    if (
+      rootIdentity(root) !== identity ||
+      inventory.get(temporaryRoot)?.metadata.identity !==
+        directoryIdentities.get("tmp")
+    )
+      return false;
+    for (const target of inventory.keys()) verifyTemporaryEntry(target);
+    verifyRootInventory();
+    for (const [target, entry] of [...inventory].reverse()) {
+      if (target === temporaryRoot) continue;
+      verifyRootInventory();
+      const ancestors: string[] = [];
+      for (
+        let ancestor = path.dirname(target);
+        ;
+        ancestor = path.dirname(ancestor)
+      ) {
+        ancestors.push(ancestor);
+        if (ancestor === temporaryRoot) break;
+      }
+      for (const ancestor of ancestors.reverse())
+        verifyTemporaryEntry(ancestor);
+      verifyTemporaryEntry(target);
+      if (entry.children !== null) {
+        if (entry.children.length !== 0) return false;
+        fs.rmdirSync(target);
+      } else fs.unlinkSync(target);
+      const parent = inventory.get(path.dirname(target));
+      if (!parent?.children) return false;
+      parent.children = parent.children.filter(
+        (name) => name !== path.basename(target),
+      );
+    }
+    verifyTemporaryEntry(temporaryRoot);
+    verifyRootInventory();
+    if (
+      mode !== "advice" &&
+      (!result.fixtureReceipt ||
+        !cleanupTaskTrialFixture(root, mode, result.fixtureReceipt))
+    )
+      return false;
+    if (mode !== "advice") remainingRootNames.delete("work");
+    verifyRootInventory();
     for (const [name, expected] of directoryIdentities)
       if (rootIdentity(path.join(root, name)) !== expected) return false;
-    if (claudeTemporaryIdentity !== null) {
-      if (rootIdentity(claudeTemporary) !== claudeTemporaryIdentity)
-        return false;
-      fs.rmdirSync(claudeTemporary);
+    for (const name of files) {
+      verifyRootInventory();
+      removeCommittedJson(path.join(root, name), name);
+      remainingRootNames.delete(name);
+      remainingRootNames.delete(`${name}.crdd-commit.json`);
     }
-    for (const name of files) removeCommittedJson(path.join(root, name), name);
     for (const name of ["tmp", "management"]) {
+      verifyRootInventory();
       if (
         rootIdentity(root) !== identity ||
         rootIdentity(path.join(root, name)) !== directoryIdentities.get(name)
       )
         return false;
       fs.rmdirSync(path.join(root, name));
+      remainingRootNames.delete(name);
     }
+    verifyRootInventory();
     fs.rmdirSync(root);
     return !fs.existsSync(root);
   } catch {
@@ -935,7 +1272,7 @@ export function cleanupStandaloneTrialRoot(
 }
 
 /**
- * 同意確認後の一子だけを監督し、close後に限定清掃する。
+ * 事前承認された明示実行の一子だけを監督し、close後に限定清掃する。
  * @responsibility 通信結果と子終了・記録・回収を別々に確認する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
@@ -943,31 +1280,30 @@ export function cleanupStandaloneTrialRoot(
  * @returns 表示済み有限結果に対応する終了値。
  * @precondition 実行前に用途限定の人間承認を取得済み。
  * @postcondition 実行・取消・終了不明で自動再送・強制清掃しない。
- * @effect TTY確認、既存Reader一回、Node子一件、今回Rootの結果記録と限定清掃。
+ * @effect Node子一件、今回Rootの結果記録と限定清掃。
  * @failure 不明時はexact Rootを表示し七日後を再評価時刻とする。
- * @invariant 計画表示・同意不成立ではHome・Root・Docker・AI Effect零。
+ * @invariant 計画表示・不正引数ではHome・Root・Docker・AI Effect零。
  * @boundary 検証CLIのみ。製品Coordinatorには変更しない。
  * @security 子stdout/stderrは常時drainし、本文を保持・表示しない。
  * @concurrency 同じnonceの一結果と子closeを要求し、期限超過は取消して不明として保持する。
  */
 export async function runStandaloneProviderTrialCli(args: readonly string[]) {
-  if (args[0] === "--describe" && args.length === 2) {
+  if (args[0] === "--describe" && (args.length === 2 || args.length === 3)) {
     process.stdout.write(
-      `${JSON.stringify(describeStandaloneProviderTrial(args[1]))}\n`,
+      `${JSON.stringify(describeStandaloneProviderTrial(args[1], parseMode(args[2])))}\n`,
     );
     return 0;
   }
   if (
     args[0] !== "--run" ||
-    args.length !== 3 ||
+    (args.length !== 3 && args.length !== 4) ||
     typeof args[2] !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9-]{7,63}$/u.test(args[2])
   )
     throw Error("usage_describe_provider_or_run_provider_runid");
-  const spec = describeStandaloneProviderTrial(args[1]),
+  const mode = parseMode(args[3]);
+  const spec = describeStandaloneProviderTrial(args[1], mode),
     runId = args[2];
-  if (!process.stdin.isTTY || !process.stdout.isTTY)
-    throw Error("trial_tty_required");
   const repository = fs.realpathSync(
     fileURLToPath(new URL("../../../", import.meta.url)),
   );
@@ -978,36 +1314,10 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
     `executor-real-${spec.provider}-${runId}`,
   );
   if (fs.existsSync(root)) throw Error("trial_root_already_exists");
-  const challenge = String(randomInt(100000, 1000000));
   const cancellation = new AbortController();
   const abort = () => cancellation.abort();
   process.once("SIGINT", abort);
   try {
-    await new Promise<void>((resolve, reject) =>
-      process.stdout.write(
-        "外部AI送信・Docker隔離を使う合成読取り一回の確認です。既存Provider Homeをmountします。Repository／Workspaceは共有しません。tools／sessionは無効です。\n" +
-          JSON.stringify(spec) +
-          "\n許可する場合だけ、この端末に " +
-          challenge +
-          " を入力してください。コードはチャットへ貼らないでください。\n",
-        (error) => (error ? reject(error) : resolve()),
-      ),
-    );
-    const consent = await readConfirmationCodeOutcome(0, cancellation.signal);
-    if (
-      consent.status !== "completed" ||
-      consent.line !== challenge ||
-      cancellation.signal.aborted
-    ) {
-      process.stdout.write(
-        `${JSON.stringify({
-          status: "blocked",
-          reason: "trial_consent_unconfirmed",
-          effectIssued: false,
-        })}\n`,
-      );
-      return 2;
-    }
     const git = spawnSync(
       "git",
       ["-C", path.dirname(script), "rev-parse", "--show-toplevel"],
@@ -1141,12 +1451,12 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
           identity !== null &&
           resultCount++ === 0
         ) {
-          result = trialResult(v.result);
+          result = trialResult(v.result, mode);
           if (
             !result ||
-            !recoveryAckIssued ||
-            knownRecoveryId === null ||
-            result.recoveryId !== knownRecoveryId
+            (knownRecoveryId === null
+              ? recoveryAckIssued || !beforeRecoveryFailure(result)
+              : !recoveryAckIssued || result.recoveryId !== knownRecoveryId)
           ) {
             protocolFailure = true;
             sendCancel();
@@ -1166,7 +1476,14 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
       });
       child.once("spawn", () =>
         child.send(
-          { kind: "run", nonce, provider: spec.provider, runId, specHash },
+          {
+            kind: "run",
+            nonce,
+            provider: spec.provider,
+            runId,
+            specHash,
+            mode,
+          },
           (error) => {
             if (error) {
               protocolFailure = true;
@@ -1196,6 +1513,11 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
             v.recoveryId.split(".")[2] === digest(root)
           )
             knownRecoveryId = v.recoveryId;
+          if (
+            knownRecoveryId !== null &&
+            finalResult?.recoveryId !== knownRecoveryId
+          )
+            protocolFailure = true;
         }
       } catch {}
     }
@@ -1209,14 +1531,14 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
       resultCount === 1 &&
       finalResult !== null &&
       identity !== null &&
-      cleanupStandaloneTrialRoot(root, identity, finalResult);
+      cleanupStandaloneTrialRoot(root, identity, finalResult, mode);
     const reviewAfter = new Date(Date.now() + 7 * 86400_000).toISOString();
     let retentionRecordConfirmed = false;
     if (!clean && identity !== null && closeObserved) {
       try {
         if (rootIdentity(root) !== identity) throw Error("trial_root_changed");
         const value = {
-          contract: "crdd/executor/trial-outcome/v1",
+          contract: "crdd/executor/trial-outcome/v2",
           provider: spec.provider,
           runId,
           reviewAfter,
@@ -1246,6 +1568,7 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
               ? "trial_cancelled"
               : "trial_completion_unconfirmed")),
         provider: spec.provider,
+        mode,
         runId,
         childCloseConfirmed: closed,
         childCloseObserved: closeObserved,
@@ -1304,13 +1627,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === script) {
         ready();
         return;
       }
-      if (received || value.kind !== "run" || Object.keys(value).length !== 5) {
+      if (received || value.kind !== "run" || Object.keys(value).length !== 6) {
         controller.abort();
         return;
       }
       received = true;
       void (async () => {
-        const spec = describeStandaloneProviderTrial(value.provider);
+        const mode = parseMode(value.mode);
+        const spec = describeStandaloneProviderTrial(value.provider, mode);
         if (
           value.specHash !== digest(JSON.stringify(spec)) ||
           controller.signal.aborted
@@ -1354,6 +1678,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === script) {
               );
             });
           },
+          mode,
         );
         await new Promise<void>((resolve, reject) =>
           process.send?.(
