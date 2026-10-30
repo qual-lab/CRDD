@@ -12,6 +12,10 @@
 
 ## Executorの明示結果型とFactory入力
 
+単発実行の境界縮小では、上位正本を削らず、Executor向け実値から作成時刻・速度設定・助言Task／Projection Hashと不要Pathが除かれることを確認する。型検査だけでなく元callback宣言を有限代役へ接続し、exact key集合、全保持値、元の選定結合・Packet Hash、消費回数と他Effect 0を照合する。Script／data URLのfixtureも同じ最小値へ追従させる。上位の全PathとDocker Isolationのmanagement借用を不要と解釈しない。未完の準備Owner・Plan・回復終端分離を、この投影試験の成功から完成扱いにしない。
+
+型Owner整理では、共有型と非exportの準備専用型を区別し、別名・空の型演算・Docker清掃型の重複を再導入しない。共通化後の準備計画は両Providerの正例、購読種別不一致、Codexへの作業量追加、Claudeの作業量欠測、必須の回復相関・助言四項目・Authority制御参照・二時計・選択通知の欠測、任意Command目的を型負例で固定する。型だけの負例を実実行の拒否証明に置き換えず、既存のRuntime検査・二WeakMap別実体・一回消費・取消・清掃の試験を維持する。移管前の45共通keyとClaude固有keyをexact集合と型検査で照合し、基底計画の変更による暗黙継承も検知する。
+
 両Factoryは名前付きObject一引数と`StartResult`／`CompletionResult`の明示返却型へ揃え、結果型の正本を`result/types.ts`に置く。開始のProvider不正・準備拒否・準備後実行拒否・成功の四経路を実公開Factory宣言で確認し、準備失敗表示と選択三値の値・null・省略を維持する。準備内部fieldが結果や変数経由の余剰propertyから再流入しないことをReflect.ownKeysのexact集合で検査する。終了の五清掃条件と三終端状態、内容・二観測・所見・回復Capabilityのmask条件は維持する。今回の削除は準備内部診断の開始結果への混入に限定し、保存形式・理由値・公開Root集合を変えない。
 
 ## Executorの共有定数と結果Factoryの配置確認

@@ -35,6 +35,177 @@ import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test
 import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 import { bindAdviceCommand } from "../../../../docker-isolation/src/index.ts";
+import { runInNewContext } from "node:vm";
+import { stripTypeScriptTypes } from "node:module";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+
+/**
+ * 上位の管理情報がExecutor向け実値へ流れないことを反証する。
+ * @responsibility 型の削除だけでなく選定・Packet・Pathの明示投影を確認する。
+ * @trace PRL-UT-014
+ * @precondition 元宣言と合成Ownerの有限代役だけを用いる。
+ * @stimulus 上位専用fieldを持つ値を消費し、Executor向けcallback結果を取得する。
+ * @observation exact key、元相関値、上位正本の不変と消費回数。
+ * @oracle 不要fieldを搬送せず、完全選定の結合と元PacketのHashは維持する。
+ * @cleanup N/A: 合成値だけ。実Host・Docker・AIは利用しない。
+ * @boundary 上位Ownerから単段入力への値投影。暗号検証の成立は別試験で確認する。
+ */
+test("Executor向け投影は上位の時刻・速度・助言管理Hashと不要Pathを搬送しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/preparation.ts", import.meta.url),
+    "utf8",
+  );
+  const completeSelection = { marker: "upper" };
+  const technicalSelection = { marker: "technical" };
+  const selection = {
+    selectionRecordId: "selection",
+    operationId: "operation",
+    executorProvider: "codex",
+    executionSelection: completeSelection,
+    selectionHash: "hash",
+    taskAttempt: 0,
+    model: "model",
+    effort: "low",
+    speedMode: "normal",
+    selectionNotice: "notice",
+  };
+  const packet = {
+    allowedReferences: ["reference"],
+    packetRef: "packet",
+    operationId: "operation",
+    executionSelection: technicalSelection,
+    selectionHash: "hash",
+    provider: "codex",
+    taskHash: "upper-task",
+    projectionHash: "upper-projection",
+    commandHash: "command",
+    packetHash: "packet-hash",
+    providerCommand: {},
+    providerPrompt: "synthetic",
+    repositoryMounted: false,
+    workspaceMounted: false,
+    toolsAllowed: false,
+    sessionPersistenceAllowed: false,
+  };
+  let selectionConsumed = 0,
+    packetConsumed = 0,
+    operationBound = 0,
+    unexpected = 0;
+  const unused = () => {
+    unexpected++;
+    throw Error("unexpected_effect");
+  };
+  const declarations = [
+    "createProviderDockerRuntimeDependencies",
+    "consumeAttemptAdvicePacket",
+    "consumeAttemptModelSelection",
+  ]
+    .map((name) => stripTypeScriptTypes(sourceDeclaration(source, name)))
+    .join("\n");
+  const callbacks = runInNewContext(
+    `${declarations};createProviderDockerRuntimeDependencies()`,
+    {
+      verifyOwnedOperationManagementMountBinding: () => ({
+        operationId: "operation",
+        createdAt: "upper-time",
+        mounts: {
+          workspace: "shared",
+          providerHome: "home",
+          tmp: "tmp",
+          events: "events",
+          projection: "projection",
+          management: "management",
+        },
+      }),
+      readBorrowedExecutionBinding: () => ({
+        target: { executionTree: "execution" },
+        protection: { gitSourcePath: "git", internalSourcePath: "internal" },
+      }),
+      activateRuntimeOwnedProviderHomeMount: unused,
+      borrowRuntimeOwnedActiveProviderHomeMountSource: unused,
+      completeRuntimeOwnedProviderHomeMount: unused,
+      randomBytes: unused,
+      performance: { now: unused },
+      consumeRuntimeOwnedProviderTaskPacket: unused,
+      issueRuntimeOwnedProviderAuthority: unused,
+      revokeRuntimeOwnedProviderAuthority: unused,
+      consumeRuntimeOwnedProviderAdvicePacket: () => {
+        packetConsumed++;
+        return packet;
+      },
+      consumeRuntimeOwnedDelegationSelectionGrant: () => {
+        selectionConsumed++;
+        return selection;
+      },
+      projectAttemptSelection: () => ({
+        executionSelection: technicalSelection,
+        selectionHash: "hash",
+      }),
+      bindOwnedOperationExecutionSelection: (
+        _management: unknown,
+        id: unknown,
+        complete: unknown,
+        ordinal: unknown,
+      ) => {
+        assert.equal(id, "selection");
+        assert.strictEqual(complete, completeSelection);
+        assert.equal(ordinal, 0);
+        operationBound++;
+        return true;
+      },
+    },
+  );
+  const binding = callbacks.verifyOperationMount({}, {});
+  assert.deepEqual(
+    Object.keys(binding).sort(),
+    ["operationId", "mounts", "workspaceProtection"].sort(),
+  );
+  assert.deepEqual(
+    Object.keys(binding.mounts).sort(),
+    ["workspace", "tmp"].sort(),
+  );
+  assert.equal(binding.mounts.workspace, "execution");
+  assert.equal(binding.operationId, "operation");
+  assert.equal(binding.mounts.tmp, "tmp");
+  assert.deepEqual(JSON.parse(JSON.stringify(binding.workspaceProtection)), {
+    gitSourcePath: "git",
+    internalSourcePath: "internal",
+  });
+  const model = callbacks.consumeModelSelection({}, {});
+  assert.equal(Object.hasOwn(model, "speedMode"), false);
+  assert.deepEqual(
+    Object.keys(model).sort(),
+    Object.keys(selection)
+      .filter((key) => key !== "speedMode")
+      .sort(),
+  );
+  for (const key of Object.keys(model)) {
+    if (key !== "executionSelection")
+      assert.strictEqual(
+        model[key],
+        selection[key as keyof typeof selection],
+        key,
+      );
+  }
+  assert.strictEqual(model.executionSelection, technicalSelection);
+  const advice = callbacks.consumeAdvicePacket({}, {});
+  assert.deepEqual(
+    Object.keys(advice).sort(),
+    Object.keys(packet)
+      .filter((key) => key !== "taskHash" && key !== "projectionHash")
+      .sort(),
+  );
+  assert.equal(advice.packetHash, packet.packetHash);
+  for (const key of Object.keys(advice))
+    assert.strictEqual(advice[key], packet[key as keyof typeof packet], key);
+  assert.equal(packet.taskHash, "upper-task");
+  assert.equal(packet.projectionHash, "upper-projection");
+  assert.equal(selection.speedMode, "normal");
+  assert.deepEqual(
+    [selectionConsumed, packetConsumed, operationBound, unexpected],
+    [1, 1, 1, 0],
+  );
+});
 
 /**
  * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。

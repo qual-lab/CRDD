@@ -250,8 +250,6 @@ export function buildStandaloneTrialPlan(
     executionSelection: technicalSelection,
     selectionHash,
     provider: spec.provider,
-    taskHash: digest(prompt),
-    projectionHash: digest(reference),
     commandHash,
     repositoryMounted: false as const,
     workspaceMounted: false as const,
@@ -272,14 +270,9 @@ export function buildStandaloneTrialPlan(
     { randomBytes },
     {
       operationId,
-      createdAt: new Date().toISOString(),
       mounts: {
         workspace: path.join(root, "work"),
-        providerHome: homePath,
         tmp: path.join(root, "tmp"),
-        events: path.join(root, "events"),
-        projection: path.join(root, "projection"),
-        management: path.join(root, "management"),
       },
     },
     {
@@ -299,7 +292,6 @@ export function buildStandaloneTrialPlan(
       taskAttempt: 0,
       model: spec.model,
       effort: spec.effort,
-      speedMode: "normal",
       selectionNotice: "explicit_synthetic_trial",
     },
     homePath,

@@ -194,14 +194,11 @@ export function verifyStandaloneProviderAttempt() {
       if(mode==='production_factory'){
         const built=preparationInput.buildProviderDockerExecutionPlan(provider,
           {randomBytes:size=>Buffer.alloc(size,1)},
-          {operationId:plan.operationId,createdAt:'2026-10-28T00:00:00.000Z',mounts:{
-            workspace:'C:/synthetic-not-accessed/work',providerHome:'C:/synthetic-not-accessed/home',
-            tmp,events:'C:/synthetic-not-accessed/events',projection:'C:/synthetic-not-accessed/projection',
-            management:'C:/synthetic-not-accessed/management'}},
+          {operationId:plan.operationId,mounts:{workspace:'C:/synthetic-not-accessed/work',tmp}},
           {grant:{...plan},activeMountCapability:mount},
           {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,
             executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,
-            taskAttempt:0,model:plan.selectedModel,effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
+            taskAttempt:0,model:plan.selectedModel,effort:'low',selectionNotice:'synthetic'},
           'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
         assert.ok(built);
         plan=Object.freeze({...built,authorityUseCapability:authority});
@@ -296,10 +293,10 @@ export function verifyStandaloneProviderAttempt() {
       const callsBefore=factoryCalls;
       let activated=false,completedNotices=0;
       const options={...host,
-        verifyOperationMount:(m,mt)=>{assert.equal(m,management);assert.equal(mt,mount);return {operationId:plan.operationId,createdAt:"2026-10-28T00:00:00.000Z",mounts:{workspace:"C:/synthetic-not-accessed/work",providerHome:"C:/synthetic-not-accessed/home",tmp,events:"C:/synthetic-not-accessed/events",projection:"C:/synthetic-not-accessed/projection",management:"C:/synthetic-not-accessed/management"}};},
+        verifyOperationMount:(m,mt)=>{assert.equal(m,management);assert.equal(mt,mount);return {operationId:plan.operationId,mounts:{workspace:"C:/synthetic-not-accessed/work",tmp}};},
         activateMount:()=>{if(activated)return {status:"blocked",grant:null,activeMountCapability:null};activated=true;return {status:"activated",grant:{...plan},activeMountCapability:mount};},
         borrowMountSource:()=>"C:/synthetic-not-accessed/home",wallNow:()=>0,monotonicNow:()=>0,randomBytes:size=>Buffer.alloc(size,1),
-        consumeModelSelection:()=>{if(consumed)return null;consumed=true;return {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,taskAttempt:0,model:plan.selectedModel,effort:"low",speedMode:"normal",selectionNotice:"synthetic"};},
+        consumeModelSelection:()=>{if(consumed)return null;consumed=true;return {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,taskAttempt:0,model:plan.selectedModel,effort:"low",selectionNotice:"synthetic"};},
         issueProviderAuthority:()=>({status:"issued",useCapability:authority,controlCapability:{},operationId:plan.operationId,provider,providerHomeMountGrantRef:plan.grantRef,runtimeAuthorityIssued:true}),
         revokeProviderAuthority:()=>({status:"revoked"}),
         onCompleted:result=>{completedNotices++;assert.equal(result,terminalResult??result);if(scenario==="submission_throw")throw Error("synthetic_observer");},

@@ -6,7 +6,8 @@
  * @boundary 上位Hostと単段実行の間。Taskの順序・Queue・再試行は所有しない。
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
-export { createExecutor, type ExecutorOptions } from "./attempt/preparation.ts";
+export { createExecutor } from "./attempt/preparation.ts";
+export type { ExecutorOptions } from "./attempt/types.ts";
 export { describeExecutorContract } from "./attempt/execute.ts";
 export type {
   Executor,

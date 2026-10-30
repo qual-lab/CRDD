@@ -549,16 +549,16 @@ export function createProviderDockerRuntimeDependencies() {
         mount,
       );
       const borrowed = readBorrowedExecutionBinding(management as object, true);
-      return borrowed
-        ? {
-            ...binding,
-            mounts: {
-              ...binding.mounts,
-              workspace: borrowed.target.executionTree,
-            },
-            workspaceProtection: borrowed.protection,
-          }
-        : binding;
+      return Object.freeze({
+        operationId: binding.operationId,
+        mounts: {
+          workspace: borrowed
+            ? borrowed.target.executionTree
+            : binding.mounts.workspace,
+          tmp: binding.mounts.tmp,
+        },
+        ...(borrowed ? { workspaceProtection: borrowed.protection } : {}),
+      });
     },
     activateMount: activateRuntimeOwnedProviderHomeMount,
     borrowMountSource: borrowRuntimeOwnedActiveProviderHomeMountSource,
@@ -568,10 +568,47 @@ export function createProviderDockerRuntimeDependencies() {
     randomBytes,
     consumeModelSelection: consumeAttemptModelSelection,
     consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
-    consumeAdvicePacket: consumeRuntimeOwnedProviderAdvicePacket,
+    consumeAdvicePacket: consumeAttemptAdvicePacket,
     issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
     revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
   });
+}
+
+/**
+ * 上位で消費した助言Packetを単段実行の入力へ投影する。
+ * @responsibility 上位のTask・投影Hashを下位へ複製せず必要な相関だけを渡す。
+ * @trace ARCH-000015
+ * @input use、owner: 同じPacketの元参照。
+ * @returns 実行に必要なPacket投影又はnull。
+ * @precondition 上位の既存消費処理が相関と一回性を検査する。
+ * @postcondition 元PacketやHash計算の正本を変更しない。
+ * @effect 既存のPacket一回消費だけを行う。
+ * @failure 元消費拒否はnull。
+ * @invariant 権限や回復Stateを新設しない。
+ * @boundary 上位Packet OwnerとExecutorへの借用値。
+ * @security Promptを記録や公開結果へ複製しない。
+ * @concurrency 同期の元消費と投影。
+ */
+function consumeAttemptAdvicePacket(use: unknown, owner: unknown) {
+  const packet = consumeRuntimeOwnedProviderAdvicePacket(use, owner);
+  return packet
+    ? Object.freeze({
+        allowedReferences: packet.allowedReferences,
+        packetRef: packet.packetRef,
+        operationId: packet.operationId,
+        executionSelection: packet.executionSelection,
+        selectionHash: packet.selectionHash,
+        provider: packet.provider,
+        commandHash: packet.commandHash,
+        packetHash: packet.packetHash,
+        providerCommand: packet.providerCommand,
+        providerPrompt: packet.providerPrompt,
+        repositoryMounted: packet.repositoryMounted,
+        workspaceMounted: packet.workspaceMounted,
+        toolsAllowed: packet.toolsAllowed,
+        sessionPersistenceAllowed: packet.sessionPersistenceAllowed,
+      })
+    : null;
 }
 
 /**
@@ -633,7 +670,17 @@ function consumeAttemptModelSelection(use: unknown, management: unknown) {
       consumed.executionSelection,
       consumed.taskAttempt,
     )
-    ? Object.freeze({ ...consumed, ...projected })
+    ? Object.freeze({
+        selectionRecordId: consumed.selectionRecordId,
+        operationId: consumed.operationId,
+        executorProvider: consumed.executorProvider,
+        executionSelection: projected.executionSelection,
+        selectionHash: projected.selectionHash,
+        taskAttempt: consumed.taskAttempt,
+        model: consumed.model,
+        effort: consumed.effort,
+        selectionNotice: consumed.selectionNotice,
+      })
     : null;
 }
 

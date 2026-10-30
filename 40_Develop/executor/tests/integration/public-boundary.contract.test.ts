@@ -60,6 +60,15 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     "utf8",
   );
   assert.match(publicSource, /\bAttemptInput\b/);
+  const preparationSource = fs.readFileSync(
+    new URL("../../src/attempt/preparation.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(preparationSource, /^export\s+(?:type|interface)\b/m);
+  assert.match(
+    publicSource,
+    /export type \{ ExecutorOptions \} from "\.\/attempt\/types\.ts"/,
+  );
   assert.doesNotMatch(
     publicSource,
     /\b(?:AdviceInput|TaskInput|AdvicePacket|TaskPacket|AdviceResultItem)\b/,

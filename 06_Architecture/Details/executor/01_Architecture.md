@@ -80,6 +80,31 @@ ExecutorはProvider一段を一試行として、準備値の一回消費、開�
 
 単独Core利用ではCoordinatorもExecutorもロード不要。Executorはbin・Server・Queue・保存正本・追加Lockを持たない。Hostの有限保存操作は既存の相関・Authorityを使用し、新しい管理機構へ一般化しない。
 
+### 単発実行への入力境界整理（進行中、2026-10-30）
+
+上位のOperation正本の作成時刻、選定正本の速度設定、助言PacketのTask／Projection Hashは、Executorで参照しないため搬送対象から除く。上位の発行・消費・Hash照合は維持し、型の削除だけでなくcallbackの返却値を明示投影する。操作領域の全6PathはCoordinatorの`execution/operation.ts`が所有し、Executorの`AttemptPaths`はworkspace／tmpの借用値だけとする。Docker Isolationが借用するtmp／managementは別の既存接続で維持する。
+
+残る準備一回性のOwner移管、上位metadataと技術Planの分離、実解放と耐久回復確定の分離は未完である。現状の`consumer`・選定／Packet相関・権限・回復参照は、代替の上位接続と反証が成立するまで削除しない。技術清掃を保存完了から分ける際も、不存在保存→Mount終了→Host復帰保存→Home排他実解放→Lifecycle保存の順序、同じexact回復参照、上位Taskの共同完了Gateを維持する。新しいState／Registry／Managerは追加しない。
+
+全27宣言の処置先は次のとおり。これは移管後の責務割当であり、現行実装の配置完了を示さない。
+
+| 現行宣言 | 移管後の所有者・処置 | 保持する保証 |
+|---|---|---|
+| `ExecutorHost`・`ExecutorOptions` | Executorの構成・通知境界として整理。上位の選定消費・権限発行・保存判断そのものは含めない | 同じ実行への取消・通知・終了待ちの結合 |
+| `AttemptPreparation`・`AttemptPreparationResult`・`PreparationFailure`・`PreparationCancellationResult` | Coordinatorの既存準備Ownerへ移管。Executorの公開結果とは分離 | 準備失敗はEffect前拒否、取消・失効・二時計期限 |
+| `AttemptBinding`・`AttemptPaths` | Executorへ渡す実行対象の値として保持。全操作領域の正本・検証はCoordinator | 同じ操作に結合したworkspace／tmpと保護対象 |
+| `MountGrant`・`PreparedAuthority` | Coordinatorの既存Authority Ownerへ移管 | 元Grant・Provider・Operationの相関、発行／消費／失効の区別 |
+| `ProviderDockerPreparationState`・`PreparationHost`・`PreparedAttempt` | Coordinatorの既存準備Ownerへ移管。二WeakMapを移し、重複生成しない | 元Owner・一回消費・期限・準備中のMount解放 |
+| `PreparedAttemptPlan`・`PreparedPlan`・`ProviderAttemptPlan` | 技術入力と上位の受付・選定・保存Contextへ分解。Executorには一試行の技術構成だけを残す | 元九Commandの正規構成照合、実行前の相関検査、同じ回復参照 |
+| `ConsumedTaskPacket`・`TaskPacket`・`AdvicePacket`・`ModelSelection` | 発行・消費・同意・選定の意味をCoordinatorへ移管。本文・許可参照・解決済みModel等の必要値だけExecutorへ渡す | Packet差替え拒否、選定・用途・役割との一致、本文非保存 |
+| `AttemptSelection` | AI Adapterの技術選定契約を再利用。上位の調停・結果統合RoleをExecutorの条件にしない | Provider・Model・識別種別・Effort・用途と実行Roleの整合 |
+| `AttemptInput` | 上位で解決済みの一試行入力へ整理。管理操作・Packetの生Capabilityを直接解釈しない | plain-data捕捉、欠測・余剰・Proxy・accessor拒否 |
+| `Command`・`CommandHandle` | 隔離実行への内部接続として保持。Docker Isolationの既存契約を再利用できる部分だけ統合 | Command正規性、Process開始と完了・終了観測の区別 |
+| `Recovery`・`BlockedRecovery` | 上位が確定した受付結果を受け取るcallback契約として整理。永続回復状態の判断は上位 | 最初の失敗から同じexact参照、不明を不存在へ変換しない |
+| `RuntimeDependencies` | 固定隔離接続と一試行callbackへ整理。上位保存の判断・Grant意味解釈を撤去 | submission先行記録、同期拒否、取消join、清掃後の結果通知 |
+
+移管の完了判定は型の所在だけでは行わない。準備一回消費、AuthorityとRevisionの再確認、Effect前の回復引渡し、取消中のjoin、元の終端結果への結合、実Home解放と耐久保存の不一致を、移管後のOwnerと本番利用側まで接続して確認する。実解放が確認されても上位の保存が不成立なら、CoordinatorはTask成功へ昇格させない。
+
 ## 2. Sourceと公開入口
 
 ```text
@@ -104,6 +129,10 @@ executor/src/
 `Executor`・`StartResult`・`CompletionResult`に加え、構成・準備Owner・準備結果・隔離接続も名前付き契約で表す。`ExecutorOptions`は既存の`RuntimeDependencies`・`PreparationHost`と、Docker Isolationが所有する`DockerIsolationRuntimeOptions`の必要断面を再利用し、fieldを複製しない。Factoryやmethodからの`ReturnType`／`Parameters`抽出で契約を代用しない。
 
 `attempt/types.ts`は`AttemptPreparation`のprepare／cancel／consumeと`PreparationFailure`を明示する。準備成功は既存`PreparedAttempt<P>`を再利用し、取消・失効では操作参照が存在し、拒否ではnullとなる区別を維持する。Factoryの明示返却型で実装を検査し、castで契約へ合わせない。下位Sessionと完了・技術分類はDocker Isolationの名前付き型を直接参照する。`StartResultInput`・`CompletionResultInput`は`result/types.ts`から内部利用側へexportし、Factoryとともに通常Rootへは公開しない。期限・WeakMap・一回消費・Effect順序・通常Rootの実行時公開名は変更しない。他Package全体の型移行完了を意味しない。
+
+複数Sourceが名前で参照する型は`attempt/types.ts`で共有し、準備の取消・期限・一回消費だけが使う`ProviderPreparedPlanLifecycle`・`ProviderPreparationLifecycleState`と、準備処理専用の`ProviderDockerPreparationCallbacks`は`preparation.ts`内の非export型とする。試験のためだけに準備専用型のexportを増やさず、型正負例が直接参照する共有計画型も`types.ts`に置く。公開構成の`ExecutorOptions`と検証接続でも共有する`ExecutorHost`も`types.ts`で定義し、`preparation.ts`は両型をimportしてFactoryを型検査する。同Fileにexport型は残さない。Fileの行数より実際の参照と責務境界を優先し、新しい型専用Fileは追加しない。
+
+`ConsumedModelSelection`と`ProviderDockerRuntimeState`／`ProviderDockerRuntimeStateBase`の別名連鎖を撤去する。`PreparationHost`は既存の準備状態契約から二WeakMapを除いた操作と乱数供給を直接表し、空になるPick／Excludeを置かない。`PreparedAttemptPlan<P>`は共有`ProviderAttemptPlan`を再利用し、Providerと購読種別、Claude固有作業量、必須の回復相関・助言四項目、厳密なCommand目的、Authority制御参照・二時計・選択通知だけを段階差として明示する。`CleanupObservation`の重複宣言は撤去し、Docker Isolationの`DockerSessionCleanup`を直接使う。`CommandHandle`はSignalの受理型が下位の生Handle契約と異なるため、今回機械的には統合しない。
 
 公開`Executor`は`result/types.ts`でstart／cancelの引数・callback・結果を明示し、`createExecutor(options): Executor`を型検査する。FactoryのReturnTypeで公開契約を代用しない。選択三項目は全存在又は全不存在のUnionとし、部分集合を許容しない。取消結果は要求理由と終了観測のtrue／falseを対応させる。Command制約は同期Boolean、開始通知はBoolean又はPromise<Boolean>という既存条件を維持し、不正入力のRuntime拒否検査も残す。
 

@@ -10,6 +10,7 @@ import {
   type DockerIsolationCommand,
   describeDockerIsolationExecutionEnvironment,
   type DockerExecutionHooks,
+  type DockerSessionCleanup,
   bindAdviceCommand,
   hashAdviceCommand,
   type DockerIsolationCommandInput,
@@ -23,7 +24,6 @@ import type {
   Command as isolationExecutionCommand,
   PreparedPlan,
   ProviderAttemptPlan,
-  CleanupObservation,
   Recovery,
   RuntimeDependencies,
 } from "./types.ts";
@@ -734,9 +734,9 @@ export function completeAttemptCleanup(
   plan: ProviderAttemptPlan,
   recovery: Recovery,
   managementCapability: object,
-  cleanup: CleanupObservation,
+  cleanup: DockerSessionCleanup,
   verifiedResourceObservations:
-    | CleanupObservation["resourceObservations"]
+    | DockerSessionCleanup["resourceObservations"]
     | null,
   processTreeTerminationConfirmed: boolean,
 ) {

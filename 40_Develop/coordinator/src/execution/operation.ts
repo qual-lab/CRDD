@@ -12,7 +12,6 @@ import {
   hashExecutionSelection,
   type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
-import type { AttemptPaths } from "../../../executor/src/index.ts";
 
 import {
   type WorkspaceInventoryEntry as InventoryEntry,
@@ -52,6 +51,21 @@ import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
 } from "./process-safety-state.ts";
+
+/**
+ * Coordinatorが管理する操作領域の全Pathを定義する。
+ * @responsibility 作業・Home・記録と管理領域の所在を上位Ownerに閉じる。
+ * @trace ARCH-000008
+ * @invariant Executorへは必要な借用Pathだけを別途投影する。
+ */
+type OperationPaths = Readonly<{
+  workspace: string;
+  providerHome: string;
+  tmp: string;
+  events: string;
+  projection: string;
+  management: string;
+}>;
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
@@ -5515,7 +5529,7 @@ export function createOwnedMountCapability(
  * @responsibility 所有 Mount Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
- * @returns AttemptPathsを返す。
+ * @returns 上位が所有する全操作Pathを返す。
  * @precondition 「capability: unknown」がverifyOwnedMountCapabilityの入力契約を満たす。
  * @postcondition verifyOwnedMountCapabilityの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedMountCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -5525,7 +5539,9 @@ export function createOwnedMountCapability(
  * @security verifyOwnedMountCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: verifyOwnedMountCapabilityは共有非同期状態を持たない同期処理である。
  */
-export function verifyOwnedMountCapability(capability: unknown): AttemptPaths {
+export function verifyOwnedMountCapability(
+  capability: unknown,
+): OperationPaths {
   const mount = isObject(capability)
     ? (mountCapabilities.get(capability) ?? null)
     : null;
@@ -5858,7 +5874,7 @@ export function borrowOwnedOperationExecutionSelection(
  * @responsibility 所有 Operation Management Mount Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、mountCapability: unknown
- * @returns Readonly<{ operationId: string; createdAt: string; mounts: AttemptPaths; }>を返す。
+ * @returns 操作ID、作成時刻と上位の全操作Pathを返す。
  * @precondition 「managementCapability: unknown、mountCapability: unknown」がverifyOwnedOperationManagementMountBindingの入力契約を満たす。
  * @postcondition verifyOwnedOperationManagementMountBindingの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedOperationManagementMountBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -5874,7 +5890,7 @@ export function verifyOwnedOperationManagementMountBinding(
 ): Readonly<{
   operationId: string;
   createdAt: string;
-  mounts: AttemptPaths;
+  mounts: OperationPaths;
 }> {
   const management = isObject(managementCapability)
     ? (operationManagementCapabilities.get(managementCapability) ?? null)

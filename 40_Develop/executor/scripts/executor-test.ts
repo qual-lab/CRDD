@@ -13,7 +13,7 @@ export {
 import { createProviderAttemptRuntime } from "../src/attempt/execute.ts";
 import type { RuntimeDependencies } from "../src/attempt/types.ts";
 export { PREPARATION_LIFETIME_MS } from "../src/attempt/execute.ts";
-export type { ExecutorHost } from "../src/attempt/preparation.ts";
+export type { ExecutorHost } from "../src/attempt/types.ts";
 export type {
   PreparationHost,
   AttemptPreparation,

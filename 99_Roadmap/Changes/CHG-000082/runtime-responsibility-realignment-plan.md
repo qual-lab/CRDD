@@ -78,6 +78,24 @@ Executorのstart／cancelを構造で明示し、Factoryの返却型をExecutor�
 
 ## 1. 何を変えるか
 
+### Executor試行型の重複・配置整理（2026-10-30）
+
+#### 単発実行の責務境界縮小（実装進行中）
+
+人間は全27型の棚卸しに基づく責務分離を承認した。先行単位では、上位の正本は保持したまま、作成時刻・速度設定・助言Task／Projection HashのExecutor搬送を明示投影で除く。上位の全Path型をCoordinatorへ戻し、Executor向けはworkspace／tmpだけとする。元消費・Hash照合・Operation結合は維持し、Standaloneの合成入力も同時に縮小する。両Provider準備37件成功、両Package型検査成功。独立確認で旧fixtureと保持値Oracleの不足を検出し、該当箇所を追従した。
+
+この入力投影候補でExecutor全49件成功（99.5秒）、Coordinatorのportable対象163件成功（10.4秒）。独立再確認で指摘された操作IDの保持値比較も追加し、両Provider準備37件を再実行して全件成功した。投影はexact keyと全保持値、消費回数、元の速度設定・Hash不変を確認する。Architectureには全27宣言の処置先と保持保証を明示し、移管予定と配置済みを区別した。これは入力境界の限定成立であり、以下の責務移管全体の完了ではない。
+
+残件は、準備の一回性Ownerを上位へ戻す接続、consumer／選定・Packet情報と技術Planの分離、実資源解放と上位耐久回復確定の分離、公開入口／全利用側／非AI試験の移行、固定回帰・独立最終確認。前段の型整理49件成功をこれらの新しい境界成立へ流用しない。既存の二WeakMap・上位受付Context・callbackを再利用し、新しいManager／Registry／Recovery Stateや旧新兼用経路は追加しない。実AI・Docker・過去保持物は操作しない。
+
+基準Commitは`589a7e747`。単純な選定別名、準備Stateの別名連鎖と空のPick／Exclude、乱数一項目だけの別名、Docker清掃結果の重複を整理する。共有計画を準備計画の基底として再利用し、Provider相関と段階ごとの必須／任意項目を維持する。共有の型は`attempt/types.ts`へ置き、準備のLifecycleと専用Callback型だけを`preparation.ts`内の非export宣言へ移す。初案では試験・Scriptから参照する型まで準備専用として移したが、人間の指摘を受け、実際の参照境界に基づいて共有型へ戻した。型Fileの縮小だけを目的にしない。
+
+公開構成型`ExecutorOptions`と共有構成型`ExecutorHost`も同じ基準で`types.ts`へ移し、`preparation.ts`は非exportの準備専用3型だけを持つ。通常Rootの型名と実行時公開は維持し、検証接続も共有型の新Ownerへ追従する。
+
+変更経路は型構造のRefactor、Architecture／品質定義／非AI試験の追従、独立Source・文書整合レビューとする。準拠基準・Release・認証／認可・保存契約は変えず、全面準拠監査や実AI／実Docker確認を追加しない。実行本文の型消去後比較と、計画の型正負例・exact key・既存の準備／実行回帰を使用する。実AI・Docker・過去保持物は操作しない。
+
+最終構成の確認：`ExecutorHost`／`ExecutorOptions`移管後のExecutor全49件成功（115.2秒）。構成移管前の49件成功（131.5秒）とは別実行であり、両型の最終Ownerと準備Fileの型export不存在も同じ回帰で確認した。Docker Isolation通常293件成功・5件skip、Coordinator portable対象163件成功、Workbench診断14件成功。ExecutorとCoordinatorの静的検査、Workbench型検査、Catalog426定義、Symbol13 Manifestは成立した。独立再レビューの必須指摘0件。Runtimeの要求・取消・清掃・保存契約は変えず、新しいFile・機構や実AI／実Docker／過去保持物の操作は追加していない。現在、人間による追加判断は必要ない。
+
 ### 文書管理と実行管理の分担（人間確認済み）
 
 CRDD文書群がMilestone／Roadmap／WBS・正式判断・Evidenceの正本であり、フロントAI等のCallerが読んで小・中規模の実行Taskへ分解しCoordinatorへ渡す。Coordinatorは渡された範囲を実行・調整して結果を返す。文書処理が必要な場合もCallerが明示Taskとして渡し、文書とRuntime状態の自動同期機能は追加しない。[用途・現行との差](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#document-and-execution-ownership)を設計正本とする。

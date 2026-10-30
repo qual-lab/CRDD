@@ -92,9 +92,9 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
       const selection={provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task',catalogIdentity:'a'.repeat(64),configIdentity:'b'.repeat(64),role:'executor',workType:null,source:'explicit'};
       const technicalSelection={provider:selection.provider,modelIdentifier:selection.modelIdentifier,identifierKind:selection.identifierKind,reasoningEffort:selection.reasoningEffort,purpose:selection.purpose,role:selection.role};
       const built=preparationInput.buildProviderDockerExecutionPlan('claude',{randomBytes},
-        {operationId:'OP-123456',createdAt:'2026-10-28T00:00:00.000Z',mounts:{workspace:path.join(directory,'work'),providerHome:'C:/synthetic-not-accessed/home',tmp:path.join(directory,'tmp'),events:path.join(directory,'events'),projection:path.join(directory,'projection'),management:path.join(directory,'management')}},
+        {operationId:'OP-123456',mounts:{workspace:path.join(directory,'work'),tmp:path.join(directory,'tmp')}},
         {grant:{operationId:'OP-123456',grantRef:'PHMGRANT-123456',provider:'claude',providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)},activeMountCapability:mount},
-        {selectionRecordId:'MODELSEL-12345678',operationId:'OP-123456',executorProvider:'claude',executionSelection:technicalSelection,selectionHash:domain.hashExecutionSelection(selection),taskAttempt:0,model:'opus',effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
+        {selectionRecordId:'MODELSEL-12345678',operationId:'OP-123456',executorProvider:'claude',executionSelection:technicalSelection,selectionHash:domain.hashExecutionSelection(selection),taskAttempt:0,model:'opus',effort:'low',selectionNotice:'synthetic'},
         'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
       assert.ok(built);const plan=Object.freeze({...built,authorityUseCapability:authority});
       const f={root:directory,plan,mode,failKind:mode,live:true,releaseCount:0,diagnosticWrites:0,starts:0,cleanup:false,commands:[],resources:null,waiting:Promise.withResolvers(),wait:Promise.withResolvers()};fixture=f;

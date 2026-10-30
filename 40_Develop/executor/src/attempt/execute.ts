@@ -18,6 +18,7 @@ import {
   type DockerIsolationCommand,
   classifyDockerCommandException,
   type DockerCommandExecutionClassification,
+  type DockerSessionCleanup,
   type DockerProcessExitStatusClass,
   describeDockerCommandSessionContract,
   parseDockerTaskRecoveryId,
@@ -57,7 +58,6 @@ import type {
   ProviderAttemptPlan as PreparedPlan,
   RuntimeDependencies,
   Recovery,
-  CleanupObservation,
 } from "./types.ts";
 
 /**
@@ -309,13 +309,13 @@ async function executePlan(
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
   let startConfirmation: Promise<void> | null = null;
   let lastStdoutBytes = 0;
-  let cleanup: CleanupObservation = Object.freeze({
+  let cleanup: DockerSessionCleanup = Object.freeze({
     confirmed: false,
     processTreeTerminated: false,
     containersAbsent: false,
     networksAbsent: false,
   });
-  let verifiedResourceObservations: CleanupObservation["resourceObservations"] =
+  let verifiedResourceObservations: DockerSessionCleanup["resourceObservations"] =
     null;
   let processTreeTerminationConfirmed = false;
   let sessionStarted = false;
@@ -1270,7 +1270,7 @@ export function createProviderAttemptRuntime(
             ),
           ...(dependencies.verifyCleanupOutcome
             ? {
-                verifyCleanup: (result: CleanupObservation) =>
+                verifyCleanup: (result: DockerSessionCleanup) =>
                   dependencies.verifyCleanupOutcome?.(
                     result,
                     plan,

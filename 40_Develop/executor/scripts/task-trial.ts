@@ -190,14 +190,9 @@ export function buildTaskTrialPlan(
     { randomBytes },
     {
       operationId,
-      createdAt: new Date().toISOString(),
       mounts: {
         workspace: work,
-        providerHome: homePath,
         tmp: path.join(root, "tmp"),
-        events: path.join(root, "events"),
-        projection: path.join(root, "projection"),
-        management: path.join(root, "management"),
       },
       workspaceProtection: {
         gitSourcePath: path.join(work, ".git"),
@@ -222,7 +217,6 @@ export function buildTaskTrialPlan(
       taskAttempt: 0,
       model: spec.model,
       effort: spec.effort,
-      speedMode: "normal",
       selectionNotice: "explicit_synthetic_trial",
     },
     homePath,

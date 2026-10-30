@@ -19,7 +19,6 @@ import {
   createDockerIsolationResourceNames,
   planDockerIsolationCommands,
   type DockerIsolationCommand,
-  type DockerIsolationRuntimeOptions,
 } from "../../../docker-isolation/src/index.ts";
 import {
   captureAttemptInput,
@@ -36,71 +35,120 @@ import {
   PREPARATION_LIFETIME_MS,
 } from "./execute.ts";
 import { createStartResult } from "../result/attempt.ts";
-import type { CompletionResult, Executor } from "../result/types.ts";
+import type { Executor } from "../result/types.ts";
 import type {
-  RuntimeDependencies,
+  ExecutorHost,
+  ExecutorOptions,
   AttemptInput,
   ModelSelection,
   TaskPacket,
+  AdvicePacket,
   AttemptBinding,
   MountGrant,
-  AdvicePacket,
-  ProviderPreparedPlanLifecycle,
-  ProviderPreparationLifecycleState,
   ProviderDockerPreparationState,
   PreparedAttemptPlan,
-  ConsumedModelSelection,
   ConsumedTaskPacket,
   PreparationHost,
   PreparedAttempt,
-  ProviderDockerPreparationCallbacks,
+  PreparedAuthority,
   AttemptPreparation,
   PreparationFailure,
 } from "./types.ts";
 
 /**
- * 上位Hostが所有する検査・保存だけを搬送する。
- * @responsibility 元操作の相関・保存と下位実行の注入境界を分ける。
- * @trace ARCH-000008
- * @shape 元の有限Host操作とPath／Receiptの借用。Process primitiveは含めない。
- * @invariant 一試行へ同じ管理参照・回復参照を結合する。
- * @boundary Coordinator等のHostと固定Executor。
- * @security 任意Command実装・生保存Ownerを渡さない。
- * @compatibility 既存Host操作の引数・返却値を維持する。
+ * 準備候補の取消・期限・消費へ必要な値契約。
+ *
+ * @responsibility 操作Identity、Home Lease、権限失効と二時計の時刻を保持する。
+ * @trace ARCH-000015
+ * @shape 計画が既に持つIdentity、Capabilityおよび準備時刻の部分集合。
+ * @invariant CLI、Model、Provider選定や外部送信権限を新設しない。
+ * @boundary Provider準備計画とCoordinatorの共通Lifecycleの型境界。
+ * @security Capabilityを公開結果やログへ複製しない。
+ * @compatibility 既存両Providerの計画を構造的に受理し、その具体型を消費結果へ保持する。
  */
-export type ExecutorHost = Omit<
-  RuntimeDependencies,
-  | "effectExecutorAvailable"
-  | "startCommand"
-  | "startExecution"
-  | "cleanupOwnedResources"
-  | "verifyCleanupOutcome"
-> &
-  Required<
-    Pick<
-      RuntimeDependencies,
-      | "recordProviderSubmission"
-      | "recordResourceNotIssued"
-      | "recordTerminalObservation"
-    >
-  > &
-  DockerIsolationRuntimeOptions;
+type ProviderPreparedPlanLifecycle = Readonly<{
+  operationId: string;
+  grantRef: string;
+  activeMountCapability: object;
+  authorityControlCapability: object;
+  preparedWallClockMs: number;
+  preparedMonotonicMs: number;
+}>;
 
 /**
- * 上位の固定操作と通知を一つの構成へまとめる。
- * @responsibility 準備と実行を別Factoryへ分けず保存Ownerの操作だけを受ける。
- * @trace ARCH-000008
- * @shape 準備・実行の固定callbackと任意の終了通知。
- * @invariant Process primitiveや外部Storeは受けない。
- * @boundary 上位Ownerと一試行の構成。
- * @security callbackの存在を認可成立とみなさない。
- * @compatibility 旧二Hostは公開しない。
+ * Provider準備候補を保持する既存状態のLifecycle接続契約。
+ *
+ * @responsibility 呼出し側所有の二WeakMapと時計・失効・Mount解放を共通処理へ接続する。
+ * @trace ARCH-000015
+ * @shape 具体計画のStore、管理Capability対応、二時計と既存回収関数。
+ * @invariant Storeを生成・コピーせず、元のProvider状態だけを操作する。
+ * @boundary Coordinator内の準備Ownerと共通Lifecycleの型境界。
+ * @security 管理Capabilityの参照一致を省略しない。
+ * @compatibility Provider固有RuntimeStateの既存fieldから接続する。
  */
-export type ExecutorOptions = Omit<ExecutorHost, "consumePreparedPlan"> &
-  PreparationHost<"claude"> &
-  Readonly<{
-    onCompleted?: (result: CompletionResult) => void;
-  }>;
+type ProviderPreparationLifecycleState<
+  T extends ProviderPreparedPlanLifecycle,
+> = Readonly<{
+  prepared: WeakMap<object, T>;
+  managementCapabilities: WeakMap<object, object>;
+  wallNow: () => number;
+  monotonicNow: () => number;
+  revokeProviderAuthority: (
+    controlCapability: unknown,
+    managementCapability: unknown,
+  ) => Readonly<{ status: string }>;
+  completeMount: (
+    activeMountCapability: unknown,
+    managementCapability: unknown,
+  ) => Readonly<{ status: string }>;
+}>;
+
+/**
+ * 二Providerの具体計画・局所検査・公開値生成を接続する型契約。
+ *
+ * @responsibility 共通準備の順序を変えず、具体値型と既存結果を保持する。
+ * @trace ARCH-000015
+ * @shape 固定Ownerが渡す計画生成、Task検査、blocked生成とprepared生成。
+ * @invariant registry、動的Plugin、別Packageからの逆依存を作らない。
+ * @boundary Coordinator内の二つの既存準備実装だけに使用する。
+ * @security callbackを外部入力から選択せず、Capabilityを新設しない。
+ * @compatibility Provider別結果のfield有無と既存理由値を維持する。
+ */
+type ProviderDockerPreparationCallbacks<
+  M,
+  T,
+  A,
+  P extends object,
+  B,
+  R,
+> = Readonly<{
+  blockedResult: (reason: string) => B;
+  validateTask?: (task: T) => string | null;
+  buildPlan: (
+    binding: AttemptBinding,
+    activation: Readonly<{
+      grant: MountGrant;
+      activeMountCapability: object;
+    }>,
+    selection: M,
+    providerHomeSourcePath: string,
+    wallClockMs: number,
+    monotonicMs: number,
+    task: T | null,
+    advice: A | null,
+    recoveryCorrelationId: string | null,
+    consumer: "coordinator_cli" | "workbench" | "orchestrator",
+  ) => P | null;
+  preparedResult: (
+    plan: P & PreparedAuthority,
+    capability: object,
+    binding: AttemptBinding,
+    activation: Readonly<{
+      grant: MountGrant;
+      activeMountCapability: object;
+    }>,
+  ) => R;
+}>;
 
 /**
  * 一つのProvider準備Ownerの独立した状態を構築する。
@@ -177,7 +225,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
     consumer: unknown = null,
   ) {
     return prepareProviderDockerCandidate<
-      ConsumedModelSelection,
+      ModelSelection,
       ConsumedTaskPacket<P>,
       AdvicePacket,
       Omit<
