@@ -35,6 +35,7 @@ function executionInput(
     effort: "medium",
   });
   return {
+    allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     networkPolicy: fixtureNetworkPolicy(provider),
     executionSelection: selected,
     provider,

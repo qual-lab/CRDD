@@ -1,343 +1,22 @@
 /**
- * 編集・レビュー結果の正規化と限定是正許可の一回消費を所有する。
+ * Provider解析とDomainのTask内容検査を単段結果へ接続する。
  * @packageDocumentation
- * @responsibility 閉形式の結果検査と同一Module内のWeakMapを保ち、Task順序や保存を所有しない。
+ * @responsibility Envelope・内容・実行観測の結果を結合し、是正許可を発行しない。
  * @trace ARCH-000015
  * @boundary Provider結果と呼出し元の受入の間。
  */
-import { createHash } from "node:crypto";
 import type { NormalizedProviderResult } from "./types.ts";
+import { inspectTaskResultContent } from "../../../domain-model/src/index.ts";
 import {
   evaluateProviderTaskScope,
   parseProviderResult,
 } from "../../../ai-adapter/src/index.ts";
-import {
-  exactKeys,
-  validResultString as validString,
-  PROVIDER_RESULT_MAXIMUM_RAW_BYTES as MAXIMUM_RAW_BYTES,
-} from "./validation.ts";
+import { PROVIDER_RESULT_MAXIMUM_RAW_BYTES as MAXIMUM_RAW_BYTES } from "./validation.ts";
 
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
+export const TASK_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
 
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 20;
-
-const MAXIMUM_SUMMARY_BYTES = 8_192;
-
-const MAXIMUM_PATHS = 1_000;
-
-const MAXIMUM_FINDINGS = 64;
-
-const MAXIMUM_FINDING_MESSAGE_BYTES = 4_096;
-
-const SEVERITIES = new Set(["critical", "high", "medium", "low", "info"]);
-
-const FINDING_CATEGORIES = new Set([
-  "acceptance_criterion_not_met",
-  "implementation_defect",
-  "verification_defect",
-  "security_or_authority_defect",
-]);
-
-const remediationRecords = new WeakMap<
-  object,
-  readonly Readonly<{
-    severity: "critical" | "high" | "medium" | "low" | "info";
-    path: string;
-    category:
-      | "acceptance_criterion_not_met"
-      | "implementation_defect"
-      | "verification_defect"
-      | "security_or_authority_defect";
-    criterionNumber: number;
-    message: string;
-    messageSha256: string;
-  }>[]
->();
-
-/**
- * 記録かを判定する。
- *
- * @responsibility 記録の判定条件とtrue／false境界を所有する。
- * @trace ARCH-000015
- * @input value: unknown
- * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がisRecordの入力契約を満たす。
- * @postcondition isRecordの責務を完了した結果だけを返す。
- * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isRecordは独自の失敗分岐を所有しない。
- * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
- * @security isRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-/**
- * Pathが有効か判定する。
- *
- * @responsibility Pathの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000015
- * @input value: unknown
- * @returns validPathの計算結果を返す。
- * @precondition 「value: unknown」がvalidPathの入力契約を満たす。
- * @postcondition validPathの責務を完了した結果だけを返す。
- * @effect N/A: validPathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validPathは独自の失敗分岐を所有しない。
- * @invariant validPathは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validPathはProcess内の同一Subsystemで完結する。
- * @security validPathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validPathは共有非同期状態を持たない同期処理である。
- */
-function validPath(value: unknown) {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 1_024 &&
-    !value.startsWith("/") &&
-    !value.includes("\\") &&
-    !value.includes("\0") &&
-    value
-      .split("/")
-      .every(
-        (segment) => segment.length > 0 && segment !== "." && segment !== "..",
-      )
-  );
-}
-
-/**
- * provider-task-structured-resultで使用する結果 Mismatch Reasonの値契約を定義する。
- *
- * @responsibility 結果 Mismatch ReasonのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape ResultMismatchReasonが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ResultMismatchReasonで宣言した値と責務の対応を維持する。
- * @boundary N/A: ResultMismatchReasonの宣言は外部境界を開かない。
- * @security ResultMismatchReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ResultMismatchReasonの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ResultMismatchReason =
-  | "provider_task_result_input_invalid"
-  | "provider_task_result_json_invalid"
-  | "provider_task_result_envelope_status_invalid"
-  | "provider_task_result_turn_count_invalid"
-  | "provider_task_result_cost_metadata_invalid"
-  | "provider_task_reviewer_result_transport_invalid"
-  | "provider_turn_limit_exceeded"
-  | "provider_task_result_turn_limit_mismatch"
-  | "provider_structured_output_retry_exhausted"
-  | "provider_task_executor_shape_invalid"
-  | "provider_task_reviewer_shape_invalid"
-  | "provider_task_reviewer_keys_invalid"
-  | "provider_task_reviewer_decision_invalid"
-  | "provider_task_reviewer_summary_invalid"
-  | "provider_task_reviewer_findings_invalid"
-  | "provider_task_reviewer_finding_invalid"
-  | "provider_task_reviewer_decision_inconsistent";
-
-/**
- * rejectedを決定する。
- *
- * @responsibility rejectedの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000015
- * @input reason: ResultMismatchReason
- * @returns rejectedの計算結果を返す。
- * @precondition 「reason: ResultMismatchReason」がrejectedの入力契約を満たす。
- * @postcondition rejectedの責務を完了した結果だけを返す。
- * @effect N/A: rejectedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: rejectedは独自の失敗分岐を所有しない。
- * @invariant rejectedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: rejectedはProcess内の同一Subsystemで完結する。
- * @security rejectedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: rejectedは共有非同期状態を持たない同期処理である。
- */
-function rejected(reason: ResultMismatchReason) {
-  return Object.freeze({ normalizedResult: null, reason });
-}
-
-/**
- * executor 結果を決定する。
- *
- * @responsibility executor 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000015
- * @input value: Record<string, unknown>
- * @returns executorResultの計算結果を返す。
- * @precondition 「value: Record<string, unknown>」がexecutorResultの入力契約を満たす。
- * @postcondition executorResultの責務を完了した結果だけを返す。
- * @effect N/A: executorResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: executorResultは独自の失敗分岐を所有しない。
- * @invariant executorResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: executorResultはProcess内の同一Subsystemで完結する。
- * @security executorResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: executorResultは共有非同期状態を持たない同期処理である。
- */
-function executorResult(value: Record<string, unknown>) {
-  if (
-    !exactKeys(value, ["status", "summary", "changedPaths", "verification"]) ||
-    value.status !== "completed" ||
-    !validString(value.summary, MAXIMUM_SUMMARY_BYTES) ||
-    !Array.isArray(value.changedPaths) ||
-    value.changedPaths.length > MAXIMUM_PATHS ||
-    !value.changedPaths.every(validPath) ||
-    new Set(value.changedPaths.map((item) => item.toUpperCase())).size !==
-      value.changedPaths.length ||
-    !Array.isArray(value.verification) ||
-    value.verification.length > 32 ||
-    !value.verification.every((item) => validString(item, 1_024))
-  ) {
-    return rejected("provider_task_executor_shape_invalid");
-  }
-  return Object.freeze({
-    normalizedResult: Object.freeze({
-      status: "completed" as const,
-      changedPaths: Object.freeze([...(value.changedPaths as string[])]),
-      verificationCount: value.verification.length,
-    }),
-    reason: null,
-  });
-}
-
-/**
- * reviewer 結果を決定する。
- *
- * @responsibility reviewer 結果の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000015
- * @input value: Record<string, unknown>
- * @returns reviewerResultの計算結果を返す。
- * @precondition 「value: Record<string, unknown>」がreviewerResultの入力契約を満たす。
- * @postcondition reviewerResultの責務を完了した結果だけを返す。
- * @effect 有効な是正所見がある場合、私有WeakMapへ一回使用証拠を登録する。外部Effectは発行しない。
- * @failure N/A: reviewerResultは独自の失敗分岐を所有しない。
- * @invariant reviewerResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: reviewerResultはProcess内の同一Subsystemで完結する。
- * @security reviewerResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: reviewerResultは共有非同期状態を持たない同期処理である。
- */
-function reviewerResult(value: Record<string, unknown>) {
-  if (!exactKeys(value, ["decision", "summary", "findings"]))
-    return rejected("provider_task_reviewer_keys_invalid");
-  if (value.decision !== "approved" && value.decision !== "changes_requested")
-    return rejected("provider_task_reviewer_decision_invalid");
-  if (!validString(value.summary, MAXIMUM_SUMMARY_BYTES))
-    return rejected("provider_task_reviewer_summary_invalid");
-  if (
-    !Array.isArray(value.findings) ||
-    value.findings.length > MAXIMUM_FINDINGS
-  )
-    return rejected("provider_task_reviewer_findings_invalid");
-  const findings = value.findings.map((finding) => {
-    if (
-      !isRecord(finding) ||
-      !exactKeys(finding, [
-        "severity",
-        "path",
-        "category",
-        "criterionNumber",
-        "message",
-      ]) ||
-      typeof finding.severity !== "string" ||
-      !SEVERITIES.has(finding.severity) ||
-      !validPath(finding.path) ||
-      typeof finding.category !== "string" ||
-      !FINDING_CATEGORIES.has(finding.category) ||
-      typeof finding.criterionNumber !== "number" ||
-      !Number.isInteger(finding.criterionNumber) ||
-      finding.criterionNumber < 1 ||
-      finding.criterionNumber > 16 ||
-      !validString(finding.message, MAXIMUM_FINDING_MESSAGE_BYTES)
-    ) {
-      return null;
-    }
-    return Object.freeze({
-      severity: finding.severity as
-        | "critical"
-        | "high"
-        | "medium"
-        | "low"
-        | "info",
-      path: finding.path as string,
-      category: finding.category as
-        | "acceptance_criterion_not_met"
-        | "implementation_defect"
-        | "verification_defect"
-        | "security_or_authority_defect",
-      criterionNumber: finding.criterionNumber as number,
-      message: finding.message as string,
-      messageSha256: createHash("sha256")
-        .update("crdd-review-finding-message-v1\0")
-        .update(finding.message as string, "utf8")
-        .digest("hex"),
-    });
-  });
-  if (findings.some((finding) => finding === null))
-    return rejected("provider_task_reviewer_finding_invalid");
-  if (value.decision === "approved" && findings.length > 0)
-    return rejected("provider_task_reviewer_decision_inconsistent");
-  if (value.decision === "changes_requested" && findings.length === 0)
-    return rejected("provider_task_reviewer_decision_inconsistent");
-  const remediationCapability =
-    value.decision === "changes_requested" ? Object.freeze({}) : null;
-  if (remediationCapability) {
-    remediationRecords.set(
-      remediationCapability,
-      Object.freeze([
-        ...(findings as NonNullable<(typeof findings)[number]>[]),
-      ]),
-    );
-  }
-  return Object.freeze({
-    normalizedResult: Object.freeze({
-      decision: value.decision as "approved" | "changes_requested",
-      findingCount: findings.length,
-      findingDiagnostics: Object.freeze(
-        (findings as NonNullable<(typeof findings)[number]>[]).map(
-          ({ severity, path, category, criterionNumber, messageSha256 }) =>
-            Object.freeze({
-              severity,
-              path,
-              category,
-              criterionNumber,
-              messageSha256,
-            }),
-        ),
-      ),
-      ...(remediationCapability ? { remediationCapability } : {}),
-    }),
-    reason: null,
-  });
-}
-
-/**
- * Provider Task Remediationを一回限りで消費する。
- *
- * @responsibility Provider Task Remediationの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
- * @trace ARCH-000015
- * @input remediationCapability: unknown
- * @returns consumeProviderTaskRemediationの計算結果を返す。
- * @precondition 「remediationCapability: unknown」がconsumeProviderTaskRemediationの入力契約を満たす。
- * @postcondition consumeProviderTaskRemediationの責務を完了した結果だけを返す。
- * @effect 真正な証拠を私有WeakMapから削除して一回消費する。外部Effectは発行しない。
- * @failure N/A: consumeProviderTaskRemediationは独自の失敗分岐を所有しない。
- * @invariant コピー・別object・消費済みの証拠を受理しない。
- * @boundary N/A: consumeProviderTaskRemediationはProcess内の同一Subsystemで完結する。
- * @security consumeProviderTaskRemediationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: consumeProviderTaskRemediationは共有非同期状態を持たない同期処理である。
- */
-export function consumeProviderTaskRemediation(remediationCapability: unknown) {
-  if (!remediationCapability || typeof remediationCapability !== "object")
-    return null;
-  const findings = remediationRecords.get(remediationCapability);
-  if (!findings) return null;
-  remediationRecords.delete(remediationCapability);
-  return Object.freeze({
-    status: "consumed" as const,
-    findings,
-    findingCount: findings.length,
-    untrustedProviderTextReported: false,
-  });
-}
+export const TASK_RESULT_CONTRACT_REVISION = 20;
 
 /**
  * Provider Task Structured 結果を固定Schemaへ正規化する。
@@ -348,14 +27,14 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
  * @returns confirmed時のRole別結果又は固定理由付きblocked。拒否では内容を返さない。
  * @precondition 未信頼値を受け取り、Provider・Role・推論設定・容量・作業量を検査する。
  * @postcondition Envelope・Role別内容が成立した場合だけ正規形を返す。
- * @effect Reviewerの是正所見には私有の一回使用証拠を結合する。外部Effectは発行しない。
+ * @effect N/A: 解析結果の値を結合するのみ。
  * @failure 不正入力・Envelope・形・所見・Path・容量を固定理由で拒否する。
- * @invariant 是正所見の原証拠は同じModuleの私有Mapへ一回使用として結合する。
+ * @invariant 是正許可は固定Hostを通じCoordinatorが所有する。
  * @boundary 未信頼Provider出力から上位で扱う型付き結果への境界。
- * @security normalizeProviderTaskStructuredResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: normalizeProviderTaskStructuredResultは共有非同期状態を持たない同期処理である。
+ * @security normalizeTaskResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: normalizeTaskResultは共有非同期状態を持たない同期処理である。
  */
-export function normalizeProviderTaskStructuredResult(
+export function normalizeTaskResult(
   provider: unknown,
   taskRole: unknown,
   selectedEffort: unknown,
@@ -407,21 +86,15 @@ export function normalizeProviderTaskStructuredResult(
     });
   }
   const value = extracted.value;
-  const result = isRecord(value)
-    ? taskRole === "executor"
-      ? executorResult(value)
-      : reviewerResult(value)
-    : rejected(
-        taskRole === "executor"
-          ? "provider_task_executor_shape_invalid"
-          : "provider_task_reviewer_shape_invalid",
-      );
+  const result = inspectTaskResultContent(value, taskRole);
   return (
     result.normalizedResult
       ? Object.freeze({
           status: "confirmed" as const,
           provider,
           taskRole,
+          reviewFindings:
+            "reviewFindings" in result ? result.reviewFindings : null,
           normalizedResult: Object.freeze({
             ...result.normalizedResult,
             ...(provider === "codex" &&
@@ -466,20 +139,20 @@ export function normalizeProviderTaskStructuredResult(
  * @responsibility Provider Task Structured 結果 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeProviderTaskStructuredResultContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderTaskStructuredResultContractの入力契約を満たす。
- * @postcondition describeProviderTaskStructuredResultContractの責務を完了した結果だけを返す。
- * @effect N/A: describeProviderTaskStructuredResultContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeProviderTaskStructuredResultContractは独自の失敗分岐を所有しない。
- * @invariant describeProviderTaskStructuredResultContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeProviderTaskStructuredResultContractはProcess内の同一Subsystemで完結する。
- * @security describeProviderTaskStructuredResultContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeProviderTaskStructuredResultContractは共有非同期状態を持たない同期処理である。
+ * @returns describeTaskResultContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeTaskResultContractの入力契約を満たす。
+ * @postcondition describeTaskResultContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeTaskResultContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeTaskResultContractは独自の失敗分岐を所有しない。
+ * @invariant describeTaskResultContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeTaskResultContractはProcess内の同一Subsystemで完結する。
+ * @security describeTaskResultContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeTaskResultContractは共有非同期状態を持たない同期処理である。
  */
-export function describeProviderTaskStructuredResultContract() {
+export function describeTaskResultContract() {
   return Object.freeze({
-    contract: PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT,
-    contractRevision: PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION,
+    contract: TASK_RESULT_CONTRACT,
+    contractRevision: TASK_RESULT_CONTRACT_REVISION,
     providers: Object.freeze(["codex", "claude"]),
     roles: Object.freeze(["executor", "reviewer"]),
     maximumRawBytes: MAXIMUM_RAW_BYTES,
@@ -498,7 +171,7 @@ export function describeProviderTaskStructuredResultContract() {
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     boundedRemediationCapability:
-      "opaque_single_use_path_severity_category_criterion_secret_screened_message_claim_and_message_hash_projection",
+      "issued_by_coordinator_host_after_cleanup_not_by_content_normalizer",
     reviewerMessageForwardedToExecutor:
       "bounded_untrusted_defect_claim_after_secret_screening",
     credentialAbsenceVerified: false,

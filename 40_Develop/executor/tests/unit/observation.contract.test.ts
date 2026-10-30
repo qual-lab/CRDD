@@ -1,7 +1,7 @@
 /**
- * 私有の通知・終端Mapの交差利用を反証する。
+ * 固定構成の診断投影と受動callbackの失敗を反証する。
  * @packageDocumentation
- * @responsibility 元objectとOwner相関、同期通知の失効を確認する。
+ * @responsibility 元入力の保全、Reporterの束縛、同期・非同期故障の封じ込めを確認する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @level UT
@@ -10,120 +10,51 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createProviderObservationOwner } from "../../src/attempt/observation.ts";
-const unrelated = createProviderObservationOwner();
-const verifyRuntimeOwnedDockerProviderSubmissionNotice = (
-  notice: unknown,
-  recovery: unknown,
-  owner: unknown,
-  operationId: unknown,
-  recoveryId: unknown,
-) =>
-  unrelated.verifyUnissuedNotice(
-    notice,
-    recovery,
-    owner,
-    "start_provider_attached",
-    operationId,
-    recoveryId,
-    "provider_submission",
-  );
-const borrowRuntimeOwnedDockerTerminalObservations =
-  unrelated.borrowTerminalObservations;
+import {
+  providerBoundaryConfiguration,
+  reportPassiveBoundaryDiagnostic,
+} from "../../src/attempt/observation.ts";
+import { attemptPlan } from "../fixtures/attempt-plan.ts";
+
 /**
- * 観測Ownerの交差と元object・通知寿命を反証する。
- * @responsibility Ownerと元objectの相関を検査する。
- * @trace ERB-IT-002
+ * 診断投影とReporter例外が試行判定を代行しないことを確認する。
+ * @responsibility 元入力と受動通知を保ち、同期・非同期失敗を外へ漏らさない。
  * @trace ERB-IT-004
- * @precondition 別Ownerとは別の候補Owner二つを生成する。
- * @stimulus 元通知の登録・照合・失効と終端結果の借用を行う。
- * @observation 元object、コピー、別Ownerと別OwnerReaderの返値。
- * @oracle 同じOwnerの元objectだけを受理し、失効後は拒否する。
- * @cleanup N/A: 外部資源なし。局所Ownerは試験後に到達不能となる。
- * @boundary ERB-IT-002=Adjacent 1 Block: 候補Controller→観測Owner→別OwnerReader
+ * @precondition 合成計画とメモリ内Reporterだけ。
+ * @stimulus 正常、同期throw、Promise拒否、Reporterなしを呼ぶ。
+ * @observation 固定field、元notice、callbackのthisと例外不伝播。
+ * @oracle 診断は秘密や実清掃成功を生成せず、失敗を握ったまま終了する。
+ * @cleanup Promise拒否処置を一microtask待つ。外部資源なし。
+ * @boundary ERB-IT-004=Direct Boundary: 構成診断・受動搬送。
  */
-test("観測Ownerは候補間・別Owner間の流用と失効後の通知を拒否する", () => {
-  const first = createProviderObservationOwner();
-  const second = createProviderObservationOwner();
-  const owner = Object.freeze({});
-  const recovery = Object.freeze({});
-  const notice = Object.freeze({});
-  const result = Object.freeze({});
-  const args = [
-    notice,
-    recovery,
-    owner,
-    "start_provider_attached",
-    "op",
-    "recovery",
-    "provider_submission",
-  ] as const;
-  first.registerSubmission(
-    notice,
-    Object.freeze({
-      recoveryCapability: recovery,
-      managementCapability: owner,
-      purpose: "start_provider_attached",
-      operationId: "op",
-      recoveryId: "recovery",
-      kind: "provider_submission",
-    }),
-  );
-  assert.equal(first.verifyUnissuedNotice(...args), true);
-  assert.equal(second.verifyUnissuedNotice(...args), false);
-  assert.equal(
-    first.verifyUnissuedNotice(
-      { ...notice },
-      recovery,
-      owner,
-      "start_provider_attached",
-      "op",
-      "recovery",
-      "provider_submission",
-    ),
-    false,
-  );
-  assert.equal(
-    verifyRuntimeOwnedDockerProviderSubmissionNotice(
-      notice,
-      recovery,
-      owner,
-      "op",
-      "recovery",
-    ),
-    false,
-  );
-  first.revokeSubmission(notice);
-  assert.equal(first.verifyUnissuedNotice(...args), false);
-  first.registerTerminal(
-    result,
-    Object.freeze({
-      managementCapability: owner,
-      operationId: "op",
-      recoveryId: "recovery",
-      resources: [],
-      primaryFailure: null,
-      mountLeaseReleased: true,
-      recoveryCompleted: true,
-      homeLeaseReleased: true,
-    }),
-  );
-  assert.ok(first.borrowTerminalObservations(result, owner, "op", "recovery"));
-  assert.equal(
-    second.borrowTerminalObservations(result, owner, "op", "recovery"),
-    null,
-  );
-  assert.equal(
-    first.borrowTerminalObservations({ ...result }, owner, "op", "recovery"),
-    null,
-  );
-  assert.equal(
-    borrowRuntimeOwnedDockerTerminalObservations(
-      result,
-      owner,
-      "op",
-      "recovery",
-    ),
-    null,
-  );
+test("受動診断は元通知とReporterの呼出し束縛を保ち例外を試行へ漏らさない", async () => {
+  const plan = attemptPlan();
+  const notice = providerBoundaryConfiguration(plan);
+  assert.equal(notice.event, "coordinator_provider_boundary_configured");
+  assert.equal(notice.provider, plan.provider);
+  assert.equal(notice.operationId, plan.operationId);
+  assert.equal(notice.networkPolicyHash, null);
+  assert.equal("commands" in notice, false);
+  assert.equal("providerHomeSourcePath" in notice, false);
+  for (const mode of ["normal", "sync", "async"]) {
+    let calls = 0;
+    const dependencies = {
+      marker: "original",
+      reportProviderBoundaryDiagnostic(value: unknown) {
+        calls++;
+        assert.equal(this.marker, "original");
+        assert.equal(value, notice);
+        if (mode === "sync") throw Error("synthetic");
+        return mode === "async"
+          ? Promise.reject(Error("synthetic"))
+          : Promise.resolve(false);
+      },
+    };
+    assert.doesNotThrow(() =>
+      reportPassiveBoundaryDiagnostic(dependencies, notice),
+    );
+    await Promise.resolve();
+    assert.equal(calls, 1);
+  }
+  assert.doesNotThrow(() => reportPassiveBoundaryDiagnostic({}, notice));
 });

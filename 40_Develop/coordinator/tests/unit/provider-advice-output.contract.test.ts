@@ -19,8 +19,6 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 
 const ADVICE = Object.freeze({
-  contract: "crdd-coordinator/workbench-ai-advice-result",
-  contractRevision: 1,
   status: "completed",
   facts: Object.freeze([
     Object.freeze({ text: "現在値", references: ["PROJECT_CONTEXT.md"] }),

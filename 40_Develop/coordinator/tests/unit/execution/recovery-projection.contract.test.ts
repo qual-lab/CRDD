@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { projectDockerRecoveryAdmission } from "../../../src/execution/result.ts";
-import { publicDockerRecoveryStartReason } from "../../../../executor/src/index.ts";
+import { resolveRecoveryStartReason } from "../../../../executor/src/index.ts";
 
 /**
  * observationのTest準備責務を実行する。
@@ -178,13 +178,13 @@ test("clean、inventory、hashの相関差は値非公開で拒否する", () =>
  */
 test("Recovery observation unknownと未登録理由は固定公開分類へ閉じる", () => {
   assert.equal(
-    publicDockerRecoveryStartReason(
+    resolveRecoveryStartReason(
       "docker_task_runtime_state_lock_release_unconfirmed",
     ),
     "docker_process_controller_recovery_observation_unknown",
   );
   assert.equal(
-    publicDockerRecoveryStartReason("caller-path:C:\\secret"),
+    resolveRecoveryStartReason("caller-path:C:\\secret"),
     "docker_process_controller_recovery_unavailable",
   );
   assert.deepEqual(

@@ -14,6 +14,10 @@
 
 ## 1. 責務・依存・成立範囲
 
+編集・レビューの内容規則は`attempt/task-result.ts`の`inspectTaskResultContent`が所有する。解析済み値からexact key、Path、件数、decisionとfindingsの相関、所見Hashを検査し、Provider Envelope・Turn観測・実行・是正Capabilityは扱わない。所見本文は認可された内部利用側へ渡し、通常の試行内容には診断投影だけを含める。Task／Adviceとも内容の正本はDomain、実行LifecycleはExecutor、次試行許可はCoordinatorへ分ける。
+
+助言内容の値モデル・JSON Schema・許可参照検査は`attempt/advice.ts`が所有する。公開操作は`parseAdviceResult(raw, allowedReferences)`と`describeAdviceResultSchema()`であり、ProviderのEnvelope解析・起動・清掃・次試行許可は含めない。ExecutorはAI Adapterの共通解析後にこの検査へ接続し、同意前のPrompt生成も同じSchemaを使う。DomainからAI Adapter／Executorへの実行値依存は追加しない。
+
 | Owner | 所有するもの | 所有しないもの |
 |---|---|---|
 | Domain | Plan／Objective／Milestone／Taskの定義、判断記録、論理Workspace、Queue・Attemptの値、局所検査・Query／CRUD | Provider起動、Scheduling、現在Authority発行、Git操作、資源不存在の判定 |

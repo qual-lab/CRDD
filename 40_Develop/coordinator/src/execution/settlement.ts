@@ -5,10 +5,6 @@
  */
 import * as runtimeSettlement from "../../../domain-model/src/index.ts";
 import {
-  borrowRuntimeOwnedDockerTerminalObservations,
-  verifyRuntimeOwnedDockerUnissuedNotice,
-} from "./provider-executor.ts";
-import {
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
   captureOwnedOperationCleanupVerification,
@@ -33,6 +29,11 @@ export function prepareRuntimeOwnedCoordinatorSettlement(
   managementCapability: unknown,
   recoveryId: unknown,
   consumer: unknown,
+  observeTerminal: (
+    result: unknown,
+    operationId: unknown,
+    recoveryId: unknown,
+  ) => unknown,
 ) {
   return runtimeSettlement.prepareRuntimeOwnedCoordinatorSettlement(
     {
@@ -43,32 +44,7 @@ export function prepareRuntimeOwnedCoordinatorSettlement(
         borrowRuntimeOwnedCoordinatorSettlementRepository(managementCapability),
       captureCleanupVerification: () =>
         captureOwnedOperationCleanupVerification(managementCapability),
-      observeTerminal: (
-        result: unknown,
-        operationId: unknown,
-        reference: unknown,
-      ) =>
-        borrowRuntimeOwnedDockerTerminalObservations(
-          result,
-          managementCapability,
-          operationId,
-          reference,
-        ),
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: unknown,
-        operationId: unknown,
-        reference: unknown,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          reference,
-        ),
+      observeTerminal,
     },
     recoveryId,
     consumer,

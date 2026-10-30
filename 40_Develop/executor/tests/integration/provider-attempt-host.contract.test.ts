@@ -81,6 +81,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
       }
     }});
     const api=await import(${JSON.stringify(url("../../src/index.ts"))});
+    const preparationInput=await import(${JSON.stringify(url("../../src/attempt/preparation.ts"))});
     const {createStandaloneProviderAttemptHost}=await import(${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))}));
     const parent=path.join(repository,'.crdd','tests');assert.equal(fs.lstatSync(parent).isSymbolicLink(),false);
@@ -89,7 +90,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
       const invalidReceipt=mode.startsWith('receipt_invalid_');
       const directory=path.join(root,mode);fs.mkdirSync(directory);const authority={},mount={};
       const selection={provider:'claude',modelIdentifier:'opus',identifierKind:'alias',reasoningEffort:'low',purpose:'task',catalogIdentity:'a'.repeat(64),configIdentity:'b'.repeat(64),role:'executor',workType:null,source:'explicit'};
-      const built=api.buildProviderDockerExecutionPlan('claude',{randomBytes},
+      const built=preparationInput.buildProviderDockerExecutionPlan('claude',{randomBytes},
         {operationId:'OP-123456',createdAt:'2026-10-28T00:00:00.000Z',mounts:{workspace:path.join(directory,'work'),providerHome:'C:/synthetic-not-accessed/home',tmp:path.join(directory,'tmp'),events:path.join(directory,'events'),projection:path.join(directory,'projection'),management:path.join(directory,'management')}},
         {grant:{operationId:'OP-123456',grantRef:'PHMGRANT-123456',provider:'claude',providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)},activeMountCapability:mount},
         {selectionRecordId:'MODELSEL-12345678',operationId:'OP-123456',executorProvider:'claude',executionSelection:selection,selectionHash:domain.hashExecutionSelection(selection),taskAttempt:0,model:'opus',effort:'low',speedMode:'normal',selectionNotice:'synthetic'},
@@ -114,7 +115,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
         const diagnostic=host.readDiagnostic();assert.ok(diagnostic);assert.equal(diagnostic.cleanupConfirmed,result.cleanupConfirmed);
         if(mode==='auth_wait_unknown'){assert.equal(diagnostic.primaryFailure.purpose,'create_subscription_auth_probe');assert.equal(diagnostic.primaryFailure.responseObserved,false);assert.equal(diagnostic.primaryFailure.receiptRecorded,false);assert.equal(diagnostic.primaryFailure.commandHandleObtained,true);}
         if(invalidReceipt){assert.equal(result.recoveryId,host.recoveryId);assert.equal(diagnostic.primaryFailure.stage,'resource_receipt_record');assert.equal(diagnostic.primaryFailure.reason,'docker_resource_receipt_unavailable');assert.equal(diagnostic.primaryFailure.responseObserved,true);assert.equal(diagnostic.primaryFailure.receiptRecorded,false);assert.deepEqual(f.commands,['create_subscription_auth_probe']);}
-        const terminal=host.runtime.borrowTerminalObservations(result,host.management,plan.operationId,host.recoveryId);
+        const terminal=host.readTerminal();
         if(terminal)assert.equal(terminal.homeLeaseReleased,released,mode);
         if(mode==='terminal_received')assert.throws(()=>host.recordTerminal(result));else assert.equal(host.recordTerminal(result),released,mode);
         assert.equal(host.recordTerminal(result),false);

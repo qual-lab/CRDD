@@ -9,7 +9,7 @@
  * @boundary Catalog IdentityとProvider CLI計画の局所境界。
  */
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../executor/src/index.ts";
+import { describeAdviceResultSchema } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";

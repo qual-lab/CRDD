@@ -12,11 +12,8 @@ import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/index.ts";
-import {
-  describeProviderTaskStructuredResultContract,
-  normalizeProviderTaskStructuredResult,
-  consumeProviderTaskRemediation,
-} from "../../../src/index.ts";
+import { normalizeTaskResult } from "../../../src/result/task.ts";
+import { describeTaskResultContract } from "../../../src/result/task.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 
 const EXECUTOR = JSON.stringify({
@@ -51,13 +48,7 @@ function normalizeFixtureTaskResult(
   raw: unknown,
   workload: unknown = TASK_WORKLOAD,
 ) {
-  return normalizeProviderTaskStructuredResult(
-    provider,
-    role,
-    effort,
-    raw,
-    workload,
-  );
+  return normalizeTaskResult(provider, role, effort, raw, workload);
 }
 const REVIEWER = JSON.stringify({
   decision: "changes_requested",
@@ -167,7 +158,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
         "7575966d1d25626e90f680efae8d0072505e4d4018462c7e5dfd5442959109f4",
     },
   ]);
-  assert.ok(normalized.remediationCapability);
+  assert.equal("remediationCapability" in normalized, false);
   assert.deepEqual(normalized.providerTurnObservation, {
     provider: "claude",
     taskRole: "reviewer",
@@ -977,7 +968,7 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
       "blocked",
     );
     assert.equal(
-      normalizeProviderTaskStructuredResult(
+      normalizeTaskResult(
         "claude",
         "reviewer",
         "medium",
@@ -1118,7 +1109,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
  * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
-  const contract = describeProviderTaskStructuredResultContract();
+  const contract = describeTaskResultContract();
   assert.equal(contract.contractRevision, 20);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
@@ -1159,7 +1150,7 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
  * @cleanup N/A: WeakMapと合成値だけ。
  * @boundary Executorの公開正規化と私有の一回使用証拠。
  */
-test("限定是正の一回消費は結果分割後も元の真正Capabilityだけを受理する", () => {
+test("検査済み所見は内部搬送へ分離しExecutor自身は是正許可を発行しない", () => {
   const result = normalizeFixtureTaskResult(
     "claude",
     "reviewer",
@@ -1168,12 +1159,9 @@ test("限定是正の一回消費は結果分割後も元の真正Capabilityだ�
   );
   assert.equal(result.status, "confirmed");
   const normalized = result.normalizedResult;
-  assert.ok(normalized && "remediationCapability" in normalized);
-  const capability = normalized.remediationCapability;
-  assert.equal(consumeProviderTaskRemediation({}), null);
-  assert.equal(consumeProviderTaskRemediation({ ...capability }), null);
-  const consumed = consumeProviderTaskRemediation(capability);
-  assert.ok(consumed);
-  assert.equal(consumed.findings.length, 1);
-  assert.equal(consumeProviderTaskRemediation(capability), null);
+  assert.ok(normalized);
+  assert.equal("remediationCapability" in normalized, false);
+  assert.ok("reviewFindings" in result && Array.isArray(result.reviewFindings));
+  assert.equal(result.reviewFindings.length, 1);
+  assert.equal(Object.isFrozen(result.reviewFindings), true);
 });

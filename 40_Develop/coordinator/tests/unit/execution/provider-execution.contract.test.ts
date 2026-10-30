@@ -9,6 +9,7 @@
  * @boundary Coordinator RuntimeとFake Docker／Host境界。
  */
 import assert from "node:assert/strict";
+import type { AttemptInput } from "../../../../executor/src/index.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 import {
@@ -36,6 +37,7 @@ const prepared = prepareProviderAdvicePlan(
     networkPolicy: fixtureNetworkPolicy(selection.provider),
     provider: selection.provider,
     providerPrompt: "固定投影だけを根拠に説明する",
+    allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
     executionSelection: selection,
@@ -237,8 +239,6 @@ function fixture(
       },
     });
   const adviceJson = JSON.stringify({
-    contract: "crdd-coordinator/workbench-ai-advice-result",
-    contractRevision: 1,
     status: "completed",
     facts: [],
     sharedAnalysis: [],
@@ -378,12 +378,9 @@ function fixture(
       });
     },
     revokePacket: () => true,
-    prepareCodex: (
-      capability: unknown,
-      _mountCapability: unknown,
-      _mountAuthorization: unknown,
-      selectionUseCapability: unknown,
-    ) => {
+    prepareAttempt: (_provider: "codex" | "claude", input: AttemptInput) => {
+      const { managementCapability: capability, selectionUseCapability } =
+        input;
       if (options.realSelectionRuntime === true) {
         const consumedSelection = selectionRuntime.consume(
           selectionUseCapability,
@@ -401,11 +398,6 @@ function fixture(
         preparedCapability,
       });
     },
-    prepareClaude: () =>
-      Object.freeze({
-        status: "prepared" as const,
-        preparedCapability,
-      }),
     startProcess: (
       _prepared: unknown,
       _management: unknown,
@@ -431,9 +423,8 @@ function fixture(
             cleanupConfirmed: true,
             recoveryFinalizationCapability: recoveryCapability,
             normalizedResult: Object.freeze({
-              contract: "crdd-coordinator/workbench-ai-advice-provider-output",
-              contractRevision: 1,
-              adviceJson,
+              ...JSON.parse(adviceJson),
+              reason: null,
             }),
           }),
         ),

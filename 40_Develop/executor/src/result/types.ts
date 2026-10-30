@@ -9,6 +9,127 @@
 import type { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
 import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 import type { RECOVERY_START_FAILURE_STAGES } from "./validation.ts";
+import type { DockerResourceCleanupObservation } from "../../../docker-isolation/src/index.ts";
+import type { createExecutor } from "../attempt/preparation.ts";
+import type { createFinalResult } from "./attempt.ts";
+import type { normalizeTaskResult } from "./task.ts";
+import type { AdviceResult } from "../../../domain-model/src/index.ts";
+import type {
+  normalizeCodexStructuredResult,
+  normalizeClaudeStructuredResult,
+} from "../../../ai-adapter/src/index.ts";
+
+/**
+ * 純粋なTask検査の成功内容を導出する。
+ * @responsibility normalizerと公開内容型の構造重複を避ける。
+ * @trace ARCH-000015
+ * @shape 正規化結果からnullを除いた用途別union。
+ * @invariant Authorityを追加しない。
+ * @boundary Executor内部の結果型。
+ * @security 所見本文は通常結果へ含めない。
+ * @compatibility normalizerの実返却型へ追従する。
+ */
+type NormalizedTaskContent = NonNullable<
+  ReturnType<typeof normalizeTaskResult>["normalizedResult"]
+>;
+/**
+ * Task内容からレビューの判断部分だけを選ぶ。
+ * @responsibility 許可を付加できる用途を編集結果から分離する。
+ * @trace ARCH-000015
+ * @shape decisionを持つ正規化済みレビュー内容。
+ * @invariant 内容の判断を実行許可へ読み替えない。
+ * @boundary Executor内部の型合成。
+ * @security 本文や新しいAuthorityを追加しない。
+ * @compatibility normalizerのレビュー形へ追従する。
+ */
+type ReviewContent = Extract<
+  NormalizedTaskContent,
+  { decision: "approved" | "changes_requested" }
+>;
+/**
+ * 所見の内容とHostが別途発行した次試行許可を区別する。
+ * @responsibility 編集・承認・是正要求を型で区別する。
+ * @trace ARCH-000015
+ * @shape 是正要求だけがoptional remediationCapabilityを持つunion。
+ * @invariant 内容完了だけでは許可の存在を保証しない。
+ * @boundary Executorの清掃後結果とCoordinatorの次試行判断。
+ * @security 生所見を公開せず、許可を自己発行しない。
+ * @compatibility Taskの既存内容を保ちHost許可の型を明示する。
+ */
+export type TaskResult =
+  | Exclude<NormalizedTaskContent, ReviewContent>
+  | (Omit<ReviewContent, "decision"> & Readonly<{ decision: "approved" }>)
+  | (Omit<ReviewContent, "decision"> &
+      Readonly<{
+        decision: "changes_requested";
+        remediationCapability?: object;
+      }>);
+
+/**
+ * 用途別内容を同じ試行結果へ載せる。
+ * @responsibility Task・Advice・Probeの検査済み内容を型付きで返す。
+ * @trace ARCH-000015
+ * @shape 用途ごとの既存結果形のunion。
+ * @invariant 内容と技術終了・回収状態を同一視しない。
+ * @boundary Executorのcompletion結果。
+ * @security 生Envelope・所見本文を追加しない。
+ * @compatibility 内容fieldを用途間で無理に共通化しない。
+ */
+export type AttemptContent =
+  | TaskResult
+  | AdviceResult
+  | NonNullable<
+      ReturnType<typeof normalizeCodexStructuredResult>["normalizedResult"]
+    >
+  | NonNullable<
+      ReturnType<typeof normalizeClaudeStructuredResult>["normalizedResult"]
+    >;
+
+export type { TaskReviewFinding as ReviewFinding } from "../../../domain-model/src/index.ts";
+
+/**
+ * 同じ実行Ownerの開始・取消・下位清掃確認を持つExecutor。
+ * @responsibility 本番Factoryの実際の返却型を単一正本から導出する。
+ * @trace ARCH-000008
+ * @invariant 独自の構造型や別の状態管理を追加しない。
+ */
+export type Executor = ReturnType<typeof createExecutor>;
+
+/**
+ * 一試行の開始結果。blockedと、completionを持つ開始済み結果を区別する。
+ * @responsibility 受付・開始と最終結果を混同しない。
+ * @trace ARCH-000008
+ * @invariant 実際のstartの返却値から導出し、成功条件を追加しない。
+ */
+export type AttemptStartResult = ReturnType<Executor["start"]>;
+
+/**
+ * 清掃を含む一試行の最終結果。
+ * @responsibility 正常・拒否・取消と未解決回復を既存結果のまま表す。
+ * @trace ARCH-000008
+ * @invariant 実装の結果構築型を参照し、結果fieldを二重定義しない。
+ */
+export type AttemptResult = ReturnType<typeof createFinalResult>;
+
+/**
+ * 固定コールバックへ直接渡す非秘密の終端観測。
+ * @responsibility 実行結果と清掃・回復の観測を元操作へ結合する。
+ * @trace ARCH-000008
+ * @shape 操作ID、回復参照、資源観測と解放状態。
+ * @invariant object原本照会や新しいAuthorityを必要としない。
+ * @boundary Executorと信頼したHostの内部callback。
+ * @security 外部DTOの受付形式として公開しない。
+ * @compatibility 既存終端観測と同じ事実だけを搬送する。
+ */
+export type AttemptTerminalObservation = Readonly<{
+  operationId: string;
+  recoveryId: string;
+  resources: readonly DockerResourceCleanupObservation[];
+  primaryFailure: PrimaryFailureDiagnostic | null;
+  mountLeaseReleased: boolean;
+  recoveryCompleted: boolean;
+  homeLeaseReleased: boolean;
+}>;
 
 /**
  * 結果正規化の共通の成功・拒否形を表す。
@@ -24,41 +145,7 @@ export type NormalizedProviderResult<T> =
   | Readonly<{ status: "confirmed"; normalizedResult: T }>
   | Readonly<{ status: "blocked"; reason: string; normalizedResult: null }>;
 
-/**
- * 検査済み助言の一項目を表す。
- * @responsibility 説明本文と読取り投影の参照を一つの値契約へまとめる。
- * @trace ARCH-000015
- * @shape textとreferencesの読取り専用値。
- * @invariant 型付けだけでProvider内容を信頼済みとしない。
- * @boundary 正規化したProvider結果と上位表示結果。
- * @security Source本文・絶対Path・認証値の許可を拡張しない。
- * @compatibility 元の助言項目と同じ形を維持する。
- */
-export type ProviderAdviceResultItem = Readonly<{
-  text: string;
-  references: readonly string[];
-}>;
-
-/**
- * 読取り助言結果の閉じたSchema検証境界で使用するAdviceResultの構造を固定する。
- *
- * @responsibility 読取り助言結果の閉じたSchema検証境界が受け渡す値、状態および制約を一つの型契約として保持する。
- * @trace ARCH-000015
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
- * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
- * @boundary 本ModuleとConsumerの型境界。
- * @security 秘密値または未許可のPathを公開値へ追加しない。
- * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
- */
-
-export type AdviceResult = Readonly<{
-  status: "completed";
-  reason: null;
-  facts: readonly ProviderAdviceResultItem[];
-  sharedAnalysis: readonly ProviderAdviceResultItem[];
-  additionalInferences: readonly ProviderAdviceResultItem[];
-  nextOptions: readonly ProviderAdviceResultItem[];
-}>;
+export type { AdviceResult } from "../../../domain-model/src/index.ts";
 
 /**
  * Docker Process Controllerの最終理由を表す。
@@ -71,8 +158,8 @@ export type AdviceResult = Readonly<{
  * @security 固定理由だけを公開する。
  * @compatibility 利用側は宣言済みの最終理由だけへ依存する。
  */
-export type DockerProcessControllerFinalReason =
-  | DockerProcessControllerPublicCompletionReason
+export type AttemptResultReason =
+  | AttemptFailureReason
   | "provider_operation_completed"
   | "provider_operation_cancelled";
 
@@ -99,7 +186,7 @@ export type PrimaryFailureDiagnostic = Readonly<{
     | "resource_receipt_record"
     | "subscription_auth_verification"
     | "provider_result_normalization";
-  reason: DockerProcessControllerFinalReason;
+  reason: AttemptResultReason;
   exceptionCode: string | null;
   commandHandleObtained: boolean;
   responseObserved: boolean;
@@ -132,5 +219,5 @@ export type RecoveryStartFailureDiagnostic = Readonly<{
  * @security 固定語彙だけを許可し、秘密値や自由文を搬送しない。
  * @compatibility 利用側は公開Registryに含まれる理由だけへ依存する。
  */
-export type DockerProcessControllerPublicCompletionReason =
+export type AttemptFailureReason =
   (typeof dockerProcessControllerPublicCompletionReasons)[number];

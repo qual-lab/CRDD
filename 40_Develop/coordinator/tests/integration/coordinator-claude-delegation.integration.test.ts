@@ -8,13 +8,13 @@
  * @scope coordinator、claude、delegation
  * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
  */
-import { createProviderDockerRuntimeAdapterCandidate } from "../../../executor/src/index.ts";
+import { createAttemptPreparation } from "../../../executor/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../../executor/src/index.ts";
+import { createExecutorTestCandidate } from "../../../executor/src/index.ts";
 import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority.ts";
 
 /**
@@ -163,7 +163,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     mountCompletionCount += 1;
     return Object.freeze({ status: "completed" });
   };
-  const adapter = createProviderDockerRuntimeAdapterCandidate("claude", {
+  const adapter = createAttemptPreparation("claude", {
     verifyOperationMount: (management: unknown, mount: unknown) => {
       assert.equal(management, managementCapability);
       assert.equal(mount, mountCapability);
@@ -216,22 +216,25 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     revokeProviderAuthority: (control: unknown, management: unknown) =>
       authorityRuntime.revoke(control, management),
   });
-  const prepared = adapter.prepare(
-    managementCapability,
-    mountCapability,
-    mountAuthorizationCapability,
-    issued.useCapability,
-  );
+  const prepared = adapter.prepare({
+    purpose: "probe",
+    managementCapability: managementCapability,
+    mountCapability: mountCapability,
+    mountAuthorizationCapability: mountAuthorizationCapability,
+    selectionUseCapability: issued.useCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectedModel, "opus");
   assert.equal(prepared.selectedEffort, "low");
 
   const purposes: string[] = [];
-  const controller = createIsolatedDockerProcessControllerCandidate({
+  const controller = createExecutorTestCandidate({
     effectExecutorAvailable: true,
     verifyRevision: () => Object.freeze({ revisionCurrent: true }),
     consumePreparedPlan: (candidate: unknown, management: unknown) =>
-      adapter.consumeForProcessController(candidate, management),
+      adapter.consume(candidate, management),
     beginRecovery: () =>
       Object.freeze({
         status: "ready" as const,

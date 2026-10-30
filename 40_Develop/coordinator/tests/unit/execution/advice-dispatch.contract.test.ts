@@ -39,8 +39,6 @@ if (prepared.taskPacket === null) throw new Error("test_task_packet_required");
 const taskPacket = prepared.taskPacket;
 
 const RAW_RESULT = JSON.stringify({
-  contract: "crdd-coordinator/workbench-ai-advice-result",
-  contractRevision: 1,
   status: "completed",
   facts: [{ text: "現在状態を確認した", references: ["PROJECT_CONTEXT.md"] }],
   sharedAnalysis: [],

@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "docker-isolation",
   "symbols": [
+    { "symbolId": "docker-isolation.test.unit.execution-binding", "kind": "test-suite", "path": "tests/unit/execution/binding.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-UT-023"], "verifies": ["docker-isolation.execution.binding"] },
+    { "symbolId": "docker-isolation.execution.binding", "kind": "file", "path": "src/execution/binding.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     {
       "symbolId": "docker-isolation.cleanup.probe-record",
       "kind": "file",

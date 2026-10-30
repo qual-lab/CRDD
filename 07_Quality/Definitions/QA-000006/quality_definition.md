@@ -1,18 +1,36 @@
 # QA-000006 外部実行境界の検証定義
 
+## Task／Advice共通入口・結果とOwner移管 — 2026-10-30
+
+薄型化の確認では、Docker構成の初回createと開始時verifyを同じ`bindProviderCommand`へ接続し、正規構成の一致とAuthority原本の照合を別々に反証する。DIの`tests/unit/execution/binding.contract.test.ts`は両Provider・三用途、Token搬送方式、Digest、Role／Mount、部分Token差、九Commandの用途・順序・全argv差を確認する。既存Executor／Coordinator試験は原本一回消費、別Owner・コピー・Revision差・借用Path差・Effect前拒否を維持する。元Tokenを全出現箇所で変えたコピーは構成比較だけで拒否できると主張しない。
+
+Task内容の直接検査はDomainの`tests/unit/attempt/task-result.contract.test.ts`が所有し、余剰・欠測field、Path traversal、大小文字重複、件数上限、所見field、decision相関、getter／Proxyを検査する。Executorの既存結果試験はAI Adapter EnvelopeからDomainまでの結合、固定理由、実行観測の搬送を確認する。Probeの共通解析はAI Adapterの既存Codex結果Suiteで両Providerを確認する。是正Capability・一回消費・次試行AuthorityをDomainへ移さない。
+
+| 確認対象 | 所有する試験 | 正常・反証条件 |
+|---|---|---|
+| 共通`prepare(AttemptInput)` | 両Providerの準備契約、DI接続代役 | 用途別exact field、一回消費、別Owner・選定差替え・取消・期限の拒否 |
+| 助言内容 | Domain `tests/unit/attempt/advice.contract.test.ts` | 四区分・容量・重複JSON Key・許可参照。ExecutorはEnvelope解析との接続を検査 |
+| 共通completion | Executor単独試験・公開境界試験 | Task／Adviceとも清掃後の型付き内容。旧六中間APIがRootへ存在しない |
+| 是正許可のOwner | Executor `review-delivery.contract.test.ts`とCoordinator Task Packet契約 | 清掃後の固定callbackだけで許可を付加。欠測・例外でも内容完了を改ざんせず許可なし。同一操作・初回レビュー・一回消費を要求し、コピー・別操作・再レビューを拒否 |
+| Command結合 | Coordinatorの既存助言Command／Packet契約 | DIへ移したHashの同一性、同意前Schema固定、Command差替え拒否 |
+
+内容検査失敗は清掃後のblocked結果と固定理由へ接続し、技術清掃を未成立へ改ざんしない。試験台帳とSymbolを各Ownerへ追従する。実AI・実Docker・過去保持物の操作はこの確認に含めず、新しい実境界の成功を主張しない。
+
 ## Executor単独Packageの確認範囲 — 2026-10-30
 
 単独Packageの確認では、上位のTask順序・Workbench HTTP・MCP搬送を完成条件へ混ぜない。ExecutorのRoot APIから一Provider一試行を確認し、計画、準備、開始、通知、取消、結果、清掃、元証拠の相関を別々に検査する。既存の`ERB-IT-002`／`ERB-IT-004`、`RCM-UT-016`、`ERB-UT-023`を利用し、新しい検証台帳やRuntime機構は作らない。
 
 | 保証と主な反例 | 単独で再実行する試験 | 観測する終了条件 |
 |---|---|---|
-| CoordinatorなしのRootロード、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map非公開 |
+| CoordinatorなしのRootロード、必要な公開集合、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map・内部Key・形式タグ定数の非公開 |
 | 準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | executor/tests/unit/preparation.contract.test.ts | 両ProviderのMap分離。回収不明を消費成功にしない |
-| Codex／Claude、候補／本番Factory配線、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 用途順序、取消後join、単一清掃、元回復参照、通知失効、元終端、試験排他解放と新品Root処置 |
-| 元通知・コピー・別Owner・失効後 | executor/tests/unit/observation.contract.test.ts | 私有証拠の相関と失効 |
+| Codex／Claude、候補／本番Factory配線、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 用途順序、取消後join、単一清掃、元回復参照、固定callback、終端搬送、試験排他解放と新品Root処置 |
+| 固定診断投影とcallbackのthis・同期例外・Promise拒否 | executor/tests/unit/observation.contract.test.ts | 受動通知の故障を実行結果や清掃成功へ変換しない |
+| 開始基本条件と固定Commandの完全照合 | executor/tests/unit/plan.contract.test.ts | 基本検査の成立を完全計画の検証と混同しない |
+| 回復応答の閉形式・exact参照・Home相関 | executor/tests/unit/result/validation.contract.test.ts | Proxy・accessor・余分field・欠測を拒否し、unknownを補完しない |
 | 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 五清掃条件32組合せ×三状態で未確定を成功にしない。元回復参照を維持 |
 | 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/result/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
-| 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/result/advice.contract.test.ts | Envelope除去と意味検査を区別。失敗は本文なし |
+| 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/result/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
 | 試験HostのReceipt・保存拒否・排他解放・元終端 | executor/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
 | Home事前確認の観測不能・元Lock・既存名導出 | executor/tests/integration/provider-home-boundary.contract.test.ts | 模擬サービス上の有限取得・解放と不明保持。実Homeには触れない |
 | 単段検証CLIの同意、IPC、異常close、取消、親切断、診断、保持・清掃 | executor/tests/integration/provider-real-cli.contract.test.ts | 子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |
@@ -293,7 +311,7 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 
 ### Architecture詳細設計入力
 
-[Executor](../../../06_Architecture/Details/executor/01_Architecture.md)の単段実行・同期証拠・取消／終了待ちを、既存`ERB-IT-002`／`ERB-IT-004`の移管後反例へ接続する。新しいLocal Itemを増やさず、非AIのMap・元object照合を実Docker／実Provider成功に読み替えない。
+[Executor](../../../06_Architecture/Details/executor/01_Architecture.md)の単段実行・同期証拠・取消／終了待ちを、既存`ERB-IT-002`／`ERB-IT-004`の移管後反例へ接続する。新しいLocal Itemを増やさず、非AIの固定callback・元Owner照合を実Docker／実Provider成功に読み替えない。
 
 `ARCH-000008`とDocker Isolation詳細設計の環境観測・unknown保持から、`ERB-UT-034`へbackend一覧の純粋分類を導出する。旧WSL試験の`PRL-UT-006`はTask状態／Authority義務であり、この分類へ流用しない。関連する上位義務は`ERB-IT-014`／`ERB-ST-009`であり、UT成功は実環境観測・停止・回復・Authorityの成立を代替しない。
 
@@ -303,7 +321,7 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [executor](../../../06_Architecture/Details/executor/01_Architecture.md) | Provider単段の準備・取消・終了待ちと元通知／元結果の相関。`ERB-IT-002`／`ERB-IT-004`へ移管後反例を接続する。 |
+| [executor](../../../06_Architecture/Details/executor/01_Architecture.md) | Provider単段の準備・取消・終了待ちと固定callback／終了結果の相関。`ERB-IT-002`／`ERB-IT-004`へ移管後反例を接続する。 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復。7.5.1の未改造公式CLI・Docker隔離は`ERB-IT-031`で配布と公開起動を確認する。通知と最終結果は`ERB-UT-023`、同11節を含む公開CLIの取消・親Process喪失は`ERB-ST-030`で確認する。旧内部改造の024～029は現行の要求集合から外す。 |
 | [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | Provider構造化結果の純粋解析・正規化／拒否を`ERB-UT-032`、Subscription限定の方針記述を`ERB-UT-033`へ接続する。実CLI、課金、Process、取消、cleanupは別の義務である。 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |

@@ -5,7 +5,6 @@
  */
 import * as runtimeStore from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { verifyRuntimeOwnedDockerUnissuedNotice } from "./provider-executor.ts";
 import { borrowRuntimeOwnedCoordinatorStateRepository } from "./operation.ts";
 
 /**
@@ -68,21 +67,6 @@ export function saveRuntimeOwnedCoordinatorOperationStart(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -126,21 +110,6 @@ export function readRuntimeOwnedCoordinatorStateSnapshot(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -184,21 +153,6 @@ export function readRuntimeOwnedCoordinatorResourceRequests(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -242,21 +196,6 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -300,21 +239,6 @@ export function saveRuntimeOwnedCoordinatorHostCleanupPreparation(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -358,21 +282,6 @@ export function checkpointRuntimeOwnedCoordinatorRestart(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -416,21 +325,6 @@ export function checkpointRuntimeOwnedCoordinatorResource(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -474,21 +368,6 @@ export function checkpointRuntimeOwnedCoordinatorCleanup(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -532,21 +411,6 @@ export function checkpointRuntimeOwnedCoordinatorHost(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -590,21 +454,6 @@ export function checkpointRuntimeOwnedCoordinatorLifecycle(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );
@@ -648,21 +497,6 @@ export function checkpointRuntimeOwnedCoordinatorReferences(
             }
           : null;
       },
-      verifyNotIssued: (
-        notice: unknown,
-        recovery: unknown,
-        purpose: string,
-        operationId: unknown,
-        recoveryId: string,
-      ) =>
-        verifyRuntimeOwnedDockerUnissuedNotice(
-          notice,
-          recovery,
-          managementCapability,
-          purpose,
-          operationId,
-          recoveryId,
-        ),
     },
     ...args,
   );

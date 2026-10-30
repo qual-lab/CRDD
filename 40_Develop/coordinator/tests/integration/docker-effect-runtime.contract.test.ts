@@ -9,9 +9,9 @@
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import { createProviderDockerRuntimeAdapterCandidate } from "../../../executor/src/index.ts";
+import { createAttemptPreparation } from "../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { hashProviderAdviceCommand } from "../../../executor/src/index.ts";
+import { hashAdviceCommand } from "../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
@@ -47,12 +47,12 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import { verifyRuntimeOwnedDockerCleanupOutcome } from "../../src/execution/provider-executor.ts";
 import {
-  bindDockerIsolationRuntime,
-  describeDockerEffectRuntimeContract,
+  bindIsolationRuntime,
+  describeIsolationContract,
 } from "../../../executor/src/index.ts";
-import { describeAdviceResultSchema } from "../../../executor/src/index.ts";
+import { describeAdviceResultSchema } from "../../../domain-model/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../executor/src/index.ts";
+import { bindAdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -100,7 +100,7 @@ function createPlanFixture(
   const authorityUseCapability = Object.freeze({});
   const authorityControlCapability = Object.freeze({});
   let randomValue = 0;
-  const adapter = createProviderDockerRuntimeAdapterCandidate(provider, {
+  const adapter = createAttemptPreparation(provider, {
     verifyOperationMount: () =>
       Object.freeze({
         operationId,
@@ -175,7 +175,7 @@ function createPlanFixture(
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
-      const providerCommand = bindProviderAdviceCommand(
+      const providerCommand = bindAdviceCommand(
         planProviderExecution(
           {
             provider: {
@@ -203,7 +203,7 @@ function createPlanFixture(
         ).plan ?? assert.fail("provider_execution_plan_not_ready"),
       );
       return Object.freeze({
-        contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
+        contract: "crdd-executor/advice-input",
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId,
@@ -212,11 +212,12 @@ function createPlanFixture(
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
         commandHash:
-          hashProviderAdviceCommand(providerCommand) ??
+          hashAdviceCommand(providerCommand) ??
           assert.fail("invalid_command_fixture"),
         packetHash: "5".repeat(64),
         providerCommand,
         providerPrompt: "Give advice from the supplied projection.",
+        allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,
         workspaceMounted: false as const,
         toolsAllowed: false as const,
@@ -236,30 +237,39 @@ function createPlanFixture(
     revokeProviderAuthority: () => Object.freeze({ status: "revoked" }),
   });
   const prepared = isAdvice
-    ? adapter.prepareAdvice(
-        managementCapability,
-        mountCapability,
-        mountAuthorizationCapability,
-        selectionUseCapability,
-        Object.freeze({}),
-        Object.freeze({}),
-      )
+    ? adapter.prepare({
+        purpose: "advice",
+        managementCapability: managementCapability,
+        mountCapability: mountCapability,
+        mountAuthorizationCapability: mountAuthorizationCapability,
+        selectionUseCapability: selectionUseCapability,
+        recoveryCorrelationId: null,
+        consumer: "workbench",
+        packetCapability: Object.freeze({}),
+        packetOwnerCapability: Object.freeze({}),
+      })
     : taskRole
-      ? adapter.prepareTask(
-          managementCapability,
-          mountCapability,
-          mountAuthorizationCapability,
-          selectionUseCapability,
-          Object.freeze({}),
-        )
-      : adapter.prepare(
-          managementCapability,
-          mountCapability,
-          mountAuthorizationCapability,
-          selectionUseCapability,
-        );
+      ? adapter.prepare({
+          purpose: "task",
+          managementCapability: managementCapability,
+          mountCapability: mountCapability,
+          mountAuthorizationCapability: mountAuthorizationCapability,
+          selectionUseCapability: selectionUseCapability,
+          recoveryCorrelationId: null,
+          consumer: "coordinator_cli",
+          packetCapability: Object.freeze({}),
+        })
+      : adapter.prepare({
+          purpose: "probe",
+          managementCapability: managementCapability,
+          mountCapability: mountCapability,
+          mountAuthorizationCapability: mountAuthorizationCapability,
+          selectionUseCapability: selectionUseCapability,
+          recoveryCorrelationId: null,
+          consumer: "coordinator_cli",
+        });
   assert.equal(prepared.status, "prepared");
-  const plan = adapter.consumeForProcessController(
+  const plan = adapter.consume(
     prepared.preparedCapability,
     managementCapability,
   );
@@ -296,7 +306,7 @@ function createEffectFixture(
   const invocations: Array<{ argv: readonly string[]; stdin: string | null }> =
     [];
   let reject = false;
-  const runtime = bindDockerIsolationRuntime(
+  const runtime = bindIsolationRuntime(
     {
       startExecution: () => {
         throw new Error("fixture_session_unused");
@@ -384,7 +394,7 @@ test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", a
   let cleanups = 0;
   let original: ReturnType<typeof startDockerCommandSessionCandidate> | null =
     null;
-  const runtime = bindDockerIsolationRuntime(
+  const runtime = bindIsolationRuntime(
     {
       startExecution: (input, suppliedRecovery, owner, suppliedHooks) => {
         connections++;
@@ -465,7 +475,7 @@ test("元清掃結果と回復Ownerを投影し下位例外を成功へ補完し
   let cleanupInput: DockerIsolationRuntimePlan | null = null;
   let verification: unknown[] = [];
   let fail = false;
-  const runtime = bindDockerIsolationRuntime(
+  const runtime = bindIsolationRuntime(
     {
       startExecution: () => {
         throw new Error("fixture_session_unused");
@@ -659,7 +669,7 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
       },
       verifyCleanupOutcome: () => null,
     };
-    const runtime = bindDockerIsolationRuntime(
+    const runtime = bindIsolationRuntime(
       lower,
       borrowOwnedDockerExecutionPaths,
     );
@@ -712,7 +722,7 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
       assert.equal(arrivals.length, count);
     }
     assert.deepEqual(calls, baseline);
-    const mutant = bindDockerIsolationRuntime(lower, () => cached);
+    const mutant = bindIsolationRuntime(lower, () => cached);
     for (const command of commands) {
       const before = { ...calls };
       const count = arrivals.length;
@@ -871,7 +881,7 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
         },
         verifyCleanupOutcome: () => null,
       };
-      const runtime = bindDockerIsolationRuntime(
+      const runtime = bindIsolationRuntime(
         lower,
         host.borrowOwnedDockerExecutionPaths,
       );
@@ -899,7 +909,7 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
         assert.equal(afterMarker[key], beforeMarker[key]);
       }
       assert.deepEqual(fs.readFileSync(marker), markerBytes);
-      const mutant = bindDockerIsolationRuntime(lower, () => cached);
+      const mutant = bindIsolationRuntime(lower, () => cached);
       for (const command of commands) {
         const count = arrivals.length;
         await mutant.startCommand(command, plan, management).wait(1);
@@ -1213,7 +1223,7 @@ test("Taskの上限改変と同じ上限になる作業量の差替えを拒否�
  * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Docker Effect contractは発行者Trustと任意command禁止を公開する", () => {
-  const contract = describeDockerEffectRuntimeContract();
+  const contract = describeIsolationContract();
   assert.equal(contract.contractRevision, 10);
   assert.equal(contract.dockerCli.exactVersionRequired, false);
   assert.equal(contract.dockerCli.exactHashRequiredAcrossOperations, false);

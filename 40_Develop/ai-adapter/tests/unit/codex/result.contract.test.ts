@@ -17,6 +17,54 @@ import {
   parseProviderResult,
 } from "../../../src/index.ts";
 
+/**
+ * 共通入口が両ProviderのProbe解析を同じ結果で返す。
+ * @responsibility ExecutorへProvider分岐を再定義させない。
+ * @trace ERB-UT-032
+ * @precondition 固定のboolean結果とClaude Envelopeのみ。
+ * @stimulus 両Providerの正常値・不正値・用途違いを解析する。
+ * @observation 成否・正規値・生出力の非公開。
+ * @oracle 既存Provider別解析と同じ受理条件を使う。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary 共通Provider解析入口。
+ */
+test("共通Probe解析はCodexとClaudeの差を吸収する", () => {
+  const output = {
+    codex: JSON.stringify({ status: true }),
+    claude: JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      num_turns: 1,
+      total_cost_usd: 0,
+      structured_output: { status: true },
+    }),
+  };
+  for (const provider of ["codex", "claude"] as const) {
+    const parsed = parseProviderResult({
+      provider,
+      purpose: "probe",
+      raw: output[provider],
+    });
+    assert.equal(parsed.status, "confirmed");
+    assert.deepEqual(parsed.value, { status: true });
+    assert.equal(parsed.rawOutputReported, false);
+    assert.equal(
+      parseProviderResult({ provider, purpose: "probe", raw: "{}" }).status,
+      "blocked",
+    );
+    assert.equal(
+      parseProviderResult({
+        provider,
+        purpose: "probe",
+        raw: output[provider],
+        taskRole: "executor",
+      } as unknown as Parameters<typeof parseProviderResult>[0]).status,
+      "blocked",
+    );
+  }
+});
+
 /** 内部エラー、ツール未使用、コマンド失敗を件数だけで区別し、採否は変えない。
  * @trace ERB-UT-032
  * @boundary N/A: メモリ内の合成JSONLだけを解析する。

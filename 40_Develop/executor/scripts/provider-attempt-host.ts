@@ -17,14 +17,16 @@ import {
 import type { acquireNamedPipeKernelLock } from "../../platform-access/src/index.ts";
 import type { DockerResourceReceipts } from "../../docker-isolation/src/index.ts";
 import {
-  createProviderExecutor,
-  planIdentity,
-  validatePlan,
+  createExecutor,
   isPrimaryFailureDiagnostic,
-  type ProviderAttemptDiagnosticNotice,
-  type PreparedPlan,
-  type ProviderExecutorHost,
+  type AttemptDiagnosticNotice,
+  type ExecutorHost,
 } from "../src/index.ts";
+import {
+  planIdentity,
+  resolveValidatedPlan,
+} from "../src/attempt/isolation.ts";
+import type { PreparedPlan } from "../src/attempt/types.ts";
 
 /**
  * 既存同期排他を保持した一回限りの試験Hostを組み立てる。
@@ -76,7 +78,7 @@ export function createStandaloneProviderAttemptHost(
   const identity = fs.statSync(root, { bigint: true });
   const planHash = planIdentity(plan);
   const temporary = path.join(root, "tmp");
-  if (!validatePlan(plan, temporary) || !lease.assertLive())
+  if (!resolveValidatedPlan(plan, temporary) || !lease.assertLive())
     throw new Error("standalone_host_plan_or_lease_invalid");
   const management = {},
     prepared = {},
@@ -105,19 +107,22 @@ export function createStandaloneProviderAttemptHost(
     authorityConsumed = false,
     opened = false;
   let terminalAttempted = false;
+  let terminalResult: object | null = null;
+  let terminalObservation:
+    | Parameters<NonNullable<ExecutorHost["recordTerminalObservation"]>>[2]
+    | null = null;
   let recoverySaveFailed = false;
   let releaseAttempted = false,
     released = false,
     closed = false;
-  let absence: Parameters<
-    NonNullable<ProviderExecutorHost["recordDockerAbsence"]>
-  >[1] = null;
+  let absence: Parameters<NonNullable<ExecutorHost["recordDockerAbsence"]>>[1] =
+    null;
   let mountResult: Readonly<{ status: string }> | null = null;
-  let runtime: ReturnType<typeof createProviderExecutor>;
+  let runtime: ReturnType<typeof createExecutor>;
   let diagnostic: Readonly<
     Pick<
       Extract<
-        ProviderAttemptDiagnosticNotice,
+        AttemptDiagnosticNotice,
         { event: "coordinator_provider_boundary_settled" }
       >,
       | "primaryFailure"
@@ -183,7 +188,7 @@ export function createStandaloneProviderAttemptHost(
       throw new Error("standalone_host_save_unconfirmed");
     return true;
   }
-  const host: ProviderExecutorHost = {
+  const host: ExecutorHost = {
     reportProviderBoundaryDiagnostic: async (notice) => {
       if (
         notice.event !== "coordinator_provider_boundary_settled" ||
@@ -313,35 +318,26 @@ export function createStandaloneProviderAttemptHost(
       receipts[key].dockerId = id;
       return true;
     },
-    recordProviderSubmission: (r, notice) =>
-      r === recovery &&
-      runtime.verifyProviderSubmissionNotice(
-        notice,
-        recovery,
-        management,
-        plan.operationId,
-        recoveryId,
-      ) &&
-      save("provider_submission"),
-    recordResourceNotIssued: (r, purpose, notice) => {
-      if (
-        r !== recovery ||
-        !Object.hasOwn(expected, purpose) ||
-        !runtime.verifyUnissuedNotice(
-          notice,
-          recovery,
-          management,
-          purpose,
-          plan.operationId,
-          recoveryId,
-        )
-      )
-        return false;
+    recordProviderSubmission: (r) =>
+      r === recovery && save("provider_submission"),
+    recordResourceNotIssued: (r, purpose) => {
+      if (r !== recovery || !Object.hasOwn(expected, purpose)) return false;
       const key = purpose as keyof DockerResourceReceipts;
       if (receipts[key].dockerId !== null) return false;
       save("resource_not_issued", { purpose });
       receipts[key].submitted = false;
       return true;
+    },
+    recordTerminalObservation: (r, result, observation) => {
+      if (
+        r !== recovery ||
+        observation.operationId !== plan.operationId ||
+        observation.recoveryId !== recoveryId ||
+        terminalResult !== null
+      )
+        throw Error("terminal_delivery_mismatch");
+      terminalResult = result;
+      terminalObservation = observation;
     },
     recordDockerAbsence: (r, observed) => {
       if (
@@ -422,7 +418,7 @@ export function createStandaloneProviderAttemptHost(
       released &&
       current(false),
   };
-  runtime = createProviderExecutor(host);
+  runtime = createExecutor(host);
   return Object.freeze({
     runtime,
     prepared,
@@ -430,6 +426,7 @@ export function createStandaloneProviderAttemptHost(
     recovery,
     recoveryId,
     readDiagnostic: () => diagnostic,
+    readTerminal: () => terminalObservation,
     start: () =>
       runtime.start(
         prepared,
@@ -441,12 +438,7 @@ export function createStandaloneProviderAttemptHost(
       result: Awaited<ReturnType<typeof runtime.start>["completion"]>,
     ) => {
       if (!result) return false;
-      const terminal = runtime.borrowTerminalObservations(
-        result,
-        management,
-        plan.operationId,
-        recoveryId,
-      );
+      const terminal = terminalResult === result ? terminalObservation : null;
       if (
         !terminal ||
         terminal.resources !== absence ||

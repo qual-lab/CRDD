@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
-import { normalizeProviderTaskStructuredResult } from "../../src/index.ts";
+import { normalizeTaskResult } from "../../src/result/task.ts";
 import { parseProviderResult } from "../../../ai-adapter/src/index.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 
@@ -111,9 +111,7 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
     "display-throw",
   ] as const) {
     let normalizations = 0;
-    const returned = normalizeProviderTaskStructuredResult(
-      ...args("synthetic"),
-    );
+    const returned = normalizeTaskResult(...args("synthetic"));
     const observer = createTaskSummaryObservation({
       normalize: () => {
         normalizations++;
@@ -290,7 +288,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
         const resources=[['create_egress_network',plan.egressNetworkName],['create_internal_network',plan.internalNetworkName],['create_provider',plan.providerContainerName],['create_proxy',plan.proxyContainerName],['create_subscription_auth_probe',plan.authContainerName]].map(([purpose,plannedResourceName])=>({purpose,plannedResourceName,dockerId:null,observation:'absent'}));
         const output=provider==='codex'?${JSON.stringify(raw("synthetic"))}:JSON.stringify({type:'result',subtype:'success',is_error:false,num_turns:1,total_cost_usd:0,result:JSON.stringify({decision:'approved',summary:'synthetic',findings:[]})});
         const calls=[];let cleanups=0;
-        const runtime=module.createIsolatedDockerProcessControllerCandidate({
+        const runtime=module.createExecutorTestCandidate({
           effectExecutorAvailable:true,verifyRevision:()=>true,consumePreparedPlan:(p,m)=>p===prepared&&m===management?plan:null,
           consumeProviderAuthority:()=>({operationId:plan.operationId,provider,providerHomeMountGrantRef:plan.grantRef,runtimeAuthorityIssued:true,providerEffectAllowed:true}),
           beginRecovery:()=>({status:'ready',recoveryId,recoveryCapability:recovery}),verifyRecoveryBinding:()=>true,

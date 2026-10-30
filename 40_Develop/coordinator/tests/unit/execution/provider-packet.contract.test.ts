@@ -9,20 +9,20 @@
  * @boundary Unit TestとPacket Runtimeの公開APIの間。
  */
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../executor/src/index.ts";
+import { describeAdviceResultSchema } from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { describe, it } from "node:test";
-import type { ProviderAdviceCommand } from "../../../../executor/src/index.ts";
+import type { AdviceCommand } from "../../../../docker-isolation/src/index.ts";
 import {
   consumeRuntimeOwnedProviderAdvicePacket,
   describeProviderAdvicePacketContract,
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,
 } from "../../../src/execution/preparation.ts";
-import { hashProviderAdviceCommand } from "../../../../executor/src/index.ts";
+import { hashAdviceCommand } from "../../../../docker-isolation/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../../executor/src/index.ts";
+import { bindAdviceCommand } from "../../../../docker-isolation/src/index.ts";
 
 const sha = "a".repeat(64);
 
@@ -46,7 +46,8 @@ function input() {
     taskHash: sha,
     projectionHash: "b".repeat(64),
     providerPrompt: "Read the bounded projection and return structured advice.",
-    providerCommand: bindProviderAdviceCommand(
+    allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
+    providerCommand: bindAdviceCommand(
       planProviderExecution(
         {
           provider: "codex",
@@ -81,12 +82,12 @@ describe("workbench ai advice runtime packet", () => {
   it("issues and consumes an exact packet only once", () => {
     const command = input().providerCommand;
     assert.notEqual(
-      hashProviderAdviceCommand(command),
-      hashProviderAdviceCommand({ ...command, identifierKind: "alias" }),
+      hashAdviceCommand(command),
+      hashAdviceCommand({ ...command, identifierKind: "alias" }),
     );
     assert.notEqual(
-      hashProviderAdviceCommand(command),
-      hashProviderAdviceCommand({
+      hashAdviceCommand(command),
+      hashAdviceCommand({
         ...command,
         catalogIdentity: "c".repeat(64),
       }),
@@ -197,7 +198,7 @@ describe("workbench ai advice runtime packet", () => {
       providerCommand: {
         ...current.providerCommand,
         workspaceMountRequired: true,
-      } as unknown as ProviderAdviceCommand,
+      } as unknown as AdviceCommand,
     });
     assert.equal(result.status, "blocked");
     assert.equal(result.providerEffectIssued, false);
@@ -213,7 +214,7 @@ describe("workbench ai advice runtime packet", () => {
         providerCommand: {
           ...current.providerCommand,
           ...difference,
-        } as unknown as ProviderAdviceCommand,
+        } as unknown as AdviceCommand,
       });
       assert.equal(invalid.status, "blocked");
       assert.equal(invalid.ownerCapability, null);
@@ -243,7 +244,7 @@ describe("workbench ai advice runtime packet", () => {
       ...current.providerCommand,
       argv,
       environment,
-    } as ProviderAdviceCommand;
+    } as AdviceCommand;
     const issued = issueRuntimeOwnedProviderAdvicePacket({
       ...current,
       providerCommand: mutable,
@@ -282,7 +283,7 @@ describe("workbench ai advice runtime packet", () => {
    */
   it("publishes a closed non-sharing contract", () => {
     assert.deepEqual(describeProviderAdvicePacketContract(), {
-      contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
+      contract: "crdd-executor/advice-input",
       contractRevision: 2,
       maximumPromptBytes: 524288,
       singleUse: true,

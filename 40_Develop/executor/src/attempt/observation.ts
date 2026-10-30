@@ -1,14 +1,20 @@
 /**
- * 同じ試行の通知と終端objectを相関する。
+ * 同じ試行の非秘密診断を固定callbackへ通知する。
  * @packageDocumentation
- * @responsibility 私有二WeakMapを同じ実行Runtimeだけが更新・照合する。
+ * @responsibility 診断の投影と受動的な通知を扱い、通知証拠Mapを持たない。
  * @trace ARCH-000008
  */
-import type { DockerResourceCleanupObservation } from "../../../docker-isolation/src/index.ts";
+import { projectDockerExecutionBoundary } from "../../../docker-isolation/src/index.ts";
+import { projectCodexExecutionBoundary } from "../../../ai-adapter/src/index.ts";
+import type {
+  RuntimeDependencies,
+  ProviderAttemptPlan as PreparedPlan,
+} from "./types.ts";
 import type {
   PrimaryFailureDiagnostic,
   RecoveryStartFailureDiagnostic,
 } from "../result/types.ts";
+
 /**
  * 一試行の非秘密診断を表す。
  * @responsibility 構成・回復開始失敗・終了観測を相関した閉じた通知へ限定する。
@@ -19,7 +25,7 @@ import type {
  * @security 生出力・Command本文・認証値を含めない。
  * @compatibility 元の通知名・相関field・三値の意味を維持する。
  */
-export type ProviderAttemptDiagnosticNotice =
+export type AttemptDiagnosticNotice =
   | Readonly<{
       event: "coordinator_provider_recovery_start_failed";
       taskRole: "executor" | "reviewer" | null;
@@ -81,13 +87,13 @@ export type ProviderAttemptDiagnosticNotice =
  *
  * @responsibility Provider Process Started NoticeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @shape ProviderProcessStartedNoticeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ProviderProcessStartedNoticeで宣言した値と責務の対応を維持する。
- * @boundary N/A: ProviderProcessStartedNoticeの宣言は外部境界を開かない。
- * @security ProviderProcessStartedNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ProviderProcessStartedNoticeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape ProcessStartedNoticeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ProcessStartedNoticeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ProcessStartedNoticeの宣言は外部境界を開かない。
+ * @security ProcessStartedNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ProcessStartedNoticeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type ProviderProcessStartedNotice = Readonly<{
+export type ProcessStartedNotice = Readonly<{
   event: "coordinator_provider_process_started";
   taskRole: "executor" | "reviewer" | null;
   provider: "codex" | "claude";
@@ -95,178 +101,75 @@ export type ProviderProcessStartedNotice = Readonly<{
 }>;
 
 /**
- * 私有観測の値契約。
- * @responsibility 二つの既存WeakMapの値契約を維持する。
- * @trace ARCH-000008
- * @shape 元object・Owner・操作・回復参照の相関。
- * @invariant 永続化・復元しない。
- * @boundary N/A: 内部型のみ。
- * @security MapをRoot公開しない。
- * @compatibility 本番と候補は共有しない。
- */
-type ObservationState = Readonly<{
-  terminalObservations: WeakMap<
-    object,
-    Readonly<{
-      managementCapability: object;
-      operationId: string;
-      recoveryId: string;
-      resources: readonly DockerResourceCleanupObservation[];
-      primaryFailure: PrimaryFailureDiagnostic | null;
-      mountLeaseReleased: boolean;
-      recoveryCompleted: boolean;
-      homeLeaseReleased: boolean;
-    }>
-  >;
-  submissionNotices: WeakMap<
-    object,
-    Readonly<{
-      managementCapability: unknown;
-      recoveryCapability: object;
-      operationId: string;
-      recoveryId: string;
-      purpose: string;
-      kind: "resource_not_issued" | "provider_submission";
-    }>
-  >;
-}>;
-
-/**
- * 同じ完了結果へ結合した終端観測を借用する。
+ * provider Boundary Configurationを決定する。
  *
- * @responsibility Controller終了後も同じ操作・回復参照の非Authority観測を保持する。
+ * @responsibility provider Boundary Configurationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
- * @input state、result、managementCapability、operationId、recoveryId: Ownerと照合対象。
- * @returns 資源・Mount・回復の観測、またはnull。
- * @precondition 同じControllerの元の完了結果と操作相関を渡す。
- * @postcondition コピー結果と別操作・別Ownerの借用を拒否する。
- * @effect N/A: 私有WeakMapの読取りだけを行う。
- * @failure 未登録・相関不一致ではnullを返す。
- * @invariant 借用はProvider起動、Host清掃、現在状態除去の許可を生成しない。
- * @boundary 完了結果から同じ操作の終端保存への搬送。
- * @security 管理Capabilityを返却観測へ複製しない。
- * @concurrency N/A: 同期照合であり外部待機を持たない。
+ * @input plan: PreparedPlan
+ * @returns Extract< ProviderBoundaryDiagnosticNotice, { event: "coordinator_provider_boundary_configured" } >を返す。
+ * @precondition 「plan: PreparedPlan」がproviderBoundaryConfigurationの入力契約を満たす。
+ * @postcondition providerBoundaryConfigurationの責務を完了した結果だけを返す。
+ * @effect N/A: providerBoundaryConfigurationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerBoundaryConfigurationは独自の失敗分岐を所有しない。
+ * @invariant providerBoundaryConfigurationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security providerBoundaryConfigurationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: providerBoundaryConfigurationは共有非同期状態を持たない同期処理である。
  */
-function borrowTerminalObservations(
-  state: ObservationState,
-  result: unknown,
-  managementCapability: unknown,
-  operationId: unknown,
-  recoveryId: unknown,
-) {
-  if (!result || typeof result !== "object") return null;
-  const observation = state.terminalObservations.get(result);
-  if (
-    !observation ||
-    observation.managementCapability !== managementCapability ||
-    observation.operationId !== operationId ||
-    observation.recoveryId !== recoveryId
-  )
-    return null;
-  return Object.freeze({
-    resources: observation.resources,
-    primaryFailure: observation.primaryFailure,
-    mountLeaseReleased: observation.mountLeaseReleased,
-    recoveryCompleted: observation.recoveryCompleted,
-    homeLeaseReleased: observation.homeLeaseReleased,
-  });
-}
-
-/**
- * 作成予定後の取消が実要求前に確定した元通知を照合する。
- * @responsibility 同期保存callback中だけ有効な未発行根拠の出自を確認する。
- * @trace ARCH-000008
- * @input state: 実行Owner、notice: 元通知、recoveryCapability: 元回復Owner、managementCapability: 元操作Owner、purpose: 資源用途、operationId: 実操作、recoveryId: exact参照。
- * @returns 全結合と通知の有効期間が一致する場合だけtrue。
- * @precondition 要求予定保存後、startCommand呼出し前の取消をControllerが確認している。
- * @postcondition コピー、別Owner、別用途、保存callback後の再利用を拒否する。
- * @effect N/A: Process内の元通知照合だけ。
- * @failure 登録欠落または結合不一致はfalse。
- * @invariant 要求呼出し後の例外・handle欠測を未発行根拠にしない。
- * @boundary Controllerの同期待機なし処理と現在状態保存Owner。
- * @security 通知は新しい要求・削除・回復Authorityを発行しない。
- * @concurrency 元保存callbackの終了時に失効し、別Processで再構成しない。
- */
-function verifyUnissuedNotice(
-  state: ObservationState,
-  notice: unknown,
-  recoveryCapability: unknown,
-  managementCapability: unknown,
-  purpose: unknown,
-  operationId: unknown,
-  recoveryId: unknown,
-  kind: "resource_not_issued" | "provider_submission" = "resource_not_issued",
-) {
-  const value =
-    notice && typeof notice === "object"
-      ? state.submissionNotices.get(notice)
-      : null;
-  return (
-    !!value &&
-    value.kind === kind &&
-    value.recoveryCapability === recoveryCapability &&
-    value.managementCapability === managementCapability &&
-    value.purpose === purpose &&
-    value.operationId === operationId &&
-    value.recoveryId === recoveryId
+export function providerBoundaryConfiguration(
+  plan: PreparedPlan,
+): Extract<
+  AttemptDiagnosticNotice,
+  { event: "coordinator_provider_boundary_configured" }
+> {
+  const docker = projectDockerExecutionBoundary(
+    plan.commands,
+    plan.providerImageDigest,
   );
+  const codex =
+    plan.provider === "codex"
+      ? projectCodexExecutionBoundary(docker?.payloadArgv ?? [])
+      : null;
+  return Object.freeze({
+    event: "coordinator_provider_boundary_configured" as const,
+    taskRole: plan.taskRole,
+    provider: plan.provider,
+    operationId: plan.operationId,
+    approvalModeConfigured: codex?.approvalModeConfigured ?? "not_applicable",
+    sandboxModeConfigured: codex?.sandboxModeConfigured ?? "not_applicable",
+    workspaceMountModeConfigured: plan.workspaceMountMode,
+    networkPolicyHash: plan.networkPolicy?.policyHash ?? null,
+    rootFilesystemReadOnlyConfigured:
+      docker?.rootFilesystemReadOnlyConfigured ?? false,
+    nonRootUserConfigured: docker?.nonRootUserConfigured ?? false,
+    workdirConfigured: docker?.workdirConfigured ?? false,
+  });
 }
 
 /**
- * 本番または一候補だけの観測Ownerを作成する。
- * @responsibility 二WeakMapを私有に保持し、登録・失効・照合だけを提供する。
+ * Passive Boundary Diagnosticを診断結果として報告する。
+ *
+ * @responsibility Passive Boundary Diagnosticの公開field、相関Identity、機密を含めない結果境界を所有する。
  * @trace ARCH-000008
- * @input N/A: 外部入力なし。
- * @returns 独立した観測Owner。
- * @precondition Controller生成時に呼び出す。
- * @postcondition 別Ownerの元objectを拒否する。
- * @effect Process内の二WeakMapを生成する。
- * @failure N/A: 外部I/Oなし。
- * @invariant 通知は同期callback後に失効する。
- * @boundary Controllerと保存Owner。
- * @security Mapや新しいAuthorityを公開しない。
- * @concurrency 同期操作だけを提供する。
+ * @input dependencies: 既存の受動Reporterだけを持つ元依存、notice: 非秘密の元通知。
+ * @returns N/A: reportPassiveBoundaryDiagnosticは戻り値を返さない。
+ * @precondition 通知の発行時点と操作の相関はControllerが確定する。
+ * @postcondition reportPassiveBoundaryDiagnosticの責務を完了して呼出し元へ制御を戻す。
+ * @effect 既存Reporterを元の依存objectへの束縛で呼ぶ。状態・Authority・資源は変更しない。
+ * @failure 同期例外・Promise拒否を診断だけに閉じ、実行結果へ伝播しない。
+ * @invariant reportPassiveBoundaryDiagnosticは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security reportPassiveBoundaryDiagnosticはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: reportPassiveBoundaryDiagnosticは共有非同期状態を持たない同期処理である。
  */
-export function createProviderObservationOwner() {
-  const state: ObservationState = {
-    terminalObservations: new WeakMap(),
-    submissionNotices: new WeakMap(),
-  };
-  return Object.freeze({
-    registerTerminal: (
-      result: object,
-      value: NonNullable<
-        ReturnType<ObservationState["terminalObservations"]["get"]>
-      >,
-    ) => {
-      state.terminalObservations.set(result, value);
-    },
-    registerSubmission: (
-      notice: object,
-      value: NonNullable<
-        ReturnType<ObservationState["submissionNotices"]["get"]>
-      >,
-    ) => {
-      state.submissionNotices.set(notice, value);
-    },
-    revokeSubmission: (notice: object) => {
-      state.submissionNotices.delete(notice);
-    },
-    borrowTerminalObservations: (
-      ...args: Parameters<typeof borrowTerminalObservations> extends [
-        ObservationState,
-        ...infer Rest,
-      ]
-        ? Rest
-        : never
-    ) => borrowTerminalObservations(state, ...args),
-    verifyUnissuedNotice: (
-      ...args: Parameters<typeof verifyUnissuedNotice> extends [
-        ObservationState,
-        ...infer Rest,
-      ]
-        ? Rest
-        : never
-    ) => verifyUnissuedNotice(state, ...args),
-  });
+export function reportPassiveBoundaryDiagnostic(
+  dependencies: Pick<RuntimeDependencies, "reportProviderBoundaryDiagnostic">,
+  notice: AttemptDiagnosticNotice,
+) {
+  try {
+    const pending = dependencies.reportProviderBoundaryDiagnostic?.(notice);
+    if (pending) void pending.catch(() => {});
+  } catch {
+    // Diagnostics cannot grant authority or change the operation result.
+  }
 }

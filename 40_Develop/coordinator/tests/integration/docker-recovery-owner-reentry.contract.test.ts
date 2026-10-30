@@ -2902,8 +2902,6 @@ for (const { repeatCount, retained } of [
       const hostBefore =
         hostRuntime.borrowOwnedHostRecoverySnapshot(management);
       const observation = Object.freeze({});
-      const submissionNotice = Object.freeze({});
-      let submissionVerifications = 0;
       const proofs = new Map<
         object,
         {
@@ -2931,7 +2929,7 @@ for (const { repeatCount, retained } of [
         purpose,
         plannedResourceName,
         dockerId: null,
-        observation: "not_requested",
+        observation: "not_requested" as const,
       }));
       const effects = await import("../../src/execution/controller.ts");
       substitutions.push(
@@ -2995,47 +2993,6 @@ for (const { repeatCount, retained } of [
           {
             namedExports: {
               ...controller,
-              verifyRuntimeOwnedDockerProviderSubmissionNotice: (
-                notice: unknown,
-                cap: unknown,
-                owner: unknown,
-                operationId: unknown,
-                id: unknown,
-              ) => {
-                const proof =
-                  cap && typeof cap === "object" ? proofs.get(cap) : null;
-                if (
-                  notice !== submissionNotice ||
-                  !proof ||
-                  owner !== management ||
-                  operationId !== plan.operationId ||
-                  id !== proof.recoveryId
-                )
-                  return false;
-                submissionVerifications++;
-                return true;
-              },
-              borrowRuntimeOwnedDockerTerminalObservations: (
-                value: unknown,
-                owner: unknown,
-                operationId: unknown,
-                id: unknown,
-              ) =>
-                [...proofs.values()].some(
-                  (proof) =>
-                    value === proof.dockerResult &&
-                    owner === management &&
-                    operationId === plan.operationId &&
-                    id === proof.recoveryId,
-                )
-                  ? {
-                      resources,
-                      primaryFailure: null,
-                      mountLeaseReleased: true,
-                      homeLeaseReleased: true,
-                      recoveryCompleted: true,
-                    }
-                  : null,
             },
           },
         ),
@@ -3310,16 +3267,11 @@ for (const { repeatCount, retained } of [
         );
         assert.equal(completedOperation.lease, "released");
         assert.equal(completedOperation.execution.ownerEffect, "disabled");
-        const submissionBefore = fs.readFileSync(statePath),
-          verificationBefore = submissionVerifications;
+        const submissionBefore = fs.readFileSync(statePath);
         assert.equal(
-          ownerRuntime.recordRuntimeOwnedDockerProviderSubmission(
-            capability,
-            submissionNotice,
-          ),
+          ownerRuntime.recordRuntimeOwnedDockerProviderSubmission(capability),
           false,
         );
-        assert.equal(submissionVerifications, verificationBefore + 1);
         assert.deepEqual(fs.readFileSync(statePath), submissionBefore);
         assert.deepEqual(
           afterComplete.operations.filter(
@@ -3438,6 +3390,37 @@ for (const { repeatCount, retained } of [
         ]);
       }
       for (const [capability, proof] of [...proofs].reverse()) {
+        const terminalObservation = Object.freeze({
+          operationId: plan.operationId,
+          recoveryId: proof.recoveryId,
+          resources,
+          primaryFailure: null,
+          mountLeaseReleased: true,
+          homeLeaseReleased: true,
+          recoveryCompleted: true,
+        });
+        ownerRuntime.recordRuntimeOwnedDockerTerminalObservation(
+          capability,
+          proof.dockerResult,
+          terminalObservation,
+        );
+        const terminalOwner = ownerRuntime;
+        assert.doesNotThrow(() =>
+          terminalOwner.recordRuntimeOwnedDockerTerminalObservation(
+            capability,
+            proof.dockerResult,
+            terminalObservation,
+          ),
+        );
+        assert.throws(
+          () =>
+            terminalOwner.recordRuntimeOwnedDockerTerminalObservation(
+              capability,
+              proof.dockerResult,
+              { ...terminalObservation, homeLeaseReleased: false },
+            ),
+          /executor_terminal_delivery_mismatch/,
+        );
         const beforeReceipt = fs.readFileSync(statePath);
         const before = JSON.parse(beforeReceipt.toString("utf8"));
         assert.equal(
@@ -4205,27 +4188,18 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     const begun = runtime.beginRuntimeOwnedDockerRecovery(plan, management);
     assert.ok(begun && "recoveryCapability" in begun);
     const capability = begun.recoveryCapability;
+    assert.equal(runtime.recordRuntimeOwnedDockerProviderSubmission({}), false);
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission({}, providerNotice),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       false,
     );
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(capability, {}),
-      false,
-    );
-    assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       false,
     );
     lifecycleFails = false;
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       true,
     );
     assert.deepEqual(savedLifecycle, {
@@ -4244,19 +4218,13 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     });
     lifecycleConfirmed = false;
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       false,
     );
     lifecycleConfirmed = true;
     lifecycleLockReleased = false;
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       false,
     );
     lifecycleLockReleased = true;
@@ -4269,10 +4237,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       workspaceReusable: false,
     };
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       true,
     );
     assert.deepEqual(
@@ -4281,19 +4246,13 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     );
     operations[0].summarySha256 = hash;
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       false,
     );
     operations[0].summarySha256 = null;
     operations[0].phase = "settled";
     assert.equal(
-      runtime.recordRuntimeOwnedDockerProviderSubmission(
-        capability,
-        providerNotice,
-      ),
+      runtime.recordRuntimeOwnedDockerProviderSubmission(capability),
       false,
     );
     operations[0].phase = "executing";

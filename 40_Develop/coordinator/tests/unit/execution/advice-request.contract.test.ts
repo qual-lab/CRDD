@@ -19,7 +19,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import test from "node:test";
-import { PROVIDER_ADVICE_RESULT_CONTRACT } from "../../../../executor/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -194,7 +193,7 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
 test("読取り助言Task契約は結果契約とEffect 0を固定する", () => {
   const contract = describeAdviceTaskContract();
   assert.equal(contract.contractRevision, 2);
-  assert.equal(contract.resultContract, PROVIDER_ADVICE_RESULT_CONTRACT);
+  assert.equal("resultContract" in contract, false);
   assert.equal(contract.providerEffectIssued, false);
   assert.equal(contract.filesystemEffectIssued, false);
   assert.equal(contract.candidateCreated, false);

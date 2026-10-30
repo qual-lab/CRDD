@@ -27,21 +27,17 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "../../src/execution/provider-executor.ts";
 import {
-  createIsolatedDockerProcessControllerCandidate,
-  describeDockerProcessControllerContract,
+  createExecutorTestCandidate,
+  describeExecutorContract,
 } from "../../../executor/src/index.ts";
 import {
-  projectDockerProcessControllerCompletionResult,
-  projectDockerProcessControllerStartResult,
+  projectAttemptResult,
+  projectAttemptStartResult,
 } from "../../../executor/src/index.ts";
-import {
-  borrowRuntimeOwnedDockerTerminalObservations,
-  verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../../src/execution/provider-executor.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../executor/src/index.ts";
+import { bindAdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 実行調整への値依存を照合Ownerへ戻さない。
@@ -51,7 +47,7 @@ import { bindProviderAdviceCommand } from "../../../executor/src/index.ts";
  * @precondition 現在のCoordinator Sourceを読取り可能である。
  * @stimulus 型を消去したSourceの依存と内部writer参照を調べる。
  * @observation Store／Recoveryのimport、writer利用側、Root公開集合。
- * @oracle Controllerだけが登録・失効し、保存Ownerは照合へ直接接続する。
+ * @oracle 実行Ownerは固定callbackへ通知し、保存OwnerはExecutorへ逆照会しない。
  * @cleanup N/A: 読取りだけを行う。
  * @boundary ERB-IT-004=Direct Boundary: Source利用側→内部観測Owner
  */
@@ -81,7 +77,7 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
    * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
    */
   const runtime = (name: string) => stripTypeScriptTypes(source(name));
-  assert.match(
+  assert.doesNotMatch(
     runtime("execution/recovery.ts"),
     /from\s+["'][^"']*provider-executor\.ts["']/,
   );
@@ -277,7 +273,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
   assert.equal(codexProbe.status, "candidate");
   assert.equal(codexExecutor.status, "candidate");
   assert.equal(codexReviewer.status, "candidate");
-  const codexAdvice = bindProviderAdviceCommand(
+  const codexAdvice = bindAdviceCommand(
     planProviderExecution(
       {
         provider: "codex",
@@ -293,7 +289,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       describeDockerProviderExecutionLocations("codex", "advice"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),
   );
-  const claudeAdvice = bindProviderAdviceCommand(
+  const claudeAdvice = bindAdviceCommand(
     planProviderExecution(
       {
         provider: "claude",
@@ -430,7 +426,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
       return true;
     },
   );
-  const projectedStart = projectDockerProcessControllerStartResult(
+  const projectedStart = projectAttemptStartResult(
     started,
     handedOffRecoveryId,
     "OP-123456",
@@ -439,28 +435,12 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
   assert.equal(projectedStart.status, "started");
   const completion = await (projectedStart.completion as Promise<unknown>);
   assert.ok(
-    projectDockerProcessControllerStartResult(
-      started,
-      handedOffRecoveryId,
-      "OP-123456",
-    ),
+    projectAttemptStartResult(started, handedOffRecoveryId, "OP-123456"),
   );
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      completion,
-      handedOffRecoveryId,
-      "OP-123456",
-    ),
-  );
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      completion,
-      handedOffRecoveryId,
-      "OP-123456",
-    ),
-  );
+  assert.ok(projectAttemptResult(completion, handedOffRecoveryId, "OP-123456"));
+  assert.ok(projectAttemptResult(completion, handedOffRecoveryId, "OP-123456"));
   assert.equal(
-    projectDockerProcessControllerStartResult(
+    projectAttemptStartResult(
       Object.freeze({
         ...started,
         recoveryId: `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`,
@@ -471,7 +451,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     null,
   );
   assert.equal(
-    projectDockerProcessControllerCompletionResult(
+    projectAttemptResult(
       Object.freeze({
         ...(completion as Readonly<Record<string, unknown>>),
         recoveryId: handedOffRecoveryId,
@@ -513,11 +493,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     hostileCompletionProxy,
   ]) {
     assert.equal(
-      projectDockerProcessControllerCompletionResult(
-        malformed,
-        handedOffRecoveryId,
-        "OP-123456",
-      ),
+      projectAttemptResult(malformed, handedOffRecoveryId, "OP-123456"),
       null,
     );
   }
@@ -550,9 +526,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
       ...(completion as Readonly<Record<string, unknown>>),
       ...impossible,
     });
-    for (const projectCompletion of [
-      projectDockerProcessControllerCompletionResult,
-    ])
+    for (const projectCompletion of [projectAttemptResult])
       assert.equal(
         projectCompletion(malformed, handedOffRecoveryId, "OP-123456"),
         null,
@@ -582,11 +556,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     hostileStartProxy,
   ]) {
     assert.equal(
-      projectDockerProcessControllerStartResult(
-        malformed,
-        handedOffRecoveryId,
-        "OP-123456",
-      ),
+      projectAttemptStartResult(malformed, handedOffRecoveryId, "OP-123456"),
       null,
     );
   }
@@ -605,7 +575,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     },
   ]) {
     assert.equal(
-      projectDockerProcessControllerStartResult(
+      projectAttemptStartResult(
         Object.freeze({
           ...blockedStart,
           ...impossible,
@@ -637,7 +607,7 @@ test("実Controllerのclean blockedとmanual blockedをexact projectionする", 
   );
   assert.equal(cleanBlocked.status, "blocked");
   assert.equal(cleanBlocked.cleanupConfirmed, true);
-  assert.ok(projectDockerProcessControllerStartResult(cleanBlocked, null));
+  assert.ok(projectAttemptStartResult(cleanBlocked, null));
 
   const manualFixture = createFixture({
     beginRecovery: () =>
@@ -653,7 +623,7 @@ test("実Controllerのclean blockedとmanual blockedをexact projectionする", 
   );
   assert.equal(manualBlocked.status, "blocked");
   assert.equal(manualBlocked.manualRecoveryRequired, true);
-  assert.ok(projectDockerProcessControllerStartResult(manualBlocked, null));
+  assert.ok(projectAttemptStartResult(manualBlocked, null));
 });
 
 /**
@@ -702,9 +672,7 @@ function createSubscriptionAuthOutput(subscriptionType = "max") {
   });
 }
 
-const completionProjectors = [
-  projectDockerProcessControllerCompletionResult,
-] as const;
+const completionProjectors = [projectAttemptResult] as const;
 
 /**
  * assertCompletionAcceptedByAllのTest準備責務を実行する。
@@ -787,6 +755,16 @@ function createFixture(
   let recoveryCompletionCount = 0;
   let commandCount = 0;
   let cleanupCount = 0;
+  let terminal:
+    | Parameters<
+        NonNullable<
+          Parameters<
+            typeof createExecutorTestCandidate
+          >[0]["recordTerminalObservation"]
+        >
+      >[2]
+    | null = null;
+  let terminalResult: object | null = null;
   const recoveryEvents: string[] = [];
   const recoveryConsumers: unknown[] = [];
   let recordedResourceObservations: unknown = null;
@@ -931,15 +909,23 @@ function createFixture(
         providerEffectAllowed: true as const,
       });
     },
+    recordTerminalObservation: (
+      _recovery: object,
+      result: object,
+      value: NonNullable<typeof terminal>,
+    ) => {
+      terminal = value;
+      terminalResult = result;
+    },
     ...overrides,
   };
-  const controller = createIsolatedDockerProcessControllerCandidate(
-    dependencies as Parameters<
-      typeof createIsolatedDockerProcessControllerCandidate
-    >[0],
+  const controller = createExecutorTestCandidate(
+    dependencies as Parameters<typeof createExecutorTestCandidate>[0],
   );
   return {
     controller,
+    readTerminal: () => terminal,
+    readTerminalResult: () => terminalResult,
     plan,
     recoveryCapability,
     managementCapability,
@@ -1189,72 +1175,25 @@ test("Controllerは実清掃相関の不一致と例外で終端完了を拒否�
  * @cleanup N/A: Docker・Provider・Filesystemの実資源は作成しない。
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller完了→終端借用。
  */
-test("完了後の終端観測は元結果と同じ操作相関だけへ保持する", async () => {
+test("終端観測は固定callbackで清掃後に一回渡され制御を復活させない", async () => {
   const fixture = createFixture();
+  assert.equal(fixture.readTerminal(), null);
   const started = fixture.controller.start(
     fixture.preparedCapability,
     fixture.managementCapability,
   );
   const result = await started.completion;
   assert.ok(result);
-  const recoveryId = started.recoveryId;
-  const borrowed = fixture.controller.borrowTerminalObservations(
-    result,
-    fixture.managementCapability,
-    "OP-123456",
-    recoveryId,
-  );
-  assert.ok(borrowed);
-  assert.equal(borrowed.resources, fixture.resourceObservations);
-  assert.equal(borrowed.primaryFailure, null);
-  assert.equal(borrowed.mountLeaseReleased, true);
-  assert.equal(borrowed.recoveryCompleted, true);
-  assert.equal(borrowed.homeLeaseReleased, false);
-  assert.equal(
-    fixture.controller.borrowTerminalObservations(
-      { ...result },
-      fixture.managementCapability,
-      "OP-123456",
-      recoveryId,
-    ),
-    null,
-  );
-  assert.equal(
-    fixture.controller.borrowTerminalObservations(
-      result,
-      {},
-      "OP-123456",
-      recoveryId,
-    ),
-    null,
-  );
-  assert.equal(
-    fixture.controller.borrowTerminalObservations(
-      result,
-      fixture.managementCapability,
-      "OP-654321",
-      recoveryId,
-    ),
-    null,
-  );
-  assert.equal(
-    fixture.controller.borrowTerminalObservations(
-      result,
-      fixture.managementCapability,
-      "OP-123456",
-      "other",
-    ),
-    null,
-  );
-  assert.equal(
-    borrowRuntimeOwnedDockerTerminalObservations(
-      result,
-      fixture.managementCapability,
-      "OP-123456",
-      recoveryId,
-    ),
-    null,
-  );
+  const terminal = fixture.readTerminal();
+  assert.ok(terminal);
+  assert.equal(fixture.readTerminalResult(), result);
+  assert.equal(terminal.operationId, "OP-123456");
+  assert.equal(terminal.recoveryId, started.recoveryId);
+  assert.equal(terminal.resources, fixture.resourceObservations);
+  assert.equal(terminal.primaryFailure, null);
+  assert.equal(terminal.mountLeaseReleased, true);
+  assert.equal(terminal.recoveryCompleted, true);
+  assert.equal(terminal.homeLeaseReleased, false);
   assert.equal(
     (
       await fixture.controller.cancel(
@@ -1308,12 +1247,7 @@ test("Home解放の実観測は回復後続失敗と区別し照合例外を肯�
     assert.equal(verified, 1);
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(result.status, "blocked");
-    const observation = fixture.controller.borrowTerminalObservations(
-      result,
-      fixture.managementCapability,
-      "OP-123456",
-      started.recoveryId,
-    );
+    const observation = fixture.readTerminal();
     assert.ok(observation);
     assert.equal(observation.recoveryCompleted, false);
     assert.equal(observation.mountLeaseReleased, true);
@@ -1534,12 +1468,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
       );
       assert.ok(settled);
       const primary = settled.primaryFailure as Record<string, unknown>;
-      const terminal = fixture.controller.borrowTerminalObservations(
-        result,
-        fixture.managementCapability,
-        fixture.plan.operationId,
-        started.recoveryId,
-      );
+      const terminal = fixture.readTerminal();
       if (cleanupMode === "throw") {
         assert.equal(terminal, null);
       } else {
@@ -1611,22 +1540,20 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
 });
 
 /**
- * Workbench助言出力をcleanup後の助言JSONへ縮約することを検証する。
+ * 検査済み助言内容をcleanup後に返すことを検証する。
  *
- * @responsibility 第3実行モードのPlan受理、Provider Envelope除去および終了後公開境界を判定する。
+ * @responsibility 助言Plan受理、Provider Envelope除去、内容検査および終了後公開を判定する。
  * @trace ERB-IT-002
  * @precondition 有効なAdvice Packet IdentityとClaudeの正の安全整数metadataを使用する。
  * @stimulus Process Controllerでworkbench_advice Planを完了する。
  * @observation completionのstatus、cleanupおよびnormalizedResultを観測する。
- * @oracle 生Envelopeを含めずadviceJsonだけをcleanup確認後に返す。
+ * @oracle 生Envelopeを含めず検査済み助言四区分とreason:nullをcleanup確認後に返す。
  * @cleanup fixtureが全資源不存在とMount解放を確認する。
  * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () => {
+test("検査済み助言四区分をcleanup後に返す", async () => {
   for (const reportedTurns of [2, 3, 17, Number.MAX_SAFE_INTEGER]) {
     const advice = {
-      contract: "crdd-coordinator/workbench-ai-advice-result",
-      contractRevision: 1,
       status: "completed",
       facts: [
         {
@@ -1674,6 +1601,7 @@ test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () 
         advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         advicePacketHash: "a".repeat(64),
         adviceCommandHash: "b".repeat(64),
+        adviceAllowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         providerInput: "Give advice from the supplied projection.",
         workspaceSourcePath: null,
         workspaceMountMode: null,
@@ -1687,17 +1615,11 @@ test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () 
     const completion = await started.completion;
     assert.equal(completion.status, "completed");
     assert.deepEqual(completion.normalizedResult, {
-      contract: "crdd-coordinator/workbench-ai-advice-provider-output",
-      contractRevision: 1,
-      adviceJson: JSON.stringify(advice),
+      ...advice,
+      reason: null,
     });
     assert.equal(completion.cleanupConfirmed, true);
-    const terminal = fixture.controller.borrowTerminalObservations(
-      completion,
-      fixture.managementCapability,
-      fixture.plan.operationId,
-      started.recoveryId,
-    );
+    const terminal = fixture.readTerminal();
     assert.ok(terminal);
     assert.equal(terminal.primaryFailure, null);
   }
@@ -1797,12 +1719,7 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
     assert.equal(completion.reason, reason);
     assert.equal(completion.normalizedResult, null);
     assert.equal(completion.cleanupConfirmed, true);
-    const terminal = fixture.controller.borrowTerminalObservations(
-      completion,
-      fixture.managementCapability,
-      fixture.plan.operationId,
-      started.recoveryId,
-    );
+    const terminal = fixture.readTerminal();
     assert.ok(terminal);
     assert.deepEqual(
       terminal.primaryFailure?.turnCountDiagnostic,
@@ -2726,9 +2643,7 @@ for (const deniedPurpose of createPlan({}, {}).commands.map(
     assert.equal(fixture.getCleanupCount(), 1);
     assert.equal(fixture.getMountCompletionCount(), 1);
     assert.equal(fixture.getRecoveryCompletionCount(), 1);
-    for (const projectCompletion of [
-      projectDockerProcessControllerCompletionResult,
-    ])
+    for (const projectCompletion of [projectAttemptResult])
       assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
   });
 }
@@ -3060,13 +2975,7 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(result.rawOutputReported, false);
   assert.equal(fixture.getCommandCount(), 9);
   assert.equal(result.subscriptionAuthConfirmed, true);
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
   assert.equal(fixture.getCleanupCount(), 1);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 1);
@@ -3128,17 +3037,17 @@ test("Docker create前の耐久submission markerを書けなければEffectを�
 });
 
 /**
- * Provider要求前の同期保存と取消・通知失効を確認する。
- * @responsibility 保存未確認からのAI起動と偽通知の受入を反証する。
+ * Provider要求前の同期保存と取消を確認する。
+ * @responsibility 保存未確認からのAI起動を反証する。
  * @trace ERB-IT-002
  * @precondition Docker・保存境界を模擬したisolated Controllerを使用する。
  * @stimulus 保存成功・拒否・例外・同期取消・要求例外・spawn失敗を発生させる。
- * @observation 通知相関、保存と要求の順序、要求回数、清掃、終端結果。
- * @oracle 保存拒否・例外・取消なら要求0、成功保存後だけ要求し、通知はcallback後に失効する。
+ * @observation 元回復参照、保存と要求の順序、要求回数、清掃、終端結果。
+ * @oracle 保存拒否・例外・取消なら要求0、成功保存後だけ要求する。
  * @cleanup Process内Fixtureのみ。実Docker・Providerへ依頼しない。
  * @boundary Controllerと保存Ownerの模擬同期境界。
  */
-test("Provider要求は元通知の保存後だけ発行し保存中取消で停止する", async () => {
+test("Provider要求は同期保存後だけ発行し保存中取消で停止する", async () => {
   for (const mode of [
     "success",
     "reject",
@@ -3147,84 +3056,16 @@ test("Provider要求は元通知の保存後だけ発行し保存中取消で停
     "start_throw",
     "spawn_failed",
   ] as const) {
-    let notice: unknown;
     let control: unknown;
-    let recovery: unknown;
     let saves = 0;
     let providerRequests = 0;
     let isSaved = false;
     const events: string[] = [];
     const fixture = createFixture({
-      recordProviderSubmission: (capability: object, value: object) => {
+      recordProviderSubmission: (capability: object) => {
         saves += 1;
-        notice = value;
-        recovery = capability;
-        const args = [
-          capability,
-          fixture.managementCapability,
-          "OP-123456",
-          `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
-        ] as const;
-        assert.equal(
-          fixture.controller.verifyProviderSubmissionNotice(value, ...args),
-          true,
-        );
-        assert.equal(
-          fixture.controller.verifyProviderSubmissionNotice(
-            { ...value },
-            ...args,
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyProviderSubmissionNotice(
-            value,
-            {},
-            ...(args.slice(1) as [unknown, string, string]),
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyProviderSubmissionNotice(
-            value,
-            capability,
-            {},
-            args[2],
-            args[3],
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyProviderSubmissionNotice(
-            value,
-            capability,
-            args[1],
-            "OP-other",
-            args[3],
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyProviderSubmissionNotice(
-            value,
-            capability,
-            args[1],
-            args[2],
-            "other",
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(
-            value,
-            capability,
-            args[1],
-            "start_provider_attached",
-            args[2],
-            args[3],
-          ),
-          false,
-        );
+        assert.ok(capability);
+
         events.push("save");
         if (mode === "throw") throw new Error("save_failed");
         if (mode === "reject") return false;
@@ -3281,122 +3122,35 @@ test("Provider要求は元通知の保存後だけ発行し保存中取消で停
           : "blocked",
     );
     assert.equal(fixture.getCleanupCount(), 1);
-    assert.equal(
-      fixture.controller.verifyProviderSubmissionNotice(
-        notice,
-        recovery,
-        fixture.managementCapability,
-        "OP-123456",
-        started.recoveryId,
-      ),
-      false,
-    );
   }
 });
 
 /**
- * 作成予定保存中の取消を実要求前の元通知として確認する。
- * @responsibility 未発行通知の出自・同期寿命と保存失敗時の停止を検証する。
+ * 作成予定保存中の取消を実要求前の固定callbackで確認する。
+ * @responsibility 未発行保存の元Owner・用途と保存失敗時の停止を検証する。
  * @trace ERB-IT-002
  * @precondition isolated Controllerと固定fixtureだけを使用する。
  * @stimulus 二番目の作成予定callback内で取消し、未発行保存を成功・拒否・例外にする。
- * @observation 発行件数、元通知の照合、callback後の失効、最終結果。
- * @oracle 対象要求は発行0、同じcallback中の元通知だけ有効、保存失敗はblocked。
+ * @observation 発行件数、元Owner・用途、最終結果。
+ * @oracle 対象要求は発行0、同じOwner・用途を渡し、保存失敗はblocked。
  * @cleanup N/A: DockerやFilesystemの実資源を作成しない。
  * @boundary ERB-IT-002=Direct Boundary: Controller→予定保存・取消・未発行保存。
  */
-test("予定保存後の取消は未発行通知を同期保存中だけ保持する", async () => {
+test("予定保存後の取消callbackは用途を直接渡し保存拒否で要求を停止する", async () => {
   for (const mode of ["success", "false", "throw"] as const) {
     let control: unknown = null;
-    let notice: unknown = null;
-    let capability: unknown = null;
     let notices = 0;
     const fixture = createFixture({
-      markResourceSubmission: (_capability: object, purpose: string) => {
+      markResourceSubmission: (_recovery: object, purpose: string) => {
         if (purpose === "create_internal_network")
           void fixture.controller.cancel(control, fixture.managementCapability);
         return true;
       },
-      recordResourceNotIssued: (
-        recovery: object,
-        purpose: string,
-        value: object,
-      ) => {
-        notices += 1;
-        notice = value;
-        capability = recovery;
-        const args = [
-          recovery,
-          fixture.managementCapability,
-          purpose,
-          "OP-123456",
-          `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
-        ] as const;
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(value, ...args),
-          true,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice({ ...value }, ...args),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(
-            value,
-            {},
-            ...(args.slice(1) as [unknown, string, string, string]),
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(
-            value,
-            recovery,
-            {},
-            purpose,
-            args[3],
-            args[4],
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(
-            value,
-            recovery,
-            fixture.managementCapability,
-            "create_provider",
-            args[3],
-            args[4],
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(
-            value,
-            recovery,
-            fixture.managementCapability,
-            purpose,
-            "OP-other",
-            args[4],
-          ),
-          false,
-        );
-        assert.equal(
-          fixture.controller.verifyUnissuedNotice(
-            value,
-            recovery,
-            fixture.managementCapability,
-            purpose,
-            args[3],
-            "other-recovery",
-          ),
-          false,
-        );
-        assert.equal(
-          verifyRuntimeOwnedDockerUnissuedNotice(value, ...args),
-          false,
-        );
-        if (mode === "throw") throw new Error("not_issued_save_failed");
+      recordResourceNotIssued: (recovery: unknown, purpose: string) => {
+        notices++;
+        assert.ok(recovery);
+        assert.equal(purpose, "create_internal_network");
+        if (mode === "throw") throw Error("synthetic");
         return mode === "success";
       },
     });
@@ -3410,17 +3164,6 @@ test("予定保存後の取消は未発行通知を同期保存中だけ保持�
     assert.equal(notices, 1);
     assert.equal(fixture.getCommandCount(), 2);
     assert.equal(result.status, mode === "success" ? "cancelled" : "blocked");
-    assert.equal(
-      fixture.controller.verifyUnissuedNotice(
-        notice,
-        capability,
-        fixture.managementCapability,
-        "create_internal_network",
-        "OP-123456",
-        started.recoveryId,
-      ),
-      false,
-    );
   }
   let noticesAfterStart = 0;
   const startFailure = createFixture({
@@ -4153,23 +3896,9 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
   const result = await started.completion;
   assert.equal(result.status, "cancelled");
   assert.equal(result.cleanupConfirmed, true);
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
-  for (const projectCompletion of [
-    projectDockerProcessControllerCompletionResult,
-  ])
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
+  for (const projectCompletion of [projectAttemptResult])
     assert.equal(
       projectCompletion(
         Object.freeze({ ...result, cancellationRequested: false }),
@@ -4352,20 +4081,8 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
   assert.equal(result.resultBytes, 0);
   assert.equal(result.normalizedResult, null);
   assert.equal(result.recoveryFinalizationCapability, null);
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
   assertCompletionRejectedByAll(
     Object.freeze({ ...result, reason: "provider_result_invalid" }),
     started.recoveryId,
@@ -4417,20 +4134,8 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
   assert.equal(result.normalizedResult, null);
   assert.equal(result.resultSha256, null);
   assert.equal(result.resultBytes, 0);
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
-  assert.ok(
-    projectDockerProcessControllerCompletionResult(
-      result,
-      started.recoveryId,
-      "OP-123456",
-    ),
-  );
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
+  assert.ok(projectAttemptResult(result, started.recoveryId, "OP-123456"));
   assertCompletionRejectedByAll(
     Object.freeze({ ...result, reason: "unregistered_blocked_reason" }),
     started.recoveryId,
@@ -5206,15 +4911,15 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
   const cases = [
     [
       "docker_task_runtime_state_generation_active_or_unknown",
-      "docker_process_controller_recovery_observation_unknown",
+      "docker_process_controller_recovery_unavailable",
     ],
     [
       "docker_task_runtime_state_pending_incomplete",
-      "docker_process_controller_recovery_partial_state",
+      "docker_process_controller_recovery_unavailable",
     ],
     [
       "docker_task_runtime_state_binding_changed",
-      "docker_process_controller_recovery_identity_mismatch",
+      "docker_process_controller_recovery_unavailable",
     ],
     [
       "docker_task_multiple_recovery_inventory_available",
@@ -5225,6 +4930,14 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
       "docker_process_controller_recovery_observation_unknown",
     ],
     ["caller-secret-value", "docker_process_controller_recovery_unavailable"],
+    [
+      "docker_task_recovery_begin_failed_closed",
+      "docker_process_controller_recovery_observation_unknown",
+    ],
+    [
+      "docker_task_recovery_failed_closed",
+      "docker_process_controller_recovery_observation_unknown",
+    ],
     [
       "caller-lock-secret-value",
       "docker_process_controller_recovery_unavailable",
@@ -5453,7 +5166,7 @@ test("Provider完了後にRepository Revisionが変わればResultを公開し�
  * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を固定する", () => {
-  const contract = describeDockerProcessControllerContract();
+  const contract = describeExecutorContract();
   assert.equal(contract.setupTimeoutMs, 10_000);
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);

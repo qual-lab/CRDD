@@ -6,6 +6,7 @@
  */
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { registerTaskRemediation } from "./preparation.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
@@ -116,7 +117,6 @@ import {
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
 } from "./kernel-lock.ts";
-import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-executor.ts";
 import {
   acquireHostOperationRecoveryGeneration,
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -132,7 +132,10 @@ import {
   verifyHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
 } from "./operation.ts";
-import type { RecoveryStartFailureDiagnostic } from "../../../executor/src/index.ts";
+import type {
+  ExecutorHost,
+  RecoveryStartFailureDiagnostic,
+} from "../../../executor/src/index.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
 
@@ -1122,6 +1125,9 @@ type DurableRecord = {
   consumer: ProductionPlan["consumer"];
   hostCleanupOutcome?: unknown;
   dockerCompletion?: unknown;
+  terminalObservation?: Parameters<
+    NonNullable<ExecutorHost["recordTerminalObservation"]>
+  >[2];
   settlementResult?: ReturnType<typeof settleRuntimeOwnedCoordinatorResult>;
   mountCompletion?: unknown;
   normalRestoration?: {
@@ -3791,6 +3797,12 @@ function beginProductionRecovery(
         managementCapability,
         recoveryId,
         plan.consumer,
+        (result, operationId, reference) =>
+          record.dockerCompletion === result &&
+          record.operationId === operationId &&
+          record.recoveryId === reference
+            ? (record.terminalObservation ?? null)
+            : null,
       );
       if (!context)
         throw new Error("docker_recovery_settlement_binding_invalid");
@@ -4102,14 +4114,14 @@ export function markRuntimeOwnedDockerResourceSubmission(
 
 /**
  * Provider要求前の観測限界を同じ現在状態へ保存する。
- * @responsibility 元Controllerの要求前通知だけを実行評価checkpointへ接続する。
+ * @responsibility 固定Host callbackを同じOwnerの実行評価checkpointへ接続する。
  * @trace ARCH-000008
- * @input recoveryCapability: 元Owner、notice: 同期保存中だけ有効な元通知。
+ * @input recoveryCapability: 同じ実行中操作を識別する元Owner。
  * @returns 保存確定と排他解放を確認した場合だけtrue。
  * @precondition 同じ本番操作は実行中で、終了要約をまだ固定していない。
  * @postcondition 初期評価をunknownへ進め、既知評価と他のlifecycle項目を維持する。
  * @effect 既存state.json Writerの六field checkpointだけ。
- * @failure 偽通知、失効、別操作、終端、保存不明はfalse。
+ * @failure 別操作、Owner不一致、終端、保存不明はfalse。
  * @invariant Docker CLI開始や成功出力をProvider実開始・送信成立へ昇格しない。
  * @boundary Controllerの同期要求前境界とRepository内の現在状態。
  * @security 新しい実行・回復Authorityを発行しない。
@@ -4117,20 +4129,9 @@ export function markRuntimeOwnedDockerResourceSubmission(
  */
 export function recordRuntimeOwnedDockerProviderSubmission(
   recoveryCapability: unknown,
-  notice: unknown,
 ) {
   const record = durableRecord(recoveryCapability);
-  if (
-    !record ||
-    !verifyRuntimeOwnedDockerProviderSubmissionNotice(
-      notice,
-      recoveryCapability,
-      record.managementCapability,
-      record.operationId,
-      record.recoveryId,
-    )
-  )
-    return false;
+  if (!record) return false;
   const current = readRuntimeOwnedCoordinatorStateSnapshot(
     record.managementCapability,
   );
@@ -4239,21 +4240,20 @@ export function recordRuntimeOwnedDockerResourceReceipt(
  * 元Controllerの要求前取消だけを未発行として現在状態へ保存する。
  * @responsibility 予定保存後の取消を、応答欠落や過去unknownから区別する。
  * @trace ARCH-000008
- * @input recoveryCapability: 元Owner。purpose: 固定用途。notice: 同期callback中の元通知。
- * @returns 元通知の照合と保存が成立した場合だけtrue。
+ * @input recoveryCapability: 元Owner。purpose: 固定用途。
+ * @returns 同じOwnerと用途の専用保存が成立した場合だけtrue。
  * @precondition 本番ControllerがstartCommand前に取消を確認している。
  * @postcondition 元予定を保持し、未発行終端へ進める。
  * @effect 同じRepositoryの資源checkpointのみ。
- * @failure コピー・別用途・失効・既要求・保存不明はfalse。
+ * @failure 別Owner・別用途・既要求・保存不明はfalse。
  * @invariant ID欠落や清掃成功から未発行を推定しない。
- * @boundary 本番Controllerの元通知と現在状態Owner。
+ * @boundary 固定Host callbackと現在状態Owner。
  * @security 通知から起動・削除Authorityを発行しない。
  * @concurrency 同期callbackの寿命内だけ既存Writerを呼ぶ。
  */
 export function recordRuntimeOwnedDockerResourceNotIssued(
   recoveryCapability: unknown,
   purpose: unknown,
-  notice: unknown,
 ) {
   const record = durableRecord(recoveryCapability);
   return (
@@ -4262,8 +4262,6 @@ export function recordRuntimeOwnedDockerResourceNotIssued(
       record.managementCapability,
       record.recoveryId,
       purpose,
-      notice,
-      recoveryCapability,
     ).status === "completed"
   );
 }
@@ -4697,6 +4695,90 @@ export function prepareRuntimeOwnedDockerHostCleanup(
 }
 
 /**
+ * 検査済みレビューを元の復帰済み試行へ結合する。
+ * @responsibility 元操作・Plan実体・初回Reviewerを照合して許可Ownerへ渡す。
+ * @trace ARCH-000015
+ * @input 元回復capability、同じplan、検査済みfindings。
+ * @returns 次試行Ownerの参照又はnull。
+ * @precondition 固定Executor Host callbackからのみ呼ばれる。
+ * @postcondition 別操作・未復帰・別Plan・二回目レビューを拒否する。
+ * @effect 受理時だけ既存の一回使用Mapへ登録する。
+ * @failure 不一致はnullで技術結果を変更しない。
+ * @invariant 内容完了と次試行の許可を区別する。
+ * @boundary Executorの固定通知とCoordinatorの次試行Owner。
+ * @security 任意の外部結果を受ける公開操作にしない。
+ * @concurrency 同期の照合と登録。新しいLockを持たない。
+ */
+export function registerRuntimeOwnedReviewFindings(
+  capability: object,
+  plan: Parameters<NonNullable<ExecutorHost["registerReviewFindings"]>>[1],
+  findings: Parameters<NonNullable<ExecutorHost["registerReviewFindings"]>>[2],
+) {
+  const record = durableRecord(capability);
+  if (
+    !record ||
+    record.operationId !== plan.operationId ||
+    record.normalRestoration?.plan !== plan ||
+    plan.operationMode !== "isolated_task" ||
+    plan.taskRole !== "reviewer" ||
+    plan.taskAttempt !== 0
+  )
+    return null;
+  return registerTaskRemediation(
+    record.operationId,
+    plan.taskAttempt,
+    findings,
+  );
+}
+
+/**
+ * Executorの固定callbackから既存操作記録へ終端材料を結合する。
+ * @responsibility 結果と観測を既存Ownerだけに保持し、新Mapを作らない。
+ * @trace ARCH-000008
+ * @input 元回復Capability、結果、閉じた終端観測。
+ * @returns N/A: 既存recordの更新のみ。
+ * @precondition 固定Host構成の内部callbackである。
+ * @postcondition 別操作・別参照・二重差替えを拒否する。
+ * @effect Process内の既存操作記録のみ。
+ * @failure 不一致は例外。技術清掃結果は変更しない。
+ * @invariant 外部の完了申告を受ける入口として公開しない。
+ * @boundary Executorの終了とCoordinatorの既存操作Owner。
+ * @security 新しい実行Authorityを発行しない。
+ * @concurrency 同じ試行の終了時に同期で結合する。
+ */
+export function recordRuntimeOwnedDockerTerminalObservation(
+  capability: object,
+  result: object,
+  observation: Parameters<
+    NonNullable<ExecutorHost["recordTerminalObservation"]>
+  >[2],
+) {
+  const record = durableRecord(capability);
+  if (
+    !record?.initializationReady ||
+    !record.settlementContext ||
+    record.operationId !== observation.operationId ||
+    record.recoveryId !== observation.recoveryId ||
+    (record.dockerCompletion !== undefined &&
+      record.dockerCompletion !== result)
+  )
+    throw Error("executor_terminal_delivery_mismatch");
+  if (
+    record.dockerCompletion !== undefined ||
+    record.terminalObservation !== undefined
+  ) {
+    if (
+      record.dockerCompletion === result &&
+      record.terminalObservation === observation
+    )
+      return;
+    throw Error("executor_terminal_delivery_mismatch");
+  }
+  record.dockerCompletion = result;
+  record.terminalObservation = observation;
+}
+
+/**
  * 元Host清掃と元Controller結果を終了driverへ接続する。
  * @responsibility 元Host清掃と元Controller結果を終了driverへ接続する。
  * @trace ARCH-000008
@@ -4720,7 +4802,13 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
     rawCompletion,
     new Set(["hostCleanupOutcome", "dockerCompletion"]),
   );
-  if (!record || !completion) return false;
+  if (
+    !record ||
+    !completion ||
+    record.dockerCompletion !== completion.dockerCompletion ||
+    !record.terminalObservation
+  )
+    return false;
   if (
     !captureRuntimeOwnedCoordinatorSettlementInputs(
       record.settlementContext,

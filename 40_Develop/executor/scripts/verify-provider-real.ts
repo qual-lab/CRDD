@@ -13,7 +13,7 @@ import { createHash, randomBytes, randomInt } from "node:crypto";
 import { fork, spawnSync } from "node:child_process";
 import { registerHooks } from "node:module";
 import { isDeepStrictEqual } from "node:util";
-import type { ProviderAdvicePacket } from "../src/index.ts";
+import type { AdvicePacket } from "../src/attempt/types.ts";
 registerHooks({
   resolve(s, c, n) {
     const r = n(s, c);
@@ -40,18 +40,18 @@ const {
   acquireNamedPipeKernelLock,
   readConfirmationCodeOutcome,
 } = await import("../../platform-access/src/index.ts");
-const {
-  buildProviderDockerExecutionPlan,
-  bindProviderAdviceCommand,
-  hashProviderAdviceCommand,
-  describeAdviceResultSchema,
-  normalizeAdviceResult,
-  describeDockerProcessControllerContract,
-  validatePlan,
-  isPrimaryFailureDiagnostic,
-  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
-  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
-} = await import("../src/index.ts");
+const { describeExecutorContract, isPrimaryFailureDiagnostic } = await import(
+  "../src/index.ts"
+);
+const { bindAdviceCommand, hashAdviceCommand } = await import(
+  "../../docker-isolation/src/index.ts"
+);
+const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
+  await import("../../domain-model/src/index.ts");
+const { buildProviderDockerExecutionPlan } = await import(
+  "../src/attempt/preparation.ts"
+);
+const { resolveValidatedPlan } = await import("../src/attempt/isolation.ts");
 const { createStandaloneProviderAttemptHost } = await import(
   "./provider-attempt-host.ts"
 );
@@ -104,7 +104,7 @@ export function describeStandaloneProviderTrial(provider: unknown) {
     describeDockerProviderExecutionLocations(provider, "advice"),
   );
   if (generated.status !== "ready") throw Error("trial_command_unavailable");
-  const command = bindProviderAdviceCommand(generated.plan);
+  const command = bindAdviceCommand(generated.plan);
   return Object.freeze({
     contract: "crdd/executor/standalone-trial/v1",
     provider,
@@ -127,7 +127,7 @@ export function describeStandaloneProviderTrial(provider: unknown) {
  * @responsibility 選定・Prompt・非共有境界・Commandの相関を保つ。
  * @trace ERB-IT-002
  * @input spec: 固定記述、root: 新品Root、home: 現観測候補。
- * @returns 既存validatePlanを満たす助言専用計画。
+ * @returns 既存resolveValidatedPlanを満たす助言専用計画。
  * @effect 暗号学的乱数で今回の名前だけを生成する。
  * @failure 役割・Model・Prompt・Mount差で停止。
  * @boundary 任意Prompt・任意Path・編集操作を受け付けない。
@@ -178,13 +178,11 @@ export function buildStandaloneTrialPlan(
     describeDockerProviderExecutionLocations(spec.provider, "advice"),
   );
   if (planned.status !== "ready") throw Error("trial_command_invalid");
-  const command = bindProviderAdviceCommand(planned.plan);
+  const command = bindAdviceCommand(planned.plan);
   const packetRef = `ADVICEPKT-${randomBytes(16).toString("hex").toUpperCase()}`;
-  const commandHash = hashProviderAdviceCommand(command);
+  const commandHash = hashAdviceCommand(command);
   if (!commandHash) throw Error("trial_command_hash_invalid");
   const packetBase = {
-    contract: PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
-    contractRevision: PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
     packetRef,
     operationId,
     executionSelection: selection,
@@ -197,7 +195,8 @@ export function buildStandaloneTrialPlan(
     toolsAllowed: false as const,
     sessionPersistenceAllowed: false as const,
   } as const;
-  const packet: ProviderAdvicePacket = Object.freeze({
+  const packet: AdvicePacket = Object.freeze({
+    allowedReferences: Object.freeze([reference]),
     ...packetBase,
     packetHash: digest(
       JSON.stringify({ ...packetBase, providerPromptSha256: digest(prompt) }),
@@ -257,7 +256,7 @@ export function buildStandaloneTrialPlan(
     authorityUseCapability: {},
   });
   if (
-    !validatePlan(plan, path.join(root, "tmp")) ||
+    !resolveValidatedPlan(plan, path.join(root, "tmp")) ||
     plan.operationMode !== "workbench_advice" ||
     plan.workspaceSourcePath !== null ||
     plan.providerInput !== prompt ||
@@ -445,10 +444,19 @@ export async function runStandaloneProviderTrial(
       if (
         normalized &&
         typeof normalized === "object" &&
-        Object.hasOwn(normalized, "adviceJson")
+        Object.hasOwn(normalized, "facts")
       ) {
         const advice = normalizeAdviceResult(
-          Reflect.get(normalized, "adviceJson"),
+          JSON.stringify({
+            status: Reflect.get(normalized, "status"),
+            facts: Reflect.get(normalized, "facts"),
+            sharedAnalysis: Reflect.get(normalized, "sharedAnalysis"),
+            additionalInferences: Reflect.get(
+              normalized,
+              "additionalInferences",
+            ),
+            nextOptions: Reflect.get(normalized, "nextOptions"),
+          }),
           [reference],
         );
         adviceConfirmed = advice.status === "confirmed";
@@ -1052,7 +1060,7 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
     });
     child.stderr?.on("data", () => {});
     const closed = await new Promise<boolean>((resolve) => {
-      const contract = describeDockerProcessControllerContract();
+      const contract = describeExecutorContract();
       let graceTimer: ReturnType<typeof setTimeout> | null = null;
       let ackSettled = false,
         closeSucceeded = false;

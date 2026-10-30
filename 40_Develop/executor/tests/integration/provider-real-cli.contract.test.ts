@@ -124,23 +124,23 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
     const executor=await import(${JSON.stringify(url("../../src/index.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
-    const schema=executor.describeAdviceResultSchema();
+    const schema=domain.describeAdviceResultSchema();
     for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[])]){
       const spec=api.describeStandaloneProviderTrial(provider);assert.ok(spec.prompt.includes(JSON.stringify(schema)));assert.equal(createHash('sha256').update(spec.prompt).digest('hex'),spec.promptSha256);
       const item={text:'A pending documentation task.',references:['synthetic-context']};
-      const value={contract:schema.properties.contract.const,contractRevision:schema.properties.contractRevision.const,status:schema.properties.status.const,facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]};
-      if(mode==='extra')value.extra=true;if(mode==='missing')delete value.contract;if(mode==='contract')value.contract='wrong';if(mode==='revision')value.contractRevision=99;if(mode==='status')value.status='blocked';if(mode==='empty'){value.facts=[];value.nextOptions=[];}if(mode==='item')value.facts=[{text:'A pending documentation task.'}];if(mode==='reference')value.facts=[{...item,references:['outside-projection']}];
-      const raw=mode==='duplicate'?JSON.stringify(value).replace('"contract":','"contract":"wrong","contract":'):JSON.stringify(value);
+      const value={status:schema.properties.status.const,facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]};
+      if(mode==='extra')value.extra=true;if(mode==='missing')delete value.facts;if(mode==='contract')value.contract='wrong';if(mode==='revision')value.contractRevision=99;if(mode==='status')value.status='blocked';if(mode==='empty'){value.facts=[];value.nextOptions=[];}if(mode==='item')value.facts=[{text:'A pending documentation task.'}];if(mode==='reference')value.facts=[{...item,references:['outside-projection']}];
+      const raw=mode==='duplicate'?JSON.stringify(value).replace('"status":','"status":"wrong","status":'):JSON.stringify(value);
       const output=provider==='codex'?[JSON.stringify({type:'item.completed',item:{id:'fixture',type:'agent_message',text:raw}}),...(mode==='transport'?[]:[JSON.stringify({type:'turn.completed'})])].join('\\n')+'\\n':JSON.stringify({type:'result',subtype:mode==='transport'?'error':'success',is_error:false,num_turns:1,total_cost_usd:0,structured_output:value});
       fixture={provider,prompt:spec.prompt,schema,output};releases=0;live=false;
       const runId='fixture-'+randomUUID(),root=path.join(repository,'.crdd','tests','executor-real-'+provider+'-'+runId);
       const result=await api.runStandaloneProviderTrial(provider,runId,new AbortController().signal);
-      const reason=mode==='normal'?null:mode==='transport'?'workbench_ai_'+provider+'_completion_invalid':['extra','missing','duplicate'].includes(mode)?'workbench_ai_advice_result_schema_invalid':['contract','revision','status'].includes(mode)?'workbench_ai_advice_result_identity_invalid':'workbench_ai_advice_result_items_invalid';
+      const reason=mode==='normal'?null:mode==='transport'?'workbench_ai_'+provider+'_completion_invalid':['extra','missing','duplicate','contract','revision'].includes(mode)?'workbench_ai_advice_result_schema_invalid':mode==='status'?'workbench_ai_advice_result_identity_invalid':'workbench_ai_advice_result_items_invalid';
       assert.equal(result.reason,reason,provider+':'+mode);assert.equal(result.status,mode==='normal'?'completed':'blocked');assert.equal(result.adviceConfirmed,mode==='normal');assert.equal(result.cleanupConfirmed,true);assert.equal(result.releaseConfirmed,true);assert.equal(result.terminalSaved,true);assert.equal(releases,1);assert.equal(live,false);
-      assert.equal(result.diagnostic.primaryFailure===null,mode!=='transport');assert.equal(result.diagnostic.providerProcessStartedObserved,true);
+      assert.equal(result.diagnostic.primaryFailure===null,mode==='normal');assert.equal(result.diagnostic.providerProcessStartedObserved,true);
       const records=fs.readdirSync(root).filter(n=>/^event-[0-9]{3}\\.json$/.test(n)).map(n=>JSON.parse(fs.readFileSync(path.join(root,n),'utf8')));
       assert.equal(records.filter(v=>v.kind==='receipt_recorded').length,5);for(const v of records){assert.equal(v.recoveryId,result.recoveryId);assert.equal(Object.hasOwn(v,'adviceJson'),false);assert.equal(Object.hasOwn(v,'normalizedResult'),false);assert.equal(Object.hasOwn(v,'stdout'),false);}
-      const terminal=records.find(v=>v.kind==='terminal_received');assert.equal(terminal.status,mode==='transport'?'blocked':'completed');
+      const terminal=records.find(v=>v.kind==='terminal_received');assert.equal(terminal.status,mode==='normal'?'completed':'blocked');
       assert.equal(fs.lstatSync(root).isSymbolicLink(),false);for(const name of fs.readdirSync(root)){const p=path.join(root,name),s=fs.lstatSync(p);assert.equal(s.isSymbolicLink(),false);if(s.isDirectory()){assert.ok(['tmp','management'].includes(name));assert.equal(fs.readdirSync(p).length,0);}else{assert.equal(s.isFile(),true);assert.equal(s.nlink,1);assert.match(name,/^event-[0-9]{3}\\.json(?:\\.crdd-commit\\.json)?$/);}}
       fs.rmSync(root,{recursive:true});assert.equal(fs.existsSync(root),false);
     }
@@ -197,8 +197,8 @@ test("単段CLI子の固定計画・取消・保持を確認する", () => {
         start:()=>{starts++;save('recovery_opened');save('recovery_handoff');for(const r of resources){save('submission_planned',{purpose:r.purpose,plannedResourceName:r.plannedResourceName,ownershipLabel:plan.ownershipLabel});save('receipt_recorded',{purpose:r.purpose,dockerId:r.dockerId});}return {status:'started',controlCapability:{},completion:(async()=>{
           if(mode==='cancel'){controller.abort();await wait.promise;}
           assert.equal(lease.assertLive(),true);save('absence_observed');const released=lease.release();if(released){save('home_released');save('recovery_closed');save('execution_settled');}
-          const item={text:'A pending documentation task.',references:['synthetic-context']};const advice={contract:'crdd-coordinator/workbench-ai-advice-result',contractRevision:1,status:'completed',facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]};
-          original={status:mode==='cancel'?'cancelled':mode==='execution_and_bad_advice'?'blocked':'completed',reason:mode==='cancel'?'provider_operation_cancelled':mode==='execution_and_bad_advice'?'provider_subscription_auth_not_confirmed':null,cleanupConfirmed:released,resultSha256:'a'.repeat(64),resultBytes:10,normalizedResult:{adviceJson:['bad_advice','terminal_and_bad_advice','execution_and_bad_advice'].includes(mode)?'{}':JSON.stringify(advice)}};return original;
+          const item={text:'A pending documentation task.',references:['synthetic-context']};const advice={status:'completed',facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]};
+          original={status:mode==='cancel'?'cancelled':mode==='execution_and_bad_advice'?'blocked':'completed',reason:mode==='cancel'?'provider_operation_cancelled':mode==='execution_and_bad_advice'?'provider_subscription_auth_not_confirmed':null,cleanupConfirmed:released,resultSha256:'a'.repeat(64),resultBytes:10,normalizedResult:['bad_advice','terminal_and_bad_advice','execution_and_bad_advice'].includes(mode)?{status:'completed',facts:[]}:{...advice,reason:null}};return original;
         })()};},
         recordTerminal:value=>{if(value!==original||!value.cleanupConfirmed||mode==='terminal_and_bad_advice')return false;save('terminal_received');return true;}
       };

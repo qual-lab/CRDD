@@ -13,10 +13,10 @@
 import { executionSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
-import { createIsolatedDockerProcessControllerCandidate } from "../../../executor/src/index.ts";
+import { createExecutorTestCandidate } from "../../../executor/src/index.ts";
 import {
-  projectDockerProcessControllerStartResult,
-  projectDockerProcessControllerCompletionResult,
+  projectAttemptStartResult,
+  projectAttemptResult,
 } from "../../../executor/src/index.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
@@ -96,7 +96,7 @@ export function createTaskControllerCancellationFixture(
   let processStarted = false;
   let processHandle: OwnedCommandHandle | null = null;
   let controllerControl: object | null = null;
-  const controller = createIsolatedDockerProcessControllerCandidate({
+  const controller = createExecutorTestCandidate({
     effectExecutorAvailable: true,
     verifyRevision: () => ({ revisionCurrent: true }),
     consumePreparedPlan: (prepared, management) => {
@@ -224,11 +224,7 @@ export function createTaskControllerCancellationFixture(
         registerHandoff,
         restriction,
       );
-      const projected = projectDockerProcessControllerStartResult(
-        raw,
-        recoveryId,
-        operationId,
-      );
+      const projected = projectAttemptStartResult(raw, recoveryId, operationId);
       assert.ok(projected);
       assert.equal(projected.status, "started");
       startProjections += 1;
@@ -237,7 +233,7 @@ export function createTaskControllerCancellationFixture(
       return {
         ...projected,
         completion: projected.completion.then((result: unknown) => {
-          const completion = projectDockerProcessControllerCompletionResult(
+          const completion = projectAttemptResult(
             result,
             recoveryId,
             operationId,

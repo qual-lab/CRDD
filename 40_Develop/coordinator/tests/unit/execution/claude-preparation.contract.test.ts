@@ -14,15 +14,15 @@ import {
   getRuntimeOwnedProviderDockerAdapter,
   describeProviderDockerRuntimeAdapterContract,
 } from "../../../src/execution/preparation.ts";
-import { createProviderDockerRuntimeAdapterCandidate } from "../../../../executor/src/index.ts";
+import { createAttemptPreparation } from "../../../../executor/src/index.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../executor/src/index.ts";
+import { describeAdviceResultSchema } from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test from "node:test";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../../executor/src/index.ts";
+import { bindAdviceCommand } from "../../../../docker-isolation/src/index.ts";
 
 const fixedSelection = executionSelection("independent_reviewer", {
   provider: "claude",
@@ -56,7 +56,7 @@ const MODEL_SELECTION = Object.freeze({
  */
 function createFixture(
   overrides: Partial<
-    Parameters<typeof createProviderDockerRuntimeAdapterCandidate<"claude">>[1]
+    Parameters<typeof createAttemptPreparation<"claude">>[1]
   > = {},
 ) {
   const managementCapability = Object.freeze({});
@@ -170,10 +170,7 @@ function createFixture(
     },
     ...overrides,
   };
-  const adapter = createProviderDockerRuntimeAdapterCandidate(
-    "claude",
-    dependencies,
-  );
+  const adapter = createAttemptPreparation("claude", dependencies);
   return {
     adapter,
     managementCapability,
@@ -202,7 +199,7 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のClaude Planへ固定する", () => {
-  const providerCommand = bindProviderAdviceCommand(
+  const providerCommand = bindAdviceCommand(
     planProviderExecution(
       {
         provider: "claude",
@@ -236,7 +233,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
     }),
     consumeAdvicePacket: () =>
       Object.freeze({
-        contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
+        contract: "crdd-executor/advice-input",
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
@@ -252,22 +249,26 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         packetHash: "5".repeat(64),
         providerCommand,
         providerPrompt: "Give advice from the supplied projection.",
+        allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,
         workspaceMounted: false as const,
         toolsAllowed: false as const,
         sessionPersistenceAllowed: false as const,
       }),
   });
-  const prepared = fixture.adapter.prepareAdvice(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-    Object.freeze({}),
-    Object.freeze({}),
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "advice",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "workbench",
+    packetCapability: Object.freeze({}),
+    packetOwnerCapability: Object.freeze({}),
+  });
   assert.equal(prepared.status, "prepared");
-  const plan = fixture.adapter.consumeForProcessController(
+  const plan = fixture.adapter.consume(
     prepared.preparedCapability,
     fixture.managementCapability,
   );
@@ -314,12 +315,15 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
       return Buffer.alloc(size, size === 8 ? 1 : 2);
     },
   });
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectedModel, "opus");
   assert.equal(prepared.selectedEffort, "low");
@@ -330,7 +334,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.doesNotMatch(publicJson, /CRDD_PROXY_AUTH/);
   assert.doesNotMatch(publicJson, /create_provider/);
 
-  const plan = fixture.adapter.consumeForProcessController(
+  const plan = fixture.adapter.consume(
     prepared.preparedCapability,
     fixture.managementCapability,
   );
@@ -505,7 +509,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     false,
   );
   assert.equal(
-    fixture.adapter.consumeForProcessController(
+    fixture.adapter.consume(
       prepared.preparedCapability,
       fixture.managementCapability,
     ),
@@ -553,12 +557,15 @@ test("DI乱数検査の不成立は既存準備のMount返却と発行前停止�
         throw new Error("forbidden");
       },
     });
-    const prepared = fixture.adapter.prepare(
-      fixture.managementCapability,
-      fixture.mountCapability,
-      fixture.mountAuthorizationCapability,
-      fixture.selectionUseCapability,
-    );
+    const prepared = fixture.adapter.prepare({
+      purpose: "probe",
+      managementCapability: fixture.managementCapability,
+      mountCapability: fixture.mountCapability,
+      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+      selectionUseCapability: fixture.selectionUseCapability,
+      recoveryCorrelationId: null,
+      consumer: "coordinator_cli",
+    });
     assert.equal(prepared.status, "blocked");
     assert.deepEqual(randomCalls, mode === "throw8" ? [8] : [8, 32]);
     assert.equal(fixture.getCompletionCount(), 1);
@@ -580,12 +587,15 @@ test("DI乱数検査の不成立は既存準備のMount返却と発行前停止�
  */
 test("cancelはMount leaseを完了しprepared capabilityを再利用不能にする", () => {
   const fixture = createFixture();
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   const cancelled = fixture.adapter.cancel(
     prepared.preparedCapability,
     fixture.managementCapability,
@@ -616,15 +626,18 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
  */
 test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する", () => {
   const fixture = createFixture();
-  const prepared = fixture.adapter.prepareTask(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-    Object.freeze({}),
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "task",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+    packetCapability: Object.freeze({}),
+  });
   assert.equal(prepared.status, "prepared");
-  const plan = fixture.adapter.consumeForProcessController(
+  const plan = fixture.adapter.consume(
     prepared.preparedCapability,
     fixture.managementCapability,
   );
@@ -716,15 +729,18 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
         promptTransport: "provider_stdin_only" as const,
       }),
   });
-  const prepared = fixture.adapter.prepareTask(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-    Object.freeze({}),
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "task",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+    packetCapability: Object.freeze({}),
+  });
   assert.equal(prepared.status, "prepared");
-  const plan = fixture.adapter.consumeForProcessController(
+  const plan = fixture.adapter.consume(
     prepared.preparedCapability,
     fixture.managementCapability,
   );
@@ -804,13 +820,16 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
           }
         : {}),
     });
-    const prepared = fixture.adapter.prepareTask(
-      fixture.managementCapability,
-      fixture.mountCapability,
-      fixture.mountAuthorizationCapability,
-      fixture.selectionUseCapability,
-      Object.freeze({}),
-    );
+    const prepared = fixture.adapter.prepare({
+      purpose: "task",
+      managementCapability: fixture.managementCapability,
+      mountCapability: fixture.mountCapability,
+      mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+      selectionUseCapability: fixture.selectionUseCapability,
+      recoveryCorrelationId: null,
+      consumer: "coordinator_cli",
+      packetCapability: Object.freeze({}),
+    });
     if (readPathCount === 0 || readPathCount === 13) {
       assert.equal(prepared.status, "blocked");
       assert.equal(
@@ -824,7 +843,7 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
       assert.equal(prepared.providerRequestIssued, false);
     } else {
       assert.equal(prepared.status, "prepared");
-      const plan = fixture.adapter.consumeForProcessController(
+      const plan = fixture.adapter.consume(
         prepared.preparedCapability,
         fixture.managementCapability,
       );
@@ -863,15 +882,18 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
  */
 test("期限切れprepared planはProvider EffectなしでMount leaseを回収する", () => {
   const fixture = createFixture();
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   fixture.advanceBeyondLifetime();
   assert.equal(
-    fixture.adapter.consumeForProcessController(
+    fixture.adapter.consume(
       prepared.preparedCapability,
       fixture.managementCapability,
     ),
@@ -900,12 +922,15 @@ test("Operation不一致または高コスト根拠不正ではplanを作らずl
         operationId: "OP-654321",
       }),
   });
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.reason, "claude_docker_runtime_plan_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
@@ -963,12 +988,15 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
   });
   assert.equal(issued.status, "issued");
 
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    issued.useCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: issued.useCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectionRecordId, issued.selectionRecordId);
   assert.equal(prepared.selectedModel, issued.selectedModel);
@@ -997,12 +1025,15 @@ test("Selection GrantをconsumeできなければMount leaseだけ回収して�
   const fixture = createFixture({
     consumeModelSelection: () => null,
   });
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "blocked");
   assert.equal(
     prepared.reason,
@@ -1036,12 +1067,15 @@ test("Provider Authorityを発行できなければMount leaseを返しPlanを�
         runtimeAuthorityIssued: false,
       }),
   });
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.reason, "claude_docker_runtime_authority_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
@@ -1077,12 +1111,15 @@ test("不一致の発行済みProvider Authorityは失効してMount leaseを返
       return Object.freeze({ status: "revoked" });
     },
   });
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.reason, "claude_docker_runtime_authority_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
@@ -1105,12 +1142,15 @@ test("prepared取消はAuthority失効とMount解放の両方を要求する", (
   const fixture = createFixture({
     revokeProviderAuthority: () => Object.freeze({ status: "blocked" }),
   });
-  const prepared = fixture.adapter.prepare(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-  );
+  const prepared = fixture.adapter.prepare({
+    purpose: "probe",
+    managementCapability: fixture.managementCapability,
+    mountCapability: fixture.mountCapability,
+    mountAuthorizationCapability: fixture.mountAuthorizationCapability,
+    selectionUseCapability: fixture.selectionUseCapability,
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "prepared");
   const cancelled = fixture.adapter.cancel(
     prepared.preparedCapability,
@@ -1137,12 +1177,15 @@ test("prepared取消はAuthority失効とMount解放の両方を要求する", (
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
-  const prepared = getRuntimeOwnedProviderDockerAdapter("claude").prepare(
-    {},
-    {},
-    {},
-    {},
-  );
+  const prepared = getRuntimeOwnedProviderDockerAdapter("claude").prepare({
+    purpose: "probe",
+    managementCapability: {},
+    mountCapability: {},
+    mountAuthorizationCapability: {},
+    selectionUseCapability: {},
+    recoveryCorrelationId: null,
+    consumer: "coordinator_cli",
+  });
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestIssued, false);
   assert.equal(

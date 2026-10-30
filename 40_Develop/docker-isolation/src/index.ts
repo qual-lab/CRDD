@@ -193,3 +193,10 @@ export {
   classifyDockerProbeRecoveryChildren,
   requireDockerProbeRecoveryMounts,
 } from "./cleanup/probe-record.ts";
+export {
+  bindAdviceCommand,
+  hashAdviceCommand,
+  bindProviderCommand,
+  type ProviderCommandBinding,
+  type AdviceCommand,
+} from "./execution/binding.ts";

@@ -11,10 +11,11 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import type {
-  DockerProcessControllerPublicCompletionReason,
+  AttemptFailureReason,
   RecoveryStartFailureDiagnostic,
 } from "./types.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import type { Recovery } from "../attempt/types.ts";
 
 export const PURPOSES = Object.freeze([
   "create_subscription_auth_probe",
@@ -68,12 +69,7 @@ export const SETUP_COMMAND_FAILURE_REASONS = Object.freeze({
   connect_proxy_egress: "docker_setup_connect_proxy_egress_failed",
   create_provider: "docker_setup_create_provider_failed",
   start_proxy: "docker_setup_start_proxy_failed",
-} satisfies Readonly<
-  Record<
-    DockerSetupCommandPurpose,
-    DockerProcessControllerPublicCompletionReason
-  >
->);
+} satisfies Readonly<Record<DockerSetupCommandPurpose, AttemptFailureReason>>);
 
 /**
  * 値がDocker Process Controllerの固定Setup用途か判定する。
@@ -138,7 +134,7 @@ export function validResultString(
  * @input value: unknown
  * @returns 固定Registryにexact一致する場合だけtrueを返す。
  * @precondition N/A: 任意の観測値を受け取る。
- * @postcondition trueの場合、値をDockerProcessControllerPublicCompletionReasonとして扱える。
+ * @postcondition trueの場合、値をAttemptFailureReasonとして扱える。
  * @effect N/A: 不変Registryを参照するだけである。
  * @failure N/A: 不正値はfalseへ閉じる。
  * @invariant prefix、正規表現または部分一致で理由を許可しない。
@@ -146,9 +142,9 @@ export function validResultString(
  * @security 生出力または自由文を公開理由へ昇格しない。
  * @concurrency N/A: 共有状態を変更しない同期判定である。
  */
-export function isDockerProcessControllerPublicCompletionReason(
+export function isAttemptFailureReason(
   value: unknown,
-): value is DockerProcessControllerPublicCompletionReason {
+): value is AttemptFailureReason {
   return typeof value === "string" && blockedCompletionReasons.has(value);
 }
 
@@ -331,7 +327,7 @@ const ITEM_ERROR_MENTION_KEYS = [
 ] as const;
 
 /** Provider実行観測の閉じた診断項目。実行許可・清掃判定には使用しない。 */
-export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
+const observationKeys = new Set([
   "transport",
   "turnCompleted",
   "itemErrorCount",
@@ -373,9 +369,9 @@ export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
  * @responsibility 実行診断の固定field・数値境界を公開結果と受動診断で共用する。
  * @trace ERB-IT-021
  */
-export function inspectProviderExecutionObservation(raw: unknown) {
+export function inspectAttemptObservation(raw: unknown) {
   const withoutWarningText = new Set(
-    [...PROVIDER_EXECUTION_OBSERVATION_KEYS].filter(
+    [...observationKeys].filter(
       (key) => key !== "itemErrorKnownWarningTextCount",
     ),
   );
@@ -385,7 +381,7 @@ export function inspectProviderExecutionObservation(raw: unknown) {
     ),
   );
   const observation =
-    snapshotPlainRecord(raw, PROVIDER_EXECUTION_OBSERVATION_KEYS) ??
+    snapshotPlainRecord(raw, observationKeys) ??
     snapshotPlainRecord(raw, withoutWarningText) ??
     snapshotPlainRecord(raw, withoutMentions) ??
     snapshotPlainRecord(
@@ -671,16 +667,16 @@ function exactPlainRecord(value: unknown, expectedKeys: readonly string[]) {
  * @trace ARCH-000008
  * @input value: unknown、handedOffRecoveryId: unknown、expectedOperationId: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
- * @precondition 「value: unknown、handedOffRecoveryId: unknown、expectedOperationId: unknown」がprojectDockerProcessControllerStartResultの入力契約を満たす。
- * @postcondition projectDockerProcessControllerStartResultの責務を完了した結果だけを返す。
- * @effect N/A: projectDockerProcessControllerStartResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: projectDockerProcessControllerStartResultは独自の失敗分岐を所有しない。
- * @invariant projectDockerProcessControllerStartResultは入力から導いた結果以外の共有状態を変更しない。
+ * @precondition 「value: unknown、handedOffRecoveryId: unknown、expectedOperationId: unknown」がprojectAttemptStartResultの入力契約を満たす。
+ * @postcondition projectAttemptStartResultの責務を完了した結果だけを返す。
+ * @effect N/A: projectAttemptStartResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectAttemptStartResultは独自の失敗分岐を所有しない。
+ * @invariant projectAttemptStartResultは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security projectDockerProcessControllerStartResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency projectDockerProcessControllerStartResultは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security projectAttemptStartResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency projectAttemptStartResultは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export function projectDockerProcessControllerStartResult(
+export function projectAttemptStartResult(
   value: unknown,
   handedOffRecoveryId: unknown,
   expectedOperationId?: unknown,
@@ -690,9 +686,7 @@ export function projectDockerProcessControllerStartResult(
     const record = blockedRecord;
     const rawRecoveryId = ownDataValue(record, "recoveryId");
     const recoveryId =
-      rawRecoveryId === null
-        ? null
-        : publicVerifiedDockerRecoveryId(rawRecoveryId);
+      rawRecoveryId === null ? null : resolveRecoveryReference(rawRecoveryId);
     const cleanupConfirmed = ownDataValue(record, "cleanupConfirmed");
     const manualRecoveryRequired = ownDataValue(
       record,
@@ -721,7 +715,7 @@ export function projectDockerProcessControllerStartResult(
   }
   const record = exactPlainRecord(value, STARTED_KEYS);
   const status = ownDataValue(record, "status");
-  const recoveryId = publicVerifiedDockerRecoveryId(
+  const recoveryId = resolveRecoveryReference(
     ownDataValue(record, "recoveryId"),
   );
   return record &&
@@ -755,16 +749,16 @@ export function projectDockerProcessControllerStartResult(
  * @trace ARCH-000008
  * @input value: unknown、expectedRecoveryId: unknown、expectedOperationId: unknown
  * @returns Readonly<Record<string, unknown>> | nullを返す。
- * @precondition 「value: unknown、expectedRecoveryId: unknown、expectedOperationId: unknown」がprojectDockerProcessControllerCompletionResultの入力契約を満たす。
- * @postcondition projectDockerProcessControllerCompletionResultの責務を完了した結果だけを返す。
- * @effect N/A: projectDockerProcessControllerCompletionResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: projectDockerProcessControllerCompletionResultは独自の失敗分岐を所有しない。
- * @invariant projectDockerProcessControllerCompletionResultは入力から導いた結果以外の共有状態を変更しない。
+ * @precondition 「value: unknown、expectedRecoveryId: unknown、expectedOperationId: unknown」がprojectAttemptResultの入力契約を満たす。
+ * @postcondition projectAttemptResultの責務を完了した結果だけを返す。
+ * @effect N/A: projectAttemptResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectAttemptResultは独自の失敗分岐を所有しない。
+ * @invariant projectAttemptResultは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security projectDockerProcessControllerCompletionResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: projectDockerProcessControllerCompletionResultは共有非同期状態を持たない同期処理である。
+ * @security projectAttemptResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: projectAttemptResultは共有非同期状態を持たない同期処理である。
  */
-export function projectDockerProcessControllerCompletionResult(
+export function projectAttemptResult(
   value: unknown,
   expectedRecoveryId: unknown,
   expectedOperationId?: unknown,
@@ -776,10 +770,8 @@ export function projectDockerProcessControllerCompletionResult(
   const manualRecoveryRequired = ownDataValue(record, "manualRecoveryRequired");
   const rawRecoveryId = ownDataValue(record, "recoveryId");
   const recoveryId =
-    rawRecoveryId === null
-      ? null
-      : publicVerifiedDockerRecoveryId(rawRecoveryId);
-  const expected = publicVerifiedDockerRecoveryId(expectedRecoveryId);
+    rawRecoveryId === null ? null : resolveRecoveryReference(rawRecoveryId);
+  const expected = resolveRecoveryReference(expectedRecoveryId);
   const processTreeTerminated = ownDataValue(
     record,
     "processTreeTerminationConfirmed",
@@ -882,6 +874,8 @@ const blockedCompletionReasons = new Set<string>(
   dockerProcessControllerPublicCompletionReasons,
 );
 
+// 現行Hostの開始・在庫投影が返す有限理由だけを受ける。
+// 旧保存方式のProducer不在理由を分類契約として保持しない。未知値は従来どおりunavailable。
 const recoveryStartReasonClass = new Map<string, string>([
   [
     "docker_task_multiple_recovery_inventory_available",
@@ -891,60 +885,13 @@ const recoveryStartReasonClass = new Map<string, string>([
     "docker_task_recovery_inventory_available",
     "docker_process_controller_recovery_conflict",
   ],
-  [
-    "docker_task_recovery_cleanup_tombstone_conflict",
-    "docker_process_controller_recovery_conflict",
-  ],
-  ...(
-    [
-      "docker_task_runtime_state_pending_incomplete",
-      "docker_task_runtime_state_orphan_commit",
-      "docker_task_runtime_state_orphan_pointer",
-      "docker_task_runtime_state_orphan_temporary",
-      "docker_task_recovery_orphan_commit",
-      "docker_task_recovery_orphan_temporary",
-      "docker_task_recovery_duplicate_base",
-      "docker_task_recovery_duplicate_base_commit",
-      "docker_task_recovery_base_commit_missing",
-    ] as const
-  ).map(
-    (reason) =>
-      [reason, "docker_process_controller_recovery_partial_state"] as const,
-  ),
-  ...(
-    [
-      "docker_task_runtime_state_binding_changed",
-      "docker_task_runtime_state_user_binding_changed",
-      "docker_task_runtime_state_root_replaced",
-      "docker_task_runtime_state_entry_replaced",
-      "docker_task_runtime_state_cleanup_replaced",
-      "docker_task_recovery_active_run_mismatch",
-      "docker_task_recovery_base_commit_mismatch",
-      "docker_task_recovery_base_mismatch",
-      "docker_task_recovery_host_binding_changed",
-      "docker_task_recovery_host_mismatch",
-      "docker_task_recovery_pointer_mismatch",
-    ] as const
-  ).map(
-    (reason) =>
-      [reason, "docker_process_controller_recovery_identity_mismatch"] as const,
-  ),
-  ...(
-    [
-      "docker_task_host_operation_generation_active_or_unknown",
-      "docker_task_process_generation_active_or_unknown",
-      "docker_task_recovery_home_generation_active_or_unknown",
-      "docker_task_recovery_home_lock_release_unconfirmed",
-      "docker_task_recovery_host_lock_release_unconfirmed",
-      "docker_task_runtime_state_generation_active_or_unknown",
-      "docker_task_runtime_state_lock_release_unconfirmed",
-      "docker_task_runtime_state_audit_failed",
-      "docker_task_recovery_record_observation_unknown",
-      "docker_task_runtime_state_unavailable",
-      "docker_task_recovery_begin_failed_closed",
-      "docker_task_recovery_failed_closed",
-    ] as const
-  ).map(
+  ...[
+    "docker_task_recovery_home_lock_release_unconfirmed",
+    "docker_task_recovery_host_lock_release_unconfirmed",
+    "docker_task_runtime_state_lock_release_unconfirmed",
+    "docker_task_recovery_begin_failed_closed",
+    "docker_task_recovery_failed_closed",
+  ].map(
     (reason) =>
       [
         reason,
@@ -959,17 +906,17 @@ const recoveryStartReasonClass = new Map<string, string>([
  * @responsibility public Docker 回復 Start Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input reason: unknown
- * @returns publicDockerRecoveryStartReasonの計算結果を返す。
- * @precondition 「reason: unknown」がpublicDockerRecoveryStartReasonの入力契約を満たす。
- * @postcondition publicDockerRecoveryStartReasonの責務を完了した結果だけを返す。
- * @effect N/A: publicDockerRecoveryStartReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: publicDockerRecoveryStartReasonは独自の失敗分岐を所有しない。
- * @invariant publicDockerRecoveryStartReasonは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: publicDockerRecoveryStartReasonはProcess内の同一Subsystemで完結する。
- * @security publicDockerRecoveryStartReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: publicDockerRecoveryStartReasonは共有非同期状態を持たない同期処理である。
+ * @returns resolveRecoveryStartReasonの計算結果を返す。
+ * @precondition 「reason: unknown」がresolveRecoveryStartReasonの入力契約を満たす。
+ * @postcondition resolveRecoveryStartReasonの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRecoveryStartReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRecoveryStartReasonは独自の失敗分岐を所有しない。
+ * @invariant resolveRecoveryStartReasonは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRecoveryStartReasonはProcess内の同一Subsystemで完結する。
+ * @security resolveRecoveryStartReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRecoveryStartReasonは共有非同期状態を持たない同期処理である。
  */
-export function publicDockerRecoveryStartReason(reason: unknown) {
+export function resolveRecoveryStartReason(reason: unknown) {
   if (typeof reason === "string") {
     const classified = recoveryStartReasonClass.get(reason);
     if (classified) return classified;
@@ -983,17 +930,17 @@ export function publicDockerRecoveryStartReason(reason: unknown) {
  * @responsibility public Verified Docker 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
- * @returns publicVerifiedDockerRecoveryIdの計算結果を返す。
- * @precondition 「value: unknown」がpublicVerifiedDockerRecoveryIdの入力契約を満たす。
- * @postcondition publicVerifiedDockerRecoveryIdの責務を完了した結果だけを返す。
- * @effect N/A: publicVerifiedDockerRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: publicVerifiedDockerRecoveryIdは独自の失敗分岐を所有しない。
- * @invariant publicVerifiedDockerRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: publicVerifiedDockerRecoveryIdはProcess内の同一Subsystemで完結する。
- * @security publicVerifiedDockerRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: publicVerifiedDockerRecoveryIdは共有非同期状態を持たない同期処理である。
+ * @returns resolveRecoveryReferenceの計算結果を返す。
+ * @precondition 「value: unknown」がresolveRecoveryReferenceの入力契約を満たす。
+ * @postcondition resolveRecoveryReferenceの責務を完了した結果だけを返す。
+ * @effect N/A: resolveRecoveryReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveRecoveryReferenceは独自の失敗分岐を所有しない。
+ * @invariant resolveRecoveryReferenceは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveRecoveryReferenceはProcess内の同一Subsystemで完結する。
+ * @security resolveRecoveryReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: resolveRecoveryReferenceは共有非同期状態を持たない同期処理である。
  */
-export function publicVerifiedDockerRecoveryId(value: unknown) {
+export function resolveRecoveryReference(value: unknown) {
   return parseDockerTaskRecoveryId(value)?.token ?? null;
 }
 
@@ -1022,4 +969,117 @@ export function exactKeys(
     actualKeys.length === keys.length &&
     keys.every((key) => actualKeys.includes(key))
   );
+}
+
+/**
+ * Ready 回復を所有Snapshotへ変換する。
+ *
+ * @responsibility Ready 回復の取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns Recovery | nullを返す。
+ * @precondition 「value: unknown」がsnapshotReadyRecoveryの入力契約を満たす。
+ * @postcondition snapshotReadyRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotReadyRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotReadyRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotReadyRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security snapshotReadyRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotReadyRecoveryは共有非同期状態を持たない同期処理である。
+ */
+export function snapshotReadyRecovery(value: unknown): Recovery | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    if (
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      Object.keys(value).sort().join("\0") !==
+        ["recoveryCapability", "recoveryId", "status"].sort().join("\0")
+    )
+      return null;
+  } catch {
+    return null;
+  }
+  const status = ownDataValue(value, "status");
+  const recoveryId = ownDataValue(value, "recoveryId");
+  const recoveryCapability = ownDataValue(value, "recoveryCapability");
+  return status === "ready" &&
+    typeof recoveryId === "string" &&
+    recoveryCapability !== null &&
+    typeof recoveryCapability === "object"
+    ? Object.freeze({ status, recoveryId, recoveryCapability })
+    : null;
+}
+
+/**
+ * Blocked 回復 With Exact Idを所有Snapshotへ変換する。
+ *
+ * @responsibility Blocked 回復 With Exact Idの取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input value: unknown、expectedStableLogicalHomeBindingHash: string
+ * @returns snapshotBlockedRecoveryWithExactIdの計算結果を返す。
+ * @precondition 「value: unknown、expectedStableLogicalHomeBindingHash: string」がsnapshotBlockedRecoveryWithExactIdの入力契約を満たす。
+ * @postcondition snapshotBlockedRecoveryWithExactIdの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotBlockedRecoveryWithExactIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotBlockedRecoveryWithExactIdは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotBlockedRecoveryWithExactIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security snapshotBlockedRecoveryWithExactIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: snapshotBlockedRecoveryWithExactIdは共有非同期状態を持たない同期処理である。
+ */
+export function snapshotBlockedRecoveryWithExactId(
+  value: unknown,
+  expectedStableLogicalHomeBindingHash: string,
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (utilTypes.isProxy(value)) return null;
+  let hasOwner = false;
+  try {
+    const keys = Object.keys(value).sort().join("\0");
+    hasOwner =
+      keys ===
+      [
+        "reason",
+        "recoveryId",
+        "status",
+        "recoveryCapability",
+        "manualRecoveryRequired",
+      ]
+        .sort()
+        .join("\0");
+    if (
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      (keys !== ["reason", "recoveryId", "status"].sort().join("\0") &&
+        !hasOwner)
+    )
+      return null;
+  } catch {
+    return null;
+  }
+  const status = ownDataValue(value, "status");
+  const reason = ownDataValue(value, "reason");
+  const recoveryId = resolveRecoveryReference(
+    ownDataValue(value, "recoveryId"),
+  );
+  const parsed = parseDockerTaskRecoveryId(recoveryId);
+  const capability = ownDataValue(value, "recoveryCapability");
+  if (
+    hasOwner &&
+    (!capability ||
+      typeof capability !== "object" ||
+      utilTypes.isProxy(capability) ||
+      ownDataValue(value, "manualRecoveryRequired") !== true)
+  )
+    return null;
+  return status === "blocked" &&
+    typeof reason === "string" &&
+    recoveryId &&
+    parsed?.stableLogicalHomeBindingHash ===
+      expectedStableLogicalHomeBindingHash
+    ? Object.freeze({
+        status,
+        reason,
+        recoveryId,
+        recoveryCapability: capability ?? null,
+      })
+    : null;
 }

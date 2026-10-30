@@ -55,6 +55,15 @@ function assertProviderExecutorConsumer(source: string, name: string) {
  * @boundary 独立Libraryの公開Root。正常実行の成立は別の有限Controller結合試験で確認する。
  */
 test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffectなしで拒否する", () => {
+  const publicSource = fs.readFileSync(
+    new URL("../../src/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(publicSource, /\bAttemptInput\b/);
+  assert.doesNotMatch(
+    publicSource,
+    /\b(?:AdviceInput|TaskInput|AdvicePacket|TaskPacket|AdviceResultItem)\b/,
+  );
   const root = new URL("../../src/index.ts", import.meta.url).href;
   const verification = new URL(
     "../../scripts/verify-provider-attempt.ts",
@@ -69,15 +78,35 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       return resolved;
     }});
     const api=await import(${JSON.stringify(root)});
+    assert.deepEqual(Object.keys(api).sort(), [
+      "PREPARATION_LIFETIME_MS",
+      "bindIsolationRuntime",
+      "createAttemptPreparation", "createExecutor", "createExecutorTestCandidate",
+      "createPreparationFailure", "describeExecutorContract",
+      "describeIsolationContract", "inspectAttemptObservation",
+      "inspectRecoveryStartFailureDiagnostic", "isAttemptFailureReason",
+      "isPrimaryFailureDiagnostic",
+      "projectAttemptResult", "projectAttemptStartResult",
+      "resolveRecoveryReference", "resolveRecoveryStartReason",
+    ].sort());
+    for(const name of ["normalizeTaskResult", "normalizeAdviceResult", "describeAdviceResultSchema",
+      "consumeTaskRemediation", "hashAdviceCommand", "bindAdviceCommand",
+      "createProviderExecutor", "ProviderExecutorHost", "ownDataValue",
+      "buildProviderDockerExecutionPlan", "validatePlan", "planIdentity",
+      "resolveIsolationCommandInput", "PURPOSES", "SETUP_COMMAND_FAILURE_REASONS",
+      "ATTEMPT_OBSERVATION_KEYS", "ADVICE_INPUT_CONTRACT", "ADVICE_INPUT_CONTRACT_REVISION",
+      "ADVICE_RESULT_CONTRACT", "ADVICE_RESULT_CONTRACT_REVISION"])
+      assert.equal(name in api,false,name);
     for(const name of ['createProviderObservationOwner','createProviderAttemptRuntime','registerSubmission','registerTerminal'])
       assert.equal(name in api,false,name);
     let calls=0;
     const dependencies=new Proxy({}, {get(){return ()=>{calls++;throw Error('unexpected_effect');};}});
-    const runtime=api.createIsolatedDockerProcessControllerCandidate(dependencies);
+    const runtime=api.createExecutorTestCandidate(dependencies);
     assert.equal(runtime.start(null,null).status,'blocked');
     assert.equal((await runtime.cancel(null,null)).status,'blocked');
     assert.equal(calls,0);
-    assert.equal(runtime.borrowTerminalObservations({}, {}, 'op', 'recovery'),null);
+    for (const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
+      assert.equal(name in runtime,false,name);
     const {default:fs}=await import('node:fs');
     const {default:childProcess}=await import('node:child_process');
     const {syncBuiltinESMExports}=await import('node:module');
@@ -153,11 +182,11 @@ test("Executor単独の候補・本番Factory配線は四つの終了条件と�
  * @precondition Sourceだけを読む。
  * @stimulus Executor閉包とCoordinatorの保存三利用側を照合する。
  * @observation import経路と固定Factoryの生成箇所。
- * @oracle Coordinator逆依存なし、Host側Factory一回、照合三利用側は同じ接続先。
+ * @oracle Coordinator逆依存なし、Host側Factory一回、保存利用側からExecutor逆照会なし。
  * @cleanup N/A: Source読取りのみ。
  * @boundary Source依存の契約。動的資源不存在の証明には使わない。
  */
-test("観測MapはExecutor内に閉じ、保存三利用側は一つの本番Executorを照合する", () => {
+test("固定Host接続は一つであり保存利用側はExecutorへ逆照会しない", () => {
   const root = new URL("../../src/", import.meta.url);
   for (const entry of fs.readdirSync(root, { recursive: true })) {
     if (!String(entry).endsWith(".ts")) continue;
@@ -178,19 +207,12 @@ test("観測MapはExecutor内に閉じ、保存三利用側は一つの本番Exe
     new URL("provider-executor.ts", coordinator),
     "utf8",
   );
-  assert.equal(
-    [...composition.matchAll(/createProviderExecutor\(/g)].length,
-    1,
-  );
+  assert.equal([...composition.matchAll(/createExecutor\(/g)].length, 1);
   for (const name of ["persistence", "settlement", "recovery", "controller"]) {
     const source = fs.readFileSync(new URL(`${name}.ts`, coordinator), "utf8");
-    assertProviderExecutorConsumer(source, name);
-    for (const old of ["observation", "controller"]) {
-      const mutation = source.replace("./provider-executor.ts", `./${old}.ts`);
-      assert.throws(() =>
-        assertProviderExecutorConsumer(mutation, `${name}:${old}`),
-      );
-    }
+    if (name === "controller") assertProviderExecutorConsumer(source, name);
+    else
+      assert.doesNotMatch(source, /from\s+["'][^"']*provider-executor\.ts["']/);
     assert.doesNotMatch(source, /createProviderObservationOwner/);
   }
   for (const old of ["observation", "controller"]) {

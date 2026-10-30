@@ -85,8 +85,6 @@ export function createRuntimeStorageSourceFixture(
       storageRepository.observeRuntimeRecoveryRepository,
     borrowRuntimeOwnedCoordinatorStateRepository:
       storageRepository.observeRuntimeExecutionRepository,
-    verifyRuntimeOwnedDockerUnissuedNotice:
-      storageRepository.verifyRuntimeStorageUnissuedNotice,
     ...overrides,
   };
   const declarations = new Set(

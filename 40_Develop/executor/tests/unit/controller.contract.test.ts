@@ -12,6 +12,35 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createBlockedStart } from "../../src/result/attempt.ts";
+
+/**
+ * 開始拒否の清掃・回復参照・下位義務を全組合せで照合する。
+ * @responsibility Effect前拒否を清掃成功や回復不要と混同しない。
+ * @trace ERB-IT-004
+ * @precondition 合成のreasonと回復参照だけを使用する。
+ * @stimulus 三条件の八組合せを渡す。
+ * @observation 清掃・manualRecoveryRequired・元参照・非公開field。
+ * @oracle 下位義務、清掃不明、回復参照ありのいずれでもmanualを維持する。
+ * @cleanup N/A: 値生成だけ。
+ * @boundary ERB-IT-004=Direct Boundary: 開始拒否結果。
+ */
+test("開始拒否は清掃と元回復参照と下位義務を独立に保持する", () => {
+  for (const clean of [false, true])
+    for (const id of [null, "exact-recovery"])
+      for (const lowerManual of [false, true]) {
+        const result = createBlockedStart("synthetic", clean, id, lowerManual);
+        assert.equal(result.cleanupConfirmed, clean);
+        assert.equal(result.recoveryId, id);
+        assert.equal(
+          result.manualRecoveryRequired,
+          lowerManual || !clean || id !== null,
+        );
+        assert.equal(result.dockerEffectStarted, false);
+        assert.equal(result.completion, null);
+        assert.equal(result.normalizedResult, null);
+      }
+});
 
 /**
  * 五つの清掃条件の全組合せと三終端状態を照合する。
@@ -26,7 +55,7 @@ import { sourceDeclaration } from "../../../domain-model/tests/support/source-de
  */
 test("終端結果は五清掃条件の全32組合せと三状態を混同しない", () => {
   const source = readFileSync(
-    new URL("../../src/attempt/controller.ts", import.meta.url),
+    new URL("../../src/result/attempt.ts", import.meta.url),
     "utf8",
   );
   const project = runInNewContext(

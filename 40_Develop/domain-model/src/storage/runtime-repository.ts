@@ -32,13 +32,6 @@ export type RuntimeExecutionStorageAccess = Readonly<{
     operationId: string;
     revalidate: () => boolean;
   }> | null;
-  verifyNotIssued: (
-    notice: unknown,
-    recoveryCapability: unknown,
-    purpose: string,
-    operationId: unknown,
-    recoveryId: string,
-  ) => boolean;
 }>;
 
 /**
@@ -230,41 +223,6 @@ export function runtimeStorageOperationIdentity(access: unknown) {
   return value && typeof value === "object" && !types.isProxy(value)
     ? value
     : null;
-}
-
-/**
- * 未発行通知の元六値をfresh差分から再照合する。
- * @responsibility intent_savedからnot_issuedへの処置点で元Ownerの照合を呼ぶ。
- * @trace ARCH-000008
- * @input notice、recovery、access: 元通知とOwner、purpose、operationId、recoveryId: Writerが確認した対象。
- * @returns 同期trueだけを成立とする。
- * @precondition 呼出し側がfresh差分と対象一致を先に検査する。
- * @postcondition 事前計算したbooleanや別Ownerを使用しない。
- * @effect 元の通知検証を一回呼ぶ。
- * @failure throw・Promise・true以外はfalse。
- * @invariant 新しい処置Authorityを発行しない。
- * @boundary 固定差分と元の通知Owner。
- * @security 通知を保存・複製・登録しない。
- * @concurrency 同期処置中だけ使用する。
- */
-export function verifyRuntimeStorageUnissuedNotice(
-  notice: unknown,
-  recovery: unknown,
-  access: unknown,
-  purpose: string,
-  operationId: unknown,
-  recoveryId: string,
-): boolean {
-  return (
-    synchronous(
-      data(access, "verifyNotIssued"),
-      notice,
-      recovery,
-      purpose,
-      operationId,
-      recoveryId,
-    ) === true
-  );
 }
 
 /**

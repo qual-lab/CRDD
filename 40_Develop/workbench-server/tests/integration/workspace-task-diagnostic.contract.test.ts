@@ -17,10 +17,7 @@ import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
 } from "../../../coordinator/src/execution/result.ts";
-import {
-  PROVIDER_EXECUTION_OBSERVATION_KEYS,
-  inspectProviderExecutionObservation,
-} from "../../../executor/src/index.ts";
+import { inspectAttemptObservation } from "../../../executor/src/index.ts";
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -44,6 +41,35 @@ const identity = {
   recoveryCorrelationId: correlation,
   recoveryId,
 };
+
+/** 合成Provider応答を実Parserで投影し、検査対象の私有Key一覧には依存しない。 */
+function executionObservationFixture(): Record<string, unknown> {
+  const parsed = parseProviderResult({
+    provider: "codex",
+    purpose: "task",
+    taskRole: "executor",
+    raw: [
+      {
+        type: "item.completed",
+        item: {
+          type: "agent_message",
+          text: JSON.stringify({
+            status: "completed",
+            summary: "Synthetic fixture.",
+            changedPaths: [],
+            verification: [],
+          }),
+        },
+      },
+      { type: "turn.completed" },
+    ]
+      .map((item) => JSON.stringify(item))
+      .join("\n"),
+  });
+  assert.equal(parsed.status, "confirmed");
+  assert.ok(parsed.codexExecutionObservation);
+  return { ...parsed.codexExecutionObservation };
+}
 
 /** 境界終端は既存一次失敗だけを保存し、本文・別試行・不完全相関を受理しない。
  * @trace ERB-IT-021
@@ -357,25 +383,14 @@ test("段階診断は初回・是正の編集とレビューを本文なしで�
 
 /** 現行観測は新件数を必須とし、旧診断の欠測を零補完しない。 */
 test("内部エラー観測は版・欠測・部分集合相関を検査する", () => {
-  const base = Object.fromEntries(
-    [...PROVIDER_EXECUTION_OBSERVATION_KEYS].map((k) => [
-      k,
-      k === "transport"
-        ? "fixed_cli_jsonl_v0_164_0"
-        : k === "turnCompleted"
-          ? true
-          : k.endsWith("Reported")
-            ? false
-            : 0,
-    ]),
-  );
+  const base = executionObservationFixture();
   for (const [total, code, valid] of [
     [0, 1, false],
     [1, 1, true],
     [2, 1, true],
   ] as const)
     assert.equal(
-      inspectProviderExecutionObservation({
+      inspectAttemptObservation({
         ...base,
         itemErrorCount: total,
         itemErrorCodeModeCount: code,
@@ -388,7 +403,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     itemErrorCodeModeCount: _code,
     ...missing
   } = base;
-  assert.equal(inspectProviderExecutionObservation(missing), null);
+  assert.equal(inspectAttemptObservation(missing), null);
   const old: Record<string, unknown> = {
     ...missing,
     transport: "fixed_cli_jsonl_v0_149_1",
@@ -400,13 +415,10 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       key === "itemErrorKnownWarningTextCount"
     )
       delete old[key];
-  assert.deepEqual(inspectProviderExecutionObservation(old), old);
+  assert.deepEqual(inspectAttemptObservation(old), old);
+  assert.equal(inspectAttemptObservation({ ...old, itemErrorCount: 1 }), null);
   assert.equal(
-    inspectProviderExecutionObservation({ ...old, itemErrorCount: 1 }),
-    null,
-  );
-  assert.equal(
-    inspectProviderExecutionObservation({ ...base, itemErrorCount: "private" }),
+    inspectAttemptObservation({ ...base, itemErrorCount: "private" }),
     null,
   );
   for (const key of Object.keys(base).filter(
@@ -422,7 +434,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       Number.POSITIVE_INFINITY,
     ])
       assert.equal(
-        inspectProviderExecutionObservation({
+        inspectAttemptObservation({
           ...base,
           itemErrorCount: 1,
           [key]: value,
@@ -431,7 +443,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       );
     const partial = { ...base };
     delete partial[key];
-    assert.equal(inspectProviderExecutionObservation(partial), null);
+    assert.equal(inspectAttemptObservation(partial), null);
   }
   const previous = Object.fromEntries(
     Object.entries(base).filter(
@@ -441,7 +453,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
         key !== "itemErrorKnownWarningTextCount",
     ),
   );
-  const inspected = inspectProviderExecutionObservation(previous);
+  const inspected = inspectAttemptObservation(previous);
   assert.deepEqual(inspected, previous);
   assert.equal(
     Object.hasOwn(inspected ?? {}, "itemErrorHostMentionCount"),
@@ -450,7 +462,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
   const { itemErrorKnownWarningTextCount: _warning, ...previousMentions } =
     base;
   assert.deepEqual(
-    inspectProviderExecutionObservation(previousMentions),
+    inspectAttemptObservation(previousMentions),
     previousMentions,
   );
   for (const value of [
@@ -462,7 +474,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     "private",
   ])
     assert.equal(
-      inspectProviderExecutionObservation({
+      inspectAttemptObservation({
         ...base,
         itemErrorCount: 1,
         itemErrorUnclassifiedCount: 1,
@@ -568,7 +580,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       itemErrorHostMentionCount: 1,
     },
   ])
-    assert.equal(inspectProviderExecutionObservation(invalid), null);
+    assert.equal(inspectAttemptObservation(invalid), null);
 });
 
 /** 完了を期待する段階の欠測・逆順は、Task成功や取得成功へ補完しない。 */
@@ -823,12 +835,7 @@ test("診断frameは重複key・異なるevent・非objectを保持しない", (
 
 /** 診断の件数・一致関係と既存コマンド観測を共通検査へ接続する。 */
 test("候補診断の閉形式は相関する件数と非秘密観測だけを受理する", () => {
-  const observation: Record<string, unknown> = Object.fromEntries(
-    [...PROVIDER_EXECUTION_OBSERVATION_KEYS].map((key) => [
-      key,
-      key.endsWith("Count") ? 0 : false,
-    ]),
-  );
+  const observation = executionObservationFixture();
   observation.transport = "fixed_cli_jsonl_v0_164_0";
   observation.turnCompleted = true;
   const valid = {

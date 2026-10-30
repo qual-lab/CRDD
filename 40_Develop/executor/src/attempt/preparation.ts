@@ -6,19 +6,51 @@
  * @trace ARCH-000015
  */
 import { evaluateProviderTaskScope } from "../../../ai-adapter/src/index.ts";
+import {
+  validateProviderModelId,
+  describeProviderAuthentication,
+} from "../../../ai-adapter/src/index.ts";
+import {
+  createDockerIsolationRuntime,
+  describeDockerProviderAssets,
+  describeDockerProxyTopology,
+  createDockerIsolationRandomHex,
+  createDockerIsolationResourceNames,
+  planDockerIsolationCommands,
+  type DockerIsolationCommand,
+} from "../../../docker-isolation/src/index.ts";
+import {
+  inspectExecutionSelection,
+  hashExecutionSelection,
+  snapshotPlainRecord,
+  snapshotPlainArray,
+} from "../../../domain-model/src/index.ts";
+import {
+  bindIsolationRuntime,
+  resolveProviderExecution,
+  resolveIsolationCommandInput,
+} from "./isolation.ts";
+import { createProviderAttemptRuntime } from "./execute.ts";
 import type {
-  ProviderAdvicePacket,
+  RuntimeDependencies,
+  AttemptInput,
+  ModelSelection,
+  TaskPacket,
+  AttemptBinding,
+  MountGrant,
+} from "./types.ts";
+import type {
+  AdvicePacket,
   ProviderPreparedPlanLifecycle,
   ProviderPreparationLifecycleState,
   ProviderDockerPreparationState,
-  ProviderDockerPreparedPlan,
-  ProviderDockerConsumedModelSelection,
-  ProviderDockerConsumedTaskPacket,
-  ProviderDockerRuntimeDependencies,
-  ProviderDockerPreparedResult,
+  PreparedAttemptPlan,
+  ConsumedModelSelection,
+  ConsumedTaskPacket,
+  PreparationHost,
+  PreparedAttempt,
   ProviderDockerPreparationCallbacks,
 } from "./types.ts";
-import { buildProviderDockerExecutionPlan } from "./plan.ts";
 
 /**
  * 一つのProvider準備Ownerの独立した状態を構築する。
@@ -37,17 +69,17 @@ import { buildProviderDockerExecutionPlan } from "./plan.ts";
  * @concurrency 準備・取消・消費は既存の同期Store操作で直列化する。
  */
 export function createProviderDockerRuntimeState<P extends "codex" | "claude">(
-  dependencies: ProviderDockerRuntimeDependencies<P>,
+  dependencies: PreparationHost<P>,
 ) {
   return Object.freeze({
-    prepared: new WeakMap<object, ProviderDockerPreparedPlan<P>>(),
+    prepared: new WeakMap<object, PreparedAttemptPlan<P>>(),
     managementCapabilities: new WeakMap<object, object>(),
     ...dependencies,
   });
 }
 
 /**
- * Providerで識別した独立準備Runtimeを構築する。
+ * 指定Providerの独立した準備Ownerを構成する。準備・実行そのものは開始しない。
  *
  * @responsibility 固定Provider、独立Store、共通計画と既存公開結果を結合する。
  * @trace ARCH-000015
@@ -62,9 +94,10 @@ export function createProviderDockerRuntimeState<P extends "codex" | "claude">(
  * @security 結果にPath、command、秘密または内部Authorityを複製しない。
  * @concurrency 既存の同期準備順序と二WeakMapによる一回消費を維持する。
  */
-export function createProviderDockerRuntimeAdapterCandidate<
-  P extends "codex" | "claude",
->(provider: P, dependencies: ProviderDockerRuntimeDependencies<P>) {
+export function createAttemptPreparation<P extends "codex" | "claude">(
+  provider: P,
+  dependencies: PreparationHost<P>,
+) {
   const state = createProviderDockerRuntimeState<P>(dependencies);
   /**
    * 同じProviderの計画とAuthorityを準備候補へ結合する。
@@ -94,20 +127,20 @@ export function createProviderDockerRuntimeAdapterCandidate<
     consumer: unknown = null,
   ) {
     return prepareProviderDockerCandidate<
-      ProviderDockerConsumedModelSelection,
-      ProviderDockerConsumedTaskPacket<P>,
-      ProviderAdvicePacket,
+      ConsumedModelSelection,
+      ConsumedTaskPacket<P>,
+      AdvicePacket,
       Omit<
-        ProviderDockerPreparedPlan<P>,
+        PreparedAttemptPlan<P>,
         "authorityUseCapability" | "authorityControlCapability"
       >,
-      ReturnType<typeof createProviderDockerBlockedResult>,
-      ProviderDockerPreparedResult<P>
+      ReturnType<typeof createPreparationFailure>,
+      PreparedAttempt<P>
     >(
       state,
       provider,
       {
-        blockedResult: createProviderDockerBlockedResult,
+        blockedResult: createPreparationFailure,
         ...(provider === "claude"
           ? {
               validateTask: (packet: {
@@ -132,16 +165,14 @@ export function createProviderDockerRuntimeAdapterCandidate<
           // 固定Providerの実行時照合後だけ具体型へ結合する。計画fieldを補完しない。
           return plan?.provider === provider
             ? (plan as Omit<
-                ProviderDockerPreparedPlan<P>,
+                PreparedAttemptPlan<P>,
                 "authorityUseCapability" | "authorityControlCapability"
               >)
             : null;
         },
         preparedResult: (plan, capability, binding, activation) => {
           const result = Object.freeze({
-            ...createProviderDockerBlockedResult(
-              `${provider}_docker_runtime_prepared`,
-            ),
+            ...createPreparationFailure(`${provider}_docker_runtime_prepared`),
             status: "prepared" as const,
             reason: `${provider}_docker_runtime_prepared`,
             preparedCapability: capability,
@@ -159,7 +190,7 @@ export function createProviderDockerRuntimeAdapterCandidate<
             selectionNotice: plan.selectionNotice,
             providerHomeMountLeaseActive: true as const,
           });
-          return result as ProviderDockerPreparedResult<P>;
+          return result as PreparedAttempt<P>;
         },
       },
       management,
@@ -175,12 +206,12 @@ export function createProviderDockerRuntimeAdapterCandidate<
   }
   return createIsolatedProviderDockerPreparationAdapter(provider, {
     prepare,
-    blocked: createProviderDockerBlockedResult,
+    blocked: createPreparationFailure,
     cancel: (prepared, management) =>
       cancelProviderDockerPreparation(
         state,
         provider,
-        createProviderDockerBlockedResult,
+        createPreparationFailure,
         prepared,
         management,
       ),
@@ -189,7 +220,7 @@ export function createProviderDockerRuntimeAdapterCandidate<
   });
 }
 
-export const PROVIDER_PREPARATION_LIFETIME_MS = 30_000;
+export const PREPARATION_LIFETIME_MS = 30_000;
 
 /**
  * 同じ管理Capabilityへ結合した準備計画だけを取得する。
@@ -247,8 +278,8 @@ function providerPreparedPlanIsFresh<T extends ProviderPreparedPlanLifecycle>(
     !Number.isFinite(monotonicAge) ||
     wallAge < 0 ||
     monotonicAge < 0 ||
-    wallAge >= PROVIDER_PREPARATION_LIFETIME_MS ||
-    monotonicAge >= PROVIDER_PREPARATION_LIFETIME_MS
+    wallAge >= PREPARATION_LIFETIME_MS ||
+    monotonicAge >= PREPARATION_LIFETIME_MS
   );
 }
 
@@ -397,17 +428,17 @@ export function consumeProviderDockerPreparation<
  * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
  * @input reason: string
- * @returns createProviderDockerBlockedResultの計算結果を返す。
- * @precondition 「reason: string」がcreateProviderDockerBlockedResultの入力契約を満たす。
- * @postcondition createProviderDockerBlockedResultの責務を完了した結果だけを返す。
- * @effect N/A: createProviderDockerBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createProviderDockerBlockedResultは独自の失敗分岐を所有しない。
- * @invariant createProviderDockerBlockedResultは入力から導いた結果以外の共有状態を変更しない。
+ * @returns createPreparationFailureの計算結果を返す。
+ * @precondition 「reason: string」がcreatePreparationFailureの入力契約を満たす。
+ * @postcondition createPreparationFailureの責務を完了した結果だけを返す。
+ * @effect N/A: createPreparationFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createPreparationFailureは独自の失敗分岐を所有しない。
+ * @invariant createPreparationFailureは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createProviderDockerBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createProviderDockerBlockedResultは共有非同期状態を持たない同期処理である。
+ * @security createPreparationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createPreparationFailureは共有非同期状態を持たない同期処理である。
  */
-export function createProviderDockerBlockedResult(reason: string) {
+export function createPreparationFailure(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
@@ -447,7 +478,7 @@ export function createProviderDockerBlockedResult(reason: string) {
  * @security 任意の外部command、Pluginまたは新Capabilityを受け付けない。
  * @concurrency 既存の同期操作と二WeakMapによる一回消費を維持する。
  */
-export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
+function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
   provider: "codex" | "claude",
   callbacks: Readonly<{
     prepare: (...args: unknown[]) => R;
@@ -481,76 +512,66 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
   };
   return Object.freeze({
     productionAuthority: false as const,
-    prepare: (
-      management: unknown,
-      mount: unknown,
-      authorization: unknown,
-      selection: unknown,
-    ) =>
-      safely(`${provider}_docker_runtime_preparation_failed_closed`, () =>
-        callbacks.prepare(
-          management,
-          mount,
-          authorization,
-          selection,
-          null,
-          null,
-          null,
-          null,
-          "coordinator_cli",
-        ),
-      ),
-    prepareTask: (
-      management: unknown,
-      mount: unknown,
-      authorization: unknown,
-      selection: unknown,
-      packet: unknown,
-      recovery: unknown = null,
-      consumer: unknown = "coordinator_cli",
-    ) =>
-      safely(`${provider}_docker_runtime_task_preparation_failed_closed`, () =>
-        callbacks.prepare(
-          management,
-          mount,
-          authorization,
-          selection,
-          packet,
-          recovery,
-          null,
-          null,
-          consumer,
-        ),
-      ),
-    prepareAdvice: (
-      management: unknown,
-      mount: unknown,
-      authorization: unknown,
-      selection: unknown,
-      packet: unknown,
-      owner: unknown,
-      recovery: unknown = null,
-    ) =>
-      safely(
-        `${provider}_docker_runtime_advice_preparation_failed_closed`,
+    prepare: (input: AttemptInput) => {
+      const common = [
+        "purpose",
+        "managementCapability",
+        "mountCapability",
+        "mountAuthorizationCapability",
+        "selectionUseCapability",
+        "recoveryCorrelationId",
+        "consumer",
+      ];
+      const value =
+        snapshotPlainRecord(
+          input,
+          new Set([...common, "packetCapability", "packetOwnerCapability"]),
+        ) ??
+        snapshotPlainRecord(input, new Set([...common, "packetCapability"])) ??
+        snapshotPlainRecord(input, new Set(common));
+      if (
+        !value ||
+        (value.purpose !== "task" &&
+          value.purpose !== "advice" &&
+          value.purpose !== "probe") ||
+        (value.purpose === "probe" &&
+          ("packetCapability" in value || "packetOwnerCapability" in value)) ||
+        (value.purpose === "task" &&
+          (!("packetCapability" in value) ||
+            "packetOwnerCapability" in value)) ||
+        (value.purpose === "advice" &&
+          (!("packetCapability" in value) ||
+            !("packetOwnerCapability" in value)))
+      )
+        return callbacks.blocked(
+          `${provider}_docker_runtime_input_mode_ambiguous`,
+        );
+      const purpose = value.purpose;
+      return safely(
+        purpose === "task"
+          ? `${provider}_docker_runtime_task_preparation_failed_closed`
+          : purpose === "advice"
+            ? `${provider}_docker_runtime_advice_preparation_failed_closed`
+            : `${provider}_docker_runtime_preparation_failed_closed`,
         () =>
           callbacks.prepare(
-            management,
-            mount,
-            authorization,
-            selection,
-            null,
-            recovery,
-            packet,
-            owner,
-            "workbench",
+            value.managementCapability,
+            value.mountCapability,
+            value.mountAuthorizationCapability,
+            value.selectionUseCapability,
+            purpose === "task" ? value.packetCapability : null,
+            value.recoveryCorrelationId,
+            purpose === "advice" ? value.packetCapability : null,
+            purpose === "advice" ? value.packetOwnerCapability : null,
+            value.consumer,
           ),
-      ),
+      );
+    },
     cancel: (prepared: unknown, management: unknown) =>
       safely(`${provider}_docker_runtime_cancellation_failed_closed`, () =>
         callbacks.cancel(prepared, management),
       ),
-    consumeForProcessController: (prepared: unknown, management: unknown) => {
+    consume: (prepared: unknown, management: unknown) => {
       try {
         return callbacks.consume(prepared, management);
       } catch {
@@ -576,7 +597,7 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
  * @security Authority照合が成立する前にprepared結果を返さない。
  * @concurrency 同期処理で二WeakMapの候補と管理対応を連続保存する。
  */
-export function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
+function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
   state: ProviderDockerPreparationState<M, T, A, P>,
   provider: "codex" | "claude",
   callbacks: ProviderDockerPreparationCallbacks<M, T, A, P, B, R>,
@@ -774,4 +795,330 @@ export function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
     state.completeMount(activeMountCapability, managementCapability);
     throw error;
   }
+}
+
+/**
+ * 消費済みPacketとMountを固定ProviderのDocker計画へ結合する。
+ *
+ * @responsibility 両Providerの共通相関検査・資源命名・command構築を一箇所で行う。
+ * @trace ARCH-000015
+ * @input 固定Provider、乱数・Seccomp確認、操作・Grant、選定、二時刻、Taskまたは助言Packet、回復参照と本番組立てが固定した利用側。
+ * @returns Providerで識別できる不変計画、または不成立時のnull。
+ * @precondition 呼出し側がMountとPacketの取得・消費を完了している。
+ * @postcondition 既存の選定Identity・Mount条件とProvider差を保ち、Docker要求を発行しない。
+ * @effect 乱数を取得し、Codex Executor時だけ固定Seccomp Fileを既存確認操作で読む。
+ * @failure 相関不一致や固定条件不足はnull、取得操作の例外は準備Ownerへ搬送する。
+ * @invariant CLI固有計画はAI Adapterから取得し、Authorityを新設しない。
+ * @boundary AI Adapterの固定記述とCoordinatorのMount・Egress・実行計画の接続境界。
+ * @security 認証状態、選定、Packet、Mountと操作の結合を省略しない。
+ * @concurrency 同期計画構築だけを行い、候補Storeの所有・一回消費は変更しない。
+ */
+export function buildProviderDockerExecutionPlan(
+  provider: "codex" | "claude",
+  state: Readonly<{
+    randomBytes: (size: number) => Buffer;
+  }>,
+  binding: AttemptBinding,
+  activation: Readonly<{
+    grant: MountGrant;
+    activeMountCapability: object;
+  }>,
+  consumedModelSelection: ModelSelection,
+  providerHomeSourcePath: string,
+  preparedWallClockMs: number,
+  preparedMonotonicMs: number,
+  taskPacket: TaskPacket | null,
+  advicePacket: AdvicePacket | null,
+  recoveryCorrelationId: string | null,
+  consumer: "coordinator_cli" | "workbench" | "orchestrator",
+) {
+  const referenceSnapshot = advicePacket
+    ? snapshotPlainArray<string>(advicePacket.allowedReferences, 256)
+    : null;
+  const adviceAllowedReferences =
+    referenceSnapshot?.status === "ok"
+      ? Object.freeze([...referenceSnapshot.value])
+      : null;
+  if (
+    consumer !== "coordinator_cli" &&
+    consumer !== "workbench" &&
+    consumer !== "orchestrator"
+  )
+    return null;
+  const operationMode = taskPacket
+    ? ("isolated_task" as const)
+    : advicePacket
+      ? ("workbench_advice" as const)
+      : ("boolean_probe" as const);
+  const execution = resolveProviderExecution({
+    provider,
+    operationMode,
+    selectedModel: consumedModelSelection.model,
+    selectedEffort: consumedModelSelection.effort,
+    taskRole: taskPacket?.taskRole ?? null,
+    ...(provider === "claude"
+      ? { taskWorkload: taskPacket?.taskWorkload }
+      : {}),
+  });
+  if (!execution) return null;
+  const claude = execution.provider === "claude" ? execution : null;
+  const assets = describeDockerProviderAssets(provider);
+  const egress = describeDockerProxyTopology(provider);
+  const selection = inspectExecutionSelection(
+    consumedModelSelection.executionSelection,
+  );
+  if (
+    !selection ||
+    selection.provider !== provider ||
+    hashExecutionSelection(selection) !==
+      consumedModelSelection.selectionHash ||
+    consumedModelSelection.executorProvider !== provider ||
+    consumedModelSelection.operationId !== binding.operationId ||
+    activation.grant.provider !== provider ||
+    activation.grant.operationId !== binding.operationId ||
+    consumedModelSelection.effort !== selection.reasoningEffort ||
+    consumedModelSelection.model !== selection.modelIdentifier ||
+    consumedModelSelection.selectionNotice.length === 0 ||
+    !/^MODELSEL-[A-Z0-9-]{8,80}$/.test(
+      consumedModelSelection.selectionRecordId,
+    ) ||
+    ("status" in execution && execution.status !== "candidate") ||
+    !validateProviderModelId(consumedModelSelection.model).value ||
+    ((taskPacket !== null || advicePacket !== null) &&
+      (!("modelIdentifier" in execution) ||
+        consumedModelSelection.model !== execution.modelIdentifier)) ||
+    execution.provider !== provider ||
+    (taskPacket !== null && advicePacket !== null) ||
+    (taskPacket !== null &&
+      (taskPacket.operationId !== binding.operationId ||
+        taskPacket.promptTransport !== "provider_stdin_only" ||
+        taskPacket.selectionHash !== hashExecutionSelection(selection) ||
+        taskPacket.taskAttempt !== consumedModelSelection.taskAttempt ||
+        selection.role !==
+          (taskPacket.taskRole === "executor"
+            ? "executor"
+            : "independent_reviewer"))) ||
+    (advicePacket !== null &&
+      (advicePacket.operationId !== binding.operationId ||
+        hashExecutionSelection(advicePacket.executionSelection) !==
+          hashExecutionSelection(selection) ||
+        selection.role !== "advice" ||
+        advicePacket.provider !== provider ||
+        advicePacket.providerCommand.provider !== provider ||
+        (provider === "claude" &&
+          advicePacket.providerCommand.modelIdentifier !==
+            consumedModelSelection.model) ||
+        advicePacket.providerCommand.reasoningEffort !==
+          consumedModelSelection.effort ||
+        !adviceAllowedReferences ||
+        adviceAllowedReferences.length === 0 ||
+        adviceAllowedReferences.some(
+          (value) =>
+            typeof value !== "string" ||
+            value.length === 0 ||
+            value.includes("\0") ||
+            Buffer.byteLength(value, "utf8") > 512,
+        ) ||
+        new Set(adviceAllowedReferences).size !==
+          adviceAllowedReferences.length ||
+        advicePacket.repositoryMounted !== false ||
+        advicePacket.workspaceMounted !== false ||
+        advicePacket.toolsAllowed !== false ||
+        advicePacket.sessionPersistenceAllowed !== false))
+  ) {
+    return null;
+  }
+  const suffix = createDockerIsolationRandomHex(state, 8);
+  const proxyToken = createDockerIsolationRandomHex(state, 32);
+  if (!suffix || !proxyToken) return null;
+  const resourceNames = createDockerIsolationResourceNames(
+    provider,
+    activation.grant.providerHomeIdentityHash,
+    suffix,
+  );
+  if (!resourceNames) return null;
+  const {
+    internalNetworkName,
+    egressNetworkName,
+    proxyContainerName,
+    authContainerName,
+    providerContainerName,
+    ownershipLabel,
+  } = resourceNames;
+  const providerImageDigest =
+    advicePacket?.providerCommand.fixedImageDigest ?? assets.fixedImageDigest;
+  const proxyImageDigest = egress.imageDigest;
+  const plan = {
+    provider,
+    operationId: binding.operationId,
+    recoveryCorrelationId,
+    consumer,
+    grantRef: activation.grant.grantRef,
+    executionSelection: consumedModelSelection.executionSelection,
+    taskAttempt: consumedModelSelection.taskAttempt,
+    activeMountCapability: activation.activeMountCapability,
+    providerHomeSourcePath,
+    providerHomeIdentityHash: activation.grant.providerHomeIdentityHash,
+    providerHomeProtectionHash: activation.grant.providerHomeProtectionHash,
+    localUserBindingHash: activation.grant.localUserBindingHash,
+    stableLogicalHomeBindingHash: activation.grant.stableLogicalHomeBindingHash,
+    preparedWallClockMs,
+    preparedMonotonicMs,
+    authContainerName,
+    providerContainerName,
+    proxyContainerName,
+    internalNetworkName,
+    egressNetworkName,
+    ownershipLabel,
+    providerImageDigest,
+    proxyImageDigest,
+    networkPolicy:
+      taskPacket?.networkPolicy ??
+      advicePacket?.providerCommand.networkPolicy ??
+      null,
+    selectionRecordId: consumedModelSelection.selectionRecordId,
+    subscriptionOffering: describeProviderAuthentication(provider).offering,
+    selectedModel: consumedModelSelection.model,
+    selectedEffort: consumedModelSelection.executionSelection.reasoningEffort,
+    selectionNotice: consumedModelSelection.selectionNotice,
+    operationMode: taskPacket
+      ? ("isolated_task" as const)
+      : advicePacket
+        ? ("workbench_advice" as const)
+        : ("boolean_probe" as const),
+    taskRole: taskPacket?.taskRole ?? null,
+    taskPacketRef: taskPacket?.taskPacketRef ?? null,
+    taskPacketHash: taskPacket?.taskPacketHash ?? null,
+    advicePacketRef: advicePacket?.packetRef ?? null,
+    advicePacketHash: advicePacket?.packetHash ?? null,
+    adviceCommandHash: advicePacket?.commandHash ?? null,
+    adviceAllowedReferences,
+    providerInput: taskPacket?.prompt ?? advicePacket?.providerPrompt ?? null,
+    workspaceSourcePath: taskPacket ? binding.mounts.workspace : null,
+    ...(binding.workspaceProtection
+      ? { workspaceProtection: binding.workspaceProtection }
+      : {}),
+    workspaceMountMode: taskPacket
+      ? taskPacket.taskRole === "executor"
+        ? ("read_write" as const)
+        : ("read_only" as const)
+      : null,
+    commands: [] as readonly DockerIsolationCommand[],
+  };
+  const configuration = resolveIsolationCommandInput(
+    {
+      ...plan,
+      ...(provider === "claude" && claude && "taskWorkload" in claude
+        ? { taskWorkload: claude.taskWorkload }
+        : {}),
+    },
+    binding.mounts.tmp,
+    proxyToken,
+    execution,
+  );
+  const commands = configuration
+    ? planDockerIsolationCommands(configuration)
+    : null;
+  if (!commands) return null;
+  const completedPlan = { ...plan, commands };
+  return provider === "codex"
+    ? Object.freeze({
+        ...completedPlan,
+        provider: "codex" as const,
+        subscriptionOffering: describeProviderAuthentication("codex").offering,
+      })
+    : Object.freeze({
+        ...completedPlan,
+        provider: "claude" as const,
+        subscriptionOffering: describeProviderAuthentication("claude").offering,
+        taskWorkload:
+          claude && "taskWorkload" in claude ? claude.taskWorkload : null,
+      });
+}
+
+/**
+ * 上位Hostが所有する検査・保存だけを搬送する。
+ * @responsibility 元操作の相関・保存と下位実行の注入境界を分ける。
+ * @trace ARCH-000008
+ * @shape 元の有限Host操作とPath／Receiptの借用。Process primitiveは含めない。
+ * @invariant 一試行へ同じ管理参照・回復参照を結合する。
+ * @boundary Coordinator等のHostと固定Executor。
+ * @security 任意Command実装・生保存Ownerを渡さない。
+ * @compatibility 既存Host操作の引数・返却値を維持する。
+ */
+export type ExecutorHost = Omit<
+  RuntimeDependencies,
+  | "effectExecutorAvailable"
+  | "startCommand"
+  | "startExecution"
+  | "cleanupOwnedResources"
+  | "verifyCleanupOutcome"
+> &
+  Required<
+    Pick<
+      RuntimeDependencies,
+      | "recordProviderSubmission"
+      | "recordResourceNotIssued"
+      | "recordTerminalObservation"
+    >
+  > &
+  Parameters<typeof createDockerIsolationRuntime>[0];
+
+/**
+ * 固定DIを使う一つのExecutorを構成する。
+ * @responsibility 同じ試行のControlと固定Host callbackを構成し、上位の実行順序は所有しない。
+ * @trace ARCH-000008
+ * @input host: 元Owner検査と用途固定の保存操作。
+ * @returns 同一試行の開始・取消と下位清掃結果の照合操作。
+ * @precondition Hostは同じ生涯で同じ元Capabilityを管理する。
+ * @postcondition 自由なCommand・Process・Platformを本番入力として受け取らない。
+ * @effect 構築時はProcess内状態だけを生成する。実操作は明示start後のみ。
+ * @failure 下位構成が不正なら例外で停止し、代替Runtimeを起動しない。
+ * @invariant 結果・取消・照合は同じRuntimeに属し、Mapを上位へ返さない。
+ * @boundary Hostの元操作と固定Docker実行。
+ * @security 生出力・秘密値・Mapを返さず、元結果の同一性を維持する。
+ * @concurrency 一つのControlの完了待ちを切り離さず、取消は同じsessionへ配送する。
+ */
+export function createExecutor(host: ExecutorHost) {
+  const isolation = bindIsolationRuntime(
+    createDockerIsolationRuntime({
+      borrowPaths: host.borrowPaths,
+      inspectReceipts: host.inspectReceipts,
+    }),
+    host.borrowPaths,
+  );
+  const runtime = createProviderAttemptRuntime(
+    {
+      ...host,
+      effectExecutorAvailable: true,
+      startExecution: isolation.startExecution,
+      cleanupOwnedResources: isolation.cleanupOwnedResources,
+      verifyCleanupOutcome: isolation.verifyCleanupOutcome,
+    },
+    true,
+  );
+  return Object.freeze({
+    start: runtime.start,
+    cancel: runtime.cancel,
+    verifyCleanupOutcome: isolation.verifyCleanupOutcome,
+  });
+}
+
+/**
+ * 本番Mapを共有しない有限試験候補を構成する。
+ * @responsibility 既存の模擬Process操作を本番AuthorityなしのRuntimeへ閉じる。
+ * @trace ARCH-000008
+ * @input dependencies: 試験が所有する開始・終了・証拠の有限操作。
+ * @returns 開始・取消を持つ試験専用Executor。
+ * @precondition 呼出し側が試験資源と各代役の終了を所有する。
+ * @postcondition controlsを本番・別候補から分離し、通知Mapは作らない。
+ * @effect N/A: 構築時はメモリだけで、依存操作はstart後に限る。
+ * @failure 無効な開始は既存のblocked結果へ閉じる。
+ * @invariant productionAuthorityは常にfalse。
+ * @boundary 試験代役と同じ単段Controller実装。
+ * @security この候補の結果を本番Verifierは受理しない。
+ * @concurrency 取消と終了は同じControlを使用する。
+ */
+export function createExecutorTestCandidate(dependencies: RuntimeDependencies) {
+  return createProviderAttemptRuntime(dependencies, false);
 }

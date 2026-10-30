@@ -964,3 +964,13 @@ export {
 } from "./workspace/command.ts";
 
 export type { CoordinatorWorkspaceResult } from "./workspace/types.ts";
+export {
+  parseAdviceResult,
+  describeAdviceResultSchema,
+  type AdviceResult,
+  type AdviceResultItem,
+} from "./attempt/advice.ts";
+export {
+  inspectTaskResultContent,
+  type TaskReviewFinding,
+} from "./attempt/task-result.ts";

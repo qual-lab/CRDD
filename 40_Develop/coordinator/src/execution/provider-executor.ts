@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  * @boundary CoordinatorのHost管理とExecutorの技術生涯の間。
  */
-import { createProviderExecutor } from "../../../executor/src/index.ts";
+import { createExecutor } from "../../../executor/src/index.ts";
 import {
   completeRuntimeOwnedProviderHomeMount,
   consumeRuntimeOwnedProviderAuthority,
@@ -23,6 +23,8 @@ import {
   inspectRuntimeOwnedDockerResourceReceipts,
   markRuntimeOwnedDockerResourceSubmission,
   recordRuntimeOwnedDockerProviderSubmission,
+  registerRuntimeOwnedReviewFindings,
+  recordRuntimeOwnedDockerTerminalObservation,
   recordRuntimeOwnedDockerResourceNotIssued,
   recordRuntimeOwnedDockerResourceReceipt,
   recordRuntimeOwnedDockerAbsence,
@@ -31,17 +33,14 @@ import {
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./recovery.ts";
 
-const executor = createProviderExecutor({
+const executor = createExecutor({
   verifyRevision: verifyRuntimeOwnedRepositoryOperation,
   consumePreparedPlan: (prepared, management) =>
-    getRuntimeOwnedProviderDockerAdapter("claude").consumeForProcessController(
+    getRuntimeOwnedProviderDockerAdapter("claude").consume(
       prepared,
       management,
     ) ??
-    getRuntimeOwnedProviderDockerAdapter("codex").consumeForProcessController(
-      prepared,
-      management,
-    ),
+    getRuntimeOwnedProviderDockerAdapter("codex").consume(prepared, management),
   beginRecovery: beginRuntimeOwnedDockerRecovery,
   bindInitializationFailure: bindRuntimeOwnedDockerInitializationFailure,
   abandonRecovery: abandonRuntimeOwnedDockerRecovery,
@@ -51,6 +50,8 @@ const executor = createProviderExecutor({
   verifyHomeLeaseRelease: verifyRuntimeOwnedDockerHomeLeaseRelease,
   markResourceSubmission: markRuntimeOwnedDockerResourceSubmission,
   recordProviderSubmission: recordRuntimeOwnedDockerProviderSubmission,
+  registerReviewFindings: registerRuntimeOwnedReviewFindings,
+  recordTerminalObservation: recordRuntimeOwnedDockerTerminalObservation,
   recordResourceNotIssued: recordRuntimeOwnedDockerResourceNotIssued,
   recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
   recordDockerAbsence: recordRuntimeOwnedDockerAbsence,
@@ -107,66 +108,6 @@ export function cancelRuntimeOwnedDockerProcessController(
   ...args: Parameters<typeof executor.cancel>
 ) {
   return executor.cancel(...args);
-}
-/**
- * 同期保存callback中だけ有効な元Provider通知を照合する。
- * @responsibility 登録中の通知を本番一実体へ照合する。
- * @trace ARCH-000008
- * @input args: 元通知・回復・管理参照・操作ID・回復ID。
- * @returns 相関が一致した時だけtrue。
- * @precondition 元通知の同期利用中に呼ぶ。
- * @postcondition 通知を再登録・延命しない。
- * @effect N/A: 私有Mapの照合だけ。
- * @failure コピー・別Owner・失効をfalseで拒否する。
- * @invariant 事前booleanへ変換せず各保存境界で照合する。
- * @boundary Executor通知とHostの同期保存。
- * @security 通知の存在だけからAuthorityを発行しない。
- * @concurrency finally失効後は受理しない。
- */
-export function verifyRuntimeOwnedDockerProviderSubmissionNotice(
-  ...args: Parameters<typeof executor.verifyProviderSubmissionNotice>
-) {
-  return executor.verifyProviderSubmissionNotice(...args);
-}
-/**
- * 元の未発行通知を同じExecutorの私有Mapへ照合する。
- * @responsibility 用途と元操作を含む未発行観測の相関を保つ。
- * @trace ARCH-000008
- * @input args: 元通知・回復・管理参照・用途・操作と回復ID。
- * @returns 同じ通知登録中のexact一致だけtrue。
- * @precondition 同期の未発行保存callback内で利用する。
- * @postcondition 過去unknownを不存在へ推測更新しない。
- * @effect N/A: 登録された元値を読むだけ。
- * @failure 別用途・コピー・失効・相関差を拒否する。
- * @invariant 保存側独自のMapを作らない。
- * @boundary 単段観測と未発行記録。
- * @security 観測値を削除・回復の新Authorityへ変えない。
- * @concurrency 通知の登録寿命を同期callbackへ限定する。
- */
-export function verifyRuntimeOwnedDockerUnissuedNotice(
-  ...args: Parameters<typeof executor.verifyUnissuedNotice>
-) {
-  return executor.verifyUnissuedNotice(...args);
-}
-/**
- * 元resultに相関した終端事実だけを借用する。
- * @responsibility 元objectと現在の管理参照による照合を保存へ提供する。
- * @trace ARCH-000008
- * @input args: 元result・管理参照・操作と回復ID。
- * @returns 一致した元終端観測又はnull。
- * @precondition 同じ試行のcompletionから元resultを取得済み。
- * @postcondition 観測を複製登録・再発行しない。
- * @effect N/A: 私有終端Mapの読取りのみ。
- * @failure コピー・別試行・別管理参照はnull。
- * @invariant result内容だけの一致を真正性としない。
- * @boundary Executor終端と上位の保存確定。
- * @security 清掃の一部成立をTask全体の完了へ昇格しない。
- * @concurrency 同期の借用中も元object相関を維持する。
- */
-export function borrowRuntimeOwnedDockerTerminalObservations(
-  ...args: Parameters<typeof executor.borrowTerminalObservations>
-) {
-  return executor.borrowTerminalObservations(...args);
 }
 /**
  * 固定DI Runtimeの元清掃結果だけを照合する。

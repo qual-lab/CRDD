@@ -21,7 +21,6 @@ import {
   observeRuntimeSettlementRepository,
   observeRuntimeStorageRepository,
   runtimeStorageOperationIdentity,
-  verifyRuntimeStorageUnissuedNotice,
 } from "../../src/storage/runtime-repository.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { sourceDeclaration } from "../support/source-declaration.ts";
@@ -273,31 +272,8 @@ test("継承したthenはgetterを評価せずRoot照合前に拒否する", () 
  * @cleanup unhandledRejection監視をfinallyで外す。
  * @boundary 同期Host観測とDomain保存入力。
  */
-test("不正Contextと非同期観測を拒否し通知の六値を元位置で照合する", async () => {
+test("不正Contextと非同期観測を拒否し内部Host読取りだけを受ける", async () => {
   let effects = 0;
-  const observed: unknown[][] = [];
-  const access = {
-    verifyNotIssued: (...args: unknown[]) => {
-      observed.push(args);
-      return true;
-    },
-  };
-  const notice = Object.freeze({}),
-    recovery = Object.freeze({});
-  assert.equal(
-    verifyRuntimeStorageUnissuedNotice(
-      notice,
-      recovery,
-      access,
-      "auth",
-      "operation-a",
-      "recovery-a",
-    ),
-    true,
-  );
-  assert.deepEqual(observed, [
-    [notice, recovery, "auth", "operation-a", "recovery-a"],
-  ]);
   const getter = Object.defineProperty({}, "observeRepository", {
     get() {
       effects++;
@@ -342,17 +318,6 @@ test("不正Contextと非同期観測を拒否し通知の六値を元位置で�
       () => thenable,
       () => false,
     ]) {
-      assert.equal(
-        verifyRuntimeStorageUnissuedNotice(
-          notice,
-          recovery,
-          { verifyNotIssued: callback },
-          "auth",
-          "operation-a",
-          "recovery-a",
-        ),
-        false,
-      );
       assert.equal(
         observeRuntimeExecutionRepository({ observeRepository: callback }),
         null,

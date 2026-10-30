@@ -60,7 +60,7 @@ import {
   observeCoordinatorTaskCompletion,
   type ProviderBoundaryDiagnosticNotice,
 } from "./observation.ts";
-import type { ProviderProcessStartedNotice } from "../../../executor/src/index.ts";
+import type { ProcessStartedNotice } from "../../../executor/src/index.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -123,10 +123,10 @@ import {
   projectDevelopmentTaskResultAfterOuterCleanup,
 } from "./result.ts";
 import {
-  inspectProviderExecutionObservation,
-  projectDockerProcessControllerCompletionResult,
-  projectDockerProcessControllerStartResult,
-  publicVerifiedDockerRecoveryId,
+  inspectAttemptObservation,
+  projectAttemptResult,
+  projectAttemptStartResult,
+  resolveRecoveryReference,
 } from "../../../executor/src/index.ts";
 
 /** Task固有の候補・Review診断は上位に残す。通知失敗を実行結果へ反映しない。
@@ -528,7 +528,7 @@ export type CoordinatorTaskDependencies = Readonly<{
     repositoryRoot: unknown,
     recoveryCorrelationId?: string,
     observeProviderStarted?: (
-      notice: ProviderProcessStartedNotice,
+      notice: ProcessStartedNotice,
     ) => boolean | Promise<boolean>,
     workspaceTarget?: BorrowedExecutionTarget,
   ) => unknown;
@@ -1041,9 +1041,7 @@ export async function runCoordinatorTaskAttempt(
    * @security 通知はAuthorityやAI要求受理の証明ではない。
    * @concurrency 同時・重複通知は同じ保存Promiseへ結合する。
    */
-  const forwardStarted = (
-    notice: ProviderProcessStartedNotice,
-  ): Promise<boolean> => {
+  const forwardStarted = (notice: ProcessStartedNotice): Promise<boolean> => {
     if (isNotificationClosed || input.cancellationSignal.aborted)
       return Promise.resolve(false);
     if (
@@ -1227,7 +1225,7 @@ const { cancellationGraceMs: CANCELLATION_GRACE_MS } =
  */
 export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
   return (
-    notice: ProviderProcessStartedNotice | ProviderBoundaryDiagnosticNotice,
+    notice: ProcessStartedNotice | ProviderBoundaryDiagnosticNotice,
   ): Promise<boolean> => {
     if (!stream.writable || stream.destroyed) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
@@ -1608,7 +1606,7 @@ type taskRuntimeDependencies = Readonly<{
     ) => boolean,
     commandRestriction?: unknown,
     observeProviderStarted?: (
-      notice: ProviderProcessStartedNotice,
+      notice: ProcessStartedNotice,
     ) => boolean | Promise<boolean>,
   ) => RuntimeRecord;
   cancelProcess: (
@@ -1695,7 +1693,7 @@ type ControlRecord = {
   recoveryCorrelationId: string | null;
   consumer: "coordinator_cli" | "workbench" | "orchestrator";
   observeProviderStarted:
-    | ((notice: ProviderProcessStartedNotice) => boolean | Promise<boolean>)
+    | ((notice: ProcessStartedNotice) => boolean | Promise<boolean>)
     | undefined;
 };
 
@@ -2083,7 +2081,7 @@ function projectExecutorResultDiagnostics(value: unknown) {
   )
     return null;
   const providerExecutionObservation = observation
-    ? inspectProviderExecutionObservation(observation)
+    ? inspectAttemptObservation(observation)
     : null;
   if (observation && !providerExecutionObservation) return null;
   return Object.freeze({
@@ -2750,7 +2748,7 @@ function reportCandidateValidationFailure(
       pathsMatch: actual && reported ? samePaths(actual, reported) : null,
       candidatePathCount: actual?.length ?? null,
       reportedPathCount: reported?.length ?? null,
-      providerExecutionObservation: inspectProviderExecutionObservation(
+      providerExecutionObservation: inspectAttemptObservation(
         executorResult?.providerExecutionObservation,
       ),
     });
@@ -2822,7 +2820,7 @@ function reportTaskStage(
               reportedPathCount: Array.isArray(result.changedPaths)
                 ? result.changedPaths.length
                 : null,
-              providerExecutionObservation: inspectProviderExecutionObservation(
+              providerExecutionObservation: inspectAttemptObservation(
                 result.providerExecutionObservation ?? null,
               ),
             },
@@ -3122,7 +3120,7 @@ async function executeStageBody(
       operation.managementCapability,
       (recoveryCapability, recoveryId) => {
         const capability = objectCapability(recoveryCapability);
-        const id = publicVerifiedDockerRecoveryId(recoveryId);
+        const id = resolveRecoveryReference(recoveryId);
         if (
           !capability ||
           !id ||
@@ -3147,7 +3145,7 @@ async function executeStageBody(
       startRuntimeOwnedDockerProcessController;
     const process = (
       isProductionProcessContract
-        ? projectDockerProcessControllerStartResult(
+        ? projectAttemptStartResult(
             rawProcess,
             control.dockerHandoffs.at(-1)?.recoveryId ?? null,
             operation.operationId,
@@ -3169,9 +3167,7 @@ async function executeStageBody(
       !processControl ||
       !(completion instanceof Promise)
     ) {
-      const dockerRecoveryId = publicVerifiedDockerRecoveryId(
-        process.recoveryId,
-      );
+      const dockerRecoveryId = resolveRecoveryReference(process.recoveryId);
       const manualRecoveryRequired =
         process.cleanupConfirmed !== true ||
         process.manualRecoveryRequired === true ||
@@ -3190,9 +3186,7 @@ async function executeStageBody(
     }
     control.currentProcessControl = processControl;
     startedProcessControl = processControl;
-    startedDockerRecoveryId = publicVerifiedDockerRecoveryId(
-      process.recoveryId,
-    );
+    startedDockerRecoveryId = resolveRecoveryReference(process.recoveryId);
     if (control.cancellationRequested) {
       await state.dependencies.cancelProcess(
         processControl,
@@ -3201,7 +3195,7 @@ async function executeStageBody(
     }
     const rawResult = await completion;
     const result = isProductionProcessContract
-      ? projectDockerProcessControllerCompletionResult(
+      ? projectAttemptResult(
           rawResult,
           startedDockerRecoveryId,
           operation.operationId,
@@ -3263,9 +3257,7 @@ async function executeStageBody(
       });
     }
     if (result.status !== "completed" || result.cleanupConfirmed !== true) {
-      const dockerRecoveryId = publicVerifiedDockerRecoveryId(
-        result.recoveryId,
-      );
+      const dockerRecoveryId = resolveRecoveryReference(result.recoveryId);
       const manualRecoveryRequired =
         result.cleanupConfirmed !== true ||
         result.manualRecoveryRequired === true ||
@@ -4085,24 +4077,24 @@ async function runCoordinatorTask(
     !singularDescriptor ||
     !("value" in singularDescriptor) ||
     (singularDescriptor.value !== null &&
-      !publicVerifiedDockerRecoveryId(singularDescriptor.value)) ||
+      !resolveRecoveryReference(singularDescriptor.value)) ||
     !pluralDescriptor ||
     !("value" in pluralDescriptor) ||
     plural?.status !== "ok" ||
-    plural.value.some((value) => !publicVerifiedDockerRecoveryId(value)) ||
+    plural.value.some((value) => !resolveRecoveryReference(value)) ||
     new Set(plural.value).size !== plural.value.length;
   const observedIds = Object.freeze([
     ...new Set([
       ...(plural?.status === "ok"
         ? plural.value.filter(
             (value): value is string =>
-              publicVerifiedDockerRecoveryId(value) !== null,
+              resolveRecoveryReference(value) !== null,
           )
         : []),
       ...(singularDescriptor &&
       "value" in singularDescriptor &&
-      publicVerifiedDockerRecoveryId(singularDescriptor.value)
-        ? [publicVerifiedDockerRecoveryId(singularDescriptor.value) as string]
+      resolveRecoveryReference(singularDescriptor.value)
+        ? [resolveRecoveryReference(singularDescriptor.value) as string]
         : []),
     ]),
   ]);
@@ -4286,15 +4278,16 @@ const productionDependencies: taskRuntimeDependencies = Object.freeze({
     recoveryCorrelationId,
     consumer,
   ) =>
-    getRuntimeOwnedProviderDockerAdapter(provider).prepareTask(
+    getRuntimeOwnedProviderDockerAdapter(provider).prepare({
+      purpose: "task",
       managementCapability,
       mountCapability,
       mountAuthorizationCapability,
       selectionUseCapability,
-      taskPacketUseCapability,
+      packetCapability: taskPacketUseCapability,
       recoveryCorrelationId,
       consumer,
-    ),
+    }),
   startProcess: startRuntimeOwnedDockerProcessController,
   cancelProcess: cancelRuntimeOwnedDockerProcessController,
   captureCandidate: captureExecutionChangeSnapshot,
@@ -4364,7 +4357,7 @@ function createRuntime(dependencies: taskRuntimeDependencies) {
       repositoryRoot: unknown,
       recoveryCorrelationId: unknown = null,
       observeProviderStarted?: (
-        notice: ProviderProcessStartedNotice,
+        notice: ProcessStartedNotice,
       ) => boolean | Promise<boolean>,
       consumer:
         | "coordinator_cli"
@@ -4980,7 +4973,7 @@ export function startRuntimeOwnedCoordinatorTask(
   repositoryRoot: unknown,
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
-    notice: ProviderProcessStartedNotice,
+    notice: ProcessStartedNotice,
   ) => boolean | Promise<boolean>,
   consumer:
     | "coordinator_cli"
@@ -5076,7 +5069,7 @@ function startRuntimeOwnedDevelopmentTask(
   candidateDisposition: "discard" | "orchestrator_owned",
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
-    notice: ProviderProcessStartedNotice,
+    notice: ProcessStartedNotice,
   ) => boolean | Promise<boolean>,
   consumer: "coordinator_cli" | "orchestrator" = "coordinator_cli",
 ) {
@@ -5245,7 +5238,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
   repositoryRoot: unknown,
   sessionCapability: object,
   observeProviderStarted?: (
-    notice: ProviderProcessStartedNotice,
+    notice: ProcessStartedNotice,
   ) => boolean | Promise<boolean>,
 ) {
   return startRuntimeOwnedDevelopmentTask(
@@ -5280,7 +5273,7 @@ export function startRuntimeOwnedDevelopmentObjectiveTask(
   sessionCapability: object,
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
-    notice: ProviderProcessStartedNotice,
+    notice: ProcessStartedNotice,
   ) => boolean | Promise<boolean>,
 ) {
   const started = startRuntimeOwnedDevelopmentTask(

@@ -1,5 +1,5 @@
 /**
- * Taskと助言のProvider出力を共通結果へ抽出する。
+ * Task・助言・ProbeのProvider出力を共通結果へ抽出する。
  *
  * @responsibility 用途ごとの容量・Envelope・拒否順序を区別し、生出力を公開しない。
  * @trace ARCH-000015
@@ -12,11 +12,13 @@ import type {
 import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
 
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { normalizeCodexStructuredResult } from "../codex/result.ts";
+import { normalizeClaudeStructuredResult } from "../claude/result.ts";
 const TASK_MAXIMUM_RAW_BYTES = 65_536;
 
 /**
  * 用途別の結果解析入力を表す。
- * @responsibility Task役割と助言入力を区別する。
+ * @responsibility 用途別入力とTaskだけの役割を区別する。
  * @trace ARCH-000015
  * @shape purposeで識別する閉じた入力。
  * @invariant 用途ごとの容量・受理条件を共有しない。
@@ -25,6 +27,7 @@ const TASK_MAXIMUM_RAW_BYTES = 65_536;
  * @compatibility Task／助言のEnvelope・Schema境界を維持し、報告回数を要求上限と比較しない。
  */
 export type ProviderResultInput =
+  | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
   | Readonly<{ provider: AiProvider; purpose: "advice"; raw: unknown }>
   | Readonly<{
       provider: AiProvider;
@@ -44,6 +47,8 @@ export type ProviderResultInput =
  * @compatibility 既存の理由文字列を維持する。
  */
 export type ProviderResultReason =
+  | "codex_structured_result_invalid"
+  | "claude_structured_result_invalid"
   | Exclude<ReturnType<typeof extractProviderTaskEnvelope>["reason"], null>
   | (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number]
   | "provider_result_input_invalid";
@@ -59,7 +64,7 @@ export type ProviderResultReason =
  * @compatibility 既存の観測値・判定順序を維持する。
  */
 export type ProviderResultParseResult<
-  K extends "advice" | "task" = "advice" | "task",
+  K extends "advice" | "task" | "probe" = "advice" | "task" | "probe",
 > = Readonly<
   {
     providerReportedTurns: number | null;
@@ -69,7 +74,11 @@ export type ProviderResultParseResult<
   } & (
     | {
         status: "confirmed";
-        value: K extends "advice" ? string : unknown;
+        value: K extends "advice"
+          ? string
+          : K extends "probe"
+            ? Readonly<{ status: true }>
+            : unknown;
         error: null;
       }
     | {
@@ -84,7 +93,7 @@ export type ProviderResultParseResult<
 >;
 
 /**
- * 助言又はTaskの出力を共通の解析結果へ変換する。
+ * 用途別出力を共通の解析結果へ変換する。
  * @responsibility 用途を照合し、既存の抽出・拒否・観測を保持する。
  * @trace ARCH-000015
  * @input input: Provider、用途、未信頼出力とTask固有の受理条件。
@@ -133,9 +142,21 @@ export function parseProviderResult<const I extends ProviderResultInput>(
     null;
   if (
     (provider !== "codex" && provider !== "claude") ||
-    (purpose !== "advice" && purpose !== "task")
+    (purpose !== "advice" && purpose !== "task" && purpose !== "probe")
   ) {
     reason = "provider_result_input_invalid";
+  } else if (purpose === "probe") {
+    if ("taskRole" in snapshot) reason = "provider_result_input_invalid";
+    else {
+      const parsed =
+        provider === "codex"
+          ? normalizeCodexStructuredResult(input.raw)
+          : normalizeClaudeStructuredResult(input.raw);
+      if (parsed.status === "confirmed") value = parsed.normalizedResult;
+      else
+        reason =
+          "reason" in parsed ? parsed.reason : "provider_result_input_invalid";
+    }
   } else if (purpose === "advice") {
     if ("taskRole" in snapshot)
       return Object.freeze({

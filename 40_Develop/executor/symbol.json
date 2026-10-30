@@ -3,14 +3,38 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    { "symbolId": "executor.test.unit.review-delivery", "kind": "test-suite", "path": "tests/unit/review-delivery.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["coordinator.source.src.security.docker.process.controller"] },
     {
       "symbolId": "executor.result.types",
       "kind": "file",
       "path": "src/result/types.ts",
-      "archIds": ["ARCH-000008", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ]
     },
-    { "symbolId": "executor.verification.task-summary-observation", "kind": "file", "path": "scripts/task-summary-observation.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.test.integration.task-summary-observation", "kind": "test-suite", "path": "tests/integration/task-summary-observation.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-002"], "verifies": ["executor.verification.task-summary-observation"] },
+    {
+      "symbolId": "executor.verification.task-summary-observation",
+      "kind": "file",
+      "path": "scripts/task-summary-observation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.integration.task-summary-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/task-summary-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "executor.verification.task-summary-observation"
+      ]
+    },
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",
@@ -30,7 +54,7 @@
     {
       "symbolId": "coordinator.provider.execution-plan",
       "kind": "file",
-      "path": "src/attempt/plan.ts",
+      "path": "src/attempt/preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -46,7 +70,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.process.controller",
       "kind": "file",
-      "path": "src/attempt/controller.ts",
+      "path": "src/attempt/execute.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -86,7 +110,7 @@
     {
       "symbolId": "executor.source.attempt.execute",
       "kind": "file",
-      "path": "src/attempt/execute.ts",
+      "path": "src/attempt/preparation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -103,57 +127,98 @@
       "symbolId": "executor.verification.provider-attempt",
       "kind": "verification-tool",
       "path": "scripts/verify-provider-attempt.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
       "verifies": []
     },
     {
       "symbolId": "executor.verification.provider-real",
       "kind": "verification-tool",
       "path": "scripts/verify-provider-real.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
       "verifies": []
     },
     {
       "symbolId": "executor.test.integration.provider-real-cli",
       "kind": "test-suite",
       "path": "tests/integration/provider-real-cli.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
-      "verifies": ["executor.verification.provider-real"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.verification.provider-real"
+      ]
     },
     {
       "symbolId": "executor.verification.attempt-host",
       "kind": "verification-tool",
       "path": "scripts/provider-attempt-host.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
       "verifies": []
     },
     {
       "symbolId": "executor.test.integration.attempt-host",
       "kind": "test-suite",
       "path": "tests/integration/provider-attempt-host.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
-      "verifies": ["executor.verification.attempt-host"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.verification.attempt-host"
+      ]
     },
     {
       "symbolId": "executor.verification.provider-home",
       "kind": "verification-tool",
       "path": "scripts/verify-provider-home.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
       "verifies": []
     },
     {
       "symbolId": "executor.test.integration.provider-home-boundary",
       "kind": "test-suite",
       "path": "tests/integration/provider-home-boundary.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
-      "verifies": ["executor.verification.provider-home"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.verification.provider-home"
+      ]
     },
     {
       "symbolId": "executor.test.unit.observation",
@@ -223,17 +288,73 @@
       "symbolId": "executor.test.unit.advice-result",
       "kind": "test-suite",
       "path": "tests/unit/result/advice.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-023"],
-      "verifies": ["coordinator.source.src.security.workbench.ai.advice.result"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.result"
+      ]
     },
     {
       "symbolId": "executor.test.unit.controller-result",
       "kind": "test-suite",
       "path": "tests/unit/controller.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["coordinator.source.src.security.docker.process.controller"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.docker.process.controller"
+      ]
+    },
+    {
+      "symbolId": "executor.result.attempt",
+      "kind": "file",
+      "path": "src/result/attempt.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.fixture.attempt-plan",
+      "kind": "file",
+      "path": "tests/fixtures/attempt-plan.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.plan",
+      "kind": "test-suite",
+      "path": "tests/unit/plan.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.docker.process.controller"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.result-validation",
+      "kind": "test-suite",
+      "path": "tests/unit/result/validation.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.docker.process.controller"
+      ]
     }
   ]
 }

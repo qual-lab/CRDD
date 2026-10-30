@@ -8,6 +8,12 @@ Model／CLIのThread数変化や通常のBuild・Testを独自固定値で妨げ
 
 ## Provider CLI更新 — 2026-10-25
 
+### ExecutorとのCommand境界
+
+`bindProviderCommand`はTask／Advice／Probeの正規技術構成を一箇所で構築する。AI Adapterが返したCLI記述と認証記述を値として受け、Image・Proxy・Mount・Seccompの既存条件を結合する。AI Adapterを実行値importしてModelやTaskを判断せず、Task状態・Operation・Authority・Recoveryも受け取らない。初回createは明示Token、verifyは元Command観測を必須とし、同じ構築規則と既存九Command完全照合を使用する。新しい状態・Lock・Registryは持たない。
+
+助言用の`AdviceCommand`、`bindAdviceCommand`、`hashAdviceCommand`は`execution/binding.ts`が所有する。AI Adapterが返すProvider実行仕様を固定Image・通信Policy・非共有条件へ結合する既存処理であり、新しい実行許可を発行しない。同意前に作るHashと実行時に照合するHashは同じfield・順序を維持する。Executorからの移管に伴うImage変更・Docker実行・保存形式の変更は行わない。
+
 今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
 
 Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrapを旧Task Imageから取り込む依存は廃止する。CLI・Host・bwrapの公式Archive Hashと展開実行物のSigstore署名、Claudeの公式Manifestによるサイズ・SHA-256をBuild前に確認する。実行時の同一性はImage Digestを利用し、内包BinaryのHash検査をTaskごとに再実装しない。三実行物の由来は`build-inputs.json`の共通`codex.identity`へ集約し、用途別レシピだけを分ける。既存準備入口を`prepare-codex-image.ts`へ改名し、三入力と用途別レシピを実体・サイズ・Hashで検査する。助言は四File、Taskは改行をLFへ正規化しHash照合した固定Schema三件を加えた七FileのContextを作る。認証Home、Repository本文、Source ArchiveをImageへ含めない。

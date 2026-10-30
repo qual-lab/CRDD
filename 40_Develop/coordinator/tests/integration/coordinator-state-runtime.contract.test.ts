@@ -61,7 +61,6 @@ import {
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
-import * as dockerController from "../../src/execution/provider-executor.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -1684,47 +1683,15 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const readerInitialBytes = fs.readFileSync(
     path.join(area.directory, "state.json"),
   );
-  const notIssuedNotice = Object.freeze({});
-  const notIssuedRecovery = Object.freeze({});
-  let notIssuedActive = true;
-  let notIssuedChecks = 0;
-  let expireAfterPrecheck = false;
-  const notIssuedMock = t.mock.module(
-    "../../src/execution/provider-executor.ts",
-    {
-      namedExports: {
-        ...dockerController,
-        verifyRuntimeOwnedDockerUnissuedNotice: (
-          notice: unknown,
-          recovery: unknown,
-          owner: unknown,
-          purpose: unknown,
-          actualOperation: unknown,
-          recoveryId: unknown,
-        ) => {
-          notIssuedChecks++;
-          return (
-            notIssuedActive &&
-            (!expireAfterPrecheck || notIssuedChecks === 1) &&
-            notice === notIssuedNotice &&
-            recovery === notIssuedRecovery &&
-            owner === management &&
-            purpose === resource.purpose &&
-            actualOperation === repository.operationId &&
-            recoveryId === operation.recoveryId
-          );
-        },
-      },
-    },
-  );
   try {
-    const unissuedRuntime: typeof import("../../src/execution/persistence.ts") =
-      await import(
-        new URL(
-          "../../src/execution/persistence.ts?unissued-proof",
-          import.meta.url,
-        ).href
-      );
+    assert.equal(
+      checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+        management,
+        operation.recoveryId,
+        resource.purpose,
+      ).filesystemEffectIssued,
+      false,
+    );
     const intentSaved = checkpointRuntimeOwnedCoordinatorResource(
       management,
       operation.recoveryId,
@@ -1734,13 +1701,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     const intentBytes = fs.readFileSync(
       path.join(area.directory, "state.json"),
     );
-    const unissuedBytes = prepareCoordinatorStateResourceSnapshot(
-      intentBytes,
-      operation.recoveryId,
-      { ...resource, request: "not_issued" },
-      repository.repositoryBinding,
-    );
-    assert.ok(unissuedBytes);
     assert.equal(
       checkpointRuntimeOwnedCoordinatorResource(
         management,
@@ -1749,56 +1709,26 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ).filesystemEffectIssued,
       false,
     );
-    assert.equal(
-      checkpointRuntimeOwnedCoordinatorResourceNotIssued(
-        management,
-        operation.recoveryId,
-        resource.purpose,
-        notIssuedNotice,
-        notIssuedRecovery,
-      ).filesystemEffectIssued,
-      false,
-    );
-    assert.equal(
-      unissuedRuntime.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
-        management,
-        operation.recoveryId,
-        resource.purpose,
-        { ...notIssuedNotice },
-        notIssuedRecovery,
-      ).filesystemEffectIssued,
-      false,
-    );
-    assert.deepEqual(
-      fs.readFileSync(path.join(area.directory, "state.json")),
-      intentBytes,
-    );
-    notIssuedChecks = 0;
-    expireAfterPrecheck = true;
-    const expired =
-      unissuedRuntime.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
-        management,
-        operation.recoveryId,
-        resource.purpose,
-        notIssuedNotice,
-        notIssuedRecovery,
+    for (const [owner, id, purpose] of [
+      [{}, operation.recoveryId, resource.purpose],
+      [management, "other", resource.purpose],
+      [management, operation.recoveryId, "unknown"],
+    ]) {
+      assert.equal(
+        checkpointRuntimeOwnedCoordinatorResourceNotIssued(owner, id, purpose)
+          .filesystemEffectIssued,
+        false,
       );
-    assert.equal(expired.filesystemEffectIssued, false);
-    assert.equal(notIssuedChecks, 2);
-    assert.deepEqual(
-      fs.readFileSync(path.join(area.directory, "state.json")),
-      intentBytes,
-    );
-    expireAfterPrecheck = false;
-    notIssuedChecks = 0;
-    const saved =
-      unissuedRuntime.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
-        management,
-        operation.recoveryId,
-        resource.purpose,
-        notIssuedNotice,
-        notIssuedRecovery,
+      assert.deepEqual(
+        fs.readFileSync(path.join(area.directory, "state.json")),
+        intentBytes,
       );
+    }
+    const saved = checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+      management,
+      operation.recoveryId,
+      resource.purpose,
+    );
     assert.equal(saved.status, "completed");
     assert.equal(saved.snapshotConfirmed, true);
     assert.equal(saved.lockReleased, true);
@@ -1817,24 +1747,15 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ).filesystemEffectIssued,
       false,
     );
-    fs.writeFileSync(path.join(area.directory, "state.json"), intentBytes);
-    notIssuedActive = false;
     assert.equal(
-      unissuedRuntime.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+      checkpointRuntimeOwnedCoordinatorResourceNotIssued(
         management,
         operation.recoveryId,
         resource.purpose,
-        notIssuedNotice,
-        notIssuedRecovery,
       ).filesystemEffectIssued,
       false,
     );
-    assert.deepEqual(
-      fs.readFileSync(path.join(area.directory, "state.json")),
-      intentBytes,
-    );
   } finally {
-    notIssuedMock.restore();
     fs.writeFileSync(
       path.join(area.directory, "state.json"),
       readerInitialBytes,
@@ -2276,58 +2197,33 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const observedProviderId: string | null = null;
   const observedProviderObservation = "absent";
   const transientRecoveryIds = new Set<string>();
-  const terminalMock = t.mock.module(
-    "../../src/execution/provider-executor.ts",
-    {
-      namedExports: {
-        ...dockerController,
-        /**
-         * Filesystem履歴試験に固定したDocker終了観測を返す。
-         * @responsibility 実Dockerを起動せず保存処理だけを刺激する。
-         * @trace ERB-IT-003
-         * @precondition 同じfixture結果と操作を指定する。
-         * @stimulus 模擬Controller終了結果をWriterへ渡す。
-         * @observation Owner、操作ID、回復IDの一致。
-         * @oracle 一致時だけ五用途の未要求とLease終了を返す。
-         * @cleanup TestContextがModule差替えを解除する。
-         * @boundary 模擬Docker観測から実Filesystem Writer。
-         */
-        borrowRuntimeOwnedDockerTerminalObservations(
-          result: unknown,
-          owner: unknown,
-          id: unknown,
-          ref: unknown,
-        ) {
-          if (
-            result !== simulatedCompletion ||
-            owner !== management ||
-            id !== repository.operationId ||
-            (ref !== operation.recoveryId &&
-              (typeof ref !== "string" || !transientRecoveryIds.has(ref)))
-          )
-            return null;
-          return Object.freeze({
-            resources: operation.resources.map((item) => ({
-              purpose: item.purpose,
-              plannedResourceName: cleanupObservations.find(
-                (value) => value.purpose === item.purpose,
-              )?.plannedResourceName,
-              dockerId:
-                item.purpose === "create_provider" ? observedProviderId : null,
-              observation:
-                item.purpose === "create_provider" && observedProviderId
-                  ? observedProviderObservation
-                  : "not_requested",
-            })),
-            homeLeaseReleased: true,
-            mountLeaseReleased: true,
-            recoveryCompleted: true,
-            primaryFailure: lifecycle.primaryFailure,
-          });
-        },
-      },
-    },
-  );
+  const terminalObservation = (result: unknown, id: unknown, ref: unknown) => {
+    if (
+      result !== simulatedCompletion ||
+      id !== repository.operationId ||
+      (ref !== operation.recoveryId &&
+        (typeof ref !== "string" || !transientRecoveryIds.has(ref)))
+    )
+      return null;
+    return Object.freeze({
+      resources: operation.resources.map((item) => ({
+        purpose: item.purpose,
+        plannedResourceName: cleanupObservations.find(
+          (value) => value.purpose === item.purpose,
+        )?.plannedResourceName,
+        dockerId:
+          item.purpose === "create_provider" ? observedProviderId : null,
+        observation:
+          item.purpose === "create_provider" && observedProviderId
+            ? observedProviderObservation
+            : "not_requested",
+      })),
+      homeLeaseReleased: true,
+      mountLeaseReleased: true,
+      recoveryCompleted: true,
+      primaryFailure: lifecycle.primaryFailure,
+    });
+  };
 
   const ownerSettlement = (await import(
     new URL(
@@ -2342,6 +2238,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     management,
     operation.recoveryId,
     "orchestrator",
+    terminalObservation,
   );
   assert.ok(settlement);
   const cleanupOutcome = await cleanupOwnedOperationDirectoriesAsync(owned);
@@ -2392,7 +2289,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   fs.unlinkSync(historyFile);
   // 終端観測の区間を閉じてから、同じOwnerの清掃証拠を別区間で差し替える。
-  terminalMock.restore();
   // 初回開始は空Snapshotを別保存せず、同じ操作を含む初版を確定する。
   const freshRoot = path.join(root, "fresh-start");
   execFileSync("git", ["init", "--quiet", freshRoot], { windowsHide: true });

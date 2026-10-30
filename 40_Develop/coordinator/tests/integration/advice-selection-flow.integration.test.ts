@@ -99,7 +99,7 @@ globalThis.adviceFixture = {
     calls++; assert.equal(signal, controller.signal); assert.equal(plan.repositoryMounted,false); assert.equal(plan.workspaceMounted,false); assert.equal(plan.provider,"codex");
     if (scenario === "runtime_throw") throw new Error("synthetic");
     if (scenario === "cleanup_unknown") return { status:"blocked",reason:"synthetic_cleanup_unknown",adviceJson:null,providerEffectIssued:true,cleanupConfirmed:false };
-    return {status:"completed",reason:null,adviceJson:JSON.stringify({contract:"crdd-coordinator/workbench-ai-advice-result",contractRevision:1,status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]}),providerEffectIssued:true,cleanupConfirmed:true};
+    return {status:"completed",reason:null,adviceJson:JSON.stringify({status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]}),providerEffectIssued:true,cleanupConfirmed:true};
   },
   failure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host,dockerRecoveryId:docker} : null,
 };
@@ -244,8 +244,6 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
           status: "completed",
           reason: null,
           adviceJson: JSON.stringify({
-            contract: "crdd-coordinator/workbench-ai-advice-result",
-            contractRevision: 1,
             status: "completed",
             facts: [{ text: "合成", references: ["PROJECT_CONTEXT.md"] }],
             sharedAnalysis: [],

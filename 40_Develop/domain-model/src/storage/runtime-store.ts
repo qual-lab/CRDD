@@ -194,7 +194,6 @@ import {
   observeRuntimeContentRepository,
   type RuntimeTerminalStorageObservation,
   runtimeStorageOperationIdentity,
-  verifyRuntimeStorageUnissuedNotice as verifyRuntimeOwnedDockerUnissuedNotice,
 } from "./runtime-repository.ts";
 import { blocked, completed, type StoreResult } from "./runtime-result.ts";
 
@@ -2679,25 +2678,23 @@ export function readRuntimeOwnedCoordinatorResourceRequests(
 
 /**
  * 同じControllerが同期確認した未発行取消を現在状態へ確定する。
- * @responsibility 元予定を消さず、真正な要求前通知だけを再要求不可の終端へ保存する。
+ * @responsibility 元予定を消さず、同じOwnerの未発行確定を再要求不可の終端へ保存する。
  * @trace ARCH-000008
- * @input managementCapability: 元操作Owner、recoveryId: exact参照、purpose: 元用途、notice: 元通知、recoveryCapability: 元回復Owner。
+ * @input managementCapability: 元操作Owner、recoveryId: exact参照、purpose: 元用途。
  * @returns 同じ資源の保存結果。失敗時は元予定と回復参照を保持する。
  * @precondition 本番Controllerの未発行保存callback中であり要求呼出し前である。
  * @postcondition intent_savedだけをnot_issuedへ変え、他資源・Host・履歴を保持する。
  * @effect 固定state.jsonの読取り・既存排他・次版保存だけ。
- * @failure 偽通知、別対象、失効、既発行、結果不明または保存不明は停止する。
+ * @failure 別対象、Owner不一致、既発行、結果不明または保存不明は停止する。
  * @invariant Docker ID欠落や過去unknownから未発行を推論しない。
- * @boundary 本番Controllerの元同期通知と現在状態Writer。
+ * @boundary 固定Host保存操作と現在状態Writer。
  * @security 一般Writerや通常資源checkpointへ未発行確定の許可を渡さない。
- * @concurrency 保存排他下でも同じ元通知を再照合し、callback外へ持ち出さない。
+ * @concurrency 短期保存排他下で同じ回復ID・用途とintent_savedを再照合する。
  */
 export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
   managementCapability: unknown,
   recoveryId: unknown,
   purpose: unknown,
-  notice: unknown,
-  recoveryCapability: unknown,
 ) {
   const repository =
     borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
@@ -2720,15 +2717,7 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
     typeof recoveryId !== "string" ||
     typeof purpose !== "string" ||
     resource.request !== "intent_saved" ||
-    JSON.parse(operation.identityJson).operationId !== repository.operationId ||
-    !verifyRuntimeOwnedDockerUnissuedNotice(
-      notice,
-      recoveryCapability,
-      managementCapability,
-      purpose,
-      repository.operationId,
-      recoveryId,
-    )
+    JSON.parse(operation.identityJson).operationId !== repository.operationId
   )
     return Object.freeze({
       ...writeCoordinatorStateSnapshot(null, null, null, null),
@@ -2745,7 +2734,7 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
     repository,
     next,
     null,
-    { notice, recoveryCapability, recoveryId, purpose },
+    { recoveryId, purpose },
   );
 }
 
@@ -4891,8 +4880,6 @@ function prepareCoordinatorStateWrite(
     managementCapability?: unknown;
   } | null,
   unissued?: Readonly<{
-    notice: unknown;
-    recoveryCapability: unknown;
     recoveryId: string;
     purpose: string;
   }>,
@@ -5041,7 +5028,6 @@ function prepareCoordinatorStateWrite(
     settlement,
     unissued,
     hostCleanupPublication,
-    managementCapability,
     currentRepair,
     currentAuthenticationClosure,
     initializationOwner,
@@ -5051,6 +5037,7 @@ function prepareCoordinatorStateWrite(
     attempt,
     storageOwner,
     lock,
+    managementCapability,
   };
 }
 
@@ -5096,7 +5083,6 @@ function commitCoordinatorStateSnapshotOwned(
     settlement,
     unissued,
     hostCleanupPublication,
-    managementCapability,
     currentRepair,
     currentAuthenticationClosure,
     initializationOwner,
@@ -6188,15 +6174,7 @@ function commitCoordinatorStateSnapshotOwned(
           (!unissued ||
             before?.request !== "intent_saved" ||
             unissued.recoveryId !== operation.recoveryId ||
-            unissued.purpose !== resource.purpose ||
-            !verifyRuntimeOwnedDockerUnissuedNotice(
-              unissued.notice,
-              unissued.recoveryCapability,
-              managementCapability,
-              resource.purpose,
-              repository.operationId,
-              operation.recoveryId,
-            ))
+            unissued.purpose !== resource.purpose)
         )
           throw new Error("resource_not_issued_proof_missing");
       }

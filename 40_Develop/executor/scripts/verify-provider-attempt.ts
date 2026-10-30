@@ -105,7 +105,7 @@ export function verifyStandaloneProviderAttempt() {
         };
         const verify=(result,identity,recovery,management)=>{
           fixture.verifications++;
-          assert.equal(identity,api.planIdentity(fixture.plan));
+          assert.equal(identity,executionInput.planIdentity(fixture.plan));
           assert.equal(recovery,fixture.recovery);
           assert.equal(management,fixture.management);
           return cleanupResults.has(result)?result.resourceObservations:null;
@@ -114,8 +114,8 @@ export function verifyStandaloneProviderAttempt() {
           startCommand:()=>{throw Error('unexpected_primitive_call');},
           startExecution:(projected,recovery,management,hooks)=>{
             fixture.starts++;
-            assert.equal(projected.identity,api.planIdentity(fixture.plan));
-            assert.deepEqual(projected.configuration,api.resolveIsolationCommandInput(fixture.plan,fixture.tmp));
+            assert.equal(projected.identity,executionInput.planIdentity(fixture.plan));
+            assert.deepEqual(projected.configuration,executionInput.resolveIsolationCommandInput(fixture.plan,fixture.tmp));
             assert.equal(projected.stdin,fixture.plan.providerInput);
             assert.equal(recovery,fixture.recovery);assert.equal(management,fixture.management);
             return isolation.startDockerCommandSessionCandidate(purposes,{
@@ -129,13 +129,14 @@ export function verifyStandaloneProviderAttempt() {
       }
     }});
     const api=await import(${JSON.stringify(root)});
-    const create=api.createIsolatedDockerProcessControllerCandidate;
+    const executionInput=await import(${JSON.stringify(new URL("../src/attempt/isolation.ts", import.meta.url).href)});
+    const preparationInput=await import(${JSON.stringify(new URL("../src/attempt/preparation.ts", import.meta.url).href)});
+    const create=api.createExecutorTestCandidate;
     const purposes=[
       'create_subscription_auth_probe','start_subscription_auth_probe_attached',
       'create_internal_network','create_egress_network','create_proxy',
       'connect_proxy_egress','create_provider','start_proxy','start_provider_attached'
     ];
-    const terminals=[];
     for(const provider of ['codex','claude']){
     for(const mode of ['candidate','production_factory']){
     for(const scenario of ['normal','cancel','cleanup_unknown','submission_throw']){
@@ -188,7 +189,7 @@ export function verifyStandaloneProviderAttempt() {
       };
       const tmp='C:/synthetic-not-accessed/tmp';
       if(mode==='production_factory'){
-        const built=api.buildProviderDockerExecutionPlan(provider,
+        const built=preparationInput.buildProviderDockerExecutionPlan(provider,
           {randomBytes:size=>Buffer.alloc(size,1)},
           {operationId:plan.operationId,createdAt:'2026-10-28T00:00:00.000Z',mounts:{
             workspace:'C:/synthetic-not-accessed/work',providerHome:'C:/synthetic-not-accessed/home',
@@ -201,7 +202,7 @@ export function verifyStandaloneProviderAttempt() {
           'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
         assert.ok(built);
         plan=Object.freeze({...built,authorityUseCapability:authority});
-        assert.equal(api.validatePlan(plan,tmp),true);
+        assert.ok(executionInput.resolveValidatedPlan(plan,tmp));
       }
       const resources=[
         ['create_egress_network',plan.egressNetworkName],
@@ -212,6 +213,7 @@ export function verifyStandaloneProviderAttempt() {
       ].map(([purpose,plannedResourceName])=>Object.freeze({purpose,plannedResourceName,
         dockerId:null,observation:'absent'}));
       const calls=[],events=[],notices=[];
+      let terminal=null,terminalResult=null;
       let consumed=false,cleanups=0,mounts=0,finalizations=0;
       const providerWaiting=Promise.withResolvers();
       const providerWait=Promise.withResolvers();
@@ -270,20 +272,17 @@ export function verifyStandaloneProviderAttempt() {
         recordMountCompletion:()=>commit('mount_recorded'),
         markResourceSubmission:()=>commit('submission_planned'),
         recordResourceReceipt:()=>commit('receipt_recorded'),
-        recordProviderSubmission:(r,notice)=>{
-          assert.equal(r,recovery);notices.push(notice);
-          assert.equal(runtime.verifyProviderSubmissionNotice(notice,recovery,management,plan.operationId,recoveryId),true);
-          assert.equal(runtime.verifyProviderSubmissionNotice({...notice},recovery,management,plan.operationId,recoveryId),false);
-          assert.equal(runtime.verifyProviderSubmissionNotice(notice,{},management,plan.operationId,recoveryId),false);
-          assert.equal(runtime.verifyProviderSubmissionNotice(notice,recovery,{},plan.operationId,recoveryId),false);
+        recordProviderSubmission:(r)=>{
+          assert.equal(r,recovery);notices.push(r);
           if(scenario==='submission_throw')throw Error('synthetic_submission_failure');
-          const count=sequence;
-          const beforeCopy=snapshot();
-          assert.equal(commit('provider_submission',management,()=>runtime.verifyProviderSubmissionNotice({...notice},recovery,management,plan.operationId,recoveryId)),false);
-          assert.equal(sequence,count);
-          assert.deepEqual(snapshot(),beforeCopy);
-          return commit('provider_submission',management,()=>runtime.verifyProviderSubmissionNotice(notice,recovery,management,plan.operationId,recoveryId));
+          return commit('provider_submission');
+        },
+        recordTerminalObservation:(r,result,observation)=>{
+          assert.equal(r,recovery);assert.equal(observation.operationId,plan.operationId);
+          assert.equal(observation.recoveryId,recoveryId);assert.equal(terminal,null);
+          terminal=observation;terminalResult=result;
         }
+
       };
       const unavailable=()=>{forbiddenCalls++;throw Error('host_primitive_forbidden');};
       const host={...deps,borrowPaths:m=>{
@@ -292,7 +291,7 @@ export function verifyStandaloneProviderAttempt() {
         cleanupOwnedResources:unavailable,verifyCleanupOutcome:unavailable};
       currentFixture={deps,host,plan,tmp,recovery,management,starts:0,verifications:0};
       const callsBefore=factoryCalls;
-      const runtime=mode==='candidate'?create(deps):api.createProviderExecutor(host);
+      const runtime=mode==='candidate'?create(deps):api.createExecutor(host);
       assert.equal(factoryCalls-callsBefore,mode==='candidate'?0:1);
       if(mode==='candidate')assert.equal(runtime.productionAuthority,false);
       const started=runtime.start(prepared,management,(r,id)=>{
@@ -343,31 +342,14 @@ export function verifyStandaloneProviderAttempt() {
         assert.equal(result.reason,'docker_process_controller_cleanup_unconfirmed');
       if(scenario==='submission_throw')
         assert.equal(result.reason,'docker_process_controller_execution_failed_closed');
-      for(const notice of notices)
-        assert.equal(runtime.verifyProviderSubmissionNotice(notice,recovery,management,plan.operationId,recoveryId),false);
-      const beforeExpired=snapshot();
-      for(const notice of notices)
-        assert.equal(commit('expired',management,()=>runtime.verifyProviderSubmissionNotice(notice,recovery,management,plan.operationId,recoveryId)),false);
-      assert.equal(commit('rejected_after_commit',management,()=>false),false);
-      assert.throws(()=>commit('rejected_after_commit',management,()=>{throw Error('synthetic_late_gate_throw');}));
-      assert.deepEqual(snapshot(),beforeExpired);
-      const terminal=runtime.borrowTerminalObservations(result,management,plan.operationId,recoveryId);
       if(scenario==='cleanup_unknown')assert.equal(terminal,null);
       else {
         assert.ok(terminal,scenario);assert.equal(terminal.resources,resources);
-        assert.equal(commit('terminal_received',management,()=>runtime.borrowTerminalObservations(result,management,plan.operationId,recoveryId)!==null),true);
+        assert.equal(terminalResult,result);
+        assert.equal(commit('terminal_received'),true);
       }
-      const beforeCopy=snapshot();
-      assert.equal(commit('copied_terminal',management,()=>runtime.borrowTerminalObservations({...result},management,plan.operationId,recoveryId)!==null),false);
-      assert.deepEqual(snapshot(),beforeCopy);
-      for(const [r,m,op,id] of [[{...result},management,plan.operationId,recoveryId],
-        [result,{},plan.operationId,recoveryId],[result,management,'OP-654321',recoveryId],
-        [result,management,plan.operationId,'other']])
-        assert.equal(runtime.borrowTerminalObservations(r,m,op,id),null);
-      assert.equal(create(deps).borrowTerminalObservations(result,management,plan.operationId,recoveryId),null);
-      for(const previous of terminals)
-        assert.equal(runtime.borrowTerminalObservations(previous.result,previous.management,plan.operationId,recoveryId),null);
-      terminals.push({result,management});
+      for(const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
+        assert.equal(name in runtime,false,name);
       if(mode==='production_factory'){
         assert.equal(currentFixture.starts,1);
         assert.ok(currentFixture.verifications>0);

@@ -7,17 +7,70 @@
  */
 import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 import type {
+  CommandObservation as CommandExecution,
+  DockerExecutionHooks,
+  DockerResourceCleanupObservation,
+  startDockerCommandSessionCandidate,
+} from "../../../docker-isolation/src/index.ts";
+import type {
+  RecoveryStartFailureDiagnostic,
+  AttemptTerminalObservation,
+  ReviewFinding,
+} from "../result/types.ts";
+import type {
+  ProcessStartedNotice,
+  AttemptDiagnosticNotice as ProviderBoundaryDiagnosticNotice,
+} from "./observation.ts";
+import type {
   DockerNetworkPolicy,
   DockerIsolationCommand,
 } from "../../../docker-isolation/src/index.ts";
-import type {
-  AiReasoningEffort,
-  ProviderAdvicePlan,
-} from "../../../ai-adapter/src/index.ts";
-import type {
-  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
-  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
-} from "./plan.ts";
+import type { AiReasoningEffort } from "../../../ai-adapter/src/index.ts";
+import type { createAttemptPreparation } from "./preparation.ts";
+
+/**
+ * 全用途で共通の準備入力。用途だけでPacketの所有参照を区別する。
+ * @responsibility Task・Advice・Probeを同じ準備入口へ渡す。
+ * @trace ARCH-000015
+ * @invariant 不透明参照をAuthorityへ変換せず、元Ownerの検証を維持する。
+ */
+export type AttemptInput = Readonly<{
+  managementCapability: unknown;
+  mountCapability: unknown;
+  mountAuthorizationCapability: unknown;
+  selectionUseCapability: unknown;
+  recoveryCorrelationId: unknown;
+  consumer: unknown;
+}> &
+  (
+    | Readonly<{ purpose: "probe" }>
+    | Readonly<{ purpose: "task"; packetCapability: unknown }>
+    | Readonly<{
+        purpose: "advice";
+        packetCapability: unknown;
+        packetOwnerCapability: unknown;
+      }>
+  );
+
+/**
+ * 一回消費される準備候補を管理するOwner。Factory呼出し自体は実行ではない。
+ * @responsibility prepare・cancel・consumeの実際の契約を導出する。
+ * @trace ARCH-000015
+ * @invariant 本番の返却型と公開型を別々に定義しない。
+ */
+export type AttemptPreparation<
+  P extends "codex" | "claude" = "codex" | "claude",
+> = ReturnType<typeof createAttemptPreparation<P>>;
+
+/**
+ * 準備の成功又は拒否を表す。PreparedAttemptは成功部分だけを表す。
+ * @responsibility 準備Ownerの実際の返却unionから導出する。
+ * @trace ARCH-000015
+ * @invariant preparedを実行完了へ昇格しない。
+ */
+export type AttemptPreparationResult<
+  P extends "codex" | "claude" = "codex" | "claude",
+> = ReturnType<AttemptPreparation<P>["prepare"]>;
 
 /**
  * 単段実行へ借用する固定Path値を表す。
@@ -29,7 +82,7 @@ import type {
  * @security 公開Task結果へPathを搬送しない。
  * @compatibility 既存の六Pathを同じ型へ一本化する。
  */
-export type ExecutionPaths = Readonly<{
+export type AttemptPaths = Readonly<{
   workspace: string;
   providerHome: string;
   tmp: string;
@@ -96,6 +149,7 @@ export type PreparedPlan = Readonly<{
   advicePacketRef?: string | null;
   advicePacketHash?: string | null;
   adviceCommandHash?: string | null;
+  adviceAllowedReferences?: readonly string[] | null;
   providerInput: string | null;
   workspaceSourcePath: string | null;
   workspaceProtection?: Readonly<{
@@ -128,15 +182,14 @@ export type ProviderAttemptPlan = PreparedPlan &
  * @responsibility PromptとProvider Commandを同じTask・Projection・固定選定・Operationへ固定する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @shape 固定Contract、Identity、Prompt、Command Hashおよび非共有境界からなる読取り専用値である。
+ * @shape Identity、Prompt、Command Hashおよび非共有境界からなる読取り専用値である。
  * @invariant Repository／Workspace共有、Tool、SessionおよびFallbackを許可しない。
  * @boundary Provider非依存Executorと既存Runtime Adapterの間。
  * @security Prompt本文以外のRepository情報や任意Pathを含めない。
- * @compatibility contractRevision 2だけを受理する。
+ * @compatibility 形式名・版番号は要求せず、同じ操作・選定・Hashの結合を維持する。
  */
-export type ProviderAdvicePacket = Readonly<{
-  contract: typeof PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT;
-  contractRevision: typeof PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION;
+export type AdvicePacket = Readonly<{
+  allowedReferences: readonly string[];
   packetRef: string;
   operationId: string;
   executionSelection: ExecutionSelection;
@@ -145,7 +198,7 @@ export type ProviderAdvicePacket = Readonly<{
   projectionHash: string;
   commandHash: string;
   packetHash: string;
-  providerCommand: ProviderAdviceCommand;
+  providerCommand: AdviceCommand;
   providerPrompt: string;
   repositoryMounted: false;
   workspaceMounted: false;
@@ -153,24 +206,8 @@ export type ProviderAdvicePacket = Readonly<{
   sessionPersistenceAllowed: false;
 }>;
 
-/**
- * 助言CLI計画に隔離実行の固定Image・共有範囲を結合する。
- * @responsibility Image相関をAI AdapterでなくCoordinatorの技術Packetへ保持する。
- * @trace ARCH-000015
- * @shape ProviderAdvicePlanと固定Image・Home必要・Repository／Workspace非共有。
- * @invariant Image・argv・環境を同じPacket Hashへ結合する。
- * @boundary AIのCLI記述とDockerの配置を結合する上位境界。
- * @security 起動・送信許可を生成しない。
- * @compatibility 既存のPacket field・Hash対象を維持する。
- */
-export type ProviderAdviceCommand = ProviderAdvicePlan &
-  Readonly<{
-    fixedImageDigest: string;
-    networkPolicy: DockerNetworkPolicy | null;
-    providerHomeMountRequired: true;
-    repositoryMounted: false;
-    workspaceMountRequired: false;
-  }>;
+export type { AdviceCommand } from "../../../docker-isolation/src/index.ts";
+import type { AdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 共通実行計画が照合する消費済みModel選定の値契約。
@@ -183,7 +220,7 @@ export type ProviderAdviceCommand = ProviderAdvicePlan &
  * @security 不透明Capabilityや認証情報を含めない。
  * @compatibility 既存消費結果の使用fieldだけを構造的に受理する。
  */
-export type ProviderDockerModelSelection = Readonly<{
+export type ModelSelection = Readonly<{
   selectionRecordId: string;
   operationId: string;
   executorProvider: "codex" | "claude";
@@ -207,7 +244,7 @@ export type ProviderDockerModelSelection = Readonly<{
  * @security Promptをcommand引数や公開結果へ移さない。
  * @compatibility 既存両Providerの消費済みTaskから使用fieldを受け取る。
  */
-export type ProviderDockerTaskPacket = Readonly<{
+export type TaskPacket = Readonly<{
   networkPolicy: DockerNetworkPolicy;
   operationId: string;
   taskPacketRef: string;
@@ -279,7 +316,7 @@ export type ProviderPreparationLifecycleState<
  * @security 取得した秘密値は内部準備計画に限定する。
  * @compatibility 既存RuntimeStateの同じ関数をそのまま利用する。
  */
-export type ProviderDockerRandomSource = Readonly<{
+export type RandomSource = Readonly<{
   randomBytes: (size: number) => Buffer;
 }>;
 
@@ -288,16 +325,16 @@ export type ProviderDockerRandomSource = Readonly<{
  *
  * @responsibility 操作Identityと固定Mount対応を保持する。
  * @trace ARCH-000015
- * @shape operationId、createdAt、ExecutionPaths。
+ * @shape operationId、createdAt、AttemptPaths。
  * @invariant 同じ操作へ結合した値だけを後続へ渡す。
  * @boundary Mount照合Ownerと共通準備の間。
  * @security Pathを公開結果へ含めない。
  * @compatibility 既存OperationBindingの形を維持する。
  */
-export type ProviderDockerOperationBinding = Readonly<{
+export type AttemptBinding = Readonly<{
   operationId: string;
   createdAt: string;
-  mounts: ExecutionPaths;
+  mounts: AttemptPaths;
   workspaceProtection?: Readonly<{
     gitSourcePath: string;
     internalSourcePath: string;
@@ -315,7 +352,7 @@ export type ProviderDockerOperationBinding = Readonly<{
  * @security ローカル主体とHomeの結合を省略しない。
  * @compatibility 既存activateMount結果のGrantをそのまま使用する。
  */
-export type ProviderDockerMountGrant = Readonly<{
+export type MountGrant = Readonly<{
   grantRef: string;
   provider: string;
   operationId: string;
@@ -336,7 +373,7 @@ export type ProviderDockerMountGrant = Readonly<{
  * @security 公開・永続化しないProcess内の参照である。
  * @compatibility 既存PreparedPlanが持つ二参照を維持する。
  */
-export type ProviderDockerPreparedAuthority = Readonly<{
+export type PreparedAuthority = Readonly<{
   authorityUseCapability: object;
   authorityControlCapability: object;
 }>;
@@ -358,18 +395,18 @@ export type ProviderDockerPreparationState<
   A,
   P extends object,
 > = Readonly<{
-  prepared: WeakMap<object, NoInfer<P> & ProviderDockerPreparedAuthority>;
+  prepared: WeakMap<object, NoInfer<P> & PreparedAuthority>;
   managementCapabilities: WeakMap<object, object>;
   verifyOperationMount: (
     managementCapability: unknown,
     mountCapability: unknown,
-  ) => ProviderDockerOperationBinding;
+  ) => AttemptBinding;
   activateMount: (
     mountAuthorizationCapability: unknown,
     managementCapability: unknown,
   ) => Readonly<{
     status: string;
-    grant: ProviderDockerMountGrant | null;
+    grant: MountGrant | null;
     activeMountCapability: object | null;
   }>;
   borrowMountSource: (
@@ -423,60 +460,60 @@ export type ProviderDockerPreparationState<
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
-  Readonly<{
-    provider: P;
-    operationId: string;
-    recoveryCorrelationId: string | null;
-    consumer: "coordinator_cli" | "workbench" | "orchestrator";
-    grantRef: string;
-    executionSelection: ExecutionSelection;
-    taskAttempt: 0 | 1;
-    activeMountCapability: object;
-    authorityUseCapability: object;
-    authorityControlCapability: object;
-    providerHomeSourcePath: string;
-    providerHomeIdentityHash: string;
-    providerHomeProtectionHash: string;
-    localUserBindingHash: string;
-    stableLogicalHomeBindingHash: string;
-    preparedWallClockMs: number;
-    preparedMonotonicMs: number;
-    authContainerName: string;
-    providerContainerName: string;
-    proxyContainerName: string;
-    internalNetworkName: string;
-    egressNetworkName: string;
-    ownershipLabel: string;
-    providerImageDigest: string;
-    proxyImageDigest: string;
-    networkPolicy: DockerNetworkPolicy | null;
-    selectionRecordId: string;
-    subscriptionOffering: P extends "codex"
-      ? "chatgpt_subscription_oauth"
-      : "claude_max";
-    selectedModel: string;
-    selectedEffort: AiReasoningEffort;
-    selectionNotice: string;
-    operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
-    taskRole: "executor" | "reviewer" | null;
-    taskPacketRef: string | null;
-    taskPacketHash: string | null;
-    advicePacketRef: string | null;
-    advicePacketHash: string | null;
-    adviceCommandHash: string | null;
-    providerInput: string | null;
-    workspaceSourcePath: string | null;
-    workspaceProtection?: Readonly<{
-      gitSourcePath: string;
-      internalSourcePath: string;
-    }>;
-    workspaceMountMode: "read_write" | "read_only" | null;
-    commands: readonly DockerIsolationCommand[];
-  }> &
-    (P extends "claude"
-      ? Readonly<{ taskWorkload: unknown }>
-      : Readonly<Record<never, never>>);
+export type PreparedAttemptPlan<P extends "codex" | "claude"> = Readonly<{
+  provider: P;
+  operationId: string;
+  recoveryCorrelationId: string | null;
+  consumer: "coordinator_cli" | "workbench" | "orchestrator";
+  grantRef: string;
+  executionSelection: ExecutionSelection;
+  taskAttempt: 0 | 1;
+  activeMountCapability: object;
+  authorityUseCapability: object;
+  authorityControlCapability: object;
+  providerHomeSourcePath: string;
+  providerHomeIdentityHash: string;
+  providerHomeProtectionHash: string;
+  localUserBindingHash: string;
+  stableLogicalHomeBindingHash: string;
+  preparedWallClockMs: number;
+  preparedMonotonicMs: number;
+  authContainerName: string;
+  providerContainerName: string;
+  proxyContainerName: string;
+  internalNetworkName: string;
+  egressNetworkName: string;
+  ownershipLabel: string;
+  providerImageDigest: string;
+  proxyImageDigest: string;
+  networkPolicy: DockerNetworkPolicy | null;
+  selectionRecordId: string;
+  subscriptionOffering: P extends "codex"
+    ? "chatgpt_subscription_oauth"
+    : "claude_max";
+  selectedModel: string;
+  selectedEffort: AiReasoningEffort;
+  selectionNotice: string;
+  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
+  taskRole: "executor" | "reviewer" | null;
+  taskPacketRef: string | null;
+  taskPacketHash: string | null;
+  advicePacketRef: string | null;
+  advicePacketHash: string | null;
+  adviceCommandHash: string | null;
+  adviceAllowedReferences: readonly string[] | null;
+  providerInput: string | null;
+  workspaceSourcePath: string | null;
+  workspaceProtection?: Readonly<{
+    gitSourcePath: string;
+    internalSourcePath: string;
+  }>;
+  workspaceMountMode: "read_write" | "read_only" | null;
+  commands: readonly DockerIsolationCommand[];
+}> &
+  (P extends "claude"
+    ? Readonly<{ taskWorkload: unknown }>
+    : Readonly<Record<never, never>>);
 
 /**
  * 準備Ownerが消費したModel選定の完全な値契約を定義する。
@@ -489,7 +526,7 @@ export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type ProviderDockerConsumedModelSelection = ProviderDockerModelSelection;
+export type ConsumedModelSelection = ModelSelection;
 
 /**
  * Providerごとの消費済みTask Packetを定義する。
@@ -502,11 +539,13 @@ export type ProviderDockerConsumedModelSelection = ProviderDockerModelSelection;
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type ProviderDockerConsumedTaskPacket<P extends "codex" | "claude"> =
-  Omit<ProviderDockerTaskPacket, "taskWorkload"> &
-    (P extends "claude"
-      ? Readonly<{ taskWorkload: unknown }>
-      : Readonly<Record<never, never>>);
+export type ConsumedTaskPacket<P extends "codex" | "claude"> = Omit<
+  TaskPacket,
+  "taskWorkload"
+> &
+  (P extends "claude"
+    ? Readonly<{ taskWorkload: unknown }>
+    : Readonly<Record<never, never>>);
 
 /**
  * 共通Docker準備のProvider別状態を定義する。
@@ -521,15 +560,15 @@ export type ProviderDockerConsumedTaskPacket<P extends "codex" | "claude"> =
  */
 export type ProviderDockerRuntimeStateBase<P extends "codex" | "claude"> =
   ProviderDockerPreparationState<
-    ProviderDockerConsumedModelSelection,
-    ProviderDockerConsumedTaskPacket<P>,
-    ProviderAdvicePacket,
+    ConsumedModelSelection,
+    ConsumedTaskPacket<P>,
+    AdvicePacket,
     Omit<
-      ProviderDockerPreparedPlan<P>,
+      PreparedAttemptPlan<P>,
       "authorityUseCapability" | "authorityControlCapability"
     >
   > &
-    ProviderDockerRandomSource;
+    RandomSource;
 
 /**
  * Provider別の共通準備状態を定義する。
@@ -556,18 +595,17 @@ export type ProviderDockerRuntimeState<P extends "codex" | "claude"> =
  * @security Capabilityをこの型から生成・永続化しない。
  * @compatibility 既存二ProviderのFactory依存を維持する。
  */
-export type ProviderDockerRuntimeDependencies<P extends "codex" | "claude"> =
-  Omit<
-    ProviderDockerRuntimeStateBase<P>,
-    "prepared" | "managementCapabilities"
-  > &
-    Pick<
-      ProviderDockerRuntimeState<P>,
-      Exclude<
-        keyof ProviderDockerRuntimeState<P>,
-        keyof ProviderDockerRuntimeStateBase<P>
-      >
-    >;
+export type PreparationHost<P extends "codex" | "claude"> = Omit<
+  ProviderDockerRuntimeStateBase<P>,
+  "prepared" | "managementCapabilities"
+> &
+  Pick<
+    ProviderDockerRuntimeState<P>,
+    Exclude<
+      keyof ProviderDockerRuntimeState<P>,
+      keyof ProviderDockerRuntimeStateBase<P>
+    >
+  >;
 
 /**
  * 照合済みDocker準備候補の公開結果を定義する。
@@ -580,7 +618,7 @@ export type ProviderDockerRuntimeDependencies<P extends "codex" | "claude"> =
  * @security Path、秘密、commandと内部Authorityを公開しない。
  * @compatibility Provider別結果のfield有無と値を維持する。
  */
-export type ProviderDockerPreparedResult<P extends "codex" | "claude"> =
+export type PreparedAttempt<P extends "codex" | "claude" = "codex" | "claude"> =
   Readonly<{
     status: "prepared";
     reason: string;
@@ -628,9 +666,9 @@ export type ProviderDockerPreparationCallbacks<
   blockedResult: (reason: string) => B;
   validateTask?: (task: T) => string | null;
   buildPlan: (
-    binding: ProviderDockerOperationBinding,
+    binding: AttemptBinding,
     activation: Readonly<{
-      grant: ProviderDockerMountGrant;
+      grant: MountGrant;
       activeMountCapability: object;
     }>,
     selection: M,
@@ -643,12 +681,219 @@ export type ProviderDockerPreparationCallbacks<
     consumer: "coordinator_cli" | "workbench" | "orchestrator",
   ) => P | null;
   preparedResult: (
-    plan: P & ProviderDockerPreparedAuthority,
+    plan: P & PreparedAuthority,
     capability: object,
-    binding: ProviderDockerOperationBinding,
+    binding: AttemptBinding,
     activation: Readonly<{
-      grant: ProviderDockerMountGrant;
+      grant: MountGrant;
       activeMountCapability: object;
     }>,
   ) => R;
+}>;
+
+/**
+ * docker-process-controllerで使用するCommand Handleの値契約を定義する。
+ *
+ * @responsibility Command HandleのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape CommandHandleが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CommandHandleで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CommandHandleの宣言は外部境界を開かない。
+ * @security CommandHandleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CommandHandleの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CommandHandle = Readonly<{
+  started: (timeoutMs: number) => Promise<boolean>;
+  wait: (timeoutMs: number) => Promise<CommandExecution | null>;
+  terminateAndWait: (graceMs: number) => Promise<boolean>;
+}>;
+
+/**
+ * docker-process-controllerで使用する回復の値契約を定義する。
+ *
+ * @responsibility 回復のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape Recoveryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant Recoveryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: Recoveryの宣言は外部境界を開かない。
+ * @security RecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility Recoveryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type Recovery = Readonly<{
+  status: "ready";
+  recoveryId: string;
+  recoveryCapability: object;
+}>;
+
+/**
+ * docker-process-controllerで使用するBlocked 回復の値契約を定義する。
+ *
+ * @responsibility Blocked 回復のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape BlockedRecoveryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant BlockedRecoveryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: BlockedRecoveryの宣言は外部境界を開かない。
+ * @security BlockedRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility BlockedRecoveryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type BlockedRecovery = Readonly<{
+  status: "blocked";
+  reason?: string;
+  recoveryId: string | null;
+  manualRecoveryRequired?: boolean;
+}>;
+
+/**
+ * docker-process-controllerで使用する清掃 Observationの値契約を定義する。
+ *
+ * @responsibility 清掃 ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape CleanupObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CleanupObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CleanupObservationの宣言は外部境界を開かない。
+ * @security CleanupObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CleanupObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CleanupObservation = Readonly<{
+  confirmed: boolean;
+  processTreeTerminated: boolean;
+  containersAbsent: boolean;
+  networksAbsent: boolean;
+  resourceObservations?: readonly DockerResourceCleanupObservation[] | null;
+}>;
+
+/**
+ * docker-process-controllerで使用するRuntime Dependenciesの値契約を定義する。
+ *
+ * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeDependenciesの宣言は外部境界を開かない。
+ * @security RuntimeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type RuntimeDependencies = Readonly<{
+  effectExecutorAvailable: boolean;
+  verifyRevision: (managementCapability: unknown) => unknown;
+  consumePreparedPlan: (
+    preparedCapability: unknown,
+    managementCapability: unknown,
+  ) => ProviderAttemptPlan | null;
+  beginRecovery: (
+    plan: ProviderAttemptPlan,
+    managementCapability: unknown,
+    observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
+  ) => Recovery | BlockedRecovery | null;
+  abandonRecovery?: (recoveryCapability: object) => boolean;
+  bindInitializationFailure?: (
+    capability: unknown,
+    recoveryId: unknown,
+    managementCapability: unknown,
+    homeHash: unknown,
+    reason: unknown,
+    result: object | null,
+  ) => boolean;
+  verifyRecoveryBinding: (
+    recoveryCapability: unknown,
+    recoveryId: unknown,
+    managementCapability: unknown,
+    stableLogicalHomeBindingHash: unknown,
+  ) => boolean;
+  startCommand?: (
+    command: Command,
+    plan: ProviderAttemptPlan,
+    managementCapability: unknown,
+  ) => CommandHandle;
+  startExecution?: (
+    plan: ProviderAttemptPlan,
+    recoveryCapability: object,
+    managementCapability: object,
+    hooks: DockerExecutionHooks,
+  ) => Pick<
+    ReturnType<typeof startDockerCommandSessionCandidate>,
+    "cancel" | "completion"
+  >;
+  cleanupOwnedResources: (
+    plan: ProviderAttemptPlan,
+    recoveryCapability: object,
+    managementCapability: unknown,
+  ) => Promise<CleanupObservation>;
+  verifyCleanupOutcome?: (
+    result: unknown,
+    plan: ProviderAttemptPlan,
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+  ) => CleanupObservation["resourceObservations"];
+  completeMount: (
+    activeMountCapability: unknown,
+    managementCapability: unknown,
+  ) => Readonly<{ status: string }>;
+  completeRecovery: (
+    recoveryCapability: object,
+    managementCapability: unknown,
+    completion: Readonly<{
+      plan: ProviderAttemptPlan;
+      cleanupOutcome: CleanupObservation;
+      mountCompletion: Readonly<{ status: string }>;
+    }>,
+  ) => Readonly<{
+    status: string;
+    recoveryFinalizationCapability?: object;
+  }>;
+  verifyHomeLeaseRelease?: (
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+    operationId: unknown,
+    recoveryId: unknown,
+  ) => boolean;
+  markResourceSubmission?: (
+    recoveryCapability: object,
+    purpose: string,
+  ) => boolean;
+  recordProviderSubmission?: (recoveryCapability: object) => boolean;
+  registerReviewFindings?: (
+    recoveryCapability: object,
+    plan: ProviderAttemptPlan,
+    findings: readonly ReviewFinding[],
+  ) => object | null;
+  recordResourceNotIssued?: (
+    recoveryCapability: object,
+    purpose: string,
+  ) => boolean;
+  recordResourceReceipt?: (
+    recoveryCapability: object,
+    purpose: string,
+    dockerId: string,
+  ) => boolean;
+  recordTerminalObservation?: (
+    recoveryCapability: object,
+    result: object,
+    observation: AttemptTerminalObservation,
+  ) => void;
+  recordDockerAbsence?: (
+    recoveryCapability: object,
+    observations: CleanupObservation["resourceObservations"],
+  ) => boolean;
+  recordMountCompletion?: (
+    recoveryCapability: object,
+    mountCompletion: Readonly<{ status: string }>,
+  ) => boolean;
+  reportProviderProcessStarted?: (
+    notice: ProcessStartedNotice,
+  ) => Promise<boolean>;
+  reportProviderBoundaryDiagnostic?: (
+    notice: ProviderBoundaryDiagnosticNotice,
+  ) => Promise<boolean>;
+  consumeProviderAuthority: (
+    useCapability: unknown,
+    activeMountCapability: unknown,
+    managementCapability: unknown,
+  ) => Readonly<{
+    operationId: string;
+    provider: string;
+    providerHomeMountGrantRef: string;
+    runtimeAuthorityIssued: true;
+    providerEffectAllowed: true;
+  }> | null;
 }>;

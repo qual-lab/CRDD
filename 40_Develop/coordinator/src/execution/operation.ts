@@ -6,7 +6,7 @@
  */
 
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import type { ExecutionPaths } from "../../../executor/src/index.ts";
+import type { AttemptPaths } from "../../../executor/src/index.ts";
 
 import {
   type WorkspaceInventoryEntry as InventoryEntry,
@@ -5496,7 +5496,7 @@ export function createOwnedMountCapability(
  * @responsibility 所有 Mount Capabilityの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input capability: unknown
- * @returns ExecutionPathsを返す。
+ * @returns AttemptPathsを返す。
  * @precondition 「capability: unknown」がverifyOwnedMountCapabilityの入力契約を満たす。
  * @postcondition verifyOwnedMountCapabilityの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedMountCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -5506,9 +5506,7 @@ export function createOwnedMountCapability(
  * @security verifyOwnedMountCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: verifyOwnedMountCapabilityは共有非同期状態を持たない同期処理である。
  */
-export function verifyOwnedMountCapability(
-  capability: unknown,
-): ExecutionPaths {
+export function verifyOwnedMountCapability(capability: unknown): AttemptPaths {
   const mount = isObject(capability)
     ? (mountCapabilities.get(capability) ?? null)
     : null;
@@ -5709,7 +5707,7 @@ export function verifyOwnedOperationManagementCapability(
  * @responsibility 所有 Operation Management Mount Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000008
  * @input managementCapability: unknown、mountCapability: unknown
- * @returns Readonly<{ operationId: string; createdAt: string; mounts: ExecutionPaths; }>を返す。
+ * @returns Readonly<{ operationId: string; createdAt: string; mounts: AttemptPaths; }>を返す。
  * @precondition 「managementCapability: unknown、mountCapability: unknown」がverifyOwnedOperationManagementMountBindingの入力契約を満たす。
  * @postcondition verifyOwnedOperationManagementMountBindingの責務を完了した結果だけを返す。
  * @effect N/A: verifyOwnedOperationManagementMountBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -5725,7 +5723,7 @@ export function verifyOwnedOperationManagementMountBinding(
 ): Readonly<{
   operationId: string;
   createdAt: string;
-  mounts: ExecutionPaths;
+  mounts: AttemptPaths;
 }> {
   const management = isObject(managementCapability)
     ? (operationManagementCapabilities.get(managementCapability) ?? null)

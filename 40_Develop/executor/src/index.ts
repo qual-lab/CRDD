@@ -1,92 +1,62 @@
 /**
- * Provider単段実行の結果・取消・終了証拠を扱う公開入口。
+ * 一試行を準備・開始・取消し、清掃後の結果を返すExecutor公開入口。
  * @packageDocumentation
- * @responsibility Taskの計画・Queue・再試行を所有せず、一試行の操作と型だけを公開する。
+ * @responsibility 構成・準備・実行・結果と有限の検証接続を明示公開する。
  * @trace ARCH-000008
- * @boundary Coordinator等のHostと単段実行の間。
+ * @boundary 上位Hostと単段実行の間。Taskの順序・Queue・再試行は所有しない。
  */
-export {
-  createProviderExecutor,
-  createIsolatedDockerProcessControllerCandidate,
-  type ProviderExecutorHost,
-} from "./attempt/execute.ts";
-export { describeDockerProcessControllerContract } from "./attempt/controller.ts";
-export {
-  bindDockerIsolationRuntime,
-  describeDockerEffectRuntimeContract,
-} from "./attempt/isolation.ts";
+// 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
+export { createExecutor, type ExecutorHost } from "./attempt/preparation.ts";
+export { describeExecutorContract } from "./attempt/execute.ts";
 export type {
-  ProviderProcessStartedNotice,
-  ProviderAttemptDiagnosticNotice,
-} from "./attempt/observation.ts";
-export {
-  PURPOSES,
-  SETUP_COMMAND_FAILURE_REASONS,
-  isDockerSetupCommandPurpose,
-  isDockerProcessControllerPublicCompletionReason,
-  isPrimaryFailureDiagnostic,
-  PROVIDER_EXECUTION_OBSERVATION_KEYS,
-  inspectProviderExecutionObservation,
-  RECOVERY_START_FAILURE_STAGES,
-  inspectRecoveryStartFailureDiagnostic,
-  ownDataValue,
-  projectDockerProcessControllerStartResult,
-  projectDockerProcessControllerCompletionResult,
-  publicDockerRecoveryStartReason,
-  publicVerifiedDockerRecoveryId,
-} from "./result/validation.ts";
-export {
-  PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT,
-  PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION,
-  consumeProviderTaskRemediation,
-  normalizeProviderTaskStructuredResult,
-  describeProviderTaskStructuredResultContract,
-} from "./result/task.ts";
-export {
-  PROVIDER_ADVICE_RESULT_CONTRACT,
-  PROVIDER_ADVICE_RESULT_CONTRACT_REVISION,
-  normalizeAdviceResult,
-  describeAdviceResultContract,
-  describeAdviceResultSchema,
-} from "./result/advice.ts";
-export type {
+  Executor,
+  AttemptStartResult,
+  AttemptResult,
+  AttemptContent,
+  TaskResult,
   AdviceResult,
-  ProviderAdviceResultItem,
-  DockerProcessControllerFinalReason,
-  DockerProcessControllerPublicCompletionReason,
+  AttemptResultReason,
+  AttemptFailureReason,
+} from "./result/types.ts";
+// 準備Ownerの構成。Factory呼出しだけではAIを実行しない。
+export {
+  createAttemptPreparation,
+  PREPARATION_LIFETIME_MS,
+} from "./attempt/preparation.ts";
+export type {
+  AttemptPreparation,
+  AttemptInput,
+  AttemptPreparationResult,
+  PreparedAttempt,
+  PreparationHost,
+  AttemptPaths,
+} from "./attempt/types.ts";
+// 実Process開始と非秘密診断。受付・準備開始の通知とは区別する。
+export type {
+  ProcessStartedNotice,
+  AttemptDiagnosticNotice,
+} from "./attempt/observation.ts";
+// 結果の内容・検査・上位への公開投影。
+export {
+  inspectAttemptObservation,
+  isAttemptFailureReason,
+  isPrimaryFailureDiagnostic,
+  inspectRecoveryStartFailureDiagnostic,
+  projectAttemptStartResult,
+  projectAttemptResult,
+  resolveRecoveryStartReason,
+  resolveRecoveryReference,
+} from "./result/validation.ts";
+export type {
   PrimaryFailureDiagnostic,
   RecoveryStartFailureDiagnostic,
 } from "./result/types.ts";
+// 既存のPackage間結合試験用。本番Authorityを発行する入口ではない。
 export {
-  validatePlan,
-  planIdentity,
-  resolveIsolationCommandInput,
-  hashProviderAdviceCommand,
-  bindProviderAdviceCommand,
-  buildProviderDockerExecutionPlan,
-  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT,
-  PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
-} from "./attempt/plan.ts";
-export {
-  createProviderDockerRuntimeAdapterCandidate,
-  createProviderDockerBlockedResult,
-  PROVIDER_PREPARATION_LIFETIME_MS,
+  createExecutorTestCandidate,
+  createPreparationFailure,
 } from "./attempt/preparation.ts";
-export type {
-  Command,
-  PreparedPlan,
-  ExecutionPaths,
-  ProviderAdviceCommand,
-  ProviderAdvicePacket,
-  ProviderDockerRuntimeDependencies,
-  ProviderDockerPreparedPlan,
-  ProviderDockerPreparedResult,
-  ProviderDockerConsumedModelSelection,
-  ProviderDockerConsumedTaskPacket,
-  ProviderDockerModelSelection,
-  ProviderDockerTaskPacket,
-  ProviderDockerOperationBinding,
-  ProviderDockerMountGrant,
-  ProviderDockerPreparedAuthority,
-  ProviderDockerRandomSource,
-} from "./attempt/types.ts";
+export {
+  bindIsolationRuntime,
+  describeIsolationContract,
+} from "./attempt/isolation.ts";

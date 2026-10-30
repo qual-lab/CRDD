@@ -41,6 +41,7 @@ const prepared = prepareProviderAdvicePlan(
     networkPolicy: fixtureNetworkPolicy(selection.provider),
     provider: selection.provider,
     providerPrompt: task.taskPacket.providerPrompt,
+    allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     taskHash: task.taskPacket.taskHash,
     projectionHash: task.taskPacket.projectionHash,
     executionSelection: selection,
@@ -56,8 +57,6 @@ if (prepared.status !== "prepared" || prepared.executionPlan === null)
   throw new Error("test_execution_plan_required");
 const executionPlan = prepared.executionPlan;
 const ADVICE = JSON.stringify({
-  contract: "crdd-coordinator/workbench-ai-advice-result",
-  contractRevision: 1,
   status: "completed",
   facts: [{ text: "現在値", references: ["PROJECT_CONTEXT.md"] }],
   sharedAnalysis: [],

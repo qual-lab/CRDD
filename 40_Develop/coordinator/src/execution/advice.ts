@@ -10,6 +10,7 @@ import {
   type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
+import { parseAdviceResult as normalizeAdviceResult } from "../../../domain-model/src/index.ts";
 
 import {
   type ProviderAdviceExecutionPlan,
@@ -31,11 +32,8 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import { readRepositoryNetworkPolicies } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
-import {
-  normalizeAdviceResult,
-  publicVerifiedDockerRecoveryId,
-  type ProviderAdviceResultItem,
-} from "../../../executor/src/index.ts";
+import { resolveRecoveryReference } from "../../../executor/src/index.ts";
+import type { AdviceResultItem } from "../../../domain-model/src/index.ts";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -847,6 +845,7 @@ async function executeAdviceProviderInput(
     executionSelection: selection,
     provider: selection.provider,
     providerPrompt: input.taskPacket.providerPrompt,
+    allowedReferences: input.taskPacket.allowedReferences,
     taskHash: input.taskPacket.taskHash,
     projectionHash: input.taskPacket.projectionHash,
     exactModelId: selection.modelIdentifier,
@@ -1193,12 +1192,12 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
   revokeSelection: typeof revokeRuntimeOwnedDelegationSelectionGrant;
   issuePacket: typeof issueRuntimeOwnedProviderAdvicePacket;
   revokePacket: typeof revokeRuntimeOwnedProviderAdvicePacket;
-  prepareCodex: ReturnType<
-    typeof getRuntimeOwnedProviderDockerAdapter<"codex">
-  >["prepareAdvice"];
-  prepareClaude: ReturnType<
-    typeof getRuntimeOwnedProviderDockerAdapter<"claude">
-  >["prepareAdvice"];
+  prepareAttempt: (
+    provider: "codex" | "claude",
+    input: Parameters<
+      ReturnType<typeof getRuntimeOwnedProviderDockerAdapter>["prepare"]
+    >[0],
+  ) => unknown;
   startProcess: typeof startRuntimeOwnedDockerProcessController;
   cancelProcess: typeof cancelRuntimeOwnedDockerProcessController;
   prepareDockerHostCleanup: typeof prepareRuntimeOwnedDockerHostCleanup;
@@ -1485,6 +1484,7 @@ function createProviderAdviceRuntime(
         taskHash: plan.taskHash,
         projectionHash: plan.projectionHash,
         providerPrompt: plan.providerPrompt,
+        allowedReferences: plan.allowedReferences,
         providerCommand: plan.providerCommand,
       }) as RuntimeRecord;
       packetOwner = objectValue(packet.ownerCapability);
@@ -1494,19 +1494,17 @@ function createProviderAdviceRuntime(
           "workbench_ai_advice_runtime_packet_unavailable",
         );
 
-      const prepared = (
-        plan.provider === "codex"
-          ? dependencies.prepareCodex
-          : dependencies.prepareClaude
-      )(
-        operation.managementCapability,
-        operation.mountCapability,
-        mountAuthorization,
-        selectionUse,
-        packetUse,
-        packetOwner,
-        dependencies.recoveryCorrelationId,
-      ) as RuntimeRecord;
+      const prepared = dependencies.prepareAttempt(plan.provider, {
+        purpose: "advice",
+        managementCapability: operation.managementCapability,
+        mountCapability: operation.mountCapability,
+        mountAuthorizationCapability: mountAuthorization,
+        selectionUseCapability: selectionUse,
+        packetCapability: packetUse,
+        packetOwnerCapability: packetOwner,
+        recoveryCorrelationId: dependencies.recoveryCorrelationId,
+        consumer: "workbench",
+      }) as RuntimeRecord;
       const preparedCapability = objectValue(prepared.preparedCapability);
       if (prepared.status !== "prepared" || !preparedCapability)
         throw new AdviceRuntimeError(
@@ -1521,7 +1519,7 @@ function createProviderAdviceRuntime(
         operation.managementCapability,
         (capability: unknown, recoveryId: unknown) => {
           const owned = objectValue(capability);
-          const exactId = publicVerifiedDockerRecoveryId(recoveryId);
+          const exactId = resolveRecoveryReference(recoveryId);
           if (
             recoveryHandoffRejected ||
             recoveryCapability ||
@@ -1598,14 +1596,18 @@ function createProviderAdviceRuntime(
         providerCompletionReason === null
           ? recordValue(result.normalizedResult)
           : null;
-      const adviceJson = normalized ? stringValue(normalized.adviceJson) : null;
-      if (
-        providerCompletionReason === null &&
-        (normalized?.contract !==
-          "crdd-coordinator/workbench-ai-advice-provider-output" ||
-          normalized?.contractRevision !== 1 ||
-          !adviceJson)
-      )
+      // 既存の上位配送形式への表示用変換。Provider Envelopeは再解析しない。
+      const adviceJson =
+        normalized?.status === "completed" && Array.isArray(normalized.facts)
+          ? JSON.stringify({
+              status: "completed",
+              facts: normalized.facts,
+              sharedAnalysis: normalized.sharedAnalysis,
+              additionalInferences: normalized.additionalInferences,
+              nextOptions: normalized.nextOptions,
+            })
+          : null;
+      if (providerCompletionReason === null && !adviceJson)
         throw new AdviceRuntimeError(
           "workbench_ai_advice_normalized_result_invalid",
         );
@@ -2070,8 +2072,8 @@ function createProductionDependencies(
     revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
     issuePacket: issueRuntimeOwnedProviderAdvicePacket,
     revokePacket: revokeRuntimeOwnedProviderAdvicePacket,
-    prepareCodex: getRuntimeOwnedProviderDockerAdapter("codex").prepareAdvice,
-    prepareClaude: getRuntimeOwnedProviderDockerAdapter("claude").prepareAdvice,
+    prepareAttempt: (provider, input) =>
+      getRuntimeOwnedProviderDockerAdapter(provider).prepare(input),
     startProcess: startRuntimeOwnedDockerProcessController,
     cancelProcess: cancelRuntimeOwnedDockerProcessController,
     prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
@@ -2232,10 +2234,10 @@ export type CoordinatorAiRequestInput = Readonly<{
 export type CoordinatorAiRequestResult = Readonly<{
   status: "completed" | "blocked" | "unknown";
   reason: string | null;
-  facts: readonly ProviderAdviceResultItem[];
-  sharedAnalysis: readonly ProviderAdviceResultItem[];
-  additionalInferences: readonly ProviderAdviceResultItem[];
-  nextOptions: readonly ProviderAdviceResultItem[];
+  facts: readonly AdviceResultItem[];
+  sharedAnalysis: readonly AdviceResultItem[];
+  additionalInferences: readonly AdviceResultItem[];
+  nextOptions: readonly AdviceResultItem[];
   candidate: null;
 }>;
 

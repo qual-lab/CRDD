@@ -13,7 +13,7 @@ import {
   type ProviderAvailability,
   evaluateProviderAvailability,
 } from "../../../ai-adapter/src/index.ts";
-import type { ProviderAttemptDiagnosticNotice } from "../../../executor/src/index.ts";
+import type { AttemptDiagnosticNotice } from "../../../executor/src/index.ts";
 
 /**
  * Provider境界の設定と終了後の診断を表す。
@@ -45,7 +45,7 @@ export type ProviderBoundaryDiagnosticNotice =
       recoveryCorrelationId: string | null;
       diagnostic: CandidateValidationFailureDiagnostic;
     }>
-  | ProviderAttemptDiagnosticNotice;
+  | AttemptDiagnosticNotice;
 
 /**
  * 開始済みTaskへ取消を搬送し、元の完了結果を待つ。

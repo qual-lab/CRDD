@@ -18,9 +18,9 @@ import {
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import type { CoordinatorTaskRecoveryObligation } from "./recovery.ts";
 import {
-  inspectProviderExecutionObservation,
-  publicVerifiedDockerRecoveryId,
-  publicDockerRecoveryStartReason,
+  inspectAttemptObservation,
+  resolveRecoveryReference,
+  resolveRecoveryStartReason,
 } from "../../../executor/src/index.ts";
 
 /** 候補拒否の非秘密診断。判定条件・実行許可・保存状態を所有しない。
@@ -32,9 +32,7 @@ export type CandidateValidationFailureDiagnostic = Readonly<{
   pathsMatch: boolean | null;
   candidatePathCount: number | null;
   reportedPathCount: number | null;
-  providerExecutionObservation: ReturnType<
-    typeof inspectProviderExecutionObservation
-  >;
+  providerExecutionObservation: ReturnType<typeof inspectAttemptObservation>;
 }>;
 
 /** 各試行の編集照合又はレビュー分類だけを表す受動診断。
@@ -146,7 +144,7 @@ export function inspectCandidateValidationFailureDiagnostic(
   const observation =
     value.providerExecutionObservation === null
       ? null
-      : inspectProviderExecutionObservation(value.providerExecutionObservation);
+      : inspectAttemptObservation(value.providerExecutionObservation);
   if (value.providerExecutionObservation !== null && !observation) return null;
   return Object.freeze({
     captureStatus:
@@ -318,7 +316,7 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   if (!observation)
     return Object.freeze({
       status: "blocked" as const,
-      reason: publicDockerRecoveryStartReason(null),
+      reason: resolveRecoveryStartReason(null),
       manualRecoveryRequired: true,
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([] as string[]),
@@ -334,8 +332,8 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
       : null;
   const singleId =
     observation.dockerRecoveryId === null ||
-    publicVerifiedDockerRecoveryId(observation.dockerRecoveryId) !== null
-      ? publicVerifiedDockerRecoveryId(observation.dockerRecoveryId)
+    resolveRecoveryReference(observation.dockerRecoveryId) !== null
+      ? resolveRecoveryReference(observation.dockerRecoveryId)
       : undefined;
   const hashes = snapshotPlainArray(
     observation.activeStableLogicalHomeBindingHashes,
@@ -367,7 +365,7 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   if (!isShapeValid)
     return Object.freeze({
       status: "blocked" as const,
-      reason: publicDockerRecoveryStartReason(null),
+      reason: resolveRecoveryStartReason(null),
       manualRecoveryRequired: true,
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([] as string[]),
@@ -394,7 +392,7 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   const isBlockedShape =
     observation.status === "blocked" &&
     observation.manualRecoveryRequired === true &&
-    publicDockerRecoveryStartReason(observation.reason) !==
+    resolveRecoveryStartReason(observation.reason) !==
       "docker_process_controller_recovery_unavailable" &&
     (ids.length === 0
       ? !INVENTORY_REASONS.has(observation.reason)
@@ -407,14 +405,14 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   if (!isBlockedShape && !isInventoryShape)
     return Object.freeze({
       status: "blocked" as const,
-      reason: publicDockerRecoveryStartReason(null),
+      reason: resolveRecoveryStartReason(null),
       manualRecoveryRequired: true,
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([] as string[]),
     });
   return Object.freeze({
     status: "blocked" as const,
-    reason: publicDockerRecoveryStartReason(observation.reason),
+    reason: resolveRecoveryStartReason(observation.reason),
     manualRecoveryRequired: true,
     dockerRecoveryId: ids.length === 1 ? (ids[0] ?? null) : null,
     dockerRecoveryIds: Object.freeze(ids),

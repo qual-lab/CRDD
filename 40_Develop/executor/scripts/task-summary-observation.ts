@@ -11,7 +11,7 @@ import { parseProviderResult } from "../../ai-adapter/src/index.ts";
 import { containsRecognizedSecretMaterial } from "../../domain-model/src/index.ts";
 
 type Dependencies = Readonly<{
-  normalize: typeof original.normalizeProviderTaskStructuredResult;
+  normalize: typeof original.normalizeTaskResult;
   parse: typeof parseProviderResult;
   secret: typeof containsRecognizedSecretMaterial;
 }>;
@@ -66,12 +66,8 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
   let invalid = false;
   let finished = false;
   const calls: string[] = [];
-  const wrapped: typeof original.normalizeProviderTaskStructuredResult = (
-    ...args
-  ) => {
-    let result: ReturnType<
-      typeof original.normalizeProviderTaskStructuredResult
-    >;
+  const wrapped: typeof original.normalizeTaskResult = (...args) => {
+    let result: ReturnType<typeof original.normalizeTaskResult>;
     try {
       result = dependencies.normalize(...args);
     } catch (error) {
@@ -251,7 +247,7 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
  */
 export function installTaskSummaryObservation() {
   const observation = createTaskSummaryObservation({
-    normalize: original.normalizeProviderTaskStructuredResult,
+    normalize: original.normalizeTaskResult,
     parse: parseProviderResult,
     secret: containsRecognizedSecretMaterial,
   });
@@ -260,7 +256,7 @@ export function installTaskSummaryObservation() {
     {
       namedExports: {
         ...original,
-        normalizeProviderTaskStructuredResult: observation.wrapped,
+        normalizeTaskResult: observation.wrapped,
       },
     },
   );

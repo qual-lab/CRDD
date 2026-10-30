@@ -24,13 +24,49 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  verifyOwnedOperationManagementCapability,
 } from "../../../src/execution/operation.ts";
 import {
   createIsolatedProviderTaskPacketRuntimeCandidate,
   describeProviderTaskPacketRuntimeContract,
+  registerTaskRemediation,
+  consumeTaskRemediation,
 } from "../../../src/execution/preparation.ts";
 import { compileExternalSendScopeHash } from "../../../src/decision/external-send-grant.ts";
-import { normalizeProviderTaskStructuredResult } from "../../../../executor/src/index.ts";
+
+/** Packet単体試験の前提となる検査済み所見を作る。Provider内容検査の成立は主張しない。 */
+function createReviewFixture(management: object, raw: string) {
+  const operation = verifyOwnedOperationManagementCapability(management);
+  assert.ok(operation);
+  const data = JSON.parse(raw) as {
+    findings: Parameters<typeof registerTaskRemediation>[2];
+  };
+  const findings = data.findings.map((finding) =>
+    Object.freeze({
+      ...finding,
+      messageSha256: createHash("sha256")
+        .update("crdd-review-finding-message-v1\\0".replace("\\0", "\0"))
+        .update(finding.message, "utf8")
+        .digest("hex"),
+    }),
+  );
+  const capability = registerTaskRemediation(
+    operation.operationId,
+    0,
+    Object.freeze(findings),
+  );
+  assert.equal(
+    registerTaskRemediation(operation.operationId, 1, Object.freeze(findings)),
+    null,
+  );
+  assert.ok(capability);
+  assert.equal(
+    consumeTaskRemediation({ ...capability }, operation.operationId),
+    null,
+  );
+  assert.equal(consumeTaskRemediation(capability, "OP-FOREIGN"), null);
+  return { normalizedResult: { remediationCapability: capability } };
+}
 
 const operationFixture = createRepositoryTestDirectory("task-packet-network-");
 /**
@@ -738,10 +774,8 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
   const current = operation();
   const isolated = packetRuntime();
   try {
-    const reviewed = normalizeProviderTaskStructuredResult(
-      "codex",
-      "reviewer",
-      "low",
+    const reviewed = createReviewFixture(
+      current.managementCapability,
       JSON.stringify({
         decision: "changes_requested",
         summary: "A bounded fix is required.",
@@ -844,10 +878,8 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
       return null;
     });
     try {
-      const reviewed = normalizeProviderTaskStructuredResult(
-        "codex",
-        "reviewer",
-        "low",
+      const reviewed = createReviewFixture(
+        current.managementCapability,
         JSON.stringify({
           decision: "changes_requested",
           summary: "A bounded fix is required.",
@@ -911,10 +943,8 @@ test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前�
     return null;
   });
   try {
-    const reviewed = normalizeProviderTaskStructuredResult(
-      "codex",
-      "reviewer",
-      "low",
+    const reviewed = createReviewFixture(
+      current.managementCapability,
       JSON.stringify({
         decision: "changes_requested",
         summary: "A bounded fix is required.",
@@ -976,10 +1006,8 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
     return null;
   });
   try {
-    const reviewed = normalizeProviderTaskStructuredResult(
-      "codex",
-      "reviewer",
-      "low",
+    const reviewed = createReviewFixture(
+      current.managementCapability,
       JSON.stringify({
         decision: "changes_requested",
         summary: "A bounded fix is required.",

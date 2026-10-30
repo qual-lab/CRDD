@@ -28,20 +28,20 @@
 | Failure／Recovery | Required | unknownと元Identityを保持する | [§3](#3-生涯と証拠) |
 | Deployment | Required | Libraryだけで、Serverや保存Rootを追加しない | [§1](#1-責務と依存) |
 | Observability | Required | 同期通知と元結果を別々に照合する | [§3](#3-生涯と証拠) |
-| Security Boundary | Required | 固定DIと私有Mapを維持する | [§3](#3-生涯と証拠) |
+| Security Boundary | Required | 固定DI・既存Owner・同期保存を維持する | [§3](#3-生涯と証拠) |
 | Implementation Structure | Required | 元Ownerと利用側の一実体を保つ | [実装構造](#implementation-structure) |
 
 ## Engineering Concern評価
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | PASS | Control・準備と通知は同じRuntimeの私有状態、別Ownerは拒否 | [§3](#3-生涯と証拠) |
+| Concurrency | PASS | Controlと準備は同じRuntimeの私有状態、別Ownerは拒否 | [§3](#3-生涯と証拠) |
 | Timing | PASS | 既存Setup／Provider期限・取消猶予を変更せずjoinまで扱う | [§2](#2-sourceと公開入口) |
 | Resource Lifecycle | PASS | 技術終了と上位Host清掃を分ける | [§3](#3-生涯と証拠) |
 | External Boundary | PASS | 固定DIと元Hostの用途固定操作へ限定する | [§1](#1-責務と依存) |
 | Failure／Recovery | PASS | 一次故障・回収と元exact参照を分離保持する | [§3](#3-生涯と証拠) |
-| State／Consistency | PASS | 準備消費と元objectの相関を保ち、コピーを受理しない | [§3](#3-生涯と証拠) |
-| Observability | PASS | 通知失効・元result・閉形式診断を分ける | [§3](#3-生涯と証拠) |
+| State／Consistency | PASS | 準備消費と操作・回復参照の相関を保つ | [§3](#3-生涯と証拠) |
+| Observability | PASS | 同期保存・終端結果・閉形式診断を分ける | [§3](#3-生涯と証拠) |
 | Security／Trust | PASS | 本番Factoryに任意CLI／Process実装を注入しない | [§2](#2-sourceと公開入口) |
 
 - `PASS`: 詳細設計上の処置が定義された状態。実装・実境界の成功ではない。
@@ -59,12 +59,12 @@
 
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
 |---|---|---|---|---|---|---|
-| Variation | Required | Codex／Claudeの既存差を吸収する | Provider差はAI Adapter、共通試行は同じExecutor | Provider別Mapを共用しない | 両Provider反例を維持 | `executor.single-provider-attempt` |
+| Variation | Required | Codex／Claudeの既存差を吸収する | Provider差はAI Adapter、共通試行は同じExecutor | Provider差を固定構成へ反映する | 両Provider反例を維持 | `executor.single-provider-attempt` |
 | Common Contract | Required | Taskと助言が同じ開始・取消・終了を利用する | 公開Rootの有限操作 | Task順序を含めない | 全利用側へ同時追従 | `executor.single-provider-attempt` |
 | Creation／Selection | Required | 本番と試験のAuthorityを区別する | 固定本番Factoryと隔離候補 | 候補を本番へ昇格しない | 不正開始はEffect前拒否 | `executor.single-provider-attempt` |
 | State-dependent Behavior | Required | 開始後だけ取消・終端を同じControlへ結合する | 私有Control Map | コピー・再使用拒否 | 遅延通知と取消を反証 | `executor.single-provider-attempt` |
 | Composition／Recursion | N/A | Taskの再帰計画・Queueを持たない | 一段の閉包だけ | 調停はCoordinator | 計画要求は上位へ | `executor.single-provider-attempt` |
-| Lifecycle Ownership | Required | 終了前に結果を確定しない | 下位Sessionのjoinと元証拠Map | 通知失効・exact回収 | 不明は義務を保持 | `executor.single-provider-attempt` |
+| Lifecycle Ownership | Required | 終了前に結果を確定しない | 下位Sessionのjoinと既存操作記録 | 同期保存・exact回収 | 不明は義務を保持 | `executor.single-provider-attempt` |
 | External Boundary | Required | Provider／DI／Host保存の境界がある | 元参照と用途固定callback | 先行boolean化禁止 | 生出力非保存・相関保全 | `executor.single-provider-attempt` |
 
 ## 1. 責務と依存
@@ -84,45 +84,74 @@ ExecutorはProvider一段を一試行として、準備値の一回消費、開�
 
 ```text
 executor/src/
-├ index.ts                    利用中の有限操作・値型の明示公開
+├ index.ts                    有限公開APIと共有型の明示export
 ├ attempt/
-│ ├ execute.ts                固定の本番構成／分離された試験候補
-│ ├ controller.ts             一試行の開始・取消・join・終了相関
-│ ├ preparation.ts            Provider別準備Mapと一回消費
-│ ├ plan.ts                   計画・Command・入力Hashの純粋構築
-│ ├ types.ts                  技術入力・準備値の型
-│ ├ isolation.ts              既存Docker Isolationへの薄い接続
-│ └ observation.ts            通知・終端の私有Mapと元object照合
+│ ├ preparation.ts            固定構成・callback結合・一回準備と入力構築
+│ ├ execute.ts                一試行の開始・取消・join・結果通知のOwner
+│ ├ isolation.ts              Docker構成・固定Command検査・資源清掃後の終了接続
+│ ├ observation.ts            非秘密診断の投影と受動的callback通知
+│ └ types.ts                  試行入力・Host操作・準備値の型
 └ result/
   ├ types.ts                  公開・共有結果型と非秘密診断型
-  ├ task.ts                   編集・レビューの結果検査と是正証拠の一回消費
-  ├ advice.ts                 助言Envelope変換・許可参照検査・結果Schema
-  └ validation.ts             技術結果・非秘密診断・共通文字列の閉形式検査
+  ├ attempt.ts                開始拒否・一試行の最終結果の組立て
+  ├ task.ts                   Provider解析とDomain内容検査・実行観測の結合
+  ├ advice.ts                 共通Provider解析からDomainの助言内容検査への接続
+  └ validation.ts             回復応答・技術結果・共通文字列の閉形式検査
 ```
 
-本番入口`createProviderExecutor(host)`は固定Docker Isolationを構成し、`start`、`cancel`、`verifyProviderSubmissionNotice`、`verifyUnissuedNotice`、`borrowTerminalObservations`、`verifyCleanupOutcome`を返す。`start`は元準備・管理参照と同期の回復引渡しを取り、開始結果の`completion`を同一試行の終了まで待つ。取消要求の返却だけで終了成立とはしない。新しいRequest／Result SchemaやTimeoutは導入しない。
+本番入口`createExecutor(host)`は固定Docker Isolationを構成し、`start`、`cancel`、`verifyCleanupOutcome`を返す。`start`は元準備・管理参照と同期の回復引渡しを取り、開始結果の`completion`を同一試行の終了まで待つ。取消要求の返却だけで終了成立とはしない。新しいRequest／Result SchemaやTimeoutは導入しない。
 
-準備入口`createProviderDockerRuntimeAdapterCandidate`は既存の有限Host操作からProvider別の一回準備を構成する。名称のcandidateは既存API名であり、自由なProcess実装を本番へ注入する意味ではない。純粋な計画・正規化・閉形式検査は同じRootから利用する。任意のProcess代役を受ける`createIsolatedDockerProcessControllerCandidate`は本番Authorityを持たず、別のcontrols／観測Mapを使う。
+準備入口`createAttemptPreparation`は既存の有限Host操作からProvider別の準備Ownerを構成し、共通の`prepare(AttemptInput)`、cancel、consumeを返す。入力のpurposeはtask／advice／probeを区別し、それぞれの元Packet参照だけを受ける。Factory呼出しだけでは準備・実行しない。任意のProcess代役を受ける`createExecutorTestCandidate`は本番Authorityを持たず、別のControl状態を使う。Package外の結合試験が必要とする試験入口は明示公開するが、Command計画構築・内部検査・内部Key一覧を試験の都合だけで通常Rootへ公開しない。
 
-Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ生成する固定接続部。旧Controllerには単段Controller実装を残さない。保存・確定・回復の三利用側はこの同じ実体のVerifierを使う。初期化中の相互参照は関数宣言の束縛だけとし、構築中に実行せず、追加Loaderや遅延Registryを置かない。
+Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ生成する固定接続部。旧Controllerには単段Controller実装を残さない。要求前保存は固定Host callbackへ直接接続し、終端材料は既存の操作記録へ渡す。Domainの既存終了保存Contextはその記録を読み取り、Executorへ逆照会しない。初期化中の相互参照は関数宣言の束縛だけとし、構築中に実行せず、追加Loaderや遅延Registryを置かない。
 
 ### 内部整理の境界
 
-`attempt/plan.ts`が扱うのは一試行の実行計画であり、Task Graphや段階順序ではないため、名前の種類だけで分割しない。`controller.ts`は開始・取消・終了待機・清掃の一つの生涯を所有する。今回は純粋な助言Envelope変換だけを`result/advice.ts`へ移し、Controllerを行数だけで分割しない。
+`preparation.ts`は一試行の入力構築・構成・一回消費を所有し、Taskの計画を作らない。`execute.ts`が唯一の生涯Ownerとして開始・取消・終了待ちを管理する。`isolation.ts`の終了接続は、下位Sessionが清掃を終えた後に既存の不存在保存→Mount終了→回復終了を行う。正常SessionのDocker清掃を二重実行しない。開始前故障の限定清掃は引き続き同じ実行Ownerが呼ぶ。
 
-結果の検査と公開契約は`result/task.ts`と`result/advice.ts`が所有する。公開・共有型は`result/types.ts`へ集約し、型だけの利用側は検査実装から読み込まない。共通の成否と内容有無は内部の`NormalizedProviderResult<T>`で型照合するが、用途別fieldと既存の推論型・返却値は変えない。限定是正証拠の発行・一回消費は同じ`task.ts`内の一つのWeakMapを利用する。共通のbyte上限・文字列検査は既存`validation.ts`内の非Root公開処理とし、新しいbarrelや互換転送ファイルは作らない。
+Task／Adviceとも同じstartとcompletionを使い、`AttemptResult`の`normalizedResult`を型付き`AttemptContent`として返す。Taskの編集・レビュー内容はDomain Modelの`attempt/task-result.ts`、Adviceの内容モデル・Schema・許可参照検査は同じDomainの`attempt/advice.ts`が所有する。Executorの`result/task.ts`／`result/advice.ts`は共通Provider解析と内容検査を結合する内部処理であり、次試行許可を発行しない。入力の許可参照集合は準備時に複製・固定し、試行Identityへ含める。結果の用途別内容は保ち、同じfieldへ無理に平坦化しない。
 
-Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProviderResult()`へ委譲する。Executorはその結果に対し、編集Path・レビュー所見・助言の許可参照という用途固有の内容を検査する。共通化のためだけのNormalizer入口や汎用変換Frameworkは追加しない。
+限定是正証拠の発行・一回消費はCoordinatorの`execution/preparation.ts`だけが所有する。Executorは初回レビューの検査済み所見を固定Host callbackへ内部搬送し、Hostが返した許可だけをTask結果へ付加する。callback欠測・拒否・例外でも検査済みレビュー内容を失敗へ改ざんせず、許可を付けない。Coordinatorは許可なしでは次試行へ進まない。二回目レビューから新しい是正許可を発行しない。所見本文を通常結果や保存診断へ追加せず、新しいMapや公開の発行入口をExecutorへ作らない。
 
-`consumer`の既存値は表示の振分けではなく、選定・回復・終了証拠のIdentityへ結合されるため維持する。値の改名・撤去は保存と利用側の別変更となる。Root公開API、通信契約、改訂値、拒否理由、結果fieldの意味は今回変更しない。
+Docker用助言Commandの結合とHashはDocker Isolationの`execution/binding.ts`が所有する。同意前の入力固定と実行時照合は同じHash形式を使用する。公開・共有結果型は`result/types.ts`から明示し、共通byte上限・文字列検査は既存`validation.ts`内に置く。barrelや互換転送ファイルは追加しない。
+
+Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProviderResult()`へ委譲する。Executorはその結果をDomainの内容検査へ渡し、編集Path・レビュー所見・助言の許可参照を検査済みの値として受ける。共通化のためだけのNormalizer入口や汎用変換Frameworkは追加しない。
+
+Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの解析分岐を持たせない。認証解析は同じCommand観測から一回行い、後続の認証Gateはその確認結果を使用する。Offeringの正本はAI Adapterの認証記述であり、ExecutorにProvider別の定数判断を複製しない。
+
+### 正規構築と開始直前照合
+
+準備・開始とも`resolveProviderExecution`で同じ有限なProvider仕様要求を構成し、AI Adapterの正規計画を使用する。DockerのImage・Proxy・Mount・認証環境・Seccomp構成はDocker Isolationの`bindProviderCommand`一箇所へ集約する。Executorの準備側に別のDocker構成Object組立を残さない。
+
+初回は既存乱数Ownerが一回生成したProxy Tokenをcreate入力として渡す。再照合はverify入力で元九CommandからTokenを観測し、同じ正規構成から再生成した用途・順序・全argvを完全照合する。両方式の混在・Token欠測・不正値は拒否する。resolverは乱数、Registry又は保存を所有しない。DIへ渡すのは有限技術値だけで、Operation・Packet・Authority・Recovery・本文を渡さない。
+
+開始時は`resolveValidatedPlan`が選定・Packet・Mountの意味相関を先に確認し、一回の構築結果をそのまま下位へ渡す。Boolean検査後に同じ構成を再構築しない。全Tokenを一括変更したコピーの排除は構成比較単体ではなく、既存の私有準備Map・元管理参照・一回消費が担う。Revision／Authority再確認・Recovery引渡し・submission先行保存・取消join・清掃後公開は維持する。
+
+回復開始理由はHost境界の有限投影としてExecutorに残すが、現行の開始・在庫・Lock解放契約が使う7理由だけを対象にする。Producer・Reader契約にない旧保存方式の理由は未知値として既存unavailableへ閉じる。Domainは安定したAttempt理由と保存合法性を所有し、Coordinator固有のraw理由表をDomainへ移さない。理由投影で元結果・exact Recovery ID・manual回復条件は変えない。
+
+`consumer`の既存値は表示の振分けではなく、選定・回復・終了証拠のIdentityへ結合されるため維持する。通知原本の照会API三つは撤去する。開始・取消・下位清掃検証、拒否理由と結果fieldの意味は維持する。助言結果には形式識別名・版番号を要求せず、呼出し用途と内容Schemaで検査する。製品コードへ旧照会APIや旧形式IDの互換層を置かない。
 
 | 公開API群 | 所有者 | 役割 |
 |---|---|---|
-| `createProviderExecutor`、Controller契約、試験候補 | attempt | 単段開始、同じControlの取消、終了・清掃証拠の検証 |
-| 準備Adapter、計画構築・検査・Identity・Command結合 | attempt | 一回使用の準備と固定入力。Task進行を管理しない |
-| Task結果正規化・契約・是正証拠消費 | result/task.ts | 編集・レビュー結果を検査する |
-| 助言結果正規化・契約・Schema | result/advice.ts | 許可参照に限定した助言を返す |
+| `createExecutor`、`ExecutorHost`、`Executor` | attempt | 単段開始、同じControlの取消、下位清掃結果の確認 |
+| `createAttemptPreparation`、`PreparationHost`、`AttemptPreparation` | attempt | 準備Ownerの構成と一回使用。Task進行を管理しない |
+| `AttemptPreparationResult`、`PreparedAttempt` | attempt/types.ts | 成功・拒否のunionとprepared成功部分を区別する |
+| `AttemptStartResult`、`AttemptResult` | result/types.ts | 開始結果と清掃後の最終結果。実装のReturnTypeから導出する |
+| `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/observation.ts | 実Provider Process開始と非秘密診断。受付開始と混同しない |
+| `AttemptInput` | attempt/types.ts | Task／Advice／Probe共通の公開準備入力 |
+| `AttemptContent`、`TaskResult`、`AdviceResult` | result/types.ts | 同じ終了結果に載せる用途別の型付き内容 |
+| Task／Advice結果の正規化 | 内部のみ | 利用側が中間検査を組み立てる公開入口は持たない |
 | 技術結果・診断・回復参照の検査と投影 | result/validation.ts | 閉形式の結果を公開する。状態を進めない |
+
+#### 形式名と内部公開の境界
+
+- `ADVICE_INPUT_CONTRACT`／`ADVICE_RESULT_CONTRACT`とそれぞれの版番号定数はRoot非公開とし、Executor内の形式タグを廃止する。AdvicePacketは同じ操作・選定・Prompt・Hash・非共有条件を保持するが、contract／contractRevisionを要求しない。Coordinatorが私有PacketのHash形式として保持する識別情報はCoordinatorだけが所有し、Executorの実行条件にしない。
+- 助言結果はstatusと四区分・本文・根拠参照を検査する。AIに形式名・版番号を応答させず、必要な形は既存`describeAdviceResultSchema()`から取得する。余分field・重複Key・曖昧JSON・容量超過・許可参照外・空参照の拒否は維持する。Taskへ形式タグ検査を追加して対称化しない。
+- 旧タグ付き応答を新Schemaとして互換受理する層は追加しない。新しい実行のPromptとSchemaを同時に切り替え、過去の結果・Evidence・保持物は書換えない。実AIの再送は別承認とする。
+- `ATTEMPT_OBSERVATION_KEYS`、内部Command・内部準備型・`ownDataValue`・完全計画検査はRoot非公開。検査の項目集合はvalidationの私有値とし、利用側へは必要な検査関数と結果型を渡す。
+- `TaskPacket`／`AdvicePacket`は固定準備Hostの内部搬送型とし、Rootから個別公開しない。Host実装側は必要なら公開`PreparationHost`のcallback型から返却契約を導出し、私有Moduleを直接importしない。`AdviceResultItem`はDomain所有の内容項目型であり、Executorから再公開しない。Task／Adviceの一試行内容型は`TaskResult`／`AdviceResult`として同じ群へ置く。
+- `normalizeTaskResult`、`normalizeAdviceResult`、`describeAdviceResultSchema`、`consumeTaskRemediation`、`hashAdviceCommand`、`bindAdviceCommand`はExecutor Rootから公開しない。内容Schemaが必要な利用側はDomain、Docker構成が必要な利用側はDocker Isolationの正規入口を利用する。
+- 試験用公開は`createExecutorTestCandidate`、`createPreparationFailure`、`bindIsolationRuntime`、`describeIsolationContract`。現在のPackage外結合試験へ必要な接続だけを残し、本番Authorityや自由な本番Process注入を許可しない。
 
 製品CLIは追加しない。scriptsは有限検証専用で、ライブラリのRoot APIを置き換えない。
 
@@ -131,17 +160,17 @@ Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProvider
 1. Hostが選定・同意・入力・実行対象を確定し、準備の元Capabilityを渡す。
 2. Executorは一回消費と現在のAuthorityを照合し、Effect前に同じexact回復参照をHostへ同期的に引き渡す。
 3. 下位要求を発行し、受理・開始・応答・終了を区別する。過去Effectのunknownを成功又は不存在へ補完しない。
-4. Provider通知は登録→元通知を使う同期保存callback→`finally`失効の順。事前boolean化・コピー・async照合は禁止。
+4. 要求前は固定Hostの同期保存callbackを直接呼び、exact trueを確認してからEffectへ進む。保存拒否・例外は要求を発行せず停止する。未発行確定は同じ操作Ownerと用途を渡し、Domainの専用Writerが短期排他内で`intent_saved`を再確認する。
 5. 取消・遅延応答を同じControlへ結合し、終了待ちと元資源の回収を行う。一次故障を清掃結果で上書きしない。
-6. 元result objectと管理参照・操作ID・回復IDが一致した時だけ終端観測を借用する。共通Host清掃と配送完了はCoordinatorが別途確定する。
+6. 最終結果の組立て→Home解放の現在確認→固定終端callbackの順で、同じ操作・回復参照の既存記録へ結果と観測を渡す。初回値は固定し、異なる終端材料の差替えを拒否する。callback例外・欠測はHostの終了保存を成立させないが、技術結果や清掃事実を改ざんしない。共通Host清掃と配送完了はCoordinatorが別途確定する。
 
-Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従来の用途固定同期callbackだけを渡す。Map搬送・二重登録・Domain→Executor依存を作らない。生Provider出力・認証値は保存せず、既存の閉じた診断だけを搬送する。
+通知の原本・コピー・失効を管理するMapと照会APIは持たない。外部の任意値を内部通知として受ける公開入口も設けない。本番Host型はsubmission・notIssued・terminalの三callbackを必須とする。Controlと準備の一回消費、下位清掃結果の実体検証は別責務として維持する。生保存OwnerをRootへ公開せず、Domain→Executor依存を作らない。生Provider出力・認証値は保存せず、既存の閉じた診断だけを搬送する。
 
-試験用の組立は製品Hostとは区別する。`scripts/verify-provider-attempt.ts`は明示呼出し時だけ非AI検証を開始し、既存ITも同じ関数を使う。試験の新品Repository-local Rootに限る排他と、Domainの既存確定JSON保存・読戻しを接続し、元通知の同期Gate、コピー・失効の拒否、終端相関を確認する。生成物は全子Process終了後に確認して回収し、確認不能ならexact Rootを報告する。これは試験fixture専用排他とイベントcommitであり、本番共有Home／Host排他、認証、Runtime state Writer又はRecovery保存の成立ではない。製品用Hostや保存Frameworkを新設せず、必要な有限試験構成をscripts／tests内に置ける。
+試験用の組立は製品Hostとは区別する。`scripts/verify-provider-attempt.ts`は明示呼出し時だけ非AI検証を開始し、既存ITも同じ関数を使う。試験の新品Repository-local Rootに限る排他と、Domainの既存確定JSON保存・読戻しを接続し、要求前の同期保存Gate、元Owner、終端callbackの相関を確認する。生成物は全子Process終了後に確認して回収し、確認不能ならexact Rootを報告する。これは試験fixture専用排他とイベントcommitであり、本番共有Home／Host排他、認証、Runtime state Writer又はRecovery保存の成立ではない。製品用Hostや保存Frameworkを新設せず、必要な有限試験構成をscripts／tests内に置ける。
 
 実Homeの事前確認は別の明示入口`scripts/verify-provider-home.ts <provider> <run-id>`とする。固定Provider一値の既存Home metadataをPlatform Accessで観測し、既存と同じProviderHome Pipe名を使って共有排他を一回取得する。保持中の再観測と四Hash一致を要求し、元Lockの解放・終了を確認する。Native・取得・解放の未知は別に保持し、試験checkpointだけを残して停止する。checkpointへHome Path・Hash・SID・ACL・認証内容は保存しない。通常の単独非AI入口からは呼ばず、実行は用途限定の別承認を必要とする。これは事前観測であり、認証状態、AI実行許可、試行全体を覆うHome保持又は本番Host回復の成立ではない。
 
-単段実試験の組立補助`scripts/provider-attempt-host.ts`は、呼出し側が検証・取得した同期Home排他と固定計画を受ける。一回限りの元管理・準備・回復参照、五資源の提出前記録／Receipt、同期通知照合、DIの元清掃結果、元終端だけを同じ新品試験Rootの確定JSON列へ接続する。生存確認は開始・所在借用・保存ごとに行い、技術清掃の明示不存在記録後だけ元排他を一回解放する。失敗時のretry・強制清掃・別回復参照は作らない。同期解放が返すのは既存Coordinatorと同じ解放状態到達であり、Worker最終exitまでのcleanup証明とは区別する。呼出し側の子Process終了確認と残存時のRoot保持が必要である。補助自体はHome観測・排他取得・試験Root作成・同意を代行せず、製品Host保存やHost喪失後の回復機能を提供しない。
+単段実試験の組立補助`scripts/provider-attempt-host.ts`は、呼出し側が検証・取得した同期Home排他と固定計画を受ける。一回限りの元管理・準備・回復参照、五資源の提出前記録／Receipt、同期保存確認、DIの元清掃結果、元終端だけを同じ新品試験Rootの確定JSON列へ接続する。生存確認は開始・所在借用・保存ごとに行い、技術清掃の明示不存在記録後だけ元排他を一回解放する。失敗時のretry・強制清掃・別回復参照は作らない。同期解放が返すのは既存Coordinatorと同じ解放状態到達であり、Worker最終exitまでのcleanup証明とは区別する。呼出し側の子Process終了確認と残存時のRoot保持が必要である。補助自体はHome観測・排他取得・試験Root作成・同意を代行せず、製品Host保存やHost喪失後の回復機能を提供しない。
 
 ## 4. 検証と未実施境界
 
@@ -157,11 +186,11 @@ Map・登録関数・生保存OwnerはRootへ公開しない。Domainへは従�
 
 親は子close前に試験Rootを清掃・更新しない。Effect前に子が元回復参照を親へ渡し、親の受領確認後だけ開始する。結果搬送を失っても同じ参照を保持する。監督上限では同Controlへ一回取消し、既存取消猶予内でcloseを待つ。close未観測ではRootを更新せず、そのexact Pathと既知参照を報告する。元終端保存・exact回復参照・同期解放・技術清掃・正常closeの共同成立後、初回Root Identity、連番の確定JSONと既知Schema、非link・nlink、全用途Directoryの空を確認して既存削除へ接続する。取消・未知名・partial・内容不整合等では清掃せず、closeを観測した場合だけ当該Rootに非秘密の結果と七日後の再評価時刻を保存する。期限だけで削除しない。子stdout／stderrはdrainするが本文を保存・表示しない。固定Imageの存在・Engineの使用可否と外部送信は別途承認された読取り確認・一回試験で検証し、このCLI実装や代役試験から成立としない。
 
-既存ERB-IT-002／004の反例を維持し、Provider両方の準備一回性、候補Owner交差、通知失効、元結果の相関、正常・取消・開始失敗・清掃不明・Owner喪失を非AIで確認する。Task段階順序はCoordinatorの既存有限試験で確認する。
+既存ERB-IT-002／004の反例を維持し、Provider両方の準備一回性、候補Owner交差、固定callback接続、元結果の相関、正常・取消・開始失敗・清掃不明・Owner喪失を非AIで確認する。Task段階順序はCoordinatorの既存有限試験で確認する。
 
 独立ロードはCoordinator解決を拒否する子Processで実施し、不正開始のEffect零を検査する。これを正常な実Docker／実AI実行の証明にしない。実境界のL3／L5、人間操作、実データ移行は別途許可・検証であり、今回のSource移管から完了としない。結果と適用範囲は[移管計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)へ記録する。
 
-同じ独立子Processで、既存の隔離候補と実Controller／DI command sessionに合成Plan・有限CommandHandle・Host callbackを接続する。正常終了、wait中の取消とjoin、清掃不明、同期通知保存例外を検査し、元回復参照・一回消費・通知失効・別Owner拒否を確認する。
+同じ独立子Processで、既存の隔離候補と実Controller／DI command sessionに合成Plan・有限CommandHandle・Host callbackを接続する。正常終了、wait中の取消とjoin、清掃不明、同期通知保存例外を検査し、元回復参照・一回消費・固定callback接続・別Owner拒否を確認する。
 
 本番Factoryの配線は、子Process内でDocker Isolation RootのFactory一つだけをModule代役へ替えて別構成で検査する。実公開builderと計画検査・投影を使い、下位へ渡すidentity／構成／stdin／元Ownerと元清掃結果を照合する。代役Runtimeは公開の候補sessionへ有限CommandHandleを渡すもので、本番Docker Runtime内部ではない。Hostから余剰に渡した実行primitiveの利用と外部Process起動は拒否する。両構成をCodex／Claude形式の合成Probeで確認する。固定Docker Runtime内部、実Process／Container不存在、Host Process喪失時の回収はこの模擬試験の対象外とする。実境界の既存結果はCHGの対象版付き記録を参照し、本体等価の配置変更を再送の理由にしない。
 
