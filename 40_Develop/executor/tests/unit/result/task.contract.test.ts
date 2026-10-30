@@ -8,12 +8,13 @@
  * @scope provider、task、structured、result
  * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
-import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
+import {
+  planProviderExecution,
+  evaluateProviderTaskScope,
+  parseProviderResult,
+} from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/index.ts";
-import { normalizeTaskResult } from "../../../src/result/task.ts";
-import { describeTaskResultContract } from "../../../src/result/task.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 
 const EXECUTOR = JSON.stringify({
@@ -22,12 +23,43 @@ const EXECUTOR = JSON.stringify({
   changedPaths: ["fixture.txt"],
   verification: ["Reviewed the resulting file."],
 });
+
 const TASK_WORKLOAD = Object.freeze({
   readPathCount: 1,
   allowedPathCount: 1,
   acceptanceCriterionCount: 1,
   remediationFindingCount: 0,
 });
+
+const REVIEWER = JSON.stringify({
+  decision: "changes_requested",
+  summary: "One issue remains.",
+  findings: [
+    {
+      severity: "medium",
+      path: "fixture.txt",
+      category: "acceptance_criterion_not_met",
+      criterionNumber: 1,
+      message: "Clarify the value.",
+    },
+  ],
+});
+
+const parseTaskContent = (
+  provider: unknown,
+  taskRole: unknown,
+  selectedEffort: unknown,
+  raw: unknown,
+  taskWorkload?: unknown,
+) =>
+  parseProviderResult({
+    provider: provider as "codex" | "claude",
+    purpose: "task",
+    taskRole,
+    selectedEffort,
+    raw,
+    taskWorkload,
+  });
 
 /**
  * normalizeFixtureTaskResultのTest準備責務を実行する。
@@ -48,21 +80,8 @@ function normalizeFixtureTaskResult(
   raw: unknown,
   workload: unknown = TASK_WORKLOAD,
 ) {
-  return normalizeTaskResult(provider, role, effort, raw, workload);
+  return parseTaskContent(provider, role, effort, raw, workload);
 }
-const REVIEWER = JSON.stringify({
-  decision: "changes_requested",
-  summary: "One issue remains.",
-  findings: [
-    {
-      severity: "medium",
-      path: "fixture.txt",
-      category: "acceptance_criterion_not_met",
-      criterionNumber: 1,
-      message: "Clarify the value.",
-    },
-  ],
-});
 
 /**
  * claudeのTest準備責務を実行する。
@@ -159,7 +178,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     },
   ]);
   assert.equal("remediationCapability" in normalized, false);
-  assert.deepEqual(normalized.providerTurnObservation, {
+  assert.deepEqual(claudeResult.providerTurnObservation, {
     provider: "claude",
     taskRole: "reviewer",
     requestedMaximumTurns: 5,
@@ -214,51 +233,56 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
   ].join("\n");
   const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
   assert.equal(result.status, "confirmed");
-  assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
-    transport: "fixed_cli_jsonl_v0_164_0",
-    turnCompleted: true,
-    itemErrorCount: 0,
-    itemErrorCodeModeCount: 0,
-    itemErrorKnownWarningTextCount: 0,
-    itemErrorHostMentionCount: 0,
-    itemErrorSpawnMentionCount: 0,
-    itemErrorProtocolMentionCount: 0,
-    itemErrorConnectionMentionCount: 0,
-    itemErrorToolMentionCount: 0,
-    itemErrorPermissionMentionCount: 0,
-    itemErrorMissingPathMentionCount: 0,
-    itemErrorTimeoutMentionCount: 0,
-    itemErrorUnclassifiedCount: 0,
-    commandExecutionStartedCount: 1,
-    commandExecutionCompletedCount: 1,
-    commandExecutionFailedCount: 0,
-    commandExecutionDeclinedCount: 0,
-    commandExecutionExitCode0Count: 1,
-    commandExecutionExitCode1Count: 0,
-    commandExecutionExitCode126Count: 0,
-    commandExecutionExitCode127Count: 0,
-    commandExecutionOtherNonzeroExitCodeCount: 0,
-    commandExecutionMissingExitCodeCount: 0,
-    commandFamilyPythonCount: 0,
-    commandFamilyPosixTextCount: 0,
-    commandFamilyGitCount: 0,
-    commandFamilyApplyPatchCount: 0,
-    commandFailurePermissionCount: 0,
-    commandFailureReadOnlyFilesystemCount: 0,
-    commandFailureMissingPathCount: 0,
-    commandFailureCommandNotFoundCount: 0,
-    commandFailureSyntaxCount: 0,
-    commandFailureSandboxCount: 0,
-    commandFailureUnclassifiedCount: 0,
-    fileChangeStartedCount: 1,
-    fileChangeCompletedCount: 0,
-    fileChangeFailedCount: 0,
-    fileChangeDeclinedCount: 1,
-    rawEventReported: false,
-    commandReported: false,
-    pathReported: false,
-    providerTextReported: false,
-  });
+  assert.deepEqual(
+    "providerExecutionObservation" in result
+      ? result.providerExecutionObservation
+      : null,
+    {
+      transport: "fixed_cli_jsonl_v0_164_0",
+      turnCompleted: true,
+      itemErrorCount: 0,
+      itemErrorCodeModeCount: 0,
+      itemErrorKnownWarningTextCount: 0,
+      itemErrorHostMentionCount: 0,
+      itemErrorSpawnMentionCount: 0,
+      itemErrorProtocolMentionCount: 0,
+      itemErrorConnectionMentionCount: 0,
+      itemErrorToolMentionCount: 0,
+      itemErrorPermissionMentionCount: 0,
+      itemErrorMissingPathMentionCount: 0,
+      itemErrorTimeoutMentionCount: 0,
+      itemErrorUnclassifiedCount: 0,
+      commandExecutionStartedCount: 1,
+      commandExecutionCompletedCount: 1,
+      commandExecutionFailedCount: 0,
+      commandExecutionDeclinedCount: 0,
+      commandExecutionExitCode0Count: 1,
+      commandExecutionExitCode1Count: 0,
+      commandExecutionExitCode126Count: 0,
+      commandExecutionExitCode127Count: 0,
+      commandExecutionOtherNonzeroExitCodeCount: 0,
+      commandExecutionMissingExitCodeCount: 0,
+      commandFamilyPythonCount: 0,
+      commandFamilyPosixTextCount: 0,
+      commandFamilyGitCount: 0,
+      commandFamilyApplyPatchCount: 0,
+      commandFailurePermissionCount: 0,
+      commandFailureReadOnlyFilesystemCount: 0,
+      commandFailureMissingPathCount: 0,
+      commandFailureCommandNotFoundCount: 0,
+      commandFailureSyntaxCount: 0,
+      commandFailureSandboxCount: 0,
+      commandFailureUnclassifiedCount: 0,
+      fileChangeStartedCount: 1,
+      fileChangeCompletedCount: 0,
+      fileChangeFailedCount: 0,
+      fileChangeDeclinedCount: 1,
+      rawEventReported: false,
+      commandReported: false,
+      pathReported: false,
+      providerTextReported: false,
+    },
+  );
 });
 
 /**
@@ -306,51 +330,56 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
 
   const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
   assert.equal(result.status, "confirmed");
-  assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
-    transport: "fixed_cli_jsonl_v0_164_0",
-    turnCompleted: true,
-    itemErrorCount: 0,
-    itemErrorCodeModeCount: 0,
-    itemErrorKnownWarningTextCount: 0,
-    itemErrorHostMentionCount: 0,
-    itemErrorSpawnMentionCount: 0,
-    itemErrorProtocolMentionCount: 0,
-    itemErrorConnectionMentionCount: 0,
-    itemErrorToolMentionCount: 0,
-    itemErrorPermissionMentionCount: 0,
-    itemErrorMissingPathMentionCount: 0,
-    itemErrorTimeoutMentionCount: 0,
-    itemErrorUnclassifiedCount: 0,
-    commandExecutionStartedCount: 6,
-    commandExecutionCompletedCount: 1,
-    commandExecutionFailedCount: 5,
-    commandExecutionDeclinedCount: 0,
-    commandExecutionExitCode0Count: 1,
-    commandExecutionExitCode1Count: 1,
-    commandExecutionExitCode126Count: 1,
-    commandExecutionExitCode127Count: 1,
-    commandExecutionOtherNonzeroExitCodeCount: 1,
-    commandExecutionMissingExitCodeCount: 1,
-    commandFamilyPythonCount: 0,
-    commandFamilyPosixTextCount: 0,
-    commandFamilyGitCount: 0,
-    commandFamilyApplyPatchCount: 0,
-    commandFailurePermissionCount: 0,
-    commandFailureReadOnlyFilesystemCount: 0,
-    commandFailureMissingPathCount: 0,
-    commandFailureCommandNotFoundCount: 0,
-    commandFailureSyntaxCount: 0,
-    commandFailureSandboxCount: 0,
-    commandFailureUnclassifiedCount: 5,
-    fileChangeStartedCount: 0,
-    fileChangeCompletedCount: 0,
-    fileChangeFailedCount: 0,
-    fileChangeDeclinedCount: 0,
-    rawEventReported: false,
-    commandReported: false,
-    pathReported: false,
-    providerTextReported: false,
-  });
+  assert.deepEqual(
+    "providerExecutionObservation" in result
+      ? result.providerExecutionObservation
+      : null,
+    {
+      transport: "fixed_cli_jsonl_v0_164_0",
+      turnCompleted: true,
+      itemErrorCount: 0,
+      itemErrorCodeModeCount: 0,
+      itemErrorKnownWarningTextCount: 0,
+      itemErrorHostMentionCount: 0,
+      itemErrorSpawnMentionCount: 0,
+      itemErrorProtocolMentionCount: 0,
+      itemErrorConnectionMentionCount: 0,
+      itemErrorToolMentionCount: 0,
+      itemErrorPermissionMentionCount: 0,
+      itemErrorMissingPathMentionCount: 0,
+      itemErrorTimeoutMentionCount: 0,
+      itemErrorUnclassifiedCount: 0,
+      commandExecutionStartedCount: 6,
+      commandExecutionCompletedCount: 1,
+      commandExecutionFailedCount: 5,
+      commandExecutionDeclinedCount: 0,
+      commandExecutionExitCode0Count: 1,
+      commandExecutionExitCode1Count: 1,
+      commandExecutionExitCode126Count: 1,
+      commandExecutionExitCode127Count: 1,
+      commandExecutionOtherNonzeroExitCodeCount: 1,
+      commandExecutionMissingExitCodeCount: 1,
+      commandFamilyPythonCount: 0,
+      commandFamilyPosixTextCount: 0,
+      commandFamilyGitCount: 0,
+      commandFamilyApplyPatchCount: 0,
+      commandFailurePermissionCount: 0,
+      commandFailureReadOnlyFilesystemCount: 0,
+      commandFailureMissingPathCount: 0,
+      commandFailureCommandNotFoundCount: 0,
+      commandFailureSyntaxCount: 0,
+      commandFailureSandboxCount: 0,
+      commandFailureUnclassifiedCount: 5,
+      fileChangeStartedCount: 0,
+      fileChangeCompletedCount: 0,
+      fileChangeFailedCount: 0,
+      fileChangeDeclinedCount: 0,
+      rawEventReported: false,
+      commandReported: false,
+      pathReported: false,
+      providerTextReported: false,
+    },
+  );
 });
 
 /**
@@ -414,7 +443,10 @@ test("Codex JSONLは生Commandと出力を公開せずTool系統と失敗理由�
   ].join("\n");
 
   const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
-  const observation = result.normalizedResult?.providerExecutionObservation;
+  const observation =
+    "providerExecutionObservation" in result
+      ? result.providerExecutionObservation
+      : null;
   assert.equal(observation?.commandFamilyPythonCount, 1);
   assert.equal(observation?.commandFamilyPosixTextCount, 1);
   assert.equal(observation?.commandFamilyGitCount, 1);
@@ -849,12 +881,17 @@ test("ClaudeのCLI計画上限と報告metadataを比較せず受理する", () 
           `${taskRole}/${effort}/${turns}`,
         );
         if (result.status === "confirmed") {
-          assert.deepEqual(result.normalizedResult?.providerTurnObservation, {
-            provider: "claude",
-            taskRole,
-            requestedMaximumTurns: limit,
-            providerReportedTurns: turns,
-          });
+          assert.deepEqual(
+            "providerTurnObservation" in result
+              ? result.providerTurnObservation
+              : null,
+            {
+              provider: "claude",
+              taskRole,
+              requestedMaximumTurns: limit,
+              providerReportedTurns: turns,
+            },
+          );
         }
       }
     }
@@ -968,7 +1005,7 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
       "blocked",
     );
     assert.equal(
-      normalizeTaskResult(
+      parseTaskContent(
         "claude",
         "reviewer",
         "medium",
@@ -1109,34 +1146,24 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
  * @boundary RCM-UT-016=Direct Boundary: Executor Test Source→対象契約
  */
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
-  const contract = describeTaskResultContract();
-  assert.equal(contract.contractRevision, 20);
-  assert.deepEqual(contract.providers, ["codex", "claude"]);
-  assert.deepEqual(contract.roles, ["executor", "reviewer"]);
+  for (const provider of ["codex", "claude"] as const) {
+    for (const role of ["executor", "reviewer"] as const) {
+      const result = parseTaskContent(
+        provider,
+        role,
+        "medium",
+        "x".repeat(65_537),
+        TASK_WORKLOAD,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.normalizedResult, null);
+    }
+  }
   assert.equal(
-    contract.acceptedClaudeTurnObservation,
-    "requested_cli_limit_and_reported_metadata_without_comparison",
+    parseTaskContent("codex", "invalid", "medium", EXECUTOR, TASK_WORKLOAD)
+      .status,
+    "blocked",
   );
-  assert.equal(contract.claudeMaximumApiEquivalentCostUsdByEffort, null);
-  assert.equal(
-    contract.claudeApiEquivalentCostDisposition,
-    "validated_nonnegative_finite_usage_metadata_not_billing_authority",
-  );
-  assert.equal(contract.rawOutputReported, false);
-  assert.equal(contract.untrustedProviderTextReported, false);
-  assert.equal(
-    contract.mismatchDiagnostics,
-    "fixed_structural_reason_identifier_only_without_raw_provider_output",
-  );
-  assert.deepEqual(contract.claudeResultTransport, {
-    executor: "provider_structured_output_then_crdd_validation",
-    reviewer: "provider_json_envelope_result_then_crdd_validation",
-  });
-  assert.equal(
-    contract.reviewerMessageForwardedToExecutor,
-    "bounded_untrusted_defect_claim_after_secret_screening",
-  );
-  assert.equal(contract.credentialAbsenceVerified, false);
 });
 
 /**

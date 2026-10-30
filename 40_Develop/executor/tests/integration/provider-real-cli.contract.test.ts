@@ -8,8 +8,7 @@
  * @boundary 実AI・認証・Worker終了の成立ではない。
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { fork } from "node:child_process";
+import { spawnSync, fork } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

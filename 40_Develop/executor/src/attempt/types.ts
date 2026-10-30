@@ -5,7 +5,28 @@
  * @trace ARCH-000008
  * @trace ARCH-000015
  */
-import type { AiModelSelection } from "../../../ai-adapter/src/index.ts";
+import type {
+  AiModelSelection,
+  AiReasoningEffort,
+} from "../../../ai-adapter/src/index.ts";
+import type {
+  CommandObservation as CommandExecution,
+  DockerExecutionHooks,
+  DockerResourceCleanupObservation,
+  DockerCommandSession,
+  DockerNetworkPolicy,
+  DockerIsolationCommand,
+  AdviceCommand,
+} from "../../../docker-isolation/src/index.ts";
+import type {
+  RecoveryStartFailureDiagnostic,
+  AttemptTerminalObservation,
+} from "../result/types.ts";
+import type {
+  ProcessStartedNotice,
+  AttemptDiagnosticNotice as ProviderBoundaryDiagnosticNotice,
+} from "./observation.ts";
+export type { AdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 一試行へ搬送する技術選定を表す。
@@ -26,27 +47,6 @@ export type AttemptSelection = AiModelSelection &
       | "result_integration"
       | "advice";
   }>;
-import type {
-  CommandObservation as CommandExecution,
-  DockerExecutionHooks,
-  DockerResourceCleanupObservation,
-  startDockerCommandSessionCandidate,
-} from "../../../docker-isolation/src/index.ts";
-import type {
-  RecoveryStartFailureDiagnostic,
-  AttemptTerminalObservation,
-  ReviewFinding,
-} from "../result/types.ts";
-import type {
-  ProcessStartedNotice,
-  AttemptDiagnosticNotice as ProviderBoundaryDiagnosticNotice,
-} from "./observation.ts";
-import type {
-  DockerNetworkPolicy,
-  DockerIsolationCommand,
-} from "../../../docker-isolation/src/index.ts";
-import type { AiReasoningEffort } from "../../../ai-adapter/src/index.ts";
-import type { createAttemptPreparation } from "./preparation.ts";
 
 /**
  * 全用途で共通の準備入力。用途だけでPacketの所有参照を区別する。
@@ -74,23 +74,78 @@ export type AttemptInput = Readonly<{
 
 /**
  * 一回消費される準備候補を管理するOwner。Factory呼出し自体は実行ではない。
- * @responsibility prepare・cancel・consumeの実際の契約を導出する。
+ * @responsibility prepare・cancel・consumeの契約を明示する。
  * @trace ARCH-000015
  * @invariant 本番の返却型と公開型を別々に定義しない。
  */
 export type AttemptPreparation<
   P extends "codex" | "claude" = "codex" | "claude",
-> = ReturnType<typeof createAttemptPreparation<P>>;
+> = Readonly<{
+  productionAuthority: false;
+  prepare: (input: AttemptInput) => AttemptPreparationResult<P>;
+  cancel: (
+    prepared: unknown,
+    management: unknown,
+  ) => PreparationCancellationResult;
+  consume: (
+    prepared: unknown,
+    management: unknown,
+  ) => PreparedAttemptPlan<P> | null;
+}>;
 
 /**
  * 準備の成功又は拒否を表す。PreparedAttemptは成功部分だけを表す。
- * @responsibility 準備Ownerの実際の返却unionから導出する。
+ * @responsibility 既存の準備成功型と拒否型を判別可能なunionで再利用する。
  * @trace ARCH-000015
  * @invariant preparedを実行完了へ昇格しない。
  */
 export type AttemptPreparationResult<
   P extends "codex" | "claude" = "codex" | "claude",
-> = ReturnType<AttemptPreparation<P>["prepare"]>;
+> = PreparedAttempt<P> | PreparationFailure;
+
+/**
+ * 実行前の準備拒否を表す。
+ * @responsibility 未発行の参照とEffectをnull／falseで明示する。
+ * @trace ARCH-000015
+ * @invariant 拒否結果を実行済みや回収済みの証拠へ変換しない。
+ */
+export type PreparationFailure = Readonly<{
+  status: "blocked";
+  reason: string;
+  preparedCapability: null;
+  operationId: null;
+  grantRef: null;
+  selectionRecordId: null;
+  selectedModel: null;
+  selectedEffort: null;
+  selectionNotice: null;
+  providerHomeMountLeaseActive: false;
+  dockerEffectIssued: false;
+  filesystemEffectIssued: false;
+  networkEffectIssued: false;
+  processEffectIssued: false;
+  providerRequestIssued: false;
+  runtimeAuthorityIssued: false;
+  operationCapabilityIssued: false;
+  hostPathReported: false;
+  proxyCredentialReported: false;
+}>;
+
+/**
+ * 準備候補の取消・失効と拒否を区別する。
+ * @responsibility 元操作の参照が返る終了結果だけを拒否結果から区別する。
+ * @trace ARCH-000015
+ * @invariant blockedでは操作参照を補完しない。
+ */
+export type PreparationCancellationResult =
+  | PreparationFailure
+  | Readonly<
+      Omit<PreparationFailure, "status" | "operationId" | "grantRef"> & {
+        status: "cancelled" | "expired";
+        operationId: string;
+        grantRef: string;
+      }
+    >;
 
 /**
  * 単段実行へ借用する固定Path値を表す。
@@ -227,9 +282,6 @@ export type AdvicePacket = Readonly<{
   toolsAllowed: false;
   sessionPersistenceAllowed: false;
 }>;
-
-export type { AdviceCommand } from "../../../docker-isolation/src/index.ts";
-import type { AdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 共通実行計画が照合する消費済みModel選定の値契約。
@@ -833,10 +885,7 @@ export type RuntimeDependencies = Readonly<{
     recoveryCapability: object,
     managementCapability: object,
     hooks: DockerExecutionHooks,
-  ) => Pick<
-    ReturnType<typeof startDockerCommandSessionCandidate>,
-    "cancel" | "completion"
-  >;
+  ) => DockerCommandSession;
   cleanupOwnedResources: (
     plan: ProviderAttemptPlan,
     recoveryCapability: object,
@@ -857,7 +906,6 @@ export type RuntimeDependencies = Readonly<{
     managementCapability: unknown,
     completion: Readonly<{
       plan: ProviderAttemptPlan;
-      cleanupOutcome: CleanupObservation;
       mountCompletion: Readonly<{ status: string }>;
     }>,
   ) => Readonly<{
@@ -875,11 +923,6 @@ export type RuntimeDependencies = Readonly<{
     purpose: string,
   ) => boolean;
   recordProviderSubmission?: (recoveryCapability: object) => boolean;
-  registerReviewFindings?: (
-    recoveryCapability: object,
-    plan: ProviderAttemptPlan,
-    findings: readonly ReviewFinding[],
-  ) => object | null;
   recordResourceNotIssued?: (
     recoveryCapability: object,
     purpose: string,

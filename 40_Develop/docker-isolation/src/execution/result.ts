@@ -38,6 +38,40 @@ export type CommandExecution = Omit<CommandObservation, "signal"> &
   Readonly<{ signal: NodeJS.Signals | null }>;
 
 /**
+ * 元Processの終了値を秘密値なしで表す。
+ * @responsibility Signalと未観測を通常の終了値から区別する。
+ * @trace ARCH-000008
+ * @invariant 分類だけで清掃や業務成功を保証しない。
+ */
+export type DockerProcessExitStatusClass =
+  | "not_observed"
+  | "signal"
+  | "zero"
+  | "one"
+  | "one_two_six"
+  | "one_two_seven"
+  | "other_nonzero";
+
+/**
+ * コマンド未完了と完了観測の技術分類を表す。
+ * @responsibility 未観測時に出力byte数を補完しない判別契約を所有する。
+ * @trace ARCH-000008
+ * @invariant 期限超過にはbyte項目を持たせない。
+ */
+export type DockerCommandExecutionClassification = Readonly<
+  | { category: "deadline_exceeded" }
+  | {
+      category:
+        | "output_limit_exceeded"
+        | "signalled"
+        | "nonzero_exit"
+        | "completed";
+      stdoutBytes: number;
+      stderrBytes: number;
+    }
+>;
+
+/**
  * 完了観測を共通の終了値分類へ投影する。
  * @responsibility Signalと未観測を数値終了から区別する。
  * @trace ARCH-000008
@@ -54,7 +88,7 @@ export type CommandExecution = Omit<CommandObservation, "signal"> &
  */
 export function classifyDockerProcessExit(
   execution: CommandObservation | null,
-) {
+): DockerProcessExitStatusClass {
   if (!execution) return "not_observed" as const;
   if (execution.signal !== null) return "signal" as const;
   if (execution.status === 0) return "zero" as const;
@@ -83,7 +117,7 @@ export function classifyDockerProcessExit(
  */
 export function classifyDockerCommandExecution(
   execution: CommandObservation | null,
-) {
+): DockerCommandExecutionClassification {
   if (execution === null)
     return Object.freeze({ category: "deadline_exceeded" as const });
   const stdoutBytes = Buffer.byteLength(execution.stdout, "utf8");

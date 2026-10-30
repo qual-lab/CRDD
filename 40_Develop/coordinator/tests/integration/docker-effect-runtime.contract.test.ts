@@ -9,7 +9,7 @@
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import { createAttemptPreparation } from "../../../executor/src/index.ts";
+import { createAttemptPreparation } from "../../../executor/scripts/executor-test.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashAdviceCommand } from "../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
@@ -48,11 +48,10 @@ import {
   type DockerExecutionHooks,
   type DockerIsolationRuntimePlan,
 } from "../../../docker-isolation/src/index.ts";
-import { verifyRuntimeOwnedDockerCleanupOutcome } from "../../src/execution/provider-executor.ts";
 import {
   bindIsolationRuntime,
   describeIsolationContract,
-} from "../../../executor/src/index.ts";
+} from "../../../executor/scripts/executor-test.ts";
 import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { bindAdviceCommand } from "../../../docker-isolation/src/index.ts";
@@ -520,15 +519,6 @@ test("元清掃結果と回復Ownerを投影し下位例外を成功へ補完し
   );
   assert.equal(verification[2], recovery);
   assert.equal(verification[3], managementCapability);
-  assert.equal(
-    verifyRuntimeOwnedDockerCleanupOutcome(
-      result,
-      plan,
-      recovery,
-      managementCapability,
-    ),
-    null,
-  );
   fail = true;
   assert.deepEqual(
     await runtime.cleanupOwnedResources(plan, recovery, managementCapability),

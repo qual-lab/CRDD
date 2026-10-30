@@ -135,7 +135,6 @@ function createProcessHarness(
     { child: ChildProcess; closed: Promise<void> }
   >();
   const firstReady = createDeferred<void>();
-  let activeRole: "executor" | "reviewer" = "executor";
   let cleanupCount = 0;
   let isPoisoned = false;
   /**
@@ -324,32 +323,15 @@ function createProcessHarness(
       return issued;
     },
     revokeTaskPacket: revoke,
-    prepareProvider: (
-      _provider,
-      _management,
-      _mount,
-      _authorization,
-      selection,
-      packet,
-    ) => {
-      const role = assignments.get(packet);
+    startProcess: (_provider, input, registerRecoveryHandoff, restriction) => {
+      assert.equal(input.purpose, "task");
+      if (input.purpose !== "task") throw Error("fixture_purpose_invalid");
+      const role = assignments.get(input.packetCapability as object);
       assert.ok(role);
-      consume(selection);
-      consume(packet);
-      activeRole = role;
-      return {
-        status: "prepared",
-        preparedCapability:
-          controllerFixture?.preparedCapability ?? capability(),
-        selectionNotice: "isolated-process-test",
-      };
-    },
-    startProcess: (
-      prepared,
-      management,
-      registerRecoveryHandoff,
-      restriction,
-    ) => {
+      consume(input.selectionUseCapability as object);
+      consume(input.packetCapability as object);
+      const prepared = controllerFixture?.preparedCapability ?? capability();
+      const management = input.managementCapability as object;
       if (controllerFixture)
         return controllerFixture.startProcess(
           prepared,
@@ -357,7 +339,6 @@ function createProcessHarness(
           registerRecoveryHandoff,
           restriction,
         );
-      const role = activeRole;
       const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${(role === "executor" ? "c" : "d").repeat(64)}`;
       assert.equal(registerRecoveryHandoff(capability(), recoveryId), true);
       if (scenario === "close_unknown") fs.writeFileSync(marker, "fixture");

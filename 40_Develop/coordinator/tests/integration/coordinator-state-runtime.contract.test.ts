@@ -1,3 +1,4 @@
+import { attemptSelection } from "../fixtures/ai-selection.ts";
 /**
  * Coordinator最新現在状態の実Filesystem保存を自己生成Repositoryで確認する。
  * @packageDocumentation
@@ -2530,17 +2531,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     let completeCalls = 0;
     let isFailHostObservation = false;
     let hostObservationCalls = 0;
-    const cleanupResult = Object.freeze({
-      confirmed: true,
-      processTreeTerminated: true,
-      containersAbsent: true,
-      networksAbsent: true,
-    });
-    let acceptedCleanup: unknown = cleanupResult;
     const mountResult = Object.freeze({});
-    const recoveryCapability = Object.freeze({});
     const completionPlan = {
       ...startPlan,
+      ...attemptSelection(startPlan.executionSelection),
       activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
       typeof import("../../src/execution/controller.ts").completeRuntimeOwnedCoordinatorHostSubmission
@@ -2559,31 +2553,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       dockerId: null,
       observation: "not_requested",
     }));
-    const dockerEffects = await import(
-      "../../src/execution/provider-executor.ts"
-    );
     const mountRuntime = await import("../../src/execution/authority.ts");
-    const cleanupMock = t.mock.module(
-      "../../src/execution/provider-executor.ts",
-      {
-        namedExports: {
-          ...dockerEffects,
-          verifyRuntimeOwnedDockerCleanupOutcome(
-            result: unknown,
-            plan: unknown,
-            recovery: unknown,
-            owner: unknown,
-          ) {
-            return result === acceptedCleanup &&
-              plan === completionPlan &&
-              recovery === recoveryCapability &&
-              owner === freshManagement
-              ? cleanupObservations
-              : null;
-          },
-        },
-      },
-    );
     const mountMock = t.mock.module("../../src/execution/authority.ts", {
       namedExports: {
         ...mountRuntime,
@@ -2655,7 +2625,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       const hostImports = [
         'import { createHash } from "node:crypto";',
         `import { hashExecutionSelection } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
-        `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/provider-executor.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
@@ -2752,56 +2721,53 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.equal(beginCalls, 2);
       assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
       const completeHost = (
-        cleanup: unknown = cleanupResult,
         mount: unknown = mountResult,
+        plan: typeof completionPlan = completionPlan,
       ) =>
         hostStartRuntime.completeRuntimeOwnedCoordinatorHostSubmission(
           freshManagement,
           freshStarted.recoveryId,
-          completionPlan,
-          recoveryCapability,
-          cleanup,
+          plan,
           mount,
         );
-      for (const [cleanup, mount] of [
-        [{}, mountResult],
-        [cleanupResult, {}],
-        [null, mountResult],
-        [cleanupResult, null],
-      ]) {
-        const invalid = completeHost(cleanup, mount);
+      for (const mount of [{}, null]) {
+        const invalid = completeHost(mount);
         assert.equal(invalid.status, "blocked");
         assert.equal(invalid.hostTransitionRequested, false);
         assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
       }
+      for (const plan of [
+        { ...completionPlan, selectionHash: "f".repeat(64) },
+        { ...completionPlan, operationId: "OP-DIFFERENT" },
+        {
+          ...completionPlan,
+          executionSelection: {
+            ...completionPlan.executionSelection,
+            modelIdentifier: "wrong-model",
+          },
+        },
+      ])
+        assert.equal(completeHost(mountResult, plan).status, "blocked");
       assert.equal(completeCalls, 0);
-      for (const field of [
-        "confirmed",
-        "processTreeTerminated",
-        "containersAbsent",
-        "networksAbsent",
-      ]) {
-        for (const value of [false, undefined, "unknown"]) {
-          acceptedCleanup = Object.freeze({ ...cleanupResult, [field]: value });
-          assert.equal(completeHost(acceptedCleanup).status, "blocked");
-          assert.equal(completeCalls, 0);
-          assert.deepEqual(fs.readFileSync(freshStateFile), confirmedHostBytes);
-        }
-      }
-      acceptedCleanup = cleanupResult;
+      const cleanupSaved = checkpointRuntimeOwnedCoordinatorCleanup(
+        freshManagement,
+        freshStarted.recoveryId,
+        cleanupObservations,
+      );
+      assert.equal(cleanupSaved.status, "completed");
       isFailHostObservation = true;
       hostObservationCalls = 0;
       const observedBeforeFailure = fs.readFileSync(freshStateFile);
       const observationFailed = completeHost();
       isFailHostObservation = false;
       assert.equal(observationFailed.status, "blocked");
-      assert.equal(observationFailed.filesystemEffectIssued, true);
+      assert.equal(observationFailed.filesystemEffectIssued, false);
       assert.equal(observationFailed.snapshotConfirmed, false);
       assert.equal(observationFailed.hostTransitionRequested, false);
       assert.equal(observationFailed.recoveryId, freshStarted.recoveryId);
       assert.equal(completeCalls, 0);
       const afterObservationFailure = fs.readFileSync(freshStateFile);
-      assert.notDeepEqual(afterObservationFailure, observedBeforeFailure);
+      assert.deepEqual(afterObservationFailure, observedBeforeFailure);
       const observationFailureState = JSON.parse(
         afterObservationFailure.toString("utf8"),
       );
@@ -2867,7 +2833,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       assert.deepEqual(fs.readFileSync(freshStateFile), completeBytes);
     } finally {
       hostStartMock.restore();
-      cleanupMock.restore();
       mountMock.restore();
       const remainingHost = borrowOwnedHostRecoverySnapshot(freshManagement);
       if (remainingHost.snapshot.record.state === "docker_submission_started") {

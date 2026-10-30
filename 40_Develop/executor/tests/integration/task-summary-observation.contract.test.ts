@@ -11,8 +11,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
-import { normalizeTaskResult } from "../../src/result/task.ts";
-import { parseProviderResult } from "../../../ai-adapter/src/index.ts";
+import { parseProviderResult as parseContent } from "../../../ai-adapter/src/index.ts";
+import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 
 const workload = {
@@ -40,7 +40,14 @@ const raw = (summary: unknown) =>
     .map((value) => JSON.stringify(value))
     .join("\n");
 const args = (summary: string) =>
-  ["codex", "executor", "medium", raw(summary), workload] as const;
+  ({
+    provider: "codex",
+    purpose: "task",
+    taskRole: "executor",
+    selectedEffort: "medium",
+    raw: raw(summary),
+    taskWorkload: workload,
+  }) as const;
 const report = (remediation = false) => {
   const events = Array.from({ length: remediation ? 4 : 2 }, (_, index) => ({
     provider: index % 2 === 0 ? "codex" : "claude",
@@ -111,7 +118,7 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
     "display-throw",
   ] as const) {
     let normalizations = 0;
-    const returned = normalizeTaskResult(...args("synthetic"));
+    const returned = parseContent(args("synthetic"));
     const observer = createTaskSummaryObservation({
       normalize: () => {
         normalizations++;
@@ -143,24 +150,42 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
     if (scenario !== "zero") {
       assert.equal(
         scenario === "wrong-role"
-          ? observer.wrapped("claude", "reviewer", "medium", "{}", workload)
-          : observer.wrapped(...args(summary)),
+          ? observer.wrapped({
+              provider: "claude",
+              purpose: "task",
+              taskRole: "reviewer",
+              selectedEffort: "medium",
+              raw: "{}",
+              taskWorkload: workload,
+            })
+          : observer.wrapped(args(summary)),
         returned,
       );
       assert.equal(
-        observer.wrapped("claude", "reviewer", "medium", "{}", workload),
+        observer.wrapped({
+          provider: "claude",
+          purpose: "task",
+          taskRole: "reviewer",
+          selectedEffort: "medium",
+          raw: "{}",
+          taskWorkload: workload,
+        }),
         returned,
       );
     }
     if (scenario === "extra")
-      assert.equal(observer.wrapped(...args(summary)), returned);
+      assert.equal(observer.wrapped(args(summary)), returned);
     if (scenario === "remediation") {
+      assert.equal(observer.wrapped(args("SECOND_PRIVATE_SUMMARY")), returned);
       assert.equal(
-        observer.wrapped(...args("SECOND_PRIVATE_SUMMARY")),
-        returned,
-      );
-      assert.equal(
-        observer.wrapped("claude", "reviewer", "medium", "{}", workload),
+        observer.wrapped({
+          provider: "claude",
+          purpose: "task",
+          taskRole: "reviewer",
+          selectedEffort: "medium",
+          raw: "{}",
+          taskWorkload: workload,
+        }),
         returned,
       );
     }
@@ -212,6 +237,36 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
             : 2,
     );
   }
+  for (const invalidInput of [
+    { ...args("synthetic"), extra: true },
+    Object.defineProperty({ ...args("synthetic") }, "raw", {
+      get() {
+        throw Error("accessor_evaluated");
+      },
+      enumerable: true,
+    }),
+    new Proxy(args("synthetic"), {
+      get() {
+        throw Error("proxy_evaluated");
+      },
+    }),
+  ]) {
+    const expected = parseContent(
+      invalidInput as Parameters<typeof parseContent>[0],
+    );
+    const probe = createTaskSummaryObservation({
+      normalize: (input) => {
+        assert.equal(input, invalidInput);
+        return parseContent(input);
+      },
+      parse: parseProviderResult,
+      secret: containsRecognizedSecretMaterial,
+    });
+    assert.deepEqual(
+      probe.wrapped(invalidInput as Parameters<typeof parseContent>[0]),
+      expected,
+    );
+  }
   const failure = {};
   const observer = createTaskSummaryObservation({
     normalize: () => {
@@ -221,7 +276,7 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
     secret: containsRecognizedSecretMaterial,
   });
   assert.throws(
-    () => observer.wrapped(...args("synthetic")),
+    () => observer.wrapped(args("synthetic")),
     (error) => error === failure,
   );
   assert.equal(
@@ -259,7 +314,8 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
     "../../scripts/task-summary-observation.ts",
     import.meta.url,
   ).href;
-  const consumer = new URL("../../src/index.ts", import.meta.url).href;
+  const consumer = new URL("../../scripts/executor-test.ts", import.meta.url)
+    .href;
   const child = spawnSync(
     process.execPath,
     [

@@ -13,11 +13,12 @@ import {
   attemptSelection,
 } from "../../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
 import {
-  getRuntimeOwnedProviderDockerAdapter,
-  describeProviderDockerRuntimeAdapterContract,
-} from "../../../src/execution/preparation.ts";
-import { createAttemptPreparation } from "../../../../executor/src/index.ts";
+  startRuntimeOwnedDockerProcessController,
+  cancelRuntimeOwnedDockerProcessController,
+} from "../../../src/execution/provider-executor.ts";
+import { createAttemptPreparation } from "../../../../executor/scripts/executor-test.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
@@ -1190,20 +1191,23 @@ test("prepared取消はAuthority失効とMount解放の両方を要求する", (
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
-  const prepared = getRuntimeOwnedProviderDockerAdapter("claude").prepare({
-    purpose: "probe",
-    managementCapability: {},
-    mountCapability: {},
-    mountAuthorizationCapability: {},
-    selectionUseCapability: {},
-    recoveryCorrelationId: null,
-    consumer: "coordinator_cli",
-  });
+  const prepared = startRuntimeOwnedDockerProcessController(
+    "claude",
+    {
+      purpose: "probe",
+      managementCapability: {},
+      mountCapability: {},
+      mountAuthorizationCapability: {},
+      selectionUseCapability: {},
+      recoveryCorrelationId: null,
+      consumer: "coordinator_cli",
+    },
+    () => true,
+  );
   assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.providerRequestIssued, false);
-  assert.equal(
-    getRuntimeOwnedProviderDockerAdapter("claude").cancel({}, {}).status,
-    "blocked",
+  assert.equal(prepared.providerRequestStarted, false);
+  void cancelRuntimeOwnedDockerProcessController({}, {}).then((result) =>
+    assert.equal(result.status, "blocked"),
   );
 });
 

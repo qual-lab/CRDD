@@ -6,29 +6,17 @@
  * @boundary 上位Hostと単段実行の間。Taskの順序・Queue・再試行は所有しない。
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
-export { createExecutor, type ExecutorHost } from "./attempt/preparation.ts";
+export { createExecutor, type ExecutorOptions } from "./attempt/preparation.ts";
 export { describeExecutorContract } from "./attempt/execute.ts";
 export type {
   Executor,
-  AttemptStartResult,
-  AttemptResult,
-  AttemptContent,
-  TaskResult,
-  AdviceResult,
+  StartResult,
+  CompletionResult,
   AttemptResultReason,
   AttemptFailureReason,
 } from "./result/types.ts";
-// 準備Ownerの構成。Factory呼出しだけではAIを実行しない。
-export {
-  createAttemptPreparation,
-  PREPARATION_LIFETIME_MS,
-} from "./attempt/preparation.ts";
 export type {
-  AttemptPreparation,
   AttemptInput,
-  AttemptPreparationResult,
-  PreparedAttempt,
-  PreparationHost,
   AttemptPaths,
 } from "./attempt/types.ts";
 // 実Process開始と非秘密診断。受付・準備開始の通知とは区別する。
@@ -38,12 +26,8 @@ export type {
 } from "./attempt/observation.ts";
 // 結果の内容・検査・上位への公開投影。
 export {
-  inspectAttemptObservation,
-  isAttemptFailureReason,
   isPrimaryFailureDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
-  projectAttemptStartResult,
-  projectAttemptResult,
   resolveRecoveryStartReason,
   resolveRecoveryReference,
 } from "./result/validation.ts";
@@ -51,12 +35,3 @@ export type {
   PrimaryFailureDiagnostic,
   RecoveryStartFailureDiagnostic,
 } from "./result/types.ts";
-// 既存のPackage間結合試験用。本番Authorityを発行する入口ではない。
-export {
-  createExecutorTestCandidate,
-  createPreparationFailure,
-} from "./attempt/preparation.ts";
-export {
-  bindIsolationRuntime,
-  describeIsolationContract,
-} from "./attempt/isolation.ts";

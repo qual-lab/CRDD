@@ -105,11 +105,10 @@ export function verifyStandaloneProviderAttempt() {
         };
         const verify=(result,identity,recovery,management)=>{
           fixture.verifications++;
-          assert.equal(identity,executionInput.planIdentity(fixture.plan));
-          assert.equal(recovery,fixture.recovery);
-          assert.equal(management,fixture.management);
+          if(identity!==executionInput.planIdentity(fixture.plan)||recovery!==fixture.recovery||management!==fixture.management)return null;
           return cleanupResults.has(result)?result.resourceObservations:null;
         };
+        fixture.verifyCleanup=verify;
         return {
           startCommand:()=>{throw Error('unexpected_primitive_call');},
           startExecution:(projected,recovery,management,hooks)=>{
@@ -131,7 +130,8 @@ export function verifyStandaloneProviderAttempt() {
     const api=await import(${JSON.stringify(root)});
     const executionInput=await import(${JSON.stringify(new URL("../src/attempt/isolation.ts", import.meta.url).href)});
     const preparationInput=await import(${JSON.stringify(new URL("../src/attempt/preparation.ts", import.meta.url).href)});
-    const create=api.createExecutorTestCandidate;
+    const testing=await import(${JSON.stringify(new URL("./executor-test.ts", import.meta.url).href)});
+    const create=testing.createExecutorTestCandidate;
     const purposes=[
       'create_subscription_auth_probe','start_subscription_auth_probe_attached',
       'create_internal_network','create_egress_network','create_proxy',
@@ -294,14 +294,24 @@ export function verifyStandaloneProviderAttempt() {
         cleanupOwnedResources:unavailable,verifyCleanupOutcome:unavailable};
       currentFixture={deps,host,plan,tmp,recovery,management,starts:0,verifications:0};
       const callsBefore=factoryCalls;
-      const runtime=mode==='candidate'?create(deps):api.createExecutor(host);
-      assert.equal(factoryCalls-callsBefore,mode==='candidate'?0:1);
-      if(mode==='candidate')assert.equal(runtime.productionAuthority,false);
-      const started=runtime.start(prepared,management,(r,id)=>{
-        assert.equal(r,recovery);assert.equal(id,recoveryId);events.push('handoff');return true;
-      });
+      let activated=false,completedNotices=0;
+      const options={...host,
+        verifyOperationMount:(m,mt)=>{assert.equal(m,management);assert.equal(mt,mount);return {operationId:plan.operationId,createdAt:"2026-10-28T00:00:00.000Z",mounts:{workspace:"C:/synthetic-not-accessed/work",providerHome:"C:/synthetic-not-accessed/home",tmp,events:"C:/synthetic-not-accessed/events",projection:"C:/synthetic-not-accessed/projection",management:"C:/synthetic-not-accessed/management"}};},
+        activateMount:()=>{if(activated)return {status:"blocked",grant:null,activeMountCapability:null};activated=true;return {status:"activated",grant:{...plan},activeMountCapability:mount};},
+        borrowMountSource:()=>"C:/synthetic-not-accessed/home",wallNow:()=>0,monotonicNow:()=>0,randomBytes:size=>Buffer.alloc(size,1),
+        consumeModelSelection:()=>{if(consumed)return null;consumed=true;return {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,taskAttempt:0,model:plan.selectedModel,effort:"low",speedMode:"normal",selectionNotice:"synthetic"};},
+        issueProviderAuthority:()=>({status:"issued",useCapability:authority,controlCapability:{},operationId:plan.operationId,provider,providerHomeMountGrantRef:plan.grantRef,runtimeAuthorityIssued:true}),
+        revokeProviderAuthority:()=>({status:"revoked"}),
+        onCompleted:result=>{completedNotices++;assert.equal(result,terminalResult??result);if(scenario==="submission_throw")throw Error("synthetic_observer");},
+      };
+      const runtime=mode==="candidate"?create(deps):api.createExecutor(options);
+      assert.equal(factoryCalls-callsBefore,mode==="candidate"?0:1);
+      if(mode==="candidate")assert.equal(runtime.productionAuthority,false);
+      const input={purpose:"probe",managementCapability:management,mountCapability:mount,mountAuthorizationCapability:{},selectionUseCapability:{},recoveryCorrelationId:null,consumer:"coordinator_cli"};
+      const handoff=(r,id)=>{assert.equal(r,recovery);assert.equal(id,recoveryId);events.push("handoff");return true;};
+      const started=mode==="candidate"?runtime.start(prepared,management,handoff):runtime.start(provider,input,handoff);
       assert.equal(started.status,'started',scenario);
-      assert.equal(runtime.start(prepared,management).status,'blocked');
+      assert.equal((mode==='candidate'?runtime.start(prepared,management):runtime.start(provider,input,handoff)).status,'blocked');
       let settled=false;
       const completion=started.completion.then(result=>{settled=true;return result;});
       if(scenario==='cancel'){
@@ -354,15 +364,17 @@ export function verifyStandaloneProviderAttempt() {
       for(const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
         assert.equal(name in runtime,false,name);
       if(mode==='production_factory'){
+        assert.equal(completedNotices,1);
+        assert.equal(runtime.verifyCleanupOutcome,undefined);
         assert.equal(currentFixture.starts,1);
         assert.ok(currentFixture.verifications>0);
         const original=currentFixture.cleanupResult;
         assert.ok(original);
-        assert.equal(runtime.verifyCleanupOutcome(original,plan,recovery,management),scenario==='cleanup_unknown'?null:resources);
-        assert.equal(runtime.verifyCleanupOutcome({...original},plan,recovery,management),null);
-        assert.equal(runtime.verifyCleanupOutcome(original,plan,{},management),null);
-        assert.equal(runtime.verifyCleanupOutcome(original,plan,recovery,{}),null);
-        assert.equal(runtime.verifyCleanupOutcome({},plan,recovery,management),null);
+        assert.equal(currentFixture.verifyCleanup(original,executionInput.planIdentity(plan),recovery,management),scenario==='cleanup_unknown'?null:resources);
+        assert.equal(currentFixture.verifyCleanup({...original},executionInput.planIdentity(plan),recovery,management),null);
+        assert.equal(currentFixture.verifyCleanup(original,executionInput.planIdentity(plan),{},management),null);
+        assert.equal(currentFixture.verifyCleanup(original,executionInput.planIdentity(plan),recovery,{}),null);
+        assert.equal(currentFixture.verifyCleanup({},executionInput.planIdentity(plan),recovery,management),null);
       }
       const count=calls.length;
       providerWait.resolve();cleanupWait.resolve();await Promise.resolve();

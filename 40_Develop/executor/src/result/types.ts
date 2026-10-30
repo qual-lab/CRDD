@@ -6,64 +6,21 @@
  * @trace ARCH-000015
  * @boundary Executorの結果Ownerと利用側の型境界。
  */
-import type { ATTEMPT_COMPLETION_REASONS } from "./validation.ts";
-import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
-import type { RECOVERY_START_FAILURE_STAGES } from "./validation.ts";
-import type { DockerResourceCleanupObservation } from "../../../docker-isolation/src/index.ts";
-import type { createExecutor } from "../attempt/preparation.ts";
-import type { createFinalResult } from "./attempt.ts";
-import type { normalizeTaskResult } from "./task.ts";
-import type { AdviceResult } from "../../../ai-adapter/src/index.ts";
 import type {
-  normalizeCodexStructuredResult,
-  normalizeClaudeStructuredResult,
+  ATTEMPT_COMPLETION_REASONS,
+  RECOVERY_START_FAILURE_STAGES,
+} from "./constants.ts";
+import type {
+  ProviderTurnCountDiagnostic,
+  TaskReviewFinding,
+  ProviderResultParseResult,
+  AiProvider,
+  TaskResult,
+  AdviceResult,
 } from "../../../ai-adapter/src/index.ts";
-
-/**
- * 純粋なTask検査の成功内容を導出する。
- * @responsibility normalizerと公開内容型の構造重複を避ける。
- * @trace ARCH-000015
- * @shape 正規化結果からnullを除いた用途別union。
- * @invariant Authorityを追加しない。
- * @boundary Executor内部の結果型。
- * @security 所見本文は通常結果へ含めない。
- * @compatibility normalizerの実返却型へ追従する。
- */
-type NormalizedTaskContent = NonNullable<
-  ReturnType<typeof normalizeTaskResult>["normalizedResult"]
->;
-/**
- * Task内容からレビューの判断部分だけを選ぶ。
- * @responsibility 許可を付加できる用途を編集結果から分離する。
- * @trace ARCH-000015
- * @shape decisionを持つ正規化済みレビュー内容。
- * @invariant 内容の判断を実行許可へ読み替えない。
- * @boundary Executor内部の型合成。
- * @security 本文や新しいAuthorityを追加しない。
- * @compatibility normalizerのレビュー形へ追従する。
- */
-type ReviewContent = Extract<
-  NormalizedTaskContent,
-  { decision: "approved" | "changes_requested" }
->;
-/**
- * 所見の内容とHostが別途発行した次試行許可を区別する。
- * @responsibility 編集・承認・是正要求を型で区別する。
- * @trace ARCH-000015
- * @shape 是正要求だけがoptional remediationCapabilityを持つunion。
- * @invariant 内容完了だけでは許可の存在を保証しない。
- * @boundary Executorの清掃後結果とCoordinatorの次試行判断。
- * @security 生所見を公開せず、許可を自己発行しない。
- * @compatibility Taskの既存内容を保ちHost許可の型を明示する。
- */
-export type TaskResult =
-  | Exclude<NormalizedTaskContent, ReviewContent>
-  | (Omit<ReviewContent, "decision"> & Readonly<{ decision: "approved" }>)
-  | (Omit<ReviewContent, "decision"> &
-      Readonly<{
-        decision: "changes_requested";
-        remediationCapability?: object;
-      }>);
+import type { DockerResourceCleanupObservation } from "../../../docker-isolation/src/index.ts";
+import type { AttemptInput } from "../attempt/types.ts";
+import type { ProcessStartedNotice } from "../attempt/observation.ts";
 
 /**
  * 用途別内容を同じ試行結果へ載せる。
@@ -78,38 +35,199 @@ export type TaskResult =
 export type AttemptContent =
   | TaskResult
   | AdviceResult
-  | NonNullable<
-      ReturnType<typeof normalizeCodexStructuredResult>["normalizedResult"]
-    >
-  | NonNullable<
-      ReturnType<typeof normalizeClaudeStructuredResult>["normalizedResult"]
-    >;
+  | NonNullable<ProviderResultParseResult<"probe">["normalizedResult"]>;
 
-export type { TaskReviewFinding as ReviewFinding } from "../../../ai-adapter/src/index.ts";
+/**
+ * 開始成功・拒否ごとに必要な組立て入力を表す。
+ * @responsibility 元Control・Promise又は拒否と回復義務を受け、準備内部状態を受け取らない。
+ * @trace ARCH-000008
+ * @invariant 選択情報は準備Ownerが確定済みの三値だけを受け取る。
+ */
+export type StartResultInput = Readonly<
+  {
+    selection?: Readonly<{
+      notice: string | null;
+      model: string | null;
+      effort: string | null;
+    }>;
+  } & (
+    | {
+        status: "started";
+        controlCapability: object;
+        completion: Promise<CompletionResult>;
+        operationId: string;
+        recoveryId: string;
+        preparationFailed?: false;
+      }
+    | {
+        status: "blocked";
+        reason: string;
+        cleanupConfirmed?: boolean;
+        recoveryId?: string | null;
+        manualRecoveryRequired?: boolean;
+        preparationFailed?: boolean;
+      }
+  )
+>;
+
+/**
+ * 一試行の終端状態と技術観測を受け取る組立て入力。
+ * @responsibility 清掃・結果内容・診断を名前で識別できる形で受け取る。
+ * @trace ARCH-000008
+ * @invariant 各観測の成立は実行Ownerが確認し、Factoryは既存の公開相関を適用する。
+ */
+export type CompletionResultInput = Readonly<{
+  status: "completed" | "blocked" | "cancelled";
+  reason: AttemptResultReason;
+  operationId: string;
+  selectionRecordId: string;
+  recoveryId: string;
+  providerRequestStarted: boolean;
+  cancellationRequested: boolean;
+  processTreeTerminationConfirmed: boolean;
+  containersAbsent: boolean;
+  networksAbsent: boolean;
+  mountLeaseReleased: boolean;
+  recoveryCompleted: boolean;
+  resultSha256: string | null;
+  resultBytes: number;
+  normalizedResult: AttemptContent | null;
+  reviewFindings?: readonly TaskReviewFinding[] | null;
+  providerExecutionObservation?: CompletionResult["providerExecutionObservation"];
+  providerTurnObservation?: CompletionResult["providerTurnObservation"];
+  subscriptionAuthConfirmed: boolean;
+  recoveryFinalizationCapability: object | null;
+}>;
 
 /**
  * 同じ実行Ownerの開始・取消・下位清掃確認を持つExecutor。
- * @responsibility 本番Factoryの実際の返却型を単一正本から導出する。
+ * @responsibility 開始・取消の引数と結果を読める形で定義し、Factoryを型検査する。
  * @trace ARCH-000008
- * @invariant 独自の構造型や別の状態管理を追加しない。
+ * @invariant 実装由来の型抽出を正本にせず、別の状態管理を追加しない。
  */
-export type Executor = ReturnType<typeof createExecutor>;
+export type Executor = Readonly<{
+  start(
+    provider: AiProvider,
+    input: AttemptInput,
+    registerRecoveryHandoff: (
+      recoveryCapability: object,
+      recoveryId: string,
+    ) => boolean,
+    commandRestriction?: (purpose: string) => boolean,
+    observeProviderStarted?: (
+      notice: ProcessStartedNotice,
+    ) => boolean | Promise<boolean>,
+  ): StartResult;
+  cancel(
+    controlCapability: unknown,
+    managementCapability: unknown,
+  ): Promise<
+    Readonly<
+      | { status: "blocked"; reason: "invalid" | "duplicate" }
+      | {
+          status: "requested";
+          reason: "provider_cancellation_requested";
+          cancellationRequested: true;
+          processTerminationObserved: true;
+        }
+      | {
+          status: "requested";
+          reason: "provider_cancellation_grace_exceeded";
+          cancellationRequested: true;
+          processTerminationObserved: false;
+        }
+    >
+  >;
+}>;
 
 /**
- * 一試行の開始結果。blockedと、completionを持つ開始済み結果を区別する。
- * @responsibility 受付・開始と最終結果を混同しない。
+ * 一試行の開始結果。開始済みと拒否で必要な項目を区別する。
+ * @responsibility 利用側がstatusで制御・完了Promiseと回復義務を判断できる契約を定義する。
  * @trace ARCH-000008
- * @invariant 実際のstartの返却値から導出し、成功条件を追加しない。
+ * @invariant 受付・開始とProvider開始・最終結果を混同しない。
  */
-export type AttemptStartResult = ReturnType<Executor["start"]>;
+export type StartResult = Readonly<
+  {
+    providerRequestStarted: false;
+    normalizedResult: null;
+    rawOutputReported: false;
+    untrustedProviderTextReported: false;
+    credentialAbsenceVerified: false;
+    hostPathReported: false;
+    proxyCredentialReported: false;
+  } & (
+    | {
+        selectionNotice: string | null;
+        selectedModel: string | null;
+        selectedEffort: string | null;
+      }
+    | { selectionNotice?: never; selectedModel?: never; selectedEffort?: never }
+  ) &
+    (
+      | {
+          status: "started";
+          reason: "docker_process_controller_started";
+          controlCapability: object;
+          completion: Promise<CompletionResult>;
+          operationId: string;
+          recoveryId: string;
+          dockerEffectStarted: true;
+          normalizedResultReportedAfterCleanupOnly: true;
+          preparationFailed?: false;
+        }
+      | {
+          status: "blocked";
+          reason: string;
+          controlCapability: null;
+          completion: null;
+          operationId: null;
+          recoveryId: string | null;
+          cleanupConfirmed: boolean;
+          manualRecoveryRequired: boolean;
+          dockerEffectStarted: false;
+          preparationFailed?: boolean;
+        }
+    )
+>;
 
 /**
- * 清掃を含む一試行の最終結果。
- * @responsibility 正常・拒否・取消と未解決回復を既存結果のまま表す。
+ * 清掃を含む一試行の明示的な最終結果契約。
+ * @responsibility 内容・診断・清掃・回復の観測を区別して利用側へ返す。
  * @trace ARCH-000008
- * @invariant 実装の結果構築型を参照し、結果fieldを二重定義しない。
+ * @invariant Factoryがこの型を満たし、資源観測の相関条件は既存の組立てで維持する。
  */
-export type AttemptResult = ReturnType<typeof createFinalResult>;
+export type CompletionResult = Readonly<{
+  status: "completed" | "blocked" | "cancelled";
+  reason: AttemptResultReason | "docker_process_controller_cleanup_unconfirmed";
+  operationId: string;
+  selectionRecordId: string;
+  recoveryId: string | null;
+  manualRecoveryRequired: boolean;
+  dockerEffectStarted: true;
+  providerRequestStarted: boolean;
+  cancellationRequested: boolean;
+  processTreeTerminationConfirmed: boolean;
+  containersAbsent: boolean;
+  networksAbsent: boolean;
+  mountLeaseReleased: boolean;
+  recoveryCompleted: boolean;
+  cleanupConfirmed: boolean;
+  resultSha256: string | null;
+  resultBytes: number;
+  normalizedResult: AttemptContent | null;
+  providerExecutionObservation: NonNullable<
+    ProviderResultParseResult["providerExecutionObservation"]
+  > | null;
+  providerTurnObservation: Readonly<Record<string, unknown>> | null;
+  reviewFindings: readonly TaskReviewFinding[] | null;
+  subscriptionAuthConfirmed: boolean;
+  rawOutputReported: false;
+  untrustedProviderTextReported: false;
+  credentialAbsenceVerified: false;
+  hostPathReported: false;
+  proxyCredentialReported: false;
+  recoveryFinalizationCapability: object | null;
+}>;
 
 /**
  * 固定コールバックへ直接渡す非秘密の終端観測。
@@ -130,22 +248,6 @@ export type AttemptTerminalObservation = Readonly<{
   recoveryCompleted: boolean;
   homeLeaseReleased: boolean;
 }>;
-
-/**
- * 結果正規化の共通の成功・拒否形を表す。
- * @responsibility 共通の成否と用途固有の内容を型で区別する。
- * @trace ARCH-000015
- * @shape confirmedは内容、blockedは固定理由とnullを持つ。
- * @invariant 正規化成功を実行・清掃・採用の成功へ昇格しない。
- * @boundary Task／Adviceの内容検査。Root公開型は増やさない。
- * @security 理由へ生出力を含めず、付随診断は用途側の検査に従う。
- * @compatibility 既存の返却fieldを追加・削除せず型照合だけに利用する。
- */
-export type NormalizedProviderResult<T> =
-  | Readonly<{ status: "confirmed"; normalizedResult: T }>
-  | Readonly<{ status: "blocked"; reason: string; normalizedResult: null }>;
-
-export type { AdviceResult } from "../../../ai-adapter/src/index.ts";
 
 /**
  * Docker Process Controllerの最終理由を表す。

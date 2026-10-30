@@ -9,7 +9,13 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeProviderAdviceOutput } from "../../../src/result/advice.ts";
+import { parseProviderResult } from "../../../../ai-adapter/src/index.ts";
+const parseAdviceContent = (
+  provider: "codex" | "claude",
+  raw: string,
+  allowedReferences: readonly string[],
+) =>
+  parseProviderResult({ provider, purpose: "advice", raw, allowedReferences });
 
 /**
  * 両ProviderのEnvelope変換と拒否を同じ内部契約へ拘束する。
@@ -57,14 +63,12 @@ test("両Providerの助言Envelopeを本文だけへ変換し不正出力を拒�
     ],
   ] as const;
   for (const [provider, raw] of cases) {
-    const result = normalizeProviderAdviceOutput(provider, raw, [
-      "synthetic-context",
-    ]);
+    const result = parseAdviceContent(provider, raw, ["synthetic-context"]);
     assert.equal(result.status, "confirmed", provider);
     assert.equal(result.normalizedResult?.status, "completed");
     assert.equal("thread_id" in result, false);
     assert.equal("raw" in result, false);
-    const rejected = normalizeProviderAdviceOutput(provider, "not-json", [
+    const rejected = parseAdviceContent(provider, "not-json", [
       "synthetic-context",
     ]);
     assert.equal(rejected.status, "blocked");

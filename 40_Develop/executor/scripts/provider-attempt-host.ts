@@ -17,11 +17,13 @@ import {
 import type { acquireNamedPipeKernelLock } from "../../platform-access/src/index.ts";
 import type { DockerResourceReceipts } from "../../docker-isolation/src/index.ts";
 import {
-  createExecutor,
   isPrimaryFailureDiagnostic,
   type AttemptDiagnosticNotice,
-  type ExecutorHost,
 } from "../src/index.ts";
+import {
+  createExecutorLifecycleTestRuntime as createExecutor,
+  type ExecutorHost,
+} from "./executor-test.ts";
 import {
   planIdentity,
   resolveValidatedPlan,
@@ -408,12 +410,7 @@ export function createStandaloneProviderAttemptHost(
         completion.mountCompletion !== mountResult ||
         !released ||
         closed ||
-        runtime.verifyCleanupOutcome(
-          completion.cleanupOutcome,
-          plan,
-          recovery,
-          management,
-        ) !== absence
+        absence === null
       )
         return { status: "blocked" };
       save("recovery_closed", {}, false);

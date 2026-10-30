@@ -17,9 +17,17 @@ export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
   "workbench_ai_claude_metadata_invalid",
   "workbench_ai_claude_structured_output_invalid",
 ] as const);
+import { inspectCodexExecutionObservation } from "../codex/observation.ts";
 import { parseUnambiguousJsonDocument } from "./json.ts";
 
 import { snapshotPlainRecord } from "./input.ts";
+import {
+  inspectTaskResultContent,
+  type TaskResult,
+  type TaskReviewFinding,
+} from "./task-result.ts";
+import { parseAdviceResult, type AdviceResult } from "./advice-result.ts";
+import { evaluateProviderTaskScope } from "./plan.ts";
 import { normalizeCodexStructuredResult } from "../codex/result.ts";
 import { normalizeClaudeStructuredResult } from "../claude/result.ts";
 const TASK_MAXIMUM_RAW_BYTES = 65_536;
@@ -34,7 +42,7 @@ const TASK_MAXIMUM_RAW_BYTES = 65_536;
  * @security 入力は未信頼の値として検証する。
  * @compatibility Task／助言のEnvelope・Schema境界を維持し、報告回数を要求上限と比較しない。
  */
-export type ProviderResultInput =
+export type ProviderEnvelopeInput =
   | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
   | Readonly<{ provider: AiProvider; purpose: "advice"; raw: unknown }>
   | Readonly<{
@@ -54,7 +62,7 @@ export type ProviderResultInput =
  * @security 自由文を返さない。
  * @compatibility 既存の理由文字列を維持する。
  */
-export type ProviderResultReason =
+export type ProviderEnvelopeReason =
   | "codex_structured_result_invalid"
   | "claude_structured_result_invalid"
   | Exclude<ReturnType<typeof extractProviderTaskEnvelope>["reason"], null>
@@ -71,12 +79,14 @@ export type ProviderResultReason =
  * @security 生Envelopeを公開観測へ複製しない。
  * @compatibility 既存の観測値・判定順序を維持する。
  */
-export type ProviderResultParseResult<
+export type ProviderEnvelopeResult<
   K extends "advice" | "task" | "probe" = "advice" | "task" | "probe",
 > = Readonly<
   {
     providerReportedTurns: number | null;
-    codexExecutionObservation: Readonly<Record<string, unknown>> | null;
+    codexExecutionObservation: ReturnType<
+      typeof inspectCodexExecutionObservation
+    >;
     rawOutputReported: false;
     turnCountDiagnostic?: ProviderTurnCountDiagnostic;
   } & (
@@ -94,7 +104,7 @@ export type ProviderResultParseResult<
         value: null;
         error: Readonly<{
           provider: AiProvider | null;
-          reason: ProviderResultReason;
+          reason: ProviderEnvelopeReason;
         }>;
       }
   )
@@ -115,9 +125,9 @@ export type ProviderResultParseResult<
  * @security 生Provider出力・秘密値を診断へ公開しない。
  * @concurrency N/A: 状態・資源を所有しない。
  */
-export function parseProviderResult<const I extends ProviderResultInput>(
+export function extractProviderResult<const I extends ProviderEnvelopeInput>(
   candidate: I,
-): ProviderResultParseResult<I["purpose"]> {
+): ProviderEnvelopeResult<I["purpose"]> {
   const snapshot =
     snapshotPlainRecord(candidate, new Set(["provider", "purpose", "raw"])) ??
     snapshotPlainRecord(
@@ -142,12 +152,13 @@ export function parseProviderResult<const I extends ProviderResultInput>(
   }
   const input = snapshot as I;
   const { provider, purpose } = input;
-  let reason: ProviderResultReason | null = null;
+  let reason: ProviderEnvelopeReason | null = null;
   let value: unknown = null;
   let providerReportedTurns: number | null = null;
   let turnCountDiagnostic: ProviderTurnCountDiagnostic | undefined;
-  let codexExecutionObservation: Readonly<Record<string, unknown>> | null =
-    null;
+  let codexExecutionObservation: ReturnType<
+    typeof inspectCodexExecutionObservation
+  > = null;
   if (
     (provider !== "codex" && provider !== "claude") ||
     (purpose !== "advice" && purpose !== "task" && purpose !== "probe")
@@ -233,8 +244,325 @@ export function parseProviderResult<const I extends ProviderResultInput>(
           value: null,
           error: Object.freeze({ provider, reason }),
         })
-  ) as ProviderResultParseResult<I["purpose"]>;
+  ) as ProviderEnvelopeResult<I["purpose"]>;
 }
+
+/**
+ * Provider Task Structured 結果を固定Schemaへ正規化する。
+ *
+ * @responsibility Provider Task Structured 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input provider: unknown、taskRole: unknown、selectedEffort: unknown、raw: unknown、taskWorkload: unknown
+ * @returns confirmed時のRole別結果又は固定理由付きblocked。拒否では内容を返さない。
+ * @precondition 未信頼値を受け取り、Provider・Role・推論設定・容量・作業量を検査する。
+ * @postcondition Envelope・Role別内容が成立した場合だけ正規形を返す。
+ * @effect N/A: 解析結果の値を結合するのみ。
+ * @failure 不正入力・Envelope・形・所見・Path・容量を固定理由で拒否する。
+ * @invariant 是正許可は固定Hostを通じCoordinatorが所有する。
+ * @boundary 未信頼Provider出力から上位で扱う型付き結果への境界。
+ * @security parseTaskContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: parseTaskContentは共有非同期状態を持たない同期処理である。
+ */
+export function parseTaskContent(
+  provider: unknown,
+  taskRole: unknown,
+  selectedEffort: unknown,
+  raw: unknown,
+  taskWorkload?: unknown,
+) {
+  if (
+    (provider !== "codex" && provider !== "claude") ||
+    (taskRole !== "executor" && taskRole !== "reviewer") ||
+    (selectedEffort !== "low" &&
+      selectedEffort !== "medium" &&
+      selectedEffort !== "high") ||
+    typeof raw !== "string" ||
+    Buffer.byteLength(raw, "utf8") > TASK_MAXIMUM_RAW_BYTES
+  ) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provider_task_result_input_invalid" as const,
+      normalizedResult: null,
+    });
+  }
+  const turnBudget =
+    provider === "claude"
+      ? evaluateProviderTaskScope("claude", taskRole, taskWorkload)
+      : null;
+  if (provider === "claude" && turnBudget?.status !== "candidate") {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provider_task_result_input_invalid" as const,
+      normalizedResult: null,
+    });
+  }
+  const extracted = extractProviderResult({
+    provider,
+    purpose: "task",
+    taskRole,
+    raw,
+  });
+  if (extracted.status !== "confirmed" || extracted.value === null) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        extracted.error?.reason ??
+        ("provider_task_result_json_invalid" as const),
+      normalizedResult: null,
+      rawOutputReported: false,
+      untrustedProviderTextReported: false,
+      credentialAbsenceVerified: false,
+    });
+  }
+  const value = extracted.value;
+  const result = inspectTaskResultContent(value, taskRole);
+  return result.normalizedResult
+    ? Object.freeze({
+        status: "confirmed" as const,
+        provider,
+        taskRole,
+        reviewFindings:
+          "reviewFindings" in result ? result.reviewFindings : null,
+        normalizedResult: result.normalizedResult,
+        ...(provider === "codex" &&
+        "codexExecutionObservation" in extracted &&
+        extracted.codexExecutionObservation
+          ? {
+              providerExecutionObservation: extracted.codexExecutionObservation,
+            }
+          : {}),
+        ...(provider === "claude" &&
+        turnBudget?.status === "candidate" &&
+        typeof extracted.providerReportedTurns === "number"
+          ? {
+              providerTurnObservation: Object.freeze({
+                provider: "claude" as const,
+                taskRole,
+                requestedMaximumTurns: turnBudget.maximumTurns,
+                providerReportedTurns: extracted.providerReportedTurns,
+              }),
+            }
+          : {}),
+        rawOutputReported: false,
+        untrustedProviderTextReported: false,
+        credentialAbsenceVerified: false,
+      })
+    : Object.freeze({
+        status: "blocked" as const,
+        reason: result.reason,
+        normalizedResult: null,
+        rawOutputReported: false,
+        untrustedProviderTextReported: false,
+        credentialAbsenceVerified: false,
+      });
+}
+
+/**
+ * 同じ許可参照で助言内容検査まで完了する。
+ * @responsibility Provider共通解析と内容検査を一つの内部処理へ接続する。
+ * @trace ARCH-000015
+ * @input provider、stdout、準備時に固定したallowedReferences。
+ * @returns 検査済み内容又は内容なしの固定拒否理由。
+ * @precondition 生出力は同じ試行から受け取る。
+ * @postcondition 生Envelopeを結果へ残さない。
+ * @effect N/A: メモリ内の解析だけ。
+ * @failure Envelope不正・内容不正は部分成功へ補完しない。
+ * @invariant Provider差と内容正規化はAI Adapterが所有する。
+ * @boundary AI Adapter内の共通解析から用途別内容Ownerへの接続。
+ * @security 生出力・認証値を保存しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+export function parseAdviceContent(
+  provider: "codex" | "claude",
+  stdout: string,
+  allowedReferences: readonly string[],
+) {
+  const extracted = extractProviderResult({
+    provider,
+    purpose: "advice",
+    raw: stdout,
+  });
+  return extracted.status === "confirmed" && typeof extracted.value === "string"
+    ? parseAdviceResult(extracted.value, allowedReferences)
+    : Object.freeze({
+        status: "blocked" as const,
+        reason:
+          extracted.error?.reason ?? "workbench_ai_provider_output_invalid",
+        normalizedResult: null,
+        ...(extracted.turnCountDiagnostic === undefined
+          ? {}
+          : { turnCountDiagnostic: extracted.turnCountDiagnostic }),
+      });
+}
+
+/** 用途別のProvider応答と内容を同じ入口で検査する入力。
+ * @responsibility 内容検査に必要な用途・役割・許可参照だけを受け取る。
+ * @trace ARCH-000015
+ * @invariant 保存・実行・清掃のAuthorityを含めない。
+ */
+export type ProviderResultInput =
+  | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
+  | Readonly<{
+      provider: AiProvider;
+      purpose: "task";
+      taskRole: unknown;
+      selectedEffort: unknown;
+      taskWorkload?: unknown;
+      raw: unknown;
+    }>
+  | Readonly<{
+      provider: AiProvider;
+      purpose: "advice";
+      allowedReferences: readonly string[];
+      raw: unknown;
+    }>;
+
+/**
+ * Provider差の抽出から用途別内容検査までを完了する。
+ * @responsibility Task・Advice・Probeの内容と非秘密観測を区別して返す。
+ * @trace ARCH-000015
+ * @input 用途、Provider、生応答と用途別検査条件。
+ * @returns 検査済み内容又は内容なしの固定理由。
+ * @precondition 未信頼入力を閉形式で捕捉する。
+ * @postcondition 生Envelope、実行許可、清掃成功を内容に混入させない。
+ * @effect N/A: メモリ内の解析だけ。
+ * @failure 不正入力・搬送・内容は既存理由で拒否する。
+ * @invariant 内容検査成功は実行や採用の成立を意味しない。
+ * @boundary Provider応答と型付き内容。
+ * @security 生出力を返さない。
+ * @concurrency N/A: 状態を保持しない。
+ */
+export function parseProviderResult<const I extends ProviderResultInput>(
+  candidate: I,
+): ProviderResultParseResult<I["purpose"]>;
+export function parseProviderResult(
+  candidate: ProviderResultInput,
+): ProviderResultParseResult {
+  const input =
+    snapshotPlainRecord(candidate, new Set(["provider", "purpose", "raw"])) ??
+    snapshotPlainRecord(
+      candidate,
+      new Set(["provider", "purpose", "raw", "allowedReferences"]),
+    ) ??
+    snapshotPlainRecord(
+      candidate,
+      new Set([
+        "provider",
+        "purpose",
+        "raw",
+        "taskRole",
+        "selectedEffort",
+        "taskWorkload",
+      ]),
+    ) ??
+    snapshotPlainRecord(
+      candidate,
+      new Set(["provider", "purpose", "raw", "taskRole", "selectedEffort"]),
+    );
+  if (!input || (input.provider !== "codex" && input.provider !== "claude"))
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provider_result_input_invalid",
+      normalizedResult: null,
+    });
+  const provider = input.provider;
+  if (input.purpose === "task" && !Object.hasOwn(input, "allowedReferences"))
+    return parseTaskContent(
+      provider,
+      input.taskRole,
+      input.selectedEffort,
+      input.raw,
+      input.taskWorkload,
+    );
+  if (
+    input.purpose === "advice" &&
+    Object.hasOwn(input, "allowedReferences") &&
+    !Object.hasOwn(input, "taskRole")
+  ) {
+    if (typeof input.raw !== "string")
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "workbench_ai_provider_output_invalid",
+        normalizedResult: null,
+      });
+    return parseAdviceContent(
+      provider,
+      input.raw,
+      input.allowedReferences as readonly string[],
+    );
+  }
+  if (input.purpose === "probe" && Object.keys(input).length === 3) {
+    const parsed = extractProviderResult({
+      provider,
+      purpose: "probe",
+      raw: input.raw,
+    });
+    return parsed.status === "confirmed"
+      ? Object.freeze({
+          status: "confirmed" as const,
+          normalizedResult: parsed.value,
+        })
+      : Object.freeze({
+          status: "blocked" as const,
+          reason: parsed.error.reason,
+          normalizedResult: null,
+        });
+  }
+  return Object.freeze({
+    status: "blocked" as const,
+    reason: "provider_result_input_invalid",
+    normalizedResult: null,
+  });
+}
+
+/** Provider共通解析の実返却型。
+ * @trace ARCH-000015
+ * @invariant 別の結果構造を重複定義しない。
+ */
+export type ProviderResultParseResult<
+  K extends ProviderResultInput["purpose"] = ProviderResultInput["purpose"],
+> = Readonly<
+  {
+    providerExecutionObservation?: NonNullable<
+      ReturnType<typeof inspectCodexExecutionObservation>
+    >;
+    providerTurnObservation?: Readonly<Record<string, unknown>>;
+    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
+    reviewFindings?: readonly TaskReviewFinding[] | null;
+    rawOutputReported?: false;
+    untrustedProviderTextReported?: false;
+    credentialAbsenceVerified?: false;
+  } & (
+    | {
+        status: "confirmed";
+        normalizedResult: K extends "task"
+          ? TaskResult
+          : K extends "advice"
+            ? AdviceResult
+            : Readonly<{ status: true }>;
+      }
+    | {
+        status: "blocked";
+        reason: ProviderResultReason;
+        normalizedResult: null;
+      }
+  )
+>;
+
+/** 内容・搬送の検査拒否理由。
+ * @trace ARCH-000015
+ * @invariant Provider本文を理由に含めない。
+ */
+export type ProviderResultReason =
+  | ProviderEnvelopeReason
+  | Extract<
+      ReturnType<typeof parseTaskContent>,
+      { status: "blocked" }
+    >["reason"]
+  | Extract<
+      ReturnType<typeof parseAdviceContent>,
+      { status: "blocked" }
+    >["reason"];
 
 /**
  * JSON値が配列でないobjectかを判定する。
@@ -280,8 +608,9 @@ function extractProviderTaskEnvelope(
   raw: string,
 ) {
   let parsed = parseUnambiguousJsonDocument(raw);
-  let codexExecutionObservation: Readonly<Record<string, unknown>> | null =
-    null;
+  let codexExecutionObservation: ReturnType<
+    typeof inspectCodexExecutionObservation
+  > = null;
   if (provider === "codex" && parsed === null) {
     const events = raw
       .split(/\r?\n/u)
@@ -503,6 +832,19 @@ function extractProviderTaskEnvelope(
       pathReported: false,
       providerTextReported: false,
     });
+  }
+  if (provider === "codex" && codexExecutionObservation !== null) {
+    const inspected = inspectCodexExecutionObservation(
+      codexExecutionObservation,
+    );
+    if (!inspected)
+      return Object.freeze({
+        value: null,
+        reason: "provider_task_result_json_invalid" as const,
+        providerReportedTurns: null,
+        codexExecutionObservation: null,
+      });
+    codexExecutionObservation = inspected;
   }
   if (provider === "codex")
     return Object.freeze({

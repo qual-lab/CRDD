@@ -5,11 +5,12 @@
  * @trace ARCH-000008
  * @trace ARCH-000015
  */
-import { evaluateProviderTaskScope } from "../../../ai-adapter/src/index.ts";
 import {
+  evaluateProviderTaskScope,
   validateProviderModelId,
   describeProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
+import { types as utilTypes } from "node:util";
 import {
   createDockerIsolationRuntime,
   describeDockerProviderAssets,
@@ -18,6 +19,7 @@ import {
   createDockerIsolationResourceNames,
   planDockerIsolationCommands,
   type DockerIsolationCommand,
+  type DockerIsolationRuntimeOptions,
 } from "../../../docker-isolation/src/index.ts";
 import {
   captureAttemptInput,
@@ -29,7 +31,12 @@ import {
   resolveProviderExecution,
   resolveIsolationCommandInput,
 } from "./isolation.ts";
-import { createProviderAttemptRuntime } from "./execute.ts";
+import {
+  createProviderAttemptRuntime,
+  PREPARATION_LIFETIME_MS,
+} from "./execute.ts";
+import { createStartResult } from "../result/attempt.ts";
+import type { CompletionResult, Executor } from "../result/types.ts";
 import type {
   RuntimeDependencies,
   AttemptInput,
@@ -37,8 +44,6 @@ import type {
   TaskPacket,
   AttemptBinding,
   MountGrant,
-} from "./types.ts";
-import type {
   AdvicePacket,
   ProviderPreparedPlanLifecycle,
   ProviderPreparationLifecycleState,
@@ -49,7 +54,53 @@ import type {
   PreparationHost,
   PreparedAttempt,
   ProviderDockerPreparationCallbacks,
+  AttemptPreparation,
+  PreparationFailure,
 } from "./types.ts";
+
+/**
+ * 上位Hostが所有する検査・保存だけを搬送する。
+ * @responsibility 元操作の相関・保存と下位実行の注入境界を分ける。
+ * @trace ARCH-000008
+ * @shape 元の有限Host操作とPath／Receiptの借用。Process primitiveは含めない。
+ * @invariant 一試行へ同じ管理参照・回復参照を結合する。
+ * @boundary Coordinator等のHostと固定Executor。
+ * @security 任意Command実装・生保存Ownerを渡さない。
+ * @compatibility 既存Host操作の引数・返却値を維持する。
+ */
+export type ExecutorHost = Omit<
+  RuntimeDependencies,
+  | "effectExecutorAvailable"
+  | "startCommand"
+  | "startExecution"
+  | "cleanupOwnedResources"
+  | "verifyCleanupOutcome"
+> &
+  Required<
+    Pick<
+      RuntimeDependencies,
+      | "recordProviderSubmission"
+      | "recordResourceNotIssued"
+      | "recordTerminalObservation"
+    >
+  > &
+  DockerIsolationRuntimeOptions;
+
+/**
+ * 上位の固定操作と通知を一つの構成へまとめる。
+ * @responsibility 準備と実行を別Factoryへ分けず保存Ownerの操作だけを受ける。
+ * @trace ARCH-000008
+ * @shape 準備・実行の固定callbackと任意の終了通知。
+ * @invariant Process primitiveや外部Storeは受けない。
+ * @boundary 上位Ownerと一試行の構成。
+ * @security callbackの存在を認可成立とみなさない。
+ * @compatibility 旧二Hostは公開しない。
+ */
+export type ExecutorOptions = Omit<ExecutorHost, "consumePreparedPlan"> &
+  PreparationHost<"claude"> &
+  Readonly<{
+    onCompleted?: (result: CompletionResult) => void;
+  }>;
 
 /**
  * 一つのProvider準備Ownerの独立した状態を構築する。
@@ -96,7 +147,7 @@ export function createProviderDockerRuntimeState<P extends "codex" | "claude">(
 export function createAttemptPreparation<P extends "codex" | "claude">(
   provider: P,
   dependencies: PreparationHost<P>,
-) {
+): AttemptPreparation<P> {
   const state = createProviderDockerRuntimeState<P>(dependencies);
   /**
    * 同じProviderの計画とAuthorityを準備候補へ結合する。
@@ -133,7 +184,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
         PreparedAttemptPlan<P>,
         "authorityUseCapability" | "authorityControlCapability"
       >,
-      ReturnType<typeof createPreparationFailure>,
+      PreparationFailure,
       PreparedAttempt<P>
     >(
       state,
@@ -218,8 +269,6 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
       consumeProviderDockerPreparation(state, prepared, management),
   });
 }
-
-export const PREPARATION_LIFETIME_MS = 30_000;
 
 /**
  * 同じ管理Capabilityへ結合した準備計画だけを取得する。
@@ -437,7 +486,7 @@ export function consumeProviderDockerPreparation<
  * @security createPreparationFailureはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: createPreparationFailureは共有非同期状態を持たない同期処理である。
  */
-export function createPreparationFailure(reason: string) {
+export function createPreparationFailure(reason: string): PreparationFailure {
   return Object.freeze({
     status: "blocked" as const,
     reason,
@@ -1013,34 +1062,6 @@ export function buildProviderDockerExecutionPlan(
 }
 
 /**
- * 上位Hostが所有する検査・保存だけを搬送する。
- * @responsibility 元操作の相関・保存と下位実行の注入境界を分ける。
- * @trace ARCH-000008
- * @shape 元の有限Host操作とPath／Receiptの借用。Process primitiveは含めない。
- * @invariant 一試行へ同じ管理参照・回復参照を結合する。
- * @boundary Coordinator等のHostと固定Executor。
- * @security 任意Command実装・生保存Ownerを渡さない。
- * @compatibility 既存Host操作の引数・返却値を維持する。
- */
-export type ExecutorHost = Omit<
-  RuntimeDependencies,
-  | "effectExecutorAvailable"
-  | "startCommand"
-  | "startExecution"
-  | "cleanupOwnedResources"
-  | "verifyCleanupOutcome"
-> &
-  Required<
-    Pick<
-      RuntimeDependencies,
-      | "recordProviderSubmission"
-      | "recordResourceNotIssued"
-      | "recordTerminalObservation"
-    >
-  > &
-  Parameters<typeof createDockerIsolationRuntime>[0];
-
-/**
  * 固定DIを使う一つのExecutorを構成する。
  * @responsibility 同じ試行のControlと固定Host callbackを構成し、上位の実行順序は所有しない。
  * @trace ARCH-000008
@@ -1055,7 +1076,7 @@ export type ExecutorHost = Omit<
  * @security 生出力・秘密値・Mapを返さず、元結果の同一性を維持する。
  * @concurrency 一つのControlの完了待ちを切り離さず、取消は同じsessionへ配送する。
  */
-export function createExecutor(host: ExecutorHost) {
+export function createExecutionRuntime(host: ExecutorHost) {
   const isolation = bindIsolationRuntime(
     createDockerIsolationRuntime({
       borrowPaths: host.borrowPaths,
@@ -1081,20 +1102,102 @@ export function createExecutor(host: ExecutorHost) {
 }
 
 /**
- * 本番Mapを共有しない有限試験候補を構成する。
- * @responsibility 既存の模擬Process操作を本番AuthorityなしのRuntimeへ閉じる。
+ * 準備と実行を一つの公開Lifecycleへ結合する。
+ * @responsibility 固定二Providerの準備Ownerを内部保持し一試行を同期開始する。
  * @trace ARCH-000008
- * @input dependencies: 試験が所有する開始・終了・証拠の有限操作。
- * @returns 開始・取消を持つ試験専用Executor。
- * @precondition 呼出し側が試験資源と各代役の終了を所有する。
- * @postcondition controlsを本番・別候補から分離し、通知Mapは作らない。
- * @effect N/A: 構築時はメモリだけで、依存操作はstart後に限る。
- * @failure 無効な開始は既存のblocked結果へ閉じる。
- * @invariant productionAuthorityは常にfalse。
- * @boundary 試験代役と同じ単段Controller実装。
- * @security この候補の結果を本番Verifierは受理しない。
- * @concurrency 取消と終了は同じControlを使用する。
+ * @trace ARCH-000015
+ * @input options: 元Ownerの確認・保存callbackと終了通知。
+ * @returns 開始・取消だけを持つExecutor。
+ * @precondition 上位が選定・同意・対象を確定している。
+ * @postcondition 準備候補と清掃照合を公開しない。
+ * @effect Factoryはメモリだけ。start後は既存の準備と実行へ委譲する。
+ * @failure 準備拒否・開始拒否・清掃不明を区別して返す。
+ * @invariant 二時計期限・一回消費・回復引渡しの順序を維持する。
+ * @boundary 上位の単段要求と固定隔離Runtime。
+ * @security 別Providerの準備を消費しない。
+ * @concurrency 取消とcompletionは同じ実行Ownerを使用する。
  */
-export function createExecutorTestCandidate(dependencies: RuntimeDependencies) {
-  return createProviderAttemptRuntime(dependencies, false);
+export function createExecutor(options: ExecutorOptions): Executor {
+  const codex = createAttemptPreparation("codex", options);
+  const claude = createAttemptPreparation("claude", options);
+  const runtime = createExecutionRuntime({
+    ...options,
+    consumePreparedPlan: (prepared, management) =>
+      codex.consume(prepared, management) ??
+      claude.consume(prepared, management),
+  });
+  const executor: Executor = {
+    start: (
+      provider,
+      input,
+      registerRecoveryHandoff,
+      commandRestriction,
+      observeProviderStarted,
+    ) => {
+      if (provider !== "codex" && provider !== "claude")
+        return createStartResult({
+          status: "blocked",
+          reason: "docker_process_controller_plan_invalid",
+          preparationFailed: true,
+        });
+      const prepared = (provider === "codex" ? codex : claude).prepare(input);
+      if (prepared.status !== "prepared")
+        return createStartResult({
+          status: "blocked",
+          reason: prepared.reason,
+          preparationFailed: true,
+          selection: {
+            notice: prepared.selectionNotice,
+            model: prepared.selectedModel,
+            effort: prepared.selectedEffort,
+          },
+        });
+      const started = runtime.start(
+        prepared.preparedCapability,
+        input.managementCapability,
+        registerRecoveryHandoff,
+        commandRestriction,
+        observeProviderStarted,
+      );
+      if (started.status !== "started")
+        return createStartResult({
+          status: "blocked",
+          reason: started.reason,
+          cleanupConfirmed: started.cleanupConfirmed,
+          recoveryId: started.recoveryId,
+          manualRecoveryRequired: started.manualRecoveryRequired,
+          preparationFailed: false,
+          selection: {
+            notice: prepared.selectionNotice,
+            model: prepared.selectedModel,
+            effort: prepared.selectedEffort,
+          },
+        });
+      const completion = started.completion.then((result) => {
+        try {
+          const notification: unknown = options.onCompleted?.(result);
+          if (utilTypes.isPromise(notification))
+            void (notification as Promise<unknown>).catch(() => {});
+        } catch {
+          /* 通知失敗で元結果・清掃を変更しない。 */
+        }
+        return result;
+      });
+      return createStartResult({
+        status: "started",
+        controlCapability: started.controlCapability,
+        completion,
+        operationId: started.operationId,
+        recoveryId: started.recoveryId,
+        preparationFailed: false,
+        selection: {
+          notice: prepared.selectionNotice,
+          model: prepared.selectedModel,
+          effort: prepared.selectedEffort,
+        },
+      });
+    },
+    cancel: runtime.cancel,
+  };
+  return Object.freeze(executor);
 }

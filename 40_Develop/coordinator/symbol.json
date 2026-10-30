@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
+    { "symbolId": "coordinator.verification.task-diagnostic", "kind": "file", "path": "scripts/task-diagnostic.ts", "archIds": ["ARCH-000008"] },
     {
       "symbolId": "coordinator.execution.provider-executor",
       "kind": "file",

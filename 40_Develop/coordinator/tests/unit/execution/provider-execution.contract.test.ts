@@ -199,7 +199,6 @@ function fixture(
   const selectionUses = [Object.freeze({}), Object.freeze({})];
   const packetOwner = Object.freeze({});
   const packetUse = Object.freeze({});
-  const preparedCapability = Object.freeze({});
   const processControl = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   const calls: string[] = [];
@@ -378,7 +377,11 @@ function fixture(
       });
     },
     revokePacket: () => true,
-    prepareAttempt: (_provider: "codex" | "claude", input: AttemptInput) => {
+    startProcess: (
+      _provider: "codex" | "claude",
+      input: AttemptInput,
+      register: unknown,
+    ) => {
       const { managementCapability: capability, selectionUseCapability } =
         input;
       if (options.realSelectionRuntime === true) {
@@ -393,16 +396,6 @@ function fixture(
           plan.executionSelection,
         );
       }
-      return Object.freeze({
-        status: "prepared" as const,
-        preparedCapability,
-      });
-    },
-    startProcess: (
-      _prepared: unknown,
-      _management: unknown,
-      register: unknown,
-    ) => {
       calls.push("start-process");
       calls.push("register-recovery");
       assert.equal(

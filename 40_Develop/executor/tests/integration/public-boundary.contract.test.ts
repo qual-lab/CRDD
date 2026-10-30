@@ -82,17 +82,12 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     const api=await import(${JSON.stringify(root)});
     blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
-      "PREPARATION_LIFETIME_MS",
-      "bindIsolationRuntime",
-      "createAttemptPreparation", "createExecutor", "createExecutorTestCandidate",
-      "createPreparationFailure", "describeExecutorContract",
-      "describeIsolationContract", "inspectAttemptObservation",
-      "inspectRecoveryStartFailureDiagnostic", "isAttemptFailureReason",
+      "createExecutor", "describeExecutorContract",
+      "inspectRecoveryStartFailureDiagnostic",
       "isPrimaryFailureDiagnostic",
-      "projectAttemptResult", "projectAttemptStartResult",
       "resolveRecoveryReference", "resolveRecoveryStartReason",
     ].sort());
-    for(const name of ["normalizeTaskResult", "normalizeAdviceResult", "describeAdviceResultSchema",
+    for(const name of ["inspectAttemptObservation", "normalizeTaskResult", "normalizeAdviceResult", "describeAdviceResultSchema",
       "consumeTaskRemediation", "hashAdviceCommand", "bindAdviceCommand",
       "createProviderExecutor", "ProviderExecutorHost", "ownDataValue",
       "buildProviderDockerExecutionPlan", "validatePlan", "planIdentity",
@@ -105,7 +100,8 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       assert.equal(name in api,false,name);
     let calls=0;
     const dependencies=new Proxy({}, {get(){return ()=>{calls++;throw Error('unexpected_effect');};}});
-    const runtime=api.createExecutorTestCandidate(dependencies);
+    const testing=await import(${JSON.stringify(new URL("../../scripts/executor-test.ts", import.meta.url).href)});
+    const runtime=testing.createExecutorTestCandidate(dependencies);
     assert.equal(runtime.start(null,null).status,'blocked');
     assert.equal((await runtime.cancel(null,null)).status,'blocked');
     assert.equal(calls,0);

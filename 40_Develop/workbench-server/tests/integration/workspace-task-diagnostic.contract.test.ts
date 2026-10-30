@@ -1,3 +1,4 @@
+import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * Workspace試験の回復開始・候補検査診断を、同じTaskと有限な安全結果へ結合する。
  * @trace ERB-IT-021
@@ -11,13 +12,12 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
-import { parseProviderResult } from "../../../ai-adapter/src/index.ts";
 import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-diagnostic.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
-} from "../../../coordinator/src/execution/result.ts";
-import { inspectAttemptObservation } from "../../../executor/src/index.ts";
+} from "../../../coordinator/scripts/task-diagnostic.ts";
+import { inspectCodexExecutionObservation } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -390,7 +390,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     [2, 1, true],
   ] as const)
     assert.equal(
-      inspectAttemptObservation({
+      inspectCodexExecutionObservation({
         ...base,
         itemErrorCount: total,
         itemErrorCodeModeCount: code,
@@ -403,7 +403,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     itemErrorCodeModeCount: _code,
     ...missing
   } = base;
-  assert.equal(inspectAttemptObservation(missing), null);
+  assert.equal(inspectCodexExecutionObservation(missing), null);
   const old: Record<string, unknown> = {
     ...missing,
     transport: "fixed_cli_jsonl_v0_149_1",
@@ -415,10 +415,13 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       key === "itemErrorKnownWarningTextCount"
     )
       delete old[key];
-  assert.deepEqual(inspectAttemptObservation(old), old);
-  assert.equal(inspectAttemptObservation({ ...old, itemErrorCount: 1 }), null);
+  assert.deepEqual(inspectCodexExecutionObservation(old), old);
   assert.equal(
-    inspectAttemptObservation({ ...base, itemErrorCount: "private" }),
+    inspectCodexExecutionObservation({ ...old, itemErrorCount: 1 }),
+    null,
+  );
+  assert.equal(
+    inspectCodexExecutionObservation({ ...base, itemErrorCount: "private" }),
     null,
   );
   for (const key of Object.keys(base).filter(
@@ -434,7 +437,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       Number.POSITIVE_INFINITY,
     ])
       assert.equal(
-        inspectAttemptObservation({
+        inspectCodexExecutionObservation({
           ...base,
           itemErrorCount: 1,
           [key]: value,
@@ -443,7 +446,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       );
     const partial = { ...base };
     delete partial[key];
-    assert.equal(inspectAttemptObservation(partial), null);
+    assert.equal(inspectCodexExecutionObservation(partial), null);
   }
   const previous = Object.fromEntries(
     Object.entries(base).filter(
@@ -453,7 +456,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
         key !== "itemErrorKnownWarningTextCount",
     ),
   );
-  const inspected = inspectAttemptObservation(previous);
+  const inspected = inspectCodexExecutionObservation(previous);
   assert.deepEqual(inspected, previous);
   assert.equal(
     Object.hasOwn(inspected ?? {}, "itemErrorHostMentionCount"),
@@ -462,7 +465,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
   const { itemErrorKnownWarningTextCount: _warning, ...previousMentions } =
     base;
   assert.deepEqual(
-    inspectAttemptObservation(previousMentions),
+    inspectCodexExecutionObservation(previousMentions),
     previousMentions,
   );
   for (const value of [
@@ -474,7 +477,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     "private",
   ])
     assert.equal(
-      inspectAttemptObservation({
+      inspectCodexExecutionObservation({
         ...base,
         itemErrorCount: 1,
         itemErrorUnclassifiedCount: 1,
@@ -580,7 +583,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
       itemErrorHostMentionCount: 1,
     },
   ])
-    assert.equal(inspectAttemptObservation(invalid), null);
+    assert.equal(inspectCodexExecutionObservation(invalid), null);
 });
 
 /** 完了を期待する段階の欠測・逆順は、Task成功や取得成功へ補完しない。 */

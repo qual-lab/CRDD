@@ -7,6 +7,75 @@
 - 責任者: Qual-Lab
 - 対象外: AI再送、Docker操作、既存Runtime領域・保持物の読取り／変更／削除、Release判断。
 
+追加の人間指摘を受け、Envelopeだけを返していたAI Adapterの公開parseProviderResultを、用途別の内容検査まで完了する入口へ改めた。旧抽出は内部extractProviderResultとして搬送段階の試験・限定診断へ限定し、ExecutorのTask／Advice別解析組立てを撤去した。内容型、固定理由、許可参照検査、Taskの作業量判定の正本はAI Adapterであり、新Library・汎用変換Frameworkは追加しない。
+
+## Executor公開APIと内容型の整理（2026-10-30）
+
+人間承認により、準備はcreateExecutor内部へ統合し、通常Rootから準備Capability・検証中間処理・試験代役を除く。内容型の正本はAI AdapterのTaskResult／AdviceResult、ExecutorはCompletionResultで内容と技術終了・観測・上位発行許可を分離する。Task専用の契約説明関数は撤去し、容量・Role・生出力非公開等は実挙動試験で維持する。利用側・試験・Architectureを追従し、保存Schema・判定理由・取消・清掃の保証を維持する。実AI・Docker・過去保持物は操作しない。今回の内容型・解析API整理は対象非AI回帰と限定独立レビューを完了した。先行レビューで検出したHost Writer応答喪失後の再入場も未完了条件として保持する。
+
+検証結果：AI Adapter全38件、Executor全43件（最終一実行約137秒）、Coordinator対象190件、Workbench診断14件が成功した。Windows junctionの一件は通常権限で作成できず、許可された実行環境で同じ試験を単独実行し成功した。四Packageの型検査、Executor／AI Adapter／Coordinatorの静的検査、Symbol全13Manifest指摘零、Catalog426件の定義検査が成功した。独立再レビューの今回範囲の残Must-fixは零。実AI・Docker・過去保持物の操作およびコミット・プッシュは行っていない。先行のHost Writer応答喪失後の再入場、Windows保存側の未完確認、Repository全体QAを今回成功へ含めない。
+
+### File内の記述順序の明文化（2026-10-30）
+
+人間指定の「File Header→import→File直下の変数・定数→関数」をコーディング規約3.2へ反映した。型はimport後・値宣言前へ置き、同一参照先のimport統合、局所変数を引き上げないこと、外部必須prefix・Module評価順・初期化順の保全を明記した。この更新は規約と確認項目だけであり、既存Sourceや機械検査は変更していない。構文木で確認した途中importはExecutor三File、AI Adapter一File、Coordinator十八Fileに残る。型宣言を挟んだだけの例と関数定義後の例を含み、実行時故障件数を意味しない。既存Sourceへの適用時には依存評価・初期化の同値性を確認する。新しいLibrary、初期化Framework、共有状態は追加しない。
+
+記述順序・既存規約との接続・更新日の局所確認と`git diff --check`は成功した。限定独立レビューの残Must-fixは零。表の再exportを`export ... from`へ明確化し、local exportを先頭へ移す要求ではないことを示した。実装未変更のためRuntime回帰はこの規約更新の成立根拠へ追加しない。
+
+### Executorへの記述順序規約の適用（2026-10-30）
+
+人間承認によりExecutorの`src`・`scripts`・`tests`の全31 TypeScript Fileを確認し、14 File（製品Source七、Script三、Test四）を並べ替えた。静的importと他Moduleからの再exportを先頭へ集約し、同一specifierのnamed importを統合した。型専用指定を保持し、型・Module値・関数の順序へ整理した。`verify-provider-real.ts`は`registerHooks`後の動的importを初期化境界として維持し、型だけを前へ移動した。実AI・Docker・過去保持物は操作していない。
+
+変更前後の構文木比較では、全31 Fileの非Module宣言の一対一対応、Module値の初期化順、関数／top-level処理・Test登録順、実行時Moduleの初回評価順、import bindingと型専用属性が一致した。整形後も不一致零、途中静的importと統合可能な重複importは零。型・整形・lintと`git diff --check`は成功し、配置変更と文書追従の限定独立レビューは残Must-fix零。最終の一実行でExecutor全43件の回帰が成功した（約113.4秒）。先行のAPI変更やHost Writer応答喪失の残件を、この配置確認の成功に含めない。今回、他Packageの途中importやCheckerの順序検査は変更しない。
+
+### レビュー所見の完了結果への統合（2026-10-30）
+
+人間承認により、ExecutorのTaskReviewFinding別名再export、所見登録callback、CompletionResultのremediationCapabilityを撤去した。検査済み所見はCompletionResult.reviewFindingsで返し、Coordinatorが受領後に既存の限定是正許可を発行する。本文を通常の保存・公開DTO・ログへ投影しない。二回目レビューも所見自体は返し、是正回数の方針をExecutorへ持ち込まない。result/attempt.tsのProviderAttemptPlan importはPreparedPlan型注釈として使われていたが、実際に参照する二つのIDだけの入力へ縮小し、計画全体への依存を撤去した。実AI・Docker・過去保持物は操作していない。
+
+最終のExecutor全43件は一実行で成功した（約114.4秒）。CoordinatorのTask・助言対象175件と、別実行の所見受領Owner一件（正常一条件・拒否十九条件）が成功した。四Packageの型検査、Executor／Coordinator静的検査、Symbol全13Manifest指摘零、Catalog426件の定義検査、`git diff --check`も成功した。所見本文のsentinelが公開Task DTO・診断・実Writer bytesへ出ないことを確認した。独立レビューで検出したQA表の旧callback記述を是正し、Source・Architecture・Qualityの再レビューは残Must-fix零。これは今回の結果搬送・許可Owner整理の限定完了であり、先行のHost Writer応答喪失、Windows保存側の未完確認、全体QA、実AIでの再確認を成功へ含めない。コミット・プッシュは未実施。
+
+### Executorの定数配置と結果Factory名の整理（2026-10-30）
+
+- コーディング規約へ任意の`constants.ts`の作成条件を追加する。局所定数・状態Owner・型専用Sourceの境界は維持する。
+- 結果理由、回復開始診断段階、Command用途、準備失敗理由対応の4群を`result/constants.ts`へ移管する。値・順序・凍結・公開APIは変えず、実装への逆依存と転送exportは追加しない。
+- 結果Factoryを`createStartResult`／`createCompletionResult`へ改名する。前者は開始成功・拒否結果を組み立てるが、開始成功の制御Handle／Promiseの生成・所有は実行Ownerに維持する。
+- 検査内だけの固定検索集合・対応表は`OBSERVATION_KEYS`、`BLOCKED_COMPLETION_REASONS`、`RECOVERY_START_REASON_CLASS`へ統一し、モジュール内へ残す。`const`参照とSet／Map内部の不変性は同一視しない。
+- 外部AI・Docker・過去保持物は操作しない。既存の未解決保存再入場問題とは別の内部整理として検証する。
+- 確認結果：共有4群の移管前後JSONは順序を含めexact一致。Executor全43件成功（117.5秒）、追加改名後の局所4件成功、Executor整形・型・Lint、Coordinator型検査、Test Catalog全426定義の検査が成功。限定独立レビューは共有定数・Factory改名前後でMust-fix 0。実AI・Dockerの再確認や既存保存再入場問題の解消を意味しない。
+
+### Executor結果検査の不要処理削減とOwner整理（2026-10-30）
+
+- 未使用`validResultString`を削除。二つの試験専用結果projectorと専用shape検査は`tests/support/result-validation.ts`へ移管し、既存の試験入口からだけ公開する。
+- Codex観測の検査をAI Adapterの`codex/observation.ts`へ移し、既存の通常データ捕捉を再利用する。Executor転送APIとAI Adapter通常RootのInspector公開を撤去し、製品経路は内部検査済み結果を型付きで搬送する。JSONを読む検証ツールだけを既存の検証専用入口へ接続し、Coordinatorの型付き診断組立てとJSON受入を分離する。旧観測読取りの四形は採用済み契約として維持する。
+- ターン数診断の古い上限2条件を、現行Producerと同じ不正報告条件へ是正する。正常なターン数の上限比較は導入しない。Domainの歴史的診断読取りは変更しない。
+- 回復ID／Home／清掃／通知のlifecycleと保存契約は維持。実AI・Docker・過去保持物は操作しない。
+- 対象回帰、試験専用境界、AI Adapterへの依存方向、Source／Architecture／QAの限定独立レビューで確認する。
+
+### 開始・終了結果のFactoryと導出型の統一（2026-10-30）
+
+`createStartResult`は開始成功と拒否を判別可能な入力から組み立てる。Handle・完了Promiseの生成、実行開始、制御Map、取消と清掃は実行Ownerに残し、既存の準備・選択metadataを保持する。`StartResult`／`CompletionResult`は後続の明示契約化により`result/types.ts`を正本とし、両Factoryがその型を満たす。Factoryは通常Rootへ公開しない。開始成功とProvider開始を区別し、拒否時の回復義務・ID・清掃条件は変更しない。
+
+限定確認結果：Executor全45件成功（119.3秒）、AI Adapter全40件成功、Coordinatorのportable対象3 Suite163件成功、Workbench診断14件成功。型・整形・Lint等の各Package静的検査、Symbol全13 Manifest、Test Catalog全426定義が成立した。独立レビューはSource上のMust-fix 0で、文言Minor 3箇所を追従した。今回の結果検査整理で`result/validation.ts`は1101行から556行へ縮小した。
+
+回帰中に旧内容型へTurn観測を混在させた期待値と、古い「3ターンを不正診断として受理」の期待値を発見し、現行契約へ試験を追従した。初回実行にはWindows固有2件も含まれ、その2件はOS子孫終了確認で不成立だった。本変更ではOS終了処理を変更しておらず、以降の対象回帰は既存portable範囲として実施した。上記成功を実Windows境界の成立へ換算しない。実AI・Docker・過去保持物は操作していない。
+
+### 結果Factoryの一Object入力と明示結果型（2026-10-30）
+
+- 両Factoryを名前付きObject一引数と明示返却型へ統一する。公開結果型は`result/types.ts`が所有し、FactoryのReturnType導出・StartResultDetails・generic／Extract／返却castを撤去する。
+- 開始のselectionは通知・モデル・推論強度の三値だけ。preparationFailedを維持し、準備失敗結果全体のspreadをやめる。preparedCapability、grantRef、selectionRecordId、Home／各Effect／Authorityの準備内部fieldは準備診断に保持するが開始結果から削除する。現在の利用側はこれらの混入fieldに依存せず、保存・通信Schemaは変更しない。
+- 呼出し側は許可fieldを名前付きで構成する。四開始経路のexact key集合、選択の値・null・省略、元Control／Promise、拒否八組合せを試験する。
+- 終了Factoryは一Object化による参照名変更を除き、移管前bodyとの字句照合が一致した。五清掃条件と公開mask式は変えず、32組合せ×三状態と取消・所見の試験を維持する。
+- 実AI・Docker・過去保持物の操作は行わない。対象回帰と限定独立レビューで確認する。
+
+### 名前付き公開・共有型の明示契約化（2026-10-30）
+
+コーディング規約へ、実装のReturnType／Parameters等で公開・共有型の宣言を代用しない原則を追加する。名前付き既存契約の再利用、固定constからの列挙Union、局所推論・試験照合を区別する。先行した`Executor`・`StartResult`・`CompletionResult`に続き、`ExecutorOptions`の下位構成、準備Owner・準備結果・隔離Session・技術分類の契約を明示する。Docker Isolation側が既存の構成とSessionに型名を与え、Executorはその型を再利用する。型だけを公開し、通常Rootの実行時公開集合、保存形式、期限、理由、取消・一回消費・清掃条件は変えない。他Package全体への一括遡及はしない。
+
+Executorのstart／cancelを構造で明示し、Factoryの返却型をExecutorとして検査する。下位Runtime由来のParameters参照を撤去し、handoffの同期true、同期Command制約、開始通知のPromise許容を明示する。Runtime拒否条件は維持する。選択三項目は全存在／全不存在のUnionへ補正し、六つの部分集合を型負例で固定する。cancelの理由と終了観測値を型でも相関させ、待機・要求・返却値は変えない。
+
+先行するExecutor／StartResult／CompletionResultの3型限定候補の確認：Executor全47件成功（132.0秒）、Coordinator portable対象163件成功、Workbench診断14件成功。型検査では選択部分集合6件を拒否し、明示Executor契約とFactoryの一致を確認した。対象Packageの整形・型・Lint等の静的確認、Test Catalog全426定義が成立し、独立レビューのSource指摘は解消した。Windows固有試験・実AI・Docker・過去保持物の確認へ換算しない。
+
+今回の追加型・入力型移管後の限定確認：Executor全48件成功（118.5秒）、Docker Isolation通常293件成功・明示条件付き5件skip、Coordinator portable対象163件成功、Workbench診断14件成功。Executor／Docker Isolation／Coordinator／Workbenchの静的検査が成立し、Test Catalog426定義・Symbol13 Manifestは問題0件。初回の新試験には拒否結果のkey数を20とした誤りがあり、独立レビューに従って19 keyのexact集合比較へ是正した後、全体を再実行した。準備の取消・失効は両Providerで全fieldと二Store除去を確認した。Source・文書・試験の独立再レビューは必須指摘0件。`StartResultInput`／`CompletionResultInput`は`result/types.ts`の内部共有exportへ移し、Factoryと通常Rootの実行時公開は変更していない。実AI・実Docker・過去保持物は操作していない。
+
 ## 1. 何を変えるか
 
 ### 文書管理と実行管理の分担（人間確認済み）

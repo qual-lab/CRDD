@@ -6,6 +6,7 @@
  */
 
 import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
+import type { CompletionResult } from "../../../executor/src/index.ts";
 
 import type {
   TaskCompletionRecord,
@@ -18,7 +19,6 @@ import {
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import type { CoordinatorTaskRecoveryObligation } from "./recovery.ts";
 import {
-  inspectAttemptObservation,
   resolveRecoveryReference,
   resolveRecoveryStartReason,
 } from "../../../executor/src/index.ts";
@@ -32,7 +32,7 @@ export type CandidateValidationFailureDiagnostic = Readonly<{
   pathsMatch: boolean | null;
   candidatePathCount: number | null;
   reportedPathCount: number | null;
-  providerExecutionObservation: ReturnType<typeof inspectAttemptObservation>;
+  providerExecutionObservation: CompletionResult["providerExecutionObservation"];
 }>;
 
 /** 各試行の編集照合又はレビュー分類だけを表す受動診断。
@@ -55,12 +55,24 @@ export type TaskStageDiagnostic =
  * @responsibility 自由文、余分field、欠測を成功観測へ変換しない。
  * @trace ERB-IT-021
  */
-export function inspectTaskStageDiagnostic(
-  raw: unknown,
+export function createTaskStageDiagnostic(
+  raw:
+    | Readonly<{
+        taskRole: "executor";
+        result: Parameters<
+          typeof createCandidateValidationFailureDiagnostic
+        >[0];
+      }>
+    | Readonly<{
+        taskRole: "reviewer";
+        decision: unknown;
+        findingCount: unknown;
+        categoryCounts: unknown;
+      }>,
 ): TaskStageDiagnostic | null {
   const executor = snapshotPlainRecord(raw, new Set(["taskRole", "result"]));
-  if (executor?.taskRole === "executor") {
-    const result = inspectCandidateValidationFailureDiagnostic(executor.result);
+  if (executor?.taskRole === "executor" && raw.taskRole === "executor") {
+    const result = createCandidateValidationFailureDiagnostic(raw.result);
     return result ? Object.freeze({ taskRole: "executor", result }) : null;
   }
   const reviewer = snapshotPlainRecord(
@@ -103,8 +115,14 @@ export function inspectTaskStageDiagnostic(
  * @responsibility 候補拒否診断の相関した値境界を検査する。
  * @trace ERB-IT-021
  */
-export function inspectCandidateValidationFailureDiagnostic(
-  raw: unknown,
+export function createCandidateValidationFailureDiagnostic(
+  raw: Readonly<{
+    captureStatus: unknown;
+    pathsMatch: unknown;
+    candidatePathCount: unknown;
+    reportedPathCount: unknown;
+    providerExecutionObservation: CompletionResult["providerExecutionObservation"];
+  }>,
 ): CandidateValidationFailureDiagnostic | null {
   const value = snapshotPlainRecord(
     raw,
@@ -141,11 +159,7 @@ export function inspectCandidateValidationFailureDiagnostic(
       value.candidatePathCount !== value.reportedPathCount)
   )
     return null;
-  const observation =
-    value.providerExecutionObservation === null
-      ? null
-      : inspectAttemptObservation(value.providerExecutionObservation);
-  if (value.providerExecutionObservation !== null && !observation) return null;
+  const observation = raw.providerExecutionObservation;
   return Object.freeze({
     captureStatus:
       value.captureStatus as CandidateValidationFailureDiagnostic["captureStatus"],

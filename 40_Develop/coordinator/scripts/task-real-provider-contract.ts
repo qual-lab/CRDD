@@ -14,7 +14,7 @@ import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
 
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
-import { inspectTaskStageDiagnostic } from "../src/execution/result.ts";
+import { inspectTaskStageDiagnostic } from "./task-diagnostic.ts";
 import {
   isPrimaryFailureDiagnostic,
   inspectRecoveryStartFailureDiagnostic,

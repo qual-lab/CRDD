@@ -12,6 +12,8 @@ import {
   classifyDockerProcessExit,
   classifyDockerCommandException,
   type CommandObservation,
+  type DockerCommandExecutionClassification,
+  type DockerProcessExitStatusClass,
 } from "./result.ts";
 
 const PURPOSES = [
@@ -114,7 +116,7 @@ export type DockerExecutionHooks = Readonly<{
   acceptCommandResult: (
     purpose: DockerIsolationCommand["purpose"],
     result: CommandObservation | null,
-    classification: ReturnType<typeof classifyDockerCommandExecution>,
+    classification: DockerCommandExecutionClassification,
   ) => boolean;
   acceptOutput: (
     purpose: DockerIsolationCommand["purpose"],
@@ -173,6 +175,45 @@ export type DockerSessionFailure = Readonly<{
 }>;
 
 /**
+ * 一回の技術Sessionの終了観測を搬送する。
+ * @responsibility 実行、取消、通知解放、清掃を別々の事実として保持する。
+ * @trace ARCH-000008
+ * @invariant 未観測の資源を不存在へ補完しない。
+ */
+export type DockerCommandSessionResult = Readonly<{
+  failure: DockerSessionFailure | null;
+  notificationDeliveryConfirmed: boolean;
+  callbackRegistrationReleased: boolean;
+  cancellationRequested: boolean;
+  executionStarted: boolean;
+  executionCompleted: boolean;
+  executionContainerCreated: boolean;
+  executionExit: DockerProcessExitStatusClass;
+  cleanup: DockerSessionCleanup;
+  resourceObservations:
+    | readonly DockerResourceCleanupObservation[]
+    | null
+    | undefined;
+  processTreeTerminationConfirmed: boolean;
+}>;
+
+/**
+ * 元Sessionの取消と終了待機だけを上位へ返す。
+ * @responsibility 生Handleや試験Candidateの表示を本番契約へ含めない。
+ * @trace ARCH-000008
+ * @invariant 取消要求と終了観測を同一視しない。
+ */
+export type DockerCommandSession = Readonly<{
+  cancel: () => Promise<
+    Readonly<{
+      cancellationRequested: true;
+      processTerminationObserved: boolean;
+    }>
+  >;
+  completion: Promise<DockerCommandSessionResult>;
+}>;
+
+/**
  * 同じ固定計画の実行・取消・清掃を開始する。
  * @responsibility raw Handleを上位へ返さず、返却後に一回だけ実行する。
  * @trace ARCH-000008
@@ -191,7 +232,7 @@ export function startDockerCommandSession(
   purposes: readonly DockerIsolationCommand["purpose"][],
   operations: DockerCommandSessionOperations,
   hooks: DockerExecutionHooks,
-) {
+): DockerCommandSession {
   const callbacks: { current: DockerExecutionHooks | null } = {
     current: hooks,
   };
@@ -212,8 +253,7 @@ export function startDockerCommandSession(
   let executionStarted = false;
   let executionCompleted = false;
   let executionContainerCreated = false;
-  let executionExit: ReturnType<typeof classifyDockerProcessExit> =
-    "not_observed";
+  let executionExit: DockerProcessExitStatusClass = "not_observed";
   let notificationDeliveryConfirmed = true;
 
   /**
@@ -555,7 +595,7 @@ export function startDockerCommandSessionCandidate(
   purposes: readonly DockerIsolationCommand["purpose"][],
   operations: DockerCommandSessionOperations,
   hooks: DockerExecutionHooks,
-) {
+): DockerCommandSession & Readonly<{ productionAuthority: false }> {
   return Object.freeze({
     ...startDockerCommandSession(purposes, operations, hooks),
     productionAuthority: false as const,

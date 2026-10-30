@@ -34,6 +34,8 @@ import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import {
   startDockerCommandSession,
   type DockerExecutionHooks,
+  type DockerCommandSession,
+  type DockerSessionCleanup,
 } from "./session.ts";
 
 const DOCKER_CLI_EXECUTABLE =
@@ -131,11 +133,8 @@ export function describeDockerIsolationExecutionEnvironment() {
  * @concurrency 元Handleの終端と実資源の清掃を同じRuntimeで所有する。
  */
 export function createDockerIsolationRuntime(
-  dependencies: Pick<
-    DockerIsolationDependencies<DockerCliTrustSnapshot>,
-    "borrowPaths" | "inspectReceipts"
-  >,
-) {
+  dependencies: DockerIsolationRuntimeOptions,
+): DockerIsolationRuntime {
   if (
     !dependencies ||
     typeof dependencies !== "object" ||
@@ -198,6 +197,48 @@ export type DockerIsolationRuntimePlan = Readonly<{
   identity: string;
   configuration: DockerIsolationCommandInput;
   stdin: string | null;
+}>;
+
+/**
+ * 本番隔離Runtimeが借用する所在とReceipt観測だけを表す。
+ * @responsibility 既存依存契約の必要断面を再利用する。
+ * @trace ARCH-000008
+ * @invariant Process primitiveやCLI構成を上位へ公開しない。
+ */
+export type DockerIsolationRuntimeOptions = Pick<
+  DockerIsolationDependencies<DockerCliTrustSnapshot>,
+  "borrowPaths" | "inspectReceipts"
+>;
+
+/**
+ * 固定隔離Runtimeの開始・清掃・照合操作を表す。
+ * @responsibility 下位の技術操作を名前付きの契約で上位へ接続する。
+ * @trace ARCH-000008
+ * @invariant 上位のTask状態や保存方式を所有しない。
+ */
+export type DockerIsolationRuntime = Readonly<{
+  startCommand: (
+    purpose: DockerIsolationCommand["purpose"],
+    plan: DockerIsolationRuntimePlan,
+    managementCapability: unknown,
+  ) => OwnedCommandHandle;
+  cleanupOwnedResources: (
+    plan: DockerIsolationRuntimePlan,
+    recoveryCapability: object,
+    managementCapability: unknown,
+  ) => Promise<DockerSessionCleanup>;
+  verifyCleanupOutcome: (
+    result: unknown,
+    callerIdentity: string,
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+  ) => readonly DockerResourceCleanupObservation[] | null;
+  startExecution: (
+    plan: DockerIsolationRuntimePlan,
+    recoveryCapability: object,
+    managementCapability: unknown,
+    hooks: DockerExecutionHooks,
+  ) => DockerCommandSession;
 }>;
 
 /**
@@ -331,7 +372,7 @@ function planIdentity(plan: DockerIsolationRuntimePlan) {
  */
 export function createDockerIsolationRuntimeCandidate<Cli extends object>(
   dependencies: DockerIsolationDependencies<Cli>,
-) {
+): DockerIsolationRuntime {
   const contexts = new WeakMap<object, ExecutionContext<Cli>>();
   const stoppedAttempts = new WeakMap<object, Set<string>>();
   const cleanupResults = new WeakMap<

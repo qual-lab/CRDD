@@ -1,3 +1,4 @@
+import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * Workbench助言のProvider出力抽出契約を検証する。
  *
@@ -13,10 +14,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
-import {
-  parseProviderResult,
-  PROVIDER_ADVICE_OUTPUT_REASONS,
-} from "../../../ai-adapter/src/index.ts";
+import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/index.ts";
 
 const ADVICE = Object.freeze({
   status: "completed",

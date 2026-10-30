@@ -25,14 +25,33 @@ import { resolveValidatedPlan } from "../src/attempt/isolation.ts";
 import type { AdvicePacket, MountGrant } from "../src/attempt/types.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";
+
+/**
+ * 新品の合成作業領域と終了後の有限Oracleを作る。
+ * @responsibility 観測不能・未知の生成物は削除せず保持する。
+ * @trace ERB-IT-004
+ * @input 空のHost構築後Rootと固定Task用途。
+ * @returns 内容照合と既知File・空Directoryだけの通常回収。
+ * @effect Root/workの合成File一件と保護用空Directory二件。
+ * @failure link・hardlink・未知名・大容量・実体変更は拒否。
+ * @boundary 呼出し側が技術清掃・排他解放・元終端を確認した後だけcleanupを使う。
+ */
+export type TaskFixtureReceipt = Readonly<{
+  rootIdentity: string;
+  directories: readonly string[];
+  sourceIdentity: string;
+}>;
+
 export const TASK_TRIAL_TEXT = "EDITED_OK\n";
-const hash = (text: string) => createHash("sha256").update(text).digest("hex");
+
 const workload = Object.freeze({
   readPathCount: 1,
   allowedPathCount: 1,
   acceptanceCriterionCount: 1,
   remediationFindingCount: 0,
 });
+
+const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 
 /**
  * 固定Taskの送信内容と技術値を副作用なしで示す。
@@ -242,21 +261,6 @@ export function buildTaskTrialPlan(
   return plan;
 }
 
-/**
- * 新品の合成作業領域と終了後の有限Oracleを作る。
- * @responsibility 観測不能・未知の生成物は削除せず保持する。
- * @trace ERB-IT-004
- * @input 空のHost構築後Rootと固定Task用途。
- * @returns 内容照合と既知File・空Directoryだけの通常回収。
- * @effect Root/workの合成File一件と保護用空Directory二件。
- * @failure link・hardlink・未知名・大容量・実体変更は拒否。
- * @boundary 呼出し側が技術清掃・排他解放・元終端を確認した後だけcleanupを使う。
- */
-export type TaskFixtureReceipt = Readonly<{
-  rootIdentity: string;
-  directories: readonly string[];
-  sourceIdentity: string;
-}>;
 function entryIdentity(p: string, directory: boolean) {
   const s = fs.lstatSync(p, { bigint: true });
   if (
@@ -266,6 +270,7 @@ function entryIdentity(p: string, directory: boolean) {
     throw Error("trial_work_changed");
   return [s.dev, s.ino, s.birthtimeNs].map(String).join(":");
 }
+
 export function createTaskTrialFixture(
   root: string,
   mode: Exclude<TrialMode, "advice">,
@@ -289,6 +294,7 @@ export function createTaskTrialFixture(
     sourceIdentity: entryIdentity(path.join(work, "source.txt"), false),
   });
 }
+
 export function inspectTaskTrialFixture(
   root: string,
   mode: Exclude<TrialMode, "advice">,
@@ -326,6 +332,7 @@ export function inspectTaskTrialFixture(
     ? text === "BASE\n" || text === TASK_TRIAL_TEXT
     : text === TASK_TRIAL_TEXT;
 }
+
 export function verifyTaskTrialResult(
   root: string,
   mode: Exclude<TrialMode, "advice">,
@@ -345,6 +352,7 @@ export function verifyTaskTrialResult(
         JSON.stringify(Reflect.get(normalized, "changedPaths")) ===
           JSON.stringify(["source.txt"]);
 }
+
 export function cleanupTaskTrialFixture(
   root: string,
   mode: Exclude<TrialMode, "advice">,

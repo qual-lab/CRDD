@@ -15,6 +15,30 @@ import { registerHooks } from "node:module";
 import { isDeepStrictEqual } from "node:util";
 import type { TrialMode, TaskFixtureReceipt } from "./task-trial.ts";
 import type { AdvicePacket } from "../src/attempt/types.ts";
+
+type TrialResult = Readonly<{
+  mode: TrialMode;
+  fixtureReceipt: TaskFixtureReceipt | null;
+  cancellationConfirmed: boolean;
+  reviewToolObservation: Readonly<{
+    commandExecutionStartedCount: number;
+    fileChangeStartedCount: number;
+  }> | null;
+  status: "completed" | "blocked" | "cancelled";
+  reason: string | null;
+  recoveryId: string | null;
+  cleanupConfirmed: boolean;
+  releaseConfirmed: boolean;
+  terminalSaved: boolean;
+  nativeCleanupConfirmed: boolean;
+  contentConfirmed: boolean;
+  resultSha256: string | null;
+  resultBytes: number;
+  diagnostic: ReturnType<
+    ReturnType<typeof createStandaloneProviderAttemptHost>["readDiagnostic"]
+  >;
+}>;
+
 registerHooks({
   resolve(s, c, n) {
     const r = n(s, c);
@@ -23,37 +47,48 @@ registerHooks({
     return r;
   },
 });
+
 const { resolveAiModelSelection, planProviderExecution } = await import(
   "../../ai-adapter/src/index.ts"
 );
+
 const {
   describeDockerProviderExecutionLocations,
   describeDockerProxyTopology,
 } = await import("../../docker-isolation/src/index.ts");
+
 const {
   hashExecutionSelection,
   readCommittedJson,
   writeCommittedJson,
   removeCommittedJson,
 } = await import("../../domain-model/src/index.ts");
+
 const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
   "../../platform-access/src/index.ts"
 );
+
 const { describeExecutorContract, isPrimaryFailureDiagnostic } = await import(
   "../src/index.ts"
 );
+
 const { bindAdviceCommand, hashAdviceCommand } = await import(
   "../../docker-isolation/src/index.ts"
 );
+
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
   await import("../../ai-adapter/src/index.ts");
+
 const { buildProviderDockerExecutionPlan } = await import(
   "../src/attempt/preparation.ts"
 );
+
 const { resolveValidatedPlan } = await import("../src/attempt/isolation.ts");
+
 const { createStandaloneProviderAttemptHost } = await import(
   "./provider-attempt-host.ts"
 );
+
 const { homePipeName } = await import("./verify-provider-home.ts");
 
 const {
@@ -65,13 +100,16 @@ const {
 } = await import("./task-trial.ts");
 
 const reference = "synthetic-context";
+
 const prompt = [
   "Synthetic Context [synthetic-context]: A demo application has one pending documentation task. No implementation has started. The next option is to write a short plan. Read only this context. Do not use tools. Return the requested structured advice with one short fact and one next option, each referencing synthetic-context. Use empty sharedAnalysis and additionalInferences arrays. Do not include repository paths or credentials.",
   "Return only one JSON object matching this exact JSON Schema:",
   JSON.stringify(describeAdviceResultSchema()),
   `Allowed references: ${JSON.stringify([reference])}`,
 ].join("\n");
+
 const script = fileURLToPath(import.meta.url);
+
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
@@ -291,29 +329,6 @@ export function buildStandaloneTrialPlan(
   return plan;
 }
 
-type TrialResult = Readonly<{
-  mode: TrialMode;
-  fixtureReceipt: TaskFixtureReceipt | null;
-  cancellationConfirmed: boolean;
-  reviewToolObservation: Readonly<{
-    commandExecutionStartedCount: number;
-    fileChangeStartedCount: number;
-  }> | null;
-  status: "completed" | "blocked" | "cancelled";
-  reason: string | null;
-  recoveryId: string | null;
-  cleanupConfirmed: boolean;
-  releaseConfirmed: boolean;
-  terminalSaved: boolean;
-  nativeCleanupConfirmed: boolean;
-  contentConfirmed: boolean;
-  resultSha256: string | null;
-  resultBytes: number;
-  diagnostic: ReturnType<
-    ReturnType<typeof createStandaloneProviderAttemptHost>["readDiagnostic"]
-  >;
-}>;
-
 /**
  * 一つの子Process内で観測・排他・単段実行をjoinする。
  * @responsibility 失敗時にexact参照とRootを保持し、再試行しない。
@@ -517,7 +532,7 @@ export async function runStandaloneProviderTrial(
         if (mode === "review" && spec.provider === "codex") {
           const observed =
             normalized && typeof normalized === "object"
-              ? Reflect.get(normalized, "providerExecutionObservation")
+              ? Reflect.get(result, "providerExecutionObservation")
               : null;
           if (
             observed &&
@@ -525,18 +540,16 @@ export async function runStandaloneProviderTrial(
             ["commandExecutionStartedCount", "fileChangeStartedCount"].every(
               (k) =>
                 Number.isSafeInteger(Reflect.get(observed, k)) &&
-                Reflect.get(observed, k) >= 0 &&
-                Reflect.get(observed, k) <= 4096,
+                Number(Reflect.get(observed, k)) >= 0 &&
+                Number(Reflect.get(observed, k)) <= 4096,
             )
           )
             reviewToolObservation = Object.freeze({
-              commandExecutionStartedCount: Reflect.get(
-                observed,
-                "commandExecutionStartedCount",
+              commandExecutionStartedCount: Number(
+                Reflect.get(observed, "commandExecutionStartedCount"),
               ),
-              fileChangeStartedCount: Reflect.get(
-                observed,
-                "fileChangeStartedCount",
+              fileChangeStartedCount: Number(
+                Reflect.get(observed, "fileChangeStartedCount"),
               ),
             });
         }
@@ -679,6 +692,7 @@ function parseMode(value: unknown): TrialMode {
     throw Error("trial_mode_invalid");
   return value;
 }
+
 function validFixtureReceipt(value: unknown): value is TaskFixtureReceipt {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const v = value as Record<string, unknown>;
@@ -694,6 +708,7 @@ function validFixtureReceipt(value: unknown): value is TaskFixtureReceipt {
     valid(v.sourceIdentity)
   );
 }
+
 function trialResult(
   value: unknown,
   mode: TrialMode = "advice",

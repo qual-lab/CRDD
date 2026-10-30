@@ -22,7 +22,7 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { inspectTaskStageDiagnostic } from "../../src/execution/result.ts";
+import { inspectTaskStageDiagnostic } from "../../scripts/task-diagnostic.ts";
 
 import {
   buildCoordinatorRealProviderReport,
@@ -2716,7 +2716,7 @@ test("一次失敗の固定診断だけをProcessから保持する", async () =
     ...[
       { valueType: "missing", numberText: null },
       { valueType: "string", numberText: null },
-      { valueType: "number", numberText: "3" },
+      { valueType: "number", numberText: "9007199254740992" },
       { valueType: "number", numberText: "1.5" },
     ].map((turnCountDiagnostic) => ({
       ...primary,
@@ -2745,6 +2745,7 @@ test("一次失敗の固定診断だけをProcessから保持する", async () =
       { turnCountDiagnostic: { valueType: "secret", numberText: null } },
       { turnCountDiagnostic: { valueType: "string", numberText: 3 } },
       { turnCountDiagnostic: { valueType: "number", numberText: 2 } },
+      { turnCountDiagnostic: { valueType: "number", numberText: "3" } },
       { turnCountDiagnostic: { valueType: "number", numberText: "secret" } },
       {
         turnCountDiagnostic: {

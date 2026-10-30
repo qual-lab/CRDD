@@ -7,7 +7,7 @@
  * @boundary Executor局所試験。
  */
 import type { ProviderAttemptPlan } from "../../src/attempt/types.ts";
-import { PURPOSES } from "../../src/result/validation.ts";
+import { PURPOSES } from "../../src/result/constants.ts";
 
 /**
  * 共通の拒否反例へ使う有効な基本計画を返す。

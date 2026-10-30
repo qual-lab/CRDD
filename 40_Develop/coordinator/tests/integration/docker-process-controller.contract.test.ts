@@ -29,14 +29,12 @@ import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
 } from "../../src/execution/provider-executor.ts";
-import {
-  createExecutorTestCandidate,
-  describeExecutorContract,
-} from "../../../executor/src/index.ts";
+import { describeExecutorContract } from "../../../executor/src/index.ts";
+import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
 import {
   projectAttemptResult,
   projectAttemptStartResult,
-} from "../../../executor/src/index.ts";
+} from "../../../executor/scripts/executor-test.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
@@ -2596,8 +2594,12 @@ test("追加制約のtrueは既存Authorityを代替せず、不正Capabilityを
   assert.equal(recoveryCalls, 0);
   assert.equal(fixture.getCommandCount(), 0);
   assert.equal(
-    startRuntimeOwnedDockerProcessController({}, {}, () => true, restriction)
-      .status,
+    startRuntimeOwnedDockerProcessController(
+      "codex",
+      {} as never,
+      () => true,
+      restriction,
+    ).status,
     "blocked",
   );
 });
@@ -4221,12 +4223,12 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
     decision: "approved",
     findingCount: 0,
     findingDiagnostics: [],
-    providerTurnObservation: {
-      provider: "claude",
-      taskRole: "reviewer",
-      requestedMaximumTurns: 5,
-      providerReportedTurns: 3,
-    },
+  });
+  assert.deepEqual(result.providerTurnObservation, {
+    provider: "claude",
+    taskRole: "reviewer",
+    requestedMaximumTurns: 5,
+    providerReportedTurns: 3,
   });
   assert.equal(result.rawOutputReported, false);
   assert.equal(result.untrustedProviderTextReported, false);
@@ -4469,7 +4471,8 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
   assert.equal(fixture.getMountCompletionCount(), 1);
 
   assert.equal(
-    startRuntimeOwnedDockerProcessController({}, {}).status,
+    startRuntimeOwnedDockerProcessController("codex", {} as never, () => true)
+      .status,
     "blocked",
   );
   assert.equal(
@@ -5178,7 +5181,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 31);
+  assert.equal(contract.contractRevision, 32);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);

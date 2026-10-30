@@ -2,7 +2,7 @@
 
 Status: Draft (v0.22.0 Source構造改訂。実装・機械検査の移行は未完了)
 Owner: Qual-Lab
-Last Updated: 2026-10-19
+Last Updated: 2026-10-30
 Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する
 
 ## 1. 目的と正本
@@ -140,6 +140,7 @@ Source File名はFolderのContextを前提として主要な機能・操作・�
 |---|---|---|
 | `model.ts`、`state.ts` | 概念・Data構造、状態と状態遷移 | 何であり、どう変化するか |
 | `types.ts` | 宣言した責務別範囲に閉じる型専用集合 | どの型を一緒に使うか |
+| `constants.ts` | 同じ責務で複数Sourceが共有する独立した固定値群。必要な場合だけ作る | 固定語彙を共有するとき、どの依存を分離するか |
 | `crud.ts` | 対象概念の登録・取得・変更・削除と、その操作の受理条件 | 対象に対して何を操作できるか |
 | `store.ts` | 保存・読取り、改訂競合の確認、保存確定と必要な読戻し | どう保存・取得し、保存結果を確認するか |
 | `resolve.ts` | 入力条件から既存の候補・設定・参照先を解決する処理と、そのための入力確認 | どの対象・構成を使うか |
@@ -168,6 +169,43 @@ Store、Registry、Catalogは保存方式ではなく責務によって区別す
 2. 同じ責務内で、独立した変更理由・依存または試験境界を説明できる処理だけを分離する。検証関数であることだけを理由に`validation.ts`へ移さず、条件分岐であることだけを理由に`policy.ts`へ移さない（MUST NOT）。
 3. `resolve.ts`、`validation.ts`、`policy.ts`を分ける場合は、各Fileの対象・利用側と同居しない理由を説明する。File数・行数だけを分割根拠にしない。新設・改名する候補解決処理は操作名の`resolve.ts`を基本とし、同じ役割へ`resolver.ts`を併用しない。
 4. 契約の型・定数は、まず実際の操作を所有するFileまたは共有型の`types.ts`への配置を検討する。助言・編集・レビュー等の用途が違うことだけを独立契約Fileの根拠にしない。独立した変更理由・利用側がある契約Fileだけ、FolderとFile名で対象を特定できる名前にする。識別子・版等の実行時定数を`types.ts`へ置かない。
+
+#### 名前付き型は契約を明示する
+
+公開APIの名前付き型、又は複数Sourceで共有する責務の名前付き型は、宣言を読むことでProperty、関数の引数・戻り値、判別値を確認できるように明示する（MUST）。実装関数・Factoryからの型抽出で契約宣言を代用する次の形は禁止する（MUST NOT）。例外は本節末尾の条件に限る。
+
+```typescript
+// 禁止例：実装を追わなければ契約の構造が分からない
+type Executor = ReturnType<typeof createExecutor>;
+```
+
+禁止は`ReturnType`という語だけに限定しない。`Awaited<ReturnType<...>>`、`Parameters<typeof implementation>`、`InstanceType<typeof implementation>`等で同じように実装の推論結果を公開・共有契約の正本にする形も対象とする。実装変更が契約を暗黙に変更する方向ではなく、Factory・実装が明示した契約を満たすことを型検査する。
+
+```typescript
+// 明示例：契約を読み、実装を型検査できる
+type Reader = Readonly<{ read(): string }>;
+function createReader(): Reader {
+  return { read: () => "" };
+}
+```
+
+これは既存の名前付き契約の再利用、`Readonly`／`Promise`等の標準的な型構成、明示された名前付き型からの必要なProperty参照、又は固定の状態・列挙値からのUnion導出を禁止しない。同じ型のコピーを増やさず、参照先の責務と宣言位置を一意にする。型の輪郭を隠す補助alias・型操作を追加して禁止を迂回しない。
+
+関数内部の局所的な型推論や、試験が実装との一致を確認するための型抽出は、その用途に閉じて利用できるが、公開・共有型の正本にしない。外部生成API等で明示契約を直接利用できず型抽出が必要な場合は、対象・理由・所有者・利用範囲・再評価契機をArchitecture又は変更記録へ明示して限定する。既存違反の移行はPackage単位で追跡し、規約追加だけを全Sourceの適用完了と扱わない。
+
+#### 定数の所有と`constants.ts`
+
+定数は原則として、それを使う操作・状態・検査・Provider仕様を所有するSourceへ置く（MUST）。定数であること、宣言数又は行数の多さだけを理由に専用Fileへ集めない（MUST NOT）。単一Sourceだけの上限値はその検査・操作へ、技術的なTimeoutは実行を所有するSource又は既存の構成Sourceへ、Provider固有値はProviderのSourceへ置く。実行時の状態一覧は`lifecycle.ts`等の状態を所有するSourceへ置き、その値から導出する局所型も同居できる。実行時定数を型専用の`types.ts`へ置く例外は作らない。
+
+`constants.ts`を標準の任意Source名として認める。新設又は切出しは、次の全条件を満たす場合に限定する（MUST）。
+
+- 複数のSourceで同じ固定値を共有する。実行値からの型導出も共有に含める。
+- 一つの意味的なまとまりと変更理由を持ち、親Folderから対象を予測できる。
+- 既存の責務Sourceに同居させるより、不要な依存・参照の往復・循環を避けられる理由を説明できる。型専用の参照を実行時の循環故障と混同しない。
+
+Package全体の雑多な定数置場を新設せず、責務Folder内の`constants.ts`を基本とする。同じ用途へ`consts.ts`を併用しない（MUST NOT）。この基準は各Folderへ`constants.ts`を一律作成する要求ではない。
+
+`constants.ts`は固定値の定義と、その整合に必要な局所の導出型だけを所有する。検証関数、設定読取り、環境依存の初期化、資源Handle、可変のRegistry・Cache・Lock状態を集めない（MUST NOT）。`const`で宣言した可変Objectを固定値とみなさず、検索用Set／Map等が一つの検査実装に閉じる場合はその実装へ残す。定数から型を導出できるときは、型を利用する実装へ逆依存して循環を再導入しない。切出しのためだけの転送exportや新しい公開APIは追加せず、利用側を新Ownerへ直接追従させる。
 
 #### 操作と保存の配置
 
@@ -245,6 +283,26 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 
 CRDD所有APIはNamed Exportを基本とし、Default Exportは明確な理由がある場合だけ使用する。`src/index.ts`では公開Symbolと型を明示列挙する。Frameworkが要求する設定入口等のDefault Exportは理由付き例外として扱い、その例外を製品API全体へ広げない。
 
+#### TypeScript File内の記述順序
+
+TypeScript Fileは次の順序で記述する（MUST）。該当する宣言がない区画は省略し、空の見出しや別Fileを追加しない。
+
+| 順序 | 配置する内容 |
+|---|---|
+| 1 | File Header。Production／TestそれぞれのHeader規則に従う |
+| 2 | 静的`import`と他Moduleからの再export（`export ... from`）。型専用importもここへまとめる |
+| 3 | そのFileが所有する型宣言。`type`／`interface`等の実行時に消去される宣言に限定する |
+| 4 | File直下（module scope）の変数・定数 |
+| 5 | 各関数・Class等の実装。各SymbolのHeaderは対象宣言の直前に置く |
+
+静的importを型・値・関数の宣言や処理の途中へ置いてはならない（MUST NOT）。同じmodule specifierからのimportは、文法上統合できる範囲で一つの宣言へまとめ、型専用参照は`import type`又はinlineの`type`指定で維持する（MUST）。副作用だけのimportは別に保ち、統合のためにbinding importへ変換しない。`export ... from`も依存Moduleの評価に関わるため、importと再exportの相対順、副作用および循環依存の意味を変更しない（MUST NOT）。
+
+ここでいうFile直下の変数・定数は、そのModuleが所有する値であり、`globalThis`等のProcess全体へ公開する変数を意味しない。関数内の局所変数をこの区画へ引き上げない（MUST NOT）。Arrow FunctionやFunction Expressionを代入する宣言は、`const`／`let`であっても関数・実装区画へ置く。実行時の値を持つ宣言を型区画へ混在させず、`types.ts`の型専用方針も変更しない。
+
+Shebang、Frameworkの`"use client"`等のdirective、triple-slash directive等に外部仕様上の配置条件がある場合だけ、その必須位置を優先する。Header・importの形式を整えるために外部仕様を壊さない。`index.ts`や型専用Fileでは不要な値・関数区画を作らない。
+
+既存Sourceの整理では初期化の依存順と意味を保持する（MUST）。先頭の値が後方のFunction ExpressionやClassを初期化前に参照する変更、top-level await・呼出し・登録処理を関数の後へ機械的に移す変更は禁止する。並べ替えの意味同値を確認できなければ移動を止め、初期化を所有する実装と責務を確認する。新しい初期化Frameworkや共有状態を作って順序規則に合わせない。
+
 #### File・Functionの責務と分割
 
 Function／Methodは何をするかを示す動詞句とする。`process()`、`handle()`、`execute()`、`run()`、`manage()`だけでは対象・動作を説明できない場合、`handleProviderResult()`等の具体名にする。呼出し箇所から対象と処理内容が明確な既存契約や外部overrideは、第2節の固定語彙境界と合わせて評価する。
@@ -273,7 +331,9 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 - [ ] Folder ContextとFile名の重複、Symbol単体の意味、曖昧語の使用理由を評価した。
 - [ ] File／Functionの意味・失敗・変更理由の境界を評価し、分割または同居の理由を説明できる。
 - [ ] `crud.ts`と`store.ts`の操作・保存境界、`resolve.ts`／`validation.ts`／`policy.ts`の実責務、契約Fileの対象を確認し、命名例に合わせるだけの分割・中継・Lockを追加していない。
+- [ ] 公開・共有の名前付き型が実装由来の型抽出を契約の正本にしておらず、例外には対象・理由・所有者・範囲・再評価契機がある。
 - [ ] 局所型と共有型を区別し、`types.ts`が無関係な型の退避先になっていない。
+- [ ] File Header、import、型、File直下の変数・定数、関数・実装の順序と同一参照先のimport統合を確認し、依存評価・初期化の意味を変えていない。
 - [ ] `index.ts`が`src/index.ts`だけに存在し、別名の再export専用集約もCapability配下に残っていない。正式Subpathは実責務を所有する具体Fileへ接続し、明示exportとNamed Exportの原則を評価した。
 - [ ] `bin/`の主要File名がPackage Folder名と一致し、`bin/`、`scripts/`、`src/`、`tests/`の所有範囲と参照経路が整合する。追加CLIがある場合は独立理由を明示した。
 - [ ] Package間deep importがなく、Script／Testによる同Package内部参照は、それぞれの許可範囲に閉じる。
@@ -663,6 +723,7 @@ Rust等の言語またはFrameworkの標準配置を維持する場合は、物�
 - `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp-server.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
 - Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
+- File内記述順序の規約追加は、既存Sourceの並べ替えや機械検査の実装完了を意味しない。未移行と検査の対応状況は変更トレースで区別し、Source整理時に依存評価・初期化の同値性を照合する。
 - Release署名または発行Authorityを持つToolでは、開発入口が公式鍵・passphrase・実署名Effectなしで反復可能なこと、正式署名入口が全非秘密条件を対話入力前に拒否すること、失敗時にmanifestまたはAuthorityを残さないこと、および一般利用者の経路が署名検証だけで成立することを契約試験へ接続する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。
 - 過去の固定履歴は書き換えず、旧Pathから現在Pathへの移行を後続の変更トレースへ記録する。

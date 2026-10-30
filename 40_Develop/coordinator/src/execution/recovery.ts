@@ -133,7 +133,8 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "./operation.ts";
 import type {
-  ExecutorHost,
+  ExecutorOptions,
+  CompletionResult,
   RecoveryStartFailureDiagnostic,
 } from "../../../executor/src/index.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
@@ -1126,13 +1127,13 @@ type DurableRecord = {
   hostCleanupOutcome?: unknown;
   dockerCompletion?: unknown;
   terminalObservation?: Parameters<
-    NonNullable<ExecutorHost["recordTerminalObservation"]>
+    NonNullable<ExecutorOptions["recordTerminalObservation"]>
   >[2];
   settlementResult?: ReturnType<typeof settleRuntimeOwnedCoordinatorResult>;
   mountCompletion?: unknown;
+  cleanupCheckpoint?: Readonly<{ revision: number; payloadSha256: string }>;
   normalRestoration?: {
     plan: unknown;
-    cleanupOutcome: unknown;
     mountCompletion: unknown;
     identityJson: string;
     result: ReturnType<typeof completeRuntimeOwnedCoordinatorHostSubmission>;
@@ -4313,14 +4314,35 @@ export function recordRuntimeOwnedDockerAbsence(
   observations: unknown,
 ) {
   const record = durableRecord(recoveryCapability);
-  return (
-    !!record &&
-    checkpointRuntimeOwnedCoordinatorCleanup(
-      record.managementCapability,
-      record.recoveryId,
-      observations,
-    ).status === "completed"
+  if (!record || record.normalRestoration || record.cleanupCheckpoint)
+    return false;
+  const saved = checkpointRuntimeOwnedCoordinatorCleanup(
+    record.managementCapability,
+    record.recoveryId,
+    observations,
   );
+  if (
+    saved.status !== "completed" ||
+    !saved.snapshotConfirmed ||
+    !saved.lockReleased
+  )
+    return false;
+  const current = readRuntimeOwnedCoordinatorStateSnapshot(
+    record.managementCapability,
+  );
+  if (
+    current.status !== "completed" ||
+    !current.value ||
+    !current.lockReleased ||
+    current.value.snapshot.revision !== saved.revision ||
+    current.value.payloadSha256 !== saved.payloadSha256
+  )
+    return false;
+  record.cleanupCheckpoint = Object.freeze({
+    revision: current.value.snapshot.revision,
+    payloadSha256: current.value.payloadSha256,
+  });
+  return true;
 }
 
 /**
@@ -4372,30 +4394,54 @@ function completeProductionRecovery(
   const record = durableRecord(recoveryCapability);
   const completion = snapshotPlainRecord(
     rawCompletion,
-    new Set(["plan", "cleanupOutcome", "mountCompletion"]),
+    new Set(["plan", "mountCompletion"]),
   );
   if (
     !record ||
     record.managementCapability !== managementCapability ||
     !completion ||
+    !record.cleanupCheckpoint ||
     completion.mountCompletion !== record.mountCompletion
   )
     return Object.freeze({ status: "blocked" as const });
   if (record.normalRestoration) {
     if (
       completion.plan !== record.normalRestoration.plan ||
-      completion.cleanupOutcome !== record.normalRestoration.cleanupOutcome ||
       completion.mountCompletion !== record.normalRestoration.mountCompletion
     )
       return Object.freeze({ status: "blocked" as const });
-  } else {
+  }
+  if (
+    record.normalRestoration?.result.status !== "completed" ||
+    !record.normalRestoration.result.hostTransitionConfirmed
+  ) {
     const before =
       readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
+    const priorHost = record.normalRestoration?.result;
+    const expected =
+      priorHost &&
+      "revision" in priorHost &&
+      typeof priorHost.revision === "number" &&
+      "payloadSha256" in priorHost &&
+      typeof priorHost.payloadSha256 === "string"
+        ? {
+            revision: priorHost.revision,
+            payloadSha256: priorHost.payloadSha256,
+          }
+        : record.cleanupCheckpoint;
     const previous = before.value?.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === record.recoveryId,
     );
-    if (before.status !== "completed" || !previous)
+    if (
+      before.status !== "completed" ||
+      !before.lockReleased ||
+      !previous ||
+      (record.normalRestoration &&
+        previous.identityJson !== record.normalRestoration.identityJson) ||
+      before.value?.snapshot.revision !== expected.revision ||
+      before.value.payloadSha256 !== expected.payloadSha256
+    )
       return Object.freeze({ status: "blocked" as const });
     const restored = completeRuntimeOwnedCoordinatorHostSubmission(
       managementCapability,
@@ -4403,19 +4449,16 @@ function completeProductionRecovery(
       completion.plan as Parameters<
         typeof completeRuntimeOwnedCoordinatorHostSubmission
       >[2],
-      recoveryCapability,
-      completion.cleanupOutcome,
       completion.mountCompletion,
     );
-    if (restored.status !== "completed" || !restored.hostTransitionConfirmed)
-      return Object.freeze({ ...restored, status: "blocked" as const });
     record.normalRestoration = {
       plan: completion.plan,
-      cleanupOutcome: completion.cleanupOutcome,
       mountCompletion: completion.mountCompletion,
       identityJson: previous.identityJson,
       result: restored,
     };
+    if (restored.status !== "completed" || !restored.hostTransitionConfirmed)
+      return Object.freeze({ ...restored, status: "blocked" as const });
   }
   const current =
     readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
@@ -4695,39 +4738,59 @@ export function prepareRuntimeOwnedDockerHostCleanup(
 }
 
 /**
- * 検査済みレビューを元の復帰済み試行へ結合する。
- * @responsibility 元操作・Plan実体・初回Reviewerを照合して許可Ownerへ渡す。
- * @trace ARCH-000015
- * @input 元回復capability、同じplan、検査済みfindings。
- * @returns 次試行Ownerの参照又はnull。
- * @precondition 固定Executor Host callbackからのみ呼ばれる。
- * @postcondition 別操作・未復帰・別Plan・二回目レビューを拒否する。
- * @effect 受理時だけ既存の一回使用Mapへ登録する。
- * @failure 不一致はnullで技術結果を変更しない。
- * @invariant 内容完了と次試行の許可を区別する。
- * @boundary Executorの固定通知とCoordinatorの次試行Owner。
- * @security 任意の外部結果を受ける公開操作にしない。
- * @concurrency 同期の照合と登録。新しいLockを持たない。
+ * 受領したレビュー結果から同じTaskの限定是正許可を作る。
+ * @responsibility 既存の終端相関と初回レビュー条件を照合する。
+ * @trace ARCH-000008
+ * @input 同じhandoffのCapabilityとExecutorが返したCompletionResult。
+ * @returns 既存の一回使用許可又はnull。
+ * @precondition Task Ownerが取消・実行完了を確認して一回だけ呼ぶ。
+ * @postcondition 別結果、別操作、清掃不明、二回目レビューへ発行しない。
+ * @effect Coordinator既存のProcess内許可への登録だけ。
+ * @failure 相関又は所見の不一致では許可を作らない。
+ * @invariant 所見の内容を実行・採用判断と同一視しない。
+ * @boundary Executorの一時結果とCoordinatorの次試行許可。
+ * @security 本文をstate・history・公開DTO・ログへ複製しない。
+ * @concurrency awaitを挟まない同じTask Ownerの同期処理。
  */
 export function registerRuntimeOwnedReviewFindings(
   capability: object,
-  plan: Parameters<NonNullable<ExecutorHost["registerReviewFindings"]>>[1],
-  findings: Parameters<NonNullable<ExecutorHost["registerReviewFindings"]>>[2],
+  result: CompletionResult,
 ) {
   const record = durableRecord(capability);
+  const plan = record?.normalRestoration?.plan as
+    | Parameters<ExecutorOptions["completeRecovery"]>[2]["plan"]
+    | undefined;
+  const terminal = record?.terminalObservation;
   if (
     !record ||
+    !plan ||
+    record.dockerCompletion !== result ||
+    !terminal ||
+    terminal.homeLeaseReleased !== true ||
+    !terminal.mountLeaseReleased ||
+    !terminal.recoveryCompleted ||
+    terminal.recoveryId !== record.recoveryId ||
+    terminal.operationId !== record.operationId ||
+    result.status !== "completed" ||
+    !result.cleanupConfirmed ||
+    result.cancellationRequested ||
+    result.operationId !== record.operationId ||
+    result.selectionRecordId !== plan.selectionRecordId ||
     record.operationId !== plan.operationId ||
-    record.normalRestoration?.plan !== plan ||
     plan.operationMode !== "isolated_task" ||
     plan.taskRole !== "reviewer" ||
-    plan.taskAttempt !== 0
+    plan.taskAttempt !== 0 ||
+    !result.normalizedResult ||
+    !("decision" in result.normalizedResult) ||
+    result.normalizedResult.decision !== "changes_requested" ||
+    !result.reviewFindings?.length ||
+    result.normalizedResult.findingCount !== result.reviewFindings.length
   )
     return null;
   return registerTaskRemediation(
     record.operationId,
     plan.taskAttempt,
-    findings,
+    result.reviewFindings,
   );
 }
 
@@ -4750,7 +4813,7 @@ export function recordRuntimeOwnedDockerTerminalObservation(
   capability: object,
   result: object,
   observation: Parameters<
-    NonNullable<ExecutorHost["recordTerminalObservation"]>
+    NonNullable<ExecutorOptions["recordTerminalObservation"]>
   >[2],
 ) {
   const record = durableRecord(capability);

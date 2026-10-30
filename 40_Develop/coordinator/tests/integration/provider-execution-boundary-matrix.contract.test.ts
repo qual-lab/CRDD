@@ -1,3 +1,7 @@
+import {
+  extractProviderResult as parseProviderResult,
+  type ProviderEnvelopeInput as ProviderResultInput,
+} from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * coordinator:integration:provider-execution-boundary-matrixの検証範囲を定義する。
  *
@@ -11,10 +15,8 @@
  */
 import {
   planProviderExecution,
-  parseProviderResult,
   evaluateProviderTaskScope,
   type ProviderExecutionInput,
-  type ProviderResultInput,
 } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";

@@ -10,14 +10,15 @@ import {
   convertProviderError,
   evaluateProviderAuthentication,
   parseProviderResult,
+  type TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import {
   type CommandObservation as CommandExecution,
   type DockerExecutionHooks,
   type DockerIsolationCommand,
   classifyDockerCommandException,
-  type classifyDockerCommandExecution,
-  type classifyDockerProcessExit,
+  type DockerCommandExecutionClassification,
+  type DockerProcessExitStatusClass,
   describeDockerCommandSessionContract,
   parseDockerTaskRecoveryId,
   STDERR_LIMIT_BYTES,
@@ -25,7 +26,6 @@ import {
   startDockerCommandSessionCandidate,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  SETUP_COMMAND_FAILURE_REASONS,
   inspectRecoveryStartFailureDiagnostic,
   isAttemptFailureReason,
   isDockerSetupCommandPurpose,
@@ -35,38 +35,30 @@ import {
   snapshotReadyRecovery,
   snapshotBlockedRecoveryWithExactId,
 } from "../result/validation.ts";
-import { createBlockedStart, createFinalResult } from "../result/attempt.ts";
+import { SETUP_COMMAND_FAILURE_REASONS } from "../result/constants.ts";
+import {
+  createStartResult,
+  createCompletionResult,
+} from "../result/attempt.ts";
 import { completeAttemptCleanup, isPlanValid } from "./isolation.ts";
 import type {
   AttemptResultReason,
+  CompletionResult,
   PrimaryFailureDiagnostic,
   RecoveryStartFailureDiagnostic,
-  ReviewFinding,
   AttemptContent,
 } from "../result/types.ts";
-import { normalizeTaskResult } from "../result/task.ts";
-import { normalizeProviderAdviceOutput } from "../result/advice.ts";
 import {
   providerBoundaryConfiguration,
   reportPassiveBoundaryDiagnostic,
   type ProcessStartedNotice,
 } from "./observation.ts";
-import type { ProviderAttemptPlan as PreparedPlan } from "./types.ts";
 import type {
+  ProviderAttemptPlan as PreparedPlan,
   RuntimeDependencies,
   Recovery,
   CleanupObservation,
 } from "./types.ts";
-
-const EXECUTOR_CONTRACT = "crdd-executor/attempt";
-
-const EXECUTOR_CONTRACT_REVISION = 31;
-
-const {
-  setupTimeoutMs: SETUP_TIMEOUT_MS,
-  providerTimeoutMs: PROVIDER_TIMEOUT_MS,
-  cancellationGraceMs: CANCELLATION_GRACE_MS,
-} = describeDockerCommandSessionContract();
 
 /**
  * docker-process-controllerで使用するExecution 記録の値契約を定義する。
@@ -94,7 +86,7 @@ type ExecutionRecord = {
         }>
       >)
     | null;
-  completion: Promise<ExecutionResult> | null;
+  completion: Promise<CompletionResult> | null;
 };
 
 /**
@@ -113,18 +105,17 @@ type RuntimeState = Readonly<{
   controls: WeakMap<object, ExecutionRecord>;
 }>;
 
-/**
- * docker-process-controllerで使用するExecution 結果の値契約を定義する。
- *
- * @responsibility Execution 結果のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape ExecutionResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ExecutionResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: ExecutionResultの宣言は外部境界を開かない。
- * @security ExecutionResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ExecutionResultの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ExecutionResult = ReturnType<typeof createFinalResult>;
+export const PREPARATION_LIFETIME_MS = 30_000;
+
+const EXECUTOR_CONTRACT = "crdd-executor/attempt";
+
+const EXECUTOR_CONTRACT_REVISION = 32;
+
+const {
+  setupTimeoutMs: SETUP_TIMEOUT_MS,
+  providerTimeoutMs: PROVIDER_TIMEOUT_MS,
+  cancellationGraceMs: CANCELLATION_GRACE_MS,
+} = describeDockerCommandSessionContract();
 
 /**
  * Invalid 回復 Startを終端状態へ確定する。
@@ -161,7 +152,13 @@ function settleInvalidRecoveryStart(
       managementCapability,
     );
   } catch {}
-  return createBlockedStart(reason, false, recoveryId, true);
+  return createStartResult({
+    status: "blocked",
+    reason: reason,
+    cleanupConfirmed: false,
+    recoveryId: recoveryId,
+    manualRecoveryRequired: true,
+  });
 }
 
 /**
@@ -184,7 +181,7 @@ function classifyExecution(
   execution: CommandExecution | null,
   purpose: string,
   provider: "codex" | "claude",
-  classified: ReturnType<typeof classifyDockerCommandExecution>,
+  classified: DockerCommandExecutionClassification,
 ) {
   const isProvider = purpose === "start_provider_attached";
   if (classified.category === "deadline_exceeded")
@@ -292,13 +289,15 @@ async function executePlan(
   let resultSha256: string | null = null;
   let resultBytes = 0;
   let normalizedResult: AttemptContent | null = null;
-  let reviewFindings: readonly ReviewFinding[] | null = null;
+  let providerExecutionObservation: CompletionResult["providerExecutionObservation"] =
+    null;
+  let providerTurnObservation: Readonly<Record<string, unknown>> | null = null;
+  let reviewFindings: readonly TaskReviewFinding[] | null = null;
   let isSubscriptionAuthConfirmed = false;
   let recoveryFinalizationCapability: object | null = null;
   let wasProviderContainerCreationObserved = false;
   let wasProviderProcessCompletionObserved = false;
-  let providerExitStatusClass: ReturnType<typeof classifyDockerProcessExit> =
-    "not_observed";
+  let providerExitStatusClass: DockerProcessExitStatusClass = "not_observed";
   let diagnosticPurpose: string | null = null;
   let diagnosticStage: PrimaryFailureDiagnostic["stage"] = "submission_record";
   let hasCommandHandle = false;
@@ -570,35 +569,29 @@ async function executePlan(
       }
       if (purpose === "start_provider_attached") {
         diagnosticStage = "provider_result_normalization";
-        const probe =
-          plan.operationMode === "boolean_probe"
-            ? parseProviderResult({
-                provider: plan.provider,
-                purpose: "probe",
-                raw: execution.stdout,
-              })
-            : null;
-        const providerResult =
+        const providerResult = parseProviderResult(
           plan.operationMode === "isolated_task"
-            ? normalizeTaskResult(
-                plan.provider,
-                plan.taskRole,
-                plan.selectedEffort,
-                execution.stdout,
-                plan.taskWorkload,
-              )
+            ? {
+                provider: plan.provider,
+                purpose: "task",
+                taskRole: plan.taskRole,
+                selectedEffort: plan.selectedEffort,
+                raw: execution.stdout,
+                taskWorkload: plan.taskWorkload,
+              }
             : plan.operationMode === "workbench_advice"
-              ? normalizeProviderAdviceOutput(
-                  plan.provider,
-                  execution.stdout,
-                  plan.adviceAllowedReferences ?? [],
-                )
-              : Object.freeze({
-                  status: probe?.status ?? "blocked",
-                  normalizedResult: probe?.value ?? null,
-                  turnCountDiagnostic: probe?.turnCountDiagnostic,
-                  reason: probe?.error?.reason ?? "provider_result_invalid",
-                });
+              ? {
+                  provider: plan.provider,
+                  purpose: "advice",
+                  raw: execution.stdout,
+                  allowedReferences: plan.adviceAllowedReferences ?? [],
+                }
+              : {
+                  provider: plan.provider,
+                  purpose: "probe",
+                  raw: execution.stdout,
+                },
+        );
         if (providerResult.status !== "confirmed") {
           if ("turnCountDiagnostic" in providerResult)
             turnCountDiagnostic = providerResult.turnCountDiagnostic;
@@ -610,10 +603,18 @@ async function executePlan(
           );
         }
         normalizedResult = providerResult.normalizedResult;
+        providerExecutionObservation =
+          "providerExecutionObservation" in providerResult
+            ? (providerResult.providerExecutionObservation ?? null)
+            : null;
+        providerTurnObservation =
+          "providerTurnObservation" in providerResult
+            ? (providerResult.providerTurnObservation ?? null)
+            : null;
         reviewFindings =
           "reviewFindings" in providerResult &&
           Array.isArray(providerResult.reviewFindings)
-            ? (providerResult.reviewFindings as readonly ReviewFinding[])
+            ? (providerResult.reviewFindings as readonly TaskReviewFinding[])
             : null;
         resultBytes = lastStdoutBytes;
         resultSha256 = createHash("sha256")
@@ -850,26 +851,28 @@ async function executePlan(
         recoveryCompleted,
     }),
   );
-  let finalResult = createFinalResult(
-    requestedStatus,
+  const finalResult = createCompletionResult({
+    status: requestedStatus,
     reason,
-    plan,
-    recovery.recoveryId,
-    {
-      providerRequestStarted,
-      cancellationRequested: record.cancellationRequested,
-      processTreeTerminationConfirmed,
-      containersAbsent: cleanup.containersAbsent,
-      networksAbsent: cleanup.networksAbsent,
-      mountLeaseReleased,
-      recoveryCompleted,
-      resultSha256,
-      resultBytes,
-      normalizedResult,
-      subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
-      recoveryFinalizationCapability,
-    },
-  );
+    operationId: plan.operationId,
+    selectionRecordId: plan.selectionRecordId,
+    recoveryId: recovery.recoveryId,
+    providerRequestStarted,
+    cancellationRequested: record.cancellationRequested,
+    processTreeTerminationConfirmed,
+    containersAbsent: cleanup.containersAbsent,
+    networksAbsent: cleanup.networksAbsent,
+    mountLeaseReleased,
+    recoveryCompleted,
+    resultSha256,
+    resultBytes,
+    normalizedResult,
+    reviewFindings,
+    providerExecutionObservation,
+    providerTurnObservation,
+    subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
+    recoveryFinalizationCapability,
+  });
   let homeLeaseReleased = false;
   try {
     homeLeaseReleased =
@@ -883,38 +886,8 @@ async function executePlan(
     homeLeaseReleased = false;
   }
   if (verifiedResourceObservations != null) {
-    const settledReviewFindings = reviewFindings as
-      | readonly ReviewFinding[]
-      | null;
-    if (
-      finalResult.status === "completed" &&
-      plan.taskRole === "reviewer" &&
-      settledReviewFindings?.length
-    ) {
-      let capability: object | null = null;
-      try {
-        capability =
-          state.dependencies.registerReviewFindings?.(
-            recovery.recoveryCapability,
-            plan,
-            settledReviewFindings,
-          ) ?? null;
-      } catch {}
-      if (
-        capability &&
-        finalResult.normalizedResult &&
-        typeof finalResult.normalizedResult === "object"
-      )
-        finalResult = Object.freeze({
-          ...finalResult,
-          normalizedResult: Object.freeze({
-            ...finalResult.normalizedResult,
-            remediationCapability: capability,
-          }),
-        });
-    }
     try {
-      state.dependencies.recordTerminalObservation?.(
+      const delivered: unknown = state.dependencies.recordTerminalObservation?.(
         recovery.recoveryCapability,
         finalResult,
         Object.freeze({
@@ -927,6 +900,7 @@ async function executePlan(
           homeLeaseReleased,
         }),
       );
+      if (utilTypes.isPromise(delivered)) void delivered.catch(() => {});
     } catch {
       // Missing terminal delivery prevents Host settlement; cleanup/result stay unchanged.
     }
@@ -967,23 +941,30 @@ function start(
     !managementCapability ||
     typeof managementCapability !== "object"
   ) {
-    return createBlockedStart("docker_process_controller_effect_unavailable");
+    return createStartResult({
+      status: "blocked",
+      reason: "docker_process_controller_effect_unavailable",
+    });
   }
   const plan = state.dependencies.consumePreparedPlan(
     preparedCapability,
     managementCapability,
   );
   if (!plan || !isPlanValid(plan))
-    return createBlockedStart("docker_process_controller_plan_invalid");
+    return createStartResult({
+      status: "blocked",
+      reason: "docker_process_controller_plan_invalid",
+    });
   if (!state.dependencies.verifyRevision(managementCapability)) {
     const completed = state.dependencies.completeMount(
       plan.activeMountCapability,
       managementCapability,
     );
-    return createBlockedStart(
-      "docker_process_controller_revision_invalid",
-      completed.status === "completed",
-    );
+    return createStartResult({
+      status: "blocked",
+      reason: "docker_process_controller_revision_invalid",
+      cleanupConfirmed: completed.status === "completed",
+    });
   }
   const authority = state.dependencies.consumeProviderAuthority(
     plan.authorityUseCapability,
@@ -1002,10 +983,11 @@ function start(
       plan.activeMountCapability,
       managementCapability,
     );
-    return createBlockedStart(
-      "docker_process_controller_authority_invalid",
-      completed.status === "completed",
-    );
+    return createStartResult({
+      status: "blocked",
+      reason: "docker_process_controller_authority_invalid",
+      cleanupConfirmed: completed.status === "completed",
+    });
   }
   let recoveryStartFailure: RecoveryStartFailureDiagnostic | null = null;
   let failureObserved = false;
@@ -1062,12 +1044,13 @@ function start(
       plan.stableLogicalHomeBindingHash,
     );
     if (exactBlocked?.recoveryCapability) {
-      const stopped = createBlockedStart(
-        resolveRecoveryStartReason(exactBlocked.reason),
-        false,
-        exactBlocked.recoveryId,
-        true,
-      );
+      const stopped = createStartResult({
+        status: "blocked",
+        reason: resolveRecoveryStartReason(exactBlocked.reason),
+        cleanupConfirmed: false,
+        recoveryId: exactBlocked.recoveryId,
+        manualRecoveryRequired: true,
+      });
       let isVerified = false;
       try {
         isVerified =
@@ -1098,12 +1081,13 @@ function start(
         plan.activeMountCapability,
         managementCapability,
       );
-      return createBlockedStart(
-        resolveRecoveryStartReason(exactBlocked.reason),
-        completed.status === "completed",
-        exactBlocked.recoveryId,
-        true,
-      );
+      return createStartResult({
+        status: "blocked",
+        reason: resolveRecoveryStartReason(exactBlocked.reason),
+        cleanupConfirmed: completed.status === "completed",
+        recoveryId: exactBlocked.recoveryId,
+        manualRecoveryRequired: true,
+      });
     }
     if (malformedCapability || malformedRecoveryId)
       return settleInvalidRecoveryStart(
@@ -1118,12 +1102,14 @@ function start(
       plan.activeMountCapability,
       managementCapability,
     );
-    return createBlockedStart(
-      resolveRecoveryStartReason(ownDataValue(recovery, "reason")),
-      completed.status === "completed",
-      malformedRecoveryId,
-      ownDataValue(recovery, "manualRecoveryRequired") === true,
-    );
+    return createStartResult({
+      status: "blocked",
+      reason: resolveRecoveryStartReason(ownDataValue(recovery, "reason")),
+      cleanupConfirmed: completed.status === "completed",
+      recoveryId: malformedRecoveryId,
+      manualRecoveryRequired:
+        ownDataValue(recovery, "manualRecoveryRequired") === true,
+    });
   }
   const parsedRecoveryId = parseDockerTaskRecoveryId(readyRecovery.recoveryId);
   if (
@@ -1180,22 +1166,12 @@ function start(
     },
   );
   record.completion = completion;
-  return Object.freeze({
-    status: "started" as const,
-    reason: "docker_process_controller_started",
+  return createStartResult({
+    status: "started",
     controlCapability,
     completion,
     operationId: plan.operationId,
     recoveryId: parsedRecoveryId.token,
-    dockerEffectStarted: true,
-    providerRequestStarted: false,
-    rawOutputReported: false,
-    untrustedProviderTextReported: false,
-    credentialAbsenceVerified: false,
-    normalizedResult: null,
-    normalizedResultReportedAfterCleanupOnly: true,
-    hostPathReported: false,
-    proxyCredentialReported: false,
   });
 }
 
@@ -1231,11 +1207,16 @@ async function cancel(
   const terminated = record.cancelExecution
     ? (await record.cancelExecution()).processTerminationObserved
     : true;
+  if (terminated)
+    return Object.freeze({
+      status: "requested" as const,
+      reason: "provider_cancellation_requested" as const,
+      cancellationRequested: true as const,
+      processTerminationObserved: terminated,
+    });
   return Object.freeze({
     status: "requested" as const,
-    reason: terminated
-      ? "provider_cancellation_requested"
-      : "provider_cancellation_grace_exceeded",
+    reason: "provider_cancellation_grace_exceeded" as const,
     cancellationRequested: true,
     processTerminationObserved: terminated,
   });
@@ -1328,9 +1309,10 @@ export function createProviderAttemptRuntime(
           observeProviderStarted,
         );
       } catch {
-        return createBlockedStart(
-          "docker_process_controller_start_failed_closed",
-        );
+        return createStartResult({
+          status: "blocked",
+          reason: "docker_process_controller_start_failed_closed",
+        });
       }
     },
     cancel: (controlCapability: unknown, managementCapability: unknown) =>
@@ -1357,6 +1339,7 @@ export function createProviderAttemptRuntime(
 export function describeExecutorContract() {
   return Object.freeze({
     contract: EXECUTOR_CONTRACT,
+    preparationLifetimeMs: PREPARATION_LIFETIME_MS,
     contractRevision: EXECUTOR_CONTRACT_REVISION,
     setupTimeoutMs: SETUP_TIMEOUT_MS,
     providerTimeoutMs: PROVIDER_TIMEOUT_MS,

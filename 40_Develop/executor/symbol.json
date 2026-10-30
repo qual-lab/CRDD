@@ -3,6 +3,9 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    { "symbolId": "executor.test.support.result-validation", "kind": "file", "path": "tests/support/result-validation.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.result.constants", "kind": "file", "path": "src/result/constants.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.verification.test-entry", "kind": "file", "path": "scripts/executor-test.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "executor.attempt.validation", "kind": "file", "path": "src/attempt/validation.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "executor.verification.task-trial", "kind": "file", "path": "scripts/task-trial.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "executor.test.unit.review-delivery", "kind": "test-suite", "path": "tests/unit/review-delivery.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["coordinator.source.src.security.docker.process.controller"] },
@@ -88,7 +91,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/result/advice.ts",
+      "path": "src/result/attempt.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -96,7 +99,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/result/task.ts",
+      "path": "src/result/attempt.ts",
       "archIds": [
         "ARCH-000015"
       ]

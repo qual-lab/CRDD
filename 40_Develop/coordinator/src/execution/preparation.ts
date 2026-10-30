@@ -10,9 +10,9 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import {
-  createAttemptPreparation,
-  PREPARATION_LIFETIME_MS,
-  type PreparationHost,
+  type ExecutorOptions,
+  type CompletionResult,
+  describeExecutorContract,
 } from "../../../executor/src/index.ts";
 import {
   type AdviceCommand,
@@ -56,7 +56,6 @@ import {
   revokeRuntimeOwnedProviderAuthority,
 } from "./authority.ts";
 import { performance } from "node:perf_hooks";
-import type { ExecutorHost } from "../../../executor/src/index.ts";
 
 /**
  * 固定準備Hostへ渡す助言Packetの実契約を参照する。
@@ -69,24 +68,20 @@ import type { ExecutorHost } from "../../../executor/src/index.ts";
  * @compatibility 公開Host callbackの返却型へ追従する。
  */
 type AdvicePacket = NonNullable<
-  ReturnType<
-    NonNullable<PreparationHost<"codex" | "claude">["consumeAdvicePacket"]>
-  >
+  ReturnType<NonNullable<ExecutorOptions["consumeAdvicePacket"]>>
 >;
 
 /**
- * Executorの固定通知が渡す検査済み所見を参照する。
+ * Executorの完了結果が返す検査済み所見を参照する。
  * @responsibility 上下位で所見構造を重複定義しない。
  * @trace ARCH-000015
- * @shape 固定registerReviewFindings callbackの第三引数。
+ * @shape CompletionResultのreviewFindings。
  * @invariant 内容検査の成立を型付けだけから推定しない。
  * @boundary 実行Ownerと次試行許可Owner。
  * @security 本文は公開結果や保存診断に複製しない。
- * @compatibility Executorの実callback型へ追従する。
+ * @compatibility Executorの完了結果型へ追従する。
  */
-type ReviewFindings = Parameters<
-  NonNullable<ExecutorHost["registerReviewFindings"]>
->[2];
+type ReviewFindings = NonNullable<CompletionResult["reviewFindings"]>;
 // 移管した一回使用証拠。次Taskの許可はCoordinatorだけが所有する。
 const reviewRemediations = new WeakMap<
   object,
@@ -642,37 +637,6 @@ function consumeAttemptModelSelection(use: unknown, management: unknown) {
     : null;
 }
 
-const productionAdapters = Object.freeze({
-  codex: createAttemptPreparation("codex", {
-    ...createProviderDockerRuntimeDependencies(),
-  }),
-  claude: createAttemptPreparation("claude", {
-    ...createProviderDockerRuntimeDependencies(),
-  }),
-});
-
-/**
- * 固定Providerの同じ本番準備Ownerを取得する。
- *
- * @responsibility 準備・取消・消費の全利用側を同じProvider別Storeへ結合する。
- * @trace ARCH-000015
- * @input provider: 内部契約で照合済みの固定Provider。
- * @returns 同じProviderの凍結済み本番Adapter。
- * @precondition 呼出し側は固定二Providerの型契約を満たす。
- * @postcondition 取得ごとにStoreを再生成せず、他Providerの候補を混ぜない。
- * @effect N/A: 既存Ownerの参照だけを取得する。
- * @failure N/A: 任意Providerの動的解決やfallbackを行わない。
- * @invariant 一回消費と管理参照のIdentityを保持する。
- * @boundary Coordinator内部の本番利用側と準備Owner。
- * @security Storeや依存差替えを外部へ公開しない。
- * @concurrency 同期取得であり待機や新しいLockを導入しない。
- */
-export function getRuntimeOwnedProviderDockerAdapter<
-  P extends "codex" | "claude",
->(provider: P) {
-  return productionAdapters[provider];
-}
-
 /**
  * 共通準備Adapterの契約をProvider差を保持して説明する。
  * @responsibility 同じ準備Ownerの固定契約とProvider別fieldを記述する。
@@ -711,7 +675,7 @@ export function describeProviderDockerRuntimeAdapterContract(
       "consumed_mount_authorization_and_native_known_folder_source_hash",
     providerAuthority:
       "runtime_owned_short_lived_use_capability_required_in_prepared_plan",
-    preparedLifetimeMs: PREPARATION_LIFETIME_MS,
+    preparedLifetimeMs: describeExecutorContract().preparationLifetimeMs,
     providerImage: "fixed_digest_only_pull_never",
     proxyImage: "fixed_digest_only_pull_never",
     parentEnvironmentInherited: false,

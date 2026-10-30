@@ -9,7 +9,7 @@ import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
-} from "../../coordinator/src/execution/result.ts";
+} from "../../coordinator/scripts/task-diagnostic.ts";
 import {
   inspectRecoveryStartFailureDiagnostic,
   isPrimaryFailureDiagnostic,

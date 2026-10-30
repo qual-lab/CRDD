@@ -10,7 +10,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ATTEMPT_COMPLETION_REASONS,
+  PURPOSES,
+  SETUP_COMMAND_FAILURE_REASONS,
+  RECOVERY_START_FAILURE_STAGES,
+} from "../../../src/result/constants.ts";
+import {
   isAttemptFailureReason,
+  isPrimaryFailureDiagnostic,
+  snapshotReadyRecovery,
+  snapshotBlockedRecoveryWithExactId,
 } from "../../../src/result/validation.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";
 
@@ -25,7 +33,64 @@ import { dockerProcessControllerPublicCompletionReasons } from "../../../../doma
  * @cleanup N/A: 局所値だけ。
  * @boundary Executor発行とDomain保存受理。保存処理は呼ばない。
  */
+/**
+ * ターン数の不正報告診断をProvider側の現行条件へ照合する。
+ * @responsibility 上限2を再導入せず、正常な報告を不正診断として受け付けない。
+ * @trace ERB-IT-004
+ * @precondition 非秘密の合成診断だけ。
+ * @stimulus safe integer境界、小数、零、非canonical数値文字列。
+ * @observation 診断の受理可否。
+ * @oracle 不正報告の数値条件はsafe integerかつ1以上の否定と一致する。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("ターン不正診断は上限比較ではなく報告値の形式条件に一致する", () => {
+  const diagnostic = {
+    purpose: "start_provider_attached",
+    stage: "provider_result_normalization",
+    reason: "workbench_ai_claude_turn_count_invalid",
+    exceptionCode: null,
+    commandHandleObtained: true,
+    responseObserved: true,
+    receiptRecorded: false,
+    commandObservation: { exitCode: 0, stdoutBytes: 1, stderrBytes: 0 },
+  };
+  for (const [numberText, expected] of [
+    ["1", false],
+    ["3", false],
+    ["100", false],
+    ["1.5", true],
+    ["0", true],
+    ["-1", true],
+    ["9007199254740992", true],
+    ["01", false],
+    ["1.0", false],
+    ["NaN", false],
+    ["Infinity", false],
+  ] as const)
+    assert.equal(
+      isPrimaryFailureDiagnostic({
+        ...diagnostic,
+        turnCountDiagnostic: { valueType: "number", numberText },
+      }),
+      expected,
+      numberText,
+    );
+});
+
 test("技術理由は保存受理集合と一致し未知・欠測・余剰を拒否する", () => {
+  for (const value of [
+    ATTEMPT_COMPLETION_REASONS,
+    PURPOSES,
+    SETUP_COMMAND_FAILURE_REASONS,
+    RECOVERY_START_FAILURE_STAGES,
+  ])
+    assert.equal(Object.isFrozen(value), true);
+  assert.deepEqual(
+    Object.keys(SETUP_COMMAND_FAILURE_REASONS),
+    PURPOSES.filter((purpose) => purpose !== "start_provider_attached"),
+  );
+  for (const reason of Object.values(SETUP_COMMAND_FAILURE_REASONS))
+    assert.equal(isAttemptFailureReason(reason), true);
   assert.deepEqual(
     ATTEMPT_COMPLETION_REASONS,
     dockerProcessControllerPublicCompletionReasons,
@@ -45,10 +110,6 @@ test("技術理由は保存受理集合と一致し未知・欠測・余剰を�
   ])
     assert.equal(isAttemptFailureReason(reason), false);
 });
-import {
-  snapshotReadyRecovery,
-  snapshotBlockedRecoveryWithExactId,
-} from "../../../src/result/validation.ts";
 
 /**
  * 正常応答と不正な回復値を照合する。

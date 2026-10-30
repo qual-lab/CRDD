@@ -6,12 +6,15 @@
  * @boundary 製品APIではない。Module計測付き診断で、通常E2Eの成立根拠にしない。
  */
 import { mock } from "node:test";
-import * as original from "../src/result/task.ts";
-import { parseProviderResult } from "../../ai-adapter/src/index.ts";
+import * as original from "../../ai-adapter/src/index.ts";
+import { extractProviderResult as parseProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
 import { containsRecognizedSecretMaterial } from "../../domain-model/src/index.ts";
 
+type Parser = (
+  input: original.ProviderResultInput,
+) => original.ProviderResultParseResult;
 type Dependencies = Readonly<{
-  normalize: typeof original.normalizeTaskResult;
+  normalize: Parser;
   parse: typeof parseProviderResult;
   secret: typeof containsRecognizedSecretMaterial;
 }>;
@@ -66,23 +69,29 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
   let invalid = false;
   let finished = false;
   const calls: string[] = [];
-  const wrapped: typeof original.normalizeTaskResult = (...args) => {
-    let result: ReturnType<typeof original.normalizeTaskResult>;
+  const wrapped: Parser = (input) => {
+    let result: original.ProviderResultParseResult;
     try {
-      result = dependencies.normalize(...args);
+      result = dependencies.normalize(input);
     } catch (error) {
       invalid = true;
       candidate = null;
       throw error;
     }
     try {
+      if (result.status !== "confirmed") {
+        invalid = true;
+        candidate = null;
+        return result;
+      }
+      if (input.purpose !== "task") return result;
       if (finished || calls.length >= 4)
         throw Error("summary_call_sequence_invalid");
-      calls.push(`${args[0]}:${args[1]}`);
+      calls.push(`${input.provider}:${input.taskRole}`);
       if (calls.length !== 1) return result;
       if (
-        args[0] !== "codex" ||
-        args[1] !== "executor" ||
+        input.provider !== "codex" ||
+        input.taskRole !== "executor" ||
         result.status !== "confirmed"
       )
         throw Error("summary_first_call_invalid");
@@ -90,7 +99,7 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
         provider: "codex",
         purpose: "task",
         taskRole: "executor",
-        raw: args[3] as string,
+        raw: input.raw as string,
       });
       if (
         parsed.status !== "confirmed" ||
@@ -247,16 +256,16 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
  */
 export function installTaskSummaryObservation() {
   const observation = createTaskSummaryObservation({
-    normalize: original.normalizeTaskResult,
+    normalize: original.parseProviderResult,
     parse: parseProviderResult,
     secret: containsRecognizedSecretMaterial,
   });
   const replacement = mock.module(
-    new URL("../src/result/task.ts", import.meta.url).href,
+    new URL("../../ai-adapter/src/index.ts", import.meta.url).href,
     {
       namedExports: {
         ...original,
-        normalizeTaskResult: observation.wrapped,
+        parseProviderResult: observation.wrapped,
       },
     },
   );

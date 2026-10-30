@@ -8,13 +8,16 @@
  * @scope coordinator、claude、delegation
  * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
  */
-import { createAttemptPreparation } from "../../../executor/src/index.ts";
+import { createAttemptPreparation } from "../../../executor/scripts/executor-test.ts";
 import assert from "node:assert/strict";
-import { executionSelection } from "../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  attemptSelection,
+} from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
-import { createExecutorTestCandidate } from "../../../executor/src/index.ts";
+import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
 import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority.ts";
 
 /**
@@ -209,8 +212,12 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
       randomValue += 1;
       return Buffer.alloc(size, randomValue);
     },
-    consumeModelSelection: (useCapability: unknown, management: unknown) =>
-      selectionRuntime.consume(useCapability, management),
+    consumeModelSelection: (useCapability: unknown, management: unknown) => {
+      const consumed = selectionRuntime.consume(useCapability, management);
+      return consumed
+        ? { ...consumed, ...attemptSelection(consumed.executionSelection) }
+        : null;
+    },
     issueProviderAuthority: (management: unknown, active: unknown) =>
       authorityRuntime.issue(management, active),
     revokeProviderAuthority: (control: unknown, management: unknown) =>

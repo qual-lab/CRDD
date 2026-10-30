@@ -12,7 +12,7 @@ import { snapshotPlainArray, snapshotPlainRecord } from "./input.ts";
  * @responsibility 内容の利用側へ本文と検査済み相関を渡す。
  * @trace ARCH-000015
  * @shape 重要度・Path・分類・受入条件番号・本文とHash。
- * @invariant 通常結果へ本文を載せない。
+ * @invariant TaskResultの要約へ本文を混ぜず、reviewFindingsとして分離して返す。
  * @boundary Provider応答内容検査と、認可を確認する利用側。
  * @security 未信頼本文は同意・秘密検査を迂回する許可ではない。
  * @compatibility 移管前の所見検査条件を維持する。
@@ -29,6 +29,16 @@ export type TaskReviewFinding = Readonly<{
   message: string;
   messageSha256: string;
 }>;
+
+/**
+ * 編集・レビューの検査済み内容。実行観測や次試行の許可を含まない。
+ * @responsibility 内容検査の実返却型を単一正本から導出する。
+ * @trace ARCH-000015
+ * @invariant 内容成立を実行・清掃・採用の成立へ昇格しない。
+ */
+export type TaskResult = NonNullable<
+  ReturnType<typeof inspectTaskResultContent>["normalizedResult"]
+>;
 
 /**
  * 閉じた内容Objectのキー集合を確認する。

@@ -104,6 +104,8 @@ export {
   createDockerIsolationRuntime,
   describeDockerIsolationExecutionEnvironment,
   type DockerIsolationRuntimePlan,
+  type DockerIsolationRuntimeOptions,
+  type DockerIsolationRuntime,
   type DockerResourceCleanupObservation,
   type DockerResourceReceipts,
 } from "./execution/execute.ts";
@@ -114,6 +116,8 @@ export type {
 export {
   type CommandExecution,
   type CommandObservation,
+  type DockerCommandExecutionClassification,
+  type DockerProcessExitStatusClass,
   classifyDockerCommandExecution,
   classifyDockerCommandException,
   classifyDockerProcessExit,
@@ -125,6 +129,8 @@ export {
   describeDockerCommandSessionContract,
   type DockerExecutionHooks,
   type DockerSessionCleanup,
+  type DockerCommandSession,
+  type DockerCommandSessionResult,
 } from "./execution/session.ts";
 export {
   type DockerProbeCommand,

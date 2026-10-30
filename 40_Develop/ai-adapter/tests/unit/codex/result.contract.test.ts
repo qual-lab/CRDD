@@ -1,3 +1,6 @@
+import { inspectCodexExecutionObservation } from "../../../scripts/ai-adapter-test.ts";
+import { parseProviderResult as parseFullProviderResult } from "../../../src/index.ts";
+import { extractProviderResult as parseProviderResult } from "../../../src/provider/result.ts";
 /**
  * ai-adapter:unit:codex-structured-resultの検証範囲を定義する。
  *
@@ -10,11 +13,11 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 
 import {
   describeCodexStructuredResultContract,
   normalizeCodexStructuredResult,
-  parseProviderResult,
 } from "../../../src/index.ts";
 
 /**
@@ -28,6 +31,135 @@ import {
  * @cleanup N/A: 外部資源なし。
  * @boundary 共通Provider解析入口。
  */
+/**
+ * Codex観測の現行・旧診断と不正な動的入力を検査する。
+ * @responsibility 旧field欠測を補完せず、未知値や生本文を観測へ昇格しない。
+ * @trace ERB-IT-021
+ * @precondition 公開Parserが生成した合成JSONL観測。
+ * @stimulus 四世代の形、余分field、欠測、Proxy、getter、特殊prototype、数値境界。
+ * @observation 凍結された観測又はnull、getter呼出し零。
+ * @oracle 現行と既存旧形だけを受理し、部分追加と不正数値を拒否する。
+ * @cleanup N/A: メモリ内の値のみ。
+ */
+/**
+ * 内部観測検査の不成立を内容成功へ丸めない。
+ * @responsibility 公開Parserが未検査観測へfallbackしないことを反証する。
+ * @trace ERB-UT-032
+ * @precondition 新品子Processで内部検査だけをnull返却へ差し替える。
+ * @stimulus 合成JSONLを公開Parserへ入力する。
+ * @observation 既存固定理由のblockedと観測非公開。
+ * @oracle 検査呼出し一回で成功しない。
+ * @cleanup 子Processの同期終了を確認する。File・認証・AI・Dockerは使わない。
+ */
+test("Codex観測の内部検査失敗は観測なしの成功へfallbackしない", () => {
+  const root = new URL("../../../src/index.ts", import.meta.url).href;
+  const script = [
+    "import {registerHooks} from 'node:module';",
+    "let inspections=0;",
+    "registerHooks({load(url,ctx,next){if(url.endsWith('/codex/observation.ts')) return {format:'module',shortCircuit:true,source:'export function inspectCodexExecutionObservation(){globalThis.__inspections=(globalThis.__inspections??0)+1;return null;}'};return next(url,ctx);}});",
+    "const {parseProviderResult}=await import(" + JSON.stringify(root) + ");",
+    "const raw=[{type:'item.completed',item:{type:'agent_message',text:JSON.stringify({status:'completed',summary:'synthetic',changedPaths:[],verification:[]})}},{type:'turn.completed'}].map(JSON.stringify).join('\\n');",
+    "const result=parseProviderResult({provider:'codex',purpose:'task',taskRole:'executor',selectedEffort:'medium',raw});",
+    "console.log(JSON.stringify({status:result.status,reason:result.reason,observation:result.providerExecutionObservation??null,count:globalThis.__inspections}));",
+  ].join("\n");
+  const child = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", script],
+    { encoding: "utf8", timeout: 15000, windowsHide: true },
+  );
+  assert.equal(child.status, 0, child.stderr);
+  assert.deepEqual(JSON.parse(child.stdout), {
+    status: "blocked",
+    reason: "provider_task_result_json_invalid",
+    observation: null,
+    count: 1,
+  });
+});
+
+test("Codex観測の検査Ownerは現行・旧形と動的入力の拒否を維持する", () => {
+  const raw = [
+    {
+      type: "item.completed",
+      item: {
+        type: "agent_message",
+        text: JSON.stringify({
+          status: "completed",
+          summary: "synthetic",
+          changedPaths: [],
+          verification: [],
+        }),
+      },
+    },
+    { type: "turn.completed" },
+  ]
+    .map((value) => JSON.stringify(value))
+    .join("\n");
+  const parsed = parseFullProviderResult({
+    provider: "codex",
+    purpose: "task",
+    taskRole: "executor",
+    selectedEffort: "medium",
+    raw,
+  });
+  assert.equal(parsed.status, "confirmed");
+  const base = parsed.providerExecutionObservation;
+  assert.ok(base);
+  const previousMentions = Object.fromEntries(
+    Object.entries(base).filter(
+      ([key]) => key !== "itemErrorKnownWarningTextCount",
+    ),
+  );
+  const previous = Object.fromEntries(
+    Object.entries(previousMentions).filter(
+      ([key]) =>
+        !key.endsWith("MentionCount") && key !== "itemErrorUnclassifiedCount",
+    ),
+  );
+  const old = Object.fromEntries(
+    Object.entries(previous).filter(
+      ([key]) => key !== "itemErrorCount" && key !== "itemErrorCodeModeCount",
+    ),
+  );
+  old.transport = "fixed_cli_jsonl_v0_149_1";
+  for (const shape of [base, previousMentions, previous, old]) {
+    const result = inspectCodexExecutionObservation(shape);
+    assert.deepEqual(result, shape);
+    assert.equal(Object.isFrozen(result), true);
+  }
+  let calls = 0;
+  const getter = { ...base };
+  Object.defineProperty(getter, "transport", {
+    enumerable: true,
+    get() {
+      calls++;
+      return base.transport;
+    },
+  });
+  for (const shape of [
+    null,
+    [],
+    new Proxy(base, {}),
+    getter,
+    Object.assign(Object.create({}), base),
+    { ...base, unexpected: "private" },
+    { ...base, itemErrorCount: -1 },
+    { ...base, itemErrorCount: 4097 },
+    { ...base, itemErrorCount: 0.5 },
+    { ...base, itemErrorCodeModeCount: 1 },
+    { ...base, commandExecutionStartedCount: Number.NaN },
+    { ...base, providerTextReported: true },
+  ]) {
+    assert.equal(inspectCodexExecutionObservation(shape), null);
+  }
+  for (const key of Object.keys(base)) {
+    const partial: Record<string, unknown> = { ...base };
+    delete partial[key];
+    if (key !== "itemErrorKnownWarningTextCount")
+      assert.equal(inspectCodexExecutionObservation(partial), null);
+  }
+  assert.equal(calls, 0);
+});
+
 test("共通Probe解析はCodexとClaudeの差を吸収する", () => {
   const output = {
     codex: JSON.stringify({ status: true }),

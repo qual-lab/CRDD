@@ -3,7 +3,7 @@
   "version": "0.0.0-development",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": { ".": "./src/index.ts", "./testing": "./scripts/executor-test.ts" },
   "scripts": {
     "check": "npm run format:check && npm run typecheck && npm run lint",
     "format": "biome format --write .",

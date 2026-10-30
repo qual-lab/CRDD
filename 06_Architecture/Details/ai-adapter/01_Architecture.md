@@ -21,6 +21,8 @@ Task JSONLの非秘密実行観測には、完了Itemのerror型件数`itemError
 
 内部error messageの語句観測は`itemErrorHostMentionCount`、`itemErrorSpawnMentionCount`、`itemErrorProtocolMentionCount`、`itemErrorConnectionMentionCount`、`itemErrorToolMentionCount`、`itemErrorPermissionMentionCount`、`itemErrorMissingPathMentionCount`、`itemErrorTimeoutMentionCount`で区別する。各値は該当語句を含むerror item数で、同じitemの複数語句は重複計上する。いずれの語句にも一致しないitemとmessage欠測は`itemErrorUnclassifiedCount`に含める。単にCode Modeを言及するだけでは分類済みとしない。これらは原因・発生点を確定するcodeではなく、実行許可・採否・清掃成立へ利用しない。本文はメモリ内でだけ処理し、任意Path・Command・秘密値を保存しない。各件数は0〜itemErrorCount、総数上限4096。旧観測に九fieldがない場合は欠測を維持し、部分集合や零補完を受理しない。
 
+Codexの非秘密実行観測の検査は`codex/observation.ts`の内部`inspectCodexExecutionObservation(raw: unknown)`が所有する。固定field、数値、mention相関、本文非公開を検査し、凍結観測又はnullを返す。既存`provider/input.ts`の通常データ捕捉を再利用し、現行形・warning欠測形・mention欠測形・旧transport形の読取りを欠測補完せず維持する。Provider解析は生成直後に内部検査を一回通し、不成立時は既存の不正結果へ閉じる。通常RootにはInspectorを公開せず、公開Parserの返却型からExecutorのCompletionResult、Coordinatorの段階結果まで検査済み観測型を伝播させる。同Processの製品利用側は再検査しない。検証ツールの未信頼JSON受入だけが、既存の`./testing`入口から内部Inspectorを利用する。この検査はProvider固有の診断値の受理だけで、実行許可・原因確定・回収成立を意味しない。
+
 AI AdapterはProvider固有の操作、認証方式、技術対応、入力計画と出力変換を所有する。Repository別の役割既定値・作業分類・明示選択と保存はCoordinatorが所有する。旧Profile Catalog、Host／Repository Profile Store、Family／Tierによる自動選定は撤去対象であり、新形式の互換Readerとして残さない。
 
 技術カタログ（Model Catalog）の正本は`src/catalog/model-catalog.json`。`getAiModelCatalog`が深い不変値と内容Identityを返し、`resolveAiModelSelection`がProvider・Model・用途・Effortを照合する。役割、Tier、推奨Model、既定Effort、現在の認証状態を含まない。`opus`はaliasのまま保持し、未観測の実Model版へ変換しない。
@@ -192,7 +194,7 @@ src/
 ├ provider/         types.ts / plan.ts / result.ts / task-result.ts / advice-result.ts / error.ts / validation.ts / input.ts / json.ts
 ├ authentication/   plan.ts / result.ts / policy.ts
 ├ billing/          policy.ts
-├ codex/            plan.ts / result.ts と内部固定Schema
+├ codex/            plan.ts / result.ts / observation.ts と内部固定Schema
 └ claude/           plan.ts / result.ts と内部固定設定
 tests/
 ├ unit/             Source責務に対応する値検査
@@ -258,6 +260,12 @@ Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり
 | External Boundary | Required | 同梱JSONと未信頼出力を受ける | 閉形式loaderと用途別解析 | 実Effectは上位Owner | 不正JSON・上限・秘密値を拒否 | `ai-runtime.catalog-validation` |
 
 現在の設計に追加の人間判断はない。実AI・実認証・実Docker・人間確認は別の検証と承認境界へ残し、設計上のPASSと区別する。
+
+### 結果内容の型の正本
+
+編集・レビューの検査済み内容型は`TaskResult`、助言は`AdviceResult`として本Packageが所有する。`TaskResult`は既存の`inspectTaskResultContent`の実返却内容から導出し、Providerの実行観測、清掃状態、レビュー所見の内部搬送本文、次試行の許可を含めない。Executorはこれらを内容型へ拡張せず、実行結果の外側で扱う。内容検査条件・理由文字列・容量制限は変更しない。
+
+公開`parseProviderResult`はtask／advice／probeに応じ、Envelope抽出と内容検査までを一回の呼出しで完了する。入力はtaskの役割・推論強度・作業量、adviceの許可参照を区別する。返却はconfirmed＋型付きnormalizedResult又はblocked＋固定reason＋nullであり、Provider実行観測・Turn観測・レビュー所見は内容の外側へ分離する。Envelopeだけの抽出`extractProviderResult`はRoot非公開とし、その搬送契約を直接検査する他Packageの試験と限定診断は明示した`./testing`（`scripts/ai-adapter-test.ts`）だけを利用する。製品Sourceからこの試験入口を使用しない。Task／Adviceの個別合成処理をExecutorに再定義しない。
 
 ## Checklist
 

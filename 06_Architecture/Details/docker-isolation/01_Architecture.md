@@ -20,6 +20,12 @@ Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrap
 
 配置変更は新しい処理に適用し、旧exact回復参照と保持物を更新版のIdentityで書き換えない。公式取得物・試験ContextはRepository-local tmpの短命生成物であり、正式文書には取得元・検証結果・Image同一性・未確認範囲だけを要約する。新しいBuild Runner・Registry・回復機構は作らない。
 
+## 上位接続の名前付き型契約 — 2026-10-30
+
+`execution/execute.ts`は`DockerIsolationRuntimeOptions`と`DockerIsolationRuntime`を所有する。構成は既存依存の所在借用（必須）とReceipt観測（任意）だけを再利用し、本番の開始・清掃・元結果照合・Session開始の四操作を明示する。`execution/session.ts`は`DockerCommandSession`と`DockerCommandSessionResult`を所有し、取消要求、終了観測、通知解放、実行完了、清掃を別々に搬送する。通常Sessionに試験用`productionAuthority: false`を加えない。
+
+`execution/result.ts`は終了値とコマンド結果の分類型を所有し、期限超過時のbyte項目不在を維持する。Factoryと分類関数へ明示返却型を付け、上位はこれらの名前付き型を再利用する。Rootへの追加は型だけで、実行時公開、拒否条件、Process・資源の生涯、期限や理由を変更しない。これは当該接続契約の明示化であり、Package全体の型整理完了を意味しない。
+
 ## B3の構成照合境界 — 2026-10-21
 
 既存`execution/plan.ts`の公開`dockerIsolationCommandsMatch`が閉じたDocker構成からcommandを再生成し、用途・順序・全argvの一致を照合する。上位は解決済みCLI／環境とMount・通信条件を渡すだけとし、DIはTask／Profile／Grant／Packetの意味を解釈しない。構成照合はProcess開始・資源回収や実行許可の証明ではない。上位のModel／Offering・Packet相関と、下位の固定構成・観測不能拒否を両方維持する。

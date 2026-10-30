@@ -9,7 +9,6 @@ import { createHash } from "node:crypto";
 import {
   startRuntimeOwnedDockerProcessController,
   cancelRuntimeOwnedDockerProcessController,
-  verifyRuntimeOwnedDockerCleanupOutcome,
 } from "./provider-executor.ts";
 import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
@@ -27,7 +26,6 @@ import {
 import { requestRuntimeOwnedExternalSendGrant } from "../decision/external-send-grant.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
-  checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
   readRuntimeOwnedCoordinatorStateSnapshot,
 } from "../execution/persistence.ts";
@@ -60,7 +58,10 @@ import {
   observeCoordinatorTaskCompletion,
   type ProviderBoundaryDiagnosticNotice,
 } from "./observation.ts";
-import type { ProcessStartedNotice } from "../../../executor/src/index.ts";
+import type {
+  ProcessStartedNotice,
+  CompletionResult,
+} from "../../../executor/src/index.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -88,7 +89,6 @@ import {
   verifyOwnedOperationCleanupOutcome,
 } from "./operation.ts";
 import {
-  getRuntimeOwnedProviderDockerAdapter,
   issueRuntimeOwnedProviderTaskPacket,
   revokeRuntimeOwnedProviderTaskPacket,
 } from "./preparation.ts";
@@ -106,6 +106,7 @@ import {
   prepareRuntimeOwnedDockerHostCleanup,
   readRuntimeOwnedDockerProjectResult,
   recordRuntimeOwnedDockerHostCleanupReceipt,
+  registerRuntimeOwnedReviewFindings,
 } from "./recovery.ts";
 import {
   type CoordinatorTaskAttemptInput,
@@ -116,18 +117,13 @@ import {
   type CoordinatorTaskAttemptResult,
   type CoordinatorTaskPublicReason,
   classifyCoordinatorTaskTerminalLifecycleState,
-  inspectCandidateValidationFailureDiagnostic,
-  inspectTaskStageDiagnostic,
+  createCandidateValidationFailureDiagnostic,
+  createTaskStageDiagnostic,
   projectCoordinatorTaskPublicReason,
   projectCurrentDockerAdmission,
   projectDevelopmentTaskResultAfterOuterCleanup,
 } from "./result.ts";
-import {
-  inspectAttemptObservation,
-  projectAttemptResult,
-  projectAttemptStartResult,
-  resolveRecoveryReference,
-} from "../../../executor/src/index.ts";
+import { resolveRecoveryReference } from "../../../executor/src/index.ts";
 
 /** Task固有の候補・Review診断は上位に残す。通知失敗を実行結果へ反映しない。
  * @responsibility 単段の技術観測とは別に、Taskの受動診断だけを搬送する。
@@ -350,13 +346,14 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
 export function completeRuntimeOwnedCoordinatorHostSubmission(
   managementCapability: unknown,
   recoveryId: unknown,
-  plan: Parameters<typeof verifyRuntimeOwnedDockerCleanupOutcome>[1] &
+  plan: Parameters<
+    NonNullable<
+      import("../../../executor/src/index.ts").ExecutorOptions["completeRecovery"]
+    >
+  >[2]["plan"] &
     Readonly<{ consumer: "coordinator_cli" | "orchestrator" | "workbench" }>,
-  recoveryCapability: unknown,
-  cleanupOutcome: unknown,
   mountCompletion: unknown,
 ) {
-  let cleanupEffectIssued = false;
   const current =
     readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
   const blocked = Object.freeze({
@@ -390,7 +387,10 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
       identity.operationId !== plan.operationId ||
       identity.taskAttempt !== plan.taskAttempt ||
       hashExecutionSelection(identity.executionSelection) !==
-        hashExecutionSelection(plan.executionSelection) ||
+        plan.selectionHash ||
+      Object.entries(plan.executionSelection).some(
+        ([key, value]) => identity.executionSelection[key] !== value,
+      ) ||
       [
         "provider",
         "consumer",
@@ -437,17 +437,24 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
       )
         return blocked;
     }
-    const observations = verifyRuntimeOwnedDockerCleanupOutcome(
-      cleanupOutcome,
-      plan,
-      recoveryCapability,
-      managementCapability,
-    );
     if (
-      observations?.length !== 5 ||
-      observations.some(
+      operation.resources.length !== 5 ||
+      operation.resources.some(
         (item) =>
-          item.observation !== "not_requested" && item.observation !== "absent",
+          !(
+            (item.request === "not_requested" ||
+              item.request === "not_issued") &&
+            item.observation === "unobserved" &&
+            item.dockerId === null &&
+            item.absence === null
+          ) &&
+          !(
+            item.observation === "absent" &&
+            item.absence !== null &&
+            item.absence.recoveryId === recoveryId &&
+            item.absence.purpose === item.purpose &&
+            item.absence.dockerId === item.dockerId
+          ),
       ) ||
       !verifyRuntimeOwnedProviderHomeMountCompletion(
         mountCompletion,
@@ -458,22 +465,6 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
       )
     )
       return blocked;
-    const cleanup = cleanupOutcome as Readonly<Record<string, unknown>>;
-    if (
-      cleanup.confirmed !== true ||
-      cleanup.processTreeTerminated !== true ||
-      cleanup.containersAbsent !== true ||
-      cleanup.networksAbsent !== true
-    )
-      return blocked;
-    const saved = checkpointRuntimeOwnedCoordinatorCleanup(
-      managementCapability,
-      recoveryId,
-      observations,
-    );
-    cleanupEffectIssued = saved.filesystemEffectIssued;
-    if (saved.status !== "completed")
-      return Object.freeze({ ...blocked, ...saved });
     const transition = transitionRuntimeOwnedCoordinatorHostSubmission(
       managementCapability,
       recoveryId,
@@ -481,13 +472,12 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
     );
     return Object.freeze({
       ...transition,
-      filesystemEffectIssued:
-        cleanupEffectIssued || transition.filesystemEffectIssued,
+      filesystemEffectIssued: transition.filesystemEffectIssued,
     });
   } catch {
     return Object.freeze({
       ...blocked,
-      filesystemEffectIssued: cleanupEffectIssued,
+      filesystemEffectIssued: false,
     });
   }
 }
@@ -1587,24 +1577,14 @@ type taskRuntimeDependencies = Readonly<{
     controlCapability: object,
     managementCapability: object,
   ) => RuntimeRecord;
-  prepareProvider: (
-    provider: Provider,
-    managementCapability: object,
-    mountCapability: object,
-    mountAuthorizationCapability: object,
-    selectionUseCapability: object,
-    taskPacketUseCapability: object,
-    recoveryCorrelationId: string | null,
-    consumer: "coordinator_cli" | "workbench" | "orchestrator",
-  ) => RuntimeRecord;
   startProcess: (
-    preparedCapability: object,
-    managementCapability: object,
+    provider: Provider,
+    input: import("../../../executor/src/index.ts").AttemptInput,
     registerRecoveryHandoff: (
       recoveryCapability: unknown,
       recoveryId: unknown,
     ) => boolean,
-    commandRestriction?: unknown,
+    commandRestriction?: (purpose: string) => boolean,
     observeProviderStarted?: (
       notice: ProcessStartedNotice,
     ) => boolean | Promise<boolean>,
@@ -1626,6 +1606,10 @@ type taskRuntimeDependencies = Readonly<{
     managementCapability: object,
     mountCapability: object,
   ) => RuntimeRecord | null;
+  registerReviewFindings?: (
+    capability: object,
+    result: CompletionResult,
+  ) => object | null;
   finalizeDockerRecovery?: (capability: object) => RuntimeRecord;
   readDockerProjectResult?: typeof readRuntimeOwnedDockerProjectResult;
   prepareDockerHostCleanup?: (capability: object) => string | null;
@@ -2064,14 +2048,17 @@ function projectReviewerResultDiagnostics(value: unknown) {
  * @security projectExecutorResultDiagnosticsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: projectExecutorResultDiagnosticsは共有非同期状態を持たない同期処理である。
  */
-function projectExecutorResultDiagnostics(value: unknown) {
+function projectExecutorResultDiagnostics(
+  value: unknown,
+  executionObservation: CompletionResult["providerExecutionObservation"] = null,
+) {
   const status = ownPlainDataValue(value, "status");
   const changedPaths = snapshotPlainArray<unknown>(
     ownPlainDataValue(value, "changedPaths"),
     1_000,
   );
   const verificationCount = ownPlainDataValue(value, "verificationCount");
-  const observation = ownPlainDataValue(value, "providerExecutionObservation");
+  const observation = executionObservation;
   if (
     status !== "completed" ||
     changedPaths.status !== "ok" ||
@@ -2080,10 +2067,7 @@ function projectExecutorResultDiagnostics(value: unknown) {
     (verificationCount as number) < 0
   )
     return null;
-  const providerExecutionObservation = observation
-    ? inspectAttemptObservation(observation)
-    : null;
-  if (observation && !providerExecutionObservation) return null;
+  const providerExecutionObservation = observation;
   return Object.freeze({
     status,
     changedPaths: Object.freeze([...changedPaths.value] as string[]),
@@ -2724,6 +2708,7 @@ function reportCandidateValidationFailure(
   attempt: 0 | 1,
   candidate: RuntimeRecord | null,
   executorResult: RuntimeRecord,
+  executionObservation: CompletionResult["providerExecutionObservation"] = null,
 ) {
   try {
     if (provider !== "codex" && provider !== "claude") return;
@@ -2743,14 +2728,12 @@ function reportCandidateValidationFailure(
     const actual =
       captureStatus === "captured" ? paths(candidate?.changedPaths) : null;
     const reported = paths(executorResult?.changedPaths);
-    const diagnostic = inspectCandidateValidationFailureDiagnostic({
+    const diagnostic = createCandidateValidationFailureDiagnostic({
       captureStatus,
       pathsMatch: actual && reported ? samePaths(actual, reported) : null,
       candidatePathCount: actual?.length ?? null,
       reportedPathCount: reported?.length ?? null,
-      providerExecutionObservation: inspectAttemptObservation(
-        executorResult?.providerExecutionObservation,
-      ),
+      providerExecutionObservation: executionObservation,
     });
     if (!diagnostic) return;
     reportTaskDiagnostic(
@@ -2782,6 +2765,7 @@ function reportTaskStage(
   attempt: 0 | 1,
   result: RuntimeRecord,
   candidate?: RuntimeRecord,
+  executionObservation: CompletionResult["providerExecutionObservation"] = null,
 ) {
   try {
     if (provider !== "codex" && provider !== "claude") return;
@@ -2793,7 +2777,7 @@ function reportTaskStage(
     ];
     const review =
       candidate === undefined ? projectReviewerResultDiagnostics(result) : null;
-    const diagnostic = inspectTaskStageDiagnostic(
+    const diagnostic = createTaskStageDiagnostic(
       candidate === undefined
         ? {
             taskRole: "reviewer",
@@ -2820,9 +2804,7 @@ function reportTaskStage(
               reportedPathCount: Array.isArray(result.changedPaths)
                 ? result.changedPaths.length
                 : null,
-              providerExecutionObservation: inspectAttemptObservation(
-                result.providerExecutionObservation ?? null,
-              ),
+              providerExecutionObservation: executionObservation,
             },
           },
     );
@@ -2883,9 +2865,9 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
  *
  * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
+ * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageBodyの計算結果を返す。
- * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
+ * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
  * @postcondition executeStageBodyの責務を完了した結果だけを返す。
  * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -2905,7 +2887,7 @@ async function executeStageBody(
   expectedProvider: Provider,
   remediationCapability: object | null,
   control: ControlRecord,
-  commandRestriction?: unknown,
+  commandRestriction?: (purpose: string) => boolean,
   reviewerReadProjection: RuntimeRecord | null = null,
 ) {
   if (control.cancellationRequested) {
@@ -3095,29 +3077,18 @@ async function executeStageBody(
       revokeUnconsumed();
       return blocked("coordinator_task_packet_issue_failed");
     }
-    const prepared = state.dependencies.prepareProvider(
+    const process = state.dependencies.startProcess(
       provider,
-      operation.managementCapability,
-      operation.mountCapability,
-      mountAuthorization,
-      refreshedSelectionUse,
-      taskUse,
-      control.recoveryCorrelationId,
-      control.consumer,
-    );
-    selectionControl = null;
-    taskControl = null;
-    const preparedCapability = objectCapability(prepared.preparedCapability);
-    if (prepared.status !== "prepared" || !preparedCapability) {
-      return blocked(
-        prepared.reason === "claude_task_workload_split_required"
-          ? "coordinator_task_workload_split_required"
-          : projectProviderPreparationFailure(prepared.reason),
-      );
-    }
-    const rawProcess = state.dependencies.startProcess(
-      preparedCapability,
-      operation.managementCapability,
+      {
+        purpose: "task",
+        managementCapability: operation.managementCapability,
+        mountCapability: operation.mountCapability,
+        mountAuthorizationCapability: mountAuthorization,
+        selectionUseCapability: refreshedSelectionUse,
+        packetCapability: taskUse,
+        recoveryCorrelationId: control.recoveryCorrelationId,
+        consumer: control.consumer,
+      },
       (recoveryCapability, recoveryId) => {
         const capability = objectCapability(recoveryCapability);
         const id = resolveRecoveryReference(recoveryId);
@@ -3140,26 +3111,14 @@ async function executeStageBody(
       commandRestriction,
       control.observeProviderStarted,
     );
-    const isProductionProcessContract =
-      state.dependencies.startProcess ===
-      startRuntimeOwnedDockerProcessController;
-    const process = (
-      isProductionProcessContract
-        ? projectAttemptStartResult(
-            rawProcess,
-            control.dockerHandoffs.at(-1)?.recoveryId ?? null,
-            operation.operationId,
-          )
-        : rawProcess
-    ) as RuntimeRecord | null;
-    if (!process) {
+    selectionControl = null;
+    taskControl = null;
+    if (process.preparationFailed === true)
       return blocked(
-        "coordinator_task_process_start_contract_invalid",
-        true,
-        operation.hostRecoveryId,
-        control.dockerHandoffs.at(-1)?.recoveryId ?? null,
+        process.reason === "claude_task_workload_split_required"
+          ? "coordinator_task_workload_split_required"
+          : projectProviderPreparationFailure(process.reason),
       );
-    }
     const processControl = objectCapability(process.controlCapability);
     const completion = process.completion;
     if (
@@ -3193,14 +3152,7 @@ async function executeStageBody(
         operation.managementCapability,
       );
     }
-    const rawResult = await completion;
-    const result = isProductionProcessContract
-      ? projectAttemptResult(
-          rawResult,
-          startedDockerRecoveryId,
-          operation.operationId,
-        )
-      : (rawResult as RuntimeRecord);
+    const result = (await completion) as CompletionResult & RuntimeRecord;
     control.currentProcessControl = null;
     startedProcessControl = null;
     if (!result) {
@@ -3238,7 +3190,7 @@ async function executeStageBody(
           Object.freeze({
             capability: finalizationCapability,
             recoveryId: startedDockerRecoveryId,
-            dockerCompletion: rawResult,
+            dockerCompletion: result,
           }),
         );
       } else if (!state.dependencies.finalizeDockerRecovery && handoff) {
@@ -3291,15 +3243,32 @@ async function executeStageBody(
           : dockerRecoveryIds,
       });
     }
+    let reviewRemediation: object | null = null;
+    if (
+      role === "reviewer" &&
+      taskAttempt === 0 &&
+      handoff &&
+      !result.cancellationRequested
+    ) {
+      try {
+        reviewRemediation =
+          state.dependencies.registerReviewFindings?.(
+            handoff.capability,
+            result,
+          ) ?? null;
+      } catch {}
+    }
     return Object.freeze({
       status: "completed" as const,
       provider,
       selectionNotice:
-        stringValue(prepared.selectionNotice) ??
+        stringValue(process.selectionNotice) ??
         stringValue(selection.selectionNotice),
       normalizedResult: result.normalizedResult,
+      providerExecutionObservation: result.providerExecutionObservation ?? null,
+      remediationCapability: reviewRemediation,
       providerTurnObservation: projectProviderTurnObservation(
-        ownPlainDataValue(result.normalizedResult, "providerTurnObservation"),
+        result.providerTurnObservation,
       ),
     });
   } catch {
@@ -3707,6 +3676,7 @@ async function runCoordinatorTaskCore(
           0,
           candidate,
           executorResult,
+          executor.providerExecutionObservation,
         );
       return candidateNotIssued(
         blocked(
@@ -3725,6 +3695,7 @@ async function runCoordinatorTaskCore(
       0,
       executorResult,
       candidate,
+      executor.providerExecutionObservation,
     );
     if (control.cancellationRequested) {
       return candidateNotIssued(
@@ -3797,7 +3768,7 @@ async function runCoordinatorTaskCore(
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-AUTHORIZED");
       const remediationCapability = objectCapability(
-        reviewerResult.remediationCapability,
+        reviewer.remediationCapability,
       );
       if (!remediationCapability || reviewerResult.findingCount === 0) {
         return candidateNotIssued(
@@ -3848,6 +3819,7 @@ async function runCoordinatorTaskCore(
             1,
             candidate,
             executorResult,
+            remediation.providerExecutionObservation,
           );
         return candidateNotIssued(
           blocked(
@@ -3870,6 +3842,7 @@ async function runCoordinatorTaskCore(
         1,
         executorResult,
         candidate,
+        remediation.providerExecutionObservation,
       );
       if (
         control.workspaceTarget &&
@@ -3946,8 +3919,10 @@ async function runCoordinatorTaskCore(
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {
-      const executorDiagnostics =
-        projectExecutorResultDiagnostics(executorResult);
+      const executorDiagnostics = projectExecutorResultDiagnostics(
+        executorResult,
+        finalExecutor.providerExecutionObservation,
+      );
       const reviewerDiagnostics =
         projectReviewerResultDiagnostics(reviewerResult);
       const reviewerProjectionEvidence = projectReviewerProjectionEvidence(
@@ -3986,7 +3961,10 @@ async function runCoordinatorTaskCore(
       executorSelectionNotice: finalExecutor.selectionNotice,
       reviewerSelectionNotice: reviewer.selectionNotice,
       providerTurnObservations: Object.freeze([...providerTurnObservations]),
-      executorResult: projectExecutorResultDiagnostics(executorResult),
+      executorResult: projectExecutorResultDiagnostics(
+        executorResult,
+        finalExecutor.providerExecutionObservation,
+      ),
       reviewerResult: projectReviewerResultDiagnostics(reviewerResult),
     });
   } catch (error) {
@@ -4268,30 +4246,11 @@ const productionDependencies: taskRuntimeDependencies = Object.freeze({
   },
   issueTaskPacket: issueRuntimeOwnedProviderTaskPacket,
   revokeTaskPacket: revokeRuntimeOwnedProviderTaskPacket,
-  prepareProvider: (
-    provider,
-    managementCapability,
-    mountCapability,
-    mountAuthorizationCapability,
-    selectionUseCapability,
-    taskPacketUseCapability,
-    recoveryCorrelationId,
-    consumer,
-  ) =>
-    getRuntimeOwnedProviderDockerAdapter(provider).prepare({
-      purpose: "task",
-      managementCapability,
-      mountCapability,
-      mountAuthorizationCapability,
-      selectionUseCapability,
-      packetCapability: taskPacketUseCapability,
-      recoveryCorrelationId,
-      consumer,
-    }),
   startProcess: startRuntimeOwnedDockerProcessController,
   cancelProcess: cancelRuntimeOwnedDockerProcessController,
   captureCandidate: captureExecutionChangeSnapshot,
   verifyCandidate: verifyExecutionChangeSnapshot,
+  registerReviewFindings: registerRuntimeOwnedReviewFindings,
   finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
   readDockerProjectResult: readRuntimeOwnedDockerProjectResult,
   prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
@@ -5149,7 +5108,7 @@ function startRuntimeOwnedDevelopmentTask(
     issueMountGrant: guard(productionDependencies.issueMountGrant),
     consumeMountGrant: guard(productionDependencies.consumeMountGrant),
     issueTaskPacket: guard(productionDependencies.issueTaskPacket),
-    prepareProvider: guard(productionDependencies.prepareProvider),
+    startProcess: guard(productionDependencies.startProcess),
     captureCandidate: guard(productionDependencies.captureCandidate),
   });
   const started = runtime.start(

@@ -76,7 +76,7 @@ export type {
 } from "./provider/types.ts";
 
 export { inspectTaskResultContent } from "./provider/task-result.ts";
-export type { TaskReviewFinding } from "./provider/task-result.ts";
+export type { TaskResult, TaskReviewFinding } from "./provider/task-result.ts";
 export {
   parseAdviceResult,
   describeAdviceResultSchema,

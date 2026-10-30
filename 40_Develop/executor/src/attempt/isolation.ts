@@ -5,49 +5,46 @@
  * @trace ARCH-000008
  */
 import {
-  type createDockerIsolationRuntime,
+  type DockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
   type DockerIsolationCommand,
   describeDockerIsolationExecutionEnvironment,
-} from "../../../docker-isolation/src/index.ts";
-import type {
-  PreparedPlan as isolationExecutionPreparedPlan,
-  Command as isolationExecutionCommand,
-} from "./types.ts";
-import type { DockerExecutionHooks } from "../../../docker-isolation/src/index.ts";
-import { createHash } from "node:crypto";
-import {
+  type DockerExecutionHooks,
   bindAdviceCommand,
   hashAdviceCommand,
-} from "../../../docker-isolation/src/index.ts";
-import { inspectAttemptSelection } from "./validation.ts";
-import {
   type DockerIsolationCommandInput,
   bindProviderCommand,
   describeDockerProviderExecutionLocations,
   dockerIsolationResourceIdentityIsValid,
   dockerIsolationCommandsMatch,
 } from "../../../docker-isolation/src/index.ts";
-import {
-  planProviderExecution,
-  prepareProviderEnvironment,
-  resolveAiModelSelection,
-  describeProviderAuthentication,
-  type ProviderAdvicePlan,
-} from "../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
-import { PURPOSES } from "../result/validation.ts";
 import type {
+  PreparedPlan as isolationExecutionPreparedPlan,
+  Command as isolationExecutionCommand,
   PreparedPlan,
   ProviderAttemptPlan,
   CleanupObservation,
   Recovery,
   RuntimeDependencies,
 } from "./types.ts";
+import { createHash } from "node:crypto";
+import { types as utilTypes } from "node:util";
+import { inspectAttemptSelection } from "./validation.ts";
+import {
+  planProviderExecution,
+  prepareProviderEnvironment,
+  resolveAiModelSelection,
+  describeProviderAuthentication,
+  type ProviderAdvicePlan,
+  describeAdviceResultSchema,
+} from "../../../ai-adapter/src/index.ts";
+import { PURPOSES } from "../result/constants.ts";
 
 const ISOLATION_CONTRACT = "crdd-executor/isolation";
 
 const ISOLATION_CONTRACT_REVISION = 10;
+
+const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
 
 /**
  * 上位の計画投影を同じ下位Runtimeへ結合する。
@@ -66,7 +63,7 @@ const ISOLATION_CONTRACT_REVISION = 10;
  * @concurrency 下位の終了待機を完了するまで元Runtimeを保持する。
  */
 export function bindIsolationRuntime(
-  runtime: ReturnType<typeof createDockerIsolationRuntime>,
+  runtime: DockerIsolationRuntime,
   borrowPaths: (managementCapability: object) => Readonly<{ tmp: string }>,
 ) {
   /**
@@ -279,8 +276,6 @@ export function describeIsolationContract() {
     providerEffectAllowed: true,
   });
 }
-
-const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
 
 /**
  * 同じ有限入力からProvider仕様を一箇所で取得する。
@@ -754,12 +749,15 @@ export function completeAttemptCleanup(
     cleanup.networksAbsent
   ) {
     try {
-      const dockerAbsenceRecorded =
-        !dependencies.recordDockerAbsence ||
-        dependencies.recordDockerAbsence(
-          recovery.recoveryCapability,
-          verifiedResourceObservations,
-        );
+      const absenceReceipt: unknown = dependencies.recordDockerAbsence
+        ? dependencies.recordDockerAbsence(
+            recovery.recoveryCapability,
+            verifiedResourceObservations,
+          )
+        : true;
+      if (utilTypes.isPromise(absenceReceipt))
+        void absenceReceipt.catch(() => {});
+      const dockerAbsenceRecorded = absenceReceipt === true;
       if (!dockerAbsenceRecorded)
         throw new Error("docker_absence_record_failed");
       const mountCompletion = dependencies.completeMount(
@@ -768,18 +766,21 @@ export function completeAttemptCleanup(
       );
       mountLeaseReleased = mountCompletion.status === "completed";
       if (mountLeaseReleased) {
-        const mountCompletionRecorded =
-          !dependencies.recordMountCompletion ||
-          dependencies.recordMountCompletion(
-            recovery.recoveryCapability,
-            mountCompletion,
-          );
+        const mountReceipt: unknown = dependencies.recordMountCompletion
+          ? dependencies.recordMountCompletion(
+              recovery.recoveryCapability,
+              mountCompletion,
+            )
+          : true;
+        if (utilTypes.isPromise(mountReceipt))
+          void mountReceipt.catch(() => {});
+        const mountCompletionRecorded = mountReceipt === true;
         if (!mountCompletionRecorded)
           throw new Error("mount_completion_record_failed");
         const completion = dependencies.completeRecovery(
           recovery.recoveryCapability,
           managementCapability,
-          Object.freeze({ plan, cleanupOutcome: cleanup, mountCompletion }),
+          Object.freeze({ plan, mountCompletion }),
         );
         recoveryFinalizationCapability =
           completion.status === "completed" &&

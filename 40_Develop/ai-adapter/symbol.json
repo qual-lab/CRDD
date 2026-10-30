@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "ai-adapter",
   "symbols": [
+    { "symbolId": "ai-adapter.codex.observation", "kind": "file", "path": "src/codex/observation.ts", "archIds": ["ARCH-000015"] },
+    { "symbolId": "ai-adapter.verification.test-entry", "kind": "file", "path": "scripts/ai-adapter-test.ts", "archIds": ["ARCH-000015"] },
     {
       "symbolId": "domain-model.attempt.task-result",
       "kind": "file",

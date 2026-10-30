@@ -3839,6 +3839,10 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   });
   let operations: Array<Record<string, unknown>> = [];
   let hostState = "host_only";
+  let checkpointRevision = 1;
+  let checkpointSaved = true,
+    checkpointReleased = true,
+    checkpointReadMatches = true;
   let restoreCalls = 0;
   let releaseCalls = 0;
   let capabilityCalls = 0;
@@ -4063,7 +4067,17 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
           readRuntimeOwnedCoordinatorStateSnapshot: () => ({
             status: "completed",
             lockReleased: true,
-            value: { snapshot: { operations } },
+            value: {
+              snapshot: { operations, revision: checkpointRevision },
+              payloadSha256: checkpointReadMatches ? hash : "b".repeat(64),
+            },
+          }),
+          checkpointRuntimeOwnedCoordinatorCleanup: () => ({
+            status: "completed",
+            snapshotConfirmed: checkpointSaved,
+            lockReleased: checkpointReleased,
+            revision: checkpointRevision,
+            payloadSha256: hash,
           }),
           saveRuntimeOwnedCoordinatorOperationStart: (
             _management: unknown,
@@ -4261,7 +4275,36 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       runtime.recordRuntimeOwnedNormalMountCompletion(capability, mount),
       true,
     );
-    const raw = { plan, cleanupOutcome: cleanup, mountCompletion: mount };
+    const raw = { plan, mountCompletion: mount };
+    assert.equal(
+      runtime.completeRuntimeOwnedDockerRecovery(capability, management, raw)
+        .status,
+      "blocked",
+    );
+    assert.equal(restoreCalls, 0);
+    for (const fault of ["snapshot", "release", "fresh"]) {
+      checkpointSaved = fault !== "snapshot";
+      checkpointReleased = fault !== "release";
+      checkpointReadMatches = fault !== "fresh";
+      assert.equal(
+        runtime.recordRuntimeOwnedDockerAbsence(capability, []),
+        false,
+      );
+    }
+    checkpointSaved = checkpointReleased = checkpointReadMatches = true;
+    assert.equal(runtime.recordRuntimeOwnedDockerAbsence(capability, []), true);
+    assert.equal(
+      runtime.recordRuntimeOwnedDockerAbsence(capability, []),
+      false,
+    );
+    checkpointRevision++;
+    assert.equal(
+      runtime.completeRuntimeOwnedDockerRecovery(capability, management, raw)
+        .status,
+      "blocked",
+    );
+    assert.equal(restoreCalls, 0);
+    checkpointRevision--;
     const refusedBefore = structuredClone(operations);
     const refusedHost = hostState;
     const refusedCounts = [
@@ -4393,6 +4436,19 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       "blocked",
     );
     assert.equal(capabilityCalls, 1);
+    runtime.recordRuntimeOwnedDockerTerminalObservation(
+      capability,
+      completion,
+      {
+        operationId: plan.operationId,
+        recoveryId: "exact-id",
+        resources: [],
+        primaryFailure: null,
+        mountLeaseReleased: true,
+        recoveryCompleted: true,
+        homeLeaseReleased: true,
+      },
+    );
     assert.equal(
       runtime.recordRuntimeOwnedDockerHostCleanupReceipt(capability, {
         hostCleanupOutcome: cleanup,
@@ -4439,6 +4495,10 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     assert.ok(projectBegun && "recoveryCapability" in projectBegun);
     const projectCapability = projectBegun.recoveryCapability;
     assert.equal(
+      runtime.recordRuntimeOwnedDockerAbsence(projectCapability, []),
+      true,
+    );
+    assert.equal(
       runtime.readRuntimeOwnedDockerProjectResult(projectCapability).status,
       "blocked",
     );
@@ -4452,11 +4512,23 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         management,
         {
           plan: projectPlan,
-          cleanupOutcome: cleanup,
           mountCompletion: mount,
         },
       ).status,
       "completed",
+    );
+    runtime.recordRuntimeOwnedDockerTerminalObservation(
+      projectCapability,
+      completion,
+      {
+        operationId: projectPlan.operationId,
+        recoveryId: "exact-id",
+        resources: [],
+        primaryFailure: null,
+        mountLeaseReleased: true,
+        recoveryCompleted: true,
+        homeLeaseReleased: true,
+      },
     );
     assert.ok(operations[0]);
     operations[0].lease = "released";
@@ -4626,5 +4698,126 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     }
   } finally {
     for (const fixture of mocks.reverse()) fixture.restore();
+  }
+});
+
+/**
+ * 完了結果の所見を、同じ上位Ownerの初回レビューだけへ結合する。
+ * @responsibility 結果内容と次試行許可の発行条件を分離する。
+ * @trace ERB-IT-003
+ * @precondition メモリ内の元結果・既存Owner記録と所見を使用する。
+ * @stimulus 正常、別結果、別相関、取消、清掃不明、二回目レビューを渡す。
+ * @observation 既存許可発行関数の呼出し数と受け取った所見。
+ * @oracle 同じ清掃済み初回レビューの原結果だけ一回の呼出しで発行する。
+ * @cleanup N/A: 永続化、実Process、実AI、Dockerを使用しない。
+ * @boundary 完了結果からCoordinatorの既存許可Ownerへの接続。
+ */
+test("レビュー所見からの是正許可は同じ終端結果と初回レビューへ限定する", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = sourceDeclaration(
+    source,
+    "registerRuntimeOwnedReviewFindings",
+  );
+  for (const fault of [
+    "none",
+    "copy",
+    "capability",
+    "selection",
+    "operation",
+    "terminal_missing",
+    "terminal_operation",
+    "terminal_recovery",
+    "home",
+    "mount",
+    "recovery",
+    "cleanup",
+    "cancel",
+    "blocked",
+    "attempt1",
+    "executor",
+    "approved",
+    "empty",
+    "count",
+    "restoration",
+  ] as const) {
+    const capability = Object.freeze({});
+    const findings = Object.freeze([
+      Object.freeze({ message: "SYNTHETIC_REVIEW_FINDING_PRIVATE" }),
+    ]);
+    const result = {
+      status: "completed",
+      cleanupConfirmed: true,
+      cancellationRequested: false,
+      operationId: "OP-123456",
+      selectionRecordId: "selection",
+      normalizedResult: { decision: "changes_requested", findingCount: 1 },
+      reviewFindings: findings,
+    };
+    const plan = {
+      operationId: "OP-123456",
+      selectionRecordId: "selection",
+      operationMode: "isolated_task",
+      taskRole: "reviewer",
+      taskAttempt: 0,
+    };
+    const terminal = {
+      operationId: "OP-123456",
+      recoveryId: "exact-recovery",
+      homeLeaseReleased: true,
+      mountLeaseReleased: true,
+      recoveryCompleted: true,
+    };
+    const record = {
+      operationId: "OP-123456",
+      recoveryId: "exact-recovery",
+      dockerCompletion: result,
+      terminalObservation: terminal as typeof terminal | undefined,
+      normalRestoration: { plan } as { plan: typeof plan } | undefined,
+    };
+    if (fault === "selection") result.selectionRecordId = "other";
+    if (fault === "operation") result.operationId = "OP-654321";
+    if (fault === "terminal_missing") record.terminalObservation = undefined;
+    if (fault === "terminal_operation") terminal.operationId = "OP-654321";
+    if (fault === "terminal_recovery") terminal.recoveryId = "other";
+    if (fault === "home") terminal.homeLeaseReleased = false;
+    if (fault === "mount") terminal.mountLeaseReleased = false;
+    if (fault === "recovery") terminal.recoveryCompleted = false;
+    if (fault === "cleanup") result.cleanupConfirmed = false;
+    if (fault === "cancel") result.cancellationRequested = true;
+    if (fault === "blocked") result.status = "blocked";
+    if (fault === "attempt1") plan.taskAttempt = 1;
+    if (fault === "executor") plan.taskRole = "executor";
+    if (fault === "approved") result.normalizedResult.decision = "approved";
+    if (fault === "empty") result.reviewFindings = Object.freeze([]);
+    if (fault === "count") result.normalizedResult.findingCount = 2;
+    if (fault === "restoration") record.normalRestoration = undefined;
+    let issued = 0;
+    const permit = Object.freeze({});
+    const register = runInNewContext(
+      `${declaration}\nregisterRuntimeOwnedReviewFindings`,
+      {
+        durableRecord: (c: object) => (c === capability ? record : null),
+        registerTaskRemediation: (
+          id: string,
+          attempt: number,
+          value: unknown,
+        ) => {
+          issued++;
+          assert.equal(id, record.operationId);
+          assert.equal(attempt, 0);
+          assert.equal(value, findings);
+          return permit;
+        },
+      },
+    );
+    const returned = register(
+      fault === "capability" ? {} : capability,
+      fault === "copy" ? { ...result } : result,
+    );
+    assert.equal(returned, fault === "none" ? permit : null, fault);
+    assert.equal(issued, fault === "none" ? 1 : 0, fault);
   }
 });

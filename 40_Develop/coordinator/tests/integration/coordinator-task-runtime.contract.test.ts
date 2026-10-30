@@ -17,6 +17,7 @@
 import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
 import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
+import type { CompletionResult } from "../../../executor/src/index.ts";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -783,7 +784,6 @@ function fixture(
       provider: "codex" | "claude";
     }>
   >();
-  const preparedRoles = new WeakMap<object, "executor" | "reviewer">();
   const selectionRequests: Array<Record<string, unknown>> = [];
   const slateRequests: Array<Record<string, unknown>> = [];
   const selectionNotices: Array<Record<string, unknown>> = [];
@@ -1296,42 +1296,9 @@ function fixture(
       });
     },
     revokeTaskPacket: () => Object.freeze({ status: "revoked" }),
-    prepareProvider: (
-      provider: "codex" | "claude",
-      _management: object,
-      _mount: object,
-      _authorization: object,
-      _selection: object,
-      taskUse: object,
-      _correlation: string | null,
-      consumer: unknown,
-    ) => {
-      preparedConsumers.push(consumer);
-      const assignment = packetAssignments.get(taskUse);
-      assert.ok(assignment);
-      const role = assignment.role;
-      assert.equal(provider, assignment.provider);
-      if (options.prepareWorkloadSplit)
-        return Object.freeze({
-          status: "blocked",
-          reason: "claude_task_workload_split_required",
-        });
-      if (options.prepareFailureReason)
-        return Object.freeze({
-          status: "blocked",
-          reason: options.prepareFailureReason,
-        });
-      const preparedCapability = Object.freeze({});
-      preparedRoles.set(preparedCapability, role);
-      return Object.freeze({
-        status: "prepared",
-        preparedCapability,
-        selectionNotice: `${role}-selection-notice`,
-      });
-    },
     startProcess: (
-      preparedCapability: object,
-      _managementCapability: object,
+      provider: "codex" | "claude",
+      input: import("../../../executor/src/index.ts").AttemptInput,
       registerRecoveryHandoff: (
         capability: unknown,
         recoveryId: unknown,
@@ -1339,6 +1306,27 @@ function fixture(
       commandRestriction?: unknown,
       observeProviderStarted?: unknown,
     ) => {
+      preparedConsumers.push(input.consumer);
+      assert.equal(input.purpose, "task");
+      if (input.purpose !== "task") throw Error("fixture_purpose_invalid");
+      const assignment = packetAssignments.get(
+        input.packetCapability as object,
+      );
+      assert.ok(assignment);
+      const role = assignment.role;
+      assert.equal(provider, assignment.provider);
+      if (options.prepareWorkloadSplit)
+        return Object.freeze({
+          status: "blocked",
+          reason: "claude_task_workload_split_required",
+          preparationFailed: true,
+        });
+      if (options.prepareFailureReason)
+        return Object.freeze({
+          status: "blocked",
+          reason: options.prepareFailureReason,
+          preparationFailed: true,
+        });
       options.observeStartRegistration?.(observeProviderStarted);
       if (commandRestriction !== undefined) {
         assert.equal(typeof commandRestriction, "function");
@@ -1349,8 +1337,6 @@ function fixture(
           true,
         );
       }
-      const role = preparedRoles.get(preparedCapability);
-      assert.ok(role);
       const roleStartCount = (processStartCounts.get(role) ?? 0) + 1;
       if (
         options.admitState &&
@@ -1427,6 +1413,88 @@ function fixture(
         ...(options.hostCleanupWal
           ? { recoveryFinalizationCapability: recoveryCapability }
           : {}),
+        ...(options.providerTurnObservation && role === "executor"
+          ? {
+              providerTurnObservation: Object.freeze({
+                provider:
+                  options.providerTurnObservation === "invalid"
+                    ? "unknown"
+                    : "claude",
+                taskRole: "executor",
+                requestedMaximumTurns: 8,
+                providerReportedTurns:
+                  options.providerTurnObservation === "invalid_maximum"
+                    ? Number.MAX_SAFE_INTEGER + 1
+                    : 9,
+              }),
+            }
+          : {}),
+        ...(options.providerExecutionObservation && role === "executor"
+          ? {
+              providerExecutionObservation: Object.freeze({
+                transport:
+                  options.providerExecutionObservation === "invalid"
+                    ? "unknown"
+                    : "fixed_cli_jsonl_v0_164_0",
+                turnCompleted: true,
+                itemErrorCount: 0,
+                itemErrorCodeModeCount: 0,
+                itemErrorKnownWarningTextCount: 0,
+                itemErrorHostMentionCount: 0,
+                itemErrorSpawnMentionCount: 0,
+                itemErrorProtocolMentionCount: 0,
+                itemErrorConnectionMentionCount: 0,
+                itemErrorToolMentionCount: 0,
+                itemErrorPermissionMentionCount: 0,
+                itemErrorMissingPathMentionCount: 0,
+                itemErrorTimeoutMentionCount: 0,
+                itemErrorUnclassifiedCount: 0,
+                commandExecutionStartedCount: 1,
+                commandExecutionCompletedCount: 1,
+                commandExecutionFailedCount: 0,
+                commandExecutionDeclinedCount: 0,
+                commandExecutionExitCode0Count: 1,
+                commandExecutionExitCode1Count: 0,
+                commandExecutionExitCode126Count: 0,
+                commandExecutionExitCode127Count: 0,
+                commandExecutionOtherNonzeroExitCodeCount: 0,
+                commandExecutionMissingExitCodeCount: 0,
+                commandFamilyPythonCount: 0,
+                commandFamilyPosixTextCount: 0,
+                commandFamilyGitCount: 0,
+                commandFamilyApplyPatchCount: 0,
+                commandFailurePermissionCount: 0,
+                commandFailureReadOnlyFilesystemCount: 0,
+                commandFailureMissingPathCount: 0,
+                commandFailureCommandNotFoundCount: 0,
+                commandFailureSyntaxCount: 0,
+                commandFailureSandboxCount: 0,
+                commandFailureUnclassifiedCount: 0,
+                fileChangeStartedCount: 1,
+                fileChangeCompletedCount: 1,
+                fileChangeFailedCount: 0,
+                fileChangeDeclinedCount: 0,
+                rawEventReported: false,
+                commandReported: false,
+                pathReported: false,
+                providerTextReported: false,
+              }),
+            }
+          : {}),
+        reviewFindings:
+          role === "reviewer" &&
+          effectiveReviewerDecision === "changes_requested"
+            ? Object.freeze([
+                Object.freeze({
+                  severity: "medium",
+                  path: "fixture.txt",
+                  category: "acceptance_criterion_not_met",
+                  criterionNumber: 1,
+                  message: "SYNTHETIC_REVIEW_FINDING_PRIVATE",
+                  messageSha256: "6".repeat(64),
+                }),
+              ])
+            : null,
         normalizedResult:
           role === "executor"
             ? Object.freeze({
@@ -1438,74 +1506,6 @@ function fixture(
                     : (options.executorChangedPaths ?? ["fixture.txt"])),
                 ]),
                 verificationCount: 1,
-                ...(options.providerTurnObservation && role === "executor"
-                  ? {
-                      providerTurnObservation: Object.freeze({
-                        provider:
-                          options.providerTurnObservation === "invalid"
-                            ? "unknown"
-                            : "claude",
-                        taskRole: "executor",
-                        requestedMaximumTurns: 8,
-                        providerReportedTurns:
-                          options.providerTurnObservation === "invalid_maximum"
-                            ? Number.MAX_SAFE_INTEGER + 1
-                            : 9,
-                      }),
-                    }
-                  : {}),
-                ...(options.providerExecutionObservation && role === "executor"
-                  ? {
-                      providerExecutionObservation: Object.freeze({
-                        transport:
-                          options.providerExecutionObservation === "invalid"
-                            ? "unknown"
-                            : "fixed_cli_jsonl_v0_164_0",
-                        turnCompleted: true,
-                        itemErrorCount: 0,
-                        itemErrorCodeModeCount: 0,
-                        itemErrorKnownWarningTextCount: 0,
-                        itemErrorHostMentionCount: 0,
-                        itemErrorSpawnMentionCount: 0,
-                        itemErrorProtocolMentionCount: 0,
-                        itemErrorConnectionMentionCount: 0,
-                        itemErrorToolMentionCount: 0,
-                        itemErrorPermissionMentionCount: 0,
-                        itemErrorMissingPathMentionCount: 0,
-                        itemErrorTimeoutMentionCount: 0,
-                        itemErrorUnclassifiedCount: 0,
-                        commandExecutionStartedCount: 1,
-                        commandExecutionCompletedCount: 1,
-                        commandExecutionFailedCount: 0,
-                        commandExecutionDeclinedCount: 0,
-                        commandExecutionExitCode0Count: 1,
-                        commandExecutionExitCode1Count: 0,
-                        commandExecutionExitCode126Count: 0,
-                        commandExecutionExitCode127Count: 0,
-                        commandExecutionOtherNonzeroExitCodeCount: 0,
-                        commandExecutionMissingExitCodeCount: 0,
-                        commandFamilyPythonCount: 0,
-                        commandFamilyPosixTextCount: 0,
-                        commandFamilyGitCount: 0,
-                        commandFamilyApplyPatchCount: 0,
-                        commandFailurePermissionCount: 0,
-                        commandFailureReadOnlyFilesystemCount: 0,
-                        commandFailureMissingPathCount: 0,
-                        commandFailureCommandNotFoundCount: 0,
-                        commandFailureSyntaxCount: 0,
-                        commandFailureSandboxCount: 0,
-                        commandFailureUnclassifiedCount: 0,
-                        fileChangeStartedCount: 1,
-                        fileChangeCompletedCount: 1,
-                        fileChangeFailedCount: 0,
-                        fileChangeDeclinedCount: 0,
-                        rawEventReported: false,
-                        commandReported: false,
-                        pathReported: false,
-                        providerTextReported: false,
-                      }),
-                    }
-                  : {}),
               })
             : Object.freeze({
                 decision: effectiveReviewerDecision,
@@ -1523,10 +1523,6 @@ function fixture(
                         }),
                       ],
                 ),
-                remediationCapability:
-                  effectiveReviewerDecision === "changes_requested"
-                    ? Object.freeze({})
-                    : null,
               }),
       };
       if (cleanupFails && options.processFailureRecoveryMode === "missing")
@@ -1548,6 +1544,7 @@ function fixture(
       });
       return Object.freeze({
         status: "started",
+        selectionNotice: role + "-selection-notice",
         reason: "started",
         controlCapability: Object.freeze({}),
         recoveryId: activeRecoveryId,
@@ -1595,6 +1592,10 @@ function fixture(
                 }
               : {}),
           });
+    },
+    registerReviewFindings: (capability: object, result: CompletionResult) => {
+      assert.equal(processCompletionResults.get(capability), result);
+      return result.reviewFindings?.length ? Object.freeze({}) : null;
     },
     verifyCandidate: () => {
       candidateVerificationCount += 1;
@@ -2019,6 +2020,10 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
       "保存拒否後のProvider代役Effectは0",
     );
     assert.ok(bytes);
+    assert.equal(
+      String(bytes).includes("SYNTHETIC_REVIEW_FINDING_PRIVATE"),
+      false,
+    );
     for (const operation of decodeCoordinatorStateSnapshot(bytes, binding)
       ?.snapshot.operations ?? []) {
       if (operation.kind !== "docker_task") continue;
@@ -4158,6 +4163,14 @@ test("各段階の受動診断は四試行を区別し通知故障でも結果�
       "coordinator_task_independent_review_not_approved",
     );
     assert.equal(result.cleanupConfirmed, true);
+    assert.equal(
+      JSON.stringify(result).includes("SYNTHETIC_REVIEW_FINDING_PRIVATE"),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(notices).includes("SYNTHETIC_REVIEW_FINDING_PRIVATE"),
+      false,
+    );
     assert.deepEqual(
       notices.map((n) => [n.taskRole, n.taskAttempt]),
       [

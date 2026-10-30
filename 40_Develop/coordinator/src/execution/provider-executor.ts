@@ -14,7 +14,7 @@ import {
   borrowOwnedDockerExecutionPaths,
   borrowOwnedOperationExecutionSelection,
 } from "./operation.ts";
-import { getRuntimeOwnedProviderDockerAdapter } from "./preparation.ts";
+import { createProviderDockerRuntimeDependencies } from "./preparation.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "./controller.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
@@ -24,7 +24,6 @@ import {
   inspectRuntimeOwnedDockerResourceReceipts,
   markRuntimeOwnedDockerResourceSubmission,
   recordRuntimeOwnedDockerProviderSubmission,
-  registerRuntimeOwnedReviewFindings,
   recordRuntimeOwnedDockerTerminalObservation,
   recordRuntimeOwnedDockerResourceNotIssued,
   recordRuntimeOwnedDockerResourceReceipt,
@@ -35,13 +34,8 @@ import {
 } from "./recovery.ts";
 
 const executor = createExecutor({
+  ...createProviderDockerRuntimeDependencies(),
   verifyRevision: verifyRuntimeOwnedRepositoryOperation,
-  consumePreparedPlan: (prepared, management) =>
-    getRuntimeOwnedProviderDockerAdapter("claude").consume(
-      prepared,
-      management,
-    ) ??
-    getRuntimeOwnedProviderDockerAdapter("codex").consume(prepared, management),
   beginRecovery: (plan, management, observeFailure) => {
     const complete = borrowOwnedOperationExecutionSelection(
       management,
@@ -65,7 +59,6 @@ const executor = createExecutor({
   verifyHomeLeaseRelease: verifyRuntimeOwnedDockerHomeLeaseRelease,
   markResourceSubmission: markRuntimeOwnedDockerResourceSubmission,
   recordProviderSubmission: recordRuntimeOwnedDockerProviderSubmission,
-  registerReviewFindings: registerRuntimeOwnedReviewFindings,
   recordTerminalObservation: recordRuntimeOwnedDockerTerminalObservation,
   recordResourceNotIssued: recordRuntimeOwnedDockerResourceNotIssued,
   recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
@@ -123,24 +116,4 @@ export function cancelRuntimeOwnedDockerProcessController(
   ...args: Parameters<typeof executor.cancel>
 ) {
   return executor.cancel(...args);
-}
-/**
- * 固定DI Runtimeの元清掃結果だけを照合する。
- * @responsibility 同じ固定実体が観測した清掃と計画・回復を照合する。
- * @trace ARCH-000008
- * @input args: 元清掃結果・計画・回復と管理参照。
- * @returns 元資源観測又は拒否null。
- * @precondition 下位清掃を同じRuntimeで実行済み。
- * @postcondition 未観測資源の不存在を補完しない。
- * @effect N/A: 下位の元証拠照合だけ。
- * @failure 別Runtime・複製・相関差は拒否する。
- * @invariant Host清掃とDocker清掃を同一視しない。
- * @boundary 下位資源観測とHost遷移確定。
- * @security 状態値だけで清掃真正性を認定しない。
- * @concurrency 同じ元結果を同期照合する。
- */
-export function verifyRuntimeOwnedDockerCleanupOutcome(
-  ...args: Parameters<typeof executor.verifyCleanupOutcome>
-) {
-  return executor.verifyCleanupOutcome(...args);
 }

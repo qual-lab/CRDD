@@ -14,6 +14,129 @@ import {
   inspectAttemptSelection,
 } from "../../src/attempt/validation.ts";
 import test from "node:test";
+import {
+  cancelProviderDockerPreparation,
+  consumeProviderDockerPreparation,
+  createProviderDockerRuntimeState,
+  createAttemptPreparation,
+  createPreparationFailure,
+} from "../../src/attempt/preparation.ts";
+import type { ExecutorOptions } from "../../src/index.ts";
+import type {
+  AttemptPreparation,
+  AttemptPreparationResult,
+  PreparationCancellationResult,
+  PreparationFailure,
+} from "../../src/attempt/types.ts";
+
+/**
+ * 構成と準備結果の明示型が元の値契約を保持することを確認する。
+ * @responsibility 必須callbackと拒否結果のnull／falseを型・実値の両方で固定する。
+ * @trace PRL-UT-014
+ * @precondition 合成値だけを扱い、実Hostや外部Effectを呼ばない。
+ * @stimulus 必須／任意の構成と、両Providerの無効入力を渡す。
+ * @observation 型負例の拒否、全拒否field、取消結果、一回消費不成立。
+ * @oracle 型検査をcastで回避せず、拒否でEffectを発行しない。
+ * @cleanup N/A: Process内の空Ownerだけ。
+ */
+test("明示した構成・準備型は既存必須項目と拒否値を保持する", () => {
+  const paths: Pick<ExecutorOptions, "borrowPaths" | "inspectReceipts"> = {
+    borrowPaths: () => ({ tmp: "synthetic", management: "synthetic" }),
+  };
+  // @ts-expect-error 所在借用は必須。
+  const missing: Pick<ExecutorOptions, "borrowPaths" | "inspectReceipts"> = {};
+  const failure: PreparationFailure = createPreparationFailure("synthetic");
+  const prepared: AttemptPreparationResult<"codex"> = failure;
+  const cancelled: PreparationCancellationResult = failure;
+  // @ts-expect-error 拒否時に操作参照を発行しない。
+  const invalid: PreparationFailure = { ...failure, operationId: "synthetic" };
+  assert.equal(failure.status, "blocked");
+  assert.equal(failure.reason, "synthetic");
+  const nullKeys = [
+    "preparedCapability",
+    "operationId",
+    "grantRef",
+    "selectionRecordId",
+    "selectedModel",
+    "selectedEffort",
+    "selectionNotice",
+  ] as const;
+  const falseKeys = [
+    "providerHomeMountLeaseActive",
+    "dockerEffectIssued",
+    "filesystemEffectIssued",
+    "networkEffectIssued",
+    "processEffectIssued",
+    "providerRequestIssued",
+    "runtimeAuthorityIssued",
+    "operationCapabilityIssued",
+    "hostPathReported",
+    "proxyCredentialReported",
+  ] as const;
+  for (const key of nullKeys) assert.equal(failure[key], null, key);
+  for (const key of falseKeys) assert.equal(failure[key], false, key);
+  assert.deepEqual(
+    Reflect.ownKeys(failure).sort(),
+    ["status", "reason", ...nullKeys, ...falseKeys].sort(),
+  );
+  for (const provider of ["codex", "claude"] as const) {
+    // 無効入力の拒否はHostの値を読まずに確定する。
+    const owner: AttemptPreparation = createAttemptPreparation(
+      provider,
+      {} as never,
+    );
+    assert.equal(owner.productionAuthority, false);
+    const result = owner.prepare({} as never);
+    assert.equal(result.status, "blocked");
+    assert.deepEqual(
+      owner.cancel(null, null),
+      createPreparationFailure(
+        `${provider}_docker_runtime_prepared_capability_invalid`,
+      ),
+    );
+    assert.equal(owner.consume(null, null), null);
+    assert.equal(owner.consume(null, null), null);
+    for (const expired of [false, true]) {
+      const capability = {},
+        management = {};
+      const plan = {
+        operationId: "synthetic-operation",
+        grantRef: "synthetic-grant",
+        activeMountCapability: {},
+        authorityControlCapability: {},
+        preparedWallClockMs: 0,
+        preparedMonotonicMs: 0,
+      };
+      const state = {
+        prepared: new WeakMap([[capability, plan]]),
+        managementCapabilities: new WeakMap([[capability, management]]),
+        wallNow: () => (expired ? 30_000 : 29_999),
+        monotonicNow: () => (expired ? 30_000 : 29_999),
+        revokeProviderAuthority: () => ({ status: "revoked" }),
+        completeMount: () => ({ status: "completed" }),
+      };
+      const result: PreparationCancellationResult =
+        cancelProviderDockerPreparation(
+          state,
+          provider,
+          createPreparationFailure,
+          capability,
+          management,
+        );
+      const status = expired ? "expired" : "cancelled";
+      const reason = `${provider}_docker_runtime_preparation_${status}`;
+      assert.deepEqual(result, {
+        ...createPreparationFailure(reason),
+        status,
+        operationId: plan.operationId,
+        grantRef: plan.grantRef,
+      });
+      assert.equal(state.prepared.has(capability), false);
+      assert.equal(state.managementCapabilities.has(capability), false);
+    }
+  }
+  void [paths, missing, prepared, cancelled, invalid];
+});
 
 /**
  * 用途限定の捕捉と六技術項目を動的値から分離する。
@@ -132,11 +255,6 @@ test("用途限定入力は動的値・完全選定・欠測を拒否し技術�
     assert.equal(captureAllowedReferences(bad), null);
   assert.equal(calls, 0);
 });
-import {
-  cancelProviderDockerPreparation,
-  consumeProviderDockerPreparation,
-  createProviderDockerRuntimeState,
-} from "../../src/attempt/preparation.ts";
 
 /**
  * 準備Storeを生成するだけではHost操作を呼ばず、Provider・Owner間で共有しない。
@@ -186,6 +304,7 @@ test("準備Mapは同Provider別Ownerと別Providerで共有しない", () => {
   }
   assert.equal(calls, 0);
 });
+
 /**
  * 共通準備Lifecycleは参照一致・二時計・回収順序を保持する。
  *

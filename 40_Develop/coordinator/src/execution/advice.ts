@@ -19,7 +19,6 @@ import {
   prepareProviderAdvicePlan,
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,
-  getRuntimeOwnedProviderDockerAdapter,
 } from "./preparation.ts";
 import {
   type VerifiedRepositoryRoot,
@@ -1192,12 +1191,6 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
   revokeSelection: typeof revokeRuntimeOwnedDelegationSelectionGrant;
   issuePacket: typeof issueRuntimeOwnedProviderAdvicePacket;
   revokePacket: typeof revokeRuntimeOwnedProviderAdvicePacket;
-  prepareAttempt: (
-    provider: "codex" | "claude",
-    input: Parameters<
-      ReturnType<typeof getRuntimeOwnedProviderDockerAdapter>["prepare"]
-    >[0],
-  ) => unknown;
   startProcess: typeof startRuntimeOwnedDockerProcessController;
   cancelProcess: typeof cancelRuntimeOwnedDockerProcessController;
   prepareDockerHostCleanup: typeof prepareRuntimeOwnedDockerHostCleanup;
@@ -1494,29 +1487,19 @@ function createProviderAdviceRuntime(
           "workbench_ai_advice_runtime_packet_unavailable",
         );
 
-      const prepared = dependencies.prepareAttempt(plan.provider, {
-        purpose: "advice",
-        managementCapability: operation.managementCapability,
-        mountCapability: operation.mountCapability,
-        mountAuthorizationCapability: mountAuthorization,
-        selectionUseCapability: selectionUse,
-        packetCapability: packetUse,
-        packetOwnerCapability: packetOwner,
-        recoveryCorrelationId: dependencies.recoveryCorrelationId,
-        consumer: "workbench",
-      }) as RuntimeRecord;
-      const preparedCapability = objectValue(prepared.preparedCapability);
-      if (prepared.status !== "prepared" || !preparedCapability)
-        throw new AdviceRuntimeError(
-          "workbench_ai_advice_provider_preparation_failed",
-        );
-      packetOwner = null;
-      selectionControl = null;
-      mountControl = null;
-
       const process = dependencies.startProcess(
-        preparedCapability,
-        operation.managementCapability,
+        plan.provider,
+        {
+          purpose: "advice",
+          managementCapability: operation.managementCapability,
+          mountCapability: operation.mountCapability,
+          mountAuthorizationCapability: mountAuthorization,
+          selectionUseCapability: selectionUse,
+          packetCapability: packetUse,
+          packetOwnerCapability: packetOwner,
+          recoveryCorrelationId: dependencies.recoveryCorrelationId,
+          consumer: "workbench",
+        },
         (capability: unknown, recoveryId: unknown) => {
           const owned = objectValue(capability);
           const exactId = resolveRecoveryReference(recoveryId);
@@ -1536,6 +1519,13 @@ function createProviderAdviceRuntime(
         undefined,
         dependencies.observeStarted,
       ) as RuntimeRecord;
+      if (process.preparationFailed === true)
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_provider_preparation_failed",
+        );
+      packetOwner = null;
+      selectionControl = null;
+      mountControl = null;
       processControl = objectValue(process.controlCapability);
       const completion = process.completion;
       providerEffectIssued = process.dockerEffectStarted === true;
@@ -2072,8 +2062,6 @@ function createProductionDependencies(
     revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
     issuePacket: issueRuntimeOwnedProviderAdvicePacket,
     revokePacket: revokeRuntimeOwnedProviderAdvicePacket,
-    prepareAttempt: (provider, input) =>
-      getRuntimeOwnedProviderDockerAdapter(provider).prepare(input),
     startProcess: startRuntimeOwnedDockerProcessController,
     cancelProcess: cancelRuntimeOwnedDockerProcessController,
     prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,

@@ -1,5 +1,31 @@
 # QA-000006 外部実行境界の検証定義
 
+## Executor結果検査の責務整理
+
+未使用の結果文字列検査は削除し、結果の相関OracleはExecutorの試験supportへ移管する。通常Rootから試験専用検査への接続がなく、開始拒否、元回復ID、Home、五清掃条件と三状態の検査を維持する。Codex観測の検査はAI Adapter内部へ移し、通常Root非公開、内部検査失敗時の成功抑止、同Processの型付き結果搬送、製品Sourceから検証用Sourceへの依存零を確認する。未信頼JSONを読む検証ツールだけが既存の検証専用入口を使い、現行・旧三形、欠測維持、Proxy／getter／特殊prototype・余剰・部分欠測・数値境界の拒否とCoordinator最終投影を検査する。一次故障のターン数診断は正常な1・3・100を不正報告として受理せず、小数・0・負数・safe範囲外整数だけを不正数値診断として受理し、非canonical数値文字列を拒否する。これはターン数上限や保存済み旧診断の書換えではない。実AI・Docker・過去保持物は操作しない。
+
+## Executorの明示API契約
+
+公開Executorはstart／cancelのsignatureを明示し、Factoryがその型を満たすことを確認する。実装のReturnType／Parametersから公開契約を導出しない。選択三項目は全存在・全不存在の正例と六つの部分集合の型負例を確認し、型検査のexpect-error未消費を成功と扱わない。既存callback拒否・取消のinvalid／duplicate／要求・終了観測の相関と元Control／Promiseのlifecycleを維持する。
+
+構成・準備・隔離接続も、既存の名前付き契約を再利用する。所在借用の必須性、Receipt観測の任意性、生Process注入拒否、準備拒否の全null／false、両Providerの取消・失効・一回消費を確認する。通常Sessionへ試験Candidateの表示を混入させず、期限超過分類ではbyte項目を補完しない。型だけのRoot公開追加が実行時公開集合やEffect順序を変えないことを、型負例・純粋分類・有限代役の既存回帰で確認する。実AI・実Dockerの再実行を今回の型整理の成立根拠には用いない。
+
+## Executorの明示結果型とFactory入力
+
+両Factoryは名前付きObject一引数と`StartResult`／`CompletionResult`の明示返却型へ揃え、結果型の正本を`result/types.ts`に置く。開始のProvider不正・準備拒否・準備後実行拒否・成功の四経路を実公開Factory宣言で確認し、準備失敗表示と選択三値の値・null・省略を維持する。準備内部fieldが結果や変数経由の余剰propertyから再流入しないことをReflect.ownKeysのexact集合で検査する。終了の五清掃条件と三終端状態、内容・二観測・所見・回復Capabilityのmask条件は維持する。今回の削除は準備内部診断の開始結果への混入に限定し、保存形式・理由値・公開Root集合を変えない。
+
+## Executorの共有定数と結果Factoryの配置確認
+
+共有する固定語彙は責務内の`result/constants.ts`で所有し、理由・用途・診断段階の値と順序、凍結、準備用途と失敗理由の対応を維持する。検査実装への逆依存、Root公開APIへの追加、互換転送は作らない。`createStartResult`による開始成功・拒否と清掃後の`createCompletionResult`の整理では、開始成功のexact Control／Promise・凍結・選択metadataと、既存の開始拒否8組合せ・清掃32組合せと3終端状態の相関検査を維持する。
+
+## Executor内容型と実行結果の分離
+
+AI AdapterのTaskResult／AdviceResultを内容型の正本とし、ExecutorのCompletionResultで内容・実行観測・清掃・検査済み所見を区別し、是正許可は受領後のCoordinatorだけが所有する。非AI試験では両Providerの編集・レビュー・助言の解析、容量／Role／JSON拒否、正常完了、取消、Revision失効、清掃不明、通知例外、所見返却と保存callbackの拒否、上位での是正許可発行条件を確認する。正常完了と清掃確認と内容ありが共同成立しない結果では内容と観測と所見を公開しない。通常RootはcreateExecutorによる準備・開始とcancelに限定し、中間処理と試験用構成は公開しない。Coordinatorの最終公開投影は既存のexact結果を維持し、Capabilityを保存内容へ追加しない。実AI・Docker・過去保持物はこの非AI確認の対象外とする。
+
+共通のProvider結果APIは、用途に応じてTaskResult／AdviceResult／Probe内容を型で絞り、Envelopeだけの成立を内容成立として返さない。用途とfieldの不一致、Role不正、許可参照欠測、内容形不正、巨大出力、両Providerの搬送異常を公開APIから検査する。Envelope単独試験は内部抽出宣言へ接続し、製品入口の成立と区別する。
+
+初回と二回目のレビュー所見返却を、次試行許可から独立して確認する。Coordinatorの許可は同じCompletionResult・handoff・終端観測・Home／Mount／Recovery・操作／選定と初回Reviewerの相関が成立する場合だけとし、コピー、別参照、欠測、取消、approved、空所見、件数差、二回目レビューでは発行零を確認する。合成の所見本文が最終DTO・診断・実Writerの保存bytesへ出ないことも確認する。
+
 ## Docker IsolationのDomain非依存化 — 2026-10-30
 
 `ERB-IT-014`で技術checkpointとDomain保存受理を同じ正常・欠測・余剰・全field／enum差・nested Proxy／Accessor・凍結DTO・通知遷移・回復ID入力で照合する。本番Machineの通知列は上位の保存decoder／transitionも通す。DI型の成立を保存成功や資源観測と同義にしない。新品Processで相互Package解決を拒否して両Rootが開始でき、DIが記録Writer／Readerを公開しないことを確認する。
@@ -17,7 +43,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | 共通`prepare(AttemptInput)` | 両Providerの準備契約、DI接続代役 | 用途別exact field、一回消費、別Owner・選定差替え・取消・期限の拒否 |
 | 助言内容 | AI Adapter `tests/unit/provider/advice-result.contract.test.ts` | 四区分・容量・重複JSON Key・許可参照。ExecutorはEnvelope解析との接続を検査 |
 | 共通completion | Executor単独試験・公開境界試験 | Task／Adviceとも清掃後の型付き内容。旧六中間APIがRootへ存在しない |
-| 是正許可のOwner | Executor `review-delivery.contract.test.ts`とCoordinator Task Packet契約 | 清掃後の固定callbackだけで許可を付加。欠測・例外でも内容完了を改ざんせず許可なし。同一操作・初回レビュー・一回消費を要求し、コピー・別操作・再レビューを拒否 |
+| 是正許可のOwner | Executor `review-delivery.contract.test.ts`、Coordinator `docker-recovery-owner-reentry.contract.test.ts`とTask runtime契約 | Executorは正常完了・清掃確認・未取消・是正要求時だけ所見を返し、終端通知故障でも内容完了を改ざんしない。Coordinatorは元CompletionResult・handoff・終端／Home／Mount／Recovery・操作／選定・初回レビューを共同照合して既存の一回使用許可を発行する。コピー・別操作・欠測・取消・approved・空所見・件数差・二回目レビューは発行しない |
 | Command結合 | Coordinatorの既存助言Command／Packet契約 | DIへ移したHashの同一性、同意前Schema固定、Command差替え拒否 |
 
 内容検査失敗は清掃後のblocked結果と固定理由へ接続し、技術清掃を未成立へ改ざんしない。試験台帳とSymbolを各Ownerへ追従する。実AI・実Docker・過去保持物の操作はこの確認に含めず、新しい実境界の成功を主張しない。

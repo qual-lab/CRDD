@@ -20,6 +20,10 @@ import {
   createDockerIsolationRuntime,
   createDockerAuthenticationRuntimeFactory,
   startDockerProbeAttachedProcess,
+  type DockerIsolationRuntimeOptions,
+  type DockerCommandSession,
+  type DockerCommandExecutionClassification,
+  classifyDockerCommandExecution,
 } from "../../src/index.ts";
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
@@ -27,6 +31,79 @@ const platformAccessRoot = path.resolve(
   sourceRoot,
   "../../platform-access/src/index.ts",
 );
+
+/**
+ * 型だけの公開追加と元の入力拒否・分類を照合する。
+ * @responsibility 構成の必須／任意と、未観測結果のkey不在を保持する。
+ * @trace ERB-IT-004
+ * @precondition 外部操作は開始しない。
+ * @stimulus 正常構成、欠測、余剰、Proxyと期限超過を渡す。
+ * @observation 型負例、既存例外と分類のexact key。
+ * @oracle 型の明示化はRuntime公開・拒否規則を変更しない。
+ * @cleanup N/A: Factory構成と純粋判定のみ。
+ */
+test("隔離の明示契約は必須構成と未観測分類を保持する", async () => {
+  const options: DockerIsolationRuntimeOptions = {
+    borrowPaths: () => ({ tmp: "synthetic", management: "synthetic" }),
+  };
+  // @ts-expect-error 所在借用は必須。
+  const missing: DockerIsolationRuntimeOptions = {};
+  const extra: DockerIsolationRuntimeOptions = {
+    ...options,
+    // @ts-expect-error 生Process実装を本番構成へ注入しない。
+    startProcess: () => null,
+  };
+  const runtime = createDockerIsolationRuntime(options);
+  assert.deepEqual(
+    Object.keys(runtime).sort(),
+    [
+      "startCommand",
+      "startExecution",
+      "cleanupOwnedResources",
+      "verifyCleanupOutcome",
+    ].sort(),
+  );
+  assert.throws(() => createDockerIsolationRuntime(missing), /input_invalid/);
+  assert.throws(() => createDockerIsolationRuntime(extra), /input_invalid/);
+  assert.throws(
+    () => createDockerIsolationRuntime(new Proxy(options, {})),
+    /input_invalid/,
+  );
+  const deadline: DockerCommandExecutionClassification =
+    classifyDockerCommandExecution(null);
+  assert.deepEqual(deadline, { category: "deadline_exceeded" });
+  assert.deepEqual(
+    classifyDockerCommandExecution({
+      status: 0,
+      signal: null,
+      stdout: "x",
+      stderr: "",
+      outputExceeded: false,
+    }),
+    { category: "completed", stdoutBytes: 1, stderrBytes: 0 },
+  );
+  const session: DockerCommandSession = {
+    cancel: async () => ({
+      cancellationRequested: true,
+      processTerminationObserved: false,
+    }),
+    completion: new Promise(() => {}),
+  };
+  // @ts-expect-error 試験表示は通常Sessionの契約に含めない。
+  const candidateFlag = session.productionAuthority;
+  assert.equal(Object.hasOwn(session, "productionAuthority"), false);
+  const namespace = await import("../../src/index.ts");
+  for (const name of [
+    "DockerIsolationRuntimeOptions",
+    "DockerIsolationRuntime",
+    "DockerCommandSession",
+    "DockerCommandSessionResult",
+    "DockerCommandExecutionClassification",
+    "DockerProcessExitStatusClass",
+  ])
+    assert.equal(Object.hasOwn(namespace, name), false, name);
+  void candidateFlag;
+});
 
 /**
  * 相手Packageを解決できない新品ProcessでDIとDomainの独立開始を確認する。
