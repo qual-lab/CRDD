@@ -116,16 +116,13 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 ```text
 executor/src/
 ├ index.ts                    有限公開APIと共有型の明示export
-├ attempt/
-│ ├ validation.ts             技術選定の五項目固定・開始参照取得・試行構成の共通基本検査
-│ ├ execute.ts                createExecutor・prepareAttempt・start・単発実行・取消・join・通知
-│ ├ isolation.ts              AI Adapter／Docker Isolationの構成結合・Session開始と清掃接続
-│ └ types.ts                  技術入力・通知interface・開始通知と診断の型
-└ result/
-  ├ types.ts                  公開・共有結果型と非秘密診断型
-  ├ attempt.ts                Command結果・構成診断・開始結果・清掃後の終了結果の組立て
+└ attempt/
+  ├ execute.ts                createExecutor・prepareAttempt・start・単発実行・取消・join・通知
+  ├ isolation.ts              AI Adapter／Docker Isolationの構成結合・Session開始と清掃接続
+  ├ result.ts                 Command結果・構成診断・開始結果・清掃後の終了結果の組立て
+  ├ types.ts                  技術入力・通知interface・公開／共有結果型と非秘密診断型
   ├ constants.ts              結果理由・診断段階・Command用途の共有固定語彙
-  └ validation.ts             技術的な失敗理由の固定語彙検査
+  └ validation.ts             技術入力の固定・開始参照取得・共通基本検査・固定失敗理由照合
 ```
 
 結果検査の配置：開始・終了結果の再検査`projectAttemptStartResult`／`projectAttemptResult`は製品Sourceから撤去し、`tests/support/result-validation.ts`を既存の試験入口だけへ接続する。Executorの型付き結果を同Processの利用側へ再検査させる公開APIは作らない。Codex固有の観測検査はAI Adapter内に閉じ、通常Rootに公開しない。Executorは公開Parserが返す検査済み観測をCompletionResultの型でそのまま搬送し、Coordinatorも同Processの結果を再検査しない。JSONを読む検証ツールだけが既存の検証専用入口を使用する。回復開始応答のexact ID／Home・理由・診断検査はCoordinatorの既存validationが所有し、一次故障のJSON検査は既存./testingへ閉じる。Executorの製品Sourceには固定用途・技術理由・局所値の検査だけを残す。一次故障のターン数診断は、不正な報告値（safe integerかつ1以上ではない値）のみを受理し、実行結果を上限2と比較しない。Domainの保存済み旧診断の読取り契約は今回変更しない。
@@ -140,7 +137,7 @@ builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request�
 
 `AttemptPlan`はFactory内部の技術構成であり、Taskの計画・順序を表さずRootから公開しない。Model／EffortはAI Adapterの`AiModelSelection`だけから取得する。Coordinatorは対象・選定・用途別内容をRequestへ明示投影し、完全なCommandやProvider本文を受け戻さない。元の上位準備記録が試行専用ExecutorとAuthorityを保持し、別Owner・期限切れ・二重消費を既存の二WeakMapで拒否する。Executorの通知とcompletionは同じ技術CompletionResultを返す。CoordinatorはMount・保存の成立を加えたTask結果を一度組み立て、同じ上位結果を保存と上位completionへ渡す。保存失敗によって確認済みHome解放を未解放へ戻さない。
 
-公開`Executor`は`result/types.ts`でstart／cancelの引数・callback・結果を明示し、`createExecutor(request, options, random?): Executor | null`を型検査する。FactoryのReturnTypeで公開契約を代用しない。選択三項目は全存在又は全不存在のUnionとし、部分集合を許容しない。取消結果は要求理由と終了観測のtrue／falseを対応させる。Command制約・Authority・保存成立の判断は上位の既存操作で行う。Executorの通知は任意メソッドのvoid又はPromise<void>であり、戻り値で許可や保存成功を受け取らない。
+公開`Executor`は`attempt/types.ts`でstart／cancelの引数・callback・結果を明示し、`createExecutor(request, options, random?): Executor | null`を型検査する。FactoryのReturnTypeで公開契約を代用しない。選択三項目は全存在又は全不存在のUnionとし、部分集合を許容しない。取消結果は要求理由と終了観測のtrue／falseを対応させる。Command制約・Authority・保存成立の判断は上位の既存操作で行う。Executorの通知は任意メソッドのvoid又はPromise<void>であり、戻り値で許可や保存成功を受け取らない。
 
 本番入口は`createExecutor(request, options, random?)`とする。Factoryが`AttemptRequest`から一試行の完全な技術構成を作り、閉包内に保持する。返却値は試行専用の`Executor`又はnullであり、`recordProjection`・`start(managementCapability, reference, callbacks?)`・`cancel`・`abandon`だけを持つ。公開prepareとPlanの受渡しは廃止する。記録用投影は五資源名・所有label・Image Digest・購読種別・実行／Mount modeだけで、Command・Provider本文・Authorityは含めない。上位は既存準備記録を一回消費し、Authorityと耐久受付を確定してからstartする。Home取得とDocker要求はstart以後だけで、同じExecutorのstartは一回に限る。
 
@@ -152,17 +149,17 @@ Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ�
 
 Executorの`execute.ts`内の非公開`prepareAttempt`が一試行の技術構成を作り、同FileのFactoryが保持する。準備候補の一回消費はCoordinatorの既存Ownerが行う。`execute.ts`が唯一の技術生涯Ownerとして開始・取消・終了待ちを管理する。`isolation.ts`は下位Sessionの清掃後、Grant借用終了を通知し、Homeを実解放してから上位へ観測保存を通知する。正常SessionのDocker清掃を二重実行しない。開始前故障の限定清掃も同じ実行Ownerが呼ぶ。
 
-Task／Adviceとも同じstartとcompletionを使い、`CompletionResult`の`normalizedResult`を型付き`AttemptContent`として返す。実行時の編集・レビュー内容はAI Adapterの`provider/task-result.ts`、助言の内容モデル・Schema・許可参照検査は`provider/advice-result.ts`が唯一所有する。Domainにあった旧実体・公開APIは撤去し、保存Schema・Writer・遷移は変更しない。AI Adapterの公開`parseProviderResult`は用途別内容検査まで完了し、内容・非秘密観測・内部搬送用所見を区別して返す。Executorの`result/attempt.ts`の`parseAttemptOutput`がこの一入口と成功時の内容Hash計算をまとめる。`execute.ts`は解析のタイミング・結果受理・失敗の確定を所有し、Provider固有の解析や作業量判定を組み立てない。`result/attempt.ts`は`createStartResult`で開始成功・拒否結果、`createCompletionResult`で清掃後の終了結果を組み立てる。制御Handleとcompletion Promiseの生成・管理は実行Ownerが行い、開始Factoryは渡された同じ参照と既存の準備・選択metadataを結果へ組み立てる。`StartResult`／`CompletionResult`は`result/types.ts`が明示する公開結果契約とし、両Factoryは対応する型を明示して返す。両Factoryは名前付きObject一つを引数とし、開始入力はstatus別の必要値と準備失敗表示・選択三値、終了入力は操作ID・回復IDと技術観測を受ける。選定記録IDは上位の元記録だけが保持する。`StartResultDetails`、返却型のジェネリクス・Extract・型アサーションは使わない。準備内部のCapability／Grant／Home／Effect／Authority項目は開始結果へ展開せず、準備Ownerの内部診断にだけ保持する。入力の許可参照集合は準備時に複製・固定し、試行Identityへ含める。結果の用途別内容は保ち、同じfieldへ無理に平坦化しない。
+Task／Adviceとも同じstartとcompletionを使い、`CompletionResult`の`normalizedResult`を型付き`AttemptContent`として返す。実行時の編集・レビュー内容はAI Adapterの`provider/task-result.ts`、助言の内容モデル・Schema・許可参照検査は`provider/advice-result.ts`が唯一所有する。Domainにあった旧実体・公開APIは撤去し、保存Schema・Writer・遷移は変更しない。AI Adapterの公開`parseProviderResult`は用途別内容検査まで完了し、内容・非秘密観測・内部搬送用所見を区別して返す。Executorの`attempt/result.ts`の`parseAttemptOutput`がこの一入口と成功時の内容Hash計算をまとめる。`execute.ts`は解析のタイミング・結果受理・失敗の確定を所有し、Provider固有の解析や作業量判定を組み立てない。`attempt/result.ts`は`createStartResult`で開始成功・拒否結果、`createCompletionResult`で清掃後の終了結果を組み立てる。制御Handleとcompletion Promiseの生成・管理は実行Ownerが行い、開始Factoryは渡された同じ参照と既存の準備・選択metadataを結果へ組み立てる。`StartResult`／`CompletionResult`は`attempt/types.ts`が明示する公開結果契約とし、両Factoryは対応する型を明示して返す。両Factoryは名前付きObject一つを引数とし、開始入力はstatus別の必要値と準備失敗表示・選択三値、終了入力は操作ID・回復IDと技術観測を受ける。選定記録IDは上位の元記録だけが保持する。`StartResultDetails`、返却型のジェネリクス・Extract・型アサーションは使わない。準備内部のCapability／Grant／Home／Effect／Authority項目は開始結果へ展開せず、準備Ownerの内部診断にだけ保持する。入力の許可参照集合は準備時に複製・固定し、試行Identityへ含める。結果の用途別内容は保ち、同じfieldへ無理に平坦化しない。
 
 限定是正証拠の発行・一回消費はCoordinatorの`execution/preparation.ts`だけが所有する。Executorは検査済み所見を`CompletionResult.reviewFindings`で返す。所見はAI Adapterの`TaskReviewFinding`をそのまま使用し、別名型・再export・専用callback・是正許可fieldをExecutorへ追加しない。正常完了・清掃確認・未取消・是正要求・非空所見の場合だけ配列を返し、それ以外はnull。二回目レビューも内容として所見を返せるが、それから次の是正を許可するかは上位の判断である。Coordinatorは取消確認後、既存handoff・元終端結果・Home解放・操作／選定・初回レビューを照合し、同じ同期区間で既存の限定是正許可を発行する。本文はProcess内の一時結果として扱い、state／history・公開DTO・通常ログへ投影しない。新しいMapや許可FrameworkをExecutorへ作らない。
 
-Docker用助言Commandの結合とHashはDocker Isolationの`execution/binding.ts`が所有する。同意前の入力固定と実行時照合は同じHash形式を使用する。公開・共有結果型は`result/types.ts`から明示し、未使用の結果文字列検査は保持しない。内容のbyte上限と文字列条件はAI Adapterの内容検査Ownerが持つ。barrelや互換転送ファイルは追加しない。
+Docker用助言Commandの結合とHashはDocker Isolationの`execution/binding.ts`が所有する。同意前の入力固定と実行時照合は同じHash形式を使用する。公開・共有結果型は`attempt/types.ts`から明示し、未使用の結果文字列検査は保持しない。内容のbyte上限と文字列条件はAI Adapterの内容検査Ownerが持つ。barrelや互換転送ファイルは追加しない。
 
 Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProviderResult()`へ委譲する。Executorは同じAI Adapterの内容検査で編集Path・レビュー所見・助言の許可参照を検査し、その値と実行観測を結合する。共通化のためだけのNormalizer入口や汎用変換Frameworkは追加しない。
 
 Executorの製品Sourceと公開RootはDomain Modelを参照しない。選定設定・Catalog世代・選定理由を含む完全選定の検査とHash算出は上位が所有する。下位へ渡す選定はProvider、Model識別子、識別種別、推論強度、用途の五項目だけに限定する。`selectionHash`と選定記録IDは上位の元Ownerが保持・照合する。Coordinatorの準備時に完全選定・Packet相関を検査し、Executorの開始時には技術五項目・Command・Mountを検査する。下位の試行Identityへは技術値だけを含め、完全選定Hashは上位の元Ownerで照合する。このIdentityを保存Schemaの変更や過去記録の移行として扱わない。
 
-`attempt/validation.ts`は上記五項目を固定し、Proxy、accessor、特殊prototype、余剰、欠測を拒否する。開始参照はown dataだけを取得する。許可参照の配列・疎配列検査はAI Adapterの`parseAdviceReferences`が所有する。汎用の公開Snapshot APIは作らない。技術完了理由の発行集合は`result/constants.ts`が所有し、Domainの保存受理集合とは独立した契約としてexact一致を試験する。理由・保存形式は変えない。試験Harnessが合成記録を上位Ownerとして保存することと、Executor製品自身の永続化を区別する。
+`attempt/validation.ts`は上記五項目を固定し、Proxy、accessor、特殊prototype、余剰、欠測を拒否する。開始参照はown dataだけを取得する。許可参照の配列・疎配列検査はAI Adapterの`parseAdviceReferences`が所有する。汎用の公開Snapshot APIは作らない。技術完了理由の発行集合は`attempt/constants.ts`が所有し、Domainの保存受理集合とは独立した契約としてexact一致を試験する。理由・保存形式は変えない。試験Harnessが合成記録を上位Ownerとして保存することと、Executor製品自身の永続化を区別する。
 
 Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの解析分岐を持たせない。認証解析は同じCommand観測から一回行い、後続の認証Gateはその確認結果を使用する。Offeringの正本はAI Adapterの認証記述であり、ExecutorにProvider別の定数判断を複製しない。
 
@@ -177,7 +174,7 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 
 助言の許可参照はAI Adapterの`parseAdviceReferences`が内容条件と不変コピーを所有する。Executorは準備時のconfirmed配列を保持するだけで、独自の256件上限を持たない。正本は既存の1024件・512byte・非空・周辺空白なし・重複なしであり、sparse・symbol・accessor・Proxyを拒否する。拒否時は乱数・Home取得・隔離Runtime構築前に停止する。
 
-`readOwnDataProperty`は開始参照からown data propertyを読む局所補助であり、`attempt/validation.ts`に置く。結果の検査・保存成立・Authority判断は行わず、Rootへ公開しない。Setup用途の判定は一箇所の失敗理由Map参照に統合し、own keyだけを採用する。`isAttemptFailureReason`は試行結果・試験用診断で共有する固定理由の照合として`result/validation.ts`へ残す。成功・取消はFactoryが固定値を生成するため同種の動的理由検査を作らない。
+`readOwnDataProperty`は開始参照からown data propertyを読む局所補助であり、`attempt/validation.ts`に置く。結果の検査・保存成立・Authority判断は行わず、Rootへ公開しない。Setup用途の判定は一箇所の失敗理由Map参照に統合し、own keyだけを採用する。`isAttemptFailureReason`は試行結果・試験用診断で共有する固定理由の照合として`attempt/validation.ts`へ残す。成功・取消はFactoryが固定値を生成するため同種の動的理由検査を作らない。
 
 ### 単発実行の呼出し順序
 
@@ -191,7 +188,7 @@ DIの`onExecutionStarted`は同期voidの技術signalであり、Executorの公�
 
 `index.ts` → `createExecutor` → `start` → 内部`executeAttempt` → Docker Isolationによる実行・通知 → 資源回収・Home解放 → 技術CompletionResult、の順に進む。`start`はControlとcompletionを返し、Task全体の計画や順序を決定しない。`executeAttempt`は一試行の継続処理であり、上位の計画を実行計画として再管理するものではない。
 
-構築Factoryは`execute.ts`の`createExecutor`一つとし、Requestごとの準備・開始・取消を同じ試行専用Executorへまとめる。旧`createExecutionRuntime`／`createProviderAttemptRuntime`の中継を撤去する。有限試験の組立ては既存scriptsへ閉じ、製品と同じ内部start／cancel／abandonを使う。`describeExecutorContract`による説明文字列APIは撤去し、技術期限はDocker Isolation、準備候補の期限はCoordinatorが所有する。非秘密の構成診断は`result/attempt.ts`の`createConfigurationNotice`が組み立て、通知は`execute.ts`の発生箇所から直接呼ぶ。通知型は`types.ts`へ置き、`observation.ts`は置かない。
+構築Factoryは`execute.ts`の`createExecutor`一つとし、Requestごとの準備・開始・取消を同じ試行専用Executorへまとめる。旧`createExecutionRuntime`／`createProviderAttemptRuntime`の中継を撤去する。有限試験の組立ては既存scriptsへ閉じ、製品と同じ内部start／cancel／abandonを使う。`describeExecutorContract`による説明文字列APIは撤去し、技術期限はDocker Isolation、準備候補の期限はCoordinatorが所有する。非秘密の構成診断は`attempt/result.ts`の`createConfigurationNotice`が組み立て、通知は`execute.ts`の発生箇所から直接呼ぶ。通知型は`types.ts`へ置き、`observation.ts`は置かない。
 
 上位が先に回復記録を確定し、Executorはそのexact参照でHome排他を取得する。競合時は同じIDの未開始試行として拒否し、清掃完了やHome解放を捏造しない。旧abandonのHome解放条件に関する既知指摘は別件として保持し、本構造整理では変更しない。
 
@@ -212,7 +209,7 @@ Home取得前は`attempt/validation.ts`の`isAttemptPlanValid`で共通の基本
 | 公開API群 | 所有者 | 役割 |
 |---|---|---|
 | `createExecutor` | attempt | Requestと固定隔離設定を受け、内部構成を保持した一試行の開始・取消・終了を提供 |
-| `Executor`、`StartResult`、`CompletionResult` | result/types.ts | 開始結果と清掃後の最終結果を明示し、Factoryを型検査する |
+| `Executor`、`StartResult`、`CompletionResult` | attempt/types.ts | 開始結果と清掃後の最終結果を明示し、Factoryを型検査する |
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/types.ts | 実Process開始と非秘密診断 |
 | `AttemptRequest`、`AttemptRecordProjection` | attempt/types.ts | 解決済みの実行要求と、開始前の記録に必要な狭い隔離資源投影 |
 | `Executor.start` | attempt/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |

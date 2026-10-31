@@ -16,11 +16,11 @@
 
 型Owner整理では、共有型と非exportの準備専用型を区別し、別名・空の型演算・Docker清掃型の重複を再導入しない。共通化後の準備計画は両Providerの正例、購読種別不一致、Codexへの作業量追加、Claudeの作業量欠測、必須の回復相関・助言四項目・Authority制御参照・二時計・選択通知の欠測、任意Command目的を型負例で固定する。型だけの負例を実実行の拒否証明に置き換えず、既存のRuntime検査・二WeakMap別実体・一回消費・取消・清掃の試験を維持する。移管前の45共通keyとClaude固有keyをexact集合と型検査で照合し、基底計画の変更による暗黙継承も検知する。
 
-両Factoryは名前付きObject一引数と`StartResult`／`CompletionResult`の明示返却型へ揃え、結果型の正本を`result/types.ts`に置く。開始のProvider不正・準備拒否・準備後実行拒否・成功の四経路を実公開Factory宣言で確認し、準備失敗表示と選択三値の値・null・省略を維持する。準備内部fieldが結果や変数経由の余剰propertyから再流入しないことをReflect.ownKeysのexact集合で検査する。終了の五清掃条件と三終端状態、内容・二観測・所見・回復Capabilityのmask条件は維持する。今回の削除は準備内部診断の開始結果への混入に限定し、保存形式・理由値・公開Root集合を変えない。
+両Factoryは名前付きObject一引数と`StartResult`／`CompletionResult`の明示返却型へ揃え、結果型の正本を`attempt/types.ts`に置く。開始のProvider不正・準備拒否・準備後実行拒否・成功の四経路を実公開Factory宣言で確認し、準備失敗表示と選択三値の値・null・省略を維持する。準備内部fieldが結果や変数経由の余剰propertyから再流入しないことをReflect.ownKeysのexact集合で検査する。終了の五清掃条件と三終端状態、内容・二観測・所見・回復Capabilityのmask条件は維持する。今回の削除は準備内部診断の開始結果への混入に限定し、保存形式・理由値・公開Root集合を変えない。
 
 ## Executorの共有定数と結果Factoryの配置確認
 
-共有する固定語彙は責務内の`result/constants.ts`で所有し、理由・用途・診断段階の値と順序、凍結、準備用途と失敗理由の対応を維持する。検査実装への逆依存、Root公開APIへの追加、互換転送は作らない。`createStartResult`による開始成功・拒否と清掃後の`createCompletionResult`の整理では、開始成功のexact Control／Promise・凍結・選択metadataと、既存の開始拒否8組合せ・清掃32組合せと3終端状態の相関検査を維持する。
+共有する固定語彙は責務内の`attempt/constants.ts`で所有し、理由・用途・診断段階の値と順序、凍結、準備用途と失敗理由の対応を維持する。検査実装への逆依存、Root公開APIへの追加、互換転送は作らない。`createStartResult`による開始成功・拒否と清掃後の`createCompletionResult`の整理では、開始成功のexact Control／Promise・凍結・選択metadataと、既存の開始拒否8組合せ・清掃32組合せと3終端状態の相関検査を維持する。
 
 ## Executor内容型と実行結果の分離
 
@@ -64,12 +64,12 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | 固定構成の非秘密診断投影 | executor/tests/unit/observation.contract.test.ts | 元操作・Providerの相関を保ち、Command・Home Pathを公開しない |
 | 任意診断の同期例外・Promise拒否、必須通知待機と取消 | executor/tests/unit/notifications.contract.test.ts | 受動通知の故障を実行結果へ伝播させず、必須通知の拒否でも実清掃を一回行い元回復参照を保持する |
 | 開始基本条件と固定Commandの完全照合 | executor/tests/unit/plan.contract.test.ts | 基本検査の成立を完全計画の検証と混同しない |
-| 技術理由集合と一次故障診断の閉形式 | executor/tests/unit/result/validation.contract.test.ts | 発行理由と保存受理集合をexact照合し、未知理由・不正Turn報告値を拒否する |
+| 技術理由集合と一次故障診断の閉形式 | executor/tests/unit/attempt/validation.contract.test.ts | 発行理由と保存受理集合をexact照合し、未知理由・不正Turn報告値を拒否する |
 | 回復開始診断・回復応答の閉形式・exact参照・Home相関 | coordinator/tests/unit/execution/recovery-start-diagnostic.contract.test.ts、recovery-projection.contract.test.ts | CoordinatorをOwnerとし、Proxy・accessor・余分field・欠測を拒否してunknownを補完しない |
 | 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 物理清掃五条件と保存受理の64組合せ×三状態を区別する。保存拒否でも技術解放の観測と元回復参照を維持し、Task成功へは昇格させない |
 | Home技術Leaseの取得・解放・Owner終了 | coordinator/tests/integration/docker-process-controller.contract.test.ts | 取得後の開始拒否はEffect 0とrelease一回。保存拒否でもrelease一回。清掃不明は明示Owner終了まで保持し、別Owner・進行中・二重解放を拒否する |
-| 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/result/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
-| 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/result/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
+| 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/attempt/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
+| 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/attempt/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
 | 試験HostのReceipt・保存拒否・排他解放・元終端 | executor/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
 | Home事前確認の観測不能・元Lock・既存名導出 | executor/tests/integration/provider-home-boundary.contract.test.ts | 模擬サービス上の有限取得・解放と不明保持。実Homeには触れない |
 | 単段検証CLIの非対話実行、IPC、異常close、取消、親切断、診断、保持・清掃 | executor/tests/integration/provider-real-cli.contract.test.ts | 事前の人間承認を前提とし、非TTY・確認入力禁止の代役でも同じ有限試験が成立。子closeと技術終了と物理削除を別判定。試験代役以外は起動しない |

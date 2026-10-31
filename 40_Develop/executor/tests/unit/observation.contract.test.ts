@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createConfigurationNotice } from "../../src/result/attempt.ts";
+import { createConfigurationNotice } from "../../src/attempt/result.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**

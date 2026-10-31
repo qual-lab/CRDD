@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import type { StartResult } from "../../src/index.ts";
-import { createStartResult } from "../../src/result/attempt.ts";
+import { createStartResult } from "../../src/attempt/result.ts";
 
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。
@@ -256,7 +256,7 @@ test("開始拒否は清掃と元回復参照と下位義務を独立に保持�
  */
 test("終端結果は技術清掃と上位保存の全64組合せを区別し、上位判断を所有しない", () => {
   const source = readFileSync(
-    new URL("../../src/result/attempt.ts", import.meta.url),
+    new URL("../../src/attempt/result.ts", import.meta.url),
     "utf8",
   );
   const project = runInNewContext(

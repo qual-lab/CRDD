@@ -191,11 +191,11 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
     },
   );
   const resultModule = await import(
-    new URL("../../src/result/attempt.ts?notification-join", import.meta.url)
+    new URL("../../src/attempt/result.ts?notification-join", import.meta.url)
       .href
   );
   const resultMock = mock.module(
-    new URL("../../src/result/attempt.ts", import.meta.url).href,
+    new URL("../../src/attempt/result.ts", import.meta.url).href,
     { namedExports: resultModule },
   );
   try {

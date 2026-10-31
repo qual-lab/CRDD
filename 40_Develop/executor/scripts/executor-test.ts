@@ -9,11 +9,13 @@ import { types as utilTypes } from "node:util";
 import {
   readOwnDataProperty,
   isAttemptPlanValid,
+  isAttemptFailureReason,
 } from "../src/attempt/validation.ts";
 import type {
   AttemptPlan,
   AttemptReference,
   ExecutorCallbacks,
+  AttemptTerminalObservation as TechnicalObservation,
 } from "../src/attempt/types.ts";
 import type {
   ProcessStartedNotice,
@@ -36,8 +38,7 @@ import {
   type DockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
 } from "../../docker-isolation/src/index.ts";
-import type { AttemptTerminalObservation as TechnicalObservation } from "../src/result/types.ts";
-import { isAttemptFailureReason } from "../src/result/validation.ts";
+
 import {
   start,
   cancel,
@@ -50,14 +51,14 @@ import {
   resolveValidatedPlan,
   type IsolationRuntime,
 } from "../src/attempt/isolation.ts";
-import { PURPOSES } from "../src/result/constants.ts";
-import { createStartResult } from "../src/result/attempt.ts";
+import { PURPOSES } from "../src/attempt/constants.ts";
+import { createStartResult } from "../src/attempt/result.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
 export {
   projectAttemptStartResult,
   projectAttemptResult,
 } from "../tests/support/result-validation.ts";
-export { isAttemptFailureReason } from "../src/result/validation.ts";
+export { isAttemptFailureReason } from "../src/attempt/validation.ts";
 
 const RECOVERY_START_FAILURE_STAGES = Object.freeze([
   "plan_validation",
@@ -270,10 +271,13 @@ export type ExecutorTestDependencies = Omit<
   Readonly<{ acquireHomeLease?: RuntimeDependencies["acquireHomeLease"] }>;
 
 type RecordedStartResult =
-  | Exclude<import("../src/result/types.ts").StartResult, { status: "started" }>
+  | Exclude<
+      import("../src/attempt/types.ts").StartResult,
+      { status: "started" }
+    >
   | (Omit<
       Extract<
-        import("../src/result/types.ts").StartResult,
+        import("../src/attempt/types.ts").StartResult,
         { status: "started" }
       >,
       "completion"

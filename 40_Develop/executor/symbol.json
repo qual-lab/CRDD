@@ -4,7 +4,7 @@
   "subsystem": "executor",
   "symbols": [
     { "symbolId": "executor.test.support.result-validation", "kind": "file", "path": "tests/support/result-validation.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.result.constants", "kind": "file", "path": "src/result/constants.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.result.constants", "kind": "file", "path": "src/attempt/constants.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "executor.verification.test-entry", "kind": "file", "path": "scripts/executor-test.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "executor.attempt.validation", "kind": "file", "path": "src/attempt/validation.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "executor.verification.task-trial", "kind": "file", "path": "scripts/task-trial.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
@@ -12,7 +12,7 @@
     {
       "symbolId": "executor.result.types",
       "kind": "file",
-      "path": "src/result/types.ts",
+      "path": "src/attempt/types.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"
@@ -43,7 +43,7 @@
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",
-      "path": "src/result/validation.ts",
+      "path": "src/attempt/validation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -83,7 +83,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/result/attempt.ts",
+      "path": "src/attempt/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -91,7 +91,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/result/attempt.ts",
+      "path": "src/attempt/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -253,7 +253,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-task-structured-result",
       "kind": "test-suite",
-      "path": "tests/unit/result/task.contract.test.ts",
+      "path": "tests/unit/attempt/task.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -269,7 +269,7 @@
     {
       "symbolId": "executor.test.unit.advice-result",
       "kind": "test-suite",
-      "path": "tests/unit/result/advice.contract.test.ts",
+      "path": "tests/unit/attempt/advice.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -297,7 +297,7 @@
     {
       "symbolId": "executor.result.attempt",
       "kind": "file",
-      "path": "src/result/attempt.ts",
+      "path": "src/attempt/result.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -327,7 +327,7 @@
     {
       "symbolId": "executor.test.unit.result-validation",
       "kind": "test-suite",
-      "path": "tests/unit/result/validation.contract.test.ts",
+      "path": "tests/unit/attempt/validation.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],

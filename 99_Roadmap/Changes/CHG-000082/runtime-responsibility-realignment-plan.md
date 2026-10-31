@@ -1,11 +1,42 @@
 # 基盤機能中心のRuntime責務再編計画
 
 - 対象: CRDD v0.22 / CHG-000082
-- 状態: A〜GのSource移管・公開接続と対象非AI確認は限定完了。全体回帰の不合格と是正後の限定成功は区別する。Hの実AI／Docker、人間操作、実データ移行は未実施。
+- 状態: A〜GのSource移管・公開接続と対象非AI確認は限定完了。Hの今回Executor単体の実AI／Docker八試行は成立。Workbench／MCP／Coordinator連携、実データ移行、人間操作および全体QAの完了は未確認。全体回帰の過去不合格と是正後の限定成功を区別する。
 - 基準: `5dae7108436205ecf7804d7898b1aecc2e8ce85b`
 - 入力: 人間提示「Runtime Responsibility Realignment」。同文書の確認HEAD `81d9647a4`と旧Source名は基準当時の参照であり、旧構造を復活させない。
 - 責任者: Qual-Lab
-- 対象外: AI再送、Docker操作、既存Runtime領域・保持物の読取り／変更／削除、Release判断。
+- 対象外: 承認済み八試行を超えるAI再送、Docker Desktop／Engineの起動・再起動・修復、Image取得・更新、過去のRuntime領域・保持物の読取り／変更／削除、Release判断。
+
+## 結果Folder統合後のExecutor実AI確認（2026-10-31、八項目成立）
+
+人間は実AI試験を実施し問題がなければコミット・プッシュすることを承認した。今回の対象は既存Executor単体CLIの八試行であり、各一回を逐次実行する。EXEC-20261031-RESULT-01 Codex助言、02 Claude助言、03 Codex編集、04 Claudeレビュー、05 Claude編集、06 Codexレビュー、07 Codex開始後取消、08 Claude開始後取消とする。モデルは既存GPT-6.1 Sol／Opus 5.5、双方medium。既存Subscription経路だけを使い、送信は固定合成説明・source.txtのBASE／EDITED_OKとその差分・固定Schemaだけに限定し、本体Repository本文と秘密値を含めない。確認端末・確認コード・API Key fallback・自動再送は使用しない。
+
+各試行はRepository-local .crdd/tests/executor-real-<provider>-<runId>の新品領域を使う。既存の固定Image四Digestの存在、Engine 29.8.1の応答、稼働Container零、八Root不存在を事前確認した。固定ImageはCodex助言112a73d8…9b76de3、Codex Task 832019e6…32aa4a4、Claude 612433b7…de9c51f、Proxy 4270d4dc…413766。Sourceは直前の非AI全51件・利用側171件・独立レビュー済み候補から変更しない。実行後は同じ資源実IDによる技術清掃・Home解放・終端保存・子close・内容Oracle・今回Root回収を別々に確認する。失敗又は観測不能では後続送信を停止し、今回試験物について既存の安全な回収だけを行う。Docker Desktop／Engineの起動・再起動・修復、Image取得／更新、過去保持物の読取り／変更／削除は行わない。今回保持が必要な場合は既存の七日再評価契約を使う。Source／品質条件を緩めず、八項目が成立した場合だけ今回の整理と検証記録をコミット・プッシュする。
+
+実行結果は八試行すべてCLI終了値0。助言・編集・レビューの六件は内容確認とcompleted、取消二件は開始観測後のcancelled／cancellationConfirmed成立を確認した。取消ではcontentConfirmed=false・結果Hashなし・0byteを正しい非公開結果として扱い、通常内容成功へ読み替えない。全八件で子close、技術清掃、Home解放、終端保存、Native清掃、今回Root回収が成立し、primaryFailureはnull、保持記録は追加されなかった。Providerの生出力は保存していない。
+
+| 試行ID | Provider | 用途 | 結果 | 結果bytes | 結果SHA-256 |
+|---|---|---|---|---:|---|
+| EXEC-20261031-RESULT-01 | codex | 助言 | 成功 | 693 | cff8024f00769a8876fe2d5ebdce249199e82cf8bb5144e6452b049fe2ba0d80 |
+| EXEC-20261031-RESULT-02 | claude | 助言 | 成功 | 2314 | 131e574c717b59a6eb8742cb3c1847e476c1f62cc8635bf881fdad68ac5bf254 |
+| EXEC-20261031-RESULT-03 | codex | 編集 | 成功 | 1808 | e65096238ef764821053bf7331c869a65813333e32bb333a892f2819d9733d81 |
+| EXEC-20261031-RESULT-04 | claude | レビュー | 成功 | 1788 | 666c06487544a4dfbbd5c4e893743cd5df54e14836d5b01233b231315c90476e |
+| EXEC-20261031-RESULT-05 | claude | 編集 | 成功 | 2440 | 42ba12247696f338b768cc664cf075f627ba346e71c7c039638bf1ab37b3c650 |
+| EXEC-20261031-RESULT-06 | codex | レビュー | 成功 | 817 | 0752c64dd106db757788483c1b472676330aa4a30460a97f114b6fd99acafdae |
+| EXEC-20261031-RESULT-07 | codex | 取消 | 取消成立 | 0 | N/A: 取消のため結果非公開 |
+| EXEC-20261031-RESULT-08 | claude | 取消 | 取消成立 | 0 | N/A: 取消のため結果非公開 |
+
+終了後の読取りでも今回八Rootは不存在、稼働Containerは零、Network名は既存のbridge／host／jarvis_default／noneだけだった。組込みbridgeのIDだけae75c4b22bb9から33a3180dee57への変化を観測した。原因は未調査であり、全環境不変の根拠にはしない。過去の同種観測と今回の事実を区別し、今回Sourceによる原因やDocker再起動の成立を推測しない。今回の所有資源は各試行の元実IDで回収・不存在確認済み。Docker再起動・修復・Image取得／更新・過去保持物操作は行っていない。これはExecutor単体の固定条件での成立であり、Workbench／MCP／Coordinator連携や全Provider／全環境へ一般化しない。
+
+## Executorの結果Folder統合（2026-10-31、対象非AI確認完了）
+
+基準Commitはb34bfa9a8。人間の明示指定どおりsrc/resultをsrc/attemptへ統合する。result/attempt.tsはattempt/result.ts、types.tsとvalidation.tsは既存同名Fileへ宣言を統合し、constants.tsは同名でattemptへ移す。入力・通知・結果の17型宣言は欠落・重複なく維持する。同じFileへの型相互importを撤去し、importは既存規約どおり先頭に統合する。関数本体・固定値・公開名・保存形式・Timeout・Home解放条件は変更しない。
+
+変更経路は意味を変えないSource配置Refactorと直接参照・正本・試験登録の追従。着手前の軽量照合で現宣言・通常Root・私有参照・三単体Suiteと既存基準版の51件回帰を対応付けた。互換barrelや新APIを追加せず、新しい人間判断はない。src/resultと旧UT Directoryは空であることを確認して除去し、Source Treeはattempt配下六Fileとindex.tsに揃える。単体試験三Fileはtests/unit/attemptへ同名移動し、CatalogとSymbolの安定IDを変えずPathだけ更新する。公開Root、検証ScriptのModule差替え、Source宣言抽出の読取り先、coverage起動先、Architecture・QAを追従する。過去CHG・Evidenceの当時Pathは書換えない。
+
+確認は通常Rootの実行時公開集合・型利用側、Source Tree六File・旧Folder不存在、既存正常／異常／取消・清掃・通知の回帰と読取り専用独立レビューで行う。準拠基準・Release判断は不変であり準拠・Release監査は対象外。実AI・Docker・既存保持物は読取りも含めて操作しない。Repository内のSource・試験・正本文書だけを変更し、新しい保存・Lock・Registry・ライフサイクルを追加しない。
+
+対象確認結果：Executorの静的検査・型検査・Lintと全51件が成功（約108.7秒）。移動後のresult:coverage入口も成功した。Coordinator型検査と利用側171件が成功、Catalog427定義は有効。独立レビューで宣言17件（type 16件・interface 1件）、関数・定数・通知／清掃条件、Root公開集合、三UT・Symbol／Catalog安定ID、Module差替え・Source抽出・coverage・文書参照の追従を確認し、残Must-fixは零。旧Pathは不存在確認の試験文字列と過去記録だけに限定し、差分空白検査も成功した。実AI・Docker・過去保持物は操作しておらず、Repository全体QA完了や既知のHome解放条件の別件完了を意味しない。コミット・プッシュは未実施。
 
 ## Executor入力検査・参照正本・局所補助の整理（2026-10-31、対象非AI確認完了）
 

@@ -1,5 +1,5 @@
 /**
- * 技術理由集合と一次故障の固定診断を検査する。
+ * 単発実行の技術理由集合と一次故障の固定診断を検査する。
  * @responsibility 発行理由と保存受理集合の一致、未知理由と不正な報告値の拒否を確認する。
  * @trace ERB-IT-004
  * @level UT
@@ -12,9 +12,9 @@ import {
   ATTEMPT_COMPLETION_REASONS,
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
-} from "../../../src/result/constants.ts";
-import { isAttemptFailureReason } from "../../../src/result/validation.ts";
-import { convertCommandResult } from "../../../src/result/attempt.ts";
+} from "../../../src/attempt/constants.ts";
+import { isAttemptFailureReason } from "../../../src/attempt/validation.ts";
+import { convertCommandResult } from "../../../src/attempt/result.ts";
 import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/index.ts";
 import { isPrimaryFailureDiagnostic } from "../../../scripts/executor-test.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";

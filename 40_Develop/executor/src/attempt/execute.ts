@@ -28,14 +28,19 @@ import {
   type DockerProcessExitStatusClass,
   parseDockerTaskRecoveryId,
 } from "../../../docker-isolation/src/index.ts";
-import { isAttemptFailureReason } from "../result/validation.ts";
+import {
+  isAttemptFailureReason,
+  readOwnDataProperty,
+  parseModelSelection,
+  isAttemptPlanValid,
+} from "./validation.ts";
 import {
   createStartResult,
   convertCommandResult,
   parseAttemptOutput,
   createCompletionResult,
   createConfigurationNotice,
-} from "../result/attempt.ts";
+} from "./result.ts";
 import {
   resolveProviderExecution,
   resolveIsolationCommandInput,
@@ -49,13 +54,6 @@ import type {
   CompletionResult,
   PrimaryFailureDiagnostic,
   AttemptContent,
-} from "../result/types.ts";
-import {
-  readOwnDataProperty,
-  parseModelSelection,
-  isAttemptPlanValid,
-} from "./validation.ts";
-import type {
   AttemptRequest,
   AttemptPlan,
   AttemptRecordProjection,

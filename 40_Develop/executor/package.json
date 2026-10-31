@@ -11,7 +11,7 @@
     "typecheck": "tsc -p ./tsconfig.json",
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
-    "result:coverage": "node --experimental-test-coverage --test ./tests/unit/result/*.test.ts ./tests/unit/controller.contract.test.ts",
+    "result:coverage": "node --experimental-test-coverage --test ./tests/unit/attempt/*.test.ts ./tests/unit/controller.contract.test.ts",
     "test:run": "node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/**/*.test.ts",
     "verify:standalone": "node ./scripts/verify-provider-attempt.ts",
     "verify:home-boundary": "node ./scripts/verify-provider-home.ts",

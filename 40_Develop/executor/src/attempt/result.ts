@@ -12,19 +12,20 @@ import {
   parseProviderResult,
   type ProviderResultParseResult,
 } from "../../../ai-adapter/src/index.ts";
-import type { AttemptDiagnosticNotice, AttemptPlan } from "../attempt/types.ts";
+import type {
+  AttemptDiagnosticNotice,
+  AttemptPlan,
+  StartResultInput,
+  StartResult,
+  CompletionResultInput,
+  CompletionResult,
+} from "./types.ts";
 import {
   projectDockerExecutionBoundary,
   type CommandObservation,
   type DockerCommandExecutionClassification,
 } from "../../../docker-isolation/src/index.ts";
 import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
-import type {
-  StartResultInput,
-  StartResult,
-  CompletionResultInput,
-  CompletionResult,
-} from "./types.ts";
 
 /**
  * AI Adapterの内容検査と内容Hashの算出を一つの結果へまとめる。

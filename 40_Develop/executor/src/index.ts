@@ -7,22 +7,17 @@
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
 export { createExecutor } from "./attempt/execute.ts";
-export type { ExecutorCallbacks } from "./attempt/types.ts";
 export type {
+  ExecutorCallbacks,
   Executor,
   StartResult,
   CompletionResult,
   AttemptTerminalObservation,
   AttemptResultReason,
   AttemptFailureReason,
-} from "./result/types.ts";
-export type {
   AttemptRecordProjection,
   AttemptRequest,
-} from "./attempt/types.ts";
-// 実Process開始と非秘密診断。受付・準備開始の通知とは区別する。
-export type {
   ProcessStartedNotice,
   AttemptDiagnosticNotice,
+  PrimaryFailureDiagnostic,
 } from "./attempt/types.ts";
-export type { PrimaryFailureDiagnostic } from "./result/types.ts";

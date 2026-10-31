@@ -1,5 +1,5 @@
 /**
- * 読取り助言結果の許可参照・閉形式・公開契約を検査する。
+ * 単発実行の助言結果に対する許可参照・閉形式・公開契約を検査する。
  * @packageDocumentation
  * @responsibility Coordinatorの受付やPacketを使わず結果契約を反証する。
  * @trace ERB-UT-023

@@ -1,20 +1,23 @@
 /**
  * 一試行の技術入力を固定し、開始と隔離構成で共有する基本条件を検査する。
  * @packageDocumentation
- * @responsibility 選定・用途・Mount・Command外形を検査し、モデルと資源Identityの規則は所有元へ委譲する。
+ * @responsibility 選定・用途・Mount・Command外形と固定失敗理由を検査し、モデルと資源Identityの規則は所有元へ委譲する。
  * @trace ARCH-000008
  * @trace ARCH-000015
  * @boundary 信頼した上位Hostの搬送値とExecutorの準備・開始。
  */
 import { types as utilTypes } from "node:util";
-import type { AttemptPlan } from "./types.ts";
-import { PURPOSES } from "../result/constants.ts";
+import type { AttemptPlan, AttemptFailureReason } from "./types.ts";
+import { PURPOSES, ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
+
 import { dockerIsolationResourceIdentityIsValid } from "../../../docker-isolation/src/index.ts";
 import {
   describeProviderAuthentication,
   resolveAiModelSelection,
   type AiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
+
+const BLOCKED_COMPLETION_REASONS = new Set<string>(ATTEMPT_COMPLETION_REASONS);
 
 /**
  * 用途限定入力のdata propertyだけを一度捕捉する。
@@ -208,4 +211,26 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
         ),
     )
   );
+}
+
+/**
+ * 値がExecutorの固定失敗理由か判定する。
+ *
+ * @responsibility 下位結果の未知文字列をOwner Registry由来の固定理由から分離する。
+ * @trace ARCH-000008
+ * @input value: unknown
+ * @returns 固定Registryにexact一致する場合だけtrueを返す。
+ * @precondition N/A: 任意の観測値を受け取る。
+ * @postcondition trueの場合、値をAttemptFailureReasonとして扱える。
+ * @effect N/A: 不変Registryを参照するだけである。
+ * @failure N/A: 不正値はfalseへ閉じる。
+ * @invariant prefix、正規表現または部分一致で理由を許可しない。
+ * @boundary 下位Provider結果からDocker Process Controller公開結果への診断境界。
+ * @security 生出力または自由文を公開理由へ昇格しない。
+ * @concurrency N/A: 共有状態を変更しない同期判定である。
+ */
+export function isAttemptFailureReason(
+  value: unknown,
+): value is AttemptFailureReason {
+  return typeof value === "string" && BLOCKED_COMPLETION_REASONS.has(value);
 }

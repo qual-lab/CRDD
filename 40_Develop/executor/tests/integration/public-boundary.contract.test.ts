@@ -80,11 +80,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
         (i === 0 || position > (functionPositions[i - 1] ?? Infinity)),
     ),
   );
-  for (const file of [
-    "attempt/types.ts",
-    "result/types.ts",
-    "result/constants.ts",
-  ]) {
+  for (const file of ["attempt/types.ts", "attempt/constants.ts"]) {
     const source = fs.readFileSync(
       new URL(`../../src/${file}`, import.meta.url),
       "utf8",
@@ -100,7 +96,22 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   assert.match(
     publicSource,
-    /export type \{ ExecutorCallbacks \} from "\.\/attempt\/types\.ts"/,
+    /export type \{[^}]*\bExecutorCallbacks\b[^}]*\} from "\.\/attempt\/types\.ts"/,
+  );
+  assert.equal(
+    fs.existsSync(new URL("../../src/result/", import.meta.url)),
+    false,
+  );
+  assert.deepEqual(
+    fs.readdirSync(new URL("../../src/attempt/", import.meta.url)).sort(),
+    [
+      "constants.ts",
+      "execute.ts",
+      "isolation.ts",
+      "result.ts",
+      "types.ts",
+      "validation.ts",
+    ],
   );
   assert.doesNotMatch(
     publicSource,

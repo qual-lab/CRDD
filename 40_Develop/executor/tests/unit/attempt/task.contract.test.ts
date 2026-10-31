@@ -1,5 +1,5 @@
 /**
- * Executorの編集・レビュー結果正規化の検証範囲を定義する。
+ * 単発実行の編集・レビュー結果正規化の検証範囲を定義する。
  *
  * @packageDocumentation
  * @responsibility Executorの編集・レビュー結果正規化が所有する検証責務を実行する。
