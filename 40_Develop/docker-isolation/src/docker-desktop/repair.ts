@@ -1,5 +1,5 @@
 /**
- * 固定九処置の修復順序と保存通知を所有する。
+ * 固定九処置の修復順序と事実通知を所有する。
  * @packageDocumentation
  * @responsibility 技術処置と保存意図を結合し、保存失敗・取消後の追加発行を止める。
  * @trace ARCH-000008
@@ -25,9 +25,9 @@ const actions = [
 
 /**
  * 内部Machineの固定入力。
- * @responsibility 新処置許可と発生事実の保存Owner生存を分離する。
+ * @responsibility 新処置許可と上位への事実通知を分離する。
  * @trace ARCH-000008
- * @shape checkpoint、取消、二種類の同期確認、同期保存通知。
+ * @shape checkpoint、取消、現在境界の同期観測と同期void通知。
  * @invariant 保存済み意図をfreshでの再発行許可にしない。
  * @boundary 内部runtimeとMachine。
  * @security Native Session・任意Path・保存実装を含めない。
@@ -37,8 +37,7 @@ type MachineInput = Readonly<{
   checkpoint: Checkpoint;
   signal: AbortSignal;
   canIssueEffect: () => unknown;
-  canRecordCheckpoint: () => unknown;
-  onCheckpoint: (checkpoint: Checkpoint) => unknown;
+  onCheckpoint: (checkpoint: Checkpoint) => void;
 }>;
 
 /**
@@ -84,10 +83,10 @@ type TechnicalBoundary = Readonly<{
 }>;
 
 /**
- * 技術順序の終了と未保存事実を返す。
+ * 技術順序の終了と通知完了を返す。
  * @responsibility 未完了観測と一次終端失敗を区別する。
  * @trace ARCH-000008
- * @shape checkpoint、保存確認、状態、固定理由、一次失敗とEngine分類。
+ * @shape checkpoint、通知完了、状態、固定理由、一次失敗とEngine分類。
  * @invariant cleanup pendingの返却を資源回収完了にしない。
  * @boundary Machineから外側runtimeへ戻る値。
  * @security 生Session・Path・例外本文は返さない。
@@ -95,7 +94,7 @@ type TechnicalBoundary = Readonly<{
  */
 type MachineResult = Readonly<{
   checkpoint: Checkpoint | null;
-  checkpointConfirmed: boolean;
+  checkpointNotificationCompleted: boolean;
   status: "recovered" | "incomplete" | "failed" | "cancelled";
   reason:
     | "runtime_repair_recovered"
@@ -109,17 +108,17 @@ type MachineResult = Readonly<{
 }>;
 
 /**
- * 同期の厳密trueだけを確認として消費する。
+ * 現在境界の確認と同期通知の完了を区別する。
  * @responsibility Proxy・非同期・thenable・例外を許可へ昇格しない。
  * @trace ARCH-000008
  * @input callback: 同期確認、argument: 通知時だけの技術値。
- * @returns 同期trueだけtrue。
+ * @returns 境界確認はtrue、通知はundefinedの同期完了だけtrue。
  * @precondition callbackの用途は本Module内で固定。
  * @postcondition Promise拒否を消費し、thenable getterは実行しない。
  * @effect 同期callback一回だけ。
  * @failure 不正値・throwはfalse。
  * @invariant 拒否後の再通知を行わない。
- * @boundary 上位保存確認と下位順序。
+ * @boundary 上位境界観測・事実通知と下位順序。
  * @security 関数Proxyとasync関数は実行しない。
  * @concurrency awaitしない。
  */
@@ -139,7 +138,7 @@ function confirm(callback: unknown, argument?: Checkpoint): boolean {
         () => undefined,
         () => undefined,
       );
-    return value === true;
+    return argument === undefined ? value === true : value === undefined;
   } catch {
     return false;
   }
@@ -223,10 +222,10 @@ function canResumeRepairContinuation(checkpoint: Checkpoint): boolean {
  * @returns 凍結技術結果。cleanup確定や上位outcomeは含まない。
  * @precondition runtimeが同じNative子と対象実体へAdapterを固定済み。
  * @postcondition 通知失敗後・取消後の新技術Effectは0。
- * @effect 固定Adapterの観測と最大九処置、用途限定保存通知。
+ * @effect 固定Adapterの観測と最大九処置、用途限定事実通知。
  * @failure 保存拒否・不明発行・観測不能・取消を区別する。
  * @invariant freshの保存済み意図・unknownを再発行せず、実行済みを不要へ戻さない。
- * @boundary 上位保存Ownerと下位技術順序。Native取得・joinは外側。
+ * @boundary 上位の通知Consumerと下位技術順序。Native取得・joinは外側。
  * @security Rootへ公開せず、任意コマンド・Pathを受けない。
  * @concurrency 一つの呼出しだけで直列化し、返却後通知0。
  */
@@ -235,7 +234,7 @@ export async function runDockerRuntimeRepairMachine(
   technical: TechnicalBoundary,
 ): Promise<MachineResult> {
   let current = decode(input.checkpoint);
-  let saved = current;
+  let lastNotified = current;
   let notificationFailed = false;
   let engineObservation: DockerRepairEngineState | null = null;
   /**
@@ -256,7 +255,7 @@ export async function runDockerRuntimeRepairMachine(
   const issueAllowed = () =>
     !input.signal.aborted && confirm(input.canIssueEffect);
   /**
-   * 現在の技術値と保存成否を分けて凍結する。
+   * 現在の技術値と通知完了を分けて凍結する。
    * @responsibility 未保存値を耐久確定と表示しない。
    * @trace ARCH-000008
    * @input status、reason、primaryFailure: 固定終了分類。
@@ -277,8 +276,8 @@ export async function runDockerRuntimeRepairMachine(
   ): MachineResult =>
     Object.freeze({
       checkpoint: current,
-      checkpointConfirmed:
-        current !== null && !notificationFailed && current === saved,
+      checkpointNotificationCompleted:
+        current !== null && !notificationFailed && current === lastNotified,
       status,
       reason,
       primaryFailure,
@@ -311,10 +310,10 @@ export async function runDockerRuntimeRepairMachine(
    * @responsibility 通知失敗をstickyにし後続通知を拒否する。
    * @trace ARCH-000008
    * @input candidate: 次の技術観測。
-   * @returns 合法遷移・保存Owner・同期通知が全成立した場合だけtrue。
-   * @precondition 同じ呼出しの保存Ownerを利用する。
+   * @returns 合法遷移・同期通知が完了した場合だけtrue。
+   * @precondition 同じ呼出しの通知ハンドラーを利用する。
    * @postcondition 確定値と未保存事実を分離する。
-   * @effect 用途限定の保存通知だけ。
+   * @effect 用途限定の事実通知だけ。
    * @failure 不正候補・生存不明・通知拒否はfalse。
    * @invariant 失敗した通知を再利用しない。
    * @boundary 技術checkpointと上位Writer。
@@ -329,14 +328,11 @@ export async function runDockerRuntimeRepairMachine(
       return false;
     }
     current = next;
-    if (
-      !confirm(input.canRecordCheckpoint) ||
-      !confirm(input.onCheckpoint, next)
-    ) {
+    if (!confirm(input.onCheckpoint, next)) {
       notificationFailed = true;
       return false;
     }
-    saved = current;
+    lastNotified = current;
     return true;
   };
   /**
@@ -362,27 +358,27 @@ export async function runDockerRuntimeRepairMachine(
       ? { ...current, actions: { ...current.actions, [action]: value } }
       : null;
   /**
-   * 耐久元版から合法な不明結果を再導出する。
+   * 通知完了済み元版から合法な不明結果を再導出する。
    * @responsibility 発行後の保存拒否を未発行へ戻さない。
    * @trace ARCH-000008
    * @input action: 発行または発行結果が不明な固定slot。
-   * @returns 耐久元版から合法に遷移できるunknown候補、またはnull。
-   * @precondition 同じ呼出しの意図保存を確認済み。
-   * @postcondition 最後に確認した保存元版は不変更。
+   * @returns 通知完了済み元版から合法に遷移できるunknown候補、またはnull。
+   * @precondition 同じ呼出しの意図通知の完了を確認済み。
+   * @postcondition 最後に確認した通知元版は不変更。
    * @effect N/A: メモリ内だけ。
    * @failure 不正候補はnullとして確定を主張しない。
    * @invariant 実行済みをnot_requiredにしない。
-   * @boundary 未保存事実と耐久元版。
+   * @boundary 未保存事実と通知完了済み元版。
    * @security 再発行Authorityを生成しない。
    * @concurrency N/A: 同期処理。
    */
   const uncertain = (action: (typeof actions)[number]) => {
-    if (!saved) return null;
-    const prior = saved.actions[action];
+    if (!lastNotified) return null;
+    const prior = lastNotified.actions[action];
     return decode({
-      ...saved,
+      ...lastNotified,
       actions: {
-        ...saved.actions,
+        ...lastNotified.actions,
         [action]: {
           intent: "saved",
           request: prior.request === "issued" ? "issued" : "unknown",
@@ -392,11 +388,11 @@ export async function runDockerRuntimeRepairMachine(
     });
   };
   /**
-   * 技術観測だけを捕捉して保存通知へ渡す。
+   * 技術観測だけを捕捉して事実通知へ渡す。
    * @responsibility 観測Adapterから処置slotやcleanupを書換えさせない。
    * @trace ARCH-000008
    * @input phase: 通常観測または初回起動失敗世代の固定。
-   * @returns 観測・許可再確認・保存通知が成立すればtrue。
+   * @returns 観測・許可再確認・事実通知が成立すればtrue。
    * @precondition Native取得は外側runtimeが所有する。
    * @postcondition 許可喪失後に通知へ進まない。
    * @effect 読取り観測と用途限定通知。
@@ -472,7 +468,7 @@ export async function runDockerRuntimeRepairMachine(
    * @returns 再観測・保存が成功した場合だけtrue。
    * @precondition 呼出し側が待機後の現在許可を確認済み。
    * @postcondition 失敗時ready非保存。
-   * @effect 固定current観測と既存保存通知。
+   * @effect 固定current観測と既存事実通知。
    * @failure 欠測・不明・失効・拒否はfalse。
    * @invariant actions・cleanup・expectedを再bindしない。
    * @boundary Engine待機と終端観測。

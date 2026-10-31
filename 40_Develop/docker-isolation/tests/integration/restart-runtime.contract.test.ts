@@ -57,7 +57,7 @@ test("不正入力はdata property捕捉前に固定拒否する", async () => {
     { ...f.input, extra: true },
     { ...f.input, [Symbol("extra")]: true },
     { ...f.input, signal: {} },
-    { ...f.input, beforeRequest: null },
+    { ...f.input, onRequesting: null },
     { ...f.input, onEvent: true },
   ]) {
     const result = await restartDockerRuntimeForVerification(
@@ -158,9 +158,8 @@ function fixture(
     requestId: "a".repeat(64),
     signal: controller.signal,
     verifyBoundary: () => permission,
-    beforeRequest: () => {
+    onRequesting: () => {
       calls.push("checkpoint");
-      return true;
     },
     onEvent: (event) => {
       events.push(event);
@@ -270,7 +269,7 @@ test("固定再起動は受付から回収まで閉じた観測だけを返す",
   assert.equal(Object.hasOwn(result, "phase"), false);
 });
 
-for (const stage of ["verifyBoundary", "beforeRequest"] as const) {
+for (const stage of ["verifyBoundary", "onRequesting"] as const) {
   for (const failure of [
     "false",
     "throw",
@@ -775,16 +774,16 @@ test("上位入力Objectの変更で元要求を再結合しない", async () =>
   foreign.abort();
   const input: DockerRuntimeRestartInput = {
     ...f.input,
-    beforeRequest: () => {
+    onRequesting: () => {
       Object.assign(input, {
         requestId: "b".repeat(64),
         signal: foreign.signal,
         verifyBoundary: () => false,
-        beforeRequest: () => {
+        onRequesting: () => {
           throw new Error("must not rebind checkpoint");
         },
       });
-      return f.input.beforeRequest();
+      return f.input.onRequesting();
     },
   };
   const result = await restartDockerRuntimeForVerification(

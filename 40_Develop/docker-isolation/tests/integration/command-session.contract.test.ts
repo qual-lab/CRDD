@@ -13,7 +13,8 @@ import test from "node:test";
 import {
   startDockerCommandSessionCandidate,
   describeDockerCommandSessionContract,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
+  type DockerResourceReceipts,
   type DockerIsolationCommand,
   type CommandObservation,
 } from "../../src/index.ts";
@@ -75,7 +76,11 @@ function deferred<T>() {
  */
 function sessionFixture(
   options: Readonly<{
-    hooks?: Partial<DockerExecutionHooks>;
+    hooks?: Partial<DockerExecutionCallbacks>;
+    withoutCallbacks?: boolean;
+    inspectCleanup?: (
+      receipts: DockerResourceReceipts,
+    ) => void;
     blocked?: Purpose;
     startConfirmed?: boolean;
     waitThrows?: boolean;
@@ -136,7 +141,8 @@ function sessionFixture(
           },
         };
       },
-      cleanup: async () => {
+      cleanup: async (receipts) => {
+        options.inspectCleanup?.(receipts);
         cleanups++;
         events.push("cleanup");
         cleanupEntered.resolve();
@@ -147,29 +153,30 @@ function sessionFixture(
       verifyCleanup: (value) =>
         value === cleanup ? cleanup.resourceObservations : null,
     },
-    {
-      allowCommand: () => true,
-      recordSubmission: () => true,
-      recordNotIssued: () => {
-        events.push("not-issued");
-        return true;
-      },
-      recordExecutionSubmission: () => true,
-      recordReceipt: (purpose) => {
-        events.push(`receipt:${purpose}`);
-        return true;
-      },
-      acceptCommandResult: () => true,
-      acceptOutput: () => true,
-      onExecutionStarted: () => {
-        notifications++;
-        events.push("started");
-      },
-      onFailure: (failure) => {
-        events.push(`failure:${failure.gate ?? failure.stage}`);
-      },
-      ...options.hooks,
-    },
+    options.withoutCallbacks
+      ? {}
+      : {
+          onCommandSubmitting: () => {},
+          onCommandNotIssued: () => {
+            events.push("not-issued");
+            return;
+          },
+          onExecutionSubmitting: () => {},
+          onResourceCreated: (purpose) => {
+            events.push(`receipt:${purpose}`);
+            return;
+          },
+          onCommandObserved: () => {},
+          onCommandCompleted: () => {},
+          onExecutionStarted: () => {
+            notifications++;
+            events.push("started");
+          },
+          onFailure: (failure) => {
+            events.push(`failure:${failure.gate ?? failure.stage}`);
+          },
+          ...options.hooks,
+        },
   );
   return {
     session,
@@ -245,12 +252,11 @@ test("Sessionは返却後だけ固定九要求を実行し元清掃と期限を�
  */
 test("同期Gateのfalse・throw・Promiseは固定停止点として清掃へ戻る", async () => {
   for (const name of [
-    "allowCommand",
-    "recordSubmission",
-    "recordExecutionSubmission",
-    "recordReceipt",
-    "acceptCommandResult",
-    "acceptOutput",
+    "onCommandSubmitting",
+    "onExecutionSubmitting",
+    "onResourceCreated",
+    "onCommandObserved",
+    "onCommandCompleted",
   ] as const) {
     for (const mode of ["false", "throw", "promise"] as const) {
       /**
@@ -267,16 +273,11 @@ test("同期Gateのfalse・throw・Promiseは固定停止点として清掃へ�
       const reject = (() => {
         if (mode === "throw") throw new Error("fixed_gate_failure");
         return mode === "promise" ? Promise.resolve(true) : false;
-      }) as unknown as DockerExecutionHooks[typeof name];
+      }) as unknown as DockerExecutionCallbacks[typeof name];
       const fixture = sessionFixture({ hooks: { [name]: reject } });
       const result = await fixture.session.completion;
-      if (mode === "promise" && name.startsWith("record")) {
-        assert.equal(result.failure, null);
-        assert.equal(result.executionCompleted, true);
-        assert.equal(fixture.counts().cleanups, 1);
-        continue;
-      }
       assert.equal(result.failure?.gate, name);
+      assert.equal(result.notificationDeliveryConfirmed, false);
       assert.equal(
         result.failure?.kind,
         mode === "false"
@@ -307,13 +308,13 @@ test("intent保存中の取消は未発行を保存しDocker要求を一つも�
     let fixture!: ReturnType<typeof sessionFixture>;
     fixture = sessionFixture({
       hooks: {
-        recordSubmission: () => {
+        onCommandSubmitting: () => {
           void fixture.session.cancel();
-          return true;
+          return;
         },
-        recordNotIssued: () => {
+        onCommandNotIssued: () => {
           fixture.events.push("not-issued");
-          return accepted;
+          if (!accepted) throw new Error("notification_failed");
         },
       },
     });
@@ -328,7 +329,7 @@ test("intent保存中の取消は未発行を保存しDocker要求を一つも�
     );
     assert.equal(
       result.failure?.gate ?? null,
-      accepted ? null : "recordNotIssued",
+      accepted ? null : "onCommandNotIssued",
     );
     assert.equal(fixture.counts().cleanups, 1);
   }
@@ -504,12 +505,14 @@ test("開始通知の例外とPromise返却は後続通知なしで回収する"
 test("認証出力の拒否後は残る技術要求を発行しない", async () => {
   const fixture = sessionFixture({
     hooks: {
-      acceptOutput: (purpose) =>
-        purpose !== "start_subscription_auth_probe_attached",
+      onCommandCompleted: (purpose) => {
+        if (purpose === "start_subscription_auth_probe_attached")
+          throw new Error("authentication_unconfirmed");
+      },
     },
   });
   const result = await fixture.session.completion;
-  assert.equal(result.failure?.gate, "acceptOutput");
+  assert.equal(result.failure?.gate, "onCommandCompleted");
   assert.deepEqual(
     fixture.events.filter((event) => event.startsWith("start:")),
     [
@@ -566,4 +569,86 @@ test("通知破損と終端不明は300秒待ちを追加せず後着Effectを�
       }
     }
   }
+});
+
+/**
+ * 任意通知の未登録と非同期通知の完了順序を確認する。
+ * @responsibility 通知を保存ACKや実行許可にせず、取消と元Receiptを保持する。
+ * @trace ERB-IT-002
+ * @precondition 固定九要求と模擬資源だけを使用する。
+ * @stimulus 未登録、保留中取消、Receipt通知例外を与える。
+ * @observation 要求数、元資源ID、清掃数、通知解放を確認する。
+ * @oracle 保留中は要求0、取消後の追加要求0、失敗でも清掃1。
+ * @cleanup 保留通知を解放し元completionをjoinする。
+ * @boundary Sessionと通知Consumer。実Dockerは使用しない。
+ */
+test("通知は未登録・非同期完了・取消・Receipt例外をACKなしで扱う", async () => {
+  const absent = sessionFixture({ withoutCallbacks: true });
+  const noListener = await absent.session.completion;
+  assert.equal(noListener.failure, null);
+  assert.equal(noListener.notificationDeliveryConfirmed, null);
+  assert.equal(noListener.executionCompleted, true);
+  assert.equal(noListener.callbackRegistrationReleased, true);
+
+  const entered = deferred<void>();
+  const release = deferred<void>();
+  const waiting = sessionFixture({
+    hooks: {
+      onCommandSubmitting: async () => {
+        entered.resolve();
+        await release.promise;
+      },
+    },
+  });
+  await entered.promise;
+  assert.equal(
+    waiting.events.some((event) => event.startsWith("start:")),
+    false,
+  );
+  await waiting.session.cancel();
+  release.resolve();
+  const cancelled = await waiting.session.completion;
+  assert.equal(cancelled.cancellationRequested, true);
+  assert.equal(
+    waiting.events.some((event) => event.startsWith("start:")),
+    false,
+  );
+  assert.equal(waiting.counts().cleanups, 1);
+
+  const rejected = sessionFixture({
+    hooks: {
+      onCommandSubmitting: async () => {
+        throw new Error("consumer_rejected");
+      },
+    },
+  });
+  const rejectedResult = await rejected.session.completion;
+  assert.equal(rejectedResult.failure?.gate, "onCommandSubmitting");
+  assert.equal(rejectedResult.notificationDeliveryConfirmed, false);
+  assert.equal(
+    rejected.events.some((event) => event.startsWith("start:")),
+    false,
+  );
+  assert.equal(rejected.counts().cleanups, 1);
+
+  let notifiedId: string | null = null;
+  let cleanupId: string | null = null;
+  const failed = sessionFixture({
+    inspectCleanup: (receipts) => {
+      cleanupId = receipts.create_subscription_auth_probe.dockerId;
+    },
+    hooks: {
+      onResourceCreated: async (_purpose, id) => {
+        notifiedId = id;
+        throw new Error("consumer_failed");
+      },
+    },
+  });
+  const outcome = await failed.session.completion;
+  assert.equal(outcome.failure?.gate, "onResourceCreated");
+  assert.equal(outcome.notificationDeliveryConfirmed, false);
+  assert.match(notifiedId ?? "", /^[a-f0-9]{64}$/u);
+  assert.equal(cleanupId, notifiedId);
+  assert.equal(failed.counts().cleanups, 1);
+  assert.equal(outcome.callbackRegistrationReleased, true);
 });

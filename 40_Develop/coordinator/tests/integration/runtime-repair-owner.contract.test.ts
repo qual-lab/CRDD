@@ -1458,7 +1458,10 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   assert.equal(snapshot.operations[0].outcome, null);
   assert.ok(lastCheckpoint);
   assert.ok(delayedCheckpoint);
-  assert.equal(delayedCheckpoint(lastCheckpoint), false);
+  assert.throws(
+    delayedCheckpoint.bind(null, lastCheckpoint),
+    /docker_repair_record_unconfirmed/u,
+  );
   assert.ok(fs.readFileSync(stateFile).equals(before));
   const next = await repairRuntimeOwnedDockerRuntime(
     verified.capability,
@@ -1812,7 +1815,10 @@ test("Host Windows: 修復保存の各切断窓で未確認を成功へ補完し
         const callback = delayedCheckpoint;
         const savedCheckpoint = lastCheckpoint;
         if (callback && savedCheckpoint)
-          assert.equal(callback(savedCheckpoint), false);
+          assert.throws(
+            () => callback(savedCheckpoint),
+            /docker_repair_record_unconfirmed/u,
+          );
         assert.equal(writeCalls, faultedAt);
         if (before) assert.ok(fs.readFileSync(stateFile).equals(before));
         else assert.equal(fs.existsSync(stateFile), false);

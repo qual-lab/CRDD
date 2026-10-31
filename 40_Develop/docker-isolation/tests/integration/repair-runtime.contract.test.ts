@@ -123,18 +123,17 @@ function sessionFixture() {
     signal: new AbortController().signal,
     resume: null,
     canIssueEffect: () => true,
-    canRecordCheckpoint: () => true,
     onPrepared: (value) => {
       counts.prepared++;
       saved = value.checkpoint;
-      return true;
+      return;
     },
     onCheckpoint: (value) => {
       counts.checkpoint++;
       assert.ok(saved);
       assert.equal(transition(saved, value), true);
       saved = value;
-      return true;
+      return;
     },
   };
   const dependencies: Parameters<typeof runSession>[1] = {
@@ -804,9 +803,11 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
       {
         ...f.input,
         signal: controller.signal,
-        canRecordCheckpoint: () => {
+        onPrepared: (value) => {
           if (mode === "record_cancel") controller.abort();
-          return mode !== "record_false";
+          if (mode === "record_false" || controller.signal.aborted)
+            throw new Error("owner_expired");
+          f.input.onPrepared(value);
         },
       },
       {

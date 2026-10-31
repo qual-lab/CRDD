@@ -403,12 +403,11 @@ function fixture(prefix = 0, continuation = false) {
     checkpoint,
     signal: controller.signal,
     canIssueEffect: (): unknown => true,
-    canRecordCheckpoint: (): unknown => true,
-    onCheckpoint: (next: Checkpoint): unknown => {
+    onCheckpoint: (next: Checkpoint): void => {
       assert.ok(transition(saved, next));
       calls.notifications.push(next);
       saved = next;
-      return true;
+      return;
     },
   };
   const technical: Parameters<typeof run>[1] = {
@@ -520,7 +519,7 @@ test("修復Machine: 通常五処置と限定継続四処置", async () => {
     const observed = await run(f.input, f.technical);
     assert.equal(observed.status, "recovered");
     assert.equal(observed.primaryFailure, null);
-    assert.equal(observed.checkpointConfirmed, true);
+    assert.equal(observed.checkpointNotificationCompleted, true);
     assert.deepEqual(f.calls.execute, continuation ? names : names.slice(0, 5));
     assert.ok(dockerRuntimeRepairCheckpointIsSettled(observed.checkpoint));
     assert.equal(observed.checkpoint?.cleanup, "pending");
@@ -664,7 +663,7 @@ test("修復Machine: 九slotの保存拒否・取消とfresh切断窓", async ()
         );
         assert.equal(notifications, rejectedAt);
         assert.equal(observed.reason, "runtime_repair_state_unavailable");
-        assert.equal(observed.checkpointConfirmed, false);
+        assert.equal(observed.checkpointNotificationCompleted, false);
         assert.ok(transition(f.saved(), observed.checkpoint));
       }
       if (stage === "effect_cancel") {
@@ -725,10 +724,10 @@ test("修復Machine: 九slotの不要と未発行失敗・不明を分離する"
       let notifications = 0;
       const record = f.input.onCheckpoint;
       f.input.onCheckpoint = (value) => {
+        if (!permitRecord) throw new Error("owner_expired");
         notifications++;
         return record(value);
       };
-      f.input.canRecordCheckpoint = () => permitRecord;
       const observed = await run(f.input, {
         ...f.technical,
         precondition: async (action) =>
@@ -774,7 +773,7 @@ test("修復Machine: 九slotの不要と未発行失敗・不明を分離する"
       if (mode === "record_lost") {
         assert.equal(slot.request, "unknown");
         assert.equal(notifications, index < 5 ? 2 : 4);
-        assert.equal(observed.checkpointConfirmed, false);
+        assert.equal(observed.checkpointNotificationCompleted, false);
       }
       if (mode !== "not_required")
         assert.notEqual(observed.status, "recovered");
@@ -1222,13 +1221,14 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
           {
             ...f.input,
             checkpoint,
-            canRecordCheckpoint: () => !effectStarted || ownerAlive,
             onCheckpoint: (next) => {
+              if (effectStarted && !ownerAlive)
+                throw new Error("owner_expired");
               assert.ok(transition(durable, next));
               if (next.actions[name].result === "unknown")
                 unknownNotifications++;
               durable = next;
-              return true;
+              return;
             },
           },
           {
@@ -1290,7 +1290,7 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
         );
         assert.equal(observed.status, "failed");
         assert.equal(observed.primaryFailure, "runtime_repair_effect_unknown");
-        assert.equal(observed.checkpointConfirmed, ownerAlive);
+        assert.equal(observed.checkpointNotificationCompleted, ownerAlive);
         assert.equal(observed.checkpoint?.actions[name].request, "unknown");
         assert.equal(observed.checkpoint?.actions[name].result, "unknown");
         assert.ok(transition(beforeEffect, observed.checkpoint));
@@ -1343,7 +1343,7 @@ test("修復Machine: issued通知省略は故障注入の必須到達Oracleが�
           injections.push({ action: name, stage: "issued" });
           return false;
         }
-        return true;
+        return;
       };
       await runner(f.input, f.technical);
       if (text === source)
@@ -1382,7 +1382,7 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
       captured.push(value);
       return false;
     }
-    return true;
+    return;
   };
   await run(seed.input, seed.technical);
   assert.equal(captured.length, 1);

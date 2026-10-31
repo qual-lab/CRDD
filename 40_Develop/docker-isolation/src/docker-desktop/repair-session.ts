@@ -35,7 +35,7 @@ import {
 } from "../../../platform-access/src/index.ts";
 
 /**
- * 一回の修復準備と保存通知の内部入力。
+ * 一回の修復準備と事実通知の内部入力。
  * @responsibility 初回取得と既存操作再入場の期待相関を分ける。
  * @trace ARCH-000008
  * @shape nonce、取消、再入場値、現在確認と二通知。
@@ -43,6 +43,27 @@ import {
  * @boundary 固定Sessionの公開入力。技術依存差替えは内部限定。
  * @security Path、任意命令、保存実装を含めない。
  * @compatibility 最新checkpointだけ。
+ */
+export interface DockerRuntimeRepairCallbacks {
+  onPrepared(
+    value: Readonly<{
+      ownerBindingSha256: string;
+      scopeSha256: string;
+      checkpoint: Checkpoint;
+    }>,
+  ): void;
+  onCheckpoint(value: Checkpoint): void;
+}
+
+/**
+ * 修復の相関・取消・借用元生存と事実通知を結合する。
+ * @responsibility 保存結果を受け取らず、同じ修復の技術入力だけを保持する。
+ * @trace ARCH-000008
+ * @shape nonce、元checkpoint、Signal、生存観測と同期void通知。
+ * @invariant 永続保存はCoordinatorが所有する。
+ * @boundary 上位Ownerから固定修復Sessionへの入力。
+ * @security 任意Path・OS処置・Store操作を含めない。
+ * @compatibility checkpointのSchemaとexact相関は不変。
  */
 export type DockerRuntimeRepairInput = Readonly<{
   operationNonce: string;
@@ -53,16 +74,8 @@ export type DockerRuntimeRepairInput = Readonly<{
     checkpoint: Checkpoint;
   }> | null;
   canIssueEffect: () => unknown;
-  canRecordCheckpoint: () => unknown;
-  onPrepared: (
-    value: Readonly<{
-      ownerBindingSha256: string;
-      scopeSha256: string;
-      checkpoint: Checkpoint;
-    }>,
-  ) => unknown;
-  onCheckpoint: (value: Checkpoint) => unknown;
-}>;
+}> &
+  DockerRuntimeRepairCallbacks;
 
 /**
  * 固定配布物・同じNative子・KnownFolderから修復Sessionを組み立てる。
@@ -421,15 +434,15 @@ function repairData(value: unknown, keys: readonly string[]) {
 }
 
 /**
- * 保存確認を同期trueだけに限定する。
+ * 現在境界の同期trueと事実通知の同期voidを用途別に確認する。
  * @responsibility 非同期確認を保存・発行許可へ変換しない。
  * @trace ARCH-000008
  * @input callback: 内部用途を固定した通知、value: 通知値。
- * @returns 同期trueのみ。
+ * @returns 境界観測は同期true、事実通知は同期undefinedのみ。
  * @precondition callback用途は同呼出しで固定。
  * @postcondition Promise拒否を消費しthenableは実行しない。
  * @effect 同期callback一回。
- * @failure 不正関数・例外・非trueはfalse。
+ * @failure 不正関数・例外・用途に不一致の戻り値はfalse。
  * @invariant async関数・関数Proxyは実行0。
  * @boundary 上位確認と内部runtime。
  * @security 生例外を返さない。
@@ -450,7 +463,7 @@ function confirmRepair(callback: unknown, value?: unknown): boolean {
         () => undefined,
         () => undefined,
       );
-    return result === true;
+    return value === undefined ? result === true : result === undefined;
   } catch {
     return false;
   }
@@ -515,7 +528,7 @@ function initialRepairCheckpoint() {
  * @returns 準備分類、実Machine結果、Native結果と未保存checkpoint候補。
  * @precondition 上位のRoot・改訂・排他・未終端確認は別途必要。
  * @postcondition join後のcallback 0、最終候補は未保存として返す。
- * @effect 内部取得、準備、保存通知、実Machine、同子回収。
+ * @effect 内部取得、準備、事実通知、実Machine、同子回収。
  * @failure 入力拒否・準備拒否・Native失敗を別々に返す。
  * @invariant cleanupだけをjoin結果で更新しMachine一次結果を変更しない。
  * @boundary DI内部依存接続。技術依存は固定wrapperが組み立て、真正保存Ownerは上位が所有する。
@@ -565,7 +578,7 @@ export async function runDockerRuntimeRepairSessionUsing(
     | "boundary_unavailable"
     | "correlation_mismatch"
     | "prepared" = "input_rejected";
-  let savedCheckpoint: Checkpoint | null = null;
+  let notifiedCheckpoint: Checkpoint | null = null;
   let ownerBindingSha256: string | null = null;
   let scopeSha256: string | null = null;
   let observationCleanupFailure: "observation_cleanup_unknown" | null = null;
@@ -615,7 +628,6 @@ export async function runDockerRuntimeRepairSessionUsing(
     "signal",
     "resume",
     "canIssueEffect",
-    "canRecordCheckpoint",
     "onPrepared",
     "onCheckpoint",
   ]);
@@ -626,12 +638,9 @@ export async function runDockerRuntimeRepairSessionUsing(
     /^[a-f0-9]{64}$/u.test(fields.operationNonce) &&
     !types.isProxy(fields.signal) &&
     fields.signal instanceof AbortSignal &&
-    [
-      fields.canIssueEffect,
-      fields.canRecordCheckpoint,
-      fields.onPrepared,
-      fields.onCheckpoint,
-    ].every((callback) => typeof callback === "function")
+    [fields.canIssueEffect, fields.onPrepared, fields.onCheckpoint].every(
+      (callback) => typeof callback === "function",
+    )
   ) {
     let resume: DockerRuntimeRepairInput["resume"] = null;
     if (fields.resume !== null) {
@@ -702,7 +711,7 @@ export async function runDockerRuntimeRepairSessionUsing(
     async (session, owner, signal) => {
       /**
        * 同じ子と現在の処置許可を再照合する。
-       * @responsibility awaitと保存通知後の失効を止める。
+       * @responsibility awaitと事実通知後の失効を止める。
        * @trace ARCH-000008
        * @input N/A: 捕捉済み子・signal・確認。
        * @returns 三条件すべて成立時だけtrue。
@@ -758,15 +767,13 @@ export async function runDockerRuntimeRepairSessionUsing(
       if (
         !checkpoint ||
         !live() ||
-        !confirmRepair(captured.canRecordCheckpoint) ||
-        !live() ||
         !confirmRepair(
           captured.onPrepared,
           Object.freeze({ ownerBindingSha256: owner, scopeSha256, checkpoint }),
         )
       )
         return { value: null, abortRequired: true };
-      savedCheckpoint = checkpoint;
+      notifiedCheckpoint = checkpoint;
       preparation = "prepared";
       if (!live()) return { value: null, abortRequired: true };
       const machine = await runDockerRuntimeRepairMachine(
@@ -774,7 +781,6 @@ export async function runDockerRuntimeRepairSessionUsing(
           checkpoint,
           signal,
           canIssueEffect: live,
-          canRecordCheckpoint: captured.canRecordCheckpoint,
           onCheckpoint: captured.onCheckpoint,
         },
         prepared.technical,
@@ -783,7 +789,7 @@ export async function runDockerRuntimeRepairSessionUsing(
       return {
         value: machine,
         abortRequired:
-          !machine.checkpointConfirmed ||
+          !machine.checkpointNotificationCompleted ||
           observationCleanupFailure !== null ||
           machine.status === "failed" ||
           machine.status === "cancelled",
@@ -792,7 +798,7 @@ export async function runDockerRuntimeRepairSessionUsing(
   );
   recordObservationCleanup();
   const machine = lifecycle.value;
-  const last = machine ? decode(machine.checkpoint) : savedCheckpoint;
+  const last = machine ? decode(machine.checkpoint) : notifiedCheckpoint;
   const checkpoint = last
     ? decode({
         ...last,
@@ -1001,3 +1007,13 @@ export async function ownDockerRepairNativeSession<T>(
     cleanup: Object.freeze({ ...cleanup }),
   });
 }
+/**
+ * 修復の相関・取消・借用元生存と事実通知を結合する。
+ * @responsibility 保存結果を受け取らず、同じ修復の技術入力だけを保持する。
+ * @trace ARCH-000008
+ * @shape nonce、元checkpoint、Signal、生存観測と同期void通知。
+ * @invariant 永続保存はCoordinatorが所有する。
+ * @boundary 上位Ownerから固定修復Sessionへの入力。
+ * @security 任意Path・OS処置・Store操作を含めない。
+ * @compatibility checkpointのSchemaとexact相関は不変。
+ */

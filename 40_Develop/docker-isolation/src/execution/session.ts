@@ -101,41 +101,40 @@ export type DockerSessionCleanup = Readonly<{
 }>;
 
 /**
- * 上位が所有する同期保存・受理と開始fact通知。
+ * 発行予定・元資源・完了観測と開始factの通知。
  * @responsibility 技術操作の拒否と上位意味の解釈を有限接続へ限定する。
  * @trace ARCH-000008
- * @shape 許可、三予定保存、Receipt、二受理、同期開始通知。
+ * @shape 発行予定、未発行、元資源ID、完了観測と同期開始通知。
  * @invariant DIへTask・Writer・Credentialの意味を持ち込まない。
- * @boundary 同期Gateと非同期上位確認の開始通知を区別する。
- * @security trueは上位の拒否がないことだけを示し、新Authorityを生成しない。
- * @compatibility 既存の保存順・認証拒否とAI結果拒否を維持する。
+ * @boundary 通知の完了待ちと上位の保存・内容判断を区別する。
+ * @security 通知は許可・保存成功・新Authorityを返さない。
+ * @compatibility 通知例外で後続要求を止め、同じ資源の回収を維持する。
  */
-export type DockerExecutionHooks = Readonly<{
-  allowCommand: (purpose: DockerIsolationCommand["purpose"]) => boolean;
-  recordSubmission: (
+export interface DockerExecutionCallbacks {
+  onCommandSubmitting?(
     purpose: DockerIsolationCommand["purpose"],
-  ) => boolean | Promise<boolean>;
-  recordNotIssued: (
+  ): void | Promise<void>;
+  onCommandNotIssued?(
     purpose: DockerIsolationCommand["purpose"],
-  ) => boolean | Promise<boolean>;
-  recordExecutionSubmission: () => boolean | Promise<boolean>;
-  recordReceipt: (
+  ): void | Promise<void>;
+  onExecutionSubmitting?(): void | Promise<void>;
+  onResourceCreated?(
     purpose: DockerIsolationCommand["purpose"],
     dockerId: string,
-  ) => boolean | Promise<boolean>;
-  acceptCommandResult: (
+  ): void | Promise<void>;
+  onCommandObserved?(
     purpose: DockerIsolationCommand["purpose"],
     result: CommandObservation | null,
     classification: DockerCommandExecutionClassification,
-  ) => boolean;
-  acceptOutput: (
+  ): void;
+  onCommandCompleted?(
     purpose: DockerIsolationCommand["purpose"],
     result: CommandObservation,
-  ) => boolean;
+  ): void;
   /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
-  onExecutionStarted: () => void;
-  onFailure: (failure: DockerSessionFailure) => void;
-}>;
+  onExecutionStarted?(): void;
+  onFailure?(failure: DockerSessionFailure): void;
+}
 
 /**
  * Session内部の固定技術操作を接続する。
@@ -174,7 +173,7 @@ export type DockerSessionFailure = Readonly<{
     | "provider_start_observation"
     | "command_wait"
     | "gate";
-  gate: keyof DockerExecutionHooks | null;
+  gate: keyof DockerExecutionCallbacks | null;
   kind:
     | "rejected"
     | "invalid_return"
@@ -195,7 +194,7 @@ export type DockerSessionFailure = Readonly<{
  */
 export type DockerCommandSessionResult = Readonly<{
   failure: DockerSessionFailure | null;
-  notificationDeliveryConfirmed: boolean;
+  notificationDeliveryConfirmed: boolean | null;
   callbackRegistrationReleased: boolean;
   cancellationRequested: boolean;
   executionStarted: boolean;
@@ -230,23 +229,23 @@ export type DockerCommandSession = Readonly<{
  * 同じ固定計画の実行・取消・清掃を開始する。
  * @responsibility raw Handleを上位へ返さず、返却後に一回だけ実行する。
  * @trace ARCH-000008
- * @input purposes: 固定九目的。operations: 同じ技術Runtimeの元操作。hooks: 上位同期接続。
+ * @input purposes: 固定九目的。operations: 同じ技術Runtimeの元操作。hooks: 同期又は指定段階だけ非同期の通知。
  * @returns 不透明cancelと一回のcompletion。
  * @precondition 本番Runtimeが検証済み計画と元Ownerを保持している。
  * @postcondition 上位の開始保存Promiseは技術待機・清掃を妨げない。
  * @effect 所有ProcessとDocker資源を元Runtime経由で開始・終端・清掃する。
- * @failure 技術失敗とGate拒否を固定分類し、清掃は必ず一回試行する。
+ * @failure 技術失敗と通知失敗を固定分類し、清掃は必ず一回試行する。
  * @invariant 同じHandleのterminate/joinを一回化し、終了後に再発行しない。
- * @boundary 固定技術順序と上位の同期保存・受理。
+ * @boundary 固定技術順序と利用側の事実通知。
  * @security 任意argvや業務理由を生成しない。
- * @concurrency 返却前hook0。取消はawait中も生存し、通知Promiseは保持しない。
+ * @concurrency 返却前通知0。取消は通知await中も保持し、最終返却前に通知参照を破棄する。
  */
 export function startDockerCommandSession(
   purposes: readonly DockerIsolationCommand["purpose"][],
   operations: DockerCommandSessionOperations,
-  hooks: DockerExecutionHooks,
+  hooks: DockerExecutionCallbacks,
 ): DockerCommandSession {
-  const callbacks: { current: DockerExecutionHooks | null } = {
+  const callbacks: { current: DockerExecutionCallbacks | null } = {
     current: hooks,
   };
   const sequence =
@@ -278,7 +277,7 @@ export function startDockerCommandSession(
   >();
   let purpose: DockerIsolationCommand["purpose"] | null = null;
   let stage: DockerSessionFailure["stage"] = "command_start";
-  let gateName: keyof DockerExecutionHooks | null = null;
+  let gateName: keyof DockerExecutionCallbacks | null = null;
   let obtained = false;
   let observed = false;
   let failure: DockerSessionFailure | null = null;
@@ -287,6 +286,7 @@ export function startDockerCommandSession(
   let executionContainerCreated = false;
   let executionExit: DockerProcessExitStatusClass = "not_observed";
   let notificationDeliveryConfirmed = true;
+  let notificationRequested = false;
 
   /**
    * 同じHandleの終端を一つのPromiseへ集約する。
@@ -340,9 +340,10 @@ export function startDockerCommandSession(
       commandHandleObtained: obtained,
       responseObserved: observed,
     });
-    if (notificationDeliveryConfirmed) {
+    if (notificationDeliveryConfirmed && callbacks.current?.onFailure) {
+      notificationRequested = true;
       try {
-        const delivered = callbacks.current?.onFailure(failure);
+        const delivered = callbacks.current?.onFailure?.(failure);
         if (utilTypes.isPromise(delivered))
           void Promise.prototype.then.call(
             delivered,
@@ -357,44 +358,50 @@ export function startDockerCommandSession(
   }
 
   /**
-   * 同期Gateを明示trueだけで受理する。
-   * @responsibility false・throw・Promise返却を別分類へ閉じる。
+   * 通知の完了を確認して次の要求との順序を保つ。
+   * @responsibility 同期通知と待機可能な通知を区別し、ACKを受け取らない。
    * @trace ARCH-000008
-   * @input name: 有限Gate名。invoke: 同期呼出し。
-   * @returns 続行可能な場合だけtrue。
+   * @input name: 有限通知名。invoke: 通知呼出し。
+   * @returns 通知が完了した場合だけtrue。外部の実行許可ではない。
    * @precondition 上位の意味を下位で再解釈しない。
-   * @postcondition Promiseを待機・再送しない。
-   * @effect 上位の許可済み同期保存／受理を呼ぶ。
-   * @failure 拒否・不正返値・例外では次要求0。
-   * @invariant Gateの失敗と技術cleanupを区別する。
-   * @boundary 有限同期接続。
+   * @postcondition 待機可能な通知だけjoinし、通知を再送しない。
+   * @effect 登録された通知を呼ぶ。保存方式・保存結果を解釈しない。
+   * @failure 不正返値・例外では次要求0、技術清掃は継続。
+   * @invariant 通知の失敗と技術cleanupを区別する。
+   * @boundary 用途固定の同期／非同期通知。
    * @security 自由文を公開結果へ含めない。
    * @concurrency 再入取消は呼出し直後に再確認する。
    */
   async function gate(
-    name: keyof DockerExecutionHooks,
+    name: keyof DockerExecutionCallbacks,
     invoke: () => unknown,
   ): Promise<boolean> {
     stage = "gate";
     gateName = name;
+    if (!callbacks.current?.[name]) return true;
+    if (!notificationDeliveryConfirmed) return false;
+    notificationRequested = true;
     try {
       const pending = invoke();
       const asynchronous =
-        name === "recordSubmission" ||
-        name === "recordNotIssued" ||
-        name === "recordReceipt" ||
-        name === "recordExecutionSubmission";
+        name === "onCommandSubmitting" ||
+        name === "onCommandNotIssued" ||
+        name === "onResourceCreated" ||
+        name === "onExecutionSubmitting";
       if (!asynchronous && utilTypes.isPromise(pending)) {
         void pending.catch(() => {});
+        notificationDeliveryConfirmed = false;
         fail("invalid_return");
         return false;
       }
       const accepted = asynchronous ? await pending : pending;
-      if (accepted === true) return true;
+      if (accepted === undefined) return true;
       if (utilTypes.isPromise(accepted))
         void Promise.prototype.then.call(accepted, undefined, () => undefined);
+      notificationDeliveryConfirmed = false;
       fail(accepted === false ? "rejected" : "invalid_return");
     } catch (error) {
+      notificationDeliveryConfirmed = false;
       fail("threw", error);
     }
     return false;
@@ -440,30 +447,23 @@ export function startDockerCommandSession(
           gateName = null;
           if (cancelled) break;
           if (
-            !(await gate("allowCommand", () =>
-              callbacks.current?.allowCommand(current),
-            )) ||
-            cancelled
-          )
-            break;
-          if (
-            !(await gate("recordSubmission", () =>
-              callbacks.current?.recordSubmission(current),
+            !(await gate("onCommandSubmitting", () =>
+              callbacks.current?.onCommandSubmitting?.(current),
             ))
           )
             break;
           if (cancelled) {
             if (CREATE_PURPOSES.has(current))
-              await gate("recordNotIssued", () =>
-                callbacks.current?.recordNotIssued(current),
+              await gate("onCommandNotIssued", () =>
+                callbacks.current?.onCommandNotIssued?.(current),
               );
             break;
           }
           const isExecution = current === "start_provider_attached";
           if (
             isExecution &&
-            (!(await gate("recordExecutionSubmission", () =>
-              callbacks.current?.recordExecutionSubmission(),
+            (!(await gate("onExecutionSubmitting", () =>
+              callbacks.current?.onExecutionSubmitting?.(),
             )) ||
               cancelled)
           )
@@ -496,7 +496,9 @@ export function startDockerCommandSession(
             stage = "provider_start_observation";
             gateName = "onExecutionStarted";
             try {
-              const delivered = callbacks.current?.onExecutionStarted();
+              if (callbacks.current?.onExecutionStarted)
+                notificationRequested = true;
+              const delivered = callbacks.current?.onExecutionStarted?.();
               if (utilTypes.isPromise(delivered))
                 void Promise.prototype.then.call(
                   delivered,
@@ -540,8 +542,8 @@ export function startDockerCommandSession(
             executionExit = classifyDockerProcessExit(result);
           }
           if (
-            !(await gate("acceptCommandResult", () =>
-              callbacks.current?.acceptCommandResult(
+            !(await gate("onCommandObserved", () =>
+              callbacks.current?.onCommandObserved?.(
                 current,
                 result,
                 classification,
@@ -555,7 +557,7 @@ export function startDockerCommandSession(
           }
           if (CREATE_PURPOSES.has(current)) {
             const dockerId = result?.stdout.trim() ?? "";
-            gateName = "recordReceipt";
+            gateName = "onResourceCreated";
             stage = "gate";
             if (!/^[a-f0-9]{64}$/u.test(dockerId)) {
               fail("rejected");
@@ -563,8 +565,8 @@ export function startDockerCommandSession(
             }
             receipts[current as keyof typeof receipts].dockerId = dockerId;
             if (
-              !(await gate("recordReceipt", () =>
-                callbacks.current?.recordReceipt(current, dockerId),
+              !(await gate("onResourceCreated", () =>
+                callbacks.current?.onResourceCreated?.(current, dockerId),
               ))
             )
               break;
@@ -572,8 +574,8 @@ export function startDockerCommandSession(
           if (cancelled) break;
           if (
             result &&
-            !(await gate("acceptOutput", () =>
-              callbacks.current?.acceptOutput(current, result),
+            !(await gate("onCommandCompleted", () =>
+              callbacks.current?.onCommandCompleted?.(current, result),
             ))
           )
             break;
@@ -610,7 +612,9 @@ export function startDockerCommandSession(
     activeHandle = null;
     return Object.freeze({
       failure: failure as DockerSessionFailure | null,
-      notificationDeliveryConfirmed,
+      notificationDeliveryConfirmed: notificationRequested
+        ? notificationDeliveryConfirmed
+        : null,
       callbackRegistrationReleased: callbacks.current === null,
       cancellationRequested: cancelled,
       executionStarted,
@@ -646,7 +650,7 @@ export function startDockerCommandSession(
 export function startDockerCommandSessionCandidate(
   purposes: readonly DockerIsolationCommand["purpose"][],
   operations: DockerCommandSessionOperations,
-  hooks: DockerExecutionHooks,
+  hooks: DockerExecutionCallbacks,
 ): DockerCommandSession & Readonly<{ productionAuthority: false }> {
   return Object.freeze({
     ...startDockerCommandSession(purposes, operations, hooks),

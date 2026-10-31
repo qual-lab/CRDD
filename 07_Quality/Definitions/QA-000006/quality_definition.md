@@ -835,8 +835,6 @@ ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範�
 - 上位の完全選定借用は同じ有効Operation・選定ID・Hash・試行番号だけを受理し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術五項目へ置換しない。ロールとTask／Adviceの相関は上位準備で検査し、Executorの技術入力へroleを含めた場合は余剰として拒否する。
 - ModelSelection／TaskPacket／AdvicePacketの上位化では、Taskの操作ID・Hash・試行番号・stdin搬送、およびAdviceの操作ID・Hash・Provider・四非共有条件・選定roleの一軸差替えを、Authority発行前の拒否とMount借用終了まで確認する。Executorには管理Packetや選定記録ID・試行番号・利用側相関を渡さず、技術五項目・対象・排他的な実行内容を明示投影する。未知metadataのaccessor非評価、別Plan／別Owner callbackのEffect前拒否、準備消費後の開始拒否における未消費Authority失効とMount返却、上位の原結果・選定借用に基づく許可発行を反証する。既存のStandaloneはCoordinator非存在で同じ技術入力を構築できることを確認する。
 
-## Checklist
-
 ### Executor通知専用化・構造整理の追加反証
 
 ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。実AI・実Dockerの成立とは区別する。
@@ -852,6 +850,12 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 - 必須の通知はvoid／Promise<void>を待ち、throw／reject時は次の新規Effectを出さず技術回収する。任意onCompleted／onDiagnosticの例外を結果へ伝播しない。
 - 開始済みProcessの同期技術signalと公開非同期通知を区別する。公開通知pending中も技術回収は一回進むが、Parserは零回、completionは未確定。resolve後だけParser一回、遅いreject・取消ならParser零回・同じID・技術回収事実を保持する。不正Provider結果を即時通知成功と遅延成功の両経路へ流し、理由・一次故障・結果本文・Hash・byte数・清掃を含む同一結果とParser各一回を確認する。
 - 上位終端保存throw／非同期rejectではTask成功を返さず、技術的に解放済みのHomeを未解放へ戻さない。七つの必須通知を欠落させたSource変異も拒否する。
+
+## Docker通知と借用観測の責務整理（2026-10-31）
+
+既存ERB-IT-002／004／014の下位シナリオとして、通知未登録、同期void、非同期通知完了、誤Boolean返却、例外、通知待ち中取消、Receipt通知失敗でも元IDで回収することを確認する。認証不成立・内容不正では後続要求0、通知例外でも技術回収継続、一次故障とcleanup不明・exact回復参照の維持をOracleとする。修復のOwner失効は上位ハンドラーの保存前検査、発行直前の借用元生存は下位の既存確認として双方の負例を保持する。再起動発行予定通知の失敗は要求0、受付後通知の失敗は同じ子の終了待機を確認する。通知の完了を耐久保存やTask成功の証明にしない。実AI・実Docker・過去保持物を用いず、実境界の再成立は今回の主張対象外とする。
+
+## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

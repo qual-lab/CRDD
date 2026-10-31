@@ -60,7 +60,7 @@ ProxyはDNS応答の重複を除いた最大32アドレスを検査し、一つ�
 
 Docker IsolationはDomain Modelへ依存せず、永続記録の保存・読戻し・上位の再開判断を所有しない。修復Machineが受け取り通知する技術状態は`docker-desktop/types.ts`、その純粋検査・技術遷移は`docker-desktop/validation.ts`が所有する。Docker Task回復IDの技術入力解析は`cleanup/resource.ts`に閉じる。Domainは従来の保存Schema・保存受理遷移を独立して保持し、どちらの公開Rootも相手Packageをロードせず開始できる。正常通知・異常値・遷移の一致は非AI契約試験で固定し、保存状態を二重保持しない。
 
-`onPrepared`／`onCheckpoint`等の既存callbackの時点・回数・同期保存Gateを維持する。上位は通知値を保存側の検査へ通して確定し、拒否又は例外では下位の追加Effectを止める。技術DTOの成立を保存成功・資源不存在・実行許可へ読み替えない。新しいStore・Registry・Lock・保存用Portは追加しない。
+`onPrepared`／`onCheckpoint`等の通知の時点・回数・同期完了順序を維持し、保存成功のBoolean ACKを要求しない。上位は通知値を保存側の検査へ通して確定し、拒否又は例外では下位の追加Effectを止める。技術DTOの成立を保存成功・資源不存在・実行許可へ読み替えない。新しいStore・Registry・Lock・保存用Portは追加しない。
 
 Probe記録は唯一の製品利用側であるCoordinatorの`state/probe-record.ts`へ移した。上位の記録OwnerはDI公開の固定資源記述を参照するが、DIは記録Writer／Readerを呼ばず再公開もしない。詳細は[Coordinatorの保存境界](../coordinator/01_Architecture.md#probe記録の保存owner)を参照する。記録Schema、token形式、保存Path、Hash、nonce、読戻し・差替え拒否と書込み順序は維持し、旧Fileの互換入口は残さない。
 
@@ -406,8 +406,8 @@ Native取得の既存R→V→Hを重複実行しない。開始取消、不正�
 | 境界 | 必要な保証 |
 |---|---|
 | 準備 | 固定Artifact、同じ補助子のV／H、固定OS所在と対象実体を確認する。`ownerBindingSha256`と固定ScopeのHashは相関値で、許可ではない。準備資源の部分取得失敗も同じ呼出しで回収する。 |
-| 初回保存 | `onPrepared`へ不変の準備事実を一回通知する。同期の厳密なtrueだけを受理し、上位の保存確認・状態Lock解放が成立する前に九処置を発行しない。 |
-| 実処置 | 各Effect直前に現在許可、取消、同じ補助子と実体を再確認する。意図を同期`onCheckpoint`で保存してから発行し、結果も次版へ保存する。Promise／thenable、例外、falseでは後続Effectを止め、同一呼出し内で失敗した通知を再利用しない。呼出し間の再入・並行実行の拒否は、外側runtimeの同じSession Ownerへ接続する。 |
+| 初回保存 | `onPrepared`へ不変の準備事実を一回通知する。同期voidの完了だけを確認する。上位は同Ownerの検査・保存・状態Lock解放を自身で行い、失敗時はthrowする。通知完了前に九処置を発行しない。 |
+| 実処置 | 各Effect直前に現在許可、取消、同じ補助子と実体を再確認する。意図と結果を同期`onCheckpoint`で通知する。上位が必要な保存を行い、Promise／thenable、例外、void以外の戻り値では後続Effectを止め、同一呼出し内で失敗した通知を再利用しない。呼出し間の再入・並行実行の拒否は、外側runtimeの同じSession Ownerへ接続する。 |
 | 再入場 | 保存済みexact操作・主体相関・Scopeと三用途Directoryの実体を再照合する。九slotのunknownを再発行許可にしない。保存途中では技術Effectを発行せず、上位が同じ合法pendingの確定を確認してから続ける。 |
 | 終了 | 最終技術checkpointはcleanup未確定・最終outcome未確定のまま保存する。同じ子のrelease／abortとstdioをjoinし、cleanup・一次失敗を分けた最終値を返す。上位はこの返却から別版を保存し、失敗した通知callbackを再利用しない。 |
 | 喪失・取消 | 新しい技術Effectは0。同じ呼出しの生存する保存Ownerが記録できる場合だけ、単調なunknown・cleanup・一次失敗を記録する。Native失効を保存Ownerの失効と同一視しない。 |
@@ -418,7 +418,7 @@ cleanupは当該Sessionの技術資源回収を集約する。Native補助子と
 
 通常checkpointの巻戻しは禁止するが、cleanな未終端修復のfresh再入場だけは、固定のSession開始候補で`confirmed → pending`を許す。候補は下位が生成し、cleanup以外の九処置・三実体・観測・失敗を全文保持する。既存cleanupがpending／unknown、cleanup失敗あり、または修復outcome確定済みの場合、新しい補助子の取得成功で過去の回収を補完しない。この準備候補の保存拒否では取得した子をabort／joinし、新技術Effectは発行しない。新しい永続Session世代や履歴Storeは作らない。
 
-処置前の`canIssueEffect`（取消・現在許可・技術境界）と、処置後の`canRecordCheckpoint`（同じ保存Owner・Scopeの生存）を分ける。取消後も既発生事実は記録できるが、新しい処置は発行しない。発行後は`issued/unobserved`と確定結果の二段で保存し、最初の保存が失敗した場合は同じcallbackを再利用せず、耐久元版から合法な`unknown/unknown`を返す。未発行確定や不要へ戻さない。
+処置前の`canIssueEffect`（取消・借用元の現在生存・技術境界）と事実通知を分ける。保存Owner・Scopeの検査は上位の通知ハンドラーが自身で行い、下位から保存可否を問い合わせない。取消後も既発生事実は記録できるが、新しい処置は発行しない。発行後は`issued/unobserved`と確定結果の二段で保存し、最初の保存が失敗した場合は同じcallbackを再利用せず、耐久元版から合法な`unknown/unknown`を返す。未発行確定や不要へ戻さない。
 
 fresh呼出しで既存の`saved/not_issued/unobserved`へ遭遇しても、未発行を証明したことにはならない。発行可能なのは同じ呼出しが意図保存を確認した直後だけとし、freshの未確定意図・issued未確定・unknownでは再発行しない。既存unknownから後続の技術観測・通知・処置へ進まない。前提観測不能は処置不要と区別する。Engine readyでは未使用slotを明示不要にし、九slotの未評価を残して回復成功としない。
 
@@ -501,7 +501,7 @@ Consumerの表示・任意保存は資源回収の終了条件に入れない。
 
 修復のNative生涯所有は`docker-desktop/repair-session.ts`へ置く。取得待ちの取消でも遅れて取得した同じ子を回収し、その終了待機前に返却しない。取消とNative喪失は最初の停止理由を固定し、後着事象を一次理由へ上書きしない。正常終了はrelease、取消・失敗・未確定処置はabortを一回だけ選択し、実行値とcleanup／protocolを分離する。終了後は購読解除と終了gateで通知を無効化する。この所有部品単独は上位保存の成立を代替しない。現在はDI内部固定wrapperから同じNative子・Scope・実Adapter・Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。技術依存差替えと個別Host処置は非公開を維持し、真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
 
-同Moduleの内部接続は、取得前に初回／fresh入力を捕捉・復号し、freshのcleanup未確認、失敗記録、unknownと保存済み未確定意図を拒否する。取得後は同じHとScopeを照合し、準備のawait前後、準備通知直前・直後に取消・生存・現在許可を再確認する。`onPrepared`の厳密な同期trueを一回受理してから実Machineへ進み、拒否時はMachine未開始を明示して同じ子をabort／joinする。最後のMachine結果は不変更とし、join結果のcleanupだけを反映した最終checkpoint候補は`finalCheckpointConfirmed:false`で返す。Root・Revision・未終端・真正Ownerの確認は上位Ownerの責務であり、Hashやこの内部接続では代替しない。Using単独の検証では技術Adapterを模擬して内部通知契約を確認する。固定wrapperの組立て試験は実Operations・Machineへ接続し、差し替えたDirectory factoryのScope出力の搬送を確認する。実factoryのScope導出・実Filesystem要求は別の個別試験で確認し、組立て試験が実factoryを一体実行した根拠とはしない。真正上位Owner／Writer／CLI、実Docker E2Eの完成とは区別する。
+同Moduleの内部接続は、取得前に初回／fresh入力を捕捉・復号し、freshのcleanup未確認、失敗記録、unknownと保存済み未確定意図を拒否する。取得後は同じHとScopeを照合し、準備のawait前後、準備通知直前・直後に取消・生存・現在許可を再確認する。`onPrepared`の同期void完了を一回確認してから実Machineへ進み、拒否時はMachine未開始を明示して同じ子をabort／joinする。最後のMachine結果は不変更とし、join結果のcleanupだけを反映した最終checkpoint候補は`finalCheckpointConfirmed:false`で返す。Root・Revision・未終端・真正Ownerの確認は上位Ownerの責務であり、Hashやこの内部接続では代替しない。Using単独の検証では技術Adapterを模擬して内部通知契約を確認する。固定wrapperの組立て試験は実Operations・Machineへ接続し、差し替えたDirectory factoryのScope出力の搬送を確認する。実factoryのScope導出・実Filesystem要求は別の個別試験で確認し、組立て試験が実factoryを一体実行した根拠とはしない。真正上位Owner／Writer／CLI、実Docker E2Eの完成とは区別する。
 
 ## 4. 配置・保存・実行環境
 
@@ -604,9 +604,9 @@ Process開始factの通知は同期であり、上位のReporter／Task開始保
 
 通知とawait返却を独立した二つの正本にしない。同じ不変の技術観測を通知と最終結果へ接続し、操作相関と実際の発生順を保持する。特に終端観測は通知と最終結果の元Operation・順序・内容を一致させる。途中通知をすべて最終結果へ複製する新履歴は作らない。観測時刻は観測した段階の値であり、時刻だけで完了・所有・因果を推定しない。遅延・重複通知は上位の完了状態を戻したり処置を再発行したりしない。取消後も実資源の終端・清掃結果を保持し、購読解除だけをProcess終了と扱わない。
 
-通知callbackは同期・直列に呼び出し、Promiseを受け付けない。型上のvoidだけで非同期関数を排除したと扱わず、undefined以外の戻り値／thenableを配送不成立として反証する。例外または不正戻り値の後は以後のcallback呼出しを止めるが、所有資源の終端・清掃と最終技術結果の確定は継続する。一次失敗や清掃事実を配送失敗で上書きしない。全通知試行の同期終了後に最終結果を一度返し、その前に登録参照を破棄する。返却後のcallback呼出しは0とする。
+実行SessionのonCommandSubmitting／onCommandNotIssued／onExecutionSubmitting／onResourceCreatedは直列に呼び、Promise<void>の完了を待つ。その他の通知（実開始・故障・Command観測・内容・修復・再起動）は同期voidとしPromiseを受け付けない。同期通知の非undefined返却と、待機可能な通知の非undefined解決値／例外は通知不成立として反証する。例外または不正戻り値の後は以後のcallback呼出しを止めるが、所有資源の終端・清掃と最終技術結果の確定は継続する。一次失敗や清掃事実を配送失敗で上書きしない。必要な通知の終了と技術清掃を確認して最終結果を一度返し、その前に登録参照を破棄する。返却後のcallback呼出しは0とする。
 
-配送の確認／不明は技術結果・cleanupと別に返す。同期returnの成功はcallback呼出し完了だけを意味し、上位の耐久保存やOrchestrator受領成立を証明しない。callbackが上位状態を部分更新してからthrowした場合も既知Effectを巻き戻さず、上位は未確定保存と配送不成立を区別して自身の進行を止め、元相関を保持する。Consumerの任意保存・表示・耐久ACKをDocker cleanup完了条件へ含めない。新しいevent bus、永続通知Queue、Store、Lock、再送・配送Recovery Frameworkは追加しない。
+配送の確認／不明は技術結果・cleanupと別に返す。同期voidの完了はcallback呼出し完了だけを意味し、上位の耐久保存やOrchestrator受領成立を証明しない。callbackが上位状態を部分更新してからthrowした場合も既知Effectを巻き戻さず、上位は未確定保存と配送不成立を区別して自身の進行を止め、元相関を保持する。Consumerの任意保存・表示・耐久ACKをDocker cleanup完了条件へ含めない。新しいevent bus、永続通知Queue、Store、Lock、再送・配送Recovery Frameworkは追加しない。
 
 Process喪失では通知が欠け得るため、通知受領だけを回復の唯一の根拠にしない。Effect前の上位exact相関と既存保存、同じIDでのfreshな下位資源観測を使用する。現在の実資源不存在を確認できない場合は不明を保持し、履歴のphaseや未着通知から不存在を補完しない。
 
@@ -618,6 +618,24 @@ Process喪失では通知が欠け得るため、通知受領だけを回復の�
 | 不明 | 要求受理後のProcess喪失、観測不能、callback例外、未対応環境では成功・不存在を捏造しない |
 
 検証は開始前拒否、部分Effect、取消、遅延・重複、callback例外・不正戻り値、通知欠測、親喪失、同ID再入場、清掃後不存在と上位の進行停止を対象にする。同時callback 0、例外後callback 0、最終返却後callback 0、登録参照0、部分更新後throwでも一次結果・cleanup不変を観測する。通知購読の存在や内部モックだけで、公開利用側まで成立したと判定しない。
+
+## Docker関連の通知・操作・借用観測の境界（2026-10-31）
+
+Docker Isolationは保存成功・Task判断・Provider内容受理のACKを取得しない。ExecutorはProviderの認証・内容・結果分類、Coordinatorは同Ownerの記録保存とTask進行を所有する。通知ハンドラーはinterfaceで明示し、戻り値はvoid又は許可された段階だけPromise<void>とする。任意通知の未登録は非購読、登録済み通知の例外は失敗として区別する。
+
+| 接続 | 現在の責務と順序 |
+|---|---|
+| 実行Session | DockerExecutionCallbacksの発行予定・未発行・実ID通知は完了を待つ。完了観測・内容通知・実開始・故障通知は同期void。allowCommandは撤去し、診断初期化は既存のonCommandSubmittingへ統合する |
+| Command観測・内容 | ExecutorがAI Adapterの検査を使用する。認証不成立・内容不正はハンドラーがthrowし、下位は以後の要求を止めて同じ資源を回収する。Boolean受理結果を返さない |
+| 修復 | onPrepared／onCheckpointは同期void。canRecordCheckpointは撤去し、上位ハンドラーがOwner・Scopeと保存結果を検査する。取消後の既発生事実の記録は新Effect許可と区別する |
+| 再起動 | beforeRequestはonRequestingへ変更し、発行予定を同期voidで通知する。上位の保存失敗はthrow。onEventと同様に保存結果を下位へ返さない |
+| 借用元の生存 | canIssueEffect／verifyBoundary／permitLive／assertOwner／assertBeforeRemoval／disposeのboundary／DirectoryのcanIssueは、借用元の失効・Scope・取消をEffect直前に再観測する用途に限定して維持する。保存や新Authorityを発行しない |
+| 所在・既存Receipt | borrowPaths／inspectReceiptsは検査済み既存Ownerの用途限定読取りであり、通知ではない。下位がStoreを操作する入口へ一般化しない |
+| 技術代役 | DockerCommandSessionOperations等は同じ責務の実在技術境界だけで利用する。上位の業務操作を注入しない |
+
+修復MachineのcheckpointNotificationCompletedは通知の同期完了だけを表し、耐久保存を証明しない。上位の最終保存確定はCoordinatorが判断する。通知例外・取消でも元Receipt、exact回復参照、一次結果、cleanup不明を保持する。通知待ち中の取消では次要求を発行せず、最終返却後は通知参照を残さない。Timeout・Image・Mount・Home排他・実資源の安全条件は変更しない。
+
+実行SessionのnotificationDeliveryConfirmedは、実際の通知試行がない場合null、全登録通知の完了時true、通知の例外・不正返却時falseとする。falseは同操作中に戻さず、失敗後のonFailureを含む通知を止める。Command自体の失敗をonFailureへ正常通知できた場合は、技術失敗と通知成功を区別する。どの値も耐久保存を保証しない。
 
 ## Checklist
 

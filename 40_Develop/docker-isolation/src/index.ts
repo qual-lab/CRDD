@@ -128,7 +128,7 @@ export {
 export {
   startDockerCommandSessionCandidate,
   describeDockerCommandSessionContract,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
   type DockerSessionCleanup,
   type DockerCommandSession,
   type DockerSessionCommandHandle,

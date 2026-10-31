@@ -20,7 +20,7 @@ import {
   type DockerIsolationCommand,
   createDockerIsolationRuntime,
   type DockerIsolationRuntimeOptions,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
   type CommandObservation,
   classifyDockerCommandException,
   type DockerSessionCleanup,
@@ -237,13 +237,13 @@ async function executeAttempt(
     return true;
   }
 
-  const hooks: DockerExecutionHooks = {
+  const hooks: DockerExecutionCallbacks = {
     /**
-     * 実行制約だけを確認する。
+     * 次コマンドの診断を初期化する。
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。
-     * @returns 同期受理のbool。
+     * @returns N/A: 通知の完了だけを返す。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
      * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
@@ -253,7 +253,7 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    allowCommand: (purpose) => {
+    onCommandSubmitting: async (purpose) => {
       diagnosticPurpose = purpose;
       diagnosticStage = "command_restriction";
       hasCommandHandle = false;
@@ -262,30 +262,12 @@ async function executeAttempt(
       commandObservation = null;
       authenticationStatus = undefined;
       turnCountDiagnostic = undefined;
-      return true;
-    },
-    /**
-     * 各要求の直前を通知し、通知の終了を待つ。
-     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
-     * @trace ARCH-000008
-     * @input purpose: 固定用途。
-     * @returns 同期受理のbool。
-     * @precondition 同じ操作の検証済み計画とOwnerを使用する。
-     * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
-     * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
-     * @invariant 新Authority・Store・回復管理を作らない。
-     * @boundary 上位の意味と下位の技術実行。
-     * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
-     */
-    recordSubmission: async (purpose) => {
       diagnosticStage = "submission_record";
       try {
         await state.callbacks.onCommandSubmitting?.(purpose);
-        return true;
       } catch {
-        return reject("docker_resource_submission_record_unavailable");
+        reject("docker_resource_submission_record_unavailable");
+        throw new Error("docker_resource_submission_record_unavailable");
       }
     },
     /**
@@ -293,7 +275,7 @@ async function executeAttempt(
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。
-     * @returns 同期受理のbool。
+     * @returns N/A: 通知の完了だけを返す。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
      * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
@@ -303,12 +285,12 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordNotIssued: async (purpose) => {
+    onCommandNotIssued: async (purpose) => {
       try {
         await state.callbacks.onCommandNotIssued?.(purpose);
-        return true;
       } catch {
-        return reject("docker_resource_submission_record_unavailable");
+        reject("docker_resource_submission_record_unavailable");
+        throw new Error("docker_resource_submission_record_unavailable");
       }
     },
     /**
@@ -316,7 +298,7 @@ async function executeAttempt(
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input N/A: 元計画を使用する。
-     * @returns 同期受理のbool。
+     * @returns N/A: 通知の完了だけを返す。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
      * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
@@ -326,13 +308,13 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordExecutionSubmission: async () => {
+    onExecutionSubmitting: async () => {
       diagnosticStage = "submission_record";
       try {
         await state.callbacks.onProviderSubmitting?.();
-        return true;
       } catch {
-        return reject("docker_resource_submission_record_unavailable");
+        reject("docker_resource_submission_record_unavailable");
+        throw new Error("docker_resource_submission_record_unavailable");
       }
     },
     /**
@@ -340,7 +322,7 @@ async function executeAttempt(
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。stdout: 下位の元応答。
-     * @returns 同期受理のbool。
+     * @returns N/A: 通知の完了だけを返す。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
      * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
@@ -350,14 +332,14 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordReceipt: async (purpose, dockerId) => {
+    onResourceCreated: async (purpose, dockerId) => {
       diagnosticStage = "resource_receipt_record";
       receiptRecorded = true;
       try {
         await state.callbacks.onResourceCreated?.(purpose, dockerId);
-        return true;
       } catch {
-        return reject("docker_resource_receipt_unavailable");
+        reject("docker_resource_receipt_unavailable");
+        throw new Error("docker_resource_receipt_unavailable");
       }
     },
     /**
@@ -365,7 +347,7 @@ async function executeAttempt(
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose、execution、classification: 同じ下位観測。
-     * @returns 同期受理のbool。
+     * @returns N/A: 通知の完了だけを返す。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
      * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
@@ -375,7 +357,7 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    acceptCommandResult: (purpose, execution, classification) => {
+    onCommandObserved: (purpose, execution, classification) => {
       diagnosticStage = "execution_classification";
       hasCommandHandle = true;
       hasResponseObservation = execution !== null;
@@ -408,14 +390,17 @@ async function executeAttempt(
       );
       lastStdoutBytes =
         "stdoutBytes" in classification ? classification.stdoutBytes : 0;
-      return classified.ok || reject(classified.reason);
+      if (!classified.ok) {
+        reject(classified.reason);
+        throw new Error(classified.reason);
+      }
     },
     /**
      * 認証とAI結果の意味を上位で受理する。
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。execution: 元の完了観測。
-     * @returns 同期受理のbool。
+     * @returns N/A: 通知の完了だけを返す。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
      * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
@@ -425,18 +410,20 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    acceptOutput: (purpose, execution) => {
+    onCommandCompleted: (purpose, execution) => {
       if (purpose === "start_subscription_auth_probe_attached") {
         diagnosticStage = "subscription_auth_verification";
-        if (authenticationStatus !== "confirmed")
-          return reject("provider_subscription_auth_not_confirmed");
+        if (authenticationStatus !== "confirmed") {
+          reject("provider_subscription_auth_not_confirmed");
+          throw new Error("provider_subscription_auth_not_confirmed");
+        }
         isSubscriptionAuthConfirmed = true;
       }
       if (purpose === "start_provider_attached") {
-        if (startNotificationAccepted) return acceptProviderOutput(execution);
-        providerOutput = execution;
+        if (startNotificationAccepted) {
+          if (!acceptProviderOutput(execution)) throw new Error(reason);
+        } else providerOutput = execution;
       }
-      return true;
     },
     /**
      * 下位の開始factから上位確認を開始する。
@@ -494,14 +481,14 @@ async function executeAttempt(
       if (primaryFailure !== null) return;
       diagnosticPurpose = failure.purpose;
       if (failure.stage !== "gate") diagnosticStage = failure.stage;
-      if (failure.gate === "recordReceipt")
+      if (failure.gate === "onResourceCreated")
         diagnosticStage = "resource_receipt_record";
       hasCommandHandle = failure.commandHandleObtained;
       hasResponseObservation = failure.responseObserved;
       const next =
         failure.kind === "start_unconfirmed"
           ? "docker_process_controller_provider_start_failed"
-          : failure.gate === "recordReceipt"
+          : failure.gate === "onResourceCreated"
             ? "docker_resource_receipt_unavailable"
             : failure.gate === "onExecutionStarted"
               ? "docker_process_controller_provider_start_observation_failed"
@@ -545,7 +532,7 @@ async function executeAttempt(
     verifiedResourceObservations = outcome.resourceObservations;
     processTreeTerminationConfirmed = outcome.processTreeTerminationConfirmed;
     if (outcome.failure && primaryFailure === null)
-      hooks.onFailure(outcome.failure);
+      hooks.onFailure?.(outcome.failure);
   } catch (error) {
     if (primaryFailure === null) {
       reject("docker_process_controller_execution_failed_closed");

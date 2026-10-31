@@ -67,28 +67,42 @@ export type DockerRuntimeRestartEvent =
     }>;
 
 /**
- * 上位が所有する現在許可と発行前保存の固定入力。
+ * 上位の現在境界観測と発行予定・結果通知を結合する入力。
  * @responsibility 任意OS処置や保存実装を下位へ持ち込まない。
  * @trace ARCH-000008
- * @shape 要求ID、取消、同期boolean確認二種と同期通知。
+ * @shape 要求ID、取消、現在境界の同期確認とvoidの同期通知。
  * @invariant Hashだけでは許可・排他・保存成立とみなさない。
  * @boundary 上位Ownerの用途限定closure。
  * @security argv・環境・実行物Path・生Sessionは指定できない。
- * @compatibility Promiseや非booleanの確認、非undefinedの通知は不成立。
+ * @compatibility 現在境界は同期boolean、通知は同期voidとして用途を区別する。
+ */
+export interface DockerRuntimeRestartCallbacks {
+  onRequesting(): void;
+  onEvent?(event: DockerRuntimeRestartEvent): void;
+}
+
+/**
+ * 一要求の相関・取消・借用境界と通知を結合する。
+ * @responsibility Effect直前の生存観測とvoid通知を区別する。
+ * @trace ARCH-000008
+ * @shape requestId、Signal、verifyBoundaryと同期通知。
+ * @invariant 通知は保存成功や新Authorityを返さない。
+ * @boundary 上位Ownerと固定再起動処理。
+ * @security 任意argv・OS処置・保存操作を受け取らない。
+ * @compatibility 元要求ID・取消・回収条件は維持する。
  */
 export type DockerRuntimeRestartInput = Readonly<{
   requestId: string;
   signal: AbortSignal;
   verifyBoundary: () => unknown;
-  beforeRequest: () => unknown;
-  onEvent?: (event: DockerRuntimeRestartEvent) => unknown;
-}>;
+}> &
+  DockerRuntimeRestartCallbacks;
 
 /**
  * 同期の確認だけをbooleanとして消費する。
  * @responsibility 非同期確認を待機や実行許可へ変換しない。
  * @trace ARCH-000008
- * @input confirm: 上位の現在確認または発行前checkpoint。
+ * @input confirm: 借用元の現在Owner・Scope・取消の確認。
  * @returns 同期trueだけ。その他はfalse。
  * @precondition 実処置前の閉じた確認にだけ使用する。
  * @postcondition 拒否したPromiseを保存成功や許可へ昇格しない。
@@ -191,7 +205,7 @@ export async function restartDockerRuntimeForVerification(
             "requestId",
             "signal",
             "verifyBoundary",
-            "beforeRequest",
+            "onRequesting",
             "onEvent",
           ].includes(key),
       ) ||
@@ -205,14 +219,14 @@ export async function restartDockerRuntimeForVerification(
     const requestId = descriptors.requestId?.value;
     const signal = descriptors.signal?.value;
     const verifyBoundary = descriptors.verifyBoundary?.value;
-    const beforeRequest = descriptors.beforeRequest?.value;
+    const onRequesting = descriptors.onRequesting?.value;
     const onEvent = descriptors.onEvent?.value;
     if (
       typeof requestId !== "string" ||
       types.isProxy(signal) ||
       !(signal instanceof AbortSignal) ||
       typeof verifyBoundary !== "function" ||
-      typeof beforeRequest !== "function" ||
+      typeof onRequesting !== "function" ||
       (onEvent !== undefined && typeof onEvent !== "function")
     )
       throw new Error();
@@ -220,7 +234,7 @@ export async function restartDockerRuntimeForVerification(
       requestId,
       signal,
       verifyBoundary,
-      beforeRequest,
+      onRequesting,
       ...(onEvent ? { onEvent } : {}),
     };
   } catch {
@@ -240,7 +254,7 @@ export async function restartDockerRuntimeForVerification(
       delivery: "not_requested" as const,
     });
   }
-  const { requestId, signal, verifyBoundary, beforeRequest } = captured;
+  const { requestId, signal, verifyBoundary, onRequesting } = captured;
   let request: DockerRuntimeRestartObservation["request"] = "not_issued";
   let primaryFailure: string | null = null;
   let stopFailure: DockerRestartStopFailure | null = null;
@@ -354,8 +368,20 @@ export async function restartDockerRuntimeForVerification(
           ? "docker_restart_cancelled"
           : "docker_restart_boundary_unconfirmed",
       );
-    if (!confirmSynchronousRestartBoundary(beforeRequest))
+    if (types.isAsyncFunction(onRequesting))
       throw new Error("docker_restart_record_unconfirmed");
+    try {
+      const requesting: unknown = onRequesting();
+      if (types.isPromise(requesting))
+        void Promise.prototype.then.call(
+          requesting,
+          undefined,
+          () => undefined,
+        );
+      if (requesting !== undefined) throw new Error();
+    } catch {
+      throw new Error("docker_restart_record_unconfirmed");
+    }
     if (!live())
       throw new Error(
         signal.aborted
@@ -479,3 +505,13 @@ export async function restartDockerRuntimeForVerification(
   notification = undefined;
   return Object.freeze({ ...observation, delivery });
 }
+/**
+ * 一要求の相関・取消・借用境界と通知を結合する。
+ * @responsibility Effect直前の生存観測とvoid通知を区別する。
+ * @trace ARCH-000008
+ * @shape requestId、Signal、verifyBoundaryと同期通知。
+ * @invariant 通知は保存成功や新Authorityを返さない。
+ * @boundary 上位Ownerと固定再起動処理。
+ * @security 任意argv・OS処置・保存操作を受け取らない。
+ * @compatibility 元要求ID・取消・回収条件は維持する。
+ */

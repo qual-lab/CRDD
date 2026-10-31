@@ -33,7 +33,7 @@ import {
   type DockerIsolationRuntimeOptions,
   type DockerSessionCommandHandle,
   type DockerCommandSession,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
   type HomeLease,
   type DockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
@@ -199,7 +199,7 @@ type ExecutionServices = Readonly<{
     plan: AttemptPlan,
     recoveryCapability: object,
     managementCapability: object,
-    hooks: DockerExecutionHooks,
+    hooks: DockerExecutionCallbacks,
   ) => DockerCommandSession;
   cleanupOwnedResources: (
     plan: AttemptPlan,

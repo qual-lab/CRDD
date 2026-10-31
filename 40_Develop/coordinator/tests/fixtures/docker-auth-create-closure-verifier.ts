@@ -755,9 +755,9 @@ async function executeApprovedAuthCreateClosure() {
             assert.equal(restartCalls, 1);
             return isolation.restartDockerRuntime({
               ...input,
-              beforeRequest: () => {
-                const result = input.beforeRequest();
-                assert.equal(result, true);
+              onRequesting: () => {
+                const result = input.onRequesting();
+                assert.equal(result, undefined);
                 restartEvents.push("before_request");
                 return result;
               },

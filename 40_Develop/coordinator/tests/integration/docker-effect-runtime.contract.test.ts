@@ -45,7 +45,7 @@ import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   planDockerIsolationCommands,
   startDockerCommandSessionCandidate,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
   type DockerIsolationRuntimePlan,
 } from "../../../docker-isolation/src/index.ts";
 import {
@@ -381,14 +381,15 @@ function createEffectFixture(
 test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", async () => {
   const { plan, managementCapability } = createPlanFixture();
   const recovery = Object.freeze({});
-  const hooks: DockerExecutionHooks = {
-    allowCommand: () => false,
-    recordSubmission: () => true,
-    recordNotIssued: () => true,
-    recordExecutionSubmission: () => true,
-    recordReceipt: () => true,
-    acceptCommandResult: () => true,
-    acceptOutput: () => true,
+  const hooks: DockerExecutionCallbacks = {
+    onCommandSubmitting: () => {
+      throw new Error("notification_failed");
+    },
+    onCommandNotIssued: () => {},
+    onExecutionSubmitting: () => {},
+    onResourceCreated: () => {},
+    onCommandObserved: () => {},
+    onCommandCompleted: () => {},
     onExecutionStarted: () => assert.fail("unexpected_provider_start"),
     onFailure: () => {},
   };
@@ -448,7 +449,7 @@ test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", a
   assert.equal(connections, 1);
   assert.equal(cleanups, 0);
   const result = await session.completion;
-  assert.equal(result.failure?.gate, "allowCommand");
+  assert.equal(result.failure?.gate, "onCommandSubmitting");
   assert.equal(result.cleanup.confirmed, true);
   assert.equal(cleanups, 1);
 });

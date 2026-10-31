@@ -628,13 +628,14 @@ test("実RuntimeのSessionは同Ownerの元清掃結果だけを搬送する", a
     fixture.recovery,
     fixture.owner,
     {
-      allowCommand: () => false,
-      recordSubmission: () => true,
-      recordNotIssued: () => true,
-      recordExecutionSubmission: () => true,
-      recordReceipt: () => true,
-      acceptCommandResult: () => true,
-      acceptOutput: () => true,
+      onCommandSubmitting: () => {
+        throw new Error("notification_failed");
+      },
+      onCommandNotIssued: () => {},
+      onExecutionSubmitting: () => {},
+      onResourceCreated: () => {},
+      onCommandObserved: () => {},
+      onCommandCompleted: () => {},
       onExecutionStarted: () => {
         assert.fail("provider_start_unexpected");
       },
@@ -645,8 +646,9 @@ test("実RuntimeのSessionは同Ownerの元清掃結果だけを搬送する", a
   );
   assert.equal(fixture.counts().starts, 0);
   const result = await session.completion;
-  assert.equal(result.failure?.gate, "allowCommand");
-  assert.equal(failures.length, 1);
+  assert.equal(result.failure?.gate, "onCommandSubmitting");
+  assert.equal(result.notificationDeliveryConfirmed, false);
+  assert.equal(failures.length, 0);
   assert.equal(result.cleanup.confirmed, true);
   assert.equal(result.processTreeTerminationConfirmed, true);
   assert.equal(result.callbackRegistrationReleased, true);

@@ -8,7 +8,7 @@ import {
   type DockerIsolationRuntime,
   type HomeLease,
   type DockerIsolationRuntimePlan,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
   type DockerSessionCleanup,
   type DockerCommandSession,
   bindAdviceCommand,
@@ -38,7 +38,7 @@ export interface IsolationRuntime {
     plan: AttemptPlan,
     recovery: object,
     management: object,
-    hooks: DockerExecutionHooks,
+    hooks: DockerExecutionCallbacks,
   ): DockerCommandSession;
   cleanupOwnedResources(
     plan: AttemptPlan,
@@ -200,7 +200,7 @@ export function bindIsolationRuntime(
     plan: AttemptPlan,
     recoveryCapability: object,
     managementCapability: object,
-    hooks: DockerExecutionHooks,
+    hooks: DockerExecutionCallbacks,
   ) {
     return runtime.startExecution(
       project(plan, managementCapability),

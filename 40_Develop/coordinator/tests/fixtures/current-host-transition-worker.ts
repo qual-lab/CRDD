@@ -41,7 +41,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(input.requestId, runtimeDomain.createDockerRestartRequestId(snapshot.repositoryBinding,target.identitySha256,target.recoveryId,scopeSha256));
           restartExpectedBytes = before;
           const initial = {requestId:input.requestId,scopeSha256,request:'not_issued',cleanup:'not_required',result:null};
-          assert.equal(input.beforeRequest(), true);
+          assert.equal(input.onRequesting(), undefined);
           for(const checkpoint of [initial,{...initial,request:'unknown',cleanup:'pending'}]) {
             restartExpectedBytes = model.prepareCoordinatorStateRestartSnapshot(restartExpectedBytes,target.recoveryId,checkpoint,snapshot.repositoryBinding);
             assert.ok(restartExpectedBytes);

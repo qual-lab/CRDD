@@ -6869,17 +6869,16 @@ export async function repairRuntimeOwnedDockerRuntime(
             }
           : null,
       canIssueEffect: () => !signal.aborted && currentOwner(),
-      canRecordCheckpoint: currentOwner,
       onPrepared: (value) => {
         preparedCalls++;
         if (preparedCalls !== 1 || !currentOwner() || signal.aborted)
-          return false;
+          throw new Error("docker_repair_record_unconfirmed");
         if (
           previousIdentity &&
           (previousIdentity.ownerBindingSha256 !== value.ownerBindingSha256 ||
             previousIdentity.scopeSha256 !== value.scopeSha256)
         )
-          return false;
+          throw new Error("docker_repair_record_unconfirmed");
         if (target === null) {
           const identityJson = `${JSON.stringify({ schema: "crdd-coordinator/runtime-repair-identity/v1", kind: "runtime_repair", operationNonce: nonce, operationId, repositoryBinding: repository.repositoryBinding, ownerBindingSha256: value.ownerBindingSha256, scopeSha256: value.scopeSha256, consumer: "coordinator_cli" })}\n`;
           recoveryId = `docker-runtime-repair.${nonce}.${createHash("sha256").update(identityJson).digest("hex")}`;
@@ -6893,9 +6892,9 @@ export async function repairRuntimeOwnedDockerRuntime(
               "checkpoint",
             )
           )
-            return false;
+            throw new Error("docker_repair_record_unconfirmed");
         }
-        if (!target) return false;
+        if (!target) throw new Error("docker_repair_record_unconfirmed");
         if (target.checkpoint !== null) {
           const candidate = prepareCoordinatorStateRepairSessionSnapshot(
             bytes,
@@ -6918,18 +6917,21 @@ export async function repairRuntimeOwnedDockerRuntime(
               encodeRuntimeStateValue(value.checkpoint) ||
             !save(candidate, "session_begin")
           )
-            return false;
+            throw new Error("docker_repair_record_unconfirmed");
         } else {
           prepared = true;
           if (!checkpoint(value.checkpoint)) {
             prepared = false;
-            return false;
+            throw new Error("docker_repair_record_unconfirmed");
           }
         }
         prepared = true;
-        return true;
+        return;
       },
-      onCheckpoint: checkpoint,
+      onCheckpoint: (value) => {
+        if (!checkpoint(value))
+          throw new Error("docker_repair_record_unconfirmed");
+      },
     });
     nativeCleanupConfirmed = result.lifecycle?.cleanup.cleanup === "confirmed";
     const primaryFailure = result.machine?.primaryFailure
@@ -7168,16 +7170,19 @@ export async function restartRuntimeOwnedDockerForRecovery(
         verifyBoundary: () =>
           failure === null &&
           verifyRuntimeOwnedDockerRestartPreparation(context),
-        beforeRequest: () => {
+        onRequesting: () => {
           if (!preparation.checkpointInitialized && !save(checkpoint))
-            return false;
-          return save(
-            Object.freeze({
-              ...checkpoint,
-              request: "unknown",
-              cleanup: "pending",
-            }),
-          );
+            throw new Error("docker_restart_record_unconfirmed");
+          if (
+            !save(
+              Object.freeze({
+                ...checkpoint,
+                request: "unknown",
+                cleanup: "pending",
+              }),
+            )
+          )
+            throw new Error("docker_restart_record_unconfirmed");
         },
         onEvent: (event: DockerRuntimeRestartEvent) => {
           if (event.event === "settled" && !checkpointInitialized) return;

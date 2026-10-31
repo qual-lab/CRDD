@@ -11,7 +11,10 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { inspectRecoveryStartFailureDiagnostic } from "../../../src/execution/validation.ts";
-import { snapshotReadyRecovery, snapshotBlockedRecoveryWithExactId } from "../../../src/execution/validation.ts";
+import {
+  snapshotReadyRecovery,
+  snapshotBlockedRecoveryWithExactId,
+} from "../../../src/execution/validation.ts";
 
 const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 
@@ -69,9 +72,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           throw Error("upper_must_not_acquire_executor_home");
         },
         verifyOwnedOperationManagementCapability: () => ({
-          operationId: stage === "operation_binding"
-            ? "other"
-            : "op",
+          operationId: stage === "operation_binding" ? "other" : "op",
         }),
         readRuntimeOwnedCoordinatorStateSnapshot: () => ({
           value: {

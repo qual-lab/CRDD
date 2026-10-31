@@ -848,7 +848,7 @@ export async function simulateAuthCreateClosure(
           return true;
         },
         restartDockerRuntime: async (input: {
-          beforeRequest(): boolean;
+          onRequesting(): void;
           onEvent(event: unknown): void;
           signal: AbortSignal;
         }) => {
@@ -875,7 +875,7 @@ export async function simulateAuthCreateClosure(
                   : null,
             };
           }
-          assert.equal(input.beforeRequest(), true);
+          assert.equal(input.onRequesting(), undefined);
           if (fault === "restart_notification_missing") hits++;
           else input.onEvent({ event: "request_accepted" });
           input.onEvent({ event: "settled" });
@@ -1206,13 +1206,13 @@ export async function simulateAuthCreateClosure(
         ) => Promise<Record<string, unknown>>;
         const result = await restart({
           signal,
-          beforeRequest: () => {
+          onRequesting: () => {
             if (fault === "restart_save_refused") {
               hits++;
-              return false;
+              throw new Error("docker_restart_record_unconfirmed");
             }
             target.dockerRestart = { request: "unknown" };
-            return true;
+            return;
           },
           onEvent: (event: { event: string }) => {
             if (

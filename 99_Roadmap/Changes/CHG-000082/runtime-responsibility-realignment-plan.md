@@ -1957,3 +1957,46 @@ AI Adapterの`codex_task_reviewer_code_mode_not_verified`二行を撤去し、�
 対象検証結果：最終版のExecutor npm testは静的検査・型検査・Lintと全51件が成功（約98.9秒）。Coordinatorの型検査と利用側五Suite・171件も成功した。独立レビューで診断の実搬送Oracleと移管先File Headerを補強し、固定候補の再レビューで残Must-fixは零。診断は製品経路でconfigured／settled各一回、操作相関と秘密非搬送、同期例外／非同期拒否でも同じ完了結果・清掃を確認した。差分空白検査も成功。新File・公開API・保存単位は追加せず、通常Rootは不変。実AI・実Docker・過去保持物は操作しておらず、Repository全体QAや既知のHome解放条件の別件完了とは扱わない。コミット・プッシュは未実施。
 
 途中のWindows取消試験は制限環境で5秒以内のProcess終了を確認できず失敗した。Process制御を許可した同じ試験では終了を確認できたが、既存cleanup代役の五資源観測欠測で成功側がblockedになった。基準Commitの五Sourceをメモリ内で読込んだ同条件でも再現し、今回の製品変更による退行と区別した。該当fixtureだけ、成功側に同じfixture.resourceObservationsを搬送し未確認側はnullを維持する最小是正を実施。成功側の公開回復参照null／終端観測の元ID、未確認側の結果の元ID／終端未保存、同じ五観測、実子孫終了・清掃各一回を確認した。製品の5秒猶予・安全判定・Home解放条件は変更していない。Docker資源はすべて模擬であり、実Docker不存在の根拠にはしない。
+
+## Docker関連の関数束・通知境界の整理（2026-10-31）
+
+基準Commitは5f40bfa7e4。人間承認した通知専用規約の適用として、Docker Isolation、Executor、Coordinatorの直接接続と試験を対象にする。実AI・Docker・過去保持物は読取りを含め操作しない。変更分類は複数Package間の実装契約・責務整理。既存ArchitectureとCoding Standardsを着手前に照合し、別確認者が安全・失敗・取消・Owner生存の観点を確認した。Source・設計・Qualityの独立レビューと直接利用側の影響確認を行う。準拠基準・決定権限・Releaseは変えないため、準拠・Release監査は適用しない。
+
+編集の対応は①allowCommandを撤去し診断初期化を既存発行予定通知へ統合、②実行Sessionの予定・未発行・実ID・観測・内容通知をvoidへ統一、③Executorの認証・内容判定の拒否をthrowへ接続、④修復の保存可否問い合わせを撤去しOwner確認と保存失敗を上位ハンドラー内で扱う、⑤再起動前の保存ACKをonRequesting通知へ変更、⑥公開型・直接利用側・検証Tool・試験・Architecture・Qualityの追従とする。新File・Registry・Lock・永続State・Worker・ACK Frameworkを追加しない。
+
+既存保証の対応：認証不成立・Command失敗・内容不正は後続要求を止める。通知待ち中の取消はラッチし、次Effectを発行しない。元Receiptは通知より先に技術Ownerへ保持し、通知例外でも同exact IDで回収する。修復の通知例外は再送しない。取消後の既発生事実の記録は新Effectの許可から分離する。通知・上位保存の失敗で確認済みcleanupを未回収へ戻さない。未知・Owner喪失・Scope差は安全な拒否を維持し、最後の元回復参照を保持する。
+
+関数束全体の棚卸しでは、authenticationのpermitLive、cleanupのassertOwner／assertBeforeRemoval、disposeのboundary、DirectoryのcanIssue、repairのcanIssueEffect、restartのverifyBoundaryをEffect直前の借用元生存観測として維持する。固定Booleanへの置換はawait後失効の保証を失うため採用しない。borrowPaths／inspectReceiptsは検査済み既存Ownerの用途限定読取りとして維持する。同責務の技術代役は既存の内部操作Interfaceに限定し、上位Store操作を注入しない。
+
+2026-11-01時点の対象結果：Docker Isolationはcheck終了0・通常300件中295成功／5スキップ、Executorは最終Sourceで全51件成功。Coordinatorは最終Sourceの直接影響六Suite・167件、Windows実Writerの通知・保存切断窓14件、Windows現在HostのCLI接続6件・引渡し失敗1件がそれぞれ成功した。修復結果26件は上記167件にも含まれるため重複加算しない。これらは別実行であり、全体一実行の合格へ合算しない。対象五文書のChecker指摘は零、参照展開先の既存3,356件により検査全体の終了値1を維持する。
+
+独立レビューで通知結果の未追従を是正した。実行SessionのnotificationDeliveryConfirmedは通知呼出しなしnull、同期又は許可された非同期通知完了true、例外・不正返却falseとし、falseはstickyで以後のonFailureを含む通知を止める。元Receipt・一次故障・技術cleanupは上書きしない。同期／非同期のArchitecture、Inputとhelper Header、Checklist前の本文配置、失効後通知の例外Oracleを再照合し、独立再レビューの残Must-fixは零。既存の保存Schema実値は不変である。
+
+先行回帰の失敗は成功へ書き換えない。検証用summaryの二重正規化と旧ACK期待は是正後に対象再確認した。Junction／Repository／Workspace／CLIの制限環境での不合格は、必要な権限がある別実行で成功したが、実行条件の差を保持する。Process安全状態のoriginPendingAtGate不一致は、基準5f40bfa7e4の変更対象製品Sourceをメモリ内で復元した同じwriter_cleanupでもfalseを再現し、今回の変更前からの不合格と分離した。期待値・安全判定を緩めていない。当該時点の広域回帰二本は継続中で、全体QA成立を主張しない。制限環境で清掃未確認となった今回の合成試験物は保持し、過去保持物は操作しない。
+
+今回のWindows制限環境で保持した合成Rootは、C:/project/CRDD/.crdd/tests/配下のcurrent-host-transition-QeXoFo、current-host-transition-MOlULA、current-host-transition-yokSl5、current-host-transition-f3N4znの四件（作成2026-10-31 23:46〜23:52 JST）。本体Repository・Credential・過去保持物ではなく、今回の試験の失敗窓だけを対象とする。清掃未確認を回収完了へ変換せず、CRDD保守担当が2026-11-07までに同じRoot・残存参照・使用中Process・合成内容を照合して既存の清掃へ戻す。期限のみを理由に削除せず、確認不能なら保持理由と次判断を更新する。新しい回復機構・保持Registryは追加しない。
+
+Windows実保存の広域二Suiteは88件中78成功・10不合格で終了した（約4,368秒）。現在HostのCLI三形と引渡し失敗の四件は、合成CLI子のspawnSync ETIMEDOUTで、四Rootを上記のとおり保持する。別実行の同じ四経路は成功したが、並行負荷・権限制約等の寄与は分離していない。修復Owner側の五つの負例とその親一件は、実行開始時に読み込んだ旧false期待による不合格であり、例外期待へ追従した最終Sourceの対象14件は別実行で成功した。元の広域結果を合格へ換算せず、実Dockerの再起動・修復・資源観測・過去保持物操作は行っていない。Coordinator通常広域回帰は継続中。
+
+非AIの正常・負例・境界：通知未登録、同期void、待機可能な通知の完了、誤Boolean・Promise・thenable・例外、待機中取消、認証拒否、Receipt通知失敗、全九修復slotのOwner失効・Scope差・取消と既発生unknown、再起動前拒否と受付後通知失敗・元子join、返却後通知0を既存Suiteと追加下位シナリオで確認する。実Docker不存在・実AIの再成立・Repository全体QAは今回の主張対象外。現在、追加の人間判断は不要。
+
+### 通知整理後のExecutor実AI再確認（2026-11-01）
+
+上記の非AI作業後、人間がExecutor実AI確認と成功後のコミット・プッシュを指示した。送信境界を既存の単独試験へ限定し、Codexはgpt-6.1-sol／medium、Claudeはclaude-opus-5-5／mediumを使用した。既存Subscription認証を既存隔離経路で用い、送信は合成Context又はsource.txtと固定指示だけ。本体Repository本文・秘密値・過去保持物は渡していない。固定Imageを使用し、取得・更新・Docker起動／再起動／修復・自動再送は行わない。Engine 29.8.1応答と稼働Container零、必要な四固定Imageの存在を読取り確認した。
+
+既存verify-provider-real.tsを変更せず、各項目一回ずつ逐次実行した。全体の終了値は0。以下の実行IDはEXEC-20261101-CALLBACK-を共通接頭辞とする。結果Hashは内容検査に成功したProvider標準出力のSHA-256、byte数はそのUTF-8 byte数であり、生出力本文は保存していない。
+
+| 末尾ID | Provider | 確認内容 | 結果 | 結果Hash／byte数 |
+|---|---|---|---|---|
+| 01 | Codex | 助言 | completed | abd954932363c768d918ec0889cbaa1ae3c502a26bb96106bd1639c4ef60bf10／697 |
+| 02 | Claude | 助言 | completed | 5d5900ee149f90ece341bf4158a4df4261dc1ccff187abc6b66881bb70c26679／2305 |
+| 03 | Codex | 編集 | completed・実File一致 | 95e5c295e86dd4120e266a8c67039f91d36694c19df27bbab729c489a723ff75／2055 |
+| 04 | Claude | レビュー | completed | cb1a442e1bb9b13da5f8a46f96dae18e853e8ffc519e60b9677f23f20128b2c4／1795 |
+| 05 | Claude | 編集 | completed・実File一致 | b4b2df648b33307b1187b238096f4734f98ad116c6571d6a092c5f988106afdf／1972 |
+| 06 | Codex | レビュー | completed・Tool開始零 | ac50b9fbbe5733e804e189f215daf53aef9980aca0e601c05148444500bb2db8／814 |
+| 07 | Codex | 実開始後の取消 | cancelled・取消確認 | 結果本文なし／0 |
+| 08 | Claude | 実開始後の取消 | cancelled・取消確認 | 結果本文なし／0 |
+
+八件すべてで子Process close、Process tree終了、Container／Network不存在、cleanup、Home解放、終端保存、今回試験Root清掃を個別に確認した。fixtureRoot／reviewAfterはnull、保持記録は不要。最後に今回八Rootの不存在と稼働Container零を再照合した。過去保持物と上記Windows非AI試験の四保持Rootは操作しない。
+
+独立確認で試験入口から製品start／cancel・executeAttempt・Isolation Sessionまでの接続を照合し、新たなMust-fixは零。成立範囲は試験専用Host経由の八回の単段Lifecycleであり、公開createExecutorの準備入力を含む全面E2E、上位三Packageとの連携、複数Attempt、Direct／Isolated全体、Git統合、外部送信前取消、Docker修復・再起動の実境界を証明しない。非AIの直接影響回帰・独立レビューと合わせて今回変更を区切るが、継続中のCoordinator通常広域回帰と既知の全体QA不合格は別途追跡する。

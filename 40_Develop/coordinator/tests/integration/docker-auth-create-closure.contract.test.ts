@@ -1358,6 +1358,7 @@ test("認証create親の実統括本文は単独故障で後続処置と完了�
                     "diagnostic_message_url",
                     "packet_missing",
                     "restart_throw",
+                    "restart_save_refused",
                     "restart_event_save",
                     "root_delete_throw",
                   ].includes(expected.fault)
@@ -1373,6 +1374,7 @@ test("認証create親の実統括本文は単独故障で後続処置と完了�
                       "diagnostic_message_url",
                       "packet_missing",
                       "restart_throw",
+                      "restart_save_refused",
                       "restart_event_save",
                       "root_delete_throw",
                     ].includes(expected.fault)

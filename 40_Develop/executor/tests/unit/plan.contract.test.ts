@@ -220,13 +220,12 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     throw Error("unexpected_hook");
   };
   const hooks = {
-    allowCommand: unexpectedHook,
-    recordSubmission: unexpectedHook,
-    recordNotIssued: unexpectedHook,
-    recordExecutionSubmission: unexpectedHook,
-    recordReceipt: unexpectedHook,
-    acceptCommandResult: unexpectedHook,
-    acceptOutput: unexpectedHook,
+    onCommandSubmitting: unexpectedHook,
+    onCommandNotIssued: unexpectedHook,
+    onExecutionSubmitting: unexpectedHook,
+    onResourceCreated: unexpectedHook,
+    onCommandObserved: unexpectedHook,
+    onCommandCompleted: unexpectedHook,
     onExecutionStarted: unexpectedHook,
     onFailure: unexpectedHook,
   };

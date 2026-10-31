@@ -312,11 +312,10 @@ function fixture(continuation = false, createOperations = operations) {
         signal: controller.signal,
         resume,
         canIssueEffect: () => state.permission,
-        canRecordCheckpoint: () => true,
         onPrepared: (value) => {
           calls.prepared++;
           saved = value.checkpoint;
-          return true;
+          return;
         },
         onCheckpoint: (value) => {
           assert.ok(transition(saved, value));
@@ -328,7 +327,7 @@ function fixture(continuation = false, createOperations = operations) {
           )
             calls.events.push("bound");
           onSave(value);
-          return true;
+          return;
         },
       },
       {

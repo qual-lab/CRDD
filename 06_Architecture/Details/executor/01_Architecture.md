@@ -290,6 +290,10 @@ Code Modeの全Tool不使用又は全ファイル非読取りの証明は追加�
 
 元の単段実装を上記Sourceへ移管した。計画・入力・取消・失敗結果の意味を変えず、Coordinatorの順序管理と保存を用途固定接続へ残す。非AI回帰と独立確認の結果は[移管計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md)を正本とし、本書の設計評価とは区別する。実AI／Docker成立、実データ移行、全体QA／Releaseは本書から主張しない。
 
+## Docker通知の受信と意味判断（2026-10-31）
+
+ExecutorはDockerExecutionCallbacksで発行予定・元資源ID・Command観測・完了・実開始を受ける。通知はvoid又は指定された非同期段階のPromise<void>であり、保存成功のBooleanを返さない。allowCommandを撤去し、診断初期化はonCommandSubmittingへ統合する。Command分類、AI Adapterによる認証確認、Provider内容検査はExecutorが所有し、不成立は通知ハンドラーからthrowして後続要求を停止する。Docker Isolationは技術回収を継続し、上位の記録保存はExecutorCallbacksの利用側が所有する。既存の開始通知join、元結果・回復参照・Home解放条件は変更しない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

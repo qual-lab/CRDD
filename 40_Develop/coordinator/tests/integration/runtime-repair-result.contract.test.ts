@@ -1945,8 +1945,13 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
       }
       const beforeCalls = f.state.calls;
       const callback = f.late();
-      if (callback && target.checkpoint)
-        assert.equal(callback(target.checkpoint), false);
+      if (callback && target.checkpoint) {
+        const checkpoint = target.checkpoint;
+        assert.throws(
+          () => callback(checkpoint),
+          /docker_repair_record_unconfirmed/u,
+        );
+      }
       assert.equal(f.state.calls, beforeCalls);
     }
   }
@@ -2116,8 +2121,13 @@ test("修復結果: 現在Owner失効後は既発行事実を推測保存しな�
       if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
       const before = f.state.calls;
       const callback = f.late();
-      if (callback && target.checkpoint)
-        assert.equal(callback(target.checkpoint), false);
+      if (callback && target.checkpoint) {
+        const checkpoint = target.checkpoint;
+        assert.throws(
+          () => callback(checkpoint),
+          /docker_repair_record_unconfirmed/u,
+        );
+      }
       assert.equal(f.state.calls, before);
     };
     await verify(false);
@@ -2164,8 +2174,13 @@ test("修復結果: 最終二保存の片側不成立を成功へ補完しない
       );
       const beforeCalls = f.state.calls;
       const callback = f.late();
-      if (callback && target.checkpoint)
-        assert.equal(callback(target.checkpoint), false);
+      if (callback && target.checkpoint) {
+        const checkpoint = target.checkpoint;
+        assert.throws(
+          () => callback(checkpoint),
+          /docker_repair_record_unconfirmed/u,
+        );
+      }
       assert.equal(f.state.calls, beforeCalls);
     }
   }

@@ -155,6 +155,7 @@ const SOURCE_ROLES = {
   ],
   storage: ["decision/store.ts"],
   technicalExecution: [
+    "execution/types.ts",
     "execution/lease.ts",
     "execution/controller.ts",
     "execution/authority.ts",
@@ -182,7 +183,7 @@ const SOURCE_ROLES = {
     "cli/recovery-report.ts",
     "cli/cancellation.ts",
   ],
-  technicalStorage: [],
+  technicalStorage: ["state/probe-record.ts"],
   externalSendDecision: [
     "decision/external-send-consent.ts",
     "decision/external-send-grant.ts",

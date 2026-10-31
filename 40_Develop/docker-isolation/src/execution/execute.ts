@@ -34,7 +34,7 @@ import { STDOUT_LIMIT_BYTES } from "./result.ts";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import {
   startDockerCommandSession,
-  type DockerExecutionHooks,
+  type DockerExecutionCallbacks,
   type DockerCommandSession,
   type DockerSessionCleanup,
 } from "./session.ts";
@@ -273,7 +273,7 @@ export type DockerIsolationRuntime = Readonly<{
     plan: DockerIsolationRuntimePlan,
     recoveryCapability: object,
     managementCapability: unknown,
-    hooks: DockerExecutionHooks,
+    hooks: DockerExecutionCallbacks,
   ) => DockerCommandSession;
 }>;
 
@@ -1093,7 +1093,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     plan: DockerIsolationRuntimePlan,
     recoveryCapability: object,
     managementCapability: unknown,
-    hooks: DockerExecutionHooks,
+    hooks: DockerExecutionCallbacks,
   ) {
     const commands = planDockerIsolationCommands(plan.configuration);
     return startDockerCommandSession(
