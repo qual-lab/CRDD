@@ -68,6 +68,9 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
           supplied = input;
           return reject ? Promise.reject(failure) : pending;
         },
+        runDockerRuntimeRepairSession: () => {
+          throw Error("unexpected_repair");
+        },
       },
     },
   );

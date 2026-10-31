@@ -70,11 +70,11 @@ test("CodexとClaudeの固定選定を非共有計画へ渡す", () => {
       input.executionSelection,
     );
     assert.equal(
-      result.executionPlan?.providerCommand.modelIdentifier,
+      result.executionPlan?.executionSelection.modelIdentifier,
       input.executionSelection.modelIdentifier,
     );
     assert.equal(
-      result.executionPlan?.providerCommand.identifierKind,
+      result.executionPlan?.executionSelection.identifierKind,
       input.executionSelection.identifierKind,
     );
     assert.equal(result.executionPlan?.repositoryMounted, false);

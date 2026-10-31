@@ -28,20 +28,23 @@ export function createAttemptRecoveryTestApi(
       assertOwner: () => boolean;
     }>,
   ) => unknown,
-): typeof import("../src/attempt/recovery.ts") {
+): typeof import("../src/resources/execute.ts") {
   const source = readFileSync(
-    new URL("../src/attempt/recovery.ts", import.meta.url),
+    new URL("../src/resources/execute.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(source)
     .replace(/^import[\s\S]*?from\s*["'][^"']+["'];?\s*/gm, "")
     .replace(/^export /gm, "");
-  return runInNewContext(
-    `${body}; ({ inspectAttemptResources, cleanupAttemptResources })`,
-    {
-      ...isolation,
-      utilTypes,
-      createDockerTaskRecoveryExecutor: create,
+  return runInNewContext(`${body}; ({ inspectResources, cleanupResources })`, {
+    ...isolation,
+    utilTypes,
+    createDockerTaskRecoveryExecutor: create,
+    observeDockerRuntimeRepairRetention: () => {
+      throw Error("directory_observation_not_mocked");
     },
-  );
+    disposeDockerRuntimeRepairDirectory: () => {
+      throw Error("directory_cleanup_not_mocked");
+    },
+  });
 }

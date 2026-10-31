@@ -31,7 +31,6 @@ import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
   resolveAiModelSelection,
   describeProviderAuthentication,
-  evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import {
   inspectRuntimeOwnedDevelopmentOperationContext,
@@ -46,14 +45,12 @@ import {
   describeProviderHomeObservationContract,
 } from "../../../platform-access/src/index.ts";
 import {
-  type DockerAuthenticationPlan,
-  createDockerAuthenticationRuntimeFactory,
-  planDockerAuthenticationResourceRecovery,
-  describeDockerProxyTopology,
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-  planDockerAuthenticationCommands,
-} from "../../../docker-isolation/src/index.ts";
+  createAuthentication,
+  type Authentication,
+  type AuthenticationRequest,
+  type AuthenticationProjection,
+  type AuthenticationCallbacks,
+} from "../../../executor/src/index.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 
 import fs from "node:fs";
@@ -7794,103 +7791,20 @@ export function readExecutionCancellation(signal: unknown): boolean | null {
 }
 
 /**
- * Provider認証で許可する一つのDocker Commandを表す。
- *
- * @responsibility 固定用途、引数および対話性の値境界を所有する。
+ * 認証の上位保存・Home排他と技術実行の接続。
+ * @responsibility 技術実装を持たず現在記録の照会・保存・確定を所有する。
  * @trace ARCH-000010
- * @shape purpose、argv、interactiveからなる読取り専用値である。
- * @invariant 任意Shell文字列や暗黙の環境依存を含まない。
- * @boundary 認証PlanからDocker CLI AdapterへのCommand境界。
- * @security 秘密値を結果または診断へ公開しない。
- * @compatibility 利用側は宣言済みPropertyだけへ依存する。
- */
-type Command = Readonly<{
-  purpose: string;
-  argv: readonly string[];
-  interactive: boolean;
-}>;
-
-/**
- * Provider認証の固定Docker Planを表す。
- *
- * @responsibility Image、資源名、所有LabelおよびCommand列の値境界を所有する。
- * @trace ARCH-000010
- * @shape Provider情報、Docker資源Identityおよび用途別Command列からなる読取り専用値である。
- * @invariant RepositoryやWorkspaceのmountを含めない。
- * @boundary Host Runtimeから隔離Docker認証環境へのPlan境界。
- * @security 専用Provider Home以外のHost資源を接続しない。
- * @compatibility 利用側は宣言済みPropertyと固定Command順だけへ依存する。
- */
-export type ProviderAuthenticationPlan<
-  A extends "status" | "login" = "status" | "login",
-> = Readonly<{
-  provider: "codex" | "claude";
-  action: A;
-  providerHomeSourcePath: string;
-  providerImageDigest: string;
-  ownershipLabel: string;
-  probeContainerName: string;
-  commands: readonly Command[];
-  ownershipCommands: readonly Command[];
-  cleanupCommands: readonly Command[];
-  absenceCommands: readonly Command[];
-}> &
-  (A extends "login"
-    ? Readonly<{
-        proxyImageDigest: string;
-        internalNetworkName: string;
-        egressNetworkName: string;
-        proxyContainerName: string;
-        loginContainerName: string;
-      }>
-    : Readonly<Record<never, never>>);
-
-/**
- * 一つのDocker Command実行観測を表す。
- *
- * @responsibility 終了状態、出力および起動失敗の観測値境界を所有する。
- * @trace ARCH-000010
- * @shape status、signal、stdout、stderrおよび任意errorからなる読取り専用値である。
- * @invariant 要求発行と完了観測を同一視しない。
- * @boundary 子Processから再認証Lifecycleへの結果搬送境界。
- * @security 生出力を公開結果へ直接搬送しない。
- * @compatibility 利用側は宣言済み観測Propertyだけへ依存する。
- */
-type Execution = Readonly<{
-  status: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-  error?: Error;
-  processCompletionConfirmed?: boolean;
-  resourceCreationConfirmed?: boolean;
-  resourceReceipt?: Readonly<{ name: string; dockerId: string }>;
-}>;
-
-const authenticationTechnicalPlans = new WeakMap<
-  object,
-  DockerAuthenticationPlan
->();
-
-/**
- * Provider認証Lifecycleが利用する外部境界を表す。
- *
- * @responsibility Random、Process、Kernel LockおよびRecovery StoreのPort集合を所有する。
- * @trace ARCH-000010
- * @shape 再認証Lifecycleに必要な関数Portだけからなる読取り専用値である。
- * @invariant Repositoryや任意Filesystem Adapterを注入可能にしない。
- * @boundary Domain LifecycleとOS／Docker／Recovery実装の境界。
- * @security Test差替えを本番Authorityへ昇格させない。
- * @compatibility 利用側は宣言済みPort signatureだけへ依存する。
+ * @shape 準備、Home排他、Recovery受付・資源照会と専用Writer。
+ * @invariant 保存結果を下位の通知ACKとして公開しない。
+ * @boundary Coordinatorの記録OwnerとExecutor。
+ * @security Secret値・任意Docker操作を受け取らない。
+ * @compatibility 保存SchemaとLock解放条件を維持する。
  */
 type Dependencies = Readonly<{
   randomHex: (bytes: number) => string;
-  run: (
-    command: Command,
-    authorityLive: () => boolean,
-    plan: ProviderAuthenticationPlan,
-  ) => Promise<Execution>;
-  isProcessCompletionConfirmed?: () => boolean;
+  createAuthentication: (
+    request: AuthenticationRequest,
+  ) => Authentication | null;
   acquireProviderHomeLock: (
     identityHash: string,
   ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
@@ -7910,19 +7824,14 @@ type Dependencies = Readonly<{
   completeRecovery: (record: AuthenticationRecoveryRecord) => boolean;
   recordCreatedResource: (
     record: AuthenticationRecoveryRecord,
-    result: Execution,
+    receipt: Readonly<{ name: string; dockerId: string }>,
   ) => boolean;
-  recoveryCommands: (
+  readResources: (
     record: AuthenticationRecoveryRecord,
-    plan: ProviderAuthenticationPlan,
-    index: number,
-  ) => Readonly<{
-    ownershipCommand: Command;
-    cleanupCommand: Command | null;
-    absenceCommand: Command;
-    identityAbsenceCommand?: Command;
-  }> | null;
+  ) => AuthenticationProjection["resources"] | null;
 }>;
+
+const authenticationPreparations = new WeakMap<object, Authentication>();
 
 /**
  * Provider認証の耐久回復記録を表す。
@@ -7978,10 +7887,10 @@ export type AuthenticationRecoveryRecord = Readonly<{
 export function createProviderAuthenticationRecoveryRecord(
   providerHomeSourcePath: string,
   stableLogicalHomeBindingHash: string,
-  plan: ProviderAuthenticationPlan,
+  plan: AuthenticationProjection,
 ): AuthenticationRecoveryRecord | null {
   if (
-    !authenticationTechnicalPlans.has(plan) ||
+    !authenticationPreparations.has(plan) ||
     !/^[a-f0-9]{64}$/u.test(stableLogicalHomeBindingHash) ||
     path.win32.basename(providerHomeSourcePath).toLowerCase() !==
       plan.provider ||
@@ -7993,7 +7902,7 @@ export function createProviderAuthenticationRecoveryRecord(
   const resources = authenticationResources(plan.provider, plan.action, suffix);
   if (
     plan.ownershipLabel !== `crdd.coordinator.authentication=${suffix}` ||
-    plan.absenceCommands.map((command) => command.argv.at(-1)).join("\0") !==
+    plan.resources.map((resource) => resource.name).join("\0") !==
       resources.map((resource) => resource.name).join("\0")
   )
     return null;
@@ -8402,417 +8311,138 @@ export function settleProviderAuthenticationRecovery(
 }
 
 /**
- * 本番Provider認証Lifecycleの外部境界を構成する。
- *
- * @responsibility 下位の固定認証Runtime、Kernel LockおよびRecovery Storeを結合する。
+ * 認証の上位保存とHome排他を構成する。
+ * @responsibility Docker構成・実行・回収をExecutorへ委譲する。
  * @trace ARCH-000010
- * @trace ARCH-000015
- * @input N/A: 固定Runtime構成と現在環境を観測する。
- * @returns 本番境界へ閉じたDependenciesを返す。
- * @precondition 下位の固定認証Runtime Factoryを構成できる。
- * @postcondition 各Command実行前にDocker CLI Identityを再検証する構成だけを返す。
- * @effect 下位Factoryの技術観測を呼び、上位の保存・排他を接続する。
- * @failure 境界を構成できない場合は例外でFail Closedする。
- * @invariant 任意RunnerまたはRepository Pathを注入しない。
- * @boundary Coordinator DomainとHost Docker／Recovery Runtimeの構成境界。
- * @security 固定Environmentと検証済み実行ファイルだけを使用する。
- * @concurrency 同じLogical Provider HomeはKernel Lockで直列化する。
+ * @input N/A: 既存の固定保存APIへ接続する。
+ * @returns 認証受付と保存の依存。
+ * @precondition Home選定と操作許可は呼出し元が確定する。
+ * @postcondition 構成だけではDocker操作しない。
+ * @effect N/A: 関数を結合するだけ。
+ * @failure 実際の保存失敗は登録通知で例外へ変換する。
+ * @invariant 新Store・Lock・認証Stateを作らない。
+ * @boundary 上位記録Ownerと単一認証生涯。
+ * @security 生のCLI出力やProxy tokenを通知しない。
+ * @concurrency 既存Home排他を維持する。
  */
 export function createProviderAuthenticationDependencies(): Dependencies {
-  const createRuntime = createDockerAuthenticationRuntimeFactory();
-  let processUnsettled = false;
-  const runtimes = new WeakMap<
-    ProviderAuthenticationPlan,
-    ReturnType<typeof createRuntime>
-  >();
   return Object.freeze({
     randomHex: (bytes) => randomBytes(bytes).toString("hex"),
+    createAuthentication,
     acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
     beginRecovery: beginProviderAuthenticationRecovery,
     setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
     completeRecovery: settleProviderAuthenticationRecovery,
-    recordCreatedResource: (record, result) =>
-      result.resourceCreationConfirmed === true &&
-      result.resourceReceipt !== undefined &&
+    readResources: readProviderAuthenticationResources,
+    recordCreatedResource: (record, receipt) =>
       recordProviderAuthenticationResource(
         record,
-        result.resourceReceipt.name,
-        result.resourceReceipt.dockerId,
-      ),
-    isProcessCompletionConfirmed: () => !processUnsettled,
-    recoveryCommands: (record, plan, index) => {
-      const technicalPlan = authenticationTechnicalPlans.get(plan);
-      const receipts = readProviderAuthenticationResources(record);
-      const receipt = receipts?.[index];
-      const absenceCommand = plan.absenceCommands[index];
-      if (!technicalPlan || !receipt || !absenceCommand) return null;
-      if (receipt.dockerId === null)
-        return Object.freeze({
-          ownershipCommand: absenceCommand,
-          cleanupCommand: null,
-          absenceCommand,
-        });
-      return planDockerAuthenticationResourceRecovery(
-        technicalPlan,
         receipt.name,
         receipt.dockerId,
-      );
-    },
-    run: async (command, authorityLive, plan) => {
-      if (processUnsettled)
-        throw new Error("docker_authentication_process_completion_unconfirmed");
-      const technicalPlan = authenticationTechnicalPlans.get(plan);
-      if (!technicalPlan) throw new Error("docker_authentication_plan_unbound");
-      const runtime = runtimes.get(plan) ?? createRuntime(technicalPlan);
-      runtimes.set(plan, runtime);
-      const result = await runtime.execute(command, authorityLive);
-      if (!result.processCompletionConfirmed) processUnsettled = true;
-      if (
-        command.purpose.startsWith("observe_") &&
-        result.resourceConfigurationConfirmed === true
-      )
-        return Object.freeze({
-          ...result,
-          stdout: plan.ownershipLabel.split("=")[1] ?? "",
-        });
-      return result.error?.message === "docker_execution_permit_lost"
-        ? Object.freeze({
-            ...result,
-            error: new Error("provider_home_lock_lost"),
-          })
-        : result;
-    },
+      ),
   });
 }
 
 /**
- * Provider認証の固定Docker Planを構築する。
- *
- * @responsibility 認証Effectを固定Image、限定Egressおよび専用Provider Homeだけへ制限する。
+ * 選定済み認証の資源投影を同じ上位記録へ結合する。
+ * @responsibility 技術計画を構築せず元の認証操作と投影の相関だけを保持する。
  * @trace ARCH-000010
- * @input providerHomeSourcePath: 検証済み専用Provider Homeの絶対Path、suffix: Logical Provider Home Identity由来hex
- * @returns 検証済み入力では固定Plan、不正入力ではnullを返す。
- * @precondition providerHomeSourcePathはPlatform Accessが選択Userから導いたPathである。
- * @postcondition PlanにRepository mount、host network、API keyまたは任意Commandを含めない。
- * @effect N/A: Plan生成だけを行う。
- * @failure 不正Path、suffixまたは固定配布契約の不一致をnullへ閉じる。
- * @invariant 選択Providerの公式CLI認証とnetwork-noneの事後Probeだけを許可する。
- * @boundary Host Docker CLIへ渡す引数の生成境界。
- * @security Provider Home Pathを結果以外へ公開せず、秘密値を読まない。
- * @concurrency 同じLogical Provider Homeは安定suffixとKernel Lockで単一Lifecycleへ直列化する。
+ * @input provider・action・Home・suffix・proxyToken: 固定技術入力、prepare: 有限試験又は既存Executor。
+ * @returns 元認証操作の資源投影、又は準備拒否null。
+ * @precondition Provider Homeが既存Ownerで選定済み。
+ * @postcondition 任意Docker引数を上位で構築しない。
+ * @effect 同Processの既存準備Mapへの結合のみ。
+ * @failure Executorの準備拒否はnull。
+ * @invariant コピー投影を新しいRecovery記録の準備へ昇格しない。
+ * @boundary 上位記録構築とExecutor。
+ * @security RecordへCommandやProxy tokenを入れない。
+ * @concurrency 同じ認証操作の短命結合だけを保持する。
  */
-export function createProviderAuthenticationPlan<A extends "status" | "login">(
+export function prepareProviderAuthentication(
   provider: Provider,
-  action: A,
+  action: "status" | "login",
   providerHomeSourcePath: string,
   suffix: string,
-  proxyToken: A extends "login" ? string : null,
-): ProviderAuthenticationPlan<A> | null {
-  if (
-    (provider !== "codex" && provider !== "claude") ||
-    (action !== "status" && action !== "login") ||
-    !/^[a-f0-9]{16}$/u.test(suffix) ||
-    typeof providerHomeSourcePath !== "string" ||
-    providerHomeSourcePath.length === 0 ||
-    /[\0\r\n,]/u.test(providerHomeSourcePath) ||
-    (action === "login"
-      ? typeof proxyToken !== "string" || !/^[a-f0-9]{64}$/u.test(proxyToken)
-      : proxyToken !== null)
-  )
-    return null;
-  const cli = describeProviderAuthentication(provider);
-  const locations = describeDockerProviderExecutionLocations(provider, "probe");
-  const environment = Object.freeze({
-    ...("environment" in cli ? cli.environment : {}),
-    ...("homeEnvironmentVariable" in cli
-      ? { [cli.homeEnvironmentVariable]: locations.providerHomeDirectory }
-      : {}),
-  });
-  const providerImageDigest =
-    describeDockerProviderAssets(provider).fixedImageDigest;
-  const probeContainerName = `crdd-auth-${suffix}`;
-  const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
-  const common = {
+  proxyToken: string | null,
+  prepare: Dependencies["createAuthentication"] = createAuthentication,
+): AuthenticationProjection | null {
+  const authentication = prepare({
     provider,
     action,
     providerHomeSourcePath,
-    providerImageDigest,
-    ownershipLabel,
-    probeContainerName,
-  };
-  if (!/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest)) return null;
-  if (action === "status") {
-    const technicalPlan = planDockerAuthenticationCommands({
-      action: "status",
-      providerHomeSourcePath,
-      providerImageDigest,
-      ownershipLabel,
-      probeContainerName,
-      authenticationCli: { statusArgv: cli.statusArgv, environment },
-    });
-    const plan = Object.freeze({
-      ...common,
-      commands: technicalPlan.commands,
-      ownershipCommands: technicalPlan.ownershipCommands,
-      cleanupCommands: technicalPlan.cleanupCommands,
-      absenceCommands: technicalPlan.absenceCommands,
-    }) as ProviderAuthenticationPlan<A>;
-    authenticationTechnicalPlans.set(plan, technicalPlan);
-    return plan;
-  }
-  const egress = describeDockerProxyTopology(provider);
-  const proxyImageDigest = egress.imageDigest;
-  if (
-    !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||
-    egress.providerNetworkInternal !== true ||
-    egress.providerDirectExternalNetwork !== false ||
-    typeof proxyToken !== "string"
-  )
-    return null;
-  const internalNetworkName = `crdd-internal-${suffix}`;
-  const egressNetworkName = `crdd-egress-${suffix}`;
-  const proxyContainerName = `crdd-proxy-${suffix}`;
-  const loginContainerName = `crdd-${provider}-${suffix}`;
-  const technicalPlan = planDockerAuthenticationCommands({
-    action: "login",
-    providerHomeSourcePath,
-    providerImageDigest,
-    proxyImageDigest,
-    ownershipLabel,
-    probeContainerName,
-    internalNetworkName,
-    egressNetworkName,
-    proxyContainerName,
-    loginContainerName,
+    suffix,
     proxyToken,
-    proxyPort: egress.containerPort,
-    proxyProfile: provider,
-    authenticationCli: {
-      loginArgv: cli.loginArgv,
-      statusArgv: cli.statusArgv,
-      environment,
-    },
   });
-  const plan = Object.freeze({
-    ...common,
-    proxyImageDigest,
-    internalNetworkName,
-    egressNetworkName,
-    proxyContainerName,
-    loginContainerName,
-    commands: technicalPlan.commands,
-    ownershipCommands: technicalPlan.ownershipCommands,
-    cleanupCommands: technicalPlan.cleanupCommands,
-    absenceCommands: technicalPlan.absenceCommands,
-  }) as ProviderAuthenticationPlan<A>;
-  authenticationTechnicalPlans.set(plan, technicalPlan);
-  return plan;
+  if (!authentication) return null;
+  const projection = authentication.projection;
+  authenticationPreparations.set(projection, authentication);
+  return projection;
 }
 
 /**
- * Docker資源名を正規表現literalへ変換する。
- *
- * @responsibility 固定資源名をstderr exact照合で安全に使用できる形へ変換する。
+ * 各認証技術操作の前後で上位保存を完了する通知を登録する。
+ * @responsibility 保存拒否を例外へ変換し次Effectを止める。
  * @trace ARCH-000010
- * @input value: 固定Planから得たDocker資源名
- * @returns 正規表現meta文字をescapeした文字列を返す。
- * @precondition valueはCommand末尾から取得した文字列である。
- * @postcondition 返却値を正規表現へ埋めても元文字列のliteral一致になる。
- * @effect N/A: 入力文字列だけを変換する。
- * @failure N/A: 任意文字列を決定論的にescapeする。
- * @invariant 文字を削除または意味変換しない。
- * @boundary Docker資源Identityとstderr parserの表現境界。
- * @security 正規表現注入を防ぐ。
- * @concurrency N/A: 共有状態を変更しない同期変換である。
+ * @input recovery: 元記録、dependencies: 専用Writer。
+ * @returns 同期void通知だけを持つinterface。
+ * @precondition 下位が操作前後に現在Home Ownerを確認する。
+ * @postcondition Record保存結果を通知の戻り値にしない。
+ * @effect 各通知で既存Intent・Receipt・idleを保存する。
+ * @failure 保存拒否は例外で下位へ返す。
+ * @invariant Receipt保存失敗後にidleへ進まない。
+ * @boundary Executor通知と上位耐久保存。
+ * @security 通知に生出力・認証値を受け取らない。
+ * @concurrency 通知は保存・読戻し完了後だけreturnする。
  */
-function escapeRegularExpression(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+function authenticationCallbacks(
+  recovery: AuthenticationRecoveryRecord,
+  dependencies: Dependencies,
+): AuthenticationCallbacks {
+  return {
+    onCommandSubmitting: (purpose) => {
+      if (!dependencies.setRecoveryCommandState(recovery, "in_flight", purpose))
+        throw Error("provider_authentication_command_intent_unconfirmed");
+    },
+    onResourceCreated: (receipt) => {
+      if (!dependencies.recordCreatedResource(recovery, receipt))
+        throw Error("provider_authentication_resource_receipt_unconfirmed");
+    },
+    onCommandCompleted: () => {
+      if (!dependencies.setRecoveryCommandState(recovery, "idle", null))
+        throw Error("provider_authentication_command_settlement_unconfirmed");
+    },
+  };
 }
 
 /**
- * Docker結果が対象資源の明示不存在を示すか判定する。
- *
- * @responsibility exit、stdout、stderrおよびexact資源名の積で不存在を確認する。
+ * 元認証操作の技術回収へ保存通知を接続する。
+ * @responsibility 実体確認や削除を組み立てず、現在Receipt照会を渡す。
  * @trace ARCH-000010
- * @trace ARCH-000015
- * @input command: 不存在確認Command、result: その実行観測
- * @returns 明示不存在をすべて確認した場合だけtrueを返す。
- * @precondition commandは固定PlanのabsenceCommands要素である。
- * @postcondition 観測不能、任意stdoutまたは別資源の結果を不存在へ畳まない。
- * @effect N/A: 入力値だけを読み取る。
- * @failure 不正結果や未知形式はfalseへ閉じる。
- * @invariant status 1と固定stderrの両方を必要とする。
- * @boundary Docker CLI観測から資源不存在Domain判定への境界。
- * @security stderr全体を公開せず固定形式だけを判定する。
- * @concurrency N/A: 共有状態を変更しない同期判定である。
- */
-function explicitDockerAbsence(command: Command, result: Execution) {
-  const normalizedStdout = result.stdout.trim();
-  if (
-    result.error ||
-    result.signal !== null ||
-    result.status !== 1 ||
-    (normalizedStdout.length !== 0 && normalizedStdout !== "[]")
-  )
-    return false;
-  const resourceName = command.argv.at(-1);
-  if (!resourceName) return false;
-  const exactName = escapeRegularExpression(resourceName);
-  const normalized = result.stderr.trim();
-  if (command.purpose.includes("network"))
-    return new RegExp(
-      `^(?:Error response from daemon: )?(?:network ${exactName} not found|No such network: ${exactName})$`,
-      "u",
-    ).test(normalized);
-  return new RegExp(
-    `^(?:(?:Error response from daemon|Error): )?No such (?:object|container): ${exactName}$`,
-    "u",
-  ).test(normalized);
-}
-
-/**
- * Provider認証が所有するDocker資源を確認付きで清掃する。
- *
- * @responsibility 所有権確認、対象限定削除、最終不存在観測およびAuthority生存確認を順序付ける。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input plan: 固定認証Plan、dependencies: 実行境界、authorityLive: Kernel Lock生存観測
- * @returns 全対象の不存在とAuthority生存を確認した場合だけtrueを返す。
- * @precondition planのcleanup、ownership、absence Commandが同じ順序で対応する。
- * @postcondition 非所有資源を削除せず、観測不能をcleanup成功へ畳まない。
- * @effect Docker inspect、removeおよびnetwork removeを対象限定で発行する。
- * @failure Command失敗、所有不一致、Authority喪失または不存在未確認をfalseへ閉じる。
- * @invariant Plan外の資源名へ削除Effectを発行しない。
- * @boundary Coordinator cleanup LifecycleとDocker Engineの外部境界。
- * @security 所有Label一致前に削除せず、生出力を公開しない。
- * @concurrency Kernel Lockが生存する単一Lifecycleだけが清掃する。
+ * @input plan: 元投影、dependencies: 上位保存、authorityLive: 現在Home、recovery: 元記録。
+ * @returns 技術回収とProcess終了の個別結果。
+ * @precondition 同じ認証操作が準備Mapへ登録済み。
+ * @postcondition Homeの解放・settled確定は呼出し元に残す。
+ * @effect 下位回収通知で各操作のIntentと終了を保存する。
+ * @failure 元結合欠測・終了不明は回収未確認。
+ * @invariant 保存成功と技術回収成功を混同しない。
+ * @boundary 上位記録とExecutor資源回収。
+ * @security 任意Pathや削除命令を渡さない。
+ * @concurrency 各資源で現在記録を照会し、同じOwnerを確認する。
  */
 async function cleanAuthenticationResources(
-  plan: ProviderAuthenticationPlan,
+  plan: AuthenticationProjection,
   dependencies: Dependencies,
   authorityLive: () => boolean,
   recovery: AuthenticationRecoveryRecord,
 ) {
-  let cleanupConfirmed = true;
-  let processCompletionConfirmed = true;
-  let recordingConfirmed = true;
-  /**
-   * 同じ認証回復IDで清掃操作のIntentと終了を記録する。
-   * @responsibility 観測・削除・不存在確認も開始前in_flight、終了確認後idleへ接続する。
-   * @trace ARCH-000010
-   * @trace ARCH-000015
-   * @input command: 元計画の固定清掃操作。
-   * @returns 元Process結果。
-   * @precondition 同じHome許可とexact回復記録を使用する。
-   * @postcondition 終了不明や保存不明では後続Effectを発行しない。
-   * @effect 既存記録更新と固定Docker操作を発行する。
-   * @failure 記録・許可・終了未確認は停止する。
-   * @invariant 新StateやRecoveryを追加しない。
-   * @boundary 清掃Lifecycleと既存回復記録。
-   * @security 元計画以外の操作は選択しない。
-   * @concurrency 同じHome Lock生存中だけ逐次実行する。
-   */
-  async function execute(command: Command) {
-    if (!authorityLive() || !recordingConfirmed || !processCompletionConfirmed)
-      throw new Error("provider_authentication_cleanup_stopped");
-    if (
-      !dependencies.setRecoveryCommandState(
-        recovery,
-        "in_flight",
-        command.purpose,
+  const authentication = authenticationPreparations.get(plan);
+  return authentication
+    ? authentication.cleanup(
+        () => dependencies.readResources(recovery),
+        authorityLive,
+        authenticationCallbacks(recovery, dependencies),
       )
-    ) {
-      recordingConfirmed = false;
-      throw new Error("provider_authentication_cleanup_intent_unconfirmed");
-    }
-    let result: Execution;
-    try {
-      result = await dependencies.run(command, authorityLive, plan);
-    } catch {
-      processCompletionConfirmed = false;
-      throw new Error("provider_authentication_process_completion_unconfirmed");
-    }
-    if (result.processCompletionConfirmed === false) {
-      processCompletionConfirmed = false;
-      throw new Error("provider_authentication_process_completion_unconfirmed");
-    }
-    if (!authorityLive()) {
-      recordingConfirmed = false;
-      throw new Error("provider_authentication_cleanup_permit_lost");
-    }
-    if (!dependencies.setRecoveryCommandState(recovery, "idle", null)) {
-      recordingConfirmed = false;
-      throw new Error("provider_authentication_cleanup_settlement_unconfirmed");
-    }
-    return result;
-  }
-  for (let index = 0; index < plan.cleanupCommands.length; index += 1) {
-    if (!authorityLive() || !recordingConfirmed || !processCompletionConfirmed)
-      break;
-    const selected = dependencies.recoveryCommands(recovery, plan, index);
-    if (!selected) {
-      cleanupConfirmed = false;
-      break;
-    }
-    const {
-      ownershipCommand,
-      cleanupCommand,
-      absenceCommand,
-      identityAbsenceCommand,
-    } = selected;
-    try {
-      const ownership = await execute(ownershipCommand);
-      const alreadyAbsent = explicitDockerAbsence(ownershipCommand, ownership);
-      if (alreadyAbsent && !identityAbsenceCommand) continue;
-      if (
-        !alreadyAbsent &&
-        (ownership.error ||
-          ownership.signal !== null ||
-          ownership.status !== 0 ||
-          ownership.stderr.trim().length !== 0 ||
-          ownership.stdout.trim() !== plan.ownershipLabel.split("=")[1])
-      ) {
-        cleanupConfirmed = false;
-        continue;
-      }
-      if (!alreadyAbsent) {
-        if (!cleanupCommand) {
-          cleanupConfirmed = false;
-          continue;
-        }
-        const removed = await execute(cleanupCommand);
-        if (removed.error || removed.signal !== null || removed.status !== 0)
-          cleanupConfirmed = false;
-      }
-    } catch {
-      cleanupConfirmed = false;
-    }
-    if (!authorityLive() || !recordingConfirmed || !processCompletionConfirmed)
-      break;
-    try {
-      if (identityAbsenceCommand) {
-        const identityResult = await execute(identityAbsenceCommand);
-        if (!explicitDockerAbsence(identityAbsenceCommand, identityResult))
-          cleanupConfirmed = false;
-      }
-      const result = await execute(absenceCommand);
-      if (!explicitDockerAbsence(absenceCommand, result))
-        cleanupConfirmed = false;
-    } catch {
-      cleanupConfirmed = false;
-    }
-  }
-  return Object.freeze({
-    confirmed:
-      cleanupConfirmed &&
-      recordingConfirmed &&
-      processCompletionConfirmed &&
-      authorityLive() &&
-      (dependencies.isProcessCompletionConfirmed?.() ?? true),
-    processCompletionConfirmed:
-      processCompletionConfirmed &&
-      (dependencies.isProcessCompletionConfirmed?.() ?? true),
-  });
+    : { confirmed: false, processCompletionConfirmed: false };
 }
 
 /**
@@ -8894,17 +8524,18 @@ export async function authenticateProvider(
       providerEffectIssued: false,
     });
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
-  let plan: ProviderAuthenticationPlan | null = null;
+  let plan: AuthenticationProjection | null = null;
   let recovery: AuthenticationRecoveryRecord | null = null;
   try {
     const proxyToken =
       action === "login" ? activeDependencies.randomHex(32) : null;
-    plan = createProviderAuthenticationPlan(
+    plan = prepareProviderAuthentication(
       provider,
       action,
       providerHomeSourcePath,
       suffix,
       proxyToken,
+      activeDependencies.createAuthentication,
     );
     recovery = plan
       ? createProviderAuthenticationRecoveryRecord(
@@ -8914,7 +8545,7 @@ export async function authenticateProvider(
         )
       : null;
     if (!plan || !recovery) throw Error("provider_authentication_plan_invalid");
-  } catch {
+  } catch (error) {
     let lockReleased = false;
     try {
       lockReleased = providerHomeLock.release();
@@ -8923,7 +8554,11 @@ export async function authenticateProvider(
     }
     return Object.freeze({
       status: "blocked",
-      reason: "provider_authentication_plan_invalid",
+      reason:
+        error instanceof Error &&
+        error.message === "provider_authentication_docker_boundary_unavailable"
+          ? error.message
+          : "provider_authentication_plan_invalid",
       cleanupConfirmed: lockReleased,
       providerEffectIssued: false,
       manualRecoveryRequired: !lockReleased,
@@ -9006,116 +8641,28 @@ export async function authenticateProvider(
       });
     }
   }
-  let reason = "provider_authentication_completed";
+  const authentication = authenticationPreparations.get(plan);
+  let reason = "provider_authentication_failed_closed";
   let authenticationStatus: "confirmed" | "unconfirmed" | "unknown" = "unknown";
-  let authenticationConfirmed = false;
-  let providerEffectIssued = false;
-  let processCompletionUnknown = false;
-  try {
-    for (const command of plan.commands) {
-      if (readExecutionCancellation(signal) !== false) {
-        reason = "provider_authentication_cancelled";
-        break;
-      }
-      if (!providerHomeLock.assertLive()) {
-        reason = "provider_authentication_provider_home_lock_lost";
-        break;
-      }
-      if (
-        !activeDependencies.setRecoveryCommandState(
-          recovery,
-          "in_flight",
-          command.purpose,
-        )
-      ) {
-        reason = "provider_authentication_command_intent_unconfirmed";
-        break;
-      }
-      providerEffectIssued = true;
-      let result: Execution;
-      try {
-        result = await activeDependencies.run(
-          command,
-          () =>
-            readExecutionCancellation(signal) === false &&
-            providerHomeLock.assertLive(),
-          plan,
-        );
-      } catch {
-        processCompletionUnknown = true;
-        reason = "provider_authentication_process_completion_unconfirmed";
-        break;
-      }
-      if (result.processCompletionConfirmed === false) {
-        processCompletionUnknown = true;
-        reason = "provider_authentication_process_completion_unconfirmed";
-        break;
-      }
-      if (!providerHomeLock.assertLive()) {
-        reason = "provider_authentication_provider_home_lock_lost";
-        break;
-      }
-      if (
-        command.purpose.startsWith("create_") &&
-        !activeDependencies.recordCreatedResource(recovery, result)
-      ) {
-        reason = "provider_authentication_resource_receipt_unconfirmed";
-        break;
-      }
-      if (!activeDependencies.setRecoveryCommandState(recovery, "idle", null)) {
-        reason = "provider_authentication_command_settlement_unconfirmed";
-        break;
-      }
-      const statusObservation =
-        action === "status" &&
-        command.purpose === "start_probe_attached" &&
-        !result.error &&
-        result.signal === null &&
-        (result.status === 0 || result.status === 1)
-          ? evaluateProviderAuthentication(
-              provider,
-              describeProviderAuthentication(provider).offering,
-              result.stdout,
-              result.stderr,
-              "execution",
-            )
-          : null;
-      const observedNotLoggedIn =
-        result.status === 1 && statusObservation?.status === "unconfirmed";
-      if (
-        result.error ||
-        result.signal !== null ||
-        (result.status !== 0 && !observedNotLoggedIn)
-      ) {
-        reason =
-          result.error?.message === "provider_home_lock_lost"
-            ? "provider_authentication_provider_home_lock_lost"
-            : `provider_authentication_${command.purpose}_failed`;
-        break;
-      }
-      if (command.purpose === "start_probe_attached") {
-        const observed =
-          statusObservation ??
-          evaluateProviderAuthentication(
-            provider,
-            describeProviderAuthentication(provider).offering,
-            result.stdout,
-            result.stderr,
-            action === "login" ? "login" : "execution",
-          );
-        authenticationStatus = observed.status;
-        if (
-          observed.status !== "confirmed" &&
-          !(action === "status" && observed.status === "unconfirmed")
-        ) {
-          reason = "provider_authentication_not_confirmed";
-          break;
-        }
-        authenticationConfirmed = observed.status === "confirmed";
-      }
+  let authenticationConfirmed = false,
+    providerEffectIssued = false;
+  let processCompletionUnknown = authentication === undefined;
+  if (authentication) {
+    try {
+      const result = await authentication.execute(
+        signal,
+        providerHomeLock.assertLive,
+        authenticationCallbacks(recovery, activeDependencies),
+      );
+      reason = result.reason;
+      authenticationStatus = result.authenticationStatus;
+      authenticationConfirmed = result.authenticationConfirmed;
+      providerEffectIssued = result.providerEffectIssued;
+      processCompletionUnknown = !result.processCompletionConfirmed;
+    } catch {
+      processCompletionUnknown = true;
+      reason = "provider_authentication_process_completion_unconfirmed";
     }
-  } catch {
-    reason = "provider_authentication_failed_closed";
   }
   const cleanup = processCompletionUnknown
     ? { confirmed: false, processCompletionConfirmed: false }
@@ -9135,7 +8682,7 @@ export async function authenticateProvider(
   else cleanupConfirmed = false;
   const lockReleased =
     !processCompletionUnknown &&
-    (activeDependencies.isProcessCompletionConfirmed?.() ?? true) &&
+    authentication?.isProcessCompletionConfirmed() === true &&
     providerHomeLock.release();
   cleanupConfirmed = cleanupConfirmed && lockReleased;
   if (
@@ -9175,6 +8722,7 @@ export async function authenticateProvider(
     credentialReported: false,
   });
 }
+
 /**
  * 認証操作が所有する固定資源集合を導く。
  * @responsibility status一資源とlogin五資源の相関を同じOwnerへ閉じる。

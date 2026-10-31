@@ -34,7 +34,6 @@ import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../..
 import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
 import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindAdviceCommand } from "../../../../docker-isolation/src/index.ts";
 import { runInNewContext } from "node:vm";
 import { stripTypeScriptTypes } from "node:module";
 import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
@@ -78,9 +77,13 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     provider: "codex",
     taskHash: "upper-task",
     projectionHash: "upper-projection",
-    commandHash: "command",
+
     packetHash: "packet-hash",
-    providerCommand: {},
+    networkPolicy: (() => {
+      const result = prepareDockerNetworkPolicy("codex", []);
+      if (result.status !== "ready") throw Error("fixture");
+      return result.policy;
+    })(),
     providerPrompt: "synthetic",
     repositoryMounted: false,
     workspaceMounted: false,
@@ -535,7 +538,7 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
-  const providerCommand = bindAdviceCommand(
+  const providerCommand =
     planProviderExecution(
       {
         provider: "codex",
@@ -549,8 +552,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
         resultSchema: describeAdviceResultSchema(),
       },
       describeDockerProviderExecutionLocations("codex", "advice"),
-    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
-  );
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const dependencies = {
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
@@ -586,9 +588,13 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
         provider: "codex" as const,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
-        commandHash: "4".repeat(64),
+
         packetHash: "5".repeat(64),
-        providerCommand,
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("codex", []);
+          if (result.status !== "ready") throw Error("fixture");
+          return result.policy;
+        })(),
         providerPrompt: "Give advice from the supplied projection.",
         allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,

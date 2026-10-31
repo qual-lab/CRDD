@@ -108,7 +108,6 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       "constants.ts",
       "execute.ts",
       "isolation.ts",
-      "recovery.ts",
       "result.ts",
       "types.ts",
       "validation.ts",
@@ -141,14 +140,15 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
       "createExecutor",
-      "prepareAdviceCommand",
+      "createAuthentication",
       "inspectDockerEnvironment",
       "restartDockerEnvironment",
-      "inspectAttemptResources",
-      "cleanupAttemptResources",
+      "repairDockerEnvironment",
+      "inspectResources",
+      "cleanupResources",
     ].sort());
     for(const name of ["inspectAttemptObservation", "normalizeTaskResult", "normalizeAdviceResult", "describeAdviceResultSchema",
-      "consumeTaskRemediation", "hashAdviceCommand", "bindAdviceCommand",
+      "consumeTaskRemediation", "hashAdviceCommand", "bindAdviceCommand", "prepareAdviceCommand", "PreparedAdviceCommand",
       "createProviderExecutor", "ProviderExecutorHost", "ownDataValue",
       "buildProviderDockerExecutionPlan", "prepareAttempt", "validatePlan", "planIdentity",
       "resolveIsolationCommandInput", "isAttemptPlanValid", "createConfigurationNotice", "PURPOSES", "SETUP_COMMAND_FAILURE_REASONS",

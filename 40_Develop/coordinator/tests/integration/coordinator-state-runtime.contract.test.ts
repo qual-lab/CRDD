@@ -3775,8 +3775,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         },
       ) as (
         capability: object,
-        cleanup: typeof import("../../../executor/src/index.ts").cleanupAttemptResources,
-        inspect: typeof import("../../../executor/src/index.ts").inspectAttemptResources,
+        cleanup: typeof import("../../../executor/src/index.ts").cleanupResources,
+        inspect: typeof import("../../../executor/src/index.ts").inspectResources,
       ) => {
         status: string;
         reason: string;
@@ -3858,8 +3858,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       });
       const result = driver(
         owner,
-        runtime.cleanupAttemptResources,
-        runtime.inspectAttemptResources,
+        runtime.cleanupResources,
+        runtime.inspectResources,
       );
       assert.equal(result.recoveryId, recoveryId, scenario);
       const completed = ["normal", "known_id", "saved_reentry"].includes(
@@ -3927,11 +3927,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         else assert.equal(write, -1);
         const beforeReentry = [...events];
         assert.equal(
-          driver(
-            owner,
-            runtime.cleanupAttemptResources,
-            runtime.inspectAttemptResources,
-          ).status,
+          driver(owner, runtime.cleanupResources, runtime.inspectResources)
+            .status,
           "blocked",
         );
         assert.deepEqual(events, beforeReentry);

@@ -1,5 +1,65 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## 助言Commandの内部化と専用Hash撤去（2026-11-01）
+
+人間はExecutorが確定内容を実行する責務境界を採用し、Command構築の内部化とPreparedAdviceCommand・prepareAdviceCommand・不要なCommand Hashの撤去を承認した。変更分類は短命の公開要求と責務構造のRefactor。Executor／Coordinator／DIの詳細設計、QA-000006、直接Consumerと有限試験を追従する。着手前に通常、選定／Provider／Policy差、旧形、観測不能・保存拒否と元Sessionの回収相関を照合し、読取り専用の確認者が境界とHash用途を確認した。新しい人間判断はない。SourceとArchitecture／Qualityの独立レビューを行い、規範準拠・Release条件は変えないためそれらの監査は今回行わない。
+
+専用Command Hashはメモリ内Packet／Planだけの正本であり、永続保存Schemaの移行は不要。上位は完全選定・Offering・Operation・本文・許可参照・検査済Network Policyを確定し、一回消費・送信同意・Authorityを維持する。意味的Packet Hashにはこれらの内容を結合する。Policyは可変参照を持たず捕捉・固定する。旧Command付き要求・Packetは製品コードで互換受理しない。過去Evidence・保持物は変更しない。
+
+Executorは共通selection／targetと、Adviceのinput／allowedReferences／networkPolicyを受け、内部でAI Adapterの正規仕様とDI構成へ結合する。上位へのCommand往復・専用Hash照合を撤去し、DIの不要になったAdviceCommand wrapper・bindAdviceCommand・hashAdviceCommandもConsumer移行後に削除した。Codex助言用Digest、入力検査、識別種別・Provider・用途の拒否、Policy相関、本文上限・参照検査、完全Command照合、同じSessionの開始・清掃を結合する内部planIdentityは維持する。Task／ProbeのAuthorityやCleanupを緩めない。
+
+利用側・試験・Architecture・Qualityの追従を完了した。固定候補の非AI回帰はExecutor check・全74件、DI check・305件成功／既存5件skip、AI Adapter check・全41件、Coordinator check・対象237件とWindows取消2件が成功した。Coordinatorには助言の公開受付から結果までの結合30件と、先行認証試験代役の明示的な欠測拒否へ追従した28件を含む。Windows取消2件は通常SandboxでOS終了確認が成立しなかったため、同じ期待値・期限のまま許可された実行環境で再確認し成功した。Lintの参考情報103件は残るが、警告2件は試験代役のnon-null assertionを明示拒否へ変更して解消し、checkは成功した。
+
+SourceおよびArchitecture／Qualityの独立レビューは残必須指摘零。旧専用API・型・Hashの製品利用は零で、AI AdapterのProvider固有CLI計画Ownerは維持する。差分空白検査は成功し、文書検査の変更対象指摘は零。参照展開全体は既存3,356指摘・終了1であり、全体QA合格とは扱わない。実AI・Docker・過去保持物は操作していない。今回の成立範囲はSource接続・非AI回帰であり、実環境再検証・Release完成を主張しない。
+
+## 固定合成ProbeのExecutor接続（2026-11-01）
+
+変更分類は承認済みの責務移管と非同期公開接続である。対象正本はExecutor／Coordinator／DIの詳細設計とQA-000006。通常Provider Attempt、認証、保存Schema、Recovery ID、既存Owner・Lock、Image・期限・認可は変更しない。SourceとArchitecture／Qualityの独立レビューを行い、CRDD準拠基準・Release判断は変更しないため準拠／Release監査は今回行わない。実AI・実Docker・過去保持物の操作は対象外とする。
+
+既存createExecutorはkind=isolation_probeの要求を受けるoverloadを持ち、Provider／Modelや送信許可を架空に生成しない。probe/execute.tsとtypes.tsに固定技術生涯・所在Query・同期void通知・技術結果を置く。CoordinatorのrunDockerIsolationScenarioから作成・Inspect・実行・回収の直接ループを撤去し、作成前Intent・実ID保存・Host不存在遷移・Host終了・最終Fake判定を残す。doctorの正式API・CLIは同じcompletionを待ち、既存の取消Listenerを同じSignalへ接続する。Executorの公開関数数は増やさず、Store・Registry・Lock・Workerを新設しない。
+
+正常は二保存後の同じ実IDを実行・回収する。保存拒否は次Effectを停止し、既知実IDは保存失敗後も補償回収する。作成不明は再作成せず同じ上位Recovery参照を保持する。取消・Owner／所在喪失では次実行を止め、取得済みHandleはjoinする。終了不明・構成不一致・回収不明を不存在へ畳まない。技術結果とHost清掃の複合条件は維持し、同じExecutor参照だけを不存在証拠にしない。Host ID・Probe ID・Container ID・Root名と元技術結果の相関・一回消費を既存のMapで維持する。
+
+DIの非同期実行は既存attachと所有Processを使い、固定期限、64KiB境界、ETIMEDOUT／ENOBUFS分類、元失敗とcloseの分離を維持する。実行時間はStart発行から結果観測までで、上位保存待ちや補償join時間を混ぜない。同期の固定実行は既存技術試験Consumerがあるため維持する。固定故障Profileと意図的残存は検証専用で、製品Requestには公開しない。既存の故障検証Scriptと回復Matrixは非同期結果へ追従する。
+
+独立レビューで旧技術引数差替え反証の移管不足を検出した。新Executor試験を同じBinding・Profile・Probe ID・三Mount・実IDの確認へ補強し、実本文に対する五つの差替えを同じOracleで拒否する。VM構築失敗と該当引数の不一致を区別し、正常本文も同じOracleを通す。DI attachも同じBinding・実ID・prefixを確認する。この補強でInspect／Cleanupにmanagementを混入させた接続漏れを発見し、Executor側で三Mountだけを投影した。DIの厳密検査は緩めず、実DI構成関数を試験へ接続した。非同期化後の二Headerも追従した。
+
+先行の対象回帰はCoordinator十四Suite140件成功、DI305件成功・既存五件skip。Executor先行回帰のSource抽出代役の追従一件は、既存own-property読取りを同じ有限Contextへ接続して是正した。是正後の固定候補はExecutor check・全74件成功、DI check・305件成功／既存五件skip、Coordinator型検査・対象十四Suite140件成功。変更SourceのLint、差分空白検査、更新した四JSONの構文検査も成功した。SourceおよびArchitecture／Qualityの独立再確認は残必須指摘零。文書検査の変更対象指摘は零だが、参照展開全体は既存3,356指摘・終了1であり全体QA合格とは扱わない。実Docker・実AI・過去保持物は操作していない。これで今回のSource接続・利用側・非AI回帰は限定完了とし、実環境成立・全体QA完成・Release可能を主張しない。
+
+## AIツール認証移管と固定Probeの非同期接続（2026-11-01）
+
+認証の技術構成・実行・回収をExecutorの`authentication/execute.ts`へ移管した。準備専用Fileは同Fileへ統合し、CoordinatorはHome選定・排他・現在Owner・Recovery受付とIntent／Receipt／idle／settled保存を維持する。通知のBoolean ACKや新しいStoreは追加しない。必須通知のthrow・誤Promise・Receipt欠測では次Effectを止め、Process終了不明は同じ実行内に保持する。認証と通常短期Commandの終了確認はDIの既存Process Ownerへ共通化し、対話方式・期限・Container条件は変更しない。
+
+固定候補の非AI確認はExecutor checkと73件、DI checkと304件成功・既存5件skip、Coordinator型検査と認証関連33件が成功した。Source独立レビューは必須指摘零。Architectureレビューの旧責務説明をExecutor／Coordinator詳細で是正し、再確認の必須指摘も零。実認証・実Docker成立は今回未検証であり、過去八試行の結果を流用しない。
+
+人間はdoctorの非同期化と、合成固定Probeの既存Executor入口への統合を承認した。Providerへ送信するProbeとは別の要求として扱い、Provider・Model・認証・送信許可を架空に生成しない。最初の接続準備としてrunDoctor、正式診断API、CLIをasync／awaitへ追従した。公開API本体の保留・正常終了・拒否を有限Promiseで検証し、正常終了後だけ結果と入場観測を返す。Source抽出試験は後続宣言を取り込まない既存の構文木補助へ追従した。
+
+doctor関連三Suiteは最終27件が全成功した。通常SandboxではHost保存初期化の一Caseが`host_recovery_namespace_initialization_failed`で失敗したため、許可された実行制限外で同じCaseと三Suite全体を実行し、初期化を含めて成功を確認した。安全条件・期待値・製品処理は緩めていない。非同期接続のSource独立レビューも必須指摘零。固定Probeの技術移管・取消成立はこの結果へ含めない。
+
+固定Probeの技術処理自体はまだCoordinator側であり、Executor統合完了とは扱わない。次は既存createExecutorへ合成Probe要求を接続し、作成前Intent・実ID保存・構成照合・技術結果・回収／不存在をExecutor／DIへ、Host保存・排他・最終判断をCoordinatorへ対応付ける。取消は単にPromiseを包まず、既存attach Handleの終端確認へ接続する。故障注入・意図的残存は検証専用とし、製品Requestへ任意ScriptやProfileを公開しない。
+
+`PreparedAdviceCommand`は既存の承認前Command Hash照合に使う非対称な公開型として残っている。Task用の無意味な対応型は追加せず、Hash・保存Schema・承認相関を変える整理は今回の認証移管へ混在させない。実AI・Docker・過去保持物は操作していない。
+
+## 共通資源APIと環境修復の技術接続（2026-11-01）
+
+基準版は`4a8a3b1f21efc5046ba0b0b24afaf68d749c23f4`。人間の今回判断に従い、Executorへ保持・退避物の業務分類を持ち込まず、公開名をinspectResources／cleanupResourcesへ統一する。repairDockerEnvironmentを別の技術操作として追加する。変更分類は責務・公開APIの移管であり、Recovery Capability／Owner／Lockの簡素化、保存Schema、保持期限、廃棄許可の意味は変更しない。
+
+着手前は親と読取り専用Architecture確認者で、同期性・対象固定・通知・現在確認・保存前後・取消・再入場・実体差替えを照合した。Source独立レビュー、Architecture／Quality・直接伝播確認、非AIの対象回帰を実施する。準拠基準・公開／リリース判断・実境界操作は変更対象外。実AI・Docker・過去保持物は操作しない。
+
+| 基準版のCapability | 新しい接続・維持条件 |
+|---|---|
+| Attemptの資源診断・回収 | resources/execute.tsへ本文移管し共通公開名へ切替。kind:attemptはAPI振分けだけ。同期return、既存実ID／Label／構成照合、発見通知保存前の削除0、config終了、exact回復参照を維持 |
+| 固定Directoryの二読取り | kind:docker_runtime_directoryの外側inputを既存DIへそのまま渡す。三用途の実体値／用途内nullと全体失敗nullを分離。保持判断や期限を下位へ移さない |
+| 固定Directoryの廃棄 | 同じ共通cleanup名から元DI Promiseを返す。上位の廃棄判断・用途Intent保存・元版読戻し・待機後のcanDisposeと、下位のScope／Filesystem実体照合・不存在確認を維持 |
+| 修復Session | Executor.environmentの薄いrepair関数へ接続。元input・Signal・同期通知・現在Query・元Promise・一次失敗・Native join・最終checkpoint候補を保持 |
+| 型・通知・利用側 | DIの無名入力／結果と既存Machine結果を明示型化して正本を再利用。ResourceCleanupCallbacksはresources/types.tsへ移し、ExecutorCallbacksが明示引数で継承。DirectoryへDocker ID／Home終了の架空通知を作らない |
+
+通常Rootの旧inspectAttemptResources／cleanupAttemptResourcesは撤去し、互換転送Sourceを作らない。Coordinator.execution/recovery.tsの本番3技術callと既存Attempt callを切替え、Domain Writer・History・Completion・Owner確認の順序は維持する。DIの純粋な型・状態値検査の参照は今回維持する。VM試験は新Source実本文と新しい呼出しへ追従し、旧試験AdapterからDirectory実処置へ誤接続しないよう明示的に拒否する。
+
+非AI回帰はExecutorのcheck・全69件、DIのcheck・304件成功と既存5件skip、Coordinatorの型検査・関連7 Suiteの93件と変更六ファイルLintが成功した。初回DI回帰で明示型名によるFormatterのインデント変更をSource変異試験が検出したため、不要な内部型引数を除いて元の配置を維持し、当該十件と全体再回帰の成功を確認した。検査Oracleや技術処理は変更していない。
+
+Source独立レビューは必須指摘零、確認者の別実行17件も成功。Architecture／Qualityレビューで見つかった共有型の配置説明とAttempt限定の同期通知条件を是正し、Host修復API表・新設／移管型Headerも追従した。是正後のExecutor checkと関連17件は成功。SourceとArchitecture／Qualityの独立再確認は残必須指摘零。文書再検査は今回対象の指摘零、参照展開した全体は既存3,356指摘で終了1のため全体合格とは扱わない。旧八試行の実AI Evidenceを今回APIの実境界成立へ流用しない。Recovery管理の簡素化・Host全体排他・全体QA・新APIでの実Docker成立は今回完了と主張しない。実AI・Docker・過去保持物は操作していない。
+
 ## Docker環境窓口とRecovery管理の再評価（2026-11-01）
 
 人間の今回判断により、前回のDesktop直接接続維持案を診断・再起動について変更する。基準版は`25ea064046c7eeb55cd698b6e392641e891ae7a9`。変更分類は実装責務・公開APIの再編であり、DIの実技術、Coordinatorの判断・保存順序、既存のIntent・Checkpoint・Diagnostic・Schema・失敗理由を維持する。既存の再起動Capabilityは現在Owner／Scope取得→保存・読戻し→固定再起動→逆順解放→終端確定であり、この本番接続の技術callだけをExecutorへ置換する。

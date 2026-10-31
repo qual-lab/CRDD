@@ -29,6 +29,7 @@ import {
 import {
   type OwnedCommandHandle,
   startOwnedWindowsProcess,
+  finishOwnedProcess,
 } from "../process/start.ts";
 import { STDOUT_LIMIT_BYTES } from "./result.ts";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
@@ -566,9 +567,9 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     );
     context.handles.add(handle);
     const result = await handle.wait(SHORT_COMMAND_TIMEOUT_MS);
-    if (!handle.closed()) await handle.terminateAndWait(5_000);
+    const completion = await finishOwnedProcess(handle, result);
     if (handle.closed()) context.handles.delete(handle);
-    return result;
+    return completion.result;
   }
 
   /**

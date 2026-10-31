@@ -95,6 +95,7 @@ test("Attempt回収は発見保存とOwner確認を削除前に保ちconfigを�
       }));
       const none = Object.freeze({ submitted: false, dockerId: null });
       const target: AttemptRecoveryTarget = {
+        kind: "attempt",
         operationId: "operation-a",
         recoveryId: "exact-recovery",
         projection: PROJECTION,
@@ -150,7 +151,7 @@ test("Attempt回収は発見保存とOwner確認を削除前に保ちconfigを�
           events.push("completed");
         },
       };
-      const result = api.cleanupAttemptResources(target, callbacks);
+      const result = api.cleanupResources(target, callbacks);
       assert.equal(result.recoveryId, "exact-recovery");
       assert.equal(result.operationId, "operation-a");
       assert.equal(closes, mode === "not_requested" ? 0 : 1);
@@ -230,8 +231,9 @@ test("Attempt診断は削除せず二回の不存在と不明を保持する", (
       },
     }));
     const none = { submitted: false, dockerId: null };
-    const result = api.inspectAttemptResources(
+    const result = api.inspectResources(
       {
+        kind: "attempt",
         operationId: "operation-a",
         recoveryId: "exact-recovery",
         projection: PROJECTION,
@@ -315,8 +317,9 @@ test("既知IDの診断はexact照合と照合後Ownerを要求する", () => {
       },
     }));
     const none = { submitted: false, dockerId: null };
-    const result = api.inspectAttemptResources(
+    const result = api.inspectResources(
       {
+        kind: "attempt",
         operationId: "operation-a",
         recoveryId: "exact-recovery",
         projection: PROJECTION,

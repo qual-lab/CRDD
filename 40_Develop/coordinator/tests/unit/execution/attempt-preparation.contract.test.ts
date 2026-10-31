@@ -77,7 +77,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     recoveryCorrelationId: null,
     advicePacketRef: null,
     advicePacketHash: null,
-    adviceCommandHash: null,
     adviceAllowedReferences: null,
     authorityControlCapability: {},
     preparedWallClockMs: 0,
@@ -125,10 +124,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
   // @ts-expect-error 準備時にadvicePacketHashを省略しない。
   const missing2: PreparedAttemptPlan<"codex"> = without2;
   void [ignored2, missing2];
-  const { adviceCommandHash: ignored3, ...without3 } = codex;
-  // @ts-expect-error 準備時にadviceCommandHashを省略しない。
-  const missing3: PreparedAttemptPlan<"codex"> = without3;
-  void [ignored3, missing3];
   const { adviceAllowedReferences: ignored4, ...without4 } = codex;
   // @ts-expect-error 準備時にadviceAllowedReferencesを省略しない。
   const missing4: PreparedAttemptPlan<"codex"> = without4;
@@ -186,7 +181,6 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     taskPacketHash: true,
     advicePacketRef: true,
     advicePacketHash: true,
-    adviceCommandHash: true,
     adviceAllowedReferences: true,
     executor: true,
     temporarySourcePath: true,

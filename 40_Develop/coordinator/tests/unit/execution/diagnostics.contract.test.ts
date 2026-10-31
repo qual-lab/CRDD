@@ -141,8 +141,11 @@ test("passive discoveryは候補名を実行せず絶対Pathを公開しない",
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("production doctorは通常Taskに不要な永続準備状態を公開しない", () => {
-  const report = runDoctor({ activeIsolation: false, cwd: process.cwd() });
+test("production doctorは通常Taskに不要な永続準備状態を公開しない", async () => {
+  const report = await runDoctor({
+    activeIsolation: false,
+    cwd: process.cwd(),
+  });
   for (const removedKey of [
     "runtimeRoot",
     "runtimeRootPathIdentity",
@@ -175,8 +178,8 @@ test("production doctorは通常Taskに不要な永続準備状態を公開し�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否する", () => {
-  assert.throws(
+test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否する", async () => {
+  await assert.rejects(
     () =>
       runDoctor({
         activeIsolation: false,
@@ -192,8 +195,8 @@ test("doctor optionsは余分field、accessorおよびProxyを処置前に拒否
       throw new Error("must_not_read");
     },
   });
-  assert.throws(() => runDoctor(accessor), /doctor_options_invalid/u);
-  assert.throws(
+  await assert.rejects(() => runDoctor(accessor), /doctor_options_invalid/u);
+  await assert.rejects(
     () => runDoctor(new Proxy({}, { ownKeys: () => [] })),
     /doctor_options_invalid/u,
   );

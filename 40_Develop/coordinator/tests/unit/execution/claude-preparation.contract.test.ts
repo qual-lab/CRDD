@@ -26,7 +26,6 @@ import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/ind
 import test from "node:test";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindAdviceCommand } from "../../../../docker-isolation/src/index.ts";
 
 const fixedSelection = executionSelection("independent_reviewer", {
   provider: "claude",
@@ -203,7 +202,7 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のClaude Planへ固定する", () => {
-  const providerCommand = bindAdviceCommand(
+  const providerCommand =
     planProviderExecution(
       {
         provider: "claude",
@@ -217,8 +216,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         resultSchema: describeAdviceResultSchema(),
       },
       describeDockerProviderExecutionLocations("claude", "advice"),
-    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
-  );
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const fixture = createFixture({
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
@@ -253,9 +251,13 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         provider: "claude" as const,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
-        commandHash: "4".repeat(64),
+
         packetHash: "5".repeat(64),
-        providerCommand,
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("claude", []);
+          if (result.status !== "ready") throw Error("fixture");
+          return result.policy;
+        })(),
         providerPrompt: "Give advice from the supplied projection.",
         allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,

@@ -17,6 +17,7 @@ import {
   type DockerAttachedProcess,
 } from "./process.ts";
 import type { CommandExecution } from "../execution/result.ts";
+import type { DockerProbeExecutionFacts } from "./result.ts";
 import { types as utilTypes } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
@@ -480,6 +481,81 @@ export function runDockerProbeToCompletion(
   );
   const elapsedMs = Math.max(0, Math.round(performance.now() - startedAt));
   return classifyDockerProbeExecution(execution, elapsedMs);
+}
+
+/**
+ * 同じ所有attachの結果・取消・終端joinを完了まで待つ。
+ * @responsibility 同期Probeと同じ期限・出力分類を非同期Processへ接続する。
+ * @trace ARCH-000008
+ * @input binding、profile、containerId: 固定構成。signal: 同じ試行の取消。
+ * @returns 元の実行事実、取消事実、所有Processのclose確認。
+ * @precondition 作成実IDの保存とfresh構成確認が完了している。
+ * @postcondition ListenerとTimerを解除し、取得Handleを必ずjoinする。
+ * @effect 固定start --attachと必要な所有Process終端だけ。
+ * @failure 期限・出力超過を既存分類へ変換し、close不明を成功にしない。
+ * @invariant 元失敗をjoin成功で上書きしない。Container回収は別操作。
+ * @boundary 固定Probe実行と共通Process Owner。
+ * @security 任意Command・Image・期限を受け取らない。
+ * @concurrency 重複取消は同じHandleの一回終端へ収束する。
+ */
+export async function runDockerProbeAsync(
+  binding: ProbeBinding,
+  profile: DockerProbeProfile,
+  containerId: string,
+  signal: AbortSignal,
+): Promise<
+  Readonly<{
+    facts: DockerProbeExecutionFacts;
+    cancelled: boolean;
+    processCompletionConfirmed: boolean;
+  }>
+> {
+  const specification = profileSpecification(profile);
+  if (profile === "cancellation" || signal.aborted)
+    throw new Error("docker_probe_start_cancelled");
+  const startedAt = performance.now();
+  const controller = startDockerProbeAttachedProcess(binding, containerId, "{");
+  const onAbort = () => {
+    void controller.terminateAndWait().catch(() => undefined);
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  let processCompletionConfirmed = false;
+  let elapsedMs = 0;
+  let execution: CommandExecution & { error?: Error };
+  try {
+    if (signal.aborted) onAbort();
+    execution = await awaitProbeObservation<
+      CommandExecution & { error?: Error }
+    >(controller.completion, specification.timeoutMs, {
+      status: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      outputExceeded: false,
+      error: Object.assign(new Error("probe timeout"), { code: "ETIMEDOUT" }),
+    });
+    if (execution.outputExceeded)
+      execution = {
+        ...execution,
+        error: Object.assign(new Error("probe output limit"), {
+          code: "ENOBUFS",
+        }),
+      };
+    elapsedMs = Math.max(0, Math.round(performance.now() - startedAt));
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    try {
+      processCompletionConfirmed =
+        (await controller.terminateAndWait()) !== null && controller.isClosed();
+    } catch {
+      processCompletionConfirmed = false;
+    }
+  }
+  return Object.freeze({
+    facts: classifyDockerProbeExecution(execution, elapsedMs),
+    cancelled: signal.aborted,
+    processCompletionConfirmed,
+  });
 }
 
 /**

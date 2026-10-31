@@ -1494,6 +1494,8 @@
     }
   ],
   "tests": [
+    {"id":"executor:unit:isolation-probe","owner":"executor","path":"40_Develop/executor/tests/unit/probe.contract.test.ts","level":"unit","kind":"contract","semanticTags":["probe","cleanup","cancellation"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["intent_before_create","receipt_before_start","unknown_preserved","exact_resource_cleanup"],"mandatoryByDefault":true},
+    {"id":"docker-isolation:integration:probe-async","owner":"docker-isolation","path":"40_Develop/docker-isolation/tests/integration/probe-async.contract.test.ts","level":"integration","kind":"contract","semanticTags":["probe","process","cancellation"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["primary_failure_preserved","process_join_confirmed","listeners_removed"],"mandatoryByDefault":true},
     {
       "id": "mcp:integration:runtime-definition",
       "owner": "mcp-server",
@@ -3585,7 +3587,7 @@
         "bundled_json_missing_syntax_schema_rejected",
         "invalid_catalog_no_fallback",
         "response_content_closed_and_all_reasons_preserved",
-        "schema_and_command_hash_unchanged",
+        "schema_and_provider_plan_contract_preserved",
         "domain_runtime_dependency_absent",
         "provider_effect_zero"
       ],

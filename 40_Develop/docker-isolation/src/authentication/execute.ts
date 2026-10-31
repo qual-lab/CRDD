@@ -18,7 +18,10 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../docker-cli/trust.ts";
-import { startOwnedWindowsProcess } from "../process/start.ts";
+import {
+  startOwnedWindowsProcess,
+  finishOwnedProcess,
+} from "../process/start.ts";
 import { dockerAuthenticationResourceConfigurationMatches } from "../cleanup/plan.ts";
 
 /**
@@ -42,6 +45,23 @@ export type DockerAuthenticationExecution = Readonly<{
   resourceConfigurationConfirmed?: boolean;
   resourceReceipt?: Readonly<{ name: string; dockerId: string }>;
 }>;
+
+/**
+ * 元認証Planに閉じた一操作の実行入口。
+ * @responsibility 元Command所属と終了確認を保持する。
+ * @trace ARCH-000008
+ * @shape executeと固定Command、現在許可Query。
+ * @invariant 任意argvを実行対象にしない。
+ * @boundary DIの固定構成と内部のProcess Owner。
+ * @security 生出力は上位の公開結果へ直接渡さない。
+ * @compatibility 既存の推論型を同形の明示型で表す。
+ */
+export interface DockerAuthenticationRuntime {
+  execute(
+    command: DockerAuthenticationCommand,
+    permitLive: () => boolean,
+  ): Promise<DockerAuthenticationExecution>;
+}
 
 /**
  * 元計画のCommandだけを許可生存中に実行する。
@@ -124,8 +144,9 @@ async function executeDockerAuthenticationCommand(
       terminalError ??= Error("docker_effect_output_too_large");
     if (result?.status === null && !terminalError)
       terminalError = Error("docker_effect_execution_failed");
-    const closed = handle.closed() || (await handle.terminateAndWait(5_000));
-    const observed = result ?? (closed ? await handle.wait(1) : null);
+    const completion = await finishOwnedProcess(handle, result, true);
+    const closed = completion.closed;
+    const observed = completion.result;
     const recovery = dockerAuthenticationRecoveryCommandMetadata(command);
     const sourceCommand = recovery?.create ?? command;
     if (
@@ -313,7 +334,7 @@ async function executeDockerAuthenticationCommand(
 export function createDockerAuthenticationRuntimeUsing(
   binding: Parameters<typeof executeDockerAuthenticationCommand>[0],
   plan: DockerAuthenticationPlan,
-) {
+): DockerAuthenticationRuntime {
   if (!dockerAuthenticationPlanIsPlanned(plan))
     throw Error("docker_authentication_plan_not_planned");
   const approvedRemovals = new WeakSet<object>();

@@ -15,6 +15,48 @@ import {
   STDOUT_LIMIT_BYTES,
   STDERR_LIMIT_BYTES,
 } from "../execution/result.ts";
+
+/**
+ * 所有Processの終了要求後の観測。
+ * @responsibility 元結果と終了確認を別に保持する。
+ * @trace ARCH-000008
+ * @shape 元Command結果又はnull、終了確認closed。
+ * @invariant 結果取得だけを終了確認にしない。
+ * @boundary 固定CLI操作と共通Process所有者。
+ * @security 生結果は内部の用途別解析だけへ渡す。
+ * @compatibility 既存の5秒終端猶予と結果搬送を維持する。
+ */
+export type OwnedProcessCompletion = Readonly<{
+  result: CommandExecution | null;
+  closed: boolean;
+}>;
+
+/**
+ * 元の所有Handleだけを終了確認まで処理する。
+ * @responsibility 認証と通常の短期操作で共通のtree終端・close観測を使う。
+ * @trace ARCH-000008
+ * @input handle: 元Handle、result: 先行結果、readFinal: 終了後の最終観測を必要とするか。
+ * @returns 元結果と終了確認。必要時だけ終了後の一読取りを行う。
+ * @precondition Handleは同じ操作が所有している。
+ * @postcondition 別Processを探索・終了せず、未確認を成功へ補完しない。
+ * @effect 必要な場合だけ既存terminateAndWaitを発行する。
+ * @failure 終了未確認はclosed:false、例外は元Ownerへ伝播する。
+ * @invariant 新Process監視・Lock・永続状態を作らない。
+ * @boundary DIの用途別操作と共通Process生涯。
+ * @security PIDや他Handleを終了権限へ変換しない。
+ * @concurrency 同じ元Handleの終了だけを待つ。
+ */
+export async function finishOwnedProcess(
+  handle: OwnedCommandHandle,
+  result: CommandExecution | null,
+  readFinal = false,
+): Promise<OwnedProcessCompletion> {
+  const closed = handle.closed() || (await handle.terminateAndWait(5_000));
+  return {
+    closed,
+    result: result ?? (readFinal && closed ? await handle.wait(1) : null),
+  };
+}
 /**
  * docker-owned-processで使用するCommand Handleの値契約を定義する。
  *

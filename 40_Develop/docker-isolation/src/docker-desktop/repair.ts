@@ -92,7 +92,7 @@ type TechnicalBoundary = Readonly<{
  * @security 生Session・Path・例外本文は返さない。
  * @compatibility 上位outcomeの確定ではない。
  */
-type MachineResult = Readonly<{
+export type DockerRuntimeRepairMachineResult = Readonly<{
   checkpoint: Checkpoint | null;
   checkpointNotificationCompleted: boolean;
   status: "recovered" | "incomplete" | "failed" | "cancelled";
@@ -232,7 +232,7 @@ function canResumeRepairContinuation(checkpoint: Checkpoint): boolean {
 export async function runDockerRuntimeRepairMachine(
   input: MachineInput,
   technical: TechnicalBoundary,
-): Promise<MachineResult> {
+): Promise<DockerRuntimeRepairMachineResult> {
   let current = decode(input.checkpoint);
   let lastNotified = current;
   let notificationFailed = false;
@@ -270,10 +270,10 @@ export async function runDockerRuntimeRepairMachine(
    * @concurrency N/A: 共有状態なし。
    */
   const result = (
-    status: MachineResult["status"],
-    reason: MachineResult["reason"],
-    primaryFailure: MachineResult["primaryFailure"] = null,
-  ): MachineResult =>
+    status: DockerRuntimeRepairMachineResult["status"],
+    reason: DockerRuntimeRepairMachineResult["reason"],
+    primaryFailure: DockerRuntimeRepairMachineResult["primaryFailure"] = null,
+  ): DockerRuntimeRepairMachineResult =>
     Object.freeze({
       checkpoint: current,
       checkpointNotificationCompleted:

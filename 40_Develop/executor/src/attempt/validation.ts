@@ -172,13 +172,11 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
           (plan.taskRole === "executor" ? "read_write" : "read_only")
       : isAdvicePlan
         ? plan.taskRole === null &&
-          /^[a-f0-9]{64}$/u.test(plan.adviceCommandHash ?? "") &&
           typeof plan.providerInput === "string" &&
           plan.providerInput.length > 0 &&
           plan.workspaceSourcePath === null &&
           plan.workspaceMountMode === null
         : plan.taskRole === null &&
-          (plan.adviceCommandHash ?? null) === null &&
           plan.providerInput === null &&
           plan.workspaceSourcePath === null &&
           plan.workspaceMountMode === null) &&

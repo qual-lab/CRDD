@@ -54,10 +54,26 @@ export async function runDoctorCommand(
     let report: Readonly<Record<string, unknown>>;
     let cliCleanupConfirmed = true;
     if (options.action === "check" || options.action === "isolation") {
-      report = diagnoseEnvironment(
-        { activeIsolation: options.action === "isolation" },
-        context,
+      const controller = new AbortController();
+      const binding = bindTaskCliCancellationSignals(async () =>
+        controller.abort(),
       );
+      cliCleanupConfirmed = false;
+      try {
+        if (binding.status !== "bound")
+          throw new Error("coordinator_cli_cancellation_binding_failed");
+        report = await diagnoseEnvironment(
+          { activeIsolation: options.action === "isolation" },
+          context,
+          controller.signal,
+        );
+      } finally {
+        try {
+          cliCleanupConfirmed = binding.unbind().status === "released";
+        } catch {
+          cliCleanupConfirmed = false;
+        }
+      }
     } else {
       const recoveryId = options.recoveryId;
       const repair =

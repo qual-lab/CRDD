@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  * @trace ARCH-000015
  */
+import type { ResourceCleanupCallbacks } from "../resources/types.ts";
 import type { ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
 import type {
   ProviderTurnCountDiagnostic,
@@ -19,24 +20,11 @@ import type {
   DockerResourceCleanupObservation,
   DockerIsolationCommand,
   DockerNetworkPolicy,
-  AdviceCommand,
   HomeLease,
   DockerExecutionCallbacks,
   DockerCommandSession,
   DockerSessionCleanup,
-  DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
-
-/**
- * 承認前に参照できる助言Commandと、同じ内容の技術Hash。
- * @responsibility 本文・許可・資源を取得せず、既存DIの値契約だけを搬送する。
- * @trace ARCH-000015
- * @invariant 準備成功は実行許可・Image存在・送信成立を意味しない。
- */
-export type PreparedAdviceCommand = Readonly<{
-  command: AdviceCommand;
-  commandHash: string;
-}>;
 
 /** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
 export interface IsolationRuntime {
@@ -108,32 +96,13 @@ export type RuntimeState = Readonly<{
 }>;
 
 /**
- * 通常実行と回収で観測した技術資源の事実を上位へ通知する。
- * @responsibility 資源観測と全技術処理終了を区別し、保存方法やACKを所有しない。
- * @trace ARCH-000008
- * @invariant 同期回収APIでは通知のPromise返却を拒否し、保存未完了で削除へ進まない。
- * @boundary 通常実行のonResourcesClosedは全終了確認後。回収APIではunknownを含む観測集合も通知する。
- * @security 通知発行自体は不存在・Home解放・回収成功の保証ではない。最終段階通知も成功保証ではない。
- */
-export interface ResourceCleanupCallbacks<
-  Observation = AttemptTerminalObservation,
-> {
-  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
-  onResourceIdentified?(
-    purpose: keyof DockerResourceReceipts,
-    dockerId: string,
-  ): void;
-  onResourcesClosed?(observation: Observation): void | Promise<void>;
-  onCleanupCompleted?(observation: Observation): void | Promise<void>;
-}
-
-/**
  * 単発実行の通知を共通の資源回収通知へ追加する。
  * @responsibility 同じ試行の開始・診断・結果だけを通知する。
  * @trace ARCH-000008
  * @invariant 必要通知は完了後だけ継続し、任意通知は実行結果を変更しない。
  */
-export interface ExecutorCallbacks extends ResourceCleanupCallbacks {
+export interface ExecutorCallbacks
+  extends ResourceCleanupCallbacks<AttemptTerminalObservation> {
   onCommandSubmitting?(
     purpose: DockerIsolationCommand["purpose"],
   ): void | Promise<void>;
@@ -152,63 +121,6 @@ export interface ExecutorCallbacks extends ResourceCleanupCallbacks {
   ): void | Promise<void>;
   onDiagnostic?(notice: AttemptDiagnosticNotice): void | Promise<void>;
 }
-
-/**
- * 上位が選定・検査した一つのAttemptの回収対象。
- * @responsibility 保存Schemaを持たず、既存技術投影と現在Ownerの確認だけを借用する。
- * @trace ARCH-000008
- * @invariant IDだけで処置を許可せず、各要求直前のOwner確認を必須とする。
- */
-export type AttemptRecoveryTarget = Readonly<{
-  operationId: string;
-  recoveryId: string;
-  projection: AttemptRecordProjection &
-    Readonly<{
-      workspaceProtected?: boolean;
-      workspaceProtection?: AttemptRequest["target"]["workspaceProtection"];
-    }>;
-  receipts: DockerResourceReceipts;
-  previouslyAbsent?: readonly (keyof DockerResourceReceipts)[];
-  managementDirectory: string | null;
-  assertOwner: () => boolean;
-}>;
-
-/**
- * 診断だけで得た技術資源の観測。
- * @responsibility 存在・不存在・不明とconfig終了を区別する。
- * @trace ARCH-000008
- * @invariant 診断の成功を削除許可・保存確定へ昇格しない。
- */
-export type AttemptResourceInspection = Readonly<{
-  status: "completed" | "blocked";
-  operationId: string;
-  recoveryId: string;
-  reason: string;
-  configCleanupConfirmed: boolean;
-  resources: readonly Readonly<{
-    purpose: keyof DockerResourceReceipts;
-    plannedResourceName: string;
-    dockerId: string | null;
-    observation: "not_requested" | "present" | "absent" | "unknown";
-    absenceObservations: readonly ("absent" | "unknown")[];
-  }>[];
-}>;
-
-/**
- * Attempt資源の技術回収結果。
- * @responsibility 資源別観測とconfig終了を元のAttemptへ結合して返す。
- * @trace ARCH-000008
- * @invariant Docker回収とTask完了・Host清掃・履歴確定を混同しない。
- */
-export type AttemptCleanupResult = Readonly<{
-  status: "completed" | "blocked";
-  operationId: string;
-  recoveryId: string;
-  reason: string;
-  dockerCleanupConfirmed: boolean;
-  configCleanupConfirmed: boolean;
-  resources: readonly DockerResourceCleanupObservation[];
-}>;
 
 /**
  * 上位の保存Ownerが確定した参照を単発実行へ借用する内部契約。
@@ -257,8 +169,7 @@ export type AttemptRequest = Readonly<{
     | Readonly<{
         purpose: "advice";
         input: string;
-        commandHash: string;
-        command: AdviceCommand;
+        networkPolicy: DockerNetworkPolicy | null;
         allowedReferences: readonly string[];
       }>
   );
@@ -304,7 +215,6 @@ export type AttemptPlan = AttemptRecordProjection &
     stableLogicalHomeBindingHash: string;
     taskRole: "executor" | "reviewer" | null;
     taskWorkload?: unknown;
-    adviceCommandHash?: string | null;
     adviceAllowedReferences?: readonly string[] | null;
     providerInput: string | null;
     workspaceSourcePath: string | null;

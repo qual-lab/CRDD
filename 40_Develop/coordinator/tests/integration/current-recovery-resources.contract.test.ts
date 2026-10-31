@@ -2975,8 +2975,8 @@ function fixture(
     context,
   ) as (
     owner: unknown,
-    cleanup: typeof recoveryApi.cleanupAttemptResources,
-    inspect: typeof recoveryApi.inspectAttemptResources,
+    cleanup: typeof recoveryApi.cleanupResources,
+    inspect: typeof recoveryApi.inspectResources,
   ) => {
     status: string;
     dockerCleanupConfirmed: boolean;
@@ -3014,8 +3014,8 @@ function fixture(
     run: () =>
       run(
         capability,
-        recoveryApi.cleanupAttemptResources,
-        recoveryApi.inspectAttemptResources,
+        recoveryApi.cleanupResources,
+        recoveryApi.inspectResources,
       ),
     set mode(value: string) {
       mode = value;

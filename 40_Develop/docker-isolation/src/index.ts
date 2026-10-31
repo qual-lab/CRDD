@@ -16,6 +16,7 @@ export {
   createDockerProbeRuntimeBinding,
   createDockerProbeContainer,
   runDockerProbeToCompletion,
+  runDockerProbeAsync,
   runDockerProbeCancellation,
   startDockerProbeResidue,
   planDockerProbeCreation,
@@ -30,6 +31,9 @@ export {
 export {
   runDockerRuntimeRepairSession,
   type DockerRuntimeRepairInput,
+  type DockerRuntimeRepairResult,
+  type DockerRuntimeDirectoryInspectionInput,
+  type DockerRuntimeDirectoryCleanupResult,
   disposeDockerRuntimeRepairDirectory,
   type DockerRuntimeRepairDisposalInput,
   observeDockerRuntimeRepairRetention,
@@ -87,6 +91,7 @@ export {
 export {
   createDockerAuthenticationRuntimeFactory,
   type DockerAuthenticationExecution,
+  type DockerAuthenticationRuntime,
 } from "./authentication/execute.ts";
 export {
   type DockerIsolationCommand,
@@ -175,6 +180,7 @@ export {
 } from "./probe/configuration.ts";
 export {
   classifyDockerProbeExecution,
+  type DockerProbeExecutionFacts,
   classifyDockerProbeCancellation,
   normalizeContainerCreation,
   normalizeContainerAbsence,
@@ -195,9 +201,6 @@ export {
 
 export { parseDockerTaskRecoveryId } from "./cleanup/resource.ts";
 export {
-  bindAdviceCommand,
-  hashAdviceCommand,
   bindProviderCommand,
   type ProviderCommandBinding,
-  type AdviceCommand,
 } from "./execution/binding.ts";

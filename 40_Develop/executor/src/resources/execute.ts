@@ -1,12 +1,16 @@
 /**
- * 一つのAttemptの技術資源を診断・回収する。
+ * 資源種別ごとの技術観測・回収を一つの公開入口へ結合する。
  * @packageDocumentation
- * @responsibility 期待値・DI接続・現在観測・同期通知・短命config終了を所有する。
+ * @responsibility 対象別のDI接続と型付き結果を所有し、Attemptの同期通知・短命config終了を維持する。
  * @trace ARCH-000008
- * @boundary 上位が検査した技術投影とDI。保存・Task判断・Host清掃は所有しない。
+ * @boundary 上位が指定した固定技術対象とDI。保存・保持期限・廃棄判断・Task進行は所有しない。
  */
 import { types as utilTypes } from "node:util";
 import {
+  observeDockerRuntimeRepairRetention,
+  disposeDockerRuntimeRepairDirectory,
+  type DockerRuntimeRepairRetentionTargets,
+  type DockerRuntimeDirectoryCleanupResult,
   createDockerTaskRecoveryExecutor,
   planDockerRecoveryResourceExpectations,
   codexAdviceProviderInitRequired,
@@ -19,6 +23,8 @@ import type {
   AttemptResourceInspection,
   AttemptCleanupResult,
   ResourceCleanupCallbacks,
+  DirectoryResourceInspectionTarget,
+  DirectoryResourceCleanupTarget,
 } from "./types.ts";
 
 /**
@@ -73,8 +79,8 @@ function completeRecoveryNotice(
  */
 function resourceExpectations(target: AttemptRecoveryTarget) {
   if (
-    !target ||
     utilTypes.isProxy(target) ||
+    target?.kind !== "attempt" ||
     typeof target.recoveryId !== "string" ||
     target.recoveryId.length === 0 ||
     typeof target.operationId !== "string" ||
@@ -128,7 +134,7 @@ function resourceExpectations(target: AttemptRecoveryTarget) {
 }
 
 /**
- * 資源診断だけを実行し、同じ技術configを必ず終了する。
+ * 対象別の技術観測を行い、Attemptでは同じ技術configを必ず終了する。
  * @responsibility 存在・構成・不存在の観測を返し削除や保存を行わない。
  * @trace ARCH-000008
  * @input target: 上位選定済み対象。purpose: 省略時は全資源、指定時は同用途だけ。
@@ -142,10 +148,20 @@ function resourceExpectations(target: AttemptRecoveryTarget) {
  * @security raw出力・秘密を返さない。
  * @concurrency 各要求の前後で同じOwnerをfresh確認する。
  */
-export function inspectAttemptResources(
+export function inspectResources(
   target: AttemptRecoveryTarget,
   purpose?: keyof DockerResourceReceipts,
-): AttemptResourceInspection {
+): AttemptResourceInspection;
+export function inspectResources(
+  target: DirectoryResourceInspectionTarget,
+): DockerRuntimeRepairRetentionTargets | null;
+export function inspectResources(
+  target: AttemptRecoveryTarget | DirectoryResourceInspectionTarget,
+  purpose?: keyof DockerResourceReceipts,
+): AttemptResourceInspection | DockerRuntimeRepairRetentionTargets | null {
+  if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
+  if (target?.kind === "docker_runtime_directory")
+    return observeDockerRuntimeRepairRetention(target.input);
   const resources: Array<AttemptResourceInspection["resources"][number]> = [];
   let reason = "docker_task_recovery_resource_unconfirmed";
   let configCleanupConfirmed = true;
@@ -287,7 +303,7 @@ export function inspectAttemptResources(
       }
     }
   }
-  return Object.freeze({
+  return Object.freeze<AttemptResourceInspection>({
     status: completed && configCleanupConfirmed ? "completed" : "blocked",
     operationId: target.operationId,
     recoveryId: target.recoveryId,
@@ -314,12 +330,24 @@ export function inspectAttemptResources(
  * @security ID又は名前だけで削除しない。
  * @concurrency 全要求前後と削除直前に現在Ownerを再確認する。
  */
-export function cleanupAttemptResources(
+export function cleanupResources(
   target: AttemptRecoveryTarget,
+  callbacks?: ResourceCleanupCallbacks<
+    readonly DockerResourceCleanupObservation[]
+  >,
+): AttemptCleanupResult;
+export function cleanupResources(
+  target: DirectoryResourceCleanupTarget,
+): Promise<DockerRuntimeDirectoryCleanupResult>;
+export function cleanupResources(
+  target: AttemptRecoveryTarget | DirectoryResourceCleanupTarget,
   callbacks: ResourceCleanupCallbacks<
     readonly DockerResourceCleanupObservation[]
   > = {},
-): AttemptCleanupResult {
+): AttemptCleanupResult | Promise<DockerRuntimeDirectoryCleanupResult> {
+  if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
+  if (target?.kind === "docker_runtime_directory")
+    return disposeDockerRuntimeRepairDirectory(target.input);
   const resources: DockerResourceCleanupObservation[] = [];
   let reason = "docker_task_recovery_execution_unconfirmed";
   let configCleanupConfirmed = true;

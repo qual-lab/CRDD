@@ -211,11 +211,12 @@ function executionSignal(signal: AbortSignal): AbortSignal {
  * @invariant passive診断を厳密なEffect 0と表示しない。
  * @boundary 正式操作と既存診断／受付観測Owner。
  * @security 秘密値を取得・複製しない。
- * @concurrency 同期診断の既存寿命を維持する。
+ * @concurrency 同じ診断Ownerの完了と終了整理を待機してから結果を返す。
  */
-export function diagnoseEnvironment(
+export async function diagnoseEnvironment(
   request: EnvironmentRequest,
   context: ExecutionContext,
+  signal?: AbortSignal,
 ) {
   const value =
     snapshotPlainRecord(request, new Set(["activeIsolation"])) ??
@@ -227,11 +228,15 @@ export function diagnoseEnvironment(
   )
     throw new Error("doctor_options_invalid");
   const root = executionRoot(context);
+  if (signal !== undefined) executionSignal(signal);
   return Object.freeze({
-    ...runDoctor({
-      activeIsolation: value.activeIsolation ?? false,
-      cwd: root,
-    }),
+    ...(await runDoctor(
+      {
+        activeIsolation: value.activeIsolation ?? false,
+        cwd: root,
+      },
+      signal,
+    )),
     dockerTaskRecovery: inspectRuntimeOwnedDockerTaskAdmission(root),
   });
 }

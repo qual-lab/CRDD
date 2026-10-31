@@ -8,6 +8,10 @@
  * @scope coordinator、provider-authentication、status、login、recovery、kernel-lock
  * @boundary ERB-IT-017=Integration: Filesystem耐久記録とWindows Named Pipe Kernel Lock境界
  */
+import {
+  authenticateProvider,
+  createProviderAuthenticationPlan,
+} from "../support/authentication.ts";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -18,9 +22,7 @@ import { fileURLToPath } from "node:url";
 
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
-  authenticateProvider,
   beginProviderAuthenticationRecovery,
-  createProviderAuthenticationPlan,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
   recordProviderAuthenticationResource,

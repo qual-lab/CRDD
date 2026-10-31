@@ -8,10 +8,10 @@
  * @scope coordinator、claude-authentication、recovery、kernel-lock
  * @boundary ERB-IT-017=Integration: 別Process・Filesystem・Windows Named Pipe境界
  */
+import { createProviderAuthenticationPlan } from "../support/authentication.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
   beginProviderAuthenticationRecovery,
-  createProviderAuthenticationPlan,
   createProviderAuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 

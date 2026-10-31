@@ -857,8 +857,8 @@ function fixture(mode: "restart" | "recovery" = "restart") {
       }));
       return recover(
         capability,
-        runtime.cleanupAttemptResources,
-        runtime.inspectAttemptResources,
+        runtime.cleanupResources,
+        runtime.inspectResources,
       );
     };
   }

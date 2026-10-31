@@ -491,7 +491,7 @@ export async function runSignedRecoveryMatrixVerification() {
   if (!isSupportedCoordinatorNodeRuntime(process.versions.node))
     return blocked("signed_recovery_matrix_node_version_unsupported");
   try {
-    const failures = verifyDynamicFakeProviderFailures();
+    const failures = await verifyDynamicFakeProviderFailures();
     const failureScenarios = failures.scenarios.map((scenario) => ({
       scenario: scenario.scenario,
       status: scenario.status,

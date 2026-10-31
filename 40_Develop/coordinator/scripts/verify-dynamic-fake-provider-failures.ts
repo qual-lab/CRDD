@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { createIsolationProbe } from "../../executor/src/probe/execute.ts";
 
 import {
   DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
@@ -31,10 +32,15 @@ import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
  * @security N/A: verifyDynamicFakeProviderFailuresはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: verifyDynamicFakeProviderFailuresは共有非同期状態を持たない同期処理である。
  */
-export function verifyDynamicFakeProviderFailures() {
-  const results = DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS.map((scenario) => {
+export async function verifyDynamicFakeProviderFailures() {
+  const results = [];
+  for (const scenario of DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS) {
     const owned = createOwnedOperationDirectories();
-    const result = runDynamicFakeProviderFailureScenario(owned, scenario);
+    const result = await runDynamicFakeProviderFailureScenario(
+      owned,
+      scenario,
+      (request, options) => createIsolationProbe(request, options, scenario),
+    );
     const expectedReason = expectedDynamicFakeProviderFailureReason(scenario);
     const isRootRemoved = !fs.existsSync(owned.root);
     const isPassed =
@@ -56,25 +62,28 @@ export function verifyDynamicFakeProviderFailures() {
       isRootRemoved;
     if (!isPassed)
       throw new Error(`dynamic failure scenario failed: ${scenario}`);
-    return Object.freeze({
-      scenario,
-      status: result.status,
-      reason: result.reason,
-      cleanup: result.cleanup,
-      containerEffectIssued:
-        result.fakeProviderLifecycle.diagnosticDockerContainerEffectIssued,
-      filesystemEffectIssued:
-        result.fakeProviderLifecycle.diagnosticFilesystemEffectIssued,
-      providerNetworkEffectIssued:
-        result.fakeProviderLifecycle.providerNetworkEffectIssued,
-      runtimeAuthorityIssued:
-        result.fakeProviderLifecycle.runtimeAuthorityIssued,
-      operationCapabilityIssued:
-        result.fakeProviderLifecycle.operationCapabilityIssued,
-      realProviderReadiness: result.fakeProviderLifecycle.realProviderReadiness,
-      residualOperationDirectory: !isRootRemoved,
-    });
-  });
+    results.push(
+      Object.freeze({
+        scenario,
+        status: result.status,
+        reason: result.reason,
+        cleanup: result.cleanup,
+        containerEffectIssued:
+          result.fakeProviderLifecycle.diagnosticDockerContainerEffectIssued,
+        filesystemEffectIssued:
+          result.fakeProviderLifecycle.diagnosticFilesystemEffectIssued,
+        providerNetworkEffectIssued:
+          result.fakeProviderLifecycle.providerNetworkEffectIssued,
+        runtimeAuthorityIssued:
+          result.fakeProviderLifecycle.runtimeAuthorityIssued,
+        operationCapabilityIssued:
+          result.fakeProviderLifecycle.operationCapabilityIssued,
+        realProviderReadiness:
+          result.fakeProviderLifecycle.realProviderReadiness,
+        residualOperationDirectory: !isRootRemoved,
+      }),
+    );
+  }
   return Object.freeze({
     contract: "crdd-coordinator/dynamic-fake-provider-failure-verification",
     contractRevision: 1,
@@ -89,6 +98,6 @@ if (
   import.meta.url === pathToFileURL(path.resolve(invokedPath)).href
 ) {
   process.stdout.write(
-    `${JSON.stringify(verifyDynamicFakeProviderFailures())}\n`,
+    `${JSON.stringify(await verifyDynamicFakeProviderFailures())}\n`,
   );
 }

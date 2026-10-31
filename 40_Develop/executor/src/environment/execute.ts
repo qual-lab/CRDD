@@ -10,6 +10,9 @@ import {
   restartDockerRuntime,
   type DockerRuntimeRestartInput,
   type DockerRuntimeRestartResult,
+  runDockerRuntimeRepairSession,
+  type DockerRuntimeRepairInput,
+  type DockerRuntimeRepairResult,
 } from "../../../docker-isolation/src/index.ts";
 import type { DockerEnvironmentStatus } from "./types.ts";
 
@@ -54,4 +57,25 @@ export function restartDockerEnvironment(
   request: DockerRuntimeRestartInput,
 ): Promise<DockerRuntimeRestartResult> {
   return restartDockerRuntime(request);
+}
+
+/**
+ * 許可済みの環境修復を既存DIの一Sessionへ接続する。
+ * @responsibility 入力・通知・取消・元Promiseと技術結果を無変換で搬送する。
+ * @trace ARCH-000008
+ * @input request: 固定修復相関、現在確認と同期通知。
+ * @returns Native終了後の技術結果。保存確定は含めない。
+ * @precondition 上位が修復判断・影響・現在許可とIntent保存を所有する。
+ * @postcondition 保持期限・廃棄判断・履歴を生成しない。
+ * @effect DIの既存修復・観測・Native終了処理。
+ * @failure 一次失敗・cleanup・checkpoint候補をそのまま返す。
+ * @invariant 保存形式・Owner・Lock・再入場条件を変更しない。
+ * @boundary 上位判断・保存と下位固定修復。
+ * @security 任意Pathや技術依存の注入を受け取らない。
+ * @concurrency 現在確認と通知完了は既存DIの順序へ従う。自動再試行しない。
+ */
+export function repairDockerEnvironment(
+  request: DockerRuntimeRepairInput,
+): Promise<DockerRuntimeRepairResult> {
+  return runDockerRuntimeRepairSession(request);
 }

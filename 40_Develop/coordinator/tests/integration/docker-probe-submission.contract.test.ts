@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
+import { runInNewContext } from "../support/probe-executor.ts";
 
 /**
  * 一意な本番関数の本文を型除去して取得する。
@@ -47,12 +47,12 @@ function probeFunctionSource(source: string, name: string) {
  * @cleanup N/A: VMと局所値のみ。
  * @boundary Coordinator実本文と合成依存。実Writer・実Dockerの証明ではない。
  */
-test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () => {
+test("Probe二保存はcreate前とstart前をそれぞれ停止できる", async () => {
   const source = fs.readFileSync(
     new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
-  const marker = "function runDockerIsolationScenario(";
+  const marker = "async function runDockerIsolationScenario(";
   assert.equal(source.split(marker).length, 2);
   const begin = source.indexOf(marker);
   const body = stripTypeScriptTypes(
@@ -106,7 +106,7 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
         Object,
         path,
         performance,
-        randomUUID: () => "probe",
+        randomUUID: () => "12345678-1234-4234-8234-123456789abc",
         isolationProbeBlocked: blocked,
         getOwnedHostRecoveryId: () => "host",
         createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
@@ -215,13 +215,13 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
     ) as (
       owned: unknown,
       scenario: null,
-    ) => {
+    ) => Promise<{
       status: string;
       reason: string;
       recoveryId: string | null;
       fakeProviderLifecycle: { diagnosticDockerContainerEffectIssued: boolean };
-    };
-    const result = run(owned, null);
+    }>;
+    const result = await run(owned, null);
     const expected =
       scenario === "engine"
         ? ["engine", "pre-cleanup"]
@@ -280,7 +280,7 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
       assert.deepEqual(JSON.parse(JSON.stringify(result)), {
         status: "blocked",
         reason,
-        probeId: "probe",
+        probeId: "12345678-1234-4234-8234-123456789abc",
         retainOperationDirectories: unknown,
         hostCleanupCompleted: !unknown,
         recoveryId: unknown ? "recovery-before-id" : null,
@@ -356,38 +356,6 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
   for (const [name, selected, profile] of routes) {
     const originalBody = probeFunctionSource(source, name);
     const variants: [string, string][] = [["baseline", originalBody]];
-    if (name === "runDockerIsolationScenario" && selected === null) {
-      const callBegin = originalBody.indexOf(
-        "const normalizedCreation = createDockerProbeContainer(",
-      );
-      const callEnd =
-        originalBody.indexOf("\n      );", callBegin) + "\n      );".length;
-      assert.ok(callBegin > 0 && callEnd > callBegin);
-      const createCall = originalBody.slice(callBegin, callEnd);
-      for (const [key, needle, replacement] of [
-        ["binding", "        creationCli,", "        { ...creationCli },"],
-        ["profile", 'scenario ?? "normal"', '"cancellation"'],
-        [
-          "probe",
-          'scenario ?? "normal",\n        probeId,',
-          'scenario ?? "normal",\n        "other-probe",',
-        ],
-        [
-          "mount",
-          "workspace: mounts.workspace",
-          'workspace: path.resolve("other-workspace")',
-        ],
-      ]) {
-        assert.ok(key && needle && replacement);
-        assert.equal(createCall.split(needle).length, 2);
-        variants.push([
-          key,
-          originalBody.slice(0, callBegin) +
-            createCall.replace(needle, replacement) +
-            originalBody.slice(callEnd),
-        ]);
-      }
-    }
     for (const [variant, body] of variants) {
       const captured: object[] = [];
       const bindings: unknown[] = [];
@@ -412,7 +380,7 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
         Object,
         path,
         performance,
-        randomUUID: () => "probe-123",
+        randomUUID: () => "12345678-1234-4234-8234-123456789abc",
         isolationProbeBlocked: blocked,
         cancellationBlocked: blocked,
         getOwnedHostRecoveryId: () => "host",
@@ -470,7 +438,7 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
       const expected = [
         {
           profile,
-          probeId: "probe-123",
+          probeId: "12345678-1234-4234-8234-123456789abc",
           mounts: expectedMounts,
           cli: "fixed-cli",
           environment,

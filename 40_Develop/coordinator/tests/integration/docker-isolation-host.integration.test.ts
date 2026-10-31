@@ -10,6 +10,8 @@
  * @scope 実Dockerの三Container・二Network、既存認証記録と別Process再入場、公式Imageの版・Hash。AI依頼・認証・Desktop修復は含めない。
  * @boundary Host Process→Docker Engine→資源不存在。
  */
+import { createProviderAuthenticationPlan } from "../support/authentication.ts";
+import { createAuthenticationCommandTestRuntime } from "../../../executor/scripts/authentication-command-test.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
@@ -24,7 +26,6 @@ import { describeProviderAuthentication } from "../../../ai-adapter/src/index.ts
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   createProviderAuthenticationDependencies,
-  createProviderAuthenticationPlan,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
@@ -997,6 +998,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
   const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
   const dependencies = createProviderAuthenticationDependencies();
+  const runtime = createAuthenticationCommandTestRuntime(plan);
   const lock = dependencies.acquireProviderHomeLock(hash);
   assert.ok(lock);
   let complete = false;
@@ -1010,7 +1012,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
         receipts.every((item) => /^[a-f0-9]{64}$/u.test(item.dockerId ?? "")),
     );
     for (let index = 0; index < 5; index += 1) {
-      const operations = dependencies.recoveryCommands(record, plan, index);
+      const operations = runtime.recoveryCommands(receipts, plan, index);
       assert.ok(
         operations?.cleanupCommand && operations.identityAbsenceCommand,
       );
@@ -1028,7 +1030,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
           ),
           true,
         );
-        const result = await dependencies.run(command, lock.assertLive, plan);
+        const result = await runtime.run(command, lock.assertLive, plan);
         assert.equal(result.processCompletionConfirmed, true);
         assert.equal(result.error, undefined);
         assert.equal(result.signal, null);

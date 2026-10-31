@@ -8,6 +8,10 @@
  * @scope coordinator、provider-authentication、status、login
  * @boundary ERB-UT-016=Unit: 認証Lifecycleの決定論的Process Adapter境界
  */
+import {
+  authenticateProvider,
+  createProviderAuthenticationPlan,
+} from "../support/authentication.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import test, { mock } from "node:test";
@@ -21,11 +25,7 @@ import {
   evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 
-import {
-  authenticateProvider,
-  PROVIDER_AUTHENTICATION_INPUT_NOTICE,
-  createProviderAuthenticationPlan,
-} from "../../src/execution/authority.ts";
+import { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "../../src/execution/authority.ts";
 
 const AUTHENTICATION_SUFFIX = "0123456789abcdef";
 const token = "a".repeat(64);

@@ -39,7 +39,6 @@ import {
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindAdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 実行調整への値依存を照合Ownerへ戻さない。
@@ -277,7 +276,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
   assert.equal(codexProbe.status, "candidate");
   assert.equal(codexExecutor.status, "candidate");
   assert.equal(codexReviewer.status, "candidate");
-  const codexAdvice = bindAdviceCommand(
+  const codexAdvice =
     planProviderExecution(
       {
         provider: "codex",
@@ -291,9 +290,8 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         resultSchema: { type: "object" },
       },
       describeDockerProviderExecutionLocations("codex", "advice"),
-    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
-  );
-  const claudeAdvice = bindAdviceCommand(
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
+  const claudeAdvice =
     planProviderExecution(
       {
         provider: "claude",
@@ -307,8 +305,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         resultSchema: { type: "object" },
       },
       describeDockerProviderExecutionLocations("claude", "advice"),
-    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
-  );
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   for (const [provider, argv, role, approval, sandbox] of [
     ["codex", codexProbe.argv, null, "other", "read_only"],
     ["codex", codexExecutor.argv, "executor", "approve_for_me", "implicit"],
@@ -1760,7 +1757,6 @@ test("検査済み助言四区分をcleanup後に返す", async () => {
         taskPacketHash: null,
         advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         advicePacketHash: "a".repeat(64),
-        adviceCommandHash: "b".repeat(64),
         adviceAllowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         providerInput: "Give advice from the supplied projection.",
         workspaceSourcePath: null,
@@ -1865,7 +1861,6 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
         taskPacketHash: null,
         advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         advicePacketHash: "a".repeat(64),
-        adviceCommandHash: "b".repeat(64),
         providerInput: "Give advice from the supplied projection.",
         workspaceSourcePath: null,
         workspaceMountMode: null,

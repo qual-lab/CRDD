@@ -16,6 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 import { parseDoctorArguments } from "../../src/cli/options.ts";
@@ -1131,11 +1132,9 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
     "docker-runtime-repair." + "a".repeat(64) + "." + "b".repeat(64);
   const other =
     "docker-runtime-repair." + "c".repeat(64) + "." + "d".repeat(64);
-  const projectionStart = recovery.indexOf(
-    "export function projectRuntimeRepairObservation(",
-  );
-  const projector = stripTypeScriptTypes(
-    recovery.slice(projectionStart).replace("export ", ""),
+  const projector = sourceDeclaration(
+    recovery,
+    "projectRuntimeRepairObservation",
   );
   for (const [source, name] of [
     [api, "repairDockerRuntime"],

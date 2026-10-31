@@ -3,6 +3,9 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    { "symbolId": "executor.probe.execute", "kind": "file", "path": "src/probe/execute.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.probe.types", "kind": "file", "path": "src/probe/types.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.test.unit.probe", "kind": "test-suite", "path": "tests/unit/probe.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["executor.probe.execute", "executor.probe.types"] },
     { "symbolId": "executor.test.support.result-validation", "kind": "file", "path": "tests/support/result-validation.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "executor.result.constants", "kind": "file", "path": "src/attempt/constants.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "executor.verification.test-entry", "kind": "file", "path": "scripts/executor-test.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },

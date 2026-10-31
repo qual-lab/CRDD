@@ -5,6 +5,12 @@
  * @trace ARCH-000008
  */
 import { randomBytes } from "node:crypto";
+import { createIsolationProbe } from "../probe/execute.ts";
+import type {
+  IsolationProbeRequest,
+  IsolationProbeOptions,
+  IsolationProbeExecutor,
+} from "../probe/types.ts";
 import {
   parseAdviceReferences,
   describeProviderAuthentication,
@@ -27,6 +33,7 @@ import {
   type HomeLease,
   type DockerProcessExitStatusClass,
   parseDockerTaskRecoveryId,
+  parseDockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import {
   isAttemptFailureReason,
@@ -832,15 +839,30 @@ export function abandon(
 export function createExecutor(
   request: AttemptRequest,
   options: DockerIsolationRuntimeOptions,
+  random?: Readonly<{ randomBytes: (size: number) => Buffer }>,
+): Executor | null;
+export function createExecutor(
+  request: IsolationProbeRequest,
+  options: IsolationProbeOptions,
+): IsolationProbeExecutor | null;
+export function createExecutor(
+  request: AttemptRequest | IsolationProbeRequest,
+  options: DockerIsolationRuntimeOptions | IsolationProbeOptions,
   random: Readonly<{ randomBytes: (size: number) => Buffer }> = { randomBytes },
-): Executor | null {
-  const plan = prepareAttempt(random, request);
+): Executor | IsolationProbeExecutor | null {
+  if (readOwnDataProperty(request, "kind") === "isolation_probe")
+    return createIsolationProbe(
+      request as IsolationProbeRequest,
+      options as IsolationProbeOptions,
+    );
+  const runtimeOptions = options as DockerIsolationRuntimeOptions;
+  const plan = prepareAttempt(random, request as AttemptRequest);
   if (!plan) return null;
   const runtime = createDockerIsolationRuntime({
-    borrowPaths: options.borrowPaths,
-    inspectReceipts: options.inspectReceipts,
+    borrowPaths: runtimeOptions.borrowPaths,
+    inspectReceipts: runtimeOptions.inspectReceipts,
   });
-  const bound = bindIsolationRuntime(runtime, options.borrowPaths);
+  const bound = bindIsolationRuntime(runtime, runtimeOptions.borrowPaths);
   const isolation: IsolationRuntime = {
     acquireHomeLease: runtime.acquireHomeLease,
     ...bound,
@@ -938,6 +960,21 @@ export function prepareAttempt(
     return null;
   const task = request.purpose === "task" ? request : null;
   const advice = request.purpose === "advice" ? request : null;
+  if (
+    advice &&
+    (readOwnDataProperty(advice, "networkPolicy") === undefined ||
+      Object.hasOwn(advice, "command") ||
+      Object.hasOwn(advice, "commandHash"))
+  )
+    return null;
+  const policyInput = task?.networkPolicy ?? advice?.networkPolicy ?? null;
+  const networkPolicy =
+    policyInput === null ? null : parseDockerNetworkPolicy(policyInput);
+  if (
+    policyInput !== null &&
+    (!networkPolicy || networkPolicy.provider !== provider)
+  )
+    return null;
   const referencesResult = advice
     ? parseAdviceReferences(advice.allowedReferences)
     : null;
@@ -973,12 +1010,7 @@ export function prepareAttempt(
     (task !== null && advice !== null) ||
     (task !== null && selection.purpose !== "task") ||
     (advice !== null &&
-      (selection.purpose !== "advice" ||
-        advice.command.provider !== provider ||
-        advice.command.modelIdentifier !== selection.modelIdentifier ||
-        advice.command.identifierKind !== selection.identifierKind ||
-        advice.command.reasoningEffort !== selection.reasoningEffort ||
-        !adviceAllowedReferences))
+      (selection.purpose !== "advice" || !adviceAllowedReferences))
   ) {
     return null;
   }
@@ -1000,7 +1032,9 @@ export function prepareAttempt(
     ownershipLabel,
   } = resourceNames;
   const providerImageDigest =
-    advice?.command.fixedImageDigest ?? assets.fixedImageDigest;
+    advice && provider === "codex"
+      ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
+      : assets.fixedImageDigest;
   const proxyImageDigest = egress.imageDigest;
   const plan = {
     provider,
@@ -1021,7 +1055,7 @@ export function prepareAttempt(
     ownershipLabel,
     providerImageDigest,
     proxyImageDigest,
-    networkPolicy: task?.networkPolicy ?? advice?.command.networkPolicy ?? null,
+    networkPolicy,
     subscriptionOffering: describeProviderAuthentication(provider).offering,
     operationMode: task
       ? ("isolated_task" as const)
@@ -1029,7 +1063,6 @@ export function prepareAttempt(
         ? ("workbench_advice" as const)
         : ("boolean_probe" as const),
     taskRole: task?.taskRole ?? null,
-    adviceCommandHash: advice?.commandHash ?? null,
     adviceAllowedReferences,
     providerInput: task?.input ?? advice?.input ?? null,
     workspaceSourcePath: task ? target.workspaceSourcePath : null,

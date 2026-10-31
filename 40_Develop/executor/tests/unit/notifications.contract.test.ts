@@ -642,15 +642,11 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
       di.describeDockerProviderExecutionLocations("claude", "advice"),
     );
     assert.ok(planned.plan);
-    const command = di.bindAdviceCommand(planned.plan),
-      commandHash = di.hashAdviceCommand(command);
-    assert.ok(commandHash);
     const plan = attemptPlan();
     const base = {
       purpose: "advice" as const,
       input: "synthetic",
-      command,
-      commandHash,
+      networkPolicy: null,
       allowedReferences: ["ref-0"],
       selection: { ...plan.executionSelection, purpose: "advice" as const },
       target: {

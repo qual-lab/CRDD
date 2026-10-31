@@ -247,7 +247,7 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
  * @cleanup N/A: VM内の同期式評価だけで外部Effectを発行しない。
  * @boundary 本番構成式の入力搬送。Task全体の成立は別の実行試験が所有する。
  */
-test("現在入場: Task通常・開発・正式診断APIの本番構成式はexact Rootを搬送する", () => {
+test("現在入場: Task通常・開発・正式診断APIの本番構成式はexact Rootを搬送する", async () => {
   const task = fs.readFileSync(
     new URL("../../src/execution/controller.ts", import.meta.url),
     "utf8",
@@ -274,14 +274,14 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
   const end = task.indexOf("observeProviderHome:", start);
   assert.ok(start > 0 && end > start);
   const development = task.slice(start, end);
-  const apiStart = api.indexOf("export function diagnoseEnvironment(");
+  const apiStart = api.indexOf("export async function diagnoseEnvironment(");
   const bodyStart = api.indexOf(
     "  const root = executionRoot(context);",
     apiStart,
   );
   const apiEnd = api.indexOf("\n}", bodyStart);
   assert.ok(apiStart > 0 && bodyStart > apiStart && apiEnd > bodyStart);
-  const doctor = `(() => {\n${api.slice(bodyStart, apiEnd)}\n})()`;
+  const doctor = `(async () => {\n${api.slice(bodyStart, apiEnd)}\n})()`;
   const expected = "C:\\fixture-root";
   /**
    * 本番構成式を同じRoot相関Oracleへ接続する。
@@ -294,11 +294,11 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
    * @cleanup N/A: 局所VMだけ。
    * @boundary 構成式→Inspectorの引数。
    */
-  const verify = (snippet: string, kind: string) => {
+  const verify = async (snippet: string, kind: string) => {
     const calls: unknown[] = [];
     const doctorRoots: unknown[] = [];
     let resolutions = 0;
-    const configured = runInNewContext(
+    const configured = await runInNewContext(
       kind === "api" ? snippet : `({${snippet}})`,
       {
         inspectRuntimeOwnedDockerTaskAdmission: (root: unknown) => {
@@ -308,6 +308,7 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
         boundary: { repositoryRoot: expected },
         guard: (fn: (root: string) => unknown) => fn,
         context: "expected-context",
+        signal: undefined,
         value: { activeIsolation: false },
         executionRoot: (context: unknown) => {
           assert.equal(context, "expected-context");
@@ -333,10 +334,10 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
       assert.deepEqual(calls, [expected]);
     }
   };
-  verify(normal, "normal");
-  verify(development, "development");
-  verify(doctor, "api");
-  assert.throws(() =>
+  await verify(normal, "normal");
+  await verify(development, "development");
+  await verify(doctor, "api");
+  await assert.rejects(() =>
     verify(
       normal.replace(
         ": inspectRuntimeOwnedDockerTaskAdmission",
@@ -345,19 +346,19 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
       "normal",
     ),
   );
-  assert.throws(() =>
+  await assert.rejects(() =>
     verify(
       development.replace("root === boundary.repositoryRoot", "true"),
       "development",
     ),
   );
-  assert.throws(() =>
+  await assert.rejects(() =>
     verify(
       development.replace("Admission(root)", "Admission('wrong')"),
       "development",
     ),
   );
-  assert.throws(() =>
+  await assert.rejects(() =>
     verify(
       doctor.replace(
         "inspectRuntimeOwnedDockerTaskAdmission(root)",
@@ -366,13 +367,14 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
       "api",
     ),
   );
-  assert.throws(() =>
+  await assert.rejects(() =>
     verify(doctor.replace("cwd: root", "cwd: 'wrong'"), "api"),
   );
   let requests = 0;
-  assert.throws(() =>
+  await assert.rejects(() =>
     runInNewContext(doctor, {
       context: {},
+      signal: undefined,
       value: {},
       executionRoot: () => {
         throw new Error("resolver_failed");
@@ -419,6 +421,66 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
       "src/execution/result.ts",
     ],
   );
+});
+
+/**
+ * 非同期doctorの結果が公開APIへ搬送される順序を検証する。
+ * @responsibility Promiseを結果Objectへ展開せず、完了・拒否を待機する接続を確認する。
+ * @trace PRL-IT-013
+ * @precondition 公開API本体の構成式と有限PromiseをVM内で使う。
+ * @stimulus doctorを保留してから正常終了又は拒否する。
+ * @observation 入場照会の回数・順序と公開結果。
+ * @oracle 正常終了後だけ入場照会し、拒否は成功結果へ畳まない。
+ * @cleanup すべての有限Promiseを確定し待機する。外部資源は使わない。
+ * @boundary 公開診断API→doctor。実Probe成立は検証しない。
+ */
+test("診断APIは同じdoctorの完了を待ち、拒否時に入場照会を進めない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/api.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf(
+    "  const root = executionRoot(context);",
+    source.indexOf("export async function diagnoseEnvironment("),
+  );
+  const end = source.indexOf("\n}", start);
+  assert.ok(start > 0 && end > start);
+  const body = `(async () => {\n${source.slice(start, end)}\n})()`;
+  for (const rejected of [false, true]) {
+    let finish: (value: object) => void = () => undefined;
+    let fail: (error: Error) => void = () => undefined;
+    const pending = new Promise((resolve, reject) => {
+      finish = resolve;
+      fail = reject;
+    });
+    const events: string[] = [];
+    const result = runInNewContext(body, {
+      context: {},
+      signal: undefined,
+      value: { activeIsolation: true },
+      executionRoot: () => "fixture-root",
+      runDoctor: (options: { cwd: string }) => {
+        assert.equal(options.cwd, "fixture-root");
+        events.push("doctor");
+        return pending;
+      },
+      inspectRuntimeOwnedDockerTaskAdmission: () => {
+        events.push("admission");
+        return { status: "available" };
+      },
+    });
+    assert.deepEqual(events, ["doctor"]);
+    if (rejected) {
+      fail(new Error("fixture-rejection"));
+      await assert.rejects(result, /fixture-rejection/u);
+      assert.deepEqual(events, ["doctor"]);
+    } else {
+      finish({ status: "observed" });
+      const report = await result;
+      assert.equal(report.status, "observed");
+      assert.deepEqual(events, ["doctor", "admission"]);
+    }
+  }
 });
 
 /**

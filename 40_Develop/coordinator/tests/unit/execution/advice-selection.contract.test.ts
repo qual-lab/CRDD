@@ -100,11 +100,9 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
   );
   assert.equal(result.reason, "fixture_completed");
   assert.equal(typeof codexInput, "object");
-  const { providerCommand, ...flatInput } = codexInput as Record<
-    string,
-    unknown
-  >;
+  const { networkPolicy, ...flatInput } = codexInput as Record<string, unknown>;
   assert.deepEqual(flatInput, {
+    allowedReferences: ["PROJECT_CONTEXT.md"],
     contract: "crdd-coordinator/workbench-ai-advice-execution-plan",
     contractRevision: 2,
     mode: "workbench_advice",
@@ -124,29 +122,8 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
     apiKeyFallbackAllowed: false,
     paidApiFallbackAllowed: false,
   });
-  assert.deepEqual(
-    {
-      provider: (providerCommand as { provider: unknown }).provider,
-      modelIdentifier: (providerCommand as { modelIdentifier: unknown })
-        .modelIdentifier,
-      reasoningEffort: (providerCommand as { reasoningEffort: unknown })
-        .reasoningEffort,
-      repositoryMounted: (providerCommand as { repositoryMounted: unknown })
-        .repositoryMounted,
-      workspaceMountRequired: (
-        providerCommand as { workspaceMountRequired: unknown }
-      ).workspaceMountRequired,
-      toolsAllowed: (providerCommand as { toolsAllowed: unknown }).toolsAllowed,
-    },
-    {
-      provider: "codex",
-      modelIdentifier: selection.modelIdentifier,
-      reasoningEffort: selection.reasoningEffort,
-      repositoryMounted: false,
-      workspaceMountRequired: false,
-      toolsAllowed: false,
-    },
-  );
+  assert.deepEqual(networkPolicy, fixtureNetworkPolicy(selection.provider));
+  assert.equal(Object.hasOwn(codexInput as object, "providerCommand"), false);
   assert.equal(claudeCalls, 0);
 });
 

@@ -963,7 +963,7 @@ async function executeAdvicePlan(
 /**
  * 実行計画が助言専用の非共有境界を維持するか判定する。
  *
- * @responsibility 外部Effect直前に上位計画とProvider CommandのIdentity・禁止条件を再照合する。
+ * @responsibility 外部Effect直前に上位計画の選定・通信条件・非共有条件を再照合する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input plan: 読取り助言実行計画。
@@ -978,16 +978,17 @@ async function executeAdvicePlan(
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function safePlan(plan: ProviderAdviceExecutionPlan) {
+  const selection = inspectExecutionSelection(plan.executionSelection);
+  const policy = parseDockerNetworkPolicy(plan.networkPolicy);
   return (
     plan.mode === "workbench_advice" &&
-    plan.providerCommand.provider === plan.provider &&
-    plan.providerCommand.modelIdentifier === plan.exactModelId &&
-    plan.providerCommand.reasoningEffort === plan.reasoningEffort &&
-    plan.providerCommand.promptTransport === "stdin_only" &&
-    plan.providerCommand.repositoryMounted === false &&
-    plan.providerCommand.workspaceMountRequired === false &&
-    plan.providerCommand.toolsAllowed === false &&
-    plan.providerCommand.sessionPersistenceAllowed === false &&
+    selection?.role === "advice" &&
+    selection.purpose === "advice" &&
+    selection.provider === plan.provider &&
+    selection.modelIdentifier === plan.exactModelId &&
+    selection.reasoningEffort === plan.reasoningEffort &&
+    policy?.provider === plan.provider &&
+    plan.promptTransport === "stdin" &&
     plan.repositoryMounted === false &&
     plan.workspaceMounted === false &&
     plan.toolsAllowed === false &&
@@ -1496,7 +1497,7 @@ function createProviderAdviceRuntime(
         projectionHash: plan.projectionHash,
         providerPrompt: plan.providerPrompt,
         allowedReferences: plan.allowedReferences,
-        providerCommand: plan.providerCommand,
+        networkPolicy: plan.networkPolicy,
       }) as RuntimeRecord;
       packetOwner = objectValue(packet.ownerCapability);
       const packetUse = objectValue(packet.useCapability);

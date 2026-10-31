@@ -13,20 +13,18 @@ import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
 import {
   type DockerRuntimeRepairCheckpoint,
-  disposeDockerRuntimeRepairDirectory,
   dockerIsolationResourceIdentityIsValid,
   dockerRuntimeRepairCheckpointIsSettled,
   dockerRuntimeRepairDisposalIsSettled,
-  observeDockerRuntimeRepairRetention,
   parseDockerTaskRecoveryId,
-  runDockerRuntimeRepairSession,
 } from "../../../docker-isolation/src/index.ts";
 import {
   restartDockerEnvironment,
+  repairDockerEnvironment,
   type DockerRuntimeRestartEvent,
   type DockerRuntimeRestartResult,
-  cleanupAttemptResources,
-  inspectAttemptResources,
+  cleanupResources,
+  inspectResources,
   type AttemptRecoveryTarget,
   type AttemptCleanupResult as AttemptResourceCleanupResult,
   type AttemptResourceInspection,
@@ -2233,6 +2231,7 @@ function projectAttemptRecoveryTarget(
   };
   return Object.freeze({
     operationId: identity.operationId,
+    kind: "attempt" as const,
     recoveryId: operation.recoveryId,
     managementDirectory: directory,
     assertOwner: owner,
@@ -2931,11 +2930,11 @@ export function recoverRuntimeOwnedDockerTaskResources(
     callbacks: ResourceCleanupCallbacks<
       AttemptResourceCleanupResult["resources"]
     >,
-  ) => AttemptResourceCleanupResult = cleanupAttemptResources,
+  ) => AttemptResourceCleanupResult = cleanupResources,
   inspect: (
     target: AttemptRecoveryTarget,
     purpose?: keyof AttemptRecoveryTarget["receipts"],
-  ) => AttemptResourceInspection = inspectAttemptResources,
+  ) => AttemptResourceInspection = inspectResources,
 ) {
   const record =
     capability && typeof capability === "object"
@@ -6145,14 +6144,17 @@ export async function repairRuntimeOwnedDockerRuntime(
         );
       };
       if (!canDispose()) return false;
-      const result = await disposeDockerRuntimeRepairDirectory({
-        operationNonce: identity.operationNonce,
-        ownerBindingSha256: identity.ownerBindingSha256,
-        scopeSha256: identity.scopeSha256,
-        checkpoint: target.checkpoint,
-        purpose,
-        signal,
-        canIssueEffect: canDispose,
+      const result = await cleanupResources({
+        kind: "docker_runtime_directory",
+        input: {
+          operationNonce: identity.operationNonce,
+          ownerBindingSha256: identity.ownerBindingSha256,
+          scopeSha256: identity.scopeSha256,
+          checkpoint: target.checkpoint,
+          purpose,
+          signal,
+          canIssueEffect: canDispose,
+        },
       });
       if (!currentOwner() || !target.disposal) return false;
       const prior = target.disposal.checkpoint.directories[purpose];
@@ -6595,13 +6597,16 @@ export async function repairRuntimeOwnedDockerRuntime(
             )
               return stopped();
             const identity = JSON.parse(target.identityJson);
-            const targets = observeDockerRuntimeRepairRetention({
-              operationNonce: identity.operationNonce,
-              ownerBindingSha256: identity.ownerBindingSha256,
-              scopeSha256: identity.scopeSha256,
-              checkpoint: target.checkpoint,
-              signal,
-              canObserve: currentOwner,
+            const targets = inspectResources({
+              kind: "docker_runtime_directory",
+              input: {
+                operationNonce: identity.operationNonce,
+                ownerBindingSha256: identity.ownerBindingSha256,
+                scopeSha256: identity.scopeSha256,
+                checkpoint: target.checkpoint,
+                signal,
+                canObserve: currentOwner,
+              },
             });
             if (!targets || signal.aborted || !currentOwner()) return stopped();
             const decidedAt = new Date().toISOString();
@@ -6784,7 +6789,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       `OP-${BigInt(`0x${randomUUID().replaceAll("-", "")}`)
         .toString(10)
         .padStart(6, "0")}`;
-    const result = await runDockerRuntimeRepairSession({
+    const result = await repairDockerEnvironment({
       operationNonce: nonce,
       signal,
       resume:

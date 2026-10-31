@@ -14,22 +14,18 @@ import {
   containsRecognizedSecretScope,
   containsRecognizedSecretText,
 } from "../../../domain-model/src/index.ts";
-import {
-  prepareAdviceCommand,
-  type CompletionResult,
-  type AttemptRequest,
-  type Executor,
+import type {
+  CompletionResult,
+  AttemptRequest,
+  Executor,
 } from "../../../executor/src/index.ts";
 import {
-  type AdviceCommand,
-  hashAdviceCommand,
   type DockerNetworkPolicy,
   parseDockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import {
   evaluateProviderTaskScope,
-  PROVIDER_ADVICE_COMMAND_CONTRACT,
-  PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
+  resolveAiModelSelection,
   type AiReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
 import { createHash, randomBytes } from "node:crypto";
@@ -124,6 +120,22 @@ type ReviewFindings = NonNullable<CompletionResult["reviewFindings"]>;
 // 移管した一回使用証拠。次Taskの許可はCoordinatorだけが所有する。
 /** 上位が所有する準備候補の有効期間。Executorの実行期限ではない。 */
 const PREPARATION_LIFETIME_MS = 30_000;
+const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT =
+  "crdd-coordinator/workbench-ai-advice-execution-plan";
+const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 2;
+const providerPlanSHA256 = /^[a-f0-9]{64}$/u;
+const EXECUTION_INPUT_KEYS = Object.freeze([
+  "allowedReferences",
+  "exactModelId",
+  "networkPolicy",
+  "offering",
+  "executionSelection",
+  "projectionHash",
+  "provider",
+  "providerPrompt",
+  "reasoningEffort",
+  "taskHash",
+]);
 
 const reviewRemediations = new WeakMap<
   object,
@@ -637,9 +649,8 @@ function consumeAttemptAdvicePacket(use: unknown, owner: unknown) {
         executionSelection: packet.executionSelection,
         selectionHash: packet.selectionHash,
         provider: packet.provider,
-        commandHash: packet.commandHash,
         packetHash: packet.packetHash,
-        providerCommand: packet.providerCommand,
+        networkPolicy: packet.networkPolicy,
         providerPrompt: packet.providerPrompt,
         repositoryMounted: packet.repositoryMounted,
         workspaceMounted: packet.workspaceMounted,
@@ -825,36 +836,14 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 
 const MAXIMUM_PROMPT_BYTES = 512 * 1024;
 
-const COMMAND_KEYS = Object.freeze([
-  "argv",
-  "command",
-  "contract",
-  "contractRevision",
-  "environment",
-  "modelIdentifier",
-  "identifierKind",
-  "catalogIdentity",
-  "fixedImageDigest",
-  "networkPolicy",
-  "promptTransport",
-  "provider",
-  "providerHomeMountRequired",
-  "reasoningEffort",
-  "repositoryMounted",
-  "resultTransport",
-  "sessionPersistenceAllowed",
-  "toolsAllowed",
-  "workspaceMountRequired",
-] as const);
-
 /**
  * 読取り助言Runtime Packetの発行入力を表す。
  *
- * @responsibility 上位で検証済みのIdentity、PromptおよびProvider Commandを発行境界へ渡す。
+ * @responsibility 上位で検証済みのIdentity、Prompt、参照と通信条件を発行境界へ渡す。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @shape Operation、固定選定、Task、Projection、Promptおよび固定Commandからなる読取り専用値である。
- * @invariant Provider Commandとproviderは一致する。
+ * @shape Operation、固定選定、Task、Projection、Prompt、参照およびNetwork Policyからなる読取り専用値である。
+ * @invariant 完全選定とNetwork PolicyのProviderは同じであり、技術Commandを入力しない。
  * @boundary 読取り助言計画と一回消費Packet発行の間。
  * @security Repository Path、Workspace PathおよびCredentialを入力へ含めない。
  * @compatibility revision 2のPacket発行だけで使用する。
@@ -867,7 +856,7 @@ export type ProviderAdvicePacketInput = Readonly<{
   taskHash: string;
   projectionHash: string;
   providerPrompt: string;
-  providerCommand: AdviceCommand;
+  networkPolicy: DockerNetworkPolicy;
 }>;
 
 /**
@@ -1063,7 +1052,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
       "taskHash",
       "projectionHash",
       "providerPrompt",
-      "providerCommand",
+      "networkPolicy",
       "allowedReferences",
     ]),
   );
@@ -1094,20 +1083,17 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     executionSelection: fixed,
     allowedReferences,
   } as ProviderAdvicePacketInput;
-  let providerCommand: AdviceCommand | null = null;
-  let commandHash: string | null = null;
+  const networkPolicy = parseDockerNetworkPolicy(input.networkPolicy);
   let token: string | null = null;
   try {
-    providerCommand = snapshotCommand(input.providerCommand);
-    commandHash = providerCommand ? hashAdviceCommand(providerCommand) : null;
     token = state.randomHex(16);
   } catch {
-    providerCommand = null;
+    token = null;
   }
   if (
-    !providerCommand ||
-    !validInput(input, providerCommand) ||
-    !commandHash ||
+    !networkPolicy ||
+    networkPolicy.provider !== input.provider ||
+    !validInput(input) ||
     !token ||
     !/^[a-f0-9]{32}$/u.test(token)
   )
@@ -1135,7 +1121,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
         provider: input.provider,
         taskHash: input.taskHash,
         projectionHash: input.projectionHash,
-        commandHash,
+        networkPolicy,
         providerPromptSha256: createHash("sha256")
           .update(input.providerPrompt, "utf8")
           .digest("hex"),
@@ -1157,9 +1143,8 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     provider: input.provider,
     taskHash: input.taskHash,
     projectionHash: input.projectionHash,
-    commandHash,
+    networkPolicy,
     packetHash,
-    providerCommand,
     allowedReferences: Object.freeze([...input.allowedReferences]),
     providerPrompt: input.providerPrompt,
     repositoryMounted: false as const,
@@ -1252,7 +1237,7 @@ function revoke(state: RuntimeState, ownerCapability: unknown) {
  * @input input: Packet発行候補。
  * @returns 固定条件をすべて満たす場合だけtrueを返す。
  * @precondition inputの型宣言だけを信頼せず実値を検査する。
- * @postcondition trueの場合はPromptとCommandをPacketへ固定できる。
+ * @postcondition trueの場合はPrompt・参照・PolicyをPacketへ固定できる。
  * @effect N/A: 値の読取りだけを行う。
  * @failure 不正値をfalseへ閉じる。
  * @invariant Repository／Workspace共有、Tool、Sessionを許可しない。
@@ -1260,204 +1245,25 @@ function revoke(state: RuntimeState, ownerCapability: unknown) {
  * @security PathやCredentialを補完しない。
  * @concurrency N/A: 共有状態を変更しない同期判定である。
  */
-function validInput(
-  input: ProviderAdvicePacketInput,
-  providerCommand: AdviceCommand,
-) {
+function validInput(input: ProviderAdvicePacketInput) {
   const selection = inspectExecutionSelection(input.executionSelection);
   return (
+    typeof input.operationId === "string" &&
+    typeof input.taskHash === "string" &&
+    typeof input.projectionHash === "string" &&
+    typeof input.providerPrompt === "string" &&
     providerPacketOPERATION_ID.test(input.operationId) &&
     selection?.role === "advice" &&
     selection.provider === input.provider &&
-    selection.modelIdentifier === providerCommand.modelIdentifier &&
-    selection.identifierKind === providerCommand.identifierKind &&
-    selection.reasoningEffort === providerCommand.reasoningEffort &&
+    selection.purpose === "advice" &&
     SHA256.test(input.taskHash) &&
     SHA256.test(input.projectionHash) &&
     input.providerPrompt.trim() === input.providerPrompt &&
     input.providerPrompt.length > 0 &&
     !input.providerPrompt.includes("\0") &&
-    Buffer.byteLength(input.providerPrompt, "utf8") <= MAXIMUM_PROMPT_BYTES &&
-    providerCommand.provider === input.provider &&
-    providerCommand.promptTransport === "stdin_only" &&
-    providerCommand.repositoryMounted === false &&
-    providerCommand.workspaceMountRequired === false &&
-    providerCommand.toolsAllowed === false &&
-    providerCommand.sessionPersistenceAllowed === false
+    Buffer.byteLength(input.providerPrompt, "utf8") <= MAXIMUM_PROMPT_BYTES
   );
 }
-
-/**
- * Provider Commandをexactな不変Snapshotへ変換する。
- *
- * @responsibility 未知Property、getter、可変配列および可変Environment参照をPacketへ持ち込まない。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input command: Provider Command候補。
- * @returns exact Schemaを満たす不変Snapshot、不正時はnullを返す。
- * @precondition 型宣言やObject凍結状態を信頼しない。
- * @postcondition 戻り値のargv、environmentおよび外側Objectは凍結されている。
- * @effect N/A: 値を検査して複製するだけである。
- * @failure 未知Key、custom prototype、getter、非文字列引数または環境値をnullへ閉じる。
- * @invariant 元Objectを変更してもSnapshotは変化しない。
- * @boundary 上位計画のCommand ObjectとRuntime Packetの間。
- * @security 任意Propertyや遅延getterをEffect直前境界へ持ち込まない。
- * @concurrency N/A: 共有状態を変更しない同期処理である。
- */
-function snapshotCommand(command: AdviceCommand) {
-  if (!plainExactRecord(command, COMMAND_KEYS)) return null;
-  if (
-    command.contract !== PROVIDER_ADVICE_COMMAND_CONTRACT ||
-    command.contractRevision !== PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION ||
-    (command.identifierKind !== "exact" &&
-      command.identifierKind !== "alias") ||
-    typeof command.modelIdentifier !== "string" ||
-    !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(command.modelIdentifier) ||
-    typeof command.catalogIdentity !== "string" ||
-    !SHA256.test(command.catalogIdentity)
-  )
-    return null;
-  const networkPolicy =
-    command?.networkPolicy === null
-      ? null
-      : parseDockerNetworkPolicy(command?.networkPolicy);
-  if (
-    (command.networkPolicy !== null &&
-      (!networkPolicy || networkPolicy.provider !== command.provider)) ||
-    !Array.isArray(command.argv) ||
-    command.argv.length === 0 ||
-    !command.argv.every(
-      (value) =>
-        typeof value === "string" && value.length > 0 && !value.includes("\0"),
-    ) ||
-    !plainStringRecord(command.environment)
-  )
-    return null;
-  return Object.freeze({
-    contract: command.contract,
-    contractRevision: command.contractRevision,
-    provider: command.provider,
-    command: command.command,
-    argv: Object.freeze([...command.argv]),
-    environment: Object.freeze({ ...command.environment }),
-    fixedImageDigest: command.fixedImageDigest,
-    networkPolicy,
-    modelIdentifier: command.modelIdentifier,
-    identifierKind: command.identifierKind,
-    catalogIdentity: command.catalogIdentity,
-    reasoningEffort: command.reasoningEffort,
-    promptTransport: command.promptTransport,
-    resultTransport: command.resultTransport,
-    providerHomeMountRequired: command.providerHomeMountRequired,
-    repositoryMounted: command.repositoryMounted,
-    workspaceMountRequired: command.workspaceMountRequired,
-    toolsAllowed: command.toolsAllowed,
-    sessionPersistenceAllowed: command.sessionPersistenceAllowed,
-  }) as AdviceCommand;
-}
-
-/**
- * 候補Objectが指定Keyだけをdata propertyとして持つか判定する。
- *
- * @responsibility custom prototype、余分Key、欠落Keyおよびgetterを拒否する。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input value: Object候補、keys: 許可Key集合。
- * @returns exactな通常Objectの場合だけtrueを返す。
- * @precondition keysは重複しない固定配列である。
- * @postcondition trueの場合は全Keyがenumerableなdata propertyである。
- * @effect N/A: Property Descriptorを観測するだけである。
- * @failure 不正Objectをfalseへ閉じる。
- * @invariant getterを評価しない。
- * @boundary 未信頼ObjectとPacket Snapshotの間。
- * @security prototype汚染や副作用getterを受理しない。
- * @concurrency N/A: 共有状態を変更しない同期判定である。
- */
-function plainExactRecord<const Keys extends readonly string[]>(
-  value: unknown,
-  keys: Keys,
-): value is Record<Keys[number], unknown> {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype
-  )
-    return false;
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const actualKeys = Object.keys(descriptors).sort();
-  const expectedKeys = [...keys].sort();
-  return (
-    actualKeys.length === expectedKeys.length &&
-    actualKeys.every((key, index) => key === expectedKeys[index]) &&
-    expectedKeys.every((key) => {
-      const descriptor = descriptors[key];
-      return (
-        descriptor !== undefined &&
-        Object.hasOwn(descriptor, "value") &&
-        descriptor.get === undefined &&
-        descriptor.set === undefined &&
-        descriptor.enumerable === true
-      );
-    })
-  );
-}
-
-/**
- * Environment候補を通常文字列Recordとして判定する。
- *
- * @responsibility Environmentのprototype、data propertyおよび文字列値だけを許可する。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input value: Environment候補。
- * @returns 通常Objectの全enumerable data propertyが安全な文字列ならtrueを返す。
- * @precondition 任意のunknown値を受け取る。
- * @postcondition trueの場合はspreadで副作用なくSnapshot化できる。
- * @effect N/A: Property Descriptorを観測するだけである。
- * @failure getter、custom prototype、NULまたは非文字列値をfalseへ閉じる。
- * @invariant Environment名や値を補正しない。
- * @boundary Provider Command環境とRuntime Packetの間。
- * @security 遅延getterおよびNULを受理しない。
- * @concurrency N/A: 共有状態を変更しない同期判定である。
- */
-function plainStringRecord(value: unknown): value is Record<string, string> {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype
-  )
-    return false;
-  return Object.values(Object.getOwnPropertyDescriptors(value)).every(
-    (descriptor) =>
-      Object.hasOwn(descriptor, "value") &&
-      descriptor.get === undefined &&
-      descriptor.set === undefined &&
-      descriptor.enumerable === true &&
-      typeof descriptor.value === "string" &&
-      !descriptor.value.includes("\0"),
-  );
-}
-
-const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT =
-  "crdd-coordinator/workbench-ai-advice-execution-plan";
-
-const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 2;
-
-const providerPlanSHA256 = /^[a-f0-9]{64}$/u;
-
-const EXECUTION_INPUT_KEYS = Object.freeze([
-  "allowedReferences",
-  "exactModelId",
-  "networkPolicy",
-  "offering",
-  "executionSelection",
-  "projectionHash",
-  "provider",
-  "providerPrompt",
-  "reasoningEffort",
-  "taskHash",
-]);
 
 /**
  * 読取り助言の固定Provider実行計画で使用するProviderAdviceExecutionInputの構造を固定する。
@@ -1516,7 +1322,7 @@ export type ProviderAdviceExecutionPlan = Readonly<{
   sessionPersistenceAllowed: false;
   apiKeyFallbackAllowed: false;
   paidApiFallbackAllowed: false;
-  providerCommand: AdviceCommand;
+  networkPolicy: DockerNetworkPolicy;
 }>;
 
 /**
@@ -1589,8 +1395,18 @@ export function prepareProviderAdvicePlan(
     return advicePlanRejected();
 
   const fixed = inspectExecutionSelection(input.executionSelection);
+  const technical = fixed
+    ? resolveAiModelSelection({
+        provider: fixed.provider,
+        modelIdentifier: fixed.modelIdentifier,
+        reasoningEffort: fixed.reasoningEffort,
+        purpose: "advice",
+      })
+    : null;
   if (
     fixed?.role !== "advice" ||
+    technical?.status !== "resolved" ||
+    technical.value.identifierKind !== fixed.identifierKind ||
     fixed.provider !== input.provider ||
     fixed.modelIdentifier !== input.exactModelId ||
     fixed.reasoningEffort !== input.reasoningEffort ||
@@ -1599,17 +1415,6 @@ export function prepareProviderAdvicePlan(
       (fixed.provider === "codex" ? "chatgpt_subscription_oauth" : "claude_max")
   )
     return advicePlanRejected();
-  const generated = prepareAdviceCommand({
-    selection: {
-      provider: fixed.provider,
-      modelIdentifier: fixed.modelIdentifier,
-      identifierKind: fixed.identifierKind,
-      reasoningEffort: fixed.reasoningEffort,
-      purpose: "advice",
-    },
-    networkPolicy,
-  });
-  if (!generated) return advicePlanRejected();
   return Object.freeze({
     status: "prepared" as const,
     reason: null,
@@ -1635,7 +1440,7 @@ export function prepareProviderAdvicePlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      providerCommand: generated.command,
+      networkPolicy,
     }),
   });
 }
@@ -3344,8 +3149,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
                 ? {
                     purpose: "advice",
                     input: advice.providerPrompt,
-                    commandHash: advice.commandHash,
-                    command: advice.providerCommand,
+                    networkPolicy: advice.networkPolicy,
                     allowedReferences: advice.allowedReferences,
                   }
                 : { purpose: "probe" }),
@@ -3373,7 +3177,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
                   request.purpose === "task"
                     ? request.networkPolicy
                     : request.purpose === "advice"
-                      ? request.command.networkPolicy
+                      ? request.networkPolicy
                       : null,
                 taskRole: request.purpose === "task" ? request.taskRole : null,
                 ...(provider === "claude"
@@ -3384,8 +3188,6 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
                           : null,
                     }
                   : {}),
-                adviceCommandHash:
-                  request.purpose === "advice" ? request.commandHash : null,
                 adviceAllowedReferences:
                   request.purpose === "advice"
                     ? request.allowedReferences

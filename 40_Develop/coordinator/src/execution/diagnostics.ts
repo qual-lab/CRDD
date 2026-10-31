@@ -6,6 +6,13 @@
  */
 
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
+import {
+  createExecutor,
+  type IsolationProbeRequest,
+  type IsolationProbeOptions,
+  type IsolationProbeExecutor,
+  type IsolationProbeResult,
+} from "../../../executor/src/index.ts";
 import { performance } from "node:perf_hooks";
 import fs from "node:fs";
 import {
@@ -74,14 +81,13 @@ import {
   describeDockerProxyTopology,
   createDockerProbeRuntimeBinding,
   type DockerProbeProfile,
-  type classifyDockerProbeExecution,
+  type DockerProbeExecutionFacts,
   inspectDockerProbeContainer,
   describeDockerProbeConfiguration,
   observeDockerProbeContainerAbsence,
   cleanupDockerProbeContainer,
   observeDockerProbeEngine,
   createDockerProbeContainer,
-  runDockerProbeToCompletion,
   runDockerProbeCancellation,
   startDockerProbeResidue,
   describeDockerProbeResource,
@@ -3656,9 +3662,9 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
  * @invariant runDoctorは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
  * @security 秘密値はReportへ含めず、取得済みOperationの所有境界を維持する。診断成功から実Providerの成立を推定しない。
- * @concurrency N/A: runDoctorは共有非同期状態を持たない同期処理である。
+ * @concurrency 同じOperationの隔離試験・終了整理を待機してから結果を返す。
  */
-export function runDoctor(options: unknown = {}) {
+export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
   const normalizedOptions = normalizeDoctorOptions(options);
   const isIsolationActive = normalizedOptions.activeIsolation;
   const cwd = normalizedOptions.cwd;
@@ -3688,7 +3694,7 @@ export function runDoctor(options: unknown = {}) {
     });
 
     const isolation = isIsolationActive
-      ? runDockerIsolationProbe(owned)
+      ? await runDockerIsolationProbe(owned, signal)
       : Object.freeze({
           status: "not_implemented",
           reason: "filesystem_boundary_not_enforced",
@@ -3927,7 +3933,7 @@ type AbsenceObservation = Readonly<{
   containerId: string;
   hostRecoveryId: string;
   rootName: string;
-  cli: ProbeBinding;
+  cli: object;
 }>;
 
 /**
@@ -4375,7 +4381,7 @@ function dynamicFakeLifecycleBlocked(
  * @concurrency 同期投影だけ。
  */
 function projectProbeExecutionFacts(
-  facts: ReturnType<typeof classifyDockerProbeExecution>,
+  facts: DockerProbeExecutionFacts,
 ): DynamicFakeProviderLifecycleObservation {
   return Object.freeze({
     ...dynamicFakeLifecycleBlocked(facts.lifecycleReason),
@@ -4498,7 +4504,7 @@ function normalizeCancellationFailure(error: unknown): string {
  * @concurrency 新しい参照ごとに独立登録し、既存の後続消費規則を維持する。
  */
 function createDynamicFakeProviderLifecycleCapability(
-  facts: ReturnType<typeof classifyDockerProbeExecution>,
+  facts: DockerProbeExecutionFacts,
   context: Readonly<{
     probeId: string;
     containerId: string;
@@ -4797,7 +4803,7 @@ function confirmDockerAbsence(
     probeId: string;
     id: string;
     rootName: string;
-    cli: ProbeBinding;
+    cli: object;
     root: string;
   }>,
 ): Readonly<{
@@ -5253,147 +5259,152 @@ function finishPreSubmissionCleanup(
  *
  * @responsibility Docker Isolation Scenarioの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
- * @input owned: unknown、scenario: DynamicFakeProviderFailureScenario | null
+ * @input owned: 元Host操作。create: 通常は既存Executor入口、有限試験では同じ技術生涯のFactory。signal: 同じ試行の取消。
  * @returns DockerProbeResultを返す。
- * @precondition 「owned: unknown、scenario: DynamicFakeProviderFailureScenario | null」がrunDockerIsolationScenarioの入力契約を満たす。
+ * @precondition 上位がHost操作の現在Ownerと保存権限を確認している。
  * @postcondition runDockerIsolationScenarioの責務を完了した結果だけを返す。
- * @effect N/A: runDockerIsolationScenarioは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Host Intent・実ID・不存在と終了を保存し、技術実行・回収をExecutorへ委譲する。
  * @failure runDockerIsolationScenarioは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant runDockerIsolationScenarioは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runDockerIsolationScenarioはProcess内の同一Subsystemで完結する。
+ * @boundary Coordinatorの保存・Host終了判断とExecutorの固定合成Probe。
  * @security runDockerIsolationScenarioはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: runDockerIsolationScenarioは共有非同期状態を持たない同期処理である。
+ * @concurrency 同じExecutorのcompletionを待ち、取消Listenerを解除してからHost終了を判断する。
  */
-function runDockerIsolationScenario(
+async function runDockerIsolationScenario(
   owned: unknown,
-  scenario: DynamicFakeProviderFailureScenario | null,
-): DockerProbeResult {
-  const probeId = randomUUID();
-  let cli: ProbeBinding | null = null;
+  create: (
+    request: IsolationProbeRequest,
+    options: IsolationProbeOptions,
+  ) => IsolationProbeExecutor | null = createExecutor,
+  signal?: AbortSignal,
+): Promise<DockerProbeResult> {
+  const probeId = randomUUID(),
+    recoveryNonce = randomUUID();
   let mountCapability: Readonly<{ kind: "owned_operation_mounts" }> | null =
     null;
   let mounts: DockerMounts | null = null;
-  let containerCapability: Readonly<{ kind: "owned_docker_probe" }> | null =
-    null;
-  let containerIdentity: ContainerIdentity | null = null;
   let recoveryId: string | null = null;
   let hostRecoveryId = getOwnedHostRecoveryId(owned);
-  let hasSubmissionStarted = false;
-  let hasContainerCreateAttempted = false;
-  let hasRollbackFailed = false;
-  const recoveryNonce = randomUUID();
-  let result: DockerProbeResult = isolationProbeBlocked(
-    "docker_isolation_probe_failed",
-  );
+  let hasSubmissionStarted = false,
+    hasContainerCreateAttempted = false,
+    hasRollbackFailed = false;
+  let result = isolationProbeBlocked("docker_isolation_probe_failed");
   let dynamicLifecycleCapability: Readonly<{
     kind: "dynamic_fake_provider_lifecycle";
   }> | null = null;
+  let executor: IsolationProbeExecutor | null = null;
+  let outcome: IsolationProbeResult | null = null;
+  let notificationFailure: unknown;
+  const onAbort = () => executor?.cancel();
   try {
-    cli = createDockerProbeRuntimeBinding(() => {
-      mountCapability = createOwnedMountCapability(owned);
-      mounts = verifyOwnedMountCapability(mountCapability);
-      return mounts.management;
-    });
-    if (!mountCapability)
-      throw new Error("owned_operation_mount_capability_required");
-    if (!observeDockerProbeEngine(cli)) {
-      result = isolationProbeBlocked(
-        "local_docker_desktop_linux_engine_required",
-        probeId,
-      );
-    } else {
-      mounts = verifyOwnedMountCapability(mountCapability);
-      hostRecoveryId = beginDockerSubmission(hostRecoveryId, mountCapability);
-      hasSubmissionStarted = true;
-      try {
-        recoveryId = writeDockerProbeRecoveryRecord(
-          mounts,
-          probeId,
-          recoveryNonce,
-          hostRecoveryId,
-          null,
-        );
-      } catch (error) {
+    executor = create(
+      { kind: "isolation_probe", probeId },
+      {
+        readMounts: () => {
+          if (!mountCapability)
+            mountCapability = createOwnedMountCapability(owned);
+          mounts = verifyOwnedMountCapability(mountCapability);
+          return {
+            management: mounts.management,
+            workspace: mounts.workspace,
+            providerHome: mounts.providerHome,
+            tmp: mounts.tmp,
+          };
+        },
+      },
+    );
+    if (!executor) throw new Error("docker_isolation_probe_failed");
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
+    outcome = await executor.start({
+      onSubmitting: () => {
         try {
-          hostRecoveryId = cancelDockerSubmissionBeforeCreate(
+          if (!mountCapability || !mounts)
+            throw new Error("owned_operation_mount_capability_required");
+          mounts = verifyOwnedMountCapability(mountCapability);
+          hostRecoveryId = beginDockerSubmission(
             hostRecoveryId,
             mountCapability,
           );
-          hasSubmissionStarted = false;
-        } catch {
-          hasRollbackFailed = true;
+          hasSubmissionStarted = true;
+          try {
+            recoveryId = writeDockerProbeRecoveryRecord(
+              mounts,
+              probeId,
+              recoveryNonce,
+              hostRecoveryId,
+              null,
+            );
+          } catch (error) {
+            try {
+              hostRecoveryId = cancelDockerSubmissionBeforeCreate(
+                hostRecoveryId,
+                mountCapability,
+              );
+              hasSubmissionStarted = false;
+            } catch {
+              hasRollbackFailed = true;
+            }
+            throw error;
+          }
+        } catch (error) {
+          notificationFailure = error;
+          throw error;
         }
-        throw error;
-      }
-      hasContainerCreateAttempted = true;
-      const creationCli = cli;
-      const normalizedCreation = createDockerProbeContainer(
-        creationCli,
-        scenario ?? "normal",
+      },
+      onCreated: (id) => {
+        try {
+          if (!mountCapability)
+            throw new Error("owned_operation_mount_capability_required");
+          mounts = verifyOwnedMountCapability(mountCapability);
+          recoveryId = writeDockerProbeRecoveryRecord(
+            mounts,
+            probeId,
+            recoveryNonce,
+            hostRecoveryId,
+            id,
+          );
+        } catch (error) {
+          notificationFailure = error;
+          throw error;
+        }
+      },
+    }).completion;
+    hasContainerCreateAttempted = outcome.creationAttempted;
+    if (notificationFailure) throw notificationFailure;
+    if (
+      !outcome.facts ||
+      !outcome.containerId ||
+      !mountCapability ||
+      outcome.reason !== outcome.facts.isolation.reason ||
+      outcome.cancelled ||
+      !outcome.processCompletionConfirmed
+    ) {
+      result = isolationProbeBlocked(
+        outcome.reason ?? "docker_isolation_probe_failed",
         probeId,
+        hasSubmissionStarted,
+        recoveryId,
+      );
+    } else {
+      mounts = verifyOwnedMountCapability(mountCapability);
+      const normalized = outcome.facts.isolation;
+      result = {
+        ...isolationProbeBlocked(normalized.reason, probeId),
+        status: normalized.status === "confirmed" ? "confirmed" : "blocked",
+        fakeProviderLifecycle: dynamicFakeLifecycleBlocked(
+          "dynamic_fake_provider_absence_unconfirmed",
+        ),
+      };
+      dynamicLifecycleCapability = createDynamicFakeProviderLifecycleCapability(
+        outcome.facts,
         {
-          workspace: mounts.workspace,
-          providerHome: mounts.providerHome,
-          tmp: mounts.tmp,
+          probeId,
+          containerId: outcome.containerId,
+          mountCapability,
+          hostRecoveryId,
         },
       );
-      if (normalizedCreation.status !== "confirmed") {
-        result = isolationProbeBlocked(
-          "docker_container_identity_unknown",
-          probeId,
-          true,
-          recoveryId,
-        );
-      } else {
-        const identity = Object.freeze({
-          id: normalizedCreation.id,
-          probeId,
-          profile: scenario ?? "normal",
-        });
-        containerIdentity = identity;
-        containerCapability = Object.freeze({ kind: "owned_docker_probe" });
-        containerIdentities.set(containerCapability, identity);
-        recoveryId = writeDockerProbeRecoveryRecord(
-          mounts,
-          probeId,
-          recoveryNonce,
-          hostRecoveryId,
-          identity.id,
-        );
-        mounts = verifyOwnedMountCapability(mountCapability);
-        if (!inspectOwnedContainer(cli, containerCapability, mounts)) {
-          result = isolationProbeBlocked(
-            "docker_container_security_profile_mismatch",
-            probeId,
-            true,
-            recoveryId,
-          );
-        } else {
-          mounts = verifyOwnedMountCapability(mountCapability);
-          const executionCli = cli;
-          const facts = runDockerProbeToCompletion(
-            executionCli,
-            scenario ?? "normal",
-            identity.id,
-          );
-          const normalized = facts.isolation;
-          result = {
-            ...isolationProbeBlocked(normalized.reason, probeId),
-            status: normalized.status === "confirmed" ? "confirmed" : "blocked",
-            fakeProviderLifecycle: dynamicFakeLifecycleBlocked(
-              "dynamic_fake_provider_absence_unconfirmed",
-            ),
-          };
-          mounts = verifyOwnedMountCapability(mountCapability);
-          dynamicLifecycleCapability =
-            createDynamicFakeProviderLifecycleCapability(facts, {
-              probeId,
-              containerId: identity.id,
-              mountCapability,
-              hostRecoveryId,
-            });
-        }
-      }
     }
   } catch (error) {
     result = normalizeDockerProbeFailure(error, probeId, {
@@ -5403,34 +5414,42 @@ function runDockerIsolationScenario(
       rollbackFailed: hasRollbackFailed,
     });
   } finally {
-    if (containerCapability && cli && mounts) {
+    signal?.removeEventListener("abort", onAbort);
+    if (outcome?.containerId && executor && mountCapability && mounts) {
       try {
-        const cleanup = cleanupOwnedContainer(
-          cli,
-          containerCapability,
-          mounts,
-          hostRecoveryId,
-        );
-        if (!cleanup.confirmed) {
+        if (!outcome.cleanupConfirmed) {
           invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
           result = isolationProbeBlocked(
-            cleanup.reason,
+            outcome.reason ?? "docker_probe_cleanup_failed",
             probeId,
             true,
             recoveryId,
           );
         } else {
+          mounts = verifyOwnedMountCapability(mountCapability);
+          const absenceCapability = Object.freeze({ kind: "docker_absence" });
+          const expected = {
+            probeId,
+            id: outcome.containerId,
+            rootName: path.basename(path.dirname(mounts.management)),
+            cli: executor,
+            root: path.dirname(mounts.management),
+          };
+          absenceCapabilities.set(
+            absenceCapability,
+            Object.freeze({
+              probeId,
+              containerId: outcome.containerId,
+              hostRecoveryId,
+              rootName: expected.rootName,
+              cli: executor,
+            }),
+          );
           const absence = confirmDockerAbsence(
             hostRecoveryId,
             mountCapability,
-            cleanup.absenceCapability,
-            {
-              probeId,
-              id: containerIdentity?.id ?? "",
-              rootName: path.basename(path.dirname(mounts.management)),
-              cli,
-              root: path.dirname(mounts.management),
-            },
+            absenceCapability,
+            expected,
           );
           hostRecoveryId = absence.hostRecoveryId;
           const hostCleanup = finishHostRecovery(
@@ -5442,8 +5461,6 @@ function runDockerIsolationScenario(
           result = hostCleanup.result;
           if (
             dynamicLifecycleCapability &&
-            mountCapability &&
-            containerIdentity &&
             result.status === "confirmed" &&
             result.hostCleanupCompleted &&
             hostCleanup.lifecycleHostCleanupCapability
@@ -5453,7 +5470,7 @@ function runDockerIsolationScenario(
                 dynamicLifecycleCapability,
                 {
                   probeId,
-                  containerId: containerIdentity.id,
+                  containerId: outcome.containerId,
                   mountCapability,
                   absenceCapability: absence.lifecycleAbsenceCapability,
                   hostCleanupCapability:
@@ -5476,15 +5493,15 @@ function runDockerIsolationScenario(
             };
           } else {
             invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
-            const failureReason =
+            const reason =
               result.status === "blocked"
                 ? result.reason
                 : "dynamic_fake_provider_finalization_incomplete";
             result = {
               ...result,
               status: "blocked",
-              reason: failureReason,
-              fakeProviderLifecycle: dynamicFakeLifecycleBlocked(failureReason),
+              reason,
+              fakeProviderLifecycle: dynamicFakeLifecycleBlocked(reason),
             };
           }
         }
@@ -5506,8 +5523,6 @@ function runDockerIsolationScenario(
         probeId,
       );
     }
-    if (hasSubmissionStarted && !containerCapability)
-      invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
   }
   return {
     ...result,
@@ -5518,7 +5533,6 @@ function runDockerIsolationScenario(
     }),
   };
 }
-
 /**
  * Docker Isolation Probeを実行する。
  *
@@ -5533,10 +5547,13 @@ function runDockerIsolationScenario(
  * @invariant runDockerIsolationProbeは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 私有Operation相関・回復保存とDIの固定Probe技術処置。
  * @security runDockerIsolationProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: runDockerIsolationProbeは共有非同期状態を持たない同期処理である。
+ * @concurrency 同じExecutorのcompletionと取消Listener解除を待ち、Host終了判断まで返却しない。
  */
-export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
-  return runDockerIsolationScenario(owned, null);
+export async function runDockerIsolationProbe(
+  owned: unknown,
+  signal?: AbortSignal,
+): Promise<DockerProbeResult> {
+  return runDockerIsolationScenario(owned, createExecutor, signal);
 }
 
 /**
@@ -5553,13 +5570,19 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
  * @invariant runDynamicFakeProviderFailureScenarioは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 検証専用の固定Scenarioと本番Probeと共有する私有相関Owner。Package Rootへ公開しない。
  * @security runDynamicFakeProviderFailureScenarioはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: runDynamicFakeProviderFailureScenarioは共有非同期状態を持たない同期処理である。
+ * @concurrency 固定故障Profileも同じ非同期completionと上位終了判断まで待機する。
  */
-export function runDynamicFakeProviderFailureScenario(
+export async function runDynamicFakeProviderFailureScenario(
   owned: unknown,
   scenario: DynamicFakeProviderFailureScenario,
-): DockerProbeResult {
-  return runDockerIsolationScenario(owned, scenario);
+  create: (
+    request: IsolationProbeRequest,
+    options: IsolationProbeOptions,
+  ) => IsolationProbeExecutor | null,
+): Promise<DockerProbeResult> {
+  if (!DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS.includes(scenario))
+    throw new Error("docker_probe_profile_invalid");
+  return runDockerIsolationScenario(owned, create);
 }
 
 /**

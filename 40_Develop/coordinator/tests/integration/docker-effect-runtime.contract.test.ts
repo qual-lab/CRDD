@@ -10,8 +10,6 @@
  */
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { hashAdviceCommand } from "../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
@@ -52,9 +50,6 @@ import {
   bindIsolationRuntime,
   describeIsolationContract,
 } from "../../../executor/scripts/executor-test.ts";
-import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindAdviceCommand } from "../../../docker-isolation/src/index.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -177,33 +172,6 @@ function createPlanFixture(
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
-      const providerCommand = bindAdviceCommand(
-        planProviderExecution(
-          {
-            provider: {
-              provider,
-              exactModelId: model,
-              reasoningEffort: "low",
-            }.provider,
-            purpose: "advice",
-            modelSelection: {
-              provider,
-              modelIdentifier: model,
-              reasoningEffort: "low",
-              identifierKind: provider === "codex" ? "exact" : "alias",
-            },
-            resultSchema: describeAdviceResultSchema(),
-          },
-          describeDockerProviderExecutionLocations(
-            {
-              provider,
-              exactModelId: model,
-              reasoningEffort: "low",
-            }.provider,
-            "advice",
-          ),
-        ).plan ?? assert.fail("provider_execution_plan_not_ready"),
-      );
       return Object.freeze({
         contract: "crdd-executor/advice-input",
         contractRevision: 2,
@@ -213,11 +181,13 @@ function createPlanFixture(
         provider,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
-        commandHash:
-          hashAdviceCommand(providerCommand) ??
-          assert.fail("invalid_command_fixture"),
+
         packetHash: "5".repeat(64),
-        providerCommand,
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy(provider, []);
+          if (result.status !== "ready") throw Error("fixture");
+          return result.policy;
+        })(),
         providerPrompt: "Give advice from the supplied projection.",
         allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,

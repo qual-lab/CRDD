@@ -10,10 +10,7 @@ import type {
   AiReasoningEffort,
   AiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
-import type {
-  DockerNetworkPolicy,
-  AdviceCommand,
-} from "../../../docker-isolation/src/index.ts";
+import type { DockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import type {
   AttemptRecordProjection,
   AttemptRequest,
@@ -298,7 +295,6 @@ export type RecoveryPlan = AttemptRecordProjection &
     networkPolicy: DockerNetworkPolicy | null;
     taskRole: "executor" | "reviewer" | null;
     taskWorkload?: unknown;
-    adviceCommandHash?: string | null;
     adviceAllowedReferences?: readonly string[] | null;
     selectionRecordId: string;
     selectionHash: string;
@@ -320,7 +316,6 @@ export type PreparedAttemptPlan<P extends AiProvider> = Readonly<
     | "recoveryCorrelationId"
     | "advicePacketRef"
     | "advicePacketHash"
-    | "adviceCommandHash"
     | "adviceAllowedReferences"
   > & {
     provider: P;
@@ -330,7 +325,6 @@ export type PreparedAttemptPlan<P extends AiProvider> = Readonly<
     recoveryCorrelationId: string | null;
     advicePacketRef: string | null;
     advicePacketHash: string | null;
-    adviceCommandHash: string | null;
     adviceAllowedReferences: readonly string[] | null;
     authorityControlCapability: object;
     preparedWallClockMs: number;
@@ -343,10 +337,10 @@ export type PreparedAttemptPlan<P extends AiProvider> = Readonly<
 /**
  * 既存Runtimeへ一回搬送する読取り助言Packetを表す。
  *
- * @responsibility PromptとProvider Commandを同じTask・Projection・固定選定・Operationへ固定する。
+ * @responsibility Prompt・参照・通信条件を同じTask・Projection・固定選定・Operationへ固定する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @shape Identity、Prompt、Command Hashおよび非共有境界からなる読取り専用値である。
+ * @shape Identity、Prompt、参照、Network Policy、意味的Packet Hashおよび非共有境界からなる読取り専用値である。
  * @invariant Repository／Workspace共有、Tool、SessionおよびFallbackを許可しない。
  * @boundary Coordinatorの助言Packet OwnerとExecutor向け実行入力投影。
  * @security Prompt本文以外のRepository情報や任意Pathを含めない。
@@ -360,9 +354,8 @@ export type AdvicePacket = Readonly<{
     Readonly<{ role: ExecutionSelection["role"] }>;
   selectionHash: string;
   provider: AiProvider;
-  commandHash: string;
   packetHash: string;
-  providerCommand: AdviceCommand;
+  networkPolicy: DockerNetworkPolicy;
   providerPrompt: string;
   repositoryMounted: false;
   workspaceMounted: false;

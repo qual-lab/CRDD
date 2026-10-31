@@ -1,10 +1,10 @@
 /**
  * 同梱技術CatalogとProvider応答内容の独立した境界を検証する。
  * @packageDocumentation
- * @responsibility Catalogの起動拒否、Domain非依存、応答の閉形式・固定Schema／Command Hashを検査する。
+ * @responsibility Catalogの起動拒否、Domain非依存、応答の閉形式・固定Schema／Provider計画を検査する。
  * @trace RCM-IT-005
  * @level IT
- * @scope 技術Catalog、Module loader、応答閉形式、固定Schema／Command HashとDomain非依存。保存・実AIなし。
+ * @scope 技術Catalog、Module loader、応答閉形式、固定Schema／Provider計画とDomain非依存。保存・実AIなし。
  * @boundary RCM-IT-005=Direct Boundary: 同梱JSONの初期化とProvider応答の内容正規化・技術計画。
  */
 import assert from "node:assert/strict";
@@ -27,16 +27,16 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
 
 /**
  * 移管した応答内容の拒否理由と固定Schemaを反証する。
- * @responsibility 移管で内容・拒否理由・SchemaとCommand Hashを変えない。
+ * @responsibility 移管で内容・拒否理由・SchemaとProvider計画を変えない。
  * @trace RCM-IT-005
  * @precondition 合成Object・JSONだけを使用する。
  * @stimulus 正常、欠測、余剰、動的値、所見不正、許可外参照を渡す。
- * @observation exact結果、getter呼出し零、Schema bytesとCommand Hash。
- * @oracle 全拒否理由と基準版のSchema／Command Hashを維持する。
+ * @observation exact結果、getter呼出し零、Schema bytesとProvider計画。
+ * @oracle 全拒否理由と基準版のSchema／Provider計画を維持する。
  * @cleanup N/A: 外部資源なし。
  * @boundary AI Adapterの内容正規化と利用側の計画境界。
  */
-test("応答内容は全拒否理由と基準版のSchema・Command Hashを維持する", async () => {
+test("応答内容は全拒否理由と基準版のSchema・Provider計画を維持する", async () => {
   const api = await import("../../src/index.ts");
   const { createHash } = await import("node:crypto");
   const docker = await import("../../../docker-isolation/src/index.ts");
@@ -240,14 +240,13 @@ test("応答内容は全拒否理由と基準版のSchema・Command Hashを維�
       locations,
     ).plan;
     assert.ok(plan && "toolsAllowed" in plan);
-    const bound = docker.bindAdviceCommand(plan, null);
-    assert.ok(bound);
-    assert.equal(
-      docker.hashAdviceCommand(bound),
-      provider === "codex"
-        ? "7cde0ed8f4796a2406566dcc2bc7fcdede23d187b9c66907456a1d5e243afff0"
-        : "9dfafa7a9e4d6d8bed189a960ba2c6882c6235243d41a2883aefb3db50d18578",
-    );
+    assert.equal(plan.provider, provider);
+    assert.equal(plan.modelIdentifier, request.modelSelection.modelIdentifier);
+    assert.equal(plan.identifierKind, request.modelSelection.identifierKind);
+    assert.equal(plan.reasoningEffort, "medium");
+    assert.equal(plan.toolsAllowed, false);
+    assert.equal(plan.sessionPersistenceAllowed, false);
+    assert.equal(plan.promptTransport, "stdin_only");
   }
 });
 

@@ -1,11 +1,9 @@
 /**
  * 検証済みCLI記述へ固定Image・Network・Mount意図を結合する。
  * @packageDocumentation
- * @responsibility Provider CLIを再定義せず、隔離配置とそのHashを所有する。
+ * @responsibility Provider CLIを再定義せず、用途別の固定隔離配置を所有する。
  * @trace ARCH-000015
  */
-import { createHash } from "node:crypto";
-import type { ProviderAdvicePlan } from "../../../ai-adapter/src/index.ts";
 import type { DockerNetworkPolicy } from "../network/policy.ts";
 import { describeDockerProviderAssets } from "../image/assets.ts";
 import { describeDockerProxyTopology } from "../network/policy.ts";
@@ -180,103 +178,4 @@ export function bindProviderCommand(
       networkPolicy: input.networkPolicy,
     },
   };
-}
-/**
- * Provider実行仕様を隔離環境の固定構成へ結合した値。
- * @responsibility Image・通信・Mount条件を同じCommandとして運ぶ。
- * @trace ARCH-000015
- * @shape ProviderAdvicePlanと固定Image・Network・非共有条件。
- * @invariant RepositoryとWorkspaceをMountしない。
- * @boundary AI Adapterの実行仕様とDocker実行構成。
- * @security 型だけで認可済み又は実行可能とは扱わない。
- * @compatibility 移管前のCommand fieldとHash順序を維持する。
- */
-export type AdviceCommand = ProviderAdvicePlan &
-  Readonly<{
-    fixedImageDigest: string;
-    networkPolicy: DockerNetworkPolicy | null;
-    providerHomeMountRequired: true;
-    repositoryMounted: false;
-    workspaceMountRequired: false;
-  }>;
-/**
- * Provider Commandの完全性Hashを生成する。
- *
- * @responsibility Provider実行に影響する全宣言値を決定論的SHA-256へ固定する。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input command: 検証対象のProvider Command。
- * @returns 小文字16進SHA-256、直列化不能時はnullを返す。
- * @precondition commandは上位計画から渡されるが完全性は未確定である。
- * @postcondition 同じ宣言値には同じHashを返す。
- * @effect N/A: 局所計算だけを行う。
- * @failure 直列化失敗をnullへ閉じる。
- * @invariant Prompt本文をCommand Hashへ含めない。
- * @boundary Provider Command宣言とRuntime Packet Identityの間。
- * @security 任意Objectのgetter例外を外へ公開しない。
- * @concurrency N/A: 共有状態を変更しない同期処理である。
- */
-export function hashAdviceCommand(command: AdviceCommand) {
-  try {
-    return createHash("sha256")
-      .update(
-        JSON.stringify({
-          contract: command.contract,
-          contractRevision: command.contractRevision,
-          provider: command.provider,
-          command: command.command,
-          argv: command.argv,
-          environment: command.environment,
-          fixedImageDigest: command.fixedImageDigest,
-          networkPolicy: command.networkPolicy,
-          modelIdentifier: command.modelIdentifier,
-          identifierKind: command.identifierKind,
-          catalogIdentity: command.catalogIdentity,
-          reasoningEffort: command.reasoningEffort,
-          promptTransport: command.promptTransport,
-          resultTransport: command.resultTransport,
-          providerHomeMountRequired: command.providerHomeMountRequired,
-          repositoryMounted: command.repositoryMounted,
-          workspaceMountRequired: command.workspaceMountRequired,
-          toolsAllowed: command.toolsAllowed,
-          sessionPersistenceAllowed: command.sessionPersistenceAllowed,
-        }),
-        "utf8",
-      )
-      .digest("hex");
-  } catch {
-    return null;
-  }
-}
-
-/**
- * CLI計画を助言Packetの既存技術契約へ結合する。
- * @responsibility Imageと非共有条件の所有を上位に閉じる。
- * @trace ARCH-000015
- * @input plan: AI Adapterが生成した検証済み助言CLI計画。
- * @returns 固定ImageとMount意図を結合した同じ閉じたCommand。
- * @precondition 信頼した構成側がDocker側の実行位置で生成している。
- * @postcondition CLI引数・環境・Modelを改変しない。
- * @effect N/A: 不変値の構築だけ。
- * @failure N/A: 対応Providerの固定データだけを利用する。
- * @invariant 取得を実Image検証や送信許可にしない。
- * @boundary ProviderのCLI記述と隔離実行の技術相関。
- * @security Prompt・秘密・Host Rootを追加しない。
- * @concurrency N/A: 同期値だけ。
- */
-export function bindAdviceCommand(
-  plan: ProviderAdvicePlan,
-  networkPolicy: DockerNetworkPolicy | null = null,
-): AdviceCommand {
-  return Object.freeze({
-    ...plan,
-    networkPolicy,
-    fixedImageDigest:
-      plan.provider === "codex"
-        ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
-        : describeDockerProviderAssets("claude").fixedImageDigest,
-    providerHomeMountRequired: true as const,
-    repositoryMounted: false as const,
-    workspaceMountRequired: false as const,
-  });
 }

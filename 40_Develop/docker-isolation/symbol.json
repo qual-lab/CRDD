@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "docker-isolation",
   "symbols": [
+    { "symbolId": "docker-isolation.test.integration.probe-async", "kind": "test-suite", "path": "tests/integration/probe-async.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["docker-isolation.execution.probe-runtime"] },
     {
       "symbolId": "docker-isolation.test.unit.execution-binding",
       "kind": "test-suite",

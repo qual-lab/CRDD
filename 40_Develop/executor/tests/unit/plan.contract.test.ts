@@ -7,7 +7,6 @@
  * @boundary Executorの基本計画検査。
  */
 import assert from "node:assert/strict";
-import { prepareAdviceCommand } from "../../src/index.ts";
 import test from "node:test";
 import {
   planIdentity,
@@ -18,19 +17,17 @@ import {
 } from "../../src/attempt/isolation.ts";
 import { prepareAttempt } from "../../src/attempt/execute.ts";
 import {
-  bindAdviceCommand,
-  hashAdviceCommand,
   planDockerIsolationCommands,
   prepareDockerNetworkPolicy,
   describeDockerProviderExecutionLocations,
+  describeDockerProviderAssets,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  type ProviderAdvicePlan,
   resolveAiModelSelection,
   planProviderExecution,
   describeAdviceResultSchema,
 } from "../../../ai-adapter/src/index.ts";
-import type { AttemptPlan } from "../../src/attempt/types.ts";
+import type { AttemptPlan, AttemptRequest } from "../../src/attempt/types.ts";
 import { isAttemptPlanValid } from "../../src/attempt/validation.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
@@ -70,7 +67,6 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
   const advice: AttemptPlan = {
     ...probe,
     operationMode: "workbench_advice",
-    adviceCommandHash: "b".repeat(64),
     providerInput: "synthetic",
   };
   for (const plan of [
@@ -201,11 +197,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
   };
   const adviceExecution = resolveProviderExecution(adviceBase);
   assert.ok(adviceExecution);
-  const adviceHash = hashAdviceCommand(
-    bindAdviceCommand(adviceExecution as ProviderAdvicePlan),
-  );
-  assert.ok(adviceHash);
-  const advice = withCommands({ ...adviceBase, adviceCommandHash: adviceHash });
+  const advice = withCommands(adviceBase);
   for (const plan of [probe, task, reviewer, advice]) {
     assert.equal(isAttemptPlanValid(plan), true);
     assert.ok(resolveValidatedPlan(plan, temporary));
@@ -275,7 +267,6 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     { ...task, workspaceSourcePath: "C:/synthetic,bad" },
     { ...probe, providerHomeSourcePath: "" },
     { ...probe, providerHomeSourcePath: "C:/synthetic\nbad" },
-    { ...advice, adviceCommandHash: "f".repeat(64) },
     {
       ...probe,
       commands: probe.commands.map((c, i) =>
@@ -289,83 +280,155 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
 });
 
 /**
- * 新しい事前準備と基準版のCommand・Hashが同じであることを確認する。
- * @responsibility 承認前の純粋計算を移しても技術同一性を変更しない。
+ * 上位へCommandを返さず、確定入力から従来と同じ助言構成を作る。
+ * @responsibility 両Providerのargv・Image・通信境界と不正選定拒否を維持する。
  * @trace ERB-UT-023
- * @precondition 両Provider・三推論強度と通信条件有無の合成値。
- * @stimulus 正式AdapterとDIで構築した基準値、新公開API、不整合選定。
- * @observation Command全field、Hash、不正入力のnull。
- * @oracle 12構成のCommandとHashがexact一致し選定差を補完しない。
- * @cleanup N/A: 値計算だけ。実AI・Dockerを使用しない。
+ * @precondition 両Provider・三推論強度・Policy有無の合成入力。
+ * @stimulus 既存Adapterの正規仕様とExecutor内部構成を比較する。
+ * @observation Provider argv、固定Digest、Policy、Workspace非共有、不正入力拒否。
+ * @oracle 12構成で同じ技術条件、Commandや専用Hashは上位入力に不要。
+ * @cleanup N/A: 値構築だけ。実AI・Dockerなし。
+ * @boundary 確定要求→Executor内部→Adapter／DI。
  */
-test("助言Commandの事前準備は基準版と同じHashを返し選定差を拒否する", () => {
-  for (const provider of ["codex", "claude"] as const) {
+test("助言の内部構築は両Providerの既存技術条件を維持する", () => {
+  const base = attemptPlan();
+  for (const provider of ["codex", "claude"] as const)
     for (const reasoningEffort of ["low", "medium", "high"] as const) {
-      const selected = resolveAiModelSelection({
+      const chosen = resolveAiModelSelection({
         provider,
         modelIdentifier: provider === "codex" ? "gpt-5.6-sol" : "opus",
         reasoningEffort,
         purpose: "advice",
       });
-      assert.equal(selected.status, "resolved");
-      if (selected.status !== "resolved")
-        throw Error("fixture_selection_failed");
+      assert.equal(chosen.status, "resolved");
+      if (chosen.status !== "resolved") throw Error("fixture");
       const selection = {
-        provider: selected.value.provider,
-        modelIdentifier: selected.value.modelIdentifier,
-        identifierKind: selected.value.identifierKind,
-        reasoningEffort: selected.value.reasoningEffort,
-        purpose: selected.value.purpose,
+        provider,
+        modelIdentifier: chosen.value.modelIdentifier,
+        identifierKind: chosen.value.identifierKind,
+        reasoningEffort,
+        purpose: "advice" as const,
       };
-      const policy = prepareDockerNetworkPolicy(provider, [
-        "registry.npmjs.org",
-      ]);
+      const policy = prepareDockerNetworkPolicy(provider, []);
       assert.equal(policy.status, "ready");
-      if (policy.status !== "ready") throw Error("fixture_policy_failed");
-      for (const networkPolicy of [null, policy.policy]) {
-        const old = planProviderExecution(
-          {
+      if (policy.status !== "ready") throw Error("fixture");
+      const expected = planProviderExecution(
+        {
+          provider,
+          purpose: "advice",
+          modelSelection: {
             provider,
-            purpose: "advice",
-            modelSelection: {
-              provider,
-              modelIdentifier: selection.modelIdentifier,
-              identifierKind: selection.identifierKind,
-              reasoningEffort,
-            },
-            resultSchema: describeAdviceResultSchema(),
+            modelIdentifier: selection.modelIdentifier,
+            identifierKind: selection.identifierKind,
+            reasoningEffort,
           },
-          describeDockerProviderExecutionLocations(provider, "advice"),
-        );
-        assert.equal(old.status, "ready");
-        if (old.status !== "ready") throw Error("fixture_command_failed");
-        const expected = bindAdviceCommand(
-          old.plan as ProviderAdvicePlan,
+          resultSchema: describeAdviceResultSchema(),
+        },
+        describeDockerProviderExecutionLocations(provider, "advice"),
+      );
+      assert.equal(expected.status, "ready");
+      if (expected.status !== "ready") throw Error("fixture");
+      for (const networkPolicy of [null, policy.policy]) {
+        const request: AttemptRequest = {
+          purpose: "advice" as const,
+          input: "synthetic",
           networkPolicy,
+          allowedReferences: ["ref"],
+          selection,
+          target: {
+            ...base,
+            provider,
+            workspaceSourcePath: "C:/synthetic/work",
+            temporarySourcePath: "C:/synthetic/tmp",
+          },
+        };
+        const plan = prepareAttempt(
+          { randomBytes: (size) => Buffer.alloc(size, 1) },
+          request,
         );
-        const actual = prepareAdviceCommand({ selection, networkPolicy });
-        assert.ok(actual);
-        assert.deepEqual(actual.command, expected);
-        assert.equal(actual.commandHash, hashAdviceCommand(expected));
-        for (const change of [
+        assert.ok(plan);
+        assert.equal("adviceCommandHash" in plan, false);
+        assert.equal(plan.workspaceSourcePath, null);
+        assert.equal(plan.workspaceMountMode, null);
+        assert.deepEqual(plan.networkPolicy, networkPolicy);
+        const random = { randomBytes: (size: number) => Buffer.alloc(size, 1) };
+        assert.equal(
+          prepareAttempt(random, {
+            ...request,
+            command: {},
+            commandHash: "a".repeat(64),
+          } as AttemptRequest),
+          null,
+        );
+        const { networkPolicy: omitted, ...legacyRequest } = request;
+        void omitted;
+        assert.equal(
+          prepareAttempt(random, legacyRequest as AttemptRequest),
+          null,
+        );
+        const otherPolicy = prepareDockerNetworkPolicy(
+          provider === "codex" ? "claude" : "codex",
+          [],
+        );
+        assert.equal(otherPolicy.status, "ready");
+        if (otherPolicy.status === "ready")
+          assert.equal(
+            prepareAttempt(random, {
+              ...request,
+              networkPolicy: otherPolicy.policy,
+            }),
+            null,
+          );
+        if (networkPolicy) {
+          const mutable = {
+            ...networkPolicy,
+            allowedHosts: [...networkPolicy.allowedHosts],
+          };
+          const captured = prepareAttempt(random, {
+            ...request,
+            networkPolicy: mutable,
+          });
+          assert.ok(captured);
+          mutable.allowedHosts.push("later.example");
+          assert.deepEqual(captured.networkPolicy, networkPolicy);
+        }
+        const assets = describeDockerProviderAssets(provider);
+        assert.equal(
+          plan.providerImageDigest,
+          provider === "codex"
+            ? describeDockerProviderAssets("codex").adviceIdentity
+                .fixedImageDigest
+            : assets.fixedImageDigest,
+        );
+        const command = plan.commands.find(
+          (command) => command.purpose === "create_provider",
+        );
+        assert.ok(command);
+        assert.deepEqual(
+          command.argv.slice(-expected.plan.argv.length),
+          expected.plan.argv,
+        );
+        const changes: readonly Record<string, unknown>[] = [
           { purpose: "task" },
           { provider: "unsupported" },
           { modelIdentifier: "unsupported" },
           {
             identifierKind:
-              selection.identifierKind === "alias" ? "exact" : "alias",
+              chosen.value.identifierKind === "alias" ? "exact" : "alias",
           },
           { reasoningEffort: "unsupported" },
-        ]) {
+        ];
+        for (const change of changes)
           assert.equal(
-            prepareAdviceCommand({
-              selection: { ...selection, ...change } as typeof selection,
-              networkPolicy,
-            }),
+            prepareAttempt(
+              { randomBytes: (size) => Buffer.alloc(size, 1) },
+              {
+                ...request,
+                selection: { ...selection, ...change } as typeof selection,
+              },
+            ),
             null,
           );
-        }
       }
     }
-  }
 });

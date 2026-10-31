@@ -8,6 +8,8 @@
  * @scope 未起動認証資源、本番CLI構成、既存記録とHome排他。
  * @boundary 別Node ProcessからDocker／保存／Windows排他。
  */
+import { createProviderAuthenticationPlan } from "../support/authentication.ts";
+import { createAuthenticationCommandTestRuntime } from "../../../executor/scripts/authentication-command-test.ts";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -15,7 +17,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createProviderAuthenticationDependencies,
-  createProviderAuthenticationPlan,
   createProviderAuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 
@@ -53,6 +54,7 @@ async function createRecordedAuthenticationFixture() {
   const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
   const dependencies = createProviderAuthenticationDependencies();
+  const runtime = createAuthenticationCommandTestRuntime(plan);
   const lock = dependencies.acquireProviderHomeLock(hash);
   assert.ok(lock);
   let completed = false;
@@ -72,12 +74,17 @@ async function createRecordedAuthenticationFixture() {
         ),
         true,
       );
-      const result = await dependencies.run(command, lock.assertLive, plan);
+      const result = await runtime.run(command, lock.assertLive, plan);
       assert.equal(result.processCompletionConfirmed, true);
       assert.equal(result.status, 0);
       assert.equal(result.error, undefined);
-      if (command.purpose.startsWith("create_"))
-        assert.equal(dependencies.recordCreatedResource(record, result), true);
+      if (command.purpose.startsWith("create_")) {
+        assert.ok(result.resourceReceipt);
+        assert.equal(
+          dependencies.recordCreatedResource(record, result.resourceReceipt),
+          true,
+        );
+      }
       assert.equal(lock.assertLive(), true);
       assert.equal(
         dependencies.setRecoveryCommandState(record, "idle", null),

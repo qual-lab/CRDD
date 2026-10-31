@@ -1,5 +1,23 @@
 # Docker隔離の詳細設計
 
+## 助言Command往復の廃止（2026-11-01）
+
+上位へ助言Commandを返して専用Hashで再照合する経路を廃止する。DIのAdviceCommand型・bindAdviceCommand・hashAdviceCommandはConsumer移行後に撤去し、Executor内部から既存bindProviderCommandを利用する。用途別Image選択、認証Probeと追加Allowlistの分離、Mount・Network・Process・回収の安全条件、完全Docker Commandの構成照合は維持する。この変更を実AI・実Dockerで再検証済みとは扱わない。
+
+## 固定合成Probeの非同期実行（2026-11-01）
+
+Executorが既存createExecutorの合成Probe要求を受け、DIの固定作成・構成照合・実ID限定回収を利用する。runDockerProbeAsyncは既存の所有attach Handleで実行し、固定Profileの期限と64KiB出力境界を維持する。非同期出力超過はENOBUFS、期限超過はETIMEDOUTと同じ既存分類へ搬送し、計測区間はStart発行から結果観測までとする。上位保存待ち・補償join時間を実行時間へ混ぜない。
+
+取消は同じHandleの終端へ伝え、元結果・取消・closeを分けて返す。ListenerとTimerを解除し、完了・例外・取消のいずれでも取得Handleをjoinする。close不明を資源不存在へ昇格しない。DockerProbeExecutionFactsは既存の同期分類と共通の明示型とし、Hostの保存・保持・最終成功は所有しない。故障注入と意図的稼働残存は検証専用であり、製品Requestには公開しない。
+
+## 認証と通常実行の共通技術境界（2026-11-01）
+
+認証の固定計画・元Command所属、実ID／Label／構成照合、削除許可と不存在確認は既存authenticationとcleanupの技術正本へ置く。認証と通常実行は既存process/start.tsを使い、短期操作と認証の終了要求・確認をfinishOwnedProcessへ統合する。元Handle、5秒終端猶予、元結果とcloseの分離、必要な認証だけの終了後読取りを維持する。認証の操作間保存・Home Lock・Historyは持たず、CoordinatorはExecutor経由で利用する。通常と認証の期限・対話・Mount・Network差は消さず、任意構成の汎用Container APIへ拡張しない。
+
+## 固定Directory処置と修復の上位窓口（2026-11-01）
+
+既存のrunDockerRuntimeRepairSession、observeDockerRuntimeRepairRetention、disposeDockerRuntimeRepairDirectoryは技術正本として維持し、Coordinatorの本番callをExecutorの修復API／共通資源APIへ切り替える。Directory kindはExecutorの外側だけに置き、DIが閉field検査する元inputへ追加しない。nonce・Scope・固定用途・Filesystem実体・現在許可・取消・二読取り・不存在再確認の条件は変更しない。保持期限・業務判断・保存・新しいStateは所有しない。無名の入力／結果とMachine結果へ明示型名を付けるだけで、返却値・Schema・技術順序は変更しない。
+
 ## 環境観測・再起動の上位接続（2026-11-01）
 
 backendとEngine観測、固定再起動の具体的なOS・CLI・Native処理は引き続きDocker Isolationが所有する。上位向けの薄い技術窓口はExecutorの[環境API](../executor/01_Architecture.md#host実行環境の窓口)に置き、Coordinatorの本番再起動はそのAPIへ接続する。既存の現在境界確認、Effect前同期通知、取消、補助資源join、一次失敗・cleanup・deliveryの分離は変えない。DockerRuntimeRestartResultは従来の観測とdeliveryの交差型に明示名を付けるだけであり、返却値やSchemaは変えない。
@@ -16,7 +34,7 @@ Model／CLIのThread数変化や通常のBuild・Testを独自固定値で妨げ
 
 `bindProviderCommand`はTask／Advice／Probeの正規技術構成を一箇所で構築する。AI Adapterが返したCLI記述と認証記述を値として受け、Image・Proxy・Mount・Seccompの既存条件を結合する。AI Adapterを実行値importしてModelやTaskを判断せず、Task状態・Operation・Authority・Recoveryも受け取らない。初回createは明示Token、verifyは元Command観測を必須とし、同じ構築規則と既存九Command完全照合を使用する。新しい状態・Lock・Registryは持たない。
 
-助言用の`AdviceCommand`、`bindAdviceCommand`、`hashAdviceCommand`は`execution/binding.ts`が所有する。AI Adapterが返すProvider実行仕様を固定Image・通信Policy・非共有条件へ結合する既存処理であり、新しい実行許可を発行しない。同意前に作るHashと実行時に照合するHashは同じfield・順序を維持する。Executorからの移管に伴うImage変更・Docker実行・保存形式の変更は行わない。
+助言用のCommand wrapperと専用Hashは廃止し、`execution/binding.ts`の共通bindProviderCommandで用途別の固定Image・通信Policy・非共有条件を結合する。Executorは上位の確定入力からのみ構築し、Commandを上位へ往復させない。実行許可・同意判断は上位に残す。Image変更・Docker実行・保存形式の変更は行わない。
 
 今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
 

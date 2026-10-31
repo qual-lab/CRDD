@@ -47,21 +47,15 @@ registerHooks({
   },
 });
 
-const { resolveAiModelSelection, planProviderExecution } = await import(
+const { resolveAiModelSelection } = await import(
   "../../ai-adapter/src/index.ts"
 );
 
-const {
-  describeDockerProviderExecutionLocations,
-  describeDockerProxyTopology,
-} = await import("../../docker-isolation/src/index.ts");
+const { describeDockerProviderAssets, describeDockerProxyTopology } =
+  await import("../../docker-isolation/src/index.ts");
 
-const {
-  hashExecutionSelection,
-  readCommittedJson,
-  writeCommittedJson,
-  removeCommittedJson,
-} = await import("../../domain-model/src/index.ts");
+const { readCommittedJson, writeCommittedJson, removeCommittedJson } =
+  await import("../../domain-model/src/index.ts");
 
 const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
   "../../platform-access/src/index.ts"
@@ -69,11 +63,9 @@ const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
 
 const { isPrimaryFailureDiagnostic } = await import("./executor-test.ts");
 
-const {
-  bindAdviceCommand,
-  hashAdviceCommand,
-  describeDockerCommandSessionContract,
-} = await import("../../docker-isolation/src/index.ts");
+const { describeDockerCommandSessionContract } = await import(
+  "../../docker-isolation/src/index.ts"
+);
 
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
   await import("../../ai-adapter/src/index.ts");
@@ -135,22 +127,6 @@ export function describeStandaloneProviderTrial(
     purpose: "advice",
   });
   if (selected.status !== "resolved") throw Error("trial_model_unavailable");
-  const generated = planProviderExecution(
-    {
-      provider,
-      purpose: "advice",
-      modelSelection: {
-        provider: selected.value.provider,
-        modelIdentifier: selected.value.modelIdentifier,
-        identifierKind: selected.value.identifierKind,
-        reasoningEffort: selected.value.reasoningEffort,
-      },
-      resultSchema: describeAdviceResultSchema(),
-    },
-    describeDockerProviderExecutionLocations(provider, "advice"),
-  );
-  if (generated.status !== "ready") throw Error("trial_command_unavailable");
-  const command = bindAdviceCommand(generated.plan);
   return Object.freeze({
     contract: "crdd/executor/standalone-trial/v2",
     mode: "advice" as const,
@@ -159,7 +135,10 @@ export function describeStandaloneProviderTrial(
     effort: "medium" as const,
     prompt,
     promptSha256: digest(prompt),
-    providerImageDigest: command.fixedImageDigest,
+    providerImageDigest:
+      provider === "codex"
+        ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
+        : describeDockerProviderAssets("claude").fixedImageDigest,
     proxyImageDigest: describeDockerProxyTopology(provider).imageDigest,
     repositoryMounted: false,
     workspaceMounted: false,
@@ -212,8 +191,6 @@ export function buildStandaloneTrialPlan(
     workType: null,
     source: "explicit" as const,
   };
-  const selectionHash = hashExecutionSelection(selection);
-  if (!selectionHash) throw Error("trial_selection_hash_invalid");
   const technicalSelection = Object.freeze({
     provider: selection.provider,
     modelIdentifier: selection.modelIdentifier,
@@ -221,55 +198,14 @@ export function buildStandaloneTrialPlan(
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
   });
-  const planned = planProviderExecution(
-    {
-      provider: spec.provider,
-      purpose: "advice",
-      modelSelection: {
-        provider: selected.value.provider,
-        modelIdentifier: selected.value.modelIdentifier,
-        identifierKind: selected.value.identifierKind,
-        reasoningEffort: selected.value.reasoningEffort,
-      },
-      resultSchema: describeAdviceResultSchema(),
-    },
-    describeDockerProviderExecutionLocations(spec.provider, "advice"),
-  );
-  if (planned.status !== "ready") throw Error("trial_command_invalid");
-  const command = bindAdviceCommand(planned.plan);
-  const packetRef = `ADVICEPKT-${randomBytes(16).toString("hex").toUpperCase()}`;
-  const commandHash = hashAdviceCommand(command);
-  if (!commandHash) throw Error("trial_command_hash_invalid");
-  const packetBase = {
-    packetRef,
-    operationId,
-    executionSelection: technicalSelection,
-    selectionHash,
-    provider: spec.provider,
-    commandHash,
-    repositoryMounted: false as const,
-    workspaceMounted: false as const,
-    toolsAllowed: false as const,
-    sessionPersistenceAllowed: false as const,
-  } as const;
-  const packet = Object.freeze({
-    allowedReferences: Object.freeze([reference]),
-    ...packetBase,
-    packetHash: digest(
-      JSON.stringify({ ...packetBase, providerPromptSha256: digest(prompt) }),
-    ),
-    providerCommand: command,
-    providerPrompt: prompt,
-  });
   const built = prepareAttempt(
     { randomBytes },
     {
       ...{
         purpose: "advice",
-        input: packet.providerPrompt,
-        commandHash: packet.commandHash,
-        command: packet.providerCommand,
-        allowedReferences: packet.allowedReferences,
+        input: prompt,
+        networkPolicy: null,
+        allowedReferences: Object.freeze([reference]),
       },
       target: {
         ...{

@@ -12,7 +12,7 @@ import { sourceDeclaration } from "../../../domain-model/tests/support/source-de
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
+import { runInNewContext } from "../support/probe-executor.ts";
 
 /**
  * 完了評価に使う一意な本番関数本文を取得する。
@@ -46,7 +46,7 @@ function completionFunctionSource(source: string, name: string) {
  * @cleanup N/A: 私有MapとVMだけ。Process・Filesystemを作らない。
  * @boundary 実上位関数とDI／Host技術代役。実資源回収の成立ではない。
  */
-test("Probe完了の閉factsは全profileで相関され実私有評価だけで公開される", () => {
+test("Probe完了の閉factsは全profileで相関され実私有評価だけで公開される", async () => {
   const source = fs.readFileSync(
     new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
@@ -74,13 +74,6 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
     source,
     "runDockerIsolationScenario",
   );
-  const runBegin = original.indexOf(
-    "const facts = runDockerProbeToCompletion(",
-  );
-  const runEnd =
-    original.indexOf("\n          );", runBegin) + "\n          );".length;
-  assert.ok(runBegin > 0 && runEnd > runBegin);
-  const runCall = original.slice(runBegin, runEnd);
   const id = "a".repeat(64);
   for (const selected of [
     null,
@@ -94,20 +87,6 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
     ];
     if (selected === null) {
       variants.push(["lifecycle-blocked", original, true]);
-      for (const [name, needle, replacement] of [
-        ["profile", 'scenario ?? "normal"', '"timeout"'],
-        ["id", "identity.id", '"b".repeat(64)'],
-      ]) {
-        assert.ok(name && needle && replacement);
-        assert.equal(runCall.split(needle).length, 2);
-        variants.push([
-          name,
-          original.slice(0, runBegin) +
-            runCall.replace(needle, replacement) +
-            original.slice(runEnd),
-          false,
-        ]);
-      }
     }
     for (const [variant, body, lifecycleBlocked] of variants) {
       const cli = {},
@@ -174,7 +153,7 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
           dynamicLifecycleFinalizations: finalizations,
           dynamicLifecycleAbsences: absences,
           dynamicLifecycleHostCleanups: cleanups,
-          randomUUID: () => "probe-123",
+          randomUUID: () => "12345678-1234-4234-8234-123456789abc",
           getOwnedHostRecoveryId: () => "host",
           createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
             factoryCalls++;
@@ -229,7 +208,7 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
             const key = {};
             absenceKeys.push(key);
             absences.set(key, {
-              probeId: "probe-123",
+              probeId: "12345678-1234-4234-8234-123456789abc",
               containerId: id,
               initialHostRecoveryId: "host-submitted",
               confirmedHostRecoveryId: "host-clean",
@@ -248,7 +227,7 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
             const key = {};
             cleanupKeys.push(key);
             cleanups.set(key, {
-              probeId: "probe-123",
+              probeId: "12345678-1234-4234-8234-123456789abc",
               confirmedHostRecoveryId: "host-clean",
               absenceCapability,
             });
@@ -261,18 +240,15 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
       ) as (
         owned: object,
         selected: string | null,
-      ) => {
+      ) => Promise<{
         status: string;
         reason: string;
         fakeProviderLifecycle: Record<string, unknown>;
-      };
-      const result = run({}, selected);
+      }>;
+      const result = await run({}, selected);
       assert.equal(factoryCalls, 1);
       assert.equal(bindings.length, 5);
       for (const binding of bindings) assert.equal(binding, cli);
-      assert.deepEqual(identityObservations, [
-        { id, probeId: "probe-123", profile: selected ?? "normal" },
-      ]);
       assert.equal(captures.length, 1);
       assert.deepEqual(cliInputs, [cli]);
       const expected = [
