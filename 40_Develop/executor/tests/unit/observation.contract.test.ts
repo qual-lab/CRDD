@@ -14,15 +14,15 @@ import { createConfigurationNotice } from "../../src/result/attempt.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
- * 診断投影とReporter例外が試行判定を代行しないことを確認する。
- * @responsibility 元入力と受動通知を保ち、同期・非同期失敗を外へ漏らさない。
+ * 構成診断に操作相関だけを含め、秘密や実清掃成功を生成しないことを確認する。
+ * @responsibility 結果Ownerによる純粋な診断投影のfield境界を確認する。
  * @trace ERB-IT-004
- * @precondition 合成計画とメモリ内Reporterだけ。
- * @stimulus 正常、同期throw、Promise拒否、Reporterなしを呼ぶ。
- * @observation 固定field、元notice、callbackのthisと例外不伝播。
- * @oracle 診断は秘密や実清掃成功を生成せず、失敗を握ったまま終了する。
- * @cleanup Promise拒否処置を一microtask待つ。外部資源なし。
- * @boundary ERB-IT-004=Direct Boundary: 構成診断・受動搬送。
+ * @precondition 固定の合成計画だけ。
+ * @stimulus 同じ試行構成を診断投影へ渡す。
+ * @observation 固定event、操作・Provider、Network Hashと非公開field。
+ * @oracle Command・Home Pathを含まず、構成値を実環境の成立へ昇格しない。
+ * @cleanup N/A: 外部資源・待機なし。実搬送と通知例外はnotifications Suiteが確認する。
+ * @boundary ERB-IT-004=Direct Boundary: 構成から非秘密診断への投影。
  */
 test("構成診断は元操作の相関を保ちCommandとHome Pathを公開しない", () => {
   const plan = attemptPlan();

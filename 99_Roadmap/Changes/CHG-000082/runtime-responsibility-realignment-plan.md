@@ -1913,7 +1913,7 @@ AI Adapterの`codex_task_reviewer_code_mode_not_verified`二行を撤去し、�
 
 今回の実AI再確認は通常入口で六試行を逐次実行する。`EXEC-20261030-06` Codex編集、07 Claudeレビュー、08 Claude編集、09 Codexレビュー、10 Codex開始後取消、11 Claude開始後取消。各一回、合成source.txt・固定指示・内容／差分のみ、同じGPT-6.1 Sol／mediumとOpus 5.5／medium・固定Imageを使用する。各試行は新品Rootで、レビューは編集成功時の検査済みexact bytes／Hashと同じ内容を投影する。物理Workspace引渡しや上位連携は対象外とする。どれかが失敗すれば後続の送信を停止し、自動再試行・Docker再起動・Image更新・過去保持物操作を行わない。全項目が成立した場合だけコミット・プッシュする。
 
-## Executorの隔離接続・共通検査の整理（2026-10-31、対象非AI確認中）
+## Executorの隔離接続・共通検査の整理（2026-10-31、対象非AI確認完了）
 
 基準Commitはab58b98b7。人間承認した既存Sourceの責務整理として、isolation.tsをAI Adapter／Docker Isolationの構成結合とSession開始・清掃・相関の接続へ限定する。通常Root・保存・契約値・Timeout・実行許可・Home解放条件は変更しない。Current Repository内だけを編集し、実AI・Docker・既存保持物は読取りも含めて操作しない。Sourceと設計・QAの独立レビューを実施し、準拠基準・Release判断は変更しないため準拠・Release監査は適用しない。
 
@@ -1922,3 +1922,7 @@ AI Adapterの`codex_task_reviewer_code_mode_not_verified`二行を撤去し、�
 編集単位と対応は次のとおり。①基本検査をvalidationへ移し、executeと試験入口・基本検査Suiteを追従。②製品利用のないstartCommandと契約説明を既存executor-test.tsへ移し、既存Coordinator試験は同入口を継続利用する。試験用投影は製品の正規構成照合とplanIdentityに接続し、製品単一Command APIの成立証拠にはしない。③非秘密診断をresult/attempt.tsのcreateConfigurationNoticeへ移し、executeの直接通知と既存観測Suiteを追従。④現Ownerと責務をArchitecture・QA・関数Headerへ反映する。planIdentityの対象field・直列化順序、元結果・exact回復参照・清掃未確認の保持は据置く。新File・API・Registry・永続化・Lock・監視は追加しない。
 
 正常は三用途と編集／レビューの正規構成、負例は操作・Grant・選定・Offering・Mount・Home四Hash・Command外形、境界は128KiB／超過、完全条件はPath禁止文字・Advice Hash・Command差で照合する。基本不正はSession要求前で零、完全条件不成立はnull、所在や清掃観測不能は従来どおり未確認とする。元のplanIdentity・清掃結果相関と任意診断の失敗非波及は既存結合試験で確認する。追加の人間判断は不要。
+
+対象検証結果：最終版のExecutor npm testは静的検査・型検査・Lintと全51件が成功（約98.9秒）。Coordinatorの型検査と利用側五Suite・171件も成功した。独立レビューで診断の実搬送Oracleと移管先File Headerを補強し、固定候補の再レビューで残Must-fixは零。診断は製品経路でconfigured／settled各一回、操作相関と秘密非搬送、同期例外／非同期拒否でも同じ完了結果・清掃を確認した。差分空白検査も成功。新File・公開API・保存単位は追加せず、通常Rootは不変。実AI・実Docker・過去保持物は操作しておらず、Repository全体QAや既知のHome解放条件の別件完了とは扱わない。コミット・プッシュは未実施。
+
+途中のWindows取消試験は制限環境で5秒以内のProcess終了を確認できず失敗した。Process制御を許可した同じ試験では終了を確認できたが、既存cleanup代役の五資源観測欠測で成功側がblockedになった。基準Commitの五Sourceをメモリ内で読込んだ同条件でも再現し、今回の製品変更による退行と区別した。該当fixtureだけ、成功側に同じfixture.resourceObservationsを搬送し未確認側はnullを維持する最小是正を実施。成功側の公開回復参照null／終端観測の元ID、未確認側の結果の元ID／終端未保存、同じ五観測、実子孫終了・清掃各一回を確認した。製品の5秒猶予・安全判定・Home解放条件は変更していない。Docker資源はすべて模擬であり、実Docker不存在の根拠にはしない。

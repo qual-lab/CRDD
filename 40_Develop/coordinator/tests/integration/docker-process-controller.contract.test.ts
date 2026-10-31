@@ -2342,7 +2342,9 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
             processTreeTerminated: confirmed,
             containersAbsent: confirmed,
             networksAbsent: confirmed,
-            resourceObservations: confirmed ? fixture.resourceObservations : null,
+            resourceObservations: confirmed
+              ? fixture.resourceObservations
+              : null,
           }),
         },
         providerStartObservationTaskPlan,
@@ -2384,26 +2386,31 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
  */
 test("実Process開始観測を公開できなければ対象Processを終了して成功を返さない", async () => {
   let providerTerminationCount = 0;
-  let closeProvider!:()=>void;
-  const providerClosed = new Promise<void>(resolve=>{closeProvider=resolve;});
+  let closeProvider!: () => void;
+  const providerClosed = new Promise<void>((resolve) => {
+    closeProvider = resolve;
+  });
   const fixture = createFixture(
     {
       startCommand: (command: { purpose: string }) => ({
         started: async () => true,
         wait: async () => {
-          if (command.purpose === "start_provider_attached") await providerClosed;
-          return ({
-          status: 0,
-          signal: null,
-          stdout:
-            command.purpose === "start_subscription_auth_probe_attached"
-              ? createSubscriptionAuthOutput()
-              : command.purpose === "start_provider_attached"
-                ? providerStartObservationTaskOutput
-                : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
-          stderr: "",
-          outputExceeded: false,
-        });
+          if (command.purpose === "start_provider_attached")
+            await providerClosed;
+          return {
+            status: 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : command.purpose === "start_provider_attached"
+                  ? providerStartObservationTaskOutput
+                  : command.purpose.startsWith("create_")
+                    ? "a".repeat(64)
+                    : "",
+            stderr: "",
+            outputExceeded: false,
+          };
         },
         terminateAndWait: async () => {
           if (command.purpose === "start_provider_attached") {
@@ -3407,7 +3414,9 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
                     forcedLoginMethod: null,
                     subscriptionType: null,
                   })
-                : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3477,7 +3486,9 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
                     ? auth.stdout
                     : command.purpose === "start_provider_attached"
                       ? '{"status":true}\n'
-                      : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
+                      : command.purpose.startsWith("create_")
+                        ? "a".repeat(64)
+                        : "",
                 stderr:
                   command.purpose === "start_subscription_auth_probe_attached"
                     ? auth.stderr
@@ -3553,7 +3564,9 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
                 stdout:
                   command.purpose === "start_subscription_auth_probe_attached"
                     ? auth.stdout
-                    : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
+                    : command.purpose.startsWith("create_")
+                      ? "a".repeat(64)
+                      : "",
                 stderr:
                   command.purpose === "start_subscription_auth_probe_attached"
                     ? auth.stderr
@@ -3607,7 +3620,9 @@ test("Claude Max以外のSubscription OfferingではProvider request前に停止
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput("pro")
-                : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3835,7 +3850,11 @@ test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文�
           stdout:
             command.purpose === "start_subscription_auth_probe_attached"
               ? createSubscriptionAuthOutput()
-              : command.purpose === "start_provider_attached" ? execution.stdout : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
+              : command.purpose === "start_provider_attached"
+                ? execution.stdout
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
           stderr:
             command.purpose === "start_provider_attached"
               ? execution.stderr
@@ -3970,6 +3989,10 @@ for (const dockerCleanupConfirmed of [true, false]) {
           processTreeTerminated: true,
           containersAbsent: dockerCleanupConfirmed,
           networksAbsent: dockerCleanupConfirmed,
+          // Process終了は実観測。Docker側は同じfixtureの五つの模擬観測だけを搬送する。
+          resourceObservations: dockerCleanupConfirmed
+            ? fixture.resourceObservations
+            : null,
         };
       },
     });
@@ -4011,6 +4034,19 @@ for (const dockerCleanupConfirmed of [true, false]) {
     );
     assert.equal(result.cleanupConfirmed, dockerCleanupConfirmed);
     assert.equal(result.manualRecoveryRequired, !dockerCleanupConfirmed);
+    assert.equal(
+      result.recoveryId,
+      dockerCleanupConfirmed ? null : started.recoveryId,
+    );
+    if (dockerCleanupConfirmed) {
+      assert.equal(fixture.readTerminal()?.recoveryId, started.recoveryId);
+    } else {
+      assert.equal(fixture.readTerminal(), null);
+    }
+    assert.strictEqual(
+      fixture.getRecordedResourceObservations(),
+      dockerCleanupConfirmed ? fixture.resourceObservations : null,
+    );
     assert.equal(result.normalizedResult, null);
     processes.assertAbsent();
     assertCompletionAcceptedByAll(result, started.recoveryId);
@@ -4493,7 +4529,9 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
             processTreeTerminated: cleanupConfirmed,
             containersAbsent: cleanupConfirmed,
             networksAbsent: cleanupConfirmed,
-            resourceObservations: cleanupConfirmed ? fixture.resourceObservations : null,
+            resourceObservations: cleanupConfirmed
+              ? fixture.resourceObservations
+              : null,
           }),
         },
         {
@@ -4608,7 +4646,9 @@ test("Claude Reviewerの構造不正理由を実Controllerから安全な固定�
             processTreeTerminated: cleanupConfirmed,
             containersAbsent: cleanupConfirmed,
             networksAbsent: cleanupConfirmed,
-            resourceObservations: cleanupConfirmed ? fixture.resourceObservations : null,
+            resourceObservations: cleanupConfirmed
+              ? fixture.resourceObservations
+              : null,
           }),
         },
         {

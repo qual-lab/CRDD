@@ -15,7 +15,11 @@ import {
   type DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
 import { createExecutorTestRuntime } from "../../scripts/executor-test.ts";
-import type { ExecutorCallbacks, CompletionResult } from "../../src/index.ts";
+import type {
+  ExecutorCallbacks,
+  CompletionResult,
+  AttemptDiagnosticNotice,
+} from "../../src/index.ts";
 import type { IsolationRuntime } from "../../src/attempt/isolation.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
@@ -406,6 +410,7 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
   for (const mode of ["absent", "throw", "reject"]) {
     const f = fixture();
     let notified: unknown = null;
+    const diagnostics: AttemptDiagnosticNotice[] = [];
     const callbacks: ExecutorCallbacks =
       mode === "absent"
         ? {}
@@ -415,7 +420,11 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
               if (mode === "throw") throw Error("synthetic");
               return Promise.reject(Error("synthetic"));
             },
-            onDiagnostic: () => Promise.reject(Error("synthetic")),
+            onDiagnostic: (notice) => {
+              diagnostics.push(notice);
+              if (mode === "throw") throw Error("synthetic");
+              return Promise.reject(Error("synthetic"));
+            },
           };
     const started = f.runtime.start(f.plan, f.owner, f.reference, callbacks);
     assert.equal(started.status, "started");
@@ -425,7 +434,44 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
     assert.equal(f.calls.length, 9);
     assert.deepEqual(f.counts(), { cleanups: 1, releases: 1 });
     assert.equal(result.recoveryId, f.reference.recoveryId);
-    if (mode !== "absent") assert.equal(notified, result);
+    if (mode !== "absent") {
+      assert.equal(notified, result);
+      assert.deepEqual(
+        diagnostics.map((notice) => notice.event),
+        [
+          "coordinator_provider_boundary_configured",
+          "coordinator_provider_boundary_settled",
+        ],
+      );
+      for (const notice of diagnostics) {
+        assert.equal(notice.operationId, f.plan.operationId);
+        assert.equal(notice.provider, f.plan.provider);
+        assert.equal("commands" in notice, false);
+        assert.equal("providerHomeSourcePath" in notice, false);
+      }
+      const configured = diagnostics[0];
+      assert.ok(
+        configured?.event === "coordinator_provider_boundary_configured",
+      );
+      assert.deepEqual(
+        Object.keys(configured).sort(),
+        [
+          "event",
+          "taskRole",
+          "provider",
+          "operationId",
+          "approvalModeConfigured",
+          "sandboxModeConfigured",
+          "workspaceMountModeConfigured",
+          "networkPolicyHash",
+          "rootFilesystemReadOnlyConfigured",
+          "nonRootUserConfigured",
+          "workdirConfigured",
+        ].sort(),
+      );
+    } else {
+      assert.equal(diagnostics.length, 0);
+    }
     for (const name of [
       "mountLeaseReleased",
       "recoveryCompleted",
