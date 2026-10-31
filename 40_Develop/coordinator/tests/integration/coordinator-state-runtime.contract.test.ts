@@ -1345,33 +1345,30 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         );
         previousBytes = bytes;
       }
-      const technical: Awaited<
-        ReturnType<
-          typeof import("../../../docker-isolation/src/index.ts").restartDockerRuntime
-        >
-      > = {
-        requestId: preparation.requestId,
-        status: completedRestart
-          ? ("completed" as const)
-          : ("blocked" as const),
-        reason: completedRestart
-          ? "docker_restart_settled"
-          : "docker_restart_stop_unconfirmed",
-        request: completedRestart
-          ? ("confirmed" as const)
-          : ("not_issued" as const),
-        primaryFailure: completedRestart
-          ? null
-          : "docker_restart_stop_unconfirmed",
-        stopFailure: null,
-        startFailure: null,
-        cleanupFailure: null,
-        cleanupConfirmed: true,
-        restartCompleted: completedRestart,
-        effectOutcomeUnknown: false,
-        startupElapsedMs: 1,
-        delivery: "confirmed" as const,
-      };
+      const technical: import("../../../executor/src/index.ts").DockerRuntimeRestartResult =
+        {
+          requestId: preparation.requestId,
+          status: completedRestart
+            ? ("completed" as const)
+            : ("blocked" as const),
+          reason: completedRestart
+            ? "docker_restart_settled"
+            : "docker_restart_stop_unconfirmed",
+          request: completedRestart
+            ? ("confirmed" as const)
+            : ("not_issued" as const),
+          primaryFailure: completedRestart
+            ? null
+            : "docker_restart_stop_unconfirmed",
+          stopFailure: null,
+          startFailure: null,
+          cleanupFailure: null,
+          cleanupConfirmed: true,
+          restartCompleted: completedRestart,
+          effectOutcomeUnknown: false,
+          startupElapsedMs: 1,
+          delivery: "confirmed" as const,
+        };
       assert.equal(
         finalizeRuntimeOwnedDockerRestartPreparation(
           preparation.capability,

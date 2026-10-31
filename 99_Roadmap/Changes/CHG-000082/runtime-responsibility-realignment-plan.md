@@ -1,5 +1,34 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## Docker環境窓口とRecovery管理の再評価（2026-11-01）
+
+人間の今回判断により、前回のDesktop直接接続維持案を診断・再起動について変更する。基準版は`25ea064046c7eeb55cd698b6e392641e891ae7a9`。変更分類は実装責務・公開APIの再編であり、DIの実技術、Coordinatorの判断・保存順序、既存のIntent・Checkpoint・Diagnostic・Schema・失敗理由を維持する。既存の再起動Capabilityは現在Owner／Scope取得→保存・読戻し→固定再起動→逆順解放→終端確定であり、この本番接続の技術callだけをExecutorへ置換する。
+
+着手前整合確認は親と読取り専用Architecture確認者で実施した。Source・Architecture／Qualityの独立レビュー、対象回帰、文書の直接伝播確認を行う。準拠基準・公開判断・リリースは変更しないため、その採否監査は追加しない。実AI・実Docker・過去保持物操作は対象外とし、新たな実環境成立は主張しない。
+
+| 対象 | 処置・接続 |
+|---|---|
+| backend／Engineの環境読取り | Executorのenvironment/execute.tsで既存DI観測を逐次集約。18分類組合せ・cleanup不明を保持。doctorの合成Probeへ自動追加しない |
+| Desktop再起動 | 同FileのrestartDockerEnvironmentへ集約。CoordinatorのrestartRuntimeOwnedDockerForRecoveryを接続。元入力・Signal・verifyBoundary・同期通知・元Promiseを維持 |
+| 再起動の結果型 | DIの既存観測＋deliveryへDockerRuntimeRestartResultという名前を付け、コピー型やReturnType別名を増やさない |
+| 修復・退避・廃棄／認証／Probe | 別Capabilityとして今回は現状維持。窓口を作ったことだけで全DI直接依存を撤去済みとしない |
+
+### Recovery専用Capability・Owner・Lockの棚卸し
+
+| 現在の機構・主な実装Owner | 守っている保証・反例 | 既存機構で代替できるか・処置 |
+|---|---|---|
+| durableRecords／bindRuntimeOwnedExecutorAttempt（execution/recovery.ts） | 現在管理Ownerと開始Control／最終結果を同じ試行へ結合。別Controlやコピー結果で取消・保存を認めない | Operation IDは識別であり同Processの制御参照を証明しない。維持 |
+| dockerRecoveryPreparations／assertCurrentRecoveryOwner（同File） | Process喪失後のfresh回収で現在Root・元保存bytes・Host世代・保持Lockを結合。閉鎖後再使用と失効後Effectを拒否 | 元Operation Ownerは既に失われ得る。IDだけの削除へ置換不可。専用Registry新設ではなく既存の短命Mapを維持 |
+| dockerHostCleanupCapabilities（同File） | 回収済みDockerと元Host清掃・終端処理を同じ生涯へ結合。別Hostや二度目の確定を拒否 | 上記Mapと使われる通常終了／回復経路が異なる。保証同等の重複は未確認、削除しない |
+| Host世代排他／Provider Home排他（operation.ts・kernel-lock.ts経由） | 使用中Hostの削除、同じHomeへの通常実行と回復の競合を防ぐ | 対象と寿命が異なり、Repository保存Lockでは代替不可。維持 |
+| Docker Runtime State Lock（kernel-lock.ts） | 同じRepositoryのRuntime操作の競合を防ぐ。再起動ScopeのHost／Home Lockとは異なる | Repository Binding単位。別Repositoryを含むHost全体の排他とは主張しない。現行保証維持、今回削除しない |
+| Domain Writerの短期排他・元版bytes比較 | Lock保持中でも別保存で変更された状態へ古いCheckpointを上書きしない | 長期のHost／Home Lockでは保存競合を代替できない。維持 |
+| Intent・Receipt・Checkpoint・Diagnostic | 中断をまたぐ要求有無と観測経緯を保持。ログだけでEffect発行前Intentを代替しない | 現在許可の正本とは分けたまま維持。履歴の詳細化・過去Evidence変更はしない |
+
+今回の比較では、保証を落とさず即削除できる重複管理機構は確認できていない。名称が似ていることだけで統合しない。Host全体の競合対策を変更する場合は対象母集団・既存Scopeの不足と影響を別判断し、新しいLockや管理Stateを今回追加しない。現在、人間による追加判断は必要ない。
+
+固定候補の非AI確認はExecutorのcheckと全68件、DIのcheckと304件成功・既存5件skip、Coordinatorの型検査と関連回帰55件が成功した。変更したCoordinator三ファイルのLintと差分空白検査も成功。Source独立レビューは必須指摘零。Architecture／QualityレビューのSourceツリー・Rootヘッダー追従漏れは、環境責務の明記と二ファイルのツリー追加で是正した。文書検査によるQA説明のChecklist内挿入一件も、本文をChecklist前へ移して是正した。独立再確認の残必須指摘は零。文書再検査は変更対象の指摘零、参照展開した全体は既存3,356指摘で終了1のため全体合格とは扱わない。ヘッダー是正後のExecutor checkと公開境界・環境四件も成功した。過去八試行の実AI結果は新環境APIの成立根拠へ流用しない。実Docker・AI・過去保持物は操作しておらず、Host全体排他や新環境APIの実Desktop成立・全体QA完成は未確認である。
+
 - 対象: CRDD v0.22 / CHG-000082
 - 状態: A〜GのSource移管・公開接続と対象非AI確認は限定完了。Hの今回Executor単体の実AI／Docker八試行は成立。Workbench／MCP／Coordinator連携、実データ移行、人間操作および全体QAの完了は未確認。全体回帰の過去不合格と是正後の限定成功を区別する。
 - 基準: `5dae7108436205ecf7804d7898b1aecc2e8ce85b`

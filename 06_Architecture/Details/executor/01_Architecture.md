@@ -16,6 +16,17 @@
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider単段のProcess・取消・終了と元回復証拠 | Covered |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 準備一回消費・結果正規化。Taskの順序判断は上位へ残す | Covered |
 
+## Host実行環境の窓口
+
+単段Attemptとは独立した環境診断・再起動は`environment/execute.ts`が所有し、集約観測型だけを`environment/types.ts`へ置く。新しい管理State・Store・Factoryは追加しない。Docker Isolationが具体的なOS／Docker技術処理を所有し、Coordinatorは実施判断・現在Owner・必要な排他・Effect前の耐久Intent・Checkpoint・結果確定を所有する。
+
+| 公開関数 | 契約 |
+|---|---|
+| `inspectDockerEnvironment(): DockerEnvironmentStatus` | backendとEngineの既存の有界読取りを逐次実行する。backendのunknown、Engineのknown_unavailable／unknownとcleanup未確認を保持する。起動・再起動・修復・Container作成を発行しない |
+| `restartDockerEnvironment(request: DockerRuntimeRestartInput): Promise<DockerRuntimeRestartResult>` | 入力object・Signal・現在境界確認・同期通知と元Promiseを既存DIへ無変換で委譲する。DI正本の入力・結果・通知型を再利用し、deliveryを落とさない |
+
+診断結果はatomicなSnapshotでも再起動許可でも全資源停止の証明でもない。診断の先行実行を再起動の条件にせず、既存DIの各Effect直前確認と通知待ちを維持する。Coordinatorの再起動本番接続はこの窓口を使用する。既存doctorの合成Container Probeは別Capabilityであり、環境読取りをdoctorへ自動追加しない。修復・退避・廃棄・認証・Probeの直接依存は今回の接続変更の対象外である。既存Runtime State LockはRepository単位であり、Host全体・別Repositoryの排他保証をこの移管で新設又は証明したとは扱わない。
+
 ## Attempt資源の診断・回収API（2026-11-01）
 
 ExecutorはAttempt単位の技術診断・回収を受け持つ。既存attempt配下のrecovery.tsと公開入口index.tsに、inspectAttemptResourcesとcleanupAttemptResources、明示型AttemptRecoveryTarget・AttemptResourceInspection・AttemptCleanupResultを配置する。Coordinatorの本番資源回収はこの二操作へ接続し、Domain保存・Host清掃・Lease解放を下位へ移さない。
@@ -135,6 +146,9 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 ```text
 executor/src/
 ├ index.ts                    有限公開APIと共有型の明示export
+├ environment/
+│ ├ execute.ts                backend／Engine観測と環境再起動の薄い技術窓口
+│ └ types.ts                  集約観測型。入力・再起動結果・通知型はDI正本を再利用
 └ attempt/
   ├ execute.ts                createExecutor・prepareAttempt・start・単発実行・取消・join・通知
   ├ isolation.ts              AI Adapter／Docker Isolationの構成結合・Session開始と清掃接続
@@ -233,11 +247,12 @@ Home取得前は`attempt/validation.ts`の`isAttemptPlanValid`で共通の基本
 | `createExecutor` | attempt | Requestと固定隔離設定を受け、内部構成を保持した一試行の開始・取消・終了を提供 |
 | `prepareAdviceCommand`、`PreparedAdviceCommand` | attempt/isolation.ts、attempt/types.ts | 副作用なく助言Commandと完全Hashを事前固定する。承認・実行・Home取得を行わない |
 | `inspectAttemptResources`、`cleanupAttemptResources` | attempt/recovery.ts | Attempt資源の技術診断と回収。入力・結果型は冒頭の診断・回収API節を参照 |
+| `inspectDockerEnvironment`、`restartDockerEnvironment` | environment/execute.ts | Attemptとは独立した環境観測と既存再起動への薄い接続。判断・保存は上位、具体操作はDI |
 | `Executor`、`StartResult`、`CompletionResult` | attempt/types.ts | 開始結果と清掃後の最終結果を明示し、Factoryを型検査する |
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/types.ts | 実Process開始と非秘密診断 |
 | `AttemptRequest`、`AttemptRecordProjection` | attempt/types.ts | 解決済みの実行要求と、開始前の記録に必要な狭い隔離資源投影 |
 | `Executor.start` | attempt/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
-| 通常Rootの関数 | index.ts | 上記4操作に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
+| 通常Rootの関数 | index.ts | 上記6操作に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
 
 TaskResultとAdviceResultの正本はAI Adapterであり、Executor Rootから再公開しない。CompletionResult.normalizedResultはその用途別内容だけを保持する。providerExecutionObservation、providerTurnObservation、reviewFindingsは固定nullableの外側fieldとする。正常完了・清掃確認・内容ありの共同成立時だけ保持し、それ以外はnullへ戻す。Executorの結果は是正許可や選定記録IDを含めず、上位の既存操作記録と原結果objectの相関で管理する。
 

@@ -65,7 +65,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
    * @precondition メモリ内のRootとCallerのSourceを受け取る。
    * @stimulus 正常Sourceまたは単一境界を変異したSourceを照合する。
    * @observation 公開名、固定import先とimport名集合を読む。
-   * @oracle 現在5操作だけが私有接続され、DI root入口だけを使用する。
+   * @oracle 現在5操作は私有接続され、再起動だけはExecutorの正式窓口へ接続する。
    * @cleanup N/A: Source読取りとメモリ評価のみ。
    * @boundary PRL-IT-013=Direct Boundary: Package公開契約→現在再起動Caller
    */
@@ -92,7 +92,12 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
         sourceDeclaration(callerSource, name),
         new RegExp(`function ${name}\\(`, "u"),
       );
-    assert.match(callerSource, /\brestartDockerRuntime\b/u);
+    assert.match(callerSource, /\brestartDockerEnvironment\b/u);
+    assert.doesNotMatch(callerSource, /\brestartDockerRuntime\b/u);
+    assert.match(
+      callerSource,
+      /import\s*\{[^}]*\brestartDockerEnvironment\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/executor\/src\/index\.ts["']/u,
+    );
     assert.match(callerSource, /\btype DockerRuntimeRestartEvent\b/u);
     assert.deepEqual(
       [
@@ -519,7 +524,7 @@ async function compose(fault: string = "normal") {
         lockReleased: true,
       };
     },
-    restartDockerRuntime: (
+    restartDockerEnvironment: (
       input: Parameters<typeof restartDockerRuntimeForVerification>[0],
     ) => {
       calls.push("lower");

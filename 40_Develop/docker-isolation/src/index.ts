@@ -54,6 +54,7 @@ export {
   restartDockerRuntime,
   type DockerRuntimeRestartInput,
   type DockerRuntimeRestartObservation,
+  type DockerRuntimeRestartResult,
   type DockerRuntimeRestartEvent,
 } from "./docker-desktop/restart.ts";
 export {

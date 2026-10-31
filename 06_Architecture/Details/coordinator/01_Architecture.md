@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Docker環境再起動の呼出し境界（2026-11-01）
+
+再起動の技術呼出しはExecutorの`restartDockerEnvironment`を使用する。対象選定、現在Owner、Scope、既存Host／Home／Runtime排他、耐久Intent・Checkpoint、元版読戻し、解放後の結果確定はCoordinatorへ維持する。要求ID・Signal・verifyBoundary・onRequesting・onEventは同じ値を渡し、保存拒否後の追加Effect停止と既要求の再発行拒否を変えない。観測履歴は現在の実行許可の代用にしないが、Effect前Intentは単なるDiagnosticとは区別して維持する。
+
+環境の読取り窓口は[Executor詳細](../executor/01_Architecture.md#host実行環境の窓口)へ集約する。既存doctorの合成隔離Probe・認証・修復・退避処置は別責務として今回は維持する。現行のRuntime State LockはRepository単位であり、この接続変更を別Repositoryを含むHost全体の排他保証とは扱わない。
+
 ## Probe記録の保存Owner
 
 `state/probe-record.ts`は上位診断が使う既存Probe記録の保存・読戻し・token／Hash・Root／子実体照合を所有する。Docker Isolationから本文同値で移管し、`execution/diagnostics.ts`と検証記録Toolが直接利用する。固定Image・Name・LabelはDIの既存`describeDockerProbeResource`から取得し、この保存ModuleからDocker要求は発行しない。DIへの互換再exportや新しいStore・Registryを作らない。

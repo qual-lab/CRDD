@@ -1,5 +1,9 @@
 # Docker隔離の詳細設計
 
+## 環境観測・再起動の上位接続（2026-11-01）
+
+backendとEngine観測、固定再起動の具体的なOS・CLI・Native処理は引き続きDocker Isolationが所有する。上位向けの薄い技術窓口はExecutorの[環境API](../executor/01_Architecture.md#host実行環境の窓口)に置き、Coordinatorの本番再起動はそのAPIへ接続する。既存の現在境界確認、Effect前同期通知、取消、補助資源join、一次失敗・cleanup・deliveryの分離は変えない。DockerRuntimeRestartResultは従来の観測とdeliveryの交差型に明示名を付けるだけであり、返却値やSchemaは変えない。
+
 ## Process／Thread数の独自上限撤廃 — 2026-10-29
 
 人間判断により、CRDDはAI実行・助言・認証確認／login・Proxy・診断用Containerへ`--pids-limit`を指定しない。従来の32／64固定値を別値や`-1`へ置換せず、用途別設定、自動算定、監視・回復機構も追加しない。実行時構成照合と回収判定は`HostConfig.PidsLimit`をCRDDの必要条件として解釈しない。Docker／Host側の独立した設定は変更せず、CRDDの指定撤廃を実環境全体の無制限保証とは扱わない。

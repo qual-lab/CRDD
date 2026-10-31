@@ -13,17 +13,18 @@ import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
 import {
   type DockerRuntimeRepairCheckpoint,
-  type DockerRuntimeRestartEvent,
   disposeDockerRuntimeRepairDirectory,
   dockerIsolationResourceIdentityIsValid,
   dockerRuntimeRepairCheckpointIsSettled,
   dockerRuntimeRepairDisposalIsSettled,
   observeDockerRuntimeRepairRetention,
   parseDockerTaskRecoveryId,
-  restartDockerRuntime,
   runDockerRuntimeRepairSession,
 } from "../../../docker-isolation/src/index.ts";
 import {
+  restartDockerEnvironment,
+  type DockerRuntimeRestartEvent,
+  type DockerRuntimeRestartResult,
   cleanupAttemptResources,
   inspectAttemptResources,
   type AttemptRecoveryTarget,
@@ -5429,7 +5430,7 @@ export function releaseRuntimeOwnedDockerRestartPreparation(
  */
 export function finalizeRuntimeOwnedDockerRestartPreparation(
   capability: unknown,
-  result: Awaited<ReturnType<typeof restartDockerRuntime>>,
+  result: DockerRuntimeRestartResult,
 ) {
   const refused = Object.freeze({
     status: "blocked" as const,
@@ -7049,7 +7050,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
     });
   const context = preparation.capability;
   let lockCleanupConfirmed = false;
-  let result: Awaited<ReturnType<typeof restartDockerRuntime>> | null = null;
+  let result: DockerRuntimeRestartResult | null = null;
   let failure: string | null = null;
   let checkpointInitialized = preparation.checkpointInitialized;
   let checkpoint: DockerRestartCheckpoint = Object.freeze({
@@ -7090,7 +7091,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
     if (preparation.alreadyRequested) {
       failure = "docker_restart_existing_attempt_requires_recovery";
     } else {
-      result = await restartDockerRuntime({
+      result = await restartDockerEnvironment({
         requestId: preparation.requestId,
         signal,
         verifyBoundary: () =>

@@ -142,6 +142,8 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     assert.deepEqual(Object.keys(api).sort(), [
       "createExecutor",
       "prepareAdviceCommand",
+      "inspectDockerEnvironment",
+      "restartDockerEnvironment",
       "inspectAttemptResources",
       "cleanupAttemptResources",
     ].sort());

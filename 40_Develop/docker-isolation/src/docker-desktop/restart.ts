@@ -46,6 +46,19 @@ export type DockerRuntimeRestartObservation = Readonly<{
 }>;
 
 /**
+ * 再起動の技術観測と通知配送結果を保持する。
+ * @responsibility 技術完了と上位通知の配送確認を分離する。
+ * @trace ARCH-000008
+ * @shape 既存の技術観測とdelivery。
+ * @invariant 通知失敗で元の技術観測を成功・未発行へ書換えない。
+ * @boundary Docker Isolationの一操作結果。
+ * @security 操作権限・生出力を含めない。
+ * @compatibility 既存の返却値に名前を付け、値と形式を変更しない。
+ */
+export type DockerRuntimeRestartResult = DockerRuntimeRestartObservation &
+  Readonly<{ delivery: "not_requested" | "confirmed" | "unknown" }>;
+
+/**
  * 元要求へ結合した受付または終端の通知。
  * @responsibility 下位の実観測だけを同じ相関で直列搬送する。
  * @trace ARCH-000008
@@ -145,7 +158,9 @@ function confirmSynchronousRestartBoundary(confirm: () => unknown) {
  * @security 現在Artifactの同一性・Hashと固定Publisher条件を下位で照合する。
  * @concurrency 上位の既存排他を各Effect前に再確認し、取消後の資源joinを省略しない。
  */
-export function restartDockerRuntime(input: DockerRuntimeRestartInput) {
+export function restartDockerRuntime(
+  input: DockerRuntimeRestartInput,
+): Promise<DockerRuntimeRestartResult> {
   return restartDockerRuntimeForVerification(input, {
     platform: process.platform,
     acquire: async () => {
@@ -186,12 +201,7 @@ export async function restartDockerRuntimeForVerification(
     createMachine: typeof createDockerRestartMachine;
     now: () => number;
   }>,
-): Promise<
-  DockerRuntimeRestartObservation &
-    Readonly<{
-      delivery: "not_requested" | "confirmed" | "unknown";
-    }>
-> {
+): Promise<DockerRuntimeRestartResult> {
   let captured: DockerRuntimeRestartInput;
   try {
     if (!input || typeof input !== "object" || types.isProxy(input))

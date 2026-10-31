@@ -873,6 +873,8 @@ Platformの故障購読はlockの通常・故障後即時・取得結果不明�
 
 Attempt診断・回収移管では、基準版の現在資源回収・Owner再入場・認証unknown閉鎖・元ID保持のCapabilityを対応付ける。ID発見通知失敗又はPromise誤返却では削除0、削除直前Owner失効では追加処置0、部分回収後の保存失敗とconfig close失敗は同じ回復参照のまま停止する。認証二読取りの一方不明を閉鎖成功へ変換せず、inspect先行なしのcleanup、inspect後の実体変化、Container先行の回収順、config全経路close、Host清掃・Lease・Task進行の非変更を確認する。SourceはExecutor公開APIへ接続する。共通回収通知の継承、同期通知のthrow・Promise誤返却・後着Reject、保存失敗後の同Owner再入場停止を反証する。通常実行の資源終了前後とHome解放後の二通知は統合しない。既存の実AI／Docker Evidenceを新API成立の根拠に流用しない。
 
+環境APIの薄い接続は非AIで検証する。診断はbackend三分類×Engine三分類×cleanup二分類の18組を代役で通し、順序・unknown維持・観測object同一性・再起動要求0を確認する。再起動は元入力・Signal・同期通知・元Promiseと結果の同一性、取消済み入力と下位Rejectの無変換搬送を確認する。既存DIの固定Machine試験とCoordinatorの保存拒否・Owner変化・取消・再入場拒否の回帰を維持し、薄い委譲試験だけで実Desktopの停止・起動成立やHost全体排他を主張しない。実AI・Docker・過去保持物の操作は今回の検証に含めない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
