@@ -122,6 +122,10 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       return resolved;
     }});
     const api=await import(${JSON.stringify(root)});
+    const isolation=await import(${JSON.stringify(new URL("../../src/attempt/isolation.ts", import.meta.url).href)});
+    assert.equal('describeIsolationContract' in isolation,false);
+    assert.equal('isPlanValid' in isolation,false);
+    assert.equal('providerBoundaryConfiguration' in isolation,false);
     blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
       "createExecutor",
@@ -130,7 +134,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       "consumeTaskRemediation", "hashAdviceCommand", "bindAdviceCommand",
       "createProviderExecutor", "ProviderExecutorHost", "ownDataValue",
       "buildProviderDockerExecutionPlan", "prepareAttempt", "validatePlan", "planIdentity",
-      "resolveIsolationCommandInput", "PURPOSES", "SETUP_COMMAND_FAILURE_REASONS",
+      "resolveIsolationCommandInput", "isAttemptPlanValid", "createConfigurationNotice", "PURPOSES", "SETUP_COMMAND_FAILURE_REASONS",
       "ATTEMPT_OBSERVATION_KEYS", "ADVICE_INPUT_CONTRACT", "ADVICE_INPUT_CONTRACT_REVISION",
       "captureAllowedReferences", "inspectAttemptSelection", "parseModelSelection", "copyPlainDataRecord", "readOwnDataProperty", "ATTEMPT_COMPLETION_REASONS",
       "ADVICE_RESULT_CONTRACT", "ADVICE_RESULT_CONTRACT_REVISION"])

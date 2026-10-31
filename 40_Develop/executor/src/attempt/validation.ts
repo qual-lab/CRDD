@@ -1,13 +1,17 @@
 /**
- * 一試行の技術選定と開始参照の入力を局所値へ固定する。
+ * 一試行の技術入力を固定し、開始と隔離構成で共有する基本条件を検査する。
  * @packageDocumentation
- * @responsibility Objectの形を検査し、モデルの意味規則はAI Adapterへ委譲する。
+ * @responsibility 選定・用途・Mount・Command外形を検査し、モデルと資源Identityの規則は所有元へ委譲する。
  * @trace ARCH-000008
  * @trace ARCH-000015
  * @boundary 信頼した上位Hostの搬送値とExecutorの準備・開始。
  */
 import { types as utilTypes } from "node:util";
+import type { AttemptPlan } from "./types.ts";
+import { PURPOSES } from "../result/constants.ts";
+import { dockerIsolationResourceIdentityIsValid } from "../../../docker-isolation/src/index.ts";
 import {
+  describeProviderAuthentication,
   resolveAiModelSelection,
   type AiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
@@ -130,4 +134,78 @@ export function readOwnDataProperty(value: unknown, key: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * 開始前とDocker構成照合で共有する試行入力の基本条件を検査する。
+ * @responsibility 選定・用途・Mount・資源Identity・Command外形を一箇所で検査する。
+ * @trace ARCH-000008
+ * @input Factoryが固定した一試行の技術構成。
+ * @returns 全基本条件が成立する場合だけtrue。
+ * @effect N/A: メモリ内の照合のみ。Home・Docker・保存を操作しない。
+ * @boundary Executor準備済み入力と開始前の技術検査。
+ * @invariant 完全Command一致、Authority、清掃成立の代わりにはしない。
+ */
+export function isAttemptPlanValid(plan: AttemptPlan): boolean {
+  const isTaskPlan = plan.operationMode === "isolated_task";
+  const isAdvicePlan = plan.operationMode === "workbench_advice";
+  return (
+    (plan.provider === "codex" || plan.provider === "claude") &&
+    /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
+    /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
+    parseModelSelection(plan.executionSelection)?.provider === plan.provider &&
+    plan.subscriptionOffering ===
+      describeProviderAuthentication(plan.provider).offering &&
+    plan.activeMountCapability !== null &&
+    typeof plan.activeMountCapability === "object" &&
+    (plan.operationMode === "boolean_probe" || isTaskPlan || isAdvicePlan) &&
+    (isTaskPlan
+      ? (plan.taskRole === "executor" || plan.taskRole === "reviewer") &&
+        typeof plan.providerInput === "string" &&
+        plan.providerInput.length > 0 &&
+        typeof plan.workspaceSourcePath === "string" &&
+        plan.workspaceSourcePath.length > 0 &&
+        plan.workspaceMountMode ===
+          (plan.taskRole === "executor" ? "read_write" : "read_only")
+      : isAdvicePlan
+        ? plan.taskRole === null &&
+          /^[a-f0-9]{64}$/u.test(plan.adviceCommandHash ?? "") &&
+          typeof plan.providerInput === "string" &&
+          plan.providerInput.length > 0 &&
+          plan.workspaceSourcePath === null &&
+          plan.workspaceMountMode === null
+        : plan.taskRole === null &&
+          (plan.adviceCommandHash ?? null) === null &&
+          plan.providerInput === null &&
+          plan.workspaceSourcePath === null &&
+          plan.workspaceMountMode === null) &&
+    dockerIsolationResourceIdentityIsValid({
+      authenticationContainerName: plan.authContainerName,
+      executionContainerName: plan.providerContainerName,
+      proxyContainerName: plan.proxyContainerName,
+      internalNetworkName: plan.internalNetworkName,
+      egressNetworkName: plan.egressNetworkName,
+      ownershipLabel: plan.ownershipLabel,
+      executionImageDigest: plan.providerImageDigest,
+      proxyImageDigest: plan.proxyImageDigest,
+    }) &&
+    /^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) &&
+    /^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) &&
+    /^[a-f0-9]{64}$/u.test(plan.localUserBindingHash) &&
+    /^[a-f0-9]{64}$/u.test(plan.stableLogicalHomeBindingHash) &&
+    Array.isArray(plan.commands) &&
+    plan.commands.length === PURPOSES.length &&
+    plan.commands.every(
+      (command, index) =>
+        command.purpose === PURPOSES[index] &&
+        Array.isArray(command.argv) &&
+        command.argv.length > 0 &&
+        command.argv.every(
+          (value: unknown) =>
+            typeof value === "string" &&
+            value.length > 0 &&
+            !value.includes("\0"),
+        ),
+    )
+  );
 }

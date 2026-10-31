@@ -117,13 +117,13 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 executor/src/
 ├ index.ts                    有限公開APIと共有型の明示export
 ├ attempt/
-│ ├ validation.ts             技術選定の五項目固定・開始参照のown data取得
+│ ├ validation.ts             技術選定の五項目固定・開始参照取得・試行構成の共通基本検査
 │ ├ execute.ts                createExecutor・prepareAttempt・start・単発実行・取消・join・通知
-│ ├ isolation.ts              Docker構成・固定Command検査・資源清掃後の終了接続
+│ ├ isolation.ts              AI Adapter／Docker Isolationの構成結合・Session開始と清掃接続
 │ └ types.ts                  技術入力・通知interface・開始通知と診断の型
 └ result/
   ├ types.ts                  公開・共有結果型と非秘密診断型
-  ├ attempt.ts                Command結果の変換・開始結果・清掃後の終了結果の組立て
+  ├ attempt.ts                Command結果・構成診断・開始結果・清掃後の終了結果の組立て
   ├ constants.ts              結果理由・診断段階・Command用途の共有固定語彙
   └ validation.ts             技術的な失敗理由の固定語彙検査
 ```
@@ -191,7 +191,7 @@ DIの`onExecutionStarted`は同期voidの技術signalであり、Executorの公�
 
 `index.ts` → `createExecutor` → `start` → 内部`executeAttempt` → Docker Isolationによる実行・通知 → 資源回収・Home解放 → 技術CompletionResult、の順に進む。`start`はControlとcompletionを返し、Task全体の計画や順序を決定しない。`executeAttempt`は一試行の継続処理であり、上位の計画を実行計画として再管理するものではない。
 
-構築Factoryは`execute.ts`の`createExecutor`一つとし、Requestごとの準備・開始・取消を同じ試行専用Executorへまとめる。旧`createExecutionRuntime`／`createProviderAttemptRuntime`の中継を撤去する。有限試験の組立ては既存scriptsへ閉じ、製品と同じ内部start／cancel／abandonを使う。`describeExecutorContract`による説明文字列APIは撤去し、技術期限はDocker Isolation、準備候補の期限はCoordinatorが所有する。非秘密診断の投影は`isolation.ts`、通知は`execute.ts`の各発生箇所から直接呼び出し、通知型は`types.ts`へ分配し、`observation.ts`は置かない。
+構築Factoryは`execute.ts`の`createExecutor`一つとし、Requestごとの準備・開始・取消を同じ試行専用Executorへまとめる。旧`createExecutionRuntime`／`createProviderAttemptRuntime`の中継を撤去する。有限試験の組立ては既存scriptsへ閉じ、製品と同じ内部start／cancel／abandonを使う。`describeExecutorContract`による説明文字列APIは撤去し、技術期限はDocker Isolation、準備候補の期限はCoordinatorが所有する。非秘密の構成診断は`result/attempt.ts`の`createConfigurationNotice`が組み立て、通知は`execute.ts`の発生箇所から直接呼ぶ。通知型は`types.ts`へ置き、`observation.ts`は置かない。
 
 上位が先に回復記録を確定し、Executorはそのexact参照でHome排他を取得する。競合時は同じIDの未開始試行として拒否し、清掃完了やHome解放を捏造しない。旧abandonのHome解放条件に関する既知指摘は別件として保持し、本構造整理では変更しない。
 
@@ -201,7 +201,9 @@ DIの`onExecutionStarted`は同期voidの技術signalであり、Executorの公�
 
 初回は既存乱数Ownerが一回生成したProxy Tokenをcreate入力として渡す。再照合はverify入力で元九CommandからTokenを観測し、同じ正規構成から再生成した用途・順序・全argvを完全照合する。両方式の混在・Token欠測・不正値は拒否する。resolverは乱数、Registry又は保存を所有しない。DIへ渡すのは有限技術値だけで、Operation・Packet・Authority・Recovery・本文を渡さない。
 
-開始時は`resolveValidatedPlan`が技術五項目の選定・入力・Mountと固定Commandを先に確認し、一回の構築結果をそのまま下位へ渡す。Boolean検査後に同じ構成を再構築しない。全Tokenを一括変更したコピーの排除は構成比較単体ではなく、既存の私有準備Map・元管理参照・一回消費が担う。Revision／Authority再確認・Recovery引渡し・submission先行保存・取消join・清掃後公開は維持する。
+Home取得前は`attempt/validation.ts`の`isAttemptPlanValid`で共通の基本条件を確認する。`resolveValidatedPlan`も同じ検査を先頭で呼び、基本条件の別実装を持たない。選定・用途・Mount・資源Identity・Home四Hash・九Commandの順序とargv外形はこの一正本が所有する。完全照合側にはProvider実行仕様との用途・識別種別一致、本文byte上限、Path禁止文字、Advice Command Hashと正規Docker構成・全Command一致の追加条件を残す。一回の構築結果をそのまま下位へ渡し、Boolean検査後に同じ構成を再構築しない。全Tokenを一括変更したコピーの排除は構成比較単体ではなく、既存の私有準備Map・元管理参照・一回消費が担う。Revision／Authority再確認・Recovery引渡し・submission先行保存・取消join・清掃後公開は維持する。
+
+`isolation.ts`の本番Runtime接続はSession開始・所有資源清掃・元清掃結果照合だけを返す。単一Command開始と`describeIsolationContract`は製品Sourceから撤去し、既存`./testing`の`executor-test.ts`が所有する。試験用単一Command接続は製品の正規構成検査・同じ`planIdentity`を使用するが、製品APIの成立根拠にはしない。`planIdentity`は開始・清掃の相関に必要なため製品側に残し、対象fieldと直列化順序を変更しない。Home解放は既存の下位Leaseへ一回委譲し、解放条件自体は変更しない。
 
 回復開始理由はHost境界を所有するCoordinatorの有限投影へ移管する。現行の開始・在庫・Lock解放契約が使う7理由だけを対象にし、未知理由は既存unavailableへ閉じる。Domainは保存合法性を所有し、Executorは上位のraw理由を分類しない。元結果・exact回復参照・manual条件は変更しない。
 

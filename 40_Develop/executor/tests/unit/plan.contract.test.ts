@@ -9,11 +9,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  isPlanValid,
   planIdentity,
   resolveValidatedPlan,
+  resolveIsolationCommandInput,
+  resolveProviderExecution,
+  bindIsolationRuntime,
 } from "../../src/attempt/isolation.ts";
+import { prepareAttempt } from "../../src/attempt/execute.ts";
+import {
+  bindAdviceCommand,
+  hashAdviceCommand,
+  planDockerIsolationCommands,
+} from "../../../docker-isolation/src/index.ts";
+import type { ProviderAdvicePlan } from "../../../ai-adapter/src/index.ts";
 import type { AttemptPlan } from "../../src/attempt/types.ts";
+import { isAttemptPlanValid } from "../../src/attempt/validation.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -35,7 +45,7 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     argv: ["create_subscription_auth_probe"],
   };
   assert.equal(
-    isPlanValid({
+    isAttemptPlanValid({
       ...probe,
       commands: [unsupported, ...probe.commands.slice(1)],
     }),
@@ -61,7 +71,7 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     { ...task, taskRole: "reviewer", workspaceMountMode: "read_only" },
     advice,
   ]) {
-    assert.equal(isPlanValid(plan as AttemptPlan), true);
+    assert.equal(isAttemptPlanValid(plan as AttemptPlan), true);
   }
   for (const overrides of [
     { executionSelection: { ...probe.executionSelection, provider: "codex" } },
@@ -78,14 +88,14 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     },
   ])
     assert.equal(
-      isPlanValid({ ...probe, ...overrides } as unknown as AttemptPlan),
+      isAttemptPlanValid({ ...probe, ...overrides } as unknown as AttemptPlan),
       false,
     );
   assert.equal(
-    isPlanValid({ ...task, workspaceMountMode: "read_only" }),
+    isAttemptPlanValid({ ...task, workspaceMountMode: "read_only" }),
     false,
   );
-  assert.equal(isPlanValid({ ...advice, taskRole: "executor" }), false);
+  assert.equal(isAttemptPlanValid({ ...advice, taskRole: "executor" }), false);
   assert.equal(resolveValidatedPlan(probe, "C:/synthetic/tmp"), null);
   for (const overrides of [
     {
@@ -111,4 +121,162 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
       planIdentity(probe),
       planIdentity({ ...probe, ...overrides }),
     );
+});
+
+/**
+ * 共通基本検査と追加の完全照合が同じ本番Session接続へ到達することを確認する。
+ * @responsibility 二重管理を撤去しても各拒否条件と下位要求前停止を維持する。
+ * @trace ERB-IT-004
+ * @precondition 正規Builderと固定構成だけを使い、Runtimeは有限代役にする。
+ * @stimulus 三用途・二役割の正例、基本形変異とbyte・Path・Hash・Command変異。
+ * @observation 構成取得可否と下位Session開始回数。
+ * @oracle 全負例はnull、基本不正は下位開始零、正例だけ代役へ到達する。
+ * @cleanup N/A: ファイル書込み・Process・AI・Docker要求なし。
+ */
+test("共通基本検査と完全構成照合を通った計画だけをSessionへ渡す", () => {
+  const synthetic = attemptPlan();
+  const temporary = "C:/synthetic/tmp";
+  const random = { randomBytes: (size: number) => Buffer.alloc(size, 1) };
+  const target = {
+    ...synthetic,
+    workspaceSourcePath: "C:/synthetic/work",
+    temporarySourcePath: temporary,
+  };
+  const probe = prepareAttempt(random, {
+    purpose: "probe",
+    selection: synthetic.executionSelection,
+    target,
+  });
+  const codex = prepareAttempt(random, {
+    purpose: "probe",
+    selection: {
+      provider: "codex",
+      modelIdentifier: "gpt-5.5",
+      identifierKind: "exact",
+      reasoningEffort: "low",
+      purpose: "task",
+    },
+    target: { ...target, provider: "codex" },
+  });
+  assert.ok(probe);
+  assert.ok(codex);
+  /** 既存の正規Docker構成を合成計画へ一度だけ反映する。 */
+  function withCommands(plan: AttemptPlan): AttemptPlan {
+    const configuration = resolveIsolationCommandInput(
+      plan,
+      temporary,
+      "1".repeat(64),
+    );
+    assert.ok(configuration);
+    const commands = planDockerIsolationCommands(configuration);
+    assert.ok(commands);
+    return { ...plan, commands };
+  }
+  const task = withCommands({
+    ...codex,
+    operationMode: "isolated_task",
+    taskRole: "executor",
+    providerInput: "synthetic",
+    workspaceSourcePath: target.workspaceSourcePath,
+    workspaceMountMode: "read_write",
+  });
+  const reviewer = withCommands({
+    ...task,
+    taskRole: "reviewer",
+    workspaceMountMode: "read_only",
+  });
+  const adviceBase: AttemptPlan = {
+    ...probe,
+    operationMode: "workbench_advice",
+    executionSelection: { ...probe.executionSelection, purpose: "advice" },
+    providerInput: "synthetic",
+  };
+  const adviceExecution = resolveProviderExecution(adviceBase);
+  assert.ok(adviceExecution);
+  const adviceHash = hashAdviceCommand(
+    bindAdviceCommand(adviceExecution as ProviderAdvicePlan),
+  );
+  assert.ok(adviceHash);
+  const advice = withCommands({ ...adviceBase, adviceCommandHash: adviceHash });
+  for (const plan of [probe, task, reviewer, advice]) {
+    assert.equal(isAttemptPlanValid(plan), true);
+    assert.ok(resolveValidatedPlan(plan, temporary));
+  }
+  const basicFailures: AttemptPlan[] = [
+    { ...probe, operationId: "bad" },
+    { ...probe, grantRef: "bad" },
+    { ...probe, provider: "codex" },
+    { ...probe, subscriptionOffering: "chatgpt_subscription_oauth" },
+    { ...probe, activeMountCapability: null as unknown as object },
+    { ...probe, providerHomeIdentityHash: "bad" },
+    { ...probe, providerHomeProtectionHash: "bad" },
+    { ...probe, localUserBindingHash: "bad" },
+    { ...probe, stableLogicalHomeBindingHash: "bad" },
+    { ...probe, commands: [...probe.commands].reverse() },
+    { ...task, workspaceMountMode: "read_only" },
+  ];
+  let starts = 0;
+  const unexpectedHook = () => {
+    throw Error("unexpected_hook");
+  };
+  const hooks = {
+    allowCommand: unexpectedHook,
+    recordSubmission: unexpectedHook,
+    recordNotIssued: unexpectedHook,
+    recordExecutionSubmission: unexpectedHook,
+    recordReceipt: unexpectedHook,
+    acceptCommandResult: unexpectedHook,
+    acceptOutput: unexpectedHook,
+    onExecutionStarted: unexpectedHook,
+    onFailure: unexpectedHook,
+  };
+  const bound = bindIsolationRuntime(
+    {
+      startExecution: () => {
+        starts++;
+        throw Error("synthetic_session_reached");
+      },
+      cleanupOwnedResources: async () => {
+        throw Error("unused_cleanup");
+      },
+      verifyCleanupOutcome: () => null,
+    },
+    () => ({ tmp: temporary }),
+  );
+  assert.equal("startCommand" in bound, false);
+  for (const plan of basicFailures) {
+    assert.equal(isAttemptPlanValid(plan), false);
+    assert.equal(resolveValidatedPlan(plan, temporary), null);
+    assert.throws(
+      () => bound.startExecution(plan, {}, {}, hooks),
+      /docker_effect_plan_invalid/,
+    );
+  }
+  assert.equal(starts, 0);
+  assert.throws(
+    () => bound.startExecution(probe, {}, {}, hooks),
+    /synthetic_session_reached/,
+  );
+  assert.equal(starts, 1);
+  const maximum = withCommands({
+    ...task,
+    providerInput: "x".repeat(128 * 1024),
+  });
+  assert.ok(resolveValidatedPlan(maximum, temporary));
+  for (const plan of [
+    { ...task, providerInput: "x".repeat(128 * 1024 + 1) },
+    { ...task, workspaceSourcePath: "C:/synthetic,bad" },
+    { ...probe, providerHomeSourcePath: "" },
+    { ...probe, providerHomeSourcePath: "C:/synthetic\nbad" },
+    { ...advice, adviceCommandHash: "f".repeat(64) },
+    {
+      ...probe,
+      commands: probe.commands.map((c, i) =>
+        i ? c : { ...c, argv: [...c.argv, "unexpected"] },
+      ),
+    },
+  ]) {
+    assert.equal(isAttemptPlanValid(plan), true);
+    assert.equal(resolveValidatedPlan(plan, temporary), null);
+  }
 });

@@ -34,13 +34,12 @@ import {
   convertCommandResult,
   parseAttemptOutput,
   createCompletionResult,
+  createConfigurationNotice,
 } from "../result/attempt.ts";
 import {
   resolveProviderExecution,
   resolveIsolationCommandInput,
-  providerBoundaryConfiguration,
   bindIsolationRuntime,
-  isPlanValid,
   releaseAttemptHomeLease,
   type IsolationRuntime,
 } from "./isolation.ts";
@@ -51,7 +50,11 @@ import type {
   PrimaryFailureDiagnostic,
   AttemptContent,
 } from "../result/types.ts";
-import { readOwnDataProperty, parseModelSelection } from "./validation.ts";
+import {
+  readOwnDataProperty,
+  parseModelSelection,
+  isAttemptPlanValid,
+} from "./validation.ts";
 import type {
   AttemptRequest,
   AttemptPlan,
@@ -517,7 +520,7 @@ async function executeAttempt(
 
   try {
     const pending = state.callbacks.onDiagnostic?.(
-      providerBoundaryConfiguration(plan),
+      createConfigurationNotice(plan),
     );
     if (pending) void pending.catch(() => {});
   } catch {
@@ -720,7 +723,7 @@ export function start(
     !managementCapability ||
     typeof managementCapability !== "object" ||
     !plan ||
-    !isPlanValid(plan) ||
+    !isAttemptPlanValid(plan) ||
     !id ||
     id.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash ||
     !capability ||

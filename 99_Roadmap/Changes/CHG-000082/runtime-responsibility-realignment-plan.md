@@ -1912,3 +1912,13 @@ Executorの製品Sourceから残るDomain参照を撤去した。完全選定は
 AI Adapterの`codex_task_reviewer_code_mode_not_verified`二行を撤去し、計画契約を改訂17へ更新した。既存のCLI設定・Model／Effort・read-only sandbox・root deny／minimal read／workspace read／CLI read・never承認・Shell／unified exec無効・Code Mode公式Hostとin-process fallback無効・通信条件は変更しない。特殊Source置換loaderと専用試験／symbolを削除し、両Providerの通常Task APIと通常IPCへ戻す。件数が一件でも正規review・物理Oracle・終了条件が成立する非AI反例を追加し、Tool観測件数は診断に限定する。
 
 今回の実AI再確認は通常入口で六試行を逐次実行する。`EXEC-20261030-06` Codex編集、07 Claudeレビュー、08 Claude編集、09 Codexレビュー、10 Codex開始後取消、11 Claude開始後取消。各一回、合成source.txt・固定指示・内容／差分のみ、同じGPT-6.1 Sol／mediumとOpus 5.5／medium・固定Imageを使用する。各試行は新品Rootで、レビューは編集成功時の検査済みexact bytes／Hashと同じ内容を投影する。物理Workspace引渡しや上位連携は対象外とする。どれかが失敗すれば後続の送信を停止し、自動再試行・Docker再起動・Image更新・過去保持物操作を行わない。全項目が成立した場合だけコミット・プッシュする。
+
+## Executorの隔離接続・共通検査の整理（2026-10-31、対象非AI確認中）
+
+基準Commitはab58b98b7。人間承認した既存Sourceの責務整理として、isolation.tsをAI Adapter／Docker Isolationの構成結合とSession開始・清掃・相関の接続へ限定する。通常Root・保存・契約値・Timeout・実行許可・Home解放条件は変更しない。Current Repository内だけを編集し、実AI・Docker・既存保持物は読取りも含めて操作しない。Sourceと設計・QAの独立レビューを実施し、準拠基準・Release判断は変更しないため準拠・Release監査は適用しない。
+
+着手前確認では旧Sourceの九関数・内部五関数、通常createExecutorからの接続、./testingとCoordinator試験Consumerを照合した。基本検査を全廃してDIだけへ委ねる案は、Home取得前の用途・選定・Mount拒否を失うため採用しない。完全照合だけへ統合して二度構築する案も不採用とし、共通の基本条件をattempt/validation.tsのisAttemptPlanValidへ本文同値で一実体化する。startはHome取得前、resolveValidatedPlanは構築前に同じ関数を呼ぶ。完全照合側は本文byte・Path・Advice Hash・Provider仕様相関と全Command一致を追加し、基本条件を再定義しない。
+
+編集単位と対応は次のとおり。①基本検査をvalidationへ移し、executeと試験入口・基本検査Suiteを追従。②製品利用のないstartCommandと契約説明を既存executor-test.tsへ移し、既存Coordinator試験は同入口を継続利用する。試験用投影は製品の正規構成照合とplanIdentityに接続し、製品単一Command APIの成立証拠にはしない。③非秘密診断をresult/attempt.tsのcreateConfigurationNoticeへ移し、executeの直接通知と既存観測Suiteを追従。④現Ownerと責務をArchitecture・QA・関数Headerへ反映する。planIdentityの対象field・直列化順序、元結果・exact回復参照・清掃未確認の保持は据置く。新File・API・Registry・永続化・Lock・監視は追加しない。
+
+正常は三用途と編集／レビューの正規構成、負例は操作・Grant・選定・Offering・Mount・Home四Hash・Command外形、境界は128KiB／超過、完全条件はPath禁止文字・Advice Hash・Command差で照合する。基本不正はSession要求前で零、完全条件不成立はnull、所在や清掃観測不能は従来どおり未確認とする。元のplanIdentity・清掃結果相関と任意診断の失敗非波及は既存結合試験で確認する。追加の人間判断は不要。

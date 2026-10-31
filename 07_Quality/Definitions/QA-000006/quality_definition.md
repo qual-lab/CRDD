@@ -847,6 +847,7 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 - 回復開始診断の型・固定段階・失敗通知はCoordinatorに存在し、Executor製品Sourceに残らない。上位Reporterへ直接報告し、Workbench／Coordinator検証ツールは同じCoordinator検査正本で未知値・余分field・別相関を拒否する。
 - 上位で記録確定後にHomeを取得する。競合・未開始記録保存の失敗でも同じ回復参照を保持し、未開始を清掃完了へ変換しない。
 - モデル入力はexact五項目の不変コピーを経てAI Adapterの既存Resolverへ四項目だけを渡し、identifierKindを含む一致とCatalog Identity非搬送を確認する。独自のModel／Effort列挙を持たない。
+- 基本形の一正本をHome取得前と完全構成照合前に使う。三用途・編集／レビューの正規構成、操作・Grant・選定・Offering・Mount・資源Identity・Home四Hash・九Command順序の負例を確認する。本文128KiB受理／超過拒否、Path禁止文字、Advice Hash差、Command argv差は完全照合の独立した負例とする。不正基本形では下位Session開始零を観測する。単一Command開始・契約説明は試験入口だけに存在し、通常Rootと製品Runtime接続に露出しない。構成診断の固定event・fieldと秘密非搬送、任意通知失敗の非波及を維持する。
 - 助言参照はAI Adapterの同じ入力ParserをExecutor準備と内容検査で利用する。256・257・1024件の受理と1025件拒否、512／513byte、周辺空白・重複・sparse・symbol・accessor・Proxy拒否、元値変更後の不変性を確認する。不正入力の乱数・Home・隔離Runtime構築は零。Setup理由Mapは継承名を拒否し、未知用途を固定fallbackへ閉じる。
 - 必須の通知はvoid／Promise<void>を待ち、throw／reject時は次の新規Effectを出さず技術回収する。任意onCompleted／onDiagnosticの例外を結果へ伝播しない。
 - 開始済みProcessの同期技術signalと公開非同期通知を区別する。公開通知pending中も技術回収は一回進むが、Parserは零回、completionは未確定。resolve後だけParser一回、遅いreject・取消ならParser零回・同じID・技術回収事実を保持する。不正Provider結果を即時通知成功と遅延成功の両経路へ流し、理由・一次故障・結果本文・Hash・byte数・清掃を含む同一結果とParser各一回を確認する。

@@ -6,32 +6,38 @@
  * @boundary scripts/tests専用。実行許可や本番構成ではない。
  */
 import { types as utilTypes } from "node:util";
-import { readOwnDataProperty } from "../src/attempt/validation.ts";
-import type { AttemptPlan, AttemptReference } from "../src/attempt/types.ts";
+import {
+  readOwnDataProperty,
+  isAttemptPlanValid,
+} from "../src/attempt/validation.ts";
+import type {
+  AttemptPlan,
+  AttemptReference,
+  ExecutorCallbacks,
+} from "../src/attempt/types.ts";
 import type {
   ProcessStartedNotice,
   CompletionResult,
   StartResult,
   AttemptDiagnosticNotice as TechnicalDiagnosticNotice,
 } from "../src/index.ts";
-import type {
-  DockerIsolationCommand,
-  DockerIsolationRuntimeOptions,
-  DockerSessionCommandHandle,
-  DockerCommandSession,
-  DockerExecutionHooks,
-  HomeLease,
-} from "../../docker-isolation/src/index.ts";
-import type { AttemptTerminalObservation as TechnicalObservation } from "../src/result/types.ts";
-import type { ExecutorCallbacks } from "../src/attempt/types.ts";
 import {
   createDockerIsolationRuntime,
   startDockerCommandSessionCandidate,
   parseDockerTaskRecoveryId,
+  describeDockerIsolationExecutionEnvironment,
+  type DockerSessionCleanup,
+  type DockerIsolationCommand,
+  type DockerIsolationRuntimeOptions,
+  type DockerSessionCommandHandle,
+  type DockerCommandSession,
+  type DockerExecutionHooks,
+  type HomeLease,
+  type DockerIsolationRuntime,
+  type DockerIsolationRuntimePlan,
 } from "../../docker-isolation/src/index.ts";
-import { isPlanValid } from "../src/attempt/isolation.ts";
+import type { AttemptTerminalObservation as TechnicalObservation } from "../src/result/types.ts";
 import { isAttemptFailureReason } from "../src/result/validation.ts";
-import type { DockerSessionCleanup } from "../../docker-isolation/src/index.ts";
 import {
   start,
   cancel,
@@ -40,15 +46,13 @@ import {
 } from "../src/attempt/execute.ts";
 import {
   bindIsolationRuntime as bindTestIsolationRuntime,
+  planIdentity,
+  resolveValidatedPlan,
   type IsolationRuntime,
 } from "../src/attempt/isolation.ts";
 import { PURPOSES } from "../src/result/constants.ts";
 import { createStartResult } from "../src/result/attempt.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
-export {
-  bindIsolationRuntime,
-  describeIsolationContract,
-} from "../src/attempt/isolation.ts";
 export {
   projectAttemptStartResult,
   projectAttemptResult,
@@ -840,7 +844,7 @@ function startHostAttempt(
   const plan = preparedCapability as AttemptPlan & {
     authorityUseCapability: object;
   };
-  if (!plan || !isPlanValid(plan))
+  if (!plan || !isAttemptPlanValid(plan))
     return createStartResult({
       status: "blocked",
       reason: "docker_process_controller_plan_invalid",
@@ -1533,4 +1537,84 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
     actualKeys.length === keys.length &&
     keys.every((key) => actualKeys.includes(key))
   );
+}
+/**
+ * 既存の単一Command検証を本番Session接続から分離する。
+ * @responsibility 有限合成試験のCommand所属と正規構成を製品検査へ照合する。
+ * @trace ARCH-000008
+ * @input 試験の下位代役と一時領域の借用関数。
+ * @returns 本番Session操作と試験専用の単一Command開始。
+ * @effect 構築時は値だけ。単一Commandは渡された試験代役へ委譲する。
+ * @boundary ./testing利用側のみ。通常Rootや製品の単一Command APIではない。
+ */
+export function bindIsolationRuntime(
+  runtime: Omit<DockerIsolationRuntime, "acquireHomeLease">,
+  borrowPaths: (managementCapability: object) => Readonly<{ tmp: string }>,
+) {
+  const bound = bindTestIsolationRuntime(runtime, borrowPaths);
+  /** 同じ製品検査を通った構成だけを合成下位へ渡す。 */
+  function project(
+    plan: AttemptPlan,
+    management: object,
+  ): DockerIsolationRuntimePlan {
+    const configuration = resolveValidatedPlan(
+      plan,
+      borrowPaths(management).tmp,
+    );
+    if (!configuration) throw new Error("docker_effect_plan_invalid");
+    return Object.freeze({
+      identity: planIdentity(plan),
+      configuration,
+      stdin: plan.providerInput,
+    });
+  }
+  /** コピーされたCommandや別用途を代役に渡さない。 */
+  function startCommand(
+    command: DockerIsolationCommand,
+    plan: AttemptPlan,
+    managementCapability: unknown,
+  ) {
+    if (!managementCapability || typeof managementCapability !== "object")
+      throw new Error("docker_effect_management_required");
+    const expected = plan.commands.find(
+      (candidate) => candidate.purpose === command.purpose,
+    );
+    if (!expected || expected !== command)
+      throw new Error("docker_effect_command_not_owned");
+    return runtime.startCommand(
+      expected.purpose as DockerIsolationCommand["purpose"],
+      project(plan, managementCapability),
+      managementCapability,
+    );
+  }
+
+  return Object.freeze({ ...bound, startCommand });
+}
+
+/**
+ * 検証用の固定隔離仕様を既存DIの環境記述と合わせて返す。
+ * @responsibility 説明値の照合だけを支援し、実環境の成立や実行許可を証明しない。
+ * @trace ARCH-000008
+ * @input N/A: 実行引数なし。
+ * @returns 有限検証が比較する固定契約記述。
+ * @effect N/A: 定義値の取得のみ。Engine・Processを照会しない。
+ * @boundary ./testing専用。通常の製品公開APIには含めない。
+ */
+export function describeIsolationContract() {
+  const environment = describeDockerIsolationExecutionEnvironment();
+  return Object.freeze({
+    contract: "crdd-executor/isolation",
+    contractRevision: 10,
+    dockerCli: environment.dockerCli,
+    engine: environment.engine,
+    environment: environment.environment,
+    commandPlan:
+      "exact_nine_command_subscription_preflight_provider_probe_isolated_task_or_workbench_advice",
+    taskInput: "runtime_owned_task_or_advice_stdin_only_not_docker_argv",
+    cleanup:
+      "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_and_name_absence",
+    processTreeTermination: environment.processTreeTermination,
+    callerCommandAllowed: false,
+    providerEffectAllowed: true,
+  });
 }

@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { providerBoundaryConfiguration } from "../../src/attempt/isolation.ts";
+import { createConfigurationNotice } from "../../src/result/attempt.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -26,7 +26,7 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  */
 test("構成診断は元操作の相関を保ちCommandとHome Pathを公開しない", () => {
   const plan = attemptPlan();
-  const notice = providerBoundaryConfiguration(plan);
+  const notice = createConfigurationNotice(plan);
   assert.equal(notice.event, "coordinator_provider_boundary_configured");
   assert.equal(notice.provider, plan.provider);
   assert.equal(notice.operationId, plan.operationId);

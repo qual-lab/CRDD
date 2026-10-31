@@ -7,14 +7,16 @@
  */
 import { createHash } from "node:crypto";
 import {
+  projectCodexExecutionBoundary,
   convertProviderError,
   parseProviderResult,
   type ProviderResultParseResult,
 } from "../../../ai-adapter/src/index.ts";
-import type { AttemptPlan } from "../attempt/types.ts";
-import type {
-  CommandObservation,
-  DockerCommandExecutionClassification,
+import type { AttemptDiagnosticNotice, AttemptPlan } from "../attempt/types.ts";
+import {
+  projectDockerExecutionBoundary,
+  type CommandObservation,
+  type DockerCommandExecutionClassification,
 } from "../../../docker-isolation/src/index.ts";
 import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
 import type {
@@ -297,5 +299,45 @@ export function convertCommandResult(
     ok: true,
     reason: "command_completed",
     stdoutBytes: classified.stdoutBytes,
+  });
+}
+
+/**
+ * 隔離構成を秘密を含まない設定診断へ投影する。
+ * @responsibility 設定値だけを通知用データへ変換し、隔離の実成立を推定しない。
+ * @trace ARCH-000008
+ * @input 同じ試行の固定技術構成。
+ * @returns 操作相関と設定項目だけを含む通知値。
+ * @effect N/A: 値の投影のみ。通知の発行はexecuteが所有する。
+ * @boundary 技術構成と上位へ渡す非秘密診断。
+ * @security Command本文、Home Path、認証情報を返さない。
+ */
+export function createConfigurationNotice(
+  plan: AttemptPlan,
+): Extract<
+  AttemptDiagnosticNotice,
+  { event: "coordinator_provider_boundary_configured" }
+> {
+  const docker = projectDockerExecutionBoundary(
+    plan.commands,
+    plan.providerImageDigest,
+  );
+  const codex =
+    plan.provider === "codex"
+      ? projectCodexExecutionBoundary(docker?.payloadArgv ?? [])
+      : null;
+  return Object.freeze({
+    event: "coordinator_provider_boundary_configured" as const,
+    taskRole: plan.taskRole,
+    provider: plan.provider,
+    operationId: plan.operationId,
+    approvalModeConfigured: codex?.approvalModeConfigured ?? "not_applicable",
+    sandboxModeConfigured: codex?.sandboxModeConfigured ?? "not_applicable",
+    workspaceMountModeConfigured: plan.workspaceMountMode,
+    networkPolicyHash: plan.networkPolicy?.policyHash ?? null,
+    rootFilesystemReadOnlyConfigured:
+      docker?.rootFilesystemReadOnlyConfigured ?? false,
+    nonRootUserConfigured: docker?.nonRootUserConfigured ?? false,
+    workdirConfigured: docker?.workdirConfigured ?? false,
   });
 }
