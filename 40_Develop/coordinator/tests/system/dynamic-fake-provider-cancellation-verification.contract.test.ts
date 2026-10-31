@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runDynamicFakeProviderCancellationVerification } from "../../src/execution/diagnostics.ts";
+import { runDynamicFakeProviderCancellationVerification } from "../../scripts/probe-verification.ts";
 import { verifyDynamicFakeProviderCancellation } from "../../scripts/verify-dynamic-fake-provider-cancellation.ts";
 import { planDockerProbeCreation } from "../../../docker-isolation/src/index.ts";
 

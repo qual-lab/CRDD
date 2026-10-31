@@ -78,7 +78,7 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
     "planDockerProbeCreation",
     "describeDockerProbeConfiguration",
     "describeDockerProbeResource",
-    "dockerProbeConfigurationMatches",
+    "dockerContainerConfigurationMatches",
     "normalizeContainerCreation",
     "normalizeContainerAbsence",
     "DOCKER_ENGINE_STARTUP_WAIT_MS",
@@ -139,9 +139,9 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
   const actualExports = Object.keys(dockerIsolation).sort();
   expectedExports.push(
     "bindProviderCommand",
-    "inspectDockerProbeContainer",
-    "observeDockerProbeContainerAbsence",
-    "cleanupDockerProbeContainer",
+    "inspectDockerContainer",
+    "observeDockerContainerAbsence",
+    "cleanupDockerContainer",
     "parseDockerTaskRecoveryId",
   );
   expectedExports.sort();

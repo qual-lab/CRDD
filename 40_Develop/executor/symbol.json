@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
+    { "symbolId": "executor.resources.execute", "kind": "file", "path": "src/resources/execute.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "executor.test.integration.container-resources", "kind": "test-suite", "path": "tests/integration/container-resources.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-014"], "verifies": ["executor.resources.execute"] },
     { "symbolId": "executor.probe.execute", "kind": "file", "path": "src/probe/execute.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "executor.probe.types", "kind": "file", "path": "src/probe/types.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "executor.test.unit.probe", "kind": "test-suite", "path": "tests/unit/probe.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["executor.probe.execute", "executor.probe.types"] },

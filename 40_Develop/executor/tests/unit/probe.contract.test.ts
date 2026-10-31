@@ -100,7 +100,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         JSON.parse(JSON.stringify(mounts)),
       );
     },
-    inspectDockerProbeContainer: (actual: unknown, configuration: unknown) => {
+    inspectDockerContainer: (actual: unknown, configuration: unknown) => {
       check("binding", actual, binding);
       check("configuration", configuration, expected);
       events.push("inspect");
@@ -127,7 +127,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         processCompletionConfirmed: mode !== "close",
       };
     },
-    cleanupDockerProbeContainer: (
+    cleanupDockerContainer: (
       actualBinding: unknown,
       configuration: unknown,
     ) => {

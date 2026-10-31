@@ -8,11 +8,44 @@ import type {
   DockerResourceCleanupObservation,
   DockerRuntimeDirectoryInspectionInput,
   DockerRuntimeRepairDisposalInput,
+  DockerContainerConfigurationExpectation,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   AttemptRecordProjection,
   AttemptRequest,
 } from "../attempt/types.ts";
+
+/**
+ * 上位で選定済みの単一Containerと、作成時の同じ技術構成。
+ * @responsibility 用途・保持・保存を知らず元構成と現在Owner確認だけを借用する。
+ * @trace ARCH-000008
+ * @shape container種別、作成構成、借用管理領域と同期現在性確認。
+ * @invariant IDだけで処置せず各要求直前にOwnerを再確認する。
+ * @boundary 上位の対象選定と既存資源API。
+ * @security 任意Path削除や構成検査の省略を公開しない。
+ * @compatibility 保存Schema・用途種別・既存Attempt契約を変更しない。
+ */
+export type ContainerResourceTarget = Readonly<{
+  kind: "container";
+  configuration: DockerContainerConfigurationExpectation;
+  managementDirectory: string;
+  assertOwner: () => boolean;
+}>;
+
+/**
+ * 単一Containerの現在観測。不明を不存在へ畳まない。
+ * @responsibility Running肯定と不存在を分離する。
+ * @trace ARCH-000008
+ * @shape present・absent・unknownとRunning肯定。
+ * @invariant 観測だけで保存完了や回収許可を確定しない。
+ * @boundary DIの現在観測から上位の判断へ返す。
+ * @security 生inspect・秘密・実行許可を含めない。
+ * @compatibility Runningの否定を不存在に読み替えない。
+ */
+export type ContainerResourceInspection = Readonly<{
+  observation: "present" | "absent" | "unknown";
+  runningConfirmed: boolean;
+}>;
 
 /**
  * 通常実行と回収で観測した技術資源の事実を上位へ通知する。

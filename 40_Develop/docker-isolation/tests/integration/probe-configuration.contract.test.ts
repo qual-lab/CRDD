@@ -13,22 +13,17 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { runInNewContext } from "node:vm";
-import { types as utilTypes } from "node:util";
-import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
 import {
   verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import {
-  dockerProbeConfigurationMatches,
-  describeDockerProbeResource,
-  planDockerProbeCommand,
-  inspectDockerProbeContainer,
-  observeDockerProbeContainerAbsence,
-  cleanupDockerProbeContainer,
-  executeDockerProbeCommand,
-  type DockerProbeConfigurationExpectation,
+  dockerContainerConfigurationMatches,
+  inspectDockerContainer,
+  observeDockerContainerAbsence,
+  cleanupDockerContainer,
+  type DockerContainerConfigurationExpectation,
 } from "../../src/index.ts";
 
 /**
@@ -68,11 +63,26 @@ function fixture(t: TestContext) {
     fs.rmSync(directory, { recursive: true });
     assert.equal(fs.existsSync(directory), false);
   });
-  const expected: DockerProbeConfigurationExpectation = {
+  const expected: DockerContainerConfigurationExpectation = {
     id: "a".repeat(64),
-    probeId: "probe-123",
-    sourceCandidates: ["probe-a", "probe-b"],
-    mounts,
+    name: "crdd-coordinator-probe-probe-123",
+    ownershipLabel: "crdd.coordinator.probe=probe-123",
+    image:
+      "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+    user: "65532:65532",
+    entrypoint: ["python"],
+    commands: [
+      ["-c", "probe-a"],
+      ["-c", "probe-b"],
+    ],
+    mounts: {
+      "/operation/workspace": { source: mounts.workspace, readWrite: true },
+      "/operation/provider-home": {
+        source: mounts.providerHome,
+        readWrite: true,
+      },
+      "/operation/tmp": { source: mounts.tmp, readWrite: true },
+    },
   };
   const inspect = {
     Id: expected.id,
@@ -120,601 +130,350 @@ function fixture(t: TestContext) {
 }
 
 /**
- * 独立fixtureの一fieldだけを変更する。
- * @responsibility 本番判定を再利用せず単独反例を作る。
+ * 完全構成の各field差を独立入力で拒否する。
+ * @responsibility 旧Probeの完全構成保証を共通Container処理で維持する。
  * @trace ERB-IT-004
- * @precondition 自己生成JSONの既知Pathだけを指定する。
- * @stimulus 指定した末端値を置き換える。
- * @observation 同じ試験値。
- * @oracle 他のfieldへ変更を広げない。
- * @cleanup N/A: メモリ値だけ。
- * @boundary 試験fixture内。
+ * @precondition 合成inspectとRepository-local三mount。
+ * @stimulus 所有・Image・Command・隔離・Mountの各fieldを単独変更。
+ * @observation 一致判定とgetter呼出し。
+ * @oracle 全差分はfalse、固定候補だけtrue。
+ * @cleanup fixture終了時に自己生成領域だけを回収する。
  */
-function changeField(value: object, location: string, replacement: unknown) {
-  const keys = location.split(".");
-  let current = value as Record<string, unknown>;
-  for (const key of keys.slice(0, -1))
-    current = current[key] as Record<string, unknown>;
-  const key = keys.at(-1);
-  assert.ok(key);
-  current[key] = replacement;
-}
+test("共通Container照合は完全Command・所有・隔離条件を保持する", (t) => {
+  const f = fixture(t);
+  assert.equal(
+    dockerContainerConfigurationMatches(f.inspect, f.expected),
+    true,
+  );
+  const changes: readonly ((v: typeof f.inspect) => void)[] = [
+    (v) => {
+      v.Id = "b".repeat(64);
+    },
+    (v) => {
+      v.Name = "/other";
+    },
+    (v) => {
+      v.Config.Labels["crdd.coordinator.probe"] = "other";
+    },
+    (v) => {
+      v.Config.Image = "other";
+    },
+    (v) => {
+      v.Config.User = "0:0";
+    },
+    (v) => {
+      v.Config.Entrypoint = ["sh"];
+    },
+    (v) => {
+      v.Config.Cmd = ["-c", "other"];
+    },
+    (v) => {
+      v.Config.Cmd = ["probe-a"];
+    },
+    (v) => {
+      v.HostConfig.NetworkMode = "bridge";
+    },
+    (v) => {
+      v.HostConfig.ReadonlyRootfs = false;
+    },
+    (v) => {
+      v.HostConfig.Privileged = true;
+    },
+    (v) => {
+      v.HostConfig.CapDrop = [];
+    },
+    (v) => {
+      v.HostConfig.SecurityOpt = [];
+    },
+    (v) => {
+      (v.Mounts[0] ?? assert.fail("fixture_mount_missing")).RW = false;
+    },
+    (v) => {
+      (v.Mounts[0] ?? assert.fail("fixture_mount_missing")).Type = "volume";
+    },
+    (v) => {
+      (v.Mounts[0] ?? assert.fail("fixture_mount_missing")).Destination =
+        "/other";
+    },
+    (v) => {
+      v.Mounts.pop();
+    },
+    (v) => {
+      v.Mounts.push({
+        ...(v.Mounts[0] ?? assert.fail("fixture_mount_missing")),
+      });
+    },
+  ];
+  for (const change of changes) {
+    const v = structuredClone(f.inspect);
+    change(v);
+    assert.equal(dockerContainerConfigurationMatches(v, f.expected), false);
+  }
+  for (const key of ["Id", "Name", "Config", "HostConfig", "Mounts"]) {
+    const v = structuredClone(f.inspect);
+    let calls = 0;
+    Object.defineProperty(v, key, {
+      get() {
+        calls++;
+        throw Error("getter");
+      },
+    });
+    assert.equal(dockerContainerConfigurationMatches(v, f.expected), false);
+    assert.equal(calls, 0);
+  }
+  for (const field of ["CapAdd", "Devices"]) {
+    const v: Record<string, unknown> = structuredClone(f.inspect);
+    (v.HostConfig as Record<string, unknown>)[field] = ["extra"];
+    assert.equal(dockerContainerConfigurationMatches(v, f.expected), false);
+  }
+  const second = structuredClone(f.inspect);
+  second.Config.Cmd = ["-c", "probe-b"];
+  assert.equal(dockerContainerConfigurationMatches(second, f.expected), true);
+});
 
 /**
- * 構成観測から実ID限定削除・三軸不存在までの要求順を反証する。
- * @responsibility 上位のHost保存と独立したDocker技術群を実本文で確認する。
+ * Mount元の実体差・観測不能・aliasを反証する。
+ * @responsibility 文字列一致へのfallbackを禁止する。
  * @trace ERB-IT-004
- * @precondition 実三mountと独立inspect値を使用し、CLI Processだけを代役にする。
- * @stimulus 正常、構成差、応答不明、削除失敗、各不存在軸の差を与える。
- * @observation 固定argv、再確認数、閉じた結果と要求順。
- * @oracle fresh inspect→remove→ID→名前→label共同成功だけをconfirmedとする。
- * @cleanup Builtinを復元しfixtureが自己生成Rootを回収する。
- * @boundary DI技術群→模擬CLI・実mount realpath。実Dockerは使わない。
+ * @precondition 自己生成した三mount。
+ * @stimulus 別Directory、欠測、realpath例外、同実体Path表現差。
+ * @observation 一致判定。
+ * @oracle 同実体のみtrue、観測不能はfalse。
+ * @cleanup fixtureの同じRootだけを回収する。
  */
-test("Probe観測と回収はfresh構成・実ID・三軸を同じ技術群で閉じる", (t) => {
+test("共通Container照合はMount元実体をfresh確認する", (t) => {
   const f = fixture(t);
-  const originalSpawn = childProcess.spawnSync;
+  const changed = structuredClone(f.inspect);
+  (changed.Mounts[0] ?? assert.fail("fixture_mount_missing")).Source = (
+    f.expected.mounts["/operation/tmp"] ?? assert.fail("fixture_mount_missing")
+  ).source;
+  assert.equal(dockerContainerConfigurationMatches(changed, f.expected), false);
+  (changed.Mounts[0] ?? assert.fail("fixture_mount_missing")).Source =
+    path.join(f.directory, "absent");
+  assert.equal(dockerContainerConfigurationMatches(changed, f.expected), false);
+  const original = fs.realpathSync.native;
+  t.mock.method(fs.realpathSync, "native", () => {
+    throw Error("unavailable");
+  });
+  assert.equal(
+    dockerContainerConfigurationMatches(f.inspect, f.expected),
+    false,
+  );
+  t.mock.restoreAll();
+  assert.equal(fs.realpathSync.native, original);
+  const alias = structuredClone(f.inspect);
+  (alias.Mounts[0] ?? assert.fail("fixture_mount_missing")).Source = path.join(
+    f.directory,
+    "workspace",
+    "..",
+    "workspace",
+  );
+  assert.equal(dockerContainerConfigurationMatches(alias, f.expected), true);
+});
+
+/**
+ * 共通inspectから実ID削除・三軸不存在までの順序を確認する。
+ * @responsibility 失敗と現在Owner喪失を成功へ丸めない。
+ * @trace ERB-IT-004
+ * @precondition spawnSyncだけを有限代役へ置換する。
+ * @stimulus 正常、各観測残存、remove失敗、構成差、削除直前Owner喪失。
+ * @observation 固定argv・順序・返却結果。
+ * @oracle inspect→remove→ID→名前→Labelの共同成功だけconfirmed。
+ * @cleanup Builtinを復元し自己生成領域だけ回収する。実Dockerなし。
+ */
+test("共通Container回収は実ID・三軸・現在Ownerを保持する", (t) => {
+  const f = fixture(t);
   const calls: string[] = [];
+  let fault = "";
   let inspected: unknown = { ...f.inspect, State: { Running: true } };
-  let fault: string | null = null;
-  let cliChecks = 0;
-  let expectedProbeId = f.expected.probeId;
   const binding = {
-    verifyCli: () => {
-      cliChecks++;
-      return "fixture-docker";
-    },
+    verifyCli: () => "fixture",
     environment: () => Object.freeze({}),
   };
-  childProcess.spawnSync = ((...values: unknown[]) => {
-    assert.equal(values[0], "fixture-docker");
-    assert.ok(Array.isArray(values[1]));
-    const argv = values[1] as string[];
-    assert.deepEqual(argv.slice(0, 2), [
-      "-H",
-      "npipe:////./pipe/dockerDesktopLinuxEngine",
-    ]);
-    const request = argv.slice(2);
-    const filter = request.at(-1) ?? "";
-    const purpose =
-      request[1] === "inspect"
-        ? "inspect"
-        : request[1] === "rm"
-          ? "remove"
-          : filter.startsWith("id=")
-            ? "id"
-            : filter.startsWith("name=")
-              ? "name"
-              : "label";
-    calls.push(purpose);
-    if (purpose === "inspect")
-      assert.deepEqual(request, ["container", "inspect", f.expected.id]);
-    if (purpose === "remove")
-      assert.deepEqual(request, ["container", "rm", "--force", f.expected.id]);
-    if (["id", "name", "label"].includes(purpose))
-      assert.deepEqual(request, [
-        "container",
-        "ls",
-        "--all",
-        "--quiet",
-        "--no-trunc",
-        "--filter",
-        purpose === "id"
-          ? `id=${f.expected.id}`
-          : purpose === "name"
-            ? `name=^/crdd-coordinator-probe-${expectedProbeId}$`
-            : `label=crdd.coordinator.probe=${expectedProbeId}`,
+  t.mock.method(
+    childProcess,
+    "spawnSync",
+    (_exe: unknown, args: unknown, options: unknown) => {
+      assert.equal(_exe, "fixture");
+      assert.ok(Array.isArray(args));
+      const argv = args as string[];
+      assert.deepEqual(argv.slice(0, 2), [
+        "-H",
+        "npipe:////./pipe/dockerDesktopLinuxEngine",
       ]);
-    const options = values[2] as {
-      shell: boolean;
-      timeout: number;
-      maxBuffer: number;
-      env: object;
-    };
-    assert.equal(options.shell, false);
-    assert.equal(options.timeout, 10_000);
-    assert.equal(options.maxBuffer, 64 * 1024);
-    assert.deepEqual(Object.keys(options.env), []);
-    if (fault === `throw-${purpose}`) throw new Error("fixture_cli_failure");
-    const stdout =
-      purpose === "inspect"
-        ? fault === "inspect-invalid"
-          ? "invalid"
-          : JSON.stringify([inspected])
-        : fault === purpose
-          ? `${f.expected.id}\n`
-          : "";
-    return {
-      status: fault === `failed-${purpose}` ? 1 : 0,
-      signal: null,
-      stdout,
-      stderr: "",
-      pid: 1,
-      output: [null, stdout, ""],
-    };
-  }) as typeof childProcess.spawnSync;
+      const request = argv.slice(2),
+        filter = request.at(-1) ?? "";
+      const purpose =
+        request[1] === "inspect"
+          ? "inspect"
+          : request[1] === "rm"
+            ? "remove"
+            : filter.startsWith("id=")
+              ? "id"
+              : filter.startsWith("name=")
+                ? "name"
+                : "label";
+      calls.push(purpose);
+      const o = options as {
+        timeout: number;
+        maxBuffer: number;
+        shell: boolean;
+      };
+      assert.equal(o.timeout, 10000);
+      assert.equal(o.maxBuffer, 64 * 1024);
+      assert.equal(o.shell, false);
+      if (purpose === "inspect")
+        assert.deepEqual(request, ["container", "inspect", f.expected.id]);
+      if (purpose === "remove")
+        assert.deepEqual(request, [
+          "container",
+          "rm",
+          "--force",
+          f.expected.id,
+        ]);
+      const stdout =
+        purpose === "inspect"
+          ? fault === "json"
+            ? "invalid"
+            : JSON.stringify([inspected])
+          : fault === purpose
+            ? f.expected.id + "\n"
+            : "";
+      return {
+        status: fault === "remove" && purpose === "remove" ? 1 : 0,
+        signal: null,
+        error: null,
+        stdout,
+        stderr: "",
+      };
+    },
+  );
   syncBuiltinESMExports();
   t.after(() => {
-    childProcess.spawnSync = originalSpawn;
+    t.mock.restoreAll();
     syncBuiltinESMExports();
   });
   assert.equal(
-    inspectDockerProbeContainer(binding, f.expected)?.runningConfirmed,
+    inspectDockerContainer(binding, f.expected)?.runningConfirmed,
     true,
   );
-  inspected = { ...f.inspect };
-  assert.equal(
-    inspectDockerProbeContainer(binding, f.expected)?.runningConfirmed,
-    false,
-  );
-  inspected = { ...f.inspect, State: { Running: false } };
-  assert.equal(
-    inspectDockerProbeContainer(binding, f.expected)?.runningConfirmed,
-    false,
-  );
   calls.length = 0;
-  cliChecks = 0;
-  assert.deepEqual(cleanupDockerProbeContainer(binding, f.expected), {
-    confirmed: true,
-    reason: "docker_probe_absence_confirmed",
-  });
+  assert.equal(cleanupDockerContainer(binding, f.expected).confirmed, true);
   assert.deepEqual(calls, ["inspect", "remove", "id", "name", "label"]);
-  assert.equal(cliChecks, 5);
-  for (const scenario of [
-    "inspect-invalid",
-    "failed-inspect",
-    "failed-remove",
-    "id",
-    "name",
-    "label",
-    "failed-id",
-    "failed-name",
-    "failed-label",
-  ]) {
-    fault = scenario;
+  for (fault of ["remove", "id", "name", "label", "json"]) {
     calls.length = 0;
-    const outcome = cleanupDockerProbeContainer(binding, f.expected);
-    assert.equal(outcome.confirmed, false, scenario);
-    assert.equal(
-      outcome.reason,
-      scenario.includes("inspect")
-        ? "docker_container_identity_mismatch"
-        : "docker_probe_cleanup_failed",
-    );
-    assert.deepEqual(
-      calls,
-      scenario.includes("inspect")
-        ? ["inspect"]
-        : scenario === "failed-remove"
-          ? ["inspect", "remove"]
-          : ["inspect", "remove", "id", "name", "label"],
-    );
+    assert.equal(cleanupDockerContainer(binding, f.expected).confirmed, false);
+    if (fault === "json") assert.deepEqual(calls, ["inspect"]);
   }
-  fault = null;
-  inspected = { ...f.inspect, Id: "b".repeat(64) };
+  fault = "";
   calls.length = 0;
   assert.equal(
-    cleanupDockerProbeContainer(binding, f.expected).confirmed,
+    cleanupDockerContainer(binding, f.expected, () => false).confirmed,
     false,
   );
   assert.deepEqual(calls, ["inspect"]);
-  inspected = { ...f.inspect };
+  inspected = { ...f.inspect, Name: "/other" };
   calls.length = 0;
-  assert.deepEqual(
-    observeDockerProbeContainerAbsence(binding, {
-      id: f.expected.id,
-      probeId: f.expected.probeId,
-    }),
-    { status: "confirmed", reason: "docker_probe_absence_confirmed" },
-  );
-  assert.deepEqual(calls, ["id", "name", "label"]);
-  fault = "throw-id";
-  calls.length = 0;
-  assert.throws(
-    () => cleanupDockerProbeContainer(binding, f.expected),
-    /fixture_cli_failure/u,
-  );
-  assert.deepEqual(calls, ["inspect", "remove", "id"]);
-  fault = null;
-  calls.length = 0;
-  let getters = 0;
-  const accessor = Object.defineProperty({ ...f.expected }, "id", {
-    get() {
-      getters++;
-      return f.expected.id;
-    },
-    enumerable: true,
-  });
-  for (const invalid of [
-    accessor,
-    { ...f.expected, extra: true },
-    { ...f.expected, sourceCandidates: [] },
-    { ...f.expected, sourceCandidates: ["probe-a", "probe-a"] },
-  ])
-    assert.throws(
-      () => cleanupDockerProbeContainer(binding, invalid),
-      /docker_probe_projection_invalid/u,
+  assert.equal(cleanupDockerContainer(binding, f.expected).confirmed, false);
+  assert.deepEqual(calls, ["inspect"]);
+  const target = {
+    id: f.expected.id,
+    name: f.expected.name,
+    ownershipLabel: f.expected.ownershipLabel,
+  };
+  for (fault of ["id", "name", "label"])
+    assert.equal(
+      observeDockerContainerAbsence(binding, target).status,
+      "blocked",
     );
-  assert.equal(getters, 0);
-  assert.deepEqual(calls, []);
-  for (const probeId of ["probe.test", "x".repeat(65), "probe_test"]) {
-    const checksBefore: number = cliChecks;
-    for (const invoke of [
-      () => inspectDockerProbeContainer(binding, { ...f.expected, probeId }),
-      () => cleanupDockerProbeContainer(binding, { ...f.expected, probeId }),
-      () =>
-        observeDockerProbeContainerAbsence(binding, {
-          id: f.expected.id,
-          probeId,
-        }),
-    ])
-      assert.throws(invoke, /docker_probe_projection_invalid/u);
-    assert.equal(cliChecks, checksBefore);
-    assert.deepEqual(calls, []);
-  }
-  const aggregateSource = fs.readFileSync(
-    new URL("../../src/probe/container.ts", import.meta.url),
-    "utf8",
-  );
-  const body = stripTypeScriptTypes(
-    aggregateSource.slice(aggregateSource.indexOf("function captureFields(")),
-  ).replaceAll("export function ", "function ");
-  for (const [needle, replacement, expectedCalls] of [
-    [
-      '{ purpose: "list_id", containerId: captured.id }',
-      '{ purpose: "list_id", containerId: "b".repeat(64) }',
-      ["id"],
-    ],
-    [
-      '{ purpose: "list_name", probeId: captured.probeId }',
-      '{ purpose: "list_name", probeId: "other-probe" }',
-      ["id", "name"],
-    ],
-    [
-      '{ purpose: "list_label", probeId: captured.probeId }',
-      '{ purpose: "list_label", probeId: "other-probe" }',
-      ["id", "name", "label"],
-    ],
-  ] as const) {
-    assert.equal(body.split(needle).length, 2);
-    const mutated = runInNewContext(
-      `(()=>{${body.replace(needle, replacement)}; return observeDockerProbeContainerAbsence;})()`,
-      {
-        Object,
-        utilTypes,
-        executeDockerProbeCommand: (
-          ...args: Parameters<typeof executeDockerProbeCommand>
-        ) =>
-          executeDockerProbeCommand(args[0], structuredClone(args[1]), args[2]),
-        normalizeContainerAbsence: () => ({
-          status: "confirmed",
-          reason: "docker_probe_absence_confirmed",
-        }),
-      },
-    ) as typeof observeDockerProbeContainerAbsence;
-    calls.length = 0;
-    assert.throws(
-      () =>
-        mutated(binding, { id: f.expected.id, probeId: f.expected.probeId }),
-      { code: "ERR_ASSERTION" },
-    );
-    assert.deepEqual(calls, expectedCalls);
-  }
-  calls.length = 0;
-  expectedProbeId = "x".repeat(64);
+  fault = "";
   assert.equal(
-    observeDockerProbeContainerAbsence(binding, {
-      id: f.expected.id,
-      probeId: "x".repeat(64),
-    }).status,
+    observeDockerContainerAbsence(binding, target).status,
     "confirmed",
   );
-  expectedProbeId = f.expected.probeId;
-  const mutable = structuredClone(f.expected);
-  const initial = mutable.mounts.workspace;
-  const mutatingBinding = {
-    ...binding,
-    verifyCli: () => {
-      Object.defineProperty(mutable.mounts, "workspace", {
-        value: "changed-after-capture",
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      });
-      return "fixture-docker";
-    },
+});
+
+/**
+ * 入力捕捉・容量・不正応答を実操作前後で拒否する。
+ * @responsibility Proxy・accessor・余剰・後発変更の既存境界を保持する。
+ * @trace ERB-IT-004
+ * @precondition 有限Process代役のみ。
+ * @stimulus 不正構成と可変構成、容量超過・Signal・stderr・非0。
+ * @observation 要求数と観測結果。
+ * @oracle 不正入力は要求0、後発変更を採用せず観測失敗はnull。
+ * @cleanup Builtinを復元し自己生成領域だけ回収する。
+ */
+test("共通Container観測は動的入力・容量超過を成功化しない", (t) => {
+  const f = fixture(t);
+  let calls = 0;
+  let response = {
+    status: 0,
+    signal: null as string | null,
+    error: null as Error | null,
+    stdout: JSON.stringify([f.inspect]),
+    stderr: "",
   };
-  assert.equal(
-    inspectDockerProbeContainer(mutatingBinding, mutable)?.runningConfirmed,
-    false,
-  );
-  assert.notEqual(mutable.mounts.workspace, initial);
-});
-
-/**
- * 固定構成とpayload候補を一軸ずつ反証する。
- * @responsibility 別の既知payloadでも単一候補指定を迂回できないことを確認する。
- * @trace ERB-IT-004
- * @precondition 実三Directoryと独立inspectの正対照がある。
- * @stimulus 各Docker fieldと候補集合を単独変更する。
- * @observation boolean、入力不変、plannerの固定値。
- * @oracle 正常だけ一致。PID上限は要求せず、追加SecurityOpt・null/空Capabilityの扱いを維持。
- * @cleanup fixtureの終了hookで回収する。
- * @boundary 実Filesystem照合。Docker要求0。
- */
-test("Probe構成の固定fieldとpayload候補を等価に照合する", (t) => {
-  const f = fixture(t);
-  const before = structuredClone(f.inspect);
-  assert.equal(dockerProbeConfigurationMatches(f.inspect, f.expected), true);
-  assert.deepEqual(f.inspect, before);
-  const args = planDockerProbeCommand({
-    purpose: "create",
-    probeId: f.expected.probeId,
-    source: "probe-a",
-    mounts: f.expected.mounts,
+  const mutable = structuredClone(f.expected);
+  const binding = {
+    verifyCli: () => {
+      Object.defineProperty(mutable.commands[0], "1", { value: "changed" });
+      return "fixture";
+    },
+    environment: () => Object.freeze({}),
+  };
+  t.mock.method(childProcess, "spawnSync", () => {
+    calls++;
+    return response;
   });
-  assert.equal(args[args.indexOf("--name") + 1], f.inspect.Name.slice(1));
-  assert.equal(
-    args[args.indexOf("--label") + 1],
-    "crdd.coordinator.probe=probe-123",
-  );
-  assert.equal(args.at(-3), f.inspect.Config.Image);
-  assert.equal(
-    args.some((value) => value.startsWith("--pids-limit")),
-    false,
-  );
-  for (const value of [undefined, null, 0, -1, 64, 256]) {
-    const input = structuredClone(f.inspect);
-    changeField(input, "HostConfig.PidsLimit", value);
-    assert.equal(dockerProbeConfigurationMatches(input, f.expected), true);
-  }
-  for (const candidate of f.expected.sourceCandidates) {
-    const value = structuredClone(f.inspect);
-    value.Config.Cmd[1] = candidate;
-    assert.equal(dockerProbeConfigurationMatches(value, f.expected), true);
-  }
-  const second = structuredClone(f.inspect);
-  second.Config.Cmd[1] = "probe-b";
-  assert.equal(
-    dockerProbeConfigurationMatches(second, {
-      ...f.expected,
-      sourceCandidates: ["probe-a"],
-    }),
-    false,
-  );
-  for (const [field, value] of [
-    ["Id", "b".repeat(64)],
-    ["Name", "/other"],
-    ["Config.Image", "other"],
-    ["Config.User", "root"],
-    ["Config.Labels.crdd.coordinator.probe", "other"],
-    ["Config.Labels", {}],
-    ["Config.Entrypoint", ["sh"]],
-    ["Config.Cmd", ["-c", "unknown"]],
-    ["Config.Cmd", ["-c", "probe-a", "extra"]],
-    ["HostConfig.NetworkMode", "bridge"],
-    ["HostConfig.ReadonlyRootfs", false],
-    ["HostConfig.Privileged", true],
-    ["HostConfig.CapDrop", []],
-    ["HostConfig.CapAdd", ["ALL"]],
-    ["HostConfig.Devices", [{}]],
-    ["HostConfig.SecurityOpt", []],
-  ] as const) {
-    const input = structuredClone(f.inspect);
-    if (field === "Config.Labels.crdd.coordinator.probe")
-      input.Config.Labels["crdd.coordinator.probe"] = "other";
-    else changeField(input, field, value);
-    assert.equal(
-      dockerProbeConfigurationMatches(input, f.expected),
-      false,
-      field,
+  syncBuiltinESMExports();
+  t.after(() => {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
+  for (const value of [
+    null,
+    {},
+    new Proxy(f.expected, {}),
+    { ...f.expected, extra: 1 },
+    { ...f.expected, id: "bad" },
+    { ...f.expected, commands: [] },
+  ]) {
+    assert.throws(() =>
+      inspectDockerContainer(
+        binding,
+        value as DockerContainerConfigurationExpectation,
+      ),
     );
+    assert.equal(calls, 0);
   }
-  const permissive = structuredClone(f.inspect);
-  changeField(permissive, "HostConfig.CapAdd", []);
-  changeField(permissive, "HostConfig.Devices", []);
-  permissive.HostConfig.SecurityOpt.push("another-option");
-  assert.equal(dockerProbeConfigurationMatches(permissive, f.expected), true);
-  const accessor = structuredClone(f.inspect);
-  let getters = 0;
-  Object.defineProperty(accessor.Config, "Image", {
+  const accessor = { ...f.expected };
+  Object.defineProperty(accessor, "image", {
     get() {
-      getters++;
-      return f.inspect.Config.Image;
+      throw Error("getter");
     },
   });
-  assert.equal(dockerProbeConfigurationMatches(accessor, f.expected), false);
-  assert.equal(getters, 0);
-});
-
-/**
- * 三mountの実体とrealpathの順序・失敗を検査する。
- * @responsibility 構成一致だけで別Pathや観測不能を受理しない。
- * @trace ERB-IT-004
- * @precondition Repository内の実三Directoryが存在する。
- * @stimulus 順序・表記差、欠落・余分・重複、Source／Type／RW差と読取りthrow。
- * @observation 実realpathへの要求先・回数とboolean。
- * @oracle 観測側→期待側の計6回。同じcanonical Pathだけ一致し、例外はfalse。
- * @cleanup mockを復元し自己生成Directoryを削除する。
- * @boundary 実Filesystem＋失敗注入。実Docker成功は主張しない。
- */
-test("Probe三mountの実Path照合は差と観測不能を拒否する", (t) => {
-  const f = fixture(t);
-  const original = fs.realpathSync.native;
-  const reads: unknown[] = [];
-  let failAt = -1;
-  t.mock.method(
-    fs.realpathSync,
-    "native",
-    (...args: Parameters<typeof fs.realpathSync.native>) => {
-      reads.push(args[0]);
-      if (reads.length === failAt) throw new Error("fixture_read_failure");
-      return Reflect.apply(original, fs.realpathSync, args);
-    },
+  assert.throws(() => inspectDockerContainer(binding, accessor));
+  assert.equal(calls, 0);
+  assert.equal(
+    inspectDockerContainer(binding, mutable)?.runningConfirmed,
+    false,
   );
-  assert.equal(dockerProbeConfigurationMatches(f.inspect, f.expected), true);
-  assert.deepEqual(
-    reads,
-    Object.values(f.expected.mounts).flatMap((x) => [x, x]),
-  );
-  const alias = structuredClone(f.inspect);
-  alias.Mounts.reverse();
-  for (const mount of alias.Mounts) mount.Source += `${path.sep}.`;
-  const expectedByDestination = new Map([
-    ["/operation/workspace", f.expected.mounts.workspace],
-    ["/operation/provider-home", f.expected.mounts.providerHome],
-    ["/operation/tmp", f.expected.mounts.tmp],
-  ]);
-  const aliasReads = alias.Mounts.flatMap((mount) => [
-    mount.Source,
-    expectedByDestination.get(mount.Destination),
-  ]);
-  reads.length = 0;
-  assert.equal(dockerProbeConfigurationMatches(alias, f.expected), true);
-  assert.deepEqual(reads, aliasReads);
-  const source = stripTypeScriptTypes(
-    fs.readFileSync(
-      new URL("../../src/probe/configuration.ts", import.meta.url),
-      "utf8",
-    ),
-  )
-    .replace(/^import fs from "node:fs";\r?\n/m, "")
-    .replace(
-      /^import \{ describeDockerProbeResource \} from "\.\/plan.ts";\r?\n/m,
-      "",
-    )
-    .replaceAll("export function ", "function ");
-  const originalOrder =
-    /const observedSource = fs\.realpathSync\.native\(sourcePath\);\s*const expectedSource = fs\.realpathSync\.native\(source\);/u;
-  assert.ok(originalOrder.test(source));
-  const reversed = runInNewContext(
-    `(()=>{${source.replace(originalOrder, "const expectedSource = fs.realpathSync.native(source); const observedSource = fs.realpathSync.native(sourcePath);")};return dockerProbeConfigurationMatches})()`,
-    {
-      process: { platform: process.platform },
-      fs,
-      describeDockerProbeResource,
-    },
-  ) as typeof dockerProbeConfigurationMatches;
-  reads.length = 0;
-  assert.equal(reversed(alias, f.expected), true);
-  assert.throws(() => assert.deepEqual(reads, aliasReads));
-  for (const mode of ["missing", "extra", "duplicate"]) {
-    const value = structuredClone(f.inspect);
-    const first = value.Mounts[0];
-    assert.ok(first);
-    if (mode === "missing") value.Mounts.pop();
-    if (mode === "extra") value.Mounts.push({ ...first });
-    if (mode === "duplicate") value.Mounts[1] = { ...first };
-    assert.equal(
-      dockerProbeConfigurationMatches(value, f.expected),
-      false,
-      mode,
-    );
-  }
-  for (let axis = 0; axis < 3; axis++)
-    for (const [key, value] of [
-      ["Source", f.directory],
-      ["Type", "volume"],
-      ["RW", false],
-    ] as const) {
-      const input = structuredClone(f.inspect);
-      changeField(input, `Mounts.${axis}.${key}`, value);
-      assert.equal(dockerProbeConfigurationMatches(input, f.expected), false);
-    }
-  for (const read of [1, 2, 3, 4, 5, 6]) {
-    reads.length = 0;
-    failAt = read;
-    assert.equal(dockerProbeConfigurationMatches(f.inspect, f.expected), false);
-    assert.equal(reads.length, read);
-  }
-});
-
-/**
- * OS別比較と局所条件省略を実本文で反証する。
- * @responsibility Windows大小文字と他OS完全一致を混同せず、payload・Path・RW条件の省略を検出する。
- * @trace ERB-IT-004
- * @precondition 実DI本文を使用し、Filesystemとplatformだけ局所代役化する。
- * @stimulus 大小文字差と単独条件省略。
- * @observation boolean。
- * @oracle Windowsのcase差のみ受理。各省略変異は独立した拒否期待に反する。
- * @cleanup fixtureの実Directoryを終了hookで回収する。
- * @boundary このVM部分は実Filesystemの証明ではない。
- */
-test("Probe構成のOS比較と条件省略変異を区別する", (t) => {
-  const f = fixture(t);
-  const text = stripTypeScriptTypes(
-    fs.readFileSync(
-      new URL("../../src/probe/configuration.ts", import.meta.url),
-      "utf8",
-    ),
-  )
-    .replace(/^import fs from "node:fs";\r?\n/m, "")
-    .replace(
-      /^import \{ describeDockerProbeResource \} from "\.\/plan.ts";\r?\n/m,
-      "",
-    )
-    .replaceAll("export function ", "function ");
-  for (const platform of ["win32", "linux"]) {
-    let call = 0;
-    const match = runInNewContext(
-      `(()=>{${text};return dockerProbeConfigurationMatches})()`,
-      {
-        process: { platform },
-        describeDockerProbeResource,
-        fs: {
-          realpathSync: {
-            native: () => (++call % 2 ? "C:/UPPER" : "c:/upper"),
-          },
-        },
-      },
-    ) as typeof dockerProbeConfigurationMatches;
-    assert.equal(match(f.inspect, f.expected), platform === "win32");
-  }
-  const membership = "!expected.sourceCandidates.includes(command[1])";
-  assert.ok(text.includes(membership));
-  const mutant = runInNewContext(
-    `(()=>{${text.replace(membership, "false")};return dockerProbeConfigurationMatches})()`,
-    {
-      process: { platform: process.platform },
-      fs,
-      describeDockerProbeResource,
-    },
-  ) as typeof dockerProbeConfigurationMatches;
-  const other = structuredClone(f.inspect);
-  other.Config.Cmd[1] = "unknown";
-  assert.equal(dockerProbeConfigurationMatches(other, f.expected), false);
-  assert.throws(() => assert.equal(mutant(other, f.expected), false));
-  const pathComparison =
-    /if \(\s*process\.platform === "win32"[\s\S]*?\)\s*return false;/u;
-  assert.ok(pathComparison.test(text));
-  const noPathCheck = runInNewContext(
-    `(()=>{${text.replace(pathComparison, "")};return dockerProbeConfigurationMatches})()`,
-    {
-      process: { platform: process.platform },
-      fs,
-      describeDockerProbeResource,
-    },
-  ) as typeof dockerProbeConfigurationMatches;
-  for (let axis = 0; axis < 3; axis++) {
-    const value = structuredClone(f.inspect);
-    changeField(value, `Mounts.${axis}.Source`, f.directory);
-    assert.equal(dockerProbeConfigurationMatches(value, f.expected), false);
-    assert.throws(() => assert.equal(noPathCheck(value, f.expected), false));
-  }
-  const rwCheck = 'ownProbeInspectValue(mount, "RW") !== true';
-  assert.ok(text.includes(rwCheck));
-  const noRwCheck = runInNewContext(
-    `(()=>{${text.replace(rwCheck, "false")};return dockerProbeConfigurationMatches})()`,
-    {
-      process: { platform: process.platform },
-      fs,
-      describeDockerProbeResource,
-    },
-  ) as typeof dockerProbeConfigurationMatches;
-  for (let axis = 0; axis < 3; axis++) {
-    const value = structuredClone(f.inspect);
-    changeField(value, `Mounts.${axis}.RW`, false);
-    assert.equal(dockerProbeConfigurationMatches(value, f.expected), false);
-    assert.throws(() => assert.equal(noRwCheck(value, f.expected), false));
+  for (const patch of [
+    { status: 1 },
+    { signal: "SIGTERM" },
+    { error: Error("failed") },
+    { stderr: "warning" },
+    { stdout: "x".repeat(64 * 1024 + 1) },
+    { stdout: "[]" },
+  ]) {
+    response = {
+      status: 0,
+      signal: null,
+      error: null,
+      stdout: JSON.stringify([f.inspect]),
+      stderr: "",
+      ...patch,
+    };
+    assert.equal(inspectDockerContainer(binding, f.expected), null);
   }
 });

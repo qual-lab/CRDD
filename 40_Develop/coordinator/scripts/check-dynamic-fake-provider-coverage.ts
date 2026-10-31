@@ -21,6 +21,7 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/diagnostics.ts",
+  "40_Develop/coordinator/scripts/probe-verification.ts",
   "40_Develop/coordinator/src/execution/operation.ts",
   "40_Develop/coordinator/src/execution/recovery.ts",
   "40_Develop/coordinator/src/state/probe-record.ts",
@@ -33,6 +34,8 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/docker-probe-cancellation-projection.contract.test.ts",
+  "40_Develop/coordinator/tests/integration/docker-probe-configuration-projection.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
@@ -83,6 +86,12 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
+  "40_Develop/coordinator/scripts/probe-verification.ts": obligation(
+    "移管した取消・稼働残存の実Docker境界と全失敗分岐は非AI試験だけでは到達しない",
+    "稀な失敗で同じ実IDの回収又はHost終了を誤分類する可能性",
+    "実本文へ有限DIを接続した二保存・現在Mount・取消join・構成拒否・exact参照の正負試験",
+    "取消、意図残存又はProbe構成の変更時",
+  ),
   "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
     "実Docker、敵対的置換、全recovery分岐および同期process errorの全短絡をunit runで到達していない／合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない／実Docker成功、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
     "稀なDocker failureでcontainer不存在またはHost cleanupを誤分類する可能性／入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行／private reportの状態またはreason投影が稀な環境で不一致になる可能性",

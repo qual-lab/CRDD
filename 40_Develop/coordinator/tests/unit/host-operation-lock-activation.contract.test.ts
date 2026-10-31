@@ -821,6 +821,22 @@ function createProbeRecoveryOrderingFixture(
       readManagement();
       return Object.freeze({});
     },
+    requireDockerProbeRecoveryMounts: () => ({
+      workspace: "w",
+      providerHome: "h",
+      tmp: "t",
+    }),
+    describeDockerProbeConfiguration: () => ({}),
+    absenceCapabilities: new WeakMap(),
+    verifyHostOperationRecoveryGeneration: () => {},
+    inspectResources: () => {
+      events.push("docker");
+      if (fault === "docker") throw Error("docker_unknown");
+      return { observation: "absent", runningConfirmed: false };
+    },
+    cleanupResources: () => {
+      throw Error("unexpected_cleanup");
+    },
     observeContainerAbsence: () => Object.freeze({}),
     confirmDockerAbsence: () => {
       events.push("confirm");

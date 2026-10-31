@@ -46,12 +46,17 @@ createAuthentication(request)はAI Adapterのlogin/status仕様と既存DIの固
 
 診断結果はatomicなSnapshotでも再起動許可でも全資源停止の証明でもない。診断の先行実行を再起動の条件にせず、既存DIの各Effect直前確認と通知待ちを維持する。Coordinatorの再起動本番接続はこの窓口を使用する。既存doctorの合成Container Probeは別Capabilityであり、環境読取りをdoctorへ自動追加しない。認証は上記の認証窓口へ接続済みである。合成隔離Probeの通常経路は上記の既存Executor入口へ接続する。実Docker境界の成立は今回の非AI検証から推測しない。修復・固定Directoryの観測／処置は以下の共通入口へ接続する。既存Runtime State LockはRepository単位であり、Host全体・別Repositoryの排他保証をこの移管で新設又は証明したとは扱わない。
 
+## 単一Containerの既存資源API接続（2026-11-01）
+
+inspectResources／cleanupResourcesの既存入口で、元作成構成を持つContainerResourceTargetも扱う。新しいProbe Recovery関数・Factory・Store・Lockは作らない。Executorは同じ管理所在・構成・現在Owner確認を既存DIへ接続し、present／absent／unknownとRunning肯定を分けて返す。回収は先行inspectを要求せず、内部で同じ構成をfresh照合する。Host回収・保存・保持判断は上位に残す。通常Probe実行の清掃と旧固定Probe回復は同じDI観測・回収処理を使用する。
+
 ## 共通資源の観測・回収API（2026-11-01）
 
 公開名はinspectResources／cleanupResourcesへ統一し、旧Attempt専用名の互換exportを残さない。実装はnon-asyncのoverloadであり、対象種別と入力・返却型を明示する。
 
 | 対象 | 入力・返却・同期性 |
 |---|---|
+| ContainerResourceTarget | kindはcontainer。元作成構成・借用管理所在・同期現在Owner確認。ContainerResourceInspectionとconfirmed／reasonの回収結果を返す |
 | AttemptRecoveryTarget | kindはattempt。既存の技術投影・Receipt・元ID・現在Ownerを維持。観測・回収とも同期で、AttemptResourceInspection／AttemptCleanupResultを返す |
 | DirectoryResourceInspectionTarget | kindはdocker_runtime_directory、inputはDI正本のDockerRuntimeDirectoryInspectionInput。同じinputを既存固定三用途の二読取りへ渡し、実体照合集合又は全体nullを同期返却する |
 | DirectoryResourceCleanupTarget | 同じDirectory kind、inputはDI正本のDockerRuntimeRepairDisposalInput。同じinput・Signal・canIssueEffectを既存処置へ渡し、元Promiseと要求／不存在結果を返す |
@@ -64,6 +69,7 @@ ExecutorはAttempt単位の技術診断・回収を受け持つ。resources/exec
 
 | 契約 | 入力・結果の具体化方針 |
 |---|---|
+| ContainerResourceTarget | kindはcontainer。元作成構成・借用管理所在・同期現在Owner確認。ContainerResourceInspectionとconfirmed／reasonの回収結果を返す |
 | AttemptRecoveryTarget | 同じrecoveryId／operationId、検査済みAttemptRecordProjectionと保護Mount投影、既存DIのDockerResourceReceipts、用途限定で借用した管理領域、同期の現在Owner確認。Domain OperationやidentityJson、保存先・Writerは渡さない |
 | inspectResources | 診断のみ。実ID・名前・Label・構成と、必要な認証資源の二回の不存在観測を返す。削除・Task再実行・保存状態更新はしない |
 | cleanupResources | inspectの先行実行を要求せず、内部でfreshな技術再観測・照合・回収を行う。元参照、資源別観測、技術cleanupと短命configのclose結果を区別して返す |

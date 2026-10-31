@@ -13,7 +13,10 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { types as utilTypes } from "node:util";
-import { classifyDockerProbeCancellation } from "../../src/index.ts";
+import {
+  describeDockerProbeConfiguration,
+  classifyDockerProbeCancellation,
+} from "../../src/index.ts";
 
 /**
  * 一意な本番関数を宣言から行頭の閉じ括弧まで取得する。
@@ -180,6 +183,7 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
         Buffer,
         Set,
         utilTypes,
+        describeDockerProbeConfiguration,
         classifyDockerProbeCancellation,
         performance: { now: () => clock },
         setTimeout: (callback: () => void, timeout: number) => {
@@ -196,22 +200,25 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
         clearTimeout: (key: number) => {
           assert.equal(timers.delete(key), true);
         },
-        inspectDockerProbeContainer: (
+        inspectDockerContainer: (
           actualBinding: unknown,
           expected: {
             id: string;
-            probeId: string;
-            mounts: object;
-            sourceCandidates: string[];
+            name: string;
+            mounts: Record<string, { source: string; readWrite: boolean }>;
+            commands: string[][];
           },
         ) => {
           assert.equal(actualBinding, binding);
           assert.equal(expected.id, id);
-          assert.equal(expected.probeId, probeId);
-          assert.deepEqual(JSON.parse(JSON.stringify(expected.mounts)), mounts);
-          assert.equal(expected.sourceCandidates.length, 1);
+          assert.equal(expected.name, `crdd-coordinator-probe-${probeId}`);
+          assert.deepEqual(
+            Object.values(expected.mounts).map((value) => value.source),
+            Object.values(mounts),
+          );
+          assert.equal(expected.commands.length, 1);
           assert.match(
-            expected.sourceCandidates[0] ?? "",
+            expected.commands[0]?.[1] ?? "",
             /signal.signal\(signal.SIGTERM/u,
           );
           inspections++;
@@ -476,21 +483,25 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
         Reflect,
         Error,
         utilTypes,
-        inspectDockerProbeContainer: (
+        describeDockerProbeConfiguration,
+        inspectDockerContainer: (
           actual: object,
           expected: {
             id: string;
-            probeId: string;
-            mounts: object;
-            sourceCandidates: string[];
+            name: string;
+            mounts: Record<string, { source: string; readWrite: boolean }>;
+            commands: string[][];
           },
         ) => {
           assert.equal(actual, binding);
           assert.equal(expected.id, id);
-          assert.equal(expected.probeId, probeId);
-          assert.deepEqual(JSON.parse(JSON.stringify(expected.mounts)), mounts);
-          assert.equal(expected.sourceCandidates.length, 1);
-          assert.match(expected.sourceCandidates[0] ?? "", /sys.exit\(42\)/u);
+          assert.equal(expected.name, `crdd-coordinator-probe-${probeId}`);
+          assert.deepEqual(
+            Object.values(expected.mounts).map((value) => value.source),
+            Object.values(mounts),
+          );
+          assert.equal(expected.commands.length, 1);
+          assert.match(expected.commands[0]?.[1] ?? "", /sys.exit\(42\)/u);
           observations++;
           calls.push(`inspect-${observations}`);
           if (

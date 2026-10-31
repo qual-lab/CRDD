@@ -11,7 +11,7 @@ import {
   classifyDockerProbeExecution,
   normalizeContainerCreation,
 } from "./result.ts";
-import { inspectDockerProbeContainer } from "./container.ts";
+import { inspectDockerContainer } from "../cleanup/container.ts";
 import {
   startDockerProbeAttachedProcess,
   type DockerAttachedProcess,
@@ -378,9 +378,27 @@ export function describeDockerProbeConfiguration(
       : [profileSpecification(profile).source];
   return Object.freeze({
     id: identity.id,
-    probeId: identity.probeId,
-    sourceCandidates: Object.freeze(sources),
-    mounts: captureCurrentProbeMounts(mounts),
+    name: `crdd-coordinator-probe-${identity.probeId}`,
+    ownershipLabel: `crdd.coordinator.probe=${identity.probeId}`,
+    image:
+      "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+    user: "65532:65532",
+    entrypoint: Object.freeze(["python"]),
+    commands: Object.freeze(
+      sources.map((source) => Object.freeze(["-c", source])),
+    ),
+    mounts: Object.freeze(
+      Object.fromEntries(
+        Object.entries(captureCurrentProbeMounts(mounts)).map(
+          ([key, source]) => [
+            key === "providerHome"
+              ? "/operation/provider-home"
+              : `/operation/${key}`,
+            Object.freeze({ source, readWrite: true }),
+          ],
+        ),
+      ),
+    ),
   });
 }
 
@@ -589,13 +607,12 @@ export async function runDockerProbeCancellation(
   let attachProcessTerminationRequestCount = 0;
   try {
     const initial = captureCurrentProbeMounts(readCurrentMounts());
-    const expected = {
-      id,
-      probeId,
-      sourceCandidates: [CANCELLATION_SOURCE],
-      mounts: initial,
-    };
-    if (!inspectDockerProbeContainer(binding, expected))
+    const expected = describeDockerProbeConfiguration(
+      "cancellation",
+      { id, probeId },
+      initial,
+    );
+    if (!inspectDockerContainer(binding, expected))
       throw new Error("docker_container_security_profile_mismatch");
     controller = startDockerProbeAttachedProcess(
       binding,
@@ -617,10 +634,14 @@ export async function runDockerProbeCancellation(
       initial,
     );
     if (
-      inspectDockerProbeContainer(binding, {
-        ...expected,
-        mounts: runningMounts,
-      })?.runningConfirmed !== true
+      inspectDockerContainer(
+        binding,
+        describeDockerProbeConfiguration(
+          "cancellation",
+          { id, probeId },
+          runningMounts,
+        ),
+      )?.runningConfirmed !== true
     )
       throw new Error("dynamic_fake_provider_cancellation_ready_unconfirmed");
     const startedAt = performance.now();
@@ -664,7 +685,14 @@ export async function runDockerProbeCancellation(
       throw new Error(reason);
     const postMounts = captureCurrentProbeMounts(readCurrentMounts(), initial);
     if (
-      !inspectDockerProbeContainer(binding, { ...expected, mounts: postMounts })
+      !inspectDockerContainer(
+        binding,
+        describeDockerProbeConfiguration(
+          "cancellation",
+          { id, probeId },
+          postMounts,
+        ),
+      )
     )
       throw new Error("owned_operation_mount_replaced");
     postRunMountVerified = true;
@@ -729,13 +757,12 @@ export function startDockerProbeResidue(
   const id = identity.id,
     probeId = identity.probeId;
   const initial = captureCurrentProbeMounts(readCurrentMounts());
-  const expected = {
-    id,
-    probeId,
-    sourceCandidates: [CANCELLATION_SOURCE],
-    mounts: initial,
-  };
-  if (!inspectDockerProbeContainer(binding, expected))
+  const expected = describeDockerProbeConfiguration(
+    "cancellation",
+    { id, probeId },
+    initial,
+  );
+  if (!inspectDockerContainer(binding, expected))
     throw new Error("docker_container_security_profile_mismatch");
   const started = executeDockerProbeCommand(
     binding,
@@ -746,8 +773,10 @@ export function startDockerProbeResidue(
     throw new Error("dynamic_fake_provider_recoverable_start_failed");
   const mounts = captureCurrentProbeMounts(readCurrentMounts(), initial);
   if (
-    inspectDockerProbeContainer(binding, { ...expected, mounts })
-      ?.runningConfirmed !== true
+    inspectDockerContainer(
+      binding,
+      describeDockerProbeConfiguration("cancellation", { id, probeId }, mounts),
+    )?.runningConfirmed !== true
   )
     throw new Error("dynamic_fake_provider_recoverable_not_running");
   return Object.freeze({ runningConfirmed: true as const });

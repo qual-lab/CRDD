@@ -19,10 +19,8 @@ import {
   runRecordedVerification,
 } from "./verification-result-record.ts";
 import { createInteractiveConsoleReaderEnvironment } from "../../platform-access/src/index.ts";
-import {
-  createDynamicFakeProviderRecoverableResidue,
-  recoverDockerIsolationProbe,
-} from "../src/execution/diagnostics.ts";
+import { recoverDockerIsolationProbe } from "../src/execution/diagnostics.ts";
+import { createDynamicFakeProviderRecoverableResidue } from "./probe-verification.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 import { verifyDynamicFakeProviderCancellation } from "./verify-dynamic-fake-provider-cancellation.ts";
 import { verifyDynamicFakeProviderFailures } from "./verify-dynamic-fake-provider-failures.ts";

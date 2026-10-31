@@ -48,6 +48,8 @@ export type {
   AttemptCleanupResult,
   DirectoryResourceInspectionTarget,
   DirectoryResourceCleanupTarget,
+  ContainerResourceTarget,
+  ContainerResourceInspection,
 } from "./resources/types.ts";
 export type {
   ExecutorCallbacks,

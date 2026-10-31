@@ -11,9 +11,9 @@ import {
   observeDockerProbeEngine,
   createDockerProbeContainer,
   describeDockerProbeConfiguration,
-  inspectDockerProbeContainer,
+  inspectDockerContainer,
   runDockerProbeAsync,
-  cleanupDockerProbeContainer,
+  cleanupDockerContainer,
   type DockerProbeProfile,
 } from "../../../docker-isolation/src/index.ts";
 import type {
@@ -186,7 +186,7 @@ export function createIsolationProbe(
                 tmp: current.tmp,
               },
             );
-            if (!inspectDockerProbeContainer(cli, expected))
+            if (!inspectDockerContainer(cli, expected))
               throw new Error("docker_container_security_profile_mismatch");
             readMounts();
             processCompletionConfirmed = false;
@@ -219,7 +219,7 @@ export function createIsolationProbe(
           if (containerId && processCompletionConfirmed) {
             try {
               const current = readMounts();
-              const cleanup = cleanupDockerProbeContainer(
+              const cleanup = cleanupDockerContainer(
                 cli,
                 describeDockerProbeConfiguration(
                   profile,

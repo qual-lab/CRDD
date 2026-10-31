@@ -43,12 +43,12 @@ export function runInNewContext(
         identity: object,
         mounts: object,
       ) => ({ ...identity, profile, mounts }),
-      inspectDockerProbeContainer: (binding: unknown, expected: object) =>
+      inspectDockerContainer: (binding: unknown, expected: object) =>
         (context.inspectOwnedContainer as (...args: unknown[]) => unknown)(
           binding,
           expected,
         ),
-      cleanupDockerProbeContainer: (binding: unknown, expected: object) =>
+      cleanupDockerContainer: (binding: unknown, expected: object) =>
         (context.cleanupOwnedContainer as (...args: unknown[]) => unknown)(
           binding,
           expected,

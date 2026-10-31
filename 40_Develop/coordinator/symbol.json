@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
+    { "symbolId": "coordinator.verification.probe", "kind": "file", "path": "scripts/probe-verification.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.test.support.probe-executor", "kind": "file", "path": "tests/support/probe-executor.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.execution.preparation-types", "kind": "file", "path": "src/execution/types.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
     { "symbolId": "coordinator.provider.preparation-lifecycle", "kind": "file", "path": "src/execution/preparation.ts", "archIds": ["ARCH-000015"] },

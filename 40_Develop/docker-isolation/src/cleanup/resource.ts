@@ -31,6 +31,77 @@ export type DockerRecoveryCommandResult = Readonly<{
 }>;
 
 /**
+ * 実IDの単一inspect応答を共通の有界経路で取り出す。
+ * @responsibility 失敗・Signal・容量超過・不正JSONを実体へ変換しない。
+ * @trace ARCH-000008
+ * @input runDocker: 内部の固定実行、kind: 資源種別、id: 実ID、maxBytes: 既存用途の上限。
+ * @returns 単一実体又はnull。
+ * @effect 固定inspect一回。
+ * @failure 不明はnull。
+ * @invariant 観測だけで削除許可を発行しない。
+ */
+export function inspectObservedDockerResource(
+  runDocker: (argv: readonly string[]) => DockerRecoveryCommandResult,
+  kind: "container" | "network",
+  id: string,
+  maxBytes = 1_048_576,
+): unknown {
+  if (!/^[a-f0-9]{64}$/u.test(id)) return null;
+  const observed = runDocker([kind, "inspect", id]);
+  if (
+    observed.status !== 0 ||
+    observed.signal ||
+    observed.error ||
+    observed.stderr.length ||
+    Buffer.byteLength(observed.stdout, "utf8") > maxBytes
+  )
+    return null;
+  try {
+    const parsed: unknown = JSON.parse(observed.stdout);
+    return Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 構成確認済みの実IDを処置し、呼出し元の既存不存在観測まで完了する。
+ * @responsibility 削除直前確認・rm成功・現在不存在の三条件を一正本へ集約する。
+ * @trace ARCH-000008
+ * @input runDocker: 内部固定実行、kind/id: 検査済み実体、observeAbsent: 固定観測、assertBeforeRemoval: 現在Owner確認。
+ * @returns 三条件共同成立時true。
+ * @precondition 直前に同じ実IDの完全構成を確認している。
+ * @effect 実ID限定rmと現在不存在観測。
+ * @failure 例外・非0・Signal・不明・Owner喪失はfalse。
+ * @invariant この内部関数をDI Rootへ公開しない。
+ */
+export function removeObservedDockerResource(
+  runDocker: (argv: readonly string[]) => DockerRecoveryCommandResult,
+  kind: "container" | "network",
+  id: string,
+  observeAbsent: () => boolean,
+  assertBeforeRemoval?: () => boolean,
+): boolean {
+  if (!/^[a-f0-9]{64}$/u.test(id)) return false;
+  try {
+    if (assertBeforeRemoval && assertBeforeRemoval() !== true) return false;
+    const removed = runDocker(
+      kind === "container"
+        ? ["container", "rm", "--force", id]
+        : ["network", "rm", id],
+    );
+    return (
+      removed.status === 0 &&
+      !removed.signal &&
+      !removed.error &&
+      observeAbsent() === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 検査済み実Docker IDの現在観測と限定回収を行う。
  *
  * @responsibility 実ID、構成、削除とID／名前不存在の相関を保持する。
@@ -122,48 +193,25 @@ export function recoverObservedDockerResource(
   if (ids.length === 0)
     return options.allowAlreadyAbsent !== false && exactNameAbsent();
   if (ids.length !== 1 || ids[0] !== dockerId) return false;
-  const inspected = runDocker(
-    kind === "container"
-      ? ["container", "inspect", dockerId]
-      : ["network", "inspect", dockerId],
-  );
-  if (
-    inspected.status !== 0 ||
-    inspected.signal ||
-    inspected.error ||
-    inspected.stderr.length
-  )
-    return false;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(inspected.stdout);
-  } catch {
-    return false;
-  }
-  if (!Array.isArray(parsed) || parsed.length !== 1) return false;
-  if (!dockerResourceConfigurationMatches(parsed[0], expectation)) return false;
+  const inspected = inspectObservedDockerResource(runDocker, kind, dockerId);
+  if (!dockerResourceConfigurationMatches(inspected, expectation)) return false;
   if (options.removeAfterVerification === false) return true;
-  if (options.assertBeforeRemoval !== undefined) {
-    try {
-      if (options.assertBeforeRemoval() !== true) return false;
-    } catch {
-      return false;
-    }
-  }
-  const removed = runDocker(
-    kind === "container"
-      ? ["container", "rm", "--force", dockerId]
-      : ["network", "rm", dockerId],
-  );
-  if (removed.status !== 0 || removed.signal || removed.error) return false;
-  const absent = runDocker(listArgs);
-  return (
-    absent.status === 0 &&
-    !absent.signal &&
-    !absent.error &&
-    absent.stderr.length === 0 &&
-    absent.stdout.trim() === "" &&
-    exactNameAbsent()
+  return removeObservedDockerResource(
+    runDocker,
+    kind,
+    dockerId,
+    () => {
+      const absent = runDocker(listArgs);
+      return (
+        absent.status === 0 &&
+        !absent.signal &&
+        !absent.error &&
+        absent.stderr.length === 0 &&
+        absent.stdout.trim() === "" &&
+        exactNameAbsent()
+      );
+    },
+    options.assertBeforeRemoval,
   );
 }
 

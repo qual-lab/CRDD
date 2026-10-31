@@ -24,10 +24,10 @@ export {
   type DockerProbeProfile,
 } from "./probe/execute.ts";
 export {
-  inspectDockerProbeContainer,
-  observeDockerProbeContainerAbsence,
-  cleanupDockerProbeContainer,
-} from "./probe/container.ts";
+  inspectDockerContainer,
+  observeDockerContainerAbsence,
+  cleanupDockerContainer,
+} from "./cleanup/container.ts";
 export {
   runDockerRuntimeRepairSession,
   type DockerRuntimeRepairInput,
@@ -175,9 +175,9 @@ export type {
   DockerRestartStartFailure,
 } from "./docker-desktop/restart-state.ts";
 export {
-  dockerProbeConfigurationMatches,
-  type DockerProbeConfigurationExpectation,
-} from "./probe/configuration.ts";
+  dockerContainerConfigurationMatches,
+  type DockerContainerConfigurationExpectation,
+} from "./cleanup/configuration.ts";
 export {
   classifyDockerProbeExecution,
   type DockerProbeExecutionFacts,

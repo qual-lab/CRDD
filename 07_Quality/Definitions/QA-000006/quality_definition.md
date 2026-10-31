@@ -1,5 +1,11 @@
 # QA-000006 外部実行境界の検証定義
 
+## Container観測・回収の共通化と検証専用処理の分離
+
+通常回収と単一Container回収で共通の有界inspect解析・実ID限定削除を利用し、元の構成照合と不存在軸を維持する。単一ContainerはImage・完全Command候補・User・能力・Device・Network・Mount実体と三軸の各失敗を反証する。Executor既存資源入口でpresent／absent／unknownとRunning肯定を分け、初回・要求直前・削除直前のOwner喪失・誤Promiseの即時／後着Reject・pendingで追加処置と未処理Rejectが発生しないことを確認する。Coordinator回復は元記録・世代排他・exact IDを維持し、不明時に処置せず同じ参照を返す。
+
+取消検証・意図的残存作成はscripts/probe-verification.tsの実本文を有限DI／Host代役へ接続して検査する。二保存・実ID・構成投影・取消join・Host回収・失敗時参照のOracleを維持し、製品Sourceからの呼出し・逆importを禁止する。この非AI検証を実Docker・実AIの成立へ算入しない。
+
 ## Executor結果検査の責務整理
 
 未使用の結果文字列検査は削除し、結果の相関OracleはExecutorの試験supportへ移管する。通常Rootから試験専用検査への接続がなく、開始拒否、元回復ID、Home、五清掃条件と三状態の検査を維持する。Codex観測の検査はAI Adapter内部へ移し、通常Root非公開、内部検査失敗時の成功抑止、同Processの型付き結果搬送、製品Sourceから検証用Sourceへの依存零を確認する。未信頼JSONを読む検証ツールだけが既存の検証専用入口を使い、現行・旧三形、欠測維持、Proxy／getter／特殊prototype・余剰・部分欠測・数値境界の拒否とCoordinator最終投影を検査する。一次故障のターン数診断は正常な1・3・100を不正報告として受理せず、小数・0・負数・safe範囲外整数だけを不正数値診断として受理し、非canonical数値文字列を拒否する。これはターン数上限や保存済み旧診断の書換えではない。実AI・Docker・過去保持物は操作しない。

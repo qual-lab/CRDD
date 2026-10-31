@@ -390,11 +390,18 @@ test("固定Probe作成は元payloadと二保存の間の一要求を維持す�
       { id: "a".repeat(64), probeId: "probe-123" },
       mounts,
     );
-    assert.deepEqual(configuration.sourceCandidates, [payload]);
+    assert.deepEqual(configuration.commands, [["-c", payload]]);
     assert.equal(configuration.id, "a".repeat(64));
-    assert.equal(configuration.probeId, "probe-123");
-    assert.deepEqual({ ...configuration.mounts }, mounts);
-    assert.equal(Object.isFrozen(configuration.sourceCandidates), true);
+    assert.equal(configuration.name, "crdd-coordinator-probe-probe-123");
+    assert.deepEqual(configuration.mounts, {
+      "/operation/workspace": { source: mounts.workspace, readWrite: true },
+      "/operation/provider-home": {
+        source: mounts.providerHome,
+        readWrite: true,
+      },
+      "/operation/tmp": { source: mounts.tmp, readWrite: true },
+    });
+    assert.equal(Object.isFrozen(configuration.commands), true);
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0], [
       "-H",
@@ -478,22 +485,29 @@ test("固定Probe作成は元payloadと二保存の間の一要求を維持す�
     mounts,
   );
   assert.deepEqual(
-    legacy.sourceCandidates.map((payload) =>
-      createHash("sha256").update(payload).digest("hex"),
+    legacy.commands.map((command) =>
+      createHash("sha256")
+        .update(command[1] ?? "")
+        .digest("hex"),
     ),
     Object.values(expected),
   );
-  assert.equal(new Set(legacy.sourceCandidates).size, 6);
+  assert.equal(
+    new Set(legacy.commands.map((command) => command.join("\0"))).size,
+    6,
+  );
   for (const changed of [
-    legacy.sourceCandidates.slice(1),
-    [...legacy.sourceCandidates, "print('extra')"],
-    [legacy.sourceCandidates[0] ?? ""],
+    legacy.commands.slice(1),
+    [...legacy.commands, ["-c", "print('extra')"]],
+    [legacy.commands[0] ?? []],
   ])
     assert.throws(
       () =>
         assert.deepEqual(
-          changed.map((payload) =>
-            createHash("sha256").update(payload).digest("hex"),
+          changed.map((command) =>
+            createHash("sha256")
+              .update(command[1] ?? "")
+              .digest("hex"),
           ),
           Object.values(expected),
         ),

@@ -17,6 +17,10 @@ import {
   type DockerResourceRecoveryOperations,
   type DockerResourceReceipts,
   type DockerResourceCleanupObservation,
+  createDockerProbeRuntimeBinding,
+  inspectDockerContainer,
+  observeDockerContainerAbsence,
+  cleanupDockerContainer,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   AttemptRecoveryTarget,
@@ -25,7 +29,34 @@ import type {
   ResourceCleanupCallbacks,
   DirectoryResourceInspectionTarget,
   DirectoryResourceCleanupTarget,
+  ContainerResourceTarget,
+  ContainerResourceInspection,
 } from "./types.ts";
+
+/**
+ * 指定済みContainerの現在観測又は回収を既存DI処理へ接続する。
+ * @responsibility 各Docker要求直前のOwner確認を保ち、用途と永続状態を持たない。
+ * @trace ARCH-000008
+ * @input target: 元構成と現在Owner。
+ * @returns 各要求直前にOwnerを確認する既存CLI接続。
+ * @effect 既存の固定CLI観測、構成照合、実ID回収。
+ * @failure 不明・Owner喪失は例外又は未確認結果。
+ * @invariant inspectの事前実行をcleanupの必須条件にしない。
+ */
+function containerRuntime(target: ContainerResourceTarget) {
+  if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
+  assertOwner(target);
+  const binding = createDockerProbeRuntimeBinding(
+    () => target.managementDirectory,
+  );
+  return Object.freeze({
+    environment: binding.environment,
+    verifyCli: () => {
+      assertOwner(target);
+      return binding.verifyCli();
+    },
+  });
+}
 
 /**
  * 元Attemptの現在Ownerを同期再確認する。
@@ -37,7 +68,7 @@ import type {
  * @failure false・例外・Promiseは停止する。
  * @invariant 確認値を次要求へ保存して使い回さない。
  */
-function assertOwner(target: AttemptRecoveryTarget): void {
+function assertOwner(target: Readonly<{ assertOwner: () => boolean }>): void {
   const current: unknown = target.assertOwner();
   if (current !== true) {
     void Promise.resolve(current).catch(() => {});
@@ -156,12 +187,41 @@ export function inspectResources(
   target: DirectoryResourceInspectionTarget,
 ): DockerRuntimeRepairRetentionTargets | null;
 export function inspectResources(
-  target: AttemptRecoveryTarget | DirectoryResourceInspectionTarget,
+  target: ContainerResourceTarget,
+): ContainerResourceInspection;
+export function inspectResources(
+  target:
+    | AttemptRecoveryTarget
+    | DirectoryResourceInspectionTarget
+    | ContainerResourceTarget,
   purpose?: keyof DockerResourceReceipts,
-): AttemptResourceInspection | DockerRuntimeRepairRetentionTargets | null {
+):
+  | AttemptResourceInspection
+  | DockerRuntimeRepairRetentionTargets
+  | ContainerResourceInspection
+  | null {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   if (target?.kind === "docker_runtime_directory")
     return observeDockerRuntimeRepairRetention(target.input);
+  if (target?.kind === "container") {
+    const binding = containerRuntime(target),
+      c = target.configuration;
+    const absence = observeDockerContainerAbsence(binding, {
+      id: c.id,
+      name: c.name,
+      ownershipLabel: c.ownershipLabel,
+    });
+    if (absence.status === "confirmed")
+      return Object.freeze<ContainerResourceInspection>({
+        observation: "absent",
+        runningConfirmed: false,
+      });
+    const present = inspectDockerContainer(binding, c);
+    return Object.freeze<ContainerResourceInspection>({
+      observation: present ? "present" : "unknown",
+      runningConfirmed: present?.runningConfirmed === true,
+    });
+  }
   const resources: Array<AttemptResourceInspection["resources"][number]> = [];
   let reason = "docker_task_recovery_resource_unconfirmed";
   let configCleanupConfirmed = true;
@@ -340,14 +400,32 @@ export function cleanupResources(
   target: DirectoryResourceCleanupTarget,
 ): Promise<DockerRuntimeDirectoryCleanupResult>;
 export function cleanupResources(
-  target: AttemptRecoveryTarget | DirectoryResourceCleanupTarget,
+  target: ContainerResourceTarget,
+): Readonly<{ confirmed: boolean; reason: string }>;
+export function cleanupResources(
+  target:
+    | AttemptRecoveryTarget
+    | DirectoryResourceCleanupTarget
+    | ContainerResourceTarget,
   callbacks: ResourceCleanupCallbacks<
     readonly DockerResourceCleanupObservation[]
   > = {},
-): AttemptCleanupResult | Promise<DockerRuntimeDirectoryCleanupResult> {
+):
+  | AttemptCleanupResult
+  | Promise<DockerRuntimeDirectoryCleanupResult>
+  | Readonly<{ confirmed: boolean; reason: string }> {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   if (target?.kind === "docker_runtime_directory")
     return disposeDockerRuntimeRepairDirectory(target.input);
+  if (target?.kind === "container")
+    return cleanupDockerContainer(
+      containerRuntime(target),
+      target.configuration,
+      () => {
+        assertOwner(target);
+        return true;
+      },
+    );
   const resources: DockerResourceCleanupObservation[] = [];
   let reason = "docker_task_recovery_execution_unconfirmed";
   let configCleanupConfirmed = true;

@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 旧固定Probe回復の技術委譲（2026-11-01）
+
+recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container IDの相関を確認し、同じ作成構成をExecutorのinspectResources／cleanupResourcesへ渡す。CLI生成・Docker実体inspect・削除・三軸一覧の組立ては本番回復経路から撤去する。構成不明では削除せず、回収後も不存在を再観測してから既存Host状態遷移へ接続する。現在世代と同じ記録を各要求直前に再確認し、記録Schema・回復ID・Host排他・一回消費・Host回収順は維持する。取消検証・意図的残存作成と専用の私有照合補助はscripts/probe-verification.tsへ移管し、製品Sourceから呼び出さない。呼出し元の検証CLIと試験を同じ移管先へ接続し、import時に試験を実行しない。Network Policy構築・検査、Recovery ID解析・Checkpoint判定・型参照は人間の合意により現在の境界へ維持する。
+
 ## AIツール認証の保存と技術実行の境界（2026-11-01）
 
 authority.tsはExecutor.createAuthenticationへ選定済みProvider・操作・Home・安定suffix・短命Proxy tokenを渡す。prepareProviderAuthenticationは元の資源投影と短命認証操作を既存Mapへ結合し、Recovery記録の原本照合を維持する。Docker配布物・構成・Command実行・生出力解析・所有照合・削除・不存在確認は構築せず、Executor／AI Adapter／DIの既存正本へ委譲する。

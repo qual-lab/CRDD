@@ -345,6 +345,15 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
     providerHome: mounts.providerHome,
     tmp: mounts.tmp,
   };
+  const verificationSource = fs.readFileSync(
+    new URL("../../scripts/probe-verification.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    source,
+    /function (runDynamicFakeProviderCancellationVerification|createDynamicFakeProviderRecoverableResidue)/u,
+  );
+  assert.doesNotMatch(source, /from ["'][^"']*probe-verification/u);
   const routes = [
     ["runDockerIsolationScenario", null, "normal"],
     ...["timeout", "output_limit", "invalid_output", "nonzero_exit"].map(
@@ -354,7 +363,10 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
     ["createDynamicFakeProviderRecoverableResidue", null, "cancellation"],
   ] as const;
   for (const [name, selected, profile] of routes) {
-    const originalBody = probeFunctionSource(source, name);
+    const originalBody = probeFunctionSource(
+      name === "runDockerIsolationScenario" ? source : verificationSource,
+      name,
+    );
     const variants: [string, string][] = [["baseline", originalBody]];
     for (const [variant, body] of variants) {
       const captured: object[] = [];

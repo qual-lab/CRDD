@@ -215,7 +215,7 @@
     {
       "symbolId": "docker-isolation.execution.probe-container",
       "kind": "module",
-      "path": "src/probe/container.ts",
+      "path": "src/cleanup/container.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -223,7 +223,7 @@
     {
       "symbolId": "docker-isolation.execution.probe-configuration",
       "kind": "module",
-      "path": "src/probe/configuration.ts",
+      "path": "src/cleanup/configuration.ts",
       "archIds": [
         "ARCH-000008"
       ]
