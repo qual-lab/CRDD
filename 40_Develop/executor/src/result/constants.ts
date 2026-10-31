@@ -1,7 +1,7 @@
 /**
  * 試行結果と非秘密診断で共有する固定語彙を定義する。
  * @packageDocumentation
- * @responsibility 理由・診断段階・Command用途の固定集合を所有し、検査・状態遷移・保存は行わない。
+ * @responsibility 技術結果理由・Command用途の固定集合を所有し、検査・状態遷移・保存は行わない。
  * @trace ARCH-000008
  * @boundary Executor内部の結果型・検査・実行間で共有する値の境界。
  */
@@ -90,17 +90,3 @@ export const SETUP_COMMAND_FAILURE_REASONS = Object.freeze({
     (typeof ATTEMPT_COMPLETION_REASONS)[number]
   >
 >);
-
-export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
-  "plan_validation",
-  "operation_context",
-  "provider_home",
-  "home_lock",
-  "operation_binding",
-  "state_conflict",
-  "operation_start_save",
-  "settlement_binding",
-  "host_submission",
-  "home_lock_release",
-  "unknown",
-] as const);

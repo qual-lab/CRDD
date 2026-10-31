@@ -47,7 +47,7 @@ export function createTaskControllerCancellationFixture(
     "create_provider",
     "start_proxy",
     "start_provider_attached",
-  ];
+  ] as const;
   const plan = Object.freeze({
     networkPolicy: null,
     provider: "claude" as const,

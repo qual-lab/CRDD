@@ -31,7 +31,7 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import { readRepositoryNetworkPolicies } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
-import { resolveRecoveryReference } from "../../../executor/src/index.ts";
+import { resolveRecoveryReference } from "./validation.ts";
 import type { AdviceResultItem } from "../../../ai-adapter/src/index.ts";
 import path from "node:path";
 import fs from "node:fs";
@@ -66,6 +66,7 @@ import {
 } from "./authority.ts";
 import {
   startRuntimeOwnedDockerProcessController,
+  abandonRuntimeOwnedExecutorAttempt,
   cancelRuntimeOwnedDockerProcessController,
 } from "./provider-executor.ts";
 import {
@@ -1204,7 +1205,10 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
     }>,
   ) => boolean;
   finalizeDockerRecovery: typeof finalizeRuntimeOwnedDockerRecovery;
-  abandonDockerRecovery: typeof abandonRuntimeOwnedDockerRecovery;
+  abandonDockerRecovery: (
+    capability: unknown,
+    managementCapability: unknown,
+  ) => boolean;
   abandonOperation: typeof abandonOwnedHostOperationGenerationLock;
   poisonAfterCleanupUnknown: () => void;
 }>;
@@ -1677,8 +1681,11 @@ function createProviderAdviceRuntime(
           mountControl,
           operation.managementCapability,
         );
-      if (recoveryCapability)
-        dependencies.abandonDockerRecovery(recoveryCapability);
+      if (recoveryCapability && operation)
+        dependencies.abandonDockerRecovery(
+          recoveryCapability,
+          operation.managementCapability,
+        );
 
       const initializationFailure =
         error instanceof AdviceRuntimeError
@@ -2069,7 +2076,9 @@ function createProductionDependencies(
     classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
     recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
     finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
-    abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
+    abandonDockerRecovery: (capability, management) =>
+      abandonRuntimeOwnedExecutorAttempt(capability, management) ||
+      abandonRuntimeOwnedDockerRecovery(capability),
     abandonOperation: abandonOwnedHostOperationGenerationLock,
     poisonAfterCleanupUnknown: poisonRuntimeProcessAfterCleanupUnknown,
   });

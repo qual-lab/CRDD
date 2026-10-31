@@ -57,6 +57,7 @@ test("隔離の明示契約は必須構成と未観測分類を保持する", as
   assert.deepEqual(
     Object.keys(runtime).sort(),
     [
+      "acquireHomeLease",
       "startCommand",
       "startExecution",
       "cleanupOwnedResources",

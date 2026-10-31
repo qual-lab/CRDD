@@ -9,9 +9,15 @@
  * @boundary Coordinator RuntimeとFake Docker／Host境界。
  */
 import assert from "node:assert/strict";
-import type { AttemptInput } from "../../../../executor/src/index.ts";
+import type { ExecutorCallbacks } from "../../../../executor/src/index.ts";
+
+import type { PreparationInput as AttemptInput } from "../../../src/execution/types.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
+import fs from "node:fs";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
 import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
@@ -30,6 +36,7 @@ import {
 } from "../../../src/execution/advice.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation.ts";
+import { types as utilTypes } from "node:util";
 
 const selection = executionSelection("advice");
 const prepared = prepareProviderAdvicePlan(
@@ -1303,6 +1310,212 @@ test("署名資格なしでも開始前取消は全依存を呼ばない", async
 });
 
 /**
+ * 上位の追加情報を評価せず技術fieldだけを搬送する。
+ * @responsibility Plan投影と上位準備入口の非迂回を固定する。
+ * @trace ERB-UT-023
+ * @precondition Sourceと合成値だけを使用する。
+ * @stimulus 未知のaccessorと管理情報を準備記録へ追加する。
+ * @observation exact key集合、元の参照、accessor呼出し数。
+ * @oracle 上位情報は非搬送、accessorは0回、技術値は同じ参照。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("技術Planの往復を廃止し上位は同じ試行専用Executorを開始する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    "utf8",
+  );
+  const startSource = sourceDeclaration(
+    source,
+    "startRuntimeOwnedDockerProcessController",
+  );
+  const recorded = sourceDeclaration(source, "startRecordedAttempt");
+  assert.doesNotMatch(source, /projectExecutionPlan|\.prepare\(state,/);
+  assert.match(startSource, /plan\.executor/);
+  assert.match(recorded, /executor\.start\(management, recovery, callbacks\)/);
+  assert.doesNotMatch(recorded, /executor\.start\(plan,/);
+});
+
+/**
+ * 消費した準備が実行開始前に拒否された経路を閉じる。
+ * @responsibility 未消費AuthorityとMountの返却を一回ずつ確認する。
+ * @trace ERB-UT-023
+ * @precondition 同一Ownerの合成参照と有限の開始代役だけ。
+ * @stimulus 計画拒否・改訂拒否・同期例外・Authority消費済み拒否。
+ * @observation 失効・Mount返却回数と清掃結果、別PlanのEffect前拒否。
+ * @oracle 未消費時は失効1・返却1、消費済みは上位失効0。別Ownerは実操作0。
+ * @cleanup N/A: Docker・実Authority・Fileを使用しない。
+ */
+test("上位準備消費後の開始拒否は元AuthorityとMountを重複なく閉じる", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    "utf8",
+  );
+  for (const mode of [
+    "plan_invalid",
+    "revision_invalid",
+    "throws",
+    "consumed",
+    "revoke_failed",
+    "consume_null",
+    "mount_failed",
+  ]) {
+    const management = {};
+    const control = {};
+    const technical = attemptPlan();
+    const owned = {
+      ...technical,
+      authorityUseCapability: {},
+      authorityControlCapability: control,
+      selectionRecordId: "MODELSEL-UPPER",
+      selectionHash: "a".repeat(64),
+      taskAttempt: 0,
+      consumer: "workbench",
+    };
+    let revoked = 0,
+      mounts = 0,
+      revisions = 0;
+    const preparation = {
+      prepare: () => ({
+        status: "prepared",
+        preparedCapability: {},
+        selectionNotice: "selected",
+        selectedModel: "opus",
+        selectedEffort: "low",
+      }),
+      consume: () => (mode === "consume_null" ? null : owned),
+    };
+    const noop = () => {
+      throw Error("unexpected_effect");
+    };
+    const bindings: Record<string, unknown> = {
+      codexPreparation: preparation,
+      claudePreparation: preparation,
+    };
+    for (const name of [
+      "bindRuntimeOwnedDockerInitializationFailure",
+      "abandonRuntimeOwnedDockerRecovery",
+      "verifyRuntimeOwnedDockerRecoveryBinding",
+      "recordRuntimeOwnedAttemptCleanup",
+      "recordRuntimeOwnedUnstartedAttempt",
+      "markRuntimeOwnedDockerResourceSubmission",
+      "recordRuntimeOwnedDockerProviderSubmission",
+      "recordRuntimeOwnedDockerTerminalObservation",
+      "recordRuntimeOwnedDockerResourceNotIssued",
+      "recordRuntimeOwnedDockerResourceReceipt",
+      "borrowOwnedOperationExecutionSelection",
+      "beginRuntimeOwnedDockerRecovery",
+    ])
+      bindings[name] = noop;
+    Object.assign(bindings, {
+      startHostAttempt: (
+        executor: { start: (...args: unknown[]) => unknown },
+        state: { dependencies: unknown },
+        plan: unknown,
+        management: unknown,
+      ) => executor.start(plan, management, state.dependencies),
+      process: { stderr: {} },
+      createRuntimeOwnedLifecycleNoticeReporter: () => noop,
+      verifyRuntimeOwnedRepositoryOperation: () => {
+        revisions++;
+        return true;
+      },
+      consumeRuntimeOwnedProviderAuthority: () => ({
+        operationId: owned.operationId,
+      }),
+      revokeRuntimeOwnedProviderAuthority: (c: unknown, m: unknown) => {
+        assert.strictEqual(c, control);
+        assert.strictEqual(m, management);
+        revoked++;
+        return { status: mode === "revoke_failed" ? "blocked" : "revoked" };
+      },
+      completeRuntimeOwnedProviderHomeMount: (c: unknown, m: unknown) => {
+        assert.strictEqual(c, owned.activeMountCapability);
+        assert.strictEqual(m, management);
+        mounts++;
+        return { status: mode === "mount_failed" ? "blocked" : "completed" };
+      },
+      executor: {
+        start: (
+          plan: unknown,
+          m: unknown,
+          callbacks: {
+            verifyRevision: (m: unknown, p: unknown) => unknown;
+            beginRecovery: (p: unknown, m: unknown) => unknown;
+            completeMount: (p: unknown, m: unknown) => unknown;
+            consumeProviderAuthority: (
+              a: unknown,
+              b: unknown,
+              c: unknown,
+            ) => unknown;
+          },
+        ) => {
+          assert.equal(callbacks.verifyRevision(m, {}), false);
+          assert.equal(callbacks.verifyRevision({}, plan), false);
+          assert.equal(callbacks.beginRecovery({}, m), null);
+          assert.equal(revisions, 0);
+          if (mode === "throws") throw Error("start_failed");
+          if (
+            mode === "revision_invalid" ||
+            mode === "consumed" ||
+            mode === "mount_failed"
+          )
+            callbacks.completeMount(owned.activeMountCapability, m);
+          if (mode === "consumed")
+            callbacks.consumeProviderAuthority(
+              owned.authorityUseCapability,
+              owned.activeMountCapability,
+              m,
+            );
+          return {
+            status: "blocked",
+            reason: "synthetic",
+            cleanupConfirmed: false,
+            recoveryId: null,
+            manualRecoveryRequired: true,
+          };
+        },
+      },
+    });
+    Object.assign(owned, { executor: bindings.executor });
+    const declarations = [
+      "createBlockedPreparationStart",
+      "settleUnstartedPreparation",
+      "createExecutionRecordOperations",
+      "startRuntimeOwnedDockerProcessController",
+    ]
+      .map((name) => sourceDeclaration(source, name))
+      .join("\n");
+    const start = runInNewContext(
+      `${declarations}\nstartRuntimeOwnedDockerProcessController`,
+      bindings,
+    );
+    const result = start(
+      "claude",
+      { managementCapability: management },
+      () => true,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.preparationFailed, false);
+    assert.equal(result.selectionNotice, "selected");
+    assert.equal(result.selectedModel, "opus");
+    assert.equal(result.selectedEffort, "low");
+    assert.equal(
+      revoked,
+      mode === "consumed" || mode === "consume_null" ? 0 : 1,
+      mode,
+    );
+    assert.equal(mounts, mode === "consume_null" ? 0 : 1, mode);
+    assert.equal(
+      result.cleanupConfirmed,
+      !["consumed", "revoke_failed", "consume_null", "mount_failed"].includes(
+        mode,
+      ),
+      mode,
+    );
+  }
+});
+
+/**
  * 助言Grantの初回と更新で操作・試行・選定Hashの差を拒否する。
  * @responsibility 別操作又は異なる試行の値をProviderへ搬送しない。
  * @trace ERB-UT-023
@@ -1361,4 +1574,306 @@ test("Process回収不明は署名拒否でなく再起動要求として停止�
   assert.equal(result.providerEffectIssued, false);
   assert.equal(result.cleanupConfirmed, true);
   assert.deepEqual(current.calls, []);
+});
+
+/**
+ * 本番の必要通知と、上位の終端保存の待機・拒否を固定する。
+ * @responsibility Executorの技術結果からTaskの耐久受理を独立させる。
+ * @trace ERB-IT-004
+ * @precondition 本番wrapperの実宣言だけを抽出し下位を有限代役化する。
+ * @stimulus 終端保存の非同期成功・拒否・throwとHome取得前拒否を渡す。
+ * @observation completionの未確定、元ID、Task結果と解放事実。
+ * @oracle 保存拒否を成功へせず、技術的なHome解放を取り消さない。
+ * @cleanup 全ての保留を解放し同じcompletionを待つ。
+ * @boundary 保存呼出しの接続だけ。実Docker・実保存は操作しない。
+ */
+test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は同じ参照へ閉じる", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = sourceDeclaration(source, "startRecordedAttempt");
+  const required = [
+    "onCommandSubmitting",
+    "onCommandNotIssued",
+    "onProviderSubmitting",
+    "onResourceCreated",
+    "onStarted",
+    "onResourcesClosed",
+    "onCleanupCompleted",
+  ];
+  const verify = (text: string) => {
+    for (const name of required)
+      assert.equal(
+        [...text.matchAll(new RegExp(`\\b${name}:`, "g"))].length,
+        1,
+        name,
+      );
+  };
+  verify(declaration);
+  for (const name of required)
+    assert.throws(() =>
+      verify(declaration.replace(`${name}:`, `removed_${name}:`)),
+    );
+  const run = runInNewContext(`${declaration}\nstartRecordedAttempt`, {
+    Object,
+    Error,
+    utilTypes,
+    commandRestrictionAllows: () => true,
+    bindRuntimeOwnedExecutorAttempt: () => true,
+  });
+  for (const mode of [
+    "resolve",
+    "reject",
+    "throw",
+    "start_refused_false",
+    "start_refused_throw",
+  ]) {
+    const plan = attemptPlan(),
+      management = {},
+      reference = {
+        status: "ready",
+        recoveryId: "exact-recovery",
+        recoveryCapability: {},
+      };
+    let resolveTerminal!: () => void, rejectTerminal!: (error: Error) => void;
+    const terminalPromise = new Promise<void>((resolve, reject) => {
+      resolveTerminal = resolve;
+      rejectTerminal = reject;
+    });
+    const terminal = {
+      promise: terminalPromise,
+      resolve: resolveTerminal,
+      reject: rejectTerminal,
+    };
+    let entered = false,
+      settled = false,
+      unstarted = 0;
+    let saved: unknown = null;
+    const raw = {
+      status: "completed",
+      reason: "provider_operation_completed",
+      cleanupConfirmed: true,
+      homeLeaseReleased: true,
+      manualRecoveryRequired: false,
+      recoveryId: reference.recoveryId,
+      normalizedResult: { status: true },
+      resultBytes: 1,
+      resultSha256: "synthetic",
+      reviewFindings: null,
+    };
+    const observation = {
+      operationId: plan.operationId,
+      recoveryId: reference.recoveryId,
+      resources: [],
+      primaryFailure: null,
+      processTreeTerminationConfirmed: true,
+      containersAbsent: true,
+      networksAbsent: true,
+      homeLeaseReleased: true,
+    };
+    const blocked = {
+      status: "blocked",
+      reason: "docker_process_controller_recovery_unavailable",
+      recoveryId: reference.recoveryId,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+    };
+    const executor = {
+      start: (
+        _owner: unknown,
+        _reference: unknown,
+        callbacks: Record<string, (...args: unknown[]) => unknown>,
+      ) => {
+        if (mode.startsWith("start_refused")) return blocked;
+        callbacks.onResourcesClosed?.(observation);
+        callbacks.onCleanupCompleted?.(observation);
+        return { status: "started", completion: Promise.resolve(raw) };
+      },
+    };
+    const operations = {
+      verifyRevision: () => true,
+      completeMount: () => ({ status: "completed" }),
+      completeCleanup: () => ({
+        mountLeaseReleased: true,
+        homeLeaseReleased: true,
+        recoveryCompleted: true,
+        recoveryFinalizationCapability: {},
+      }),
+      recordUnstarted: () => {
+        unstarted++;
+        if (mode.endsWith("throw")) throw Error("synthetic");
+        return false;
+      },
+      recordTerminalObservation: async (
+        _reference: unknown,
+        value: unknown,
+      ) => {
+        entered = true;
+        saved = value;
+        if (mode === "throw") throw Error("synthetic");
+        await terminal.promise;
+      },
+    };
+    const result = run(executor, plan, management, reference, operations);
+    if (mode.startsWith("start_refused")) {
+      assert.equal(result, blocked);
+      assert.equal(unstarted, 1);
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.recoveryId, reference.recoveryId);
+      continue;
+    }
+    const pending = result.completion.then((value: unknown) => {
+      settled = true;
+      return value;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(entered, true);
+    if (mode !== "throw") assert.equal(settled, false);
+    if (mode === "reject") terminal.reject(Error("synthetic"));
+    else terminal.resolve();
+    const completed = (await pending) as Record<string, unknown>;
+    assert.equal(completed.homeLeaseReleased, true);
+    if (mode === "resolve") {
+      assert.equal(completed, saved);
+      assert.equal(completed.status, "completed");
+    } else {
+      assert.equal(completed.status, "blocked");
+      assert.equal(completed.recoveryId, reference.recoveryId);
+      assert.equal(completed.manualRecoveryRequired, true);
+      assert.equal(completed.recoveryCompleted, false);
+      assert.equal(completed.normalizedResult, null);
+    }
+  }
+});
+
+/**
+ * 保存先結合後のControl結合拒否を、元試行の取消とjoinへ閉じる。
+ * @responsibility 開始済みPromiseを捨てず同じ回復参照のblockedへ収束する。
+ * @trace ERB-UT-023
+ * @precondition 本番startRecordedAttempt宣言と有限Executor・保存代役だけを使用する。
+ * @stimulus 記録結合成功、開始成功、その後のControl結合だけを拒否する。
+ * @observation 元Controlへの取消一回、下位Promise保留中の上位未確定、元IDと解放事実。
+ * @oracle 下位完了を待ち、同ID・manualRecoveryRequiredのblockedを返す。
+ * @cleanup 合成Promiseをsettleしてjoinする。外部資源を作らない。
+ */
+test("Control結合失敗でも同じExecutorを一回取り消し元completionをjoinする", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/provider-executor.ts", import.meta.url),
+    "utf8",
+  );
+  const management = {},
+    capability = {},
+    control = {};
+  const reference = {
+    recoveryCapability: capability,
+    recoveryId: "exact-recovery",
+  };
+  const raw = {
+    status: "completed",
+    reason: "provider_operation_completed",
+    cleanupConfirmed: true,
+    homeLeaseReleased: true,
+    normalizedResult: { status: true },
+  };
+  let finish!: (value: typeof raw) => void;
+  const completion = new Promise<typeof raw>((resolve) => {
+    finish = resolve;
+  });
+  const started = {
+    status: "started",
+    controlCapability: control,
+    recoveryId: reference.recoveryId,
+    completion,
+  };
+  let bindings = 0,
+    cancellations = 0;
+  let callbacks!: ExecutorCallbacks;
+  const executor = {
+    start: (owner: unknown, supplied: unknown, notices: ExecutorCallbacks) => {
+      assert.strictEqual(owner, management);
+      assert.strictEqual(supplied, reference);
+      callbacks = notices;
+      return started;
+    },
+    cancel: async (supplied: unknown, owner: unknown) => {
+      assert.strictEqual(supplied, control);
+      assert.strictEqual(owner, management);
+      cancellations++;
+      return { status: "requested" };
+    },
+  };
+  const run = runInNewContext(
+    sourceDeclaration(source, "startRecordedAttempt") +
+      "\nstartRecordedAttempt",
+    {
+      Object,
+      Error,
+      utilTypes,
+      commandRestrictionAllows: () => true,
+      bindRuntimeOwnedExecutorAttempt: (
+        supplied: unknown,
+        owner: unknown,
+        candidate: unknown,
+        start: unknown,
+      ) => {
+        assert.strictEqual(supplied, capability);
+        assert.strictEqual(owner, management);
+        assert.strictEqual(candidate, executor);
+        bindings++;
+        if (bindings === 1) {
+          assert.equal(start, undefined);
+          return true;
+        }
+        assert.strictEqual(start, started);
+        return false;
+      },
+    },
+  );
+  const plan = attemptPlan();
+  const result = run(executor, plan, management, reference, {
+    completeMount: () => ({ status: "completed" }),
+    completeCleanup: () => ({
+      mountLeaseReleased: true,
+      homeLeaseReleased: true,
+      recoveryCompleted: false,
+      recoveryFinalizationCapability: null,
+    }),
+  });
+  assert.equal(result.status, "started");
+  let settled = false;
+  const pending = result.completion.then((value: unknown) => {
+    settled = true;
+    return value;
+  });
+  await Promise.resolve();
+  assert.equal(settled, false);
+  assert.equal(cancellations, 1);
+  assert.equal(bindings, 2);
+  const observation = {
+    operationId: plan.operationId,
+    recoveryId: reference.recoveryId,
+    resources: [],
+    primaryFailure: null,
+    processTreeTerminationConfirmed: true,
+    containersAbsent: true,
+    networksAbsent: true,
+    homeLeaseReleased: true,
+  };
+  await callbacks.onResourcesClosed?.(observation);
+  await callbacks.onCleanupCompleted?.(observation);
+  finish(raw);
+  const terminal = await pending;
+  assert.equal(terminal.status, "blocked");
+  assert.equal(
+    terminal.reason,
+    "docker_process_controller_execution_failed_closed",
+  );
+  assert.equal(terminal.recoveryId, reference.recoveryId);
+  assert.equal(terminal.manualRecoveryRequired, true);
+  assert.equal(terminal.homeLeaseReleased, true);
+  assert.equal(terminal.normalizedResult, null);
+  assert.equal(cancellations, 1);
 });

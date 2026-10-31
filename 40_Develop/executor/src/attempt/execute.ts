@@ -1,63 +1,63 @@
 /**
- * 一回のProvider試行の開始・取消・終了待ちと元証拠を所有する。
+ * 一回のProvider試行の技術準備・開始・取消・終了待ちを所有する。
  * @packageDocumentation
  * @responsibility Taskの順序・保存を持たず、単段の資源終端と結果を相関する。
  * @trace ARCH-000008
  */
-import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { randomBytes } from "node:crypto";
 import {
-  convertProviderError,
+  parseAdviceReferences,
+  describeProviderAuthentication,
   evaluateProviderAuthentication,
-  parseProviderResult,
   type TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  type CommandObservation as CommandExecution,
-  type DockerExecutionHooks,
+  describeDockerProviderAssets,
+  describeDockerProxyTopology,
+  createDockerIsolationRandomHex,
+  createDockerIsolationResourceNames,
+  planDockerIsolationCommands,
   type DockerIsolationCommand,
+  createDockerIsolationRuntime,
+  type DockerIsolationRuntimeOptions,
+  type DockerExecutionHooks,
+  type CommandObservation,
   classifyDockerCommandException,
-  type DockerCommandExecutionClassification,
   type DockerSessionCleanup,
+  type HomeLease,
   type DockerProcessExitStatusClass,
-  describeDockerCommandSessionContract,
   parseDockerTaskRecoveryId,
-  STDERR_LIMIT_BYTES,
-  STDOUT_LIMIT_BYTES,
-  startDockerCommandSessionCandidate,
 } from "../../../docker-isolation/src/index.ts";
-import {
-  inspectRecoveryStartFailureDiagnostic,
-  isAttemptFailureReason,
-  isDockerSetupCommandPurpose,
-  ownDataValue,
-  resolveRecoveryStartReason,
-  resolveRecoveryReference,
-  snapshotReadyRecovery,
-  snapshotBlockedRecoveryWithExactId,
-} from "../result/validation.ts";
-import { SETUP_COMMAND_FAILURE_REASONS } from "../result/constants.ts";
+import { isAttemptFailureReason } from "../result/validation.ts";
 import {
   createStartResult,
+  convertCommandResult,
+  parseAttemptOutput,
   createCompletionResult,
 } from "../result/attempt.ts";
-import { completeAttemptCleanup, isPlanValid } from "./isolation.ts";
+import {
+  resolveProviderExecution,
+  resolveIsolationCommandInput,
+  providerBoundaryConfiguration,
+  bindIsolationRuntime,
+  isPlanValid,
+  releaseAttemptHomeLease,
+  type IsolationRuntime,
+} from "./isolation.ts";
 import type {
   AttemptResultReason,
+  Executor,
   CompletionResult,
   PrimaryFailureDiagnostic,
-  RecoveryStartFailureDiagnostic,
   AttemptContent,
 } from "../result/types.ts";
-import {
-  providerBoundaryConfiguration,
-  reportPassiveBoundaryDiagnostic,
-  type ProcessStartedNotice,
-} from "./observation.ts";
+import { readOwnDataProperty, parseModelSelection } from "./validation.ts";
 import type {
-  ProviderAttemptPlan as PreparedPlan,
-  RuntimeDependencies,
-  Recovery,
+  AttemptRequest,
+  AttemptPlan,
+  AttemptRecordProjection,
+  ExecutorCallbacks,
+  AttemptReference,
 } from "./types.ts";
 
 /**
@@ -72,11 +72,13 @@ import type {
  * @compatibility ExecutionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type ExecutionRecord = {
+  homeLease: HomeLease;
+  homeLeaseReleased: boolean;
+  homeLeaseReleaseAttempted: boolean;
+  finished: boolean;
+  controlCapability: object;
+  recovery: AttemptReference;
   managementCapability: object;
-  commandRestriction: unknown;
-  observeProviderStarted:
-    | ((notice: ProcessStartedNotice) => boolean | Promise<boolean>)
-    | null;
   cancellationRequested: boolean;
   cancelExecution:
     | (() => Promise<
@@ -86,7 +88,6 @@ type ExecutionRecord = {
         }>
       >)
     | null;
-  completion: Promise<CompletionResult> | null;
 };
 
 /**
@@ -100,188 +101,33 @@ type ExecutionRecord = {
  * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type RuntimeState = Readonly<{
-  dependencies: RuntimeDependencies;
+export type RuntimeState = Readonly<{
+  isolation: IsolationRuntime;
+  callbacks: ExecutorCallbacks;
   controls: WeakMap<object, ExecutionRecord>;
 }>;
 
-export const PREPARATION_LIFETIME_MS = 30_000;
-
-const EXECUTOR_CONTRACT = "crdd-executor/attempt";
-
-const EXECUTOR_CONTRACT_REVISION = 32;
-
-const {
-  setupTimeoutMs: SETUP_TIMEOUT_MS,
-  providerTimeoutMs: PROVIDER_TIMEOUT_MS,
-  cancellationGraceMs: CANCELLATION_GRACE_MS,
-} = describeDockerCommandSessionContract();
-
 /**
- * Invalid 回復 Startを終端状態へ確定する。
- *
- * @responsibility Invalid 回復 Startの確定条件、最終状態、未解決義務の境界を所有する。
- * @trace ARCH-000008
- * @input state: RuntimeState、plan: PreparedPlan、managementCapability: object、recoveryCapability: unknown、recoveryId: string | null、reason: string
- * @returns settleInvalidRecoveryStartの計算結果を返す。
- * @precondition 「state: RuntimeState、plan: PreparedPlan、managementCapability: object、recoveryCapability: unknown、recoveryId: string | null、reason: string」がsettleInvalidRecoveryStartの入力契約を満たす。
- * @postcondition settleInvalidRecoveryStartの責務を完了した結果だけを返す。
- * @effect N/A: settleInvalidRecoveryStartは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure settleInvalidRecoveryStartは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant settleInvalidRecoveryStartは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security settleInvalidRecoveryStartはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: settleInvalidRecoveryStartは共有非同期状態を持たない同期処理である。
- */
-function settleInvalidRecoveryStart(
-  state: RuntimeState,
-  plan: PreparedPlan,
-  managementCapability: object,
-  recoveryCapability: unknown,
-  recoveryId: string | null,
-  reason: string,
-) {
-  if (recoveryCapability && typeof recoveryCapability === "object") {
-    try {
-      state.dependencies.abandonRecovery?.(recoveryCapability);
-    } catch {}
-  }
-  try {
-    state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
-  } catch {}
-  return createStartResult({
-    status: "blocked",
-    reason: reason,
-    cleanupConfirmed: false,
-    recoveryId: recoveryId,
-    manualRecoveryRequired: true,
-  });
-}
-
-/**
- * 下位の技術分類を公開用途別の理由へ投影する。
- *
- * @responsibility Docker Isolationの分類を再計算せず、Providerと用途の意味へ接続する。
- * @trace ARCH-000008
- * @input execution: 元の観測、purpose: 用途、provider: Provider、classified: 下位の技術分類。
- * @returns classifyExecutionの計算結果を返す。
- * @precondition 「execution: CommandExecution | null、purpose: string、provider: "codex" | "claude"」がclassifyExecutionの入力契約を満たす。
- * @postcondition classifyExecutionの責務を完了した結果だけを返す。
- * @effect N/A: classifyExecutionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: classifyExecutionは独自の失敗分岐を所有しない。
- * @invariant classifyExecutionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security classifyExecutionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: classifyExecutionは共有非同期状態を持たない同期処理である。
- */
-function classifyExecution(
-  execution: CommandExecution | null,
-  purpose: string,
-  provider: "codex" | "claude",
-  classified: DockerCommandExecutionClassification,
-) {
-  const isProvider = purpose === "start_provider_attached";
-  if (classified.category === "deadline_exceeded")
-    return Object.freeze({
-      ok: false,
-      reason: isProvider
-        ? "provider_deadline_exceeded"
-        : "docker_setup_deadline_exceeded",
-    });
-  if (classified.category === "output_limit_exceeded")
-    return Object.freeze({
-      ok: false,
-      reason: "provider_output_limit_exceeded",
-    });
-  if (classified.category === "signalled")
-    return Object.freeze({ ok: false, reason: "provider_process_signalled" });
-  if (classified.category === "nonzero_exit") {
-    if (execution === null)
-      throw new Error("docker_command_classification_inconsistent");
-    return Object.freeze({
-      ok: false,
-      reason: isProvider
-        ? convertProviderError(provider, execution).reason
-        : isDockerSetupCommandPurpose(purpose)
-          ? SETUP_COMMAND_FAILURE_REASONS[purpose]
-          : "docker_setup_command_failed",
-    });
-  }
-  return Object.freeze({
-    ok: true,
-    reason: "command_completed",
-    stdoutBytes: classified.stdoutBytes,
-  });
-}
-
-// This is an additional veto, never an authority source. Do not pass plans,
-// credentials or capabilities to it, or use it on the existing cleanup path.
-/**
- * command Restriction Allowsを決定する。
- *
- * @responsibility command Restriction Allowsの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000008
- * @input restriction: unknown、purpose: string
- * @returns commandRestrictionAllowsの計算結果を返す。
- * @precondition 「restriction: unknown、purpose: string」がcommandRestrictionAllowsの入力契約を満たす。
- * @postcondition commandRestrictionAllowsの責務を完了した結果だけを返す。
- * @effect N/A: commandRestrictionAllowsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure commandRestrictionAllowsは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant commandRestrictionAllowsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security commandRestrictionAllowsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency commandRestrictionAllowsは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-function commandRestrictionAllows(restriction: unknown, purpose: string) {
-  if (restriction === undefined) return true;
-  if (
-    typeof restriction !== "function" ||
-    utilTypes.isProxy(restriction) ||
-    utilTypes.isAsyncFunction(restriction)
-  )
-    return false;
-  try {
-    const result: unknown = restriction(purpose);
-    if (utilTypes.isPromise(result)) {
-      // A mistakenly returned native Promise cannot authorize a synchronous
-      // launch. Observe rejection without awaiting or invoking a custom then.
-      void Promise.prototype.then.call(
-        result,
-        () => {},
-        () => {},
-      );
-      return false;
-    }
-    return result === true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Planを実行する。
+ * 一試行の実行・通知・資源回収を完了まで管理する。
  *
  * @responsibility Planの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
- * @input state: RuntimeState、record: ExecutionRecord、plan: PreparedPlan、recovery: Recovery
- * @returns executePlanの計算結果を返す。
- * @precondition 「state: RuntimeState、record: ExecutionRecord、plan: PreparedPlan、recovery: Recovery」がexecutePlanの入力契約を満たす。
- * @postcondition executePlanの責務を完了した結果だけを返す。
- * @effect N/A: executePlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure executePlanは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant executePlanは入力から導いた結果以外の共有状態を変更しない。
+ * @input state: 固定隔離と通知。record: 同じHome・Control。plan: 内部技術構成。recovery: 上位からの借用相関。
+ * @returns 通知をjoinし、技術清掃と内容受理を照合した一つのCompletionResult。
+ * @precondition 上位の保存確定後に、同じ試行の技術Home排他を取得済み。
+ * @postcondition executeAttemptの責務を完了した結果だけを返す。
+ * @effect Docker Isolation経由で一試行を実行し、通知と所有資源の回収を行う。
+ * @failure executeAttemptは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant Taskの計画・保存判断は持たず、取消と回収を同じ試行へ相関する。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security executePlanはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency executePlanは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security executeAttemptはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency executeAttemptは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-async function executePlan(
+async function executeAttempt(
   state: RuntimeState,
   record: ExecutionRecord,
-  plan: PreparedPlan,
-  recovery: Recovery,
+  plan: AttemptPlan,
+  recovery: AttemptReference,
 ) {
   let reason: AttemptResultReason = "provider_operation_completed";
   let requestedStatus: "completed" | "blocked" | "cancelled" = "completed";
@@ -294,7 +140,6 @@ async function executePlan(
   let providerTurnObservation: Readonly<Record<string, unknown>> | null = null;
   let reviewFindings: readonly TaskReviewFinding[] | null = null;
   let isSubscriptionAuthConfirmed = false;
-  let recoveryFinalizationCapability: object | null = null;
   let wasProviderContainerCreationObserved = false;
   let wasProviderProcessCompletionObserved = false;
   let providerExitStatusClass: DockerProcessExitStatusClass = "not_observed";
@@ -307,7 +152,9 @@ async function executePlan(
   let authenticationStatus: PrimaryFailureDiagnostic["authenticationStatus"];
   let turnCountDiagnostic: PrimaryFailureDiagnostic["turnCountDiagnostic"];
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
-  let startConfirmation: Promise<void> | null = null;
+  let startNotification: Promise<void> | null = null;
+  let startNotificationAccepted = false;
+  let providerOutput: CommandObservation | null = null;
   let lastStdoutBytes = 0;
   let cleanup: DockerSessionCleanup = Object.freeze({
     confirmed: false,
@@ -322,18 +169,18 @@ async function executePlan(
 
   /**
    * 最初の上位失敗を元段階で固定する。
-   * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+   * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
    * @trace ARCH-000008
    * @input next: 固定公開理由。
    * @returns N/A: 私有状態だけを更新する。
    * @precondition 同じ操作の検証済み計画とOwnerを使用する。
    * @postcondition raw HandleやOS手順を所有しない。
-   * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+   * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
    * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
    * @invariant 新Authority・Store・回復管理を作らない。
    * @boundary 上位の意味と下位の技術実行。
    * @security 生出力・秘密値を公開通知へ複製しない。
-   * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+   * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
    */
   function reject(next: AttemptResultReason) {
     if (requestedStatus !== "blocked") {
@@ -355,21 +202,55 @@ async function executePlan(
     return false;
   }
 
+  /** 内容受理は開始通知の成功後だけ行い、技術回収は通知待ちに従属させない。 */
+  function acceptProviderOutput(execution: CommandObservation): boolean {
+    diagnosticStage = "provider_result_normalization";
+    const output = parseAttemptOutput(plan, execution, lastStdoutBytes);
+    const providerResult = output.result;
+    if (providerResult.status !== "confirmed") {
+      if ("turnCountDiagnostic" in providerResult)
+        turnCountDiagnostic = providerResult.turnCountDiagnostic;
+      return reject(
+        "reason" in providerResult &&
+          isAttemptFailureReason(providerResult.reason)
+          ? providerResult.reason
+          : "provider_result_invalid",
+      );
+    }
+    normalizedResult = providerResult.normalizedResult;
+    providerExecutionObservation =
+      "providerExecutionObservation" in providerResult
+        ? (providerResult.providerExecutionObservation ?? null)
+        : null;
+    providerTurnObservation =
+      "providerTurnObservation" in providerResult
+        ? (providerResult.providerTurnObservation ?? null)
+        : null;
+    reviewFindings =
+      "reviewFindings" in providerResult &&
+      Array.isArray(providerResult.reviewFindings)
+        ? (providerResult.reviewFindings as readonly TaskReviewFinding[])
+        : null;
+    resultBytes = output.resultBytes;
+    resultSha256 = output.resultSha256;
+    return true;
+  }
+
   const hooks: DockerExecutionHooks = {
     /**
      * 実行制約だけを確認する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
     allowCommand: (purpose) => {
       diagnosticPurpose = purpose;
@@ -380,135 +261,118 @@ async function executePlan(
       commandObservation = null;
       authenticationStatus = undefined;
       turnCountDiagnostic = undefined;
-      return (
-        commandRestrictionAllows(record.commandRestriction, purpose) ||
-        reject("docker_process_controller_execution_restricted")
-      );
+      return true;
     },
     /**
-     * CREATE要求前の予定を保存する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * 各要求の直前を通知し、通知の終了を待つ。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordSubmission: (purpose) => {
+    recordSubmission: async (purpose) => {
       diagnosticStage = "submission_record";
-      return (
-        !state.dependencies.markResourceSubmission ||
-        state.dependencies.markResourceSubmission(
-          recovery.recoveryCapability,
-          purpose,
-        ) === true ||
-        reject("docker_resource_submission_record_unavailable")
-      );
+      try {
+        await state.callbacks.onCommandSubmitting?.(purpose);
+        return true;
+      } catch {
+        return reject("docker_resource_submission_record_unavailable");
+      }
     },
     /**
      * 予定保存後の未発行取消を記録する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordNotIssued: (purpose) => {
-      if (
-        !state.dependencies.markResourceSubmission ||
-        !state.dependencies.recordResourceNotIssued
-      )
+    recordNotIssued: async (purpose) => {
+      try {
+        await state.callbacks.onCommandNotIssued?.(purpose);
         return true;
-      const accepted =
-        state.dependencies.recordResourceNotIssued(
-          recovery.recoveryCapability,
-          purpose,
-        ) === true;
-      return (
-        accepted || reject("docker_resource_submission_record_unavailable")
-      );
+      } catch {
+        return reject("docker_resource_submission_record_unavailable");
+      }
     },
     /**
-     * AI本体の要求予定を固定Host callbackで同期保存する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * AI本体の要求予定を利用側へ通知する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input N/A: 元計画を使用する。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordExecutionSubmission: () => {
+    recordExecutionSubmission: async () => {
       diagnosticStage = "submission_record";
-      if (!state.dependencies.recordProviderSubmission) return true;
-      const accepted =
-        state.dependencies.recordProviderSubmission(
-          recovery.recoveryCapability,
-        ) === true;
-      return (
-        accepted || reject("docker_resource_submission_record_unavailable")
-      );
+      try {
+        await state.callbacks.onProviderSubmitting?.();
+        return true;
+      } catch {
+        return reject("docker_resource_submission_record_unavailable");
+      }
     },
     /**
-     * CREATEの元Receiptを上位Ownerへ保存する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * Docker Isolationが検証・保持した元の資源IDだけを通知する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。stdout: 下位の元応答。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    recordReceipt: (purpose, stdout) => {
+    recordReceipt: async (purpose, dockerId) => {
       diagnosticStage = "resource_receipt_record";
-      const accepted =
-        !state.dependencies.recordResourceReceipt ||
-        state.dependencies.recordResourceReceipt(
-          recovery.recoveryCapability,
-          purpose,
-          stdout,
-        ) === true;
-      receiptRecorded =
-        accepted && state.dependencies.recordResourceReceipt !== undefined;
-      return accepted || reject("docker_resource_receipt_unavailable");
+      receiptRecorded = true;
+      try {
+        await state.callbacks.onResourceCreated?.(purpose, dockerId);
+        return true;
+      } catch {
+        return reject("docker_resource_receipt_unavailable");
+      }
     },
     /**
      * 技術完了を既存の公開失敗分類へ接続する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose、execution、classification: 同じ下位観測。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
     acceptCommandResult: (purpose, execution, classification) => {
       diagnosticStage = "execution_classification";
@@ -535,7 +399,7 @@ async function executePlan(
           execution.stdout,
           execution.stderr,
         ).status;
-      const classified = classifyExecution(
+      const classified = convertCommandResult(
         execution,
         purpose,
         plan.provider,
@@ -547,18 +411,18 @@ async function executePlan(
     },
     /**
      * 認証とAI結果の意味を上位で受理する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input purpose: 固定用途。execution: 元の完了観測。
      * @returns 同期受理のbool。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
     acceptOutput: (purpose, execution) => {
       if (purpose === "start_subscription_auth_probe_attached") {
@@ -568,116 +432,43 @@ async function executePlan(
         isSubscriptionAuthConfirmed = true;
       }
       if (purpose === "start_provider_attached") {
-        diagnosticStage = "provider_result_normalization";
-        const providerResult = parseProviderResult(
-          plan.operationMode === "isolated_task"
-            ? {
-                provider: plan.provider,
-                purpose: "task",
-                taskRole: plan.taskRole,
-                selectedEffort: plan.selectedEffort,
-                raw: execution.stdout,
-                taskWorkload: plan.taskWorkload,
-              }
-            : plan.operationMode === "workbench_advice"
-              ? {
-                  provider: plan.provider,
-                  purpose: "advice",
-                  raw: execution.stdout,
-                  allowedReferences: plan.adviceAllowedReferences ?? [],
-                }
-              : {
-                  provider: plan.provider,
-                  purpose: "probe",
-                  raw: execution.stdout,
-                },
-        );
-        if (providerResult.status !== "confirmed") {
-          if ("turnCountDiagnostic" in providerResult)
-            turnCountDiagnostic = providerResult.turnCountDiagnostic;
-          return reject(
-            "reason" in providerResult &&
-              isAttemptFailureReason(providerResult.reason)
-              ? providerResult.reason
-              : "provider_result_invalid",
-          );
-        }
-        normalizedResult = providerResult.normalizedResult;
-        providerExecutionObservation =
-          "providerExecutionObservation" in providerResult
-            ? (providerResult.providerExecutionObservation ?? null)
-            : null;
-        providerTurnObservation =
-          "providerTurnObservation" in providerResult
-            ? (providerResult.providerTurnObservation ?? null)
-            : null;
-        reviewFindings =
-          "reviewFindings" in providerResult &&
-          Array.isArray(providerResult.reviewFindings)
-            ? (providerResult.reviewFindings as readonly TaskReviewFinding[])
-            : null;
-        resultBytes = lastStdoutBytes;
-        resultSha256 = createHash("sha256")
-          .update(execution.stdout, "utf8")
-          .digest("hex");
+        if (startNotificationAccepted) return acceptProviderOutput(execution);
+        providerOutput = execution;
       }
       return true;
     },
     /**
      * 下位の開始factから上位確認を開始する。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input N/A: 元操作の開始fact。
      * @returns N/A: Promiseを下位へ返さない。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
     onExecutionStarted: () => {
       providerRequestStarted = true;
       hasCommandHandle = true;
-      const notice: ProcessStartedNotice = Object.freeze({
-        event: "coordinator_provider_process_started",
-        taskRole: plan.taskRole,
-        provider: plan.provider,
-        operationId: plan.operationId,
-      });
-      startConfirmation = (async () => {
-        let accepted = true;
+      startNotification = (async () => {
         try {
-          accepted =
-            !state.dependencies.reportProviderProcessStarted ||
-            (await state.dependencies.reportProviderProcessStarted(notice)) ===
-              true;
-          if (accepted && record.observeProviderStarted)
-            accepted = (await record.observeProviderStarted(notice)) === true;
+          await state.callbacks.onStarted?.(
+            Object.freeze({
+              event: "coordinator_provider_process_started",
+              taskRole: plan.taskRole,
+              provider: plan.provider,
+              operationId: plan.operationId,
+            }),
+          );
+          startNotificationAccepted = true;
         } catch {
-          accepted = false;
-        }
-        if (!accepted) {
-          if (primaryFailure === null) {
-            primaryFailure = Object.freeze({
-              purpose: "start_provider_attached",
-              stage: "provider_start_observation",
-              reason:
-                "docker_process_controller_provider_start_observation_failed",
-              exceptionCode: null,
-              commandHandleObtained: true,
-              responseObserved: false,
-              receiptRecorded: false,
-              commandObservation: null,
-            });
-          }
-          if (requestedStatus !== "blocked") {
-            requestedStatus = "blocked";
-            reason =
-              "docker_process_controller_provider_start_observation_failed";
-          }
+          diagnosticStage = "provider_start_observation";
+          reject("docker_process_controller_provider_start_observation_failed");
           record.cancellationRequested = true;
           await record.cancelExecution?.();
         }
@@ -685,31 +476,35 @@ async function executePlan(
     },
     /**
      * 下位の一次停止点を清掃前に受け取る。
-     * @responsibility 上位の元相関・保存・意味だけを下位の有限接続へ搬送する。
+     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
      * @trace ARCH-000008
      * @input failure: 元の固定技術停止点。
      * @returns N/A: 同期の値保存だけ。
      * @precondition 同じ操作の検証済み計画とOwnerを使用する。
      * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 既存上位Ownerの保存・受理・通知だけを呼ぶ。
+     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
      * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
      * @invariant 新Authority・Store・回復管理を作らない。
      * @boundary 上位の意味と下位の技術実行。
      * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 同期Gateと上位開始確認Promiseを混在させない。
+     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
     onFailure: (failure) => {
       if (primaryFailure !== null) return;
       diagnosticPurpose = failure.purpose;
       if (failure.stage !== "gate") diagnosticStage = failure.stage;
+      if (failure.gate === "recordReceipt")
+        diagnosticStage = "resource_receipt_record";
       hasCommandHandle = failure.commandHandleObtained;
       hasResponseObservation = failure.responseObserved;
       const next =
         failure.kind === "start_unconfirmed"
           ? "docker_process_controller_provider_start_failed"
-          : failure.gate === "onExecutionStarted"
-            ? "docker_process_controller_provider_start_observation_failed"
-            : "docker_process_controller_execution_failed_closed";
+          : failure.gate === "recordReceipt"
+            ? "docker_resource_receipt_unavailable"
+            : failure.gate === "onExecutionStarted"
+              ? "docker_process_controller_provider_start_observation_failed"
+              : "docker_process_controller_execution_failed_closed";
       reject(next);
       const latched = primaryFailure as PrimaryFailureDiagnostic | null;
       if (latched)
@@ -720,14 +515,18 @@ async function executePlan(
     },
   };
 
-  reportPassiveBoundaryDiagnostic(
-    state.dependencies,
-    providerBoundaryConfiguration(plan),
-  );
   try {
-    if (!state.dependencies.startExecution)
+    const pending = state.callbacks.onDiagnostic?.(
+      providerBoundaryConfiguration(plan),
+    );
+    if (pending) void pending.catch(() => {});
+  } catch {
+    // 任意診断の失敗は実行結果・回収条件を変更しない。
+  }
+  try {
+    if (!state.isolation.startExecution)
       throw new Error("docker_process_controller_execution_unavailable");
-    const session = state.dependencies.startExecution(
+    const session = state.isolation.startExecution(
       plan,
       recovery.recoveryCapability,
       record.managementCapability,
@@ -758,15 +557,15 @@ async function executePlan(
     }
     if (!sessionStarted) {
       try {
-        cleanup = await state.dependencies.cleanupOwnedResources(
+        cleanup = await state.isolation.cleanupOwnedResources(
           plan,
           recovery.recoveryCapability,
           record.managementCapability,
         );
       } catch {}
       try {
-        verifiedResourceObservations = state.dependencies.verifyCleanupOutcome
-          ? state.dependencies.verifyCleanupOutcome(
+        verifiedResourceObservations = state.isolation.verifyCleanupOutcome
+          ? state.isolation.verifyCleanupOutcome(
               cleanup,
               plan,
               recovery.recoveryCapability,
@@ -779,40 +578,48 @@ async function executePlan(
       processTreeTerminationConfirmed =
         cleanup.confirmed &&
         cleanup.processTreeTerminated &&
-        (!state.dependencies.verifyCleanupOutcome ||
+        (!state.isolation.verifyCleanupOutcome ||
           verifiedResourceObservations != null);
     }
   }
-  // Docker資源はここまでで終端済み。上位保存待ちは技術清掃を止めない。
-  await startConfirmation;
-  const cleanupCompletion = completeAttemptCleanup(
-    state.dependencies,
-    plan,
-    recovery,
-    record.managementCapability,
-    cleanup,
-    verifiedResourceObservations,
+  await startNotification;
+  if (!primaryFailure && !record.cancellationRequested && providerOutput) {
+    acceptProviderOutput(providerOutput);
+  }
+  providerOutput = null;
+  const observation = Object.freeze({
+    operationId: plan.operationId,
+    recoveryId: recovery.recoveryId,
+    resources: verifiedResourceObservations ?? null,
+    primaryFailure,
     processTreeTerminationConfirmed,
-  );
-  const { mountLeaseReleased, recoveryCompleted } = cleanupCompletion;
-  recoveryFinalizationCapability =
-    cleanupCompletion.recoveryFinalizationCapability;
-  if (requestedStatus === "completed") {
+    containersAbsent: cleanup.containersAbsent,
+    networksAbsent: cleanup.networksAbsent,
+    homeLeaseReleased: false,
+  });
+  const resourcesClosed =
+    processTreeTerminationConfirmed &&
+    cleanup.containersAbsent &&
+    cleanup.networksAbsent;
+  if (resourcesClosed) {
     try {
-      if (!state.dependencies.verifyRevision(record.managementCapability)) {
-        requestedStatus = "blocked";
-        reason = "repository_revision_changed";
-        resultSha256 = null;
-        resultBytes = 0;
-        normalizedResult = null;
-      }
+      await state.callbacks.onResourcesClosed?.(observation);
     } catch {
-      requestedStatus = "blocked";
-      reason = "repository_revision_changed";
-      resultSha256 = null;
-      resultBytes = 0;
-      normalizedResult = null;
+      reject("docker_process_controller_execution_failed_closed");
     }
+  }
+  record.homeLeaseReleaseAttempted = resourcesClosed;
+  const homeLeaseReleased =
+    resourcesClosed && releaseAttemptHomeLease(record.homeLease);
+  record.homeLeaseReleased = homeLeaseReleased;
+  const completedObservation = Object.freeze({
+    ...observation,
+    homeLeaseReleased,
+  });
+  try {
+    await state.callbacks.onCleanupCompleted?.(completedObservation);
+  } catch {
+    reject("docker_process_controller_execution_failed_closed");
   }
   // Cancellation remains live through cleanup. Re-settle after the final await
   // so a request received during cleanup cannot be published as completed.
@@ -825,45 +632,44 @@ async function executePlan(
     resultBytes = 0;
     normalizedResult = null;
   }
-  reportPassiveBoundaryDiagnostic(
-    state.dependencies,
-    Object.freeze({
-      event: "coordinator_provider_boundary_settled" as const,
-      primaryFailure,
-      taskAttempt: plan.taskAttempt,
-      recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
-      recoveryId: recovery.recoveryId,
-      taskRole: plan.taskRole,
-      provider: plan.provider,
-      operationId: plan.operationId,
-      providerContainerCreatedObserved: wasProviderContainerCreationObserved,
-      providerProcessStartedObserved: providerRequestStarted,
-      providerProcessCompletionObserved: wasProviderProcessCompletionObserved,
-      providerProcessExitStatusClass: providerExitStatusClass,
-      processTreeTerminationObserved: processTreeTerminationConfirmed,
-      containersAbsentObserved: cleanup.containersAbsent,
-      networksAbsentObserved: cleanup.networksAbsent,
-      cleanupConfirmed:
-        processTreeTerminationConfirmed &&
-        cleanup.containersAbsent &&
-        cleanup.networksAbsent &&
-        mountLeaseReleased &&
-        recoveryCompleted,
-    }),
-  );
+  try {
+    const pending = state.callbacks.onDiagnostic?.(
+      Object.freeze({
+        event: "coordinator_provider_boundary_settled" as const,
+        primaryFailure,
+        recoveryId: recovery.recoveryId,
+        taskRole: plan.taskRole,
+        provider: plan.provider,
+        operationId: plan.operationId,
+        providerContainerCreatedObserved: wasProviderContainerCreationObserved,
+        providerProcessStartedObserved: providerRequestStarted,
+        providerProcessCompletionObserved: wasProviderProcessCompletionObserved,
+        providerProcessExitStatusClass: providerExitStatusClass,
+        processTreeTerminationObserved: processTreeTerminationConfirmed,
+        containersAbsentObserved: cleanup.containersAbsent,
+        networksAbsentObserved: cleanup.networksAbsent,
+        cleanupConfirmed:
+          processTreeTerminationConfirmed &&
+          cleanup.containersAbsent &&
+          cleanup.networksAbsent &&
+          homeLeaseReleased,
+      }),
+    );
+    if (pending) void pending.catch(() => {});
+  } catch {
+    // 任意診断の失敗は確認済みの終了・回収結果を変更しない。
+  }
   const finalResult = createCompletionResult({
     status: requestedStatus,
     reason,
     operationId: plan.operationId,
-    selectionRecordId: plan.selectionRecordId,
     recoveryId: recovery.recoveryId,
     providerRequestStarted,
     cancellationRequested: record.cancellationRequested,
     processTreeTerminationConfirmed,
     containersAbsent: cleanup.containersAbsent,
     networksAbsent: cleanup.networksAbsent,
-    mountLeaseReleased,
-    recoveryCompleted,
+    homeLeaseReleased,
     resultSha256,
     resultBytes,
     normalizedResult,
@@ -871,335 +677,142 @@ async function executePlan(
     providerExecutionObservation,
     providerTurnObservation,
     subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
-    recoveryFinalizationCapability,
   });
-  let homeLeaseReleased = false;
   try {
-    homeLeaseReleased =
-      state.dependencies.verifyHomeLeaseRelease?.(
-        recovery.recoveryCapability,
-        record.managementCapability,
-        plan.operationId,
-        recovery.recoveryId,
-      ) === true;
+    const pending = state.callbacks.onCompleted?.(
+      finalResult,
+      completedObservation,
+    );
+    if (pending) void pending.catch(() => {});
   } catch {
-    homeLeaseReleased = false;
+    /* 任意の最終通知は確定済みの結果を変更しない。 */
   }
-  if (verifiedResourceObservations != null) {
-    try {
-      const delivered: unknown = state.dependencies.recordTerminalObservation?.(
-        recovery.recoveryCapability,
-        finalResult,
-        Object.freeze({
-          operationId: plan.operationId,
-          recoveryId: recovery.recoveryId,
-          resources: verifiedResourceObservations,
-          primaryFailure,
-          mountLeaseReleased,
-          recoveryCompleted,
-          homeLeaseReleased,
-        }),
-      );
-      if (utilTypes.isPromise(delivered)) void delivered.catch(() => {});
-    } catch {
-      // Missing terminal delivery prevents Host settlement; cleanup/result stay unchanged.
-    }
-  }
+
   return finalResult;
 }
 
 /**
- * docker-process-controllerを開始する。
- *
- * @responsibility docker-process-controllerの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * 上位確定済みの参照へ単段実行を結合し、Home技術排他を取得する。
+ * @responsibility 技術Plan・Home相関を確認し同じControlへ取消と終了を結合する。
  * @trace ARCH-000008
- * @input state: RuntimeState、preparedCapability: unknown、managementCapability: unknown、registerRecoveryHandoff: unknown、commandRestriction: unknown
- * @returns startの計算結果を返す。
- * @precondition 「state: RuntimeState、preparedCapability: unknown、managementCapability: unknown、registerRecoveryHandoff: unknown、commandRestriction: unknown」がstartの入力契約を満たす。
- * @postcondition startの責務を完了した結果だけを返す。
- * @effect N/A: startは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: startは独自の失敗分岐を所有しない。
- * @invariant startは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security startはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: startは共有非同期状態を持たない同期処理である。
+ * @input 同じ試行の技術Plan、管理参照、確定済み追跡参照と通知接続。
+ * @returns 開始済みの同じcompletion、又は元回復IDを保持した未開始結果。
+ * @precondition 選定・業務許可・記録確定は呼出し側が実施している。
+ * @postcondition Home取得不能を解放済み又はAI開始済みにしない。
+ * @effect Home排他取得後、既存のDocker実行へ委譲する。
+ * @failure 入力不一致・取得不明は新規Effect前に拒否する。
+ * @invariant 保存・Task判断・新しい回復IDを生成しない。
+ * @boundary 上位の確定入力と単発実行の技術生涯。
+ * @security 業務権限を発行せず、元Controlと管理参照の所属を維持する。
+ * @concurrency 同じControlだけが取消とcompletionを共有する。
  */
-function start(
+export function start(
   state: RuntimeState,
-  preparedCapability: unknown,
+  plan: AttemptPlan,
   managementCapability: unknown,
-  registerRecoveryHandoff: unknown,
-  commandRestriction: unknown,
-  observeProviderStarted?: (
-    notice: ProcessStartedNotice,
-  ) => boolean | Promise<boolean>,
+  recovery: AttemptReference,
 ) {
-  if (
-    !state.dependencies.effectExecutorAvailable ||
-    (observeProviderStarted !== undefined &&
-      typeof observeProviderStarted !== "function") ||
-    !managementCapability ||
-    typeof managementCapability !== "object"
-  ) {
-    return createStartResult({
-      status: "blocked",
-      reason: "docker_process_controller_effect_unavailable",
-    });
-  }
-  const plan = state.dependencies.consumePreparedPlan(
-    preparedCapability,
-    managementCapability,
+  const id = parseDockerTaskRecoveryId(
+    readOwnDataProperty(recovery, "recoveryId"),
   );
-  if (!plan || !isPlanValid(plan))
+  const capability = readOwnDataProperty(recovery, "recoveryCapability");
+  if (
+    !managementCapability ||
+    typeof managementCapability !== "object" ||
+    !plan ||
+    !isPlanValid(plan) ||
+    !id ||
+    id.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash ||
+    !capability ||
+    typeof capability !== "object"
+  )
     return createStartResult({
       status: "blocked",
       reason: "docker_process_controller_plan_invalid",
+      recoveryId: id?.token ?? null,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
     });
-  if (!state.dependencies.verifyRevision(managementCapability)) {
-    const completed = state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
-    return createStartResult({
-      status: "blocked",
-      reason: "docker_process_controller_revision_invalid",
-      cleanupConfirmed: completed.status === "completed",
-    });
-  }
-  const authority = state.dependencies.consumeProviderAuthority(
-    plan.authorityUseCapability,
-    plan.activeMountCapability,
-    managementCapability,
-  );
-  if (
-    !authority ||
-    authority.operationId !== plan.operationId ||
-    authority.provider !== plan.provider ||
-    authority.providerHomeMountGrantRef !== plan.grantRef ||
-    authority.runtimeAuthorityIssued !== true ||
-    authority.providerEffectAllowed !== true
-  ) {
-    const completed = state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
-    return createStartResult({
-      status: "blocked",
-      reason: "docker_process_controller_authority_invalid",
-      cleanupConfirmed: completed.status === "completed",
-    });
-  }
-  let recoveryStartFailure: RecoveryStartFailureDiagnostic | null = null;
-  let failureObserved = false;
-  const recovery = state.dependencies.beginRecovery(
-    Object.freeze({
-      ...plan,
-      recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
-    }),
-    managementCapability,
-    (raw) => {
-      if (failureObserved) return;
-      failureObserved = true;
-      const value = inspectRecoveryStartFailureDiagnostic(raw);
-      recoveryStartFailure =
-        value &&
-        (value.recoveryId === null ||
-          parseDockerTaskRecoveryId(value.recoveryId)
-            ?.stableLogicalHomeBindingHash ===
-            plan.stableLogicalHomeBindingHash)
-          ? value
-          : Object.freeze({ stage: "unknown", recoveryId: null });
-    },
-  );
-  const readyRecovery = snapshotReadyRecovery(recovery);
-  if (!readyRecovery) {
-    if (failureObserved && recoveryStartFailure) {
-      const diagnostic = recoveryStartFailure as RecoveryStartFailureDiagnostic;
-      const returnedId = resolveRecoveryReference(
-        ownDataValue(recovery, "recoveryId"),
-      );
-      reportPassiveBoundaryDiagnostic(
-        state.dependencies,
-        Object.freeze({
-          event: "coordinator_provider_recovery_start_failed",
-          taskRole: plan.taskRole,
-          provider: plan.provider,
-          operationId: plan.operationId,
-          taskAttempt: plan.taskAttempt,
-          recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
-          diagnostic:
-            diagnostic.recoveryId === null ||
-            diagnostic.recoveryId === returnedId
-              ? diagnostic
-              : Object.freeze({ stage: "unknown", recoveryId: null }),
-        }),
-      );
-    }
-    const malformedCapability = ownDataValue(recovery, "recoveryCapability");
-    const malformedRecoveryId = resolveRecoveryReference(
-      ownDataValue(recovery, "recoveryId"),
-    );
-    const exactBlocked = snapshotBlockedRecoveryWithExactId(
-      recovery,
+  const reference = Object.freeze({
+    recoveryId: id.token,
+    recoveryCapability: capability,
+  });
+  let homeLease: HomeLease | null = null;
+  try {
+    homeLease = state.isolation.acquireHomeLease(
       plan.stableLogicalHomeBindingHash,
     );
-    if (exactBlocked?.recoveryCapability) {
-      const stopped = createStartResult({
-        status: "blocked",
-        reason: resolveRecoveryStartReason(exactBlocked.reason),
-        cleanupConfirmed: false,
-        recoveryId: exactBlocked.recoveryId,
-        manualRecoveryRequired: true,
-      });
-      let isVerified = false;
-      try {
-        isVerified =
-          state.dependencies.bindInitializationFailure?.(
-            exactBlocked.recoveryCapability,
-            exactBlocked.recoveryId,
-            managementCapability,
-            plan.stableLogicalHomeBindingHash,
-            exactBlocked.reason,
-            stopped,
-          ) === true;
-      } catch {}
-      if (isVerified) {
-        try {
-          state.dependencies.abandonRecovery?.(exactBlocked.recoveryCapability);
-        } catch {}
-        try {
-          state.dependencies.completeMount(
-            plan.activeMountCapability,
-            managementCapability,
-          );
-        } catch {}
-        return stopped;
-      }
-    }
-    if (!malformedCapability && exactBlocked) {
-      const completed = state.dependencies.completeMount(
-        plan.activeMountCapability,
-        managementCapability,
-      );
-      return createStartResult({
-        status: "blocked",
-        reason: resolveRecoveryStartReason(exactBlocked.reason),
-        cleanupConfirmed: completed.status === "completed",
-        recoveryId: exactBlocked.recoveryId,
-        manualRecoveryRequired: true,
-      });
-    }
-    if (malformedCapability || malformedRecoveryId)
-      return settleInvalidRecoveryStart(
-        state,
-        plan,
-        managementCapability,
-        malformedCapability,
-        malformedRecoveryId,
-        "docker_process_controller_recovery_identity_invalid",
-      );
-    const completed = state.dependencies.completeMount(
-      plan.activeMountCapability,
-      managementCapability,
-    );
+  } catch {
+    /* 取得不能を解放済みへ変換しない。 */
+  }
+  if (!homeLease)
     return createStartResult({
       status: "blocked",
-      reason: resolveRecoveryStartReason(ownDataValue(recovery, "reason")),
-      cleanupConfirmed: completed.status === "completed",
-      recoveryId: malformedRecoveryId,
-      manualRecoveryRequired:
-        ownDataValue(recovery, "manualRecoveryRequired") === true,
+      reason: "docker_process_controller_recovery_unavailable",
+      recoveryId: id.token,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
     });
-  }
-  const parsedRecoveryId = parseDockerTaskRecoveryId(readyRecovery.recoveryId);
-  if (
-    !parsedRecoveryId ||
-    parsedRecoveryId.stableLogicalHomeBindingHash !==
-      plan.stableLogicalHomeBindingHash ||
-    state.dependencies.verifyRecoveryBinding(
-      readyRecovery.recoveryCapability,
-      parsedRecoveryId?.token ?? readyRecovery.recoveryId,
-      managementCapability,
-      plan.stableLogicalHomeBindingHash,
-    ) !== true
-  ) {
-    return settleInvalidRecoveryStart(
-      state,
-      plan,
-      managementCapability,
-      readyRecovery.recoveryCapability,
-      parsedRecoveryId?.token ?? null,
-      "docker_process_controller_recovery_identity_invalid",
-    );
-  }
-  if (
-    typeof registerRecoveryHandoff !== "function" ||
-    registerRecoveryHandoff(
-      readyRecovery.recoveryCapability,
-      parsedRecoveryId.token,
-    ) !== true
-  ) {
-    return settleInvalidRecoveryStart(
-      state,
-      plan,
-      managementCapability,
-      readyRecovery.recoveryCapability,
-      parsedRecoveryId.token,
-      "docker_process_controller_recovery_handoff_unavailable",
-    );
-  }
   const controlCapability = Object.freeze({});
   const record: ExecutionRecord = {
+    homeLease,
+    homeLeaseReleased: false,
+    homeLeaseReleaseAttempted: false,
+    finished: false,
+    controlCapability,
+    recovery: reference,
     managementCapability,
-    commandRestriction,
-    observeProviderStarted: observeProviderStarted ?? null,
     cancellationRequested: false,
     cancelExecution: null,
-    completion: null,
   };
   state.controls.set(controlCapability, record);
-  const completion = executePlan(state, record, plan, readyRecovery).finally(
+  state.controls.set(capability, record);
+  const completion = executeAttempt(state, record, plan, reference).finally(
     () => {
-      record.observeProviderStarted = null;
       record.cancelExecution = null;
+      record.finished = true;
       state.controls.delete(controlCapability);
+      if (record.homeLeaseReleased) state.controls.delete(capability);
     },
   );
-  record.completion = completion;
   return createStartResult({
     status: "started",
     controlCapability,
     completion,
     operationId: plan.operationId,
-    recoveryId: parsedRecoveryId.token,
+    recoveryId: id.token,
   });
 }
 
 /**
- * docker-process-controllerを取り消す。
- *
- * @responsibility docker-process-controllerの取消条件、終了状態、残存Effectの境界を所有する。
+ * 同じ実行Ownerの開始済み試行へ、一回だけ取消要求を渡す。
+ * @responsibility 元Controlと管理参照を照合し、同じsessionの取消・終了観測を返す。
  * @trace ARCH-000008
- * @input state: RuntimeState、controlCapability: unknown、managementCapability: unknown
- * @returns cancelの計算結果を返す。
- * @precondition 「state: RuntimeState、controlCapability: unknown、managementCapability: unknown」がcancelの入力契約を満たす。
- * @postcondition cancelの責務を完了した結果だけを返す。
- * @effect N/A: cancelは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: cancelは独自の失敗分岐を所有しない。
- * @invariant cancelは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security cancelはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency cancelは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @input state: 元Control表。controlCapability: 開始結果の参照。managementCapability: 同じ管理参照。
+ * @returns 無効・重複の拒否、又は取消要求とProcess終了観測を区別した結果。
+ * @precondition 呼出し側が明示的にこの試行の取消を選択している。
+ * @postcondition 有効な初回要求だけを元sessionへ渡し、completionによる清掃確認は別途維持する。
+ * @effect 同じ試行の取消印を付け、必要なら元sessionのcancelを呼ぶ。
+ * @failure 別Owner・未登録・終了済みはinvalid、重複はduplicateとして追加処置しない。
+ * @invariant 取消要求の受理やProcess終了だけでContainer・Network・Homeの清掃完了を主張しない。
+ * @boundary Executorの元Controlと同じDocker実行session。
+ * @security 別の試行へ取消を転用せず、新しい実行許可を発行しない。
+ * @concurrency 取消印をawait前に確定し、通常完了と清掃は元completionへjoinする。
  */
-async function cancel(
-  state: RuntimeState,
+export async function cancel(
+  state: Pick<RuntimeState, "controls">,
   controlCapability: unknown,
   managementCapability: unknown,
 ) {
   if (!controlCapability || typeof controlCapability !== "object")
     return Object.freeze({ status: "blocked" as const, reason: "invalid" });
   const record = state.controls.get(controlCapability);
-  if (!record || record.managementCapability !== managementCapability)
+  if (
+    !record ||
+    record.finished ||
+    record.controlCapability !== controlCapability ||
+    record.managementCapability !== managementCapability
+  )
     return Object.freeze({ status: "blocked" as const, reason: "invalid" });
   if (record.cancellationRequested)
     return Object.freeze({ status: "blocked" as const, reason: "duplicate" });
@@ -1223,164 +836,297 @@ async function cancel(
 }
 
 /**
- * 一試行のControlと元証拠を同じ閉包へ構成する。
- *
- * @responsibility 同一Runtimeの開始・取消・照合を生成し、二重の証拠Ownerを作らない。
+ * 終了済み試行の元参照を照合し、未試行のHome解放を一回処置する。
+ * @responsibility 元Controlの所属・終了状態と既存の一回解放条件を確認する。
  * @trace ARCH-000008
- * @input dependencies: 有限実行操作、productionAuthority: 固定本番構成か試験候補か。
- * @returns 同じcontrols・観測二Mapへ結合した有限操作。
- * @precondition 本番では固定Factoryだけがtrueを渡す。
- * @postcondition 別RuntimeのControl・通知・結果を照合できない。
- * @effect 構築時は私有Mapを生成し、外部操作は明示start後に限る。
- * @failure 開始の同期例外は既存のclosed結果へ返す。
- * @invariant 通知登録・同期利用・失効と元結果登録は同じOwnerで行う。
- * @boundary 内部Factoryと本番固定構成／分離試験候補。
- * @security このFactoryと生依存型はPackage Rootへ公開しない。
- * @concurrency 各Controlは取消とcompletionを共有し、Task順序は上位が決める。
+ * @input state: 元Control表。reference: 元回復Capability。management: 同じ管理参照。
+ * @returns 元Leaseの解放を確認できた場合だけtrue。それ以外はfalse。
+ * @precondition 呼出し元が明示終了対象を決めており、同じ試行の元参照を渡す。
+ * @postcondition 解放確認時だけ元参照をControl表から除く。
+ * @effect 未処置の場合だけ既存Home Leaseのreleaseを呼び、処置済み印を先に付ける。
+ * @failure 別参照・別Owner・未終了は処置せずfalse。解放不成立もfalseとして保持する。
+ * @invariant 既存の解放条件を変更せず、終了状態だけからDocker資源不存在を推定しない。
+ * @boundary Executorの元Control表と同じHome Leaseの明示終了。
+ * @security 別試行へ解放を転用せず、新しいAuthorityや回復IDを発行しない。
+ * @concurrency 再入・重複呼出しで同じLeaseへのreleaseを追加発行しない。
  */
-export function createProviderAttemptRuntime(
-  dependencies: RuntimeDependencies,
-  productionAuthority: boolean = false,
-) {
-  const startExecution: NonNullable<RuntimeDependencies["startExecution"]> =
-    dependencies.startExecution ??
-    ((plan, recoveryCapability, managementCapability, hooks) =>
-      startDockerCommandSessionCandidate(
-        plan.commands.map(
-          (command) => command.purpose as DockerIsolationCommand["purpose"],
-        ),
-        {
-          startCommand: (purpose) => {
-            const command = plan.commands.find(
-              (candidate) => candidate.purpose === purpose,
-            );
-            if (!command || !dependencies.startCommand)
-              throw new Error("docker_effect_command_not_owned");
-            return dependencies.startCommand(
-              command,
-              plan,
-              managementCapability,
-            );
-          },
-          cleanup: () =>
-            dependencies.cleanupOwnedResources(
-              plan,
-              recoveryCapability,
-              managementCapability,
-            ),
-          ...(dependencies.verifyCleanupOutcome
-            ? {
-                verifyCleanup: (result: DockerSessionCleanup) =>
-                  dependencies.verifyCleanupOutcome?.(
-                    result,
-                    plan,
-                    recoveryCapability,
-                    managementCapability,
-                  ),
-              }
-            : {}),
-        },
-        hooks,
-      ));
-  const state = Object.freeze({
-    dependencies: Object.freeze({ ...dependencies, startExecution }),
-    controls: new WeakMap(),
-  }) satisfies RuntimeState;
+export function abandon(
+  state: Pick<RuntimeState, "controls">,
+  reference: unknown,
+  management: unknown,
+): boolean {
+  if (!reference || typeof reference !== "object") return false;
+  const record = state.controls.get(reference);
+  if (
+    !record?.finished ||
+    record.recovery.recoveryCapability !== reference ||
+    record.managementCapability !== management
+  )
+    return false;
+  if (!record.homeLeaseReleaseAttempted) {
+    record.homeLeaseReleaseAttempted = true;
+    record.homeLeaseReleased = releaseAttemptHomeLease(record.homeLease);
+  }
+  if (record.homeLeaseReleased) state.controls.delete(reference);
+  return record.homeLeaseReleased;
+}
+
+/**
+ * Requestの技術構成を内部に保持し、一試行の開始・取消・終了を提供する。
+ * @responsibility 構成の往復をなくし、記録用投影と実行Controlを分ける。
+ * @trace ARCH-000008
+ * @input request: 解決済み対象・選定・用途。options: 固定隔離接続。random: 省略時は既存の暗号乱数。
+ * @returns 記録用投影と開始・取消・明示終了を持つ試行専用Executor。不成立はnull。
+ * @precondition 上位がstart前の業務許可と記録保存を所有する。
+ * @postcondition 完全Plan・Command・Provider本文を公開しない。
+ * @effect 構成時は乱数・固定設定確認だけ。Home取得とDocker要求はstart後だけ。
+ * @failure 構成拒否はnull。開始拒否は受領したexact回復参照を保持する。
+ * @invariant startは一回だけ。保存・Task進行・新しいAuthorityを所有しない。
+ * @boundary 上位の実行要求とAI Adapter／Docker Isolationの単段実行。
+ * @security 任意Processの注入を追加せず、技術構成は開始時にも検査する。
+ * @concurrency cancelとabandonは同じControl表を閉包し、completionは通知・回収までjoinする。
+ */
+export function createExecutor(
+  request: AttemptRequest,
+  options: DockerIsolationRuntimeOptions,
+  random: Readonly<{ randomBytes: (size: number) => Buffer }> = { randomBytes },
+): Executor | null {
+  const plan = prepareAttempt(random, request);
+  if (!plan) return null;
+  const runtime = createDockerIsolationRuntime({
+    borrowPaths: options.borrowPaths,
+    inspectReceipts: options.inspectReceipts,
+  });
+  const bound = bindIsolationRuntime(runtime, options.borrowPaths);
+  const isolation: IsolationRuntime = {
+    acquireHomeLease: runtime.acquireHomeLease,
+    ...bound,
+  };
+  const state: Pick<RuntimeState, "controls"> = { controls: new WeakMap() };
+  let startRequested = false;
   return Object.freeze({
-    productionAuthority,
+    recordProjection: Object.freeze({
+      authContainerName: plan.authContainerName,
+      providerContainerName: plan.providerContainerName,
+      proxyContainerName: plan.proxyContainerName,
+      internalNetworkName: plan.internalNetworkName,
+      egressNetworkName: plan.egressNetworkName,
+      ownershipLabel: plan.ownershipLabel,
+      providerImageDigest: plan.providerImageDigest,
+      proxyImageDigest: plan.proxyImageDigest,
+      subscriptionOffering: plan.subscriptionOffering,
+      operationMode: plan.operationMode,
+      workspaceMountMode: plan.workspaceMountMode,
+    }) satisfies AttemptRecordProjection,
     start: (
-      preparedCapability: unknown,
-      managementCapability: unknown,
-      registerRecoveryHandoff: unknown = productionAuthority
-        ? undefined
-        : () => true,
-      commandRestriction?: unknown,
-      observeProviderStarted?: (
-        notice: ProcessStartedNotice,
-      ) => boolean | Promise<boolean>,
+      management: unknown,
+      reference: AttemptReference,
+      callbacks: ExecutorCallbacks = {},
     ) => {
+      if (startRequested)
+        return createStartResult({
+          status: "blocked",
+          reason: "docker_process_controller_plan_invalid",
+          recoveryId:
+            parseDockerTaskRecoveryId(
+              readOwnDataProperty(reference, "recoveryId"),
+            )?.token ?? null,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        });
+      startRequested = true;
       try {
         return start(
-          state,
-          preparedCapability,
-          managementCapability,
-          registerRecoveryHandoff,
-          commandRestriction,
-          observeProviderStarted,
+          { ...state, isolation, callbacks },
+          plan,
+          management,
+          reference,
         );
       } catch {
         return createStartResult({
           status: "blocked",
           reason: "docker_process_controller_start_failed_closed",
+          recoveryId:
+            parseDockerTaskRecoveryId(
+              readOwnDataProperty(reference, "recoveryId"),
+            )?.token ?? null,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
         });
       }
     },
-    cancel: (controlCapability: unknown, managementCapability: unknown) =>
-      cancel(state, controlCapability, managementCapability),
+    cancel: (control: unknown, management: unknown) =>
+      cancel(state, control, management),
+    abandon: (reference: unknown, management: unknown) =>
+      abandon(state, reference, management),
   });
 }
 
 /**
- * Docker Process Controller 契約の公開契約を記述する。
+ * 解決済みの選定・実行内容とMountを固定ProviderのDocker計画へ結合する。
  *
- * @responsibility Docker Process Controller 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeExecutorContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeExecutorContractの入力契約を満たす。
- * @postcondition describeExecutorContractの責務を完了した結果だけを返す。
- * @effect N/A: describeExecutorContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeExecutorContractは独自の失敗分岐を所有しない。
- * @invariant describeExecutorContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security describeExecutorContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeExecutorContractは共有非同期状態を持たない同期処理である。
+ * @responsibility 両Providerの共通相関検査・資源命名・command構築を一箇所で行う。
+ * @trace ARCH-000015
+ * @input 乱数供給と、実行対象・AI Adapterの選定値・用途別内容を持つ一つのRequest。
+ * @returns Providerで識別できる不変計画、または不成立時のnull。
+ * @precondition 呼出し側が技術対象・選定・用途別内容を確定している。
+ * @postcondition 既存の選定Identity・Mount条件とProvider差を保ち、Docker要求を発行しない。
+ * @effect 乱数を取得し、Codex Executor時だけ固定Seccomp Fileを既存確認操作で読む。
+ * @failure 相関不一致や固定条件不足はnull、取得操作の例外は準備Ownerへ搬送する。
+ * @internal 製品の呼出し元はcreateExecutorだけ。有限検証は同じPackageの内部構成を確認できる。
+ * @invariant CLI固有計画はAI Adapterから取得し、Authorityを新設しない。
+ * @boundary AI Adapterの固定仕様と、上位が確定した技術対象・Docker構成の接続境界。
+ * @security 業務上の許可は上位が扱い、ここでは選定・実行内容・Mountの技術条件を維持する。
+ * @concurrency 同期の技術構成だけを作り、Control表への登録・実行・保存を行わない。
  */
-export function describeExecutorContract() {
-  return Object.freeze({
-    contract: EXECUTOR_CONTRACT,
-    preparationLifetimeMs: PREPARATION_LIFETIME_MS,
-    contractRevision: EXECUTOR_CONTRACT_REVISION,
-    setupTimeoutMs: SETUP_TIMEOUT_MS,
-    providerTimeoutMs: PROVIDER_TIMEOUT_MS,
-    cancellationGraceMs: CANCELLATION_GRACE_MS,
-    stdoutLimitBytes: STDOUT_LIMIT_BYTES,
-    stderrLimitBytes: STDERR_LIMIT_BYTES,
-    preparedPlan: "opaque_single_use_adapter_capability_only",
-    recoveryBeforeDockerEffect: true,
-    resourceJournal:
-      "durable_submission_before_each_create_and_exact_id_receipt_after_success",
-    providerAuthority:
-      "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
-    additionalCommandRestriction:
-      "optional_synchronous_exact_true_veto_before_each_command_never_authority_or_cleanup_gate",
-    subscriptionAuthentication:
-      "network_none_read_only_provider_home_probe_with_exact_provider_stdout_stderr_shape_required_before_provider_request",
-    subscriptionOffering:
-      "chatgpt_subscription_oauth_or_claude_max_exact_match_required",
-    cancellation: "opaque_control_capability_exactly_once",
-    cleanup:
-      "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",
-    cleanupFailure: "manual_recovery_required_fail_closed",
-    structuredResult:
-      "exact_provider_boolean_role_task_or_workbench_advice_result_published_after_cleanup_only",
-    providerFailureClassification:
-      "known_operational_nonzero_output_mapped_to_closed_public_reason_unknown_output_kept_generic",
-    providerBoundaryDiagnostics:
-      "configured_approval_sandbox_container_workspace_and_observed_process_cleanup_stages_without_raw_command_output_or_paths",
-    providerTextPublication: "validated_then_discarded_not_reported",
-    credentialAbsenceVerification: "not_claimed",
-    taskPrompt: "runtime_owned_stdin_only_not_reported",
-    workbenchAdvice:
-      "provider_envelope_removed_and_advice_json_published_after_cleanup_only",
-    rawOutputReported: false,
-    hostPathReported: false,
-    proxyCredentialReported: false,
-    productionPreparedPlan: "runtime_owned_adapter_connected",
-    productionRecovery:
-      "runtime_state_docker_task_recovery_and_deferred_host_finalization_connected",
-    productionMountCompletion: "runtime_owned_mount_lease_connected",
-    productionRevisionBinding: "runtime_owned_repository_revision_connected",
-    productionEffectExecutor: "fixed_docker_cli_connected",
+export function prepareAttempt(
+  random: Readonly<{ randomBytes: (size: number) => Buffer }>,
+  request: AttemptRequest,
+) {
+  const { target, selection: modelSelection } = request;
+  const selection = parseModelSelection(modelSelection);
+  if (!selection) return null;
+  const provider = selection.provider;
+  if (
+    request.purpose !== "probe" &&
+    request.purpose !== "task" &&
+    request.purpose !== "advice"
+  )
+    return null;
+  const task = request.purpose === "task" ? request : null;
+  const advice = request.purpose === "advice" ? request : null;
+  const referencesResult = advice
+    ? parseAdviceReferences(advice.allowedReferences)
+    : null;
+  const adviceAllowedReferences =
+    referencesResult?.status === "confirmed"
+      ? referencesResult.references
+      : null;
+  const operationMode = task
+    ? ("isolated_task" as const)
+    : advice
+      ? ("workbench_advice" as const)
+      : ("boolean_probe" as const);
+  const execution = resolveProviderExecution({
+    provider,
+    operationMode,
+    executionSelection: selection,
+    taskRole: task?.taskRole ?? null,
+    ...(provider === "claude" ? { taskWorkload: task?.taskWorkload } : {}),
   });
+  if (!execution) return null;
+  const claude = execution.provider === "claude" ? execution : null;
+  const assets = describeDockerProviderAssets(provider);
+  const egress = describeDockerProxyTopology(provider);
+  if (
+    target.provider !== provider ||
+    ("status" in execution && execution.status !== "candidate") ||
+    ((task !== null || advice !== null) &&
+      (!("modelIdentifier" in execution) ||
+        selection.modelIdentifier !== execution.modelIdentifier ||
+        !("identifierKind" in execution) ||
+        selection.identifierKind !== execution.identifierKind)) ||
+    execution.provider !== provider ||
+    (task !== null && advice !== null) ||
+    (task !== null && selection.purpose !== "task") ||
+    (advice !== null &&
+      (selection.purpose !== "advice" ||
+        advice.command.provider !== provider ||
+        advice.command.modelIdentifier !== selection.modelIdentifier ||
+        advice.command.identifierKind !== selection.identifierKind ||
+        advice.command.reasoningEffort !== selection.reasoningEffort ||
+        !adviceAllowedReferences))
+  ) {
+    return null;
+  }
+  const suffix = createDockerIsolationRandomHex(random, 8);
+  const proxyToken = createDockerIsolationRandomHex(random, 32);
+  if (!suffix || !proxyToken) return null;
+  const resourceNames = createDockerIsolationResourceNames(
+    provider,
+    target.providerHomeIdentityHash,
+    suffix,
+  );
+  if (!resourceNames) return null;
+  const {
+    internalNetworkName,
+    egressNetworkName,
+    proxyContainerName,
+    authContainerName,
+    providerContainerName,
+    ownershipLabel,
+  } = resourceNames;
+  const providerImageDigest =
+    advice?.command.fixedImageDigest ?? assets.fixedImageDigest;
+  const proxyImageDigest = egress.imageDigest;
+  const plan = {
+    provider,
+    operationId: target.operationId,
+    grantRef: target.grantRef,
+    executionSelection: selection,
+    activeMountCapability: target.activeMountCapability,
+    providerHomeSourcePath: target.providerHomeSourcePath,
+    providerHomeIdentityHash: target.providerHomeIdentityHash,
+    providerHomeProtectionHash: target.providerHomeProtectionHash,
+    localUserBindingHash: target.localUserBindingHash,
+    stableLogicalHomeBindingHash: target.stableLogicalHomeBindingHash,
+    authContainerName,
+    providerContainerName,
+    proxyContainerName,
+    internalNetworkName,
+    egressNetworkName,
+    ownershipLabel,
+    providerImageDigest,
+    proxyImageDigest,
+    networkPolicy: task?.networkPolicy ?? advice?.command.networkPolicy ?? null,
+    subscriptionOffering: describeProviderAuthentication(provider).offering,
+    operationMode: task
+      ? ("isolated_task" as const)
+      : advice
+        ? ("workbench_advice" as const)
+        : ("boolean_probe" as const),
+    taskRole: task?.taskRole ?? null,
+    adviceCommandHash: advice?.commandHash ?? null,
+    adviceAllowedReferences,
+    providerInput: task?.input ?? advice?.input ?? null,
+    workspaceSourcePath: task ? target.workspaceSourcePath : null,
+    ...(target.workspaceProtection
+      ? { workspaceProtection: target.workspaceProtection }
+      : {}),
+    workspaceMountMode: task
+      ? task.taskRole === "executor"
+        ? ("read_write" as const)
+        : ("read_only" as const)
+      : null,
+    commands: [] as readonly DockerIsolationCommand[],
+  };
+  const configuration = resolveIsolationCommandInput(
+    {
+      ...plan,
+      ...(provider === "claude" && claude && "taskWorkload" in claude
+        ? { taskWorkload: claude.taskWorkload }
+        : {}),
+    },
+    target.temporarySourcePath,
+    proxyToken,
+    execution,
+  );
+  const commands = configuration
+    ? planDockerIsolationCommands(configuration)
+    : null;
+  if (!commands) return null;
+  const completedPlan = { ...plan, commands };
+  return provider === "codex"
+    ? Object.freeze({
+        ...completedPlan,
+        provider: "codex" as const,
+        subscriptionOffering: describeProviderAuthentication("codex").offering,
+      })
+    : Object.freeze({
+        ...completedPlan,
+        provider: "claude" as const,
+        subscriptionOffering: describeProviderAuthentication("claude").offering,
+        taskWorkload:
+          claude && "taskWorkload" in claude ? claude.taskWorkload : null,
+      });
 }

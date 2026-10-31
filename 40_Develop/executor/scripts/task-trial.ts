@@ -20,9 +20,9 @@ import {
   describeDockerProviderExecutionLocations,
 } from "../../docker-isolation/src/index.ts";
 import { hashExecutionSelection } from "../../domain-model/src/index.ts";
-import { buildProviderDockerExecutionPlan } from "../src/attempt/preparation.ts";
+import { prepareAttempt } from "../src/attempt/execute.ts";
 import { resolveValidatedPlan } from "../src/attempt/isolation.ts";
-import type { AdvicePacket, MountGrant } from "../src/attempt/types.ts";
+import type { AttemptPlan } from "../src/attempt/types.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";
 
@@ -144,7 +144,14 @@ export function describeTaskTrial(
 export function buildTaskTrialPlan(
   spec: ReturnType<typeof describeTaskTrial>,
   root: string,
-  home: Omit<MountGrant, "grantRef" | "operationId">,
+  home: Pick<
+    AttemptPlan,
+    | "provider"
+    | "providerHomeIdentityHash"
+    | "providerHomeProtectionHash"
+    | "localUserBindingHash"
+    | "stableLogicalHomeBindingHash"
+  >,
   homePath: string,
 ) {
   if (
@@ -179,64 +186,40 @@ export function buildTaskTrialPlan(
     identifierKind: selection.identifierKind,
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
-    role: selection.role,
   });
   const policy = prepareDockerNetworkPolicy(spec.provider, []);
   if (!selectionHash || policy.status !== "ready")
     throw Error("trial_selection_hash_invalid");
   const work = path.join(root, "work");
-  const built = buildProviderDockerExecutionPlan(
-    spec.provider,
+  const built = prepareAttempt(
     { randomBytes },
     {
-      operationId,
-      mounts: {
-        workspace: work,
-        tmp: path.join(root, "tmp"),
+      ...{
+        purpose: "task",
+        input: spec.prompt,
+        taskRole: spec.taskRole as "executor" | "reviewer",
+        taskWorkload: workload,
+        networkPolicy: policy.policy,
       },
-      workspaceProtection: {
-        gitSourcePath: path.join(work, ".git"),
-        internalSourcePath: path.join(work, ".crdd"),
+      target: {
+        ...{
+          ...home,
+          provider: spec.provider,
+          operationId,
+          grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
+        },
+        operationId: operationId,
+        workspaceSourcePath: work,
+        temporarySourcePath: path.join(root, "tmp"),
+        activeMountCapability: {},
+        providerHomeSourcePath: homePath,
+        workspaceProtection: {
+          gitSourcePath: path.join(work, ".git"),
+          internalSourcePath: path.join(work, ".crdd"),
+        },
       },
+      selection: technicalSelection,
     },
-    {
-      grant: {
-        ...home,
-        provider: spec.provider,
-        operationId,
-        grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
-      },
-      activeMountCapability: {},
-    },
-    {
-      selectionRecordId: `MODELSEL-${randomBytes(12).toString("hex").toUpperCase()}`,
-      operationId,
-      executorProvider: spec.provider,
-      executionSelection: technicalSelection,
-      selectionHash,
-      taskAttempt: 0,
-      model: spec.model,
-      effort: spec.effort,
-      selectionNotice: "explicit_synthetic_trial",
-    },
-    homePath,
-    Date.now(),
-    performance.now(),
-    {
-      networkPolicy: policy.policy,
-      operationId,
-      taskPacketRef: `TASKPKT-${randomBytes(16).toString("hex").toUpperCase()}`,
-      taskRole: spec.taskRole as "executor" | "reviewer",
-      taskAttempt: 0,
-      selectionHash,
-      taskWorkload: workload,
-      taskPacketHash: hash(spec.prompt),
-      prompt: spec.prompt,
-      promptTransport: "provider_stdin_only",
-    },
-    null as AdvicePacket | null,
-    null,
-    "coordinator_cli",
   );
   if (!built) throw Error("trial_plan_unavailable");
   const plan = Object.freeze({

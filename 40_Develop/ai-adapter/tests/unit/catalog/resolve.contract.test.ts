@@ -226,6 +226,7 @@ test("公開Rootは旧Profile管理を提供しない", () => {
     "inspectTaskResultContent",
     "normalizeClaudeStructuredResult",
     "normalizeCodexStructuredResult",
+    "parseAdviceReferences",
     "parseAdviceResult",
     "parseProviderResult",
     "planProviderExecution",

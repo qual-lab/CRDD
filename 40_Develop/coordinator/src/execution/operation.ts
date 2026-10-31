@@ -5815,7 +5815,7 @@ export function bindOwnedOperationExecutionSelection(
 
 /**
  * 元Operationに結合した完全選定だけを保存Ownerへ貸し出す。
- * @responsibility 管理参照・選定ID・完全Hash・試行番号・exact六技術項目の一致を要求する。
+ * @responsibility 管理参照・選定ID・完全Hash・試行番号・exact五技術項目の一致を要求する。
  * @trace ARCH-000015
  * @input 現在の管理参照と技術計画の非Authority相関。
  * @returns 元の完全選定又はnull。
@@ -5843,7 +5843,6 @@ export function borrowOwnedOperationExecutionSelection(
       "identifierKind",
       "reasoningEffort",
       "purpose",
-      "role",
     ]);
     const technical = snapshotPlainRecord(technicalSelection, keys);
     if (!technical || Object.keys(technical).length !== keys.size) return null;

@@ -6,21 +6,20 @@
  * @trace ARCH-000015
  * @boundary Executorの結果Ownerと利用側の型境界。
  */
-import type {
-  ATTEMPT_COMPLETION_REASONS,
-  RECOVERY_START_FAILURE_STAGES,
-} from "./constants.ts";
+import type { ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
 import type {
   ProviderTurnCountDiagnostic,
   TaskReviewFinding,
   ProviderResultParseResult,
-  AiProvider,
   TaskResult,
   AdviceResult,
 } from "../../../ai-adapter/src/index.ts";
 import type { DockerResourceCleanupObservation } from "../../../docker-isolation/src/index.ts";
-import type { AttemptInput } from "../attempt/types.ts";
-import type { ProcessStartedNotice } from "../attempt/observation.ts";
+import type {
+  AttemptRecordProjection,
+  AttemptReference,
+  ExecutorCallbacks,
+} from "../attempt/types.ts";
 
 /**
  * 用途別内容を同じ試行結果へ載せる。
@@ -80,15 +79,13 @@ export type CompletionResultInput = Readonly<{
   status: "completed" | "blocked" | "cancelled";
   reason: AttemptResultReason;
   operationId: string;
-  selectionRecordId: string;
   recoveryId: string;
   providerRequestStarted: boolean;
   cancellationRequested: boolean;
   processTreeTerminationConfirmed: boolean;
   containersAbsent: boolean;
   networksAbsent: boolean;
-  mountLeaseReleased: boolean;
-  recoveryCompleted: boolean;
+  homeLeaseReleased: boolean;
   resultSha256: string | null;
   resultBytes: number;
   normalizedResult: AttemptContent | null;
@@ -96,27 +93,21 @@ export type CompletionResultInput = Readonly<{
   providerExecutionObservation?: CompletionResult["providerExecutionObservation"];
   providerTurnObservation?: CompletionResult["providerTurnObservation"];
   subscriptionAuthConfirmed: boolean;
-  recoveryFinalizationCapability: object | null;
 }>;
 
 /**
- * 同じ実行Ownerの開始・取消・下位清掃確認を持つExecutor。
- * @responsibility 開始・取消の引数と結果を読める形で定義し、Factoryを型検査する。
+ * 同じ固定接続で技術準備・開始・取消・明示終了を提供するExecutor。
+ * @responsibility 操作ごとの引数と結果を明示し、Factoryを型検査する。
  * @trace ARCH-000008
  * @invariant 実装由来の型抽出を正本にせず、別の状態管理を追加しない。
  */
 export type Executor = Readonly<{
+  recordProjection: AttemptRecordProjection;
+  abandon(recoveryCapability: unknown, managementCapability: unknown): boolean;
   start(
-    provider: AiProvider,
-    input: AttemptInput,
-    registerRecoveryHandoff: (
-      recoveryCapability: object,
-      recoveryId: string,
-    ) => boolean,
-    commandRestriction?: (purpose: string) => boolean,
-    observeProviderStarted?: (
-      notice: ProcessStartedNotice,
-    ) => boolean | Promise<boolean>,
+    managementCapability: unknown,
+    reference: AttemptReference,
+    callbacks?: ExecutorCallbacks,
   ): StartResult;
   cancel(
     controlCapability: unknown,
@@ -200,7 +191,6 @@ export type CompletionResult = Readonly<{
   status: "completed" | "blocked" | "cancelled";
   reason: AttemptResultReason | "docker_process_controller_cleanup_unconfirmed";
   operationId: string;
-  selectionRecordId: string;
   recoveryId: string | null;
   manualRecoveryRequired: boolean;
   dockerEffectStarted: true;
@@ -209,8 +199,7 @@ export type CompletionResult = Readonly<{
   processTreeTerminationConfirmed: boolean;
   containersAbsent: boolean;
   networksAbsent: boolean;
-  mountLeaseReleased: boolean;
-  recoveryCompleted: boolean;
+  homeLeaseReleased: boolean;
   cleanupConfirmed: boolean;
   resultSha256: string | null;
   resultBytes: number;
@@ -226,7 +215,6 @@ export type CompletionResult = Readonly<{
   credentialAbsenceVerified: false;
   hostPathReported: false;
   proxyCredentialReported: false;
-  recoveryFinalizationCapability: object | null;
 }>;
 
 /**
@@ -242,10 +230,11 @@ export type CompletionResult = Readonly<{
 export type AttemptTerminalObservation = Readonly<{
   operationId: string;
   recoveryId: string;
-  resources: readonly DockerResourceCleanupObservation[];
+  resources: readonly DockerResourceCleanupObservation[] | null;
+  processTreeTerminationConfirmed: boolean;
+  containersAbsent: boolean;
+  networksAbsent: boolean;
   primaryFailure: PrimaryFailureDiagnostic | null;
-  mountLeaseReleased: boolean;
-  recoveryCompleted: boolean;
   homeLeaseReleased: boolean;
 }>;
 
@@ -302,12 +291,6 @@ export type PrimaryFailureDiagnostic = Readonly<{
     stdoutBytes: number;
     stderrBytes: number;
   }> | null;
-}>;
-
-/** 開始Ownerから受動診断へ渡す固定段階と、取得済みの場合だけの元参照。 */
-export type RecoveryStartFailureDiagnostic = Readonly<{
-  stage: (typeof RECOVERY_START_FAILURE_STAGES)[number];
-  recoveryId: string | null;
 }>;
 
 /**

@@ -92,9 +92,14 @@ export function verifyStandaloneProviderAttempt() {
     let currentFixture=null,factoryCalls=0,forbiddenCalls=0;
     mock.module(${JSON.stringify(isolationRoot)}, {namedExports:{...isolation,
       createDockerIsolationRuntime:(input)=>{
-        factoryCalls++;
         const fixture=currentFixture;
         assert.deepEqual(Object.keys(input).sort(),['borrowPaths','inspectReceipts']);
+        if(fixture===null){
+          const forbidden=()=>{forbiddenCalls++;throw Error('preparation_must_not_execute');};
+          return {acquireHomeLease:forbidden,startExecution:forbidden,
+            cleanupOwnedResources:forbidden,verifyCleanupOutcome:forbidden};
+        }
+        factoryCalls++;
         assert.equal(input.borrowPaths,fixture.host.borrowPaths);
         assert.equal(input.inspectReceipts,fixture.host.inspectReceipts);
         const cleanupResults=new WeakMap();
@@ -110,6 +115,7 @@ export function verifyStandaloneProviderAttempt() {
         };
         fixture.verifyCleanup=verify;
         return {
+          acquireHomeLease:()=>({release:()=>true}),
           startCommand:()=>{throw Error('unexpected_primitive_call');},
           startExecution:(projected,recovery,management,hooks)=>{
             fixture.starts++;
@@ -129,7 +135,8 @@ export function verifyStandaloneProviderAttempt() {
     }});
     const api=await import(${JSON.stringify(root)});
     const executionInput=await import(${JSON.stringify(new URL("../src/attempt/isolation.ts", import.meta.url).href)});
-    const preparationInput=await import(${JSON.stringify(new URL("../src/attempt/preparation.ts", import.meta.url).href)});
+    const {prepareAttempt}=await import(${JSON.stringify(new URL("../src/attempt/execute.ts", import.meta.url).href)});
+    const preparationInput={prepare:prepareAttempt};
     const testing=await import(${JSON.stringify(new URL("./executor-test.ts", import.meta.url).href)});
     const create=testing.createExecutorTestCandidate;
     const purposes=[
@@ -189,17 +196,13 @@ export function verifyStandaloneProviderAttempt() {
       };
       const fullSelection=plan.executionSelection;
       const selectionHash=hashExecutionSelection(fullSelection);
-      plan={...plan,selectionHash,executionSelection:{provider:fullSelection.provider,modelIdentifier:fullSelection.modelIdentifier,identifierKind:fullSelection.identifierKind,reasoningEffort:fullSelection.reasoningEffort,purpose:fullSelection.purpose,role:fullSelection.role}};
+      plan={...plan,selectionHash,executionSelection:{provider:fullSelection.provider,modelIdentifier:fullSelection.modelIdentifier,identifierKind:fullSelection.identifierKind,reasoningEffort:fullSelection.reasoningEffort,purpose:fullSelection.purpose}};
       const tmp='C:/synthetic-not-accessed/tmp';
       if(mode==='production_factory'){
-        const built=preparationInput.buildProviderDockerExecutionPlan(provider,
-          {randomBytes:size=>Buffer.alloc(size,1)},
-          {operationId:plan.operationId,mounts:{workspace:'C:/synthetic-not-accessed/work',tmp}},
-          {grant:{...plan},activeMountCapability:mount},
-          {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,
-            executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,
-            taskAttempt:0,model:plan.selectedModel,effort:'low',selectionNotice:'synthetic'},
-          'C:/synthetic-not-accessed/home',0,0,null,null,null,'coordinator_cli');
+        const built=preparationInput.prepare(
+{randomBytes:size=>Buffer.alloc(size,1)},
+{ ...({purpose:'probe'}), target: {...plan,workspaceSourcePath:'C:/synthetic-not-accessed/work',temporarySourcePath:tmp,providerHomeSourcePath:'C:/synthetic-not-accessed/home',activeMountCapability:mount}, selection: plan.executionSelection }
+);
         assert.ok(built);
         plan=Object.freeze({...built,authorityUseCapability:authority});
         assert.ok(executionInput.resolveValidatedPlan(plan,tmp));
@@ -251,7 +254,7 @@ export function verifyStandaloneProviderAttempt() {
                     forcedLoginMethod:'claudeai',subscriptionType:'max'}))
                   :command.purpose==='start_provider_attached'
                     ?(provider==='codex'?JSON.stringify({status:true}):JSON.stringify({type:'result',subtype:'success',is_error:false,
-                      num_turns:2,total_cost_usd:0,structured_output:{status:true}})+'\\n'):''};
+                      num_turns:2,total_cost_usd:0,structured_output:{status:true}})+'\\n'):command.purpose.startsWith('create_')?'a'.repeat(64):''};
             },
             terminateAndWait:async()=>{
               count.terminated++;events.push('terminated');providerWait.resolve();return true;
@@ -268,6 +271,7 @@ export function verifyStandaloneProviderAttempt() {
         },
         completeMount:()=>{assert.equal(commit('mount_closed'),true);mounts++;return {status:'completed'};},
         completeRecovery:()=>{assert.equal(commit('recovery_closed'),true);finalizations++;return {status:'completed',recoveryFinalizationCapability:{}};},
+        verifyHomeLeaseRelease:()=>true,
         recordDockerAbsence:(_r,observed)=>{assert.equal(observed,resources);return commit('absence_observed');},
         recordMountCompletion:()=>commit('mount_recorded'),
         markResourceSubmission:()=>commit('submission_planned'),
@@ -291,24 +295,18 @@ export function verifyStandaloneProviderAttempt() {
         cleanupOwnedResources:unavailable,verifyCleanupOutcome:unavailable};
       currentFixture={deps,host,plan,tmp,recovery,management,starts:0,verifications:0};
       const callsBefore=factoryCalls;
-      let activated=false,completedNotices=0;
-      const options={...host,
-        verifyOperationMount:(m,mt)=>{assert.equal(m,management);assert.equal(mt,mount);return {operationId:plan.operationId,mounts:{workspace:"C:/synthetic-not-accessed/work",tmp}};},
-        activateMount:()=>{if(activated)return {status:"blocked",grant:null,activeMountCapability:null};activated=true;return {status:"activated",grant:{...plan},activeMountCapability:mount};},
-        borrowMountSource:()=>"C:/synthetic-not-accessed/home",wallNow:()=>0,monotonicNow:()=>0,randomBytes:size=>Buffer.alloc(size,1),
-        consumeModelSelection:()=>{if(consumed)return null;consumed=true;return {selectionRecordId:plan.selectionRecordId,operationId:plan.operationId,executorProvider:provider,executionSelection:plan.executionSelection,selectionHash:plan.selectionHash,taskAttempt:0,model:plan.selectedModel,effort:"low",selectionNotice:"synthetic"};},
-        issueProviderAuthority:()=>({status:"issued",useCapability:authority,controlCapability:{},operationId:plan.operationId,provider,providerHomeMountGrantRef:plan.grantRef,runtimeAuthorityIssued:true}),
-        revokeProviderAuthority:()=>({status:"revoked"}),
+      let completedNotices=0;
+      const options={borrowPaths:host.borrowPaths,inspectReceipts:host.inspectReceipts,
         onCompleted:result=>{completedNotices++;assert.equal(result,terminalResult??result);if(scenario==="submission_throw")throw Error("synthetic_observer");},
       };
-      const runtime=mode==="candidate"?create(deps):api.createExecutor(options);
+      const runtime=mode==="candidate"?create(deps):testing.createExecutorLifecycleTestRuntime({...deps,...options,acquireHomeLease:()=>({release:()=>true})});
       assert.equal(factoryCalls-callsBefore,mode==="candidate"?0:1);
       if(mode==="candidate")assert.equal(runtime.productionAuthority,false);
-      const input={purpose:"probe",managementCapability:management,mountCapability:mount,mountAuthorizationCapability:{},selectionUseCapability:{},recoveryCorrelationId:null,consumer:"coordinator_cli"};
       const handoff=(r,id)=>{assert.equal(r,recovery);assert.equal(id,recoveryId);events.push("handoff");return true;};
-      const started=mode==="candidate"?runtime.start(prepared,management,handoff):runtime.start(provider,input,handoff);
+      const callbacks={...deps,completeCleanup: input => testing.completeExecutorTestCleanup(deps,input)};
+      const started=mode==="candidate"?runtime.start(prepared,management,handoff):runtime.start(prepared,management,handoff);
       assert.equal(started.status,'started',scenario);
-      assert.equal((mode==='candidate'?runtime.start(prepared,management):runtime.start(provider,input,handoff)).status,'blocked');
+      assert.equal((mode==='candidate'?runtime.start(prepared,management):runtime.start(deps.consumePreparedPlan(prepared,management),management,callbacks,handoff)).status,'blocked');
       let settled=false;
       const completion=started.completion.then(result=>{settled=true;return result;});
       if(scenario==='cancel'){
@@ -351,7 +349,7 @@ export function verifyStandaloneProviderAttempt() {
       if(scenario==='cleanup_unknown')
         assert.equal(result.reason,'docker_process_controller_cleanup_unconfirmed');
       if(scenario==='submission_throw')
-        assert.equal(result.reason,'docker_process_controller_execution_failed_closed');
+        assert.equal(result.reason,'docker_resource_submission_record_unavailable');
       if(scenario==='cleanup_unknown')assert.equal(terminal,null);
       else {
         assert.ok(terminal,scenario);assert.equal(terminal.resources,resources);
@@ -361,7 +359,7 @@ export function verifyStandaloneProviderAttempt() {
       for(const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
         assert.equal(name in runtime,false,name);
       if(mode==='production_factory'){
-        assert.equal(completedNotices,1);
+        assert.equal(completedNotices,0);
         assert.equal(runtime.verifyCleanupOutcome,undefined);
         assert.equal(currentFixture.starts,1);
         assert.ok(currentFixture.verifications>0);

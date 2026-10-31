@@ -1,13 +1,16 @@
 /**
- * 一試行の入力・許可参照・技術選定を局所値へ固定する。
+ * 一試行の技術選定と開始参照の入力を局所値へ固定する。
  * @packageDocumentation
- * @responsibility 保存元情報を解釈せず、動的Propertyと不正な技術値を拒否する。
+ * @responsibility Objectの形を検査し、モデルの意味規則はAI Adapterへ委譲する。
  * @trace ARCH-000008
  * @trace ARCH-000015
  * @boundary 信頼した上位Hostの搬送値とExecutorの準備・開始。
  */
 import { types as utilTypes } from "node:util";
-import type { AttemptSelection } from "./types.ts";
+import {
+  resolveAiModelSelection,
+  type AiModelSelection,
+} from "../../../ai-adapter/src/index.ts";
 
 /**
  * 用途限定入力のdata propertyだけを一度捕捉する。
@@ -24,7 +27,7 @@ import type { AttemptSelection } from "./types.ts";
  * @security 任意の継承値を実行入力へ昇格しない。
  * @concurrency N/A: 共有状態なし。
  */
-function captureRecord(value: unknown, keys: readonly string[]) {
+function copyPlainDataRecord(value: unknown, keys: readonly string[]) {
   try {
     if (
       !value ||
@@ -62,116 +65,8 @@ function captureRecord(value: unknown, keys: readonly string[]) {
 }
 
 /**
- * 公開準備入力の三用途だけを捕捉する。
- * @responsibility task・advice・probeの既存field集合を維持する。
- * @trace ARCH-000015
- * @input prepareへ渡された未検査値。
- * @returns fieldを捕捉した値又はnull。用途相関は既存準備Ownerが検査する。
- * @precondition N/A: 任意値を受ける。
- * @postcondition 内部Capabilityを複製・発行しない。
- * @effect N/A: 局所取得だけ。
- * @failure 不正shapeはnull。
- * @invariant 新しい入力fieldを許可しない。
- * @boundary 公開準備入力と準備Owner。
- * @security Proxy・getterを実行しない。
- * @concurrency N/A: 同期処理。
- */
-export function captureAttemptInput(value: unknown) {
-  const common = [
-    "purpose",
-    "managementCapability",
-    "mountCapability",
-    "mountAuthorizationCapability",
-    "selectionUseCapability",
-    "recoveryCorrelationId",
-    "consumer",
-  ];
-  return (
-    captureRecord(value, [
-      ...common,
-      "packetCapability",
-      "packetOwnerCapability",
-    ]) ??
-    captureRecord(value, [...common, "packetCapability"]) ??
-    captureRecord(value, common)
-  );
-}
-
-/**
- * 上位が固定した許可参照を独立した配列へ捕捉する。
- * @responsibility 既存256件・512byte・非空・重複禁止を維持する。
- * @trace ARCH-000015
- * @input 未検査の参照配列。
- * @returns 凍結配列又はnull。
- * @precondition 参照の許可判断は上位が所有する。
- * @postcondition hole・動的Property・追加Keyを受理しない。
- * @effect N/A: 局所コピーだけ。
- * @failure 不正値・取得不能はnull。
- * @invariant 許可集合を拡張しない。
- * @boundary 上位Packetと一試行の結果検査。
- * @security getter・Proxyを実行しない。
- * @concurrency 元配列の変更から分離する。
- */
-export function captureAllowedReferences(
-  value: unknown,
-): readonly string[] | null {
-  try {
-    if (
-      !value ||
-      typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
-      !Array.isArray(value) ||
-      Object.getPrototypeOf(value) !== Array.prototype
-    )
-      return null;
-    const initial = Object.getOwnPropertyDescriptor(value, "length");
-    if (
-      !initial ||
-      !Object.hasOwn(initial, "value") ||
-      initial.get !== undefined ||
-      initial.set !== undefined ||
-      !Number.isSafeInteger(initial.value) ||
-      initial.value < 1 ||
-      initial.value > 256
-    )
-      return null;
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    const length = (
-      descriptors as unknown as Record<string, PropertyDescriptor>
-    ).length;
-    if (
-      !length ||
-      !Object.hasOwn(length, "value") ||
-      length.value !== initial.value ||
-      Reflect.ownKeys(descriptors).length !== initial.value + 1
-    )
-      return null;
-    const copy: string[] = [];
-    for (let i = 0; i < initial.value; i++) {
-      const d = descriptors[String(i)];
-      if (
-        !d ||
-        !Object.hasOwn(d, "value") ||
-        d.get !== undefined ||
-        d.set !== undefined ||
-        d.enumerable !== true ||
-        typeof d.value !== "string" ||
-        d.value.length === 0 ||
-        d.value.includes("\0") ||
-        Buffer.byteLength(d.value, "utf8") > 512
-      )
-        return null;
-      copy.push(d.value);
-    }
-    return new Set(copy).size === copy.length ? Object.freeze(copy) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 保存元を含まない六項目の技術選定を検査する。
- * @responsibility Provider・Model・種別・努力量・用途・役割だけを保持する。
+ * 五項目の入力を固定し、モデルの対応条件はAI Adapterへ照会する。
+ * @responsibility Objectの形と五項目投影を所有し、対応モデル・推論強度の規則を複製しない。
  * @trace ARCH-000015
  * @input 上位で完全選定を検査した後の技術投影。
  * @returns 凍結した技術選定又はnull。
@@ -184,38 +79,55 @@ export function captureAllowedReferences(
  * @security Hashから完全選定や許可を推定しない。
  * @concurrency 元入力から分離する。
  */
-export function inspectAttemptSelection(
-  value: unknown,
-): AttemptSelection | null {
-  const v = captureRecord(value, [
+export function parseModelSelection(value: unknown): AiModelSelection | null {
+  const v = copyPlainDataRecord(value, [
     "provider",
     "modelIdentifier",
     "identifierKind",
     "reasoningEffort",
     "purpose",
-    "role",
   ]);
+  if (!v) return null;
+  const resolved = resolveAiModelSelection({
+    provider: v.provider,
+    modelIdentifier: v.modelIdentifier,
+    reasoningEffort: v.reasoningEffort,
+    purpose: v.purpose,
+  });
   if (
-    !v ||
-    (v.provider !== "codex" && v.provider !== "claude") ||
-    typeof v.modelIdentifier !== "string" ||
-    !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(v.modelIdentifier) ||
-    (v.identifierKind !== "exact" && v.identifierKind !== "alias") ||
-    typeof v.reasoningEffort !== "string" ||
-    !["low", "medium", "high", "xhigh", "max"].includes(v.reasoningEffort) ||
-    typeof v.role !== "string" ||
-    ![
-      "coordinator",
-      "executor",
-      "independent_reviewer",
-      "result_integration",
-      "advice",
-    ].includes(v.role) ||
-    v.purpose !==
-      (["executor", "independent_reviewer"].includes(v.role)
-        ? "task"
-        : "advice")
+    resolved.status !== "resolved" ||
+    resolved.value.provider !== v.provider ||
+    resolved.value.modelIdentifier !== v.modelIdentifier ||
+    resolved.value.reasoningEffort !== v.reasoningEffort ||
+    resolved.value.purpose !== v.purpose ||
+    resolved.value.identifierKind !== v.identifierKind
   )
     return null;
-  return Object.freeze({ ...v }) as AttemptSelection;
+  return Object.freeze({
+    provider: resolved.value.provider,
+    modelIdentifier: resolved.value.modelIdentifier,
+    identifierKind: resolved.value.identifierKind,
+    reasoningEffort: resolved.value.reasoningEffort,
+    purpose: resolved.value.purpose,
+  });
+}
+
+/**
+ * Object自身のdata propertyから値を読み取る。
+ * @responsibility 開始参照のfield取得だけを行い、値の意味や保存成立は判断しない。
+ * @trace ARCH-000008
+ * @input 対象Objectと取得するfield名。
+ * @returns 自身の値、又は欠測・accessor・取得不能の場合のundefined。
+ * @effect N/A: Property descriptorの局所読取り。getterは呼ばない。
+ * @invariant 新しい参照・Authorityを発行しない。
+ * @boundary 上位が保存後に渡した参照と単発実行の開始検査。
+ */
+export function readOwnDataProperty(value: unknown, key: string): unknown {
+  if (!value || typeof value !== "object") return undefined;
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor && "value" in descriptor ? descriptor.value : undefined;
+  } catch {
+    return undefined;
+  }
 }

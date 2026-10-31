@@ -6,6 +6,7 @@
  * @trace ARCH-000008
  */
 import { createHash } from "node:crypto";
+import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
 import {
@@ -166,7 +167,7 @@ export function createDockerIsolationRuntime(
     ?.value as DockerIsolationDependencies<DockerCliTrustSnapshot>["borrowPaths"];
   const inspectReceipts =
     receiptDescriptor?.value as DockerIsolationDependencies<DockerCliTrustSnapshot>["inspectReceipts"];
-  return createDockerIsolationRuntimeCandidate({
+  const runtime = createDockerIsolationRuntimeCandidate({
     borrowPaths,
     inspectReceipts,
     platform: process.platform,
@@ -180,6 +181,33 @@ export function createDockerIsolationRuntime(
     startProcess: (executable, argv, environment, stdin) =>
       startOwnedWindowsProcess(executable, argv, environment, stdin),
   });
+  return Object.freeze({ ...runtime, acquireHomeLease });
+}
+
+/**
+ * 同じ論理Homeを複数実行が同時使用しないよう既存OS排他を取得する。
+ * @responsibility 技術LeaseをExecutorの生涯へ渡し、保存やTask状態を所有しない。
+ * @trace ARCH-000008
+ * @input 検証済みHome bindingのSHA-256。
+ * @returns 保持中の元Lease又はnull。
+ * @effect 既存のWindows Named Pipe排他を取得する。
+ * @invariant 名前空間とHash導出を変更しない。
+ */
+function acquireHomeLease(bindingHash: string) {
+  if (
+    process.platform !== "win32" ||
+    typeof bindingHash !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(bindingHash)
+  )
+    return null;
+  const identity = createHash("sha256")
+    .update("crdd-logical-provider-home-kernel-lock-v1\0")
+    .update(bindingHash)
+    .digest("hex")
+    .slice(0, 32);
+  return acquireNamedPipeKernelLock(
+    `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`,
+  );
 }
 
 /**
@@ -216,7 +244,15 @@ export type DockerIsolationRuntimeOptions = Pick<
  * @trace ARCH-000008
  * @invariant 上位のTask状態や保存方式を所有しない。
  */
+export type HomeLease = Readonly<{ release: () => boolean }>;
+
+/**
+ * Docker実行とHome技術排他の有限操作。
+ * @responsibility Taskや保存方式を持たず、元Handleの取得・実行・回収だけを扱う。
+ * @trace ARCH-000008
+ */
 export type DockerIsolationRuntime = Readonly<{
+  acquireHomeLease: (bindingHash: string) => HomeLease | null;
   startCommand: (
     purpose: DockerIsolationCommand["purpose"],
     plan: DockerIsolationRuntimePlan,
@@ -372,7 +408,7 @@ function planIdentity(plan: DockerIsolationRuntimePlan) {
  */
 export function createDockerIsolationRuntimeCandidate<Cli extends object>(
   dependencies: DockerIsolationDependencies<Cli>,
-): DockerIsolationRuntime {
+): Omit<DockerIsolationRuntime, "acquireHomeLease"> {
   const contexts = new WeakMap<object, ExecutionContext<Cli>>();
   const stoppedAttempts = new WeakMap<object, Set<string>>();
   const cleanupResults = new WeakMap<
@@ -788,6 +824,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     plan: DockerIsolationRuntimePlan,
     recoveryCapability: object,
     managementCapability: unknown,
+    sessionReceipts?: DockerResourceReceipts,
   ) {
     if (
       !recoveryCapability ||
@@ -824,9 +861,11 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       if (!(await handle.terminateAndWait(5_000)) || !handle.closed())
         processTreeTerminated = false;
     }
-    const receipts = dependencies.inspectReceipts
-      ? dependencies.inspectReceipts(recoveryCapability)
-      : null;
+    const receipts =
+      sessionReceipts ??
+      (dependencies.inspectReceipts
+        ? dependencies.inspectReceipts(recoveryCapability)
+        : null);
     const providerReceipt = receipts?.create_provider;
     const authReceipt = receipts?.create_subscription_auth_probe;
     const proxyReceipt = receipts?.create_proxy;
@@ -1062,8 +1101,13 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       {
         startCommand: (purpose) =>
           startCommand(purpose, plan, managementCapability),
-        cleanup: () =>
-          cleanupOwnedResources(plan, recoveryCapability, managementCapability),
+        cleanup: (receipts) =>
+          cleanupOwnedResources(
+            plan,
+            recoveryCapability,
+            managementCapability,
+            receipts,
+          ),
         verifyCleanup: (result) =>
           verifyCleanupOutcome(
             result,

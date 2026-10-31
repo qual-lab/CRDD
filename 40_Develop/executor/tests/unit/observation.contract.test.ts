@@ -1,7 +1,7 @@
 /**
- * 固定構成の診断投影と受動callbackの失敗を反証する。
+ * 固定隔離構成から非秘密診断だけを投影することを確認する。
  * @packageDocumentation
- * @responsibility 元入力の保全、Reporterの束縛、同期・非同期故障の封じ込めを確認する。
+ * @responsibility 元の操作相関を保ち、Command・Home Pathを公開しないことを確認する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @level UT
@@ -10,10 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  providerBoundaryConfiguration,
-  reportPassiveBoundaryDiagnostic,
-} from "../../src/attempt/observation.ts";
+import { providerBoundaryConfiguration } from "../../src/attempt/isolation.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -27,7 +24,7 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  * @cleanup Promise拒否処置を一microtask待つ。外部資源なし。
  * @boundary ERB-IT-004=Direct Boundary: 構成診断・受動搬送。
  */
-test("受動診断は元通知とReporterの呼出し束縛を保ち例外を試行へ漏らさない", async () => {
+test("構成診断は元操作の相関を保ちCommandとHome Pathを公開しない", () => {
   const plan = attemptPlan();
   const notice = providerBoundaryConfiguration(plan);
   assert.equal(notice.event, "coordinator_provider_boundary_configured");
@@ -36,25 +33,4 @@ test("受動診断は元通知とReporterの呼出し束縛を保ち例外を試
   assert.equal(notice.networkPolicyHash, null);
   assert.equal("commands" in notice, false);
   assert.equal("providerHomeSourcePath" in notice, false);
-  for (const mode of ["normal", "sync", "async"]) {
-    let calls = 0;
-    const dependencies = {
-      marker: "original",
-      reportProviderBoundaryDiagnostic(value: unknown) {
-        calls++;
-        assert.equal(this.marker, "original");
-        assert.equal(value, notice);
-        if (mode === "sync") throw Error("synthetic");
-        return mode === "async"
-          ? Promise.reject(Error("synthetic"))
-          : Promise.resolve(false);
-      },
-    };
-    assert.doesNotThrow(() =>
-      reportPassiveBoundaryDiagnostic(dependencies, notice),
-    );
-    await Promise.resolve();
-    assert.equal(calls, 1);
-  }
-  assert.doesNotThrow(() => reportPassiveBoundaryDiagnostic({}, notice));
 });

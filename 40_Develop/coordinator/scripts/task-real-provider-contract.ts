@@ -14,11 +14,11 @@ import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
 
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
-import { inspectTaskStageDiagnostic } from "./task-diagnostic.ts";
 import {
-  isPrimaryFailureDiagnostic,
+  inspectTaskStageDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
-} from "../../executor/src/index.ts";
+} from "./task-diagnostic.ts";
+import { isPrimaryFailureDiagnostic } from "../../executor/scripts/executor-test.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
 import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
 

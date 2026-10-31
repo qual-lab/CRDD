@@ -8,11 +8,11 @@
  * @scope coordinator、claude、delegation
  * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
  */
-import { createAttemptPreparation } from "../../../executor/scripts/executor-test.ts";
+import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
-  attemptSelection,
+  preparationSelection as attemptSelection,
 } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
@@ -267,8 +267,9 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
           Object.freeze({
             status: 0,
             signal: null,
-            stdout:
-              command.purpose === "start_provider_attached"
+            stdout: command.purpose.startsWith("create_")
+              ? String(purposes.length).repeat(64)
+              : command.purpose === "start_provider_attached"
                 ? `${JSON.stringify({
                     type: "result",
                     subtype: "success",
@@ -292,12 +293,29 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
         terminateAndWait: async () => true,
       });
     },
-    cleanupOwnedResources: async () =>
+    cleanupOwnedResources: async (plan) =>
       Object.freeze({
         confirmed: true,
         processTreeTerminated: true,
         containersAbsent: true,
         networksAbsent: true,
+        resourceObservations: (
+          [
+            ["create_subscription_auth_probe", "authContainerName"],
+            ["create_internal_network", "internalNetworkName"],
+            ["create_egress_network", "egressNetworkName"],
+            ["create_proxy", "proxyContainerName"],
+            ["create_provider", "providerContainerName"],
+          ] as const
+        ).map(([purpose, field]) => ({
+          purpose,
+          plannedResourceName: plan[field],
+          dockerId: String(
+            plan.commands.findIndex((command) => command.purpose === purpose) +
+              1,
+          ).repeat(64),
+          observation: "absent" as const,
+        })),
       }),
     completeMount,
     completeRecovery: (capability: unknown, management: unknown) => {
@@ -325,7 +343,8 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   assert.equal(result.status, "completed");
   assert.deepEqual(result.normalizedResult, { status: true });
   assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.selectionRecordId, issued.selectionRecordId);
+  assert.equal(Object.hasOwn(result, "selectionRecordId"), false);
+  assert.equal(prepared.selectionRecordId, issued.selectionRecordId);
   assert.equal(mountCompletionCount, 1);
   assert.equal(recoveryCompletionCount, 1);
   assert.deepEqual(purposes, [

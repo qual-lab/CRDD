@@ -3395,6 +3395,9 @@ for (const { repeatCount, retained } of [
           recoveryId: proof.recoveryId,
           resources,
           primaryFailure: null,
+          processTreeTerminationConfirmed: true,
+          containersAbsent: true,
+          networksAbsent: true,
           mountLeaseReleased: true,
           homeLeaseReleased: true,
           recoveryCompleted: true,
@@ -4444,6 +4447,9 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         recoveryId: "exact-id",
         resources: [],
         primaryFailure: null,
+        processTreeTerminationConfirmed: true,
+        containersAbsent: true,
+        networksAbsent: true,
         mountLeaseReleased: true,
         recoveryCompleted: true,
         homeLeaseReleased: true,
@@ -4525,6 +4531,9 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         recoveryId: "exact-id",
         resources: [],
         primaryFailure: null,
+        processTreeTerminationConfirmed: true,
+        containersAbsent: true,
+        networksAbsent: true,
         mountLeaseReleased: true,
         recoveryCompleted: true,
         homeLeaseReleased: true,
@@ -4726,6 +4735,9 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
     "copy",
     "capability",
     "selection",
+    "selection_hash",
+    "selection_attempt",
+    "selection_content",
     "operation",
     "terminal_missing",
     "terminal_operation",
@@ -4752,13 +4764,14 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
       cleanupConfirmed: true,
       cancellationRequested: false,
       operationId: "OP-123456",
-      selectionRecordId: "selection",
       normalizedResult: { decision: "changes_requested", findingCount: 1 },
       reviewFindings: findings,
     };
     const plan = {
       operationId: "OP-123456",
       selectionRecordId: "selection",
+      selectionHash: "selection-hash",
+      executionSelection: { provider: "codex", modelIdentifier: "synthetic" },
       operationMode: "isolated_task",
       taskRole: "reviewer",
       taskAttempt: 0,
@@ -4771,13 +4784,18 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
       recoveryCompleted: true,
     };
     const record = {
+      managementCapability: {},
       operationId: "OP-123456",
       recoveryId: "exact-recovery",
       dockerCompletion: result,
       terminalObservation: terminal as typeof terminal | undefined,
       normalRestoration: { plan } as { plan: typeof plan } | undefined,
     };
-    if (fault === "selection") result.selectionRecordId = "other";
+    if (fault === "selection") plan.selectionRecordId = "other";
+    if (fault === "selection_hash") plan.selectionHash = "other";
+    if (fault === "selection_attempt") plan.taskAttempt = 1;
+    if (fault === "selection_content")
+      plan.executionSelection.modelIdentifier = "other";
     if (fault === "operation") result.operationId = "OP-654321";
     if (fault === "terminal_missing") record.terminalObservation = undefined;
     if (fault === "terminal_operation") terminal.operationId = "OP-654321";
@@ -4800,6 +4818,20 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
       `${declaration}\nregisterRuntimeOwnedReviewFindings`,
       {
         durableRecord: (c: object) => (c === capability ? record : null),
+        borrowOwnedOperationExecutionSelection: (
+          owner: unknown,
+          id: unknown,
+          hash: unknown,
+          attempt: unknown,
+          selection: { modelIdentifier: string },
+        ) =>
+          owner === record.managementCapability &&
+          id === "selection" &&
+          hash === "selection-hash" &&
+          attempt === 0 &&
+          selection.modelIdentifier === "synthetic"
+            ? selection
+            : null,
         registerTaskRemediation: (
           id: string,
           attempt: number,

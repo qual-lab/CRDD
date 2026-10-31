@@ -1298,7 +1298,7 @@ function fixture(
     revokeTaskPacket: () => Object.freeze({ status: "revoked" }),
     startProcess: (
       provider: "codex" | "claude",
-      input: import("../../../executor/src/index.ts").AttemptInput,
+      input: import("../../src/execution/types.ts").PreparationInput,
       registerRecoveryHandoff: (
         capability: unknown,
         recoveryId: unknown,

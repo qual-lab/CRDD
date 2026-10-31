@@ -1,10 +1,10 @@
 /**
- * 回復応答の閉形式検査と元Home相関を反証する。
- * @responsibility 検査移管で欠測・余分・accessor・Proxyを許可へ変えない。
+ * 技術理由集合と一次故障の固定診断を検査する。
+ * @responsibility 発行理由と保存受理集合の一致、未知理由と不正な報告値の拒否を確認する。
  * @trace ERB-IT-004
  * @level UT
- * @scope 合成値だけ。保存・回復処置は行わない。
- * @boundary Host応答とExecutorの受入。
+ * @scope 固定理由・合成診断だけ。保存・回復処置は行わない。
+ * @boundary Executorの技術理由・検証用診断とDomainの保存受理集合。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -12,14 +12,11 @@ import {
   ATTEMPT_COMPLETION_REASONS,
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
-  RECOVERY_START_FAILURE_STAGES,
 } from "../../../src/result/constants.ts";
-import {
-  isAttemptFailureReason,
-  isPrimaryFailureDiagnostic,
-  snapshotReadyRecovery,
-  snapshotBlockedRecoveryWithExactId,
-} from "../../../src/result/validation.ts";
+import { isAttemptFailureReason } from "../../../src/result/validation.ts";
+import { convertCommandResult } from "../../../src/result/attempt.ts";
+import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/index.ts";
+import { isPrimaryFailureDiagnostic } from "../../../scripts/executor-test.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";
 
 /**
@@ -82,7 +79,6 @@ test("技術理由は保存受理集合と一致し未知・欠測・余剰を�
     ATTEMPT_COMPLETION_REASONS,
     PURPOSES,
     SETUP_COMMAND_FAILURE_REASONS,
-    RECOVERY_START_FAILURE_STAGES,
   ])
     assert.equal(Object.isFrozen(value), true);
   assert.deepEqual(
@@ -112,73 +108,40 @@ test("技術理由は保存受理集合と一致し未知・欠測・余剰を�
 });
 
 /**
- * 正常応答と不正な回復値を照合する。
- * @responsibility 原Capabilityとexact参照の結合を維持する。
+ * Setup失敗Mapの未知用途と継承Propertyを固定の一般理由へ閉じる。
+ * @responsibility 関数のinline化で用途判定を部分一致やprototype参照へ変えない。
  * @trace ERB-IT-004
- * @precondition 合成のHome hash・回復参照・不透明Capability。
- * @stimulus Owner有無、別Home、Proxy、accessor、余分・欠測を渡す。
- * @observation 所有Snapshot又はnull、getter未実行。
- * @oracle 同じ条件だけを受理し、観測不能を正常にしない。
+ * @precondition 合成の非0終了観測のみ。
+ * @stimulus 全Setup用途と未知値・prototype名を渡す。
+ * @observation 元の固定理由とfallback。
+ * @oracle 所有keyだけを採用し、継承値を理由へ昇格しない。
  * @cleanup N/A: 外部資源なし。
- * @boundary ERB-IT-004=Direct Boundary: 回復応答検査。
  */
-test("回復Snapshotは閉形式と元Homeを維持し不正な値を受理しない", () => {
-  const home = "d".repeat(64);
-  const id = `docker-task.${home}.${"e".repeat(64)}.${"f".repeat(64)}`;
-  const capability = {};
-  const ready = {
-    status: "ready",
-    recoveryId: id,
-    recoveryCapability: capability,
+test("Setup失敗の変換はMap自身の用途だけを扱い未知・継承名を拒否する", () => {
+  const observation = {
+    status: 1,
+    signal: null,
+    stdout: "",
+    stderr: "",
+    outputExceeded: false,
   };
-  assert.equal(snapshotReadyRecovery(ready)?.recoveryCapability, capability);
-  let getterCalls = 0;
-  const accessor = {
-    ...ready,
-    get recoveryId() {
-      getterCalls++;
-      return id;
-    },
-  };
-  for (const value of [
-    null,
-    [],
-    { ...ready, extra: true },
-    { ...ready, recoveryCapability: null },
-    accessor,
+  const classification = classifyDockerCommandExecution(observation);
+  for (const [purpose, reason] of Object.entries(SETUP_COMMAND_FAILURE_REASONS))
+    assert.equal(
+      convertCommandResult(observation, purpose, "claude", classification)
+        .reason,
+      reason,
+    );
+  for (const purpose of [
+    "unknown",
+    "__proto__",
+    "constructor",
+    "toString",
+    "create_proxy_extra",
   ])
-    assert.equal(snapshotReadyRecovery(value), null);
-  assert.equal(getterCalls, 0);
-  const blocked = { status: "blocked", reason: "synthetic", recoveryId: id };
-  assert.equal(
-    snapshotBlockedRecoveryWithExactId(blocked, home)?.recoveryCapability,
-    null,
-  );
-  const owned = {
-    ...blocked,
-    recoveryCapability: capability,
-    manualRecoveryRequired: true,
-  };
-  assert.equal(
-    snapshotBlockedRecoveryWithExactId(owned, home)?.recoveryCapability,
-    capability,
-  );
-  assert.equal(snapshotBlockedRecoveryWithExactId(owned, "a".repeat(64)), null);
-  for (const value of [
-    new Proxy(blocked, {}),
-    { ...blocked, extra: true },
-    { ...blocked, recoveryId: "bad" },
-    { ...owned, manualRecoveryRequired: false },
-    { ...owned, recoveryCapability: new Proxy({}, {}) },
-    { status: "blocked", recoveryId: id },
-    {
-      ...blocked,
-      get reason() {
-        getterCalls++;
-        return "synthetic";
-      },
-    },
-  ])
-    assert.equal(snapshotBlockedRecoveryWithExactId(value, home), null);
-  assert.equal(getterCalls, 0);
+    assert.equal(
+      convertCommandResult(observation, purpose, "claude", classification)
+        .reason,
+      "docker_setup_command_failed",
+    );
 });

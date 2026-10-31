@@ -11,6 +11,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { createHash } from "node:crypto";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import {
   planDockerIsolationCommands,
   dockerContainerInitObservationMatches,
@@ -20,6 +23,81 @@ import {
   type OwnedCommandHandle,
 } from "../../src/index.ts";
 import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execute.ts";
+
+/**
+ * 移管したHome排他の技術Identityと元Handle搬送を反証する。
+ * @responsibility 既存の排他名前空間を保ち、不正値・未対応OSでNativeを呼ばない。
+ * @trace ERB-IT-004
+ * @precondition 実宣言と有限Native代役だけを使う。
+ * @stimulus Hash境界、Windows以外、取得不能、取得例外を渡す。
+ * @observation Native呼出し回数・exact Pipe名・元Lease参照。
+ * @oracle 元Hash導出を保持し、nullを取得済みに変換しない。
+ * @cleanup N/A: 実OS排他・子Process・Dockerを使わない。
+ */
+test("Home技術排他は既存namespaceと元Leaseを維持し不正入力でNativeを呼ばない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/execute.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = sourceDeclaration(source, "acquireHomeLease");
+  let calls = 0;
+  let pipe = "";
+  let released = 0;
+  const lease = Object.freeze({
+    release: () => {
+      released++;
+      return true;
+    },
+  });
+  const bind = (platform: string, native: (name: string) => object | null) =>
+    runInNewContext(declaration + "\nacquireHomeLease", {
+      createHash,
+      process: { platform },
+      acquireNamedPipeKernelLock: native,
+    }) as (value: unknown) => typeof lease | null;
+  const acquire = bind("win32", (name) => {
+    calls++;
+    pipe = name;
+    return lease;
+  });
+  for (const value of [
+    null,
+    undefined,
+    {},
+    "a".repeat(63),
+    "a".repeat(65),
+    "A".repeat(64),
+    "g".repeat(64),
+  ])
+    assert.equal(acquire(value), null);
+  assert.equal(calls, 0);
+  const hash = "a".repeat(64);
+  assert.equal(acquire(hash), lease);
+  assert.equal(calls, 1);
+  const identity = createHash("sha256")
+    .update("crdd-logical-provider-home-kernel-lock-v1\0")
+    .update(hash)
+    .digest("hex")
+    .slice(0, 32);
+  assert.equal(pipe, `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`);
+  assert.equal(lease.release(), true);
+  assert.equal(released, 1);
+  assert.equal(
+    bind("linux", () => {
+      throw Error("unexpected_native");
+    })(hash),
+    null,
+  );
+  assert.equal(bind("win32", () => null)(hash), null);
+  const failure = Error("synthetic_acquire_failure");
+  assert.throws(
+    () =>
+      bind("win32", () => {
+        throw failure;
+      })(hash),
+    (error) => error === failure,
+  );
+});
 
 /**
  * createEffectFixtureのTest準備責務を実行する。

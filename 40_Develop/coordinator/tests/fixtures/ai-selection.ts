@@ -29,7 +29,7 @@ import {
  * @cleanup N/A: 局所値だけ。
  * @boundary 上位代役とExecutorの入力。
  */
-export function attemptSelection(candidate: unknown) {
+export function preparationSelection(candidate: unknown) {
   const v = inspectExecutionSelection(candidate);
   const value = v
     ? Object.freeze({
@@ -53,6 +53,34 @@ export function attemptSelection(candidate: unknown) {
     >,
     selectionHash: hashExecutionSelection(candidate) ?? "invalid",
   };
+}
+
+/**
+ * 検査済み上位選定からExecutor用の五項目だけを作る。
+ * @responsibility ロールは準備側に残し、完全Hashを変更しない。
+ * @trace ERB-UT-023
+ * @precondition 合成選定だけを使用する。
+ * @stimulus 完全選定を渡す。
+ * @observation roleを含まない選定と元Hash。
+ * @oracle 不正選定は補完せず反例のまま返す。
+ * @cleanup N/A: 値の生成だけ。
+ * @boundary 上位fixtureとExecutor。
+ */
+export function attemptSelection(candidate: unknown) {
+  const projected = preparationSelection(candidate);
+  const v = inspectExecutionSelection(candidate);
+  return v
+    ? {
+        selectionHash: projected.selectionHash,
+        executionSelection: Object.freeze({
+          provider: v.provider,
+          modelIdentifier: v.modelIdentifier,
+          identifierKind: v.identifierKind,
+          reasoningEffort: v.reasoningEffort,
+          purpose: v.purpose,
+        }),
+      }
+    : projected;
 }
 
 /**

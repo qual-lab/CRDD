@@ -59,15 +59,48 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     new URL("../../src/index.ts", import.meta.url),
     "utf8",
   );
-  assert.match(publicSource, /\bAttemptInput\b/);
-  const preparationSource = fs.readFileSync(
-    new URL("../../src/attempt/preparation.ts", import.meta.url),
+  assert.doesNotMatch(publicSource, /\b(?:AttemptPlan|AttemptReference)\b/);
+  assert.match(publicSource, /\bAttemptRequest\b/);
+  assert.doesNotMatch(publicSource, /\bRecoveryStartFailureDiagnostic\b/);
+  const executionSource = fs.readFileSync(
+    new URL("../../src/attempt/execute.ts", import.meta.url),
     "utf8",
   );
-  assert.doesNotMatch(preparationSource, /^export\s+(?:type|interface)\b/m);
+  assert.doesNotMatch(executionSource, /reportPassiveBoundaryDiagnostic/);
+  const functionPositions = [
+    "export async function cancel(",
+    "export function abandon(",
+    "export function createExecutor(",
+    "function prepareAttempt(",
+  ].map((name) => executionSource.indexOf(name));
+  assert.ok(
+    functionPositions.every(
+      (position, i) =>
+        position >= 0 &&
+        (i === 0 || position > (functionPositions[i - 1] ?? Infinity)),
+    ),
+  );
+  for (const file of [
+    "attempt/types.ts",
+    "result/types.ts",
+    "result/constants.ts",
+  ]) {
+    const source = fs.readFileSync(
+      new URL(`../../src/${file}`, import.meta.url),
+      "utf8",
+    );
+    assert.doesNotMatch(
+      source,
+      /RecoveryStartFailureDiagnostic|RECOVERY_START_FAILURE_STAGES|coordinator_provider_recovery_start_failed/,
+    );
+  }
+  assert.equal(
+    fs.existsSync(new URL("../../src/attempt/preparation.ts", import.meta.url)),
+    false,
+  );
   assert.match(
     publicSource,
-    /export type \{ ExecutorOptions \} from "\.\/attempt\/types\.ts"/,
+    /export type \{ ExecutorCallbacks \} from "\.\/attempt\/types\.ts"/,
   );
   assert.doesNotMatch(
     publicSource,
@@ -91,18 +124,15 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     const api=await import(${JSON.stringify(root)});
     blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
-      "createExecutor", "describeExecutorContract",
-      "inspectRecoveryStartFailureDiagnostic",
-      "isPrimaryFailureDiagnostic",
-      "resolveRecoveryReference", "resolveRecoveryStartReason",
+      "createExecutor",
     ].sort());
     for(const name of ["inspectAttemptObservation", "normalizeTaskResult", "normalizeAdviceResult", "describeAdviceResultSchema",
       "consumeTaskRemediation", "hashAdviceCommand", "bindAdviceCommand",
       "createProviderExecutor", "ProviderExecutorHost", "ownDataValue",
-      "buildProviderDockerExecutionPlan", "validatePlan", "planIdentity",
+      "buildProviderDockerExecutionPlan", "prepareAttempt", "validatePlan", "planIdentity",
       "resolveIsolationCommandInput", "PURPOSES", "SETUP_COMMAND_FAILURE_REASONS",
       "ATTEMPT_OBSERVATION_KEYS", "ADVICE_INPUT_CONTRACT", "ADVICE_INPUT_CONTRACT_REVISION",
-      "captureAttemptInput", "captureAllowedReferences", "inspectAttemptSelection", "ATTEMPT_COMPLETION_REASONS",
+      "captureAllowedReferences", "inspectAttemptSelection", "parseModelSelection", "copyPlainDataRecord", "readOwnDataProperty", "ATTEMPT_COMPLETION_REASONS",
       "ADVICE_RESULT_CONTRACT", "ADVICE_RESULT_CONTRACT_REVISION"])
       assert.equal(name in api,false,name);
     for(const name of ['createProviderObservationOwner','createProviderAttemptRuntime','registerSubmission','registerTerminal'])
@@ -217,6 +247,22 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
     "utf8",
   );
   assert.equal([...composition.matchAll(/createExecutor\(/g)].length, 1);
+  const coordinatorSource = new URL(
+    "../../../coordinator/src/",
+    import.meta.url,
+  );
+  for (const file of fs.readdirSync(coordinatorSource, { recursive: true })) {
+    if (typeof file !== "string" || !file.endsWith(".ts")) continue;
+    const source = fs.readFileSync(
+      new URL(file.replaceAll("\\", "/"), coordinatorSource),
+      "utf8",
+    );
+    assert.doesNotMatch(
+      source,
+      /(?:from\s*|import\s*\()["'][^"']*executor\/src\/(?!index\.ts["'])/,
+      file,
+    );
+  }
   for (const name of ["persistence", "settlement", "recovery", "controller"]) {
     const source = fs.readFileSync(new URL(`${name}.ts`, coordinator), "utf8");
     if (name === "controller") assertProviderExecutorConsumer(source, name);

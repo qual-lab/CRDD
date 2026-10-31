@@ -6,7 +6,7 @@
  * @scope 値だけのfixture。実Command成立は主張しない。
  * @boundary Executor局所試験。
  */
-import type { ProviderAttemptPlan } from "../../src/attempt/types.ts";
+import type { AttemptPlan } from "../../src/attempt/types.ts";
 import { PURPOSES } from "../../src/result/constants.ts";
 
 /**
@@ -20,26 +20,20 @@ import { PURPOSES } from "../../src/result/constants.ts";
  * @cleanup N/A: 外部資源なし。
  * @boundary Executorの型付き合成入力。
  */
-export function attemptPlan(): ProviderAttemptPlan {
+export function attemptPlan(): AttemptPlan {
   const suffix = "0101010101010101";
   return {
     provider: "claude",
-    consumer: "coordinator_cli",
     operationId: "OP-123456",
     grantRef: "PHMGRANT-123456",
-    selectionRecordId: "MODELSEL-12345678",
-    selectionHash: "e".repeat(64),
-    taskAttempt: 0,
     executionSelection: {
       provider: "claude",
       modelIdentifier: "opus",
       identifierKind: "alias",
       reasoningEffort: "low",
       purpose: "task",
-      role: "executor",
     },
     activeMountCapability: {},
-    authorityUseCapability: {},
     providerHomeSourcePath: "C:/synthetic-not-accessed/home",
     providerHomeIdentityHash: "a".repeat(64),
     providerHomeProtectionHash: "b".repeat(64),
@@ -54,12 +48,8 @@ export function attemptPlan(): ProviderAttemptPlan {
     providerImageDigest: `sha256:${"1".repeat(64)}`,
     proxyImageDigest: `sha256:${"2".repeat(64)}`,
     subscriptionOffering: "claude_max",
-    selectedModel: "opus",
-    selectedEffort: "low",
     operationMode: "boolean_probe",
     taskRole: null,
-    taskPacketRef: null,
-    taskPacketHash: null,
     providerInput: null,
     workspaceSourcePath: null,
     workspaceMountMode: null,

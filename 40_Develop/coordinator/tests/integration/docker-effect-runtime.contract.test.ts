@@ -9,13 +9,13 @@
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
 import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import { createAttemptPreparation } from "../../../executor/scripts/executor-test.ts";
+import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashAdviceCommand } from "../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
-  attemptSelection,
+  preparationSelection as attemptSelection,
 } from "../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
@@ -941,7 +941,8 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
  * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("plain command copyと変更planはDocker processを開始しない", () => {
-  const fixture = createEffectFixture();
+  // Modelを使用しない認証Probeではなく、Modelがargvへ結合されるTaskを反証対象にする。
+  const fixture = createEffectFixture({ taskRole: "executor" });
   const firstCommand = fixture.plan.commands[0];
   assert.ok(firstCommand);
   for (const changes of [
@@ -981,7 +982,10 @@ test("plain command copyと変更planはDocker processを開始しない", () =>
   );
   const changed = Object.freeze({
     ...fixture.plan,
-    selectedModel: "sonnet",
+    executionSelection: {
+      ...fixture.plan.executionSelection,
+      modelIdentifier: "sonnet",
+    },
   });
   const wrongProxyProfile = {
     ...fixture.plan,

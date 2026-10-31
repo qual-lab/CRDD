@@ -10,9 +10,119 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 
 import { projectDockerRecoveryAdmission } from "../../../src/execution/result.ts";
-import { resolveRecoveryStartReason } from "../../../../executor/src/index.ts";
+import { resolveRecoveryStartReason } from "../../../src/execution/validation.ts";
+
+/**
+ * 試行専用Executorへの取消配送と回復Authorityの区別を反証する。
+ * @responsibility 既存記録のControl aliasを元Owner・元試行だけに限定し終端で消去する。
+ * @trace PRL-UT-006
+ * @precondition メモリ内の記録・Executor代役・有限Promiseだけを使用する。
+ * @stimulus 未保存、別Owner、コピーControl、再結合、成功／拒否終端を与える。
+ * @observation 元Controlへの配送回数、alias有無、回復検索の拒否、元結果の同一性。
+ * @oracle Controlは回復Authorityにならず、終端後の取消は拒否される。
+ * @cleanup Promiseをsettleしてalias不存在を確認する。外部資源は作らない。
+ */
+test("試行専用ExecutorのControlは回復Authorityにならず終端で失効する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  for (const outcome of ["resolved", "held", "rejected"] as const) {
+    const records = new WeakMap<object, Record<string, unknown>>();
+    const names = [
+      "durableRecord",
+      "bindRuntimeOwnedExecutorAttempt",
+      "cancelRuntimeOwnedExecutorAttempt",
+      "abandonRuntimeOwnedExecutorAttempt",
+    ];
+    const api = runInNewContext(
+      names.map((name) => sourceDeclaration(source, name)).join("\n") +
+        "\n({lookup:durableRecord,bind:bindRuntimeOwnedExecutorAttempt,cancel:cancelRuntimeOwnedExecutorAttempt,abandon:abandonRuntimeOwnedExecutorAttempt})",
+      { durableRecords: records },
+    ) as {
+      lookup(capability: unknown): unknown;
+      bind(...args: unknown[]): boolean;
+      cancel(...args: unknown[]): Promise<{ status: string }>;
+      abandon(...args: unknown[]): boolean;
+    };
+    const capability = {},
+      management = {},
+      control = {};
+    const record = {
+      capability,
+      managementCapability: management,
+      initializationReady: true,
+      recoveryId: one,
+    };
+    let cancels = 0,
+      abandons = 0;
+    const executor = {
+      cancel: async (c: unknown, m: unknown) => {
+        assert.strictEqual(c, control);
+        assert.strictEqual(m, management);
+        cancels++;
+        return { status: "requested" };
+      },
+      abandon: (c: unknown, m: unknown) => {
+        assert.strictEqual(c, capability);
+        assert.strictEqual(m, management);
+        abandons++;
+        return true;
+      },
+    };
+    assert.equal(api.bind(capability, management, executor), false);
+    records.set(capability, record);
+    assert.equal(api.bind(capability, {}, executor), false);
+    assert.equal(api.bind(capability, management, executor), true);
+    assert.equal(records.has(control), false);
+    assert.equal((await api.cancel(capability, management)).status, "blocked");
+    let resolve!: (result: { homeLeaseReleased: boolean }) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<{ homeLeaseReleased: boolean }>((yes, no) => {
+      resolve = yes;
+      reject = no;
+    });
+    const pending = { promise, resolve, reject };
+    const started = {
+      status: "started",
+      recoveryId: one,
+      controlCapability: control,
+      completion: pending.promise,
+    };
+    assert.equal(api.bind(capability, management, {}, started), false);
+    assert.equal(
+      api.bind(capability, management, executor, {
+        ...started,
+        recoveryId: two,
+      }),
+      false,
+    );
+    assert.equal(api.bind(capability, management, executor, started), true);
+    assert.equal(api.bind(capability, management, executor, started), false);
+    assert.equal(records.get(control), record);
+    assert.equal(api.lookup(control), null);
+    assert.equal(api.abandon(control, management), false);
+    assert.equal((await api.cancel({}, management)).status, "blocked");
+    assert.equal((await api.cancel(control, {})).status, "blocked");
+    assert.equal((await api.cancel(control, management)).status, "requested");
+    assert.equal(cancels, 1);
+    if (outcome !== "rejected")
+      pending.resolve({ homeLeaseReleased: outcome === "resolved" });
+    else pending.reject(Error("synthetic_completion_failure"));
+    await pending.promise.catch(() => undefined);
+    await Promise.resolve();
+    assert.equal(records.has(control), false);
+    assert.equal(api.lookup(capability), record);
+    assert.equal((await api.cancel(control, management)).status, "blocked");
+    assert.equal(api.abandon(capability, management), outcome !== "resolved");
+    assert.equal(abandons, outcome !== "resolved" ? 1 : 0);
+  }
+});
 
 /**
  * observationのTest準備責務を実行する。

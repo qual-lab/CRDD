@@ -5,6 +5,7 @@
  * @trace ARCH-000015
  */
 import { parseUnambiguousJsonDocument } from "./json.ts";
+import { snapshotPlainArray } from "./input.ts";
 /**
  * 検査済み助言の一項目を表す。
  * @responsibility 説明本文と読取り投影の参照を一つの値契約へまとめる。
@@ -117,7 +118,9 @@ export function parseAdviceResult(
   raw: unknown,
   allowedReferences: readonly string[],
 ) {
-  const allowed = inspectAllowedReferences(allowedReferences);
+  const references = parseAdviceReferences(allowedReferences);
+  const allowed =
+    references.status === "confirmed" ? new Set(references.references) : null;
   if (
     typeof raw !== "string" ||
     Buffer.byteLength(raw, "utf8") > MAXIMUM_RAW_BYTES ||
@@ -194,36 +197,51 @@ export function describeAdviceResultContract() {
 }
 
 /**
- * 読取り助言結果の閉じたSchema検証境界におけるinspectAllowedReferencesの処理境界を固定する。
- *
- * @responsibility 読取り助言結果の閉じたSchema検証境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * 許可参照入力の確認済み配列と拒否を区別する。
+ * @responsibility 成功時だけ不変の参照を返し、部分的な入力を搬送しない。
  * @trace ARCH-000015
- * @input 宣言された引数だけを受け取る。
- * @returns 宣言された結果型を返す。
- * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
- * @postcondition 成功時だけ検証済みの結果を返す。
- * @effect 宣言または注入された依存以外へEffectを発行しない。
- * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
- * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
- * @boundary 呼出し元と本Moduleの局所責務境界。
- * @security 秘密値と未許可情報を出力またはlogへ追加しない。
- * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
+ * @invariant 確認済みは参照の形式・固定の成立であり、実行やアクセスの許可ではない。
  */
+export type AdviceReferencesResult =
+  | Readonly<{
+      status: "confirmed";
+      reason: null;
+      references: readonly string[];
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: "workbench_ai_advice_result_input_invalid";
+      references: null;
+    }>;
 
-function inspectAllowedReferences(
-  values: readonly string[],
-): ReadonlySet<string> | null {
+/**
+ * 助言で使用する許可参照を検査し、呼出し元から独立した値へ固定する。
+ * @responsibility 参照数・文字列・重複の規則と不変な入力搬送を一箇所で所有する。
+ * @trace ARCH-000015
+ * @input 未検査の参照配列。許可集合の選択自体は上位が所有する。
+ * @returns confirmedと凍結配列、又はblockedと固定理由。
+ * @effect N/A: 既存plain-data検査とメモリ内のコピーのみ。
+ * @failure 1024件超・空値・512byte超・周辺空白・重複・動的Propertyを固定理由へ閉じる。
+ * @invariant getter・Proxyを評価せず、許可集合を拡張しない。
+ * @boundary Executorの準備入力とAI Adapterの助言内容検査。
+ */
+export function parseAdviceReferences(value: unknown): AdviceReferencesResult {
+  const snapshot = snapshotPlainArray(value, 1_024);
+  const references = snapshot.status === "ok" ? snapshot.value : null;
   if (
-    !Array.isArray(values) ||
-    values.length === 0 ||
-    values.length > 1_024 ||
-    values.some(
-      (reference) => !validString(reference, MAXIMUM_REFERENCE_BYTES),
+    !references ||
+    references.length === 0 ||
+    !references.every((reference): reference is string =>
+      validString(reference, MAXIMUM_REFERENCE_BYTES),
     ) ||
-    new Set(values).size !== values.length
+    new Set(references).size !== references.length
   )
-    return null;
-  return new Set(values);
+    return Object.freeze({
+      status: "blocked",
+      reason: "workbench_ai_advice_result_input_invalid",
+      references: null,
+    });
+  return Object.freeze({ status: "confirmed", reason: null, references });
 }
 
 /**

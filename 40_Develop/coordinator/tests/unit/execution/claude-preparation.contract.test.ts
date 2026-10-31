@@ -10,7 +10,7 @@
  */
 import {
   executionSelection,
-  attemptSelection,
+  preparationSelection as attemptSelection,
 } from "../../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
@@ -18,7 +18,7 @@ import {
   startRuntimeOwnedDockerProcessController,
   cancelRuntimeOwnedDockerProcessController,
 } from "../../../src/execution/provider-executor.ts";
-import { createAttemptPreparation } from "../../../../executor/scripts/executor-test.ts";
+import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";

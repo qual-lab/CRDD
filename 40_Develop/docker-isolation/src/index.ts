@@ -106,6 +106,7 @@ export {
   type DockerIsolationRuntimePlan,
   type DockerIsolationRuntimeOptions,
   type DockerIsolationRuntime,
+  type HomeLease,
   type DockerResourceCleanupObservation,
   type DockerResourceReceipts,
 } from "./execution/execute.ts";
@@ -130,6 +131,7 @@ export {
   type DockerExecutionHooks,
   type DockerSessionCleanup,
   type DockerCommandSession,
+  type DockerSessionCommandHandle,
   type DockerCommandSessionResult,
 } from "./execution/session.ts";
 export {

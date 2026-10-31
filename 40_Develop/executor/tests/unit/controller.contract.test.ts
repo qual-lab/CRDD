@@ -13,11 +13,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import type { StartResult } from "../../src/index.ts";
-import { createPreparationFailure } from "../../src/attempt/preparation.ts";
-import {
-  createStartResult,
-  createCompletionResult,
-} from "../../src/result/attempt.ts";
+import { createStartResult } from "../../src/result/attempt.ts";
 
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。
@@ -124,168 +120,92 @@ test("開始成功と拒否は同じFactoryから生成し元のControlとPromis
 });
 
 /**
- * 実公開Factoryの四開始経路で項目の有無と正本参照を確認する。
- * @responsibility 準備内部結果の展開が開始結果へ戻らないことを反証する。
+ * 解決済み計画を同じ実行Ownerへ渡し、終了通知で元結果を変更しない。
+ * @responsibility 上位の選定・準備を実行Factoryに戻さない。
  * @trace ERB-IT-004
- * @precondition 実createExecutor宣言と有限の準備・実行代役。
- * @stimulus Provider不正、準備拒否、実行拒否、開始成功を渡す。
- * @observation 開始結果の全キー、準備表示・選択値、Control、完了通知。
- * @oracle 既存の選択値／null／省略を維持し、準備内部項目を搬送しない。
- * @cleanup 代役Promiseの完了を待つ。外部Process・保存・Dockerは使わない。
+ * @precondition 有限Runtime代役のみ。
+ * @stimulus 開始拒否／成功を返す。
+ * @observation 元計画・管理参照・Control・最終結果の同一性。
+ * @oracle 準備callbackは呼ばず、完了結果をコピーしない。
+ * @cleanup 合成Promiseの完了だけを待つ。
  */
-test("公開開始の四経路は選択と準備失敗だけを搬送し内部項目を漏らさない", async () => {
+test("公開開始は解決済み計画を渡し同じ終了結果を通知する", async () => {
   const source = readFileSync(
-    new URL("../../src/attempt/preparation.ts", import.meta.url),
+    new URL("../../src/attempt/execute.ts", import.meta.url),
     "utf8",
   );
-  const control = Object.freeze({});
-  const completionResult = createCompletionResult({
-    status: "blocked",
-    reason: "provider_result_invalid",
-    operationId: "OP-123456",
-    selectionRecordId: "selection",
-    recoveryId: "exact-recovery",
-    providerRequestStarted: false,
-    cancellationRequested: false,
-    processTreeTerminationConfirmed: true,
-    containersAbsent: true,
-    networksAbsent: true,
-    mountLeaseReleased: true,
-    recoveryCompleted: true,
-    resultSha256: null,
-    resultBytes: 0,
-    normalizedResult: null,
-    subscriptionAuthConfirmed: false,
-    recoveryFinalizationCapability: {},
-  });
-  const completion = Promise.resolve(completionResult);
-  const common = [
-    "status",
-    "reason",
-    "controlCapability",
-    "completion",
-    "operationId",
-    "recoveryId",
-    "dockerEffectStarted",
-    "providerRequestStarted",
-    "normalizedResult",
-    "rawOutputReported",
-    "untrustedProviderTextReported",
-    "credentialAbsenceVerified",
-    "hostPathReported",
-    "proxyCredentialReported",
-  ];
-  const blockedKeys = [...common, "cleanupConfirmed", "manualRecoveryRequired"];
-  const selectionKeys = ["selectionNotice", "selectedModel", "selectedEffort"];
-  const preparedCapability = {};
-  for (const mode of [
-    "invalid_provider",
-    "preparation_blocked",
-    "runtime_blocked",
-    "started",
-  ] as const) {
-    let notified: unknown = null;
+  for (const mode of ["blocked", "started"]) {
+    const plan = {},
+      management = {},
+      control = {},
+      terminal = {};
+    const callbacks = Object.freeze({ onCompleted: () => undefined });
+    const reference = Object.freeze({
+      recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+      recoveryCapability: Object.freeze({}),
+    });
+    const random = { randomBytes: () => Buffer.alloc(1) };
+    const request = {};
+    const prepared = plan;
+    const started =
+      mode === "blocked"
+        ? createStartResult({ status: "blocked", reason: "synthetic" })
+        : createStartResult({
+            status: "started",
+            controlCapability: control,
+            completion: Promise.resolve(terminal) as never,
+            operationId: "OP-123456",
+            recoveryId: "exact",
+          });
     const create = runInNewContext(
       `${sourceDeclaration(source, "createExecutor")}\ncreateExecutor`,
       {
+        Object,
         createStartResult,
         utilTypes: { isPromise: () => false },
-        createAttemptPreparation: () => ({
-          consume: () => null,
-          prepare: () =>
-            mode === "preparation_blocked"
-              ? createPreparationFailure("synthetic")
-              : {
-                  status: "prepared",
-                  preparedCapability,
-                  selectionNotice: "selected",
-                  selectedModel: "synthetic",
-                  selectedEffort: "medium",
-                },
-        }),
-        createExecutionRuntime: () => ({
-          start: () =>
-            mode === "runtime_blocked"
-              ? createStartResult({
-                  status: "blocked",
-                  reason: "synthetic",
-                  cleanupConfirmed: true,
-                })
-              : createStartResult({
-                  status: "started",
-                  controlCapability: control,
-                  completion,
-                  operationId: "OP-123456",
-                  recoveryId: "exact-recovery",
-                }),
-          cancel: () => undefined,
-        }),
+        createDockerIsolationRuntime: () => ({ acquireHomeLease: () => null }),
+        bindIsolationRuntime: () => ({}),
+        prepareAttempt: (source: unknown, input: unknown) => {
+          assert.strictEqual(source, random);
+          assert.strictEqual(input, request);
+          return prepared;
+        },
+        start: (
+          state: { callbacks: unknown },
+          p: unknown,
+          m: unknown,
+          suppliedReference: unknown,
+        ) => {
+          assert.strictEqual(p, plan);
+          assert.strictEqual(m, management);
+          assert.strictEqual(suppliedReference, reference);
+          assert.strictEqual(state.callbacks, callbacks);
+          return started;
+        },
+        cancel: () => {},
+        abandon: () => false,
       },
-    ) as (options: unknown) => {
-      start: (
-        provider: unknown,
-        input: unknown,
-        register: unknown,
-      ) => StartResult;
-    };
-    const executor = create({
-      onCompleted: (value: unknown) => {
-        notified = value;
+    );
+    const executor = create(
+      request,
+      {
+        borrowPaths: () => {
+          throw Error("unexpected_path_borrow");
+        },
+        inspectReceipts: () => null,
       },
-    });
-    const result = executor.start(
-      mode === "invalid_provider" ? "invalid" : "codex",
-      { managementCapability: {} },
-      () => undefined,
+      random,
     );
-    const expectedKeys =
-      mode === "started"
-        ? [
-            ...common,
-            "normalizedResultReportedAfterCleanupOnly",
-            "preparationFailed",
-            ...selectionKeys,
-          ]
-        : [
-            ...blockedKeys,
-            "preparationFailed",
-            ...(mode === "invalid_provider" ? [] : selectionKeys),
-          ];
-    assert.deepEqual(Reflect.ownKeys(result).sort(), expectedKeys.sort(), mode);
-    assert.equal(Object.isFrozen(result), true);
-    assert.equal(
-      result.preparationFailed,
-      mode === "invalid_provider" || mode === "preparation_blocked",
-    );
-    assert.equal(
-      Object.hasOwn(result, "selectedModel"),
-      mode !== "invalid_provider",
-    );
-    if (mode === "preparation_blocked") {
-      assert.equal(result.selectedModel, null);
-      assert.equal(result.selectedEffort, null);
-      assert.equal(result.selectionNotice, null);
-    } else if (mode !== "invalid_provider") {
-      assert.equal(result.selectedModel, "synthetic");
-      assert.equal(result.selectedEffort, "medium");
-      assert.equal(result.selectionNotice, "selected");
-    }
+    assert.equal("prepare" in executor, false);
+    assert.equal(Object.isFrozen(executor.recordProjection), true);
+    const result = executor.start(management, reference, callbacks);
+    assert.equal(Object.hasOwn(result, "selectedModel"), false);
+    assert.equal(Object.hasOwn(result, "preparationFailed"), false);
     if (result.status === "started") {
-      assert.equal(result.controlCapability, control);
-      assert.equal(await result.completion, completionResult);
-      assert.equal(notified, completionResult);
-    }
+      assert.strictEqual(result.controlCapability, control);
+      assert.strictEqual(await result.completion, terminal);
+    } else assert.strictEqual(result, started);
   }
-  const extra = {
-    status: "blocked" as const,
-    reason: "synthetic",
-    preparedCapability: {},
-    grantRef: "must_not_escape",
-    selectionRecordId: "must_not_escape",
-    runtimeAuthorityIssued: true,
-  };
-  const rejected = createStartResult(extra);
-  assert.deepEqual(Reflect.ownKeys(rejected).sort(), blockedKeys.sort());
 });
 
 /**
@@ -324,17 +244,17 @@ test("開始拒否は清掃と元回復参照と下位義務を独立に保持�
 });
 
 /**
- * 五つの清掃条件の全組合せと三終端状態を照合する。
+ * 五つの物理清掃条件と保存受理の全組合せを照合する。
  * @responsibility 一条件の欠測も成功や結果公開へ丸めないことを反証する。
  * @trace ERB-IT-004
  * @precondition 実Controllerの純粋な終端投影宣言だけを構文木から抽出する。
- * @stimulus 32組合せとcompleted／blocked／cancelledを渡す。
+ * @stimulus 64組合せとcompleted／blocked／cancelledを渡す。
  * @observation 状態、元回復参照、本文とHash、回復Capabilityを照合する。
  * @oracle 全条件成立時だけ清掃確定し、本文公開はさらにcompletedを要する。
  * @cleanup N/A: 実Process、保存、Dockerを操作しない。
  * @boundary ERB-IT-004=Direct Boundary: Controller終端の相関不変条件。
  */
-test("終端結果は五清掃条件の全32組合せと三状態を混同しない", () => {
+test("終端結果は技術清掃と上位保存の全64組合せを区別し、上位判断を所有しない", () => {
   const source = readFileSync(
     new URL("../../src/result/attempt.ts", import.meta.url),
     "utf8",
@@ -347,6 +267,7 @@ test("終端結果は五清掃条件の全32組合せと三状態を混同しな
     "containersAbsent",
     "networksAbsent",
     "mountLeaseReleased",
+    "homeLeaseReleased",
     "recoveryCompleted",
   ] as const;
   const value = Object.freeze({
@@ -355,7 +276,7 @@ test("終端結果は五清掃条件の全32組合せと三状態を混同しな
   });
   const findings = Object.freeze([{ message: "Synthetic finding." }]);
   const capability = Object.freeze({});
-  for (let bits = 0; bits < 32; bits++) {
+  for (let bits = 0; bits < 64; bits++) {
     const flags = Object.fromEntries(
       keys.map((key, index) => [key, !!(bits & (1 << index))]),
     );
@@ -378,10 +299,10 @@ test("終端結果は五清掃条件の全32組合せと三状態を混同しな
         subscriptionAuthConfirmed: true,
         recoveryFinalizationCapability: capability,
       });
-      const clean = bits === 31;
+      const clean = (bits & 23) === 23;
       assert.equal(result.cleanupConfirmed, clean);
       assert.equal(result.status, clean ? status : "blocked");
-      assert.equal(result.recoveryId, clean ? null : "exact-recovery");
+      assert.equal(result.recoveryId, "exact-recovery");
       assert.equal(result.manualRecoveryRequired, !clean);
       assert.equal(
         result.normalizedResult,
@@ -392,10 +313,7 @@ test("終端結果は五清掃条件の全32組合せと三状態を混同しな
         clean && status === "completed" ? "hash" : null,
       );
       assert.equal(result.resultBytes, clean && status === "completed" ? 4 : 0);
-      assert.equal(
-        result.recoveryFinalizationCapability,
-        clean ? capability : null,
-      );
+      assert.equal(result.recoveryFinalizationCapability, undefined);
       assert.equal(
         result.providerExecutionObservation,
         clean && status === "completed" ? value : null,

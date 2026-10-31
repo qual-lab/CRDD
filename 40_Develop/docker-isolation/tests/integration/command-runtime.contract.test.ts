@@ -301,6 +301,9 @@ test("公開Factoryはdescriptorの継承valueを受理しない", () => {
         utilTypes,
         process: { platform: "win32" },
         readCliSnapshot: () => {},
+        acquireHomeLease: () => {
+          throw new Error("home_lease_not_requested_by_descriptor_fixture");
+        },
         verifyCliSnapshot: () => {},
         createDockerProcessEnvironment: () => {},
         createDockerCliConfig: () => {},
@@ -434,6 +437,7 @@ test("公開Factoryは上位のOS指定とgetterを受け付けない", () => {
   assert.equal(getterReads, 0);
   const publicRuntime = createDockerIsolationRuntime(permitted);
   assert.deepEqual(Object.keys(publicRuntime).sort(), [
+    "acquireHomeLease",
     "cleanupOwnedResources",
     "startCommand",
     "startExecution",
@@ -1145,6 +1149,9 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
           },
         },
         createDockerIsolationRuntimeCandidate,
+        acquireHomeLease: () => {
+          throw new Error("home_lease_not_requested_by_command_fixture");
+        },
         startOwnedWindowsProcess: (
           _executable: string,
           argv: readonly string[],

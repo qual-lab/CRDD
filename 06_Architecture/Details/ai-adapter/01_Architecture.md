@@ -114,6 +114,8 @@ Provider・Effort・技術Model選定・Turn診断の宣言は既存`provider/ty
 
 Provider入力は内部の`provider/input.ts`で通常Object／Arrayを捕捉し、応答JSONは`provider/json.ts`で重複key・不正文法・余剰文字を拒否する。Catalog検査からProvider計画へ循環しない純粋Moduleに閉じ、保存機能や共通ライブラリを新設しない。Domainの保存入力検査とは適用境界を分け、AI Adapterの入力検査からDomainを呼ばない。汎用JSON解析は内部に隠し、上位の一般JSON読取りはDomainの既存APIを使う。
 
+助言参照の入力固定と内容検査は同じ`parseAdviceReferences`を使用する。既存の1024件・512byte上限と文字列・重複条件へ統一し、既存plain-data配列検査で動的Propertyを評価せずコピーする。Executor独自の256件上限は撤去する。新しい汎用Snapshot API、Registry、保存処理は公開しない。
+
 Provider応答の共通内容正規化は`provider/task-result.ts`（編集・レビュー）と`provider/advice-result.ts`（助言・許可参照・Schema）が所有する。公開の`inspectTaskResultContent`、`parseAdviceResult`、`describeAdviceResultSchema`と結果型をExecutor／Coordinatorが使用する。Envelope抽出の`parseProviderResult`と内容検査を混同せず、既存の拒否順序・理由・返却shapeを維持する。是正許可の発行はCoordinatorに残す。
 
 Domainにあった同じ内容検査は保存処理から利用されていなかったため、元試験とともにAI Adapterへ一実体移管し、Domainの旧ファイル・公開APIは撤去する。正規値・欠測・余剰・動的Property・不正所見・許可外参照と全拒否理由を元契約へ照合する。SchemaのJSON bytesと既存Command Hashも同一とし、Domainの保存Schema・Writer・遷移は変更しない。
@@ -130,6 +132,7 @@ Domainにあった同じ内容検査は保存処理から利用されていな�
 | `resolveAiModelSelection` | `AiModelSelectionResult`。resolved／blocked、補完なし |
 | `planProviderExecution` | `ProviderExecutionPlanResult`。Provider・用途に対応する計画又は拒否 |
 | `evaluateProviderTaskScope` | `ProviderTaskScopeResult`。ClaudeのTurn見積りとCodex非適用を区別 |
+| `parseAdviceReferences` | `AdviceReferencesResult`。confirmedの不変配列／blockedの固定理由。許可集合の選択は上位が所有 |
 | `parseProviderResult` | `ProviderResultParseResult`。用途別解析値又は固定拒否 |
 | `convertProviderError` | `ProviderError`。既存の非正常終了入力をProviderと固定理由へ変換 |
 | `describeProviderExecution` | `ProviderExecutionDefinition`。対応する操作の記述。配布Identityなし |

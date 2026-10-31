@@ -29,7 +29,7 @@ import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
 } from "../../src/execution/provider-executor.ts";
-import { describeExecutorContract } from "../../../executor/src/index.ts";
+import { describeDockerCommandSessionContract } from "../../../docker-isolation/src/index.ts";
 import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
 import {
   projectAttemptResult,
@@ -466,14 +466,14 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
   );
 
   const missing = { ...(completion as Readonly<Record<string, unknown>>) };
-  delete missing.selectionRecordId;
+  delete missing.operationId;
   const extra = {
     ...(completion as Readonly<Record<string, unknown>>),
     extra: true,
   };
   const renamed = { ...(completion as Readonly<Record<string, unknown>>) };
-  delete renamed.selectionRecordId;
-  renamed.selectionId = "MODELSEL-12345678";
+  delete renamed.operationId;
+  renamed.operation = "OP-123456";
   const accessor = { ...(completion as Readonly<Record<string, unknown>>) };
   Object.defineProperty(accessor, "normalizedResult", {
     enumerable: true,
@@ -811,9 +811,15 @@ function createFixture(
     consumePreparedPlan: (prepared: unknown, management: unknown) => {
       assert.equal(prepared, preparedCapability);
       assert.equal(management, managementCapability);
+      if (
+        !["coordinator_cli", "workbench", "orchestrator"].includes(
+          plan.consumer,
+        )
+      )
+        return null;
       return plan;
     },
-    beginRecovery: (plan: { consumer: unknown }) => {
+    beginRecovery: () => {
       recoveryConsumers.push(plan.consumer);
       return Object.freeze({
         status: "ready" as const,
@@ -848,7 +854,9 @@ function createFixture(
               ? createProviderOutput()
               : isAuth
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -889,6 +897,7 @@ function createFixture(
       recoveryEvents.push(`receipt:${purpose}`);
       return true;
     },
+    verifyHomeLeaseRelease: () => true,
     recordDockerAbsence: (_capability: object, observations: unknown) => {
       recordedResourceObservations = observations;
       recoveryEvents.push("docker-absence");
@@ -1198,7 +1207,7 @@ test("終端観測は固定callbackで清掃後に一回渡され制御を復活
   assert.equal(terminal.primaryFailure, null);
   assert.equal(terminal.mountLeaseReleased, true);
   assert.equal(terminal.recoveryCompleted, true);
-  assert.equal(terminal.homeLeaseReleased, false);
+  assert.equal(terminal.homeLeaseReleased, true);
   assert.equal(
     (
       await fixture.controller.cancel(
@@ -1218,7 +1227,7 @@ test("終端観測は固定callbackで清掃後に一回渡され制御を復活
  * @precondition 独立Controllerの実行と五purposeの終端観測を使用する。
  * @stimulus 回復完了を失敗させ、Home解放照合へfalse、例外、trueを返す。
  * @observation 元の完了結果、全清掃状態、終端借用の解放・回復状態。
- * @oracle trueの解放だけを保持し、全ケースで回復と全清掃は未完了である。
+ * @oracle trueの実解放だけ物理清掃を確定し、全ケースで耐久回復は未完了として同じ参照を保持する。
  * @cleanup 独立Fixtureは外部Process、Docker、Filesystem資源を作成しない。
  * @boundary Controllerから同じ操作の終端観測搬送。
  */
@@ -1250,13 +1259,152 @@ test("Home解放の実観測は回復後続失敗と区別し照合例外を肯�
     const result = await started.completion;
     assert.ok(result);
     assert.equal(verified, 1);
-    assert.equal(result.cleanupConfirmed, false);
-    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, release === "released");
+    assert.equal(
+      result.status,
+      release === "released" ? "completed" : "blocked",
+    );
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.recoveryId, started.recoveryId);
     const observation = fixture.readTerminal();
     assert.ok(observation);
     assert.equal(observation.recoveryCompleted, false);
     assert.equal(observation.mountLeaseReleased, true);
     assert.equal(observation.homeLeaseReleased, release === "released");
+  }
+});
+
+/**
+ * Home Leaseの技術Ownerが開始拒否・保存拒否・Owner終了を閉じる。
+ * @responsibility 保存結果で実releaseを止めず、別Ownerや二重解放を拒否する。
+ * @trace ERB-IT-002
+ * @precondition 合成LeaseとCommandだけを使う。
+ * @stimulus 開始拒否、通常終了、保存拒否、清掃不明、release拒否を渡す。
+ * @observation acquire/release回数、元参照、終了結果とOwner終了後の再使用拒否。
+ * @oracle Effect前拒否はrelease一回、清掃不明では明示Owner終了まで保持する。
+ * @cleanup 合成Leaseの明示終了のみ。外部AI・Docker・OS排他を使用しない。
+ */
+test("Home技術LeaseはExecutorが開始拒否・保存拒否・Owner終了まで所有する", async () => {
+  for (const mode of [
+    "normal",
+    "acquire_failed",
+    "acquire_throw",
+    "admission_rejected",
+    "handoff_rejected",
+    "save_failed",
+    "cleanup_unknown",
+    "release_false",
+  ]) {
+    let acquisitions = 0;
+    let releases = 0;
+    const fixture = createFixture({
+      acquireHomeLease: () => {
+        acquisitions++;
+        if (mode === "acquire_failed") return null;
+        if (mode === "acquire_throw") throw Error("synthetic_home_acquire");
+        return {
+          release: () => {
+            releases++;
+            return mode !== "release_false";
+          },
+        };
+      },
+      ...(mode === "admission_rejected" ? { beginRecovery: () => null } : {}),
+      ...(mode === "save_failed" ? { recordDockerAbsence: () => false } : {}),
+      ...(mode === "cleanup_unknown"
+        ? {
+            cleanupOwnedResources: async () => ({
+              confirmed: false,
+              processTreeTerminated: true,
+              containersAbsent: false,
+              networksAbsent: false,
+              resourceObservations: null,
+            }),
+          }
+        : {}),
+    });
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+      () => mode !== "handoff_rejected",
+    );
+    assert.equal(
+      acquisitions,
+      mode === "admission_rejected" || mode === "handoff_rejected" ? 0 : 1,
+      mode,
+    );
+    if (started.status !== "started") {
+      assert.ok(
+        mode === "admission_rejected" ||
+          mode === "handoff_rejected" ||
+          mode.startsWith("acquire_"),
+        mode,
+      );
+      assert.equal(releases, 0, mode);
+      if (mode.startsWith("acquire_"))
+        assert.equal(started.manualRecoveryRequired, true);
+      if (mode.startsWith("acquire_"))
+        assert.equal(fixture.getMountCompletionCount(), 1);
+      assert.equal(fixture.getCommandCount(), 0, mode);
+      continue;
+    }
+    assert.equal(
+      fixture.controller.abandon(
+        fixture.recoveryCapability,
+        fixture.managementCapability,
+      ),
+      false,
+    );
+    const result = await started.completion;
+    assert.equal(
+      fixture.controller.abandon(fixture.recoveryCapability, {}),
+      false,
+    );
+    assert.equal(
+      (
+        await fixture.controller.cancel(
+          fixture.recoveryCapability,
+          fixture.managementCapability,
+        )
+      ).status,
+      "blocked",
+    );
+    if (mode === "cleanup_unknown") {
+      assert.equal(releases, 0);
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(
+        fixture.controller.abandon(
+          fixture.recoveryCapability,
+          fixture.managementCapability,
+        ),
+        true,
+      );
+    } else {
+      assert.equal(result.homeLeaseReleased, mode !== "release_false");
+      assert.equal(result.cleanupConfirmed, mode !== "release_false");
+      if (mode === "save_failed") {
+        assert.equal(result.recoveryCompleted, false);
+        assert.equal(result.manualRecoveryRequired, true);
+        assert.equal(result.recoveryId, started.recoveryId);
+      }
+      if (mode === "release_false")
+        assert.equal(
+          fixture.controller.abandon(
+            fixture.recoveryCapability,
+            fixture.managementCapability,
+          ),
+          false,
+        );
+    }
+    assert.equal(releases, 1, mode);
+    assert.equal(
+      fixture.controller.abandon(
+        fixture.recoveryCapability,
+        fixture.managementCapability,
+      ),
+      false,
+    );
+    assert.equal(releases, 1, mode);
   }
 });
 
@@ -1322,7 +1470,9 @@ test("認証診断は非0拒否を変えず本体の失敗へ漏れない", asyn
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? stdout
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -1367,7 +1517,9 @@ test("認証診断は非0拒否を変えず本体の失敗へ漏れない", asyn
         stdout:
           command.purpose === "start_subscription_auth_probe_attached"
             ? createSubscriptionAuthOutput()
-            : "",
+            : command.purpose.startsWith("create_")
+              ? "a".repeat(64)
+              : "",
         stderr: "",
         outputExceeded: false,
       }),
@@ -1434,7 +1586,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
               return {
                 status: scenario === "nonzero" ? 1 : 0,
                 signal: null,
-                stdout: "fixed-id",
+                stdout: "a".repeat(64),
                 stderr: "secret-value-must-not-escape",
                 outputExceeded: false,
               };
@@ -1487,7 +1639,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
         scenario === "nonzero" || scenario.startsWith("receipt")
           ? {
               exitCode: scenario === "nonzero" ? 1 : 0,
-              stdoutBytes: Buffer.byteLength("fixed-id"),
+              stdoutBytes: 64,
               stderrBytes: Buffer.byteLength("secret-value-must-not-escape"),
             }
           : null,
@@ -1506,9 +1658,9 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
       );
       assert.equal(
         primary.reason,
-        scenario === "submission_false"
+        scenario.startsWith("submission")
           ? "docker_resource_submission_record_unavailable"
-          : scenario === "receipt_false"
+          : scenario.startsWith("receipt")
             ? "docker_resource_receipt_unavailable"
             : scenario.startsWith("timeout")
               ? "docker_setup_deadline_exceeded"
@@ -1526,7 +1678,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
         primary.responseObserved,
         scenario === "nonzero" || scenario.startsWith("receipt"),
       );
-      assert.equal(primary.receiptRecorded, false);
+      assert.equal(primary.receiptRecorded, scenario.startsWith("receipt"));
       assert.equal(settled.cleanupConfirmed, cleanupMode === "complete");
       if (cleanupMode !== "complete")
         assert.equal(
@@ -1590,7 +1742,9 @@ test("検査済み助言四区分をcleanup後に返す", async () => {
                     })
                   : isAuth
                     ? createSubscriptionAuthOutput()
-                    : "",
+                    : command.purpose.startsWith("create_")
+                      ? "a".repeat(64)
+                      : "",
                 stderr: "",
                 outputExceeded: false,
               }),
@@ -1694,7 +1848,9 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
                 ? raw
                 : command.purpose === "start_subscription_auth_probe_attached"
                   ? createSubscriptionAuthOutput()
-                  : "",
+                  : command.purpose.startsWith("create_")
+                    ? "a".repeat(64)
+                    : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -1765,7 +1921,9 @@ test("Windows Process Gate: Provider実ProcessのOS起動確認後だけRuntime�
               ? providerStartObservationTaskOutput
               : command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
           stderr: "",
           outputExceeded: false,
         }),
@@ -1839,7 +1997,7 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
             command.purpose === "start_subscription_auth_probe_attached"
               ? "Logged in using ChatGPT"
               : command.purpose.startsWith("create_")
-                ? "docker-id"
+                ? "a".repeat(64)
                 : "",
           stderr: "",
           outputExceeded: false,
@@ -1908,8 +2066,6 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
       taskRole: "executor",
       provider: "codex",
       operationId: "OP-123456",
-      taskAttempt: 0,
-      recoveryCorrelationId: null,
       recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
       providerContainerCreatedObserved: true,
       providerProcessStartedObserved: true,
@@ -1990,7 +2146,9 @@ test("Provider commandの同期起動失敗を実Process開始として公開し
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -2044,7 +2202,9 @@ test("Provider commandの非同期起動失敗も開始観測とProvider Effect�
           stdout:
             command.purpose === "start_subscription_auth_probe_attached"
               ? createSubscriptionAuthOutput()
-              : "",
+              : command.purpose.startsWith("create_")
+                ? "a".repeat(64)
+                : "",
           stderr: "",
           outputExceeded: false,
         }),
@@ -2167,7 +2327,9 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
               stdout:
                 command.purpose === "start_subscription_auth_probe_attached"
                   ? createSubscriptionAuthOutput()
-                  : "",
+                  : command.purpose.startsWith("create_")
+                    ? "a".repeat(64)
+                    : "",
               stderr: "",
               outputExceeded: false,
             }),
@@ -2180,6 +2342,7 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
             processTreeTerminated: confirmed,
             containersAbsent: confirmed,
             networksAbsent: confirmed,
+            resourceObservations: confirmed ? fixture.resourceObservations : null,
           }),
         },
         providerStartObservationTaskPlan,
@@ -2221,11 +2384,15 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
  */
 test("実Process開始観測を公開できなければ対象Processを終了して成功を返さない", async () => {
   let providerTerminationCount = 0;
+  let closeProvider!:()=>void;
+  const providerClosed = new Promise<void>(resolve=>{closeProvider=resolve;});
   const fixture = createFixture(
     {
       startCommand: (command: { purpose: string }) => ({
         started: async () => true,
-        wait: async () => ({
+        wait: async () => {
+          if (command.purpose === "start_provider_attached") await providerClosed;
+          return ({
           status: 0,
           signal: null,
           stdout:
@@ -2233,13 +2400,16 @@ test("実Process開始観測を公開できなければ対象Processを終了し
               ? createSubscriptionAuthOutput()
               : command.purpose === "start_provider_attached"
                 ? providerStartObservationTaskOutput
-                : "",
+                : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
           stderr: "",
           outputExceeded: false,
-        }),
+        });
+        },
         terminateAndWait: async () => {
-          if (command.purpose === "start_provider_attached")
+          if (command.purpose === "start_provider_attached") {
             providerTerminationCount += 1;
+            closeProvider();
+          }
           return true;
         },
       }),
@@ -2359,14 +2529,14 @@ async function runCreateCancellationRace(
         );
       if (outcome === "receipt_throw") throw new Error("fixed-receipt-failure");
       // Explicit fixture response, not a replacement for the durable store validator.
-      return outcome !== "receipt_false" && id === `${dockerId}\n`;
+      return outcome !== "receipt_false" && id === dockerId;
     },
     cleanupOwnedResources: async () => {
       events.push("cleanup");
       if (outcome === "valid") {
         assert.deepEqual(
           receipts.filter((entry) => entry.purpose === purpose),
-          [{ purpose, id: `${dockerId}\n` }],
+          [{ purpose, id: dockerId }],
         );
       }
       return {
@@ -2374,6 +2544,9 @@ async function runCreateCancellationRace(
         processTreeTerminated: true,
         containersAbsent: cleanupConfirmed,
         networksAbsent: cleanupConfirmed,
+        resourceObservations: cleanupConfirmed
+          ? fixture.resourceObservations
+          : null,
       };
     },
   });
@@ -2403,7 +2576,11 @@ async function runCreateCancellationRace(
   const targetReceipts = receipts.filter((entry) => entry.purpose === purpose);
   assert.equal(
     targetReceipts.length,
-    ["null", "nonzero", "signal", "output_limit"].includes(outcome) ? 0 : 1,
+    ["invalid_id", "null", "nonzero", "signal", "output_limit"].includes(
+      outcome,
+    )
+      ? 0
+      : 1,
   );
   assert.equal(events.at(-1), "cleanup");
   assert.equal(result.cleanupConfirmed, cleanupConfirmed);
@@ -2509,7 +2686,7 @@ for (const outcome of [
     const expectedReasons = {
       invalid_id: "docker_resource_receipt_unavailable",
       receipt_false: "docker_resource_receipt_unavailable",
-      receipt_throw: "docker_process_controller_execution_failed_closed",
+      receipt_throw: "docker_resource_receipt_unavailable",
       null: "docker_setup_deadline_exceeded",
       nonzero: "docker_setup_create_provider_failed",
       signal: "provider_process_signalled",
@@ -2822,7 +2999,9 @@ for (const stop of [
                   ? createProviderOutput()
                   : command.purpose === "start_subscription_auth_probe_attached"
                     ? createSubscriptionAuthOutput()
-                    : "",
+                    : command.purpose.startsWith("create_")
+                      ? "a".repeat(64)
+                      : "",
               stderr: "",
               outputExceeded: false,
             };
@@ -3101,7 +3280,9 @@ test("Provider要求は同期保存後だけ発行し保存中取消で停止す
                 ? createProviderOutput()
                 : command.purpose === "start_subscription_auth_probe_attached"
                   ? createSubscriptionAuthOutput()
-                  : "",
+                  : command.purpose.startsWith("create_")
+                    ? "a".repeat(64)
+                    : "",
               stderr: "",
               outputExceeded: false,
             }),
@@ -3226,7 +3407,7 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
                     forcedLoginMethod: null,
                     subscriptionType: null,
                   })
-                : "",
+                : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3296,7 +3477,7 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
                     ? auth.stdout
                     : command.purpose === "start_provider_attached"
                       ? '{"status":true}\n'
-                      : "",
+                      : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
                 stderr:
                   command.purpose === "start_subscription_auth_probe_attached"
                     ? auth.stderr
@@ -3372,7 +3553,7 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
                 stdout:
                   command.purpose === "start_subscription_auth_probe_attached"
                     ? auth.stdout
-                    : "",
+                    : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
                 stderr:
                   command.purpose === "start_subscription_auth_probe_attached"
                     ? auth.stderr
@@ -3426,7 +3607,7 @@ test("Claude Max以外のSubscription OfferingではProvider request前に停止
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput("pro")
-                : "",
+                : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3533,7 +3714,9 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
               ? createSubscriptionAuthOutput()
               : command.purpose === "start_provider_attached"
                 ? stdout
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
           stderr: command.purpose === "start_provider_attached" ? stderr : "",
           outputExceeded: false,
         }),
@@ -3602,7 +3785,9 @@ test("搬送失敗status:nullは出力上限やtimeoutでなく既存の実行�
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3650,7 +3835,7 @@ test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文�
           stdout:
             command.purpose === "start_subscription_auth_probe_attached"
               ? createSubscriptionAuthOutput()
-              : execution.stdout,
+              : command.purpose === "start_provider_attached" ? execution.stdout : command.purpose.startsWith("create_") ? "a".repeat(64) : "",
           stderr:
             command.purpose === "start_provider_attached"
               ? execution.stderr
@@ -3696,7 +3881,9 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
               stdout:
                 command.purpose === "start_subscription_auth_probe_attached"
                   ? createSubscriptionAuthOutput()
-                  : "",
+                  : command.purpose.startsWith("create_")
+                    ? "a".repeat(64)
+                    : "",
               stderr: "",
               outputExceeded: false,
             },
@@ -3764,7 +3951,9 @@ for (const dockerCleanupConfirmed of [true, false]) {
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3857,7 +4046,9 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
             stdout:
               command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -3957,6 +4148,7 @@ test("cleanup待機中の遅延取消はcompletedをcancelledへ再settleする"
         processTreeTerminated: true,
         containersAbsent: true,
         networksAbsent: true,
+        resourceObservations: fixture.resourceObservations,
       });
     },
   });
@@ -4012,7 +4204,9 @@ test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きし
             ? createProviderOutput({ structured_output: { status: false } })
             : command.purpose === "start_subscription_auth_probe_attached"
               ? createSubscriptionAuthOutput()
-              : "",
+              : command.purpose.startsWith("create_")
+                ? "a".repeat(64)
+                : "",
         stderr: "",
         outputExceeded: false,
       }),
@@ -4026,6 +4220,7 @@ test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きし
         processTreeTerminated: true,
         containersAbsent: true,
         networksAbsent: true,
+        resourceObservations: fixture.resourceObservations,
       });
     },
   });
@@ -4124,7 +4319,9 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
             ? createProviderOutput({ structured_output: { status: false } })
             : command.purpose === "start_subscription_auth_probe_attached"
               ? createSubscriptionAuthOutput()
-              : "",
+              : command.purpose.startsWith("create_")
+                ? "a".repeat(64)
+                : "",
         stderr: "",
         outputExceeded: false,
       }),
@@ -4188,7 +4385,9 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
               ? taskOutput
               : command.purpose === "start_subscription_auth_probe_attached"
                 ? createSubscriptionAuthOutput()
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
           stderr: "",
           outputExceeded: false,
         }),
@@ -4281,7 +4480,9 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
                   ? taskOutput
                   : command.purpose === "start_subscription_auth_probe_attached"
                     ? createSubscriptionAuthOutput()
-                    : "",
+                    : command.purpose.startsWith("create_")
+                      ? "a".repeat(64)
+                      : "",
               stderr: "",
               outputExceeded: false,
             }),
@@ -4292,6 +4493,7 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
             processTreeTerminated: cleanupConfirmed,
             containersAbsent: cleanupConfirmed,
             networksAbsent: cleanupConfirmed,
+            resourceObservations: cleanupConfirmed ? fixture.resourceObservations : null,
           }),
         },
         {
@@ -4393,7 +4595,9 @@ test("Claude Reviewerの構造不正理由を実Controllerから安全な固定�
                   ? taskOutput
                   : command.purpose === "start_subscription_auth_probe_attached"
                     ? createSubscriptionAuthOutput()
-                    : "",
+                    : command.purpose.startsWith("create_")
+                      ? "a".repeat(64)
+                      : "",
               stderr: "",
               outputExceeded: false,
             }),
@@ -4404,6 +4608,7 @@ test("Claude Reviewerの構造不正理由を実Controllerから安全な固定�
             processTreeTerminated: cleanupConfirmed,
             containersAbsent: cleanupConfirmed,
             networksAbsent: cleanupConfirmed,
+            resourceObservations: cleanupConfirmed ? fixture.resourceObservations : null,
           }),
         },
         {
@@ -5176,44 +5381,11 @@ test("Provider完了後にRepository Revisionが変わればResultを公開し�
  * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を固定する", () => {
-  const contract = describeExecutorContract();
+  const contract = describeDockerCommandSessionContract();
   assert.equal(contract.setupTimeoutMs, 10_000);
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
-  assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 32);
-  assert.match(contract.subscriptionAuthentication, /required_before/u);
-  assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
-  assert.match(contract.subscriptionOffering, /exact_match_required/u);
-  assert.match(contract.providerAuthority, /consumed_before/u);
-  assert.equal(
-    contract.structuredResult,
-    "exact_provider_boolean_role_task_or_workbench_advice_result_published_after_cleanup_only",
-  );
-  assert.equal(contract.rawOutputReported, false);
-  assert.equal(contract.hostPathReported, false);
-  assert.equal(contract.proxyCredentialReported, false);
-  assert.equal(
-    contract.productionPreparedPlan,
-    "runtime_owned_adapter_connected",
-  );
-  assert.equal(
-    contract.productionRecovery,
-    "runtime_state_docker_task_recovery_and_deferred_host_finalization_connected",
-  );
-  assert.equal(
-    contract.productionMountCompletion,
-    "runtime_owned_mount_lease_connected",
-  );
-  assert.equal(
-    contract.productionRevisionBinding,
-    "runtime_owned_repository_revision_connected",
-  );
-  assert.equal(contract.productionEffectExecutor, "fixed_docker_cli_connected");
-  assert.equal(
-    contract.providerFailureClassification,
-    "known_operational_nonzero_output_mapped_to_closed_public_reason_unknown_output_kept_generic",
-  );
+  // 説明文字列を保証の証明にせず、上記の実行・取消・回収試験で振る舞いを検証する。
 });
 
 /**
@@ -5494,7 +5666,9 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
                       command.purpose ===
                       "start_subscription_auth_probe_attached"
                         ? createSubscriptionAuthOutput()
-                        : "",
+                        : command.purpose.startsWith("create_")
+                          ? "a".repeat(64)
+                          : "",
                     stderr: "",
                     outputExceeded: false,
                   },

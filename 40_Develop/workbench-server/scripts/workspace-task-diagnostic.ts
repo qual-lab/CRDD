@@ -9,11 +9,9 @@ import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
 import {
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
-} from "../../coordinator/scripts/task-diagnostic.ts";
-import {
   inspectRecoveryStartFailureDiagnostic,
-  isPrimaryFailureDiagnostic,
-} from "../../executor/src/index.ts";
+} from "../../coordinator/scripts/task-diagnostic.ts";
+import { isPrimaryFailureDiagnostic } from "../../executor/scripts/executor-test.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
 
 type Event = Extract<

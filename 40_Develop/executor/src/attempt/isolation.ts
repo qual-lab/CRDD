@@ -6,11 +6,13 @@
  */
 import {
   type DockerIsolationRuntime,
+  type HomeLease,
   type DockerIsolationRuntimePlan,
   type DockerIsolationCommand,
   describeDockerIsolationExecutionEnvironment,
   type DockerExecutionHooks,
   type DockerSessionCleanup,
+  type DockerCommandSession,
   bindAdviceCommand,
   hashAdviceCommand,
   type DockerIsolationCommandInput,
@@ -19,17 +21,12 @@ import {
   dockerIsolationResourceIdentityIsValid,
   dockerIsolationCommandsMatch,
 } from "../../../docker-isolation/src/index.ts";
-import type {
-  PreparedPlan as isolationExecutionPreparedPlan,
-  Command as isolationExecutionCommand,
-  PreparedPlan,
-  ProviderAttemptPlan,
-  Recovery,
-  RuntimeDependencies,
-} from "./types.ts";
+import type { AttemptPlan, AttemptDiagnosticNotice } from "./types.ts";
+import { projectDockerExecutionBoundary } from "../../../docker-isolation/src/index.ts";
+import { projectCodexExecutionBoundary } from "../../../ai-adapter/src/index.ts";
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
-import { inspectAttemptSelection } from "./validation.ts";
+import { parseModelSelection } from "./validation.ts";
 import {
   planProviderExecution,
   prepareProviderEnvironment,
@@ -40,6 +37,27 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import { PURPOSES } from "../result/constants.ts";
 
+/** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
+export interface IsolationRuntime {
+  acquireHomeLease(bindingHash: string): HomeLease | null;
+  startExecution(
+    plan: AttemptPlan,
+    recovery: object,
+    management: object,
+    hooks: DockerExecutionHooks,
+  ): DockerCommandSession;
+  cleanupOwnedResources(
+    plan: AttemptPlan,
+    recovery: object,
+    management: unknown,
+  ): Promise<DockerSessionCleanup>;
+  verifyCleanupOutcome(
+    result: unknown,
+    plan: AttemptPlan,
+    recovery: unknown,
+    management: unknown,
+  ): DockerSessionCleanup["resourceObservations"];
+}
 const ISOLATION_CONTRACT = "crdd-executor/isolation";
 
 const ISOLATION_CONTRACT_REVISION = 10;
@@ -63,7 +81,7 @@ const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
  * @concurrency 下位の終了待機を完了するまで元Runtimeを保持する。
  */
 export function bindIsolationRuntime(
-  runtime: DockerIsolationRuntime,
+  runtime: Omit<DockerIsolationRuntime, "acquireHomeLease">,
   borrowPaths: (managementCapability: object) => Readonly<{ tmp: string }>,
 ) {
   /**
@@ -83,7 +101,7 @@ export function bindIsolationRuntime(
    * @concurrency 同じOwnerを操作直前に観測し、下位も借用所在を再照合する。
    */
   function project(
-    plan: isolationExecutionPreparedPlan,
+    plan: AttemptPlan,
     managementCapability: object,
   ): DockerIsolationRuntimePlan {
     const paths = borrowPaths(managementCapability);
@@ -113,8 +131,8 @@ export function bindIsolationRuntime(
    * @concurrency 元の操作相関を同じ生涯で維持する。
    */
   function startCommand(
-    command: isolationExecutionCommand,
-    plan: isolationExecutionPreparedPlan,
+    command: DockerIsolationCommand,
+    plan: AttemptPlan,
     managementCapability: unknown,
   ) {
     if (!managementCapability || typeof managementCapability !== "object")
@@ -148,7 +166,7 @@ export function bindIsolationRuntime(
    * @concurrency 下位の終了待機と清掃観測を待つ。
    */
   async function cleanupOwnedResources(
-    plan: isolationExecutionPreparedPlan,
+    plan: AttemptPlan,
     recoveryCapability: object,
     managementCapability: unknown,
   ) {
@@ -189,7 +207,7 @@ export function bindIsolationRuntime(
    */
   function verifyCleanupOutcome(
     result: unknown,
-    plan: isolationExecutionPreparedPlan,
+    plan: AttemptPlan,
     recoveryCapability: unknown,
     managementCapability: unknown,
   ) {
@@ -221,7 +239,7 @@ export function bindIsolationRuntime(
    * @concurrency 実行開始前に不透明cancelを受け取る。
    */
   function startExecution(
-    plan: isolationExecutionPreparedPlan,
+    plan: AttemptPlan,
     recoveryCapability: object,
     managementCapability: object,
     hooks: DockerExecutionHooks,
@@ -294,10 +312,9 @@ export function describeIsolationContract() {
  */
 export function resolveProviderExecution(
   plan: Pick<
-    PreparedPlan,
+    AttemptPlan,
     | "provider"
-    | "selectedModel"
-    | "selectedEffort"
+    | "executionSelection"
     | "operationMode"
     | "taskRole"
     | "taskWorkload"
@@ -311,8 +328,8 @@ export function resolveProviderExecution(
         : "probe";
   const selected = resolveAiModelSelection({
     provider: plan.provider,
-    modelIdentifier: plan.selectedModel,
-    reasoningEffort: plan.selectedEffort,
+    modelIdentifier: plan.executionSelection.modelIdentifier,
+    reasoningEffort: plan.executionSelection.reasoningEffort,
     purpose: purpose === "probe" ? "task" : purpose,
   });
   if (purpose !== "probe" && selected.status !== "resolved") return null;
@@ -350,7 +367,7 @@ export function resolveProviderExecution(
                 provider: plan.provider,
                 mode: "isolated_task",
                 taskRole: plan.taskRole,
-                effort: plan.selectedEffort,
+                effort: plan.executionSelection.reasoningEffort,
                 ...(plan.provider === "claude"
                   ? { taskWorkload: plan.taskWorkload }
                   : {}),
@@ -366,7 +383,7 @@ export function resolveProviderExecution(
                 provider: plan.provider,
                 mode: "read_only_probe",
                 ...(plan.provider === "codex"
-                  ? { effort: plan.selectedEffort }
+                  ? { effort: plan.executionSelection.reasoningEffort }
                   : {}),
               },
             },
@@ -391,7 +408,7 @@ export function resolveProviderExecution(
  * @concurrency N/A: 共有状態なし。
  */
 export function resolveIsolationCommandInput(
-  plan: Omit<PreparedPlan, "authorityUseCapability">,
+  plan: Omit<AttemptPlan, "authorityUseCapability">,
   tmpSourcePath: string,
   proxyToken?: string,
   execution = resolveProviderExecution(plan),
@@ -456,7 +473,7 @@ export function resolveIsolationCommandInput(
 
 /**
  * 元試行の意味を照合し、正規Docker構成を一回で取得する。
- * @responsibility 選定・Packet・Mount相関とDIの完全Command照合を接続する。
+ * @responsibility 技術選定・入力・MountとDIの完全Command照合を接続する。Packet相関は上位Ownerが検査する。
  * @trace ARCH-000008
  * @input 元planと現在の借用tmp所在。
  * @returns 全条件が成立した正規構成、又はnull。
@@ -470,7 +487,7 @@ export function resolveIsolationCommandInput(
  * @concurrency 同期照合。追加状態・Lockを持たない。
  */
 export function resolveValidatedPlan(
-  plan: PreparedPlan,
+  plan: AttemptPlan,
   tmpSourcePath: string,
 ): DockerIsolationCommandInput | null {
   const isAdvicePlan = plan.operationMode === "workbench_advice";
@@ -486,17 +503,15 @@ export function resolveValidatedPlan(
   const expectedAdviceCommandHash = expectedAdviceCommand
     ? hashAdviceCommand(expectedAdviceCommand)
     : null;
-  const fixedSelection = inspectAttemptSelection(plan.executionSelection);
+  const fixedSelection = parseModelSelection(plan.executionSelection);
   const isProviderBindingValid =
     fixedSelection !== null &&
     fixedSelection.provider === plan.provider &&
-    fixedSelection.modelIdentifier === plan.selectedModel &&
-    fixedSelection.reasoningEffort === plan.selectedEffort &&
+    fixedSelection.modelIdentifier ===
+      plan.executionSelection.modelIdentifier &&
+    fixedSelection.reasoningEffort ===
+      plan.executionSelection.reasoningEffort &&
     fixedSelection.purpose === (isAdvicePlan ? "advice" : "task") &&
-    (plan.operationMode !== "isolated_task" ||
-      fixedSelection.role ===
-        (plan.taskRole === "executor" ? "executor" : "independent_reviewer")) &&
-    (!isAdvicePlan || fixedSelection.role === "advice") &&
     (!("identifierKind" in execution) ||
       fixedSelection.identifierKind === execution.identifierKind) &&
     plan.subscriptionOffering ===
@@ -505,8 +520,6 @@ export function resolveValidatedPlan(
     !/^OP-[0-9]{6,}$/u.test(plan.operationId) ||
     !/^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) ||
     !isProviderBindingValid ||
-    !/^[a-f0-9]{64}$/u.test(plan.selectionHash) ||
-    !/^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) ||
     !dockerIsolationResourceIdentityIsValid({
       authenticationContainerName: plan.authContainerName,
       executionContainerName: plan.providerContainerName,
@@ -517,7 +530,9 @@ export function resolveValidatedPlan(
       executionImageDigest: plan.providerImageDigest,
       proxyImageDigest: plan.proxyImageDigest,
     }) ||
-    !["low", "medium", "high"].includes(plan.selectedEffort) ||
+    !["low", "medium", "high"].includes(
+      plan.executionSelection.reasoningEffort,
+    ) ||
     plan.providerHomeSourcePath.length === 0 ||
     !/^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) ||
     !/^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) ||
@@ -532,8 +547,6 @@ export function resolveValidatedPlan(
     (plan.operationMode !== "boolean_probe" && !isTaskPlan && !isAdvicePlan) ||
     (isTaskPlan &&
       ((plan.taskRole !== "executor" && plan.taskRole !== "reviewer") ||
-        !/^TASKPKT-[A-F0-9]{32}$/u.test(plan.taskPacketRef ?? "") ||
-        !/^[a-f0-9]{64}$/u.test(plan.taskPacketHash ?? "") ||
         typeof plan.providerInput !== "string" ||
         plan.providerInput.length === 0 ||
         Buffer.byteLength(plan.providerInput, "utf8") >
@@ -545,10 +558,6 @@ export function resolveValidatedPlan(
           (plan.taskRole === "executor" ? "read_write" : "read_only"))) ||
     (isAdvicePlan &&
       (plan.taskRole !== null ||
-        plan.taskPacketRef !== null ||
-        plan.taskPacketHash !== null ||
-        !/^ADVICEPKT-[A-F0-9]{32}$/u.test(plan.advicePacketRef ?? "") ||
-        !/^[a-f0-9]{64}$/u.test(plan.advicePacketHash ?? "") ||
         plan.adviceCommandHash !== expectedAdviceCommandHash ||
         typeof plan.providerInput !== "string" ||
         plan.providerInput.length === 0 ||
@@ -559,10 +568,6 @@ export function resolveValidatedPlan(
     (!isTaskPlan &&
       !isAdvicePlan &&
       (plan.taskRole !== null ||
-        plan.taskPacketRef !== null ||
-        plan.taskPacketHash !== null ||
-        (plan.advicePacketRef ?? null) !== null ||
-        (plan.advicePacketHash ?? null) !== null ||
         (plan.adviceCommandHash ?? null) !== null ||
         plan.providerInput !== null ||
         plan.workspaceSourcePath !== null ||
@@ -587,9 +592,9 @@ export function resolveValidatedPlan(
  *
  * @responsibility plan Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
- * @input plan: PreparedPlan
+ * @input plan: AttemptPlan
  * @returns planIdentityの計算結果を返す。
- * @precondition 「plan: PreparedPlan」がplanIdentityの入力契約を満たす。
+ * @precondition 「plan: AttemptPlan」がplanIdentityの入力契約を満たす。
  * @postcondition planIdentityの責務を完了した結果だけを返す。
  * @effect N/A: planIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: planIdentityは独自の失敗分岐を所有しない。
@@ -598,20 +603,15 @@ export function resolveValidatedPlan(
  * @security planIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planIdentityは共有非同期状態を持たない同期処理である。
  */
-export function planIdentity(plan: PreparedPlan) {
+export function planIdentity(plan: AttemptPlan) {
   return createHash("sha256")
     .update(
       JSON.stringify({
         operationId: plan.operationId,
         executionSelection: plan.executionSelection,
-        selectionHash: plan.selectionHash,
-        taskAttempt: plan.taskAttempt,
-        selectionRecordId: plan.selectionRecordId,
         operationMode: plan.operationMode,
         taskRole: plan.taskRole,
-        taskPacketHash: plan.taskPacketHash,
         taskWorkload: plan.taskWorkload,
-        advicePacketHash: plan.advicePacketHash ?? null,
         adviceCommandHash: plan.adviceCommandHash ?? null,
         adviceAllowedReferences: plan.adviceAllowedReferences ?? null,
         ownershipLabel: plan.ownershipLabel,
@@ -626,9 +626,9 @@ export function planIdentity(plan: PreparedPlan) {
  *
  * @responsibility Plan Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
- * @input plan: PreparedPlan
+ * @input plan: AttemptPlan
  * @returns isPlanValidの計算結果を返す。
- * @precondition 「plan: PreparedPlan」がisPlanValidの入力契約を満たす。
+ * @precondition 「plan: AttemptPlan」がisPlanValidの入力契約を満たす。
  * @postcondition isPlanValidの責務を完了した結果だけを返す。
  * @effect N/A: isPlanValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: isPlanValidは独自の失敗分岐を所有しない。
@@ -637,34 +637,21 @@ export function planIdentity(plan: PreparedPlan) {
  * @security isPlanValidはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: isPlanValidは共有非同期状態を持たない同期処理である。
  */
-export function isPlanValid(plan: ProviderAttemptPlan) {
+export function isPlanValid(plan: AttemptPlan) {
   const isTaskPlan = plan.operationMode === "isolated_task";
   const isAdvicePlan = plan.operationMode === "workbench_advice";
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
-    (plan.consumer === "coordinator_cli" ||
-      plan.consumer === "workbench" ||
-      plan.consumer === "orchestrator") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
-    (plan.recoveryCorrelationId == null ||
-      /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plan.recoveryCorrelationId)) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
-    /^[a-f0-9]{64}$/u.test(plan.selectionHash) &&
-    inspectAttemptSelection(plan.executionSelection)?.provider ===
-      plan.provider &&
-    (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
-    /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&
+    parseModelSelection(plan.executionSelection)?.provider === plan.provider &&
     plan.subscriptionOffering ===
       describeProviderAuthentication(plan.provider).offering &&
     plan.activeMountCapability !== null &&
     typeof plan.activeMountCapability === "object" &&
-    plan.authorityUseCapability !== null &&
-    typeof plan.authorityUseCapability === "object" &&
     (plan.operationMode === "boolean_probe" || isTaskPlan || isAdvicePlan) &&
     (isTaskPlan
       ? (plan.taskRole === "executor" || plan.taskRole === "reviewer") &&
-        /^TASKPKT-[A-F0-9]{32}$/u.test(plan.taskPacketRef ?? "") &&
-        /^[a-f0-9]{64}$/u.test(plan.taskPacketHash ?? "") &&
         typeof plan.providerInput === "string" &&
         plan.providerInput.length > 0 &&
         typeof plan.workspaceSourcePath === "string" &&
@@ -673,20 +660,12 @@ export function isPlanValid(plan: ProviderAttemptPlan) {
           (plan.taskRole === "executor" ? "read_write" : "read_only")
       : isAdvicePlan
         ? plan.taskRole === null &&
-          plan.taskPacketRef === null &&
-          plan.taskPacketHash === null &&
-          /^ADVICEPKT-[A-F0-9]{32}$/u.test(plan.advicePacketRef ?? "") &&
-          /^[a-f0-9]{64}$/u.test(plan.advicePacketHash ?? "") &&
           /^[a-f0-9]{64}$/u.test(plan.adviceCommandHash ?? "") &&
           typeof plan.providerInput === "string" &&
           plan.providerInput.length > 0 &&
           plan.workspaceSourcePath === null &&
           plan.workspaceMountMode === null
         : plan.taskRole === null &&
-          plan.taskPacketRef === null &&
-          plan.taskPacketHash === null &&
-          (plan.advicePacketRef ?? null) === null &&
-          (plan.advicePacketHash ?? null) === null &&
           (plan.adviceCommandHash ?? null) === null &&
           plan.providerInput === null &&
           plan.workspaceSourcePath === null &&
@@ -723,82 +702,65 @@ export function isPlanValid(plan: ProviderAttemptPlan) {
 }
 
 /**
- * Docker不存在の保存、Mount終了、回復終了を順に行う。
+ * 保持中のHome技術Leaseを一回解放する。
+ * @responsibility Promise・例外・falseを解放成功へ変換しない。
  * @trace ARCH-000008
- * @precondition 呼出し元が下位Sessionと開始保存の終了を待っている。
- * @postcondition 失敗時は清掃成立を推測せず、既存の回復参照を呼出し元へ残す。
- * @effect 同じ試行の既存Host終了操作だけを呼ぶ。
+ * @precondition 呼出し元が実行終了又は開始前拒否を確認している。
+ * @postcondition 同じ呼出し内で解放を再試行しない。
+ * @effect 元Home Leaseのreleaseを一回だけ呼ぶ。
  */
-export function completeAttemptCleanup(
-  dependencies: RuntimeDependencies,
-  plan: ProviderAttemptPlan,
-  recovery: Recovery,
-  managementCapability: object,
-  cleanup: DockerSessionCleanup,
-  verifiedResourceObservations:
-    | DockerSessionCleanup["resourceObservations"]
-    | null,
-  processTreeTerminationConfirmed: boolean,
-) {
-  let recoveryFinalizationCapability: object | null = null;
-  let mountLeaseReleased = false;
-  let recoveryCompleted = false;
-  if (
-    processTreeTerminationConfirmed &&
-    cleanup.containersAbsent &&
-    cleanup.networksAbsent
-  ) {
-    try {
-      const absenceReceipt: unknown = dependencies.recordDockerAbsence
-        ? dependencies.recordDockerAbsence(
-            recovery.recoveryCapability,
-            verifiedResourceObservations,
-          )
-        : true;
-      if (utilTypes.isPromise(absenceReceipt))
-        void absenceReceipt.catch(() => {});
-      const dockerAbsenceRecorded = absenceReceipt === true;
-      if (!dockerAbsenceRecorded)
-        throw new Error("docker_absence_record_failed");
-      const mountCompletion = dependencies.completeMount(
-        plan.activeMountCapability,
-        managementCapability,
-      );
-      mountLeaseReleased = mountCompletion.status === "completed";
-      if (mountLeaseReleased) {
-        const mountReceipt: unknown = dependencies.recordMountCompletion
-          ? dependencies.recordMountCompletion(
-              recovery.recoveryCapability,
-              mountCompletion,
-            )
-          : true;
-        if (utilTypes.isPromise(mountReceipt))
-          void mountReceipt.catch(() => {});
-        const mountCompletionRecorded = mountReceipt === true;
-        if (!mountCompletionRecorded)
-          throw new Error("mount_completion_record_failed");
-        const completion = dependencies.completeRecovery(
-          recovery.recoveryCapability,
-          managementCapability,
-          Object.freeze({ plan, mountCompletion }),
-        );
-        recoveryFinalizationCapability =
-          completion.status === "completed" &&
-          completion.recoveryFinalizationCapability &&
-          typeof completion.recoveryFinalizationCapability === "object"
-            ? completion.recoveryFinalizationCapability
-            : null;
-        recoveryCompleted = recoveryFinalizationCapability !== null;
-      }
-    } catch {
-      mountLeaseReleased = false;
-      recoveryCompleted = false;
-    }
+export function releaseAttemptHomeLease(homeLease: HomeLease): boolean {
+  try {
+    const released: unknown = homeLease.release();
+    if (utilTypes.isPromise(released)) void released.catch(() => {});
+    return released === true;
+  } catch {
+    return false;
   }
+}
 
-  return {
-    mountLeaseReleased,
-    recoveryCompleted,
-    recoveryFinalizationCapability,
-  };
+/**
+ * provider Boundary Configurationを決定する。
+ *
+ * @responsibility provider Boundary Configurationの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000008
+ * @input plan: AttemptPlan
+ * @returns Extract< ProviderBoundaryDiagnosticNotice, { event: "coordinator_provider_boundary_configured" } >を返す。
+ * @precondition 「plan: AttemptPlan」がproviderBoundaryConfigurationの入力契約を満たす。
+ * @postcondition providerBoundaryConfigurationの責務を完了した結果だけを返す。
+ * @effect N/A: providerBoundaryConfigurationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: providerBoundaryConfigurationは独自の失敗分岐を所有しない。
+ * @invariant providerBoundaryConfigurationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security providerBoundaryConfigurationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: providerBoundaryConfigurationは共有非同期状態を持たない同期処理である。
+ */
+export function providerBoundaryConfiguration(
+  plan: AttemptPlan,
+): Extract<
+  AttemptDiagnosticNotice,
+  { event: "coordinator_provider_boundary_configured" }
+> {
+  const docker = projectDockerExecutionBoundary(
+    plan.commands,
+    plan.providerImageDigest,
+  );
+  const codex =
+    plan.provider === "codex"
+      ? projectCodexExecutionBoundary(docker?.payloadArgv ?? [])
+      : null;
+  return Object.freeze({
+    event: "coordinator_provider_boundary_configured" as const,
+    taskRole: plan.taskRole,
+    provider: plan.provider,
+    operationId: plan.operationId,
+    approvalModeConfigured: codex?.approvalModeConfigured ?? "not_applicable",
+    sandboxModeConfigured: codex?.sandboxModeConfigured ?? "not_applicable",
+    workspaceMountModeConfigured: plan.workspaceMountMode,
+    networkPolicyHash: plan.networkPolicy?.policyHash ?? null,
+    rootFilesystemReadOnlyConfigured:
+      docker?.rootFilesystemReadOnlyConfigured ?? false,
+    nonRootUserConfigured: docker?.nonRootUserConfigured ?? false,
+    workdirConfigured: docker?.workdirConfigured ?? false,
+  });
 }

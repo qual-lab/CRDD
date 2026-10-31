@@ -12,6 +12,9 @@ import {
   createTaskStageDiagnostic,
 } from "../src/execution/result.ts";
 
+// 回復開始診断の検査は、生成するCoordinatorの正本を利用する。
+export { inspectRecoveryStartFailureDiagnostic } from "../src/execution/validation.ts";
+
 /**
  * 候補診断の未検査fieldを捕捉する。
  * @responsibility Provider観測の検査を型付き本番結果から分離する。

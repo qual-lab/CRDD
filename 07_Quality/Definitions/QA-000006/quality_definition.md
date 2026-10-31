@@ -44,7 +44,7 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 
 | 確認対象 | 所有する試験 | 正常・反証条件 |
 |---|---|---|
-| 共通`prepare(AttemptInput)` | 両Providerの準備契約、DI接続代役 | 用途別exact field、一回消費、別Owner・選定差替え・取消・期限の拒否 |
+| Coordinatorの共通`prepare(PreparationInput)` | 両Providerの上位準備契約、DI接続代役 | 用途別exact field、一回消費、別Owner・選定差替え・取消・期限の拒否 |
 | 助言内容 | AI Adapter `tests/unit/provider/advice-result.contract.test.ts` | 四区分・容量・重複JSON Key・許可参照。ExecutorはEnvelope解析との接続を検査 |
 | 共通completion | Executor単独試験・公開境界試験 | Task／Adviceとも清掃後の型付き内容。旧六中間APIがRootへ存在しない |
 | 是正許可のOwner | Executor `review-delivery.contract.test.ts`、Coordinator `docker-recovery-owner-reentry.contract.test.ts`とTask runtime契約 | Executorは正常完了・清掃確認・未取消・是正要求時だけ所見を返し、終端通知故障でも内容完了を改ざんしない。Coordinatorは元CompletionResult・handoff・終端／Home／Mount／Recovery・操作／選定・初回レビューを共同照合して既存の一回使用許可を発行する。コピー・別操作・欠測・取消・approved・空所見・件数差・二回目レビューは発行しない |
@@ -59,12 +59,15 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 | 保証と主な反例 | 単独で再実行する試験 | 観測する終了条件 |
 |---|---|---|
 | CoordinatorなしのRootロード、必要な公開集合、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map・内部Key・形式タグ定数の非公開 |
-| 準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | executor/tests/unit/preparation.contract.test.ts | 両ProviderのMap分離。回収不明を消費成功にしない |
+| 上位準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | coordinator/tests/unit/execution/attempt-preparation.contract.test.ts | 上位が両ProviderのMapを所有。回収不明を消費成功にしない |
 | Codex／Claude、候補／本番Factory配線、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 用途順序、取消後join、単一清掃、元回復参照、固定callback、終端搬送、試験排他解放と新品Root処置 |
-| 固定診断投影とcallbackのthis・同期例外・Promise拒否 | executor/tests/unit/observation.contract.test.ts | 受動通知の故障を実行結果や清掃成功へ変換しない |
+| 固定構成の非秘密診断投影 | executor/tests/unit/observation.contract.test.ts | 元操作・Providerの相関を保ち、Command・Home Pathを公開しない |
+| 任意診断の同期例外・Promise拒否、必須通知待機と取消 | executor/tests/unit/notifications.contract.test.ts | 受動通知の故障を実行結果へ伝播させず、必須通知の拒否でも実清掃を一回行い元回復参照を保持する |
 | 開始基本条件と固定Commandの完全照合 | executor/tests/unit/plan.contract.test.ts | 基本検査の成立を完全計画の検証と混同しない |
-| 回復応答の閉形式・exact参照・Home相関 | executor/tests/unit/result/validation.contract.test.ts | Proxy・accessor・余分field・欠測を拒否し、unknownを補完しない |
-| 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 五清掃条件32組合せ×三状態で未確定を成功にしない。元回復参照を維持 |
+| 技術理由集合と一次故障診断の閉形式 | executor/tests/unit/result/validation.contract.test.ts | 発行理由と保存受理集合をexact照合し、未知理由・不正Turn報告値を拒否する |
+| 回復開始診断・回復応答の閉形式・exact参照・Home相関 | coordinator/tests/unit/execution/recovery-start-diagnostic.contract.test.ts、recovery-projection.contract.test.ts | CoordinatorをOwnerとし、Proxy・accessor・余分field・欠測を拒否してunknownを補完しない |
+| 終端の共同条件 | executor/tests/unit/controller.contract.test.ts | 物理清掃五条件と保存受理の64組合せ×三状態を区別する。保存拒否でも技術解放の観測と元回復参照を維持し、Task成功へは昇格させない |
+| Home技術Leaseの取得・解放・Owner終了 | coordinator/tests/integration/docker-process-controller.contract.test.ts | 取得後の開始拒否はEffect 0とrelease一回。保存拒否でもrelease一回。清掃不明は明示Owner終了まで保持し、別Owner・進行中・二重解放を拒否する |
 | 編集・レビューの両Provider結果、Role、未知Envelope、曖昧JSON、容量、件数、Path、Turn metadata、Cost、限定是正証拠 | executor/tests/unit/result/task.contract.test.ts | 閉形式、非秘密診断、生出力非公開。是正証拠は原本一回だけ |
 | 助言の両Provider Envelope、許可参照外、空参照、曖昧JSON、公開Schema | executor/tests/unit/result/advice.contract.test.ts | 形式タグなしの結果を受理し、形・容量・根拠参照の検査は維持。失敗は本文なし |
 | 試験HostのReceipt・保存拒否・排他解放・元終端 | executor/tests/integration/provider-attempt-host.contract.test.ts | 相関不成立で成功・清掃へ丸めない。合成領域だけを回収 |
@@ -826,12 +829,28 @@ Codexの内部error Itemは総件数とCode Mode文字列一致件数だけを�
 ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範囲で次を確認する。これは実AI・Docker操作の許可ではない。
 
 - Domain解決を拒否した新品ProcessでExecutor公開Rootをロードでき、局所捕捉・内部理由表を公開しない。
-- 技術六項目の欠測・余剰・不正用途／役割・Model／Effort／識別種別差、完全選定の混入、Hash不正とPacket不一致を拒否する。準備後の変更を開始時にも検査する。
+- Executorは技術五項目の欠測・余剰・不正用途・Model／Effort／識別種別差と完全選定の混入、技術Planの不一致を拒否する。Coordinatorは完全選定Hash・Packet相関を準備時に検査し、開始時には同じ元記録と技術入力・管理Ownerの結合を再確認する。
 - Proxy・accessor・特殊prototype・symbol key・疎配列を実行せず拒否し、入力・許可参照を独立した不変値へ固定する。
 - 完了理由の発行集合とDomain保存受理集合を双方向に照合し、未知・欠測を受理しない。旧診断の完全形と新診断の部分欠測を混同しない。
-- 上位の完全選定借用は同じ有効Operation・選定ID・Hash・試行番号だけを受理し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術六項目へ置換しない。
+- 上位の完全選定借用は同じ有効Operation・選定ID・Hash・試行番号だけを受理し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術五項目へ置換しない。ロールとTask／Adviceの相関は上位準備で検査し、Executorの技術入力へroleを含めた場合は余剰として拒否する。
+- ModelSelection／TaskPacket／AdvicePacketの上位化では、Taskの操作ID・Hash・試行番号・stdin搬送、およびAdviceの操作ID・Hash・Provider・四非共有条件・選定roleの一軸差替えを、Authority発行前の拒否とMount借用終了まで確認する。Executorには管理Packetや選定記録ID・試行番号・利用側相関を渡さず、技術五項目・対象・排他的な実行内容を明示投影する。未知metadataのaccessor非評価、別Plan／別Owner callbackのEffect前拒否、準備消費後の開始拒否における未消費Authority失効とMount返却、上位の原結果・選定借用に基づく許可発行を反証する。既存のStandaloneはCoordinator非存在で同じ技術入力を構築できることを確認する。
 
 ## Checklist
+
+### Executor通知専用化・構造整理の追加反証
+
+ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。実AI・実Dockerの成立とは区別する。
+
+- 通常Rootの関数はcreateExecutorだけとする。FactoryはAttemptRequestを受け、完全Planを内部に保持する。返却するExecutorにprepareはなく、startへPlanを渡さない。記録投影は資源名・Image・Modeだけとし、Command・本文・Authorityを返さない。Standaloneロード、旧準備Fileの不存在、Coordinator製品Sourceから私有Executor Sourceへのimport零を検査する。
+- 上位の既存記録へのControl aliasは保存・開始成功後だけ結合し、別Owner・コピーControl・別Executor・二重結合を拒否する。回復検索・abandonへControlを渡しても権限へ昇格しない。completion成功／拒否後はalias不存在と取消拒否を確認し、解放未確認の元回復参照は維持する。
+- 診断通知は発生箇所で直接呼び、包装関数を残さない。同期throw／非同期rejectでも、同じ結果object・回復参照・回収結果を維持する。cancel／abandonを隣接させ、createExecutor／prepareAttemptの隣接と非公開境界をSource試験で確認する。
+- 回復開始診断の型・固定段階・失敗通知はCoordinatorに存在し、Executor製品Sourceに残らない。上位Reporterへ直接報告し、Workbench／Coordinator検証ツールは同じCoordinator検査正本で未知値・余分field・別相関を拒否する。
+- 上位で記録確定後にHomeを取得する。競合・未開始記録保存の失敗でも同じ回復参照を保持し、未開始を清掃完了へ変換しない。
+- モデル入力はexact五項目の不変コピーを経てAI Adapterの既存Resolverへ四項目だけを渡し、identifierKindを含む一致とCatalog Identity非搬送を確認する。独自のModel／Effort列挙を持たない。
+- 助言参照はAI Adapterの同じ入力ParserをExecutor準備と内容検査で利用する。256・257・1024件の受理と1025件拒否、512／513byte、周辺空白・重複・sparse・symbol・accessor・Proxy拒否、元値変更後の不変性を確認する。不正入力の乱数・Home・隔離Runtime構築は零。Setup理由Mapは継承名を拒否し、未知用途を固定fallbackへ閉じる。
+- 必須の通知はvoid／Promise<void>を待ち、throw／reject時は次の新規Effectを出さず技術回収する。任意onCompleted／onDiagnosticの例外を結果へ伝播しない。
+- 開始済みProcessの同期技術signalと公開非同期通知を区別する。公開通知pending中も技術回収は一回進むが、Parserは零回、completionは未確定。resolve後だけParser一回、遅いreject・取消ならParser零回・同じID・技術回収事実を保持する。不正Provider結果を即時通知成功と遅延成功の両経路へ流し、理由・一次故障・結果本文・Hash・byte数・清掃を含む同一結果とParser各一回を確認する。
+- 上位終端保存throw／非同期rejectではTask成功を返さず、技術的に解放済みのHomeを未解放へ戻さない。七つの必須通知を欠落させたSource変異も拒否する。
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

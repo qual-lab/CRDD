@@ -51,7 +51,7 @@
     {
       "symbolId": "coordinator.execution.provider-observation",
       "kind": "file",
-      "path": "src/attempt/observation.ts",
+      "path": "src/attempt/types.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -59,15 +59,7 @@
     {
       "symbolId": "coordinator.provider.execution-plan",
       "kind": "file",
-      "path": "src/attempt/preparation.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.provider.preparation-lifecycle",
-      "kind": "file",
-      "path": "src/attempt/preparation.ts",
+      "path": "src/attempt/execute.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -115,7 +107,7 @@
     {
       "symbolId": "executor.source.attempt.execute",
       "kind": "file",
-      "path": "src/attempt/preparation.ts",
+      "path": "src/attempt/execute.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -239,22 +231,6 @@
       "verifies": [
         "coordinator.execution.provider-observation",
         "coordinator.source.src.security.docker.process.controller"
-      ]
-    },
-    {
-      "symbolId": "executor.test.unit.preparation",
-      "kind": "test-suite",
-      "path": "tests/unit/preparation.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": [
-          "coordinator.provider.preparation-lifecycle",
-          "executor.attempt.validation"
       ]
     },
     {

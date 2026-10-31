@@ -7,6 +7,7 @@
  * @boundary scripts専用。認証・排他取得・Docker起動は呼出し側の明示承認を必要とする。
  */
 import fs from "node:fs";
+import { isPrimaryFailureDiagnostic } from "./executor-test.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -16,19 +17,16 @@ import {
 } from "../../domain-model/src/index.ts";
 import type { acquireNamedPipeKernelLock } from "../../platform-access/src/index.ts";
 import type { DockerResourceReceipts } from "../../docker-isolation/src/index.ts";
-import {
-  isPrimaryFailureDiagnostic,
-  type AttemptDiagnosticNotice,
-} from "../src/index.ts";
+import type { AttemptDiagnosticNotice } from "../src/index.ts";
 import {
   createExecutorLifecycleTestRuntime as createExecutor,
-  type ExecutorHost,
+  type ExecutorTestHost as ExecutorHost,
 } from "./executor-test.ts";
 import {
   planIdentity,
   resolveValidatedPlan,
 } from "../src/attempt/isolation.ts";
-import type { PreparedPlan } from "../src/attempt/types.ts";
+import type { AttemptPlan } from "../src/attempt/types.ts";
 
 /**
  * 既存同期排他を保持した一回限りの試験Hostを組み立てる。
@@ -48,7 +46,7 @@ import type { PreparedPlan } from "../src/attempt/types.ts";
  */
 export function createStandaloneProviderAttemptHost(
   directory: string,
-  plan: PreparedPlan & { readonly consumer: "coordinator_cli" },
+  plan: AttemptPlan & { readonly consumer: "coordinator_cli" },
   lease: NonNullable<ReturnType<typeof acquireNamedPipeKernelLock>>,
   onProviderStarted?: () => void,
 ) {
@@ -114,7 +112,6 @@ export function createStandaloneProviderAttemptHost(
   let terminalObservation:
     | Parameters<NonNullable<ExecutorHost["recordTerminalObservation"]>>[2]
     | null = null;
-  let recoverySaveFailed = false;
   let releaseAttempted = false,
     released = false,
     closed = false;
@@ -231,7 +228,7 @@ export function createStandaloneProviderAttemptHost(
         return false;
       diagnostic = Object.freeze(projection);
       // 解放拒否・不明後はWriterを呼ばず、同じ結果IPCでだけ搬送する。
-      if (released) save("execution_settled", projection, false);
+      if (released && closed) save("execution_settled", projection, false);
       return true;
     },
     verifyRevision: (m) => m === management && current(!released),
@@ -243,7 +240,9 @@ export function createStandaloneProviderAttemptHost(
     },
     consumeProviderAuthority: (a, mt, m) => {
       if (
-        a !== plan.authorityUseCapability ||
+        a !==
+          Object.getOwnPropertyDescriptor(plan, "authorityUseCapability")
+            ?.value ||
         mt !== plan.activeMountCapability ||
         m !== management ||
         authorityConsumed ||
@@ -263,7 +262,9 @@ export function createStandaloneProviderAttemptHost(
       if (
         planIdentity(p) !== planHash ||
         p.activeMountCapability !== plan.activeMountCapability ||
-        p.authorityUseCapability !== plan.authorityUseCapability ||
+        Object.getOwnPropertyDescriptor(p, "authorityUseCapability")?.value !==
+          Object.getOwnPropertyDescriptor(plan, "authorityUseCapability")
+            ?.value ||
         m !== management ||
         opened ||
         !current(true)
@@ -272,7 +273,6 @@ export function createStandaloneProviderAttemptHost(
       try {
         save("recovery_opened");
       } catch {
-        recoverySaveFailed = true;
         return {
           status: "blocked",
           reason: "docker_task_recovery_checkpoint_failed",
@@ -372,7 +372,8 @@ export function createStandaloneProviderAttemptHost(
         )
       )
         return false;
-      save("absence_observed", { resources: observed });
+      save("home_released", {}, false);
+      save("absence_observed", { resources: observed }, false);
       absence = observed;
       return true;
     },
@@ -380,23 +381,28 @@ export function createStandaloneProviderAttemptHost(
       if (
         mt !== plan.activeMountCapability ||
         m !== management ||
-        (!absence && !recoverySaveFailed) ||
         releaseAttempted ||
         !current(true)
       )
         return { status: "blocked" };
-      if (!recoverySaveFailed) save("home_release_requested");
-      releaseAttempted = true;
-      try {
-        released = lease.release() === true;
-      } catch {
-        released = false;
-      }
-      if (!released) return { status: "blocked" };
-      if (!recoverySaveFailed) save("home_released", {}, false);
       mountResult = Object.freeze({ status: "completed" });
       return mountResult;
     },
+    acquireHomeLease: () =>
+      current(true)
+        ? Object.freeze({
+            release: () => {
+              if (releaseAttempted || !current(true)) return false;
+              releaseAttempted = true;
+              try {
+                released = lease.release() === true;
+              } catch {
+                released = false;
+              }
+              return released;
+            },
+          })
+        : null,
     recordMountCompletion: (r, value) =>
       r === recovery &&
       value === mountResult &&
@@ -437,13 +443,25 @@ export function createStandaloneProviderAttemptHost(
     recoveryId,
     readDiagnostic: () => diagnostic,
     readTerminal: () => terminalObservation,
-    start: () =>
-      runtime.start(
+    start: () => {
+      const started = runtime.start(
         prepared,
         management,
         (r: object, id: string) =>
           r === recovery && id === recoveryId && save("recovery_handoff"),
-      ),
+      );
+      if (started.status === "blocked" && !releaseAttempted) {
+        try {
+          if (lease.assertLive()) {
+            releaseAttempted = true;
+            released = lease.release() === true;
+          }
+        } catch {
+          /* 試験Hostが先行取得したLeaseだけを扱い、成功を推測しない。 */
+        }
+      }
+      return started;
+    },
     recordTerminal: (
       result: Awaited<ReturnType<typeof runtime.start>["completion"]>,
     ) => {

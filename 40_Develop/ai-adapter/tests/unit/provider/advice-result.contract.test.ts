@@ -8,6 +8,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseAdviceReferences } from "../../../src/index.ts";
+
 import {
   parseAdviceResult as normalizeAdviceResult,
   describeAdviceResultContract,
@@ -138,4 +140,83 @@ test("読取り助言結果契約は上限と生出力非公開を固定する",
   assert.equal(contract.duplicateKeysAllowed, false);
   assert.equal(contract.outOfProjectionReferencesAllowed, false);
   assert.equal(contract.rawOutputReported, false);
+});
+
+/**
+ * 許可参照の検査と不変コピーを準備・内容解析の共通条件として確認する。
+ * @responsibility 独自のExecutor上限を復活させず、動的入力と変更混入を拒否する。
+ * @trace ERB-UT-023
+ * @precondition 合成の文字列と配列だけを使う。
+ * @stimulus 件数・byte境界、空白・重複・hole・symbol・accessor・Proxy・元値変更。
+ * @observation 凍結配列、解析の受理・拒否、getter／Proxy評価零。
+ * @oracle 256・257・1024件は受理、1025件と不正形は拒否し、元配列と分離する。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("助言の許可参照は一つの内容規則で検査され元配列から分離される", () => {
+  const raw = JSON.stringify({
+    status: "completed",
+    facts: [{ text: "synthetic", references: ["ref-0"] }],
+    sharedAnalysis: [],
+    additionalInferences: [],
+    nextOptions: [],
+  });
+  for (const count of [256, 257, 1024, 1025]) {
+    const references = Array.from(
+      { length: count },
+      (_, index) => `ref-${index}`,
+    );
+    assert.equal(
+      parseAdviceReferences(references).status === "confirmed",
+      count <= 1024,
+    );
+    assert.equal(
+      normalizeAdviceResult(raw, references).status,
+      count <= 1024 ? "confirmed" : "blocked",
+    );
+  }
+  assert.equal(parseAdviceReferences(["é".repeat(256)]).status, "confirmed");
+  let calls = 0;
+  const dynamic = Object.defineProperty(["ref-0"], "0", {
+    enumerable: true,
+    get() {
+      calls++;
+      throw Error("must_not_evaluate");
+    },
+  });
+  for (const value of [
+    null,
+    [],
+    new Array(1),
+    [""],
+    [" ref-0"],
+    ["ref-0 "],
+    ["x\0"],
+    ["x".repeat(513)],
+    ["ref-0", "ref-0"],
+    dynamic,
+    Object.assign(["ref-0"], { extra: true }),
+    Object.assign(["ref-0"], { [Symbol("extra")]: true }),
+    new Proxy(["ref-0"], {
+      getPrototypeOf() {
+        calls++;
+        throw Error("must_not_evaluate");
+      },
+      ownKeys() {
+        calls++;
+        throw Error("must_not_evaluate");
+      },
+    }),
+  ]) {
+    assert.equal(parseAdviceReferences(value).status, "blocked");
+  }
+  assert.equal(calls, 0);
+  const original = ["ref-0"];
+  const result = parseAdviceReferences(original);
+  assert.equal(result.status, "confirmed");
+  const parsed = result.references;
+  assert.deepEqual(parsed, original);
+  assert.notStrictEqual(parsed, original);
+  assert.ok(Object.isFrozen(parsed));
+  original[0] = "changed";
+  assert.deepEqual(parsed, ["ref-0"]);
 });

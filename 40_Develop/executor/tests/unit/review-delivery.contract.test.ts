@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { TaskResult } from "../../../ai-adapter/src/index.ts";
 import { createExecutorTestCandidate } from "../../scripts/executor-test.ts";
-import type { RuntimeDependencies } from "../../src/attempt/types.ts";
+import type { ExecutorTestDependencies } from "../../scripts/executor-test.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -76,7 +76,7 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
     let terminalResult: unknown = null;
     let callbackCalls = 0,
       consumed = false;
-    const dependencies: RuntimeDependencies = {
+    const dependencies: ExecutorTestDependencies = {
       effectExecutorAvailable: true,
       verifyRevision: () => true,
       consumePreparedPlan: (p, m) => {
@@ -123,7 +123,9 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
                     total_cost_usd: 0,
                     result: JSON.stringify(review),
                   })
-                : "",
+                : command.purpose.startsWith("create_")
+                  ? "a".repeat(64)
+                  : "",
         }),
       }),
       cleanupOwnedResources: async () => {
@@ -159,7 +161,9 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
           recoveryFinalizationCapability: {},
         };
       },
+      verifyHomeLeaseRelease: () => true,
       recordProviderSubmission: () => true,
+      recordResourceNotIssued: () => true,
       recordTerminalObservation: (_r, result) => {
         events.push("terminal");
         callbackCalls++;
@@ -174,15 +178,30 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
     assert.equal(started.status, "started");
     if (started.status !== "started") continue;
     const result = await started.completion;
-    if (mode.startsWith("absence_") || mode.startsWith("mount_")) {
+    if (mode === "terminal_throw" || mode === "terminal_promise") {
       assert.equal(result.status, "blocked");
-      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(result.homeLeaseReleased, true);
+      assert.equal(result.recoveryId, started.recoveryId);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.recoveryCompleted, false);
+      assert.equal(result.recoveryFinalizationCapability, null);
       assert.equal(result.normalizedResult, null);
-      assert.equal(result.providerExecutionObservation, null);
-      assert.equal(result.providerTurnObservation, null);
       assert.equal(result.reviewFindings, null);
+      assert.equal(callbackCalls, 1);
+      continue;
+    }
+    if (mode.startsWith("absence_") || mode.startsWith("mount_")) {
+      assert.equal(result.status, "completed");
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(result.homeLeaseReleased, true);
+      assert.equal(result.recoveryCompleted, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.recoveryId, started.recoveryId);
+      assert.equal(result.recoveryFinalizationCapability, null);
+      assert.equal(terminalResult, result);
       assert.equal(events.includes("recovery"), false);
-      assert.equal(events.includes("mount"), !mode.startsWith("absence_"));
+      assert.equal(events.includes("mount"), true);
       assert.equal(callbackCalls, 1);
       continue;
     }

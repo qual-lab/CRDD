@@ -6,7 +6,10 @@
 import type { OwnedCommandHandle } from "../process/start.ts";
 import { types as utilTypes } from "node:util";
 import type { DockerIsolationCommand } from "./plan.ts";
-import type { DockerResourceCleanupObservation } from "./execute.ts";
+import type {
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+} from "./execute.ts";
 import {
   classifyDockerCommandExecution,
   classifyDockerProcessExit,
@@ -48,7 +51,10 @@ const EXECUTION_MS = 300_000;
  * @security Processを任意PIDから再構成しない。
  * @compatibility 元Handleの三操作を縮約せず利用する。
  */
-type CommandHandle = Pick<OwnedCommandHandle, "started" | "terminateAndWait"> &
+export type DockerSessionCommandHandle = Pick<
+  OwnedCommandHandle,
+  "started" | "terminateAndWait"
+> &
   Readonly<{ wait: (timeoutMs: number) => Promise<CommandObservation | null> }>;
 
 /**
@@ -106,13 +112,17 @@ export type DockerSessionCleanup = Readonly<{
  */
 export type DockerExecutionHooks = Readonly<{
   allowCommand: (purpose: DockerIsolationCommand["purpose"]) => boolean;
-  recordSubmission: (purpose: DockerIsolationCommand["purpose"]) => boolean;
-  recordNotIssued: (purpose: DockerIsolationCommand["purpose"]) => boolean;
-  recordExecutionSubmission: () => boolean;
+  recordSubmission: (
+    purpose: DockerIsolationCommand["purpose"],
+  ) => boolean | Promise<boolean>;
+  recordNotIssued: (
+    purpose: DockerIsolationCommand["purpose"],
+  ) => boolean | Promise<boolean>;
+  recordExecutionSubmission: () => boolean | Promise<boolean>;
   recordReceipt: (
     purpose: DockerIsolationCommand["purpose"],
-    stdout: string,
-  ) => boolean;
+    dockerId: string,
+  ) => boolean | Promise<boolean>;
   acceptCommandResult: (
     purpose: DockerIsolationCommand["purpose"],
     result: CommandObservation | null,
@@ -122,6 +132,7 @@ export type DockerExecutionHooks = Readonly<{
     purpose: DockerIsolationCommand["purpose"],
     result: CommandObservation,
   ) => boolean;
+  /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
   onExecutionStarted: () => void;
   onFailure: (failure: DockerSessionFailure) => void;
 }>;
@@ -137,8 +148,10 @@ export type DockerExecutionHooks = Readonly<{
  * @compatibility Candidate注入を実Effect0や本番真正性の証明としない。
  */
 export type DockerCommandSessionOperations = Readonly<{
-  startCommand: (purpose: DockerIsolationCommand["purpose"]) => CommandHandle;
-  cleanup: () => Promise<DockerSessionCleanup>;
+  startCommand: (
+    purpose: DockerIsolationCommand["purpose"],
+  ) => DockerSessionCommandHandle;
+  cleanup: (receipts: DockerResourceReceipts) => Promise<DockerSessionCleanup>;
   verifyCleanup?: (
     result: DockerSessionCleanup,
   ) => readonly DockerResourceCleanupObservation[] | null | undefined;
@@ -240,10 +253,29 @@ export function startDockerCommandSession(
     purposes.length === PURPOSES.length
       ? Object.freeze([...purposes])
       : Object.freeze([]);
+  const receipts = {
+    create_provider: { submitted: false, dockerId: null as string | null },
+    create_proxy: { submitted: false, dockerId: null as string | null },
+    create_subscription_auth_probe: {
+      submitted: false,
+      dockerId: null as string | null,
+    },
+    create_internal_network: {
+      submitted: false,
+      dockerId: null as string | null,
+    },
+    create_egress_network: {
+      submitted: false,
+      dockerId: null as string | null,
+    },
+  };
   let cancelled = false;
   let finished = false;
-  let activeHandle: CommandHandle | null = null;
-  const terminations = new WeakMap<CommandHandle, Promise<boolean>>();
+  let activeHandle: DockerSessionCommandHandle | null = null;
+  const terminations = new WeakMap<
+    DockerSessionCommandHandle,
+    Promise<boolean>
+  >();
   let purpose: DockerIsolationCommand["purpose"] | null = null;
   let stage: DockerSessionFailure["stage"] = "command_start";
   let gateName: keyof DockerExecutionHooks | null = null;
@@ -271,7 +303,7 @@ export function startDockerCommandSession(
    * @security 他Processを名前で操作しない。
    * @concurrency WeakMapへ待機前に登録する。
    */
-  function terminate(handle: CommandHandle): Promise<boolean> {
+  function terminate(handle: DockerSessionCommandHandle): Promise<boolean> {
     const existing = terminations.get(handle);
     if (existing) return existing;
     const pending = Promise.resolve()
@@ -339,14 +371,25 @@ export function startDockerCommandSession(
    * @security 自由文を公開結果へ含めない。
    * @concurrency 再入取消は呼出し直後に再確認する。
    */
-  function gate(
+  async function gate(
     name: keyof DockerExecutionHooks,
     invoke: () => unknown,
-  ): boolean {
+  ): Promise<boolean> {
     stage = "gate";
     gateName = name;
     try {
-      const accepted = invoke();
+      const pending = invoke();
+      const asynchronous =
+        name === "recordSubmission" ||
+        name === "recordNotIssued" ||
+        name === "recordReceipt" ||
+        name === "recordExecutionSubmission";
+      if (!asynchronous && utilTypes.isPromise(pending)) {
+        void pending.catch(() => {});
+        fail("invalid_return");
+        return false;
+      }
+      const accepted = asynchronous ? await pending : pending;
       if (accepted === true) return true;
       if (utilTypes.isPromise(accepted))
         void Promise.prototype.then.call(accepted, undefined, () => undefined);
@@ -397,22 +440,21 @@ export function startDockerCommandSession(
           gateName = null;
           if (cancelled) break;
           if (
-            !gate("allowCommand", () =>
+            !(await gate("allowCommand", () =>
               callbacks.current?.allowCommand(current),
-            ) ||
+            )) ||
             cancelled
           )
             break;
           if (
-            CREATE_PURPOSES.has(current) &&
-            !gate("recordSubmission", () =>
+            !(await gate("recordSubmission", () =>
               callbacks.current?.recordSubmission(current),
-            )
+            ))
           )
             break;
           if (cancelled) {
             if (CREATE_PURPOSES.has(current))
-              gate("recordNotIssued", () =>
+              await gate("recordNotIssued", () =>
                 callbacks.current?.recordNotIssued(current),
               );
             break;
@@ -420,14 +462,16 @@ export function startDockerCommandSession(
           const isExecution = current === "start_provider_attached";
           if (
             isExecution &&
-            (!gate("recordExecutionSubmission", () =>
+            (!(await gate("recordExecutionSubmission", () =>
               callbacks.current?.recordExecutionSubmission(),
-            ) ||
+            )) ||
               cancelled)
           )
             break;
           stage = "command_start";
           gateName = null;
+          if (CREATE_PURPOSES.has(current))
+            receipts[current as keyof typeof receipts].submitted = true;
           const handle = operations.startCommand(current);
           obtained = true;
           activeHandle = handle;
@@ -496,33 +540,41 @@ export function startDockerCommandSession(
             executionExit = classifyDockerProcessExit(result);
           }
           if (
-            !gate("acceptCommandResult", () =>
+            !(await gate("acceptCommandResult", () =>
               callbacks.current?.acceptCommandResult(
                 current,
                 result,
                 classification,
               ),
-            ) ||
+            )) ||
             classification.category !== "completed"
           ) {
             if (failure === null) fail("command_failed");
             if (result === null) await terminate(handle);
             break;
           }
-          if (
-            CREATE_PURPOSES.has(current) &&
-            (!result ||
-              !gate("recordReceipt", () =>
-                callbacks.current?.recordReceipt(current, result.stdout),
+          if (CREATE_PURPOSES.has(current)) {
+            const dockerId = result?.stdout.trim() ?? "";
+            gateName = "recordReceipt";
+            stage = "gate";
+            if (!/^[a-f0-9]{64}$/u.test(dockerId)) {
+              fail("rejected");
+              break;
+            }
+            receipts[current as keyof typeof receipts].dockerId = dockerId;
+            if (
+              !(await gate("recordReceipt", () =>
+                callbacks.current?.recordReceipt(current, dockerId),
               ))
-          )
-            break;
+            )
+              break;
+          }
           if (cancelled) break;
           if (
             result &&
-            !gate("acceptOutput", () =>
+            !(await gate("acceptOutput", () =>
               callbacks.current?.acceptOutput(current, result),
-            )
+            ))
           )
             break;
         }
@@ -535,7 +587,7 @@ export function startDockerCommandSession(
     }
     let cleanup: DockerSessionCleanup;
     try {
-      cleanup = await operations.cleanup();
+      cleanup = await operations.cleanup(receipts);
     } catch {
       cleanup = Object.freeze({
         confirmed: false,

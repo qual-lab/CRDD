@@ -270,6 +270,12 @@ test("同期Gateのfalse・throw・Promiseは固定停止点として清掃へ�
       }) as unknown as DockerExecutionHooks[typeof name];
       const fixture = sessionFixture({ hooks: { [name]: reject } });
       const result = await fixture.session.completion;
+      if (mode === "promise" && name.startsWith("record")) {
+        assert.equal(result.failure, null);
+        assert.equal(result.executionCompleted, true);
+        assert.equal(fixture.counts().cleanups, 1);
+        continue;
+      }
       assert.equal(result.failure?.gate, name);
       assert.equal(
         result.failure?.kind,

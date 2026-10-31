@@ -37,7 +37,7 @@ test("Provider結合は両方式で一つの規則を使い、部分Token差と�
     "utf8",
   );
   const preparation = readFileSync(
-    new URL("../../../../executor/src/attempt/preparation.ts", import.meta.url),
+    new URL("../../../../executor/src/attempt/execute.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(

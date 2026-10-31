@@ -37,7 +37,7 @@
       "responsibilities": ["single_provider_attempt", "cancellation_join", "fixed_host_callbacks"],
       "externalBoundaries": ["provider_process", "docker_isolation", "host_evidence_callbacks"],
       "lifecycleProfile": "external_effect_operation",
-      "testIds": ["executor:integration:public-boundary", "executor:integration:provider-home-boundary", "executor:integration:attempt-host", "executor:integration:provider-real-cli", "executor:unit:observation", "executor:unit:preparation", "coordinator:integration:docker-process-controller"],
+      "testIds": ["executor:integration:public-boundary", "executor:integration:provider-home-boundary", "executor:integration:attempt-host", "executor:integration:provider-real-cli", "executor:unit:observation", "coordinator:unit:attempt-preparation", "coordinator:integration:docker-process-controller"],
       "postconditions": ["synchronous_save_before_effect", "terminal_delivery_bound_to_operation", "unknown_preserved", "cleanup_settled_or_reported"]
     },
     {
@@ -1267,7 +1267,7 @@
       "producerPaths": ["40_Develop/domain-model/src"],
       "consumerOwner": "executor",
       "consumerStatic": true,
-      "testIds": ["executor:integration:public-boundary", "executor:unit:preparation"]
+      "testIds": ["executor:integration:public-boundary"]
     },
     {
       "producerOwner": "executor",
@@ -1281,7 +1281,7 @@
       "producerPaths": ["40_Develop/ai-adapter/src"],
       "consumerOwner": "executor",
       "consumerStatic": true,
-      "testIds": ["executor:integration:public-boundary", "executor:unit:preparation"]
+      "testIds": ["executor:integration:public-boundary"]
     },
     {
       "producerOwner": "docker-isolation",
@@ -10447,11 +10447,12 @@
     {"id":"executor:unit:observation","owner":"executor","path":"40_Develop/executor/tests/unit/observation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","observation","diagnostic"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["passive_callback_failure_contained","configured_boundary_projected","no_raw_output"],"mandatoryByDefault":true},
     {"id":"executor:unit:plan","owner":"executor","path":"40_Develop/executor/tests/unit/plan.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","validation"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["basic_plan_validation","fixed_command_validation_distinct"],"mandatoryByDefault":true},
     {"id":"executor:unit:result-validation","owner":"executor","path":"40_Develop/executor/tests/unit/result/validation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","validation"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["unknown_preserved","exact_recovery_reference_preserved"],"mandatoryByDefault":true},
-    {"id":"executor:unit:preparation","owner":"executor","path":"40_Develop/executor/tests/unit/preparation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","preparation","single-use"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["single_use_preserved","owner_maps_separate","unknown_preserved"],"mandatoryByDefault":true},
+    {"id":"coordinator:unit:attempt-preparation","owner":"coordinator","path":"40_Develop/coordinator/tests/unit/execution/attempt-preparation.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","preparation","single-use"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["single_use_preserved","owner_maps_separate","unknown_preserved"],"mandatoryByDefault":true},
     {"id":"executor:integration:public-boundary","owner":"executor","path":"40_Develop/executor/tests/integration/public-boundary.contract.test.ts","level":"integration","kind":"contract","semanticTags":["attempt","public-api","dependency","fixture-storage"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["coordinator_not_loaded","invalid_start_effect_zero","private_maps_not_exposed","fixture_lock_released","fixture_events_committed","fixture_root_absent_or_reported"],"mandatoryByDefault":true},
     {"id":"executor:integration:provider-home-boundary","owner":"executor","path":"40_Develop/executor/tests/integration/provider-home-boundary.contract.test.ts","level":"integration","kind":"contract","semanticTags":["home-preflight","lock","cleanup"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["coordinator_not_loaded","home_services_simulated","unknown_preserved","fixture_root_absent_or_reported"],"mandatoryByDefault":true},
     {"id":"executor:integration:attempt-host","owner":"executor","path":"40_Develop/executor/tests/integration/provider-attempt-host.contract.test.ts","level":"integration","kind":"contract","semanticTags":["attempt-host","lease","receipt","storage"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["coordinator_not_loaded","original_terminal_only","lease_release_correlated","save_failure_preserved","synthetic_fixture_removed"],"mandatoryByDefault":true},
     {"id":"executor:integration:provider-real-cli","owner":"executor","path":"40_Develop/executor/tests/integration/provider-real-cli.contract.test.ts","level":"integration","kind":"contract","semanticTags":["trial-cli","consent","ipc","cleanup"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["coordinator_not_loaded","consent_failure_effect_zero","child_close_required","unknown_root_retained","synthetic_fixture_removed"],"mandatoryByDefault":true},
-    {"id":"executor:integration:task-summary-observation","owner":"executor","path":"40_Develop/executor/tests/integration/task-summary-observation.contract.test.ts","level":"integration","kind":"contract","semanticTags":["summary","observation","privacy","module"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["original_result_preserved","unsafe_summary_not_displayed","child_close_required"],"mandatoryByDefault":true}
+    {"id":"executor:integration:task-summary-observation","owner":"executor","path":"40_Develop/executor/tests/integration/task-summary-observation.contract.test.ts","level":"integration","kind":"contract","semanticTags":["summary","observation","privacy","module"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["original_result_preserved","unsafe_summary_not_displayed","child_close_required"],"mandatoryByDefault":true},
+    {"id":"executor:unit:notifications","owner":"executor","path":"40_Develop/executor/tests/unit/notifications.contract.test.ts","level":"unit","kind":"contract","semanticTags":["attempt","notification","cleanup","owner"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["notification_joined","cleanup_not_blocked_by_notice","content_after_notice_success_only","exact_recovery_reference_preserved"],"mandatoryByDefault":true}
   ]
 }

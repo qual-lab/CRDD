@@ -14,7 +14,6 @@ import { fork, spawnSync } from "node:child_process";
 import { registerHooks } from "node:module";
 import { isDeepStrictEqual } from "node:util";
 import type { TrialMode, TaskFixtureReceipt } from "./task-trial.ts";
-import type { AdvicePacket } from "../src/attempt/types.ts";
 
 type TrialResult = Readonly<{
   mode: TrialMode;
@@ -68,20 +67,18 @@ const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
   "../../platform-access/src/index.ts"
 );
 
-const { describeExecutorContract, isPrimaryFailureDiagnostic } = await import(
-  "../src/index.ts"
-);
+const { isPrimaryFailureDiagnostic } = await import("./executor-test.ts");
 
-const { bindAdviceCommand, hashAdviceCommand } = await import(
-  "../../docker-isolation/src/index.ts"
-);
+const {
+  bindAdviceCommand,
+  hashAdviceCommand,
+  describeDockerCommandSessionContract,
+} = await import("../../docker-isolation/src/index.ts");
 
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
   await import("../../ai-adapter/src/index.ts");
 
-const { buildProviderDockerExecutionPlan } = await import(
-  "../src/attempt/preparation.ts"
-);
+const { prepareAttempt } = await import("../src/attempt/execute.ts");
 
 const { resolveValidatedPlan } = await import("../src/attempt/isolation.ts");
 
@@ -223,7 +220,6 @@ export function buildStandaloneTrialPlan(
     identifierKind: selection.identifierKind,
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
-    role: selection.role,
   });
   const planned = planProviderExecution(
     {
@@ -256,7 +252,7 @@ export function buildStandaloneTrialPlan(
     toolsAllowed: false as const,
     sessionPersistenceAllowed: false as const,
   } as const;
-  const packet: AdvicePacket = Object.freeze({
+  const packet = Object.freeze({
     allowedReferences: Object.freeze([reference]),
     ...packetBase,
     packetHash: digest(
@@ -265,42 +261,30 @@ export function buildStandaloneTrialPlan(
     providerCommand: command,
     providerPrompt: prompt,
   });
-  const built = buildProviderDockerExecutionPlan(
-    spec.provider,
+  const built = prepareAttempt(
     { randomBytes },
     {
-      operationId,
-      mounts: {
-        workspace: path.join(root, "work"),
-        tmp: path.join(root, "tmp"),
+      ...{
+        purpose: "advice",
+        input: packet.providerPrompt,
+        commandHash: packet.commandHash,
+        command: packet.providerCommand,
+        allowedReferences: packet.allowedReferences,
       },
-    },
-    {
-      grant: {
-        ...home,
-        operationId,
-        grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
+      target: {
+        ...{
+          ...home,
+          operationId,
+          grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
+        },
+        operationId: operationId,
+        workspaceSourcePath: path.join(root, "work"),
+        temporarySourcePath: path.join(root, "tmp"),
+        activeMountCapability: {},
+        providerHomeSourcePath: homePath,
       },
-      activeMountCapability: {},
+      selection: technicalSelection,
     },
-    {
-      selectionRecordId: `MODELSEL-${randomBytes(12).toString("hex").toUpperCase()}`,
-      operationId,
-      executorProvider: spec.provider,
-      executionSelection: technicalSelection,
-      selectionHash,
-      taskAttempt: 0,
-      model: spec.model,
-      effort: spec.effort,
-      selectionNotice: "explicit_synthetic_trial",
-    },
-    homePath,
-    Date.now(),
-    performance.now(),
-    null,
-    packet,
-    null,
-    "coordinator_cli",
   );
   if (!built) throw Error("trial_plan_unavailable");
   const plan = Object.freeze({
@@ -314,7 +298,6 @@ export function buildStandaloneTrialPlan(
     plan.workspaceSourcePath !== null ||
     plan.providerInput !== prompt ||
     plan.executionSelection.purpose !== "advice" ||
-    plan.executionSelection.role !== "advice" ||
     plan.providerImageDigest !== spec.providerImageDigest
   )
     throw Error("trial_boundary_invalid");
@@ -983,7 +966,6 @@ export function cleanupStandaloneTrialRoot(
         resource_not_issued: ["purpose"],
         provider_submission: [],
         absence_observed: ["resources"],
-        home_release_requested: [],
         home_released: [],
         mount_recorded: [],
         recovery_closed: [],
@@ -1118,8 +1100,8 @@ export function cleanupStandaloneTrialRoot(
         "execution_settled",
       ].some((kind) => kinds.filter((value) => value === kind).length !== 1) ||
       !(
-        kinds.indexOf("absence_observed") < kinds.indexOf("home_released") &&
-        kinds.indexOf("home_released") < kinds.indexOf("recovery_closed")
+        kinds.indexOf("home_released") < kinds.indexOf("absence_observed") &&
+        kinds.indexOf("absence_observed") < kinds.indexOf("recovery_closed")
       )
     )
       return false;
@@ -1386,7 +1368,7 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
     });
     child.stderr?.on("data", () => {});
     const closed = await new Promise<boolean>((resolve) => {
-      const contract = describeExecutorContract();
+      const contract = describeDockerCommandSessionContract();
       let graceTimer: ReturnType<typeof setTimeout> | null = null;
       let ackSettled = false,
         closeSucceeded = false;

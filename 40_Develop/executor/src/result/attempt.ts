@@ -5,12 +5,75 @@
  * @trace ARCH-000008
  * @boundary 一試行の実行Ownerが観測した値と上位へ返す技術結果。
  */
+import { createHash } from "node:crypto";
+import {
+  convertProviderError,
+  parseProviderResult,
+  type ProviderResultParseResult,
+} from "../../../ai-adapter/src/index.ts";
+import type { AttemptPlan } from "../attempt/types.ts";
+import type {
+  CommandObservation,
+  DockerCommandExecutionClassification,
+} from "../../../docker-isolation/src/index.ts";
+import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
 import type {
   StartResultInput,
   StartResult,
   CompletionResultInput,
   CompletionResult,
 } from "./types.ts";
+
+/**
+ * AI Adapterの内容検査と内容Hashの算出を一つの結果へまとめる。
+ * @responsibility Task・Advice・Probeの変換だけを行い、実行状態・通知・保存を変更しない。
+ * @trace ARCH-000008
+ * @input 同じ試行の内部構成と観測済みの出力。生出力は返さない。
+ * @returns AI Adapterの検査結果と、成功時だけのHash・Byte数。
+ * @effect N/A: メモリ内の内容検査とHash計算のみ。
+ * @invariant 呼出しのタイミングと失敗の確定は実行Ownerが所有する。
+ */
+export function parseAttemptOutput(
+  plan: AttemptPlan,
+  execution: CommandObservation,
+  stdoutBytes: number,
+): Readonly<{
+  result: ProviderResultParseResult;
+  resultSha256: string | null;
+  resultBytes: number;
+}> {
+  const result = parseProviderResult(
+    plan.operationMode === "isolated_task"
+      ? {
+          provider: plan.provider,
+          purpose: "task",
+          taskRole: plan.taskRole,
+          selectedEffort: plan.executionSelection.reasoningEffort,
+          raw: execution.stdout,
+          taskWorkload: plan.taskWorkload,
+        }
+      : plan.operationMode === "workbench_advice"
+        ? {
+            provider: plan.provider,
+            purpose: "advice",
+            raw: execution.stdout,
+            allowedReferences: plan.adviceAllowedReferences ?? [],
+          }
+        : {
+            provider: plan.provider,
+            purpose: "probe",
+            raw: execution.stdout,
+          },
+  );
+  return Object.freeze({
+    result,
+    resultSha256:
+      result.status === "confirmed"
+        ? createHash("sha256").update(execution.stdout, "utf8").digest("hex")
+        : null,
+    resultBytes: result.status === "confirmed" ? stdoutBytes : 0,
+  });
+}
 
 /**
  * 一試行の開始成功・拒否を同じ入口で組み立てる。
@@ -27,6 +90,13 @@ import type {
  * @security 新しい実行許可を発行せず、回復参照を置換しない。
  * @concurrency 非同期処理を開始せず、Ownerが渡したPromiseを保持する。
  */
+export function createStartResult(
+  input: StartResultInput & Readonly<{ status: "blocked" }>,
+): StartResult & Readonly<{ status: "blocked" }>;
+export function createStartResult(
+  input: StartResultInput & Readonly<{ status: "started" }>,
+): StartResult & Readonly<{ status: "started" }>;
+export function createStartResult(input: StartResultInput): StartResult;
 export function createStartResult(input: StartResultInput): StartResult {
   const result =
     input.status === "started"
@@ -101,21 +171,19 @@ export function createStartResult(input: StartResultInput): StartResult {
 export function createCompletionResult(
   input: CompletionResultInput,
 ): CompletionResult {
-  const { status, reason, operationId, selectionRecordId, recoveryId } = input;
+  const { status, reason, operationId, recoveryId } = input;
   const cleanupConfirmed =
     input.processTreeTerminationConfirmed &&
     input.containersAbsent &&
     input.networksAbsent &&
-    input.mountLeaseReleased &&
-    input.recoveryCompleted;
+    input.homeLeaseReleased;
   return Object.freeze({
     status: cleanupConfirmed ? status : ("blocked" as const),
     reason: cleanupConfirmed
       ? reason
       : "docker_process_controller_cleanup_unconfirmed",
     operationId: operationId,
-    selectionRecordId: selectionRecordId,
-    recoveryId: cleanupConfirmed ? null : recoveryId,
+    recoveryId,
     manualRecoveryRequired: !cleanupConfirmed,
     dockerEffectStarted: true,
     providerRequestStarted: input.providerRequestStarted,
@@ -123,8 +191,7 @@ export function createCompletionResult(
     processTreeTerminationConfirmed: input.processTreeTerminationConfirmed,
     containersAbsent: input.containersAbsent,
     networksAbsent: input.networksAbsent,
-    mountLeaseReleased: input.mountLeaseReleased,
-    recoveryCompleted: input.recoveryCompleted,
+    homeLeaseReleased: input.homeLeaseReleased,
     cleanupConfirmed,
     resultSha256:
       cleanupConfirmed &&
@@ -172,8 +239,63 @@ export function createCompletionResult(
     credentialAbsenceVerified: false,
     hostPathReported: false,
     proxyCredentialReported: false,
-    recoveryFinalizationCapability: cleanupConfirmed
-      ? input.recoveryFinalizationCapability
-      : null,
+  });
+}
+
+/**
+ * 下位の技術分類を公開用途別の理由へ投影する。
+ *
+ * @responsibility Docker Isolationの分類を再計算せず、Providerと用途の意味へ接続する。
+ * @trace ARCH-000008
+ * @input execution: 元の観測、purpose: 用途、provider: Provider、classified: 下位の技術分類。
+ * @returns convertCommandResultの計算結果を返す。
+ * @precondition 「execution: CommandObservation | null、purpose: string、provider: "codex" | "claude"」がconvertCommandResultの入力契約を満たす。
+ * @postcondition convertCommandResultの責務を完了した結果だけを返す。
+ * @effect N/A: convertCommandResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: convertCommandResultは独自の失敗分岐を所有しない。
+ * @invariant convertCommandResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security convertCommandResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: convertCommandResultは共有非同期状態を持たない同期処理である。
+ */
+export function convertCommandResult(
+  execution: CommandObservation | null,
+  purpose: string,
+  provider: "codex" | "claude",
+  classified: DockerCommandExecutionClassification,
+) {
+  const isProvider = purpose === "start_provider_attached";
+  if (classified.category === "deadline_exceeded")
+    return Object.freeze({
+      ok: false,
+      reason: isProvider
+        ? "provider_deadline_exceeded"
+        : "docker_setup_deadline_exceeded",
+    });
+  if (classified.category === "output_limit_exceeded")
+    return Object.freeze({
+      ok: false,
+      reason: "provider_output_limit_exceeded",
+    });
+  if (classified.category === "signalled")
+    return Object.freeze({ ok: false, reason: "provider_process_signalled" });
+  if (classified.category === "nonzero_exit") {
+    if (execution === null)
+      throw new Error("docker_command_classification_inconsistent");
+    return Object.freeze({
+      ok: false,
+      reason: isProvider
+        ? convertProviderError(provider, execution).reason
+        : Object.hasOwn(SETUP_COMMAND_FAILURE_REASONS, purpose)
+          ? SETUP_COMMAND_FAILURE_REASONS[
+              purpose as keyof typeof SETUP_COMMAND_FAILURE_REASONS
+            ]
+          : "docker_setup_command_failed",
+    });
+  }
+  return Object.freeze({
+    ok: true,
+    reason: "command_completed",
+    stdoutBytes: classified.stdoutBytes,
   });
 }

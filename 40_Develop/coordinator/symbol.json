@@ -3,6 +3,9 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
+    { "symbolId": "coordinator.execution.preparation-types", "kind": "file", "path": "src/execution/types.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
+    { "symbolId": "coordinator.provider.preparation-lifecycle", "kind": "file", "path": "src/execution/preparation.ts", "archIds": ["ARCH-000015"] },
+    { "symbolId": "coordinator.test.unit.attempt-preparation", "kind": "test-suite", "path": "tests/unit/execution/attempt-preparation.contract.test.ts", "qaIds": ["QA-000003", "QA-000006"], "localTestIds": ["PRL-UT-014", "ERB-IT-004"], "verifies": ["coordinator.provider.preparation-lifecycle", "coordinator.execution.preparation-types", "executor.attempt.validation"] },
     { "symbolId": "coordinator.verification.task-diagnostic", "kind": "file", "path": "scripts/task-diagnostic.ts", "archIds": ["ARCH-000008"] },
     {
       "symbolId": "coordinator.execution.provider-executor",

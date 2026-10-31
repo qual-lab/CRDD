@@ -131,11 +131,19 @@ import {
   releaseHostOperationRecoveryGeneration,
   verifyHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
+  borrowOwnedOperationExecutionSelection,
 } from "./operation.ts";
 import type {
-  ExecutorOptions,
-  CompletionResult,
-  RecoveryStartFailureDiagnostic,
+  RecoveryPlan,
+  AttemptCleanupInput,
+  AttemptCleanupResult,
+  RecordedAttemptObservation,
+} from "./types.ts";
+import type { RecoveryStartFailureDiagnostic } from "./types.ts";
+import type {
+  StartResult,
+  Executor,
+  CompletionResult as TechnicalCompletionResult,
 } from "../../../executor/src/index.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
@@ -1105,13 +1113,15 @@ type ProductionPlan = Readonly<{
  * @compatibility DurableRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type DurableRecord = {
+  executor?: Executor;
+  executorControl?: object;
   capability: object;
   recoveryId: string;
   managementCapability: object;
   operationId: string;
   operationNonce: string;
   stableLogicalHomeBindingHash: string;
-  logicalHomeLease: Readonly<{ release: () => boolean }>;
+  homeLeaseReleased: boolean;
   settlementContext: object | null;
   initializationReady: boolean;
   initializationIdentityJson: string;
@@ -1126,9 +1136,7 @@ type DurableRecord = {
   consumer: ProductionPlan["consumer"];
   hostCleanupOutcome?: unknown;
   dockerCompletion?: unknown;
-  terminalObservation?: Parameters<
-    NonNullable<ExecutorOptions["recordTerminalObservation"]>
-  >[2];
+  terminalObservation?: RecordedAttemptObservation;
   settlementResult?: ReturnType<typeof settleRuntimeOwnedCoordinatorResult>;
   mountCompletion?: unknown;
   cleanupCheckpoint?: Readonly<{ revision: number; payloadSha256: string }>;
@@ -1147,18 +1155,99 @@ type DurableRecord = {
 
 const durableRecords = new WeakMap<object, DurableRecord>();
 
+/**
+ * 保存済みの元記録へ試行専用Executorと開始Controlを寿命結合する。
+ * @responsibility 取消の配送先だけを保持し、Controlを回復Authorityへ昇格しない。
+ * @trace ARCH-000008
+ * @effect 既存のdurableRecordsだけへ元Controlのaliasを登録し、終端で削除する。
+ * @failure 保存・Owner・元参照の不一致又は再結合はfalse。
+ * @invariant 保存前・未開始ではControlを登録せず、元completionと結果を置換しない。
+ */
+export function bindRuntimeOwnedExecutorAttempt(
+  capability: object,
+  management: object,
+  executor: Executor,
+  started?: StartResult,
+): boolean {
+  const record = durableRecord(capability);
+  if (
+    !record ||
+    record.managementCapability !== management ||
+    (record.executor !== undefined && record.executor !== executor)
+  )
+    return false;
+  if (started === undefined) {
+    record.executor = executor;
+    return true;
+  }
+  if (
+    started.status !== "started" ||
+    started.recoveryId !== record.recoveryId ||
+    record.executor !== executor ||
+    record.executorControl !== undefined ||
+    started.controlCapability === capability ||
+    durableRecords.has(started.controlCapability)
+  )
+    return false;
+  const control = started.controlCapability;
+  record.executorControl = control;
+  durableRecords.set(control, record);
+  const close = (result?: TechnicalCompletionResult) => {
+    if (record.executorControl !== control) return;
+    durableRecords.delete(control);
+    delete record.executorControl;
+    if (result?.homeLeaseReleased) delete record.executor;
+  };
+  void started.completion.then(close, () => close());
+  return true;
+}
+
+/**
+ * 元Controlだけを保存時と同じExecutorへ取消配送する。
+ * @responsibility 回復検索とは別のexact Control・管理Owner照合を行う。
+ * @trace ARCH-000008
+ * @effect 成立時だけ同じExecutorのcancelを呼ぶ。
+ * @invariant コピーControl・回復Capability・終端aliasを取消に使わない。
+ */
+export async function cancelRuntimeOwnedExecutorAttempt(
+  control: unknown,
+  management: unknown,
+) {
+  const record =
+    control && typeof control === "object" ? durableRecords.get(control) : null;
+  if (
+    !record?.initializationReady ||
+    !record.executor ||
+    record.executorControl !== control ||
+    record.capability === control ||
+    record.managementCapability !== management
+  )
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "invalid" as const,
+    });
+  return record.executor.cancel(control, management);
+}
+
+/**
+ * 元の回復Capabilityから同じ試行の明示終了だけを照会する。
+ * @responsibility Control aliasを拒否し、技術Home解放の判断をExecutorへ残す。
+ * @trace ARCH-000008
+ * @effect 同じExecutorの既存abandonだけを呼ぶ。解放条件は変えない。
+ */
+export function abandonRuntimeOwnedExecutorAttempt(
+  capability: unknown,
+  management: unknown,
+): boolean {
+  const record = durableRecord(capability, false);
+  return (
+    !!record &&
+    record.managementCapability === management &&
+    record.executor?.abandon(capability, management) === true
+  );
+}
+
 const dockerHostCleanupCapabilities = new WeakMap<object, object>();
-
-const releasedLogicalHomeLeases = new WeakSet<object>();
-
-const completedHomeLeaseReleases = new WeakMap<
-  object,
-  Readonly<{
-    managementCapability: object;
-    operationId: string;
-    recoveryId: string;
-  }>
->();
 
 /**
  * docker-recovery-runtime-internalで使用するDocker Restart Preparationの値契約を定義する。
@@ -3707,13 +3796,6 @@ function beginProductionRecovery(
       home.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash
     )
       return null;
-    stage = "home_lock";
-    const lease = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
-      plan.stableLogicalHomeBindingHash,
-    );
-    if (!lease)
-      throw new Error("docker_recovery_provider_home_lock_unavailable");
-    let isTransferred = false;
     let recoveryId: string | null = null;
     let capability: object | null = null;
     try {
@@ -3772,14 +3854,13 @@ function beginProductionRecovery(
         operationNonce: nonce,
         recoveryId,
         stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
-        logicalHomeLease: lease,
+        homeLeaseReleased: false,
         settlementContext: null,
         initializationReady: false,
         initializationIdentityJson: identityJson,
         consumer: plan.consumer,
       };
       durableRecords.set(capability, record);
-      isTransferred = true;
       stage = "operation_start_save";
       const saved = saveRuntimeOwnedCoordinatorOperationStart(
         managementCapability,
@@ -3840,13 +3921,6 @@ function beginProductionRecovery(
       if (record && capability) {
         record.initializationFailure = reason;
         record.initializationLeaseReleaseConfirmed = false;
-        try {
-          record.initializationLeaseReleaseConfirmed = lease.release();
-        } catch {
-          // 元の開始失敗とexact Ownerを保持し、解放例外を成功へ丸めない。
-        }
-        if (record.initializationLeaseReleaseConfirmed)
-          releasedLogicalHomeLeases.add(capability);
       }
       return Object.freeze({
         status: "blocked" as const,
@@ -3855,17 +3929,6 @@ function beginProductionRecovery(
         reason,
         manualRecoveryRequired: true,
       });
-    } finally {
-      if (!isTransferred && !lease.release()) {
-        stage = "home_lock_release";
-        // biome-ignore lint/correctness/noUnsafeFinally: actual lease release failure cannot return ready.
-        return Object.freeze({
-          status: "blocked" as const,
-          recoveryId,
-          reason: "docker_task_recovery_home_lock_release_unconfirmed",
-          manualRecoveryRequired: true,
-        });
-      }
     }
   } finally {
     if (!ready) {
@@ -4127,6 +4190,74 @@ export function markRuntimeOwnedDockerResourceSubmission(
  * @boundary Controllerの同期要求前境界とRepository内の現在状態。
  * @security 新しい実行・回復Authorityを発行しない。
  * @concurrency 既存Writerの短期排他と元版照合を使用する。
+ */
+export function recordRuntimeOwnedUnstartedAttempt(
+  capability: object,
+  management: object,
+  result: StartResult & Readonly<{ status: "blocked" }>,
+): boolean {
+  const record = durableRecord(capability);
+  if (
+    !record ||
+    record.managementCapability !== management ||
+    result.recoveryId !== record.recoveryId
+  )
+    return false;
+  const current = readRuntimeOwnedCoordinatorStateSnapshot(management);
+  const operation = current.value?.snapshot.operations.find(
+    (item): item is CoordinatorStateTaskOperation =>
+      item.kind === "docker_task" && item.recoveryId === record.recoveryId,
+  );
+  if (
+    current.status !== "completed" ||
+    !current.lockReleased ||
+    !operation ||
+    operation.phase !== "executing" ||
+    operation.outcome !== null ||
+    operation.summarySha256 !== null ||
+    operation.resources.some(
+      (resource) =>
+        resource.request !== "not_requested" || resource.dockerId !== null,
+    ) ||
+    operation.execution.providerStart !== "not_started" ||
+    operation.execution.externalSend !== "not_issued" ||
+    operation.execution.sharedWrite !== "not_issued"
+  )
+    return false;
+  const saved = checkpointRuntimeOwnedCoordinatorLifecycle(
+    management,
+    record.recoveryId,
+    {
+      phase: operation.phase,
+      lease: operation.lease,
+      execution: { ...operation.execution, ownerEffect: "disabled" },
+      primaryFailure: {
+        purpose: null,
+        stage:
+          result.reason === "docker_process_controller_recovery_unavailable"
+            ? "home_lock"
+            : "plan_validation",
+        reason: result.reason,
+        exceptionCode: null,
+        commandHandleObtained: false,
+        responseObserved: false,
+        receiptRecorded: false,
+      },
+      outcome: null,
+      summarySha256: null,
+    },
+  );
+  return (
+    saved.status === "completed" &&
+    saved.snapshotConfirmed &&
+    saved.lockReleased
+  );
+}
+
+/**
+ * Provider要求予定を既存の実行記録へ保存する。
+ * @responsibility 要求予定と実開始を混同せず、既存Writerだけを使う。
+ * @trace ARCH-000008
  */
 export function recordRuntimeOwnedDockerProviderSubmission(
   recoveryCapability: unknown,
@@ -4481,22 +4612,11 @@ function completeProductionRecovery(
     host.snapshot.token !== operation.host.currentToken
   )
     return Object.freeze({ status: "blocked" as const });
-  if (!releasedLogicalHomeLeases.has(recoveryCapability as object)) {
-    if (!record.logicalHomeLease.release())
-      return Object.freeze({
-        status: "blocked" as const,
-        recoveryId: record.recoveryId,
-      });
-    completedHomeLeaseReleases.set(
-      recoveryCapability as object,
-      Object.freeze({
-        managementCapability: record.managementCapability,
-        operationId: record.operationId,
-        recoveryId: record.recoveryId,
-      }),
-    );
-    releasedLogicalHomeLeases.add(recoveryCapability as object);
-  }
+  if (!record.homeLeaseReleased)
+    return Object.freeze({
+      status: "blocked" as const,
+      recoveryId: record.recoveryId,
+    });
   const saved = checkpointRuntimeOwnedCoordinatorLifecycle(
     managementCapability,
     record.recoveryId,
@@ -4550,9 +4670,10 @@ export function verifyRuntimeOwnedDockerHomeLeaseRelease(
 ) {
   if (!recoveryCapability || typeof recoveryCapability !== "object")
     return false;
-  const released = completedHomeLeaseReleases.get(recoveryCapability);
+  const released = durableRecord(recoveryCapability, false);
   return (
     !!released &&
+    released.homeLeaseReleased &&
     released.managementCapability === managementCapability &&
     released.operationId === operationId &&
     released.recoveryId === recoveryId
@@ -4754,12 +4875,10 @@ export function prepareRuntimeOwnedDockerHostCleanup(
  */
 export function registerRuntimeOwnedReviewFindings(
   capability: object,
-  result: CompletionResult,
+  result: TechnicalCompletionResult,
 ) {
   const record = durableRecord(capability);
-  const plan = record?.normalRestoration?.plan as
-    | Parameters<ExecutorOptions["completeRecovery"]>[2]["plan"]
-    | undefined;
+  const plan = record?.normalRestoration?.plan as RecoveryPlan | undefined;
   const terminal = record?.terminalObservation;
   if (
     !record ||
@@ -4775,7 +4894,13 @@ export function registerRuntimeOwnedReviewFindings(
     !result.cleanupConfirmed ||
     result.cancellationRequested ||
     result.operationId !== record.operationId ||
-    result.selectionRecordId !== plan.selectionRecordId ||
+    !borrowOwnedOperationExecutionSelection(
+      record.managementCapability,
+      plan.selectionRecordId,
+      plan.selectionHash,
+      plan.taskAttempt,
+      plan.executionSelection,
+    ) ||
     record.operationId !== plan.operationId ||
     plan.operationMode !== "isolated_task" ||
     plan.taskRole !== "reviewer" ||
@@ -4812,9 +4937,7 @@ export function registerRuntimeOwnedReviewFindings(
 export function recordRuntimeOwnedDockerTerminalObservation(
   capability: object,
   result: object,
-  observation: Parameters<
-    NonNullable<ExecutorOptions["recordTerminalObservation"]>
-  >[2],
+  observation: RecordedAttemptObservation,
 ) {
   const record = durableRecord(capability);
   if (
@@ -4911,10 +5034,7 @@ export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability, false);
   if (!record) return false;
   dockerHostCleanupCapabilities.delete(recoveryCapability as object);
-  if (releasedLogicalHomeLeases.has(recoveryCapability as object)) return true;
-  const released = record.logicalHomeLease.release();
-  if (released) releasedLogicalHomeLeases.add(recoveryCapability as object);
-  return released;
+  return record.homeLeaseReleased;
 }
 
 /**
@@ -7448,5 +7568,92 @@ export function projectRuntimeRepairObservation(
     historyConfirmed: result.historyConfirmed,
     completionConfirmed: result.completionConfirmed,
     nativeCleanupConfirmed: result.nativeCleanupConfirmed,
+  });
+}
+
+/**
+ * Executorが完了した技術的な終了を元Taskの記録へ反映する。
+ * @responsibility 実Home解放を再実行せず、結果保存・Host記録・Lifecycle保存だけを行う。
+ * @trace ARCH-000008
+ * @input 元操作・回復参照、資源観測、Grant借用終了結果とHome実解放結果。
+ * @returns 技術的な終了事実と耐久確定を区別した保存結果。
+ * @precondition 技術的な解放はExecutorが先に試行している。
+ * @postcondition 保存拒否でも受領済みの実解放事実を取り消さない。
+ * @effect 既存recordへの観測結合と、Domain／Host記録の保存。
+ * @failure 保存拒否ではTaskを成功にせず、exact回復参照を保持する。
+ * @invariant Handleのrelease・Docker操作を呼ばない。
+ * @boundary Executorの技術生涯とCoordinatorの保存・Task進行。
+ */
+export function recordRuntimeOwnedAttemptCleanup(
+  input: AttemptCleanupInput & Readonly<{ plan: RecoveryPlan }>,
+): AttemptCleanupResult {
+  const {
+    plan,
+    recoveryCapability,
+    managementCapability,
+    recoveryId,
+    observations,
+    mountCompletion,
+    mountLeaseReleased,
+    homeLeaseReleased,
+  } = input;
+  let recoveryCompleted = false;
+  let recoveryFinalizationCapability: object | null = null;
+  const record = durableRecord(recoveryCapability, false);
+  if (
+    !record ||
+    record.managementCapability !== managementCapability ||
+    record.operationId !== plan.operationId ||
+    record.recoveryId !== recoveryId
+  )
+    return Object.freeze({
+      mountLeaseReleased,
+      homeLeaseReleased,
+      recoveryCompleted,
+      recoveryFinalizationCapability,
+    });
+  if (homeLeaseReleased) {
+    record.homeLeaseReleased = true;
+    if (!record.initializationReady)
+      record.initializationLeaseReleaseConfirmed = true;
+  }
+  try {
+    if (
+      recordRuntimeOwnedDockerAbsence(recoveryCapability, observations) !== true
+    )
+      throw new Error("docker_absence_record_failed");
+    if (mountLeaseReleased && mountCompletion) {
+      if (
+        recordRuntimeOwnedNormalMountCompletion(
+          recoveryCapability,
+          mountCompletion,
+        ) !== true
+      )
+        throw new Error("mount_completion_record_failed");
+      const completion = completeRuntimeOwnedDockerRecovery(
+        recoveryCapability,
+        managementCapability,
+        Object.freeze({ plan, mountCompletion }),
+      );
+      if (
+        homeLeaseReleased &&
+        completion.status === "completed" &&
+        completion.recoveryFinalizationCapability &&
+        typeof completion.recoveryFinalizationCapability === "object"
+      ) {
+        recoveryCompleted = true;
+        recoveryFinalizationCapability =
+          completion.recoveryFinalizationCapability;
+      }
+    }
+  } catch {
+    recoveryCompleted = false;
+    recoveryFinalizationCapability = null;
+  }
+  return Object.freeze({
+    mountLeaseReleased,
+    homeLeaseReleased,
+    recoveryCompleted,
+    recoveryFinalizationCapability,
   });
 }

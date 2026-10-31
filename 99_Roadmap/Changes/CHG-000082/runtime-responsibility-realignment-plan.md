@@ -7,7 +7,75 @@
 - 責任者: Qual-Lab
 - 対象外: AI再送、Docker操作、既存Runtime領域・保持物の読取り／変更／削除、Release判断。
 
+## Executor入力検査・参照正本・局所補助の整理（2026-10-31、対象非AI確認完了）
+
+対象検証結果：AI Adapter全41件、Coordinator対象198件が成功。最終試験追従後のExecutor静的・型検査と全50件も成功（約94.2秒）。Factory経由で参照1／257／1024件の受理と1025件等のEffect前拒否を確認した。独立レビューの指摘で旧Owner記述と利用側正例を是正し、固定差分の再レビューで残Must-fixは零。Workbench型検査、Catalog427定義検査、差分空白検査も成功。実AI・Docker・過去保持物は操作せず、Repository全体QA完了とは扱わない。既知のHome解放条件は別件の未処置を維持する。コミット・プッシュは未実施。
+
+人間承認したSource整理として、モデルの手書き列挙検査を撤去し、ExecutorのparseModelSelectionからAI Adapter既存Resolverへ委譲する。Executorが残すのは動的Propertyを拒否するexact五項目のコピーと一致・投影だけ。private copyPlainDataRecordは保存記録ではなくこの入力固定の補助である。Resolverへは四項目を明示し、identifierKindを含む元五項目と照合、返却Catalog Identityは下位へ含めない。
+
+助言参照はAI Adapterの既存advice-result.tsへparseAdviceReferencesとして一実体化し、既存plain-data配列コピーを利用する。成功はAdviceReferencesResultのconfirmedと凍結配列、拒否はblockedと固定理由。Executor準備とAI Adapter内容Parserは同じ正本を使う。参照数は独自256件を廃止して既存AI Adapterの1024件へ統一し、512byte・非空・空白・重複・動的入力拒否は同正本が所有する。256/257/1024/1025件、Unicode byte境界、sparse・symbol・accessor・Proxy、元値変更後の不変性を確認する。汎用Snapshot APIや新Libraryは作らない。
+
+isDockerSetupCommandPurposeは一箇所の固定失敗理由Map参照へinline化し、own key照合と未知用途fallbackを維持する。isAttemptFailureReasonは本番の理由変換と試験・試験Scriptの共有語彙照合として残す。成功・取消理由はFactoryの固定値であり、同種の検査関数を人工的に増やさない。ownDataValueはreadOwnDataPropertyへ改名しattempt/validation.tsへ移管。意味・取得不能時のundefinedは変更せずRoot非公開を維持する。
+
+Executor／AI Adapterの詳細設計とQA-000006、利用側・既存Suiteを追従する。既存Symbol・CatalogはFile／Suite単位の対応であり、今回Path移動・新SuiteはなくIDを増やさない。公開AIA APIの正確な集合と新しい結果型は更新し、独立したSource・正本レビューを実施する。準拠基準・Release判断・保存形式・Authority・Timeout・Home解放条件は変えないため準拠／Release監査は対象外。実AI・Docker・過去保持物の操作は行わない。着手前の読取り確認で、Resolverの四項目入力／Catalog Identity付き返却とExecutorの五項目境界を照合済み。追加人間判断は不要。
+
 追加の人間指摘を受け、Envelopeだけを返していたAI Adapterの公開parseProviderResultを、用途別の内容検査まで完了する入口へ改めた。旧抽出は内部extractProviderResultとして搬送段階の試験・限定診断へ限定し、ExecutorのTask／Advice別解析組立てを撤去した。内容型、固定理由、許可参照検査、Taskの作業量判定の正本はAI Adapterであり、新Library・汎用変換Frameworkは追加しない。
+
+## Executor単発入力の所有境界整理（2026-10-31）
+
+今回の人間承認は、小さな統合候補を除く型・入力境界の整理である。変更経路は既存Capabilityを保つSource RefactorとArchitecture／Quality／利用側／非AI試験の追従。準備一回消費、改訂・Authorityの照合、同期記録、取消join、同一Completion object、exact回復参照を保持する。独立Source・正本整合レビューを行い、準拠基準・Release監査、実AI・Docker・過去保持物の操作は行わない。
+
+- この段階では上位準備入力・二WeakMapの一回消費をCoordinatorへ集約し、技術Planをstartへ渡していた。この過渡的な往復は後段の「Requestを受けるFactoryへの切替」で廃止した。現行はRequestをFactoryへ、保存後の参照と通知をstartへ渡す。
+- Model／EffortはAI Adapterの`AiModelSelection`から取得する。`AttemptTarget`は照合済みBinding／Grantの技術対象、`AttemptRequest`は管理Packetではない実行内容とする。
+- `AttemptPlan`は旧二計画型の技術部分を統合する。選定ID／Hash、Packet参照／Hash、Task試行番号、利用側・回復相関は上位の`RecoveryPlan`に残す。下位への投影は許可fieldを明示し、追加metadataのaccessorを評価しない。
+- 固定構成`ExecutorOptions`、試行ごとの`ExecutorCallbacks`、内部技術操作`ExecutionServices`へ分離し、`ExecutorHost`を廃止する。既存Control記録がその試行のcallbackを保持する。生Executorを上位接続Moduleから公開しない。
+- 消費後・Authority消費前の開始拒否はexact controlを失効し、未試行Mountだけ返却する。拒否・失効・保存不明を成功へ補完しない。consumeがnullの場合も選定表示を保持するが、それだけで物理回収成立とは主張しない。
+- CompletionResultから選定記録IDを撤去し、終端記録とcompletionへ同一objectを渡す。所見からの限定是正許可は既存上位記録の選定ID／Hash／試行番号・技術五項目の借用照合で維持する。
+
+検証結果：Executor全44件が一実行で成功（約107.7秒）。Coordinator対象178件と、所見受領Owner一件が成功した。独立確認で未消費Authorityの後始末、生Executor公開、除外rest投影、consume-null時の選定表示欠落と旧文書記述を検出し、是正した。表示負例・Provider別投影・文書追従後に対象178件と所見Ownerを再確認し成功。両Packageの型検査・静的検査、Catalog426定義、差分空白検査も成功した。最終限定再レビューの残Must-fixは零。既知のHome解放条件の安全指摘は人間指示で別件の未処置として維持し、今回の型整理に混入しない。今回範囲に新たな人間判断はなく、コミット・プッシュは未実施。
+
+途中の別Process合成試験一実行は15秒期限で停止し、`.crdd/tests/executor-standalone-5f49qz`が回収未確定として残った。後続の新品試験の成功をこの領域の回収確認へ流用せず、本作業では保持物を操作しない。実AI・実Dockerの成功やRepository全体QAの完了とは扱わない。
+
+小さな統合候補のうち、人間承認した`Command`の重複宣言を撤去し、Planと内部実行接続はDocker Isolationの`DockerIsolationCommand`を直接再利用する。型の用途を既存の固定九操作へ合わせ、argv、操作順、実行時照合・取消・清掃条件は変更しない。利用側の合成fixtureは同じ九操作をliteralとして定義し、未知用途の型拒否と実行時拒否を確認する。型検査・対象非AI回帰・限定独立確認を実施し、実AI・Docker・保持物は操作しない。回復開始応答、診断処理の配置、内部技術接続の削減、対象／内容入力の統合は説明・比較段階であり、今回追加実装しない。
+
+Command統一の確認結果：両Package型検査、Executor静的検査・対象9件、Coordinator対象134件が成功。独立確認で未知用途の負例が件数不足の検査へ先着する点を検出し、九件・argv・他八操作を維持して用途だけを変える負例へ是正した。該当UTと両型検査を再実行し、限定再レビューの残Must-fixは零。実行時処理・公開API・保存契約は変更せず、コミット・プッシュは未実施。
+
+## 通知専用コールバックと単発実行の整理（2026-10-31、最終確認中）
+
+### Requestを受けるFactoryへの切替（2026-10-31、対象非AI確認完了）
+
+非AI確認：Executorのcheckと全48件、Coordinatorの型検査と対象198件、検証Tool46件、Workbenchの型検査と診断14件、Catalog427定義が成功した。独立レビューで文書Ownerの旧記述とControl分岐の反例不足を指摘され、Source処理を変えずに文書と既存2 Suiteを是正した。未解放を返して正常resolveする場合のalias失効・Executor保持と、開始後Control結合失敗時の同Control取消一回・下位completion join・同ID blockedを確認した。是正後の固定候補（差分Hash dac73994c8b1d61c733cbbe1ae08f0164432405c）の独立再レビューは残Must-fix零だった。この記録確定は検証・Sourceを変更せず、全体QA・実AI・実Dockerの完成へ昇格しない。追加質問のvalidation関数の責務・命名は調査と説明だけで、今回のSource是正へ混在させていない。
+
+最新の人間承認に従い、`createExecutor(request, options, random?)`が一試行の技術構成を内部に保持する方式へ切り替える。公開prepare・Plan往復・RootのAttemptPlan／AttemptReferenceを廃止する。上位へ返すのは資源名・Image・Mode等の狭い記録投影であり、Command・Provider本文・Authorityは含めない。
+
+着手前の独立した読取り確認では、保存前のHome取得禁止と取消Ownerの維持を照合した。試行ごとのFactoryに伴う取消配送は新しいMapを作らず、既存durableRecordsへ同じExecutorと元Controlの寿命aliasを結合する案で整合した。通常の回復検索は元Capabilityのobject一致を維持し、Control aliasを回復Authorityへ昇格しない。終端成功／拒否でaliasを除き、Home解放未確認の明示終了だけを元Executorへ残す。
+
+`executeAttempt`は実行・通知・取消・回収の順序を所有する。純粋な内容解析と成功時Hash計算は既存`result/attempt.ts`の`parseAttemptOutput`へ移し、通知が未確定でも技術清掃が進む既存条件を保持する。局所の最初の失敗を固定する処理と結果受理の時機は実行Ownerへ残す。
+
+変更分類は公開Library APIと本番接続の責務整理である。Executor／Coordinator詳細設計、QA-000006、直接利用側・有限試験を対象とする。Source・利用側・取消／回収の独立レビューと対象回帰を実施し、CRDD準拠基準・公開／Release判断を変えないため準拠監査・Release監査は実施しない。人間の追加判断は不要。保存Schema・Operation Identity形式・Timeout・技術清掃条件・既知Home abandon解放条件は変更しない。実AI・Docker・過去保持物の操作は対象外。
+
+人間は、上位で実行記録を確定してからExecutorを呼び、Home競合時には同じIDの未開始試行を残す順序を採用した。通知は任意メソッドを持つ`ExecutorCallbacks` interfaceとし、引数は既存型を再利用する。戻り値は`void`／`Promise<void>`であり、保存結果・許可・回復IDを下位から要求する返信口にしない。Event Bus、ACK、Worker、Registry、保存Schemaは追加しない。
+
+| 所有者 | 今回の確定責務 |
+|---|---|
+| Coordinator | 準備一回消費・Authority・改訂照合、回復開始保存、通知先での記録、Mount終了、技術結果後のTask終端保存 |
+| Executor | exact参照でのHome取得、一試行の実行・取消、通知join、技術資源清掃とHome解放、技術CompletionResult |
+| Docker Isolation | 固定Commandと実資源操作、取得済み実IDの局所捕捉、同じsessionの終了・回収 |
+| 検証ツール | 未検査JSONの一次故障診断検査、有限代役と既存の反例試験 |
+
+実装：`AttemptRequest`へ対象・選定・内容を統合し、`ExecutorOptions`、`ExecutionServices`、`RuntimeDependencies`の別名・汎用操作束を撤去した。`createExecutor`を`attempt/execute.ts`へ統合し、中継Factory二つを撤去。`start`は同じControlとcompletionを返し、内部`executeAttempt`が一試行の継続・通知・回収を所有する。`classifyExecution`は`result/attempt.ts`の`convertCommandResult`へ移管。`observation.ts`を廃止し、通知型は`types.ts`、構成診断は`isolation.ts`、受動通知呼出しは実行Ownerへ戻した。
+
+独立したprepareAttemptをRootへ追加した途中案は、人間指摘により撤回した。通常Rootの関数はcreateExecutorのみとし、返却Executorにprepareを持たせた過渡案も、後段のRequest入力Factoryへ置き換えた。現行はFactoryが完全Planを内部に保持し、Coordinatorの既存準備Ownerが試行専用Executorを保持する。上位の一回消費・Authority・記録確定後にstartし、新しい準備Registryや永続管理領域は追加しない。検査・結果組立て・試験用中間APIも公開しない。`describeExecutorContract`を撤去し、準備期限はCoordinator、技術期限はDocker Isolationを参照する。回復開始の理由・参照・診断検査はCoordinatorの既存validationへ、JSON一次故障検査は既存`./testing`へ移管。回復開始診断の型・段階定数と失敗通知もCoordinatorへ移し、上位Reporterへ直接報告する。Workbench／Coordinatorの検証ツールはCoordinatorの検査正本を利用する。Executor内の合成Host用回復処理はprivateな試験処理であり、他Packageへ正本として公開しない。有限試験用の構成はscriptsに閉じ、製品と同じ内部開始・取消を使う。
+
+独立確認で、開始済みProcessの技術signalと非同期公開通知の契約不一致を検出した。DIのsignalは同期voidへ戻し、Executorが公開通知をjoinする。通知保留中も開始済みProcessのwait・期限・終了・回収を進めるが、Provider内容受理とcompletion公開は通知成功後に限る。通知成功が既に確認できた通常経路はその時点で内容を検査し、既知失敗を後続の取消で上書きしない。遅い拒否は本文を受理せず同じIDのblockedへ閉じる。新しい待機期限・監視機構は追加しない。
+
+技術清掃と上位保存は別条件である。上位の終端保存を受動onCompletedに置かず、上位completionで待つ。保存拒否でも実際に確認済みのHome解放を未解放へ戻さず、Task成功は返さない。未開始記録保存が拒否・例外でも元回復参照と未確認義務を保持する。各必須通知の欠落変異、保存throw／async reject、Home競合、通知保留・遅い拒否・取消を既存試験へ追加した。
+
+この段階の確認履歴（Request入力Factory切替前）：Executorの既存46件とCoordinator主要135件が構造整理後に成功。その後の開始通知是正・Root縮小では、Parser spyを含む通知／理由6件とCoordinator関連143件が成功し、Executor静的検査、Executor／Coordinator／Workbench型検査も成功した。最新固定候補のExecutor全回帰・Docker Isolationの非AI回帰・限定独立再確認を進行中であり、この途中結果を全体完成とは扱わない。実AI・実Docker・過去保持物は操作していない。既知Home abandon解放条件の別件指摘は未処置として維持する。現在、新たな人間判断は必要ない。
+
+今回の追加承認：`buildProviderDockerExecutionPlan`を`prepareAttempt`へ改名し、`execute.ts`へ統合した。旧`preparation.ts`を撤去し、Source利用側・固定試験用生成文字列・Symbol配置も追従する。上位の完全選定・Packet相関検査は維持し、技術五項目の検査はExecutorの準備入口へ集約する。新しい準備Manager・Store・Driver注入は作らない。途中独立確認で指摘された私有importと型の逆Ownerを是正し、不正結果の即時／遅延通知成功の同値反証を追加した。最新候補の型・静的検査、対象回帰、独立レビューは下記の確定結果へ追記する。
+
+最新の人間指摘への処置：Executor／Coordinatorと有限試験のreportPassiveBoundaryDiagnosticを撤去し、各通知発生箇所で既存Reporter／onDiagnosticを直接呼ぶ。同期例外・非同期拒否が元結果・exact回復参照・技術回収へ波及しない条件は維持する。Source順をcancel→abandon→createExecutor→private prepareAttemptへ揃え、abandonとFactory、取消のヘッダーを実処理・失敗・解放条件へ合わせた。既知Home abandon解放条件は別件として未変更。実利用側のprepare接続、Root入力型、固定試験器を追従し、準備に不要な技術実行を試験で禁止した。追加回帰で検出した古い空CREATE応答と未使用selectedModel変更のfixtureも、現行の実ID・五資源観測とModelを使用するTaskの反証へ是正した。製品の安全判定・Timeoutは変更していない。
 
 ## Executor公開APIと内容型の整理（2026-10-30）
 
@@ -80,6 +148,52 @@ Executorのstart／cancelを構造で明示し、Factoryの返却型をExecutor�
 
 ### Executor試行型の重複・配置整理（2026-10-30）
 
+#### 選定・Task／Advice Packetの上位化（2026-10-31）
+
+`ModelSelection`・消費済み`TaskPacket`・`AdvicePacket`の三管理型をCoordinator `execution/types.ts`へ移し、Executorの宣言とbuilder引数から除いた。型の移動だけにせず、builderは旧12引数から、乱数・実行対象・Mount借用・AI Adapter選定・実行相関・用途別内容の六入力へ変更する。実行内容は排他的な`AttemptRequest`にまとめ、同じOperation・Provider・Model・Effort・HashをPacketごとに再搬送しない。選定正本はAI Adapterの型を直接使用する。
+
+旧builderのModel／Packet相関検査はCoordinatorの既存準備callbackへ移し、Operation、Provider、Model、Effort、選定Hash、試行番号、stdin搬送、上位role、助言四非共有条件の拒否を維持する。下位は解決済み内容とCommand／Image／Mountの技術一致を検査する。Contextの既存ID／Hash／時刻／利用側値は現行の試行Identity・通知・終了相関に使用中のため残す。新しいState・Registry・永続領域・管理Managerは作らず、単発実行全体のmetadata撤去完了とは表示しない。Standaloneも新しい六入力へ直接追従させ、Coordinatorを読み込ませない。Home排他、実AI、Docker、過去保持物は操作しない。
+
+確認結果はExecutor通常44件成功（113.3秒）、Coordinator準備43件成功、Controller／利用側122件成功、両Package静的確認成功、Catalog 426件valid、Symbol 13 manifests／問題0。独立確認でAdvice相関反例の不足を検出し、既存正常試験へ八一軸変異を追加して準備43件と型検査を再実行した。Taskは四一軸変異で拒否、Authority発行0・Mount借用終了1を確認する。これらは有限準備試験であり、実AIや実Containerの観測成功を主張しない。上位の二選定fieldには、実際に照合する既存Domain role型を明示し、下位五項目への投影と区別した。
+
+是正後の独立再確認で、Advice八反例・上位role型・下位五項目契約・Owner表現の整合を確認し、今回の三管理型分離に残指摘0となった。Homeの既知安全指摘は未処置のままであり、今回の完了へ含めない。
+
+#### 上位準備型のOwner整理と受渡し縮小（2026-10-31）
+
+`AttemptPreparation`・完全な準備成功／拒否／取消結果・準備Authority・二WeakMapを持つ状態・Provider別準備計画・消費済みPacket・準備Hostの十宣言をCoordinator `execution/types.ts`へ移した。上位の既存実装と型検査が共有する場所であり、Runtime値・Store・Frameworkは新設しない。Executor側にはcallbackで実際に読むstatus・準備参照・選択表示三項目・拒否理由だけの`AttemptPreparationResult`を残す。上位の多数の固定Effect fieldや準備候補管理を下位契約から除いた。未使用だったExecutor testingの準備型reexport三件も撤去した。
+
+Provider別準備計画の型正負例一件は、Executorの計画試験から既存Coordinator準備試験へ移管し、下位試験からCoordinatorへの逆依存を追加しない。残る`ModelSelection`・`TaskPacket`・`AdvicePacket`と計画metadataは現在のbuilder受渡しに使われており、完全に上位へ閉じたとは判定しない。単に別名へ付け替える統合や、必要なProvider条件・必須fieldの削除は行わない。Home安全指摘・認証・診断・修復・実AI・Docker・過去保持物は今回操作しない。
+
+移管後の結果はExecutor通常44件成功（89.3秒）、Coordinator準備42件成功、両Package静的確認成功（Coordinatorは既存info 102件のみ）、Catalog 426件valid、Symbol 13 manifests／問題0。独立レビューで、移した型OracleとSuiteのQA／Trace対応の不足一件を是正し、再確認で残指摘0となった。Coreの最小callback結果はoperation／Effect群なしで型成立し同一objectを返す正例を追加、準備42件と型検査を再実行した。試験件数の45→44と41→42は型Oracle一件のOwner移管によるもので、試験の削除ではない。
+
+#### AttemptSelectionとAttemptPathsの撤去（2026-10-31）
+
+人間はHome排他の安全指摘を後回しにし、上記二型だけの整理を指示した。`AttemptSelection`を削除し、Executorの選定型はAI Adapterの`AiModelSelection`へ統一する。上位ロールとTask／Adviceの相関検査はCoordinatorの既存準備Ownerへ移し、Executorへは五項目だけを明示投影する。元の完全選定Hash・選定ID・試行番号と上位正本への結合は維持する。保存Schema・過去Evidenceを五項目へ書き換えない。Executorにroleが混入した値は余剰として拒否する。
+
+`AttemptPaths`は実使用が`AttemptBinding.mounts`一箇所だけだったため、workspace／tmpの二項目を直接統合し、宣言とRoot型exportを削除した。実行順序・Homeの解放条件・Docker操作・AI送信・過去保持物は変更しない。
+
+限定独立レビューでは実行契約のMust-fixはなく、五項目化に伴うコメント二箇所の追従指摘を是正した。上位の六項目と下位の五項目、完全Hash・選定ID・試行番号の相関、role余剰拒否を確認した。Homeの既知指摘は今回の解消判定へ含めない。
+
+確認結果はExecutor通常45件成功（109.9秒）、Coordinator準備・Controller 155件成功、Claude委譲／隔離実行利用側10件成功、上位完全選定借用の対象1件成功、両Package静的確認成功、Catalog 426件valid。途中の旧六項目fixtureによる失敗は上位準備用六項目／Executor用五項目を分けて追従した。広めのRepository操作試験では、この実行環境がjunction／symlink作成をEPERMで拒否する失敗が残り、その試験集合全体の成功とはしない。Home排他の未処置指摘は引き続き保留する。
+
+#### 今回の範囲限定：型の重複と不要な間接定義（2026-10-31）
+
+人間の再確認により、認証・診断・修復の移管／廃止と、上位metadataの責務移管は進めず、先にExecutor `attempt/types.ts`の見通しを改善する。Provider名の集合はAI Adapterの`AiProvider`を参照する。ExecutorのCommand Handle三操作はDocker IsolationのSessionが既に持つ同形契約へ統合し、所有元の型だけを公開して再利用する。生ProcessのSignal型へ狭めず、`closed`等の追加操作をExecutorへ要求しない。空の`Readonly<Record<never, never>>`三箇所は交差の中立値`unknown`へ簡素化し、不要なimport別名と同型二重importも削除する。現在の他の宣言には使用箇所があり、行数だけを理由に削除しない。
+
+この単位は型定義と参照・説明の整理だけであり、実行順序、拒否判定、期限、保存契約、公開Runtime値を変更しない。前段の未完了な責務移管を完了とは扱わない。実AI・Docker・過去保持物は操作しない。
+
+限定候補の確認結果は、Executor通常45件成功（117.1秒）、整形・型検査・警告を失敗とするLint成功、Coordinator製品／試験型検査成功、Docker Isolation関連3 Suite 29件成功、同Package静的検査成功（既存infoのみ）、Test Catalog 426件valid。独立レビューは型値域・optional・Provider条件・Runtime値不変の範囲で残指摘0だった。試験入口を一度誤指定した実行は対象File未検出で開始しておらず、正しい3 Suiteで再確認した。
+
+別件として、前段の未コミットなHome生涯移管には安全指摘1件が残る。`abandon`がContainer／Network不存在未確認でもHome排他を新たに解放し得るため、前段全体の完了・統合可能とは判定しない。今回の型整理へRuntime是正を混入させず、未処置として分離する。
+
+#### 技術生涯の所有境界の確定（2026-10-31）
+
+人間の追加判断により、Docker Isolationを実行時に呼ぶのはExecutorまでとする。上位の型参照は許容するが、CoordinatorへDocker構築・清掃・OS差の手順を残さない。Homeの技術排他もExecutorが取得・解放し、Coordinatorは観測事実の保存とTask進行を所有する。前段の「Host復帰保存後のHome実解放」という保持条件は、この判断で「技術清掃・Home実解放後に上位保存を通知」へ改訂する。保存失敗で実解放を未解放に戻さず、保存成功から実解放を推定しない。上位Task成功には引き続き耐久受理が必要である。
+
+実装中の単位では準備候補の二WeakMapをCoordinatorへ移し、通常試行のHome HandleをExecutorの既存Control記録へ移した。Coordinatorの重複解放Map／Setは削除し、同じDurableRecordへ受領した解放事実だけを保持する。終了不明後のOwner終了は同じ回復参照で扱い、元の失敗結果を書き換えない。新しいRegistry・Lock・永続Stateは追加しない。
+
+全体完了は未成立。上位の選定・Packet・consumerと技術入力の分離、認証・診断・修復／再起動のDocker実行時接続の実移管が残る。個別のDI関数の再export・転送による見かけ上の依存削除は行わない。実AI・実Docker・過去保持物は操作しない。
+
 #### 単発実行の責務境界縮小（実装進行中）
 
 人間は全27型の棚卸しに基づく責務分離を承認した。先行単位では、上位の正本は保持したまま、作成時刻・速度設定・助言Task／Projection HashのExecutor搬送を明示投影で除く。上位の全Path型をCoordinatorへ戻し、Executor向けはworkspace／tmpだけとする。元消費・Hash照合・Operation結合は維持し、Standaloneの合成入力も同時に縮小する。両Provider準備37件成功、両Package型検査成功。独立確認で旧fixtureと保持値Oracleの不足を検出し、該当箇所を追従した。
@@ -87,6 +201,8 @@ Executorのstart／cancelを構造で明示し、Factoryの返却型をExecutor�
 この入力投影候補でExecutor全49件成功（99.5秒）、Coordinatorのportable対象163件成功（10.4秒）。独立再確認で指摘された操作IDの保持値比較も追加し、両Provider準備37件を再実行して全件成功した。投影はexact keyと全保持値、消費回数、元の速度設定・Hash不変を確認する。Architectureには全27宣言の処置先と保持保証を明示し、移管予定と配置済みを区別した。これは入力境界の限定成立であり、以下の責務移管全体の完了ではない。
 
 残件は、準備の一回性Ownerを上位へ戻す接続、consumer／選定・Packet情報と技術Planの分離、実資源解放と上位耐久回復確定の分離、公開入口／全利用側／非AI試験の移行、固定回帰・独立最終確認。前段の型整理49件成功をこれらの新しい境界成立へ流用しない。既存の二WeakMap・上位受付Context・callbackを再利用し、新しいManager／Registry／Recovery Stateや旧新兼用経路は追加しない。実AI・Docker・過去保持物は操作しない。
+
+2026-10-30の追加実装基準は`c68bbcf8c`（commit・push済み）とする。着手前照合では、上位の同一Owner・二時計・準備一回消費、Revision／Authority再検査、Effect前のexact回復引渡し、submission／receiptの同期拒否、取消join、旧結果objectと終端記録の同一性、Host復帰保存後のHome実解放を保持対象に固定した。準備候補の弱参照二Storeは上位へ移し、Executorは解決済みの技術入力を構築する。上位受付Contextは同じ閉包で保持し、新しい実行Registryへ複製しない。正常・別Owner・失効・二重消費・保存拒否・解放不明・遅延取消を非AIで反証する。Source／利用側／Architecture／Qualityの独立確認を必要とし、準拠基準・Release監査は今回の変更範囲に含めない。保存Schema・回復Identity・過去Evidenceを名称整理の対象にはしない。
 
 基準Commitは`589a7e747`。単純な選定別名、準備Stateの別名連鎖と空のPick／Exclude、乱数一項目だけの別名、Docker清掃結果の重複を整理する。共有計画を準備計画の基底として再利用し、Provider相関と段階ごとの必須／任意項目を維持する。共有の型は`attempt/types.ts`へ置き、準備のLifecycleと専用Callback型だけを`preparation.ts`内の非export宣言へ移す。初案では試験・Scriptから参照する型まで準備専用として移したが、人間の指摘を受け、実際の参照境界に基づいて共有型へ戻した。型Fileの縮小だけを目的にしない。
 

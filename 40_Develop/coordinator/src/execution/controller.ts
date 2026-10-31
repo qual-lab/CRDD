@@ -6,8 +6,10 @@
  */
 
 import { createHash } from "node:crypto";
+import type { PreparationInput } from "./types.ts";
 import {
   startRuntimeOwnedDockerProcessController,
+  abandonRuntimeOwnedExecutorAttempt,
   cancelRuntimeOwnedDockerProcessController,
 } from "./provider-executor.ts";
 import type { Writable } from "node:stream";
@@ -123,7 +125,7 @@ import {
   projectCurrentDockerAdmission,
   projectDevelopmentTaskResultAfterOuterCleanup,
 } from "./result.ts";
-import { resolveRecoveryReference } from "../../../executor/src/index.ts";
+import { resolveRecoveryReference } from "./validation.ts";
 
 /** Task固有の候補・Review診断は上位に残す。通知失敗を実行結果へ反映しない。
  * @responsibility 単段の技術観測とは別に、Taskの受動診断だけを搬送する。
@@ -346,11 +348,7 @@ function transitionRuntimeOwnedCoordinatorHostSubmission(
 export function completeRuntimeOwnedCoordinatorHostSubmission(
   managementCapability: unknown,
   recoveryId: unknown,
-  plan: Parameters<
-    NonNullable<
-      import("../../../executor/src/index.ts").ExecutorOptions["completeRecovery"]
-    >
-  >[2]["plan"] &
+  plan: import("./types.ts").RecoveryPlan &
     Readonly<{ consumer: "coordinator_cli" | "orchestrator" | "workbench" }>,
   mountCompletion: unknown,
 ) {
@@ -1579,7 +1577,7 @@ type taskRuntimeDependencies = Readonly<{
   ) => RuntimeRecord;
   startProcess: (
     provider: Provider,
-    input: import("../../../executor/src/index.ts").AttemptInput,
+    input: PreparationInput,
     registerRecoveryHandoff: (
       recoveryCapability: unknown,
       recoveryId: unknown,
@@ -1620,7 +1618,10 @@ type taskRuntimeDependencies = Readonly<{
       dockerCompletion: unknown;
     }>,
   ) => boolean;
-  abandonDockerRecovery?: (capability: object) => boolean;
+  abandonDockerRecovery?: (
+    capability: object,
+    managementCapability: unknown,
+  ) => boolean;
   isolatedCancellationAckTimeoutMs?: number;
 }>;
 
@@ -4255,7 +4256,9 @@ const productionDependencies: taskRuntimeDependencies = Object.freeze({
   readDockerProjectResult: readRuntimeOwnedDockerProjectResult,
   prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
   recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
-  abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
+  abandonDockerRecovery: (capability, management) =>
+    abandonRuntimeOwnedExecutorAttempt(capability, management) ||
+    abandonRuntimeOwnedDockerRecovery(capability),
 });
 
 /**
@@ -4282,7 +4285,12 @@ async function retainRuntimeRecoveryState(
   for (const handoff of control.dockerHandoffs) {
     if (handoff.state === "finalized" || handoff.state === "abandoned")
       continue;
-    if (state.dependencies.abandonDockerRecovery?.(handoff.capability) === true)
+    if (
+      state.dependencies.abandonDockerRecovery?.(
+        handoff.capability,
+        control.managementCapability,
+      ) === true
+    )
       handoff.state = "abandoned";
   }
   if (!control.hostCleanupCompleted)

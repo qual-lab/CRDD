@@ -79,10 +79,12 @@ export { inspectTaskResultContent } from "./provider/task-result.ts";
 export type { TaskResult, TaskReviewFinding } from "./provider/task-result.ts";
 export {
   parseAdviceResult,
+  parseAdviceReferences,
   describeAdviceResultSchema,
 } from "./provider/advice-result.ts";
 export type {
   AdviceResult,
+  AdviceReferencesResult,
   AdviceResultItem,
 } from "./provider/advice-result.ts";
 export {

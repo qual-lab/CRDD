@@ -21,7 +21,7 @@ import type { CoordinatorTaskRecoveryObligation } from "./recovery.ts";
 import {
   resolveRecoveryReference,
   resolveRecoveryStartReason,
-} from "../../../executor/src/index.ts";
+} from "./validation.ts";
 
 /** 候補拒否の非秘密診断。判定条件・実行許可・保存状態を所有しない。
  * @responsibility 候補取得と申告Path照合の不成立を分離する。

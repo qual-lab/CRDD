@@ -13,7 +13,26 @@ import {
   type ProviderAvailability,
   evaluateProviderAvailability,
 } from "../../../ai-adapter/src/index.ts";
+import type { RecoveryStartFailureDiagnostic } from "./types.ts";
 import type { AttemptDiagnosticNotice } from "../../../executor/src/index.ts";
+
+/**
+ * Coordinatorの回復記録準備が停止したことを知らせる。
+ * @responsibility 上位の受付・保存段階と取得済みの元回復参照を相関する。
+ * @trace ARCH-000008
+ * @shape 既存の回復開始失敗イベントと非秘密診断。Executorの技術診断とは区別する。
+ * @invariant 実行開始・Effect成立・資源回収済みを意味しない。
+ * @boundary Coordinatorの回復開始Ownerから診断利用側。
+ * @security 生出力・Path・Authorityを含めない。
+ * @compatibility 通知名・field・段階・回復参照の意味を維持する。
+ */
+export type RecoveryStartFailureNotice = Readonly<{
+  event: "coordinator_provider_recovery_start_failed";
+  taskRole: "executor" | "reviewer" | null;
+  provider: "codex" | "claude";
+  operationId: string;
+  diagnostic: RecoveryStartFailureDiagnostic;
+}>;
 
 /**
  * Provider境界の設定と終了後の診断を表す。
@@ -45,7 +64,11 @@ export type ProviderBoundaryDiagnosticNotice =
       recoveryCorrelationId: string | null;
       diagnostic: CandidateValidationFailureDiagnostic;
     }>
-  | AttemptDiagnosticNotice;
+  | ((AttemptDiagnosticNotice | RecoveryStartFailureNotice) &
+      Readonly<{
+        taskAttempt: 0 | 1 | null;
+        recoveryCorrelationId: string | null;
+      }>);
 
 /**
  * 開始済みTaskへ取消を搬送し、元の完了結果を待つ。
