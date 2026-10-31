@@ -1,7 +1,7 @@
 /**
  * Providerの選択・入力と隔離実行計画を準備する。
  *
- * @responsibility AI AdapterとDocker Isolationの既存契約へ入力を結合し、起動前に照合する。
+ * @responsibility 上位の選定・Packet・承認相関を照合し、技術構築はExecutorへ委譲する。
  * @trace ARCH-000008
  */
 import {
@@ -14,23 +14,23 @@ import {
   containsRecognizedSecretScope,
   containsRecognizedSecretText,
 } from "../../../domain-model/src/index.ts";
-import type { CompletionResult } from "../../../executor/src/index.ts";
+import {
+  prepareAdviceCommand,
+  type CompletionResult,
+  type AttemptRequest,
+  type Executor,
+} from "../../../executor/src/index.ts";
 import {
   type AdviceCommand,
   hashAdviceCommand,
-  bindAdviceCommand,
   type DockerNetworkPolicy,
-  describeDockerProviderExecutionLocations,
   parseDockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  planProviderExecution,
   evaluateProviderTaskScope,
   PROVIDER_ADVICE_COMMAND_CONTRACT,
   PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
-  resolveAiModelSelection,
   type AiReasoningEffort,
-  describeAdviceResultSchema,
 } from "../../../ai-adapter/src/index.ts";
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -48,7 +48,6 @@ import {
   revokeRuntimeOwnedProviderAuthority,
 } from "./authority.ts";
 import { performance } from "node:perf_hooks";
-import type { AttemptRequest, Executor } from "../../../executor/src/index.ts";
 
 import type {
   ProviderDockerPreparationState,
@@ -1600,32 +1599,17 @@ export function prepareProviderAdvicePlan(
       (fixed.provider === "codex" ? "chatgpt_subscription_oauth" : "claude_max")
   )
     return advicePlanRejected();
-  const selected = resolveAiModelSelection({
-    provider: input.provider,
-    modelIdentifier: input.exactModelId,
-    reasoningEffort: input.reasoningEffort,
-    purpose: "advice",
-  });
-  if (
-    selected.status !== "resolved" ||
-    selected.value.identifierKind !== fixed.identifierKind
-  )
-    return advicePlanRejected();
-  const generated = planProviderExecution(
-    {
-      provider: input.provider,
+  const generated = prepareAdviceCommand({
+    selection: {
+      provider: fixed.provider,
+      modelIdentifier: fixed.modelIdentifier,
+      identifierKind: fixed.identifierKind,
+      reasoningEffort: fixed.reasoningEffort,
       purpose: "advice",
-      modelSelection: {
-        provider: selected.value.provider,
-        modelIdentifier: selected.value.modelIdentifier,
-        identifierKind: selected.value.identifierKind,
-        reasoningEffort: selected.value.reasoningEffort,
-      },
-      resultSchema: describeAdviceResultSchema(),
     },
-    describeDockerProviderExecutionLocations(input.provider, "advice"),
-  );
-  if (generated.status !== "ready") return advicePlanRejected();
+    networkPolicy,
+  });
+  if (!generated) return advicePlanRejected();
   return Object.freeze({
     status: "prepared" as const,
     reason: null,
@@ -1651,7 +1635,7 @@ export function prepareProviderAdvicePlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      providerCommand: bindAdviceCommand(generated.plan, networkPolicy),
+      providerCommand: generated.command,
     }),
   });
 }

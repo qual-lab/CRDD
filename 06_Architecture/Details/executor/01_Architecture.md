@@ -145,6 +145,8 @@ executor/src/
   └ validation.ts             技術入力の固定・開始参照取得・共通基本検査・固定失敗理由照合
 ```
 
+助言Commandの事前固定は公開prepareAdviceCommandが所有する。入力はAI Adapterの技術五項目と既存通信条件、結果PreparedAdviceCommandはDIのCommandと完全Hashだけである。本文、操作Owner、Grant、Target、Home、Mount又はDomain型を取得せず、資源・実行許可を生成しない。通常準備と実行前照合は同じAI Adapterの選定解決・計画とDIの実行位置・bind・hashへ接続し、上位に別のCommand構築手順を置かない。実行前の再構築・受領Command Hashとの比較は省略しない。
+
 結果検査の配置：開始・終了結果の再検査`projectAttemptStartResult`／`projectAttemptResult`は製品Sourceから撤去し、`tests/support/result-validation.ts`を既存の試験入口だけへ接続する。Executorの型付き結果を同Processの利用側へ再検査させる公開APIは作らない。Codex固有の観測検査はAI Adapter内に閉じ、通常Rootに公開しない。Executorは公開Parserが返す検査済み観測をCompletionResultの型でそのまま搬送し、Coordinatorも同Processの結果を再検査しない。JSONを読む検証ツールだけが既存の検証専用入口を使用する。回復開始応答のexact ID／Home・理由・診断検査はCoordinatorの既存validationが所有し、一次故障のJSON検査は既存./testingへ閉じる。Executorの製品Sourceには固定用途・技術理由・局所値の検査だけを残す。一次故障のターン数診断は、不正な報告値（safe integerかつ1以上ではない値）のみを受理し、実行結果を上限2と比較しない。Domainの保存済み旧診断の読取り契約は今回変更しない。
 
 `ExecutorCallbacks`は通知専用interfaceとし、引数は既存の責務型を再利用する。通知の戻り値は`void`又は`Promise<void>`であり、上位の保存結果・許可・回復参照を返さない。固定構成は所有元の`DockerIsolationRuntimeOptions`を直接使用し、単純別名の`ExecutorOptions`は宣言・再公開しない。内部の`IsolationRuntime`は既存Docker Isolationの実操作だけを結合し、`ExecutionServices`・`RuntimeDependencies`の汎用操作束を製品Sourceに置かない。
@@ -229,11 +231,13 @@ Home取得前は`attempt/validation.ts`の`isAttemptPlanValid`で共通の基本
 | 公開API群 | 所有者 | 役割 |
 |---|---|---|
 | `createExecutor` | attempt | Requestと固定隔離設定を受け、内部構成を保持した一試行の開始・取消・終了を提供 |
+| `prepareAdviceCommand`、`PreparedAdviceCommand` | attempt/isolation.ts、attempt/types.ts | 副作用なく助言Commandと完全Hashを事前固定する。承認・実行・Home取得を行わない |
+| `inspectAttemptResources`、`cleanupAttemptResources` | attempt/recovery.ts | Attempt資源の技術診断と回収。入力・結果型は冒頭の診断・回収API節を参照 |
 | `Executor`、`StartResult`、`CompletionResult` | attempt/types.ts | 開始結果と清掃後の最終結果を明示し、Factoryを型検査する |
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/types.ts | 実Process開始と非秘密診断 |
 | `AttemptRequest`、`AttemptRecordProjection` | attempt/types.ts | 解決済みの実行要求と、開始前の記録に必要な狭い隔離資源投影 |
 | `Executor.start` | attempt/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
-| 通常Rootの関数 | index.ts | createExecutorのみ。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
+| 通常Rootの関数 | index.ts | 上記4操作に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
 
 TaskResultとAdviceResultの正本はAI Adapterであり、Executor Rootから再公開しない。CompletionResult.normalizedResultはその用途別内容だけを保持する。providerExecutionObservation、providerTurnObservation、reviewFindingsは固定nullableの外側fieldとする。正常完了・清掃確認・内容ありの共同成立時だけ保持し、それ以外はnullへ戻す。Executorの結果は是正許可や選定記録IDを含めず、上位の既存操作記録と原結果objectの相関で管理する。
 

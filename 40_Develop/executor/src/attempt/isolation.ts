@@ -8,6 +8,7 @@ import {
   type DockerIsolationRuntime,
   type HomeLease,
   type DockerIsolationRuntimePlan,
+  type DockerNetworkPolicy,
   type DockerExecutionCallbacks,
   bindAdviceCommand,
   hashAdviceCommand,
@@ -16,20 +17,59 @@ import {
   describeDockerProviderExecutionLocations,
   dockerIsolationCommandsMatch,
 } from "../../../docker-isolation/src/index.ts";
-import type { AttemptPlan } from "./types.ts";
+import type { AttemptPlan, PreparedAdviceCommand } from "./types.ts";
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
-import { isAttemptPlanValid } from "./validation.ts";
+import { isAttemptPlanValid, parseModelSelection } from "./validation.ts";
 import {
   planProviderExecution,
   prepareProviderEnvironment,
   resolveAiModelSelection,
   describeProviderAuthentication,
   type ProviderAdvicePlan,
+  type AiModelSelection,
   describeAdviceResultSchema,
 } from "../../../ai-adapter/src/index.ts";
 
 const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
+
+/**
+ * 固定選定から助言Commandと完全Hashを副作用なしで構築する。
+ * @responsibility Provider仕様・Docker実行位置・固定Image・Hashの結合を一箇所にする。
+ * @trace ARCH-000015
+ * @input selection: 上位が確定した技術五項目。networkPolicy: 既存の検査済み通信条件又はnull。
+ * @returns 正規Commandと同内容Hash、不一致・構築不能時はnull。
+ * @effect N/A: 純粋な値構築だけ。Home・Mount・乱数・Processを取得しない。
+ * @failure 不正選定・用途・Hash不能は拒否し、選定値を補完しない。
+ * @invariant Packet・承認判断を持たず、実行前にも同じ正本から再構築する。
+ */
+export function prepareAdviceCommand(
+  input: Readonly<{
+    selection: AiModelSelection;
+    networkPolicy: DockerNetworkPolicy | null;
+  }>,
+): PreparedAdviceCommand | null {
+  const selection = parseModelSelection(input.selection);
+  if (
+    selection?.purpose !== "advice" ||
+    (input.networkPolicy !== null &&
+      input.networkPolicy.provider !== selection.provider)
+  )
+    return null;
+  const execution = resolveProviderExecution({
+    provider: selection.provider,
+    executionSelection: selection,
+    operationMode: "workbench_advice",
+    taskRole: null,
+  });
+  if (!execution) return null;
+  const command = bindAdviceCommand(
+    execution as ProviderAdvicePlan,
+    input.networkPolicy,
+  );
+  const commandHash = hashAdviceCommand(command);
+  return commandHash ? Object.freeze({ command, commandHash }) : null;
+}
 
 /**
  * 上位の計画投影を同じ下位Runtimeへ結合する。
@@ -391,18 +431,17 @@ export function resolveValidatedPlan(
 ): DockerIsolationCommandInput | null {
   if (!isAttemptPlanValid(plan)) return null;
   const isAdvicePlan = plan.operationMode === "workbench_advice";
-  const execution = resolveProviderExecution(plan);
+  const preparedAdvice = isAdvicePlan
+    ? prepareAdviceCommand({
+        selection: plan.executionSelection,
+        networkPolicy: plan.networkPolicy,
+      })
+    : null;
+  const execution = isAdvicePlan
+    ? preparedAdvice?.command
+    : resolveProviderExecution(plan);
   if (!execution) return null;
-  const expectedAdviceExecution = isAdvicePlan ? execution : null;
-  const expectedAdviceCommand = expectedAdviceExecution
-    ? bindAdviceCommand(
-        expectedAdviceExecution as ProviderAdvicePlan,
-        plan.networkPolicy,
-      )
-    : null;
-  const expectedAdviceCommandHash = expectedAdviceCommand
-    ? hashAdviceCommand(expectedAdviceCommand)
-    : null;
+  const expectedAdviceCommandHash = preparedAdvice?.commandHash ?? null;
   const fixedSelection = plan.executionSelection;
   const isProviderBindingValid =
     fixedSelection.purpose === (isAdvicePlan ? "advice" : "task") &&

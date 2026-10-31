@@ -27,6 +27,17 @@ import type {
   DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
 
+/**
+ * 承認前に参照できる助言Commandと、同じ内容の技術Hash。
+ * @responsibility 本文・許可・資源を取得せず、既存DIの値契約だけを搬送する。
+ * @trace ARCH-000015
+ * @invariant 準備成功は実行許可・Image存在・送信成立を意味しない。
+ */
+export type PreparedAdviceCommand = Readonly<{
+  command: AdviceCommand;
+  commandHash: string;
+}>;
+
 /** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
 export interface IsolationRuntime {
   acquireHomeLease(bindingHash: string): HomeLease | null;

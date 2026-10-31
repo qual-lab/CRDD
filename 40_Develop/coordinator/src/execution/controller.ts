@@ -16,7 +16,6 @@ import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
 import { CLAUDE_TASK_MAXIMUM_TURNS } from "../../../ai-adapter/src/index.ts";
-import { describeDockerCommandSessionContract } from "../../../docker-isolation/src/index.ts";
 import {
   type CoordinatorStateTaskOperation,
   inspectExecutionSelection,
@@ -126,6 +125,8 @@ import {
   projectDevelopmentTaskResultAfterOuterCleanup,
 } from "./result.ts";
 import { resolveRecoveryReference } from "./validation.ts";
+
+const LIFECYCLE_NOTICE_TIMEOUT_MS = 5_000;
 
 /** Task固有の候補・Review診断は上位に残す。通知失敗を実行結果へ反映しない。
  * @responsibility 単段の技術観測とは別に、Taskの受動診断だけを搬送する。
@@ -1197,9 +1198,6 @@ function isTaskRecoveryIdentity(value: unknown): value is string {
   );
 }
 
-const { cancellationGraceMs: CANCELLATION_GRACE_MS } =
-  describeDockerCommandSessionContract();
-
 /**
  * Runtime 所有 Lifecycle Notice Reporterを構築する。
  *
@@ -1228,7 +1226,10 @@ export function createRuntimeOwnedLifecycleNoticeReporter(
       return Promise.reject(Error("lifecycle_notice_unavailable"));
     return new Promise<void>((resolve, reject) => {
       let settled = false;
-      const timer = setTimeout(() => settle(false), CANCELLATION_GRACE_MS);
+      const timer = setTimeout(
+        () => settle(false),
+        LIFECYCLE_NOTICE_TIMEOUT_MS,
+      );
       const settle = (isValue: boolean) => {
         if (settled) return;
         settled = true;

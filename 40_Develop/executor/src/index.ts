@@ -7,11 +7,13 @@
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
 export { createExecutor } from "./attempt/execute.ts";
+export { prepareAdviceCommand } from "./attempt/isolation.ts";
 export {
   inspectAttemptResources,
   cleanupAttemptResources,
 } from "./attempt/recovery.ts";
 export type {
+  PreparedAdviceCommand,
   ExecutorCallbacks,
   ResourceCleanupCallbacks,
   AttemptRecoveryTarget,

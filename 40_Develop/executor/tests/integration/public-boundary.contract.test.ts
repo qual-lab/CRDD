@@ -141,6 +141,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
       "createExecutor",
+      "prepareAdviceCommand",
       "inspectAttemptResources",
       "cleanupAttemptResources",
     ].sort());

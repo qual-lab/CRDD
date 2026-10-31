@@ -7,6 +7,7 @@
  * @boundary Executorの基本計画検査。
  */
 import assert from "node:assert/strict";
+import { prepareAdviceCommand } from "../../src/index.ts";
 import test from "node:test";
 import {
   planIdentity,
@@ -20,8 +21,15 @@ import {
   bindAdviceCommand,
   hashAdviceCommand,
   planDockerIsolationCommands,
+  prepareDockerNetworkPolicy,
+  describeDockerProviderExecutionLocations,
 } from "../../../docker-isolation/src/index.ts";
-import type { ProviderAdvicePlan } from "../../../ai-adapter/src/index.ts";
+import {
+  type ProviderAdvicePlan,
+  resolveAiModelSelection,
+  planProviderExecution,
+  describeAdviceResultSchema,
+} from "../../../ai-adapter/src/index.ts";
 import type { AttemptPlan } from "../../src/attempt/types.ts";
 import { isAttemptPlanValid } from "../../src/attempt/validation.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
@@ -277,5 +285,87 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
   ]) {
     assert.equal(isAttemptPlanValid(plan), true);
     assert.equal(resolveValidatedPlan(plan, temporary), null);
+  }
+});
+
+/**
+ * 新しい事前準備と基準版のCommand・Hashが同じであることを確認する。
+ * @responsibility 承認前の純粋計算を移しても技術同一性を変更しない。
+ * @trace ERB-UT-023
+ * @precondition 両Provider・三推論強度と通信条件有無の合成値。
+ * @stimulus 正式AdapterとDIで構築した基準値、新公開API、不整合選定。
+ * @observation Command全field、Hash、不正入力のnull。
+ * @oracle 12構成のCommandとHashがexact一致し選定差を補完しない。
+ * @cleanup N/A: 値計算だけ。実AI・Dockerを使用しない。
+ */
+test("助言Commandの事前準備は基準版と同じHashを返し選定差を拒否する", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    for (const reasoningEffort of ["low", "medium", "high"] as const) {
+      const selected = resolveAiModelSelection({
+        provider,
+        modelIdentifier: provider === "codex" ? "gpt-5.6-sol" : "opus",
+        reasoningEffort,
+        purpose: "advice",
+      });
+      assert.equal(selected.status, "resolved");
+      if (selected.status !== "resolved")
+        throw Error("fixture_selection_failed");
+      const selection = {
+        provider: selected.value.provider,
+        modelIdentifier: selected.value.modelIdentifier,
+        identifierKind: selected.value.identifierKind,
+        reasoningEffort: selected.value.reasoningEffort,
+        purpose: selected.value.purpose,
+      };
+      const policy = prepareDockerNetworkPolicy(provider, [
+        "registry.npmjs.org",
+      ]);
+      assert.equal(policy.status, "ready");
+      if (policy.status !== "ready") throw Error("fixture_policy_failed");
+      for (const networkPolicy of [null, policy.policy]) {
+        const old = planProviderExecution(
+          {
+            provider,
+            purpose: "advice",
+            modelSelection: {
+              provider,
+              modelIdentifier: selection.modelIdentifier,
+              identifierKind: selection.identifierKind,
+              reasoningEffort,
+            },
+            resultSchema: describeAdviceResultSchema(),
+          },
+          describeDockerProviderExecutionLocations(provider, "advice"),
+        );
+        assert.equal(old.status, "ready");
+        if (old.status !== "ready") throw Error("fixture_command_failed");
+        const expected = bindAdviceCommand(
+          old.plan as ProviderAdvicePlan,
+          networkPolicy,
+        );
+        const actual = prepareAdviceCommand({ selection, networkPolicy });
+        assert.ok(actual);
+        assert.deepEqual(actual.command, expected);
+        assert.equal(actual.commandHash, hashAdviceCommand(expected));
+        for (const change of [
+          { purpose: "task" },
+          { provider: "unsupported" },
+          { modelIdentifier: "unsupported" },
+          {
+            identifierKind:
+              selection.identifierKind === "alias" ? "exact" : "alias",
+          },
+          { reasoningEffort: "unsupported" },
+        ]) {
+          assert.equal(
+            prepareAdviceCommand({
+              selection: { ...selection, ...change } as typeof selection,
+              networkPolicy,
+            }),
+            null,
+          );
+        }
+      }
+    }
   }
 });

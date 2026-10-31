@@ -21,6 +21,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { Writable } from "node:stream";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
@@ -5806,4 +5807,76 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
       }
     }
   }
+});
+
+/**
+ * 表示通知の期限をDocker取消設定と独立した5秒として確認する。
+ * @responsibility 元Reporterの期限・listener終了と後着writeの無影響を維持する。
+ * @trace ERB-IT-002
+ * @precondition 本番Reporter本文と有限timer、合成Writable。
+ * @stimulus write未完了のまま期限到達後、write callbackが遅延完了する。
+ * @observation 設定値、reject、timer解除、error/close listener数。
+ * @oracle 5秒で一度拒否し、後着完了で成功化しない。DIの取消設定を参照しない。
+ * @cleanup 合成Writableをdestroyし、timer代役は未登録状態にする。
+ */
+test("表示通知の5秒期限はDocker取消猶予と独立し後着writeを無視する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/controller.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /describeDockerCommandSessionContract/);
+  const constant = source.match(
+    /const LIFECYCLE_NOTICE_TIMEOUT_MS = [\d_]+;/,
+  )?.[0];
+  assert.ok(constant);
+  const start = source.indexOf(
+    "export function createRuntimeOwnedLifecycleNoticeReporter(",
+  );
+  const end = source.indexOf(
+    "\nexport const COORDINATOR_TASK_RUNTIME_CONTRACT",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+  let expire: (() => void) | null = null,
+    cleared = 0;
+  const reporter = runInNewContext(
+    stripTypeScriptTypes(
+      constant +
+        "\n" +
+        source.slice(start, end).replace("export function", "function"),
+    ) + "\ncreateRuntimeOwnedLifecycleNoticeReporter",
+    {
+      Error,
+      Promise,
+      JSON,
+      setTimeout: (notify: () => void, ms: number) => {
+        assert.equal(ms, 5_000);
+        expire = notify;
+        return 77;
+      },
+      clearTimeout: (handle: number) => {
+        assert.equal(handle, 77);
+        cleared++;
+      },
+    },
+  ) as typeof createRuntimeOwnedLifecycleNoticeReporter;
+  let finishWrite: ((error?: Error | null) => void) | null = null;
+  const stream = new Writable({
+    write(_chunk, _encoding, callback) {
+      finishWrite = callback;
+    },
+  });
+  const pending = reporter(stream)({ event: "synthetic_notice" });
+  const rejected = assert.rejects(pending, /lifecycle_notice_unavailable/);
+  assert.ok(expire);
+  (expire as () => void)();
+  await rejected;
+  assert.equal(cleared, 1);
+  assert.equal(stream.listenerCount("error"), 0);
+  assert.equal(stream.listenerCount("close"), 0);
+  assert.ok(finishWrite);
+  (finishWrite as (error?: Error | null) => void)(null);
+  await Promise.resolve();
+  assert.equal(cleared, 1);
+  stream.destroy();
 });
