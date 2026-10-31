@@ -25,6 +25,8 @@ import {
   planDockerAuthenticationCommands,
   planDockerAuthenticationResourceRecovery,
   type DockerAuthenticationInput,
+  type DockerAttachedProcess,
+  type CommandExecution,
 } from "../../src/index.ts";
 import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../../src/authentication/execute.ts";
 import { dockerAuthenticationCommandIsPlanned } from "../../src/authentication/plan.ts";
@@ -180,6 +182,148 @@ const binding = {
   verifyCli: (): string => binding.executable,
   environment: () => ({ SystemRoot: "C:\\Windows" }),
 };
+
+/**
+ * stdout観測の同期契約と元Processの終了待ちを確認する。
+ * @responsibility 不正返却の拒否捕捉を既存の終了経路へ接続する。
+ * @trace ERB-IT-002
+ * @precondition 模擬子・模擬終了補助だけを使用する。
+ * @stimulus 同期void、throw、Promise成功・即時拒否・後着拒否・pending、値返却を渡す。
+ * @observation 終了要求数、元close、出力失敗flag、後着後の不変。
+ * @oracle 正常void以外は即時に終了要求し、close前に終了成立を返さない。
+ * @cleanup 既存fixtureが両模擬子をcloseしBuiltinを復元する。
+ * @boundary 同期stdout搬送と所有Process。実Docker・実Processの成功は対象外。
+ */
+test("stdout観測は非同期返却を待たず失敗にして後着拒否を捕捉する", async (t) => {
+  for (const mode of [
+    "normal",
+    "throw",
+    "resolved",
+    "reject",
+    "late_reject",
+    "pending",
+    "value",
+  ] as const) {
+    await t.test(mode, async (context) => {
+      const fixture = processFixture(context);
+      let rejectLate: ((error: Error) => void) | undefined;
+      const handle = startOwnedWindowsProcess(
+        binding.executable,
+        [],
+        binding.environment(),
+        null,
+        {
+          observeStdout: () => {
+            if (mode === "throw") throw Error("synthetic_observer_failure");
+            if (mode === "resolved") return Promise.resolve();
+            if (mode === "reject")
+              return Promise.reject(Error("synthetic_observer_reject"));
+            if (mode === "late_reject")
+              return new Promise<void>((_resolve, reject) => {
+                rejectLate = reject;
+              });
+            if (mode === "pending") return new Promise<void>(() => {});
+            if (mode === "value") return 1;
+          },
+        },
+      );
+      fixture.child.emit("spawn");
+      assert.equal(await handle.started(100), true);
+      fixture.child.stdout?.write("synthetic\n");
+      assert.equal(handle.terminationRequested?.(), mode !== "normal");
+      assert.equal(handle.closed(), false);
+      assert.equal(fixture.calls.length, mode === "normal" ? 1 : 2);
+      fixture.child.emit("close", 0, null);
+      fixture.helper.emit("close", 0, null);
+      const result = await handle.wait(100);
+      assert.ok(result);
+      assert.equal(result.outputExceeded, mode !== "normal");
+      assert.equal(handle.closed(), true);
+      rejectLate?.(Error("synthetic_late_observer_reject"));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(fixture.calls.length, mode === "normal" ? 1 : 2);
+      assert.equal(await handle.wait(100), result);
+    });
+  }
+});
+
+/**
+ * probeの内部観測が非同期返却を隠さず共通Process Ownerへ渡すことを確認する。
+ * @responsibility 不正な同chunkからreadyを成立させず、既知readyは巻き戻さない。
+ * @trace ERB-IT-002
+ * @precondition 本番startAttached本文とメモリ内のProcess接続代役を使用する。
+ * @stimulus 正常void、Promise、値返却をstdout観測へ渡す。
+ * @observation 外側へ渡す同じ返却値、同期prefixのready、元completion。
+ * @oracle 不正返却を消さず外側へ返し、Promiseの完了をready根拠にしない。
+ * @cleanup N/A: I/O・Process・Timerを生成しない。
+ * @boundary probe内部搬送。共通Processの失敗／終端は別の上記試験で検証する。
+ */
+test("probe観測は不正返却を外側へ渡し同期readyだけを保持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/probe/process.ts", import.meta.url),
+    "utf8",
+  );
+  const begin = source.indexOf("function startAttached(");
+  const end = source.indexOf("\n/**", begin);
+  assert.ok(begin > 0 && end > begin);
+  const body = stripTypeScriptTypes(source.slice(begin, end));
+  for (const mode of ["normal", "promise", "value"] as const) {
+    let observeOutput: ((value: Buffer) => unknown) | undefined;
+    let resolveCompletion!: (value: CommandExecution) => void;
+    const completion = new Promise<CommandExecution>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    const start = runInNewContext(`${body}; startAttached`, {
+      Buffer,
+      startOwnedWindowsProcess: (
+        _exe: string,
+        _args: readonly string[],
+        _env: unknown,
+        _stdin: unknown,
+        options: { observeStdout: (value: Buffer) => unknown },
+      ) => {
+        observeOutput = options.observeStdout;
+        return {
+          started: async () => true,
+          wait: () => completion,
+          closed: () => false,
+          terminateAndWait: async () => true,
+        };
+      },
+    });
+    let observerResult: unknown =
+      mode === "promise" ? Promise.resolve() : mode === "value" ? 1 : undefined;
+    const attached: DockerAttachedProcess = start(
+      "fixed",
+      [],
+      {},
+      "ready\n",
+      () => observerResult,
+    );
+    assert.ok(observeOutput);
+    assert.equal(observeOutput(Buffer.from("ready\n")), observerResult);
+    let observedReady: boolean | null = null;
+    void attached.ready.then((value) => {
+      observedReady = value;
+    });
+    await Promise.resolve();
+    assert.equal(observedReady, mode === "normal" ? true : null);
+    if (mode === "normal") {
+      observerResult = Promise.resolve();
+      assert.equal(observeOutput(Buffer.from("next\n")), observerResult);
+      assert.equal(await attached.ready, true);
+    }
+    resolveCompletion({
+      status: 0,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      outputExceeded: false,
+    });
+    await attached.completion;
+    assert.equal(await attached.ready, mode === "normal");
+  }
+});
 
 /**
  * 固定TreeのPID観測を狭い閉集合として確認する。

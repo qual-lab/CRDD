@@ -8,7 +8,7 @@
  * @boundary ERB-IT-003=Direct Boundary: PAの合成子・実自己所有WorkerとPipe。
  */
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import { createServer } from "node:net";
@@ -21,6 +21,98 @@ import {
 const FAST_SUPERVISOR_TIMING = Object.freeze({
   acquireTimeoutMs: 10,
   releaseTimeoutMs: 10,
+});
+
+/**
+ * 故障通知の同期発行と登録時の即時通知を確認する。
+ * @responsibility 例外・非同期拒否を故障結果や他listenerへ波及させない。
+ * @trace ERB-IT-003
+ * @precondition 合成Supervisor子だけを既存factoryで注入する。
+ * @stimulus 通常故障・故障後登録・取得結果不明へthrow、reject、後着reject、pendingを渡す。
+ * @observation 同期順序、unsubscribe、終了要求数、failure/loss/release結果。
+ * @oracle 拒否を待たず故障が確定し、後着で再通知・再終了しない。
+ * @cleanup 合成子の既存finalizerをjoinし、実資源は取得しない。
+ * @boundary PA本番Supervisorとメモリ代役。
+ */
+test("故障listenerの拒否は通常・即時・取得結果不明の通知を止めない", async () => {
+  for (const mode of [
+    "normal",
+    "throw",
+    "reject",
+    "late_reject",
+    "pending",
+  ] as const) {
+    const delayed: Array<(error: Error) => void> = [];
+    const seen: string[] = [];
+    const notify = () => {
+      seen.push("notice");
+      if (mode === "throw") throw Error("synthetic_listener_failure");
+      if (mode === "reject")
+        return Promise.reject(Error("synthetic_listener_reject"));
+      if (mode === "late_reject")
+        return new Promise<void>((_resolve, reject) => {
+          delayed.push(reject);
+        });
+      if (mode === "pending") return new Promise<void>(() => {});
+    };
+    const scenario = supervisorChildScenario("normal");
+    let child: ChildProcess | null = null;
+    const acquired = await acquireHostOperationSupervisorLockUsingChildFactory(
+      "crdd-coordinator-doctor-LISTENER",
+      "c".repeat(32),
+      (name, env) => {
+        child = scenario.factory(name, env);
+        return child;
+      },
+      FAST_SUPERVISOR_TIMING,
+    );
+    assert.ok(acquired.lock);
+    const lock = acquired.lock;
+    assert.equal(await acquired.lock.confirmReady(), "ready");
+    acquired.lock.onFailureDetected(notify);
+    acquired.lock.onFailureDetected(() => {
+      seen.push("following");
+    });
+    const remove = acquired.lock.onFailureDetected(() => {
+      seen.push("removed");
+    });
+    remove();
+    assert.ok(child);
+    assert.doesNotThrow(() => child?.emit("error", Error("synthetic_failure")));
+    assert.deepEqual(seen, ["notice", "following"]);
+    assert.doesNotThrow(() => {
+      const unsubscribe = lock.onFailureDetected(notify);
+      unsubscribe();
+    });
+    assert.deepEqual(seen, ["notice", "following", "notice"]);
+    await acquired.lock.failureDetected;
+    assert.equal(await acquired.lock.loss, "cleanup_confirmed_failure");
+    assert.equal(await acquired.lock.release(), "cleanup_confirmed_failure");
+    assert.equal(scenario.killCount(), 1);
+
+    const unknownChild = supervisorChildScenario("acquire_timeout_unconfirmed");
+    const unknown = await acquireHostOperationSupervisorLockUsingChildFactory(
+      "crdd-coordinator-doctor-LISTENER",
+      "d".repeat(32),
+      unknownChild.factory,
+      FAST_SUPERVISOR_TIMING,
+    );
+    assert.equal(unknown.status, "cleanup_unknown");
+    assert.ok(unknown.lock);
+    const unknownLock = unknown.lock;
+    assert.doesNotThrow(() => {
+      const unsubscribe = unknownLock.onFailureDetected(notify);
+      unsubscribe();
+    });
+    assert.equal(await unknown.lock.release(), "cleanup_unknown");
+    const count = unknownChild.killCount();
+    for (const reject of delayed)
+      reject(Error("synthetic_late_listener_reject"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(seen, ["notice", "following", "notice", "notice"]);
+    assert.equal(scenario.killCount(), 1);
+    assert.equal(unknownChild.killCount(), count);
+  }
 });
 /**
  * supervisorChildScenarioのTest準備責務を実行する。

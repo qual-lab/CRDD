@@ -283,7 +283,7 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
     }
     for (const listener of failureListeners) {
       try {
-        listener();
+        void Promise.resolve(listener()).catch(() => {});
       } catch {
         // Failure detection is monotonic; one listener cannot suppress another.
       }
@@ -422,7 +422,11 @@ export function createDockerDesktopRepairNativeHelperLifecycle(
       child.stdin.writable,
     onFailureDetected: (listener) => {
       if (hasFailed) {
-        listener();
+        try {
+          void Promise.resolve(listener()).catch(() => {});
+        } catch {
+          // 故障後の即時通知も同期のまま。失敗を故障結果へ混ぜない。
+        }
         return () => undefined;
       }
       failureListeners.add(listener);

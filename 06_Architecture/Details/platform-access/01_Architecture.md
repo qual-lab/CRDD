@@ -465,6 +465,8 @@ Source上の専用入口とCoordinator Adapterは接続済みだが、署名配�
 
 Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対象だけを終了・再起動する。TypeScript側は子Processとstdioの終了を待ち、観測不能なら`cleanup_unknown`へ閉じる。helperの終了だけでDocker Engine復旧や退避Directory削除を宣言しない。
 
+故障購読の`onFailureDetected`はlistenerを同期に発行し、解除関数を同期に返す登録操作である。通常発行・故障後の即時登録・取得結果不明の即時登録で、同期例外と誤って返されたPromiseの拒否を直接捕捉する。通知完了は待たず、故障の単調性、他listenerの同期順序、購読解除、元の終了・失効・cleanup結果を変えない。Promiseを処置完了や保存ACKへ昇格せず、独自の未完了一覧・再通知・待機期限を追加しない。
+
 検証付き再起動の停止は、同一handleで署名・実体を固定した`resources/cli-plugins/docker-desktop.exe`へ`desktop stop --timeout 30`を渡す。`force`、`detach`および旧修復の`K`へのfallbackはない。旧修復protocolの`K`は変更しない。
 
 ### ブロック状態遷移

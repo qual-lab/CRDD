@@ -22,6 +22,85 @@ import { observePlatformAccessArtifactCandidate } from "../../src/index.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/docker-desktop/protocol.ts";
 
 /**
+ * 故障通知の例外・拒否がNative補助子の失効と終了を止めないことを確認する。
+ * @responsibility 通常発行と故障後の即時登録を同じ同期契約で検証する。
+ * @trace ERB-IT-001
+ * @precondition 固定R frameだけを出す自己所有の合成Node子を使用する。
+ * @stimulus throw、即時reject、後着reject、pendingのlistenerと解除済みlistenerを登録する。
+ * @observation 通知順序、故障結果、子exitとstdio終了、後着後の通知数。
+ * @oracle 他listenerを妨げず、未完了を待たずcleanupを確定し、後着から再実行しない。
+ * @cleanup 同じ子の既存failProtocolをjoinする。実Native・Dockerには接続しない。
+ * @boundary PA本番Protocolと自己所有の合成子。
+ */
+test("Native故障listenerは非同期拒否や即時登録でも元の終了を妨げない", async (t) => {
+  for (const mode of [
+    "normal",
+    "throw",
+    "reject",
+    "late_reject",
+    "pending",
+  ] as const) {
+    await t.test(mode, async (context) => {
+      const source =
+        'process.stdout.write(Buffer.concat([Buffer.from("CRDDDR06R"),Buffer.alloc(32,0xaa)]));process.stdin.resume();process.stdin.on("end",()=>process.exit(0));';
+      const child = spawn(process.execPath, ["-e", source], {
+        shell: false,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      const created = createDockerDesktopRepairNativeHelperLifecycle(
+        child,
+        "a".repeat(64),
+      );
+      context.after(async () => {
+        await created.failProtocol();
+      });
+      assert.equal(await created.waitForInitial(), "R");
+      const seen: string[] = [];
+      const delayed: Array<(error: Error) => void> = [];
+      const notify = () => {
+        seen.push("notice");
+        if (mode === "throw") throw Error("synthetic_listener_failure");
+        if (mode === "reject")
+          return Promise.reject(Error("synthetic_listener_reject"));
+        if (mode === "late_reject")
+          return new Promise<void>((_resolve, reject) => {
+            delayed.push(reject);
+          });
+        if (mode === "pending") return new Promise<void>(() => {});
+      };
+      created.session.onFailureDetected(notify);
+      created.session.onFailureDetected(() => {
+        seen.push("following");
+      });
+      const remove = created.session.onFailureDetected(() => {
+        seen.push("removed");
+      });
+      remove();
+      assert.doesNotThrow(() =>
+        child.emit("error", Error("synthetic_protocol_failure")),
+      );
+      assert.deepEqual(seen, ["notice", "following"]);
+      assert.doesNotThrow(() => {
+        const unsubscribe = created.session.onFailureDetected(notify);
+        unsubscribe();
+      });
+      await created.session.failureDetected;
+      const outcome = await created.failProtocol();
+      assert.deepEqual(outcome, { cleanup: "confirmed", protocol: "failed" });
+      assert.equal(created.session.assertLive(), false);
+      assert.notEqual(child.exitCode, null);
+      assert.deepEqual(child.eventNames(), []);
+      for (const reject of delayed)
+        reject(Error("synthetic_late_listener_reject"));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.deepEqual(seen, ["notice", "following", "notice"]);
+      assert.deepEqual(await created.failProtocol(), outcome);
+    });
+  }
+});
+
+/**
  * 配布NativeのV／H／Qだけを実Windowsで照合する。
  * @responsibility 模擬Protocolと実配布物の取得・終了を分ける。
  * @trace ERB-IT-001

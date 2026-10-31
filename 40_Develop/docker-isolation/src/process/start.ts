@@ -53,7 +53,7 @@ export type OwnedCommandHandle = CommandHandle &
  * @responsibility 対話入力と捕捉出力を混在させず、同じProcess Ownerへ渡す。
  * @trace ARCH-000008
  * @shape 対話方式、cwd、出力上限、非対話stdoutの観測callback。
- * @invariant 対話方式では出力callbackを呼ばず秘密を捕捉しない。
+ * @invariant 対話方式では出力callbackを呼ばず秘密を捕捉しない。出力観測は同期voidに限定する。
  * @boundary Package内部の固定Docker呼出しと所有Process。
  * @security 設定自体は実行許可を発行しない。
  * @compatibility 省略時は既存の捕捉方式と上限を維持する。
@@ -193,7 +193,11 @@ export function startOwnedWindowsProcess(
     (isStdout ? stdoutChunks : stderrChunks).push(value);
     if (isStdout) {
       try {
-        options.observeStdout?.(value);
+        const observed: unknown = options.observeStdout?.(value);
+        if (observed !== undefined) {
+          void Promise.resolve(observed).catch(() => {});
+          throw new Error("docker_process_output_observer_invalid_return");
+        }
       } catch {
         exceeded = true;
         void terminateAndWait(5_000);

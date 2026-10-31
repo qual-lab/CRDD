@@ -505,7 +505,11 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
   return Object.freeze({
     assertLive: () => false,
     onFailureDetected: (listener: () => void) => {
-      listener();
+      try {
+        void Promise.resolve(listener()).catch(() => {});
+      } catch {
+        // 通知失敗で既存のcleanup_unknownを変更しない。
+      }
       return () => undefined;
     },
     failureDetected: Promise.resolve(),
@@ -593,7 +597,7 @@ export async function runHostOperationSupervisorLifecycle(
     wasFailureDetected = true;
     for (const listener of failureListeners) {
       try {
-        listener();
+        void Promise.resolve(listener()).catch(() => {});
       } catch {
         // Detection is monotonic; one observer cannot suppress another.
       }
@@ -651,7 +655,11 @@ export async function runHostOperationSupervisorLifecycle(
     assertLive,
     onFailureDetected: (listener) => {
       if (wasFailureDetected) {
-        listener();
+        try {
+          void Promise.resolve(listener()).catch(() => {});
+        } catch {
+          // 故障後の即時通知も同期のまま。失敗を故障結果へ混ぜない。
+        }
         return () => undefined;
       }
       failureListeners.add(listener);

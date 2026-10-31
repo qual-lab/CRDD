@@ -2068,3 +2068,17 @@ Readerの値型CoordinatorTaskResultDeliveryは再利用し、新Reader型・互
 固定候補の独立レビューは残Must-fix零。確認者自身の診断契約三件と差分空白検査も成功し、同期返却・ready通知零・停止一回・exact参照・保存／Host要求の不変、操作束の名称だけの変更を再照合した。今回指定された二件のSource・利用側契約・試験・設計文書への追従は完了した。過去の残件記録は当時の状態として残し、この節を現在の対応結果とする。コミット・プッシュは今回の指示範囲に含まれず未実施。
 
 対象六文書のChecker指摘は零。参照展開先の既存3,376指摘による全体終了1は維持し、Repository全体QAの合格とは扱わない。
+
+### 技術通知の同期発行と拒否捕捉（2026-11-01）
+
+人間が追加の二系統を是正するよう指示した。基準Commitは35f96f9e3。実装詳細と直接利用側の限定変更として、Coding Standards、Platform Access／Docker Isolation詳細、QAと通知の発行・購読元を着手前に照合した。別確認者が通常・即時・取得結果不明の五発行点と、stdout観測の同期void契約を確認した。技術・品質の独立レビューと対象文書・影響先確認を行う。通信、保存、Authority、Timeout、準拠基準、Releaseは変更せず、新しい人間判断は不要。
+
+編集対応は、①Platform Accessのlock/lifecycle.tsの通常・故障後即時・unresolved即時と、docker-desktop/protocol.tsの通常・故障後即時の計五箇所で、try内のPromise.resolve(listener()).catchにより同期例外・誤返却Promiseの拒否を捕捉、②DI process/start.tsがobserveStdoutの返却をunknownで受け、undefined以外は拒否消費後に既存の観測例外・出力失敗flag・元Process終端経路へ収束、③probe/process.tsがobserveFixtureOutputの不正返却を外へ渡し、そのchunkのready判定を進めない、④利用側・既存試験・設計・QAの追従とする。
+
+Platformの通知型は同期voidのまま、通知順・購読解除・故障の単調性・元の終了結果を維持する。DIは即時成功Promiseも同期完了として受理せず、後着拒否は消費だけで再終端・再判定しない。以前のchunkで既に成立したreadyは取り消さない。通常の本番利用側は同期voidを返すため接続APIの追加は不要。新Source、helper、Registry、Queue、Timer、待機Gate、再送・回復機構を追加しない。Rust・Native・Docker実体・Image・実AI・過去保持物は操作しない。
+
+局所確認はPlatform通知八件、DI stdout／probe九件が成功。throw・即時reject・後着reject・pending、通常／即時／unresolved発行、解除済み通知0、他listenerの同期順序、元故障結果と終了、DIの即時成功Promise拒否、元close前の終了未成立と後着後の要求数不変を確認した。PAは自己所有の合成Node子とメモリSupervisor、DIは模擬Processと本番probe本文VMを用い、実Dockerや実Windows資源全体の回収を証明したとは扱わない。両Packageの静的checkは終了0（DIの既存informational Lint三件は不変）。通常回帰と独立レビューは実行中。
+
+通常npm testはPlatform Access145件全成功、Docker Isolation309件中304成功・既存の明示条件付き五件スキップ、いずれも終了0。Host Windows実境界は既存の除外条件を維持し、実Docker限定試験や明示Python試験を起動していない。Coordinatorの静的check終了0（既存informational Lint102件）と、Host排他の利用側・Provider接続・Core依存の三Suite78件も成功した。各実行は別の成立範囲として保持し、Repository全体QAや実AIの再成立へ合算しない。Sourceと文書の固定候補を独立レビューへ渡す。
+
+独立レビューは動作・安全保証のMust-fix零。確認者の新規DI九件・PA七件も成功した。同一moduleから分かれていた試験の型importを統合し、PA checkの再成功と差分の独立確認後、残指摘は零となった。対象六文書のChecker指摘は零、参照展開先3,356指摘による全体終了1は維持する。今回の二系統はSource・既存利用側の同期契約・試験・Architecture・QAまで対応完了。実AI・実Docker・過去保持物操作は零。新しい仕組みや公開APIは追加しておらず、コミット・プッシュは未実施。

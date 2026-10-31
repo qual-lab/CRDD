@@ -865,6 +865,8 @@ Reader受渡しは`bindResultReader`として、記録操作はDependencies直�
 
 回復開始診断は本番関数本文の8停止点とreadyで、未登録・正常・同期例外・即時拒否・後着拒否・未完了を比較する。開始は同期で返り、readyで通知0、停止で通知一回、元結果・exact参照・保存回数・Host要求回数が不変であることを確認する。メモリ代役の回数比較を実資源の回収証明へ読み替えない。検証専用準備Adapterのoperations改名は既存の両Provider準備・拒否・取消・一回消費試験で確認する。
 
+Platformの故障購読はlockの通常・故障後即時・取得結果不明の即時、Native Protocolの通常・故障後即時の五発行点を対象とする。throw・即時reject・後着reject・pendingでも他listenerが同じ同期順で呼ばれ、解除済みlistenerは呼ばれず、元故障・失効・終了結果を変えないことを確認する。stdout観測は同期void以外を既存失敗経路へ接続し、Promise成功・即時拒否・後着拒否・pendingでも完了待ちを追加しない。probeが不正返却を外へ搬送し、そのchunkからreadyを成立させず既知readyは維持することを確認する。模擬Processの終了と自己所有合成子のexit／stdio終了を分け、実Dockerや実Windows資源の全体回収成立は主張しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

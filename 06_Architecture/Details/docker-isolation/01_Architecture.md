@@ -637,6 +637,8 @@ Docker Isolationは保存成功・Task判断・Provider内容受理のACKを取�
 
 実行SessionのnotificationDeliveryConfirmedは、実際の通知試行がない場合null、全登録通知の完了時true、通知の例外・不正返却時falseとする。falseは同操作中に戻さず、失敗後のonFailureを含む通知を止める。Command自体の失敗をonFailureへ正常通知できた場合は、技術失敗と通知成功を区別する。どの値も耐久保存を保証しない。
 
+低位Processの`observeStdout`は同期voidの出力観測であり、任意の非同期通知へ変更しない。同期例外とundefined以外の返却は既存の観測失敗として扱い、後者のPromise拒否を捕捉してから既存の出力失敗flag・元Processの終端要求へ接続する。即時成功Promiseも同期完了ではないため受理しない。後着拒否は消費だけとし、追加終端や結果更新を行わない。probe内部の`observeFixtureOutput`は不正返却を隠さず外側へ返し、そのchunkから新たなreadyを成立させない。既に観測済みのreadyは巻き戻さず、元子・終了補助子のcloseは別に確認する。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

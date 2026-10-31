@@ -52,7 +52,7 @@ type AttachFixtureHandle<Scenario extends string> = DockerAttachedProcess &
  * @precondition この内部関数をPackage外へ公開しない。
  * @postcondition errorだけからclose成立を返さない。
  * @effect 固定Processを開始し、取消時にtree終端する。
- * @failure 出力超過・close不明は成功にしない。
+ * @failure 出力超過・観測の不正返却・close不明は成功にしない。
  * @invariant actual spawnとtree終端は共通Ownerだけが実行する。
  * @boundary 固定実行構成とWindows所有Process。
  * @security 捕捉出力は64KiB以内、Repository環境を継承しない。
@@ -75,7 +75,8 @@ function startAttached(
     stdoutLimitBytes: 64 * 1024,
     stderrLimitBytes: 64 * 1024,
     observeStdout: (value) => {
-      observeFixtureOutput?.(value);
+      const observed: unknown = observeFixtureOutput?.(value);
+      if (observed !== undefined) return observed;
       if (prefix.byteLength >= Buffer.byteLength(readyPrefix)) return;
       prefix = Buffer.concat([prefix, value]).subarray(
         0,
