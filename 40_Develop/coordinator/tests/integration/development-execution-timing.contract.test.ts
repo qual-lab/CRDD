@@ -17,6 +17,50 @@ import {
 } from "../../src/execution/diagnostics.ts";
 
 /**
+ * 契約外の非同期writerを表示成功へ昇格しないことを確認する。
+ * @responsibility 即時・後着拒否を捕捉し、同期Boolean判定と表示失敗後の停止を維持する。
+ * @trace PPR-IT-010
+ * @precondition Process内の合成時計・writerだけを使用する。
+ * @stimulus Promise成功、即時拒否、後着拒否、pendingを返す。
+ * @observation 表示回数、計測区間、結果確定後のsnapshot。
+ * @oracle Promiseは表示成功にならず、後着でも再表示・結果変更しない。
+ * @cleanup N/A: 外部Effect・Timer・Listenerを生成しない。
+ * @boundary 同期writer契約への不正な実装注入。
+ */
+test("非同期の進行表示は成功にせずRejectだけを捕捉する", async () => {
+  for (const mode of ["resolve", "reject", "late_reject", "pending"] as const) {
+    let calls = 0,
+      time = 0;
+    let rejectLate: ((error: Error) => void) | undefined;
+    const invalidWriter = () => {
+      calls++;
+      if (mode === "resolve") return Promise.resolve(true);
+      if (mode === "reject")
+        return Promise.reject(Error("synthetic_progress_failure"));
+      return new Promise<boolean>((_resolve, reject) => {
+        if (mode === "late_reject") rejectLate = reject;
+      });
+    };
+    const timing = createDevelopmentExecutionTiming(
+      () => time++,
+      // @ts-expect-error 同期Boolean契約に違反するwriterの負例。
+      invalidWriter,
+    );
+    timing.observeLifecycleState("STATE-ADMISSION");
+    timing.observeLifecycleState("STATE-TASK-AUTHORIZED");
+    timing.finish();
+    const result = timing.snapshot();
+    assert.equal(calls, 1);
+    assert.equal(result.progressOutputConfirmed, false);
+    assert.equal(result.measurementComplete, true);
+    rejectLate?.(Error("synthetic_late_progress_failure"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(timing.snapshot(), result);
+    assert.equal(calls, 1);
+  }
+});
+
+/**
  * 状態区間は非重複で、初期予約と最終候補処置も時間へ含めるを検証する。
  *
  * @responsibility 状態区間は非重複で、初期予約と最終候補処置も時間へ含めるの合否判定を所有する。

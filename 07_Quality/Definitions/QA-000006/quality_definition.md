@@ -867,6 +867,10 @@ Reader受渡しは`bindResultReader`として、記録操作はDependencies直�
 
 Platformの故障購読はlockの通常・故障後即時・取得結果不明の即時、Native Protocolの通常・故障後即時の五発行点を対象とする。throw・即時reject・後着reject・pendingでも他listenerが同じ同期順で呼ばれ、解除済みlistenerは呼ばれず、元故障・失効・終了結果を変えないことを確認する。stdout観測は同期void以外を既存失敗経路へ接続し、Promise成功・即時拒否・後着拒否・pendingでも完了待ちを追加しない。probeが不正返却を外へ搬送し、そのchunkからreadyを成立させず既知readyは維持することを確認する。模擬Processの終了と自己所有合成子のexit／stdio終了を分け、実Dockerや実Windows資源の全体回収成立は主張しない。
 
+開発計測の受動Lifecycle通知と進行writerでは、即時・後着Rejectとpendingが元Task・状態順序・Effect回数・計測区間を変更せず、writerのPromiseを表示成功へ昇格しないことを確認する。
+
+Attempt診断・回収移管では、基準版の現在資源回収・Owner再入場・認証unknown閉鎖・元ID保持のCapabilityを対応付ける。ID発見通知失敗又はPromise誤返却では削除0、削除直前Owner失効では追加処置0、部分回収後の保存失敗とconfig close失敗は同じ回復参照のまま停止する。認証二読取りの一方不明を閉鎖成功へ変換せず、inspect先行なしのcleanup、inspect後の実体変化、Container先行の回収順、config全経路close、Host清掃・Lease・Task進行の非変更を確認する。SourceはExecutor公開APIへ接続する。共通回収通知の継承、同期通知のthrow・Promise誤返却・後着Reject、保存失敗後の同Owner再入場停止を反証する。通常実行の資源終了前後とHome解放後の二通知は統合しない。既存の実AI／Docker Evidenceを新API成立の根拠に流用しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

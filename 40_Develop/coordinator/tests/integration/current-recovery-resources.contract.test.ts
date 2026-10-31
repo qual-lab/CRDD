@@ -9,6 +9,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
 
+import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
@@ -36,9 +37,7 @@ const source = fs.readFileSync(
   new URL("../../src/execution/recovery.ts", import.meta.url),
   "utf8",
 );
-const start = source.indexOf(
-  "export function currentDockerRecoveryResourceExpectations(",
-);
+const start = source.indexOf("function projectAttemptRecoveryTarget(");
 const end = source.indexOf("function validProductionPlan(", start);
 assert.ok(start >= 0 && end > start);
 const body = stripTypeScriptTypes(
@@ -2620,6 +2619,8 @@ function fixture(
     kind: "docker_task",
     recoveryId: "exact-recovery",
     identityJson: JSON.stringify({
+      operationId: "operation-a",
+      subscriptionOffering: "claude_subscription",
       resources: {
         internal: name,
         egress: "crdd-egress-0123456789abcdef",
@@ -2832,6 +2833,11 @@ function fixture(
         "managementDirectory" | "assertOwner"
       >,
     ) => {
+      if (!operationFactory)
+        return {
+          status: "ready",
+          executor: { ...executor, close: () => true },
+        };
       factoryCalls++;
       events.push("factory");
       assert.equal(input.managementDirectory, managementDirectory);
@@ -2960,12 +2966,17 @@ function fixture(
       return true;
     },
   };
+  const recoveryApi = createAttemptRecoveryTestApi(
+    context.createDockerTaskRecoveryExecutor,
+  );
+  Object.assign(context, recoveryApi);
   const run = runInNewContext(
     `${body}\nrecoverRuntimeOwnedDockerTaskResources`,
     context,
   ) as (
     owner: unknown,
-    operations: typeof executor,
+    cleanup: typeof recoveryApi.cleanupAttemptResources,
+    inspect: typeof recoveryApi.inspectAttemptResources,
   ) => {
     status: string;
     dockerCleanupConfirmed: boolean;
@@ -3000,7 +3011,12 @@ function fixture(
     get closeCalls() {
       return closeCalls;
     },
-    run: () => run(capability, executor),
+    run: () =>
+      run(
+        capability,
+        recoveryApi.cleanupAttemptResources,
+        recoveryApi.inspectAttemptResources,
+      ),
     set mode(value: string) {
       mode = value;
     },

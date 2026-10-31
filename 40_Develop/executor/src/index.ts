@@ -7,8 +7,16 @@
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
 export { createExecutor } from "./attempt/execute.ts";
+export {
+  inspectAttemptResources,
+  cleanupAttemptResources,
+} from "./attempt/recovery.ts";
 export type {
   ExecutorCallbacks,
+  ResourceCleanupCallbacks,
+  AttemptRecoveryTarget,
+  AttemptResourceInspection,
+  AttemptCleanupResult,
   Executor,
   StartResult,
   CompletionResult,

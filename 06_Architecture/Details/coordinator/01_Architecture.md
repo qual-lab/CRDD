@@ -546,6 +546,21 @@ Provider準備の固定操作束は`ProviderPreparationOperations`とする。Ta
 
 ### 2.3. Task操作の型・呼出し点と移管順序
 
+#### Attempt資源の診断・回収境界（2026-11-01）
+
+Coordinatorは回復対象の選定、現在Owner・権限・排他、Domainの保存APIとTask進行を所有する。AttemptのDocker期待値構築・探索・照合・回収・短命configの取得とcloseはExecutorの公開APIへ委譲し、Docker実体の処置はDocker Isolationが所有する。Docker Desktop全体の停止・再起動・修復、Host清掃・Lease解放は今回移管しない。本番資源回収はExecutorの公開二操作へ接続する。下表の旧関数名は移管元の追跡用であり、旧期待値関数は撤去する。
+
+| 現行処理 | 移管後のOwnerと保持する処置 |
+|---|---|
+| 旧currentDockerRecoveryResourceExpectations | projectAttemptRecoveryTargetがDomain保存値を技術投影へ変換。五用途の期待値構築はExecutorからDIへ接続 |
+| recoverRuntimeOwnedDockerTaskResources | Owner・元版・Checkpointの確定はCoordinator。探索・構成照合・exact ID回収と観測はExecutor／DI |
+| executeRuntimeOwnedDockerTaskResourceRecovery | Host管理領域の用途限定借用はCoordinator。DI Executorの生成・実行・config closeはExecutor |
+| 認証unknownの限定閉鎖 | 適用可否と専用WriterはCoordinator／Domain。二回の名前・Label不存在観測だけExecutor／DI |
+
+ID発見後は技術事実の同期通知を受け、Coordinatorがidentified保存・読戻し・元版とOwner確認を完了してから戻る。未完了・Promise誤返却・保存失敗では削除へ進まない。削除直前の現在Owner確認も維持する。intent_savedからunknownへの保存遷移はCoordinatorが所有し、下位がDomain状態名や保存命令を生成しない。Cleanup観測の保存後に、既存の認証unknown適用判断を行う。下位の読取り結果を受けて同Ownerを再確認し、既存専用Writerで確定する。
+
+開発用計測のobserveLifecycleStateは同期発行・非待機を維持し、返却Promiseの拒否も捕捉する。進行出力writeProgressの同期Boolean判定は通常の出力操作の結果として維持し、Promiseを表示成功へ昇格せず、その拒否だけを消費する。計測や表示の不成立で元Task・Effect・清掃を変更しない。
+
 Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値と`cancelRuntimeOwnedCoordinatorTask`の引数・戻り値を基準にする。開始結果は`status: started`、同一Process内の不透明な`controlCapability`および`completion`を持つ。開始結果の返却はProvider開始・完了・資源回収の証明ではない。取消は同じcontrolだけを受理し、取消結果とは別に元の`completion`を待つ。controlをJSONへ保存・外部公開せず、新Processの回復参照の代用にしない。
 
 以下は初期移管計画時点の対応であり、現在のConsumer集合ではない。現在の編集Taskは`runCoordinatorTaskAttempt`、助言は`runRepositoryAdvice`へ上位から接続する。旧候補経路を助言へ読み替えず、現在の配置は本書§2と統合計画§15を参照する。

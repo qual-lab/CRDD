@@ -701,11 +701,12 @@ if (mode !== "recovery") {
           assert.equal(inspected.stderr, "");
           const values = JSON.parse(inspected.stdout);
           assert.equal(values.length, 1);
-          const expectation = owner
-            .currentDockerRecoveryResourceExpectations(intentOperation)
-            .find(
-              (value) => value.purpose === "create_subscription_auth_probe",
-            );
+          const { expectedRecoveryResources } = await import(
+            "./recovery-resource-expectations.ts"
+          );
+          const expectation = expectedRecoveryResources(intentOperation).find(
+            (value) => value.purpose === "create_subscription_auth_probe",
+          );
           assert.ok(expectation?.expectations[0]);
           assert.equal(
             isolation.dockerResourceConfigurationMatches(values[0], {

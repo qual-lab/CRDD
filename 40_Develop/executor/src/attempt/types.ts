@@ -20,15 +20,109 @@ import type {
   DockerIsolationCommand,
   DockerNetworkPolicy,
   AdviceCommand,
+  HomeLease,
+  DockerExecutionCallbacks,
+  DockerCommandSession,
+  DockerSessionCleanup,
+  DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
 
+/** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
+export interface IsolationRuntime {
+  acquireHomeLease(bindingHash: string): HomeLease | null;
+  startExecution(
+    plan: AttemptPlan,
+    recovery: object,
+    management: object,
+    hooks: DockerExecutionCallbacks,
+  ): DockerCommandSession;
+  cleanupOwnedResources(
+    plan: AttemptPlan,
+    recovery: object,
+    management: unknown,
+  ): Promise<DockerSessionCleanup>;
+  verifyCleanupOutcome(
+    result: unknown,
+    plan: AttemptPlan,
+    recovery: unknown,
+    management: unknown,
+  ): DockerSessionCleanup["resourceObservations"];
+}
+
 /**
- * 単発実行で観測した事実を上位へ通知する。
- * @responsibility 保存・権限判断を要求せず、同じ試行の処理段階と結果だけを渡す。
+ * docker-process-controllerで使用するExecution 記録の値契約を定義する。
+ *
+ * @responsibility Execution 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @invariant 必要な通知は完了を待ち、失敗時は次のEffectを発行しない。
+ * @shape ExecutionRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ExecutionRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ExecutionRecordの宣言は外部境界を開かない。
+ * @security ExecutionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ExecutionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export interface ExecutorCallbacks {
+export type ExecutionRecord = {
+  homeLease: HomeLease;
+  homeLeaseReleased: boolean;
+  homeLeaseReleaseAttempted: boolean;
+  finished: boolean;
+  controlCapability: object;
+  recovery: AttemptReference;
+  managementCapability: object;
+  cancellationRequested: boolean;
+  cancelExecution:
+    | (() => Promise<
+        Readonly<{
+          cancellationRequested: true;
+          processTerminationObserved: boolean;
+        }>
+      >)
+    | null;
+};
+
+/**
+ * docker-process-controllerで使用するRuntime 状態の値契約を定義する。
+ *
+ * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
+ * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type RuntimeState = Readonly<{
+  isolation: IsolationRuntime;
+  callbacks: ExecutorCallbacks;
+  controls: WeakMap<object, ExecutionRecord>;
+}>;
+
+/**
+ * 通常実行と回収で観測した技術資源の事実を上位へ通知する。
+ * @responsibility 資源観測と全技術処理終了を区別し、保存方法やACKを所有しない。
+ * @trace ARCH-000008
+ * @invariant 同期回収APIでは通知のPromise返却を拒否し、保存未完了で削除へ進まない。
+ * @boundary 通常実行のonResourcesClosedは全終了確認後。回収APIではunknownを含む観測集合も通知する。
+ * @security 通知発行自体は不存在・Home解放・回収成功の保証ではない。最終段階通知も成功保証ではない。
+ */
+export interface ResourceCleanupCallbacks<
+  Observation = AttemptTerminalObservation,
+> {
+  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
+  onResourceIdentified?(
+    purpose: keyof DockerResourceReceipts,
+    dockerId: string,
+  ): void;
+  onResourcesClosed?(observation: Observation): void | Promise<void>;
+  onCleanupCompleted?(observation: Observation): void | Promise<void>;
+}
+
+/**
+ * 単発実行の通知を共通の資源回収通知へ追加する。
+ * @responsibility 同じ試行の開始・診断・結果だけを通知する。
+ * @trace ARCH-000008
+ * @invariant 必要通知は完了後だけ継続し、任意通知は実行結果を変更しない。
+ */
+export interface ExecutorCallbacks extends ResourceCleanupCallbacks {
   onCommandSubmitting?(
     purpose: DockerIsolationCommand["purpose"],
   ): void | Promise<void>;
@@ -41,18 +135,69 @@ export interface ExecutorCallbacks {
     dockerId: string,
   ): void | Promise<void>;
   onStarted?(notice: ProcessStartedNotice): void | Promise<void>;
-  onResourcesClosed?(
-    observation: AttemptTerminalObservation,
-  ): void | Promise<void>;
-  onCleanupCompleted?(
-    observation: AttemptTerminalObservation,
-  ): void | Promise<void>;
   onCompleted?(
     result: CompletionResult,
     observation: AttemptTerminalObservation,
   ): void | Promise<void>;
   onDiagnostic?(notice: AttemptDiagnosticNotice): void | Promise<void>;
 }
+
+/**
+ * 上位が選定・検査した一つのAttemptの回収対象。
+ * @responsibility 保存Schemaを持たず、既存技術投影と現在Ownerの確認だけを借用する。
+ * @trace ARCH-000008
+ * @invariant IDだけで処置を許可せず、各要求直前のOwner確認を必須とする。
+ */
+export type AttemptRecoveryTarget = Readonly<{
+  operationId: string;
+  recoveryId: string;
+  projection: AttemptRecordProjection &
+    Readonly<{
+      workspaceProtected?: boolean;
+      workspaceProtection?: AttemptRequest["target"]["workspaceProtection"];
+    }>;
+  receipts: DockerResourceReceipts;
+  previouslyAbsent?: readonly (keyof DockerResourceReceipts)[];
+  managementDirectory: string | null;
+  assertOwner: () => boolean;
+}>;
+
+/**
+ * 診断だけで得た技術資源の観測。
+ * @responsibility 存在・不存在・不明とconfig終了を区別する。
+ * @trace ARCH-000008
+ * @invariant 診断の成功を削除許可・保存確定へ昇格しない。
+ */
+export type AttemptResourceInspection = Readonly<{
+  status: "completed" | "blocked";
+  operationId: string;
+  recoveryId: string;
+  reason: string;
+  configCleanupConfirmed: boolean;
+  resources: readonly Readonly<{
+    purpose: keyof DockerResourceReceipts;
+    plannedResourceName: string;
+    dockerId: string | null;
+    observation: "not_requested" | "present" | "absent" | "unknown";
+    absenceObservations: readonly ("absent" | "unknown")[];
+  }>[];
+}>;
+
+/**
+ * Attempt資源の技術回収結果。
+ * @responsibility 資源別観測とconfig終了を元のAttemptへ結合して返す。
+ * @trace ARCH-000008
+ * @invariant Docker回収とTask完了・Host清掃・履歴確定を混同しない。
+ */
+export type AttemptCleanupResult = Readonly<{
+  status: "completed" | "blocked";
+  operationId: string;
+  recoveryId: string;
+  reason: string;
+  dockerCleanupConfirmed: boolean;
+  configCleanupConfirmed: boolean;
+  resources: readonly DockerResourceCleanupObservation[];
+}>;
 
 /**
  * 上位の保存Ownerが確定した参照を単発実行へ借用する内部契約。

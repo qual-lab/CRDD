@@ -889,10 +889,12 @@ async function executeApprovedAuthCreateClosure() {
       new URL("../../src/execution/recovery.ts", import.meta.url).href,
       { namedExports: { ...lifecycle } },
     );
-    const expectation = lifecycle
-      .currentDockerRecoveryResourceExpectations(target)
-      .find((value) => value.purpose === "create_subscription_auth_probe")
-      ?.expectations[0];
+    const { expectedRecoveryResources } = await import(
+      "./recovery-resource-expectations.ts"
+    );
+    const expectation = expectedRecoveryResources(target).find(
+      (value) => value.purpose === "create_subscription_auth_probe",
+    )?.expectations[0];
     assert.ok(expectation);
     const authExpectation = expectation;
     /**

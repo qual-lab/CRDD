@@ -16,6 +16,25 @@
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider単段のProcess・取消・終了と元回復証拠 | Covered |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 準備一回消費・結果正規化。Taskの順序判断は上位へ残す | Covered |
 
+## Attempt資源の診断・回収API（2026-11-01）
+
+ExecutorはAttempt単位の技術診断・回収を受け持つ。既存attempt配下のrecovery.tsと公開入口index.tsに、inspectAttemptResourcesとcleanupAttemptResources、明示型AttemptRecoveryTarget・AttemptResourceInspection・AttemptCleanupResultを配置する。Coordinatorの本番資源回収はこの二操作へ接続し、Domain保存・Host清掃・Lease解放を下位へ移さない。
+
+| 契約 | 入力・結果の具体化方針 |
+|---|---|
+| AttemptRecoveryTarget | 同じrecoveryId／operationId、検査済みAttemptRecordProjectionと保護Mount投影、既存DIのDockerResourceReceipts、用途限定で借用した管理領域、同期の現在Owner確認。Domain OperationやidentityJson、保存先・Writerは渡さない |
+| inspectAttemptResources | 診断のみ。実ID・名前・Label・構成と、必要な認証資源の二回の不存在観測を返す。削除・Task再実行・保存状態更新はしない |
+| cleanupAttemptResources | inspectの先行実行を要求せず、内部でfreshな技術再観測・照合・回収を行う。元参照、資源別観測、技術cleanupと短命configのclose結果を区別して返す |
+| AttemptResourceInspection／AttemptCleanupResult | DIの資源観測型を再利用し、未要求・Receipt欠測・実体不明・不存在を区別する。cleanupのtrueから資源別結果を再構成しない |
+
+共通のResourceCleanupCallbacksをExecutorCallbacksが継承し、回収APIも同じ通知名を使用する。onResourceInspectingとonResourceIdentifiedは同期voidであり、回収APIではonResourcesClosedとonCleanupCompletedも同期完了を要求する。通常実行の後二通知は既存どおりPromise<void>を許容し、完了を待つ。観測開始、発見したpurpose／実ID、資源別cleanup観測だけを同期通知し、通知先は必要処置を完了してvoidで戻る。保存方法や許可を返すACKは設けず、Promise誤返却・throwで次Effectを止める。Ownerの現在性確認は通常の同期Queryとして別に維持する。認証unknownの閉鎖可否は上位が決め、下位は不存在の読取り結果だけを返す。共通通知interface以外の専用Interface・Factory・Manager・Store・Registry・Lock・永続状態は追加しない。
+
+onResourcesClosedは技術資源の終了観測を上位へ渡す段階であり、通常実行ではHome解放より前にMount返却へ接続する。onCleanupCompletedはHome解放後の最終技術観測である。二段階を重複として統合しない。通常実行のonResourcesClosedは全終了確認後だけ発行するが、回収APIではunknownを含む五用途の観測集合を渡す場合がある。通知発行自体を不存在・Home解放・回収成功へ昇格せず、payloadと最終結果を参照する。onCleanupCompletedも処理の最終段階通知であって成功保証ではない。回収APIでは前者の通知中に上位の認証unknown閉鎖判定が診断APIを呼ぶ場合がある。診断用configを独立に取得・closeしてから専用Writerへ戻り、外側回収configは通知終了後にcloseする。二つのclose結果を全体結果へ反映する。認証用途の不存在診断は第一読取り不明で停止し、二回の不存在が揃うまで閉鎖根拠を返さない。
+
+依存はCoordinator→Executor→Docker Isolationとし、ExecutorからDomain Modelへの依存は追加しない。単発実行の既存準備・開始・取消・清掃Lifecycle、Provider選択、Docker Desktop修復、Domain SchemaとHistoryは今回変更しない。診断・回収中の失敗でも取得済みconfigのcloseを行い、保存失敗と技術資源の回収不明を混同しない。既知実IDの診断は名前不存在だけでabsentにせず、削除なしのexact ID照合と同期Owner再確認を要求する。presentはallowAlreadyAbsent:falseで検証し、不存在を許す確認結果をpresentへ流用しない。
+
+共有する内部型IsolationRuntime・RuntimeStateとその実行記録型もattempt/types.tsに置く。index.tsの公開型は増やさない。単一Owner内の入力容量定数や検査用Setはその実装内へ残し、複数Sourceで共有する固定語彙はconstants.tsに置く。
+
 ## 詳細成果物の適用判断
 
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
@@ -119,6 +138,7 @@ executor/src/
 └ attempt/
   ├ execute.ts                createExecutor・prepareAttempt・start・単発実行・取消・join・通知
   ├ isolation.ts              AI Adapter／Docker Isolationの構成結合・Session開始と清掃接続
+  ├ recovery.ts               Attempt資源の診断・回収・同期通知・短命config終了
   ├ result.ts                 Command結果・構成診断・開始結果・清掃後の終了結果の組立て
   ├ types.ts                  技術入力・通知interface・公開／共有結果型と非秘密診断型
   ├ constants.ts              結果理由・診断段階・Command用途の共有固定語彙

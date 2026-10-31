@@ -9,8 +9,6 @@ import {
   type HomeLease,
   type DockerIsolationRuntimePlan,
   type DockerExecutionCallbacks,
-  type DockerSessionCleanup,
-  type DockerCommandSession,
   bindAdviceCommand,
   hashAdviceCommand,
   type DockerIsolationCommandInput,
@@ -31,27 +29,6 @@ import {
   describeAdviceResultSchema,
 } from "../../../ai-adapter/src/index.ts";
 
-/** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
-export interface IsolationRuntime {
-  acquireHomeLease(bindingHash: string): HomeLease | null;
-  startExecution(
-    plan: AttemptPlan,
-    recovery: object,
-    management: object,
-    hooks: DockerExecutionCallbacks,
-  ): DockerCommandSession;
-  cleanupOwnedResources(
-    plan: AttemptPlan,
-    recovery: object,
-    management: unknown,
-  ): Promise<DockerSessionCleanup>;
-  verifyCleanupOutcome(
-    result: unknown,
-    plan: AttemptPlan,
-    recovery: unknown,
-    management: unknown,
-  ): DockerSessionCleanup["resourceObservations"];
-}
 const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
 
 /**

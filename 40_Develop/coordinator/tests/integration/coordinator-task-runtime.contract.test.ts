@@ -888,7 +888,7 @@ function fixture(
     reportProviderBoundaryDiagnostic: options.reportDiagnostic,
     beginInvocation: options.beginInvocation,
     observeLifecycleState: (state: string) => {
-      options.timingObserver?.(state);
+      const observed = options.timingObserver?.(state);
       lifecycleStates.push(state);
       lifecycleSnapshots.push({
         state,
@@ -905,6 +905,7 @@ function fixture(
         options.terminalObserver?.(state);
       if (options.lifecycleObserverThrows)
         throw new Error("fixture_lifecycle_observer_failure");
+      return observed;
     },
     prepareDockerRecoveryState: (root: string) => {
       options.admissionRootObserver?.(root);
@@ -3171,6 +3172,43 @@ for (const scenario of [
 }
 
 /**
+ * 受動Lifecycle通知の拒否を受付・遷移と元結果から分離する。
+ * @responsibility 即時拒否・後着拒否・未完了で元Taskを変更しないことを確認する。
+ * @trace PRL-IT-012
+ * @precondition 同じ合成Taskと有限Provider代役を使用する。
+ * @stimulus admissionを含む全Lifecycle通知へ非同期の不正ハンドラーを渡す。
+ * @observation 元completion、状態順序、Effect回数と後着後の不変。
+ * @oracle 正常な比較対象と同じ結果を保持し、通知完了を待たず再実行しない。
+ * @cleanup 既存fixtureが所有するメモリ内の処理を完了まで待つ。
+ * @boundary 本番Controllerと用途限定代役。実AI・Dockerは使用しない。
+ */
+test("受動Lifecycle通知の非同期拒否は受付・状態遷移・元Task結果を変えない", async () => {
+  for (const mode of ["reject", "late_reject", "pending"] as const) {
+    const delayed: Array<(error: Error) => void> = [];
+    const baseline = fixture();
+    const observed = fixture({
+      timingObserver: () => {
+        if (mode === "reject")
+          return Promise.reject(Error("synthetic_lifecycle_failure"));
+        return new Promise<void>((_resolve, reject) => {
+          if (mode === "late_reject") delayed.push(reject);
+        });
+      },
+    });
+    const before = baseline.runtime.start(request(), "C:\\repository");
+    const after = observed.runtime.start(request(), "C:\\repository");
+    assert.deepEqual(await after.completion, await before.completion);
+    assert.deepEqual(observed.lifecycleStates, baseline.lifecycleStates);
+    assert.deepEqual(observed.effectCounts(), baseline.effectCounts());
+    for (const reject of delayed)
+      reject(Error("synthetic_late_lifecycle_failure"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(observed.lifecycleStates, baseline.lifecycleStates);
+    assert.deepEqual(observed.effectCounts(), baseline.effectCounts());
+  }
+});
+
+/**
  * 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するを検証する。
  *
  * @responsibility 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するの合否判定を所有する。
@@ -3182,6 +3220,7 @@ for (const scenario of [
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
+
 test("初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続する", async () => {
   for (const mode of [
     "interactive_initial_consent",

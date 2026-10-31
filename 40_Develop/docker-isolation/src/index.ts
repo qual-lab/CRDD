@@ -60,6 +60,7 @@ export {
   createDockerResourceRecoveryExecutor,
   createDockerOperationRecoveryExecutor,
   createDockerTaskRecoveryExecutor,
+  type DockerResourceRecoveryOperations,
   type DockerOperationRecoveryInput,
   type DockerRecoveryExecutionBinding,
   observeDockerRecoveryConfigIdentity,

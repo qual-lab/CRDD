@@ -266,10 +266,11 @@ export function createDevelopmentExecutionTiming(
       stateStartedAt = time;
       if (writeProgress && progressConfirmed) {
         try {
-          progressConfirmed =
-            writeProgress(
-              `[進行状況] ${STATE_LABELS[state as keyof typeof STATE_LABELS]}\n`,
-            ) === true;
+          const written: unknown = writeProgress(
+            `[進行状況] ${STATE_LABELS[state as keyof typeof STATE_LABELS]}\n`,
+          );
+          void Promise.resolve(written).catch(() => {});
+          progressConfirmed = written === true;
         } catch {
           progressConfirmed = false;
         }

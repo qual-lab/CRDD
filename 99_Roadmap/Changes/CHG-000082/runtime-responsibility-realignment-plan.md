@@ -2082,3 +2082,55 @@ Platformの通知型は同期voidのまま、通知順・購読解除・故障�
 通常npm testはPlatform Access145件全成功、Docker Isolation309件中304成功・既存の明示条件付き五件スキップ、いずれも終了0。Host Windows実境界は既存の除外条件を維持し、実Docker限定試験や明示Python試験を起動していない。Coordinatorの静的check終了0（既存informational Lint102件）と、Host排他の利用側・Provider接続・Core依存の三Suite78件も成功した。各実行は別の成立範囲として保持し、Repository全体QAや実AIの再成立へ合算しない。Sourceと文書の固定候補を独立レビューへ渡す。
 
 独立レビューは動作・安全保証のMust-fix零。確認者の新規DI九件・PA七件も成功した。同一moduleから分かれていた試験の型importを統合し、PA checkの再成功と差分の独立確認後、残指摘は零となった。対象六文書のChecker指摘は零、参照展開先3,356指摘による全体終了1は維持する。今回の二系統はSource・既存利用側の同期契約・試験・Architecture・QAまで対応完了。実AI・実Docker・過去保持物操作は零。新しい仕組みや公開APIは追加しておらず、コミット・プッシュは未実施。
+
+## Attempt Docker技術処理のExecutor集約（2026-11-01）
+
+人間が集約方針を採用した。基準Commitはf2576d765。今回の目的は既存CapabilityのOwner移管であり、Recoveryの新設ではない。Coordinatorは対象選定・Owner・権限・排他・Domain保存・Task進行、ExecutorはAttempt技術診断・回収の公開入口、DIはDocker探索・照合・exact ID処置・技術cleanupを所有する。Docker Desktop全体の停止・再起動・修復、Host清掃とLease、Schema・History・通常Attempt実行は対象外。実AI・実Docker・過去保持物を操作しない。
+
+変更経路は複数Packageの実装責務・利用側移管で、Coordinator／Executor／DI詳細、Coding Standards、QAと直接試験・変更履歴を照合し、別確認者が保存中間順序・exact参照・通知失敗の反証を確認した。Source・試験の独立レビュー、Architecture／Qualityの文書・影響先確認を行う。準拠基準・決定権限・Releaseは変更しない。新たな人間判断は現時点で不要。
+
+### 棚卸しとCapability対応
+
+| 現行所有処理 | 移管先・保持する保証 | 既存利用側／検証 |
+|---|---|---|
+| currentDockerRecoveryResourceExpectations | Domain検査と技術投影はCoordinator。DI期待値・Container先行順・Proxy候補・Init条件はExecutor／DI | current-recovery-resources、coordinator-state-runtime、restart-preparation-order、auth-create-closure／abandon試験fixture |
+| recoverRuntimeOwnedDockerTaskResources | Owner・元版・CheckpointはCoordinator。Docker探索・照合・回収はExecutor | current-recovery-resourcesの保存前削除拒否・Owner失効・既知ID・部分回収・認証不明閉鎖 |
+| executeRuntimeOwnedDockerTaskResourceRecovery | Host所在の借用はCoordinator。createDockerTaskRecoveryExecutor生成・closeはExecutor | current-recovery-resourcesの実空config・spawnSync代役・close失敗、current-host-transition |
+| auth unknown二回観測 | 閉鎖適用判断と専用Writerは上位。名前・Label不存在読取りだけExecutor／DI | auth-create-closure、current-recovery-resources、owner-reentry |
+| Host cleanup・Lease解放・履歴・配送 | 現行Ownerに維持、Docker資源結果から推測しない | 既存Owner再入場・履歴・配送・終了試験 |
+
+Source本文を切り出す既存VM試験が複数あるため、関数移動後に単に検査対象を削除しない。技術観測の検証はExecutor単独の新方式へ移し、保存・現在Ownerの試験はCoordinatorへ残す。旧source位置前提・試験用注入は利用側移行の対象とし、製品に旧互換層を追加しない。以前の成功記録と実AI八項目のEvidenceは保全するが、新API成立へ流用しない。
+
+### 保存境界を維持するAPI具体化
+
+公開候補はinspectAttemptResources(target): AttemptResourceInspectionとcleanupAttemptResources(target, callbacks): AttemptCleanupResultの二操作。Targetは同一recoveryId／operationId、AttemptRecordProjectionに基づく非秘密の技術投影、DI既存DockerResourceReceipts、用途限定管理領域、現在Ownerの同期Queryだけを含める。Domain Operation、identityJson、保存Schema、Writerや上位Storeを下位へ渡さない。結果は元参照、資源別の観測不能と不存在、短命configのcloseを明示する。DIの型を再利用し、専用Interface・Factory・Manager・永続Stateを追加しない。
+
+技術事実の通知は共通ResourceCleanupCallbacksへまとめ、ExecutorCallbacksが継承する。観測開始・実ID発見・cleanup観測を同期voidで通知し、Coordinatorの登録先が必要な遷移・保存・読戻しを完了してから戻る。undefined以外の返却やthrowでは次Effectを止め、Promise拒否だけを消費する。intent_saved→unknownは上位の保存遷移であり、下位が次状態を通知しない。ID発見後保存・読戻し前に削除しない。cleanup保存後の認証unknown適用判断と専用Writerは上位維持とし、下位は二回の不存在読取り結果だけを返す。inspectは診断のみで、cleanupの必須前段にはしない。
+
+| Step | 現在の到達点 |
+|---|---|
+| 1 直接依存棚卸し | 上表の主要関数・DI生成／close・保存中間点・直接試験を特定 |
+| 2 API・型設計 | 明示型と共通通知interfaceを実装。通常実行と回収の通知発火差はpayloadで判断 |
+| 3 DI薄接続 | Executor attempt/recovery.tsに実装。上位保存・Domain依存を持たない |
+| 4 Coordinator本番置換 | 固定Executor公開APIへ接続。保存と認証unknown適用判断・専用Writerは上位維持 |
+| 5 保証回帰 | Executor全66件、DI通常304件成功（5件skip）、Coordinator関連233件と実保存8件成功。入れ子config反証を追加した実保存2利用側も成功。独立再レビュー残Must-fix零 |
+| 6 Executor単独診断・回収試験 | 実API本文と有限DI代役の試験を追加。通知誤返却、既知ID観測、照合中Owner喪失を反証 |
+| 7 不要Import撤去 | 対象経路のDI生成・期待値構築・close直接依存と旧期待値関数を撤去。Desktop等は対象外 |
+
+並行する計測通知の残件は、controllerの二発行点でPromise拒否を捕捉し、diagnosticsのwriteProgressは同期===true判定を維持して誤返却Promiseの拒否だけを消費した。元結果・Effect・表示失敗後の停止を変えず、新規の滞留管理・再送はない。初回check終了0、局所七件（通常・是正・clean失敗・cleanup不明・取消の比較、非同期Lifecycle、非同期writer）が成功した。主移管のSource完了とは区別する。
+
+計測通知の対象二Suite全168件は成功。独立レビューの残Must-fix零、確認者自身の追加二試験（各複数条件）も成功した。移管方針の棚卸し・Owner境界・未実装表示も独立確認済みである。今回の確認は計測修正の実装と移管設計を対象とし、診断・回収APIのSource接続・本番置換・移管後回帰の完了ではない。実AI・実Docker・過去保持物は操作していない。
+
+対象六文書のChecker指摘は零。参照展開先3,376指摘による全体終了1は維持し、全体QAの合格とは扱わない。
+
+### 移管完了時の確認結果
+
+Executorの公開診断・回収二操作へ本番接続し、Coordinatorの対象経路からDI期待値構築・実Executor生成・探索・照合・削除・closeを撤去した。共通ResourceCleanupCallbacksをExecutorCallbacksが継承し、二つの終了段階は統合せず維持した。共有内部型はtypes.tsへ移し、専用入力上限と検査用Setは単独Owner内に残した。Domain依存、保存単位、新しいManager・Registry・Lockは追加していない。
+
+独立Source／Architecture・Qualityレビューの是正として、既知実IDの診断を名前不存在だけで確定しないよう修正し、strictな存在確認と照合後のOwner確認を追加した。未知を含む通知は成功保証ではないことを明示し、内側診断configと外側回収configのいずれかのcloseが不明でも同IDで停止し、再入場の追加要求・Writerが零であることを実保存の同一路径で反証した。両レビューの是正後Must-fixは零。
+
+基準HEADから残っていたOwner再入場試験のCoordinatorによるHome解放期待は、既存製品が要求するExecutor解放通知の記録へ追従した。実解放通知なしの停止は維持し、通知後も保存失敗ではTask成功としない。試験だけの有限投影を使用し、製品の保存契約やHome操作を変更していない。
+
+Executorのcheckと全66件、DIのcheckと通常304件（5件skip）、Coordinator型検査、関連8 Suiteの233件が成功した。Windows junction作成をsandboxが拒否した初回結果は成功へ換算せず、用途限定の権限で同じ合成試験を実行して成功を確認した。認証unknown専用Writerの実保存試験はWorkbench／CLIの各14条件（内側／外側close反例を含む）が成功した。実AI・実Docker・過去保持物は操作していない。
+
+対象文書のChecker指摘は零、参照展開先3,356指摘による全体終了1は維持する。今回の非AI移管回帰を実Docker／実AIの新API実境界確認や全体QAの合格へ昇格しない。

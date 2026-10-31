@@ -179,7 +179,7 @@ export function createDockerResourceRecoveryExecutor(
 function createRecoveryExecutor(
   binding: DockerRecoveryExecutionBinding,
   beforeSpawn: () => void,
-) {
+): DockerResourceRecoveryOperations {
   /**
    * Package内部で組み立てた固定観測・回収要求を発行する。
    *
@@ -251,6 +251,31 @@ function createRecoveryExecutor(
       ),
   });
 }
+
+/**
+ * 固定三操作の同期回収契約。
+ * @responsibility 技術期待値とfreshな観測結果だけを搬送する。
+ * @trace ARCH-000008
+ * @invariant 保存・Task状態・新しい削除Authorityを所有しない。
+ */
+export type DockerResourceRecoveryOperations = Readonly<{
+  recoverObserved: (
+    expectation: DockerResourceExpectation,
+    options?: Readonly<{
+      allowAlreadyAbsent?: boolean;
+      removeAfterVerification?: boolean;
+      assertBeforeRemoval?: () => boolean;
+    }>,
+  ) => boolean;
+  discoverSubmitted: (
+    expectation: Omit<DockerResourceExpectation, "dockerId">,
+  ) => string | null;
+  observeAbsent: (
+    kind: "container" | "network",
+    expectedName: string,
+    ownershipLabel: string,
+  ) => boolean;
+}>;
 
 /**
  * 現在操作の借用管理領域に限定した回復接続入力。

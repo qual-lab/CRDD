@@ -46,7 +46,6 @@ import {
   resolveIsolationCommandInput,
   bindIsolationRuntime,
   releaseAttemptHomeLease,
-  type IsolationRuntime,
 } from "./isolation.ts";
 import type {
   AttemptResultReason,
@@ -59,54 +58,10 @@ import type {
   AttemptRecordProjection,
   ExecutorCallbacks,
   AttemptReference,
+  RuntimeState,
+  IsolationRuntime,
+  ExecutionRecord,
 } from "./types.ts";
-
-/**
- * docker-process-controllerで使用するExecution 記録の値契約を定義する。
- *
- * @responsibility Execution 記録のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape ExecutionRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ExecutionRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: ExecutionRecordの宣言は外部境界を開かない。
- * @security ExecutionRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ExecutionRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ExecutionRecord = {
-  homeLease: HomeLease;
-  homeLeaseReleased: boolean;
-  homeLeaseReleaseAttempted: boolean;
-  finished: boolean;
-  controlCapability: object;
-  recovery: AttemptReference;
-  managementCapability: object;
-  cancellationRequested: boolean;
-  cancelExecution:
-    | (() => Promise<
-        Readonly<{
-          cancellationRequested: true;
-          processTerminationObserved: boolean;
-        }>
-      >)
-    | null;
-};
-
-/**
- * docker-process-controllerで使用するRuntime 状態の値契約を定義する。
- *
- * @responsibility Runtime 状態のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape RuntimeStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RuntimeStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: RuntimeStateの宣言は外部境界を開かない。
- * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type RuntimeState = Readonly<{
-  isolation: IsolationRuntime;
-  callbacks: ExecutorCallbacks;
-  controls: WeakMap<object, ExecutionRecord>;
-}>;
 
 /**
  * 一試行の実行・通知・資源回収を完了まで管理する。

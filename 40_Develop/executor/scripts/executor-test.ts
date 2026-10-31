@@ -13,6 +13,8 @@ import {
 } from "../src/attempt/validation.ts";
 import type {
   AttemptPlan,
+  RuntimeState,
+  IsolationRuntime,
   AttemptReference,
   ExecutorCallbacks,
   AttemptTerminalObservation as TechnicalObservation,
@@ -39,20 +41,15 @@ import {
   type DockerIsolationRuntimePlan,
 } from "../../docker-isolation/src/index.ts";
 
-import {
-  start,
-  cancel,
-  abandon,
-  type RuntimeState,
-} from "../src/attempt/execute.ts";
+import { start, cancel, abandon } from "../src/attempt/execute.ts";
 import {
   bindIsolationRuntime as bindTestIsolationRuntime,
   planIdentity,
   resolveValidatedPlan,
-  type IsolationRuntime,
 } from "../src/attempt/isolation.ts";
 import { PURPOSES } from "../src/attempt/constants.ts";
 import { createStartResult } from "../src/attempt/result.ts";
+export { createAttemptRecoveryTestApi } from "./attempt-recovery-test.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
 export {
   projectAttemptStartResult,

@@ -10,6 +10,7 @@
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
 
+import type { RecoveryPlan } from "../../src/execution/types.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -4382,6 +4383,18 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     );
     assert.equal(restoreCalls, 1);
     lifecycleFails = false;
+    // Homeの実解放はExecutorが所有し、Coordinatorは完了通知を記録するだけ。
+    const technical = runtime.recordRuntimeOwnedAttemptCleanup({
+      plan: plan as unknown as RecoveryPlan,
+      recoveryCapability: capability,
+      managementCapability: management,
+      recoveryId: "exact-id",
+      observations: [],
+      mountCompletion: null,
+      mountLeaseReleased: false,
+      homeLeaseReleased: true,
+    });
+    assert.equal(technical.homeLeaseReleased, true);
     for (const fault of ["snapshot", "release"]) {
       lifecycleConfirmed = fault !== "snapshot";
       lifecycleLockReleased = fault !== "release";
@@ -4391,7 +4404,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         "blocked",
       );
       assert.equal(capabilityCalls, 0);
-      assert.equal(releaseCalls, 1);
+      assert.equal(releaseCalls, 0);
     }
     lifecycleConfirmed = true;
     lifecycleLockReleased = true;
@@ -4409,7 +4422,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         "blocked",
       );
       assert.equal(restoreCalls, 1);
-      assert.equal(releaseCalls, 1);
+      assert.equal(releaseCalls, 0);
       assert.equal(capabilityCalls, 0);
     }
     assert.equal(
@@ -4418,7 +4431,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       "completed",
     );
     assert.equal(restoreCalls, 1);
-    assert.equal(releaseCalls, 1);
+    assert.equal(releaseCalls, 0);
     assert.equal(capabilityCalls, 1);
     assert.ok(operations[0]);
     operations[0].lease = "released";
@@ -4510,6 +4523,19 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     );
     assert.equal(
       runtime.recordRuntimeOwnedNormalMountCompletion(projectCapability, mount),
+      true,
+    );
+    assert.equal(
+      runtime.recordRuntimeOwnedAttemptCleanup({
+        plan: projectPlan as unknown as RecoveryPlan,
+        recoveryCapability: projectCapability,
+        managementCapability: management,
+        recoveryId: "exact-id",
+        observations: [],
+        mountCompletion: null,
+        mountLeaseReleased: false,
+        homeLeaseReleased: true,
+      }).homeLeaseReleased,
       true,
     );
     assert.equal(
@@ -4686,6 +4712,16 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         false,
       );
       isReleaseSucceeds = true;
+      runtime.recordRuntimeOwnedAttemptCleanup({
+        plan: plan as unknown as RecoveryPlan,
+        recoveryCapability: failedCapability,
+        managementCapability: management,
+        recoveryId: "exact-id",
+        observations: [],
+        mountCompletion: null,
+        mountLeaseReleased: false,
+        homeLeaseReleased: true,
+      });
       const unresolvedBeforeAbandon = structuredClone(operations);
       const restorationsBeforeAbandon: number = restoreCalls;
       assert.equal(
@@ -4701,7 +4737,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
           plan.operationId,
           failed.recoveryId,
         ),
-        false,
+        true,
       );
       assert.equal(startCalls, expectedStarts);
     }

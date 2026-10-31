@@ -20,7 +20,7 @@ import type {
   CompletionResult,
   AttemptDiagnosticNotice,
 } from "../../src/index.ts";
-import type { IsolationRuntime } from "../../src/attempt/isolation.ts";
+import type { IsolationRuntime } from "../../src/attempt/types.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**

@@ -1747,7 +1747,9 @@ function advanceLifecycleState(
   if (control.lifecycleState === next) return;
   control.lifecycleState = next;
   try {
-    state.dependencies.observeLifecycleState?.(next);
+    void Promise.resolve(
+      state.dependencies.observeLifecycleState?.(next),
+    ).catch(() => {});
   } catch {
     // Passive observation must not gain control over Runtime state or Effect.
   }
@@ -4387,7 +4389,9 @@ function createRuntime(dependencies: taskRuntimeDependencies) {
         ...(workspaceTarget ? { workspaceTarget } : {}),
       };
       try {
-        state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
+        void Promise.resolve(
+          state.dependencies.observeLifecycleState?.("STATE-ADMISSION"),
+        ).catch(() => {});
       } catch {
         // Passive observation must not gain control over Runtime admission.
       }

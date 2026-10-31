@@ -9,6 +9,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
 
+import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -831,6 +832,10 @@ function fixture(mode: "restart" | "recovery" = "restart") {
           .digest("hex"),
       };
     },
+    borrowHostRecoveryManagementDirectory: () => ({
+      directory: "synthetic-management",
+      assertCurrent: () => ownerLive,
+    }),
     // 通常の準備は旧署名／配布資格へ到達してはいけない。
     verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => {
       throw new Error("legacy signing gate forbidden");
@@ -840,9 +845,23 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     (mode === "restart" ? body : recoveryBody) +
       (mode === "restart"
         ? "\n({prepare:prepareRuntimeOwnedDockerRestart,verify:verifyRuntimeOwnedDockerRestartPreparation,persist:persistRuntimeOwnedDockerRestartCheckpoint,release:releaseRuntimeOwnedDockerRestartPreparation,finalize:finalizeRuntimeOwnedDockerRestartPreparation})"
-        : "\n({prepare:prepareRuntimeOwnedDockerTaskRecovery,persist:persistRuntimeOwnedDockerTaskRecoveryCheckpoint,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation,recover:recoverRuntimeOwnedDockerTaskResources,expectations:currentDockerRecoveryResourceExpectations,confirmHost:confirmRuntimeOwnedDockerTaskHostAbsence,cleanupHost:cleanupRuntimeOwnedDockerTaskHost})"),
+        : "\n({prepare:prepareRuntimeOwnedDockerTaskRecovery,persist:persistRuntimeOwnedDockerTaskRecoveryCheckpoint,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation,recover:recoverRuntimeOwnedDockerTaskResources,expectations:projectAttemptRecoveryTarget,confirmHost:confirmRuntimeOwnedDockerTaskHostAbsence,cleanupHost:cleanupRuntimeOwnedDockerTaskHost})"),
     context,
   );
+  if (mode === "recovery") {
+    const recover = api.recover;
+    api.recover = (capability: unknown, operations: object) => {
+      const runtime = createAttemptRecoveryTestApi(() => ({
+        status: "ready",
+        executor: { ...operations, close: () => true },
+      }));
+      return recover(
+        capability,
+        runtime.cleanupAttemptResources,
+        runtime.inspectAttemptResources,
+      );
+    };
+  }
   return {
     api,
     root,

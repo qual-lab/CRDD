@@ -1,4 +1,3 @@
-import { attemptSelection } from "../fixtures/ai-selection.ts";
 /**
  * Coordinator最新現在状態の実Filesystem保存を自己生成Repositoryで確認する。
  * @packageDocumentation
@@ -11,6 +10,8 @@ import { attemptSelection } from "../fixtures/ai-selection.ts";
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
 
+import { attemptSelection } from "../fixtures/ai-selection.ts";
+import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -3607,12 +3608,14 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "utf8",
     );
     const driverBody = [
-      "currentDockerRecoveryResourceExpectations",
+      "projectAttemptRecoveryTarget",
       "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
       "recoverRuntimeOwnedDockerTaskResources",
     ]
       .map((name) => {
-        const start = recoverySource.indexOf(`export function ${name}(`);
+        const start = recoverySource.indexOf(
+          `${name === "projectAttemptRecoveryTarget" ? "" : "export "}function ${name}(`,
+        );
         const end = recoverySource.indexOf("\n/**", start);
         assert.ok(start > 0 && end > start, name);
         return stripTypeScriptTypes(recoverySource.slice(start, end)).replace(
@@ -3646,6 +3649,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "readback_mismatch",
       "release_unknown",
       "saved_reentry",
+      "inner_close_failed",
+      "outer_close_failed",
     ] as const) {
       const seed = scenario === "saved_reentry" ? candidate : before;
       fs.writeFileSync(file, seed);
@@ -3689,6 +3694,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           Error,
           Map,
           dockerRecoveryPreparations: map,
+          borrowHostRecoveryManagementDirectory: () => ({
+            directory: "synthetic-management",
+            assertCurrent: () => live,
+          }),
           coordinatorTaskResourcesAreSettled,
           coordinatorAuthenticationUnknownCanClose,
           isDockerResourcePurpose,
@@ -3769,7 +3778,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         },
       ) as (
         capability: object,
-        operations: object,
+        cleanup: typeof import("../../../executor/src/index.ts").cleanupAttemptResources,
+        inspect: typeof import("../../../executor/src/index.ts").inspectAttemptResources,
       ) => {
         status: string;
         reason: string;
@@ -3777,7 +3787,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         recoveryId: string;
       };
       const observedId = "d".repeat(64);
-      const result = driver(owner, {
+      const operations = {
         discoverSubmitted: () => {
           events.push("discover");
           return ["known_id", "known_id_mutant"].includes(scenario)
@@ -3829,7 +3839,31 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
             (scenario === "second_absence_unknown" && rounds === 2)
           );
         },
+      };
+      let factories = 0;
+      const closes: number[] = [];
+      const runtime = createAttemptRecoveryTestApi(() => {
+        const number = ++factories;
+        return {
+          status: "ready",
+          executor: {
+            ...operations,
+            close: () => {
+              closes.push(number);
+              events.push(`close:${number}`);
+              return !(
+                (scenario === "inner_close_failed" && number === 2) ||
+                (scenario === "outer_close_failed" && number === 1)
+              );
+            },
+          },
+        };
       });
+      const result = driver(
+        owner,
+        runtime.cleanupAttemptResources,
+        runtime.inspectAttemptResources,
+      );
       assert.equal(result.recoveryId, recoveryId, scenario);
       const completed = ["normal", "known_id", "saved_reentry"].includes(
         scenario,
@@ -3839,7 +3873,11 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         completed ? "completed" : "blocked",
         `${scenario}: ${result.reason}: ${events.join(",")}`,
       );
-      assert.equal(result.dockerCleanupConfirmed, completed, scenario);
+      assert.equal(
+        result.dockerCleanupConfirmed,
+        completed || scenario === "outer_close_failed",
+        scenario,
+      );
       assert.equal(removals, scenario === "known_id" ? 1 : 0, scenario);
       assert.equal(
         removalOracleHits,
@@ -3858,6 +3896,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         "readback_mismatch",
         "release_unknown",
         "saved_reentry",
+        "outer_close_failed",
       ].includes(scenario);
       assert.equal(closureWrites, shouldSave ? 1 : 0, scenario);
       assert.equal(
@@ -3879,6 +3918,28 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       }
       if (scenario === "saved_reentry")
         assert.equal(events.includes("write:cleanup"), false);
+      if (["inner_close_failed", "outer_close_failed"].includes(scenario)) {
+        assert.deepEqual(closes, [2, 1], scenario);
+        assert.equal(factories, 2, scenario);
+        const inner = events.indexOf("close:2"),
+          outer = events.indexOf("close:1"),
+          write = events.indexOf("write:closure");
+        assert.ok(inner >= 0 && outer > inner, scenario);
+        if (scenario === "outer_close_failed")
+          assert.ok(write > inner && outer > write);
+        else assert.equal(write, -1);
+        const beforeReentry = [...events];
+        assert.equal(
+          driver(
+            owner,
+            runtime.cleanupAttemptResources,
+            runtime.inspectAttemptResources,
+          ).status,
+          "blocked",
+        );
+        assert.deepEqual(events, beforeReentry);
+        assert.equal(factories, 2);
+      }
       assert.equal(record.hostCleanup, "present", scenario);
       const persisted = decodeCoordinatorStateSnapshot(
         fs.readFileSync(file),
@@ -3903,6 +3964,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
             "readback_mismatch",
             "release_unknown",
             "saved_reentry",
+            "outer_close_failed",
           ].includes(scenario),
           scenario,
         );

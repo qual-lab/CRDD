@@ -57,7 +57,7 @@ export async function simulateAuthCreateClosure(
     return source.slice(start, end).replace(/^export /u, "");
   });
   let body = bodies.join("\n");
-  assert.equal((body.match(/await import\(/gu) ?? []).length, 6);
+  assert.equal((body.match(/await import\(/gu) ?? []).length, 7);
   assert.ok(
     body.includes(
       'const absentAuth = process.argv[3] === "--verify-absent-auth"',
@@ -758,6 +758,7 @@ export async function simulateAuthCreateClosure(
     isolationUrl,
     moduleUrl("../../../domain-model/src/index.ts"),
     `${lifecycleUrl}?auth-create-parent`,
+    moduleUrl("./recovery-resource-expectations.ts"),
     moduleUrl("../../src/execution/recovery.ts?auth-create-parent"),
   ];
   /**
@@ -1064,12 +1065,6 @@ export async function simulateAuthCreateClosure(
     if (loads.length === 5) {
       assert.ok(mocks.has(isolationUrl));
       activeLifecycle = {
-        currentDockerRecoveryResourceExpectations: () => [
-          {
-            purpose: "create_subscription_auth_probe",
-            expectations: [{ purpose: "create_subscription_auth_probe" }],
-          },
-        ],
         recoverRuntimeOwnedDockerTaskForCurrentConsumer: async (
           _id: string,
           _cap: unknown,
@@ -1191,6 +1186,15 @@ export async function simulateAuthCreateClosure(
       };
       return activeLifecycle;
     }
+    if (loads.length === 6)
+      return {
+        expectedRecoveryResources: () => [
+          {
+            purpose: "create_subscription_auth_probe",
+            expectations: [{ purpose: "create_subscription_auth_probe" }],
+          },
+        ],
+      };
     assert.ok(mocks.has(lifecycleUrl));
     return {
       restartRuntimeOwnedDockerForRecovery: async (
