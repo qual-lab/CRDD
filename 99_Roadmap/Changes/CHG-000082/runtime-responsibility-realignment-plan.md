@@ -2054,3 +2054,17 @@ Readerの値型CoordinatorTaskResultDeliveryは再利用し、新Reader型・互
 命名候補として、同じpreparation.tsの検証専用createIsolatedProviderDockerPreparationAdapterにcallbacksという通常操作束が残る。prepare／blocked／cancel／consumeは通知ではないため、将来整理時はoperations等へ揃える。今回改名したProviderPreparationOperationsとは別契約であり、動作不具合とは扱わない。observeTerminal、observeRepository、observeLeaseOwner等は値を返す観測操作、onFailureDetectedは購読解除関数を返す登録操作であり、機械的なvoid化の対象にしない。CoordinatorからDocker IsolationへのAttempt Recovery直接依存整理は別の責務境界作業で、通知整理の未完了と混同しない。
 
 先行の保存・Task進行六Suiteは101件中100成功・1不合格、終了1（約2,381秒）。実行時に読み込んだ旧期待値によるPR-N-01のSingle Task Adapter接続不合格を保持する。同ケースは是正後の上記五件の固定候補で成功したが、先行runを現候補の全体回帰根拠に流用しない。残る不合格やRepository全体QAの未成立は維持する。今回の追加操作はローカル読取り・記録とGitコミット・作業ブランチへのプッシュに限定し、実AI・Docker・過去保持物は操作しない。
+
+### 残る任意診断と検証操作束の是正（2026-11-01）
+
+人間が上記二件の是正を指示した。基準Commitは090da26e6。実装詳細・利用側・既存試験の限定変更として、Coding Standards、Coordinator詳細、QAと呼出し元を着手前に照合し、別確認者の着手可を受領した。技術・品質の独立レビューと対象文書・影響先確認を行う。保存Schema、通信、Timeout、Authority、準拠基準、リリース判断は変更しないため、それらの追加設計・監査は発火しない。新たな人間判断は不要。
+
+編集対応は、①beginProductionRecoveryのfinally内の任意observeFailureを同期発行し、try／catchとPromise.resolve(...).catchで例外・拒否を直接捕捉、②内部関数・公開wrapper・依存型の既存三宣言をvoid／Promise<void>へ整合、③検証専用createIsolatedProviderDockerPreparationAdapterの引数・参照・ヘッダーをcallbacksからoperationsへ改名、④既存試験・Architecture・QAを追従する。通知はreadyで発行せず停止時に一回だけ、完了を待たず同期のnull／blocked／readyを維持する。後着から元結果・取得済みexact回復参照・保存・Host要求を変更しない。新たな通知型、helper、Source、未完了一覧、Queue、Timer、Registry、再送・回復機構は追加しない。
+
+既存の実関数本文VM試験を、8停止点＋readyと未登録・正常・同期throw・即時reject・後着reject・pendingへ拡張した。診断値の凍結、一回又は零の発行、同期返却、遅延拒否後の元結果・保存回数・Host要求回数の不変を確認する。このメモリ代役は実資源の解放を証明せず、既存releasesの零もその証明へ用いない。操作束の改名は両Providerの準備・拒否・取消・一回消費の既存試験を維持する。呼出し側の同期診断ハンドラーはそのまま利用でき、新しい接続APIは不要。
+
+対象六Suiteは76件成功、別のController・Single Task・回復Adapter三Suiteは151件成功。後者は実子Processを用いるHost Windows試験を明示除外した非AI回帰であり、その実境界の再成立を主張しない。静的checkは終了0、既存informational Lint102件を維持する。対象外の全体QA不合格は別件のままとする。実AI・実Docker・過去保持物の操作は零。独立レビュー・文書確認の結果は終了後に追記する。
+
+固定候補の独立レビューは残Must-fix零。確認者自身の診断契約三件と差分空白検査も成功し、同期返却・ready通知零・停止一回・exact参照・保存／Host要求の不変、操作束の名称だけの変更を再照合した。今回指定された二件のSource・利用側契約・試験・設計文書への追従は完了した。過去の残件記録は当時の状態として残し、この節を現在の対応結果とする。コミット・プッシュは今回の指示範囲に含まれず未実施。
+
+対象六文書のChecker指摘は零。参照展開先の既存3,376指摘による全体終了1は維持し、Repository全体QAの合格とは扱わない。

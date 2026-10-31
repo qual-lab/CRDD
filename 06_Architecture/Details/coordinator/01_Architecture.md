@@ -542,6 +542,8 @@ Provider準備の固定操作束は`ProviderPreparationOperations`とする。Ta
 
 任意の回復診断は発行だけを行い、処理の完了を回復の進行条件にしない。返却Promiseには直後に拒否処理を付け、独自の未完了一覧・待機キュー・再送・待機期限は作らない。後着の成功・拒否から状態更新、回復処置、再送を追加しない。本番出力は既存Reporterの直列化・有界な書込み期限・dispose・故障後停止に委ねる。外部ハンドラーが自身で所有するI/Oの終了をTaskが保証したとは扱わず、永続pendingの代役でもTask／回復が進むことと、そのハンドラー自体の終了を区別する。必須の開始・保存処置の完了待ちは維持する。
 
+回復開始の`observeFailure`も同じ任意診断である。回復開始は同期のままとし、停止時の一回通知で同期例外と非同期拒否を捕捉する。readyでは通知せず、診断先の未完了や後着拒否で元のnull／blocked／ready、取得済みexact回復参照、保存・Host要求を変更しない。検証専用の準備Adapterが持つprepare／blocked／cancel／consumeの束は`operations`とし、通知と区別する。入力検査、理由値、取消と一回消費の順序は変更しない。
+
 ### 2.3. Task操作の型・呼出し点と移管順序
 
 Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値と`cancelRuntimeOwnedCoordinatorTask`の引数・戻り値を基準にする。開始結果は`status: started`、同一Process内の不透明な`controlCapability`および`completion`を持つ。開始結果の返却はProvider開始・完了・資源回収の証明ではない。取消は同じcontrolだけを受理し、取消結果とは別に元の`completion`を待つ。controlをJSONへ保存・外部公開せず、新Processの回復参照の代用にしない。

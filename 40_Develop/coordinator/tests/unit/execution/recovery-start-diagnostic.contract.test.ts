@@ -18,8 +18,18 @@ import {
 
 const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 
-/** 各失敗点を注入し、診断の有無・例外が元結果と解放を変えないことを確認する。 */
-test("回復開始診断は全段階を一回通知し元結果とEffectを変えない", () => {
+/**
+ * 任意診断の失敗・遅延が回復開始を待たせず、元の返却と保存・要求を変えないことを確認する。
+ * @responsibility 本番関数本文の8停止点とreadyを同じ代役条件で比較する。
+ * @trace PRL-UT-006
+ * @precondition 本番本文をメモリ内で実行し、Host・保存は同期代役に限定する。
+ * @stimulus 未登録、正常、同期例外、即時拒否、後着拒否、未完了の診断先を渡す。
+ * @observation 同期返却値、exact回復参照、通知回数、保存回数とHost要求回数。
+ * @oracle readyは通知0、停止点は一回だけ。通知完了を待たず元結果・回数を維持する。
+ * @cleanup N/A: 外部資源を取得せず、未完了PromiseもI/Oや監視を持たない。
+ * @boundary 本番関数本文とメモリ代役。実資源の解放成立は本試験の対象外。
+ */
+test("回復開始診断は全段階を一回通知し元結果とEffectを変えない", async () => {
   const source = fs.readFileSync(
     new URL("../../../src/execution/recovery.ts", import.meta.url),
     "utf8",
@@ -39,8 +49,11 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
     "host_submission",
     "ready",
   ]) {
-    const run = (sink: "none" | "normal" | "throw") => {
+    const run = async (
+      sink: "none" | "normal" | "throw" | "reject" | "late_reject" | "pending",
+    ) => {
       const observed: unknown[] = [];
+      let rejectLate: ((error: Error) => void) | undefined;
       let releases = 0,
         writes = 0,
         submissions = 0;
@@ -132,13 +145,42 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           sink === "none"
             ? undefined
             : (value: unknown) => {
+                assert.equal(Object.isFrozen(value), true);
                 observed.push(JSON.parse(JSON.stringify(value)));
                 if (sink === "throw") throw new Error("arbitrary private text");
+                if (sink === "reject")
+                  return Promise.reject(
+                    new Error("synthetic_diagnostic_rejection"),
+                  );
+                if (sink === "late_reject")
+                  return new Promise<void>((_resolve, reject) => {
+                    rejectLate = reject;
+                  });
+                if (sink === "pending") return new Promise<void>(() => {});
               },
         );
       } catch (error) {
         result = { thrown: error instanceof Error ? error.message : "unknown" };
       }
+      assert.notEqual(
+        Object.prototype.toString.call(result),
+        "[object Promise]",
+        "開始結果は同期返却のまま",
+      );
+      const beforeLate = JSON.stringify({
+        result,
+        releases,
+        writes,
+        submissions,
+        observed,
+      });
+      rejectLate?.(new Error("synthetic_late_diagnostic_rejection"));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal(
+        JSON.stringify({ result, releases, writes, submissions, observed }),
+        beforeLate,
+        "後着診断から保存・要求・結果を変更しない",
+      );
       return {
         result: JSON.stringify(result),
         releases,
@@ -147,9 +189,15 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
         observed,
       };
     };
-    const baseline = run("none");
-    for (const sink of ["normal", "throw"] as const) {
-      const result = run(sink);
+    const baseline = await run("none");
+    for (const sink of [
+      "normal",
+      "throw",
+      "reject",
+      "late_reject",
+      "pending",
+    ] as const) {
+      const result = await run(sink);
       assert.equal(result.result, baseline.result, stage);
       assert.equal(result.releases, baseline.releases, stage);
       assert.equal(result.writes, baseline.writes, stage);

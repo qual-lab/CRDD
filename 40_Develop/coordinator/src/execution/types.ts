@@ -527,7 +527,9 @@ export type ExecutionRecordOperations = Readonly<{
   beginRecovery: (
     plan: RecoveryPlan,
     managementCapability: unknown,
-    observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
+    observeFailure?: (
+      diagnostic: RecoveryStartFailureDiagnostic,
+    ) => void | Promise<void>,
   ) => Recovery | BlockedRecovery | null;
   abandonRecovery?: (recoveryCapability: object) => boolean;
   bindInitializationFailure?: (

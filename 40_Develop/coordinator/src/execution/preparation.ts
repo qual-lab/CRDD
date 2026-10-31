@@ -3719,9 +3719,9 @@ export function createPreparationFailure(reason: string): PreparationFailure {
  *
  * @responsibility probe・Task・助言の引数搬送、失敗分類、取消と一回消費の検証入口をまとめる。
  * @trace ARCH-000015
- * @input provider: 固定Provider。callbacks: 呼出し側の準備状態へ結合済みの同期操作。
+ * @input provider: 固定Provider。operations: 呼出し側の準備状態へ結合済みの同期操作。
  * @returns 本番Authorityを持たない凍結済み検証用Adapter。
- * @precondition callbacksはCoordinator内の固定二実装からのみ渡す。
+ * @precondition operationsはCoordinator内の固定二実装からのみ渡す。
  * @postcondition Taskと助言を混在させず、既存の引数順序とProvider別理由値を保持する。
  * @effect 呼出し後の準備・取消操作は既存状態を変更し得る。Factory自体は外部要求を発行しない。
  * @failure 準備・取消例外は既存blocked結果へ、消費例外はnullへ搬送する。
@@ -3732,7 +3732,7 @@ export function createPreparationFailure(reason: string): PreparationFailure {
  */
 function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
   provider: "codex" | "claude",
-  callbacks: Readonly<{
+  operations: Readonly<{
     prepare: (...args: unknown[]) => R;
     blocked: (reason: string) => B;
     cancel: (prepared: unknown, management: unknown) => C;
@@ -3759,7 +3759,7 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
     try {
       return action();
     } catch {
-      return callbacks.blocked(reason);
+      return operations.blocked(reason);
     }
   };
   return Object.freeze({
@@ -3780,7 +3780,7 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
           (!("packetCapability" in value) ||
             !("packetOwnerCapability" in value)))
       )
-        return callbacks.blocked(
+        return operations.blocked(
           `${provider}_docker_runtime_input_mode_ambiguous`,
         );
       const purpose = value.purpose;
@@ -3791,7 +3791,7 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
             ? `${provider}_docker_runtime_advice_preparation_failed_closed`
             : `${provider}_docker_runtime_preparation_failed_closed`,
         () =>
-          callbacks.prepare(
+          operations.prepare(
             value.managementCapability,
             value.mountCapability,
             value.mountAuthorizationCapability,
@@ -3806,11 +3806,11 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
     },
     cancel: (prepared: unknown, management: unknown) =>
       safely(`${provider}_docker_runtime_cancellation_failed_closed`, () =>
-        callbacks.cancel(prepared, management),
+        operations.cancel(prepared, management),
       ),
     consume: (prepared: unknown, management: unknown) => {
       try {
-        return callbacks.consume(prepared, management);
+        return operations.consume(prepared, management);
       } catch {
         return null;
       }

@@ -3754,7 +3754,7 @@ function expectedHostSuccessor(
  * 実Home排他と単一現在状態を確定してHostのDocker開始へ接続する。
  * @responsibility 実Home排他と単一現在状態を確定してHostのDocker開始へ接続する。
  * @trace ARCH-000008
- * @input plan: 固定計画。managementCapability: 実Host Owner。
+ * @input plan: 固定計画。managementCapability: 実Host Owner。observeFailure: 任意の受動診断。
  * @returns ready、または同じ回復参照を保持した停止結果。
  * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
  * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
@@ -3763,12 +3763,14 @@ function expectedHostSuccessor(
  * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
  * @boundary 本番Docker OwnerとRepository内の現在状態。
  * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
- * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
+ * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。診断は同期発行し完了を待たず、例外・返却Promiseの拒否を捕捉する。
  */
 function beginProductionRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
-  observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
+  observeFailure?: (
+    diagnostic: RecoveryStartFailureDiagnostic,
+  ) => void | Promise<void>,
 ) {
   let stage: RecoveryStartFailureDiagnostic["stage"] = "plan_validation";
   let diagnosticRecoveryId: string | null = null;
@@ -3933,9 +3935,11 @@ function beginProductionRecovery(
   } finally {
     if (!ready) {
       try {
-        observeFailure?.(
-          Object.freeze({ stage, recoveryId: diagnosticRecoveryId }),
-        );
+        void Promise.resolve(
+          observeFailure?.(
+            Object.freeze({ stage, recoveryId: diagnosticRecoveryId }),
+          ),
+        ).catch(() => {});
       } catch {
         /* 受動診断の失敗で元の開始結果を変更しない。 */
       }
@@ -5754,7 +5758,7 @@ function completeRecovery(
  *
  * @responsibility Runtime 所有 Docker 回復の開始条件、初期状態、開始失敗境界を所有する。
  * @trace ARCH-000008
- * @input plan: ProductionPlan、managementCapability: unknown
+ * @input plan: ProductionPlan、managementCapability: unknown、observeFailure: 完了を待たない任意診断
  * @returns beginRuntimeOwnedDockerRecoveryの計算結果を返す。
  * @precondition 「plan: ProductionPlan、managementCapability: unknown」がbeginRuntimeOwnedDockerRecoveryの入力契約を満たす。
  * @postcondition beginRuntimeOwnedDockerRecoveryの責務を完了した結果だけを返す。
@@ -5763,12 +5767,14 @@ function completeRecovery(
  * @invariant beginRuntimeOwnedDockerRecoveryは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: beginRuntimeOwnedDockerRecoveryはProcess内の同一Subsystemで完結する。
  * @security beginRuntimeOwnedDockerRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: beginRuntimeOwnedDockerRecoveryは共有非同期状態を持たない同期処理である。
+ * @concurrency 同期の開始結果を返す。任意診断の例外・拒否は捕捉し、通知Promiseの完了を待たない。
  */
 export function beginRuntimeOwnedDockerRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
-  observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
+  observeFailure?: (
+    diagnostic: RecoveryStartFailureDiagnostic,
+  ) => void | Promise<void>,
 ) {
   try {
     return beginProductionRecovery(plan, managementCapability, observeFailure);

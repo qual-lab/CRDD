@@ -863,6 +863,8 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 
 Reader受渡しは`bindResultReader`として、記録操作はDependencies直下の`recordTaskAttempt`として確認する。任意の記録結果通知だけを`TaskExecutionCallbacks`へ分離し、保存未設定・保存例外・通知失敗を区別する。同期捕捉の欠測・重複・終了後拒否と、Provider準備操作束の正常・検査拒否・取消は名称整理後も維持する。旧Portや旧Callback型への互換中継を追加しない。
 
+回復開始診断は本番関数本文の8停止点とreadyで、未登録・正常・同期例外・即時拒否・後着拒否・未完了を比較する。開始は同期で返り、readyで通知0、停止で通知一回、元結果・exact参照・保存回数・Host要求回数が不変であることを確認する。メモリ代役の回数比較を実資源の回収証明へ読み替えない。検証専用準備Adapterのoperations改名は既存の両Provider準備・拒否・取消・一回消費試験で確認する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
