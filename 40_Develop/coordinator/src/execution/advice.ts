@@ -1163,23 +1163,36 @@ type Operation = Readonly<{
 }>;
 
 /**
- * 読取り助言Runtime境界で使用するProviderAdviceRuntimeDependenciesの構造を固定する。
+ * 助言のOperation生成と実開始を上位へ通知する。
  *
- * @responsibility 読取り助言Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @responsibility 必要な保存処置を待ち、保存結果を通知の返却値へ載せない。
  * @trace ARCH-000008
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @shape 任意のOperation参照・開始通知とvoid又はPromise<void>。
  * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
  * @boundary 本ModuleとConsumerの型境界。
  * @security 秘密値または未許可のPathを公開値へ追加しない。
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
+interface ProviderAdviceCallbacks {
+  observeOperation?(
+    operation: Readonly<{ operationId: string; hostRecoveryId: string }>,
+  ): void | Promise<void>;
+  observeStarted?(): void | Promise<void>;
+}
+
+/**
+ * 助言Runtimeの既存技術操作と通知を固定する。
+ * @responsibility Operation・Grant・保存・実行の操作Ownerを変更せず構成する。
+ * @trace ARCH-000008
+ * @shape 技術操作群、元相関とProviderAdviceCallbacks。
+ * @invariant 通知の完了をTask成功や実清掃へ読み替えない。
+ * @boundary 同じ助言Runtimeの固定組立てと試験代役。
+ * @security 任意CLI・保存先・Authorityを追加しない。
+ * @compatibility 既存の拒否理由・回収・回復参照を維持する。
+ */
 export type ProviderAdviceRuntimeDependencies = Readonly<{
   recoveryCorrelationId?: string;
-  observeOperation?: (
-    operation: Readonly<{ operationId: string; hostRecoveryId: string }>,
-  ) => Promise<boolean>;
-  observeStarted?: () => Promise<boolean>;
   createOperation: () => Promise<Operation>;
   bindRepository: (
     managementCapability: unknown,
@@ -1211,7 +1224,8 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
   ) => boolean;
   abandonOperation: typeof abandonOwnedHostOperationGenerationLock;
   poisonAfterCleanupUnknown: () => void;
-}>;
+}> &
+  ProviderAdviceCallbacks;
 
 /**
  * 検証済みRepositoryへ閉じたProduction助言Runtimeを生成する。
@@ -1356,16 +1370,16 @@ function createProviderAdviceRuntime(
         );
 
       const selectionInput = selectionRequest(plan, operation.operationId);
-      if (
-        dependencies.observeOperation &&
-        !(await dependencies.observeOperation({
+      try {
+        await dependencies.observeOperation?.({
           operationId: operation.operationId,
           hostRecoveryId: operation.hostRecoveryId,
-        }))
-      )
+        });
+      } catch {
         throw new AdviceRuntimeError(
           "workbench_ai_advice_operation_save_unconfirmed",
         );
+      }
       const selection = dependencies.issueSelection(
         operation.managementCapability,
         selectionInput,
@@ -2057,7 +2071,7 @@ export function createIsolatedProviderOperationCandidate(
 function createProductionDependencies(
   repositoryRoot: string,
 ): ProviderAdviceRuntimeDependencies {
-  return Object.freeze({
+  return Object.freeze<ProviderAdviceRuntimeDependencies>({
     createOperation: createProductionOperation,
     bindRepository: (managementCapability) =>
       bindRuntimeOwnedRepositoryOperation(managementCapability, repositoryRoot),

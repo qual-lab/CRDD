@@ -298,7 +298,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
             active++;
             maximum = Math.max(maximum, active);
             assert.equal(input.executionTree, tree);
-            assert.equal(await input.observeStarted?.(), true);
+            assert.equal(await input.observeStarted?.(), undefined);
             await Promise.resolve();
             if (call === 2)
               assert.equal(
@@ -1834,7 +1834,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
         assert.equal(input.executionTree, f.tree);
         assert.equal(input.workspaceHead, f.base);
         assert.equal(input.workspaceBaseCommit, f.base);
-        assert.equal(await input.observeStarted?.(), true);
+        assert.equal(await input.observeStarted?.(), undefined);
         fs.writeFileSync(
           path.join(input.executionTree, "source.txt"),
           `task-${calls}\n`,
@@ -1980,7 +1980,7 @@ test("DirectのTask搬送はID省略と途中失敗でも変更観測を保持�
           calls++;
           assert.equal(input.workspaceId, null);
           assert.equal(input.executionTree, f.root);
-          assert.equal(await input.observeStarted?.(), true);
+          assert.equal(await input.observeStarted?.(), undefined);
           fs.writeFileSync(path.join(f.root, "source.txt"), "direct-" + calls);
           return {
             contract: "crdd-coordinator/orchestrator-single-task-adapter",
@@ -2417,7 +2417,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
         runSingleTaskAttempt: async (input) => {
           calls++;
           assert.equal(input.executionTree, f.root);
-          assert.equal(await input.observeStarted?.(), true);
+          assert.equal(await input.observeStarted?.(), undefined);
           fs.writeFileSync(
             path.join(f.root, "source.txt"),
             `observed-${calls}\n`,

@@ -855,6 +855,14 @@ ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。
 
 既存ERB-IT-002／004／014の下位シナリオとして、通知未登録、同期void、非同期通知完了、誤Boolean返却、例外、通知待ち中取消、Receipt通知失敗でも元IDで回収することを確認する。認証不成立・内容不正では後続要求0、通知例外でも技術回収継続、一次故障とcleanup不明・exact回復参照の維持をOracleとする。修復のOwner失効は上位ハンドラーの保存前検査、発行直前の借用元生存は下位の既存確認として双方の負例を保持する。再起動発行予定通知の失敗は要求0、受付後通知の失敗は同じ子の終了待機を確認する。通知の完了を耐久保存やTask成功の証明にしない。実AI・実Docker・過去保持物を用いず、実境界の再成立は今回の主張対象外とする。
 
+## Coordinator通知契約の限定回帰（2026-11-01）
+
+既存PRL-IT-005／CPR-IT-001／ERB-IT-002の下位シナリオとして、開始・Operation生成通知の正常void、保存失敗throw／reject、同時重複、待機中取消、終端後拒否、通知拒否後の元completion joinとexact回復ID・清掃観測の保持を検査する。表示・診断は未登録・同期throw・非同期rejectでも結果を変更せず、別の認可拒否ではProvider起動零を維持する。上位保存を始めただけのreturnを処置完了とみなさず、必要処置の未完了中は公開完了を確定しない。共有通知interfaceと通知返却値、Ownerの通常Query／Operationの非変更をSourceと利用側で照合する。実AI八項目の既存Evidenceは維持し、この限定非AI回帰を新しい実AI成立の根拠にはしない。
+
+任意通知の反例では、結果配送・記録結果の同期throw、即時reject、完了後reject、永続pendingを扱う。配送の同期捕捉、元Task完了・回収・exact参照と、記録のunknown／部分成立を保持し、通知の正常復帰を保存成功へ昇格しない。任意回復診断が永続pendingでも回復APIが一回進み、遅い拒否後に再回復・再保存しないことを確認する。Reporterの既存のwrite／close／error／期限／disposeの終了条件は別に維持する。新たな未完了通知RegistryやTimerを追加せず、注入ハンドラー自体の終了を証明したとは扱わない。
+
+Reader受渡しは`bindResultReader`として、記録操作はDependencies直下の`recordTaskAttempt`として確認する。任意の記録結果通知だけを`TaskExecutionCallbacks`へ分離し、保存未設定・保存例外・通知失敗を区別する。同期捕捉の欠測・重複・終了後拒否と、Provider準備操作束の正常・検査拒否・取消は名称整理後も維持する。旧Portや旧Callback型への互換中継を追加しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

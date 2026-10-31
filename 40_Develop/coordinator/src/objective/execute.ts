@@ -1967,12 +1967,9 @@ export async function executeCoordinatorPublicObjective(
             },
             input,
           ),
-        executionObservation: {
-          recordTaskAttempt: (observation) =>
-            runtimeDependencies.recordExecutionEvent(
-              repositoryRoot,
-              observation,
-            ),
+        recordTaskAttempt: (observation) =>
+          runtimeDependencies.recordExecutionEvent(repositoryRoot, observation),
+        callbacks: {
           observePublication:
             runtimeDependencies.observeExecutionEventPublication,
         },

@@ -3110,17 +3110,10 @@ type ProviderPreparationLifecycleState<
  * @shape 固定Ownerが渡す計画生成、Task検査、blocked生成とprepared生成。
  * @invariant registry、動的Plugin、別Packageからの逆依存を作らない。
  * @boundary Coordinator内の二つの既存準備実装だけに使用する。
- * @security callbackを外部入力から選択せず、Capabilityを新設しない。
+ * @security 構築操作を外部入力から選択せず、Capabilityを新設しない。
  * @compatibility Provider別結果のfield有無と既存理由値を維持する。
  */
-type ProviderDockerPreparationCallbacks<
-  M,
-  T,
-  A,
-  P extends object,
-  B,
-  R,
-> = Readonly<{
+type ProviderPreparationOperations<M, T, A, P extends object, B, R> = Readonly<{
   blockedResult: (reason: string) => B;
   validateTask?: (task: T) => string | null;
   buildPlan: (
@@ -3830,9 +3823,9 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
  *
  * @responsibility modeと回復参照を検査し、既存MountとPacketを照合した候補だけを保存する。
  * @trace ARCH-000015
- * @input state: 既存Owner状態。providerとcallbacks: 内部固定接続。残り: 同じ操作の不透明参照。
+ * @input state: 既存Owner状態。providerとoperations: 内部固定接続。残り: 同じ操作の不透明参照。
  * @returns 既存Provider別blocked結果またはprepared結果。
- * @precondition callbackは二Providerの固定実装であり外部入力から選ばない。
+ * @precondition operationsは二Providerの固定実装であり外部入力から選ばない。
  * @postcondition 候補のAuthorityと操作・Home・固定選定が一致し、同じ管理参照へ保存される。
  * @effect 既存Mount有効化、Packet消費、Authority発行・失効、Mount解放とStore保存を所有する。
  * @failure 不正mode、回復参照、Mount、Packet、計画、Authorityを区別する。例外時は失効とlease解放を要求して再throwする。
@@ -3844,7 +3837,7 @@ function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
 function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
   state: ProviderDockerPreparationState<M, T, A, P>,
   provider: "codex" | "claude",
-  callbacks: ProviderDockerPreparationCallbacks<M, T, A, P, B, R>,
+  operations: ProviderPreparationOperations<M, T, A, P, B, R>,
   managementCapability: unknown,
   mountCapability: unknown,
   mountAuthorizationCapability: unknown,
@@ -3860,7 +3853,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
     consumer !== "workbench" &&
     consumer !== "orchestrator"
   )
-    return callbacks.blockedResult(
+    return operations.blockedResult(
       `${provider}_docker_runtime_consumer_invalid`,
     );
   if (
@@ -3868,7 +3861,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
       (advicePacketOwnerCapability === null) ||
     (taskPacketUseCapability !== null && advicePacketUseCapability !== null)
   )
-    return callbacks.blockedResult(
+    return operations.blockedResult(
       `${provider}_docker_runtime_input_mode_ambiguous`,
     );
   if (
@@ -3876,7 +3869,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
     (typeof recoveryCorrelationId !== "string" ||
       !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(recoveryCorrelationId))
   )
-    return callbacks.blockedResult(
+    return operations.blockedResult(
       `${provider}_docker_runtime_recovery_correlation_invalid`,
     );
   const binding = state.verifyOperationMount(
@@ -3892,7 +3885,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
     !activation.grant ||
     !activation.activeMountCapability
   ) {
-    return callbacks.blockedResult(
+    return operations.blockedResult(
       `${provider}_docker_runtime_mount_authorization_invalid`,
     );
   }
@@ -3907,7 +3900,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
     activation.grant.operationId !== binding.operationId
   ) {
     state.completeMount(activeMountCapability, managementCapability);
-    return callbacks.blockedResult(
+    return operations.blockedResult(
       `${provider}_docker_runtime_mount_authorization_invalid`,
     );
   }
@@ -3918,7 +3911,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
     );
     if (!consumedModelSelection) {
       state.completeMount(activeMountCapability, managementCapability);
-      return callbacks.blockedResult(
+      return operations.blockedResult(
         `${provider}_docker_runtime_model_selection_invalid`,
       );
     }
@@ -3931,7 +3924,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
           ) ?? null);
     if (taskPacketUseCapability !== null && !taskPacket) {
       state.completeMount(activeMountCapability, managementCapability);
-      return callbacks.blockedResult(
+      return operations.blockedResult(
         `${provider}_docker_runtime_task_packet_invalid`,
       );
     }
@@ -3944,15 +3937,15 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
           ) ?? null);
     if (advicePacketUseCapability !== null && !advicePacket) {
       state.completeMount(activeMountCapability, managementCapability);
-      return callbacks.blockedResult(
+      return operations.blockedResult(
         `${provider}_docker_runtime_advice_packet_invalid`,
       );
     }
-    if (taskPacket && callbacks.validateTask) {
-      const taskFailure = callbacks.validateTask(taskPacket);
+    if (taskPacket && operations.validateTask) {
+      const taskFailure = operations.validateTask(taskPacket);
       if (taskFailure !== null) {
         state.completeMount(activeMountCapability, managementCapability);
-        return callbacks.blockedResult(taskFailure);
+        return operations.blockedResult(taskFailure);
       }
     }
     const providerHomeSourcePath = state.borrowMountSource(
@@ -3967,7 +3960,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
       Number.isFinite(preparedMonotonicMs) &&
       preparedWallClockMs >= 0 &&
       preparedMonotonicMs >= 0
-        ? callbacks.buildPlan(
+        ? operations.buildPlan(
             binding,
             activatedMount,
             consumedModelSelection,
@@ -3982,7 +3975,9 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
         : null;
     if (!planCandidate) {
       state.completeMount(activeMountCapability, managementCapability);
-      return callbacks.blockedResult(`${provider}_docker_runtime_plan_invalid`);
+      return operations.blockedResult(
+        `${provider}_docker_runtime_plan_invalid`,
+      );
     }
     const authority = state.issueProviderAuthority(
       managementCapability,
@@ -4008,7 +4003,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
         issuedAuthorityControlCapability = null;
       }
       state.completeMount(activeMountCapability, managementCapability);
-      return callbacks.blockedResult(
+      return operations.blockedResult(
         `${provider}_docker_runtime_authority_invalid`,
       );
     }
@@ -4023,7 +4018,7 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
       preparedCapability,
       managementCapability as object,
     );
-    return callbacks.preparedResult(
+    return operations.preparedResult(
       plan,
       preparedCapability,
       binding,

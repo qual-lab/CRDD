@@ -13,7 +13,8 @@ import test from "node:test";
 import { createCoordinatorTaskAttemptEvent } from "../../../src/task/dispatch.ts";
 
 import type {
-  CoordinatorExecutionObservationPort,
+  CoordinatorExecutionDependencies,
+  TaskExecutionCallbacks,
   CoordinatorExecutionObservationPublication,
   CoordinatorTaskAttemptObservation,
 } from "../../../src/task/types.ts";
@@ -66,12 +67,13 @@ test("実行観測PortはOrchestratorの意味だけをAdapterへ渡す", () => 
       residualArtifactIds: Object.freeze(["observation-residual"]),
     },
   );
-  const port: CoordinatorExecutionObservationPort = Object.freeze({
-    recordTaskAttempt: (value) => {
-      receivedObservations.push(value);
-      return publication;
-    },
-  });
+  const port: Pick<CoordinatorExecutionDependencies, "recordTaskAttempt"> =
+    Object.freeze({
+      recordTaskAttempt: (value) => {
+        receivedObservations.push(value);
+        return publication;
+      },
+    });
 
   assert.equal(port.recordTaskAttempt?.(OBSERVATION), publication);
   assert.deepEqual(receivedObservations, [OBSERVATION]);
@@ -91,8 +93,12 @@ test("実行観測PortはOrchestratorの意味だけをAdapterへ渡す", () => 
  */
 test("観測未設定と観測不能を成功へ丸めない", () => {
   const observedPublications: CoordinatorExecutionObservationPublication[] = [];
-  const port: CoordinatorExecutionObservationPort = Object.freeze({
-    observePublication: (publication) => observedPublications.push(publication),
+  const port: TaskExecutionCallbacks = Object.freeze({
+    observePublication: (
+      publication: CoordinatorExecutionObservationPublication,
+    ) => {
+      observedPublications.push(publication);
+    },
   });
   const unavailable = Object.freeze({
     status: "not_configured" as const,

@@ -193,10 +193,9 @@ for (const mode of [
               throw new Error("removed_ack_relay_must_not_be_called");
             },
           });
-          if (mode !== "missing_capture")
-            attempt.observeResultDelivery?.(delivery);
+          if (mode !== "missing_capture") attempt.bindResultReader?.(delivery);
           if (mode === "double_notification")
-            attempt.observeResultDelivery?.(delivery);
+            attempt.bindResultReader?.(delivery);
           const result = await completed(attempt);
           if (mode !== "none")
             results = registerSyntheticResults(root, attempt.operationId);
@@ -565,7 +564,7 @@ async function completed(
     Parameters<typeof runCoordinatorOperation>[0]["runSingleTaskAttempt"]
   >[0],
 ): Promise<CoordinatorSingleTaskResult> {
-  assert.equal(await input.observeStarted?.(), true);
+  assert.equal(await input.observeStarted?.(), undefined);
   return completedAfterStart(input);
 }
 
@@ -627,6 +626,76 @@ function recorded(eventId: string) {
     residualArtifactIds: Object.freeze([]) as readonly [],
   });
 }
+
+/**
+ * 記録操作と任意の記録結果通知を分けて検証する。
+ * @responsibility 通知故障をTaskの成否や記録の未確認へ混同しない。
+ * @trace PRL-IT-012
+ * @precondition 自己所有の合成Repositoryと一Task、部分成立を返す模擬記録操作。
+ * @stimulus 記録後の通知を同期throw・即時reject・完了後reject・永続pendingにする。
+ * @observation Task結果、記録結果のIdentity、通知・記録・Taskの回数を取得する。
+ * @oracle 拒否は未処理にならず、記録結果を成功化せずTaskだけを通常完了する。
+ * @cleanup 各Rootは既存fixture hookで回収し、後着Promiseは拒否して処置する。
+ * @boundary Task進行と実保存、記録操作の結果と任意通知。
+ */
+test("記録結果通知の例外・拒否・未完了はTaskと記録の観測事実を変更しない", async (t) => {
+  for (const mode of ["throw", "reject", "late_reject", "pending"] as const) {
+    const { input } = fixture(t, [task("task-a")], 1);
+    let records = 0,
+      notices = 0,
+      executions = 0;
+    let rejectLate!: (error: Error) => void;
+    const late = new Promise<void>((_resolve, reject) => {
+      rejectLate = reject;
+    });
+    const publication = Object.freeze({
+      status: "blocked" as const,
+      reason: "synthetic_record_unconfirmed",
+      effectState: "unknown" as const,
+      cleanupConfirmed: false,
+      retryAllowed: false,
+      manualRecoveryRequired: true,
+      residualArtifactIds: ["synthetic-unconfirmed-record"],
+    });
+    const outcome = await runCoordinatorOperation(
+      {
+        runSingleTaskAttempt: async (attempt) => {
+          executions++;
+          return completed(attempt);
+        },
+        recordTaskAttempt: () => {
+          records++;
+          return publication;
+        },
+        callbacks: {
+          observePublication: (value) => {
+            notices++;
+            assert.equal(value, publication);
+            if (mode === "throw") throw Error("synthetic_notice_failure");
+            if (mode === "reject")
+              return Promise.reject(Error("synthetic_notice_failure"));
+            if (mode === "late_reject") return late;
+            return new Promise<void>(() => {});
+          },
+        },
+      },
+      input,
+    );
+    if (mode === "late_reject")
+      rejectLate(Error("synthetic_late_notice_failure"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(outcome.status, "completed", outcome.reason);
+    assert.equal(outcome.cleanupConfirmed, true);
+    assert.equal(records, 1);
+    assert.equal(notices, 1);
+    assert.equal(executions, 1);
+    assert.equal(publication.effectState, "unknown");
+    assert.equal(publication.cleanupConfirmed, false);
+    assert.deepEqual(publication.residualArtifactIds, [
+      "synthetic-unconfirmed-record",
+    ]);
+  }
+});
 
 /**
  * PR-N-01 connects one durable Project task to the Single Task boundaryを検証する。
@@ -804,7 +873,7 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
                       provider: "claude",
                       operationId: "OP-execution-fixture",
                     }),
-                    true,
+                    undefined,
                   );
                   return {
                     status: "completed",
@@ -876,7 +945,7 @@ test("PR-N-02 同じWorkspaceの独立Taskを並行上限によらず直列に�
                 entry.startPhase === "handoff_prepared",
             ).length ?? null;
         }
-        assert.equal(await attempt.observeStarted?.(), true);
+        assert.equal(await attempt.observeStarted?.(), undefined);
         active += 1;
         maximumActive = Math.max(maximumActive, active);
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -1371,7 +1440,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
           poisoned += 1;
         },
         runSingleTaskAttempt: async (attempt) => {
-          assert.equal(await attempt.observeStarted?.(), true);
+          assert.equal(await attempt.observeStarted?.(), undefined);
           throw new Error("runner_failed_after_effect_start");
         },
       },
@@ -1696,11 +1765,9 @@ test("開始準備保存後の取消はTaskを委譲せず終了する", async (
         effects += 1;
         return completed(attempt);
       },
-      executionObservation: {
-        recordTaskAttempt: (event) => {
-          events.push(event);
-          return recorded("cancel-before-delegation");
-        },
+      recordTaskAttempt: (event) => {
+        events.push(event);
+        return recorded("cancel-before-delegation");
       },
     },
     { ...input, cancellationSignal: controller.signal },
@@ -1768,11 +1835,9 @@ test("Task試行の終了を非Authorityの実行Eventとして一度記録す�
   const outcome = await runCoordinatorOperation(
     {
       runSingleTaskAttempt: completed,
-      executionObservation: {
-        recordTaskAttempt: (event) => {
-          events.push(event);
-          return recorded("event-test");
-        },
+      recordTaskAttempt: (event) => {
+        events.push(event);
+        return recorded("event-test");
       },
       now: () => ({
         monotonicMs: clock++ * 25,
@@ -1826,11 +1891,9 @@ for (const mismatchedField of [
               : `other-${mismatchedField}`,
           executorProvider: "codex" as const,
         }),
-        executionObservation: {
-          recordTaskAttempt: (event) => {
-            events.push(event);
-            return recorded("event-mismatch-test");
-          },
+        recordTaskAttempt: (event) => {
+          events.push(event);
+          return recorded("event-mismatch-test");
         },
       },
       input,
@@ -1870,10 +1933,10 @@ test("実行Event記録と二次診断の失敗はTask結果を変えない", as
   const outcome = await runCoordinatorOperation(
     {
       runSingleTaskAttempt: completed,
-      executionObservation: {
-        recordTaskAttempt: () => {
-          throw new Error("recorder_failed");
-        },
+      recordTaskAttempt: () => {
+        throw new Error("recorder_failed");
+      },
+      callbacks: {
         observePublication: (observation) => {
           publications.push(observation);
           throw new Error("diagnostic_failed");
@@ -1911,8 +1974,10 @@ test("記録未設定を記録成功へ丸めない", async (t) => {
   const outcome = await runCoordinatorOperation(
     {
       runSingleTaskAttempt: completed,
-      executionObservation: {
-        observePublication: (observation) => publications.push(observation),
+      callbacks: {
+        observePublication: (observation) => {
+          publications.push(observation);
+        },
       },
     },
     input,
@@ -1948,11 +2013,9 @@ for (const invalidClock of [
     await runCoordinatorOperation(
       {
         runSingleTaskAttempt: completed,
-        executionObservation: {
-          recordTaskAttempt: (event) => {
-            events.push(event);
-            return recorded("event-clock-test");
-          },
+        recordTaskAttempt: (event) => {
+          events.push(event);
+          return recorded("event-clock-test");
         },
         now: () => {
           invocation += 1;

@@ -1931,7 +1931,6 @@ test("Windows Process Gate: Provider実ProcessのOS起動確認後だけRuntime�
       }),
       reportProviderProcessStarted: async (notice: unknown) => {
         notices.push(notice);
-        return true;
       },
     },
     providerStartObservationTaskPlan,
@@ -2006,7 +2005,6 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
       }),
       reportProviderBoundaryDiagnostic: async (notice: unknown) => {
         notices.push(notice);
-        return true;
       },
     },
     {
@@ -2157,7 +2155,6 @@ test("Provider commandの同期起動失敗を実Process開始として公開し
       },
       reportProviderProcessStarted: async (notice: unknown) => {
         notices.push(notice);
-        return true;
       },
     },
     providerStartObservationTaskPlan,
@@ -2216,7 +2213,6 @@ test("Provider commandの非同期起動失敗も開始観測とProvider Effect�
       }),
       reportProviderProcessStarted: async (notice: unknown) => {
         notices.push(notice);
-        return true;
       },
     },
     providerStartObservationTaskPlan,
@@ -2257,40 +2253,57 @@ test("Lifecycle通知はbackpressureを失敗とせずwrite完了を待ち、clo
     provider: "codex" as const,
     operationId: "OP-123456",
   };
-  let written = "";
-  const backpressured = new Writable({
-    highWaterMark: 1,
-    write(chunk, _encoding, callback) {
-      written += chunk.toString("utf8");
-      setImmediate(callback);
-    },
-  });
-  assert.equal(
-    await createRuntimeOwnedLifecycleNoticeReporter(backpressured)(notice),
-    true,
-  );
-  assert.match(written, /^\[Coordinator lifecycle\] /u);
-  backpressured.end();
+  for (const prefix of [
+    "[Coordinator lifecycle]",
+    "[Coordinator selection]",
+    "[Coordinator authorization]",
+  ] as const) {
+    let written = "";
+    const backpressured = new Writable({
+      highWaterMark: 1,
+      write(chunk, _encoding, callback) {
+        written += chunk.toString("utf8");
+        setImmediate(callback);
+      },
+    });
+    assert.equal(
+      await createRuntimeOwnedLifecycleNoticeReporter(
+        backpressured,
+        prefix,
+      )(notice),
+      undefined,
+    );
+    assert.ok(written.startsWith(`${prefix} `));
+    assert.equal(backpressured.listenerCount("error"), 0);
+    assert.equal(backpressured.listenerCount("close"), 0);
+    backpressured.end();
 
-  const closesBeforeWrite = new Writable({
-    write(_chunk, _encoding, _callback) {
-      // Keep the callback pending so close is the first observable outcome.
-    },
-  });
-  const reported =
-    createRuntimeOwnedLifecycleNoticeReporter(closesBeforeWrite)(notice);
-  closesBeforeWrite.destroy();
-  assert.equal(await reported, false);
+    const closesBeforeWrite = new Writable({
+      write(_chunk, _encoding, _callback) {
+        // Keep the callback pending so close is the first observable outcome.
+      },
+    });
+    const reported = createRuntimeOwnedLifecycleNoticeReporter(
+      closesBeforeWrite,
+      prefix,
+    )(notice);
+    closesBeforeWrite.destroy();
+    await assert.rejects(reported, /lifecycle_notice_unavailable/u);
+    assert.equal(closesBeforeWrite.listenerCount("error"), 0);
+    assert.equal(closesBeforeWrite.listenerCount("close"), 0);
 
-  const writeFails = new Writable({
-    write(_chunk, _encoding, callback) {
-      callback(new Error("fixed_notice_write_failure"));
-    },
-  });
-  assert.equal(
-    await createRuntimeOwnedLifecycleNoticeReporter(writeFails)(notice),
-    false,
-  );
+    const writeFails = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback(new Error("fixed_notice_write_failure"));
+      },
+    });
+    await assert.rejects(
+      createRuntimeOwnedLifecycleNoticeReporter(writeFails, prefix)(notice),
+      /lifecycle_notice_unavailable/u,
+    );
+    assert.equal(writeFails.listenerCount("error"), 0);
+    assert.equal(writeFails.listenerCount("close"), 0);
+  }
 });
 
 /**
@@ -2316,7 +2329,7 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
           ) => {
             notices.push(notice);
           },
-          reportProviderProcessStarted: async () => false,
+          reportProviderProcessStarted: async () => {},
           startCommand: (command: { purpose: string }) => ({
             started: async () =>
               command.purpose !== "start_provider_attached" ||
@@ -2352,6 +2365,11 @@ test("Provider開始失敗を後続の終了例外で上書きしない", async 
       const result = await fixture.controller.start(
         fixture.preparedCapability,
         fixture.managementCapability,
+        () => true,
+        undefined,
+        async () => {
+          throw Error("fixture_start_save_failed");
+        },
       ).completion;
       assert.ok(result);
       const settled = notices.find(
@@ -2420,13 +2438,18 @@ test("実Process開始観測を公開できなければ対象Processを終了し
           return true;
         },
       }),
-      reportProviderProcessStarted: async () => false,
+      reportProviderProcessStarted: async () => {},
     },
     providerStartObservationTaskPlan,
   );
   const started = fixture.controller.start(
     fixture.preparedCapability,
     fixture.managementCapability,
+    () => true,
+    undefined,
+    async () => {
+      throw Error("fixture_start_save_failed");
+    },
   );
   const result = await started.completion;
   assert.ok(result);
@@ -5446,7 +5469,6 @@ test("呼出し単位の開始通知は診断後に一回だけ搬送される",
     const fixture = createFixture({
       reportProviderProcessStarted: async () => {
         observations.push("diagnostic");
-        return true;
       },
     });
     const started = fixture.controller.start(
@@ -5463,7 +5485,6 @@ test("呼出し単位の開始通知は診断後に一回だけ搬送される",
           operationId: "OP-123456",
         });
         assert.equal(Object.isFrozen(notice), true);
-        return true;
       },
     );
     const result = await started.completion;
@@ -5480,7 +5501,6 @@ test("呼出し単位の開始通知は診断後に一回だけ搬送される",
     undefined,
     () => {
       rejectedNoticeCount += 1;
-      return true;
     },
   );
   assert.equal(result.status, "blocked");
@@ -5500,7 +5520,7 @@ test("呼出し単位の開始通知は診断後に一回だけ搬送される",
  * @boundary ERB-IT-002=Direct Boundary: 呼出し通知とController取消・回収。
  */
 test("呼出し単位の開始通知失敗は既存回収経路へ収束する", async () => {
-  for (const mode of ["false", "throw"]) {
+  for (const mode of ["reject", "throw"]) {
     const fixture = createFixture();
     const started = fixture.controller.start(
       fixture.preparedCapability,
@@ -5509,7 +5529,7 @@ test("呼出し単位の開始通知失敗は既存回収経路へ収束する",
       undefined,
       async () => {
         if (mode === "throw") throw new Error("fixed_observer_failure");
-        return false;
+        return Promise.reject(Error("fixture_start_save_failed"));
       },
     );
     const result = await started.completion;
@@ -5537,11 +5557,11 @@ test("呼出し単位の開始通知失敗は既存回収経路へ収束する",
  */
 test("呼出し単位の開始通知待機中も元の取消と完了を維持する", async () => {
   let entered!: () => void;
-  let release!: (isValue: boolean) => void;
+  let release!: () => void;
   const notificationEntered = new Promise<void>((resolve) => {
     entered = resolve;
   });
-  const notificationResult = new Promise<boolean>((resolve) => {
+  const notificationResult = new Promise<void>((resolve) => {
     release = resolve;
   });
   const fixture = createFixture();
@@ -5570,7 +5590,7 @@ test("呼出し単位の開始通知待機中も元の取消と完了を維持�
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(fixture.getCleanupCount(), 1);
   assert.equal(isFinished, false);
-  release(true);
+  release();
   const result = await completion;
   assert.equal(result?.status, "cancelled");
   assert.equal(result?.cleanupConfirmed, true);
@@ -5592,18 +5612,16 @@ test("呼出し単位の開始通知待機中も元の取消と完了を維持�
 test("開始確認の保留は技術完了と回収を阻害せず遅い拒否を保持する", async (t) => {
   for (const mode of ["accept", "reject", "throw"] as const) {
     let entered!: () => void;
-    let release!: (accepted: boolean) => void;
+    let release!: () => void;
     let reject!: (reason: Error) => void;
     const notificationEntered = new Promise<void>((resolve) => {
       entered = resolve;
     });
-    const notificationResult = new Promise<boolean>(
-      (resolve, rejectPromise) => {
-        release = resolve;
-        reject = rejectPromise;
-      },
-    );
-    t.after(() => release(false));
+    const notificationResult = new Promise<void>((resolve, rejectPromise) => {
+      release = resolve;
+      reject = rejectPromise;
+    });
+    t.after(() => release());
     const fixture = createFixture();
     const started = fixture.controller.start(
       fixture.preparedCapability,
@@ -5625,8 +5643,8 @@ test("開始確認の保留は技術完了と回収を阻害せず遅い拒否�
     assert.equal(fixture.getCommandCount(), 9);
     assert.equal(fixture.getCleanupCount(), 1);
     assert.equal(isFinished, false);
-    if (mode === "throw") reject(new Error("fixed_late_observer_failure"));
-    else release(mode === "accept");
+    if (mode === "accept") release();
+    else reject(new Error("fixed_late_observer_failure"));
     const result = await completion;
     assert.equal(result?.cleanupConfirmed, true);
     if (mode !== "accept") {
@@ -5656,18 +5674,18 @@ test("開始確認の保留は技術完了と回収を阻害せず遅い拒否�
  * @boundary ERB-IT-002=Direct Boundary: 開始確認と技術待機。ERB-IT-004=Direct Boundary: 清掃と公開。
  */
 test("技術失敗と開始確認拒否の二順序は一次診断を上書きしない", async (t) => {
-  for (const first of ["technical", "ack"] as const) {
-    for (const ack of ["false", "throw"] as const) {
+  for (const first of ["technical", "notification"] as const) {
+    for (const ack of ["reject", "throw"] as const) {
       for (const clean of [true, false]) {
-        let releaseAck!: (value: boolean) => void;
-        let rejectAck!: (error: Error) => void;
+        let releaseNotification!: () => void;
+        let rejectNotification!: (error: Error) => void;
         let rejectWait!: (error: Error) => void;
         let entered!: () => void;
         let cleanupEntered!: () => void;
         let terminationEntered!: () => void;
-        const notification = new Promise<boolean>((resolve, reject) => {
-          releaseAck = resolve;
-          rejectAck = reject;
+        const notification = new Promise<void>((resolve, reject) => {
+          releaseNotification = resolve;
+          rejectNotification = reject;
         });
         const wait = new Promise<never>((_resolve, reject) => {
           rejectWait = reject;
@@ -5682,7 +5700,7 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
           terminationEntered = resolve;
         });
         t.after(() => {
-          releaseAck(false);
+          releaseNotification();
           rejectWait(new Error("EPIPE"));
         });
         let cleanups = 0;
@@ -5745,9 +5763,14 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
           rejectWait(new Error("EPIPE"));
           await cleanupNotice;
         }
-        if (ack === "false") releaseAck(false);
-        else rejectAck(new Error("fixed_ack_failure"));
-        if (first === "ack") {
+        rejectNotification(
+          new Error(
+            ack === "reject"
+              ? "fixed_notification_rejection"
+              : "fixed_notification_failure",
+          ),
+        );
+        if (first === "notification") {
           await terminationNotice;
           rejectWait(new Error("EPIPE"));
         }

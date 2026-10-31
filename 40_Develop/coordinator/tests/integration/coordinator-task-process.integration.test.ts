@@ -315,8 +315,8 @@ function createProcessHarness(
       reason: "coordinator_current_admission_available",
       lockReleased: true,
     }),
-    reportSelectionNotice: () => true,
-    reportExternalSendNotice: () => true,
+    reportSelectionNotice: () => {},
+    reportExternalSendNotice: () => {},
     issueTaskPacket: (_management, _binding, _provider, role) => {
       const issued = issue();
       assignments.set(issued.useCapability, role);

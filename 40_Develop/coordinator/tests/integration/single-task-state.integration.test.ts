@@ -303,7 +303,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
     execute: async (command, _execution, signal, started) => {
       calls++;
-      assert.equal(await started(), true);
+      assert.equal(await started(), undefined);
       executionStarted();
       if (cancelProbe) {
         await new Promise<void>((resolve) =>

@@ -871,7 +871,7 @@ export async function runCoordinatorOperation(
     // Persist every reservation in the wave before issuing any Task effect.
     // Promise.resolve().then also converts a synchronous dependency failure into
     // an observed attempt failure instead of letting it escape with a live lease.
-    let startObservationChain = Promise.resolve(true);
+    let startObservationChain = Promise.resolve();
     const startedAttemptIds = new Set<string>();
     const delegatedAttemptIds = new Set<string>();
     const observeStarted = (attempt: (typeof attempts)[number]) => {
@@ -883,20 +883,21 @@ export async function runCoordinatorOperation(
           attempt.attemptId,
           attempt.operationId,
         );
-        if (started.status !== "completed" || !started.state) return false;
+        if (started.status !== "completed" || !started.state)
+          throw Error("task_start_save_unconfirmed");
         const written = persistedState(
           dependencies,
           started.state,
           state.generation,
         );
-        if (written.status !== "completed") return false;
+        if (written.status !== "completed")
+          throw Error("task_start_save_unconfirmed");
         state = written.value;
         startedAttemptIds.add(attempt.attemptId);
-        return true;
       });
       startObservationChain = observation.then(
-        () => true,
-        () => false,
+        () => {},
+        () => {},
       );
       return observation;
     };
@@ -984,7 +985,7 @@ export async function runCoordinatorOperation(
               observeStarted: () => observeStarted(attempt),
               ...(dependencies.resultDelivery
                 ? {
-                    observeResultDelivery: (
+                    bindResultReader: (
                       captured: CoordinatorTaskResultDelivery | null,
                     ) => {
                       if (
@@ -1111,9 +1112,8 @@ export async function runCoordinatorOperation(
         } satisfies CoordinatorTaskAttemptObservation);
         let publicationObservation: CoordinatorExecutionPublicationObservation;
         try {
-          publicationObservation = dependencies.executionObservation
-            ?.recordTaskAttempt
-            ? dependencies.executionObservation.recordTaskAttempt(event)
+          publicationObservation = dependencies.recordTaskAttempt
+            ? dependencies.recordTaskAttempt(event)
             : Object.freeze({
                 status: "not_configured" as const,
                 reason: "execution_event_recorder_not_configured",
@@ -1129,9 +1129,11 @@ export async function runCoordinatorOperation(
           });
         }
         try {
-          dependencies.executionObservation?.observePublication?.(
-            publicationObservation,
-          );
+          void Promise.resolve(
+            dependencies.callbacks?.observePublication?.(
+              publicationObservation,
+            ),
+          ).catch(() => {});
         } catch {
           // A secondary diagnostic is non-authority and cannot change the Task.
         }
@@ -1747,7 +1749,7 @@ export type {
  * @invariant createCoordinatorTaskRecoveryAdapterは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
  * @security createCoordinatorTaskRecoveryAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency createCoordinatorTaskRecoveryAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 回復操作の結果は通常APIへ返す。任意診断は同期発行だけを行い、返却Promiseを待たず拒否を捕捉する。後着から回復を再実行しない。
  */
 export function createCoordinatorTaskRecoveryAdapter(
   workingDirectory: string,
@@ -1767,11 +1769,12 @@ export function createCoordinatorTaskRecoveryAdapter(
           ...identity,
         }),
       ) ?? null,
-    observeTransition: async (event: CoordinatorRecoveryTransition) => {
+    observeTransition: (event: CoordinatorRecoveryTransition) => {
       try {
-        await dependencies.observeRecoveryTransition?.(
-          Object.freeze({ ...event }),
-        );
+        // 任意診断は回復を待たせない。後着は拒否の消費だけで再実行しない。
+        void Promise.resolve(
+          dependencies.observeRecoveryTransition?.(Object.freeze({ ...event })),
+        ).catch(() => {});
       } catch {
         // Recovery correctness never depends on a diagnostic observer.
       }

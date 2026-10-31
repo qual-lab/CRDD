@@ -7,6 +7,7 @@
 
 import { inspectTaskExecutionSelections } from "../../../domain-model/src/index.ts";
 import type { BorrowedExecutionTarget } from "./operation.ts";
+import type { TaskStartCallbacks } from "../task/types.ts";
 import {
   snapshotPlainRecord,
   snapshotPlainArray,
@@ -29,9 +30,9 @@ export type CoordinatorTaskAttemptInput = Readonly<{
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;
-  observeStarted?: () => Promise<boolean>;
   workspaceTarget?: BorrowedExecutionTarget;
-}>;
+}> &
+  TaskStartCallbacks;
 
 const REQUEST_KEYS = new Set([
   "taskExecutionSelections",

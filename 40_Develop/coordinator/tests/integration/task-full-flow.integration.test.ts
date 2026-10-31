@@ -256,9 +256,9 @@ function fixture(t: test.TestContext) {
         operationId: string;
         authorityBindingId: string;
         repositoryRevision: string;
-        observeStarted?: () => Promise<boolean>;
+        observeStarted?: () => void | Promise<void>;
       }) => {
-        assert.equal(await input.observeStarted?.(), true);
+        assert.equal(await input.observeStarted?.(), undefined);
         attempts += 1;
         const isSuccessful = attempts > 1;
         return {
@@ -459,19 +459,17 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
       })),
     observeLeaseOwner: () => ({ status: "absent" }),
     execution: {
-      executionObservation: {
-        recordTaskAttempt: (
-          event: Parameters<typeof recordCoordinatorExecutionEvent>[1],
-        ) => recordCoordinatorExecutionEvent(root, event),
-      },
+      recordTaskAttempt: (
+        event: Parameters<typeof recordCoordinatorExecutionEvent>[1],
+      ) => recordCoordinatorExecutionEvent(root, event),
       runSingleTaskAttempt: async (input: {
         attemptId: string;
         operationId: string;
         authorityBindingId: string;
         repositoryRevision: string;
-        observeStarted?: () => Promise<boolean>;
+        observeStarted?: () => void | Promise<void>;
       }) => {
-        assert.equal(await input.observeStarted?.(), true);
+        assert.equal(await input.observeStarted?.(), undefined);
         active += 1;
         maximumActive = Math.max(maximumActive, active);
         lifecycle.push(`started:${input.attemptId}`);

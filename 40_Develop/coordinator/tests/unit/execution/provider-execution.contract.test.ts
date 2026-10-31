@@ -708,7 +708,7 @@ test("RO Operation参照の保存拒否はProvider前で停止しHost回収結�
           operationId: "OP-123456",
           hostRecoveryId: "HOST-RECOVERY",
         });
-        return false;
+        throw Error("fixture_operation_save_failed");
       },
       classifyOperationCleanup: () => (cleanup ? "completed" : null),
     });

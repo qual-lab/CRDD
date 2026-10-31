@@ -217,7 +217,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
               provider: "codex",
               operationId: `OP-fixture-${taskStarts}`,
             }),
-            true,
+            undefined,
           );
           return Object.freeze({
             status: "completed" as const,

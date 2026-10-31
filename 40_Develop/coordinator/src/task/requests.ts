@@ -257,10 +257,10 @@ export function createCoordinatorTaskRequests(
       command: SingleTaskCommand,
       execution: SingleTaskExecution,
       signal: AbortSignal,
-      started: () => Promise<boolean>,
+      started: () => Promise<void>,
       operationCreated: (
         operation: NonNullable<SingleTaskRecord["adviceOperation"]>,
-      ) => Promise<boolean>,
+      ) => Promise<void>,
     ) => Promise<SingleTaskOutcome>;
   }>,
 ) {
@@ -805,10 +805,14 @@ export function createCoordinatorTaskRequests(
               target: target.value,
             },
             controller.signal,
-            async () =>
-              authorized() &&
-              !controller.signal.aborted &&
-              save({ ...phase, phase: "running" }),
+            async () => {
+              if (
+                !authorized() ||
+                controller.signal.aborted ||
+                !save({ ...phase, phase: "running" })
+              )
+                throw Error("task_start_save_unconfirmed");
+            },
             async (operation) => {
               if (
                 !authorized() ||
@@ -816,14 +820,16 @@ export function createCoordinatorTaskRequests(
                 phase.adviceOperation ||
                 phase.phase !== "starting"
               )
-                return false;
+                throw Error("task_operation_save_unconfirmed");
               const candidate = inspectSingleTaskRecord({
                 ...phase,
                 adviceOperation: operation,
               });
-              if (!candidate?.adviceOperation) return false;
+              if (!candidate?.adviceOperation)
+                throw Error("task_operation_save_unconfirmed");
               createdOperation = candidate.adviceOperation;
-              return save(candidate);
+              if (!save(candidate))
+                throw Error("task_operation_save_unconfirmed");
             },
           );
           const outcome = snapshotSingleTaskOutcome(

@@ -652,7 +652,7 @@ function fixture(
     reviewerDecision?: "approved" | "changes_requested";
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
-    reportDiagnostic?: (notice: unknown) => Promise<boolean>;
+    reportDiagnostic?: (notice: unknown) => Promise<void>;
     candidateUnavailableAt?: number;
     candidateCapabilityMissingAt?: number;
     remediationExecutorChangedPaths?: readonly string[];
@@ -670,7 +670,8 @@ function fixture(
     workspaceSecretBlocked?: boolean;
     externalSendDenied?: boolean;
     externalSendAuthorizationMode?: unknown;
-    externalSendNoticeOutcome?: "failed" | "throw";
+    externalSendNoticeOutcome?: "missing" | "throw" | "reject";
+    selectionNoticeOutcome?: "missing" | "throw" | "reject";
     externalSendNoticeObserver?: () => void;
     reviewerReadProjectionObserver?: (projection: unknown) => void;
     reviewerReadProjectionFails?: boolean;
@@ -1054,20 +1055,30 @@ function fixture(
         candidatePhysicalDeletion:
           "next_safe_runtime_entry_after_expiry_or_explicit_discard",
       }),
-    reportSelectionNotice: (notice: Record<string, unknown>) => {
-      selectionNotices.push(notice);
-      events.push(`notice:${String(notice.taskRole)}`);
-      return true;
-    },
-    reportExternalSendNotice: (notice: Record<string, unknown>) => {
-      assert.equal(workspaceMaterializeCount, 0);
-      assert.equal(processStartCount, 0);
-      externalSendNotices.push(notice);
-      options.externalSendNoticeObserver?.();
-      if (options.externalSendNoticeOutcome === "throw")
-        throw new Error("notice");
-      return options.externalSendNoticeOutcome !== "failed";
-    },
+    reportSelectionNotice:
+      options.selectionNoticeOutcome === "missing"
+        ? undefined
+        : (notice: Record<string, unknown>) => {
+            selectionNotices.push(notice);
+            events.push(`notice:${String(notice.taskRole)}`);
+            if (options.selectionNoticeOutcome === "throw")
+              throw Error("notice");
+            if (options.selectionNoticeOutcome === "reject")
+              return Promise.reject(Error("notice"));
+          },
+    reportExternalSendNotice:
+      options.externalSendNoticeOutcome === "missing"
+        ? undefined
+        : (notice: Record<string, unknown>) => {
+            assert.equal(workspaceMaterializeCount, 0);
+            assert.equal(processStartCount, 0);
+            externalSendNotices.push(notice);
+            options.externalSendNoticeObserver?.();
+            if (options.externalSendNoticeOutcome === "throw")
+              throw new Error("notice");
+            if (options.externalSendNoticeOutcome === "reject")
+              return Promise.reject(Error("notice"));
+          },
     preflightSlate: (
       _management: object,
       selection: Record<string, unknown>,
@@ -2297,7 +2308,6 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
    */
   const observer = () => {
     notices += 1;
-    return true;
   };
   const harness = fixture({
     observeStartRegistration: (value) => registrations.push(value),
@@ -3198,7 +3208,7 @@ test("初期確認と既存許可再利用を入力要求ではない一回の�
 });
 
 /**
- * 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するを検証する。
+ * 不明な許可方式を再利用と推定せずWorkspaceとProvider起動前に停止する。
  *
  * @responsibility 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するの合否判定を所有する。
  * @trace CPR-IT-001
@@ -3209,13 +3219,11 @@ test("初期確認と既存許可再利用を入力要求ではない一回の�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止する", async () => {
+test("不明な許可方式を再利用と推定せずWorkspaceとProvider起動前に停止する", async () => {
   for (const options of [
     ...[undefined, null, "", "unknown", true].map((mode) => ({
       externalSendAuthorizationMode: mode,
     })),
-    { externalSendNoticeOutcome: "failed" as const },
-    { externalSendNoticeOutcome: "throw" as const },
     { externalSendDenied: true },
   ]) {
     const harness = fixture(options);
@@ -3226,20 +3234,50 @@ test("不明な許可方式または表示失敗を再利用と推定せずWorks
       result.reason,
       "externalSendDenied" in options
         ? "coordinator_task_external_send_not_authorized"
-        : "externalSendNoticeOutcome" in options
-          ? "coordinator_task_external_send_notice_unavailable"
-          : "coordinator_task_external_send_authorization_mode_invalid",
+        : "coordinator_task_external_send_authorization_mode_invalid",
     );
     assert.equal(result.externalSendAuthorizationMode, undefined);
-    assert.equal(
-      harness.externalSendNotices.length,
-      "externalSendNoticeOutcome" in options ? 1 : 0,
-    );
+    assert.equal(harness.externalSendNotices.length, 0);
     assert.equal(harness.workspaceMaterializeCount(), 0);
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.mountGrantIssueCount(), 0);
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
+  }
+});
+
+/**
+ * 任意表示と実行許可の独立を確認する。
+ * @responsibility 未登録・同期例外・非同期拒否を許可判定と混同しない。
+ * @trace CPR-IT-001
+ * @precondition 外部Effectなしの同じTask fixture。
+ * @stimulus 選定・送信表示を欠測又は失敗させ、認可の肯定・拒否を各々実行する。
+ * @observation 完了、Provider開始数、元cleanupと回復参照を取得する。
+ * @oracle 許可済みだけが二段階を実行し、拒否時は起動零。表示失敗を成功根拠にしない。
+ * @cleanup 模擬Taskのcompletionを待ち、未処理拒否を残さない。
+ * @boundary Coordinatorの任意表示と送信許可。
+ */
+test("任意の選定・送信表示の欠測や失敗は認可結果と実行・回収を変更しない", async () => {
+  for (const fault of ["missing", "throw", "reject"] as const) {
+    for (const externalSendDenied of [false, true]) {
+      const harness = fixture({
+        externalSendDenied,
+        externalSendNoticeOutcome: fault,
+        selectionNoticeOutcome: fault,
+      });
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
+      assert.equal(result.status, externalSendDenied ? "blocked" : "completed");
+      assert.equal(harness.processStartCount(), externalSendDenied ? 0 : 2);
+      if (externalSendDenied)
+        assert.equal(
+          result.reason,
+          "coordinator_task_external_send_not_authorized",
+        );
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(result.manualRecoveryRequired, false);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+    }
   }
 });
 
@@ -4153,7 +4191,7 @@ test("各段階の受動診断は四試行を区別し通知故障でも結果�
           if (fault === "throw") throw new Error("private");
           if (fault === "reject") return Promise.reject(new Error("private"));
         }
-        return Promise.resolve(true);
+        return Promise.resolve();
       },
     });
     const result = await harness.runtime.start(request(), "C:\\repository")
@@ -4593,7 +4631,6 @@ test("候補拒否診断は両試行の取得とPath差を分離し通知故障�
             "coordinator_task_candidate_validation_failed"
           )
             notices.push(notice as Record<string, unknown>);
-          return true;
         },
       });
       const result = await harness.runtime.start(
@@ -4657,7 +4694,6 @@ test("候補拒否診断は両試行の取得とPath差を分離し通知故障�
       ...(secret ? { candidateSecretAtCapture: 1 } : {}),
       reportDiagnostic: async () => {
         count++;
-        return true;
       },
     });
     const result = await harness.runtime.start(request(), "C:\\repository")

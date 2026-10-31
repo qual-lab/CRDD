@@ -9,6 +9,7 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { getEventListeners } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
@@ -79,12 +80,12 @@ const repositoryRevisionValue = "a".repeat(40);
 const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
 /**
- * 元Controlをawait前に捕捉し、通知失敗でも元Taskの完了観測を維持する。
+ * 元Controlをawait前に捕捉し、Reader受渡し失敗でも元Taskの完了観測を維持する。
  * @responsibility 同Processの配送捕捉と公開結果の境界を確認する。
  * @trace PRL-IT-005
  * @precondition 未完了Promiseと元Controlを持つ模擬Taskを用意する。
- * @stimulus 捕捉成功、捕捉例外、通知例外を実行する。
- * @observation 捕捉順序、通知、元完了結果と公開fieldを取得する。
+ * @stimulus 捕捉成功、捕捉例外、Reader受渡し例外を実行する。
+ * @observation 捕捉順序、Reader受渡し、元完了結果と公開fieldを取得する。
  * @oracle 捕捉は同期区間で実施し、例外をEffectなしへ変換せず、関数を公開しない。
  * @cleanup 全Promiseを終端し、外部Processは起動しない。
  * @boundary Coordinator Adapter→元Coordinator Task Control。
@@ -93,7 +94,10 @@ test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () =>
   for (const mode of [
     "success",
     "capture_throw",
-    "notification_throw",
+    "binding_throw",
+    "binding_reject",
+    "binding_pending",
+    "binding_late_reject",
   ] as const) {
     let resolve!: (value: unknown) => void;
     const completion = new Promise<unknown>((done) => {
@@ -109,6 +113,10 @@ test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () =>
       },
     });
     let isReturned = false;
+    let rejectBinding!: (error: Error) => void;
+    const lateBinding = new Promise<void>((_resolve, reject) => {
+      rejectBinding = reject;
+    });
     const pending = runCoordinatorSingleTaskAttempt(
       {
         ...dependencies,
@@ -120,18 +128,21 @@ test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () =>
         },
       },
       validInput({
-        observeResultDelivery: (captured: unknown) => {
-          callOrderEntries.push("notification");
+        bindResultReader: (captured: unknown) => {
+          callOrderEntries.push("bind");
           assert.equal(captured, mode === "capture_throw" ? null : delivery);
-          if (mode === "notification_throw")
-            throw new Error("notification_failed");
+          if (mode === "binding_throw") throw new Error("binding_failed");
+          if (mode === "binding_reject")
+            return Promise.reject(Error("binding_failed"));
+          if (mode === "binding_pending") return new Promise<void>(() => {});
+          if (mode === "binding_late_reject") return lateBinding;
         },
       }),
     ).then((outcome) => {
       isReturned = true;
       return outcome;
     });
-    assert.deepEqual(callOrderEntries, ["capture", "notification"]);
+    assert.deepEqual(callOrderEntries, ["capture", "bind"]);
     await Promise.resolve();
     assert.equal(isReturned, false);
     resolve(completionRecord());
@@ -142,6 +153,12 @@ test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () =>
       Object.values(outcome).every((value) => typeof value !== "function"),
     );
     assert.equal(Object.hasOwn(outcome, "delivery"), false);
+    if (mode === "binding_late_reject") {
+      rejectBinding(Error("binding_failed_after_completion"));
+      await new Promise<void>((done) => setImmediate(done));
+      assert.equal(outcome.status, "completed");
+      assert.deepEqual(callOrderEntries, ["capture", "bind"]);
+    }
   }
 });
 
@@ -153,7 +170,7 @@ test("結果配送捕捉はawait前で失敗時も元Taskを待つ", async () =>
  * @precondition 未完了Taskと通知を明示発行できる模擬開始境界を用意する。
  * @stimulus 初回・重複・Reviewer・是正Executor・終端後の通知を渡す。
  * @observation 上位確認回数、通知の返却値と最終結果を取得する。
- * @oracle 上位確認は一回だけで、終端後通知はfalse、正常完了は維持する。
+ * @oracle 上位確認は一回だけで、終端後通知は例外、正常完了は維持する。
  * @cleanup 元の完了Promiseを終端する。外部資源を作成しない。
  * @boundary Task通知からCoordinatorの開始保存Callbackへの境界。
  */
@@ -169,7 +186,6 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
     validInput({
       observeStarted: async () => {
         saves += 1;
-        return true;
       },
     }),
   );
@@ -184,8 +200,10 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
     provider: "claude" as const,
     operationId: "OP-lower-executor",
   });
-  assert.equal(await notify(notice), true);
-  assert.equal(await notify(notice), true);
+  assert.deepEqual(await Promise.all([notify(notice), notify(notice)]), [
+    undefined,
+    undefined,
+  ]);
   assert.equal(
     await notify({
       ...notice,
@@ -193,16 +211,16 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
       operationId: "OP-lower-reviewer",
       provider: "codex",
     }),
-    true,
+    undefined,
   );
   assert.equal(
     await notify({ ...notice, operationId: "OP-remediation-executor" }),
-    true,
+    undefined,
   );
   assert.equal(saves, 1);
   settle(completionRecord());
   assert.equal((await pending).status, "completed");
-  assert.equal(await notify(notice), false);
+  await assert.rejects(async () => notify(notice), /notification_closed/u);
   assert.equal(saves, 1);
 });
 
@@ -212,7 +230,7 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
  * @responsibility 通知必須の呼出しで模擬成功だけが返る反例を拒否する。
  * @trace PRL-IT-005
  * @precondition 資源回収済みの模擬完了と拒否・例外の保存Callbackを使用する。
- * @stimulus 通知なし、通知false、通知例外の結果を評価する。
+ * @stimulus 通知なし、同期例外、非同期拒否の結果を評価する。
  * @observation 完了status、理由、候補公開と回収状態を取得する。
  * @oracle 成功や候補を返さず、確認済み回収を不明へ書き換えない。
  * @cleanup 模擬Taskの元の完了を待つ。外部Effectはない。
@@ -221,7 +239,7 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
 test("必須開始通知の欠落・保存拒否・例外を成功へ補正しない", async () => {
   const missing = await runCoordinatorSingleTaskAttempt(
     harness().dependencies,
-    validInput({ observeStarted: async () => true }),
+    validInput({ observeStarted: async () => {} }),
   );
   assert.equal(missing.status, "blocked");
   assert.equal(missing.reason, "single_task_start_notification_missing");
@@ -234,14 +252,13 @@ test("必須開始通知の欠落・保存拒否・例外を成功へ補正し�
         status: "started",
         controlCapability: Object.freeze({}),
         completion: Promise.resolve().then(async () => {
-          assert.equal(
-            await notify?.({
+          await assert.rejects(async () =>
+            notify?.({
               event: "coordinator_provider_process_started",
               taskRole: "executor",
               provider: "claude",
               operationId: "OP-executor",
             }),
-            false,
           );
           return completionRecord({
             status: "blocked",
@@ -257,7 +274,7 @@ test("必須開始通知の欠落・保存拒否・例外を成功へ補正し�
       validInput({
         observeStarted: async () => {
           if (isThrows) throw new Error("fixture_save_failed");
-          return false;
+          return Promise.reject(Error("fixture_save_rejected"));
         },
       }),
     );
@@ -283,8 +300,8 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
   const controller = new AbortController();
   const controlCapability = Object.freeze({});
   const calls: object[] = [];
-  let releaseSave!: (isValue: boolean) => void;
-  const save = new Promise<boolean>((resolve) => {
+  let releaseSave!: () => void;
+  const save = new Promise<void>((resolve) => {
     releaseSave = resolve;
   });
   let notify!: NonNullable<
@@ -323,7 +340,7 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
   controller.abort();
   controller.abort();
   assert.deepEqual(calls, [controlCapability]);
-  releaseSave(true);
+  releaseSave();
   await observation;
   settle(
     completionRecord({
@@ -336,6 +353,122 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
   assert.equal(outcome.status, "cancelled");
   assert.equal(outcome.cleanupConfirmed, true);
   assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+});
+
+/**
+ * 開始保存失敗後も元の技術結果と回復参照を搬送する。
+ * @responsibility 通知Promiseのjoinが結果構築を飛び越えないことを確認する。
+ * @trace PRL-IT-005
+ * @precondition 同じ元Taskが持つexact回復IDと清掃観測を固定する。
+ * @stimulus 開始保存をrejectし、清掃成立／不明の元完了を返す。
+ * @observation 最終理由、cleanup、回復集合と呼出し回数を取得する。
+ * @oracle 失敗を成功にせず、同じIDと実際の清掃観測を保持する。
+ * @cleanup 局所Promiseをすべて待つ。実資源なし。
+ * @boundary Task開始通知と終端結果。
+ */
+test("開始保存reject後のjoinでもexact回復参照と清掃事実を失わない", async () => {
+  for (const clean of [true, false]) {
+    let saves = 0;
+    const dependencies: CoordinatorSingleTaskDependencies = {
+      startTask: (_request, _root, _correlation, notify) => ({
+        status: "started",
+        controlCapability: Object.freeze({}),
+        completion: Promise.resolve().then(async () => {
+          await assert.rejects(async () =>
+            notify?.({
+              event: "coordinator_provider_process_started",
+              taskRole: "executor",
+              provider: "codex",
+              operationId: "OP-executor",
+            }),
+          );
+          return completionRecord({
+            status: "blocked",
+            reason: "provider_start_observation_failed",
+            candidateId: null,
+            cleanupConfirmed: clean,
+            manualRecoveryRequired: true,
+            dockerRecoveryIds: [dockerRecoveryId],
+          });
+        }),
+      }),
+      cancelTask: () => null,
+    };
+    const outcome = await runCoordinatorSingleTaskAttempt(
+      dependencies,
+      validInput({
+        observeStarted: async () => {
+          saves++;
+          throw Error("private_save_failure");
+        },
+      }),
+    );
+    assert.equal(saves, 1);
+    assert.equal(outcome.status, "blocked");
+    assert.equal(outcome.reason, "provider_start_observation_failed");
+    assert.equal(outcome.cleanupConfirmed, clean);
+    assert.equal(outcome.manualRecoveryRequired, true);
+    assert.deepEqual(outcome.recoveryIds, [dockerRecoveryId]);
+  }
+});
+
+/**
+ * 最終join前の開始保存拒否を新品Processで確認する。
+ * @responsibility 通知の未処理拒否を後着のjoinで隠さない。
+ * @trace PRL-IT-005
+ * @precondition 外部Effectなしの局所子Processと遅延completion。
+ * @stimulus 下位が通知Promiseを保持しない場合に、上位保存を即時rejectさせる。
+ * @observation 未処理拒否数、最終結果、exact回復IDと清掃観測。
+ * @oracle 未処理拒否零、処置一回、元結果と同じ回復・清掃を保持する。
+ * @cleanup 子ProcessのcloseをspawnSyncで確認する。File生成なし。
+ * @boundary Coordinator通知OwnerとNodeの拒否観測。
+ */
+test("遅延completion前の開始保存rejectをOwnerが直ちに捕捉する", () => {
+  const source = `
+    import { runCoordinatorSingleTaskAttempt } from ${JSON.stringify(new URL("../../src/execution/controller.ts", import.meta.url).href)};
+    let unhandled = 0, calls = 0;
+    process.on("unhandledRejection", () => unhandled++);
+    const results = [];
+    for (const clean of [true, false]) {
+      const completion = ${JSON.stringify(completionRecord({ status: "blocked", reason: "provider_start_observation_failed", candidateId: null, manualRecoveryRequired: true, dockerRecoveryIds: [dockerRecoveryId] }))};
+      completion.cleanupConfirmed = clean;
+      const dependencies = {
+        startTask(_request, _root, _correlation, notify) {
+          queueMicrotask(() => { notify({event:"coordinator_provider_process_started",taskRole:"executor",provider:"codex",operationId:"OP-child"}); });
+          return {status:"started",controlCapability:{},completion:new Promise(resolve=>setTimeout(()=>resolve(completion),40))};
+        },
+        cancelTask() {}
+      };
+      results.push(await runCoordinatorSingleTaskAttempt(dependencies, {
+        ...${JSON.stringify(validInput())},
+        cancellationSignal: new AbortController().signal,
+        observeStarted: async () => { calls++; throw Error("private_save_failure"); }
+      }));
+    }
+    await new Promise(resolve => setImmediate(resolve));
+    console.log(JSON.stringify({unhandled,calls,results}));
+  `;
+  const child = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", source],
+    {
+      encoding: "utf8",
+      timeout: 15000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(child.error, undefined);
+  assert.equal(child.status, 0);
+  assert.doesNotMatch(child.stderr, /Unhandled|RejectionHandledWarning/u);
+  const observed = JSON.parse(child.stdout);
+  assert.equal(observed.unhandled, 0);
+  assert.equal(observed.calls, 2);
+  for (const [index, outcome] of observed.results.entries()) {
+    assert.equal(outcome.status, "blocked");
+    assert.equal(outcome.reason, "provider_start_observation_failed");
+    assert.equal(outcome.cleanupConfirmed, index === 0);
+    assert.deepEqual(outcome.recoveryIds, [dockerRecoveryId]);
+  }
 });
 
 /**

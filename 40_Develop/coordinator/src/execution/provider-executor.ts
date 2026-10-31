@@ -267,7 +267,7 @@ export function startRuntimeOwnedDockerProcessController(
   input: PreparationInput,
   handoff: (capability: object, recoveryId: string) => boolean,
   restriction?: (purpose: string) => boolean,
-  observeStarted?: (notice: ProcessStartedNotice) => boolean | Promise<boolean>,
+  observeStarted?: (notice: ProcessStartedNotice) => void | Promise<void>,
 ): StartResult {
   if (provider !== "codex" && provider !== "claude")
     return createBlockedPreparationStart(
@@ -450,7 +450,7 @@ function startRecordedAttempt(
   management: object,
   recovery: Recovery,
   operations: ExecutionRecordOperations,
-  observeStarted?: (notice: ProcessStartedNotice) => boolean | Promise<boolean>,
+  observeStarted?: (notice: ProcessStartedNotice) => void | Promise<void>,
   restriction?: unknown,
 ): RecordedStartResult {
   let restrictionRejected = false;
@@ -506,25 +506,37 @@ function startRecordedAttempt(
         );
     },
     onStarted: async (notice) => {
-      if (
-        operations.reportProviderProcessStarted &&
-        (await operations.reportProviderProcessStarted(notice)) !== true
-      )
-        throw Error("provider_start_record_failed");
-      if (observeStarted && (await observeStarted(notice)) !== true)
-        throw Error("provider_start_record_failed");
+      // 表示の失敗は保存の成否や後続実行を変更しない。
+      try {
+        const pending = operations.reportProviderProcessStarted?.(notice);
+        if (pending) void pending.catch(() => {});
+      } catch {
+        // 任意表示だけの失敗。
+      }
+      if (observeStarted) {
+        try {
+          await observeStarted(notice);
+        } catch {
+          throw Error("provider_start_record_failed");
+        }
+      }
     },
-    onDiagnostic: async (notice) => {
-      await operations.reportProviderBoundaryDiagnostic?.(
-        restrictionRejected &&
-          notice.event === "coordinator_provider_boundary_settled"
-          ? Object.freeze({
-              ...notice,
-              primaryFailure:
-                terminalObservation?.primaryFailure ?? notice.primaryFailure,
-            })
-          : notice,
-      );
+    onDiagnostic: (notice) => {
+      try {
+        const pending = operations.reportProviderBoundaryDiagnostic?.(
+          restrictionRejected &&
+            notice.event === "coordinator_provider_boundary_settled"
+            ? Object.freeze({
+                ...notice,
+                primaryFailure:
+                  terminalObservation?.primaryFailure ?? notice.primaryFailure,
+              })
+            : notice,
+        );
+        if (pending) void pending.catch(() => {});
+      } catch {
+        // 任意診断は実行結果・元回復参照を変更しない。
+      }
     },
     onResourcesClosed: () => {
       mountCompletion = operations.completeMount(
@@ -711,7 +723,7 @@ function startHostAttempt(
   commandRestriction: unknown,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
-  ) => boolean | Promise<boolean>,
+  ) => void | Promise<void>,
 ) {
   if (
     (observeProviderStarted !== undefined &&

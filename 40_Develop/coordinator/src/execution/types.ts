@@ -494,6 +494,25 @@ export type PreparedAttempt<P extends AiProvider = AiProvider> = Readonly<{
 }> &
   (P extends "claude" ? Readonly<{ taskWorkload: unknown }> : unknown);
 
+/**
+ * Provider段階から受ける任意の表示・診断通知。
+ * @responsibility 保存操作と受動表示を分け、通知から許可や保存結果を返さない。
+ * @trace ARCH-000008
+ * @shape 任意の開始表示・境界診断をvoid又はPromise<void>で受ける。
+ * @invariant 表示・診断失敗は実行結果と元回復参照を変更しない。
+ * @boundary Coordinator内の単段接続Ownerと表示利用側。
+ * @security 通知からAuthority・保存成功を取得しない。
+ * @compatibility 既存Event本文・相関・秘密非搬送を維持する。
+ */
+export interface ProviderExecutionCallbacks {
+  reportProviderProcessStarted?(
+    notice: ProcessStartedNotice,
+  ): void | Promise<void>;
+  reportProviderBoundaryDiagnostic?(
+    notice: AttemptDiagnosticNotice | RecoveryStartFailureNotice,
+  ): void | Promise<void>;
+}
+
 /** 上位Ownerが扱う記録操作。下位の通知契約ではない。 */
 export type ExecutionRecordOperations = Readonly<{
   recordUnstarted?: (
@@ -549,12 +568,6 @@ export type ExecutionRecordOperations = Readonly<{
     result: object,
     observation: RecordedAttemptObservation,
   ) => void;
-  reportProviderProcessStarted?: (
-    notice: ProcessStartedNotice,
-  ) => Promise<boolean>;
-  reportProviderBoundaryDiagnostic?: (
-    notice: AttemptDiagnosticNotice | RecoveryStartFailureNotice,
-  ) => Promise<boolean>;
   consumeProviderAuthority: (
     useCapability: unknown,
     activeMountCapability: unknown,
@@ -566,7 +579,8 @@ export type ExecutionRecordOperations = Readonly<{
     runtimeAuthorityIssued: true;
     providerEffectAllowed: true;
   }> | null;
-}>;
+}> &
+  ProviderExecutionCallbacks;
 
 /** 記録・Grant終了の結果を上位で保持する。 */
 export type AttemptCleanupInput = Readonly<{

@@ -159,3 +159,75 @@ test("Task Recovery AdapterはRepository情報を閉じて意味Identityだけ�
     });
   });
 });
+
+/**
+ * 任意診断の処理状態を回復の進行条件から分離する。
+ * @responsibility 同期例外・即時／後着拒否・未完了でも元の回復操作を一回進める。
+ * @trace PRL-UT-014
+ * @precondition 外部Effectのない回復操作と任意の診断代役。
+ * @stimulus 診断を発行し、実回復の拒否結果を受けた後に遅い診断を拒否する。
+ * @observation 同期return、回復呼出し数、exact参照とcleanup未確認。
+ * @oracle 診断拒否を未処理にせず、回復結果を成功化・再送しない。
+ * @cleanup 後着Promiseを解放する。永続pendingはhandleを持たない局所値だけ。
+ * @boundary 回復操作と受動診断。
+ */
+test("任意の回復診断は未完了でも回復を止めず、後着拒否で結果を変えない", async () => {
+  for (const mode of [
+    "sync",
+    "throw",
+    "reject",
+    "pending",
+    "late_reject",
+  ] as const) {
+    let recoveries = 0,
+      notices = 0;
+    let rejectLate!: (error: Error) => void;
+    const late = new Promise<void>((_resolve, reject) => {
+      rejectLate = reject;
+    });
+    const outcome = Object.freeze({
+      status: "blocked",
+      recoveryId: "exact-recovery",
+      cleanupConfirmed: false,
+    });
+    const port = createCoordinatorTaskRecoveryAdapter("synthetic", "binding", {
+      recoverTaskRecovery: () => {
+        recoveries++;
+        return outcome;
+      },
+      observeRecoveryTransition: (event) => {
+        notices++;
+        assert.equal(Object.isFrozen(event), true);
+        if (mode === "throw") throw Error("diagnostic_failure");
+        if (mode === "reject")
+          return Promise.reject(Error("diagnostic_failure"));
+        if (mode === "pending") return new Promise<void>(() => {});
+        if (mode === "late_reject") return late;
+      },
+    });
+    assert.equal(
+      port.observeTransition({
+        phase: "required",
+        projectId: "p",
+        milestoneId: "m",
+        queueId: "q",
+        taskId: null,
+        operationId: null,
+        recoveryId: "exact-recovery",
+        stateGeneration: 1,
+      }),
+      undefined,
+    );
+    assert.equal(
+      await port.recover("exact-recovery", new AbortController().signal),
+      outcome,
+    );
+    if (mode === "late_reject")
+      rejectLate(Error("diagnostic_failure_after_recovery"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(recoveries, 1);
+    assert.equal(notices, 1);
+    assert.equal(outcome.cleanupConfirmed, false);
+    assert.equal(outcome.recoveryId, "exact-recovery");
+  }
+});

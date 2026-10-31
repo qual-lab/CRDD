@@ -16,6 +16,20 @@ import type {
 } from "../state/persistence.ts";
 
 /**
+ * Task開始の必要処置を一度だけ完了して戻る通知契約。
+ * @responsibility 上位の保存方式を実行側へ公開せず、処置失敗を例外で伝える。
+ * @trace ARCH-000004
+ * @shape 任意のobserveStartedと処置完了Promise。
+ * @invariant 必要な登録は上位の組立てが保証する。
+ * @boundary Task実行開始の観測と保存Owner。
+ * @security return値でAuthorityや保存成功を発行しない。
+ * @compatibility 受付・実開始・保存確定を同一視しない。
+ */
+export interface TaskStartCallbacks {
+  observeStarted?(): void | Promise<void>;
+}
+
+/**
  * execution-host-adapterで使用するCoordinator Execution Host Adapter Optionsの値契約を定義する。
  *
  * @responsibility Coordinator Execution Host Adapter OptionsのProperty、Identity、状態制約を型境界として所有する。
@@ -180,11 +194,10 @@ export type CoordinatorSingleTaskAttemptInput = Readonly<{
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;
-  observeStarted?: () => Promise<boolean>;
-  observeResultDelivery?: (
-    delivery: CoordinatorTaskResultDelivery | null,
-  ) => void;
-}>;
+  // 同Processの読取り操作を同期的に受け渡す。通知や保存ACKではない。
+  bindResultReader?: (delivery: CoordinatorTaskResultDelivery | null) => void;
+}> &
+  TaskStartCallbacks;
 
 /**
  * execution-portで使用するCoordinator Single Task 回復 Obligationの値契約を定義する。
@@ -322,24 +335,21 @@ export type CoordinatorExecutionObservationPublication =
     }>;
 
 /**
- * 非Authorityの実行観測を保存先へ渡し、記録失敗を利用側へ保持する。
+ * 実行記録の結果を通知する。保存操作や実行可否の判断を所有しない。
  *
- * @responsibility Coordinator Execution Observation PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 任意の記録結果通知だけを定義する。
  * @trace ARCH-000007
- * @shape CoordinatorExecutionObservationPortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorExecutionObservationPortで宣言した値と責務の対応を維持する。
- * @boundary Taskの事実観測と記録・診断の注入境界。
- * @security 観測から実行や受入のAuthorityを発行しない。保存Callbackの結果とTask本体の結果を混同しない。
- * @compatibility CoordinatorExecutionObservationPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape 記録結果を受け取る任意の通知ハンドラー。
+ * @invariant 通知失敗・遅延をTask結果や保存成功へ変換しない。
+ * @boundary Taskの記録操作と任意の診断表示の間。
+ * @security 通知から実行や受入のAuthorityを発行しない。
+ * @compatibility 通知は待機せず、同期例外と返却Promiseの拒否を捕捉する。
  */
-export type CoordinatorExecutionObservationPort = Readonly<{
-  recordTaskAttempt?: (
-    observation: CoordinatorTaskAttemptObservation,
-  ) => CoordinatorExecutionObservationPublication;
+export interface TaskExecutionCallbacks {
   observePublication?: (
     publication: CoordinatorExecutionObservationPublication,
-  ) => void;
-}>;
+  ) => void | Promise<void>;
+}
 
 /**
  * executionで使用するCoordinator Task Executionの値契約を定義する。
@@ -391,7 +401,10 @@ export type CoordinatorExecutionDependencies = Readonly<{
   runSingleTaskAttempt: (
     input: CoordinatorSingleTaskAttemptInput,
   ) => Promise<CoordinatorSingleTaskResult>;
-  executionObservation?: CoordinatorExecutionObservationPort;
+  recordTaskAttempt?: (
+    observation: CoordinatorTaskAttemptObservation,
+  ) => CoordinatorExecutionObservationPublication;
+  callbacks?: TaskExecutionCallbacks;
   resultDelivery?: Readonly<{
     repositoryBindingId: string;
   }>;

@@ -517,7 +517,7 @@ export type CoordinatorTaskDependencies = Readonly<{
     recoveryCorrelationId?: string,
     observeProviderStarted?: (
       notice: ProcessStartedNotice,
-    ) => boolean | Promise<boolean>,
+    ) => void | Promise<void>,
     workspaceTarget?: BorrowedExecutionTarget,
   ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
@@ -1010,7 +1010,7 @@ export async function runCoordinatorTaskAttempt(
     });
   let rawStarted: unknown;
   let isNotificationClosed = false;
-  let firstStartObservation: Promise<boolean> | null = null;
+  let firstStartObservation: Promise<void> | null = null;
   let notificationFailed = false;
   const observeStarted = input.observeStarted;
   /**
@@ -1019,19 +1019,19 @@ export async function runCoordinatorTaskAttempt(
    * @responsibility 呼出し登録による相関、初回通知の直列化と終端後拒否を所有する。
    * @trace ARCH-000004
    * @input Controllerが観測したProvider接続用Host Processの開始通知。
-   * @returns 上位保存が成立した場合だけtrue。
+   * @returns 必要な上位処置の完了を待つ。保存結果は返さない。
    * @precondition 通知は同じTask開始時に登録したController経路から届く。
    * @postcondition Reviewerや是正Executorで上位状態を二重更新しない。
    * @effect 登録済みの上位開始確認を一回呼び出す。
-   * @failure 不正通知、終端後通知、上位拒否・例外はfalse。
+   * @failure 不正通知、終端後通知、上位処置失敗は例外。最終結果には既存の失敗状態を保持する。
    * @invariant 下位OP識別子を上位Operation IDと同一視しない。
    * @boundary CoordinatorのProcess開始通知と利用側の状態保存。
    * @security 通知はAuthorityやAI要求受理の証明ではない。
    * @concurrency 同時・重複通知は同じ保存Promiseへ結合する。
    */
-  const forwardStarted = (notice: ProcessStartedNotice): Promise<boolean> => {
+  const forwardStarted = (notice: ProcessStartedNotice): Promise<void> => {
     if (isNotificationClosed || input.cancellationSignal.aborted)
-      return Promise.resolve(false);
+      return Promise.reject(Error("single_task_start_notification_closed"));
     if (
       notice?.event !== "coordinator_provider_process_started" ||
       !validText(notice.operationId, 128) ||
@@ -1040,20 +1040,25 @@ export async function runCoordinatorTaskAttempt(
       (notice.taskRole !== "executor" && notice.taskRole !== "reviewer")
     ) {
       notificationFailed = true;
-      return Promise.resolve(false);
+      return Promise.reject(Error("single_task_start_notification_failed"));
     }
     if (notice.taskRole === "reviewer")
-      return firstStartObservation ?? Promise.resolve(false);
-    firstStartObservation ??= Promise.resolve().then(async () => {
-      try {
-        const isObserved = (await observeStarted?.()) === true;
-        notificationFailed ||= !isObserved;
-        return isObserved;
-      } catch {
-        notificationFailed = true;
-        return false;
-      }
-    });
+      return (
+        firstStartObservation ??
+        Promise.reject(Error("single_task_start_notification_missing"))
+      );
+    if (firstStartObservation === null) {
+      firstStartObservation = Promise.resolve().then(async () => {
+        try {
+          await observeStarted?.();
+        } catch {
+          notificationFailed = true;
+          throw Error("single_task_start_notification_failed");
+        }
+      });
+      // 元の拒否を呼出し側と最終joinへ保持し、Owner自身も直ちに捕捉する。
+      void firstStartObservation.catch(() => {});
+    }
     return firstStartObservation;
   };
   try {
@@ -1092,7 +1097,7 @@ export async function runCoordinatorTaskAttempt(
     input.cancellationSignal,
   );
   isNotificationClosed = true;
-  if (firstStartObservation !== null) await firstStartObservation;
+  await Promise.resolve(firstStartObservation).catch(() => {});
   if (observation.status === "unknown")
     return failedClosedUnknown(
       operationId,
@@ -1200,23 +1205,28 @@ const { cancellationGraceMs: CANCELLATION_GRACE_MS } =
  *
  * @responsibility Runtime 所有 Lifecycle Notice Reporterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
- * @input stream: Writable
- * @returns createRuntimeOwnedLifecycleNoticeReporterの計算結果を返す。
+ * @input stream: Writable、prefix: Lifecycle／選定／送信案内の固定表示prefix。
+ * @returns write完了でresolve、error／close／既存期限でrejectする通知関数。
  * @precondition 「stream: Writable」がcreateRuntimeOwnedLifecycleNoticeReporterの入力契約を満たす。
  * @postcondition createRuntimeOwnedLifecycleNoticeReporterの責務を完了した結果だけを返す。
- * @effect N/A: createRuntimeOwnedLifecycleNoticeReporterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 呼出し時だけ既存streamへ非秘密通知を書き、同じ要求のListener／Timerを解除する。
  * @failure createRuntimeOwnedLifecycleNoticeReporterは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant createRuntimeOwnedLifecycleNoticeReporterは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
  * @security createRuntimeOwnedLifecycleNoticeReporterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency createRuntimeOwnedLifecycleNoticeReporterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
-  return (
-    notice: ProcessStartedNotice | ProviderBoundaryDiagnosticNotice,
-  ): Promise<boolean> => {
-    if (!stream.writable || stream.destroyed) return Promise.resolve(false);
-    return new Promise<boolean>((resolve) => {
+export function createRuntimeOwnedLifecycleNoticeReporter(
+  stream: Writable,
+  prefix:
+    | "[Coordinator lifecycle]"
+    | "[Coordinator selection]"
+    | "[Coordinator authorization]" = "[Coordinator lifecycle]",
+) {
+  return (notice: Readonly<Record<string, unknown>>): Promise<void> => {
+    if (!stream.writable || stream.destroyed)
+      return Promise.reject(Error("lifecycle_notice_unavailable"));
+    return new Promise<void>((resolve, reject) => {
       let settled = false;
       const timer = setTimeout(() => settle(false), CANCELLATION_GRACE_MS);
       const settle = (isValue: boolean) => {
@@ -1225,14 +1235,15 @@ export function createRuntimeOwnedLifecycleNoticeReporter(stream: Writable) {
         clearTimeout(timer);
         stream.off("error", onFailure);
         stream.off("close", onFailure);
-        resolve(isValue);
+        if (isValue) resolve();
+        else reject(Error("lifecycle_notice_unavailable"));
       };
       const onFailure = () => settle(false);
       stream.once("error", onFailure);
       stream.once("close", onFailure);
       try {
         stream.write(
-          `[Coordinator lifecycle] ${JSON.stringify(notice)}\n`,
+          `${prefix} ${JSON.stringify(notice)}\n`,
           "utf8",
           (error) => {
             if (error === undefined || error === null) settle(true);
@@ -1466,20 +1477,35 @@ export type Operation = Readonly<{
 type HostCleanupStatus = "completed" | "protocol_failure_cleanup_confirmed";
 
 /**
- * coordinator-task-runtimeで使用するRuntime Dependenciesの値契約を定義する。
+ * Task進行の任意表示・診断通知を定義する。
  *
- * @responsibility Runtime DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 表示成功を実行許可や保存成功の条件にしない。
  * @trace ARCH-000004
- * @shape RuntimeDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RuntimeDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: RuntimeDependenciesの宣言は外部境界を開かない。
- * @security RuntimeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape 診断・選定・送信案内をvoid又はPromise<void>で受ける。
+ * @invariant 未登録・例外・拒否で一次結果を変更しない。
+ * @boundary Task Ownerと表示利用側。
+ * @security 認可・同意・Owner確認を通知で代替しない。
+ * @compatibility 既存Event本文と秘密非搬送を維持する。
+ */
+interface TaskRuntimeCallbacks {
+  reportProviderBoundaryDiagnostic?(
+    notice: ProviderBoundaryDiagnosticNotice,
+  ): void | Promise<void>;
+  reportSelectionNotice?(notice: RuntimeRecord): void | Promise<void>;
+  reportExternalSendNotice?(notice: RuntimeRecord): void | Promise<void>;
+}
+
+/**
+ * Task Ownerが構成する既存操作群を定義する。
+ * @responsibility 通知と通常Query／Operationを型で区別する。
+ * @trace ARCH-000004
+ * @shape 既存の技術・業務操作とTaskRuntimeCallbacks。
+ * @invariant 依存注入から新しい権限を発行しない。
+ * @boundary Taskの固定組立てと試験代役。
+ * @security 実行許可は既存の判断Ownerへ委ねる。
+ * @compatibility 通信・保存Schema、取消・回復条件を維持する。
  */
 type taskRuntimeDependencies = Readonly<{
-  reportProviderBoundaryDiagnostic?: (
-    notice: ProviderBoundaryDiagnosticNotice,
-  ) => Promise<boolean>;
   beginInvocation?: (
     provider: Provider,
     role: TaskRole,
@@ -1559,8 +1585,6 @@ type taskRuntimeDependencies = Readonly<{
     repositoryBindingCapability: object,
   ) => RuntimeRecord | null;
   prepareDockerRecoveryState: (repositoryRoot: string) => unknown;
-  reportSelectionNotice: (notice: RuntimeRecord) => boolean;
-  reportExternalSendNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
     managementCapability: object,
     repositoryBindingCapability: object,
@@ -1585,7 +1609,7 @@ type taskRuntimeDependencies = Readonly<{
     commandRestriction?: (purpose: string) => boolean,
     observeProviderStarted?: (
       notice: ProcessStartedNotice,
-    ) => boolean | Promise<boolean>,
+    ) => void | Promise<void>,
   ) => RuntimeRecord;
   cancelProcess: (
     controlCapability: object,
@@ -1623,7 +1647,8 @@ type taskRuntimeDependencies = Readonly<{
     managementCapability: unknown,
   ) => boolean;
   isolatedCancellationAckTimeoutMs?: number;
-}>;
+}> &
+  TaskRuntimeCallbacks;
 
 /**
  * coordinator-task-runtimeで使用するControl 記録の値契約を定義する。
@@ -1678,7 +1703,7 @@ type ControlRecord = {
   recoveryCorrelationId: string | null;
   consumer: "coordinator_cli" | "workbench" | "orchestrator";
   observeProviderStarted:
-    | ((notice: ProcessStartedNotice) => boolean | Promise<boolean>)
+    | ((notice: ProcessStartedNotice) => void | Promise<void>)
     | undefined;
 };
 
@@ -3026,8 +3051,8 @@ async function executeStageBody(
       return blocked("coordinator_task_provider_selection_refresh_mismatch");
     }
     selection = refreshedSelection;
-    if (
-      !state.dependencies.reportSelectionNotice(
+    try {
+      const pending = state.dependencies.reportSelectionNotice?.(
         Object.freeze({
           event: "coordinator_selection_before_provider_effect",
           taskRole: role,
@@ -3047,10 +3072,10 @@ async function executeStageBody(
           ]),
           highCostSelectionAllowed: false,
         }),
-      )
-    ) {
-      revokeUnconsumed();
-      return blocked("coordinator_task_selection_notice_unavailable");
+      );
+      if (pending) void pending.catch(() => {});
+    } catch {
+      // 任意の選定表示は実行許可ではない。
     }
     const packet = state.dependencies.issueTaskPacket(
       operation.managementCapability,
@@ -3558,16 +3583,12 @@ async function runCoordinatorTaskCore(
           ? "既存の送信許可の範囲内で続行します。追加の承認入力は不要です。"
           : "今回確認した送信許可の範囲内で続行します。",
     });
-    let isNoticeReported = false;
     try {
-      isNoticeReported =
-        state.dependencies.reportExternalSendNotice(externalSendNotice) ===
-        true;
+      const pending =
+        state.dependencies.reportExternalSendNotice?.(externalSendNotice);
+      if (pending) void pending.catch(() => {});
     } catch {
-      isNoticeReported = false;
-    }
-    if (!isNoticeReported) {
-      return blocked("coordinator_task_external_send_notice_unavailable");
+      // 送信許可の判定は上の通常APIで完了済み。表示失敗では変更しない。
     }
     if (control.cancellationRequested) {
       return blocked(
@@ -4200,7 +4221,7 @@ async function createProductionOperation() {
   }
 }
 
-const productionDependencies: taskRuntimeDependencies = Object.freeze({
+const productionDependencies = Object.freeze<taskRuntimeDependencies>({
   reportProviderBoundaryDiagnostic: createRuntimeOwnedLifecycleNoticeReporter(
     process.stderr,
   ),
@@ -4225,26 +4246,14 @@ const productionDependencies: taskRuntimeDependencies = Object.freeze({
   authorizeExternalSend: requestRuntimeOwnedExternalSendGrant,
   resolveExternalSendPolicy: resolveRuntimeOwnedExternalSendPolicy,
   prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,
-  reportSelectionNotice: (notice) => {
-    try {
-      process.stderr.write(
-        `[Coordinator selection] ${JSON.stringify(notice)}\n`,
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  reportExternalSendNotice: (notice) => {
-    try {
-      process.stderr.write(
-        `[Coordinator authorization] ${JSON.stringify(notice)}\n`,
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  reportSelectionNotice: createRuntimeOwnedLifecycleNoticeReporter(
+    process.stderr,
+    "[Coordinator selection]",
+  ),
+  reportExternalSendNotice: createRuntimeOwnedLifecycleNoticeReporter(
+    process.stderr,
+    "[Coordinator authorization]",
+  ),
   issueTaskPacket: issueRuntimeOwnedProviderTaskPacket,
   revokeTaskPacket: revokeRuntimeOwnedProviderTaskPacket,
   startProcess: startRuntimeOwnedDockerProcessController,
@@ -4325,7 +4334,7 @@ function createRuntime(dependencies: taskRuntimeDependencies) {
       recoveryCorrelationId: unknown = null,
       observeProviderStarted?: (
         notice: ProcessStartedNotice,
-      ) => boolean | Promise<boolean>,
+      ) => void | Promise<void>,
       consumer:
         | "coordinator_cli"
         | "workbench"
@@ -4941,7 +4950,7 @@ export function startRuntimeOwnedCoordinatorTask(
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
-  ) => boolean | Promise<boolean>,
+  ) => void | Promise<void>,
   consumer:
     | "coordinator_cli"
     | "workbench"
@@ -5037,7 +5046,7 @@ function startRuntimeOwnedDevelopmentTask(
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
-  ) => boolean | Promise<boolean>,
+  ) => void | Promise<void>,
   consumer: "coordinator_cli" | "orchestrator" = "coordinator_cli",
 ) {
   if (
@@ -5206,7 +5215,7 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
   sessionCapability: object,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
-  ) => boolean | Promise<boolean>,
+  ) => void | Promise<void>,
 ) {
   return startRuntimeOwnedDevelopmentTask(
     rawRequest,
@@ -5241,7 +5250,7 @@ export function startRuntimeOwnedDevelopmentObjectiveTask(
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
     notice: ProcessStartedNotice,
-  ) => boolean | Promise<boolean>,
+  ) => void | Promise<void>,
 ) {
   const started = startRuntimeOwnedDevelopmentTask(
     rawRequest,
@@ -5471,8 +5480,8 @@ export async function runCoordinatorSingleTaskAttempt(
     input.cancellationSignal instanceof AbortSignal &&
     (input.observeStarted === undefined ||
       typeof input.observeStarted === "function") &&
-    (input.observeResultDelivery === undefined ||
-      typeof input.observeResultDelivery === "function");
+    (input.bindResultReader === undefined ||
+      typeof input.bindResultReader === "function");
   if (!isValidInput)
     return Object.freeze({
       contract: COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
@@ -5498,7 +5507,7 @@ export async function runCoordinatorSingleTaskAttempt(
       ...dependencies,
       startTask: (...args) => {
         const started = dependencies.startTask(...args);
-        if (input.observeResultDelivery) {
+        if (input.bindResultReader) {
           let delivery: CoordinatorTaskResultDelivery | null = null;
           try {
             const descriptor =
@@ -5514,7 +5523,10 @@ export async function runCoordinatorSingleTaskAttempt(
             // 捕捉失敗は元TaskのEffectなしを意味しない。通常完了観測を維持する。
           }
           try {
-            input.observeResultDelivery(delivery);
+            // 捕捉はこの同期呼出し内。非同期の後着を待って配送成立へ昇格しない。
+            void Promise.resolve(input.bindResultReader(delivery)).catch(
+              () => {},
+            );
           } catch {
             // 上位通知失敗でも開始済みTaskの完了・取消・清掃を待つ。
           }

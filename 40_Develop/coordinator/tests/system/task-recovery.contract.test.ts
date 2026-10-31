@@ -163,9 +163,9 @@ async function completed(input: {
   operationId: string;
   authorityBindingId: string;
   repositoryRevision: string;
-  observeStarted?: () => Promise<boolean>;
+  observeStarted?: () => void | Promise<void>;
 }): Promise<CoordinatorSingleTaskResult> {
-  assert.equal(await input.observeStarted?.(), true);
+  assert.equal(await input.observeStarted?.(), undefined);
   return {
     contract: "crdd-coordinator/orchestrator-single-task-adapter",
     attemptId: input.attemptId,

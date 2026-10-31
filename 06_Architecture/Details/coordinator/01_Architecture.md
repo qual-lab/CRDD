@@ -524,7 +524,23 @@ APIの具体的な型・呼出し点・利用側全数は棚卸しの関数単�
 
 開始通知は、既存Docker Process ControllerがProvider接続用Docker CLIのHost Process開始を観測した時点から搬送する。制御Handle返却、Container内AIの起動、要求受理またはProvider Effect完了とは同一視しない。Taskごとの登録先へ渡し、共有の診断Reporterを差し替えない。上位の登録Operationと下位で生成したRuntime Operationを区別し、登録した呼出しの相関を保持する。
 
-初回Executor開始の登録ハンドラーを待機してから同じ実行を継続する。通知がfalseまたは例外となった場合は、既存の開始観測失敗・取消・回収経路へ収束させる。取消監視はハンドラー待機より前に登録し、取消要求の返却で元の完了待機を切り離さない。Reviewerの開始は別の下位実行観測であり、上位Task開始の二重通知にしない。未登録のCoordinator単体利用は既存の実行契約を維持する。終端後は呼出し単位の登録参照を解放し、遅延通知で新しい呼出しを更新しない。Source搬送と登録先保存・取消の局所反証は接続済みであるが、全本番組立て・実Provider境界・保存方式切替の完了は別に確認する。
+初回Executor開始の登録ハンドラーを待機してから同じ実行を継続する。必要な処置は正常return前に完了させ、不成立は例外・拒否で伝える。保存Ownerが現在性・世代・CASと保存結果を検査し、下位へBooleanを返さない。通知例外は既存の開始観測失敗・取消・回収経路へ収束させる。取消監視はハンドラー待機より前に登録し、取消要求の返却で元の完了待機を切り離さない。同時・重複通知は同じ一回の保存Promiseへ結合し、Reviewerや是正Executorの開始で上位Taskの開始を二重保存しない。通知拒否後の最終joinも元completionを待ち、exact回復参照と技術回収結果を失わない。未登録のCoordinator単体利用は既存の実行契約を維持し、必要な登録は利用側が開始前に保証する。終端後・取消後の通知は拒否し、別の呼出しを更新しない。
+
+| 通知 | 完了待ちと失敗時処置 | 処置Owner |
+|---|---|---|
+| 初回開始・Operation生成 | 必要処置を待ち、不成立では後続Effectを停止して既存回収へ進む | Task受付／実行進行のOwner。Operation生成では保存失敗時も取得済み参照を保持する |
+| 選定・送信許可の案内表示 | 任意。未登録・同期例外・非同期拒否で実行結果を変更しない | 表示先。実行可否は元の認可・同意・取消検査で別に判断する |
+| Provider開始の表示・境界診断 | 任意。返却値を持たず、拒否Promiseも消費する。必要な開始保存とは区別する | 診断利用側。表示成功を開始保存の証拠にしない |
+
+通知用の独立ACK、配送状態、RegistryやWorkerは追加しない。共有通知は既存Source内のinterfaceへ明示する。保存操作・現在Owner照会・権限判断は通常のAPIのままとし、通知へ改名しない。Source搬送と登録先保存・取消の局所反証は接続するが、全本番組立て・実Provider境界・保存方式切替の完了は別に確認する。
+
+結果読取り操作の受渡しは`bindResultReader`が担当する。既存の`CoordinatorTaskResultDelivery`が持つ`readResults`だけを同Process内で同期的に渡す通常操作であり、通知や保存ACKではない。開始呼出し内の同期捕捉を維持し、後着の完了で欠測・重複・終了後の受渡しを成功へ変換しない。同期例外と返却Promiseの拒否は呼出し箇所で捕捉し、元Taskの完了・取消・回収を失わない。
+
+実行記録は`CoordinatorExecutionDependencies.recordTaskAttempt`という同期の通常操作として結果を返す。未設定は`not_configured`、保存例外は`unknown`を維持する。保存と通知が混在した`CoordinatorExecutionObservationPort`は廃止し、記録後の任意通知だけを`TaskExecutionCallbacks.observePublication`へ分ける。通知は未確認・部分成立を含む元の記録結果を受け取り、Task成功から記録成功を推定しない。通知の同期例外と返却Promiseの拒否を捕捉し、完了は待たない。
+
+Provider準備の固定操作束は`ProviderPreparationOperations`とする。Task検査、計画構築、拒否結果・準備結果の生成を行う通常操作であり、通知Callbackではない。呼出し順序、取消、Authority、結果の意味は変更しない。
+
+任意の回復診断は発行だけを行い、処理の完了を回復の進行条件にしない。返却Promiseには直後に拒否処理を付け、独自の未完了一覧・待機キュー・再送・待機期限は作らない。後着の成功・拒否から状態更新、回復処置、再送を追加しない。本番出力は既存Reporterの直列化・有界な書込み期限・dispose・故障後停止に委ねる。外部ハンドラーが自身で所有するI/Oの終了をTaskが保証したとは扱わず、永続pendingの代役でもTask／回復が進むことと、そのハンドラー自体の終了を区別する。必須の開始・保存処置の完了待ちは維持する。
 
 ### 2.3. Task操作の型・呼出し点と移管順序
 
@@ -1961,7 +1977,7 @@ Claude助言の`workbench_ai_claude_turn_count_invalid`では、同じ成功Enve
 
 Codex非0終了は既知stderr分類を優先し、未分類時だけ容量・行数・行長を制限したJSONLの`error.message`又は`turn.failed.error.message`を既存理由へ分類する。通常回答本文、未知・重複キー・不正・過大入力を診断へ昇格せず、原文を返さない。実行許可・隔離・清掃条件は変更しない。
 
-実行loop移管では、Coordinatorはraw HandleやDocker commandの反復を所有せず、DIの不透明cancel／completionへ接続する。保存と認証・AI結果受理は有限同期hookへ残す。開始factの通知からReporter→Task開始保存の既存順序でPromiseを監視するが、そのPromiseをDIへ返さない。上位の最終結果は確認のsettleを待ち、false／throwは開始観測失敗として保持し同じcancelへ一度だけ接続する。技術completion後に判明しても成功へ丸めず、既発生の保存を巻き戻したとは主張しない。DIの技術一次失敗・清掃事実と上位開始確認失敗を分け、誘発した取消や清掃理由で元失敗を上書きしない。実行期限はDIの開始観測から起算し、上位保存待ちでは延長しない。上位確認の新期限や再送・回復管理は追加しない。
+実行loop移管では、Coordinatorはraw HandleやDocker commandの反復を所有せず、DIの不透明cancel／completionへ接続する。保存と認証・AI結果受理は上位Ownerへ残す。Executorの開始通知で任意表示を発行し、Task開始ハンドラーの処理完了を待つ。表示成否は保存や実行の許可ではなく、表示失敗は実行を止めない。必要な開始処置のthrow／rejectは開始観測失敗として保持し同じcancelへ一度だけ接続する。技術completion後に判明しても成功へ丸めず、既発生の保存を巻き戻したとは主張しない。DIの技術一次失敗・清掃事実と上位開始処置失敗を分け、誘発した取消や清掃理由で元失敗を上書きしない。実行期限はDIの開始観測から起算し、上位保存待ちでは延長しない。上位通知の新期限や再送・回復管理は追加しない。
 
 起動構成の意味は下位Ownerへ委ねる。CoordinatorはDIの`projectDockerExecutionBoundary`からDocker三設定と分離済みpayloadを受け、Codexの場合だけAI Adapterの`projectCodexExecutionBoundary`へpayloadを渡して既存構成通知を組み立てる。Claudeの承認／sandboxはnot_applicableとし、Role・Provider・操作ID・Workspace modeは元計画へ相関する。Coordinator自身ではDocker／Codex optionを走査しない。分離不能は三設定false・Codex other／implicitとして表し、診断だけを理由に本処理・Authority・cleanupを変更しない。内側のDocker風flagを外側設定と数えていた旧診断は是正するが、正常計画の通知fieldと語彙は維持する。
 

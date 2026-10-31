@@ -78,9 +78,7 @@ function sessionFixture(
   options: Readonly<{
     hooks?: Partial<DockerExecutionCallbacks>;
     withoutCallbacks?: boolean;
-    inspectCleanup?: (
-      receipts: DockerResourceReceipts,
-    ) => void;
+    inspectCleanup?: (receipts: DockerResourceReceipts) => void;
     blocked?: Purpose;
     startConfirmed?: boolean;
     waitThrows?: boolean;
