@@ -367,9 +367,7 @@ export function createAuthentication(
           ...result,
           stdout: plan.ownershipLabel.split("=")[1] ?? "",
         });
-      return result.error?.message === "docker_execution_permit_lost"
-        ? Object.freeze({ ...result, error: Error("provider_home_lock_lost") })
-        : result;
+      return result;
     },
   );
   if (!prepared) return null;
@@ -500,7 +498,13 @@ export function createAuthenticationUsing(
             reason = "provider_authentication_process_completion_unconfirmed";
             break;
           }
-          if (value.purpose.startsWith("create_")) {
+          if (
+            value.purpose.startsWith("create_") &&
+            !(
+              result.error?.message === "docker_execution_permit_lost" &&
+              !result.resourceReceipt
+            )
+          ) {
             try {
               if (
                 result.resourceCreationConfirmed !== true ||
@@ -556,8 +560,8 @@ export function createAuthenticationUsing(
             (result.status !== 0 && !notLoggedIn)
           ) {
             reason =
-              result.error?.message === "provider_home_lock_lost"
-                ? "provider_authentication_provider_home_lock_lost"
+              result.error?.message === "docker_execution_permit_lost"
+                ? "provider_authentication_cancelled"
                 : `provider_authentication_${value.purpose}_failed`;
             break;
           }

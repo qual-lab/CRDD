@@ -324,10 +324,10 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 | 作成 | 固定構成のcreate一回と完全実IDの応答分類 | unknownを同じ回復参照へ保持し、推測ID・再create・startを行わない |
 | 作成後 | ID保存前にstartを自動発行しない | exact IDを相関し、ID入り記録の保存を確認する |
 | 実行 | fresh構成確認、完了まで待つ実行または意図的な残存開始、技術結果・実時計測 | profile選択、既存公開lifecycleの解釈、保存とHost相関 |
-| 取消 | attach取得からready・Running肯定・SIGTERM・完了・必要な終端joinまでを所有する | await間の現在mount／Owner読取りを既存の狭い確認として提供する |
+| 取消 | attach取得からready・Running肯定・SIGTERM・完了・必要な終端joinまでを所有する。固定三所在とBindingの元Directory／CLI実体を照合する | 呼出前に対象・所在利用許可を確認し、処置終了まで排他を保持する |
 | 回収 | 既知exact資源の限定回収と観測結果 | 私有相関、Host清掃、公開結果と耐久保存 |
 
-取消await間の確認は、既存の三Path／現在性の読取りだけとする。Writer、Store、Host token、任意処置を下位へ渡さない。確認不能または例外後は新たなstart・SIGTERM等の前進Effectを発行しないが、取得済みの同じ所有handleの終端・joinや、既知exact Containerの補償回収は継続する。close不明を正常完了にしない。技術返却値では元実行失敗と回収結果を分離し、公開reasonの現行優先順は移管を理由に変更しない。
+検証専用のrunDockerProbeCancellation／startDockerProbeResidueも確定した三Pathをown-dataとして捕捉し、上位を逆照会しない。Bindingはmanagementと三Mountの元Directory実体を保持する。ready後・SIGTERM前・終了後の固定構成inspectと、元Directory／CLI確認を維持する。Writer、Store、Host token、任意処置を下位へ渡さない。確認不能または例外後は新たなstart・SIGTERM等の前進Effectを発行しないが、取得済みの同じ所有handleの終端・joinや、既知exact Containerの補償回収は継続する。close不明を正常完了にしない。技術返却値では元実行失敗と回収結果を分離し、公開reasonの現行優先順は移管を理由に変更しない。
 
 旧回復記録がprofileを保持しない場合の固定payload全候補は、旧回復経路に限定してDI内部で照合する。通常経路へ任意source／timeoutを公開しない。実行中残存の作成は成功時に自動回収せず、旧回復経路はcreate・start・attachを行わない。実取消・実行中Container回収の成立は合成試験だけから主張しない。実装、上位の二保存と要求列の反証、必要な実境界が成立するまでは、この契約を実装済みとして扱わない。
 

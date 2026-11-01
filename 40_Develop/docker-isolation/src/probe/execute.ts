@@ -67,7 +67,7 @@ export type DockerProbeRuntimeBinding = Readonly<{
  * @trace ARCH-000008
  * @input management: 確定した管理所在。mounts: 使用する固定三所在。
  * @returns 同じsnapshotを各要求前に検証する固定binding。
- * @precondition 上位がHost所有と各Effect前のMount現在性を確認する。
+ * @precondition 上位が呼出前の所在利用許可を確認し、処置終了まで既存排他を保持する。
  * @postcondition 固定所在の元Directory実体とCLI snapshotだけを保持する。
  * @effect CLI実体を観測し、検証済みmanagement内の固定二領域を作成する。
  * @failure platform、CLI、所在、環境の順で拒否し、Directory観測例外は元の理由を維持する。
@@ -97,7 +97,7 @@ export function createDockerProbeRuntimeBinding(
     throw new Error("owned_operation_mount_replaced");
   const directories = [
     management,
-    ...(mounts ? Object.values(captureCurrentProbeMounts(mounts)) : []),
+    ...(mounts ? Object.values(captureProbeMounts(mounts)) : []),
   ].map((directory) =>
     Object.freeze({
       path: directory,
@@ -128,7 +128,7 @@ export function createDockerProbeRuntimeBinding(
 }
 
 /**
- * 現在性確認から受ける三つの借用Path。
+ * 利用許可が確認された固定三Path。
  * @responsibility 上位の保存・Host能力を含めず所在だけを搬送する。
  * @trace ARCH-000008
  * @shape workspace、providerHome、tmpの三文字列。
@@ -144,24 +144,21 @@ type ProbeMounts = Readonly<{
 }>;
 
 /**
- * 現在性確認の同期返値を捕捉し初期三Pathとの一致を確認する。
+ * 固定三Pathを独立した不変値へ捕捉する。
  * @responsibility Promise・Proxy・accessor・欠測を成功にしない。
  * @trace ARCH-000008
- * @input value: 同期三Path、baseline: 初回捕捉値。
+ * @input value: 確定した三Path。
  * @returns 凍結した三Path。
- * @precondition callbackの利用権限判定は上位が実施する。
- * @postcondition 初回以外のPath差では後続要求を止める。
+ * @precondition 呼出し前の利用権限判定は上位が実施する。
+ * @postcondition 入力Objectの後発変更を採用しない。
  * @effect N/A: 値の検査だけ。
  * @failure 不正・差替えはowned_operation_mount_replaced。
  * @invariant getterを呼ばずown dataだけを読む。
- * @boundary 上位読取りと固定inspect期待値。
+ * @boundary 固定入力とinspect期待値。
  * @security Pathや例外本文を返さない。
- * @concurrency await後は毎回新しい値を検査する。
+ * @concurrency 待機後はBindingが元Directory実体を照合する。
  */
-function captureCurrentProbeMounts(
-  value: unknown,
-  baseline?: ProbeMounts,
-): ProbeMounts {
+function captureProbeMounts(value: unknown): ProbeMounts {
   if (
     !value ||
     typeof value !== "object" ||
@@ -180,8 +177,7 @@ function captureCurrentProbeMounts(
       !descriptor ||
       !Object.hasOwn(descriptor, "value") ||
       typeof descriptor.value !== "string" ||
-      !descriptor.value ||
-      (baseline && descriptor.value !== baseline[key])
+      !descriptor.value
     )
       throw new Error("owned_operation_mount_replaced");
     captured[key] = descriptor.value;
@@ -405,14 +401,12 @@ export function describeDockerProbeConfiguration(
     ),
     mounts: Object.freeze(
       Object.fromEntries(
-        Object.entries(captureCurrentProbeMounts(mounts)).map(
-          ([key, source]) => [
-            key === "providerHome"
-              ? "/operation/provider-home"
-              : `/operation/${key}`,
-            Object.freeze({ source, readWrite: true }),
-          ],
-        ),
+        Object.entries(captureProbeMounts(mounts)).map(([key, source]) => [
+          key === "providerHome"
+            ? "/operation/provider-home"
+            : `/operation/${key}`,
+          Object.freeze({ source, readWrite: true }),
+        ]),
       ),
     ),
   });
@@ -596,23 +590,23 @@ export async function runDockerProbeAsync(
 
 /**
  * 保存済み固定Probeの取消をattachから終端joinまで所有する。
- * @responsibility 三地点の現在性・固定要求・元失敗と終端事実を分けて返す。
+ * @responsibility 三地点の元実体確認・固定要求・元失敗と終端事実を分けて返す。
  * @trace ARCH-000008
- * @input binding、identity: 実IDとProbe名、readCurrentMounts: 同期三Path読取り。
+ * @input binding、identity: 実IDとProbe名、mounts: 確定した三Path。
  * @returns 生出力なしの取消候補、一次失敗、post確認、attach終端事実。
- * @precondition 上位がexact IDを保存済み。callbackは現在の所有確認後だけ三Pathを返す。
+ * @precondition 上位がexact IDを保存済み。上位が所在利用許可を確認し、Bindingは元三Directory実体を保持する。
  * @postcondition 取得済みHandleは失敗後もjoinし、Host処置は呼ばない。
  * @effect 固定inspect、attach、SIGTERMと所有Handleの必要な終端。
  * @failure 元失敗を保持し、join不明は最終理由だけを上書きする。
  * @invariant 不明時の前進0と補償終端を区別する。各待機・SIGTERMは5秒。
  * @boundary Coordinatorの保存後判断とDocker技術実行。
  * @security 任意payload・argv・Writer・Host tokenを受けない。
- * @concurrency await後はfresh所有確認、遅延通知で失敗を巻き戻さない。
+ * @concurrency 待機後はBindingで元Directory・CLI実体を確認し、遅延通知で失敗を巻き戻さない。
  */
 export async function runDockerProbeCancellation(
   binding: DockerProbeRuntimeBinding,
   identity: Readonly<{ id: string; probeId: string }>,
-  readCurrentMounts: () => ProbeMounts,
+  mounts: ProbeMounts,
 ) {
   const id = identity.id,
     probeId = identity.probeId;
@@ -624,7 +618,8 @@ export async function runDockerProbeCancellation(
   let attachProcessTerminationObserved = false;
   let attachProcessTerminationRequestCount = 0;
   try {
-    const initial = captureCurrentProbeMounts(readCurrentMounts());
+    const initial = captureProbeMounts(mounts);
+    binding.verifyCli();
     const expected = describeDockerProbeConfiguration(
       "cancellation",
       { id, probeId },
@@ -647,17 +642,14 @@ export async function runDockerProbeCancellation(
       }
       throw new Error(failure);
     }
-    const runningMounts = captureCurrentProbeMounts(
-      readCurrentMounts(),
-      initial,
-    );
+    binding.verifyCli();
     if (
       inspectDockerContainer(
         binding,
         describeDockerProbeConfiguration(
           "cancellation",
           { id, probeId },
-          runningMounts,
+          initial,
         ),
       )?.runningConfirmed !== true
     )
@@ -701,14 +693,14 @@ export async function runDockerProbeCancellation(
       observation.status !== "candidate"
     )
       throw new Error(reason);
-    const postMounts = captureCurrentProbeMounts(readCurrentMounts(), initial);
+    binding.verifyCli();
     if (
       !inspectDockerContainer(
         binding,
         describeDockerProbeConfiguration(
           "cancellation",
           { id, probeId },
-          postMounts,
+          initial,
         ),
       )
     )
@@ -756,7 +748,7 @@ export async function runDockerProbeCancellation(
  * 固定取消Probeを回復試験用の稼働残存として開始する。
  * @responsibility 保存後のfresh構成・一回start・fresh Running肯定を閉じる。
  * @trace ARCH-000008
- * @input binding、identity: 実IDとProbe名、readCurrentMounts: 同期三Path読取り。
+ * @input binding、identity: 実IDとProbe名、mounts: 確定した三Path。
  * @returns Running肯定だけ。
  * @precondition 上位が実IDを保存済み。
  * @postcondition 成功時も失敗時もremoveやHost清掃を発行しない。
@@ -770,11 +762,12 @@ export async function runDockerProbeCancellation(
 export function startDockerProbeResidue(
   binding: DockerProbeRuntimeBinding,
   identity: Readonly<{ id: string; probeId: string }>,
-  readCurrentMounts: () => ProbeMounts,
+  mounts: ProbeMounts,
 ) {
   const id = identity.id,
     probeId = identity.probeId;
-  const initial = captureCurrentProbeMounts(readCurrentMounts());
+  const initial = captureProbeMounts(mounts);
+  binding.verifyCli();
   const expected = describeDockerProbeConfiguration(
     "cancellation",
     { id, probeId },
@@ -789,11 +782,15 @@ export function startDockerProbeResidue(
   );
   if (started.error || started.status !== 0)
     throw new Error("dynamic_fake_provider_recoverable_start_failed");
-  const mounts = captureCurrentProbeMounts(readCurrentMounts(), initial);
+  binding.verifyCli();
   if (
     inspectDockerContainer(
       binding,
-      describeDockerProbeConfiguration("cancellation", { id, probeId }, mounts),
+      describeDockerProbeConfiguration(
+        "cancellation",
+        { id, probeId },
+        initial,
+      ),
     )?.runningConfirmed !== true
   )
     throw new Error("dynamic_fake_provider_recoverable_not_running");

@@ -45,19 +45,19 @@ function probeLifecycleFunction(source: string, name: string) {
  * @responsibility 失効後前進0と取得済みHandle joinを同じ呼出しで検証する。
  * @trace ERB-IT-004
  * @precondition 実捕捉・待機・理由分類・実行関数を同VMへ接続する。
- * @stimulus 正常、三地点のthrow／Path差、観測不明、期限、overflow、join不明。
+ * @stimulus 正常、三地点の実体観測例外／元Directory差、観測不明、期限、overflow、join不明。
  * @observation 要求全列・対象ID・期限・一次失敗・最終理由・実終端要求数。
  * @oracle 取消成功には全条件が必要、失敗後のjoinだけは継続し、残存成功はremove0。
  * @cleanup メモリTimerを全解除。Process・File・Dockerを作らない。
  * @boundary DI本番技術群と固定代役。実資源回収の根拠ではない。
  */
-test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必ずjoinする", async () => {
+test("Probe取消は三地点の実体確認と元失敗を保持し同じHandleを必ずjoinする", async () => {
   const source = fs.readFileSync(
     new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
   );
   const helpers = [
-    "captureCurrentProbeMounts",
+    "captureProbeMounts",
     "awaitProbeObservation",
     "probeCancellationFailure",
     "runDockerProbeCancellation",
@@ -103,8 +103,8 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
     "proxy-1",
     ...[1, 2, 3].flatMap((step) => [
       `throw-${step}`,
-      ...(step === 1 ? [] : [`path-${step}`]),
-      `promise-${step}`,
+      ...(step === 1 ? [] : [`identity-${step}`]),
+      ...(step === 1 ? [`promise-${step}`] : []),
       `inspect-${step}`,
     ]),
   ];
@@ -120,7 +120,8 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
    * @boundary 本番本文VMと外側assert。
    */
   const verify = async (label: string, bodies = helpers) => {
-    const scenario = label.split("+")[0] ?? label;
+    const scenario =
+      label === "input-changed" ? "normal" : (label.split("+")[0] ?? label);
     const joinThrows = label.includes("join-throw");
     const calls: string[] = [];
     const timers = new Map<number, () => void>();
@@ -168,8 +169,18 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
       isClosed: () => scenario !== "close-false",
       getTerminationRequestCount: () => terminationRequests,
     };
+    const supplied = { ...mounts };
     const binding = {
-      verifyCli: () => "fixed-cli",
+      verifyCli: () => {
+        mountReads++;
+        calls.push(`mount-${mountReads}`);
+        if (
+          scenario === `throw-${mountReads}` ||
+          scenario === `identity-${mountReads}`
+        )
+          throw Error("owned_operation_mount_replaced");
+        return "fixed-cli";
+      },
       environment: () => ({ FIXED: "fixture" }),
     };
     const api = runInNewContext(
@@ -236,6 +247,7 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
           assert.equal(actualId, id);
           assert.equal(prefix, `${exact.stdout.split("\n")[0]}\n`);
           calls.push("attach");
+          if (label === "input-changed") supplied.tmp = "changed-after-capture";
           return controller;
         },
         executeDockerProbeCommand: (
@@ -262,7 +274,7 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
       cancel: (
         binding: object,
         identity: object,
-        read: () => unknown,
+        mounts: unknown,
       ) => Promise<{
         status: string;
         reason: string;
@@ -276,53 +288,46 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
         };
       }>;
     };
-    const result = await api.cancel(binding, { id, probeId }, () => {
-      mountReads++;
-      calls.push(`mount-${mountReads}`);
-      if (scenario === `throw-${mountReads}`)
-        throw new Error("owned_operation_mount_replaced");
-      if (scenario === `path-${mountReads}`)
-        return { ...mounts, tmp: "C:/other/tmp" };
-      if (scenario === `promise-${mountReads}`) return Promise.resolve(mounts);
-      if (scenario === "missing-1") return {};
-      if (scenario === "proxy-1")
-        return new Proxy(mounts, {
-          get: () => {
-            throw new Error("getter_must_not_run");
-          },
-        });
-      if (scenario === "accessor-1")
-        return Object.defineProperty({ ...mounts }, "tmp", {
-          get: () => {
-            throw new Error("getter_must_not_run");
-          },
-        });
-      return { ...mounts };
-    });
+    let input: unknown = supplied;
+    if (scenario === "promise-1") input = Promise.resolve(mounts);
+    if (scenario === "missing-1") input = {};
+    if (scenario === "proxy-1")
+      input = new Proxy(mounts, {
+        get: () => {
+          throw Error("getter_must_not_run");
+        },
+      });
+    if (scenario === "accessor-1")
+      input = Object.defineProperty({ ...mounts }, "tmp", {
+        get: () => {
+          throw Error("getter_must_not_run");
+        },
+      });
+    const result = await api.cancel(binding, { id, probeId }, input);
     assert.equal(timers.size, 0, scenario);
     const beforeReady = ["mount-1", "inspect-1", "attach"];
     const beforeSignal = [...beforeReady, "mount-2", "inspect-2"];
     const afterSignal = [...beforeSignal, "SIGTERM"];
     const full = [...afterSignal, "mount-3", "inspect-3", "join"];
-    const expectedCalls = /^(throw|promise|missing|accessor|proxy)-1$/u.test(
-      scenario,
-    )
-      ? ["mount-1"]
-      : scenario === "inspect-1"
-        ? ["mount-1", "inspect-1"]
-        : scenario.startsWith("ready-")
-          ? [...beforeReady, "join", "join"]
-          : /^(throw|path|promise)-2$/u.test(scenario)
-            ? [...beforeReady, "mount-2", "join"]
-            : scenario === "inspect-2"
-              ? [...beforeSignal, "join"]
-              : ["overflow", "completion-timeout"].includes(scenario)
-                ? [...afterSignal, "join", "join"]
-                : scenario === "signal-failed"
-                  ? [...afterSignal, "join"]
-                  : /^(throw|path|promise)-3$/u.test(scenario)
-                    ? [...afterSignal, "mount-3", "join"]
-                    : full;
+    const expectedCalls = /^(promise|missing|accessor|proxy)-1$/u.test(scenario)
+      ? []
+      : scenario === "throw-1"
+        ? ["mount-1"]
+        : scenario === "inspect-1"
+          ? ["mount-1", "inspect-1"]
+          : scenario.startsWith("ready-")
+            ? [...beforeReady, "join", "join"]
+            : /^(throw|identity|promise)-2$/u.test(scenario)
+              ? [...beforeReady, "mount-2", "join"]
+              : scenario === "inspect-2"
+                ? [...beforeSignal, "join"]
+                : ["overflow", "completion-timeout"].includes(scenario)
+                  ? [...afterSignal, "join", "join"]
+                  : scenario === "signal-failed"
+                    ? [...afterSignal, "join"]
+                    : /^(throw|identity|promise)-3$/u.test(scenario)
+                      ? [...afterSignal, "mount-3", "join"]
+                      : full;
     assert.deepEqual(calls, expectedCalls, scenario);
     assert.equal(
       result.attachProcessTerminationRequestCount,
@@ -336,7 +341,7 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
       "close-false",
     ].includes(scenario)
       ? null
-      : /^(throw|path|promise|missing|accessor|proxy)-/u.test(scenario)
+      : /^(throw|identity|promise|missing|accessor|proxy)-/u.test(scenario)
         ? "owned_operation_mount_replaced"
         : scenario === "inspect-1"
           ? "docker_container_security_profile_mismatch"
@@ -377,7 +382,7 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
         assert.equal(joinCalls, 0);
       }
       if (
-        /^(throw|path|promise|inspect)-2$/u.test(scenario) ||
+        /^(throw|identity|promise|inspect)-2$/u.test(scenario) ||
         scenario.startsWith("ready-")
       ) {
         assert.equal(calls.includes("SIGTERM"), false);
@@ -405,7 +410,8 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
     await Promise.resolve();
     assert.equal(JSON.stringify(result), snapshot);
   };
-  for (const scenario of scenarios) await verify(scenario);
+  for (const scenario of [...scenarios, "input-changed"])
+    await verify(scenario);
   const primaryNeedle = "primaryFailure = probeCancellationFailure(error);";
   const finalNeedle =
     'reason = "dynamic_fake_provider_attach_process_termination_unconfirmed";';
@@ -437,8 +443,8 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
  * @responsibility start失敗・観測不明・Path失効をreadyへ昇格しない。
  * @trace ERB-IT-004
  * @precondition 本番の捕捉関数と残存開始関数を使用する。
- * @stimulus 正常、前後の構成不明、開始非0・例外、二回目Path差・throw。
- * @observation 全要求列・実ID・10秒・callback回数。
+ * @stimulus 正常、前後の構成不明、開始非0・例外、二回目の元Directory差・観測例外。
+ * @observation 全要求列・実ID・10秒・Binding照合回数。
  * @oracle 正常は二観測とstart一回、失敗後に追加start／removeなし。
  * @cleanup N/A: メモリだけで実資源を作らない。
  * @boundary DI残存開始と固定Docker代役。
@@ -448,7 +454,7 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
     new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
   );
-  const bodies = ["captureCurrentProbeMounts", "startDockerProbeResidue"]
+  const bodies = ["captureProbeMounts", "startDockerProbeResidue"]
     .map((name) => probeLifecycleFunction(source, name))
     .join("\n");
   const fixedSource = source.match(
@@ -469,13 +475,24 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
     "not-running",
     "start-failed",
     "start-throw",
-    "path-changed",
-    "owner-lost",
+    "identity-changed",
+    "identity-unknown",
   ]) {
     const calls: string[] = [];
     let reads = 0,
       observations = 0;
-    const binding = {};
+    const binding = {
+      verifyCli: () => {
+        reads++;
+        calls.push(`mount-${reads}`);
+        if (
+          reads === 2 &&
+          ["identity-unknown", "identity-changed"].includes(scenario)
+        )
+          throw Error("owned_operation_mount_replaced");
+        return "fixed-cli";
+      },
+    };
     const start = runInNewContext(
       `(()=>{const CANCELLATION_SOURCE=${fixedSource};${bodies};return startDockerProbeResidue;})()`,
       {
@@ -530,33 +547,20 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
     ) as (
       binding: object,
       identity: object,
-      read: () => object,
+      mounts: object,
     ) => { runningConfirmed: boolean };
     /**
      * 同じProbe bindingの開始処理とMount再観測を呼ぶ。
      * @responsibility 同じProbe bindingの開始処理とMount再観測を呼ぶ。
      * @trace ERB-IT-004
-     * @precondition 固定bindingと観測回数を記録するmountReader。
-     * @stimulus 実startへ同じidとReaderを渡す。
+     * @precondition 固定bindingと元Directory照合回数を記録するBinding。
+     * @stimulus 実startへ同じidと固定所在を渡す。
      * @observation Mount読取り、inspect、startの順序と失敗。
-     * @oracle 正常時二度の確認を行い、後発差分・Owner喪失は拒否する。
+     * @oracle 正常時二度の確認を行い、元Directory差替え・観測不能は拒否する。
      * @cleanup fixtureの終了処理で模擬Probeを閉じる。
      * @boundary 実開始関数と有限Transport。実Dockerは使わない。
      */
-    const run = () =>
-      start(binding, { id, probeId }, () => {
-        reads++;
-        calls.push(`mount-${reads}`);
-        if (reads === 2 && scenario === "owner-lost")
-          throw new Error("owned_operation_mount_replaced");
-        return {
-          ...mounts,
-          tmp:
-            reads === 2 && scenario === "path-changed"
-              ? "C:/other/tmp"
-              : mounts.tmp,
-        };
-      });
+    const run = () => start(binding, { id, probeId }, mounts);
     if (scenario === "normal") {
       assert.equal(run().runningConfirmed, true);
       assert.deepEqual(calls, [
@@ -573,7 +577,7 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
         scenario === "before-unknown" ? 0 : 1,
       );
       if (scenario.startsWith("start-")) assert.equal(reads, 1);
-      if (scenario === "path-changed" || scenario === "owner-lost")
+      if (scenario === "identity-changed" || scenario === "identity-unknown")
         assert.equal(observations, 1);
     }
   }

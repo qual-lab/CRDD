@@ -8,8 +8,93 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { createAuthenticationUsing } from "../../src/authentication/operations.ts";
 import type { ExecutorCallbacks } from "../../src/index.ts";
+
+/** 本番FactoryのDI結果搬送も通し、旧Lock理由への変換再導入を反証する。 */
+test("認証FactoryはDIの明示取消をHome Lock喪失へ変換しない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/authentication/operations.ts", import.meta.url),
+    "utf8",
+  );
+  const factory = runInNewContext(
+    `${sourceDeclaration(source, "createAuthentication")};createAuthentication`,
+    {
+      createAuthenticationUsing,
+      getAuthenticationTechnicalPlan: () => ({}),
+      createDockerAuthenticationRuntimeFactory: () => () => ({
+        execute: async () => ({
+          status: null,
+          signal: null,
+          stdout: "",
+          stderr: "",
+          error: Error("docker_execution_permit_lost"),
+          processCompletionConfirmed: true,
+        }),
+      }),
+    },
+  );
+  const auth = factory({
+    kind: "authentication",
+    provider: "codex",
+    action: "status",
+    providerHomeSourcePath: "C:\\runtime\\ProviderHomes\\codex",
+    suffix: "a".repeat(16),
+    proxyToken: null,
+  });
+  assert.ok(auth);
+  assert.equal(
+    (await auth.execute(undefined)).reason,
+    "provider_authentication_cancelled",
+  );
+});
+
+/** 明示取消とProcess終了不明を分け、Lock喪失へ誤変換しない。 */
+test("認証のDI取消は取消理由を返し終了不明を成功へ補完しない", async () => {
+  for (const provider of ["codex", "claude"] as const)
+    for (const confirmed of [true, false]) {
+      let calls = 0;
+      const auth = createAuthenticationUsing(
+        {
+          kind: "authentication",
+          provider,
+          action: "status",
+          providerHomeSourcePath: `C:\\runtime\\ProviderHomes\\${provider}`,
+          suffix: "a".repeat(16),
+          proxyToken: null,
+        },
+        async () => {
+          calls++;
+          return {
+            status: null,
+            signal: null,
+            stdout: "",
+            stderr: "",
+            error: Error("docker_execution_permit_lost"),
+            processCompletionConfirmed: confirmed,
+          };
+        },
+      );
+      assert.ok(auth);
+      const result = await auth.execute(undefined);
+      assert.equal(
+        result.reason,
+        confirmed
+          ? "provider_authentication_cancelled"
+          : "provider_authentication_process_completion_unconfirmed",
+      );
+      assert.equal(result.processCompletionConfirmed, confirmed);
+      assert.equal(result.authenticationConfirmed, false);
+      assert.equal(calls, 1);
+      if (!confirmed) {
+        assert.equal((await auth.cleanup(auth.resources)).confirmed, false);
+        assert.equal(calls, 1);
+      }
+    }
+});
 
 /** Receipt通知不成立やProcess終了不明を、資源採用や後続処置へ補完しない。 */
 test("認証はReceipt通知完了後だけ実IDを保持し終了不明で回収を発行しない", async () => {

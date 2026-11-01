@@ -661,17 +661,14 @@ export async function runDynamicFakeProviderCancellationVerification(
       containerIdentity.id,
     );
     const executionCli = cli;
-    const executionMountCapability = mountCapability;
+    const executionMounts = verifyOwnedMountCapability(mountCapability);
     const facts = await runDockerProbeCancellation(
       executionCli,
       { id: containerIdentity.id, probeId },
-      () => {
-        mounts = verifyOwnedMountCapability(executionMountCapability);
-        return {
-          workspace: mounts.workspace,
-          providerHome: mounts.providerHome,
-          tmp: mounts.tmp,
-        };
+      {
+        workspace: executionMounts.workspace,
+        providerHome: executionMounts.providerHome,
+        tmp: executionMounts.tmp,
       },
     );
     base = Object.freeze({
@@ -878,14 +875,16 @@ export function createDynamicFakeProviderRecoverableResidue(
       hostRecoveryId,
       identity.id,
     );
-    startDockerProbeResidue(cli, { id: identity.id, probeId }, () => {
-      const current = verifyOwnedMountCapability(mountCapability);
-      return {
+    const current = verifyOwnedMountCapability(mountCapability);
+    startDockerProbeResidue(
+      cli,
+      { id: identity.id, probeId },
+      {
         workspace: current.workspace,
         providerHome: current.providerHome,
         tmp: current.tmp,
-      };
-    });
+      },
+    );
     return Object.freeze({
       status: "ready" as const,
       reason: "dynamic_fake_provider_recoverable_residue_ready",

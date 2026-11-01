@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 検証専用Probeと認証取消理由（2026-11-02）
+
+scripts/probe-verification.tsの取消検証・意図的残存作成は、呼出前に既存Mount確認を行い、DIへ固定三所在を渡す。DI Binding生成もmanagementに加えて元三Directoryを含め、下位からOwnerや所在を再照会しない。実ID・二保存・inspect構成・Handle終了・Host回収の判定は維持する。回収試験は現行cleanupObservedへ直接接続し、旧同期処置Adapterで成立を補完しない。
+
+認証の明示取消はExecutorの取消理由を受け、上位で確認したHome Lock喪失と区別する。既存Home Lockの確認・停止・回復参照保持は変更しない。
+
 ## 通常Attempt／Probeの固定所在搬送（2026-11-02）
 
 通常AttemptのFactory呼出し前に既存管理Capabilityから所在を一回確認し、`paths: {tmp, management}`をExecutorへ渡す。通常Probeも既存Mount確認から固定四所在の`mounts`を渡す。下位へ所在Readerや保存ReceiptのReaderを渡さず、通常CleanupはDI Session所有Receiptだけを利用する。上位は既存の排他・保存通知内の版／記録確認・明示取消・呼出し前後確認を維持する。下位のDirectory元実体確認はDIの責務であり、上位の途中Owner失効を自動検知する代用Queryを追加しない。環境修復・Directory廃棄の固有Query、保存Schemaと履歴は変更しない。

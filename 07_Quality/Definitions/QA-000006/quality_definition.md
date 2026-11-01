@@ -1,5 +1,11 @@
 # QA-000006 外部実行境界の検証定義
 
+## 検証専用Probe・回収代役・認証取消の反証
+
+DIのprobe-lifecycle契約は固定三所在の後発Object変更を採用せず、Bindingによる元実体差・観測不能をready後と終了後にも拒否する。異常入力、Running不明、SIGTERM失敗、期限超過、遅延通知、attachのjoin不明を分け、一次理由と終端理由、追加start／removeなしを検査する。Coordinatorの上位検証Callerは固定値・同じ実ID・二保存を搬送し、Owner Queryを渡さない。
+
+Executorの回収試験AdapterではcleanupObserved欠測時の旧同期操作呼出し0、元回復参照と未確認結果を確認する。全削除代役は非同期CleanupとSignalへ追従し、inspectだけのrecoverObservedを削除代役にしない。認証は本番Factoryの結果搬送と後段分類を通し、両ProviderのDI取消、取消とProcess終了不明、作成Receipt欠測、通知保存失敗を分離する。上位が実際に検出したHome Lock喪失の理由は既存Coordinator試験で維持する。実AI・実Dockerや過去保持物での検証は行わない。
+
 ## 通常Attempt／Probeの固定所在とSession Receipt
 
 DIのcommand-runtime契約で、own-dataの二所在だけを受理し、旧Query・accessor・Proxy・欠測を拒否することを検査する。使用Directoryの元実体を保持し、管理領域・tmp・Home・Workspaceの差替え後に追加Docker要求がないことを有限代役で確認する。新品Repository-local領域では同PathのDirectory差替え、不存在、junction拒否を実Filesystemで観測する。Probe契約では入力Objectの後発変更を採用せず、Factory後の元実体差で開始を拒否する。通常回収はSessionの明示Receiptを使用し、欠測を旧Reader・名前推定・未要求へ補完しない。通知失敗、Process未終了、取消、未知資源、二重清掃なしは既存Suiteへ接続する。これらは実AI・実Dockerの成功証拠ではない。

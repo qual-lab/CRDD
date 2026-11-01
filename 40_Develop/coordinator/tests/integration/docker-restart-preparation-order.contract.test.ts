@@ -1482,7 +1482,7 @@ test("現在資源回収は未要求と確定未発行でDIを呼ばない", asy
         discoverSubmitted: () => {
           throw new Error("discovery forbidden");
         },
-        recoverObserved: () => {
+        cleanupObserved: async () => {
           throw new Error("deletion forbidden");
         },
       });
@@ -1538,9 +1538,9 @@ test("現在資源回収は意図をunknown保存し発見ID確定後だけ削�
         f.events.push("discover:provider");
         return dockerId;
       },
-      recoverObserved: (
+      cleanupObserved: async (
         expectation: { purpose: string; dockerId: string },
-        options: { assertBeforeRemoval: () => boolean },
+        signal?: AbortSignal,
       ) => {
         assert.equal(expectation.purpose, "create_provider");
         assert.equal(expectation.dockerId, dockerId);
@@ -1550,7 +1550,7 @@ test("現在資源回収は意図をunknown保存し発見ID確定後だけ削�
         assert.equal(saved?.request, "identified");
         assert.equal(saved?.dockerId, dockerId);
         assert.equal(saved?.receiptSource, "runtime_reconciliation");
-        assert.equal(options.assertBeforeRemoval(), true);
+        signal?.throwIfAborted();
         f.events.push("recover:provider");
         return true;
       },
@@ -1624,11 +1624,11 @@ test("現在資源回収は既知IDとContainer先行順とProxy二候補を保�
       discoverSubmitted: () => {
         throw new Error("known ID discovery forbidden");
       },
-      recoverObserved: (
+      cleanupObserved: async (
         expectation: Record<string, unknown>,
-        options: { assertBeforeRemoval: () => boolean },
+        signal?: AbortSignal,
       ) => {
-        assert.equal(options.assertBeforeRemoval(), true);
+        signal?.throwIfAborted();
         observed.push(JSON.parse(JSON.stringify(expectation)));
         f.events.push(`recover:${expectation.purpose}`);
         return (
@@ -1746,12 +1746,9 @@ test("現在資源回収は保存拒否と失効と未発見で削除を止め�
         if (fault === "owner") f.ownerLive = false;
         return fault === "null" ? null : "3".repeat(64);
       },
-      recoverObserved: (
-        _expectation: unknown,
-        options: { assertBeforeRemoval: () => boolean },
-      ) => {
+      cleanupObserved: async (_expectation: unknown, signal?: AbortSignal) => {
         if (fault === "owner_before_remove") f.ownerLive = false;
-        assert.equal(options.assertBeforeRemoval(), true);
+        signal?.throwIfAborted();
         deletions++;
         return true;
       },

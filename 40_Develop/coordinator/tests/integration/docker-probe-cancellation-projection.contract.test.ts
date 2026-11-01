@@ -174,13 +174,13 @@ test("取消事実は二保存・同対象absence・全終了条件を満たし�
         runDockerProbeCancellation: async (
           binding: { verifyCli: () => string; environment: () => object },
           identity: object,
-          read: () => object,
+          fixedMounts: object,
         ) => {
           bindings.push(binding);
           calls.push("run");
           captured.push({
             identity: JSON.parse(JSON.stringify(identity)),
-            mounts: JSON.parse(JSON.stringify(read())),
+            mounts: JSON.parse(JSON.stringify(fixedMounts)),
             cli: binding.verifyCli(),
             environment: binding.environment(),
           });
@@ -552,13 +552,13 @@ test("稼働残存の上位Callerは二保存後の同対象を下位へ渡し�
         startDockerProbeResidue: (
           binding: { verifyCli: () => string; environment: () => object },
           identity: object,
-          read: () => object,
+          fixedMounts: object,
         ) => {
           bindings.push(binding);
           calls.push("start");
           captured.push({
             identity: JSON.parse(JSON.stringify(identity)),
-            mounts: JSON.parse(JSON.stringify(read())),
+            mounts: JSON.parse(JSON.stringify(fixedMounts)),
             cli: binding.verifyCli(),
             environment: binding.environment(),
           });

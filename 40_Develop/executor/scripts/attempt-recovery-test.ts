@@ -15,10 +15,10 @@ import * as isolation from "../../docker-isolation/src/index.ts";
  * 実関数本文のDI接続だけを代役化する。
  * @responsibility 上位の保存順序を実Executorコードと結合して検査する。
  * @trace ERB-IT-014
- * @input create: 試験が所有する有限のDI生成代役。
- * @returns 本番と同じ同期診断・回収API。
+ * @input create: 現行cleanupObservedを備える有限DI生成代役。
+ * @returns 本番と同じ同期診断・非同期回収API。
  * @effect 固定Sourceの読取りとメモリ内のコード実行だけ。
- * @failure 本文の読取り・型除去・評価失敗は試験へ返す。
+ * @failure 本文の読取り・型除去・評価失敗は試験へ返す。Cleanup欠測は旧同期処理で補完しない。
  * @invariant 本番Rootの公開契約や実行権限を変更しない。
  */
 export function createAttemptRecoveryTestApi(
@@ -49,27 +49,9 @@ export function createAttemptRecoveryTestApi(
           executor?: isolation.DockerResourceRecoveryOperations;
         };
         const operations = result.executor;
-        if (!operations || Object.hasOwn(operations, "cleanupObserved"))
-          return result;
-        return {
-          ...result,
-          executor: {
-            ...operations,
-            cleanupObserved: async (
-              expected: isolation.DockerResourceExpectation,
-              signal?: AbortSignal,
-            ) =>
-              Reflect.apply(operations.recoverObserved, operations, [
-                expected,
-                {
-                  assertBeforeRemoval: () => {
-                    signal?.throwIfAborted();
-                    return true;
-                  },
-                },
-              ]),
-          },
-        };
+        if (operations && typeof operations.cleanupObserved !== "function")
+          throw Error("test_cleanup_operation_missing");
+        return result;
       },
       observeDockerRuntimeRepairRetention: () => {
         throw Error("directory_observation_not_mocked");

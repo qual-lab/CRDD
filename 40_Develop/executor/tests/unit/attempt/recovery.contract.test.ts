@@ -17,6 +17,39 @@ import type {
 } from "../../../src/index.ts";
 
 const ID = "a".repeat(64);
+
+/** Cleanup欠測を読取り専用の旧操作で成功させない。 */
+test("回収試験Adapterは現行Cleanup操作の欠測を拒否し旧操作を呼ばない", async () => {
+  let legacy = 0;
+  const api = createAttemptRecoveryTestApi(() => ({
+    status: "ready",
+    executor: {
+      recoverObserved: () => {
+        legacy++;
+        return true;
+      },
+      close: () => true,
+    },
+  }));
+  const none = { submitted: false, dockerId: null };
+  const result = await api.cleanupResources({
+    kind: "resource_set",
+    operationId: "operation-a",
+    recoveryId: "exact-recovery",
+    projection: PROJECTION,
+    managementDirectory: "borrowed",
+    receipts: {
+      create_provider: { submitted: true, dockerId: ID },
+      create_subscription_auth_probe: none,
+      create_proxy: none,
+      create_internal_network: none,
+      create_egress_network: none,
+    },
+  });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.recoveryId, "exact-recovery");
+  assert.equal(legacy, 0);
+});
 const PROJECTION: ResourceTarget["projection"] = Object.freeze({
   authContainerName: "crdd-auth-0123456789abcdef",
   providerContainerName: "crdd-claude-0123456789abcdef",
@@ -134,13 +167,13 @@ test("Attempt回収は発見保存と取消確認を削除前に保ちconfigを�
             events.push("discover");
             return mode === "unknown" ? null : ID;
           },
-          recoverObserved: (
+          cleanupObserved: async (
             value: { dockerId: string },
-            options: { assertBeforeRemoval: () => boolean },
+            signal?: AbortSignal,
           ) => {
             assert.equal(input.signal?.aborted, false);
             if (mode === "cancelled") controller.abort();
-            assert.equal(options.assertBeforeRemoval(), true);
+            signal?.throwIfAborted();
             assert.equal(value.dockerId, ID);
             assert.equal(mode === "known_id" || saved, true);
             events.push("remove");
@@ -283,7 +316,7 @@ test("Attempt診断は削除せず二回の不存在と不明を保持する", (
           return mode !== "second_unknown" || reads !== 2;
         },
         discoverSubmitted: () => null,
-        recoverObserved: () => {
+        cleanupObserved: async () => {
           throw Error("diagnostic_must_not_remove");
         },
         close: () => {
@@ -355,10 +388,12 @@ test("既知IDの診断はexact照合と照合後取消を要求する", () => {
         discoverSubmitted: () => {
           throw Error("known_id_must_not_discover");
         },
+        cleanupObserved: async () => {
+          throw Error("diagnostic_must_not_remove");
+        },
         recoverObserved: (
           expectation: { dockerId: string },
           options: {
-            removeAfterVerification: boolean;
             allowAlreadyAbsent: boolean;
           },
         ) => {

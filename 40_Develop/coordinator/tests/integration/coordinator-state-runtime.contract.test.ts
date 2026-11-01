@@ -3791,13 +3791,13 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
             ? observedId
             : null;
         },
-        recoverObserved: (
+        cleanupObserved: async (
           expectation: { dockerId: string },
-          guard: { assertBeforeRemoval: () => boolean },
+          signal?: AbortSignal,
         ) => {
           events.push("remove");
           assert.equal(expectation.dockerId, observedId);
-          assert.equal(guard.assertBeforeRemoval(), true);
+          signal?.throwIfAborted();
           const current = decodeCoordinatorStateSnapshot(
             fs.readFileSync(file),
             repository.repositoryBinding,
@@ -3927,8 +3927,13 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         else assert.equal(write, -1);
         const beforeReentry = [...events];
         assert.equal(
-          (await driver(owner, runtime.cleanupResources, runtime.inspectResources))
-            .status,
+          (
+            await driver(
+              owner,
+              runtime.cleanupResources,
+              runtime.inspectResources,
+            )
+          ).status,
           "blocked",
         );
         assert.deepEqual(events, beforeReentry);
