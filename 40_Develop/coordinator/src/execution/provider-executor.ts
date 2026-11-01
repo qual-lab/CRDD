@@ -71,7 +71,7 @@ import {
 
 const preparationHost = createProviderDockerRuntimeDependencies();
 const createAttemptExecutor = (
-  request: ExecutorRequest,
+  request: ExecutorRequest<"attempt">,
   random: Readonly<{ randomBytes: (size: number) => Buffer }>,
 ) =>
   createExecutor(
@@ -189,7 +189,7 @@ function createExecutionRecordOperations(
  */
 function createBlockedPreparationStart(
   reason: string,
-): StartResult & Readonly<{ status: "blocked" }> {
+): StartResult<"attempt"> & Readonly<{ status: "blocked" }> {
   return Object.freeze({
     kind: "attempt",
     status: "blocked",
@@ -272,7 +272,7 @@ export function startRuntimeOwnedDockerProcessController(
   handoff: (capability: object, recoveryId: string) => boolean,
   restriction?: (purpose: string) => boolean,
   observeStarted?: (notice: ProcessStartedNotice) => void | Promise<void>,
-): StartResult {
+): StartResult<"attempt"> {
   if (provider !== "codex" && provider !== "claude")
     return createBlockedPreparationStart(
       "docker_process_controller_plan_invalid",
@@ -311,7 +311,7 @@ export function startRuntimeOwnedDockerProcessController(
     mountAttempted: false,
     mountCompleted: false,
   };
-  let started: StartResult;
+  let started: StartResult<"attempt">;
   try {
     started = startHostAttempt(
       plan.executor,
@@ -449,7 +449,7 @@ function commandRestrictionAllows(restriction: unknown, purpose: string) {
  * @effect 同じ記録への更新・Grant終了と、下位Executorの明示開始。
  */
 function startRecordedAttempt(
-  executor: Executor,
+  executor: Executor<"attempt">,
   plan: RecoveryPlan,
   management: object,
   recovery: Recovery,
@@ -470,7 +470,7 @@ function startRecordedAttempt(
     if (utilTypes.isPromise(value)) void value.catch(() => {});
     if (value !== true) throw Error("record_unconfirmed");
   }
-  const callbacks: ExecutorCallbacks = {
+  const callbacks: ExecutorCallbacks<"attempt"> = {
     onCommandSubmitting: (purpose) => {
       if (!commandRestrictionAllows(restriction, purpose)) {
         restrictionRejected = true;
@@ -728,7 +728,7 @@ function startRecordedAttempt(
 }
 
 function startHostAttempt(
-  executor: Executor,
+  executor: Executor<"attempt">,
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,
   preparedCapability: unknown,
   managementCapability: unknown,
@@ -979,7 +979,7 @@ function createUnstartedResult(
     recoveryId?: string | null;
     manualRecoveryRequired?: boolean;
   }>,
-): StartResult & Readonly<{ status: "blocked" }> {
+): StartResult<"attempt"> & Readonly<{ status: "blocked" }> {
   const cleanupConfirmed = input.cleanupConfirmed ?? false,
     recoveryId = input.recoveryId ?? null;
   return Object.freeze({

@@ -145,7 +145,7 @@ export function bindAuthenticationLifecycle(
         ),
       });
     },
-    async cancel(_input) {
+    async cancel() {
       return lifecycle.cancel();
     },
   });

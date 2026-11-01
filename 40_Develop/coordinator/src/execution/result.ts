@@ -32,7 +32,7 @@ export type CandidateValidationFailureDiagnostic = Readonly<{
   pathsMatch: boolean | null;
   candidatePathCount: number | null;
   reportedPathCount: number | null;
-  providerExecutionObservation: CompletionResult["providerExecutionObservation"];
+  providerExecutionObservation: CompletionResult<"attempt">["providerExecutionObservation"];
 }>;
 
 /** 各試行の編集照合又はレビュー分類だけを表す受動診断。
@@ -121,7 +121,7 @@ export function createCandidateValidationFailureDiagnostic(
     pathsMatch: unknown;
     candidatePathCount: unknown;
     reportedPathCount: unknown;
-    providerExecutionObservation: CompletionResult["providerExecutionObservation"];
+    providerExecutionObservation: CompletionResult<"attempt">["providerExecutionObservation"];
   }>,
 ): CandidateValidationFailureDiagnostic | null {
   const value = snapshotPlainRecord(

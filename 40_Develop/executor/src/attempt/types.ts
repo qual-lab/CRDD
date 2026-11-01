@@ -376,10 +376,29 @@ export type CompletionResultInput = Readonly<{
 }>;
 
 /**
- * 同じ固定接続で技術準備・開始・取消・明示終了を提供するExecutor。
- * @responsibility 操作ごとの引数と結果を明示し、Factoryを型検査する。
+ * Attemptの取消に必要な元Controlと現在の管理参照。
+ * @responsibility 共通取消へ進む前の照合入力を定義する。
  * @trace ARCH-000008
- * @invariant 実装由来の型抽出を正本にせず、別の状態管理を追加しない。
+ * @shape controlCapabilityとmanagementCapabilityの二参照。
+ * @invariant 空入力や別Ownerで正規取消を消費しない。
+ * @boundary 利用側と元Control表の照合。
+ * @security 対象識別だけで新しい取消権限を発行しない。
+ * @compatibility 既存の二参照の照合条件を維持する。
+ */
+export type AttemptCancelInput = Readonly<{
+  controlCapability: unknown;
+  managementCapability: unknown;
+}>;
+
+/**
+ * Attempt固有の記録投影と終了後Home解放を共通制御へ加える。
+ * @responsibility 同じ実行への開始・取消・明示解放だけを提供する。
+ * @trace ARCH-000008
+ * @shape 共通制御と投影、abandon。
+ * @invariant 型抽出を正本にせず、実行状態を再定義しない。
+ * @boundary 利用側とAttempt固有の技術実行。
+ * @security 元Control・management・Home解放条件を維持する。
+ * @compatibility 用途固有の必要な操作だけを追加する。
  */
 export interface AttemptExecutor extends ExecutorLifecycle<"attempt"> {
   readonly recordProjection: AttemptRecordProjection;

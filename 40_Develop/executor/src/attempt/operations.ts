@@ -46,7 +46,6 @@ import {
 import { releaseHomeLease } from "../lifecycle/cleanup.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
 import type {
-  CancelInput,
   Executor,
   StartInput,
   LifecycleOperations,
@@ -61,6 +60,7 @@ import {
   parseAttemptOutput,
 } from "./result.ts";
 import type {
+  AttemptCancelInput,
   AttemptContent,
   AttemptFailureReason,
   AttemptPlan,
@@ -861,7 +861,7 @@ export function createAttemptExecutor(
   request: AttemptRequest,
   options: DockerIsolationRuntimeOptions,
   random: Readonly<{ randomBytes: (size: number) => Buffer }> = { randomBytes },
-): Executor | null {
+): Executor<"attempt"> | null {
   const runtimeOptions = options as DockerIsolationRuntimeOptions;
   const plan = prepareAttempt(random, request as AttemptRequest);
   if (!plan) return null;
@@ -891,7 +891,7 @@ export function createAttemptExecutor(
       operationMode: plan.operationMode,
       workspaceMountMode: plan.workspaceMountMode,
     }) satisfies AttemptRecordProjection,
-    start: (input: StartInput) => {
+    start: (input: StartInput<"attempt">) => {
       const {
         managementCapability: management,
         reference,
@@ -920,7 +920,7 @@ export function createAttemptExecutor(
         });
       }
     },
-    cancel: (input: CancelInput) =>
+    cancel: (input: AttemptCancelInput) =>
       cancel(state, input.controlCapability, input.managementCapability),
     abandon: (
       input: Readonly<{

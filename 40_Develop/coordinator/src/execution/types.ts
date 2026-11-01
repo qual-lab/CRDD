@@ -283,12 +283,12 @@ export type ProviderDockerPreparationState<
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type RecoveryPlan = RecordProjection &
-  ExecutorRequest["target"] &
+export type RecoveryPlan = RecordProjection<"attempt"> &
+  ExecutorRequest<"attempt">["target"] &
   Readonly<{
     provider: AiProvider;
     executionSelection: AiModelSelection;
-    executor: Executor;
+    executor: Executor<"attempt">;
     authorityUseCapability: object;
     networkPolicy: DockerNetworkPolicy | null;
     taskRole: "executor" | "reviewer" | null;
@@ -509,7 +509,7 @@ export type ExecutionRecordOperations = Readonly<{
   recordUnstarted?: (
     recovery: object,
     management: object,
-    result: Extract<StartResult, { status: "blocked" }>,
+    result: Extract<StartResult<"attempt">, { status: "blocked" }>,
   ) => boolean;
   verifyRevision: (
     managementCapability: unknown,
@@ -617,13 +617,17 @@ export type BlockedRecovery = Readonly<{
   recoveryId: string | null;
   manualRecoveryRequired?: boolean;
 }>;
-export type RecordedAttemptResult = CompletionResult & AttemptCleanupResult;
+export type RecordedAttemptResult = CompletionResult<"attempt"> &
+  AttemptCleanupResult;
 export type RecordedAttemptObservation = AttemptTerminalObservation &
   Readonly<{
     mountLeaseReleased: boolean;
     recoveryCompleted: boolean;
   }>;
 export type RecordedStartResult =
-  | Exclude<StartResult, { status: "started" }>
-  | (Omit<Extract<StartResult, { status: "started" }>, "completion"> &
+  | Exclude<StartResult<"attempt">, { status: "started" }>
+  | (Omit<
+      Extract<StartResult<"attempt">, { status: "started" }>,
+      "completion"
+    > &
       Readonly<{ completion: Promise<RecordedAttemptResult> }>);

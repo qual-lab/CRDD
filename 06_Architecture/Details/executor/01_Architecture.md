@@ -202,11 +202,17 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 
 ### 用途横断の公開IF
 
-通常Attempt、AIツール認証、固定隔離Probeは共通のExecutor<K>を返し、Kで用途と入出力を結び付ける。公開構成要求はExecutorRequest<K>、開始はstart(StartInput<K>)、取消はcancel(CancelInput<K>)、開始／終了結果はStartResult<K>／CompletionResult<K>を使う。型の正本はlifecycle/types.tsで、用途別の内容・技術観測は既存のOwner型を再利用する。結果のkindはattempt／authentication／isolation_probeを区別し、他用途のProvider・Home・Mount結果を架空のtrue・nullで埋めない。
+Executor／ExecutorRequest／StartInput／StartResult／CompletionResult／ExecutorCallbacks／CancelArgumentsの型引数を省略した場合は、三用途のUnionとする。これは複数用途の受渡し用であり、任意用途の入力を未絞込みExecutorへ実行できる意味ではない。実行OwnerとFactoryの各overloadは用途を明示し、CoordinatorのAttempt経路も<"attempt">へ固定する。kindで絞ってから、対応する開始入力・結果・取消を扱う。
+
+取消引数はAttemptだけ一つのAttemptCancelInputを必須とし、元Control／managementを既存どおり照合する。認証／固定Probeはcancel()とし、空Objectを渡さない。共通の一回配送と許可条件は変更しない。RecordProjectionは公開利用を維持し、ProjectionKindをattempt／authenticationだけに限定する。既定はその二投影のUnionであり、Probeにneverや架空投影を割り当てない。
+
+環境操作の型正本はDIに維持する。Rootから直接利用されていないDockerRuntimeRepairInput／DockerRuntimeRepairResult／DockerRuntimeRestartInputの個別再exportを撤去し、公開DockerEnvironmentRestartRequestのmode別inputとrestartDockerEnvironmentの返却型から利用できることを型検査する。利用中のDockerRuntimeRestartEvent／DockerRuntimeRestartResultはRoot公開を維持する。Cleanup対象・結果の型Mappingは本変更の対象外であり、観測・回収・認証・固定Directoryの既存許可条件を変えない。
+
+通常Attempt、AIツール認証、固定隔離Probeは共通のExecutor<K>を返し、Kで用途と入出力を結び付ける。公開構成要求はExecutorRequest<K>、開始はstart(StartInput<K>)、取消はcancel(...CancelArguments<K>)、開始／終了結果はStartResult<K>／CompletionResult<K>を使う。型の正本はlifecycle/types.tsで、用途別の内容・技術観測は既存のOwner型を再利用する。結果のkindはattempt／authentication／isolation_probeを区別し、他用途のProvider・Home・Mount結果を架空のtrue・nullで埋めない。
 
 | 用途 | 開始入力の必須情報 | 開始後の追加情報 |
 |---|---|---|
-| attempt | managementCapability、元reference、任意callbacks | 元Control・completion・同じ回復ID。記録投影はRecordProjectionの既存技術値 |
+| attempt | managementCapability、元reference、任意callbacks | 元Control・completion・同じ回復ID。記録投影はRecordProjection<attempt>の既存技術値 |
 | authentication | 現在Owner確認、現Receipt照会、任意Signal／callbacks | completionで認証三値・Process終了・清掃結果を保持。記録投影はRecordProjection<authentication> |
 | isolation_probe | 任意callbacksを持つObject | completionで作成要求・実ID・隔離事実・取消・終了／清掃を保持。架空の記録投影は追加しない |
 
@@ -214,7 +220,7 @@ StartResultはstartedの場合だけcompletionを持ち、blockedは当該開始
 
 通知はExecutorCallbacks<K>に統合する。ResourceCleanupCallbacksは既存の回収APIと共有する。用途に存在しない通知は型で登録を拒否し、認証／Probeの要求前・Receipt・終了通知は同期voidを維持する。Attemptの必要通知は従来どおりPromise<void>を待つ。onCompletedは同じ型付きCompletionResultを渡す受動通知であり、同期例外／非同期Rejectを捕捉して確定結果を変更しない。
 
-Rootの公開関数は5つを維持し、公開型は41から33へ整理する。用途別Executor・通知interfaceの独立再公開、用途別開始／完了結果と構成要求・記録投影の重複した公開名を撤去し、共通名から既存Owner型へ結び付ける。中間Plan、Factory、Dispatcher、永続状態、Registry、Lock、互換読取りは追加しない。保存Schema、既存失敗理由の意味、現在Owner、Intent／Receiptの保存順序、終了不明時の停止とexact回復IDは維持する。
+Rootの公開関数は5つを維持し、公開型は31個とする。用途別Executor・通知interfaceの独立再公開、用途別開始／完了結果と構成要求・記録投影の重複した公開名を撤去し、共通名から既存Owner型へ結び付ける。中間Plan、Factory、Dispatcher、永続状態、Registry、Lock、互換読取りは追加しない。保存Schema、既存失敗理由の意味、現在Owner、Intent／Receiptの保存順序、終了不明時の停止とexact回復IDは維持する。
 
 共通化するのは実行・清掃・結果の終了待ちであり、三用途へ同じDocker手順を強制しない。認証の同期保存通知、Attemptの非同期通知、Probeの実ID保存はそれぞれ既存の順序を保つ。認証の単独回収はcleanupResourcesのauthentication対象へ接続し、旧実行が終了不明の場合は上位が回収へ進めない。通常認証は同じRuntimeで実行から清掃まで完了し、その後にCoordinatorが記録を確定して上位Home Lockを解放する。
 
@@ -335,13 +341,14 @@ Home取得前は`attempt/operations.ts`の`isAttemptPlanValid`で共通の基本
 | `createExecutor`（認証要求） | index.ts → authentication/operations.ts | 認証と同じRuntimeの清掃を一回のcompletionへ結合する。Home選定・保存・操作判断は上位 |
 | `inspectResources`、`cleanupResources` | lifecycle/cleanup.ts | kindごとの固定資源観測と回収。対象・結果型はlifecycle/cleanup-types.ts、通知はlifecycle/callbacks.ts。Attempt型の意味は維持する |
 | `inspectDockerEnvironment`、`restartDockerEnvironment` | environment/execute.ts | Attemptとは独立した環境観測・再起動・修復への薄い接続。判断・保存は上位、具体操作はDI |
-| `Executor<K>`、`StartInput<K>`、`StartResult<K>`、`CompletionResult<K>`、`CancelInput<K>`、`CancelResult` | lifecycle/types.ts | 用途と共通開始・取消・結果を結び、用途固有情報は既存Owner型を再利用する |
+| `Executor<K>`、`StartInput<K>`、`StartResult<K>`、`CompletionResult<K>`、`CancelArguments<K>`、`CancelResult` | lifecycle/types.ts | 用途と共通開始・取消・結果を結び、用途固有情報は既存Owner型を再利用する |
+| `AttemptCancelInput` | attempt/types.ts | 元Controlとmanagementの取消照合入力。認証／Probeでは引数を要求しない |
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/types.ts | 実Process開始と非秘密診断 |
 | `ExecutorRequest<K>`、`RecordProjection<K>` | lifecycle/types.ts → 用途別types.ts | 解決済み要求と実在する記録投影。固定Probeへ架空の投影は追加しない |
 | `Executor.start` | attempt/operations.ts → lifecycle/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
 | 通常Rootの関数 | index.ts | 上記5関数に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
 
-TaskResultとAdviceResultの正本はAI Adapterであり、Executor Rootから再公開しない。CompletionResult.normalizedResultはその用途別内容だけを保持する。providerExecutionObservation、providerTurnObservation、reviewFindingsは固定nullableの外側fieldとする。正常完了・清掃確認・内容ありの共同成立時だけ保持し、それ以外はnullへ戻す。Executorの結果は是正許可や選定記録IDを含めず、上位の既存操作記録と原結果objectの相関で管理する。
+TaskResultとAdviceResultの正本はAI Adapterであり、Executor Rootから再公開しない。CompletionResult<"attempt">.normalizedResultはその用途別内容だけを保持する。providerExecutionObservation、providerTurnObservation、reviewFindingsは固定nullableの外側fieldとする。正常完了・清掃確認・内容ありの共同成立時だけ保持し、それ以外はnullへ戻す。Executorの結果は是正許可や選定記録IDを含めず、上位の既存操作記録と原結果objectの相関で管理する。
 
 onCompletedとonDiagnosticは受動通知であり、同期throw・非同期拒否は技術結果へ伝播しない。要求前・Receipt・清掃観測の通知は完了を待ち、throw・拒否なら次のEffectを停止して既存清掃へ進む。開始通知は同じ試行にjoinするが、その待機で技術Processの清掃を妨げない。上位の必須終端保存は受動onCompletedへ置かず、completion後に上位Ownerが待機する。
 

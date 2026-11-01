@@ -61,6 +61,24 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   assert.doesNotMatch(publicSource, /\b(?:AttemptPlan|AttemptReference)\b/);
   assert.match(publicSource, /\bExecutorRequest\b/);
+  const publicTypes = [
+    ...publicSource.matchAll(/export type\s*\{([^}]+)\}/g),
+  ].flatMap((match) => (match[1] ?? "").split(",").map((name) => name.trim()));
+  for (const removed of [
+    "DockerRuntimeRepairInput",
+    "DockerRuntimeRepairResult",
+    "DockerRuntimeRestartInput",
+    "CancelInput",
+  ])
+    assert.equal(publicTypes.includes(removed), false, removed);
+  for (const retained of [
+    "DockerRuntimeRestartEvent",
+    "DockerRuntimeRestartResult",
+    "RecordProjection",
+    "AttemptCancelInput",
+    "CancelArguments",
+  ])
+    assert.equal(publicTypes.includes(retained), true, retained);
   assert.doesNotMatch(publicSource, /\bRecoveryStartFailureDiagnostic\b/);
   const executionSource = fs.readFileSync(
     new URL("../../src/attempt/operations.ts", import.meta.url),

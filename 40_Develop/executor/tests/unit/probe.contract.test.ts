@@ -208,8 +208,8 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         },
       );
       assert.ok(executor);
-      cancel = () => executor.cancel({});
-      if (mode === "pre_cancel") await executor.cancel({});
+      cancel = () => executor.cancel();
+      if (mode === "pre_cancel") await executor.cancel();
       let delivered: unknown = null;
       const start = executor.start({
         callbacks: {
@@ -242,7 +242,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         }
         assert.deepEqual(events, []);
         assert.equal(executor.start({}).status, "blocked");
-        assert.deepEqual(await executor.cancel({}), {
+        assert.deepEqual(await executor.cancel(), {
           status: "blocked",
           reason: "invalid",
         });
@@ -266,7 +266,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       }
       if (mode === "cancel") assert.equal(result.status, "cancelled");
       assert.equal(delivered, result);
-      assert.deepEqual(await executor.cancel({}), {
+      assert.deepEqual(await executor.cancel(), {
         status: "blocked",
         reason: "invalid",
       });

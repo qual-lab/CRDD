@@ -1,5 +1,17 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## Executor公開型の既定Union・取消引数・投影用途整理（2026-11-01）
+
+基準版413eb5e59。人間は共通型の既定を全用途Unionへ統一し、用途確定ConsumerとFactory overloadでは型引数を明示する方針を採用した。変更分類はSource公開型の破壊的Refactor。取消はAttemptだけ必須入力、認証／Probeは引数なしのタプル契約とし、Attemptの元Control・management照合と共通一回配送は維持する。RecordProjectionは公開利用があるため維持し、用途をAttempt／Authenticationへ限定、既定はそのUnionとする。内容・保存Schemaは変更しない。
+
+RootのDockerRuntimeRepairInput／RepairResult／RestartInputは直接利用がないことと、公開環境要求・関数結果から型を参照できることを確認して個別再exportを撤去する。利用中のRestartEvent／RestartResultは維持する。Cleanup型Mappingは次段階であり今回は変更しない。着手前の読取専用確認で、kindによるUnion絞込み、未絞込みの誤開始・取消拒否、Probe投影の型拒否、既存同期通知・Capability照合を検証へ対応付けた。
+
+対象はExecutor、直接利用側・試験・scripts、Architecture／Quality。SourceおよびArchitecture／Qualityの独立レビューを行い、準拠・Release条件の監査は発火しない。新しいRuntime機構・Manager・Storeは作らず、実AI・Docker・過去保持物は操作しない。
+
+実装・利用側・試験の追従を完了した。Executorのcheckと全85件、Coordinator対象12 Suiteの364件、Coordinator／DI／MCP／Workbenchの型検査が成功した。拡大回帰で検出した既存試験の旧位置引数mockは、現行の名前付きObject入力へ追従し、元management／reference／controlの参照一致を保持した。通常Sandboxで拒否された合成Git junction試験は、許可された実行環境で同じ条件・期待値のまま再確認した。実Dockerや外部AIの代わりに有限代役と自己生成の試験Processを使用しており、実境界の再成立は主張しない。
+
+SourceとArchitecture／Qualityの独立レビュー、および追加の試験追従差分の独立レビューは残必須指摘零。Root公開は5関数・31型。文書参照展開検査は既存3,356指摘で終了1、対象5文書の指摘零。全体QA・Releaseの成立は主張しない。Cleanup型Mappingは合意どおり次段階に残す。実AI・Docker・過去保持物は操作していない。
+
 ## Executor事前取消・外部Signal・Probe準備境界の是正（2026-11-01）
 
 基準版40c6d8a12。人間はA事前取消を開始拒否・再利用不可、B外部／明示／内部停止の一回配送、C準備と資源取得以後の回収境界の限定是正を指示した。変更分類は実行契約の不具合是正。Executor／DI詳細・QA-000006、直接利用側の試験を追従し、SourceおよびArchitecture／Qualityの独立レビューを行う。準拠・Release基準、保存Schema・Checkpoint／Diagnostic内容、AttemptのCapability・Home保証、Provider方式・Image・Network、Environment特殊操作は変更しない。

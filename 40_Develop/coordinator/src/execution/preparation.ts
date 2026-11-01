@@ -116,7 +116,9 @@ export function capturePreparationInput(value: unknown) {
  * @security 本文は公開結果や保存診断に複製しない。
  * @compatibility Executorの完了結果型へ追従する。
  */
-type ReviewFindings = NonNullable<CompletionResult["reviewFindings"]>;
+type ReviewFindings = NonNullable<
+  CompletionResult<"attempt">["reviewFindings"]
+>;
 // 移管した一回使用証拠。次Taskの許可はCoordinatorだけが所有する。
 /** 上位が所有する準備候補の有効期間。Executorの実行期限ではない。 */
 const PREPARATION_LIFETIME_MS = 30_000;
@@ -2977,9 +2979,9 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
   provider: P,
   dependencies: PreparationHost<P>,
   create: (
-    request: ExecutorRequest,
+    request: ExecutorRequest<"attempt">,
     random: Readonly<{ randomBytes: (size: number) => Buffer }>,
-  ) => Executor | null,
+  ) => Executor<"attempt"> | null,
 ): AttemptPreparation<P> {
   const state = createProviderDockerRuntimeState<P>(dependencies);
   /**
@@ -3129,7 +3131,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
             reasoningEffort: model.executionSelection.reasoningEffort,
             purpose: model.executionSelection.purpose,
           });
-          const request: ExecutorRequest = {
+          const request: ExecutorRequest<"attempt"> = {
             kind: "attempt",
             ...(task
               ? {

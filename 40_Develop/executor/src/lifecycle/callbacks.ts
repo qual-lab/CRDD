@@ -60,7 +60,7 @@ export interface ResourceCleanupCallbacks<Observation> {
  * @security 必須保存通知を受動通知へ変えない。
  * @compatibility 公開型引数と既存通知名を維持する。
  */
-export type ExecutorCallbacks<K extends ExecutionKind = "attempt"> =
+export type ExecutorCallbacks<K extends ExecutionKind = ExecutionKind> =
   Callbacks[K];
 interface Callbacks {
   attempt: AttemptCallbacks;

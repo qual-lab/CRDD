@@ -6,6 +6,7 @@
 
 import type {
   CompletionResult as AttemptCompletionResult,
+  AttemptCancelInput,
   AttemptExecutor,
   AttemptRecordProjection,
   AttemptReference,
@@ -46,7 +47,7 @@ export type ExecutionKind = "attempt" | "authentication" | "isolation_probe";
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type ExecutorRequest<K extends ExecutionKind = "attempt"> =
+export type ExecutorRequest<K extends ExecutionKind = ExecutionKind> =
   ExecutorRequests[K];
 interface ExecutorRequests {
   attempt: AttemptRequest;
@@ -55,21 +56,32 @@ interface ExecutorRequests {
 }
 
 /**
- * 実在する記録投影だけを公開する。固定Probeには架空の投影を作らない。
- * @responsibility RecordProjectionの用途相関を既存所有型へ接続する。
+ * 記録投影を持つ用途を二種類へ限定する。
+ * @responsibility ProjectionKindの対象を実在する投影Ownerへ限定する。
  * @trace ARCH-000008
- * @shape 用途別投影。固定Probeはnever。
+ * @shape attempt又はauthenticationの文字列集合。
  * @invariant 投影を実行権限や保存確定と扱わない。
  * @boundary 上位利用側と単発技術実行。
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type RecordProjection<K extends ExecutionKind = "attempt"> =
+export type ProjectionKind = "attempt" | "authentication";
+
+/**
+ * 実在する記録投影を用途別に選択する公開契約。
+ * @responsibility 元の投影型を再利用し、保存Schemaを変更しない。
+ * @trace ARCH-000008
+ * @shape Attempt又はAuthenticationの既存投影。
+ * @invariant Probeの架空投影を定義しない。
+ * @boundary Executor準備と上位の記録Owner。
+ * @security 投影は実行や回収の権限ではない。
+ * @compatibility 用途を二種類に限定し、無指定はそのUnionとする。
+ */
+export type RecordProjection<K extends ProjectionKind = ProjectionKind> =
   RecordProjections[K];
 interface RecordProjections {
   attempt: AttemptRecordProjection;
   authentication: AuthenticationProjection;
-  isolation_probe: never;
 }
 
 /**
@@ -82,12 +94,13 @@ interface RecordProjections {
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type StartInput<K extends ExecutionKind = "attempt"> = StartInputs[K];
+export type StartInput<K extends ExecutionKind = ExecutionKind> =
+  StartInputs[K];
 interface StartInputs {
   attempt: Readonly<{
     managementCapability: unknown;
     reference: AttemptReference;
-    callbacks?: ExecutorCallbacks;
+    callbacks?: ExecutorCallbacks<"attempt">;
   }>;
   authentication: AuthenticationStartContext &
     Readonly<{ callbacks?: ExecutorCallbacks<"authentication"> }>;
@@ -98,23 +111,16 @@ interface StartInputs {
 
 /**
  * 取消でも元Controlと現在管理参照を維持する。用途に不要な参照は要求しない。
- * @responsibility CancelInputの用途相関を既存所有型へ接続する。
+ * @responsibility CancelArgumentsの用途相関を既存所有型へ接続する。
  * @trace ARCH-000008
- * @shape Attemptは二参照、認証と固定Probeは空Object。
+ * @shape Attemptだけ一つの入力引数、認証／固定Probeは引数なし。
  * @invariant 取消要求を技術終了の証明にしない。
  * @boundary 上位利用側と単発技術実行。
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type CancelInput<K extends ExecutionKind = "attempt"> = CancelInputs[K];
-interface CancelInputs {
-  attempt: Readonly<{
-    controlCapability: unknown;
-    managementCapability: unknown;
-  }>;
-  authentication: Readonly<Record<string, never>>;
-  isolation_probe: Readonly<Record<string, never>>;
-}
+export type CancelArguments<K extends ExecutionKind = ExecutionKind> =
+  K extends "attempt" ? [input: AttemptCancelInput] : [];
 
 /**
  * 取消要求の配送結果。技術終了と回収は元completionで別に確認する。
@@ -152,7 +158,7 @@ export type CancelResult = Readonly<
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type CompletionResult<K extends ExecutionKind = "attempt"> =
+export type CompletionResult<K extends ExecutionKind = ExecutionKind> =
   CompletionResults[K];
 interface CompletionResults {
   attempt: AttemptCompletionResult;
@@ -170,7 +176,7 @@ interface CompletionResults {
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type StartResult<K extends ExecutionKind = "attempt"> =
+export type StartResult<K extends ExecutionKind = ExecutionKind> =
   K extends "attempt"
     ? AttemptStartResult
     : Readonly<
@@ -195,7 +201,7 @@ export type StartResult<K extends ExecutionKind = "attempt"> =
 export interface ExecutorLifecycle<K extends ExecutionKind> {
   readonly kind: K;
   start(input: StartInput<K>): StartResult<K>;
-  cancel(input: CancelInput<K>): Promise<CancelResult>;
+  cancel(...args: CancelArguments<K>): Promise<CancelResult>;
 }
 
 /** 認証の記録投影は実在する用途だけに保持する。 */
@@ -213,7 +219,7 @@ interface AuthenticationExecution extends ExecutorLifecycle<"authentication"> {
  * @security 許可・対象の実体検査を型定義で代替しない。
  * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
  */
-export type Executor<K extends ExecutionKind = "attempt"> = Executors[K];
+export type Executor<K extends ExecutionKind = ExecutionKind> = Executors[K];
 interface Executors {
   attempt: AttemptExecutor;
   authentication: AuthenticationExecution;

@@ -4955,7 +4955,7 @@ async function runDockerIsolationScenario(
   let executor: Executor<"isolation_probe"> | null = null;
   let outcome: CompletionResult<"isolation_probe"> | null = null;
   let notificationFailure: unknown;
-  const onAbort = () => executor?.cancel({});
+  const onAbort = () => executor?.cancel();
   try {
     executor = create(
       { kind: "isolation_probe", probeId },

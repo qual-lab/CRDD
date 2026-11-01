@@ -46,33 +46,33 @@ test("選択三項目の部分集合を明示結果型が拒否する", () => {
     hostPathReported: false as const,
     proxyCredentialReported: false as const,
   };
-  const absent: StartResult = base;
-  const present: StartResult = {
+  const absent: StartResult<"attempt"> = base;
+  const present: StartResult<"attempt"> = {
     ...base,
     selectionNotice: null,
     selectedModel: null,
     selectedEffort: null,
   };
   // @ts-expect-error 選択の通知だけを持つ結果は契約外。
-  const noticeOnly: StartResult = { ...base, selectionNotice: null };
+  const noticeOnly: StartResult<"attempt"> = { ...base, selectionNotice: null };
   // @ts-expect-error 選択モデルだけを持つ結果は契約外。
-  const modelOnly: StartResult = { ...base, selectedModel: null };
+  const modelOnly: StartResult<"attempt"> = { ...base, selectedModel: null };
   // @ts-expect-error 推論強度だけを持つ結果は契約外。
-  const effortOnly: StartResult = { ...base, selectedEffort: null };
+  const effortOnly: StartResult<"attempt"> = { ...base, selectedEffort: null };
   // @ts-expect-error 推論強度を欠く選択は契約外。
-  const noEffort: StartResult = {
+  const noEffort: StartResult<"attempt"> = {
     ...base,
     selectionNotice: null,
     selectedModel: null,
   };
   // @ts-expect-error モデルを欠く選択は契約外。
-  const noModel: StartResult = {
+  const noModel: StartResult<"attempt"> = {
     ...base,
     selectionNotice: null,
     selectedEffort: null,
   };
   // @ts-expect-error 通知を欠く選択は契約外。
-  const noNotice: StartResult = {
+  const noNotice: StartResult<"attempt"> = {
     ...base,
     selectedModel: null,
     selectedEffort: null,
@@ -95,7 +95,7 @@ test("選択三項目の部分集合を明示結果型が拒否する", () => {
 test("開始成功と拒否は同じFactoryから生成し元のControlとPromiseを保つ", () => {
   const control = Object.freeze({});
   const completion = Promise.resolve(null as never);
-  const started: StartResult = createStartResult({
+  const started: StartResult<"attempt"> = createStartResult({
     status: "started",
     controlCapability: control,
     completion,
@@ -112,7 +112,7 @@ test("開始成功と拒否は同じFactoryから生成し元のControlとPromis
   assert.equal(started.selectedModel, "synthetic");
   assert.equal(Object.isFrozen(started), true);
   assert.equal(Object.hasOwn(started, "cleanupConfirmed"), false);
-  const blocked: StartResult = createStartResult({
+  const blocked: StartResult<"attempt"> = createStartResult({
     status: "blocked",
     reason: "synthetic",
   });

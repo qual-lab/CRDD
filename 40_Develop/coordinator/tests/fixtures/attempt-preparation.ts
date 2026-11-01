@@ -36,7 +36,7 @@ export function createAttemptPreparation<P extends AiProvider>(
       management: unknown,
     ): (PreparedAttemptPlan<P> & AttemptPlan) | null;
   }> {
-  const plans = new WeakMap<Executor, AttemptPlan>();
+  const plans = new WeakMap<Executor<"attempt">, AttemptPlan>();
   const owner = createOwner(provider, dependencies, (request, random) => {
     const values = [random.randomBytes(8), random.randomBytes(32)];
     const replay = () => {

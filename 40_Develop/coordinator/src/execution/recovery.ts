@@ -1114,7 +1114,7 @@ type ProductionPlan = Readonly<{
  * @compatibility DurableRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type DurableRecord = {
-  executor?: Executor;
+  executor?: Executor<"attempt">;
   executorControl?: object;
   capability: object;
   recoveryId: string;
@@ -1167,8 +1167,8 @@ const durableRecords = new WeakMap<object, DurableRecord>();
 export function bindRuntimeOwnedExecutorAttempt(
   capability: object,
   management: object,
-  executor: Executor,
-  started?: StartResult,
+  executor: Executor<"attempt">,
+  started?: StartResult<"attempt">,
 ): boolean {
   const record = durableRecord(capability);
   if (
@@ -1193,7 +1193,7 @@ export function bindRuntimeOwnedExecutorAttempt(
   const control = started.controlCapability;
   record.executorControl = control;
   durableRecords.set(control, record);
-  const close = (result?: TechnicalCompletionResult) => {
+  const close = (result?: TechnicalCompletionResult<"attempt">) => {
     if (record.executorControl !== control) return;
     durableRecords.delete(control);
     delete record.executorControl;
@@ -4135,7 +4135,7 @@ export function markRuntimeOwnedDockerResourceSubmission(
 export function recordRuntimeOwnedUnstartedAttempt(
   capability: object,
   management: object,
-  result: StartResult & Readonly<{ status: "blocked" }>,
+  result: StartResult<"attempt"> & Readonly<{ status: "blocked" }>,
 ): boolean {
   const record = durableRecord(capability);
   if (
@@ -4816,7 +4816,7 @@ export function prepareRuntimeOwnedDockerHostCleanup(
  */
 export function registerRuntimeOwnedReviewFindings(
   capability: object,
-  result: TechnicalCompletionResult,
+  result: TechnicalCompletionResult<"attempt">,
 ) {
   const record = durableRecord(capability);
   const plan = record?.normalRestoration?.plan as RecoveryPlan | undefined;

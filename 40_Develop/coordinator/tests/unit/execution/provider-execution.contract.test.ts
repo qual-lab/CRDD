@@ -9,7 +9,11 @@
  * @boundary Coordinator RuntimeとFake Docker／Host境界。
  */
 import assert from "node:assert/strict";
-import type { ExecutorCallbacks } from "../../../../executor/src/index.ts";
+import type {
+  ExecutorCallbacks,
+  StartInput,
+  AttemptCancelInput,
+} from "../../../../executor/src/index.ts";
 
 import type { PreparationInput as AttemptInput } from "../../../src/execution/types.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
@@ -1331,7 +1335,10 @@ test("技術Planの往復を廃止し上位は同じ試行専用Executorを開�
   const recorded = sourceDeclaration(source, "startRecordedAttempt");
   assert.doesNotMatch(source, /projectExecutionPlan|\.prepare\(state,/);
   assert.match(startSource, /plan\.executor/);
-  assert.match(recorded, /executor\.start\(management, recovery, callbacks\)/);
+  assert.match(
+    recorded,
+    /executor\.start\(\{\s*managementCapability: management,\s*reference: recovery,\s*callbacks,\s*\}\)/,
+  );
   assert.doesNotMatch(recorded, /executor\.start\(plan,/);
 });
 
@@ -1680,11 +1687,14 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
       manualRecoveryRequired: true,
     };
     const executor = {
-      start: (
-        _owner: unknown,
-        _reference: unknown,
-        callbacks: Record<string, (...args: unknown[]) => unknown>,
-      ) => {
+      start: ({
+        managementCapability,
+        reference: supplied,
+        callbacks,
+      }: StartInput<"attempt">) => {
+        assert.strictEqual(managementCapability, management);
+        assert.strictEqual(supplied, reference);
+        assert.ok(callbacks);
         if (mode.startsWith("start_refused")) return blocked;
         callbacks.onResourcesClosed?.(observation);
         callbacks.onCleanupCompleted?.(observation);
@@ -1790,17 +1800,25 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
   };
   let bindings = 0,
     cancellations = 0;
-  let callbacks!: ExecutorCallbacks;
+  let callbacks!: ExecutorCallbacks<"attempt">;
   const executor = {
-    start: (owner: unknown, supplied: unknown, notices: ExecutorCallbacks) => {
-      assert.strictEqual(owner, management);
+    start: ({
+      managementCapability,
+      reference: supplied,
+      callbacks: notices,
+    }: StartInput<"attempt">) => {
+      assert.strictEqual(managementCapability, management);
       assert.strictEqual(supplied, reference);
+      assert.ok(notices);
       callbacks = notices;
       return started;
     },
-    cancel: async (supplied: unknown, owner: unknown) => {
-      assert.strictEqual(supplied, control);
-      assert.strictEqual(owner, management);
+    cancel: async ({
+      controlCapability,
+      managementCapability,
+    }: AttemptCancelInput) => {
+      assert.strictEqual(controlCapability, control);
+      assert.strictEqual(managementCapability, management);
       cancellations++;
       return { status: "requested" };
     },

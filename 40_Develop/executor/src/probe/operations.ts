@@ -316,7 +316,7 @@ export function createIsolationProbe(
         );
       }
     },
-    async cancel(_input) {
+    async cancel() {
       return lifecycle.cancel();
     },
   });

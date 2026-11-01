@@ -1631,7 +1631,7 @@ type taskRuntimeDependencies = Readonly<{
   ) => RuntimeRecord | null;
   registerReviewFindings?: (
     capability: object,
-    result: CompletionResult,
+    result: CompletionResult<"attempt">,
   ) => object | null;
   finalizeDockerRecovery?: (capability: object) => RuntimeRecord;
   readDockerProjectResult?: typeof readRuntimeOwnedDockerProjectResult;
@@ -2079,7 +2079,7 @@ function projectReviewerResultDiagnostics(value: unknown) {
  */
 function projectExecutorResultDiagnostics(
   value: unknown,
-  executionObservation: CompletionResult["providerExecutionObservation"] = null,
+  executionObservation: CompletionResult<"attempt">["providerExecutionObservation"] = null,
 ) {
   const status = ownPlainDataValue(value, "status");
   const changedPaths = snapshotPlainArray<unknown>(
@@ -2737,7 +2737,7 @@ function reportCandidateValidationFailure(
   attempt: 0 | 1,
   candidate: RuntimeRecord | null,
   executorResult: RuntimeRecord,
-  executionObservation: CompletionResult["providerExecutionObservation"] = null,
+  executionObservation: CompletionResult<"attempt">["providerExecutionObservation"] = null,
 ) {
   try {
     if (provider !== "codex" && provider !== "claude") return;
@@ -2794,7 +2794,7 @@ function reportTaskStage(
   attempt: 0 | 1,
   result: RuntimeRecord,
   candidate?: RuntimeRecord,
-  executionObservation: CompletionResult["providerExecutionObservation"] = null,
+  executionObservation: CompletionResult<"attempt">["providerExecutionObservation"] = null,
 ) {
   try {
     if (provider !== "codex" && provider !== "claude") return;
@@ -3181,7 +3181,8 @@ async function executeStageBody(
         operation.managementCapability,
       );
     }
-    const result = (await completion) as CompletionResult & RuntimeRecord;
+    const result = (await completion) as CompletionResult<"attempt"> &
+      RuntimeRecord;
     control.currentProcessControl = null;
     startedProcessControl = null;
     if (!result) {

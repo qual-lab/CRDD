@@ -29,10 +29,10 @@ import type { IsolationProbeOptions } from "./probe/types.ts";
  * @invariant 保存・Task順序・保持判断を所有しない。
  */
 export function createExecutor(
-  request: ExecutorRequest,
+  request: ExecutorRequest<"attempt">,
   options: DockerIsolationRuntimeOptions,
   random?: Readonly<{ randomBytes: (size: number) => Buffer }>,
-): Executor | null;
+): Executor<"attempt"> | null;
 export function createExecutor(
   request: ExecutorRequest<"authentication">,
 ): Executor<"authentication"> | null;
@@ -42,12 +42,16 @@ export function createExecutor(
 ): Executor<"isolation_probe"> | null;
 export function createExecutor(
   request:
-    | ExecutorRequest
+    | ExecutorRequest<"attempt">
     | ExecutorRequest<"authentication">
     | ExecutorRequest<"isolation_probe">,
   options?: DockerIsolationRuntimeOptions | IsolationProbeOptions,
   random?: Readonly<{ randomBytes: (size: number) => Buffer }>,
-): Executor | Executor<"authentication"> | Executor<"isolation_probe"> | null {
+):
+  | Executor<"attempt">
+  | Executor<"authentication">
+  | Executor<"isolation_probe">
+  | null {
   if (!request || typeof request !== "object" || types.isProxy(request))
     return null;
   const kind = Object.getOwnPropertyDescriptor(request, "kind")?.value;
@@ -67,20 +71,18 @@ export function createExecutor(
   if (Object.hasOwn(request, "action")) return null;
   if (kind !== "attempt") return null;
   return createAttemptExecutor(
-    request as ExecutorRequest,
+    request as ExecutorRequest<"attempt">,
     options as DockerIsolationRuntimeOptions,
     random,
   );
 }
 
 export type {
-  DockerRuntimeRepairInput,
-  DockerRuntimeRepairResult,
   DockerRuntimeRestartEvent,
-  DockerRuntimeRestartInput,
   DockerRuntimeRestartResult,
 } from "../../docker-isolation/src/index.ts";
 export type {
+  AttemptCancelInput,
   AttemptDiagnosticNotice,
   AttemptFailureReason,
   AttemptResultReason,
@@ -116,7 +118,7 @@ export type {
   DirectoryResourceInspectionTarget,
 } from "./lifecycle/cleanup-types.ts";
 export type {
-  CancelInput,
+  CancelArguments,
   CancelResult,
   CompletionResult,
   Executor,

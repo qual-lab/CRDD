@@ -16,13 +16,126 @@ import type {
 } from "../../src/authentication/types.ts";
 import {
   createExecutor,
+  restartDockerEnvironment,
+  type ExecutorRequest,
+  type StartResult,
+  type RecordProjection,
+  type CancelArguments,
+  type AttemptCancelInput,
+  type DockerEnvironmentRestartRequest,
   type CompletionResult,
   type Executor,
   type ExecutorCallbacks,
   type StartInput,
 } from "../../src/index.ts";
+import type {
+  DockerIsolationRuntimeOptions,
+  DockerRuntimeRepairInput,
+  DockerRuntimeRepairResult,
+  DockerRuntimeRestartInput,
+} from "../../../docker-isolation/src/index.ts";
 import { executeLifecycle } from "../../src/lifecycle/execute.ts";
 import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
+
+/**
+ * 無指定の公開型を全用途Unionとし、用途確定後の入出力を照合する。
+ * @responsibility 未絞込みの実行、空のAttempt取消、架空のProbe投影を型で拒否する。
+ * @trace ERB-IT-004
+ * @precondition 本体の公開型と所有元の環境型をTypeScriptで確認する。
+ * @stimulus 三用途Union、誤用途、取消引数、mode別環境要求を与える。
+ * @observation tscの正例とexpect-error消費。
+ * @oracle 用途を確定した操作だけ型が一致し、環境の元入力・結果も参照できる。
+ * @cleanup 型だけの関数を呼ばず、外部Effectを発行しない。
+ */
+test("公開型の既定Unionと用途別取消は入出力の相関を維持する", () => {
+  function typesOnly(
+    executor: Executor,
+    request: ExecutorRequest,
+    start: StartResult,
+    result: CompletionResult,
+    projection: RecordProjection,
+    input: StartInput,
+    callbacks: ExecutorCallbacks,
+    args: CancelArguments,
+    attemptInput: StartInput<"attempt">,
+    authenticationInput: StartInput<"authentication">,
+    probeInput: StartInput<"isolation_probe">,
+    cancelInput: AttemptCancelInput,
+    options: DockerIsolationRuntimeOptions,
+    environment: DockerEnvironmentRestartRequest,
+  ) {
+    // @ts-expect-error 用途未確定のUnionへ任意用途の開始入力を渡せない。
+    executor.start(input);
+    // @ts-expect-error Attemptが含まれるUnionでは取消入力を省略できない。
+    executor.cancel();
+    if (executor.kind === "attempt") {
+      const started: StartResult<"attempt"> = executor.start(attemptInput);
+      executor.cancel(cancelInput);
+      // @ts-expect-error Attempt取消の元参照は必須。
+      executor.cancel();
+      void started;
+    } else if (executor.kind === "authentication") {
+      const commonProjection: RecordProjection = executor.recordProjection;
+      const commonInput: StartInput = authenticationInput;
+      const commonCallbacks: ExecutorCallbacks = {
+        onCommandCompleted() {},
+      } satisfies ExecutorCallbacks<"authentication">;
+      const noArguments: CancelArguments = [];
+      void commonProjection;
+      void commonInput;
+      void commonCallbacks;
+      void noArguments;
+      const started: StartResult<"authentication"> =
+        executor.start(authenticationInput);
+      executor.cancel();
+      // @ts-expect-error 認証取消に空ObjectやAttempt入力は渡さない。
+      executor.cancel(cancelInput);
+      void started;
+    } else {
+      const started: StartResult<"isolation_probe"> =
+        executor.start(probeInput);
+      executor.cancel();
+      void started;
+    }
+    if (request.kind === "attempt") {
+      const execution: Executor<"attempt"> | null = createExecutor(
+        request,
+        options,
+      );
+      void execution;
+    } else if (request.kind === "authentication") {
+      const execution: Executor<"authentication"> | null =
+        createExecutor(request);
+      // @ts-expect-error 認証要求をAttempt用Overloadへ渡せない。
+      createExecutor(request, options);
+      void execution;
+    }
+    if (start.kind === "authentication" && start.status === "started") {
+      const completion: Promise<CompletionResult<"authentication">> =
+        start.completion;
+      void completion;
+    }
+    if (result.kind === "attempt") void result.reviewFindings;
+    else if (result.kind === "authentication") void result.authenticationStatus;
+    else void result.containerId;
+    // @ts-expect-error Probeには記録投影を定義しない。
+    const noProjection: RecordProjection<"isolation_probe"> = projection;
+    void noProjection;
+    if (environment.mode === "restart") {
+      const original: DockerRuntimeRestartInput = environment.input;
+      void original;
+    } else {
+      const original: DockerRuntimeRepairInput = environment.input;
+      const pending: Promise<DockerRuntimeRepairResult> =
+        restartDockerEnvironment(environment);
+      void original;
+      void pending;
+    }
+    void callbacks;
+    void args;
+  }
+  void typesOnly;
+});
 
 /**
  * 認証の事前取消を開始拒否として返し、操作を再利用しない。
@@ -58,7 +171,7 @@ test("認証の開始前取消は実行せず開始を拒否する", async () =>
     assert.ok(executor);
     const controller = new AbortController();
     if (external) controller.abort();
-    else await executor.cancel({});
+    else await executor.cancel();
     const result = executor.start({
       assertOwner: () => true,
       readResources: () => [],
@@ -75,7 +188,7 @@ test("認証の開始前取消は実行せず開始を拒否する", async () =>
       "blocked",
     );
     assert.equal(calls, 0);
-    assert.deepEqual(await executor.cancel({}), {
+    assert.deepEqual(await executor.cancel(), {
       status: "blocked",
       reason: "invalid",
     });
@@ -366,10 +479,10 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
 /** 用途が異なる開始・取消・通知を共通名の型が混同しない。 */
 test("共通公開型は用途と開始・取消・結果・通知の対応を維持する", () => {
   function typesOnly(
-    attempt: Executor,
+    attempt: Executor<"attempt">,
     authentication: Executor<"authentication">,
     probe: Executor<"isolation_probe">,
-    input: StartInput,
+    input: StartInput<"attempt">,
   ) {
     attempt.start(input);
     authentication.start({ assertOwner: () => true, readResources: () => [] });
@@ -510,7 +623,7 @@ test("認証は最終取消を反映し清掃例外で一次理由を上書き�
     }).completion;
     if (mode.startsWith("cancel")) {
       await reached;
-      void executor.cancel({});
+      void executor.cancel();
       release();
     }
     assert.ok(pending);
@@ -636,7 +749,7 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
     });
     assert.ok(started.status === "started");
     if (mode === "cancel") {
-      const cancelled = await executor.cancel({});
+      const cancelled = await executor.cancel();
       assert.equal(cancelled.status, "requested");
       if (cancelled.status === "requested")
         assert.equal(cancelled.processTerminationObserved, false);
@@ -647,7 +760,7 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
       "blocked",
     );
     const completed = await started.completion;
-    assert.deepEqual(await executor.cancel({}), {
+    assert.deepEqual(await executor.cancel(), {
       status: "blocked",
       reason: "invalid",
     });

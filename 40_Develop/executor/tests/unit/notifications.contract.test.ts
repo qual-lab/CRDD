@@ -292,7 +292,7 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
       );
       if (mode !== "resolve") assert.equal(result.normalizedResult, null);
     }
-    const invalidResults: CompletionResult[] = [];
+    const invalidResults: CompletionResult<"attempt">[] = [];
     for (const delayed of [false, true]) {
       parses = 0;
       const f = fixture(false, "{}");
@@ -452,7 +452,7 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
     const f = fixture();
     let notified: unknown = null;
     const diagnostics: AttemptDiagnosticNotice[] = [];
-    const callbacks: ExecutorCallbacks =
+    const callbacks: ExecutorCallbacks<"attempt"> =
       mode === "absent"
         ? {}
         : {

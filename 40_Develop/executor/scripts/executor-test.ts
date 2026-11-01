@@ -88,7 +88,7 @@ type AttemptDiagnosticNotice =
       diagnostic: RecoveryStartFailureDiagnostic;
     }>;
 
-type RecordedAttemptResult = CompletionResult &
+type RecordedAttemptResult = CompletionResult<"attempt"> &
   Readonly<{
     mountLeaseReleased: boolean;
     recoveryCompleted: boolean;
@@ -590,8 +590,8 @@ function startRecordedAttempt(
       plan: AttemptPlan,
       management: unknown,
       reference: AttemptReference,
-      callbacks?: ExecutorCallbacks,
-    ): StartResult;
+      callbacks?: ExecutorCallbacks<"attempt">,
+    ): StartResult<"attempt">;
   }>,
   plan: AttemptPlan,
   management: object,
@@ -613,7 +613,7 @@ function startRecordedAttempt(
     if (utilTypes.isPromise(value)) void value.catch(() => {});
     if (value !== true) throw Error("record_unconfirmed");
   }
-  const callbacks: ExecutorCallbacks = {
+  const callbacks: ExecutorCallbacks<"attempt"> = {
     onCommandSubmitting: (purpose) => {
       if (!commandRestrictionAllows(restriction, purpose)) {
         restrictionRejected = true;
@@ -830,8 +830,8 @@ function startHostAttempt(
       plan: AttemptPlan,
       management: unknown,
       reference: AttemptReference,
-      callbacks?: ExecutorCallbacks,
-    ): StartResult;
+      callbacks?: ExecutorCallbacks<"attempt">,
+    ): StartResult<"attempt">;
   }>,
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,
   preparedCapability: unknown,
@@ -1202,7 +1202,7 @@ export function createExecutorTestRuntime(
       plan: AttemptPlan,
       management: unknown,
       reference: AttemptReference,
-      callbacks: ExecutorCallbacks = {},
+      callbacks: ExecutorCallbacks<"attempt"> = {},
     ) => {
       try {
         return start(

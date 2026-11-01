@@ -1605,7 +1605,10 @@ function fixture(
               : {}),
           });
     },
-    registerReviewFindings: (capability: object, result: CompletionResult) => {
+    registerReviewFindings: (
+      capability: object,
+      result: CompletionResult<"attempt">,
+    ) => {
       assert.equal(processCompletionResults.get(capability), result);
       return result.reviewFindings?.length ? Object.freeze({}) : null;
     },
