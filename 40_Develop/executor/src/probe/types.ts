@@ -49,13 +49,16 @@ export type IsolationProbeRequest = Readonly<{
  * @security 保存Writer・Root権限・認証値を含めない。
  * @compatibility 既存Hostの四所在と実体確認を利用する。
  */
+export type IsolationProbeMounts = Readonly<{
+  management: string;
+  workspace: string;
+  providerHome: string;
+  tmp: string;
+}>;
+
+/** 上位が現在Ownerを確認して返す固定四所在の同期Query。 */
 export type IsolationProbeOptions = Readonly<{
-  readMounts: () => Readonly<{
-    management: string;
-    workspace: string;
-    providerHome: string;
-    tmp: string;
-  }>;
+  readMounts: () => IsolationProbeMounts;
 }>;
 
 /**

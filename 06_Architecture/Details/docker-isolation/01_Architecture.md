@@ -1,5 +1,7 @@
 # Docker隔離の詳細設計
 
+Probeの既存Binding返却型はDockerProbeRuntimeBindingとして明示し、Executorが同じ型を再利用する。新しい技術操作は追加しない。createDockerProbeRuntimeBindingはCLI観測後、借用management内へdocker-configとdocker-homeを作成してから環境を構成するため、Effectなしの値構築とは扱わない。部分作成失敗時のHost領域の処置は既存の上位Host Ownerが所有する。
+
 ## Container観測・回収の共通化（2026-11-01）
 
 Probe専用のcontainer.ts／configuration.tsをcleanup配下のContainer技術処理へ統合する。既存の構成投影をID・名前・所有Label・Image・User・Entrypoint・完全Command候補・Mountの技術値へ整理し、観測と削除はProbe ID・故障Profile・Host保存を解釈しない。これは保存モデルや汎用管理機構の新設ではない。固定作成構成の選択は既存plannerに維持し、任意の照合関数や検査省略条件は公開しない。

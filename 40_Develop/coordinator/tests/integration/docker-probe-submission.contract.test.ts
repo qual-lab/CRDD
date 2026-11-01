@@ -84,6 +84,9 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", asyn
   const id = "a".repeat(64);
   for (const scenario of [
     "engine",
+    "binding-mkdir1",
+    "binding-mkdir2",
+    "binding-environment",
     "save-null",
     "rollback",
     "unknown",
@@ -111,6 +114,10 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", asyn
         getOwnedHostRecoveryId: () => "host",
         createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
           assert.equal(readManagement(), mounts.management);
+          if (scenario.startsWith("binding-")) {
+            calls.push(scenario);
+            throw Error(scenario);
+          }
           return {};
         },
         createOwnedMountCapability: () => ({}),
@@ -222,8 +229,9 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", asyn
       fakeProviderLifecycle: { diagnosticDockerContainerEffectIssued: boolean };
     }>;
     const result = await run(owned, null);
-    const expected =
-      scenario === "engine"
+    const expected = scenario.startsWith("binding-")
+      ? [scenario, "pre-cleanup"]
+      : scenario === "engine"
         ? ["engine", "pre-cleanup"]
         : scenario === "save-null"
           ? ["engine", "begin", "save-null", "rollback", "pre-cleanup"]

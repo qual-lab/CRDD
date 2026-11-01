@@ -85,6 +85,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
     ...original,
     createDockerProbeRuntimeBinding: (read: () => string) => {
       assert.equal(read(), "management");
+      if (mode.startsWith("binding_")) throw Error(mode);
       return binding;
     },
     observeDockerProbeEngine: (actual: unknown) => {
@@ -180,6 +181,12 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       "cancel",
       "changed",
       "late_cancel",
+      "pre_cancel",
+      "prepare_throw",
+      "prepare_invalid",
+      "binding_mkdir1",
+      "binding_mkdir2",
+      "binding_environment",
     ]) {
       events.length = 0;
       changed = false;
@@ -189,16 +196,20 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
           probeId: "12345678-1234-4234-8234-123456789abc",
         },
         {
-          readMounts: () => ({
-            management: "management",
-            workspace: changed ? "other" : "workspace",
-            providerHome: "home",
-            tmp: "tmp",
-          }),
+          readMounts: () => {
+            if (mode === "prepare_throw") throw Error("read");
+            return {
+              management: mode === "prepare_invalid" ? "" : "management",
+              workspace: changed ? "other" : "workspace",
+              providerHome: "home",
+              tmp: "tmp",
+            };
+          },
         },
       );
       assert.ok(executor);
       cancel = () => executor.cancel({});
+      if (mode === "pre_cancel") await executor.cancel({});
       let delivered: unknown = null;
       const start = executor.start({
         callbacks: {
@@ -218,8 +229,34 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
           },
         },
       });
+      if (["pre_cancel", "prepare_throw", "prepare_invalid"].includes(mode)) {
+        assert.equal(start.status, "blocked");
+        if (start.status === "blocked") {
+          assert.equal(
+            start.reason,
+            mode === "pre_cancel"
+              ? "docker_probe_start_cancelled"
+              : "docker_probe_preparation_failed",
+          );
+          assert.equal(start.completion, null);
+        }
+        assert.deepEqual(events, []);
+        assert.equal(executor.start({}).status, "blocked");
+        assert.deepEqual(await executor.cancel({}), {
+          status: "blocked",
+          reason: "invalid",
+        });
+        continue;
+      }
       assert.ok(start.status === "started");
       const result = await start.completion;
+      if (mode.startsWith("binding_")) {
+        assert.equal(result.status, "blocked");
+        assert.equal(result.cleanupConfirmed, false);
+        assert.equal(result.creationAttempted, false);
+        assert.equal(result.containerId, null);
+        assert.deepEqual(events, []);
+      }
       assert.equal(result.kind, "isolation_probe");
       if (mode === "normal") assert.equal(result.status, "completed");
       if (mode === "late_cancel") {

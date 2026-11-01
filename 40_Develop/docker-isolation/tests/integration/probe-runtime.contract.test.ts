@@ -171,6 +171,7 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
     "relative",
     "noncanonical",
     "mkdir",
+    "mkdir-home",
     "environment",
     "normal",
   ] as const) {
@@ -200,7 +201,11 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
           mkdirSync: (target: string) => {
             events.push(`mkdir:${path.basename(target)}`);
             assert.equal(path.dirname(target), management);
-            if (mode === "mkdir") throw new Error("fixed_mkdir_failure");
+            if (
+              mode === "mkdir" ||
+              (mode === "mkdir-home" && path.basename(target) === "docker-home")
+            )
+              throw new Error("fixed_mkdir_failure");
           },
         },
         createDockerCliEnvironment: (options: {
@@ -253,7 +258,7 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
             ? "docker_cli_untrusted"
             : mode === "mount"
               ? "fixed_mount_failure"
-              : mode === "mkdir"
+              : mode === "mkdir" || mode === "mkdir-home"
                 ? "fixed_mkdir_failure"
                 : mode === "environment"
                   ? "docker_runtime_environment_unavailable"
@@ -263,7 +268,15 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
         events.filter((event) => event === "read").length,
         ["platform", "cli"].includes(mode) ? 0 : 1,
       );
-      if (!["mkdir", "environment"].includes(mode))
+      if (mode === "mkdir" || mode === "mkdir-home") {
+        assert.deepEqual(
+          events.filter((event) => event.startsWith("mkdir:")),
+          mode === "mkdir"
+            ? ["mkdir:docker-config"]
+            : ["mkdir:docker-config", "mkdir:docker-home"],
+        );
+      }
+      if (!["mkdir", "mkdir-home", "environment"].includes(mode))
         assert.equal(
           events.filter((event) => event.startsWith("mkdir:")).length,
           0,

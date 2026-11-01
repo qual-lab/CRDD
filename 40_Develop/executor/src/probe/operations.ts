@@ -12,6 +12,7 @@ import {
   createDockerProbeContainer,
   createDockerProbeRuntimeBinding,
   type DockerProbeProfile,
+  type DockerProbeRuntimeBinding,
   describeDockerProbeConfiguration,
   inspectDockerContainer,
   observeDockerProbeEngine,
@@ -21,6 +22,7 @@ import { executeLifecycle } from "../lifecycle/execute.ts";
 import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import type { Executor, StartInput } from "../lifecycle/types.ts";
 import type {
+  IsolationProbeMounts,
   IsolationProbeOptions,
   IsolationProbeRequest,
   IsolationProbeResult,
@@ -111,9 +113,12 @@ export function createIsolationProbe(
         return Object.freeze({
           kind: "isolation_probe",
           status: "blocked",
-          reason: "docker_probe_already_started",
+          reason: lifecycle.cancellationRequested
+            ? "docker_probe_start_cancelled"
+            : "docker_probe_already_started",
           completion: null,
         });
+      let initial: IsolationProbeMounts;
       try {
         if (
           !callbacks ||
@@ -133,14 +138,29 @@ export function createIsolationProbe(
           )
             throw new Error("docker_probe_notification_invalid");
         }
-      } catch (error) {
+        initial = captureMounts(read());
+      } catch {
         lifecycle.finish();
-        throw error;
+        return Object.freeze({
+          kind: "isolation_probe",
+          status: "blocked",
+          reason: "docker_probe_preparation_failed",
+          completion: null,
+        });
+      }
+      if (lifecycle.cancellationRequested) {
+        lifecycle.finish();
+        return Object.freeze({
+          kind: "isolation_probe",
+          status: "blocked",
+          reason: "docker_probe_start_cancelled",
+          completion: null,
+        });
       }
       return Object.freeze({
         kind: "isolation_probe",
         status: "started",
-        completion: execute().finally(() => lifecycle.finish()),
+        completion: execute(),
       });
       async function execute(): Promise<IsolationProbeResult> {
         let containerId: string | null = null;
@@ -149,7 +169,7 @@ export function createIsolationProbe(
           processCompletionConfirmed = true;
         let facts: IsolationProbeResult["facts"] = null;
         let reason: string | null = null;
-        const initial = captureMounts(read());
+        let cli: DockerProbeRuntimeBinding | null = null;
         const readMounts = () => {
           const current = captureMounts(read());
           if (
@@ -162,15 +182,15 @@ export function createIsolationProbe(
             throw new Error("owned_operation_mount_replaced");
           return current;
         };
-        const cli = createDockerProbeRuntimeBinding(
-          () => readMounts().management,
-        );
         return executeLifecycle(
           {
             async execute() {
               try {
                 if (lifecycle.signal.aborted)
                   throw new Error("docker_probe_start_cancelled");
+                cli = createDockerProbeRuntimeBinding(
+                  () => readMounts().management,
+                );
                 if (!observeDockerProbeEngine(cli)) {
                   reason = "local_docker_desktop_linux_engine_required";
                   return;
@@ -243,7 +263,7 @@ export function createIsolationProbe(
             },
             shouldCleanup: () => processCompletionConfirmed,
             async cleanup() {
-              if (containerId) {
+              if (containerId && cli) {
                 try {
                   const current = readMounts();
                   const cleanup = cleanupDockerContainer(
@@ -317,12 +337,7 @@ export function createIsolationProbe(
  * @security getterを実行せず秘密値を通知しない。
  * @concurrency await後も同じ検査を適用する。
  */
-function captureMounts(value: unknown): Readonly<{
-  management: string;
-  workspace: string;
-  providerHome: string;
-  tmp: string;
-}> {
+function captureMounts(value: unknown): IsolationProbeMounts {
   if (types.isPromise(value))
     void Promise.prototype.then.call(value, undefined, () => undefined);
   if (!value || typeof value !== "object" || types.isProxy(value))

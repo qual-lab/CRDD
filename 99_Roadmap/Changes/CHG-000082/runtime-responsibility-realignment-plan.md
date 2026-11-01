@@ -1,5 +1,17 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## Executor事前取消・外部Signal・Probe準備境界の是正（2026-11-01）
+
+基準版40c6d8a12。人間はA事前取消を開始拒否・再利用不可、B外部／明示／内部停止の一回配送、C準備と資源取得以後の回収境界の限定是正を指示した。変更分類は実行契約の不具合是正。Executor／DI詳細・QA-000006、直接利用側の試験を追従し、SourceおよびArchitecture／Qualityの独立レビューを行う。準拠・Release基準、保存Schema・Checkpoint／Diagnostic内容、AttemptのCapability・Home保証、Provider方式・Image・Network、Environment特殊操作は変更しない。
+
+着手前確認でDIのBinding生成が第一／第二mkdirと環境構築を行うことを確認し、Effectなし準備ではなく共通RunnerのExecuteへ移す案に修正した。初回Mount読取りは開始前に検査し、失敗時はblockedと終端を返す。Binding部分失敗は回収成功にせず既存上位Host清掃へ接続する。既存の推論型ProbeBindingを明示的DockerProbeRuntimeBindingへ整理し、返却型を再利用するためだけにDI Rootへ型を追加する。新しい操作API・Manager・Store・回復Stateは追加しない。外部listenerは登録直後の中断再確認、後接続の一回配送、Reject捕捉とfinish時解除を確認する。
+
+対象の実装・非AI受入条件を確認した。認証の明示事前取消／外部事前abortとProbeの事前取消はstart拒否・終端・再利用不可。外部abort／明示取消／内部停止は共通のrequestCancellationと一つの配送Promiseへ接続し、listener登録直後の中断再確認、Handler後接続、配送Reject捕捉とfinish後listener零を確認した。初回Mount読取り失敗は開始拒否、Binding部分失敗はContainer未発行・cleanup未確認の同じ結果を既存上位Host清掃へ返す。実Runner内の結果構築throwでもfinishし、外側の二重finallyは撤去した。
+
+最終結果はExecutorのnpm run test:run全84件、Coordinator対象10 Suite 182件、DIのprobe-runtime.contract.test.ts 5件が成功。Executorのnpm run check、Coordinator／DI／MCP／Workbenchの型検査と差分空白検査も成功した。共通制御・Runnerの有界coverageはNode v24.19.0、--test-coverage-include=**/src/lifecycle/operations.tsと同execute.ts、unit/lifecycle.contract.test.ts・notifications.contract.test.ts・probe.contract.test.tsの16件で測定し、operations 39/39、execute 15/15、計54/54分岐・176/176行・15/15関数、未到達／除外零。Package全体のcoverageとは扱わない。標準出力はTool実行記録に保持し、Repositoryへ重複保存せず同じコマンドで再生成できる。
+
+SourceおよびArchitecture／Qualityの独立レビューは必須指摘零。文書参照展開検査は既存3,356指摘で終了1、変更対象5文書の指摘零。Bindingの段階故障・Host清掃は有限代役による接続検証であり、実Filesystemの部分残存・削除成立や実Dockerの再成立を証明しない。実AI・Docker・過去保持物は操作していない。全体QA・Releaseの成立も主張しない。
+
 ## Executor実行制御の共通Owner化（2026-11-01）
 
 基準版00ebf3664。人間は公開型だけでなく三用途の開始・取消・終端制御を共通化する方針と、File名lifecycle/operations.tsを承認した。変更分類は実行契約・責務配置のRefactor。Executor詳細・QA-000006、Coordinatorの直接利用側と検証用VM接続を追従する。着手前の読取専用確認で、内部停止も同じ取消へ接続すること、不正Capabilityが取消を消費しないこと、結果固定後の受動通知再入を拒否することを計画へ統合した。SourceとArchitecture／Qualityの独立レビューを行い、準拠・Release基準を変更しないためそれらの監査は発火しない。

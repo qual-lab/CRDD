@@ -22,6 +22,7 @@ export {
   planDockerProbeCreation,
   describeDockerProbeConfiguration,
   type DockerProbeProfile,
+  type DockerProbeRuntimeBinding,
 } from "./probe/execute.ts";
 export {
   inspectDockerContainer,

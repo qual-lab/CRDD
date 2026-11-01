@@ -65,7 +65,9 @@ export function bindAuthenticationLifecycle(
         return Object.freeze({
           kind: "authentication",
           status: "blocked",
-          reason: "provider_authentication_already_started",
+          reason: lifecycle.cancellationRequested
+            ? "provider_authentication_cancelled"
+            : "provider_authentication_already_started",
           completion: null,
         });
       const signal = lifecycle.signal;

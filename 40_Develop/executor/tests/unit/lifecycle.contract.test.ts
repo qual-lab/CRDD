@@ -7,6 +7,7 @@
  * @boundary 技術生涯と上位の保存・Home解放。
  */
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import test from "node:test";
 import { bindAuthenticationLifecycle } from "../../src/authentication/operations.ts";
 import type {
@@ -22,6 +23,136 @@ import {
 } from "../../src/index.ts";
 import { executeLifecycle } from "../../src/lifecycle/execute.ts";
 import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
+
+/**
+ * 認証の事前取消を開始拒否として返し、操作を再利用しない。
+ * @responsibility Signalと開始結果の拒否理由を本番Facadeで接続する。
+ * @trace ERB-IT-004
+ * @precondition 有限認証操作と未開始Executor。
+ * @stimulus 明示取消又は外部Signalの事前abort。
+ * @observation execute/cleanup件数、元Projection、拒否理由、再開始結果。
+ * @oracle 操作零、cancelled理由のblocked、completionなし、再開始拒否。
+ * @cleanup 制御は開始拒否時に終端し、外部資源なし。
+ */
+test("認証の開始前取消は実行せず開始を拒否する", async () => {
+  for (const external of [false, true]) {
+    let calls = 0;
+    const core: Authentication = {
+      projection: {
+        provider: "codex",
+        action: "status",
+        ownershipLabel: "synthetic",
+        resources: [],
+      },
+      async execute() {
+        calls++;
+        throw Error("unexpected");
+      },
+      async cleanup() {
+        calls++;
+        throw Error("unexpected");
+      },
+      isProcessCompletionConfirmed: () => true,
+    };
+    const executor = bindAuthenticationLifecycle(core);
+    assert.ok(executor);
+    const controller = new AbortController();
+    if (external) controller.abort();
+    else await executor.cancel({});
+    const result = executor.start({
+      assertOwner: () => true,
+      readResources: () => [],
+      ...(external ? { signal: controller.signal } : {}),
+    });
+    assert.equal(result.status, "blocked");
+    if (result.status === "blocked") {
+      assert.equal(result.reason, "provider_authentication_cancelled");
+      assert.equal(result.completion, null);
+    }
+    assert.equal(
+      executor.start({ assertOwner: () => true, readResources: () => [] })
+        .status,
+      "blocked",
+    );
+    assert.equal(calls, 0);
+    assert.deepEqual(await executor.cancel({}), {
+      status: "blocked",
+      reason: "invalid",
+    });
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+  }
+});
+
+/**
+ * 外部中断と明示取消を同じ一回配送と購読寿命へ接続する。
+ * @responsibility 事前取消拒否、登録境界、遅延Handler、Rejectと終端後無配送を反証する。
+ * @trace ERB-IT-004
+ * @precondition Node標準AbortControllerと有限Promiseだけを使う。
+ * @stimulus 事前abort・登録中abort・登録前後abort・重複取消・終端後abort。
+ * @observation 配送件数、拒否理由、実Signalのlistener数、終端印。
+ * @oracle 配送一回、購読残存零、事前取消は再開始不可。
+ * @cleanup 全制御をfinishし、保留中の配送を確定する。
+ */
+test("外部Signalは共通取消へ一回配送され終端で購読を解放する", async () => {
+  const pre = new AbortController();
+  pre.abort();
+  const refused = createLifecycleOperations();
+  assert.equal(refused.start(pre.signal), false);
+  assert.equal(refused.finished, true);
+  assert.equal(refused.cancellationRequested, true);
+  assert.equal(refused.start(), false);
+  assert.equal(getEventListeners(pre.signal, "abort").length, 0);
+
+  for (const late of [false, true]) {
+    const external = new AbortController();
+    const control = createLifecycleOperations();
+    assert.equal(control.start(external.signal), true);
+    assert.equal(getEventListeners(external.signal, "abort").length, 1);
+    let calls = 0;
+    const handler = async () => {
+      calls++;
+      throw Error("delivery");
+    };
+    if (!late) control.bindCancellation(handler);
+    external.abort();
+    if (late) control.bindCancellation(handler);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(calls, 1);
+    assert.deepEqual(await control.cancel(), {
+      status: "blocked",
+      reason: "duplicate",
+    });
+    control.finish();
+    assert.equal(getEventListeners(external.signal, "abort").length, 0);
+  }
+
+  const race = new AbortController();
+  const add = race.signal.addEventListener.bind(race.signal);
+  Object.defineProperty(race.signal, "addEventListener", {
+    value: (type: string, listener: () => void, options: { once: boolean }) => {
+      race.abort();
+      add(type, listener, options);
+    },
+  });
+  const racing = createLifecycleOperations();
+  assert.equal(racing.start(race.signal), false);
+  assert.equal(racing.finished, true);
+  assert.equal(getEventListeners(race.signal, "abort").length, 0);
+
+  const after = new AbortController();
+  const ended = createLifecycleOperations();
+  ended.start(after.signal);
+  let deliveries = 0;
+  ended.bindCancellation(async () => {
+    deliveries++;
+    return true;
+  });
+  ended.finish();
+  after.abort();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(deliveries, 0);
+  assert.equal(getEventListeners(after.signal, "abort").length, 0);
+});
 
 /**
  * 公開用途の欠測・未知・矛盾を技術準備前に拒否する。
@@ -82,7 +213,8 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
     status: "blocked",
     reason: "duplicate",
   });
-  assert.equal(before.start(), true);
+  assert.equal(before.start(), false);
+  assert.equal(before.finished, true);
   assert.equal(before.start(), false);
   let delivered = 0;
   before.bindCancellation(async () => {
@@ -94,7 +226,21 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
     return true;
   });
   await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(delivered, 0);
+  const delayed = createLifecycleOperations();
+  assert.equal(delayed.start(), true);
+  assert.equal((await delayed.cancel()).status, "requested");
+  delayed.bindCancellation(async () => {
+    delivered++;
+    return true;
+  });
+  delayed.bindCancellation(async () => {
+    delivered++;
+    return true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(delivered, 1);
+  delayed.finish();
   before.finish();
   assert.deepEqual(await before.cancel(), {
     status: "blocked",
@@ -177,6 +323,28 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(fixedResult, { status: "completed", cancelled: false });
   assert.deepEqual(afterResult, { status: "blocked", reason: "invalid" });
+
+  const throwing = createLifecycleOperations();
+  throwing.start();
+  await assert.rejects(
+    executeLifecycle(
+      {
+        async execute() {},
+        async cleanup() {},
+        createResult() {
+          throw null;
+        },
+      },
+      undefined,
+      throwing,
+    ),
+    (error) => error === null,
+  );
+  assert.equal(throwing.finished, true);
+  assert.deepEqual(await throwing.cancel(), {
+    status: "blocked",
+    reason: "invalid",
+  });
 
   let cleanupCalls = 0;
   await executeLifecycle(

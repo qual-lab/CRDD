@@ -55,7 +55,10 @@ export type DockerProbeProfile =
  * @security この型からAuthorityを発行しない。
  * @compatibility 既存要求のCLI再確認を維持する。
  */
-type ProbeBinding = Parameters<typeof executeDockerProbeCommand>[0];
+export type DockerProbeRuntimeBinding = Readonly<{
+  verifyCli: () => string;
+  environment: () => Readonly<Record<string, string>>;
+}>;
 
 /**
  * Probeの同操作CLIと固定環境を構成する。
@@ -74,7 +77,7 @@ type ProbeBinding = Parameters<typeof executeDockerProbeCommand>[0];
  */
 export function createDockerProbeRuntimeBinding(
   readManagement: () => string,
-): ProbeBinding {
+): DockerProbeRuntimeBinding {
   if (process.platform !== "win32")
     throw new Error("docker_backend_platform_unsupported");
   let snapshot: ReturnType<typeof observeTrustedDockerCli>;
@@ -417,7 +420,9 @@ export function describeDockerProbeConfiguration(
  * @security 任意Engineやargvを受けない。
  * @concurrency 同期完了後だけ返す。
  */
-export function observeDockerProbeEngine(binding: ProbeBinding): boolean {
+export function observeDockerProbeEngine(
+  binding: DockerProbeRuntimeBinding,
+): boolean {
   const execution = executeDockerProbeCommand(
     binding,
     { purpose: "version" },
@@ -446,7 +451,7 @@ export function observeDockerProbeEngine(binding: ProbeBinding): boolean {
  * @concurrency 同期一要求だけ。
  */
 export function createDockerProbeContainer(
-  binding: ProbeBinding,
+  binding: DockerProbeRuntimeBinding,
   profile: DockerProbeProfile,
   probeId: string,
   mounts: Readonly<{ workspace: string; providerHome: string; tmp: string }>,
@@ -484,7 +489,7 @@ export function createDockerProbeContainer(
  * @concurrency 同期完了後だけ事実を返す。
  */
 export function runDockerProbeToCompletion(
-  binding: ProbeBinding,
+  binding: DockerProbeRuntimeBinding,
   profile: DockerProbeProfile,
   containerId: string,
 ) {
@@ -517,7 +522,7 @@ export function runDockerProbeToCompletion(
  * @concurrency 重複取消は同じHandleの一回終端へ収束する。
  */
 export async function runDockerProbeAsync(
-  binding: ProbeBinding,
+  binding: DockerProbeRuntimeBinding,
   profile: DockerProbeProfile,
   containerId: string,
   signal: AbortSignal,
@@ -592,7 +597,7 @@ export async function runDockerProbeAsync(
  * @concurrency await後はfresh所有確認、遅延通知で失敗を巻き戻さない。
  */
 export async function runDockerProbeCancellation(
-  binding: ProbeBinding,
+  binding: DockerProbeRuntimeBinding,
   identity: Readonly<{ id: string; probeId: string }>,
   readCurrentMounts: () => ProbeMounts,
 ) {
@@ -750,7 +755,7 @@ export async function runDockerProbeCancellation(
  * @concurrency start前後で同じ三Pathを確認する。
  */
 export function startDockerProbeResidue(
-  binding: ProbeBinding,
+  binding: DockerProbeRuntimeBinding,
   identity: Readonly<{ id: string; probeId: string }>,
   readCurrentMounts: () => ProbeMounts,
 ) {
