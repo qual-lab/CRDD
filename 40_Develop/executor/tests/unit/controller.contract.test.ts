@@ -27,6 +27,7 @@ import type { StartResult } from "../../src/index.ts";
  */
 test("選択三項目の部分集合を明示結果型が拒否する", () => {
   const base = {
+    kind: "attempt" as const,
     status: "blocked" as const,
     reason: "synthetic",
     controlCapability: null,
@@ -200,7 +201,11 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
     );
     assert.equal("prepare" in executor, false);
     assert.equal(Object.isFrozen(executor.recordProjection), true);
-    const result = executor.start(management, reference, callbacks);
+    const result = executor.start({
+      managementCapability: management,
+      reference,
+      callbacks,
+    });
     assert.equal(Object.hasOwn(result, "selectedModel"), false);
     assert.equal(Object.hasOwn(result, "preparationFailed"), false);
     if (result.status === "started") {

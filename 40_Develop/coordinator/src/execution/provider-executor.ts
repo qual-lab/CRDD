@@ -4,71 +4,74 @@
  * @trace ARCH-000008
  * @boundary CoordinatorのHost管理とExecutorの技術生涯の間。
  */
-import {
-  createExecutor,
-  type ExecutorCallbacks,
-  type AttemptRequest,
-  type ProcessStartedNotice,
-  type Executor,
-  type StartResult,
-  type AttemptTerminalObservation,
-} from "../../../executor/src/index.ts";
-import {
-  snapshotReadyRecovery,
-  snapshotBlockedRecoveryWithExactId,
-  ownDataValue,
-  inspectRecoveryStartFailureDiagnostic,
-  resolveRecoveryStartReason,
-  resolveRecoveryReference,
-} from "./validation.ts";
-import type { RecoveryStartFailureDiagnostic, RecoveryPlan } from "./types.ts";
+
+import { types as utilTypes } from "node:util";
 import type { AiProvider } from "../../../ai-adapter/src/index.ts";
-import type { PreparationInput, PreparedAttemptPlan } from "./types.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import {
+  type AttemptTerminalObservation,
+  createExecutor,
+  type Executor,
+  type ExecutorCallbacks,
+  type ExecutorRequest,
+  type ProcessStartedNotice,
+  type StartResult,
+} from "../../../executor/src/index.ts";
 import {
   completeRuntimeOwnedProviderHomeMount,
   consumeRuntimeOwnedProviderAuthority,
   revokeRuntimeOwnedProviderAuthority,
 } from "./authority.ts";
-import {
-  verifyRuntimeOwnedRepositoryOperation,
-  borrowOwnedDockerExecutionPaths,
-  borrowOwnedOperationExecutionSelection,
-} from "./operation.ts";
-import {
-  createProviderDockerRuntimeDependencies,
-  createAttemptPreparation,
-} from "./preparation.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "./controller.ts";
 import {
-  abandonRuntimeOwnedDockerRecovery,
-  bindRuntimeOwnedExecutorAttempt,
-  cancelRuntimeOwnedExecutorAttempt,
+  borrowOwnedDockerExecutionPaths,
+  borrowOwnedOperationExecutionSelection,
+  verifyRuntimeOwnedRepositoryOperation,
+} from "./operation.ts";
+import {
+  createAttemptPreparation,
+  createProviderDockerRuntimeDependencies,
+} from "./preparation.ts";
+import {
   abandonRuntimeOwnedExecutorAttempt as abandonBoundExecutorAttempt,
+  abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
   bindRuntimeOwnedDockerInitializationFailure,
+  bindRuntimeOwnedExecutorAttempt,
+  cancelRuntimeOwnedExecutorAttempt,
   inspectRuntimeOwnedDockerResourceReceipts,
   markRuntimeOwnedDockerResourceSubmission,
+  recordRuntimeOwnedAttemptCleanup,
   recordRuntimeOwnedDockerProviderSubmission,
-  recordRuntimeOwnedDockerTerminalObservation,
   recordRuntimeOwnedDockerResourceNotIssued,
   recordRuntimeOwnedDockerResourceReceipt,
-  verifyRuntimeOwnedDockerRecoveryBinding,
-  recordRuntimeOwnedAttemptCleanup,
+  recordRuntimeOwnedDockerTerminalObservation,
   recordRuntimeOwnedUnstartedAttempt,
+  verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./recovery.ts";
-
-import { types as utilTypes } from "node:util";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import type {
-  ExecutionRecordOperations,
-  Recovery,
   AttemptCleanupResult,
+  ExecutionRecordOperations,
+  PreparationInput,
+  PreparedAttemptPlan,
   RecordedAttemptResult,
   RecordedStartResult,
+  Recovery,
+  RecoveryPlan,
+  RecoveryStartFailureDiagnostic,
 } from "./types.ts";
+import {
+  inspectRecoveryStartFailureDiagnostic,
+  ownDataValue,
+  resolveRecoveryReference,
+  resolveRecoveryStartReason,
+  snapshotBlockedRecoveryWithExactId,
+  snapshotReadyRecovery,
+} from "./validation.ts";
+
 const preparationHost = createProviderDockerRuntimeDependencies();
 const createAttemptExecutor = (
-  request: AttemptRequest,
+  request: ExecutorRequest,
   random: Readonly<{ randomBytes: (size: number) => Buffer }>,
 ) =>
   createExecutor(
@@ -188,6 +191,7 @@ function createBlockedPreparationStart(
   reason: string,
 ): StartResult & Readonly<{ status: "blocked" }> {
   return Object.freeze({
+    kind: "attempt",
     status: "blocked",
     reason,
     controlCapability: null,
@@ -596,7 +600,11 @@ function startRecordedAttempt(
     executor,
   );
   const started = bound
-    ? executor.start(management, recovery, callbacks)
+    ? executor.start({
+        managementCapability: management,
+        reference: recovery,
+        callbacks,
+      })
     : Object.freeze({
         ...createBlockedPreparationStart(
           "docker_process_controller_recovery_unavailable",
@@ -614,7 +622,12 @@ function startRecordedAttempt(
     )
   ) {
     controlBindingConfirmed = false;
-    void executor.cancel(started.controlCapability, management).catch(() => {});
+    void executor
+      .cancel({
+        controlCapability: started.controlCapability,
+        managementCapability: management,
+      })
+      .catch(() => {});
     // 元completionを上位の終了保存へjoinし、開始済みの試行を未開始へ戻さない。
   }
   if (started.status !== "started") {

@@ -8,7 +8,7 @@ import type {
   ProviderAuthenticationResult,
 } from "../../../ai-adapter/src/index.ts";
 import type { DockerAuthenticationCommand } from "../../../docker-isolation/src/index.ts";
-import type { AuthenticationCallbacks } from "../lifecycle/callbacks.ts";
+import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
  * 認証の技術構成入力。
@@ -92,20 +92,10 @@ export type AuthenticationStartContext = Readonly<{
 /** 認証の観測事実と、同じ実行の清掃結果。上位保存の完了とは区別する。 */
 export type AuthenticationCompletionResult = AuthenticationResult &
   Readonly<{
+    kind: "authentication";
+    status: "completed" | "blocked" | "cancelled";
     cleanupConfirmed: boolean;
   }>;
-
-/** 認証も一回の開始・取消・清掃を含む完了として扱う。 */
-export interface AuthenticationExecutor {
-  readonly recordProjection: AuthenticationProjection;
-  start(
-    context: AuthenticationStartContext,
-    callbacks?: AuthenticationCallbacks,
-  ): Readonly<{
-    completion: Promise<AuthenticationCompletionResult>;
-  }>;
-  cancel(): void;
-}
 
 /**
  * 一つの認証構成に結び付いた実行・回収。
@@ -122,12 +112,12 @@ export interface Authentication {
   execute(
     signal: AbortSignal | undefined,
     assertOwner: () => boolean,
-    callbacks?: AuthenticationCallbacks,
+    callbacks?: ExecutorCallbacks<"authentication">,
   ): Promise<AuthenticationResult>;
   cleanup(
     readResources: () => AuthenticationProjection["resources"] | null,
     assertOwner: () => boolean,
-    callbacks?: AuthenticationCallbacks,
+    callbacks?: ExecutorCallbacks<"authentication">,
   ): Promise<AuthenticationCleanupResult>;
   isProcessCompletionConfirmed(): boolean;
 }

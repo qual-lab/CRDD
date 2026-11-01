@@ -6,7 +6,6 @@
  */
 
 import type { DockerProbeExecutionFacts } from "../../../docker-isolation/src/index.ts";
-import type { IsolationProbeCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
  * 固定合成Probeの相関。Provider・Model・任意Scriptを指定しない。
@@ -52,6 +51,8 @@ export type IsolationProbeOptions = Readonly<{
  * @compatibility DIの既存事実型を再利用し、上位保存Schemaは変えない。
  */
 export type IsolationProbeResult = Readonly<{
+  kind: "isolation_probe";
+  status: "completed" | "blocked" | "cancelled";
   reason: string | null;
   creationAttempted: boolean;
   containerId: string | null;
@@ -60,19 +61,3 @@ export type IsolationProbeResult = Readonly<{
   processCompletionConfirmed: boolean;
   cancelled: boolean;
 }>;
-/**
- * 一回の開始と、同じ生涯へ届く取消。完了は技術回収までを含む。
- * @responsibility 一回の技術生涯と終了待機を公開する。
- * @trace ARCH-000008
- * @shape startのcompletionと、同じSignalへ届くcancel。
- * @invariant Task計画・再試行・保存・永続状態を持たない。
- * @boundary 既存createExecutorの合成Probe overload。
- * @security 任意Processや下位実装を注入する入口を公開しない。
- * @compatibility 通常Provider Attemptの開始・取消契約は変更しない。
- */
-export interface IsolationProbeExecutor {
-  start(
-    callbacks?: IsolationProbeCallbacks,
-  ): Readonly<{ completion: Promise<IsolationProbeResult> }>;
-  cancel(): void;
-}

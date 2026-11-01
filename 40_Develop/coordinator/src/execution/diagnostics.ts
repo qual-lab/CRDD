@@ -5,103 +5,101 @@
  * @trace ARCH-000004
  */
 
-import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
-import {
-  createExecutor,
-  type IsolationProbeRequest,
-  type IsolationProbeOptions,
-  type IsolationProbeExecutor,
-  type IsolationProbeResult,
-  inspectResources,
-  cleanupResources,
-  type ContainerResourceTarget,
-} from "../../../executor/src/index.ts";
-import { performance } from "node:perf_hooks";
-import fs from "node:fs";
-import {
-  writeSync,
-  opendirSync,
-  lstatSync,
-  realpathSync,
+import { createHash, randomUUID } from "node:crypto";
+import fs, {
   type BigIntStats,
-  openSync,
+  closeSync,
   constants,
   fstatSync,
+  lstatSync,
+  opendirSync,
+  openSync,
   readSync,
-  closeSync,
+  realpathSync,
+  writeSync,
 } from "node:fs";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
+import type { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { snapshotCoordinatorTaskRequest } from "./request.ts";
-import {
-  observeNativeArtifact,
-  createWindowsNativeHelperEnvironment,
-  createWindowsHostOperationSupervisorEnvironment,
-} from "../../../platform-access/src/index.ts";
-import {
-  verifyOwnedOperationManagementCapability,
-  borrowRuntimeOwnedRepositorySource,
-  classifyOwnedCoordinatorOperationCreationFailure,
-  describeFilesystemPolicy,
-  createRuntimeOwnedCoordinatorOperation,
-  createProviderEnvironment,
-  credentialEnvironmentNamesPresent,
-  cleanupOwnedOperationDirectories,
-  transitionHostRecoveryState,
-  recoverOwnedOperationDirectories,
-  getOwnedHostRecoveryId,
-  createOwnedMountCapability,
-  verifyOwnedMountCapability,
-  acquireHostOperationRecoveryGenerationByIdentity,
-  releaseHostOperationRecoveryGeneration,
-  verifyHostOperationRecoveryGeneration,
-} from "./operation.ts";
-import { createHash, randomUUID } from "node:crypto";
-import {
-  inspectRepositoryIdentityCandidate,
-  inspectRepositoryRevisionCandidate,
-  describeRepositoryLocationContract,
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
 import { types as utilTypes } from "node:util";
-import { isRuntimeProcessEffectBlocked } from "./process-safety-state.ts";
 import {
-  describeRootProtectionPolicyContract,
-  describeAuthorityGrantVerifierContract,
-  describeAuthorityTrustLoaderContract,
-  describeAuthorityFileBundleContract,
-  describeAuthorityPrelaunchVerifierContract,
-  describeProviderHomeContract,
-  describeProviderHomeMountGrantContract,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  compileWindowsRootObservationCandidate,
-} from "./authority.ts";
-import { describeProviderIsolationContract } from "./preparation.ts";
+  PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
+  describeProviderBillingPolicy,
+} from "../../../ai-adapter/src/index.ts";
 import {
-  describeDockerProxyTopology,
   type DockerProbeExecutionFacts,
   describeDockerProbeConfiguration,
   describeDockerProbeResource,
+  describeDockerProxyTopology,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  type DockerMounts,
-  writeDockerProbeRecoveryRecord,
-  parseDockerProbeRecoveryToken,
-  loadDockerProbeRecoveryRecord,
-  requireDockerProbeRecoveryMounts,
-} from "../state/probe-record.ts";
-
+  parseHostRecoveryToken,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
 import {
-  describeProviderBillingPolicy,
-  PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
-} from "../../../ai-adapter/src/index.ts";
-import type { Writable } from "node:stream";
+  type CompletionResult,
+  type ContainerResourceTarget,
+  cleanupResources,
+  createExecutor,
+  type Executor,
+  type ExecutorRequest,
+  type IsolationProbeOptions,
+  inspectResources,
+} from "../../../executor/src/index.ts";
+import {
+  createWindowsHostOperationSupervisorEnvironment,
+  createWindowsNativeHelperEnvironment,
+  observeNativeArtifact,
+} from "../../../platform-access/src/index.ts";
+import {
+  describeRepositoryLocationContract,
+  inspectRepositoryIdentityCandidate,
+  inspectRepositoryRevisionCandidate,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+} from "../../../version-control/src/index.ts";
+import {
+  type DockerMounts,
+  loadDockerProbeRecoveryRecord,
+  parseDockerProbeRecoveryToken,
+  requireDockerProbeRecoveryMounts,
+  writeDockerProbeRecoveryRecord,
+} from "../state/probe-record.ts";
 import type { CoordinatorExecutionPublicationObservation } from "../task/types.ts";
+import {
+  compileWindowsRootObservationCandidate,
+  describeAuthorityFileBundleContract,
+  describeAuthorityGrantVerifierContract,
+  describeAuthorityPrelaunchVerifierContract,
+  describeAuthorityTrustLoaderContract,
+  describeProviderHomeContract,
+  describeProviderHomeMountGrantContract,
+  describeRootProtectionPolicyContract,
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+} from "./authority.ts";
 import { observeLeaseOwner } from "./kernel-lock.ts";
+import {
+  acquireHostOperationRecoveryGenerationByIdentity,
+  borrowRuntimeOwnedRepositorySource,
+  classifyOwnedCoordinatorOperationCreationFailure,
+  cleanupOwnedOperationDirectories,
+  createOwnedMountCapability,
+  createProviderEnvironment,
+  createRuntimeOwnedCoordinatorOperation,
+  credentialEnvironmentNamesPresent,
+  describeFilesystemPolicy,
+  getOwnedHostRecoveryId,
+  recoverOwnedOperationDirectories,
+  releaseHostOperationRecoveryGeneration,
+  transitionHostRecoveryState,
+  verifyHostOperationRecoveryGeneration,
+  verifyOwnedMountCapability,
+  verifyOwnedOperationManagementCapability,
+} from "./operation.ts";
+import { describeProviderIsolationContract } from "./preparation.ts";
+import { isRuntimeProcessEffectBlocked } from "./process-safety-state.ts";
+import { snapshotCoordinatorTaskRequest } from "./request.ts";
 
 const STATE_LABELS = Object.freeze({
   "STATE-ADMISSION": "受付・実行条件の確認",
@@ -4935,9 +4933,9 @@ function finishPreSubmissionCleanup(
 async function runDockerIsolationScenario(
   owned: unknown,
   create: (
-    request: IsolationProbeRequest,
+    request: ExecutorRequest<"isolation_probe">,
     options: IsolationProbeOptions,
-  ) => IsolationProbeExecutor | null = createExecutor,
+  ) => Executor<"isolation_probe"> | null = createExecutor,
   signal?: AbortSignal,
 ): Promise<DockerProbeResult> {
   const probeId = randomUUID(),
@@ -4954,10 +4952,10 @@ async function runDockerIsolationScenario(
   let dynamicLifecycleCapability: Readonly<{
     kind: "dynamic_fake_provider_lifecycle";
   }> | null = null;
-  let executor: IsolationProbeExecutor | null = null;
-  let outcome: IsolationProbeResult | null = null;
+  let executor: Executor<"isolation_probe"> | null = null;
+  let outcome: CompletionResult<"isolation_probe"> | null = null;
   let notificationFailure: unknown;
-  const onAbort = () => executor?.cancel();
+  const onAbort = () => executor?.cancel({});
   try {
     executor = create(
       { kind: "isolation_probe", probeId },
@@ -4978,60 +4976,64 @@ async function runDockerIsolationScenario(
     if (!executor) throw new Error("docker_isolation_probe_failed");
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) onAbort();
-    outcome = await executor.start({
-      onSubmitting: () => {
-        try {
-          if (!mountCapability || !mounts)
-            throw new Error("owned_operation_mount_capability_required");
-          mounts = verifyOwnedMountCapability(mountCapability);
-          hostRecoveryId = beginDockerSubmission(
-            hostRecoveryId,
-            mountCapability,
-          );
-          hasSubmissionStarted = true;
+    const started = executor.start({
+      callbacks: {
+        onCommandSubmitting: () => {
           try {
+            if (!mountCapability || !mounts)
+              throw new Error("owned_operation_mount_capability_required");
+            mounts = verifyOwnedMountCapability(mountCapability);
+            hostRecoveryId = beginDockerSubmission(
+              hostRecoveryId,
+              mountCapability,
+            );
+            hasSubmissionStarted = true;
+            try {
+              recoveryId = writeDockerProbeRecoveryRecord(
+                mounts,
+                probeId,
+                recoveryNonce,
+                hostRecoveryId,
+                null,
+              );
+            } catch (error) {
+              try {
+                hostRecoveryId = cancelDockerSubmissionBeforeCreate(
+                  hostRecoveryId,
+                  mountCapability,
+                );
+                hasSubmissionStarted = false;
+              } catch {
+                hasRollbackFailed = true;
+              }
+              throw error;
+            }
+          } catch (error) {
+            notificationFailure = error;
+            throw error;
+          }
+        },
+        onResourceCreated: (id) => {
+          try {
+            if (!mountCapability)
+              throw new Error("owned_operation_mount_capability_required");
+            mounts = verifyOwnedMountCapability(mountCapability);
             recoveryId = writeDockerProbeRecoveryRecord(
               mounts,
               probeId,
               recoveryNonce,
               hostRecoveryId,
-              null,
+              id,
             );
           } catch (error) {
-            try {
-              hostRecoveryId = cancelDockerSubmissionBeforeCreate(
-                hostRecoveryId,
-                mountCapability,
-              );
-              hasSubmissionStarted = false;
-            } catch {
-              hasRollbackFailed = true;
-            }
+            notificationFailure = error;
             throw error;
           }
-        } catch (error) {
-          notificationFailure = error;
-          throw error;
-        }
+        },
       },
-      onCreated: (id) => {
-        try {
-          if (!mountCapability)
-            throw new Error("owned_operation_mount_capability_required");
-          mounts = verifyOwnedMountCapability(mountCapability);
-          recoveryId = writeDockerProbeRecoveryRecord(
-            mounts,
-            probeId,
-            recoveryNonce,
-            hostRecoveryId,
-            id,
-          );
-        } catch (error) {
-          notificationFailure = error;
-          throw error;
-        }
-      },
-    }).completion;
+    });
+    if (started.status !== "started") throw Error(started.reason);
+    outcome = await started.completion;
     hasContainerCreateAttempted = outcome.creationAttempted;
     if (notificationFailure) throw notificationFailure;
     if (
@@ -5238,9 +5240,9 @@ export async function runDynamicFakeProviderFailureScenario(
   owned: unknown,
   scenario: DynamicFakeProviderFailureScenario,
   create: (
-    request: IsolationProbeRequest,
+    request: ExecutorRequest<"isolation_probe">,
     options: IsolationProbeOptions,
-  ) => IsolationProbeExecutor | null,
+  ) => Executor<"isolation_probe"> | null,
 ): Promise<DockerProbeResult> {
   if (!DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS.includes(scenario))
     throw new Error("docker_probe_profile_invalid");

@@ -1,5 +1,17 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## Executor公開IFの用途横断統合（2026-11-01）
+
+基準版はd5b841767。人間はExecutor・名前付き開始入力・開始／完了結果・通知の共通化と公開型最小化を承認した。公開IFの破壊的Refactorとして、Executor詳細・QA-000006・Coordinatorの準備／認証／診断／回復・検証scriptsと試験を追従する。標準の準拠条件・Release判定は変更しないため、その監査は発火しない。着手前に親が現行宣言・直接利用側を照合し、読取専用の契約確認結果を統合した。追加の人間判断はない。
+
+共通名はExecutor、StartInput、StartResult、CompletionResult、CancelInput／CancelResult、ExecutorCallbacksとする。用途と入力／結果は型引数で結び、既存の用途別情報・AI Adapter／DIの所有型を再利用する。用途固有のProvider／Home／Mount観測を他用途に架空のtrue・nullで埋めず、kindで区別する。Attemptの開始・取消には元management／reference／Controlを名前付き入力で維持し、abandonは元Control表・一回解放印を使うAttempt専用の必要処理として残す。
+
+基準版の成立範囲はExecutor全体79件、Coordinator対象182件、修復結果26件、Windows実Writer限定1件、DI結合1件。通常開始・開始拒否・重複・開始前取消・保留中取消・通知拒否・遅延取消・一次故障・清掃不明・同ID／Owner不一致を新しい公開入口と利用側へ対応付ける。認証の旧idle回収→保存→再受付、必須通知の保存完了、任意通知の例外／Reject捕捉、Process終了不明後の停止、資源終了→Home解放→最終通知は維持する。
+
+SourceおよびArchitecture／Qualityの独立レビューを完了し、再確認の残必須指摘は零。Probeの正常理由が非nullであることを共通statusへ正しく対応付け、一次故障後の後着取消をcancelledへ上書きしない反例を追加した。旧Root名を期待した独立ロード試験と文書の通知名も追従した。公開関数は5個を維持し、公開型は41個から33個へ整理した。型対応表だけを使用し、新しい実行Manager・永続状態・通知Dispatcherは追加していない。
+
+最終非AI回帰はExecutor全体80件、Coordinator対象10 Suite 182件、修復結果26件、DI結合1件が成功。Executorの整形・型検査・Lint、Coordinator／DI／MCP／Workbenchの型検査と差分空白検査も成功した。文書参照展開検査は既存3,356指摘で終了1、変更対象5文書の指摘零。公開IF切替と今回の非AI受入条件は確認済みだが、全体QA・Release・実AI・実Dockerの再成立は主張しない。実AI・Docker・過去保持物は操作していない。
+
 ## Executor共通Lifecycleと環境mode統合（2026-11-01）
 
 人間はGenerics・Interface・合成による共通Lifecycle、isolation.ts／validation.ts解体、固有処理のoperations.ts統合、資源入口のlifecycle/cleanup.ts移管、restartの必須mode統合を承認した。変更分類は公開IFと責務構造のRefactor。対象正本はExecutor／Coordinator／DI詳細とQA-000006、直接利用側・検証入口を追従する。SourceおよびArchitecture／Qualityの独立レビューを行う。準拠基準・Release条件を変更しないためそれらの監査は行わない。実AI・Docker・過去保持物は操作しない。

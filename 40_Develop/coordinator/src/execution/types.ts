@@ -6,28 +6,26 @@
  * @trace ARCH-000015
  */
 import type {
+  AiModelSelection,
   AiProvider,
   AiReasoningEffort,
-  AiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
-import type { DockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import type {
-  AttemptRecordProjection,
-  AttemptRequest,
-  Executor,
-} from "../../../executor/src/index.ts";
+  DockerNetworkPolicy,
+  DockerSessionCleanup,
+} from "../../../docker-isolation/src/index.ts";
+import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 import type {
-  CompletionResult,
-  StartResult,
-  AttemptTerminalObservation,
-} from "../../../executor/src/index.ts";
-import type { DockerSessionCleanup } from "../../../docker-isolation/src/index.ts";
-import type {
-  ProcessStartedNotice,
   AttemptDiagnosticNotice,
+  AttemptTerminalObservation,
+  CompletionResult,
+  Executor,
+  ExecutorRequest,
+  ProcessStartedNotice,
+  RecordProjection,
+  StartResult,
 } from "../../../executor/src/index.ts";
 import type { RecoveryStartFailureNotice } from "./observation.ts";
-import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 
 export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
   "plan_validation",
@@ -285,8 +283,8 @@ export type ProviderDockerPreparationState<
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type RecoveryPlan = AttemptRecordProjection &
-  AttemptRequest["target"] &
+export type RecoveryPlan = RecordProjection &
+  ExecutorRequest["target"] &
   Readonly<{
     provider: AiProvider;
     executionSelection: AiModelSelection;

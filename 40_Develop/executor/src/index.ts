@@ -10,21 +10,13 @@
 import { types } from "node:util";
 import type { DockerIsolationRuntimeOptions } from "../../docker-isolation/src/index.ts";
 import { createAttemptExecutor } from "./attempt/operations.ts";
-import type { AttemptRequest, Executor } from "./attempt/types.ts";
 import {
   bindAuthenticationLifecycle,
   createAuthentication,
 } from "./authentication/operations.ts";
-import type {
-  AuthenticationExecutor,
-  AuthenticationRequest,
-} from "./authentication/types.ts";
+import type { Executor, ExecutorRequest } from "./lifecycle/types.ts";
 import { createIsolationProbe } from "./probe/operations.ts";
-import type {
-  IsolationProbeExecutor,
-  IsolationProbeOptions,
-  IsolationProbeRequest,
-} from "./probe/types.ts";
+import type { IsolationProbeOptions } from "./probe/types.ts";
 
 /**
  * 用途別の確定入力を既存のOperationへ結合する共通公開入口。
@@ -37,37 +29,40 @@ import type {
  * @invariant 保存・Task順序・保持判断を所有しない。
  */
 export function createExecutor(
-  request: AttemptRequest,
+  request: ExecutorRequest,
   options: DockerIsolationRuntimeOptions,
   random?: Readonly<{ randomBytes: (size: number) => Buffer }>,
 ): Executor | null;
 export function createExecutor(
-  request: AuthenticationRequest,
-): AuthenticationExecutor | null;
+  request: ExecutorRequest<"authentication">,
+): Executor<"authentication"> | null;
 export function createExecutor(
-  request: IsolationProbeRequest,
+  request: ExecutorRequest<"isolation_probe">,
   options: IsolationProbeOptions,
-): IsolationProbeExecutor | null;
+): Executor<"isolation_probe"> | null;
 export function createExecutor(
-  request: AttemptRequest | AuthenticationRequest | IsolationProbeRequest,
+  request:
+    | ExecutorRequest
+    | ExecutorRequest<"authentication">
+    | ExecutorRequest<"isolation_probe">,
   options?: DockerIsolationRuntimeOptions | IsolationProbeOptions,
   random?: Readonly<{ randomBytes: (size: number) => Buffer }>,
-): Executor | AuthenticationExecutor | IsolationProbeExecutor | null {
+): Executor | Executor<"authentication"> | Executor<"isolation_probe"> | null {
   if (!request || typeof request !== "object" || types.isProxy(request))
     return null;
   const kind = Object.getOwnPropertyDescriptor(request, "kind")?.value;
   if (kind === "isolation_probe")
     return createIsolationProbe(
-      request as IsolationProbeRequest,
+      request as ExecutorRequest<"isolation_probe">,
       options as IsolationProbeOptions,
     );
   const action = Object.getOwnPropertyDescriptor(request, "action")?.value;
   if (action === "status" || action === "login")
     return bindAuthenticationLifecycle(
-      createAuthentication(request as AuthenticationRequest),
+      createAuthentication(request as ExecutorRequest<"authentication">),
     );
   return createAttemptExecutor(
-    request as AttemptRequest,
+    request as ExecutorRequest,
     options as DockerIsolationRuntimeOptions,
     random,
   );
@@ -83,25 +78,12 @@ export type {
 export type {
   AttemptDiagnosticNotice,
   AttemptFailureReason,
-  AttemptRecordProjection,
-  AttemptRequest,
   AttemptResultReason,
   AttemptTerminalObservation,
-  CompletionResult,
-  Executor,
   PrimaryFailureDiagnostic,
   ProcessStartedNotice,
-  StartResult,
 } from "./attempt/types.ts";
-export type {
-  AuthenticationCleanupResult,
-  AuthenticationCompletionResult,
-  AuthenticationExecutor,
-  AuthenticationProjection,
-  AuthenticationRequest,
-  AuthenticationResult,
-  AuthenticationStartContext,
-} from "./authentication/types.ts";
+export type { AuthenticationCleanupResult } from "./authentication/types.ts";
 export {
   inspectDockerEnvironment,
   restartDockerEnvironment,
@@ -111,9 +93,7 @@ export type {
   DockerEnvironmentStatus,
 } from "./environment/types.ts";
 export type {
-  AuthenticationCallbacks,
   ExecutorCallbacks,
-  IsolationProbeCallbacks,
   ResourceCleanupCallbacks,
 } from "./lifecycle/callbacks.ts";
 export {
@@ -125,14 +105,17 @@ export type {
   AttemptRecoveryTarget,
   AttemptResourceInspection,
   AuthenticationResourceTarget,
+  CancelInput,
+  CancelResult,
+  CompletionResult,
   ContainerResourceInspection,
   ContainerResourceTarget,
   DirectoryResourceCleanupTarget,
   DirectoryResourceInspectionTarget,
+  Executor,
+  ExecutorRequest,
+  RecordProjection,
+  StartInput,
+  StartResult,
 } from "./lifecycle/types.ts";
-export type {
-  IsolationProbeExecutor,
-  IsolationProbeOptions,
-  IsolationProbeRequest,
-  IsolationProbeResult,
-} from "./probe/types.ts";
+export type { IsolationProbeOptions } from "./probe/types.ts";

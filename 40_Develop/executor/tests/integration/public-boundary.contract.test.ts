@@ -60,7 +60,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     "utf8",
   );
   assert.doesNotMatch(publicSource, /\b(?:AttemptPlan|AttemptReference)\b/);
-  assert.match(publicSource, /\bAttemptRequest\b/);
+  assert.match(publicSource, /\bExecutorRequest\b/);
   assert.doesNotMatch(publicSource, /\bRecoveryStartFailureDiagnostic\b/);
   const executionSource = fs.readFileSync(
     new URL("../../src/attempt/operations.ts", import.meta.url),

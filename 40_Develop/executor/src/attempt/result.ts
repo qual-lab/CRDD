@@ -7,25 +7,25 @@
  */
 import { createHash } from "node:crypto";
 import {
-  projectCodexExecutionBoundary,
   convertProviderError,
-  parseProviderResult,
   type ProviderResultParseResult,
+  parseProviderResult,
+  projectCodexExecutionBoundary,
 } from "../../../ai-adapter/src/index.ts";
+import {
+  type CommandObservation,
+  type DockerCommandExecutionClassification,
+  projectDockerExecutionBoundary,
+} from "../../../docker-isolation/src/index.ts";
+import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
 import type {
   AttemptDiagnosticNotice,
   AttemptPlan,
-  StartResultInput,
-  StartResult,
-  CompletionResultInput,
   CompletionResult,
+  CompletionResultInput,
+  StartResult,
+  StartResultInput,
 } from "./types.ts";
-import {
-  projectDockerExecutionBoundary,
-  type CommandObservation,
-  type DockerCommandExecutionClassification,
-} from "../../../docker-isolation/src/index.ts";
-import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
 
 /**
  * AI Adapterの内容検査と内容Hashの算出を一つの結果へまとめる。
@@ -107,6 +107,7 @@ export function createStartResult(input: StartResultInput): StartResult {
           ...(input.preparationFailed === undefined
             ? {}
             : { preparationFailed: input.preparationFailed }),
+          kind: "attempt" as const,
           status: "started" as const,
           reason: "docker_process_controller_started" as const,
           controlCapability: input.controlCapability,
@@ -127,6 +128,7 @@ export function createStartResult(input: StartResultInput): StartResult {
           ...(input.preparationFailed === undefined
             ? {}
             : { preparationFailed: input.preparationFailed }),
+          kind: "attempt" as const,
           status: "blocked" as const,
           reason: input.reason,
           controlCapability: null,
@@ -181,6 +183,7 @@ export function createCompletionResult(
     input.networksAbsent &&
     input.homeLeaseReleased;
   return Object.freeze({
+    kind: "attempt" as const,
     status: cleanupConfirmed ? status : ("blocked" as const),
     reason: cleanupConfirmed
       ? reason

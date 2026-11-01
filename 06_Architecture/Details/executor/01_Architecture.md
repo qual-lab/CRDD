@@ -22,7 +22,7 @@
 
 `createExecutor({ kind: "isolation_probe", probeId }, { readMounts })`は、固定合成Containerの技術試験を一回だけ開始する。Providerへ送信する`purpose: "probe"`とは別の要求であり、Provider・Model・認証・送信許可を架空に生成しない。公開関数を追加せず、通常Attemptの契約も変更しない。
 
-`probe/operations.ts`はCreate、実ID通知、fresh構成確認、非同期attach、取消・closeのjoin、実ID限定回収と三軸不存在をDIへ接続する。`probe/types.ts`は要求・所在Query・技術結果、`lifecycle/callbacks.ts`は同期void通知interfaceを所有する。上位は`onSubmitting`と`onCreated`で必要な耐久保存を完了してからreturnする。通知失敗でも既知実IDは保持して補償回収し、作成不明では再Createや名前だけの削除を行わない。
+`probe/operations.ts`はCreate、実ID通知、fresh構成確認、非同期attach、取消・closeのjoin、実ID限定回収と三軸不存在をDIへ接続する。`probe/types.ts`は要求・所在Query・技術結果、`lifecycle/callbacks.ts`は同期void通知interfaceを所有する。上位は`onCommandSubmitting`と`onResourceCreated`で必要な耐久保存を完了してからreturnする。通知失敗でも既知実IDは保持して補償回収し、作成不明では再Createや名前だけの削除を行わない。
 
 `readMounts`は現在Owner確認を伴う通常Queryであり通知ではない。四所在を独立した不変値へ捕捉し、await後の差・欠測・読取り失敗では新しい操作を停止する。取消は同じ所有attachへ届き、終了不明を回収成功にしない。completionは技術回収まで待つが、Host清掃・保存確定・最終Fake判定はCoordinatorの責務である。故障Profileは製品Requestに公開せず、検証Scriptだけが内部の同じ実装へ固定Profileを渡す。永続Store・新しいLock・Registryは追加しない。
 
@@ -180,6 +180,22 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 
 ## 2. Sourceと公開入口
 
+### 用途横断の公開IF
+
+通常Attempt、AIツール認証、固定隔離Probeは共通のExecutor<K>を返し、Kで用途と入出力を結び付ける。公開構成要求はExecutorRequest<K>、開始はstart(StartInput<K>)、取消はcancel(CancelInput<K>)、開始／終了結果はStartResult<K>／CompletionResult<K>を使う。型の正本はlifecycle/types.tsで、用途別の内容・技術観測は既存のOwner型を再利用する。結果のkindはattempt／authentication／isolation_probeを区別し、他用途のProvider・Home・Mount結果を架空のtrue・nullで埋めない。
+
+| 用途 | 開始入力の必須情報 | 開始後の追加情報 |
+|---|---|---|
+| attempt | managementCapability、元reference、任意callbacks | 元Control・completion・同じ回復ID。記録投影はRecordProjectionの既存技術値 |
+| authentication | 現在Owner確認、現Receipt照会、任意Signal／callbacks | completionで認証三値・Process終了・清掃結果を保持。記録投影はRecordProjection<authentication> |
+| isolation_probe | 任意callbacksを持つObject | completionで作成要求・実ID・隔離事実・取消・終了／清掃を保持。架空の記録投影は追加しない |
+
+StartResultはstartedの場合だけcompletionを持ち、blockedは当該開始要求の拒否として返す。重複開始の拒否から、先行した実行の終了・資源不存在を推測しない。開始受付をProvider実行やDocker要求の発行成立へ昇格しない。cancelは全用途でPromise<CancelResult>を返すが、認証／Probeの取消Signal発行だけでprocessTerminationObservedをtrueにしない。元completionの終了・回収観測を別に待つ。Attemptの取消では元Controlとmanagementを引き続き必須とする。Attempt専用abandonは元回復参照・管理参照から未処置の技術Home解放を一回だけ行い、認証／Probeへ空実装を追加しない。
+
+通知はExecutorCallbacks<K>に統合する。ResourceCleanupCallbacksは既存の回収APIと共有する。用途に存在しない通知は型で登録を拒否し、認証／Probeの要求前・Receipt・終了通知は同期voidを維持する。Attemptの必要通知は従来どおりPromise<void>を待つ。onCompletedは同じ型付きCompletionResultを渡す受動通知であり、同期例外／非同期Rejectを捕捉して確定結果を変更しない。
+
+Rootの公開関数は5つを維持し、公開型は41から33へ整理する。用途別Executor・通知interfaceの独立再公開、用途別開始／完了結果と構成要求・記録投影の重複した公開名を撤去し、共通名から既存Owner型へ結び付ける。中間Plan、Factory、Dispatcher、永続状態、Registry、Lock、互換読取りは追加しない。保存Schema、既存失敗理由の意味、現在Owner、Intent／Receiptの保存順序、終了不明時の停止とexact回復IDは維持する。
+
 共通化するのは実行・清掃・結果の終了待ちであり、三用途へ同じDocker手順を強制しない。認証の同期保存通知、Attemptの非同期通知、Probeの実ID保存はそれぞれ既存の順序を保つ。認証の単独回収はcleanupResourcesのauthentication対象へ接続し、旧実行が終了不明の場合は上位が回収へ進めない。通常認証は同じRuntimeで実行から清掃まで完了し、その後にCoordinatorが記録を確定して上位Home Lockを解放する。
 
 環境変更はrestartDockerEnvironmentのmodeを必須とし、restartは停止・起動、repairは既存の固定Directory退避を含む修復へ接続する。modeの欠測・未知値・accessorは操作前に拒否する。失敗を理由に別modeへ切り替えず、元input・Signal・通知・結果・Promiseをそのまま既存DIへ渡す。独立したrepairDockerEnvironmentは公開しない。自動起動・自動修復・再試行は今回追加しない。
@@ -224,7 +240,7 @@ builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request�
 
 公開`Executor`は`attempt/types.ts`でstart／cancelの引数・callback・結果を明示し、`createExecutor(request, options, random?): Executor | null`を型検査する。FactoryのReturnTypeで公開契約を代用しない。選択三項目は全存在又は全不存在のUnionとし、部分集合を許容しない。取消結果は要求理由と終了観測のtrue／falseを対応させる。Command制約・Authority・保存成立の判断は上位の既存操作で行う。Executorの通知は任意メソッドのvoid又はPromise<void>であり、戻り値で許可や保存成功を受け取らない。
 
-本番入口は`createExecutor(request, options, random?)`とする。Factoryが`AttemptRequest`から一試行の完全な技術構成を作り、閉包内に保持する。返却値は試行専用の`Executor`又はnullであり、`recordProjection`・`start(managementCapability, reference, callbacks?)`・`cancel`・`abandon`だけを持つ。公開prepareとPlanの受渡しは廃止する。記録用投影は五資源名・所有label・Image Digest・購読種別・実行／Mount modeだけで、Command・Provider本文・Authorityは含めない。上位は既存準備記録を一回消費し、Authorityと耐久受付を確定してからstartする。Home取得とDocker要求はstart以後だけで、同じExecutorのstartは一回に限る。
+本番入口は`createExecutor(request, options, random?)`とする。Factoryが`AttemptRequest`から一試行の完全な技術構成を作り、閉包内に保持する。通常Attemptの返却値は試行専用の`Executor`又はnullであり、`kind`・`recordProjection`・`start({managementCapability, reference, callbacks?})`・`cancel`・`abandon`だけを持つ。公開prepareとPlanの受渡しは廃止する。記録用投影は五資源名・所有label・Image Digest・購読種別・実行／Mount modeだけで、Command・Provider本文・Authorityは含めない。上位は既存準備記録を一回消費し、Authorityと耐久受付を確定してからstartする。Home取得とDocker要求はstart以後だけで、同じExecutorのstartは一回に限る。
 
 Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ生成する固定接続部。旧Controllerには単段Controller実装を残さない。要求前保存は固定Host callbackへ直接接続し、終端材料は既存の操作記録へ渡す。Domainの既存終了保存Contextはその記録を読み取り、Executorへ逆照会しない。初期化中の相互参照は関数宣言の束縛だけとし、構築中に実行せず、追加Loaderや遅延Registryを置かない。
 
@@ -297,9 +313,9 @@ Home取得前は`attempt/operations.ts`の`isAttemptPlanValid`で共通の基本
 | `createExecutor`（認証要求） | index.ts → authentication/operations.ts | 認証と同じRuntimeの清掃を一回のcompletionへ結合する。Home選定・保存・操作判断は上位 |
 | `inspectResources`、`cleanupResources` | lifecycle/cleanup.ts | kindごとの固定資源観測と回収。対象・結果型はlifecycle/types.ts、通知はlifecycle/callbacks.ts。Attempt型の意味は維持する |
 | `inspectDockerEnvironment`、`restartDockerEnvironment` | environment/execute.ts | Attemptとは独立した環境観測・再起動・修復への薄い接続。判断・保存は上位、具体操作はDI |
-| `Executor`、`StartResult`、`CompletionResult` | attempt/types.ts | 開始結果と清掃後の最終結果を明示し、Factoryを型検査する |
+| `Executor<K>`、`StartInput<K>`、`StartResult<K>`、`CompletionResult<K>`、`CancelInput<K>`、`CancelResult` | lifecycle/types.ts | 用途と共通開始・取消・結果を結び、用途固有情報は既存Owner型を再利用する |
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/types.ts | 実Process開始と非秘密診断 |
-| `AttemptRequest`、`AttemptRecordProjection` | attempt/types.ts | 解決済みの実行要求と、開始前の記録に必要な狭い隔離資源投影 |
+| `ExecutorRequest<K>`、`RecordProjection<K>` | lifecycle/types.ts → 用途別types.ts | 解決済み要求と実在する記録投影。固定Probeへ架空の投影は追加しない |
 | `Executor.start` | attempt/operations.ts → lifecycle/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
 | 通常Rootの関数 | index.ts | 上記5関数に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
 

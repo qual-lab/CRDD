@@ -62,6 +62,24 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
     { status: 7, stdout: "", stderr: "", signal: null },
     1,
   );
+  const successFacts = original.classifyDockerProbeExecution(
+    {
+      status: 0,
+      stdout: JSON.stringify({
+        marker: "crdd-coordinator-isolation-v1",
+        allowed_writes: { workspace: true, "provider-home": true, tmp: true },
+        runtime_paths_absent: true,
+        credential_names_absent: true,
+        network_blocked: true,
+        home_isolated: true,
+        tmp_isolated: true,
+      }),
+      stderr: "",
+      signal: null,
+    },
+    1,
+  );
+  assert.equal(successFacts.isolation.status, "confirmed");
   const dependencies = {
     ...original,
     createDockerProbeRuntimeBinding: (read: () => string) => {
@@ -123,7 +141,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       }
       if (mode === "changed") changed = true;
       return {
-        facts,
+        facts: mode === "normal" ? successFacts : facts,
         cancelled: signal.aborted,
         processCompletionConfirmed: mode !== "close",
       };
@@ -135,6 +153,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       check("binding", actualBinding, binding);
       check("configuration", configuration, expected);
       events.push("cleanup");
+      if (mode === "late_cancel") cancel();
       return {
         confirmed: mode !== "cleanup",
         reason: "docker_probe_cleanup_failed",
@@ -159,6 +178,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       "cleanup",
       "cancel",
       "changed",
+      "late_cancel",
     ]) {
       events.length = 0;
       changed = false;
@@ -177,21 +197,38 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         },
       );
       assert.ok(executor);
-      cancel = () => executor.cancel();
+      cancel = () => executor.cancel({});
+      let delivered: unknown = null;
       const start = executor.start({
-        onSubmitting: () => {
-          events.push("intent");
-          if (mode === "intent") throw Error("save");
-        },
-        onCreated: () => {
-          events.push("receipt");
-          if (mode === "receipt") throw Error("save");
-          if (mode === "promise")
-            return Promise.reject(Error("reject")) as never;
+        callbacks: {
+          onCompleted: (result) => {
+            delivered = result;
+            throw Error("passive_notice");
+          },
+          onCommandSubmitting: () => {
+            events.push("intent");
+            if (mode === "intent") throw Error("save");
+          },
+          onResourceCreated: () => {
+            events.push("receipt");
+            if (mode === "receipt") throw Error("save");
+            if (mode === "promise")
+              return Promise.reject(Error("reject")) as never;
+          },
         },
       });
+      assert.ok(start.status === "started");
       const result = await start.completion;
-      assert.throws(() => executor.start(), /already_started/u);
+      assert.equal(result.kind, "isolation_probe");
+      if (mode === "normal") assert.equal(result.status, "completed");
+      if (mode === "late_cancel") {
+        assert.equal(result.status, "blocked");
+        assert.equal(result.reason, facts.isolation.reason);
+        assert.equal(result.cancelled, true);
+      }
+      if (mode === "cancel") assert.equal(result.status, "cancelled");
+      assert.equal(delivered, result);
+      assert.equal(executor.start({}).status, "blocked");
       if (["receipt", "promise", "inspect"].includes(mode))
         assert.deepEqual(
           events,
@@ -245,8 +282,8 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       { kind: "isolation_probe", probeId },
       { readMounts: () => ({ management: "management", ...paths }) },
     );
-    const baselineResult = await baselineExecutor.start().completion;
-    assert.equal(baselineResult.facts, facts);
+    const baselineResult = await baselineExecutor.start({}).completion;
+    assert.equal(baselineResult.facts, successFacts);
     assert.equal(baselineResult.cleanupConfirmed, true);
     assert.deepEqual(correlationFailures, []);
     const variants = [
@@ -306,7 +343,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         { readMounts: () => ({ management: "management", ...paths }) },
       );
       assert.ok(candidate);
-      const result = await candidate.start().completion;
+      const result = await candidate.start({}).completion;
       assert.equal(correlationFailures.at(-1), label);
       assert.equal(correlationFailures.length, failuresBefore + 1);
       assert.ok(

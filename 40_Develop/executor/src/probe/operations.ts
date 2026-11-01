@@ -17,10 +17,9 @@ import {
   observeDockerProbeEngine,
   runDockerProbeAsync,
 } from "../../../docker-isolation/src/index.ts";
-import type { IsolationProbeCallbacks } from "../lifecycle/callbacks.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
+import type { Executor, StartInput } from "../lifecycle/types.ts";
 import type {
-  IsolationProbeExecutor,
   IsolationProbeOptions,
   IsolationProbeRequest,
   IsolationProbeResult,
@@ -75,7 +74,7 @@ export function createIsolationProbe(
   request: IsolationProbeRequest,
   options: IsolationProbeOptions,
   profile: Exclude<DockerProbeProfile, "cancellation"> = "normal",
-): IsolationProbeExecutor | null {
+): Executor<"isolation_probe"> | null {
   if (
     !request ||
     typeof request !== "object" ||
@@ -104,9 +103,17 @@ export function createIsolationProbe(
     return null;
   const controller = new AbortController();
   let started = false;
-  return Object.freeze({
-    start(callbacks: IsolationProbeCallbacks = {}) {
-      if (started) throw new Error("docker_probe_already_started");
+  return Object.freeze<Executor<"isolation_probe">>({
+    kind: "isolation_probe",
+    start(input: StartInput<"isolation_probe">) {
+      const callbacks = input.callbacks ?? {};
+      if (started)
+        return Object.freeze({
+          kind: "isolation_probe",
+          status: "blocked",
+          reason: "docker_probe_already_started",
+          completion: null,
+        });
       if (
         !callbacks ||
         typeof callbacks !== "object" ||
@@ -116,7 +123,9 @@ export function createIsolationProbe(
       for (const key of Reflect.ownKeys(callbacks)) {
         const descriptor = Object.getOwnPropertyDescriptor(callbacks, key);
         if (
-          (key !== "onSubmitting" && key !== "onCreated") ||
+          (key !== "onCommandSubmitting" &&
+            key !== "onResourceCreated" &&
+            key !== "onCompleted") ||
           !descriptor ||
           !("value" in descriptor) ||
           typeof descriptor.value !== "function"
@@ -124,7 +133,11 @@ export function createIsolationProbe(
           throw new Error("docker_probe_notification_invalid");
       }
       started = true;
-      return Object.freeze({ completion: execute() });
+      return Object.freeze({
+        kind: "isolation_probe",
+        status: "started",
+        completion: execute(),
+      });
       async function execute(): Promise<IsolationProbeResult> {
         let containerId: string | null = null;
         let creationAttempted = false,
@@ -158,7 +171,7 @@ export function createIsolationProbe(
                   reason = "local_docker_desktop_linux_engine_required";
                   return;
                 }
-                notify(callbacks.onSubmitting, "");
+                notify(callbacks.onCommandSubmitting, "create_isolation_probe");
                 if (controller.signal.aborted)
                   throw new Error("docker_probe_start_cancelled");
                 const mounts = readMounts();
@@ -177,7 +190,7 @@ export function createIsolationProbe(
                   reason = "docker_container_identity_unknown";
                 } else {
                   containerId = creation.id;
-                  notify(callbacks.onCreated, containerId);
+                  notify(callbacks.onResourceCreated, containerId);
                   if (controller.signal.aborted)
                     throw new Error("docker_probe_start_cancelled");
                   const current = readMounts();
@@ -250,7 +263,17 @@ export function createIsolationProbe(
             },
             createResult(_context, _failure, failed) {
               if (failed) reason ??= "docker_isolation_probe_failed";
-              return Object.freeze({
+              const final: IsolationProbeResult = Object.freeze({
+                kind: "isolation_probe",
+                status:
+                  !failed && cleanupConfirmed && processCompletionConfirmed
+                    ? reason === "docker_probe_start_cancelled"
+                      ? "cancelled"
+                      : facts?.isolation.status === "confirmed" &&
+                          reason === facts.isolation.reason
+                        ? "completed"
+                        : "blocked"
+                    : "blocked",
                 reason,
                 creationAttempted,
                 containerId,
@@ -259,14 +282,25 @@ export function createIsolationProbe(
                 processCompletionConfirmed,
                 cancelled: controller.signal.aborted,
               });
+              try {
+                const pending = callbacks.onCompleted?.(final);
+                if (pending) void pending.catch(() => {});
+              } catch {}
+              return final;
             },
           },
           undefined,
         );
       }
     },
-    cancel() {
+    async cancel(_input) {
       controller.abort();
+      return Object.freeze({
+        status: "requested",
+        reason: "cancellation_requested",
+        cancellationRequested: true,
+        processTerminationObserved: false,
+      });
     },
   });
 }

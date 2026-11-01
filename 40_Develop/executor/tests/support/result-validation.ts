@@ -19,6 +19,7 @@ function resolveRecoveryReference(value: unknown) {
 }
 
 const BLOCKED_START_KEYS = Object.freeze([
+  "kind",
   "cleanupConfirmed",
   "completion",
   "controlCapability",
@@ -38,6 +39,7 @@ const BLOCKED_START_KEYS = Object.freeze([
 ]);
 
 const STARTED_KEYS = Object.freeze([
+  "kind",
   "completion",
   "controlCapability",
   "credentialAbsenceVerified",
@@ -56,6 +58,7 @@ const STARTED_KEYS = Object.freeze([
 ]);
 
 const COMPLETION_KEYS = Object.freeze([
+  "kind",
   "providerExecutionObservation",
   "providerTurnObservation",
   "reviewFindings",
@@ -158,6 +161,11 @@ export function projectAttemptStartResult(
   handedOffRecoveryId: unknown,
   expectedOperationId?: unknown,
 ): Readonly<Record<string, unknown>> | null {
+  if (
+    utilTypes.isProxy(value) ||
+    readOwnDataProperty(value, "kind") !== "attempt"
+  )
+    return null;
   const blockedRecord = exactPlainRecord(value, BLOCKED_START_KEYS);
   if (
     blockedRecord &&
@@ -244,6 +252,11 @@ export function projectAttemptResult(
   expectedRecoveryId: unknown,
   expectedOperationId?: unknown,
 ): Readonly<Record<string, unknown>> | null {
+  if (
+    utilTypes.isProxy(value) ||
+    readOwnDataProperty(value, "kind") !== "attempt"
+  )
+    return null;
   const record = exactPlainRecord(value, COMPLETION_KEYS);
   if (!record) return null;
   const status = readOwnDataProperty(record, "status");

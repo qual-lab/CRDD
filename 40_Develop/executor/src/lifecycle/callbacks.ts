@@ -5,15 +5,16 @@
  * @boundary 同期認証・Probeと、非同期完了を許すAttemptの既存契約を維持する。
  */
 import type {
+  DockerAuthenticationExecution,
   DockerIsolationCommand,
   DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   AttemptDiagnosticNotice,
   AttemptTerminalObservation,
-  CompletionResult,
   ProcessStartedNotice,
 } from "../attempt/types.ts";
+import type { CompletionResult, ExecutionKind } from "./types.ts";
 /**
  * 通常実行と回収で観測した技術資源の事実を上位へ通知する。
  * @responsibility 資源観測と全技術処理終了を区別し、保存方法やACKを所有しない。
@@ -34,62 +35,63 @@ export interface ResourceCleanupCallbacks<Observation> {
   onCleanupCompleted?(observation: Observation): void | Promise<void>;
 }
 
-/**
- * 必要保存は正常return前に完了する。返値ACKは持たない。
- * @responsibility Create予定と確定した実IDを上位へ通知する。
- * @trace ARCH-000008
- * @shape 任意の同期voidハンドラー二つ。
- * @invariant 必須保存の購読は上位が構成し、throw時は次Effectへ進まない。
- * @boundary 技術生涯と保存Owner。
- * @security 生出力・所在・Credentialを通知しない。
- * @compatibility 既存のCreate前・実ID確定後の保存順序を維持する。
- */
-export interface IsolationProbeCallbacks {
-  onSubmitting?(): void;
-  onCreated?(containerId: string): void;
+/** 用途ごとに通知の同期性と既存引数を保持する。 */
+interface ResourceCreatedArguments {
+  attempt: [purpose: DockerIsolationCommand["purpose"], dockerId: string];
+  authentication: [
+    receipt: NonNullable<DockerAuthenticationExecution["resourceReceipt"]>,
+  ];
+  isolation_probe: [dockerId: string];
 }
 
 /**
- * 各認証操作の前後を伝える同期通知。
- * @responsibility 必須保存の完了を正常returnで伝え、失敗は例外で停止させる。
- * @trace ARCH-000010
- * @shape 用途の開始、作成Receipt、操作終了の通知。
- * @invariant Boolean ACK・生出力・保存関数を通知値へ含めない。
- * @boundary Executorから上位の保存Owner。
- * @security 未完了通知の後に次Effectを発行しない。
- * @compatibility inspect/remove/absenceも既存と同じ順序で通知する。
- */
-export interface AuthenticationCallbacks {
-  onCommandSubmitting?(purpose: string): void;
-  onResourceCreated?(
-    receipt: Readonly<{ name: string; dockerId: string }>,
-  ): void;
-  onCommandCompleted?(): void;
-}
-
-/**
- * 単発実行の通知を共通の資源回収通知へ追加する。
- * @responsibility 同じ試行の開始・診断・結果だけを通知する。
+ * 全用途の通知。保存依頼や判断値ではなく、用途に対応する観測を渡す。
+ * @responsibility 必須通知の完了と、任意通知の失敗捕捉を区別する。
  * @trace ARCH-000008
- * @invariant 必要通知は完了後だけ継続し、任意通知は実行結果を変更しない。
  */
-export interface ExecutorCallbacks
+export interface ExecutorCallbacks<K extends ExecutionKind = "attempt">
   extends ResourceCleanupCallbacks<AttemptTerminalObservation> {
-  onCommandSubmitting?(
-    purpose: DockerIsolationCommand["purpose"],
-  ): void | Promise<void>;
-  onCommandNotIssued?(
-    purpose: DockerIsolationCommand["purpose"],
-  ): void | Promise<void>;
-  onProviderSubmitting?(): void | Promise<void>;
-  onResourceCreated?(
-    purpose: DockerIsolationCommand["purpose"],
-    dockerId: string,
-  ): void | Promise<void>;
-  onStarted?(notice: ProcessStartedNotice): void | Promise<void>;
+  onResourceInspecting?: K extends "attempt"
+    ? NonNullable<
+        ResourceCleanupCallbacks<AttemptTerminalObservation>["onResourceInspecting"]
+      >
+    : never;
+  onResourceIdentified?: K extends "attempt"
+    ? NonNullable<
+        ResourceCleanupCallbacks<AttemptTerminalObservation>["onResourceIdentified"]
+      >
+    : never;
+  onResourcesClosed?: K extends "attempt"
+    ? NonNullable<
+        ResourceCleanupCallbacks<AttemptTerminalObservation>["onResourcesClosed"]
+      >
+    : never;
+  onCleanupCompleted?: K extends "attempt"
+    ? NonNullable<
+        ResourceCleanupCallbacks<AttemptTerminalObservation>["onCleanupCompleted"]
+      >
+    : never;
+  onCommandSubmitting?: K extends "attempt"
+    ? (purpose: DockerIsolationCommand["purpose"]) => void | Promise<void>
+    : (purpose: string) => void;
+  onCommandNotIssued?: K extends "attempt"
+    ? (purpose: DockerIsolationCommand["purpose"]) => void | Promise<void>
+    : never;
+  onProviderSubmitting?: K extends "attempt"
+    ? () => void | Promise<void>
+    : never;
+  onCommandCompleted?: K extends "authentication" ? () => void : never;
+  onResourceCreated?: K extends "attempt"
+    ? (...args: ResourceCreatedArguments[K]) => void | Promise<void>
+    : (...args: ResourceCreatedArguments[K]) => void;
+  onStarted?: K extends "attempt"
+    ? (notice: ProcessStartedNotice) => void | Promise<void>
+    : never;
   onCompleted?(
-    result: CompletionResult,
-    observation: AttemptTerminalObservation,
+    result: CompletionResult<K>,
+    ...observation: K extends "attempt" ? [AttemptTerminalObservation] : []
   ): void | Promise<void>;
-  onDiagnostic?(notice: AttemptDiagnosticNotice): void | Promise<void>;
+  onDiagnostic?: K extends "attempt"
+    ? (notice: AttemptDiagnosticNotice) => void | Promise<void>
+    : never;
 }

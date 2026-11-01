@@ -32,6 +32,8 @@
 
 ### Executor共通Lifecycleと環境mode
 
+公開IF統合では、Executor<K>・StartInput<K>・StartResult<K>・CompletionResult<K>・CancelInput<K>／CancelResult・ExecutorCallbacks<K>を各用途から検証する。Kの混同、Attempt管理参照なしの取消、認証へのAttempt専用abandon、Probeへの非該当通知登録を型負例で拒否する。結果kind・共通statusと既存認証三値／Probe実体観測の対応、重複開始拒否時の追加Effect零、元Control不一致、同期通知の誤Promise、受動通知のthrow／Rejectで確定結果が変わらないことを維持する。用途別の結果・通知・Executorの旧Root名は撤去し、新しい形を利用側・検証scripts・exact field検査へ接続する。保存DTOの形式変更や過去結果の移行を同時に実装しない。
+
 既存ERB-IT-004／ERB-IT-014に共通Lifecycleの順序・一次失敗保持・清掃joinを接続する。Attemptの通知待ち中取消・Home競合・必要通知拒否、認証の正常／取消／Process終了不明／清掃不成立、固定ProbeのIntent／Receipt拒否・構成差・実ID回収を維持する。認証の通常完了は技術清掃を含み、上位保存・Home Lock解放とは区別する。旧idle記録の回収→保存確定→再受付の順序、unknownの同一回復参照と追加Effect停止は維持する。
 
 restartDockerEnvironmentはrestart／repairごとの元入力・Signal・通知・Promise・結果を照合する。mode欠測・未知値・accessor・余剰fieldでDI要求0を確認し、失敗後のmode切替や自動再試行を認めない。これらの有限代役試験を実Docker Desktopの再起動・修復、実AI、過去保持物の処置の成立証明にはしない。
@@ -851,7 +853,7 @@ ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範�
 
 ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。実AI・実Dockerの成立とは区別する。
 
-- 通常Rootの関数はcreateExecutorだけとする。FactoryはAttemptRequestを受け、完全Planを内部に保持する。返却するExecutorにprepareはなく、startへPlanを渡さない。記録投影は資源名・Image・Modeだけとし、Command・本文・Authorityを返さない。Standaloneロード、旧準備Fileの不存在、Coordinator製品Sourceから私有Executor Sourceへのimport零を検査する。
+- 通常実行の構成入口はcreateExecutorだけとする（資源・環境を含むRoot関数は5つ）。FactoryはExecutorRequestを受け、完全Planを内部に保持する。返却するExecutorにprepareはなく、startへPlanを渡さない。記録投影は資源名・Image・Modeだけとし、Command・本文・Authorityを返さない。Standaloneロード、旧準備Fileの不存在、Coordinator製品Sourceから私有Executor Sourceへのimport零を検査する。
 - 上位の既存記録へのControl aliasは保存・開始成功後だけ結合し、別Owner・コピーControl・別Executor・二重結合を拒否する。回復検索・abandonへControlを渡しても権限へ昇格しない。completion成功／拒否後はalias不存在と取消拒否を確認し、解放未確認の元回復参照は維持する。
 - 診断通知は発生箇所で直接呼び、包装関数を残さない。同期throw／非同期rejectでも、同じ結果object・回復参照・回収結果を維持する。cancel／abandonを隣接させ、createExecutor／prepareAttemptの隣接と非公開境界をSource試験で確認する。
 - 回復開始診断の型・固定段階・失敗通知はCoordinatorに存在し、Executor製品Sourceに残らない。上位Reporterへ直接報告し、Workbench／Coordinator検証ツールは同じCoordinator検査正本で未知値・余分field・別相関を拒否する。

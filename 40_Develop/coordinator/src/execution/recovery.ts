@@ -1227,7 +1227,10 @@ export async function cancelRuntimeOwnedExecutorAttempt(
       status: "blocked" as const,
       reason: "invalid" as const,
     });
-  return record.executor.cancel(control, management);
+  return record.executor.cancel({
+    controlCapability: control,
+    managementCapability: management,
+  });
 }
 
 /**
@@ -1244,7 +1247,10 @@ export function abandonRuntimeOwnedExecutorAttempt(
   return (
     !!record &&
     record.managementCapability === management &&
-    record.executor?.abandon(capability, management) === true
+    record.executor?.abandon({
+      recoveryCapability: capability,
+      managementCapability: management,
+    }) === true
   );
 }
 

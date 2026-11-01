@@ -25,6 +25,7 @@ import type {
   HomeLease,
 } from "../../../docker-isolation/src/index.ts";
 import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
+import type { ExecutorLifecycle } from "../lifecycle/types.ts";
 import type { ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
 
 /** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
@@ -353,35 +354,15 @@ export type CompletionResultInput = Readonly<{
  * @trace ARCH-000008
  * @invariant 実装由来の型抽出を正本にせず、別の状態管理を追加しない。
  */
-export type Executor = Readonly<{
-  recordProjection: AttemptRecordProjection;
-  abandon(recoveryCapability: unknown, managementCapability: unknown): boolean;
-  start(
-    managementCapability: unknown,
-    reference: AttemptReference,
-    callbacks?: ExecutorCallbacks,
-  ): StartResult;
-  cancel(
-    controlCapability: unknown,
-    managementCapability: unknown,
-  ): Promise<
-    Readonly<
-      | { status: "blocked"; reason: "invalid" | "duplicate" }
-      | {
-          status: "requested";
-          reason: "provider_cancellation_requested";
-          cancellationRequested: true;
-          processTerminationObserved: true;
-        }
-      | {
-          status: "requested";
-          reason: "provider_cancellation_grace_exceeded";
-          cancellationRequested: true;
-          processTerminationObserved: false;
-        }
-    >
-  >;
-}>;
+export interface AttemptExecutor extends ExecutorLifecycle<"attempt"> {
+  readonly recordProjection: AttemptRecordProjection;
+  abandon(
+    input: Readonly<{
+      recoveryCapability: unknown;
+      managementCapability: unknown;
+    }>,
+  ): boolean;
+}
 
 /**
  * 一試行の開始結果。開始済みと拒否で必要な項目を区別する。
@@ -391,6 +372,7 @@ export type Executor = Readonly<{
  */
 export type StartResult = Readonly<
   {
+    kind: "attempt";
     providerRequestStarted: false;
     normalizedResult: null;
     rawOutputReported: false;
@@ -440,6 +422,7 @@ export type StartResult = Readonly<
  * @invariant Factoryがこの型を満たし、資源観測の相関条件は既存の組立てで維持する。
  */
 export type CompletionResult = Readonly<{
+  kind: "attempt";
   status: "completed" | "blocked" | "cancelled";
   reason: AttemptResultReason | "docker_process_controller_cleanup_unconfirmed";
   operationId: string;

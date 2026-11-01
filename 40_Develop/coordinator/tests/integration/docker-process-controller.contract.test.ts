@@ -9,36 +9,38 @@
  * @scope docker、process、controller
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
-import {
-  executionSelection,
-  attemptSelection,
-} from "../fixtures/ai-selection.ts";
 
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
-import path from "node:path";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
-import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
+import {
+  describeDockerCommandSessionContract,
+  describeDockerProviderExecutionLocations,
+  planDockerIsolationCommands,
+} from "../../../docker-isolation/src/index.ts";
+import {
+  createExecutorTestCandidate,
+  projectAttemptResult,
+  projectAttemptStartResult,
+} from "../../../executor/scripts/executor-test.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/controller.ts";
+import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
 } from "../../src/execution/provider-executor.ts";
-import { describeDockerCommandSessionContract } from "../../../docker-isolation/src/index.ts";
-import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
 import {
-  projectAttemptResult,
-  projectAttemptStartResult,
-} from "../../../executor/scripts/executor-test.ts";
-import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
+  attemptSelection,
+  executionSelection,
+} from "../fixtures/ai-selection.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 実行調整への値依存を照合Ownerへ戻さない。
@@ -463,6 +465,10 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     null,
   );
 
+  const wrongKind = {
+    ...(completion as Readonly<Record<string, unknown>>),
+    kind: "authentication",
+  };
   const missing = { ...(completion as Readonly<Record<string, unknown>>) };
   delete missing.operationId;
   const extra = {
@@ -492,6 +498,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     renamed,
     accessor,
     hostileCompletionProxy,
+    wrongKind,
   ]) {
     assert.equal(
       projectAttemptResult(malformed, handedOffRecoveryId, "OP-123456"),

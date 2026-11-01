@@ -133,10 +133,14 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
         release = resolve;
       });
       let notified: unknown = null;
-      const started = executor.start(current.owner, current.reference, {
-        onStarted: () => (mode === "cancel" ? pending : undefined),
-        onCompleted: (result) => {
-          notified = result;
+      const started = executor.start({
+        managementCapability: current.owner,
+        reference: current.reference,
+        callbacks: {
+          onStarted: () => (mode === "cancel" ? pending : undefined),
+          onCompleted: (result) => {
+            notified = result;
+          },
         },
       });
       assert.equal(acquisitions, 1);
@@ -151,12 +155,21 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
         await Promise.resolve();
       if (mode === "cancel") {
         assert.equal(
-          (await executor.cancel(started.controlCapability, {})).status,
+          (
+            await executor.cancel({
+              controlCapability: started.controlCapability,
+              managementCapability: {},
+            })
+          ).status,
           "blocked",
         );
         assert.equal(
-          (await executor.cancel(started.controlCapability, current.owner))
-            .status,
+          (
+            await executor.cancel({
+              controlCapability: started.controlCapability,
+              managementCapability: current.owner,
+            })
+          ).status,
           "requested",
         );
         release();
@@ -169,7 +182,10 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       assert.strictEqual(result, notified);
       assert.deepEqual(current.counts(), { cleanups: 1, releases: 1 });
       assert.equal(
-        executor.start(current.owner, current.reference).status,
+        executor.start({
+          managementCapability: current.owner,
+          reference: current.reference,
+        }).status,
         "blocked",
       );
       assert.equal(acquisitions, 1);

@@ -18,8 +18,8 @@ import type {
   AuthenticationPlan,
 } from "../../../executor/src/authentication/types.ts";
 import type {
-  AuthenticationProjection,
-  AuthenticationRequest,
+  ExecutorRequest,
+  RecordProjection,
 } from "../../../executor/src/index.ts";
 import type { AuthenticationRecoveryRecord } from "../../src/execution/authority.ts";
 import {
@@ -42,7 +42,7 @@ export type AuthenticationTestDependencies = Readonly<{
   run: (
     command: DockerAuthenticationCommand,
     live: () => boolean,
-    plan: AuthenticationPlan & AuthenticationProjection,
+    plan: AuthenticationPlan & RecordProjection<"authentication">,
   ) => Promise<AuthenticationTestExecution>;
   isProcessCompletionConfirmed?: () => boolean;
   acquireProviderHomeLock: (
@@ -68,7 +68,7 @@ export type AuthenticationTestDependencies = Readonly<{
   ) => boolean;
   recoveryCommands: (
     record: AuthenticationRecoveryRecord,
-    plan: AuthenticationPlan & AuthenticationProjection,
+    plan: AuthenticationPlan & RecordProjection<"authentication">,
     index: number,
   ) => Readonly<{
     ownershipCommand: DockerAuthenticationCommand;
@@ -98,14 +98,17 @@ export function authenticateProvider(
     );
   let record: AuthenticationRecoveryRecord | null = null;
   let last: AuthenticationTestExecution | null = null;
-  const authentications = new WeakMap<AuthenticationRequest, Authentication>();
+  const authentications = new WeakMap<
+    ExecutorRequest<"authentication">,
+    Authentication
+  >();
   const projections = new WeakMap<
     AuthenticationPlan,
-    AuthenticationPlan & AuthenticationProjection
+    AuthenticationPlan & RecordProjection<"authentication">
   >();
   const project = (
     plan: AuthenticationPlan,
-  ): AuthenticationPlan & AuthenticationProjection => {
+  ): AuthenticationPlan & RecordProjection<"authentication"> => {
     let value = projections.get(plan);
     if (!value) {
       value = Object.freeze({ ...plan, resources: record?.resources ?? [] });
@@ -193,7 +196,7 @@ export function createProviderAuthenticationPlan<A extends "status" | "login">(
   home: string,
   suffix: string,
   token: A extends "login" ? string : null,
-): (AuthenticationPlan<A> & AuthenticationProjection) | null {
+): (AuthenticationPlan<A> & RecordProjection<"authentication">) | null {
   const technical = prepareAuthenticationPlan(
     provider,
     action,
@@ -218,11 +221,11 @@ export function createProviderAuthenticationPlan<A extends "status" | "login">(
   const projection = Object.freeze({
     ...technical,
     ...auth.projection,
-  }) as AuthenticationPlan<A> & AuthenticationProjection;
+  }) as AuthenticationPlan<A> & RecordProjection<"authentication">;
   return prepareActual(provider, action, home, suffix, token, () =>
     bindAuthenticationLifecycle({
       ...auth,
       projection,
     }),
-  ) as AuthenticationPlan<A> & AuthenticationProjection;
+  ) as AuthenticationPlan<A> & RecordProjection<"authentication">;
 }

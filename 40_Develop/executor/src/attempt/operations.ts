@@ -43,9 +43,9 @@ import {
   parseDockerTaskRecoveryId,
   planDockerIsolationCommands,
 } from "../../../docker-isolation/src/index.ts";
-import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
 import { releaseHomeLease } from "../lifecycle/cleanup.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
+import type { CancelInput, Executor, StartInput } from "../lifecycle/types.ts";
 import { ATTEMPT_COMPLETION_REASONS, PURPOSES } from "./constants.ts";
 import {
   convertCommandResult,
@@ -64,7 +64,6 @@ import type {
   AttemptResultReason,
   CompletionResult,
   ExecutionRecord,
-  Executor,
   IsolationRuntime,
   PrimaryFailureDiagnostic,
   RuntimeState,
@@ -881,6 +880,7 @@ export function createAttemptExecutor(
   const state: Pick<RuntimeState, "controls"> = { controls: new WeakMap() };
   let startRequested = false;
   return Object.freeze({
+    kind: "attempt" as const,
     recordProjection: Object.freeze({
       authContainerName: plan.authContainerName,
       providerContainerName: plan.providerContainerName,
@@ -894,11 +894,12 @@ export function createAttemptExecutor(
       operationMode: plan.operationMode,
       workspaceMountMode: plan.workspaceMountMode,
     }) satisfies AttemptRecordProjection,
-    start: (
-      management: unknown,
-      reference: AttemptReference,
-      callbacks: ExecutorCallbacks = {},
-    ) => {
+    start: (input: StartInput) => {
+      const {
+        managementCapability: management,
+        reference,
+        callbacks = {},
+      } = input;
       if (startRequested)
         return createStartResult({
           status: "blocked",
@@ -931,10 +932,14 @@ export function createAttemptExecutor(
         });
       }
     },
-    cancel: (control: unknown, management: unknown) =>
-      cancel(state, control, management),
-    abandon: (reference: unknown, management: unknown) =>
-      abandon(state, reference, management),
+    cancel: (input: CancelInput) =>
+      cancel(state, input.controlCapability, input.managementCapability),
+    abandon: (
+      input: Readonly<{
+        recoveryCapability: unknown;
+        managementCapability: unknown;
+      }>,
+    ) => abandon(state, input.recoveryCapability, input.managementCapability),
   });
 }
 

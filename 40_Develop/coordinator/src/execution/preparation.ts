@@ -4,37 +4,37 @@
  * @responsibility 上位の選定・Packet・承認相関を照合し、技術構築はExecutorへ委譲する。
  * @trace ARCH-000008
  */
+
+import { createHash, randomBytes } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import {
-  inspectExecutionSelection,
-  type ExecutionSelection,
-  hashExecutionSelection,
-  snapshotPlainRecord,
-  snapshotPlainArray,
-  containsRecognizedSecretMaterial,
-  containsRecognizedSecretScope,
-  containsRecognizedSecretText,
-} from "../../../domain-model/src/index.ts";
-import type {
-  CompletionResult,
-  AttemptRequest,
-  Executor,
-} from "../../../executor/src/index.ts";
+  type AiReasoningEffort,
+  evaluateProviderTaskScope,
+  resolveAiModelSelection,
+} from "../../../ai-adapter/src/index.ts";
 import {
   type DockerNetworkPolicy,
   parseDockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  evaluateProviderTaskScope,
-  resolveAiModelSelection,
-  type AiReasoningEffort,
-} from "../../../ai-adapter/src/index.ts";
-import { createHash, randomBytes } from "node:crypto";
+  containsRecognizedSecretMaterial,
+  containsRecognizedSecretScope,
+  containsRecognizedSecretText,
+  type ExecutionSelection,
+  hashExecutionSelection,
+  inspectExecutionSelection,
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import type {
+  CompletionResult,
+  Executor,
+  ExecutorRequest,
+} from "../../../executor/src/index.ts";
 import {
-  verifyOwnedOperationManagementMountBinding,
-  readBorrowedExecutionBinding,
-  verifyOwnedOperationManagementCapability,
-  bindOwnedOperationExecutionSelection,
-} from "./operation.ts";
+  compileExternalSendScopeHash,
+  consumeRuntimeOwnedExternalSendGrant,
+} from "../decision/external-send-grant.ts";
 import {
   activateRuntimeOwnedProviderHomeMount,
   borrowRuntimeOwnedActiveProviderHomeMountSource,
@@ -43,27 +43,27 @@ import {
   issueRuntimeOwnedProviderAuthority,
   revokeRuntimeOwnedProviderAuthority,
 } from "./authority.ts";
-import { performance } from "node:perf_hooks";
-
-import type {
-  ProviderDockerPreparationState,
-  PreparedAttemptPlan,
-  ConsumedTaskPacket,
-  PreparationHost,
-  PreparedAttempt,
-  PreparedAuthority,
-  AttemptPreparation,
-  PreparationFailure,
-  ModelSelection,
-  AdvicePacket,
-  PreparationInput,
-  AttemptBinding,
-  MountGrant,
-} from "./types.ts";
 import {
-  consumeRuntimeOwnedExternalSendGrant,
-  compileExternalSendScopeHash,
-} from "../decision/external-send-grant.ts";
+  bindOwnedOperationExecutionSelection,
+  readBorrowedExecutionBinding,
+  verifyOwnedOperationManagementCapability,
+  verifyOwnedOperationManagementMountBinding,
+} from "./operation.ts";
+import type {
+  AdvicePacket,
+  AttemptBinding,
+  AttemptPreparation,
+  ConsumedTaskPacket,
+  ModelSelection,
+  MountGrant,
+  PreparationFailure,
+  PreparationHost,
+  PreparationInput,
+  PreparedAttempt,
+  PreparedAttemptPlan,
+  PreparedAuthority,
+  ProviderDockerPreparationState,
+} from "./types.ts";
 /**
  * 上位準備入力の三用途を実行Propertyなしで捕捉する。
  * @responsibility 欠測・余剰・Proxy・accessorを拒否しCapabilityを再発行しない。
@@ -2977,7 +2977,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
   provider: P,
   dependencies: PreparationHost<P>,
   create: (
-    request: AttemptRequest,
+    request: ExecutorRequest,
     random: Readonly<{ randomBytes: (size: number) => Buffer }>,
   ) => Executor | null,
 ): AttemptPreparation<P> {
@@ -3129,7 +3129,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
             reasoningEffort: model.executionSelection.reasoningEffort,
             purpose: model.executionSelection.purpose,
           });
-          const request: AttemptRequest = {
+          const request: ExecutorRequest = {
             ...(task
               ? {
                   purpose: "task",

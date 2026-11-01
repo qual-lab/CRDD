@@ -23,14 +23,14 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  type AuthenticationExecutor as Authentication,
-  type AuthenticationCallbacks,
   type AuthenticationCleanupResult,
-  type AuthenticationProjection,
-  type AuthenticationRequest,
   type AuthenticationResourceTarget,
   cleanupResources,
   createExecutor as createAuthentication,
+  type Executor,
+  type ExecutorCallbacks,
+  type ExecutorRequest,
+  type RecordProjection,
 } from "../../../executor/src/index.ts";
 import {
   describeProviderHomeObservationContract,
@@ -7803,8 +7803,8 @@ export function readExecutionCancellation(signal: unknown): boolean | null {
 type Dependencies = Readonly<{
   randomHex: (bytes: number) => string;
   createAuthentication: (
-    request: AuthenticationRequest,
-  ) => Authentication | null;
+    request: ExecutorRequest<"authentication">,
+  ) => Executor<"authentication"> | null;
   cleanupAuthentication: (
     target: AuthenticationResourceTarget,
   ) => Promise<AuthenticationCleanupResult>;
@@ -7831,12 +7831,15 @@ type Dependencies = Readonly<{
   ) => boolean;
   readResources: (
     record: AuthenticationRecoveryRecord,
-  ) => AuthenticationProjection["resources"] | null;
+  ) => RecordProjection<"authentication">["resources"] | null;
 }>;
 
 const authenticationPreparations = new WeakMap<
   object,
-  Readonly<{ executor: Authentication; request: AuthenticationRequest }>
+  Readonly<{
+    executor: Executor<"authentication">;
+    request: ExecutorRequest<"authentication">;
+  }>
 >();
 
 /**
@@ -7893,7 +7896,7 @@ export type AuthenticationRecoveryRecord = Readonly<{
 export function createProviderAuthenticationRecoveryRecord(
   providerHomeSourcePath: string,
   stableLogicalHomeBindingHash: string,
-  plan: AuthenticationProjection,
+  plan: RecordProjection<"authentication">,
 ): AuthenticationRecoveryRecord | null {
   if (
     !authenticationPreparations.has(plan) ||
@@ -8372,8 +8375,8 @@ export function prepareProviderAuthentication(
   suffix: string,
   proxyToken: string | null,
   prepare: Dependencies["createAuthentication"] = createAuthentication,
-): AuthenticationProjection | null {
-  const request: AuthenticationRequest = {
+): RecordProjection<"authentication"> | null {
+  const request: ExecutorRequest<"authentication"> = {
     provider,
     action,
     providerHomeSourcePath,
@@ -8408,7 +8411,7 @@ export function prepareProviderAuthentication(
 function authenticationCallbacks(
   recovery: AuthenticationRecoveryRecord,
   dependencies: Dependencies,
-): AuthenticationCallbacks {
+): ExecutorCallbacks<"authentication"> {
   return {
     onCommandSubmitting: (purpose) => {
       if (!dependencies.setRecoveryCommandState(recovery, "in_flight", purpose))
@@ -8441,7 +8444,7 @@ function authenticationCallbacks(
  * @concurrency 各資源で現在記録を照会し、同じOwnerを確認する。
  */
 async function cleanAuthenticationResources(
-  plan: AuthenticationProjection,
+  plan: RecordProjection<"authentication">,
   dependencies: Dependencies,
   authorityLive: () => boolean,
   recovery: AuthenticationRecoveryRecord,
@@ -8537,7 +8540,7 @@ export async function authenticateProvider(
       providerEffectIssued: false,
     });
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
-  let plan: AuthenticationProjection | null = null;
+  let plan: RecordProjection<"authentication"> | null = null;
   let recovery: AuthenticationRecoveryRecord | null = null;
   try {
     const proxyToken =
@@ -8663,14 +8666,14 @@ export async function authenticateProvider(
   let cleanup = { confirmed: false, processCompletionConfirmed: false };
   if (authentication) {
     try {
-      const result = await authentication.executor.start(
-        {
-          ...(signal ? { signal } : {}),
-          assertOwner: providerHomeLock.assertLive,
-          readResources: () => activeDependencies.readResources(recovery),
-        },
-        authenticationCallbacks(recovery, activeDependencies),
-      ).completion;
+      const started = authentication.executor.start({
+        ...(signal ? { signal } : {}),
+        assertOwner: providerHomeLock.assertLive,
+        readResources: () => activeDependencies.readResources(recovery),
+        callbacks: authenticationCallbacks(recovery, activeDependencies),
+      });
+      if (started.status !== "started") throw Error(started.reason);
+      const result = await started.completion;
       cleanup = {
         confirmed: result.cleanupConfirmed,
         processCompletionConfirmed: result.processCompletionConfirmed,

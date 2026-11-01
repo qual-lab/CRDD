@@ -12,14 +12,220 @@ import type {
   DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
 import type {
+  CompletionResult as AttemptCompletionResult,
+  AttemptExecutor,
   AttemptRecordProjection,
+  AttemptReference,
   AttemptRequest,
+  StartResult as AttemptStartResult,
 } from "../attempt/types.ts";
 import type {
+  AuthenticationCompletionResult,
+  AuthenticationProjection,
   AuthenticationRequest,
   AuthenticationStartContext,
 } from "../authentication/types.ts";
-import type { AuthenticationCallbacks } from "./callbacks.ts";
+import type {
+  IsolationProbeRequest,
+  IsolationProbeResult,
+} from "../probe/types.ts";
+import type { ExecutorCallbacks } from "./callbacks.ts";
+
+/**
+ * 単発実行の用途。Providerへ送るprobeと合成隔離Probeは混同しない。
+ * @responsibility ExecutionKindの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 三用途の文字列集合。
+ * @invariant 用途の識別だけで実行許可を発行しない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type ExecutionKind = "attempt" | "authentication" | "isolation_probe";
+
+/**
+ * 構成要求も既存Ownerの型を再利用し、用途との相関だけを共通化する。
+ * @responsibility ExecutorRequestの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 用途Kに対応する既存要求型。
+ * @invariant Provider内容と技術構成の正本を複製しない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type ExecutorRequest<K extends ExecutionKind = "attempt"> =
+  ExecutorRequests[K];
+interface ExecutorRequests {
+  attempt: AttemptRequest;
+  authentication: AuthenticationRequest;
+  isolation_probe: IsolationProbeRequest;
+}
+
+/**
+ * 実在する記録投影だけを公開する。固定Probeには架空の投影を作らない。
+ * @responsibility RecordProjectionの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 用途別投影。固定Probeはnever。
+ * @invariant 投影を実行権限や保存確定と扱わない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type RecordProjection<K extends ExecutionKind = "attempt"> =
+  RecordProjections[K];
+interface RecordProjections {
+  attempt: AttemptRecordProjection;
+  authentication: AuthenticationProjection;
+  isolation_probe: never;
+}
+
+/**
+ * 入力は一つのObjectにまとめるが、用途に必要な現在Owner・元参照を省略しない。
+ * @responsibility StartInputの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 用途別の名前付き開始入力と通知。
+ * @invariant Attemptの元管理参照と認証の現在Owner検査を維持する。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type StartInput<K extends ExecutionKind = "attempt"> = StartInputs[K];
+interface StartInputs {
+  attempt: Readonly<{
+    managementCapability: unknown;
+    reference: AttemptReference;
+    callbacks?: ExecutorCallbacks;
+  }>;
+  authentication: AuthenticationStartContext &
+    Readonly<{ callbacks?: ExecutorCallbacks<"authentication"> }>;
+  isolation_probe: Readonly<{
+    callbacks?: ExecutorCallbacks<"isolation_probe">;
+  }>;
+}
+
+/**
+ * 取消でも元Controlと現在管理参照を維持する。用途に不要な参照は要求しない。
+ * @responsibility CancelInputの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape Attemptは二参照、認証と固定Probeは空Object。
+ * @invariant 取消要求を技術終了の証明にしない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type CancelInput<K extends ExecutionKind = "attempt"> = CancelInputs[K];
+interface CancelInputs {
+  attempt: Readonly<{
+    controlCapability: unknown;
+    managementCapability: unknown;
+  }>;
+  authentication: Readonly<Record<string, never>>;
+  isolation_probe: Readonly<Record<string, never>>;
+}
+
+/**
+ * 取消要求の配送結果。技術終了と回収は元completionで別に確認する。
+ * @responsibility CancelResultの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 要求拒否又は要求配送と終了観測の判別Union。
+ * @invariant 未観測のProcess終了をtrueへ補完しない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type CancelResult = Readonly<
+  | { status: "blocked"; reason: "invalid" | "duplicate" }
+  | {
+      status: "requested";
+      reason: "provider_cancellation_requested";
+      cancellationRequested: true;
+      processTerminationObserved: true;
+    }
+  | {
+      status: "requested";
+      reason: "provider_cancellation_grace_exceeded" | "cancellation_requested";
+      cancellationRequested: true;
+      processTerminationObserved: false;
+    }
+>;
+
+/**
+ * 共通名の終了結果。用途固有の事実は既存Ownerの型を再利用する。
+ * @responsibility CompletionResultの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape kindで識別する用途別の型付き結果。
+ * @invariant 回収不明・一次故障を成功へ丸めない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type CompletionResult<K extends ExecutionKind = "attempt"> =
+  CompletionResults[K];
+interface CompletionResults {
+  attempt: AttemptCompletionResult;
+  authentication: AuthenticationCompletionResult;
+  isolation_probe: IsolationProbeResult;
+}
+
+/**
+ * 開始済みをEffect成立と同一視しない。共通部以外は用途の既存結果を保つ。
+ * @responsibility StartResultの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 開始拒否又は同一実行completionを返す判別Union。
+ * @invariant 開始受付はProcess開始や回収成立を意味しない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type StartResult<K extends ExecutionKind = "attempt"> =
+  K extends "attempt"
+    ? AttemptStartResult
+    : Readonly<
+        | {
+            kind: K;
+            status: "started";
+            completion: Promise<CompletionResult<K>>;
+          }
+        | { kind: K; status: "blocked"; reason: string; completion: null }
+      >;
+
+/**
+ * 全用途で同じ開始・取消の形を使い、用途と入出力の対応を型で保持する。
+ * @responsibility ExecutorLifecycleの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape kind、start、cancelの共通制御Interface。
+ * @invariant 用途別の通知同期性と元終了Promiseを維持する。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export interface ExecutorLifecycle<K extends ExecutionKind> {
+  readonly kind: K;
+  start(input: StartInput<K>): StartResult<K>;
+  cancel(input: CancelInput<K>): Promise<CancelResult>;
+}
+
+/** 認証の記録投影は実在する用途だけに保持する。 */
+interface AuthenticationExecution extends ExecutorLifecycle<"authentication"> {
+  readonly recordProjection: AuthenticationProjection;
+}
+
+/**
+ * 共通Executor。Attempt固有の明示解放だけを既存Ownerへ残す。
+ * @responsibility Executorの用途相関を既存所有型へ接続する。
+ * @trace ARCH-000008
+ * @shape 共通制御と用途に実在する投影・明示解放。
+ * @invariant Attempt専用abandonを他用途へ架空実装しない。
+ * @boundary 上位利用側と単発技術実行。
+ * @security 許可・対象の実体検査を型定義で代替しない。
+ * @compatibility 旧用途別公開名から共通名へ移行し、保存Schemaは変更しない。
+ */
+export type Executor<K extends ExecutionKind = "attempt"> = Executors[K];
+interface Executors {
+  attempt: AttemptExecutor;
+  authentication: AuthenticationExecution;
+  isolation_probe: ExecutorLifecycle<"isolation_probe">;
+}
 
 /**
  * 準備済みの固有構成を共通制御へ接続する通常の操作契約。
@@ -46,7 +252,7 @@ export type AuthenticationResourceTarget = AuthenticationStartContext &
   Readonly<{
     kind: "authentication";
     request: AuthenticationRequest;
-    callbacks?: AuthenticationCallbacks;
+    callbacks?: ExecutorCallbacks<"authentication">;
   }>;
 
 /**

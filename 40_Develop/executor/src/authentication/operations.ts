@@ -22,13 +22,13 @@ import {
   planDockerAuthenticationCommands,
   planDockerAuthenticationResourceRecovery,
 } from "../../../docker-isolation/src/index.ts";
-import type { AuthenticationCallbacks } from "../lifecycle/callbacks.ts";
+import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
+import type { Executor } from "../lifecycle/types.ts";
 import type {
   Authentication,
   AuthenticationCleanupResult,
   AuthenticationCompletionResult,
-  AuthenticationExecutor,
   AuthenticationPlan,
   AuthenticationProjection,
   AuthenticationRequest,
@@ -52,14 +52,22 @@ const authenticationTechnicalPlans = new WeakMap<
  */
 export function bindAuthenticationLifecycle(
   authentication: Authentication | null,
-): AuthenticationExecutor | null {
+): Executor<"authentication"> | null {
   if (!authentication) return null;
   const controller = new AbortController();
   let started = false;
-  return Object.freeze<AuthenticationExecutor>({
+  return Object.freeze<Executor<"authentication">>({
+    kind: "authentication",
     recordProjection: authentication.projection,
-    start(context, callbacks = {}) {
-      if (started) throw Error("provider_authentication_already_started");
+    start(context) {
+      const callbacks = context.callbacks ?? {};
+      if (started)
+        return Object.freeze({
+          kind: "authentication",
+          status: "blocked",
+          reason: "provider_authentication_already_started",
+          completion: null,
+        });
       started = true;
       const signal = context.signal
         ? AbortSignal.any([context.signal, controller.signal])
@@ -76,6 +84,8 @@ export function bindAuthenticationLifecycle(
         processCompletionConfirmed: false,
       };
       return Object.freeze({
+        kind: "authentication",
+        status: "started",
         completion: executeLifecycle(
           {
             async execute() {
@@ -106,8 +116,20 @@ export function bindAuthenticationLifecycle(
                     : signal.aborted
                       ? "provider_authentication_cancelled"
                       : result.reason;
-              return Object.freeze({
+              const final: AuthenticationCompletionResult = Object.freeze({
                 ...result,
+                kind: "authentication",
+                status:
+                  !failed &&
+                  cleanup.confirmed &&
+                  result.processCompletionConfirmed &&
+                  cleanup.processCompletionConfirmed
+                    ? reason === "provider_authentication_cancelled"
+                      ? "cancelled"
+                      : reason === "provider_authentication_completed"
+                        ? "completed"
+                        : "blocked"
+                    : "blocked",
                 reason,
                 processCompletionConfirmed:
                   !failed &&
@@ -115,14 +137,25 @@ export function bindAuthenticationLifecycle(
                   cleanup.processCompletionConfirmed,
                 cleanupConfirmed: !failed && cleanup.confirmed,
               });
+              try {
+                const pending = callbacks.onCompleted?.(final);
+                if (pending) void pending.catch(() => {});
+              } catch {}
+              return final;
             },
           },
           context,
         ),
       });
     },
-    cancel() {
+    async cancel(_input) {
       controller.abort();
+      return Object.freeze({
+        status: "requested",
+        reason: "cancellation_requested",
+        cancellationRequested: true,
+        processTerminationObserved: false,
+      });
     },
   });
 }
@@ -453,7 +486,7 @@ async function cleanupAuthentication(
   }> | null,
   assertOwner: () => boolean,
   processConfirmed: () => boolean,
-  callbacks: AuthenticationCallbacks,
+  callbacks: ExecutorCallbacks<"authentication">,
 ): Promise<AuthenticationCleanupResult> {
   let cleanupConfirmed = true,
     processCompletionConfirmed = true,

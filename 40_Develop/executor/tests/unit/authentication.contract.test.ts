@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAuthenticationUsing } from "../../src/authentication/operations.ts";
-import type { AuthenticationCallbacks } from "../../src/index.ts";
+import type { ExecutorCallbacks } from "../../src/index.ts";
 
 /**
  * 認証と通常Taskを混同せず、独立した使い捨て条件を検査する。
@@ -92,7 +92,7 @@ test("認証単独は四構成で通知・三値解析・回収を維持する",
         },
       );
       assert.ok(auth);
-      const callbacks: AuthenticationCallbacks = {
+      const callbacks: ExecutorCallbacks<"authentication"> = {
         onCommandSubmitting: (purpose) => {
           events.push(`intent:${purpose}`);
         },

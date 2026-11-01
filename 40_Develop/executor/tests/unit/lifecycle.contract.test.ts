@@ -13,7 +13,51 @@ import type {
   Authentication,
   AuthenticationResult,
 } from "../../src/authentication/types.ts";
+import type {
+  CompletionResult,
+  Executor,
+  ExecutorCallbacks,
+  StartInput,
+} from "../../src/index.ts";
 import { executeLifecycle } from "../../src/lifecycle/execute.ts";
+
+/** 用途が異なる開始・取消・通知を共通名の型が混同しない。 */
+test("共通公開型は用途と開始・取消・結果・通知の対応を維持する", () => {
+  function typesOnly(
+    attempt: Executor,
+    authentication: Executor<"authentication">,
+    probe: Executor<"isolation_probe">,
+    input: StartInput,
+  ) {
+    attempt.start(input);
+    authentication.start({ assertOwner: () => true, readResources: () => [] });
+    probe.start({});
+    // @ts-expect-error 認証開始にAttemptの管理参照を転用しない。
+    authentication.start(input);
+    // @ts-expect-error Attempt取消には元Controlと管理参照が必須。
+    attempt.cancel({});
+    // @ts-expect-error 認証にAttempt専用の明示解放を捏造しない。
+    authentication.abandon({
+      recoveryCapability: {},
+      managementCapability: {},
+    });
+    const wrong: ExecutorCallbacks<"isolation_probe"> = {
+      // @ts-expect-error Probeには認証の終了通知を登録できない。
+      onCommandCompleted: () => {},
+    };
+    void wrong;
+  }
+  void typesOnly;
+  function narrow(
+    value: CompletionResult<"attempt" | "authentication" | "isolation_probe">,
+  ) {
+    if (value.kind === "authentication") return value.authenticationStatus;
+    if (value.kind === "isolation_probe") return value.facts;
+    return value.normalizedResult;
+  }
+  void narrow;
+  assert.ok(true);
+});
 
 /** falsyな例外も発生事実と値を分け、清掃例外による一次値上書きを拒否する。 */
 test("共通Lifecycleはfalsy例外・二重例外・正常を取り違えない", async () => {
@@ -124,9 +168,10 @@ test("認証は最終取消を反映し清掃例外で一次理由を上書き�
     }).completion;
     if (mode.startsWith("cancel")) {
       await reached;
-      executor.cancel();
+      void executor.cancel({});
       release();
     }
+    assert.ok(pending);
     const result = await pending;
     assert.equal(result.authenticationConfirmed, true);
     assert.equal(
@@ -233,21 +278,35 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
     assert.ok(executor);
     assert.equal(executor.recordProjection, core.projection);
     const notices: string[] = [];
-    const started = executor.start(
-      { assertOwner: () => true, readResources: () => [] },
-      {
+    let delivered: CompletionResult<"authentication"> | null = null;
+    const started = executor.start({
+      assertOwner: () => true,
+      readResources: () => [],
+      callbacks: {
         onCommandSubmitting: (purpose) => {
           notices.push(purpose);
         },
+        onCompleted: (result) => {
+          delivered = result;
+          return Promise.reject(Error("passive"));
+        },
       },
-    );
-    if (mode === "cancel") executor.cancel();
-    assert.throws(
-      () =>
-        executor.start({ assertOwner: () => true, readResources: () => [] }),
-      /already_started/,
+    });
+    assert.ok(started.status === "started");
+    if (mode === "cancel") {
+      const cancelled = await executor.cancel({});
+      assert.equal(cancelled.status, "requested");
+      if (cancelled.status === "requested")
+        assert.equal(cancelled.processTerminationObserved, false);
+    }
+    assert.equal(
+      executor.start({ assertOwner: () => true, readResources: () => [] })
+        .status,
+      "blocked",
     );
     const completed = await started.completion;
+    assert.equal(completed.kind, "authentication");
+    assert.equal(delivered, completed);
     assert.deepEqual(notices, ["synthetic"]);
     assert.equal(cleanups, mode === "unknown" || mode === "throw" ? 0 : 1);
     assert.equal(
