@@ -6,16 +6,26 @@
  * @scope 有限代役のみ。実Docker・AIを使用しない。
  * @boundary 移管前の試験入力と新しい本番オーケストレーション。
  */
+
+import type { DockerAuthenticationCommand } from "../../../docker-isolation/src/index.ts";
+import {
+  bindAuthenticationLifecycle,
+  createAuthenticationUsing,
+  prepareAuthenticationPlan,
+} from "../../../executor/src/authentication/operations.ts";
+import type {
+  Authentication,
+  AuthenticationPlan,
+} from "../../../executor/src/authentication/types.ts";
+import type {
+  AuthenticationProjection,
+  AuthenticationRequest,
+} from "../../../executor/src/index.ts";
+import type { AuthenticationRecoveryRecord } from "../../src/execution/authority.ts";
 import {
   authenticateProvider as authenticateActual,
   prepareProviderAuthentication as prepareActual,
 } from "../../src/execution/authority.ts";
-import type { AuthenticationRecoveryRecord } from "../../src/execution/authority.ts";
-import type { AuthenticationProjection } from "../../../executor/src/index.ts";
-import { createAuthenticationUsing } from "../../../executor/src/authentication/execute.ts";
-import { prepareAuthenticationPlan } from "../../../executor/src/authentication/execute.ts";
-import type { AuthenticationPlan } from "../../../executor/src/authentication/types.ts";
-import type { DockerAuthenticationCommand } from "../../../docker-isolation/src/index.ts";
 
 export type AuthenticationTestExecution = Readonly<{
   status: number | null;
@@ -88,6 +98,7 @@ export function authenticateProvider(
     );
   let record: AuthenticationRecoveryRecord | null = null;
   let last: AuthenticationTestExecution | null = null;
+  const authentications = new WeakMap<AuthenticationRequest, Authentication>();
   const projections = new WeakMap<
     AuthenticationPlan,
     AuthenticationPlan & AuthenticationProjection
@@ -129,8 +140,18 @@ export function authenticateProvider(
             resourceReceipt: receipt,
           },
         ),
-      createAuthentication: (request) =>
-        createAuthenticationUsing(
+      cleanupAuthentication: async (target) => {
+        const authentication = authentications.get(target.request);
+        return authentication
+          ? authentication.cleanup(
+              target.readResources,
+              target.assertOwner,
+              target.callbacks,
+            )
+          : { confirmed: false, processCompletionConfirmed: false };
+      },
+      createAuthentication: (request) => {
+        const authentication = createAuthenticationUsing(
           request,
           async (command, live, plan) => {
             last = await dependencies.run(command, live, project(plan));
@@ -156,7 +177,10 @@ export function authenticateProvider(
               ? dependencies.recoveryCommands(record, project(plan), index)
               : null,
           dependencies.isProcessCompletionConfirmed,
-        ),
+        );
+        if (authentication) authentications.set(request, authentication);
+        return bindAuthenticationLifecycle(authentication);
+      },
     },
     signal,
   );
@@ -195,8 +219,10 @@ export function createProviderAuthenticationPlan<A extends "status" | "login">(
     ...technical,
     ...auth.projection,
   }) as AuthenticationPlan<A> & AuthenticationProjection;
-  return prepareActual(provider, action, home, suffix, token, () => ({
-    ...auth,
-    projection,
-  })) as AuthenticationPlan<A> & AuthenticationProjection;
+  return prepareActual(provider, action, home, suffix, token, () =>
+    bindAuthenticationLifecycle({
+      ...auth,
+      projection,
+    }),
+  ) as AuthenticationPlan<A> & AuthenticationProjection;
 }

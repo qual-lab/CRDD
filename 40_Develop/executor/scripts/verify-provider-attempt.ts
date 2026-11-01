@@ -7,8 +7,8 @@
  * @boundary 試験専用。実Docker・認証・外部AI・本番Host保存は利用しない。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -134,8 +134,8 @@ export function verifyStandaloneProviderAttempt() {
       }
     }});
     const api=await import(${JSON.stringify(root)});
-    const executionInput=await import(${JSON.stringify(new URL("../src/attempt/isolation.ts", import.meta.url).href)});
-    const {prepareAttempt}=await import(${JSON.stringify(new URL("../src/attempt/execute.ts", import.meta.url).href)});
+    const executionInput=await import(${JSON.stringify(new URL("../src/attempt/operations.ts", import.meta.url).href)});
+    const {prepareAttempt}=await import(${JSON.stringify(new URL("../src/attempt/operations.ts", import.meta.url).href)});
     const preparationInput={prepare:prepareAttempt};
     const testing=await import(${JSON.stringify(new URL("./executor-test.ts", import.meta.url).href)});
     const create=testing.createExecutorTestCandidate;

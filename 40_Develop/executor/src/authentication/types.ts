@@ -8,6 +8,7 @@ import type {
   ProviderAuthenticationResult,
 } from "../../../ai-adapter/src/index.ts";
 import type { DockerAuthenticationCommand } from "../../../docker-isolation/src/index.ts";
+import type { AuthenticationCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
  * 認証の技術構成入力。
@@ -49,24 +50,6 @@ export type AuthenticationProjection = Readonly<{
 }>;
 
 /**
- * 各認証操作の前後を伝える同期通知。
- * @responsibility 必須保存の完了を正常returnで伝え、失敗は例外で停止させる。
- * @trace ARCH-000010
- * @shape 用途の開始、作成Receipt、操作終了の通知。
- * @invariant Boolean ACK・生出力・保存関数を通知値へ含めない。
- * @boundary Executorから上位の保存Owner。
- * @security 未完了通知の後に次Effectを発行しない。
- * @compatibility inspect/remove/absenceも既存と同じ順序で通知する。
- */
-export interface AuthenticationCallbacks {
-  onCommandSubmitting?(purpose: string): void;
-  onResourceCreated?(
-    receipt: Readonly<{ name: string; dockerId: string }>,
-  ): void;
-  onCommandCompleted?(): void;
-}
-
-/**
  * 認証実行の非秘密な技術結果。
  * @responsibility 認証三値、一次理由、発行観測とProcess終了を分離する。
  * @trace ARCH-000010
@@ -98,6 +81,31 @@ export type AuthenticationCleanupResult = Readonly<{
   confirmed: boolean;
   processCompletionConfirmed: boolean;
 }>;
+
+/** 認証の開始に必要な現在Ownerと記録照会。保存操作は上位が通知先で完了する。 */
+export type AuthenticationStartContext = Readonly<{
+  signal?: AbortSignal;
+  assertOwner: () => boolean;
+  readResources: () => AuthenticationProjection["resources"] | null;
+}>;
+
+/** 認証の観測事実と、同じ実行の清掃結果。上位保存の完了とは区別する。 */
+export type AuthenticationCompletionResult = AuthenticationResult &
+  Readonly<{
+    cleanupConfirmed: boolean;
+  }>;
+
+/** 認証も一回の開始・取消・清掃を含む完了として扱う。 */
+export interface AuthenticationExecutor {
+  readonly recordProjection: AuthenticationProjection;
+  start(
+    context: AuthenticationStartContext,
+    callbacks?: AuthenticationCallbacks,
+  ): Readonly<{
+    completion: Promise<AuthenticationCompletionResult>;
+  }>;
+  cancel(): void;
+}
 
 /**
  * 一つの認証構成に結び付いた実行・回収。

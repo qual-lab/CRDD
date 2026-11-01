@@ -429,7 +429,7 @@ function createRepairOwnerFixture() {
       `missing fixture dependency: ${name}`,
     );
   return runInThisContext(
-    `(function(deps){ const {${names.join(",")}} = deps; const repairDockerEnvironment = runDockerRuntimeRepairSession; const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
+    `(function(deps){ const {${names.join(",")}} = deps; const restartDockerEnvironment = request => runDockerRuntimeRepairSession(request.input); const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
   )(
     dependencies,
   ) as typeof import("../../src/execution/recovery.ts").repairRuntimeOwnedDockerRuntime;

@@ -9,29 +9,27 @@
  * @boundary Coordinatorの準備OwnerとExecutorへの入力捕捉。
  */
 import assert from "node:assert/strict";
-import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
-import type { RecoveryPlan } from "../../../src/execution/types.ts";
-import type {
-  AttemptPreparation,
-  PreparedAttemptPlan,
-} from "../../../src/execution/types.ts";
-import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
-import { parseModelSelection } from "../../../../executor/src/attempt/validation.ts";
-import { parseAdviceReferences } from "../../../../ai-adapter/src/index.ts";
 import test from "node:test";
+import { parseAdviceReferences } from "../../../../ai-adapter/src/index.ts";
+import type { DockerIsolationRuntimeOptions } from "../../../../docker-isolation/src/index.ts";
+import { parseModelSelection } from "../../../../executor/src/attempt/operations.ts";
+import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
 import {
   cancelProviderDockerPreparation,
-  consumeProviderDockerPreparation,
-  createProviderDockerRuntimeState,
-  createPreparationFailure,
   capturePreparationInput,
+  consumeProviderDockerPreparation,
+  createPreparationFailure,
+  createProviderDockerRuntimeState,
 } from "../../../src/execution/preparation.ts";
-import type { DockerIsolationRuntimeOptions } from "../../../../docker-isolation/src/index.ts";
 import type {
-  PreparationResult,
+  AttemptPreparation,
   PreparationCancellationResult,
   PreparationFailure,
+  PreparationResult,
+  PreparedAttemptPlan,
+  RecoveryPlan,
 } from "../../../src/execution/types.ts";
+import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
 
 /**
  * 構成と準備結果の明示型が元の値契約を保持することを確認する。

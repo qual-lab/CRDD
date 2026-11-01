@@ -6,13 +6,13 @@ recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container ID
 
 ## AIツール認証の保存と技術実行の境界（2026-11-01）
 
-authority.tsはExecutor.createAuthenticationへ選定済みProvider・操作・Home・安定suffix・短命Proxy tokenを渡す。prepareProviderAuthenticationは元の資源投影と短命認証操作を既存Mapへ結合し、Recovery記録の原本照合を維持する。Docker配布物・構成・Command実行・生出力解析・所有照合・削除・不存在確認は構築せず、Executor／AI Adapter／DIの既存正本へ委譲する。
+authority.tsはExecutor.createExecutorへ選定済みProvider・操作・Home・安定suffix・短命Proxy tokenを渡す。prepareProviderAuthenticationは元の資源投影と短命認証操作を既存Mapへ結合し、Recovery記録の原本照合を維持する。Docker配布物・構成・Command実行・生出力解析・所有照合・削除・不存在確認は構築せず、Executor／AI Adapter／DIの既存正本へ委譲する。
 
 Home Lock、Recovery在庫の種類、exact参照、再入場可否、保存Schemaと固定資源名の記録整合検査は上位へ維持する。登録通知で各Commandのin_flight、Receipt、idleを順に保存し、保存失敗をvoidの例外へ変換して次Effectを止める。回収結果を受けてsettledとHome解放を別々に確認し、技術回収成功だけでは公開操作の成功にしない。プロセス終了不明では解放を発行しない。認証の技術移管を理由にRecovery管理機構を簡素化しない。
 
 ## 固定資源の観測・処置と環境修復の窓口（2026-11-01）
 
-修復の技術callはExecutor.repairDockerEnvironment、固定Directoryの観測／廃棄はExecutor.inspectResources／cleanupResourcesへ接続する。Attemptも同じ公開名を使うが、対象別の技術型と同期性は維持する。修復Session・固定Scope観測・物理廃棄の実装はDIに残し、Coordinatorは保持の意味、期限、廃棄判断、現在Owner、元保存bytes、Intent・Checkpoint保存、読戻し、履歴と完了の判断を所有する。
+修復の技術callはExecutor.restartDockerEnvironmentのmode:repair、固定Directoryの観測／廃棄はExecutor.inspectResources／cleanupResourcesへ接続する。Attemptも同じ公開名を使うが、対象別の技術型と同期性は維持する。修復Session・固定Scope観測・物理廃棄の実装はDIに残し、Coordinatorは保持の意味、期限、廃棄判断、現在Owner、元保存bytes、Intent・Checkpoint保存、読戻し、履歴と完了の判断を所有する。
 
 現行repair再入場の保持判断待ちから廃棄判断を保存する経路は維持する。期限だけで自動廃棄せず、用途別Intent保存後のcanDisposeがDIの待機後にも同じ判断・Owner・用途を再確認する。新しい回復Capability／Owner／Lockは作らず、既存管理の簡素化は別作業にする。型と純粋な状態値検査のDI参照は機械的に撤去しない。
 
@@ -707,7 +707,7 @@ Host Operation
 
 ## 7. Authorityと外部送信
 
-Taskの清掃可否判定は`src/execution/recovery.ts`、現在入場と回復結果の公開投影は`src/execution/result.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法はDomain Modelの`attempt/validation.ts`へ集約し、現在状態、CLI、回復Callerと結果公開がDomain Rootの同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
+Taskの清掃可否判定は`src/execution/recovery.ts`、現在入場と回復結果の公開投影は`src/execution/result.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法はDomain Modelの`attempt/operations.ts`へ集約し、現在状態、CLI、回復Callerと結果公開がDomain Rootの同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
 
 Repository読取り、外部送信、Provider起動、候補書込み、候補export、Docker復旧は別Authorityである。RoleはAuthorityを意味しない。
 

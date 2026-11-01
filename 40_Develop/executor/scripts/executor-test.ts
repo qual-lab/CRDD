@@ -5,57 +5,58 @@
  * @trace ARCH-000008
  * @boundary scripts/tests専用。実行許可や本番構成ではない。
  */
+
 import { types as utilTypes } from "node:util";
 import {
-  readOwnDataProperty,
-  isAttemptPlanValid,
+  createDockerIsolationRuntime,
+  type DockerCommandSession,
+  type DockerExecutionCallbacks,
+  type DockerIsolationCommand,
+  type DockerIsolationRuntime,
+  type DockerIsolationRuntimeOptions,
+  type DockerIsolationRuntimePlan,
+  type DockerSessionCleanup,
+  type DockerSessionCommandHandle,
+  describeDockerIsolationExecutionEnvironment,
+  type HomeLease,
+  parseDockerTaskRecoveryId,
+  startDockerCommandSessionCandidate,
+} from "../../docker-isolation/src/index.ts";
+import { PURPOSES } from "../src/attempt/constants.ts";
+import {
+  abandon,
+  bindIsolationRuntime as bindTestIsolationRuntime,
+  cancel,
   isAttemptFailureReason,
-} from "../src/attempt/validation.ts";
+  isAttemptPlanValid,
+  planIdentity,
+  readOwnDataProperty,
+  resolveValidatedPlan,
+  start,
+} from "../src/attempt/operations.ts";
+import { createStartResult } from "../src/attempt/result.ts";
 import type {
   AttemptPlan,
-  RuntimeState,
-  IsolationRuntime,
   AttemptReference,
-  ExecutorCallbacks,
+  IsolationRuntime,
+  RuntimeState,
   AttemptTerminalObservation as TechnicalObservation,
 } from "../src/attempt/types.ts";
 import type {
-  ProcessStartedNotice,
   CompletionResult,
+  ProcessStartedNotice,
   StartResult,
   AttemptDiagnosticNotice as TechnicalDiagnosticNotice,
 } from "../src/index.ts";
-import {
-  createDockerIsolationRuntime,
-  startDockerCommandSessionCandidate,
-  parseDockerTaskRecoveryId,
-  describeDockerIsolationExecutionEnvironment,
-  type DockerSessionCleanup,
-  type DockerIsolationCommand,
-  type DockerIsolationRuntimeOptions,
-  type DockerSessionCommandHandle,
-  type DockerCommandSession,
-  type DockerExecutionCallbacks,
-  type HomeLease,
-  type DockerIsolationRuntime,
-  type DockerIsolationRuntimePlan,
-} from "../../docker-isolation/src/index.ts";
+import type { ExecutorCallbacks } from "../src/lifecycle/callbacks.ts";
 
-import { start, cancel, abandon } from "../src/attempt/execute.ts";
-import {
-  bindIsolationRuntime as bindTestIsolationRuntime,
-  planIdentity,
-  resolveValidatedPlan,
-} from "../src/attempt/isolation.ts";
-import { PURPOSES } from "../src/attempt/constants.ts";
-import { createStartResult } from "../src/attempt/result.ts";
 export { createAttemptRecoveryTestApi } from "./attempt-recovery-test.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
+export { isAttemptFailureReason } from "../src/attempt/operations.ts";
 export {
-  projectAttemptStartResult,
   projectAttemptResult,
+  projectAttemptStartResult,
 } from "../tests/support/result-validation.ts";
-export { isAttemptFailureReason } from "../src/attempt/validation.ts";
 
 const RECOVERY_START_FAILURE_STAGES = Object.freeze([
   "plan_validation",

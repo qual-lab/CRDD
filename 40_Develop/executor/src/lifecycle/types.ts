@@ -1,19 +1,53 @@
 /**
- * 資源種別ごとの観測・回収の入力、通知、結果を定義する。
+ * 共通Lifecycleの実装契約と資源観測・回収の型を定義する。
  * @responsibility 技術契約だけを保持し、判断・保存・期限を所有しない。
  * @trace ARCH-000008
  */
+
 import type {
-  DockerResourceReceipts,
+  DockerContainerConfigurationExpectation,
   DockerResourceCleanupObservation,
+  DockerResourceReceipts,
   DockerRuntimeDirectoryInspectionInput,
   DockerRuntimeRepairDisposalInput,
-  DockerContainerConfigurationExpectation,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   AttemptRecordProjection,
   AttemptRequest,
 } from "../attempt/types.ts";
+import type {
+  AuthenticationRequest,
+  AuthenticationStartContext,
+} from "../authentication/types.ts";
+import type { AuthenticationCallbacks } from "./callbacks.ts";
+
+/**
+ * 準備済みの固有構成を共通制御へ接続する通常の操作契約。
+ * @responsibility 実行・技術清掃・結果解釈を分け、通知や保存依頼を混在させない。
+ * @trace ARCH-000008
+ * @shape 固有Contextと型付き結果の三操作。
+ * @invariant Contextは同一実行内だけ。新しい永続状態・Registryを作らない。
+ * @boundary 各operationsと共通Lifecycle。
+ * @security cleanup不能・一次失敗はcreateResultへ保持し成功へ補完しない。
+ * @compatibility 各用途の結果型を再利用し共通Envelopeへ包まない。
+ */
+export interface LifecycleOperation<TContext, TResult> {
+  execute(context: TContext): Promise<void>;
+  cleanup(context: TContext): Promise<void>;
+  createResult(
+    context: TContext,
+    failure: unknown,
+    failed: boolean,
+  ): TResult | Promise<TResult>;
+}
+
+/** 元認証構成の単独回収。上位が現在Owner・終了確認と同じReceiptを提供する。 */
+export type AuthenticationResourceTarget = AuthenticationStartContext &
+  Readonly<{
+    kind: "authentication";
+    request: AuthenticationRequest;
+    callbacks?: AuthenticationCallbacks;
+  }>;
 
 /**
  * 上位で選定済みの単一Containerと、作成時の同じ技術構成。
@@ -46,26 +80,6 @@ export type ContainerResourceInspection = Readonly<{
   observation: "present" | "absent" | "unknown";
   runningConfirmed: boolean;
 }>;
-
-/**
- * 通常実行と回収で観測した技術資源の事実を上位へ通知する。
- * @responsibility 資源観測と全技術処理終了を区別し、保存方法やACKを所有しない。
- * @trace ARCH-000008
- * @shape Docker用途・実ID通知と二段階終了通知。観測payloadは型引数で指定する。
- * @invariant 同期回収APIでは通知のPromise返却を拒否し、保存未完了で削除へ進まない。
- * @boundary 通常実行のonResourcesClosedは全終了確認後。回収APIではunknownを含む観測集合も通知する。
- * @security 通知発行自体は不存在・Home解放・回収成功の保証ではない。最終段階通知も成功保証ではない。
- * @compatibility Attempt通知だけに使用し、Directory処置へ用途を拡張しない。
- */
-export interface ResourceCleanupCallbacks<Observation> {
-  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
-  onResourceIdentified?(
-    purpose: keyof DockerResourceReceipts,
-    dockerId: string,
-  ): void;
-  onResourcesClosed?(observation: Observation): void | Promise<void>;
-  onCleanupCompleted?(observation: Observation): void | Promise<void>;
-}
 
 /**
  * 上位が選定・検査した一つのAttemptの回収対象。

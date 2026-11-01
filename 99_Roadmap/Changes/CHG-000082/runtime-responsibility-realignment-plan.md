@@ -1,5 +1,21 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## Executor共通Lifecycleと環境mode統合（2026-11-01）
+
+人間はGenerics・Interface・合成による共通Lifecycle、isolation.ts／validation.ts解体、固有処理のoperations.ts統合、資源入口のlifecycle/cleanup.ts移管、restartの必須mode統合を承認した。変更分類は公開IFと責務構造のRefactor。対象正本はExecutor／Coordinator／DI詳細とQA-000006、直接利用側・検証入口を追従する。SourceおよびArchitecture／Qualityの独立レビューを行う。準拠基準・Release条件を変更しないためそれらの監査は行わない。実AI・Docker・過去保持物は操作しない。
+
+基準版19cdae367のExecutor75件・DI305件／既存5skipと、Coordinator対象84件の成立を照合基準にする。共通化では既存の開始一回性、取消伝播とjoin、一次失敗・exact回復ID、必須保存通知、任意通知のReject捕捉、技術回収→Home解放→完了の順序を維持する。状態を新しい永続Machineへ複製せず、Operation差分の内部Contextだけを利用する。認証のidle回収→settled→再受付→新実行を通常finallyへ押し込まない。単独資源回収は未実行を実行済みへ偽装せず独立入口を維持する。
+
+Attemptの準備／構成／検査はattempt/operations.ts、認証／Probe差分は各operations.ts、資源APIと技術Home解放はlifecycle/cleanup.tsへ移した。lifecycle/execute.tsが実行→清掃→結果をjoinし、用途ごとの開始一回性・取消Controlは各operationsの既存Ownerを保つ。公開createExecutorの用途別結合はindex.tsに置き、余分なFactory Sourceと循環依存を作らない。通知interfaceだけをcallbacks.tsへ、Operation操作は通常Interfaceとしてtypes.tsへ置く。結果内容・Profile・保存判断は共通制御へ混ぜない。環境のrestart／repairは元入力を必須modeで分岐し、欠測・未知modeをEffect前に拒否、自動fallback・再送はしない。
+
+今回のSource接続・非AI受入条件を確認した。Executor全体79件、Coordinator対象10 Suite 182件、修復結果26件、Windows実Writerの限定接続1件、DIのProvider結合1件が成功。Executorの整形・型検査・Lint、Coordinator型検査、差分空白検査も成功した。Windows保存Suite全件の再実行、実AI・実Docker・Release全体の成立は主張しない。
+
+独立SourceおよびArchitecture／Qualityレビューは、falsy例外の誤成功、認証清掃中の取消、清掃例外による一次理由上書き、文書のOwner不一致を是正し、再確認の残必須指摘零。共通Runnerは例外発生のBooleanと値を分け、null／undefined／false／0を含む一次例外を保持する。認証は正常理由の場合だけ最終取消を反映し、既存の認証事実と一次失敗を失わない。Test Catalogの新Suite登録漏れも是正した。参照展開検査は既存3,356指摘・終了1、変更対象文書およびExecutorの追加指摘零であり、全体QA合格とは扱わない。
+
+制限付き実行でWindows子Process取消2件が終了猶予超過となった。同じSource・期限の通常Host権限では2件とも成功した。制限環境との差は観測したが根本原因を断定せず、製品の取消条件や期限は変更していない。Windows実Writerの先頭接続Caseは途中停止ではなく保存の進行を確認し、通常起動で約117秒後に成功した。保存性能の変更を本Refactorへ追加していない。
+
+途中中断した今回の合成領域は`.crdd/tests/repair-owner-{0VBQpF,dUVkhX,FyXGWB,IxxZGW,RVCBLv,sx4yJz,wfSPA7}`の7件。作成時刻、独立した空Commit一件／追跡File零／外部Git共有なし、Root内限定・Reparse Point零と試験Process終了を確認して清掃し、7件すべての不存在を再確認した。過去の保持物は対象外。実AI・Docker・過去保持物は操作していない。
+
 ## Probe観測・回収の最小共通化（2026-11-01）
 
 人間は既存構成・共通処理の再利用によるProbe専用重複の整理とCoordinator直接依存の削減を承認した。汎用期待値Framework・管理State・Registry・Lockは追加しない。変更分類は責務移管と重複撤去。正本はExecutor／DI／Coordinator詳細、QA-000006。着手前に既存三軸不存在、完全構成・Mount実体、64KiB上限、現在Owner、exact回復参照、保存・Host清掃順を比較し、読取り専用確認で通常回収との保証差を確認した。SourceとArchitecture／Qualityの独立レビューを行い、準拠基準・Release条件は変えないためそれらの監査は行わない。追加の人間判断はない。

@@ -8,25 +8,26 @@
  * @scope メモリ境界。保存故障・終了・回収Caller。実Docker・Native・Provider・Filesystem書込み0。
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
-import type { CoordinatorStateRepairOperation } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import fs from "node:fs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { runInThisContext } from "node:vm";
+import fs from "node:fs";
 import test from "node:test";
-import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
+import { runInThisContext } from "node:vm";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import {
+  type DockerRuntimeRepairDisposalInput,
   dockerRuntimeRepairCheckpointIsSettled,
   dockerRuntimeRepairDisposalIsSettled,
-  type DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
+import type { CoordinatorStateRepairOperation } from "../../../domain-model/src/index.ts";
 import * as model from "../../../domain-model/src/index.ts";
 import * as historyValues from "../../../domain-model/src/index.ts";
-import * as stateValues from "../../src/state/validation.ts";
+import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
+import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
+import * as stateValues from "../../src/state/validation.ts";
 
 /**
  * 実呼出しSourceを固定したメモリ保存境界へ組み立てる。
@@ -392,7 +393,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       : refused;
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,verifyRepositoryRoot,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const repairDockerEnvironment = runDockerRuntimeRepairSession; const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,verifyRepositoryRoot,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const restartDockerEnvironment = request => runDockerRuntimeRepairSession(request.input); const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
     randomBytes,

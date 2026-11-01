@@ -7,17 +7,17 @@
  * @scope 合成CLI・所在・Tokenだけ。Docker・Process・外部AIなし。
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import { readFileSync } from "node:fs";
+import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 import {
   bindProviderCommand,
   describeDockerProviderAssets,
   describeDockerProxyTopology,
-  planDockerIsolationCommands,
   dockerIsolationCommandsMatch,
   type ProviderCommandBinding,
+  planDockerIsolationCommands,
 } from "../../../src/index.ts";
 
 /**
@@ -37,7 +37,7 @@ test("Provider結合は両方式で一つの規則を使い、部分Token差と�
     "utf8",
   );
   const preparation = readFileSync(
-    new URL("../../../../executor/src/attempt/execute.ts", import.meta.url),
+    new URL("../../../../executor/src/attempt/operations.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(

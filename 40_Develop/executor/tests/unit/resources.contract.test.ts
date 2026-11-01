@@ -9,12 +9,12 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import type {
+  DockerRuntimeDirectoryCleanupResult,
+  DockerRuntimeDirectoryInspectionInput,
+  DockerRuntimeRepairCheckpoint,
+  DockerRuntimeRepairDisposalInput,
   DockerRuntimeRepairInput,
   DockerRuntimeRepairResult,
-  DockerRuntimeDirectoryCleanupResult,
-  DockerRuntimeRepairCheckpoint,
-  DockerRuntimeDirectoryInspectionInput,
-  DockerRuntimeRepairDisposalInput,
   DockerRuntimeRepairRetentionTargets,
 } from "../../../docker-isolation/src/index.ts";
 import type { AttemptRecoveryTarget } from "../../src/index.ts";
@@ -49,10 +49,12 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
   const unexpected = () => {
     throw Error("unexpected_attempt_operation");
   };
+  const original = await import("../../../docker-isolation/src/index.ts");
   const lower = mock.module(
     new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
     {
       namedExports: {
+        ...original,
         createDockerProbeRuntimeBinding: unexpected,
         inspectDockerContainer: unexpected,
         observeDockerContainerAbsence: unexpected,
@@ -80,9 +82,9 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
   );
   try {
     const { inspectResources, cleanupResources } = await import(
-      "../../src/resources/execute.ts"
+      "../../src/lifecycle/cleanup.ts"
     );
-    const { repairDockerEnvironment } = await import(
+    const { restartDockerEnvironment } = await import(
       "../../src/environment/execute.ts"
     );
     const controller = new AbortController();
@@ -187,7 +189,10 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       onPrepared: unexpected,
       onCheckpoint: unexpected,
     });
-    assert.equal(repairDockerEnvironment(request), repaired);
+    assert.equal(
+      restartDockerEnvironment({ mode: "repair", input: request }),
+      repaired,
+    );
     assert.equal(calls.at(-1), request);
     assert.equal(await repaired, repairResult);
     const before = calls.length;

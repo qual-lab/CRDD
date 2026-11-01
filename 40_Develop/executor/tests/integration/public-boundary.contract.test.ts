@@ -9,8 +9,8 @@
  * @boundary Executor公開RootとCoordinatorの依存方向。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import test from "node:test";
 import { verifyStandaloneProviderAttempt } from "../../scripts/verify-provider-attempt.ts";
 
@@ -63,14 +63,14 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   assert.match(publicSource, /\bAttemptRequest\b/);
   assert.doesNotMatch(publicSource, /\bRecoveryStartFailureDiagnostic\b/);
   const executionSource = fs.readFileSync(
-    new URL("../../src/attempt/execute.ts", import.meta.url),
+    new URL("../../src/attempt/operations.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(executionSource, /reportPassiveBoundaryDiagnostic/);
   const functionPositions = [
     "export async function cancel(",
     "export function abandon(",
-    "export function createExecutor(",
+    "export function createAttemptExecutor(",
     "function prepareAttempt(",
   ].map((name) => executionSource.indexOf(name));
   assert.ok(
@@ -96,7 +96,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   assert.match(
     publicSource,
-    /export type \{[^}]*\bExecutorCallbacks\b[^}]*\} from "\.\/attempt\/types\.ts"/,
+    /export type \{[^}]*\bExecutorCallbacks\b[^}]*\} from "\.\/lifecycle\/callbacks\.ts"/,
   );
   assert.equal(
     fs.existsSync(new URL("../../src/result/", import.meta.url)),
@@ -104,14 +104,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   assert.deepEqual(
     fs.readdirSync(new URL("../../src/attempt/", import.meta.url)).sort(),
-    [
-      "constants.ts",
-      "execute.ts",
-      "isolation.ts",
-      "result.ts",
-      "types.ts",
-      "validation.ts",
-    ],
+    ["constants.ts", "operations.ts", "result.ts", "types.ts"],
   );
   assert.doesNotMatch(
     publicSource,
@@ -133,17 +126,15 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       return resolved;
     }});
     const api=await import(${JSON.stringify(root)});
-    const isolation=await import(${JSON.stringify(new URL("../../src/attempt/isolation.ts", import.meta.url).href)});
+    const isolation=await import(${JSON.stringify(new URL("../../src/attempt/operations.ts", import.meta.url).href)});
     assert.equal('describeIsolationContract' in isolation,false);
     assert.equal('isPlanValid' in isolation,false);
     assert.equal('providerBoundaryConfiguration' in isolation,false);
     blockDomain=false; // 試験Hostの保存は上位fixtureが所有する。
     assert.deepEqual(Object.keys(api).sort(), [
       "createExecutor",
-      "createAuthentication",
       "inspectDockerEnvironment",
       "restartDockerEnvironment",
-      "repairDockerEnvironment",
       "inspectResources",
       "cleanupResources",
     ].sort());

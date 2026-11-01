@@ -8,11 +8,10 @@
  * @scope 現在checkpoint、公開DI入力、通知保存と外側排他。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番組立て→DI公開相当driverと実Machine。
  */
-import { decodeDockerRestartCheckpoint } from "../../../domain-model/src/index.ts";
+
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -20,12 +19,15 @@ import { runInNewContext } from "node:vm";
 import { restartDockerRuntimeForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import {
+  createDockerRestartRequestId,
+  decodeDockerRestartCheckpoint,
+  decodeRuntimeDomainSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateRestartSnapshot,
-  decodeRuntimeDomainSnapshot,
-  createDockerRestartRequestId,
 } from "../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
+
 /**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。
  *
@@ -524,11 +526,13 @@ async function compose(fault: string = "normal") {
         lockReleased: true,
       };
     },
-    restartDockerEnvironment: (
-      input: Parameters<typeof restartDockerRuntimeForVerification>[0],
-    ) => {
+    restartDockerEnvironment: (request: {
+      mode: "restart";
+      input: Parameters<typeof restartDockerRuntimeForVerification>[0];
+    }) => {
       calls.push("lower");
-      return restartDockerRuntimeForVerification(input, dependencies);
+      assert.equal(request.mode, "restart");
+      return restartDockerRuntimeForVerification(request.input, dependencies);
     },
   };
   const run = runInNewContext(

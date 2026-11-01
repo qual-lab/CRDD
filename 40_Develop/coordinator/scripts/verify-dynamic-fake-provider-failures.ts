@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { createIsolationProbe } from "../../executor/src/probe/execute.ts";
+import { createIsolationProbe } from "../../executor/src/probe/operations.ts";
 
 import {
   DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,

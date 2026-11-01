@@ -6,27 +6,28 @@
  * @trace ERB-IT-004
  * @boundary scripts専用。認証・排他取得・Docker起動は呼出し側の明示承認を必要とする。
  */
+
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { isPrimaryFailureDiagnostic } from "./executor-test.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
+import type { DockerResourceReceipts } from "../../docker-isolation/src/index.ts";
 import {
-  writeCommittedJson,
   readCommittedJson,
+  writeCommittedJson,
 } from "../../domain-model/src/index.ts";
 import type { acquireNamedPipeKernelLock } from "../../platform-access/src/index.ts";
-import type { DockerResourceReceipts } from "../../docker-isolation/src/index.ts";
+import {
+  planIdentity,
+  resolveValidatedPlan,
+} from "../src/attempt/operations.ts";
+import type { AttemptPlan } from "../src/attempt/types.ts";
 import type { AttemptDiagnosticNotice } from "../src/index.ts";
 import {
   createExecutorLifecycleTestRuntime as createExecutor,
   type ExecutorTestHost as ExecutorHost,
+  isPrimaryFailureDiagnostic,
 } from "./executor-test.ts";
-import {
-  planIdentity,
-  resolveValidatedPlan,
-} from "../src/attempt/isolation.ts";
-import type { AttemptPlan } from "../src/attempt/types.ts";
 
 /**
  * 既存同期排他を保持した一回限りの試験Hostを組み立てる。

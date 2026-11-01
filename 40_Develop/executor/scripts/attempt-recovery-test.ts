@@ -7,8 +7,8 @@
  */
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
 import { types as utilTypes } from "node:util";
+import { runInNewContext } from "node:vm";
 import * as isolation from "../../docker-isolation/src/index.ts";
 
 /**
@@ -28,9 +28,9 @@ export function createAttemptRecoveryTestApi(
       assertOwner: () => boolean;
     }>,
   ) => unknown,
-): typeof import("../src/resources/execute.ts") {
+): typeof import("../src/lifecycle/cleanup.ts") {
   const source = readFileSync(
-    new URL("../src/resources/execute.ts", import.meta.url),
+    new URL("../src/lifecycle/cleanup.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(source)

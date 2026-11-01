@@ -9,10 +9,10 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import type {
-  DockerRuntimeRestartInput,
-  DockerRuntimeRestartResult,
   DockerRuntimeBackendState,
   DockerRuntimeEngineObservation,
+  DockerRuntimeRestartInput,
+  DockerRuntimeRestartResult,
 } from "../../../docker-isolation/src/index.ts";
 
 /**
@@ -94,6 +94,26 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
         }
       }
     }
+    const before = calls.length;
+    for (const invalid of [
+      undefined,
+      {},
+      { mode: "other", input: {} },
+      { mode: "repair" },
+      { mode: "restart", input: {}, extra: true },
+      {
+        get mode() {
+          throw Error("getter");
+        },
+        input: {},
+      },
+    ]) {
+      assert.throws(
+        () => api.restartDockerEnvironment(invalid as never),
+        /docker_environment_mode_invalid/,
+      );
+    }
+    assert.equal(calls.length, before);
     const controller = new AbortController();
     const request: DockerRuntimeRestartInput = Object.freeze({
       requestId: result.requestId,
@@ -104,16 +124,22 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
       },
       onEvent: () => undefined,
     });
-    assert.equal(api.restartDockerEnvironment(request), pending);
+    assert.equal(
+      api.restartDockerEnvironment({ mode: "restart", input: request }),
+      pending,
+    );
     assert.equal(supplied, request);
     assert.equal(await pending, result);
     controller.abort();
-    assert.equal(api.restartDockerEnvironment(request), pending);
+    assert.equal(
+      api.restartDockerEnvironment({ mode: "restart", input: request }),
+      pending,
+    );
     assert.equal(supplied, request);
     assert.equal(request.signal.aborted, true);
     reject = true;
     await assert.rejects(
-      api.restartDockerEnvironment(request),
+      api.restartDockerEnvironment({ mode: "restart", input: request }),
       (error) => error === failure,
     );
     assert.equal(supplied, request);

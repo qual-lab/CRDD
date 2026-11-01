@@ -22,13 +22,13 @@
 
 `createExecutor({ kind: "isolation_probe", probeId }, { readMounts })`は、固定合成Containerの技術試験を一回だけ開始する。Providerへ送信する`purpose: "probe"`とは別の要求であり、Provider・Model・認証・送信許可を架空に生成しない。公開関数を追加せず、通常Attemptの契約も変更しない。
 
-`probe/execute.ts`はCreate、実ID通知、fresh構成確認、非同期attach、取消・closeのjoin、実ID限定回収と三軸不存在をDIへ接続する。`probe/types.ts`は要求・所在Query・同期void通知interface・技術結果を所有する。上位は`onSubmitting`と`onCreated`で必要な耐久保存を完了してからreturnする。通知失敗でも既知実IDは保持して補償回収し、作成不明では再Createや名前だけの削除を行わない。
+`probe/operations.ts`はCreate、実ID通知、fresh構成確認、非同期attach、取消・closeのjoin、実ID限定回収と三軸不存在をDIへ接続する。`probe/types.ts`は要求・所在Query・技術結果、`lifecycle/callbacks.ts`は同期void通知interfaceを所有する。上位は`onSubmitting`と`onCreated`で必要な耐久保存を完了してからreturnする。通知失敗でも既知実IDは保持して補償回収し、作成不明では再Createや名前だけの削除を行わない。
 
 `readMounts`は現在Owner確認を伴う通常Queryであり通知ではない。四所在を独立した不変値へ捕捉し、await後の差・欠測・読取り失敗では新しい操作を停止する。取消は同じ所有attachへ届き、終了不明を回収成功にしない。completionは技術回収まで待つが、Host清掃・保存確定・最終Fake判定はCoordinatorの責務である。故障Profileは製品Requestに公開せず、検証Scriptだけが内部の同じ実装へ固定Profileを渡す。永続Store・新しいLock・Registryは追加しない。
 
 ### AIツール認証の技術生涯
 
-createAuthentication(request)はAI Adapterのlogin/status仕様と既存DIの固定Image・Home・Proxy条件を結合し、資源投影とexecute／cleanupを返す。準備と実行はauthentication/execute.ts、型はauthentication/types.tsへ置き、preparation.tsや互換barrelを追加しない。認証情報そのもの・Repository・Workspace・任意CLIは要求しない。認証と通常Taskは同じProvider固定Imageを利用するが、Codex Adviceの別Digestは今回変更しない。
+認証もcreateExecutor(request)から構成し、recordProjectionとstart／cancelを返す。startのcompletionは同じRuntimeの認証・清掃を含み、authenticationStatus、processCompletionConfirmed、cleanupConfirmedを区別する。準備と実行はauthentication/operations.ts、型はauthentication/types.tsへ置き、preparation.tsや互換barrelを追加しない。認証情報そのもの・Repository・Workspace・任意CLIは要求しない。認証と通常Taskは同じProvider固定Imageを利用するが、Codex Adviceの別Digestは今回変更しない。
 
 上位はHome選定・既存Home Lock、Recovery受付、Intent／Receipt／idle／settledの保存を所有する。Executorの同期void通知は各Commandの前、作成Receipt、終了後に発行し、上位は必要保存を完了してからreturnする。throw又は誤Promiseでは次Effectを止める。生出力を通知へ流さず、AI Adapterの正本Parserで認証三値へ変換する。readResourcesは現在記録の読取りQueryであり、通知や保存依頼と混同しない。
 
@@ -41,8 +41,8 @@ createAuthentication(request)はAI Adapterのlogin/status仕様と既存DIの固
 | 公開関数 | 契約 |
 |---|---|
 | `inspectDockerEnvironment(): DockerEnvironmentStatus` | backendとEngineの既存の有界読取りを逐次実行する。backendのunknown、Engineのknown_unavailable／unknownとcleanup未確認を保持する。起動・再起動・修復・Container作成を発行しない |
-| `restartDockerEnvironment(request: DockerRuntimeRestartInput): Promise<DockerRuntimeRestartResult>` | 入力object・Signal・現在境界確認・同期通知と元Promiseを既存DIへ無変換で委譲する。DI正本の入力・結果・通知型を再利用し、deliveryを落とさない |
-| `repairDockerEnvironment(request: DockerRuntimeRepairInput): Promise<DockerRuntimeRepairResult>` | 既存の固定修復Sessionへ無変換で委譲する。判断・保存・保持期限は上位へ残す |
+| `restartDockerEnvironment({mode: "restart", input: request}): Promise<DockerRuntimeRestartResult>` | 入力object・Signal・現在境界確認・同期通知と元Promiseを既存DIへ無変換で委譲する。DI正本の入力・結果・通知型を再利用し、deliveryを落とさない |
+| `restartDockerEnvironment({mode: "repair", input: request}): Promise<DockerRuntimeRepairResult>` | 既存の固定修復Sessionへ無変換で委譲する。判断・保存・保持期限は上位へ残す |
 
 診断結果はatomicなSnapshotでも再起動許可でも全資源停止の証明でもない。診断の先行実行を再起動の条件にせず、既存DIの各Effect直前確認と通知待ちを維持する。Coordinatorの再起動本番接続はこの窓口を使用する。既存doctorの合成Container Probeは別Capabilityであり、環境読取りをdoctorへ自動追加しない。認証は上記の認証窓口へ接続済みである。合成隔離Probeの通常経路は上記の既存Executor入口へ接続する。実Docker境界の成立は今回の非AI検証から推測しない。修復・固定Directoryの観測／処置は以下の共通入口へ接続する。既存Runtime State LockはRepository単位であり、Host全体・別Repositoryの排他保証をこの移管で新設又は証明したとは扱わない。
 
@@ -63,9 +63,9 @@ inspectResources／cleanupResourcesの既存入口で、元作成構成を持つ
 
 kindはAPI分岐だけに使い保存Schemaへ追加しない。未知kindからDirectory処置へ進まない。任意Path・任意資源の混合集約・再試行・新Owner・新Lockは追加しない。DirectoryへAttempt用purpose／Docker ID通知やHome終了の架空値を作らず、既存の現在性Queryと結果返却を利用する。保持の意味・期限・廃棄判断・用途Intent・保存はCoordinatorに残す。Executorは「退避物」という業務分類やHistoryを所有しない。
 
-環境修復はrepairDockerEnvironment(request: DockerRuntimeRepairInput): Promise<DockerRuntimeRepairResult>から既存DI Sessionへ無変換で委譲する。外側結果と内部Machineの型はDI正本に明示名を付け、一次失敗・Native終了・観測資源終了・最終checkpoint候補を保持する。finalCheckpointConfirmed:falseを保存成功へ補完しない。修復処理とRecovery管理簡素化は分離し、後者は今回は変更しない。
+環境修復はrestartDockerEnvironment({mode: "repair", input: request})から既存DI Sessionへ無変換で委譲する。外側結果と内部Machineの型はDI正本に明示名を付け、一次失敗・Native終了・観測資源終了・最終checkpoint候補を保持する。finalCheckpointConfirmed:falseを保存成功へ補完しない。修復処理とRecovery管理簡素化は分離し、後者は今回は変更しない。
 
-ExecutorはAttempt単位の技術診断・回収を受け持つ。resources/execute.tsと公開入口index.tsに、inspectResourcesとcleanupResources、明示型AttemptRecoveryTarget・AttemptResourceInspection・AttemptCleanupResultを配置する。Coordinatorの本番資源回収はこの二操作へ接続し、Domain保存・Host清掃・Lease解放を下位へ移さない。
+ExecutorはAttempt単位の技術診断・回収を受け持つ。lifecycle/cleanup.tsと公開入口index.tsに、inspectResourcesとcleanupResources、明示型AttemptRecoveryTarget・AttemptResourceInspection・AttemptCleanupResultを配置する。Coordinatorの本番資源回収はこの二操作へ接続し、Domain保存・Host清掃・Lease解放を下位へ移さない。
 
 | 契約 | 入力・結果の具体化方針 |
 |---|---|
@@ -180,28 +180,32 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 
 ## 2. Sourceと公開入口
 
+共通化するのは実行・清掃・結果の終了待ちであり、三用途へ同じDocker手順を強制しない。認証の同期保存通知、Attemptの非同期通知、Probeの実ID保存はそれぞれ既存の順序を保つ。認証の単独回収はcleanupResourcesのauthentication対象へ接続し、旧実行が終了不明の場合は上位が回収へ進めない。通常認証は同じRuntimeで実行から清掃まで完了し、その後にCoordinatorが記録を確定して上位Home Lockを解放する。
+
+環境変更はrestartDockerEnvironmentのmodeを必須とし、restartは停止・起動、repairは既存の固定Directory退避を含む修復へ接続する。modeの欠測・未知値・accessorは操作前に拒否する。失敗を理由に別modeへ切り替えず、元input・Signal・通知・結果・Promiseをそのまま既存DIへ渡す。独立したrepairDockerEnvironmentは公開しない。自動起動・自動修復・再試行は今回追加しない。
+
 ```text
 executor/src/
-├ index.ts                    有限公開APIと共有型の明示export
-├ probe/
-│ ├ execute.ts                固定合成Probeの作成・通知・実行・取消・技術回収
-│ └ types.ts                  合成要求・所在Query・同期通知interface・技術結果
+├ index.ts                    共通公開入口createExecutorと対象別の明示型
+├ lifecycle/
+│ ├ execute.ts                同じContextの実行→清掃→結果をjoinし一次失敗を保持
+│ ├ cleanup.ts                対象別の観測・回収と技術Home Lease解放
+│ ├ callbacks.ts              Attempt・認証・固定Probe・回収の通知interface
+│ └ types.ts                  共通Operation契約と資源対象・観測・回収結果
+├ attempt/
+│ ├ operations.ts             入力固定・構成・開始取消・Provider実行・通知の固有処理
+│ ├ result.ts                 Provider内容解析・開始結果・清掃後結果の組立て
+│ ├ types.ts                  単発実行の要求・内部構成・開始／完了結果
+│ └ constants.ts              結果理由・診断段階・Command用途の固定語彙
 ├ authentication/
-│ ├ execute.ts                固定認証構成・実行・通知・技術回収
-│ └ types.ts                  認証要求・資源投影・同期通知・非秘密結果
-├ resources/
-│ ├ execute.ts                対象別の共通観測・回収。任意Path削除を提供しない
-│ └ types.ts                  資源対象・対象別結果・共通通知interface
-├ environment/
-│ ├ execute.ts                backend／Engine観測と環境再起動・修復の薄い技術窓口
-│ └ types.ts                  集約観測型。入力・再起動結果・通知型はDI正本を再利用
-└ attempt/
-  ├ execute.ts                createExecutor・prepareAttempt・start・単発実行・取消・join・通知
-  ├ isolation.ts              AI Adapter／Docker Isolationの構成結合・Session開始と清掃接続
-  ├ result.ts                 Command結果・構成診断・開始結果・清掃後の終了結果の組立て
-  ├ types.ts                  技術入力・通知interface・公開／共有結果型と非秘密診断型
-  ├ constants.ts              結果理由・診断段階・Command用途の共有固定語彙
-  └ validation.ts             技術入力の固定・開始参照取得・共通基本検査・固定失敗理由照合
+│ ├ operations.ts             認証の固定構成・実行・終了不明の保持・用途固有の清掃
+│ └ types.ts                  認証要求・投影・開始文脈・終了結果
+├ probe/
+│ ├ operations.ts             合成構成・実ID通知・固定実行・fresh照合・清掃
+│ └ types.ts                  合成要求・所在Query・技術観測結果
+└ environment/
+  ├ execute.ts                読取り診断とmode指定の再起動／修復への薄い接続
+  └ types.ts                  診断型とmodeごとの元DI入力
 ```
 
 助言CommandはcreateExecutorへ渡された確定入力から内部構築する。上位へCommandを公開せず、専用の事前構築API・PreparedAdviceCommand・Command Hash往復は廃止する。Advice要求は共通のtarget／selectionと本文・許可参照・Network Policyだけを受ける。選定の識別種別・用途・Provider・Model・推論強度、本文長と参照、PolicyのProvider・正規Hashを既存Ownerで検査する。Policyは通常dataへ捕捉して固定し、後発変更を採用しない。上位Commandを含む旧要求は互換受理しない。
@@ -212,7 +216,7 @@ executor/src/
 
 準備Ownerの宣言と`PreparationInput`・`ModelSelection`・`TaskPacket`・`AdvicePacket`・`AttemptBinding`・`MountGrant`はCoordinatorの`execution/types.ts`へ配置する。既存の二WeakMap、二時計期限、取消・一回消費を維持し、consumeからExecutor開始までawaitを挟まない。Executorの`AttemptPreparationResult`・`prepareAttempt`／`consumePreparedPlan` callbackは撤去する。消費後の開始拒否では、未消費Authorityのexact control失効と未完了Mount借用の終了を上位が確認する。Authority消費済みや技術清掃中の責務を上位へ戻さず、Home解放条件は変更しない。
 
-Executor内のAttempt実行型と通知は`attempt/types.ts`、資源回収の対象・結果・ResourceCleanupCallbacksは`resources/types.ts`へ置く。準備の取消・期限・一回消費だけが使う型はCoordinatorの準備Owner内へ置き、共有する準備型は同Packageの`execution/types.ts`へ置く。上位の`RecoveryPlan`は既存記録に必要な完全選定・Packet・利用側相関を保持し、`PreparedAttemptPlan<P>`が発行済みAuthorityと二時計・表示情報を結合する。新しいMap・Registry・保存単位は追加しない。
+Executor内のAttempt実行型は`attempt/types.ts`、通知interfaceは`lifecycle/callbacks.ts`、資源回収の対象・結果は`lifecycle/types.ts`、ResourceCleanupCallbacksは`lifecycle/callbacks.ts`へ置く。準備の取消・期限・一回消費だけが使う型はCoordinatorの準備Owner内へ置き、共有する準備型は同Packageの`execution/types.ts`へ置く。上位の`RecoveryPlan`は既存記録に必要な完全選定・Packet・利用側相関を保持し、`PreparedAttemptPlan<P>`が発行済みAuthorityと二時計・表示情報を結合する。新しいMap・Registry・保存単位は追加しない。
 
 builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request内に実行対象の`target`、AI Adapterの五項目`selection`、Probe／Task／Adviceの排他的な実行内容をまとめ、独立した`AttemptTarget`型は撤去する。上位はBindingとGrantの同一操作・Provider対応、選定ID／Hash・試行番号・Packet参照／Hash・stdin搬送・roleと用途・助言四非共有条件を検査する。下位は五項目選定・本文・Command・Image・Mountの技術的一致を維持する。利用側名、試行番号、選定記録ID、Packet相関をExecutorのPlanへ含めない。
 
@@ -228,9 +232,9 @@ Coordinatorの`execution/provider-executor.ts`は本番Executorを一度だけ�
 
 各TypeScript Fileの宣言順序は[コーディング規約](../../99_Coding_Standards.md#32-sourceの責務別配置と公開境界)に従う。静的import・再export、型宣言、Module直下の値、関数・実装を区別し、初期化やModule評価の順序は変更しない。検証Script `verify-provider-real.ts`は、Coordinator依存を拒否する`registerHooks`を登録してから動的importする実行境界を持つ。この登録と読込みは初期化を所有する処理として順序を維持し、宣言順序を揃える目的で静的importへ置換しない。
 
-Executorの`execute.ts`内の非公開`prepareAttempt`が一試行の技術構成を作り、同FileのFactoryが保持する。準備候補の一回消費はCoordinatorの既存Ownerが行う。`execute.ts`が唯一の技術生涯Ownerとして開始・取消・終了待ちを管理する。`isolation.ts`は下位Sessionの清掃後、Grant借用終了を通知し、Homeを実解放してから上位へ観測保存を通知する。正常SessionのDocker清掃を二重実行しない。開始前故障の限定清掃も同じ実行Ownerが呼ぶ。
+`index.ts`のcreateExecutorは用途別の確定入力をoperationsへ結合する。`attempt/operations.ts`のprepareAttemptは一試行の技術構成を内部に保持する。準備候補の一回消費はCoordinatorの既存Ownerが行う。`lifecycle/execute.ts`が実行・清掃・結果のPromiseをjoinし、各operationsが既存の取消と固有技術条件を適用する。Attemptは下位Sessionの清掃後、Grant借用終了を通知し、Homeを実解放してから上位へ観測保存を通知する。正常SessionのDocker清掃を二重実行しない。開始前故障の限定清掃も同じ実行Ownerが呼ぶ。
 
-Task／Adviceとも同じstartとcompletionを使い、`CompletionResult`の`normalizedResult`を型付き`AttemptContent`として返す。実行時の編集・レビュー内容はAI Adapterの`provider/task-result.ts`、助言の内容モデル・Schema・許可参照検査は`provider/advice-result.ts`が唯一所有する。Domainにあった旧実体・公開APIは撤去し、保存Schema・Writer・遷移は変更しない。AI Adapterの公開`parseProviderResult`は用途別内容検査まで完了し、内容・非秘密観測・内部搬送用所見を区別して返す。Executorの`attempt/result.ts`の`parseAttemptOutput`がこの一入口と成功時の内容Hash計算をまとめる。`execute.ts`は解析のタイミング・結果受理・失敗の確定を所有し、Provider固有の解析や作業量判定を組み立てない。`attempt/result.ts`は`createStartResult`で開始成功・拒否結果、`createCompletionResult`で清掃後の終了結果を組み立てる。制御Handleとcompletion Promiseの生成・管理は実行Ownerが行い、開始Factoryは渡された同じ参照と既存の準備・選択metadataを結果へ組み立てる。`StartResult`／`CompletionResult`は`attempt/types.ts`が明示する公開結果契約とし、両Factoryは対応する型を明示して返す。両Factoryは名前付きObject一つを引数とし、開始入力はstatus別の必要値と準備失敗表示・選択三値、終了入力は操作ID・回復IDと技術観測を受ける。選定記録IDは上位の元記録だけが保持する。`StartResultDetails`、返却型のジェネリクス・Extract・型アサーションは使わない。準備内部のCapability／Grant／Home／Effect／Authority項目は開始結果へ展開せず、準備Ownerの内部診断にだけ保持する。入力の許可参照集合は準備時に複製・固定し、試行Identityへ含める。結果の用途別内容は保ち、同じfieldへ無理に平坦化しない。
+Task／Adviceとも同じstartとcompletionを使い、`CompletionResult`の`normalizedResult`を型付き`AttemptContent`として返す。実行時の編集・レビュー内容はAI Adapterの`provider/task-result.ts`、助言の内容モデル・Schema・許可参照検査は`provider/advice-result.ts`が唯一所有する。Domainにあった旧実体・公開APIは撤去し、保存Schema・Writer・遷移は変更しない。AI Adapterの公開`parseProviderResult`は用途別内容検査まで完了し、内容・非秘密観測・内部搬送用所見を区別して返す。Executorの`attempt/result.ts`の`parseAttemptOutput`がこの一入口と成功時の内容Hash計算をまとめる。`attempt/operations.ts`は解析のタイミング・結果受理・失敗の確定を所有し、Provider固有の解析や作業量判定を組み立てない。`attempt/result.ts`は`createStartResult`で開始成功・拒否結果、`createCompletionResult`で清掃後の終了結果を組み立てる。制御Handleとcompletion Promiseの生成・管理は実行Ownerが行い、開始Factoryは渡された同じ参照と既存の準備・選択metadataを結果へ組み立てる。`StartResult`／`CompletionResult`は`attempt/types.ts`が明示する公開結果契約とし、両Factoryは対応する型を明示して返す。両Factoryは名前付きObject一つを引数とし、開始入力はstatus別の必要値と準備失敗表示・選択三値、終了入力は操作ID・回復IDと技術観測を受ける。選定記録IDは上位の元記録だけが保持する。`StartResultDetails`、返却型のジェネリクス・Extract・型アサーションは使わない。準備内部のCapability／Grant／Home／Effect／Authority項目は開始結果へ展開せず、準備Ownerの内部診断にだけ保持する。入力の許可参照集合は準備時に複製・固定し、試行Identityへ含める。結果の用途別内容は保ち、同じfieldへ無理に平坦化しない。
 
 限定是正証拠の発行・一回消費はCoordinatorの`execution/preparation.ts`だけが所有する。Executorは検査済み所見を`CompletionResult.reviewFindings`で返す。所見はAI Adapterの`TaskReviewFinding`をそのまま使用し、別名型・再export・専用callback・是正許可fieldをExecutorへ追加しない。正常完了・清掃確認・未取消・是正要求・非空所見の場合だけ配列を返し、それ以外はnull。二回目レビューも内容として所見を返せるが、それから次の是正を許可するかは上位の判断である。Coordinatorは取消確認後、既存handoff・元終端結果・Home解放・操作／選定・初回レビューを照合し、同じ同期区間で既存の限定是正許可を発行する。本文はProcess内の一時結果として扱い、state／history・公開DTO・通常ログへ投影しない。新しいMapや許可FrameworkをExecutorへ作らない。
 
@@ -240,7 +244,7 @@ Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProvider
 
 Executorの製品Sourceと公開RootはDomain Modelを参照しない。選定設定・Catalog世代・選定理由を含む完全選定の検査とHash算出は上位が所有する。下位へ渡す選定はProvider、Model識別子、識別種別、推論強度、用途の五項目だけに限定する。`selectionHash`と選定記録IDは上位の元Ownerが保持・照合する。Coordinatorの準備時に完全選定・Packet相関を検査し、Executorの開始時には技術五項目・Command・Mountを検査する。下位の試行Identityへは技術値だけを含め、完全選定Hashは上位の元Ownerで照合する。このIdentityを保存Schemaの変更や過去記録の移行として扱わない。
 
-`attempt/validation.ts`は上記五項目を固定し、Proxy、accessor、特殊prototype、余剰、欠測を拒否する。開始参照はown dataだけを取得する。許可参照の配列・疎配列検査はAI Adapterの`parseAdviceReferences`が所有する。汎用の公開Snapshot APIは作らない。技術完了理由の発行集合は`attempt/constants.ts`が所有し、Domainの保存受理集合とは独立した契約としてexact一致を試験する。理由・保存形式は変えない。試験Harnessが合成記録を上位Ownerとして保存することと、Executor製品自身の永続化を区別する。
+`attempt/operations.ts`は上記五項目を固定し、Proxy、accessor、特殊prototype、余剰、欠測を拒否する。開始参照はown dataだけを取得する。許可参照の配列・疎配列検査はAI Adapterの`parseAdviceReferences`が所有する。汎用の公開Snapshot APIは作らない。技術完了理由の発行集合は`attempt/constants.ts`が所有し、Domainの保存受理集合とは独立した契約としてexact一致を試験する。理由・保存形式は変えない。試験Harnessが合成記録を上位Ownerとして保存することと、Executor製品自身の永続化を区別する。
 
 Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの解析分岐を持たせない。認証解析は同じCommand観測から一回行い、後続の認証Gateはその確認結果を使用する。Offeringの正本はAI Adapterの認証記述であり、ExecutorにProvider別の定数判断を複製しない。
 
@@ -251,17 +255,17 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 
 ### 入力検査と理由分類の所有者
 
-`attempt/validation.ts`の`parseModelSelection`は、exact五項目を動的Propertyなしでコピーし、AI Adapterの既存`resolveAiModelSelection`へ四項目だけを明示投影する。返却値と元五項目の一致を検査し、Catalog Identityを含めない新しい凍結値を返す。Provider・Model・推論強度の独自列挙は持たない。privateな`copyPlainDataRecord`はこの入力コピーの補助であり、保存記録やRegistryではない。
+`attempt/operations.ts`の`parseModelSelection`は、exact五項目を動的Propertyなしでコピーし、AI Adapterの既存`resolveAiModelSelection`へ四項目だけを明示投影する。返却値と元五項目の一致を検査し、Catalog Identityを含めない新しい凍結値を返す。Provider・Model・推論強度の独自列挙は持たない。privateな`copyPlainDataRecord`はこの入力コピーの補助であり、保存記録やRegistryではない。
 
 助言の許可参照はAI Adapterの`parseAdviceReferences`が内容条件と不変コピーを所有する。Executorは準備時のconfirmed配列を保持するだけで、独自の256件上限を持たない。正本は既存の1024件・512byte・非空・周辺空白なし・重複なしであり、sparse・symbol・accessor・Proxyを拒否する。拒否時は乱数・Home取得・隔離Runtime構築前に停止する。
 
-`readOwnDataProperty`は開始参照からown data propertyを読む局所補助であり、`attempt/validation.ts`に置く。結果の検査・保存成立・Authority判断は行わず、Rootへ公開しない。Setup用途の判定は一箇所の失敗理由Map参照に統合し、own keyだけを採用する。`isAttemptFailureReason`は試行結果・試験用診断で共有する固定理由の照合として`attempt/validation.ts`へ残す。成功・取消はFactoryが固定値を生成するため同種の動的理由検査を作らない。
+`readOwnDataProperty`は開始参照からown data propertyを読む局所補助であり、`attempt/operations.ts`に置く。結果の検査・保存成立・Authority判断は行わず、Rootへ公開しない。Setup用途の判定は一箇所の失敗理由Map参照に統合し、own keyだけを採用する。`isAttemptFailureReason`は試行結果・試験用診断で共有する固定理由の照合として`attempt/operations.ts`へ残す。成功・取消はFactoryが固定値を生成するため同種の動的理由検査を作らない。
 
 ### 単発実行の呼出し順序
 
 内部関数はcancel、abandon、createExecutor、prepareAttemptの順で配置する。abandonは取消処理に隣接させ、元参照の所属・終了状態・一回解放・不成立を明記する。既知のHome解放条件は変更しない。診断2箇所はonDiagnosticを直接呼び、同期例外と非同期拒否をそれぞれ任意診断内へ閉じる。reportPassiveBoundaryDiagnosticという包装関数は設けない。
 
-技術構成の組立ては`execute.ts`の`prepareAttempt`が所有し、製品からは`createExecutor`だけが呼ぶ。有限検証からの内部参照を除き利用側は直接呼ばず、Rootから公開しない。`preparation.ts`や互換転送は残さない。入力は乱数供給と`AttemptRequest`で、Taskの計画・Authority発行・Home取得・永続化は行わない。構成の不成立はFactoryで拒否し、開始時の完全な技術照合も維持する。
+技術構成の組立ては`attempt/operations.ts`の`prepareAttempt`が所有し、製品からは`createExecutor`だけが呼ぶ。有限検証からの内部参照を除き利用側は直接呼ばず、Rootから公開しない。`preparation.ts`や互換転送は残さない。入力は乱数供給と`AttemptRequest`で、Taskの計画・Authority発行・Home取得・永続化は行わない。構成の不成立はFactoryで拒否し、開始時の完全な技術照合も維持する。
 
 回復開始の診断型・段階語彙・失敗通知はCoordinatorの`execution/types.ts`／`observation.ts`が所有する。Executorの通知は開始Process、技術構成、技術終了と一次故障だけを表す。回復開始失敗は上位が既存Reporterへ直接報告し、ExecutorCallbacksへ再注入しない。検証ツールはCoordinatorの検査正本へ接続する。Executorの有限合成Hostに必要な回復処理はprivateな試験処理に限定し、他Packageへ正本として公開しない。
 
@@ -269,7 +273,7 @@ DIの`onExecutionStarted`は同期voidの技術signalであり、Executorの公�
 
 `index.ts` → `createExecutor` → `start` → 内部`executeAttempt` → Docker Isolationによる実行・通知 → 資源回収・Home解放 → 技術CompletionResult、の順に進む。`start`はControlとcompletionを返し、Task全体の計画や順序を決定しない。`executeAttempt`は一試行の継続処理であり、上位の計画を実行計画として再管理するものではない。
 
-構築Factoryは`execute.ts`の`createExecutor`一つとし、Requestごとの準備・開始・取消を同じ試行専用Executorへまとめる。旧`createExecutionRuntime`／`createProviderAttemptRuntime`の中継を撤去する。有限試験の組立ては既存scriptsへ閉じ、製品と同じ内部start／cancel／abandonを使う。`describeExecutorContract`による説明文字列APIは撤去し、技術期限はDocker Isolation、準備候補の期限はCoordinatorが所有する。非秘密の構成診断は`attempt/result.ts`の`createConfigurationNotice`が組み立て、通知は`execute.ts`の発生箇所から直接呼ぶ。通知型は`types.ts`へ置き、`observation.ts`は置かない。
+公開構築Factoryは`index.ts`の`createExecutor`一つとし、Requestごとの準備・開始・取消を同じ試行専用Executorへまとめる。旧`createExecutionRuntime`／`createProviderAttemptRuntime`の中継を撤去する。有限試験の組立ては既存scriptsへ閉じ、製品と同じ内部start／cancel／abandonを使う。`describeExecutorContract`による説明文字列APIは撤去し、技術期限はDocker Isolation、準備候補の期限はCoordinatorが所有する。非秘密の構成診断は`attempt/result.ts`の`createConfigurationNotice`が組み立て、通知は`execute.ts`の発生箇所から直接呼ぶ。通知型は`types.ts`へ置き、`observation.ts`は置かない。
 
 上位が先に回復記録を確定し、Executorはそのexact参照でHome排他を取得する。競合時は同じIDの未開始試行として拒否し、清掃完了やHome解放を捏造しない。旧abandonのHome解放条件に関する既知指摘は別件として保持し、本構造整理では変更しない。
 
@@ -279,7 +283,7 @@ DIの`onExecutionStarted`は同期voidの技術signalであり、Executorの公�
 
 初回は既存乱数Ownerが一回生成したProxy Tokenをcreate入力として渡す。再照合はverify入力で元九CommandからTokenを観測し、同じ正規構成から再生成した用途・順序・全argvを完全照合する。両方式の混在・Token欠測・不正値は拒否する。resolverは乱数、Registry又は保存を所有しない。DIへ渡すのは有限技術値だけで、Operation・Packet・Authority・Recovery・本文を渡さない。
 
-Home取得前は`attempt/validation.ts`の`isAttemptPlanValid`で共通の基本条件を確認する。`resolveValidatedPlan`も同じ検査を先頭で呼び、基本条件の別実装を持たない。選定・用途・Mount・資源Identity・Home四Hash・九Commandの順序とargv外形はこの一正本が所有する。完全照合側にはProvider実行仕様との用途・識別種別一致、本文byte上限、Path禁止文字、正規Docker構成・全Command一致の追加条件を残す。一回の構築結果をそのまま下位へ渡し、Boolean検査後に同じ構成を再構築しない。全Tokenを一括変更したコピーの排除は構成比較単体ではなく、既存の私有準備Map・元管理参照・一回消費が担う。Revision／Authority再確認・Recovery引渡し・submission先行保存・取消join・清掃後公開は維持する。
+Home取得前は`attempt/operations.ts`の`isAttemptPlanValid`で共通の基本条件を確認する。`resolveValidatedPlan`も同じ検査を先頭で呼び、基本条件の別実装を持たない。選定・用途・Mount・資源Identity・Home四Hash・九Commandの順序とargv外形はこの一正本が所有する。完全照合側にはProvider実行仕様との用途・識別種別一致、本文byte上限、Path禁止文字、正規Docker構成・全Command一致の追加条件を残す。一回の構築結果をそのまま下位へ渡し、Boolean検査後に同じ構成を再構築しない。全Tokenを一括変更したコピーの排除は構成比較単体ではなく、既存の私有準備Map・元管理参照・一回消費が担う。Revision／Authority再確認・Recovery引渡し・submission先行保存・取消join・清掃後公開は維持する。
 
 `isolation.ts`の本番Runtime接続はSession開始・所有資源清掃・元清掃結果照合だけを返す。単一Command開始と`describeIsolationContract`は製品Sourceから撤去し、既存`./testing`の`executor-test.ts`が所有する。試験用単一Command接続は製品の正規構成検査・同じ`planIdentity`を使用するが、製品APIの成立根拠にはしない。`planIdentity`は開始・清掃の相関に必要なため製品側に残し、対象fieldと直列化順序を変更しない。Home解放は既存の下位Leaseへ一回委譲し、解放条件自体は変更しない。
 
@@ -289,15 +293,15 @@ Home取得前は`attempt/validation.ts`の`isAttemptPlanValid`で共通の基本
 
 | 公開API群 | 所有者 | 役割 |
 |---|---|---|
-| `createExecutor` | attempt | Requestと固定隔離設定を受け、内部構成を保持した一試行の開始・取消・終了を提供 |
-| `createAuthentication` | authentication/execute.ts | 認証の技術構成と実行・回収を返す。Home選定・保存・操作判断は上位 |
-| `inspectResources`、`cleanupResources` | resources/execute.ts | kindごとの固定資源観測と回収。対象・結果・通知型はresources/types.ts。Attempt型の意味は維持する |
-| `inspectDockerEnvironment`、`restartDockerEnvironment`、`repairDockerEnvironment` | environment/execute.ts | Attemptとは独立した環境観測・再起動・修復への薄い接続。判断・保存は上位、具体操作はDI |
+| `createExecutor` | index.ts → 用途別operations.ts | Requestと固定隔離設定を受け、内部構成を保持した一試行の開始・取消・終了を提供 |
+| `createExecutor`（認証要求） | index.ts → authentication/operations.ts | 認証と同じRuntimeの清掃を一回のcompletionへ結合する。Home選定・保存・操作判断は上位 |
+| `inspectResources`、`cleanupResources` | lifecycle/cleanup.ts | kindごとの固定資源観測と回収。対象・結果型はlifecycle/types.ts、通知はlifecycle/callbacks.ts。Attempt型の意味は維持する |
+| `inspectDockerEnvironment`、`restartDockerEnvironment` | environment/execute.ts | Attemptとは独立した環境観測・再起動・修復への薄い接続。判断・保存は上位、具体操作はDI |
 | `Executor`、`StartResult`、`CompletionResult` | attempt/types.ts | 開始結果と清掃後の最終結果を明示し、Factoryを型検査する |
 | `ProcessStartedNotice`、`AttemptDiagnosticNotice` | attempt/types.ts | 実Process開始と非秘密診断 |
 | `AttemptRequest`、`AttemptRecordProjection` | attempt/types.ts | 解決済みの実行要求と、開始前の記録に必要な狭い隔離資源投影 |
-| `Executor.start` | attempt/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
-| 通常Rootの関数 | index.ts | 上記7操作に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
+| `Executor.start` | attempt/operations.ts → lifecycle/execute.ts | 保存後の上位参照と通知を受ける。Planは引数に取らず内部構成だけを開始する |
+| 通常Rootの関数 | index.ts | 上記5関数に限定する。prepareAttempt・検査・結果組立て・試験代役を独立公開しない |
 
 TaskResultとAdviceResultの正本はAI Adapterであり、Executor Rootから再公開しない。CompletionResult.normalizedResultはその用途別内容だけを保持する。providerExecutionObservation、providerTurnObservation、reviewFindingsは固定nullableの外側fieldとする。正常完了・清掃確認・内容ありの共同成立時だけ保持し、それ以外はnullへ戻す。Executorの結果は是正許可や選定記録IDを含めず、上位の既存操作記録と原結果objectの相関で管理する。
 

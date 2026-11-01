@@ -5,56 +5,56 @@
  * @trace ARCH-000008
  */
 
+import { createHash, randomBytes } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
+import { types as utilTypes } from "node:util";
 import {
+  describeProviderAuthentication,
+  resolveAiModelSelection,
+} from "../../../ai-adapter/src/index.ts";
+import {
+  type ExecutionSelection,
+  hashExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
-  type ExecutionSelection,
-} from "../../../domain-model/src/index.ts";
-import {
-  snapshotPlainRecord,
   snapshotPlainArray,
+  snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  PROVIDER_INPUT_LIMITS,
-  validateProviderIsolationProfile,
-  PROVIDER_ISOLATION_CONTRACT,
-  PROVIDER_ISOLATION_CONTRACT_REVISION,
-} from "./preparation.ts";
-import { createHash, randomBytes } from "node:crypto";
-import { types as utilTypes } from "node:util";
+  type AuthenticationExecutor as Authentication,
+  type AuthenticationCallbacks,
+  type AuthenticationCleanupResult,
+  type AuthenticationProjection,
+  type AuthenticationRequest,
+  type AuthenticationResourceTarget,
+  cleanupResources,
+  createExecutor as createAuthentication,
+} from "../../../executor/src/index.ts";
+import {
+  describeProviderHomeObservationContract,
+  observeWindowsProviderHome,
+  observeWindowsRuntimeState,
+  type ProviderHomeObservationProvider,
+  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+} from "../../../platform-access/src/index.ts";
+import {
+  borrowRuntimeOwnedDevelopmentNativeObservation,
+  inspectRuntimeOwnedDevelopmentOperationContext,
+} from "./diagnostics.ts";
+import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";
+import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
   verifyOwnedOperationManagementCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
-import { performance } from "node:perf_hooks";
-import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
-  resolveAiModelSelection,
-  describeProviderAuthentication,
-} from "../../../ai-adapter/src/index.ts";
-import {
-  inspectRuntimeOwnedDevelopmentOperationContext,
-  borrowRuntimeOwnedDevelopmentNativeObservation,
-} from "./diagnostics.ts";
-import path from "node:path";
-import {
-  observeWindowsRuntimeState,
-  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-  type ProviderHomeObservationProvider,
-  observeWindowsProviderHome,
-  describeProviderHomeObservationContract,
-} from "../../../platform-access/src/index.ts";
-import {
-  createAuthentication,
-  type Authentication,
-  type AuthenticationRequest,
-  type AuthenticationProjection,
-  type AuthenticationCallbacks,
-} from "../../../executor/src/index.ts";
-import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
-
-import fs from "node:fs";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";
+  PROVIDER_INPUT_LIMITS,
+  PROVIDER_ISOLATION_CONTRACT,
+  PROVIDER_ISOLATION_CONTRACT_REVISION,
+  validateProviderIsolationProfile,
+} from "./preparation.ts";
 
 export const AUTHORITY_FILE_BUNDLE_CONTRACT =
   "crdd-coordinator/authority-file-bundle";
@@ -7805,6 +7805,9 @@ type Dependencies = Readonly<{
   createAuthentication: (
     request: AuthenticationRequest,
   ) => Authentication | null;
+  cleanupAuthentication: (
+    target: AuthenticationResourceTarget,
+  ) => Promise<AuthenticationCleanupResult>;
   acquireProviderHomeLock: (
     identityHash: string,
   ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
@@ -7831,7 +7834,10 @@ type Dependencies = Readonly<{
   ) => AuthenticationProjection["resources"] | null;
 }>;
 
-const authenticationPreparations = new WeakMap<object, Authentication>();
+const authenticationPreparations = new WeakMap<
+  object,
+  Readonly<{ executor: Authentication; request: AuthenticationRequest }>
+>();
 
 /**
  * Provider認証の耐久回復記録を表す。
@@ -8329,6 +8335,7 @@ export function createProviderAuthenticationDependencies(): Dependencies {
   return Object.freeze({
     randomHex: (bytes) => randomBytes(bytes).toString("hex"),
     createAuthentication,
+    cleanupAuthentication: cleanupResources,
     acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
     beginRecovery: beginProviderAuthenticationRecovery,
     setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
@@ -8366,16 +8373,20 @@ export function prepareProviderAuthentication(
   proxyToken: string | null,
   prepare: Dependencies["createAuthentication"] = createAuthentication,
 ): AuthenticationProjection | null {
-  const authentication = prepare({
+  const request: AuthenticationRequest = {
     provider,
     action,
     providerHomeSourcePath,
     suffix,
     proxyToken,
-  });
+  };
+  const authentication = prepare(request);
   if (!authentication) return null;
-  const projection = authentication.projection;
-  authenticationPreparations.set(projection, authentication);
+  const projection = authentication.recordProjection;
+  authenticationPreparations.set(projection, {
+    executor: authentication,
+    request,
+  });
   return projection;
 }
 
@@ -8437,11 +8448,13 @@ async function cleanAuthenticationResources(
 ) {
   const authentication = authenticationPreparations.get(plan);
   return authentication
-    ? authentication.cleanup(
-        () => dependencies.readResources(recovery),
-        authorityLive,
-        authenticationCallbacks(recovery, dependencies),
-      )
+    ? dependencies.cleanupAuthentication({
+        kind: "authentication",
+        request: authentication.request,
+        readResources: () => dependencies.readResources(recovery),
+        assertOwner: authorityLive,
+        callbacks: authenticationCallbacks(recovery, dependencies),
+      })
     : { confirmed: false, processCompletionConfirmed: false };
 }
 
@@ -8647,13 +8660,21 @@ export async function authenticateProvider(
   let authenticationConfirmed = false,
     providerEffectIssued = false;
   let processCompletionUnknown = authentication === undefined;
+  let cleanup = { confirmed: false, processCompletionConfirmed: false };
   if (authentication) {
     try {
-      const result = await authentication.execute(
-        signal,
-        providerHomeLock.assertLive,
+      const result = await authentication.executor.start(
+        {
+          ...(signal ? { signal } : {}),
+          assertOwner: providerHomeLock.assertLive,
+          readResources: () => activeDependencies.readResources(recovery),
+        },
         authenticationCallbacks(recovery, activeDependencies),
-      );
+      ).completion;
+      cleanup = {
+        confirmed: result.cleanupConfirmed,
+        processCompletionConfirmed: result.processCompletionConfirmed,
+      };
       reason = result.reason;
       authenticationStatus = result.authenticationStatus;
       authenticationConfirmed = result.authenticationConfirmed;
@@ -8664,14 +8685,6 @@ export async function authenticateProvider(
       reason = "provider_authentication_process_completion_unconfirmed";
     }
   }
-  const cleanup = processCompletionUnknown
-    ? { confirmed: false, processCompletionConfirmed: false }
-    : await cleanAuthenticationResources(
-        plan,
-        activeDependencies,
-        providerHomeLock.assertLive,
-        recovery,
-      );
   processCompletionUnknown ||= !cleanup.processCompletionConfirmed;
   let cleanupConfirmed = cleanup.confirmed;
   const isLockLiveAfterCleanup = providerHomeLock.assertLive();
@@ -8680,10 +8693,7 @@ export async function authenticateProvider(
   if (cleanupConfirmed && isLockLiveAfterCleanup)
     cleanupConfirmed = activeDependencies.completeRecovery(recovery);
   else cleanupConfirmed = false;
-  const lockReleased =
-    !processCompletionUnknown &&
-    authentication?.isProcessCompletionConfirmed() === true &&
-    providerHomeLock.release();
+  const lockReleased = !processCompletionUnknown && providerHomeLock.release();
   cleanupConfirmed = cleanupConfirmed && lockReleased;
   if (
     readExecutionCancellation(signal) !== false &&

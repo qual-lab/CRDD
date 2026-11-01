@@ -87,7 +87,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     },
   );
   try {
-    const api = await import("../../src/resources/execute.ts");
+    const api = await import("../../src/lifecycle/cleanup.ts");
     const target: ContainerResourceTarget = {
       kind: "container",
       configuration,

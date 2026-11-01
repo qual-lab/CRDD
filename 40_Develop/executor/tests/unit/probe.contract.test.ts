@@ -7,12 +7,13 @@
  * @boundary 既存createExecutor→固定Probe→DI代役。
  */
 import assert from "node:assert/strict";
-import test, { mock } from "node:test";
 import fs from "node:fs";
+import test, { mock } from "node:test";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import * as original from "../../../docker-isolation/src/index.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { executeLifecycle } from "../../src/lifecycle/execute.ts";
 
 /**
  * 有限DIに対し通常・不明・保存拒否・取消を同じ本体へ与える。
@@ -228,7 +229,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
     mode = "normal";
     changed = false;
     const source = fs.readFileSync(
-      new URL("../../src/probe/execute.ts", import.meta.url),
+      new URL("../../src/probe/operations.ts", import.meta.url),
       "utf8",
     );
     const declaration = sourceDeclaration(source, "createIsolationProbe");
@@ -238,7 +239,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       sourceDeclaration(source, "notify");
     const baseline = runInNewContext(
       `${helpers}\n${declaration};createIsolationProbe`,
-      { ...dependencies, types, AbortController },
+      { ...dependencies, types, AbortController, executeLifecycle },
     );
     const baselineExecutor = baseline(
       { kind: "isolation_probe", probeId },
@@ -251,24 +252,45 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
     const variants = [
       [
         "binding",
-        "createDockerProbeContainer(cli, profile, probeId, {",
-        "createDockerProbeContainer({}, profile, probeId, {",
+        declaration.match(
+          /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
+        )?.[0] ?? "missing_create",
+        (
+          declaration.match(
+            /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
+          )?.[0] ?? ""
+        ).replace("cli,", "{},"),
       ],
       [
         "profile",
-        "createDockerProbeContainer(cli, profile, probeId, {",
-        "createDockerProbeContainer(cli, 'timeout', probeId, {",
+        declaration.match(
+          /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
+        )?.[0] ?? "missing_create",
+        (
+          declaration.match(
+            /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
+          )?.[0] ?? ""
+        ).replace("profile,", "'timeout',"),
       ],
       [
         "probe",
-        "createDockerProbeContainer(cli, profile, probeId, {",
-        "createDockerProbeContainer(cli, profile, 'other', {",
+        declaration.match(
+          /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
+        )?.[0] ?? "missing_create",
+        (
+          declaration.match(
+            /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
+          )?.[0] ?? ""
+        ).replace("probeId,", "'other',"),
       ],
       ["mount", "workspace: mounts.workspace,", "workspace: 'other',"],
       [
         "id",
-        "containerId,\n              controller.signal",
-        "'b'.repeat(64),\n              controller.signal",
+        declaration.match(/containerId,\s+controller.signal/)?.[0] ??
+          "missing_signal",
+        declaration
+          .match(/containerId,\s+controller.signal/)?.[0]
+          .replace("containerId", "'b'.repeat(64)") ?? "missing_signal",
       ],
     ];
     for (const [label, needle, replacement] of variants) {
@@ -277,7 +299,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       const failuresBefore: number = correlationFailures.length;
       const create = runInNewContext(
         `${helpers}\n${declaration.replace(needle, replacement)};createIsolationProbe`,
-        { ...dependencies, types, AbortController },
+        { ...dependencies, types, AbortController, executeLifecycle },
       );
       const candidate = create(
         { kind: "isolation_probe", probeId },

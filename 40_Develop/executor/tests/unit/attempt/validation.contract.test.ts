@@ -8,16 +8,16 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/index.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";
+import { isPrimaryFailureDiagnostic } from "../../../scripts/executor-test.ts";
 import {
   ATTEMPT_COMPLETION_REASONS,
   PURPOSES,
   SETUP_COMMAND_FAILURE_REASONS,
 } from "../../../src/attempt/constants.ts";
-import { isAttemptFailureReason } from "../../../src/attempt/validation.ts";
+import { isAttemptFailureReason } from "../../../src/attempt/operations.ts";
 import { convertCommandResult } from "../../../src/attempt/result.ts";
-import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/index.ts";
-import { isPrimaryFailureDiagnostic } from "../../../scripts/executor-test.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";
 
 /**
  * 発行する技術理由と保存受理する理由の集合をexact照合する。

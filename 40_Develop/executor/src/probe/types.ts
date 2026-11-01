@@ -4,7 +4,9 @@
  * @responsibility Provider実行と別の固定Probe契約を所有し、保存・Task判断を持たない。
  * @trace ARCH-000008
  */
+
 import type { DockerProbeExecutionFacts } from "../../../docker-isolation/src/index.ts";
+import type { IsolationProbeCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
  * 固定合成Probeの相関。Provider・Model・任意Scriptを指定しない。
@@ -38,20 +40,7 @@ export type IsolationProbeOptions = Readonly<{
     tmp: string;
   }>;
 }>;
-/**
- * 必要保存は正常return前に完了する。返値ACKは持たない。
- * @responsibility Create予定と確定した実IDを上位へ通知する。
- * @trace ARCH-000008
- * @shape 任意の同期voidハンドラー二つ。
- * @invariant 必須保存の購読は上位が構成し、throw時は次Effectへ進まない。
- * @boundary 技術生涯と保存Owner。
- * @security 生出力・所在・Credentialを通知しない。
- * @compatibility 既存のCreate前・実ID確定後の保存順序を維持する。
- */
-export interface IsolationProbeCallbacks {
-  onSubmitting?(): void;
-  onCreated?(containerId: string): void;
-}
+
 /**
  * 技術観測と回収の結果。Host清掃・最終判断を含まない。
  * @responsibility 作成要求・実ID・技術事実・close・回収を分けて搬送する。

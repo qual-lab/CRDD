@@ -7,7 +7,23 @@
 import type {
   DockerRuntimeBackendState,
   DockerRuntimeEngineObservation,
+  DockerRuntimeRepairInput,
+  DockerRuntimeRestartInput,
 } from "../../../docker-isolation/src/index.ts";
+
+/**
+ * 明示した処置だけを実行する環境操作入力。
+ * @responsibility 再起動許可とDirectory退避を伴う修復許可を分離する。
+ * @trace ARCH-000008
+ * @shape 必須modeと、各DI正本の元input。
+ * @invariant 欠測・未知modeのfallbackや自動切替をしない。
+ * @boundary 上位の明示判断と環境技術操作。
+ * @security modeをDIの閉形式入力へ混入しない。
+ * @compatibility 元入力・Signal・通知の参照を保持する。
+ */
+export type DockerEnvironmentRestartRequest =
+  | Readonly<{ mode: "restart"; input: DockerRuntimeRestartInput }>
+  | Readonly<{ mode: "repair"; input: DockerRuntimeRepairInput }>;
 
 /**
  * backendとEngineの逐次観測結果。

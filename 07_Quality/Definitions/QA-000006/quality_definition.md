@@ -30,6 +30,12 @@
 
 ## Executor内容型と実行結果の分離
 
+### Executor共通Lifecycleと環境mode
+
+既存ERB-IT-004／ERB-IT-014に共通Lifecycleの順序・一次失敗保持・清掃joinを接続する。Attemptの通知待ち中取消・Home競合・必要通知拒否、認証の正常／取消／Process終了不明／清掃不成立、固定ProbeのIntent／Receipt拒否・構成差・実ID回収を維持する。認証の通常完了は技術清掃を含み、上位保存・Home Lock解放とは区別する。旧idle記録の回収→保存確定→再受付の順序、unknownの同一回復参照と追加Effect停止は維持する。
+
+restartDockerEnvironmentはrestart／repairごとの元入力・Signal・通知・Promise・結果を照合する。mode欠測・未知値・accessor・余剰fieldでDI要求0を確認し、失敗後のmode切替や自動再試行を認めない。これらの有限代役試験を実Docker Desktopの再起動・修復、実AI、過去保持物の処置の成立証明にはしない。
+
 AI AdapterのTaskResult／AdviceResultを内容型の正本とし、ExecutorのCompletionResultで内容・実行観測・清掃・検査済み所見を区別し、是正許可は受領後のCoordinatorだけが所有する。非AI試験では両Providerの編集・レビュー・助言の解析、容量／Role／JSON拒否、正常完了、取消、Revision失効、清掃不明、通知例外、所見返却と保存callbackの拒否、上位での是正許可発行条件を確認する。正常完了と清掃確認と内容ありが共同成立しない結果では内容と観測と所見を公開しない。通常RootはcreateExecutorによる準備・開始とcancelに限定し、中間処理と試験用構成は公開しない。Coordinatorの最終公開投影は既存のexact結果を維持し、Capabilityを保存内容へ追加しない。実AI・Docker・過去保持物はこの非AI確認の対象外とする。
 
 共通のProvider結果APIは、用途に応じてTaskResult／AdviceResult／Probe内容を型で絞り、Envelopeだけの成立を内容成立として返さない。用途とfieldの不一致、Role不正、許可参照欠測、内容形不正、巨大出力、両Providerの搬送異常を公開APIから検査する。Envelope単独試験は内部抽出宣言へ接続し、製品入口の成立と区別する。

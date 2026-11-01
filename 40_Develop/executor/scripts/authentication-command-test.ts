@@ -6,11 +6,11 @@
  */
 import {
   createDockerAuthenticationRuntimeFactory,
-  planDockerAuthenticationResourceRecovery,
   type DockerAuthenticationCommand,
   type DockerAuthenticationExecution,
+  planDockerAuthenticationResourceRecovery,
 } from "../../docker-isolation/src/index.ts";
-import { getAuthenticationTechnicalPlan } from "../src/authentication/execute.ts";
+import { getAuthenticationTechnicalPlan } from "../src/authentication/operations.ts";
 import type {
   AuthenticationPlan,
   AuthenticationProjection,

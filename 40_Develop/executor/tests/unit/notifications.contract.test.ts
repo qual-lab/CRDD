@@ -11,16 +11,16 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import {
-  startDockerCommandSessionCandidate,
   type DockerResourceReceipts,
+  startDockerCommandSessionCandidate,
 } from "../../../docker-isolation/src/index.ts";
 import { createExecutorTestRuntime } from "../../scripts/executor-test.ts";
-import type {
-  ExecutorCallbacks,
-  CompletionResult,
-  AttemptDiagnosticNotice,
-} from "../../src/index.ts";
 import type { IsolationRuntime } from "../../src/attempt/types.ts";
+import type {
+  AttemptDiagnosticNotice,
+  CompletionResult,
+  ExecutorCallbacks,
+} from "../../src/index.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -35,7 +35,7 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  */
 test("Requestを受ける公開Factoryは内部Planで一回実行し同じControlで取り消す", async () => {
   const di = await import("../../../docker-isolation/src/index.ts");
-  const boundary = await import("../../src/attempt/isolation.ts");
+  const boundary = await import("../../src/attempt/operations.ts");
   let current = fixture();
   let acquisitions = 0;
   const dockerMock = mock.module(
@@ -44,6 +44,22 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       namedExports: {
         ...di,
         createDockerIsolationRuntime: () => ({
+          startExecution: (
+            _input: unknown,
+            reference: object,
+            management: object,
+            hooks: Parameters<
+              NonNullable<IsolationRuntime["startExecution"]>
+            >[3],
+          ) =>
+            current.isolation.startExecution?.(
+              current.plan,
+              reference,
+              management,
+              hooks,
+            ),
+          cleanupOwnedResources: current.isolation.cleanupOwnedResources,
+          verifyCleanupOutcome: current.isolation.verifyCleanupOutcome,
           acquireHomeLease: () => {
             acquisitions++;
             return current.isolation.acquireHomeLease("d".repeat(64));
@@ -53,7 +69,7 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
     },
   );
   const isolationMock = mock.module(
-    new URL("../../src/attempt/isolation.ts", import.meta.url).href,
+    new URL("../../src/attempt/operations.ts", import.meta.url).href,
     {
       namedExports: {
         ...boundary,
@@ -66,13 +82,14 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
     },
   );
   try {
-    const { createExecutor }: typeof import("../../src/attempt/execute.ts") =
-      await import(
-        new URL(
-          "../../src/attempt/execute.ts?request-bound-contract",
-          import.meta.url,
-        ).href
-      );
+    const {
+      createAttemptExecutor: createExecutor,
+    }: typeof import("../../src/attempt/operations.ts") = await import(
+      new URL(
+        "../../src/attempt/operations.ts?request-bound-contract",
+        import.meta.url,
+      ).href
+    );
     for (const mode of ["normal", "cancel", "busy"] as const) {
       current = fixture(mode === "busy");
       acquisitions = 0;
@@ -199,10 +216,10 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
     { namedExports: resultModule },
   );
   try {
-    const isolated: typeof import("../../src/attempt/execute.ts") =
+    const isolated: typeof import("../../src/attempt/operations.ts") =
       await import(
         new URL(
-          "../../src/attempt/execute.ts?notification-join",
+          "../../src/attempt/operations.ts?notification-join",
           import.meta.url,
         ).href
       );
@@ -620,13 +637,14 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
     },
   );
   try {
-    const { createExecutor }: typeof import("../../src/attempt/execute.ts") =
-      await import(
-        new URL(
-          "../../src/attempt/execute.ts?invalid-input-boundary",
-          import.meta.url,
-        ).href
-      );
+    const {
+      createAttemptExecutor: createExecutor,
+    }: typeof import("../../src/attempt/operations.ts") = await import(
+      new URL(
+        "../../src/attempt/operations.ts?invalid-input-boundary",
+        import.meta.url,
+      ).href
+    );
     const planned = ai.planProviderExecution(
       {
         provider: "claude",

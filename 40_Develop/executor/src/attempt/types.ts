@@ -5,26 +5,27 @@
  * @trace ARCH-000008
  * @trace ARCH-000015
  */
-import type { ResourceCleanupCallbacks } from "../resources/types.ts";
-import type { ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
+
 import type {
-  ProviderTurnCountDiagnostic,
-  TaskReviewFinding,
-  ProviderResultParseResult,
-  TaskResult,
   AdviceResult,
   AiModelSelection,
   AiProvider,
+  ProviderResultParseResult,
+  ProviderTurnCountDiagnostic,
+  TaskResult,
+  TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import type {
-  DockerResourceCleanupObservation,
+  DockerCommandSession,
+  DockerExecutionCallbacks,
   DockerIsolationCommand,
   DockerNetworkPolicy,
-  HomeLease,
-  DockerExecutionCallbacks,
-  DockerCommandSession,
+  DockerResourceCleanupObservation,
   DockerSessionCleanup,
+  HomeLease,
 } from "../../../docker-isolation/src/index.ts";
+import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
+import type { ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
 
 /** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
 export interface IsolationRuntime {
@@ -94,33 +95,6 @@ export type RuntimeState = Readonly<{
   callbacks: ExecutorCallbacks;
   controls: WeakMap<object, ExecutionRecord>;
 }>;
-
-/**
- * 単発実行の通知を共通の資源回収通知へ追加する。
- * @responsibility 同じ試行の開始・診断・結果だけを通知する。
- * @trace ARCH-000008
- * @invariant 必要通知は完了後だけ継続し、任意通知は実行結果を変更しない。
- */
-export interface ExecutorCallbacks
-  extends ResourceCleanupCallbacks<AttemptTerminalObservation> {
-  onCommandSubmitting?(
-    purpose: DockerIsolationCommand["purpose"],
-  ): void | Promise<void>;
-  onCommandNotIssued?(
-    purpose: DockerIsolationCommand["purpose"],
-  ): void | Promise<void>;
-  onProviderSubmitting?(): void | Promise<void>;
-  onResourceCreated?(
-    purpose: DockerIsolationCommand["purpose"],
-    dockerId: string,
-  ): void | Promise<void>;
-  onStarted?(notice: ProcessStartedNotice): void | Promise<void>;
-  onCompleted?(
-    result: CompletionResult,
-    observation: AttemptTerminalObservation,
-  ): void | Promise<void>;
-  onDiagnostic?(notice: AttemptDiagnosticNotice): void | Promise<void>;
-}
 
 /**
  * 上位の保存Ownerが確定した参照を単発実行へ借用する内部契約。

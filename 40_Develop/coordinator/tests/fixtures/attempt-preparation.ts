@@ -6,16 +6,17 @@
  * @scope 合成値と固定設定の読取りのみ。実AI・Docker操作なし。
  * @boundary tests専用。製品の保存・実行契約ではない。
  */
+
+import type { AiProvider } from "../../../ai-adapter/src/index.ts";
+import { prepareAttempt } from "../../../executor/src/attempt/operations.ts";
+import type { AttemptPlan } from "../../../executor/src/attempt/types.ts";
+import { createExecutor, type Executor } from "../../../executor/src/index.ts";
 import { createAttemptPreparation as createOwner } from "../../src/execution/preparation.ts";
 import type {
   AttemptPreparation,
-  PreparedAttemptPlan,
   PreparationHost,
+  PreparedAttemptPlan,
 } from "../../src/execution/types.ts";
-import type { AiProvider } from "../../../ai-adapter/src/index.ts";
-import { createExecutor, type Executor } from "../../../executor/src/index.ts";
-import { prepareAttempt } from "../../../executor/src/attempt/execute.ts";
-import type { AttemptPlan } from "../../../executor/src/attempt/types.ts";
 
 /**
  * 同じ乱数列の内部構成を検査用に保持し、上位準備自体は本番関数へ渡す。

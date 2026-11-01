@@ -1,37 +1,60 @@
 /**
- * 資源種別ごとの技術観測・回収を一つの公開入口へ結合する。
+ * 共通Lifecycleと単独再入場の技術観測・回収を所有する。
  * @packageDocumentation
  * @responsibility 対象別のDI接続と型付き結果を所有し、Attemptの同期通知・短命config終了を維持する。
  * @trace ARCH-000008
  * @boundary 上位が指定した固定技術対象とDI。保存・保持期限・廃棄判断・Task進行は所有しない。
  */
+
 import { types as utilTypes } from "node:util";
 import {
-  observeDockerRuntimeRepairRetention,
-  disposeDockerRuntimeRepairDirectory,
-  type DockerRuntimeRepairRetentionTargets,
-  type DockerRuntimeDirectoryCleanupResult,
-  createDockerTaskRecoveryExecutor,
-  planDockerRecoveryResourceExpectations,
+  cleanupDockerContainer,
   codexAdviceProviderInitRequired,
-  type DockerResourceRecoveryOperations,
-  type DockerResourceReceipts,
-  type DockerResourceCleanupObservation,
   createDockerProbeRuntimeBinding,
+  createDockerTaskRecoveryExecutor,
+  type DockerResourceCleanupObservation,
+  type DockerResourceReceipts,
+  type DockerResourceRecoveryOperations,
+  type DockerRuntimeDirectoryCleanupResult,
+  type DockerRuntimeRepairRetentionTargets,
+  disposeDockerRuntimeRepairDirectory,
+  type HomeLease,
   inspectDockerContainer,
   observeDockerContainerAbsence,
-  cleanupDockerContainer,
+  observeDockerRuntimeRepairRetention,
+  planDockerRecoveryResourceExpectations,
 } from "../../../docker-isolation/src/index.ts";
+import { createAuthentication } from "../authentication/operations.ts";
+import type { AuthenticationCleanupResult } from "../authentication/types.ts";
+import type { ResourceCleanupCallbacks } from "./callbacks.ts";
 import type {
+  AttemptCleanupResult,
   AttemptRecoveryTarget,
   AttemptResourceInspection,
-  AttemptCleanupResult,
-  ResourceCleanupCallbacks,
-  DirectoryResourceInspectionTarget,
-  DirectoryResourceCleanupTarget,
-  ContainerResourceTarget,
+  AuthenticationResourceTarget,
   ContainerResourceInspection,
+  ContainerResourceTarget,
+  DirectoryResourceCleanupTarget,
+  DirectoryResourceInspectionTarget,
 } from "./types.ts";
+
+/**
+ * 保持中のHome技術Leaseを一回解放する。
+ * @responsibility Promise・例外・falseを解放成功へ変換しない。
+ * @trace ARCH-000008
+ * @precondition 呼出し元が実行終了又は開始前拒否を確認している。
+ * @postcondition 同じ呼出し内で解放を再試行しない。
+ * @effect 元Home Leaseのreleaseを一回だけ呼ぶ。
+ */
+export function releaseHomeLease(homeLease: HomeLease): boolean {
+  try {
+    const released: unknown = homeLease.release();
+    if (utilTypes.isPromise(released)) void released.catch(() => {});
+    return released === true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 指定済みContainerの現在観測又は回収を既存DI処理へ接続する。
@@ -391,6 +414,9 @@ export function inspectResources(
  * @concurrency 全要求前後と削除直前に現在Ownerを再確認する。
  */
 export function cleanupResources(
+  target: AuthenticationResourceTarget,
+): Promise<AuthenticationCleanupResult>;
+export function cleanupResources(
   target: AttemptRecoveryTarget,
   callbacks?: ResourceCleanupCallbacks<
     readonly DockerResourceCleanupObservation[]
@@ -406,6 +432,7 @@ export function cleanupResources(
   target:
     | AttemptRecoveryTarget
     | DirectoryResourceCleanupTarget
+    | AuthenticationResourceTarget
     | ContainerResourceTarget,
   callbacks: ResourceCleanupCallbacks<
     readonly DockerResourceCleanupObservation[]
@@ -413,10 +440,25 @@ export function cleanupResources(
 ):
   | AttemptCleanupResult
   | Promise<DockerRuntimeDirectoryCleanupResult>
+  | Promise<AuthenticationCleanupResult>
   | Readonly<{ confirmed: boolean; reason: string }> {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   if (target?.kind === "docker_runtime_directory")
     return disposeDockerRuntimeRepairDirectory(target.input);
+  if (target?.kind === "authentication") {
+    assertOwner(target);
+    const operation = createAuthentication(target.request);
+    return operation
+      ? operation.cleanup(
+          target.readResources,
+          target.assertOwner,
+          target.callbacks,
+        )
+      : Promise.resolve({
+          confirmed: false,
+          processCompletionConfirmed: false,
+        });
+  }
   if (target?.kind === "container")
     return cleanupDockerContainer(
       containerRuntime(target),

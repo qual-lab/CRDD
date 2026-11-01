@@ -6,14 +6,15 @@
  * @trace ERB-IT-004
  * @boundary 試験専用。実行前に会話等で用途限定承認を取得する。端末入力は要求しない。
  */
+
+import { fork, spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash, randomBytes } from "node:crypto";
-import { fork, spawnSync } from "node:child_process";
-import { registerHooks } from "node:module";
 import { isDeepStrictEqual } from "node:util";
-import type { TrialMode, TaskFixtureReceipt } from "./task-trial.ts";
+import type { TaskFixtureReceipt, TrialMode } from "./task-trial.ts";
 
 type TrialResult = Readonly<{
   mode: TrialMode;
@@ -70,9 +71,9 @@ const { describeDockerCommandSessionContract } = await import(
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
   await import("../../ai-adapter/src/index.ts");
 
-const { prepareAttempt } = await import("../src/attempt/execute.ts");
+const { prepareAttempt } = await import("../src/attempt/operations.ts");
 
-const { resolveValidatedPlan } = await import("../src/attempt/isolation.ts");
+const { resolveValidatedPlan } = await import("../src/attempt/operations.ts");
 
 const { createStandaloneProviderAttemptHost } = await import(
   "./provider-attempt-host.ts"

@@ -8,12 +8,12 @@
  * @boundary Executor Controllerの終端結果。
  */
 import assert from "node:assert/strict";
-import test from "node:test";
 import { readFileSync } from "node:fs";
+import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import type { StartResult } from "../../src/index.ts";
 import { createStartResult } from "../../src/attempt/result.ts";
+import type { StartResult } from "../../src/index.ts";
 
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。
@@ -131,7 +131,7 @@ test("開始成功と拒否は同じFactoryから生成し元のControlとPromis
  */
 test("公開開始は解決済み計画を渡し同じ終了結果を通知する", async () => {
   const source = readFileSync(
-    new URL("../../src/attempt/execute.ts", import.meta.url),
+    new URL("../../src/attempt/operations.ts", import.meta.url),
     "utf8",
   );
   for (const mode of ["blocked", "started"]) {
@@ -158,7 +158,7 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
             recoveryId: "exact",
           });
     const create = runInNewContext(
-      `${sourceDeclaration(source, "createExecutor")}\ncreateExecutor`,
+      `${sourceDeclaration(source, "createAttemptExecutor")}\ncreateAttemptExecutor`,
       {
         Object,
         readOwnDataProperty: (value: object, key: string) =>

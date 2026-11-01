@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createAuthenticationUsing } from "../../src/authentication/execute.ts";
+import { createAuthenticationUsing } from "../../src/authentication/operations.ts";
 import type { AuthenticationCallbacks } from "../../src/index.ts";
 
 /**

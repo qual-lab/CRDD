@@ -1,40 +1,131 @@
 /**
- * AIツール認証を固定DI Runtimeへ結合し、実行と技術回収を所有する。
+ * AIツール認証固有の構成・実行と技術回収を所有する。
  * @responsibility 保存通知を待ち、同じPlanのProcess終了・資源回収を上位判断から分離する。
  * @trace ARCH-000010
  */
+
 import { types } from "node:util";
 import {
+  type AiProvider,
   describeProviderAuthentication,
   evaluateProviderAuthentication,
-  type AiProvider,
 } from "../../../ai-adapter/src/index.ts";
 import {
   createDockerAuthenticationRuntimeFactory,
-  planDockerAuthenticationResourceRecovery,
   type DockerAuthenticationCommand,
   type DockerAuthenticationExecution,
-  type DockerAuthenticationRuntime,
   type DockerAuthenticationPlan,
-  describeDockerProviderExecutionLocations,
+  type DockerAuthenticationRuntime,
   describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
   describeDockerProxyTopology,
   planDockerAuthenticationCommands,
+  planDockerAuthenticationResourceRecovery,
 } from "../../../docker-isolation/src/index.ts";
+import type { AuthenticationCallbacks } from "../lifecycle/callbacks.ts";
+import { executeLifecycle } from "../lifecycle/execute.ts";
 import type {
   Authentication,
-  AuthenticationCallbacks,
-  AuthenticationRequest,
-  AuthenticationResult,
   AuthenticationCleanupResult,
+  AuthenticationCompletionResult,
+  AuthenticationExecutor,
   AuthenticationPlan,
   AuthenticationProjection,
+  AuthenticationRequest,
+  AuthenticationResult,
 } from "./types.ts";
 
 const authenticationTechnicalPlans = new WeakMap<
   object,
   DockerAuthenticationPlan
 >();
+
+/**
+ * 準備済み認証を共通Lifecycleへ接続する。
+ * @responsibility 同じRuntimeで実行・清掃をjoinし、終了不明を上位へ保持する。
+ * @trace ARCH-000010
+ * @input authentication: 同じ技術構成の操作。
+ * @returns 一回のstartとcancel。構成不成立はnull。
+ * @effect start後だけ実行と清掃。保存・Home Lock解放は行わない。
+ * @failure 終了不明は追加操作を止め清掃未確認で返す。
+ * @invariant 清掃前に完了を返さず、取消でも現在Owner確認を省略しない。
+ */
+export function bindAuthenticationLifecycle(
+  authentication: Authentication | null,
+): AuthenticationExecutor | null {
+  if (!authentication) return null;
+  const controller = new AbortController();
+  let started = false;
+  return Object.freeze<AuthenticationExecutor>({
+    recordProjection: authentication.projection,
+    start(context, callbacks = {}) {
+      if (started) throw Error("provider_authentication_already_started");
+      started = true;
+      const signal = context.signal
+        ? AbortSignal.any([context.signal, controller.signal])
+        : controller.signal;
+      let result: AuthenticationResult = {
+        reason: "provider_authentication_process_completion_unconfirmed",
+        authenticationStatus: "unknown",
+        authenticationConfirmed: false,
+        providerEffectIssued: false,
+        processCompletionConfirmed: false,
+      };
+      let cleanup: AuthenticationCleanupResult = {
+        confirmed: false,
+        processCompletionConfirmed: false,
+      };
+      return Object.freeze({
+        completion: executeLifecycle(
+          {
+            async execute() {
+              result = await authentication.execute(
+                signal,
+                context.assertOwner,
+                callbacks,
+              );
+            },
+            async cleanup() {
+              if (authentication.isProcessCompletionConfirmed())
+                cleanup = await authentication.cleanup(
+                  context.readResources,
+                  context.assertOwner,
+                  callbacks,
+                );
+            },
+            createResult(
+              _context,
+              _failure,
+              failed,
+            ): AuthenticationCompletionResult {
+              const reason =
+                result.reason !== "provider_authentication_completed"
+                  ? result.reason
+                  : failed
+                    ? "provider_authentication_process_completion_unconfirmed"
+                    : signal.aborted
+                      ? "provider_authentication_cancelled"
+                      : result.reason;
+              return Object.freeze({
+                ...result,
+                reason,
+                processCompletionConfirmed:
+                  !failed &&
+                  result.processCompletionConfirmed &&
+                  cleanup.processCompletionConfirmed,
+                cleanupConfirmed: !failed && cleanup.confirmed,
+              });
+            },
+          },
+          context,
+        ),
+      });
+    },
+    cancel() {
+      controller.abort();
+    },
+  });
+}
 
 /**
  * Provider認証の固定Docker Planを構築する。

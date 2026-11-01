@@ -1,27 +1,29 @@
 /**
- * 固定合成Probeの作成・実行・取消・回収を同じ生涯へ集約する。
+ * 固定合成Probe固有の作成構成・実行・結果解釈を所有する。
  * @packageDocumentation
  * @responsibility 上位保存の通知を挟み、DIの技術観測だけを返す。
  * @trace ARCH-000008
  * @boundary 保存・Host終了判断は上位、Docker実操作はDI。永続化しない。
  */
+
 import { types } from "node:util";
 import {
-  createDockerProbeRuntimeBinding,
-  observeDockerProbeEngine,
+  cleanupDockerContainer,
   createDockerProbeContainer,
+  createDockerProbeRuntimeBinding,
+  type DockerProbeProfile,
   describeDockerProbeConfiguration,
   inspectDockerContainer,
+  observeDockerProbeEngine,
   runDockerProbeAsync,
-  cleanupDockerContainer,
-  type DockerProbeProfile,
 } from "../../../docker-isolation/src/index.ts";
+import type { IsolationProbeCallbacks } from "../lifecycle/callbacks.ts";
+import { executeLifecycle } from "../lifecycle/execute.ts";
 import type {
-  IsolationProbeRequest,
-  IsolationProbeOptions,
-  IsolationProbeCallbacks,
-  IsolationProbeResult,
   IsolationProbeExecutor,
+  IsolationProbeOptions,
+  IsolationProbeRequest,
+  IsolationProbeResult,
 } from "./types.ts";
 
 /**
@@ -146,108 +148,121 @@ export function createIsolationProbe(
         const cli = createDockerProbeRuntimeBinding(
           () => readMounts().management,
         );
-        try {
-          if (controller.signal.aborted)
-            throw new Error("docker_probe_start_cancelled");
-          if (!observeDockerProbeEngine(cli))
-            return Object.freeze({
-              reason: "local_docker_desktop_linux_engine_required",
-              creationAttempted,
-              containerId,
-              facts,
-              cleanupConfirmed,
-              processCompletionConfirmed,
-              cancelled: false,
-            });
-          notify(callbacks.onSubmitting, "");
-          if (controller.signal.aborted)
-            throw new Error("docker_probe_start_cancelled");
-          const mounts = readMounts();
-          creationAttempted = true;
-          const creation = createDockerProbeContainer(cli, profile, probeId, {
-            workspace: mounts.workspace,
-            providerHome: mounts.providerHome,
-            tmp: mounts.tmp,
-          });
-          if (creation.status !== "confirmed") {
-            reason = "docker_container_identity_unknown";
-          } else {
-            containerId = creation.id;
-            notify(callbacks.onCreated, containerId);
-            if (controller.signal.aborted)
-              throw new Error("docker_probe_start_cancelled");
-            const current = readMounts();
-            const expected = describeDockerProbeConfiguration(
-              profile,
-              { id: containerId, probeId },
-              {
-                workspace: current.workspace,
-                providerHome: current.providerHome,
-                tmp: current.tmp,
-              },
-            );
-            if (!inspectDockerContainer(cli, expected))
-              throw new Error("docker_container_security_profile_mismatch");
-            readMounts();
-            processCompletionConfirmed = false;
-            const execution = await runDockerProbeAsync(
-              cli,
-              profile,
-              containerId,
-              controller.signal,
-            );
-            processCompletionConfirmed = execution.processCompletionConfirmed;
-            facts = execution.facts;
-            readMounts();
-            reason = !processCompletionConfirmed
-              ? "dynamic_fake_provider_attach_process_termination_unconfirmed"
-              : execution.cancelled
-                ? "docker_probe_start_cancelled"
-                : facts.isolation.reason;
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "";
-          reason = [
-            "owned_operation_mount_replaced",
-            "docker_probe_start_cancelled",
-            "docker_container_security_profile_mismatch",
-            "docker_probe_notification_invalid",
-          ].includes(message)
-            ? message
-            : "docker_isolation_probe_failed";
-        } finally {
-          if (containerId && processCompletionConfirmed) {
-            try {
-              const current = readMounts();
-              const cleanup = cleanupDockerContainer(
-                cli,
-                describeDockerProbeConfiguration(
+        return executeLifecycle(
+          {
+            async execute() {
+              try {
+                if (controller.signal.aborted)
+                  throw new Error("docker_probe_start_cancelled");
+                if (!observeDockerProbeEngine(cli)) {
+                  reason = "local_docker_desktop_linux_engine_required";
+                  return;
+                }
+                notify(callbacks.onSubmitting, "");
+                if (controller.signal.aborted)
+                  throw new Error("docker_probe_start_cancelled");
+                const mounts = readMounts();
+                creationAttempted = true;
+                const creation = createDockerProbeContainer(
+                  cli,
                   profile,
-                  { id: containerId, probeId },
+                  probeId,
                   {
-                    workspace: current.workspace,
-                    providerHome: current.providerHome,
-                    tmp: current.tmp,
+                    workspace: mounts.workspace,
+                    providerHome: mounts.providerHome,
+                    tmp: mounts.tmp,
                   },
-                ),
-              );
-              cleanupConfirmed = cleanup.confirmed;
-              if (!cleanupConfirmed) reason = cleanup.reason;
-            } catch {
-              cleanupConfirmed = false;
-              reason = "docker_probe_cleanup_failed";
-            }
-          }
-        }
-        return Object.freeze({
-          reason,
-          creationAttempted,
-          containerId,
-          facts,
-          cleanupConfirmed,
-          processCompletionConfirmed,
-          cancelled: controller.signal.aborted,
-        });
+                );
+                if (creation.status !== "confirmed") {
+                  reason = "docker_container_identity_unknown";
+                } else {
+                  containerId = creation.id;
+                  notify(callbacks.onCreated, containerId);
+                  if (controller.signal.aborted)
+                    throw new Error("docker_probe_start_cancelled");
+                  const current = readMounts();
+                  const expected = describeDockerProbeConfiguration(
+                    profile,
+                    { id: containerId, probeId },
+                    {
+                      workspace: current.workspace,
+                      providerHome: current.providerHome,
+                      tmp: current.tmp,
+                    },
+                  );
+                  if (!inspectDockerContainer(cli, expected))
+                    throw new Error(
+                      "docker_container_security_profile_mismatch",
+                    );
+                  readMounts();
+                  processCompletionConfirmed = false;
+                  const execution = await runDockerProbeAsync(
+                    cli,
+                    profile,
+                    containerId,
+                    controller.signal,
+                  );
+                  processCompletionConfirmed =
+                    execution.processCompletionConfirmed;
+                  facts = execution.facts;
+                  readMounts();
+                  reason = !processCompletionConfirmed
+                    ? "dynamic_fake_provider_attach_process_termination_unconfirmed"
+                    : execution.cancelled
+                      ? "docker_probe_start_cancelled"
+                      : facts.isolation.reason;
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : "";
+                reason = [
+                  "owned_operation_mount_replaced",
+                  "docker_probe_start_cancelled",
+                  "docker_container_security_profile_mismatch",
+                  "docker_probe_notification_invalid",
+                ].includes(message)
+                  ? message
+                  : "docker_isolation_probe_failed";
+              }
+            },
+            async cleanup() {
+              if (containerId && processCompletionConfirmed) {
+                try {
+                  const current = readMounts();
+                  const cleanup = cleanupDockerContainer(
+                    cli,
+                    describeDockerProbeConfiguration(
+                      profile,
+                      { id: containerId, probeId },
+                      {
+                        workspace: current.workspace,
+                        providerHome: current.providerHome,
+                        tmp: current.tmp,
+                      },
+                    ),
+                  );
+                  cleanupConfirmed = cleanup.confirmed;
+                  if (!cleanupConfirmed) reason = cleanup.reason;
+                } catch {
+                  cleanupConfirmed = false;
+                  reason = "docker_probe_cleanup_failed";
+                }
+              }
+            },
+            createResult(_context, _failure, failed) {
+              if (failed) reason ??= "docker_isolation_probe_failed";
+              return Object.freeze({
+                reason,
+                creationAttempted,
+                containerId,
+                facts,
+                cleanupConfirmed,
+                processCompletionConfirmed,
+                cancelled: controller.signal.aborted,
+              });
+            },
+          },
+          undefined,
+        );
       }
     },
     cancel() {

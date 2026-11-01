@@ -6,22 +6,25 @@
  * @trace ERB-IT-004
  * @boundary scripts専用。実行・認証・子監督・Task計画は所有しない。
  */
+
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash, randomBytes } from "node:crypto";
 import {
-  resolveAiModelSelection,
   planProviderExecution,
+  resolveAiModelSelection,
 } from "../../ai-adapter/src/index.ts";
 import {
   describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
   describeDockerProxyTopology,
   prepareDockerNetworkPolicy,
-  describeDockerProviderExecutionLocations,
 } from "../../docker-isolation/src/index.ts";
 import { hashExecutionSelection } from "../../domain-model/src/index.ts";
-import { prepareAttempt } from "../src/attempt/execute.ts";
-import { resolveValidatedPlan } from "../src/attempt/isolation.ts";
+import {
+  prepareAttempt,
+  resolveValidatedPlan,
+} from "../src/attempt/operations.ts";
 import type { AttemptPlan } from "../src/attempt/types.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";

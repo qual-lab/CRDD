@@ -9,26 +9,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  planIdentity,
-  resolveValidatedPlan,
-  resolveIsolationCommandInput,
-  resolveProviderExecution,
-  bindIsolationRuntime,
-} from "../../src/attempt/isolation.ts";
-import { prepareAttempt } from "../../src/attempt/execute.ts";
+  describeAdviceResultSchema,
+  planProviderExecution,
+  resolveAiModelSelection,
+} from "../../../ai-adapter/src/index.ts";
 import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
   planDockerIsolationCommands,
   prepareDockerNetworkPolicy,
-  describeDockerProviderExecutionLocations,
-  describeDockerProviderAssets,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  resolveAiModelSelection,
-  planProviderExecution,
-  describeAdviceResultSchema,
-} from "../../../ai-adapter/src/index.ts";
+  bindIsolationRuntime,
+  isAttemptPlanValid,
+  planIdentity,
+  prepareAttempt,
+  resolveIsolationCommandInput,
+  resolveProviderExecution,
+  resolveValidatedPlan,
+} from "../../src/attempt/operations.ts";
 import type { AttemptPlan, AttemptRequest } from "../../src/attempt/types.ts";
-import { isAttemptPlanValid } from "../../src/attempt/validation.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
