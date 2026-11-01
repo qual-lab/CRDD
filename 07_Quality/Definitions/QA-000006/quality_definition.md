@@ -1,5 +1,9 @@
 # QA-000006 外部実行境界の検証定義
 
+## 通常Attempt／Probeの固定所在とSession Receipt
+
+DIのcommand-runtime契約で、own-dataの二所在だけを受理し、旧Query・accessor・Proxy・欠測を拒否することを検査する。使用Directoryの元実体を保持し、管理領域・tmp・Home・Workspaceの差替え後に追加Docker要求がないことを有限代役で確認する。新品Repository-local領域では同PathのDirectory差替え、不存在、junction拒否を実Filesystemで観測する。Probe契約では入力Objectの後発変更を採用せず、Factory後の元実体差で開始を拒否する。通常回収はSessionの明示Receiptを使用し、欠測を旧Reader・名前推定・未要求へ補完しない。通知失敗、Process未終了、取消、未知資源、二重清掃なしは既存Suiteへ接続する。これらは実AI・実Dockerの成功証拠ではない。
+
 ## Container観測・回収の共通化と検証専用処理の分離
 
 通常回収と単一Container回収で共通の有界inspect解析・実ID限定削除を利用し、元の構成照合と不存在軸を維持する。単一ContainerはImage・完全Command候補・User・能力・Device・Network・Mount実体と三軸の各失敗を反証する。Executor既存資源入口でpresent／absent／unknownとRunning肯定を分け、通常／単独の資源集合・認証・Containerでは初回・照合後・削除直前の明示取消で後続処置を停止し、取消後も同じconfigのcloseだけを実体確認して一回実施することを確認する。上位へのOwner逆照会は要求せず、上位が呼出し前後の検査と処理中の排他保持を所有する。途中Owner失効の自動検知はこの契約の保証外とする。必要通知のthrow・誤Promise・後着Reject・pendingによる次Effect拒否は別に維持する。DI共通回収を通常Sessionと単独再入場の双方から利用し、全Receiptの処置前検査、未要求／提出済みID欠測、発見IDの通知完了前削除0、Process終了不明時の追加Docker要求0、既不存在の再削除0、実ID・構成差・同名replacement、config closeの一回性を検証する。認証は元DI計画との順序・名前・種類・IDの照合、accessor／Proxy拒否、通知不成立時の実ID非採用、通常と単独の同一回収処理を反証する。型や模擬成功から実Dockerの成立を推定しない。Coordinator回復は元記録・世代排他・exact IDを維持し、不明時に処置せず同じ参照を返す。
@@ -14,7 +18,7 @@
 
 公開Executorはstart／cancelのsignatureを明示し、Factoryがその型を満たすことを確認する。実装のReturnType／Parametersから公開契約を導出しない。選択三項目は全存在・全不存在の正例と六つの部分集合の型負例を確認し、型検査のexpect-error未消費を成功と扱わない。既存callback拒否・取消のinvalid／duplicate／要求・終了観測の相関と元Control／Promiseのlifecycleを維持する。
 
-構成・準備・隔離接続も、既存の名前付き契約を再利用する。所在借用の必須性、Receipt観測の任意性、生Process注入拒否、準備拒否の全null／false、両Providerの取消・失効・一回消費を確認する。通常Sessionへ試験Candidateの表示を混入させず、期限超過分類ではbyte項目を補完しない。型だけのRoot公開追加が実行時公開集合やEffect順序を変えないことを、型負例・純粋分類・有限代役の既存回帰で確認する。実AI・実Dockerの再実行を今回の型整理の成立根拠には用いない。
+構成・準備・隔離接続も、既存の名前付き契約を再利用する。固定所在入力の必須性、Session Receiptの明示と欠測時の未確認、生Process注入拒否、準備拒否の全null／false、両Providerの取消・失効・一回消費を確認する。通常Sessionへ試験Candidateの表示を混入させず、期限超過分類ではbyte項目を補完しない。型だけのRoot公開追加が実行時公開集合やEffect順序を変えないことを、型負例・純粋分類・有限代役の既存回帰で確認する。実AI・実Dockerの再実行を今回の型整理の成立根拠には用いない。
 
 ## Executorの明示結果型とFactory入力
 

@@ -131,9 +131,9 @@ test("取消事実は二保存・同対象absence・全終了条件を満たし�
         absenceCapabilities: absences,
         dynamicLifecycleAbsences: new WeakMap(),
         getOwnedHostRecoveryId: () => "host",
-        createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
+        createDockerProbeRuntimeBinding: (management: string) => {
           factoryCalls++;
-          assert.equal(readManagement(), mounts.management);
+          assert.equal(management, mounts.management);
           return Object.assign(cli, {
             verifyCli: () => {
               return "fixed-cli";
@@ -502,9 +502,9 @@ test("稼働残存の上位Callerは二保存後の同対象を下位へ渡し�
         randomUUID: () => probeId,
         containerIdentities: identities,
         getOwnedHostRecoveryId: () => "host",
-        createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
+        createDockerProbeRuntimeBinding: (management: string) => {
           factoryCalls++;
-          assert.equal(readManagement(), mounts.management);
+          assert.equal(management, mounts.management);
           return Object.assign(cli, {
             verifyCli: () => {
               return "fixed-cli";

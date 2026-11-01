@@ -1,18 +1,18 @@
 /**
  * 借用された作業領域内の短命Docker CLI設定を所有する。
  *
- * @responsibility 空configの作成・実体照合・終了後回収を担当する。
+ * @responsibility 使用Directoryの実体観測と空configの作成・照合・終了後回収を担当する。
  * @trace ARCH-000008
  */
 import fs from "node:fs";
 import path from "node:path";
 
 /**
- * 空configの実体を識別する。
+ * 使用Directoryの元実体を識別する。
  *
  * @responsibility Linkや観測不能を同一実体へ補完しない。
  * @trace ARCH-000008
- * @input directory: 借用Root内のconfig所在。
+ * @input directory: 利用許可を確認したcanonicalなDirectory所在。
  * @returns 実体metadataの相関。
  * @precondition 所在の利用許可は上位が確認する。
  * @postcondition 実体を作成・変更しない。
@@ -23,7 +23,9 @@ import path from "node:path";
  * @security 認証値を読取らない。
  * @concurrency 各使用前に再観測する。
  */
-function configIdentity(directory: string) {
+export function observeDockerDirectoryIdentity(directory: string): string {
+  if (fs.realpathSync(directory) !== directory)
+    throw new Error("docker_effect_filesystem_identity_invalid");
   const metadata = fs.lstatSync(directory, { bigint: true });
   if (
     !metadata.isDirectory() ||
@@ -60,7 +62,7 @@ export function createDockerCliConfig(managementPath: string) {
     throw new Error("docker_effect_config_replaced");
   return Object.freeze({
     directory: realDirectory,
-    identity: configIdentity(realDirectory),
+    identity: observeDockerDirectoryIdentity(realDirectory),
   });
 }
 
@@ -83,7 +85,7 @@ export function createDockerCliConfig(managementPath: string) {
 export function verifyDockerCliConfig(directory: string, identity: string) {
   if (
     fs.realpathSync(directory) !== directory ||
-    configIdentity(directory) !== identity
+    observeDockerDirectoryIdentity(directory) !== identity
   )
     throw new Error("docker_effect_config_replaced");
 }

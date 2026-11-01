@@ -9,6 +9,8 @@
  * @boundary Direct Boundary: 現在Owner投影→Docker Effect Gate。実Dockerとは区別する。
  */
 import assert from "node:assert/strict";
+import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
+
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -225,93 +227,45 @@ test("公開Factoryはdescriptorの継承valueを受理しない", () => {
   );
   const start = source.indexOf("export function createDockerIsolationRuntime(");
   const end = source.indexOf("\n}\n", start);
-  assert.ok(start >= 0 && end > start);
   const body = source
     .slice(start, end + 3)
     .replace("export function", "function");
-  const oldPredicate = 'Object.hasOwn(descriptors[key] ?? {}, "value")';
-  assert.equal(body.split(oldPredicate).length, 2);
-  const expected = [true, false, false, false, true, true, 0, 0];
+  const predicate = 'Object.hasOwn(fields[key], "value")';
+  assert.equal(body.split(predicate).length, 2);
   for (const mutant of [false, true]) {
     const candidate = mutant
-      ? body.replace(oldPredicate, '("value" in (descriptors[key] ?? {}))')
+      ? body.replace(predicate, '("value" in fields[key])')
       : body;
     const observed = runInNewContext(
-      stripTypeScriptTypes(`${candidate}
-        /**
-         * Factoryのdescriptor検査に不要な借用Path処理を無作用にする。
-         * @responsibility Factoryのdescriptor検査に不要な借用Path処理を無作用にする。
-         * @trace ERB-IT-004
-         * @precondition VM内だけで使う境界関数の代役。
-         * @stimulus 呼び出されても値も資源も生成しない。
-         * @observation Factory引数の受理・拒否。
-         * @oracle descriptor反例の結果を外部処理に依存させない。
-         * @cleanup N/A: 無作用関数だけ。
-         * @boundary VM内の構成検査。実借用Workspaceを作らない。
-         */
-        const noop = () => {};
-        let reads = 0;
-        let inheritedCalls = 0;
-        const good = { borrowPaths: noop };
-        const accessor = Object.defineProperty({}, "borrowPaths", {
-          get() { reads++; return noop; }, enumerable: true
-        });
-        const optionalAccessor = Object.defineProperty({ borrowPaths: noop }, "inspectReceipts", {
-          get() { reads++; return noop; }, enumerable: true
-        });
-        const missing = {};
-        Object.prototype.value = noop;
-        Object.prototype.borrowPaths = { value: noop };
-        Object.prototype.inspectReceipts = () => { inheritedCalls++; };
-        let captured;
-        /**
-         * 公開Factoryが下位へ渡した構成を捕捉する。
-         * @responsibility 公開Factoryが下位へ渡した構成を捕捉する。
-         * @trace ERB-IT-004
-         * @precondition VM内で下位Runtime生成だけを置換している。
-         * @stimulus 受けた値をcapturedへ保存し同じ値を返す。
-         * @observation capturedのfieldと入力相関。
-         * @oracle 継承fieldが下位構成へ紛れないことを呼出し元が確認する。
-         * @cleanup VM評価を終了して捕捉値を破棄する。
-         * @boundary 下位Factoryの代役。Process作成0。
-         */
-        function createDockerIsolationRuntimeCandidate(value) { captured = value; return value; }
-        /**
-         * 公開Factoryの入力受理を真偽へ投影する。
-         * @responsibility 公開Factoryの入力受理を真偽へ投影する。
-         * @trace ERB-IT-004
-         * @precondition VM内でFactoryと下位捕捉関数が結合済み。
-         * @stimulus 対象値をFactoryへ渡し例外をfalseへ分類する。
-         * @observation 正常対照trueと継承descriptor false。
-         * @oracle 不正入力が例外なしで受理されれば試験を失敗させる。
-         * @cleanup N/A: 局所の呼出し結果のみ。
-         * @boundary Factory検査だけ。実Runtimeの起動を証明しない。
-         */
-        function accepted(value) {
-          try { createDockerIsolationRuntime(value); return true; }
-          catch { return false; }
-        }
-        const valid = accepted(good);
-        const optionalOwn = Object.hasOwn(captured, "inspectReceipts");
-        const optionalAbsent = captured.inspectReceipts === undefined;
-        if (captured.inspectReceipts) captured.inspectReceipts({});
-        [valid, accepted(accessor), accepted(optionalAccessor), accepted(missing), optionalOwn, optionalAbsent, reads, inheritedCalls];
-      `),
+      stripTypeScriptTypes(
+        candidate +
+          `
+      let reads = 0;
+      const accessor = Object.defineProperty({management:"management"},"tmp",{get(){reads++;return "tmp";},enumerable:true});
+      Object.prototype.value = "synthetic";
+      function accepts(paths){try{createDockerIsolationRuntime({paths});return true;}catch{return false;}}
+      [accepts({tmp:"tmp",management:"management"}),accepts(accessor),accepts({}),accepts({tmp:"tmp",management:"management",extra:"x"}),reads];
+    `,
+      ),
       {
         utilTypes,
         process: { platform: "win32" },
+        createDockerIsolationRuntimeCandidate: () => ({}),
+        observeDockerDirectoryIdentity: () => "",
         readCliSnapshot: () => {},
-        acquireHomeLease: () => {
-          throw new Error("home_lease_not_requested_by_descriptor_fixture");
-        },
         verifyCliSnapshot: () => {},
         createDockerProcessEnvironment: () => {},
         createDockerCliConfig: () => {},
         verifyDockerCliConfig: () => {},
+        fs: {},
+        startOwnedWindowsProcess: () => {},
+        acquireHomeLease: () => {},
       },
-    ) as unknown[];
-    if (mutant) assert.throws(() => assert.deepEqual([...observed], expected));
-    else assert.deepEqual([...observed], expected);
+    );
+    const check = () =>
+      assert.deepEqual([...observed], [true, false, false, false, 0]);
+    if (mutant) assert.throws(check);
+    else check();
   }
 });
 
@@ -347,7 +301,7 @@ test("公開Factoryは上位のOS指定とgetterを受け付けない", () => {
     throw new Error("unexpected observation");
   }
   const base = {
-    borrowPaths: forbiddenObservation,
+    paths: { tmp: "synthetic", management: "synthetic" },
     readCli: forbiddenObservation,
     verifyCli: forbiddenObservation,
     environment: forbiddenObservation,
@@ -371,12 +325,13 @@ test("公開Factoryは上位のOS指定とgetterを受け付けない", () => {
   assert.equal(platformIsPublic, false);
   assert.equal(calls, 0);
   assert.equal(getterReads, 0);
-  const permitted = { borrowPaths: forbiddenObservation };
+  const permitted = { paths: { tmp: "synthetic", management: "synthetic" } };
   for (const key of [
     "readCli",
     "verifyCli",
     "environment",
     "unknown",
+    "paths",
     "borrowPaths",
     "inspectReceipts",
   ]) {
@@ -489,7 +444,10 @@ test("未対応環境はconfig作成とProcess開始の前に止まる", () => {
  * @cleanup N/A: 実Process・Directory・Docker資源を取得しない。
  * @boundary 模擬Owner投影→技術Gate。実境界は別に確認する。
  */
-function runtimeFixture(platform = "win32") {
+function runtimeFixture(
+  platform = "win32",
+  directoryIdentity: (directory: string) => string = () => "fixed_directory",
+) {
   const owner = Object.freeze({});
   const recovery = Object.freeze({});
   const plan: DockerIsolationRuntimePlan = {
@@ -542,15 +500,13 @@ function runtimeFixture(platform = "win32") {
     create_internal_network: { submitted: false, dockerId: null },
     create_egress_network: { submitted: false, dockerId: null },
   };
-  const runtime = createDockerIsolationRuntimeCandidate({
+  const base = createDockerIsolationRuntimeCandidate({
     platform,
-    borrowPaths: (candidate) => {
-      assert.equal(candidate, owner);
-      return {
-        tmp: plan.configuration.temporarySourcePath,
-        management: path.resolve("fixture-management"),
-      };
+    paths: {
+      tmp: plan.configuration.temporarySourcePath,
+      management: path.resolve("fixture-management"),
     },
+    directoryIdentity,
     readCli: () =>
       Object.freeze({ hash: "fixed", executablePath: "fixed-docker.exe" }),
     verifyCli: (snapshot) => {
@@ -590,11 +546,15 @@ function runtimeFixture(platform = "win32") {
         closed: () => closed,
       };
     },
-    inspectReceipts: (candidate) => {
-      assert.equal(candidate, recovery);
-      return receipts;
-    },
   });
+  const runtime = {
+    ...base,
+    cleanupOwnedResources: (
+      plan: DockerIsolationRuntimePlan,
+      recovery: object,
+      owner: unknown,
+    ) => base.cleanupOwnedResources(plan, recovery, owner, receipts),
+  };
   return {
     runtime,
     owner,
@@ -1133,6 +1093,7 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
           if (activeMode === "environment") throw environmentFailure;
           return { SystemRoot: "fixed" };
         },
+        observeDockerDirectoryIdentity: () => "fixed_directory",
         createDockerCliConfig: () => {
           events.push("config");
           created += 1;
@@ -1186,14 +1147,10 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
     ) as typeof createDockerIsolationRuntime;
     const receipts = { ...fixture.initialReceipts };
     const runtime = factory({
-      borrowPaths: (owner) => {
-        assert.strictEqual(owner, fixture.owner);
-        return {
-          tmp: fixture.plan.configuration.temporarySourcePath,
-          management: path.resolve("fixture-management"),
-        };
+      paths: {
+        tmp: fixture.plan.configuration.temporarySourcePath,
+        management: path.resolve("fixture-management"),
       },
-      inspectReceipts: () => receipts,
     });
     if (mode === "observe" || mode === "verify" || mode === "environment") {
       assert.throws(
@@ -1220,6 +1177,7 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
           fixture.plan,
           fixture.recovery,
           fixture.owner,
+          receipts,
         );
         assert.equal(cleanup.confirmed, true);
         assert.equal(removed, 1);
@@ -1260,6 +1218,7 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
       fixture.plan,
       fixture.recovery,
       fixture.owner,
+      receipts,
     );
     assert.equal(cleanup.confirmed, mode === "normal");
     if (mode === "normal") assert.equal(removed, 1);
@@ -1274,4 +1233,84 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
       ]);
     }
   }
+});
+
+/** 元Directoryの実体が変われば、固定Pathが同じでも次のDocker要求を拒否する。 */
+test("固定所在の実体差は開始と回収の追加Docker要求を止める", async () => {
+  for (const resource of ["management", "tmp", "home", "workspace"]) {
+    let changed: string | null = null;
+    const fixture = runtimeFixture("win32", (directory) =>
+      directory === changed ? "replacement" : "original",
+    );
+    const input =
+      resource === "workspace"
+        ? {
+            ...fixture.plan,
+            configuration: {
+              ...fixture.plan.configuration,
+              workspace: { sourcePath: "C:\\workspace", readOnly: false },
+            },
+          }
+        : fixture.plan;
+    const plan = input.configuration;
+    const paths = {
+      management: path.resolve("fixture-management"),
+      tmp: plan.temporarySourcePath,
+      home: plan.homeSourcePath,
+      workspace: plan.workspace?.sourcePath,
+    };
+    const handle = fixture.runtime.startCommand(
+      "create_provider",
+      input,
+      fixture.owner,
+    );
+    await handle.wait(1);
+    const before = fixture.invocations.length;
+    changed = paths[resource as keyof typeof paths] ?? null;
+    assert.ok(changed);
+    assert.throws(
+      () =>
+        fixture.runtime.startCommand("create_provider", input, fixture.owner),
+      /filesystem_identity_invalid/u,
+    );
+    assert.equal(
+      (
+        await fixture.runtime.cleanupOwnedResources(
+          input,
+          fixture.recovery,
+          fixture.owner,
+        )
+      ).confirmed,
+      false,
+    );
+    assert.equal(fixture.invocations.length, before);
+  }
+});
+
+/** 元実体の同Path差替えとjunctionを、Repository内の自己生成Directoryで反証する。 */
+test("Directory実体観測は同Path差替え・不存在・junctionを区別する", (t) => {
+  const repository = path.resolve(import.meta.dirname, "../../../..");
+  assert.ok(fs.existsSync(path.join(repository, ".git")));
+  const tests = path.join(repository, ".crdd", "tests");
+  fs.mkdirSync(tests, { recursive: true });
+  const root = fs.mkdtempSync(path.join(tests, "di-fixed-paths-"));
+  t.after(() => {
+    assert.equal(path.dirname(fs.realpathSync(root)), fs.realpathSync(tests));
+    fs.rmSync(root, { recursive: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  const directory = path.join(root, "source");
+  fs.mkdirSync(directory);
+  const original = observeDockerDirectoryIdentity(directory);
+  fs.renameSync(directory, path.join(root, "previous"));
+  assert.throws(() => observeDockerDirectoryIdentity(directory));
+  fs.mkdirSync(directory);
+  assert.notEqual(observeDockerDirectoryIdentity(directory), original);
+  const link = path.join(root, "link");
+  fs.symlinkSync(
+    directory,
+    link,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  assert.throws(() => observeDockerDirectoryIdentity(link));
 });

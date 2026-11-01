@@ -319,11 +319,10 @@ function createEffectFixture(
       },
       verifyCleanupOutcome: () => null,
     },
-    () =>
-      Object.freeze({
-        tmp: "C:\\operation\\tmp",
-        management: "C:\\operation\\management",
-      }),
+    Object.freeze({
+      tmp: "C:\\operation\\tmp",
+      management: "C:\\operation\\management",
+    }),
   );
   return {
     runtime,
@@ -404,10 +403,7 @@ test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", a
       },
       verifyCleanupOutcome: () => null,
     },
-    () => ({
-      tmp: "C:\\operation\\tmp",
-      management: "C:\\operation\\management",
-    }),
+    { tmp: "C:\\operation\\tmp", management: "C:\\operation\\management" },
   );
   const session = runtime.startExecution(
     plan,
@@ -468,11 +464,10 @@ test("元清掃結果と回復Ownerを投影し下位例外を成功へ補完し
         return null;
       },
     },
-    () =>
-      Object.freeze({
-        tmp: "C:\\operation\\tmp",
-        management: "C:\\operation\\management",
-      }),
+    Object.freeze({
+      tmp: "C:\\operation\\tmp",
+      management: "C:\\operation\\management",
+    }),
   );
   assert.equal(
     await runtime.cleanupOwnedResources(plan, recovery, managementCapability),
@@ -551,12 +546,12 @@ test("固定planの所属と借用所在を技術Runtimeへ投影する", async 
  * @trace ERB-IT-003
  * @precondition 自己生成Repository-local領域と実Windows世代排他を使う。
  * @stimulus 生存中の元二commandを開始し、正常清掃後に回復世代保持中と解放後で再試行する。
- * @observation 元Owner拒否、下位開始・Handle・構成準備の増分0、Root不存在。
- * @oracle 同じcommandの肯定到達を先に確認し、cached借用変異を同じゼロOracleが拒否する。
+ * @observation 元Owner拒否、固定値からの有限代役への搬送とRoot不存在。
+ * @oracle 同じcommandを固定値で配送し、上位所在取得は失効後も拒否する。DI実体差替え拒否はDIの別試験で確認する。
  * @cleanup 真正清掃のcompleted後だけ自己生成親を削除し、回復世代をfinally解放する。
  * @boundary 実Host／Kernelと本番投影。下位開始は記録代役でDocker・外部Processを作らない。
  */
-test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成しない", async () => {
+test("Host Windows: 清掃後の上位所在取得拒否と固定値の技術搬送を分離する", async () => {
   assert.equal(process.platform, "win32");
   const area = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
@@ -598,7 +593,6 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
     const nonce = parseHostRecoveryToken(
       borrowOwnedHostRecoverySnapshot(management).snapshot.token,
     ).nonce;
-    const cached = borrowOwnedDockerExecutionPaths(management);
     // 下位代役の到達印であり、実構成・実Handle生成の観測ではない。
     const calls = { starts: 0, configurations: 0, handles: 0 };
     const arrivals: Array<{ purpose: string; owner: unknown }> = [];
@@ -635,7 +629,7 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
     };
     const runtime = bindIsolationRuntime(
       lower,
-      borrowOwnedDockerExecutionPaths,
+      borrowOwnedDockerExecutionPaths(management),
     );
     for (const command of commands) {
       const before = { ...calls };
@@ -669,41 +663,14 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
     assert.ok(generation);
     const baseline = { ...calls };
     for (const command of commands) {
-      const before = { ...calls };
       const count = arrivals.length;
-      assert.throws(() => runtime.startCommand(command, plan, management));
-      assert.deepEqual(calls, before);
-      assert.equal(arrivals.length, count);
+      await runtime.startCommand(command, plan, management).wait(1);
+      assert.equal(arrivals.length, count + 1);
+      assert.throws(() => borrowOwnedDockerExecutionPaths(management));
     }
-    assert.deepEqual(calls, baseline);
+    assert.equal(calls.starts, baseline.starts + commands.length);
     assert.equal(releaseHostOperationRecoveryGeneration(generation), true);
     generation = null;
-    for (const command of commands) {
-      const before = { ...calls };
-      const count = arrivals.length;
-      assert.throws(() => runtime.startCommand(command, plan, management));
-      assert.deepEqual(calls, before);
-      assert.equal(arrivals.length, count);
-    }
-    assert.deepEqual(calls, baseline);
-    const mutant = bindIsolationRuntime(lower, () => cached);
-    for (const command of commands) {
-      const before = { ...calls };
-      const count = arrivals.length;
-      await mutant.startCommand(command, plan, management).wait(1);
-      assert.deepEqual(calls, {
-        starts: before.starts + 1,
-        configurations: before.configurations + 1,
-        handles: before.handles + 1,
-      });
-      assert.equal(arrivals.length, count + 1);
-      assert.deepEqual(arrivals[count], {
-        purpose: command.purpose,
-        owner: management,
-      });
-      assert.equal(arrivals[count]?.owner, management);
-      assert.throws(() => assert.deepEqual(calls, before));
-    }
     assert.equal(fs.existsSync(owned.root), false);
   } finally {
     if (generation)
@@ -731,12 +698,12 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
  * @trace ERB-IT-004
  * @precondition Kernel取得だけ代役とし、実Filesystemとfreshな本番moduleを使う。
  * @stimulus 元auth create／startの肯定到達後、assertLiveをfalse・trueの順にする。
- * @observation false観測到達、各commandの下位増分0、実体・marker本文不変、解放一回。
- * @oracle 元Owner拒否は不可逆であり、cached借用変異だけが個別ゼロOracleを破る。
+ * @observation 上位false観測、固定技術値の配送、実体・marker本文不変と解放一回。
+ * @oracle 元Owner拒否は上位の責務とし、固定値を使う下位が上位Queryを再評価しない。
  * @cleanup 同じmoduleの真正清掃とmock復元を別finallyで保証する。
  * @boundary 論理Kernel故障・実Filesystem・本番private世代。実Kernel故障やDaemon終端は証明しない。
  */
-test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない", async () => {
+test("Host Windows: 世代失効は上位で拒否し固定値から上位を再照会しない", async () => {
   const kernelUrl = new URL(
     "../../src/execution/kernel-lock.ts",
     import.meta.url,
@@ -815,7 +782,6 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
       const beforeRoot = fs.lstatSync(owned.root, { bigint: true });
       const beforeMarker = fs.lstatSync(marker, { bigint: true });
       const markerBytes = fs.readFileSync(marker);
-      const cached = host.borrowOwnedDockerExecutionPaths(management);
       const arrivals: Array<{ purpose: string; owner: unknown }> = [];
       const lower = {
         startExecution: () => {
@@ -847,7 +813,7 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
       };
       const runtime = bindIsolationRuntime(
         lower,
-        host.borrowOwnedDockerExecutionPaths,
+        host.borrowOwnedDockerExecutionPaths(management),
       );
       for (const command of commands) {
         const count = arrivals.length;
@@ -860,8 +826,8 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
         live = active;
         for (const command of commands) {
           const count = arrivals.length;
-          assert.throws(() => runtime.startCommand(command, plan, management));
-          assert.equal(arrivals.length, count);
+          await runtime.startCommand(command, plan, management).wait(1);
+          assert.equal(arrivals.length, count + 1);
         }
         assert.throws(() => host.borrowOwnedDockerExecutionPaths(management));
         assert.equal(falseObservations, 1);
@@ -873,15 +839,6 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
         assert.equal(afterMarker[key], beforeMarker[key]);
       }
       assert.deepEqual(fs.readFileSync(marker), markerBytes);
-      const mutant = bindIsolationRuntime(lower, () => cached);
-      for (const command of commands) {
-        const count = arrivals.length;
-        await mutant.startCommand(command, plan, management).wait(1);
-        assert.equal(arrivals.length, count + 1);
-        assert.equal(arrivals[count]?.purpose, command.purpose);
-        assert.equal(arrivals[count]?.owner, management);
-        assert.throws(() => assert.equal(arrivals.length, count));
-      }
     } finally {
       const outcome = await host.cleanupOwnedOperationDirectoriesAsync(owned);
       assert.equal(

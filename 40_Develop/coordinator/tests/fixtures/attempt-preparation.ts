@@ -55,10 +55,10 @@ export function createAttemptPreparation<P extends AiProvider>(
     const executor = createExecutor(
       request,
       {
-        borrowPaths: () => {
-          throw Error("preparation_only");
+        paths: {
+          tmp: request.target.temporarySourcePath,
+          management: "synthetic-management",
         },
-        inspectReceipts: () => null,
       },
       replay(),
     );

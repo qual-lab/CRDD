@@ -481,10 +481,9 @@ export function completeExecutorTestCleanup(
  */
 export function createExecutorLifecycleTestRuntime(host: ExecutorTestHost) {
   const fixed = createDockerIsolationRuntime({
-    borrowPaths: host.borrowPaths,
-    inspectReceipts: host.inspectReceipts,
+    paths: host.paths,
   });
-  const bound = bindTestIsolationRuntime(fixed, host.borrowPaths);
+  const bound = bindTestIsolationRuntime(fixed, host.paths);
   const runtime = createExecutorTestRuntime(
     {
       acquireHomeLease: host.acquireHomeLease ?? fixed.acquireHomeLease,
@@ -1561,18 +1560,12 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
  */
 export function bindIsolationRuntime(
   runtime: Omit<DockerIsolationRuntime, "acquireHomeLease">,
-  borrowPaths: (managementCapability: object) => Readonly<{ tmp: string }>,
+  paths: DockerIsolationRuntimeOptions["paths"],
 ) {
-  const bound = bindTestIsolationRuntime(runtime, borrowPaths);
+  const bound = bindTestIsolationRuntime(runtime, paths);
   /** 同じ製品検査を通った構成だけを合成下位へ渡す。 */
-  function project(
-    plan: AttemptPlan,
-    management: object,
-  ): DockerIsolationRuntimePlan {
-    const configuration = resolveValidatedPlan(
-      plan,
-      borrowPaths(management).tmp,
-    );
+  function project(plan: AttemptPlan): DockerIsolationRuntimePlan {
+    const configuration = resolveValidatedPlan(plan, paths.tmp);
     if (!configuration) throw new Error("docker_effect_plan_invalid");
     return Object.freeze({
       identity: planIdentity(plan),
@@ -1595,7 +1588,7 @@ export function bindIsolationRuntime(
       throw new Error("docker_effect_command_not_owned");
     return runtime.startCommand(
       expected.purpose as DockerIsolationCommand["purpose"],
-      project(plan, managementCapability),
+      project(plan),
       managementCapability,
     );
   }

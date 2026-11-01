@@ -2981,6 +2981,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
   create: (
     request: ExecutorRequest<"attempt">,
     random: Readonly<{ randomBytes: (size: number) => Buffer }>,
+    management: unknown,
   ) => Executor<"attempt"> | null,
 ): AttemptPreparation<P> {
   const state = createProviderDockerRuntimeState<P>(dependencies);
@@ -3168,7 +3169,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
             },
             selection: technical,
           };
-          const executor = create(request, state);
+          const executor = create(request, state, management);
           // 固定Providerの実行時照合後だけ具体型へ結合する。計画fieldを補完しない。
           return executor !== null
             ? (Object.freeze({

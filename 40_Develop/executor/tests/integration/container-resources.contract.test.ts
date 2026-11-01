@@ -39,8 +39,8 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     {
       namedExports: {
         ...isolation,
-        createDockerProbeRuntimeBinding: (read: () => string) => {
-          assert.equal(read(), "management");
+        createDockerProbeRuntimeBinding: (management: string) => {
+          assert.equal(management, "management");
           return {
             environment: () => ({}),
             verifyCli: () => {

@@ -20,6 +20,7 @@ import {
   type DockerIsolationCommandInput,
   type DockerIsolationCommand,
   type DockerIsolationRuntimePlan,
+  type DockerResourceReceipts,
   type OwnedCommandHandle,
 } from "../../src/index.ts";
 import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execute.ts";
@@ -199,14 +200,55 @@ function createEffectFixture(
   }> = [];
   let configCreated = 0;
   let configRemoved = 0;
+  const receipts =
+    options.internalNetworkReceiptId ||
+    options.authReceiptId ||
+    options.proxyReceiptId ||
+    options.providerReceiptId ||
+    options.missingReceiptPurpose ||
+    options.withFullReceipts
+      ? (Object.freeze(
+          Object.fromEntries(
+            Object.entries({
+              create_subscription_auth_probe: Object.freeze({
+                submitted: options.authReceiptId !== undefined,
+                dockerId: options.authReceiptId ?? null,
+              }),
+              create_internal_network: Object.freeze({
+                submitted: options.internalNetworkReceiptId !== undefined,
+                dockerId: options.internalNetworkReceiptId ?? null,
+              }),
+              create_egress_network: Object.freeze({
+                submitted: false,
+                dockerId: null,
+              }),
+              create_proxy: Object.freeze({
+                submitted: options.proxyReceiptId !== undefined,
+                dockerId: options.proxyReceiptId ?? null,
+              }),
+              create_provider: Object.freeze({
+                submitted: options.providerReceiptId !== undefined,
+                dockerId: options.providerReceiptId ?? null,
+              }),
+            })
+              .filter(([purpose]) => purpose !== options.missingReceiptPurpose)
+              .map(([purpose, receipt]) => [
+                purpose,
+                purpose === options.unknownReceiptPurpose
+                  ? Object.freeze({ submitted: true, dockerId: null })
+                  : receipt,
+              ]),
+          ),
+        ) as unknown as DockerResourceReceipts)
+      : null;
   const candidate = createDockerIsolationRuntimeCandidate({
     environment: () => Object.freeze({ SystemRoot: "C:\\Windows" }),
     platform: "win32",
-    borrowPaths: () =>
-      Object.freeze({
-        tmp: configuration.temporarySourcePath,
-        management: "C:\\operation\\management",
-      }),
+    paths: Object.freeze({
+      tmp: configuration.temporarySourcePath,
+      management: "C:\\operation\\management",
+    }),
+    directoryIdentity: () => "fixed_directory",
     readCli: () =>
       Object.freeze({
         executablePath:
@@ -261,58 +303,6 @@ function createEffectFixture(
         closed: () => closed,
       });
     },
-    ...(options.internalNetworkReceiptId ||
-    options.authReceiptId ||
-    options.proxyReceiptId ||
-    options.providerReceiptId ||
-    options.missingReceiptPurpose ||
-    options.withFullReceipts
-      ? {
-          inspectReceipts: () =>
-            // 欠落fieldの負例を維持し、型保証ではなくRuntime検査へ渡す。
-            Object.freeze(
-              Object.fromEntries(
-                Object.entries({
-                  create_subscription_auth_probe: Object.freeze({
-                    submitted: options.authReceiptId !== undefined,
-                    dockerId: options.authReceiptId ?? null,
-                  }),
-                  create_internal_network: Object.freeze({
-                    submitted: options.internalNetworkReceiptId !== undefined,
-                    dockerId: options.internalNetworkReceiptId ?? null,
-                  }),
-                  create_egress_network: Object.freeze({
-                    submitted: false,
-                    dockerId: null,
-                  }),
-                  create_proxy: Object.freeze({
-                    submitted: options.proxyReceiptId !== undefined,
-                    dockerId: options.proxyReceiptId ?? null,
-                  }),
-                  create_provider: Object.freeze({
-                    submitted: options.providerReceiptId !== undefined,
-                    dockerId: options.providerReceiptId ?? null,
-                  }),
-                })
-                  .filter(
-                    ([purpose]) => purpose !== options.missingReceiptPurpose,
-                  )
-                  .map(([purpose, receipt]) => [
-                    purpose,
-                    purpose === options.unknownReceiptPurpose
-                      ? Object.freeze({ submitted: true, dockerId: null })
-                      : receipt,
-                  ]),
-              ),
-            ) as unknown as ReturnType<
-              NonNullable<
-                Parameters<
-                  typeof createDockerIsolationRuntimeCandidate
-                >[0]["inspectReceipts"]
-              >
-            >,
-        }
-      : {}),
   });
   // この試験用表記変換はPurpose選択とidentity fieldだけを搬送する。
   // Docker構成・Receipt・清掃判定はcandidate実装だけが行う。
@@ -322,7 +312,11 @@ function createEffectFixture(
       input: DockerIsolationRuntimePlan,
       owner: object,
     ) => candidate.startCommand(command.purpose, input, owner),
-    cleanupOwnedResources: candidate.cleanupOwnedResources,
+    cleanupOwnedResources: (
+      plan: DockerIsolationRuntimePlan,
+      recovery: object,
+      owner: unknown,
+    ) => candidate.cleanupOwnedResources(plan, recovery, owner, receipts),
     verifyCleanupOutcome: (
       result: unknown,
       input: DockerIsolationRuntimePlan,

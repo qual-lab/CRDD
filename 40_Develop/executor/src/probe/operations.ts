@@ -16,6 +16,7 @@ import {
   describeDockerProbeConfiguration,
   inspectDockerContainer,
   observeDockerProbeEngine,
+  observeDockerDirectoryIdentity,
   runDockerProbeAsync,
 } from "../../../docker-isolation/src/index.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
@@ -62,7 +63,7 @@ function notify(
  * 固定Probeの構成と一回の技術生涯を結合する。
  * @responsibility 実IDを通知失敗でも保持し、既知資源だけを補償回収する。
  * @trace ARCH-000008
- * @input request: 固定相関。options: 現在所在Query。profile: 内部検証専用選択。
+ * @input request: 固定相関。options: 固定四所在。profile: 内部検証専用選択。
  * @returns startとcancelを持つ一回のExecutor、不正相関はnull。
  * @precondition 上位が保存・Owner・Mount利用許可を所有する。
  * @postcondition 構成だけではDockerを呼ばず、完了は回収確認まで待つ。
@@ -71,7 +72,7 @@ function notify(
  * @invariant 任意Profileを製品Requestで公開しない。実IDなしで削除しない。
  * @boundary 既存createExecutor入口とDIの固定Probe。
  * @security Provider・Model・Repository本文・Networkを要求しない。
- * @concurrency 一回start、同じSignalの取消、await後は現在所在を再確認する。
+ * @concurrency 一回start、同じSignalの取消、待機後もDIが元Directory実体を再確認する。
  */
 export function createIsolationProbe(
   request: IsolationProbeRequest,
@@ -88,7 +89,7 @@ export function createIsolationProbe(
   )
     return null;
   const probeId = Object.getOwnPropertyDescriptor(request, "probeId")?.value;
-  const read = Object.getOwnPropertyDescriptor(options, "readMounts")?.value;
+  const value = Object.getOwnPropertyDescriptor(options, "mounts")?.value;
   if (
     Object.getOwnPropertyDescriptor(request, "kind")?.value !==
       "isolation_probe" ||
@@ -98,12 +99,26 @@ export function createIsolationProbe(
     return null;
   if (
     typeof probeId !== "string" ||
-    typeof read !== "function" ||
     !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(
       probeId,
     )
   )
     return null;
+  let initial: IsolationProbeMounts;
+  let directories: readonly Readonly<{ path: string; identity: string }>[];
+  try {
+    initial = captureMounts(value);
+    directories = Object.freeze(
+      Object.values(initial).map((directory) =>
+        Object.freeze({
+          path: directory,
+          identity: observeDockerDirectoryIdentity(directory),
+        }),
+      ),
+    );
+  } catch {
+    return null;
+  }
   const lifecycle = createLifecycleOperations();
   return Object.freeze<Executor<"isolation_probe">>({
     kind: "isolation_probe",
@@ -118,8 +133,13 @@ export function createIsolationProbe(
             : "docker_probe_already_started",
           completion: null,
         });
-      let initial: IsolationProbeMounts;
       try {
+        for (const directory of directories)
+          if (
+            observeDockerDirectoryIdentity(directory.path) !==
+            directory.identity
+          )
+            throw Error("owned_operation_mount_replaced");
         if (
           !callbacks ||
           typeof callbacks !== "object" ||
@@ -138,7 +158,6 @@ export function createIsolationProbe(
           )
             throw new Error("docker_probe_notification_invalid");
         }
-        initial = captureMounts(read());
       } catch {
         lifecycle.finish();
         return Object.freeze({
@@ -170,27 +189,23 @@ export function createIsolationProbe(
         let facts: IsolationProbeResult["facts"] = null;
         let reason: string | null = null;
         let cli: DockerProbeRuntimeBinding | null = null;
-        const readMounts = () => {
-          const current = captureMounts(read());
-          if (
-            Object.keys(initial).some(
-              (key) =>
-                current[key as keyof typeof current] !==
-                initial[key as keyof typeof initial],
-            )
-          )
-            throw new Error("owned_operation_mount_replaced");
-          return current;
-        };
         return executeLifecycle(
           {
             async execute() {
               try {
                 if (lifecycle.signal.aborted)
                   throw new Error("docker_probe_start_cancelled");
-                cli = createDockerProbeRuntimeBinding(
-                  () => readMounts().management,
-                );
+                for (const directory of directories)
+                  if (
+                    observeDockerDirectoryIdentity(directory.path) !==
+                    directory.identity
+                  )
+                    throw Error("owned_operation_mount_replaced");
+                cli = createDockerProbeRuntimeBinding(initial.management, {
+                  workspace: initial.workspace,
+                  providerHome: initial.providerHome,
+                  tmp: initial.tmp,
+                });
                 if (!observeDockerProbeEngine(cli)) {
                   reason = "local_docker_desktop_linux_engine_required";
                   return;
@@ -198,7 +213,7 @@ export function createIsolationProbe(
                 notify(callbacks.onCommandSubmitting, "create_isolation_probe");
                 if (lifecycle.signal.aborted)
                   throw new Error("docker_probe_start_cancelled");
-                const mounts = readMounts();
+                const mounts = initial;
                 creationAttempted = true;
                 const creation = createDockerProbeContainer(
                   cli,
@@ -217,7 +232,7 @@ export function createIsolationProbe(
                   notify(callbacks.onResourceCreated, containerId);
                   if (lifecycle.signal.aborted)
                     throw new Error("docker_probe_start_cancelled");
-                  const current = readMounts();
+                  const current = initial;
                   const expected = describeDockerProbeConfiguration(
                     profile,
                     { id: containerId, probeId },
@@ -231,7 +246,6 @@ export function createIsolationProbe(
                     throw new Error(
                       "docker_container_security_profile_mismatch",
                     );
-                  readMounts();
                   processCompletionConfirmed = false;
                   const execution = await runDockerProbeAsync(
                     cli,
@@ -242,7 +256,6 @@ export function createIsolationProbe(
                   processCompletionConfirmed =
                     execution.processCompletionConfirmed;
                   facts = execution.facts;
-                  readMounts();
                   reason = !processCompletionConfirmed
                     ? "dynamic_fake_provider_attach_process_termination_unconfirmed"
                     : execution.cancelled
@@ -265,7 +278,7 @@ export function createIsolationProbe(
             async cleanup() {
               if (containerId && cli) {
                 try {
-                  const current = readMounts();
+                  const current = initial;
                   const cleanup = cleanupDockerContainer(
                     cli,
                     describeDockerProbeConfiguration(
@@ -326,7 +339,7 @@ export function createIsolationProbe(
  * 同じ四所在の通常dataだけを固定し、後発の入力変更を採用しない。
  * @responsibility QueryのPromise・Proxy・accessorをEffect前に拒否する。
  * @trace ARCH-000008
- * @input value: 上位が現在Owner確認後に返す所在値。
+ * @input value: 上位が利用許可を確認した固定所在値。
  * @returns 所在四文字列の独立した不変値。
  * @precondition 所在の利用許可・実体確認は上位とDIが所有する。
  * @postcondition 呼出し側の可変Objectへの参照を保持しない。

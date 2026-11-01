@@ -56,7 +56,9 @@ Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrap
 
 ## 上位接続の名前付き型契約 — 2026-10-30
 
-`execution/execute.ts`は`DockerIsolationRuntimeOptions`と`DockerIsolationRuntime`を所有する。構成は既存依存の所在借用（必須）とReceipt観測（任意）だけを再利用し、本番の開始・清掃・元結果照合・Session開始の四操作を明示する。`execution/session.ts`は`DockerCommandSession`と`DockerCommandSessionResult`を所有し、取消要求、終了観測、通知解放、実行完了、清掃を別々に搬送する。通常Sessionに試験用`productionAuthority: false`を加えない。
+`execution/execute.ts`は`DockerIsolationRuntimeOptions`と`DockerIsolationRuntime`を所有する。構成は`paths: { tmp, management }`の固定所在だけを受け取り、本番の開始・清掃・元結果照合・Session開始の四操作を明示する。`execution/session.ts`は`DockerCommandSession`と`DockerCommandSessionResult`を所有し、取消要求、終了観測、通知解放、実行完了、清掃を別々に搬送する。通常Sessionに試験用`productionAuthority: false`を加えない。
+
+`docker-cli/config.ts`の`observeDockerDirectoryIdentity`を通常RuntimeとProbeで共用する。canonicalな非Link Directoryのdevice／inode／birthtimeを観測し、元実体との不一致・欠測・観測不能を後続CLI前に拒否する。通常Sessionは最初のawait前に使用Directoryを捕捉し、既存Context内だけに保持する。ProbeはFactoryのEffectなし観測と、Bindingの各要求前観測を同じprimitiveへ接続する。Path文字列の一致を実体確認の代用にしない。新しい監視・Registry・Storeは設けない。通常CleanupのReceipt引数は必須の明示値又はnullで、上位へのinspectReceipts fallbackは撤去する。Receiptも既存Contextもない場合に回収のためのconfigを新設しない。
 
 `execution/result.ts`は終了値とコマンド結果の分類型を所有し、期限超過時のbyte項目不在を維持する。Factoryと分類関数へ明示返却型を付け、上位はこれらの名前付き型を再利用する。Rootへの追加は型だけで、実行時公開、拒否条件、Process・資源の生涯、期限や理由を変更しない。これは当該接続契約の明示化であり、Package全体の型整理完了を意味しない。
 
@@ -664,7 +666,7 @@ Docker Isolationは保存成功・Task判断・Provider内容受理のACKを取�
 | 修復 | onPrepared／onCheckpointは同期void。canRecordCheckpointは撤去し、上位ハンドラーがOwner・Scopeと保存結果を検査する。取消後の既発生事実の記録は新Effect許可と区別する |
 | 再起動 | beforeRequestはonRequestingへ変更し、発行予定を同期voidで通知する。上位の保存失敗はthrow。onEventと同様に保存結果を下位へ返さない |
 | 借用元の生存 | 環境修復のcanIssueEffect／verifyBoundary、disposeのboundary／DirectoryのcanIssueは、借用元の失効・Scope・取消をEffect直前に再観測する用途に限定して維持する。保存や新Authorityを発行しない |
-| 所在・既存Receipt | borrowPaths／inspectReceiptsは検査済み既存Ownerの用途限定読取りであり、通知ではない。下位がStoreを操作する入口へ一般化しない |
+| 所在・既存Receipt | 通常Attemptは固定paths、Probeは固定mountsを捕捉し、上位を逆照会しない。通常回収はSession内Receiptを明示し、欠測は未確認。旧読取りfallbackは持たない |
 | 技術代役 | DockerCommandSessionOperations等は同じ責務の実在技術境界だけで利用する。上位の業務操作を注入しない |
 
 修復MachineのcheckpointNotificationCompletedは通知の同期完了だけを表し、耐久保存を証明しない。上位の最終保存確定はCoordinatorが判断する。通知例外・取消でも元Receipt、exact回復参照、一次結果、cleanup不明を保持する。通知待ち中の取消では次要求を発行せず、最終返却後は通知参照を残さない。Timeout・Image・Mount・Home排他・実資源の安全条件は変更しない。

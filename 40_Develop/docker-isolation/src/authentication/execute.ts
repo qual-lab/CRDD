@@ -1,6 +1,6 @@
 /**
  * 生成済み認証操作を固定Docker Engineと共通Process Ownerで実行する。
- * @responsibility 上位の許可生存を観測し、対話非捕捉・上限・tree終端を技術結果として返す。
+ * @responsibility 同操作の明示取消を確認し、対話非捕捉・上限・tree終端を技術結果として返す。
  * @trace ARCH-000008
  */
 import {
@@ -59,22 +59,22 @@ export type DockerAuthenticationExecution = Readonly<{
 export interface DockerAuthenticationRuntime {
   execute(
     command: DockerAuthenticationCommand,
-    permitLive: () => boolean,
+    isActive: () => boolean,
   ): Promise<DockerAuthenticationExecution>;
 }
 
 /**
- * 元計画のCommandだけを許可生存中に実行する。
+ * 元計画のCommandだけを明示取消前に実行する。
  * @responsibility 固定Engineと元Commandを結合し、終了不明を上位へ返す。
  * @trace ARCH-000008
- * @input binding: fresh CLI／環境と固定cwd。command: 元Command。permitLive: 上位許可の同期生存観測。
+ * @input binding: fresh CLI／環境と固定cwd。command: 元Command。isActive: 同操作の明示取消状態の同期確認。
  * @returns 一次失敗と元子／補助子の終了観測。
  * @precondition 上位がHome許可・対話端末・Recovery Intentを確認済み。
  * @postcondition 終了不明を成功や次操作の許可にしない。
- * @effect 固定Docker CLIを開始し、取消／期限／許可喪失時にtree終端する。
+ * @effect 固定Docker CLIを開始し、取消／期限／明示取消時にtree終端する。
  * @failure 元Command欠落、環境／CLI不明は開始前拒否。終端不明は別fieldで返す。
  * @invariant 新State、Lock、認証／回復管理を作らない。
- * @boundary Docker CLIと上位許可生存。
+ * @boundary Docker CLIと同操作の取消状態。
  * @security 対話はinheritで捕捉0、非対話は最大1MiB、shell=false。
  * @concurrency 監視・期限・Process結果を単一呼出しへ収束しTimerを回収する。
  */
@@ -85,14 +85,14 @@ async function executeDockerAuthenticationCommand(
     workingDirectory: string;
   }>,
   command: DockerAuthenticationCommand,
-  permitLive: () => boolean,
+  isActive: () => boolean,
   plan: DockerAuthenticationPlan,
 ): Promise<DockerAuthenticationExecution> {
   if (!dockerAuthenticationCommandBelongsToPlan(command, plan))
     throw Error("docker_authentication_command_not_planned");
   const permits = () => {
     try {
-      return permitLive() === true;
+      return isActive() === true;
     } catch {
       return false;
     }
@@ -190,7 +190,7 @@ async function executeDockerAuthenticationCommand(
         observation = await executeDockerAuthenticationCommand(
           binding,
           observationCommand,
-          permitLive,
+          isActive,
           plan,
         );
         if (
@@ -218,7 +218,7 @@ async function executeDockerAuthenticationCommand(
         const imageObservation = await executeDockerAuthenticationCommand(
           binding,
           imageCommand,
-          permitLive,
+          isActive,
           plan,
         );
         if (!imageObservation.processCompletionConfirmed)
@@ -341,7 +341,7 @@ export function createDockerAuthenticationRuntimeUsing(
   return Object.freeze({
     execute: async (
       command: DockerAuthenticationCommand,
-      permitLive: () => boolean,
+      isActive: () => boolean,
     ) => {
       const metadata = dockerAuthenticationRecoveryCommandMetadata(command);
       if (
@@ -353,7 +353,7 @@ export function createDockerAuthenticationRuntimeUsing(
       const result = await executeDockerAuthenticationCommand(
         binding,
         command,
-        permitLive,
+        isActive,
         plan,
       );
       if (

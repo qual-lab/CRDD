@@ -1152,14 +1152,7 @@ test("Windows Process Gate: Docker Isolation本番Ownerが五資源を実IDで�
     },
   };
   const runtime = createDockerIsolationRuntime({
-    borrowPaths: (candidate) => {
-      assert.equal(candidate, owner);
-      return { tmp, management };
-    },
-    inspectReceipts: (candidate) => {
-      assert.equal(candidate, recovery);
-      return receipts;
-    },
+    paths: { tmp, management },
   });
   const fixtureRecord = path.join(directory, "resources.json");
   /**
@@ -1232,6 +1225,7 @@ test("Windows Process Gate: Docker Isolation本番Ownerが五資源を実IDで�
         plan,
         recovery,
         owner,
+        receipts,
       );
       if (!outcome.confirmed)
         fs.writeFileSync(

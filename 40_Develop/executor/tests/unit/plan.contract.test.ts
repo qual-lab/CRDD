@@ -242,7 +242,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
       },
       verifyCleanupOutcome: () => null,
     },
-    () => ({ tmp: temporary }),
+    { tmp: temporary, management: "synthetic" },
   );
   assert.equal("startCommand" in bound, false);
   for (const plan of basicFailures) {

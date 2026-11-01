@@ -174,7 +174,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
-      createDockerIsolationRuntime:({borrowPaths,inspectReceipts})=>{
+      createDockerIsolationRuntime:({paths})=>{
         let cleanupResult=null,owner=null,recovery=null;
         return {startCommand:()=>{throw Error('primitive_forbidden');},cleanupOwnedResources:()=>{throw Error('duplicate_cleanup');},
           startExecution:(p,r,m,hooks)=>{
@@ -184,8 +184,8 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
                 purpose.startsWith('create_')?String(purposes.indexOf(purpose)+1).repeat(64)+'\\n':
                 purpose==='start_subscription_auth_probe_attached'?(fixture.provider==='codex'?'Logged in using ChatGPT\\n':JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',forcedLoginMethod:'claudeai',subscriptionType:'max'})):
                 purpose==='start_provider_attached'?fixture.output:''};},terminateAndWait:async()=>{fixture.cancelReady?.();return true;}}),
-              cleanup:async()=>{
-                assert.equal(live,true);const receipts=inspectReceipts(r),c=p.configuration;assert.ok(receipts);
+              cleanup:async(receipts)=>{
+                assert.equal(live,true);const c=p.configuration;assert.ok(receipts);
                 const names={create_provider:c.executionContainerName,create_proxy:c.proxyContainerName,create_subscription_auth_probe:c.authenticationContainerName,create_internal_network:c.internalNetworkName,create_egress_network:c.egressNetworkName};
                 const resources=Object.entries(names).map(([purpose,plannedResourceName])=>({purpose,plannedResourceName,dockerId:receipts[purpose].dockerId,observation:receipts[purpose].submitted?'absent':'not_requested'}));
                 cleanupResult={confirmed:true,processTreeTerminated:true,containersAbsent:true,networksAbsent:true,resourceObservations:resources};return cleanupResult;

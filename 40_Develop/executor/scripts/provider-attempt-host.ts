@@ -291,22 +291,10 @@ export function createStandaloneProviderAttemptHost(
       m === management &&
       h === plan.stableLogicalHomeBindingHash &&
       current(true),
-    borrowPaths: (m) => {
-      if (m !== management || !current(true))
-        throw new Error("standalone_host_path_borrow_rejected");
-      return { tmp: temporary, management: path.join(root, "management") };
-    },
-    inspectReceipts: (r) =>
-      r === recovery && opened && current(true)
-        ? (Object.freeze(
-            Object.fromEntries(
-              Object.entries(receipts).map(([key, value]) => [
-                key,
-                Object.freeze({ ...value }),
-              ]),
-            ),
-          ) as DockerResourceReceipts)
-        : null,
+    paths: Object.freeze({
+      tmp: temporary,
+      management: path.join(root, "management"),
+    }),
     markResourceSubmission: (r, purpose) => {
       if (r !== recovery || !Object.hasOwn(expected, purpose)) return false;
       const key = purpose as keyof DockerResourceReceipts;

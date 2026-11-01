@@ -600,10 +600,12 @@ export async function runDynamicFakeProviderCancellationVerification(
     "dynamic_fake_provider_cancellation_verification_failed",
   );
   try {
-    cli = createDockerProbeRuntimeBinding(() => {
-      mountCapability = createOwnedMountCapability(owned);
-      mounts = verifyOwnedMountCapability(mountCapability);
-      return mounts.management;
+    mountCapability = createOwnedMountCapability(owned);
+    mounts = verifyOwnedMountCapability(mountCapability);
+    cli = createDockerProbeRuntimeBinding(mounts.management, {
+      workspace: mounts.workspace,
+      providerHome: mounts.providerHome,
+      tmp: mounts.tmp,
     });
     if (!observeDockerProbeEngine(cli))
       throw new Error("docker_backend_platform_unsupported");
@@ -830,10 +832,12 @@ export function createDynamicFakeProviderRecoverableResidue(
   let hasContainerCreateAttempted = false;
   try {
     let mounts: DockerMounts;
-    const cli = createDockerProbeRuntimeBinding(() => {
-      mountCapability = createOwnedMountCapability(owned);
-      mounts = verifyOwnedMountCapability(mountCapability);
-      return mounts.management;
+    mountCapability = createOwnedMountCapability(owned);
+    mounts = verifyOwnedMountCapability(mountCapability);
+    const cli = createDockerProbeRuntimeBinding(mounts.management, {
+      workspace: mounts.workspace,
+      providerHome: mounts.providerHome,
+      tmp: mounts.tmp,
     });
     if (!observeDockerProbeEngine(cli))
       throw new Error("docker_backend_platform_unsupported");

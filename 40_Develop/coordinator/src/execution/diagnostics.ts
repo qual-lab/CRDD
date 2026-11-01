@@ -4957,20 +4957,17 @@ async function runDockerIsolationScenario(
   let notificationFailure: unknown;
   const onAbort = () => executor?.cancel();
   try {
+    if (!mountCapability) mountCapability = createOwnedMountCapability(owned);
+    mounts = verifyOwnedMountCapability(mountCapability);
     executor = create(
       { kind: "isolation_probe", probeId },
       {
-        readMounts: () => {
-          if (!mountCapability)
-            mountCapability = createOwnedMountCapability(owned);
-          mounts = verifyOwnedMountCapability(mountCapability);
-          return {
-            management: mounts.management,
-            workspace: mounts.workspace,
-            providerHome: mounts.providerHome,
-            tmp: mounts.tmp,
-          };
-        },
+        mounts: Object.freeze({
+          management: mounts.management,
+          workspace: mounts.workspace,
+          providerHome: mounts.providerHome,
+          tmp: mounts.tmp,
+        }),
       },
     );
     if (!executor) throw new Error("docker_isolation_probe_failed");

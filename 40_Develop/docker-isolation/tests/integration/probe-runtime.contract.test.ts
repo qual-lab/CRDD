@@ -27,17 +27,17 @@ import {
 } from "../../src/index.ts";
 
 /**
- * 同期読取りが返した拒否Promiseの未処理通知を実子で観測する。
- * @responsibility 同期拒否と後着rejectの消費を分け、即時終了による偽陰性を避ける。
+ * 旧所在Queryを入力しても呼ばれないことを実子で観測する。
+ * @responsibility 旧Queryを呼ばず、Promise生成やFilesystem操作へ進まないことを確認する。
  * @trace ERB-IT-004
  * @precondition 現行factory本文と固定依存だけを子のVMで使用する。
  * @stimulus then getter付きの真正拒否Promiseを返し、二回のevent-loop turnを待つ。
  * @observation 読取り数、mkdir数、未処理reject、getter実行数と同期理由。
- * @oracle 読取り1、mkdir0、未処理reject0、getter0、既存の所在拒否理由。
+ * @oracle 読取り0、mkdir0、未処理reject0、getter0、既存の所在拒否理由。
  * @cleanup 子の終了とstdio回収を同期確認する。Filesystem・Dockerは操作しない。
  * @boundary ERB-IT-004=Direct Boundary: 同期factoryとNode拒否通知。
  */
-test("Probe bindingの拒否Promiseは同期拒否後も未処理通知を残さない", () => {
+test("Probe bindingは旧所在Queryを呼ばず拒否する", () => {
   const source = fs.readFileSync(
     new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
@@ -79,7 +79,7 @@ test("Probe bindingの拒否Promiseは同期拒否後も未処理通知を残さ
   );
   assert.equal(result.status, 0);
   assert.deepEqual(JSON.parse(result.stdout), {
-    reads: 1,
+    reads: 0,
     mkdir: 0,
     unhandled: 0,
     getters: 0,
@@ -138,16 +138,16 @@ test("Probe保存用記述は六profileの実作成計画と同じ固定構成�
 
 /**
  * 固定bindingの順序と同snapshot再確認を反証する。
- * @responsibility 上位の読取りと下位のCLI・環境構成を分離し、失敗優先順を保持する。
+ * @responsibility 固定所在の実体観測とCLI・環境構成の失敗優先順を保持する。
  * @trace ERB-IT-004
  * @precondition 本番factory本文をVMへ読み、OS・CLI・Filesystemだけを代役にする。
  * @stimulus platform／CLI／読取り／環境の複合故障と二要求前のCLI差を与える。
  * @observation 読取り回数、mkdir要求、環境引数、同snapshotと順序。
- * @oracle CLI観測前は読取り0、読取り拒否はmkdir0、正常は一回捕捉し各要求前に同snapshotを検証する。
+ * @oracle 不正所在と実体観測拒否はmkdir0、正常は各要求前に元DirectoryとCLI snapshotを検証する。
  * @cleanup VMと局所値を破棄する。実Filesystem・Dockerを操作しない。
  * @boundary ERB-IT-004=Direct Boundary: 本番binding factory→技術依存の代役。
  */
-test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維持する", () => {
+test("本番Probe bindingは固定所在の実体と同じCLI snapshotを維持する", () => {
   const source = fs.readFileSync(
     new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
@@ -191,6 +191,11 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
           if (mode === "cli") throw new Error("raw_cli_failure");
           return snapshot;
         },
+        observeDockerDirectoryIdentity: () => {
+          events.push("identity");
+          if (mode === "mount") throw new Error("fixed_mount_failure");
+          return "fixed-directory";
+        },
         verifyTrustedDockerCliSnapshot: (value: unknown) => {
           assert.equal(value, snapshot);
           events.push("verify");
@@ -224,7 +229,7 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
           return mode === "environment" ? null : environment;
         },
       },
-    ) as (reader: () => unknown) => {
+    ) as (management: unknown) => {
       verifyCli: () => string;
       environment: () => unknown;
     };
@@ -240,9 +245,6 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
      * @boundary 境界観測の代役。実CLIは実行しない。
      */
     const reader = () => {
-      events.push("read");
-      if (["platform", "cli", "mount"].includes(mode))
-        throw new Error("fixed_mount_failure");
       if (mode === "promise") return Promise.resolve(management);
       if (mode === "empty") return "";
       if (mode === "relative") return "relative";
@@ -263,10 +265,19 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
                 : mode === "environment"
                   ? "docker_runtime_environment_unavailable"
                   : "owned_operation_mount_replaced";
-      assert.throws(() => factory(reader), new RegExp(reason));
+      assert.throws(() => factory(reader()), new RegExp(reason));
       assert.equal(
-        events.filter((event) => event === "read").length,
-        ["platform", "cli"].includes(mode) ? 0 : 1,
+        events.filter((event) => event === "identity").length,
+        [
+          "platform",
+          "cli",
+          "promise",
+          "empty",
+          "relative",
+          "noncanonical",
+        ].includes(mode)
+          ? 0
+          : 1,
       );
       if (mode === "mkdir" || mode === "mkdir-home") {
         assert.deepEqual(
@@ -283,10 +294,10 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
         );
       continue;
     }
-    const binding = factory(reader);
+    const binding = factory(reader());
     assert.deepEqual(events, [
       "observe",
-      "read",
+      "identity",
       "mkdir:docker-config",
       "mkdir:docker-home",
       "environment",
@@ -296,7 +307,7 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
     assert.equal(binding.verifyCli(), "fixed-docker");
     replaced = true;
     assert.throws(binding.verifyCli, /docker_cli_untrusted/u);
-    assert.equal(events.filter((event) => event === "read").length, 1);
+    assert.equal(events.filter((event) => event === "identity").length, 3);
     assert.equal(events.filter((event) => event === "verify").length, 2);
   }
 });

@@ -98,7 +98,6 @@ import {
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
   checkpointRuntimeOwnedCoordinatorResourceNotIssued,
-  readRuntimeOwnedCoordinatorResourceRequests,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorHostCleanupPreparation,
   saveRuntimeOwnedCoordinatorOperationStart,
@@ -4341,33 +4340,6 @@ export function recordRuntimeOwnedDockerResourceNotIssued(
       purpose,
     ).status === "completed"
   );
-}
-
-/**
- * 最新現在状態から固定五資源の要求とIDを読む。
- * @responsibility 最新現在状態から固定五資源の要求とIDを読む。
- * @trace ARCH-000008
- * @input recoveryCapability: 元Owner。
- * @returns 不変な資源投影、または観測不能のnull。
- * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
- * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
- * @effect 同じstate.jsonの短期読取りだけ。
- * @failure Owner・読取り・排他解放不明はnull。
- * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
- * @boundary 本番Docker OwnerとRepository内の現在状態。
- * @security 保存値やCaller supplied成功booleanからAuthorityを発行しない。
- * @concurrency 保存は既存Writerの短期排他と元版照合を用いる。
- */
-export function inspectRuntimeOwnedDockerResourceReceipts(
-  recoveryCapability: unknown,
-) {
-  const record = durableRecord(recoveryCapability);
-  return record
-    ? readRuntimeOwnedCoordinatorResourceRequests(
-        record.managementCapability,
-        record.recoveryId,
-      )
-    : null;
 }
 
 /**

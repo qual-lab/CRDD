@@ -10,6 +10,7 @@
  * @security Task・送信許可・Credential・永続Stateを所有せず、実ID／固定構成の照合前に削除しない。
  */
 
+export { observeDockerDirectoryIdentity } from "./docker-cli/config.ts";
 export { dockerContainerInitObservationMatches } from "./cleanup/init.ts";
 export {
   observeDockerProbeEngine,

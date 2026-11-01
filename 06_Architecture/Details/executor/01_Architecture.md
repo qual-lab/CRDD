@@ -18,6 +18,9 @@
 
 ## Host実行環境の窓口
 
+通常Attemptの構成入力は`{ paths: { tmp, management } }`とする。Coordinatorが既存準備内で所在と利用許可を確認し、Executor／DIは値を独立捕捉する。DIはSession開始の同期部分で使用Directoryの元実体を捕捉し、同じContextで開始・短期Command・回収前に照合する。通常CleanupはSession内部のReceiptを明示して呼び、上位記録の再照会や旧fallbackを行わない。Receipt欠測は未要求・不存在へ補完せず、回収未確認として保持する。元Control照合、Home排他、必須保存通知、Process終了不明の扱いは維持する。
+
+
 ### DI正本の共通回収と上位判断の境界（2026-11-02）
 
 通常実行・単独回収・認証の資源APIは、上位へのassertOwner Queryを受け取らず、任意のAbortSignalで処置の停止を受ける。上位は呼出し前に対象・許可を確定し、呼出し終了まで既存排他を保持する。上位の途中失効を下位が自動検知する保証は持たず、停止は明示取消で伝える。Coordinatorの保存通知内の版・記録確認と、呼出し前後の境界確認は上位に維持する。DIのID・Label・構成・管理Directory実体の確認は撤去しない。
@@ -38,7 +41,7 @@ ProbeのCallback検査とcaptureMountsによる初回読取りは開始前のEff
 | lifecycle/execute.ts | Execute終了・失敗→条件付きCleanupのjoin→結果固定→終端→任意完了通知。一次失敗を清掃例外で上書きしない |
 | attempt/operations.ts | Controlとmanagementの照合後だけ共通取消を呼ぶ。Home Lease、元回復参照、Provider接続と結果解釈を保持する |
 | authentication/operations.ts | Login／StatusとHome条件、stickyなProcess終了不明を判定し、終了不明ではCleanupしない |
-| probe/operations.ts | 固定合成構成、fresh所在確認、実ID照合、Process終了確認後の回収とProbe結果解釈 |
+| probe/operations.ts | 固定合成構成、固定所在の元Directory実体確認、実ID照合、Process終了確認後の回収とProbe結果解釈 |
 
 Attemptの開始通知拒否による内部停止も同じ共通取消へ接続する。取消配送のReject／保留で印を解除・再配送せず、元completionが終了と回収を確認する。認証／Probeは開始前取消があればstartを拒否して終端化し、同じExecutorを再利用しない。Attemptは有効な開始Controlなしの取消を拒否する。Cleanup中は取消可能とし、結果固定後の受動通知からの再入取消は拒否する。終端は技術成功の意味ではなく、unknownや回収未確認もそのまま結果に残る。
 
@@ -46,11 +49,11 @@ Attemptの開始通知拒否による内部停止も同じ共通取消へ接続�
 
 ### 合成隔離Probeの既存入口
 
-`createExecutor({ kind: "isolation_probe", probeId }, { readMounts })`は、固定合成Containerの技術試験を一回だけ開始する。Providerへ送信する`purpose: "probe"`とは別の要求であり、Provider・Model・認証・送信許可を架空に生成しない。公開関数は追加しない。実行・保存・安全条件は維持し、通常Attemptの要求形式も必須kindへ切り替える。
+`createExecutor({ kind: "isolation_probe", probeId }, { mounts })`は、固定合成Containerの技術試験を一回だけ開始する。Providerへ送信する`purpose: "probe"`とは別の要求であり、Provider・Model・認証・送信許可を架空に生成しない。公開関数は追加しない。実行・保存・安全条件は維持し、通常Attemptの要求形式も必須kindへ切り替える。
 
-`probe/operations.ts`はCreate、実ID通知、fresh構成確認、非同期attach、取消・closeのjoin、実ID限定回収と三軸不存在をDIへ接続する。`probe/types.ts`は要求・所在Query・技術結果と固有の同期void通知interfaceを所有する。上位は`onCommandSubmitting`と`onResourceCreated`で必要な耐久保存を完了してからreturnする。通知失敗でも既知実IDは保持して補償回収し、作成不明では再Createや名前だけの削除を行わない。
+`probe/operations.ts`はCreate、実ID通知、fresh構成確認、非同期attach、取消・closeのjoin、実ID限定回収と三軸不存在をDIへ接続する。`probe/types.ts`は要求・固定所在・技術結果と固有の同期void通知interfaceを所有する。上位は`onCommandSubmitting`と`onResourceCreated`で必要な耐久保存を完了してからreturnする。通知失敗でも既知実IDは保持して補償回収し、作成不明では再Createや名前だけの削除を行わない。
 
-`readMounts`は現在Owner確認を伴う通常Queryであり通知ではない。四所在を独立した不変値へ捕捉し、await後の差・欠測・読取り失敗では新しい操作を停止する。取消は同じ所有attachへ届き、終了不明を回収成功にしない。completionは技術回収まで待つが、Host清掃・保存確定・最終Fake判定はCoordinatorの責務である。故障Profileは製品Requestに公開せず、検証Scriptだけが内部の同じ実装へ固定Profileを渡す。永続Store・新しいLock・Registryは追加しない。
+`mounts`は上位で利用許可を確認した固定四所在であり、Executorはown-dataの値と元Directory実体をFactoryで捕捉する。入力Objectの後発変更は採用せず、開始前の実体差・欠測・Link・観測不能では開始を拒否する。DIのBindingは同じ所在と元実体を保持し、各CLI要求前に照合する。上位のOwnerや保存状態を逆照会しない。取消は同じ所有attachへ届き、終了不明を回収成功にしない。completionは技術回収まで待つが、Host清掃・保存確定・最終Fake判定はCoordinatorの責務である。故障Profileは製品Requestに公開せず、検証Scriptだけが内部の同じ実装へ固定Profileを渡す。永続Store・新しいLock・Registryは追加しない。
 
 ### AIツール認証の技術生涯
 
@@ -251,7 +254,7 @@ executor/src/
 │ └ types.ts                  認証要求・投影・開始文脈・結果・固有通知interface
 ├ probe/
 │ ├ operations.ts             合成構成・実ID通知・固定実行・fresh照合・清掃
-│ └ types.ts                  合成要求・所在Query・技術結果・固有通知interface
+│ └ types.ts                  合成要求・固定所在・技術結果・固有通知interface
 └ environment/
   ├ execute.ts                読取り診断とmode指定の再起動／修復への薄い接続
   └ types.ts                  診断型とmodeごとの元DI入力

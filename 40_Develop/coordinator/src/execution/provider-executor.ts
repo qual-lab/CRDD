@@ -24,8 +24,8 @@ import {
 } from "./authority.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "./controller.ts";
 import {
-  borrowOwnedDockerExecutionPaths,
   borrowOwnedOperationExecutionSelection,
+  borrowOwnedDockerExecutionPaths,
   verifyRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
 import {
@@ -39,7 +39,6 @@ import {
   bindRuntimeOwnedDockerInitializationFailure,
   bindRuntimeOwnedExecutorAttempt,
   cancelRuntimeOwnedExecutorAttempt,
-  inspectRuntimeOwnedDockerResourceReceipts,
   markRuntimeOwnedDockerResourceSubmission,
   recordRuntimeOwnedAttemptCleanup,
   recordRuntimeOwnedDockerProviderSubmission,
@@ -73,13 +72,11 @@ const preparationHost = createProviderDockerRuntimeDependencies();
 const createAttemptExecutor = (
   request: ExecutorRequest<"attempt">,
   random: Readonly<{ randomBytes: (size: number) => Buffer }>,
+  management: unknown,
 ) =>
   createExecutor(
     request,
-    {
-      borrowPaths: borrowOwnedDockerExecutionPaths,
-      inspectReceipts: inspectRuntimeOwnedDockerResourceReceipts,
-    },
+    { paths: borrowOwnedDockerExecutionPaths(management) },
     random,
   );
 const codexPreparation = createAttemptPreparation(

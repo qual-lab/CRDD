@@ -815,12 +815,6 @@ function createProbeRecoveryOrderingFixture(
       events.push("release");
       return fault !== "release";
     },
-    createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
-      events.push("docker");
-      if (fault === "docker") throw new Error("docker_unknown");
-      readManagement();
-      return Object.freeze({});
-    },
     requireDockerProbeRecoveryMounts: () => ({
       workspace: "w",
       providerHome: "h",
@@ -892,7 +886,9 @@ test("診断回復は対象排他を先に取得し同じOwnerを清掃・解放
     "parent",
     "acquire",
     "read",
+    "read",
     "docker",
+    "read",
     "confirm",
     "cleanup",
     "release",

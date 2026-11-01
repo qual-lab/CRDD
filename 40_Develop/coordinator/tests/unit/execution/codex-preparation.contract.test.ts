@@ -761,11 +761,10 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
       },
       verifyCleanupOutcome: () => null,
     },
-    () =>
-      Object.freeze({
-        tmp: "C:\\crdd\\operation\\tmp",
-        management: "C:\\crdd\\operation\\management",
-      }),
+    Object.freeze({
+      tmp: "C:\\crdd\\operation\\tmp",
+      management: "C:\\crdd\\operation\\management",
+    }),
   );
   assert.doesNotThrow(() =>
     effect.startCommand(firstCommand, plan, fixture.managementCapability),

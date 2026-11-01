@@ -22,6 +22,7 @@ import { cleanupDockerResource } from "../cleanup/operations.ts";
 import {
   createDockerCliConfig,
   verifyDockerCliConfig,
+  observeDockerDirectoryIdentity,
 } from "../docker-cli/config.ts";
 import {
   type DockerIsolationCommand,
@@ -122,9 +123,9 @@ export function describeDockerIsolationExecutionEnvironment() {
 /**
  * 固定Filesystem・Processを所有する本番隔離Runtimeを構築する。
  *
- * @responsibility 上位の借用所在とHost観測だけを受けて技術操作を下位で完結する。
+ * @responsibility 確定した所在を受け、Directory実体とSession資源を下位で確認する。
  * @trace ARCH-000008
- * @input dependencies: 既存Ownerの借用所在と元Receiptの観測だけ。
+ * @input dependencies: 検査済みtmp・managementの固定所在。
  * @returns 開始・清掃・元結果照合の固定操作。
  * @precondition 利用許可・回復相関を上位Ownerが確認する。CLI・環境・OSはDIが固定する。
  * @postcondition 任意Process・Filesystem primitiveを本番入力へ公開しない。
@@ -141,37 +142,49 @@ export function createDockerIsolationRuntime(
   if (
     !dependencies ||
     typeof dependencies !== "object" ||
-    utilTypes.isProxy(dependencies)
+    utilTypes.isProxy(dependencies) ||
+    (Object.getPrototypeOf(dependencies) !== Object.prototype &&
+      Object.getPrototypeOf(dependencies) !== null)
   )
     throw new Error("docker_isolation_runtime_input_invalid");
   const descriptors = Object.getOwnPropertyDescriptors(dependencies);
   if (Object.hasOwn(descriptors, "platform"))
     throw new Error("docker_isolation_platform_input_forbidden");
-  const receiptDescriptor = Object.hasOwn(descriptors, "inspectReceipts")
-    ? descriptors.inspectReceipts
-    : undefined;
   if (
-    (Object.getPrototypeOf(dependencies) !== Object.prototype &&
-      Object.getPrototypeOf(dependencies) !== null) ||
-    !Object.hasOwn(descriptors, "borrowPaths") ||
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        typeof key !== "string" ||
-        (key !== "borrowPaths" && key !== "inspectReceipts") ||
-        !Object.hasOwn(descriptors[key] ?? {}, "value"),
-    ) ||
-    typeof descriptors.borrowPaths?.value !== "function" ||
-    (receiptDescriptor?.value !== undefined &&
-      typeof receiptDescriptor.value !== "function")
+    Reflect.ownKeys(descriptors).length !== 1 ||
+    !descriptors.paths ||
+    !Object.hasOwn(descriptors.paths, "value")
   )
     throw new Error("docker_isolation_runtime_input_invalid");
-  const borrowPaths = descriptors.borrowPaths
-    ?.value as DockerIsolationDependencies<DockerCliTrustSnapshot>["borrowPaths"];
-  const inspectReceipts =
-    receiptDescriptor?.value as DockerIsolationDependencies<DockerCliTrustSnapshot>["inspectReceipts"];
+  const paths = descriptors.paths.value;
+  if (
+    !paths ||
+    typeof paths !== "object" ||
+    utilTypes.isProxy(paths) ||
+    (Object.getPrototypeOf(paths) !== Object.prototype &&
+      Object.getPrototypeOf(paths) !== null)
+  )
+    throw new Error("docker_isolation_runtime_input_invalid");
+  const fields = Object.getOwnPropertyDescriptors(paths);
+  if (
+    Reflect.ownKeys(fields).length !== 2 ||
+    ["tmp", "management"].some(
+      (key) =>
+        !fields[key] ||
+        !Object.hasOwn(fields[key], "value") ||
+        typeof fields[key].value !== "string" ||
+        !fields[key].value ||
+        fields[key].value.includes(String.fromCharCode(0)),
+    )
+  )
+    throw new Error("docker_isolation_runtime_input_invalid");
+  const captured = Object.freeze({
+    tmp: fields.tmp?.value as string,
+    management: fields.management?.value as string,
+  });
   const runtime = createDockerIsolationRuntimeCandidate({
-    borrowPaths,
-    inspectReceipts,
+    paths: captured,
+    directoryIdentity: observeDockerDirectoryIdentity,
     platform: process.platform,
     readCli: readCliSnapshot,
     verifyCli: verifyCliSnapshot,
@@ -230,15 +243,14 @@ export type DockerIsolationRuntimePlan = Readonly<{
 }>;
 
 /**
- * 本番隔離Runtimeが借用する所在とReceipt観測だけを表す。
+ * 本番隔離Runtimeへ渡す確定済み所在だけを表す。
  * @responsibility 既存依存契約の必要断面を再利用する。
  * @trace ARCH-000008
  * @invariant Process primitiveやCLI構成を上位へ公開しない。
  */
-export type DockerIsolationRuntimeOptions = Pick<
-  DockerIsolationDependencies<DockerCliTrustSnapshot>,
-  "borrowPaths" | "inspectReceipts"
->;
+export type DockerIsolationRuntimeOptions = Readonly<{
+  paths: Readonly<{ tmp: string; management: string }>;
+}>;
 
 /**
  * 固定隔離Runtimeの開始・清掃・照合操作を表す。
@@ -264,6 +276,7 @@ export type DockerIsolationRuntime = Readonly<{
     plan: DockerIsolationRuntimePlan,
     recoveryCapability: object,
     managementCapability: unknown,
+    receipts: DockerResourceReceipts | null,
   ) => Promise<DockerSessionCleanup>;
   verifyCleanupOutcome: (
     result: unknown,
@@ -324,7 +337,7 @@ export type DockerResourceCleanupObservation = Readonly<{
  *
  * @responsibility 上位Stateを参照せず、所在・CLI・Receiptの用途限定観測を受ける。
  * @trace ARCH-000008
- * @shape Host観測、借用所在、限定Receipt読取りと技術実行primitive。
+ * @shape 固定所在、Directory実体観測と技術実行primitive。
  * @invariant Task操作、Lock取得／解放、Store参照を受けない。
  * @boundary 検証済み実行構成と下位のEffect発行順序。
  * @security 例外・観測不能で新Effectを停止し、任意Docker argvは受けない。
@@ -332,7 +345,8 @@ export type DockerResourceCleanupObservation = Readonly<{
  */
 export type DockerIsolationDependencies<Cli extends object> = Readonly<{
   platform: string;
-  borrowPaths: (owner: object) => Readonly<{ tmp: string; management: string }>;
+  paths: DockerIsolationRuntimeOptions["paths"];
+  directoryIdentity: (directory: string) => string;
   readCli: () => Cli;
   verifyCli: (snapshot: Cli) => void;
   environment: () => Readonly<Record<string, string>>;
@@ -348,9 +362,6 @@ export type DockerIsolationDependencies<Cli extends object> = Readonly<{
     environment: Readonly<Record<string, string>>,
     stdin: string | null,
   ) => OwnedCommandHandle;
-  inspectReceipts?:
-    | ((owner: object) => DockerResourceReceipts | null)
-    | undefined;
 }>;
 
 /**
@@ -370,6 +381,7 @@ type ExecutionContext<Cli extends object> = {
   configIdentity: string;
   cli: Cli;
   handles: Set<OwnedCommandHandle>;
+  directories: readonly Readonly<{ path: string; identity: string }>[];
 };
 
 /**
@@ -411,7 +423,48 @@ function planIdentity(plan: DockerIsolationRuntimePlan) {
 export function createDockerIsolationRuntimeCandidate<Cli extends object>(
   dependencies: DockerIsolationDependencies<Cli>,
 ): Omit<DockerIsolationRuntime, "acquireHomeLease"> {
+  const paths = Object.freeze({
+    tmp: dependencies.paths.tmp,
+    management: dependencies.paths.management,
+  });
   const contexts = new WeakMap<object, ExecutionContext<Cli>>();
+  /**
+   * 元Directory実体を、外部待機より前に捕捉する。
+   * @responsibility Path固定と実体固定を分け、同Path差替えを拒否する。
+   * @trace ARCH-000008
+   * @input plan: 同じ実行の技術構成。
+   * @returns 所在と元dev／ino／birthtimeの不変列。
+   * @effect Directoryのmetadata読取りだけ。configを作らない。
+   * @failure 欠測・link・canonical差は例外。
+   * @invariant 上位Owner・保存状態を問い合わせない。
+   */
+  function directoriesFor(
+    plan: DockerIsolationRuntimePlan,
+  ): ExecutionContext<Cli>["directories"] {
+    const directories = [
+      ...new Set([
+        paths.management,
+        paths.tmp,
+        plan.configuration.homeSourcePath,
+        ...(plan.configuration.workspace
+          ? [plan.configuration.workspace.sourcePath]
+          : []),
+        ...(plan.configuration.workspace?.protection
+          ? [
+              plan.configuration.workspace.protection.gitSourcePath,
+              plan.configuration.workspace.protection.internalSourcePath,
+            ]
+          : []),
+      ]),
+    ].map((directory) =>
+      Object.freeze({
+        path: directory,
+        identity: dependencies.directoryIdentity(directory),
+      }),
+    );
+    return Object.freeze(directories);
+  }
+
   const stoppedAttempts = new WeakMap<object, Set<string>>();
   const cleanupResults = new WeakMap<
     object,
@@ -431,9 +484,9 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
    * @trace ARCH-000008
    * @input plan、managementCapability: 技術計画と既存Owner。
    * @returns 同じ操作の実行Context。
-   * @precondition 上位が現在Ownerと所在借用を検証している。
+   * @precondition 上位が固定所在の利用許可を検証している。
    * @postcondition 構成差・不正入力・観測不能では実行Contextを再利用しない。
-   * @effect 既存OwnerとCLIを観測し、初回だけ検証済みbinding配下に実行用configを作成する。
+   * @effect 元Directory実体とCLIを観測し、初回だけ検証済みbinding配下に実行用configを作成する。
    * @failure 入力不正・CLI／config差替え・未対応OSは例外で停止する。
    * @invariant Task・永続State・新しいLockを保持しない。
    * @boundary 既存Host観測から技術実行用configへの境界。
@@ -443,8 +496,8 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
   function contextFor(
     plan: DockerIsolationRuntimePlan,
     managementCapability: object,
+    baseline?: ExecutionContext<Cli>["directories"],
   ) {
-    const paths = dependencies.borrowPaths(managementCapability);
     if (
       !/^[a-f0-9]{64}$/u.test(plan.identity) ||
       (plan.stdin !== null &&
@@ -460,6 +513,11 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     if (current) {
       if (current.planIdentity !== identity)
         throw new Error("docker_effect_plan_replaced");
+      for (const directory of current.directories)
+        if (
+          dependencies.directoryIdentity(directory.path) !== directory.identity
+        )
+          throw Error("docker_effect_filesystem_identity_invalid");
       dependencies.verifyCli(current.cli);
       dependencies.verifyConfig(
         current.configDirectory,
@@ -471,6 +529,10 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       throw new Error("docker_effect_plan_invalid");
     if (dependencies.platform !== "win32")
       throw new Error("docker_effect_platform_unsupported");
+    const directories = baseline ?? directoriesFor(plan);
+    for (const directory of directories)
+      if (dependencies.directoryIdentity(directory.path) !== directory.identity)
+        throw Error("docker_effect_filesystem_identity_invalid");
     const cli = dependencies.readCli();
     const config = dependencies.createConfig(paths.management);
     const context: ExecutionContext<Cli> = {
@@ -479,6 +541,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       configIdentity: config.identity,
       cli,
       handles: new Set(),
+      directories: Object.freeze(directories),
     };
     contexts.set(managementCapability, context);
     return context;
@@ -504,6 +567,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     purpose: DockerIsolationCommand["purpose"],
     plan: DockerIsolationRuntimePlan,
     managementCapability: unknown,
+    baseline?: ExecutionContext<Cli>["directories"],
   ): OwnedCommandHandle {
     if (!managementCapability || typeof managementCapability !== "object")
       throw new Error("docker_effect_management_required");
@@ -516,7 +580,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     const environment = captureDockerProcessEnvironment(
       dependencies.environment(),
     );
-    const context = contextFor(plan, managementCapability);
+    const context = contextFor(plan, managementCapability, baseline);
     dependencies.verifyCli(context.cli);
     dependencies.verifyConfig(context.configDirectory, context.configIdentity);
     const handle = dependencies.startProcess(
@@ -555,6 +619,9 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     context: ExecutionContext<Cli>,
     argv: readonly string[],
   ) {
+    for (const directory of context.directories)
+      if (dependencies.directoryIdentity(directory.path) !== directory.identity)
+        throw Error("docker_effect_filesystem_identity_invalid");
     const environment = captureDockerProcessEnvironment(
       dependencies.environment(),
     );
@@ -580,7 +647,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
    * @trace ARCH-000008
    * @input plan: DockerIsolationRuntimePlan、recoveryCapability: object、managementCapability: unknown
    * @returns cleanupOwnedResourcesの計算結果を返す。
-   * @precondition planと現在管理Ownerが一致し、本番Receipt読取りは五purposeを明示評価する。
+   * @precondition 元計画・管理相関が一致し、Sessionが五purposeのReceiptを明示している。
    * @postcondition cleanupOwnedResourcesの責務を完了した結果だけを返す。
    * @effect 所有handleを終端し、検証済みexact Docker資源を回収する。全回収確認後だけ所有configを除去する。
    * @failure cleanupOwnedResourcesは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -593,7 +660,8 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     plan: DockerIsolationRuntimePlan,
     recoveryCapability: object,
     managementCapability: unknown,
-    sessionReceipts?: DockerResourceReceipts,
+    sessionReceipts: DockerResourceReceipts | null,
+    baseline?: ExecutionContext<Cli>["directories"],
   ) {
     if (
       !recoveryCapability ||
@@ -611,7 +679,9 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     }
     let context: ExecutionContext<Cli>;
     try {
-      context = contextFor(plan, managementCapability);
+      if (!sessionReceipts && !contexts.has(managementCapability))
+        throw Error("docker_effect_receipts_missing");
+      context = contextFor(plan, managementCapability, baseline);
     } catch {
       return Object.freeze({
         confirmed: false,
@@ -630,11 +700,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       if (!(await handle.terminateAndWait(5_000)) || !handle.closed())
         processTreeTerminated = false;
     }
-    const receipts =
-      sessionReceipts ??
-      (dependencies.inspectReceipts
-        ? dependencies.inspectReceipts(recoveryCapability)
-        : null);
+    const receipts = sessionReceipts;
     const providerReceipt = receipts?.create_provider;
     const authReceipt = receipts?.create_subscription_auth_probe;
     const proxyReceipt = receipts?.create_proxy;
@@ -825,18 +891,20 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     managementCapability: unknown,
     hooks: DockerExecutionCallbacks,
   ) {
+    const directories = directoriesFor(plan);
     const commands = planDockerIsolationCommands(plan.configuration);
     return startDockerCommandSession(
       commands?.map((command) => command.purpose) ?? [],
       {
         startCommand: (purpose) =>
-          startCommand(purpose, plan, managementCapability),
+          startCommand(purpose, plan, managementCapability, directories),
         cleanup: (receipts) =>
           cleanupOwnedResources(
             plan,
             recoveryCapability,
             managementCapability,
             receipts,
+            directories,
           ),
         verifyCleanup: (result) =>
           verifyCleanupOutcome(

@@ -40,10 +40,10 @@ export type IsolationProbeRequest = Readonly<{
   probeId: string;
 }>;
 /**
- * 上位が現在Ownerを確認して返す、同じ操作の借用所在。
- * @responsibility 通知と現在所在の読取りQueryを分ける。
+ * 上位が利用許可を確認した、同じ操作の固定所在。
+ * @responsibility 通知と不変の構成値を分ける。
  * @trace ARCH-000008
- * @shape managementと三Mount所在の同期Query。
+ * @shape managementと三Mountの固定所在。
  * @invariant 後発変更を新しい許可として採用しない。
  * @boundary Host所有確認と技術操作。
  * @security 保存Writer・Root権限・認証値を含めない。
@@ -56,9 +56,9 @@ export type IsolationProbeMounts = Readonly<{
   tmp: string;
 }>;
 
-/** 上位が現在Ownerを確認して返す固定四所在の同期Query。 */
+/** 上位が利用許可を確認した固定四所在。 */
 export type IsolationProbeOptions = Readonly<{
-  readMounts: () => IsolationProbeMounts;
+  mounts: IsolationProbeMounts;
 }>;
 
 /**

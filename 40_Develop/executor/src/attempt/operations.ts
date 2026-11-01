@@ -862,14 +862,14 @@ export function createAttemptExecutor(
   options: DockerIsolationRuntimeOptions,
   random: Readonly<{ randomBytes: (size: number) => Buffer }> = { randomBytes },
 ): Executor<"attempt"> | null {
-  const runtimeOptions = options as DockerIsolationRuntimeOptions;
   const plan = prepareAttempt(random, request as AttemptRequest);
   if (!plan) return null;
-  const runtime = createDockerIsolationRuntime({
-    borrowPaths: runtimeOptions.borrowPaths,
-    inspectReceipts: runtimeOptions.inspectReceipts,
+  const runtime = createDockerIsolationRuntime(options);
+  const paths = Object.freeze({
+    tmp: options.paths.tmp,
+    management: options.paths.management,
   });
-  const bound = bindIsolationRuntime(runtime, runtimeOptions.borrowPaths);
+  const bound = bindIsolationRuntime(runtime, paths);
   const isolation: IsolationRuntime = {
     acquireHomeLease: runtime.acquireHomeLease,
     ...bound,
@@ -1118,7 +1118,7 @@ const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
  *
  * @responsibility 元計画の所属と意味を検証し、技術入力・元結果だけを搬送する。
  * @trace ARCH-000008
- * @input runtime: 固定下位API。borrowPaths: 既存Ownerの所在借用。
+ * @input runtime: 固定下位API。paths: 検証済みの固定所在。
  * @returns 元計画の開始・清掃・元結果照合操作。
  * @precondition 同じ下位Runtimeを操作の生涯で保持する。
  * @postcondition raw Process・Filesystem primitiveを上位へ戻さない。
@@ -1134,29 +1134,25 @@ export function bindIsolationRuntime(
     DockerIsolationRuntime,
     "startExecution" | "cleanupOwnedResources" | "verifyCleanupOutcome"
   >,
-  borrowPaths: (managementCapability: object) => Readonly<{ tmp: string }>,
+  paths: DockerIsolationRuntimeOptions["paths"],
 ) {
   /**
    * 上位の検証済み計画をDocker技術入力へ投影する。
    *
    * @responsibility Model・Task・許可の相関を上位で検証し、技術値だけを下位へ渡す。
    * @trace ARCH-000008
-   * @input plan: 元計画。managementCapability: 元の現在Owner。
+   * @input plan: 元計画。
    * @returns 同じ計画のHash、固定技術構成、限定stdin。
-   * @precondition 既存Ownerの所在借用と元計画の完全照合が成立する。
+   * @precondition 固定所在と元計画の完全照合が成立する。
    * @postcondition 上位のState・Packet・Authorityを下位へ渡さない。
-   * @effect 既存Ownerの所在・固定配布物を観測する。Docker要求は発行しない。
+   * @effect 固定所在と既存配布物定義を投影する。Docker要求は発行しない。
    * @failure 所在不明・不正計画・構成不能では例外で停止する。
    * @invariant 元のHashを新しい実行許可へ昇格しない。
    * @boundary Executor内部の試行構成とDocker Isolationの実行入力。
    * @security Secretは限定stdinとContainer内payloadだけへ搬送し、診断しない。
-   * @concurrency 同じOwnerを操作直前に観測し、下位も借用所在を再照合する。
+   * @concurrency 同じ固定所在を搬送し、DIが元Directory実体を各要求前に再照合する。
    */
-  function project(
-    plan: AttemptPlan,
-    managementCapability: object,
-  ): DockerIsolationRuntimePlan {
-    const paths = borrowPaths(managementCapability);
+  function project(plan: AttemptPlan): DockerIsolationRuntimePlan {
     const configuration = resolveValidatedPlan(plan, paths.tmp);
     if (!configuration) throw new Error("docker_effect_plan_invalid");
     return Object.freeze({
@@ -1191,9 +1187,10 @@ export function bindIsolationRuntime(
       if (!managementCapability || typeof managementCapability !== "object")
         throw new Error("docker_effect_management_required");
       return await runtime.cleanupOwnedResources(
-        project(plan, managementCapability),
+        project(plan),
         recoveryCapability,
         managementCapability,
+        null,
       );
     } catch {
       return Object.freeze({
@@ -1262,7 +1259,7 @@ export function bindIsolationRuntime(
     hooks: DockerExecutionCallbacks,
   ) {
     return runtime.startExecution(
-      project(plan, managementCapability),
+      project(plan),
       recoveryCapability,
       managementCapability,
       hooks,

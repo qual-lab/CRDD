@@ -48,13 +48,13 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
-      createDockerIsolationRuntime:({borrowPaths,inspectReceipts})=>{
+      createDockerIsolationRuntime:({paths})=>{
         const f=fixture;let cleanupResult=null,owner=null,recovery=null;
         return {
           startCommand:()=>{throw Error('primitive_forbidden');},cleanupOwnedResources:()=>{throw Error('duplicate_cleanup');},
           startExecution:(p,r,m,hooks)=>{
             f.starts++;owner=m;recovery=r;assert.equal(f.live,true);
-            assert.equal(borrowPaths(m).tmp,path.join(f.root,'tmp'));
+            assert.equal(paths.tmp,path.join(f.root,'tmp'));
             return di.startDockerCommandSessionCandidate(purposes,{
               startCommand:purpose=>({started:async()=>true,wait:async()=>{
                 assert.equal(f.live,true);f.commands.push(purpose);
@@ -68,8 +68,8 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
                   purpose==='start_subscription_auth_probe_attached'?JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',forcedLoginMethod:'claudeai',subscriptionType:'max'}):
                   purpose==='start_provider_attached'?JSON.stringify({type:'result',subtype:'success',is_error:false,num_turns:1,total_cost_usd:0,structured_output:{status:true}})+'\\n':''};
               },terminateAndWait:async()=>{f.wait.resolve();return true;}}),
-              cleanup:async()=>{
-                assert.equal(f.live,true);const receipts=inspectReceipts(r);assert.ok(receipts);f.cleanup=true;
+              cleanup:async(receipts)=>{
+                assert.equal(f.live,true);assert.ok(receipts);f.cleanup=true;
                 const names={create_provider:f.plan.providerContainerName,create_proxy:f.plan.proxyContainerName,create_subscription_auth_probe:f.plan.authContainerName,create_internal_network:f.plan.internalNetworkName,create_egress_network:f.plan.egressNetworkName};
                 f.resources=Object.entries(names).map(([purpose,plannedResourceName])=>({purpose,plannedResourceName,dockerId:receipts[purpose].dockerId,observation:receipts[purpose].submitted?'absent':'not_requested'}));
                 const unknown=['cleanup_unknown','auth_wait_unknown'].includes(f.mode)||f.mode.startsWith('receipt_invalid_');cleanupResult={confirmed:!unknown,processTreeTerminated:true,containersAbsent:!unknown,networksAbsent:!unknown,resourceObservations:unknown?null:f.resources};return cleanupResult;

@@ -38,6 +38,7 @@ export function runInNewContext(
     `${sourceDeclaration(source, "captureMounts")}\n${sourceDeclaration(source, "notify")}\n${sourceDeclaration(source, "createIsolationProbe")};createIsolationProbe`,
     {
       ...context,
+      observeDockerDirectoryIdentity: () => "fixed-directory",
       types,
       AbortController,
       executeLifecycle,

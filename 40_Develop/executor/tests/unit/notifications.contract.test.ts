@@ -115,11 +115,10 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       const executor = createExecutor(
         request,
         {
-          borrowPaths: () => ({
+          paths: {
             tmp: "C:/synthetic/tmp",
             management: "C:/synthetic/management",
-          }),
-          inspectReceipts: () => null,
+          },
         },
         { randomBytes: (size: number) => Buffer.alloc(size, 1) },
       );
@@ -707,11 +706,10 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
       },
     };
     const options = {
-      borrowPaths: () => ({
+      paths: {
         tmp: "C:/synthetic/tmp",
         management: "C:/synthetic/management",
-      }),
-      inspectReceipts: () => null,
+      },
     };
     const random = {
       randomBytes: (size: number) => {

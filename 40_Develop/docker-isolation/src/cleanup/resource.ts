@@ -68,7 +68,7 @@ export function inspectObservedDockerResource(
  * 構成確認済みの実IDを処置し、呼出し元の既存不存在観測まで完了する。
  * @responsibility 削除直前確認・rm成功・現在不存在の三条件を一正本へ集約する。
  * @trace ARCH-000008
- * @input runDocker: 内部固定実行、kind/id: 検査済み実体、observeAbsent: 固定観測、assertBeforeRemoval: 現在Owner確認。
+ * @input runDocker: 内部固定実行、kind/id: 検査済み実体、observeAbsent: 固定観測。
  * @returns 三条件共同成立時true。
  * @precondition 直前に同じ実IDの完全構成を確認している。
  * @effect 実ID限定rmと現在不存在観測。
@@ -80,11 +80,9 @@ export function removeObservedDockerResource(
   kind: "container" | "network",
   id: string,
   observeAbsent: () => boolean,
-  assertBeforeRemoval?: () => boolean,
 ): boolean {
   if (!/^[a-f0-9]{64}$/u.test(id)) return false;
   try {
-    if (assertBeforeRemoval && assertBeforeRemoval() !== true) return false;
     const removed = runDocker(
       kind === "container"
         ? ["container", "rm", "--force", id]

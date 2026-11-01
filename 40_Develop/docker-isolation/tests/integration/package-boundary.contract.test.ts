@@ -44,7 +44,7 @@ const platformAccessRoot = path.resolve(
  */
 test("隔離の明示契約は必須構成と未観測分類を保持する", async () => {
   const options: DockerIsolationRuntimeOptions = {
-    borrowPaths: () => ({ tmp: "synthetic", management: "synthetic" }),
+    paths: { tmp: "synthetic", management: "synthetic" },
   };
   // @ts-expect-error 所在借用は必須。
   const missing: DockerIsolationRuntimeOptions = {};

@@ -155,9 +155,9 @@ test("Probe完了の閉factsは全profileで相関され実私有評価だけで
           dynamicLifecycleHostCleanups: cleanups,
           randomUUID: () => "12345678-1234-4234-8234-123456789abc",
           getOwnedHostRecoveryId: () => "host",
-          createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
+          createDockerProbeRuntimeBinding: (management: string) => {
             factoryCalls++;
-            assert.equal(readManagement(), mounts.management);
+            assert.equal(management, mounts.management);
             return Object.assign(cli, {
               verifyCli: () => {
                 return "fixed-cli";

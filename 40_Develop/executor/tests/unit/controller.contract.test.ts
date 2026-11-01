@@ -194,10 +194,7 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
     const executor = create(
       request,
       {
-        borrowPaths: () => {
-          throw Error("unexpected_path_borrow");
-        },
-        inspectReceipts: () => null,
+        paths: { tmp: "synthetic", management: "synthetic" },
       },
       random,
     );

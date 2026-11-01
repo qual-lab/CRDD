@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  * @boundary Coordinatorのprofile選択と固定Docker要求。
  */
+import { observeDockerDirectoryIdentity } from "../docker-cli/config.ts";
 import { executeDockerProbeCommand, planDockerProbeCommand } from "./plan.ts";
 import {
   classifyDockerProbeCancellation,
@@ -62,21 +63,22 @@ export type DockerProbeRuntimeBinding = Readonly<{
 
 /**
  * Probeの同操作CLIと固定環境を構成する。
- * @responsibility OS差とCLI同一性を下位に閉じ、上位の同期所在読取りを一回だけ接続する。
+ * @responsibility OS差・CLI同一性・元Directory実体の照合を下位に閉じる。
  * @trace ARCH-000008
- * @input readManagement: 検証済みmanagementの同期読取り。
+ * @input management: 確定した管理所在。mounts: 使用する固定三所在。
  * @returns 同じsnapshotを各要求前に検証する固定binding。
  * @precondition 上位がHost所有と各Effect前のMount現在性を確認する。
- * @postcondition readManagementと上位Capabilityを返却closureへ保持しない。
+ * @postcondition 固定所在の元Directory実体とCLI snapshotだけを保持する。
  * @effect CLI実体を観測し、検証済みmanagement内の固定二領域を作成する。
- * @failure platform、CLI、所在、環境の順で拒否し、読取り例外は元の理由を維持する。
+ * @failure platform、CLI、所在、環境の順で拒否し、Directory観測例外は元の理由を維持する。
  * @invariant 新しいRegistry・Lock・回復状態・実行Authorityを生成しない。
  * @boundary 上位の所在観測と下位の固定Docker要求。
  * @security 任意CLI・環境・platform・Process primitiveを入力にしない。
  * @concurrency 同期生成し、要求ごとに同snapshotをfresh検証する。
  */
 export function createDockerProbeRuntimeBinding(
-  readManagement: () => string,
+  management: string,
+  mounts: ProbeMounts | null = null,
 ): DockerProbeRuntimeBinding {
   if (process.platform !== "win32")
     throw new Error("docker_backend_platform_unsupported");
@@ -86,9 +88,6 @@ export function createDockerProbeRuntimeBinding(
   } catch {
     throw new Error("docker_cli_untrusted");
   }
-  const management = readManagement();
-  if (utilTypes.isPromise(management))
-    void Promise.prototype.then.call(management, undefined, () => undefined);
   if (
     typeof management !== "string" ||
     !management ||
@@ -96,6 +95,15 @@ export function createDockerProbeRuntimeBinding(
     path.resolve(management) !== management
   )
     throw new Error("owned_operation_mount_replaced");
+  const directories = [
+    management,
+    ...(mounts ? Object.values(captureCurrentProbeMounts(mounts)) : []),
+  ].map((directory) =>
+    Object.freeze({
+      path: directory,
+      identity: observeDockerDirectoryIdentity(directory),
+    }),
+  );
   const dockerConfig = path.join(management, "docker-config");
   const dockerHome = path.join(management, "docker-home");
   fs.mkdirSync(dockerConfig, { recursive: true });
@@ -104,6 +112,11 @@ export function createDockerProbeRuntimeBinding(
   if (!environment) throw new Error("docker_runtime_environment_unavailable");
   return Object.freeze({
     verifyCli: () => {
+      for (const directory of directories)
+        if (
+          observeDockerDirectoryIdentity(directory.path) !== directory.identity
+        )
+          throw Error("owned_operation_mount_replaced");
       try {
         return verifyTrustedDockerCliSnapshot(snapshot);
       } catch {

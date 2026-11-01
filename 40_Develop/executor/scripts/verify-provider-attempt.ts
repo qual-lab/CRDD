@@ -93,15 +93,14 @@ export function verifyStandaloneProviderAttempt() {
     mock.module(${JSON.stringify(isolationRoot)}, {namedExports:{...isolation,
       createDockerIsolationRuntime:(input)=>{
         const fixture=currentFixture;
-        assert.deepEqual(Object.keys(input).sort(),['borrowPaths','inspectReceipts']);
+        assert.deepEqual(Object.keys(input),['paths']);
         if(fixture===null){
           const forbidden=()=>{forbiddenCalls++;throw Error('preparation_must_not_execute');};
           return {acquireHomeLease:forbidden,startExecution:forbidden,
             cleanupOwnedResources:forbidden,verifyCleanupOutcome:forbidden};
         }
         factoryCalls++;
-        assert.equal(input.borrowPaths,fixture.host.borrowPaths);
-        assert.equal(input.inspectReceipts,fixture.host.inspectReceipts);
+        assert.deepEqual(input.paths,fixture.host.paths);
         const cleanupResults=new WeakMap();
         const cleanup=async()=>{
           const result=await fixture.deps.cleanupOwnedResources();
@@ -289,14 +288,12 @@ export function verifyStandaloneProviderAttempt() {
 
       };
       const unavailable=()=>{forbiddenCalls++;throw Error('host_primitive_forbidden');};
-      const host={...deps,borrowPaths:m=>{
-        assert.equal(m,management);return {tmp};
-      },inspectReceipts:unavailable,startCommand:unavailable,startExecution:unavailable,
+      const host={...deps,paths:{tmp,management:directory},startCommand:unavailable,startExecution:unavailable,
         cleanupOwnedResources:unavailable,verifyCleanupOutcome:unavailable};
       currentFixture={deps,host,plan,tmp,recovery,management,starts:0,verifications:0};
       const callsBefore=factoryCalls;
       let completedNotices=0;
-      const options={borrowPaths:host.borrowPaths,inspectReceipts:host.inspectReceipts,
+      const options={paths:host.paths,
         onCompleted:result=>{completedNotices++;assert.equal(result,terminalResult??result);if(scenario==="submission_throw")throw Error("synthetic_observer");},
       };
       const runtime=mode==="candidate"?create(deps):testing.createExecutorLifecycleTestRuntime({...deps,...options,acquireHomeLease:()=>({release:()=>true})});

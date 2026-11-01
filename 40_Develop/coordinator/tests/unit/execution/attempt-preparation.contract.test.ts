@@ -205,17 +205,11 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
 });
 
 test("明示した構成・準備型は既存必須項目と拒否値を保持する", () => {
-  const paths: Pick<
-    DockerIsolationRuntimeOptions,
-    "borrowPaths" | "inspectReceipts"
-  > = {
-    borrowPaths: () => ({ tmp: "synthetic", management: "synthetic" }),
+  const paths: Pick<DockerIsolationRuntimeOptions, "paths"> = {
+    paths: { tmp: "synthetic", management: "synthetic" },
   };
   // @ts-expect-error 所在借用は必須。
-  const missing: Pick<
-    DockerIsolationRuntimeOptions,
-    "borrowPaths" | "inspectReceipts"
-  > = {};
+  const missing: Pick<DockerIsolationRuntimeOptions, "paths"> = {};
   const failure: PreparationFailure = createPreparationFailure("synthetic");
   const prepared: PreparationResult<"codex"> = failure;
   const cancelled: PreparationCancellationResult = failure;

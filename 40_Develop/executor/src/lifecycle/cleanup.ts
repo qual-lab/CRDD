@@ -66,9 +66,7 @@ export function releaseHomeLease(homeLease: HomeLease): boolean {
 function containerRuntime(target: ContainerResourceTarget) {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   target.signal?.throwIfAborted();
-  const binding = createDockerProbeRuntimeBinding(
-    () => target.managementDirectory,
-  );
+  const binding = createDockerProbeRuntimeBinding(target.managementDirectory);
   return Object.freeze({
     environment: binding.environment,
     verifyCli: () => {

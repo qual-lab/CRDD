@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 通常Attempt／Probeの固定所在搬送（2026-11-02）
+
+通常AttemptのFactory呼出し前に既存管理Capabilityから所在を一回確認し、`paths: {tmp, management}`をExecutorへ渡す。通常Probeも既存Mount確認から固定四所在の`mounts`を渡す。下位へ所在Readerや保存ReceiptのReaderを渡さず、通常CleanupはDI Session所有Receiptだけを利用する。上位は既存の排他・保存通知内の版／記録確認・明示取消・呼出し前後確認を維持する。下位のDirectory元実体確認はDIの責務であり、上位の途中Owner失効を自動検知する代用Queryを追加しない。環境修復・Directory廃棄の固有Query、保存Schemaと履歴は変更しない。
+
 ## 旧固定Probe回復の技術委譲（2026-11-01）
 
 recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container IDの相関を確認し、同じ作成構成をExecutorのinspectResources／cleanupResourcesへ渡す。CLI生成・Docker実体inspect・削除・三軸一覧の組立ては本番回復経路から撤去する。構成不明では削除せず、回収後も不存在を再観測してから既存Host状態遷移へ接続する。現在世代と同じ記録を各要求直前に再確認し、記録Schema・回復ID・Host排他・一回消費・Host回収順は維持する。取消検証・意図的残存作成と専用の私有照合補助はscripts/probe-verification.tsへ移管し、製品Sourceから呼び出さない。呼出し元の検証CLIと試験を同じ移管先へ接続し、import時に試験を実行しない。Network Policy構築・検査、Recovery ID解析・Checkpoint判定・型参照は人間の合意により現在の境界へ維持する。

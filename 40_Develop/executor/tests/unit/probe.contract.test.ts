@@ -83,8 +83,12 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
   assert.equal(successFacts.isolation.status, "confirmed");
   const dependencies = {
     ...original,
-    createDockerProbeRuntimeBinding: (read: () => string) => {
-      assert.equal(read(), "management");
+    observeDockerDirectoryIdentity: () =>
+      mode === "identity_changed" && changed
+        ? "replacement"
+        : "fixed-directory",
+    createDockerProbeRuntimeBinding: (management: string) => {
+      assert.equal(management, "management");
       if (mode.startsWith("binding_")) throw Error(mode);
       return binding;
     },
@@ -157,7 +161,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       events.push("cleanup");
       if (mode === "late_cancel") cancel();
       return {
-        confirmed: mode !== "cleanup",
+        confirmed: mode !== "cleanup" && !changed,
         reason: "docker_probe_cleanup_failed",
       };
     },
@@ -182,6 +186,8 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       "changed",
       "late_cancel",
       "pre_cancel",
+      "identity_changed",
+      "input_changed",
       "prepare_throw",
       "prepare_invalid",
       "binding_mkdir1",
@@ -190,24 +196,32 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
     ]) {
       events.length = 0;
       changed = false;
+      const mounts: {
+        management: string;
+        workspace: string;
+        providerHome: string;
+        tmp: string;
+      } = {
+        management: mode === "prepare_invalid" ? "" : "management",
+        ...paths,
+      };
       const executor = createExecutor(
         {
           kind: "isolation_probe",
           probeId: "12345678-1234-4234-8234-123456789abc",
         },
         {
-          readMounts: () => {
-            if (mode === "prepare_throw") throw Error("read");
-            return {
-              management: mode === "prepare_invalid" ? "" : "management",
-              workspace: changed ? "other" : "workspace",
-              providerHome: "home",
-              tmp: "tmp",
-            };
-          },
+          mounts: mode === "prepare_throw" ? new Proxy(mounts, {}) : mounts,
         },
       );
+      if (mode === "prepare_throw" || mode === "prepare_invalid") {
+        assert.equal(executor, null);
+        assert.equal(events.length, 0);
+        continue;
+      }
       assert.ok(executor);
+      if (mode === "identity_changed") changed = true;
+      if (mode === "input_changed") mounts.workspace = "replacement";
       cancel = () => executor.cancel();
       if (mode === "pre_cancel") await executor.cancel();
       let delivered: unknown = null;
@@ -229,7 +243,14 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
           },
         },
       });
-      if (["pre_cancel", "prepare_throw", "prepare_invalid"].includes(mode)) {
+      if (
+        [
+          "pre_cancel",
+          "identity_changed",
+          "prepare_throw",
+          "prepare_invalid",
+        ].includes(mode)
+      ) {
         assert.equal(start.status, "blocked");
         if (start.status === "blocked") {
           assert.equal(
@@ -285,7 +306,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
         assert.deepEqual(events, ["intent", "create"]);
       }
       if (["close", "changed"].includes(mode)) {
-        assert.equal(events.includes("cleanup"), false);
+        assert.equal(events.includes("cleanup"), mode === "changed");
         assert.equal(result.cleanupConfirmed, false);
       }
       if (mode === "cleanup") assert.equal(result.cleanupConfirmed, false);
@@ -328,7 +349,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
     );
     const baselineExecutor = baseline(
       { kind: "isolation_probe", probeId },
-      { readMounts: () => ({ management: "management", ...paths }) },
+      { mounts: { management: "management", ...paths } },
     );
     const baselineResult = await baselineExecutor.start({}).completion;
     assert.equal(baselineResult.facts, successFacts);
@@ -394,7 +415,7 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       );
       const candidate = create(
         { kind: "isolation_probe", probeId },
-        { readMounts: () => ({ management: "management", ...paths }) },
+        { mounts: { management: "management", ...paths } },
       );
       assert.ok(candidate);
       const result = await candidate.start({}).completion;

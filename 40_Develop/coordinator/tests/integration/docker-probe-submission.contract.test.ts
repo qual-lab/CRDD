@@ -112,8 +112,8 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", asyn
         randomUUID: () => "12345678-1234-4234-8234-123456789abc",
         isolationProbeBlocked: blocked,
         getOwnedHostRecoveryId: () => "host",
-        createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
-          assert.equal(readManagement(), mounts.management);
+        createDockerProbeRuntimeBinding: (management: string) => {
+          assert.equal(management, mounts.management);
           if (scenario.startsWith("binding-")) {
             calls.push(scenario);
             throw Error(scenario);
@@ -404,9 +404,9 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
         isolationProbeBlocked: blocked,
         cancellationBlocked: blocked,
         getOwnedHostRecoveryId: () => "host",
-        createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
+        createDockerProbeRuntimeBinding: (management: string) => {
           factoryCalls++;
-          assert.equal(readManagement(), mounts.management);
+          assert.equal(management, mounts.management);
           return Object.assign(cli, {
             verifyCli: () => {
               return "fixed-cli";
