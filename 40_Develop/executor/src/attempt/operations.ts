@@ -45,7 +45,13 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import { releaseHomeLease } from "../lifecycle/cleanup.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
-import type { CancelInput, Executor, StartInput } from "../lifecycle/types.ts";
+import type {
+  CancelInput,
+  Executor,
+  StartInput,
+  LifecycleOperations,
+} from "../lifecycle/types.ts";
+import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import { ATTEMPT_COMPLETION_REASONS, PURPOSES } from "./constants.ts";
 import {
   convertCommandResult,
@@ -420,8 +426,7 @@ async function executeAttempt(
         } catch {
           diagnosticStage = "provider_start_observation";
           reject("docker_process_controller_provider_start_observation_failed");
-          record.cancellationRequested = true;
-          await record.cancelExecution?.();
+          await record.lifecycle.cancel();
         }
       })();
     },
@@ -491,8 +496,9 @@ async function executeAttempt(
             hooks,
           );
           sessionStarted = true;
-          record.cancelExecution = session.cancel;
-          if (record.cancellationRequested) void session.cancel();
+          record.lifecycle.bindCancellation(
+            async () => (await session.cancel()).processTerminationObserved,
+          );
           const outcome = await session.completion;
           providerRequestStarted = outcome.executionStarted;
           wasProviderContainerCreationObserved =
@@ -547,7 +553,7 @@ async function executeAttempt(
         await startNotification;
         if (
           !primaryFailure &&
-          !record.cancellationRequested &&
+          !record.lifecycle.cancellationRequested &&
           providerOutput
         ) {
           acceptProviderOutput(providerOutput);
@@ -591,7 +597,10 @@ async function executeAttempt(
         // so a request received during cleanup cannot be published as completed.
         // A failure that already settled as blocked keeps the more specific failure;
         // cancellationRequested remains observable without erasing that diagnosis.
-        if (record.cancellationRequested && requestedStatus === "completed") {
+        if (
+          record.lifecycle.cancellationRequested &&
+          requestedStatus === "completed"
+        ) {
           requestedStatus = "cancelled";
           reason = "provider_operation_cancelled";
           resultSha256 = null;
@@ -636,7 +645,7 @@ async function executeAttempt(
           operationId: plan.operationId,
           recoveryId: recovery.recoveryId,
           providerRequestStarted,
-          cancellationRequested: record.cancellationRequested,
+          cancellationRequested: record.lifecycle.cancellationRequested,
           processTreeTerminationConfirmed,
           containersAbsent: cleanup.containersAbsent,
           networksAbsent: cleanup.networksAbsent,
@@ -649,19 +658,15 @@ async function executeAttempt(
           providerTurnObservation,
           subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
         });
-        try {
-          const pending = completedObservation
-            ? state.callbacks.onCompleted?.(finalResult, completedObservation)
-            : undefined;
-          if (pending) void pending.catch(() => {});
-        } catch {
-          /* 任意の最終通知は確定済みの結果を変更しない。 */
-        }
-
         return finalResult;
+      },
+      onCompleted(result) {
+        if (completedObservation)
+          return state.callbacks.onCompleted?.(result, completedObservation);
       },
     },
     plan,
+    record.lifecycle,
   );
 }
 
@@ -685,10 +690,19 @@ export function start(
   plan: AttemptPlan,
   managementCapability: unknown,
   recovery: AttemptReference,
+  lifecycle: LifecycleOperations = createLifecycleOperations(),
 ) {
   const id = parseDockerTaskRecoveryId(
     readOwnDataProperty(recovery, "recoveryId"),
   );
+  if (!lifecycle.start())
+    return createStartResult({
+      status: "blocked",
+      reason: "docker_process_controller_plan_invalid",
+      recoveryId: id?.token ?? null,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+    });
   const capability = readOwnDataProperty(recovery, "recoveryCapability");
   if (
     !managementCapability ||
@@ -699,7 +713,8 @@ export function start(
     id.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash ||
     !capability ||
     typeof capability !== "object"
-  )
+  ) {
+    lifecycle.finish();
     return createStartResult({
       status: "blocked",
       reason: "docker_process_controller_plan_invalid",
@@ -707,6 +722,7 @@ export function start(
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
     });
+  }
   const reference = Object.freeze({
     recoveryId: id.token,
     recoveryCapability: capability,
@@ -719,7 +735,8 @@ export function start(
   } catch {
     /* 取得不能を解放済みへ変換しない。 */
   }
-  if (!homeLease)
+  if (!homeLease) {
+    lifecycle.finish();
     return createStartResult({
       status: "blocked",
       reason: "docker_process_controller_recovery_unavailable",
@@ -727,24 +744,22 @@ export function start(
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
     });
+  }
   const controlCapability = Object.freeze({});
   const record: ExecutionRecord = {
     homeLease,
     homeLeaseReleased: false,
     homeLeaseReleaseAttempted: false,
-    finished: false,
+    lifecycle,
     controlCapability,
     recovery: reference,
     managementCapability,
-    cancellationRequested: false,
-    cancelExecution: null,
   };
   state.controls.set(controlCapability, record);
   state.controls.set(capability, record);
   const completion = executeAttempt(state, record, plan, reference).finally(
     () => {
-      record.cancelExecution = null;
-      record.finished = true;
+      lifecycle.finish();
       state.controls.delete(controlCapability);
       if (record.homeLeaseReleased) state.controls.delete(capability);
     },
@@ -783,30 +798,12 @@ export async function cancel(
   const record = state.controls.get(controlCapability);
   if (
     !record ||
-    record.finished ||
+    record.lifecycle.finished ||
     record.controlCapability !== controlCapability ||
     record.managementCapability !== managementCapability
   )
     return Object.freeze({ status: "blocked" as const, reason: "invalid" });
-  if (record.cancellationRequested)
-    return Object.freeze({ status: "blocked" as const, reason: "duplicate" });
-  record.cancellationRequested = true;
-  const terminated = record.cancelExecution
-    ? (await record.cancelExecution()).processTerminationObserved
-    : true;
-  if (terminated)
-    return Object.freeze({
-      status: "requested" as const,
-      reason: "provider_cancellation_requested" as const,
-      cancellationRequested: true as const,
-      processTerminationObserved: terminated,
-    });
-  return Object.freeze({
-    status: "requested" as const,
-    reason: "provider_cancellation_grace_exceeded" as const,
-    cancellationRequested: true,
-    processTerminationObserved: terminated,
-  });
+  return record.lifecycle.cancel();
 }
 
 /**
@@ -832,7 +829,7 @@ export function abandon(
   if (!reference || typeof reference !== "object") return false;
   const record = state.controls.get(reference);
   if (
-    !record?.finished ||
+    !record?.lifecycle.finished ||
     record.recovery.recoveryCapability !== reference ||
     record.managementCapability !== management
   )
@@ -878,7 +875,7 @@ export function createAttemptExecutor(
     ...bound,
   };
   const state: Pick<RuntimeState, "controls"> = { controls: new WeakMap() };
-  let startRequested = false;
+  const lifecycle = createLifecycleOperations();
   return Object.freeze({
     kind: "attempt" as const,
     recordProjection: Object.freeze({
@@ -900,26 +897,17 @@ export function createAttemptExecutor(
         reference,
         callbacks = {},
       } = input;
-      if (startRequested)
-        return createStartResult({
-          status: "blocked",
-          reason: "docker_process_controller_plan_invalid",
-          recoveryId:
-            parseDockerTaskRecoveryId(
-              readOwnDataProperty(reference, "recoveryId"),
-            )?.token ?? null,
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-        });
-      startRequested = true;
       try {
-        return start(
+        const result = start(
           { ...state, isolation, callbacks },
           plan,
           management,
           reference,
+          lifecycle,
         );
+        return result;
       } catch {
+        lifecycle.finish();
         return createStartResult({
           status: "blocked",
           reason: "docker_process_controller_start_failed_closed",

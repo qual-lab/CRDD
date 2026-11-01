@@ -7,8 +7,11 @@ import type {
   AiProvider,
   ProviderAuthenticationResult,
 } from "../../../ai-adapter/src/index.ts";
-import type { DockerAuthenticationCommand } from "../../../docker-isolation/src/index.ts";
-import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
+import type {
+  DockerAuthenticationExecution,
+  DockerAuthenticationCommand,
+} from "../../../docker-isolation/src/index.ts";
+import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
  * 認証の技術構成入力。
@@ -20,7 +23,28 @@ import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
  * @security Providerの認証値を読み取らず、Proxy tokenを通知しない。
  * @compatibility 固定Imageと既存認証条件を維持する。
  */
+/**
+ * 認証の同期必須通知と受動完了通知を定義する。
+ * @responsibility 用途に実在する通知引数と完了条件だけを所有する。
+ * @trace ARCH-000008
+ * @shape 共通完了通知と用途固有のイベントハンドラー。
+ * @invariant 必須通知の失敗後は後続Effectを停止する。
+ * @boundary 技術実行と上位の記録・観測。
+ * @security Credential・生出力を通知へ追加しない。
+ * @compatibility 必須通知の既存同期性と任意完了通知の非待機を維持する。
+ */
+export interface AuthenticationCallbacks
+  extends CompletionCallbacks<AuthenticationCompletionResult> {
+  onCommandSubmitting?(purpose: string): void;
+  onResourceCreated?(
+    receipt: NonNullable<DockerAuthenticationExecution["resourceReceipt"]>,
+  ): void;
+  onCommandCompleted?(): void;
+}
+
+/** 選定済みの認証構成。kindで他用途から区別する。 */
 export type AuthenticationRequest = Readonly<{
+  kind: "authentication";
   provider: AiProvider;
   action: "status" | "login";
   providerHomeSourcePath: string;
@@ -112,12 +136,12 @@ export interface Authentication {
   execute(
     signal: AbortSignal | undefined,
     assertOwner: () => boolean,
-    callbacks?: ExecutorCallbacks<"authentication">,
+    callbacks?: AuthenticationCallbacks,
   ): Promise<AuthenticationResult>;
   cleanup(
     readResources: () => AuthenticationProjection["resources"] | null,
     assertOwner: () => boolean,
-    callbacks?: ExecutorCallbacks<"authentication">,
+    callbacks?: AuthenticationCallbacks,
   ): Promise<AuthenticationCleanupResult>;
   isProcessCompletionConfirmed(): boolean;
 }

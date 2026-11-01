@@ -3130,6 +3130,7 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
             purpose: model.executionSelection.purpose,
           });
           const request: ExecutorRequest = {
+            kind: "attempt",
             ...(task
               ? {
                   purpose: "task",

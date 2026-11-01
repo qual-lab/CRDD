@@ -94,6 +94,7 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       current = fixture(mode === "busy");
       acquisitions = 0;
       const request = {
+        kind: "attempt" as const,
         purpose: "probe" as const,
         selection: current.plan.executionSelection,
         target: {
@@ -154,6 +155,13 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       for (let turn = 0; turn < 100 && current.counts().cleanups === 0; turn++)
         await Promise.resolve();
       if (mode === "cancel") {
+        assert.equal(
+          executor.start({
+            managementCapability: current.owner,
+            reference: current.reference,
+          }).status,
+          "blocked",
+        );
         assert.equal(
           (
             await executor.cancel({
@@ -678,6 +686,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
     assert.ok(planned.plan);
     const plan = attemptPlan();
     const base = {
+      kind: "attempt" as const,
       purpose: "advice" as const,
       input: "synthetic",
       networkPolicy: null,

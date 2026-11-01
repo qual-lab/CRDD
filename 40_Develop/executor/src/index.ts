@@ -56,11 +56,16 @@ export function createExecutor(
       request as ExecutorRequest<"isolation_probe">,
       options as IsolationProbeOptions,
     );
-  const action = Object.getOwnPropertyDescriptor(request, "action")?.value;
-  if (action === "status" || action === "login")
+  if (kind === "authentication") {
+    if (Object.hasOwn(request, "purpose")) return null;
+    const action = Object.getOwnPropertyDescriptor(request, "action")?.value;
+    if (action !== "status" && action !== "login") return null;
     return bindAuthenticationLifecycle(
       createAuthentication(request as ExecutorRequest<"authentication">),
     );
+  }
+  if (Object.hasOwn(request, "action")) return null;
+  if (kind !== "attempt") return null;
   return createAttemptExecutor(
     request as ExecutorRequest,
     options as DockerIsolationRuntimeOptions,
@@ -105,13 +110,15 @@ export type {
   AttemptRecoveryTarget,
   AttemptResourceInspection,
   AuthenticationResourceTarget,
-  CancelInput,
-  CancelResult,
-  CompletionResult,
   ContainerResourceInspection,
   ContainerResourceTarget,
   DirectoryResourceCleanupTarget,
   DirectoryResourceInspectionTarget,
+} from "./lifecycle/cleanup-types.ts";
+export type {
+  CancelInput,
+  CancelResult,
+  CompletionResult,
   Executor,
   ExecutorRequest,
   RecordProjection,

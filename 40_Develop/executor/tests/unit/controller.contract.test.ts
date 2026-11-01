@@ -8,6 +8,7 @@
  * @boundary Executor Controllerの終端結果。
  */
 import assert from "node:assert/strict";
+import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
@@ -166,6 +167,7 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
           Object.getOwnPropertyDescriptor(value, key)?.value,
         createStartResult,
         utilTypes: { isPromise: () => false },
+        createLifecycleOperations,
         createDockerIsolationRuntime: () => ({ acquireHomeLease: () => null }),
         bindIsolationRuntime: () => ({}),
         prepareAttempt: (source: unknown, input: unknown) => {

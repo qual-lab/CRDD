@@ -27,6 +27,7 @@ test("認証単独は四構成で通知・三値解析・回収を維持する",
       const events: string[] = [];
       const auth = createAuthenticationUsing(
         {
+          kind: "authentication",
           provider,
           action,
           providerHomeSourcePath: `C:\\runtime\\ProviderHomes\\${provider}`,
@@ -134,6 +135,7 @@ test("認証通知の失敗は発行前に停止し非同期Rejectも捕捉す�
     let effects = 0;
     const auth = createAuthenticationUsing(
       {
+        kind: "authentication",
         provider: "codex",
         action: "status",
         providerHomeSourcePath: "C:\\runtime\\ProviderHomes\\codex",
@@ -169,6 +171,7 @@ test("認証の終了不明は同じ技術生涯でstickyに保持する", async
   let effects = 0;
   const auth = createAuthenticationUsing(
     {
+      kind: "authentication",
       provider: "claude",
       action: "status",
       providerHomeSourcePath: "C:\\runtime\\ProviderHomes\\claude",
@@ -207,6 +210,7 @@ test("認証は作成Receipt欠測をidleや次操作へ進めない", async () 
     idle = 0;
   const auth = createAuthenticationUsing(
     {
+      kind: "authentication",
       provider: "codex",
       action: "status",
       providerHomeSourcePath: "C:\\runtime\\ProviderHomes\\codex",

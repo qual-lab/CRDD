@@ -18,6 +18,7 @@ import {
   runDockerProbeAsync,
 } from "../../../docker-isolation/src/index.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
+import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import type { Executor, StartInput } from "../lifecycle/types.ts";
 import type {
   IsolationProbeOptions,
@@ -101,42 +102,45 @@ export function createIsolationProbe(
     )
   )
     return null;
-  const controller = new AbortController();
-  let started = false;
+  const lifecycle = createLifecycleOperations();
   return Object.freeze<Executor<"isolation_probe">>({
     kind: "isolation_probe",
     start(input: StartInput<"isolation_probe">) {
       const callbacks = input.callbacks ?? {};
-      if (started)
+      if (!lifecycle.start())
         return Object.freeze({
           kind: "isolation_probe",
           status: "blocked",
           reason: "docker_probe_already_started",
           completion: null,
         });
-      if (
-        !callbacks ||
-        typeof callbacks !== "object" ||
-        types.isProxy(callbacks)
-      )
-        throw new Error("docker_probe_notification_invalid");
-      for (const key of Reflect.ownKeys(callbacks)) {
-        const descriptor = Object.getOwnPropertyDescriptor(callbacks, key);
+      try {
         if (
-          (key !== "onCommandSubmitting" &&
-            key !== "onResourceCreated" &&
-            key !== "onCompleted") ||
-          !descriptor ||
-          !("value" in descriptor) ||
-          typeof descriptor.value !== "function"
+          !callbacks ||
+          typeof callbacks !== "object" ||
+          types.isProxy(callbacks)
         )
           throw new Error("docker_probe_notification_invalid");
+        for (const key of Reflect.ownKeys(callbacks)) {
+          const descriptor = Object.getOwnPropertyDescriptor(callbacks, key);
+          if (
+            (key !== "onCommandSubmitting" &&
+              key !== "onResourceCreated" &&
+              key !== "onCompleted") ||
+            !descriptor ||
+            !("value" in descriptor) ||
+            typeof descriptor.value !== "function"
+          )
+            throw new Error("docker_probe_notification_invalid");
+        }
+      } catch (error) {
+        lifecycle.finish();
+        throw error;
       }
-      started = true;
       return Object.freeze({
         kind: "isolation_probe",
         status: "started",
-        completion: execute(),
+        completion: execute().finally(() => lifecycle.finish()),
       });
       async function execute(): Promise<IsolationProbeResult> {
         let containerId: string | null = null;
@@ -165,14 +169,14 @@ export function createIsolationProbe(
           {
             async execute() {
               try {
-                if (controller.signal.aborted)
+                if (lifecycle.signal.aborted)
                   throw new Error("docker_probe_start_cancelled");
                 if (!observeDockerProbeEngine(cli)) {
                   reason = "local_docker_desktop_linux_engine_required";
                   return;
                 }
                 notify(callbacks.onCommandSubmitting, "create_isolation_probe");
-                if (controller.signal.aborted)
+                if (lifecycle.signal.aborted)
                   throw new Error("docker_probe_start_cancelled");
                 const mounts = readMounts();
                 creationAttempted = true;
@@ -191,7 +195,7 @@ export function createIsolationProbe(
                 } else {
                   containerId = creation.id;
                   notify(callbacks.onResourceCreated, containerId);
-                  if (controller.signal.aborted)
+                  if (lifecycle.signal.aborted)
                     throw new Error("docker_probe_start_cancelled");
                   const current = readMounts();
                   const expected = describeDockerProbeConfiguration(
@@ -213,7 +217,7 @@ export function createIsolationProbe(
                     cli,
                     profile,
                     containerId,
-                    controller.signal,
+                    lifecycle.signal,
                   );
                   processCompletionConfirmed =
                     execution.processCompletionConfirmed;
@@ -237,8 +241,9 @@ export function createIsolationProbe(
                   : "docker_isolation_probe_failed";
               }
             },
+            shouldCleanup: () => processCompletionConfirmed,
             async cleanup() {
-              if (containerId && processCompletionConfirmed) {
+              if (containerId) {
                 try {
                   const current = readMounts();
                   const cleanup = cleanupDockerContainer(
@@ -280,27 +285,19 @@ export function createIsolationProbe(
                 facts,
                 cleanupConfirmed,
                 processCompletionConfirmed,
-                cancelled: controller.signal.aborted,
+                cancelled: lifecycle.signal.aborted,
               });
-              try {
-                const pending = callbacks.onCompleted?.(final);
-                if (pending) void pending.catch(() => {});
-              } catch {}
               return final;
             },
+            onCompleted: (result) => callbacks.onCompleted?.(result),
           },
           undefined,
+          lifecycle,
         );
       }
     },
     async cancel(_input) {
-      controller.abort();
-      return Object.freeze({
-        status: "requested",
-        reason: "cancellation_requested",
-        cancellationRequested: true,
-        processTerminationObserved: false,
-      });
+      return lifecycle.cancel();
     },
   });
 }

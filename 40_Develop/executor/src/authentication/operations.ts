@@ -24,6 +24,7 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
+import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import type { Executor } from "../lifecycle/types.ts";
 import type {
   Authentication,
@@ -54,24 +55,20 @@ export function bindAuthenticationLifecycle(
   authentication: Authentication | null,
 ): Executor<"authentication"> | null {
   if (!authentication) return null;
-  const controller = new AbortController();
-  let started = false;
+  const lifecycle = createLifecycleOperations();
   return Object.freeze<Executor<"authentication">>({
     kind: "authentication",
     recordProjection: authentication.projection,
     start(context) {
       const callbacks = context.callbacks ?? {};
-      if (started)
+      if (!lifecycle.start(context.signal))
         return Object.freeze({
           kind: "authentication",
           status: "blocked",
           reason: "provider_authentication_already_started",
           completion: null,
         });
-      started = true;
-      const signal = context.signal
-        ? AbortSignal.any([context.signal, controller.signal])
-        : controller.signal;
+      const signal = lifecycle.signal;
       let result: AuthenticationResult = {
         reason: "provider_authentication_process_completion_unconfirmed",
         authenticationStatus: "unknown",
@@ -95,13 +92,13 @@ export function bindAuthenticationLifecycle(
                 callbacks,
               );
             },
+            shouldCleanup: () => authentication.isProcessCompletionConfirmed(),
             async cleanup() {
-              if (authentication.isProcessCompletionConfirmed())
-                cleanup = await authentication.cleanup(
-                  context.readResources,
-                  context.assertOwner,
-                  callbacks,
-                );
+              cleanup = await authentication.cleanup(
+                context.readResources,
+                context.assertOwner,
+                callbacks,
+              );
             },
             createResult(
               _context,
@@ -137,25 +134,17 @@ export function bindAuthenticationLifecycle(
                   cleanup.processCompletionConfirmed,
                 cleanupConfirmed: !failed && cleanup.confirmed,
               });
-              try {
-                const pending = callbacks.onCompleted?.(final);
-                if (pending) void pending.catch(() => {});
-              } catch {}
               return final;
             },
+            onCompleted: (result) => callbacks.onCompleted?.(result),
           },
           context,
+          lifecycle,
         ),
       });
     },
     async cancel(_input) {
-      controller.abort();
-      return Object.freeze({
-        status: "requested",
-        reason: "cancellation_requested",
-        cancellationRequested: true,
-        processTerminationObserved: false,
-      });
+      return lifecycle.cancel();
     },
   });
 }

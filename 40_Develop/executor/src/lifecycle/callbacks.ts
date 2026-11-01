@@ -1,29 +1,44 @@
 /**
- * 共通Lifecycleと用途固有の通知だけを定義する。
- * @responsibility 通知は必要処理を完了してreturnし、判断API・保存APIと区別する。
+ * 共通の受動完了通知と用途別通知の対応を定義する。
+ * @responsibility 通知の完了条件を用途別Ownerへ残し、不要Propertyを合成しない。
  * @trace ARCH-000008
- * @boundary 同期認証・Probeと、非同期完了を許すAttemptの既存契約を維持する。
+ * @boundary 技術実行と上位の観測・保存。
  */
-import type {
-  DockerAuthenticationExecution,
-  DockerIsolationCommand,
-  DockerResourceReceipts,
-} from "../../../docker-isolation/src/index.ts";
-import type {
-  AttemptDiagnosticNotice,
-  AttemptTerminalObservation,
-  ProcessStartedNotice,
-} from "../attempt/types.ts";
-import type { CompletionResult, ExecutionKind } from "./types.ts";
+import type { DockerResourceReceipts } from "../../../docker-isolation/src/index.ts";
+import type { AttemptCallbacks } from "../attempt/types.ts";
+import type { AuthenticationCallbacks } from "../authentication/types.ts";
+import type { IsolationProbeCallbacks } from "../probe/types.ts";
+import type { ExecutionKind } from "./types.ts";
+
 /**
- * 通常実行と回収で観測した技術資源の事実を上位へ通知する。
- * @responsibility 資源観測と全技術処理終了を区別し、保存方法やACKを所有しない。
+ * 結果固定後の任意通知。必須終端保存にはcompletionの結果を使う。
+ * @responsibility 同じ確定結果を通知し、通知失敗で結果を変えない。
  * @trace ARCH-000008
- * @shape Docker用途・実ID通知と二段階終了通知。観測payloadは型引数で指定する。
- * @invariant 同期回収APIでは通知のPromise返却を拒否し、保存未完了で削除へ進まない。
- * @boundary 通常実行のonResourcesClosedは全終了確認後。回収APIではunknownを含む観測集合も通知する。
- * @security 通知発行自体は不存在・Home解放・回収成功の保証ではない。最終段階通知も成功保証ではない。
- * @compatibility Attempt通知だけに使用し、Directory処置へ用途を拡張しない。
+ * @shape 結果と用途に実在する補足引数。
+ * @invariant 通知のreturnは上位保存確定を意味しない。
+ * @boundary 単発実行から受動利用側。
+ * @security 生出力や新しい権限を追加しない。
+ * @compatibility 同期例外と非同期Rejectを捕捉し、待機しない。
+ */
+export interface CompletionCallbacks<
+  TResult,
+  TObservation extends unknown[] = [],
+> {
+  onCompleted?(
+    result: TResult,
+    ...observation: TObservation
+  ): void | Promise<void>;
+}
+
+/**
+ * 通常実行と回収で観測した技術資源を通知する。
+ * @responsibility 同期回収APIと通常実行の既存通知順序を維持する。
+ * @trace ARCH-000008
+ * @shape 実IDと二段階終了観測。
+ * @invariant 回収APIの同期通知は保存完了後にreturnする。
+ * @boundary 技術回収と上位保存Owner。
+ * @security 通知だけで不存在・Home解放を証明しない。
+ * @compatibility 通常実行の終了通知はPromise完了を待つ。
  */
 export interface ResourceCleanupCallbacks<Observation> {
   onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
@@ -35,63 +50,20 @@ export interface ResourceCleanupCallbacks<Observation> {
   onCleanupCompleted?(observation: Observation): void | Promise<void>;
 }
 
-/** 用途ごとに通知の同期性と既存引数を保持する。 */
-interface ResourceCreatedArguments {
-  attempt: [purpose: DockerIsolationCommand["purpose"], dockerId: string];
-  authentication: [
-    receipt: NonNullable<DockerAuthenticationExecution["resourceReceipt"]>,
-  ];
-  isolation_probe: [dockerId: string];
-}
-
 /**
- * 全用途の通知。保存依頼や判断値ではなく、用途に対応する観測を渡す。
- * @responsibility 必須通知の完了と、任意通知の失敗捕捉を区別する。
+ * 各用途が所有する通知interfaceの対応。
+ * @responsibility 同じ公開名から用途の通知契約を選ぶ。
  * @trace ARCH-000008
+ * @shape 用途Kと既存引数・同期性を持つinterface。
+ * @invariant 非該当Propertyをneverで削る方式を使わない。
+ * @boundary 公開型と各用途の通知Owner。
+ * @security 必須保存通知を受動通知へ変えない。
+ * @compatibility 公開型引数と既存通知名を維持する。
  */
-export interface ExecutorCallbacks<K extends ExecutionKind = "attempt">
-  extends ResourceCleanupCallbacks<AttemptTerminalObservation> {
-  onResourceInspecting?: K extends "attempt"
-    ? NonNullable<
-        ResourceCleanupCallbacks<AttemptTerminalObservation>["onResourceInspecting"]
-      >
-    : never;
-  onResourceIdentified?: K extends "attempt"
-    ? NonNullable<
-        ResourceCleanupCallbacks<AttemptTerminalObservation>["onResourceIdentified"]
-      >
-    : never;
-  onResourcesClosed?: K extends "attempt"
-    ? NonNullable<
-        ResourceCleanupCallbacks<AttemptTerminalObservation>["onResourcesClosed"]
-      >
-    : never;
-  onCleanupCompleted?: K extends "attempt"
-    ? NonNullable<
-        ResourceCleanupCallbacks<AttemptTerminalObservation>["onCleanupCompleted"]
-      >
-    : never;
-  onCommandSubmitting?: K extends "attempt"
-    ? (purpose: DockerIsolationCommand["purpose"]) => void | Promise<void>
-    : (purpose: string) => void;
-  onCommandNotIssued?: K extends "attempt"
-    ? (purpose: DockerIsolationCommand["purpose"]) => void | Promise<void>
-    : never;
-  onProviderSubmitting?: K extends "attempt"
-    ? () => void | Promise<void>
-    : never;
-  onCommandCompleted?: K extends "authentication" ? () => void : never;
-  onResourceCreated?: K extends "attempt"
-    ? (...args: ResourceCreatedArguments[K]) => void | Promise<void>
-    : (...args: ResourceCreatedArguments[K]) => void;
-  onStarted?: K extends "attempt"
-    ? (notice: ProcessStartedNotice) => void | Promise<void>
-    : never;
-  onCompleted?(
-    result: CompletionResult<K>,
-    ...observation: K extends "attempt" ? [AttemptTerminalObservation] : []
-  ): void | Promise<void>;
-  onDiagnostic?: K extends "attempt"
-    ? (notice: AttemptDiagnosticNotice) => void | Promise<void>
-    : never;
+export type ExecutorCallbacks<K extends ExecutionKind = "attempt"> =
+  Callbacks[K];
+interface Callbacks {
+  attempt: AttemptCallbacks;
+  authentication: AuthenticationCallbacks;
+  isolation_probe: IsolationProbeCallbacks;
 }

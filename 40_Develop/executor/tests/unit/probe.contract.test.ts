@@ -7,6 +7,7 @@
  * @boundary 既存createExecutor→固定Probe→DI代役。
  */
 import assert from "node:assert/strict";
+import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 import fs from "node:fs";
 import test, { mock } from "node:test";
 import { types } from "node:util";
@@ -228,6 +229,10 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       }
       if (mode === "cancel") assert.equal(result.status, "cancelled");
       assert.equal(delivered, result);
+      assert.deepEqual(await executor.cancel({}), {
+        status: "blocked",
+        reason: "invalid",
+      });
       assert.equal(executor.start({}).status, "blocked");
       if (["receipt", "promise", "inspect"].includes(mode))
         assert.deepEqual(
@@ -276,7 +281,13 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       sourceDeclaration(source, "notify");
     const baseline = runInNewContext(
       `${helpers}\n${declaration};createIsolationProbe`,
-      { ...dependencies, types, AbortController, executeLifecycle },
+      {
+        ...dependencies,
+        types,
+        AbortController,
+        executeLifecycle,
+        createLifecycleOperations,
+      },
     );
     const baselineExecutor = baseline(
       { kind: "isolation_probe", probeId },
@@ -323,10 +334,10 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       ["mount", "workspace: mounts.workspace,", "workspace: 'other',"],
       [
         "id",
-        declaration.match(/containerId,\s+controller.signal/)?.[0] ??
+        declaration.match(/containerId,\s+lifecycle.signal/)?.[0] ??
           "missing_signal",
         declaration
-          .match(/containerId,\s+controller.signal/)?.[0]
+          .match(/containerId,\s+lifecycle.signal/)?.[0]
           .replace("containerId", "'b'.repeat(64)") ?? "missing_signal",
       ],
     ];
@@ -336,7 +347,13 @@ test("固定Probeは既存入口で保存順序・取消・実ID回収を維持�
       const failuresBefore: number = correlationFailures.length;
       const create = runInNewContext(
         `${helpers}\n${declaration.replace(needle, replacement)};createIsolationProbe`,
-        { ...dependencies, types, AbortController, executeLifecycle },
+        {
+          ...dependencies,
+          types,
+          AbortController,
+          executeLifecycle,
+          createLifecycleOperations,
+        },
       );
       const candidate = create(
         { kind: "isolation_probe", probeId },

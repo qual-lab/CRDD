@@ -147,11 +147,13 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     temporarySourcePath: temporary,
   };
   const probe = prepareAttempt(random, {
+    kind: "attempt",
     purpose: "probe",
     selection: synthetic.executionSelection,
     target,
   });
   const codex = prepareAttempt(random, {
+    kind: "attempt",
     purpose: "probe",
     selection: {
       provider: "codex",
@@ -330,6 +332,7 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
       if (expected.status !== "ready") throw Error("fixture");
       for (const networkPolicy of [null, policy.policy]) {
         const request: AttemptRequest = {
+          kind: "attempt",
           purpose: "advice" as const,
           input: "synthetic",
           networkPolicy,

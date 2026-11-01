@@ -11,6 +11,7 @@ import { types } from "node:util";
 import { runInNewContext as runVm } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { executeLifecycle } from "../../../executor/src/lifecycle/execute.ts";
+import { createLifecycleOperations } from "../../../executor/src/lifecycle/operations.ts";
 
 /**
  * 実上位本文を、移管先の実技術本文へ配線する。
@@ -40,6 +41,7 @@ export function runInNewContext(
       types,
       AbortController,
       executeLifecycle,
+      createLifecycleOperations,
       describeDockerProbeConfiguration: (
         profile: string,
         identity: object,

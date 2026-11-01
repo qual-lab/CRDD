@@ -24,11 +24,46 @@ import type {
   DockerSessionCleanup,
   HomeLease,
 } from "../../../docker-isolation/src/index.ts";
-import type { ExecutorCallbacks } from "../lifecycle/callbacks.ts";
-import type { ExecutorLifecycle } from "../lifecycle/types.ts";
+import type {
+  CompletionCallbacks,
+  ResourceCleanupCallbacks,
+} from "../lifecycle/callbacks.ts";
+import type {
+  ExecutorLifecycle,
+  LifecycleOperations,
+} from "../lifecycle/types.ts";
 import type { ATTEMPT_COMPLETION_REASONS } from "./constants.ts";
 
 /** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
+/**
+ * 通常Attemptの必須通知と受動完了通知を定義する。
+ * @responsibility 用途に実在する通知引数と完了条件だけを所有する。
+ * @trace ARCH-000008
+ * @shape 共通完了通知と用途固有のイベントハンドラー。
+ * @invariant 必須通知の失敗後は後続Effectを停止する。
+ * @boundary 技術実行と上位の記録・観測。
+ * @security Credential・生出力を通知へ追加しない。
+ * @compatibility 必須通知の既存同期性と任意完了通知の非待機を維持する。
+ */
+export interface AttemptCallbacks
+  extends ResourceCleanupCallbacks<AttemptTerminalObservation>,
+    CompletionCallbacks<CompletionResult, [AttemptTerminalObservation]> {
+  onCommandSubmitting?(
+    purpose: DockerIsolationCommand["purpose"],
+  ): void | Promise<void>;
+  onCommandNotIssued?(
+    purpose: DockerIsolationCommand["purpose"],
+  ): void | Promise<void>;
+  onProviderSubmitting?(): void | Promise<void>;
+  onResourceCreated?(
+    purpose: DockerIsolationCommand["purpose"],
+    dockerId: string,
+  ): void | Promise<void>;
+  onStarted?(notice: ProcessStartedNotice): void | Promise<void>;
+  onDiagnostic?(notice: AttemptDiagnosticNotice): void | Promise<void>;
+}
+
+/** 固定隔離実装への通常接続。技術実装とHome排他を再利用する。 */
 export interface IsolationRuntime {
   acquireHomeLease(bindingHash: string): HomeLease | null;
   startExecution(
@@ -65,19 +100,10 @@ export type ExecutionRecord = {
   homeLease: HomeLease;
   homeLeaseReleased: boolean;
   homeLeaseReleaseAttempted: boolean;
-  finished: boolean;
+  lifecycle: LifecycleOperations;
   controlCapability: object;
   recovery: AttemptReference;
   managementCapability: object;
-  cancellationRequested: boolean;
-  cancelExecution:
-    | (() => Promise<
-        Readonly<{
-          cancellationRequested: true;
-          processTerminationObserved: boolean;
-        }>
-      >)
-    | null;
 };
 
 /**
@@ -93,7 +119,7 @@ export type ExecutionRecord = {
  */
 export type RuntimeState = Readonly<{
   isolation: IsolationRuntime;
-  callbacks: ExecutorCallbacks;
+  callbacks: AttemptCallbacks;
   controls: WeakMap<object, ExecutionRecord>;
 }>;
 
@@ -113,6 +139,7 @@ export type AttemptReference = Readonly<{
  * @trace ARCH-000015
  */
 export type AttemptRequest = Readonly<{
+  kind: "attempt";
   selection: AiModelSelection;
   target: Readonly<{
     operationId: string;

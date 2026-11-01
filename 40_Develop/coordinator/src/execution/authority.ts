@@ -8377,6 +8377,7 @@ export function prepareProviderAuthentication(
   prepare: Dependencies["createAuthentication"] = createAuthentication,
 ): RecordProjection<"authentication"> | null {
   const request: ExecutorRequest<"authentication"> = {
+    kind: "authentication",
     provider,
     action,
     providerHomeSourcePath,

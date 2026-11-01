@@ -202,6 +202,7 @@ export function buildStandaloneTrialPlan(
   const built = prepareAttempt(
     { randomBytes },
     {
+      kind: "attempt",
       ...{
         purpose: "advice",
         input: prompt,

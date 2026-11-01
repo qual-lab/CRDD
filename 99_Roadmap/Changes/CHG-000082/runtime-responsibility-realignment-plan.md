@@ -1,5 +1,19 @@
 # 基盤機能中心のRuntime責務再編計画
 
+## Executor実行制御の共通Owner化（2026-11-01）
+
+基準版00ebf3664。人間は公開型だけでなく三用途の開始・取消・終端制御を共通化する方針と、File名lifecycle/operations.tsを承認した。変更分類は実行契約・責務配置のRefactor。Executor詳細・QA-000006、Coordinatorの直接利用側と検証用VM接続を追従する。着手前の読取専用確認で、内部停止も同じ取消へ接続すること、不正Capabilityが取消を消費しないこと、結果固定後の受動通知再入を拒否することを計画へ統合した。SourceとArchitecture／Qualityの独立レビューを行い、準拠・Release基準を変更しないためそれらの監査は発火しない。
+
+共通の短命制御は開始一回・取消一回配送・Signal・終端だけを所有する。AttemptのControl／management・Home Lease・一回解放・元Recovery、認証のsticky終了不明、Probeの実IDとfresh構成検査は固有Ownerに維持する。共通RunnerはExecute→条件付きCleanup→結果固定→終端→受動通知をjoinし、一次失敗を保持する。必須通知の同期性を変えず、用途別interfaceを共通完了通知へ合成する。資源回収型はcleanup-types.tsへ移し、要求kindを三用途に明示する。保存Schema、Checkpoint／Diagnostic内容、Owner／Lock、Provider認証方式・Image・Network、Environment特殊操作は対象外。新しいManager・Registry・Store・永続Stateは作らない。
+
+実装と非AI受入条件を確認した。開始一回・Signal・取消配送・終端の実行時状態はlifecycle/operations.tsに集約し、Attempt recordはその同じ制御への参照を持つ。用途別operationsのstarted／finished／取消BooleanとAbortControllerは撤去した。Attemptは元Capability照合とHome技術排他を維持する。通知は共通CompletionCallbacksと用途別interfaceの合成・型対応へ変更し、Rootの公開関数5個・公開型33個は維持した。Requestのkindは三用途とも必須で、旧action由来の暗黙Fallbackは撤去した。既存scriptsとCoordinatorのRequest構築・VM実本文接続も追従した。
+
+独立レビューで、同期結果構築のawaitが結果固定と終端化の間に取消受付を許す競合を検出し、現三用途どおりcreateResultを同期契約へ限定して同じ同期区間でfinishする最小是正を行った。queueMicrotask取消と受動通知内取消の拒否、二重開始拒否後の元実行への正規取消、配送Reject後の再配送零、外部Signal、清掃中取消・清掃不能、必須通知拒否と元Recovery保持の反例を確認した。SourceおよびArchitecture／Qualityの再レビューは残必須指摘零。
+
+最終回帰はExecutorのnpm run test:runで82件、Coordinator対象10 Suiteで182件、runtime-repair-result.contract.test.tsで26件、DIのexecution/binding.contract.test.tsで1件が成功した。Executorのnpm run check、Coordinator／MCP／Workbench／DIの型検査と差分空白検査も成功。共通制御2ファイルだけを対象にNode v24.19.0の実験的test coverageを計測し、lifecycle/operations.tsは29/29、lifecycle/execute.tsは13/13、合計42/42分岐・144/144行・12/12関数を確認した。測定対象は--test-coverage-include=**/src/lifecycle/operations.tsと同execute.ts、実行試験はunit/lifecycle.contract.test.ts、notifications.contract.test.ts、probe.contract.test.tsの14件。未到達・除外分岐は零。Package全体や実Dockerの網羅率とは扱わない。完全出力は試験Toolの標準出力にあり、Repositoryには重複保存せず同じコマンドで再生成できる。
+
+文書参照展開検査は既存3,356指摘で終了1、変更対象5文書の指摘零。全体QA・Release・実AI／実Docker再成立は主張しない。実AI・Docker・過去保持物は操作していない。
+
 ## Executor公開IFの用途横断統合（2026-11-01）
 
 基準版はd5b841767。人間はExecutor・名前付き開始入力・開始／完了結果・通知の共通化と公開型最小化を承認した。公開IFの破壊的Refactorとして、Executor詳細・QA-000006・Coordinatorの準備／認証／診断／回復・検証scriptsと試験を追従する。標準の準拠条件・Release判定は変更しないため、その監査は発火しない。着手前に親が現行宣言・直接利用側を照合し、読取専用の契約確認結果を統合した。追加の人間判断はない。

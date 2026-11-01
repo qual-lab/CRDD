@@ -197,6 +197,7 @@ export function buildTaskTrialPlan(
   const built = prepareAttempt(
     { randomBytes },
     {
+      kind: "attempt",
       ...{
         purpose: "task",
         input: spec.prompt,

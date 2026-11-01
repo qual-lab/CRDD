@@ -6,6 +6,7 @@
  */
 
 import type { DockerProbeExecutionFacts } from "../../../docker-isolation/src/index.ts";
+import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
  * 固定合成Probeの相関。Provider・Model・任意Scriptを指定しない。
@@ -17,6 +18,23 @@ import type { DockerProbeExecutionFacts } from "../../../docker-isolation/src/in
  * @security 任意Script・Image・Credentialを受け取らない。
  * @compatibility 通常AttemptRequestの形式は変えない。
  */
+/**
+ * 固定Probeの同期必須通知と受動完了通知を定義する。
+ * @responsibility 用途に実在する通知引数と完了条件だけを所有する。
+ * @trace ARCH-000008
+ * @shape 共通完了通知と用途固有のイベントハンドラー。
+ * @invariant 必須通知の失敗後は後続Effectを停止する。
+ * @boundary 技術実行と上位の記録・観測。
+ * @security Credential・生出力を通知へ追加しない。
+ * @compatibility 必須通知の既存同期性と任意完了通知の非待機を維持する。
+ */
+export interface IsolationProbeCallbacks
+  extends CompletionCallbacks<IsolationProbeResult> {
+  onCommandSubmitting?(purpose: string): void;
+  onResourceCreated?(dockerId: string): void;
+}
+
+/** 固定Probe要求。任意ScriptやProvider指定を受け取らない。 */
 export type IsolationProbeRequest = Readonly<{
   kind: "isolation_probe";
   probeId: string;

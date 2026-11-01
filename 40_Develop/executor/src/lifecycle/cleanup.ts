@@ -36,7 +36,7 @@ import type {
   ContainerResourceTarget,
   DirectoryResourceCleanupTarget,
   DirectoryResourceInspectionTarget,
-} from "./types.ts";
+} from "./cleanup-types.ts";
 
 /**
  * 保持中のHome技術Leaseを一回解放する。

@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  * @boundary 固有構成と技術実行。保存・Task順序・Provider結果の意味を所有しない。
  */
-import type { LifecycleOperation } from "./types.ts";
+import type { LifecycleOperation, LifecycleOperations } from "./types.ts";
 
 /**
  * 同じContextの実行と清掃を一回のPromiseへ収束させる。
@@ -25,6 +25,7 @@ import type { LifecycleOperation } from "./types.ts";
 export async function executeLifecycle<TContext, TResult>(
   operation: LifecycleOperation<TContext, TResult>,
   context: TContext,
+  control?: LifecycleOperations,
 ): Promise<TResult> {
   let failure: unknown = null;
   let failed = false;
@@ -35,10 +36,23 @@ export async function executeLifecycle<TContext, TResult>(
     failure = error;
   }
   try {
-    await operation.cleanup(context);
+    if (operation.shouldCleanup?.(context) !== false)
+      await operation.cleanup(context);
   } catch (error) {
     if (!failed) failure = error;
     failed = true;
   }
-  return operation.createResult(context, failure, failed);
+  let result: TResult;
+  try {
+    result = operation.createResult(context, failure, failed);
+  } finally {
+    control?.finish();
+  }
+  try {
+    const pending = operation.onCompleted?.(result);
+    if (pending) void pending.catch(() => {});
+  } catch {
+    // 任意通知は確定済み結果や技術回収を変更しない。
+  }
+  return result;
 }

@@ -32,6 +32,8 @@
 
 ### Executor共通Lifecycleと環境mode
 
+共通実行制御はlifecycle/operations.tsを正本とし、三用途に独立した開始済み・取消済み・終端BooleanやAbortControllerが残らないことを照合する。事前取消、重複開始／取消、終了後取消、遅延接続の取消配送一回、配送Reject後の再配送零、Cleanup保留中の取消と結果固定後の受動通知再入を確認する。Attemptの不正Control／managementでは共通取消を消費しない。Process終了不明で追加Effectを止め、cleanup不要／不能を成功へ補完しない。公開Requestのkind欠測・未知・accessor・用途矛盾は準備前に拒否し、既存の型・各Consumerの実値へ接続する。
+
 公開IF統合では、Executor<K>・StartInput<K>・StartResult<K>・CompletionResult<K>・CancelInput<K>／CancelResult・ExecutorCallbacks<K>を各用途から検証する。Kの混同、Attempt管理参照なしの取消、認証へのAttempt専用abandon、Probeへの非該当通知登録を型負例で拒否する。結果kind・共通statusと既存認証三値／Probe実体観測の対応、重複開始拒否時の追加Effect零、元Control不一致、同期通知の誤Promise、受動通知のthrow／Rejectで確定結果が変わらないことを維持する。用途別の結果・通知・Executorの旧Root名は撤去し、新しい形を利用側・検証scripts・exact field検査へ接続する。保存DTOの形式変更や過去結果の移行を同時に実装しない。
 
 既存ERB-IT-004／ERB-IT-014に共通Lifecycleの順序・一次失敗保持・清掃joinを接続する。Attemptの通知待ち中取消・Home競合・必要通知拒否、認証の正常／取消／Process終了不明／清掃不成立、固定ProbeのIntent／Receipt拒否・構成差・実ID回収を維持する。認証の通常完了は技術清掃を含み、上位保存・Home Lock解放とは区別する。旧idle記録の回収→保存確定→再受付の順序、unknownの同一回復参照と追加Effect停止は維持する。

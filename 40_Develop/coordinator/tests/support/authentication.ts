@@ -207,6 +207,7 @@ export function createProviderAuthenticationPlan<A extends "status" | "login">(
   if (!technical) return null;
   const auth = createAuthenticationUsing(
     {
+      kind: "authentication",
       provider,
       action,
       providerHomeSourcePath: home,
