@@ -5354,16 +5354,13 @@ export function recoverDockerIsolationProbe(
           },
         ),
         managementDirectory: recovery.children.management,
-        assertOwner: () => {
-          verifyHostOperationRecoveryGeneration(
-            generation,
-            recovery.root,
-            hostNonce,
-          );
-          loadDockerProbeRecoveryRecord(token, expectedRoot);
-          return true;
-        },
       });
+      verifyHostOperationRecoveryGeneration(
+        generation,
+        recovery.root,
+        hostNonce,
+      );
+      loadDockerProbeRecoveryRecord(token, expectedRoot);
       let observed = inspectResources(target);
       if (observed.observation !== "absent") {
         if (observed.observation !== "present")
@@ -5387,6 +5384,12 @@ export function recoverDockerIsolationProbe(
             recoveryId: token,
           };
       }
+      verifyHostOperationRecoveryGeneration(
+        generation,
+        recovery.root,
+        hostNonce,
+      );
+      loadDockerProbeRecoveryRecord(token, expectedRoot);
       const absenceCapability = Object.freeze({ kind: "docker_absence" });
       absenceCapabilities.set(
         absenceCapability,

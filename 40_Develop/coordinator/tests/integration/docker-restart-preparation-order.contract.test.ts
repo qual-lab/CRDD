@@ -845,7 +845,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     (mode === "restart" ? body : recoveryBody) +
       (mode === "restart"
         ? "\n({prepare:prepareRuntimeOwnedDockerRestart,verify:verifyRuntimeOwnedDockerRestartPreparation,persist:persistRuntimeOwnedDockerRestartCheckpoint,release:releaseRuntimeOwnedDockerRestartPreparation,finalize:finalizeRuntimeOwnedDockerRestartPreparation})"
-        : "\n({prepare:prepareRuntimeOwnedDockerTaskRecovery,persist:persistRuntimeOwnedDockerTaskRecoveryCheckpoint,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation,recover:recoverRuntimeOwnedDockerTaskResources,expectations:projectAttemptRecoveryTarget,confirmHost:confirmRuntimeOwnedDockerTaskHostAbsence,cleanupHost:cleanupRuntimeOwnedDockerTaskHost})"),
+        : "\n({prepare:prepareRuntimeOwnedDockerTaskRecovery,persist:persistRuntimeOwnedDockerTaskRecoveryCheckpoint,release:releaseRuntimeOwnedDockerTaskRecoveryPreparation,recover:recoverRuntimeOwnedDockerTaskResources,expectations:projectResourceTarget,confirmHost:confirmRuntimeOwnedDockerTaskHostAbsence,cleanupHost:cleanupRuntimeOwnedDockerTaskHost})"),
     context,
   );
   if (mode === "recovery") {
@@ -1465,7 +1465,7 @@ test("現在資源の欠測・重複・未知用途は技術計画前に拒否�
  * @cleanup 合成排他を全解放。実Docker・Filesystemへの処置なし。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番回収→保存・DI差替え境界。
  */
-test("現在資源回収は未要求と確定未発行でDIを呼ばない", () => {
+test("現在資源回収は未要求と確定未発行でDIを呼ばない", async () => {
   for (const request of ["not_requested", "not_issued"] as const) {
     const f = fixture("recovery");
     const target = f.snapshot.operations[0];
@@ -1478,7 +1478,7 @@ test("現在資源回収は未要求と確定未発行でDIを呼ばない", () 
     const prepared = f.api.prepare(f.token, f.root);
     assert.equal(prepared.status, "prepared");
     try {
-      const result = f.api.recover(prepared.capability, {
+      const result = await f.api.recover(prepared.capability, {
         discoverSubmitted: () => {
           throw new Error("discovery forbidden");
         },
@@ -1508,7 +1508,7 @@ test("現在資源回収は未要求と確定未発行でDIを呼ばない", () 
  * @cleanup 合成排他を全解放。実Docker・Filesystemへの処置なし。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番回収→Writer→DI差替え境界。
  */
-test("現在資源回収は意図をunknown保存し発見ID確定後だけ削除する", () => {
+test("現在資源回収は意図をunknown保存し発見ID確定後だけ削除する", async () => {
   const f = fixture("recovery");
   const target = f.snapshot.operations[0];
   assert.ok(target);
@@ -1522,7 +1522,7 @@ test("現在資源回収は意図をunknown保存し発見ID確定後だけ削�
   const dockerId = "3".repeat(64);
   assert.equal(prepared.status, "prepared");
   try {
-    const result = f.api.recover(prepared.capability, {
+    const result = await f.api.recover(prepared.capability, {
       discoverSubmitted: (expectation: {
         purpose: string;
         expectedName: string;
@@ -1605,7 +1605,7 @@ test("現在資源回収は意図をunknown保存し発見ID確定後だけ削�
  * @cleanup 合成排他を全解放。実Docker・Filesystemへの処置なし。
  * @boundary ERB-IT-014=Related 2 Blocks: 固定期待値→DI差替え→cleanup Writer。
  */
-test("現在資源回収は既知IDとContainer先行順とProxy二候補を保持する", () => {
+test("現在資源回収は既知IDとContainer先行順とProxy二候補を保持する", async () => {
   const f = fixture("recovery");
   const target = f.snapshot.operations[0];
   assert.ok(target);
@@ -1620,7 +1620,7 @@ test("現在資源回収は既知IDとContainer先行順とProxy二候補を保�
   const prepared = f.api.prepare(f.token, f.root);
   const observed: unknown[] = [];
   try {
-    const result = f.api.recover(prepared.capability, {
+    const result = await f.api.recover(prepared.capability, {
       discoverSubmitted: () => {
         throw new Error("known ID discovery forbidden");
       },
@@ -1708,17 +1708,17 @@ test("現在資源回収は既知IDとContainer先行順とProxy二候補を保�
 });
 
 /**
- * 保存拒否・失効・未発見では新しい削除や完了を生成しない。
+ * 保存拒否・未発見では削除せず、受理後Owner変化では上位完了を拒否する。
  * @responsibility 失敗後の追加処置0とunknown保持を確認する。
  * @trace ERB-IT-014
  * @precondition 本番Ownerと合成Writer／DIだけを使用する。
  * @stimulus unknown保存拒否、identified保存拒否、発見後失効とnullを返す。
  * @observation 保存・発見・削除回数、同Context再呼出しと状態。
- * @oracle 保存拒否・失効後削除0、未発見は非完了。Host／Lease／別操作を保持する。
+ * @oracle 保存通知前の拒否は削除0、受理後の技術処置は継続し上位確定を拒否する。未発見は非完了でHost／Lease／別操作を保持する。
  * @cleanup 合成排他を解放。実Docker・Filesystemへの処置なし。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番回収→故障Writer／DI差替え。
  */
-test("現在資源回収は保存拒否と失効と未発見で削除を止める", () => {
+test("現在資源回収は保存拒否と失効と未発見で削除を止める", async () => {
   for (const fault of [
     "intent_save",
     "identified_save",
@@ -1757,12 +1757,12 @@ test("現在資源回収は保存拒否と失効と未発見で削除を止め�
       },
     };
     try {
-      const result = f.api.recover(prepared.capability, operations);
+      const result = await f.api.recover(prepared.capability, operations);
       assert.equal(result.status, "blocked");
       assert.equal(result.dockerCleanupConfirmed, false);
       assert.equal(result.recoveryId, f.token);
       assert.equal(discoveries, fault === "intent_save" ? 0 : 1);
-      assert.equal(deletions, 0);
+      assert.equal(deletions, fault === "owner_before_remove" ? 1 : 0);
       assert.deepEqual(f.snapshot.operations[1], before[1]);
       assert.deepEqual(f.snapshot.operations[0]?.host, before[0]?.host);
       assert.equal(f.snapshot.operations[0]?.lease, before[0]?.lease);
@@ -1779,11 +1779,11 @@ test("現在資源回収は保存拒否と失効と未発見で削除を止め�
         f.writerFault = false;
         f.ownerLive = true;
         assert.equal(
-          f.api.recover(prepared.capability, operations).status,
+          (await f.api.recover(prepared.capability, operations)).status,
           "blocked",
         );
         assert.equal(f.writes, writes);
-        assert.equal(deletions, 0);
+        assert.equal(deletions, fault === "owner_before_remove" ? 1 : 0);
         assert.equal(discoveries, fault === "intent_save" ? 0 : 1);
       }
     } finally {

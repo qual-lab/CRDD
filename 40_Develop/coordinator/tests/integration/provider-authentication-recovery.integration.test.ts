@@ -245,15 +245,17 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
  * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
  */
 function absenceError(purpose: string) {
-  const resource = purpose.includes("network")
-    ? purpose.includes("internal")
-      ? `crdd-internal-${suffix}`
-      : `crdd-egress-${suffix}`
-    : purpose.includes("probe")
-      ? `crdd-auth-${suffix}`
-      : purpose.includes("login")
-        ? `crdd-claude-${suffix}`
-        : `crdd-proxy-${suffix}`;
+  const resource = purpose.includes("_id_absent")
+    ? "a".repeat(64)
+    : purpose.includes("network")
+      ? purpose.includes("internal")
+        ? `crdd-internal-${suffix}`
+        : `crdd-egress-${suffix}`
+      : purpose.includes("probe")
+        ? `crdd-auth-${suffix}`
+        : purpose.includes("login")
+          ? `crdd-claude-${suffix}`
+          : `crdd-proxy-${suffix}`;
   return purpose.includes("network")
     ? `Error response from daemon: network ${resource} not found`
     : `Error: No such container: ${resource}`;
@@ -385,14 +387,6 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
           acquireRuntimeOwnedLogicalProviderHomeKernelLock,
         beginRecovery: beginProviderAuthenticationRecovery,
         recordCreatedResource: () => true,
-        recoveryCommands: (_record, plan, index) => {
-          const ownershipCommand = plan.ownershipCommands[index];
-          const cleanupCommand = plan.cleanupCommands[index];
-          const absenceCommand = plan.absenceCommands[index];
-          return ownershipCommand && cleanupCommand && absenceCommand
-            ? { ownershipCommand, cleanupCommand, absenceCommand }
-            : null;
-        },
         setRecoveryCommandState: (record, state, purpose) => {
           const isUpdated = setProviderAuthenticationRecoveryCommandState(
             record,
@@ -426,7 +420,7 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
         },
       },
     );
-    assert.equal(result.status, "completed");
+    assert.equal(result.status, "completed", result.reason);
     assert.equal(result.recoveryId, null);
     assert.equal(
       purposes.filter((value) => value === "create_internal_network").length,
@@ -445,11 +439,16 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
         const cleanup = plan.cleanupCommands[index];
         const absence = plan.absenceCommands[index];
         assert.ok(cleanup && absence);
-        return [command.purpose, cleanup.purpose, absence.purpose];
+        return [
+          command.purpose,
+          cleanup.purpose,
+          absence.purpose.replace("_absent", "_id_absent"),
+          absence.purpose,
+        ];
       },
     );
     const expectedPurposes = [
-      ...recoveryPurposes,
+      ...plan.absenceCommands.map((command) => command.purpose),
       ...plan.commands.map((command) => command.purpose),
       ...recoveryPurposes,
     ];
@@ -559,14 +558,6 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
           acquireRuntimeOwnedLogicalProviderHomeKernelLock,
         beginRecovery: beginProviderAuthenticationRecovery,
         recordCreatedResource: () => true,
-        recoveryCommands: (_record, plan, index) => {
-          const ownershipCommand = plan.ownershipCommands[index];
-          const cleanupCommand = plan.cleanupCommands[index];
-          const absenceCommand = plan.absenceCommands[index];
-          return ownershipCommand && cleanupCommand && absenceCommand
-            ? { ownershipCommand, cleanupCommand, absenceCommand }
-            : null;
-        },
         setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
         completeRecovery: settleProviderAuthenticationRecovery,
         run: async () => {

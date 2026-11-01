@@ -323,18 +323,18 @@ export function observeDockerContainerAbsence(
 
 /**
  * fresh構成一致後の実IDだけを回収する。
- * @responsibility 観測後の現在Owner確認と三軸不存在を維持する。
+ * @responsibility 観測後の明示取消確認と三軸不存在を維持する。
  * @trace ARCH-000008
- * @input binding、expected: 元構成、assertBeforeRemoval: 現在性確認。
+ * @input binding、expected: 元構成、signal: 任意の明示取消。
  * @returns 削除と三軸不存在成立時のみconfirmed。
  * @effect inspect、実ID rm、三軸一覧。
- * @failure 不一致・現在性喪失・削除不明・残存は失敗。
+ * @failure 不一致・明示取消・削除不明・残存は失敗。
  * @invariant 名前やLabelだけでは削除しない。
  */
 export function cleanupDockerContainer(
   binding: DockerContainerBinding,
   expected: DockerContainerConfigurationExpectation,
-  assertBeforeRemoval?: () => boolean,
+  signal?: AbortSignal,
 ) {
   const captured = captureExpectation(expected);
   if (!inspectDockerContainer(binding, captured))
@@ -342,10 +342,10 @@ export function cleanupDockerContainer(
       confirmed: false,
       reason: "docker_container_identity_mismatch",
     });
-  if (assertBeforeRemoval && assertBeforeRemoval() !== true)
+  if (signal?.aborted)
     return Object.freeze({
       confirmed: false,
-      reason: "docker_recovery_owner_unconfirmed",
+      reason: "docker_resource_cleanup_cancelled",
     });
   const confirmed = removeObservedDockerResource(
     (argv) => run(binding, argv),

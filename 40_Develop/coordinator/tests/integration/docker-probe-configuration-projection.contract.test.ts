@@ -85,9 +85,8 @@ test("旧record回復は六候補をExecutorへ渡し不明時に削除しない
         ),
       inspectResources: (target: {
         configuration: DockerContainerConfigurationExpectation;
-        assertOwner: () => boolean;
       }) => {
-        assert.equal(target.assertOwner(), true);
+        assert.equal(Object.hasOwn(target, "assertOwner"), false);
         assert.equal(target.configuration.id, id);
         assert.equal(
           target.configuration.name,

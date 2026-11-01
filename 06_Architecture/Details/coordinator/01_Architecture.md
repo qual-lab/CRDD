@@ -12,7 +12,7 @@ Home Lock、Recovery在庫の種類、exact参照、再入場可否、保存Sche
 
 ## 固定資源の観測・処置と環境修復の窓口（2026-11-01）
 
-修復の技術callはExecutor.restartDockerEnvironmentのmode:repair、固定Directoryの観測／廃棄はExecutor.inspectResources／cleanupResourcesへ接続する。Attemptも同じ公開名を使うが、対象別の技術型と同期性は維持する。修復Session・固定Scope観測・物理廃棄の実装はDIに残し、Coordinatorは保持の意味、期限、廃棄判断、現在Owner、元保存bytes、Intent・Checkpoint保存、読戻し、履歴と完了の判断を所有する。
+修復の技術callはExecutor.restartDockerEnvironmentのmode:repair、固定Directoryの観測／廃棄はExecutor.inspectResources／cleanupResourcesへ接続する。Attemptも同じ公開名を使うが、対象別の技術型と既存観測の意味は維持する。資源集合の回収は非同期結果をawaitしてから保存確定・Lock解放・Host清掃へ進む。Container／Directoryの同期・非同期差を一律変更しない。修復Session・固定Scope観測・物理廃棄の実装はDIに残し、Coordinatorは保持の意味、期限、廃棄判断、現在Owner、元保存bytes、Intent・Checkpoint保存、読戻し、履歴と完了の判断を所有する。
 
 現行repair再入場の保持判断待ちから廃棄判断を保存する経路は維持する。期限だけで自動廃棄せず、用途別Intent保存後のcanDisposeがDIの待機後にも同じ判断・Owner・用途を再確認する。新しい回復Capability／Owner／Lockは作らず、既存管理の簡素化は別作業にする。型と純粋な状態値検査のDI参照は機械的に撤去しない。
 
@@ -216,7 +216,7 @@ Workspace新方式の情報区分・隔離は[DI共通方針](../docker-isolatio
 
 Provider計画の投影では、Proxy包装の解釈とContainer内Homeの定数生成をDIへ委譲し、元Providerと返却profileの相関だけを判定する。Seccompの適用要否と期待Hash／bytesはProvider metadataからDI計画へ渡し、固定Host Pathの解決・実体照合・option構築はDI内に閉じる。旧Coordinator側のFilesystem Resolverを再実装しない。上位の計画投影と元Runtime相関は`execution/controller.ts` / `execution/preparation.ts`、実行許可・取消・通知・結果調整は`execution/controller.ts` / `execution/result.ts` / `execution/observation.ts`、公開固定理由は`execution/result.ts`、Taskの現在状態・排他・受領・終了は`execution/recovery.ts`が所有する。旧`docker-desktop/`と`docker-execution/`は撤去し、互換中継を残さない。この配置だけから全体の技術依存除去・実境界成立を主張しない。
 
-Task回復の技術接続はDIの固定`createDockerTaskRecoveryExecutor`へ、借用managementDirectoryと同期assertOwnerだけを渡す。CLI出所snapshot、Windows実行物、Engine、環境変数の構成はCoordinatorが保持・選択しない。返却された元executorを使い、既存finallyで元closeを呼び、config回収不明を上位状態へ保持する。回復義務の保存・現在Owner確認・受領・終了判定は引き続きCoordinatorの責務である。
+Task回復はExecutorのcleanupResourcesへ、元操作・回復参照、保存済みの技術投影・Receipt、借用managementDirectoryと任意の明示取消Signalを渡し、Promise完了まで既存排他を保持する。技術期待値・CLI・config・削除手順はDIが所有し、Coordinatorは構築しない。認証も上位で対象値を読み、Executorへ確定済み資源情報を渡す。下位からOwnerや保存状態を逆照会しない。呼出し前後・必須通知内の保存相関確認、回復義務・受領・終了判定はCoordinatorに維持する。途中Owner失効の自動検知を保証せず、停止は明示取消とする。
 
 隔離診断の上位調整は`execution/diagnostics.ts`が所有する。Dockerの技術実行・環境判定はDocker Isolation、Host記録の保存と遷移は既存Host Ownerへ委譲し、診断本体は順序、私有の対象相関と公開結果を扱う。旧`docker-execution/isolation-probe.ts`の互換入口は残さない。この配置変更は実行・回復本体の移管完了を意味しない。
 
@@ -574,7 +574,7 @@ Coordinatorは回復対象の選定、現在Owner・権限・排他、Domainの�
 
 | 現行処理 | 移管後のOwnerと保持する処置 |
 |---|---|
-| 旧currentDockerRecoveryResourceExpectations | projectAttemptRecoveryTargetがDomain保存値を技術投影へ変換。五用途の期待値構築はExecutorからDIへ接続 |
+| 旧currentDockerRecoveryResourceExpectations | projectResourceTargetがDomain保存値をDI正本の技術投影へ搬送。五用途の期待値構築と回収はDIが所有 |
 | recoverRuntimeOwnedDockerTaskResources | Owner・元版・Checkpointの確定はCoordinator。探索・構成照合・exact ID回収と観測はExecutor／DI |
 | executeRuntimeOwnedDockerTaskResourceRecovery | Host管理領域の用途限定借用はCoordinator。DI Executorの生成・実行・config closeはExecutor |
 | 認証unknownの限定閉鎖 | 適用可否と専用WriterはCoordinator／Domain。二回の名前・Label不存在観測だけExecutor／DI |

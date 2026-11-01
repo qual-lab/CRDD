@@ -16,7 +16,9 @@ import {
   describeDockerCliTrustContract,
 } from "../docker-cli/trust.ts";
 import { createDockerProcessEnvironment } from "../docker-cli/environment.ts";
-import { dockerResourceConfigurationMatches } from "../cleanup/plan.ts";
+import { planDockerRecoveryResourceExpectations } from "../cleanup/plan.ts";
+import { cleanupResourceSet } from "../cleanup/resources.ts";
+import { cleanupDockerResource } from "../cleanup/operations.ts";
 import {
   createDockerCliConfig,
   verifyDockerCliConfig,
@@ -31,7 +33,6 @@ import {
   startOwnedWindowsProcess,
   finishOwnedProcess,
 } from "../process/start.ts";
-import { STDOUT_LIMIT_BYTES } from "./result.ts";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import {
   startDockerCommandSession,
@@ -573,239 +574,6 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
   }
 
   /**
-   * 記録された実Docker IDの構成と所有相関を観測する。
-   *
-   * @responsibility 実ID・名前・Label・Image・Networkと固定隔離構成を同時に照合する。
-   * @trace ARCH-000008
-   * @input context、kind、dockerId、expectedName、ownershipLabel、expectedImage、shouldBeInternal、purpose、plan: exact資源と期待構成。
-   * @returns owned、foreign、unknownの三値。
-   * @precondition 実IDは既存Ownerが検査した作成Receiptに由来する。
-   * @postcondition 観測不能をownedまたは不存在へ補完しない。
-   * @effect 固定Docker inspectを実IDで実行する。
-   * @failure 不正応答・出力超過・観測失敗はunknown、相関／構成不一致はforeign。
-   * @invariant 名前やLabel単独で削除許可を作らない。
-   * @boundary Docker実資源から固定構成照合への境界。
-   * @security User・read-only・cap-drop・no-new-privileges・Mount modeを保持する。
-   * @concurrency 毎回現在の実体を観測し、履歴値だけで構成一致を主張しない。
-   */
-  async function inspectExactResource(
-    context: ExecutionContext<Cli>,
-    kind: "container" | "network",
-    dockerId: string,
-    expectedName: string,
-    ownershipLabel: string,
-    expectedImage: string | null,
-    shouldBeInternal: boolean | null,
-    purpose:
-      | "create_subscription_auth_probe"
-      | "create_internal_network"
-      | "create_egress_network"
-      | "create_proxy"
-      | "create_provider",
-    plan: DockerIsolationRuntimePlan,
-  ) {
-    const result = await runShort(
-      context,
-      kind === "container"
-        ? ["container", "inspect", dockerId]
-        : ["network", "inspect", dockerId],
-    );
-    if (
-      result?.status !== 0 ||
-      result.signal !== null ||
-      result.outputExceeded ||
-      result.stderr.length !== 0 ||
-      Buffer.byteLength(result.stdout, "utf8") > STDOUT_LIMIT_BYTES
-    )
-      return "unknown" as const;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(result.stdout);
-    } catch {
-      return "unknown" as const;
-    }
-    if (!Array.isArray(parsed) || parsed.length !== 1)
-      return "foreign" as const;
-    return dockerResourceConfigurationMatches(parsed[0], {
-      kind,
-      dockerId,
-      expectedName,
-      ownershipLabel,
-      expectedImage,
-      shouldBeInternal,
-      purpose,
-      expectedNetworks:
-        kind === "network"
-          ? []
-          : purpose === "create_subscription_auth_probe"
-            ? ["none"]
-            : purpose === "create_proxy"
-              ? [
-                  plan.configuration.egressNetworkName,
-                  plan.configuration.internalNetworkName,
-                ].sort()
-              : [plan.configuration.internalNetworkName],
-      workspaceMounted: plan.configuration.workspace !== null,
-      workspaceReadOnly: plan.configuration.workspace?.readOnly === true,
-      initRequired: plan.configuration.execution.initRequired,
-      ...(purpose === "create_provider" &&
-      plan.configuration.workspace?.protection
-        ? {
-            workspaceProtected: true,
-            workspaceProtection: plan.configuration.workspace.protection,
-          }
-        : {}),
-    })
-      ? ("owned" as const)
-      : ("foreign" as const);
-  }
-
-  /**
-   * 実Docker IDと予定名の不存在を別々に観測する。
-   *
-   * @responsibility IDの不在と同名資源の不在を成功応答で確認する。
-   * @trace ARCH-000008
-   * @input context、kind、dockerId、expectedName: 元資源のIDと名。
-   * @returns 双方の明示不存在を確認した場合だけtrue。
-   * @precondition 同じ元ContextのCLIと構成を使用する。
-   * @postcondition 通信失敗・出力超過・不正終了を空集合へ変換しない。
-   * @effect 固定Docker lsで実IDとexact名の現在値を読む。
-   * @failure 片方でも観測不能または残存ならfalse。
-   * @invariant falseは不存在を意味せず、上位が未確認として扱う。
-   * @boundary Docker資源清掃後の現在観測。
-   * @security 別ID・同名差替えを回収成功へ混入しない。
-   * @concurrency 清掃後に再観測し、削除要求の受理だけで完了しない。
-   */
-  async function exactResourceAbsent(
-    context: ExecutionContext<Cli>,
-    kind: "container" | "network",
-    dockerId: string,
-    expectedName: string,
-  ) {
-    const result = await runShort(
-      context,
-      kind === "container"
-        ? [
-            "container",
-            "ls",
-            "--all",
-            "--no-trunc",
-            "--filter",
-            `id=${dockerId}`,
-            "--format",
-            "{{.ID}}",
-          ]
-        : [
-            "network",
-            "ls",
-            "--no-trunc",
-            "--filter",
-            `id=${dockerId}`,
-            "--format",
-            "{{.ID}}",
-          ],
-    );
-    if (
-      result?.status !== 0 ||
-      result.signal !== null ||
-      result.outputExceeded ||
-      result.stderr.length !== 0 ||
-      result.stdout.trim() !== ""
-    )
-      return false;
-    const named = await runShort(
-      context,
-      kind === "container"
-        ? [
-            "container",
-            "ls",
-            "--all",
-            "--no-trunc",
-            "--filter",
-            `name=^/${expectedName}$`,
-            "--format",
-            "{{.ID}}",
-          ]
-        : [
-            "network",
-            "ls",
-            "--no-trunc",
-            "--filter",
-            `name=^${expectedName}$`,
-            "--format",
-            "{{.ID}}",
-          ],
-    );
-    return (
-      named?.status === 0 &&
-      named.signal === null &&
-      !named.outputExceeded &&
-      named.stderr.length === 0 &&
-      named.stdout.trim() === ""
-    );
-  }
-
-  /**
-   * 検査済み実IDの資源だけを回収する。
-   *
-   * @responsibility 要求状態・実ID・構成・処置・終了後不存在を同じ資源へ結合する。
-   * @trace ARCH-000008
-   * @input context、kind、state、expectedName、ownershipLabel、expectedImage、shouldBeInternal、purpose、plan: 元資源のReceiptと技術構成。
-   * @returns 明示未要求または検査・処置・不存在成立時だけtrue。
-   * @precondition 同じOwnerのReceiptを用い、要求済みなら実IDを持つ。
-   * @postcondition 実ID不明・他Owner・構成不一致の資源を処置しない。
-   * @effect owned確認後だけ実Docker IDを指定してContainer／Networkを削除する。
-   * @failure 作成結果不明・観測失敗・削除失敗・残存はfalse。
-   * @invariant 名前だけの強制削除や作成結果の再構成を行わない。
-   * @boundary 検査済みDocker資源の処置と終了後観測。
-   * @security 他OwnerのID・構成を取り込まず、実IDと名前の双方を再観測する。
-   * @concurrency 検査後に処置し、結果を再観測する。競合や不明は成功にしない。
-   */
-  async function removeExactResource(
-    context: ExecutionContext<Cli>,
-    kind: "container" | "network",
-    state: Readonly<{ submitted: boolean; dockerId: string | null }>,
-    expectedName: string,
-    ownershipLabel: string,
-    expectedImage: string | null,
-    shouldBeInternal: boolean | null,
-    purpose:
-      | "create_subscription_auth_probe"
-      | "create_internal_network"
-      | "create_egress_network"
-      | "create_proxy"
-      | "create_provider",
-    plan: DockerIsolationRuntimePlan,
-  ) {
-    if (!state.submitted) return state.dockerId === null;
-    if (!state.dockerId) return false;
-    const before = await inspectExactResource(
-      context,
-      kind,
-      state.dockerId,
-      expectedName,
-      ownershipLabel,
-      expectedImage,
-      shouldBeInternal,
-      purpose,
-      plan,
-    );
-    if (before !== "owned") return false;
-    const removal = await runShort(
-      context,
-      kind === "container"
-        ? ["container", "rm", "--force", state.dockerId]
-        : ["network", "rm", state.dockerId],
-    );
-    return (
-      removal?.status === 0 &&
-      removal.signal === null &&
-      !removal.outputExceeded &&
-      (await exactResourceAbsent(context, kind, state.dockerId, expectedName))
-    );
-  }
-
-  /**
    * 所有 Resourcesを清掃する。
    *
    * @responsibility 所有 Resourcesの清掃対象、完了観測、残存時の失敗境界を所有する。
@@ -887,63 +655,72 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
         resourceObservations: null,
       });
     }
-    const providerAbsent = await removeExactResource(
-      context,
-      "container",
-      providerReceipt,
-      plan.configuration.executionContainerName,
-      plan.configuration.ownershipLabel,
-      plan.configuration.executionImageDigest,
-      null,
-      "create_provider",
-      plan,
+    const expectations = planDockerRecoveryResourceExpectations({
+      authenticationContainerName:
+        plan.configuration.authenticationContainerName,
+      executionContainerName: plan.configuration.executionContainerName,
+      proxyContainerName: plan.configuration.proxyContainerName,
+      internalNetworkName: plan.configuration.internalNetworkName,
+      egressNetworkName: plan.configuration.egressNetworkName,
+      ownershipLabel: plan.configuration.ownershipLabel,
+      executionImageDigest: plan.configuration.executionImageDigest,
+      proxyImageDigest: plan.configuration.proxyImageDigest,
+      workspaceMounted: plan.configuration.workspace !== null,
+      workspaceReadOnly: plan.configuration.workspace?.readOnly === true,
+      initRequired: plan.configuration.execution.initRequired,
+      ...(plan.configuration.workspace?.protection
+        ? {
+            workspaceProtected: true,
+            workspaceProtection: plan.configuration.workspace.protection,
+          }
+        : {}),
+    });
+    if (!expectations || !processTreeTerminated)
+      return Object.freeze({
+        confirmed: false,
+        processTreeTerminated,
+        containersAbsent: false,
+        networksAbsent: false,
+        resourceObservations: null,
+      });
+    const cleanup = await cleanupResourceSet(
+      { expectations, receipts },
+      {
+        cleanupObserved: (expected, signal, previouslyAbsent) =>
+          cleanupDockerResource(
+            async (argv) => {
+              const result = await runShort(context, argv);
+              return {
+                status: result?.outputExceeded
+                  ? null
+                  : (result?.status ?? null),
+                signal: result?.signal ?? null,
+                stdout: result?.stdout ?? "",
+                stderr: result?.stderr ?? "",
+                error: result
+                  ? null
+                  : Error("docker_cleanup_process_unconfirmed"),
+              };
+            },
+            expected,
+            signal,
+            previouslyAbsent,
+          ),
+      },
     );
-    const authAbsent = await removeExactResource(
-      context,
-      "container",
-      authReceipt,
-      plan.configuration.authenticationContainerName,
-      plan.configuration.ownershipLabel,
-      plan.configuration.executionImageDigest,
-      null,
-      "create_subscription_auth_probe",
-      plan,
-    );
-    const proxyAbsent = await removeExactResource(
-      context,
-      "container",
-      proxyReceipt,
-      plan.configuration.proxyContainerName,
-      plan.configuration.ownershipLabel,
-      plan.configuration.proxyImageDigest,
-      null,
-      "create_proxy",
-      plan,
-    );
-    const internalAbsent = await removeExactResource(
-      context,
-      "network",
-      internalReceipt,
-      plan.configuration.internalNetworkName,
-      plan.configuration.ownershipLabel,
-      null,
-      true,
-      "create_internal_network",
-      plan,
-    );
-    const egressAbsent = await removeExactResource(
-      context,
-      "network",
-      egressReceipt,
-      plan.configuration.egressNetworkName,
-      plan.configuration.ownershipLabel,
-      null,
-      false,
-      "create_egress_network",
-      plan,
-    );
-    const containersAbsent = providerAbsent && authAbsent && proxyAbsent;
-    const networksAbsent = internalAbsent && egressAbsent;
+    const resourceObservations = cleanup.resources;
+    const isAbsent = (purpose: keyof DockerResourceReceipts) => {
+      const observation = resourceObservations.find(
+        (value) => value.purpose === purpose,
+      )?.observation;
+      return observation === "absent" || observation === "not_requested";
+    };
+    const containersAbsent =
+      isAbsent("create_provider") &&
+      isAbsent("create_subscription_auth_probe") &&
+      isAbsent("create_proxy");
+    const networksAbsent =
+      isAbsent("create_internal_network") && isAbsent("create_egress_network");
     let configRemoved = false;
     processTreeTerminated =
       processTreeTerminated &&
@@ -963,59 +740,11 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
       configRemoved = true;
     }
     const confirmed =
+      cleanup.status === "completed" &&
       processTreeTerminated &&
       containersAbsent &&
       networksAbsent &&
       configRemoved;
-    const resourceObservations: readonly DockerResourceCleanupObservation[] =
-      Object.freeze(
-        (
-          [
-            [
-              "create_egress_network",
-              plan.configuration.egressNetworkName,
-              egressReceipt,
-              egressAbsent,
-            ],
-            [
-              "create_internal_network",
-              plan.configuration.internalNetworkName,
-              internalReceipt,
-              internalAbsent,
-            ],
-            [
-              "create_provider",
-              plan.configuration.executionContainerName,
-              providerReceipt,
-              providerAbsent,
-            ],
-            [
-              "create_proxy",
-              plan.configuration.proxyContainerName,
-              proxyReceipt,
-              proxyAbsent,
-            ],
-            [
-              "create_subscription_auth_probe",
-              plan.configuration.authenticationContainerName,
-              authReceipt,
-              authAbsent,
-            ],
-          ] as const
-        ).map(([purpose, plannedResourceName, receipt, isAbsent]) =>
-          Object.freeze({
-            purpose,
-            plannedResourceName,
-            dockerId: receipt.dockerId,
-            observation:
-              !receipt.submitted && receipt.dockerId === null
-                ? "not_requested"
-                : isAbsent
-                  ? "absent"
-                  : "unknown",
-          }),
-        ),
-      );
     const result = Object.freeze({
       confirmed,
       processTreeTerminated,

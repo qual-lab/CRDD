@@ -67,10 +67,6 @@ const dependencies = {
     receiptCallCount += 1;
     throw new Error("resource_receipt_after_lock_loss_forbidden");
   },
-  recoveryCommands: () => {
-    recoveryCallCount += 1;
-    throw new Error("resource_recovery_after_lock_loss_forbidden");
-  },
   run: async (command) => {
     commandCount += 1;
     if (commandCount !== 1) throw new Error("unexpected_second_command");
@@ -116,8 +112,7 @@ const oracleControl = process.argv[5];
 try {
   if (oracleControl === "receipt-negative-control")
     dependencies.recordCreatedResource();
-  if (oracleControl === "recovery-negative-control")
-    dependencies.recoveryCommands();
+  if (oracleControl === "recovery-negative-control") recoveryCallCount += 1;
 } catch {
   // 本番側が例外を吸収しても、独立した呼出し回数のOracleは拒否する。
 }

@@ -323,7 +323,7 @@ test("必要な隔離技術APIは公開し内部生成Primitiveは公開しな�
     assert.equal(typeof entry, "function", name);
   const namespace = await import("../../src/index.ts");
   for (const name of [
-    "recoverObservedDockerResource",
+    "observeExpectedDockerResource",
     "discoverSubmittedDockerResource",
     "observeSubmittedDockerResourceAbsent",
     "startOwnedWindowsProcess",

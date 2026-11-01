@@ -3605,19 +3605,19 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "utf8",
     );
     const driverBody = [
-      "projectAttemptRecoveryTarget",
+      "projectResourceTarget",
       "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
       "recoverRuntimeOwnedDockerTaskResources",
     ]
       .map((name) => {
         const start = recoverySource.indexOf(
-          `${name === "projectAttemptRecoveryTarget" ? "" : "export "}function ${name}(`,
+          `${name === "projectResourceTarget" ? "" : "export "}${name === "recoverRuntimeOwnedDockerTaskResources" ? "async " : ""}function ${name}(`,
         );
         const end = recoverySource.indexOf("\n/**", start);
         assert.ok(start > 0 && end > start, name);
         return stripTypeScriptTypes(recoverySource.slice(start, end)).replace(
-          "export function",
-          "function",
+          /export (async )?function/u,
+          "$1function",
         );
       })
       .join("\n");
@@ -3856,7 +3856,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           },
         };
       });
-      const result = driver(
+      const result = await driver(
         owner,
         runtime.cleanupResources,
         runtime.inspectResources,
@@ -3900,7 +3900,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         rounds,
         ["known_id", "known_id_mutant"].includes(scenario)
           ? 0
-          : ["first_absence_unknown", "first_owner_lost"].includes(scenario)
+          : scenario === "first_absence_unknown"
             ? 1
             : 2,
         scenario,
@@ -3910,7 +3910,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           second = events.indexOf("round:2"),
           write = events.indexOf("write:closure");
         assert.ok(first >= 0 && second > first && write > second, scenario);
-        assert.ok(events.slice(first + 1, second).includes("owner"), scenario);
+        assert.ok(events.slice(second + 1, write).includes("owner"), scenario);
         assert.ok(events.slice(second + 1, write).includes("read"), scenario);
       }
       if (scenario === "saved_reentry")
@@ -3927,7 +3927,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         else assert.equal(write, -1);
         const beforeReentry = [...events];
         assert.equal(
-          driver(owner, runtime.cleanupResources, runtime.inspectResources)
+          (await driver(owner, runtime.cleanupResources, runtime.inspectResources))
             .status,
           "blocked",
         );

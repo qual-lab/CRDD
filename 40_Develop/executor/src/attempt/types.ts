@@ -16,6 +16,7 @@ import type {
   TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import type {
+  DockerResourceProjection,
   DockerCommandSession,
   DockerExecutionCallbacks,
   DockerIsolationCommand,
@@ -182,19 +183,6 @@ export type AttemptRequest = Readonly<{
  * @trace ARCH-000008
  * @invariant コピーから実行を開始できず、記録の確定とAuthorityは上位が所有する。
  */
-export type AttemptRecordProjection = Readonly<{
-  authContainerName: string;
-  providerContainerName: string;
-  proxyContainerName: string;
-  internalNetworkName: string;
-  egressNetworkName: string;
-  ownershipLabel: string;
-  providerImageDigest: string;
-  proxyImageDigest: string;
-  subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
-  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
-  workspaceMountMode: "read_write" | "read_only" | null;
-}>;
 
 /**
  * Factory内部だけが保持する一試行の技術構成。
@@ -202,7 +190,7 @@ export type AttemptRecordProjection = Readonly<{
  * @trace ARCH-000008
  * @invariant 業務Authorityと記録保存は上位が所有する。
  */
-export type AttemptPlan = AttemptRecordProjection &
+export type AttemptPlan = DockerResourceProjection &
   Readonly<{
     networkPolicy: DockerNetworkPolicy | null;
     provider: AiProvider;
@@ -401,7 +389,7 @@ export type AttemptCancelInput = Readonly<{
  * @compatibility 用途固有の必要な操作だけを追加する。
  */
 export interface AttemptExecutor extends ExecutorLifecycle<"attempt"> {
-  readonly recordProjection: AttemptRecordProjection;
+  readonly recordProjection: DockerResourceProjection;
   abandon(
     input: Readonly<{
       recoveryCapability: unknown;

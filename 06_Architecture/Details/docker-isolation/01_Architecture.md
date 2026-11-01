@@ -1,12 +1,16 @@
 # Docker隔離の詳細設計
 
+## 明示依頼の回収と取消（2026-11-02）
+
+Task回収接続と単一Container回収は、上位Ownerの再照会ではなく、呼出し側の排他保持と任意のAbortSignalを契約とする。閉じた接続・取消済みでは後続処置を止め、自作configのcloseは取消後も実体照合して一回だけ行う。CLI、Parent／config実体、元ID・Label・構成と不存在の検査は維持する。上位状態の途中失効の自動検知は、この契約の保証に含めない。認証の通常／単独回収もcleanup/authentication.tsを共用する。元計画の固定資源列をcleanup/plan.tsで捕捉し、保存通知完了済み実IDだけを削除対象にする。実ID欠測では名前だけで削除せず、不存在観測とunknownを区別する。Directoryは既存の用途固定APIを共用し、廃棄許可・実体確認を変更しない。このSource統合は実Dockerや全体QAの成立を意味しない。
+
 Probeの既存Binding返却型はDockerProbeRuntimeBindingとして明示し、Executorが同じ型を再利用する。新しい技術操作は追加しない。createDockerProbeRuntimeBindingはCLI観測後、借用management内へdocker-configとdocker-homeを作成してから環境を構成するため、Effectなしの値構築とは扱わない。部分作成失敗時のHost領域の処置は既存の上位Host Ownerが所有する。
 
 ## Container観測・回収の共通化（2026-11-01）
 
 Probe専用のcontainer.ts／configuration.tsをcleanup配下のContainer技術処理へ統合する。既存の構成投影をID・名前・所有Label・Image・User・Entrypoint・完全Command候補・Mountの技術値へ整理し、観測と削除はProbe ID・故障Profile・Host保存を解釈しない。これは保存モデルや汎用管理機構の新設ではない。固定作成構成の選択は既存plannerに維持し、任意の照合関数や検査省略条件は公開しない。
 
-通常資源回収と単一Container回収はcleanup/resource.tsの有界inspect解析と、実ID限定rm・現在不存在確認を共有する。通常回収の実ID／名前確認、単一Containerの実ID／名前／Label三軸確認をそれぞれ維持し、一方の成功から他方の保証を推測しない。単一Containerでは64KiB、Root読取り専用・非特権・能力剥奪・Device追加禁止、完全Command一致、Mount元fresh realpath、削除直前Owner確認を維持する。既存reason文字列は保存・利用側との相関のため維持する。
+通常／単独の資源集合回収はcleanup/operations.ts、単一Container回収はcleanup/container.tsが技術処置を所有する。構成検査は既存正本を再利用し、双方とも有界inspect・実ID限定rm・現在不存在確認を要求する。同期Container処置を形式統一のために非同期へ変更しない。通常回収の実ID／名前確認、単一Containerの実ID／名前／Label三軸確認をそれぞれ維持し、一方の成功から他方の保証を推測しない。単一Containerでは64KiB、Root読取り専用・非特権・能力剥奪・Device追加禁止、完全Command一致、Mount元fresh realpath、削除直前の明示取消確認を行う。既存reason文字列は保存・利用側との相関のため維持する。
 
 ## 助言Command往復の廃止（2026-11-01）
 
@@ -275,7 +279,7 @@ Proxy Containerの固定包装と認証Home環境は既存`execution/plan.ts`が
 
 固定Seccomp Artifactの実体照合は既存`execution/plan.ts`の非公開Resolverが所有する。上位は適用要否とProvider metadataの期待Hash／bytesだけを渡し、固定Host Pathを取得・搬送しない。DIは同じ固定実物のfile・非link・native realpath・容量・読取り前後dev／ino／size／mtime・本文Hashを照合し、Docker optionを構築する。例外・不一致・欠測と旧Path入力は計画不成立とし、nullを適用外へ補完しない。初回計画・発行前の再計画は固定実物を再観測し、import時の先行観測・Cache・新しいAuthorityは追加しない。開始済みの元Contextの清掃は同じplan identityとOwnerを照合し、Seccompの再読取りを清掃条件にしない。
 
-Task回復の本番技術組立は既存`cleanup/execute.ts`の`createDockerTaskRecoveryExecutor`が所有する。Coordinatorからは既存管理領域と同期の現在Owner確認だけを受け、低位入力を明示構築して固定CLI検証・最小環境を結合する。CLI snapshotはmodule共有の元寿命を維持し、初回観測成功後は別Executor・close後も同実体を再確認する。構築時には短命configの既存Filesystem処置だけを行い、環境は各要求時、CLIはその後に取得・再確認する。環境不明とCLI不明の理由を分け、再検証失敗から再観測へfallbackしない。低位factoryはDIの直接技術試験に維持するが、上位はそのCLI／環境注入を使用しない。Owner・config再照合・元executor／closeの順序と回収結果は変更しない。
+Task回復の本番技術組立は既存`cleanup/execute.ts`の`createDockerTaskRecoveryExecutor`が所有する。Executor経由で既存管理領域と任意の明示取消Signalを受け、低位入力を明示構築して固定CLI検証・最小環境を結合する。CLI snapshotはmodule共有の元寿命を維持し、初回観測成功後は別Executor・close後も同実体を再確認する。構築時には短命configの既存Filesystem処置だけを行い、環境は各要求時、CLIはその後に取得・再確認する。環境不明とCLI不明の理由を分け、再検証失敗から再観測へfallbackしない。低位factoryはDIの直接技術試験に維持するが、上位はそのCLI／環境注入を使用しない。明示取消・config再照合・元executor／closeの順序と回収結果は変更しない。
 
 ProbeのImage、Name、Label、保存用Engine識別と技術profileは既存`probe/plan.ts`の`describeDockerProbeResource`から投影する。作成argv、inspect期待値、上位の既存回復記録はこの同じ記述を参照し、上位がWindows／Desktopの固定値を再定義しない。記録Schema・保存field・Hash／Token形式は変更しない。この記述の取得は実資源の存在や実行・回収の許可ではない。
 
@@ -480,11 +484,11 @@ Desktop修復のEngine読取りは内部`observeDockerDesktopRepairEngine()`へ�
 
 現在回収の技術期待値は`planDockerRecoveryResourceExpectations`へ集約する。入力は五資源名、Label、二Image digestとWorkspace／read-only／Initの三booleanだけとし、Provider判定、認証値、Host Path、現在State、実IDやWriterを受け取らない。Container先行の五用途順、認証のnone接続、Proxyの内部のみ／内部＋外部の候補順と既存全fieldを保持する。上位はAI Adapterの判断をbooleanへ確定し、返却purposeと現在資源を一意に結合する。不正入力は部分計画を返さず拒否し、新しいboolean相関制約は加えない。公開入力は固定11個のown data propertyを一度捕捉し、Proxy・accessor・継承必須値・余分key・非primitiveを入力処理の実行前に拒否する。この抽出のSource・局所回帰・限定独立確認は成立したが、通常入口・Task全体・実Docker再起動の成立を含まない。
 
-実ID回収の固定optionsは、構成照合後・削除要求直前の同期生存確認を受けられる。現在Recovery Ownerを使う上位接続はこの確認を必ず結合し、下位は厳密なtrue以外・例外・Promise／thenableを削除0として拒否する。観測だけの呼出しでは評価せず、任意Effect callback、State／Lock操作または新しいAuthorityへ一般化しない。旧利用側の本番切替が未完了の間は、未接続箇所を完成扱いにしない。
+通常Sessionと単独回収はcleanup/resources.tsのcleanupResourceSetへ同じ期待値・Receiptを渡す。cleanup/operations.tsのcleanupDockerResourceが非同期接続を維持し、実ID・全構成照合、削除、ID／名前の二軸不存在を一箇所で所有する。上位は回収結果をawaitする。旧同期削除分岐は撤去し、observeExpectedDockerResourceは読取りだけを行う。Ownerの逆照会は受けず明示取消を確認する。不存在確認済みの資源は再削除せず再観測だけを行う。Process終了不明では追加Docker操作を発行しない。通常Sessionは既存configを終了し、単独回収だけが自作短命configを一回closeする。
 
 Package Rootの`src/index.ts`から必要な操作と型だけを明示exportする。Capability内barrel、上位Packageへのimport、Provider専用入口は作らない。
 
-現在操作用の回収接続は借用管理Directory内へ`docker-recovery-config-`接頭辞の一意短命子を作り、既存三資源操作とcloseだけを提供する。作成直前の同期Owner確認、親と自作子の実体、空状態を照合する。既存同接頭辞の残存はfile／linkも含め96件まで数えるが、採用・変更・削除しない。自作Identityを取得できなかった途中失敗は清掃不明として同じHost Rootへ残す。closeはOwner失効後も捕捉済み親・子実体だけを再確認し、空の自作子を非再帰で削除して明示不存在を確認する。別試行や隣接物へ削除を広げず、二度目closeは追加Effect 0。同一Local Userを信頼する既存境界の現在観測であり、敵対的な同一UserによるPath使用中の差替えを原子的に排除する保証は追加しない。
+現在操作用の回収接続は借用管理Directory内へ`docker-recovery-config-`接頭辞の一意短命子を作り、既存三資源操作とcloseだけを提供する。作成直前の明示取消、親と自作子の実体、空状態を照合する。既存同接頭辞の残存はfile／linkも含め96件まで数えるが、採用・変更・削除しない。自作Identityを取得できなかった途中失敗は清掃不明として同じHost Rootへ残す。closeはOwner失効後も捕捉済み親・子実体だけを再確認し、空の自作子を非再帰で削除して明示不存在を確認する。別試行や隣接物へ削除を広げず、二度目closeは追加Effect 0。同一Local Userを信頼する既存境界の現在観測であり、敵対的な同一UserによるPath使用中の差替えを原子的に排除する保証は追加しない。
 
 技術入力は、操作相関、Container／Network名、実Image digest、期待構成、限定stdinと検証済みProvider起動記述とする。Docker argv全体・任意環境・任意Mountは公開入力にしない。閉じたpurposeから、Network、read-only、cap-drop、no-new-privileges、User、Mount modeと出力上限を下位Ownerが構築・再検査する。Provider argv／環境の記述は上限付きpayloadとしてContainer内へ搬送するだけで、モデル・役割等の値が含まれても、その意味や許可を下位が所有・判定しない。
 
@@ -659,7 +663,7 @@ Docker Isolationは保存成功・Task判断・Provider内容受理のACKを取�
 | Command観測・内容 | ExecutorがAI Adapterの検査を使用する。認証不成立・内容不正はハンドラーがthrowし、下位は以後の要求を止めて同じ資源を回収する。Boolean受理結果を返さない |
 | 修復 | onPrepared／onCheckpointは同期void。canRecordCheckpointは撤去し、上位ハンドラーがOwner・Scopeと保存結果を検査する。取消後の既発生事実の記録は新Effect許可と区別する |
 | 再起動 | beforeRequestはonRequestingへ変更し、発行予定を同期voidで通知する。上位の保存失敗はthrow。onEventと同様に保存結果を下位へ返さない |
-| 借用元の生存 | canIssueEffect／verifyBoundary／permitLive／assertOwner／assertBeforeRemoval／disposeのboundary／DirectoryのcanIssueは、借用元の失効・Scope・取消をEffect直前に再観測する用途に限定して維持する。保存や新Authorityを発行しない |
+| 借用元の生存 | 環境修復のcanIssueEffect／verifyBoundary、disposeのboundary／DirectoryのcanIssueは、借用元の失効・Scope・取消をEffect直前に再観測する用途に限定して維持する。保存や新Authorityを発行しない |
 | 所在・既存Receipt | borrowPaths／inspectReceiptsは検査済み既存Ownerの用途限定読取りであり、通知ではない。下位がStoreを操作する入口へ一般化しない |
 | 技術代役 | DockerCommandSessionOperations等は同じ責務の実在技術境界だけで利用する。上位の業務操作を注入しない |
 

@@ -4,6 +4,7 @@
  * @trace ARCH-000008
  */
 import path from "node:path";
+import type { DockerAuthenticationResources } from "../cleanup/types.ts";
 import { types as utilTypes } from "node:util";
 
 /**
@@ -87,6 +88,8 @@ const recoveryCommands = new WeakMap<
  * @compatibility 既存操作列を維持する。
  */
 export type DockerAuthenticationPlan = Readonly<{
+  ownershipLabel: string;
+  resources: DockerAuthenticationResources;
   commands: readonly DockerAuthenticationCommand[];
   creationObservationCommands: readonly DockerAuthenticationCommand[];
   creationImageCommands: readonly DockerAuthenticationCommand[];
@@ -575,6 +578,7 @@ export function planDockerAuthenticationCommands(
     ]),
   ]);
   return completeAuthenticationPlan(
+    ownershipLabel,
     commands,
     ownershipCommands,
     cleanupCommands,
@@ -772,6 +776,7 @@ function planDockerAuthenticationStatus(
   const cli = snapshotAuthenticationCli(input.authenticationCli, false);
   const command = authenticationCommand;
   return completeAuthenticationPlan(
+    ownershipLabel,
     Object.freeze([
       command("create_probe", [
         "create",
@@ -842,6 +847,7 @@ function planDockerAuthenticationStatus(
  * @concurrency 同期登録。
  */
 function completeAuthenticationPlan(
+  ownershipLabel: string,
   commands: readonly DockerAuthenticationCommand[],
   ownershipCommands: readonly DockerAuthenticationCommand[],
   cleanupCommands: readonly DockerAuthenticationCommand[],
@@ -890,7 +896,22 @@ function completeAuthenticationPlan(
     ...absenceCommands,
   ])
     plannedCommands.add(item);
+  const resources = Object.freeze(
+    absenceCommands.map((item) => {
+      const name = item.argv.at(-1);
+      if (!name) throw Error("docker_authentication_resource_name_invalid");
+      return Object.freeze({
+        kind: item.purpose.includes("network")
+          ? ("network" as const)
+          : ("container" as const),
+        name,
+        dockerId: null,
+      });
+    }),
+  );
   const plan = Object.freeze({
+    ownershipLabel,
+    resources,
     commands,
     creationObservationCommands,
     creationImageCommands,

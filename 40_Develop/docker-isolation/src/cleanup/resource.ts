@@ -102,28 +102,20 @@ export function removeObservedDockerResource(
 }
 
 /**
- * 検査済み実Docker IDの現在観測と限定回収を行う。
- *
- * @responsibility 実ID、構成、削除とID／名前不存在の相関を保持する。
+ * 元実IDの存在又は二軸不存在を読取り専用で照合する。
+ * @responsibility 名前・Label・構成の一致を判定し、資源を削除しない。
  * @trace ARCH-000008
- * @input runDocker: 固定実行primitive。expectation: 上位検査済み技術条件。options: 不存在受理・観測のみ・削除直前の同期生存確認。
- * @returns 全条件成立時true。不明・差・失敗はfalse。
- * @precondition 上位が現在Owner、exact回復Identityと期待構成の由来を検査している。
- * @postcondition 実ID不明や他Ownerの資源を名前だけで削除しない。
- * @effect 固定Docker ls／inspect、構成確認後の実ID rmと再観測を行う。
- * @failure 失敗・不正応答・構成差・残存はfalse。削除直前の確認は厳密なtrue以外・例外を拒否する。
- * @invariant 過去の作成結果unknownを成功へ書き換えず、永続記録を読書きしない。
- * @boundary fresh回復の上位判断から下位の現在資源処置。
- * @security 期待値・照合trueだけで新しい削除Authorityを発行しない。
- * @concurrency 構成検査後・rm直前に借用Ownerを同期再確認し、完了後のIDと同名資源を再観測する。
+ * @input runDocker: 固定観測、expectation: 元構成、options: 不存在受理の有無。
+ * @returns 指定した存在条件を観測できた場合だけtrue。
+ * @effect 固定ls／inspectだけ。削除要求は発行しない。
+ * @failure 観測不能・構成差・不正応答はfalse。
+ * @invariant 回収はcleanupDockerResourceへ集約し、この読取りから実施しない。
  */
-export function recoverObservedDockerResource(
+export function observeExpectedDockerResource(
   runDocker: (argv: readonly string[]) => DockerRecoveryCommandResult,
   expectation: DockerResourceExpectation,
   options: Readonly<{
     allowAlreadyAbsent?: boolean;
-    removeAfterVerification?: boolean;
-    assertBeforeRemoval?: () => boolean;
   }> = Object.freeze({}),
 ) {
   if (!dockerResourceExpectationIsValid(expectation)) return false;
@@ -195,24 +187,7 @@ export function recoverObservedDockerResource(
   if (ids.length !== 1 || ids[0] !== dockerId) return false;
   const inspected = inspectObservedDockerResource(runDocker, kind, dockerId);
   if (!dockerResourceConfigurationMatches(inspected, expectation)) return false;
-  if (options.removeAfterVerification === false) return true;
-  return removeObservedDockerResource(
-    runDocker,
-    kind,
-    dockerId,
-    () => {
-      const absent = runDocker(listArgs);
-      return (
-        absent.status === 0 &&
-        !absent.signal &&
-        !absent.error &&
-        absent.stderr.length === 0 &&
-        absent.stdout.trim() === "" &&
-        exactNameAbsent()
-      );
-    },
-    options.assertBeforeRemoval,
-  );
+  return true;
 }
 
 const DOCKER_TASK_RECOVERY_ID =
@@ -314,12 +289,11 @@ export function discoverSubmittedDockerResource(
     byNameItems[0] !== byOwnershipItems[0]
   )
     return null;
-  return recoverObservedDockerResource(
+  return observeExpectedDockerResource(
     runDocker,
     { ...expectation, dockerId: byNameItems[0] as string },
     Object.freeze({
       allowAlreadyAbsent: false,
-      removeAfterVerification: false,
     }),
   )
     ? (byNameItems[0] as string)

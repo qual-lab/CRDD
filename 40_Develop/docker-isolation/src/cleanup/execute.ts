@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  */
 import { spawnSync } from "node:child_process";
+import { cleanupDockerResource } from "./operations.ts";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -17,7 +18,7 @@ import type { DockerResourceExpectation } from "./plan.ts";
 import {
   discoverSubmittedDockerResource,
   observeSubmittedDockerResourceAbsent,
-  recoverObservedDockerResource,
+  observeExpectedDockerResource,
   type DockerRecoveryCommandResult,
 } from "./resource.ts";
 
@@ -35,7 +36,7 @@ let recoveryDockerCliSnapshot: ReturnType<
  * @trace ARCH-000008
  * @input N/A: 要求時に固定CLIを観測する。
  * @returns N/A: 正常時だけ呼出し元へ戻る。
- * @precondition 下位Executorが現在Ownerを確認している。
+ * @precondition 上位が操作を明示的に許可し排他を保持している。
  * @postcondition verify失敗から再observeへfallbackしない。
  * @effect CLI実体を読取り、初回成功時だけsnapshotを保持する。
  * @failure 観測・再確認失敗はdocker_task_recovery_cli_untrusted。
@@ -57,10 +58,10 @@ function verifyRecoveryDockerCli() {
 }
 
 /**
- * Task回復の借用所在と現在Ownerへ固定CLI・最小環境を結合する。
+ * Task回復の借用所在と取消Signalへ固定CLI・最小環境を結合する。
  * @responsibility 上位にOS構成を要求せず、既存低位Executorをそのまま返す。
  * @trace ARCH-000008
- * @input input: managementDirectoryと同期assertOwnerの二項目。
+ * @input input: managementDirectoryと任意の取消Signal。
  * @returns 既存低位factoryの元結果と元executor／close。
  * @precondition 上位が所在のRoot・用途と回復Ownerを確認している。
  * @postcondition CLI／環境は構築時でなく各要求時だけ取得する。
@@ -69,17 +70,14 @@ function verifyRecoveryDockerCli() {
  * @invariant 入力全体をspreadせず、余剰CLI／環境設定を採用しない。
  * @boundary Coordinatorの現在OwnerとDocker技術構成。
  * @security 認証config、任意実行物、上位Stateを受け取らない。
- * @concurrency Owner確認・config回収・close一回性は既存低位factoryを変更しない。
+ * @concurrency 取消確認・config回収・close一回性は既存低位factoryを変更しない。
  */
 export function createDockerTaskRecoveryExecutor(
-  input: Pick<
-    DockerOperationRecoveryInput,
-    "managementDirectory" | "assertOwner"
-  >,
+  input: Pick<DockerOperationRecoveryInput, "managementDirectory" | "signal">,
 ) {
   return createDockerOperationRecoveryExecutor({
     managementDirectory: input.managementDirectory,
-    assertOwner: input.assertOwner,
+    ...(input.signal ? { signal: input.signal } : {}),
     verifyCli: verifyRecoveryDockerCli,
     environment: () => {
       const environment = createDockerCliEnvironment({
@@ -227,14 +225,17 @@ function createRecoveryExecutor(
   }
 
   return Object.freeze({
+    cleanupObserved: (
+      expected: DockerResourceExpectation,
+      signal?: AbortSignal,
+      previouslyAbsent?: boolean,
+    ) => cleanupDockerResource(run, expected, signal, previouslyAbsent),
     recoverObserved: (
       expectation: DockerResourceExpectation,
       options: Readonly<{
         allowAlreadyAbsent?: boolean;
-        removeAfterVerification?: boolean;
-        assertBeforeRemoval?: () => boolean;
       }> = Object.freeze({}),
-    ) => recoverObservedDockerResource(run, expectation, options),
+    ) => observeExpectedDockerResource(run, expectation, options),
     discoverSubmitted: (
       expectation: Omit<DockerResourceExpectation, "dockerId">,
     ) => discoverSubmittedDockerResource(run, expectation),
@@ -253,18 +254,21 @@ function createRecoveryExecutor(
 }
 
 /**
- * 固定三操作の同期回収契約。
+ * 固定の読取り観測と共通非同期処置の接続契約。
  * @responsibility 技術期待値とfreshな観測結果だけを搬送する。
  * @trace ARCH-000008
  * @invariant 保存・Task状態・新しい削除Authorityを所有しない。
  */
 export type DockerResourceRecoveryOperations = Readonly<{
+  cleanupObserved: (
+    expectation: DockerResourceExpectation,
+    signal?: AbortSignal,
+    previouslyAbsent?: boolean,
+  ) => Promise<boolean>;
   recoverObserved: (
     expectation: DockerResourceExpectation,
     options?: Readonly<{
       allowAlreadyAbsent?: boolean;
-      removeAfterVerification?: boolean;
-      assertBeforeRemoval?: () => boolean;
     }>,
   ) => boolean;
   discoverSubmitted: (
@@ -279,9 +283,9 @@ export type DockerResourceRecoveryOperations = Readonly<{
 
 /**
  * 現在操作の借用管理領域に限定した回復接続入力。
- * @responsibility 技術用の短命config作成に必要な所在とOwner観測だけを受ける。
+ * @responsibility 技術用の短命config作成に必要な所在と取消Signalだけを受ける。
  * @trace ARCH-000008
- * @shape 管理Directory、同期Owner確認、CLI照合、固定環境。
+ * @shape 管理Directory、取消Signal、CLI照合、固定環境。
  * @invariant 任意config所在、上位State、Lockを受け取らない。
  * @boundary 既存管理Ownerと使い捨てDocker構成。
  * @security 借用所在は呼出し元が用途とRootへ結合する。
@@ -289,7 +293,7 @@ export type DockerResourceRecoveryOperations = Readonly<{
  */
 export type DockerOperationRecoveryInput = Readonly<{
   managementDirectory: string;
-  assertOwner: () => boolean;
+  signal?: AbortSignal;
   verifyCli: () => void;
   environment: () => Readonly<Record<string, string>>;
 }>;
@@ -329,12 +333,12 @@ function recoveryParentIdentity(directory: string) {
  * 操作ごとの一意な空configと固定回収接続を作る。
  * @responsibility 他の残存を採用せず自作Identityだけを一度回収する。
  * @trace ARCH-000008
- * @input input: 検査済み借用管理領域と既存Owner観測。
+ * @input input: 検査済み借用管理領域と取消Signal。
  * @returns readyと三操作・close、または固定停止とcleanup状態。
  * @precondition 上位が現在操作と管理領域を結合している。
  * @postcondition config不明を保存成功や資源回収へ昇格しない。
  * @effect 直下短命Directory一つの作成、固定Docker要求と空Directory回収。
- * @failure Owner・Identity・空性・保持上限不明は停止し残存を保持。
+ * @failure 取消・Identity・空性・保持上限不明は停止し残存を保持。
  * @invariant 旧prefixを採用・削除せず永続State／Registry／Lockを追加しない。
  * @boundary 管理領域の借用と使い捨てDocker技術構成。
  * @security 任意実行物、認証config、Recursive削除を使用しない。
@@ -395,23 +399,23 @@ export function createDockerOperationRecoveryExecutor(
     }
   };
   /**
-   * 現Ownerの同期trueだけを受理する。
-   * @responsibility 失効・非boolean・非同期値を処置許可へ変換しない。
+   * 同じ回収接続の終了済み・明示取消を拒否する。
+   * @responsibility 上位へ逆照会せず既存Signalで次要求を停止する。
    * @trace ARCH-000008
-   * @input N/A: 固定Owner callbackを使用する。
+   * @input N/A: 同じ接続のclosedとSignalを使用する。
    * @returns N/A: 不成立は例外。
-   * @precondition この操作の既存Ownerがcallbackを結合する。
+   * @precondition 呼出し側が実行終了まで既存排他を保持する。
    * @postcondition 不明時は後続Effectを停止する。
-   * @effect 既存Ownerの読取りだけ。
-   * @failure false・throw・thenableは拒否。
-   * @invariant callback戻り値から新Authorityを作らない。
-   * @boundary 元Ownerと技術処置前確認。
-   * @security thenを実行しない。
+   * @effect ローカル状態の読取りだけ。
+   * @failure 終了済み又は取消済みでは拒否。
+   * @invariant 上位の許可やLock生存を再判定しない。
+   * @boundary 指示受付と技術要求の発行。
+   * @security 取消は別資源の操作許可を生成しない。
    * @concurrency 同期確認のみ。
    */
-  const owner = () => {
-    if (closed || input.assertOwner() !== true)
-      throw new Error("docker_task_recovery_owner_unconfirmed");
+  const assertOpen = () => {
+    if (closed || input.signal?.aborted)
+      throw new Error("docker_task_recovery_stopped");
   };
   try {
     parentIdentity = recoveryParentIdentity(input.managementDirectory);
@@ -423,7 +427,7 @@ export function createDockerOperationRecoveryExecutor(
       throw new Error("docker_task_recovery_config_capacity");
     if (recoveryParentIdentity(input.managementDirectory) !== parentIdentity)
       throw new Error("docker_task_recovery_parent_untrusted");
-    owner();
+    assertOpen();
     creationAttempted = true;
     configDirectory = fs.mkdtempSync(
       path.join(input.managementDirectory, prefix),
@@ -438,14 +442,14 @@ export function createDockerOperationRecoveryExecutor(
     if (recoveryParentIdentity(configDirectory) !== capturedIdentity)
       throw new Error("docker_task_recovery_config_untrusted");
     configIdentity = capturedIdentity;
-    owner();
+    assertOpen();
     const executor = createRecoveryExecutor(
       {
         configDirectory,
         configIdentity,
         environment: input.environment,
         verifyCli: () => {
-          owner();
+          assertOpen();
           input.verifyCli();
         },
       },
@@ -454,7 +458,7 @@ export function createDockerOperationRecoveryExecutor(
           recoveryParentIdentity(input.managementDirectory) !== parentIdentity
         )
           throw new Error("docker_task_recovery_parent_untrusted");
-        owner();
+        assertOpen();
       },
     );
     return Object.freeze({

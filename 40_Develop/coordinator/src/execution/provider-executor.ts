@@ -50,7 +50,7 @@ import {
   verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./recovery.ts";
 import type {
-  AttemptCleanupResult,
+  ResourceCleanupResult,
   ExecutionRecordOperations,
   PreparationInput,
   PreparedAttemptPlan,
@@ -459,7 +459,7 @@ function startRecordedAttempt(
 ): RecordedStartResult {
   let restrictionRejected = false;
   let mountCompletion: Readonly<{ status: string }> | null = null;
-  let cleanup: AttemptCleanupResult = {
+  let cleanup: ResourceCleanupResult = {
     mountLeaseReleased: false,
     homeLeaseReleased: false,
     recoveryCompleted: false,

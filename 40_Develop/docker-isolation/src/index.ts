@@ -201,6 +201,24 @@ export {
 } from "./network/policy.ts";
 
 export { parseDockerTaskRecoveryId } from "./cleanup/resource.ts";
+export { captureAuthenticationResources } from "./cleanup/plan.ts";
+export type { DockerAuthenticationResources } from "./cleanup/types.ts";
+export {
+  inspectDockerResources,
+  cleanupDockerResources,
+} from "./cleanup/resources.ts";
+export { cleanupDockerAuthenticationResources } from "./cleanup/authentication.ts";
+export type {
+  AuthenticationCleanupResult,
+  DockerAuthenticationCleanupCallbacks,
+} from "./cleanup/types.ts";
+export type {
+  DockerResourceProjection,
+  ResourceTarget,
+  ResourceInspection,
+  ResourceCleanupResult,
+  ResourceCleanupCallbacks,
+} from "./cleanup/types.ts";
 export {
   bindProviderCommand,
   type ProviderCommandBinding,

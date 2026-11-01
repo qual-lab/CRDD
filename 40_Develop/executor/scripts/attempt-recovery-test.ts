@@ -25,26 +25,58 @@ export function createAttemptRecoveryTestApi(
   create: (
     input: Readonly<{
       managementDirectory: string;
-      assertOwner: () => boolean;
+      signal?: AbortSignal;
     }>,
   ) => unknown,
 ): typeof import("../src/lifecycle/cleanup.ts") {
   const source = readFileSync(
-    new URL("../src/lifecycle/cleanup.ts", import.meta.url),
+    new URL("../../docker-isolation/src/cleanup/resources.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(source)
     .replace(/^import[\s\S]*?from\s*["'][^"']+["'];?\s*/gm, "")
     .replace(/^export /gm, "");
-  return runInNewContext(`${body}; ({ inspectResources, cleanupResources })`, {
-    ...isolation,
-    utilTypes,
-    createDockerTaskRecoveryExecutor: create,
-    observeDockerRuntimeRepairRetention: () => {
-      throw Error("directory_observation_not_mocked");
+  return runInNewContext(
+    `${body}; ({ inspectResources: inspectDockerResources, cleanupResources: cleanupDockerResources })`,
+    {
+      ...isolation,
+      utilTypes,
+      createDockerTaskRecoveryExecutor: (input: {
+        managementDirectory: string;
+        signal?: AbortSignal;
+      }) => {
+        const result = create(input) as {
+          executor?: isolation.DockerResourceRecoveryOperations;
+        };
+        const operations = result.executor;
+        if (!operations || Object.hasOwn(operations, "cleanupObserved"))
+          return result;
+        return {
+          ...result,
+          executor: {
+            ...operations,
+            cleanupObserved: async (
+              expected: isolation.DockerResourceExpectation,
+              signal?: AbortSignal,
+            ) =>
+              Reflect.apply(operations.recoverObserved, operations, [
+                expected,
+                {
+                  assertBeforeRemoval: () => {
+                    signal?.throwIfAborted();
+                    return true;
+                  },
+                },
+              ]),
+          },
+        };
+      },
+      observeDockerRuntimeRepairRetention: () => {
+        throw Error("directory_observation_not_mocked");
+      },
+      disposeDockerRuntimeRepairDirectory: () => {
+        throw Error("directory_cleanup_not_mocked");
+      },
     },
-    disposeDockerRuntimeRepairDirectory: () => {
-      throw Error("directory_cleanup_not_mocked");
-    },
-  });
+  );
 }

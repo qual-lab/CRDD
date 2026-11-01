@@ -78,6 +78,10 @@ export function createExecutor(
 }
 
 export type {
+  AuthenticationCleanupResult,
+  ResourceTarget,
+  ResourceInspection,
+  ResourceCleanupResult,
   DockerRuntimeRestartEvent,
   DockerRuntimeRestartResult,
 } from "../../docker-isolation/src/index.ts";
@@ -90,7 +94,6 @@ export type {
   PrimaryFailureDiagnostic,
   ProcessStartedNotice,
 } from "./attempt/types.ts";
-export type { AuthenticationCleanupResult } from "./authentication/types.ts";
 export {
   inspectDockerEnvironment,
   restartDockerEnvironment,
@@ -108,16 +111,11 @@ export {
   inspectResources,
 } from "./lifecycle/cleanup.ts";
 export type {
-  AttemptCleanupResult,
-  AttemptRecoveryTarget,
-  AttemptResourceInspection,
   AuthenticationResourceTarget,
   ContainerResourceInspection,
   ContainerResourceTarget,
   DirectoryResourceCleanupTarget,
   DirectoryResourceInspectionTarget,
-} from "./lifecycle/cleanup-types.ts";
-export type {
   CancelArguments,
   CancelResult,
   CompletionResult,

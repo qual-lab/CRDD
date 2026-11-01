@@ -37,7 +37,7 @@ const source = fs.readFileSync(
   new URL("../../src/execution/recovery.ts", import.meta.url),
   "utf8",
 );
-const start = source.indexOf("function projectAttemptRecoveryTarget(");
+const start = source.indexOf("function projectResourceTarget(");
 const end = source.indexOf("function validProductionPlan(", start);
 assert.ok(start >= 0 && end > start);
 const body = stripTypeScriptTypes(
@@ -1079,7 +1079,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
     "export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(",
   );
   const finish = source.indexOf(
-    "export function recoverRuntimeOwnedDockerTaskResources(",
+    "export async function recoverRuntimeOwnedDockerTaskResources(",
     begin,
   );
   assert.ok(begin >= 0 && finish > begin);
@@ -2341,7 +2341,7 @@ test("現在transient終了: genuine Owner・一回性・借用失効", () => {
     "export function completeRuntimeOwnedDockerTaskTransientRecovery(",
   );
   const end = source.indexOf(
-    "export function recoverRuntimeOwnedDockerTaskResources(",
+    "export async function recoverRuntimeOwnedDockerTaskResources(",
     start,
   );
   assert.ok(start >= 0 && end > start);
@@ -2790,7 +2790,6 @@ function fixture(
     environment: () => ({ SystemRoot: "fixed-test" }),
     verifyCli: () => {
       events.push("cli");
-      assert.equal(live, true);
     },
   });
   const context = {
@@ -2805,7 +2804,6 @@ function fixture(
     dockerRecoveryPreparations: map,
     assertCurrentRecoveryOwner: () => {
       const observed = live;
-      if (mode === "inspect-owner-lost") live = true;
       return observed;
     },
     encodeRuntimeStateValue: JSON.stringify,
@@ -2830,7 +2828,7 @@ function fixture(
     createDockerTaskRecoveryExecutor: (
       input: Pick<
         Parameters<typeof createDockerOperationRecoveryExecutor>[0],
-        "managementDirectory" | "assertOwner"
+        "managementDirectory" | "signal"
       >,
     ) => {
       if (!operationFactory)
@@ -2841,16 +2839,11 @@ function fixture(
       factoryCalls++;
       events.push("factory");
       assert.equal(input.managementDirectory, managementDirectory);
-      assert.deepEqual(Object.keys(input).sort(), [
-        "assertOwner",
-        "managementDirectory",
-      ]);
+      assert.deepEqual(Object.keys(input), ["managementDirectory"]);
       const created = createDockerOperationRecoveryExecutor({
         managementDirectory: input.managementDirectory,
-        assertOwner: input.assertOwner,
         verifyCli: () => {
           events.push("cli");
-          assert.equal(live, true);
         },
         environment: () => ({ SystemRoot: "fixed-test" }),
       });
@@ -2977,18 +2970,20 @@ function fixture(
     owner: unknown,
     cleanup: typeof recoveryApi.cleanupResources,
     inspect: typeof recoveryApi.inspectResources,
-  ) => {
+  ) => Promise<{
     status: string;
     dockerCleanupConfirmed: boolean;
     recoveryId: string;
     reason: string;
-  };
+  }>;
   const execute = runInNewContext(
     `${body}\nexecuteRuntimeOwnedDockerTaskResourceRecovery`,
     context,
   ) as (
     owner: unknown,
-  ) => ReturnType<typeof run> & { configCleanupConfirmed: boolean };
+  ) => Promise<
+    Awaited<ReturnType<typeof run>> & { configCleanupConfirmed: boolean }
+  >;
   return {
     executor,
     dispose,
@@ -3040,10 +3035,10 @@ function fixture(
  * @cleanup fixtureが空configとmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在Owner→DI Executor。
  */
-test("実ExecutorのID発見は同state保存・読戻し後にだけ削除する", (t) => {
+test("実ExecutorのID発見は同state保存・読戻し後にだけ削除する", async (t) => {
   for (const request of ["unknown", "intent_saved", "identified"] as const) {
     const f = fixture(t, request);
-    const result = f.run();
+    const result = await f.run();
     assert.equal(result.status, "completed", result.reason);
     assert.equal(result.dockerCleanupConfirmed, true);
     const rm = f.events.indexOf("docker:rm");
@@ -3101,7 +3096,7 @@ test("実ExecutorのID発見は同state保存・読戻し後にだけ削除す�
  * @cleanup fixtureのexact自己生成領域とmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 上位execute→実DI factory／spawn差替え。
  */
-test("本番config接続は正常と拒否でも自作だけを閉じる", (t) => {
+test("本番config接続は正常と拒否でも自作だけを閉じる", async (t) => {
   for (const failure of ["normal", "empty", "writer", "owner-lost"]) {
     const f = fixture(t, "unknown", false, false, true);
     const preserved = JSON.stringify({
@@ -3113,7 +3108,7 @@ test("本番config接続は正常と拒否でも自作だけを閉じる", (t) =
     });
     if (failure === "writer") f.writerRefused = true;
     else f.mode = failure;
-    const result = f.execute();
+    const result = await f.execute();
     assert.equal(
       result.status,
       failure === "normal" ? "completed" : "blocked",
@@ -3163,11 +3158,11 @@ test("本番config接続は正常と拒否でも自作だけを閉じる", (t) =
  * @cleanup fixtureの自己生成領域とmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: execute→DI factory拒否。
  */
-test("本番config factory拒否は作成前Effect0で停止する", (t) => {
+test("本番config factory拒否は作成前Effect0で停止する", async (t) => {
   const f = fixture(t, "unknown", false, false, true);
   f.mode = "factory-refused";
   const before = JSON.stringify(f.operation);
-  const result = f.execute();
+  const result = await f.execute();
   assert.equal(result.status, "blocked");
   assert.equal(result.configCleanupConfirmed, true);
   assert.equal(result.recoveryId, "exact-recovery");
@@ -3179,7 +3174,7 @@ test("本番config factory拒否は作成前Effect0で停止する", (t) => {
   ]);
   assert.equal(JSON.stringify(f.operation), before);
   const events = [...f.events];
-  assert.equal(f.execute().status, "blocked");
+  assert.equal((await f.execute()).status, "blocked");
   assert.deepEqual(f.events, events);
 });
 
@@ -3194,11 +3189,11 @@ test("本番config factory拒否は作成前Effect0で停止する", (t) => {
  * @cleanup 由来既知の故障注入物をfixture終了時だけ回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 実DI close→上位finally。
  */
-test("本番config close不明は資源成功を全体完成へ昇格しない", (t) => {
+test("本番config close不明は資源成功を全体完成へ昇格しない", async (t) => {
   for (const failure of ["nonempty-close", "identity-close", "close-throw"]) {
     const f = fixture(t, "unknown", false, false, true);
     f.mode = failure;
-    const result = f.execute();
+    const result = await f.execute();
     assert.equal(result.status, "blocked");
     assert.equal(result.dockerCleanupConfirmed, true);
     assert.equal(result.configCleanupConfirmed, false);
@@ -3219,7 +3214,7 @@ test("本番config close不明は資源成功を全体完成へ昇格しない",
     assert.equal(f.operation.lease, "held");
     assert.equal(f.operation.outcome, null);
     const events = [...f.events];
-    const again = f.execute();
+    const again = await f.execute();
     assert.equal(again.status, "blocked");
     assert.equal(again.recoveryId, "exact-recovery");
     assert.equal(again.configCleanupConfirmed, false);
@@ -3227,7 +3222,7 @@ test("本番config close不明は資源成功を全体完成へ昇格しない",
     assert.deepEqual(f.events, events);
     assert.equal(f.factoryCalls, 1);
     assert.equal(f.closeCalls, 1);
-    assert.equal(f.run().status, "blocked");
+    assert.equal((await f.run()).status, "blocked");
     assert.deepEqual(f.events, events);
     f.dispose();
   }
@@ -3244,7 +3239,7 @@ test("本番config close不明は資源成功を全体完成へ昇格しない",
  * @cleanup fixtureの自己生成領域とmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: execute未要求分岐→固定Writer。
  */
-test("本番executeは全未要求でfactoryとHost借用を呼ばない", (t) => {
+test("本番executeは全未要求でfactoryとHost借用を呼ばない", async (t) => {
   for (const request of ["not_requested", "not_issued"]) {
     const f = fixture(t, "unknown", false, false, true);
     f.operation.resources = f.operation.resources.map((resource) => ({
@@ -3255,7 +3250,7 @@ test("本番executeは全未要求でfactoryとHost借用を呼ばない", (t) =
       `${JSON.stringify({ operations: [f.operation, f.untouched] })}\n`,
     );
     const before = JSON.stringify(f.operation);
-    const result = f.execute();
+    const result = await f.execute();
     assert.equal(result.status, "completed");
     assert.equal(result.dockerCleanupConfirmed, true);
     assert.equal(result.configCleanupConfirmed, true);
@@ -3282,7 +3277,7 @@ test("本番executeは全未要求でfactoryとHost借用を呼ばない", (t) =
  * @cleanup fixtureが空configとmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在Owner→DI拒否。
  */
-test("foreign・観測不能・未発見を清掃成功へ補完しない", (t) => {
+test("foreign・観測不能・未発見を清掃成功へ補完しない", async (t) => {
   for (const mode of [
     "foreign",
     "multiple",
@@ -3294,7 +3289,7 @@ test("foreign・観測不能・未発見を清掃成功へ補完しない", (t) 
   ]) {
     const f = fixture(t);
     f.mode = mode;
-    const result = f.run();
+    const result = await f.run();
     assert.equal(result.status, "blocked", mode);
     assert.equal(result.dockerCleanupConfirmed, false, mode);
     assert.equal(result.recoveryId, "exact-recovery");
@@ -3334,37 +3329,37 @@ test("foreign・観測不能・未発見を清掃成功へ補完しない", (t) 
  * @cleanup fixtureが空configとmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 保存・Owner拒否→DI停止。
  */
-test("保存・Owner不明は実Executorの削除前に停止する", (t) => {
+test("保存・Owner不明は実Executorの削除前に停止する", async (t) => {
   for (const mode of ["writer", "readback", "owner"]) {
     const f = fixture(t);
     if (mode === "writer") f.writerRefused = true;
     if (mode === "readback") f.staleReadback = true;
     if (mode === "owner") f.mode = "owner-lost";
-    assert.equal(f.run().status, "blocked", mode);
+    assert.equal((await f.run()).status, "blocked", mode);
     assert.equal(
       f.argvLog.some((argv) => argv[1] === "rm"),
       false,
       mode,
     );
     const before = [...f.events];
-    assert.equal(f.run().status, "blocked");
+    assert.equal((await f.run()).status, "blocked");
     assert.deepEqual(f.events, before);
     f.dispose();
   }
 });
 
 /**
- * 削除直前の同期確認はtrue以外を処置許可にしない。
- * @responsibility inspect後の許可確認と削除要求を一つの固定境界で評価する。
+ * 旧同期資源観測には削除やOwner逆照会を残さない。
+ * @responsibility 同期の観測だけと非同期の共通処置を区別する。
  * @trace ERB-IT-014
  * @precondition 同構成のknown Networkを使用する。
  * @stimulus callbackへtrue、false、throw、thenableを返す。
- * @observation callback件数、then非実行、削除件数と後観測。
- * @oracle trueだけ削除、一回確認、他値は削除0。
+ * @observation 旧callback未評価、then非実行と削除件数を確認する。
+ * @oracle 全入力で読取り成立、旧callback0、削除0。
  * @cleanup fixtureが空configとmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 構成検査→削除直前確認。
  */
-test("DI削除直前確認は同期trueだけを受理する", (t) => {
+test("同期資源観測は削除やOwner逆照会を実行しない", async (t) => {
   for (const mode of ["true", "false", "throw", "thenable"]) {
     const f = fixture(t, "identified");
     let checks = 0,
@@ -3400,46 +3395,42 @@ test("DI削除直前確認は同期trueだけを受理する", (t) => {
       },
       options,
     );
-    assert.equal(confirmed, mode === "true", mode);
-    assert.equal(checks, 1, mode);
+    assert.equal(confirmed, true, mode);
+    assert.equal(checks, 0, mode);
     assert.equal(thenCalls, 0, mode);
-    assert.equal(
-      f.argvLog.filter((argv) => argv[1] === "rm").length,
-      mode === "true" ? 1 : 0,
-      mode,
-    );
+    assert.equal(f.argvLog.filter((argv) => argv[1] === "rm").length, 0, mode);
     f.dispose();
   }
 });
 
 /**
- * inspect応答後に失効した元Ownerから削除を発行しない。
- * @responsibility 回収関数の入口確認だけで処置許可を固定しない。
+ * 技術回収中のOwner変化は下位が逆照会せず上位確定で拒否する。
+ * @responsibility 受理した処置と上位の保存・進行判断を分離する。
  * @trace ERB-IT-014
  * @precondition 一つのknown Networkと後続の未要求資源を用意する。
  * @stimulus 実DI inspectの応答中に元Ownerを失効させる。
  * @observation rm、後続要求、Writerと再入場時の追加Effect。
- * @oracle inspect後のrm0、後続要求0、Writer0、同参照停止。
+ * @oracle 受理済み技術処置は完了、上位Writer0、同参照で停止し再入場の追加処置0。
  * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: DI inspect→削除前Owner確認。
+ * @boundary ERB-IT-014=Related 2 Blocks: DI技術処置→上位の確定前確認。
  */
-test("inspect後Owner失効は削除と後続Writerを止める", (t) => {
+test("回収中Owner変化は技術処置を逆照会せず上位確定で拒否する", async (t) => {
   const f = fixture(t, "identified", true);
   f.mode = "inspect-owner-lost";
-  const result = f.run();
+  const result = await f.run();
   assert.equal(result.status, "blocked");
   assert.equal(result.recoveryId, "exact-recovery");
   assert.equal(
     f.argvLog.some((argv) => argv[1] === "rm"),
-    false,
+    true,
   );
   assert.equal(
     f.events.some((event) => event.startsWith("write:")),
     false,
   );
-  assert.equal(f.argvLog.at(-1)?.[1], "inspect");
+  assert.equal(f.argvLog.at(-1)?.[1], "ls");
   const before = [...f.events];
-  assert.equal(f.run().status, "blocked");
+  assert.equal((await f.run()).status, "blocked");
   assert.deepEqual(f.events, before);
 });
 
@@ -3454,13 +3445,13 @@ test("inspect後Owner失効は削除と後続Writerを止める", (t) => {
  * @cleanup fixtureが空configとmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 保存済みabsence→DI現在観測。
  */
-test("identified既absenceは現在ID・名前の二軸不存在で再確認する", (t) => {
+test("identified既absenceは現在ID・名前の二軸不存在で再確認する", async (t) => {
   const f = fixture(t, "identified", false, true);
   const original = f.operation.resources.find(
     (resource) => resource.purpose === "create_internal_network",
   );
   assert.ok(original?.absence);
-  const result = f.run();
+  const result = await f.run();
   assert.equal(result.status, "completed", result.reason);
   assert.equal(f.argvLog.length, 2);
   assert.ok(f.argvLog.every((argv) => argv[1] === "ls"));
@@ -3511,7 +3502,7 @@ test("identified既absenceは現在ID・名前の二軸不存在で再確認す�
  * @cleanup fixtureが空configとmockを回収する。
  * @boundary ERB-IT-014=Related 2 Blocks: 部分回収→同Owner再入場。
  */
-test("部分回収後のunknownは既absenceを保持し再入場で二度削除しない", (t) => {
+test("部分回収後のunknownは既absenceを保持し再入場で二度削除しない", async (t) => {
   const f = fixture(t, "identified", true);
   const preserved = JSON.stringify({
     host: f.operation.host,
@@ -3520,7 +3511,7 @@ test("部分回収後のunknownは既absenceを保持し再入場で二度削除
     primaryFailure: f.operation.primaryFailure,
     other: f.untouched,
   });
-  const first = f.run();
+  const first = await f.run();
   assert.equal(first.status, "blocked");
   assert.equal(first.recoveryId, "exact-recovery");
   assert.equal(f.argvLog.filter((argv) => argv[1] === "rm").length, 1);
@@ -3557,7 +3548,7 @@ test("部分回収後のunknownは既absenceを保持し再入場で二度削除
   assert.ok(firstEvidence);
   const afterFirst = `${JSON.stringify({ operations: [f.operation, f.untouched] })}\n`;
   const beforeCalls = f.argvLog.length;
-  const second = f.run();
+  const second = await f.run();
   assert.equal(second.status, "blocked");
   assert.equal(second.recoveryId, "exact-recovery");
   const calls = f.argvLog.slice(beforeCalls);
@@ -3631,7 +3622,7 @@ test("現在回収配送: 同Owner・失敗停止・借用失効", () => {
     "export function registerRuntimeOwnedDockerTaskRecoveryDelivery(",
   );
   const end = source.indexOf(
-    "export function recoverRuntimeOwnedDockerTaskResources(",
+    "export async function recoverRuntimeOwnedDockerTaskResources(",
     begin,
   );
   assert.ok(begin >= 0 && end > begin);

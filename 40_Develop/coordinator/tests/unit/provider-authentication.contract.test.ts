@@ -37,18 +37,6 @@ const lifecycleDependencies = Object.freeze({
   setRecoveryCommandState: () => true,
   completeRecovery: () => true,
   recordCreatedResource: () => true,
-  recoveryCommands: (
-    _record: unknown,
-    plan: NonNullable<ReturnType<typeof createProviderAuthenticationPlan>>,
-    index: number,
-  ) => {
-    const ownershipCommand = plan.ownershipCommands[index];
-    const cleanupCommand = plan.cleanupCommands[index];
-    const absenceCommand = plan.absenceCommands[index];
-    return ownershipCommand && cleanupCommand && absenceCommand
-      ? { ownershipCommand, cleanupCommand, absenceCommand }
-      : null;
-  },
 });
 
 /**
@@ -641,38 +629,33 @@ test("再認証回復は保存ID差・構成差・null Receiptの同名存在を
         ...lifecycleDependencies,
         randomHex: () => token,
         beginRecovery: () => "existing_idle",
-        recoveryCommands: (_record, plan, index) => {
-          const normal = lifecycleDependencies.recoveryCommands(
-            _record,
-            plan,
-            index,
-          );
-          if (!normal || index !== 0) return normal;
-          if (scenario === "null")
-            return {
-              ownershipCommand: normal.absenceCommand,
-              cleanupCommand: null,
-              absenceCommand: normal.absenceCommand,
-            };
-          return {
-            ownershipCommand: {
-              purpose: "observe_probe_owner",
-              argv: ["container", "inspect", id],
-              interactive: false,
-            },
-            cleanupCommand: {
-              purpose: "remove_probe",
-              argv: ["rm", "--force", id],
-              interactive: false,
-            },
-            identityAbsenceCommand: {
-              purpose: "confirm_probe_id_absent",
-              argv: ["container", "inspect", id],
-              interactive: false,
-            },
-            absenceCommand: normal.absenceCommand,
-          };
-        },
+        resources: [
+          {
+            kind: "container",
+            name: `crdd-auth-${AUTHENTICATION_SUFFIX}`,
+            dockerId: scenario === "null" ? null : id,
+          },
+          {
+            kind: "container",
+            name: `crdd-claude-${AUTHENTICATION_SUFFIX}`,
+            dockerId: null,
+          },
+          {
+            kind: "container",
+            name: `crdd-proxy-${AUTHENTICATION_SUFFIX}`,
+            dockerId: null,
+          },
+          {
+            kind: "network",
+            name: `crdd-internal-${AUTHENTICATION_SUFFIX}`,
+            dockerId: null,
+          },
+          {
+            kind: "network",
+            name: `crdd-egress-${AUTHENTICATION_SUFFIX}`,
+            dockerId: null,
+          },
+        ],
         run: async (command) => {
           purposes.push(command.purpose);
           if (
@@ -795,15 +778,17 @@ test("再認証は作成Receipt保存未確認でidleと次Effectを拒否する
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 function absenceError(purpose: string) {
-  const resource = purpose.includes("network")
-    ? purpose.includes("internal")
-      ? `crdd-internal-${AUTHENTICATION_SUFFIX}`
-      : `crdd-egress-${AUTHENTICATION_SUFFIX}`
-    : purpose.includes("probe")
-      ? `crdd-auth-${AUTHENTICATION_SUFFIX}`
-      : purpose.includes("login")
-        ? `crdd-claude-${AUTHENTICATION_SUFFIX}`
-        : `crdd-proxy-${AUTHENTICATION_SUFFIX}`;
+  const resource = purpose.includes("_id_absent")
+    ? "a".repeat(64)
+    : purpose.includes("network")
+      ? purpose.includes("internal")
+        ? `crdd-internal-${AUTHENTICATION_SUFFIX}`
+        : `crdd-egress-${AUTHENTICATION_SUFFIX}`
+      : purpose.includes("probe")
+        ? `crdd-auth-${AUTHENTICATION_SUFFIX}`
+        : purpose.includes("login")
+          ? `crdd-claude-${AUTHENTICATION_SUFFIX}`
+          : `crdd-proxy-${AUTHENTICATION_SUFFIX}`;
   return purpose.includes("network")
     ? `Error response from daemon: network ${resource} not found`
     : `Error: No such container: ${resource}`;
@@ -1127,7 +1112,7 @@ test("再認証は事後Probeとcleanupの両方で完了する", async () => {
       },
     },
   );
-  assert.equal(result.status, "completed");
+  assert.equal(result.status, "completed", result.reason);
   assert.equal(result.authenticationConfirmed, true);
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.repositoryMounted, false);
@@ -1142,7 +1127,7 @@ test("再認証は事後Probeとcleanupの両方で完了する", async () => {
   );
   assert.equal(
     purposes.filter((purpose) => purpose.startsWith("confirm_")).length,
-    5,
+    10,
   );
 });
 
@@ -1188,9 +1173,9 @@ test("再認証は途中失敗後にloginを開始せずcleanupする", async ()
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "provider_authentication_start_proxy_failed");
   assert.equal(purposes.includes("start_login_attached"), false);
-  assert.equal(
-    purposes.filter((purpose) => purpose.startsWith("remove_")).length,
-    5,
+  assert.deepEqual(
+    purposes.filter((purpose) => purpose.startsWith("remove_")),
+    ["remove_proxy", "remove_internal_network", "remove_egress_network"],
   );
 });
 
@@ -1357,7 +1342,7 @@ test("再認証は同名の非所有Docker資源を削除しない", async () =>
  * @cleanup Lock喪失後のcleanup Effectは発行しない。
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
-test("再認証はProvider Home Lock喪失後のEffectを停止する", async () => {
+test("認証は上位Lock変化を逆照会せず終了後に上位が成功を拒否する", async () => {
   const purposes: string[] = [];
   let isLive = true;
   const result = await authenticateProvider(
@@ -1470,7 +1455,10 @@ test("再認証はProcess終了不明で後続とIdle保存とHome解放を拒�
  * @boundary 清掃と既存回復記録。
  */
 test("再認証は清掃removeと不存在観測の終了不明を耐久保持する", async () => {
-  for (const target of ["remove_login", "confirm_proxy_absent"]) {
+  for (const target of [
+    "remove_internal_network",
+    "confirm_internal_network_absent",
+  ]) {
     for (const throws of [false, true]) {
       const calls: string[] = [];
       const states: Array<{ state: string; purpose: string | null }> = [];
@@ -1637,6 +1625,33 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
+      resources: [
+        {
+          kind: "container",
+          name: `crdd-auth-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "container",
+          name: `crdd-claude-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "container",
+          name: `crdd-proxy-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "network",
+          name: `crdd-internal-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "network",
+          name: `crdd-egress-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+      ],
       beginRecovery: () => {
         beginCount += 1;
         return beginCount === 1 ? "existing_idle" : "unknown";
@@ -1800,6 +1815,33 @@ test("再認証は耐久Intentから旧資源を回収してfresh Processで再�
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
       ...lifecycleDependencies,
+      resources: [
+        {
+          kind: "container",
+          name: `crdd-auth-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "container",
+          name: `crdd-claude-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "container",
+          name: `crdd-proxy-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "network",
+          name: `crdd-internal-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+        {
+          kind: "network",
+          name: `crdd-egress-${AUTHENTICATION_SUFFIX}`,
+          dockerId: "a".repeat(64),
+        },
+      ],
       beginRecovery: () => {
         beginCount += 1;
         journalEvents.push(`begin-${beginCount}`);
@@ -1832,7 +1874,7 @@ test("再認証は耐久Intentから旧資源を回収してfresh Processで再�
       },
     },
   );
-  assert.equal(result.status, "completed");
+  assert.equal(result.status, "completed", result.reason);
   assert.deepEqual(journalEvents, [
     "begin-1",
     "complete",

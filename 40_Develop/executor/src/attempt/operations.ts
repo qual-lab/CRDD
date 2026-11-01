@@ -7,6 +7,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { types as utilTypes } from "node:util";
+import type { DockerResourceProjection } from "../../../docker-isolation/src/index.ts";
 import {
   type AiModelSelection,
   describeAdviceResultSchema,
@@ -64,7 +65,6 @@ import type {
   AttemptContent,
   AttemptFailureReason,
   AttemptPlan,
-  AttemptRecordProjection,
   AttemptReference,
   AttemptRequest,
   AttemptResultReason,
@@ -890,7 +890,7 @@ export function createAttemptExecutor(
       subscriptionOffering: plan.subscriptionOffering,
       operationMode: plan.operationMode,
       workspaceMountMode: plan.workspaceMountMode,
-    }) satisfies AttemptRecordProjection,
+    }) satisfies DockerResourceProjection,
     start: (input: StartInput<"attempt">) => {
       const {
         managementCapability: management,

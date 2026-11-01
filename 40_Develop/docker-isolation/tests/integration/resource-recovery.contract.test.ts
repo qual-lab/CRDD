@@ -10,12 +10,13 @@
  * @boundary Direct Boundary: 固定Runner結果→資源処置。
  */
 import assert from "node:assert/strict";
+import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import test from "node:test";
 import {
   type DockerRecoveryCommandResult,
   discoverSubmittedDockerResource,
   observeSubmittedDockerResourceAbsent,
-  recoverObservedDockerResource,
+  observeExpectedDockerResource,
 } from "../../src/cleanup/resource.ts";
 import type { DockerResourceExpectation } from "../../src/index.ts";
 
@@ -61,7 +62,7 @@ test("非作成用途と不正IdentityはDocker要求前に拒否する", () => 
     { purpose: "create_provider" },
   ]) {
     const expectation = { ...base, ...invalid } as DockerResourceExpectation;
-    assert.equal(recoverObservedDockerResource(run, expectation), false);
+    assert.equal(observeExpectedDockerResource(run, expectation), false);
     assert.equal(discoverSubmittedDockerResource(run, expectation), null);
   }
   assert.equal(
@@ -124,7 +125,7 @@ test("五用途の既存Network構成だけを観測へ搬送する", () => {
   for (const expectation of configurations) {
     let calls = 0;
     assert.equal(
-      recoverObservedDockerResource(() => {
+      observeExpectedDockerResource(() => {
         calls += 1;
         return commandResult();
       }, expectation),
@@ -138,7 +139,7 @@ test("五用途の既存Network構成だけを観測へ搬送する", () => {
     ]) {
       calls = 0;
       assert.equal(
-        recoverObservedDockerResource(
+        observeExpectedDockerResource(
           () => {
             calls += 1;
             return commandResult();
@@ -339,7 +340,7 @@ test("空stdoutでも失敗・Signal・stderrを不存在にしない", () => {
       false,
     );
     assert.equal(
-      recoverObservedDockerResource(() => result, expectation),
+      observeExpectedDockerResource(() => result, expectation),
       false,
     );
   }
@@ -563,10 +564,10 @@ function exactAuthRunner(networkNames: readonly string[] = ["none"]) {
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-013=Direct Boundary: docker-isolation Test Source→資源観測・回収
  */
-test("Docker資源回収はexact IDと全構成一致だけを削除する", () => {
+test("Docker資源回収はexact IDと全構成一致だけを削除する", async () => {
   const fixture = exactContainerRunner();
   assert.equal(
-    recoverObservedDockerResource(fixture.runDockerCommand, {
+    await cleanupDockerResource(fixture.runDockerCommand, {
       kind: "container",
       dockerId: fixture.dockerId,
       expectedName: "crdd-codex-0123456789abcdef",
@@ -596,10 +597,10 @@ test("Docker資源回収はexact IDと全構成一致だけを削除する", () 
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-013=Direct Boundary: docker-isolation Test Source→資源観測・回収
  */
-test("Docker資源回収はreplacement構成を削除せずEvidenceを保持する", () => {
+test("Docker資源回収はreplacement構成を削除せずEvidenceを保持する", async () => {
   const fixture = exactContainerRunner({ Name: "/replacement" });
   assert.equal(
-    recoverObservedDockerResource(fixture.runDockerCommand, {
+    await cleanupDockerResource(fixture.runDockerCommand, {
       kind: "container",
       dockerId: fixture.dockerId,
       expectedName: "crdd-codex-0123456789abcdef",
@@ -629,7 +630,7 @@ test("Docker資源回収はreplacement構成を削除せずEvidenceを保持す�
  * @cleanup N/A: 合成Docker runnerは実資源を作らない。
  * @boundary PRL-IT-013=Related 2 Blocks: 技術期待値→exact構成検査
  */
-test("init必須と非必須をexact Recoveryの構成検査で区別する", () => {
+test("init必須と非必須をexact Recoveryの構成検査で区別する", async () => {
   const seed = JSON.parse(
     exactContainerRunner().runDockerCommand(["docker", "inspect"]).stdout,
   )[0];
@@ -651,7 +652,7 @@ test("init必須と非必須をexact Recoveryの構成検査で区別する", ()
           : seed.Mounts,
       });
       assert.equal(
-        recoverObservedDockerResource(fixture.runDockerCommand, {
+        await cleanupDockerResource(fixture.runDockerCommand, {
           kind: "container",
           dockerId: fixture.dockerId,
           expectedName: "crdd-codex-0123456789abcdef",
@@ -683,7 +684,7 @@ test("init必須と非必須をexact Recoveryの構成検査で区別する", ()
  * @cleanup N/A: 合成Docker runnerであり実資源を作らない。
  * @boundary PRL-IT-013=Related 2 Blocks: 技術期待値→Docker inspect
  */
-test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", () => {
+test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", async () => {
   for (const purpose of [
     "create_proxy",
     "create_subscription_auth_probe",
@@ -712,7 +713,7 @@ test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", (
           !hasWrongIdentity &&
           (init === undefined || init === null || init === false);
         assert.equal(
-          recoverObservedDockerResource(fixture.runDockerCommand, {
+          await cleanupDockerResource(fixture.runDockerCommand, {
             kind: "container",
             dockerId: fixture.dockerId,
             expectedName: seed.Name.slice(1),

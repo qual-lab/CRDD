@@ -79,9 +79,9 @@ import type {
   CompletionResult as TechnicalCompletionResult,
 } from "../../../executor/src/index.ts";
 import {
-  type AttemptRecoveryTarget,
-  type AttemptCleanupResult as AttemptResourceCleanupResult,
-  type AttemptResourceInspection,
+  type ResourceTarget,
+  type ResourceCleanupResult as AttemptResourceCleanupResult,
+  type ResourceInspection,
   cleanupResources,
   type DockerRuntimeRestartEvent,
   type DockerRuntimeRestartResult,
@@ -142,7 +142,7 @@ import { registerTaskRemediation } from "./preparation.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
 import type {
   AttemptCleanupInput,
-  AttemptCleanupResult,
+  ResourceCleanupResult,
   RecordedAttemptObservation,
   RecoveryPlan,
   RecoveryStartFailureDiagnostic,
@@ -2205,24 +2205,23 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
  * 現在保存値をAttempt回収の技術入力へ投影する。
  * @responsibility Domainの意味検査と用途結合だけを所有する。
  * @trace ARCH-000008
- * @input operation: 復号・現在Owner確認済みの操作。directory: 用途限定借用所在。owner: fresh確認。
+ * @input operation: 復号・現在Owner確認済みの操作。directory: 用途限定借用所在。
  * @returns 保存Schemaを含まないExecutor入力。
  * @effect N/A: 同期投影だけ。
  * @failure 五用途欠測は停止。
  * @invariant Docker期待値や回収順序を上位で構築しない。
  */
-function projectAttemptRecoveryTarget(
+function projectResourceTarget(
   operation: CoordinatorStateTaskOperation,
   directory: string | null,
-  owner: () => boolean,
-): AttemptRecoveryTarget {
+): ResourceTarget {
   if (
     operation.resources.length !== 5 ||
     new Set(operation.resources.map((value) => value.purpose)).size !== 5
   )
     throw Error("docker_task_recovery_resource_missing");
   const identity = JSON.parse(operation.identityJson);
-  const receipt = (purpose: keyof AttemptRecoveryTarget["receipts"]) => {
+  const receipt = (purpose: keyof ResourceTarget["receipts"]) => {
     const resource = operation.resources.find(
       (value) => value.purpose === purpose,
     );
@@ -2236,10 +2235,9 @@ function projectAttemptRecoveryTarget(
   };
   return Object.freeze({
     operationId: identity.operationId,
-    kind: "attempt" as const,
+    kind: "resource_set" as const,
     recoveryId: operation.recoveryId,
     managementDirectory: directory,
-    assertOwner: owner,
     projection: Object.freeze({
       authContainerName: identity.resources.auth,
       providerContainerName: identity.resources.provider,
@@ -2657,8 +2655,10 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
     await yieldRecoveryEvents();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
     if (record.hostCleanup === "present") {
-      const resources =
-        executeRuntimeOwnedDockerTaskResourceRecovery(capability);
+      const resources = await executeRuntimeOwnedDockerTaskResourceRecovery(
+        capability,
+        signal,
+      );
       reason = resources.reason;
       if (
         resources.status !== "completed" ||
@@ -2928,18 +2928,19 @@ export function completeRuntimeOwnedDockerTaskTransientRecovery(
  * @security Docker argv・期待値・config手順を組み立てない。
  * @concurrency 各通知とQueryで元版・現在Ownerをfresh確認する。
  */
-export function recoverRuntimeOwnedDockerTaskResources(
+export async function recoverRuntimeOwnedDockerTaskResources(
   capability: unknown,
   cleanup: (
-    target: AttemptRecoveryTarget,
+    target: ResourceTarget,
     callbacks: ResourceCleanupCallbacks<
       AttemptResourceCleanupResult["resources"]
     >,
-  ) => AttemptResourceCleanupResult = cleanupResources,
+  ) => Promise<AttemptResourceCleanupResult> = cleanupResources,
   inspect: (
-    target: AttemptRecoveryTarget,
-    purpose?: keyof AttemptRecoveryTarget["receipts"],
-  ) => AttemptResourceInspection = inspectResources,
+    target: ResourceTarget,
+    purpose?: keyof ResourceTarget["receipts"],
+  ) => ResourceInspection = inspectResources,
+  signal?: AbortSignal,
 ) {
   const record =
     capability && typeof capability === "object"
@@ -3018,14 +3019,14 @@ export function recoverRuntimeOwnedDockerTaskResources(
       current();
       return borrowed ? borrowed.assertCurrent() : true;
     };
-    const target = projectAttemptRecoveryTarget(
-      initial,
-      borrowed?.directory ?? null,
-      owner,
-    );
+    if (!owner()) throw Error("docker_task_recovery_host_borrow_unconfirmed");
+    const target = Object.freeze({
+      ...projectResourceTarget(initial, borrowed?.directory ?? null),
+      ...(signal ? { signal } : {}),
+    });
     let authenticationClosureConfirmed = false;
     let inspectionConfigConfirmed = true;
-    const recovered = cleanup(target, {
+    const recovered = await cleanup(target, {
       onResourceInspecting: (purpose) => {
         const resource = current().resources.find(
           (value) => value.purpose === purpose,
@@ -3087,11 +3088,7 @@ export function recoverRuntimeOwnedDockerTaskResources(
         const closureOperation = current();
         if (!coordinatorAuthenticationUnknownCanClose(closureOperation)) return;
         const inspection = inspect(
-          projectAttemptRecoveryTarget(
-            closureOperation,
-            borrowed?.directory ?? null,
-            owner,
-          ),
+          projectResourceTarget(closureOperation, borrowed?.directory ?? null),
           "create_subscription_auth_probe",
         );
         inspectionConfigConfirmed = inspection.configCleanupConfirmed;
@@ -3157,6 +3154,7 @@ export function recoverRuntimeOwnedDockerTaskResources(
         authenticationClosureConfirmed = true;
       },
     });
+    if (!owner()) throw Error("docker_task_recovery_host_borrow_unconfirmed");
     record.cleanupUnknown ||=
       !recovered.configCleanupConfirmed || !inspectionConfigConfirmed;
     if (
@@ -3199,8 +3197,14 @@ export function recoverRuntimeOwnedDockerTaskResources(
  */
 export function executeRuntimeOwnedDockerTaskResourceRecovery(
   capability: unknown,
+  signal?: AbortSignal,
 ) {
-  return recoverRuntimeOwnedDockerTaskResources(capability);
+  return recoverRuntimeOwnedDockerTaskResources(
+    capability,
+    cleanupResources,
+    inspectResources,
+    signal,
+  );
 }
 
 /**
@@ -7534,7 +7538,7 @@ export function projectRuntimeRepairObservation(
  */
 export function recordRuntimeOwnedAttemptCleanup(
   input: AttemptCleanupInput & Readonly<{ plan: RecoveryPlan }>,
-): AttemptCleanupResult {
+): ResourceCleanupResult {
   const {
     plan,
     recoveryCapability,

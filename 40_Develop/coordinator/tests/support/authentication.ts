@@ -38,6 +38,7 @@ export type AuthenticationTestExecution = Readonly<{
   resourceReceipt?: Readonly<{ name: string; dockerId: string }>;
 }>;
 export type AuthenticationTestDependencies = Readonly<{
+  resources?: AuthenticationRecoveryRecord["resources"];
   randomHex: (bytes: number) => string;
   run: (
     command: DockerAuthenticationCommand,
@@ -66,16 +67,6 @@ export type AuthenticationTestDependencies = Readonly<{
     record: AuthenticationRecoveryRecord,
     result: AuthenticationTestExecution,
   ) => boolean;
-  recoveryCommands: (
-    record: AuthenticationRecoveryRecord,
-    plan: AuthenticationPlan & RecordProjection<"authentication">,
-    index: number,
-  ) => Readonly<{
-    ownershipCommand: DockerAuthenticationCommand;
-    cleanupCommand: DockerAuthenticationCommand | null;
-    absenceCommand: DockerAuthenticationCommand;
-    identityAbsenceCommand?: DockerAuthenticationCommand;
-  }> | null;
 }>;
 
 /** 既存の保存反例とCommand代役を、Executorの同じ実行・回収本文へ結合する。 */
@@ -130,7 +121,7 @@ export function authenticateProvider(
       },
       setRecoveryCommandState: dependencies.setRecoveryCommandState,
       completeRecovery: dependencies.completeRecovery,
-      readResources: (value) => value.resources,
+      readResources: (value) => dependencies.resources ?? value.resources,
       recordCreatedResource: (value, receipt) =>
         dependencies.recordCreatedResource(
           value,
@@ -147,8 +138,8 @@ export function authenticateProvider(
         const authentication = authentications.get(target.request);
         return authentication
           ? authentication.cleanup(
-              target.readResources,
-              target.assertOwner,
+              target.resources,
+              target.signal,
               target.callbacks,
             )
           : { confirmed: false, processCompletionConfirmed: false };
@@ -175,10 +166,6 @@ export function authenticateProvider(
                 : {}),
             };
           },
-          (plan, index) =>
-            record
-              ? dependencies.recoveryCommands(record, project(plan), index)
-              : null,
           dependencies.isProcessCompletionConfirmed,
         );
         if (authentication) authentications.set(request, authentication);

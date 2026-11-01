@@ -4,7 +4,6 @@
  * @trace ARCH-000008
  * @boundary 技術実行と上位の観測・保存。
  */
-import type { DockerResourceReceipts } from "../../../docker-isolation/src/index.ts";
 import type { AttemptCallbacks } from "../attempt/types.ts";
 import type { AuthenticationCallbacks } from "../authentication/types.ts";
 import type { IsolationProbeCallbacks } from "../probe/types.ts";
@@ -40,15 +39,7 @@ export interface CompletionCallbacks<
  * @security 通知だけで不存在・Home解放を証明しない。
  * @compatibility 通常実行の終了通知はPromise完了を待つ。
  */
-export interface ResourceCleanupCallbacks<Observation> {
-  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
-  onResourceIdentified?(
-    purpose: keyof DockerResourceReceipts,
-    dockerId: string,
-  ): void;
-  onResourcesClosed?(observation: Observation): void | Promise<void>;
-  onCleanupCompleted?(observation: Observation): void | Promise<void>;
-}
+export type { ResourceCleanupCallbacks } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 各用途が所有する通知interfaceの対応。

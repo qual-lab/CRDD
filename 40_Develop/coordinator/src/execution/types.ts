@@ -541,7 +541,7 @@ export type ExecutionRecordOperations = Readonly<{
     activeMountCapability: unknown,
     managementCapability: unknown,
   ) => Readonly<{ status: string }>;
-  completeCleanup: (input: AttemptCleanupInput) => AttemptCleanupResult;
+  completeCleanup: (input: AttemptCleanupInput) => ResourceCleanupResult;
   markResourceSubmission?: (
     recoveryCapability: object,
     purpose: string,
@@ -587,7 +587,7 @@ export type AttemptCleanupInput = Readonly<{
   homeLeaseReleased: boolean;
 }>;
 
-export type AttemptCleanupResult = Readonly<{
+export type ResourceCleanupResult = Readonly<{
   mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
   recoveryCompleted: boolean;
@@ -618,7 +618,7 @@ export type BlockedRecovery = Readonly<{
   manualRecoveryRequired?: boolean;
 }>;
 export type RecordedAttemptResult = CompletionResult<"attempt"> &
-  AttemptCleanupResult;
+  ResourceCleanupResult;
 export type RecordedAttemptObservation = AttemptTerminalObservation &
   Readonly<{
     mountLeaseReleased: boolean;

@@ -151,6 +151,7 @@ test("認証の開始前取消は実行せず開始を拒否する", async () =>
   for (const external of [false, true]) {
     let calls = 0;
     const core: Authentication = {
+      resources: [],
       projection: {
         provider: "codex",
         action: "status",
@@ -173,8 +174,6 @@ test("認証の開始前取消は実行せず開始を拒否する", async () =>
     if (external) controller.abort();
     else await executor.cancel();
     const result = executor.start({
-      assertOwner: () => true,
-      readResources: () => [],
       ...(external ? { signal: controller.signal } : {}),
     });
     assert.equal(result.status, "blocked");
@@ -182,11 +181,7 @@ test("認証の開始前取消は実行せず開始を拒否する", async () =>
       assert.equal(result.reason, "provider_authentication_cancelled");
       assert.equal(result.completion, null);
     }
-    assert.equal(
-      executor.start({ assertOwner: () => true, readResources: () => [] })
-        .status,
-      "blocked",
-    );
+    assert.equal(executor.start({}).status, "blocked");
     assert.equal(calls, 0);
     assert.deepEqual(await executor.cancel(), {
       status: "blocked",
@@ -485,7 +480,7 @@ test("共通公開型は用途と開始・取消・結果・通知の対応を�
     input: StartInput<"attempt">,
   ) {
     attempt.start(input);
-    authentication.start({ assertOwner: () => true, readResources: () => [] });
+    authentication.start({});
     probe.start({});
     // @ts-expect-error 認証開始にAttemptの管理参照を転用しない。
     authentication.start(input);
@@ -586,6 +581,7 @@ test("認証は最終取消を反映し清掃例外で一次理由を上書き�
         ? "provider_authentication_resource_receipt_unconfirmed"
         : "provider_authentication_completed";
     const core: Authentication = {
+      resources: [],
       projection: {
         provider: "claude",
         action: "status",
@@ -617,10 +613,7 @@ test("認証は最終取消を反映し清掃例外で一次理由を上書き�
     };
     const executor = bindAuthenticationLifecycle(core);
     assert.ok(executor);
-    const pending = executor.start({
-      assertOwner: () => true,
-      readResources: () => [],
-    }).completion;
+    const pending = executor.start({}).completion;
     if (mode.startsWith("cancel")) {
       await reached;
       void executor.cancel();
@@ -698,14 +691,14 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
       processCompletionConfirmed: mode !== "unknown",
     };
     const core: Authentication = {
+      resources: [],
       projection: {
         provider: "codex",
         action: "status",
         ownershipLabel: "synthetic",
         resources: [],
       },
-      async execute(signal, current, callbacks) {
-        assert.equal(current(), true);
+      async execute(signal, callbacks) {
         observedSignal = signal;
         callbacks?.onCommandSubmitting?.("synthetic");
         if (mode === "throw") throw Error("synthetic");
@@ -717,10 +710,10 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
             : {}),
         };
       },
-      async cleanup(read, current) {
+      async cleanup(resources, signal) {
         cleanups++;
-        assert.deepEqual(read(), []);
-        assert.equal(current(), true);
+        assert.deepEqual(resources, []);
+        assert.equal(signal, undefined);
         return {
           confirmed: mode !== "cleanup_failed",
           processCompletionConfirmed: true,
@@ -735,8 +728,6 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
     const notices: string[] = [];
     let delivered: CompletionResult<"authentication"> | null = null;
     const started = executor.start({
-      assertOwner: () => true,
-      readResources: () => [],
       callbacks: {
         onCommandSubmitting: (purpose) => {
           notices.push(purpose);
@@ -754,11 +745,7 @@ test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗�
       if (cancelled.status === "requested")
         assert.equal(cancelled.processTerminationObserved, false);
     }
-    assert.equal(
-      executor.start({ assertOwner: () => true, readResources: () => [] })
-        .status,
-      "blocked",
-    );
+    assert.equal(executor.start({}).status, "blocked");
     const completed = await started.completion;
     assert.deepEqual(await executor.cancel(), {
       status: "blocked",

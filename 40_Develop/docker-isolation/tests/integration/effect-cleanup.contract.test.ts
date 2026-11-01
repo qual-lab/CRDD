@@ -887,6 +887,7 @@ test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定
     }
     assert.equal(fixture.counts().configRemoved, 0);
     assert.equal(terminationCalls, 1);
+    const callsBeforeSecond = fixture.invocations.length;
     const second = await fixture.runtime.cleanupOwnedResources(
       fixture.plan,
       fixture.recoveryCapability,
@@ -894,8 +895,10 @@ test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定
     );
     assert.equal(second.confirmed, false);
     assert.equal(second.processTreeTerminated, false);
-    assert.equal(second.containersAbsent, true);
-    assert.equal(second.networksAbsent, true);
+    assert.equal(second.containersAbsent, false);
+    assert.equal(second.networksAbsent, false);
+    assert.equal(second.resourceObservations, null);
+    assert.equal(fixture.invocations.length, callsBeforeSecond);
     assert.equal(terminationCalls, 2);
     assert.equal(fixture.counts().configRemoved, 0);
     closed = true;

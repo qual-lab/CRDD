@@ -9,6 +9,65 @@ import path from "node:path";
 import { dockerContainerInitObservationMatches } from "./init.ts";
 import type { DockerIsolationCommand } from "../execution/plan.ts";
 import type { DockerAuthenticationCommand } from "../authentication/plan.ts";
+import type {
+  DockerAuthenticationResources,
+  DockerResourceExpectationSet,
+} from "./types.ts";
+
+/**
+ * 元認証計画と同じ資源列だけを通常データとして捕捉する。
+ * @responsibility 欠測、順序・名前差、accessor、Proxyと不正IDを拒否する。
+ * @trace ARCH-000010
+ * @input expected: 元の資源列。value: 開始時又は再入場時のReceipt列。
+ * @returns 入れ子を含め固定した元構成のReceipt列、又はnull。
+ * @effect N/A: own-dataの読取りだけ。
+ * @failure 分類不能・不一致はnull。
+ * @invariant indexだけで別資源を結合しない。
+ */
+export function captureAuthenticationResources(
+  expected: DockerAuthenticationResources,
+  value: unknown,
+): DockerAuthenticationResources | null {
+  if (
+    !Array.isArray(value) ||
+    types.isProxy(value) ||
+    value.length !== expected.length
+  )
+    return null;
+  const captured = [];
+  for (let index = 0; index < expected.length; index++) {
+    const original = expected[index];
+    if (!original) return null;
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    const item: unknown =
+      descriptor && Object.hasOwn(descriptor, "value")
+        ? descriptor.value
+        : null;
+    if (!item || typeof item !== "object" || types.isProxy(item)) return null;
+    const fields = Object.getOwnPropertyDescriptors(item);
+    if (
+      Reflect.ownKeys(fields).length !== 3 ||
+      ["kind", "name", "dockerId"].some(
+        (key) => !fields[key] || !Object.hasOwn(fields[key], "value"),
+      )
+    )
+      return null;
+    const kind: unknown = fields.kind?.value,
+      name: unknown = fields.name?.value,
+      dockerId: unknown = fields.dockerId?.value;
+    if (
+      kind !== original.kind ||
+      name !== original.name ||
+      (dockerId !== null &&
+        (typeof dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(dockerId)))
+    )
+      return null;
+    captured.push(
+      Object.freeze({ kind: original.kind, name: original.name, dockerId }),
+    );
+  }
+  return Object.freeze(captured);
+}
 
 /**
  * 回収する五用途の固定技術期待値を構築する。
@@ -44,7 +103,7 @@ export function planDockerRecoveryResourceExpectations(
       internalSourcePath: string;
     }>;
   }>,
-) {
+): DockerResourceExpectationSet | null {
   try {
     if (
       !input ||

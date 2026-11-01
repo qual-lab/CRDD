@@ -5,10 +5,15 @@
  */
 
 import type {
+  DockerResourceProjection,
+  DockerContainerConfigurationExpectation,
+  DockerRuntimeDirectoryInspectionInput,
+  DockerRuntimeRepairDisposalInput,
+} from "../../../docker-isolation/src/index.ts";
+import type {
   CompletionResult as AttemptCompletionResult,
   AttemptCancelInput,
   AttemptExecutor,
-  AttemptRecordProjection,
   AttemptReference,
   AttemptRequest,
   StartResult as AttemptStartResult,
@@ -80,7 +85,7 @@ export type ProjectionKind = "attempt" | "authentication";
 export type RecordProjection<K extends ProjectionKind = ProjectionKind> =
   RecordProjections[K];
 interface RecordProjections {
-  attempt: AttemptRecordProjection;
+  attempt: DockerResourceProjection;
   authentication: AuthenticationProjection;
 }
 
@@ -263,3 +268,74 @@ export interface LifecycleOperation<TContext, TResult> {
   cleanup(context: TContext): Promise<void>;
   createResult(context: TContext, failure: unknown, failed: boolean): TResult;
 }
+
+/** 元認証構成の単独回収。上位が現在Owner・終了確認と同じReceiptを提供する。 */
+export type AuthenticationResourceTarget = AuthenticationStartContext &
+  Readonly<{
+    kind: "authentication";
+    request: AuthenticationRequest;
+    resources: AuthenticationProjection["resources"] | null;
+    callbacks?: ExecutorCallbacks<"authentication">;
+  }>;
+
+/**
+ * 上位で選定済みの単一Containerと、作成時の同じ技術構成。
+ * @responsibility 用途・保持・保存を知らず元構成と取消状態だけを借用する。
+ * @trace ARCH-000008
+ * @shape container種別、作成構成、借用管理領域と取消Signal。
+ * @invariant IDだけで処置せず資源の照合を維持し、取消後の前進処置を止める。
+ * @boundary 上位の対象選定と既存資源API。
+ * @security 任意Path削除や構成検査の省略を公開しない。
+ * @compatibility 保存Schema・用途種別・既存Attempt契約を変更しない。
+ */
+export type ContainerResourceTarget = Readonly<{
+  kind: "container";
+  configuration: DockerContainerConfigurationExpectation;
+  managementDirectory: string;
+  signal?: AbortSignal;
+}>;
+
+/**
+ * 単一Containerの現在観測。不明を不存在へ畳まない。
+ * @responsibility Running肯定と不存在を分離する。
+ * @trace ARCH-000008
+ * @shape present・absent・unknownとRunning肯定。
+ * @invariant 観測だけで保存完了や回収許可を確定しない。
+ * @boundary DIの現在観測から上位の判断へ返す。
+ * @security 生inspect・秘密・実行許可を含めない。
+ * @compatibility Runningの否定を不存在に読み替えない。
+ */
+export type ContainerResourceInspection = Readonly<{
+  observation: "present" | "absent" | "unknown";
+  runningConfirmed: boolean;
+}>;
+
+/**
+ * 固定Docker runtime Directoryの観測対象。
+ * @responsibility DIの固定入力を外側の資源種別へ結合する。
+ * @trace ARCH-000008
+ * @shape 固定kindとDI正本の元input。
+ * @invariant 任意Path・保持期限・廃棄判断を含めない。
+ * @boundary 共通資源APIからDIの二読取り。
+ * @security 観測から処置権限を生成しない。
+ * @compatibility kindをDIの閉形式inputへ混入しない。
+ */
+export type DirectoryResourceInspectionTarget = Readonly<{
+  kind: "docker_runtime_directory";
+  input: DockerRuntimeDirectoryInspectionInput;
+}>;
+
+/**
+ * 固定用途のDirectory処置対象。
+ * @responsibility DIの固定処置入力だけを種別へ結合する。
+ * @trace ARCH-000008
+ * @shape 固定kindとScope・用途・現在Queryを持つ元input。
+ * @invariant 許可と用途Intentは上位が確認し、Executorは保存しない。
+ * @boundary 共通資源APIからDIの元Promise。
+ * @security 任意Path削除・期限による自動処置へ拡張しない。
+ * @compatibility 元inputとSignal・Queryの参照を保持する。
+ */
+export type DirectoryResourceCleanupTarget = Readonly<{
+  kind: "docker_runtime_directory";
+  input: DockerRuntimeRepairDisposalInput;
+}>;

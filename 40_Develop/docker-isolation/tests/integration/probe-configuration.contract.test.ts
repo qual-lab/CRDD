@@ -368,7 +368,7 @@ test("共通Container回収は実ID・三軸・現在Ownerを保持する", (t) 
   fault = "";
   calls.length = 0;
   assert.equal(
-    cleanupDockerContainer(binding, f.expected, () => false).confirmed,
+    cleanupDockerContainer(binding, f.expected, AbortSignal.abort()).confirmed,
     false,
   );
   assert.deepEqual(calls, ["inspect"]);

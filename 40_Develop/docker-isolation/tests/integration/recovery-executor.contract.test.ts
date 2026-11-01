@@ -61,7 +61,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   const lower: Array<{
     binding: {
       managementDirectory: string;
-      assertOwner: () => boolean;
+      signal?: AbortSignal;
       verifyCli: () => void;
       environment: () => unknown;
     };
@@ -108,9 +108,9 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
    * @cleanup N/A: Authorityや資源を発行しない。
    * @boundary Owner確認の代役であり生存保証の実測ではない。
    */
-  const owner = () => true;
+  const controller = new AbortController();
   const input = Object.defineProperties(
-    { managementDirectory: "fixed-management", assertOwner: owner },
+    { managementDirectory: "fixed-management", signal: controller.signal },
     {
       verifyCli: {
         enumerable: true,
@@ -135,12 +135,12 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   assert.deepEqual(events, []);
   assert.equal(getterReads, 0);
   for (const result of lower) {
-    assert.equal(result.binding.assertOwner, owner);
+    assert.equal(result.binding.signal, controller.signal);
     assert.equal(result.binding.managementDirectory, "fixed-management");
     assert.deepEqual(Object.keys(result.binding).sort(), [
-      "assertOwner",
       "environment",
       "managementDirectory",
+      "signal",
       "verifyCli",
     ]);
   }
@@ -346,10 +346,6 @@ test("操作configは一意生成しfresh照合後の固定要求だけを発行
   const events: string[] = [];
   const input = {
     managementDirectory: f.directory,
-    assertOwner: () => {
-      events.push("owner");
-      return true;
-    },
     verifyCli: () => {
       events.push("cli");
     },
@@ -372,16 +368,7 @@ test("操作configは一意生成しfresh照合後の固定要求だけを発行
     ),
     true,
   );
-  assert.deepEqual(events, [
-    "environment",
-    "owner",
-    "cli",
-    "owner",
-    "environment",
-    "owner",
-    "cli",
-    "owner",
-  ]);
+  assert.deepEqual(events, ["environment", "cli", "environment", "cli"]);
   const config = f.calls[0]?.argv[3];
   assert.ok(config && config !== old);
   assert.equal(path.dirname(config), f.directory);
@@ -414,34 +401,22 @@ test("操作configは一意生成しfresh照合後の固定要求だけを発行
  * @cleanup fixtureが自作fileとmockを回収する。
  * @boundary Owner／容量確認→短命config作成。
  */
-test("Owner不明と96残存はconfig作成前に拒否する", (t) => {
+test("事前取消と96残存はconfig作成前に拒否する", (t) => {
   const f = fixture(t);
   const before = fs.readdirSync(f.directory);
-  let thenCalls = 0;
-  for (const mode of ["false", "throw", "thenable"]) {
-    const stopped = createDockerOperationRecoveryExecutor({
-      managementDirectory: f.directory,
-      assertOwner: () => {
-        if (mode === "throw") throw new Error("private owner detail");
-        if (mode === "thenable")
-          return {
-            // biome-ignore lint/suspicious/noThenProperty: 非同期Ownerを拒否する反証入力。
-            then: () => {
-              thenCalls += 1;
-            },
-          } as unknown as boolean;
-        return false;
-      },
-      verifyCli: () => {
-        throw new Error("must not verify");
-      },
-      environment: () => ({}),
-    });
-    assert.equal(stopped.status, "blocked");
-    assert.equal(stopped.cleanupConfirmed, true);
-    assert.deepEqual(fs.readdirSync(f.directory), before);
-  }
-  assert.equal(thenCalls, 0);
+  const controller = new AbortController();
+  controller.abort();
+  const cancelled = createDockerOperationRecoveryExecutor({
+    managementDirectory: f.directory,
+    signal: controller.signal,
+    verifyCli: () => {
+      throw Error("must_not_verify");
+    },
+    environment: () => ({}),
+  });
+  assert.equal(cancelled.status, "blocked");
+  assert.equal(cancelled.cleanupConfirmed, true);
+  assert.deepEqual(fs.readdirSync(f.directory), before);
   for (let index = 0; index < 96; index += 1)
     fs.writeFileSync(
       path.join(f.directory, `docker-recovery-config-old-${index}`),
@@ -450,7 +425,6 @@ test("Owner不明と96残存はconfig作成前に拒否する", (t) => {
   const retained = fs.readdirSync(f.directory);
   const stopped = createDockerOperationRecoveryExecutor({
     managementDirectory: f.directory,
-    assertOwner: () => true,
     verifyCli: () => {},
     environment: () => ({}),
   });
@@ -470,13 +444,23 @@ test("Owner不明と96残存はconfig作成前に拒否する", (t) => {
  * @cleanup fixtureがmockと領域を回収する。
  * @boundary 短命config作成→最終Owner確認。
  */
-test("作成直後Owner失効は自作closeだけを行う", (t) => {
+test("作成直後の取消は自作closeだけを行う", (t) => {
   const f = fixture(t);
-  let checks = 0;
+  const controller = new AbortController();
   const before = fs.readdirSync(f.directory);
+  const original = fs.mkdtempSync;
+  t.mock.method(
+    fs,
+    "mkdtempSync",
+    (...args: Parameters<typeof fs.mkdtempSync>) => {
+      const directory = Reflect.apply(original, fs, args);
+      controller.abort();
+      return directory;
+    },
+  );
   const stopped = createDockerOperationRecoveryExecutor({
     managementDirectory: f.directory,
-    assertOwner: () => ++checks === 1,
+    signal: controller.signal,
     verifyCli: () => {},
     environment: () => ({}),
   });
@@ -510,7 +494,6 @@ test("capture前Identity不明は新子を保持する", (t) => {
   try {
     const stopped = createDockerOperationRecoveryExecutor({
       managementDirectory: f.directory,
-      assertOwner: () => true,
       verifyCli: () => {},
       environment: () => ({}),
     });
@@ -544,7 +527,6 @@ test("子置換・非空は処置とcloseを拒否し再試行しない", (t) =>
   for (const mode of ["replacement", "nonempty"]) {
     const ready = createDockerOperationRecoveryExecutor({
       managementDirectory: f.directory,
-      assertOwner: () => true,
       verifyCli: () => {},
       environment: () => ({}),
     });
@@ -593,7 +575,6 @@ test("close失敗はfalseを保持し二度削除しない", (t) => {
   const f = fixture(t);
   const ready = createDockerOperationRecoveryExecutor({
     managementDirectory: f.directory,
-    assertOwner: () => true,
     verifyCli: () => {},
     environment: () => ({}),
   });
@@ -617,7 +598,7 @@ test("close失敗はfalseを保持し二度削除しない", (t) => {
 });
 
 /**
- * Parent差替えとCLI確認中Owner失効を最終spawn前に拒否する。
+ * Parent差替えとCLI確認中の明示取消を最終spawn前に拒否する。
  * @responsibility 子configだけの一致から現在境界を成立させない。
  * @trace ERB-IT-004
  * @precondition 操作config作成と初回Ownerは成立。
@@ -627,15 +608,15 @@ test("close失敗はfalseを保持し二度削除しない", (t) => {
  * @cleanup Parentを試験で元へ戻してからfixtureが自作領域を回収する。
  * @boundary config照合→Parent／Ownerの最終確認。
  */
-test("Parent差と最終Owner失効はspawn前に止まる", (t) => {
+test("Parent差と最終取消はspawn前に止まる", (t) => {
   const f = fixture(t);
-  let ownerLive = true;
+  const controller = new AbortController();
   let loseDuringCli = false;
   const input = {
     managementDirectory: f.directory,
-    assertOwner: () => ownerLive,
+    signal: controller.signal,
     verifyCli: () => {
-      if (loseDuringCli) ownerLive = false;
+      if (loseDuringCli) controller.abort();
     },
     environment: () => ({}),
   };
@@ -691,7 +672,6 @@ test("close後観測不能もfalseを保持する", (t) => {
   const f = fixture(t);
   const ready = createDockerOperationRecoveryExecutor({
     managementDirectory: f.directory,
-    assertOwner: () => true,
     verifyCli: () => {},
     environment: () => ({}),
   });

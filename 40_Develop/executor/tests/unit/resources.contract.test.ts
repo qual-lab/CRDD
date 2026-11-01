@@ -17,7 +17,7 @@ import type {
   DockerRuntimeRepairResult,
   DockerRuntimeRepairRetentionTargets,
 } from "../../../docker-isolation/src/index.ts";
-import type { AttemptRecoveryTarget } from "../../src/index.ts";
+import type { ResourceTarget } from "../../src/index.ts";
 
 /**
  * 対象別の同期性と元値を同じ代役上で照合する。
@@ -201,11 +201,11 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
         kind,
         operationId: "o",
         recoveryId: "r",
-      } as unknown as AttemptRecoveryTarget;
+      } as unknown as ResourceTarget;
       assert.equal(inspectResources(bad).status, "blocked");
-      assert.equal(cleanupResources(bad).status, "blocked");
+      assert.equal((await cleanupResources(bad)).status, "blocked");
     }
-    const proxy = new Proxy({} as AttemptRecoveryTarget, { get: unexpected });
+    const proxy = new Proxy({} as ResourceTarget, { get: unexpected });
     assert.throws(() => inspectResources(proxy), /resource_target_invalid/);
     assert.throws(() => cleanupResources(proxy), /resource_target_invalid/);
     assert.equal(calls.length, before);

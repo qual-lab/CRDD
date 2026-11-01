@@ -8398,9 +8398,9 @@ export function prepareProviderAuthentication(
  * 各認証技術操作の前後で上位保存を完了する通知を登録する。
  * @responsibility 保存拒否を例外へ変換し次Effectを止める。
  * @trace ARCH-000010
- * @input recovery: 元記録、dependencies: 専用Writer。
+ * @input recovery: 元記録、dependencies: 専用Writer、current: 上位が保持したHome Lockの現在性。
  * @returns 同期void通知だけを持つinterface。
- * @precondition 下位が操作前後に現在Home Ownerを確認する。
+ * @precondition 上位がHome Lockを保持し、通知内で必要保存の現在性を確認する。
  * @postcondition Record保存結果を通知の戻り値にしない。
  * @effect 各通知で既存Intent・Receipt・idleを保存する。
  * @failure 保存拒否は例外で下位へ返す。
@@ -8412,17 +8412,24 @@ export function prepareProviderAuthentication(
 function authenticationCallbacks(
   recovery: AuthenticationRecoveryRecord,
   dependencies: Dependencies,
+  current: () => boolean,
 ): ExecutorCallbacks<"authentication"> {
   return {
     onCommandSubmitting: (purpose) => {
+      if (!current())
+        throw Error("provider_authentication_provider_home_lock_lost");
       if (!dependencies.setRecoveryCommandState(recovery, "in_flight", purpose))
         throw Error("provider_authentication_command_intent_unconfirmed");
     },
     onResourceCreated: (receipt) => {
+      if (!current())
+        throw Error("provider_authentication_provider_home_lock_lost");
       if (!dependencies.recordCreatedResource(recovery, receipt))
         throw Error("provider_authentication_resource_receipt_unconfirmed");
     },
     onCommandCompleted: () => {
+      if (!current())
+        throw Error("provider_authentication_provider_home_lock_lost");
       if (!dependencies.setRecoveryCommandState(recovery, "idle", null))
         throw Error("provider_authentication_command_settlement_unconfirmed");
     },
@@ -8431,7 +8438,7 @@ function authenticationCallbacks(
 
 /**
  * 元認証操作の技術回収へ保存通知を接続する。
- * @responsibility 実体確認や削除を組み立てず、現在Receipt照会を渡す。
+ * @responsibility 実体確認や削除を組み立てず、上位で読んだ確定Receipt値を渡す。
  * @trace ARCH-000010
  * @input plan: 元投影、dependencies: 上位保存、authorityLive: 現在Home、recovery: 元記録。
  * @returns 技術回収とProcess終了の個別結果。
@@ -8442,7 +8449,7 @@ function authenticationCallbacks(
  * @invariant 保存成功と技術回収成功を混同しない。
  * @boundary 上位記録とExecutor資源回収。
  * @security 任意Pathや削除命令を渡さない。
- * @concurrency 各資源で現在記録を照会し、同じOwnerを確認する。
+ * @concurrency 上位Lockを保持し、必要保存通知内で現在性を確認する。
  */
 async function cleanAuthenticationResources(
   plan: RecordProjection<"authentication">,
@@ -8450,14 +8457,19 @@ async function cleanAuthenticationResources(
   authorityLive: () => boolean,
   recovery: AuthenticationRecoveryRecord,
 ) {
+  if (!authorityLive())
+    return { confirmed: false, processCompletionConfirmed: false };
   const authentication = authenticationPreparations.get(plan);
   return authentication
     ? dependencies.cleanupAuthentication({
         kind: "authentication",
         request: authentication.request,
-        readResources: () => dependencies.readResources(recovery),
-        assertOwner: authorityLive,
-        callbacks: authenticationCallbacks(recovery, dependencies),
+        resources: dependencies.readResources(recovery),
+        callbacks: authenticationCallbacks(
+          recovery,
+          dependencies,
+          authorityLive,
+        ),
       })
     : { confirmed: false, processCompletionConfirmed: false };
 }
@@ -8669,9 +8681,11 @@ export async function authenticateProvider(
     try {
       const started = authentication.executor.start({
         ...(signal ? { signal } : {}),
-        assertOwner: providerHomeLock.assertLive,
-        readResources: () => activeDependencies.readResources(recovery),
-        callbacks: authenticationCallbacks(recovery, activeDependencies),
+        callbacks: authenticationCallbacks(
+          recovery,
+          activeDependencies,
+          providerHomeLock.assertLive,
+        ),
       });
       if (started.status !== "started") throw Error(started.reason);
       const result = await started.completion;

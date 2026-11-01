@@ -18,6 +18,12 @@
 
 ## Host実行環境の窓口
 
+### DI正本の共通回収と上位判断の境界（2026-11-02）
+
+通常実行・単独回収・認証の資源APIは、上位へのassertOwner Queryを受け取らず、任意のAbortSignalで処置の停止を受ける。上位は呼出し前に対象・許可を確定し、呼出し終了まで既存排他を保持する。上位の途中失効を下位が自動検知する保証は持たず、停止は明示取消で伝える。Coordinatorの保存通知内の版・記録確認と、呼出し前後の境界確認は上位に維持する。DIのID・Label・構成・管理Directory実体の確認は撤去しない。
+
+Executor固有の接続型はlifecycle/types.tsへ統合し、cleanup-types.tsは撤去した。資源集合の技術投影・対象・結果・回収通知はDIのcleanup/types.tsを正本として再利用する。DIのcleanup/resources.tsが通常Sessionと単独回収の同じ回収順序を所有し、cleanup/operations.tsが実ID・構成・削除・二軸不存在を照合する。通常Sessionは既存の非同期Process接続と自分のconfigを使い、単独回収だけが短命configを取得して一回closeする。通常Cleanup後にExecutorが再度同じ資源を回収することはない。認証はDIのcleanup/authentication.ts、単一Containerは既存DIのcleanup/container.ts、Directoryは既存の用途固定処置を双方から共用する。異なる削除条件を緩いOptional型へ統合しない。Directory・環境修復の固有入力と現在性確認は今回変更しない。
+
 ### 共通Lifecycleの実行制御
 
 事前取消は内部Signal又は対応用途の外部Signalから判定する。startの取消拒否は重複開始と区別した既存の用途別取消理由を返す。外部Signalは共通取消へlistenerで接続し、登録直後にも中断を再確認する。外部・明示・内部停止は同じ取消印と配送Promiseを使い、Handler未登録なら要求を保持し、後接続で一回だけ配送する。外部中断後の明示取消はduplicate、終端後はinvalid。finishは購読を解除し、後着中断では処置しない。Attemptへ新しい外部Signal入力は追加しない。
@@ -50,11 +56,11 @@ Attemptの開始通知拒否による内部停止も同じ共通取消へ接続�
 
 認証もcreateExecutor({kind: "authentication", ...request})から構成し、recordProjectionとstart／cancelを返す。startのcompletionは同じRuntimeの認証・清掃を含み、authenticationStatus、processCompletionConfirmed、cleanupConfirmedを区別する。準備と実行はauthentication/operations.ts、型はauthentication/types.tsへ置き、preparation.tsや互換barrelを追加しない。認証情報そのもの・Repository・Workspace・任意CLIは要求しない。認証と通常Taskは同じProvider固定Imageを利用するが、Codex Adviceの別Digestは今回変更しない。
 
-上位はHome選定・既存Home Lock、Recovery受付、Intent／Receipt／idle／settledの保存を所有する。Executorの同期void通知は各Commandの前、作成Receipt、終了後に発行し、上位は必要保存を完了してからreturnする。throw又は誤Promiseでは次Effectを止める。生出力を通知へ流さず、AI Adapterの正本Parserで認証三値へ変換する。readResourcesは現在記録の読取りQueryであり、通知や保存依頼と混同しない。
+上位はHome選定・既存Home Lock、Recovery受付、Intent／Receipt／idle／settledの保存を所有する。Executorの同期void通知は各Commandの前、作成Receipt、終了後に発行し、上位は必要保存を完了してからreturnする。throw又は誤Promiseでは次Effectを止める。生出力を通知へ流さず、AI Adapterの正本Parserで認証三値へ変換する。ExecutorはOwnerや保存状態を逆照会しない。通常実行は元DI Planの固定資源列と通知完了済みReceiptを内部に保持し、単独回収は上位が読んだ同じ資源情報を値として受け取る。DIは元計画との順序・名前・種類・実IDを検査し、accessor・Proxy・欠測を拒否する。
 
 同一認証構成は既存DI Runtimeを使い回し、Process終了不明をstickyに保持する。終了不明後の技術回収とHome解放を成功扱いしない。資源回収では実ID・名前・Label・構成・不存在の条件を維持し、inspect/remove/absence各Commandにも保存通知を挟む。statusの正規未ログインだけを確認完了として扱い、login・未知出力・Process故障を同じ結果にしない。Home解放・保存確定・操作全体の成功はCoordinatorが判断する。
 
-認証と通常短期CLIの終了確認はDIのprocess/start.tsにあるfinishOwnedProcessを共有する。認証固有の対話方式・30秒の非対話期限・現在許可監視と、通常の短期10秒期限は入力条件として維持し、同じContainerの再利用や新しいProcess Managerを作らない。Artifact・CLI準備の読取り失敗はEffect前に止め、未発行をProcess終了不明へ変換しない。
+認証と通常短期CLIの終了確認はDIのprocess/start.tsにあるfinishOwnedProcessを共有する。認証固有の対話方式・30秒の非対話期限・明示取消と、通常の短期10秒期限は入力条件として維持し、同じContainerの再利用や新しいProcess Managerを作らない。Artifact・CLI準備の読取り失敗はEffect前に止め、未発行をProcess終了不明へ変換しない。
 
 単段Attemptとは独立した環境診断・再起動・修復は`environment/execute.ts`が所有し、集約観測型だけを`environment/types.ts`へ置く。新しい管理State・Store・Factoryは追加しない。Docker Isolationが具体的なOS／Docker技術処理を所有し、Coordinatorは実施判断・現在Owner・必要な排他・Effect前の耐久Intent・Checkpoint・結果確定を所有する。
 
@@ -68,7 +74,7 @@ Attemptの開始通知拒否による内部停止も同じ共通取消へ接続�
 
 ## 単一Containerの既存資源API接続（2026-11-01）
 
-inspectResources／cleanupResourcesの既存入口で、元作成構成を持つContainerResourceTargetも扱う。新しいProbe Recovery関数・Factory・Store・Lockは作らない。Executorは同じ管理所在・構成・現在Owner確認を既存DIへ接続し、present／absent／unknownとRunning肯定を分けて返す。回収は先行inspectを要求せず、内部で同じ構成をfresh照合する。Host回収・保存・保持判断は上位に残す。通常Probe実行の清掃と旧固定Probe回復は同じDI観測・回収処理を使用する。
+inspectResources／cleanupResourcesの既存入口で、元作成構成を持つContainerResourceTargetも扱う。新しいProbe Recovery関数・Factory・Store・Lockは作らない。Executorは同じ管理所在・構成・任意の取消Signalを既存DIへ接続し、present／absent／unknownとRunning肯定を分けて返す。回収は先行inspectを要求せず、内部で同じ構成をfresh照合する。Host回収・保存・保持判断は上位に残す。通常Probe実行の清掃と旧固定Probe回復は同じDI観測・回収処理を使用する。
 
 ## 共通資源の観測・回収API（2026-11-01）
 
@@ -76,8 +82,8 @@ inspectResources／cleanupResourcesの既存入口で、元作成構成を持つ
 
 | 対象 | 入力・返却・同期性 |
 |---|---|
-| ContainerResourceTarget | kindはcontainer。元作成構成・借用管理所在・同期現在Owner確認。ContainerResourceInspectionとconfirmed／reasonの回収結果を返す |
-| AttemptRecoveryTarget | kindはattempt。既存の技術投影・Receipt・元ID・現在Ownerを維持。観測・回収とも同期で、AttemptResourceInspection／AttemptCleanupResultを返す |
+| ContainerResourceTarget | kindはcontainer。元作成構成・借用管理所在・任意の取消Signal。ContainerResourceInspectionとconfirmed／reasonの回収結果を返す |
+| ResourceTarget | kindはresource_set。既存の技術投影・Receipt・元IDを維持し、取消は任意のSignalで受ける。観測は同期ResourceInspection、回収はPromise<ResourceCleanupResult>を返す |
 | DirectoryResourceInspectionTarget | kindはdocker_runtime_directory、inputはDI正本のDockerRuntimeDirectoryInspectionInput。同じinputを既存固定三用途の二読取りへ渡し、実体照合集合又は全体nullを同期返却する |
 | DirectoryResourceCleanupTarget | 同じDirectory kind、inputはDI正本のDockerRuntimeRepairDisposalInput。同じinput・Signal・canIssueEffectを既存処置へ渡し、元Promiseと要求／不存在結果を返す |
 
@@ -85,21 +91,21 @@ kindはAPI分岐だけに使い保存Schemaへ追加しない。未知kindから
 
 環境修復はrestartDockerEnvironment({mode: "repair", input: request})から既存DI Sessionへ無変換で委譲する。外側結果と内部Machineの型はDI正本に明示名を付け、一次失敗・Native終了・観測資源終了・最終checkpoint候補を保持する。finalCheckpointConfirmed:falseを保存成功へ補完しない。修復処理とRecovery管理簡素化は分離し、後者は今回は変更しない。
 
-ExecutorはAttempt単位の技術診断・回収を受け持つ。lifecycle/cleanup.tsと公開入口index.tsに、inspectResourcesとcleanupResources、明示型AttemptRecoveryTarget・AttemptResourceInspection・AttemptCleanupResultを配置する。Coordinatorの本番資源回収はこの二操作へ接続し、Domain保存・Host清掃・Lease解放を下位へ移さない。
+ExecutorはAttempt単位の技術診断・回収を受け持つ。lifecycle/cleanup.tsと公開入口index.tsに、inspectResourcesとcleanupResources、DI正本の明示型ResourceTarget・ResourceInspection・ResourceCleanupResultを再公開する。Coordinatorの本番資源回収はこの二操作へ接続し、Domain保存・Host清掃・Lease解放を下位へ移さない。
 
 | 契約 | 入力・結果の具体化方針 |
 |---|---|
-| ContainerResourceTarget | kindはcontainer。元作成構成・借用管理所在・同期現在Owner確認。ContainerResourceInspectionとconfirmed／reasonの回収結果を返す |
-| AttemptRecoveryTarget | 同じrecoveryId／operationId、検査済みAttemptRecordProjectionと保護Mount投影、既存DIのDockerResourceReceipts、用途限定で借用した管理領域、同期の現在Owner確認。Domain OperationやidentityJson、保存先・Writerは渡さない |
+| ContainerResourceTarget | kindはcontainer。元作成構成・借用管理所在・任意の取消Signal。ContainerResourceInspectionとconfirmed／reasonの回収結果を返す |
+| ResourceTarget | 同じrecoveryId／operationId、検査済みDockerResourceProjectionと保護Mount投影、既存DIのDockerResourceReceipts、用途限定で借用した管理領域、任意の取消Signal。Domain OperationやidentityJson、保存先・Writerは渡さない |
 | inspectResources | 診断のみ。実ID・名前・Label・構成と、必要な認証資源の二回の不存在観測を返す。削除・Task再実行・保存状態更新はしない |
 | cleanupResources | inspectの先行実行を要求せず、内部でfreshな技術再観測・照合・回収を行う。元参照、資源別観測、技術cleanupと短命configのclose結果を区別して返す |
-| AttemptResourceInspection／AttemptCleanupResult | DIの資源観測型を再利用し、未要求・Receipt欠測・実体不明・不存在を区別する。cleanupのtrueから資源別結果を再構成しない |
+| ResourceInspection／ResourceCleanupResult | DIの資源観測型を再利用し、未要求・Receipt欠測・実体不明・不存在を区別する。cleanupのtrueから資源別結果を再構成しない |
 
-共通のResourceCleanupCallbacksをExecutorCallbacksが継承し、Attempt資源の回収APIも同じ通知名を使用する。onResourceInspectingとonResourceIdentifiedは同期voidであり、Attempt資源の回収APIではonResourcesClosedとonCleanupCompletedも同期完了を要求する。通常実行の後二通知は既存どおりPromise<void>を許容し、完了を待つ。観測開始、発見したpurpose／実ID、資源別cleanup観測だけを同期通知し、通知先は必要処置を完了してvoidで戻る。保存方法や許可を返すACKは設けず、Promise誤返却・throwで次Effectを止める。Ownerの現在性確認は通常の同期Queryとして別に維持する。認証unknownの閉鎖可否は上位が決め、下位は不存在の読取り結果だけを返す。共通通知interface以外の専用Interface・Factory・Manager・Store・Registry・Lock・永続状態は追加しない。
+共通のResourceCleanupCallbacksをExecutorCallbacksが継承し、Attempt資源の回収APIも同じ通知名を使用する。onResourceInspectingとonResourceIdentifiedは同期voidであり、Attempt資源の回収APIではonResourcesClosedとonCleanupCompletedも同期完了を要求する。通常実行の後二通知は既存どおりPromise<void>を許容し、完了を待つ。観測開始、発見したpurpose／実ID、資源別cleanup観測だけを同期通知し、通知先は必要処置を完了してvoidで戻る。保存方法や許可を返すACKは設けず、Promise誤返却・throwで次Effectを止める。Directory・環境修復の固有の現在性確認は今回維持する。通常／単独の資源集合・Container・認証は逆照会せず、上位の排他保持と任意のSignalを使用する。認証unknownの閉鎖可否は上位が決め、下位は不存在の読取り結果だけを返す。共通通知interface以外の専用Interface・Factory・Manager・Store・Registry・Lock・永続状態は追加しない。
 
 onResourcesClosedは技術資源の終了観測を上位へ渡す段階であり、通常実行ではHome解放より前にMount返却へ接続する。onCleanupCompletedはHome解放後の最終技術観測である。二段階を重複として統合しない。通常実行のonResourcesClosedは全終了確認後だけ発行するが、回収APIではunknownを含む五用途の観測集合を渡す場合がある。通知発行自体を不存在・Home解放・回収成功へ昇格せず、payloadと最終結果を参照する。onCleanupCompletedも処理の最終段階通知であって成功保証ではない。回収APIでは前者の通知中に上位の認証unknown閉鎖判定が診断APIを呼ぶ場合がある。診断用configを独立に取得・closeしてから専用Writerへ戻り、外側回収configは通知終了後にcloseする。二つのclose結果を全体結果へ反映する。認証用途の不存在診断は第一読取り不明で停止し、二回の不存在が揃うまで閉鎖根拠を返さない。
 
-依存はCoordinator→Executor→Docker Isolationとし、ExecutorからDomain Modelへの依存は追加しない。単発実行の既存準備・開始・取消・清掃Lifecycle、Provider選択、Docker Desktop修復、Domain SchemaとHistoryは今回変更しない。診断・回収中の失敗でも取得済みconfigのcloseを行い、保存失敗と技術資源の回収不明を混同しない。既知実IDの診断は名前不存在だけでabsentにせず、削除なしのexact ID照合と同期Owner再確認を要求する。presentはallowAlreadyAbsent:falseで検証し、不存在を許す確認結果をpresentへ流用しない。
+依存はCoordinator→Executor→Docker Isolationとし、ExecutorからDomain Modelへの依存は追加しない。単発実行の既存準備・開始・取消・清掃Lifecycle、Provider選択、Docker Desktop修復、Domain SchemaとHistoryは今回変更しない。診断・回収中の失敗でも取得済みconfigのcloseを行い、保存失敗と技術資源の回収不明を混同しない。既知実IDの診断は名前不存在だけでabsentにせず、削除なしのexact ID照合と明示取消の確認を行う。presentはallowAlreadyAbsent:falseで検証し、不存在を許す確認結果をpresentへ流用しない。
 
 共有する内部型IsolationRuntime・RuntimeStateとその実行記録型もattempt/types.tsに置く。index.tsの公開型は増やさない。単一Owner内の入力容量定数や検査用Setはその実装内へ残し、複数Sourceで共有する固定語彙はconstants.tsに置く。
 
@@ -233,7 +239,6 @@ executor/src/
 │ ├ operations.ts             開始一回・取消一回配送・Signal・終端の正本
 │ ├ execute.ts                実行→条件付き清掃→結果固定→受動通知の共通順序
 │ ├ cleanup.ts                対象別の観測・回収と技術Home Lease解放
-│ ├ cleanup-types.ts          資源対象・観測・回収結果
 │ ├ callbacks.ts              共通完了通知・回収通知と用途別通知の型対応
 │ └ types.ts                  共通実行契約と用途別入出力の型対応
 ├ attempt/
@@ -260,7 +265,7 @@ executor/src/
 
 準備Ownerの宣言と`PreparationInput`・`ModelSelection`・`TaskPacket`・`AdvicePacket`・`AttemptBinding`・`MountGrant`はCoordinatorの`execution/types.ts`へ配置する。既存の二WeakMap、二時計期限、取消・一回消費を維持し、consumeからExecutor開始までawaitを挟まない。Executorの`AttemptPreparationResult`・`prepareAttempt`／`consumePreparedPlan` callbackは撤去する。消費後の開始拒否では、未消費Authorityのexact control失効と未完了Mount借用の終了を上位が確認する。Authority消費済みや技術清掃中の責務を上位へ戻さず、Home解放条件は変更しない。
 
-Executor内のAttempt実行型は`attempt/types.ts`、通知interfaceは各用途の`types.ts`と共通の`lifecycle/callbacks.ts`、資源回収の対象・結果は`lifecycle/cleanup-types.ts`、ResourceCleanupCallbacksは`lifecycle/callbacks.ts`へ置く。準備の取消・期限・一回消費だけが使う型はCoordinatorの準備Owner内へ置き、共有する準備型は同Packageの`execution/types.ts`へ置く。上位の`RecoveryPlan`は既存記録に必要な完全選定・Packet・利用側相関を保持し、`PreparedAttemptPlan<P>`が発行済みAuthorityと二時計・表示情報を結合する。新しいMap・Registry・保存単位は追加しない。
+Executor内のAttempt実行型は`attempt/types.ts`、通知interfaceは各用途の`types.ts`と共通の`lifecycle/callbacks.ts`、資源回収の対象・結果は`lifecycle/types.ts`、ResourceCleanupCallbacksは`lifecycle/callbacks.ts`へ置く。準備の取消・期限・一回消費だけが使う型はCoordinatorの準備Owner内へ置き、共有する準備型は同Packageの`execution/types.ts`へ置く。上位の`RecoveryPlan`は既存記録に必要な完全選定・Packet・利用側相関を保持し、`PreparedAttemptPlan<P>`が発行済みAuthorityと二時計・表示情報を結合する。新しいMap・Registry・保存単位は追加しない。
 
 builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request内に実行対象の`target`、AI Adapterの五項目`selection`、Probe／Task／Adviceの排他的な実行内容をまとめ、独立した`AttemptTarget`型は撤去する。上位はBindingとGrantの同一操作・Provider対応、選定ID／Hash・試行番号・Packet参照／Hash・stdin搬送・roleと用途・助言四非共有条件を検査する。下位は五項目選定・本文・Command・Image・Mountの技術的一致を維持する。利用側名、試行番号、選定記録ID、Packet相関をExecutorのPlanへ含めない。
 
@@ -339,7 +344,7 @@ Home取得前は`attempt/operations.ts`の`isAttemptPlanValid`で共通の基本
 |---|---|---|
 | `createExecutor` | index.ts → 用途別operations.ts | Requestと固定隔離設定を受け、内部構成を保持した一試行の開始・取消・終了を提供 |
 | `createExecutor`（認証要求） | index.ts → authentication/operations.ts | 認証と同じRuntimeの清掃を一回のcompletionへ結合する。Home選定・保存・操作判断は上位 |
-| `inspectResources`、`cleanupResources` | lifecycle/cleanup.ts | kindごとの固定資源観測と回収。対象・結果型はlifecycle/cleanup-types.ts、通知はlifecycle/callbacks.ts。Attempt型の意味は維持する |
+| `inspectResources`、`cleanupResources` | lifecycle/cleanup.ts | kindごとの固定資源観測と回収。資源集合の対象・結果・通知はDI cleanup/types.tsを正本とし、Executor固有接続型はlifecycle/types.tsへ置く。通知interfaceはlifecycle/callbacks.tsから同じDI正本を再利用する |
 | `inspectDockerEnvironment`、`restartDockerEnvironment` | environment/execute.ts | Attemptとは独立した環境観測・再起動・修復への薄い接続。判断・保存は上位、具体操作はDI |
 | `Executor<K>`、`StartInput<K>`、`StartResult<K>`、`CompletionResult<K>`、`CancelArguments<K>`、`CancelResult` | lifecycle/types.ts | 用途と共通開始・取消・結果を結び、用途固有情報は既存Owner型を再利用する |
 | `AttemptCancelInput` | attempt/types.ts | 元Controlとmanagementの取消照合入力。認証／Probeでは引数を要求しない |

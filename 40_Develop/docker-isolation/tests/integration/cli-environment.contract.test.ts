@@ -138,6 +138,10 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
   ].sort();
   const actualExports = Object.keys(dockerIsolation).sort();
   expectedExports.push(
+    "captureAuthenticationResources",
+    "cleanupDockerAuthenticationResources",
+    "inspectDockerResources",
+    "cleanupDockerResources",
     "bindProviderCommand",
     "inspectDockerContainer",
     "observeDockerContainerAbsence",

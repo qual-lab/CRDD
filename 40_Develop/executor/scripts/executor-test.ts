@@ -122,7 +122,7 @@ type ExecutionRecordOperations = Readonly<{
     activeMountCapability: unknown,
     managementCapability: unknown,
   ) => Readonly<{ status: string }>;
-  completeCleanup: (input: AttemptCleanupInput) => AttemptCleanupResult;
+  completeCleanup: (input: AttemptCleanupInput) => ResourceCleanupResult;
   markResourceSubmission?: (
     recoveryCapability: object,
     purpose: string,
@@ -212,7 +212,7 @@ type ExecutionServices = Readonly<{
   ) => DockerSessionCleanup["resourceObservations"];
 }>;
 
-type AttemptCleanupResult = Readonly<{
+type ResourceCleanupResult = Readonly<{
   mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
   recoveryCompleted: boolean;
@@ -427,7 +427,7 @@ export function createExecutorTestCandidate(
 export function completeExecutorTestCleanup(
   dependencies: ExecutorTestDependencies | ExecutorTestHost,
   input: AttemptCleanupInput,
-): AttemptCleanupResult {
+): ResourceCleanupResult {
   const { mountLeaseReleased, homeLeaseReleased } = input;
   let recoveryCompleted = false;
   let recoveryFinalizationCapability: object | null = null;
@@ -602,7 +602,7 @@ function startRecordedAttempt(
 ): RecordedStartResult {
   let restrictionRejected = false;
   let mountCompletion: Readonly<{ status: string }> | null = null;
-  let cleanup: AttemptCleanupResult = {
+  let cleanup: ResourceCleanupResult = {
     mountLeaseReleased: false,
     homeLeaseReleased: false,
     recoveryCompleted: false,

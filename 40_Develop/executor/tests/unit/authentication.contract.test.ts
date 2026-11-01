@@ -11,6 +11,60 @@ import test from "node:test";
 import { createAuthenticationUsing } from "../../src/authentication/operations.ts";
 import type { ExecutorCallbacks } from "../../src/index.ts";
 
+/** Receipt通知不成立やProcess終了不明を、資源採用や後続処置へ補完しない。 */
+test("認証はReceipt通知完了後だけ実IDを保持し終了不明で回収を発行しない", async () => {
+  for (const mode of ["receipt_rejected", "process_unknown"] as const) {
+    let calls = 0;
+    const auth = createAuthenticationUsing(
+      {
+        kind: "authentication",
+        provider: "codex",
+        action: "status",
+        providerHomeSourcePath: "C:\\runtime\\ProviderHomes\\codex",
+        suffix: "a".repeat(16),
+        proxyToken: null,
+      },
+      async (command) => {
+        calls++;
+        return {
+          status: 0,
+          signal: null,
+          stdout: "",
+          stderr: "",
+          processCompletionConfirmed: mode !== "process_unknown",
+          resourceCreationConfirmed: true,
+          resourceReceipt: {
+            name: command.argv[command.argv.indexOf("--name") + 1] ?? "",
+            dockerId: "c".repeat(64),
+          },
+        };
+      },
+    );
+    assert.ok(auth);
+    const result = await auth.execute(undefined, {
+      onResourceCreated: () => {
+        throw Error("receipt_not_saved");
+      },
+    });
+    assert.equal(result.processCompletionConfirmed, mode !== "process_unknown");
+    assert.equal(
+      auth.resources.every((resource) => resource.dockerId === null),
+      true,
+    );
+    const afterExecute = calls;
+    const invalid = auth.resources.map((resource) => ({
+      ...resource,
+      name: "foreign",
+    }));
+    assert.equal((await auth.cleanup(invalid)).confirmed, false);
+    assert.equal(calls, afterExecute);
+    if (mode === "process_unknown") {
+      assert.equal((await auth.cleanup(auth.resources)).confirmed, false);
+      assert.equal(calls, afterExecute);
+    }
+  }
+});
+
 /**
  * 認証と通常Taskを混同せず、独立した使い捨て条件を検査する。
  * @responsibility 通知順序と三値解析を同じ固定計画へ接続する。
@@ -106,7 +160,6 @@ test("認証単独は四構成で通知・三値解析・回収を維持する",
       };
       const result = await auth.execute(
         new AbortController().signal,
-        () => true,
         callbacks,
       );
       assert.equal(result.authenticationStatus, "confirmed");
@@ -114,11 +167,7 @@ test("認証単独は四構成で通知・三値解析・回収を維持する",
       assert.ok(events[0]?.startsWith("intent:create_"));
       assert.equal(events[2], "receipt");
       assert.equal(events[3], "idle");
-      const cleanup = await auth.cleanup(
-        () => auth.projection.resources,
-        () => true,
-        callbacks,
-      );
+      const cleanup = await auth.cleanup(auth.resources, undefined, callbacks);
       assert.equal(cleanup.confirmed, true);
     }
 });
@@ -154,7 +203,7 @@ test("認証通知の失敗は発行前に停止し非同期Rejectも捕捉す�
       },
     );
     assert.ok(auth);
-    const result = await auth.execute(undefined, () => true, {
+    const result = await auth.execute(undefined, {
       onCommandSubmitting: fail,
     });
     assert.equal(
@@ -190,15 +239,12 @@ test("認証の終了不明は同じ技術生涯でstickyに保持する", async
     },
   );
   assert.ok(auth);
-  const first = await auth.execute(undefined, () => true);
+  const first = await auth.execute(undefined);
   assert.equal(first.processCompletionConfirmed, false);
   const count = effects;
-  const cleanup = await auth.cleanup(
-    () => auth.projection.resources,
-    () => true,
-  );
+  const cleanup = await auth.cleanup(auth.resources, undefined);
   assert.equal(cleanup.processCompletionConfirmed, false);
-  const second = await auth.execute(undefined, () => true);
+  const second = await auth.execute(undefined);
   assert.equal(second.processCompletionConfirmed, false);
   assert.equal(effects, count);
 });
@@ -230,7 +276,7 @@ test("認証は作成Receipt欠測をidleや次操作へ進めない", async () 
     },
   );
   assert.ok(auth);
-  const result = await auth.execute(undefined, () => true, {
+  const result = await auth.execute(undefined, {
     onResourceCreated: () => {
       receipts++;
     },

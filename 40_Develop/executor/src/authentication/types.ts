@@ -8,6 +8,9 @@ import type {
   ProviderAuthenticationResult,
 } from "../../../ai-adapter/src/index.ts";
 import type {
+  AuthenticationCleanupResult,
+  DockerAuthenticationCleanupCallbacks,
+  DockerAuthenticationResources,
   DockerAuthenticationExecution,
   DockerAuthenticationCommand,
 } from "../../../docker-isolation/src/index.ts";
@@ -34,12 +37,11 @@ import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
  * @compatibility 必須通知の既存同期性と任意完了通知の非待機を維持する。
  */
 export interface AuthenticationCallbacks
-  extends CompletionCallbacks<AuthenticationCompletionResult> {
-  onCommandSubmitting?(purpose: string): void;
+  extends CompletionCallbacks<AuthenticationCompletionResult>,
+    DockerAuthenticationCleanupCallbacks {
   onResourceCreated?(
     receipt: NonNullable<DockerAuthenticationExecution["resourceReceipt"]>,
   ): void;
-  onCommandCompleted?(): void;
 }
 
 /** 選定済みの認証構成。kindで他用途から区別する。 */
@@ -66,11 +68,7 @@ export type AuthenticationProjection = Readonly<{
   provider: AiProvider;
   action: "status" | "login";
   ownershipLabel: string;
-  resources: readonly Readonly<{
-    kind: "container" | "network";
-    name: string;
-    dockerId: string | null;
-  }>[];
+  resources: DockerAuthenticationResources;
 }>;
 
 /**
@@ -91,26 +89,9 @@ export type AuthenticationResult = Readonly<{
   processCompletionConfirmed: boolean;
 }>;
 
-/**
- * 認証資源の回収結果。
- * @responsibility 資源不存在とProcess終了を共同評価する。
- * @trace ARCH-000010
- * @shape confirmedとprocessCompletionConfirmed。
- * @invariant 保存・Home解放・上位完了を保証しない。
- * @boundary 技術回収から上位確定。
- * @security 不明なProcessの後に追加Docker操作を発行しない。
- * @compatibility 既存の二軸結果を維持する。
- */
-export type AuthenticationCleanupResult = Readonly<{
-  confirmed: boolean;
-  processCompletionConfirmed: boolean;
-}>;
-
-/** 認証の開始に必要な現在Ownerと記録照会。保存操作は上位が通知先で完了する。 */
+/** 認証の明示取消。必要な保存は上位が通知先で完了する。 */
 export type AuthenticationStartContext = Readonly<{
   signal?: AbortSignal;
-  assertOwner: () => boolean;
-  readResources: () => AuthenticationProjection["resources"] | null;
 }>;
 
 /** 認証の観測事実と、同じ実行の清掃結果。上位保存の完了とは区別する。 */
@@ -125,22 +106,22 @@ export type AuthenticationCompletionResult = AuthenticationResult &
  * 一つの認証構成に結び付いた実行・回収。
  * @responsibility 同じDI Runtimeと終了不明のsticky拒否を維持する。
  * @trace ARCH-000010
- * @shape 資源投影、実行、資源照会付き回収と終了観測。
+ * @shape 資源投影、実行、確定した資源情報による回収と終了観測。
  * @invariant 保存・権限発行・Home Lockの取得解放を所有しない。
  * @boundary Coordinatorと固定認証技術処理。
- * @security readResourcesは現在記録の読取りQueryで、通知や保存依頼ではない。
+ * @security 上位Ownerや保存状態の逆照会を行わず、実資源をDIで照合する。
  * @compatibility 使い捨てContainerを維持し、通常Attemptと同居・再利用しない。
  */
 export interface Authentication {
   readonly projection: AuthenticationProjection;
+  readonly resources: AuthenticationProjection["resources"];
   execute(
     signal: AbortSignal | undefined,
-    assertOwner: () => boolean,
     callbacks?: AuthenticationCallbacks,
   ): Promise<AuthenticationResult>;
   cleanup(
-    readResources: () => AuthenticationProjection["resources"] | null,
-    assertOwner: () => boolean,
+    resources: AuthenticationProjection["resources"] | null,
+    signal?: AbortSignal,
     callbacks?: AuthenticationCallbacks,
   ): Promise<AuthenticationCleanupResult>;
   isProcessCompletionConfirmed(): boolean;
