@@ -8,11 +8,9 @@ import type {
   ProviderAuthenticationResult,
 } from "../../../ai-adapter/src/index.ts";
 import type {
-  AuthenticationCleanupResult,
   DockerAuthenticationCleanupCallbacks,
   DockerAuthenticationResources,
-  DockerAuthenticationExecution,
-  DockerAuthenticationCommand,
+  ResourceSnapshot,
 } from "../../../docker-isolation/src/index.ts";
 import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
 
@@ -40,7 +38,7 @@ export interface AuthenticationCallbacks
   extends CompletionCallbacks<AuthenticationCompletionResult>,
     DockerAuthenticationCleanupCallbacks {
   onResourceCreated?(
-    receipt: NonNullable<DockerAuthenticationExecution["resourceReceipt"]>,
+    receipt: Readonly<{ name: string; dockerId: string }>,
   ): void;
 }
 
@@ -53,6 +51,9 @@ export type AuthenticationRequest = Readonly<{
   suffix: string;
   proxyToken: string | null;
 }>;
+
+/** 上位が排他を保持し、start前に実体を用意する借用管理領域。 */
+export type AuthenticationOptions = Readonly<{ managementDirectory: string }>;
 
 /**
  * 上位記録に必要な認証資源の投影。
@@ -100,63 +101,5 @@ export type AuthenticationCompletionResult = AuthenticationResult &
     kind: "authentication";
     status: "completed" | "blocked" | "cancelled";
     cleanupConfirmed: boolean;
+    resourceSnapshot: ResourceSnapshot | null;
   }>;
-
-/**
- * 一つの認証構成に結び付いた実行・回収。
- * @responsibility 同じDI Runtimeと終了不明のsticky拒否を維持する。
- * @trace ARCH-000010
- * @shape 資源投影、実行、確定した資源情報による回収と終了観測。
- * @invariant 保存・権限発行・Home Lockの取得解放を所有しない。
- * @boundary Coordinatorと固定認証技術処理。
- * @security 上位Ownerや保存状態の逆照会を行わず、実資源をDIで照合する。
- * @compatibility 使い捨てContainerを維持し、通常Attemptと同居・再利用しない。
- */
-export interface Authentication {
-  readonly projection: AuthenticationProjection;
-  readonly resources: AuthenticationProjection["resources"];
-  execute(
-    signal: AbortSignal | undefined,
-    callbacks?: AuthenticationCallbacks,
-  ): Promise<AuthenticationResult>;
-  cleanup(
-    resources: AuthenticationProjection["resources"] | null,
-    signal?: AbortSignal,
-    callbacks?: AuthenticationCallbacks,
-  ): Promise<AuthenticationCleanupResult>;
-  isProcessCompletionConfirmed(): boolean;
-}
-
-/**
- * DIに結合する内部固定Plan。
- * @responsibility 認証条件と元Commandの相関をExecutor内へ閉じる。
- * @trace ARCH-000010
- * @shape Provider、操作、Home、Image、所有Labelと固定操作列。
- * @invariant 公開RootからCommandを渡さない。
- * @boundary 内部準備とDI認証Runtime。
- * @security Workspaceや任意コマンドを許可しない。
- * @compatibility 既存の固定Planと同じ技術値。
- */
-export type AuthenticationPlan<
-  A extends "status" | "login" = "status" | "login",
-> = Readonly<{
-  provider: AiProvider;
-  action: A;
-  providerHomeSourcePath: string;
-  providerImageDigest: string;
-  ownershipLabel: string;
-  probeContainerName: string;
-  commands: readonly DockerAuthenticationCommand[];
-  ownershipCommands: readonly DockerAuthenticationCommand[];
-  cleanupCommands: readonly DockerAuthenticationCommand[];
-  absenceCommands: readonly DockerAuthenticationCommand[];
-}> &
-  (A extends "login"
-    ? Readonly<{
-        proxyImageDigest: string;
-        internalNetworkName: string;
-        egressNetworkName: string;
-        proxyContainerName: string;
-        loginContainerName: string;
-      }>
-    : object);

@@ -13,10 +13,8 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { types as utilTypes } from "node:util";
-import {
-  describeDockerProbeConfiguration,
-  classifyDockerProbeCancellation,
-} from "../../src/index.ts";
+import { classifyDockerProbeCancellation } from "../../src/index.ts";
+import { describeDockerProbeConfiguration } from "../support/probe.ts";
 
 /**
  * 一意な本番関数を宣言から行頭の閉じ括弧まで取得する。
@@ -53,7 +51,7 @@ function probeLifecycleFunction(source: string, name: string) {
  */
 test("Probe取消は三地点の実体確認と元失敗を保持し同じHandleを必ずjoinする", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/probe/execute.ts", import.meta.url),
+    new URL("../support/probe.ts", import.meta.url),
     "utf8",
   );
   const helpers = [
@@ -451,7 +449,7 @@ test("Probe取消は三地点の実体確認と元失敗を保持し同じHandle
  */
 test("稼働残存は保存後fresh確認から同実IDを一回開始し回収しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/probe/execute.ts", import.meta.url),
+    new URL("../support/probe.ts", import.meta.url),
     "utf8",
   );
   const bodies = ["captureProbeMounts", "startDockerProbeResidue"]

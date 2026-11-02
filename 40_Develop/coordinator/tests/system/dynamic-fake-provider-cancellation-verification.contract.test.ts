@@ -13,7 +13,7 @@ import test from "node:test";
 
 import { runDynamicFakeProviderCancellationVerification } from "../../scripts/probe-verification.ts";
 import { verifyDynamicFakeProviderCancellation } from "../../scripts/verify-dynamic-fake-provider-cancellation.ts";
-import { planDockerProbeCreation } from "../../../docker-isolation/src/index.ts";
+import { planDockerProbeCreation } from "../../../docker-isolation/tests/support/probe.ts";
 
 const MOUNTS = Object.freeze({
   workspace: "C:\\crdd\\workspace",

@@ -6,61 +6,413 @@
 
 import { types } from "node:util";
 import {
-  type AiProvider,
   describeProviderAuthentication,
   evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import {
   type AuthenticationCleanupResult,
   captureAuthenticationResources,
-  cleanupDockerAuthenticationResources,
-  createDockerAuthenticationRuntimeFactory,
-  type DockerAuthenticationCommand,
-  type DockerAuthenticationExecution,
-  type DockerAuthenticationPlan,
-  type DockerAuthenticationRuntime,
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
   describeDockerProxyTopology,
-  planDockerAuthenticationCommands,
+  prepareIsolation,
+  executeIsolation,
+  cleanupIsolation,
+  type IsolationRequest,
+  type IsolationExecution,
 } from "../../../docker-isolation/src/index.ts";
-import { executeLifecycle } from "../lifecycle/execute.ts";
 import { createLifecycleOperations } from "../lifecycle/operations.ts";
-import type { Executor } from "../lifecycle/types.ts";
 import type {
-  Authentication,
+  Executor,
+  AuthenticationResourceTarget,
+} from "../lifecycle/types.ts";
+import type {
   AuthenticationCompletionResult,
-  AuthenticationPlan,
   AuthenticationProjection,
   AuthenticationRequest,
   AuthenticationResult,
+  AuthenticationCallbacks,
 } from "./types.ts";
 
-const authenticationTechnicalPlans = new WeakMap<
-  object,
-  DockerAuthenticationPlan
->();
+/**
+ * 認証再入場の確定Receiptを、通常と同じDI Cleanupへ搬送する。
+ * @responsibility 認証の固定対象だけを選び、技術的な照合・削除・不存在を再実装しない。
+ * @trace ARCH-000010
+ * @input target: 同じHome Lock下で上位が確定した資源・管理所在・通知。
+ * @returns Process終了と技術回収の個別結果。
+ * @effect DI共通回収だけ。login・statusの実行は発行しない。
+ * @failure ID欠測は正規不存在観測だけを許し、名前だけで削除しない。
+ */
+export async function cleanupAuthenticationResources(
+  target: AuthenticationResourceTarget,
+): Promise<AuthenticationCleanupResult> {
+  let session: IsolationExecution | null = null;
+  const stop = () => {
+    void session?.cancel().catch(() => {});
+  };
+  try {
+    target.signal?.throwIfAborted();
+    const input = authenticationIsolationRequest(
+      target.request,
+      target.managementDirectory,
+    );
+    const expected = input.cleanupOrder.map((key) => {
+      const resource = input.resources.find((r) => r.key === key);
+      if (!resource) throw Error("provider_authentication_resource_missing");
+      return Object.freeze({
+        kind: resource.kind,
+        name: resource.name,
+        dockerId: null,
+      });
+    });
+    const receipts = captureAuthenticationResources(expected, target.resources);
+    if (!receipts)
+      return { confirmed: false, processCompletionConfirmed: false };
+    const callbacks = target.callbacks ?? {};
+    session = cleanupIsolation(
+      {
+        managementDirectory: target.managementDirectory,
+        resources: {
+          resources: input.cleanupOrder.map((key, i) => {
+            const receipt = receipts[i];
+            if (!receipt)
+              throw Error("provider_authentication_resource_missing");
+            return {
+              key,
+              identity: {
+                ...receipt,
+                ownershipLabel: input.resources[0]?.ownershipLabel ?? "",
+              },
+              request:
+                receipt.dockerId === null
+                  ? ("unknown" as const)
+                  : ("issued" as const),
+              configuration: {
+                image: null,
+                command: null,
+                environmentNames: null,
+                mounts: null,
+                networks: null,
+                internal: null,
+              },
+            };
+          }),
+        },
+        cleanupOrder: input.cleanupOrder,
+        setupTimeoutMs: 30_000,
+        unreceiptedAbsence: "observe",
+        verifyLabelAbsence: false,
+        discovery: [],
+        previouslyAbsent: [],
+      },
+      {
+        onCleanupSubmitting: (key) =>
+          notifyAuthentication(callbacks.onCommandSubmitting, `remove_${key}`),
+        onCleanupCompleted: () =>
+          notifyAuthentication(callbacks.onCommandCompleted),
+      },
+    );
+    target.signal?.addEventListener("abort", stop, { once: true });
+    if (target.signal?.aborted) stop();
+    const result = await session.completion;
+    return Object.freeze({
+      confirmed: result.cleanup.confirmed,
+      processCompletionConfirmed: result.processTerminationConfirmed,
+      resourceSnapshot: result.resources,
+    });
+  } catch {
+    return Object.freeze({
+      confirmed: false,
+      processCompletionConfirmed: false,
+    });
+  } finally {
+    target.signal?.removeEventListener("abort", stop);
+  }
+}
 
 /**
- * 準備済み認証を共通Lifecycleへ接続する。
- * @responsibility 同じRuntimeで実行・清掃をjoinし、終了不明を上位へ保持する。
+ * 認証固有のHome・通信・対話条件を共通DI入力へ固定する。
+ * @responsibility Docker生涯を再実装せず、login/statusの構成差だけを所有する。
  * @trace ARCH-000010
- * @input authentication: 同じ技術構成の操作。
- * @returns 一回のstartとcancel。構成不成立はnull。
- * @effect start後だけ実行と清掃。保存・Home Lock解放は行わない。
- * @failure 終了不明は追加操作を止め清掃未確認で返す。
- * @invariant 清掃前に完了を返さず、取消でも技術終了と回収確認を省略しない。
+ * @input request: 選択済み認証要求。managementDirectory: 上位確定の借用管理領域。
+ * @returns 固定資源と分岐・再送のない操作列。不正要求は例外。
+ * @effect N/A: 値構築だけ。
+ * @invariant Workspace・Repository・既定Docker設定を使用しない。
  */
-export function bindAuthenticationLifecycle(
-  authentication: Authentication | null,
+function authenticationIsolationRequest(
+  request: AuthenticationRequest,
+  managementDirectory: string,
+): IsolationRequest {
+  if (!request || typeof request !== "object" || types.isProxy(request))
+    throw Error("provider_authentication_input_invalid");
+  if (Reflect.ownKeys(request).length !== 6)
+    throw Error("provider_authentication_input_invalid");
+  for (const key of Reflect.ownKeys(request)) {
+    if (
+      ![
+        "kind",
+        "provider",
+        "action",
+        "providerHomeSourcePath",
+        "suffix",
+        "proxyToken",
+      ].includes(String(key)) ||
+      !("value" in (Object.getOwnPropertyDescriptor(request, key) ?? {}))
+    )
+      throw Error("provider_authentication_input_invalid");
+  }
+  if (
+    request.kind !== "authentication" ||
+    typeof managementDirectory !== "string" ||
+    managementDirectory.length === 0 ||
+    typeof request.providerHomeSourcePath !== "string" ||
+    request.providerHomeSourcePath.length === 0 ||
+    /[\0\r\n,]/u.test(request.providerHomeSourcePath) ||
+    typeof request.suffix !== "string" ||
+    (request.provider !== "codex" && request.provider !== "claude") ||
+    (request.action !== "status" && request.action !== "login") ||
+    !/^[a-f0-9]{16}$/u.test(request.suffix) ||
+    (request.action === "login"
+      ? typeof request.proxyToken !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(request.proxyToken)
+      : request.proxyToken !== null)
+  )
+    throw Error("provider_authentication_input_invalid");
+  const cli = describeProviderAuthentication(request.provider);
+  const locations = describeDockerProviderExecutionLocations(
+    request.provider,
+    "probe",
+  );
+  const environment = {
+    ...("environment" in cli ? cli.environment : {}),
+    ...("homeEnvironmentVariable" in cli
+      ? { [cli.homeEnvironmentVariable]: locations.providerHomeDirectory }
+      : {}),
+  };
+  const label = `crdd.coordinator.authentication=${request.suffix}`;
+  const image = describeDockerProviderAssets(request.provider).fixedImageDigest;
+  const probe = {
+    kind: "container",
+    key: "probe",
+    name: `crdd-auth-${request.suffix}`,
+    ownershipLabel: label,
+    image,
+    argv: cli.statusArgv,
+    environment: { HOME: "/provider-home", ...environment },
+    mounts: [
+      {
+        source: request.providerHomeSourcePath,
+        target: "/provider-home",
+        readOnly: true,
+      },
+    ],
+    network: null,
+    networkAlias: null,
+    user: "65534:65534",
+    workingDirectory: null,
+    entrypoint: null,
+    tmpfsBytes: null,
+    interactive: false,
+    tty: false,
+    init: false,
+    seccomp: null,
+  } as const satisfies IsolationRequest["resources"][number];
+  const resources: IsolationRequest["resources"][number][] = [];
+  const steps: IsolationRequest["steps"][number][] = [];
+  if (request.action === "login") {
+    const topology = describeDockerProxyTopology(request.provider);
+    if (
+      !topology.providerNetworkInternal ||
+      topology.providerDirectExternalNetwork ||
+      !request.proxyToken
+    )
+      throw Error("provider_authentication_input_invalid");
+    resources.push(
+      {
+        kind: "network",
+        key: "internal_network",
+        name: `crdd-internal-${request.suffix}`,
+        ownershipLabel: label,
+        internal: true,
+      },
+      {
+        kind: "network",
+        key: "egress_network",
+        name: `crdd-egress-${request.suffix}`,
+        ownershipLabel: label,
+        internal: false,
+      },
+      {
+        ...probe,
+        key: "proxy",
+        name: `crdd-proxy-${request.suffix}`,
+        image: topology.imageDigest,
+        argv: [],
+        environment: {
+          CRDD_PROXY_AUTH: request.proxyToken,
+          CRDD_PROXY_PROFILE: request.provider,
+        },
+        mounts: [],
+        network: "internal_network",
+        networkAlias: "proxy",
+        tmpfsBytes: 16_777_216,
+      },
+      {
+        ...probe,
+        key: "login",
+        name: `crdd-${request.provider}-${request.suffix}`,
+        argv: cli.loginArgv,
+        environment: {
+          HOME: "/provider-home",
+          ...environment,
+          TMPDIR: "/tmp",
+          HTTPS_PROXY: `http://crdd:${request.proxyToken}@proxy:${topology.containerPort}`,
+        },
+        mounts: [
+          {
+            source: request.providerHomeSourcePath,
+            target: "/provider-home",
+            readOnly: false,
+          },
+        ],
+        network: "internal_network",
+        workingDirectory: "/work",
+        tmpfsBytes: 33_554_432,
+        interactive: true,
+        tty: true,
+      },
+    );
+    for (const key of ["internal_network", "egress_network", "proxy"])
+      steps.push({
+        key: `create_${key}`,
+        action: "create",
+        resource: key,
+        timeoutMs: 30_000,
+      });
+    steps.push(
+      {
+        key: "connect_proxy_egress",
+        action: "connect",
+        resource: "proxy",
+        network: "egress_network",
+        timeoutMs: 30_000,
+      },
+      {
+        key: "start_proxy",
+        action: "run",
+        resource: "proxy",
+        mode: "detached",
+        stdin: null,
+        timeoutMs: 30_000,
+        stdoutLimitBytes: 1_048_576,
+        stderrLimitBytes: 1_048_576,
+        acceptedExitCodes: [0],
+        deadlineOrigin: "request",
+      },
+      {
+        key: "create_login",
+        action: "create",
+        resource: "login",
+        timeoutMs: 30_000,
+      },
+      {
+        key: "start_login_attached",
+        action: "run",
+        resource: "login",
+        mode: "interactive",
+        stdin: null,
+        timeoutMs: null,
+        stdoutLimitBytes: 1_048_576,
+        stderrLimitBytes: 1_048_576,
+        acceptedExitCodes: [0],
+        deadlineOrigin: "request",
+      },
+    );
+  }
+  resources.push(probe);
+  steps.push(
+    {
+      key: "create_probe",
+      action: "create",
+      resource: "probe",
+      timeoutMs: 30_000,
+    },
+    {
+      key: "start_probe_attached",
+      action: "run",
+      resource: "probe",
+      mode: "captured",
+      stdin: null,
+      timeoutMs: 30_000,
+      stdoutLimitBytes: 1_048_576,
+      stderrLimitBytes: 1_048_576,
+      acceptedExitCodes: request.action === "status" ? [0, 1] : [0],
+      deadlineOrigin: "request",
+    },
+  );
+  return {
+    managementDirectory,
+    resources,
+    steps,
+    cleanupOrder:
+      request.action === "login"
+        ? ["probe", "login", "proxy", "internal_network", "egress_network"]
+        : ["probe"],
+    setupTimeoutMs: 30_000,
+    unreceiptedAbsence: "observe",
+    verifyLabelAbsence: false,
+  };
+}
+
+/**
+ * 上位確定の管理領域を使う認証を、共通DI生涯へ結合する。
+ * @responsibility 認証結果だけを解釈し、Process・Receipt・回収はDIの元Ownerへ委譲する。
+ * @trace ARCH-000010
+ * @input request: 固定認証要求。managementDirectory: 上位が保持する短命設定の管理領域。
+ * @returns 一回のExecutor。準備不成立はnull。
+ * @effect 準備時は読取りだけ。Dockerはstart後だけ。
+ * @failure 必要通知失敗・終了不明・回収未確認は成功にしない。
+ * @invariant 生出力・認証値を結果やSnapshotへ含めない。
+ */
+export function createAuthenticationExecutor(
+  request: AuthenticationRequest,
+  managementDirectory: string,
 ): Executor<"authentication"> | null {
-  if (!authentication) return null;
+  let input: IsolationRequest;
+  try {
+    input = authenticationIsolationRequest(request, managementDirectory);
+    request = Object.freeze({
+      kind: "authentication",
+      provider: request.provider,
+      action: request.action,
+      providerHomeSourcePath: request.providerHomeSourcePath,
+      suffix: request.suffix,
+      proxyToken: request.proxyToken,
+    });
+  } catch {
+    return null;
+  }
   const lifecycle = createLifecycleOperations();
+  const projection: AuthenticationProjection = Object.freeze({
+    provider: request.provider,
+    action: request.action,
+    ownershipLabel: `crdd.coordinator.authentication=${request.suffix}`,
+    resources: Object.freeze(
+      input.cleanupOrder.map((key) => {
+        const resource = input.resources.find((r) => r.key === key);
+        if (!resource) throw Error("provider_authentication_resource_missing");
+        return Object.freeze({
+          kind: resource.kind,
+          name: resource.name,
+          dockerId: null,
+        });
+      }),
+    ),
+  });
   return Object.freeze<Executor<"authentication">>({
     kind: "authentication",
-    recordProjection: authentication.projection,
+    recordProjection: projection,
     start(context) {
-      const callbacks = context.callbacks ?? {};
       if (!lifecycle.start(context.signal))
         return Object.freeze({
           kind: "authentication",
@@ -70,225 +422,164 @@ export function bindAuthenticationLifecycle(
             : "provider_authentication_already_started",
           completion: null,
         });
-      const signal = lifecycle.signal;
-      let result: AuthenticationResult = {
-        reason: "provider_authentication_process_completion_unconfirmed",
-        authenticationStatus: "unknown",
-        authenticationConfirmed: false,
-        providerEffectIssued: false,
-        processCompletionConfirmed: false,
+      const callbacks: AuthenticationCallbacks = context.callbacks ?? {};
+      let reason = "provider_authentication_completed";
+      let authenticationStatus: AuthenticationResult["authenticationStatus"] =
+        "unknown";
+      let authenticationConfirmed = false;
+      let session: IsolationExecution;
+      const required = (
+        notify: ((...args: never[]) => void) | undefined,
+        failed: string,
+        value?: unknown,
+      ) => {
+        try {
+          notifyAuthentication(notify, value);
+        } catch (error) {
+          if (reason === "provider_authentication_completed") reason = failed;
+          throw error;
+        }
       };
-      let cleanup: AuthenticationCleanupResult = {
-        confirmed: false,
-        processCompletionConfirmed: false,
-      };
+      try {
+        const prepared = prepareIsolation(input);
+        if (!prepared)
+          throw Error("provider_authentication_preparation_failed");
+        session = executeIsolation(prepared, {
+          onSubmitting: (step) =>
+            required(
+              callbacks.onCommandSubmitting,
+              "provider_authentication_command_intent_unconfirmed",
+              step.key,
+            ),
+          onCreated: (step, snapshot) => {
+            const resource = snapshot.resources.find(
+              (r) => r.key === step.resource,
+            );
+            if (!resource?.identity.dockerId)
+              throw Error(
+                "provider_authentication_resource_receipt_unconfirmed",
+              );
+            required(
+              callbacks.onResourceCreated,
+              "provider_authentication_resource_receipt_unconfirmed",
+              Object.freeze({
+                name: resource.identity.name,
+                dockerId: resource.identity.dockerId,
+              }),
+            );
+          },
+          onCompleted: (step, result) => {
+            required(
+              callbacks.onCommandCompleted,
+              "provider_authentication_command_settlement_unconfirmed",
+            );
+            if (step.key !== "start_probe_attached") return;
+            const observed = evaluateProviderAuthentication(
+              request.provider,
+              describeProviderAuthentication(request.provider).offering,
+              result.stdout,
+              result.stderr,
+              request.action === "login" ? "login" : "execution",
+            );
+            if (
+              result.status !== 0 &&
+              !(
+                request.action === "status" &&
+                result.status === 1 &&
+                observed.status === "unconfirmed"
+              )
+            ) {
+              reason = "provider_authentication_start_probe_attached_failed";
+              throw Error(reason);
+            }
+            authenticationStatus = observed.status;
+            authenticationConfirmed = observed.status === "confirmed";
+            if (
+              !authenticationConfirmed &&
+              !(
+                request.action === "status" && observed.status === "unconfirmed"
+              )
+            ) {
+              reason = "provider_authentication_not_confirmed";
+              throw Error(reason);
+            }
+          },
+          onCleanupSubmitting: (key) =>
+            required(
+              callbacks.onCommandSubmitting,
+              "provider_authentication_command_intent_unconfirmed",
+              `remove_${key}`,
+            ),
+          onCleanupCompleted: () =>
+            required(
+              callbacks.onCommandCompleted,
+              "provider_authentication_command_settlement_unconfirmed",
+            ),
+        });
+        lifecycle.bindCancellation(
+          async () => (await session.cancel()).processTerminationObserved,
+        );
+      } catch {
+        lifecycle.finish();
+        return Object.freeze({
+          kind: "authentication",
+          status: "blocked",
+          reason: "provider_authentication_docker_boundary_unavailable",
+          completion: null,
+        });
+      }
       return Object.freeze({
         kind: "authentication",
         status: "started",
-        completion: executeLifecycle(
-          {
-            async execute() {
-              result = await authentication.execute(signal, callbacks);
-            },
-            shouldCleanup: () => authentication.isProcessCompletionConfirmed(),
-            async cleanup() {
-              cleanup = await authentication.cleanup(
-                authentication.resources,
-                undefined,
-                callbacks,
-              );
-            },
-            createResult(
-              _context,
-              _failure,
-              failed,
-            ): AuthenticationCompletionResult {
-              const reason =
-                result.reason !== "provider_authentication_completed"
-                  ? result.reason
-                  : failed
-                    ? "provider_authentication_process_completion_unconfirmed"
-                    : signal.aborted
-                      ? "provider_authentication_cancelled"
-                      : result.reason;
-              const final: AuthenticationCompletionResult = Object.freeze({
-                ...result,
-                kind: "authentication",
-                status:
-                  !failed &&
-                  cleanup.confirmed &&
-                  result.processCompletionConfirmed &&
-                  cleanup.processCompletionConfirmed
-                    ? reason === "provider_authentication_cancelled"
-                      ? "cancelled"
-                      : reason === "provider_authentication_completed"
-                        ? "completed"
-                        : "blocked"
-                    : "blocked",
-                reason,
-                processCompletionConfirmed:
-                  !failed &&
-                  result.processCompletionConfirmed &&
-                  cleanup.processCompletionConfirmed,
-                cleanupConfirmed: !failed && cleanup.confirmed,
-              });
-              return final;
-            },
-            onCompleted: (result) => callbacks.onCompleted?.(result),
-          },
-          context,
-          lifecycle,
-        ),
+        completion: (async () => {
+          try {
+            const technical = await session.completion;
+            if (reason === "provider_authentication_completed") {
+              if (!technical.processTerminationConfirmed)
+                reason =
+                  "provider_authentication_process_completion_unconfirmed";
+              else if (lifecycle.cancellationRequested)
+                reason = "provider_authentication_cancelled";
+              else if (technical.failure)
+                reason = `provider_authentication_${technical.failure.stepKey ?? "preparation"}_failed`;
+            }
+            const result: AuthenticationCompletionResult = Object.freeze({
+              kind: "authentication",
+              reason,
+              authenticationStatus,
+              authenticationConfirmed,
+              providerEffectIssued: technical.resources.resources.some(
+                (r) => r.request !== "not_issued",
+              ),
+              processCompletionConfirmed: technical.processTerminationConfirmed,
+              cleanupConfirmed: technical.cleanup.confirmed,
+              resourceSnapshot: technical.resources,
+              status:
+                technical.cleanup.confirmed &&
+                technical.processTerminationConfirmed
+                  ? reason === "provider_authentication_cancelled"
+                    ? "cancelled"
+                    : reason === "provider_authentication_completed"
+                      ? "completed"
+                      : "blocked"
+                  : "blocked",
+            });
+            lifecycle.finish();
+            try {
+              const pending = callbacks.onCompleted?.(result);
+              if (pending) void pending.catch(() => {});
+            } catch {
+              /* 任意通知は結果を変更しない。 */
+            }
+            return result;
+          } finally {
+            lifecycle.finish();
+          }
+        })(),
       });
     },
-    async cancel() {
-      return lifecycle.cancel();
-    },
+    cancel: () => lifecycle.cancel(),
   });
-}
-
-/**
- * Provider認証の固定Docker Planを構築する。
- *
- * @responsibility 認証Effectを固定Image、限定Egressおよび専用Provider Homeだけへ制限する。
- * @trace ARCH-000010
- * @input providerHomeSourcePath: 検証済み専用Provider Homeの絶対Path、suffix: Logical Provider Home Identity由来hex
- * @returns 検証済み入力では固定Plan、不正入力ではnullを返す。
- * @precondition providerHomeSourcePathはPlatform Accessが選択Userから導いたPathである。
- * @postcondition PlanにRepository mount、host network、API keyまたは任意Commandを含めない。
- * @effect N/A: Plan生成だけを行う。
- * @failure 不正Path、suffixまたは固定配布契約の不一致をnullへ閉じる。
- * @invariant 選択Providerの公式CLI認証とnetwork-noneの事後Probeだけを許可する。
- * @boundary Host Docker CLIへ渡す引数の生成境界。
- * @security Provider Home Pathを結果以外へ公開せず、秘密値を読まない。
- * @concurrency 同じLogical Provider Homeは安定suffixとKernel Lockで単一Lifecycleへ直列化する。
- */
-export function prepareAuthenticationPlan<A extends "status" | "login">(
-  provider: AiProvider,
-  action: A,
-  providerHomeSourcePath: string,
-  suffix: string,
-  proxyToken: A extends "login" ? string : null,
-): AuthenticationPlan<A> | null {
-  if (
-    (provider !== "codex" && provider !== "claude") ||
-    (action !== "status" && action !== "login") ||
-    !/^[a-f0-9]{16}$/u.test(suffix) ||
-    typeof providerHomeSourcePath !== "string" ||
-    providerHomeSourcePath.length === 0 ||
-    /[\0\r\n,]/u.test(providerHomeSourcePath) ||
-    (action === "login"
-      ? typeof proxyToken !== "string" || !/^[a-f0-9]{64}$/u.test(proxyToken)
-      : proxyToken !== null)
-  )
-    return null;
-  const cli = describeProviderAuthentication(provider);
-  const locations = describeDockerProviderExecutionLocations(provider, "probe");
-  const environment = Object.freeze({
-    ...("environment" in cli ? cli.environment : {}),
-    ...("homeEnvironmentVariable" in cli
-      ? { [cli.homeEnvironmentVariable]: locations.providerHomeDirectory }
-      : {}),
-  });
-  const providerImageDigest =
-    describeDockerProviderAssets(provider).fixedImageDigest;
-  const probeContainerName = `crdd-auth-${suffix}`;
-  const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
-  const common = {
-    provider,
-    action,
-    providerHomeSourcePath,
-    providerImageDigest,
-    ownershipLabel,
-    probeContainerName,
-  };
-  if (!/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest)) return null;
-  if (action === "status") {
-    const technicalPlan = planDockerAuthenticationCommands({
-      action: "status",
-      providerHomeSourcePath,
-      providerImageDigest,
-      ownershipLabel,
-      probeContainerName,
-      authenticationCli: { statusArgv: cli.statusArgv, environment },
-    });
-    const plan = Object.freeze({
-      ...common,
-      commands: technicalPlan.commands,
-      ownershipCommands: technicalPlan.ownershipCommands,
-      cleanupCommands: technicalPlan.cleanupCommands,
-      absenceCommands: technicalPlan.absenceCommands,
-    }) as AuthenticationPlan<A>;
-    authenticationTechnicalPlans.set(plan, technicalPlan);
-    return plan;
-  }
-  const egress = describeDockerProxyTopology(provider);
-  const proxyImageDigest = egress.imageDigest;
-  if (
-    !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||
-    egress.providerNetworkInternal !== true ||
-    egress.providerDirectExternalNetwork !== false ||
-    typeof proxyToken !== "string"
-  )
-    return null;
-  const internalNetworkName = `crdd-internal-${suffix}`;
-  const egressNetworkName = `crdd-egress-${suffix}`;
-  const proxyContainerName = `crdd-proxy-${suffix}`;
-  const loginContainerName = `crdd-${provider}-${suffix}`;
-  const technicalPlan = planDockerAuthenticationCommands({
-    action: "login",
-    providerHomeSourcePath,
-    providerImageDigest,
-    proxyImageDigest,
-    ownershipLabel,
-    probeContainerName,
-    internalNetworkName,
-    egressNetworkName,
-    proxyContainerName,
-    loginContainerName,
-    proxyToken,
-    proxyPort: egress.containerPort,
-    proxyProfile: provider,
-    authenticationCli: {
-      loginArgv: cli.loginArgv,
-      statusArgv: cli.statusArgv,
-      environment,
-    },
-  });
-  const plan = Object.freeze({
-    ...common,
-    proxyImageDigest,
-    internalNetworkName,
-    egressNetworkName,
-    proxyContainerName,
-    loginContainerName,
-    commands: technicalPlan.commands,
-    ownershipCommands: technicalPlan.ownershipCommands,
-    cleanupCommands: technicalPlan.cleanupCommands,
-    absenceCommands: technicalPlan.absenceCommands,
-  }) as AuthenticationPlan<A>;
-  authenticationTechnicalPlans.set(plan, technicalPlan);
-  return plan;
-}
-
-/** 元Planに結合したDI構成だけを内部実行へ返す。
- * @responsibility 計画のコピーを実行所属へ昇格しない。
- * @trace ARCH-000010
- * @input plan: 元の技術準備値。
- * @returns 同じPlanのDI構成又はnull。
- * @precondition 内部の準備関数が元Planを登録している。
- * @postcondition 公開IDからPlanを復元しない。
- * @effect N/A: 既存の短命Mapを照会するだけ。
- * @failure コピー・未登録はnull。
- * @invariant 処置許可や保存成立を発行しない。
- * @boundary 内部準備とDI結合。
- * @security Root APIからは公開しない。
- * @concurrency 同じProcessの元参照だけを扱う。
- */
-export function getAuthenticationTechnicalPlan(
-  plan: AuthenticationPlan,
-): DockerAuthenticationPlan | null {
-  return authenticationTechnicalPlans.get(plan) ?? null;
 }
 
 /**
@@ -306,7 +597,7 @@ export function getAuthenticationTechnicalPlan(
  * @security 生出力・Proxy tokenを渡さない。
  * @concurrency 同期直列で一回呼び、既知PromiseのRejectを消費する。
  */
-function notifyAuthentication(
+export function notifyAuthentication(
   notify: ((...args: never[]) => void) | undefined,
   argument?: unknown,
 ): void {
@@ -327,300 +618,4 @@ function notifyAuthentication(
       );
     throw Error("provider_authentication_notification_unconfirmed");
   }
-}
-
-/**
- * 一つの認証構成を準備し、既存DIへ閉じた実行を返す。
- * @responsibility 固定Image・Home・通信条件を結合し永続状態を持たない。
- * @trace ARCH-000010
- * @input request: 選定済みProvider、操作とHome。
- * @returns 認証の資源投影と実行・回収、又は入力拒否null。
- * @precondition Home選定と現在の許可は上位が所有する。
- * @postcondition 準備だけではDocker要求を発行しない。
- * @effect 有効入力だけ既存DIのCLI実体・最小環境を読取り確認する。Docker要求は実行時だけ。
- * @failure 固定計画が成立しない場合null。実行後の終了不明はstickyに拒否する。
- * @invariant Workspace・Repositoryを認証へ接続しない。
- * @boundary 上位記録と固定認証技術処理。
- * @security 任意Runner・認証値・保存実装を公開入力にしない。
- * @concurrency 同じPlanのDI Runtimeと終了観測を全Commandで共有する。
- */
-export function createAuthentication(
-  request: AuthenticationRequest,
-): Authentication | null {
-  let runtime: DockerAuthenticationRuntime | null = null;
-  let factory:
-    | ((plan: DockerAuthenticationPlan) => DockerAuthenticationRuntime)
-    | null = null;
-  const prepared = createAuthenticationUsing(
-    request,
-    async (command, live, plan) => {
-      const technical = getAuthenticationTechnicalPlan(plan);
-      if (!technical) throw Error("docker_authentication_plan_unbound");
-      if (!factory) throw Error("docker_authentication_runtime_unavailable");
-      runtime ??= factory(technical);
-      const result = await runtime.execute(command, live);
-      if (
-        command.purpose.startsWith("observe_") &&
-        result.resourceConfigurationConfirmed === true
-      )
-        return Object.freeze({
-          ...result,
-          stdout: plan.ownershipLabel.split("=")[1] ?? "",
-        });
-      return result;
-    },
-  );
-  if (!prepared) return null;
-  try {
-    factory = createDockerAuthenticationRuntimeFactory();
-  } catch {
-    throw Error("provider_authentication_docker_boundary_unavailable");
-  }
-  return prepared;
-}
-/**
- * 同じ認証生涯の外部実行境界だけを有限試験で置換する。
- * @responsibility 本番の順序・通知・sticky終了拒否を同じ本文で検証する。
- * @trace ARCH-000010
- * @input request: 固定入力、run: 内部の実行境界、processConfirmed: 同じ技術Processの終了観測。
- * @returns 本番と同じ型付き認証操作。
- * @precondition Rootは固定DI実装だけを渡し、任意境界はscripts/testsに限定する。
- * @postcondition 保存・Home Lock・Registryを作らない。
- * @effect 本番では固定DI、試験では有限代役。
- * @failure 同期通知不成立と終了不明は次Effectを停止する。
- * @invariant 試験注入点を通常Rootへexportしない。
- * @boundary Executor内部の技術試験接続。
- * @security 生出力はAI Adapter解析にだけ使い上位へ返さない。
- * @concurrency 一つのPlanと終了状態を同じ呼出し群へ保持する。
- */
-export function createAuthenticationUsing(
-  request: AuthenticationRequest,
-  run: (
-    command: DockerAuthenticationCommand,
-    live: () => boolean,
-    plan: AuthenticationPlan,
-  ) => Promise<DockerAuthenticationExecution>,
-  processConfirmed?: () => boolean,
-): Authentication | null {
-  if (!request || (request.action !== "login" && request.action !== "status"))
-    return null;
-  let plan: AuthenticationPlan | null;
-  try {
-    plan =
-      request.action === "login"
-        ? prepareAuthenticationPlan(
-            request.provider,
-            "login",
-            request.providerHomeSourcePath,
-            request.suffix,
-            request.proxyToken as string,
-          )
-        : prepareAuthenticationPlan(
-            request.provider,
-            "status",
-            request.providerHomeSourcePath,
-            request.suffix,
-            request.proxyToken as null,
-          );
-  } catch {
-    return null;
-  }
-  if (!plan) return null;
-  const prepared = plan;
-  let processUnsettled = false;
-  const currentProcess = () =>
-    !processUnsettled && (processConfirmed?.() ?? true);
-  const command = async (
-    value: DockerAuthenticationCommand,
-    live: () => boolean,
-  ) => {
-    if (!currentProcess())
-      throw Error("docker_authentication_process_completion_unconfirmed");
-    try {
-      const result = await run(value, live, prepared);
-      if (result.processCompletionConfirmed === false) processUnsettled = true;
-      return result;
-    } catch (error) {
-      processUnsettled = true;
-      throw error;
-    }
-  };
-  const technical = getAuthenticationTechnicalPlan(prepared);
-  if (!technical) return null;
-  const projection: AuthenticationProjection = Object.freeze({
-    provider: prepared.provider,
-    action: prepared.action,
-    ownershipLabel: prepared.ownershipLabel,
-    resources: technical.resources,
-  });
-  let resources = projection.resources;
-  return Object.freeze<Authentication>({
-    projection,
-    isProcessCompletionConfirmed: currentProcess,
-    get resources() {
-      return resources;
-    },
-    async execute(signal, callbacks = {}): Promise<AuthenticationResult> {
-      if (!currentProcess())
-        return {
-          reason: "provider_authentication_process_completion_unconfirmed",
-          authenticationStatus: "unknown",
-          authenticationConfirmed: false,
-          providerEffectIssued: false,
-          processCompletionConfirmed: false,
-        };
-      let reason = "provider_authentication_completed";
-      let authenticationStatus: AuthenticationResult["authenticationStatus"] =
-        "unknown";
-      let authenticationConfirmed = false,
-        providerEffectIssued = false;
-      try {
-        for (const value of prepared.commands) {
-          if (signal?.aborted) {
-            reason = "provider_authentication_cancelled";
-            break;
-          }
-          try {
-            notifyAuthentication(callbacks.onCommandSubmitting, value.purpose);
-          } catch {
-            reason = "provider_authentication_command_intent_unconfirmed";
-            break;
-          }
-          providerEffectIssued = true;
-          let result: DockerAuthenticationExecution;
-          try {
-            result = await command(value, () => !signal?.aborted);
-          } catch {
-            reason = "provider_authentication_process_completion_unconfirmed";
-            break;
-          }
-          if (!currentProcess()) {
-            reason = "provider_authentication_process_completion_unconfirmed";
-            break;
-          }
-          if (
-            value.purpose.startsWith("create_") &&
-            !(
-              result.error?.message === "docker_execution_permit_lost" &&
-              !result.resourceReceipt
-            )
-          ) {
-            try {
-              if (
-                result.resourceCreationConfirmed !== true ||
-                !result.resourceReceipt
-              )
-                throw Error("receipt_unconfirmed");
-              const receipt = Object.freeze({ ...result.resourceReceipt });
-              const original = resources.find(
-                (resource) => resource.name === receipt.name,
-              );
-              if (!original) throw Error("receipt_resource_mismatch");
-              const captured = captureAuthenticationResources(
-                resources,
-                resources.map((resource) =>
-                  resource.name === receipt.name
-                    ? { ...resource, dockerId: receipt.dockerId }
-                    : resource,
-                ),
-              );
-              if (!captured) throw Error("receipt_invalid");
-              notifyAuthentication(callbacks.onResourceCreated, receipt);
-              resources = captured;
-            } catch {
-              reason = "provider_authentication_resource_receipt_unconfirmed";
-              break;
-            }
-          }
-          try {
-            notifyAuthentication(callbacks.onCommandCompleted);
-          } catch {
-            reason = "provider_authentication_command_settlement_unconfirmed";
-            break;
-          }
-          const statusObservation =
-            prepared.action === "status" &&
-            value.purpose === "start_probe_attached" &&
-            !result.error &&
-            result.signal === null &&
-            (result.status === 0 || result.status === 1)
-              ? evaluateProviderAuthentication(
-                  prepared.provider,
-                  describeProviderAuthentication(prepared.provider).offering,
-                  result.stdout,
-                  result.stderr,
-                  "execution",
-                )
-              : null;
-          const notLoggedIn =
-            result.status === 1 && statusObservation?.status === "unconfirmed";
-          if (
-            result.error ||
-            result.signal !== null ||
-            (result.status !== 0 && !notLoggedIn)
-          ) {
-            reason =
-              result.error?.message === "docker_execution_permit_lost"
-                ? "provider_authentication_cancelled"
-                : `provider_authentication_${value.purpose}_failed`;
-            break;
-          }
-          if (value.purpose === "start_probe_attached") {
-            const observed =
-              statusObservation ??
-              evaluateProviderAuthentication(
-                prepared.provider,
-                describeProviderAuthentication(prepared.provider).offering,
-                result.stdout,
-                result.stderr,
-                prepared.action === "login" ? "login" : "execution",
-              );
-            authenticationStatus = observed.status;
-            if (
-              observed.status !== "confirmed" &&
-              !(
-                prepared.action === "status" &&
-                observed.status === "unconfirmed"
-              )
-            ) {
-              reason = "provider_authentication_not_confirmed";
-              break;
-            }
-            authenticationConfirmed = observed.status === "confirmed";
-          }
-        }
-      } catch {
-        reason = "provider_authentication_failed_closed";
-      }
-      return Object.freeze({
-        reason,
-        authenticationStatus,
-        authenticationConfirmed,
-        providerEffectIssued,
-        processCompletionConfirmed: currentProcess(),
-      });
-    },
-    async cleanup(
-      suppliedResources,
-      signal,
-      callbacks = {},
-    ): Promise<AuthenticationCleanupResult> {
-      if (!currentProcess())
-        return { confirmed: false, processCompletionConfirmed: false };
-      const technical = getAuthenticationTechnicalPlan(prepared);
-      if (!technical)
-        return {
-          confirmed: false,
-          processCompletionConfirmed: currentProcess(),
-        };
-      return cleanupDockerAuthenticationResources(
-        technical,
-        command,
-        suppliedResources,
-        signal,
-        currentProcess(),
-        callbacks,
-      );
-    },
-  });
 }

@@ -39,6 +39,33 @@ export function observeDockerDirectoryIdentity(directory: string): string {
 }
 
 /**
+ * 保護read-only .gitだけに許すFile／Directoryの元実体を捕捉する。
+ * @responsibility 通常MountのDirectory条件を広げず、元型とFileの後発変更を再確認する。
+ * @trace ARCH-000008
+ * @input source: 確定した保護Mount元。
+ * @returns 元型・metadataの相関。Link・観測不能は例外。
+ * @effect Filesystem metadataの読取りだけ。
+ * @invariant 任意Fileを他のMount用途へ許可しない。
+ */
+export function observeDockerProtectedMountIdentity(source: string): string {
+  if (fs.realpathSync(source) !== source)
+    throw Error("docker_effect_filesystem_identity_invalid");
+  const metadata = fs.lstatSync(source, { bigint: true });
+  if (
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n
+  )
+    throw Error("docker_effect_filesystem_identity_invalid");
+  if (metadata.isDirectory())
+    return `directory:${observeDockerDirectoryIdentity(source)}`;
+  if (!metadata.isFile())
+    throw Error("docker_effect_filesystem_identity_invalid");
+  return `file:${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}:${metadata.mtimeNs}:${metadata.size}`;
+}
+
+/**
  * 借用管理領域に固定名の短命configを作る。
  *
  * @responsibility Parentや既存領域を作り替えず空configだけを所有する。

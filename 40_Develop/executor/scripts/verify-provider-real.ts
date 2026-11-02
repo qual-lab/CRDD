@@ -65,7 +65,7 @@ const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
 const { isPrimaryFailureDiagnostic } = await import("./executor-test.ts");
 
 const { describeDockerCommandSessionContract } = await import(
-  "../../docker-isolation/src/index.ts"
+  "../../docker-isolation/tests/support/session.ts"
 );
 
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =

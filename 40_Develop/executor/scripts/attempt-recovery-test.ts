@@ -36,11 +36,142 @@ export function createAttemptRecoveryTestApi(
   const body = stripTypeScriptTypes(source)
     .replace(/^import[\s\S]*?from\s*["'][^"']+["'];?\s*/gm, "")
     .replace(/^export /gm, "");
-  return runInNewContext(
-    `${body}; ({ inspectResources: inspectDockerResources, cleanupResources: cleanupDockerResources })`,
+  let cleanupSet: typeof import("../../docker-isolation/src/cleanup/resources.ts").cleanupResourceSet;
+  const api = runInNewContext(
+    `${body}; ({ inspectResources: inspectDockerResources, cleanupResources: cleanupDockerResources, cleanupSet: cleanupResourceSet })`,
     {
       ...isolation,
       utilTypes,
+      cleanupIsolation: (
+        request: isolation.IsolationCleanupRequest,
+        callbacks: isolation.IsolationCallbacks,
+      ) => {
+        const signal = new AbortController();
+        const created = create({
+          managementDirectory: request.managementDirectory,
+          signal: signal.signal,
+        }) as {
+          executor: isolation.DockerResourceRecoveryOperations & {
+            close(): boolean;
+          };
+        };
+        const completion = Promise.resolve().then(
+          async (): Promise<isolation.IsolationExecutionResult> => {
+            const receipts = Object.fromEntries(
+              request.resources.resources.map((resource) => [
+                resource.key,
+                {
+                  submitted: resource.request !== "not_issued",
+                  dockerId: resource.identity.dockerId,
+                },
+              ]),
+            ) as isolation.DockerResourceReceipts;
+            let snapshot = request.resources;
+            const result = await cleanupSet(
+              {
+                expectations: request.discovery.map((entry) => ({
+                  purpose: entry.key as keyof isolation.DockerResourceReceipts,
+                  expectations: entry.configurations,
+                })),
+                receipts,
+                signal: signal.signal,
+                previouslyAbsent:
+                  request.previouslyAbsent as (keyof isolation.DockerResourceReceipts)[],
+              },
+              created.executor,
+              {
+                onResourceInspecting: (key) => {
+                  const returned = callbacks.onCleanupSubmitting?.(key);
+                  if (returned !== undefined)
+                    throw Error("test_sync_notification_required");
+                },
+                onResourceIdentified: (key, id) => {
+                  snapshot = Object.freeze({
+                    resources: Object.freeze(
+                      snapshot.resources.map((resource) =>
+                        resource.key === key
+                          ? Object.freeze({
+                              ...resource,
+                              identity: Object.freeze({
+                                ...resource.identity,
+                                dockerId: id,
+                              }),
+                            })
+                          : resource,
+                      ),
+                    ),
+                  });
+                  if (!callbacks.onResourceIdentified)
+                    throw Error("test_identification_required");
+                  const returned = callbacks.onResourceIdentified(
+                    key,
+                    snapshot,
+                  );
+                  if (returned !== undefined) {
+                    void Promise.resolve(returned).catch(() => {});
+                    throw Error("test_sync_notification_required");
+                  }
+                },
+                onResourcesClosed: (observations) => {
+                  const returned = callbacks.onResourcesClosed?.(
+                    snapshot,
+                    observations.map((value) => ({
+                      key: value.purpose,
+                      observation: value.observation,
+                    })),
+                  );
+                  if (returned !== undefined) {
+                    void Promise.resolve(returned).catch(() => {});
+                    throw Error("test_sync_notification_required");
+                  }
+                },
+              },
+            );
+            let closed = false;
+            try {
+              closed = created.executor.close() === true;
+            } catch {}
+            return Object.freeze<isolation.IsolationExecutionResult>({
+              failure:
+                result.reason === "docker_task_recovery_checkpoint_unconfirmed"
+                  ? {
+                      stepKey: null,
+                      stage: "notification",
+                      reason: result.reason,
+                      notification: "onResourceIdentified",
+                      commandHandleObtained: false,
+                      responseObserved: false,
+                      exceptionCode: null,
+                      kind: "threw",
+                    }
+                  : null,
+              resources: snapshot,
+              cancellationRequested: signal.signal.aborted,
+              processTerminationConfirmed: true,
+              notificationDeliveryConfirmed: result.status === "completed",
+              callbackRegistrationReleased: true,
+              cleanup: {
+                confirmed: result.dockerCleanupConfirmed && closed,
+                configCleanupConfirmed: closed,
+                observations: result.resources.map((resource) => ({
+                  key: resource.purpose,
+                  observation: resource.observation,
+                })),
+              },
+            });
+          },
+        );
+        return {
+          completion,
+          cancel: async () => {
+            signal.abort();
+            return {
+              cancellationRequested: true,
+              processTerminationObserved: true,
+            };
+          },
+        };
+      },
       createDockerTaskRecoveryExecutor: (input: {
         managementDirectory: string;
         signal?: AbortSignal;
@@ -61,4 +192,6 @@ export function createAttemptRecoveryTestApi(
       },
     },
   );
+  cleanupSet = api.cleanupSet;
+  return api;
 }

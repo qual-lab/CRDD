@@ -6,6 +6,15 @@
  * @boundary 検証済み技術構成と固定Docker要求。
  */
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { observeDockerDirectoryIdentity } from "../docker-cli/config.ts";
+import {
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+  type DockerCliTrustSnapshot,
+} from "../docker-cli/trust.ts";
+import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
 import { types } from "node:util";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import {
@@ -14,9 +23,12 @@ import {
 } from "./configuration.ts";
 import {
   inspectObservedDockerResource,
+  dockerResourceIdentityMatches,
+  snapshotObservedDockerResource,
   removeObservedDockerResource,
   type DockerRecoveryCommandResult,
 } from "./resource.ts";
+import type { ResourceSnapshot } from "./types.ts";
 
 /**
  * 固定CLIと限定環境を借用する。
@@ -31,6 +43,55 @@ export type DockerContainerBinding = Readonly<{
   verifyCli: () => string;
   environment: () => Readonly<Record<string, string>>;
 }>;
+
+/**
+ * 同期Container観測・回収の固定CLIと借用管理所在を結合する。
+ * @responsibility 用途・payloadを持たず、元DirectoryとCLIの現在実体を各要求前に照合する。
+ * @trace ARCH-000008
+ * @input management: 上位が確定し処置中保持する管理Directory。
+ * @returns 固定CLI確認と限定環境だけの技術接続。
+ * @effect 既存docker-config／docker-homeを管理領域内に取得する。終了は従来の上位Host清掃が所有する。
+ * @failure 未対応OS・CLI不明・所在不正・差替え・環境不明は拒否する。
+ * @invariant Probeの意味・保存・自動再送・新しい排他を持たない。
+ */
+export function createDockerContainerBinding(
+  management: string,
+): DockerContainerBinding {
+  if (process.platform !== "win32")
+    throw Error("docker_backend_platform_unsupported");
+  let snapshot: DockerCliTrustSnapshot;
+  try {
+    snapshot = observeTrustedDockerCli();
+  } catch {
+    throw Error("docker_cli_untrusted");
+  }
+  if (
+    typeof management !== "string" ||
+    !management ||
+    !path.isAbsolute(management) ||
+    path.resolve(management) !== management
+  )
+    throw Error("owned_operation_mount_replaced");
+  const original = observeDockerDirectoryIdentity(management);
+  const dockerConfig = path.join(management, "docker-config"),
+    dockerHome = path.join(management, "docker-home");
+  fs.mkdirSync(dockerConfig, { recursive: true });
+  fs.mkdirSync(dockerHome, { recursive: true });
+  const environment = createDockerCliEnvironment({ dockerConfig, dockerHome });
+  if (!environment) throw Error("docker_runtime_environment_unavailable");
+  return Object.freeze({
+    verifyCli: () => {
+      if (observeDockerDirectoryIdentity(management) !== original)
+        throw Error("owned_operation_mount_replaced");
+      try {
+        return verifyTrustedDockerCliSnapshot(snapshot);
+      } catch {
+        throw Error("docker_cli_untrusted");
+      }
+    },
+    environment: () => environment,
+  });
+}
 
 /**
  * 通常dataのfieldを一回捕捉する。
@@ -253,21 +314,50 @@ function run(
  */
 export function inspectDockerContainer(
   binding: DockerContainerBinding,
-  expected: DockerContainerConfigurationExpectation,
-): Readonly<{ runningConfirmed: boolean }> | null {
-  const captured = captureExpectation(expected);
+  expected:
+    | DockerContainerConfigurationExpectation
+    | Pick<
+        DockerContainerConfigurationExpectation,
+        "id" | "name" | "ownershipLabel"
+      >,
+): Readonly<{ runningConfirmed: boolean; snapshot: ResourceSnapshot }> | null {
+  if (!expected || typeof expected !== "object" || types.isProxy(expected))
+    throw Error("docker_container_projection_invalid");
+  const configuration =
+    Reflect.ownKeys(expected).length === 3
+      ? null
+      : captureExpectation(expected);
+  const captured = configuration ?? identity(expected);
   const observed = inspectObservedDockerResource(
     (argv) => run(binding, argv),
     "container",
     captured.id,
     64 * 1024,
   );
-  if (!dockerContainerConfigurationMatches(observed, captured)) return null;
+  if (
+    configuration
+      ? !dockerContainerConfigurationMatches(observed, configuration)
+      : !dockerResourceIdentityMatches(observed, {
+          kind: "container",
+          dockerId: captured.id,
+          expectedName: captured.name,
+          ownershipLabel: captured.ownershipLabel,
+        })
+  )
+    return null;
+  const snapshot = snapshotObservedDockerResource(observed, captured.name, {
+    kind: "container",
+    dockerId: captured.id,
+    expectedName: captured.name,
+    ownershipLabel: captured.ownershipLabel,
+  });
+  if (!snapshot) return null;
   const state = Object.getOwnPropertyDescriptor(
     observed as object,
     "State",
   )?.value;
   return Object.freeze({
+    snapshot,
     runningConfirmed:
       !!state &&
       typeof state === "object" &&
@@ -322,7 +412,7 @@ export function observeDockerContainerAbsence(
 }
 
 /**
- * fresh構成一致後の実IDだけを回収する。
+ * freshな元実ID・名前・所有Label一致後の実IDだけを回収する。
  * @responsibility 観測後の明示取消確認と三軸不存在を維持する。
  * @trace ARCH-000008
  * @input binding、expected: 元構成、signal: 任意の明示取消。
@@ -333,11 +423,38 @@ export function observeDockerContainerAbsence(
  */
 export function cleanupDockerContainer(
   binding: DockerContainerBinding,
-  expected: DockerContainerConfigurationExpectation,
+  expected:
+    | DockerContainerConfigurationExpectation
+    | Pick<
+        DockerContainerConfigurationExpectation,
+        "id" | "name" | "ownershipLabel"
+      >,
   signal?: AbortSignal,
 ) {
-  const captured = captureExpectation(expected);
-  if (!inspectDockerContainer(binding, captured))
+  if (!expected || typeof expected !== "object" || types.isProxy(expected))
+    throw Error("docker_container_projection_invalid");
+  const captured = identity({
+    id: Object.getOwnPropertyDescriptor(expected, "id")?.value,
+    name: Object.getOwnPropertyDescriptor(expected, "name")?.value,
+    ownershipLabel: Object.getOwnPropertyDescriptor(expected, "ownershipLabel")
+      ?.value,
+  });
+  if (
+    !dockerResourceIdentityMatches(
+      inspectObservedDockerResource(
+        (argv) => run(binding, argv),
+        "container",
+        captured.id,
+        64 * 1024,
+      ),
+      {
+        kind: "container",
+        dockerId: captured.id,
+        expectedName: captured.name,
+        ownershipLabel: captured.ownershipLabel,
+      },
+    )
+  )
     return Object.freeze({
       confirmed: false,
       reason: "docker_container_identity_mismatch",

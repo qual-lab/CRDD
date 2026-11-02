@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+2026-11-02のDI共通入口整理では、通常Attempt・認証・固定ProbeのSource接続と、Attempt／認証の通常・単独回収、旧用途専用実行入口の撤去を完了した。DI343件成功（既存対象外5件skip）、Executor93件成功、Coordinator対象12 Suite・240件成功、独立再レビュー必須残指摘0件。同期Containerの単独回収は従来契約を維持する例外であり、全操作の同一Owner化とは扱わない。実AI・Docker・過去保持物は操作しておらず、新入口の実境界再成立は未検証。[今回範囲と検証限界](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#通常attempt単独cleanup旧入口撤去の閉包)を参照。
+
 Executor単独の限定実AI確認では、Codex／Claude双方の編集・レビュー・開始後取消を確認した。今回の全試験物は回収済み。先行二試行の検証Tool清掃不合格は履歴として保持し、名前非依存の試験tmp清掃へ是正後の残る四試行は終了値0だった。上位連携・全体QA・Release成立とは分ける。[条件・回収・限定結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#残る四試行の実ai確認と回収完了2026-10-30)を参照。
 
 2026-10-30の最新限定実測では、HTTP表示から切り離したCoordinator公開API経由のDirect／Isolated編集が各一Taskとも合格し、`E2E_EXIT=0`を確認した。Codex編集・Claude承認・Domainの同Task終端照合・資源回収・清掃Gateが成立し、今回物は全回収済み。成功時primaryFailureはnull。これは直接API経路の承認済み一回の限定成立であり、以下のCore移管全体の評価、全体QA、Workbench HTTP遅延の修復とは区別する。[実行条件・結果と主張範囲](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#workspace-direct-api-real-ai-pass-20261030)を参照。

@@ -10,8 +10,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { captureAuthenticationResources } from "../../src/cleanup/plan.ts";
 import { cleanupResourceSet } from "../../src/cleanup/resources.ts";
-import type { DockerResourceReceipts } from "../../src/execution/execute.ts";
+import type { DockerResourceReceipts } from "../../src/execution/types.ts";
 import type { DockerResourceExpectation } from "../../src/cleanup/plan.ts";
+import { discoverSubmittedDockerResource } from "../../src/cleanup/resource.ts";
+import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 
 /** 入力読取りでaccessorを実行せず、元計画の順序・種類・実IDだけを採用する。 */
 test("認証Receiptは元構成と一致した通常データだけを固定する", () => {
@@ -51,6 +53,99 @@ test("認証Receiptは元構成と一致した通常データだけを固定す�
   ])
     assert.equal(captureAuthenticationResources(expected, bad), null);
   assert.equal(reads, 0);
+});
+
+/** 発見通知後の構成変化でも、ID欠測由来の削除直前完全構成検査を維持する。 */
+test("共通回収は元Receiptと発見IDの照合条件を通知後も混同しない", async () => {
+  for (const mode of ["receipt", "discovery", "discovery_changed"] as const) {
+    const id = "a".repeat(64);
+    let exists = true,
+      internal = mode !== "receipt",
+      removed = 0;
+    const receipt = {
+      submitted: true,
+      dockerId: mode === "receipt" ? id : null,
+    };
+    const none = { submitted: false, dockerId: null };
+    const receipts: DockerResourceReceipts = {
+      create_subscription_auth_probe: none,
+      create_provider: none,
+      create_proxy: none,
+      create_internal_network: receipt,
+      create_egress_network: none,
+    };
+    const expected: DockerResourceExpectation = {
+      kind: "network",
+      purpose: "create_internal_network",
+      dockerId: id,
+      expectedName: "crdd-internal-0123456789abcdef",
+      ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
+      expectedImage: null,
+      shouldBeInternal: true,
+      expectedNetworks: [],
+      workspaceMounted: false,
+      workspaceReadOnly: false,
+      initRequired: false,
+    };
+    const run = (argv: readonly string[]) => {
+      let stdout = "";
+      if (argv.includes("inspect"))
+        stdout = JSON.stringify([
+          {
+            Id: id,
+            Name: expected.expectedName,
+            Labels: { "crdd.coordinator.runtime": "0123456789abcdef" },
+            Internal: internal,
+            Driver: "bridge",
+            Scope: "local",
+          },
+        ]);
+      else if (argv.includes("rm")) {
+        removed++;
+        exists = false;
+      } else if (argv.includes("ls")) stdout = exists ? id : "";
+      else assert.fail("unexpected_command");
+      return { status: 0, signal: null, stdout, stderr: "", error: null };
+    };
+    const result = await cleanupResourceSet(
+      {
+        expectations: [
+          { purpose: "create_internal_network", expectations: [expected] },
+        ],
+        receipts,
+      },
+      {
+        discoverSubmitted: (candidate) =>
+          discoverSubmittedDockerResource(run, candidate),
+        cleanupObserved: (
+          candidate,
+          signal,
+          absent,
+          requireConfigurationMatch,
+        ) =>
+          cleanupDockerResource(
+            run,
+            candidate,
+            signal,
+            absent,
+            requireConfigurationMatch,
+          ),
+      },
+      {
+        onResourceIdentified: () => {
+          if (mode === "discovery_changed") {
+            internal = false;
+            receipt.dockerId = id;
+          }
+        },
+      },
+    );
+    assert.equal(
+      result.status,
+      mode === "discovery_changed" ? "blocked" : "completed",
+    );
+    assert.equal(removed, mode === "discovery_changed" ? 0 : 1);
+  }
 });
 
 /** 同じ回収coreへ渡したReceipt列を、通常と再入場で同じ条件で処置する。 */

@@ -173,13 +173,14 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
       acquireNamedPipeKernelLock:()=>{live=true;return {assertLive:()=>live,release:()=>{releases++;live=false;return true;}};}
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
-    mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
+    const legacy=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/execution.ts"))});
+    mock.module(${JSON.stringify(url("../../../docker-isolation/tests/support/execution.ts"))},{namedExports:{...di,...legacy,
       createDockerIsolationRuntime:({paths})=>{
         let cleanupResult=null,owner=null,recovery=null;
         return {startCommand:()=>{throw Error('primitive_forbidden');},cleanupOwnedResources:()=>{throw Error('duplicate_cleanup');},
           startExecution:(p,r,m,hooks)=>{
             owner=m;recovery=r;assert.equal(p.stdin,fixture.prompt);if(fixture.trialMode==='advice'){assert.ok(p.stdin.includes(JSON.stringify(fixture.schema)));assert.ok(p.stdin.includes('Allowed references: ["synthetic-context"]'));}
-            return di.startDockerCommandSessionCandidate(purposes,{
+            return legacy.startDockerCommandSessionCandidate(purposes,{
               startCommand:purpose=>({started:async()=>{if(purpose==='start_provider_attached'&&fixture.mode==='task_cancel_duplicate')queueMicrotask(()=>hooks.onExecutionStarted());return true;},wait:async()=>{if(purpose==='start_provider_attached'){if(fixture.mode.startsWith('task_cancel'))await new Promise(r=>fixture.cancelReady=r);if(fixture.mode==='task_edit')fs.writeFileSync(path.join(fixture.root,'work','source.txt'),'EDITED_OK\\n');}return {status:0,signal:null,stderr:'',outputExceeded:false,stdout:
                 purpose.startsWith('create_')?String(purposes.indexOf(purpose)+1).repeat(64)+'\\n':
                 purpose==='start_subscription_auth_probe_attached'?(fixture.provider==='codex'?'Logged in using ChatGPT\\n':JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',forcedLoginMethod:'claudeai',subscriptionType:'max'})):

@@ -826,7 +826,7 @@ function createProbeRecoveryOrderingFixture(
     inspectResources: () => {
       events.push("docker");
       if (fault === "docker") throw Error("docker_unknown");
-      return { observation: "absent", runningConfirmed: false };
+      return { observation: "absent", runningConfirmed: false, snapshot: null };
     },
     cleanupResources: () => {
       throw Error("unexpected_cleanup");

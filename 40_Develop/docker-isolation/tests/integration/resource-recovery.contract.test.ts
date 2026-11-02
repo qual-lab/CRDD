@@ -2,7 +2,7 @@
  * 回復時の現在観測と資源処置Gateを検証する。
  *
  * @packageDocumentation
- * @responsibility 未発見・観測不能・構成差を回復成功や削除へ昇格しないことを反証する。
+ * @responsibility 未発見・観測不能・別Identityと、診断／発見時の構成差を区別して反証する。
  * @trace ERB-IT-004
  * @trace PRL-IT-013
  * @level IT
@@ -553,18 +553,18 @@ function exactAuthRunner(networkNames: readonly string[] = ["none"]) {
 }
 
 /**
- * Docker資源回収はexact IDと全構成一致だけを削除するを検証する。
+ * Docker資源回収は元Receiptのexact ID・元名・所有Labelだけを識別照合する。
  *
- * @responsibility Docker資源回収はexact IDと全構成一致だけを削除するの合否判定を所有する。
+ * @responsibility 元対象の識別照合と削除後の不存在を検証する。
  * @trace PRL-IT-013
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Docker資源回収はexact IDと全構成一致だけを削除するの対象操作を実行する。
+ * @stimulus 元Receiptの技術期待値を共通回収へ渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-013=Direct Boundary: docker-isolation Test Source→資源観測・回収
  */
-test("Docker資源回収はexact IDと全構成一致だけを削除する", async () => {
+test("Docker資源回収はexact IDと元名・所有Labelを照合して削除する", async () => {
   const fixture = exactContainerRunner();
   assert.equal(
     await cleanupDockerResource(fixture.runDockerCommand, {
@@ -619,18 +619,18 @@ test("Docker資源回収はreplacement構成を削除せずEvidenceを保持す�
 });
 
 /**
- * init必須と非必須をexact Recoveryの構成検査で区別する。
+ * Initの構成診断と、元Receiptの回収Identityを別条件として検証する。
  *
- * @responsibility init欠落、誤った型と対象外へのinit混入で削除を発行しないことを確認する。
+ * @responsibility 診断ではInit差を拒否し、元Receiptの回収は同じ差で拒否しないことを確認する。
  * @trace PRL-IT-013
  * @precondition 固定inspect形の合成応答と通常／専用Imageを使用する。
  * @stimulus fresh Recoveryが同じexact IDを再検査する。
  * @observation 判定と削除発行件数を取得する。
- * @oracle init必須構成はtrueだけ、init非必須構成は未記載／null／falseだけを受理する。
+ * @oracle 診断は従来のInit条件を維持し、元Receiptの回収はInit差で拒否しない。
  * @cleanup N/A: 合成Docker runnerは実資源を作らない。
  * @boundary PRL-IT-013=Related 2 Blocks: 技術期待値→exact構成検査
  */
-test("init必須と非必須をexact Recoveryの構成検査で区別する", async () => {
+test("exact RecoveryはInit差で拒否せず読取り専用診断は従来条件を維持する", async () => {
   const seed = JSON.parse(
     exactContainerRunner().runDockerCommand(["docker", "inspect"]).stdout,
   )[0];
@@ -651,23 +651,28 @@ test("init必須と非必須をexact Recoveryの構成検査で区別する", as
             )
           : seed.Mounts,
       });
+      const expectation: DockerResourceExpectation = {
+        kind: "container",
+        dockerId: fixture.dockerId,
+        expectedName: "crdd-codex-0123456789abcdef",
+        ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
+        expectedImage: image,
+        shouldBeInternal: null,
+        purpose: "create_provider",
+        expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
+        workspaceMounted: !isAdvice,
+        workspaceReadOnly: false,
+        initRequired: isAdvice,
+      };
       assert.equal(
-        await cleanupDockerResource(fixture.runDockerCommand, {
-          kind: "container",
-          dockerId: fixture.dockerId,
-          expectedName: "crdd-codex-0123456789abcdef",
-          ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-          expectedImage: image,
-          shouldBeInternal: null,
-          purpose: "create_provider",
-          expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-          workspaceMounted: !isAdvice,
-          workspaceReadOnly: false,
-          initRequired: isAdvice,
-        }),
+        observeExpectedDockerResource(fixture.runDockerCommand, expectation),
         isExpected,
       );
-      assert.equal(fixture.removeCount(), isExpected ? 1 : 0);
+      assert.equal(
+        await cleanupDockerResource(fixture.runDockerCommand, expectation),
+        true,
+      );
+      assert.equal(fixture.removeCount(), 1);
     }
   }
 });
@@ -680,11 +685,11 @@ test("init必須と非必須をexact Recoveryの構成検査で区別する", as
  * @precondition 各用途の隔離条件を満たす合成inspect応答を使う。
  * @stimulus Init未記載／null／false／true／不正型を同じexact資源へ与える。
  * @observation 回収判定と削除回数を読む。
- * @oracle 未指定またはfalseだけを受理し、他のIdentity不一致は引き続き拒否する。
+ * @oracle Init差で拒否せず、所有Labelの差は全て削除0へ閉じる。
  * @cleanup N/A: 合成Docker runnerであり実資源を作らない。
  * @boundary PRL-IT-013=Related 2 Blocks: 技術期待値→Docker inspect
  */
-test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", async () => {
+test("Proxyと認証Probeのexact RecoveryはInit差と所有Label差を区別する", async () => {
   for (const purpose of [
     "create_proxy",
     "create_subscription_auth_probe",
@@ -709,9 +714,7 @@ test("Proxyと認証Probeの省略可能Initをexact Recoveryで照合する", a
             16,
           );
         const fixture = exactContainerRunner(configuration);
-        const isExpected =
-          !hasWrongIdentity &&
-          (init === undefined || init === null || init === false);
+        const isExpected = !hasWrongIdentity;
         assert.equal(
           await cleanupDockerResource(fixture.runDockerCommand, {
             kind: "container",

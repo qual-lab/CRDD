@@ -22,14 +22,16 @@ import {
   executeDockerProbeCommand,
   planDockerProbeCommand,
   type DockerProbeCommand,
-  planDockerAuthenticationCommands,
-  planDockerAuthenticationResourceRecovery,
-  type DockerAuthenticationInput,
   type DockerAttachedProcess,
   type CommandExecution,
 } from "../../src/index.ts";
-import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../../src/authentication/execute.ts";
-import { dockerAuthenticationCommandIsPlanned } from "../../src/authentication/plan.ts";
+import {
+  planDockerAuthenticationCommands,
+  planDockerAuthenticationResourceRecovery,
+  type DockerAuthenticationInput,
+} from "../support/authentication.ts";
+import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../support/authentication/execute.ts";
+import { dockerAuthenticationCommandIsPlanned } from "../support/authentication/plan.ts";
 import { setTimeout as delay } from "node:timers/promises";
 import { startOwnedWindowsProcess } from "../../src/process/start.ts";
 
@@ -46,7 +48,7 @@ import { startOwnedWindowsProcess } from "../../src/process/start.ts";
  */
 test("認証Factoryは初期観測と同snapshotの各実行前検証を下位に閉じる", () => {
   const text = fs.readFileSync(
-    new URL("../../src/authentication/execute.ts", import.meta.url),
+    new URL("../support/authentication/execute.ts", import.meta.url),
     "utf8",
   );
   const begin = text.indexOf(
@@ -492,7 +494,7 @@ test("認証NetworkのReceiptはcreateと即時inspectの実ID・構成一致後
       recovery.ownershipCommand,
       () => true,
     );
-    assert.equal(observation.resourceConfigurationConfirmed, matches);
+    assert.equal(observation.resourceIdentityConfirmed, matches);
     if (matches) {
       const removed = await runtime.execute(
         recovery.cleanupCommand,

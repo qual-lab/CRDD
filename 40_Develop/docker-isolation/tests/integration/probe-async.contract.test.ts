@@ -26,7 +26,7 @@ import { classifyDockerProbeExecution } from "../../src/probe/result.ts";
  */
 test("非同期Probeは元失敗と取消を保持し所有attachをjoinする", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/probe/execute.ts", import.meta.url),
+    new URL("../support/probe.ts", import.meta.url),
     "utf8",
   );
   const declarations = ["awaitProbeObservation", "runDockerProbeAsync"]

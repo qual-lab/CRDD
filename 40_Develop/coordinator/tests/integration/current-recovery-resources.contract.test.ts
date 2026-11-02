@@ -2839,9 +2839,10 @@ function fixture(
       factoryCalls++;
       events.push("factory");
       assert.equal(input.managementDirectory, managementDirectory);
-      assert.deepEqual(Object.keys(input), ["managementDirectory"]);
+      assert.deepEqual(Object.keys(input), ["managementDirectory", "signal"]);
       const created = createDockerOperationRecoveryExecutor({
         managementDirectory: input.managementDirectory,
+        ...(input.signal ? { signal: input.signal } : {}),
         verifyCli: () => {
           events.push("cli");
         },

@@ -8,25 +8,24 @@
 
 import { types } from "node:util";
 import {
-  cleanupDockerContainer,
-  createDockerProbeContainer,
-  createDockerProbeRuntimeBinding,
-  type DockerProbeProfile,
-  type DockerProbeRuntimeBinding,
-  describeDockerProbeConfiguration,
-  inspectDockerContainer,
-  observeDockerProbeEngine,
-  observeDockerDirectoryIdentity,
-  runDockerProbeAsync,
+  prepareIsolation,
+  executeIsolation,
+  DIAGNOSTIC_IMAGE,
+  type PreparedIsolation,
+  type IsolationExecution,
+  type IsolationExecutionResult,
 } from "../../../docker-isolation/src/index.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
 import { createLifecycleOperations } from "../lifecycle/operations.ts";
+import { describeIsolationProbeProfile } from "./configuration.ts";
+import { classifyIsolationProbeExecution } from "./result.ts";
 import type { Executor, StartInput } from "../lifecycle/types.ts";
 import type {
   IsolationProbeMounts,
   IsolationProbeOptions,
   IsolationProbeRequest,
   IsolationProbeResult,
+  IsolationProbeProfile,
 } from "./types.ts";
 
 /**
@@ -77,53 +76,108 @@ function notify(
 export function createIsolationProbe(
   request: IsolationProbeRequest,
   options: IsolationProbeOptions,
-  profile: Exclude<DockerProbeProfile, "cancellation"> = "normal",
+  profile: Exclude<IsolationProbeProfile, "cancellation"> = "normal",
 ): Executor<"isolation_probe"> | null {
   if (
     !request ||
     typeof request !== "object" ||
+    types.isProxy(request) ||
     !options ||
     typeof options !== "object" ||
-    types.isProxy(request) ||
     types.isProxy(options)
   )
     return null;
   const probeId = Object.getOwnPropertyDescriptor(request, "probeId")?.value;
-  const value = Object.getOwnPropertyDescriptor(options, "mounts")?.value;
   if (
     Object.getOwnPropertyDescriptor(request, "kind")?.value !==
       "isolation_probe" ||
     Reflect.ownKeys(request).length !== 2 ||
-    Reflect.ownKeys(options).length !== 1
-  )
-    return null;
-  if (
+    Reflect.ownKeys(options).length !== 1 ||
     typeof probeId !== "string" ||
     !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(
       probeId,
     )
   )
     return null;
-  let initial: IsolationProbeMounts;
-  let directories: readonly Readonly<{ path: string; identity: string }>[];
+  let prepared: PreparedIsolation | null;
   try {
-    initial = captureMounts(value);
-    directories = Object.freeze(
-      Object.values(initial).map((directory) =>
-        Object.freeze({
-          path: directory,
-          identity: observeDockerDirectoryIdentity(directory),
-        }),
-      ),
+    const mounts = captureMounts(
+      Object.getOwnPropertyDescriptor(options, "mounts")?.value,
     );
+    const specification = describeIsolationProbeProfile(profile);
+    prepared = prepareIsolation({
+      managementDirectory: mounts.management,
+      resources: [
+        {
+          kind: "container",
+          key: "probe",
+          name: `crdd-coordinator-probe-${probeId}`,
+          ownershipLabel: `crdd.coordinator.probe=${probeId}`,
+          image: DIAGNOSTIC_IMAGE,
+          argv: ["-c", specification.source],
+          environment: {
+            HOME: "/operation/provider-home",
+            TMPDIR: "/operation/tmp",
+          },
+          mounts: [
+            {
+              source: mounts.workspace,
+              target: "/operation/workspace",
+              readOnly: false,
+            },
+            {
+              source: mounts.providerHome,
+              target: "/operation/provider-home",
+              readOnly: false,
+            },
+            { source: mounts.tmp, target: "/operation/tmp", readOnly: false },
+          ],
+          network: null,
+          networkAlias: null,
+          user: "65532:65532",
+          workingDirectory: "/operation/workspace",
+          entrypoint: "python",
+          tmpfsBytes: null,
+          interactive: false,
+          tty: false,
+          init: false,
+          seccomp: null,
+        },
+      ],
+      steps: [
+        {
+          key: "create_isolation_probe",
+          action: "create",
+          resource: "probe",
+          timeoutMs: 30_000,
+        },
+        {
+          key: "execute_isolation_probe",
+          action: "run",
+          resource: "probe",
+          mode: "captured",
+          stdin: null,
+          timeoutMs: specification.timeoutMs,
+          stdoutLimitBytes: 64 * 1024,
+          stderrLimitBytes: 64 * 1024,
+          acceptedExitCodes: [0, 7],
+          deadlineOrigin: "request",
+        },
+      ],
+      cleanupOrder: ["probe"],
+      setupTimeoutMs: 10_000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: true,
+    });
   } catch {
     return null;
   }
+  if (!prepared) return null;
+  const original = prepared;
   const lifecycle = createLifecycleOperations();
   return Object.freeze<Executor<"isolation_probe">>({
     kind: "isolation_probe",
     start(input: StartInput<"isolation_probe">) {
-      const callbacks = input.callbacks ?? {};
       if (!lifecycle.start())
         return Object.freeze({
           kind: "isolation_probe",
@@ -133,31 +187,89 @@ export function createIsolationProbe(
             : "docker_probe_already_started",
           completion: null,
         });
+      const callbacks = input.callbacks ?? {};
+      let facts: IsolationProbeResult["facts"] = null;
+      let observedBeforeCancellation = false;
+      let notificationFailure: string | null = null;
+      let session: IsolationExecution;
       try {
-        for (const directory of directories)
-          if (
-            observeDockerDirectoryIdentity(directory.path) !==
-            directory.identity
-          )
-            throw Error("owned_operation_mount_replaced");
         if (
           !callbacks ||
           typeof callbacks !== "object" ||
           types.isProxy(callbacks)
         )
-          throw new Error("docker_probe_notification_invalid");
+          throw Error("docker_probe_notification_invalid");
         for (const key of Reflect.ownKeys(callbacks)) {
           const descriptor = Object.getOwnPropertyDescriptor(callbacks, key);
           if (
-            (key !== "onCommandSubmitting" &&
-              key !== "onResourceCreated" &&
-              key !== "onCompleted") ||
+            ![
+              "onCommandSubmitting",
+              "onResourceCreated",
+              "onCompleted",
+            ].includes(String(key)) ||
             !descriptor ||
             !("value" in descriptor) ||
             typeof descriptor.value !== "function"
           )
-            throw new Error("docker_probe_notification_invalid");
+            throw Error("docker_probe_notification_invalid");
         }
+        session = executeIsolation(original, {
+          onSubmitting(step) {
+            if (step.action === "create") {
+              try {
+                notify(callbacks.onCommandSubmitting, "create_isolation_probe");
+              } catch (error) {
+                notificationFailure =
+                  error instanceof Error &&
+                  error.message === "docker_probe_notification_invalid"
+                    ? error.message
+                    : "docker_isolation_probe_failed";
+                throw error;
+              }
+            }
+          },
+          onCreated(step, snapshot) {
+            const id = snapshot.resources.find((r) => r.key === step.resource)
+              ?.identity.dockerId;
+            if (!id) throw Error("docker_container_identity_unknown");
+            try {
+              notify(callbacks.onResourceCreated, id);
+            } catch (error) {
+              notificationFailure =
+                error instanceof Error &&
+                error.message === "docker_probe_notification_invalid"
+                  ? error.message
+                  : "docker_isolation_probe_failed";
+              throw error;
+            }
+          },
+          onObserved(step, result, elapsedMs, code) {
+            if (step.action !== "run") return;
+            observedBeforeCancellation = !lifecycle.cancellationRequested;
+            facts = classifyIsolationProbeExecution(
+              {
+                ...(result ?? {
+                  status: null,
+                  signal: null,
+                  stdout: "",
+                  stderr: "",
+                }),
+                ...(code
+                  ? {
+                      error: Object.assign(
+                        new Error("probe transport failure"),
+                        { code },
+                      ),
+                    }
+                  : {}),
+              },
+              elapsedMs,
+            );
+          },
+        });
+        lifecycle.bindCancellation(
+          async () => (await session.cancel()).processTerminationObserved,
+        );
       } catch {
         lifecycle.finish();
         return Object.freeze({
@@ -167,171 +279,85 @@ export function createIsolationProbe(
           completion: null,
         });
       }
-      if (lifecycle.cancellationRequested) {
-        lifecycle.finish();
-        return Object.freeze({
-          kind: "isolation_probe",
-          status: "blocked",
-          reason: "docker_probe_start_cancelled",
-          completion: null,
-        });
-      }
+      let technical: IsolationExecutionResult | null = null;
       return Object.freeze({
         kind: "isolation_probe",
         status: "started",
-        completion: execute(),
-      });
-      async function execute(): Promise<IsolationProbeResult> {
-        let containerId: string | null = null;
-        let creationAttempted = false,
-          cleanupConfirmed = false,
-          processCompletionConfirmed = true;
-        let facts: IsolationProbeResult["facts"] = null;
-        let reason: string | null = null;
-        let cli: DockerProbeRuntimeBinding | null = null;
-        return executeLifecycle(
+        completion: executeLifecycle(
           {
             async execute() {
-              try {
-                if (lifecycle.signal.aborted)
-                  throw new Error("docker_probe_start_cancelled");
-                for (const directory of directories)
-                  if (
-                    observeDockerDirectoryIdentity(directory.path) !==
-                    directory.identity
-                  )
-                    throw Error("owned_operation_mount_replaced");
-                cli = createDockerProbeRuntimeBinding(initial.management, {
-                  workspace: initial.workspace,
-                  providerHome: initial.providerHome,
-                  tmp: initial.tmp,
-                });
-                if (!observeDockerProbeEngine(cli)) {
-                  reason = "local_docker_desktop_linux_engine_required";
-                  return;
-                }
-                notify(callbacks.onCommandSubmitting, "create_isolation_probe");
-                if (lifecycle.signal.aborted)
-                  throw new Error("docker_probe_start_cancelled");
-                const mounts = initial;
-                creationAttempted = true;
-                const creation = createDockerProbeContainer(
-                  cli,
-                  profile,
-                  probeId,
-                  {
-                    workspace: mounts.workspace,
-                    providerHome: mounts.providerHome,
-                    tmp: mounts.tmp,
-                  },
-                );
-                if (creation.status !== "confirmed") {
-                  reason = "docker_container_identity_unknown";
-                } else {
-                  containerId = creation.id;
-                  notify(callbacks.onResourceCreated, containerId);
-                  if (lifecycle.signal.aborted)
-                    throw new Error("docker_probe_start_cancelled");
-                  const current = initial;
-                  const expected = describeDockerProbeConfiguration(
-                    profile,
-                    { id: containerId, probeId },
-                    {
-                      workspace: current.workspace,
-                      providerHome: current.providerHome,
-                      tmp: current.tmp,
-                    },
-                  );
-                  if (!inspectDockerContainer(cli, expected))
-                    throw new Error(
-                      "docker_container_security_profile_mismatch",
-                    );
-                  processCompletionConfirmed = false;
-                  const execution = await runDockerProbeAsync(
-                    cli,
-                    profile,
-                    containerId,
-                    lifecycle.signal,
-                  );
-                  processCompletionConfirmed =
-                    execution.processCompletionConfirmed;
-                  facts = execution.facts;
-                  reason = !processCompletionConfirmed
-                    ? "dynamic_fake_provider_attach_process_termination_unconfirmed"
-                    : execution.cancelled
-                      ? "docker_probe_start_cancelled"
-                      : facts.isolation.reason;
-                }
-              } catch (error) {
-                const message = error instanceof Error ? error.message : "";
-                reason = [
-                  "owned_operation_mount_replaced",
-                  "docker_probe_start_cancelled",
-                  "docker_container_security_profile_mismatch",
-                  "docker_probe_notification_invalid",
-                ].includes(message)
-                  ? message
-                  : "docker_isolation_probe_failed";
-              }
+              technical = await session.completion;
             },
-            shouldCleanup: () => processCompletionConfirmed,
             async cleanup() {
-              if (containerId && cli) {
-                try {
-                  const current = initial;
-                  const cleanup = cleanupDockerContainer(
-                    cli,
-                    describeDockerProbeConfiguration(
-                      profile,
-                      { id: containerId, probeId },
-                      {
-                        workspace: current.workspace,
-                        providerHome: current.providerHome,
-                        tmp: current.tmp,
-                      },
-                    ),
-                  );
-                  cleanupConfirmed = cleanup.confirmed;
-                  if (!cleanupConfirmed) reason = cleanup.reason;
-                } catch {
-                  cleanupConfirmed = false;
-                  reason = "docker_probe_cleanup_failed";
-                }
-              }
+              /* 技術回収は同じDI Completionの確定前に完了する。 */
             },
-            createResult(_context, _failure, failed) {
-              if (failed) reason ??= "docker_isolation_probe_failed";
-              const final: IsolationProbeResult = Object.freeze({
+            createResult(_context, _failure, failed): IsolationProbeResult {
+              const result = technical as IsolationExecutionResult | null;
+              const observedFacts = facts as IsolationProbeResult["facts"];
+              const resource = result?.resources.resources.find(
+                (r) => r.key === "probe",
+              );
+              const containerId = resource?.identity.dockerId ?? null;
+              const creationAttempted =
+                resource?.request !== undefined &&
+                resource.request !== "not_issued";
+              const cleanupConfirmed = result?.cleanup.confirmed === true;
+              const processCompletionConfirmed =
+                result?.processTerminationConfirmed === true;
+              const reason =
+                notificationFailure ??
+                (!processCompletionConfirmed
+                  ? "dynamic_fake_provider_attach_process_termination_unconfirmed"
+                  : observedBeforeCancellation &&
+                      observedFacts?.isolation.status === "blocked"
+                    ? observedFacts.isolation.reason
+                    : lifecycle.cancellationRequested
+                      ? "docker_probe_start_cancelled"
+                      : result?.failure?.reason ===
+                          "docker_isolation_engine_unconfirmed"
+                        ? "local_docker_desktop_linux_engine_required"
+                        : result?.failure?.reason ===
+                            "docker_isolation_directory_changed"
+                          ? "owned_operation_mount_replaced"
+                          : creationAttempted && containerId === null
+                            ? "docker_container_identity_unknown"
+                            : observedFacts?.isolation.status === "blocked"
+                              ? observedFacts.isolation.reason
+                              : result?.failure
+                                ? "docker_isolation_probe_failed"
+                                : !cleanupConfirmed
+                                  ? "docker_probe_cleanup_failed"
+                                  : (observedFacts?.isolation.reason ??
+                                    "docker_isolation_probe_failed"));
+              return Object.freeze({
                 kind: "isolation_probe",
                 status:
                   !failed && cleanupConfirmed && processCompletionConfirmed
                     ? reason === "docker_probe_start_cancelled"
                       ? "cancelled"
-                      : facts?.isolation.status === "confirmed" &&
-                          reason === facts.isolation.reason
+                      : !result?.failure &&
+                          observedFacts?.isolation.status === "confirmed"
                         ? "completed"
                         : "blocked"
                     : "blocked",
                 reason,
                 creationAttempted,
                 containerId,
-                facts,
+                facts: observedFacts,
+                resourceSnapshot: result?.resources ?? null,
                 cleanupConfirmed,
                 processCompletionConfirmed,
-                cancelled: lifecycle.signal.aborted,
+                cancelled: lifecycle.cancellationRequested,
               });
-              return final;
             },
             onCompleted: (result) => callbacks.onCompleted?.(result),
           },
           undefined,
           lifecycle,
-        );
-      }
+        ),
+      });
     },
-    async cancel() {
-      return lifecycle.cancel();
-    },
+    cancel: () => lifecycle.cancel(),
   });
 }
 

@@ -10,10 +10,8 @@
 import { types } from "node:util";
 import type { DockerIsolationRuntimeOptions } from "../../docker-isolation/src/index.ts";
 import { createAttemptExecutor } from "./attempt/operations.ts";
-import {
-  bindAuthenticationLifecycle,
-  createAuthentication,
-} from "./authentication/operations.ts";
+import { createAuthenticationExecutor } from "./authentication/operations.ts";
+import type { AuthenticationOptions } from "./authentication/types.ts";
 import type { Executor, ExecutorRequest } from "./lifecycle/types.ts";
 import { createIsolationProbe } from "./probe/operations.ts";
 import type { IsolationProbeOptions } from "./probe/types.ts";
@@ -35,6 +33,7 @@ export function createExecutor(
 ): Executor<"attempt"> | null;
 export function createExecutor(
   request: ExecutorRequest<"authentication">,
+  options: AuthenticationOptions,
 ): Executor<"authentication"> | null;
 export function createExecutor(
   request: ExecutorRequest<"isolation_probe">,
@@ -45,7 +44,10 @@ export function createExecutor(
     | ExecutorRequest<"attempt">
     | ExecutorRequest<"authentication">
     | ExecutorRequest<"isolation_probe">,
-  options?: DockerIsolationRuntimeOptions | IsolationProbeOptions,
+  options?:
+    | DockerIsolationRuntimeOptions
+    | IsolationProbeOptions
+    | AuthenticationOptions,
   random?: Readonly<{ randomBytes: (size: number) => Buffer }>,
 ):
   | Executor<"attempt">
@@ -64,8 +66,27 @@ export function createExecutor(
     if (Object.hasOwn(request, "purpose")) return null;
     const action = Object.getOwnPropertyDescriptor(request, "action")?.value;
     if (action !== "status" && action !== "login") return null;
-    return bindAuthenticationLifecycle(
-      createAuthentication(request as ExecutorRequest<"authentication">),
+    if (!options || typeof options !== "object" || types.isProxy(options))
+      return null;
+    if (
+      Object.getPrototypeOf(options) !== Object.prototype &&
+      Object.getPrototypeOf(options) !== null
+    )
+      return null;
+    const descriptor = Object.getOwnPropertyDescriptor(
+      options,
+      "managementDirectory",
+    );
+    if (
+      Reflect.ownKeys(options).length !== 1 ||
+      !descriptor ||
+      !("value" in descriptor) ||
+      typeof descriptor.value !== "string"
+    )
+      return null;
+    return createAuthenticationExecutor(
+      request as ExecutorRequest<"authentication">,
+      descriptor.value,
     );
   }
   if (Object.hasOwn(request, "action")) return null;
@@ -126,3 +147,4 @@ export type {
   StartResult,
 } from "./lifecycle/types.ts";
 export type { IsolationProbeOptions } from "./probe/types.ts";
+export type { AuthenticationOptions } from "./authentication/types.ts";

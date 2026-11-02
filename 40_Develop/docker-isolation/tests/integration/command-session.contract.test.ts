@@ -10,14 +10,16 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import type {
+  DockerExecutionCallbacks,
+  DockerResourceReceipts,
+  DockerIsolationCommand,
+  CommandObservation,
+} from "../../src/index.ts";
 import {
   startDockerCommandSessionCandidate,
   describeDockerCommandSessionContract,
-  type DockerExecutionCallbacks,
-  type DockerResourceReceipts,
-  type DockerIsolationCommand,
-  type CommandObservation,
-} from "../../src/index.ts";
+} from "../support/session.ts";
 
 const PURPOSES = [
   "create_subscription_auth_probe",

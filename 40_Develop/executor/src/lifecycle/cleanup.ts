@@ -10,7 +10,7 @@ import {
   cleanupDockerContainer,
   cleanupDockerResources,
   inspectDockerResources,
-  createDockerProbeRuntimeBinding,
+  createDockerContainerBinding,
   inspectDockerContainer,
   observeDockerContainerAbsence,
   observeDockerRuntimeRepairRetention,
@@ -25,7 +25,7 @@ import {
   type ResourceInspection,
   type ResourceCleanupResult,
 } from "../../../docker-isolation/src/index.ts";
-import { createAuthentication } from "../authentication/operations.ts";
+import { cleanupAuthenticationResources } from "../authentication/operations.ts";
 import type { ResourceCleanupCallbacks } from "./callbacks.ts";
 import type {
   AuthenticationResourceTarget,
@@ -66,7 +66,7 @@ export function releaseHomeLease(homeLease: HomeLease): boolean {
 function containerRuntime(target: ContainerResourceTarget) {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   target.signal?.throwIfAborted();
-  const binding = createDockerProbeRuntimeBinding(target.managementDirectory);
+  const binding = createDockerContainerBinding(target.managementDirectory);
   return Object.freeze({
     environment: binding.environment,
     verifyCli: () => {
@@ -121,11 +121,13 @@ export function inspectResources(
       return Object.freeze<ContainerResourceInspection>({
         observation: "absent",
         runningConfirmed: false,
+        snapshot: null,
       });
     const present = inspectDockerContainer(binding, c);
     return Object.freeze<ContainerResourceInspection>({
       observation: present ? "present" : "unknown",
       runningConfirmed: present?.runningConfirmed === true,
+      snapshot: present?.snapshot ?? null,
     });
   }
   return inspectDockerResources(target, purpose);
@@ -174,13 +176,7 @@ export function cleanupResources(
     return disposeDockerRuntimeRepairDirectory(target.input);
   if (target?.kind === "authentication") {
     target.signal?.throwIfAborted();
-    const operation = createAuthentication(target.request);
-    return operation
-      ? operation.cleanup(target.resources, target.signal, target.callbacks)
-      : Promise.resolve({
-          confirmed: false,
-          processCompletionConfirmed: false,
-        });
+    return cleanupAuthenticationResources(target);
   }
   if (target?.kind === "container")
     return cleanupDockerContainer(

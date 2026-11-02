@@ -1,10 +1,22 @@
 /**
- * 一回のDocker技術実行と所有資源の終端を調整する。
+ * 旧固定九操作の有限試験候補を製品入口から分離する。
  *
  * @responsibility 固定コマンド、Process、実ID清掃、元結果の相関を同じRuntimeで所有する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  */
+import type {
+  DockerIsolationRuntimePlan,
+  DockerIsolationRuntimeOptions,
+  DockerIsolationRuntime,
+  DockerResourceReceipts,
+  DockerResourceCleanupObservation,
+} from "../../src/execution/types.ts";
+export type {
+  DockerIsolationRuntimePlan,
+  DockerIsolationRuntimeOptions,
+  DockerIsolationRuntime,
+} from "../../src/execution/types.ts";
 import { createHash } from "node:crypto";
 import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import fs from "node:fs";
@@ -14,33 +26,32 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
   describeDockerCliTrustContract,
-} from "../docker-cli/trust.ts";
-import { createDockerProcessEnvironment } from "../docker-cli/environment.ts";
-import { planDockerRecoveryResourceExpectations } from "../cleanup/plan.ts";
-import { cleanupResourceSet } from "../cleanup/resources.ts";
-import { cleanupDockerResource } from "../cleanup/operations.ts";
+} from "../../src/docker-cli/trust.ts";
+import { createDockerProcessEnvironment } from "../../src/docker-cli/environment.ts";
+import { planDockerRecoveryResourceExpectations } from "../../src/cleanup/plan.ts";
+import { cleanupResourceSet } from "../../src/cleanup/resources.ts";
+import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import {
   createDockerCliConfig,
   verifyDockerCliConfig,
   observeDockerDirectoryIdentity,
-} from "../docker-cli/config.ts";
+} from "../../src/docker-cli/config.ts";
 import {
   type DockerIsolationCommand,
-  type DockerIsolationCommandInput,
   planDockerIsolationCommands,
-} from "./plan.ts";
+} from "../../src/execution/plan.ts";
 import {
   type OwnedCommandHandle,
   startOwnedWindowsProcess,
   finishOwnedProcess,
-} from "../process/start.ts";
-import { captureDockerProcessEnvironment } from "../process/environment.ts";
-import {
-  startDockerCommandSession,
-  type DockerExecutionCallbacks,
-  type DockerCommandSession,
-  type DockerSessionCleanup,
+} from "../../src/process/start.ts";
+import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
+import { startDockerCommandSession } from "./session.ts";
+export {
+  startDockerCommandSessionCandidate,
+  describeDockerCommandSessionContract,
 } from "./session.ts";
+import type { DockerExecutionCallbacks } from "../../src/execution/types.ts";
 
 const DOCKER_CLI_EXECUTABLE =
   "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
@@ -224,113 +235,6 @@ function acquireHomeLease(bindingHash: string) {
     `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`,
   );
 }
-
-/**
- * 実行資源の技術計画。相関値は許可ではない。
- *
- * @responsibility 起動構成と限定stdinを同じ一回の実行へ結合する。
- * @trace ARCH-000004
- * @shape 上位相関Hash、Docker技術構成、限定stdin。
- * @invariant Task・Provider・Authority・保存Ownerの意味を持たない。
- * @boundary 上位の検証済み計画から隔離資源Ownerへの境界。
- * @security stdinと内部構成を診断へ複製しない。
- * @compatibility 同じ操作と構成以外の再利用を拒否する。
- */
-export type DockerIsolationRuntimePlan = Readonly<{
-  identity: string;
-  configuration: DockerIsolationCommandInput;
-  stdin: string | null;
-}>;
-
-/**
- * 本番隔離Runtimeへ渡す確定済み所在だけを表す。
- * @responsibility 既存依存契約の必要断面を再利用する。
- * @trace ARCH-000008
- * @invariant Process primitiveやCLI構成を上位へ公開しない。
- */
-export type DockerIsolationRuntimeOptions = Readonly<{
-  paths: Readonly<{ tmp: string; management: string }>;
-}>;
-
-/**
- * 固定隔離Runtimeの開始・清掃・照合操作を表す。
- * @responsibility 下位の技術操作を名前付きの契約で上位へ接続する。
- * @trace ARCH-000008
- * @invariant 上位のTask状態や保存方式を所有しない。
- */
-export type HomeLease = Readonly<{ release: () => boolean }>;
-
-/**
- * Docker実行とHome技術排他の有限操作。
- * @responsibility Taskや保存方式を持たず、元Handleの取得・実行・回収だけを扱う。
- * @trace ARCH-000008
- */
-export type DockerIsolationRuntime = Readonly<{
-  acquireHomeLease: (bindingHash: string) => HomeLease | null;
-  startCommand: (
-    purpose: DockerIsolationCommand["purpose"],
-    plan: DockerIsolationRuntimePlan,
-    managementCapability: unknown,
-  ) => OwnedCommandHandle;
-  cleanupOwnedResources: (
-    plan: DockerIsolationRuntimePlan,
-    recoveryCapability: object,
-    managementCapability: unknown,
-    receipts: DockerResourceReceipts | null,
-  ) => Promise<DockerSessionCleanup>;
-  verifyCleanupOutcome: (
-    result: unknown,
-    callerIdentity: string,
-    recoveryCapability: unknown,
-    managementCapability: unknown,
-  ) => readonly DockerResourceCleanupObservation[] | null;
-  startExecution: (
-    plan: DockerIsolationRuntimePlan,
-    recoveryCapability: object,
-    managementCapability: unknown,
-    hooks: DockerExecutionCallbacks,
-  ) => DockerCommandSession;
-}>;
-
-/**
- * 五資源の作成要求と実IDの検査済み投影。
- *
- * @responsibility 明示未要求と作成結果不明を区別した読取り値を搬送する。
- * @trace ARCH-000008
- * @shape 各作成purposeにsubmittedと実Docker IDまたはnull。
- * @invariant nullを未要求または不存在へ補完しない。
- * @boundary 既存保存Ownerから技術清掃への用途限定投影。
- * @security 記録の読取り・Lock操作・新しいAuthorityは所有しない。
- * @compatibility 固定五purposeのReceiptを受理する。
- */
-export type DockerResourceReceipts = Readonly<
-  Record<
-    | "create_provider"
-    | "create_proxy"
-    | "create_subscription_auth_probe"
-    | "create_internal_network"
-    | "create_egress_network",
-    Readonly<{ submitted: boolean; dockerId: string | null }>
-  >
->;
-
-/**
- * 一資源の終了観測。清掃のboolから再構成しない。
- *
- * @responsibility 明示未要求、不存在、観測不能を別の値として返す。
- * @trace ARCH-000008
- * @shape purpose、予定名、実IDと三値の終了観測。
- * @invariant 不明を成功や未要求へ変換しない。
- * @boundary 技術清掃と上位の結果保存の間。
- * @security Path・本文・Secret・処置許可を含めない。
- * @compatibility 既存資源別終端観測と同じfieldを保持する。
- */
-export type DockerResourceCleanupObservation = Readonly<{
-  purpose: keyof DockerResourceReceipts;
-  plannedResourceName: string;
-  dockerId: string | null;
-  observation: "not_requested" | "absent" | "unknown";
-}>;
 
 /**
  * 技術Runtimeを既存Ownerの観測と実行primitiveへ接続する。
@@ -752,7 +656,12 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
     const cleanup = await cleanupResourceSet(
       { expectations, receipts },
       {
-        cleanupObserved: (expected, signal, previouslyAbsent) =>
+        cleanupObserved: (
+          expected,
+          signal,
+          previouslyAbsent,
+          requireConfigurationMatch,
+        ) =>
           cleanupDockerResource(
             async (argv) => {
               const result = await runShort(context, argv);
@@ -771,6 +680,7 @@ export function createDockerIsolationRuntimeCandidate<Cli extends object>(
             expected,
             signal,
             previouslyAbsent,
+            requireConfigurationMatch,
           ),
       },
     );

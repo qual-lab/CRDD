@@ -8,16 +8,16 @@
  */
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { cleanupDockerContainer } from "../../docker-isolation/src/index.ts";
 import {
   createDockerProbeRuntimeBinding,
   observeDockerProbeEngine,
   createDockerProbeContainer,
   describeDockerProbeConfiguration,
-  cleanupDockerContainer,
   runDockerProbeCancellation,
   startDockerProbeResidue,
   type DockerProbeProfile,
-} from "../../docker-isolation/src/index.ts";
+} from "../../docker-isolation/tests/support/probe.ts";
 import type { DockerContainerBinding as ProbeBinding } from "../../docker-isolation/src/cleanup/container.ts";
 import {
   createOwnedMountCapability,

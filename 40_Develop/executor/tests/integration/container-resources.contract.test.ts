@@ -21,13 +21,14 @@ import type { ContainerResourceTarget } from "../../src/index.ts";
  * @observation 引数参照・CLI確認回数・操作順。
  * @oracle 元構成を使用し、cleanupは先行inspectなしでも再照合へ渡す。
  * @cleanup mock解除。実資源なし。
+ * @boundary ERB-IT-014=Direct Boundary: 指定済みIdentityからDIの技術操作への搬送。
  */
 test("既存資源APIは単一Containerを用途判断なしで観測・回収する", async () => {
-  const configuration = isolation.describeDockerProbeConfiguration(
-    "legacy_recovery",
-    { id: "a".repeat(64), probeId: "fixture" },
-    { workspace: "w", providerHome: "h", tmp: "t" },
-  );
+  const configuration = Object.freeze({
+    id: "a".repeat(64),
+    name: "crdd-coordinator-probe-fixture",
+    ownershipLabel: "crdd.coordinator.probe=fixture",
+  });
   const controller = new AbortController();
   let absent = false,
     present = true,
@@ -39,7 +40,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     {
       namedExports: {
         ...isolation,
-        createDockerProbeRuntimeBinding: (management: string) => {
+        createDockerContainerBinding: (management: string) => {
           assert.equal(management, "management");
           return {
             environment: () => ({}),
@@ -69,7 +70,9 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
           binding.verifyCli();
           calls.push("inspect");
           assert.equal(expected, configuration);
-          return present ? { runningConfirmed: true } : null;
+          return present
+            ? { runningConfirmed: true, snapshot: { resources: [] } }
+            : null;
         },
         cleanupDockerContainer: (
           binding: { verifyCli: () => string },
@@ -97,6 +100,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     assert.deepEqual(api.inspectResources(target), {
       observation: "present",
       runningConfirmed: true,
+      snapshot: { resources: [] },
     });
     present = false;
     assert.equal(api.inspectResources(target).observation, "unknown");

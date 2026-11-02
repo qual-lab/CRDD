@@ -29,7 +29,6 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import {
   type DockerProbeExecutionFacts,
-  describeDockerProbeConfiguration,
   describeDockerProbeResource,
   describeDockerProxyTopology,
 } from "../../../docker-isolation/src/index.ts";
@@ -5338,18 +5337,14 @@ export function recoverDockerIsolationProbe(
           reason: "docker_recovery_container_identity_unknown",
           recoveryId: token,
         };
-      const mounts = requireDockerProbeRecoveryMounts(recovery);
+      requireDockerProbeRecoveryMounts(recovery);
       const target: ContainerResourceTarget = Object.freeze({
         kind: "container",
-        configuration: describeDockerProbeConfiguration(
-          "legacy_recovery",
-          { id: containerId, probeId: recovery.record.probeId },
-          {
-            workspace: mounts.workspace,
-            providerHome: mounts.providerHome,
-            tmp: mounts.tmp,
-          },
-        ),
+        configuration: Object.freeze({
+          id: containerId,
+          name: `crdd-coordinator-probe-${recovery.record.probeId}`,
+          ownershipLabel: `crdd.coordinator.probe=${recovery.record.probeId}`,
+        }),
         managementDirectory: recovery.children.management,
       });
       verifyHostOperationRecoveryGeneration(

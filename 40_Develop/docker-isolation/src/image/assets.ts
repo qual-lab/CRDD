@@ -4,6 +4,9 @@
  * @responsibility 配置と固定資産を所有し、ProviderのCLI解釈や認証・実行許可を生成しない。
  * @trace ARCH-000008
  */
+export const DIAGNOSTIC_IMAGE =
+  "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
+
 const PROXY = Object.freeze({
   imageDigest:
     "sha256:4270d4dc5c3cddd9733712eb202309a51250b858a53e68882889edc88f413766",

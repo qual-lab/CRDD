@@ -30,17 +30,19 @@ import {
   readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
 import {
-  createDockerIsolationRuntime,
-  createDockerAuthenticationRuntimeFactory,
   createDockerProcessEnvironment,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-  planDockerAuthenticationCommands,
-  planDockerAuthenticationResourceRecovery,
-  type DockerAuthenticationInput,
   type DockerIsolationRuntimePlan,
   type DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
+import { createDockerIsolationRuntime } from "../../../docker-isolation/tests/support/execution.ts";
+import {
+  createDockerAuthenticationRuntimeFactory,
+  planDockerAuthenticationCommands,
+  planDockerAuthenticationResourceRecovery,
+  type DockerAuthenticationInput,
+} from "../../../docker-isolation/tests/support/authentication.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
@@ -876,11 +878,7 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
           operations.ownershipCommand,
           () => true,
         );
-        assert.equal(
-          observation.resourceConfigurationConfirmed,
-          true,
-          receipt.kind,
-        );
+        assert.equal(observation.resourceIdentityConfirmed, true, receipt.kind);
         removed = await cleanupRuntime.execute(
           operations.cleanupCommand,
           () => true,

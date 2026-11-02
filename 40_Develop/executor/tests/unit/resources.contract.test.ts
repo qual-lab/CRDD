@@ -55,7 +55,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     {
       namedExports: {
         ...original,
-        createDockerProbeRuntimeBinding: unexpected,
+        createDockerContainerBinding: unexpected,
         inspectDockerContainer: unexpected,
         observeDockerContainerAbsence: unexpected,
         cleanupDockerContainer: unexpected,

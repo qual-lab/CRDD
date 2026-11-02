@@ -12,17 +12,18 @@ import {
 } from "./plan.ts";
 import fs from "node:fs";
 import path from "node:path";
-import { captureDockerProcessEnvironment } from "../process/environment.ts";
-import { createDockerProcessEnvironment } from "../docker-cli/environment.ts";
+import { captureDockerProcessEnvironment } from "../../../src/process/environment.ts";
+import { createDockerProcessEnvironment } from "../../../src/docker-cli/environment.ts";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-} from "../docker-cli/trust.ts";
+} from "../../../src/docker-cli/trust.ts";
 import {
   startOwnedWindowsProcess,
   finishOwnedProcess,
-} from "../process/start.ts";
-import { dockerAuthenticationResourceConfigurationMatches } from "../cleanup/plan.ts";
+} from "../../../src/process/start.ts";
+import { dockerAuthenticationResourceConfigurationMatches } from "./plan.ts";
+import { dockerResourceIdentityMatches } from "../../../src/cleanup/resource.ts";
 
 /**
  * 認証操作のProcess終了観測。
@@ -42,7 +43,7 @@ export type DockerAuthenticationExecution = Readonly<{
   error?: Error;
   processCompletionConfirmed: boolean;
   resourceCreationConfirmed?: boolean;
-  resourceConfigurationConfirmed?: boolean;
+  resourceIdentityConfirmed?: boolean;
   resourceReceipt?: Readonly<{ name: string; dockerId: string }>;
 }>;
 
@@ -214,7 +215,7 @@ async function executeDockerAuthenticationCommand(
           item.purpose ===
           sourceCommand.purpose.replace("create_", "inspect_image_"),
       );
-      if (imageCommand && configuration && permits()) {
+      if (!recovery && imageCommand && configuration && permits()) {
         const imageObservation = await executeDockerAuthenticationCommand(
           binding,
           imageCommand,
@@ -260,30 +261,32 @@ async function executeDockerAuthenticationCommand(
           imageMetadata,
         );
       const recoveryConfirmed =
-        confirmed ||
-        (recovery?.role === "observe" &&
-          sourceCommand.purpose === "create_proxy" &&
-          !terminalError &&
-          permits() &&
-          dockerAuthenticationResourceConfigurationMatches(
-            configuration,
-            sourceCommand,
-            dockerId,
-            true,
-            imageMetadata,
-          ));
+        !terminalError &&
+        permits() &&
+        dockerResourceIdentityMatches(configuration, {
+          kind: sourceCommand.purpose.endsWith("_network")
+            ? "network"
+            : "container",
+          dockerId,
+          expectedName: sourceCommand.purpose.endsWith("_network")
+            ? (sourceCommand.argv.at(-1) as string)
+            : (sourceCommand.argv[
+                sourceCommand.argv.indexOf("--name") + 1
+              ] as string),
+          ownershipLabel: plan.ownershipLabel,
+        });
       if (recovery)
         return Object.freeze({
           ...observed,
           processCompletionConfirmed:
             observation?.processCompletionConfirmed ?? closed,
-          resourceConfigurationConfirmed: recoveryConfirmed,
+          resourceIdentityConfirmed: recoveryConfirmed,
           ...(!recoveryConfirmed
             ? {
                 error:
                   terminalError ??
                   observation?.error ??
-                  Error("docker_authentication_configuration_unconfirmed"),
+                  Error("docker_authentication_identity_unconfirmed"),
               }
             : {}),
         });
@@ -358,7 +361,7 @@ export function createDockerAuthenticationRuntimeUsing(
       );
       if (
         metadata?.role === "observe" &&
-        result.resourceConfigurationConfirmed === true &&
+        result.resourceIdentityConfirmed === true &&
         result.processCompletionConfirmed
       )
         approvedRemovals.add(metadata.removal);

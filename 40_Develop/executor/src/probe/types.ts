@@ -5,8 +5,30 @@
  * @trace ARCH-000008
  */
 
-import type { DockerProbeExecutionFacts } from "../../../docker-isolation/src/index.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
+
+/** 固定合成診断の選択。製品Requestに任意payloadを追加しない。 */
+export type IsolationProbeProfile =
+  | "normal"
+  | "timeout"
+  | "output_limit"
+  | "invalid_output"
+  | "nonzero_exit"
+  | "cancellation";
+
+/** 生出力を含まない固定合成診断の評価。技術回収・Host清掃と分離する。 */
+export type IsolationProbeFacts = Readonly<{
+  isolation: Readonly<{ status: "confirmed" | "blocked"; reason: string }>;
+  lifecycleStatus: "candidate" | "blocked";
+  lifecycleReason: string;
+  elapsedMs: number | null;
+  stdoutBytes: number;
+  stderrBytes: number;
+  exitCode: number | null;
+  signal: string | null;
+  timedOut: boolean;
+}>;
 
 /**
  * 固定合成Probeの相関。Provider・Model・任意Scriptを指定しない。
@@ -77,7 +99,8 @@ export type IsolationProbeResult = Readonly<{
   reason: string | null;
   creationAttempted: boolean;
   containerId: string | null;
-  facts: DockerProbeExecutionFacts | null;
+  facts: IsolationProbeFacts | null;
+  resourceSnapshot: ResourceSnapshot | null;
   cleanupConfirmed: boolean;
   processCompletionConfirmed: boolean;
   cancelled: boolean;

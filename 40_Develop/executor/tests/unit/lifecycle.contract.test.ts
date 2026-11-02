@@ -9,11 +9,11 @@
 import assert from "node:assert/strict";
 import { getEventListeners } from "node:events";
 import test from "node:test";
-import { bindAuthenticationLifecycle } from "../../src/authentication/operations.ts";
-import type {
-  Authentication,
-  AuthenticationResult,
-} from "../../src/authentication/types.ts";
+import {
+  bindAuthenticationLifecycle,
+  type Authentication,
+} from "../../scripts/authentication-command-test.ts";
+import type { AuthenticationResult } from "../../src/authentication/types.ts";
 import {
   createExecutor,
   restartDockerEnvironment,
@@ -104,8 +104,10 @@ test("公開型の既定Unionと用途別取消は入出力の相関を維持す
       );
       void execution;
     } else if (request.kind === "authentication") {
-      const execution: Executor<"authentication"> | null =
-        createExecutor(request);
+      const execution: Executor<"authentication"> | null = createExecutor(
+        request,
+        { managementDirectory: "C:\\synthetic\\management" },
+      );
       // @ts-expect-error 認証要求をAttempt用Overloadへ渡せない。
       createExecutor(request, options);
       void execution;
@@ -299,7 +301,12 @@ test("公開Factoryはkindの未知・欠測・矛盾を別用途へ配送しな
       },
     ),
   ])
-    assert.equal(createExecutor(request as never), null);
+    assert.equal(
+      createExecutor(request as never, {
+        managementDirectory: "C:\\synthetic\\management",
+      }),
+      null,
+    );
   assert.equal(getters, 0);
 });
 

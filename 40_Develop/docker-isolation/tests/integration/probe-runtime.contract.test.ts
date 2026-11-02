@@ -16,15 +16,15 @@ import { syncBuiltinESMExports, stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { types as utilTypes } from "node:util";
 import test from "node:test";
+import { describeDockerProbeResource } from "../../src/index.ts";
 import {
   createDockerProbeContainer,
   observeDockerProbeEngine,
   runDockerProbeToCompletion,
   planDockerProbeCreation,
   describeDockerProbeConfiguration,
-  describeDockerProbeResource,
   type DockerProbeProfile,
-} from "../../src/index.ts";
+} from "../support/probe.ts";
 
 /**
  * 旧所在Queryを入力しても呼ばれないことを実子で観測する。
@@ -39,7 +39,7 @@ import {
  */
 test("Probe bindingは旧所在Queryを呼ばず拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/probe/execute.ts", import.meta.url),
+    new URL("../support/probe.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(
@@ -149,7 +149,7 @@ test("Probe保存用記述は六profileの実作成計画と同じ固定構成�
  */
 test("本番Probe bindingは固定所在の実体と同じCLI snapshotを維持する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/probe/execute.ts", import.meta.url),
+    new URL("../support/probe.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(

@@ -163,6 +163,8 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
       `${sourceDeclaration(source, "createAttemptExecutor")}\ncreateAttemptExecutor`,
       {
         Object,
+        copyPlainDataRecord: (value: unknown) => value,
+        acquireHomeLease: () => null,
         readOwnDataProperty: (value: object, key: string) =>
           Object.getOwnPropertyDescriptor(value, key)?.value,
         createStartResult,

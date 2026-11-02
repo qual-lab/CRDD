@@ -13,19 +13,7 @@
 export { observeDockerDirectoryIdentity } from "./docker-cli/config.ts";
 export { dockerContainerInitObservationMatches } from "./cleanup/init.ts";
 export {
-  observeDockerProbeEngine,
-  createDockerProbeRuntimeBinding,
-  createDockerProbeContainer,
-  runDockerProbeToCompletion,
-  runDockerProbeAsync,
-  runDockerProbeCancellation,
-  startDockerProbeResidue,
-  planDockerProbeCreation,
-  describeDockerProbeConfiguration,
-  type DockerProbeProfile,
-  type DockerProbeRuntimeBinding,
-} from "./probe/execute.ts";
-export {
+  createDockerContainerBinding,
   inspectDockerContainer,
   observeDockerContainerAbsence,
   cleanupDockerContainer,
@@ -84,18 +72,6 @@ export {
   startOwnedAttachTerminationFixture,
 } from "./probe/process.ts";
 export {
-  type DockerAuthenticationCommand,
-  type DockerAuthenticationInput,
-  type DockerAuthenticationPlan,
-  planDockerAuthenticationCommands,
-  planDockerAuthenticationResourceRecovery,
-} from "./authentication/plan.ts";
-export {
-  createDockerAuthenticationRuntimeFactory,
-  type DockerAuthenticationExecution,
-  type DockerAuthenticationRuntime,
-} from "./authentication/execute.ts";
-export {
   type DockerIsolationCommand,
   type DockerIsolationCommandInput,
   type DockerIsolationResourceNames,
@@ -109,16 +85,14 @@ export {
   createDockerAuthenticationEnvironment,
   projectDockerExecutionBoundary,
 } from "./execution/plan.ts";
-export {
-  createDockerIsolationRuntime,
-  describeDockerIsolationExecutionEnvironment,
-  type DockerIsolationRuntimePlan,
-  type DockerIsolationRuntimeOptions,
-  type DockerIsolationRuntime,
-  type HomeLease,
-  type DockerResourceCleanupObservation,
-  type DockerResourceReceipts,
-} from "./execution/execute.ts";
+export type {
+  DockerIsolationRuntimePlan,
+  DockerIsolationRuntimeOptions,
+  DockerIsolationRuntime,
+  HomeLease,
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+} from "./execution/types.ts";
 export type {
   CommandHandle,
   OwnedCommandHandle,
@@ -134,15 +108,13 @@ export {
   STDERR_LIMIT_BYTES,
   STDOUT_LIMIT_BYTES,
 } from "./execution/result.ts";
-export {
-  startDockerCommandSessionCandidate,
-  describeDockerCommandSessionContract,
-  type DockerExecutionCallbacks,
-  type DockerSessionCleanup,
-  type DockerCommandSession,
-  type DockerSessionCommandHandle,
-  type DockerCommandSessionResult,
-} from "./execution/session.ts";
+export type {
+  DockerExecutionCallbacks,
+  DockerSessionCleanup,
+  DockerCommandSession,
+  DockerSessionCommandHandle,
+  DockerCommandSessionResult,
+} from "./execution/types.ts";
 export {
   type DockerProbeCommand,
   describeDockerProbeResource,
@@ -208,7 +180,6 @@ export {
   inspectDockerResources,
   cleanupDockerResources,
 } from "./cleanup/resources.ts";
-export { cleanupDockerAuthenticationResources } from "./cleanup/authentication.ts";
 export type {
   AuthenticationCleanupResult,
   DockerAuthenticationCleanupCallbacks,
@@ -216,6 +187,7 @@ export type {
 export type {
   DockerResourceProjection,
   ResourceTarget,
+  ResourceSnapshot,
   ResourceInspection,
   ResourceCleanupResult,
   ResourceCleanupCallbacks,
@@ -224,3 +196,17 @@ export {
   bindProviderCommand,
   type ProviderCommandBinding,
 } from "./execution/binding.ts";
+export {
+  prepareIsolation,
+  executeIsolation,
+  cleanupIsolation,
+} from "./execution/operations.ts";
+export { DIAGNOSTIC_IMAGE } from "./image/assets.ts";
+export type {
+  IsolationRequest,
+  IsolationCleanupRequest,
+  PreparedIsolation,
+  IsolationExecutionResult,
+  IsolationExecution,
+  IsolationCallbacks,
+} from "./execution/types.ts";

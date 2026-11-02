@@ -1,12 +1,12 @@
 /**
- * 検査済みOwner投影と隔離Effect Gateの接続を検証する。
+ * 試験supportへ移管した旧Owner投影と固定Effect Gateの有限反例を保持する。
  *
  * @packageDocumentation
  * @responsibility 不正入力・Receipt不明・元結果照合・取消後再開始を技術境界で反証する。
  * @trace ERB-IT-004
  * @level IT
- * @scope Owner観測→固定Docker実行→資源終端。依存差替えの限定確認。
- * @boundary Direct Boundary: 現在Owner投影→Docker Effect Gate。実Dockerとは区別する。
+ * @scope tests/supportの旧固定Runtimeと純粋な入力・元実体の反例。現在の製品接続は共通Lifecycle結合試験が確認する。
+ * @boundary Direct Boundary: 旧候補の有限技術境界。現行製品入口・実Dockerの証明へ流用しない。
  */
 import assert from "node:assert/strict";
 import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
@@ -19,15 +19,13 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { types as utilTypes } from "node:util";
 import test, { mock } from "node:test";
-import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execute.ts";
+import { createDockerIsolationRuntimeCandidate } from "../support/execution.ts";
 import type {
   DockerIsolationRuntimePlan,
   DockerResourceReceipts,
 } from "../../src/index.ts";
-import {
-  createDockerIsolationRuntime,
-  planDockerIsolationCommands,
-} from "../../src/index.ts";
+import { planDockerIsolationCommands } from "../../src/index.ts";
+import { createDockerIsolationRuntime } from "../support/execution.ts";
 
 /**
  * 移管した固定Seccomp Resolverの実物と全拒否条件を確認する。
@@ -222,7 +220,7 @@ test("Seccompの後発欠測は新規開始を拒否し元Contextの清掃を妨
  */
 test("公開Factoryはdescriptorの継承valueを受理しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/execute.ts", import.meta.url),
+    new URL("../support/execution.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("export function createDockerIsolationRuntime(");
@@ -1029,7 +1027,7 @@ test("明示未要求の終端は元結果と同じOwner・計画へだけ結合
  */
 test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/execute.ts", import.meta.url),
+    new URL("../support/execution.ts", import.meta.url),
     "utf8",
   );
   const bodies = [

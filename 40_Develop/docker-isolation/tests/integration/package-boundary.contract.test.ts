@@ -16,15 +16,12 @@ import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import {
-  createDockerTaskRecoveryExecutor,
-  createDockerIsolationRuntime,
-  createDockerAuthenticationRuntimeFactory,
-  startDockerProbeAttachedProcess,
   type DockerIsolationRuntimeOptions,
   type DockerCommandSession,
   type DockerCommandExecutionClassification,
   classifyDockerCommandExecution,
 } from "../../src/index.ts";
+import { createDockerIsolationRuntime } from "../support/execution.ts";
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
 const platformAccessRoot = path.resolve(
@@ -314,15 +311,21 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
  * @boundary 公開APIの存在だけで実Dockerの成立は主張しない。
  */
 test("必要な隔離技術APIは公開し内部生成Primitiveは公開しない", async () => {
-  for (const [name, entry] of Object.entries({
-    createDockerTaskRecoveryExecutor,
-    createDockerIsolationRuntime,
-    createDockerAuthenticationRuntimeFactory,
-    startDockerProbeAttachedProcess,
-  }))
-    assert.equal(typeof entry, "function", name);
   const namespace = await import("../../src/index.ts");
   for (const name of [
+    "prepareIsolation",
+    "executeIsolation",
+    "cleanupIsolation",
+    "inspectDockerResources",
+  ] as const)
+    assert.equal(typeof namespace[name], "function", name);
+  for (const name of [
+    "createDockerIsolationRuntime",
+    "createDockerAuthenticationRuntimeFactory",
+    "createDockerProbeContainer",
+    "runDockerProbeAsync",
+    "runDockerProbeCancellation",
+    "startDockerProbeResidue",
     "observeExpectedDockerResource",
     "discoverSubmittedDockerResource",
     "observeSubmittedDockerResourceAbsent",

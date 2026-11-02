@@ -8,14 +8,14 @@ import {
   planDockerAuthenticationResourceRecovery,
   type DockerAuthenticationPlan,
   type DockerAuthenticationCommand,
-} from "../authentication/plan.ts";
-import type { DockerAuthenticationExecution } from "../authentication/execute.ts";
-import { captureAuthenticationResources } from "./plan.ts";
+} from "./plan.ts";
+import type { DockerAuthenticationExecution } from "./execute.ts";
+import { captureAuthenticationResources } from "../../../src/cleanup/plan.ts";
 import type {
   DockerAuthenticationResources,
   AuthenticationCleanupResult,
   DockerAuthenticationCleanupCallbacks,
-} from "./types.ts";
+} from "../../../src/cleanup/types.ts";
 
 /**
  * Docker資源名を正規表現literalへ変換する。

@@ -42,10 +42,10 @@ import {
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   planDockerIsolationCommands,
-  startDockerCommandSessionCandidate,
   type DockerExecutionCallbacks,
   type DockerIsolationRuntimePlan,
 } from "../../../docker-isolation/src/index.ts";
+import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import {
   bindIsolationRuntime,
   describeIsolationContract,

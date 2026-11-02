@@ -101,7 +101,7 @@ const executorSeccompProfilePath = fileURLToPath(
  * @security resolveFixedCodexExecutorSeccompProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: resolveFixedCodexExecutorSeccompProfileは共有非同期状態を持たない同期処理である。
  */
-function resolveFixedCodexExecutorSeccompProfile(
+export function resolveFixedCodexExecutorSeccompProfile(
   expectedSha256: string,
   expectedBytes: number,
 ) {

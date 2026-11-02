@@ -58,6 +58,7 @@ const STARTED_KEYS = Object.freeze([
 ]);
 
 const COMPLETION_KEYS = Object.freeze([
+  "resourceSnapshot",
   "kind",
   "providerExecutionObservation",
   "providerTurnObservation",
@@ -259,6 +260,29 @@ export function projectAttemptResult(
     return null;
   const record = exactPlainRecord(value, COMPLETION_KEYS);
   if (!record) return null;
+  const snapshot = readOwnDataProperty(record, "resourceSnapshot");
+  const capturedSnapshot =
+    snapshot === null ? null : exactPlainRecord(snapshot, ["resources"]);
+  if (
+    snapshot !== null &&
+    (!capturedSnapshot || !Array.isArray(capturedSnapshot.resources))
+  )
+    return null;
+  let pathsReported = false;
+  for (const resource of (capturedSnapshot?.resources as unknown[]) ?? []) {
+    const mounts = readOwnDataProperty(
+      readOwnDataProperty(resource, "configuration"),
+      "mounts",
+    );
+    if (mounts !== null && !Array.isArray(mounts)) return null;
+    if (
+      Array.isArray(mounts) &&
+      mounts.some(
+        (mount) => typeof readOwnDataProperty(mount, "source") === "string",
+      )
+    )
+      pathsReported = true;
+  }
   const status = readOwnDataProperty(record, "status");
   const cleanupConfirmed = readOwnDataProperty(record, "cleanupConfirmed");
   const manualRecoveryRequired = readOwnDataProperty(
@@ -335,7 +359,7 @@ export function projectAttemptResult(
     readOwnDataProperty(record, "rawOutputReported") !== false ||
     readOwnDataProperty(record, "untrustedProviderTextReported") !== false ||
     readOwnDataProperty(record, "credentialAbsenceVerified") !== false ||
-    readOwnDataProperty(record, "hostPathReported") !== false ||
+    readOwnDataProperty(record, "hostPathReported") !== pathsReported ||
     readOwnDataProperty(record, "proxyCredentialReported") !== false ||
     !expected ||
     (cleanupConfirmed === true && recoveryCompleted === true

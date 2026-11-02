@@ -11,13 +11,13 @@ import test from "node:test";
 import fs from "node:fs";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { createAuthenticationUsing } from "../../src/authentication/operations.ts";
+import { createAuthenticationUsing } from "../../scripts/authentication-command-test.ts";
 import type { ExecutorCallbacks } from "../../src/index.ts";
 
 /** 本番FactoryのDI結果搬送も通し、旧Lock理由への変換再導入を反証する。 */
 test("認証FactoryはDIの明示取消をHome Lock喪失へ変換しない", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/authentication/operations.ts", import.meta.url),
+    new URL("../../scripts/authentication-command-test.ts", import.meta.url),
     "utf8",
   );
   const factory = runInNewContext(
@@ -96,8 +96,8 @@ test("認証のDI取消は取消理由を返し終了不明を成功へ補完し
     }
 });
 
-/** Receipt通知不成立やProcess終了不明を、資源採用や後続処置へ補完しない。 */
-test("認証はReceipt通知完了後だけ実IDを保持し終了不明で回収を発行しない", async () => {
+/** 受領実IDを通知前に保持し、通知失敗後の前進と終了不明での回収を禁止する。 */
+test("認証はReceipt通知失敗でも元実IDを保持し終了不明で回収を発行しない", async () => {
   for (const mode of ["receipt_rejected", "process_unknown"] as const) {
     let calls = 0;
     const auth = createAuthenticationUsing(
@@ -133,9 +133,13 @@ test("認証はReceipt通知完了後だけ実IDを保持し終了不明で回�
     });
     assert.equal(result.processCompletionConfirmed, mode !== "process_unknown");
     assert.equal(
-      auth.resources.every((resource) => resource.dockerId === null),
-      true,
+      auth.resources.filter((resource) => resource.dockerId !== null).length,
+      mode === "receipt_rejected" ? 1 : 0,
     );
+    assert.equal(result.authenticationConfirmed, false);
+    assert.equal(calls, 1, "通知失敗後にstatus開始を発行しない");
+    if (mode === "receipt_rejected")
+      assert.equal(auth.resources[0]?.dockerId, "c".repeat(64));
     const afterExecute = calls;
     const invalid = auth.resources.map((resource) => ({
       ...resource,
@@ -143,6 +147,20 @@ test("認証はReceipt通知完了後だけ実IDを保持し終了不明で回�
     }));
     assert.equal((await auth.cleanup(invalid)).confirmed, false);
     assert.equal(calls, afterExecute);
+    if (mode === "receipt_rejected") {
+      const cleanup = await auth.cleanup(auth.resources, undefined, {
+        onCommandSubmitting: () => {
+          throw Error("cleanup_intent_not_saved");
+        },
+      });
+      assert.equal(cleanup.confirmed, false);
+      assert.equal(
+        calls,
+        afterExecute,
+        "補償回収でも必要通知失敗では削除要求0",
+      );
+      assert.equal(auth.resources[0]?.dockerId, "c".repeat(64));
+    }
     if (mode === "process_unknown") {
       assert.equal((await auth.cleanup(auth.resources)).confirmed, false);
       assert.equal(calls, afterExecute);

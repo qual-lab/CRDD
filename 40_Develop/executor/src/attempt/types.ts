@@ -24,6 +24,7 @@ import type {
   DockerResourceCleanupObservation,
   DockerSessionCleanup,
   HomeLease,
+  ResourceSnapshot,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   CompletionCallbacks,
@@ -344,6 +345,7 @@ export type StartResultInput = Readonly<
  * @invariant 各観測の成立は実行Ownerが確認し、Factoryは既存の公開相関を適用する。
  */
 export type CompletionResultInput = Readonly<{
+  resourceSnapshot?: ResourceSnapshot | null;
   status: "completed" | "blocked" | "cancelled";
   reason: AttemptResultReason;
   operationId: string;
@@ -456,6 +458,7 @@ export type StartResult = Readonly<
  * @invariant Factoryがこの型を満たし、資源観測の相関条件は既存の組立てで維持する。
  */
 export type CompletionResult = Readonly<{
+  resourceSnapshot: ResourceSnapshot | null;
   kind: "attempt";
   status: "completed" | "blocked" | "cancelled";
   reason: AttemptResultReason | "docker_process_controller_cleanup_unconfirmed";
@@ -482,7 +485,7 @@ export type CompletionResult = Readonly<{
   rawOutputReported: false;
   untrustedProviderTextReported: false;
   credentialAbsenceVerified: false;
-  hostPathReported: false;
+  hostPathReported: boolean;
   proxyCredentialReported: false;
 }>;
 

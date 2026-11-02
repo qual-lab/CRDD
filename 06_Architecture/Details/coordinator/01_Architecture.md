@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 最小回収Identityと構成診断の分離（2026-11-02）
+
+Coordinatorは対象選定・許可・排他保持・保存と進行判断を所有する。元実IDがあるDI回収は実ID・元名・所有Labelを基本とし、構成差だけを削除拒否理由にしない。ID欠測時とDirectoryの既存条件は維持する。構成の返却は診断用であり、構成一式の新しい永続保存義務やSchemaを追加しない。Executorの通常Attempt・認証・Probeと単独回収は共通DI入口を使い、技術結果のResourceSnapshotを搬送する。上位は従来の必要fieldだけを保存し、保存Schemaを拡張しない。
+
 ## 検証専用Probeと認証取消理由（2026-11-02）
 
 scripts/probe-verification.tsの取消検証・意図的残存作成は、呼出前に既存Mount確認を行い、DIへ固定三所在を渡す。DI Binding生成もmanagementに加えて元三Directoryを含め、下位からOwnerや所在を再照会しない。実ID・二保存・inspect構成・Handle終了・Host回収の判定は維持する。回収試験は現行cleanupObservedへ直接接続し、旧同期処置Adapterで成立を補完しない。
@@ -15,6 +19,8 @@ scripts/probe-verification.tsの取消検証・意図的残存作成は、呼出
 recoverDockerIsolationProbeは旧記録・Root／Host世代・exact Container IDの相関を確認し、同じ作成構成をExecutorのinspectResources／cleanupResourcesへ渡す。CLI生成・Docker実体inspect・削除・三軸一覧の組立ては本番回復経路から撤去する。構成不明では削除せず、回収後も不存在を再観測してから既存Host状態遷移へ接続する。現在世代と同じ記録を各要求直前に再確認し、記録Schema・回復ID・Host排他・一回消費・Host回収順は維持する。取消検証・意図的残存作成と専用の私有照合補助はscripts/probe-verification.tsへ移管し、製品Sourceから呼び出さない。呼出し元の検証CLIと試験を同じ移管先へ接続し、import時に試験を実行しない。Network Policy構築・検査、Recovery ID解析・Checkpoint判定・型参照は人間の合意により現在の境界へ維持する。
 
 ## AIツール認証の保存と技術実行の境界（2026-11-01）
+
+認証のDocker設定用managementDirectoryは上位で確定する。既存Home Lock下で元Recovery記録を受け付けた後、recordPathの隣の`<provider>.<fullHomeHash>.management`をexclusive作成し、Executorへ固定所在として渡す。unknown・別操作active・既存in_flightでは作成しない。既存領域を名前だけで再利用せず同じRecovery参照で停止する。DIがProcess・Docker資源・子configの終了を確認した後、自作した元実体と空を確認して非recursiveに除去し、明示不存在を確認してからsettledへ進む。保存失敗と、技術的に終了確認できたHome Lockの解放は分ける。保存Schema・Lock・Registryは追加しない。
 
 authority.tsはExecutor.createExecutorへ選定済みProvider・操作・Home・安定suffix・短命Proxy tokenを渡す。prepareProviderAuthenticationは元の資源投影と短命認証操作を既存Mapへ結合し、Recovery記録の原本照合を維持する。Docker配布物・構成・Command実行・生出力解析・所有照合・削除・不存在確認は構築せず、Executor／AI Adapter／DIの既存正本へ委譲する。
 
@@ -771,7 +777,7 @@ observerはHome作成またはDACL修復を行わない。明示bootstrap Effect
 | 結果 | `confirmed / unconfirmed / unknown`を区別する。正規の否定だけを未認証とする | 操作完了には認証確認、Process終了、回収・保存・Lock解放の確認が必要 |
 | 非接続 | Repository、Workspace、Host既定Home、API key、別Provider Home、Task Packet | 同左 |
 
-同じLogical Provider Homeの既存OS Kernel Lockで直列化する。各要求前の`in_flight`、Process closeと作成Receipt確定後の`idle`を耐久記録へ保持する。観測不能、構成差、所有差、実ID差は回収成功へ丸めず、同じexact回復参照を返す。Docker CLIとNativeの既存同一性・環境・終了確認を省略しない。
+同じLogical Provider Homeの既存OS Kernel Lockで直列化する。各要求前の`in_flight`、Process closeと作成Receipt確定後の`idle`を耐久記録へ保持する。観測不能、所有差、実ID差は回収成功へ丸めず、同じexact回復参照を返す。構成差は実行前／診断とID欠測時の従来条件で扱い、元Receiptの完全実ID・名前・所有Labelが一致する回収を構成差だけで拒否しない。Docker CLIとNativeの既存同一性・環境・終了確認を省略しない。
 
 状態確認の`completed`は「確認操作が完了した」意味であり、認証済みを意味しない。両Providerとも正規の未ログインは`authenticationStatus: unconfirmed`／`authenticationConfirmed: false`／`reason: provider_authentication_unconfirmed`とする。Provider固有の出力先・既知文面はAI Adapterが検査し、Codexの`Not logged in`と既存の固定read-only alias警告だけの組合せ、Claudeの`loggedIn:false`と空stderrを正規否定として扱う。未知の警告・故障説明は受理しない。CoordinatorはProvider別の出力条件を重複せず、終了0／1と共通三値を利用する。未認証から期限切れという原因までは推定しない。Process終了・取消・回収・保存・Lock解放の既存完了条件も満たした場合だけ`completed`を返し、Task実行やloginの認証成立条件へこの例外を適用しない。
 

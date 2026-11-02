@@ -13,14 +13,11 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration as functionSource } from "../../../domain-model/tests/support/source-declaration.ts";
-import {
-  describeDockerProbeConfiguration,
-  type DockerContainerConfigurationExpectation,
-} from "../../../docker-isolation/src/index.ts";
+import type { DockerContainerConfigurationExpectation } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 構成不明の回復対象は同じ参照を残して停止する。
- * @responsibility 元記録・六候補・Ownerを既存資源APIへ渡す。
+ * @responsibility 元記録の最小Identityを既存資源APIへ渡し、payload構成を所有しない。
  * @trace ERB-IT-004
  * @precondition 正式回復の実本文と有限依存を使用する。
  * @stimulus 現在世代でunknown観測を返す。
@@ -28,7 +25,7 @@ import {
  * @oracle unknownでは削除0、元回復参照を保持。
  * @cleanup VMの終了だけ。実資源なし。
  */
-test("旧record回復は六候補をExecutorへ渡し不明時に削除しない", () => {
+test("旧record回復は最小IdentityをExecutorへ渡し不明時に削除しない", () => {
   const s = fs.readFileSync(
     new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
@@ -73,18 +70,11 @@ test("旧record回復は六候補をExecutorへ渡し不明時に削除しない
       parseHostRecoveryToken: () => ({ rootName, nonce }),
       requireDockerProbeRecoveryMounts: () => mounts,
       verifyHostOperationRecoveryGeneration: () => {},
-      describeDockerProbeConfiguration: (
-        profile: Parameters<typeof describeDockerProbeConfiguration>[0],
-        id: Parameters<typeof describeDockerProbeConfiguration>[1],
-        m: Parameters<typeof describeDockerProbeConfiguration>[2],
-      ) =>
-        describeDockerProbeConfiguration(
-          profile,
-          structuredClone(id),
-          structuredClone(m),
-        ),
       inspectResources: (target: {
-        configuration: DockerContainerConfigurationExpectation;
+        configuration: Pick<
+          DockerContainerConfigurationExpectation,
+          "id" | "name" | "ownershipLabel"
+        >;
       }) => {
         assert.equal(Object.hasOwn(target, "assertOwner"), false);
         assert.equal(target.configuration.id, id);
@@ -92,9 +82,21 @@ test("旧record回復は六候補をExecutorへ渡し不明時に削除しない
           target.configuration.name,
           "crdd-coordinator-probe-" + probeId,
         );
-        assert.equal(target.configuration.commands.length, 6);
+        assert.deepEqual(Object.keys(target.configuration).sort(), [
+          "id",
+          "name",
+          "ownershipLabel",
+        ]);
+        assert.equal(
+          target.configuration.ownershipLabel,
+          `crdd.coordinator.probe=${probeId}`,
+        );
         inspected++;
-        return { observation: "unknown", runningConfirmed: false };
+        return {
+          observation: "unknown",
+          runningConfirmed: false,
+          snapshot: null,
+        };
       },
       cleanupResources: () => {
         throw Error("unexpected_cleanup");

@@ -20,7 +20,6 @@ import {
   prepareDockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  bindIsolationRuntime,
   isAttemptPlanValid,
   planIdentity,
   prepareAttempt,
@@ -28,6 +27,7 @@ import {
   resolveProviderExecution,
   resolveValidatedPlan,
 } from "../../src/attempt/operations.ts";
+import { bindTestIsolationRuntime as bindIsolationRuntime } from "../../scripts/executor-test.ts";
 import type { AttemptPlan, AttemptRequest } from "../../src/attempt/types.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 

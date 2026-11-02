@@ -20,10 +20,10 @@ import { runInNewContext } from "node:vm";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import {
-  describeDockerCommandSessionContract,
   describeDockerProviderExecutionLocations,
   planDockerIsolationCommands,
 } from "../../../docker-isolation/src/index.ts";
+import { describeDockerCommandSessionContract } from "../../../docker-isolation/tests/support/session.ts";
 import {
   createExecutorTestCandidate,
   projectAttemptResult,

@@ -8,7 +8,6 @@
 
 import { types as utilTypes } from "node:util";
 import {
-  createDockerIsolationRuntime,
   type DockerCommandSession,
   type DockerExecutionCallbacks,
   type DockerIsolationCommand,
@@ -17,15 +16,17 @@ import {
   type DockerIsolationRuntimePlan,
   type DockerSessionCleanup,
   type DockerSessionCommandHandle,
-  describeDockerIsolationExecutionEnvironment,
   type HomeLease,
   parseDockerTaskRecoveryId,
-  startDockerCommandSessionCandidate,
 } from "../../docker-isolation/src/index.ts";
+import { startDockerCommandSessionCandidate } from "../../docker-isolation/tests/support/session.ts";
+import {
+  createDockerIsolationRuntime,
+  describeDockerIsolationExecutionEnvironment,
+} from "../../docker-isolation/tests/support/execution.ts";
 import { PURPOSES } from "../src/attempt/constants.ts";
 import {
   abandon,
-  bindIsolationRuntime as bindTestIsolationRuntime,
   cancel,
   isAttemptFailureReason,
   isAttemptPlanValid,
@@ -52,6 +53,166 @@ import type { ExecutorCallbacks } from "../src/lifecycle/callbacks.ts";
 
 export { createAttemptRecoveryTestApi } from "./attempt-recovery-test.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
+
+/**
+ * 上位の計画投影を同じ下位Runtimeへ結合する。
+ *
+ * @responsibility 元計画の所属と意味を検証し、技術入力・元結果だけを搬送する。
+ * @trace ARCH-000008
+ * @input runtime: 固定下位API。paths: 検証済みの固定所在。
+ * @returns 元計画の開始・清掃・元結果照合操作。
+ * @precondition 同じ下位Runtimeを操作の生涯で保持する。
+ * @postcondition raw Process・Filesystem primitiveを上位へ戻さない。
+ * @effect N/A: 結合時には外部資源を取得しない。
+ * @failure 元計画不一致は開始前拒否し、下位清掃失敗は未確認として返す。
+ * @invariant ModelやTaskの意味とDocker技術所有を混在させない。
+ * @boundary 上位の意味検証と下位の固定実行API。
+ * @security 元Owner・計画Hash・元結果を別Authorityへ読み替えない。
+ * @concurrency 下位の終了待機を完了するまで元Runtimeを保持する。
+ */
+export function bindTestIsolationRuntime(
+  runtime: Pick<
+    DockerIsolationRuntime,
+    "startExecution" | "cleanupOwnedResources" | "verifyCleanupOutcome"
+  >,
+  paths: DockerIsolationRuntimeOptions["paths"],
+) {
+  /**
+   * 上位の検証済み計画をDocker技術入力へ投影する。
+   *
+   * @responsibility Model・Task・許可の相関を上位で検証し、技術値だけを下位へ渡す。
+   * @trace ARCH-000008
+   * @input plan: 元計画。
+   * @returns 同じ計画のHash、固定技術構成、限定stdin。
+   * @precondition 固定所在と元計画の完全照合が成立する。
+   * @postcondition 上位のState・Packet・Authorityを下位へ渡さない。
+   * @effect 固定所在と既存配布物定義を投影する。Docker要求は発行しない。
+   * @failure 所在不明・不正計画・構成不能では例外で停止する。
+   * @invariant 元のHashを新しい実行許可へ昇格しない。
+   * @boundary Executor内部の試行構成とDocker Isolationの実行入力。
+   * @security Secretは限定stdinとContainer内payloadだけへ搬送し、診断しない。
+   * @concurrency 同じ固定所在を搬送し、DIが元Directory実体を各要求前に再照合する。
+   */
+  function project(plan: AttemptPlan): DockerIsolationRuntimePlan {
+    const configuration = resolveValidatedPlan(plan, paths.tmp);
+    if (!configuration) throw new Error("docker_effect_plan_invalid");
+    return Object.freeze({
+      identity: planIdentity(plan),
+      configuration,
+      stdin: plan.providerInput,
+    });
+  }
+
+  /**
+   * 同じ計画の資源回収を技術Ownerへ委譲する。
+   *
+   * @responsibility 元の相関とReceipt Ownerを維持し、清掃結果を上書きしない。
+   * @trace ARCH-000008
+   * @input plan、recoveryCapability、managementCapability: 元の計画とOwner。
+   * @returns 技術Ownerの元清掃結果、または明示未確認。
+   * @precondition 同じ計画と回復Ownerを用いる。
+   * @postcondition 観測不能を不存在や成功へ変換しない。
+   * @effect 所有Process・Docker資源の回収を下位へ委譲する。
+   * @failure 投影不能・清掃例外は明示未確認として返す。
+   * @invariant 名前だけの削除や過去unknownの成功化を追加しない。
+   * @boundary 上位相関と下位の資源終端の間。
+   * @security 回復Identityや根拠から新しいAuthorityを作らない。
+   * @concurrency 下位の終了待機と清掃観測を待つ。
+   */
+  async function cleanupOwnedResources(
+    plan: AttemptPlan,
+    recoveryCapability: object,
+    managementCapability: unknown,
+  ) {
+    try {
+      if (!managementCapability || typeof managementCapability !== "object")
+        throw new Error("docker_effect_management_required");
+      return await runtime.cleanupOwnedResources(
+        project(plan),
+        recoveryCapability,
+        managementCapability,
+        null,
+      );
+    } catch {
+      return Object.freeze({
+        confirmed: false,
+        processTreeTerminated: false,
+        containersAbsent: false,
+        networksAbsent: false,
+        resourceObservations: null,
+      });
+    }
+  }
+
+  /**
+   * 下位の元清掃結果を上位の元計画へ相関する。
+   *
+   * @responsibility 完了後の所在再取得を要求せず、元結果と元Hashを照合する。
+   * @trace ARCH-000008
+   * @input result、plan、recoveryCapability、managementCapability: 元結果と対象相関。
+   * @returns 元結果の五資源観測。不一致・不明はnull。
+   * @precondition 同じ下位Runtimeが返した結果objectを使う。
+   * @postcondition コピー・別操作・別計画を拒否する。
+   * @effect N/A: HashとProcess内元結果の照合だけで外部操作を発行しない。
+   * @failure 元計画の取込み失敗・相関不一致はnull。
+   * @invariant 表示・任意保存・所在清掃後のPathを完了条件にしない。
+   * @boundary 技術清掃結果から上位保存Ownerへの境界。
+   * @security 成功booleanだけをLease解放や処置許可にしない。
+   * @concurrency N/A: 同期照合で追加待機を作らない。
+   */
+  function verifyCleanupOutcome(
+    result: unknown,
+    plan: AttemptPlan,
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+  ) {
+    try {
+      return runtime.verifyCleanupOutcome(
+        result,
+        planIdentity(plan),
+        recoveryCapability,
+        managementCapability,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 上位の元計画を一回の下位Sessionへ接続する。
+   * @responsibility Task・許可の投影だけを行い、技術反復を下位へ委譲する。
+   * @trace ARCH-000008
+   * @input plan、recoveryCapability、managementCapability、hooks: 元相関と有限接続。
+   * @returns 下位の元cancel／completion。
+   * @precondition 同じOwnerと上位計画を用いる。
+   * @postcondition raw HandleやOS手順を返さない。
+   * @effect 固定Runtimeへ実行・取消・回収を委譲する。
+   * @failure 投影不正は要求前に例外で停止する。
+   * @invariant 新Authority・Store・回復管理を作らない。
+   * @boundary 上位計画の意味と下位の技術生涯。
+   * @security 任意primitiveを本番入口へ公開しない。
+   * @concurrency 実行開始前に不透明cancelを受け取る。
+   */
+  function startExecution(
+    plan: AttemptPlan,
+    recoveryCapability: object,
+    managementCapability: object,
+    hooks: DockerExecutionCallbacks,
+  ) {
+    return runtime.startExecution(
+      project(plan),
+      recoveryCapability,
+      managementCapability,
+      hooks,
+    );
+  }
+
+  return Object.freeze({
+    startExecution,
+    cleanupOwnedResources,
+    verifyCleanupOutcome,
+  });
+}
 export { isAttemptFailureReason } from "../src/attempt/operations.ts";
 export {
   projectAttemptResult,

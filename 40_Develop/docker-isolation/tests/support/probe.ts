@@ -1,32 +1,35 @@
 /**
- * 固定診断profileの確認・作成・実行・取消の技術境界を所有する。
+ * 旧固定Probeの検証専用Capabilityを保持する。
  * @packageDocumentation
  * @responsibility 固定payload・期限・所有Handle終端を集約し、上位の保存を跨いで実行を自動開始しない。
  * @trace ARCH-000008
  * @boundary Coordinatorのprofile選択と固定Docker要求。
  */
-import { observeDockerDirectoryIdentity } from "../docker-cli/config.ts";
-import { executeDockerProbeCommand, planDockerProbeCommand } from "./plan.ts";
+import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
+import {
+  executeDockerProbeCommand,
+  planDockerProbeCommand,
+} from "../../src/probe/plan.ts";
 import {
   classifyDockerProbeCancellation,
   classifyDockerProbeExecution,
   normalizeContainerCreation,
-} from "./result.ts";
-import { inspectDockerContainer } from "../cleanup/container.ts";
+} from "../../src/probe/result.ts";
+import { inspectDockerContainer } from "../../src/cleanup/container.ts";
 import {
   startDockerProbeAttachedProcess,
   type DockerAttachedProcess,
-} from "./process.ts";
-import type { CommandExecution } from "../execution/result.ts";
-import type { DockerProbeExecutionFacts } from "./result.ts";
+} from "../../src/probe/process.ts";
+import type { CommandExecution } from "../../src/execution/result.ts";
+import type { DockerProbeExecutionFacts } from "../../src/probe/result.ts";
 import { types as utilTypes } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-} from "../docker-cli/trust.ts";
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
+} from "../../src/docker-cli/trust.ts";
+import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
 
 /**
  * 固定診断の選択名。

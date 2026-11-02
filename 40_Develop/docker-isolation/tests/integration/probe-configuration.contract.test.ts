@@ -357,6 +357,38 @@ test("共通Container回収は実ID・三軸・現在Ownerを保持する", (t) 
     inspectDockerContainer(binding, f.expected)?.runningConfirmed,
     true,
   );
+  const minimal = {
+    id: f.expected.id,
+    name: f.expected.name,
+    ownershipLabel: f.expected.ownershipLabel,
+  };
+  assert.equal(
+    inspectDockerContainer(binding, minimal)?.runningConfirmed,
+    true,
+  );
+  inspected = {
+    ...f.inspect,
+    Config: { ...f.inspect.Config, Image: "different-diagnostic-image" },
+  };
+  assert.ok(inspectDockerContainer(binding, minimal)?.snapshot);
+  assert.equal(inspectDockerContainer(binding, f.expected), null);
+  inspected = { ...f.inspect, State: {} };
+  assert.equal(
+    inspectDockerContainer(binding, minimal)?.runningConfirmed,
+    false,
+  );
+  for (const malformed of [
+    { ...minimal, image: "partial" },
+    { ...minimal, extra: true },
+  ]) {
+    const count = calls.length;
+    assert.throws(
+      () => inspectDockerContainer(binding, malformed),
+      /projection_invalid/,
+    );
+    assert.equal(calls.length, count);
+  }
+  inspected = { ...f.inspect, State: { Running: true } };
   calls.length = 0;
   assert.equal(cleanupDockerContainer(binding, f.expected).confirmed, true);
   assert.deepEqual(calls, ["inspect", "remove", "id", "name", "label"]);

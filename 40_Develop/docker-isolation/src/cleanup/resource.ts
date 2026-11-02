@@ -1,7 +1,7 @@
 /**
  * fresh再入場の検査済み実IDに対するDocker資源処置を所有する。
  *
- * @responsibility 現在観測・構成照合・限定削除・不存在再観測を一つの技術処理にする。
+ * @responsibility 元実IDの識別照合と、ID欠測時の構成照合を区別して処置する。
  * @trace ARCH-000008
  */
 import {
@@ -10,6 +10,206 @@ import {
   dockerResourceLocatorIsValid,
   type DockerResourceExpectation,
 } from "./plan.ts";
+import type { ResourceSnapshot } from "./types.ts";
+
+/** 固定inspectの正規の不存在応答だけを肯定する。失敗一般を不存在にしない。 */
+export function explicitDockerResourceAbsence(
+  result: Readonly<{
+    status: number | null;
+    signal: string | null;
+    stdout: string;
+    stderr: string;
+    error?: Error | null;
+  }>,
+  kind: "container" | "network",
+  name: string,
+): boolean {
+  if (
+    result.error ||
+    result.signal !== null ||
+    result.status !== 1 ||
+    !["", "[]"].includes(result.stdout.trim())
+  )
+    return false;
+  const suffixes =
+    kind === "network"
+      ? [`network ${name} not found`, `No such network: ${name}`]
+      : [`No such object: ${name}`, `No such container: ${name}`];
+  const prefixes =
+    kind === "network"
+      ? ["", "Error response from daemon: "]
+      : ["", "Error: ", "Error response from daemon: "];
+  return prefixes.some((prefix) =>
+    suffixes.some((suffix) => result.stderr.trim() === prefix + suffix),
+  );
+}
+
+/**
+ * 元Receiptの資源種別・完全実ID・正確な名前・所有Labelだけを照合する。
+ * @responsibility 既知対象の識別と実行構成検査を分離する。
+ * @trace ARCH-000008
+ * @input resource: 単一fresh inspect。expected: 元Receiptの識別値。
+ * @returns 元対象に一致する場合だけtrue。
+ * @effect N/A: 値の照合のみ。
+ * @failure 欠測・種別不正・別対象・観測不能はfalse。
+ * @invariant 発見候補の完全構成検査には使用しない。
+ */
+export function dockerResourceIdentityMatches(
+  resource: unknown,
+  expected: Readonly<{
+    kind: "container" | "network";
+    dockerId: string;
+    expectedName: string;
+    ownershipLabel: string;
+  }>,
+): boolean {
+  if (
+    !resource ||
+    typeof resource !== "object" ||
+    Array.isArray(resource) ||
+    !/^[a-f0-9]{64}$/u.test(expected.dockerId) ||
+    (expected.kind !== "container" && expected.kind !== "network")
+  )
+    return false;
+  const item = resource as Record<string, unknown>;
+  const container = expected.kind === "container";
+  const config = item.Config;
+  const labels =
+    container && config && typeof config === "object"
+      ? (config as Record<string, unknown>).Labels
+      : !container
+        ? item.Labels
+        : null;
+  const separator = expected.ownershipLabel.indexOf("=");
+  return (
+    separator > 0 &&
+    item.Id === expected.dockerId &&
+    item.Name ===
+      (container ? `/${expected.expectedName}` : expected.expectedName) &&
+    !!labels &&
+    typeof labels === "object" &&
+    !Array.isArray(labels) &&
+    (labels as Record<string, unknown>)[
+      expected.ownershipLabel.slice(0, separator)
+    ] === expected.ownershipLabel.slice(separator + 1)
+  );
+}
+
+/**
+ * 同じinspectから非秘密構成と識別情報を返す。
+ * @responsibility 構成情報の返却と、削除対象の識別条件を分離する。
+ * @trace ARCH-000008
+ * @input resource: 固定CLIからJSONとして取得した単一inspect。key: 要求内の相関。
+ * @returns 非秘密の資源情報。Command引数と環境値は含めない。
+ * @effect N/A: JSON値の不変投影だけ。
+ * @failure 不正Identityはnull。欠測した構成を既定構成で補完しない。
+ * @invariant Snapshotは実行権限でも削除権限でもない。
+ */
+export function snapshotObservedDockerResource(
+  resource: unknown,
+  key: string,
+  expected: Readonly<{
+    kind: "container" | "network";
+    dockerId: string;
+    expectedName: string;
+    ownershipLabel: string;
+  }>,
+): ResourceSnapshot | null {
+  if (!dockerResourceIdentityMatches(resource, expected)) return null;
+  const item = resource as Record<string, unknown>;
+  const config = (item.Config ?? {}) as Record<string, unknown>;
+  const network = (item.NetworkSettings ?? {}) as Record<string, unknown>;
+  const image = config.Image;
+  const mounts =
+    Array.isArray(item.Mounts) &&
+    item.Mounts.every((value: unknown) => {
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        return false;
+      const mount = value as Record<string, unknown>;
+      return (
+        typeof mount.Source === "string" &&
+        typeof mount.Destination === "string" &&
+        typeof mount.RW === "boolean"
+      );
+    })
+      ? item.Mounts
+      : null;
+  const commands =
+    Array.isArray(config.Cmd) &&
+    config.Cmd.every((value: unknown) => typeof value === "string")
+      ? config.Cmd
+      : null;
+  const environment =
+    Array.isArray(config.Env) &&
+    config.Env.every(
+      (value: unknown) =>
+        typeof value === "string" && /^[A-Za-z_][A-Za-z0-9_]*=/u.test(value),
+    )
+      ? config.Env
+      : null;
+  return Object.freeze({
+    resources: Object.freeze([
+      Object.freeze({
+        key,
+        identity: Object.freeze({
+          kind: expected.kind,
+          dockerId: expected.dockerId,
+          name: expected.expectedName,
+          ownershipLabel: expected.ownershipLabel,
+        }),
+        request: "unknown" as const,
+        configuration: Object.freeze({
+          image:
+            typeof image === "string" &&
+            /^(?:sha256:|[a-z0-9./_-]+@sha256:)[a-f0-9]{64}$/u.test(image)
+              ? image
+              : null,
+          command: commands
+            ? Object.freeze(commands.map(() => "<redacted>"))
+            : null,
+          environmentNames: environment
+            ? Object.freeze(
+                environment.flatMap((value: unknown) => {
+                  if (typeof value !== "string") return [];
+                  const name = value.slice(0, value.indexOf("="));
+                  return /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name) ? [name] : [];
+                }),
+              )
+            : null,
+          mounts: mounts
+            ? Object.freeze(
+                mounts.flatMap((value: unknown) => {
+                  if (!value || typeof value !== "object") return [];
+                  const m = value as Record<string, unknown>;
+                  return typeof m.Source === "string" &&
+                    typeof m.Destination === "string" &&
+                    typeof m.RW === "boolean"
+                    ? [
+                        Object.freeze({
+                          source: m.Source,
+                          target: m.Destination,
+                          readOnly: !m.RW,
+                        }),
+                      ]
+                    : [];
+                }),
+              )
+            : null,
+          networks:
+            network.Networks &&
+            typeof network.Networks === "object" &&
+            !Array.isArray(network.Networks)
+              ? Object.freeze(Object.keys(network.Networks))
+              : null,
+          internal:
+            expected.kind === "network" && typeof item.Internal === "boolean"
+              ? item.Internal
+              : null,
+        }),
+      }),
+    ]),
+  });
+}
 
 /**
  * 固定Docker観測・清掃要求の同期結果。
@@ -70,7 +270,7 @@ export function inspectObservedDockerResource(
  * @trace ARCH-000008
  * @input runDocker: 内部固定実行、kind/id: 検査済み実体、observeAbsent: 固定観測。
  * @returns 三条件共同成立時true。
- * @precondition 直前に同じ実IDの完全構成を確認している。
+ * @precondition 直前に同じ元実ID・名前・所有Labelを確認している。ID欠測の発見条件は別途維持する。
  * @effect 実ID限定rmと現在不存在観測。
  * @failure 例外・非0・Signal・不明・Owner喪失はfalse。
  * @invariant この内部関数をDI Rootへ公開しない。
@@ -114,6 +314,7 @@ export function observeExpectedDockerResource(
   expectation: DockerResourceExpectation,
   options: Readonly<{
     allowAlreadyAbsent?: boolean;
+    onObserved?: (snapshot: ResourceSnapshot) => void;
   }> = Object.freeze({}),
 ) {
   if (!dockerResourceExpectationIsValid(expectation)) return false;
@@ -185,6 +386,17 @@ export function observeExpectedDockerResource(
   if (ids.length !== 1 || ids[0] !== dockerId) return false;
   const inspected = inspectObservedDockerResource(runDocker, kind, dockerId);
   if (!dockerResourceConfigurationMatches(inspected, expectation)) return false;
+  const snapshot = snapshotObservedDockerResource(
+    inspected,
+    expectation.purpose,
+    expectation,
+  );
+  if (!snapshot) return false;
+  const delivered: unknown = options.onObserved?.(snapshot);
+  if (delivered !== undefined) {
+    void Promise.resolve(delivered).catch(() => {});
+    throw Error("docker_resource_observation_notification_invalid");
+  }
   return true;
 }
 

@@ -1,432 +1,361 @@
 /**
- * 合成Probeの公開入口・保存順序・取消・回収を有限DIで確認する。
- * @responsibility 技術結果と上位保存を混同せず、失敗後の余計なEffectを反証する。
+ * Probe固有構成と共通DI入口の結合を検証する。
+ * @responsibility 固定構成の搬送・必要通知・結果解釈と取消の一次理由を反証する。
  * @trace ARCH-000008
  * @level UT
- * @scope 実AI・Docker・Filesystem処置は実行しない。
- * @boundary 既存createExecutor→固定Probe→DI代役。
+ * @scope 有限DI代役のみ。Process・Filesystem・実AI・Dockerは操作しない。
+ * @boundary 公開createExecutor→確定技術構成→共通DI。物理終了はDI契約試験が所有する。
  */
 import assert from "node:assert/strict";
-import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
-import fs from "node:fs";
-import test, { mock } from "node:test";
-import { types } from "node:util";
-import { runInNewContext } from "node:vm";
+import test from "node:test";
 import * as original from "../../../docker-isolation/src/index.ts";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { executeLifecycle } from "../../src/lifecycle/execute.ts";
+import type {
+  IsolationRequest,
+  IsolationCallbacks,
+  IsolationExecutionResult,
+  PreparedIsolation,
+} from "../../../docker-isolation/src/index.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 
-/**
- * 有限DIに対し通常・不明・保存拒否・取消を同じ本体へ与える。
- * @responsibility 実IDの保持と補償清掃を直接観測する。
- * @trace ARCH-000008
- * @precondition DI Moduleだけを置換し公開入口を使う。
- * @stimulus Intent／Receipt失敗、作成不明、終了不明、取消、所在変更。
- * @observation 実行順、元実ID、清掃回数、completion。
- * @oracle 保存失敗の次Startは0、既知実IDだけ清掃、不明を成功へ畳まない。
- * @cleanup mock解除と有限Promiseの確定。外部資源なし。
- * @boundary 公開Factoryと技術Lifecycle。
- */
-test("固定Probeは既存入口で保存順序・取消・実ID回収を維持する", async () => {
-  const id = "a".repeat(64);
-  const probeId = "12345678-1234-4234-8234-123456789abc";
-  const binding = Object.freeze({});
-  const paths = Object.freeze({
+/** 旧用途別手順の反例を、新しい技術入口と意味Ownerへ対応付ける。 */
+test("固定Probeは共通技術入口で構成・通知・取消・終了・回収を維持する", async (t) => {
+  const id = "a".repeat(64),
+    probeId = "12345678-1234-4234-8234-123456789abc";
+  const events: string[] = [];
+  let mode = "normal",
+    changed = false,
+    delivered: unknown = null,
+    cancel: () => unknown = () => undefined,
+    cancelCalls = 0;
+  const owners = new WeakMap<object, IsolationRequest>();
+  const mounts = {
+    management: "management",
     workspace: "workspace",
     providerHome: "home",
     tmp: "tmp",
+  };
+  const goodOutput = JSON.stringify({
+    marker: "crdd-coordinator-isolation-v1",
+    allowed_writes: { workspace: true, "provider-home": true, tmp: true },
+    runtime_paths_absent: true,
+    credential_names_absent: true,
+    network_blocked: true,
+    home_isolated: true,
+    tmp_isolated: true,
   });
-  const expected = original.describeDockerProbeConfiguration(
-    "normal",
-    { id, probeId },
-    paths,
-  );
-  const correlationFailures: string[] = [];
-  const check = (label: string, actual: unknown, expected: unknown) => {
-    try {
-      if (label === "binding") assert.equal(actual, expected);
-      else
-        assert.deepEqual(
-          JSON.parse(JSON.stringify(actual)),
-          JSON.parse(JSON.stringify(expected)),
-        );
-    } catch (error) {
-      correlationFailures.push(label);
-      throw error;
-    }
-  };
-  const events: string[] = [];
-  let mode = "normal",
-    changed = false;
-  let cancel: () => void = () => undefined;
-  const facts = original.classifyDockerProbeExecution(
-    { status: 7, stdout: "", stderr: "", signal: null },
-    1,
-  );
-  const successFacts = original.classifyDockerProbeExecution(
-    {
-      status: 0,
-      stdout: JSON.stringify({
-        marker: "crdd-coordinator-isolation-v1",
-        allowed_writes: { workspace: true, "provider-home": true, tmp: true },
-        runtime_paths_absent: true,
-        credential_names_absent: true,
-        network_blocked: true,
-        home_isolated: true,
-        tmp_isolated: true,
-      }),
-      stderr: "",
-      signal: null,
-    },
-    1,
-  );
-  assert.equal(successFacts.isolation.status, "confirmed");
-  const dependencies = {
-    ...original,
-    observeDockerDirectoryIdentity: () =>
-      mode === "identity_changed" && changed
-        ? "replacement"
-        : "fixed-directory",
-    createDockerProbeRuntimeBinding: (management: string) => {
-      assert.equal(management, "management");
-      if (mode.startsWith("binding_")) throw Error(mode);
-      return binding;
-    },
-    observeDockerProbeEngine: (actual: unknown) => {
-      assert.equal(actual, binding);
-      return mode !== "engine";
-    },
-    createDockerProbeContainer: (
-      actual: unknown,
-      profile: string,
-      selectedId: string,
-      mounts: unknown,
-    ) => {
-      check("binding", actual, binding);
-      check("profile", profile, "normal");
-      check("probe", selectedId, probeId);
-      check("mount", mounts, paths);
-      events.push("create");
-      return mode === "unknown"
-        ? { status: "blocked" }
-        : { status: "confirmed", id };
-    },
-    describeDockerProbeConfiguration: (
-      profile: "normal",
-      identity: { id: string; probeId: string },
-      mounts: unknown,
-    ) => {
-      check("profile", profile, "normal");
-      check("identity", identity, { id, probeId });
-      check("mount", mounts, paths);
-      return original.describeDockerProbeConfiguration(
-        profile,
-        JSON.parse(JSON.stringify(identity)),
-        JSON.parse(JSON.stringify(mounts)),
-      );
-    },
-    inspectDockerContainer: (actual: unknown, configuration: unknown) => {
-      check("binding", actual, binding);
-      check("configuration", configuration, expected);
-      events.push("inspect");
-      return mode !== "inspect";
-    },
-    runDockerProbeAsync: async (
-      actualBinding: unknown,
-      profile: string,
-      actual: string,
-      signal: AbortSignal,
-    ) => {
-      check("binding", actualBinding, binding);
-      check("profile", profile, "normal");
-      check("id", actual, id);
-      events.push("run");
-      if (mode === "cancel") {
-        cancel();
-        cancel();
-      }
-      if (mode === "changed") changed = true;
-      return {
-        facts: mode === "normal" ? successFacts : facts,
-        cancelled: signal.aborted,
-        processCompletionConfirmed: mode !== "close",
-      };
-    },
-    cleanupDockerContainer: (
-      actualBinding: unknown,
-      configuration: unknown,
-    ) => {
-      check("binding", actualBinding, binding);
-      check("configuration", configuration, expected);
-      events.push("cleanup");
-      if (mode === "late_cancel") cancel();
-      return {
-        confirmed: mode !== "cleanup" && !changed,
-        reason: "docker_probe_cleanup_failed",
-      };
-    },
-  };
-  const lower = mock.module(
-    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
-    { namedExports: dependencies },
-  );
-  try {
-    const { createExecutor } = await import("../../src/index.ts");
-    for (mode of [
-      "normal",
-      "intent",
-      "receipt",
-      "promise",
-      "unknown",
-      "engine",
-      "inspect",
-      "close",
-      "cleanup",
-      "cancel",
-      "changed",
-      "late_cancel",
-      "pre_cancel",
-      "identity_changed",
-      "input_changed",
-      "prepare_throw",
-      "prepare_invalid",
-      "binding_mkdir1",
-      "binding_mkdir2",
-      "binding_environment",
-    ]) {
-      events.length = 0;
-      changed = false;
-      const mounts: {
-        management: string;
-        workspace: string;
-        providerHome: string;
-        tmp: string;
-      } = {
-        management: mode === "prepare_invalid" ? "" : "management",
-        ...paths,
-      };
-      const executor = createExecutor(
+  function snapshot(
+    request: IsolationRequest,
+    issued: boolean,
+    known: boolean,
+  ): ResourceSnapshot {
+    const r = request.resources[0];
+    assert.ok(r);
+    return Object.freeze({
+      resources: [
         {
-          kind: "isolation_probe",
-          probeId: "12345678-1234-4234-8234-123456789abc",
-        },
-        {
-          mounts: mode === "prepare_throw" ? new Proxy(mounts, {}) : mounts,
-        },
-      );
-      if (mode === "prepare_throw" || mode === "prepare_invalid") {
-        assert.equal(executor, null);
-        assert.equal(events.length, 0);
-        continue;
-      }
-      assert.ok(executor);
-      if (mode === "identity_changed") changed = true;
-      if (mode === "input_changed") mounts.workspace = "replacement";
-      cancel = () => executor.cancel();
-      if (mode === "pre_cancel") await executor.cancel();
-      let delivered: unknown = null;
-      const start = executor.start({
-        callbacks: {
-          onCompleted: (result) => {
-            delivered = result;
-            throw Error("passive_notice");
+          key: r.key,
+          identity: {
+            kind: r.kind,
+            dockerId: known ? id : null,
+            name: r.name,
+            ownershipLabel: r.ownershipLabel,
           },
-          onCommandSubmitting: () => {
-            events.push("intent");
-            if (mode === "intent") throw Error("save");
-          },
-          onResourceCreated: () => {
-            events.push("receipt");
-            if (mode === "receipt") throw Error("save");
-            if (mode === "promise")
-              return Promise.reject(Error("reject")) as never;
+          request: issued ? "issued" : "not_issued",
+          configuration: {
+            image: r.kind === "container" ? r.image : null,
+            command: null,
+            environmentNames: null,
+            mounts: null,
+            networks: null,
+            internal: null,
           },
         },
-      });
-      if (
-        [
-          "pre_cancel",
-          "identity_changed",
-          "prepare_throw",
-          "prepare_invalid",
-        ].includes(mode)
-      ) {
-        assert.equal(start.status, "blocked");
-        if (start.status === "blocked") {
-          assert.equal(
-            start.reason,
-            mode === "pre_cancel"
-              ? "docker_probe_start_cancelled"
-              : "docker_probe_preparation_failed",
-          );
-          assert.equal(start.completion, null);
-        }
-        assert.deepEqual(events, []);
-        assert.equal(executor.start({}).status, "blocked");
-        assert.deepEqual(await executor.cancel(), {
-          status: "blocked",
-          reason: "invalid",
+      ],
+    });
+  }
+  t.mock.module("../../../docker-isolation/src/index.ts", {
+    namedExports: {
+      ...original,
+      prepareIsolation(request: IsolationRequest): PreparedIsolation | null {
+        assert.equal(request.managementDirectory, "management");
+        assert.equal(request.resources.length, 1);
+        const r = request.resources[0];
+        assert.ok(r?.kind === "container");
+        assert.equal(r.name, `crdd-coordinator-probe-${probeId}`);
+        assert.equal(r.ownershipLabel, `crdd.coordinator.probe=${probeId}`);
+        assert.equal(r.image, original.DIAGNOSTIC_IMAGE);
+        assert.equal(r.network, null);
+        assert.equal(r.entrypoint, "python");
+        assert.equal(r.user, "65532:65532");
+        assert.deepEqual(r.mounts, [
+          {
+            source: "workspace",
+            target: "/operation/workspace",
+            readOnly: false,
+          },
+          {
+            source: "home",
+            target: "/operation/provider-home",
+            readOnly: false,
+          },
+          { source: "tmp", target: "/operation/tmp", readOnly: false },
+        ]);
+        assert.deepEqual(r.environment, {
+          HOME: "/operation/provider-home",
+          TMPDIR: "/operation/tmp",
         });
-        continue;
-      }
-      assert.ok(start.status === "started");
+        assert.equal(r.argv[0], "-c");
+        assert.match(r.argv[1] ?? "", /network_blocked/u);
+        assert.equal(request.steps[1]?.timeoutMs, 30_000);
+        assert.ok(request.steps[1]?.action === "run");
+        assert.equal(request.steps[1].deadlineOrigin, "request");
+        assert.equal(request.verifyLabelAbsence, true);
+        assert.equal(request.unreceiptedAbsence, "retain");
+        const prepared = { resources: snapshot(request, false, false) };
+        owners.set(prepared, request);
+        return prepared;
+      },
+      executeIsolation(
+        prepared: PreparedIsolation,
+        callbacks: IsolationCallbacks = {},
+      ) {
+        const request = owners.get(prepared);
+        assert.ok(request, "元準備だけを同じOwnerへ渡す");
+        if (mode === "identity_changed" && changed)
+          throw Error("directory_changed");
+        let cancelled = false;
+        const completion = Promise.resolve().then(
+          async (): Promise<IsolationExecutionResult> => {
+            let resources = prepared.resources,
+              cleanup = true,
+              terminated = true,
+              failure: IsolationExecutionResult["failure"] = null,
+              delivery = true;
+            const create = request.steps[0],
+              run = request.steps[1];
+            assert.ok(create && run);
+            try {
+              if (mode.startsWith("binding_")) {
+                cleanup = false;
+                throw Error("preparation");
+              }
+              if (mode === "engine") throw Error("engine");
+              await callbacks.onSubmitting?.(create);
+              events.push("create");
+              resources = snapshot(request, true, mode !== "unknown");
+              if (mode === "unknown") {
+                cleanup = false;
+                throw Error("unknown");
+              }
+              events.push("inspect");
+              if (mode === "inspect") throw Error("inspect");
+              await callbacks.onCreated?.(create, resources);
+              events.push("run");
+              if (mode === "cancel") {
+                cancel();
+                cancel();
+                await Promise.resolve();
+              }
+              if (!cancelled)
+                callbacks.onObserved?.(
+                  run,
+                  {
+                    status:
+                      mode === "normal" || mode === "input_changed" ? 0 : 7,
+                    signal: null,
+                    stdout:
+                      mode === "normal" || mode === "input_changed"
+                        ? goodOutput
+                        : "",
+                    stderr: "",
+                    outputExceeded: false,
+                  },
+                  1,
+                  null,
+                );
+              if (mode === "close") terminated = false;
+              if (mode === "changed") changed = true;
+            } catch (error) {
+              delivery = !events.includes("receipt") && mode !== "intent";
+              failure = {
+                notification: null,
+                kind: "command_failed",
+                commandHandleObtained: events.includes("create"),
+                responseObserved: mode !== "unknown",
+                exceptionCode: null,
+                stepKey: create.key,
+                stage: mode.startsWith("binding_")
+                  ? "preparation"
+                  : mode === "intent" ||
+                      mode === "receipt" ||
+                      mode === "promise"
+                    ? "notification"
+                    : "observation",
+                reason:
+                  mode === "engine"
+                    ? "docker_isolation_engine_unconfirmed"
+                    : error instanceof Error && error.message === "preparation"
+                      ? "docker_isolation_preparation_failed"
+                      : "docker_isolation_command_failed",
+              };
+            }
+            if (resources.resources[0]?.identity.dockerId && terminated) {
+              events.push("cleanup");
+              if (mode === "late_cancel") {
+                cancel();
+                await Promise.resolve();
+              }
+              cleanup = cleanup && mode !== "cleanup" && !changed;
+            } else if (resources.resources[0]?.request !== "not_issued")
+              cleanup = false;
+            return {
+              failure,
+              resources,
+              cancellationRequested: cancelled,
+              processTerminationConfirmed: terminated,
+              notificationDeliveryConfirmed: delivery,
+              callbackRegistrationReleased: true,
+              cleanup: {
+                confirmed: cleanup,
+                configCleanupConfirmed: cleanup,
+                observations: [],
+              },
+            };
+          },
+        );
+        return {
+          cancel: async () => {
+            cancelCalls++;
+            cancelled = true;
+            return {
+              cancellationRequested: true,
+              processTerminationObserved: mode !== "close",
+            };
+          },
+          completion,
+        };
+      },
+    },
+  });
+  const { createExecutor } = await import("../../src/index.ts");
+  for (mode of [
+    "normal",
+    "intent",
+    "receipt",
+    "promise",
+    "unknown",
+    "engine",
+    "inspect",
+    "close",
+    "cleanup",
+    "cancel",
+    "changed",
+    "late_cancel",
+    "pre_cancel",
+    "identity_changed",
+    "input_changed",
+    "prepare_throw",
+    "prepare_invalid",
+    "binding_mkdir1",
+    "binding_mkdir2",
+    "binding_environment",
+  ]) {
+    events.length = 0;
+    changed = false;
+    delivered = null;
+    cancelCalls = 0;
+    const input = {
+      ...mounts,
+      management: mode === "prepare_invalid" ? "" : mounts.management,
+    };
+    const executor = createExecutor(
+      { kind: "isolation_probe", probeId },
+      { mounts: mode === "prepare_throw" ? new Proxy(input, {}) : input },
+    );
+    if (mode === "prepare_throw" || mode === "prepare_invalid") {
+      assert.equal(executor, null);
+      assert.equal(events.length, 0);
+      continue;
+    }
+    assert.ok(executor, mode);
+    if (mode === "identity_changed") changed = true;
+    if (mode === "input_changed") input.workspace = "replacement";
+    cancel = () => executor.cancel();
+    if (mode === "pre_cancel") await executor.cancel();
+    const start = executor.start({
+      callbacks: {
+        onCommandSubmitting: () => {
+          events.push("intent");
+          if (mode === "intent") throw Error("save");
+        },
+        onResourceCreated: (actual) => {
+          assert.equal(actual, id);
+          events.push("receipt");
+          if (mode === "receipt") throw Error("save");
+          if (mode === "promise")
+            return Promise.reject(Error("reject")) as never;
+        },
+        onCompleted: (result) => {
+          delivered = result;
+          throw Error("passive");
+        },
+      },
+    });
+    if (mode === "pre_cancel" || mode === "identity_changed") {
+      assert.equal(start.status, "blocked");
+      assert.equal(start.completion, null);
+      assert.deepEqual(events, []);
+    } else {
+      assert.ok(start.status === "started", mode);
       const result = await start.completion;
-      if (mode.startsWith("binding_")) {
-        assert.equal(result.status, "blocked");
-        assert.equal(result.cleanupConfirmed, false);
-        assert.equal(result.creationAttempted, false);
-        assert.equal(result.containerId, null);
-        assert.deepEqual(events, []);
-      }
+      assert.equal(delivered, result);
       assert.equal(result.kind, "isolation_probe");
-      if (mode === "normal") assert.equal(result.status, "completed");
+      assert.equal(
+        result.status,
+        mode === "normal" || mode === "input_changed"
+          ? "completed"
+          : mode === "cancel"
+            ? "cancelled"
+            : "blocked",
+        mode,
+      );
       if (mode === "late_cancel") {
-        assert.equal(result.status, "blocked");
-        assert.equal(result.reason, facts.isolation.reason);
+        assert.equal(result.reason, "docker_isolation_probe_failed");
         assert.equal(result.cancelled, true);
       }
-      if (mode === "cancel") assert.equal(result.status, "cancelled");
-      assert.equal(delivered, result);
-      assert.deepEqual(await executor.cancel(), {
-        status: "blocked",
-        reason: "invalid",
-      });
-      assert.equal(executor.start({}).status, "blocked");
-      if (["receipt", "promise", "inspect"].includes(mode))
-        assert.deepEqual(
-          events,
-          mode === "inspect"
-            ? ["intent", "create", "receipt", "inspect", "cleanup"]
-            : ["intent", "create", "receipt", "cleanup"],
-        );
-      if (mode === "intent") assert.deepEqual(events, ["intent"]);
+      if (mode === "cancel") {
+        assert.equal(result.cleanupConfirmed, true);
+        assert.equal(cancelCalls, 1);
+      }
+      if (mode.startsWith("binding_")) {
+        assert.equal(result.creationAttempted, false);
+        assert.deepEqual(events, []);
+        assert.equal(result.cleanupConfirmed, false);
+      }
       if (mode === "unknown") {
         assert.equal(result.containerId, null);
         assert.equal(result.cleanupConfirmed, false);
         assert.deepEqual(events, ["intent", "create"]);
       }
-      if (["close", "changed"].includes(mode)) {
-        assert.equal(events.includes("cleanup"), mode === "changed");
+      if (mode === "intent") assert.deepEqual(events, ["intent"]);
+      if (["receipt", "promise", "inspect"].includes(mode)) {
+        assert.equal(events.includes("run"), false);
+        assert.equal(result.containerId, id);
+        assert.equal(events.includes("cleanup"), true);
+      }
+      if (mode === "close") {
+        assert.equal(events.includes("cleanup"), false);
+        assert.equal(result.processCompletionConfirmed, false);
+      }
+      if (["cleanup", "changed"].includes(mode))
         assert.equal(result.cleanupConfirmed, false);
-      }
-      if (mode === "cleanup") assert.equal(result.cleanupConfirmed, false);
-      if (mode === "cancel") {
-        assert.equal(result.cancelled, true);
-        assert.equal(result.cleanupConfirmed, true);
-      }
-      if (mode === "normal")
-        assert.deepEqual(events, [
-          "intent",
-          "create",
-          "receipt",
-          "inspect",
-          "run",
-          "cleanup",
-        ]);
+      assert.ok(result.resourceSnapshot);
     }
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(correlationFailures, []);
-    mode = "normal";
-    changed = false;
-    const source = fs.readFileSync(
-      new URL("../../src/probe/operations.ts", import.meta.url),
-      "utf8",
-    );
-    const declaration = sourceDeclaration(source, "createIsolationProbe");
-    const helpers =
-      sourceDeclaration(source, "captureMounts") +
-      "\n" +
-      sourceDeclaration(source, "notify");
-    const baseline = runInNewContext(
-      `${helpers}\n${declaration};createIsolationProbe`,
-      {
-        ...dependencies,
-        types,
-        AbortController,
-        executeLifecycle,
-        createLifecycleOperations,
-      },
-    );
-    const baselineExecutor = baseline(
-      { kind: "isolation_probe", probeId },
-      { mounts: { management: "management", ...paths } },
-    );
-    const baselineResult = await baselineExecutor.start({}).completion;
-    assert.equal(baselineResult.facts, successFacts);
-    assert.equal(baselineResult.cleanupConfirmed, true);
-    assert.deepEqual(correlationFailures, []);
-    const variants = [
-      [
-        "binding",
-        declaration.match(
-          /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
-        )?.[0] ?? "missing_create",
-        (
-          declaration.match(
-            /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
-          )?.[0] ?? ""
-        ).replace("cli,", "{},"),
-      ],
-      [
-        "profile",
-        declaration.match(
-          /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
-        )?.[0] ?? "missing_create",
-        (
-          declaration.match(
-            /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
-          )?.[0] ?? ""
-        ).replace("profile,", "'timeout',"),
-      ],
-      [
-        "probe",
-        declaration.match(
-          /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
-        )?.[0] ?? "missing_create",
-        (
-          declaration.match(
-            /createDockerProbeContainer\(\s+cli,\s+profile,\s+probeId,\s+\{/,
-          )?.[0] ?? ""
-        ).replace("probeId,", "'other',"),
-      ],
-      ["mount", "workspace: mounts.workspace,", "workspace: 'other',"],
-      [
-        "id",
-        declaration.match(/containerId,\s+lifecycle.signal/)?.[0] ??
-          "missing_signal",
-        declaration
-          .match(/containerId,\s+lifecycle.signal/)?.[0]
-          .replace("containerId", "'b'.repeat(64)") ?? "missing_signal",
-      ],
-    ];
-    for (const [label, needle, replacement] of variants) {
-      assert.ok(label && needle && replacement);
-      assert.ok(declaration.includes(needle), label);
-      const failuresBefore: number = correlationFailures.length;
-      const create = runInNewContext(
-        `${helpers}\n${declaration.replace(needle, replacement)};createIsolationProbe`,
-        {
-          ...dependencies,
-          types,
-          AbortController,
-          executeLifecycle,
-          createLifecycleOperations,
-        },
-      );
-      const candidate = create(
-        { kind: "isolation_probe", probeId },
-        { mounts: { management: "management", ...paths } },
-      );
-      assert.ok(candidate);
-      const result = await candidate.start({}).completion;
-      assert.equal(correlationFailures.at(-1), label);
-      assert.equal(correlationFailures.length, failuresBefore + 1);
-      assert.ok(
-        result.facts !== facts || result.cleanupConfirmed !== true,
-        label,
-      );
-    }
-  } finally {
-    lower.restore();
+    assert.equal(executor.start({}).status, "blocked");
+    assert.deepEqual(await executor.cancel(), {
+      status: "blocked",
+      reason: "invalid",
+    });
   }
+  await new Promise<void>((resolve) => setImmediate(resolve));
 });

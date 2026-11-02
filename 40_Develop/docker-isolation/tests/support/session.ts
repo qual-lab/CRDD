@@ -3,21 +3,23 @@
  * @responsibility raw Handle、技術期限と終端を所有し、上位の意味・保存方式を知らない。
  * @trace ARCH-000008
  */
-import type { OwnedCommandHandle } from "../process/start.ts";
-import { types as utilTypes } from "node:util";
-import type { DockerIsolationCommand } from "./plan.ts";
 import type {
-  DockerResourceCleanupObservation,
-  DockerResourceReceipts,
-} from "./execute.ts";
+  DockerSessionCommandHandle,
+  DockerSessionCleanup,
+  DockerExecutionCallbacks,
+  DockerCommandSessionOperations,
+  DockerSessionFailure,
+  DockerCommandSession,
+} from "../../src/execution/types.ts";
+import { types as utilTypes } from "node:util";
+import type { DockerIsolationCommand } from "../../src/execution/plan.ts";
 import {
   classifyDockerCommandExecution,
   classifyDockerProcessExit,
   classifyDockerCommandException,
   type CommandObservation,
-  type DockerCommandExecutionClassification,
   type DockerProcessExitStatusClass,
-} from "./result.ts";
+} from "../../src/execution/result.ts";
 
 const PURPOSES = [
   "create_subscription_auth_probe",
@@ -40,22 +42,6 @@ const CREATE_PURPOSES = new Set<string>([
 const GRACE_MS = 5_000;
 const SETUP_MS = 10_000;
 const EXECUTION_MS = 300_000;
-
-/**
- * Sessionが使用する元Process Handleの最小断面。
- * @responsibility 開始・待機・終端だけを同じ私有Ownerへ保持する。
- * @trace ARCH-000008
- * @shape started、wait、terminateAndWait。
- * @invariant Handleを上位結果へ公開しない。
- * @boundary 技術Runtime内部、または非本番Candidate。
- * @security Processを任意PIDから再構成しない。
- * @compatibility 元Handleの三操作を縮約せず利用する。
- */
-export type DockerSessionCommandHandle = Pick<
-  OwnedCommandHandle,
-  "started" | "terminateAndWait"
-> &
-  Readonly<{ wait: (timeoutMs: number) => Promise<CommandObservation | null> }>;
 
 /**
  * 固定技術順序と待機契約の非秘密説明を返す。
@@ -81,149 +67,6 @@ export function describeDockerCommandSessionContract() {
     providerDeadlineOrigin: "execution_started_observed" as const,
   });
 }
-
-/**
- * 一回の技術清掃の元結果を搬送する。
- * @responsibility 清掃boolと資源別の三値観測を分ける。
- * @trace ARCH-000008
- * @shape 四boolと任意の資源別観測。
- * @invariant 未観測を不存在へ補完しない。
- * @boundary 技術清掃Ownerと上位終了処理。
- * @security コピーした成功結果を真正としない。
- * @compatibility 既存清掃結果のfieldを保持する。
- */
-export type DockerSessionCleanup = Readonly<{
-  confirmed: boolean;
-  processTreeTerminated: boolean;
-  containersAbsent: boolean;
-  networksAbsent: boolean;
-  resourceObservations?: readonly DockerResourceCleanupObservation[] | null;
-}>;
-
-/**
- * 発行予定・元資源・完了観測と開始factの通知。
- * @responsibility 技術操作の拒否と上位意味の解釈を有限接続へ限定する。
- * @trace ARCH-000008
- * @shape 発行予定、未発行、元資源ID、完了観測と同期開始通知。
- * @invariant DIへTask・Writer・Credentialの意味を持ち込まない。
- * @boundary 通知の完了待ちと上位の保存・内容判断を区別する。
- * @security 通知は許可・保存成功・新Authorityを返さない。
- * @compatibility 通知例外で後続要求を止め、同じ資源の回収を維持する。
- */
-export interface DockerExecutionCallbacks {
-  onCommandSubmitting?(
-    purpose: DockerIsolationCommand["purpose"],
-  ): void | Promise<void>;
-  onCommandNotIssued?(
-    purpose: DockerIsolationCommand["purpose"],
-  ): void | Promise<void>;
-  onExecutionSubmitting?(): void | Promise<void>;
-  onResourceCreated?(
-    purpose: DockerIsolationCommand["purpose"],
-    dockerId: string,
-  ): void | Promise<void>;
-  onCommandObserved?(
-    purpose: DockerIsolationCommand["purpose"],
-    result: CommandObservation | null,
-    classification: DockerCommandExecutionClassification,
-  ): void;
-  onCommandCompleted?(
-    purpose: DockerIsolationCommand["purpose"],
-    result: CommandObservation,
-  ): void;
-  /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
-  onExecutionStarted?(): void;
-  onFailure?(failure: DockerSessionFailure): void;
-}
-
-/**
- * Session内部の固定技術操作を接続する。
- * @responsibility 本番では同Runtimeの元操作だけを結合する。
- * @trace ARCH-000008
- * @shape 固定purpose開始、元清掃と元結果照合。
- * @invariant 上位Store・業務結果を所有しない。
- * @boundary 本番Runtime内、または明示した非本番Candidate。
- * @security 本番Factoryは外部primitiveを受け取らない。
- * @compatibility Candidate注入を実Effect0や本番真正性の証明としない。
- */
-export type DockerCommandSessionOperations = Readonly<{
-  startCommand: (
-    purpose: DockerIsolationCommand["purpose"],
-  ) => DockerSessionCommandHandle;
-  cleanup: (receipts: DockerResourceReceipts) => Promise<DockerSessionCleanup>;
-  verifyCleanup?: (
-    result: DockerSessionCleanup,
-  ) => readonly DockerResourceCleanupObservation[] | null | undefined;
-}>;
-
-/**
- * 下位の停止点を業務理由とは別に搬送する。
- * @responsibility 技術失敗または有限Gate拒否の元段階を保持する。
- * @trace ARCH-000008
- * @shape purpose、段階、Gate名、拒否種別、固定例外分類と二観測。
- * @invariant 後続cleanupで一次停止点を書き換えない。
- * @boundary 技術停止点と上位の公開理由選択。
- * @security 生例外・生出力・Pathを含めない。
- * @compatibility 上位の既存一次失敗fieldへ接続する。
- */
-export type DockerSessionFailure = Readonly<{
-  purpose: DockerIsolationCommand["purpose"] | null;
-  stage:
-    | "command_start"
-    | "provider_start_observation"
-    | "command_wait"
-    | "gate";
-  gate: keyof DockerExecutionCallbacks | null;
-  kind:
-    | "rejected"
-    | "invalid_return"
-    | "threw"
-    | "start_unconfirmed"
-    | "invalid_plan"
-    | "command_failed";
-  exceptionCode: string | null;
-  commandHandleObtained: boolean;
-  responseObserved: boolean;
-}>;
-
-/**
- * 一回の技術Sessionの終了観測を搬送する。
- * @responsibility 実行、取消、通知解放、清掃を別々の事実として保持する。
- * @trace ARCH-000008
- * @invariant 未観測の資源を不存在へ補完しない。
- */
-export type DockerCommandSessionResult = Readonly<{
-  failure: DockerSessionFailure | null;
-  notificationDeliveryConfirmed: boolean | null;
-  callbackRegistrationReleased: boolean;
-  cancellationRequested: boolean;
-  executionStarted: boolean;
-  executionCompleted: boolean;
-  executionContainerCreated: boolean;
-  executionExit: DockerProcessExitStatusClass;
-  cleanup: DockerSessionCleanup;
-  resourceObservations:
-    | readonly DockerResourceCleanupObservation[]
-    | null
-    | undefined;
-  processTreeTerminationConfirmed: boolean;
-}>;
-
-/**
- * 元Sessionの取消と終了待機だけを上位へ返す。
- * @responsibility 生Handleや試験Candidateの表示を本番契約へ含めない。
- * @trace ARCH-000008
- * @invariant 取消要求と終了観測を同一視しない。
- */
-export type DockerCommandSession = Readonly<{
-  cancel: () => Promise<
-    Readonly<{
-      cancellationRequested: true;
-      processTerminationObserved: boolean;
-    }>
-  >;
-  completion: Promise<DockerCommandSessionResult>;
-}>;
 
 /**
  * 同じ固定計画の実行・取消・清掃を開始する。

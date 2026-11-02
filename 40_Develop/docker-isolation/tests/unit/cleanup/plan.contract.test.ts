@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { dockerAuthenticationResourceConfigurationMatches } from "../../../src/cleanup/plan.ts";
+import { dockerAuthenticationResourceConfigurationMatches } from "../../support/authentication/plan.ts";
 import {
   dockerResourceConfigurationMatches,
   planDockerRecoveryResourceExpectations,

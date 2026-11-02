@@ -9,11 +9,13 @@
  * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 import test, { mock } from "node:test";
-import {
-  type DockerResourceReceipts,
-  startDockerCommandSessionCandidate,
-} from "../../../docker-isolation/src/index.ts";
+import type { DockerResourceReceipts } from "../../../docker-isolation/src/index.ts";
+import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import { createExecutorTestRuntime } from "../../scripts/executor-test.ts";
 import type { IsolationRuntime } from "../../src/attempt/types.ts";
 import type {
@@ -38,156 +40,101 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
   const boundary = await import("../../src/attempt/operations.ts");
   let current = fixture();
   let acquisitions = 0;
-  const dockerMock = mock.module(
-    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
-    {
-      namedExports: {
-        ...di,
-        createDockerIsolationRuntime: () => ({
-          startExecution: (
-            _input: unknown,
-            reference: object,
-            management: object,
-            hooks: Parameters<
-              NonNullable<IsolationRuntime["startExecution"]>
-            >[3],
-          ) =>
-            current.isolation.startExecution?.(
-              current.plan,
-              reference,
-              management,
-              hooks,
-            ),
-          cleanupOwnedResources: current.isolation.cleanupOwnedResources,
-          verifyCleanupOutcome: current.isolation.verifyCleanupOutcome,
-          acquireHomeLease: () => {
-            acquisitions++;
-            return current.isolation.acquireHomeLease("d".repeat(64));
-          },
-        }),
-      },
-    },
+  const source = readFileSync(
+    new URL("../../src/attempt/operations.ts", import.meta.url),
+    "utf8",
   );
-  const isolationMock = mock.module(
-    new URL("../../src/attempt/operations.ts", import.meta.url).href,
+  const createExecutor = runInNewContext(
+    `${sourceDeclaration(source, "createAttemptExecutor")}\ncreateAttemptExecutor`,
     {
-      namedExports: {
-        ...boundary,
-        bindIsolationRuntime: () => ({
-          startExecution: current.isolation.startExecution,
-          cleanupOwnedResources: current.isolation.cleanupOwnedResources,
-          verifyCleanupOutcome: current.isolation.verifyCleanupOutcome,
-        }),
-      },
-    },
-  );
-  try {
-    const {
-      createAttemptExecutor: createExecutor,
-    }: typeof import("../../src/attempt/operations.ts") = await import(
-      new URL(
-        "../../src/attempt/operations.ts?request-bound-contract",
-        import.meta.url,
-      ).href
-    );
-    for (const mode of ["normal", "cancel", "busy"] as const) {
-      current = fixture(mode === "busy");
-      acquisitions = 0;
-      const request = {
-        kind: "attempt" as const,
-        purpose: "probe" as const,
-        selection: current.plan.executionSelection,
-        target: {
-          provider: current.plan.provider,
-          operationId: current.plan.operationId,
-          grantRef: current.plan.grantRef,
-          workspaceSourcePath: "C:/synthetic/work",
-          temporarySourcePath: "C:/synthetic/tmp",
-          providerHomeSourcePath: current.plan.providerHomeSourcePath,
-          providerHomeIdentityHash: current.plan.providerHomeIdentityHash,
-          providerHomeProtectionHash: current.plan.providerHomeProtectionHash,
-          localUserBindingHash: current.plan.localUserBindingHash,
-          stableLogicalHomeBindingHash:
-            current.plan.stableLogicalHomeBindingHash,
-          activeMountCapability: current.plan.activeMountCapability,
-        },
-      };
-      const executor = createExecutor(
-        request,
+      ...boundary,
+      Object,
+      WeakMap,
+      createLifecycleOperations,
+      copyPlainDataRecord: runInNewContext(
+        `${sourceDeclaration(source, "copyPlainDataRecord")}\ncopyPlainDataRecord`,
         {
-          paths: {
-            tmp: "C:/synthetic/tmp",
-            management: "C:/synthetic/management",
-          },
+          Object,
+          Array,
+          Reflect,
+          utilTypes: (await import("node:util")).types,
         },
-        { randomBytes: (size: number) => Buffer.alloc(size, 1) },
-      );
-      assert.ok(executor);
-      assert.equal("prepare" in executor, false);
-      assert.equal("commands" in executor.recordProjection, false);
-      assert.equal("providerInput" in executor.recordProjection, false);
-      assert.equal(acquisitions, 0);
+      ),
+      acquireHomeLease: () => {
+        acquisitions++;
+        return current.isolation.acquireHomeLease("d".repeat(64));
+      },
+      bindIsolationRuntime: () => ({
+        startExecution: current.isolation.startExecution,
+        cleanupOwnedResources: current.isolation.cleanupOwnedResources,
+        verifyCleanupOutcome: current.isolation.verifyCleanupOutcome,
+      }),
+      parseDockerTaskRecoveryId: di.parseDockerTaskRecoveryId,
+    },
+  ) as typeof boundary.createAttemptExecutor;
+  for (const mode of ["normal", "cancel", "busy"] as const) {
+    current = fixture(mode === "busy");
+    acquisitions = 0;
+    const request = {
+      kind: "attempt" as const,
+      purpose: "probe" as const,
+      selection: current.plan.executionSelection,
+      target: {
+        provider: current.plan.provider,
+        operationId: current.plan.operationId,
+        grantRef: current.plan.grantRef,
+        workspaceSourcePath: "C:/synthetic/work",
+        temporarySourcePath: "C:/synthetic/tmp",
+        providerHomeSourcePath: current.plan.providerHomeSourcePath,
+        providerHomeIdentityHash: current.plan.providerHomeIdentityHash,
+        providerHomeProtectionHash: current.plan.providerHomeProtectionHash,
+        localUserBindingHash: current.plan.localUserBindingHash,
+        stableLogicalHomeBindingHash: current.plan.stableLogicalHomeBindingHash,
+        activeMountCapability: current.plan.activeMountCapability,
+      },
+    };
+    const executor = createExecutor(
+      request,
+      {
+        paths: {
+          tmp: "C:/synthetic/tmp",
+          management: "C:/synthetic/management",
+        },
+      },
+      { randomBytes: (size: number) => Buffer.alloc(size, 1) },
+    );
+    assert.ok(executor);
+    assert.equal("prepare" in executor, false);
+    assert.equal("commands" in executor.recordProjection, false);
+    assert.equal("providerInput" in executor.recordProjection, false);
+    assert.equal(acquisitions, 0);
+    assert.equal(current.calls.length, 0);
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let notified: unknown = null;
+    const started = executor.start({
+      managementCapability: current.owner,
+      reference: current.reference,
+      callbacks: {
+        onStarted: () => (mode === "cancel" ? pending : undefined),
+        onCompleted: (result) => {
+          notified = result;
+        },
+      },
+    });
+    assert.equal(acquisitions, 1);
+    assert.equal(started.recoveryId, current.reference.recoveryId);
+    if (started.status !== "started") {
+      assert.equal(mode, "busy");
+      assert.equal(started.cleanupConfirmed, false);
       assert.equal(current.calls.length, 0);
-      let release!: () => void;
-      const pending = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      let notified: unknown = null;
-      const started = executor.start({
-        managementCapability: current.owner,
-        reference: current.reference,
-        callbacks: {
-          onStarted: () => (mode === "cancel" ? pending : undefined),
-          onCompleted: (result) => {
-            notified = result;
-          },
-        },
-      });
-      assert.equal(acquisitions, 1);
-      assert.equal(started.recoveryId, current.reference.recoveryId);
-      if (started.status !== "started") {
-        assert.equal(mode, "busy");
-        assert.equal(started.cleanupConfirmed, false);
-        assert.equal(current.calls.length, 0);
-        continue;
-      }
-      for (let turn = 0; turn < 100 && current.counts().cleanups === 0; turn++)
-        await Promise.resolve();
-      if (mode === "cancel") {
-        assert.equal(
-          executor.start({
-            managementCapability: current.owner,
-            reference: current.reference,
-          }).status,
-          "blocked",
-        );
-        assert.equal(
-          (
-            await executor.cancel({
-              controlCapability: started.controlCapability,
-              managementCapability: {},
-            })
-          ).status,
-          "blocked",
-        );
-        assert.equal(
-          (
-            await executor.cancel({
-              controlCapability: started.controlCapability,
-              managementCapability: current.owner,
-            })
-          ).status,
-          "requested",
-        );
-        release();
-      }
-      const result = await started.completion;
-      assert.equal(
-        result.status,
-        mode === "cancel" ? "cancelled" : "completed",
-      );
-      assert.strictEqual(result, notified);
-      assert.deepEqual(current.counts(), { cleanups: 1, releases: 1 });
+      continue;
+    }
+    for (let turn = 0; turn < 100 && current.counts().cleanups === 0; turn++)
+      await Promise.resolve();
+    if (mode === "cancel") {
       assert.equal(
         executor.start({
           managementCapability: current.owner,
@@ -195,11 +142,38 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
         }).status,
         "blocked",
       );
-      assert.equal(acquisitions, 1);
+      assert.equal(
+        (
+          await executor.cancel({
+            controlCapability: started.controlCapability,
+            managementCapability: {},
+          })
+        ).status,
+        "blocked",
+      );
+      assert.equal(
+        (
+          await executor.cancel({
+            controlCapability: started.controlCapability,
+            managementCapability: current.owner,
+          })
+        ).status,
+        "requested",
+      );
+      release();
     }
-  } finally {
-    isolationMock.restore();
-    dockerMock.restore();
+    const result = await started.completion;
+    assert.equal(result.status, mode === "cancel" ? "cancelled" : "completed");
+    assert.strictEqual(result, notified);
+    assert.deepEqual(current.counts(), { cleanups: 1, releases: 1 });
+    assert.equal(
+      executor.start({
+        managementCapability: current.owner,
+        reference: current.reference,
+      }).status,
+      "blocked",
+    );
+    assert.equal(acquisitions, 1);
   }
 });
 
@@ -734,7 +708,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
         ),
       );
       assert.equal(randoms, 2);
-      assert.equal(runtimes, 1);
+      assert.equal(runtimes, 0);
       assert.equal(homes, 0);
     }
     const dynamic = Object.defineProperty({ ...base.selection }, "provider", {

@@ -15,6 +15,7 @@ import {
 import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import type { DockerResourceExpectation } from "./plan.ts";
+import type { ResourceSnapshot } from "./types.ts";
 import {
   discoverSubmittedDockerResource,
   observeSubmittedDockerResourceAbsent,
@@ -229,11 +230,20 @@ function createRecoveryExecutor(
       expected: DockerResourceExpectation,
       signal?: AbortSignal,
       previouslyAbsent?: boolean,
-    ) => cleanupDockerResource(run, expected, signal, previouslyAbsent),
+      requireConfigurationMatch?: boolean,
+    ) =>
+      cleanupDockerResource(
+        run,
+        expected,
+        signal,
+        previouslyAbsent,
+        requireConfigurationMatch,
+      ),
     recoverObserved: (
       expectation: DockerResourceExpectation,
       options: Readonly<{
         allowAlreadyAbsent?: boolean;
+        onObserved?: (snapshot: ResourceSnapshot) => void;
       }> = Object.freeze({}),
     ) => observeExpectedDockerResource(run, expectation, options),
     discoverSubmitted: (
@@ -264,11 +274,13 @@ export type DockerResourceRecoveryOperations = Readonly<{
     expectation: DockerResourceExpectation,
     signal?: AbortSignal,
     previouslyAbsent?: boolean,
+    requireConfigurationMatch?: boolean,
   ) => Promise<boolean>;
   recoverObserved: (
     expectation: DockerResourceExpectation,
     options?: Readonly<{
       allowAlreadyAbsent?: boolean;
+      onObserved?: (snapshot: ResourceSnapshot) => void;
     }>,
   ) => boolean;
   discoverSubmitted: (

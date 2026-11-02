@@ -184,6 +184,7 @@ export function createCompletionResult(
     input.homeLeaseReleased;
   return Object.freeze({
     kind: "attempt" as const,
+    resourceSnapshot: input.resourceSnapshot ?? null,
     status: cleanupConfirmed ? status : ("blocked" as const),
     reason: cleanupConfirmed
       ? reason
@@ -243,7 +244,10 @@ export function createCompletionResult(
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     credentialAbsenceVerified: false,
-    hostPathReported: false,
+    hostPathReported:
+      input.resourceSnapshot?.resources.some(
+        (resource) => (resource.configuration.mounts?.length ?? 0) > 0,
+      ) ?? false,
     proxyCredentialReported: false,
   });
 }

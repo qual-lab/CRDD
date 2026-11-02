@@ -7,16 +7,16 @@
  * @boundary 移管前の試験入力と新しい本番オーケストレーション。
  */
 
-import type { DockerAuthenticationCommand } from "../../../docker-isolation/src/index.ts";
+import type { DockerAuthenticationCommand } from "../../../docker-isolation/tests/support/authentication.ts";
 import {
-  bindAuthenticationLifecycle,
   createAuthenticationUsing,
   prepareAuthenticationPlan,
-} from "../../../executor/src/authentication/operations.ts";
+} from "../../../executor/scripts/authentication-command-test.ts";
+import { bindAuthenticationLifecycle } from "../../../executor/scripts/authentication-command-test.ts";
 import type {
   Authentication,
   AuthenticationPlan,
-} from "../../../executor/src/authentication/types.ts";
+} from "../../../executor/scripts/authentication-command-test.ts";
 import type {
   ExecutorRequest,
   RecordProjection,
@@ -114,6 +114,11 @@ export function authenticateProvider(
     binding,
     {
       randomHex: dependencies.randomHex,
+      createManagementDirectory: (value) => ({
+        directory: value.recordPath.replace(/\.json$/u, ".management"),
+        identity: "synthetic-management",
+      }),
+      removeManagementDirectory: () => true,
       acquireProviderHomeLock: dependencies.acquireProviderHomeLock,
       beginRecovery: (value) => {
         record = value;
@@ -210,10 +215,17 @@ export function createProviderAuthenticationPlan<A extends "status" | "login">(
     ...technical,
     ...auth.projection,
   }) as AuthenticationPlan<A> & RecordProjection<"authentication">;
-  return prepareActual(provider, action, home, suffix, token, () =>
-    bindAuthenticationLifecycle({
-      ...auth,
-      projection,
-    }),
+  return prepareActual(
+    provider,
+    action,
+    home,
+    suffix,
+    token,
+    () =>
+      bindAuthenticationLifecycle({
+        ...auth,
+        projection,
+      }),
+    "C:\\synthetic\\management",
   ) as AuthenticationPlan<A> & RecordProjection<"authentication">;
 }

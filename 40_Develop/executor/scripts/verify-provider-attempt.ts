@@ -90,7 +90,8 @@ export function verifyStandaloneProviderAttempt() {
     const {hashExecutionSelection,writeCommittedJson,readCommittedJson}=await import(${JSON.stringify(domainRoot)});
     const fixtureRoot=${JSON.stringify(fixtureRoot)};
     let currentFixture=null,factoryCalls=0,forbiddenCalls=0;
-    mock.module(${JSON.stringify(isolationRoot)}, {namedExports:{...isolation,
+    const legacy=await import(${JSON.stringify(new URL("../../docker-isolation/tests/support/execution.ts", import.meta.url).href)});
+    mock.module(${JSON.stringify(new URL("../../docker-isolation/tests/support/execution.ts", import.meta.url).href)}, {namedExports:{...isolation,...legacy,
       createDockerIsolationRuntime:(input)=>{
         const fixture=currentFixture;
         assert.deepEqual(Object.keys(input),['paths']);
@@ -122,7 +123,7 @@ export function verifyStandaloneProviderAttempt() {
             assert.deepEqual(projected.configuration,executionInput.resolveIsolationCommandInput(fixture.plan,fixture.tmp));
             assert.equal(projected.stdin,fixture.plan.providerInput);
             assert.equal(recovery,fixture.recovery);assert.equal(management,fixture.management);
-            return isolation.startDockerCommandSessionCandidate(purposes,{
+            return legacy.startDockerCommandSessionCandidate(purposes,{
               startCommand:purpose=>fixture.deps.startCommand({purpose}),
               cleanup,verifyCleanup:result=>verify(result,projected.identity,recovery,management)
             },hooks);

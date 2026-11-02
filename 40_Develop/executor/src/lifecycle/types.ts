@@ -9,6 +9,7 @@ import type {
   DockerContainerConfigurationExpectation,
   DockerRuntimeDirectoryInspectionInput,
   DockerRuntimeRepairDisposalInput,
+  ResourceSnapshot,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   CompletionResult as AttemptCompletionResult,
@@ -273,6 +274,7 @@ export interface LifecycleOperation<TContext, TResult> {
 export type AuthenticationResourceTarget = AuthenticationStartContext &
   Readonly<{
     kind: "authentication";
+    managementDirectory: string;
     request: AuthenticationRequest;
     resources: AuthenticationProjection["resources"] | null;
     callbacks?: ExecutorCallbacks<"authentication">;
@@ -290,7 +292,12 @@ export type AuthenticationResourceTarget = AuthenticationStartContext &
  */
 export type ContainerResourceTarget = Readonly<{
   kind: "container";
-  configuration: DockerContainerConfigurationExpectation;
+  configuration:
+    | DockerContainerConfigurationExpectation
+    | Pick<
+        DockerContainerConfigurationExpectation,
+        "id" | "name" | "ownershipLabel"
+      >;
   managementDirectory: string;
   signal?: AbortSignal;
 }>;
@@ -308,6 +315,7 @@ export type ContainerResourceTarget = Readonly<{
 export type ContainerResourceInspection = Readonly<{
   observation: "present" | "absent" | "unknown";
   runningConfirmed: boolean;
+  snapshot: ResourceSnapshot | null;
 }>;
 
 /**

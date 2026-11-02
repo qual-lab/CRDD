@@ -47,7 +47,8 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
       readCommittedJson:(file,key)=>{if(fixture?.mode==='read_after_write')throw Error('synthetic_read_refusal');return domain.readCommittedJson(file,key);}
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
-    mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
+    const legacy=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/execution.ts"))});
+    mock.module(${JSON.stringify(url("../../../docker-isolation/tests/support/execution.ts"))},{namedExports:{...di,...legacy,
       createDockerIsolationRuntime:({paths})=>{
         const f=fixture;let cleanupResult=null,owner=null,recovery=null;
         return {
@@ -55,7 +56,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
           startExecution:(p,r,m,hooks)=>{
             f.starts++;owner=m;recovery=r;assert.equal(f.live,true);
             assert.equal(paths.tmp,path.join(f.root,'tmp'));
-            return di.startDockerCommandSessionCandidate(purposes,{
+            return legacy.startDockerCommandSessionCandidate(purposes,{
               startCommand:purpose=>({started:async()=>true,wait:async()=>{
                 assert.equal(f.live,true);f.commands.push(purpose);
                 if(purpose==='create_subscription_auth_probe'&&f.mode==='auth_wait_unknown')return null;

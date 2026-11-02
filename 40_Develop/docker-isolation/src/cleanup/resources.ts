@@ -4,6 +4,7 @@
  * @trace ARCH-000008
  */
 import { types as utilTypes } from "node:util";
+import { cleanupIsolation } from "../execution/operations.ts";
 import { codexAdviceProviderInitRequired } from "../execution/plan.ts";
 import {
   createDockerTaskRecoveryExecutor,
@@ -13,13 +14,14 @@ import { planDockerRecoveryResourceExpectations } from "./plan.ts";
 import type {
   DockerResourceReceipts,
   DockerResourceCleanupObservation,
-} from "../execution/execute.ts";
+} from "../execution/types.ts";
 import type {
   DockerResourceExpectationSet,
   ResourceTarget,
   ResourceInspection,
   ResourceCleanupResult,
   ResourceCleanupCallbacks,
+  ResourceSnapshot,
 } from "./types.ts";
 
 /**
@@ -115,6 +117,7 @@ export function inspectDockerResources(
   purpose?: keyof DockerResourceReceipts,
 ): ResourceInspection {
   const resources: Array<ResourceInspection["resources"][number]> = [];
+  const snapshots = new Map<string, ResourceSnapshot["resources"][number]>();
   let reason = "docker_task_recovery_resource_unconfirmed";
   let configCleanupConfirmed = true;
   let operations:
@@ -195,7 +198,13 @@ export function inspectDockerResources(
             target.signal?.throwIfAborted();
             const present = operations.recoverObserved(
               { ...expected, dockerId },
-              { allowAlreadyAbsent: false },
+              {
+                allowAlreadyAbsent: false,
+                onObserved: (snapshot) => {
+                  for (const resource of snapshot.resources)
+                    snapshots.set(resource.key, resource);
+                },
+              },
             );
             target.signal?.throwIfAborted();
             if (present) {
@@ -231,7 +240,13 @@ export function inspectDockerResources(
               dockerId !== null &&
               operations.recoverObserved(
                 { ...expected, dockerId },
-                { allowAlreadyAbsent: false },
+                {
+                  allowAlreadyAbsent: false,
+                  onObserved: (snapshot) => {
+                    for (const resource of snapshot.resources)
+                      snapshots.set(resource.key, resource);
+                  },
+                },
               );
             target.signal?.throwIfAborted();
             if (present) {
@@ -265,6 +280,9 @@ export function inspectDockerResources(
     }
   }
   return Object.freeze<ResourceInspection>({
+    resourceSnapshot: Object.freeze({
+      resources: Object.freeze([...snapshots.values()]),
+    }),
     status: completed && configCleanupConfirmed ? "completed" : "blocked",
     operationId: target.operationId,
     recoveryId: target.recoveryId,
@@ -333,6 +351,7 @@ export async function cleanupResourceSet(
       let dockerId = receipt.dockerId;
       let observation: DockerResourceCleanupObservation["observation"] =
         "not_requested";
+      const requireConfigurationMatch = dockerId === null;
       if (receipt.submitted) {
         if (!operations)
           throw Error("docker_task_recovery_executor_unavailable");
@@ -368,6 +387,7 @@ export async function cleanupResourceSet(
               { ...expected, dockerId },
               target.signal,
               target.previouslyAbsent?.includes(entry.purpose) === true,
+              requireConfigurationMatch,
             );
             target.signal?.throwIfAborted();
             if (absent) break;
@@ -426,80 +446,178 @@ export async function cleanupDockerResources(
     readonly DockerResourceCleanupObservation[]
   > = {},
 ): Promise<ResourceCleanupResult> {
-  let operations:
-    | (DockerResourceRecoveryOperations & { close: () => boolean })
-    | null = null;
-  let configCleanupConfirmed = true,
-    finalNoticeConfirmed = true;
-  let outcome: Omit<
-    ResourceCleanupResult,
-    "operationId" | "recoveryId" | "configCleanupConfirmed"
-  > = {
-    status: "blocked",
-    reason: "docker_task_recovery_execution_unconfirmed",
-    dockerCleanupConfirmed: false,
-    resources: [],
-  };
+  let resources: readonly DockerResourceCleanupObservation[] = [];
+  let resourceSnapshot: ResourceSnapshot = Object.freeze({
+    resources: Object.freeze([]),
+  });
+  let dockerCleanupConfirmed = false,
+    configCleanupConfirmed = true;
+  let reason = "docker_task_recovery_execution_unconfirmed";
+  let completed = false;
+  let resourcesNoticeIssued = false;
   try {
     const entries = resourceExpectations(target);
     target.signal?.throwIfAborted();
-    if (entries.some((entry) => target.receipts[entry.purpose].submitted)) {
+    const submitted = entries.some(
+      (entry) => target.receipts[entry.purpose].submitted,
+    );
+    const snapshot: ResourceSnapshot = Object.freeze({
+      resources: Object.freeze(
+        entries.map((entry) => {
+          const expected = entry.expectations[0];
+          if (!expected) throw Error("docker_task_recovery_resource_missing");
+          const receipt = target.receipts[entry.purpose];
+          return Object.freeze({
+            key: entry.purpose,
+            identity: Object.freeze({
+              kind: expected.kind,
+              dockerId: receipt.dockerId,
+              name: expected.expectedName,
+              ownershipLabel: expected.ownershipLabel,
+            }),
+            request: receipt.submitted
+              ? ("unknown" as const)
+              : ("not_issued" as const),
+            configuration: Object.freeze({
+              image: null,
+              command: null,
+              environmentNames: null,
+              mounts: null,
+              networks: null,
+              internal: null,
+            }),
+          });
+        }),
+      ),
+    });
+    resourceSnapshot = snapshot;
+    if (!submitted) {
+      resources = Object.freeze(
+        snapshot.resources
+          .map((resource) =>
+            Object.freeze({
+              purpose: resource.key as keyof DockerResourceReceipts,
+              plannedResourceName: resource.identity.name,
+              dockerId: null,
+              observation: "not_requested" as const,
+            }),
+          )
+          .sort((a, b) => a.purpose.localeCompare(b.purpose)),
+      );
+      dockerCleanupConfirmed = true;
+    } else {
       if (!target.managementDirectory)
         throw Error("docker_task_recovery_host_borrow_unconfirmed");
-      const created = createDockerTaskRecoveryExecutor({
-        managementDirectory: target.managementDirectory,
-        ...(target.signal ? { signal: target.signal } : {}),
-      });
-      if (created.status !== "ready" || !created.executor) {
-        outcome = { ...outcome, reason: created.reason };
-        configCleanupConfirmed = created.cleanupConfirmed;
-        throw Error("recovery_setup_stopped");
-      }
-      operations = created.executor;
-    }
-    outcome = await cleanupResourceSet(
-      {
-        expectations: entries,
-        receipts: target.receipts,
-        ...(target.signal ? { signal: target.signal } : {}),
-        ...(target.previouslyAbsent
-          ? { previouslyAbsent: target.previouslyAbsent }
-          : {}),
-      },
-      operations,
-      callbacks,
-    );
-  } catch {
-    // setup失敗の一次理由と元参照を保持する。
-  } finally {
-    if (operations) {
+      const execution = cleanupIsolation(
+        {
+          managementDirectory: target.managementDirectory,
+          resources: snapshot,
+          cleanupOrder: entries.map((entry) => entry.purpose),
+          setupTimeoutMs: 10_000,
+          unreceiptedAbsence: "retain",
+          verifyLabelAbsence: false,
+          previouslyAbsent: target.previouslyAbsent ?? [],
+          discovery: entries.map((entry) => ({
+            key: entry.purpose,
+            configurations: entry.expectations,
+          })),
+        },
+        {
+          onCleanupSubmitting: (key) =>
+            completeRecoveryNotice(callbacks.onResourceInspecting, key),
+          onResourceIdentified: (key, current) => {
+            const id = current.resources.find(
+              (resource) => resource.key === key,
+            )?.identity.dockerId;
+            if (!id || !callbacks.onResourceIdentified)
+              throw Error("docker_task_recovery_checkpoint_unconfirmed");
+            completeRecoveryNotice(callbacks.onResourceIdentified, key, id);
+          },
+          onResourcesClosed: (snapshot, observations) => {
+            resourcesNoticeIssued = true;
+            const current = Object.freeze(
+              snapshot.resources
+                .map((resource) =>
+                  Object.freeze({
+                    purpose: resource.key as keyof DockerResourceReceipts,
+                    plannedResourceName: resource.identity.name,
+                    dockerId: resource.identity.dockerId,
+                    observation:
+                      observations.find((value) => value.key === resource.key)
+                        ?.observation ?? ("unknown" as const),
+                  }),
+                )
+                .sort((a, b) => a.purpose.localeCompare(b.purpose)),
+            );
+            completeRecoveryNotice(callbacks.onResourcesClosed, current);
+          },
+        },
+      );
+      const abort = () => {
+        void execution.cancel().catch(() => {});
+      };
+      target.signal?.addEventListener("abort", abort, { once: true });
+      if (target.signal?.aborted) abort();
       try {
-        configCleanupConfirmed = operations.close() === true;
-      } catch {
-        configCleanupConfirmed = false;
+        const result = await execution.completion;
+        resourceSnapshot = result.resources;
+        resources = Object.freeze(
+          result.resources.resources
+            .map((resource) =>
+              Object.freeze({
+                purpose: resource.key as keyof DockerResourceReceipts,
+                plannedResourceName: resource.identity.name,
+                dockerId: resource.identity.dockerId,
+                observation:
+                  result.cleanup.observations.find(
+                    (value) => value.key === resource.key,
+                  )?.observation ?? ("unknown" as const),
+              }),
+            )
+            .sort((a, b) => a.purpose.localeCompare(b.purpose)),
+        );
+        configCleanupConfirmed = result.cleanup.configCleanupConfirmed;
+        dockerCleanupConfirmed =
+          result.processTerminationConfirmed &&
+          resources.length === 5 &&
+          resources.every((value) => value.observation !== "unknown");
+        if (result.failure?.stage === "notification")
+          reason = "docker_task_recovery_checkpoint_unconfirmed";
+        else if (!dockerCleanupConfirmed)
+          reason = "docker_task_recovery_resource_unconfirmed";
+        if (result.failure?.stage === "notification")
+          throw Error("docker_task_recovery_checkpoint_unconfirmed");
+      } finally {
+        target.signal?.removeEventListener("abort", abort);
       }
     }
+    reason = "docker_task_recovery_checkpoint_unconfirmed";
+    if (!resourcesNoticeIssued)
+      completeRecoveryNotice(callbacks.onResourcesClosed, resources);
+    target.signal?.throwIfAborted();
+    completed = dockerCleanupConfirmed;
+    reason = completed
+      ? "docker_task_recovery_resources_clean"
+      : "docker_task_recovery_resource_unconfirmed";
+  } catch {
+    // 一次理由、元参照、取得済み実IDを保持する。自動再実行はしない。
   }
   try {
-    completeRecoveryNotice(callbacks.onCleanupCompleted, outcome.resources);
+    completeRecoveryNotice(callbacks.onCleanupCompleted, resources);
   } catch {
-    finalNoticeConfirmed = false;
+    if (completed) reason = "docker_task_recovery_checkpoint_unconfirmed";
+    completed = false;
   }
   return Object.freeze({
-    ...outcome,
-    operationId: target.operationId,
-    recoveryId: target.recoveryId,
-    configCleanupConfirmed,
-    status:
-      outcome.status === "completed" &&
-      configCleanupConfirmed &&
-      finalNoticeConfirmed
-        ? "completed"
-        : "blocked",
+    status: completed && configCleanupConfirmed ? "completed" : "blocked",
     reason: !configCleanupConfirmed
       ? "docker_task_recovery_config_cleanup_unconfirmed"
-      : !finalNoticeConfirmed && outcome.status === "completed"
-        ? "docker_task_recovery_checkpoint_unconfirmed"
-        : outcome.reason,
+      : reason,
+    operationId: target.operationId,
+    recoveryId: target.recoveryId,
+    dockerCleanupConfirmed,
+    configCleanupConfirmed,
+    resourceSnapshot,
+    resources,
   });
 }

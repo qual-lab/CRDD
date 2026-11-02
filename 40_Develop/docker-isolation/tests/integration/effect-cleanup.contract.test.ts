@@ -23,7 +23,7 @@ import {
   type DockerResourceReceipts,
   type OwnedCommandHandle,
 } from "../../src/index.ts";
-import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execute.ts";
+import { createDockerIsolationRuntimeCandidate } from "../support/execution.ts";
 
 /**
  * 移管したHome排他の技術Identityと元Handle搬送を反証する。
@@ -37,7 +37,7 @@ import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execu
  */
 test("Home技術排他は既存namespaceと元Leaseを維持し不正入力でNativeを呼ばない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/execute.ts", import.meta.url),
+    new URL("../support/execution.ts", import.meta.url),
     "utf8",
   );
   const declaration = sourceDeclaration(source, "acquireHomeLease");
@@ -342,11 +342,11 @@ function createEffectFixture(
  * @precondition 固定五Mount観測と有限Docker Transport。
  * @stimulus 正常、保護欠落、RW化、Source差。
  * @observation cleanup結果と元IDのrm発行。
- * @oracle 正常だけ回収し、不整合ではrm0。
+ * @oracle 元実ID・名前・所有Labelが同じなら、Mount差に関係なく回収する。
  * @cleanup 実Docker・Process資源は作らない。
  * @boundary 本番command-runtime→inspect構成照合→清掃。
  */
-test("通常Runtimeは保護付きWorkspaceの五Mountを照合して回収する", async () => {
+test("通常Runtimeの元Receipt回収は保護付きWorkspaceのMount構成差で拒否しない", async () => {
   for (const mode of ["normal", "missing", "rw", "source"] as const) {
     const dockerId = "d".repeat(64);
     let fixture: ReturnType<typeof createEffectFixture>;
@@ -441,12 +441,12 @@ test("通常Runtimeは保護付きWorkspaceの五Mountを照合して回収す�
       fixture.recoveryCapability,
       fixture.managementCapability,
     );
-    assert.equal(cleanup.confirmed, mode === "normal", mode);
+    assert.equal(cleanup.confirmed, true, mode);
     assert.equal(
       fixture.invocations.some(
         ({ argv }) => argv.includes("rm") && argv.includes(dockerId),
       ),
-      mode === "normal",
+      true,
       mode,
     );
   }
@@ -1109,18 +1109,18 @@ test("通常Effect cleanupは実測同形の認証Probe none Networkだけを回
 });
 
 /**
- * 通常Effect cleanupは認証Probeの空・別・追加Networkを削除しないを検証する。
+ * 元Receipt対象の回収でNetwork構成差だけを拒否理由にしないことを検証する。
  *
- * @responsibility 通常Effect cleanupは認証Probeの空・別・追加Networkを削除しないの合否判定を所有する。
+ * @responsibility 回収Identityと構成診断の条件を分離して検証する。
  * @trace ERB-IT-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 通常Effect cleanupは認証Probeの空・別・追加Networkを削除しないの対象操作を実行する。
+ * @stimulus 元実ID・名前・所有Labelを固定してNetwork構成だけ変更する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-004=Direct Boundary: docker-isolation Test Source→対象契約
  */
-test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除しない", async () => {
+test("通常Effect cleanupは元Receipt対象のNetwork構成差で回収を拒否しない", async () => {
   const cases = [
     Object.freeze({}),
     Object.freeze({ foreign: Object.freeze({}) }),
@@ -1147,36 +1147,33 @@ test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除し
       fixture.recoveryCapability,
       fixture.managementCapability,
     );
-    assert.equal(cleanup.confirmed, false);
-    assert.equal(cleanup.containersAbsent, false);
+    assert.equal(cleanup.confirmed, true);
+    assert.equal(cleanup.containersAbsent, true);
     assert.equal(
       fixture.invocations.some(
         ({ argv }) => argv.includes("rm") && argv.includes("--force"),
       ),
-      false,
+      true,
     );
-    assert.equal(fixture.counts().configRemoved, 0);
+    assert.equal(fixture.counts().configRemoved, 1);
   }
 });
 
 /**
- * 通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する。
+ * 元Receipt対象の通常清掃はInit差を識別不一致として扱わない。
  *
  * @responsibility 起動計画に結合したProvider receiptを清掃前に再検査する。
  * @trace ERB-IT-004
  * @precondition init要否を指定した技術Planと合成inspect応答を使う。
  * @stimulus 通常清掃へexact Provider receiptを渡す。
  * @observation 構成判定、削除発行と清掃完了値を観測する。
- * @oracle Codex助言はtrueだけ、Claude助言は未記載／null／falseだけを受理し、不一致で削除0となる。
+ * @oracle 元実ID・名前・所有Label一致ならInitに関係なく回収する。実行前検査は別試験で維持する。
  * @cleanup N/A: 疑似Docker Processは各waitで終了し実Containerを作らない。
  * @boundary ERB-IT-004=Direct Boundary: Provider receipt→清掃前inspect
  */
-test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する", async () => {
+test("通常清掃は元Receipt対象のInit構成差で回収を拒否しない", async () => {
   for (const initRequired of [true, false]) {
     for (const init of [true, null, false, undefined, "false", 1]) {
-      const isExpected = initRequired
-        ? init === true
-        : init === undefined || init === null || init === false;
       const providerId = "c".repeat(64);
       const fixture = createEffectFixture({
         initRequired,
@@ -1223,10 +1220,10 @@ test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒�
         fixture.recoveryCapability,
         fixture.managementCapability,
       );
-      assert.equal(result.confirmed, isExpected);
+      assert.equal(result.confirmed, true);
       assert.equal(
         fixture.invocations.filter((call) => call.argv.includes("rm")).length,
-        isExpected ? 1 : 0,
+        1,
       );
     }
   }
@@ -1297,11 +1294,11 @@ test("Initの省略と不正なHostConfigを混同しない", () => {
  * @precondition 固定技術Planと用途別の合成inspect応答を使う。
  * @stimulus Init未記載／null／false／true／不正型を通常清掃へ渡す。
  * @observation 回収完了とrm発行件数を読む。
- * @oracle 未記載／null／falseだけで回収し、trueと不正型では削除0となる。
+ * @oracle Init差で元Receiptの回収を拒否しない。別対象の拒否は独立に検証する。
  * @cleanup N/A: 模擬Docker実行であり実Containerを作らない。
  * @boundary ERB-IT-004=Direct Boundary: 通常清掃→Proxy／認証Probe inspect
  */
-test("通常清掃でProxyと認証ProbeのInit未指定を解釈する", async () => {
+test("通常清掃はProxyと認証ProbeのInit構成を識別条件へ含めない", async () => {
   for (const purpose of ["proxy", "auth"] as const) {
     for (const init of [undefined, null, false, true, "false", 1]) {
       const dockerId = "e".repeat(64);
@@ -1355,11 +1352,10 @@ test("通常清掃でProxyと認証ProbeのInit未指定を解釈する", async 
         fixture.recoveryCapability,
         fixture.managementCapability,
       );
-      const isExpected = init === undefined || init === null || init === false;
-      assert.equal(result.confirmed, isExpected, `${purpose}:${String(init)}`);
+      assert.equal(result.confirmed, true, `${purpose}:${String(init)}`);
       assert.equal(
         fixture.invocations.filter((call) => call.argv.includes("rm")).length,
-        isExpected ? 1 : 0,
+        1,
       );
     }
   }

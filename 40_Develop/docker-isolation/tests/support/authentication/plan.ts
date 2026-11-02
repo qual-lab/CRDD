@@ -4,8 +4,229 @@
  * @trace ARCH-000008
  */
 import path from "node:path";
-import type { DockerAuthenticationResources } from "../cleanup/types.ts";
+import type { DockerAuthenticationResources } from "../../../src/cleanup/types.ts";
+import { dockerContainerInitObservationMatches } from "../../../src/cleanup/init.ts";
 import { types as utilTypes } from "node:util";
+
+/**
+ * 元認証create操作と現在inspectの実ID・隔離構成を照合する。
+ * @responsibility 通常Taskの照合条件を緩めず認証五資源の固定構成を評価する。
+ * @trace ARCH-000008
+ * @input input: 単一inspect実体。command: 元計画のcreate操作。dockerId: 元create結果。proxyEgressConnected: 元接続段階。
+ * @returns 全技術条件一致時だけtrue。
+ * @precondition 元操作の所属、観測成功、単一実体は呼出し元が確認する。
+ * @postcondition Labelや名前だけで処置を許可しない。
+ * @effect N/A: 同期構成比較のみ。
+ * @failure 不足・不正・構成差はfalseであり不存在ではない。
+ * @invariant 通常Taskの構成条件を変更しない。
+ * @boundary 元認証計画とDocker wire観測。
+ * @security Proxy秘密値は比較・保存・公開せず固定形式と非秘密構成を確認する。
+ * @concurrency 元計画の凍結入力だけを参照する。
+ */
+export function dockerAuthenticationResourceConfigurationMatches(
+  input: unknown,
+  command: DockerAuthenticationCommand,
+  dockerId: string,
+  proxyEgressConnected: boolean,
+  imageMetadata: Readonly<Record<string, unknown>> | null = null,
+) {
+  if (
+    !/^[a-f0-9]{64}$/u.test(dockerId) ||
+    !input ||
+    typeof input !== "object" ||
+    Array.isArray(input)
+  )
+    return false;
+  const resource = input as Record<string, unknown>;
+  const argv = command.argv;
+  const network =
+    command.purpose === "create_internal_network" ||
+    command.purpose === "create_egress_network";
+  const container = ["create_probe", "create_login", "create_proxy"].includes(
+    command.purpose,
+  );
+  if ((!network && !container) || resource.Id !== dockerId) return false;
+  const labelIndex = argv.indexOf("--label");
+  const label = argv[labelIndex + 1];
+  if (labelIndex < 0 || !label) return false;
+  const [labelKey, labelValue] = label.split("=");
+  const config = resource.Config as Record<string, unknown> | undefined;
+  const labels = (network ? resource.Labels : config?.Labels) as
+    | Record<string, unknown>
+    | undefined;
+  const name = network ? argv.at(-1) : argv[argv.indexOf("--name") + 1];
+  if (
+    !name ||
+    resource.Name !== (network ? name : `/${name}`) ||
+    labels?.[labelKey ?? ""] !== labelValue
+  )
+    return false;
+  if (network)
+    return (
+      resource.Driver === "bridge" &&
+      resource.Scope === "local" &&
+      resource.Internal === (command.purpose === "create_internal_network")
+    );
+  const host = resource.HostConfig as Record<string, unknown> | undefined;
+  if (!config || !host) return false;
+  if (!imageMetadata) return false;
+  const imageIndex = argv.findIndex((value) =>
+    /^sha256:[a-f0-9]{64}$/u.test(value),
+  );
+  if (
+    imageIndex < 0 ||
+    config?.Image !== argv[imageIndex] ||
+    config.User !== "65534:65534" ||
+    host?.ReadonlyRootfs !== true ||
+    host.Privileged !== false
+  )
+    return false;
+  if (
+    JSON.stringify(host.CapDrop) !== '["ALL"]' ||
+    !(
+      host.CapAdd === null ||
+      (Array.isArray(host.CapAdd) && host.CapAdd.length === 0)
+    )
+  )
+    return false;
+  if (
+    !Array.isArray(host.SecurityOpt) ||
+    host.SecurityOpt.length !== 1 ||
+    !["no-new-privileges", "no-new-privileges:true"].includes(
+      String(host.SecurityOpt[0]),
+    )
+  )
+    return false;
+  if (!dockerContainerInitObservationMatches(host, false)) return false;
+  const mode =
+    argv
+      .find((value) => value.startsWith("--network="))
+      ?.slice("--network=".length) ?? argv[argv.indexOf("--network") + 1];
+  if (!mode || host.NetworkMode !== mode) return false;
+  const networks = (
+    resource.NetworkSettings as Record<string, unknown> | undefined
+  )?.Networks;
+  if (!networks || typeof networks !== "object" || Array.isArray(networks))
+    return false;
+  const expectedNetworks = [mode];
+  if (command.purpose === "create_proxy" && proxyEgressConnected)
+    expectedNetworks.push(mode.replace("crdd-internal-", "crdd-egress-"));
+  if (
+    JSON.stringify(Object.keys(networks).sort()) !==
+    JSON.stringify(expectedNetworks.sort())
+  )
+    return false;
+  if (!Array.isArray(resource.Mounts)) return false;
+  if (
+    resource.Mounts.some(
+      (mount: Record<string, unknown>) =>
+        mount.Type !== "bind" && mount.Type !== "tmpfs",
+    )
+  )
+    return false;
+  const mounts = resource.Mounts.filter(
+    (mount: Record<string, unknown>) => mount.Type === "bind",
+  );
+  const mountIndex = argv.indexOf("--mount");
+  if (mountIndex < 0) {
+    if (mounts.length !== 0) return false;
+  } else {
+    const declaration = argv[mountIndex + 1];
+    if (!declaration || mounts.length !== 1) return false;
+    const source = /(?:^|,)src=([^,]+)/u.exec(declaration)?.[1];
+    const mount = mounts[0] as Record<string, unknown>;
+    if (
+      mount.Type !== "bind" ||
+      mount.Source !== source ||
+      mount.Destination !== "/provider-home" ||
+      mount.RW !== !declaration.endsWith(",readonly") ||
+      mount.Propagation !== "rprivate"
+    )
+      return false;
+  }
+  const tmpfs = host.Tmpfs;
+  if (command.purpose !== "create_probe") {
+    const expected =
+      command.purpose === "create_proxy"
+        ? "/tmp:rw,noexec,nosuid,size=16777216"
+        : "/tmp:rw,noexec,nosuid,size=33554432";
+    if (
+      !tmpfs ||
+      typeof tmpfs !== "object" ||
+      Array.isArray(tmpfs) ||
+      Object.keys(tmpfs).length !== 1 ||
+      typeof (tmpfs as Record<string, unknown>)["/tmp"] !== "string" ||
+      JSON.stringify(
+        String((tmpfs as Record<string, unknown>)["/tmp"])
+          .split(",")
+          .sort(),
+      ) !== JSON.stringify(expected.slice(5).split(",").sort())
+    )
+      return false;
+  } else if (
+    tmpfs !== undefined &&
+    tmpfs !== null &&
+    !(typeof tmpfs === "object" && Object.keys(tmpfs).length === 0)
+  )
+    return false;
+  const workdirIndex = argv.indexOf("--workdir=/work");
+  if (
+    config.WorkingDir !==
+    (workdirIndex >= 0 ? "/work" : (imageMetadata.WorkingDir ?? ""))
+  )
+    return false;
+  if (
+    JSON.stringify(config.Entrypoint ?? null) !==
+    JSON.stringify(imageMetadata.Entrypoint ?? null)
+  )
+    return false;
+  const payload = argv.slice(imageIndex + 1);
+  if (
+    JSON.stringify(config.Cmd ?? null) !==
+    JSON.stringify(payload.length ? payload : (imageMetadata.Cmd ?? null))
+  )
+    return false;
+  if (!Array.isArray(config.Env) || !Array.isArray(imageMetadata.Env))
+    return false;
+  const expectedEnvironment = new Map<string, string>();
+  for (const entry of imageMetadata.Env) {
+    if (typeof entry !== "string" || !entry.includes("=")) return false;
+    const key = entry.slice(0, entry.indexOf("="));
+    if (expectedEnvironment.has(key)) return false;
+    expectedEnvironment.set(key, entry);
+  }
+  for (let index = 0; index < imageIndex; index += 1) {
+    if (argv[index] !== "--env") continue;
+    const expected = argv[index + 1];
+    if (!expected) return false;
+    expectedEnvironment.set(expected.slice(0, expected.indexOf("=")), expected);
+  }
+  if (config.Env.length !== expectedEnvironment.size) return false;
+  const observedKeys = new Set<string>();
+  for (const entry of config.Env) {
+    if (typeof entry !== "string" || !entry.includes("=")) return false;
+    const key = entry.slice(0, entry.indexOf("="));
+    if (observedKeys.has(key) || !expectedEnvironment.has(key)) return false;
+    observedKeys.add(key);
+    const expected = expectedEnvironment.get(key) as string;
+    if (key === "CRDD_PROXY_AUTH") {
+      if (!/^CRDD_PROXY_AUTH=[a-f0-9]{64}$/u.test(entry)) return false;
+    } else if (key.endsWith("_PROXY") && expected.includes("http://crdd:")) {
+      if (
+        entry.replace(
+          /http:\/\/crdd:[a-f0-9]{64}@/u,
+          "http://crdd:<secret>@",
+        ) !==
+        expected.replace(
+          /http:\/\/crdd:[a-f0-9]{64}@/u,
+          "http://crdd:<secret>@",
+        )
+      )
+        return false;
+    } else if (entry !== expected) return false;
+  }
+  return true;
+}
 
 /**
  * 検査済み認証起動記述と借用Homeの技術入力。

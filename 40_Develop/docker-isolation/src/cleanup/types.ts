@@ -7,8 +7,42 @@
 import type {
   DockerResourceReceipts,
   DockerResourceCleanupObservation,
-} from "../execution/execute.ts";
+} from "../execution/types.ts";
 import type { DockerResourceExpectation } from "./plan.ts";
+
+/** 元Receiptの最小識別情報。実行構成は削除条件へ使わない。 */
+export type ResourceIdentity = Readonly<{
+  kind: "container" | "network";
+  dockerId: string | null;
+  name: string;
+  ownershipLabel: string;
+}>;
+
+/** 非秘密の構成投影。環境値・Command引数は既定で非公開にする。 */
+export type ResourceConfiguration = Readonly<{
+  image: string | null;
+  command: readonly string[] | null;
+  environmentNames: readonly string[] | null;
+  mounts:
+    | readonly Readonly<{
+        source: string;
+        target: string;
+        readOnly: boolean;
+      }>[]
+    | null;
+  networks: readonly string[] | null;
+  internal: boolean | null;
+}>;
+
+/** 資源の観測事実。Snapshotは保存指示や削除Authorityではない。 */
+export type ResourceSnapshot = Readonly<{
+  resources: readonly Readonly<{
+    key: string;
+    identity: ResourceIdentity;
+    request: "not_issued" | "issued" | "unknown";
+    configuration: ResourceConfiguration;
+  }>[];
+}>;
 
 /**
  * 元技術構成から得た回収順と構成候補。
@@ -36,6 +70,7 @@ export type DockerResourceExpectationSet = readonly Readonly<{
  * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
  */
 export type AuthenticationCleanupResult = Readonly<{
+  resourceSnapshot?: ResourceSnapshot;
   confirmed: boolean;
   processCompletionConfirmed: boolean;
 }>;
@@ -153,6 +188,7 @@ export type ResourceTarget = Readonly<{
  * @compatibility 既存Attempt観測の値と同期返却を維持する。
  */
 export type ResourceInspection = Readonly<{
+  resourceSnapshot: ResourceSnapshot;
   status: "completed" | "blocked";
   operationId: string;
   recoveryId: string;
@@ -178,6 +214,7 @@ export type ResourceInspection = Readonly<{
  * @compatibility Directory結果のために既存fieldや意味を変更しない。
  */
 export type ResourceCleanupResult = Readonly<{
+  resourceSnapshot?: ResourceSnapshot;
   status: "completed" | "blocked";
   operationId: string;
   recoveryId: string;
