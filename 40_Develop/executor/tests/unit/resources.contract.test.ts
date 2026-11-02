@@ -8,15 +8,18 @@
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
+
 import type {
   DockerRuntimeDirectoryCleanupResult,
   DockerRuntimeDirectoryInspectionInput,
-  DockerRuntimeRepairCheckpoint,
   DockerRuntimeRepairDisposalInput,
   DockerRuntimeRepairInput,
   DockerRuntimeRepairResult,
+} from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import type {
+  DockerRuntimeRepairCheckpoint,
   DockerRuntimeRepairRetentionTargets,
-} from "../../../docker-isolation/src/index.ts";
+} from "../../../docker-isolation/src/docker-desktop/types.ts";
 import type { ResourceTarget } from "../../src/index.ts";
 
 /**
@@ -55,24 +58,30 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     {
       namedExports: {
         ...original,
-        createDockerContainerBinding: unexpected,
-        inspectDockerContainer: unexpected,
-        observeDockerContainerAbsence: unexpected,
-        cleanupDockerContainer: unexpected,
         createDockerTaskRecoveryExecutor: unexpected,
         planDockerRecoveryResourceExpectations: unexpected,
         codexAdviceProviderInitRequired: unexpected,
-        observeDockerRuntimeRepairRetention: (input: unknown) => {
-          calls.push(input);
+        inspectIsolation: (target: { kind: string; input: unknown }) => {
+          assert.equal(target.kind, "docker_runtime_directory");
+          calls.push(target.input);
           return targets;
         },
-        disposeDockerRuntimeRepairDirectory: (input: unknown) => {
-          calls.push(input);
+        cleanupIsolation: (target: { kind: string; input: unknown }) => {
+          assert.equal(target.kind, "docker_runtime_directory");
+          calls.push(target.input);
           return cleanup;
         },
         observeDockerRuntimeBackendState: unexpected,
         observeDockerRuntimeEngine: unexpected,
         restartDockerRuntime: unexpected,
+        restartDockerEnvironment: (request: {
+          mode: string;
+          input: unknown;
+        }) => {
+          assert.equal(request.mode, "repair");
+          calls.push(request.input);
+          return repaired;
+        },
         runDockerRuntimeRepairSession: (input: unknown) => {
           calls.push(input);
           return repaired;
@@ -84,9 +93,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     const { inspectResources, cleanupResources } = await import(
       "../../src/lifecycle/cleanup.ts"
     );
-    const { restartDockerEnvironment } = await import(
-      "../../src/environment/execute.ts"
-    );
+    const { restartDockerEnvironment } = await import("../../src/index.ts");
     const controller = new AbortController();
     const checkpoint: DockerRuntimeRepairCheckpoint = {
       actions: Object.fromEntries(

@@ -7,23 +7,26 @@
  * @scope 模擬Docker Process。実Provider成功は主張しない。
  * @boundary 技術Plan→固定実行→清掃と現在観測。
  */
+
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createHash } from "node:crypto";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import type {
+  DockerIsolationCommandInput,
+  DockerResourceReceipts,
+} from "../../../executor/src/attempt/types.ts";
+import { dockerContainerInitObservationMatches } from "../../src/cleanup/init.ts";
+import type { OwnedCommandHandle } from "../../src/process/start.ts";
 import {
-  planDockerIsolationCommands,
-  dockerContainerInitObservationMatches,
-  type DockerIsolationCommandInput,
-  type DockerIsolationCommand,
+  createDockerIsolationRuntimeCandidate,
   type DockerIsolationRuntimePlan,
-  type DockerResourceReceipts,
-  type OwnedCommandHandle,
-} from "../../src/index.ts";
-import { createDockerIsolationRuntimeCandidate } from "../support/execution.ts";
+} from "../support/execution.ts";
+import type { DockerIsolationCommand } from "../support/execution-plan.ts";
+import { planDockerIsolationCommands } from "../support/execution-plan.ts";
 
 /**
  * 移管したHome排他の技術Identityと元Handle搬送を反証する。

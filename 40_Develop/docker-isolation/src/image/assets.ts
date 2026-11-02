@@ -4,6 +4,11 @@
  * @responsibility 配置と固定資産を所有し、ProviderのCLI解釈や認証・実行許可を生成しない。
  * @trace ARCH-000008
  */
+import type {
+  DockerExecutionLocations,
+  DockerProviderAssetMap,
+} from "./types.ts";
+
 export const DIAGNOSTIC_IMAGE =
   "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
 
@@ -66,15 +71,17 @@ Object.freeze(CLAUDE.identity);
  * @security 秘密・Host Path・上位Authorityなし。
  * @concurrency N/A: 不変データのみ。
  */
-export function describeDockerProviderAssets<P extends "codex" | "claude">(
-  provider: P,
-): P extends "codex" ? typeof CODEX : typeof CLAUDE {
+export function describeDockerProviderAssets<
+  P extends keyof DockerProviderAssetMap,
+>(provider: P): DockerProviderAssetMap[P];
+export function describeDockerProviderAssets(
+  provider: keyof DockerProviderAssetMap,
+): DockerProviderAssetMap[keyof DockerProviderAssetMap] {
   if (provider !== "codex" && provider !== "claude")
     throw new Error("docker_provider_assets_invalid");
-  return (provider === "codex" ? CODEX : CLAUDE) as P extends "codex"
-    ? typeof CODEX
-    : typeof CLAUDE;
+  return provider === "codex" ? CODEX : CLAUDE;
 }
+
 /**
  * CLI引数生成へ渡す実行位置だけを返す。
  * @responsibility 実行Path・Schema・Home・設定の配置を一箇所から結合する。
@@ -93,7 +100,7 @@ export function describeDockerProviderAssets<P extends "codex" | "claude">(
 export function describeDockerProviderExecutionLocations(
   provider: "codex" | "claude",
   purpose: "task" | "probe" | "advice",
-) {
+): DockerExecutionLocations {
   if (
     (provider !== "codex" && provider !== "claude") ||
     !["task", "probe", "advice"].includes(purpose)

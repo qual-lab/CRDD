@@ -14,18 +14,10 @@ import {
   planProviderExecution,
   resolveAiModelSelection,
 } from "../../ai-adapter/src/index.ts";
-import {
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-  describeDockerProxyTopology,
-  prepareDockerNetworkPolicy,
-} from "../../docker-isolation/src/index.ts";
+import { describeIsolationCapabilities } from "../../docker-isolation/src/index.ts";
 import { hashExecutionSelection } from "../../domain-model/src/index.ts";
-import {
-  prepareAttempt,
-  resolveValidatedPlan,
-} from "../src/attempt/operations.ts";
-import type { AttemptPlan } from "../src/attempt/types.ts";
+import type { TestAttemptPlan as AttemptPlan } from "./executor-test.ts";
+import { prepareAttempt, resolveValidatedPlan } from "./executor-test.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";
 
@@ -99,7 +91,7 @@ export function describeTaskTrial(
         ...(provider === "claude" ? { taskWorkload: workload } : {}),
       },
     },
-    describeDockerProviderExecutionLocations(provider, "task"),
+    describeIsolationCapabilities(provider).locations.primary,
   );
   if (generated.status !== "ready")
     throw Error(`trial_task_plan_${generated.error.reason}`);
@@ -123,8 +115,8 @@ export function describeTaskTrial(
     inputSha256: hash(mode === "review" ? TASK_TRIAL_TEXT : "BASE\n"),
     expectedOutputSha256: hash(TASK_TRIAL_TEXT),
     providerImageDigest:
-      describeDockerProviderAssets(provider).fixedImageDigest,
-    proxyImageDigest: describeDockerProxyTopology(provider).imageDigest,
+      describeIsolationCapabilities(provider).assets.fixedImageDigest,
+    proxyImageDigest: describeIsolationCapabilities(provider).proxy.imageDigest,
     repositoryMounted: false,
     workspaceMounted: true,
     toolsRequested: mode !== "review",
@@ -190,7 +182,7 @@ export function buildTaskTrialPlan(
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
   });
-  const policy = prepareDockerNetworkPolicy(spec.provider, []);
+  const policy = describeIsolationCapabilities(spec.provider, []).networkPolicy;
   if (!selectionHash || policy.status !== "ready")
     throw Error("trial_selection_hash_invalid");
   const work = path.join(root, "work");

@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import * as isolation from "../../../docker-isolation/src/index.ts";
-import type { ContainerResourceTarget } from "../../src/index.ts";
+import type { IsolationResourceTarget } from "../../src/index.ts";
 
 /**
  * 単一Containerの診断・回収を同じ構成と同じ取消Signalへ結合する。
@@ -40,49 +40,24 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     {
       namedExports: {
         ...isolation,
-        createDockerContainerBinding: (management: string) => {
-          assert.equal(management, "management");
+        inspectIsolation: (target: IsolationResourceTarget<"container">) => {
+          target.signal?.throwIfAborted();
+          assert.equal(target.managementDirectory, "management");
+          assert.equal(target.configuration, configuration);
+          checks++;
+          calls.push("inspect");
           return {
-            environment: () => ({}),
-            verifyCli: () => {
-              checks++;
-              return "fixed";
-            },
+            observation: absent ? "absent" : present ? "present" : "unknown",
+            runningConfirmed: !absent && present,
+            snapshot: !absent && present ? { resources: [] } : null,
           };
         },
-        observeDockerContainerAbsence: (
-          binding: { verifyCli: () => string },
-          identity: object,
-        ) => {
-          binding.verifyCli();
-          calls.push("absence");
-          assert.deepEqual(identity, {
-            id: configuration.id,
-            name: configuration.name,
-            ownershipLabel: configuration.ownershipLabel,
-          });
-          return { status: absent ? "confirmed" : "blocked" };
-        },
-        inspectDockerContainer: (
-          binding: { verifyCli: () => string },
-          expected: object,
-        ) => {
-          binding.verifyCli();
-          calls.push("inspect");
-          assert.equal(expected, configuration);
-          return present
-            ? { runningConfirmed: true, snapshot: { resources: [] } }
-            : null;
-        },
-        cleanupDockerContainer: (
-          binding: { verifyCli: () => string },
-          expected: object,
-          signal?: AbortSignal,
-        ) => {
-          binding.verifyCli();
-          assert.equal(signal, controller.signal);
+        cleanupIsolation: (target: IsolationResourceTarget<"container">) => {
+          target.signal?.throwIfAborted();
+          assert.equal(target.configuration, configuration);
+          assert.equal(target.signal, controller.signal);
+          checks++;
           calls.push("cleanup");
-          assert.equal(expected, configuration);
           closed = true;
           return { confirmed: true, reason: "docker_probe_absence_confirmed" };
         },
@@ -91,7 +66,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
   );
   try {
     const api = await import("../../src/lifecycle/cleanup.ts");
-    const target: ContainerResourceTarget = {
+    const target: IsolationResourceTarget<"container"> = {
       kind: "container",
       configuration,
       managementDirectory: "management",

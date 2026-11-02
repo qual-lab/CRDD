@@ -8,27 +8,31 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { types } from "node:util";
 import { observeDockerDirectoryIdentity } from "../docker-cli/config.ts";
+import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
 import {
+  type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
-  type DockerCliTrustSnapshot,
 } from "../docker-cli/trust.ts";
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
-import { types } from "node:util";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import {
-  dockerContainerConfigurationMatches,
   type DockerContainerConfigurationExpectation,
+  dockerContainerConfigurationMatches,
 } from "./configuration.ts";
 import {
-  inspectObservedDockerResource,
-  dockerResourceIdentityMatches,
-  snapshotObservedDockerResource,
-  removeObservedDockerResource,
   type DockerRecoveryCommandResult,
+  dockerResourceIdentityMatches,
+  inspectObservedDockerResource,
+  removeObservedDockerResource,
+  snapshotObservedDockerResource,
 } from "./resource.ts";
-import type { ResourceSnapshot } from "./types.ts";
+import type {
+  ContainerResourceInspection,
+  ContainerResourceTarget,
+  ResourceSnapshot,
+} from "./types.ts";
 
 /**
  * 固定CLIと限定環境を借用する。
@@ -480,5 +484,81 @@ export function cleanupDockerContainer(
     reason: confirmed
       ? "docker_probe_absence_confirmed"
       : "docker_probe_cleanup_failed",
+  });
+}
+
+/**
+ * 単一Containerの同期観測を技術Ownerで完結する。
+ * @responsibility 三軸不存在を先に観測し、不明時だけ元構成の実体観測へ進む。
+ * @trace ARCH-000008
+ * @input target: 元識別・構成、限定管理領域、任意取消。
+ * @returns 存在三値・稼働肯定・非秘密Snapshot。
+ * @effect 固定Docker読取りのみ。
+ * @failure 不明を不存在へ変換しない。
+ */
+export function inspectContainerResources(
+  target: ContainerResourceTarget,
+): ContainerResourceInspection {
+  const binding = containerRuntime(target),
+    c = target.configuration;
+  const absent = observeDockerContainerAbsence(binding, {
+    id: c.id,
+    name: c.name,
+    ownershipLabel: c.ownershipLabel,
+  });
+  if (absent.status === "confirmed")
+    return Object.freeze({
+      observation: "absent",
+      runningConfirmed: false,
+      snapshot: null,
+    });
+  const present = inspectDockerContainer(binding, c);
+  return Object.freeze({
+    observation: present ? "present" : "unknown",
+    runningConfirmed: present?.runningConfirmed === true,
+    snapshot: present?.snapshot ?? null,
+  });
+}
+
+/**
+ * 元識別を同じ固定Container回収へ接続する。
+ * @responsibility 同期性と各要求直前の取消確認を維持する。
+ * @trace ARCH-000008
+ * @input target: 上位で確定した技術対象。
+ * @returns 元の回収結果。
+ * @effect 実体照合・実ID削除・三軸不存在観測。
+ * @failure 未確認は成功へ畳まない。
+ */
+export function cleanupContainerResources(
+  target: ContainerResourceTarget,
+): Readonly<{ confirmed: boolean; reason: string }> {
+  return cleanupDockerContainer(
+    containerRuntime(target),
+    target.configuration,
+    target.signal,
+  );
+}
+
+/**
+ * 単一Containerの限定接続を現在の取消状態へ結合する。
+ * @responsibility CLI要求ごとに取消を確認し、用途・保存判断は持たない。
+ * @trace ARCH-000008
+ * @input target: 同じ管理所在と取消Signal。
+ * @returns 内部の固定CLI接続。
+ * @effect 既存CLI信頼観測。
+ * @failure 不正入力・取消・CLI不明は例外。
+ */
+function containerRuntime(
+  target: ContainerResourceTarget,
+): DockerContainerBinding {
+  if (types.isProxy(target)) throw Error("resource_target_invalid");
+  target.signal?.throwIfAborted();
+  const binding = createDockerContainerBinding(target.managementDirectory);
+  return Object.freeze({
+    environment: binding.environment,
+    verifyCli: () => {
+      target.signal?.throwIfAborted();
+      return binding.verifyCli();
+    },
   });
 }

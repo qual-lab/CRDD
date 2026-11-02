@@ -8,8 +8,8 @@
  */
 
 import type { AiProvider } from "../../../ai-adapter/src/index.ts";
-import { prepareAttempt } from "../../../executor/src/attempt/operations.ts";
-import type { AttemptPlan } from "../../../executor/src/attempt/types.ts";
+import type { TestAttemptPlan as AttemptPlan } from "../../../executor/scripts/executor-test.ts";
+import { prepareAttempt } from "../../../executor/scripts/executor-test.ts";
 import { createExecutor, type Executor } from "../../../executor/src/index.ts";
 import { createAttemptPreparation as createOwner } from "../../src/execution/preparation.ts";
 import type {

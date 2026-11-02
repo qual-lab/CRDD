@@ -6,7 +6,7 @@
  * @scope 値だけのfixture。実Command成立は主張しない。
  * @boundary Executor局所試験。
  */
-import type { AttemptPlan } from "../../src/attempt/types.ts";
+import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
 import { PURPOSES } from "../../src/attempt/constants.ts";
 
 /**
@@ -54,6 +54,32 @@ export function attemptPlan(): AttemptPlan {
     workspaceSourcePath: null,
     workspaceMountMode: null,
     networkPolicy: null,
+    isolationRequest: {
+      managementDirectory: "C:/synthetic-not-accessed/management",
+      resources: [
+        "create_provider",
+        "create_proxy",
+        "create_subscription_auth_probe",
+        "create_internal_network",
+        "create_egress_network",
+      ].map((key) => ({
+        kind: "network" as const,
+        key,
+        name: "crdd-synthetic",
+        ownershipLabel: "crdd.coordinator.runtime=0101010101010101",
+        internal: true,
+      })),
+      steps: PURPOSES.map((key) => ({
+        action: "create" as const,
+        key,
+        resource: "create_provider",
+        timeoutMs: 10000,
+      })),
+      cleanupOrder: [],
+      setupTimeoutMs: 10000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: false,
+    },
     commands: PURPOSES.map((purpose) => ({ purpose, argv: [purpose] })),
   };
 }

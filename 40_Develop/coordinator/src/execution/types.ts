@@ -10,15 +10,13 @@ import type {
   AiProvider,
   AiReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
-import type {
-  DockerNetworkPolicy,
-  DockerSessionCleanup,
-} from "../../../docker-isolation/src/index.ts";
+import type { DockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 import type {
   AttemptDiagnosticNotice,
   AttemptTerminalObservation,
   CompletionResult,
+  DockerSessionCleanup,
   Executor,
   ExecutorRequest,
   ProcessStartedNotice,

@@ -8,17 +8,21 @@
  * @scope coordinator、contract、node_process
  * @boundary Catalog IdentityとProvider CLI計画の局所境界。
  */
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
 import test from "node:test";
-import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
-
+import {
+  describeAdviceResultSchema,
+  planProviderExecution,
+} from "../../../ai-adapter/src/index.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/image/assets.ts";
+import { codexAdviceProviderInitRequired } from "../../../executor/src/attempt/recovery.ts";
 
 /**
  * 新しい選定と結果Schemaを副作用なしで計画へ固定する。

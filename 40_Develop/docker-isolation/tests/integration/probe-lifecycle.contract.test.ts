@@ -9,12 +9,12 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
+import test from "node:test";
 import { types as utilTypes } from "node:util";
-import { classifyDockerProbeCancellation } from "../../src/index.ts";
+import { runInNewContext } from "node:vm";
 import { describeDockerProbeConfiguration } from "../support/probe.ts";
+import { classifyDockerProbeCancellation } from "../support/probe-result.ts";
 
 /**
  * 一意な本番関数を宣言から行頭の閉じ括弧まで取得する。

@@ -68,12 +68,13 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     "DockerRuntimeRepairInput",
     "DockerRuntimeRepairResult",
     "DockerRuntimeRestartInput",
+    "DockerRuntimeRestartResult",
     "CancelInput",
   ])
     assert.equal(publicTypes.includes(removed), false, removed);
   for (const retained of [
     "DockerRuntimeRestartEvent",
-    "DockerRuntimeRestartResult",
+    "DockerEnvironmentResult",
     "RecordProjection",
     "AttemptCancelInput",
     "CancelArguments",
@@ -122,7 +123,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   assert.deepEqual(
     fs.readdirSync(new URL("../../src/attempt/", import.meta.url)).sort(),
-    ["constants.ts", "operations.ts", "result.ts", "types.ts"],
+    ["constants.ts", "operations.ts", "recovery.ts", "result.ts", "types.ts"],
   );
   assert.doesNotMatch(
     publicSource,

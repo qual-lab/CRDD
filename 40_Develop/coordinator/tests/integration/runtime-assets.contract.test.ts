@@ -16,13 +16,14 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/image/assets.ts";
 
 /**
  * CLI位置の注入と固定資産の対応を外部実行なしで反証する。

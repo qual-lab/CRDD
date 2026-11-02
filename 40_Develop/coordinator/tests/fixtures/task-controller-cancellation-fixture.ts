@@ -13,12 +13,13 @@
 import { executionSelection, attemptSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
-import { createExecutorTestCandidate } from "../../../executor/scripts/executor-test.ts";
 import {
+  createExecutorTestCandidate,
   projectAttemptStartResult,
   projectAttemptResult,
 } from "../../../executor/scripts/executor-test.ts";
-import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
+import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
+import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 
 // Only Node descendants are real. Docker, authentication and durable recovery
@@ -49,6 +50,7 @@ export function createTaskControllerCancellationFixture(
     "start_provider_attached",
   ] as const;
   const plan = Object.freeze({
+    isolationRequest: attemptPlan().isolationRequest,
     networkPolicy: null,
     provider: "claude" as const,
     consumer: "orchestrator" as const,

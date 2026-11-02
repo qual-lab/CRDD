@@ -9,24 +9,24 @@
  * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 import assert from "node:assert/strict";
-import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/index.ts";
 import childProcess from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
-import { startDockerDesktopRestartHelper } from "../../../platform-access/src/index.ts";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
-import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/execution/kernel-lock.ts";
-import { observeSystemWindowsDirectory } from "../../../platform-access/src/index.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsNativeHelperEnvironment,
+  observePlatformAccessArtifactCandidate,
+  observeSystemWindowsDirectory,
+  startDockerDesktopRestartHelper,
 } from "../../../platform-access/src/index.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/execution/kernel-lock.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。

@@ -8,35 +8,38 @@
  * @scope codex、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
+
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import test, { mock } from "node:test";
+import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import {
-  executionSelection,
-  preparationSelection as attemptSelection,
-} from "../../fixtures/ai-selection.ts";
+  describeAdviceResultSchema,
+  describeProviderAuthentication,
+  planProviderExecution,
+} from "../../../../ai-adapter/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
+import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import {
+  createPreparationFailure,
   createProviderDockerRuntimeDependencies,
   describeProviderDockerRuntimeAdapterContract,
 } from "../../../src/execution/preparation.ts";
 import {
-  startRuntimeOwnedDockerProcessController,
   cancelRuntimeOwnedDockerProcessController,
+  startRuntimeOwnedDockerProcessController,
 } from "../../../src/execution/provider-executor.ts";
+import {
+  preparationSelection as attemptSelection,
+  executionSelection,
+} from "../../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
-import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
-import assert from "node:assert/strict";
-import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
-import test, { mock } from "node:test";
-import fs from "node:fs";
-import { createPreparationFailure } from "../../../src/execution/preparation.ts";
-import { fileURLToPath } from "node:url";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
-import { bindIsolationRuntime } from "../../../../executor/scripts/executor-test.ts";
-import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
-import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { runInNewContext } from "node:vm";
-import { stripTypeScriptTypes } from "node:module";
-import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 
 /**
  * 上位の管理情報がExecutor向け実値へ流れないことを反証する。

@@ -13,7 +13,8 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration as functionSource } from "../../../domain-model/tests/support/source-declaration.ts";
-import type { DockerContainerConfigurationExpectation } from "../../../docker-isolation/src/index.ts";
+
+import type { DockerContainerConfigurationExpectation } from "../../../docker-isolation/src/cleanup/configuration.ts";
 
 /**
  * 構成不明の回復対象は同じ参照を残して停止する。

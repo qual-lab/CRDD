@@ -8,19 +8,28 @@
  * @scope 固定src配下のliteral import／exportと必要なRoot API。
  * @boundary unknown gateの前提配置。完全なTypeScript解析や敵対Sourceの安全証明ではない。
  */
+import type {
+  DockerEnvironmentRequest,
+  DockerEnvironmentResult,
+  ResourceTarget,
+  ResourceInspection,
+  ResourceCleanupResult,
+  IsolationExecution,
+} from "../../src/index.ts";
+import { restartDockerEnvironment, cleanupIsolation } from "../../src/index.ts";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import {
-  type DockerIsolationRuntimeOptions,
-  type DockerCommandSession,
-  type DockerCommandExecutionClassification,
-  classifyDockerCommandExecution,
-} from "../../src/index.ts";
+import type {
+  DockerCommandSession,
+  DockerIsolationRuntimeOptions,
+} from "../../../executor/src/attempt/types.ts";
+import { classifyDockerCommandExecution } from "../../src/execution/result.ts";
+import type { DockerCommandExecutionClassification } from "../../src/index.ts";
 import { createDockerIsolationRuntime } from "../support/execution.ts";
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
@@ -316,7 +325,8 @@ test("必要な隔離技術APIは公開し内部生成Primitiveは公開しな�
     "prepareIsolation",
     "executeIsolation",
     "cleanupIsolation",
-    "inspectDockerResources",
+    "inspectIsolation",
+    "describeIsolationCapabilities",
   ] as const)
     assert.equal(typeof namespace[name], "function", name);
   for (const name of [
@@ -333,6 +343,112 @@ test("必要な隔離技術APIは公開し内部生成Primitiveは公開しな�
     "createDockerIsolationRuntimeCandidate",
     "createDockerAuthenticationRuntimeUsing",
     "createDockerAuthenticationRuntime",
+    "startDockerProbeAttachedProcess",
+    "describeDockerProviderAssets",
+    "describeDockerProviderExecutionLocations",
+    "describeDockerProxyTopology",
+    "prepareDockerNetworkPolicy",
+    "startOwnedAttachTerminationFixture",
+    "executeDockerProbeCommand",
+    "planDockerProbeCommand",
+    "classifyDockerProbeExecution",
+    "classifyDockerProbeCancellation",
+    "normalizeContainerCreation",
+    "normalizeContainerAbsence",
+    "cleanupResourceSet",
   ])
     assert.equal(Object.hasOwn(namespace, name), false, name);
+});
+
+/**
+ * 固定Probeの公開記述が移管前の技術値を維持することを確認する。
+ * @responsibility Image正本の再利用と公開利用側の互換性を独立期待値で照合する。
+ * @trace ERB-IT-004
+ * @precondition 公開Rootの純粋記述だけを使用する。
+ * @stimulus 合成相関IDを渡す。
+ * @observation Image・名前・Label・Engine・profileと旧型公開の不在を読む。
+ * @oracle 固定期待値と一致し、旧試験型を製品Rootに残さない。
+ * @cleanup N/A: 外部資源を作らない。
+ * @boundary 実Docker・AIを呼び出さない。
+ */
+test("固定Probe記述は共通Image正本へ移しても公開値を維持する", async () => {
+  const { describeIsolationCapabilities } = await import("../../src/index.ts");
+  assert.deepEqual(describeIsolationCapabilities(), {
+    image:
+      "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+    engine: "docker_desktop_linux_named_pipe",
+    runtimeProfile: {
+      backend: "docker_desktop_linux",
+      endpoint: "local_named_pipe",
+      dockerCliTrust:
+        "fixed_path_valid_windows_authenticode_docker_inc_and_operation_snapshot",
+      imagePinnedByDigest: true,
+      networkMode: "none",
+    },
+  });
+  const source = fs.readFileSync(path.join(sourceRoot, "index.ts"), "utf8");
+  assert.doesNotMatch(source, /\bDockerIsolationRuntime(?:Plan)?\b/u);
+});
+
+/**
+ * 共通公開型の相関と、対象ごとの同期性を型の反例で固定する。
+ * @responsibility Unionでmode/inputを交差させず、観測入力を廃棄へ流用しない。
+ * @trace ERB-IT-004
+ * @precondition 共通Root型だけから三資源と二環境modeを構成する。
+ * @stimulus 正例とts-expect-errorによる用途違いの代入を型検査する。
+ * @observation 型検査成功、負例の拒否と関数値の存在。
+ * @oracle 元Promise・同期Container結果・Snapshot Handleの相関を保持する。
+ * @cleanup N/A: 検査関数は呼ばず実操作を発行しない。
+ * @boundary 型契約のみ。実Dockerの成功を主張しない。
+ */
+test("共通公開型はmode・資源・操作と戻り値の対応を維持する", () => {
+  const verify = (
+    restart: DockerEnvironmentRequest<"restart">,
+    repair: DockerEnvironmentRequest<"repair">,
+    directory: ResourceTarget<"directory", "inspect">,
+    disposal: ResourceTarget<"directory", "cleanup">,
+    container: ResourceTarget<"container">,
+    snapshot: ResourceTarget<"snapshot">,
+  ) => {
+    const selected: DockerEnvironmentRequest = repair;
+    // @ts-expect-error restartへrepair入力を混ぜない。
+    const mixed: DockerEnvironmentRequest = {
+      mode: "restart",
+      input: repair.input,
+    };
+    // @ts-expect-error 未知modeの契約はない。
+    const unknown: DockerEnvironmentRequest<"unknown"> = restart;
+    // @ts-expect-error 観測用Directory入力は廃棄許可を持たない。
+    const wrongDisposal: ResourceTarget<"directory", "cleanup"> = directory;
+    // @ts-expect-error Container入力をSnapshot入力にしない。
+    const wrongSnapshot: ResourceTarget<"snapshot"> = container;
+    const restarted: Promise<DockerEnvironmentResult<"restart">> =
+      restartDockerEnvironment(restart);
+    const repaired: Promise<DockerEnvironmentResult<"repair">> =
+      restartDockerEnvironment(repair);
+    const disposed: Promise<ResourceCleanupResult<"directory">> =
+      cleanupIsolation(disposal);
+    const cleaned: ResourceCleanupResult<"container"> =
+      cleanupIsolation(container);
+    const running: IsolationExecution = cleanupIsolation(snapshot);
+    const observed: ResourceInspection<"directory"> = null;
+    // @ts-expect-error Container回収を非同期結果と偽らない。
+    const wrongPromise: Promise<ResourceCleanupResult<"container">> =
+      cleanupIsolation(container);
+    void [
+      selected,
+      mixed,
+      unknown,
+      wrongDisposal,
+      wrongSnapshot,
+      restarted,
+      repaired,
+      disposed,
+      cleaned,
+      running,
+      observed,
+      wrongPromise,
+    ];
+  };
+  assert.equal(typeof verify, "function");
 });

@@ -10,11 +10,9 @@
  * @scope 実Dockerの三Container・二Network、既存認証記録と別Process再入場、公式Imageの版・Hash。AI依頼・認証・Desktop修復は含めない。
  * @boundary Host Process→Docker Engine→資源不存在。
  */
-import { createProviderAuthenticationPlan } from "../support/authentication.ts";
-import { createAuthenticationCommandTestRuntime } from "../../../executor/scripts/authentication-command-test.ts";
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -22,33 +20,41 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { describeProviderAuthentication } from "../../../ai-adapter/src/index.ts";
+import {
+  describeProviderAuthentication,
+  planProviderExecution,
+} from "../../../ai-adapter/src/index.ts";
+import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
+import { createDockerProcessEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
+import {
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+} from "../../../docker-isolation/src/docker-cli/trust.ts";
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/image/assets.ts";
+import {
+  createDockerAuthenticationRuntimeFactory,
+  type DockerAuthenticationInput,
+  planDockerAuthenticationCommands,
+  planDockerAuthenticationResourceRecovery,
+} from "../../../docker-isolation/tests/support/authentication.ts";
+import {
+  createDockerIsolationRuntime,
+  type DockerIsolationRuntimePlan,
+} from "../../../docker-isolation/tests/support/execution.ts";
+import { createAuthenticationCommandTestRuntime } from "../../../executor/scripts/authentication-command-test.ts";
+import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
-import {
-  createDockerProcessEnvironment,
-  observeTrustedDockerCli,
-  verifyTrustedDockerCliSnapshot,
-  type DockerIsolationRuntimePlan,
-  type DockerResourceReceipts,
-} from "../../../docker-isolation/src/index.ts";
-import { createDockerIsolationRuntime } from "../../../docker-isolation/tests/support/execution.ts";
-import {
-  createDockerAuthenticationRuntimeFactory,
-  planDockerAuthenticationCommands,
-  planDockerAuthenticationResourceRecovery,
-  type DockerAuthenticationInput,
-} from "../../../docker-isolation/tests/support/authentication.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
-
-import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
-  type: "json",
-};
+import { createProviderAuthenticationPlan } from "../support/authentication.ts";
 
 /**
  * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。

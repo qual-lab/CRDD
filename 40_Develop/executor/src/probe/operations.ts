@@ -8,24 +8,24 @@
 
 import { types } from "node:util";
 import {
-  prepareIsolation,
+  describeIsolationCapabilities,
   executeIsolation,
-  DIAGNOSTIC_IMAGE,
-  type PreparedIsolation,
   type IsolationExecution,
   type IsolationExecutionResult,
+  type PreparedIsolation,
+  prepareIsolation,
 } from "../../../docker-isolation/src/index.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
 import { createLifecycleOperations } from "../lifecycle/operations.ts";
+import type { Executor, StartInput } from "../lifecycle/types.ts";
 import { describeIsolationProbeProfile } from "./configuration.ts";
 import { classifyIsolationProbeExecution } from "./result.ts";
-import type { Executor, StartInput } from "../lifecycle/types.ts";
 import type {
   IsolationProbeMounts,
   IsolationProbeOptions,
+  IsolationProbeProfile,
   IsolationProbeRequest,
   IsolationProbeResult,
-  IsolationProbeProfile,
 } from "./types.ts";
 
 /**
@@ -113,7 +113,7 @@ export function createIsolationProbe(
           key: "probe",
           name: `crdd-coordinator-probe-${probeId}`,
           ownershipLabel: `crdd.coordinator.probe=${probeId}`,
-          image: DIAGNOSTIC_IMAGE,
+          image: describeIsolationCapabilities().image,
           argv: ["-c", specification.source],
           environment: {
             HOME: "/operation/provider-home",

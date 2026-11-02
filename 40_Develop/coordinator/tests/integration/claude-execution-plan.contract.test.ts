@@ -8,7 +8,7 @@
  * @scope claude、execution、plan
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -16,15 +16,17 @@ import test from "node:test";
 import {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
-  describeProviderExecution,
   describeProviderAuthentication,
+  describeProviderExecution,
+  planProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
-
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/image/assets.ts";
 
 /**
  * Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するを検証する。

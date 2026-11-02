@@ -1,6 +1,10 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
 import {
-  extractProviderResult as parseProviderResult,
   type ProviderEnvelopeInput as ProviderResultInput,
+  extractProviderResult as parseProviderResult,
 } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * coordinator:integration:provider-execution-boundary-matrixの検証範囲を定義する。
@@ -14,15 +18,11 @@ import {
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate / PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import {
-  planProviderExecution,
   evaluateProviderTaskScope,
   type ProviderExecutionInput,
+  planProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import test from "node:test";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 

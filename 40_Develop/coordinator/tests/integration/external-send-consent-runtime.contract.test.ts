@@ -15,17 +15,16 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
+import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
+import { getJsonCommitName } from "../../../domain-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
-
 import {
   compileExternalSendConsentBoundaryHash,
   createIsolatedExternalSendConsentRuntimeCandidate,
   describeExternalSendConsentRuntimeContract,
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
 } from "../../src/decision/external-send-consent.ts";
-import { getJsonCommitName } from "../../../domain-model/src/index.ts";
 import type { ResolvedExternalSendPolicy } from "../../src/decision/external-send-policy.ts";
-import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 
 /**
  * policyのTest準備責務を実行する。

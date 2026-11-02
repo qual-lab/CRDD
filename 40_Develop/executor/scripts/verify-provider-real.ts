@@ -52,8 +52,9 @@ const { resolveAiModelSelection } = await import(
   "../../ai-adapter/src/index.ts"
 );
 
-const { describeDockerProviderAssets, describeDockerProxyTopology } =
-  await import("../../docker-isolation/src/index.ts");
+const { describeIsolationCapabilities } = await import(
+  "../../docker-isolation/src/index.ts"
+);
 
 const { readCommittedJson, writeCommittedJson, removeCommittedJson } =
   await import("../../domain-model/src/index.ts");
@@ -71,9 +72,9 @@ const { describeDockerCommandSessionContract } = await import(
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
   await import("../../ai-adapter/src/index.ts");
 
-const { prepareAttempt } = await import("../src/attempt/operations.ts");
+const { prepareAttempt } = await import("./executor-test.ts");
 
-const { resolveValidatedPlan } = await import("../src/attempt/operations.ts");
+const { resolveValidatedPlan } = await import("./executor-test.ts");
 
 const { createStandaloneProviderAttemptHost } = await import(
   "./provider-attempt-host.ts"
@@ -138,9 +139,10 @@ export function describeStandaloneProviderTrial(
     promptSha256: digest(prompt),
     providerImageDigest:
       provider === "codex"
-        ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
-        : describeDockerProviderAssets("claude").fixedImageDigest,
-    proxyImageDigest: describeDockerProxyTopology(provider).imageDigest,
+        ? describeIsolationCapabilities("codex").assets.adviceIdentity
+            .fixedImageDigest
+        : describeIsolationCapabilities("claude").assets.fixedImageDigest,
+    proxyImageDigest: describeIsolationCapabilities(provider).proxy.imageDigest,
     repositoryMounted: false,
     workspaceMounted: false,
     toolsAllowed: false,

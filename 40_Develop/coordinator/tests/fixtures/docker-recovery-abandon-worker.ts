@@ -17,12 +17,11 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
-import type {
-  CoordinatorStateOperation,
-  CoordinatorStateTaskOperation,
-} from "../../../domain-model/src/index.ts";
+import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
+  type CoordinatorStateOperation,
+  type CoordinatorStateTaskOperation,
   encodeRuntimeStateValue,
 } from "../../../domain-model/src/index.ts";
 import { executionSelection } from "./ai-selection.ts";
@@ -453,8 +452,8 @@ if (mode !== "recovery") {
         capability = begun.recoveryCapability;
         if (authCreateMode) {
           authRecoveryId = begun.recoveryId;
-          const isolation = await import(
-            "../../../docker-isolation/src/index.ts"
+          const recoveryOperations = await import(
+            "../../../docker-isolation/src/cleanup/plan.ts"
           );
           assert.equal(startWrites, 1);
           assert.equal(hostStarts, 1);
@@ -464,7 +463,7 @@ if (mode !== "recovery") {
             "auth-create-config",
           );
           fs.mkdirSync(config);
-          const commands = isolation.planDockerIsolationCommands({
+          const commands = planDockerIsolationCommands({
             authenticationContainerName: plan.authContainerName,
             executionContainerName: plan.providerContainerName,
             proxyContainerName: plan.proxyContainerName,
@@ -709,7 +708,7 @@ if (mode !== "recovery") {
           );
           assert.ok(expectation?.expectations[0]);
           assert.equal(
-            isolation.dockerResourceConfigurationMatches(values[0], {
+            recoveryOperations.dockerResourceConfigurationMatches(values[0], {
               ...expectation.expectations[0],
               dockerId,
             }),

@@ -1,11 +1,12 @@
 /**
- * 固定Docker attachの開始・ready観測・close・tree終端を一つのOwnerへ接続する。
- * @responsibility 任意argvを公開せず、診断の待機と取消を所有Processへ集約する。
+ * 旧attachと所有Processの終端反例を試験側に保持する。
+ * @responsibility 有限試験の待機・取消・終了観測を接続し製品入口へ公開しない。
  * @trace ARCH-000008
  */
-import { captureDockerProcessEnvironment } from "../process/environment.ts";
-import { startOwnedWindowsProcess } from "../process/start.ts";
-import type { CommandExecution } from "../execution/result.ts";
+
+import type { CommandExecution } from "../../src/execution/result.ts";
+import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
+import { startOwnedWindowsProcess } from "../../src/process/start.ts";
 
 /**
  * 診断attachの実行／終了観測Handle。

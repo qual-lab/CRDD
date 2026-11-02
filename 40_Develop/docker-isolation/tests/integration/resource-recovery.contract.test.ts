@@ -18,7 +18,7 @@ import {
   observeSubmittedDockerResourceAbsent,
   observeExpectedDockerResource,
 } from "../../src/cleanup/resource.ts";
-import type { DockerResourceExpectation } from "../../src/index.ts";
+import type { DockerResourceExpectation } from "../../src/cleanup/plan.ts";
 
 /**
  * 不正用途・Identityは観測や削除の前に拒否する。

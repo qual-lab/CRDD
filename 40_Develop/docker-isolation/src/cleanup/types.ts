@@ -5,10 +5,16 @@
  */
 
 import type {
-  DockerResourceReceipts,
-  DockerResourceCleanupObservation,
+  DockerRuntimeDirectoryInspectionInput,
+  DockerRuntimeDirectoryCleanupResult,
+  DockerRuntimeRepairDisposalInput,
+} from "../docker-desktop/repair-session.ts";
+import type {
+  IsolationCleanupRequest,
+  IsolationExecutionResult,
 } from "../execution/types.ts";
-import type { DockerResourceExpectation } from "./plan.ts";
+import type { DockerRuntimeRepairRetentionTargets } from "../docker-desktop/types.ts";
+import type { DockerContainerConfigurationExpectation } from "./configuration.ts";
 
 /** 元Receiptの最小識別情報。実行構成は削除条件へ使わない。 */
 export type ResourceIdentity = Readonly<{
@@ -45,157 +51,22 @@ export type ResourceSnapshot = Readonly<{
 }>;
 
 /**
- * 元技術構成から得た回収順と構成候補。
- * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
- * @trace ARCH-000008
- * @shape 五つの作成purposeと同用途の技術期待値列。
- * @invariant 元実IDはReceiptから結合し、期待値だけで資源存在や処置許可を示さない。
- * @boundary 通常Session／再入場とDI共通回収。
- * @security 任意コマンド・保存API・上位Ownerを搬送しない。
- * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
- */
-export type DockerResourceExpectationSet = readonly Readonly<{
-  purpose: keyof DockerResourceReceipts;
-  expectations: readonly Omit<DockerResourceExpectation, "dockerId">[];
-}>[];
-
-/**
- * 認証資源回収と同じ技術Processの終了観測。
- * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
- * @trace ARCH-000008
- * @shape confirmedとprocessCompletionConfirmedを分離した結果。
- * @invariant 終了不明を不存在や成功へ補完しない。
- * @boundary DI技術回収からExecutorの結果集約。
- * @security 保存・Home解放・Task完了の成立を含めない。
- * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
- */
-export type AuthenticationCleanupResult = Readonly<{
-  resourceSnapshot?: ResourceSnapshot;
-  confirmed: boolean;
-  processCompletionConfirmed: boolean;
-}>;
-
-/**
- * 認証回収の固定技術要求前後を通知する。
- * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
- * @trace ARCH-000008
- * @shape 同期voidの操作前通知と操作完了通知。
- * @invariant 必要処理完了後にreturnし、例外・誤Promiseは後続Effectを停止する。
- * @boundary DI技術要求と上位の記録通知。
- * @security 許可Query・保存ACK・認証値を受け取らない。
- * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
- */
-export interface DockerAuthenticationCleanupCallbacks {
-  onCommandSubmitting?(purpose: string): void;
-  onCommandCompleted?(): void;
-}
-
-/**
- * 通常実行と再入場の資源観測通知。
- * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
- * @trace ARCH-000008
- * @shape 同期voidの観測開始・実ID発見と、void／Promise<void>の資源終了・回収完了。
- * @invariant 必要な同期性は利用契約で固定し、通知発行だけを回収成功にしない。
- * @boundary DIの技術事実からExecutorと上位記録。
- * @security 保存方法・許可を返す操作ではなく、生出力も渡さない。
- * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
- */
-export interface ResourceCleanupCallbacks<Observation> {
-  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
-  onResourceIdentified?(
-    purpose: keyof DockerResourceReceipts,
-    dockerId: string,
-  ): void;
-  onResourcesClosed?(observation: Observation): void | Promise<void>;
-  onCleanupCompleted?(observation: Observation): void | Promise<void>;
-}
-/**
- * 認証で作成した資源の順序・名前と受領済み実ID。
- * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
- * @trace ARCH-000008
- * @shape container／network、固定名、64桁実ID又はnullの不変列。
- * @invariant 元計画と順序・種類・名前を照合し、ID欠測を削除許可にしない。
- * @boundary 認証実行と同じDI通常／単独回収。
- * @security accessor・Proxy・別資源のID混入を拒否する。
- * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
- */
-export type DockerAuthenticationResources = readonly Readonly<{
-  kind: "container" | "network";
-  name: string;
-  dockerId: string | null;
-}>[];
-
-/**
- * 元実行から保存へ搬送する非秘密の技術構成。
- * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
- * @trace ARCH-000008
- * @shape 五資源名・所有Label・固定Image・実行／Mount方式。
- * @invariant Task状態・保存場所・過去Effectの成否を定義しない。
- * @boundary DIの元構成、Executor投影、上位保存と再入場。
- * @security この投影は処置権限でなく、実資源との照合が別に必要。
- * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
- */
-export type DockerResourceProjection = Readonly<{
-  authContainerName: string;
-  providerContainerName: string;
-  proxyContainerName: string;
-  internalNetworkName: string;
-  egressNetworkName: string;
-  ownershipLabel: string;
-  providerImageDigest: string;
-  proxyImageDigest: string;
-  subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
-  operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
-  workspaceMountMode: "read_write" | "read_only" | null;
-}>;
-
-/**
- * 上位が選定した一つの技術資源集合の回収対象。
- * @responsibility 保存Schemaを持たず、既存技術投影と取消Signalだけを借用する。
- * @trace ARCH-000008
- * @shape resource_set種別、元ID、技術投影、Receipt、config領域と取消Signal。
- * @invariant IDだけで処置を許可せず、明示取消後は新しい処置を開始しない。
- * @boundary 上位で選定済みの対象とExecutor資源API。
- * @security 生の削除Path・権限発行・保存操作を公開しない。
- * @compatibility kindはAPI内の分岐だけで、保存Schemaへ加えない。
- */
-export type ResourceTarget = Readonly<{
-  kind: "resource_set";
-  operationId: string;
-  recoveryId: string;
-  projection: DockerResourceProjection &
-    Readonly<{
-      workspaceProtected?: boolean;
-      workspaceProtection?: Readonly<{
-        gitSourcePath: string;
-        internalSourcePath: string;
-      }>;
-    }>;
-  receipts: DockerResourceReceipts;
-  previouslyAbsent?: readonly (keyof DockerResourceReceipts)[];
-  managementDirectory: string | null;
-  signal?: AbortSignal;
-}>;
-
-/**
- * 診断だけで得た技術資源の観測。
+ * 指定Snapshotから現在観測した技術資源の結果。
  * @responsibility 存在・不存在・不明とconfig終了を区別する。
  * @trace ARCH-000008
- * @shape 元ID、資源別観測、理由とconfig終了確認。
+ * @shape 資源key、元実ID、存在三値、理由とconfig終了確認。
  * @invariant 診断の成功を削除許可・保存確定へ昇格しない。
- * @boundary 同期のAttempt観測結果から上位判断。
+ * @boundary 同期の技術観測からExecutorの結果解釈。
  * @security 認証内容・生出力・操作権限を含めない。
- * @compatibility 既存Attempt観測の値と同期返却を維持する。
+ * @compatibility 観測できた実体だけをSnapshotへ返す。
  */
-export type ResourceInspection = Readonly<{
+export type SnapshotResourceInspection = Readonly<{
   resourceSnapshot: ResourceSnapshot;
   status: "completed" | "blocked";
-  operationId: string;
-  recoveryId: string;
   reason: string;
   configCleanupConfirmed: boolean;
   resources: readonly Readonly<{
-    purpose: keyof DockerResourceReceipts;
+    key: string;
     plannedResourceName: string;
     dockerId: string | null;
     observation: "not_requested" | "present" | "absent" | "unknown";
@@ -204,22 +75,111 @@ export type ResourceInspection = Readonly<{
 }>;
 
 /**
- * Attempt資源の技術回収結果。
- * @responsibility 資源別観測とconfig終了を元のAttemptへ結合して返す。
+ * 上位で選定済みの単一Containerと、作成時の同じ技術構成。
+ * @responsibility 用途・保持・保存を知らず元構成と取消状態だけを借用する。
  * @trace ARCH-000008
- * @shape 元ID、技術回収とconfig終了の個別結果、資源観測。
- * @invariant Docker回収とTask完了・Host清掃・履歴確定を混同しない。
- * @boundary 非同期の資源回収から上位保存・判断。
- * @security 元参照を削除権限へ昇格しない。
- * @compatibility Directory結果のために既存fieldや意味を変更しない。
+ * @shape container種別、作成構成、借用管理領域と取消Signal。
+ * @invariant IDだけで処置せず資源の照合を維持し、取消後の前進処置を止める。
+ * @boundary 上位の対象選定と既存資源API。
+ * @security 任意Path削除や構成検査の省略を公開しない。
+ * @compatibility 保存Schema・用途種別・既存Attempt契約を変更しない。
  */
-export type ResourceCleanupResult = Readonly<{
-  resourceSnapshot?: ResourceSnapshot;
-  status: "completed" | "blocked";
-  operationId: string;
-  recoveryId: string;
-  reason: string;
-  dockerCleanupConfirmed: boolean;
-  configCleanupConfirmed: boolean;
-  resources: readonly DockerResourceCleanupObservation[];
+export type ContainerResourceTarget = Readonly<{
+  kind: "container";
+  configuration:
+    | DockerContainerConfigurationExpectation
+    | Pick<
+        DockerContainerConfigurationExpectation,
+        "id" | "name" | "ownershipLabel"
+      >;
+  managementDirectory: string;
+  signal?: AbortSignal;
 }>;
+
+/**
+ * 単一Containerの現在観測。不明を不存在へ畳まない。
+ * @responsibility Running肯定と不存在を分離する。
+ * @trace ARCH-000008
+ * @shape present・absent・unknownとRunning肯定。
+ * @invariant 観測だけで保存完了や回収許可を確定しない。
+ * @boundary DIの現在観測から上位の判断へ返す。
+ * @security 生inspect・秘密・実行許可を含めない。
+ * @compatibility Runningの否定を不存在に読み替えない。
+ */
+export type ContainerResourceInspection = Readonly<{
+  observation: "present" | "absent" | "unknown";
+  runningConfirmed: boolean;
+  snapshot: ResourceSnapshot | null;
+}>;
+
+/**
+ * 固定Docker runtime Directoryの観測対象。
+ * @responsibility DIの固定入力を外側の資源種別へ結合する。
+ * @trace ARCH-000008
+ * @shape 固定kindとDI正本の元input。
+ * @invariant 任意Path・保持期限・廃棄判断を含めない。
+ * @boundary 共通資源APIからDIの二読取り。
+ * @security 観測から処置権限を生成しない。
+ * @compatibility kindをDIの閉形式inputへ混入しない。
+ */
+export type DirectoryResourceInspectionTarget = Readonly<{
+  kind: "docker_runtime_directory";
+  input: DockerRuntimeDirectoryInspectionInput;
+}>;
+
+/**
+ * 固定用途のDirectory処置対象。
+ * @responsibility DIの固定処置入力だけを種別へ結合する。
+ * @trace ARCH-000008
+ * @shape 固定kindとScope・用途・現在Queryを持つ元input。
+ * @invariant 許可と用途Intentは上位が確認し、Executorは保存しない。
+ * @boundary 共通資源APIからDIの元Promise。
+ * @security 任意Path削除・期限による自動処置へ拡張しない。
+ * @compatibility 元inputとSignal・Queryの参照を保持する。
+ */
+export type DirectoryResourceCleanupTarget = Readonly<{
+  kind: "docker_runtime_directory";
+  input: DockerRuntimeRepairDisposalInput;
+}>;
+
+/**
+ * 資源種別と操作に対応する既存の必須入力を選択する。
+ * @responsibility 観測入力と廃棄入力を混ぜず、技術入口の入力関係を示す。
+ * @trace ARCH-000008
+ * @invariant 実行時のkind・保存Schema・同期性は変更しない。
+ */
+export type ResourceTarget<
+  K extends keyof ResourceOperations = keyof ResourceOperations,
+  A extends "inspect" | "cleanup" = "inspect" | "cleanup",
+> = ResourceOperations[K][A];
+
+/** 共通観測の名前から、種別固有の不明・nullを保持して返す。 */
+export type ResourceInspection<
+  K extends keyof ResourceOperations = keyof ResourceOperations,
+> = ResourceOperations[K]["inspection"];
+
+/** 回収完了の技術結果。Snapshotの実行Handleとは区別する。 */
+export type ResourceCleanupResult<
+  K extends keyof ResourceOperations = keyof ResourceOperations,
+> = ResourceOperations[K]["cleanupResult"];
+
+interface ResourceOperations {
+  snapshot: {
+    inspect: IsolationCleanupRequest;
+    cleanup: IsolationCleanupRequest;
+    inspection: SnapshotResourceInspection;
+    cleanupResult: IsolationExecutionResult;
+  };
+  container: {
+    inspect: ContainerResourceTarget;
+    cleanup: ContainerResourceTarget;
+    inspection: ContainerResourceInspection;
+    cleanupResult: Readonly<{ confirmed: boolean; reason: string }>;
+  };
+  directory: {
+    inspect: DirectoryResourceInspectionTarget;
+    cleanup: DirectoryResourceCleanupTarget;
+    inspection: DockerRuntimeRepairRetentionTargets | null;
+    cleanupResult: DockerRuntimeDirectoryCleanupResult;
+  };
+}

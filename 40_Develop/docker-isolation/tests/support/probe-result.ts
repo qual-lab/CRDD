@@ -1,36 +1,16 @@
 /**
- * 診断Probeの作成ID・三軸不存在・完了応答を分類する。
+ * 旧診断Probeの作成ID・三軸不存在・完了応答の有限分類を保持する。
  * @packageDocumentation
- * @responsibility CLI観測値の純粋分類を所有し、Host状態と回復Authorityは扱わない。
+ * @responsibility 試験専用の純粋分類を保持し、製品実行・Host状態・回復Authorityは扱わない。
  * @trace ARCH-000008
  * @boundary Process内の観測値。実Docker観測・削除は行わない。
  */
 import type { SpawnSyncReturns } from "node:child_process";
 
+import type { IsolationProbeFacts } from "../../../executor/src/probe/types.ts";
+
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const PROBE_MARKER = "crdd-coordinator-isolation-v1";
-
-/**
- * 固定隔離Probeの閉じた実行観測。
- * @responsibility 生出力を含めず、実行結果とHost側の最終判定を分離する。
- * @trace ARCH-000008
- * @shape 隔離判定、完了Envelopeの分類、時間・出力量・終了値。
- * @invariant この値だけで資源不存在・Host清掃・採用を主張しない。
- * @boundary DIの技術観測とExecutor／上位の判断。
- * @security Provider本文・Credentialを含まない。
- * @compatibility 既存同期Probeの観測fieldを維持する。
- */
-export type DockerProbeExecutionFacts = Readonly<{
-  isolation: Readonly<{ status: "confirmed" | "blocked"; reason: string }>;
-  lifecycleStatus: "candidate" | "blocked";
-  lifecycleReason: string;
-  elapsedMs: number | null;
-  stdoutBytes: number;
-  stderrBytes: number;
-  exitCode: number | null;
-  signal: string | null;
-  timedOut: boolean;
-}>;
 
 /**
  * 固定取消の出力・終了値・猶予時間を閉じた事実へ分類する。
@@ -281,7 +261,7 @@ function isProbeJsonRecord(
 export function classifyDockerProbeExecution(
   execution: DockerExecution,
   elapsedMs: number,
-): DockerProbeExecutionFacts {
+): IsolationProbeFacts {
   const code =
     execution.error && typeof execution.error === "object"
       ? Object.getOwnPropertyDescriptor(execution.error, "code")?.value

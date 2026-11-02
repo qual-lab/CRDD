@@ -5,11 +5,15 @@
  * @trace ERB-IT-014
  * @boundary scripts/tests専用。実Docker・Filesystem書込み・新Authorityを持たない。
  */
+
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
+import type * as recoveryOperations from "../../docker-isolation/src/cleanup/execute.ts";
+import { captureIsolationCleanupRequest } from "../../docker-isolation/src/execution/preparation.ts";
 import * as isolation from "../../docker-isolation/src/index.ts";
+import { cleanupResourceSet } from "../../docker-isolation/tests/support/cleanup.ts";
 
 /**
  * 実関数本文のDI接続だけを代役化する。
@@ -30,20 +34,27 @@ export function createAttemptRecoveryTestApi(
   ) => unknown,
 ): typeof import("../src/lifecycle/cleanup.ts") {
   const source = readFileSync(
+    new URL("../src/attempt/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  const inspection = readFileSync(
     new URL("../../docker-isolation/src/cleanup/resources.ts", import.meta.url),
     "utf8",
   );
-  const body = stripTypeScriptTypes(source)
+  const body = stripTypeScriptTypes(`${inspection}\n${source}`)
     .replace(/^import[\s\S]*?from\s*["'][^"']+["'];?\s*/gm, "")
     .replace(/^export /gm, "");
-  let cleanupSet: typeof import("../../docker-isolation/src/cleanup/resources.ts").cleanupResourceSet;
   const api = runInNewContext(
-    `${body}; ({ inspectResources: inspectDockerResources, cleanupResources: cleanupDockerResources, cleanupSet: cleanupResourceSet })`,
+    `${body}; ({ inspectResources: inspectAttemptResources, cleanupResources: cleanupAttemptResources })`,
     {
       ...isolation,
       utilTypes,
+      // VMの通常dataを実検査と同じRealmへ搬送する。検査は省略しない。
+      captureIsolationCleanupRequest: (
+        request: isolation.ResourceTarget<"snapshot">,
+      ) => captureIsolationCleanupRequest(structuredClone(request)),
       cleanupIsolation: (
-        request: isolation.IsolationCleanupRequest,
+        request: isolation.ResourceTarget<"snapshot">,
         callbacks: isolation.IsolationCallbacks,
       ) => {
         const signal = new AbortController();
@@ -51,7 +62,7 @@ export function createAttemptRecoveryTestApi(
           managementDirectory: request.managementDirectory,
           signal: signal.signal,
         }) as {
-          executor: isolation.DockerResourceRecoveryOperations & {
+          executor: recoveryOperations.DockerResourceRecoveryOperations & {
             close(): boolean;
           };
         };
@@ -65,18 +76,19 @@ export function createAttemptRecoveryTestApi(
                   dockerId: resource.identity.dockerId,
                 },
               ]),
-            ) as isolation.DockerResourceReceipts;
+            ) as import("../src/attempt/types.ts").DockerResourceReceipts;
             let snapshot = request.resources;
-            const result = await cleanupSet(
+            const result = await cleanupResourceSet(
               {
                 expectations: request.discovery.map((entry) => ({
-                  purpose: entry.key as keyof isolation.DockerResourceReceipts,
+                  purpose:
+                    entry.key as keyof import("../src/attempt/types.ts").DockerResourceReceipts,
                   expectations: entry.configurations,
                 })),
                 receipts,
                 signal: signal.signal,
                 previouslyAbsent:
-                  request.previouslyAbsent as (keyof isolation.DockerResourceReceipts)[],
+                  request.previouslyAbsent as (keyof import("../src/attempt/types.ts").DockerResourceReceipts)[],
               },
               created.executor,
               {
@@ -177,21 +189,14 @@ export function createAttemptRecoveryTestApi(
         signal?: AbortSignal;
       }) => {
         const result = create(input) as {
-          executor?: isolation.DockerResourceRecoveryOperations;
+          executor?: recoveryOperations.DockerResourceRecoveryOperations;
         };
         const operations = result.executor;
         if (operations && typeof operations.cleanupObserved !== "function")
           throw Error("test_cleanup_operation_missing");
         return result;
       },
-      observeDockerRuntimeRepairRetention: () => {
-        throw Error("directory_observation_not_mocked");
-      },
-      disposeDockerRuntimeRepairDirectory: () => {
-        throw Error("directory_cleanup_not_mocked");
-      },
     },
   );
-  cleanupSet = api.cleanupSet;
   return api;
 }

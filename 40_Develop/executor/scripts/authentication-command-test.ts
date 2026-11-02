@@ -4,35 +4,34 @@
  * @trace ARCH-000010
  * @boundary scripts/tests専用。呼出し自体は計画を結合し、runだけが実Dockerを操作する。
  */
-import {
-  type AuthenticationCleanupResult,
-  captureAuthenticationResources,
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-  describeDockerProxyTopology,
-} from "../../docker-isolation/src/index.ts";
-import {
-  cleanupDockerAuthenticationResources,
-  type DockerAuthenticationPlan,
-  type DockerAuthenticationRuntime,
-  planDockerAuthenticationCommands,
-  createDockerAuthenticationRuntimeFactory,
-  type DockerAuthenticationCommand,
-  type DockerAuthenticationExecution,
-  planDockerAuthenticationResourceRecovery,
-} from "../../docker-isolation/tests/support/authentication.ts";
-import { notifyAuthentication } from "../src/authentication/operations.ts";
+
 import {
   type AiProvider,
   describeProviderAuthentication,
   evaluateProviderAuthentication,
 } from "../../ai-adapter/src/index.ts";
+import { describeIsolationCapabilities } from "../../docker-isolation/src/index.ts";
+import {
+  cleanupDockerAuthenticationResources,
+  createDockerAuthenticationRuntimeFactory,
+  type DockerAuthenticationCommand,
+  type DockerAuthenticationExecution,
+  type DockerAuthenticationPlan,
+  type DockerAuthenticationRuntime,
+  planDockerAuthenticationCommands,
+  planDockerAuthenticationResourceRecovery,
+} from "../../docker-isolation/tests/support/authentication.ts";
+import {
+  captureAuthenticationResources,
+  notifyAuthentication,
+} from "../src/authentication/operations.ts";
 import type {
-  AuthenticationResult,
-  AuthenticationCompletionResult,
   AuthenticationCallbacks,
-  AuthenticationRequest,
+  AuthenticationCleanupResult,
+  AuthenticationCompletionResult,
   AuthenticationProjection,
+  AuthenticationRequest,
+  AuthenticationResult,
 } from "../src/authentication/types.ts";
 import { executeLifecycle } from "../src/lifecycle/execute.ts";
 import { createLifecycleOperations } from "../src/lifecycle/operations.ts";
@@ -138,7 +137,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
   )
     return null;
   const cli = describeProviderAuthentication(provider);
-  const locations = describeDockerProviderExecutionLocations(provider, "probe");
+  const locations = describeIsolationCapabilities(provider).locations.primary;
   const environment = Object.freeze({
     ...("environment" in cli ? cli.environment : {}),
     ...("homeEnvironmentVariable" in cli
@@ -146,7 +145,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
       : {}),
   });
   const providerImageDigest =
-    describeDockerProviderAssets(provider).fixedImageDigest;
+    describeIsolationCapabilities(provider).assets.fixedImageDigest;
   const probeContainerName = `crdd-auth-${suffix}`;
   const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
   const common = {
@@ -177,7 +176,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
     authenticationTechnicalPlans.set(plan, technicalPlan);
     return plan;
   }
-  const egress = describeDockerProxyTopology(provider);
+  const egress = describeIsolationCapabilities(provider).proxy;
   const proxyImageDigest = egress.imageDigest;
   if (
     !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||

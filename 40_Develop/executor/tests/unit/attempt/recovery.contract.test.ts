@@ -7,13 +7,14 @@
  * @scope 本番API本文とメモリ代役。実Docker・Filesystem書込みは行わない。
  */
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 
 import { createAttemptRecoveryTestApi } from "../../../scripts/attempt-recovery-test.ts";
 import type {
-  ResourceTarget,
   ResourceCleanupCallbacks,
   ResourceCleanupResult,
+  ResourceTarget,
 } from "../../../src/index.ts";
 
 const ID = "a".repeat(64);
@@ -24,7 +25,7 @@ test("回収試験Adapterは現行Cleanup操作の欠測を拒否し旧操作を
   const api = createAttemptRecoveryTestApi(() => ({
     status: "ready",
     executor: {
-      recoverObserved: () => {
+      inspectIdentity: () => {
         legacy++;
         return true;
       },
@@ -37,7 +38,7 @@ test("回収試験Adapterは現行Cleanup操作の欠測を拒否し旧操作を
     operationId: "operation-a",
     recoveryId: "exact-recovery",
     projection: PROJECTION,
-    managementDirectory: "borrowed",
+    managementDirectory: path.resolve("borrowed"),
     receipts: {
       create_provider: { submitted: true, dockerId: ID },
       create_subscription_auth_probe: none,
@@ -90,7 +91,7 @@ test("共通回収は最終通知の故障と一次失敗の理由を区別す�
           operationId: "operation-a",
           recoveryId: "exact-recovery",
           projection: PROJECTION,
-          managementDirectory: "borrowed",
+          managementDirectory: path.resolve("borrowed"),
           receipts: {
             create_subscription_auth_probe: none,
             create_provider: { submitted: true, dockerId: ID },
@@ -194,7 +195,7 @@ test("Attempt回収は発見保存と取消確認を削除前に保ちconfigを�
         operationId: "operation-a",
         recoveryId: "exact-recovery",
         projection: PROJECTION,
-        managementDirectory: "borrowed",
+        managementDirectory: path.resolve("borrowed"),
         signal: controller.signal,
         receipts: {
           create_provider:
@@ -332,7 +333,7 @@ test("Attempt診断は削除せず二回の不存在と不明を保持する", (
         operationId: "operation-a",
         recoveryId: "exact-recovery",
         projection: PROJECTION,
-        managementDirectory: "borrowed",
+        managementDirectory: path.resolve("borrowed"),
         signal: controller.signal,
         receipts: {
           create_provider: none,
@@ -391,8 +392,9 @@ test("既知IDの診断はexact照合と照合後取消を要求する", () => {
         cleanupObserved: async () => {
           throw Error("diagnostic_must_not_remove");
         },
-        recoverObserved: (
+        inspectIdentity: (
           expectation: { dockerId: string },
+          _key: string,
           options: {
             allowAlreadyAbsent: boolean;
           },
@@ -419,7 +421,7 @@ test("既知IDの診断はexact照合と照合後取消を要求する", () => {
         operationId: "operation-a",
         recoveryId: "exact-recovery",
         projection: PROJECTION,
-        managementDirectory: "borrowed",
+        managementDirectory: path.resolve("borrowed"),
         signal: controller.signal,
         receipts: {
           create_provider: { submitted: true, dockerId: ID },

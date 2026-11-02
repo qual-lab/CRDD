@@ -11,22 +11,20 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { DockerResourceReceipts } from "../../docker-isolation/src/index.ts";
 import {
   readCommittedJson,
   writeCommittedJson,
 } from "../../domain-model/src/index.ts";
 import type { acquireNamedPipeKernelLock } from "../../platform-access/src/index.ts";
-import {
-  planIdentity,
-  resolveValidatedPlan,
-} from "../src/attempt/operations.ts";
-import type { AttemptPlan } from "../src/attempt/types.ts";
+import type { DockerResourceReceipts } from "../src/attempt/types.ts";
 import type { AttemptDiagnosticNotice } from "../src/index.ts";
+import type { TestAttemptPlan as AttemptPlan } from "./executor-test.ts";
 import {
   createExecutorLifecycleTestRuntime as createExecutor,
   type ExecutorTestHost as ExecutorHost,
   isPrimaryFailureDiagnostic,
+  planIdentity,
+  resolveValidatedPlan,
 } from "./executor-test.ts";
 
 /**

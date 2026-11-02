@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
 import { runInThisContext } from "node:vm";
+import * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import * as model from "../../../domain-model/src/index.ts";
@@ -36,10 +37,10 @@ let observeCount = 0;
 let stateFile = "";
 let delayedCheckpoint:
   | Parameters<
-      typeof isolation.runDockerRuntimeRepairSession
+      typeof directoryOperations.runDockerRuntimeRepairSession
     >[0]["onCheckpoint"]
   | null = null;
-let lastCheckpoint: isolation.DockerRuntimeRepairCheckpoint | null = null;
+let lastCheckpoint: model.DockerRuntimeRepairCheckpoint | null = null;
 let lastRuntimeResult: Awaited<
   ReturnType<typeof runDockerRuntimeRepairSessionUsing>
 > | null = null;
@@ -158,7 +159,7 @@ const isolationModule = {
     ...isolation,
     observeDockerRuntimeRepairRetention: (
       input: Parameters<
-        typeof isolation.observeDockerRuntimeRepairRetention
+        typeof directoryOperations.observeDockerRuntimeRepairRetention
       >[0],
     ) => {
       retentionReads++;
@@ -171,7 +172,7 @@ const isolationModule = {
       };
     },
     disposeDockerRuntimeRepairDirectory: async (
-      input: isolation.DockerRuntimeRepairDisposalInput,
+      input: import("../../../docker-isolation/src/docker-desktop/repair-session.ts").DockerRuntimeRepairDisposalInput,
     ) => {
       disposalCalls.push(input.purpose);
       assert.equal(input.canIssueEffect(), true);
@@ -186,7 +187,9 @@ const isolationModule = {
       };
     },
     runDockerRuntimeRepairSession: (
-      input: Parameters<typeof isolation.runDockerRuntimeRepairSession>[0],
+      input: Parameters<
+        typeof directoryOperations.runDockerRuntimeRepairSession
+      >[0],
     ) => {
       runtimeEntries++;
       delayedCheckpoint = input.onCheckpoint;
@@ -369,9 +372,9 @@ function createRepairOwnerFixture() {
     disposeDockerRuntimeRepairDirectory:
       isolationModule.namedExports.disposeDockerRuntimeRepairDirectory,
     dockerRuntimeRepairCheckpointIsSettled:
-      isolation.dockerRuntimeRepairCheckpointIsSettled,
+      domain.dockerRuntimeRepairCheckpointIsSettled,
     dockerRuntimeRepairDisposalIsSettled:
-      isolation.dockerRuntimeRepairDisposalIsSettled,
+      domain.dockerRuntimeRepairDisposalIsSettled,
   };
   const names = [
     "Date",
@@ -405,11 +408,12 @@ function createRepairOwnerFixture() {
     "dockerRuntimeRepairDisposalIsSettled",
   ] as const;
   const realOperations = {
-    runDockerRuntimeRepairSession: isolation.runDockerRuntimeRepairSession,
+    runDockerRuntimeRepairSession:
+      directoryOperations.runDockerRuntimeRepairSession,
     observeDockerRuntimeRepairRetention:
-      isolation.observeDockerRuntimeRepairRetention,
+      directoryOperations.observeDockerRuntimeRepairRetention,
     disposeDockerRuntimeRepairDirectory:
-      isolation.disposeDockerRuntimeRepairDirectory,
+      directoryOperations.disposeDockerRuntimeRepairDirectory,
   };
   for (const name of [
     "runDockerRuntimeRepairSession",
@@ -608,7 +612,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
     ?.snapshot.operations.find((operation) => operation.recoveryId === id);
   assert.ok(final?.kind === "runtime_repair" && final.disposal);
   assert.equal(
-    isolation.dockerRuntimeRepairDisposalIsSettled(final.disposal.checkpoint),
+    domain.dockerRuntimeRepairDisposalIsSettled(final.disposal.checkpoint),
     true,
   );
   assert.equal(

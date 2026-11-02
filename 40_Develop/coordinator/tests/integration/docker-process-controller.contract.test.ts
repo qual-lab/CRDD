@@ -18,17 +18,16 @@ import { Writable } from "node:stream";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
-import {
-  describeDockerProviderExecutionLocations,
-  planDockerIsolationCommands,
-} from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
+import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
+import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
 import { describeDockerCommandSessionContract } from "../../../docker-isolation/tests/support/session.ts";
 import {
   createExecutorTestCandidate,
   projectAttemptResult,
   projectAttemptStartResult,
 } from "../../../executor/scripts/executor-test.ts";
+import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createRuntimeOwnedLifecycleNoticeReporter } from "../../src/execution/controller.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
@@ -162,6 +161,7 @@ function createPlan(
     "start_provider_attached",
   ];
   return Object.freeze({
+    isolationRequest: attemptPlan().isolationRequest,
     provider: "claude" as const,
     consumer: "coordinator_cli" as const,
     operationId: "OP-123456",
@@ -367,6 +367,33 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         ...(role ? providerStartObservationTaskPlan : {}),
         provider,
         commands,
+        isolationRequest: {
+          ...base.isolationRequest,
+          resources: base.isolationRequest.resources.map((resource) =>
+            resource.key !== "create_provider"
+              ? resource
+              : {
+                  kind: "container" as const,
+                  key: "create_provider",
+                  name: base.providerContainerName,
+                  ownershipLabel: base.ownershipLabel,
+                  image: base.providerImageDigest,
+                  argv,
+                  environment: {},
+                  mounts: [],
+                  network: null,
+                  networkAlias: null,
+                  user: "65534:65534" as const,
+                  workingDirectory: "/work" as const,
+                  entrypoint: null,
+                  tmpfsBytes: null,
+                  interactive: true,
+                  tty: false,
+                  init: false,
+                  seccomp: null,
+                },
+          ),
+        },
         taskRole: role,
         workspaceMountMode:
           role === "executor"
@@ -2016,6 +2043,34 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
       ...providerStartObservationTaskPlan,
       taskRole: "executor",
       workspaceMountMode: "read_write",
+      isolationRequest: {
+        ...attemptPlan().isolationRequest,
+        resources: attemptPlan().isolationRequest.resources.map((resource) =>
+          resource.key !== "create_provider"
+            ? resource
+            : {
+                kind: "container" as const,
+                key: "create_provider",
+                name: "crdd-codex-0101010101010101",
+                ownershipLabel: "crdd.coordinator.runtime=0101010101010101",
+                image:
+                  "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+                argv: ["exec", "--approve-for-me"],
+                environment: {},
+                mounts: [],
+                network: null,
+                networkAlias: null,
+                user: "65534:65534" as const,
+                workingDirectory: "/work" as const,
+                entrypoint: null,
+                tmpfsBytes: null,
+                interactive: true,
+                tty: false,
+                init: false,
+                seccomp: null,
+              },
+        ),
+      },
       commands: Object.freeze(
         purposes.map((purpose) =>
           Object.freeze({

@@ -8,20 +8,20 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as original from "../../../docker-isolation/src/index.ts";
 import {
+  captureIsolationCleanupRequest,
   captureIsolationRequest,
   plannedResourceSnapshot,
-  captureIsolationCleanupRequest,
 } from "../../../docker-isolation/src/execution/preparation.ts";
 import type {
-  IsolationRequest,
   IsolationCallbacks,
-  PreparedIsolation,
   IsolationExecutionResult,
-  IsolationCleanupRequest,
+  IsolationRequest,
+  PreparedIsolation,
   ResourceSnapshot,
+  ResourceTarget,
 } from "../../../docker-isolation/src/index.ts";
+import * as original from "../../../docker-isolation/src/index.ts";
 
 /** 同じRoot入口の全認証構成と、通知拒否・未終了の負例を確認する。
  * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
@@ -39,12 +39,17 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
     prepareCalls = 0,
     runCalls = 0;
   const requests: IsolationRequest[] = [];
-  const cleanupRequests: IsolationCleanupRequest[] = [];
+  const cleanupRequests: ResourceTarget<"snapshot">[] = [];
+  const capabilityInputs: unknown[][] = [];
   t.mock.module("../../../docker-isolation/src/index.ts", {
     namedExports: {
       ...original,
+      describeIsolationCapabilities(...args: ["codex" | "claude", unknown?]) {
+        capabilityInputs.push(args);
+        return original.describeIsolationCapabilities(args[0], args[1]);
+      },
       cleanupIsolation(
-        input: IsolationCleanupRequest,
+        input: ResourceTarget<"snapshot">,
         callbacks: IsolationCallbacks = {},
       ) {
         const request = captureIsolationCleanupRequest(input);
@@ -100,7 +105,8 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
         const codex =
           probe?.kind === "container" &&
           probe.image ===
-            original.describeDockerProviderAssets("codex").fixedImageDigest;
+            original.describeIsolationCapabilities("codex").assets
+              .fixedImageDigest;
         let cancelled = false;
         return {
           cancel: async () => {
@@ -390,4 +396,6 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
   ])
     assert.equal(createExecutor(valid, options as never), null);
   assert.equal(effects, 0);
+  assert.ok(capabilityInputs.length > 0);
+  assert.ok(capabilityInputs.every((args) => args.length === 1));
 });

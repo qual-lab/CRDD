@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import net from "node:net";
 import { types } from "node:util";
 import { describeDockerProviderAssets } from "../image/assets.ts";
+import type { DockerProxyTopology } from "../image/types.ts";
 
 const PROVIDER_HOSTS = Object.freeze({
   codex: Object.freeze(["auth.openai.com", "chatgpt.com"]),
@@ -33,7 +34,9 @@ const PROVIDER_HOSTS = Object.freeze({
  * @security 認証情報・Host Path・Authorityなし。
  * @concurrency N/A: 凍結した局所値のみ。
  */
-export function describeDockerProxyTopology(provider: "codex" | "claude") {
+export function describeDockerProxyTopology(
+  provider: "codex" | "claude",
+): DockerProxyTopology {
   const assets = describeDockerProviderAssets(provider).proxy;
   return Object.freeze({
     provider,

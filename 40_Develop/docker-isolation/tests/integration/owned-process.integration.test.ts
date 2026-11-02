@@ -13,19 +13,19 @@ import childProcess from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 import { PassThrough } from "node:stream";
 import test from "node:test";
+import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
 import {
   STDERR_LIMIT_BYTES,
   STDOUT_LIMIT_BYTES,
-  startOwnedAttachTerminationFixture,
-  createDockerCliEnvironment,
-} from "../../src/index.ts";
+} from "../../src/execution/result.ts";
 import {
-  createOwnedProcessTreeFixture,
   createOwnedProcessTestEnvironment,
-  startOwnedProcess,
+  createOwnedProcessTreeFixture,
   ownedProcessWorker,
+  startOwnedProcess,
   waitForCondition,
 } from "../fixtures/owned-process-test-support.ts";
+import { startOwnedAttachTerminationFixture } from "../support/probe-process.ts";
 
 const windowsOnly = { skip: process.platform !== "win32", timeout: 20_000 };
 

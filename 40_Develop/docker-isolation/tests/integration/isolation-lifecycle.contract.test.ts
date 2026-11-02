@@ -9,11 +9,70 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test, { type TestContext } from "node:test";
-import { describeDockerProviderAssets } from "../../src/image/assets.ts";
+import type { CommandObservation } from "../../src/execution/result.ts";
 import type {
   IsolationContainer,
   IsolationRequest,
 } from "../../src/execution/types.ts";
+import { describeDockerProviderAssets } from "../../src/image/assets.ts";
+
+/**
+ * config終了の明示不存在と観測不能を通常・単独回収で区別する。
+ * @responsibility Docker資源の回収成功からFilesystem終了を推定しない。
+ * @trace ERB-IT-004
+ * @precondition 有限FS代役だけを用いる。
+ * @stimulus ENOENT、再出現、権限・I/Oエラー、削除失敗を与える。
+ * @observation Completionのconfig終了・全体回収boolと元資源IDを確認する。
+ * @oracle ENOENTのみ成功。Docker不存在でも他の条件は未確認。
+ * @cleanup 代役を復元し当該実行を終了まで待つ。
+ * @boundary 実Docker・AI・保持物を使用しない。
+ */
+test("config終了はENOENTだけを不存在とし再出現・観測不能・削除失敗を成功にしない", async (t) => {
+  for (const mode of ["normal", "standalone"] as const)
+    for (const observation of [
+      "ENOENT",
+      "present",
+      "EACCES",
+      "EPERM",
+      "EIO",
+      "remove_failed",
+    ])
+      await t.test(`${mode}:${observation}`, async (t) => {
+        const f = await fixture(t);
+        const prepared = f.api.prepareIsolation(f.request);
+        assert.ok(prepared);
+        if (mode === "normal") {
+          f.configObservation = observation;
+          if (observation === "remove_failed") f.configCloseError = "EACCES";
+        }
+        let result = await f.api.executeIsolation(prepared).completion;
+        if (mode === "standalone") {
+          assert.equal(result.cleanup.confirmed, true);
+          f.configObservation = observation;
+          if (observation === "remove_failed") f.configCloseError = "EACCES";
+          result = await f.api.cleanupIsolation({
+            managementDirectory: f.request.managementDirectory,
+            resources: result.resources,
+            cleanupOrder: ["container"],
+            setupTimeoutMs: 10_000,
+            unreceiptedAbsence: "retain",
+            verifyLabelAbsence: false,
+            previouslyAbsent: [],
+            discovery: [],
+          }).completion;
+        }
+        assert.equal(
+          result.cleanup.configCleanupConfirmed,
+          observation === "ENOENT",
+        );
+        assert.equal(result.cleanup.confirmed, observation === "ENOENT");
+        assert.equal(f.ids.size, 0);
+        assert.equal(
+          result.resources.resources[0]?.identity.dockerId,
+          "a".repeat(64),
+        );
+      });
+});
 
 /** 本番と同じ共通Ownerへ固定された有限Transportだけを接続する。
  * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
@@ -122,7 +181,10 @@ async function fixture(t: TestContext, resourceSet = false) {
   let inspectName = `/${container.name}`,
     commandExit = 0;
   let networkInternal = true;
+  let commandObservation: CommandObservation | null | undefined;
   let configClosed = false,
+    configCloseError: string | null = null,
+    configObservation = "ENOENT",
     startedCalls = 0,
     pendingStarted = false;
   const waitTimeouts: number[] = [];
@@ -453,13 +515,16 @@ async function fixture(t: TestContext, resourceSet = false) {
           status = commandExit;
         } else assert.fail("unexpected_command");
         let handleClosed = false;
-        const result = {
-          status,
-          signal: null,
-          stdout,
-          stderr: "",
-          outputExceeded: false,
-        };
+        const result =
+          argv[0] === "start" && commandObservation !== undefined
+            ? commandObservation
+            : {
+                status,
+                signal: null,
+                stdout,
+                stderr: "",
+                outputExceeded: false,
+              };
         const pending =
           argv[0] === "start" && pendingRun
             ? new Promise<object | null>((resolve) => {
@@ -505,16 +570,35 @@ async function fixture(t: TestContext, resourceSet = false) {
   );
   t.mock.method(fs, "readdirSync", () => []);
   t.mock.method(fs, "rmdirSync", () => {
+    if (configCloseError)
+      throw Object.assign(Error("synthetic"), { code: configCloseError });
     configClosed = true;
   });
-  const exists = fs.existsSync;
-  t.mock.method(fs, "existsSync", (value: fs.PathLike) =>
-    value === configDirectory ? !configClosed : exists(value),
+  const lstat = fs.lstatSync;
+  t.mock.method(
+    fs,
+    "lstatSync",
+    (value: fs.PathLike, ...options: unknown[]) => {
+      if (value !== configDirectory)
+        return Reflect.apply(lstat, fs, [value, ...options]);
+      if (!configClosed || configObservation === "present")
+        return { isDirectory: () => true };
+      throw Object.assign(Error("synthetic"), { code: configObservation });
+    },
   );
   const api: typeof import("../../src/execution/operations.ts") = await import(
     `../../src/execution/operations.ts?case=${Math.random()}`
   );
   return {
+    set observation(value: CommandObservation | null) {
+      commandObservation = value;
+    },
+    set configObservation(value: string) {
+      configObservation = value;
+    },
+    set configCloseError(value: string | null) {
+      configCloseError = value;
+    },
     api,
     request,
     calls,
@@ -605,7 +689,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       await t.test(`${provider}:${mode}`, async () => {
         selected = provider;
         released = 0;
-        const policy = di.prepareDockerNetworkPolicy(provider, []);
+        const policy = di.describeIsolationCapabilities(provider).networkPolicy;
         assert.equal(policy.status, "ready");
         if (policy.status !== "ready") return;
         const target = {
@@ -1316,5 +1400,131 @@ test("共通入口の実行中取消は終了確認と回収可否を分離す�
         confirmed,
       );
       assert.equal(f.terminateCount, 1);
+    });
+});
+
+/**
+ * 共通実行Ownerが同じ観測から分類し同期通知へ渡すことを反証する。
+ * @responsibility byte上限・Signal・終了値・未観測を別軸で保持する。
+ * @trace ERB-UT-023
+ * @precondition CLI・Processはfixtureの有限代役のみ。
+ * @stimulus null、UTF-8、byte境界、超過とSignal、126／127、通知の例外とPromise返却。
+ * @observation 通知の元結果・分類・終了値分類と回収状態。
+ * @oracle errorCodeとは独立した分類を元結果から一度生成し通知する。
+ * @cleanup 共通OwnerのCompletionを待ち、fixtureの代役を復元する。
+ * @boundary 実Docker・実AI・過去保持物は扱わない。
+ */
+test("共通観測通知は出力分類と終了分類を保持し通知失敗でも回収する", async (t) => {
+  const normal = {
+    status: 0,
+    signal: null,
+    stdout: "あ",
+    stderr: "",
+    outputExceeded: false,
+  };
+  const cases = [
+    {
+      name: "not_observed",
+      value: null,
+      category: "deadline_exceeded",
+      exit: "not_observed",
+    },
+    { name: "utf8", value: normal, category: "completed", exit: "zero" },
+    {
+      name: "stdout_boundary",
+      value: { ...normal, stdout: "x".repeat(1_048_576) },
+      category: "completed",
+      exit: "zero",
+    },
+    {
+      name: "stdout_exceeded",
+      value: { ...normal, stdout: "x".repeat(1_048_577) },
+      category: "output_limit_exceeded",
+      exit: "zero",
+    },
+    {
+      name: "stderr_exceeded",
+      value: { ...normal, stderr: "x".repeat(262_145) },
+      category: "output_limit_exceeded",
+      exit: "zero",
+    },
+    {
+      name: "signal_zero",
+      value: { ...normal, signal: "SIGTERM" },
+      category: "signalled",
+      exit: "signal",
+    },
+    {
+      name: "limit_signal",
+      value: { ...normal, signal: "SIGTERM", outputExceeded: true },
+      category: "output_limit_exceeded",
+      exit: "signal",
+    },
+    {
+      name: "126",
+      value: { ...normal, status: 126 },
+      category: "nonzero_exit",
+      exit: "one_two_six",
+    },
+    {
+      name: "127",
+      value: { ...normal, status: 127 },
+      category: "nonzero_exit",
+      exit: "one_two_seven",
+    },
+  ];
+  for (const c of cases)
+    await t.test(c.name, async (t) => {
+      const f = await fixture(t);
+      f.observation = c.value;
+      const prepared = f.api.prepareIsolation(f.request);
+      assert.ok(prepared);
+      let observed = false;
+      const result = await f.api.executeIsolation(prepared, {
+        onObserved: (
+          step,
+          value,
+          _elapsed,
+          _error,
+          classification,
+          exitClass,
+        ) => {
+          if (step.key !== "run") return;
+          observed = true;
+          assert.strictEqual(value, c.value);
+          assert.equal(classification.category, c.category);
+          assert.equal(exitClass, c.exit);
+          assert.ok(Object.isFrozen(classification));
+          if (c.value && "stdoutBytes" in classification) {
+            assert.equal(
+              classification.stdoutBytes,
+              Buffer.byteLength(c.value.stdout, "utf8"),
+            );
+            assert.equal(
+              classification.stderrBytes,
+              Buffer.byteLength(c.value.stderr, "utf8"),
+            );
+          } else assert.equal("stdoutBytes" in classification, false);
+        },
+      }).completion;
+      assert.equal(observed, true);
+      assert.equal(result.cleanup.confirmed, true);
+      assert.equal(f.ids.size, 0);
+    });
+  for (const mode of ["throw", "promise"])
+    await t.test(mode, async (t) => {
+      const f = await fixture(t),
+        prepared = f.api.prepareIsolation(f.request);
+      assert.ok(prepared);
+      const result = await f.api.executeIsolation(prepared, {
+        onObserved: (step) => {
+          if (step.key !== "run") return;
+          if (mode === "throw") throw Error("synthetic");
+          return Promise.reject(Error("synthetic"));
+        },
+      }).completion;
+      assert.equal(result.failure?.stage, "notification");
+      assert.equal(result.cleanup.confirmed, true);
+      assert.equal(f.ids.size, 0);
     });
 });

@@ -11,11 +11,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
-  classifyDockerProbeExecution,
   classifyDockerProbeCancellation,
-  normalizeContainerCreation,
+  classifyDockerProbeExecution,
   normalizeContainerAbsence,
-} from "../../../src/index.ts";
+  normalizeContainerCreation,
+} from "../../support/probe-result.ts";
 
 /**
  * 固定取消の要求・猶予・ack・終了値を独立期待値へ照合する。

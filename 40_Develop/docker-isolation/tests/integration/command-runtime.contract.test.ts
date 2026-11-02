@@ -8,24 +8,24 @@
  * @scope tests/supportの旧固定Runtimeと純粋な入力・元実体の反例。現在の製品接続は共通Lifecycle結合試験が確認する。
  * @boundary Direct Boundary: 旧候補の有限技術境界。現行製品入口・実Dockerの証明へ流用しない。
  */
-import assert from "node:assert/strict";
-import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
 
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
-import { types as utilTypes } from "node:util";
+import path from "node:path";
 import test, { mock } from "node:test";
-import { createDockerIsolationRuntimeCandidate } from "../support/execution.ts";
-import type {
-  DockerIsolationRuntimePlan,
-  DockerResourceReceipts,
-} from "../../src/index.ts";
-import { planDockerIsolationCommands } from "../../src/index.ts";
-import { createDockerIsolationRuntime } from "../support/execution.ts";
+import { fileURLToPath } from "node:url";
+import { types as utilTypes } from "node:util";
+import { runInNewContext } from "node:vm";
+import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
+import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
+import type { DockerIsolationRuntimePlan } from "../support/execution.ts";
+import {
+  createDockerIsolationRuntime,
+  createDockerIsolationRuntimeCandidate,
+} from "../support/execution.ts";
+import { planDockerIsolationCommands } from "../support/execution-plan.ts";
 
 /**
  * 移管した固定Seccomp Resolverの実物と全拒否条件を確認する。

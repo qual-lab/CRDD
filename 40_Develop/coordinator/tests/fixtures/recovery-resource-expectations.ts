@@ -4,12 +4,13 @@
  * @trace ERB-IT-014
  * @boundary 試験専用。Docker処置・保存・Authorityを発行しない。
  */
-import {
-  isDockerResourcePurpose,
-  planDockerRecoveryResourceExpectations,
-  codexAdviceProviderInitRequired,
-} from "../../../docker-isolation/src/index.ts";
+
+import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
 import type { CoordinatorStateTaskOperation } from "../../../domain-model/src/index.ts";
+import {
+  codexAdviceProviderInitRequired,
+  planDockerRecoveryResourceExpectations,
+} from "../../../executor/src/attempt/recovery.ts";
 
 export function expectedRecoveryResources(
   operation: CoordinatorStateTaskOperation,

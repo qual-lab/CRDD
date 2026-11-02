@@ -8,15 +8,16 @@
  * @scope provider、task、packet、runtime
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
-import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
-import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
+import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
+import { compileExternalSendScopeHash } from "../../../src/decision/external-send-grant.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -27,12 +28,12 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "../../../src/execution/operation.ts";
 import {
+  consumeTaskRemediation,
   createIsolatedProviderTaskPacketRuntimeCandidate,
   describeProviderTaskPacketRuntimeContract,
   registerTaskRemediation,
-  consumeTaskRemediation,
 } from "../../../src/execution/preparation.ts";
-import { compileExternalSendScopeHash } from "../../../src/decision/external-send-grant.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 /** Packet単体試験の前提となる検査済み所見を作る。Provider内容検査の成立は主張しない。 */
 function createReviewFixture(management: object, raw: string) {

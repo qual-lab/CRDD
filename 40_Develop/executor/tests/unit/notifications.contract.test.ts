@@ -10,19 +10,21 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 import test, { mock } from "node:test";
-import type { DockerResourceReceipts } from "../../../docker-isolation/src/index.ts";
+import { runInNewContext } from "node:vm";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { createExecutorTestRuntime } from "../../scripts/executor-test.ts";
-import type { IsolationRuntime } from "../../src/attempt/types.ts";
+import type {
+  DockerResourceReceipts,
+  IsolationRuntime,
+} from "../../src/attempt/types.ts";
 import type {
   AttemptDiagnosticNotice,
   CompletionResult,
   ExecutorCallbacks,
 } from "../../src/index.ts";
+import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -341,7 +343,10 @@ function fixture(busy = false, providerOutput?: string) {
           },
     startExecution: (input, _reference, _owner, hooks) =>
       startDockerCommandSessionCandidate(
-        input.commands.map((command) => command.purpose),
+        input.isolationRequest.steps.map(
+          (step) =>
+            step.key as import("../../src/attempt/types.ts").AttemptCommandPurpose,
+        ),
         {
           startCommand: (purpose) => {
             calls.push(purpose);
@@ -654,7 +659,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
         },
         resultSchema: ai.describeAdviceResultSchema(),
       },
-      di.describeDockerProviderExecutionLocations("claude", "advice"),
+      di.describeIsolationCapabilities("claude").locations.primary,
     );
     assert.ok(planned.plan);
     const plan = attemptPlan();

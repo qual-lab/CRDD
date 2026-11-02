@@ -8,24 +8,27 @@
  * @scope claude、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
+
+import assert from "node:assert/strict";
+import test from "node:test";
 import {
-  executionSelection,
-  preparationSelection as attemptSelection,
-} from "../../fixtures/ai-selection.ts";
+  describeAdviceResultSchema,
+  planProviderExecution,
+} from "../../../../ai-adapter/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
 import {
-  startRuntimeOwnedDockerProcessController,
   cancelRuntimeOwnedDockerProcessController,
+  startRuntimeOwnedDockerProcessController,
 } from "../../../src/execution/provider-executor.ts";
+import {
+  preparationSelection as attemptSelection,
+  executionSelection,
+} from "../../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
-import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../../ai-adapter/src/index.ts";
-import assert from "node:assert/strict";
-import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
-import test from "node:test";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
-import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 
 const fixedSelection = executionSelection("independent_reviewer", {
   provider: "claude",

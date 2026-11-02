@@ -12,9 +12,9 @@ import test from "node:test";
 import {
   classifyDockerCommandExecution,
   classifyDockerProcessExit,
-  STDOUT_LIMIT_BYTES,
   STDERR_LIMIT_BYTES,
-} from "../../../src/index.ts";
+  STDOUT_LIMIT_BYTES,
+} from "../../../src/execution/result.ts";
 
 /**
  * 技術結果の分類はAIの意味を含めず元の優先順と出力境界を保持する。

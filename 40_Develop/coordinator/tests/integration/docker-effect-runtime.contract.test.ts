@@ -8,22 +8,26 @@
  * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
-import { parseHostRecoveryToken } from "../../../domain-model/src/index.ts";
+import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
+import {
+  parseHostRecoveryToken,
+  hashExecutionSelection,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
 import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
   preparationSelection as attemptSelection,
 } from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
-import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
+
+import type { DockerExecutionCallbacks } from "../../../executor/src/attempt/types.ts";
+import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
-import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  requireReadyRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
+
 import {
   activateOwnedHostOperationGenerationLock,
   acquireHostOperationRecoveryGenerationByIdentity,
@@ -40,11 +44,8 @@ import {
 } from "../../src/execution/operation.ts";
 
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
-import {
-  planDockerIsolationCommands,
-  type DockerExecutionCallbacks,
-  type DockerIsolationRuntimePlan,
-} from "../../../docker-isolation/src/index.ts";
+
+import type { DockerIsolationRuntimePlan } from "../../../docker-isolation/tests/support/execution.ts";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import {
   bindIsolationRuntime,

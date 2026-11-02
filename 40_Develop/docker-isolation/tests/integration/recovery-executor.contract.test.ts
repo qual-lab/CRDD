@@ -18,9 +18,9 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
   createDockerOperationRecoveryExecutor,
-  createDockerResourceRecoveryExecutor,
   observeDockerRecoveryConfigIdentity,
-} from "../../src/index.ts";
+} from "../../src/cleanup/execute.ts";
+import { createDockerResourceRecoveryExecutor } from "../support/cleanup.ts";
 
 /**
  * 固定Task factoryがCLI・環境を下位へ閉じ、旧cache寿命を維持する。

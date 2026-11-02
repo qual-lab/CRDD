@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
-import { prepareDockerNetworkPolicy } from "../../../src/index.ts";
+import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
 
 /**
  * npm Registry相当の24 DNS応答を通信なしで検証する。

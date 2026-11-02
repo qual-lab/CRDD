@@ -1,23 +1,18 @@
 /**
- * Attemptとは独立したDocker実行環境の技術窓口。
- * @responsibility 既存Docker Isolationの観測・再起動へ薄く接続する。
+ * Docker実行環境の観測と再起動・修復の共通技術入口。
+ * @responsibility 現在環境の観測と明示した再起動・修復を技術Owner内で束ねる。
  * @trace ARCH-000008
  * @boundary 上位の現在判断と下位の固定環境操作。
  */
 
 import { types } from "node:util";
-import {
-  type DockerRuntimeRepairInput,
-  type DockerRuntimeRepairResult,
-  type DockerRuntimeRestartInput,
-  type DockerRuntimeRestartResult,
-  observeDockerRuntimeBackendState,
-  observeDockerRuntimeEngine,
-  restartDockerRuntime,
-  runDockerRuntimeRepairSession,
-} from "../../../docker-isolation/src/index.ts";
+import { observeDockerRuntimeBackendState } from "./backend.ts";
+import { observeDockerRuntimeEngine } from "./engine.ts";
+import { runDockerRuntimeRepairSession } from "./repair-session.ts";
+import { restartDockerRuntime } from "./restart.ts";
 import type {
-  DockerEnvironmentRestartRequest,
+  DockerEnvironmentRequest,
+  DockerEnvironmentResult,
   DockerEnvironmentStatus,
 } from "./types.ts";
 
@@ -60,17 +55,17 @@ export function inspectDockerEnvironment(): DockerEnvironmentStatus {
  */
 
 export function restartDockerEnvironment(
-  request: Readonly<{ mode: "restart"; input: DockerRuntimeRestartInput }>,
-): Promise<DockerRuntimeRestartResult>;
+  request: DockerEnvironmentRequest<"restart">,
+): Promise<DockerEnvironmentResult<"restart">>;
 export function restartDockerEnvironment(
-  request: Readonly<{ mode: "repair"; input: DockerRuntimeRepairInput }>,
-): Promise<DockerRuntimeRepairResult>;
+  request: DockerEnvironmentRequest<"repair">,
+): Promise<DockerEnvironmentResult<"repair">>;
 export function restartDockerEnvironment(
-  request: DockerEnvironmentRestartRequest,
-): Promise<DockerRuntimeRestartResult | DockerRuntimeRepairResult>;
+  request: DockerEnvironmentRequest,
+): Promise<DockerEnvironmentResult>;
 export function restartDockerEnvironment(
-  request: DockerEnvironmentRestartRequest,
-): Promise<DockerRuntimeRestartResult | DockerRuntimeRepairResult> {
+  request: DockerEnvironmentRequest,
+): Promise<DockerEnvironmentResult> {
   if (
     !request ||
     typeof request !== "object" ||

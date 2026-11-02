@@ -11,7 +11,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { classifyDockerProbeExecution } from "../../src/probe/result.ts";
+import { classifyDockerProbeExecution } from "../support/probe-result.ts";
 
 /**
  * 実関数の待機と終了処置を同じ有限Handleで検査する。

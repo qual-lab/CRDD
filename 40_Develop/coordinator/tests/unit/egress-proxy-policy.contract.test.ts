@@ -10,10 +10,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  describeDockerProviderAssets,
-  describeDockerProxyTopology,
-} from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderAssets } from "../../../docker-isolation/src/image/assets.ts";
+import { describeDockerProxyTopology } from "../../../docker-isolation/src/network/policy.ts";
 
 import {
   PROVIDER_INPUT_LIMITS,

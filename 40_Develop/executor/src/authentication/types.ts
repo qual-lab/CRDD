@@ -7,11 +7,7 @@ import type {
   AiProvider,
   ProviderAuthenticationResult,
 } from "../../../ai-adapter/src/index.ts";
-import type {
-  DockerAuthenticationCleanupCallbacks,
-  DockerAuthenticationResources,
-  ResourceSnapshot,
-} from "../../../docker-isolation/src/index.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
 
 /**
@@ -103,3 +99,50 @@ export type AuthenticationCompletionResult = AuthenticationResult &
     cleanupConfirmed: boolean;
     resourceSnapshot: ResourceSnapshot | null;
   }>;
+
+/**
+ * 認証資源回収と同じ技術Processの終了観測。
+ * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
+ * @trace ARCH-000008
+ * @shape confirmedとprocessCompletionConfirmedを分離した結果。
+ * @invariant 終了不明を不存在や成功へ補完しない。
+ * @boundary DI技術回収からExecutorの結果集約。
+ * @security 保存・Home解放・Task完了の成立を含めない。
+ * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
+ */
+export type AuthenticationCleanupResult = Readonly<{
+  resourceSnapshot?: ResourceSnapshot;
+  confirmed: boolean;
+  processCompletionConfirmed: boolean;
+}>;
+
+/**
+ * 認証回収の固定技術要求前後を通知する。
+ * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
+ * @trace ARCH-000008
+ * @shape 同期voidの操作前通知と操作完了通知。
+ * @invariant 必要処理完了後にreturnし、例外・誤Promiseは後続Effectを停止する。
+ * @boundary DI技術要求と上位の記録通知。
+ * @security 許可Query・保存ACK・認証値を受け取らない。
+ * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
+ */
+export interface DockerAuthenticationCleanupCallbacks {
+  onCommandSubmitting?(purpose: string): void;
+  onCommandCompleted?(): void;
+}
+
+/**
+ * 認証で作成した資源の順序・名前と受領済み実ID。
+ * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
+ * @trace ARCH-000008
+ * @shape container／network、固定名、64桁実ID又はnullの不変列。
+ * @invariant 元計画と順序・種類・名前を照合し、ID欠測を削除許可にしない。
+ * @boundary 認証実行と同じDI通常／単独回収。
+ * @security accessor・Proxy・別資源のID混入を拒否する。
+ * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
+ */
+export type DockerAuthenticationResources = readonly Readonly<{
+  kind: "container" | "network";
+  name: string;
+  dockerId: string | null;
+}>[];

@@ -82,7 +82,7 @@ test("単独Hostは元試行の保存と排他終了を接続する", () => {
       }
     }});
     const api=await import(${JSON.stringify(url("../../src/index.ts"))});
-    const {prepareAttempt}=await import(${JSON.stringify(url("../../src/attempt/operations.ts"))});
+    const {prepareAttempt}=await import(${JSON.stringify(url("../../scripts/executor-test.ts"))});
     const preparationInput={prepare:prepareAttempt};
     const {createStandaloneProviderAttemptHost}=await import(${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))}));

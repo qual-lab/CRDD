@@ -1,49 +1,15 @@
 /**
- * 隔離診断の固定Docker操作と短命Process実行を所有する。
- * @responsibility 診断Scenarioの意味を持たず、閉じた操作からargvを構築する。
+ * 旧隔離診断の固定Docker操作を有限試験に保持する。
+ * @responsibility 試験専用の閉じた操作からargvを構築し製品入口へ公開しない。
  * @trace ARCH-000008
  */
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { captureDockerProcessEnvironment } from "../process/environment.ts";
+import { describeIsolationCapabilities } from "../../src/capabilities.ts";
+import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
 
 const ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
-
-/**
- * Probeの固定技術構成と相関付き資源名を記述する。
- * @responsibility 作成・inspect・回復記録が同じImage／Name／Labelを参照する正本を持つ。
- * @trace ARCH-000008
- * @input probeId: 上位が所有する同じ診断相関。
- * @returns 固定Image、名前、Label、保存用Engine名と技術profile。
- * @precondition 実行時のID合法性と所有確認は各要求入口が別途行う。
- * @postcondition 所在・認証情報・実行許可を含めない。
- * @effect N/A: 固定値と文字列の投影のみ。
- * @failure N/A: 実観測や処置を実行しない。
- * @invariant この記述を資源存在・Authority・回収成立へ昇格しない。
- * @boundary DI技術構成と上位の既存保存形式。
- * @security 戻り値は実行Capabilityではない。
- * @concurrency N/A: 同期の不変値。
- */
-export function describeDockerProbeResource(probeId: string) {
-  return Object.freeze({
-    image: IMAGE,
-    name: `crdd-coordinator-probe-${probeId}`,
-    label: `crdd.coordinator.probe=${probeId}`,
-    labelName: "crdd.coordinator.probe",
-    engine: "docker_desktop_linux_named_pipe",
-    runtimeProfile: Object.freeze({
-      backend: "docker_desktop_linux",
-      endpoint: "local_named_pipe",
-      dockerCliTrust:
-        "fixed_path_valid_windows_authenticode_docker_inc_and_operation_snapshot",
-      imagePinnedByDigest: true,
-      networkMode: "none",
-    }),
-  });
-}
-const IMAGE =
-  "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
 
 /**
  * 診断の閉じた技術操作入力。
@@ -297,5 +263,15 @@ export function executeDockerProbeCommand(
     timeout: timeoutMs,
     maxBuffer: 64 * 1024,
     env: environment,
+  });
+}
+
+/** 固定旧記録の名前投影を試験Oracleとして保持する。実行・回収の入口ではない。 */
+export function describeDockerProbeResource(probeId: string) {
+  return Object.freeze({
+    ...describeIsolationCapabilities(),
+    name: `crdd-coordinator-probe-${probeId}`,
+    label: `crdd.coordinator.probe=${probeId}`,
+    labelName: "crdd.coordinator.probe",
   });
 }

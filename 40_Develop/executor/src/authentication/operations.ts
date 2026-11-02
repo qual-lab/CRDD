@@ -10,28 +10,26 @@ import {
   evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  type AuthenticationCleanupResult,
-  captureAuthenticationResources,
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-  describeDockerProxyTopology,
-  prepareIsolation,
-  executeIsolation,
   cleanupIsolation,
-  type IsolationRequest,
+  describeIsolationCapabilities,
+  executeIsolation,
   type IsolationExecution,
+  type IsolationRequest,
+  prepareIsolation,
 } from "../../../docker-isolation/src/index.ts";
 import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import type {
-  Executor,
   AuthenticationResourceTarget,
+  Executor,
 } from "../lifecycle/types.ts";
 import type {
+  AuthenticationCallbacks,
+  AuthenticationCleanupResult,
   AuthenticationCompletionResult,
   AuthenticationProjection,
   AuthenticationRequest,
   AuthenticationResult,
-  AuthenticationCallbacks,
+  DockerAuthenticationResources,
 } from "./types.ts";
 
 /**
@@ -179,10 +177,8 @@ function authenticationIsolationRequest(
   )
     throw Error("provider_authentication_input_invalid");
   const cli = describeProviderAuthentication(request.provider);
-  const locations = describeDockerProviderExecutionLocations(
-    request.provider,
-    "probe",
-  );
+  const capabilities = describeIsolationCapabilities(request.provider);
+  const locations = capabilities.locations.primary;
   const environment = {
     ...("environment" in cli ? cli.environment : {}),
     ...("homeEnvironmentVariable" in cli
@@ -190,7 +186,7 @@ function authenticationIsolationRequest(
       : {}),
   };
   const label = `crdd.coordinator.authentication=${request.suffix}`;
-  const image = describeDockerProviderAssets(request.provider).fixedImageDigest;
+  const image = capabilities.assets.fixedImageDigest;
   const probe = {
     kind: "container",
     key: "probe",
@@ -220,7 +216,7 @@ function authenticationIsolationRequest(
   const resources: IsolationRequest["resources"][number][] = [];
   const steps: IsolationRequest["steps"][number][] = [];
   if (request.action === "login") {
-    const topology = describeDockerProxyTopology(request.provider);
+    const topology = capabilities.proxy;
     if (
       !topology.providerNetworkInternal ||
       topology.providerDirectExternalNetwork ||
@@ -618,4 +614,59 @@ export function notifyAuthentication(
       );
     throw Error("provider_authentication_notification_unconfirmed");
   }
+}
+
+/**
+ * 元認証計画と同じ資源列だけを通常データとして捕捉する。
+ * @responsibility 欠測、順序・名前差、accessor、Proxyと不正IDを拒否する。
+ * @trace ARCH-000010
+ * @input expected: 元の資源列。value: 開始時又は再入場時のReceipt列。
+ * @returns 入れ子を含め固定した元構成のReceipt列、又はnull。
+ * @effect N/A: own-dataの読取りだけ。
+ * @failure 分類不能・不一致はnull。
+ * @invariant indexだけで別資源を結合しない。
+ */
+export function captureAuthenticationResources(
+  expected: DockerAuthenticationResources,
+  value: unknown,
+): DockerAuthenticationResources | null {
+  if (
+    !Array.isArray(value) ||
+    types.isProxy(value) ||
+    value.length !== expected.length
+  )
+    return null;
+  const captured = [];
+  for (let index = 0; index < expected.length; index++) {
+    const original = expected[index];
+    if (!original) return null;
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    const item: unknown =
+      descriptor && Object.hasOwn(descriptor, "value")
+        ? descriptor.value
+        : null;
+    if (!item || typeof item !== "object" || types.isProxy(item)) return null;
+    const fields = Object.getOwnPropertyDescriptors(item);
+    if (
+      Reflect.ownKeys(fields).length !== 3 ||
+      ["kind", "name", "dockerId"].some(
+        (key) => !fields[key] || !Object.hasOwn(fields[key], "value"),
+      )
+    )
+      return null;
+    const kind: unknown = fields.kind?.value,
+      name: unknown = fields.name?.value,
+      dockerId: unknown = fields.dockerId?.value;
+    if (
+      kind !== original.kind ||
+      name !== original.name ||
+      (dockerId !== null &&
+        (typeof dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(dockerId)))
+    )
+      return null;
+    captured.push(
+      Object.freeze({ kind: original.kind, name: original.name, dockerId }),
+    );
+  }
+  return Object.freeze(captured);
 }

@@ -10,21 +10,21 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
-import path from "node:path";
 import fs from "node:fs";
-import { syncBuiltinESMExports, stripTypeScriptTypes } from "node:module";
-import { runInNewContext } from "node:vm";
-import { types as utilTypes } from "node:util";
+import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
+import path from "node:path";
 import test from "node:test";
-import { describeDockerProbeResource } from "../../src/index.ts";
+import { types as utilTypes } from "node:util";
+import { runInNewContext } from "node:vm";
 import {
   createDockerProbeContainer,
-  observeDockerProbeEngine,
-  runDockerProbeToCompletion,
-  planDockerProbeCreation,
-  describeDockerProbeConfiguration,
   type DockerProbeProfile,
+  describeDockerProbeConfiguration,
+  observeDockerProbeEngine,
+  planDockerProbeCreation,
+  runDockerProbeToCompletion,
 } from "../support/probe.ts";
+import { describeDockerProbeResource } from "../support/probe-plan.ts";
 
 /**
  * 旧所在Queryを入力しても呼ばれないことを実子で観測する。

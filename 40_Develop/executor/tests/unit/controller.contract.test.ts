@@ -8,13 +8,13 @@
  * @boundary Executor Controllerの終端結果。
  */
 import assert from "node:assert/strict";
-import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { createStartResult } from "../../src/attempt/result.ts";
 import type { StartResult } from "../../src/index.ts";
+import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。
@@ -147,7 +147,7 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
       recoveryCapability: Object.freeze({}),
     });
     const random = { randomBytes: () => Buffer.alloc(1) };
-    const request = {};
+    const request = { target: { temporarySourcePath: "synthetic" } };
     const prepared = plan;
     const started =
       mode === "blocked"

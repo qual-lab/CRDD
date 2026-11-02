@@ -133,9 +133,10 @@ export function verifyStandaloneProviderAttempt() {
         };
       }
     }});
+    const {attemptPlan}=await import(${JSON.stringify(new URL("../tests/fixtures/attempt-plan.ts", import.meta.url).href)});
     const api=await import(${JSON.stringify(root)});
-    const executionInput=await import(${JSON.stringify(new URL("../src/attempt/operations.ts", import.meta.url).href)});
-    const {prepareAttempt}=await import(${JSON.stringify(new URL("../src/attempt/operations.ts", import.meta.url).href)});
+    const executionInput=await import(${JSON.stringify(new URL("./executor-test.ts", import.meta.url).href)});
+    const {prepareAttempt}=await import(${JSON.stringify(new URL("./executor-test.ts", import.meta.url).href)});
     const preparationInput={prepare:prepareAttempt};
     const testing=await import(${JSON.stringify(new URL("./executor-test.ts", import.meta.url).href)});
     const create=testing.createExecutorTestCandidate;
@@ -176,6 +177,7 @@ export function verifyStandaloneProviderAttempt() {
       assert.equal(fs.readFileSync(lock,'utf8'),'executor-standalone-fixture');
       const suffix='0101010101010101';
       let plan={
+        isolationRequest:attemptPlan().isolationRequest,
         provider,consumer:'coordinator_cli',operationId:'OP-123456',
         grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
         executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-5.5':'opus',identifierKind:provider==='codex'?'exact':'alias',

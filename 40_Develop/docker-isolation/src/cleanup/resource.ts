@@ -5,12 +5,12 @@
  * @trace ARCH-000008
  */
 import {
+  type DockerResourceExpectation,
   dockerResourceConfigurationMatches,
   dockerResourceExpectationIsValid,
   dockerResourceLocatorIsValid,
-  type DockerResourceExpectation,
 } from "./plan.ts";
-import type { ResourceSnapshot } from "./types.ts";
+import type { ResourceIdentity, ResourceSnapshot } from "./types.ts";
 
 /** 固定inspectの正規の不存在応答だけを肯定する。失敗一般を不存在にしない。 */
 export function explicitDockerResourceAbsence(
@@ -318,6 +318,55 @@ export function observeExpectedDockerResource(
   }> = Object.freeze({}),
 ) {
   if (!dockerResourceExpectationIsValid(expectation)) return false;
+  return observeIsolationIdentity(
+    runDocker,
+    {
+      kind: expectation.kind,
+      dockerId: expectation.dockerId,
+      name: expectation.expectedName,
+      ownershipLabel: expectation.ownershipLabel,
+    },
+    expectation.purpose,
+    { ...options, configuration: expectation },
+  );
+}
+
+/**
+ * 既知実IDの資源を用途・実行構成によらず観測する。
+ * @responsibility 実ID・名前・所有Labelと明示不存在を同じ有界読取りへ結合する。
+ * @trace ARCH-000008
+ * @input runDocker: DI内部の固定接続。identity: 元Receipt。key: 要求内の相関。
+ * @returns 元対象の存在、又は明示許可された不存在だけtrue。
+ * @effect 固定Docker読取りだけ。削除・作成は発行しない。
+ * @invariant 構成差や観測失敗を不存在・別対象へ読み替えない。
+ */
+export function observeIsolationIdentity(
+  runDocker: (argv: readonly string[]) => DockerRecoveryCommandResult,
+  identity: ResourceIdentity,
+  key: string,
+  options: Readonly<{
+    allowAlreadyAbsent?: boolean;
+    onObserved?: (snapshot: ResourceSnapshot) => void;
+    configuration?: DockerResourceExpectation;
+  }> = {},
+): boolean {
+  if (
+    !identity ||
+    !["container", "network"].includes(identity.kind) ||
+    typeof identity.dockerId !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(identity.dockerId) ||
+    !/^crdd-[a-zA-Z0-9-]+$/u.test(identity.name) ||
+    !/^crdd\.coordinator\.(runtime|authentication|probe)=[a-fA-F0-9-]+$/u.test(
+      identity.ownershipLabel,
+    )
+  )
+    return false;
+  const expectation = {
+    kind: identity.kind,
+    dockerId: identity.dockerId,
+    expectedName: identity.name,
+    ownershipLabel: identity.ownershipLabel,
+  };
   const { kind, dockerId, expectedName } = expectation;
 
   const exactNameAbsent = () => {
@@ -385,12 +434,13 @@ export function observeExpectedDockerResource(
     return options.allowAlreadyAbsent !== false && exactNameAbsent();
   if (ids.length !== 1 || ids[0] !== dockerId) return false;
   const inspected = inspectObservedDockerResource(runDocker, kind, dockerId);
-  if (!dockerResourceConfigurationMatches(inspected, expectation)) return false;
-  const snapshot = snapshotObservedDockerResource(
-    inspected,
-    expectation.purpose,
-    expectation,
-  );
+  if (!dockerResourceIdentityMatches(inspected, expectation)) return false;
+  if (
+    options.configuration &&
+    !dockerResourceConfigurationMatches(inspected, options.configuration)
+  )
+    return false;
+  const snapshot = snapshotObservedDockerResource(inspected, key, expectation);
   if (!snapshot) return false;
   const delivered: unknown = options.onObserved?.(snapshot);
   if (delivered !== undefined) {

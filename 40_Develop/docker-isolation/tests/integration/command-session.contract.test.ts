@@ -13,12 +13,12 @@ import test from "node:test";
 import type {
   DockerExecutionCallbacks,
   DockerResourceReceipts,
-  DockerIsolationCommand,
-  CommandObservation,
-} from "../../src/index.ts";
+} from "../../../executor/src/attempt/types.ts";
+import type { CommandObservation } from "../../src/index.ts";
+import type { DockerIsolationCommand } from "../support/execution-plan.ts";
 import {
-  startDockerCommandSessionCandidate,
   describeDockerCommandSessionContract,
+  startDockerCommandSessionCandidate,
 } from "../support/session.ts";
 
 const PURPOSES = [

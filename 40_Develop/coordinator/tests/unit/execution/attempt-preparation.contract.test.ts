@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseAdviceReferences } from "../../../../ai-adapter/src/index.ts";
-import type { DockerIsolationRuntimeOptions } from "../../../../docker-isolation/src/index.ts";
 import { parseModelSelection } from "../../../../executor/src/attempt/operations.ts";
+import type { DockerIsolationRuntimeOptions } from "../../../../executor/src/attempt/types.ts";
 import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
 import {
   cancelProviderDockerPreparation,

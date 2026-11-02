@@ -8,14 +8,14 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as original from "../../../docker-isolation/src/index.ts";
 import type {
-  IsolationRequest,
   IsolationCallbacks,
   IsolationExecutionResult,
+  IsolationRequest,
   PreparedIsolation,
+  ResourceSnapshot,
 } from "../../../docker-isolation/src/index.ts";
-import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
+import * as original from "../../../docker-isolation/src/index.ts";
 
 /** 旧用途別手順の反例を、新しい技術入口と意味Ownerへ対応付ける。 */
 test("固定Probeは共通技術入口で構成・通知・取消・終了・回収を維持する", async (t) => {
@@ -83,7 +83,7 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
         assert.ok(r?.kind === "container");
         assert.equal(r.name, `crdd-coordinator-probe-${probeId}`);
         assert.equal(r.ownershipLabel, `crdd.coordinator.probe=${probeId}`);
-        assert.equal(r.image, original.DIAGNOSTIC_IMAGE);
+        assert.equal(r.image, original.describeIsolationCapabilities().image);
         assert.equal(r.network, null);
         assert.equal(r.entrypoint, "python");
         assert.equal(r.user, "65532:65532");
@@ -172,6 +172,20 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
                   },
                   1,
                   null,
+                  {
+                    category:
+                      mode === "normal" || mode === "input_changed"
+                        ? "completed"
+                        : "nonzero_exit",
+                    stdoutBytes:
+                      mode === "normal" || mode === "input_changed"
+                        ? Buffer.byteLength(goodOutput, "utf8")
+                        : 0,
+                    stderrBytes: 0,
+                  },
+                  mode === "normal" || mode === "input_changed"
+                    ? "zero"
+                    : "other_nonzero",
                 );
               if (mode === "close") terminated = false;
               if (mode === "changed") changed = true;

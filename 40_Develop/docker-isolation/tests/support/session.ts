@@ -3,23 +3,25 @@
  * @responsibility raw Handle、技術期限と終端を所有し、上位の意味・保存方式を知らない。
  * @trace ARCH-000008
  */
-import type {
-  DockerSessionCommandHandle,
-  DockerSessionCleanup,
-  DockerExecutionCallbacks,
-  DockerCommandSessionOperations,
-  DockerSessionFailure,
-  DockerCommandSession,
-} from "../../src/execution/types.ts";
+
 import { types as utilTypes } from "node:util";
-import type { DockerIsolationCommand } from "../../src/execution/plan.ts";
+import type {
+  DockerCommandSession,
+  DockerExecutionCallbacks,
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+  DockerSessionCleanup,
+  DockerSessionFailure,
+} from "../../../executor/src/attempt/types.ts";
 import {
+  type CommandObservation,
+  classifyDockerCommandException,
   classifyDockerCommandExecution,
   classifyDockerProcessExit,
-  classifyDockerCommandException,
-  type CommandObservation,
   type DockerProcessExitStatusClass,
 } from "../../src/execution/result.ts";
+import type { OwnedCommandHandle } from "../../src/process/start.ts";
+import type { DockerIsolationCommand } from "./execution-plan.ts";
 
 const PURPOSES = [
   "create_subscription_auth_probe",
@@ -500,3 +502,39 @@ export function startDockerCommandSessionCandidate(
     productionAuthority: false as const,
   });
 }
+
+/**
+ * Sessionが使用する元Process Handleの最小断面。
+ * @responsibility 開始・待機・終端だけを同じ私有Ownerへ保持する。
+ * @trace ARCH-000008
+ * @shape started、wait、terminateAndWait。
+ * @invariant Handleを上位結果へ公開しない。
+ * @boundary 技術Runtime内部、または非本番Candidate。
+ * @security Processを任意PIDから再構成しない。
+ * @compatibility 元Handleの三操作を縮約せず利用する。
+ */
+export type DockerSessionCommandHandle = Pick<
+  OwnedCommandHandle,
+  "started" | "terminateAndWait"
+> &
+  Readonly<{ wait: (timeoutMs: number) => Promise<CommandObservation | null> }>;
+
+/**
+ * Session内部の固定技術操作を接続する。
+ * @responsibility 本番では同Runtimeの元操作だけを結合する。
+ * @trace ARCH-000008
+ * @shape 固定purpose開始、元清掃と元結果照合。
+ * @invariant 上位Store・業務結果を所有しない。
+ * @boundary 本番Runtime内、または明示した非本番Candidate。
+ * @security 本番Factoryは外部primitiveを受け取らない。
+ * @compatibility Candidate注入を実Effect0や本番真正性の証明としない。
+ */
+export type DockerCommandSessionOperations = Readonly<{
+  startCommand: (
+    purpose: DockerIsolationCommand["purpose"],
+  ) => DockerSessionCommandHandle;
+  cleanup: (receipts: DockerResourceReceipts) => Promise<DockerSessionCleanup>;
+  verifyCleanup?: (
+    result: DockerSessionCleanup,
+  ) => readonly DockerResourceCleanupObservation[] | null | undefined;
+}>;

@@ -10,18 +10,16 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   awaitDockerRepairEngine,
-  type DockerRepairEngineObservation,
+  awaitDockerRepairEngineUsing,
+  classifyDockerEngineResult,
   DOCKER_ENGINE_STARTUP_WAIT_MS,
-} from "../../src/index.ts";
-import { awaitDockerRepairEngineUsing } from "../../src/docker-desktop/engine.ts";
-import {
+  type DockerRepairEngineObservation,
   isDockerEngineReady,
   observeDockerEnginePipe,
-  classifyDockerEngineResult,
 } from "../../src/docker-desktop/engine.ts";
 
 /**

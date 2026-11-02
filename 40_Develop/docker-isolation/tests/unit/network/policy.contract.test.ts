@@ -9,10 +9,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  prepareDockerNetworkPolicy,
-  parseDockerNetworkPolicy,
-} from "../../../src/index.ts";
+import { parseDockerNetworkPolicy } from "../../../src/index.ts";
+import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
 
 /**
  * 同じ実効集合のHashとProvider別固定Hostを検証する。

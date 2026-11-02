@@ -11,10 +11,7 @@ import path from "node:path";
 import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
 import {
-  type DockerRuntimeRepairCheckpoint,
   dockerIsolationResourceIdentityIsValid,
-  dockerRuntimeRepairCheckpointIsSettled,
-  dockerRuntimeRepairDisposalIsSettled,
   parseDockerTaskRecoveryId,
 } from "../../../docker-isolation/src/index.ts";
 import {
@@ -33,7 +30,10 @@ import {
   coordinatorTaskResourcesAreSettled,
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
+  type DockerRuntimeRepairCheckpoint,
   decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  dockerRuntimeRepairCheckpointIsSettled,
+  dockerRuntimeRepairDisposalIsSettled,
   type ExecutionSelection,
   encodeRuntimeStateValue,
   inspectExecutionSelection,
@@ -79,14 +79,14 @@ import type {
   CompletionResult as TechnicalCompletionResult,
 } from "../../../executor/src/index.ts";
 import {
-  type ResourceTarget,
   type ResourceCleanupResult as AttemptResourceCleanupResult,
-  type ResourceInspection,
   cleanupResources,
+  type DockerEnvironmentResult,
   type DockerRuntimeRestartEvent,
-  type DockerRuntimeRestartResult,
   inspectResources,
   type ResourceCleanupCallbacks,
+  type ResourceInspection,
+  type ResourceTarget,
   restartDockerEnvironment,
 } from "../../../executor/src/index.ts";
 import {
@@ -141,10 +141,10 @@ import { registerTaskRemediation } from "./preparation.ts";
 import { prepareRuntimeOwnedCoordinatorSettlement } from "./settlement.ts";
 import type {
   AttemptCleanupInput,
-  ResourceCleanupResult,
   RecordedAttemptObservation,
   RecoveryPlan,
   RecoveryStartFailureDiagnostic,
+  ResourceCleanupResult,
 } from "./types.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
 
@@ -5410,7 +5410,7 @@ export function releaseRuntimeOwnedDockerRestartPreparation(
  */
 export function finalizeRuntimeOwnedDockerRestartPreparation(
   capability: unknown,
-  result: DockerRuntimeRestartResult,
+  result: DockerEnvironmentResult<"restart">,
 ) {
   const refused = Object.freeze({
     status: "blocked" as const,
@@ -7039,7 +7039,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
     });
   const context = preparation.capability;
   let lockCleanupConfirmed = false;
-  let result: DockerRuntimeRestartResult | null = null;
+  let result: DockerEnvironmentResult<"restart"> | null = null;
   let failure: string | null = null;
   let checkpointInitialized = preparation.checkpointInitialized;
   let checkpoint: DockerRestartCheckpoint = Object.freeze({

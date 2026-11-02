@@ -7,11 +7,9 @@
  * @boundary 公開された固定診断API。任意Process起動を公開しない。
  */
 import assert from "node:assert/strict";
-import {
-  startOwnedAttachTerminationFixture,
-  type OwnedCommandHandle,
-} from "../../../docker-isolation/src/index.ts";
-import { createDockerProcessEnvironment } from "../../../docker-isolation/src/index.ts";
+import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
+import { createDockerProcessEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
+import { startOwnedAttachTerminationFixture } from "../../../docker-isolation/tests/support/probe-process.ts";
 
 /**
  * 観測済みの自己生成PIDについて不存在を確認する。

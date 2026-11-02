@@ -6,9 +6,8 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
+import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
-import type { DockerResourceProjection } from "../../../docker-isolation/src/index.ts";
 import {
   type AiModelSelection,
   describeAdviceResultSchema,
@@ -21,43 +20,28 @@ import {
   type TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  bindProviderCommand,
   type CommandObservation,
   classifyDockerCommandException,
-  createDockerIsolationRandomHex,
-  createDockerIsolationResourceNames,
-  prepareIsolation,
+  type DockerProcessExitStatusClass,
+  describeIsolationCapabilities,
+  dockerIsolationResourceIdentityIsValid,
   executeIsolation,
-  classifyDockerCommandExecution,
-  classifyDockerProcessExit,
+  type IsolationExecution,
   type IsolationRequest,
   type PreparedIsolation,
-  type IsolationExecution,
-  type DockerCommandSessionResult,
-  type DockerExecutionCallbacks,
-  type DockerIsolationCommand,
-  type DockerIsolationCommandInput,
-  type DockerIsolationRuntimeOptions,
-  type DockerProcessExitStatusClass,
-  type DockerSessionCleanup,
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-  describeDockerProxyTopology,
-  dockerIsolationCommandsMatch,
-  dockerIsolationResourceIdentityIsValid,
-  type HomeLease,
   parseDockerNetworkPolicy,
   parseDockerTaskRecoveryId,
-  planDockerIsolationCommands,
+  prepareIsolation,
 } from "../../../docker-isolation/src/index.ts";
+import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import { releaseHomeLease } from "../lifecycle/cleanup.ts";
 import { executeLifecycle } from "../lifecycle/execute.ts";
+import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import type {
   Executor,
-  StartInput,
   LifecycleOperations,
+  StartInput,
 } from "../lifecycle/types.ts";
-import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import { ATTEMPT_COMPLETION_REASONS, PURPOSES } from "./constants.ts";
 import {
   convertCommandResult,
@@ -68,14 +52,23 @@ import {
 } from "./result.ts";
 import type {
   AttemptCancelInput,
+  AttemptCommandPurpose,
   AttemptContent,
   AttemptFailureReason,
   AttemptPlan,
+  AttemptRecordProjection,
   AttemptReference,
   AttemptRequest,
   AttemptResultReason,
   CompletionResult,
+  DockerCommandSessionResult,
+  DockerExecutionCallbacks,
+  DockerIsolationCommandInput,
+  DockerIsolationRuntimeOptions,
+  DockerResourceReceipts,
+  DockerSessionCleanup,
   ExecutionRecord,
+  HomeLease,
   IsolationRuntime,
   PrimaryFailureDiagnostic,
   RuntimeState,
@@ -872,8 +865,6 @@ export function createAttemptExecutor(
   options: DockerIsolationRuntimeOptions,
   random: Readonly<{ randomBytes: (size: number) => Buffer }> = { randomBytes },
 ): Executor<"attempt"> | null {
-  const plan = prepareAttempt(random, request as AttemptRequest);
-  if (!plan) return null;
   const capturedOptions = copyPlainDataRecord(options, ["paths"]);
   const capturedPaths = copyPlainDataRecord(capturedOptions?.paths, [
     "tmp",
@@ -892,7 +883,10 @@ export function createAttemptExecutor(
     tmp: capturedPaths.tmp,
     management: capturedPaths.management,
   });
-  const bound = bindIsolationRuntime(plan, paths);
+  if (paths.tmp !== request.target.temporarySourcePath) return null;
+  const plan = prepareAttempt(random, request, paths);
+  if (!plan) return null;
+  const bound = bindIsolationRuntime(plan);
   const isolation: IsolationRuntime = {
     acquireHomeLease,
     ...bound,
@@ -913,7 +907,7 @@ export function createAttemptExecutor(
       subscriptionOffering: plan.subscriptionOffering,
       operationMode: plan.operationMode,
       workspaceMountMode: plan.workspaceMountMode,
-    }) satisfies DockerResourceProjection,
+    }) satisfies AttemptRecordProjection,
     start: (input: StartInput<"attempt">) => {
       const {
         managementCapability: management,
@@ -959,11 +953,11 @@ export function createAttemptExecutor(
  *
  * @responsibility 両Providerの共通相関検査・資源命名・command構築を一箇所で行う。
  * @trace ARCH-000015
- * @input 乱数供給と、実行対象・AI Adapterの選定値・用途別内容を持つ一つのRequest。
+ * @input 乱数供給、確定した実行Requestと管理・一時所在。
  * @returns Providerで識別できる不変計画、または不成立時のnull。
  * @precondition 呼出し側が技術対象・選定・用途別内容を確定している。
  * @postcondition 既存の選定Identity・Mount条件とProvider差を保ち、Docker要求を発行しない。
- * @effect 乱数を取得し、Codex Executor時だけ固定Seccomp Fileを既存確認操作で読む。
+ * @effect 乱数取得とRequestの不変化だけ。Seccomp・CLI・Directory実体は開始後のDI準備で確認する。
  * @failure 相関不一致や固定条件不足はnull、取得操作の例外は準備Ownerへ搬送する。
  * @internal 製品の呼出し元はcreateExecutorだけ。有限検証は同じPackageの内部構成を確認できる。
  * @invariant CLI固有計画はAI Adapterから取得し、Authorityを新設しない。
@@ -974,6 +968,7 @@ export function createAttemptExecutor(
 export function prepareAttempt(
   random: Readonly<{ randomBytes: (size: number) => Buffer }>,
   request: AttemptRequest,
+  paths: DockerIsolationRuntimeOptions["paths"],
 ) {
   const { target, selection: modelSelection } = request;
   const selection = parseModelSelection(modelSelection);
@@ -987,6 +982,7 @@ export function prepareAttempt(
     return null;
   const task = request.purpose === "task" ? request : null;
   const advice = request.purpose === "advice" ? request : null;
+  if (selection.purpose !== (advice ? "advice" : "task")) return null;
   if (
     advice &&
     (readOwnDataProperty(advice, "networkPolicy") === undefined ||
@@ -1023,8 +1019,9 @@ export function prepareAttempt(
   });
   if (!execution) return null;
   const claude = execution.provider === "claude" ? execution : null;
-  const assets = describeDockerProviderAssets(provider);
-  const egress = describeDockerProxyTopology(provider);
+  const capabilities = describeIsolationCapabilities(provider);
+  const assets = capabilities.assets;
+  const egress = capabilities.proxy;
   if (
     target.provider !== provider ||
     ("status" in execution && execution.status !== "candidate") ||
@@ -1041,10 +1038,10 @@ export function prepareAttempt(
   ) {
     return null;
   }
-  const suffix = createDockerIsolationRandomHex(random, 8);
-  const proxyToken = createDockerIsolationRandomHex(random, 32);
+  const suffix = createRandomHex(random, 8);
+  const proxyToken = createRandomHex(random, 32);
   if (!suffix || !proxyToken) return null;
-  const resourceNames = createDockerIsolationResourceNames(
+  const resourceNames = createResourceNames(
     provider,
     target.providerHomeIdentityHash,
     suffix,
@@ -1060,7 +1057,8 @@ export function prepareAttempt(
   } = resourceNames;
   const providerImageDigest =
     advice && provider === "codex"
-      ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
+      ? describeIsolationCapabilities("codex").assets.adviceIdentity
+          .fixedImageDigest
       : assets.fixedImageDigest;
   const proxyImageDigest = egress.imageDigest;
   const plan = {
@@ -1101,7 +1099,6 @@ export function prepareAttempt(
         ? ("read_write" as const)
         : ("read_only" as const)
       : null,
-    commands: [] as readonly DockerIsolationCommand[],
   };
   const configuration = resolveIsolationCommandInput(
     {
@@ -1114,11 +1111,9 @@ export function prepareAttempt(
     proxyToken,
     execution,
   );
-  const commands = configuration
-    ? planDockerIsolationCommands(configuration)
-    : null;
-  if (!commands) return null;
-  const completedPlan = { ...plan, commands };
+  if (!configuration || paths.tmp !== target.temporarySourcePath) return null;
+  const isolationRequest = createIsolationRequest(plan, paths, configuration);
+  const completedPlan = { ...plan, isolationRequest };
   return provider === "codex"
     ? Object.freeze({
         ...completedPlan,
@@ -1135,6 +1130,123 @@ export function prepareAttempt(
 }
 
 const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
+
+/**
+ * Provider metadataの環境名へContainer内の固定Homeを結合する。
+ * @responsibility 上位にContainer内Pathを組み立てさせない。
+ * @trace ARCH-000004
+ * @input name: 認証CLI metadataの追加Home環境名、または不使用のnull。
+ * @returns 一項目の追加環境、空環境、または不正名のnull。
+ * @precondition Providerの選択とmetadata取得は上位が所有する。
+ * @postcondition 任意値を受け取らず固定Homeだけを生成する。
+ * @effect N/A: 値構築だけ。
+ * @failure 不正・予約済み技術環境名はnull。
+ * @invariant nullを未知のProviderや欠測へ補完しない。
+ * @boundary Provider metadataとContainer技術構成。
+ * @security Proxy・HOME・TMPDIRの既存固定値を上書きしない。
+ * @concurrency N/A: 純粋同期処理。
+ */
+function createAuthenticationEnvironment(
+  name: string | null,
+): Readonly<Record<string, string>> | null {
+  if (name === null) return {};
+  if (
+    typeof name !== "string" ||
+    !/^[A-Z][A-Z0-9_]*$/u.test(name) ||
+    [
+      "HOME",
+      "TMPDIR",
+      "HTTPS_PROXY",
+      "HTTP_PROXY",
+      "ALL_PROXY",
+      "NO_PROXY",
+    ].includes(name)
+  )
+    return null;
+  return { [name]: "/provider-home" };
+}
+
+/**
+ * 所定byte数のBufferから内部計画用のhex値を生成する。
+ *
+ * @responsibility 乱数取得結果の型と長さを確認する。
+ * @trace ARCH-000008
+ * @input state: 呼出し側の乱数Owner。bytes: 固定取得長。
+ * @returns hex値、または型・長さ不一致に対するnull。
+ * @precondition bytesは準備Ownerが8または32へ固定する。
+ * @postcondition 取得結果を一回だけ検査し、受理時だけhexへ変換する。
+ * @effect 呼出し側が所有する乱数生成を一回呼ぶ。Docker・Filesystem要求は発行しない。
+ * @failure Buffer以外またはbyte長不一致をnullで拒否する。取得例外は呼出し側へ伝播する。
+ * @invariant 不正な取得値を切詰め・補完しない。
+ * @boundary 乱数OwnerとDocker準備値の間。
+ * @security Proxy Tokenへ利用する値を公開結果やログへ渡さない。
+ * @concurrency N/A: 同期取得だけでStoreを所有しない。
+ */
+function createRandomHex(
+  state: Readonly<{ randomBytes: (size: number) => Buffer }>,
+  bytes: number,
+): string | null {
+  const value = state.randomBytes(bytes);
+  return Buffer.isBuffer(value) && value.byteLength === bytes
+    ? value.toString("hex")
+    : null;
+}
+
+/**
+ * 照合済みIdentityと固定実行namespaceからDocker資源名を生成する。
+ *
+ * @responsibility 実行Identityの64桁hex検査、既存prefixと63文字上限を所有する。
+ * @trace ARCH-000008
+ * @input executionNamespace: 固定実行namespace。executionIdentityHash: 上位照合済みIdentity。suffix: 取得済み8byteのhex。
+ * @returns 五資源名と所有label、または不正Identity・過大名に対するnull。
+ * @precondition suffixは同じ準備Ownerの乱数検査に成功している。
+ * @postcondition 実行名はIdentity Hash先頭16桁へ、他の資源とlabelはsuffixへ結合する。
+ * @effect N/A: 局所文字列の生成だけを行う。
+ * @failure 実行Identity形式不正または63文字を超える資源名をnullで拒否する。
+ * @invariant 名前やlabelを実資源所有の証明として扱わない。
+ * @boundary 準備IdentityとDocker資源名の間。
+ * @security HashとsuffixからAuthorityを生成せず、削除許可にも利用しない。
+ * @concurrency N/A: 同期計算であり資源の取得・排他を行わない。
+ */
+function createResourceNames(
+  executionNamespace: string,
+  executionIdentityHash: string,
+  suffix: string,
+): Readonly<{
+  internalNetworkName: string;
+  egressNetworkName: string;
+  proxyContainerName: string;
+  authContainerName: string;
+  providerContainerName: string;
+  ownershipLabel: string;
+}> | null {
+  if (executionNamespace !== "codex" && executionNamespace !== "claude")
+    return null;
+  const internalNetworkName = `crdd-internal-${suffix}`;
+  const egressNetworkName = `crdd-egress-${suffix}`;
+  const proxyContainerName = `crdd-proxy-${suffix}`;
+  const authContainerName = `crdd-auth-${suffix}`;
+  if (!/^[a-f0-9]{64}$/u.test(executionIdentityHash)) return null;
+  const providerContainerName = `crdd-${executionNamespace}-${executionIdentityHash.slice(0, 16)}`;
+  if (
+    [
+      internalNetworkName,
+      egressNetworkName,
+      proxyContainerName,
+      authContainerName,
+      providerContainerName,
+    ].some((value) => value.length > 63)
+  )
+    return null;
+  return {
+    internalNetworkName,
+    egressNetworkName,
+    proxyContainerName,
+    authContainerName,
+    providerContainerName,
+    ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
+  };
+}
 
 /**
  * 同じ論理Homeの既存OS排他を取得する。
@@ -1166,17 +1278,16 @@ function acquireHomeLease(bindingHash: string): HomeLease | null {
  * 単段AI固有の固定構成を、用途を持たない共通DI入力へ投影する。
  * @responsibility 認証確認・Proxy・入力搬送の差を固定し、技術生涯は再実装しない。
  * @trace ARCH-000008
- * @input plan: 同じFactoryの元構成。paths: 上位が確定した二所在。
+ * @input plan: 同じFactoryの元構成。paths: 上位が確定した二所在。c: 検査済み用途構成。
  * @returns 固定五資源と九操作。構成不成立は例外。
  * @effect N/A: 値構築のみ。
  * @invariant 元の期限・環境・Mount・stdin・seccomp・initを維持する。
  */
 function createIsolationRequest(
-  plan: AttemptPlan,
+  plan: Omit<AttemptPlan, "isolationRequest">,
   paths: DockerIsolationRuntimeOptions["paths"],
+  c: DockerIsolationCommandInput,
 ): IsolationRequest {
-  const c = resolveValidatedPlan(plan, paths.tmp);
-  if (!c) throw Error("docker_effect_plan_invalid");
   const proxyUrl = `http://crdd:${c.proxy.token}@proxy:${c.proxy.port}`;
   const networkPolicy = c.proxy.networkPolicy ?? null;
   const environment: Record<string, string> = {
@@ -1312,7 +1423,7 @@ function createIsolationRequest(
     acceptedExitCodes: [0],
     deadlineOrigin: primary ? "started" : "request",
   });
-  return {
+  return freezeIsolationRequest({
     managementDirectory: paths.management,
     resources,
     steps: [
@@ -1370,7 +1481,27 @@ function createIsolationRequest(
     setupTimeoutMs: 10_000,
     unreceiptedAbsence: "retain",
     verifyLabelAbsence: false,
+  });
+}
+
+/**
+ * 自分で構築した技術Requestを入力の可変参照から分離して固定する。
+ * @responsibility 同じ試行の診断・実行・未開始回収へ一つの構成を渡す。
+ * @trace ARCH-000008
+ * @input Executorが組み立てた通常dataのRequest。
+ * @returns 深く固定した一つのRequest。
+ * @effect N/A: メモリ内の複製と凍結のみ。
+ * @security Token・環境本文を公開結果へ投影しない。
+ */
+function freezeIsolationRequest(request: IsolationRequest): IsolationRequest {
+  const copy = structuredClone(request);
+  const freeze = (value: unknown): void => {
+    if (!value || typeof value !== "object" || Object.isFrozen(value)) return;
+    for (const child of Object.values(value)) freeze(child);
+    Object.freeze(value);
   };
+  freeze(copy);
+  return copy;
 }
 
 /**
@@ -1382,10 +1513,7 @@ function createIsolationRequest(
  * @effect start後だけ共通DI。開始前拒否では外部資源を取得しない。
  * @invariant 旧Runtime・固定九目的Sessionを起動しない。コピー結果を成功へ再解釈しない。
  */
-function bindIsolationRuntime(
-  original: AttemptPlan,
-  paths: DockerIsolationRuntimeOptions["paths"],
-) {
+function bindIsolationRuntime(original: AttemptPlan) {
   let prepared: PreparedIsolation | null | undefined;
   let execution: IsolationExecution | null = null;
   let outcome: DockerCommandSessionResult | null = null;
@@ -1415,7 +1543,7 @@ function bindIsolationRuntime(
     )
       throw Error("docker_effect_plan_invalid");
     if (prepared === undefined)
-      prepared = prepareIsolation(createIsolationRequest(plan, paths));
+      prepared = prepareIsolation(plan.isolationRequest);
     if (!prepared) throw Error("docker_effect_plan_invalid");
     let executionStarted = false,
       executionCompleted = false;
@@ -1424,9 +1552,7 @@ function bindIsolationRuntime(
     execution = executeIsolation(prepared, {
       onSubmitting: async (step) => {
         gate = "onCommandSubmitting";
-        await hooks.onCommandSubmitting?.(
-          step.key as DockerIsolationCommand["purpose"],
-        );
+        await hooks.onCommandSubmitting?.(step.key as AttemptCommandPurpose);
         if (step.key === "start_provider_attached") {
           gate = "onExecutionSubmitting";
           await hooks.onExecutionSubmitting?.();
@@ -1435,19 +1561,14 @@ function bindIsolationRuntime(
       },
       onNotIssued: (step) => {
         gate = "onCommandNotIssued";
-        return hooks.onCommandNotIssued?.(
-          step.key as DockerIsolationCommand["purpose"],
-        );
+        return hooks.onCommandNotIssued?.(step.key as AttemptCommandPurpose);
       },
       onCreated: (step, snapshot) => {
         gate = "onResourceCreated";
         const id = snapshot.resources.find((r) => r.key === step.resource)
           ?.identity.dockerId;
         if (!id) throw Error("docker_resource_receipt_unavailable");
-        return hooks.onResourceCreated?.(
-          step.key as DockerIsolationCommand["purpose"],
-          id,
-        );
+        return hooks.onResourceCreated?.(step.key as AttemptCommandPurpose, id);
       },
       onStarted: (step) => {
         if (step.key === "start_provider_attached") {
@@ -1456,22 +1577,29 @@ function bindIsolationRuntime(
           return hooks.onExecutionStarted?.();
         }
       },
-      onObserved: (step, result) => {
+      onObserved: (
+        step,
+        result,
+        _elapsedMs,
+        _errorCode,
+        classification,
+        exitClass,
+      ) => {
         if (step.key === "start_provider_attached") {
           executionCompleted = result !== null;
-          executionExit = classifyDockerProcessExit(result);
+          executionExit = exitClass;
         }
         gate = "onCommandObserved";
         return hooks.onCommandObserved?.(
-          step.key as DockerIsolationCommand["purpose"],
+          step.key as AttemptCommandPurpose,
           result,
-          classifyDockerCommandExecution(result),
+          classification,
         );
       },
       onCompleted: (step, result) => {
         gate = "onCommandCompleted";
         return hooks.onCommandCompleted?.(
-          step.key as DockerIsolationCommand["purpose"],
+          step.key as AttemptCommandPurpose,
           result,
         );
       },
@@ -1482,10 +1610,8 @@ function bindIsolationRuntime(
       completion: active.completion.then(
         (technical): DockerCommandSessionResult => {
           const f = technical.failure;
-          const purpose = PURPOSES.includes(
-            f?.stepKey as DockerIsolationCommand["purpose"],
-          )
-            ? (f?.stepKey as DockerIsolationCommand["purpose"])
+          const purpose = PURPOSES.includes(f?.stepKey as AttemptCommandPurpose)
+            ? (f?.stepKey as AttemptCommandPurpose)
             : null;
           const failure: DockerCommandSessionResult["failure"] = f
             ? Object.freeze({
@@ -1509,8 +1635,7 @@ function bindIsolationRuntime(
             technical.resources.resources
               .map((r) =>
                 Object.freeze({
-                  purpose:
-                    r.key as keyof import("../../../docker-isolation/src/index.ts").DockerResourceReceipts,
+                  purpose: r.key as keyof DockerResourceReceipts,
                   plannedResourceName: r.identity.name,
                   dockerId: r.identity.dockerId,
                   observation:
@@ -1576,13 +1701,12 @@ function bindIsolationRuntime(
         await execution.completion;
         return outcome?.cleanup ?? empty();
       }
-      const resources = createIsolationRequest(plan, paths).resources;
+      const resources = plan.isolationRequest.resources;
       const resourceObservations = Object.freeze(
         resources
           .map((r) =>
             Object.freeze({
-              purpose:
-                r.key as keyof import("../../../docker-isolation/src/index.ts").DockerResourceReceipts,
+              purpose: r.key as keyof DockerResourceReceipts,
               plannedResourceName: r.name,
               dockerId: null,
               observation: "not_requested" as const,
@@ -1659,10 +1783,11 @@ export function resolveProviderExecution(
     purpose: purpose === "probe" ? "task" : purpose,
   });
   if (purpose !== "probe" && selected.status !== "resolved") return null;
-  const locations = describeDockerProviderExecutionLocations(
-    plan.provider,
-    purpose,
-  );
+  const capabilities = describeIsolationCapabilities(plan.provider);
+  const locations =
+    purpose === "advice" && capabilities.provider === "codex"
+      ? capabilities.locations.alternate
+      : capabilities.locations.primary;
   const modelSelection =
     selected.status === "resolved"
       ? {
@@ -1719,27 +1844,34 @@ export function resolveProviderExecution(
 }
 
 /**
- * Provider仕様とDIの正規構築処理を結合する。
- * @responsibility 準備と開始前照合で同じ組立経路を使い、Docker詳細を再定義しない。
+ * Provider仕様と用途固有の隔離条件を結合する。
+ * @responsibility 用途・Role・固定ImageとMountの相関をExecutorで決め、Docker argvはDIへ委譲する。
  * @trace ARCH-000008
- * @input 元plan、現在のtmp所在、初回のみのproxyToken。
+ * @input 元plan、確定tmp所在、同じ準備で一度生成したproxyToken。
  * @returns 正規技術構成又はnull。
  * @precondition 元操作・Capability・選定の意味は上位が検査する。
  * @postcondition DIへ本文・Authority・Recoveryを渡さない。
  * @effect N/A: 仕様と構成の値組立だけ。
- * @failure Provider仕様又はDI構成の拒否はnull。
- * @invariant Provider規則はAI Adapter、Docker規則はDIが所有する。
+ * @failure Provider仕様・用途相関又は固定構成の拒否はnull。
+ * @invariant Provider規則はAI Adapter、用途構成はExecutor、Docker技術規則はDIが所有する。
  * @boundary 二つの専門OwnerとExecutorの一試行。
- * @security Command一致を実行許可の代わりにしない。
+ * @security 構成検査を実行許可の代わりにしない。
  * @concurrency N/A: 共有状態なし。
  */
 export function resolveIsolationCommandInput(
-  plan: Omit<AttemptPlan, "authorityUseCapability">,
+  plan: Omit<AttemptPlan, "isolationRequest">,
   tmpSourcePath: string,
-  proxyToken?: string,
+  proxyToken: string,
   execution = resolveProviderExecution(plan),
 ): DockerIsolationCommandInput | null {
-  if (!execution) return null;
+  if (
+    !execution ||
+    execution.provider !== plan.provider ||
+    !["isolated_task", "workbench_advice", "boolean_probe"].includes(
+      plan.operationMode,
+    )
+  )
+    return null;
   const environment = prepareProviderEnvironment(
     plan.provider,
     execution.environment,
@@ -1752,32 +1884,61 @@ export function resolveIsolationCommandInput(
         ? "advice"
         : "probe";
   const authentication = describeProviderAuthentication(plan.provider);
-  return bindProviderCommand({
-    provider: plan.provider,
-    purpose,
-    role: plan.taskRole,
-    execution: {
-      provider: execution.provider,
-      argv: execution.argv,
-      environment: Object.fromEntries(environment.entries),
-    },
-    authentication: {
-      argv: authentication.statusArgv,
-      homeEnvironmentVariable:
-        "homeEnvironmentVariable" in authentication
-          ? authentication.homeEnvironmentVariable
-          : null,
-    },
-    resources: {
-      authenticationContainerName: plan.authContainerName,
-      executionContainerName: plan.providerContainerName,
-      proxyContainerName: plan.proxyContainerName,
-      internalNetworkName: plan.internalNetworkName,
-      egressNetworkName: plan.egressNetworkName,
-      ownershipLabel: plan.ownershipLabel,
-      executionImageDigest: plan.providerImageDigest,
-      proxyImageDigest: plan.proxyImageDigest,
-    },
+  const { assets, proxy } = describeIsolationCapabilities(plan.provider);
+  const expectedImage =
+    purpose === "advice" && plan.provider === "codex"
+      ? describeIsolationCapabilities("codex").assets.adviceIdentity
+          .fixedImageDigest
+      : assets.fixedImageDigest;
+  if (
+    assets.fixedDigestImageRequired !== true ||
+    proxy.providerNetworkInternal !== true ||
+    proxy.providerDirectExternalNetwork !== false ||
+    proxy.proxyNetworks.length !== 2 ||
+    plan.providerImageDigest !== expectedImage ||
+    plan.proxyImageDigest !== proxy.imageDigest ||
+    (plan.networkPolicy !== null &&
+      plan.networkPolicy.provider !== plan.provider) ||
+    (purpose === "task"
+      ? (plan.taskRole !== "executor" && plan.taskRole !== "reviewer") ||
+        !plan.workspaceSourcePath ||
+        plan.workspaceMountMode !==
+          (plan.taskRole === "reviewer" ? "read_only" : "read_write")
+      : plan.taskRole !== null ||
+        plan.workspaceSourcePath !== null ||
+        plan.workspaceMountMode !== null)
+  )
+    return null;
+  const token = proxyToken;
+  if (typeof token !== "string" || !/^[a-f0-9]{64}$/u.test(token)) return null;
+  const authenticationEnvironment = createAuthenticationEnvironment(
+    "homeEnvironmentVariable" in authentication
+      ? authentication.homeEnvironmentVariable
+      : null,
+  );
+  if (!authenticationEnvironment) return null;
+  const seccompProfile =
+    plan.provider === "codex" &&
+    purpose === "task" &&
+    plan.taskRole === "executor"
+      ? {
+          sha256:
+            describeIsolationCapabilities("codex").assets.identity
+              .executorSeccompProfileSha256,
+          bytes:
+            describeIsolationCapabilities("codex").assets.identity
+              .executorSeccompProfileBytes,
+        }
+      : null;
+  const configuration: DockerIsolationCommandInput = {
+    authenticationContainerName: plan.authContainerName,
+    executionContainerName: plan.providerContainerName,
+    proxyContainerName: plan.proxyContainerName,
+    internalNetworkName: plan.internalNetworkName,
+    egressNetworkName: plan.egressNetworkName,
+    ownershipLabel: plan.ownershipLabel,
+    executionImageDigest: plan.providerImageDigest,
+    proxyImageDigest: plan.proxyImageDigest,
     homeSourcePath: plan.providerHomeSourcePath,
     temporarySourcePath: tmpSourcePath,
     workspace:
@@ -1790,97 +1951,76 @@ export function resolveIsolationCommandInput(
               : {}),
           }
         : null,
-    networkPolicy: plan.networkPolicy,
-    ...(proxyToken === undefined
-      ? { mode: "verify" as const, commands: plan.commands }
-      : { mode: "create" as const, proxyToken }),
-  });
-}
-
-/**
- * 元試行の意味を照合し、正規Docker構成を一回で取得する。
- * @responsibility 技術選定・入力・MountとDIの完全Command照合を接続する。Packet相関は上位Ownerが検査する。
- * @trace ARCH-000008
- * @input 元planと現在の借用tmp所在。
- * @returns 全条件が成立した正規構成、又はnull。
- * @precondition 実行時は私有準備Ownerの一回消費を先に確認する。
- * @postcondition 失敗した構成を下位Runtimeへ渡さない。
- * @effect 固定Seccompの実体読取りだけ。Docker・Processは起動しない。
- * @failure 意味相関・固定構成・九Commandの差はnull。
- * @invariant 構築と検査に同じ正規処理を使い、二つのCompilerを持たない。
- * @boundary Executorの元試行とDocker技術構成。
- * @security 構成一致からAuthorityを発行しない。
- * @concurrency 同期照合。追加状態・Lockを持たない。
- */
-export function resolveValidatedPlan(
-  plan: AttemptPlan,
-  tmpSourcePath: string,
-): DockerIsolationCommandInput | null {
-  if (!isAttemptPlanValid(plan)) return null;
-  const isAdvicePlan = plan.operationMode === "workbench_advice";
-  const execution = resolveProviderExecution(plan);
-  if (!execution) return null;
-  const fixedSelection = plan.executionSelection;
-  const isProviderBindingValid =
-    fixedSelection.purpose === (isAdvicePlan ? "advice" : "task") &&
-    (!("identifierKind" in execution) ||
-      fixedSelection.identifierKind === execution.identifierKind);
+    authentication: {
+      argv: authentication.statusArgv,
+      environment: authenticationEnvironment,
+    },
+    execution: {
+      argv: execution.argv,
+      environment: Object.fromEntries(environment.entries),
+      interactive: purpose !== "probe",
+      initRequired:
+        plan.provider === "codex" && plan.operationMode === "workbench_advice",
+      seccompProfile,
+    },
+    proxy: {
+      profile: plan.provider,
+      token,
+      port: proxy.containerPort,
+      extendedProxyEnvironment: plan.provider === "codex",
+      networkPolicy: plan.networkPolicy,
+    },
+  };
+  const locations = [
+    configuration.homeSourcePath,
+    configuration.temporarySourcePath,
+    ...(configuration.workspace ? [configuration.workspace.sourcePath] : []),
+    ...(configuration.workspace?.protection
+      ? [
+          configuration.workspace.protection.gitSourcePath,
+          configuration.workspace.protection.internalSourcePath,
+        ]
+      : []),
+  ];
   if (
-    !isProviderBindingValid ||
-    !["low", "medium", "high"].includes(
-      plan.executionSelection.reasoningEffort,
-    ) ||
-    plan.providerHomeSourcePath.length === 0 ||
-    /[\0\r\n,]/u.test(plan.providerHomeSourcePath)
-  ) {
-    return null;
-  }
-  const isTaskPlan = plan.operationMode === "isolated_task";
-  if (
-    ((isTaskPlan || isAdvicePlan) &&
-      Buffer.byteLength(plan.providerInput ?? "", "utf8") >
-        PROVIDER_INPUT_LIMIT_BYTES) ||
-    (isTaskPlan && /[\0\r\n,]/u.test(plan.workspaceSourcePath ?? ""))
+    locations.some(
+      (value) =>
+        typeof value !== "string" ||
+        !path.isAbsolute(value) ||
+        /[\0\r\n,]/u.test(value),
+    )
   )
     return null;
-  const configuration = resolveIsolationCommandInput(
-    plan,
-    tmpSourcePath,
-    undefined,
-    execution,
-  );
-  return configuration !== null &&
-    dockerIsolationCommandsMatch(configuration, plan.commands)
-    ? configuration
-    : null;
-}
-
-/**
- * 開始・清掃を同じ試行構成へ相関するHashを計算する。
- * @responsibility 選定・用途・完全Commandと許可参照を同じSessionの識別値へ結合する。
- * @trace ARCH-000008
- * @input 同じFactoryが保持した技術構成。
- * @returns SHA-256の16進文字列。
- * @effect N/A: メモリ内の直列化とHash計算のみ。
- * @invariant 助言専用の上位Command Hashは持たず、同じ実行の完全Command相関を維持する。
- * @boundary 下位Sessionと元の開始・清掃結果の相関。
- * @security Hashの一致を実行許可や清掃完了の証拠にしない。
- */
-export function planIdentity(plan: AttemptPlan) {
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        operationId: plan.operationId,
-        executionSelection: plan.executionSelection,
-        operationMode: plan.operationMode,
-        taskRole: plan.taskRole,
-        taskWorkload: plan.taskWorkload,
-        adviceAllowedReferences: plan.adviceAllowedReferences ?? null,
-        ownershipLabel: plan.ownershipLabel,
-        commands: plan.commands,
-      }),
+  for (const payload of [
+    configuration.authentication,
+    configuration.execution,
+  ]) {
+    if (
+      !Array.isArray(payload.argv) ||
+      payload.argv.length > 256 ||
+      payload.argv.some(
+        (value) => typeof value !== "string" || value.includes("\0"),
+      ) ||
+      Object.keys(payload.environment).length > 64 ||
+      Object.entries(payload.environment).some(
+        ([name, value]) =>
+          !/^[A-Z][A-Z0-9_]*$/u.test(name) ||
+          [
+            "HOME",
+            "TMPDIR",
+            "HTTPS_PROXY",
+            "HTTP_PROXY",
+            "ALL_PROXY",
+            "NO_PROXY",
+          ].includes(name) ||
+          typeof value !== "string" ||
+          value.includes("\0"),
+      ) ||
+      Buffer.byteLength(JSON.stringify(payload), "utf8") > 128 * 1024
     )
-    .digest("hex");
+      return null;
+  }
+  return configuration;
 }
 
 /**
@@ -2011,7 +2151,7 @@ export function readOwnDataProperty(value: unknown, key: string): unknown {
  * @returns 全基本条件が成立する場合だけtrue。
  * @effect N/A: メモリ内の照合のみ。Home・Docker・保存を操作しない。
  * @boundary Executor準備済み入力と開始前の技術検査。
- * @invariant 完全Command一致、Authority、清掃成立の代わりにはしない。
+ * @invariant DIの技術Request検査、Authority、清掃成立の代わりにはしない。
  */
 export function isAttemptPlanValid(plan: AttemptPlan): boolean {
   const isTaskPlan = plan.operationMode === "isolated_task";
@@ -2058,19 +2198,17 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
     /^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) &&
     /^[a-f0-9]{64}$/u.test(plan.localUserBindingHash) &&
     /^[a-f0-9]{64}$/u.test(plan.stableLogicalHomeBindingHash) &&
-    Array.isArray(plan.commands) &&
-    plan.commands.length === PURPOSES.length &&
-    plan.commands.every(
-      (command, index) =>
-        command.purpose === PURPOSES[index] &&
-        Array.isArray(command.argv) &&
-        command.argv.length > 0 &&
-        command.argv.every(
-          (value: unknown) =>
-            typeof value === "string" &&
-            value.length > 0 &&
-            !value.includes("\0"),
-        ),
+    (isTaskPlan || isAdvicePlan
+      ? Buffer.byteLength(plan.providerInput ?? "", "utf8") <=
+        PROVIDER_INPUT_LIMIT_BYTES
+      : true) &&
+    !!plan.isolationRequest &&
+    Array.isArray(plan.isolationRequest.resources) &&
+    plan.isolationRequest.resources.length === 5 &&
+    Array.isArray(plan.isolationRequest.steps) &&
+    plan.isolationRequest.steps.length === PURPOSES.length &&
+    plan.isolationRequest.steps.every(
+      (step, index) => step.key === PURPOSES[index],
     )
   );
 }

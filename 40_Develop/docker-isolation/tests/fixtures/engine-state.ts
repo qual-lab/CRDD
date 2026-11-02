@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import * as childProcess from "node:child_process";
 import fs from "node:fs";
 import { mock } from "node:test";
-import * as cliTrust from "../../src/docker-cli/trust.ts";
 import * as cliEnvironment from "../../src/docker-cli/environment.ts";
+import * as cliTrust from "../../src/docker-cli/trust.ts";
 
 const purpose = process.argv[2];
 const scenario = process.argv[3];
@@ -131,11 +131,14 @@ await mock.module("node:fs", {
   namedExports: fixtureFs,
 });
 const api = await import("../../src/index.ts");
+const dockerInternalOperations = await import(
+  "../../src/docker-desktop/engine.ts"
+);
 const observed =
   purpose === "runtime"
-    ? api.observeDockerRuntimeEngine()
+    ? dockerInternalOperations.observeDockerRuntimeEngine()
     : purpose === "repair"
-      ? api.observeDockerRepairEngine(configurationRoot)
+      ? dockerInternalOperations.observeDockerRepairEngine(configurationRoot)
       : (
           await import("../../src/docker-desktop/engine.ts")
         ).observeDockerDesktopRepairEngine();

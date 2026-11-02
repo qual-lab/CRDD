@@ -6,40 +6,53 @@
  * @boundary scripts/tests専用。実行許可や本番構成ではない。
  */
 
+import { createHash } from "node:crypto";
+import path from "node:path";
 import { types as utilTypes } from "node:util";
-import {
-  type DockerCommandSession,
-  type DockerExecutionCallbacks,
-  type DockerIsolationCommand,
-  type DockerIsolationRuntime,
-  type DockerIsolationRuntimeOptions,
-  type DockerIsolationRuntimePlan,
-  type DockerSessionCleanup,
-  type DockerSessionCommandHandle,
-  type HomeLease,
-  parseDockerTaskRecoveryId,
-} from "../../docker-isolation/src/index.ts";
-import { startDockerCommandSessionCandidate } from "../../docker-isolation/tests/support/session.ts";
+import { parseDockerTaskRecoveryId } from "../../docker-isolation/src/index.ts";
 import {
   createDockerIsolationRuntime,
+  type DockerIsolationRuntime,
+  type DockerIsolationRuntimePlan,
   describeDockerIsolationExecutionEnvironment,
 } from "../../docker-isolation/tests/support/execution.ts";
+import type { DockerIsolationCommand } from "../../docker-isolation/tests/support/execution-plan.ts";
+import {
+  dockerIsolationCommandsMatch,
+  planDockerIsolationCommands,
+  projectDockerProxyConfiguration,
+} from "../../docker-isolation/tests/support/execution-plan.ts";
+import type { DockerSessionCommandHandle } from "../../docker-isolation/tests/support/session.ts";
+import { startDockerCommandSessionCandidate } from "../../docker-isolation/tests/support/session.ts";
 import { PURPOSES } from "../src/attempt/constants.ts";
 import {
   abandon,
   cancel,
   isAttemptFailureReason,
-  isAttemptPlanValid,
-  planIdentity,
+  prepareAttempt as prepareProductAttempt,
   readOwnDataProperty,
-  resolveValidatedPlan,
+  resolveIsolationCommandInput as resolveProductConfiguration,
+  resolveProviderExecution,
   start,
+  isAttemptPlanValid as validateProductPlan,
 } from "../src/attempt/operations.ts";
+import type {
+  DockerCommandSession,
+  DockerExecutionCallbacks,
+  DockerIsolationCommandInput,
+  DockerIsolationRuntimeOptions,
+  DockerSessionCleanup,
+  HomeLease,
+} from "../src/attempt/types.ts";
+
+export { resolveProviderExecution } from "../src/attempt/operations.ts";
+
 import { createStartResult } from "../src/attempt/result.ts";
 import type {
-  AttemptPlan,
   AttemptReference,
+  AttemptRequest,
   IsolationRuntime,
+  AttemptPlan as ProductAttemptPlan,
   RuntimeState,
   AttemptTerminalObservation as TechnicalObservation,
 } from "../src/attempt/types.ts";
@@ -50,6 +63,119 @@ import type {
   AttemptDiagnosticNotice as TechnicalDiagnosticNotice,
 } from "../src/index.ts";
 import type { ExecutorCallbacks } from "../src/lifecycle/callbacks.ts";
+
+/** 旧有限Session Oracleだけが保持するCommand投影。製品Planへ戻さない。 */
+export type TestAttemptPlan = ProductAttemptPlan &
+  Readonly<{ commands: readonly DockerIsolationCommand[] }>;
+type AttemptPlan = TestAttemptPlan;
+
+/** 確定RequestのTokenを有限Oracleの技術構成へ搬送する。 */
+export function resolveIsolationCommandInput(
+  plan: ProductAttemptPlan,
+  temporary: string,
+  token?: string,
+  execution = resolveProviderExecution(plan),
+): DockerIsolationCommandInput | null {
+  const resource = plan.isolationRequest?.resources.find(
+    (r) => r.key === "create_proxy",
+  );
+  const legacy =
+    "commands" in plan
+      ? projectDockerProxyConfiguration(
+          (plan as TestAttemptPlan).commands,
+          plan.proxyImageDigest,
+        )
+      : null;
+  const captured =
+    legacy?.token ??
+    (resource?.kind === "container"
+      ? resource.environment.CRDD_PROXY_AUTH
+      : null);
+  if (typeof (token ?? captured) !== "string") return null;
+  return resolveProductConfiguration(
+    plan,
+    temporary,
+    (token ?? captured) as string,
+    execution,
+  );
+}
+
+/** 旧Command Oracleを新しい内部Requestの構築へ接続する。 */
+export function prepareAttempt(
+  random: Readonly<{ randomBytes: (size: number) => Buffer }>,
+  request: AttemptRequest,
+): TestAttemptPlan | null {
+  const paths = {
+    tmp: request.target.temporarySourcePath,
+    management: path.join(
+      request.target.temporarySourcePath,
+      "..",
+      "management",
+    ),
+  };
+  const plan = prepareProductAttempt(random, request, paths);
+  if (!plan) return null;
+  const configuration = resolveIsolationCommandInput(plan, paths.tmp);
+  const commands = configuration
+    ? planDockerIsolationCommands(configuration)
+    : null;
+  return commands ? Object.freeze({ ...plan, commands }) : null;
+}
+
+/** 旧有限試験のCommand差反証。製品のRequest検査を代替しない。 */
+export function isAttemptPlanValid(plan: TestAttemptPlan): boolean {
+  return (
+    validateProductPlan(plan) &&
+    Array.isArray(plan.commands) &&
+    plan.commands.length === PURPOSES.length &&
+    plan.commands.every(
+      (c, i) =>
+        c.purpose === PURPOSES[i] &&
+        Array.isArray(c.argv) &&
+        c.argv.length > 0 &&
+        c.argv.every(
+          (v: unknown) =>
+            typeof v === "string" && v.length > 0 && !v.includes("\0"),
+        ),
+    )
+  );
+}
+
+/** 旧Session代役へ渡す構成だけを完全照合する。 */
+export function resolveValidatedPlan(
+  plan: TestAttemptPlan,
+  temporary: string,
+): DockerIsolationCommandInput | null {
+  if (
+    !isAttemptPlanValid(plan) ||
+    plan.executionSelection.purpose !==
+      (plan.operationMode === "workbench_advice" ? "advice" : "task")
+  )
+    return null;
+  const configuration = resolveIsolationCommandInput(plan, temporary);
+  return configuration &&
+    dockerIsolationCommandsMatch(configuration, plan.commands)
+    ? configuration
+    : null;
+}
+
+/** 既存の試験Recovery相関を保存形式・Home排他から分離して維持する。 */
+export function planIdentity(plan: TestAttemptPlan): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        operationId: plan.operationId,
+        executionSelection: plan.executionSelection,
+        operationMode: plan.operationMode,
+        taskRole: plan.taskRole,
+        taskWorkload: plan.taskWorkload,
+        adviceAllowedReferences: plan.adviceAllowedReferences ?? null,
+        ownershipLabel: plan.ownershipLabel,
+        commands: plan.commands,
+      }),
+    )
+    .digest("hex");
+}
 
 export { createAttemptRecoveryTestApi } from "./attempt-recovery-test.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
@@ -474,8 +600,9 @@ export function createExecutorTestCandidate(
       ...dependencies,
       startExecution:
         dependencies.startExecution ??
-        ((plan, recovery, management, hooks) =>
-          startDockerCommandSessionCandidate(
+        ((sourcePlan, recovery, management, hooks) => {
+          const plan = sourcePlan as TestAttemptPlan;
+          return startDockerCommandSessionCandidate(
             plan.commands.map((c) => c.purpose),
             {
               startCommand: (purpose) => {
@@ -499,12 +626,13 @@ export function createExecutorTestCandidate(
                   : (result.resourceObservations ?? null),
             },
             hooks,
-          )),
+          );
+        }),
       verifyCleanupOutcome: (result, plan, recovery, management) =>
         dependencies.verifyCleanupOutcome
           ? dependencies.verifyCleanupOutcome(
               result,
-              plan,
+              plan as TestAttemptPlan,
               recovery,
               management,
             )

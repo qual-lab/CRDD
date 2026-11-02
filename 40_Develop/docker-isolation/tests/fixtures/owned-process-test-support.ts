@@ -12,8 +12,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { startOwnedWindowsProcess } from "../../src/process/start.ts";
-import type { OwnedCommandHandle } from "../../src/index.ts";
+import {
+  type OwnedCommandHandle,
+  startOwnedWindowsProcess,
+} from "../../src/process/start.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 

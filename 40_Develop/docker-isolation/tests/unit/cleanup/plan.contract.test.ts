@@ -8,15 +8,14 @@
  * @scope 共通Execution Planの技術構成断面。実Docker・削除許可・不存在は確認しない。
  * @boundary N/A: 固定JSON値の照合だけ。
  */
+
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
+import { planDockerRecoveryResourceExpectations } from "../../../../executor/src/attempt/recovery.ts";
+import { dockerResourceConfigurationMatches } from "../../../src/cleanup/plan.ts";
+import type { DockerResourceExpectation } from "../../../src/cleanup/plan.ts";
 import { dockerAuthenticationResourceConfigurationMatches } from "../../support/authentication/plan.ts";
-import {
-  dockerResourceConfigurationMatches,
-  planDockerRecoveryResourceExpectations,
-  type DockerResourceExpectation,
-} from "../../../src/index.ts";
 
 /**
  * 三本Mountの観測と回収期待値を照合する。

@@ -5,26 +5,26 @@
  * @trace ARCH-000015
  */
 import { createHash } from "node:crypto";
-
-import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../domain-model/src/index.ts";
-import { readFixedSnapshotFile } from "../../../version-control/src/index.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import { readNetworkPolicy } from "../../../domain-model/src/index.ts";
 import {
-  prepareDockerNetworkPolicy,
   type DockerNetworkPolicy,
+  describeIsolationCapabilities,
 } from "../../../docker-isolation/src/index.ts";
-
-import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
-import { verifyOwnedOperationManagementCapability } from "../execution/operation.ts";
 import {
+  EXTERNAL_SEND_POLICY_RELATIVE_PATH,
+  parseUnambiguousJsonDocument,
+  readNetworkPolicy,
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import {
+  gitFixedSnapshotAdapter,
+  readFixedSnapshotFile,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
+  verifyOwnedOperationManagementCapability,
   verifyRuntimeOwnedRepositoryBindingCapability,
 } from "../execution/operation.ts";
 
@@ -187,8 +187,14 @@ export function readRepositoryNetworkPolicies(
   const read = readNetworkPolicy(repositoryRoot);
   if (read.status !== "ready")
     return Object.freeze({ status: "blocked" as const, reason: read.reason });
-  const codex = prepareDockerNetworkPolicy("codex", read.policy.allowedHosts);
-  const claude = prepareDockerNetworkPolicy("claude", read.policy.allowedHosts);
+  const codex = describeIsolationCapabilities(
+    "codex",
+    read.policy.allowedHosts,
+  ).networkPolicy;
+  const claude = describeIsolationCapabilities(
+    "claude",
+    read.policy.allowedHosts,
+  ).networkPolicy;
   if (codex.status !== "ready" || claude.status !== "ready")
     return Object.freeze({
       status: "blocked" as const,

@@ -4,9 +4,9 @@
  * @trace ARCH-000008
  */
 import path from "node:path";
-import type { DockerAuthenticationResources } from "../../../src/cleanup/types.ts";
-import { dockerContainerInitObservationMatches } from "../../../src/cleanup/init.ts";
 import { types as utilTypes } from "node:util";
+import type { DockerAuthenticationResources } from "../../../../executor/src/authentication/types.ts";
+import { dockerContainerInitObservationMatches } from "../../../src/cleanup/init.ts";
 
 /**
  * 元認証create操作と現在inspectの実ID・隔離構成を照合する。

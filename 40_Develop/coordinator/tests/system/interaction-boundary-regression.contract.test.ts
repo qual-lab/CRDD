@@ -16,7 +16,6 @@ import path from "node:path";
 import test from "node:test";
 import tty from "node:tty";
 import { pathToFileURL } from "node:url";
-import { API, type Project } from "typescript/unstable/sync";
 import {
   isCallExpression,
   isFunctionDeclaration,
@@ -32,17 +31,11 @@ import {
   type Node,
   type SourceFile,
 } from "typescript/unstable/ast";
-
+import { API, type Project } from "typescript/unstable/sync";
 import {
-  describeInteractiveConsoleContract,
-  INTERACTIVE_CONSOLE_CONTRACT,
-  readInteractiveConsoleLine,
-  writeInteractiveConsoleTextUsingAdapter,
-} from "../../src/decision/external-send-grant.ts";
-import {
-  describeCoordinatorNodeRuntimeVersionContract,
-  MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/execution/diagnostics.ts";
+  createDockerCliEnvironment,
+  createDockerDesktopRepairHelperEnvironment,
+} from "../../../docker-isolation/src/docker-cli/environment.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
@@ -55,9 +48,15 @@ import {
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
 } from "../../../platform-access/src/index.ts";
 import {
-  createDockerCliEnvironment,
-  createDockerDesktopRepairHelperEnvironment,
-} from "../../../docker-isolation/src/index.ts";
+  describeInteractiveConsoleContract,
+  INTERACTIVE_CONSOLE_CONTRACT,
+  readInteractiveConsoleLine,
+  writeInteractiveConsoleTextUsingAdapter,
+} from "../../src/decision/external-send-grant.ts";
+import {
+  describeCoordinatorNodeRuntimeVersionContract,
+  MINIMUM_COORDINATOR_NODE_VERSION,
+} from "../../src/execution/diagnostics.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/execution/kernel-lock.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
@@ -1515,10 +1514,9 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
       "40_Develop/platform-access/src/filesystem/entry.ts",
       "40_Develop/platform-access/src/filesystem/local-app-data.ts",
       "40_Develop/docker-isolation/src/cleanup/execute.ts",
+      "40_Develop/docker-isolation/src/cleanup/container.ts",
       "40_Develop/docker-isolation/src/docker-cli/trust.ts",
       "40_Develop/docker-isolation/src/process/start.ts",
-      "40_Develop/docker-isolation/src/probe/plan.ts",
-      "40_Develop/docker-isolation/src/probe/result.ts",
       "40_Develop/docker-isolation/src/docker-desktop/backend.ts",
       "40_Develop/docker-isolation/src/docker-desktop/engine.ts",
       "40_Develop/platform-access/src/docker-desktop/protocol.ts",

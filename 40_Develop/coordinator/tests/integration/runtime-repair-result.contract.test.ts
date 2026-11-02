@@ -15,11 +15,9 @@ import fs from "node:fs";
 import test from "node:test";
 import { runInThisContext } from "node:vm";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import {
-  type DockerRuntimeRepairDisposalInput,
-  dockerRuntimeRepairCheckpointIsSettled,
-  dockerRuntimeRepairDisposalIsSettled,
-} from "../../../docker-isolation/src/index.ts";
+import * as technicalValidation from "../../../docker-isolation/src/docker-desktop/validation.ts";
+
+import type { DockerRuntimeRepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import type { CoordinatorStateRepairOperation } from "../../../domain-model/src/index.ts";
 import * as model from "../../../domain-model/src/index.ts";
 import * as historyValues from "../../../domain-model/src/index.ts";
@@ -410,7 +408,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
     },
     observeDockerRuntimeRepairRetention: (
       input: Parameters<
-        typeof import("../../../docker-isolation/src/index.ts").observeDockerRuntimeRepairRetention
+        typeof import("../../../docker-isolation/src/docker-desktop/repair-session.ts").observeDockerRuntimeRepairRetention
       >[0],
     ) => {
       state.retentionReads++;
@@ -2548,3 +2546,28 @@ test("修復出版: 部分成立の後は新処置へ進まない", async () => 
       assert.equal(result.statePublication?.filesystemEffectIssued, true);
   }
 });
+
+/**
+ * 保存Ownerへの判定移管が既存技術検査と同じ結果を返すことを反証する。
+ * @responsibility 既存の正常・不明・保存故障fixture全件を両Ownerで照合する。
+ * @trace ERB-IT-014
+ * @boundary 値検査だけ。実資源の不存在を推定しない。
+ */
+function dockerRuntimeRepairCheckpointIsSettled(value: unknown): boolean {
+  const result = model.dockerRuntimeRepairCheckpointIsSettled(value);
+  assert.equal(
+    result,
+    technicalValidation.dockerRuntimeRepairCheckpointIsSettled(value),
+  );
+  return result;
+}
+
+/** 廃棄判定も同じ保存fixtureで両Ownerの同値性を確認する。 */
+function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
+  const result = model.dockerRuntimeRepairDisposalIsSettled(value);
+  assert.equal(
+    result,
+    technicalValidation.dockerRuntimeRepairDisposalIsSettled(value),
+  );
+  return result;
+}

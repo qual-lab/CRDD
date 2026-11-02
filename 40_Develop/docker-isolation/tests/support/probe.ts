@@ -5,31 +5,32 @@
  * @trace ARCH-000008
  * @boundary Coordinatorのprofile選択と固定Docker要求。
  */
-import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
-import {
-  executeDockerProbeCommand,
-  planDockerProbeCommand,
-} from "../../src/probe/plan.ts";
-import {
-  classifyDockerProbeCancellation,
-  classifyDockerProbeExecution,
-  normalizeContainerCreation,
-} from "../../src/probe/result.ts";
-import { inspectDockerContainer } from "../../src/cleanup/container.ts";
-import {
-  startDockerProbeAttachedProcess,
-  type DockerAttachedProcess,
-} from "../../src/probe/process.ts";
-import type { CommandExecution } from "../../src/execution/result.ts";
-import type { DockerProbeExecutionFacts } from "../../src/probe/result.ts";
-import { types as utilTypes } from "node:util";
+
 import fs from "node:fs";
 import path from "node:path";
+import { types as utilTypes } from "node:util";
+import type { IsolationProbeFacts } from "../../../executor/src/probe/types.ts";
+import { inspectDockerContainer } from "../../src/cleanup/container.ts";
+import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
+import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../../src/docker-cli/trust.ts";
-import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
+import type { CommandExecution } from "../../src/execution/result.ts";
+import {
+  executeDockerProbeCommand,
+  planDockerProbeCommand,
+} from "./probe-plan.ts";
+import {
+  type DockerAttachedProcess,
+  startDockerProbeAttachedProcess,
+} from "./probe-process.ts";
+import {
+  classifyDockerProbeCancellation,
+  classifyDockerProbeExecution,
+  normalizeContainerCreation,
+} from "./probe-result.ts";
 
 /**
  * 固定診断の選択名。
@@ -538,7 +539,7 @@ export async function runDockerProbeAsync(
   signal: AbortSignal,
 ): Promise<
   Readonly<{
-    facts: DockerProbeExecutionFacts;
+    facts: IsolationProbeFacts;
     cancelled: boolean;
     processCompletionConfirmed: boolean;
   }>

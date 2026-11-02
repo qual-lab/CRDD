@@ -10,21 +10,22 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { syncBuiltinESMExports } from "node:module";
 import {
-  verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
+  verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import { dockerContainerConfigurationMatches } from "../../src/cleanup/configuration.ts";
 import {
-  dockerContainerConfigurationMatches,
+  cleanupDockerContainer,
   inspectDockerContainer,
   observeDockerContainerAbsence,
-  cleanupDockerContainer,
-  type DockerContainerConfigurationExpectation,
-} from "../../src/index.ts";
+} from "../../src/cleanup/container.ts";
+
+import type { DockerContainerConfigurationExpectation } from "../../src/cleanup/configuration.ts";
 
 /**
  * 検証済みRepository内の三mountと独立したinspect正対照を作る。

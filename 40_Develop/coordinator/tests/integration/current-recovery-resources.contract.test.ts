@@ -9,7 +9,6 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
 
-import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
@@ -22,16 +21,17 @@ import { isDeepStrictEqual, types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
 import {
   createDockerOperationRecoveryExecutor,
-  createDockerResourceRecoveryExecutor,
-  isDockerResourcePurpose,
   observeDockerRecoveryConfigIdentity,
-  planDockerRecoveryResourceExpectations,
-} from "../../../docker-isolation/src/index.ts";
+} from "../../../docker-isolation/src/cleanup/execute.ts";
+import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
+import { createDockerResourceRecoveryExecutor } from "../../../docker-isolation/tests/support/cleanup.ts";
 import {
   coordinatorAuthenticationUnknownCanClose,
   coordinatorTaskResourcesAreSettled,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
+import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
+import { planDockerRecoveryResourceExpectations } from "../../../executor/src/attempt/recovery.ts";
 
 const source = fs.readFileSync(
   new URL("../../src/execution/recovery.ts", import.meta.url),

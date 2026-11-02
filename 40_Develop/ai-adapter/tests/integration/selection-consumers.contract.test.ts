@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getAiModelCatalog, planProviderExecution } from "../../src/index.ts";
 import { resolveExecutionSelection } from "../../../coordinator/src/selection/resolve.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 
 /**
  * 両Providerの助言選定を同じ技術Identityの計画へ渡す。

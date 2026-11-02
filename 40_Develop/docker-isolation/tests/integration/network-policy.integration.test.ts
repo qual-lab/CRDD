@@ -9,19 +9,19 @@
  * @boundary 実Dockerと公開Package Registry。認証・Repository本文・外部AIなし。
  */
 import assert from "node:assert/strict";
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import vm from "node:vm";
 import { setTimeout as delay } from "node:timers/promises";
-import { prepareDockerNetworkPolicy } from "../../src/index.ts";
+import vm from "node:vm";
+import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../../src/docker-cli/trust.ts";
-import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
+import { prepareDockerNetworkPolicy } from "../../src/network/policy.ts";
 import { createNetworkPolicyDirectory } from "../fixtures/network-policy-directory.ts";
 
 const enabled = process.env.CRDD_NETWORK_POLICY_REAL_TEST === "1";

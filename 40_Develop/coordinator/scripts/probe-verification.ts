@@ -8,28 +8,28 @@
  */
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { cleanupDockerContainer } from "../../docker-isolation/src/index.ts";
+import type { DockerContainerBinding as ProbeBinding } from "../../docker-isolation/src/cleanup/container.ts";
+import { cleanupDockerContainer } from "../../docker-isolation/src/cleanup/container.ts";
 import {
-  createDockerProbeRuntimeBinding,
-  observeDockerProbeEngine,
   createDockerProbeContainer,
+  createDockerProbeRuntimeBinding,
+  type DockerProbeProfile,
   describeDockerProbeConfiguration,
+  observeDockerProbeEngine,
   runDockerProbeCancellation,
   startDockerProbeResidue,
-  type DockerProbeProfile,
 } from "../../docker-isolation/tests/support/probe.ts";
-import type { DockerContainerBinding as ProbeBinding } from "../../docker-isolation/src/cleanup/container.ts";
 import {
-  createOwnedMountCapability,
-  verifyOwnedMountCapability,
-  getOwnedHostRecoveryId,
-  transitionHostRecoveryState,
   cleanupOwnedOperationDirectories,
+  createOwnedMountCapability,
+  getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
+  transitionHostRecoveryState,
+  verifyOwnedMountCapability,
 } from "../src/execution/operation.ts";
 import {
-  writeDockerProbeRecoveryRecord,
   type DockerMounts,
+  writeDockerProbeRecoveryRecord,
 } from "../src/state/probe-record.ts";
 
 /**

@@ -10,30 +10,32 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { EventEmitter } from "node:events";
-import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import fs from "node:fs";
+import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
-import { runInNewContext } from "node:vm";
 import { PassThrough } from "node:stream";
 import test from "node:test";
-import {
-  startDockerProbeAttachedProcess,
-  startOwnedAttachTerminationFixture,
-  executeDockerProbeCommand,
-  planDockerProbeCommand,
-  type DockerProbeCommand,
-  type DockerAttachedProcess,
-  type CommandExecution,
-} from "../../src/index.ts";
-import {
-  planDockerAuthenticationCommands,
-  planDockerAuthenticationResourceRecovery,
-  type DockerAuthenticationInput,
-} from "../support/authentication.ts";
+import { setTimeout as delay } from "node:timers/promises";
+import { runInNewContext } from "node:vm";
+import type { CommandExecution } from "../../src/execution/result.ts";
+import { startOwnedWindowsProcess } from "../../src/process/start.ts";
 import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../support/authentication/execute.ts";
 import { dockerAuthenticationCommandIsPlanned } from "../support/authentication/plan.ts";
-import { setTimeout as delay } from "node:timers/promises";
-import { startOwnedWindowsProcess } from "../../src/process/start.ts";
+import {
+  type DockerAuthenticationInput,
+  planDockerAuthenticationCommands,
+  planDockerAuthenticationResourceRecovery,
+} from "../support/authentication.ts";
+import {
+  type DockerProbeCommand,
+  executeDockerProbeCommand,
+  planDockerProbeCommand,
+} from "../support/probe-plan.ts";
+import {
+  type DockerAttachedProcess,
+  startDockerProbeAttachedProcess,
+  startOwnedAttachTerminationFixture,
+} from "../support/probe-process.ts";
 
 /**
  * 本番認証Factoryの固定構成と元snapshotの寿命を反証する。
@@ -262,7 +264,7 @@ test("stdout観測は非同期返却を待たず失敗にして後着拒否を�
  */
 test("probe観測は不正返却を外側へ渡し同期readyだけを保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/probe/process.ts", import.meta.url),
+    new URL("../support/probe-process.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf("function startAttached(");

@@ -7,32 +7,29 @@
  */
 import { types as utilTypes } from "node:util";
 import {
-  cleanupDockerContainer,
-  cleanupDockerResources,
-  inspectDockerResources,
-  createDockerContainerBinding,
-  inspectDockerContainer,
-  observeDockerContainerAbsence,
-  observeDockerRuntimeRepairRetention,
-  disposeDockerRuntimeRepairDirectory,
-  type AuthenticationCleanupResult,
-  type DockerResourceCleanupObservation,
-  type DockerResourceReceipts,
-  type DockerRuntimeDirectoryCleanupResult,
-  type DockerRuntimeRepairRetentionTargets,
-  type HomeLease,
-  type ResourceTarget,
-  type ResourceInspection,
-  type ResourceCleanupResult,
+  cleanupIsolation,
+  type ResourceCleanupResult as IsolationResourceCleanupResult,
+  type ResourceInspection as IsolationResourceInspection,
+  inspectIsolation,
 } from "../../../docker-isolation/src/index.ts";
+import {
+  cleanupAttemptResources,
+  inspectAttemptResources,
+} from "../attempt/recovery.ts";
+import type {
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+  HomeLease,
+  ResourceCleanupResult,
+  ResourceInspection,
+  ResourceTarget,
+} from "../attempt/types.ts";
 import { cleanupAuthenticationResources } from "../authentication/operations.ts";
+import type { AuthenticationCleanupResult } from "../authentication/types.ts";
 import type { ResourceCleanupCallbacks } from "./callbacks.ts";
 import type {
   AuthenticationResourceTarget,
-  ContainerResourceInspection,
-  ContainerResourceTarget,
-  DirectoryResourceCleanupTarget,
-  DirectoryResourceInspectionTarget,
+  IsolationResourceTarget,
 } from "./types.ts";
 
 /**
@@ -54,29 +51,6 @@ export function releaseHomeLease(homeLease: HomeLease): boolean {
 }
 
 /**
- * 指定済みContainerの現在観測又は回収を既存DI処理へ接続する。
- * @responsibility 各Docker要求直前の取消確認を保ち、用途と永続状態を持たない。
- * @trace ARCH-000008
- * @input target: 元構成と取消Signal。
- * @returns 各要求直前に取消を確認する既存CLI接続。
- * @effect 既存の固定CLI観測、構成照合、実ID回収。
- * @failure 不明・明示取消は例外又は未確認結果。
- * @invariant inspectの事前実行をcleanupの必須条件にしない。
- */
-function containerRuntime(target: ContainerResourceTarget) {
-  if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
-  target.signal?.throwIfAborted();
-  const binding = createDockerContainerBinding(target.managementDirectory);
-  return Object.freeze({
-    environment: binding.environment,
-    verifyCli: () => {
-      target.signal?.throwIfAborted();
-      return binding.verifyCli();
-    },
-  });
-}
-
-/**
  * 対象の現在観測だけを返す。診断の先行実行を回収の条件にしない。
  * @responsibility 元情報をDIへ渡し、unknownを不存在へ変換しない。
  * @trace ARCH-000008
@@ -90,47 +64,27 @@ export function inspectResources(
   purpose?: keyof DockerResourceReceipts,
 ): ResourceInspection;
 export function inspectResources(
-  target: DirectoryResourceInspectionTarget,
-): DockerRuntimeRepairRetentionTargets | null;
+  target: IsolationResourceTarget<"directory", "inspect">,
+): IsolationResourceInspection<"directory">;
 export function inspectResources(
-  target: ContainerResourceTarget,
-): ContainerResourceInspection;
+  target: IsolationResourceTarget<"container">,
+): IsolationResourceInspection<"container">;
 export function inspectResources(
   target:
     | ResourceTarget
-    | DirectoryResourceInspectionTarget
-    | ContainerResourceTarget,
+    | IsolationResourceTarget<"directory", "inspect">
+    | IsolationResourceTarget<"container">,
   purpose?: keyof DockerResourceReceipts,
 ):
   | ResourceInspection
-  | DockerRuntimeRepairRetentionTargets
-  | ContainerResourceInspection
+  | IsolationResourceInspection<"directory">
+  | IsolationResourceInspection<"container">
   | null {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   if (target?.kind === "docker_runtime_directory")
-    return observeDockerRuntimeRepairRetention(target.input);
-  if (target?.kind === "container") {
-    const binding = containerRuntime(target),
-      c = target.configuration;
-    const absent = observeDockerContainerAbsence(binding, {
-      id: c.id,
-      name: c.name,
-      ownershipLabel: c.ownershipLabel,
-    });
-    if (absent.status === "confirmed")
-      return Object.freeze<ContainerResourceInspection>({
-        observation: "absent",
-        runningConfirmed: false,
-        snapshot: null,
-      });
-    const present = inspectDockerContainer(binding, c);
-    return Object.freeze<ContainerResourceInspection>({
-      observation: present ? "present" : "unknown",
-      runningConfirmed: present?.runningConfirmed === true,
-      snapshot: present?.snapshot ?? null,
-    });
-  }
-  return inspectDockerResources(target, purpose);
+    return inspectIsolation(target);
+  if (target?.kind === "container") return inspectIsolation(target);
+  return inspectAttemptResources(target, purpose);
 }
 
 /**
@@ -152,37 +106,32 @@ export function cleanupResources(
   >,
 ): Promise<ResourceCleanupResult>;
 export function cleanupResources(
-  target: DirectoryResourceCleanupTarget,
-): Promise<DockerRuntimeDirectoryCleanupResult>;
+  target: IsolationResourceTarget<"directory", "cleanup">,
+): Promise<IsolationResourceCleanupResult<"directory">>;
 export function cleanupResources(
-  target: ContainerResourceTarget,
-): Readonly<{ confirmed: boolean; reason: string }>;
+  target: IsolationResourceTarget<"container">,
+): IsolationResourceCleanupResult<"container">;
 export function cleanupResources(
   target:
     | ResourceTarget
-    | DirectoryResourceCleanupTarget
+    | IsolationResourceTarget<"directory", "cleanup">
     | AuthenticationResourceTarget
-    | ContainerResourceTarget,
+    | IsolationResourceTarget<"container">,
   callbacks: ResourceCleanupCallbacks<
     readonly DockerResourceCleanupObservation[]
   > = {},
 ):
   | Promise<ResourceCleanupResult>
-  | Promise<DockerRuntimeDirectoryCleanupResult>
+  | Promise<IsolationResourceCleanupResult<"directory">>
   | Promise<AuthenticationCleanupResult>
-  | Readonly<{ confirmed: boolean; reason: string }> {
+  | IsolationResourceCleanupResult<"container"> {
   if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
   if (target?.kind === "docker_runtime_directory")
-    return disposeDockerRuntimeRepairDirectory(target.input);
+    return cleanupIsolation(target);
   if (target?.kind === "authentication") {
     target.signal?.throwIfAborted();
     return cleanupAuthenticationResources(target);
   }
-  if (target?.kind === "container")
-    return cleanupDockerContainer(
-      containerRuntime(target),
-      target.configuration,
-      target.signal,
-    );
-  return cleanupDockerResources(target, callbacks);
+  if (target?.kind === "container") return cleanupIsolation(target);
+  return cleanupAttemptResources(target, callbacks);
 }

@@ -6,55 +6,70 @@
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
+import { cleanupContainerResources } from "../cleanup/container.ts";
+import { cleanupResourceIdentity } from "../cleanup/operations.ts";
 import {
-  observeTrustedDockerCli,
-  verifyTrustedDockerCliSnapshot,
-  type DockerCliTrustSnapshot,
-} from "../docker-cli/trust.ts";
-import { createDockerProcessEnvironment } from "../docker-cli/environment.ts";
+  type DockerResourceExpectation,
+  dockerResourceConfigurationMatches,
+} from "../cleanup/plan.ts";
+import {
+  type DockerRecoveryCommandResult,
+  dockerResourceIdentityMatches,
+  explicitDockerResourceAbsence,
+  snapshotObservedDockerResource,
+} from "../cleanup/resource.ts";
+import type {
+  ContainerResourceTarget,
+  DirectoryResourceCleanupTarget,
+  ResourceSnapshot,
+  ResourceTarget,
+  ResourceCleanupResult,
+} from "../cleanup/types.ts";
 import {
   createDockerCliConfig,
   observeDockerDirectoryIdentity,
   observeDockerProtectedMountIdentity,
   verifyDockerCliConfig,
 } from "../docker-cli/config.ts";
+import { createDockerProcessEnvironment } from "../docker-cli/environment.ts";
 import {
-  startOwnedWindowsProcess,
+  type DockerCliTrustSnapshot,
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+} from "../docker-cli/trust.ts";
+import {
+  type DockerRuntimeDirectoryCleanupResult,
+  disposeDockerRuntimeRepairDirectory,
+} from "../docker-desktop/repair-session.ts";
+import {
   type OwnedCommandHandle,
+  startOwnedWindowsProcess,
 } from "../process/start.ts";
-import { cleanupResourceIdentity } from "../cleanup/operations.ts";
 import {
-  dockerResourceConfigurationMatches,
-  type DockerResourceExpectation,
-} from "../cleanup/plan.ts";
-import {
-  dockerResourceIdentityMatches,
-  snapshotObservedDockerResource,
-  explicitDockerResourceAbsence,
-  type DockerRecoveryCommandResult,
-} from "../cleanup/resource.ts";
-import type { ResourceSnapshot } from "../cleanup/types.ts";
-import {
-  captureIsolationRequest,
   captureIsolationCleanupRequest,
+  captureIsolationRequest,
   containerCreation,
   isolationResourceConfigurationMatches,
   plannedResourceSnapshot,
 } from "./preparation.ts";
 import {
-  classifyDockerCommandException,
   type CommandObservation,
+  classifyDockerCommandException,
+  classifyDockerCommandExecution,
+  classifyDockerProcessExit,
 } from "./result.ts";
 import type {
   IsolationCallbacks,
+  IsolationCleanupRequest,
   IsolationExecution,
   IsolationExecutionResult,
   IsolationFailure,
   IsolationRequest,
-  IsolationCleanupRequest,
   IsolationStep,
   PreparedIsolation,
 } from "./types.ts";
+
+export { inspectIsolation } from "../cleanup/resources.ts";
 
 const DOCKER_EXECUTABLE =
   "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
@@ -219,10 +234,46 @@ export function executeIsolation(
  * @invariant inspectの先行実行を要件にせず、実行Stepを発行しない。
  */
 export function cleanupIsolation(
-  request: IsolationCleanupRequest,
+  request: ResourceTarget<"directory", "cleanup">,
+): Promise<ResourceCleanupResult<"directory">>;
+export function cleanupIsolation(
+  request: ResourceTarget<"container">,
+): ResourceCleanupResult<"container">;
+export function cleanupIsolation(
+  request: ResourceTarget<"snapshot", "cleanup">,
+  callbacks?: IsolationCallbacks,
+): IsolationExecution;
+export function cleanupIsolation(
+  request:
+    | IsolationCleanupRequest
+    | ContainerResourceTarget
+    | DirectoryResourceCleanupTarget,
   callbacks: IsolationCallbacks = {},
-): IsolationExecution {
-  return runIsolation(new IsolationPreparation(request, true), callbacks);
+):
+  | IsolationExecution
+  | Readonly<{ confirmed: boolean; reason: string }>
+  | Promise<DockerRuntimeDirectoryCleanupResult> {
+  if (
+    request &&
+    typeof request === "object" &&
+    !types.isProxy(request) &&
+    Object.getOwnPropertyDescriptor(request, "kind")?.value ===
+      "docker_runtime_directory"
+  )
+    return disposeDockerRuntimeRepairDirectory(
+      (request as DirectoryResourceCleanupTarget).input,
+    );
+  if (
+    request &&
+    typeof request === "object" &&
+    !types.isProxy(request) &&
+    Object.getOwnPropertyDescriptor(request, "kind")?.value === "container"
+  )
+    return cleanupContainerResources(request as ContainerResourceTarget);
+  return runIsolation(
+    new IsolationPreparation(request as IsolationCleanupRequest, true),
+    callbacks,
+  );
 }
 
 /** 元準備に閉じた共通の技術生涯。用途ごとの生涯制御を持たない。 */
@@ -805,7 +856,13 @@ function runIsolation(
         if (fs.readdirSync(config.directory).length !== 0)
           throw Error("docker_isolation_config_nonempty");
         fs.rmdirSync(config.directory);
-        configCleanupConfirmed = !fs.existsSync(config.directory);
+        try {
+          fs.lstatSync(config.directory);
+          configCleanupConfirmed = false;
+        } catch (error) {
+          configCleanupConfirmed =
+            (error as NodeJS.ErrnoException)?.code === "ENOENT";
+        }
       } catch {
         configCleanupConfirmed = false;
       }
@@ -940,7 +997,14 @@ function runIsolation(
             if (cancelled && current.action !== "create") break;
             await notice(
               "onObserved",
-              [current, result, observedElapsedMs, observedErrorCode],
+              [
+                current,
+                result,
+                observedElapsedMs,
+                observedErrorCode,
+                classifyDockerCommandExecution(result),
+                classifyDockerProcessExit(result),
+              ],
               true,
             );
             if (!terminated)

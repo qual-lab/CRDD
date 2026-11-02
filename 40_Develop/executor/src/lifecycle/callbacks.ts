@@ -4,7 +4,10 @@
  * @trace ARCH-000008
  * @boundary 技術実行と上位の観測・保存。
  */
-import type { AttemptCallbacks } from "../attempt/types.ts";
+import type {
+  AttemptCallbacks,
+  DockerResourceReceipts,
+} from "../attempt/types.ts";
 import type { AuthenticationCallbacks } from "../authentication/types.ts";
 import type { IsolationProbeCallbacks } from "../probe/types.ts";
 import type { ExecutionKind } from "./types.ts";
@@ -39,7 +42,25 @@ export interface CompletionCallbacks<
  * @security 通知だけで不存在・Home解放を証明しない。
  * @compatibility 通常実行の終了通知はPromise完了を待つ。
  */
-export type { ResourceCleanupCallbacks } from "../../../docker-isolation/src/index.ts";
+/**
+ * 通常実行と再入場の資源観測通知。
+ * @responsibility 元技術資源の値と観測条件を所有し、上位の保存・採用判断を持たない。
+ * @trace ARCH-000008
+ * @shape 同期voidの観測開始・実ID発見と、void／Promise<void>の資源終了・回収完了。
+ * @invariant 必要な同期性は利用契約で固定し、通知発行だけを回収成功にしない。
+ * @boundary DIの技術事実からExecutorと上位記録。
+ * @security 保存方法・許可を返す操作ではなく、生出力も渡さない。
+ * @compatibility 既存の資源値・通知同期性・保存Schemaを維持する。
+ */
+export interface ResourceCleanupCallbacks<Observation> {
+  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
+  onResourceIdentified?(
+    purpose: keyof DockerResourceReceipts,
+    dockerId: string,
+  ): void;
+  onResourcesClosed?(observation: Observation): void | Promise<void>;
+  onCleanupCompleted?(observation: Observation): void | Promise<void>;
+}
 
 /**
  * 各用途が所有する通知interfaceの対応。

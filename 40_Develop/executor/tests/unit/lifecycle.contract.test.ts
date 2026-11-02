@@ -9,31 +9,32 @@
 import assert from "node:assert/strict";
 import { getEventListeners } from "node:events";
 import test from "node:test";
-import {
-  bindAuthenticationLifecycle,
-  type Authentication,
-} from "../../scripts/authentication-command-test.ts";
-import type { AuthenticationResult } from "../../src/authentication/types.ts";
-import {
-  createExecutor,
-  restartDockerEnvironment,
-  type ExecutorRequest,
-  type StartResult,
-  type RecordProjection,
-  type CancelArguments,
-  type AttemptCancelInput,
-  type DockerEnvironmentRestartRequest,
-  type CompletionResult,
-  type Executor,
-  type ExecutorCallbacks,
-  type StartInput,
-} from "../../src/index.ts";
+
 import type {
-  DockerIsolationRuntimeOptions,
   DockerRuntimeRepairInput,
   DockerRuntimeRepairResult,
-  DockerRuntimeRestartInput,
-} from "../../../docker-isolation/src/index.ts";
+} from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import type { DockerRuntimeRestartInput } from "../../../docker-isolation/src/docker-desktop/restart.ts";
+import {
+  type Authentication,
+  bindAuthenticationLifecycle,
+} from "../../scripts/authentication-command-test.ts";
+import type { DockerIsolationRuntimeOptions } from "../../src/attempt/types.ts";
+import type { AuthenticationResult } from "../../src/authentication/types.ts";
+import {
+  type AttemptCancelInput,
+  type CancelArguments,
+  type CompletionResult,
+  createExecutor,
+  type DockerEnvironmentRequest,
+  type Executor,
+  type ExecutorCallbacks,
+  type ExecutorRequest,
+  type RecordProjection,
+  restartDockerEnvironment,
+  type StartInput,
+  type StartResult,
+} from "../../src/index.ts";
 import { executeLifecycle } from "../../src/lifecycle/execute.ts";
 import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
 
@@ -62,7 +63,7 @@ test("公開型の既定Unionと用途別取消は入出力の相関を維持す
     probeInput: StartInput<"isolation_probe">,
     cancelInput: AttemptCancelInput,
     options: DockerIsolationRuntimeOptions,
-    environment: DockerEnvironmentRestartRequest,
+    environment: DockerEnvironmentRequest,
   ) {
     // @ts-expect-error 用途未確定のUnionへ任意用途の開始入力を渡せない。
     executor.start(input);

@@ -8,27 +8,25 @@
  * @scope 既存Execution Plan義務の技術構成断面。Task Router全体の成立は主張しない。
  * @boundary N/A: 純粋計画だけ。Process、Docker、Provider Effectは発行しない。
  */
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import path from "node:path";
 import fs from "node:fs";
-import vm from "node:vm";
-import { types as utilTypes } from "node:util";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
 import test from "node:test";
+import { types as utilTypes } from "node:util";
+import vm from "node:vm";
+import { codexAdviceProviderInitRequired } from "../../../../executor/src/attempt/recovery.ts";
+import type { DockerIsolationCommandInput } from "../../../../executor/src/attempt/types.ts";
+import { dockerIsolationResourceIdentityIsValid } from "../../../src/index.ts";
+import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
 import {
-  type DockerIsolationCommandInput,
-  planDockerIsolationCommands,
   dockerIsolationCommandsMatch,
-  prepareDockerNetworkPolicy,
-  codexAdviceProviderInitRequired,
-  projectDockerProxyConfiguration,
-  createDockerAuthenticationEnvironment,
+  planDockerIsolationCommands,
   projectDockerExecutionBoundary,
-  createDockerIsolationRandomHex,
-  createDockerIsolationResourceNames,
-  dockerIsolationResourceIdentityIsValid,
-} from "../../../src/index.ts";
+  projectDockerProxyConfiguration,
+} from "../../support/execution-plan.ts";
 
 /**
  * 元commandの用途・順序・全argv差を拒否する。
@@ -179,16 +177,16 @@ test("Workspace三本MountはSourceのRW差だけを許す", () => {
 
 /**
  * Proxy包装の実構築と固定投影を同じ技術Ownerで照合する。
- * @responsibility 包装外decoy・欠測・重複と不正認証環境を拒否する。
+ * @responsibility 包装外decoy・欠測・重複と不正なProxy包装を拒否する。
  * @trace ERB-UT-023
  * @precondition 既存fixtureと固定plannerを使う。
- * @stimulus 正常、二envの欠測・重複・順序差、他purpose、payload、getter、認証名差。
- * @observation profile/token、null、getter回数、環境map。
+ * @stimulus 正常、二envの欠測・重複・順序差、他purpose、payload、getterを与える。
+ * @observation profile/token、null、getter回数。
  * @oracle create_proxy一件のexact包装だけを投影し、Provider相関は上位に残す。
  * @cleanup N/A: 純粋計算だけ。
  * @boundary 技術包装と意味相関。実行許可ではない。
  */
-test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉じる", () => {
+test("Proxy投影は固定包装だけを読み欠測・重複・暗黙変換を拒否する", () => {
   const input = inputFixture();
   const commands = planDockerIsolationCommands(input);
   assert.ok(commands);
@@ -398,7 +396,7 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
   };
   verifyNoImageCoercion(projectDockerProxyConfiguration);
   const source = fs.readFileSync(
-    new URL("../../../src/execution/plan.ts", import.meta.url),
+    new URL("../../support/execution-plan.ts", import.meta.url),
     "utf8",
   );
   const parts = [];
@@ -425,22 +423,6 @@ test("Proxy投影は固定包装だけを読み認証Home定数を下位へ閉�
     },
   ) as typeof projectDockerProxyConfiguration;
   assert.throws(() => verifyNoImageCoercion(mutant), { code: "ERR_ASSERTION" });
-  assert.deepEqual(createDockerAuthenticationEnvironment("CODEX_HOME"), {
-    CODEX_HOME: "/provider-home",
-  });
-  assert.deepEqual(createDockerAuthenticationEnvironment(null), {});
-  for (const name of [
-    "",
-    "HOME",
-    "TMPDIR",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "ALL_PROXY",
-    "NO_PROXY",
-    "bad-name",
-    "CODEX_HOME\0",
-  ])
-    assert.equal(createDockerAuthenticationEnvironment(name), null);
 });
 
 /**
@@ -844,11 +826,11 @@ test("Seccompは固定Identityで計画し旧Pathと欠測を拒否する", () =
  */
 test("診断descriptorは隔離VMの継承value・継承必須keyを受理しない", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/plan.ts", import.meta.url),
+    new URL("../../support/execution-plan.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("function snapshotDockerBoundaryArray(");
-  const end = source.indexOf("export type DockerIsolationResourceNames");
+  const end = source.indexOf("export function planDockerIsolationCommands");
   assert.ok(start > 0 && end > start);
   const body = stripTypeScriptTypes(source.slice(start, end)).replace(
     "export function projectDockerExecutionBoundary",
@@ -1113,133 +1095,4 @@ test("元payloadの後発変更を凍結した計画へ搬送しない", () => {
     assert.ok(Object.isFrozen(command.argv));
     assert.ok(!command.argv.includes("late"));
   }
-});
-
-/**
- * 共通資源名と乱数検査が既存境界を二namespaceで維持することを確認する。
- *
- * @responsibility 有限実行namespace、実行Identity形式、63文字上限とBuffer取得長を反証する。
- * @trace ERB-UT-023
- * @precondition 実Docker・外部AIを使わず固定値を共通準備処理へ渡す。
- * @stimulus 二namespaceの正常値、不正Identity、名前長境界と乱数型・長さ違反を与える。
- * @observation 返却資源名、null、例外および乱数取得回数。
- * @oracle 既存prefixと上限を維持し、不正取得を補完しない。
- * @cleanup N/A: 局所値だけで実資源やStoreを作成しない。
- * @boundary N/A: Process内の値生成だけを確認する。
- */
-test("共通Docker資源名は実行Identity形式・63文字境界と乱数長を維持する", () => {
-  for (const executionNamespace of ["codex", "claude"] as const) {
-    const names = createDockerIsolationResourceNames(
-      executionNamespace,
-      "a".repeat(64),
-      "b".repeat(16),
-    );
-    assert.deepEqual(names, {
-      internalNetworkName: `crdd-internal-${"b".repeat(16)}`,
-      egressNetworkName: `crdd-egress-${"b".repeat(16)}`,
-      proxyContainerName: `crdd-proxy-${"b".repeat(16)}`,
-      authContainerName: `crdd-auth-${"b".repeat(16)}`,
-      providerContainerName: `crdd-${executionNamespace}-${"a".repeat(16)}`,
-      ownershipLabel: `crdd.coordinator.runtime=${"b".repeat(16)}`,
-    });
-    for (const executionIdentityHash of [
-      "",
-      "a".repeat(63),
-      "a".repeat(65),
-      "A".repeat(64),
-      "g".repeat(64),
-    ])
-      assert.equal(
-        createDockerIsolationResourceNames(
-          executionNamespace,
-          executionIdentityHash,
-          "b".repeat(16),
-        ),
-        null,
-      );
-    const maximumSuffix = 63 - "crdd-internal-".length;
-    assert.equal(
-      createDockerIsolationResourceNames(
-        executionNamespace,
-        "a".repeat(64),
-        "b".repeat(maximumSuffix),
-      )?.internalNetworkName.length,
-      63,
-    );
-    assert.equal(
-      createDockerIsolationResourceNames(
-        executionNamespace,
-        "a".repeat(64),
-        "b".repeat(maximumSuffix + 1),
-      ),
-      null,
-    );
-  }
-  for (const namespace of ["", "CODEX", "other", "claude ", "codex;"]) {
-    assert.equal(
-      createDockerIsolationResourceNames(
-        namespace,
-        "a".repeat(64),
-        "b".repeat(16),
-      ),
-      null,
-    );
-  }
-  for (const bytes of [8, 32]) {
-    for (const delta of [-1, 1]) {
-      assert.equal(
-        createDockerIsolationRandomHex(
-          { randomBytes: () => Buffer.alloc(bytes + delta) },
-          bytes,
-        ),
-        null,
-      );
-    }
-    const failure = new Error("exact_random_failure");
-    assert.throws(
-      () =>
-        createDockerIsolationRandomHex(
-          {
-            randomBytes: () => {
-              throw failure;
-            },
-          },
-          bytes,
-        ),
-      (error: unknown) => error === failure,
-    );
-  }
-  let calls = 0;
-  const state = {
-    randomBytes: (size: number) => {
-      calls += 1;
-      return Buffer.alloc(size, 0xab);
-    },
-  };
-  assert.equal(createDockerIsolationRandomHex(state, 8), "ab".repeat(8));
-  assert.equal(createDockerIsolationRandomHex(state, 32), "ab".repeat(32));
-  assert.equal(calls, 2);
-  assert.equal(
-    createDockerIsolationRandomHex({ randomBytes: () => Buffer.alloc(7) }, 8),
-    null,
-  );
-  assert.equal(
-    createDockerIsolationRandomHex(
-      { randomBytes: () => new Uint8Array(8) as unknown as Buffer },
-      8,
-    ),
-    null,
-  );
-  assert.throws(
-    () =>
-      createDockerIsolationRandomHex(
-        {
-          randomBytes: () => {
-            throw new Error("fixed_random_failure");
-          },
-        },
-        8,
-      ),
-    /fixed_random_failure/u,
-  );
 });

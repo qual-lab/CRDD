@@ -7,7 +7,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { describeDockerProbeResource } from "../../../docker-isolation/src/index.ts";
+import { describeIsolationCapabilities } from "../../../docker-isolation/src/index.ts";
 
 /**
  * docker-isolationで使用するEntity Typeの値契約を定義する。
@@ -556,7 +556,11 @@ export function writeDockerProbeRecoveryRecord(
     fs.realpathSync(path.dirname(root)) !== path.dirname(root)
   )
     throw new Error("docker_recovery_boundary_failed");
-  const resource = describeDockerProbeResource(probeId);
+  const resource = {
+    ...describeIsolationCapabilities(),
+    name: `crdd-coordinator-probe-${probeId}`,
+    label: `crdd.coordinator.probe=${probeId}`,
+  };
   const record = {
     schema: "crdd-coordinator-docker-recovery/v1",
     probeId,

@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/index.ts";
+import { classifyDockerCommandExecution } from "../../../../docker-isolation/src/execution/result.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../../../../domain-model/src/index.ts";
 import { isPrimaryFailureDiagnostic } from "../../../scripts/executor-test.ts";
 import {

@@ -231,10 +231,11 @@ test("応答内容は全拒否理由と基準版のSchema・Provider計画を維
           provider === "codex" ? ("exact" as const) : ("alias" as const),
       },
     };
-    const locations = docker.describeDockerProviderExecutionLocations(
-      provider,
-      "advice",
-    );
+    const capabilities = docker.describeIsolationCapabilities(provider);
+    const locations =
+      capabilities.provider === "codex"
+        ? capabilities.locations.alternate
+        : capabilities.locations.primary;
     const plan = api.planProviderExecution(
       { ...request, resultSchema: schema },
       locations,

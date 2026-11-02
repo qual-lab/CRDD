@@ -8,14 +8,15 @@
  * @scope provider、task、structured、result
  * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
-import {
-  planProviderExecution,
-  evaluateProviderTaskScope,
-  parseProviderResult,
-} from "../../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
 import test from "node:test";
-import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
+import {
+  evaluateProviderTaskScope,
+  parseProviderResult,
+  planProviderExecution,
+} from "../../../../ai-adapter/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 
 const EXECUTOR = JSON.stringify({
   status: "completed",

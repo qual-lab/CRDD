@@ -7,8 +7,17 @@
  * @boundary 技術入力・通知の値契約だけ。永続化と実資源観測は別Owner。
  */
 
-import type { actions } from "./validation.ts";
-import type { directories } from "./validation.ts";
+import type { DockerRuntimeBackendState } from "./backend.ts";
+import type { DockerRuntimeEngineObservation } from "./engine.ts";
+import type {
+  DockerRuntimeRepairInput,
+  DockerRuntimeRepairResult,
+} from "./repair-session.ts";
+import type {
+  DockerRuntimeRestartInput,
+  DockerRuntimeRestartResult,
+} from "./restart.ts";
+import type { actions, directories } from "./validation.ts";
 
 /**
  * 修復Machineが所有し保存Ownerへ渡す技術状態。
@@ -126,3 +135,50 @@ export type DirectoryObservation = Readonly<{
 export type DockerRuntimeRepairRetentionTargets = Readonly<
   Record<(typeof directories)[number], DirectoryIdentity | null>
 >;
+
+/**
+ * 明示した処置だけを実行する環境操作入力。
+ * @responsibility 再起動許可とDirectory退避を伴う修復許可を分離する。
+ * @trace ARCH-000008
+ * @shape 必須modeと、各DI正本の元input。
+ * @invariant 欠測・未知modeのfallbackや自動切替をしない。
+ * @boundary 上位の明示判断と環境技術操作。
+ * @security modeをDIの閉形式入力へ混入しない。
+ * @compatibility 元入力・Signal・通知の参照を保持する。
+ */
+export type DockerEnvironmentRequest<
+  M extends
+    keyof DockerEnvironmentOperations = keyof DockerEnvironmentOperations,
+> = DockerEnvironmentOperations[M]["request"];
+
+interface DockerEnvironmentOperations {
+  restart: {
+    request: Readonly<{ mode: "restart"; input: DockerRuntimeRestartInput }>;
+    result: DockerRuntimeRestartResult;
+  };
+  repair: {
+    request: Readonly<{ mode: "repair"; input: DockerRuntimeRepairInput }>;
+    result: DockerRuntimeRepairResult;
+  };
+}
+
+/**
+ * backendとEngineの逐次観測結果。
+ * @responsibility 不明と観測資源の終了確認を独立して保持する。
+ * @trace ARCH-000008
+ * @shape backendの稼働分類とEngineの状態・cleanup。
+ * @invariant atomicなSnapshotや再起動許可として扱わない。
+ * @boundary 技術観測から上位判断への値搬送。
+ * @security Path・認証情報・操作権限を含めない。
+ * @compatibility 各観測の意味と期限はDocker Isolationの契約に従う。
+ */
+export type DockerEnvironmentStatus = Readonly<{
+  backend: DockerRuntimeBackendState;
+  engine: DockerRuntimeEngineObservation;
+}>;
+
+/** 明示modeに対応する元技術結果。通知・清掃の未確認を保持する。 */
+export type DockerEnvironmentResult<
+  M extends
+    keyof DockerEnvironmentOperations = keyof DockerEnvironmentOperations,
+> = DockerEnvironmentOperations[M]["result"];

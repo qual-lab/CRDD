@@ -10,16 +10,17 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
-} from "../../../docker-isolation/src/index.ts";
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+} from "../../../docker-isolation/src/image/assets.ts";
+
 const codex = describeDockerProviderAssets("codex");
 const CODEX_IMAGE_DIGEST = codex.fixedImageDigest;
 const codexSeccompProfile = fileURLToPath(

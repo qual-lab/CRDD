@@ -15,7 +15,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/index.ts";
+import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
 import { describeDockerDesktopRepairNativeHelperContract } from "../../src/docker-desktop/native-process.ts";
 import { startDockerDesktopRepairHelper } from "../../src/docker-desktop/native-process.ts";
 import { observePlatformAccessArtifactCandidate } from "../../src/index.ts";

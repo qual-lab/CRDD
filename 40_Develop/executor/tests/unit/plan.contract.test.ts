@@ -6,6 +6,7 @@
  * @scope 純粋な合成計画のみ。
  * @boundary Executorの基本計画検査。
  */
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -16,19 +17,20 @@ import {
 import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
-  planDockerIsolationCommands,
-  prepareDockerNetworkPolicy,
-} from "../../../docker-isolation/src/index.ts";
+} from "../../../docker-isolation/src/image/assets.ts";
+import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
+import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
+import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
 import {
+  bindTestIsolationRuntime as bindIsolationRuntime,
   isAttemptPlanValid,
   planIdentity,
   prepareAttempt,
   resolveIsolationCommandInput,
   resolveProviderExecution,
   resolveValidatedPlan,
-} from "../../src/attempt/operations.ts";
-import { bindTestIsolationRuntime as bindIsolationRuntime } from "../../scripts/executor-test.ts";
-import type { AttemptPlan, AttemptRequest } from "../../src/attempt/types.ts";
+} from "../../scripts/executor-test.ts";
+import type { AttemptRequest } from "../../src/attempt/types.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -276,7 +278,6 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
       ),
     },
   ]) {
-    assert.equal(isAttemptPlanValid(plan), true);
     assert.equal(resolveValidatedPlan(plan, temporary), null);
   }
 });

@@ -27,25 +27,22 @@ import {
   PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
   describeProviderBillingPolicy,
 } from "../../../ai-adapter/src/index.ts";
-import {
-  type DockerProbeExecutionFacts,
-  describeDockerProbeResource,
-  describeDockerProxyTopology,
-} from "../../../docker-isolation/src/index.ts";
+import { describeIsolationCapabilities } from "../../../docker-isolation/src/index.ts";
 import {
   parseHostRecoveryToken,
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
+import type { IsolationProbeFacts } from "../../../executor/src/index.ts";
 import {
   type CompletionResult,
-  type ContainerResourceTarget,
   cleanupResources,
   createExecutor,
   type Executor,
   type ExecutorRequest,
   type IsolationProbeOptions,
   inspectResources,
+  type IsolationResourceTarget,
 } from "../../../executor/src/index.ts";
 import {
   createWindowsHostOperationSupervisorEnvironment,
@@ -3830,7 +3827,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
         authorityFileBundle: describeAuthorityFileBundleContract(),
         authorityPrelaunchVerifier:
           describeAuthorityPrelaunchVerifierContract(),
-        proxyTopology: describeDockerProxyTopology("claude"),
+        proxyTopology: describeIsolationCapabilities("claude").proxy,
       },
       recovery: shouldRetainOperationDirectories
         ? {
@@ -4276,7 +4273,7 @@ function dynamicFakeLifecycleBlocked(
  * @concurrency 同期投影だけ。
  */
 function projectProbeExecutionFacts(
-  facts: DockerProbeExecutionFacts,
+  facts: IsolationProbeFacts,
 ): DynamicFakeProviderLifecycleObservation {
   return Object.freeze({
     ...dynamicFakeLifecycleBlocked(facts.lifecycleReason),
@@ -4313,7 +4310,7 @@ function projectProbeExecutionFacts(
  * @concurrency 新しい参照ごとに独立登録し、既存の後続消費規則を維持する。
  */
 function createDynamicFakeProviderLifecycleCapability(
-  facts: DockerProbeExecutionFacts,
+  facts: IsolationProbeFacts,
   context: Readonly<{
     probeId: string;
     containerId: string;
@@ -5338,7 +5335,7 @@ export function recoverDockerIsolationProbe(
           recoveryId: token,
         };
       requireDockerProbeRecoveryMounts(recovery);
-      const target: ContainerResourceTarget = Object.freeze({
+      const target: IsolationResourceTarget<"container"> = Object.freeze({
         kind: "container",
         configuration: Object.freeze({
           id: containerId,
@@ -5445,7 +5442,7 @@ export function recoverDockerIsolationProbe(
 }
 
 export const DOCKER_ISOLATION_PROFILE = Object.freeze({
-  ...describeDockerProbeResource("profile").runtimeProfile,
+  ...describeIsolationCapabilities().runtimeProfile,
   dynamicFakeProviderProcessImplemented: true,
   realProviderProcessesExecuted: false,
 });

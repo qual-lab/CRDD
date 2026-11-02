@@ -6,7 +6,7 @@
  * @scope 通信設定を搬送する既存の試験入力。
  * @boundary 純粋な値だけ。Docker・File・送信なし。
  */
-import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
+import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
 
 /**
  * Repository既定値に対応する試験用設定を返す。

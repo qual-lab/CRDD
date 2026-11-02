@@ -9,6 +9,7 @@
  * @boundary ERB-IT-001=Direct Boundary: 修復技術処理→固定Host境界。
  * @boundary ERB-IT-014=Direct Boundary: 固定退避処理→前後のFilesystem観測。
  */
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -17,12 +18,13 @@ import path from "node:path";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
-import * as publicApi from "../../src/index.ts";
 import {
-  retainDockerDesktopRepairRunDirectory,
-  retainDockerDesktopRepairContinuationDirectory,
   createDockerDesktopRepairDirectoryAccess,
+  retainDockerDesktopRepairContinuationDirectory,
+  retainDockerDesktopRepairRunDirectory,
 } from "../../src/docker-desktop/directory.ts";
+import * as dockerRepairOperations from "../../src/docker-desktop/repair-session.ts";
+import * as publicApi from "../../src/index.ts";
 
 const operationId = "a".repeat(32);
 const localAppData = "C:\\Users\\fixture\\AppData\\Local";
@@ -109,7 +111,10 @@ test("本番内部exportは固定Directory処置へ接続する", (t) => {
  * @boundary ERB-IT-001=Direct Boundary: Package公開集合。
  */
 test("修復Host操作は独立したRoot APIとして公開しない", () => {
-  assert.equal(typeof publicApi.runDockerRuntimeRepairSession, "function");
+  assert.equal(
+    typeof dockerRepairOperations.runDockerRuntimeRepairSession,
+    "function",
+  );
   for (const name of [
     "requestDockerDesktopOfficialShutdown",
     "terminateDockerDesktopBackendForRepair",

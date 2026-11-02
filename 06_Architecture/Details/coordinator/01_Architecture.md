@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 同意前の技術Policy投影
+
+Repository通信設定の読取り後、送信同意より前にDIの純粋なdescribeIsolationCapabilitiesへ同じ追加Host配列を両Providerへ渡し、networkPolicyを取得する。既存の固定Host・正規化・Hashを再利用し、metadataを取得できてもnetworkPolicyがblockedなら停止する。Domain読取り不能ではCatalogを呼ばない。Coordinatorは同意と要求へのHash結合を所有し、DI／Proxyは実行時の技術的な再検査と強制を所有する。Engine観測、追加の認証・送信・保存Schema・許可発行をこの読取りへ追加しない。
+
 ## 最小回収Identityと構成診断の分離（2026-11-02）
 
 Coordinatorは対象選定・許可・排他保持・保存と進行判断を所有する。元実IDがあるDI回収は実ID・元名・所有Labelを基本とし、構成差だけを削除拒否理由にしない。ID欠測時とDirectoryの既存条件は維持する。構成の返却は診断用であり、構成一式の新しい永続保存義務やSchemaを追加しない。Executorの通常Attempt・認証・Probeと単独回収は共通DI入口を使い、技術結果のResourceSnapshotを搬送する。上位は従来の必要fieldだけを保存し、保存Schemaを拡張しない。

@@ -12,6 +12,10 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+2026-11-03のDI共通IF・公開型の整理は、12関数・19型として今回の非AI範囲を完了した。用途固有の構築・Receipt・Session型をExecutorへ移し、環境と資源操作の入力・結果を共通型へ統合した。DI164件・Executor97件・Coordinator216件・公開入口1件と3パッケージの静的検査が成功し、独立再レビューの必須残指摘は0件。対象4文書の診断は0だが、参照展開先の既存328診断と先行fixture誤接続の実読取り到達未確定は解消扱いにしない。実AI・Docker・過去保持物は今回操作しておらず、実境界再成立・全体QA・Releaseの完了は主張しない。[現在の範囲と検証結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di公開ifの最小化2026-11-03)を参照。以下の2026-11-02の記述は各段階の確認履歴である。
+
+2026-11-02のDI共通IF追加整理では、資源集合に続き単一Container・固定DirectoryもinspectIsolation／cleanupIsolationへ接続した。Executorに残ったDocker技術接続・不存在→inspect合成と技術型をDIへ移し、旧低位六関数のRoot公開を撤去。同期性・元Promise・既存照合条件を維持し、認証も既存共通Cleanup接続済みと確認した。Executor95件、DI対象65件、Coordinator対象216件と静的検査が成功し、独立再レビューの必須残指摘0件。DI Root全体の公開整理と実境界再成立は未完了。実AI・Docker・過去保持物は操作していない。[現在の範囲と残件](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di技術契約への収束2026-11-02完成条件の更新)を参照。
+
 2026-11-02のDI共通入口整理では、通常Attempt・認証・固定ProbeのSource接続と、Attempt／認証の通常・単独回収、旧用途専用実行入口の撤去を完了した。DI343件成功（既存対象外5件skip）、Executor93件成功、Coordinator対象12 Suite・240件成功、独立再レビュー必須残指摘0件。同期Containerの単独回収は従来契約を維持する例外であり、全操作の同一Owner化とは扱わない。実AI・Docker・過去保持物は操作しておらず、新入口の実境界再成立は未検証。[今回範囲と検証限界](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#通常attempt単独cleanup旧入口撤去の閉包)を参照。
 
 Executor単独の限定実AI確認では、Codex／Claude双方の編集・レビュー・開始後取消を確認した。今回の全試験物は回収済み。先行二試行の検証Tool清掃不合格は履歴として保持し、名前非依存の試験tmp清掃へ是正後の残る四試行は終了値0だった。上位連携・全体QA・Release成立とは分ける。[条件・回収・限定結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#残る四試行の実ai確認と回収完了2026-10-30)を参照。

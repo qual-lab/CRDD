@@ -8,12 +8,12 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
-import { parseProviderResult as parseContent } from "../../../ai-adapter/src/index.ts";
+import { fileURLToPath } from "node:url";
 import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { parseProviderResult as parseContent } from "../../../ai-adapter/src/index.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
+import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
 
 const workload = {
   readPathCount: 1,
@@ -324,6 +324,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
       "-e",
       `
     import assert from 'node:assert/strict';
+    const {attemptPlan}=await import(${JSON.stringify(new URL("../fixtures/attempt-plan.ts", import.meta.url).href)});
     const {installTaskSummaryObservation}=await import(${JSON.stringify(helper)});
     const observer=installTaskSummaryObservation();
     try { const module=await import(${JSON.stringify(consumer)});
@@ -333,7 +334,7 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
         const management={}, prepared={}, mount={}, authority={}, recovery={};
         const recoveryId='docker-task.'+'d'.repeat(64)+'.'+'e'.repeat(64)+'.'+'f'.repeat(64);
         const suffix='0101010101010101';
-        const plan={provider,consumer:'coordinator_cli',operationId:'OP-123456',
+        const plan={isolationRequest:attemptPlan().isolationRequest,provider,consumer:'coordinator_cli',operationId:'OP-123456',
           grantRef:'PHMGRANT-123456',selectionRecordId:'MODELSEL-12345678',taskAttempt:0,
           executionSelection:{provider,modelIdentifier:provider==='codex'?'gpt-6.1-sol':'opus',identifierKind:provider==='codex'?'exact':'alias',reasoningEffort:'medium',purpose:'task'},selectionHash:'e'.repeat(64),
           activeMountCapability:mount,authorityUseCapability:authority,

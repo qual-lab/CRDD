@@ -10,12 +10,82 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import * as di from "../../../docker-isolation/src/index.ts";
-import * as boundary from "../../src/attempt/operations.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { PURPOSES } from "../../src/attempt/constants.ts";
+import * as boundary from "../../src/attempt/operations.ts";
 import type { AttemptPlan, IsolationRuntime } from "../../src/attempt/types.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
+
+/**
+ * 旧argv Compilerの入力拒否を用途構成Ownerで保持する。
+ * @responsibility 共通Requestの固定化に伴うpayload・Path条件の脱落を反証する。
+ * @trace ERB-UT-023
+ * @precondition 本番の純粋構築から得た合成PlanとProvider計画。
+ * @stimulus argv件数、環境件数、予約名、byte上限とPathの境界を渡す。
+ * @observation 構成の受理又はnull。
+ * @oracle 既存上限内だけ受理し、不正入力でDI実行へ進めない。
+ * @cleanup N/A: メモリ内の値検査だけ。
+ * @boundary Executor構成Owner。実CLI・Directory観測は別のDI試験が所有する。
+ */
+test("Request構築は旧payload上限と予約名・Path拒否を維持する", () => {
+  const { plan } = fixture();
+  const execution = boundary.resolveProviderExecution(plan);
+  assert.ok(execution);
+  const build = (
+    argv: readonly string[],
+    environment: Readonly<Record<string, string>>,
+  ) =>
+    boundary.resolveIsolationCommandInput(
+      plan,
+      "C:/synthetic/tmp",
+      "a".repeat(64),
+      { ...execution, argv, environment } as typeof execution,
+    );
+  assert.ok(build(Array(256).fill("arg"), {}));
+  assert.equal(build(Array(257).fill("arg"), {}), null);
+  assert.ok(
+    build(
+      execution.argv,
+      Object.fromEntries(
+        Array.from({ length: 64 }, (_, i) => [`SAFE_${i}`, "value"]),
+      ),
+    ),
+  );
+  assert.equal(
+    build(
+      execution.argv,
+      Object.fromEntries(
+        Array.from({ length: 65 }, (_, i) => [`SAFE_${i}`, "value"]),
+      ),
+    ),
+    null,
+  );
+  for (const name of [
+    "HOME",
+    "TMPDIR",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+  ])
+    assert.equal(build(execution.argv, { [name]: "untrusted" }), null);
+  const empty = build([""], {});
+  assert.ok(empty);
+  const baseBytes = Buffer.byteLength(JSON.stringify(empty.execution), "utf8");
+  assert.ok(build(["x".repeat(128 * 1024 - baseBytes)], {}));
+  assert.equal(build(["x".repeat(128 * 1024 - baseBytes + 1)], {}), null);
+  for (const temporary of [
+    "relative",
+    "C:/bad,path",
+    "C:/bad\npath",
+    "C:/bad\0path",
+  ])
+    assert.equal(
+      boundary.resolveIsolationCommandInput(plan, temporary, "a".repeat(64)),
+      null,
+    );
+});
 
 /** 本番と同じ入力構築を実行し、共通DIだけを有限代役へ置換する。
  * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
@@ -28,6 +98,11 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  * @boundary ERB-UT-023=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 function fixture() {
+  const classification = Object.freeze({
+    category: "completed" as const,
+    stdoutBytes: 9,
+    stderrBytes: 0,
+  });
   const source = readFileSync(
     new URL("../../src/attempt/operations.ts", import.meta.url),
     "utf8",
@@ -53,6 +128,7 @@ function fixture() {
         activeMountCapability: value.activeMountCapability,
       },
     },
+    { tmp: "C:/synthetic/tmp", management: "C:/synthetic/management" },
   );
   assert.ok(plan);
   let request: di.IsolationRequest | null = null;
@@ -124,7 +200,14 @@ function fixture() {
                   stderr: "",
                   outputExceeded: false,
                 };
-                await callbacks.onObserved?.(step, response, 1, null);
+                await callbacks.onObserved?.(
+                  step,
+                  response,
+                  1,
+                  null,
+                  classification,
+                  "zero",
+                );
                 await callbacks.onCompleted?.(step, response);
               }
             }
@@ -157,21 +240,16 @@ function fixture() {
     },
   };
   const bind = runInNewContext(
-    `${sourceDeclaration(source, "createIsolationRequest")}\n${sourceDeclaration(source, "bindIsolationRuntime")}\nbindIsolationRuntime`,
+    `${sourceDeclaration(source, "bindIsolationRuntime")}\nbindIsolationRuntime`,
     context,
-  ) as (
-    plan: AttemptPlan,
-    paths: di.DockerIsolationRuntimeOptions["paths"],
-  ) => Omit<IsolationRuntime, "acquireHomeLease">;
+  ) as (plan: AttemptPlan) => Omit<IsolationRuntime, "acquireHomeLease">;
   return {
     plan,
-    bound: bind(plan, {
-      tmp: "C:/synthetic/tmp",
-      management: "C:/synthetic/management",
-    }),
+    bound: bind(plan),
     request: () => request,
     snapshot: () => snapshot,
     calls: () => calls,
+    classification: () => classification,
     fail: (value: NonNullable<di.IsolationExecutionResult["failure"]>) => {
       failure = value;
     },
@@ -193,14 +271,28 @@ test("通常Attemptは五資源・九操作を共通DIへ一回接続し元Snaps
     recovery = {},
     management = {};
   const events: string[] = [];
+  let receivedClassification: unknown;
   assert.ok(f.bound.startExecution);
   const execution = f.bound.startExecution(f.plan, recovery, management, {
+    onCommandObserved: (_purpose, _result, classification) => {
+      receivedClassification = classification;
+    },
     onCommandSubmitting: (key) => {
       events.push(key);
     },
   });
   const result = await execution.completion;
   assert.equal(f.calls(), 1);
+  assert.strictEqual(receivedClassification, f.classification());
+  assert.equal(result.executionExit, "zero");
+  assert.strictEqual(f.request(), f.plan.isolationRequest);
+  assert.equal("commands" in f.plan, false);
+  assert.ok(Object.isFrozen(f.plan.isolationRequest));
+  assert.ok(Object.isFrozen(f.plan.isolationRequest.resources));
+  assert.ok(Object.isFrozen(f.plan.isolationRequest.resources[0]));
+  assert.throws(() => {
+    (f.plan.isolationRequest.resources as unknown as unknown[]).push({});
+  }, TypeError);
   assert.equal(f.request()?.resources.length, 5);
   assert.deepEqual(
     Array.from(f.request()?.steps.map((step) => step.key) ?? []),
@@ -291,3 +383,214 @@ test("通常Attemptは共通DIの一次失敗と未発行通知名を推測で�
       assert.equal(result.failure?.gate, "onCommandNotIssued");
   }
 });
+
+/**
+ * 共通資源名と乱数検査が既存境界を二namespaceで維持することを確認する。
+ *
+ * @responsibility 有限実行namespace、実行Identity形式、63文字上限とBuffer取得長を反証する。
+ * @trace ERB-UT-023
+ * @precondition 実Docker・外部AIを使わず固定値を共通準備処理へ渡す。
+ * @stimulus 二namespaceの正常値、不正Identity、名前長境界と乱数型・長さ違反を与える。
+ * @observation 返却資源名、null、例外および乱数取得回数。
+ * @oracle 既存prefixと上限を維持し、不正取得を補完しない。
+ * @cleanup N/A: 局所値だけで実資源やStoreを作成しない。
+ * @boundary N/A: Process内の値生成だけを確認する。
+ */
+test("Executorの準備資源名は実行Identity形式・63文字境界と乱数長を維持する", () => {
+  const { createResourceNames, createRandomHex } = preparationFunctions();
+  for (const executionNamespace of ["codex", "claude"] as const) {
+    const names = createResourceNames(
+      executionNamespace,
+      "a".repeat(64),
+      "b".repeat(16),
+    );
+    assert.ok(names);
+    assert.deepEqual(
+      { ...names },
+      {
+        internalNetworkName: `crdd-internal-${"b".repeat(16)}`,
+        egressNetworkName: `crdd-egress-${"b".repeat(16)}`,
+        proxyContainerName: `crdd-proxy-${"b".repeat(16)}`,
+        authContainerName: `crdd-auth-${"b".repeat(16)}`,
+        providerContainerName: `crdd-${executionNamespace}-${"a".repeat(16)}`,
+        ownershipLabel: `crdd.coordinator.runtime=${"b".repeat(16)}`,
+      },
+    );
+    for (const executionIdentityHash of [
+      "",
+      "a".repeat(63),
+      "a".repeat(65),
+      "A".repeat(64),
+      "g".repeat(64),
+    ])
+      assert.equal(
+        createResourceNames(
+          executionNamespace,
+          executionIdentityHash,
+          "b".repeat(16),
+        ),
+        null,
+      );
+    const maximumSuffix = 63 - "crdd-internal-".length;
+    assert.equal(
+      createResourceNames(
+        executionNamespace,
+        "a".repeat(64),
+        "b".repeat(maximumSuffix),
+      )?.internalNetworkName.length,
+      63,
+    );
+    assert.equal(
+      createResourceNames(
+        executionNamespace,
+        "a".repeat(64),
+        "b".repeat(maximumSuffix + 1),
+      ),
+      null,
+    );
+  }
+  for (const namespace of ["", "CODEX", "other", "claude ", "codex;"]) {
+    assert.equal(
+      createResourceNames(namespace, "a".repeat(64), "b".repeat(16)),
+      null,
+    );
+  }
+  for (const bytes of [8, 32]) {
+    for (const delta of [-1, 1]) {
+      assert.equal(
+        createRandomHex(
+          { randomBytes: () => Buffer.alloc(bytes + delta) },
+          bytes,
+        ),
+        null,
+      );
+    }
+    const failure = new Error("exact_random_failure");
+    assert.throws(
+      () =>
+        createRandomHex(
+          {
+            randomBytes: () => {
+              throw failure;
+            },
+          },
+          bytes,
+        ),
+      (error: unknown) => error === failure,
+    );
+  }
+  let calls = 0;
+  const state = {
+    randomBytes: (size: number) => {
+      calls += 1;
+      return Buffer.alloc(size, 0xab);
+    },
+  };
+  assert.equal(createRandomHex(state, 8), "ab".repeat(8));
+  assert.equal(createRandomHex(state, 32), "ab".repeat(32));
+  assert.equal(calls, 2);
+  assert.equal(
+    createRandomHex({ randomBytes: () => Buffer.alloc(7) }, 8),
+    null,
+  );
+  assert.equal(
+    createRandomHex(
+      { randomBytes: () => new Uint8Array(8) as unknown as Buffer },
+      8,
+    ),
+    null,
+  );
+  assert.throws(
+    () =>
+      createRandomHex(
+        {
+          randomBytes: () => {
+            throw new Error("fixed_random_failure");
+          },
+        },
+        8,
+      ),
+    /fixed_random_failure/u,
+  );
+});
+
+/**
+ * 認証Home環境の既存境界を構成Ownerの実本文で反証する。
+ * @responsibility 予約環境名・不正名を拒否し、固定Home以外へ広げない。
+ * @trace ERB-UT-023
+ * @precondition Source本文だけを用い、実行・保存は行わない。
+ * @stimulus 正規名、null、予約名と不正文法。
+ * @observation 元環境値又はnull。
+ * @oracle 不正値の補完・文字列変換なし。
+ * @cleanup 局所VMのみ。実資源なし。
+ */
+test("Executorの認証環境構築は予約名を拒否し固定Homeだけを返す", () => {
+  const { createAuthenticationEnvironment } = preparationFunctions();
+  const accepted = createAuthenticationEnvironment("CODEX_HOME");
+  assert.ok(accepted);
+  assert.deepEqual({ ...accepted }, { CODEX_HOME: "/provider-home" });
+  const empty = createAuthenticationEnvironment(null);
+  assert.notEqual(empty, null);
+  assert.deepEqual({ ...empty }, {});
+  for (const name of [
+    "",
+    "HOME",
+    "TMPDIR",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "bad-name",
+    "CODEX_HOME\0",
+  ])
+    assert.equal(createAuthenticationEnvironment(name), null);
+});
+
+/**
+ * 非公開の準備三関数を、既存Source抽出でそのまま有限試験へ接続する。
+ * @responsibility 製品公開の試験入口を増やさず、正本の実本文だけを使う。
+ * @trace ERB-UT-023
+ * @precondition 同じPackageのSourceを読み取れる。
+ * @stimulus 三宣言を構文木から選び、Bufferだけを共有する。
+ * @observation 移管先の同じ関数。
+ * @oracle 手書きの置換実装を使わない。
+ * @cleanup メモリ内のVMのみ。
+ */
+function preparationFunctions(): {
+  createRandomHex: (
+    state: Readonly<{ randomBytes: (size: number) => Buffer }>,
+    bytes: number,
+  ) => string | null;
+  createResourceNames: (
+    namespace: string,
+    identity: string,
+    suffix: string,
+  ) => Readonly<{
+    internalNetworkName: string;
+    egressNetworkName: string;
+    proxyContainerName: string;
+    authContainerName: string;
+    providerContainerName: string;
+    ownershipLabel: string;
+  }> | null;
+  createAuthenticationEnvironment: (
+    name: string | null,
+  ) => Readonly<Record<string, string>> | null;
+} {
+  const source = readFileSync(
+    new URL("../../src/attempt/operations.ts", import.meta.url),
+    "utf8",
+  );
+  const names = [
+    "createRandomHex",
+    "createResourceNames",
+    "createAuthenticationEnvironment",
+  ];
+  return runInNewContext(
+    names.map((name) => sourceDeclaration(source, name)).join("\n") +
+      "\n({" +
+      names.join(",") +
+      "})",
+    { Buffer },
+  );
+}

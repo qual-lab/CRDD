@@ -8,12 +8,12 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { captureAuthenticationResources } from "../../src/cleanup/plan.ts";
-import { cleanupResourceSet } from "../../src/cleanup/resources.ts";
-import type { DockerResourceReceipts } from "../../src/execution/types.ts";
+import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
+import { captureAuthenticationResources } from "../../../executor/src/authentication/operations.ts";
+import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import type { DockerResourceExpectation } from "../../src/cleanup/plan.ts";
 import { discoverSubmittedDockerResource } from "../../src/cleanup/resource.ts";
-import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
+import { cleanupResourceSet } from "../support/cleanup.ts";
 
 /** 入力読取りでaccessorを実行せず、元計画の順序・種類・実IDだけを採用する。 */
 test("認証Receiptは元構成と一致した通常データだけを固定する", () => {

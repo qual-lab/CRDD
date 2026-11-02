@@ -8,11 +8,13 @@
  * @scope 固定観測値、別Node試験Process。Docker・Provider・実Native操作0。
  * @boundary Docker Isolation→Platform Accessの観測差替え境界。実OS成立は上位実環境試験へ保持。
  */
+
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import * as dockerTrustOperations from "../../src/docker-cli/trust.ts";
 import * as dockerIsolation from "../../src/index.ts";
 
 /**
@@ -27,7 +29,8 @@ import * as dockerIsolation from "../../src/index.ts";
  * @boundary Package Root→固定契約。実Publisher検査や実操作の成立は主張しない。
  */
 test("実行物Trustは既存Policy Hashと操作内実体固定を維持する", () => {
-  const contract = dockerIsolation.describeDockerRuntimeArtifactTrustContract();
+  const contract =
+    dockerTrustOperations.describeDockerRuntimeArtifactTrustContract();
   assert.deepEqual(contract, {
     policySha256: createHash("sha256")
       .update(
@@ -62,79 +65,18 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
   const expectedExports = [
     "prepareIsolation",
     "executeIsolation",
-    "DIAGNOSTIC_IMAGE",
-    "prepareDockerNetworkPolicy",
-    "describeDockerProxyTopology",
     "parseDockerNetworkPolicy",
-    "describeDockerProviderAssets",
-    "describeDockerProviderExecutionLocations",
-    "codexAdviceProviderInitRequired",
-    "createDockerContainerBinding",
-    "classifyDockerProbeExecution",
-    "classifyDockerProbeCancellation",
-    "describeDockerProbeResource",
-    "dockerContainerConfigurationMatches",
-    "normalizeContainerCreation",
-    "normalizeContainerAbsence",
-    "DOCKER_ENGINE_STARTUP_WAIT_MS",
-    "awaitDockerRepairEngine",
-    "observeDockerRuntimeDirectoryLock",
-    "STDERR_LIMIT_BYTES",
-    "STDOUT_LIMIT_BYTES",
-    "classifyDockerCommandExecution",
+    "dockerResourceExpectationIsValid",
     "classifyDockerCommandException",
-    "classifyDockerProcessExit",
-    "decodeDockerRuntimeRepairCheckpoint",
-    "decodeDockerRuntimeRepairDisposalCheckpoint",
-    "dockerRuntimeRepairDisposalIsSettled",
-    "dockerRuntimeRepairCheckpointIsSettled",
-    "createDockerCliEnvironment",
-    "createDockerDesktopRepairHelperEnvironment",
-    "projectDockerProxyConfiguration",
-    "createDockerAuthenticationEnvironment",
-    "createDockerIsolationRandomHex",
-    "createDockerIsolationResourceNames",
-    "dockerIsolationCommandsMatch",
     "dockerIsolationResourceIdentityIsValid",
-    "createDockerProcessEnvironment",
-    "createDockerResourceRecoveryExecutor",
-    "createDockerOperationRecoveryExecutor",
-    "createDockerTaskRecoveryExecutor",
-    "describeDockerCliTrustContract",
-    "describeDockerRuntimeArtifactTrustContract",
-    "dockerContainerInitObservationMatches",
-    "dockerResourceConfigurationMatches",
-    "executeDockerProbeCommand",
-    "isDockerResourcePurpose",
-    "observeDockerRecoveryConfigIdentity",
-    "observeTrustedDockerCli",
-    "observeDockerRuntimeBackendState",
-    "observeDockerRuntimeEngine",
-    "restartDockerRuntime",
-    "runDockerRuntimeRepairSession",
-    "disposeDockerRuntimeRepairDirectory",
-    "observeDockerRuntimeRepairRetention",
-    "decodeDockerRuntimeRepairRetentionTargets",
-    "observeDockerRepairEngine",
-    "planDockerIsolationCommands",
-    "projectDockerExecutionBoundary",
-    "planDockerRecoveryResourceExpectations",
-    "planDockerProbeCommand",
-    "startDockerProbeAttachedProcess",
-    "startOwnedAttachTerminationFixture",
-    "verifyTrustedDockerCliSnapshot",
   ].sort();
   const actualExports = Object.keys(dockerIsolation).sort();
   expectedExports.push(
-    "captureAuthenticationResources",
+    "describeIsolationCapabilities",
+    "inspectDockerEnvironment",
+    "restartDockerEnvironment",
     "cleanupIsolation",
-    "inspectDockerResources",
-    "cleanupDockerResources",
-    "observeDockerDirectoryIdentity",
-    "bindProviderCommand",
-    "inspectDockerContainer",
-    "observeDockerContainerAbsence",
-    "cleanupDockerContainer",
+    "inspectIsolation",
     "parseDockerTaskRecoveryId",
   );
   expectedExports.sort();

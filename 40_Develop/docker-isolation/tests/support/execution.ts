@@ -5,54 +5,103 @@
  * @trace ARCH-000004
  * @trace ARCH-000008
  */
+
 import type {
-  DockerIsolationRuntimePlan,
+  DockerCommandSession,
   DockerIsolationRuntimeOptions,
-  DockerIsolationRuntime,
-  DockerResourceReceipts,
   DockerResourceCleanupObservation,
-} from "../../src/execution/types.ts";
-export type {
-  DockerIsolationRuntimePlan,
-  DockerIsolationRuntimeOptions,
-  DockerIsolationRuntime,
-} from "../../src/execution/types.ts";
+  DockerResourceReceipts,
+  DockerSessionCleanup,
+  HomeLease,
+} from "../../../executor/src/attempt/types.ts";
+import { planDockerIsolationCommands } from "./execution-plan.ts";
+
+export type { DockerIsolationRuntimeOptions } from "../../../executor/src/attempt/types.ts";
+
 import { createHash } from "node:crypto";
-import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
-import {
-  type DockerCliTrustSnapshot,
-  observeTrustedDockerCli,
-  verifyTrustedDockerCliSnapshot,
-  describeDockerCliTrustContract,
-} from "../../src/docker-cli/trust.ts";
-import { createDockerProcessEnvironment } from "../../src/docker-cli/environment.ts";
-import { planDockerRecoveryResourceExpectations } from "../../src/cleanup/plan.ts";
-import { cleanupResourceSet } from "../../src/cleanup/resources.ts";
+import { planDockerRecoveryResourceExpectations } from "../../../executor/src/attempt/recovery.ts";
+import type { DockerIsolationCommandInput } from "../../../executor/src/attempt/types.ts";
+import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import {
   createDockerCliConfig,
-  verifyDockerCliConfig,
   observeDockerDirectoryIdentity,
+  verifyDockerCliConfig,
 } from "../../src/docker-cli/config.ts";
+import { createDockerProcessEnvironment } from "../../src/docker-cli/environment.ts";
 import {
-  type DockerIsolationCommand,
-  planDockerIsolationCommands,
-} from "../../src/execution/plan.ts";
+  type DockerCliTrustSnapshot,
+  describeDockerCliTrustContract,
+  observeTrustedDockerCli,
+  verifyTrustedDockerCliSnapshot,
+} from "../../src/docker-cli/trust.ts";
+import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
 import {
+  finishOwnedProcess,
   type OwnedCommandHandle,
   startOwnedWindowsProcess,
-  finishOwnedProcess,
 } from "../../src/process/start.ts";
-import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
+import { cleanupResourceSet } from "./cleanup.ts";
+import type { DockerIsolationCommand } from "./execution-plan.ts";
 import { startDockerCommandSession } from "./session.ts";
-export {
-  startDockerCommandSessionCandidate,
-  describeDockerCommandSessionContract,
-} from "./session.ts";
-import type { DockerExecutionCallbacks } from "../../src/execution/types.ts";
 
+export {
+  describeDockerCommandSessionContract,
+  startDockerCommandSessionCandidate,
+} from "./session.ts";
+
+import type { DockerExecutionCallbacks } from "../../../executor/src/attempt/types.ts";
+
+/**
+ * 実行資源の技術計画。相関値は許可ではない。
+ *
+ * @responsibility 起動構成と限定stdinを同じ一回の実行へ結合する。
+ * @trace ARCH-000004
+ * @shape 上位相関Hash、Docker技術構成、限定stdin。
+ * @invariant Task・Provider・Authority・保存Ownerの意味を持たない。
+ * @boundary 上位の検証済み計画から隔離資源Ownerへの境界。
+ * @security stdinと内部構成を診断へ複製しない。
+ * @compatibility 同じ操作と構成以外の再利用を拒否する。
+ */
+export type DockerIsolationRuntimePlan = Readonly<{
+  identity: string;
+  configuration: DockerIsolationCommandInput;
+  stdin: string | null;
+}>;
+
+/**
+ * Docker実行とHome技術排他の有限操作。
+ * @responsibility Taskや保存方式を持たず、元Handleの取得・実行・回収だけを扱う。
+ * @trace ARCH-000008
+ */
+export type DockerIsolationRuntime = Readonly<{
+  acquireHomeLease: (bindingHash: string) => HomeLease | null;
+  startCommand: (
+    purpose: DockerIsolationCommand["purpose"],
+    plan: DockerIsolationRuntimePlan,
+    managementCapability: unknown,
+  ) => OwnedCommandHandle;
+  cleanupOwnedResources: (
+    plan: DockerIsolationRuntimePlan,
+    recoveryCapability: object,
+    managementCapability: unknown,
+    receipts: DockerResourceReceipts | null,
+  ) => Promise<DockerSessionCleanup>;
+  verifyCleanupOutcome: (
+    result: unknown,
+    callerIdentity: string,
+    recoveryCapability: unknown,
+    managementCapability: unknown,
+  ) => readonly DockerResourceCleanupObservation[] | null;
+  startExecution: (
+    plan: DockerIsolationRuntimePlan,
+    recoveryCapability: object,
+    managementCapability: unknown,
+    hooks: DockerExecutionCallbacks,
+  ) => DockerCommandSession;
+}>;
 const DOCKER_CLI_EXECUTABLE =
   "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";

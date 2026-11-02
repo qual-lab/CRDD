@@ -10,7 +10,6 @@
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
 
-import type { RecoveryPlan } from "../../src/execution/types.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -22,6 +21,7 @@ import path from "node:path";
 import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext, runInThisContext } from "node:vm";
+import type * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import type {
@@ -30,6 +30,7 @@ import type {
 } from "../../../domain-model/src/index.ts";
 import * as stateModel from "../../../domain-model/src/index.ts";
 import * as historyValues from "../../../domain-model/src/index.ts";
+import * as stateRuntime from "../../../domain-model/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   coordinatorTaskResourcesAreSettled,
@@ -38,6 +39,7 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   isDockerRestartCheckpointSettled,
   requireReadyRepositoryRuntimeDataArea,
+  writeRuntimeOwnedCoordinatorRepairSnapshot,
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
@@ -49,17 +51,16 @@ import {
 import * as homes from "../../src/execution/authority.ts";
 import * as development from "../../src/execution/diagnostics.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
-import * as controller from "../../src/execution/provider-executor.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
 import * as repository from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
-import { executionSelection } from "../fixtures/ai-selection.ts";
-import { writeRuntimeOwnedCoordinatorRepairSnapshot } from "../../../domain-model/src/index.ts";
-import * as stateRuntime from "../../../domain-model/src/index.ts";
 import {
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorOperationStart,
 } from "../../src/execution/persistence.ts";
+import * as controller from "../../src/execution/provider-executor.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
+import type { RecoveryPlan } from "../../src/execution/types.ts";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 
 /**
  * 実初期SnapshotでHost清掃の段階別故障反応を評価する。
@@ -2425,7 +2426,7 @@ for (const { repeatCount, retained } of [
               },
               observeDockerRuntimeRepairRetention: (
                 input: Parameters<
-                  typeof isolation.observeDockerRuntimeRepairRetention
+                  typeof directoryOperations.observeDockerRuntimeRepairRetention
                 >[0],
               ) => {
                 retentionReads++;
@@ -2453,7 +2454,7 @@ for (const { repeatCount, retained } of [
               },
               runDockerRuntimeRepairSession: (
                 input: Parameters<
-                  typeof isolation.runDockerRuntimeRepairSession
+                  typeof directoryOperations.runDockerRuntimeRepairSession
                 >[0],
               ) =>
                 runDockerRuntimeRepairSessionUsing(input, {

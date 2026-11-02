@@ -10,8 +10,6 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
 
-import { attemptSelection } from "../fixtures/ai-selection.ts";
-import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,10 +18,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import {
-  isDockerResourcePurpose,
-  planDockerRecoveryResourceExpectations,
-} from "../../../docker-isolation/src/index.ts";
+import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   COORDINATOR_STATE_SCHEMA,
@@ -61,6 +56,8 @@ import {
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
+import { planDockerRecoveryResourceExpectations } from "../../../executor/src/attempt/recovery.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
@@ -108,7 +105,10 @@ import {
   releaseRuntimeOwnedDockerTaskRecoveryPreparation,
   verifyRuntimeOwnedDockerRestartPreparation,
 } from "../../src/execution/recovery.ts";
-import { executionSelection } from "../fixtures/ai-selection.ts";
+import {
+  attemptSelection,
+  executionSelection,
+} from "../fixtures/ai-selection.ts";
 
 const emptyTaskSections = {
   repositoryBindingId: null,
@@ -1345,7 +1345,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         );
         previousBytes = bytes;
       }
-      const technical: import("../../../executor/src/index.ts").DockerRuntimeRestartResult =
+      const technical: import("../../../executor/src/index.ts").DockerEnvironmentResult<"restart"> =
         {
           requestId: preparation.requestId,
           status: completedRestart

@@ -5,31 +5,31 @@
  * @trace ARCH-000008
  */
 import { spawnSync } from "node:child_process";
-import { cleanupDockerResource } from "./operations.ts";
 import fs from "node:fs";
 import path from "node:path";
+import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
 import {
+  type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../docker-cli/trust.ts";
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
+import { cleanupDockerResource } from "./operations.ts";
 import type { DockerResourceExpectation } from "./plan.ts";
-import type { ResourceSnapshot } from "./types.ts";
 import {
-  discoverSubmittedDockerResource,
-  observeSubmittedDockerResourceAbsent,
-  observeExpectedDockerResource,
   type DockerRecoveryCommandResult,
+  discoverSubmittedDockerResource,
+  observeExpectedDockerResource,
+  observeIsolationIdentity,
+  observeSubmittedDockerResourceAbsent,
 } from "./resource.ts";
+import type { ResourceIdentity, ResourceSnapshot } from "./types.ts";
 
 const DOCKER_CLI_EXECUTABLE =
   "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
 const DOCKER_ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
 
-let recoveryDockerCliSnapshot: ReturnType<
-  typeof observeTrustedDockerCli
-> | null = null;
+let recoveryDockerCliSnapshot: DockerCliTrustSnapshot | null = null;
 
 /**
  * 回復要求のCLIを初回観測し、後続は同じ実体を再確認する。
@@ -139,28 +139,6 @@ export function observeDockerRecoveryConfigIdentity(configDirectory: string) {
 }
 
 /**
- * 再入場の技術操作だけを持つ固定実行接続を構築する。
- *
- * @responsibility raw argvを公開せず、現在観測・実ID回収・予定資源発見へ限定する。
- * @trace ARCH-000008
- * @input binding: 既存Ownerが検査したconfigとfresh Host観測。
- * @returns 実ID回収、予定資源発見、予定資源不存在の三操作。
- * @precondition 同じ回復IdentityとLeaseの採用を上位が行っている。
- * @postcondition 上位のStateや回復Classを所有・変更しない。
- * @effect N/A: 構築だけでは外部処置を発行しない。
- * @failure 操作中のCLI／config／環境不明は新Effect前に停止する。
- * @invariant 永続State・履歴・追加Lock・新しいRecoveryを作らない。
- * @boundary 検査済み再入場から固定Docker技術処置。
- * @security 公開操作から任意Dockerコマンドを実行できない。
- * @concurrency 各要求の直前に同じconfigとCLIを再照合する。
- */
-export function createDockerResourceRecoveryExecutor(
-  binding: DockerRecoveryExecutionBinding,
-) {
-  return createRecoveryExecutor(binding, () => undefined);
-}
-
-/**
  * 固定Executorへ最終処置前確認を結合する。
  * @responsibility config照合後・spawn前の最終確認を同じ同期境界へ置く。
  * @trace ARCH-000008
@@ -175,7 +153,7 @@ export function createDockerResourceRecoveryExecutor(
  * @security callbackから新Authorityを生成しない。
  * @concurrency 最終確認とspawnを同じ同期呼出しで処置する。
  */
-function createRecoveryExecutor(
+export function createRecoveryExecutor(
   binding: DockerRecoveryExecutionBinding,
   beforeSpawn: () => void,
 ): DockerResourceRecoveryOperations {
@@ -239,6 +217,14 @@ function createRecoveryExecutor(
         previouslyAbsent,
         requireConfigurationMatch,
       ),
+    inspectIdentity: (
+      identity: ResourceIdentity,
+      key: string,
+      options?: Readonly<{
+        allowAlreadyAbsent?: boolean;
+        onObserved?: (snapshot: ResourceSnapshot) => void;
+      }>,
+    ) => observeIsolationIdentity(run, identity, key, options),
     recoverObserved: (
       expectation: DockerResourceExpectation,
       options: Readonly<{
@@ -270,6 +256,14 @@ function createRecoveryExecutor(
  * @invariant 保存・Task状態・新しい削除Authorityを所有しない。
  */
 export type DockerResourceRecoveryOperations = Readonly<{
+  inspectIdentity: (
+    identity: ResourceIdentity,
+    key: string,
+    options?: Readonly<{
+      allowAlreadyAbsent?: boolean;
+      onObserved?: (snapshot: ResourceSnapshot) => void;
+    }>,
+  ) => boolean;
   cleanupObserved: (
     expectation: DockerResourceExpectation,
     signal?: AbortSignal,

@@ -17,12 +17,12 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import {
   codexAdviceProviderInitRequired,
-  isDockerResourcePurpose,
-  parseDockerTaskRecoveryId,
   planDockerRecoveryResourceExpectations,
-} from "../../../docker-isolation/src/index.ts";
+} from "../../../executor/src/attempt/recovery.ts";
+import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
 import {
   type CoordinatorStateOperation,
   coordinatorAuthenticationUnknownCanClose,

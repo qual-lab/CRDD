@@ -25,6 +25,9 @@ import {
   setImmediate as yieldEvents,
 } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import * as dockerEnvironmentOperations from "../../../docker-isolation/src/docker-cli/environment.ts";
+import * as dockerTrustOperations from "../../../docker-isolation/src/docker-cli/trust.ts";
+import * as dockerRestartOperations from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
@@ -378,6 +381,12 @@ async function executeApprovedAuthCreateClosure() {
   const cancel = () => abort.abort();
   process.on("SIGINT", cancel);
   const isolation = await import("../../../docker-isolation/src/index.ts");
+  const recoveryOperations = await import(
+    "../../../docker-isolation/src/cleanup/execute.ts"
+  );
+  const recoveryPlan = await import(
+    "../../../docker-isolation/src/cleanup/plan.ts"
+  );
   const store = await import("../../../domain-model/src/index.ts");
   let isolationMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
@@ -413,9 +422,9 @@ async function executeApprovedAuthCreateClosure() {
     const config = path.join(root, "docker-config");
     fs.mkdirSync(config);
     const configIdentity =
-      isolation.observeDockerRecoveryConfigIdentity(config);
-    const trust = isolation.observeTrustedDockerCli();
-    const env = isolation.createDockerCliEnvironment({
+      recoveryOperations.observeDockerRecoveryConfigIdentity(config);
+    const trust = dockerTrustOperations.observeTrustedDockerCli();
+    const env = dockerEnvironmentOperations.createDockerCliEnvironment({
       dockerConfig: null,
       dockerHome: null,
     });
@@ -436,10 +445,11 @@ async function executeApprovedAuthCreateClosure() {
       assert.equal(abort.signal.aborted, false);
       assert.equal(vc.resolveVerifiedRepositoryRoot(rootCapability), root);
       assert.equal(
-        isolation.observeDockerRecoveryConfigIdentity(config),
+        recoveryOperations.observeDockerRecoveryConfigIdentity(config),
         configIdentity,
       );
-      const executable = isolation.verifyTrustedDockerCliSnapshot(trust);
+      const executable =
+        dockerTrustOperations.verifyTrustedDockerCliSnapshot(trust);
       const result = spawnSync(
         executable,
         ["--host", endpoint, "--config", config, ...argv],
@@ -749,11 +759,13 @@ async function executeApprovedAuthCreateClosure() {
         namedExports: {
           ...isolation,
           restartDockerRuntime: async (
-            input: Parameters<typeof isolation.restartDockerRuntime>[0],
+            input: Parameters<
+              typeof dockerRestartOperations.restartDockerRuntime
+            >[0],
           ) => {
             restartCalls++;
             assert.equal(restartCalls, 1);
-            return isolation.restartDockerRuntime({
+            return dockerRestartOperations.restartDockerRuntime({
               ...input,
               onRequesting: () => {
                 const result = input.onRequesting();
@@ -770,10 +782,11 @@ async function executeApprovedAuthCreateClosure() {
           },
           createDockerTaskRecoveryExecutor: (
             input: Parameters<
-              typeof isolation.createDockerTaskRecoveryExecutor
+              typeof recoveryOperations.createDockerTaskRecoveryExecutor
             >[0],
           ) => {
-            const created = isolation.createDockerTaskRecoveryExecutor(input);
+            const created =
+              recoveryOperations.createDockerTaskRecoveryExecutor(input);
             if (created.status !== "ready") return created;
             return {
               ...created,
@@ -912,7 +925,7 @@ async function executeApprovedAuthCreateClosure() {
       const values = JSON.parse(readDocker(["container", "inspect", dockerId]));
       assert.equal(values.length, 1);
       assert.equal(
-        isolation.dockerResourceConfigurationMatches(values[0], {
+        recoveryPlan.dockerResourceConfigurationMatches(values[0], {
           ...authExpectation,
           dockerId,
         }),

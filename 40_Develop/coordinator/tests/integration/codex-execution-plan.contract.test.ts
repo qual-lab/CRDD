@@ -8,22 +8,24 @@
  * @scope codex、execution、plan
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
 import test from "node:test";
 import {
-  projectCodexExecutionBoundary,
-  describeProviderExecution,
   describeProviderAuthentication,
+  describeProviderExecution,
+  planProviderExecution,
+  projectCodexExecutionBoundary,
 } from "../../../ai-adapter/src/index.ts";
-import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
-
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/image/assets.ts";
 
 /**
  * Codex固有の診断分類と不正入力拒否を確認する。

@@ -12,10 +12,9 @@ import {
   parseProviderResult,
   projectCodexExecutionBoundary,
 } from "../../../ai-adapter/src/index.ts";
-import {
-  type CommandObservation,
-  type DockerCommandExecutionClassification,
-  projectDockerExecutionBoundary,
+import type {
+  CommandObservation,
+  DockerCommandExecutionClassification,
 } from "../../../docker-isolation/src/index.ts";
 import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
 import type {
@@ -326,13 +325,14 @@ export function createConfigurationNotice(
   AttemptDiagnosticNotice,
   { event: "coordinator_provider_boundary_configured" }
 > {
-  const docker = projectDockerExecutionBoundary(
-    plan.commands,
-    plan.providerImageDigest,
+  const resource = plan.isolationRequest.resources.find(
+    (candidate) =>
+      candidate.key === "create_provider" && candidate.kind === "container",
   );
+  const provider = resource?.kind === "container" ? resource : null;
   const codex =
     plan.provider === "codex"
-      ? projectCodexExecutionBoundary(docker?.payloadArgv ?? [])
+      ? projectCodexExecutionBoundary(provider?.argv ?? [])
       : null;
   return Object.freeze({
     event: "coordinator_provider_boundary_configured" as const,
@@ -343,9 +343,8 @@ export function createConfigurationNotice(
     sandboxModeConfigured: codex?.sandboxModeConfigured ?? "not_applicable",
     workspaceMountModeConfigured: plan.workspaceMountMode,
     networkPolicyHash: plan.networkPolicy?.policyHash ?? null,
-    rootFilesystemReadOnlyConfigured:
-      docker?.rootFilesystemReadOnlyConfigured ?? false,
-    nonRootUserConfigured: docker?.nonRootUserConfigured ?? false,
-    workdirConfigured: docker?.workdirConfigured ?? false,
+    rootFilesystemReadOnlyConfigured: provider !== null,
+    nonRootUserConfigured: provider?.user === "65534:65534",
+    workdirConfigured: provider?.workingDirectory === "/work",
   });
 }

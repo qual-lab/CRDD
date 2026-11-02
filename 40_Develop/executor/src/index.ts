@@ -8,8 +8,8 @@
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
 import { types } from "node:util";
-import type { DockerIsolationRuntimeOptions } from "../../docker-isolation/src/index.ts";
 import { createAttemptExecutor } from "./attempt/operations.ts";
+import type { DockerIsolationRuntimeOptions } from "./attempt/types.ts";
 import { createAuthenticationExecutor } from "./authentication/operations.ts";
 import type { AuthenticationOptions } from "./authentication/types.ts";
 import type { Executor, ExecutorRequest } from "./lifecycle/types.ts";
@@ -99,12 +99,14 @@ export function createExecutor(
 }
 
 export type {
-  AuthenticationCleanupResult,
-  ResourceTarget,
-  ResourceInspection,
-  ResourceCleanupResult,
+  DockerEnvironmentRequest,
+  DockerEnvironmentResult,
+  DockerEnvironmentStatus,
   DockerRuntimeRestartEvent,
-  DockerRuntimeRestartResult,
+} from "../../docker-isolation/src/index.ts";
+export {
+  inspectDockerEnvironment,
+  restartDockerEnvironment,
 } from "../../docker-isolation/src/index.ts";
 export type {
   AttemptCancelInput,
@@ -112,17 +114,17 @@ export type {
   AttemptFailureReason,
   AttemptResultReason,
   AttemptTerminalObservation,
+  DockerSessionCleanup,
   PrimaryFailureDiagnostic,
   ProcessStartedNotice,
+  ResourceCleanupResult,
+  ResourceInspection,
+  ResourceTarget,
 } from "./attempt/types.ts";
-export {
-  inspectDockerEnvironment,
-  restartDockerEnvironment,
-} from "./environment/execute.ts";
 export type {
-  DockerEnvironmentRestartRequest,
-  DockerEnvironmentStatus,
-} from "./environment/types.ts";
+  AuthenticationCleanupResult,
+  AuthenticationOptions,
+} from "./authentication/types.ts";
 export type {
   ExecutorCallbacks,
   ResourceCleanupCallbacks,
@@ -133,18 +135,19 @@ export {
 } from "./lifecycle/cleanup.ts";
 export type {
   AuthenticationResourceTarget,
-  ContainerResourceInspection,
-  ContainerResourceTarget,
-  DirectoryResourceCleanupTarget,
-  DirectoryResourceInspectionTarget,
   CancelArguments,
   CancelResult,
   CompletionResult,
   Executor,
   ExecutorRequest,
+  IsolationResourceCleanupResult,
+  IsolationResourceInspection,
+  IsolationResourceTarget,
   RecordProjection,
   StartInput,
   StartResult,
 } from "./lifecycle/types.ts";
-export type { IsolationProbeOptions } from "./probe/types.ts";
-export type { AuthenticationOptions } from "./authentication/types.ts";
+export type {
+  IsolationProbeFacts,
+  IsolationProbeOptions,
+} from "./probe/types.ts";

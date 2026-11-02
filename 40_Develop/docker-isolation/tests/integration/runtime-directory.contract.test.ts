@@ -7,17 +7,20 @@
  * @scope Docker Runtime Directoryの読取り観測。
  * @boundary ERB-IT-001=Direct Boundary: 下位固定観測と依存差替え。
  */
+
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import * as publicApi from "../../src/index.ts";
+import * as dockerDirectoryOperations from "../../src/docker-desktop/directory.ts";
 import { observeDockerRuntimeDirectoryLockUsingDependencies } from "../../src/docker-desktop/directory.ts";
+import * as publicApi from "../../src/index.ts";
+
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
 
 /**
- * 公開Rootの固定FS接続と非公開seamの境界を確認する。
+ * 内部の固定FS接続と非公開seamの境界を確認する。
  * @responsibility 実wrapperが依存差替えを受けず、同じ安定ロック判定へ接続することを確認する。
  * @trace ERB-IT-001
  * @precondition 既存Directoryの実lstatとNode組込みFSの局所差替えを使う。
@@ -25,9 +28,10 @@ const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
  * @observation 公開結果、open／close件数と公開集合。
  * @oracle 既知拒否だけ識別子、その他はnull、内部seamは非公開。
  * @cleanup 組込みFSの差替えをTest hookで復元する。実ファイル変更0。
- * @boundary ERB-IT-001=Related 2 Blocks: 公開Root→固定FS接続→技術観測。
+ * @boundary ERB-IT-001=Related 2 Blocks: 内部Owner→固定FS接続→技術観測。
  */
-test("公開Rootは固定FS観測だけを提供する", (t) => {
+test("内部Directory観測は固定FSを使いRootへ公開しない", (t) => {
+  assert.equal("observeDockerRuntimeDirectoryLock" in publicApi, false);
   assert.equal(
     "observeDockerRuntimeDirectoryLockUsingDependencies" in publicApi,
     false,
@@ -35,7 +39,9 @@ test("公開Rootは固定FS観測だけを提供する", (t) => {
   assert.equal("awaitDockerRepairEngineUsing" in publicApi, false);
   if (process.platform !== "win32") {
     assert.equal(
-      publicApi.observeDockerRuntimeDirectoryLock("C:\\Docker\\run"),
+      dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
+        "C:\\Docker\\run",
+      ),
       null,
     );
     return;
@@ -70,7 +76,9 @@ test("公開Rootは固定FS観測だけを提供する", (t) => {
     throw Object.assign(new Error("fixture"), { code: errorCode });
   });
   assert.deepEqual(
-    publicApi.observeDockerRuntimeDirectoryLock("C:\\Docker\\run"),
+    dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
+      "C:\\Docker\\run",
+    ),
     {
       dev: String(observed.dev),
       ino: String(observed.ino),
@@ -79,7 +87,9 @@ test("公開Rootは固定FS観測だけを提供する", (t) => {
   );
   mode = "unknown";
   assert.equal(
-    publicApi.observeDockerRuntimeDirectoryLock("C:\\Docker\\run"),
+    dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
+      "C:\\Docker\\run",
+    ),
     null,
   );
   mode = "close_failure";
@@ -88,7 +98,9 @@ test("公開Rootは固定FS観測だけを提供する", (t) => {
     const beforeOpen = opens,
       beforeClose = closes;
     assert.equal(
-      publicApi.observeDockerRuntimeDirectoryLock("C:\\Docker\\run"),
+      dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
+        "C:\\Docker\\run",
+      ),
       null,
       code,
     );
@@ -101,7 +113,9 @@ test("公開Rootは固定FS観測だけを提供する", (t) => {
     const beforeOpen = opens,
       beforeClose = closes;
     assert.ok(
-      publicApi.observeDockerRuntimeDirectoryLock("C:\\Docker\\run"),
+      dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
+        "C:\\Docker\\run",
+      ),
       code,
     );
     assert.equal(opens - beforeOpen, 1, code);

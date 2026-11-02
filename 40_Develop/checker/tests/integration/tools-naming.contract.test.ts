@@ -248,36 +248,19 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: ["ARCH-000004", "ARCH-000008"],
     requiredTags: ["responsibility", "boundary", "effect", "security"],
     exportedModules: [
-      "./image/assets.ts",
-      "./network/policy.ts",
-      "./execution/plan.ts",
-      "./process/start.ts",
-      "./execution/execute.ts",
-      "./cleanup/init.ts",
-      "./cleanup/plan.ts",
-      "./cleanup/execute.ts",
-      "./docker-desktop/backend.ts",
-      "./docker-desktop/engine.ts",
-      "./docker-desktop/directory.ts",
-      "./docker-desktop/restart.ts",
-      "./docker-desktop/restart-state.ts",
-      "./docker-desktop/repair-session.ts",
       "./docker-desktop/types.ts",
-      "./docker-desktop/validation.ts",
-      "./cleanup/resource.ts",
-      "./execution/binding.ts",
-      "./execution/session.ts",
-      "./cleanup/configuration.ts",
-      "./cleanup/container.ts",
-      "./probe/result.ts",
-      "./probe/execute.ts",
-      "./probe/process.ts",
-      "./probe/plan.ts",
-      "./authentication/plan.ts",
-      "./authentication/execute.ts",
-      "./docker-cli/environment.ts",
-      "./docker-cli/trust.ts",
+      "./docker-desktop/restart.ts",
+      "./docker-desktop/operations.ts",
+      "./cleanup/plan.ts",
+      "./execution/plan.ts",
+      "./execution/types.ts",
       "./execution/result.ts",
+      "./image/types.ts",
+      "./capabilities.ts",
+      "./network/policy.ts",
+      "./cleanup/resource.ts",
+      "./cleanup/types.ts",
+      "./execution/operations.ts",
     ],
   },
   {
@@ -4275,6 +4258,29 @@ test("Production Named Symbolは責務Headerと実在ARCH-IDへ接続する", ()
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
+ */
+test("DI公開indexは本番APIだけの現行Allowlistに一致する", () => {
+  const profile = PUBLIC_INDEX_PROFILES.find(
+    (candidate) =>
+      candidate.relativePath === "40_Develop/docker-isolation/src/index.ts",
+  );
+  assert.ok(profile);
+  assertPublicIndexContract(
+    path.join(repositoryRoot, ...profile.relativePath.split("/")),
+    profile,
+  );
+});
+
+/**
+ * 公開index全体の母集団と各契約を確認する。
+ * @responsibility 個別Packageの成功をRepository全体へ拡張しない。
+ * @trace RCM-IT-005
+ * @precondition 現行Sourceと既存の公開契約を読む。
+ * @stimulus 全公開入口と敵対fixtureを検査する。
+ * @observation 母集団、ヘッダー、公開Moduleを比較する。
+ * @oracle 既存の全数契約と反例が成立する。
+ * @cleanup 作成したfixtureだけを終了する。
+ * @boundary Source検査であり外部Effectの成立証明ではない。
  */
 test("公開indexは設計由来の説明と明示的なExport Allowlistを持つ", () => {
   const publicIndexes = collectPublicIndexFiles()

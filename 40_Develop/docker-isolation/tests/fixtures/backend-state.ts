@@ -89,7 +89,9 @@ await mock.module("node:child_process", {
     },
   },
 });
-const { observeDockerRuntimeBackendState } = await import("../../src/index.ts");
+const { observeDockerRuntimeBackendState } = await import(
+  "../../src/docker-desktop/backend.ts"
+);
 const state = observeDockerRuntimeBackendState();
 assert.equal(
   state,

@@ -4,18 +4,18 @@
  * @trace ARCH-000010
  */
 import { types } from "node:util";
-import {
-  planDockerAuthenticationResourceRecovery,
-  type DockerAuthenticationPlan,
-  type DockerAuthenticationCommand,
-} from "./plan.ts";
-import type { DockerAuthenticationExecution } from "./execute.ts";
-import { captureAuthenticationResources } from "../../../src/cleanup/plan.ts";
+import { captureAuthenticationResources } from "../../../../executor/src/authentication/operations.ts";
 import type {
-  DockerAuthenticationResources,
   AuthenticationCleanupResult,
   DockerAuthenticationCleanupCallbacks,
-} from "../../../src/cleanup/types.ts";
+  DockerAuthenticationResources,
+} from "../../../../executor/src/authentication/types.ts";
+import type { DockerAuthenticationExecution } from "./execute.ts";
+import {
+  type DockerAuthenticationCommand,
+  type DockerAuthenticationPlan,
+  planDockerAuthenticationResourceRecovery,
+} from "./plan.ts";
 
 /**
  * Docker資源名を正規表現literalへ変換する。
