@@ -10,7 +10,6 @@ import type {
   AiProvider,
   AiReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
-import type { DockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 import type {
   AttemptDiagnosticNotice,
@@ -288,7 +287,7 @@ export type RecoveryPlan = RecordProjection<"attempt"> &
     executionSelection: AiModelSelection;
     executor: Executor<"attempt">;
     authorityUseCapability: object;
-    networkPolicy: DockerNetworkPolicy | null;
+    additionalHosts: readonly string[] | null;
     taskRole: "executor" | "reviewer" | null;
     taskWorkload?: unknown;
     adviceAllowedReferences?: readonly string[] | null;
@@ -351,7 +350,7 @@ export type AdvicePacket = Readonly<{
   selectionHash: string;
   provider: AiProvider;
   packetHash: string;
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
   providerPrompt: string;
   repositoryMounted: false;
   workspaceMounted: false;
@@ -395,7 +394,7 @@ export type ModelSelection = Readonly<{
  * @compatibility 既存両Providerの消費済みTaskから使用fieldを受け取る。
  */
 export type TaskPacket = Readonly<{
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
   operationId: string;
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";

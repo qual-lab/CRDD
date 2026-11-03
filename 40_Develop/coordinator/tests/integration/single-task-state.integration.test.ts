@@ -361,8 +361,6 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     prompt: "transient synthetic input",
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [] as string[],
-    externalSendConfirmed: true,
-    expectedNetworkPolicyHash: "a".repeat(64),
     workspaceId: null,
   };
   const beforeCancellation = new AbortController();
@@ -761,8 +759,6 @@ test("耐久受付は開始準備より先に返り即時取消とOwner喪失を
     prompt: "synthetic",
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [],
-    externalSendConfirmed: true,
-    expectedNetworkPolicyHash: "a".repeat(64),
     workspaceId: null,
   };
   owner = createOwner();
@@ -1046,8 +1042,6 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
         prompt: "synthetic",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
-        externalSendConfirmed: true,
-        expectedNetworkPolicyHash: "a".repeat(64),
         workspaceId: null,
       });
       assert.equal(executions, 0);

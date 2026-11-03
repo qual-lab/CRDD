@@ -1,8 +1,9 @@
 # Provider単段Executorの詳細設計
+五資源名・所有Label・固定Digestの文法と資源名の重複検査は、Executorの生成時と開始時の入力検査へ統合する。 回復期待値の構築も、入力の用途別prefix・Label・Digest・boolean相関・保護Pathを先に検査する。固定生成のpurpose・kind・Network候補は構築実装の不変条件として試験し、DIの検査関数を公開して生成後に呼び直さない。未要求・限定観測・選択外資源でも入力全体を先に検査する。技術排他の取得前に拒否し、DIの個別validatorを公開して上位へ往復させない。Coordinatorの保存形式の検査はDomainの既存Snapshot候補生成が所有し、資源名の重複も保存前に拒否する。通常のDI Request検査・元実ID照合・回収条件は維持する。
 
 Attempt準備のcreateRandomHex／createResourceNames／createAuthenticationEnvironmentはattempt/operations.ts内だけのローカル関数とする。乱数8／32byteの各一回取得とBuffer検査、二Providerの既存prefix・Hash先頭16桁・63文字境界・所有Label、予約環境名の拒否と固定/provider-homeを維持する。資源名の一関数専用型は増やさず、戻り値六項目を署名へ明示する。これらの構成値を資源存在・実行許可・回収成立の証明に使わない。
 
-DIのonObservedから受けた実行分類を同じ参照のまま上位通知へ搬送し、同じ終了値分類をAttempt最終結果へ使用する。Executorで分類関数を再呼出ししない。既存の元観測・経過時間・固定エラー分類・同期性を維持する。Executor自身の失敗も扱うcatchの例外分類は、DI観測分類だけで代替できないため今回維持し、分類表を複製しない。
+DIのonObservedから受けた実行分類を同じ参照のまま上位通知へ搬送し、同じ終了値分類をAttempt最終結果へ使用する。Executorで分類関数を再呼出ししない。既存の元観測・経過時間・固定エラー分類・同期性を維持する。DIの開始時再検証失敗は既存の型付きfailureで受け取る。Executor自身又は試験代役からの未知例外はunclassified_exception固定とし、DI分類関数の再呼出し・分類表の複製を行わない。
 
 低位回収Factory・照合関数・出力上限と、製品で直接使わない内部型はDI Rootへ要求しない。Executorの回収は共通inspectIsolation／cleanupIsolationを使い、試験Scriptだけが内部の技術型を元Ownerから参照する。通常実行の構成補助・結果分類と公開Callbackに必要な既存型は別途整理する対象として維持する。
 
@@ -10,7 +11,7 @@ DIのonObservedから受けた実行分類を同じ参照のまま上位通知�
 
 ## 構築前の静的Catalog接続
 
-Attemptと認証の構築前metadataはDIのdescribeIsolationCapabilitiesから取得する。固定Assets・Image内配置・ProxyはDI正本、ProviderのCLI仕様と結果解釈はAI Adapter、用途に応じたImage／配置の選択はExecutorが所有する。Codexの既存別Imageにはalternate配置を用い、Claudeには存在しない別配置を要求しない。認証は追加Hostを渡さず、Provider固定通信だけを維持する。Catalog取得はFilesystem・Engine・認証の観測や新しい実行許可を発行しない。
+Attemptと認証の構築前metadataはDIのdescribeIsolationConfigurationから取得する。固定Assets・Image内配置・ProxyはDI正本、ProviderのCLI仕様と結果解釈はAI Adapter、用途に応じたImage／配置の選択はExecutorが所有する。Codexの既存別Imageにはalternate配置を用い、Claudeには存在しない別配置を要求しない。認証は追加Hostを渡さず、Provider固定通信だけを維持する。Catalog取得はFilesystem・Engine・認証の観測や新しい実行許可を発行しない。
 
 旧Assets／配置／Proxy記述のRoot公開は撤去し、検証ScriptもCatalogへ接続する。旧低位試験の比較OracleだけはDI内部の正本を明示参照し、製品APIとして復活させない。旧Commandと共通技術Requestの二重表現は製品から撤去し、同じ固定RequestへのSource接続を完了した。現在の候補で回帰・独立確認を行う。全資源の観測・回収統合とRoot全体の収束は別の未完了範囲である。
 
@@ -207,12 +208,12 @@ onResourcesClosedは技術資源の終了観測を上位へ渡す段階であり
 
 ## 1. 責務と依存
 
-ExecutorはProvider一段を一試行として、開始、取消、終了待ち、結果正規化、Docker技術資源の回収とHome技術排他の取得・解放を所有する。選定・同意・準備候補の一回消費、編集→レビュー→限定是正→再レビューの順序、Task／Queue、Workspace、耐久的な現在状態と配送は上位が所有する。Docker Isolationを実行時に呼び出す所有者はExecutorに限定する。上位は戻り値等の型を参照できるが、Dockerの構築・操作・清掃手順、OS別手順、資源命名を所有しない。これは採用済みの境界であり、後述の残存接続は未完了として追跡する。
+ExecutorはProvider一段を一試行として、開始、取消、終了待ち、結果正規化、Docker技術資源の回収とHome技術排他の取得・解放を所有する。選定・送信範囲・準備候補の一回消費、編集→レビュー→限定是正→再レビューの順序、Task／Queue、Workspace、耐久的な現在状態と配送は上位が所有する。Docker Isolationを実行時に呼び出す所有者はExecutorに限定する。上位は戻り値等の型を参照できるが、Dockerの構築・操作・清掃手順、OS別手順、資源命名を所有しない。これは採用済みの境界であり、後述の残存接続は未完了として追跡する。
 
 | 所有者 | 担当 | 接続先 |
 |---|---|---|
 | Domain Model | 定義・局所CRUD・共通保存 | Executor／Coordinatorへ依存しない |
-| Coordinator | 選定・送信同意・Task進行・Host保存と回復 | DomainとExecutorの公開Root |
+| Coordinator | 選定・Repository送信Policy・Task進行・Host保存と回復 | DomainとExecutorの公開Root |
 | Executor | 一回のProvider試行・取消・終了証拠 | AI Adapterの計画／結果変換、Docker Isolationの固定実行 |
 | Docker Isolation | Docker CLI・資源・Process・回収の技術処置 | 既存Platform Access |
 
@@ -240,7 +241,7 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 | `MountGrant`・`PreparedAuthority` | Coordinatorの既存Authority Ownerへ移管 | 元Grant・Provider・Operationの相関、発行／消費／失効の区別 |
 | `ProviderDockerPreparationState`・`PreparationHost`・`PreparedAttempt` | Coordinatorの既存準備Ownerへ移管。二WeakMapを移し、重複生成しない | 元Owner・一回消費・期限・準備中のMount解放 |
 | `PreparedAttemptPlan`・`PreparedPlan`・`ProviderAttemptPlan` | 技術入力と上位の受付・選定・保存Contextへ分解。Executorには一試行の技術構成だけを残す | 元九Commandの正規構成照合、実行前の相関検査、同じ回復参照 |
-| `ConsumedTaskPacket`・`TaskPacket`・`AdvicePacket`・`ModelSelection` | 発行・消費・同意・選定の意味をCoordinatorへ移管。本文・許可参照・解決済みModel等の必要値だけExecutorへ渡す | Packet差替え拒否、選定・用途・役割との一致、本文非保存 |
+| `ConsumedTaskPacket`・`TaskPacket`・`AdvicePacket`・`ModelSelection` | 発行・消費・送信範囲・選定の意味をCoordinatorへ移管。本文・許可参照・解決済みModel等の必要値だけExecutorへ渡す | Packet差替え拒否、選定・用途・役割との一致、本文非保存 |
 | `AttemptSelection`（削除済み） | AI Adapterの`AiModelSelection`を直接参照。ロールの相関はCoordinatorの準備Ownerが検査する | Provider・Model・識別種別・Effort・用途と実行Roleの整合 |
 | `AttemptInput` | 上位で解決済みの一試行入力へ整理。管理操作・Packetの生Capabilityを直接解釈しない | plain-data捕捉、欠測・余剰・Proxy・accessor拒否 |
 | 旧`Command`・`CommandHandle` | 製品は既存PURPOSESから導出するAttemptCommandPurposeとExecutor所有のSession契約を使用。argv付き旧CommandとHandle代役はDI試験supportだけへ限定 | 固定九用途、Command正規性、Process開始と完了・終了観測の区別 |
@@ -257,7 +258,7 @@ Executor／ExecutorRequest／StartInput／StartResult／CompletionResult／Execu
 
 取消引数はAttemptだけ一つのAttemptCancelInputを必須とし、元Control／managementを既存どおり照合する。認証／固定Probeはcancel()とし、空Objectを渡さない。共通の一回配送と許可条件は変更しない。RecordProjectionは公開利用を維持し、ProjectionKindをattempt／authenticationだけに限定する。既定はその二投影のUnionであり、Probeにneverや架空投影を割り当てない。
 
-環境操作の型正本はDIに維持し、公開DockerEnvironmentRequest<M>／Result<M>から入力と結果を参照する。用途別Runtime入力・結果の個別再exportは撤去する。通知で利用中のDockerRuntimeRestartEventは維持する。資源観測・回収はDIのResourceTarget／Inspection／CleanupResultをIsolation接頭辞の同じ型として再公開し、用途固有のAttempt相関型と区別する。新しい構造・Runtime・保存Schemaは追加しない。
+環境操作の型正本はDIに維持し、公開DockerEnvironmentRequest<M>／Result<M>から入力と結果を参照する。用途別Runtime入力・結果の個別再exportは撤去する。通知で利用中のDockerEnvironmentRestartEventは維持する。資源観測・回収はDIのResourceTarget／Inspection／CleanupResultをIsolation接頭辞の同じ型として再公開し、用途固有のAttempt相関型と区別する。新しい構造・Runtime・保存Schemaは追加しない。
 
 通常Attempt、AIツール認証、固定隔離Probeは共通のExecutor<K>を返し、Kで用途と入出力を結び付ける。公開構成要求はExecutorRequest<K>、開始はstart(StartInput<K>)、取消はcancel(...CancelArguments<K>)、開始／終了結果はStartResult<K>／CompletionResult<K>を使う。型の正本はlifecycle/types.tsで、用途別の内容・技術観測は既存のOwner型を再利用する。結果のkindはattempt／authentication／isolation_probeを区別し、他用途のProvider・Home・Mount結果を架空のtrue・nullで埋めない。
 
@@ -419,7 +420,7 @@ onCompletedとonDiagnosticは受動通知であり、同期throw・非同期拒�
 
 ## 3. 生涯と証拠
 
-1. Coordinatorが選定・同意・入力・実行対象を確定し、既存Ownerで準備候補を一回消費する。技術入力と同じ記録に結合したcallbackだけをExecutorへ渡す。
+1. Coordinatorが選定・送信範囲・入力・実行対象を確定し、既存Ownerで準備候補を一回消費する。技術入力と同じ記録に結合したcallbackだけをExecutorへ渡す。
 2. CoordinatorのstartHostAttemptが現在のRevisionと上位記録を照合し、Provider Authorityを消費する。耐久記録とexact回復参照の引渡しを確定してから、試行専用Executorのstartへ元参照と通知を渡す。
 3. Executorが内部Planと借用参照を照合し、技術Home排他を取得して下位要求を発行する。受理・開始・応答・終了を区別する。過去Effectのunknownを成功又は不存在へ補完しない。
 4. 要求前は通知を待ち、Coordinatorの登録ハンドラーが既存保存・制約操作を行う。上位操作の拒否はハンドラーの例外として次のEffectを止める。未発行確定は同じ操作Ownerと用途を渡し、Domainの専用Writerが短期排他内で`intent_saved`を再確認する。
@@ -478,7 +479,7 @@ Code Modeの全Tool不使用又は全ファイル非読取りの証明は追加�
 
 ## Docker通知の受信と意味判断（2026-10-31）
 
-ExecutorはDockerExecutionCallbacksで発行予定・元資源ID・Command観測・完了・実開始を受ける。通知はvoid又は指定された非同期段階のPromise<void>であり、保存成功のBooleanを返さない。allowCommandを撤去し、診断初期化はonCommandSubmittingへ統合する。Commandの技術分類と例外分類表はDIが所有し、Executorは元分類を再利用する。AI Adapterによる認証確認とProvider内容の用途別解釈はExecutorが所有し、不成立は通知ハンドラーからthrowして後続要求を停止する。Docker Isolationは技術回収を継続し、上位の記録保存はExecutorCallbacksの利用側が所有する。既存の開始通知join、元結果・回復参照・Home解放条件は変更しない。
+ExecutorはDockerExecutionCallbacksで発行予定・元資源ID・Command観測・完了・実開始を受ける。通知はvoid又は指定された非同期段階のPromise<void>であり、保存成功のBooleanを返さない。allowCommandを撤去し、診断初期化はonCommandSubmittingへ統合する。Commandの技術分類と例外分類表はDIが所有し、Executorは元の型付き結果を再利用する。DIの開始時再検証失敗も同じ結果へ搬送する。Executor自身又は試験代役から漏れた未知例外はunclassified_exceptionとし、DIの例外分類関数を呼び直したり分類表を複製したりしない。AI Adapterによる認証確認とProvider内容の用途別解釈はExecutorが所有し、不成立は通知ハンドラーからthrowして後続要求を停止する。Docker Isolationは技術回収を継続し、上位の記録保存はExecutorCallbacksの利用側が所有する。既存の開始通知join、元結果・回復参照・Home解放条件は変更しない。
 
 
 ## DI共通入口への構成接続（2026-11-02）

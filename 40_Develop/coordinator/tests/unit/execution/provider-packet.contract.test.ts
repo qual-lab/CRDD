@@ -11,7 +11,6 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import {
   consumeRuntimeOwnedProviderAdvicePacket,
   describeProviderAdvicePacketContract,
@@ -40,7 +39,7 @@ function input(): ProviderAdvicePacketInput {
     projectionHash: "b".repeat(64),
     providerPrompt: "synthetic",
     allowedReferences: ["PROJECT_CONTEXT.md"],
-    networkPolicy: fixtureNetworkPolicy("codex"),
+    additionalHosts: Object.freeze([]),
   };
 }
 
@@ -69,7 +68,7 @@ test("助言Packetは元Ownerだけが一回消費しCommandを含まない", ()
   );
   assert.ok(packet);
   assert.equal(packet.operationId, "OP-000001");
-  assert.deepEqual(packet.networkPolicy, input().networkPolicy);
+  assert.deepEqual(packet.additionalHosts, input().additionalHosts);
   assert.equal("providerCommand" in packet, false);
   assert.equal("commandHash" in packet, false);
   assert.equal(packet.repositoryMounted, false);
@@ -126,7 +125,7 @@ test("Packet Hashは操作・完全選定・本文・参照・Policyを固定す
     provider: value.provider,
     taskHash: value.taskHash,
     projectionHash: value.projectionHash,
-    networkPolicy: value.networkPolicy,
+    additionalHosts: value.additionalHosts,
     providerPromptSha256: createHash("sha256")
       .update(value.providerPrompt)
       .digest("hex"),
@@ -149,7 +148,7 @@ test("Packet Hashは操作・完全選定・本文・参照・Policyを固定す
     },
     { providerPromptSha256: "f".repeat(64) },
     { allowedReferences: ["other"] },
-    { networkPolicy: fixtureNetworkPolicy("claude") },
+    { additionalHosts: ["extra.example.com"] },
   ])
     assert.notEqual(packet.packetHash, hash({ ...content, ...change }));
 });
@@ -169,7 +168,7 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
   for (const change of [
     { operationId: "wrong" },
     { provider: "claude" },
-    { networkPolicy: fixtureNetworkPolicy("claude") },
+    { additionalHosts: {} },
     { executionSelection: executionSelection("executor") },
     { providerPrompt: "" },
     { providerPrompt: 123 },
@@ -185,7 +184,7 @@ test("入力検査は選定・通信条件・旧Command・不正dataを拒否す
   }
   let reads = 0;
   const accessor = { ...input() };
-  Object.defineProperty(accessor, "networkPolicy", {
+  Object.defineProperty(accessor, "additionalHosts", {
     enumerable: true,
     get() {
       reads++;
@@ -218,11 +217,11 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
   const value = {
     ...input(),
     allowedReferences: ["PROJECT_CONTEXT.md"],
-    networkPolicy: JSON.parse(JSON.stringify(input().networkPolicy)),
+    additionalHosts: JSON.parse(JSON.stringify(input().additionalHosts)),
   };
   const issued = issueRuntimeOwnedProviderAdvicePacket(value);
   value.allowedReferences.push("later");
-  value.networkPolicy.allowedHosts.push("later.example");
+  value.additionalHosts.push("later.example");
   value.providerPrompt = "later";
   const packet = consumeRuntimeOwnedProviderAdvicePacket(
     issued.useCapability,
@@ -230,12 +229,9 @@ test("Policy・参照・本文は発行時の値で固定する", () => {
   );
   assert.ok(packet);
   assert.deepEqual(packet.allowedReferences, ["PROJECT_CONTEXT.md"]);
-  assert.equal(
-    packet.networkPolicy.allowedHosts.includes("later.example"),
-    false,
-  );
+  assert.equal(packet.additionalHosts.includes("later.example"), false);
   assert.equal(packet.providerPrompt, "synthetic");
-  assert.equal(Object.isFrozen(packet.networkPolicy), true);
+  assert.equal(Object.isFrozen(packet.additionalHosts), true);
 });
 
 /**

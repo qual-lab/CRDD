@@ -52,7 +52,7 @@ import {
   INTERACTIVE_CONSOLE_CONTRACT,
   readInteractiveConsoleLine,
   writeInteractiveConsoleTextUsingAdapter,
-} from "../../src/decision/external-send-grant.ts";
+} from "../support/console.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
@@ -190,8 +190,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     .flatMap((directory) => sourceFiles(path.join(coordinatorRoot, directory)))
     .filter(
       (file) =>
-        file !==
-        path.join(coordinatorRoot, "src", "decision", "external-send-grant.ts"),
+        file !== path.join(coordinatorRoot, "tests", "support", "console.ts"),
     );
   for (const file of executableSources) {
     const source = fs.readFileSync(file, "utf8");
@@ -199,7 +198,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   }
 
   const parentConsoleSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "decision", "external-send-grant.ts"),
+    path.join(coordinatorRoot, "tests", "support", "console.ts"),
     "utf8",
   );
   const readerSource = fs.readFileSync(
@@ -250,7 +249,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
           ? "../platform-access/src/terminal/confirmation-reader.ts"
           : name === "request-input"
             ? "../coordinator/src/cli/options.ts"
-            : "src/decision/external-send-grant.ts",
+            : "tests/support/console.ts",
       ),
     ],
     include: [],
@@ -361,7 +360,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
             ? "../platform-access/src/terminal/confirmation-reader.ts"
             : name === "request-input"
               ? "../coordinator/src/cli/options.ts"
-              : "src/decision/external-send-grant.ts",
+              : "tests/support/console.ts",
       )
       .replaceAll("\\", "/");
     const source = project.program.getSourceFile(file);
@@ -1273,7 +1272,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   try {
     assert.equal(tty.isatty(outputDescriptor), true);
     const moduleUrl = pathToFileURL(
-      path.join(coordinatorRoot, "src", "decision", "external-send-grant.ts"),
+      path.join(coordinatorRoot, "tests", "support", "console.ts"),
     ).href;
     const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
     const inlineScript = `

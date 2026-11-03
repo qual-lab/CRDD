@@ -215,10 +215,7 @@ const edgeByLifecycleCase = new Map<string, string>([
 const resourcesByTransition = new Map<string, readonly string[]>([
   ["TRANS-ADMISSION-TO-OPERATION-ACQUIRING", ["RES-TASK-CONTROL"]],
   ["TRANS-OPERATION-ACQUIRING-TO-READY", ["RES-HOST-GENERATION"]],
-  [
-    "TRANS-OPERATION-TO-AUTHORIZED",
-    ["RES-INTERACTIVE-CONSOLE", "RES-OPERATION-WORKSPACE"],
-  ],
+  ["TRANS-OPERATION-TO-AUTHORIZED", ["RES-OPERATION-WORKSPACE"]],
   [
     "TRANS-AUTHORIZED-TO-EXECUTOR-CLEAN",
     [
@@ -271,7 +268,6 @@ const resourcesByTransition = new Map<string, readonly string[]>([
 
 const TERMINAL_RESOURCES = Object.freeze([
   "RES-HOST-GENERATION",
-  "RES-INTERACTIVE-CONSOLE",
   "RES-LOGICAL-HOME-LOCK",
   "RES-RUNTIME-STATE-LOCK",
   "RES-MOUNT-GRANT",
@@ -668,7 +664,7 @@ function fixture(
     prepareWorkloadSplit?: boolean;
     prepareFailureReason?: string;
     workspaceSecretBlocked?: boolean;
-    externalSendDenied?: boolean;
+    externalSendPolicyDenied?: boolean;
     externalSendAuthorizationMode?: unknown;
     externalSendNoticeOutcome?: "missing" | "throw" | "reject";
     selectionNoticeOutcome?: "missing" | "throw" | "reject";
@@ -772,7 +768,6 @@ function fixture(
   const repositoryBindingCapability = Object.freeze({});
   const workspaceCapability = Object.freeze({});
   const candidateCapability = Object.freeze({});
-  const externalSendGrantCapability = Object.freeze({});
   const externalSendPolicyCapability = Object.freeze({});
   const cleanupCompleted = Object.freeze({});
   const cleanupProtocolFailure = Object.freeze({});
@@ -802,7 +797,6 @@ function fixture(
   let selectionRevokeCount = 0;
   let providerHomeObservationCount = 0;
   let mountGrantIssueCount = 0;
-  let externalAuthorizationCount = 0;
   let dockerFinalizeCount = 0;
   let dockerReceiptCount = 0;
   let dockerIntentCount = 0;
@@ -813,7 +807,6 @@ function fixture(
   let candidateCaptureCount = 0;
   let candidateVerificationCount = 0;
   let releasePausedProcess: (() => void) | null = null;
-  let releaseExternalAuthorization: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
   let releaseOperationCleanup: (() => void) | null = null;
   let resolveHostGenerationLoss:
@@ -823,9 +816,6 @@ function fixture(
   let cancelProcessCount = 0;
   let poisonProcessCount = 0;
   let releaseDrainCount = 0;
-  let consoleResourceState: "unacquired" | "present" | "absent" | "preserved" =
-    "unacquired";
-  let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
   /**
@@ -861,7 +851,6 @@ function fixture(
           ? "preserved"
           : "present"
         : "absent",
-      "RES-INTERACTIVE-CONSOLE": consoleResourceState,
       "RES-LOGICAL-HOME-LOCK": isOutstandingProvider ? "preserved" : "absent",
       "RES-RUNTIME-STATE-LOCK": isOutstandingProvider ? "preserved" : "absent",
       "RES-MOUNT-GRANT": isOutstandingProvider ? "preserved" : "absent",
@@ -1048,14 +1037,16 @@ function fixture(
         repositoryBindingCapability,
       }),
     resolveExternalSendPolicy: () =>
-      Object.freeze({
-        status: "resolved",
-        capability: externalSendPolicyCapability,
-        candidateRetentionHours: 24,
-        informationClassification: "public",
-        candidatePhysicalDeletion:
-          "next_safe_runtime_entry_after_expiry_or_explicit_discard",
-      }),
+      options.externalSendPolicyDenied
+        ? null
+        : Object.freeze({
+            status: "resolved",
+            capability: externalSendPolicyCapability,
+            candidateRetentionHours: 24,
+            informationClassification: "public",
+            candidatePhysicalDeletion:
+              "next_safe_runtime_entry_after_expiry_or_explicit_discard",
+          }),
     reportSelectionNotice:
       options.selectionNoticeOutcome === "missing"
         ? undefined
@@ -1223,51 +1214,6 @@ function fixture(
         mountAuthorizationCapability: Object.freeze({}),
       }),
     revokeMountGrant: () => Object.freeze({ status: "revoked" }),
-    authorizeExternalSend: (
-      _management: object,
-      _repository: object,
-      _policy: object,
-      _scope: Record<string, unknown>,
-      providers: readonly ("codex" | "claude")[],
-      cancellationSignal: AbortSignal,
-    ) => {
-      externalAuthorizationCount += 1;
-      consoleResourceState = "present";
-      authorizedProviderSets.push(Object.freeze([...providers]));
-      externalCancellationSignal = cancellationSignal;
-      if (options.externalSendReason?.includes("cleanup_unknown"))
-        poisonProcessCount += 1;
-      consoleResourceState = options.externalSendReason?.includes(
-        "cleanup_unknown",
-      )
-        ? "preserved"
-        : "absent";
-      const authorization = options.externalSendReason
-        ? Object.freeze({
-            status: "blocked",
-            reason: options.externalSendReason,
-            manualRecoveryRequired:
-              options.externalSendReason.includes("cleanup_unknown") ||
-              options.externalSendReason.includes("manual_recovery_required"),
-          })
-        : options.externalSendDenied
-          ? null
-          : Object.freeze({
-              status: "issued",
-              capability: externalSendGrantCapability,
-              authorizationMode: Object.hasOwn(
-                options,
-                "externalSendAuthorizationMode",
-              )
-                ? options.externalSendAuthorizationMode
-                : "reused_initial_consent",
-            });
-      return options.pauseExternalAuthorization
-        ? new Promise<typeof authorization>((resolve) => {
-            releaseExternalAuthorization = () => resolve(authorization);
-          })
-        : authorization;
-    },
     issueTaskPacket: (
       _management: object,
       _repository: object,
@@ -1278,7 +1224,7 @@ function fixture(
       _remediationCapability: object | null,
       rawPacket: Record<string, unknown>,
     ) => {
-      assert.equal(externalSendGrant, externalSendGrantCapability);
+      assert.equal(externalSendGrant, externalSendPolicyCapability);
       if (taskRole === "reviewer")
         options.reviewerReadProjectionObserver?.(
           rawPacket.reviewerReadProjection,
@@ -1762,7 +1708,6 @@ function fixture(
       cleanup: providerCleanupConfirmedCount + hostCleanupConfirmedCount,
     }),
     cleanupCount: () => cleanupCount,
-    externalAuthorizationCount: () => externalAuthorizationCount,
     operationCreateCount: () => operationCreateCount,
     workspaceMaterializeCount: () => workspaceMaterializeCount,
     processStartCount: () => processStartCount,
@@ -1776,11 +1721,6 @@ function fixture(
     dockerFinalizeCount: () => dockerFinalizeCount,
     dockerProjectReadCount: () => dockerProjectReadCount,
     dockerProjectCompleteCount: () => dockerProjectCompleteCount,
-    externalCancellationSignal: () => externalCancellationSignal,
-    releaseExternalAuthorization: () => {
-      assert.ok(releaseExternalAuthorization);
-      releaseExternalAuthorization();
-    },
     releaseOperationCreation: () => {
       assert.ok(releaseOperationCreation);
       releaseOperationCreation();
@@ -2737,7 +2677,6 @@ test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Process
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_git_object_format_unsupported");
   assert.equal(harness.operationCreateCount(), 0);
-  assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -2764,7 +2703,6 @@ test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failure�
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
   assert.equal(harness.operationCreateCount(), 0);
-  assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -2793,7 +2731,6 @@ test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる"
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
   assert.equal(harness.operationCreateCount(), 0);
-  assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -2823,7 +2760,6 @@ test("認証秘密を示すTask PathはOperationと外部送信前に安全な�
     "coordinator_task_scope_recognized_secret_rejected",
   );
   assert.equal(harness.operationCreateCount(), 0);
-  assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -3108,7 +3044,6 @@ for (const scenario of [
   "remediation",
   "clean_failure",
   "cleanup_unknown",
-  "cancel",
 ] as const) {
   /**
    * 受動計測の時計・表示失敗でも${scenario}のTask結果とEffectは同じを検証する。
@@ -3133,9 +3068,7 @@ for (const scenario of [
           ? { processCleanFailureRole: "executor" }
           : scenario === "cleanup_unknown"
             ? { cleanupThrows: true }
-            : scenario === "cancel"
-              ? { pauseExternalAuthorization: true }
-              : {};
+            : {};
     const baseline = fixture(options);
     const timing = createDevelopmentExecutionTiming(
       () => {
@@ -3152,12 +3085,6 @@ for (const scenario of [
     const results = [];
     for (const harness of [baseline, measured]) {
       const started = harness.runtime.start(request(), "C:\\repository");
-      if (scenario === "cancel") {
-        await new Promise<void>((resolve) => setImmediate(resolve));
-        const cancellation = harness.runtime.cancel(started.controlCapability);
-        harness.releaseExternalAuthorization();
-        await cancellation;
-      }
       results.push(await started.completion);
     }
     timing.finish();
@@ -3212,83 +3139,6 @@ test("受動Lifecycle通知の非同期拒否は受付・状態遷移・元Task�
 });
 
 /**
- * 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するを検証する。
- *
- * @responsibility 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-
-test("初期確認と既存許可再利用を入力要求ではない一回の表示と最終結果へ接続する", async () => {
-  for (const mode of [
-    "interactive_initial_consent",
-    "reused_initial_consent",
-  ]) {
-    const harness = fixture({ externalSendAuthorizationMode: mode });
-    const result = await harness.runtime.start(request(), "C:\\repository")
-      .completion;
-    assert.equal(result.status, "completed");
-    assert.equal(result.externalSendAuthorizationMode, mode);
-    assert.equal(harness.externalAuthorizationCount(), 1);
-    assert.equal(harness.externalSendNotices.length, 1);
-    assert.deepEqual(harness.externalSendNotices[0], {
-      event: "coordinator_external_send_authorized",
-      authorizationMode: mode,
-      providers: ["claude", "codex"],
-      message:
-        mode === "reused_initial_consent"
-          ? "既存の送信許可の範囲内で続行します。追加の承認入力は不要です。"
-          : "今回確認した送信許可の範囲内で続行します。",
-    });
-    assert.equal(harness.processStartCount(), 2);
-  }
-});
-
-/**
- * 不明な許可方式を再利用と推定せずWorkspaceとProvider起動前に停止する。
- *
- * @responsibility 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 不明な許可方式または表示失敗を再利用と推定せずWorkspaceとProvider起動前に停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("不明な許可方式を再利用と推定せずWorkspaceとProvider起動前に停止する", async () => {
-  for (const options of [
-    ...[undefined, null, "", "unknown", true].map((mode) => ({
-      externalSendAuthorizationMode: mode,
-    })),
-    { externalSendDenied: true },
-  ]) {
-    const harness = fixture(options);
-    const result = await harness.runtime.start(request(), "C:\\repository")
-      .completion;
-    assert.equal(result.status, "blocked");
-    assert.equal(
-      result.reason,
-      "externalSendDenied" in options
-        ? "coordinator_task_external_send_not_authorized"
-        : "coordinator_task_external_send_authorization_mode_invalid",
-    );
-    assert.equal(result.externalSendAuthorizationMode, undefined);
-    assert.equal(harness.externalSendNotices.length, 0);
-    assert.equal(harness.workspaceMaterializeCount(), 0);
-    assert.equal(harness.processStartCount(), 0);
-    assert.equal(harness.mountGrantIssueCount(), 0);
-    assert.equal(result.cleanupConfirmed, true);
-    assert.equal(result.manualRecoveryRequired, false);
-  }
-});
-
-/**
  * 任意表示と実行許可の独立を確認する。
  * @responsibility 未登録・同期例外・非同期拒否を許可判定と混同しない。
  * @trace CPR-IT-001
@@ -3301,57 +3151,32 @@ test("不明な許可方式を再利用と推定せずWorkspaceとProvider起動
  */
 test("任意の選定・送信表示の欠測や失敗は認可結果と実行・回収を変更しない", async () => {
   for (const fault of ["missing", "throw", "reject"] as const) {
-    for (const externalSendDenied of [false, true]) {
+    for (const externalSendPolicyDenied of [false, true]) {
       const harness = fixture({
-        externalSendDenied,
+        externalSendPolicyDenied,
         externalSendNoticeOutcome: fault,
         selectionNoticeOutcome: fault,
       });
       const result = await harness.runtime.start(request(), "C:\\repository")
         .completion;
-      assert.equal(result.status, externalSendDenied ? "blocked" : "completed");
-      assert.equal(harness.processStartCount(), externalSendDenied ? 0 : 2);
-      if (externalSendDenied)
+      assert.equal(
+        result.status,
+        externalSendPolicyDenied ? "blocked" : "completed",
+      );
+      assert.equal(
+        harness.processStartCount(),
+        externalSendPolicyDenied ? 0 : 2,
+      );
+      if (externalSendPolicyDenied)
         assert.equal(
           result.reason,
-          "coordinator_task_external_send_not_authorized",
+          "coordinator_task_external_send_policy_unresolved",
         );
       assert.equal(result.cleanupConfirmed, true);
       assert.equal(result.manualRecoveryRequired, false);
       assert.deepEqual(result.dockerRecoveryIds, []);
     }
   }
-});
-
-/**
- * 許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まないを検証する。
- *
- * @responsibility 許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まないの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("許可状況の表示中に取消された場合もWorkspaceとProvider起動へ進まない", async () => {
-  const harness = fixture({
-    externalSendNoticeObserver: () => {
-      harness.observeLastControlInvalid();
-    },
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_cancelled_during_external_send_authorization",
-  );
-  assert.equal(harness.externalSendNotices.length, 1);
-  assert.equal(harness.workspaceMaterializeCount(), 0);
-  assert.equal(harness.processStartCount(), 0);
-  assert.equal(result.cleanupConfirmed, true);
 });
 
 /**
@@ -3712,7 +3537,7 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
       fixedSelections(provider, provider).reviewer,
     );
     assert.equal(harness.processStartCount(), 2);
-    assert.deepEqual(harness.authorizedProviderSets, [[provider]]);
+    assert.deepEqual(harness.authorizedProviderSets, []);
   }
 });
 
@@ -3734,7 +3559,6 @@ test("完遂可能なExecution SlateがなければExternal SendとExecutor Effe
   const result = await started.completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_execution_slate_unavailable");
-  assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 1);
@@ -3952,7 +3776,10 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
     );
     await attempt.completion;
   }
-  const empty = fixture({ hostCleanupWal: true, externalSendDenied: true });
+  const empty = fixture({
+    hostCleanupWal: true,
+    externalSendPolicyDenied: true,
+  });
   const denied = empty.runtime.start(
     request(),
     "C:\\repository",
@@ -3984,7 +3811,10 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", async () => {
-  const zero = fixture({ externalSendDenied: true, hostCleanupWal: true });
+  const zero = fixture({
+    externalSendPolicyDenied: true,
+    hostCleanupWal: true,
+  });
   const zeroResult = await zero.runtime.start(request(), "C:\\repository")
     .completion;
   assert.equal(zeroResult.processRestartRequired, false);
@@ -4284,7 +4114,7 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     "coordinator_task_independent_review_not_approved",
   );
   assert.equal(result.candidateDisposition, "not_issued");
-  assert.equal(result.externalSendAuthorizationMode, "reused_initial_consent");
+  assert.equal("externalSendAuthorizationMode" in result, false);
   assert.equal(result.candidateId, null);
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(result.candidateStoreRecoveryId, null);
@@ -4441,7 +4271,7 @@ test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と�
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_remediated_candidate_invalid");
   assert.equal(result.candidateDisposition, "not_issued");
-  assert.equal(result.externalSendAuthorizationMode, "reused_initial_consent");
+  assert.equal("externalSendAuthorizationMode" in result, false);
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.candidateRecoveryId, null);
@@ -4513,116 +4343,28 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
 });
 
 /**
- * 対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止するを検証する。
+ * 送信Policyが無ければWorkspaceとProvider Effect前に停止するを検証する。
  *
- * @responsibility 対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止するの合否判定を所有する。
+ * @responsibility 送信Policyが無ければWorkspaceとProvider Effect前に停止するの合否判定を所有する。
  * @trace CPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止するの対象操作を実行する。
+ * @stimulus 送信Policyが無ければWorkspaceとProvider Effect前に停止するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
-  const harness = fixture({ externalSendDenied: true });
+test("送信Policyが無ければWorkspaceとProvider Effect前に停止する", async () => {
+  const harness = fixture({ externalSendPolicyDenied: true });
   const result = await harness.runtime.start(request(), "C:\\repository")
     .completion;
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_external_send_not_authorized");
-  assert.equal(harness.selectionRequests.length, 0);
-  assert.equal(harness.cleanupCount(), 1);
-});
-
-/**
- * 対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置するを検証する。
- *
- * @responsibility 対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置する", async () => {
-  const reason =
-    "external_send_confirmation_cleanup_unknown_process_restart_required";
-  const harness = fixture({ externalSendReason: reason });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
   assert.equal(
     result.reason,
-    "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required",
+    "coordinator_task_external_send_policy_unresolved",
   );
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.processRestartRequired, true);
-  assert.equal(result.hostRecoveryId, null);
-  assert.equal(harness.cleanupCount(), 1);
-  assert.equal(harness.workspaceMaterializeCount(), 0);
-  assert.equal(harness.processStartCount(), 0);
-  assert.equal(harness.externalAuthorizationCount(), 1);
   assert.equal(harness.selectionRequests.length, 0);
-
-  const cleanupFailure = fixture({
-    externalSendReason: reason,
-    cleanupThrows: true,
-  });
-  const combined = await cleanupFailure.runtime.start(
-    request(),
-    "C:\\repository",
-  ).completion;
-  assert.equal(
-    combined.reason,
-    "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_and_operation_recovery_required",
-  );
-  assert.equal(combined.manualRecoveryRequired, true);
-  assert.equal(combined.processRestartRequired, true);
-  assert.equal(combined.hostRecoveryId, "host.fixture.recovery.record");
-  assert.equal(cleanupFailure.cleanupCount(), 1);
-  assert.equal(cleanupFailure.workspaceMaterializeCount(), 0);
-  assert.equal(cleanupFailure.processStartCount(), 0);
-  assert.equal(cleanupFailure.selectionRequests.length, 0);
-});
-
-/**
- * External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影するを検証する。
- *
- * @responsibility External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影する", async () => {
-  for (const status of [
-    "declined_invalid",
-    "cancelled",
-    "timeout",
-    "unavailable",
-    "reader_failed",
-    "cleanup_unknown_process_restart_required",
-  ] as const) {
-    const externalReason = `external_send_confirmation_${status}`;
-    const harness = fixture({ externalSendReason: externalReason });
-    const result = await harness.runtime.start(request(), "C:\\repository")
-      .completion;
-    assert.equal(result.reason, `coordinator_task_${externalReason}`);
-    assert.equal(
-      result.manualRecoveryRequired,
-      status === "cleanup_unknown_process_restart_required",
-    );
-    const projected = result as Readonly<Record<string, unknown>>;
-    assert.equal(projected.hostRecoveryId, null);
-    assert.deepEqual(projected.dockerRecoveryIds, []);
-    assert.equal(harness.cleanupCount(), 1);
-    assert.equal(harness.workspaceMaterializeCount(), 0);
-    assert.equal(harness.processStartCount(), 0);
-  }
+  assert.equal(harness.cleanupCount(), 1);
 });
 
 /**
@@ -5458,45 +5200,8 @@ test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ�
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.selectionRequests.length, 0);
-  assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
-});
-
-/**
- * 外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止するを検証する。
- *
- * @responsibility 外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止する", async () => {
-  const harness = fixture({ pauseExternalAuthorization: true });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  assert.equal(harness.externalCancellationSignal()?.aborted, false);
-  assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
-    status: "requested",
-    reason: "provider_cancellation_requested",
-    cancellationRequested: true,
-    processTerminationObserved: true,
-  });
-  assert.equal(harness.externalCancellationSignal()?.aborted, true);
-  harness.releaseExternalAuthorization();
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_cancelled_during_external_send_authorization",
-  );
-  assert.equal(harness.workspaceMaterializeCount(), 0);
-  assert.equal(harness.processStartCount(), 0);
-  assert.equal(harness.cleanupCount(), 1);
 });
 
 /**
@@ -6393,7 +6098,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   const cases = [
     {
       id: "CASE-BLOCKED-OPERATION-READY",
-      options: { externalSendDenied: true },
+      options: { externalSendPolicyDenied: true },
       terminal: "clean",
       source: "STATE-OPERATION-READY",
       process: 0,
@@ -6481,8 +6186,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     {
       id: "CASE-OPERATOR-TRANSFER-OPERATION-READY",
       options: {
-        externalSendReason:
-          "external_send_confirmation_cleanup_unknown_process_restart_required",
+        externalSendPolicyDenied: true,
+        isProcessPoisonedThrows: true,
       },
       terminal: "operator",
       source: "STATE-OPERATION-READY",
@@ -6491,11 +6196,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     },
     {
       id: "CASE-RECOVERY-OPERATION-READY",
-      options: {
-        externalSendReason:
-          "external_send_confirmation_cleanup_unknown_process_restart_required",
-        cleanupThrows: true,
-      },
+      options: { externalSendPolicyDenied: true, cleanupThrows: true },
       terminal: "recovery",
       source: "STATE-OPERATION-READY",
       process: 0,
@@ -7023,7 +6724,7 @@ test("現在入場DTOの拒否理由と排他結果だけをTaskへ投影する"
  */
 test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否する", () => {
   for (const [caseId, resource] of [
-    ["CASE-OPERATOR-TRANSFER-OPERATION-READY", "RES-INTERACTIVE-CONSOLE"],
+    ["CASE-OPERATOR-TRANSFER-OPERATION-READY", "RES-TASK-CONTROL"],
     ["CASE-BLOCKED-ADMISSION", "RES-TASK-CONTROL"],
   ] as const) {
     const canonical = getRuntimeTraceCase(caseId);

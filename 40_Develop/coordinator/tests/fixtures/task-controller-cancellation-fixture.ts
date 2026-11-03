@@ -51,7 +51,7 @@ export function createTaskControllerCancellationFixture(
   ] as const;
   const plan = Object.freeze({
     isolationRequest: attemptPlan().isolationRequest,
-    networkPolicy: null,
+    additionalHosts: null,
     provider: "claude" as const,
     consumer: "orchestrator" as const,
     operationId,

@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseDockerNetworkPolicy } from "../../../src/index.ts";
+import { parseDockerNetworkPolicy } from "../../../src/network/policy.ts";
 import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
 
 /**

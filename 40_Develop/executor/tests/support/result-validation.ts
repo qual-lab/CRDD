@@ -8,7 +8,7 @@
  * @boundary Executorの試験入口。本番Sourceから参照しない。
  */
 import { types as utilTypes } from "node:util";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
 import {
   isAttemptFailureReason,
   readOwnDataProperty,

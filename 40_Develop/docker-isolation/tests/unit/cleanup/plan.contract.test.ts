@@ -13,7 +13,10 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 import { planDockerRecoveryResourceExpectations } from "../../../../executor/src/attempt/recovery.ts";
-import { dockerResourceConfigurationMatches } from "../../../src/cleanup/plan.ts";
+import {
+  dockerResourceConfigurationMatches,
+  dockerResourceExpectationIsValid,
+} from "../../../src/cleanup/plan.ts";
 import type { DockerResourceExpectation } from "../../../src/cleanup/plan.ts";
 import { dockerAuthenticationResourceConfigurationMatches } from "../../support/authentication/plan.ts";
 
@@ -219,6 +222,7 @@ test("回収期待値は固定五用途・Proxy二候補と独立booleanを下�
           assert.ok(Object.isFrozen(entry.expectations));
           for (const expectation of entry.expectations) {
             assert.ok(Object.isFrozen(expectation));
+            assert.equal(dockerResourceExpectationIsValid(expectation), true);
             assert.ok(Object.isFrozen(expectation.expectedNetworks));
           }
         }
@@ -241,6 +245,81 @@ test("回収期待値は固定五用途・Proxy二候補と独立booleanを下�
       ),
       null,
     );
+  for (const [key, current] of Object.entries(names)) {
+    const field = {
+      auth: "authenticationContainerName",
+      provider: "executionContainerName",
+      proxy: "proxyContainerName",
+      internal: "internalNetworkName",
+      egress: "egressNetworkName",
+    }[key];
+    assert.ok(field);
+    for (const other of Object.values(names).filter(
+      (value) => value !== current,
+    ))
+      assert.equal(
+        planDockerRecoveryResourceExpectations({
+          ...baseInput,
+          [field]: other,
+        }),
+        null,
+      );
+  }
+  for (const provider of ["codex", "claude"])
+    for (const protection of [
+      undefined,
+      null,
+      {
+        gitSourcePath: path.resolve("mask-git"),
+        internalSourcePath: path.resolve("mask-internal"),
+      },
+    ]) {
+      const input = {
+        ...baseInput,
+        executionContainerName: `crdd-${provider}-0123456789abcdef`,
+        workspaceMounted: true,
+        workspaceProtected: true,
+        ...(protection === undefined
+          ? {}
+          : { workspaceProtection: protection }),
+      };
+      const plan = planDockerRecoveryResourceExpectations(input as never);
+      assert.ok(plan);
+      for (const entry of plan)
+        for (const expected of entry.expectations)
+          assert.equal(dockerResourceExpectationIsValid(expected), true);
+      if (protection) {
+        for (const key of ["gitSourcePath", "internalSourcePath"])
+          for (const value of [
+            "relative",
+            "C:/bad,path",
+            "C:/bad\npath",
+            1,
+            null,
+          ])
+            assert.equal(
+              planDockerRecoveryResourceExpectations({
+                ...input,
+                workspaceProtection: { ...protection, [key]: value },
+              } as never),
+              null,
+            );
+        assert.equal(
+          planDockerRecoveryResourceExpectations({
+            ...input,
+            workspaceProtected: false,
+          } as never),
+          null,
+        );
+        assert.equal(
+          planDockerRecoveryResourceExpectations({
+            ...input,
+            workspaceMounted: false,
+          } as never),
+          null,
+        );
+      }
+    }
   let getterCalls = 0,
     trapCalls = 0,
     coercionCalls = 0;

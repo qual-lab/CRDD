@@ -27,7 +27,7 @@ import {
   PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
   describeProviderBillingPolicy,
 } from "../../../ai-adapter/src/index.ts";
-import { describeIsolationCapabilities } from "../../../docker-isolation/src/index.ts";
+import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import {
   parseHostRecoveryToken,
   snapshotPlainArray,
@@ -3827,7 +3827,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
         authorityFileBundle: describeAuthorityFileBundleContract(),
         authorityPrelaunchVerifier:
           describeAuthorityPrelaunchVerifierContract(),
-        proxyTopology: describeIsolationCapabilities("claude").proxy,
+        proxyTopology: describeIsolationConfiguration("claude").proxy,
       },
       recovery: shouldRetainOperationDirectories
         ? {
@@ -5442,7 +5442,7 @@ export function recoverDockerIsolationProbe(
 }
 
 export const DOCKER_ISOLATION_PROFILE = Object.freeze({
-  ...describeIsolationCapabilities().runtimeProfile,
+  ...describeIsolationConfiguration().runtimeProfile,
   dynamicFakeProviderProcessImplemented: true,
   realProviderProcessesExecuted: false,
 });

@@ -139,20 +139,23 @@ export function runInNewContext(
               profile,
               id,
             );
-            callbacks.onObserved?.(
-              run,
-              {
+            callbacks.onObserved?.(run, {
+              observation: {
                 status: 0,
                 signal: null,
                 stdout: "",
                 stderr: "",
                 outputExceeded: false,
               },
-              0,
-              null,
-              { category: "completed", stdoutBytes: 0, stderrBytes: 0 },
-              "zero",
-            );
+              elapsedMs: 0,
+              errorCode: null,
+              classification: {
+                category: "completed",
+                stdoutBytes: 0,
+                stderrBytes: 0,
+              },
+              exitClass: "zero",
+            });
           } catch (error) {
             failure = {
               stage: id ? "notification" : "observation",

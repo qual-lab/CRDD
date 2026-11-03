@@ -15,7 +15,7 @@ import {
 } from "../../src/docker-desktop/restart-state.ts";
 import {
   restartDockerRuntimeForVerification,
-  type DockerRuntimeRestartEvent,
+  type DockerEnvironmentRestartEvent,
   type DockerRuntimeRestartInput,
 } from "../../src/docker-desktop/restart.ts";
 
@@ -100,7 +100,7 @@ function fixture(
 ) {
   const controller = new AbortController();
   const calls: string[] = [];
-  const events: DockerRuntimeRestartEvent[] = [];
+  const events: DockerEnvironmentRestartEvent[] = [];
   let permission = true;
   let processes = true;
   let backend = true;

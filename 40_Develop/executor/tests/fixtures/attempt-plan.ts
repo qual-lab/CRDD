@@ -53,7 +53,7 @@ export function attemptPlan(): AttemptPlan {
     providerInput: null,
     workspaceSourcePath: null,
     workspaceMountMode: null,
-    networkPolicy: null,
+    additionalHosts: null,
     isolationRequest: {
       managementDirectory: "C:/synthetic-not-accessed/management",
       resources: [

@@ -13,10 +13,6 @@ import {
   resolveAiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  type DockerNetworkPolicy,
-  parseDockerNetworkPolicy,
-} from "../../../docker-isolation/src/index.ts";
-import {
   containsRecognizedSecretMaterial,
   containsRecognizedSecretScope,
   containsRecognizedSecretText,
@@ -32,9 +28,9 @@ import type {
   ExecutorRequest,
 } from "../../../executor/src/index.ts";
 import {
-  compileExternalSendScopeHash,
-  consumeRuntimeOwnedExternalSendGrant,
-} from "../decision/external-send-grant.ts";
+  verifyRuntimeOwnedExternalSendPolicy,
+  type ResolvedExternalSendPolicy,
+} from "../decision/external-send-policy.ts";
 import {
   activateRuntimeOwnedProviderHomeMount,
   borrowRuntimeOwnedActiveProviderHomeMountSource,
@@ -129,7 +125,7 @@ const providerPlanSHA256 = /^[a-f0-9]{64}$/u;
 const EXECUTION_INPUT_KEYS = Object.freeze([
   "allowedReferences",
   "exactModelId",
-  "networkPolicy",
+  "additionalHosts",
   "offering",
   "executionSelection",
   "projectionHash",
@@ -652,7 +648,7 @@ function consumeAttemptAdvicePacket(use: unknown, owner: unknown) {
         selectionHash: packet.selectionHash,
         provider: packet.provider,
         packetHash: packet.packetHash,
-        networkPolicy: packet.networkPolicy,
+        additionalHosts: packet.additionalHosts,
         providerPrompt: packet.providerPrompt,
         repositoryMounted: packet.repositoryMounted,
         workspaceMounted: packet.workspaceMounted,
@@ -858,7 +854,7 @@ export type ProviderAdvicePacketInput = Readonly<{
   taskHash: string;
   projectionHash: string;
   providerPrompt: string;
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
 }>;
 
 /**
@@ -1054,7 +1050,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
       "taskHash",
       "projectionHash",
       "providerPrompt",
-      "networkPolicy",
+      "additionalHosts",
       "allowedReferences",
     ]),
   );
@@ -1085,7 +1081,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     executionSelection: fixed,
     allowedReferences,
   } as ProviderAdvicePacketInput;
-  const networkPolicy = parseDockerNetworkPolicy(input.networkPolicy);
+  const additionalHosts = captureAdditionalHosts(input.additionalHosts);
   let token: string | null = null;
   try {
     token = state.randomHex(16);
@@ -1093,8 +1089,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     token = null;
   }
   if (
-    !networkPolicy ||
-    networkPolicy.provider !== input.provider ||
+    !additionalHosts ||
     !validInput(input) ||
     !token ||
     !/^[a-f0-9]{32}$/u.test(token)
@@ -1123,7 +1118,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
         provider: input.provider,
         taskHash: input.taskHash,
         projectionHash: input.projectionHash,
-        networkPolicy,
+        additionalHosts,
         providerPromptSha256: createHash("sha256")
           .update(input.providerPrompt, "utf8")
           .digest("hex"),
@@ -1145,7 +1140,7 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     provider: input.provider,
     taskHash: input.taskHash,
     projectionHash: input.projectionHash,
-    networkPolicy,
+    additionalHosts,
     packetHash,
     allowedReferences: Object.freeze([...input.allowedReferences]),
     providerPrompt: input.providerPrompt,
@@ -1281,7 +1276,7 @@ function validInput(input: ProviderAdvicePacketInput) {
 
 export type ProviderAdviceExecutionInput = Readonly<{
   allowedReferences: readonly string[];
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
   provider: "codex" | "claude";
   providerPrompt: string;
   taskHash: string;
@@ -1324,7 +1319,7 @@ export type ProviderAdviceExecutionPlan = Readonly<{
   sessionPersistenceAllowed: false;
   apiKeyFallbackAllowed: false;
   paidApiFallbackAllowed: false;
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
 }>;
 
 /**
@@ -1385,10 +1380,9 @@ export function prepareProviderAdvicePlan(
   )
     return advicePlanRejected();
   input = { ...snapshot, allowedReferences } as ProviderAdviceExecutionInput;
-  const networkPolicy = parseDockerNetworkPolicy(input.networkPolicy);
+  const additionalHosts = captureAdditionalHosts(input.additionalHosts);
   if (
-    !networkPolicy ||
-    networkPolicy.provider !== input.provider ||
+    !additionalHosts ||
     typeof input.providerPrompt !== "string" ||
     input.providerPrompt.trim().length === 0 ||
     !providerPlanSHA256.test(input.taskHash) ||
@@ -1442,7 +1436,7 @@ export function prepareProviderAdvicePlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      networkPolicy,
+      additionalHosts,
     }),
   });
 }
@@ -1545,7 +1539,7 @@ type ReviewerReadProjection = Readonly<{
  * @compatibility TaskPacketの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type TaskPacket = Readonly<{
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
   operationId: string;
   taskPacketRef: string;
   taskRole: TaskRole;
@@ -1600,7 +1594,18 @@ type taskPacketPacketRecord = Readonly<{
 type taskPacketRuntimeState = Readonly<{
   controlRecords: WeakMap<object, taskPacketPacketRecord>;
   useRecords: WeakMap<object, taskPacketPacketRecord>;
-  consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant;
+  verifyExternalSendPolicy: (
+    capability: unknown,
+    management: unknown,
+    repository: unknown,
+  ) => Readonly<{
+    enabled: boolean;
+    destinations: readonly Pick<
+      ResolvedExternalSendPolicy["destinations"][number],
+      "provider"
+    >[];
+    additionalHosts: readonly string[];
+  }> | null;
 }>;
 
 /**
@@ -1608,9 +1613,9 @@ type taskPacketRuntimeState = Readonly<{
  *
  * @responsibility 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
- * @input consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant
+ * @input verifyExternalSendPolicy: typeof verifyRuntimeOwnedExternalSendPolicy
  * @returns RuntimeStateを返す。
- * @precondition 「consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant」がcreateStateの入力契約を満たす。
+ * @precondition 「verifyExternalSendPolicy: typeof verifyRuntimeOwnedExternalSendPolicy」がcreateStateの入力契約を満たす。
  * @postcondition createStateの責務を完了した結果だけを返す。
  * @effect N/A: createStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createStateは独自の失敗分岐を所有しない。
@@ -1620,18 +1625,139 @@ type taskPacketRuntimeState = Readonly<{
  * @concurrency N/A: createStateは共有非同期状態を持たない同期処理である。
  */
 function taskPacketCreateState(
-  consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant,
+  verifyExternalSendPolicy: taskPacketRuntimeState["verifyExternalSendPolicy"],
 ): taskPacketRuntimeState {
   return Object.freeze({
     controlRecords: new WeakMap(),
     useRecords: new WeakMap(),
-    consumeExternalSendGrant,
+    verifyExternalSendPolicy,
   });
 }
 
+/** Task入力の上限・通常データ・秘密検査と既存Scope Hashを準備Ownerで保持する。
+ * @responsibility 同意やGrantを発行せず、Packetの入力相関だけを計算する。
+ * @trace ARCH-000015
+ */
+const SCOPE_KEYS = new Set([
+  "objective",
+  "acceptanceCriteria",
+  "allowedPaths",
+  "readPaths",
+]);
+
+const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
+  direction: "independent_reviewer_to_same_executor" as const,
+  maximumRounds: 1,
+  maximumFindings: 64,
+  fields: Object.freeze([
+    "severity",
+    "path",
+    "category",
+    "criterionNumber",
+    "message",
+    "messageSha256",
+  ]),
+  reviewerMessageTextForwarded:
+    "bounded_untrusted_defect_claim_after_recognized_secret_screening" as const,
+  informationClassification: "same_as_original_task" as const,
+});
+
+type TaskScope = Readonly<{
+  objective: string;
+  acceptanceCriteria: readonly string[];
+  allowedPaths: readonly string[];
+  readPaths: readonly string[];
+}>;
+
+function normalizeTaskScope(rawScope: unknown): TaskScope | null {
+  const value = snapshotPlainRecord(rawScope, SCOPE_KEYS);
+  const acceptanceCriteria = value
+    ? normalizedStrings(value.acceptanceCriteria, 16, 1_024)
+    : null;
+  const allowedPaths = value
+    ? normalizedStrings(value.allowedPaths, 64, 1_024)
+    : null;
+  const readPaths = value
+    ? normalizedStrings(value.readPaths, 64, 1_024)
+    : null;
+  if (
+    !value ||
+    typeof value.objective !== "string" ||
+    value.objective.length === 0 ||
+    value.objective.trim() !== value.objective ||
+    value.objective.includes("\0") ||
+    Buffer.byteLength(value.objective, "utf8") > 8_192 ||
+    !acceptanceCriteria ||
+    !allowedPaths ||
+    !readPaths
+  ) {
+    return null;
+  }
+  if (
+    containsRecognizedSecretScope(
+      value.objective,
+      acceptanceCriteria,
+      allowedPaths,
+      readPaths,
+    )
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    objective: value.objective,
+    acceptanceCriteria,
+    allowedPaths,
+    readPaths,
+  });
+}
+
+/**
+ * Taskの送信対象範囲を同じ正規形へ固定する。
+ * @responsibility 通常認可とPacket検査で共有する範囲Hashを生成する。
+ * @trace ARCH-000015
+ * @input rawScope: 目的・受入条件・編集対象・参照対象。
+ * @returns 検査済み範囲のHash、又はnull。
+ * @effect N/A: 局所値のみ。許可を発行しない。
+ * @invariant 秘密値・不正dataを範囲へ取り込まない。
+ */
+export function compileTaskScopeHash(rawScope: unknown) {
+  const scope = normalizeTaskScope(rawScope);
+  return scope
+    ? createHash("sha256")
+        .update("crdd-external-send-scope-v3\0")
+        .update(
+          JSON.stringify({
+            objective: scope.objective,
+            acceptanceCriteria: scope.acceptanceCriteria,
+            allowedPaths: scope.allowedPaths,
+            readPaths: scope.readPaths,
+            derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
+          }),
+        )
+        .digest("hex")
+    : null;
+}
+
 const taskPacketProductionState = taskPacketCreateState(
-  consumeRuntimeOwnedExternalSendGrant,
+  verifyRuntimeOwnedExternalSendPolicy,
 );
+
+/**
+ * Repository追加Hostの配列を副作用なく捕捉する。
+ * @responsibility getter・Proxy・holeを実行入力へ持ち込まず、同じ値を固定する。
+ * @trace ARCH-000015
+ * @input value: 未信頼の追加Host配列。
+ * @returns 不変配列、又は不正形でnull。
+ * @effect N/A: 外部I/Oなし。
+ * @boundary hostnameの技術的な正規化・許可条件はDIが所有する。
+ */
+function captureAdditionalHosts(value: unknown): readonly string[] | null {
+  const hosts = snapshotPlainArray<string>(value, 32);
+  return hosts.status === "ok" &&
+    hosts.value.every((host) => typeof host === "string" && host.length <= 253)
+    ? hosts.value
+    : null;
+}
 
 /**
  * Textが有効か判定する。
@@ -1901,7 +2027,7 @@ function taskHash(
   readPaths: readonly string[],
   reviewerReadProjection: ReviewerReadProjection | null,
   remediationFindings: TaskPacket["remediationFindings"],
-  networkPolicy: DockerNetworkPolicy,
+  additionalHosts: readonly string[],
 ) {
   return createHash("sha256")
     .update("crdd-provider-task-packet-v10\0")
@@ -1917,7 +2043,7 @@ function taskHash(
         readPaths,
         reviewerReadProjection,
         remediationFindings,
-        networkPolicy,
+        additionalHosts,
       }),
     )
     .digest("hex");
@@ -1959,7 +2085,7 @@ function promptFor(packet: TaskPacket) {
   return [
     "You are a CRDD isolated provider task.",
     roleInstruction,
-    `Network: HTTPS CONNECT on port 443 through the configured proxy only. Allowed hosts: ${packet.networkPolicy.allowedHosts.join(", ")}. Do not bypass the proxy.`,
+    `Network: HTTPS CONNECT on port 443 through the configured proxy only. Additional hosts (Provider fixed endpoints are enforced separately): ${packet.additionalHosts.join(", ")}. Do not bypass the proxy.`,
     `Objective:\n${packet.objective}`,
     `Acceptance criteria:\n${packet.acceptanceCriteria.map((item) => `- ${item}`).join("\n")}`,
     `Allowed paths:\n${packet.allowedPaths.map((item) => `- ${item}`).join("\n")}`,
@@ -1995,9 +2121,9 @@ function promptFor(packet: TaskPacket) {
  *
  * @responsibility provider-task-packet-runtimeの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000015
- * @input state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown
+ * @input state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendPolicyCapability: unknown、remediationCapability: unknown、rawPacket: unknown
  * @returns issueの計算結果を返す。
- * @precondition 「state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown」がissueの入力契約を満たす。
+ * @precondition 「state: RuntimeState、managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendPolicyCapability: unknown、remediationCapability: unknown、rawPacket: unknown」がissueの入力契約を満たす。
  * @postcondition issueの責務を完了した結果だけを返す。
  * @effect N/A: issueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure issueは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -2013,7 +2139,7 @@ function taskPacketIssue(
   provider: unknown,
   taskRole: unknown,
   taskAttempt: unknown,
-  externalSendGrantCapability: unknown,
+  externalSendPolicyCapability: unknown,
   remediationCapability: unknown,
   rawPacket: unknown,
 ) {
@@ -2086,8 +2212,7 @@ function taskPacketIssue(
       allowedPaths,
       readPaths,
     });
-    const externalSendScopeHash =
-      compileExternalSendScopeHash(externalSendScope);
+    const externalSendScopeHash = compileTaskScopeHash(externalSendScope);
     const remediation =
       taskRole === "executor" && taskAttempt === 1
         ? consumeTaskRemediation(remediationCapability, operation.operationId)
@@ -2125,22 +2250,19 @@ function taskPacketIssue(
         secretMaterialReported: false,
       });
     }
-    const externalSendGrant = state.consumeExternalSendGrant(
-      externalSendGrantCapability,
+    const externalSendPolicy = state.verifyExternalSendPolicy(
+      externalSendPolicyCapability,
       managementCapability,
       repositoryBindingCapability,
-      provider,
-      taskRole,
-      taskAttempt,
-      externalSendScope,
     );
     if (
       !externalSendScopeHash ||
-      externalSendGrant?.status !== "consumed" ||
-      externalSendGrant.scopeHash !== externalSendScopeHash
-    ) {
+      !externalSendPolicy?.enabled ||
+      !externalSendPolicy.destinations.some(
+        (destination) => destination.provider === provider,
+      )
+    )
       return null;
-    }
     const taskPacketHash = taskHash(
       operation.operationId,
       taskRole,
@@ -2152,7 +2274,7 @@ function taskPacketIssue(
       readPaths,
       reviewerReadProjection,
       remediationFindings,
-      externalSendGrant.networkPolicy,
+      externalSendPolicy.additionalHosts,
     );
     const taskPacketRef = `TASKPKT-${randomBytes(16).toString("hex").toUpperCase()}`;
     const controlCapability = Object.freeze({});
@@ -2170,7 +2292,7 @@ function taskPacketIssue(
       reviewerReadProjection,
       remediationFindings,
       externalSendScopeHash,
-      networkPolicy: externalSendGrant.networkPolicy,
+      additionalHosts: externalSendPolicy.additionalHosts,
       taskPacketHash,
     });
     const record = Object.freeze({
@@ -2281,9 +2403,9 @@ function taskPacketRevoke(
  *
  * @responsibility Runtime 所有 Provider Task Packetの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000015
- * @input managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown
+ * @input managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendPolicyCapability: unknown、remediationCapability: unknown、rawPacket: unknown
  * @returns issueRuntimeOwnedProviderTaskPacketの計算結果を返す。
- * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendGrantCapability: unknown、remediationCapability: unknown、rawPacket: unknown」がissueRuntimeOwnedProviderTaskPacketの入力契約を満たす。
+ * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown、provider: unknown、taskRole: unknown、taskAttempt: unknown、externalSendPolicyCapability: unknown、remediationCapability: unknown、rawPacket: unknown」がissueRuntimeOwnedProviderTaskPacketの入力契約を満たす。
  * @postcondition issueRuntimeOwnedProviderTaskPacketの責務を完了した結果だけを返す。
  * @effect N/A: issueRuntimeOwnedProviderTaskPacketは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: issueRuntimeOwnedProviderTaskPacketは独自の失敗分岐を所有しない。
@@ -2298,7 +2420,7 @@ export function issueRuntimeOwnedProviderTaskPacket(
   provider: unknown,
   taskRole: unknown,
   taskAttempt: unknown,
-  externalSendGrantCapability: unknown,
+  externalSendPolicyCapability: unknown,
   remediationCapability: unknown,
   rawPacket: unknown,
 ) {
@@ -2309,7 +2431,7 @@ export function issueRuntimeOwnedProviderTaskPacket(
     provider,
     taskRole,
     taskAttempt,
-    externalSendGrantCapability,
+    externalSendPolicyCapability,
     remediationCapability,
     rawPacket,
   );
@@ -2374,9 +2496,9 @@ export function revokeRuntimeOwnedProviderTaskPacket(
  *
  * @responsibility Isolated Provider Task Packet Runtime 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000015
- * @input consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant
+ * @input verifyExternalSendPolicy: typeof verifyRuntimeOwnedExternalSendPolicy
  * @returns createIsolatedProviderTaskPacketRuntimeCandidateの計算結果を返す。
- * @precondition 「consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant」がcreateIsolatedProviderTaskPacketRuntimeCandidateの入力契約を満たす。
+ * @precondition 「verifyExternalSendPolicy: typeof verifyRuntimeOwnedExternalSendPolicy」がcreateIsolatedProviderTaskPacketRuntimeCandidateの入力契約を満たす。
  * @postcondition createIsolatedProviderTaskPacketRuntimeCandidateの責務を完了した結果だけを返す。
  * @effect N/A: createIsolatedProviderTaskPacketRuntimeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createIsolatedProviderTaskPacketRuntimeCandidateは独自の失敗分岐を所有しない。
@@ -2386,9 +2508,9 @@ export function revokeRuntimeOwnedProviderTaskPacket(
  * @concurrency N/A: createIsolatedProviderTaskPacketRuntimeCandidateは共有非同期状態を持たない同期処理である。
  */
 export function createIsolatedProviderTaskPacketRuntimeCandidate(
-  consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant,
+  verifyExternalSendPolicy: taskPacketRuntimeState["verifyExternalSendPolicy"],
 ) {
-  const state = taskPacketCreateState(consumeExternalSendGrant);
+  const state = taskPacketCreateState(verifyExternalSendPolicy);
   return Object.freeze({
     productionAuthority: false as const,
     issue: (
@@ -2397,7 +2519,7 @@ export function createIsolatedProviderTaskPacketRuntimeCandidate(
       provider: unknown,
       taskRole: unknown,
       taskAttempt: unknown,
-      externalSendGrantCapability: unknown,
+      externalSendPolicyCapability: unknown,
       remediationCapability: unknown,
       rawPacket: unknown,
     ) =>
@@ -2408,7 +2530,7 @@ export function createIsolatedProviderTaskPacketRuntimeCandidate(
         provider,
         taskRole,
         taskAttempt,
-        externalSendGrantCapability,
+        externalSendPolicyCapability,
         remediationCapability,
         rawPacket,
       ),
@@ -2446,7 +2568,7 @@ export function describeProviderTaskPacketRuntimeContract() {
     remediationProjection:
       "path_severity_category_criterion_secret_screened_untrusted_message_claim_and_domain_separated_message_hash",
     remediationSecretBoundary:
-      "finding_paths_and_messages_rejected_before_external_send_grant_consumption_and_packet_issue",
+      "finding_paths_and_messages_rejected_before_packet_issue",
     reviewerScopeBoundary:
       "all_stated_acceptance_criteria_including_explicit_documentation_plus_runtime_verified_changed_path_scope_and_independent_readable_candidate_semantics_without_git_metadata_or_unstated_repository_wide_gates",
     reviewerDecisionInvariant:
@@ -3147,13 +3269,13 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
                             : undefined,
                       }
                     : {}),
-                  networkPolicy: task.networkPolicy,
+                  additionalHosts: task.additionalHosts,
                 }
               : advice
                 ? {
                     purpose: "advice",
                     input: advice.providerPrompt,
-                    networkPolicy: advice.networkPolicy,
+                    additionalHosts: advice.additionalHosts,
                     allowedReferences: advice.allowedReferences,
                   }
                 : { purpose: "probe" }),
@@ -3177,11 +3299,11 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
                 ...executor.recordProjection,
                 executor,
                 executionSelection: request.selection,
-                networkPolicy:
+                additionalHosts:
                   request.purpose === "task"
-                    ? request.networkPolicy
+                    ? request.additionalHosts
                     : request.purpose === "advice"
-                      ? request.networkPolicy
+                      ? request.additionalHosts
                       : null,
                 taskRole: request.purpose === "task" ? request.taskRole : null,
                 ...(provider === "claude"

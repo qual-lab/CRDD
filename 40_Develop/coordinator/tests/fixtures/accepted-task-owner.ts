@@ -44,8 +44,6 @@ const accepted = await owner.start({
   prompt: "synthetic",
   contextReferences: ["PROJECT_CONTEXT.md"],
   allowedPaths: [],
-  externalSendConfirmed: true,
-  expectedNetworkPolicyHash: "a".repeat(64),
   workspaceId: null,
 });
 assert.equal(accepted.status, "accepted");

@@ -102,7 +102,7 @@ export type {
   DockerEnvironmentRequest,
   DockerEnvironmentResult,
   DockerEnvironmentStatus,
-  DockerRuntimeRestartEvent,
+  DockerEnvironmentRestartEvent,
 } from "../../docker-isolation/src/index.ts";
 export {
   inspectDockerEnvironment,

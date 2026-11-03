@@ -16,7 +16,6 @@ import {
   planProviderExecution,
 } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
-import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeProviderDockerRuntimeAdapterContract } from "../../../src/execution/preparation.ts";
@@ -148,11 +147,7 @@ function createFixture(
         },
         taskPacketHash: "b".repeat(64),
         prompt: "Review the exact local candidate.",
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("claude", []);
-          if (result.status !== "ready") throw new Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         promptTransport: "provider_stdin_only" as const,
       }),
     issueProviderAuthority: (management: unknown, active: unknown) => {
@@ -256,11 +251,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         projectionHash: "3".repeat(64),
 
         packetHash: "5".repeat(64),
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("claude", []);
-          if (result.status !== "ready") throw Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         providerPrompt: "Give advice from the supplied projection.",
         allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,
@@ -736,11 +727,7 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
         },
         taskPacketHash: "c".repeat(64),
         prompt: "Create the exact bounded candidate change.",
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("claude", []);
-          if (result.status !== "ready") throw new Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         promptTransport: "provider_stdin_only" as const,
       }),
   });
@@ -819,11 +806,7 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
         taskWorkload,
         taskPacketHash: "b".repeat(64),
         prompt: "Review the exact local candidate.",
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("claude", []);
-          if (result.status !== "ready") throw new Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         promptTransport: "provider_stdin_only",
       }),
       ...(readPathCount === 0 || readPathCount === 13

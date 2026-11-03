@@ -86,8 +86,6 @@ export type SingleTaskCommand = Readonly<{
   prompt: string;
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
-  externalSendConfirmed: boolean;
-  expectedNetworkPolicyHash: string;
   workspaceId: string | null;
 }>;
 
@@ -163,8 +161,6 @@ export function inspectSingleTaskCommand(
     "prompt",
     "contextReferences",
     "allowedPaths",
-    "externalSendConfirmed",
-    "expectedNetworkPolicyHash",
     "workspaceId",
   ];
   const r =
@@ -174,7 +170,7 @@ export function inspectSingleTaskCommand(
   const paths = snapshotPlainArray<string>(r?.allowedPaths, 1024);
   if (
     !r ||
-    Object.keys(r).length !== 8 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
+    Object.keys(r).length !== 6 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
     typeof r.mode !== "string" ||
     !["read_only_advice", "workspace_edit"].includes(r.mode) ||
     !(
@@ -186,9 +182,6 @@ export function inspectSingleTaskCommand(
     typeof r.prompt !== "string" ||
     r.prompt.trim().length === 0 ||
     r.prompt.length > 32000 ||
-    r.externalSendConfirmed !== true ||
-    typeof r.expectedNetworkPolicyHash !== "string" ||
-    !/^[a-f0-9]{64}$/u.test(r.expectedNetworkPolicyHash) ||
     refs.status !== "ok" ||
     refs.value.length !== 1 ||
     refs.value[0] !== "PROJECT_CONTEXT.md" ||
@@ -1420,7 +1413,6 @@ export function openTaskSession(context: TaskSessionContext) {
           workspaceHead: execution.target.head,
           taskRequest: {
             taskExecutionSelections: execution.taskExecutionSelections,
-            expectedNetworkPolicyHash: command.expectedNetworkPolicyHash,
             objective: command.prompt,
             acceptanceCriteria: [
               "Edit the selected working tree only. Do not commit, merge, push, stash, reset, clean, or promote changes.",

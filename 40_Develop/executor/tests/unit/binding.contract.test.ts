@@ -16,7 +16,7 @@ import {
   prepareProviderEnvironment,
   resolveAiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
-import { describeIsolationCapabilities } from "../../../docker-isolation/src/index.ts";
+import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import {
   dockerIsolationCommandsMatch,
   planDockerIsolationCommands,
@@ -70,7 +70,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
     );
     assert.ok(original);
     for (const purpose of ["probe", "advice", "task"] as const) {
-      const catalog = describeIsolationCapabilities(provider);
+      const catalog = describeIsolationConfiguration(provider);
       const chosen = resolveAiModelSelection({
         provider,
         modelIdentifier:
@@ -93,7 +93,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
         executionSelection: chosen.value,
         providerImageDigest:
           purpose === "advice" && provider === "codex"
-            ? describeIsolationCapabilities("codex").assets.adviceIdentity
+            ? describeIsolationConfiguration("codex").assets.adviceIdentity
                 .fixedImageDigest
             : catalog.assets.fixedImageDigest,
         taskRole: purpose === "task" ? "reviewer" : null,
@@ -129,7 +129,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
         { proxyImageDigest: `sha256:${"0".repeat(64)}` },
         { operationMode: "unsupported" },
         {
-          networkPolicy: {
+          additionalHosts: {
             provider: provider === "codex" ? "claude" : "codex",
           },
         },
@@ -156,14 +156,14 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
         } as typeof execution),
         null,
       );
-      for (const change of ["image", "internal", "direct", "networks"]) {
+      for (const change of ["image"]) {
         const resolve = runInNewContext(
           `${sourceDeclaration(source, "resolveIsolationCommandInput")}\nresolveIsolationCommandInput`,
           {
             prepareProviderEnvironment,
             describeProviderAuthentication,
-            describeIsolationCapabilities: (p: "codex" | "claude") => {
-              const value = describeIsolationCapabilities(p);
+            describeIsolationConfiguration: (p: "codex" | "claude") => {
+              const value = describeIsolationConfiguration(p);
               return {
                 ...value,
                 assets: {

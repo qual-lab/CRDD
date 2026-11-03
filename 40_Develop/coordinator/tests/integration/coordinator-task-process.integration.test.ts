@@ -296,11 +296,6 @@ function createProcessHarness(
       return { status: "consumed", mountAuthorizationCapability: capability() };
     },
     revokeMountGrant: revoke,
-    authorizeExternalSend: () => ({
-      status: "issued",
-      capability: capability(),
-      authorizationMode: "reused_initial_consent",
-    }),
     resolveExternalSendPolicy: () => ({
       status: "resolved",
       capability: capability(),
@@ -316,7 +311,6 @@ function createProcessHarness(
       lockReleased: true,
     }),
     reportSelectionNotice: () => {},
-    reportExternalSendNotice: () => {},
     issueTaskPacket: (_management, _binding, _provider, role) => {
       const issued = issue();
       assignments.set(issued.useCapability, role);

@@ -240,7 +240,7 @@ export function createWorkbenchMainViewModel(
     }),
     aiRequest: Object.freeze({
       configured: aiRequests !== undefined,
-      networkPolicies: null,
+      additionalHosts: null,
       snapshot: aiRequestSnapshot,
       notice: aiRequestNotice,
     }),

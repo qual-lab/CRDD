@@ -184,11 +184,7 @@ const SOURCE_ROLES = {
     "cli/cancellation.ts",
   ],
   technicalStorage: ["state/probe-record.ts"],
-  externalSendDecision: [
-    "decision/external-send-consent.ts",
-    "decision/external-send-grant.ts",
-    "decision/external-send-policy.ts",
-  ],
+  externalSendDecision: ["decision/external-send-policy.ts"],
   entry: ["index.ts", "api.ts"],
 } as const;
 const SOURCE_PREFIX = "40_Develop/coordinator/src/";

@@ -16,7 +16,6 @@ import type {
 } from "../../../../executor/src/index.ts";
 
 import type { PreparationInput as AttemptInput } from "../../../src/execution/types.ts";
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 import fs from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -45,7 +44,7 @@ import { types as utilTypes } from "node:util";
 const selection = executionSelection("advice");
 const prepared = prepareProviderAdvicePlan(
   Object.freeze({
-    networkPolicy: fixtureNetworkPolicy(selection.provider),
+    additionalHosts: Object.freeze([]),
     provider: selection.provider,
     providerPrompt: "固定投影だけを根拠に説明する",
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),

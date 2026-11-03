@@ -18,15 +18,105 @@ import type { AttemptPlan, IsolationRuntime } from "../../src/attempt/types.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
- * 旧argv Compilerの入力拒否を用途構成Ownerで保持する。
- * @responsibility 共通Requestの固定化に伴うpayload・Path条件の脱落を反証する。
+ * Executor外側の未知例外をDIの技術失敗と取り違えない。
+ * @responsibility 外側catchの固定診断と生例外非公開を確認する。
  * @trace ERB-UT-023
- * @precondition 本番の純粋構築から得た合成PlanとProvider計画。
- * @stimulus argv件数、環境件数、予約名、byte上限とPathの境界を渡す。
- * @observation 構成の受理又はnull。
- * @oracle 既存上限内だけ受理し、不正入力でDI実行へ進めない。
- * @cleanup N/A: メモリ内の値検査だけ。
- * @boundary Executor構成Owner。実CLI・Directory観測は別のDI試験が所有する。
+ * @precondition 本番executeAttempt本文と有限の実行・回収境界を使用する。
+ * @stimulus code/messageの読取りを禁止した例外を実行代役から投げる。
+ * @observation blocked結果、固定例外分類、例外Property読取り数。
+ * @oracle unclassified_exceptionとなり、Property読取りは0回。
+ * @cleanup N/A: 値とPromiseだけ。実Process・Docker・AIは使用しない。
+ * @boundary Executor外側catch。DI内部の分類はDI試験で検証する。
+ */
+test("Executor外側の未知例外はDIとして再分類せず生値を公開しない", async () => {
+  const source = readFileSync(
+    new URL("../../src/attempt/operations.ts", import.meta.url),
+    "utf8",
+  );
+  const execute = runInNewContext(
+    sourceDeclaration(source, "executeAttempt") + "\nexecuteAttempt",
+    {
+      createConfigurationNotice: () => ({}),
+      createCompletionResult: (value: unknown) => value,
+      executeLifecycle: async (operations: {
+        execute(): Promise<void>;
+        cleanup(): Promise<void>;
+        createResult(
+          context: unknown,
+          error: unknown,
+          failed: boolean,
+        ): unknown;
+      }) => {
+        await operations.execute();
+        await operations.cleanup();
+        return operations.createResult(null, null, false);
+      },
+    },
+  );
+  let reads = 0;
+  const thrown = Object.defineProperties(
+    {},
+    {
+      code: {
+        get() {
+          reads++;
+          throw Error("must_not_read");
+        },
+      },
+      message: {
+        get() {
+          reads++;
+          throw Error("must_not_read");
+        },
+      },
+    },
+  );
+  const notices: Array<{ primaryFailure?: { exceptionCode: string } }> = [];
+  const result = await execute(
+    {
+      callbacks: {
+        onDiagnostic: (notice: (typeof notices)[number]) => {
+          notices.push(notice);
+        },
+      },
+      isolation: {
+        startExecution: () => {
+          throw thrown;
+        },
+        cleanupOwnedResources: async () => ({
+          confirmed: false,
+          processTreeTerminated: false,
+          containersAbsent: false,
+          networksAbsent: false,
+        }),
+      },
+    },
+    { lifecycle: { cancellationRequested: false } },
+    {
+      operationId: "OP-123456",
+      provider: "codex",
+      taskRole: "executor",
+    },
+    { recoveryId: "exact-recovery" },
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    notices.at(-1)?.primaryFailure?.exceptionCode,
+    "unclassified_exception",
+  );
+  assert.equal(reads, 0);
+});
+
+/**
+ * 入力構築が既存のpayload・環境・Path条件を維持する。
+ * @responsibility 構成Ownerの拒否条件を有限入力で確認する。
+ * @trace ERB-UT-023
+ * @precondition 本番の純粋構築から合成Planを取得する。
+ * @stimulus 各件数・容量・Path境界を渡す。
+ * @observation 受理又はnull。
+ * @oracle 許容範囲だけ受理する。
+ * @cleanup N/A: 値検査だけ。
+ * @boundary Executorの入力構築。
  */
 test("Request構築は旧payload上限と予約名・Path拒否を維持する", () => {
   const { plan } = fixture();
@@ -200,15 +290,15 @@ function fixture() {
                   stderr: "",
                   outputExceeded: false,
                 };
-                await callbacks.onObserved?.(
-                  step,
-                  response,
-                  1,
-                  null,
+                const commandResult = {
+                  observation: response,
+                  elapsedMs: 1,
+                  errorCode: null,
                   classification,
-                  "zero",
-                );
-                await callbacks.onCompleted?.(step, response);
+                  exitClass: "zero" as const,
+                };
+                await callbacks.onObserved?.(step, commandResult);
+                await callbacks.onCompleted?.(step, commandResult);
               }
             }
           }
@@ -512,6 +602,63 @@ test("Executorの準備資源名は実行Identity形式・63文字境界と乱�
       ),
     /fixed_random_failure/u,
   );
+});
+
+/**
+ * 不正な資源名・Label・DigestをHome排他より前に拒否する。
+ * @responsibility Executorが所有する五資源の生成・開始文法を固定する。
+ * @trace ERB-UT-023
+ * @precondition 本番準備から得た合成Plan。技術接続は呼ばれると失敗する。
+ * @stimulus 名の欠測・不正文法・重複、LabelとDigestの変異を渡す。
+ * @observation 開始拒否と技術接続の呼出し回数。
+ * @oracle 全変異を拒否し、Home取得・DI要求は0。
+ * @cleanup N/A: メモリ内の有限値のみ。
+ * @boundary Executor開始入力。実資源観測は行わない。
+ */
+test("資源Identityの不正はHome取得・DI要求より前に拒否する", () => {
+  const { plan } = fixture();
+  assert.equal(boundary.isAttemptPlanValid(plan), true);
+  const nameKeys = [
+    "authContainerName",
+    "providerContainerName",
+    "proxyContainerName",
+    "internalNetworkName",
+    "egressNetworkName",
+  ] as const;
+  for (const change of [
+    ...nameKeys.flatMap((key, index) =>
+      nameKeys.slice(index + 1).map((other) => ({ [key]: plan[other] })),
+    ),
+    { authContainerName: "" },
+    { providerContainerName: "crdd-codex-invalid" },
+    { internalNetworkName: plan.authContainerName },
+    { ownershipLabel: "crdd.coordinator.runtime=invalid" },
+    { providerImageDigest: "sha256:invalid" },
+    { proxyImageDigest: "sha256:invalid" },
+  ]) {
+    let technicalCalls = 0;
+    const state = {
+      controls: new WeakMap(),
+      callbacks: {},
+      isolation: new Proxy({} as IsolationRuntime, {
+        get() {
+          technicalCalls++;
+          throw Error("must_not_call");
+        },
+      }),
+    };
+    const result = boundary.start(
+      state,
+      { ...plan, ...change },
+      {},
+      {
+        recoveryId: `docker-task.${plan.stableLogicalHomeBindingHash}.${"b".repeat(64)}.${"c".repeat(64)}`,
+        recoveryCapability: {},
+      },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(technicalCalls, 0);
+  }
 });
 
 /**

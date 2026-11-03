@@ -23,7 +23,6 @@ import {
 } from "../fixtures/ai-selection.ts";
 
 import type { DockerExecutionCallbacks } from "../../../executor/src/attempt/types.ts";
-import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
@@ -165,11 +164,7 @@ function createPlanFixture(
         },
         taskPacketHash: "d".repeat(64),
         prompt: "Execute the exact isolated task.",
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy(provider, []);
-          if (result.status !== "ready") throw new Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
@@ -184,11 +179,7 @@ function createPlanFixture(
         projectionHash: "3".repeat(64),
 
         packetHash: "5".repeat(64),
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy(provider, []);
-          if (result.status !== "ready") throw Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         providerPrompt: "Give advice from the supplied projection.",
         allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,

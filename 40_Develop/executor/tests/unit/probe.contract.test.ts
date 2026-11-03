@@ -83,7 +83,7 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
         assert.ok(r?.kind === "container");
         assert.equal(r.name, `crdd-coordinator-probe-${probeId}`);
         assert.equal(r.ownershipLabel, `crdd.coordinator.probe=${probeId}`);
-        assert.equal(r.image, original.describeIsolationCapabilities().image);
+        assert.equal(r.image, original.describeIsolationConfiguration().image);
         assert.equal(r.network, null);
         assert.equal(r.entrypoint, "python");
         assert.equal(r.user, "65532:65532");
@@ -157,9 +157,8 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
                 await Promise.resolve();
               }
               if (!cancelled)
-                callbacks.onObserved?.(
-                  run,
-                  {
+                callbacks.onObserved?.(run, {
+                  observation: {
                     status:
                       mode === "normal" || mode === "input_changed" ? 0 : 7,
                     signal: null,
@@ -170,9 +169,9 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
                     stderr: "",
                     outputExceeded: false,
                   },
-                  1,
-                  null,
-                  {
+                  elapsedMs: 1,
+                  errorCode: null,
+                  classification: {
                     category:
                       mode === "normal" || mode === "input_changed"
                         ? "completed"
@@ -183,10 +182,11 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
                         : 0,
                     stderrBytes: 0,
                   },
-                  mode === "normal" || mode === "input_changed"
-                    ? "zero"
-                    : "other_nonzero",
-                );
+                  exitClass:
+                    mode === "normal" || mode === "input_changed"
+                      ? "zero"
+                      : "other_nonzero",
+                });
               if (mode === "close") terminated = false;
               if (mode === "changed") changed = true;
             } catch (error) {

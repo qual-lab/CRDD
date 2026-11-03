@@ -62,22 +62,14 @@ test("実行物Trustは既存Policy Hashと操作内実体固定を維持する"
  * @boundary 固定Node fixture→実環境構成関数。OS観測自体の実測とは区別する。
  */
 test("Docker環境は固定四項目と用途別Driveを構成し観測不能を補完しない", () => {
-  const expectedExports = [
-    "prepareIsolation",
-    "executeIsolation",
-    "parseDockerNetworkPolicy",
-    "dockerResourceExpectationIsValid",
-    "classifyDockerCommandException",
-    "dockerIsolationResourceIdentityIsValid",
-  ].sort();
+  const expectedExports = ["prepareIsolation", "executeIsolation"].sort();
   const actualExports = Object.keys(dockerIsolation).sort();
   expectedExports.push(
-    "describeIsolationCapabilities",
+    "describeIsolationConfiguration",
     "inspectDockerEnvironment",
     "restartDockerEnvironment",
     "cleanupIsolation",
     "inspectIsolation",
-    "parseDockerTaskRecoveryId",
   );
   expectedExports.sort();
   assert.deepEqual(actualExports, expectedExports);

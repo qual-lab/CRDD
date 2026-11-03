@@ -14,7 +14,8 @@ import type {
   DockerExecutionCallbacks,
   DockerResourceReceipts,
 } from "../../../executor/src/attempt/types.ts";
-import type { CommandObservation } from "../../src/index.ts";
+
+import type { CommandObservation } from "../../src/execution/result.ts";
 import type { DockerIsolationCommand } from "../support/execution-plan.ts";
 import {
   describeDockerCommandSessionContract,

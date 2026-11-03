@@ -885,8 +885,6 @@ test("HTTP子の故障は同ID観測を保持し終了未確認だけをsticky�
         prompt: "synthetic",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
-        expectedNetworkPolicyHash: "a".repeat(64),
-        externalSendConfirmed: true,
       }),
       (error: unknown) => {
         assert.ok(

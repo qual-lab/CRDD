@@ -165,9 +165,7 @@ export type WorkbenchMainViewModel = Readonly<{
   }>;
   aiRequest: Readonly<{
     configured: boolean;
-    networkPolicies:
-      | import("../../../../coordinator/src/index.ts").RepositoryNetworkPolicies
-      | null;
+    additionalHosts: readonly string[] | null;
     snapshot: WorkbenchAiRequestSnapshot | null;
     notice: string | null;
   }>;

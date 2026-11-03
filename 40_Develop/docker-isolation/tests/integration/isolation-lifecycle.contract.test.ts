@@ -6,6 +6,7 @@
  * @level IT
  * @scope 模擬CLI・Process・Directory。実Docker・AI・保持物は使用しない。
  */
+import { captureIsolationRequest } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test, { type TestContext } from "node:test";
@@ -167,6 +168,8 @@ async function fixture(t: TestContext, resourceSet = false) {
   };
   const calls: string[][] = [],
     ids = new Set<string>();
+  let cliFailure: string | null = null;
+  let directoryIdentity = "directory";
   let dynamic = false;
   let provider: "codex" | "claude" = "codex";
   const created = new Map<string, IsolationRequest["resources"][number]>();
@@ -200,7 +203,13 @@ async function fixture(t: TestContext, resourceSet = false) {
     namedExports: {
       ...trusted,
       observeTrustedDockerCli: () => ({}),
-      verifyTrustedDockerCliSnapshot: () => "fixed-docker",
+      verifyTrustedDockerCliSnapshot: () => {
+        if (cliFailure)
+          throw Object.assign(Error("private diagnostic"), {
+            code: cliFailure,
+          });
+        return "fixed-docker";
+      },
     },
   });
   t.mock.module("../../src/docker-cli/environment.ts", {
@@ -212,7 +221,7 @@ async function fixture(t: TestContext, resourceSet = false) {
   t.mock.module("../../src/docker-cli/config.ts", {
     namedExports: {
       ...configurations,
-      observeDockerDirectoryIdentity: () => "directory",
+      observeDockerDirectoryIdentity: () => directoryIdentity,
       observeDockerProtectedMountIdentity: (source: string) => {
         protectedIdentities.push(source);
         return "protected-file";
@@ -341,7 +350,7 @@ async function fixture(t: TestContext, resourceSet = false) {
                       SecurityOpt: [
                         "no-new-privileges",
                         ...(resource.seccomp
-                          ? [`seccomp=${resource.seccomp}`]
+                          ? [`seccomp=${JSON.stringify(resource.seccomp)}`]
                           : []),
                       ],
                       Init: resource.init,
@@ -590,6 +599,12 @@ async function fixture(t: TestContext, resourceSet = false) {
     `../../src/execution/operations.ts?case=${Math.random()}`
   );
   return {
+    set cliFailure(value: string | null) {
+      cliFailure = value;
+    },
+    set directoryIdentity(value: string) {
+      directoryIdentity = value;
+    },
     set observation(value: CommandObservation | null) {
       commandObservation = value;
     },
@@ -674,7 +689,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
     namedExports: {
       ...di,
       prepareIsolation: (request: IsolationRequest) => {
-        f.useRequest(request, selected);
+        f.useRequest(captureIsolationRequest(request), selected);
         return f.api.prepareIsolation(request);
       },
       executeIsolation: f.api.executeIsolation,
@@ -689,9 +704,6 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       await t.test(`${provider}:${mode}`, async () => {
         selected = provider;
         released = 0;
-        const policy = di.describeIsolationCapabilities(provider).networkPolicy;
-        assert.equal(policy.status, "ready");
-        if (policy.status !== "ready") return;
         const target = {
           provider,
           operationId: "OP-123456",
@@ -725,7 +737,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
                   },
                   input: "synthetic task input",
                   taskRole: "executor",
-                  networkPolicy: policy.policy,
+                  additionalHosts: [],
                 },
                 {
                   paths: {
@@ -816,15 +828,77 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       });
 });
 
-/** 元準備だけを一回実行し、Receipt→結果→回収→Completionを確認する。
- * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
+/**
+ * 準備後の実体差をEffect前の型付き失敗へ保持する。
+ * @responsibility 初回再検証の拒否時点と一回使用を確認する。
  * @trace ERB-IT-004
- * @precondition 当該Caseの有限代役又はRepository内の新品試験領域だけを使用する。
- * @stimulus Case名に示す正常・境界・失敗条件を同じ実装へ与える。
- * @observation 同じ呼出しの返却値・元実ID・要求順序と終了条件を観測する。
- * @oracle Case内の独立期待値と一致し、未確認を成功へ補完しない。
- * @cleanup 登録した代役を復元し、所有するPromiseと新品試験資源の終了を確認する。
- * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
+ * @precondition 有限CLI・Directory・Process代役を使用する。
+ * @stimulus 準備後のCLI既知例外・未知例外・Directory置換を与える。
+ * @observation Failure、要求数、元準備の再使用、通知解放。
+ * @oracle 要求0、分類保持、再使用拒否、生例外非公開。
+ * @cleanup 有限代役を復元しCompletionまで待つ。
+ * @boundary 実体の再検証からDocker Effect直前まで。実Docker・AIなし。
+ */
+test("開始時の再検証失敗はDI結果へ分類し要求を発行しない", async (t) => {
+  for (const code of [
+    "ENOENT",
+    "EACCES",
+    "EPERM",
+    "private_unknown",
+    "directory_changed",
+  ]) {
+    await t.test(code, async (t) => {
+      const f = await fixture(t);
+      const prepared = f.api.prepareIsolation(f.request);
+      assert.ok(prepared);
+      if (code === "directory_changed") f.directoryIdentity = "replacement";
+      else f.cliFailure = code;
+      const execution = f.api.executeIsolation(prepared);
+      assert.throws(() => f.api.executeIsolation(prepared), /already_started/u);
+      const result = await execution.completion;
+      assert.equal(result.failure?.stage, "preparation");
+      assert.equal(
+        result.failure?.exceptionCode,
+        code === "private_unknown" || code === "directory_changed"
+          ? "unclassified_exception"
+          : code,
+      );
+      if (code === "directory_changed")
+        assert.equal(
+          result.failure?.reason,
+          "docker_isolation_directory_changed",
+        );
+      assert.equal(result.failure?.commandHandleObtained, false);
+      assert.equal(result.failure?.responseObserved, false);
+      assert.equal(f.calls.length, 0);
+      assert.equal(f.ids.size, 0);
+      assert.ok(
+        result.resources.resources.every((r) => r.request === "not_issued"),
+      );
+      assert.equal(result.cleanup.confirmed, true);
+      assert.equal(result.callbackRegistrationReleased, true);
+      assert.equal(
+        JSON.stringify(result).includes("private diagnostic"),
+        false,
+      );
+      assert.throws(
+        () => f.api.executeIsolation({ ...prepared }),
+        /preparation_invalid/u,
+      );
+    });
+  }
+});
+
+/**
+ * 元準備の一回性と通知・結果・回収の順序を確認する。
+ * @responsibility 共通実行の元値と終了後条件を検証する。
+ * @trace ERB-IT-004
+ * @precondition 有限Transportだけを接続する。
+ * @stimulus 元準備を実行し二回目を拒否させる。
+ * @observation Snapshot、通知順、資源不存在。
+ * @oracle 一回だけ発行し回収後に完了する。
+ * @cleanup 代役を復元する。実Docker・AIは使用しない。
+ * @boundary 元準備から共通Lifecycleまで。
  */
 test("共通入口は元準備を一回だけ実行し非秘密Snapshotと回収結果を返す", async (t) => {
   const f = await fixture(t),
@@ -1481,14 +1555,13 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
       assert.ok(prepared);
       let observed = false;
       const result = await f.api.executeIsolation(prepared, {
-        onObserved: (
-          step,
-          value,
-          _elapsed,
-          _error,
-          classification,
-          exitClass,
-        ) => {
+        onObserved: (step, commandResult) => {
+          assert.equal(Object.isFrozen(commandResult), true);
+          const {
+            observation: value,
+            classification,
+            exitClass,
+          } = commandResult;
           if (step.key !== "run") return;
           observed = true;
           assert.strictEqual(value, c.value);

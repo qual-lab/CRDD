@@ -3,11 +3,14 @@
  * @responsibility Probeの合否をExecutorで解釈し、DIへ用途の意味を持ち込まない。
  * @trace ARCH-000008
  */
-import type { CommandObservation } from "../../../docker-isolation/src/index.ts";
+import type { IsolationCommandResult } from "../../../docker-isolation/src/index.ts";
 import type { IsolationProbeFacts } from "./types.ts";
 const PROBE_MARKER = "crdd-coordinator-isolation-v1";
 type ProbeExecutionObservation = Partial<
-  Pick<CommandObservation, "signal" | "status" | "stderr" | "stdout">
+  Pick<
+    NonNullable<IsolationCommandResult["observation"]>,
+    "signal" | "status" | "stderr" | "stdout"
+  >
 > &
   Readonly<{ error?: Error }>;
 

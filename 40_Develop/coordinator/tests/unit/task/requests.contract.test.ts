@@ -33,8 +33,6 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     prompt: "合成入力",
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [],
-    externalSendConfirmed: true,
-    expectedNetworkPolicyHash: "a".repeat(64),
     workspaceId: null,
   };
   assert.ok(inspectSingleTaskCommand(command));

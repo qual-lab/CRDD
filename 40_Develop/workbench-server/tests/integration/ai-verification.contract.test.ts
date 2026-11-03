@@ -88,7 +88,7 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
   assert.equal(fs.existsSync(root), false);
 });
 import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
-import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
+import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
 import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
 import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
@@ -450,7 +450,7 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
       }),
       verified: { capability: {} },
       verifyRepositoryRoot: () => ({ status: "blocked" }),
-      readRepositoryNetworkPolicies: () => ({
+      readRepositoryNetworkHosts: () => ({
         status: "ready",
         policies: { codex: { policyHash: "a".repeat(64) } },
       }),
@@ -1916,7 +1916,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
       permitted: () => true,
       verified: { capability: {} },
       Date: { now: () => (clockReads++ === 0 ? 0 : 600_001) },
-      readRepositoryNetworkPolicies: () => ({
+      readRepositoryNetworkHosts: () => ({
         status: "ready",
         policies: { claude: { policyHash: "a".repeat(64) } },
       }),
@@ -2226,13 +2226,12 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
       start: async (input: {
         contextReferences: string[];
         mode: string;
-        externalSendConfirmed: boolean;
         choice: { provider: string; model: string; effort: string };
       }) => {
         starts++;
         assert.deepEqual([...input.contextReferences], ["PROJECT_CONTEXT.md"]);
         assert.equal(input.mode, "read_only_advice");
-        assert.equal(input.externalSendConfirmed, true);
+        assert.equal("externalSendConfirmed" in input, false);
         assert.deepEqual(JSON.parse(JSON.stringify(input.choice)), {
           provider: "claude",
           model: "claude-opus-5-5",
@@ -2280,7 +2279,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         },
         readFileSync: () => Buffer.from("synthetic context"),
         verifyRepositoryRoot,
-        readRepositoryNetworkPolicies,
+        readRepositoryNetworkHosts,
         readRepositoryAiSelection: () => ({
           status: "available",
           reason: null,
@@ -2638,14 +2637,11 @@ for (const transport of ["tool-child-process"] as const) {
       ) => {
         calls++;
         currentSignal = signal;
-        assert.equal(
-          await operationCreated({
-            operationId: `OP-SYNTHETIC-${calls}`,
-            hostRecoveryId: `host.synthetic-${calls}`,
-          }),
-          true,
-        );
-        assert.equal(await started(), true);
+        await operationCreated({
+          operationId: `OP-SYNTHETIC-${calls}`,
+          hostRecoveryId: `host.synthetic-${calls}`,
+        });
+        await started();
         observedStarted();
         await new Promise<void>((resolve) => {
           const done = () => {
@@ -2708,7 +2704,7 @@ for (const transport of ["tool-child-process"] as const) {
         boundaryTiming.client(timing);
       },
     );
-    const network = readRepositoryNetworkPolicies(verified.capability);
+    const network = readRepositoryNetworkHosts(verified.capability);
     assert.equal(network.status, "ready");
     if (network.status !== "ready") throw Error("fixture_network_required");
     const command = {
@@ -2717,8 +2713,6 @@ for (const transport of ["tool-child-process"] as const) {
       prompt: "合成情報だけを説明",
       contextReferences: ["PROJECT_CONTEXT.md"],
       allowedPaths: [],
-      externalSendConfirmed: true,
-      expectedNetworkPolicyHash: network.policies.codex.policyHash,
       workspaceId: null,
     };
     for (const mode of ["normal", "cancel"] as const) {
@@ -2801,8 +2795,6 @@ for (const transport of ["tool-child-process"] as const) {
           workType: "",
           prompt: command.prompt,
           allowedPaths: "",
-          externalSendConfirmed: "yes",
-          expectedNetworkPolicyHash: command.expectedNetworkPolicyHash,
           workspaceId: "",
         }).toString(),
       );

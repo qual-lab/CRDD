@@ -10,9 +10,7 @@
  * @security Task・送信許可・Credential・永続Stateを所有せず、実ID／固定構成の照合前に削除しない。
  */
 
-export { describeIsolationCapabilities } from "./capabilities.ts";
-export { dockerResourceExpectationIsValid } from "./cleanup/plan.ts";
-export { parseDockerTaskRecoveryId } from "./cleanup/resource.ts";
+export { describeIsolationConfiguration } from "./configuration.ts";
 export type {
   ResourceInspection,
   ResourceTarget,
@@ -23,7 +21,7 @@ export {
   inspectDockerEnvironment,
   restartDockerEnvironment,
 } from "./docker-desktop/operations.ts";
-export type { DockerRuntimeRestartEvent } from "./docker-desktop/restart.ts";
+export type { DockerEnvironmentRestartEvent } from "./docker-desktop/restart.ts";
 export type {
   DockerEnvironmentRequest,
   DockerEnvironmentResult,
@@ -35,13 +33,7 @@ export {
   inspectIsolation,
   prepareIsolation,
 } from "./execution/operations.ts";
-export { dockerIsolationResourceIdentityIsValid } from "./execution/plan.ts";
-export {
-  type CommandObservation,
-  classifyDockerCommandException,
-  type DockerCommandExecutionClassification,
-  type DockerProcessExitStatusClass,
-} from "./execution/result.ts";
+export type { IsolationCommandResult } from "./execution/result.ts";
 export type {
   IsolationCallbacks,
   IsolationExecution,
@@ -49,9 +41,4 @@ export type {
   IsolationRequest,
   PreparedIsolation,
 } from "./execution/types.ts";
-export type { IsolationCapabilities } from "./image/types.ts";
-export {
-  type DockerNetworkPolicy,
-  type DockerNetworkPolicyResult,
-  parseDockerNetworkPolicy,
-} from "./network/policy.ts";
+export type { IsolationConfiguration } from "./image/types.ts";

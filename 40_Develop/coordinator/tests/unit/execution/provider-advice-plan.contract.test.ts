@@ -10,7 +10,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import {
   prepareProviderAdvicePlan,
   type ProviderAdviceExecutionInput,
@@ -36,7 +35,7 @@ function executionInput(
   });
   return {
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-    networkPolicy: fixtureNetworkPolicy(provider),
+    additionalHosts: Object.freeze([]),
     executionSelection: selected,
     provider,
     providerPrompt: "固定投影だけを説明する",

@@ -658,30 +658,12 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         ))) &&
     isRecord(value.aiRequest) &&
     typeof value.aiRequest.configured === "boolean" &&
-    (value.aiRequest.networkPolicies === null ||
-      ((policies: unknown) =>
-        isRecord(policies) &&
-        ["codex", "claude"].every((provider) => {
-          const policy = policies[provider];
-          return (
-            isRecord(policy) &&
-            policy.provider === provider &&
-            typeof policy.policyHash === "string" &&
-            /^[a-f0-9]{64}$/u.test(policy.policyHash) &&
-            policy.allowedPort === 443 &&
-            policy.allowedMethod === "CONNECT" &&
-            policy.contractRevision === 1 &&
-            policy.purpose === "repository_ai_execution" &&
-            Array.isArray(policy.allowedHosts) &&
-            policy.allowedHosts.length <= 35 &&
-            policy.allowedHosts.every(
-              (host: unknown) =>
-                typeof host === "string" &&
-                host.length <= 253 &&
-                /^[a-z0-9.-]+$/u.test(host),
-            )
-          );
-        }))(value.aiRequest.networkPolicies)) &&
+    (value.aiRequest.additionalHosts === null ||
+      (Array.isArray(value.aiRequest.additionalHosts) &&
+        value.aiRequest.additionalHosts.length <= 32 &&
+        value.aiRequest.additionalHosts.every(
+          (host: unknown) => typeof host === "string" && host.length <= 253,
+        ))) &&
     aiSnapshotIsValid(value.aiRequest.snapshot) &&
     isNullableString(value.aiRequest.notice) &&
     isRecord(value.portfolioQuery) &&

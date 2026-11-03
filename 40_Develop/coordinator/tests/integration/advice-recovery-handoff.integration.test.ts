@@ -113,8 +113,6 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     prompt: "synthetic",
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [],
-    externalSendConfirmed: true,
-    expectedNetworkPolicyHash: "a".repeat(64),
     workspaceId: null,
   });
   assert.equal(accepted.status, "accepted", JSON.stringify(accepted));

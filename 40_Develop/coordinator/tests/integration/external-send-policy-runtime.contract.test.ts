@@ -256,7 +256,54 @@ test("Repository所有Policyへ分類・Provider別処理境界・Candidate保�
     "next_safe_runtime_entry_after_expiry_or_explicit_discard",
   );
   assert.equal(compiled.destinations.length, 2);
+  assert.deepEqual(
+    compiled.destinations.map((destination) => destination.boundaryResolution),
+    ["authorized_repository_request", "authorized_repository_request"],
+  );
   assert.match(compiled.policyHash, /^[0-9a-f]{64}$/u);
+});
+
+/**
+ * 廃止した対話確認の設定を現行の認可として読み替えない。
+ * @responsibility フロントAIによる明示移行と製品の互換拒否を区別する。
+ * @trace EST-IT-004
+ * @precondition 新形式の合成Policyだけを使用する。
+ * @stimulus 両Providerの確認方式又は規約識別を旧値へ一軸ずつ戻す。
+ * @observation Policyのコンパイル結果。
+ * @oracle 旧値は拒否し、新値は元のenabledを保って受理する。
+ * @cleanup N/A: 局所値だけで外部資源を作らない。
+ * @boundary 設定値の検査。実際の認可・通信・規約検証ではない。
+ */
+test("旧対話確認のPolicy値を暗黙移行しない", () => {
+  for (const index of [0, 1]) {
+    for (const field of [
+      "boundaryResolution",
+      "termsPolicyIdentity",
+    ] as const) {
+      const legacy = policy();
+      assert.ok(
+        legacy && typeof legacy === "object" && "destinations" in legacy,
+      );
+      assert.ok(Array.isArray(legacy.destinations));
+      const destination = legacy.destinations[index];
+      assert.ok(destination);
+      destination[field] =
+        field === "boundaryResolution"
+          ? "interactive_local_user_confirmation_required"
+          : `${index === 0 ? "openai" : "anthropic"}-consumer-terms-current-at-interactive-confirmation`;
+      assert.equal(
+        compileExternalSendPolicyCandidate(legacy, revision, fileHash),
+        null,
+      );
+    }
+  }
+  const current = policy();
+  assert.ok(current && typeof current === "object" && "enabled" in current);
+  current.enabled = false;
+  assert.equal(
+    compileExternalSendPolicyCandidate(current, revision, fileHash)?.enabled,
+    false,
+  );
 });
 
 /**
@@ -319,6 +366,10 @@ test("公開契約は開始Commitの固定Policy fileと不明時停止を保持
   assert.equal(contract.fixedRepositoryFile, EXTERNAL_SEND_POLICY_FILE);
   assert.equal(contract.source, "exact_bound_repository_commit");
   assert.equal(contract.unknownPolicy, "blocked");
+  assert.equal(
+    contract.repositoryPolicyAuthority,
+    "authorized_repository_request",
+  );
   assert.equal(contract.legalTermsRuntimeVerified, false);
   assert.equal(contract.hostPathReported, false);
 });

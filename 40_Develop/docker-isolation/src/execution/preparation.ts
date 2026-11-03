@@ -20,6 +20,7 @@ import {
   dockerResourceExpectationIsValid,
   type DockerResourceExpectation,
 } from "../cleanup/plan.ts";
+import { prepareDockerNetworkPolicy } from "../network/policy.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "./plan.ts";
 
 const MOUNT_TARGETS = new Set([
@@ -96,11 +97,13 @@ function fields(value: object, expected: string): void {
 export function captureIsolationRequest(
   value: IsolationRequest,
 ): IsolationRequest {
-  const input = capture(value) as IsolationRequest;
+  const captured = capture(value) as IsolationRequest;
   fields(
-    input,
-    "managementDirectory,resources,steps,cleanupOrder,setupTimeoutMs,unreceiptedAbsence,verifyLabelAbsence",
+    captured,
+    "managementDirectory,resources,steps,cleanupOrder,setupTimeoutMs,unreceiptedAbsence,verifyLabelAbsence" +
+      (Object.hasOwn(captured, "proxy") ? ",proxy" : ""),
   );
+  const input = configureProxy(captured);
   const absolute = (v: unknown): v is string =>
     typeof v === "string" &&
     path.isAbsolute(v) &&
@@ -687,4 +690,124 @@ export function isolationResourceConfigurationMatches(
   } catch {
     return false;
   }
+}
+
+/**
+ * 同じ確定通信条件から固定Proxyと接続環境を構成する。
+ * @responsibility Policy生成・HashとClient環境の相関をDI内で所有する。
+ * @trace ARCH-000008
+ * @input 通常dataとして捕捉済みのRequest。
+ * @returns 元の資源参照を検査した固定環境付きRequest。
+ * @effect N/A: 純粋構成のみ。
+ * @failure 未知Profile・Host・別Proxy・外部直結・矛盾環境は要求前拒否。
+ * @invariant Role・認証・Taskの用途を判定せず、旧Policyへのfallbackを持たない。
+ */
+function configureProxy(input: IsolationRequest): IsolationRequest {
+  if (!Array.isArray(input.resources))
+    throw Error("docker_isolation_input_invalid");
+  const proxyImage = describeDockerProviderAssets("codex").proxy.imageDigest;
+  const proxyResources = input.resources.filter(
+    (r) => r.kind === "container" && r.image === proxyImage,
+  );
+  if (!input.proxy) {
+    if (Object.hasOwn(input, "proxy") || proxyResources.length)
+      throw Error("docker_isolation_proxy_required");
+    return input;
+  }
+  const p = input.proxy;
+  fields(p, "resource,clients,profile,token,additionalHosts,environmentMode");
+  if (
+    !["codex", "claude"].includes(p.profile) ||
+    typeof p.token !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(p.token) ||
+    !Array.isArray(p.clients) ||
+    !p.clients.length ||
+    new Set(p.clients).size !== p.clients.length ||
+    !["https", "uppercase", "all"].includes(p.environmentMode) ||
+    proxyResources.length !== 1 ||
+    proxyResources[0]?.key !== p.resource
+  )
+    throw Error("docker_isolation_proxy_invalid");
+  const policy = prepareDockerNetworkPolicy(
+    p.profile,
+    p.additionalHosts === null ? [] : p.additionalHosts,
+  );
+  if (policy.status !== "ready") throw Error("docker_network_policy_invalid");
+  const proxy = proxyResources[0];
+  const network = input.resources.find((r) => r.key === proxy.network);
+  if (
+    network?.kind !== "network" ||
+    !network.internal ||
+    proxy.networkAlias !== "proxy"
+  )
+    throw Error("docker_isolation_proxy_invalid");
+  for (const key of p.clients) {
+    const client = input.resources.find((r) => r.key === key);
+    if (
+      client?.kind !== "container" ||
+      key === p.resource ||
+      client.network !== network.key
+    )
+      throw Error("docker_isolation_proxy_client_invalid");
+  }
+  for (const r of input.resources) {
+    if (r.kind !== "container" || r.key === p.resource || r.network === null)
+      continue;
+    const attached = input.resources.find((n) => n.key === r.network);
+    if (attached?.kind !== "network" || !attached.internal)
+      throw Error("docker_isolation_direct_network_invalid");
+  }
+  const proxyEnvironment: Record<string, string> = {
+    CRDD_PROXY_AUTH: p.token,
+    CRDD_PROXY_PROFILE: p.profile,
+    ...(p.additionalHosts !== null
+      ? { CRDD_PROXY_NETWORK_POLICY: JSON.stringify(policy.policy) }
+      : {}),
+  };
+  const url = `http://crdd:${p.token}@proxy:8080`;
+  const clientEnvironment: Record<string, string> = { HTTPS_PROXY: url };
+  if (p.environmentMode !== "https")
+    for (const key of ["HTTP_PROXY", "ALL_PROXY", "NO_PROXY"])
+      clientEnvironment[key] = key === "NO_PROXY" ? "" : url;
+  if (p.environmentMode === "all")
+    for (const key of ["https_proxy", "http_proxy", "all_proxy", "no_proxy"])
+      clientEnvironment[key] = key === "no_proxy" ? "" : url;
+  const reserved = [
+    "CRDD_PROXY_AUTH",
+    "CRDD_PROXY_PROFILE",
+    "CRDD_PROXY_NETWORK_POLICY",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "https_proxy",
+    "http_proxy",
+    "all_proxy",
+    "no_proxy",
+  ];
+  return Object.freeze({
+    ...input,
+    resources: Object.freeze(
+      input.resources.map((r) => {
+        if (r.kind !== "container") return r;
+        const generated =
+          r.key === p.resource
+            ? proxyEnvironment
+            : p.clients.includes(r.key)
+              ? clientEnvironment
+              : null;
+        if (!generated) return r;
+        for (const key of reserved)
+          if (
+            Object.hasOwn(r.environment, key) &&
+            r.environment[key] !== generated[key]
+          )
+            throw Error("docker_isolation_proxy_environment_conflict");
+        return Object.freeze({
+          ...r,
+          environment: Object.freeze({ ...r.environment, ...generated }),
+        });
+      }),
+    ),
+  });
 }

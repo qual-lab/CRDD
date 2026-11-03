@@ -1527,7 +1527,7 @@ test("未選択Providerの拒否は理由とexact回復を保持する", async (
       completion: Promise.resolve(
         completionRecord({
           status: "blocked",
-          reason: "coordinator_task_external_send_confirmation_unavailable",
+          reason: "coordinator_task_external_send_policy_unresolved",
           executorProvider: null,
           candidateId: null,
           cleanupConfirmed: !manualRecoveryRequired,
@@ -1543,7 +1543,7 @@ test("未選択Providerの拒否は理由とexact回復を保持する", async (
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
-      "coordinator_task_external_send_confirmation_unavailable",
+      "coordinator_task_external_send_policy_unresolved",
     );
     assert.equal(Object.hasOwn(result, "executorProvider"), false);
     assert.equal(result.cleanupConfirmed, !manualRecoveryRequired);

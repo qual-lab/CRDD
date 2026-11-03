@@ -6,6 +6,10 @@
  * @scope 共通DIの有限代役のみ。実Docker・実AI・認証情報・Filesystem操作はない。
  * @boundary 公開Executor→認証固有構成→共通技術契約。物理終了はDI試験の責務。
  */
+import {
+  classifyDockerCommandExecution,
+  classifyDockerProcessExit,
+} from "../../../docker-isolation/src/execution/result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -44,9 +48,9 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
   t.mock.module("../../../docker-isolation/src/index.ts", {
     namedExports: {
       ...original,
-      describeIsolationCapabilities(...args: ["codex" | "claude", unknown?]) {
+      describeIsolationConfiguration(...args: ["codex" | "claude", unknown?]) {
         capabilityInputs.push(args);
-        return original.describeIsolationCapabilities(args[0], args[1]);
+        return original.describeIsolationConfiguration(args[0]);
       },
       cleanupIsolation(
         input: ResourceTarget<"snapshot">,
@@ -105,7 +109,7 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
         const codex =
           probe?.kind === "container" &&
           probe.image ===
-            original.describeIsolationCapabilities("codex").assets
+            original.describeIsolationConfiguration("codex").assets
               .fixedImageDigest;
         let cancelled = false;
         return {
@@ -141,7 +145,7 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
                     await callbacks.onCreated?.(step, resources);
                   }
                   if (step.action === "run") runCalls++;
-                  callbacks.onCompleted?.(step, {
+                  const observation = {
                     status:
                       step.key === "start_probe_attached" &&
                       ["unconfirmed", "contradiction"].includes(mode)
@@ -165,6 +169,13 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
                       : mode === "unconfirmed"
                         ? "Not logged in"
                         : "Logged in using ChatGPT",
+                  };
+                  callbacks.onCompleted?.(step, {
+                    observation,
+                    elapsedMs: 1,
+                    errorCode: null,
+                    classification: classifyDockerCommandExecution(observation),
+                    exitClass: classifyDockerProcessExit(observation),
                   });
                 }
               } catch {

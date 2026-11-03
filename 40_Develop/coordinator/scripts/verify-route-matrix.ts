@@ -542,9 +542,9 @@ function processRestartRequiredResult() {
  *
  * @responsibility Exact Signed Route 結果の判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
- * @input route: SignedGeneralTaskRouteProfile、result: Readonly<Record<string, unknown>>、expectedAuthorizationMode: | "interactive_initial_consent" | "reused_initial_consent"
+ * @input route: SignedGeneralTaskRouteProfile、result: Readonly<Record<string, unknown>>
  * @returns isExactSignedRouteResultの計算結果を返す。
- * @precondition 「route: SignedGeneralTaskRouteProfile、result: Readonly<Record<string, unknown>>、expectedAuthorizationMode: | "interactive_initial_consent" | "reused_initial_consent"」がisExactSignedRouteResultの入力契約を満たす。
+ * @precondition 「route: SignedGeneralTaskRouteProfile、result: Readonly<Record<string, unknown>>」がisExactSignedRouteResultの入力契約を満たす。
  * @postcondition isExactSignedRouteResultの責務を完了した結果だけを返す。
  * @effect N/A: isExactSignedRouteResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: isExactSignedRouteResultは独自の失敗分岐を所有しない。
@@ -556,9 +556,6 @@ function processRestartRequiredResult() {
 export function isExactSignedRouteResult(
   route: SignedGeneralTaskRouteProfile,
   result: Readonly<Record<string, unknown>>,
-  expectedAuthorizationMode:
-    | "interactive_initial_consent"
-    | "reused_initial_consent",
 ) {
   const expected = EXPECTED[route];
   return (
@@ -575,7 +572,6 @@ export function isExactSignedRouteResult(
     result.executorProvider === expected.executor &&
     result.reviewerProvider === expected.reviewer &&
     result.reviewerIndependence === "provider_independent" &&
-    result.externalSendAuthorizationMode === expectedAuthorizationMode &&
     validSourceIdentity(result) &&
     validExecutionIdentity(result) &&
     exactChangedPath(result.changedPaths) &&
@@ -623,8 +619,6 @@ function isSafeRetryableRouteResult(result: Readonly<Record<string, unknown>>) {
     result.status === "blocked" &&
     typeof result.reason === "string" &&
     SAFE_RETRYABLE_ROUTE_REASONS.has(result.reason) &&
-    (result.externalSendAuthorizationMode === "interactive_initial_consent" ||
-      result.externalSendAuthorizationMode === "reused_initial_consent") &&
     result.candidateDisposition === "discarded" &&
     result.candidateDiscarded === true &&
     result.cleanupConfirmed === true &&
@@ -673,10 +667,6 @@ export async function runSignedRouteMatrixVerification(
   let retryableRouteAttemptCount = 0;
   let baselineSourceIdentity: string | null = null;
   let baselineExecutionIdentity: string | null = null;
-  let initialConsentAuthorizationMode:
-    | "interactive_initial_consent"
-    | "reused_initial_consent"
-    | null = null;
   let failedRouteProfile: SignedGeneralTaskRouteProfile | null = null;
   let validationFailure:
     | "route_nonconforming"
@@ -684,7 +674,7 @@ export async function runSignedRouteMatrixVerification(
     | "execution_identity_mismatch"
     | "runner_exception"
     | null = null;
-  routeLoop: for (const [index, route] of ROUTES.entries()) {
+  routeLoop: for (const route of ROUTES) {
     for (let attempt = 1; attempt <= MAX_SAFE_ROUTE_ATTEMPTS; attempt += 1) {
       let routeSnapshot: Readonly<Record<string, unknown>> | null = null;
       try {
@@ -704,18 +694,6 @@ export async function runSignedRouteMatrixVerification(
         )
           ensureRuntimeProcessPoisoned();
         results.push(result);
-        const observedAuthorizationMode = result.externalSendAuthorizationMode;
-        if (
-          index === 0 &&
-          initialConsentAuthorizationMode === null &&
-          (observedAuthorizationMode === "interactive_initial_consent" ||
-            observedAuthorizationMode === "reused_initial_consent")
-        )
-          initialConsentAuthorizationMode = observedAuthorizationMode;
-        const expectedAuthorizationMode =
-          index === 0 && attempt === 1 && initialConsentAuthorizationMode
-            ? initialConsentAuthorizationMode
-            : "reused_initial_consent";
         if (!validSourceIdentity(result) || !validExecutionIdentity(result)) {
           failedRouteProfile = route;
           validationFailure = "route_nonconforming";
@@ -737,11 +715,7 @@ export async function runSignedRouteMatrixVerification(
           validationFailure = "execution_identity_mismatch";
           break routeLoop;
         }
-        const isExact = isExactSignedRouteResult(
-          route,
-          result,
-          expectedAuthorizationMode,
-        );
+        const isExact = isExactSignedRouteResult(route, result);
         if (!isExact) {
           if (
             attempt < MAX_SAFE_ROUTE_ATTEMPTS &&
@@ -781,7 +755,6 @@ export async function runSignedRouteMatrixVerification(
     attemptedRouteCount: results.length,
     completedRouteCount: verifiedRouteCount,
     retryableRouteAttemptCount,
-    initialConsentAuthorizationMode,
     failedRouteProfile,
     validationFailure,
     results: Object.freeze(results),
@@ -834,8 +807,7 @@ export function describeSignedRouteMatrixVerificationContract() {
     stop: "first_nonretryable_nonconforming_route_or_third_safe_nonconforming_attempt",
     safeRetry:
       "maximum_three_attempts_per_route_only_for_exact_candidate_content_mismatch_after_exact_candidate_discard_and_exact_zero_residual_effect_reviewer_rejection_and_candidate_verification_failure_are_not_retried",
-    initialConsent:
-      "preserve_valid_consent_prompt_only_when_absent_then_require_exact_reuse",
+    dedicatedSendConfirmationRequired: false,
     frontIdentityClaim:
       "requested_profile_only_observed_front_identity_not_attested",
     candidateDisposition: "each_route_exact_verify_then_discard",

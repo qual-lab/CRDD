@@ -1,5 +1,5 @@
 /**
- * 共通資源APIの固定Directory分岐と環境修復の薄い搬送を確認する。
+ * Attempt入力の事前拒否と共通資源APIの薄い搬送を確認する。
  * @responsibility 入力・Promise・不明値の保持と未知kindの処置0を反証する。
  * @trace ERB-IT-014
  * @level UT
@@ -8,6 +8,8 @@
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
+import { createAttemptRecoveryTestApi } from "../../scripts/attempt-recovery-test.ts";
+import type { ResourceTarget as AttemptResourceTarget } from "../../src/attempt/types.ts";
 
 import type {
   DockerRuntimeDirectoryCleanupResult,
@@ -23,14 +25,98 @@ import type {
 import type { ResourceTarget } from "../../src/index.ts";
 
 /**
- * 対象別の同期性と元値を同じ代役上で照合する。
- * @responsibility 通信・保存・保持判断を作らず既存DI入力だけを搬送する。
+ * 未要求・限定観測でも対象集合全体の入力拒否を維持する。
+ * @responsibility 選択前の入力検査と技術接続未取得を確認する。
  * @trace ERB-IT-014
- * @precondition DIを実Moduleのimport前に置換する。
- * @stimulus 観測null、三値要求・二値不存在、取消、Reject、不正kind。
- * @observation 元入力、Promise、結果、呼出し数。
- * @oracle 変換・補完・Directory以外からの削除要求は0。
- * @cleanup mock解除。実資源は作成しない。
+ * @precondition 本番回収本文と有限DI接続代役を使用する。
+ * @stimulus 正常未要求と、選択外資源の不正prefixを渡す。
+ * @observation completed又はblocked、DI接続取得数。
+ * @oracle 正常未要求のみcompleted。不正はblocked、取得0。
+ * @cleanup N/A: 外部資源を取得しない。
+ * @boundary 上位投影からExecutor入力検査まで。
+ */
+test("未要求と限定認証観測も選択外の不正入力を技術要求前に拒否する", async () => {
+  let calls = 0;
+  const api = createAttemptRecoveryTestApi(() => {
+    calls++;
+    throw Error("must_not_acquire");
+  });
+  const projection = {
+    authContainerName: "crdd-auth-0123456789abcdef",
+    providerContainerName: "crdd-codex-0123456789abcdef",
+    proxyContainerName: "crdd-proxy-0123456789abcdef",
+    internalNetworkName: "crdd-internal-0123456789abcdef",
+    egressNetworkName: "crdd-egress-0123456789abcdef",
+    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
+    providerImageDigest: `sha256:${"a".repeat(64)}`,
+    proxyImageDigest: `sha256:${"b".repeat(64)}`,
+    operationMode: "isolated_task",
+    workspaceMountMode: "read_write",
+  };
+  const receipts = Object.fromEntries(
+    [
+      "create_provider",
+      "create_subscription_auth_probe",
+      "create_proxy",
+      "create_internal_network",
+      "create_egress_network",
+    ].map((key) => [key, { submitted: false, dockerId: null }]),
+  );
+  const target = {
+    kind: "resource_set",
+    operationId: "OP-123456",
+    recoveryId: "exact-recovery",
+    projection,
+    receipts,
+    managementDirectory: null,
+  };
+  const normal = api.inspectResources(
+    target as unknown as AttemptResourceTarget,
+  );
+  assert.equal(normal.status, "completed");
+  assert.equal(
+    (await api.cleanupResources(target as unknown as AttemptResourceTarget))
+      .status,
+    "completed",
+  );
+  for (const submitted of [false, true]) {
+    const invalid = {
+      ...target,
+      projection: {
+        ...projection,
+        egressNetworkName: projection.authContainerName,
+      },
+      receipts: {
+        ...receipts,
+        create_subscription_auth_probe: { submitted, dockerId: null },
+      },
+    };
+    assert.equal(
+      api.inspectResources(
+        invalid as unknown as AttemptResourceTarget,
+        "create_subscription_auth_probe",
+      ).status,
+      "blocked",
+    );
+    assert.equal(
+      (await api.cleanupResources(invalid as unknown as AttemptResourceTarget))
+        .status,
+      "blocked",
+    );
+  }
+  assert.equal(calls, 0);
+});
+
+/**
+ * 固定Directoryの観測・回収と環境操作の薄い接続を検証する。
+ * @responsibility 実在する下位操作へ元入力を渡す。
+ * @trace ERB-IT-014
+ * @precondition DIを有限代役へ置換する。
+ * @stimulus 正常・取消・不明を与える。
+ * @observation 元入力とPromise、処置数。
+ * @oracle 元契約を変更せず、範囲外の要求を発行しない。
+ * @cleanup Module代役を解除する。
+ * @boundary Executor公開入口からDIへの接続。
  */
 test("共通資源APIは固定DI入力と対象別の同期性を保持する", async () => {
   const calls: unknown[] = [];
@@ -208,7 +294,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
         kind,
         operationId: "o",
         recoveryId: "r",
-      } as unknown as ResourceTarget;
+      } as unknown as AttemptResourceTarget;
       assert.equal(inspectResources(bad).status, "blocked");
       assert.equal((await cleanupResources(bad)).status, "blocked");
     }

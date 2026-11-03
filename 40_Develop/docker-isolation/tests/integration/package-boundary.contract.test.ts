@@ -29,7 +29,8 @@ import type {
   DockerIsolationRuntimeOptions,
 } from "../../../executor/src/attempt/types.ts";
 import { classifyDockerCommandExecution } from "../../src/execution/result.ts";
-import type { DockerCommandExecutionClassification } from "../../src/index.ts";
+
+import type { DockerCommandExecutionClassification } from "../../src/execution/result.ts";
 import { createDockerIsolationRuntime } from "../support/execution.ts";
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
@@ -136,7 +137,7 @@ test("DIとDomainは相互の実行時依存なしで公開Rootを開始する",
       const api=await import(${JSON.stringify(pathToFileURL(target).href)});
       if(${JSON.stringify(owner)}==='docker-isolation'){
         if('writeDockerProbeRecoveryRecord' in api || 'loadDockerProbeRecoveryRecord' in api)throw Error('persistence_exposed');
-        if(api.parseDockerTaskRecoveryId('docker-task.'+'a'.repeat(64)+'.'+'b'.repeat(64)+'.'+'c'.repeat(64))===null)throw Error('recovery_parser_invalid');
+        if(Object.hasOwn(api,'parseDockerTaskRecoveryId'))throw Error('business_parser_exposed');
       }
       console.log('OWNER_INDEPENDENT');`;
     const result = spawnSync(
@@ -326,7 +327,7 @@ test("必要な隔離技術APIは公開し内部生成Primitiveは公開しな�
     "executeIsolation",
     "cleanupIsolation",
     "inspectIsolation",
-    "describeIsolationCapabilities",
+    "describeIsolationConfiguration",
   ] as const)
     assert.equal(typeof namespace[name], "function", name);
   for (const name of [
@@ -372,8 +373,8 @@ test("必要な隔離技術APIは公開し内部生成Primitiveは公開しな�
  * @boundary 実Docker・AIを呼び出さない。
  */
 test("固定Probe記述は共通Image正本へ移しても公開値を維持する", async () => {
-  const { describeIsolationCapabilities } = await import("../../src/index.ts");
-  assert.deepEqual(describeIsolationCapabilities(), {
+  const { describeIsolationConfiguration } = await import("../../src/index.ts");
+  assert.deepEqual(describeIsolationConfiguration(), {
     image:
       "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
     engine: "docker_desktop_linux_named_pipe",

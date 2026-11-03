@@ -12,7 +12,6 @@ import type { AdviceProviderOutcome } from "../../../src/execution/advice.ts";
 import type { ProviderAdviceExecutionPlan } from "../../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 import {
   validateProviderModelId,
@@ -92,7 +91,7 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
   });
   const result = await adapter(
     Object.freeze({
-      networkPolicy: fixtureNetworkPolicy(selection.provider),
+      additionalHosts: Object.freeze([]),
       taskPacket: prepared.taskPacket,
       executionSelection: selection,
     }),
@@ -100,7 +99,10 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
   );
   assert.equal(result.reason, "fixture_completed");
   assert.equal(typeof codexInput, "object");
-  const { networkPolicy, ...flatInput } = codexInput as Record<string, unknown>;
+  const { additionalHosts, ...flatInput } = codexInput as Record<
+    string,
+    unknown
+  >;
   assert.deepEqual(flatInput, {
     allowedReferences: ["PROJECT_CONTEXT.md"],
     contract: "crdd-coordinator/workbench-ai-advice-execution-plan",
@@ -122,7 +124,7 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
     apiKeyFallbackAllowed: false,
     paidApiFallbackAllowed: false,
   });
-  assert.deepEqual(networkPolicy, fixtureNetworkPolicy(selection.provider));
+  assert.deepEqual(additionalHosts, Object.freeze([]));
   assert.equal(Object.hasOwn(codexInput as object, "providerCommand"), false);
   assert.equal(claudeCalls, 0);
 });
@@ -174,7 +176,7 @@ test("選定契約不整合を全Executor Effect前に拒否する", async () =>
   });
   const result = await adapter(
     Object.freeze({
-      networkPolicy: fixtureNetworkPolicy(selection.provider),
+      additionalHosts: Object.freeze([]),
       taskPacket: prepared.taskPacket,
       executionSelection: Object.freeze({
         ...selection,
@@ -236,7 +238,7 @@ test("Task 選定不一致はAI Adapter移管後もExecutor Effect前に拒否�
   });
   const result = await adapter(
     {
-      networkPolicy: fixtureNetworkPolicy(selection.provider),
+      additionalHosts: Object.freeze([]),
       taskPacket: {
         ...prepared.taskPacket,
         executionSelection: { ...selection, configIdentity: "f".repeat(64) },

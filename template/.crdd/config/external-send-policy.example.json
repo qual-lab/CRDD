@@ -20,8 +20,8 @@
       "retentionDeletion": "provider_terms_and_settings_apply_runtime_not_verified",
       "secondaryUseTraining": "provider_terms_and_settings_apply_runtime_not_verified",
       "onwardTransferSubprocessing": "provider_terms_and_settings_apply_runtime_not_verified",
-      "termsPolicyIdentity": "openai-consumer-terms-current-at-interactive-confirmation",
-      "boundaryResolution": "interactive_local_user_confirmation_required"
+      "termsPolicyIdentity": "openai-consumer-terms-runtime-not-verified",
+      "boundaryResolution": "authorized_repository_request"
     },
     {
       "provider": "claude",
@@ -35,8 +35,8 @@
       "retentionDeletion": "provider_terms_and_settings_apply_runtime_not_verified",
       "secondaryUseTraining": "provider_terms_and_settings_apply_runtime_not_verified",
       "onwardTransferSubprocessing": "provider_terms_and_settings_apply_runtime_not_verified",
-      "termsPolicyIdentity": "anthropic-consumer-terms-current-at-interactive-confirmation",
-      "boundaryResolution": "interactive_local_user_confirmation_required"
+      "termsPolicyIdentity": "anthropic-consumer-terms-runtime-not-verified",
+      "boundaryResolution": "authorized_repository_request"
     }
   ]
 }

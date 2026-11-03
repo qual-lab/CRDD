@@ -344,7 +344,7 @@ export function MainWorkbench({
               model.aiRequest.configured,
               model.aiRequest.snapshot,
               model.aiRequest.notice,
-              model.aiRequest.networkPolicies,
+              model.aiRequest.additionalHosts,
             )}
           </div>
         </Fragment>

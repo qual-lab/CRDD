@@ -6,10 +6,6 @@
  */
 import { createHash } from "node:crypto";
 import {
-  type DockerNetworkPolicy,
-  describeIsolationCapabilities,
-} from "../../../docker-isolation/src/index.ts";
-import {
   EXTERNAL_SEND_POLICY_RELATIVE_PATH,
   parseUnambiguousJsonDocument,
   readNetworkPolicy,
@@ -94,7 +90,7 @@ type Destination = Readonly<{
   secondaryUseTraining: string;
   onwardTransferSubprocessing: string;
   termsPolicyIdentity: string;
-  boundaryResolution: "interactive_local_user_confirmation_required";
+  boundaryResolution: "authorized_repository_request";
 }>;
 /**
  * external-send-policy-runtimeで使用するExternal Send Policyの値契約を定義する。
@@ -149,22 +145,19 @@ type PolicyRecord = Readonly<{
  * @security 値はAuthorityではなく実行条件。
  * @compatibility loginでは使用しない。
  */
-export type RepositoryNetworkPolicies = Readonly<
-  Record<"codex" | "claude", DockerNetworkPolicy>
->;
 
 /**
  * Git固定の送信方針と現在通信Snapshotの結合。
  * @responsibility 既存policyHashの意味を変えず別の通信相関を保持する。
  * @trace ARCH-000015
- * @shape ExternalSendPolicyとProvider別networkPolicies。
+ * @shape ExternalSendPolicyとRepository追加Host。
  * @invariant 同意後に設定を再読しない。
  * @boundary 非公開Policy Recordと同意・Grant。
- * @security networkPoliciesだけで実行許可を発行しない。
+ * @security 追加Hostだけで実行許可を発行しない。
  * @compatibility 旧送信方針のHash・Revisionは不変更。
  */
 export type ResolvedExternalSendPolicy = ExternalSendPolicy &
-  Readonly<{ networkPolicies: RepositoryNetworkPolicies }>;
+  Readonly<{ additionalHosts: readonly string[] }>;
 
 /**
  * 選択Repositoryの現在通信先を一回だけ固定する。
@@ -181,28 +174,15 @@ export type ResolvedExternalSendPolicy = ExternalSendPolicy &
  * @security Path・本文・File Hash・秘密を返さず、許可を発行しない。
  * @concurrency 返却後のFile変更を現在Snapshotへ反映しない。
  */
-export function readRepositoryNetworkPolicies(
+export function readRepositoryNetworkHosts(
   repositoryRoot: VerifiedRepositoryRoot,
 ) {
   const read = readNetworkPolicy(repositoryRoot);
   if (read.status !== "ready")
     return Object.freeze({ status: "blocked" as const, reason: read.reason });
-  const codex = describeIsolationCapabilities(
-    "codex",
-    read.policy.allowedHosts,
-  ).networkPolicy;
-  const claude = describeIsolationCapabilities(
-    "claude",
-    read.policy.allowedHosts,
-  ).networkPolicy;
-  if (codex.status !== "ready" || claude.status !== "ready")
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "network_policy_invalid" as const,
-    });
   return Object.freeze({
     status: "ready" as const,
-    policies: Object.freeze({ codex: codex.policy, claude: claude.policy }),
+    additionalHosts: Object.freeze([...read.policy.allowedHosts]),
   });
 }
 
@@ -263,8 +243,7 @@ function normalizeDestination(raw: unknown): Destination | null {
             "provider_terms_and_settings_apply_runtime_not_verified",
           onwardTransferSubprocessing:
             "provider_terms_and_settings_apply_runtime_not_verified",
-          termsPolicyIdentity:
-            "openai-consumer-terms-current-at-interactive-confirmation",
+          termsPolicyIdentity: "openai-consumer-terms-runtime-not-verified",
         })
       : provider === "claude"
         ? Object.freeze({
@@ -278,7 +257,7 @@ function normalizeDestination(raw: unknown): Destination | null {
             onwardTransferSubprocessing:
               "provider_terms_and_settings_apply_runtime_not_verified",
             termsPolicyIdentity:
-              "anthropic-consumer-terms-current-at-interactive-confirmation",
+              "anthropic-consumer-terms-runtime-not-verified",
           })
         : null;
   if (
@@ -291,8 +270,7 @@ function normalizeDestination(raw: unknown): Destination | null {
     value.onwardTransferSubprocessing !==
       expected.onwardTransferSubprocessing ||
     value.termsPolicyIdentity !== expected.termsPolicyIdentity ||
-    value.boundaryResolution !==
-      "interactive_local_user_confirmation_required" ||
+    value.boundaryResolution !== "authorized_repository_request" ||
     purposes?.status !== "ok" ||
     purposes.value.length !== PURPOSES.length ||
     purposes.value.some((item, index) => item !== PURPOSES[index]) ||
@@ -309,7 +287,7 @@ function normalizeDestination(raw: unknown): Destination | null {
     secondaryUseTraining: value.secondaryUseTraining as string,
     onwardTransferSubprocessing: value.onwardTransferSubprocessing as string,
     termsPolicyIdentity: value.termsPolicyIdentity as string,
-    boundaryResolution: "interactive_local_user_confirmation_required",
+    boundaryResolution: "authorized_repository_request",
   });
 }
 
@@ -498,7 +476,7 @@ export function resolveRuntimeOwnedExternalSendPolicy(
       source.revision,
       file.sha256,
     );
-    const network = readRepositoryNetworkPolicies(verified.capability);
+    const network = readRepositoryNetworkHosts(verified.capability);
     const reverified = verifyRuntimeOwnedRepositoryBindingCapability(
       repositoryBindingCapability,
       managementCapability,
@@ -527,16 +505,15 @@ export function resolveRuntimeOwnedExternalSendPolicy(
         managementCapability,
         repositoryBindingCapability,
         operationId: operation.operationId,
-        policy: Object.freeze({ ...policy, networkPolicies: network.policies }),
+        policy: Object.freeze({
+          ...policy,
+          additionalHosts: network.additionalHosts,
+        }),
       }),
     );
     return Object.freeze({
       status: "resolved" as const,
       capability,
-      networkPolicyHashes: Object.freeze({
-        codex: network.policies.codex.policyHash,
-        claude: network.policies.claude.policyHash,
-      }),
       policyId: policy.policyId,
       policyHash: policy.policyHash,
       informationClassification: policy.informationClassification,
@@ -633,8 +610,7 @@ export function describeExternalSendPolicyRuntimeContract() {
       "terms_policy_identity",
     ]),
     unknownPolicy: "blocked",
-    repositoryPolicyAuthority:
-      "proposal_only_until_interactive_authenticated_local_user_confirmation",
+    repositoryPolicyAuthority: "authorized_repository_request",
     legalTermsRuntimeVerified: false,
     hostPathReported: false,
   });

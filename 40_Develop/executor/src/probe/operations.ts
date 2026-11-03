@@ -8,7 +8,7 @@
 
 import { types } from "node:util";
 import {
-  describeIsolationCapabilities,
+  describeIsolationConfiguration,
   executeIsolation,
   type IsolationExecution,
   type IsolationExecutionResult,
@@ -113,7 +113,7 @@ export function createIsolationProbe(
           key: "probe",
           name: `crdd-coordinator-probe-${probeId}`,
           ownershipLabel: `crdd.coordinator.probe=${probeId}`,
-          image: describeIsolationCapabilities().image,
+          image: describeIsolationConfiguration().image,
           argv: ["-c", specification.source],
           environment: {
             HOME: "/operation/provider-home",
@@ -243,7 +243,12 @@ export function createIsolationProbe(
               throw error;
             }
           },
-          onObserved(step, result, elapsedMs, code) {
+          onObserved(step, commandResult) {
+            const {
+              observation: result,
+              elapsedMs,
+              errorCode: code,
+            } = commandResult;
             if (step.action !== "run") return;
             observedBeforeCancellation = !lifecycle.cancellationRequested;
             facts = classifyIsolationProbeExecution(

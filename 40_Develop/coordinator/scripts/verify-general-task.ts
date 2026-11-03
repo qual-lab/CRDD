@@ -1074,12 +1074,6 @@ function blockedAfterExactCandidateDiscard(
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
-  const externalSendAuthorizationMode =
-    taskResult.externalSendAuthorizationMode ===
-      "interactive_initial_consent" ||
-    taskResult.externalSendAuthorizationMode === "reused_initial_consent"
-      ? taskResult.externalSendAuthorizationMode
-      : null;
   const sourceAfterDiscard = Object.freeze({
     ...taskResult,
     candidateRecoveryId: null,
@@ -1091,9 +1085,6 @@ function blockedAfterExactCandidateDiscard(
     Object.freeze({
       candidateDiscarded: true,
       candidateDisposition: "discarded",
-      ...(externalSendAuthorizationMode
-        ? { externalSendAuthorizationMode }
-        : {}),
       ...extra,
     }),
   );
@@ -1120,20 +1111,13 @@ function blockedAfterConfirmedCandidateNotIssued(
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
-  const externalSendAuthorizationMode =
-    taskResult.externalSendAuthorizationMode ===
-      "interactive_initial_consent" ||
-    taskResult.externalSendAuthorizationMode === "reused_initial_consent"
-      ? taskResult.externalSendAuthorizationMode
-      : null;
   if (
     taskResult.candidateDisposition !== "not_issued" ||
     taskResult.candidateId !== null ||
     taskResult.candidateRecoveryId !== null ||
     taskResult.candidateStoreRecoveryId !== null ||
     taskResult.cleanupConfirmed !== true ||
-    taskResult.manualRecoveryRequired !== false ||
-    externalSendAuthorizationMode === null
+    taskResult.manualRecoveryRequired !== false
   )
     return null;
   return blocked(
@@ -1142,7 +1126,6 @@ function blockedAfterConfirmedCandidateNotIssued(
     Object.freeze({
       candidateDiscarded: false,
       candidateDisposition: "not_issued",
-      externalSendAuthorizationMode,
       ...extra,
     }),
   );
@@ -1492,11 +1475,6 @@ function taskResultContractMismatch(
     return "reviewer_provider";
   if (result.reviewerIndependence !== "provider_independent")
     return "reviewer_independence";
-  if (
-    result.externalSendAuthorizationMode !== "interactive_initial_consent" &&
-    result.externalSendAuthorizationMode !== "reused_initial_consent"
-  )
-    return "external_send_authorization_mode";
   if (typeof result.remediationPerformed !== "boolean")
     return "remediation_performed";
   if (reviewerResult?.decision !== "approved") return "reviewer_decision";
@@ -2091,11 +2069,6 @@ export async function runSignedGeneralTaskVerification(
           executorProvider: route.executorProvider,
           reviewerProvider: route.reviewerProvider,
           reviewerIndependence: "provider_independent" as const,
-          externalSendAuthorizationMode:
-            taskResult.externalSendAuthorizationMode ===
-            "interactive_initial_consent"
-              ? ("interactive_initial_consent" as const)
-              : ("reused_initial_consent" as const),
           remediationPerformed: taskResult.remediationPerformed as boolean,
           changedPaths: Object.freeze([TARGET_PATH]),
           exactCandidateContentVerified: true,
@@ -2300,7 +2273,7 @@ export function describeSignedGeneralTaskVerificationContract() {
     nodeSelection: "absolute_preverified_executable_only",
     availabilityOnlyConsolePreflightAllowed: false,
     interactiveConsoleGate:
-      "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
+      "no_dedicated_send_confirmation_authorized_repository_request",
     signatureRequired: false,
     sourceObservation:
       "fixed_module_root_source_and_git_before_task_and_after_settlement_not_execution_authority",

@@ -24,7 +24,6 @@ import {
   inspectRuntimeProcessRecoveryIdentity,
 } from "../../src/execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
 
 /**
  * 対話cleanup不明は同一Process stateを不可逆にpoisonするを検証する。
@@ -165,10 +164,7 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
       "signed_general_task_started_result_or_completion_unknown",
       "signed_route_matrix_started_or_outer_execution_unknown",
     ],
-    guardedEntrypoints: [
-      "coordinator_task_before_all_effects",
-      "external_send_grant_before_authority_verification_or_console_effect",
-    ],
+    guardedEntrypoints: ["coordinator_task_before_all_effects"],
     transientDrainTransition:
       "synchronous_on_host_supervisor_failure_detection_until_all_cleanup_outcomes_are_confirmed_or_unknown_is_promoted_to_irreversible_poison",
     sameProcessResetAllowed: false,
@@ -214,20 +210,6 @@ test("Host failure drain中はTask／External SendをEffect前に一時拒否し
     /coordinator_task_runtime_cleanup_in_progress/u,
   );
   assert.equal(taskReads, 0);
-  const grant = await requestRuntimeOwnedExternalSendGrant(
-    Object.freeze({}),
-    Object.freeze({}),
-    Object.freeze({}),
-    Object.freeze({}),
-    Object.freeze([]),
-    new AbortController().signal,
-  );
-  assert.ok(grant && "reason" in grant && "manualRecoveryRequired" in grant);
-  assert.equal(
-    grant.reason,
-    "external_send_confirmation_runtime_cleanup_in_progress",
-  );
-  assert.equal(grant.manualRecoveryRequired, false);
   assert.equal(endRuntimeProcessEffectDrain(drain), true);
   assert.throws(
     () => startRuntimeOwnedCoordinatorTask(Object.freeze({}), "C:\\repository"),
@@ -290,15 +272,6 @@ test("全cleanup起点のproduction process poisonは保留cleanup中から全�
       finalPoisonState: true,
       taskInputReadCount: 0,
       taskReason: "coordinator_task_process_restart_required",
-      grantStatus: "blocked",
-      grantReason:
-        "external_send_confirmation_cleanup_unknown_process_restart_required",
-      grantManualRecoveryRequired: true,
-      grantCapabilityPresent: false,
-      grantRecoveryFieldCount: 0,
-      grantRawContentReported: false,
-      grantHostPathReported: false,
-      grantInputReadCount: 0,
       runnerStatus: "blocked",
       runnerReason: "signed_general_task_process_restart_required",
       runnerManualRecoveryRequired: true,

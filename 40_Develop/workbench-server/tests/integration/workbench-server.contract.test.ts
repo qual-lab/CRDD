@@ -2677,10 +2677,8 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
             mode: "read_only_advice",
             workType: null,
             prompt: "固定故障検証",
-            expectedNetworkPolicyHash: "a".repeat(64),
             contextReferences: ["PROJECT_CONTEXT.md"],
             allowedPaths: [],
-            externalSendConfirmed: true,
             workspaceId: null,
           });
           assert.fail("受付故障を成功へ畳んだ");
@@ -2947,8 +2945,6 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
           prompt: "合成依頼",
           allowedPaths:
             mode === "workspace_edit" ? "40_Develop/workbench-server/src" : "",
-          externalSendConfirmed: "yes",
-          expectedNetworkPolicyHash: "a".repeat(64),
         }).toString(),
       );
       assert.equal(started.status, 303);
@@ -2981,8 +2977,6 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
         workType: "",
         prompt: "旧方式は拒否",
         allowedPaths: "source.txt",
-        externalSendConfirmed: "yes",
-        expectedNetworkPolicyHash: "a".repeat(64),
       }).toString(),
     );
     assert.equal(oldMode.status, 400);
@@ -3528,7 +3522,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
  * @cleanup finallyで所有Listenerを閉じる。実ProviderとDocker資源は作らない。
  * @boundary ERB-IT-021=検証接続部→HTTP Form／Read Model→偽Application。
  */
-test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開境界で照合する", async () => {
+test("実Provider検証のHTTP接続部は認可済み依頼Identityを公開境界で照合する", async () => {
   let starts = 0;
   let cancels = 0;
   let received: WorkbenchAiRequestCommand | null = null;
@@ -3576,14 +3570,10 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
       mode: "read_only_advice",
       workType: null,
       prompt: "固定検証依頼",
-      expectedNetworkPolicyHash: "a".repeat(64),
       contextReferences: ["PROJECT_CONTEXT.md"],
       allowedPaths: [],
-      externalSendConfirmed: false,
       workspaceId: null,
     };
-    assert.equal((await transport.start(command)).status, "blocked");
-    assert.equal(starts, 0);
     const initial = await requestMainModel(handle.baseUrl);
     const wrongToken = await requestRaw(
       handle.baseUrl,
@@ -3595,22 +3585,18 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
         mode: command.mode,
         workType: command.workType ?? "",
         prompt: command.prompt,
-        externalSendConfirmed: "yes",
-        expectedNetworkPolicyHash: "a".repeat(64),
       }).toString(),
     );
     assert.equal(wrongToken.status, 400);
     assert.equal(starts, 0);
     const accepted = await transport.start({
       ...command,
-      externalSendConfirmed: true,
-      expectedNetworkPolicyHash: "a".repeat(64),
       workspaceId: null,
     });
     assert.equal(accepted.status, "accepted");
     assert.equal(accepted.requestId, "AIREQ-HTTP-001");
     assert.equal(starts, 1);
-    assert.deepEqual(received, { ...command, externalSendConfirmed: true });
+    assert.deepEqual(received, command);
     const observed = await transport.observe("AIREQ-HTTP-001");
     assert.equal(observed.status, "running");
     assert.equal(observed.facts[0]?.text, "公開結果");

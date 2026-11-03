@@ -68,7 +68,7 @@ export type DockerRuntimeRestartResult = DockerRuntimeRestartObservation &
  * @security callbackは上位StoreやPackageを下位へ公開しない。
  * @compatibility 配送確認は技術観測とは別に返す。
  */
-export type DockerRuntimeRestartEvent =
+export type DockerEnvironmentRestartEvent =
   | Readonly<{
       event: "request_accepted";
       requestId: string;
@@ -91,7 +91,7 @@ export type DockerRuntimeRestartEvent =
  */
 export interface DockerRuntimeRestartCallbacks {
   onRequesting(): void;
-  onEvent?(event: DockerRuntimeRestartEvent): void;
+  onEvent?(event: DockerEnvironmentRestartEvent): void;
 }
 
 /**
@@ -324,7 +324,7 @@ export async function restartDockerRuntimeForVerification(
    * @security Promiseやthenableをawaitせず完了根拠にしない。
    * @concurrency callback終了前に次通知や結果返却を行わない。
    */
-  const notify = (event: DockerRuntimeRestartEvent) => {
+  const notify = (event: DockerEnvironmentRestartEvent) => {
     if (!notification) return;
     try {
       if (!types.isAsyncFunction(notification)) {

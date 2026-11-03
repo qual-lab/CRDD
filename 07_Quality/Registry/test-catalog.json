@@ -1494,6 +1494,8 @@
     }
   ],
   "tests": [
+    {"id":"coordinator:unit:network-policy-catalog","owner":"coordinator","path":"40_Develop/coordinator/tests/unit/decision/network-policy-catalog.contract.test.ts","level":"unit","kind":"contract","semanticTags":["network","configuration","snapshot"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed"],"mandatoryByDefault":true},
+    {"id":"docker-isolation:unit:proxy-configuration","owner":"docker-isolation","path":"40_Develop/docker-isolation/tests/unit/proxy-configuration.contract.test.ts","level":"unit","kind":"contract","semanticTags":["network","configuration","proxy"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed"],"mandatoryByDefault":true},
     {"id":"executor:integration:container-resources","owner":"executor","path":"40_Develop/executor/tests/integration/container-resources.contract.test.ts","level":"integration","kind":"contract","semanticTags":["container","cleanup","owner"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["unknown_preserved","exact_configuration","owner_rejection_captured","no_unhandled_rejections"],"mandatoryByDefault":true},
     {"id":"executor:unit:isolation-probe","owner":"executor","path":"40_Develop/executor/tests/unit/probe.contract.test.ts","level":"unit","kind":"contract","semanticTags":["probe","cleanup","cancellation"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["intent_before_create","receipt_before_start","unknown_preserved","exact_resource_cleanup"],"mandatoryByDefault":true},
     {"id":"executor:unit:lifecycle","owner":"executor","path":"40_Develop/executor/tests/unit/lifecycle.contract.test.ts","level":"unit","kind":"contract","semanticTags":["lifecycle","cleanup","cancellation"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["cleanup_joined","primary_failure_preserved","cancellation_before_terminal_checked"],"mandatoryByDefault":true},
@@ -4852,48 +4854,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:external-send-consent-revocation",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/external-send-consent-revocation.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "external",
-        "send",
-        "consent",
-        "revocation"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:external-send-consent-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "external",
-        "send",
-        "consent",
-        "runtime"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:integration:external-send-policy-runtime",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/external-send-policy-runtime.contract.test.ts",
@@ -6704,16 +6664,15 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:external-send-grant-runtime",
+      "id": "coordinator:unit:console",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/decision/external-send-grant.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/decision/console.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "external",
-        "send",
-        "grant",
-        "runtime"
+        "console",
+        "notification",
+        "completion"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

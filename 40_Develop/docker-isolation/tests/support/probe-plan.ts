@@ -6,7 +6,7 @@
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { describeIsolationCapabilities } from "../../src/capabilities.ts";
+import { describeIsolationConfiguration } from "../../src/configuration.ts";
 import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
 
 const ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";
@@ -269,7 +269,7 @@ export function executeDockerProbeCommand(
 /** 固定旧記録の名前投影を試験Oracleとして保持する。実行・回収の入口ではない。 */
 export function describeDockerProbeResource(probeId: string) {
   return Object.freeze({
-    ...describeIsolationCapabilities(),
+    ...describeIsolationConfiguration(),
     name: `crdd-coordinator-probe-${probeId}`,
     label: `crdd.coordinator.probe=${probeId}`,
     labelName: "crdd.coordinator.probe",

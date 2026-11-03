@@ -7,6 +7,7 @@
  */
 import {
   inspectExecutionSelection,
+  snapshotPlainArray,
   type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
@@ -25,11 +26,7 @@ import {
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 
-import {
-  type DockerNetworkPolicy,
-  parseDockerNetworkPolicy,
-} from "../../../docker-isolation/src/index.ts";
-import { readRepositoryNetworkPolicies } from "../decision/external-send-policy.ts";
+import { readRepositoryNetworkHosts } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
 import { resolveRecoveryReference } from "./validation.ts";
 import type { AdviceResultItem } from "../../../ai-adapter/src/index.ts";
@@ -155,9 +152,8 @@ export async function runRepositoryAdvice(
   };
   const adapter: AdviceProviderAdapter = (input, cancellation) =>
     executeAdviceProviderInput(execute, input, cancellation);
-  const consumedGrants = new WeakSet<object>();
   const dispatch: AdviceDispatch = (input, cancellation) =>
-    dispatchAdviceRequest(adapter, consumedGrants, input, cancellation);
+    dispatchAdviceRequest(adapter, input, cancellation);
   const response = await executeAdviceRequest(root, dispatch, request, signal);
   const observed = runtimeResult as ProviderAdviceRuntimeResult | null;
   const failure = classifyProviderAdviceHostFailure(observed);
@@ -182,10 +178,9 @@ export async function runRepositoryAdvice(
  * @compatibility Workbench Advice Task Contract revision 2へ適合する。
  */
 export type AdviceDispatchInput = Readonly<{
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
   taskPacket: AdviceTaskPacket;
   executionSelection: ExecutionSelection;
-  externalSendConfirmed: boolean;
 }>;
 
 /**
@@ -270,23 +265,18 @@ async function executeAdviceRequest(
     );
   if (cancellationSignal.aborted)
     return createAdviceRejectedResult("coordinator_ai_request_cancelled");
-  if (cancellationSignal.aborted)
-    return createAdviceRejectedResult("coordinator_ai_request_cancelled");
-  const network = readRepositoryNetworkPolicies(repositoryRootCapability);
-  if (
-    network.status !== "ready" ||
-    network.policies[selection.provider].policyHash !==
-      request.expectedNetworkPolicyHash
-  )
-    return createAdviceRejectedResult("coordinator_ai_network_policy_changed");
+  const network = readRepositoryNetworkHosts(repositoryRootCapability);
+  if (network.status !== "ready")
+    return createAdviceRejectedResult(
+      "coordinator_ai_network_policy_unavailable",
+    );
   if (cancellationSignal.aborted)
     return createAdviceRejectedResult("coordinator_ai_request_cancelled");
   return dispatchReadOnlyAdvice(
     Object.freeze({
-      networkPolicy: network.policies[selection.provider],
+      additionalHosts: network.additionalHosts,
       taskPacket: packet,
       executionSelection: selection,
-      externalSendConfirmed: request.externalSendConfirmed,
     }),
     cancellationSignal,
   );
@@ -413,7 +403,7 @@ export const PROVIDER_ADVICE_DISPATCH_RUNTIME_CONTRACT_REVISION = 1;
  */
 
 export type AdviceProviderInput = Readonly<{
-  networkPolicy: DockerNetworkPolicy;
+  additionalHosts: readonly string[];
   taskPacket: AdviceTaskPacket;
   executionSelection: ExecutionSelection;
 }>;
@@ -467,13 +457,6 @@ export type AdviceProviderAdapter = (
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
-type SendGrant = Readonly<{
-  networkPolicyHash: string;
-  taskHash: string;
-  selectionHash: string;
-  provider: "codex" | "claude";
-}>;
-
 /**
  * 読取り助言の専用Dispatchを生成する。
  *
@@ -493,10 +476,8 @@ type SendGrant = Readonly<{
 export function createAdviceDispatch(
   providerAdapter: AdviceProviderAdapter,
 ): AdviceDispatch {
-  const consumedGrants = new WeakSet<object>();
-
   return (input, signal) =>
-    dispatchAdviceRequest(providerAdapter, consumedGrants, input, signal);
+    dispatchAdviceRequest(providerAdapter, input, signal);
 }
 
 /**
@@ -517,7 +498,6 @@ export function createAdviceDispatch(
  */
 async function dispatchAdviceRequest(
   providerAdapter: AdviceProviderAdapter,
-  consumedGrants: WeakSet<object>,
   input: AdviceDispatchInput,
   cancellationSignal: AbortSignal,
 ): Promise<CoordinatorAiRequestResult> {
@@ -525,24 +505,14 @@ async function dispatchAdviceRequest(
     return createAdviceRejectedResult(
       "workbench_ai_advice_dispatch_input_invalid",
     );
-  if (!input.externalSendConfirmed)
-    return createAdviceRejectedResult(
-      "workbench_ai_external_send_confirmation_required",
-    );
   if (cancellationSignal.aborted)
     return createAdviceRejectedResult("coordinator_ai_request_cancelled");
-
-  const grant = issueGrant(input);
-  if (!consumeGrant(grant, input, consumedGrants))
-    return createAdviceRejectedResult(
-      "workbench_ai_external_send_authority_invalid",
-    );
 
   let outcome: AdviceProviderOutcome;
   try {
     outcome = await providerAdapter(
       Object.freeze({
-        networkPolicy: input.networkPolicy,
+        additionalHosts: input.additionalHosts,
         taskPacket: input.taskPacket,
         executionSelection: input.executionSelection,
       }),
@@ -605,13 +575,8 @@ export function describeAdviceDispatchContract() {
   return Object.freeze({
     contract: PROVIDER_ADVICE_DISPATCH_RUNTIME_CONTRACT,
     contractRevision: PROVIDER_ADVICE_DISPATCH_RUNTIME_CONTRACT_REVISION,
-    authority: "explicit_single_request_confirmation",
-    authorityScope: Object.freeze([
-      "taskHash",
-      "selectionHash",
-      "provider",
-      "networkPolicyHash",
-    ]),
+    authority: "authorized_repository_request",
+    authorityScope: Object.freeze(["taskHash", "selectionHash", "provider"]),
     maximumProviderExecutionsPerRequest: 1,
     automaticRetryAllowed: false,
     cleanupConfirmationRequired: true,
@@ -620,87 +585,24 @@ export function describeAdviceDispatchContract() {
 }
 
 /**
- * 検証済み依頼から一回送信Grantを発行する。
- *
- * @responsibility Task、設定Identity、固定選定、Providerおよび通信設定Hashを一つのAuthority Scopeへ固定する。
+ * 助言の確定選定・Packet相関と追加通信先の値構造を確認する。
+ * @responsibility 許可判断とDIのHost技術検査を代替せず、不正な搬送を拒否する。
  * @trace ARCH-000015
- * @input input: 検証済み助言Dispatch入力。
- * @returns 一回消費専用のSend Grant。
- * @precondition Dispatch入口で入力妥当性と明示確認が成立している。
- * @postcondition Grantは入力と同じTask、設定Identity、固定選定、Providerおよび通信設定Hashだけを表す。
- * @effect N/A: 外部Effectを発行せずメモリ上の固定値を生成する。
- * @failure N/A: 入力検証済みの値を写像するだけである。
- * @invariant Prompt本文、Credentialおよび投影本文をGrantへ含めない。
- * @boundary 検証済み依頼と一回送信Authorityの境界。
- * @security Authorityを別Taskまたは別固定選定へ転用できる情報へ広げない。
- * @concurrency 呼出しごとに独立した新しいObject Identityを返す。
- */
-function issueGrant(input: AdviceDispatchInput): SendGrant {
-  return Object.freeze({
-    networkPolicyHash: input.networkPolicy.policyHash,
-    taskHash: input.taskPacket.taskHash,
-    selectionHash: hashExecutionSelection(input.executionSelection) as string,
-    provider: input.executionSelection.provider,
-  });
-}
-
-/**
- * 一回送信Grantを入力と照合して消費する。
- *
- * @responsibility 完全一致する未消費GrantだけをProvider Effect前に一回受理する。
- * @trace ARCH-000015
- * @input grant: 消費候補、input: 現在依頼、consumedGrants: 消費済み集合。
- * @returns 今回の消費が成立した場合だけtrue。
- * @precondition Grantと入力は同じDispatch呼出しで生成・保持される。
- * @postcondition trueの場合は同じObject Identityが消費済み集合へ記録される。
- * @effect メモリ上の消費済み集合へGrantを追加する。
- * @failure 消費済みまたはScope不一致をfalseで拒否する。
- * @invariant 同じGrant Objectを二回trueにしない。
- * @boundary Authority GrantとProvider Effect許可の境界。
- * @security Task、設定Identity、固定選定、Providerの全項目を照合する。
- * @concurrency 同期処理として照合と記録を同じ呼出し内で完了する。
- */
-function consumeGrant(
-  grant: SendGrant,
-  input: AdviceDispatchInput,
-  consumedGrants: WeakSet<object>,
-): boolean {
-  if (
-    consumedGrants.has(grant) ||
-    grant.networkPolicyHash !== input.networkPolicy.policyHash ||
-    grant.taskHash !== input.taskPacket.taskHash ||
-    grant.selectionHash !== hashExecutionSelection(input.executionSelection) ||
-    grant.provider !== input.executionSelection.provider
-  )
-    return false;
-  consumedGrants.add(grant);
-  return true;
-}
-
-/**
- * 助言Dispatch入力のIdentity整合を検査する。
- *
- * @responsibility 設定Identity、Taskと固定選定対応、選択RoleおよびProvider許容値を検査する。
- * @trace ARCH-000015
- * @input input: 助言Dispatch入力。
- * @returns 固定契約を満たす場合だけtrue。
- * @precondition N/A: unknownな外部入力ではなく型付き境界入力を受ける。
- * @postcondition trueでも外部送信Authorityの成立は主張しない。
- * @effect N/A: 読取りだけを行う。
- * @failure 不整合をfalseとして返す。
- * @invariant 固定選定名称や表示値ではなく安定Identityを比較する。
- * @boundary Repository CompositionとCoordinator Dispatchの境界。
- * @security 許容ProviderをCodexとClaudeへ限定する。
- * @concurrency N/A: 共有状態を変更しない同期検査である。
+ * @input 捕捉済みの単発依頼。
+ * @returns 固定選定とPacketの相関が成立する場合だけtrue。
+ * @effect N/A: 値検査のみ。
+ * @security 秘密・生出力を返さない。
  */
 function isValidDispatchInput(input: AdviceDispatchInput): boolean {
-  const network = parseDockerNetworkPolicy(input.networkPolicy);
+  const network = snapshotPlainArray<string>(input.additionalHosts, 32);
   const fixed = inspectExecutionSelection(input.executionSelection);
   return (
-    network !== null &&
+    network.status === "ok" &&
+    network.value.every(
+      (host) => typeof host === "string" && host.length <= 253,
+    ) &&
     fixed !== null &&
     fixed.role === "advice" &&
-    network.provider === fixed.provider &&
     hashExecutionSelection(input.taskPacket.executionSelection) ===
       hashExecutionSelection(fixed)
   );
@@ -841,7 +743,7 @@ async function executeAdviceProviderInput(
     });
   const selection = input.executionSelection;
   const executionInput = Object.freeze({
-    networkPolicy: input.networkPolicy,
+    additionalHosts: input.additionalHosts,
     executionSelection: selection,
     provider: selection.provider,
     providerPrompt: input.taskPacket.providerPrompt,
@@ -979,7 +881,7 @@ async function executeAdvicePlan(
  */
 function safePlan(plan: ProviderAdviceExecutionPlan) {
   const selection = inspectExecutionSelection(plan.executionSelection);
-  const policy = parseDockerNetworkPolicy(plan.networkPolicy);
+  const policy = snapshotPlainArray<string>(plan.additionalHosts, 32);
   return (
     plan.mode === "workbench_advice" &&
     selection?.role === "advice" &&
@@ -987,7 +889,10 @@ function safePlan(plan: ProviderAdviceExecutionPlan) {
     selection.provider === plan.provider &&
     selection.modelIdentifier === plan.exactModelId &&
     selection.reasoningEffort === plan.reasoningEffort &&
-    policy?.provider === plan.provider &&
+    policy.status === "ok" &&
+    policy.value.every(
+      (host) => typeof host === "string" && host.length <= 253,
+    ) &&
     plan.promptTransport === "stdin" &&
     plan.repositoryMounted === false &&
     plan.workspaceMounted === false &&
@@ -1497,7 +1402,7 @@ function createProviderAdviceRuntime(
         projectionHash: plan.projectionHash,
         providerPrompt: plan.providerPrompt,
         allowedReferences: plan.allowedReferences,
-        networkPolicy: plan.networkPolicy,
+        additionalHosts: plan.additionalHosts,
       }) as RuntimeRecord;
       packetOwner = objectValue(packet.ownerCapability);
       const packetUse = objectValue(packet.useCapability);
@@ -2227,8 +2132,6 @@ export type CoordinatorAiRequestInput = Readonly<{
   prompt: string;
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
-  externalSendConfirmed: boolean;
-  expectedNetworkPolicyHash: string;
 }>;
 
 /**

@@ -24,7 +24,6 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../decision/external-send-grant.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
   checkpointRuntimeOwnedCoordinatorHost,
@@ -1264,18 +1263,6 @@ export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 37;
 
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
-const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
-  "external_send_confirmation_declined_invalid",
-  "external_send_confirmation_cancelled",
-  "external_send_confirmation_timeout",
-  "external_send_confirmation_unavailable",
-  "external_send_confirmation_reader_failed",
-  "external_send_confirmation_cleanup_unknown",
-  "external_send_confirmation_cleanup_unknown_process_restart_required",
-  "external_send_consent_cleanup_unknown_process_restart_required",
-  "external_send_consent_manual_recovery_required",
-]);
-
 const PROCESS_CANCELLATION_RESULT_KEYS = new Set([
   "status",
   "reason",
@@ -1493,7 +1480,6 @@ interface TaskRuntimeCallbacks {
     notice: ProviderBoundaryDiagnosticNotice,
   ): void | Promise<void>;
   reportSelectionNotice?(notice: RuntimeRecord): void | Promise<void>;
-  reportExternalSendNotice?(notice: RuntimeRecord): void | Promise<void>;
 }
 
 /**
@@ -1573,14 +1559,6 @@ type taskRuntimeDependencies = Readonly<{
     controlCapability: object,
     managementCapability: object,
   ) => RuntimeRecord;
-  authorizeExternalSend: (
-    managementCapability: object,
-    repositoryBindingCapability: object,
-    policyCapability: object,
-    scope: RuntimeRecord,
-    providers: readonly Provider[],
-    cancellationSignal: AbortSignal,
-  ) => RuntimeRecord | null | Promise<RuntimeRecord | null>;
   resolveExternalSendPolicy: (
     managementCapability: object,
     repositoryBindingCapability: object,
@@ -1592,7 +1570,7 @@ type taskRuntimeDependencies = Readonly<{
     provider: Provider,
     taskRole: TaskRole,
     taskAttempt: 0 | 1,
-    externalSendGrantCapability: object,
+    externalSendPolicyCapability: object,
     remediationCapability: object | null,
     packet: RuntimeRecord,
   ) => RuntimeRecord | null;
@@ -2616,14 +2594,6 @@ function packetRequest(
  * @security externalSendScopeRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: externalSendScopeRequestは共有非同期状態を持たない同期処理である。
  */
-function externalSendScopeRequest(request: RuntimeRecord) {
-  return Object.freeze({
-    objective: request.objective,
-    acceptanceCriteria: request.acceptanceCriteria,
-    allowedPaths: request.allowedPaths,
-    readPaths: request.readPaths,
-  });
-}
 
 /**
  * Provider Preparation 失敗を公開結果へ投影する。
@@ -2894,9 +2864,9 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
  *
  * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null
+ * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageBodyの計算結果を返す。
- * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
+ * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendPolicyCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction?: (purpose: string) => boolean、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
  * @postcondition executeStageBodyの責務を完了した結果だけを返す。
  * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -2910,7 +2880,7 @@ async function executeStageBody(
   operation: Operation,
   request: RuntimeRecord,
   repositoryBindingCapability: object,
-  externalSendGrantCapability: object,
+  externalSendPolicyCapability: object,
   role: TaskRole,
   taskAttempt: 0 | 1,
   expectedProvider: Provider,
@@ -3086,7 +3056,7 @@ async function executeStageBody(
       provider,
       role,
       taskAttempt,
-      externalSendGrantCapability,
+      externalSendPolicyCapability,
       remediationCapability,
       packetRequest(
         { ...request, executionSelection, taskAttempt },
@@ -3518,91 +3488,11 @@ async function runCoordinatorTaskCore(
     ) {
       return blocked("coordinator_task_execution_slate_unavailable");
     }
-    const slateProviders: readonly Provider[] = Object.freeze(
-      slateExecutorProvider === slateReviewerProvider
-        ? [slateExecutorProvider]
-        : [slateExecutorProvider, slateReviewerProvider],
-    );
-    const networkPolicyHashes = snapshotPlainRecord(
-      externalSendPolicy.networkPolicyHashes,
-      new Set(["codex", "claude"]),
-    );
-    if (
-      request.expectedNetworkPolicyHash !== null &&
-      networkPolicyHashes?.[slateExecutorProvider] !==
-        request.expectedNetworkPolicyHash
-    )
-      return blocked("coordinator_task_network_policy_changed");
-    const externalSendGrant = await state.dependencies.authorizeExternalSend(
-      operation.managementCapability,
-      repositoryBinding,
-      externalSendPolicyCapability,
-      externalSendScopeRequest(request),
-      slateProviders,
-      control.cancellationController.signal,
-    );
-    if (control.cancellationRequested) {
-      return blocked(
-        "coordinator_task_cancelled_during_external_send_authorization",
-      );
-    }
-    const externalSendGrantCapability = objectCapability(
-      externalSendGrant?.capability,
-    );
-    if (
-      externalSendGrant?.status !== "issued" ||
-      !externalSendGrantCapability
-    ) {
-      const grantReason = stringValue(externalSendGrant?.reason);
-      const reason =
-        grantReason && EXTERNAL_SEND_CONFIRMATION_REASONS.has(grantReason)
-          ? `coordinator_task_${grantReason}`
-          : "coordinator_task_external_send_not_authorized";
-      const manualRecoveryRequired =
-        externalSendGrant?.manualRecoveryRequired === true;
-      return blocked(
-        projectCoordinatorTaskPublicReason(
-          reason,
-          "coordinator_task_external_send_not_authorized",
-        ),
-        manualRecoveryRequired,
-        null,
-      );
-    }
-    const externalSendAuthorizationMode = externalSendGrant.authorizationMode;
-    if (
-      externalSendAuthorizationMode !== "interactive_initial_consent" &&
-      externalSendAuthorizationMode !== "reused_initial_consent"
-    ) {
-      return blocked(
-        "coordinator_task_external_send_authorization_mode_invalid",
-      );
-    }
-    const externalSendNotice = Object.freeze({
-      event: "coordinator_external_send_authorized",
-      authorizationMode: externalSendAuthorizationMode,
-      providers: slateProviders,
-      message:
-        externalSendAuthorizationMode === "reused_initial_consent"
-          ? "既存の送信許可の範囲内で続行します。追加の承認入力は不要です。"
-          : "今回確認した送信許可の範囲内で続行します。",
-    });
-    try {
-      const pending =
-        state.dependencies.reportExternalSendNotice?.(externalSendNotice);
-      if (pending) void pending.catch(() => {});
-    } catch {
-      // 送信許可の判定は上の通常APIで完了済み。表示失敗では変更しない。
-    }
-    if (control.cancellationRequested) {
-      return blocked(
-        "coordinator_task_cancelled_during_external_send_authorization",
-      );
-    }
+    if (control.cancellationRequested)
+      return blocked("coordinator_task_cancelled_before_stage_start");
     const candidateNotIssued = (result: RuntimeRecord) =>
       Object.freeze({
         ...result,
-        externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
       });
     const workspace = state.dependencies.materializeWorkspace(
@@ -3638,7 +3528,7 @@ async function runCoordinatorTaskCore(
       operation,
       request,
       repositoryBinding,
-      externalSendGrantCapability,
+      externalSendPolicyCapability,
       "executor",
       0,
       slateExecutorProvider,
@@ -3751,7 +3641,7 @@ async function runCoordinatorTaskCore(
       operation,
       request,
       repositoryBinding,
-      externalSendGrantCapability,
+      externalSendPolicyCapability,
       "reviewer",
       0,
       slateReviewerProvider,
@@ -3806,7 +3696,7 @@ async function runCoordinatorTaskCore(
         operation,
         request,
         repositoryBinding,
-        externalSendGrantCapability,
+        externalSendPolicyCapability,
         "executor",
         1,
         executor.provider as Provider,
@@ -3902,7 +3792,7 @@ async function runCoordinatorTaskCore(
         operation,
         request,
         repositoryBinding,
-        externalSendGrantCapability,
+        externalSendPolicyCapability,
         "reviewer",
         1,
         reviewer.provider as Provider,
@@ -3937,7 +3827,6 @@ async function runCoordinatorTaskCore(
     if (verified?.status !== "verified") {
       return Object.freeze({
         ...blocked("coordinator_task_candidate_verification_failed"),
-        externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
       });
     }
@@ -3956,7 +3845,6 @@ async function runCoordinatorTaskCore(
       );
       return Object.freeze({
         ...blocked("coordinator_task_independent_review_not_approved"),
-        externalSendAuthorizationMode,
         candidateDisposition: "not_issued" as const,
         executorProvider: executor.provider,
         reviewerProvider: reviewer.provider,
@@ -3978,7 +3866,6 @@ async function runCoordinatorTaskCore(
     return Object.freeze({
       ...blocked("coordinator_task_workspace_review_completed"),
       status: "completed" as const,
-      externalSendAuthorizationMode,
       candidateDisposition: "not_issued" as const,
       executorProvider: executor.provider,
       reviewerProvider: reviewer.provider,
@@ -4247,16 +4134,11 @@ const productionDependencies = Object.freeze<taskRuntimeDependencies>({
   issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
   consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
   revokeMountGrant: revokeRuntimeOwnedProviderHomeMountGrant,
-  authorizeExternalSend: requestRuntimeOwnedExternalSendGrant,
   resolveExternalSendPolicy: resolveRuntimeOwnedExternalSendPolicy,
   prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,
   reportSelectionNotice: createRuntimeOwnedLifecycleNoticeReporter(
     process.stderr,
     "[Coordinator selection]",
-  ),
-  reportExternalSendNotice: createRuntimeOwnedLifecycleNoticeReporter(
-    process.stderr,
-    "[Coordinator authorization]",
   ),
   issueTaskPacket: issueRuntimeOwnedProviderTaskPacket,
   revokeTaskPacket: revokeRuntimeOwnedProviderTaskPacket,
@@ -4716,10 +4598,7 @@ function createRuntime(dependencies: taskRuntimeDependencies) {
             await retainRuntimeRecoveryState(state, control);
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
             return blocked(
-              result.reason ===
-                "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required"
-                ? "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_and_operation_recovery_required"
-                : "coordinator_task_operation_cleanup_unconfirmed",
+              "coordinator_task_operation_cleanup_unconfirmed",
               true,
               control.hostRecoveryId,
               null,

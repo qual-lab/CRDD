@@ -24,13 +24,10 @@ import {
   withInteractiveConsoleAsync,
   withInteractiveConsoleAsyncOutcome,
   withInteractiveConsoleOutcome,
-} from "../../src/decision/external-send-grant.ts";
+} from "../support/console.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
-import {
-  confirmRuntimeOwnedExternalSendUsingConsole,
-  requestRuntimeOwnedExternalSendGrant,
-} from "../../src/decision/external-send-grant.ts";
+import { confirmRuntimeOwnedOperationUsingConsole } from "../support/console.ts";
 
 const MODES = new Set([
   "descriptor_close",
@@ -63,8 +60,8 @@ type Listener = (value: unknown) => void;
 class FixtureWorker {
   readonly listeners = new Map<string, Listener>();
   readonly state: Int32Array;
-  readonly stdout = { resume() {} };
-  readonly stderr = { resume() {} };
+  readonly stdout = { resume() {}, destroy() {} };
+  readonly stderr = { resume() {}, destroy() {} };
 
   constructor(
     _filename: URL,
@@ -218,7 +215,7 @@ try {
     originStatus = `${outcome.status}:${outcome.value === null ? "null" : "value_escaped"}`;
     isOriginSettled = true;
   } else {
-    originPromise = confirmRuntimeOwnedExternalSendUsingConsole(
+    originPromise = confirmRuntimeOwnedOperationUsingConsole(
       "fixture notice",
       "123456",
       new AbortController().signal,
@@ -257,27 +254,6 @@ try {
     taskReason = error instanceof Error ? error.message : "unknown_task_error";
   }
 
-  let grantInputReadCount = 0;
-  const grantInput = new Proxy(Object.create(null), {
-    get: () => {
-      grantInputReadCount += 1;
-      throw new Error("grant_input_must_not_be_read_after_process_poison");
-    },
-    ownKeys: () => {
-      grantInputReadCount += 1;
-      throw new Error(
-        "grant_input_must_not_be_enumerated_after_process_poison",
-      );
-    },
-  });
-  const grant = await requestRuntimeOwnedExternalSendGrant(
-    grantInput,
-    grantInput,
-    grantInput,
-    grantInput,
-    grantInput,
-    grantInput as AbortSignal,
-  );
   const runner = await runSignedGeneralTaskVerification(process.cwd());
   if (originPromise) await originPromise;
 
@@ -302,23 +278,6 @@ try {
       finalPoisonState: isRuntimeProcessPoisoned(),
       taskInputReadCount,
       taskReason,
-      grantStatus: grant?.status ?? null,
-      grantReason: grant && "reason" in grant ? grant.reason : null,
-      grantManualRecoveryRequired:
-        grant && "manualRecoveryRequired" in grant
-          ? grant.manualRecoveryRequired
-          : false,
-      grantCapabilityPresent: Boolean(grant && "capability" in grant),
-      grantRecoveryFieldCount: grant
-        ? Object.keys(grant).filter((key) => /RecoveryIds?$/u.test(key)).length
-        : 0,
-      grantRawContentReported:
-        grant && "rawContentReported" in grant
-          ? grant.rawContentReported
-          : null,
-      grantHostPathReported:
-        grant && "hostPathReported" in grant ? grant.hostPathReported : null,
-      grantInputReadCount,
       runnerStatus: runner.status,
       runnerReason: runner.reason,
       runnerManualRecoveryRequired: runner.manualRecoveryRequired,

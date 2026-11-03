@@ -12,7 +12,6 @@ import type { ExecutionSelection } from "../../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
 
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -49,8 +48,6 @@ const request = (mode: "read_only_advice") =>
     prompt: "現在状態を確認する",
     contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     allowedPaths: Object.freeze([]),
-    expectedNetworkPolicyHash: fixtureNetworkPolicy("codex").policyHash,
-    externalSendConfirmed: true,
   });
 
 const COMPLETED = Object.freeze({

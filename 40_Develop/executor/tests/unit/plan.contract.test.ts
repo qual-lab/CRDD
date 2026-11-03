@@ -331,12 +331,12 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
       );
       assert.equal(expected.status, "ready");
       if (expected.status !== "ready") throw Error("fixture");
-      for (const networkPolicy of [null, policy.policy]) {
+      for (const additionalHosts of [null, Object.freeze([] as string[])]) {
         const request: AttemptRequest = {
           kind: "attempt",
           purpose: "advice" as const,
           input: "synthetic",
-          networkPolicy,
+          additionalHosts,
           allowedReferences: ["ref"],
           selection,
           target: {
@@ -354,17 +354,19 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
         assert.equal("adviceCommandHash" in plan, false);
         assert.equal(plan.workspaceSourcePath, null);
         assert.equal(plan.workspaceMountMode, null);
-        assert.deepEqual(plan.networkPolicy, networkPolicy);
+        assert.deepEqual(plan.additionalHosts, additionalHosts);
         const random = { randomBytes: (size: number) => Buffer.alloc(size, 1) };
         assert.equal(
           prepareAttempt(random, {
             ...request,
             command: {},
             commandHash: "a".repeat(64),
-          } as AttemptRequest),
+          } as unknown as AttemptRequest),
           null,
         );
-        const { networkPolicy: omitted, ...legacyRequest } = request;
+        assert.equal(request.purpose, "advice");
+        if (request.purpose !== "advice") assert.fail();
+        const { additionalHosts: omitted, ...legacyRequest } = request;
         void omitted;
         assert.equal(
           prepareAttempt(random, legacyRequest as AttemptRequest),
@@ -379,22 +381,19 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
           assert.equal(
             prepareAttempt(random, {
               ...request,
-              networkPolicy: otherPolicy.policy,
+              additionalHosts: Object.freeze(["https://invalid"]),
             }),
             null,
           );
-        if (networkPolicy) {
-          const mutable = {
-            ...networkPolicy,
-            allowedHosts: [...networkPolicy.allowedHosts],
-          };
+        if (additionalHosts) {
+          const mutable = [...additionalHosts];
           const captured = prepareAttempt(random, {
             ...request,
-            networkPolicy: mutable,
+            additionalHosts: mutable,
           });
           assert.ok(captured);
-          mutable.allowedHosts.push("later.example");
-          assert.deepEqual(captured.networkPolicy, networkPolicy);
+          mutable.push("later.example");
+          assert.deepEqual(captured.additionalHosts, additionalHosts);
         }
         const assets = describeDockerProviderAssets(provider);
         assert.equal(

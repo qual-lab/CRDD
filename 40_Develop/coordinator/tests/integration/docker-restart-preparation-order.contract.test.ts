@@ -17,7 +17,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   codexAdviceProviderInitRequired,
   planDockerRecoveryResourceExpectations,

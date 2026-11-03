@@ -8,7 +8,6 @@
  * @scope 署名Route検証の停止境界
  * @boundary 模擬操作→Route検証Tool。実Provider依頼や署名を発行するFixtureではない。
  */
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import { runSignedRouteMatrixVerification } from "../../scripts/verify-route-matrix.ts";
@@ -46,10 +45,7 @@ const routes = {
   ],
 } as const;
 
-function completed(
-  route: SignedGeneralTaskRouteProfile,
-  authorizationMode: string,
-) {
+function completed(route: SignedGeneralTaskRouteProfile) {
   const expected = routes[route];
   return Object.freeze({
     contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -72,7 +68,6 @@ function completed(
     executorProvider: expected[1],
     reviewerProvider: expected[2],
     reviewerIndependence: "provider_independent",
-    externalSendAuthorizationMode: authorizationMode,
     remediationPerformed: false,
     changedPaths: Object.freeze([
       "40_Develop/coordinator/tests/fixtures/general-task-verification.txt",
@@ -110,10 +105,7 @@ const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
   if (scenario === "runner_exception" && attempts === 2)
     throw new Error("fixed_runner_exception");
   const value: Record<string, unknown> = {
-    ...completed(
-      route ?? "forward",
-      attempts === 1 ? "interactive_initial_consent" : "reused_initial_consent",
-    ),
+    ...completed(route ?? "forward"),
   };
   if (scenario.startsWith("missing:")) delete value[scenario.slice(8)];
   if (scenario.startsWith("null:")) value[scenario.slice(5)] = null;
@@ -175,25 +167,6 @@ try {
 } catch (error) {
   taskReason = error instanceof Error ? error.message : "unknown";
 }
-let grantReads = 0;
-const grantProbe = new Proxy(Object.create(null), {
-  get: () => {
-    grantReads += 1;
-    throw new Error("grant_input_read");
-  },
-  ownKeys: () => {
-    grantReads += 1;
-    throw new Error("grant_input_enumerated");
-  },
-});
-const grant = await requestRuntimeOwnedExternalSendGrant(
-  grantProbe,
-  grantProbe,
-  grantProbe,
-  grantProbe,
-  grantProbe,
-  grantProbe as AbortSignal,
-);
 
 process.stdout.write(
   `${JSON.stringify({
@@ -203,10 +176,5 @@ process.stdout.write(
     poisoned: isRuntimeProcessPoisoned(),
     taskReads,
     taskReason,
-    grantReason:
-      grant && "reason" in grant && typeof grant.reason === "string"
-        ? grant.reason
-        : null,
-    grantReads,
   })}\n`,
 );

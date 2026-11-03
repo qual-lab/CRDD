@@ -11,7 +11,7 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import {
   cleanupIsolation,
-  describeIsolationCapabilities,
+  describeIsolationConfiguration,
   executeIsolation,
   type IsolationExecution,
   type IsolationRequest,
@@ -177,7 +177,7 @@ function authenticationIsolationRequest(
   )
     throw Error("provider_authentication_input_invalid");
   const cli = describeProviderAuthentication(request.provider);
-  const capabilities = describeIsolationCapabilities(request.provider);
+  const capabilities = describeIsolationConfiguration(request.provider);
   const locations = capabilities.locations.primary;
   const environment = {
     ...("environment" in cli ? cli.environment : {}),
@@ -217,11 +217,7 @@ function authenticationIsolationRequest(
   const steps: IsolationRequest["steps"][number][] = [];
   if (request.action === "login") {
     const topology = capabilities.proxy;
-    if (
-      !topology.providerNetworkInternal ||
-      topology.providerDirectExternalNetwork ||
-      !request.proxyToken
-    )
+    if (!request.proxyToken)
       throw Error("provider_authentication_input_invalid");
     resources.push(
       {
@@ -244,10 +240,7 @@ function authenticationIsolationRequest(
         name: `crdd-proxy-${request.suffix}`,
         image: topology.imageDigest,
         argv: [],
-        environment: {
-          CRDD_PROXY_AUTH: request.proxyToken,
-          CRDD_PROXY_PROFILE: request.provider,
-        },
+        environment: {},
         mounts: [],
         network: "internal_network",
         networkAlias: "proxy",
@@ -262,7 +255,6 @@ function authenticationIsolationRequest(
           HOME: "/provider-home",
           ...environment,
           TMPDIR: "/tmp",
-          HTTPS_PROXY: `http://crdd:${request.proxyToken}@proxy:${topology.containerPort}`,
         },
         mounts: [
           {
@@ -347,6 +339,18 @@ function authenticationIsolationRequest(
     },
   );
   return {
+    ...(request.action === "login"
+      ? {
+          proxy: {
+            resource: "proxy",
+            clients: ["login"],
+            profile: request.provider,
+            token: request.proxyToken as string,
+            additionalHosts: null,
+            environmentMode: "https" as const,
+          },
+        }
+      : {}),
     managementDirectory,
     resources,
     steps,
@@ -464,7 +468,8 @@ export function createAuthenticationExecutor(
               }),
             );
           },
-          onCompleted: (step, result) => {
+          onCompleted: (step, commandResult) => {
+            const result = commandResult.observation;
             required(
               callbacks.onCommandCompleted,
               "provider_authentication_command_settlement_unconfirmed",

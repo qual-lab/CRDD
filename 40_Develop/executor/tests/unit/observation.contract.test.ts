@@ -30,7 +30,6 @@ test("構成診断は元操作の相関を保ちCommandとHome Pathを公開し�
   assert.equal(notice.event, "coordinator_provider_boundary_configured");
   assert.equal(notice.provider, plan.provider);
   assert.equal(notice.operationId, plan.operationId);
-  assert.equal(notice.networkPolicyHash, null);
   assert.equal("commands" in notice, false);
   assert.equal("providerHomeSourcePath" in notice, false);
 });

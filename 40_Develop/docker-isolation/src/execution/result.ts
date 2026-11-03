@@ -3,6 +3,24 @@
  * @responsibility OSやAIに依存せず、観測結果と技術的失敗を分類する。
  * @trace ARCH-000008
  */
+/**
+ * 一つの技術要求から得た観測・分類・経過時間を同じ結果として搬送する。
+ * @responsibility 未観測・固定エラー・終了分類を別々の引数へ分散させない。
+ * @trace ARCH-000008
+ * @shape observation、elapsedMs、errorCode、classification、exitClass。
+ * @invariant 元観測と不明状態を変更せず、清掃完了や業務成功を意味しない。
+ * @boundary DIの要求観測とExecutorの用途別解釈。
+ * @security 生例外・秘密・Authorityを追加しない。
+ * @compatibility 通知時点と同期void契約は変更しない。
+ */
+export type IsolationCommandResult = Readonly<{
+  observation: CommandObservation | null;
+  elapsedMs: number;
+  errorCode: "ETIMEDOUT" | "ENOBUFS" | "PROCESS_FAILURE" | null;
+  classification: DockerCommandExecutionClassification;
+  exitClass: DockerProcessExitStatusClass;
+}>;
+
 export const STDOUT_LIMIT_BYTES = 1_048_576;
 export const STDERR_LIMIT_BYTES = 262_144;
 

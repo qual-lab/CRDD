@@ -17,7 +17,6 @@ import {
   openTaskSession,
   executeWorkspace,
   type TaskSession,
-  readRepositoryNetworkPolicies,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
 import {
@@ -348,18 +347,11 @@ async function verify(
       }, 20 * 60_000);
       const start = await owner.start(
         {
-          expectedNetworkPolicyHash: (() => {
-            const network = readRepositoryNetworkPolicies(verified.capability);
-            if (network.status !== "ready")
-              throw new Error("network_policy_unavailable");
-            return network.policies.codex.policyHash;
-          })(),
           mode: "workspace_edit",
           workType: "coding",
           prompt: `合成試験です。source.txtだけを${JSON.stringify(expected)}という一行（末尾改行あり）に変更してください。他のファイル・Git・.crddは変更せず、Commit等のGit操作をしないでください。完了時のchangedPathsはsource.txtだけです。`,
           contextReferences: ["PROJECT_CONTEXT.md"],
           allowedPaths: ["source.txt"],
-          externalSendConfirmed: true,
           workspaceId: mode === "direct" ? null : workspaceId,
         },
         deadline.signal,

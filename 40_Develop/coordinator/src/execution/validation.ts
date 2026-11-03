@@ -9,7 +9,7 @@ import {
   coordinatorTaskResourcesAreSettled,
 } from "../../../domain-model/src/index.ts";
 import { types as utilTypes } from "node:util";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   RECOVERY_START_FAILURE_STAGES,
   type RecoveryStartFailureDiagnostic,

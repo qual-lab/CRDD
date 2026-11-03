@@ -274,13 +274,14 @@ export async function handleRepositoryView({
       if (requestSignal.aborted || response.destroyed) return;
       if (resolveVerifiedRepositoryRoot(capability) !== repositoryRoot)
         throw new Error("workbench_repository_unavailable");
-      network = owner.readRepositoryNetworkPolicies(capability);
+      network = owner.readRepositoryNetworkHosts(capability);
     }
     const clientModel = {
       ...baseModel,
       aiRequest: {
         ...baseModel.aiRequest,
-        networkPolicies: network?.status === "ready" ? network.policies : null,
+        additionalHosts:
+          network?.status === "ready" ? network.additionalHosts : null,
       },
     };
     let responseModel: WorkbenchClientModel = clientModel;

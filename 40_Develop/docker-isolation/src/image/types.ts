@@ -3,7 +3,6 @@
  * @responsibility 実物観測・認証・実行許可とは独立した構成だけを定義する。
  * @trace ARCH-000008
  */
-import type { DockerNetworkPolicyResult } from "../network/policy.ts";
 
 /**
  * 固定Proxyの配置を表す。
@@ -128,10 +127,7 @@ export type DockerProxyTopology = Readonly<{
  * @security 通信許可・Authorityを発行しない。
  * @compatibility 既存Policyの返却値を再構成しない。
  */
-type IsolationCapabilityDetails = Readonly<{
-  proxy: DockerProxyTopology;
-  networkPolicy: DockerNetworkPolicyResult;
-}>;
+type IsolationConfigurationDetails = Readonly<{ proxy: DockerProxyAssets }>;
 
 /**
  * 実在する配置差と識別子の対応を表す。
@@ -143,7 +139,7 @@ type IsolationCapabilityDetails = Readonly<{
  * @security 識別子は認証・実行能力ではない。
  * @compatibility 元配置の対応を維持する。
  */
-type IsolationCapabilityMap = {
+type IsolationConfigurationMap = {
   runtime: Readonly<{
     image: string;
     engine: "docker_desktop_linux_named_pipe";
@@ -155,7 +151,7 @@ type IsolationCapabilityMap = {
       networkMode: "none";
     }>;
   }>;
-  codex: IsolationCapabilityDetails &
+  codex: IsolationConfigurationDetails &
     Readonly<{
       provider: "codex";
       assets: DockerProviderAssetMap["codex"];
@@ -164,7 +160,7 @@ type IsolationCapabilityMap = {
         alternate: DockerExecutionLocations;
       }>;
     }>;
-  claude: IsolationCapabilityDetails &
+  claude: IsolationConfigurationDetails &
     Readonly<{
       provider: "claude";
       assets: DockerProviderAssetMap["claude"];
@@ -182,6 +178,6 @@ type IsolationCapabilityMap = {
  * @security 稼働状態・認証・実行許可を表さない。
  * @compatibility 既存固定値の相関だけをまとめる。
  */
-export type IsolationCapabilities<
-  P extends keyof IsolationCapabilityMap = keyof IsolationCapabilityMap,
-> = IsolationCapabilityMap[P];
+export type IsolationConfiguration<
+  P extends keyof IsolationConfigurationMap = keyof IsolationConfigurationMap,
+> = IsolationConfigurationMap[P];

@@ -8,14 +8,51 @@
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 import type { DockerIsolationCommandInput } from "../../../executor/src/attempt/types.ts";
-import {
-  dockerIsolationResourceIdentityIsValid,
-  resolveFixedCodexExecutorSeccompProfile,
-} from "../../src/execution/plan.ts";
+import { resolveFixedCodexExecutorSeccompProfile } from "../../src/execution/plan.ts";
 import {
   type DockerNetworkPolicy,
   parseDockerNetworkPolicy,
+  prepareDockerNetworkPolicy,
 } from "../../src/network/policy.ts";
+
+/** 旧Command計画の固定Identity文法を保持する有限Oracle。製品の検査には使用しない。 */
+export function dockerIsolationResourceIdentityIsValid(
+  input: Readonly<{
+    authenticationContainerName: string;
+    executionContainerName: string;
+    proxyContainerName: string;
+    internalNetworkName: string;
+    egressNetworkName: string;
+    ownershipLabel: string;
+    executionImageDigest: string;
+    proxyImageDigest: string;
+  }>,
+): boolean {
+  if (!input || typeof input !== "object") return false;
+  const names = [
+    input.authenticationContainerName,
+    input.executionContainerName,
+    input.proxyContainerName,
+    input.internalNetworkName,
+    input.egressNetworkName,
+  ];
+  return (
+    names.every(
+      (name) =>
+        typeof name === "string" &&
+        /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u.test(
+          name,
+        ),
+    ) &&
+    new Set(names).size === names.length &&
+    typeof input.ownershipLabel === "string" &&
+    /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(input.ownershipLabel) &&
+    [input.executionImageDigest, input.proxyImageDigest].every(
+      (digest) =>
+        typeof digest === "string" && /^sha256:[a-f0-9]{64}$/u.test(digest),
+    )
+  );
+}
 
 /**
  * 固定構成と保存済みcommand集合の完全一致を照合する。
@@ -381,15 +418,16 @@ export function projectDockerExecutionBoundary(
 export function planDockerIsolationCommands(
   input: DockerIsolationCommandInput,
 ): readonly DockerIsolationCommand[] | null {
-  const networkPolicy =
-    input.proxy.networkPolicy == null
+  const preparedPolicy =
+    input.proxy.additionalHosts == null
       ? null
-      : parseDockerNetworkPolicy(input.proxy.networkPolicy);
-  if (
-    input.proxy.networkPolicy != null &&
-    (!networkPolicy || networkPolicy.provider !== input.proxy.profile)
-  )
-    return null;
+      : prepareDockerNetworkPolicy(
+          input.proxy.profile,
+          input.proxy.additionalHosts,
+        );
+  if (preparedPolicy?.status === "blocked") return null;
+  const networkPolicy =
+    preparedPolicy?.status === "ready" ? preparedPolicy.policy : null;
   if ("seccompProfilePath" in input.execution) return null;
   const seccomp = input.execution.seccompProfile;
   if (

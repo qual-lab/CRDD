@@ -813,6 +813,8 @@ export function validateCoordinatorOperationIdentity(
       "internal",
       "egress",
     ]) &&
+    new Set(Object.values(identity.resources as Record<string, unknown>))
+      .size === 5 &&
     Object.values(identity.resources as Record<string, unknown>).every(
       (item) =>
         typeof item === "string" &&

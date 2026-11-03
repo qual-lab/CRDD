@@ -7,6 +7,8 @@ Architecture ID: `ARCH-000015`
 
 ## 1. 責務と境界
 
+v0.22のRuntimeでは、本書の目的限定の送信許可を、認証・認可済みRepository依頼と現在のRepository送信Policyによって成立させる。専用の確認コード・永続同意・送信Grantは要求しない。依頼の用途、情報分類、送信範囲、選定、秘密情報拒否、結果相関および候補採否の権限分離は維持する。表示時の通信設定は参考情報とし、Task実行開始時に最新の追加Hostを一度捕捉する。後続Stageでは再読取りせず、DIが技術Policyを構成・強制する。
+
 [Workspace方式](../../Details/coordinator/05_Workspace.md)では、コード変更のCandidateは対象Workspaceの固定Git成果とし、採否・Decision・許可はOrchestratorに保持する。Topic／Meetingの提案や判断候補一般までCommitへ変換しない。Direct編集・候補固定・Isolatedからの取込は異なるEffectであり、送信同意をいずれの書込み許可へも流用しない。旧Bundle保持・公開・破棄・採用・回復の本番利用側が置換されるまで旧Storeを撤去しない。
 
 not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。
@@ -129,7 +131,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1の外部送信同意・結果隔離 | 基準版のCoordinator external-send／candidate store。現行は借用Workspace | External Information Boundary | 送信境界を保持し、保存本体は上位Worktreeへ置換 | [coordinator:integration:external-send-consent-runtime](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:repository-workspace-runtime](../../../07_Quality/Registry/test-catalog.json) | CROS経由外部Agentは未実装 |
+| v0.20.1の外部送信同意・結果隔離 | 基準版のCoordinator external-send／candidate store。現行は借用Workspace | External Information Boundary | 送信境界を保持し、保存本体は上位Worktreeへ置換 | [coordinator:unit:network-policy-catalog](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:repository-workspace-runtime](../../../07_Quality/Registry/test-catalog.json) | CROS経由外部Agentは未実装 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

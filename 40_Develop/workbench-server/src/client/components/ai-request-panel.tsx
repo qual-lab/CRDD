@@ -10,8 +10,6 @@
  * @security ReactのText escapingを使用し、秘密値・Host Path・Credentialを表示しない。
  */
 import { createElement, useState, type ReactElement } from "react";
-import type { RepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
-
 import type { WorkbenchAiSelectionSurface } from "../../server/ai-selection/projection.ts";
 import type {
   WorkbenchAiRequestSnapshot,
@@ -23,7 +21,7 @@ import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
  * 選択したProviderの通信先と確認Hashを同じFormへ表示する。
  * @responsibility Provider切替時に確認対象と送信するHashを一致させる。
  * @trace ARCH-000012
- * @input selection、disabled、networkPolicies: Serverの非秘密投影。
+ * @input selection、disabled、additionalHosts: Serverの非秘密投影。
  * @returns モデル選択と通信条件のReact要素。
  * @precondition 投影は現在Repositoryの認可後に取得する。
  * @postcondition Browserの値を通信許可そのものにしない。
@@ -37,11 +35,11 @@ import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 function AiRequestSelection({
   selection,
   disabled,
-  networkPolicies,
+  additionalHosts,
 }: {
   selection: WorkbenchAiSelectionSurface | null;
   disabled: boolean;
-  networkPolicies: RepositoryNetworkPolicies | null;
+  additionalHosts: readonly string[] | null;
 }): ReactElement {
   const [mode, selectMode] = useState<"read_only_advice" | "workspace_edit">(
     "read_only_advice",
@@ -76,7 +74,6 @@ function AiRequestSelection({
     (choice) => JSON.stringify(choice) === explicit,
   );
   const choice = selected ?? (explicit === "" ? defaultChoice : undefined);
-  const policy = choice ? networkPolicies?.[choice.provider] : null;
   return createElement(
     "div",
     null,
@@ -159,36 +156,12 @@ function AiRequestSelection({
         ? `主担当: ${choice.provider} / ${choice.model} / ${choice.effort}`
         : "選択を確認できないため開始できません。",
     ),
-    createElement("input", {
-      type: "hidden",
-      name: "expectedNetworkPolicyHash",
-      value: policy?.policyHash ?? "",
-    }),
     createElement(
       "p",
       null,
-      policy
-        ? `許可通信先（${policy.provider}）：${policy.allowedHosts.join("、")}。HTTPS CONNECT / 443のみ。通信本文は検査しません。`
+      additionalHosts
+        ? `Repository追加通信先：${additionalHosts.join("、")}。Provider固定通信先はDIが適用します。表示は参考情報で、実行開始時の設定を使用します。`
         : "通信設定を確認できません。",
-    ),
-    createElement(
-      "label",
-      {
-        className: "confirm",
-        key: `${mode}:${workType}:${explicit}:${policy?.policyHash ?? ""}`,
-      },
-      createElement("input", {
-        type: "checkbox",
-        name: "externalSendConfirmed",
-        value: "yes",
-        required: true,
-        disabled: disabled || !policy,
-      }),
-      createElement(
-        "span",
-        null,
-        "この依頼と許可済みContextを、選定された外部AIへ一回送信する",
-      ),
     ),
   );
 }
@@ -216,12 +189,12 @@ export function renderWorkbenchAiRequest(
   applicationConfigured: boolean,
   snapshot: WorkbenchAiRequestSnapshot | null,
   notice: string | null = null,
-  networkPolicies: RepositoryNetworkPolicies | null = null,
+  additionalHosts: readonly string[] | null = null,
 ): ReactElement {
   const disabled =
     !applicationConfigured ||
     selection?.selection.status !== "available" ||
-    networkPolicies === null;
+    additionalHosts === null;
   const result =
     snapshot === null ? null : renderSnapshot(snapshot, actionToken);
   return createElement(
@@ -253,7 +226,7 @@ export function renderWorkbenchAiRequest(
       createElement(AiRequestSelection, {
         selection,
         disabled,
-        networkPolicies,
+        additionalHosts,
       }),
       createElement(
         "label",

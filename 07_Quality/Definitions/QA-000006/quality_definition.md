@@ -195,11 +195,11 @@ B2の排他移管では、`ERB-IT-003`のWorker／Supervisor故障・ready往復
 
 ## 追加通信条件の純粋構成（2026-10-21）
 
-接続確認では、`ERB-UT-023`の搬送設定再検査・Proxy引数への固定搬送・通信なしPython実Source確認、`EST-IT-004`の同意Hash差、既存Workbench／Orchestratorの公開受付を使う。画面期待Hashの欠落・不正・別Provider・設定変更、同意の非再利用、実行中Snapshotの不変性、ログインへの追加設定0を反証する。Provider／Docker要求0と、既存のFile読取り・操作準備を区別する。
+接続確認では、`ERB-UT-023`の搬送設定再検査・Proxy引数への固定搬送・通信なしPython実Source確認、`EST-IT-004`の専用同意廃止と通常認可維持、既存Workbench／Orchestratorの公開受付を使う。表示時期待Hashを要求へ搬送しないこと、Task実行開始時の最新設定採用、同一Taskの段階間Snapshot不変、次Taskでの再読取り、読取り不能・不正値の拒否、ログインへの追加設定0を反証する。専用送信同意・確認コード・Grantの正例は廃止契約として退役し、通常の認可・送信範囲・Packet一回使用の検査は維持する。TaskはConsoleを取得せず、資源追跡ではunacquiredとして反証する。Provider／Docker要求0と、既存のFile読取り・操作準備を区別する。
 
 明示Pythonを使う局所確認はTypeScriptとの正規形・Hash一致と不正設定時の起動拒否を確認し、未指定時は明示skipする。公開DNS24／32件の受理、33件拒否、一件でも非公開IPを含む拒否、全接続試行の単一15秒期限、失敗Socket closeと成功Socketの所有移譲も実Sourceへの有限代役で反証する。実通信は承認済みのProxy＋合成Client断面でnpm／pip取得、未許可Host・直接通信の拒否、取得後待機の取消・元ID回収を別々に観測する。認証を含む本番全体、実通信中の取消、実AIの成立へ拡張しない。個別実測結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)を正本とする。
 
-`ERB-UT-023`の`network/policy.contract.test.ts`は、Provider別固定Hostと最大32追加Host、253文字・label63文字、ASCIIのみ、URL・port・IP・wildcard・末尾dot・正規化後重複の拒否を確認する。小文字化前のUnicodeも拒否し、getter・Proxy・hole・余分fieldから許可集合を作らない。順序・大小文字・固定Host重複が同じ実効集合ならHashを一致させ、返却Policyを深く固定する。用途・Provider・443 CONNECTもHashへ結合する。DNS実観測・Python Proxy・Image・本番同意はこの純粋試験の対象外である。
+`ERB-UT-023`の`network/policy.contract.test.ts`は、Provider別固定Hostと最大32追加Host、253文字・label63文字、ASCIIのみ、URL・port・IP・wildcard・末尾dot・正規化後重複の拒否を確認する。小文字化前のUnicodeも拒否し、getter・Proxy・hole・余分fieldから許可集合を作らない。順序・大小文字・固定Host重複が同じ実効集合ならHashを一致させ、返却Policyを深く固定する。用途・Provider・443 CONNECTもHashへ結合する。DNS実観測・Python Proxy・Image・本番の認可はこの純粋試験の対象外である。
 
 ## Image実行定義とBuild入力の分離（2026-10-21）
 

@@ -27,7 +27,6 @@
     "src/cli/command.ts",
     "scripts/verification-result-record.ts",
     "scripts/measure-development-providers.ts",
-    "scripts/revoke-external-send-consent.ts",
     "src/execution/advice.ts",
     "src/execution/diagnostics.ts",
     "bin/coordinator.ts",

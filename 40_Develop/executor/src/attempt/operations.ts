@@ -20,18 +20,13 @@ import {
   type TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  type CommandObservation,
-  classifyDockerCommandException,
-  type DockerProcessExitStatusClass,
-  describeIsolationCapabilities,
-  dockerIsolationResourceIdentityIsValid,
+  describeIsolationConfiguration,
   executeIsolation,
   type IsolationExecution,
   type IsolationRequest,
   type PreparedIsolation,
-  parseDockerNetworkPolicy,
-  parseDockerTaskRecoveryId,
   prepareIsolation,
+  type IsolationCommandResult,
 } from "../../../docker-isolation/src/index.ts";
 import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import { releaseHomeLease } from "../lifecycle/cleanup.ts";
@@ -111,7 +106,8 @@ async function executeAttempt(
   let isSubscriptionAuthConfirmed = false;
   let wasProviderContainerCreationObserved = false;
   let wasProviderProcessCompletionObserved = false;
-  let providerExitStatusClass: DockerProcessExitStatusClass = "not_observed";
+  let providerExitStatusClass: IsolationCommandResult["exitClass"] =
+    "not_observed";
   let diagnosticPurpose: string | null = null;
   let diagnosticStage: PrimaryFailureDiagnostic["stage"] = "submission_record";
   let hasCommandHandle = false;
@@ -123,7 +119,9 @@ async function executeAttempt(
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
   let startNotification: Promise<void> | null = null;
   let startNotificationAccepted = false;
-  let providerOutput: CommandObservation | null = null;
+  let providerOutput: NonNullable<
+    IsolationCommandResult["observation"]
+  > | null = null;
   let lastStdoutBytes = 0;
   let cleanup: DockerSessionCleanup = Object.freeze({
     confirmed: false,
@@ -173,7 +171,9 @@ async function executeAttempt(
   }
 
   /** 内容受理は開始通知の成功後だけ行い、技術回収は通知待ちに従属させない。 */
-  function acceptProviderOutput(execution: CommandObservation): boolean {
+  function acceptProviderOutput(
+    execution: NonNullable<IsolationCommandResult["observation"]>,
+  ): boolean {
     diagnosticStage = "provider_result_normalization";
     const output = parseAttemptOutput(plan, execution, lastStdoutBytes);
     const providerResult = output.result;
@@ -512,14 +512,14 @@ async function executeAttempt(
             outcome.processTreeTerminationConfirmed;
           if (outcome.failure && primaryFailure === null)
             hooks.onFailure?.(outcome.failure);
-        } catch (error) {
+        } catch {
           if (primaryFailure === null) {
             reject("docker_process_controller_execution_failed_closed");
             const latched = primaryFailure as PrimaryFailureDiagnostic | null;
             if (latched)
               primaryFailure = Object.freeze({
                 ...latched,
-                exceptionCode: classifyDockerCommandException(error),
+                exceptionCode: "unclassified_exception",
               });
           }
         }
@@ -695,7 +695,7 @@ export function start(
   recovery: AttemptReference,
   lifecycle: LifecycleOperations = createLifecycleOperations(),
 ) {
-  const id = parseDockerTaskRecoveryId(
+  const id = parseAttemptRecoveryReference(
     readOwnDataProperty(recovery, "recoveryId"),
   );
   if (!lifecycle.start())
@@ -929,7 +929,7 @@ export function createAttemptExecutor(
           status: "blocked",
           reason: "docker_process_controller_start_failed_closed",
           recoveryId:
-            parseDockerTaskRecoveryId(
+            parseAttemptRecoveryReference(
               readOwnDataProperty(reference, "recoveryId"),
             )?.token ?? null,
           cleanupConfirmed: false,
@@ -985,19 +985,13 @@ export function prepareAttempt(
   if (selection.purpose !== (advice ? "advice" : "task")) return null;
   if (
     advice &&
-    (readOwnDataProperty(advice, "networkPolicy") === undefined ||
+    (readOwnDataProperty(advice, "additionalHosts") === undefined ||
       Object.hasOwn(advice, "command") ||
       Object.hasOwn(advice, "commandHash"))
   )
     return null;
-  const policyInput = task?.networkPolicy ?? advice?.networkPolicy ?? null;
-  const networkPolicy =
-    policyInput === null ? null : parseDockerNetworkPolicy(policyInput);
-  if (
-    policyInput !== null &&
-    (!networkPolicy || networkPolicy.provider !== provider)
-  )
-    return null;
+  const policyInput = task?.additionalHosts ?? advice?.additionalHosts ?? null;
+  const additionalHosts = policyInput;
   const referencesResult = advice
     ? parseAdviceReferences(advice.allowedReferences)
     : null;
@@ -1019,7 +1013,7 @@ export function prepareAttempt(
   });
   if (!execution) return null;
   const claude = execution.provider === "claude" ? execution : null;
-  const capabilities = describeIsolationCapabilities(provider);
+  const capabilities = describeIsolationConfiguration(provider);
   const assets = capabilities.assets;
   const egress = capabilities.proxy;
   if (
@@ -1057,7 +1051,7 @@ export function prepareAttempt(
   } = resourceNames;
   const providerImageDigest =
     advice && provider === "codex"
-      ? describeIsolationCapabilities("codex").assets.adviceIdentity
+      ? describeIsolationConfiguration("codex").assets.adviceIdentity
           .fixedImageDigest
       : assets.fixedImageDigest;
   const proxyImageDigest = egress.imageDigest;
@@ -1080,7 +1074,7 @@ export function prepareAttempt(
     ownershipLabel,
     providerImageDigest,
     proxyImageDigest,
-    networkPolicy,
+    additionalHosts,
     subscriptionOffering: describeProviderAuthentication(provider).offering,
     operationMode: task
       ? ("isolated_task" as const)
@@ -1113,7 +1107,12 @@ export function prepareAttempt(
   );
   if (!configuration || paths.tmp !== target.temporarySourcePath) return null;
   const isolationRequest = createIsolationRequest(plan, paths, configuration);
-  const completedPlan = { ...plan, isolationRequest };
+  const completedPlan = {
+    ...plan,
+    additionalHosts: isolationRequest.proxy?.additionalHosts ?? null,
+    isolationRequest,
+  };
+  if (!isAttemptPlanValid(completedPlan)) return null;
   return provider === "codex"
     ? Object.freeze({
         ...completedPlan,
@@ -1288,27 +1287,12 @@ function createIsolationRequest(
   paths: DockerIsolationRuntimeOptions["paths"],
   c: DockerIsolationCommandInput,
 ): IsolationRequest {
-  const proxyUrl = `http://crdd:${c.proxy.token}@proxy:${c.proxy.port}`;
-  const networkPolicy = c.proxy.networkPolicy ?? null;
+  if (c.proxy.port !== 8080) throw Error("docker_isolation_proxy_port_invalid");
+  const additionalHosts = c.proxy.additionalHosts ?? null;
   const environment: Record<string, string> = {
     HOME: "/provider-home",
     TMPDIR: "/tmp",
-    HTTPS_PROXY: proxyUrl,
   };
-  for (const key of networkPolicy
-    ? [
-        "HTTP_PROXY",
-        "ALL_PROXY",
-        "NO_PROXY",
-        "https_proxy",
-        "http_proxy",
-        "all_proxy",
-        "no_proxy",
-      ]
-    : c.proxy.extendedProxyEnvironment
-      ? ["HTTP_PROXY", "ALL_PROXY", "NO_PROXY"]
-      : [])
-    environment[key] = key.toLowerCase() === "no_proxy" ? "" : proxyUrl;
   Object.assign(environment, c.execution.environment);
   const auth = {
     kind: "container",
@@ -1379,13 +1363,7 @@ function createIsolationRequest(
       name: c.proxyContainerName,
       image: c.proxyImageDigest,
       argv: [],
-      environment: {
-        CRDD_PROXY_AUTH: c.proxy.token,
-        CRDD_PROXY_PROFILE: c.proxy.profile,
-        ...(networkPolicy
-          ? { CRDD_PROXY_NETWORK_POLICY: JSON.stringify(networkPolicy) }
-          : {}),
-      },
+      environment: {},
       mounts: [],
       network: "create_internal_network",
       networkAlias: "proxy",
@@ -1424,6 +1402,18 @@ function createIsolationRequest(
     deadlineOrigin: primary ? "started" : "request",
   });
   return freezeIsolationRequest({
+    proxy: {
+      resource: "create_proxy",
+      clients: ["create_provider"],
+      profile: c.proxy.profile as "codex" | "claude",
+      token: c.proxy.token,
+      additionalHosts,
+      environmentMode: additionalHosts
+        ? "all"
+        : c.proxy.extendedProxyEnvironment
+          ? "uppercase"
+          : "https",
+    },
     managementDirectory: paths.management,
     resources,
     steps: [
@@ -1547,7 +1537,7 @@ function bindIsolationRuntime(original: AttemptPlan) {
     if (!prepared) throw Error("docker_effect_plan_invalid");
     let executionStarted = false,
       executionCompleted = false;
-    let executionExit: DockerProcessExitStatusClass = "not_observed";
+    let executionExit: IsolationCommandResult["exitClass"] = "not_observed";
     let gate: NonNullable<DockerCommandSessionResult["failure"]>["gate"] = null;
     execution = executeIsolation(prepared, {
       onSubmitting: async (step) => {
@@ -1577,14 +1567,12 @@ function bindIsolationRuntime(original: AttemptPlan) {
           return hooks.onExecutionStarted?.();
         }
       },
-      onObserved: (
-        step,
-        result,
-        _elapsedMs,
-        _errorCode,
-        classification,
-        exitClass,
-      ) => {
+      onObserved: (step, commandResult) => {
+        const {
+          observation: result,
+          classification,
+          exitClass,
+        } = commandResult;
         if (step.key === "start_provider_attached") {
           executionCompleted = result !== null;
           executionExit = exitClass;
@@ -1596,7 +1584,8 @@ function bindIsolationRuntime(original: AttemptPlan) {
           classification,
         );
       },
-      onCompleted: (step, result) => {
+      onCompleted: (step, commandResult) => {
+        const result = commandResult.observation;
         gate = "onCommandCompleted";
         return hooks.onCommandCompleted?.(
           step.key as AttemptCommandPurpose,
@@ -1783,7 +1772,7 @@ export function resolveProviderExecution(
     purpose: purpose === "probe" ? "task" : purpose,
   });
   if (purpose !== "probe" && selected.status !== "resolved") return null;
-  const capabilities = describeIsolationCapabilities(plan.provider);
+  const capabilities = describeIsolationConfiguration(plan.provider);
   const locations =
     purpose === "advice" && capabilities.provider === "codex"
       ? capabilities.locations.alternate
@@ -1884,21 +1873,19 @@ export function resolveIsolationCommandInput(
         ? "advice"
         : "probe";
   const authentication = describeProviderAuthentication(plan.provider);
-  const { assets, proxy } = describeIsolationCapabilities(plan.provider);
+  const { assets, proxy } = describeIsolationConfiguration(plan.provider);
   const expectedImage =
     purpose === "advice" && plan.provider === "codex"
-      ? describeIsolationCapabilities("codex").assets.adviceIdentity
+      ? describeIsolationConfiguration("codex").assets.adviceIdentity
           .fixedImageDigest
       : assets.fixedImageDigest;
   if (
+    (plan.additionalHosts !== null &&
+      (!Array.isArray(plan.additionalHosts) ||
+        utilTypes.isProxy(plan.additionalHosts))) ||
     assets.fixedDigestImageRequired !== true ||
-    proxy.providerNetworkInternal !== true ||
-    proxy.providerDirectExternalNetwork !== false ||
-    proxy.proxyNetworks.length !== 2 ||
     plan.providerImageDigest !== expectedImage ||
     plan.proxyImageDigest !== proxy.imageDigest ||
-    (plan.networkPolicy !== null &&
-      plan.networkPolicy.provider !== plan.provider) ||
     (purpose === "task"
       ? (plan.taskRole !== "executor" && plan.taskRole !== "reviewer") ||
         !plan.workspaceSourcePath ||
@@ -1923,10 +1910,10 @@ export function resolveIsolationCommandInput(
     plan.taskRole === "executor"
       ? {
           sha256:
-            describeIsolationCapabilities("codex").assets.identity
+            describeIsolationConfiguration("codex").assets.identity
               .executorSeccompProfileSha256,
           bytes:
-            describeIsolationCapabilities("codex").assets.identity
+            describeIsolationConfiguration("codex").assets.identity
               .executorSeccompProfileBytes,
         }
       : null;
@@ -1968,7 +1955,7 @@ export function resolveIsolationCommandInput(
       token,
       port: proxy.containerPort,
       extendedProxyEnvironment: plan.provider === "codex",
-      networkPolicy: plan.networkPolicy,
+      additionalHosts: plan.additionalHosts,
     },
   };
   const locations = [
@@ -2123,6 +2110,23 @@ export function parseModelSelection(value: unknown): AiModelSelection | null {
   });
 }
 
+/** 元回復参照の文法と非Authorityの相関だけを確認する。 */
+function parseAttemptRecoveryReference(token: unknown) {
+  if (typeof token !== "string") return null;
+  const match =
+    /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u.exec(
+      token,
+    );
+  return match
+    ? {
+        token,
+        stableLogicalHomeBindingHash: match[1],
+        operationNonce: match[2],
+        baseHash: match[3],
+      }
+    : null;
+}
+
 /**
  * Object自身のdata propertyから値を読み取る。
  * @responsibility 開始参照のfield取得だけを行い、値の意味や保存成立は判断しない。
@@ -2154,6 +2158,13 @@ export function readOwnDataProperty(value: unknown, key: string): unknown {
  * @invariant DIの技術Request検査、Authority、清掃成立の代わりにはしない。
  */
 export function isAttemptPlanValid(plan: AttemptPlan): boolean {
+  const resourceNames = [
+    plan.authContainerName,
+    plan.providerContainerName,
+    plan.proxyContainerName,
+    plan.internalNetworkName,
+    plan.egressNetworkName,
+  ];
   const isTaskPlan = plan.operationMode === "isolated_task";
   const isAdvicePlan = plan.operationMode === "workbench_advice";
   return (
@@ -2184,16 +2195,20 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
           plan.providerInput === null &&
           plan.workspaceSourcePath === null &&
           plan.workspaceMountMode === null) &&
-    dockerIsolationResourceIdentityIsValid({
-      authenticationContainerName: plan.authContainerName,
-      executionContainerName: plan.providerContainerName,
-      proxyContainerName: plan.proxyContainerName,
-      internalNetworkName: plan.internalNetworkName,
-      egressNetworkName: plan.egressNetworkName,
-      ownershipLabel: plan.ownershipLabel,
-      executionImageDigest: plan.providerImageDigest,
-      proxyImageDigest: plan.proxyImageDigest,
-    }) &&
+    resourceNames.every(
+      (name) =>
+        typeof name === "string" &&
+        /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u.test(
+          name,
+        ),
+    ) &&
+    new Set(resourceNames).size === resourceNames.length &&
+    typeof plan.ownershipLabel === "string" &&
+    /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(plan.ownershipLabel) &&
+    [plan.providerImageDigest, plan.proxyImageDigest].every(
+      (digest) =>
+        typeof digest === "string" && /^sha256:[a-f0-9]{64}$/u.test(digest),
+    ) &&
     /^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) &&
     /^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) &&
     /^[a-f0-9]{64}$/u.test(plan.localUserBindingHash) &&

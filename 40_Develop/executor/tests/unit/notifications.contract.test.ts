@@ -9,6 +9,7 @@
  * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 import assert from "node:assert/strict";
+import * as di from "../../../docker-isolation/src/index.ts";
 import { readFileSync } from "node:fs";
 import test, { mock } from "node:test";
 import { runInNewContext } from "node:vm";
@@ -38,7 +39,6 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  * @cleanup 全PromiseをjoinしModule代役を復元する。外部AI・Dockerは呼ばない。
  */
 test("Requestを受ける公開Factoryは内部Planで一回実行し同じControlで取り消す", async () => {
-  const di = await import("../../../docker-isolation/src/index.ts");
   const boundary = await import("../../src/attempt/operations.ts");
   let current = fixture();
   let acquisitions = 0;
@@ -71,7 +71,9 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
         cleanupOwnedResources: current.isolation.cleanupOwnedResources,
         verifyCleanupOutcome: current.isolation.verifyCleanupOutcome,
       }),
-      parseDockerTaskRecoveryId: di.parseDockerTaskRecoveryId,
+      parseAttemptRecoveryReference: runInNewContext(
+        `${sourceDeclaration(source, "parseAttemptRecoveryReference")}\nparseAttemptRecoveryReference`,
+      ),
     },
   ) as typeof boundary.createAttemptExecutor;
   for (const mode of ["normal", "cancel", "busy"] as const) {
@@ -482,7 +484,6 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
           "approvalModeConfigured",
           "sandboxModeConfigured",
           "workspaceMountModeConfigured",
-          "networkPolicyHash",
           "rootFilesystemReadOnlyConfigured",
           "nonRootUserConfigured",
           "workdirConfigured",
@@ -615,7 +616,6 @@ test("通知待機中の取消は未発行を通知し、Home競合は同IDの�
  * @cleanup Module代役を復元する。実資源は生成しない。
  */
 test("不正な選定・参照は乱数と隔離構築より前に拒否する", async () => {
-  const di = await import("../../../docker-isolation/src/index.ts");
   const ai = await import("../../../ai-adapter/src/index.ts");
   let runtimes = 0,
     randoms = 0,
@@ -659,7 +659,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
         },
         resultSchema: ai.describeAdviceResultSchema(),
       },
-      di.describeIsolationCapabilities("claude").locations.primary,
+      di.describeIsolationConfiguration("claude").locations.primary,
     );
     assert.ok(planned.plan);
     const plan = attemptPlan();
@@ -667,7 +667,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
       kind: "attempt" as const,
       purpose: "advice" as const,
       input: "synthetic",
-      networkPolicy: null,
+      additionalHosts: null,
       allowedReferences: ["ref-0"],
       selection: { ...plan.executionSelection, purpose: "advice" as const },
       target: {

@@ -334,10 +334,7 @@ export function describeRuntimeProcessSafetyStateContract() {
       "signed_general_task_started_result_or_completion_unknown",
       "signed_route_matrix_started_or_outer_execution_unknown",
     ]),
-    guardedEntrypoints: Object.freeze([
-      "coordinator_task_before_all_effects",
-      "external_send_grant_before_authority_verification_or_console_effect",
-    ]),
+    guardedEntrypoints: Object.freeze(["coordinator_task_before_all_effects"]),
     transientDrainTransition:
       "synchronous_on_host_supervisor_failure_detection_until_all_cleanup_outcomes_are_confirmed_or_unknown_is_promoted_to_irreversible_poison",
     sameProcessResetAllowed: false,

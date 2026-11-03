@@ -67,7 +67,7 @@ Task側の論理69 Sourceと旧単発実行側の81 Sourceを、同じTree内の
 |---|---|---|
 | Objective／Task | 目標、計画、Task Graph、予約、Attemptの進行、再試行・再計画、Provider／Model選択戦略 | Provider固有CLI、隔離基盤の技術処置 |
 | Execution | 単発AIの開始・取消join・結果返却、元操作・選択Grant・Authority相関、技術回復結果の接続 | 目標やTask Graphの進行、Workspaceの採否 |
-| Decision | 人間判断、Acceptance、外部送信同意とGrantの意味・寿命 | Dockerの通信強制、Providerの技術Catalog |
+| Decision | 人間判断、Acceptance、Repository送信Policyと依頼の用途拘束 | Dockerの通信強制、Providerの技術Catalog |
 | Workspace | 作業対象と継続寿命、Candidateの明示固定・採否・取込要求 | Git実操作、AI完了だけによる自動Commit／Merge |
 | State | 意味上の現在状態、投影、照会 | 物理保存・技術回収の実処置 |
 | Storage | 平坦な単一Snapshot、共通Writer・短期Owner・CAS・履歴・耐久受領。Task反映と内部配送待ち解除を同じ更新で確定 | 技術回収の実処置、保存値だけからのAuthority発行 |
@@ -93,7 +93,7 @@ coordinator/                  # Cで現Orchestratorを改名した後の目標
 
 現Orchestratorに空の`execution/`、Facade、汎用Port Frameworkを先行作成しない。既存`CoordinatorExecutionPort`等を今回の接続契約として再利用し、最終的な統合では不要なPackage間中継だけを除く。TaskはAttemptを管理し、Executionは解決済みの作業対象で単発実行する。開始通知・取消join・結果正規化を削除条件へ含め、型だけのPortを重複実装と同一視しない。
 
-RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DI／PAの技術回収を分離する。Host資源はExecutionの許可・相関、DI／PAの技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。外部送信同意はCで`external-send/`からDecisionへ直接移管する目標だが、現行の強制Gateと同意Store／Grantを未接続のまま撤去しない。
+RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DI／PAの技術回収を分離する。Host資源はExecutionの許可・相関、DI／PAの技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。専用の外部送信同意・確認コード・永続同意・送信Grantは廃止し、認可済みRepository依頼と現在の送信Policyを用いる。Home／Mount／モデル選定や限定是正の許可は別契約として維持する。
 
 活動の公開複合Readerは`state/observation.ts`、値契約・検査・Cursorは`state/activity-{types,validation,cursor}.ts`が所有する。現在状態とExecution Intelligenceの分析用実行履歴は独立して観測し、EIをTask進行やRecoveryの状態正本にしない。出所・Cursor・ページングとWorkbench／MCPの共通利用を維持する。保存Binding導出は`state/validation.ts`が所有し、認証・認可IdentityやRoot能力へ昇格しない。Taskと技術実行の状態正本は共通Storageへ統合し、EIまで一つの履歴へ混ぜない。
 
@@ -127,7 +127,7 @@ Cの物理移管時は保存Schema・Writer・呼出し順を凍結してspecifi
 
 統合後のCLIは単一`bin/coordinator.ts`を入口とし、`cli/command.ts`が用途選択、`cli/command.ts`がProject／Taskの実受付を所有する。入力文法、doctor引数、回復表示、Signal取消はそれぞれ`request-input.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`へ残す。template固有のProject／Task振分けは本体へ接続してから撤去し、同Process・元stdin・cwd・環境・取消joinを維持する。現在の本番Project／TaskはJSON出力のみであるため、未使用Human表示の旧Candidate案内は検証義務を実JSONへ移して撤去できる。doctorのHuman表示は別責務として維持する。
 
-外部送信の意味・記録・保存・Grant・方針は`decision/external-send-{consent-record,consent-store,grant,policy}.ts`が所有する。端末の技術I/Oと終了確認は`decision/external-send-grant.ts`へ置き、Decisionから既存実体をprivate importする。同意Hash・期限・一回性・元Task相関と同じProcess安全状態を維持する。配置変更で同意Gateを省略したり、私有Grantを再構築したりしない。
+Repository送信Policyはdecision/external-send-policy.tsが所有する。Task開始時にRepository追加Hostだけを一度捕捉し、全Stageへ固定搬送する。DIが固定Hostとの合成・正規化・Hash・Proxy環境を所有し、専用の同意Store・Grant・端末調停を残さない。
 
 Package Rootは外部利用側が必要とする操作・検査・値契約を明示公開し、同Package内部は実Ownerへ直接接続する。現在の実利用集合だけで安定公開義務の不存在を推定しない。試験だけが利用する公開名は、その試験が公開保証と内部実体のどちらを検査するか確認し、移管できたものだけを非公開化する。物理統合の初回候補では未確定の公開名を保持でき、互換Facadeは新設しない。[全数切替表](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#29-cの入口公開api同意設定の切替表)が具体名、利用側、設定と保存参照の許可差分を所有する。実装・公開入口の成立は未確認である。
 
@@ -437,7 +437,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 単発実行・技術接続（15） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/settlement.ts`; `execution/validation.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。保存型はDomainの`attempt/types.ts`を利用する。 |
 | CLI（7） | `cli/command.ts`; `cli/options.ts`; `cli/request.ts`; `cli/authentication.ts`; `cli/doctor.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
 | 区画間の状態整合 | Domain Model `state/transition.ts`・`task/crud.ts` | 復号済み区画の相関・受付・結果受領・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
-| 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | 既存の同意・Policy・一回Grantを保持する。 |
+| 外部送信判断（1） | `decision/external-send-policy.ts` | Repository送信Policyと追加Hostの開始時捕捉を所有する。専用同意と送信Grantは廃止する。 |
 | 公開入口（2） | `index.ts`; `api.ts` | Rootの公開名・型／値区分を維持する。 |
 
 設定・固定選定の共有型と閉形式検査はDomainの`ai-selection/types.ts`・`validation.ts`が所有する。Coordinatorの`selection/validation.ts`は実行時の内容Hash照合を所有する。復元は当時の十項目の閉形式を検査するだけで、現在Catalogによる新規選定・認証・実行許可と区別する。`selection/resolve.ts`は現在Catalogとの技術照合を所有し、状態復元から呼ばない。新Schema・一般CRUD・Writer全面移管は別の実装段階であり、codecの依存分離だけで成立したとは表示しない。

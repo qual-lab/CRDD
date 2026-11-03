@@ -55,9 +55,10 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
   const {
     commands: _commands,
     providerInput: _input,
+    isolationRequest: _request,
     ...record
   } = attemptPlan();
-  void [_commands, _input];
+  void [_commands, _input, _request];
   const codex: PreparedAttemptPlan<"codex"> = {
     ...record,
     authorityUseCapability: {},
@@ -169,7 +170,7 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     ownershipLabel: true,
     providerImageDigest: true,
     proxyImageDigest: true,
-    networkPolicy: true,
+    additionalHosts: true,
     selectionRecordId: true,
     subscriptionOffering: true,
     selectionNotice: true,

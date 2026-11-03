@@ -52,7 +52,7 @@ const { resolveAiModelSelection } = await import(
   "../../ai-adapter/src/index.ts"
 );
 
-const { describeIsolationCapabilities } = await import(
+const { describeIsolationConfiguration } = await import(
   "../../docker-isolation/src/index.ts"
 );
 
@@ -139,10 +139,11 @@ export function describeStandaloneProviderTrial(
     promptSha256: digest(prompt),
     providerImageDigest:
       provider === "codex"
-        ? describeIsolationCapabilities("codex").assets.adviceIdentity
+        ? describeIsolationConfiguration("codex").assets.adviceIdentity
             .fixedImageDigest
-        : describeIsolationCapabilities("claude").assets.fixedImageDigest,
-    proxyImageDigest: describeIsolationCapabilities(provider).proxy.imageDigest,
+        : describeIsolationConfiguration("claude").assets.fixedImageDigest,
+    proxyImageDigest:
+      describeIsolationConfiguration(provider).proxy.imageDigest,
     repositoryMounted: false,
     workspaceMounted: false,
     toolsAllowed: false,
@@ -208,7 +209,7 @@ export function buildStandaloneTrialPlan(
       ...{
         purpose: "advice",
         input: prompt,
-        networkPolicy: null,
+        additionalHosts: null,
         allowedReferences: Object.freeze([reference]),
       },
       target: {

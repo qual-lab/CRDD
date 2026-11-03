@@ -82,11 +82,7 @@ test("Executor向け投影は上位の時刻・速度・助言管理Hashと不�
     projectionHash: "upper-projection",
 
     packetHash: "packet-hash",
-    networkPolicy: (() => {
-      const result = prepareDockerNetworkPolicy("codex", []);
-      if (result.status !== "ready") throw Error("fixture");
-      return result.policy;
-    })(),
+    additionalHosts: Object.freeze([]),
     providerPrompt: "synthetic",
     repositoryMounted: false,
     workspaceMounted: false,
@@ -484,11 +480,7 @@ function createFixture(
         selectionHash: hashExecutionSelection(selected) as string,
         taskPacketHash: "a".repeat(64),
         prompt: "Implement the bounded local candidate.",
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("codex", []);
-          if (result.status !== "ready") throw new Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         promptTransport: "provider_stdin_only" as const,
       }),
     issueProviderAuthority: (management: unknown, active: unknown) => {
@@ -593,11 +585,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
         projectionHash: "3".repeat(64),
 
         packetHash: "5".repeat(64),
-        networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("codex", []);
-          if (result.status !== "ready") throw Error("fixture");
-          return result.policy;
-        })(),
+        additionalHosts: Object.freeze([]),
         providerPrompt: "Give advice from the supplied projection.",
         allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         repositoryMounted: false as const,
@@ -1174,11 +1162,7 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
           ) as string,
           taskPacketHash: "a".repeat(64),
           prompt: "Review the bounded local candidate.",
-          networkPolicy: (() => {
-            const result = prepareDockerNetworkPolicy("codex", []);
-            if (result.status !== "ready") throw new Error("fixture");
-            return result.policy;
-          })(),
+          additionalHosts: Object.freeze([]),
           promptTransport: "provider_stdin_only" as const,
         }),
     },
@@ -1247,7 +1231,7 @@ test("Task Packetの相関不一致は上位準備で拒否しAuthorityを発行
     selectionHash: hashExecutionSelection(selected),
     taskPacketHash: "a".repeat(64),
     prompt: "synthetic",
-    networkPolicy: policy.policy,
+    additionalHosts: Object.freeze([]),
     promptTransport: "provider_stdin_only",
   };
   for (const change of [
@@ -1788,11 +1772,7 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
             selectionHash: hashExecutionSelection(original) as string,
             taskPacketHash: "a".repeat(64),
             prompt: "Synthetic bounded instruction",
-            networkPolicy: (() => {
-              const r = prepareDockerNetworkPolicy("codex", []);
-              if (r.status !== "ready") throw Error("fixture");
-              return r.policy;
-            })(),
+            additionalHosts: Object.freeze([]),
             promptTransport: "provider_stdin_only" as const,
             ...changed,
           }) as ReturnType<

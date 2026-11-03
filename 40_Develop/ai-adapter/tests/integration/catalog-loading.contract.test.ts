@@ -231,7 +231,7 @@ test("応答内容は全拒否理由と基準版のSchema・Provider計画を維
           provider === "codex" ? ("exact" as const) : ("alias" as const),
       },
     };
-    const capabilities = docker.describeIsolationCapabilities(provider);
+    const capabilities = docker.describeIsolationConfiguration(provider);
     const locations =
       capabilities.provider === "codex"
         ? capabilities.locations.alternate

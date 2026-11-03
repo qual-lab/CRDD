@@ -9,7 +9,6 @@
  * @boundary Provider AdapterとFake Runtime Portの局所境界。
  */
 import assert from "node:assert/strict";
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
@@ -32,13 +31,13 @@ const task = prepareAdviceTask({
 });
 if (!task.taskPacket) throw new Error("test_task_required");
 const dispatchInput = {
-  networkPolicy: fixtureNetworkPolicy(selection.provider),
+  additionalHosts: Object.freeze([]),
   taskPacket: task.taskPacket,
   executionSelection: selection,
 };
 const prepared = prepareProviderAdvicePlan(
   Object.freeze({
-    networkPolicy: fixtureNetworkPolicy(selection.provider),
+    additionalHosts: Object.freeze([]),
     provider: selection.provider,
     providerPrompt: task.taskPacket.providerPrompt,
     allowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),

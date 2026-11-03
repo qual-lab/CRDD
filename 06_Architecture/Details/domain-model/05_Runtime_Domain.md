@@ -1,5 +1,7 @@
 # Runtime DomainのAPI・単一保存契約
 
+Operationの保存Identityは既存のSnapshot候補生成で検査し、五資源の名前が相異なることも要求する。これは従来CoordinatorのDI個別検査が保証していた重複拒否を保存Ownerへ移したもので、保存Schema・回復ID・履歴を変更せず、保存前に不正対象を拒否する。Executorの開始前検査やDIによる実体照合・削除許可の代替ではない。
+
 成果物種別: Architecture詳細設計
 
 詳細設計領域: domain-model（Runtime Domain）

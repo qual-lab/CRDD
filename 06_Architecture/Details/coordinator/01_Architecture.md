@@ -1,8 +1,8 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
-## 同意前の技術Policy投影
+## 実行開始時の通信条件確定
 
-Repository通信設定の読取り後、送信同意より前にDIの純粋なdescribeIsolationCapabilitiesへ同じ追加Host配列を両Providerへ渡し、networkPolicyを取得する。既存の固定Host・正規化・Hashを再利用し、metadataを取得できてもnetworkPolicyがblockedなら停止する。Domain読取り不能ではCatalogを呼ばない。Coordinatorは同意と要求へのHash結合を所有し、DI／Proxyは実行時の技術的な再検査と強制を所有する。Engine観測、追加の認証・送信・保存Schema・許可発行をこの読取りへ追加しない。
+CoordinatorはTask実行開始時に検証済みRepositoryの追加Hostだけを一度読み、同じTaskの全Stageで固定する。Provider固定Hostとの合成、正規化、通信Policy Hash、Proxy／Client環境の生成はDocker Isolationが所有する。表示時Hashとの照合や専用の送信同意・確認コード・Grantは要求しない。呼出し認可、情報分類、秘密情報の拒否、送信範囲、Packetの一回使用は既存Ownerで維持する。
 
 ## 最小回収Identityと構成診断の分離（2026-11-02）
 
@@ -60,7 +60,7 @@ Attemptの技術準備はExecutorRequest<"attempt">を受けるcreateExecutorへ
 
 Task／AdviceともCoordinatorが`PreparationInput`を検査し、既存Ownerで準備・一回消費した後、Authorityと耐久記録を確定する。その後、同じ記録の参照と通知だけを試行専用Executorの`start`へ渡し、`completion`を待つ。既存durableRecordsへの元Control aliasは取消配送だけに使い、回復Capabilityとしては拒否する。終端でaliasを失効させ、解放不明時だけ同じExecutorへの明示終了接続を保つ。新しい管理表・保存領域を追加しない。選定・Packet・利用側相関は上位に保持し、結果normalizerや内部結果Factoryを直接利用しない。Domainの保存Schema・Writer・遷移とOperation Identityの形式は変更しない。
 
-初回レビューの検査済み所見は固定Host callbackから既存の操作・復帰済み試行と照合し、`execution/preparation.ts`の一つのWeakMapへ次試行許可を登録する。同一操作・初回レビューだけを対象とし、一回消費する。二回目レビュー・別操作・コピー・消費済み参照は許可しない。登録不能時もレビュー内容の完了は維持するが、許可なしで是正試行を開始しない。永続終了保存と現在のAuthority・同意・Workspace整合性を省略しない。
+初回レビューの検査済み所見は固定Host callbackから既存の操作・復帰済み試行と照合し、`execution/preparation.ts`の一つのWeakMapへ次試行許可を登録する。同一操作・初回レビューだけを対象とし、一回消費する。二回目レビュー・別操作・コピー・消費済み参照は許可しない。登録不能時もレビュー内容の完了は維持するが、許可なしで是正試行を開始しない。永続終了保存と現在のAuthority・送信範囲範囲・Workspace整合性を省略しない。
 
 ## 実行完了とSurface表示の検証分離 — 2026-10-30
 
@@ -99,7 +99,7 @@ CoordinatorはCallerが計画・分解した小・中規模Taskを実行・調�
 | 初期化・仕事の進行 | `initializeProject`、`runObjective`、`submitDecision`、`acceptResult`、`queryState` | State、Objective、Decision |
 | 単発・継続受付 | `runTask`、`openTaskSession` | Taskの同一Session。単発操作はstart・wait・finally closeを待機 |
 | 作業領域・活動照会 | `executeWorkspace`、`queryActivity` | Workspace、認可済みState照会 |
-| Repository設定 | `readRepositoryAiSelection`、`saveRepositoryAiSelection`、`readRepositoryNetworkPolicies` | 既存の設定保存・同意判断Owner |
+| Repository設定 | `readRepositoryAiSelection`、`saveRepositoryAiSelection`、`readRepositoryNetworkHosts` | 既存の設定保存・同意判断Owner |
 | 環境・回復 | `diagnoseEnvironment`、`recoverExecution`、`restartDockerForRecovery`、`repairDockerRuntime`、`retainRepair` | Executionの既存回復組立て |
 | 認証・能力説明 | `getAuthenticationStatus`、`authenticateProvider`、`getCapabilities` | Execution／AI Adapter／Docker Isolationの既存境界 |
 
@@ -164,7 +164,7 @@ StorageはC前の構造整理で凍結する。対象は二Sourceの配置・本
 
 診断のOperation生成・下位観測・readiness・回収は`execution/diagnostics.ts`、Node版の実行条件は`execution/diagnostics.ts`が所有する。診断初期化の元Error登録と分類は同じ私有WeakMapへ結合し、CLI失敗表示がその分類だけを使用する。診断からCLI表示を逆参照せず、表示の都合で結果や回復参照を再生成しない。Report版・固定理由・表示byte・未実施／不明の意味は配置変更で変えない。
 
-送信同意の端末接続は`decision/external-send-grant.ts`から既存PAの技術操作を使い、回収不明を観測した時点で既存Process状態へpoisonを反映する。Reader期限・取消・元Promise・端末回収・値非開示の保証を維持し、CLI専用の端末Ownerを残さない。Signal接続はOrchestratorも同じ`cli/cancellation.ts`を使い、Task完了待機とは別責務として保つ。これはC物理移管候補の配置であり、C全体・実境界の完了を意味しない。
+専用送信同意の端末接続は廃止した。通常TaskはConsole readerを取得しない。Platform Accessの一般的な端末入力・終了確認の技術契約は別に維持し、Taskの取消・Process終了・回復保証と混同しない。
 
 Task依頼の入力取込みは`execution/request.ts`、読取り助言のContext／Profile／同意・配送・結果受理は`execution/advice.ts`が所有する。Provider助言の実行型は既存`provider-types.ts`へ置き、実行順序を型Ownerへ移さない。助言受付、Provider計画、Operation／cleanup、Process制御は異なる境界であり、中継削減のためにそれぞれの検証を省略しない。公開関数名、入力Schema、送信回数と取消・回復参照はこの配置変更で変えない。
 
@@ -176,19 +176,11 @@ Provider CLI生成・結果Envelope抽出は既存AI Adapter API、Docker構成�
 
 Workbench助言は共通の単発Task受付から一回実行する。専用のProvider振分け・結果中継は統合するが、助言の固定Context・許可参照・Profile／Catalog／通信Hash・一回送信・取消／回収不明・元Host参照は保持する。編集TaskのExecutor→Candidate→Reviewerへ変換せず、Repository／WorkspaceのMount・追加送信・自動Commitを導入しない。移管と本番接続・反証回帰の完了前に旧実装を置換済みと表示しない。
 
-## Repository通信条件の同意・実行への接続（確認中）
+## Repository通信条件の実行への接続
 
-検証済みRepositoryから現在の`network-policy.json`を要求ごとに一回読む。Domain Modelが読取り、Docker IsolationがProvider固定Hostとの合成・技術検査・意味Hashを所有する。同じ不変設定を既存PolicyRecord、同意境界、Grant、Task Packet、実行計画へ搬送し、後段で設定を再読しない。既存の外部送信方針Hashを通信設定Hashへ転用せず、生File HashやHost Pathを通信先確認へ混ぜない。
+Coordinatorは検証済みRepositoryからTask実行開始時の`network-policy.json`を一度読み、追加Host配列を既存Policy記録・Packet・Executorへ搬送する。全Stageは同じ不変値を使い、次Taskだけが設定を再読取りする。DIは固定Hostとの合成・技術検査・意味Hash・環境変数を所有する。認証には追加Hostを渡さない。
 
-CLIの既存送信確認にProvider別の実効Host・443 CONNECT・通信Hashを表示する。旧同意は新境界Hashと一致しないため再利用しない。Workbenchは画面に表示したProviderの期待Hashを渡し、開始時の設定と不一致ならAI／Docker要求前に拒否する。既存の操作準備・状態受付とProvider／Docker Effectを区別し、File読取りや既存準備までEffect 0とは表示しない。
-
-助言は既存の一回配送Grantと意味的Packet Hashへ、編集・レビューは送信GrantとTask Packet Hashへ通信条件を結合する。ログインはRepository設定を読まずProvider固定通信だけを維持する。元create設定を回収時の構成照合にも使い、一次失敗と回収不明を保持する。追加の承認Store・Registry・Lock・Recoveryは作らない。Source接続・合成回帰と新Imageの実通信確認は別の完了条件とし、現在は後者未実施である。
-
-Host操作領域のDirectory・File・descriptor識別は、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`だけを同じ64bit列の符号なし値へ揃えてから比較・保存する。ゼロ・型不正・範囲外・POSIX負値・型・link・dev・birthtimeの既存拒否と、元操作の作成・再検証・回収条件は維持する。保存済み正値・履歴・回復参照は読み替えず、補正のための新状態・回復経路を追加しない。
-
-[Workspace再編の目標責務](../coordinator/05_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
-
-[実行対象の引渡しとCLIの責務](../coordinator/05_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)に従い、Workspace選択・ID解決・Direct／Isolated選択は上位が所有する。Coordinatorは解決済み作業対象の同一性・Repository境界・Git保護・実体・Mount材料を確認して単発実行するだけで、Workspaceの検索・配置再構築・台帳読取りを所有しない。現行`BorrowedWorkspaceTarget`がWorkspace情報を含むことを、その管理責務の根拠にしない。既存のID依存照合と必要な安全確認の分離は今後のSource切替対象であり、未指定時の旧Bundle経路又は自動Direct化を残す方針ではない。
+Workbenchの表示は参考情報とし、表示後・受付後でも実行開始前の変更は採用する。表示時の期待Hashや専用の送信同意を実行条件にしない。読取り不能・不正設定・Repository不一致は拒否し、表示値や旧設定へfallbackしない。既存の操作準備・耐久受付とProvider／Docker Effectは別に観測する。
 
 ## 単発Workbench依頼の終了相関（2026-10-18、実装・検証中）
 
@@ -302,9 +294,9 @@ B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安
 
 OS生存・Platform観測はPAの`process/observation.ts`が所有し、Lease入力・世代結合・用途別環境選択はOrchestratorの既存Windows Adapterが所有する。OSのaliveは世代同一性の証明ではない。[B2の対応と保持条件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#10-b2os観測端末排他の技術境界)を参照する。
 
-固定OS端末のopen・TTY検査・callback完了待ち・全close試行はPAの`terminal/console.ts`が所有する。Coordinatorの同期／非同期Outcomeとavailability入口はPA Rootの固定操作を使い、cleanup_unknown時のpoisonと非completedのvalue:nullを従来時点で維持する。上位は任意Path・Adapterを注入せず、借用descriptorをcallback完了後に保持しない。
+固定OS端末のopen・TTY検査・callback完了待ち・全close試行はPAの`terminal/console.ts`が所有する。旧B2ではCoordinatorからこの契約を呼び出したが、専用送信同意の撤去後は通常Taskから利用しない。PA一般端末と認証loginのTTYでは、既存の終了確認・不明時の拒否を維持する。
 
-B2の完結では、確認コードの技術搬送、固定Reader、Named Pipe Worker／Supervisorと終了観測をPAへ移す。六桁・UTF-8・改行・byte上限は搬送文法であり、コード生成・期待値一致・同意・送信許可はCoordinatorに残す。`execution/kernel-lock.ts`は対象と世代、用途別HashとPipe名の導出だけを保持し、PA Rootの技術取得へ接続する。Worker・SharedArrayBuffer・IPC・子終了は所有しない。旧固定子Registryは撤去し、試験Toolの回復行列子はそのScript内の固定自己起動とする。新しい許可・永続State・監視・回復機構は追加しない。
+旧B2時点では確認コードの技術搬送、固定Reader、Named Pipe Worker／Supervisorと終了観測をPAへ移し、コード生成・期待値一致・同意・送信許可をCoordinatorに残した。現在は専用送信確認とその調停を廃止しており、この比較を現役のTask処理として扱わない。PAの一般的な搬送・終了確認は維持する。`execution/kernel-lock.ts`は引き続き対象と世代、用途別HashとPipe名の導出を所有し、PA Rootの技術取得へ接続する。新しい許可・永続State・監視・回復機構は追加しない。
 
 ### 修復専用保存Ownerの接続契約（CLI候補・全体未完了）
 
@@ -392,7 +384,7 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI Adapterの適格性・計画を利用し、選定根拠、短命Grant、実行許可と再選定条件をEffect前に固定する。 | Partial |
 | [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Transport非依存のTask公開契約。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Covered |
 | [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 独立した読取り評価との責務境界を保持する。v0.22では利用者Trust Policyの有効化・Provider起動接続を要求しない。 | Partial |
-| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部送信同意、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
+| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | Repository送信Policy、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
 
 Relation状態は、この領域が担当する責務断面に対する状態である。複数領域で同じARCH-IDを実現する場合、各領域の断面を合成して基本設計全体を閉じる。
 
@@ -408,7 +400,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Failure／Recovery | Required | 取消、親喪失、Docker停止、Effect不明から同じIdentityへ再入場する。 | [§11](#11-取消と回復) |
 | Deployment | Required | 選択Checkout／Packageの固定入口、必要Artifact、Provider Home、Container、Host helperの配置を示す。 | [§2](#2-現行profileと公開入口) |
 | Observability | Required | Provider境界の各phaseと終了後資源を相関して診断する。 | [§13](#13-検証接続) |
-| Security Boundary | Required | Provider Credential、外部送信同意、現在の用途別実行許可、必要Artifact同一性を分離する。 | [§7](#7-authorityと外部送信) |
+| Security Boundary | Required | Provider Credential、Repository送信Policy、現在の用途別実行許可、必要Artifact同一性を分離する。 | [§7](#7-authorityと外部送信) |
 | Implementation Structure | Required | Provider／Process／Recoveryの差分軸、生成・選択、状態依存、構成および資源Ownerを固定する。 | [§16](#16-implementation-structure) |
 
 `N/A`は未検討を意味しない。対象外にできるArchitecture上の理由を記載する。
@@ -424,7 +416,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | Failure／Recovery | PASS | 要求、受理、開始、結果、終了、cleanupを別状態にする。 | [正本節](#11-取消と回復) |
 | State／Consistency | PASS | Task、Attempt、Process、Container、Review、Recovery状態を分ける。 | [§4](#4-状態と遷移) |
 | Observability | PASS | Provider境界の各phaseと終了後資源を相関して診断する。 | [§13](#13-検証接続) |
-| Security／Trust | PASS | Provider Credential、外部送信同意、現在の用途別実行許可、必要Artifact同一性を分離する。実装と実測の成立は別に評価する。 | [§7](#7-authorityと外部送信) |
+| Security／Trust | PASS | Provider Credential、Repository送信Policy、現在の用途別実行許可、必要Artifact同一性を分離する。実装と実測の成立は別に評価する。 | [§7](#7-authorityと外部送信) |
 
 結果語彙は次の意味に限定する。
 
@@ -480,7 +472,7 @@ Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qual
 
 `workspace/`と`diagnostics/`は実責務へ分配して解体する。継続Workspaceの選択・寿命・採否は既にOrchestratorが所有するため、CoordinatorからWorkspaceを新たに管理させない。借用対象照合・変更Snapshot・一時Operation作成・技術的な修復Sessionの保存直列化とRoot保護候補は`execution/`、診断受付・表示は`cli/`が所有する。GitのHEAD／Tree・前後同一性観測はVersion Controlへ移し、Orchestratorはその公開操作を直接利用する。Coordinatorの40桁実行制限を汎用Git観測へ持ち込まない。
 
-`authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査の承認済み目標OwnerはDomain Modelの`plain-data/secret-validation.ts`とし、Workspace・外部送信同意・実行入力・結果取込は同じ純粋検査の利用側とする。現SourceはDomain Modelへ移管済みで、CoordinatorはDomain Rootの公開Symbolを利用する。既知pattern・Path・文字列の検査を維持し、秘密値の保存・Credential管理・未知Secret不存在証明を追加しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
+`authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査の承認済み目標OwnerはDomain Modelの`plain-data/secret-validation.ts`とし、Workspace・送信範囲・実行入力・結果取込は同じ純粋検査の利用側とする。現SourceはDomain Modelへ移管済みで、CoordinatorはDomain Rootの公開Symbolを利用する。既知pattern・Path・文字列の検査を維持し、秘密値の保存・Credential管理・未知Secret不存在証明を追加しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
 
 Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/recovery.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。同意Storeと保護判断Storeが実利用する共通JSON確定保存4操作はDomain Modelの`storage/committed-json.ts`を利用する。旧Journalの残る17操作は、唯一の本番Consumerが`a04ecb703`で撤去済みであり、旧回復Directoryへfallbackしない既存方針に従って退役する。現在の回復は`execution/recovery.ts`と現在状態checkpoint、Docker Isolationの実資源回収へ対応付け、旧方式の試験を現方式の保証と混同しない。`execution/controller.ts`は開始前予定保存、Host実遷移、清掃・Mount終了根拠の照合と後続checkpointを所有する。保存Schema・失敗分類・確定順序は維持し、StoreはReaderと既存Writer操作だけを提供する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
 
@@ -543,7 +535,7 @@ C前の事前整理では、Provider別の薄い準備Adapter二Fileを撤去し
 |---|---|---|
 | Task開始 | `startRuntimeOwnedCoordinatorTask` | 検査済み要求、検証済みRepository、現在の用途別実行許可、上位相関参照 → Operation・取消用control・完了結果。CRDD署名Capability引数・消費Gateは撤去済み。Process停止条件と要求・送信許可・隔離の確認は維持する。 |
 | Task取消 | `cancelRuntimeOwnedCoordinatorTask` | 同じcontrol Capability → 取消要求の受理。実停止・cleanup・最終結果は対象Taskの終了経路で別に観測する。 |
-| 助言／変更候補 | 既存Workbench AI Mode Router、Dispatch、Runtime Packet | 一回送信確認、Profile・Task・Projection結合 → 助言または隔離候補。画面受付・Profile管理とProvider差は所有しない。 |
+| 助言／変更候補 | 既存Workbench AI Mode Router、Dispatch、Runtime Packet | 認可済み依頼、Profile・Task・Projection結合 → 助言または隔離候補。画面受付・Profile管理とProvider差は所有しない。 |
 | Workspace成果の確認 | 上位が解決した作業Treeと一時Review投影 | Coordinatorは変更範囲とReview結果を返す。候補固定・Git統合・領域終了は上位操作であり、旧Store APIは公開しない。 |
 | 診断／exact回復 | 既存doctor・Task回復の意味操作 | 現在Repository・Runtime結合、exact参照、必要な介入承認 → 診断・資源終端または未解決。新しいProvider依頼を発行しない。 |
 | 配布物の読取り検査 | 既存Manifest・閉包・Native検証は分解対象 | 必要なArtifact同一性確認は専門Ownerへ、正式配布の真正性は必要時のRelease検査へ分ける。検査結果から通常Runtime用の一回Capabilityを発行しない。 |
@@ -698,12 +690,12 @@ Provider成功だけで`completed`にしない。cleanup不明、候補Identity�
 
 | 資源 | 所有者 | 取得 | 解放・確認 |
 |---|---|---|---|
-| Host Operation lock | Host supervisor | Operation開始前 | 全子・Container・Console reader停止後 |
+| Host Operation lock | Host supervisor | Operation開始前 | 所有する全子・Containerの停止確認後。通常Taskは専用Console readerを取得しない |
 | Provider Home lock | Home session controller | Home観測後 | 対応Stage終了後 |
 | Mount Grant | Mount Grant runtime | 対象PathとStage固定後 | Stage終了・取消・失敗時に失効 |
 | Docker container/network | Docker process controller | Provider起動時 | `docker wait`／inspectと不存在確認 |
 | Candidate Workspace | Orchestrator／Version ControlのRepository operation runtime | Executor前 | 固定Candidateの採用・終了またはWorkspaceの明示終了後 |
-| Console reader | 対話境界 | 必要なHuman入力前 | reader、pipe、childの終了確認 |
+| Console reader | PA一般端末・認証の対話境界 | 通常Taskでは非取得。認証login等の必要な対話だけ | 対話Ownerがreader、pipe、childの終了を確認 |
 | Recovery record | 対応Effect controller | Effect前に耐久化 | 復旧完了のread-back後だけ完了化 |
 
 同じstream、handle、Processまたは一時Directoryを複数役割で共有しない。共有が避けられない場合は所有者、開始、終了、競合およびcleanup後条件を同じ設計・実装・試験へ結ぶ。
@@ -718,7 +710,6 @@ Provider成功だけで`completed`にしない。cleanup不明、候補Identity�
 Host Operation
   → Provider Home
     → Runtime StateまたはDocker Recovery
-      → Console reader（必要時だけ）
 ```
 
 逆順取得、待機中の未知lock削除、別OperationのRecovery ID流用を禁止する。取消は新規取得を止め、既に所有する内側資源から順に回収し、最後にHost Operation lockを解放する。
@@ -727,11 +718,13 @@ Host Operation
 
 ## 7. Authorityと外部送信
 
+資源名・Label・Imageの技術文法は、Executorが生成・開始時に検査する。CoordinatorはDIの個別Identity validatorへ依存せず、同じ保存対象をDomainの既存Snapshot候補生成で検査する。候補をNative Home観測より前に構築し、不正Identity・重複資源名ではNative観測・耐久Intent保存へ進まない。Host／Repositoryの読取りがHome観測より前になるが、保存Writerの元版・現在性検査とHost開始前の再照合は維持する。
+
 Taskの清掃可否判定は`src/execution/recovery.ts`、現在入場と回復結果の公開投影は`src/execution/result.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法はDomain Modelの`attempt/operations.ts`へ集約し、現在状態、CLI、回復Callerと結果公開がDomain Rootの同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
 
 Repository読取り、外部送信、Provider起動、候補書込み、候補export、Docker復旧は別Authorityである。RoleはAuthorityを意味しない。
 
-外部送信はRepository-local Policyと認証済みローカルユーザーの初期確認を境界とする。許可したProvider、情報分類、目的、Subscription、候補保持および取消条件が変わらない限り、Operationごとの確認コードを要求しない。Password、秘密鍵、Session Token、API Keyその他の秘密値をPrompt、Task Packet、logまたはProvider投影へ含めない。API key課金fallbackと追加購入は非対応である。
+外部送信はRepository-local Policyと認証・認可済みのRepository依頼を境界とする。専用の送信同意、確認コード、永続同意、送信Grantは作成・消費しない。許可したProvider、情報分類、送信範囲、候補保持、取消および通常の実行Authorityは維持する。Password、秘密鍵、Session Token、API Key等をPrompt・Packet・log・Provider投影へ含めない。API key課金fallbackと追加購入は非対応である。
 
 費用上限の個別確認は、利用者が明示した場合または既存Policyの上限を超える場合だけ必要とする。通常速度を既定とし、高コストmodel／effortは難易度・Risk・判断影響から説明可能な場合だけ選ぶ。
 
@@ -813,9 +806,9 @@ Mount Authorizationは、Provider Home Path、token、session、Credential、一
 Workbenchの読取り助言は、一般Taskの`executor`または`reviewer`へ読み替えない。専用Task Packetと専用結果契約を使用し、次の順序を固定する。
 
 ```text
-利用者の一回送信確認
+認証・認可済みRepository依頼
   ↓
-Task Hash + 完全選定Hash + 通信条件Hash + Provider
+Task Hash + 完全選定Hash + 追加Host + Provider
   ↓ 一回消費
 Workbench AI Advice Dispatch
   ↓
@@ -826,7 +819,7 @@ Effect／cleanupを独立観測
 許可済み参照へ拘束した結果正規化
 ```
 
-- 確認は同じTaskだけに有効で、永続同意、別Task、別の固定選定または変更候補のAuthorityへ再利用しない。
+- Packetは同じ操作・完全選定・本文・許可済み参照・追加Hostへ拘束し、一回だけ消費する。専用送信同意の代用Grantは発行しない。
 - Effect前の取消はProvider呼出し0で閉じる。Effect後の例外・取消・cleanup不明は自動再送せず`unknown`へ保つ。
 - `completed`は、Provider Effect発行、cleanup確認、単一JSONおよび許可済み参照だけを持つ結果がすべて確認できた場合に限る。
 - 現行Production CompositionはこのDispatch、Provider別の固定Adapter選択、読取り助言専用Execution Planまで接続する。Execution PlanはProvider、完全選定十項目、対象role／attempt、Task／Projection Hashを固定し、Promptを標準入力だけで搬送する。Repository／Workspace mount、Tool、Session保持、API Key／有料fallbackを許可しない。
@@ -1088,7 +1081,7 @@ CLI optionは個別の存在だけでなく、同時指定する全optionの組�
 
 ## 11. 取消と回復
 
-一回目のCtrl+C、timeoutまたはowner lossは取消要求であり、完了ではない。CoordinatorはProvider子孫、Container、network、Mount、Console reader、候補およびlockを依存の逆順で回収する。二回目の割込みは回収を省略する許可ではない。
+一回目のCtrl+C、timeoutまたはowner lossは取消要求であり、完了ではない。CoordinatorはProvider子孫、Container、network、Mount、候補およびlockの回収を依存の逆順で調整する。通常Taskは専用Console readerを取得しない。PA一般端末や認証loginの対話資源は、その技術Ownerの終了確認を維持する。二回目の割込みは回収を省略する許可ではない。
 
 回収を直接観測できなければ、exact Recovery ID、`manualRecoveryRequired`、`processRestartRequired`および`effectStateUnknown`を保持して停止する。新しいProcessで同じRepository・選択ユーザー・配布Identityへ再結合できた場合だけ復旧を続ける。復旧後も元Taskを自動再開しない。
 
@@ -2105,7 +2098,6 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 `RES-HOST-GENERATION`          Host Operation lockと作業Directory
 `RES-LOGICAL-HOME-LOCK`       Provider Home単位の排他
 `RES-RUNTIME-STATE-LOCK`      Runtime Stateの限定読書き排他
-`RES-INTERACTIVE-CONSOLE`     Console lock、reader、pipe、child
 `RES-MOUNT-GRANT`             一回限りCapabilityとMount lease
 `RES-DOCKER-OWNED`            Provider child、Container、network
 `RES-OPERATION-WORKSPACE`     Host内の一時投影・保護Mount。上位から借用する作業Treeは含めない
@@ -2185,7 +2177,7 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 | Semantic Key | 種別 | 要求する意味 | Architecture定義 | 検証要否 | 根拠節 | N/A理由 |
 |---|---|---|---|---|---|---|
 | `coordinator.objective-lifecycle` | `lifecycle` | Task／Attemptを要求、許可、Provider実行、Review、候補、cleanup、結果公開へ進め、途中失敗を安全な停止または同じIdentityの回復義務へ収束させる。 | `ARCH-000004` | `Required` | `## 3. 一般Taskの主シーケンス` | — |
-| `coordinator.provider-effect-authority` | `authority` | 外部送信同意、Task Authority、Provider Effectおよび候補採用を別の決定権限として扱い、必要なAuthorityが揃う前にProvider Effectを開始しない。 | `ARCH-000004`<br>`ARCH-000015` | `Required` | `## 7. Authorityと外部送信` | — |
+| `coordinator.provider-effect-authority` | `authority` | Repository送信Policy、Task Authority、Provider Effectおよび候補採用を別の決定権限として扱い、必要なAuthorityが揃う前にProvider Effectを開始しない。 | `ARCH-000004`<br>`ARCH-000015` | `Required` | `## 7. Authorityと外部送信` | — |
 | `coordinator.provider-selection-boundary` | `boundary` | 利用可能性、Task属性、構成、PolicyおよびTrust結果からProvider／ModelをEffect前に選び、選定理由と再選定条件を固定する。 | `ARCH-000010` | `Required` | `## 8. Providerとモデル選定` | — |
 | `coordinator.external-boundary-diagnostics` | `observability` | Provider、Docker、OS Processおよび結果搬送の要求、開始、完了、失敗、cleanupを同じOperationで相関し、観測不能を成功へ畳まない。 | `ARCH-000008` | `Required` | `### Provider外部境界の診断接続` | — |
 | `coordinator.candidate-review-boundary` | `boundary` | Providerの生結果を正本へ直接採用せず、隔離候補、Review、必要なRemediationおよびCandidate dispositionを経て利用側へ返す。 | `ARCH-000015` | `Required` | `## 10. Provider実行と候補` | — |
@@ -2224,7 +2216,7 @@ CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成�
 
 単一Taskの拒否結果では、実効Executor Providerが未選択の場合の`executorProvider: null`を正当な未選択として受け取る。上位の省略可能なProvider項目へは投影せず、元の拒否理由、cleanup、再起動要否およびexact回復参照を保持する。未選択だけからEffect 0や資源不存在を推定しない。成功結果のnull、未知Provider、ProxyまたはAccessorは拒否し、欠測・data `undefined`の既存互換は維持する。Accessorを欠測へ読み替えず、Getterを実行しない。
 
-外部送信確認を取得できない拒否は、この結果搬送の是正とは別である。Workbenchでの送信確認表示や会話上の承認を、Runtimeの検証済み同意の代替にしない。有効な同意を再利用できなければ正式な対話確認へ戻り、自動承認、無条件再送またはProvider開始によって拒否を回避しない。
+専用の外部送信確認は要求しない。認可済みの依頼、現在のPolicy、固定選定、Packetと送信範囲の検査は維持し、結果不明時の自動再送は行わない。
 
 ## 15. 非目標
 
@@ -2262,7 +2254,7 @@ Coordinatorの最上位責務は`cli / objective / task / decision / workspace /
 |---|---|
 | `objective/` | `request / plan / execute / replan / public-operation`。目的の受付・計画・実行調停・再計画を所有し、Taskの純粋遷移や永続Writerを再実装しない |
 | `task/` | `requests / scheduling / dispatch / lifecycle / recovery / acceptance / types`。Graph・Attempt相関・進行・結果受領を所有する。人間の採用権限はDecisionへ、単発実行の技術状態はExecutionへ分ける |
-| `decision/` | `request / records / lifecycle / acceptance / public-operation / external-send-policy / external-send-consent / external-send-grant / types`。人間判断と外部送信同意を所有し、技術Mount Authorityと混合しない |
+| `decision/` | `request / records / lifecycle / acceptance / public-operation / external-send-policy / types`。人間判断とRepository送信Policyを所有し、技術Mount Authorityと混合しない |
 | `workspace/` | `record / commands / operations`を基本として、作業領域の判断・要求相関を所有する。Git EffectはVersion Controlを呼ぶ |
 | `execution/` | `request / preparation / controller / observation / result / advice / authority / operation / recovery / diagnostics / process-safety-state / kernel-lock`の十二責務を基本とする。開始・取消・元通知・回収・実行Authorityを同じOperationへ結ぶ |
 | `state/` | `model / types / request / projection / query / public-query / observation / persistence / result`。現在状態の値、公開観測の値型、照会入力、純粋な投影と検査、単一状態照会、認証付き公開照会、認可済み集合の観測、保存Port型、公開結果を区別する。保存・実行を純粋な依存閉包へ取り込まない |
@@ -2274,7 +2266,7 @@ Domain Modelの既存`plain-data/`は、承認済みの例外として既知秘�
 
 Fileの統合では、私有WeakMap／Set、元Control・通知、期限時計、失効・解放順序を所有状態の単位として扱う。名前が似たMapを統合したり、同じMapを移管先で生成し直したりしない。純粋な状態遷移を保存・Process起動と同じ実行時依存閉包へ合流させる統合も行わない。
 
-Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease Owner観測は`execution/kernel-lock`へ置く。Root／Homeの保護候補・Path検査は`execution/authority`、送信同意の端末調停は`decision/external-send-grant`が所有し、OS原語は既存PA APIを利用する。未実装のRoot観測は未実装のまま拒否し、今回の配置で保証を追加しない。助言のHost失敗Mapと回復関数は`execution/advice`、認証計画と回復Mapは`execution/authority`に一体保持する。回復という名前だけを理由にMapから処理を切り離さない。
+Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease Owner観測は`execution/kernel-lock`へ置く。Root／Homeの保護候補・Path検査は`execution/authority`、OS原語は既存PA APIを利用する。未実装のRoot観測は未実装のまま拒否し、今回の配置で保証を追加しない。助言のHost失敗Mapと回復関数は`execution/advice`、認証計画と回復Mapは`execution/authority`に一体保持する。回復という名前だけを理由にMapから処理を切り離さない。
 
 先行構造でStateの`model`に集約した値・遷移は、下節の承認Afterに従い分解する。Task／Queue／単発記録の型は`task/types`、Objective／Milestoneの型は`objective/types`、統合状態の型は`state/types`、初期値構築は`state/create`、人間判断の純粋遷移は`decision/transition`、共有plain data／相対Path／Repository Bindingと状態相関の検査は`state/validation`へ置く。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は状態・公開観測の共有値型であり、全Packageの型の汎用置場にはしない。`request`は照会入力と契約定数、`projection`は統合状態と公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
 

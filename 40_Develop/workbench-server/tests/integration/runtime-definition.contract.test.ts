@@ -143,7 +143,7 @@ test("任意Owner待機後の失効・取消は設定Readerを発行しない", 
     const start = source.indexOf("const owner = await import(");
     const end = source.indexOf(
       "\n",
-      source.indexOf("network = owner.readRepositoryNetworkPolicies(", start),
+      source.indexOf("network = owner.readRepositoryNetworkHosts(", start),
     );
     assert.ok(start > 0 && end > start);
     const segment = source
@@ -193,7 +193,7 @@ test("任意Owner待機後の失効・取消は設定Readerを発行しない", 
       if (condition === "destroyed") response.destroyed = true;
       if (condition === "revoked") live = false;
       release({
-        readRepositoryNetworkPolicies() {
+        readRepositoryNetworkHosts() {
           reads++;
           return {};
         },

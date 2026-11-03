@@ -9,7 +9,6 @@
  * @boundary Coordinator Dispatchと固定Fake Provider Adapterの局所境界。
  */
 import assert from "node:assert/strict";
-import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
@@ -58,33 +57,31 @@ const RAW_RESULT = JSON.stringify({
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-function dispatchInput(externalSendConfirmed = true) {
+function dispatchInput() {
   return Object.freeze({
-    networkPolicy: fixtureNetworkPolicy(selection.provider),
+    additionalHosts: Object.freeze([]),
     taskPacket,
     executionSelection: selection,
-    externalSendConfirmed,
   });
 }
 
 /**
- * 明示確認済みの一依頼だけをProviderへ渡して根拠付き結果を返すを検証する。
+ * 確定した一依頼だけをProviderへ渡して根拠付き結果を返すを検証する。
  *
- * @responsibility 明示確認済みの一依頼だけをProviderへ渡して根拠付き結果を返すを検証するの検証責務を所有する。
+ * @responsibility 確定した一依頼だけをProviderへ渡して根拠付き結果を返すを検証するの検証責務を所有する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 明示確認済みの一依頼だけをProviderへ渡して根拠付き結果を返すの対象操作を実行する。
+ * @stimulus 確定した一依頼だけをProviderへ渡して根拠付き結果を返すの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("明示確認済みの一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
+test("確定した一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
   assert.deepEqual(describeAdviceDispatchContract().authorityScope, [
     "taskHash",
     "selectionHash",
     "provider",
-    "networkPolicyHash",
   ]);
   let calls = 0;
   const dispatch = createAdviceDispatch(async () => {
@@ -101,36 +98,6 @@ test("明示確認済みの一依頼だけをProviderへ渡して根拠付き結
   assert.equal(result.status, "completed");
   assert.equal(calls, 1);
   assert.equal(result.facts[0]?.references[0], "PROJECT_CONTEXT.md");
-});
-
-/**
- * 外部送信の明示確認がなければEffect 0で拒否するを検証する。
- *
- * @responsibility 外部送信の明示確認がなければEffect 0で拒否するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 外部送信の明示確認がなければEffect 0で拒否するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("外部送信の明示確認がなければEffect 0で拒否する", async () => {
-  let calls = 0;
-  const dispatch = createAdviceDispatch(async () => {
-    calls += 1;
-    throw new Error("unreachable");
-  });
-  const result = await dispatch(
-    dispatchInput(false),
-    new AbortController().signal,
-  );
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "workbench_ai_external_send_confirmation_required",
-  );
-  assert.equal(calls, 0);
 });
 
 /**

@@ -6,11 +6,7 @@
 
 import type { DockerResourceExpectation } from "../cleanup/plan.ts";
 import type { ResourceSnapshot } from "../cleanup/types.ts";
-import type {
-  CommandObservation,
-  DockerCommandExecutionClassification,
-  DockerProcessExitStatusClass,
-} from "./result.ts";
+import type { CommandObservation, IsolationCommandResult } from "./result.ts";
 
 /** 固定セキュリティ条件へ与えるContainer構成。Docker flagは受け取らない。 */
 export type IsolationContainer = Readonly<{
@@ -77,6 +73,14 @@ export type IsolationStep =
 
 /** 実行内容はExecutorが確定し、技術順序・Process・回収はDIが所有する。 */
 export type IsolationRequest = Readonly<{
+  proxy?: Readonly<{
+    resource: string;
+    clients: readonly string[];
+    profile: "codex" | "claude";
+    token: string;
+    additionalHosts: readonly string[] | null;
+    environmentMode: "https" | "uppercase" | "all";
+  }>;
   managementDirectory: string;
   resources: readonly (IsolationContainer | IsolationNetwork)[];
   steps: readonly IsolationStep[];
@@ -115,15 +119,12 @@ export interface IsolationCallbacks {
     snapshot: ResourceSnapshot,
   ): void | Promise<void>;
   onStarted?(step: IsolationStep): void;
-  onObserved?(
+  onObserved?(step: IsolationStep, result: IsolationCommandResult): void;
+  onCompleted?(
     step: IsolationStep,
-    result: CommandObservation | null,
-    elapsedMs: number,
-    errorCode: "ETIMEDOUT" | "ENOBUFS" | "PROCESS_FAILURE" | null,
-    classification: DockerCommandExecutionClassification,
-    exitClass: DockerProcessExitStatusClass,
+    result: IsolationCommandResult &
+      Readonly<{ observation: CommandObservation }>,
   ): void;
-  onCompleted?(step: IsolationStep, result: CommandObservation): void;
   onCleanupSubmitting?(resourceKey: string): void | Promise<void>;
   onResourceIdentified?(
     resourceKey: string,

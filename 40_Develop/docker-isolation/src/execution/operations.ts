@@ -54,6 +54,7 @@ import {
 } from "./preparation.ts";
 import {
   type CommandObservation,
+  type IsolationCommandResult,
   classifyDockerCommandException,
   classifyDockerCommandExecution,
   classifyDockerProcessExit,
@@ -212,7 +213,7 @@ export function prepareIsolation(
  * @input prepared: 元準備。callbacks: 必要通知と同期結果解釈。
  * @returns 取消と一回のCompletion。
  * @effect 返却後だけ固定Docker CLI・所有Process・限定回収を発行する。
- * @failure 一次停止点と回収未確認を別に保持する。
+ * @failure 開始時再検証の失敗を同じCompletionの一次停止点へ保持し、回収未確認と分離する。元準備以外・二重使用は同期拒否。
  * @invariant 通知失敗後の前進、終了不明での削除、Cleanup前の完了を禁止する。
  */
 export function executeIsolation(
@@ -281,7 +282,6 @@ function runIsolation(
   prepared: IsolationPreparation,
   callbacks: IsolationCallbacks,
 ): IsolationExecution {
-  prepared.verify();
   prepared.take();
   const owner = prepared;
   const input = prepared.request;
@@ -880,12 +880,12 @@ function runIsolation(
   const completion = Promise.resolve().then(
     async (): Promise<IsolationExecutionResult> => {
       try {
+        verify();
         if (
           !cancelled &&
           (input.steps.length > 0 ||
             snapshot.resources.some((r) => r.request !== "not_issued"))
         ) {
-          verify();
           configStarted = true;
           config = createDockerCliConfig(input.managementDirectory);
           const engine = await command(
@@ -995,18 +995,14 @@ function runIsolation(
             )
               update(current.resource, result.stdout.trim(), "issued");
             if (cancelled && current.action !== "create") break;
-            await notice(
-              "onObserved",
-              [
-                current,
-                result,
-                observedElapsedMs,
-                observedErrorCode,
-                classifyDockerCommandExecution(result),
-                classifyDockerProcessExit(result),
-              ],
-              true,
-            );
+            const commandResult: IsolationCommandResult = Object.freeze({
+              observation: result,
+              elapsedMs: observedElapsedMs,
+              errorCode: observedErrorCode,
+              classification: classifyDockerCommandExecution(result),
+              exitClass: classifyDockerProcessExit(result),
+            });
+            await notice("onObserved", [current, commandResult], true);
             if (!terminated)
               throw Error("docker_isolation_process_termination_unconfirmed");
             if (
@@ -1032,7 +1028,7 @@ function runIsolation(
               await observe(current.resource);
             }
             if (cancelled) break;
-            await notice("onCompleted", [current, result], true);
+            await notice("onCompleted", [current, commandResult], true);
           }
         }
       } catch (error) {

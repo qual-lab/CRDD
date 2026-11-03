@@ -19,9 +19,9 @@ import { types as utilTypes } from "node:util";
 import vm from "node:vm";
 import { codexAdviceProviderInitRequired } from "../../../../executor/src/attempt/recovery.ts";
 import type { DockerIsolationCommandInput } from "../../../../executor/src/attempt/types.ts";
-import { dockerIsolationResourceIdentityIsValid } from "../../../src/index.ts";
 import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
 import {
+  dockerIsolationResourceIdentityIsValid,
   dockerIsolationCommandsMatch,
   planDockerIsolationCommands,
   projectDockerExecutionBoundary,
@@ -196,7 +196,7 @@ test("Proxy投影は固定包装だけを読み欠測・重複・暗黙変換を
   if (network.status !== "ready") assert.fail();
   const configured = planDockerIsolationCommands({
     ...input,
-    proxy: { ...input.proxy, networkPolicy: network.policy },
+    proxy: { ...input.proxy, additionalHosts: ["pypi.org"] },
   });
   assert.ok(configured);
   const projected = projectDockerProxyConfiguration(
@@ -231,7 +231,7 @@ test("Proxy投影は固定包装だけを読み欠測・重複・暗黙変換を
       ...input,
       proxy: {
         ...input.proxy,
-        networkPolicy: { ...network.policy, provider: "claude" },
+        additionalHosts: ["https://invalid"],
       },
     }),
     null,
@@ -264,7 +264,7 @@ test("Proxy投影は固定包装だけを読み欠測・重複・暗黙変換を
     planDockerIsolationCommands({
       ...input,
       execution: { ...input.execution, environment: { NO_PROXY: "*" } },
-      proxy: { ...input.proxy, networkPolicy: network.policy },
+      proxy: { ...input.proxy, additionalHosts: ["pypi.org"] },
     }),
     null,
   );
@@ -635,9 +635,9 @@ test("Docker境界診断は包装だけを読みpayloadのflag・同digestを解
  * @observation validatorのboolと実plannerの受理／nullを確認する。
  * @oracle 文法不正は拒否し、正常boolをAuthorityとして使わず上位意味照合を維持する。
  * @cleanup N/A: 値検査のみ、実資源なし。
- * @boundary 上位Identity投影とDI文法。
+ * @boundary 旧Commandの有限Oracle。現行Executorの開始検査はExecutor試験が所有する。
  */
-test("資源Identityの八項目と五名重複は同じDI文法で拒否する", () => {
+test("旧Command Oracleは資源Identityの八項目と五名重複を拒否する", () => {
   const input = inputFixture();
   const identity = {
     authenticationContainerName: input.authenticationContainerName,
@@ -727,11 +727,7 @@ test("診断上限は現planner最大9command・427argvを受け各＋1を拒否
     proxy: {
       ...input.proxy,
       extendedProxyEnvironment: true,
-      networkPolicy: (() => {
-        const result = prepareDockerNetworkPolicy("codex", []);
-        if (result.status !== "ready") throw new Error("fixture");
-        return result.policy;
-      })(),
+      additionalHosts: Object.freeze([]),
     },
   });
   assert.ok(commands);

@@ -587,6 +587,47 @@ function recoveryWriterValues() {
 }
 
 /**
+ * 同じ保存対象へ二つの用途が同じ資源名を割り当てることを拒否する。
+ * @responsibility 保存入力のIdentity整合をDIの公開検査へ依存せず保証する。
+ * @trace ERB-IT-014
+ * @precondition 正常な合成Operationの保存入力。
+ * @stimulus 五資源の各用途へ別用途と同じ名前を与える。
+ * @observation Snapshot候補の受理又はnull。
+ * @oracle 元入力だけ受理し、全重複を物理保存前に拒否する。
+ * @cleanup N/A: 値の検査のみ。実Filesystem・Process・Dockerなし。
+ * @boundary Domainの保存候補生成。保存の実成立を意味しない。
+ */
+test("保存Identityは五資源名の重複を候補生成前に拒否する", () => {
+  const f = recoveryWriterValues();
+  const operation = f.snapshot.operations[0];
+  assert.ok(operation && operation.kind === "docker_task");
+  const identity = JSON.parse(operation.identityJson);
+  assert.ok(
+    prepareCoordinatorStateOperationSnapshot(
+      null,
+      operation.identityJson,
+      f.repository.repositoryBinding,
+    ),
+  );
+  const keys = ["auth", "provider", "proxy", "internal", "egress"];
+  for (let i = 0; i < keys.length; i++) {
+    const changed = structuredClone(identity);
+    const key = keys[i];
+    const other = keys[(i + 1) % keys.length];
+    assert.ok(key && other);
+    changed.resources[key] = changed.resources[other];
+    assert.equal(
+      prepareCoordinatorStateOperationSnapshot(
+        null,
+        JSON.stringify(changed) + "\n",
+        f.repository.repositoryBinding,
+      ),
+      null,
+    );
+  }
+});
+
+/**
  * 固定Writer本文が保存済みHost意図以外のtoken変更を拒否する。
  * @responsibility 元版・同操作・既知終了とpending解除を保存要求前に照合する。
  * @trace ERB-IT-014

@@ -43,7 +43,7 @@ const objective = Object.freeze(
  * @precondition 正常Objectiveと分類・明示choice・判断差替えの三任意項目を使用する。
  * @stimulus 三任意項目の全八組合せを実Task入力検査へ渡す。
  * @observation 完全選定、Provider、通信Hashと複製配列を確認する。
- * @oracle 受付で固定した選定と通信HashがTaskへ無変換で搬送され、権限を追加しない。
+ * @oracle 受付で固定した選定がTaskへ無変換で搬送され、権限を追加しない。
  * @cleanup N/A: メモリ内の純粋関数だけを実行する。
  * @boundary N/A: 実Task、ProviderとHost資源を起動しない。
  */
@@ -83,22 +83,8 @@ test("Objectiveの固定選定は全八組合せでTask契約へexactに搬送�
     assert.notEqual(task.acceptanceCriteria, request.acceptanceCriteria);
     assert.deepEqual(task.allowedPaths, request.allowedPaths);
     assert.equal(Object.isFrozen(normalized.request), true);
-    const networkHash = "c".repeat(64);
-    const network = snapshotCoordinatorTaskRequest({
-      ...task,
-      expectedNetworkPolicyHash: networkHash,
-    });
-    assert.equal(network?.status, "accepted");
-    if (network?.status !== "accepted") assert.fail("network_rejected");
-    assert.equal(network.request.expectedNetworkPolicyHash, networkHash);
-    assert.equal(
-      snapshotCoordinatorTaskRequest({
-        ...task,
-        expectedNetworkPolicyHash: "invalid",
-      }),
-      null,
-    );
     for (const field of [
+      "expectedNetworkPolicyHash",
       "requestedProfileId",
       "requestedExecutorProvider",
       "frontProvider",

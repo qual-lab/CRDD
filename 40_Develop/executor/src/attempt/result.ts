@@ -12,10 +12,7 @@ import {
   parseProviderResult,
   projectCodexExecutionBoundary,
 } from "../../../ai-adapter/src/index.ts";
-import type {
-  CommandObservation,
-  DockerCommandExecutionClassification,
-} from "../../../docker-isolation/src/index.ts";
+import type { IsolationCommandResult } from "../../../docker-isolation/src/index.ts";
 import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
 import type {
   AttemptDiagnosticNotice,
@@ -37,7 +34,7 @@ import type {
  */
 export function parseAttemptOutput(
   plan: AttemptPlan,
-  execution: CommandObservation,
+  execution: NonNullable<IsolationCommandResult["observation"]>,
   stdoutBytes: number,
 ): Readonly<{
   result: ProviderResultParseResult;
@@ -258,7 +255,7 @@ export function createCompletionResult(
  * @trace ARCH-000008
  * @input execution: 元の観測、purpose: 用途、provider: Provider、classified: 下位の技術分類。
  * @returns convertCommandResultの計算結果を返す。
- * @precondition 「execution: CommandObservation | null、purpose: string、provider: "codex" | "claude"」がconvertCommandResultの入力契約を満たす。
+ * @precondition 「execution: NonNullable<IsolationCommandResult["observation"]> | null、purpose: string、provider: "codex" | "claude"」がconvertCommandResultの入力契約を満たす。
  * @postcondition convertCommandResultの責務を完了した結果だけを返す。
  * @effect N/A: convertCommandResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: convertCommandResultは独自の失敗分岐を所有しない。
@@ -268,10 +265,10 @@ export function createCompletionResult(
  * @concurrency N/A: convertCommandResultは共有非同期状態を持たない同期処理である。
  */
 export function convertCommandResult(
-  execution: CommandObservation | null,
+  execution: NonNullable<IsolationCommandResult["observation"]> | null,
   purpose: string,
   provider: "codex" | "claude",
-  classified: DockerCommandExecutionClassification,
+  classified: IsolationCommandResult["classification"],
 ) {
   const isProvider = purpose === "start_provider_attached";
   if (classified.category === "deadline_exceeded")
@@ -342,7 +339,6 @@ export function createConfigurationNotice(
     approvalModeConfigured: codex?.approvalModeConfigured ?? "not_applicable",
     sandboxModeConfigured: codex?.sandboxModeConfigured ?? "not_applicable",
     workspaceMountModeConfigured: plan.workspaceMountMode,
-    networkPolicyHash: plan.networkPolicy?.policyHash ?? null,
     rootFilesystemReadOnlyConfigured: provider !== null,
     nonRootUserConfigured: provider?.user === "65534:65534",
     workdirConfigured: provider?.workingDirectory === "/work",

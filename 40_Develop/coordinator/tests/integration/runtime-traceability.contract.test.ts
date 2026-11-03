@@ -104,7 +104,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     inspectCoordinatorRuntimeTraceability(trace, repositoryReader),
     {
       status: "accepted",
-      resources: 8,
+      resources: 7,
       states: 17,
       transitions: 18,
       attemptClassifications: 0,
@@ -595,9 +595,9 @@ test("CLIは受付・表示と取消に閉じ実Ownerから逆参照されない
       /from "\.\.\/(execution|storage|state|objective)\//u,
     );
   }
-  assert.match(
-    read("decision/external-send-grant.ts"),
-    /export function withInteractiveConsoleOutcome/u,
+  assert.equal(
+    fs.existsSync(path.join(root, "decision/external-send-grant.ts")),
+    false,
   );
   assert.match(
     read("cli/recovery-report.ts"),

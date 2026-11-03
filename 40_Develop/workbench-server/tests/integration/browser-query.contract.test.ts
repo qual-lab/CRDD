@@ -26,17 +26,17 @@ import { requestWorkbenchMutation } from "../../src/client/api/mutations.ts";
 import { clearWorkbenchCredential } from "../../src/client/api/connection.ts";
 
 /**
- * 通信条件の変化で確認DOMだけを再生成する構成を確認する。
- * @responsibility React要素のidentityと現在Hashを相関させる。
+ * 通信条件は参考表示とし、要求へ表示時Hashを含めない構成を確認する。
+ * @responsibility 選択の変更と参考表示の更新を観測する。
  * @trace ERB-IT-021
  * @precondition 実React createElementと局所useState代役。Browser DOM自体は別確認。
  * @stimulus Provider変更、同ProviderでHash変更、元条件の再描画。
- * @observation checkboxのkey、hidden Hash、同じProfile部品のkey。
- * @oracle 条件が変わる場合だけcheckbox identityが変わり、親Form全体は変えない。
+ * @observation checkboxのkey、通信先表示とhidden Hashの不存在。
+ * @oracle 選択変更は確認をリセットし、参考通信条件の更新では依頼入力を再生成しない。
  * @cleanup 同期子Process終了でModule代役を破棄。File・Network作成なし。
  * @boundary 実Componentの要素構築。Browserの操作成立へ拡張しない。
  */
-test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成しない", () => {
+test("通信設定は参考表示とし表示時Hashを要求へ搬送しない", () => {
   const component = path.resolve(
     import.meta.dirname,
     "../../src/client/components/ai-request-panel.tsx",
@@ -56,7 +56,7 @@ test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成�
     });
     await module.evaluate();
     const profiles={selection:{status:'available',snapshot:{config:{roleDefaults:{advice:{provider:'codex',model:'m1',effort:'medium'}},workTypes:{},overrides:{}}}},catalog:{catalog:{models:[{provider:'codex',modelIdentifier:'m1',supportedPurposes:['advice'],supportedEfforts:['medium']},{provider:'claude',modelIdentifier:'m2',supportedPurposes:['advice'],supportedEfforts:['medium']}]}}};
-    const policies={codex:{provider:'codex',policyHash:'a'.repeat(64),allowedHosts:['chatgpt.com']},claude:{provider:'claude',policyHash:'b'.repeat(64),allowedHosts:['claude.ai']}};
+    const policies=['first.example.com'];
     /**
      * React要素木から対象を探す。
      * @responsibility 固定試験の要素Propertyを再帰観測する。
@@ -73,22 +73,22 @@ test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成�
     const profile=find(tree,e=>typeof e.type==='function'&&e.type.name==='AiRequestSelection');
     assert.ok(profile);assert.equal(profile.key,null);
     /**
-     * 現在Profileの確認identityとHashを読む。
+     * 現在選択の確認identityと通信先の参考表示を読む。
      * @responsibility 実Componentを通して同じ描画の二値を観測する。
      * @trace ERB-IT-021
      * @precondition Profile部品を一つ特定済み。
      * @stimulus 固定propsと局所選択値で部品を構築する。
-     * @observation checkbox keyとhidden Hash。
+     * @observation checkbox key、通信先表示とhidden Hashの不存在。
      * @oracle 別描画の値を混在させない。
      * @cleanup N/A: 局所値のみ。
      * @boundary VM内の実Component、実DOMではない。
      */
-    function observe(){hook=0;const value=profile.type(profile.props);return {key:find(value,e=>e.props?.className==='confirm').key,hash:find(value,e=>e.props?.name==='expectedNetworkPolicyHash').props.value};}
-    const first=observe();assert.equal(first.hash,policies.codex.policyHash);
-    profiles.selection.snapshot.config.workTypes.constructor={label:'constructor'};workType='constructor';assert.equal(observe().hash,policies.codex.policyHash);
-    profiles.selection.snapshot.config.overrides.advice={constructor:{provider:'claude',model:'m2',effort:'medium'}};assert.equal(observe().hash,policies.claude.policyHash);workType='';
-    selected=JSON.stringify({provider:'claude',model:'m2',effort:'medium'});const second=observe();assert.notEqual(second.key,first.key);assert.equal(second.hash,policies.claude.policyHash);
-    policies.claude={...policies.claude,policyHash:'c'.repeat(64)};const third=observe();assert.notEqual(third.key,second.key);assert.equal(third.hash,policies.claude.policyHash);assert.deepEqual(observe(),third);
+    function observe(){hook=0;const value=profile.type(profile.props);assert.equal(find(value,e=>e.props?.name==='expectedNetworkPolicyHash'),null);assert.equal(find(value,e=>e.props?.name==='externalSendConfirmed'),null);return {policy:find(value,e=>e.type==='p'&&typeof e.props.children==='string'&&e.props.children.startsWith('Repository追加通信先')).props.children};}
+    const first=observe();assert.ok(first.policy.includes('first.example.com'));
+    profiles.selection.snapshot.config.workTypes.constructor={label:'constructor'};workType='constructor';assert.ok(observe().policy.includes('first.example.com'));
+    profiles.selection.snapshot.config.overrides.advice={constructor:{provider:'claude',model:'m2',effort:'medium'}};assert.ok(observe().policy.includes('first.example.com'));workType='';
+    selected=JSON.stringify({provider:'claude',model:'m2',effort:'medium'});const second=observe();assert.ok(second.policy.includes('first.example.com'));
+    policies.push('new.example.com');const third=observe();assert.ok(third.policy.includes('new.example.com'));assert.deepEqual(observe(),third);
   `;
   const result = spawnSync(
     process.execPath,

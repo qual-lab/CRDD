@@ -378,7 +378,7 @@ export async function handleSharedView({
             )
           )
             throw new Error("workbench_selected_content_unavailable");
-          network = owner.readRepositoryNetworkPolicies(selected.root);
+          network = owner.readRepositoryNetworkHosts(selected.root);
         }
         model = {
           ...model,
@@ -391,8 +391,8 @@ export async function handleSharedView({
             result: null,
           },
           aiRequest: {
-            networkPolicies:
-              network?.status === "ready" ? network.policies : null,
+            additionalHosts:
+              network?.status === "ready" ? network.additionalHosts : null,
             configured:
               configuration.sharedAiRequestsFactory !== undefined &&
               selected.workspaceIds.includes("development"),

@@ -14,7 +14,7 @@ import {
   planProviderExecution,
   resolveAiModelSelection,
 } from "../../ai-adapter/src/index.ts";
-import { describeIsolationCapabilities } from "../../docker-isolation/src/index.ts";
+import { describeIsolationConfiguration } from "../../docker-isolation/src/index.ts";
 import { hashExecutionSelection } from "../../domain-model/src/index.ts";
 import type { TestAttemptPlan as AttemptPlan } from "./executor-test.ts";
 import { prepareAttempt, resolveValidatedPlan } from "./executor-test.ts";
@@ -91,7 +91,7 @@ export function describeTaskTrial(
         ...(provider === "claude" ? { taskWorkload: workload } : {}),
       },
     },
-    describeIsolationCapabilities(provider).locations.primary,
+    describeIsolationConfiguration(provider).locations.primary,
   );
   if (generated.status !== "ready")
     throw Error(`trial_task_plan_${generated.error.reason}`);
@@ -115,8 +115,9 @@ export function describeTaskTrial(
     inputSha256: hash(mode === "review" ? TASK_TRIAL_TEXT : "BASE\n"),
     expectedOutputSha256: hash(TASK_TRIAL_TEXT),
     providerImageDigest:
-      describeIsolationCapabilities(provider).assets.fixedImageDigest,
-    proxyImageDigest: describeIsolationCapabilities(provider).proxy.imageDigest,
+      describeIsolationConfiguration(provider).assets.fixedImageDigest,
+    proxyImageDigest:
+      describeIsolationConfiguration(provider).proxy.imageDigest,
     repositoryMounted: false,
     workspaceMounted: true,
     toolsRequested: mode !== "review",
@@ -182,9 +183,7 @@ export function buildTaskTrialPlan(
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
   });
-  const policy = describeIsolationCapabilities(spec.provider, []).networkPolicy;
-  if (!selectionHash || policy.status !== "ready")
-    throw Error("trial_selection_hash_invalid");
+  if (!selectionHash) throw Error("trial_selection_hash_invalid");
   const work = path.join(root, "work");
   const built = prepareAttempt(
     { randomBytes },
@@ -195,7 +194,7 @@ export function buildTaskTrialPlan(
         input: spec.prompt,
         taskRole: spec.taskRole as "executor" | "reviewer",
         taskWorkload: workload,
-        networkPolicy: policy.policy,
+        additionalHosts: Object.freeze([]),
       },
       target: {
         ...{

@@ -71,7 +71,6 @@ const expectations = {
  */
 function completed(
   profile: keyof typeof expectations,
-  authorizationMode = "reused_initial_consent",
   remediationPerformed = false,
 ) {
   const [route, front, executor, reviewer] = expectations[profile];
@@ -96,7 +95,6 @@ function completed(
     executorProvider: executor,
     reviewerProvider: reviewer,
     reviewerIndependence: "provider_independent",
-    externalSendAuthorizationMode: authorizationMode,
     remediationPerformed,
     changedPaths: Object.freeze([
       "40_Develop/coordinator/tests/fixtures/general-task-verification.txt",
@@ -141,7 +139,6 @@ function safelyRetryable(
     | "coordinator_task_independent_review_not_approved"
     | "coordinator_task_candidate_verification_failed"
     | "signed_general_task_candidate_content_mismatch",
-  authorizationMode: "interactive_initial_consent" | "reused_initial_consent",
   candidateDisposition: "discarded" | "not_issued" = "discarded",
 ) {
   return Object.freeze({
@@ -155,7 +152,6 @@ function safelyRetryable(
     crddTree: "d".repeat(40),
     executionCommit: "e".repeat(40),
     executionTree: "f".repeat(40),
-    externalSendAuthorizationMode: authorizationMode,
     candidateDiscarded: candidateDisposition === "discarded",
     candidateDisposition,
     cleanupConfirmed: true,
@@ -199,12 +195,7 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
   ) => {
     assert.ok(route);
     seenItems.push(route);
-    return completed(
-      route,
-      seenItems.length === 1
-        ? "interactive_initial_consent"
-        : "reused_initial_consent",
-    );
+    return completed(route);
   }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.deepEqual(seenItems, [
@@ -261,7 +252,7 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
           hostPathReported: false,
           credentialReported: false,
         })
-      : completed(route, "interactive_initial_consent");
+      : completed(route);
   }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.deepEqual(seenItems, ["forward", "reverse"]);
@@ -282,7 +273,7 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
  * @boundary AIT-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全成功fieldの一つでも危険側・経路不一致なら完了判定しない", () => {
-  const base = completed("forward", "interactive_initial_consent");
+  const base = completed("forward");
   const mutations: Array<readonly [string, unknown]> = [
     ["contractRevision", 4],
     ["sourceScope", undefined],
@@ -309,16 +300,9 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
     ["hostPathReported", true],
     ["credentialReported", true],
   ];
+  assert.equal(isExactSignedRouteResult("forward", base), true);
   assert.equal(
-    isExactSignedRouteResult("forward", base, "interactive_initial_consent"),
-    true,
-  );
-  assert.equal(
-    isExactSignedRouteResult(
-      "forward",
-      completed("forward", "interactive_initial_consent", true),
-      "interactive_initial_consent",
-    ),
+    isExactSignedRouteResult("forward", completed("forward", true)),
     true,
   );
   for (const [field, value] of mutations) {
@@ -326,7 +310,6 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
       isExactSignedRouteResult(
         "forward",
         Object.freeze({ ...base, [field]: value }),
-        "interactive_initial_consent",
       ),
       false,
       field,
@@ -335,18 +318,18 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
 });
 
 /**
- * 保存済み同意は初回からreuseし残りもreuseで閉じるを検証する。
+ * 専用送信同意なしで全経路を閉じるを検証する。
  *
- * @responsibility 保存済み同意は初回からreuseし残りもreuseで閉じるの合否判定を所有する。
+ * @responsibility 専用送信同意なしで全経路を閉じるの合否判定を所有する。
  * @trace AIT-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 保存済み同意は初回からreuseし残りもreuseで閉じるの対象操作を実行する。
+ * @stimulus 専用送信同意なしで全経路を閉じるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("保存済み同意は初回からreuseし残りもreuseで閉じる", async () => {
+test("専用送信同意なしで全経路を閉じる", async () => {
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
     _root,
     _dependencies,
@@ -354,14 +337,10 @@ test("保存済み同意は初回からreuseし残りもreuseで閉じる", asyn
   ) =>
     completed(
       route ?? "forward",
-      "reused_initial_consent",
     )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.equal(result.completedRouteCount, 4);
-  assert.equal(
-    result.initialConsentAuthorizationMode,
-    "reused_initial_consent",
-  );
+  assert.equal("initialConsentAuthorizationMode" in result, false);
 });
 
 /**
@@ -391,10 +370,9 @@ test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を�
       if (forwardAttempts === 1)
         return safelyRetryable(
           "signed_general_task_candidate_content_mismatch",
-          "interactive_initial_consent",
         );
     }
-    return completed(route, "reused_initial_consent");
+    return completed(route);
   }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.deepEqual(seenItems, [
@@ -431,12 +409,9 @@ test("安全再試行の全attemptを同じ作業対象Execution Revisionへ固�
   ) => {
     attempts += 1;
     if (attempts === 1)
-      return safelyRetryable(
-        "signed_general_task_candidate_content_mismatch",
-        "interactive_initial_consent",
-      );
+      return safelyRetryable("signed_general_task_candidate_content_mismatch");
     return Object.freeze({
-      ...completed(route ?? "forward", "reused_initial_consent"),
+      ...completed(route ?? "forward"),
       executionCommit: "1".repeat(40),
     });
   }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
@@ -468,7 +443,6 @@ test("是正後の独立Reviewer拒否は同一入力を再実行せず停止す
   ) =>
     safelyRetryable(
       "coordinator_task_independent_review_not_approved",
-      "reused_initial_consent",
       "not_issued",
     )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
@@ -501,7 +475,6 @@ test("Candidate整合性不成立は同一入力を再実行せず停止する",
   ) =>
     safelyRetryable(
       "coordinator_task_candidate_verification_failed",
-      "reused_initial_consent",
       "not_issued",
     )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
@@ -532,7 +505,6 @@ test("内容不一致でもCandidate未発行という矛盾した結果は再�
   ) =>
     safelyRetryable(
       "signed_general_task_candidate_content_mismatch",
-      "reused_initial_consent",
       "not_issued",
     )) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
@@ -567,10 +539,7 @@ test("Recovery曖昧・候補未破棄・汎用失敗は再試行せず初回で
       (async () => {
         attempts += 1;
         return Object.freeze({
-          ...safelyRetryable(
-            "signed_general_task_candidate_content_mismatch",
-            "reused_initial_consent",
-          ),
+          ...safelyRetryable("signed_general_task_candidate_content_mismatch"),
           ...mutation,
         });
       }) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification,
@@ -606,12 +575,7 @@ test("4経路は同一Source Identityへ固定し別Sourceを集約しない", a
       process.cwd(),
       (async (_root, _dependencies, route) => {
         count += 1;
-        const result = completed(
-          route ?? "forward",
-          count === 1
-            ? "interactive_initial_consent"
-            : "reused_initial_consent",
-        );
+        const result = completed(route ?? "forward");
         return count === 2
           ? Object.freeze({ ...result, [field]: value })
           : result;
@@ -647,12 +611,7 @@ test("4経路は同一の実行Repository Identityへ固定し別Revisionを集�
       process.cwd(),
       (async (_root, _dependencies, route) => {
         count += 1;
-        const routeResult = completed(
-          route ?? "forward",
-          count === 1
-            ? "interactive_initial_consent"
-            : "reused_initial_consent",
-        );
+        const routeResult = completed(route ?? "forward");
         return count === 2
           ? Object.freeze({ ...routeResult, [field]: value })
           : routeResult;
@@ -704,15 +663,12 @@ test("route runner例外は実Processをpoisonし全guarded入口をEffect前に
     "process_restart_required",
   );
   assert.equal(observed.taskReads, 0);
-  assert.equal(observed.grantReads, 0);
+  assert.equal("grantReads" in observed, false);
   assert.equal(
     observed.taskReason,
     "coordinator_task_process_restart_required",
   );
-  assert.equal(
-    observed.grantReason,
-    "external_send_confirmation_cleanup_unknown_process_restart_required",
-  );
+  assert.equal("grantReason" in observed, false);
 });
 
 /**
@@ -792,7 +748,7 @@ test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる",
     assert.equal(result.manualRecoveryRequired, true, scenario);
     assert.equal(observed.poisoned, true, scenario);
     assert.equal(observed.taskReads, 0, scenario);
-    assert.equal(observed.grantReads, 0, scenario);
+    assert.equal("grantReads" in observed, false);
   }
 });
 
@@ -917,18 +873,18 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 });
 
 /**
- * 公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定するを検証する。
+ * 公開契約は4経路、専用送信確認の不要、Candidate破棄と課金禁止を固定するを検証する。
  *
- * @responsibility 公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定するの合否判定を所有する。
+ * @responsibility 公開契約は4経路、専用送信確認の不要、Candidate破棄と課金禁止を固定するの合否判定を所有する。
  * @trace AIT-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定するの対象操作を実行する。
+ * @stimulus 公開契約は4経路、専用送信確認の不要、Candidate破棄と課金禁止を固定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
+test("公開契約は4経路、専用送信確認の不要、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
   assert.equal(contract.contractRevision, 15);
   assert.equal(

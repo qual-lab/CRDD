@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { parseDockerTaskRecoveryId } from "../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../docker-isolation/tests/support/cleanup.ts";
 import {
   createDockerIsolationRuntime,
   type DockerIsolationRuntime,
@@ -76,9 +76,6 @@ export function resolveIsolationCommandInput(
   token?: string,
   execution = resolveProviderExecution(plan),
 ): DockerIsolationCommandInput | null {
-  const resource = plan.isolationRequest?.resources.find(
-    (r) => r.key === "create_proxy",
-  );
   const legacy =
     "commands" in plan
       ? projectDockerProxyConfiguration(
@@ -86,11 +83,7 @@ export function resolveIsolationCommandInput(
           plan.proxyImageDigest,
         )
       : null;
-  const captured =
-    legacy?.token ??
-    (resource?.kind === "container"
-      ? resource.environment.CRDD_PROXY_AUTH
-      : null);
+  const captured = legacy?.token ?? plan.isolationRequest?.proxy?.token;
   if (typeof (token ?? captured) !== "string") return null;
   return resolveProductConfiguration(
     plan,

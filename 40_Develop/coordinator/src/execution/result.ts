@@ -16,7 +16,7 @@ import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../../../domain-model/src/index.ts";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import type { CoordinatorTaskRecoveryObligation } from "./recovery.ts";
 import {
   resolveRecoveryReference,
@@ -498,18 +498,7 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_docker_recovery_handoff_state_invalid",
   "coordinator_task_docker_recovery_projection_invalid",
   "coordinator_task_execution_slate_unavailable",
-  "coordinator_task_external_send_authorization_mode_invalid",
-  "coordinator_task_external_send_confirmation_cancelled",
-  "coordinator_task_external_send_confirmation_declined_invalid",
-  "coordinator_task_external_send_confirmation_reader_failed",
-  "coordinator_task_external_send_confirmation_timeout",
-  "coordinator_task_external_send_confirmation_unavailable",
-  "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_and_operation_recovery_required",
-  "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required",
-  "coordinator_task_external_send_not_authorized",
-  "coordinator_task_external_send_notice_unavailable",
   "coordinator_task_external_send_policy_unresolved",
-  "coordinator_task_network_policy_changed",
   "coordinator_task_failed_closed",
   "coordinator_task_final_projection_failed_closed",
   "coordinator_task_git_object_format_unsupported",

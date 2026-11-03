@@ -50,11 +50,6 @@ const REQUEST_KEYS = new Set([
   "requiresCrossContextAlignment",
 ]);
 
-const REQUEST_KEYS_WITH_NETWORK_POLICY = new Set([
-  ...REQUEST_KEYS,
-  "expectedNetworkPolicyHash",
-]);
-
 /**
  * Coordinator Task Requestを所有Snapshotへ変換する。
  *
@@ -63,18 +58,16 @@ const REQUEST_KEYS_WITH_NETWORK_POLICY = new Set([
  * @input rawRequest: unknown
  * @returns 正常時はacceptedとSnapshot、認識済み秘密情報はblocked、それ以外の入力不正はnull。
  * @precondition 任意値として受け取り、検査前には信頼しない。
- * @postcondition 明示field・固定選定と通信Hashの文法、配列上限を検査し、許可Pathを読取り範囲へ含める。
+ * @postcondition 明示field・固定選定の文法、配列上限を検査し、許可Pathを読取り範囲へ含める。
  * @effect N/A: snapshotCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure 不正な形・固定選定・通信Hash・配列上限はnull、認識済み秘密情報は固定blocked結果で拒否する。
+ * @failure 不正な形・固定選定・配列上限はnull、認識済み秘密情報は固定blocked結果で拒否する。
  * @invariant snapshotCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: snapshotCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
  * @security snapshotCoordinatorTaskRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: snapshotCoordinatorTaskRequestは共有非同期状態を持たない同期処理である。
  */
 export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
-  const request =
-    snapshotPlainRecord(rawRequest, REQUEST_KEYS_WITH_NETWORK_POLICY) ??
-    snapshotPlainRecord(rawRequest, REQUEST_KEYS);
+  const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
   const acceptance = request
     ? snapshotPlainArray<string>(request.acceptanceCriteria, 16)
     : null;
@@ -88,9 +81,6 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   if (
     !request ||
     !inspectTaskExecutionSelections(request.taskExecutionSelections) ||
-    (request.expectedNetworkPolicyHash !== undefined &&
-      (typeof request.expectedNetworkPolicyHash !== "string" ||
-        !/^[a-f0-9]{64}$/u.test(request.expectedNetworkPolicyHash))) ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     acceptance?.status !== "ok" ||
@@ -118,10 +108,6 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
     taskExecutionSelections: inspectTaskExecutionSelections(
       request.taskExecutionSelections,
     ),
-    expectedNetworkPolicyHash:
-      typeof request.expectedNetworkPolicyHash === "string"
-        ? request.expectedNetworkPolicyHash
-        : null,
     objective: request.objective,
     acceptanceCriteria: acceptance.value,
     allowedPaths: paths.value,

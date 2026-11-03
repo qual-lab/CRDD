@@ -16,13 +16,10 @@ import type {
   TaskReviewFinding,
 } from "../../../ai-adapter/src/index.ts";
 import type {
-  CommandObservation,
-  DockerCommandExecutionClassification,
-  DockerNetworkPolicy,
-  DockerProcessExitStatusClass,
   IsolationRequest,
   ResourceTarget as IsolationResourceTarget,
   ResourceSnapshot,
+  IsolationCommandResult,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   CompletionCallbacks,
@@ -162,12 +159,12 @@ export type AttemptRequest = Readonly<{
         input: string;
         taskRole: "executor" | "reviewer";
         taskWorkload?: unknown;
-        networkPolicy: DockerNetworkPolicy;
+        additionalHosts: readonly string[];
       }>
     | Readonly<{
         purpose: "advice";
         input: string;
-        networkPolicy: DockerNetworkPolicy | null;
+        additionalHosts: readonly string[] | null;
         allowedReferences: readonly string[];
       }>
   );
@@ -180,7 +177,7 @@ export type AttemptRequest = Readonly<{
  */
 export type AttemptPlan = AttemptRecordProjection &
   Readonly<{
-    networkPolicy: DockerNetworkPolicy | null;
+    additionalHosts: readonly string[] | null;
     provider: AiProvider;
     operationId: string;
     grantRef: string;
@@ -230,7 +227,6 @@ export type AttemptDiagnosticNotice =
         | "not_applicable"
         | "other";
       workspaceMountModeConfigured: "read_write" | "read_only" | null;
-      networkPolicyHash: string | null;
       rootFilesystemReadOnlyConfigured: boolean;
       nonRootUserConfigured: boolean;
       workdirConfigured: boolean;
@@ -702,12 +698,12 @@ export interface DockerExecutionCallbacks {
   ): void | Promise<void>;
   onCommandObserved?(
     purpose: AttemptCommandPurpose,
-    result: CommandObservation | null,
-    classification: DockerCommandExecutionClassification,
+    result: NonNullable<IsolationCommandResult["observation"]> | null,
+    classification: IsolationCommandResult["classification"],
   ): void;
   onCommandCompleted?(
     purpose: AttemptCommandPurpose,
-    result: CommandObservation,
+    result: NonNullable<IsolationCommandResult["observation"]>,
   ): void;
   /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
   onExecutionStarted?(): void;
@@ -759,7 +755,7 @@ export type DockerCommandSessionResult = Readonly<{
   executionStarted: boolean;
   executionCompleted: boolean;
   executionContainerCreated: boolean;
-  executionExit: DockerProcessExitStatusClass;
+  executionExit: IsolationCommandResult["exitClass"];
   cleanup: DockerSessionCleanup;
   resourceObservations:
     | readonly DockerResourceCleanupObservation[]
@@ -888,7 +884,7 @@ export type DockerIsolationCommandInput = Readonly<{
     token: string;
     port: number;
     extendedProxyEnvironment: boolean;
-    networkPolicy?: DockerNetworkPolicy | null;
+    additionalHosts?: readonly string[] | null;
   }>;
 }>;
 

@@ -436,7 +436,7 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "parseRuntimeActivityObservation",
     "queryActivity",
     "queryState",
-    "readRepositoryNetworkPolicies",
+    "readRepositoryNetworkHosts",
     "recoverExecution",
     "repairDockerRuntime",
     "restartDockerForRecovery",
@@ -585,7 +585,6 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
         prompt: "synthetic",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: ["source.txt"],
-        externalSendConfirmed: true,
       },
     ]) {
       const refused = spawnSync(process.execPath, [launcher, ...args], {

@@ -10,10 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
-import {
-  dockerIsolationResourceIdentityIsValid,
-  parseDockerTaskRecoveryId,
-} from "../../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   advanceRuntimeOwnedCoordinatorRepairHistory,
@@ -82,7 +79,7 @@ import {
   type ResourceCleanupResult as AttemptResourceCleanupResult,
   cleanupResources,
   type DockerEnvironmentResult,
-  type DockerRuntimeRestartEvent,
+  type DockerEnvironmentRestartEvent,
   inspectResources,
   type ResourceCleanupCallbacks,
   type ResourceInspection,
@@ -3623,6 +3620,16 @@ function validProductionPlan(plan: ProductionPlan) {
   return (
     plan !== null &&
     typeof plan === "object" &&
+    [
+      plan.authContainerName,
+      plan.internalNetworkName,
+      plan.egressNetworkName,
+      plan.proxyContainerName,
+      plan.providerContainerName,
+      plan.ownershipLabel,
+      plan.providerImageDigest,
+      plan.proxyImageDigest,
+    ].every((value) => typeof value === "string") &&
     coordinatorConsumerCompletionPolicy(plan.consumer) !== null &&
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
@@ -3636,16 +3643,6 @@ function validProductionPlan(plan: ProductionPlan) {
       plan.localUserBindingHash,
       plan.stableLogicalHomeBindingHash,
     ].every((value) => HEX64.test(value)) &&
-    dockerIsolationResourceIdentityIsValid({
-      authenticationContainerName: plan.authContainerName,
-      executionContainerName: plan.providerContainerName,
-      proxyContainerName: plan.proxyContainerName,
-      internalNetworkName: plan.internalNetworkName,
-      egressNetworkName: plan.egressNetworkName,
-      ownershipLabel: plan.ownershipLabel,
-      executionImageDigest: plan.providerImageDigest,
-      proxyImageDigest: plan.proxyImageDigest,
-    }) &&
     (plan.operationMode === "boolean_probe" ||
       plan.operationMode === "isolated_task" ||
       plan.operationMode === "workbench_advice") &&
@@ -3721,6 +3718,15 @@ function beginProductionRecovery(
     const development =
       inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
     if (development && !development.checkNewWork()) return null;
+    stage = "plan_validation";
+    const nonce = randomBytes(32).toString("hex");
+    const identityJson = prepareRuntimeOwnedRepositoryDockerOperationIdentity(
+      plan,
+      managementCapability,
+      nonce,
+      plan.consumer,
+    );
+    if (!identityJson) return null;
     stage = "provider_home";
     const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate(
       plan.provider,
@@ -3759,15 +3765,6 @@ function beginProductionRecovery(
       )
         throw new Error("docker_recovery_runtime_state_conflict");
       stage = "operation_binding";
-      const nonce = randomBytes(32).toString("hex");
-      const identityJson = prepareRuntimeOwnedRepositoryDockerOperationIdentity(
-        plan,
-        managementCapability,
-        nonce,
-        plan.consumer,
-      );
-      if (!identityJson)
-        throw new Error("docker_recovery_operation_binding_invalid");
       const repository =
         borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
       const initialBytes = repository
@@ -7102,7 +7099,7 @@ export async function restartRuntimeOwnedDockerForRecovery(
             )
               throw new Error("docker_restart_record_unconfirmed");
           },
-          onEvent: (event: DockerRuntimeRestartEvent) => {
+          onEvent: (event: DockerEnvironmentRestartEvent) => {
             if (event.event === "settled" && !checkpointInitialized) return;
             const saved =
               event.event === "request_accepted"

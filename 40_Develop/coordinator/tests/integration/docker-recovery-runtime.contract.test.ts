@@ -10,10 +10,128 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import {
   beginRuntimeOwnedDockerRecovery,
   createIsolatedDockerRecoveryRuntimeCandidate,
 } from "../../src/execution/recovery.ts";
+
+/**
+ * 保存Identityの拒否後にProvider Homeを観測しない。
+ * @responsibility Domainの既存候補検査をNative観測・保存Effectより前へ接続する。
+ * @trace PRL-IT-013
+ * @precondition 本番開始本文と、Domain拒否を返す有限の入力準備境界。
+ * @stimulus Identity候補が不成立となる計画を渡す。
+ * @observation 結果、Native Home観測数と診断段階。
+ * @oracle plan_validationで拒否しHome観測・耐久保存を呼ばない。
+ * @cleanup N/A: メモリ内のみ。実Native・Docker・File操作なし。
+ * @boundary 本番開始順とDomainの候補結果。Domain自体は別試験で反証する。
+ */
+test("保存Identity拒否はNative Home観測より前に停止する", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  let homeObservations = 0;
+  const diagnostics: unknown[] = [];
+  const begin = runInNewContext(
+    stripTypeScriptTypes(sourceDeclaration(source, "beginProductionRecovery")) +
+      "\nbeginProductionRecovery",
+    {
+      validProductionPlan: () => true,
+      inspectRuntimeOwnedDevelopmentOperationContext: () => null,
+      randomBytes: () => Buffer.alloc(32, 1),
+      prepareRuntimeOwnedRepositoryDockerOperationIdentity: () => null,
+      inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
+        homeObservations++;
+        throw Error("must_not_observe");
+      },
+    },
+  );
+  assert.equal(
+    begin({ consumer: "coordinator_cli" }, {}, (d: unknown) =>
+      diagnostics.push(d),
+    ),
+    null,
+  );
+  assert.equal(homeObservations, 0);
+  assert.equal((diagnostics[0] as { stage: string }).stage, "plan_validation");
+});
+
+/**
+ * 非文字列の資源IdentityをJSON変換前に拒否する。
+ * @responsibility 入力変換による保存Identity検査の迂回を防ぐ。
+ * @trace PRL-IT-013
+ * @precondition 本番の開始判定と開始本文をメモリ内で実行する。
+ * @stimulus 八項目へtoJSON付きObjectまたはboxed Stringを渡す。
+ * @observation 結果、変換回数、環境観測・保存準備回数。
+ * @oracle null拒否、変換・環境観測・保存準備は0回。
+ * @cleanup N/A: 外部資源を生成しない。
+ * @boundary 開始入口からJSON変換前の型検査まで。
+ */
+test("資源Identityの非文字列は変換・環境観測・保存前に拒否する", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  let conversions = 0;
+  let effects = 0;
+  const begin = runInNewContext(
+    stripTypeScriptTypes(
+      sourceDeclaration(source, "validProductionPlan") +
+        "\n" +
+        sourceDeclaration(source, "beginProductionRecovery"),
+    ) + "\nbeginProductionRecovery",
+    {
+      coordinatorConsumerCompletionPolicy: () => ({}),
+      inspectExecutionSelection: () => ({ provider: "claude" }),
+      HEX64: /^[a-f0-9]{64}$/u,
+      randomBytes: () => Buffer.alloc(32, 1),
+      inspectRuntimeOwnedDevelopmentOperationContext: () => null,
+      inspectRuntimeOwnedWindowsProviderHomeCandidate: () => {
+        effects++;
+      },
+      prepareRuntimeOwnedRepositoryDockerOperationIdentity: () => {
+        effects++;
+      },
+    },
+  );
+  const valid = {
+    ...productionPlan("OP-123456", "5".repeat(64)),
+    taskAttempt: 0,
+  };
+  assert.equal(begin(valid, {}), null);
+  assert.equal(effects, 1);
+  effects = 0;
+  for (const key of [
+    "authContainerName",
+    "providerContainerName",
+    "proxyContainerName",
+    "internalNetworkName",
+    "egressNetworkName",
+    "ownershipLabel",
+    "providerImageDigest",
+    "proxyImageDigest",
+  ] as const) {
+    const value = valid[key];
+    for (const replacement of [
+      {
+        toJSON() {
+          conversions++;
+          return value;
+        },
+      },
+      new String(value),
+    ]) {
+      assert.equal(begin({ ...valid, [key]: replacement }, {}), null);
+    }
+  }
+  assert.equal(conversions, 0);
+  assert.equal(effects, 0);
+});
 
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

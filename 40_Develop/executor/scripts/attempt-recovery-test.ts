@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { types as utilTypes } from "node:util";
+import path from "node:path";
 import { runInNewContext } from "node:vm";
 import type * as recoveryOperations from "../../docker-isolation/src/cleanup/execute.ts";
 import { captureIsolationCleanupRequest } from "../../docker-isolation/src/execution/preparation.ts";
@@ -49,6 +50,7 @@ export function createAttemptRecoveryTestApi(
     {
       ...isolation,
       utilTypes,
+      path,
       // VMの通常dataを実検査と同じRealmへ搬送する。検査は省略しない。
       captureIsolationCleanupRequest: (
         request: isolation.ResourceTarget<"snapshot">,

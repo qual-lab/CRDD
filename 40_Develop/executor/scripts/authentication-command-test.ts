@@ -5,12 +5,13 @@
  * @boundary scripts/tests専用。呼出し自体は計画を結合し、runだけが実Dockerを操作する。
  */
 
+import { describeDockerProxyTopology } from "../../docker-isolation/src/network/policy.ts";
 import {
   type AiProvider,
   describeProviderAuthentication,
   evaluateProviderAuthentication,
 } from "../../ai-adapter/src/index.ts";
-import { describeIsolationCapabilities } from "../../docker-isolation/src/index.ts";
+import { describeIsolationConfiguration } from "../../docker-isolation/src/index.ts";
 import {
   cleanupDockerAuthenticationResources,
   createDockerAuthenticationRuntimeFactory,
@@ -137,7 +138,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
   )
     return null;
   const cli = describeProviderAuthentication(provider);
-  const locations = describeIsolationCapabilities(provider).locations.primary;
+  const locations = describeIsolationConfiguration(provider).locations.primary;
   const environment = Object.freeze({
     ...("environment" in cli ? cli.environment : {}),
     ...("homeEnvironmentVariable" in cli
@@ -145,7 +146,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
       : {}),
   });
   const providerImageDigest =
-    describeIsolationCapabilities(provider).assets.fixedImageDigest;
+    describeIsolationConfiguration(provider).assets.fixedImageDigest;
   const probeContainerName = `crdd-auth-${suffix}`;
   const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
   const common = {
@@ -176,7 +177,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
     authenticationTechnicalPlans.set(plan, technicalPlan);
     return plan;
   }
-  const egress = describeIsolationCapabilities(provider).proxy;
+  const egress = describeDockerProxyTopology(provider);
   const proxyImageDigest = egress.imageDigest;
   if (
     !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||

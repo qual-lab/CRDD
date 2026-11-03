@@ -193,7 +193,7 @@ export function verifyStandaloneProviderAttempt() {
         providerImageDigest:'sha256:'+'1'.repeat(64),proxyImageDigest:'sha256:'+'2'.repeat(64),
         subscriptionOffering:provider==='codex'?'chatgpt_subscription_oauth':'claude_max',selectedModel:provider==='codex'?'gpt-5.5':'opus',selectedEffort:'low',
         operationMode:'boolean_probe',taskRole:null,taskPacketRef:null,taskPacketHash:null,
-        providerInput:null,workspaceSourcePath:null,workspaceMountMode:null,networkPolicy:null,
+        providerInput:null,workspaceSourcePath:null,workspaceMountMode:null,additionalHosts:null,
         commands:purposes.map(purpose=>({purpose,argv:[purpose]}))
       };
       const fullSelection=plan.executionSelection;

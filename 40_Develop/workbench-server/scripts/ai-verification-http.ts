@@ -1009,20 +1009,10 @@ export async function createWorkbenchAiVerificationHttpClient(
               choice: request.choice ? JSON.stringify(request.choice) : "",
               prompt: request.prompt,
               allowedPaths: request.allowedPaths.join("\n"),
-              externalSendConfirmed: request.externalSendConfirmed
-                ? "yes"
-                : "no",
-              expectedNetworkPolicyHash: request.expectedNetworkPolicyHash,
             }),
             observe,
           ),
         );
-        if (response.status === 400 && !request.externalSendConfirmed)
-          return {
-            status: "blocked",
-            requestId: null,
-            reason: "workbench_ai_http_request_rejected",
-          };
         assert.equal(
           response.status,
           303,

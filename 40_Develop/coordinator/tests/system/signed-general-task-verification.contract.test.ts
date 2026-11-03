@@ -242,7 +242,6 @@ function taskResult(overrides: Record<string, unknown> = {}) {
     executorProvider: "claude",
     reviewerProvider: "codex",
     reviewerIndependence: "provider_independent",
-    externalSendAuthorizationMode: "interactive_initial_consent",
     remediationPerformed: false,
     candidateRevision: Object.freeze({
       baseCommit,
@@ -686,7 +685,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
   assert.equal(
     contract.interactiveConsoleGate,
-    "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
+    "no_dedicated_send_confirmation_authorized_repository_request",
   );
   assert.equal(
     contract.sourceObservation,
@@ -848,22 +847,22 @@ test("Node GateとSource観測はTask前に拒否しavailability-only Console Ef
 });
 
 /**
- * 初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播するを検証する。
+ * Repository送信Policyの拒否をTaskの一次結果として保持するを検証する。
  *
- * @responsibility 初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播するの合否判定を所有する。
+ * @responsibility Repository送信Policyの拒否をTaskの一次結果として保持するの合否判定を所有する。
  * @trace EST-ST-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播するの対象操作を実行する。
+ * @stimulus Repository送信Policyの拒否をTaskの一次結果として保持するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
-test("初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播する", async () => {
+test("Repository送信Policyの拒否をTaskの一次結果として保持する", async () => {
   const fixture = dependencies({
     result: taskResult({
       status: "blocked",
-      reason: "coordinator_task_external_send_confirmation_unavailable",
+      reason: "coordinator_task_external_send_policy_unresolved",
       candidateId: null,
     }),
   });
@@ -874,7 +873,7 @@ test("初回同意のConsole不成立はTask所有Gateの結果としてFail Clo
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "coordinator_task_external_send_confirmation_unavailable",
+    "coordinator_task_external_send_policy_unresolved",
   );
   assert.equal(fixture.calls.starts, 1);
   assert.deepEqual(fixture.calls.events, ["node", "source", "task", "source"]);
@@ -1637,10 +1636,7 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.candidateDisposition, "discarded");
-  assert.equal(
-    result.externalSendAuthorizationMode,
-    "interactive_initial_consent",
-  );
+  assert.equal("externalSendAuthorizationMode" in result, false);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.processRestartRequired, false);
   assert.equal(result.recoveryIdentityAmbiguous, false);
@@ -1760,10 +1756,7 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "signed_general_task_candidate_content_mismatch");
   assert.equal(result.candidateContractMismatch, "candidate_content_bytes");
-  assert.equal(
-    result.externalSendAuthorizationMode,
-    "interactive_initial_consent",
-  );
+  assert.equal("externalSendAuthorizationMode" in result, false);
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.candidateDisposition, "discarded");
   assert.equal(result.cleanupConfirmed, true);
@@ -2276,7 +2269,7 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     assert.equal(result.processRestartRequired, true, scenario);
     assert.equal(observed.poisoned, true, scenario);
     assert.equal(observed.taskReads, 0, scenario);
-    assert.equal(observed.grantReads, 0, scenario);
+    assert.equal("grantReads" in observed, false);
     if (scenario === "completion_subclass_hostile_species")
       assert.equal(observed.hostilePromiseAccesses, 0, scenario);
     assert.ok(Number(observed.cancelAttempts) <= 1, scenario);

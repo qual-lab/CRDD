@@ -418,7 +418,6 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       operationId: base.operationId,
       approvalModeConfigured: approval,
       sandboxModeConfigured: sandbox,
-      networkPolicyHash: null,
       workspaceMountModeConfigured:
         role === "executor"
           ? "read_write"
@@ -765,7 +764,7 @@ function createFixture(
   const authorityUseCapability = Object.freeze({});
   const recoveryCapability = Object.freeze({});
   const plan = Object.freeze({
-    networkPolicy: null,
+    additionalHosts: null,
     ...createPlan(activeMountCapability, authorityUseCapability),
     ...attemptSelection(
       executionSelection(
@@ -2111,7 +2110,6 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
       operationId: "OP-123456",
       approvalModeConfigured: "approve_for_me",
       sandboxModeConfigured: "implicit",
-      networkPolicyHash: null,
       workspaceMountModeConfigured: "read_write",
       rootFilesystemReadOnlyConfigured: true,
       nonRootUserConfigured: true,

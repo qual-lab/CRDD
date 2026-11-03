@@ -13,11 +13,9 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
-import { compileExternalSendScopeHash } from "../../../src/decision/external-send-grant.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -201,41 +199,19 @@ function reviewerPacket(
  */
 function packetRuntime() {
   const repositoryBindingCapability = Object.freeze({});
-  const externalSendGrantCapability = Object.freeze({});
+  const externalSendPolicyCapability = Object.freeze({});
   const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(
-    (
-      capability,
-      _management,
-      repositoryBinding,
-      provider,
-      taskRole,
-      taskAttempt,
-      scope,
-    ) =>
-      capability === externalSendGrantCapability &&
-      repositoryBinding === repositoryBindingCapability &&
-      (provider === "codex" || provider === "claude") &&
-      (taskRole === "executor" || taskRole === "reviewer") &&
-      (taskAttempt === 0 || taskAttempt === 1) &&
-      compileExternalSendScopeHash(scope)
-        ? Object.freeze({
-            status: "consumed" as const,
-            operationId: "OP-TEST",
-            revision: "1".repeat(40),
-            provider,
-            taskRole,
-            taskAttempt,
-            scopeHash: compileExternalSendScopeHash(scope) as string,
-            externalSendAuthorized: true as const,
-            networkPolicy: (() => {
-              const result = prepareDockerNetworkPolicy(provider, []);
-              if (result.status !== "ready") throw new Error("fixture");
-              return result.policy;
-            })(),
-          })
+    (capability, _management, repositoryBinding) =>
+      capability === externalSendPolicyCapability &&
+      repositoryBinding === repositoryBindingCapability
+        ? {
+            enabled: true,
+            destinations: [{ provider: "codex" }, { provider: "claude" }],
+            additionalHosts: Object.freeze([]),
+          }
         : null,
   );
-  return { runtime, repositoryBindingCapability, externalSendGrantCapability };
+  return { runtime, repositoryBindingCapability, externalSendPolicyCapability };
 }
 
 /**
@@ -260,7 +236,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
       "claude",
       "executor",
       0,
-      isolated.externalSendGrantCapability,
+      isolated.externalSendPolicyCapability,
       null,
       packet(),
     );
@@ -335,7 +311,7 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       "codex",
       "reviewer",
       0,
-      isolated.externalSendGrantCapability,
+      isolated.externalSendPolicyCapability,
       null,
       reviewerPacket(),
     );
@@ -469,7 +445,7 @@ test("文書を明示した受入条件は合成Reviewerの確認範囲から除
       "claude",
       "reviewer",
       0,
-      isolated.externalSendGrantCapability,
+      isolated.externalSendPolicyCapability,
       null,
       reviewerPacket({
         objective: "Update the bounded documentation candidate.",
@@ -530,7 +506,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         "claude",
         "reviewer",
         0,
-        isolated.externalSendGrantCapability,
+        isolated.externalSendPolicyCapability,
         null,
         reviewerPacket({
           objective: request.objective,
@@ -635,7 +611,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       "codex",
       "reviewer",
       0,
-      isolated.externalSendGrantCapability,
+      isolated.externalSendPolicyCapability,
       null,
       reviewerPacket(),
     );
@@ -677,7 +653,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
         "claude",
         "executor",
         0,
-        isolated.externalSendGrantCapability,
+        isolated.externalSendPolicyCapability,
         null,
         dynamic,
       ),
@@ -734,7 +710,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
           "claude",
           "executor",
           0,
-          isolated.externalSendGrantCapability,
+          isolated.externalSendPolicyCapability,
           null,
           invalid,
         ),
@@ -748,7 +724,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
         "claude",
         "coordinator",
         0,
-        isolated.externalSendGrantCapability,
+        isolated.externalSendPolicyCapability,
         null,
         packet(),
       ),
@@ -799,7 +775,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       "claude",
       "executor",
       1,
-      isolated.externalSendGrantCapability,
+      isolated.externalSendPolicyCapability,
       normalized.remediationCapability,
       packet(),
     );
@@ -836,7 +812,7 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
         "claude",
         "executor",
         1,
-        isolated.externalSendGrantCapability,
+        isolated.externalSendPolicyCapability,
         normalized.remediationCapability,
         packet(),
       ),
@@ -848,18 +824,18 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
 });
 
 /**
- * Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否するを検証する。
+ * Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetから拒否するを検証する。
  *
- * @responsibility Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否するの合否判定を所有する。
+ * @responsibility Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetから拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否するの対象操作を実行する。
+ * @stimulus Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetから拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否する", () => {
+test("Reviewer由来の秘密用Pathを送信Policy照合前に是正Packetから拒否する", () => {
   for (const secretPath of [
     ".env",
     "session_token=abcdefghijklmnopqrstuvwx",
@@ -871,11 +847,11 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
     'src/"session_token" : "abcdefghijklmnopqrstuvwx"',
   ]) {
     const current = operation();
-    let externalGrantConsumptionCount = 0;
+    let policyVerificationCount = 0;
     const repositoryBindingCapability = Object.freeze({});
-    const externalSendGrantCapability = Object.freeze({});
+    const externalSendPolicyCapability = Object.freeze({});
     const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
-      externalGrantConsumptionCount += 1;
+      policyVerificationCount += 1;
       return null;
     });
     try {
@@ -903,7 +879,7 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
         "claude",
         "executor",
         1,
-        externalSendGrantCapability,
+        externalSendPolicyCapability,
         normalized.remediationCapability,
         packet(),
       );
@@ -914,7 +890,7 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
       );
       assert.equal(issued?.pathReported, false);
       assert.equal(issued?.secretMaterialReported, false);
-      assert.equal(externalGrantConsumptionCount, 0);
+      assert.equal(policyVerificationCount, 0);
       assert.equal("controlCapability" in (issued ?? {}), false);
     } finally {
       cleanupOwnedOperationDirectories(current.owned);
@@ -923,24 +899,24 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
 });
 
 /**
- * Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否するを検証する。
+ * Reviewer由来の認識済みSecret本文を送信Policy照合前に是正Packetから拒否するを検証する。
  *
- * @responsibility Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否するの合否判定を所有する。
+ * @responsibility Reviewer由来の認識済みSecret本文を送信Policy照合前に是正Packetから拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否するの対象操作を実行する。
+ * @stimulus Reviewer由来の認識済みSecret本文を送信Policy照合前に是正Packetから拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否する", () => {
+test("Reviewer由来の認識済みSecret本文を送信Policy照合前に是正Packetから拒否する", () => {
   const current = operation();
-  let externalGrantConsumptionCount = 0;
+  let policyVerificationCount = 0;
   const repositoryBindingCapability = Object.freeze({});
-  const externalSendGrantCapability = Object.freeze({});
+  const externalSendPolicyCapability = Object.freeze({});
   const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
-    externalGrantConsumptionCount += 1;
+    policyVerificationCount += 1;
     return null;
   });
   try {
@@ -968,7 +944,7 @@ test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前�
       "claude",
       "executor",
       1,
-      externalSendGrantCapability,
+      externalSendPolicyCapability,
       normalized.remediationCapability,
       packet(),
     );
@@ -979,31 +955,31 @@ test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前�
     );
     assert.equal(issued?.pathReported, false);
     assert.equal(issued?.secretMaterialReported, false);
-    assert.equal(externalGrantConsumptionCount, 0);
+    assert.equal(policyVerificationCount, 0);
   } finally {
     cleanupOwnedOperationDirectories(current.owned);
   }
 });
 
 /**
- * Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否するを検証する。
+ * Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前に拒否するを検証する。
  *
- * @responsibility Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否するの合否判定を所有する。
+ * @responsibility Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前に拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否するの対象操作を実行する。
+ * @stimulus Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否する", () => {
+test("Reviewer由来の受入条件参照がTask範囲外ならPolicy照合前に拒否する", () => {
   const current = operation();
-  let externalGrantConsumptionCount = 0;
+  let policyVerificationCount = 0;
   const repositoryBindingCapability = Object.freeze({});
-  const externalSendGrantCapability = Object.freeze({});
+  const externalSendPolicyCapability = Object.freeze({});
   const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
-    externalGrantConsumptionCount += 1;
+    policyVerificationCount += 1;
     return null;
   });
   try {
@@ -1031,7 +1007,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
       "claude",
       "executor",
       1,
-      externalSendGrantCapability,
+      externalSendPolicyCapability,
       normalized.remediationCapability,
       packet(),
     );
@@ -1040,7 +1016,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
       issued?.reason,
       "provider_task_packet_remediation_criterion_invalid",
     );
-    assert.equal(externalGrantConsumptionCount, 0);
+    assert.equal(policyVerificationCount, 0);
   } finally {
     cleanupOwnedOperationDirectories(current.owned);
   }
@@ -1077,7 +1053,7 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   );
   assert.equal(
     contract.remediationSecretBoundary,
-    "finding_paths_and_messages_rejected_before_external_send_grant_consumption_and_packet_issue",
+    "finding_paths_and_messages_rejected_before_packet_issue",
   );
   assert.equal(
     contract.reviewerScopeBoundary,

@@ -10,7 +10,6 @@
  */
 import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
-import { fixtureNetworkPolicy } from "../fixtures/network-policy.ts";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -77,7 +76,6 @@ import { mock } from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { verifyRepositoryRoot } from ${JSON.stringify(moduleUrl("40_Develop/version-control/src/index.ts"))};
 import { executionSelection } from ${JSON.stringify(moduleUrl("40_Develop/coordinator/tests/fixtures/ai-selection.ts"))};
-import { fixtureNetworkPolicy } from ${JSON.stringify(moduleUrl("40_Develop/coordinator/tests/fixtures/network-policy.ts"))};
 const fixture = ${JSON.stringify(fixture)};
 const scenario = process.argv[1];
 const target = path.join(fixture, "PROJECT_CONTEXT.md");
@@ -118,7 +116,7 @@ mock.module(adviceUrl, { namedExports: adviceFixture });
 const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))});
 const verified = verifyRepositoryRoot(fixture); assert.equal(verified.status,"completed");
 if(scenario === "cancel_before")controller.abort();
-const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_advice",executionSelection:executionSelection("advice"),prompt:"合成状態を説明",contextReferences:["PROJECT_CONTEXT.md"],allowedPaths:[],externalSendConfirmed:true,expectedNetworkPolicyHash:fixtureNetworkPolicy("codex").policyHash},controller.signal);
+const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_advice",executionSelection:executionSelection("advice"),prompt:"合成状態を説明",contextReferences:["PROJECT_CONTEXT.md"],allowedPaths:[]},controller.signal);
 const success=scenario === "normal" || scenario === "limit";
 assert.equal(response.result.status,success?"completed":scenario === "cleanup_unknown" || scenario === "runtime_throw" ? "unknown":"blocked");
 assert.equal(calls,success || scenario === "cleanup_unknown" || scenario === "runtime_throw" ? 1:0);
@@ -166,13 +164,13 @@ process.stdout.write("verified");
 });
 
 /**
- * 新設定の保存・選定・助言配送を同じRepositoryで接続する。
- * @responsibility 空設定の既定補完をせず、受付後の設定変更を実行へ反映しない。
+ * 新設定の保存・選定・通信設定の開始時固定・助言配送を同じRepositoryで接続する。
+ * @responsibility 選定は受付値、通信は実行開始時の最新値を固定し、次Taskだけで再読取りする。
  * @trace RCM-IT-005
  * @precondition 自己生成Git Repositoryと合成Contextだけ。
- * @stimulus 設定を保存し一回選定後、設定を書き換えて元選定で配送する。
- * @observation 設定Identity、計画の完全選定、ModelとEffortを確認する。
- * @oracle 新設定は更新されても実行計画は受付時の値を保持する。
+ * @stimulus 選定更新と通信設定の開始前・実行中変更、不正JSONを与える。
+ * @observation 設定Identity、計画の完全選定、Model・Effort・通信先、配送回数を確認する。
+ * @oracle 選定は受付値を保持し、通信設定はTask内不変・次Taskで更新、不正時は配送なし。
  * @cleanup 自己生成Rootだけを回収して不存在確認。
  * @boundary RCM-IT-005=Direct Boundary: 実設定Store→選定→助言Adapter代役。
  */
@@ -236,10 +234,24 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     assert.equal(changed.status, "saved");
     if (changed.status !== "saved") throw Error("change_failed");
     assert.notEqual(changed.snapshot.identity, saved.snapshot.identity);
+    const policyFile = path.join(
+      fixture,
+      ".crdd",
+      "config",
+      "network-policy.json",
+    );
+    await writeFile(
+      policyFile,
+      JSON.stringify({ version: 1, allowedHosts: ["start.example.com"] }),
+    );
     const plans: ProviderAdviceExecutionPlan[] = [];
     const dispatch = createAdviceDispatch(
       createProviderAdviceAdapter(async (plan) => {
         plans.push(plan);
+        await writeFile(
+          policyFile,
+          JSON.stringify({ version: 1, allowedHosts: ["next.example.com"] }),
+        );
         return {
           status: "completed",
           reason: null,
@@ -266,14 +278,44 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
         prompt: "合成情報を説明",
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: [],
-        externalSendConfirmed: true,
-        expectedNetworkPolicyHash: fixtureNetworkPolicy(selected.value.provider)
-          .policyHash,
       },
       new AbortController().signal,
     );
     assert.equal(result.status, "completed", JSON.stringify(result));
     assert.equal(plans.length, 1);
+    assert.ok(plans[0]?.additionalHosts.includes("start.example.com"));
+    assert.equal(plans[0]?.additionalHosts.includes("next.example.com"), false);
+    const nextResult = await application(
+      {
+        mode: "read_only_advice",
+        executionSelection: selected.value,
+        prompt: "次の合成情報を説明",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: [],
+      },
+      new AbortController().signal,
+    );
+    assert.equal(nextResult.status, "completed");
+    assert.equal(plans.length, 2);
+    assert.ok(plans[1]?.additionalHosts.includes("next.example.com"));
+    assert.equal(
+      plans[1]?.additionalHosts.includes("start.example.com"),
+      false,
+    );
+    assert.equal(plans[0]?.additionalHosts.includes("next.example.com"), false);
+    await writeFile(policyFile, "{invalid");
+    const invalidResult = await application(
+      {
+        mode: "read_only_advice",
+        executionSelection: selected.value,
+        prompt: "不正設定では実行しない",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: [],
+      },
+      new AbortController().signal,
+    );
+    assert.equal(invalidResult.status, "blocked");
+    assert.equal(plans.length, 2);
     assert.deepEqual(plans[0]?.executionSelection, selected.value);
     assert.equal(plans[0]?.reasoningEffort, "medium");
     assert.equal(

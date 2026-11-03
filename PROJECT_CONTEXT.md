@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-2026-11-03のDI共通IF・公開型の整理は、12関数・19型として今回の非AI範囲を完了した。用途固有の構築・Receipt・Session型をExecutorへ移し、環境と資源操作の入力・結果を共通型へ統合した。DI164件・Executor97件・Coordinator216件・公開入口1件と3パッケージの静的検査が成功し、独立再レビューの必須残指摘は0件。対象4文書の診断は0だが、参照展開先の既存328診断と先行fixture誤接続の実読取り到達未確定は解消扱いにしない。実AI・Docker・過去保持物は今回操作しておらず、実境界再成立・全体QA・Releaseの完了は主張しない。[現在の範囲と検証結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di公開ifの最小化2026-11-03)を参照。以下の2026-11-02の記述は各段階の確認履歴である。
+DIの共有技術検査3公開の追加整理を完了した。IdentityはExecutor／Domain、期待値はExecutorの構築入力、技術的な実観測・回収検査と例外分類はDI内部へ整理し、Rootは共通6操作＋固定構成照会の7関数・15型となった。DI177件、Executor全100件、Coordinator関連206件が成功。制限付き環境で不成立だったWindows取消2件は、固定終了補助がOS logon errorになることを切り分け、通常環境で2件成功を確認した。期限・安全判定は不変。Source／Architecture独立再レビューは必須残指摘0件。実AI・Docker・過去保持物は操作しておらず、実境界・全体QA・Release完了とは分ける。[最終接続と検証結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#最終接続と検証結果2026-11-03)を参照する。
+
+前段の2026-11-03のDI公開契約と専用送信同意の整理は、今回の非AI範囲を完了した。DIは共通6操作、固定構成照会1、独立して必要な共有検査3の10関数・15型へ整理した。Task開始時のRepository追加Hostを全Stageで固定し、DIが技術Policyと環境を生成する。専用送信同意・確認コード・初期同意保存・送信Grantと検証Scriptの旧モード判定は撤去し、通常認可・Scope／Packet・限定是正・Home／Ownerの保証は維持した。DI171件、Executor全97件、Coordinatorの実行・回復238件、単一Task検証49件、経路／Process安全25件等と対象Workbench回帰・静的検査が成功し、独立再レビューの必須残指摘0件。対象文書・台帳の診断0と、参照展開先3,405診断による全体不合格は分ける。ローカル送信Policyの旧4値はフロントAIが明示移行し、他設定の不変、関連30件、静的確認と限定独立レビューを確認済み。検証時点では未Commitのため本番のCommit固定読取りには未反映だった。今回の確定Commitを実行対象に指定する際に移行内容を使うことになり、次の実AI前にそのexact版を再照合する。自動移行や作業ツリーfallbackは追加していない。先行中断runの清掃未確認は後続成功で解消しない。実AI・Docker・過去保持物は操作しておらず、実境界・全体QA・Releaseの完了は主張しない。[現在の範囲と検証結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di補助契約と専用送信同意の責務整理2026-11-03実装中)を参照。以下は各段階の確認履歴である。
 
 2026-11-02のDI共通IF追加整理では、資源集合に続き単一Container・固定DirectoryもinspectIsolation／cleanupIsolationへ接続した。Executorに残ったDocker技術接続・不存在→inspect合成と技術型をDIへ移し、旧低位六関数のRoot公開を撤去。同期性・元Promise・既存照合条件を維持し、認証も既存共通Cleanup接続済みと確認した。Executor95件、DI対象65件、Coordinator対象216件と静的検査が成功し、独立再レビューの必須残指摘0件。DI Root全体の公開整理と実境界再成立は未完了。実AI・Docker・過去保持物は操作していない。[現在の範囲と残件](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di技術契約への収束2026-11-02完成条件の更新)を参照。
 

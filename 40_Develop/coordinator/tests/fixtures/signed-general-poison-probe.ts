@@ -16,7 +16,6 @@ import { createHash } from "node:crypto";
 
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
@@ -71,7 +70,6 @@ const result: Record<string, unknown> = {
   executorProvider: "claude",
   reviewerProvider: "codex",
   reviewerIndependence: "provider_independent",
-  externalSendAuthorizationMode: "interactive_initial_consent",
   remediationPerformed: false,
   candidateRevision: Object.freeze({
     baseCommit,
@@ -393,25 +391,6 @@ try {
 } catch (error) {
   taskReason = error instanceof Error ? error.message : "unknown";
 }
-let grantReads = 0;
-const grantProbe = new Proxy(Object.create(null), {
-  get: () => {
-    grantReads += 1;
-    throw new Error("grant_input_read");
-  },
-  ownKeys: () => {
-    grantReads += 1;
-    throw new Error("grant_input_enumerated");
-  },
-});
-const grant = await requestRuntimeOwnedExternalSendGrant(
-  grantProbe,
-  grantProbe,
-  grantProbe,
-  grantProbe,
-  grantProbe,
-  grantProbe as AbortSignal,
-);
 
 await new Promise<void>((resolve) => setImmediate(resolve));
 
@@ -421,11 +400,6 @@ process.stdout.write(
     poisoned: isRuntimeProcessPoisoned(),
     taskReads,
     taskReason,
-    grantReason:
-      grant && "reason" in grant && typeof grant.reason === "string"
-        ? grant.reason
-        : null,
-    grantReads,
     cancelAttempts,
     hostilePromiseAccesses,
   })}\n`,

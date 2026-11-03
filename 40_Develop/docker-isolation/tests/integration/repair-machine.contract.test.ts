@@ -22,7 +22,7 @@ import { runDockerRuntimeRepairMachine as run } from "../../src/docker-desktop/r
 import { validateDockerRuntimeRepairCheckpointTransition as transition } from "../../../domain-model/src/index.ts";
 import * as technicalContract from "../../src/docker-desktop/validation.ts";
 import * as storedContract from "../../../domain-model/src/index.ts";
-import { parseDockerTaskRecoveryId as parseTechnicalRecovery } from "../../src/index.ts";
+import { parseDockerTaskRecoveryId as parseTechnicalRecovery } from "../support/cleanup.ts";
 import { parseDockerTaskRecoveryId as parseStoredRecovery } from "../../../domain-model/src/index.ts";
 
 /**

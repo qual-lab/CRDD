@@ -10,10 +10,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import {
-  openTaskSession,
-  readRepositoryNetworkPolicies,
-} from "../../coordinator/src/index.ts";
+import { openTaskSession } from "../../coordinator/src/index.ts";
 import {
   type AiSelectionChoice,
   readRepositoryAiSelection,
@@ -141,16 +138,6 @@ async function main() {
     );
     timing.setStage("start");
     const start = await client.start({
-      expectedNetworkPolicyHash: (() => {
-        const network = readRepositoryNetworkPolicies(verified.capability);
-        if (network.status !== "ready")
-          throw new Error("network_policy_unavailable");
-        return (
-          provider === "codex"
-            ? network.policies.codex
-            : network.policies.claude
-        ).policyHash;
-      })(),
       mode: "read_only_advice",
       workType: null,
       choice,
@@ -158,7 +145,6 @@ async function main() {
         "PROJECT_CONTEXT.mdだけを根拠として、現在の状況を一文、残件を一件、次の候補を一件、日本語で簡潔に整理してください。確認できる事実と追加推論を区別し、参照はPROJECT_CONTEXT.mdだけを使ってください。ファイル編集やコマンド実行はしないでください。",
       contextReferences: ["PROJECT_CONTEXT.md"],
       allowedPaths: [],
-      externalSendConfirmed: true,
       workspaceId: null,
     });
     if (start.status !== "accepted" || start.requestId === null)

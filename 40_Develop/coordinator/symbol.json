@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
+    {"symbolId":"coordinator.test.support.console","kind":"file","path":"tests/support/console.ts","archIds":["ARCH-000008"]},
+    {"symbolId":"coordinator.test.unit.console","kind":"test-suite","path":"tests/unit/decision/console.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.test.support.console"]},
     { "symbolId": "coordinator.verification.probe", "kind": "file", "path": "scripts/probe-verification.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.test.support.probe-executor", "kind": "file", "path": "tests/support/probe-executor.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.execution.preparation-types", "kind": "file", "path": "src/execution/types.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
@@ -100,14 +102,6 @@
       "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.external-send.consent-record",
-      "kind": "file",
-      "path": "src/decision/external-send-consent.ts",
-      "archIds": [
-        "ARCH-000015"
       ]
     },
     {
@@ -871,38 +865,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.external-send-consent-revocation",
-      "kind": "test-suite",
-      "path": "tests/integration/external-send-consent-revocation.contract.test.ts",
-      "qaIds": [
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-IT-004"
-      ],
-      "verifies": [
-        "coordinator.external-send.consent-record",
-        "coordinator.source.scripts.revoke.external.send.consent"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.external-send-consent-runtime",
-      "kind": "test-suite",
-      "path": "tests/integration/external-send-consent-runtime.contract.test.ts",
-      "qaIds": [
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-IT-004"
-      ],
-      "verifies": [
-        "coordinator.external-send.consent-record",
-        "domain-model.storage.committed-json",
-        "coordinator.source.src.security.external.send.consent.runtime",
-        "coordinator.source.src.security.external.send.policy.runtime"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.external-send-policy-runtime",
       "kind": "test-suite",
       "path": "tests/integration/external-send-policy-runtime.contract.test.ts",
@@ -1288,7 +1250,7 @@
       ],
       "verifies": [
         "coordinator.source.src.core.runtime.process.safety.state",
-        "coordinator.source.src.security.external.send.grant.runtime",
+        "coordinator.test.support.console",
         "coordinator.task-runtime"
       ]
     },
@@ -1412,7 +1374,7 @@
         "EST-ST-003"
       ],
       "verifies": [
-        "coordinator.source.src.core.interactive.console",
+        "coordinator.test.support.console",
         "coordinator.source.src.core.interactive.console.reader",
         "coordinator.source.src.core.node.runtime.version",
         "coordinator.source.src.core.runtime.process.safety.state",
@@ -1568,7 +1530,7 @@
         "ERB-ST-005"
       ],
       "verifies": [
-        "coordinator.source.src.core.interactive.console"
+        "coordinator.test.support.console"
       ]
     },
     {
@@ -1930,20 +1892,6 @@
       "verifies": [
         "docker-isolation.network.policy",
         "coordinator.source.src.security.provider.isolation.profile"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.external-send-grant-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/decision/external-send-grant.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.external.send.grant.runtime"
       ]
     },
     {
@@ -2357,7 +2305,7 @@
         "coordinator.source.scripts.verify.signed.general.task",
         "coordinator.source.src.security.claude.execution.plan",
         "coordinator.source.src.security.execution.environment",
-        "coordinator.source.src.security.external.send.grant.runtime",
+        "coordinator.test.support.console",
         "coordinator.source.src.security.provider.task.packet.runtime",
         "coordinator.source.src.security.provider.task.structured.result"
       ]
@@ -2724,25 +2672,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.external.send.consent.runtime",
-      "kind": "file",
-      "path": "src/decision/external-send-consent.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.external.send.policy.runtime",
       "kind": "file",
       "path": "src/decision/external-send-policy.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.scripts.revoke.external.send.consent",
-      "kind": "module",
-      "path": "scripts/revoke-external-send-consent.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2879,14 +2811,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.external.send.grant.runtime",
-      "kind": "file",
-      "path": "src/decision/external-send-grant.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.core.runtime.traceability",
       "kind": "file",
       "path": "scripts/runtime-traceability.ts",
@@ -2929,14 +2853,6 @@
       "path": "scripts/verify-dynamic-fake-provider-failures.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.core.interactive.console",
-      "kind": "file",
-      "path": "src/decision/external-send-grant.ts",
-      "archIds": [
-        "ARCH-000008"
       ]
     },
     {

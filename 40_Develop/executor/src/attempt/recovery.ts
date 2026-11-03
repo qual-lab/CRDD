@@ -3,11 +3,11 @@
  * @responsibility 元Operation／Recovery相関と用途構成をExecutorで解釈し、実体処置はDIへ渡す。
  * @trace ARCH-000008
  */
+import path from "node:path";
 import { types as utilTypes } from "node:util";
 import {
   cleanupIsolation,
-  describeIsolationCapabilities,
-  dockerResourceExpectationIsValid,
+  describeIsolationConfiguration,
   type ResourceTarget as IsolationResourceTarget,
   inspectIsolation,
   type ResourceSnapshot,
@@ -428,7 +428,7 @@ export function codexAdviceProviderInitRequired(
   return (
     operationMode === "workbench_advice" &&
     (imageDigest ===
-      describeIsolationCapabilities("codex").assets.adviceIdentity
+      describeIsolationConfiguration("codex").assets.adviceIdentity
         .fixedImageDigest ||
       imageDigest ===
         "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e" ||
@@ -551,6 +551,33 @@ export function planDockerRecoveryResourceExpectations(
     )
       return null;
     const captured = raw as Readonly<typeof input>;
+    if (
+      !/^crdd-auth-[a-f0-9]{16}$/u.test(captured.authenticationContainerName) ||
+      !/^crdd-(?:claude|codex)-[a-f0-9]{16}$/u.test(
+        captured.executionContainerName,
+      ) ||
+      !/^crdd-proxy-[a-f0-9]{16}$/u.test(captured.proxyContainerName) ||
+      !/^crdd-internal-[a-f0-9]{16}$/u.test(captured.internalNetworkName) ||
+      !/^crdd-egress-[a-f0-9]{16}$/u.test(captured.egressNetworkName) ||
+      !/^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
+        captured.ownershipLabel,
+      ) ||
+      ![captured.executionImageDigest, captured.proxyImageDigest].every(
+        (digest) => /^sha256:[a-f0-9]{64}$/u.test(digest),
+      ) ||
+      (captured.workspaceProtection &&
+        (captured.workspaceProtected !== true ||
+          ![
+            captured.workspaceProtection.gitSourcePath,
+            captured.workspaceProtection.internalSourcePath,
+          ].every(
+            (value) =>
+              typeof value === "string" &&
+              path.isAbsolute(value) &&
+              !/[\0\r\n,]/u.test(value),
+          )))
+    )
+      return null;
     const order = [
       "create_provider",
       "create_subscription_auth_probe",
@@ -621,14 +648,6 @@ export function planDockerRecoveryResourceExpectations(
         ]),
       });
     });
-    if (
-      plan.some((entry) =>
-        entry.expectations.some(
-          (expectation) => !dockerResourceExpectationIsValid(expectation),
-        ),
-      )
-    )
-      return null;
     return Object.freeze(plan);
   } catch {
     return null;

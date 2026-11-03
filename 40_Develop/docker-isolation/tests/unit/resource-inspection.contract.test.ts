@@ -12,7 +12,6 @@ import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { runInThisContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { dockerResourceExpectationIsValid } from "../../src/cleanup/plan.ts";
 import {
   discoverSubmittedDockerResource,
   observeIsolationIdentity,
@@ -21,8 +20,8 @@ import type { ResourceSnapshot, ResourceTarget } from "../../src/index.ts";
 
 const planDockerRecoveryResourceExpectations: typeof import("../../../executor/src/attempt/recovery.ts").planDockerRecoveryResourceExpectations =
   runInThisContext(
-    `(function(utilTypes,dockerResourceExpectationIsValid){${sourceDeclaration(readFileSync(new URL("../../../executor/src/attempt/recovery.ts", import.meta.url), "utf8"), "planDockerRecoveryResourceExpectations")};return planDockerRecoveryResourceExpectations;})`,
-  )(utilTypes, dockerResourceExpectationIsValid);
+    `(function(utilTypes,path){${sourceDeclaration(readFileSync(new URL("../../../executor/src/attempt/recovery.ts", import.meta.url), "utf8"), "planDockerRecoveryResourceExpectations")};return planDockerRecoveryResourceExpectations;})`,
+  )(utilTypes, path);
 
 const ID = "a".repeat(64);
 const LABEL = "crdd.coordinator.runtime=0123456789abcdef";

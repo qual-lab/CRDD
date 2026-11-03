@@ -100,7 +100,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
       callerSource,
       /import\s*\{[^}]*\brestartDockerEnvironment\b[^}]*\}\s*from ["']\.\.\/\.\.\/\.\.\/executor\/src\/index\.ts["']/u,
     );
-    assert.match(callerSource, /\btype DockerRuntimeRestartEvent\b/u);
+    assert.match(callerSource, /\btype DockerEnvironmentRestartEvent\b/u);
     assert.deepEqual(
       [
         ...new Set(
@@ -111,7 +111,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
           ].map((match) => match[1]),
         ),
       ],
-      ["../../../docker-isolation/src/index.ts"],
+      [],
     );
     assert.match(
       callerSource,
@@ -132,7 +132,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     assertCurrentRestartBoundary(hostFacade, missingPreparation),
   );
   const privateDriver = composition.replace(
-    "../../../docker-isolation/src/index.ts",
+    "../../../executor/src/index.ts",
     "../../../docker-isolation/src/docker-desktop/restart.ts",
   );
   assert.notEqual(privateDriver, composition);

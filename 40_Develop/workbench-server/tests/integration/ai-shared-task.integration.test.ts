@@ -348,8 +348,6 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     mode: "read_only_advice",
     workType: "",
     prompt: "合成入力",
-    externalSendConfirmed: "yes",
-    expectedNetworkPolicyHash: "a".repeat(64),
   };
   try {
     assert.equal(first.view, "main");
@@ -359,7 +357,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       (
         await action(0, "repository.a", {
           ...command,
-          expectedNetworkPolicyHash: "",
+          mode: "invalid",
         })
       ).status,
       400,

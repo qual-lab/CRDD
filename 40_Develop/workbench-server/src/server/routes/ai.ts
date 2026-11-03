@@ -91,8 +91,6 @@ export async function handleSharedAiRequest({
         : null;
       if (explicit && !choice)
         throw new Error("workbench_ai_request_choice_invalid");
-      if (!/^[a-f0-9]{64}$/u.test(form.get("expectedNetworkPolicyHash") ?? ""))
-        throw new Error("workbench_ai_network_policy_confirmation_required");
       if (mode !== "read_only_advice" && mode !== "workspace_edit")
         throw new Error("workbench_ai_request_mode_invalid");
       dispatched = true;
@@ -106,10 +104,6 @@ export async function handleSharedAiRequest({
           .split(/\r?\n/u)
           .map((p) => p.trim())
           .filter(Boolean),
-        externalSendConfirmed: form.get("externalSendConfirmed") === "yes",
-        expectedNetworkPolicyHash: String(
-          form.get("expectedNetworkPolicyHash") ?? "",
-        ),
         workspaceId: form.get("workspaceId")?.trim() || null,
       });
       if (result.status === "accepted") session.currentId = result.requestId;
@@ -198,9 +192,6 @@ export async function handleAiRequestAction({
         .split(/\r?\n/u)
         .map((value) => value.trim().replaceAll("\\", "/"))
         .filter((value) => value.length > 0);
-      const externalSendConfirmed = form.get("externalSendConfirmed") === "yes";
-      if (!/^[a-f0-9]{64}$/u.test(form.get("expectedNetworkPolicyHash") ?? ""))
-        throw new Error("workbench_ai_network_policy_confirmation_required");
       if (mode !== "read_only_advice" && mode !== "workspace_edit")
         throw new Error("workbench_ai_request_mode_invalid");
       if (prompt.length === 0 || prompt.length > 16_000)
@@ -219,8 +210,6 @@ export async function handleAiRequestAction({
         (mode === "workspace_edit" && allowedPaths.length === 0)
       )
         throw new Error("workbench_ai_request_allowed_paths_invalid");
-      if (!externalSendConfirmed)
-        throw new Error("workbench_ai_external_send_confirmation_required");
       const result = await aiRequests.start(
         Object.freeze({
           mode,
@@ -229,10 +218,6 @@ export async function handleAiRequestAction({
           prompt,
           contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
           allowedPaths: Object.freeze(allowedPaths),
-          externalSendConfirmed,
-          expectedNetworkPolicyHash: String(
-            form.get("expectedNetworkPolicyHash") ?? "",
-          ),
           workspaceId: form.get("workspaceId")?.trim() || null,
         }),
       );

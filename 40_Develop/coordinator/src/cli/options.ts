@@ -6,7 +6,7 @@
  */
 
 import fs from "node:fs";
-import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
+import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
 import { parseUnambiguousJsonDocument } from "../../../domain-model/src/index.ts";
 

@@ -2566,3 +2566,125 @@ commandHashは実Command全体の技術Hash、packetHashは意味的な要求・
 最終候補152 paths・SHA256 `870d7de9565d63ce42d0eb9afa20520e00de57261de6e4294d63e130f8ef4979`を確認した。DI164件、Executor全97件、Coordinator関連216件、Checker公開入口1件が成功した。初回Executor回帰の1失敗は旧Runtime結果型を公開維持する試験Oracleの追従漏れであり、共通型の公開と旧型の非公開を両側検査するよう是正し、局所3件と全97件の再成功を確認した。3パッケージの静的checkは終了0。
 
 Source・Architecture／Qualityの独立再レビューは必須残指摘0。文書表に残った旧repair結果型1箇所も共通型へ訂正した。対象4文書の診断は0、参照展開先の既存328診断は残り、拡張文書検査全体は終了1のため全体QA合格とは扱わない。この結果追記は記録だけで、評価したSourceを変更していない。公開値12・公開型19として今回の最小化を完了し、コミット・プッシュは未実施。
+
+## DI補助契約と専用送信同意の責務整理（2026-11-03・実装中）
+
+人間が採用した方針に従い、同じ実行指示へ重ねる専用送信同意と、そのためだけの確認コード・初期同意保存・Token・一回消費を撤去する。Repository／Operation／Revision／Providerの認可・相関、Scopeの通常データ捕捉・上限・秘密検査、限定是正許可・TaskPacket一回使用、Home Grant・Owner・Lock・取消は維持し、既存の準備・認可Ownerへ接続する。常時成功する同意やGrantの代用品は作らない。既存保存物は操作しない。
+
+通信設定はRepository追加HostをExecutor RequestからDIの技術Requestへ搬送し、固定Hostとの合成・正規Policy生成・Proxyへの直列化をDIに集約する。Proxyの既存PolicyHash・DNS・IP・直接通信制限は維持する。認証は追加Hostなし、Repository実行はRole共通とし、DIへauthentication／attempt／probeの用途判定は追加しない。
+
+固定構成取得はImage・配置・Proxy metadataへ限定する。Provider構成はExecutorだけが取得し、Coordinatorの固定診断・保存済みProbe接続に必要な無引数metadataは現役Consumerのため維持する。回復参照解析は上位の既存Ownerへ移す。資源Identity／期待値検査と例外分類は重複検査かを照合し、安全上独立して必要な共有契約は維持する。Process観測・分類は同じ技術結果へまとめるが、onObservedとonCompletedの通知時点は統合しない。
+
+変更は内部API・実行契約と判断処理の責務整理であり、Release・標準全体の準拠表明ではない。SourceとArchitecture／Qualityの独立レビューを固定候補へ行う。正常、別Repository／Revision／Provider、未知Policy、秘密Scope、範囲外Path、失効Owner、取消、是正許可再利用、通知故障、Process終了不明、ID欠測とCleanup不明を非AIの有限試験で確認する。実AI・Docker・過去保持物の操作、新Library／Manager／Registry／Store／Lockは対象外。
+
+### 中間接続と通信設定固定方針の確定（2026-11-03）
+
+Process通知はIsolationCommandResultへ集約し、観測と完了の通知時点・同期void・元観測を保持した。DI Request.proxyに技術Profile・Proxy／Client参照・追加Host・接続環境方式を渡し、DIで正規Policy・Hash・Proxy／Client環境を同じ入力から生成する接続を実装した。局所のExecutor7件とDI60件が成功した。DI結合の初期失敗は捕捉後のnull prototypeなSeccompオブジェクトをfixtureが暗黙文字列化したもので、fixtureを明示直列化へ訂正し、製品の安全判定は変更していない。
+
+expectedNetworkPolicyHashはWorkbench表示後の設定変更拒否にも使われていた。人間はこの照合を不要とし、Task実行開始時に選択Repositoryの最新設定を一回読み、そのTask内の全段階で固定する方針を採用した。表示は参考情報とし、表示時Hashの要求field・比較・事前取得だけの読取りを撤去する。読取り不能・不正設定・別Repository・権限不足の拒否と、Proxy内部の正規Policy Hashは維持する。上位の完成Policy搬送・Catalog・専用同意の撤去は引き続き実装中であり、現行同意検査はまだ撤去していない。全体完了・未実施の実境界確認を主張しない。
+
+### 表示時Hash撤去と中間候補の確認結果（2026-11-03）
+
+公開要求・Controller比較・Workbench hidden値／HTTP搬送・検証Toolの事前読取りから表示時期待Hashを撤去した。製品Sourceと実行scriptsに当該fieldの残存はなく、試験では旧fieldを余剰入力として拒否する。Task開始の既存Policy捕捉点を前倒しせず、同じ不変値を既存の各stageへ渡す。追加のReader・Worker・待機Gateは作らない。
+
+局所結合では、助言の実入力から未Commitの開始時設定を採用し、実行中にFileが更新されても元PlanのHost集合が変わらず、次の依頼だけが更新後の集合を使うことを確認した。不正JSONでは既定値や前回値へfallbackせず、配送件数が増えない。両Providerの純粋構成でも、元配列変更の分離と次読取りの更新を確認した。選定の受付時固定は既存契約のまま、通信設定の実行開始時固定と混同しない。
+
+DI変更影響5 Suiteは77件、Executor全回帰97件、WorkbenchのHTTP・入力・表示関連4 Suiteは51件、Coordinator関連7 Suiteは17件が成功した。設定固定の追加反例を含む5 Suite・12件も別実行で成功した（17件と重複するため合算しない）。4 Packageの静的checkは終了0。先行Executor回帰の失敗は、試験Adapterが旧Proxy環境からTokenを読む追従漏れで、新Request.proxy.tokenへ接続した後に関連5件と全97件の成功を確認した。製品の旧fallbackは復活させていない。
+
+SourceとArchitecture／Qualityの独立レビューは、DI文書の旧通知引数説明1件を訂正し、試験Adapter追従も再確認した後の必須残指摘0件。実AI・Docker・過去保持物は操作していない。HTTP試験の初回制限環境でのEACCESは成功へ換算せず、同じ合成試験をローカル接続可能条件で再実行した51件を確認結果とする。追加の120秒診断上限を付けた重複保存回帰は上限取消となり、終端後の非同期拒否も観測したため合格へ数えない。上限を追加しなかった元の7 Suiteは全17件成功しており、この診断上限を製品Timeoutや正式試験条件へ採用しない。
+
+検証Toolの追加回帰では、先行16項目の成功後、実保存付きHTTPの合成executeに旧Boolean通知Oracleが残っていたため、試験の開始待機が終了しないことを確認した。operationCreated／startedの正常returnはvoidなので、true比較を撤去して両方をawaitし、正常完了後だけ開始観測を通知する。製品の保存・通知・15秒期限は変更しない。是正後の同じ実保存付きHTTP一件は45.3秒・終了0で、通常完了・取消・応答喪失後の同ID継続、終端記録、子Process・Server・Task Owner終了と新品Root清掃まで確認した。Source／Architectureの限定再レビューで必須残指摘0件。停止した先行runのRoot清掃は別途の不存在確認を行っておらず、この一件の清掃成功を先行runへ流用しない。過去保持物の操作や強制削除はしていない。
+
+対象5文書のChecker診断は0。参照展開先3,366診断による全体終了1は残し、今回の限定確認を全体QA合格へ換算しない。検証Toolの前半16項目は中断前の個別成功であり、是正後の全17項目通し実行と表示しない。
+
+人間は残る1〜4の一括実施を指示した。専用送信同意・Grant・確認コード・初期同意保存の製品経路を撤去し、通常のPolicy現在性・Provider認可は準備Ownerで確認する。共有端末の製品利用は専用同意だけだったため、一般端末の有限検証補助はtests/support/console.tsへ移し、PAの端末APIと認証・環境操作は変更しない。既存保存物や保持物を削除しない。
+
+上位はDomainからRepository追加Hostを一回捕捉し、不変配列だけをExecutorへ渡す。DIは共通Request.proxyから正規Policy・Hash・Proxy／Client環境を生成する。CatalogはdescribeIsolationConfigurationへ改名し固定Image・実行位置・Proxy metadataへ縮小する。保存済みProbeの技術metadataと既存診断用の無引数固定構成は、現役Consumerがあるため維持し、実環境観測や認可へ昇格しない。
+
+資源Identity・期待値のProducer検査と例外分類を、公開数のために削除する差分は安全審査により停止した。読取り専用の独立確認では、固定五資源のnamespace検査はDI共通の一般名検査と異なり、開始前のHome取得より前に使われる。期待値全件検査は未要求・限定観測・早期return経路でDIへ渡らない対象も確認する。外側例外分類にはDI結果前の準備・接続失敗も含まれる。この3契約は現役の共有純粋APIとして保持し、新しい問い合わせ・Wrapper・分類表コピーを作らない。元検査と拒否時点を維持して回帰する。
+
+現在のSourceは専用同意・旧送信理由を撤去し、通常認可・Packet・追加Hostの本番接続へ移行した。試験台帳では廃止した同意3 SuiteとTask専用Console資源を退役し、通常の認可・取消・回復・端末技術の別契約は維持する。PolicyのboundaryResolutionはauthorized_repository_request、termsPolicyIdentityはruntime-not-verifiedへ追従し、現在の対話確認や規約検証を偽って表示しない。既存Repository-local設定の自動移行は追加せず、旧値の設定を互換受理しない。実AIの次回実施前にはフロントAIによる対象設定の確認・移行が必要である。
+
+全参照確認で残っていた検証Scriptの同意方式判定も撤去する。一般Task・4経路行列は元結果の資源・候補・回復・選定相関だけを確認し、廃止した初回同意／再利用を成功条件へ要求しない。通常の実AI試験の実施許可や再送禁止は別契約として維持する。PAの無出力Workerがstdout／stderrをdestroyする契約に対し、古い有限Worker代役にdestroyが欠け、目的のwriter故障より前に停止する試験不整合も修正した。製品PAやTimeout・安全判定は変更しない。
+
+広い8 Suite確認の先行runは追従漏れを検出後、長期待機中に中断したため通し合格へ数えない。後続の個別成功や新品Root清掃を、この中断runの資源終了確認へ流用しない。保持物の操作は行わない。
+
+1〜4の利用側・試験・文書の移行は、今回の非AI範囲で完了した。Repository全体のQA・実境界再成立・Release可とは表示しない。実AI・Docker・過去保持物の操作、Library／Manager／Registry／Store／Lockの追加は禁止したままである。
+
+### 1〜4の非AI範囲の完了確認（2026-11-03）
+
+固定候補139 paths・内容SHA256 `6d3ed29c3c805e65a33570d6d0f560c109a7b9446c08d6f55dc8597bc838c2b5`を基準に、追加Script・台帳差分までSource／Architecture・Qualityの独立再レビューを行い、必須残指摘0件とした。Coordinator文書の旧B2説明と通常TaskのConsole回収説明は訂正し、PA一般端末・認証TTY・実装の排他／清掃条件を変更せず限定再確認した。
+
+| 確認群 | 結果と限界 |
+|---|---|
+| DIの共通実行・Snapshot・回収・Proxy・構成19 Suite | 171件成功、失敗・skipなし。Docker・実AIなし |
+| Executor全試験 | 97件成功、失敗・skipなし |
+| Coordinator実行・回復・準備10 Suite | 238件成功、失敗・skipなし |
+| 単一Task検証Tool | 49件成功。実AI送信なし |
+| 経路行列・Process安全 | 25件成功。Worker／Process境界は有限代役・固定子試験 |
+| Task全体・Packet・台帳・配置・Console局所 | 対象回帰成功。junction試験は制限環境のEPERMを合格へ数えず、今回合成領域で別途一件成功 |
+| Workbench | 受付・表示・型・定義CRUD・ローカルHTTP・実保存付き検証Toolの対象Suiteは分割実行で成功。中断runの通し成功とは表示しない |
+| AI Adapterの直接利用側 | Catalog接続の4件成功 |
+| 静的検査 | Coordinator・Executor・DI・Workbench・AI Adapterのcheck終了0。既存infoは残す |
+| 文書と台帳 | 対象11成果物の診断0。参照展開先3,405診断により全体終了1は維持 |
+
+Rootの実行公開は10関数、型公開は15個である。旧Network Policy parser・完成Policy型・Task回復ID parserは公開から撤去した。固定構成照会は実行前の純粋なmetadata取得であり、実環境の観測とは別である。資源Identity／期待値の検査と外側例外分類は、異なる拒否時点・対象集合を守るため共有純粋APIとして維持する。
+
+実AI・Docker・過去保持物の操作は行っていない。既存ローカルPolicyは自動変更せず、新契約と不一致なら拒否する。次の実AI実行前にフロントAIが設定を確認・移行する。中断runの清掃未確認と既存の全体QA不合格を解消したとは扱わない。上記結果追記と現在地の更新は記録のみで、確認済みSourceを変更しない。今回のCommit／Pushは未実施。
+
+### Repository実設定の明示移行（2026-11-03・確認済み）
+
+継続指示に基づき、フロントAIがRepository-localの追跡済み`.crdd/config/external-send-policy.json`を明示移行した。両ProviderのboundaryResolutionとtermsPolicyIdentityの4値だけを現契約へ合わせ、enabled、情報分類、Provider／Offering、用途、候補保存・保持条件等がGit基準版から不変であることを構造比較で確認した。製品の自動移行・互換読取り・未Commit設定へのfallbackは追加していない。
+
+同じ純粋compilerで作業ツリーの設定は受理、HEADの旧設定は拒否となる。製品Readerは引き続きexact bound repository commitを使うため、Commit確定前の移行内容は本番実行へ反映されない。これは追加HostをTask開始時に最新設定から捕捉する契約とは別の設定であり、その読取り方式は変更しない。
+
+説明用のrepositoryPolicyAuthorityに残った旧対話確認の表現1件をauthorized_repository_requestへ訂正し、現役の認可判断を変更しない。旧値の拒否、両Providerの新値、disabledの維持を有限試験へ追加し、Packet試験の旧Grant名を現在のPolicy検査名へ追従した。局所・関連6 Suiteは30件成功。Coordinatorのformat・型・lint・両Trace検査は終了0。5ファイルの固定候補SHA256 `20faa3fb45c04849bb0fef743ee9f021e7c9d0e1e183a62ffe5a8595d0a92b62`に対するSource／Architecture限定独立レビューは必須指摘0件。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。この結果記録は確認済みSourceを変更せず、本番設定の有効化済みを意味しない。
+
+### 技術補助3公開のOwner再整理（完了・実境界は対象外）
+
+人間の継続指示により、公開が必要な理由と現在の呼出し構造を分けて見直す。単なるexport隠蔽・他Package内部へのdeep import・検査削除・分類表コピーは行わない。既存Home排他、Intent／Receipt、元ID・名前・所有Label、ID欠測時の完全構成、Directory条件、一次失敗とCleanup不明を維持する。
+
+Identity検査はExecutorの生成時と開始時の既存入力検査へ統合し、DI Rootの個別関数を撤去する。Coordinatorは同じ保存対象をDomainの既存Snapshot候補生成で検査し、従来の五資源名の重複拒否をDomainへ補う。候補構築はNative Home観測より前へ移し、不正入力でNative要求・耐久Intent保存へ進めない。既存Host／Repository読取りの順序はHome観測より前になるが、Writerの元版・現在性とHost開始前の再照合は維持する。旧九Command OracleのIdentity検査は有限試験supportへ限定し、製品から利用しない。
+
+現時点のDI Rootは9関数・15型であり、expectation検査と例外分類の2公開は残る。前者は未要求・限定観測・選択外資源も含める純粋な入力準備が必要で、後者は有効Preparedの開始失敗を既存IsolationExecutionResult.failureへ収容する必要がある。未要求時のCLI／Filesystem観測を増やすためだけの検査置換は行わず、二重使用・別Prepared等の契約違反を未開始のCleanup成功へ変換しない。この2件は接続・反例が揃うまで削除せず、3公開全体の整理を完了とは表示しない。
+
+Identity移管の限定検証では、Executor全98件とDI関連22件、Domain保存入力4件が成功した。追加のCoordinator負例は、八項目のtoJSON付きObject／boxed Stringを変換・環境観測・保存準備より前に拒否し、正常対照だけが保存候補準備へ到達することを7件のSuite内で確認した。Coordinator関連6 Suiteの最終通しは209件中207件成功、Windows実子Process取消の2件は5秒内の終了確認が成立せず失敗した。Docker側は模擬処理であり実Docker操作はない。各試験の終了hookには失敗記録がないが、取消時点の保証は不合格として保持し、全体回帰成功とは表示しない。OS Process一覧の追加読取りは権限拒否となり、不存在の根拠には用いない。
+
+Coordinator・Domain・Executor・DIの静的検査は終了0。対象7文書の診断0、参照展開先3,396診断による全体終了1は未解消。レビューで検出したJSON変換前のprimitive string拒否抜けと旧共用説明は是正し、Source／Architectureの限定再レビューは必須残指摘0件となった。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。
+
+
+#### 最終接続と検証結果（2026-11-03）
+
+前述の9公開・残2件は初回段階の記録である。継続是正により3補助関数のDI Root公開をすべて撤去し、現在は共通技術操作6件と固定構成照会1件の7関数・15型となった。
+
+| 処理 | 現在の正本と保証 |
+|---|---|
+| 資源Identity | Executorの生成・開始入力検査、Domainの保存候補検査。CoordinatorはJSON変換前のprimitive string確認を維持する |
+| 期待値 | Executorの構築入力で用途別prefix・Label・Digest・boolean相関・保護Pathを検査。未要求・選択外・認証限定でも構築前に拒否する。固定生成の全5用途・Proxy両候補はDI内部predicateへ有限照合する |
+| DIの技術検査 | 実観測・回収入力の内部predicate、元実ID・名前・所有Label、欠測IDの完全構成、Directory条件を維持する |
+| 例外分類 | DIの開始時再検証も既存CompletionのEffect前で実行し、型付きfailureへ載せる。takeとforeign拒否は同期のまま。Executor外側の未知例外は固定分類とし、DI分類表を複製しない |
+
+追加の公開API、準備モード、Manager、Registry、Store、永続状態は追加していない。保護Path本体の省略許容と既存truthy省略は維持し、今回は入力契約の暗黙の厳格化も行わない。
+
+Windows取消2件の切り分けでは、所有する3秒で自動終了する子と固定taskkillだけを使った。制限付き環境では終了補助がOSのlogon errorで終了1、同じ最小環境・固定要求を通常の実行環境で比較すると終了0だった。いずれも子と終了補助子のcloseを確認した。通常環境で既存のWindows取消2件を再実行して2件成功し、期限・安全判定・製品実装は変更していない。これはAIツールの認証切れの判定ではない。先行209件中2失敗という観測は保持し、現在は実行環境条件を分けて評価する。
+
+| 検証 | 現在候補の結果 |
+|---|---|
+| DI関連19 Suite | 177件成功、失敗・skipなし。開始時再検証の既知／未知例外、Directory置換、元準備の再使用・foreign拒否を含む |
+| Executor全試験 | 100件成功、失敗・skipなし。最終実行後の追加編集は試験Headerの説明追従のみ |
+| Coordinator関連6 Suite | Windows専用経路を含まない対象206件成功、失敗・skipなし |
+| Windows実子Process取消 | 通常実行環境で対象2件成功。制限付き環境の不成立は成功へ読み替えない |
+| 静的検査 | DI・Executor・Coordinator check終了0。既存infoは残す |
+| 独立レビュー | Source・Architectureの必須残指摘0。文書の旧Owner／Root公開説明2箇所を再是正・再確認済み |
+
+既存検証義務ERB-UT-023／ERB-IT-004／ERB-IT-014へ接続する。有限代役とWindows所有Processの確認を、実Docker・AIの新入口成立や全体QA合格へ一般化しない。実AI・Docker・過去保持物は操作していない。今回のCommit／Pushは未実施である。
+
+最終Header追従の差分確認で、同じHeader文を起点にした編集が隣接する両Provider結合scenario（正常・通知拒否・取消の6 subcase）まで巻き込む試験編集ミスを検出した。製品Sourceの欠陥ではないが、この一時状態で回帰網羅性を完成扱いしない。元scenarioをGit基準版から復元し、現行契約への追加Host空配列と固定Request捕捉だけを追従させた。元の結果・回収・Home解放・Snapshot・秘密非公開の全assertionを維持し、Source独立再確認の必須指摘0、当該Suite57件とDI静的検査終了0を確認した。試験Case／subcase名の欠落0を差分で照合し、広いHeader文字列ではなく対象宣言境界を編集の一次キーとする既存Maintenance規則を再適用した。新しい規則・検査Frameworkは追加しない。 最終の対象7文書の検査は診断0、参照展開先3,396診断により全体終了1である。この結果追記は記録のみで、検証したSource・試験本文を変更しない。
+
+#### 環境再起動通知型の命名整理（2026-11-03）
+
+公開通知型DockerRuntimeRestartEventをDockerEnvironmentRestartEventへ改名した。mode: restartの受付／終端通知であることを維持し、環境Request／Resultと語彙を揃える。修復のcheckpoint通知まで同じ型へ統合せず、旧名alias・新しい型・APIは追加しない。DIの型宣言とRoot、Executorの再公開、Coordinatorの利用、直接試験と両詳細設計を一意に追従した。公開数は7関数・15型のままである。
+
+対象4製品Sourceは、NodeのstripTypeScriptTypes後に空白を除いた内容のSHA256が改名前後で一致した。通知field、event実値、同期性、保存・取消・回収処理は変更しない。DIの再起動・環境・公開境界37件、Executorの公開境界・環境4件、Coordinator再起動15件が成功した。今回検出したCoordinatorの旧DI直接参照期待は、現行Executor経由と直接参照0へ追従し、負例の置換元も実在するExecutor参照へ訂正した。これは名称変更起因の製品回帰ではなく、既存試験期待の追従漏れである。
+
+3 Packageの静的検査は終了0、独立レビューは必須指摘0件。Source／現行Architectureの旧名残存0と差分空白検査を確認した。今回の命名変更に新しい人間判断は不要である。実AI・Docker・過去保持物は操作せず、Commit／Pushは未実施。
