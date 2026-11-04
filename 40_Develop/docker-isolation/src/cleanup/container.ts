@@ -7,6 +7,7 @@
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { dockerResourceLocatorIsValid } from "./validation.ts";
 import path from "node:path";
 import { types } from "node:util";
 import { observeDockerDirectoryIdentity } from "../docker-cli/config.ts";
@@ -150,7 +151,7 @@ function identity(
     typeof v.name !== "string" ||
     !/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/u.test(v.name) ||
     typeof v.ownershipLabel !== "string" ||
-    !/^[a-zA-Z0-9_.-]+=[a-zA-Z0-9_.-]+$/u.test(v.ownershipLabel)
+    !dockerResourceLocatorIsValid("container", v.name, v.ownershipLabel)
   )
     throw Error("docker_container_projection_invalid");
   return Object.freeze({

@@ -380,15 +380,15 @@ async function executeApprovedAuthCreateClosure() {
   const abort = new AbortController();
   const cancel = () => abort.abort();
   process.on("SIGINT", cancel);
-  const isolation = await import("../../../docker-isolation/src/index.ts");
   const recoveryOperations = await import(
     "../../../docker-isolation/src/cleanup/execute.ts"
   );
   const recoveryPlan = await import(
-    "../../../docker-isolation/src/cleanup/plan.ts"
+    "../../../docker-isolation/src/cleanup/validation.ts"
   );
   const store = await import("../../../domain-model/src/index.ts");
-  let isolationMock: { restore(): void } | null = null;
+  let recoveryMock: { restore(): void } | null = null;
+  let restartMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
   let storeMock: { restore(): void } | null = null;
   const originalSpawnSync = cp.spawnSync;
@@ -753,11 +753,14 @@ async function executeApprovedAuthCreateClosure() {
     }) as typeof cp.spawnSync;
     processObserverInstalled = true;
     syncBuiltinESMExports();
-    isolationMock = mock.module(
-      new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
+    restartMock = mock.module(
+      new URL(
+        "../../../docker-isolation/src/docker-desktop/restart.ts",
+        import.meta.url,
+      ).href,
       {
         namedExports: {
-          ...isolation,
+          ...dockerRestartOperations,
           restartDockerRuntime: async (
             input: Parameters<
               typeof dockerRestartOperations.restartDockerRuntime
@@ -780,13 +783,24 @@ async function executeApprovedAuthCreateClosure() {
               },
             });
           },
-          createDockerTaskRecoveryExecutor: (
+        },
+      },
+    );
+    recoveryMock = mock.module(
+      new URL(
+        "../../../docker-isolation/src/cleanup/execute.ts",
+        import.meta.url,
+      ).href,
+      {
+        namedExports: {
+          ...recoveryOperations,
+          createTrustedDockerRecoveryExecutor: (
             input: Parameters<
-              typeof recoveryOperations.createDockerTaskRecoveryExecutor
+              typeof recoveryOperations.createTrustedDockerRecoveryExecutor
             >[0],
           ) => {
             const created =
-              recoveryOperations.createDockerTaskRecoveryExecutor(input);
+              recoveryOperations.createTrustedDockerRecoveryExecutor(input);
             if (created.status !== "ready") return created;
             return {
               ...created,
@@ -798,7 +812,7 @@ async function executeApprovedAuthCreateClosure() {
                   >[0],
                 ) => {
                   assert.equal(
-                    expectation.purpose,
+                    expectation.key,
                     "create_subscription_auth_probe",
                   );
                   const found = created.executor.discoverSubmitted(expectation);
@@ -827,10 +841,7 @@ async function executeApprovedAuthCreateClosure() {
                   ...args: Parameters<typeof created.executor.recoverObserved>
                 ) => {
                   assert.equal(discovered, true);
-                  assert.equal(
-                    args[0].purpose,
-                    "create_subscription_auth_probe",
-                  );
+                  assert.equal(args[0].key, "create_subscription_auth_probe");
                   assert.equal(args[0].dockerId, dockerId);
                   assert.deepEqual(
                     currentTarget().resources.find(
@@ -1234,7 +1245,8 @@ async function executeApprovedAuthCreateClosure() {
   } finally {
     lifecycleMock?.restore();
     storeMock?.restore();
-    isolationMock?.restore();
+    recoveryMock?.restore();
+    restartMock?.restore();
     if (processObserverInstalled) {
       cp.spawnSync = originalSpawnSync;
       syncBuiltinESMExports();

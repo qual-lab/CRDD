@@ -6,8 +6,9 @@
 import {
   dockerResourceConfigurationMatches,
   dockerResourceExpectationIsValid,
-  type DockerResourceExpectation,
-} from "./plan.ts";
+  dockerResourceLocatorIsValid,
+} from "./validation.ts";
+import type { DockerResourceExpectation } from "./types.ts";
 import {
   dockerResourceIdentityMatches,
   type DockerRecoveryCommandResult,
@@ -72,8 +73,9 @@ export async function cleanupResourceIdentity(
     !expected ||
     !["container", "network"].includes(expected.kind) ||
     !/^[a-f0-9]{64}$/u.test(expected.dockerId) ||
-    !/^crdd-[a-zA-Z0-9-]+$/u.test(expected.expectedName) ||
-    !/^crdd\.coordinator\.(runtime|authentication|probe)=[a-fA-F0-9-]+$/u.test(
+    !dockerResourceLocatorIsValid(
+      expected.kind,
+      expected.expectedName,
       expected.ownershipLabel,
     )
   )

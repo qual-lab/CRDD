@@ -158,7 +158,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
         },
         resultSchema: describeAdviceResultSchema(),
       },
-      describeDockerProviderExecutionLocations("codex", "advice"),
+      describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "codex");
@@ -166,7 +166,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   const distribution = {
     ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
-    ...describeDockerProviderAssets("codex").adviceIdentity,
+    ...describeDockerProviderAssets("codex").alternateIdentity,
   };
   assert.equal(distribution.officialCliUnmodified, true);
   assert.equal(
@@ -177,7 +177,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   const normal = describeDockerProviderAssets("codex").identity;
   assert.equal(plan.command, distribution.executablePath);
   assert.equal(
-    "binarySha256" in describeDockerProviderAssets("codex").adviceIdentity,
+    "binarySha256" in describeDockerProviderAssets("codex").alternateIdentity,
     false,
   );
   assert.equal(plan.command, normal.executablePath);
@@ -273,7 +273,7 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
         },
         resultSchema: describeAdviceResultSchema(),
       },
-      describeDockerProviderExecutionLocations("claude", "advice"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "claude");
@@ -308,7 +308,7 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
         },
         resultSchema: callerSchema,
       },
-      describeDockerProviderExecutionLocations("claude", "advice"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.deepEqual(
     JSON.parse(
@@ -352,7 +352,7 @@ test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない"
         },
         resultSchema: describeAdviceResultSchema(),
       },
-      describeDockerProviderExecutionLocations("codex", "advice"),
+      describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),
     planProviderExecution(
       {
@@ -366,7 +366,7 @@ test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない"
         },
         resultSchema: describeAdviceResultSchema(),
       },
-      describeDockerProviderExecutionLocations("claude", "advice"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),
   ]) {
     const commandLine = [plan.command, ...plan.argv].join(" ");

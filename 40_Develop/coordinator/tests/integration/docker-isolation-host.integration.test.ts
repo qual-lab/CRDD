@@ -97,7 +97,7 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
           taskRole: "executor",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   if (plan.status !== "candidate") throw new Error("probe_plan_unavailable");
@@ -561,7 +561,7 @@ function assertAdviceImageObservation(
   const expected = {
     ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
-    ...describeDockerProviderAssets("codex").adviceIdentity,
+    ...describeDockerProviderAssets("codex").alternateIdentity,
   };
   for (const result of [version, hashes]) {
     assert.equal(result.error, undefined);
@@ -602,7 +602,7 @@ test("公式助言Imageの観測Oracleは三Hash・版・実Imageと警告を分
   const identity = {
     ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
-    ...describeDockerProviderAssets("codex").adviceIdentity,
+    ...describeDockerProviderAssets("codex").alternateIdentity,
   };
   const values: Record<string, string> = {
     [identity.executablePath]: identity.binarySha256,
@@ -1286,7 +1286,7 @@ test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で�
   const expected = {
     ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
-    ...describeDockerProviderAssets("codex").adviceIdentity,
+    ...describeDockerProviderAssets("codex").alternateIdentity,
   };
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");

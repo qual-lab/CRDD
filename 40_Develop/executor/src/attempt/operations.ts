@@ -1051,7 +1051,7 @@ export function prepareAttempt(
   } = resourceNames;
   const providerImageDigest =
     advice && provider === "codex"
-      ? describeIsolationConfiguration("codex").assets.adviceIdentity
+      ? describeIsolationConfiguration("codex").assets.alternateIdentity
           .fixedImageDigest
       : assets.fixedImageDigest;
   const proxyImageDigest = egress.imageDigest;
@@ -1876,7 +1876,7 @@ export function resolveIsolationCommandInput(
   const { assets, proxy } = describeIsolationConfiguration(plan.provider);
   const expectedImage =
     purpose === "advice" && plan.provider === "codex"
-      ? describeIsolationConfiguration("codex").assets.adviceIdentity
+      ? describeIsolationConfiguration("codex").assets.alternateIdentity
           .fixedImageDigest
       : assets.fixedImageDigest;
   if (

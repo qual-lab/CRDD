@@ -18,7 +18,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
+import { isDockerResourcePurpose } from "../fixtures/recovery-resource-expectations.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   COORDINATOR_STATE_SCHEMA,

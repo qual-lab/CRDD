@@ -14,6 +14,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { observeDockerProtectedMountIdentity } from "../../src/docker-cli/config.ts";
 import test from "node:test";
+import {
+  dockerResourceConfigurationMatches,
+  dockerResourceExpectationIsValid,
+} from "../../src/cleanup/validation.ts";
+import type { DockerResourceExpectation } from "../../src/cleanup/types.ts";
+import { captureIsolationCleanupRequest } from "../../src/execution/preparation.ts";
 
 import {
   dockerResourceIdentityMatches,
@@ -300,11 +306,12 @@ test("資源観測collectorは同期throw・非同期Reject・非void返値を�
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     expectedImage: null,
     shouldBeInternal: true,
-    purpose: "create_internal_network" as const,
     expectedNetworks: [],
-    workspaceMounted: false,
-    workspaceReadOnly: false,
     initRequired: false,
+    key: "create_internal_network" as const,
+    expectedUser: null,
+    tmpfsBytes: null,
+    expectedMounts: [],
   };
   for (const mode of ["normal", "throw", "reject", "value"] as const) {
     let inspections = 0,
@@ -349,4 +356,144 @@ test("資源観測collectorは同期throw・非同期Reject・非void返値を�
     assert.ok(captured);
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
+});
+
+/**
+ * 明示技術構成と新しいLabelを用途によらず完全照合する。
+ * @responsibility 旧固定Purposeを使わず全防御と元相関を検証する。
+ * @trace ERB-UT-023
+ * @precondition 非秘密の合成inspectと技術期待値だけを使用する。
+ * @stimulus 単独field差、余分Mount・Network、別Label、key交換を与える。
+ * @observation 判定と共通入力捕捉の拒否。
+ * @oracle 正常だけ受理し、全不一致と別資源結合を拒否する。
+ * @cleanup N/A: 値検査だけ。実Docker・AI・Filesystem書込みなし。
+ * @boundary ID欠測時の発見と削除直前が利用する共通構成検査。
+ */
+test("技術構成は新用途Labelを受理し全不一致と別key結合を拒否する", () => {
+  const expected: DockerResourceExpectation = {
+    key: "utility",
+    kind: "container",
+    dockerId: "a".repeat(64),
+    expectedName: "crdd-utility-0123456789abcdef",
+    ownershipLabel: "crdd.utility=0123456789abcdef",
+    expectedImage: "sha256:" + "b".repeat(64),
+    shouldBeInternal: null,
+    expectedNetworks: ["none"],
+    expectedUser: "65534:65534",
+    expectedMounts: [
+      {
+        destination: "/work/.git",
+        readWrite: false,
+        source: path.resolve("fixed-mask"),
+      },
+    ],
+    initRequired: true,
+    tmpfsBytes: 16777216,
+  };
+  const value = {
+    Id: expected.dockerId,
+    Name: "/" + expected.expectedName,
+    Config: {
+      Image: expected.expectedImage,
+      User: expected.expectedUser,
+      Labels: { "crdd.utility": "0123456789abcdef" },
+    },
+    HostConfig: {
+      ReadonlyRootfs: true,
+      Privileged: false,
+      CapDrop: ["ALL"],
+      CapAdd: null,
+      SecurityOpt: ["no-new-privileges"],
+      Init: true,
+      Tmpfs: { "/tmp": "rw,noexec,nosuid,size=16777216" },
+    },
+    NetworkSettings: { Networks: { none: {} } },
+    Mounts: [
+      {
+        Type: "bind",
+        Source: path.resolve("fixed-mask"),
+        Destination: "/work/.git",
+        RW: false,
+        Propagation: "rprivate",
+      },
+    ],
+  };
+  assert.equal(dockerResourceExpectationIsValid(expected), true);
+  assert.equal(dockerResourceConfigurationMatches(value, expected), true);
+  for (const changed of [
+    { ...value, Id: "c".repeat(64) },
+    { ...value, Name: "/crdd-other" },
+    {
+      ...value,
+      Config: { ...value.Config, Image: "sha256:" + "c".repeat(64) },
+    },
+    { ...value, Config: { ...value.Config, User: "0:0" } },
+    {
+      ...value,
+      Config: { ...value.Config, Labels: { "crdd.other": "0123456789abcdef" } },
+    },
+    {
+      ...value,
+      Config: {
+        ...value.Config,
+        Labels: { "crdd.utility": "ffffffffffffffff" },
+      },
+    },
+    ...[
+      { ReadonlyRootfs: false },
+      { Privileged: true },
+      { CapDrop: [] },
+      { CapAdd: ["ALL"] },
+      { SecurityOpt: [] },
+      { Init: false },
+      { Tmpfs: { "/tmp": "rw,size=16777216" } },
+    ].map((change) => ({
+      ...value,
+      HostConfig: { ...value.HostConfig, ...change },
+    })),
+    { ...value, NetworkSettings: { Networks: { none: {}, "crdd-extra": {} } } },
+    { ...value, Mounts: [...value.Mounts, value.Mounts[0]] },
+    ...[
+      { Source: path.resolve("other-mask") },
+      { RW: true },
+      { Propagation: "rshared" },
+      { Destination: "/other" },
+    ].map((change) => ({
+      ...value,
+      Mounts: [{ ...value.Mounts[0], ...change }],
+    })),
+  ])
+    assert.equal(dockerResourceConfigurationMatches(changed, expected), false);
+  const resources = snapshotObservedDockerResource(value, "utility", expected);
+  assert.ok(resources);
+  const { dockerId: _id, ...configuration } = expected;
+  const input = {
+    managementDirectory: path.resolve("synthetic-management"),
+    resources,
+    cleanupOrder: ["utility"],
+    setupTimeoutMs: 1000,
+    unreceiptedAbsence: "retain" as const,
+    verifyLabelAbsence: false,
+    previouslyAbsent: [],
+    discovery: [{ key: "utility", configurations: [configuration] }],
+  };
+  assert.ok(captureIsolationCleanupRequest(input));
+  assert.throws(() =>
+    captureIsolationCleanupRequest({
+      ...input,
+      discovery: [
+        {
+          key: "utility",
+          configurations: [{ ...configuration, key: "other" }],
+        },
+      ],
+    }),
+  );
+  assert.equal(
+    dockerResourceExpectationIsValid({
+      ...configuration,
+      purpose: "legacy",
+    } as never),
+    false,
+  );
 });

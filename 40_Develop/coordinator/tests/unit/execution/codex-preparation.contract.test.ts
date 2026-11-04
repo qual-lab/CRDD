@@ -546,7 +546,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
         },
         resultSchema: describeAdviceResultSchema(),
       },
-      describeDockerProviderExecutionLocations("codex", "advice"),
+      describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const dependencies = {
     consumeModelSelection: () => ({

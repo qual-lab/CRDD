@@ -14,7 +14,11 @@ import type {
   IsolationContainer,
   IsolationRequest,
 } from "../../src/execution/types.ts";
-import { describeDockerProviderAssets } from "../../src/image/assets.ts";
+import {
+  describeDockerProviderAssets,
+  DIAGNOSTIC_IMAGE,
+  resolveDockerImageProfile,
+} from "../../src/image/assets.ts";
 
 /** 有限の技術資源と操作列だけを組み立てる。外部資源を作成しない。 */
 function request(
@@ -225,4 +229,123 @@ test("不正通信構成は要求前に拒否し旧Proxy環境へfallbackしな�
   assert.throws(() => captureIsolationRequest(request(host)));
   assert.equal(reads, 0);
   assert.throws(() => captureIsolationRequest(request(new Proxy([], {}))));
+});
+
+/**
+ * 固定Imageの技術制約を同じCatalogで検証する。
+ * @responsibility User・Entrypoint・外向き接続を用途分岐から分離する。
+ * @trace ERB-IT-004
+ * @precondition 固定Catalogと純粋な共通入力捕捉だけを使用する。
+ * @stimulus 全固定Imageの制約、未知Digest、User／Entrypoint差、直接外向き接続を与える。
+ * @observation 制約の不変値と入力の受理・拒否。
+ * @oracle 元制約だけ受理し、未知・差分・非Proxyの外向き接続を拒否する。
+ * @cleanup N/A: 資源取得なし。
+ * @boundary Image Catalogから共通Preparation。
+ */
+test("固定Image制約はCatalogで一致し未知Imageと条件差を拒否する", () => {
+  const codex = describeDockerProviderAssets("codex"),
+    claude = describeDockerProviderAssets("claude");
+  const rows = [
+    {
+      image: codex.fixedImageDigest,
+      user: "65534:65534" as const,
+      entrypoint: null,
+    },
+    {
+      image: codex.alternateIdentity.fixedImageDigest,
+      user: "65534:65534" as const,
+      entrypoint: null,
+    },
+    {
+      image: claude.fixedImageDigest,
+      user: "65534:65534" as const,
+      entrypoint: null,
+    },
+    {
+      image: DIAGNOSTIC_IMAGE,
+      user: "65532:65532" as const,
+      entrypoint: "python" as const,
+    },
+  ];
+  const original = request();
+  const client = original.resources.find((r) => r.key === "client");
+  assert.ok(client && client.kind === "container");
+  for (const row of rows) {
+    const profile = resolveDockerImageProfile(row.image);
+    assert.ok(profile);
+    assert.equal(profile.user, row.user);
+    assert.equal(profile.externalNetwork, false);
+    assert.equal(Object.isFrozen(profile), true);
+    assert.equal(Object.isFrozen(profile.entrypoints), true);
+    const input: IsolationRequest = {
+      managementDirectory: original.managementDirectory,
+      resources: [{ ...client, ...row, network: null }],
+      steps: [
+        {
+          key: "create",
+          action: "create",
+          resource: "client",
+          timeoutMs: 1000,
+        },
+      ],
+      cleanupOrder: ["client"],
+      setupTimeoutMs: 1000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: false,
+    };
+    assert.ok(captureIsolationRequest(input));
+    assert.throws(() =>
+      captureIsolationRequest({
+        ...input,
+        resources: [
+          {
+            ...client,
+            ...row,
+            network: null,
+            user: row.user === "65534:65534" ? "65532:65532" : "65534:65534",
+          },
+        ],
+      }),
+    );
+    if (row.image !== DIAGNOSTIC_IMAGE)
+      assert.throws(() =>
+        captureIsolationRequest({
+          ...input,
+          resources: [
+            { ...client, ...row, network: null, entrypoint: "python" },
+          ],
+        }),
+      );
+    assert.throws(() =>
+      captureIsolationRequest({
+        ...input,
+        resources: [
+          {
+            kind: "network",
+            key: "egress",
+            name: "crdd-utility-network",
+            ownershipLabel: client.ownershipLabel,
+            internal: false,
+          },
+          { ...client, ...row, network: "egress" },
+        ],
+        steps: [
+          {
+            key: "network",
+            action: "create",
+            resource: "egress",
+            timeoutMs: 1000,
+          },
+          ...input.steps,
+        ],
+        cleanupOrder: ["client", "egress"],
+      }),
+    );
+  }
+  const proxy = resolveDockerImageProfile(codex.proxy.imageDigest);
+  assert.ok(proxy);
+  assert.equal(proxy.externalNetwork, true);
+  assert.equal(proxy.user, "65534:65534");
+  assert.deepEqual(proxy.entrypoints, [null]);
+  assert.equal(resolveDockerImageProfile("sha256:" + "f".repeat(64)), null);
 });

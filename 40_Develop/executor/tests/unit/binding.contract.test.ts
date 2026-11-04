@@ -93,7 +93,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
         executionSelection: chosen.value,
         providerImageDigest:
           purpose === "advice" && provider === "codex"
-            ? describeIsolationConfiguration("codex").assets.adviceIdentity
+            ? describeIsolationConfiguration("codex").assets.alternateIdentity
                 .fixedImageDigest
             : catalog.assets.fixedImageDigest,
         taskRole: purpose === "task" ? "reviewer" : null,

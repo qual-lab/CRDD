@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import type { DockerResourceExpectation } from "../cleanup/plan.ts";
+import type { DockerResourceExpectation } from "../cleanup/types.ts";
 import type { ResourceSnapshot } from "../cleanup/types.ts";
 import type { CommandObservation, IsolationCommandResult } from "./result.ts";
 

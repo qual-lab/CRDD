@@ -453,7 +453,7 @@ if (mode !== "recovery") {
         if (authCreateMode) {
           authRecoveryId = begun.recoveryId;
           const recoveryOperations = await import(
-            "../../../docker-isolation/src/cleanup/plan.ts"
+            "../../../docker-isolation/src/cleanup/validation.ts"
           );
           assert.equal(startWrites, 1);
           assert.equal(hostStarts, 1);

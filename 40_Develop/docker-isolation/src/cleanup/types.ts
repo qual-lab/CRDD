@@ -16,6 +16,36 @@ import type {
 import type { DockerRuntimeRepairRetentionTargets } from "../docker-desktop/types.ts";
 import type { DockerContainerConfigurationExpectation } from "./configuration.ts";
 
+/**
+ * 用途によらない一資源のIdentityと技術構成期待値。
+ *
+ * @responsibility 資源種別・実ID・名前・Labelと必要な構成を明示する。
+ * @trace ARCH-000008
+ * @shape Network・Image・User・Mount・Init・Tmpfsの照合値。
+ * @invariant この値だけでは実在・所有・処置許可を証明しない。
+ * @boundary 検査済み計画から現在Docker観測への境界。
+ * @security 非秘密Mount元だけを保持し、認証値と処置許可を含めない。
+ * @compatibility Mount元nullとTmpfs nullは既存の非照合条件を表す。
+ */
+export type DockerResourceExpectation = Readonly<{
+  key: string;
+  kind: "container" | "network";
+  dockerId: string;
+  expectedName: string;
+  ownershipLabel: string;
+  expectedImage: string | null;
+  shouldBeInternal: boolean | null;
+  expectedNetworks: readonly string[];
+  expectedUser: "65532:65532" | "65534:65534" | null;
+  expectedMounts: readonly Readonly<{
+    destination: string;
+    readWrite: boolean;
+    source: string | null;
+  }>[];
+  initRequired: boolean;
+  tmpfsBytes: 16777216 | null;
+}>;
+
 /** 元Receiptの最小識別情報。実行構成は削除条件へ使わない。 */
 export type ResourceIdentity = Readonly<{
   kind: "container" | "network";

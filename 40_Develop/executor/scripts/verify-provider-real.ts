@@ -139,7 +139,7 @@ export function describeStandaloneProviderTrial(
     promptSha256: digest(prompt),
     providerImageDigest:
       provider === "codex"
-        ? describeIsolationConfiguration("codex").assets.adviceIdentity
+        ? describeIsolationConfiguration("codex").assets.alternateIdentity
             .fixedImageDigest
         : describeIsolationConfiguration("claude").assets.fixedImageDigest,
     proxyImageDigest:

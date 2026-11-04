@@ -10,7 +10,7 @@ import { captureIsolationCleanupRequest } from "../execution/preparation.ts";
 import type { IsolationCleanupRequest } from "../execution/types.ts";
 import { inspectContainerResources } from "./container.ts";
 import {
-  createDockerTaskRecoveryExecutor,
+  createTrustedDockerRecoveryExecutor,
   type DockerResourceRecoveryOperations,
 } from "./execute.ts";
 import type {
@@ -92,7 +92,7 @@ export function inspectIsolation(
         (resource) => resource.request !== "not_issued",
       )
     ) {
-      const created = createDockerTaskRecoveryExecutor({
+      const created = createTrustedDockerRecoveryExecutor({
         managementDirectory: input.managementDirectory,
         ...(signal ? { signal } : {}),
       });

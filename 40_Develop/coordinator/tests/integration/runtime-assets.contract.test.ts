@@ -97,7 +97,7 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
       Object.keys(assets).sort(),
       provider === "codex"
         ? [
-            "adviceIdentity",
+            "alternateIdentity",
             "autoUpdateAllowed",
             "fixedDigestImageRequired",
             "fixedImageDigest",
@@ -125,15 +125,18 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
     assert.equal("sigstoreBundleSha256" in assets.identity, false);
     assert.equal("fixedImageDigest" in assets.identity, false);
     assert.equal("manifestSignatureVerified" in assets, false);
-    for (const purpose of ["probe", "task", "advice"] as const) {
+    for (const profile of (provider === "codex"
+      ? ["primary", "alternate"]
+      : ["primary"]) as readonly ("primary" | "alternate")[]) {
       const locations = describeDockerProviderExecutionLocations(
         provider,
-        purpose,
+        profile,
       );
       assert.equal(Object.isFrozen(locations), true);
       const expected =
-        provider === "codex" && purpose === "advice"
-          ? describeDockerProviderAssets("codex").adviceIdentity.executablePath
+        provider === "codex" && profile === "alternate"
+          ? describeDockerProviderAssets("codex").alternateIdentity
+              .executablePath
           : assets.identity.executablePath;
       assert.equal(locations.commandPath, expected);
       assert.equal("fixedImageDigest" in locations, false);
@@ -141,7 +144,7 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
   }
   assert.throws(() => describeDockerProviderAssets("unknown" as "codex"));
   assert.throws(() =>
-    describeDockerProviderExecutionLocations("codex", "unknown" as "task"),
+    describeDockerProviderExecutionLocations("codex", "unknown" as "primary"),
   );
 });
 
@@ -305,7 +308,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
   const advice = {
     ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
-    ...describeDockerProviderAssets("codex").adviceIdentity,
+    ...describeDockerProviderAssets("codex").alternateIdentity,
   };
   const claude = describeDockerProviderAssets("claude");
   const declarations = [
@@ -365,7 +368,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
     );
   }
   assert.equal(
-    describeDockerProviderExecutionLocations("claude", "task").commandPath,
+    describeDockerProviderExecutionLocations("claude", "primary").commandPath,
     claude.identity.executablePath,
   );
   for (const [name, expected] of [

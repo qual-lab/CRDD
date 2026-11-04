@@ -5,12 +5,22 @@
  * @boundary 試験専用。Docker処置・保存・Authorityを発行しない。
  */
 
-import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
 import type { CoordinatorStateTaskOperation } from "../../../domain-model/src/index.ts";
 import {
   codexAdviceProviderInitRequired,
   planDockerRecoveryResourceExpectations,
 } from "../../../executor/src/attempt/recovery.ts";
+
+/** 保存済みTaskの固定作成用途を試験で識別する。 @trace ERB-IT-014 */
+export function isDockerResourcePurpose(value: unknown): boolean {
+  return (
+    value === "create_subscription_auth_probe" ||
+    value === "create_internal_network" ||
+    value === "create_egress_network" ||
+    value === "create_proxy" ||
+    value === "create_provider"
+  );
+}
 
 export function expectedRecoveryResources(
   operation: CoordinatorStateTaskOperation,

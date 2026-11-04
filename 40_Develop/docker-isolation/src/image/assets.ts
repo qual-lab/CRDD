@@ -6,6 +6,7 @@
  */
 import type {
   DockerExecutionLocations,
+  DockerImageProfile,
   DockerProviderAssetMap,
 } from "./types.ts";
 
@@ -28,7 +29,7 @@ const CODEX = Object.freeze({
       "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
     executorSeccompProfileBytes: 16703,
   },
-  adviceIdentity: {
+  alternateIdentity: {
     exactVersion: "0.164.0",
     executablePath: "/opt/crdd/providers/codex/0.164.0/codex",
     fixedImageDigest:
@@ -53,8 +54,56 @@ const CLAUDE = Object.freeze({
   runtimePullAllowed: false,
 } as const);
 Object.freeze(CODEX.identity);
-Object.freeze(CODEX.adviceIdentity);
+Object.freeze(CODEX.alternateIdentity);
 Object.freeze(CLAUDE.identity);
+
+/** 固定Imageが許可する技術条件。用途分類・実行許可は持たない。 */
+const IMAGE_PROFILES: Readonly<Record<string, DockerImageProfile>> =
+  Object.freeze({
+    [CODEX.fixedImageDigest]: Object.freeze({
+      user: "65534:65534",
+      entrypoints: Object.freeze([null]),
+      externalNetwork: false,
+    }),
+    [CODEX.alternateIdentity.fixedImageDigest]: Object.freeze({
+      user: "65534:65534",
+      entrypoints: Object.freeze([null]),
+      externalNetwork: false,
+    }),
+    [CLAUDE.fixedImageDigest]: Object.freeze({
+      user: "65534:65534",
+      entrypoints: Object.freeze([null]),
+      externalNetwork: false,
+    }),
+    [PROXY.imageDigest]: Object.freeze({
+      user: "65534:65534",
+      entrypoints: Object.freeze([null]),
+      externalNetwork: true,
+    }),
+    [DIAGNOSTIC_IMAGE]: Object.freeze({
+      user: "65532:65532",
+      entrypoints: Object.freeze([null, "python"]),
+      externalNetwork: false,
+    }),
+  });
+
+/**
+ * 固定Digestに対応する技術制約を取得する。
+ * @responsibility User・Entrypoint・外向き接続条件を固定資産の同じ正本へ結合する。
+ * @trace ARCH-000008
+ * @input image: 固定Imageのexact参照。
+ * @returns 許可済み制約。未知Imageはnull。
+ * @effect N/A: 不変Catalogの読取りだけ。
+ * @failure 未知値を既定Profileへ補完しない。
+ * @invariant Image存在・利用許可は発行しない。
+ */
+export function resolveDockerImageProfile(
+  image: string,
+): DockerImageProfile | null {
+  return Object.hasOwn(IMAGE_PROFILES, image)
+    ? (IMAGE_PROFILES[image] ?? null)
+    : null;
+}
 
 /**
  * Provider配置の固定資産を取得する。
@@ -86,12 +135,12 @@ export function describeDockerProviderAssets(
  * CLI引数生成へ渡す実行位置だけを返す。
  * @responsibility 実行Path・Schema・Home・設定の配置を一箇所から結合する。
  * @trace ARCH-000008
- * @input providerと用途。
+ * @input providerと固定Image Profile。
  * @returns Image・Mountを含まない実行位置データ。
  * @precondition 検証済みの固定Imageを使う信頼した構成側だけ。
  * @postcondition 引数の文字列置換・Image取得・CLI実行を行わない。
  * @effect N/A: 固定値の投影だけ。
- * @failure 不明Provider・用途は固定例外。
+ * @failure 不明Provider・Profileは固定例外。
  * @invariant このデータを外部要求やCatalogから上書きさせない。
  * @boundary Docker配置OwnerからCLI引数生成への値境界。
  * @security Host秘密・実Root・Authorityを含まない。
@@ -99,18 +148,19 @@ export function describeDockerProviderAssets(
  */
 export function describeDockerProviderExecutionLocations(
   provider: "codex" | "claude",
-  purpose: "task" | "probe" | "advice",
+  profile: "primary" | "alternate",
 ): DockerExecutionLocations {
   if (
     (provider !== "codex" && provider !== "claude") ||
-    !["task", "probe", "advice"].includes(purpose)
+    !["primary", "alternate"].includes(profile) ||
+    (provider === "claude" && profile === "alternate")
   )
     throw new Error("docker_provider_locations_invalid");
   return Object.freeze({
     commandPath:
       provider === "codex"
-        ? purpose === "advice"
-          ? CODEX.adviceIdentity.executablePath
+        ? profile === "alternate"
+          ? CODEX.alternateIdentity.executablePath
           : CODEX.identity.executablePath
         : CLAUDE.identity.executablePath,
     workingDirectory: "/work",

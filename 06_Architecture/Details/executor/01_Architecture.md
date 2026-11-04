@@ -490,6 +490,12 @@ ExecutorはDockerExecutionCallbacksで発行予定・元資源ID・Command観測
 
 技術資源の観測・回収は引き続きDIへ委譲する。永続化・Task判断・保持期限・廃棄判断をExecutorへ追加しない。公開型は外部利用がある完了結果・通知と技術投影だけに限定する。
 
+### DIへの技術期待値の構築責務
+
+固定五資源のpurpose・候補順・Workspace保護条件はattempt/recovery.tsが所有する。既存保存投影を、DI共通入力のkey・資源種別・予定名・所有Label・Image・User・Network集合・Mount集合・Init・必要時Tmpfsへ変換する。DIへ用途別の構成推論を委ねない。保存Schemaや旧形式互換Readerは追加しない。source未指定・Tmpfs非比較の既存意味は維持する。
+
+ProviderのTask／Adviceに応じた実行物選択はExecutorに残し、DI Catalogのprimary／alternate技術配置を選択する。DIの固定Image制約を複製せず、DI共通準備・回収へ接続する。通常・再入場の削除アルゴリズムを二重実装しない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

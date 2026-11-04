@@ -150,7 +150,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   };
   const plan = planProviderExecution(
     request,
-    describeDockerProviderExecutionLocations("codex", "task"),
+    describeDockerProviderExecutionLocations("codex", "primary"),
   );
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") throw new Error("plan_blocked");
@@ -174,7 +174,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
       ...request,
       input: { ...request.input, taskRole: "reviewer" },
     },
-    describeDockerProviderExecutionLocations("codex", "task"),
+    describeDockerProviderExecutionLocations("codex", "primary"),
   );
   assert.equal(reviewer.status, "ready");
   if (reviewer.status !== "ready") throw Error("reviewer_plan_blocked");
@@ -193,7 +193,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   );
   assert.equal(reviewer.plan.argv.includes("--approve-for-me"), false);
   const commandPath =
-    describeDockerProviderExecutionLocations("codex", "task").commandPath ??
+    describeDockerProviderExecutionLocations("codex", "primary").commandPath ??
     "codex";
   for (const expected of [
     "features.code_mode_only=true",

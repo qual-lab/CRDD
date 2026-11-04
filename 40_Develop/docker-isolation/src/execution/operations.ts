@@ -8,10 +8,8 @@ import path from "node:path";
 import { types } from "node:util";
 import { cleanupContainerResources } from "../cleanup/container.ts";
 import { cleanupResourceIdentity } from "../cleanup/operations.ts";
-import {
-  type DockerResourceExpectation,
-  dockerResourceConfigurationMatches,
-} from "../cleanup/plan.ts";
+import { dockerResourceConfigurationMatches } from "../cleanup/validation.ts";
+import type { DockerResourceExpectation } from "../cleanup/types.ts";
 import {
   type DockerRecoveryCommandResult,
   dockerResourceIdentityMatches,

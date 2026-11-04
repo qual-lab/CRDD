@@ -312,7 +312,7 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
                 taskRole: item.role,
               },
             },
-            describeDockerProviderExecutionLocations("codex", "task"),
+            describeDockerProviderExecutionLocations("codex", "primary"),
           ).plan ?? assert.fail("provider_execution_plan_not_ready"))
         : (planProviderExecution(
             {
@@ -337,7 +337,7 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
                 },
               },
             },
-            describeDockerProviderExecutionLocations("claude", "task"),
+            describeDockerProviderExecutionLocations("claude", "primary"),
           ).plan ?? assert.fail("provider_execution_plan_not_ready"))
     ) as Readonly<Record<string, unknown>>;
     const argv = plan.argv as readonly string[];

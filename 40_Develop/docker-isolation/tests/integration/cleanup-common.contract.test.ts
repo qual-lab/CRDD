@@ -11,7 +11,7 @@ import test from "node:test";
 import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
 import { captureAuthenticationResources } from "../../../executor/src/authentication/operations.ts";
 import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
-import type { DockerResourceExpectation } from "../../src/cleanup/plan.ts";
+import type { DockerResourceExpectation } from "../../src/cleanup/types.ts";
 import { discoverSubmittedDockerResource } from "../../src/cleanup/resource.ts";
 import { cleanupResourceSet } from "../support/cleanup.ts";
 
@@ -76,16 +76,17 @@ test("共通回収は元Receiptと発見IDの照合条件を通知後も混同�
     };
     const expected: DockerResourceExpectation = {
       kind: "network",
-      purpose: "create_internal_network",
       dockerId: id,
       expectedName: "crdd-internal-0123456789abcdef",
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: null,
       shouldBeInternal: true,
       expectedNetworks: [],
-      workspaceMounted: false,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_internal_network",
+      expectedUser: null,
+      tmpfsBytes: null,
+      expectedMounts: [],
     };
     const run = (argv: readonly string[]) => {
       let stdout = "";
@@ -160,16 +161,17 @@ test("共通回収は全Receipt検査・通知完了・明示取消を処置前�
   };
   const expected: DockerResourceExpectation = {
     kind: "network",
-    purpose: "create_internal_network",
     dockerId: "a".repeat(64),
     expectedName: "crdd-internal-0123456789abcdef",
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     expectedImage: null,
     shouldBeInternal: true,
     expectedNetworks: [],
-    workspaceMounted: false,
-    workspaceReadOnly: false,
     initRequired: false,
+    key: "create_internal_network",
+    expectedUser: null,
+    tmpfsBytes: null,
+    expectedMounts: [],
   };
   const expectations = [
     { purpose: "create_internal_network" as const, expectations: [expected] },

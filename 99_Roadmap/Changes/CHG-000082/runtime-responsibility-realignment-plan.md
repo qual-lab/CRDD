@@ -2688,3 +2688,48 @@ Windows取消2件の切り分けでは、所有する3秒で自動終了する�
 対象4製品Sourceは、NodeのstripTypeScriptTypes後に空白を除いた内容のSHA256が改名前後で一致した。通知field、event実値、同期性、保存・取消・回収処理は変更しない。DIの再起動・環境・公開境界37件、Executorの公開境界・環境4件、Coordinator再起動15件が成功した。今回検出したCoordinatorの旧DI直接参照期待は、現行Executor経由と直接参照0へ追従し、負例の置換元も実在するExecutor参照へ訂正した。これは名称変更起因の製品回帰ではなく、既存試験期待の追従漏れである。
 
 3 Packageの静的検査は終了0、独立レビューは必須指摘0件。Source／現行Architectureの旧名残存0と差分空白検査を確認した。今回の命名変更に新しい人間判断は不要である。実AI・Docker・過去保持物は操作せず、Commit／Pushは未実施。
+
+#### DI内部の用途非依存化（2026-11-04）
+
+基準はb8f524c76。成立済みの共通実行・取消・Receipt通知・通常／再入場回収を維持し、固定五資源の構築はExecutor、構成照合はDIへ分離する。Rootの7関数・15型は変更しない。既存保存Schema・Directory条件・Capability・Owner・Lock・期限は変更対象外である。
+
+| 変更単位 | 現在の接続 |
+|---|---|
+| 五資源のpurpose分岐 | Executorの既存投影から明示した技術期待値へ変換。DIは不透明keyで相関し用途を判定しない |
+| 名前・所有Label | CRDD専用の安全文法と期待Identityとのexact照合を分離。Labelのキーも要求値から照合 |
+| 欠測ID | Image・User・Network・Mount・防御構成の既存完全照合と識別通知前後の再確認を維持 |
+| 元実ID | ID・Name・所有Labelの最小照合を維持 |
+| Image制約 | 既存Catalog内の固定profileへ集約。未知Image・不正User／Entrypoint・外部接続を拒否 |
+| 配置選択 | Catalogはprimary／alternateを返し、Task／Advice選択はExecutorへ。Runtime fieldはalternateIdentityへ追従、Build JSONは維持 |
+
+cleanup/plan.tsを撤去し、技術期待値はcleanup/types.ts、検査と構成照合はcleanup/validation.tsへ整理した。新しいManager・Registry・Store・互換Reader・汎用削除APIは作らない。公開数は同じでもdiscovery期待値構造とCatalog入れ子fieldの変更は利用側へ伝播する。
+
+DI関連20 Suiteの197件とExecutor全100件が成功した。DI・Executor・Coordinatorの静的検査は終了0。Source独立レビューは製品安全性の必須指摘0、Checkerの旧公開Module期待一覧1件を検出し、現在Rootの実Module集合へ追従した。最終結合回帰はCoordinator関連8 Suiteの214件、AI AdapterのCatalog利用側2 Suiteの6件、DI公開入口単独1件が成功した。Architecture／Quality独立レビューは必須残指摘0。対象4文書の診断0、参照展開先331診断により全体終了1である。全Package公開一覧試験は基準からExecutorのProfile登録が欠け、実Package13件と期待12件が一致せず失敗した。DIの個別公開入口は成功しているが、この既存横断試験を全体合格へ読み替えない。最終候補でDI197件とExecutor100件を再実行して成功し、修正した9Module集合のSource独立再確認は必須残指摘0となった。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。
+
+#### DIの説明・内部名の追従（2026-11-04）
+
+旧九操作包装をexecution/plan.tsの製品責務としていた説明と、接続済み観測・回収を未完了としていた説明を訂正した。現在のargv生成はexecution/operations.ts、技術検査はexecution/preparation.tsであり、旧包装・逆解析はtests/support/execution-plan.tsの有限Oracleに限定する。
+
+内部のcreateDockerTaskRecoveryExecutorをcreateTrustedDockerRecoveryExecutorへ改名し、参照元・抽出試験・試験Adapterを追従した。これは固定CLI検証・最小環境・確定管理領域を結合する技術処理であり、Task判定は持たない。試験supportの別関数createDockerResourceRecoveryExecutorはそのまま維持する。Root・診断reason・保存・取消・Cleanup・期限・安全条件は変更しない。
+
+限定回帰はDI関連93件、Executor資源2件、Coordinator現在回収24件成功。3Packageの静的検査終了0。対象4文書の診断0、参照展開先331診断により全体終了1である。独立レビューの文書1指摘は試験supportと本番関数の説明を区別して是正した。
+
+追加で認証create closure試験を実行したところ、6件成功・7件失敗だった。6失敗は基準HEADにも存在する動的import実数9／期待7の試験fixture不整合で、1失敗はWindows junction作成のEPERMである。今回の改名起因とせず、別の未解消検証残件として保持する。既存横断検査や実境界を全体合格へ読み替えない。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。
+
+#### 検証接続の追従漏れ是正と再点検（2026-11-04）
+
+先行記録の認証closureのimport数・代役割当不整合とChecker公開一覧不整合を是正した。単純な件数緩和ではなく、実本文と8読込みの順序・Module別代役・技術key・故障注入先を一致させた。手動VerifierのRootへの旧export注入を撤去し、restart.tsとcleanup/execute.tsの実装Ownerへ個別に登録・復元する。製品Source・公開IF・診断値・保存契約は変更しない。
+
+再点検で見つかったcurrent-authentication-recovery-cli.tsとcurrent-host-transition-worker.tsの生成子本文も同じ実装Ownerへ追従した。認証子はexpectation.keyを検査し、両mockの復元を維持する。生成本文の構文・固定Module接続・旧Root注入拒否を外部Effectなしの試験へ追加した。子本文の実行と手動Verifier自体は実施せず、この静的接続確認を実Host／実Docker成立へ読み替えない。
+
+CheckerはExecutorを含む全13 Packageを列挙し、各Rootの現在の公開Module集合へ追従した。再公開だけのCoordinator Rootは責務・境界・秘密のHeaderを検査する。Package母集団・Module完全一致・禁止公開・負例の検査本体は維持し、実行時の自動一覧生成や検査迂回は追加しない。
+
+| 確認 | 結果 |
+|---|---|
+| 認証closureの有限試験 | 12件成功。正常・単独故障・確認省略変異と不存在modeを含む |
+| 生成子本文の静的接続と既存有限Oracle | 3件成功。実子本文は起動していない |
+| Checker DI／全Package公開一覧 | 2件成功。13 Packageの現行集合と負例を確認 |
+| Coordinator静的検査 | 終了0。Source／試験型検査、整形、Lintと既存Traceabilityを含む |
+| 独立レビュー | Sourceの配線・代役・復元・Checker契約に必須残指摘0 |
+
+Windows専用junction試験は権限不足の先行結果を保持し、今回は実行していない。Checker本体のtsconfig.json単独型検査は終了0だが、配布入口も含む型検査は別の既存配布入口template/tools/crdd-coordinator.ts:12のTS1375で終了1となる。同Fileは今回未変更であり、今回の2系統の追従漏れ修正と区別して残す。参照展開先診断とともに全体QA合格の根拠にしない。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。

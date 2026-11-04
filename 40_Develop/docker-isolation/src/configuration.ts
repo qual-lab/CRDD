@@ -48,7 +48,7 @@ export function describeIsolationConfiguration(
     });
   if (provider !== "codex" && provider !== "claude")
     throw Error("docker_isolation_configuration_invalid");
-  const primary = describeDockerProviderExecutionLocations(provider, "task");
+  const primary = describeDockerProviderExecutionLocations(provider, "primary");
   const common = { proxy: describeDockerProviderAssets(provider).proxy };
   return provider === "codex"
     ? Object.freeze({
@@ -59,7 +59,7 @@ export function describeIsolationConfiguration(
           primary,
           alternate: describeDockerProviderExecutionLocations(
             provider,
-            "advice",
+            "alternate",
           ),
         }),
       })

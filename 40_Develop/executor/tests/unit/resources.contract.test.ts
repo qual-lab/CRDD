@@ -144,7 +144,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     {
       namedExports: {
         ...original,
-        createDockerTaskRecoveryExecutor: unexpected,
+        createTrustedDockerRecoveryExecutor: unexpected,
         planDockerRecoveryResourceExpectations: unexpected,
         codexAdviceProviderInitRequired: unexpected,
         inspectIsolation: (target: { kind: string; input: unknown }) => {

@@ -57,7 +57,7 @@ export async function simulateAuthCreateClosure(
     return source.slice(start, end).replace(/^export /u, "");
   });
   let body = bodies.join("\n");
-  assert.equal((body.match(/await import\(/gu) ?? []).length, 7);
+  assert.equal((body.match(/await import\(/gu) ?? []).length, 8);
   assert.ok(
     body.includes(
       'const absentAuth = process.argv[3] === "--verify-absent-auth"',
@@ -80,11 +80,11 @@ export async function simulateAuthCreateClosure(
     body = body.replaceAll(guard, "void absenceRounds;");
   } else if (mutation === "omit_positive_configuration") {
     const guard =
-      /assert\.equal\(\s*isolation\.dockerResourceConfigurationMatches\(values\[0\], \{[\s\S]*?\}\),\s*true,\s*\);/u;
+      /assert\.equal\(\s*recoveryPlan\.dockerResourceConfigurationMatches\(values\[0\], \{[\s\S]*?\}\),\s*true,\s*\);/u;
     assert.equal([...body.matchAll(new RegExp(guard.source, "gu"))].length, 1);
     body = body.replace(
       guard,
-      "void isolation.dockerResourceConfigurationMatches(values[0], { ...authExpectation, dockerId });",
+      "void recoveryPlan.dockerResourceConfigurationMatches(values[0], { ...authExpectation, dockerId });",
     );
   } else if (mutation === "wrong_lifecycle_import") {
     const original = body;
@@ -185,6 +185,10 @@ export async function simulateAuthCreateClosure(
   );
   body = stripTypeScriptTypes(body)
     .replaceAll("import.meta.url", "fixtureUrl")
+    .replaceAll("dockerTrustOperations.", "technicalOperations().")
+    .replaceAll("dockerEnvironmentOperations.", "technicalOperations().")
+    .replaceAll("dockerRestartOperations.", "technicalOperations().")
+    .replaceAll("...dockerRestartOperations,", "...technicalOperations(),")
     .replace(/\bimport\(/gu, "loadFixtureModule(");
   const distribution = fileURLToPath(new URL("../../../..", fixtureUrl));
   const area = path.join(distribution, ".crdd", "tests");
@@ -749,13 +753,22 @@ export async function simulateAuthCreateClosure(
   }
   const cp = { spawnSync: spawn };
   const moduleUrl = (relative: string) => new URL(relative, fixtureUrl).href;
-  const isolationUrl = moduleUrl("../../../docker-isolation/src/index.ts");
+  const recoveryUrl = moduleUrl(
+    "../../../docker-isolation/src/cleanup/execute.ts",
+  );
+  const recoveryPlanUrl = moduleUrl(
+    "../../../docker-isolation/src/cleanup/validation.ts",
+  );
+  const restartUrl = moduleUrl(
+    "../../../docker-isolation/src/docker-desktop/restart.ts",
+  );
   const lifecycleUrl = moduleUrl("../../src/execution/recovery.ts");
   const loads: string[] = [];
   const expectedLoads = [
     moduleUrl("../../../version-control/src/index.ts"),
     moduleUrl("../../../domain-model/src/index.ts"),
-    isolationUrl,
+    recoveryUrl,
+    recoveryPlanUrl,
     moduleUrl("../../../domain-model/src/index.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("./recovery-resource-expectations.ts"),
@@ -908,7 +921,7 @@ export async function simulateAuthCreateClosure(
           }
           return result;
         },
-        createDockerTaskRecoveryExecutor: () => ({
+        createTrustedDockerRecoveryExecutor: () => ({
           status: "ready",
           executor: {
             discoverSubmitted: () => {
@@ -988,7 +1001,8 @@ export async function simulateAuthCreateClosure(
       };
       return initialIsolation;
     }
-    if (loads.length === 4)
+    if (loads.length === 4) return initialIsolation;
+    if (loads.length === 5)
       return {
         writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: () => {
           events.push("closure_save");
@@ -1062,8 +1076,8 @@ export async function simulateAuthCreateClosure(
           };
         },
       };
-    if (loads.length === 5) {
-      assert.ok(mocks.has(isolationUrl));
+    if (loads.length === 6) {
+      assert.ok(mocks.has(recoveryUrl));
       activeLifecycle = {
         recoverRuntimeOwnedDockerTaskForCurrentConsumer: async (
           _id: string,
@@ -1075,8 +1089,8 @@ export async function simulateAuthCreateClosure(
           assert.equal(inputSignal, signal);
           assert.equal(_id, target.recoveryId);
           assert.equal(_cap, capability);
-          const factory = mocks.get(isolationUrl)
-            ?.createDockerTaskRecoveryExecutor as () => {
+          const factory = mocks.get(recoveryUrl)
+            ?.createTrustedDockerRecoveryExecutor as () => {
             executor: {
               discoverSubmitted(value: unknown): string | null;
               recoverObserved(value: unknown): boolean;
@@ -1085,12 +1099,12 @@ export async function simulateAuthCreateClosure(
           };
           const executor = factory().executor;
           const found = executor.discoverSubmitted({
-            purpose: "create_subscription_auth_probe",
+            key: "create_subscription_auth_probe",
           });
           if (fault === "discovery_duplicate") {
             hits++;
             executor.discoverSubmitted({
-              purpose: "create_subscription_auth_probe",
+              key: "create_subscription_auth_probe",
             });
           }
           let recovered: boolean;
@@ -1140,7 +1154,7 @@ export async function simulateAuthCreateClosure(
                 ],
               };
             recovered = executor.recoverObserved({
-              purpose: "create_subscription_auth_probe",
+              key: "create_subscription_auth_probe",
               dockerId: found,
             });
           }
@@ -1186,12 +1200,12 @@ export async function simulateAuthCreateClosure(
       };
       return activeLifecycle;
     }
-    if (loads.length === 6)
+    if (loads.length === 7)
       return {
         expectedRecoveryResources: () => [
           {
             purpose: "create_subscription_auth_probe",
-            expectations: [{ purpose: "create_subscription_auth_probe" }],
+            expectations: [{ key: "create_subscription_auth_probe" }],
           },
         ],
       };
@@ -1205,7 +1219,7 @@ export async function simulateAuthCreateClosure(
         assert.equal(_id, target.recoveryId);
         assert.equal(rootCapability, capability);
         assert.equal(_capSignal, signal);
-        const restart = mocks.get(isolationUrl)?.restartDockerRuntime as (
+        const restart = mocks.get(restartUrl)?.restartDockerRuntime as (
           input: unknown,
         ) => Promise<Record<string, unknown>>;
         const result = await restart({
@@ -1271,7 +1285,8 @@ export async function simulateAuthCreateClosure(
     ) => {
       assert.ok(
         [
-          isolationUrl,
+          recoveryUrl,
+          restartUrl,
           lifecycleUrl,
           moduleUrl("../../../domain-model/src/index.ts"),
         ].includes(url),
@@ -1286,7 +1301,7 @@ export async function simulateAuthCreateClosure(
     },
   };
   const factory = runInThisContext(`(function(context) {
-    const { assert, cp, execFileSync, createHash, fs, path, mock, delay, yieldEvents, fileURLToPath, fixedImage, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, Buffer, URL, Object, manifestCompleted } = context;
+    const { assert, cp, execFileSync, createHash, fs, path, mock, delay, yieldEvents, fileURLToPath, fixedImage, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
     let spawnSync = cp.spawnSync;
     const syncBuiltinESMExports = () => { spawnSync = cp.spawnSync; context.synced(); };
     context.observeNamed(() => spawnSync);
@@ -1483,6 +1498,7 @@ export async function simulateAuthCreateClosure(
       process: fakeProcess,
       AbortController: FakeAbort,
       loadFixtureModule,
+      technicalOperations: () => initialIsolation,
       Buffer,
       URL,
       manifestCompleted: () => {

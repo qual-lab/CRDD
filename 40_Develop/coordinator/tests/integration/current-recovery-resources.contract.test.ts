@@ -23,7 +23,7 @@ import {
   createDockerOperationRecoveryExecutor,
   observeDockerRecoveryConfigIdentity,
 } from "../../../docker-isolation/src/cleanup/execute.ts";
-import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
+import { isDockerResourcePurpose } from "../fixtures/recovery-resource-expectations.ts";
 import { createDockerResourceRecoveryExecutor } from "../../../docker-isolation/tests/support/cleanup.ts";
 import {
   coordinatorAuthenticationUnknownCanClose,
@@ -2825,7 +2825,7 @@ function fixture(
         assertCurrent: () => mode !== "factory-refused",
       };
     },
-    createDockerTaskRecoveryExecutor: (
+    createTrustedDockerRecoveryExecutor: (
       input: Pick<
         Parameters<typeof createDockerOperationRecoveryExecutor>[0],
         "managementDirectory" | "signal"
@@ -2961,7 +2961,7 @@ function fixture(
     },
   };
   const recoveryApi = createAttemptRecoveryTestApi(
-    context.createDockerTaskRecoveryExecutor,
+    context.createTrustedDockerRecoveryExecutor,
   );
   Object.assign(context, recoveryApi);
   const run = runInNewContext(
@@ -3382,7 +3382,6 @@ test("同期資源観測は削除やOwner逆照会を実行しない", async (t)
     };
     const confirmed = f.executor.recoverObserved(
       {
-        purpose: "create_internal_network",
         kind: "network",
         dockerId: id,
         expectedName: name,
@@ -3390,9 +3389,11 @@ test("同期資源観測は削除やOwner逆照会を実行しない", async (t)
         expectedImage: null,
         shouldBeInternal: true,
         expectedNetworks: [],
-        workspaceMounted: false,
-        workspaceReadOnly: false,
         initRequired: false,
+        key: "create_internal_network",
+        expectedUser: null,
+        tmpfsBytes: null,
+        expectedMounts: [],
       },
       options,
     );

@@ -428,7 +428,7 @@ export function codexAdviceProviderInitRequired(
   return (
     operationMode === "workbench_advice" &&
     (imageDigest ===
-      describeIsolationConfiguration("codex").assets.adviceIdentity
+      describeIsolationConfiguration("codex").assets.alternateIdentity
         .fixedImageDigest ||
       imageDigest ===
         "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e" ||
@@ -598,7 +598,7 @@ export function planDockerRecoveryResourceExpectations(
         purpose === "create_egress_network";
       const base: IsolationResourceTarget<"snapshot">["discovery"][number]["configurations"][number] =
         {
-          purpose,
+          key: purpose,
           kind: network ? "network" : "container",
           expectedName: names[purpose],
           ownershipLabel: captured.ownershipLabel,
@@ -617,18 +617,60 @@ export function planDockerRecoveryResourceExpectations(
                 ? ["none"]
                 : [captured.internalNetworkName],
           ),
-          workspaceMounted:
-            purpose === "create_provider" && captured.workspaceMounted,
-          workspaceReadOnly:
-            purpose === "create_provider" && captured.workspaceReadOnly,
+          expectedUser: network ? null : "65534:65534",
+          expectedMounts: Object.freeze(
+            purpose === "create_subscription_auth_probe"
+              ? [
+                  Object.freeze({
+                    destination: "/provider-home",
+                    readWrite: false,
+                    source: null,
+                  }),
+                ]
+              : purpose === "create_provider"
+                ? [
+                    Object.freeze({
+                      destination: "/provider-home",
+                      readWrite: true,
+                      source: null,
+                    }),
+                    Object.freeze({
+                      destination: "/tmp",
+                      readWrite: true,
+                      source: null,
+                    }),
+                    ...(captured.workspaceMounted
+                      ? [
+                          Object.freeze({
+                            destination: "/work",
+                            readWrite: !captured.workspaceReadOnly,
+                            source: null,
+                          }),
+                        ]
+                      : []),
+                    ...(captured.workspaceProtected === true
+                      ? [
+                          Object.freeze({
+                            destination: "/work/.git",
+                            readWrite: false,
+                            source:
+                              captured.workspaceProtection?.gitSourcePath ??
+                              null,
+                          }),
+                          Object.freeze({
+                            destination: "/work/.crdd",
+                            readWrite: false,
+                            source:
+                              captured.workspaceProtection
+                                ?.internalSourcePath ?? null,
+                          }),
+                        ]
+                      : []),
+                  ]
+                : [],
+          ),
           initRequired: purpose === "create_provider" && captured.initRequired,
-          ...(captured.workspaceProtected === true &&
-          purpose === "create_provider"
-            ? { workspaceProtected: true }
-            : {}),
-          ...(captured.workspaceProtection && purpose === "create_provider"
-            ? { workspaceProtection: captured.workspaceProtection }
-            : {}),
+          tmpfsBytes: purpose === "create_proxy" ? 16777216 : null,
         };
       return Object.freeze({
         purpose,

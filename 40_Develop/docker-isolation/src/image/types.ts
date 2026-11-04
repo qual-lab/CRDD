@@ -4,6 +4,13 @@
  * @trace ARCH-000008
  */
 
+/** 固定Imageに結合した技術制約。実行用途・認可は持たない。 */
+export type DockerImageProfile = Readonly<{
+  user: "65532:65532" | "65534:65534";
+  entrypoints: readonly (string | null)[];
+  externalNetwork: boolean;
+}>;
+
 /**
  * 固定Proxyの配置を表す。
  * @responsibility Digestとport・更新禁止の構成値を共有する。
@@ -58,7 +65,7 @@ export type DockerProviderAssetMap = {
         executorSeccompProfileSha256: string;
         executorSeccompProfileBytes: number;
       }>;
-      adviceIdentity: Readonly<{
+      alternateIdentity: Readonly<{
         exactVersion: string;
         executablePath: string;
         fixedImageDigest: string;

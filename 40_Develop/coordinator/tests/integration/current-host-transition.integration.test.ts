@@ -15,7 +15,7 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
+import { runInNewContext, Script } from "node:vm";
 import {
   COORDINATOR_STATE_SCHEMA,
   encodeRuntimeStateValue,
@@ -45,6 +45,7 @@ import {
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
+import { currentAuthenticationRecoveryCliSource } from "../fixtures/current-authentication-recovery-cli.ts";
 
 /**
  * 実Hostを現在Repositoryへ結合して非秘密の試験Identityを構成する。
@@ -117,15 +118,51 @@ function fixtureOperation(
 }
 
 /**
- * 引渡し前例外の省略を、実Workerと同じ捕捉Oracleで拒否する。
- * @responsibility 例外未発生でもfinallyに到達できる反例を区別する。
+ * 生成子本文の技術代役を実装Ownerへ接続する。
+ * @responsibility 旧公開入口への無効なmock注入の再発を拒否する。
+ * @trace ERB-IT-014
+ * @precondition 固定fixtureの生成済み本文だけを使う。
+ * @stimulus 両子本文を構文検査し、接続Moduleと復元を照合する。
+ * @observation 構文、Module URL、技術keyと復元呼出し。
+ * @oracle 実装Owner接続だけを受理し旧Rootと旧関数名を拒否する。
+ * @cleanup N/A: 本文を実行せず実資源を生成しない。
+ * @boundary 静的接続だけ。実Host・Dockerの成立は証明しない。
+ */
+test("回収子の技術代役は現行Moduleへ接続し旧Rootへ注入しない", () => {
+  for (const source of [
+    currentAuthenticationRecoveryCliSource,
+    currentHostTransitionWorkerSource,
+  ]) {
+    assert.doesNotThrow(() => new Script(source));
+    assert.match(source, /docker-isolation\/src\/docker-desktop\/restart\.ts/u);
+    assert.doesNotMatch(source, /docker-isolation\/src\/index\.ts/u);
+    assert.doesNotMatch(source, /createDockerTaskRecoveryExecutor/u);
+  }
+  assert.match(
+    currentAuthenticationRecoveryCliSource,
+    /docker-isolation\/src\/cleanup\/execute\.ts/u,
+  );
+  assert.match(currentAuthenticationRecoveryCliSource, /expectation\.key/u);
+  assert.match(
+    currentAuthenticationRecoveryCliSource,
+    /recoveryMock\?\.restore\(\)/u,
+  );
+  assert.match(
+    currentAuthenticationRecoveryCliSource,
+    /restartMock\?\.restore\(\)/u,
+  );
+});
+
+/**
+ * 引渡し前例外の省略を同じ捕捉Oracleで拒否する。
+ * @responsibility 例外未発生でもfinallyへ到達する反例を区別する。
  * @trace PRL-IT-013
- * @precondition 実Workerの固定try／catchと捕捉件数Oracleを一意に抽出する。
- * @stimulus 固定throwだけを省略したメモリ変異を与える。
- * @observation 正例の捕捉成功と変異の断言失敗を確認する。
+ * @precondition 実Workerの固定try／catchを抽出する。
+ * @stimulus 固定throwを省略したメモリ変異を与える。
+ * @observation 捕捉件数と引渡し件数。
  * @oracle throw省略は同じ捕捉件数Oracleを満たさない。
- * @cleanup N/A: メモリ内の評価だけで実資源を生成しない。
- * @boundary N/A: 物理回収は別の実Host正例が所有する。
+ * @cleanup N/A: メモリ内評価だけ。
+ * @boundary 物理回収は実Host正例が所有する。
  */
 test("引渡し前失敗: throw省略を同じ捕捉Oracleで拒否する", () => {
   const start = currentHostTransitionWorkerSource.indexOf(

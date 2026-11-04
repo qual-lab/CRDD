@@ -838,7 +838,7 @@ test("ClaudeのCLI計画上限と報告metadataを比較せず受理する", () 
               taskWorkload: TASK_WORKLOAD,
             },
           },
-          describeDockerProviderExecutionLocations("claude", "task"),
+          describeDockerProviderExecutionLocations("claude", "primary"),
         ).plan ?? assert.fail("provider_execution_plan_not_ready");
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_not_candidate");
@@ -950,7 +950,7 @@ test("作業量の有限見積りは全推論で一致し、報告回数とCLI�
               taskWorkload: workload,
             },
           },
-          describeDockerProviderExecutionLocations("claude", "task"),
+          describeDockerProviderExecutionLocations("claude", "primary"),
         ).plan ?? assert.fail("provider_execution_plan_not_ready");
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_invalid");

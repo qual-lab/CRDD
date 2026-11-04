@@ -8,7 +8,7 @@ import fs from "node:fs";
 import { types } from "node:util";
 import {
   describeDockerProviderAssets,
-  DIAGNOSTIC_IMAGE,
+  resolveDockerImageProfile,
 } from "../image/assets.ts";
 import type { ResourceSnapshot } from "../cleanup/types.ts";
 import type {
@@ -18,8 +18,9 @@ import type {
 } from "./types.ts";
 import {
   dockerResourceExpectationIsValid,
-  type DockerResourceExpectation,
-} from "../cleanup/plan.ts";
+  dockerResourceLocatorIsValid,
+} from "../cleanup/validation.ts";
+import type { DockerResourceExpectation } from "../cleanup/types.ts";
 import { prepareDockerNetworkPolicy } from "../network/policy.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "./plan.ts";
 
@@ -132,27 +133,15 @@ export function captureIsolationRequest(
     typeof v === "string" && /^[a-z][a-z0-9_-]{0,127}$/u.test(v);
   const resources = new Map<string, IsolationRequest["resources"][number]>(),
     names = new Set<string>();
-  const codex = describeDockerProviderAssets("codex"),
-    claude = describeDockerProviderAssets("claude");
-  const images = new Set([
-    codex.fixedImageDigest,
-    codex.adviceIdentity.fixedImageDigest,
-    claude.fixedImageDigest,
-    codex.proxy.imageDigest,
-    DIAGNOSTIC_IMAGE,
-  ]);
   for (const r of input.resources) {
     if (
       !r ||
       !key(r.key) ||
       resources.has(r.key) ||
       typeof r.name !== "string" ||
-      !/^crdd-[a-zA-Z0-9-]+$/u.test(r.name) ||
       names.has(r.name) ||
       typeof r.ownershipLabel !== "string" ||
-      !/^crdd\.coordinator\.(runtime|authentication|probe)=[a-fA-F0-9-]+$/u.test(
-        r.ownershipLabel,
-      )
+      !dockerResourceLocatorIsValid(r.kind, r.name, r.ownershipLabel)
     )
       throw Error("docker_isolation_resource_invalid");
     resources.set(r.key, r);
@@ -167,7 +156,7 @@ export function captureIsolationRequest(
         "kind,key,name,ownershipLabel,image,argv,environment,mounts,network,networkAlias,user,workingDirectory,entrypoint,tmpfsBytes,interactive,tty,init,seccomp",
       );
       if (
-        !images.has(r.image) ||
+        !resolveDockerImageProfile(r.image) ||
         !Array.isArray(r.argv) ||
         r.argv.some(
           (v: unknown) => typeof v !== "string" || v.includes("\0"),
@@ -195,10 +184,11 @@ export function captureIsolationRequest(
         ![null, "python"].includes(r.entrypoint)
       )
         throw Error("docker_isolation_container_invalid");
+      const profile = resolveDockerImageProfile(r.image);
       if (
-        r.user !==
-          (r.image === DIAGNOSTIC_IMAGE ? "65532:65532" : "65534:65534") ||
-        (r.entrypoint !== null && r.image !== DIAGNOSTIC_IMAGE)
+        !profile ||
+        r.user !== profile.user ||
+        !profile.entrypoints.includes(r.entrypoint)
       )
         throw Error("docker_isolation_container_invalid");
       for (const m of r.mounts) {
@@ -228,7 +218,8 @@ export function captureIsolationRequest(
       const network = resources.get(r.network);
       if (
         network?.kind !== "network" ||
-        (!network.internal && r.image !== codex.proxy.imageDigest)
+        (!network.internal &&
+          resolveDockerImageProfile(r.image)?.externalNetwork !== true)
       )
         throw Error("docker_isolation_network_invalid");
     }
@@ -256,7 +247,7 @@ export function captureIsolationRequest(
       const network = resources.get(s.network);
       if (
         r.kind !== "container" ||
-        r.image !== codex.proxy.imageDigest ||
+        resolveDockerImageProfile(r.image)?.externalNetwork !== true ||
         network?.kind !== "network" ||
         network.internal ||
         !created.has(s.resource) ||
@@ -344,11 +335,8 @@ export function captureIsolationCleanupRequest(
       keys.has(r.key) ||
       !["container", "network"].includes(id.kind) ||
       typeof id.name !== "string" ||
-      !/^crdd-[a-zA-Z0-9-]+$/u.test(id.name) ||
       typeof id.ownershipLabel !== "string" ||
-      !/^crdd\.coordinator\.(runtime|authentication|probe)=[a-fA-F0-9-]+$/u.test(
-        id.ownershipLabel,
-      ) ||
+      !dockerResourceLocatorIsValid(id.kind, id.name, id.ownershipLabel) ||
       (id.dockerId !== null &&
         (typeof id.dockerId !== "string" ||
           !/^[a-f0-9]{64}$/u.test(id.dockerId))) ||
@@ -416,6 +404,7 @@ export function captureIsolationCleanupRequest(
       entry.configurations.some(
         (e: Omit<DockerResourceExpectation, "dockerId">) =>
           !dockerResourceExpectationIsValid(e) ||
+          e.key !== entry.key ||
           e.kind !== resource.identity.kind ||
           e.expectedName !== resource.identity.name ||
           e.ownershipLabel !== resource.identity.ownershipLabel,

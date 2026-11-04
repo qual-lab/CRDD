@@ -41,7 +41,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   let calls = 0, trustCalls = 0, violations = 0, restartCalls = 0, removalCalls = 0;
   let factories = 0, discoveries = 0, rounds = 0, saves = 0;
   let config = null, configIdentity = null;
-  let isolationMock, storeMock, lifecycleMock;
+  let recoveryMock, restartMock, storeMock, lifecycleMock;
   const originalSpawn = cp.spawnSync;
   try {
     cp.spawnSync = function(executable,argv,options) {
@@ -84,17 +84,21 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
       } catch(error) { violations++; throw error; }
     };
     syncBuiltinESMExports();
-    const isolationUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/index.ts", import.meta.url).href)};
-    const isolation = await import(isolationUrl);
-    isolationMock = mock.module(isolationUrl,{namedExports:{...isolation,
+    const restartUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/docker-desktop/restart.ts", import.meta.url).href)};
+    const restartOperations = await import(restartUrl);
+    restartMock = mock.module(restartUrl,{namedExports:{...restartOperations,
       restartDockerRuntime: () => { restartCalls++; throw new Error('unexpected_restart'); },
-      createDockerTaskRecoveryExecutor: (input) => {
+    }});
+    const recoveryUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/cleanup/execute.ts", import.meta.url).href)};
+    const recoveryOperations = await import(recoveryUrl);
+    recoveryMock = mock.module(recoveryUrl,{namedExports:{...recoveryOperations,
+      createTrustedDockerRecoveryExecutor: (input) => {
         assert.equal(++factories,1);
-        const created = isolation.createDockerTaskRecoveryExecutor(input);
+        const created = recoveryOperations.createTrustedDockerRecoveryExecutor(input);
         assert.equal(created.status,'ready');
         return {...created,executor:{...created.executor,
           discoverSubmitted: (expectation) => {
-            assert.equal(expectation.purpose,'create_subscription_auth_probe');
+            assert.equal(expectation.key,'create_subscription_auth_probe');
             assert.equal(expectation.expectedName,identity.resources.auth);
             const found = created.executor.discoverSubmitted(expectation);
             assert.equal(found,null); assert.equal(++discoveries,1); return found;
@@ -158,7 +162,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     assert.deepEqual(history[0].summary.execution,target.execution);
     assert.deepEqual(history[0].summary.outcome,{...target.outcome,cleanupConfirmed:true});
   } finally {
-    lifecycleMock?.restore(); storeMock?.restore(); isolationMock?.restore();
+    lifecycleMock?.restore(); storeMock?.restore(); recoveryMock?.restore(); restartMock?.restore();
     cp.spawnSync = originalSpawn; syncBuiltinESMExports();
   }
 })().catch(error => { console.error(error); process.exitCode = 1; });`;

@@ -5,11 +5,11 @@
  * @trace ARCH-000008
  */
 import {
-  type DockerResourceExpectation,
   dockerResourceConfigurationMatches,
   dockerResourceExpectationIsValid,
   dockerResourceLocatorIsValid,
-} from "./plan.ts";
+} from "./validation.ts";
+import type { DockerResourceExpectation } from "./types.ts";
 import type { ResourceIdentity, ResourceSnapshot } from "./types.ts";
 
 /** 固定inspectの正規の不存在応答だけを肯定する。失敗一般を不存在にしない。 */
@@ -68,7 +68,11 @@ export function dockerResourceIdentityMatches(
     typeof resource !== "object" ||
     Array.isArray(resource) ||
     !/^[a-f0-9]{64}$/u.test(expected.dockerId) ||
-    (expected.kind !== "container" && expected.kind !== "network")
+    !dockerResourceLocatorIsValid(
+      expected.kind,
+      expected.expectedName,
+      expected.ownershipLabel,
+    )
   )
     return false;
   const item = resource as Record<string, unknown>;
@@ -326,7 +330,7 @@ export function observeExpectedDockerResource(
       name: expectation.expectedName,
       ownershipLabel: expectation.ownershipLabel,
     },
-    expectation.purpose,
+    expectation.key,
     { ...options, configuration: expectation },
   );
 }
@@ -355,8 +359,9 @@ export function observeIsolationIdentity(
     !["container", "network"].includes(identity.kind) ||
     typeof identity.dockerId !== "string" ||
     !/^[a-f0-9]{64}$/u.test(identity.dockerId) ||
-    !/^crdd-[a-zA-Z0-9-]+$/u.test(identity.name) ||
-    !/^crdd\.coordinator\.(runtime|authentication|probe)=[a-fA-F0-9-]+$/u.test(
+    !dockerResourceLocatorIsValid(
+      identity.kind,
+      identity.name,
       identity.ownershipLabel,
     )
   )

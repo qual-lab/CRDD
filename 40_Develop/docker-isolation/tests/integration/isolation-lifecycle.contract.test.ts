@@ -312,7 +312,7 @@ async function fixture(t: TestContext, resourceSet = false) {
                     Driver: "bridge",
                     Scope: "local",
                     Labels: {
-                      "crdd.coordinator.runtime":
+                      [resource.ownershipLabel.split("=")[0] ?? ""]:
                         resource.ownershipLabel.split("=")[1],
                     },
                   },
@@ -327,7 +327,7 @@ async function fixture(t: TestContext, resourceSet = false) {
                       Image: resource.image,
                       User: resource.user,
                       Labels: {
-                        "crdd.coordinator.runtime":
+                        [resource.ownershipLabel.split("=")[0] ?? ""]:
                           resource.ownershipLabel.split("=")[1],
                       },
                       Entrypoint: resource.entrypoint
@@ -1176,11 +1176,12 @@ test("単独Cleanupは発見通知後の構成差替えと通知欠測で削除�
                   ownershipLabel: identity.ownershipLabel,
                   expectedImage: null,
                   shouldBeInternal: true,
-                  purpose: "create_internal_network",
                   expectedNetworks: [],
-                  workspaceMounted: false,
-                  workspaceReadOnly: false,
                   initRequired: false,
+                  key: "network",
+                  expectedUser: null,
+                  tmpfsBytes: null,
+                  expectedMounts: [],
                 },
               ],
             },
@@ -1600,4 +1601,46 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
       assert.equal(result.cleanup.confirmed, true);
       assert.equal(f.ids.size, 0);
     });
+});
+
+/**
+ * 新用途を既存技術構成で実行・回収できることを確認する。
+ * @responsibility DIの用途一覧変更なしで安全な独自key・Name・Labelを処理する。
+ * @trace ERB-IT-004
+ * @precondition 共通Ownerと有限CLI・Process代役を使う。
+ * @stimulus 既存Container構成をutilityの相関・Namespaceへ変更して実行する。
+ * @observation 元Snapshot、受付・回収、全資源不存在。
+ * @oracle 共通入口で完了し、所有Labelは期待したキー・値のまま照合される。
+ * @cleanup Completionまで待ち、有限代役を復元する。実Docker・AIなし。
+ * @boundary 公開DIの準備・実行・回収。
+ */
+test("用途一覧の変更なしで新しい相関key・Labelを実行回収する", async (t) => {
+  const f = await fixture(t);
+  const resource = f.request.resources[0];
+  assert.ok(resource);
+  const request: IsolationRequest = {
+    ...f.request,
+    resources: [
+      {
+        ...resource,
+        key: "utility",
+        name: "crdd-utility-0123456789abcdef",
+        ownershipLabel: "crdd.utility=0123456789abcdef",
+      },
+    ],
+    steps: f.request.steps.map((step) => ({ ...step, resource: "utility" })),
+    cleanupOrder: ["utility"],
+  };
+  f.useRequest(request, "codex");
+  const prepared = f.api.prepareIsolation(request);
+  assert.ok(prepared);
+  const result = await f.api.executeIsolation(prepared).completion;
+  assert.equal(result.failure, null);
+  assert.equal(result.cleanup.confirmed, true);
+  assert.equal(
+    result.resources.resources[0]?.identity.ownershipLabel,
+    "crdd.utility=0123456789abcdef",
+  );
+  assert.equal(result.resources.resources[0]?.key, "utility");
+  assert.equal(f.ids.size, 0);
 });

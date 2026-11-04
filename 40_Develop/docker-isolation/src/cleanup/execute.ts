@@ -15,7 +15,7 @@ import {
 } from "../docker-cli/trust.ts";
 import { captureDockerProcessEnvironment } from "../process/environment.ts";
 import { cleanupDockerResource } from "./operations.ts";
-import type { DockerResourceExpectation } from "./plan.ts";
+import type { DockerResourceExpectation } from "./types.ts";
 import {
   type DockerRecoveryCommandResult,
   discoverSubmittedDockerResource,
@@ -59,21 +59,21 @@ function verifyRecoveryDockerCli() {
 }
 
 /**
- * Task回復の借用所在と取消Signalへ固定CLI・最小環境を結合する。
+ * 資源回収の確定済み所在と取消Signalへ固定CLI・最小環境を結合する。
  * @responsibility 上位にOS構成を要求せず、既存低位Executorをそのまま返す。
  * @trace ARCH-000008
  * @input input: managementDirectoryと任意の取消Signal。
  * @returns 既存低位factoryの元結果と元executor／close。
- * @precondition 上位が所在のRoot・用途と回復Ownerを確認している。
+ * @precondition 呼出し側が所在のRootと処置対象を確認し、必要な排他を保持している。
  * @postcondition CLI／環境は構築時でなく各要求時だけ取得する。
  * @effect 構築時に借用領域内の短命configを作る。要求時のEffectは既存Executorが所有する。
  * @failure 環境不明はdocker_recovery_environment_unavailable。CLI不明は別理由で保持する。
  * @invariant 入力全体をspreadせず、余剰CLI／環境設定を採用しない。
- * @boundary Coordinatorの現在OwnerとDocker技術構成。
+ * @boundary 呼出し側が確定した管理領域とDocker技術構成。
  * @security 認証config、任意実行物、上位Stateを受け取らない。
  * @concurrency 取消確認・config回収・close一回性は既存低位factoryを変更しない。
  */
-export function createDockerTaskRecoveryExecutor(
+export function createTrustedDockerRecoveryExecutor(
   input: Pick<DockerOperationRecoveryInput, "managementDirectory" | "signal">,
 ) {
   return createDockerOperationRecoveryExecutor({

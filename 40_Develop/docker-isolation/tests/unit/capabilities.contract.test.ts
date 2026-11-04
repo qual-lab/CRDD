@@ -43,7 +43,7 @@ test("固定構成はImage・配置だけを返しPolicy生成や実観測を含
     assert.equal(value.assets, describeDockerProviderAssets(provider));
     assert.deepEqual(
       value.locations.primary,
-      describeDockerProviderExecutionLocations(provider, "task"),
+      describeDockerProviderExecutionLocations(provider, "primary"),
     );
     assert.equal(value.proxy, value.assets.proxy);
     assert.equal(Object.hasOwn(value, "networkPolicy"), false);
@@ -53,15 +53,15 @@ test("固定構成はImage・配置だけを返しPolicy生成や実観測を含
     if (value.provider === "codex") {
       assert.deepEqual(
         value.locations.alternate,
-        describeDockerProviderExecutionLocations("codex", "advice"),
+        describeDockerProviderExecutionLocations("codex", "alternate"),
       );
       assert.notEqual(
         value.assets.fixedImageDigest,
-        value.assets.adviceIdentity.fixedImageDigest,
+        value.assets.alternateIdentity.fixedImageDigest,
       );
     } else {
       assert.equal(Object.hasOwn(value.locations, "alternate"), false);
-      assert.equal(Object.hasOwn(value.assets, "adviceIdentity"), false);
+      assert.equal(Object.hasOwn(value.assets, "alternateIdentity"), false);
     }
   }
   const diagnostic = describeIsolationConfiguration();

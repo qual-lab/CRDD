@@ -112,7 +112,7 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
           effort: "low",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "probe"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   assert.equal(plan.exactModel, "gpt-5.6-sol");
@@ -187,7 +187,7 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
           purpose: "probe",
           input: candidate,
         },
-        describeDockerProviderExecutionLocations("codex", "probe"),
+        describeDockerProviderExecutionLocations("codex", "primary"),
       ).status,
       "blocked",
     );
@@ -255,7 +255,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
           taskRole: "executor",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const reviewer =
     planProviderExecution(
@@ -275,7 +275,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
           taskRole: "reviewer",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(executor.status, "candidate");
   assert.equal(executor.exactModel, "gpt-5.5");
@@ -568,7 +568,7 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
           taskRole: "executor",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   if (executor.status !== "candidate") assert.fail(executor.reason);
   assert.equal(

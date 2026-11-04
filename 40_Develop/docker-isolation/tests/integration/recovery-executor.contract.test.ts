@@ -43,7 +43,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   const parts = [source.slice(cacheStart, source.indexOf(";", cacheStart) + 1)];
   for (const name of [
     "verifyRecoveryDockerCli",
-    "createDockerTaskRecoveryExecutor",
+    "createTrustedDockerRecoveryExecutor",
   ]) {
     const declaration = `function ${name}(`;
     assert.equal(source.split(declaration).length, 2);
@@ -68,7 +68,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
     close: () => boolean;
   }> = [];
   const create = runInNewContext(
-    `${stripTypeScriptTypes(parts.join("\n"))}\ncreateDockerTaskRecoveryExecutor`,
+    `${stripTypeScriptTypes(parts.join("\n"))}\ncreateTrustedDockerRecoveryExecutor`,
     {
       observeTrustedDockerCli: () => {
         events.push("observe");
@@ -193,7 +193,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   const body = stripTypeScriptTypes(parts.join("\n"));
   assert.equal(body.split(needle).length, 2);
   const spread = runInNewContext(
-    `${body.replace(needle, `${needle}\n...input,`)}\ncreateDockerTaskRecoveryExecutor`,
+    `${body.replace(needle, `${needle}\n...input,`)}\ncreateTrustedDockerRecoveryExecutor`,
     {
       createDockerOperationRecoveryExecutor: () => {
         assert.fail("余剰getter拒否前に低位factoryへ到達した");

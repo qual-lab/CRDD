@@ -186,7 +186,7 @@ export function createAttemptRecoveryTestApi(
           },
         };
       },
-      createDockerTaskRecoveryExecutor: (input: {
+      createTrustedDockerRecoveryExecutor: (input: {
         managementDirectory: string;
         signal?: AbortSignal;
       }) => {

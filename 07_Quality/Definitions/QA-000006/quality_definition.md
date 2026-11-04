@@ -989,6 +989,18 @@ Attempt診断・回収移管では、基準版の現在資源回収・Owner再�
 
 実行試験では既存の共通入口から元Promiseの同一性、null・unknown、通知・取消・Process終端・Cleanup・config終了が維持されることを確認する。型の個別公開削減を、実資源の成功や全体QA成立の根拠にしない。
 
+### DI用途非依存性の追加反証
+
+既存ERB-UT-023／ERB-IT-004／ERB-IT-014の資源照合・接続義務へ次を追加する。有限代役であり実Docker・AIの完了根拠とはしない。
+
+| 検証対象 | 観測とOracle |
+|---|---|
+| 不透明keyと安全な新用途Label | 既存用途一覧の変更なしで共通実行・回収が完了し、代役の資源集合が空になる |
+| ID欠測の期待構成 | ID・Name・Labelキー／値・Image・User・Network・Mount・保護fieldの単独不一致を拒否する |
+| 探索候補の相関 | 別keyの期待値結合を入力検査で拒否する |
+| 固定Image Catalog | 全既存Imageの許可条件を受理し、未知Image・別User・Entrypoint・外部接続を拒否する |
+| Executor投影 | 既存五資源・候補順・source未指定とTmpfs非比較の意味を維持し、新Schemaや互換Readerを作らない |
+
 ## Checklist
 
 

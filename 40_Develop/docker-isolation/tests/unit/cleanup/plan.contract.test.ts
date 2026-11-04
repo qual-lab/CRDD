@@ -16,8 +16,8 @@ import { planDockerRecoveryResourceExpectations } from "../../../../executor/src
 import {
   dockerResourceConfigurationMatches,
   dockerResourceExpectationIsValid,
-} from "../../../src/cleanup/plan.ts";
-import type { DockerResourceExpectation } from "../../../src/cleanup/plan.ts";
+} from "../../../src/cleanup/validation.ts";
+import type { DockerResourceExpectation } from "../../../src/cleanup/types.ts";
 import { dockerAuthenticationResourceConfigurationMatches } from "../../support/authentication/plan.ts";
 
 /**
@@ -39,8 +39,19 @@ test("Workspace保護Mountは欠落・RW・Source差を拒否する", () => {
   };
   const expected = {
     ...expectation,
-    workspaceProtected: true,
-    workspaceProtection: protection,
+    expectedMounts: [
+      ...expectation.expectedMounts,
+      {
+        destination: "/work/.git",
+        readWrite: false,
+        source: protection.gitSourcePath,
+      },
+      {
+        destination: "/work/.crdd",
+        readWrite: false,
+        source: protection.internalSourcePath,
+      },
+    ],
   };
   const masks = [
     {
@@ -124,32 +135,50 @@ test("回収期待値は固定五用途・Proxy二候補と独立booleanを下�
           },
           before = structuredClone(input);
         const proxy = {
-          purpose: "create_proxy",
           kind: "container",
           expectedName: names.proxy,
           ownershipLabel: label,
           expectedImage: proxyImage,
           shouldBeInternal: null,
           expectedNetworks: [names.internal],
-          workspaceMounted: false,
-          workspaceReadOnly: false,
           initRequired: false,
+          key: "create_proxy",
+          expectedUser: "65534:65534" as const,
+          tmpfsBytes: 16777216 as const,
+          expectedMounts: [],
         };
         const expected = [
           {
             purpose: "create_provider",
             expectations: [
               {
-                purpose: "create_provider",
                 kind: "container",
                 expectedName: names.provider,
                 ownershipLabel: label,
                 expectedImage: providerImage,
                 shouldBeInternal: null,
                 expectedNetworks: [names.internal],
-                workspaceMounted,
-                workspaceReadOnly,
                 initRequired,
+                key: "create_provider",
+                expectedUser: "65534:65534" as const,
+                tmpfsBytes: null,
+                expectedMounts: [
+                  {
+                    destination: "/provider-home",
+                    readWrite: true,
+                    source: null,
+                  },
+                  { destination: "/tmp", readWrite: true, source: null },
+                  ...(workspaceMounted
+                    ? [
+                        {
+                          destination: "/work",
+                          readWrite: !workspaceReadOnly,
+                          source: null,
+                        },
+                      ]
+                    : []),
+                ],
               },
             ],
           },
@@ -157,16 +186,23 @@ test("回収期待値は固定五用途・Proxy二候補と独立booleanを下�
             purpose: "create_subscription_auth_probe",
             expectations: [
               {
-                purpose: "create_subscription_auth_probe",
                 kind: "container",
                 expectedName: names.auth,
                 ownershipLabel: label,
                 expectedImage: providerImage,
                 shouldBeInternal: null,
                 expectedNetworks: ["none"],
-                workspaceMounted: false,
-                workspaceReadOnly: false,
                 initRequired: false,
+                key: "create_subscription_auth_probe",
+                expectedUser: "65534:65534" as const,
+                tmpfsBytes: null,
+                expectedMounts: [
+                  {
+                    destination: "/provider-home",
+                    readWrite: false,
+                    source: null,
+                  },
+                ],
               },
             ],
           },
@@ -181,16 +217,17 @@ test("回収期待値は固定五用途・Proxy二候補と独立booleanを下�
             purpose: "create_internal_network",
             expectations: [
               {
-                purpose: "create_internal_network",
                 kind: "network",
                 expectedName: names.internal,
                 ownershipLabel: label,
                 expectedImage: null,
                 shouldBeInternal: true,
                 expectedNetworks: [],
-                workspaceMounted: false,
-                workspaceReadOnly: false,
                 initRequired: false,
+                key: "create_internal_network",
+                expectedUser: null,
+                tmpfsBytes: null,
+                expectedMounts: [],
               },
             ],
           },
@@ -198,16 +235,17 @@ test("回収期待値は固定五用途・Proxy二候補と独立booleanを下�
             purpose: "create_egress_network",
             expectations: [
               {
-                purpose: "create_egress_network",
                 kind: "network",
                 expectedName: names.egress,
                 ownershipLabel: label,
                 expectedImage: null,
                 shouldBeInternal: false,
                 expectedNetworks: [],
-                workspaceMounted: false,
-                workspaceReadOnly: false,
                 initRequired: false,
+                key: "create_egress_network",
+                expectedUser: null,
+                tmpfsBytes: null,
+                expectedMounts: [],
               },
             ],
           },
@@ -504,11 +542,16 @@ function fixture() {
     ownershipLabel: `crdd.coordinator.runtime=${"2".repeat(16)}`,
     expectedImage: `sha256:${"b".repeat(64)}`,
     shouldBeInternal: null,
-    purpose: "create_provider",
     expectedNetworks: [`crdd-internal-${"3".repeat(16)}`],
-    workspaceMounted: true,
-    workspaceReadOnly: true,
     initRequired: true,
+    key: "create_provider",
+    expectedUser: "65534:65534" as const,
+    tmpfsBytes: null,
+    expectedMounts: [
+      { destination: "/provider-home", readWrite: true, source: null },
+      { destination: "/tmp", readWrite: true, source: null },
+      ...[{ destination: "/work", readWrite: !true, source: null }],
+    ],
   };
   const resource = {
     Id: expectation.dockerId,
@@ -630,11 +673,15 @@ test("Networkの実ID・Label・内部構成・Driver・Scopeを固定する", (
   const expected = {
     ...expectation,
     kind: "network" as const,
+    initRequired: false,
     expectedName: `crdd-internal-${"3".repeat(16)}`,
-    purpose: "create_internal_network" as const,
     expectedNetworks: [],
     expectedImage: null,
     shouldBeInternal: true,
+    key: "create_internal_network" as const,
+    expectedUser: null,
+    tmpfsBytes: null,
+    expectedMounts: [],
   };
   const value = {
     Id: expectation.dockerId,

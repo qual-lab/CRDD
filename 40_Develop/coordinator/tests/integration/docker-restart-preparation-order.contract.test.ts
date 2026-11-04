@@ -22,7 +22,7 @@ import {
   codexAdviceProviderInitRequired,
   planDockerRecoveryResourceExpectations,
 } from "../../../executor/src/attempt/recovery.ts";
-import { isDockerResourcePurpose } from "../../../docker-isolation/src/cleanup/plan.ts";
+import { isDockerResourcePurpose } from "../fixtures/recovery-resource-expectations.ts";
 import {
   type CoordinatorStateOperation,
   coordinatorAuthenticationUnknownCanClose,
@@ -1524,14 +1524,14 @@ test("現在資源回収は意図をunknown保存し発見ID確定後だけ削�
   try {
     const result = await f.api.recover(prepared.capability, {
       discoverSubmitted: (expectation: {
-        purpose: string;
+        key: string;
         expectedName: string;
       }) => {
-        assert.equal(expectation.purpose, "create_provider");
+        assert.equal(expectation.key, "create_provider");
         assert.equal(expectation.expectedName, "crdd-claude-aaaaaaaaaaaaaaaa");
         assert.equal(
           f.snapshot.operations[0]?.resources.find(
-            (resource) => resource.purpose === expectation.purpose,
+            (resource) => resource.purpose === expectation.key,
           )?.request,
           "unknown",
         );
@@ -1539,13 +1539,13 @@ test("現在資源回収は意図をunknown保存し発見ID確定後だけ削�
         return dockerId;
       },
       cleanupObserved: async (
-        expectation: { purpose: string; dockerId: string },
+        expectation: { key: string; dockerId: string },
         signal?: AbortSignal,
       ) => {
-        assert.equal(expectation.purpose, "create_provider");
+        assert.equal(expectation.key, "create_provider");
         assert.equal(expectation.dockerId, dockerId);
         const saved = f.snapshot.operations[0]?.resources.find(
-          (resource) => resource.purpose === expectation.purpose,
+          (resource) => resource.purpose === expectation.key,
         );
         assert.equal(saved?.request, "identified");
         assert.equal(saved?.dockerId, dockerId);
@@ -1630,9 +1630,9 @@ test("現在資源回収は既知IDとContainer先行順とProxy二候補を保�
       ) => {
         signal?.throwIfAborted();
         observed.push(JSON.parse(JSON.stringify(expectation)));
-        f.events.push(`recover:${expectation.purpose}`);
+        f.events.push(`recover:${expectation.key}`);
         return (
-          expectation.purpose !== "create_proxy" ||
+          expectation.key !== "create_proxy" ||
           (expectation.expectedNetworks as string[]).length === 2
         );
       },
@@ -1662,7 +1662,6 @@ test("現在資源回収は既知IDとContainer先行順とProxy二候補を保�
         purpose === "create_internal_network" ||
         purpose === "create_egress_network";
       return {
-        purpose,
         kind: network ? "network" : "container",
         expectedName: `crdd-${names[purpose]}-aaaaaaaaaaaaaaaa`,
         ownershipLabel: "crdd.coordinator.runtime=aaaaaaaaaaaaaaaa",
@@ -1682,10 +1681,44 @@ test("現在資源回収は既知IDとContainer先行順とProxy二候補を保�
                   "crdd-egress-aaaaaaaaaaaaaaaa",
                 ]
               : ["crdd-internal-aaaaaaaaaaaaaaaa"],
-        workspaceMounted: purpose === "create_provider",
-        workspaceReadOnly: purpose === "create_provider",
         initRequired: false,
         dockerId: resource.dockerId,
+        key: purpose,
+        expectedUser:
+          String(purpose) === "create_internal_network" ||
+          String(purpose) === "create_egress_network"
+            ? null
+            : ("65534:65534" as const),
+        tmpfsBytes:
+          String(purpose) === "create_proxy" ? (16777216 as const) : null,
+        expectedMounts:
+          String(purpose) === "create_subscription_auth_probe"
+            ? [
+                {
+                  destination: "/provider-home",
+                  readWrite: false,
+                  source: null,
+                },
+              ]
+            : String(purpose) === "create_provider"
+              ? [
+                  {
+                    destination: "/provider-home",
+                    readWrite: true,
+                    source: null,
+                  },
+                  { destination: "/tmp", readWrite: true, source: null },
+                  ...(purpose === "create_provider"
+                    ? [
+                        {
+                          destination: "/work",
+                          readWrite: !(purpose === "create_provider"),
+                          source: null,
+                        },
+                      ]
+                    : []),
+                ]
+              : [],
       };
     });
     assert.deepEqual(observed, expected);

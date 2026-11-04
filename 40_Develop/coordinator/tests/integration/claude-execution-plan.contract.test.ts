@@ -50,7 +50,10 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   if (neutral.status !== "ready") assert.fail("neutral_plan_rejected");
   assert.equal(neutral.plan.command, "claude");
   assert.equal("distributionBinding" in neutral.plan, false);
-  const locations = describeDockerProviderExecutionLocations("claude", "probe");
+  const locations = describeDockerProviderExecutionLocations(
+    "claude",
+    "primary",
+  );
   const fixed = planProviderExecution(
     {
       provider: "claude",
@@ -189,7 +192,7 @@ test("読取専用probe候補はCLI引数と環境置換要求だけを投影す
           mode: "read_only_probe",
         },
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   assert.equal(plan.reason, "claude_task_execution_gates_required");
@@ -364,7 +367,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
           },
         },
       },
-      describeDockerProviderExecutionLocations("claude", "task"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const reviewer =
     planProviderExecution(
@@ -390,7 +393,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
           },
         },
       },
-      describeDockerProviderExecutionLocations("claude", "task"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(executor.status, "candidate");
 
@@ -524,7 +527,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
         purpose: "probe",
         input: { provider: "codex", mode: "read_only_probe" },
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).error?.reason,
     "claude_execution_plan_provider_mismatch",
   );
@@ -535,7 +538,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
         purpose: "probe",
         input: { provider: "claude", mode: "run" },
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).error?.reason,
     "claude_execution_plan_mode_not_supported",
   );
@@ -550,7 +553,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
           billingProfile: "paid_api",
         },
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
@@ -565,7 +568,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
           prompt: "forged",
         },
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
@@ -585,7 +588,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
         purpose: "probe",
         input: accessor,
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
@@ -603,7 +606,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
           },
         ),
       },
-      describeDockerProviderExecutionLocations("claude", "probe"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).error?.reason,
     "claude_execution_plan_shape_invalid",
   );

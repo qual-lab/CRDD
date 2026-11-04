@@ -327,7 +327,10 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
           },
           resultSchema: describeAdviceResultSchema(),
         },
-        describeDockerProviderExecutionLocations(provider, "advice"),
+        describeDockerProviderExecutionLocations(
+          provider,
+          provider === "codex" ? "alternate" : "primary",
+        ),
       );
       assert.equal(expected.status, "ready");
       if (expected.status !== "ready") throw Error("fixture");
@@ -399,7 +402,7 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
         assert.equal(
           plan.providerImageDigest,
           provider === "codex"
-            ? describeDockerProviderAssets("codex").adviceIdentity
+            ? describeDockerProviderAssets("codex").alternateIdentity
                 .fixedImageDigest
             : assets.fixedImageDigest,
         );

@@ -105,7 +105,7 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
     {
       namedExports: {
         ...original,
-        createDockerTaskRecoveryExecutor: () => {
+        createTrustedDockerRecoveryExecutor: () => {
           setups++;
           return {
             status: "ready",
@@ -267,7 +267,12 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
     ].includes(mode)
       ? {
           ...request,
-          discovery: [{ key: "resource_a", configurations: [candidate] }],
+          discovery: [
+            {
+              key: "resource_a",
+              configurations: [{ ...candidate, key: "resource_a" }],
+            },
+          ],
         }
       : request;
     const result = api.inspectIsolation(input, {

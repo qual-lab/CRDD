@@ -213,7 +213,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         },
         resultSchema: describeAdviceResultSchema(),
       },
-      describeDockerProviderExecutionLocations("claude", "advice"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const fixture = createFixture({
     consumeModelSelection: () => ({

@@ -18,7 +18,7 @@ import {
   observeSubmittedDockerResourceAbsent,
   observeExpectedDockerResource,
 } from "../../src/cleanup/resource.ts";
-import type { DockerResourceExpectation } from "../../src/cleanup/plan.ts";
+import type { DockerResourceExpectation } from "../../src/cleanup/types.ts";
 
 /**
  * 不正用途・Identityは観測や削除の前に拒否する。
@@ -32,7 +32,7 @@ import type { DockerResourceExpectation } from "../../src/cleanup/plan.ts";
  * @cleanup N/A: 模擬Runnerだけを使う。
  * @boundary 不正技術期待値→Effect前Gate。
  */
-test("非作成用途と不正IdentityはDocker要求前に拒否する", () => {
+test("旧用途fieldと不正IdentityはDocker要求前に拒否する", () => {
   const base = networkExpectation();
   let calls = 0;
   /**
@@ -89,7 +89,7 @@ test("非作成用途と不正IdentityはDocker要求前に拒否する", () => 
  * @cleanup N/A: 模擬Runnerだけを使用する。
  * @boundary 技術期待値→観測前Gate。
  */
-test("五用途の既存Network構成だけを観測へ搬送する", () => {
+test("明示した資源構成と不正Networkを観測前に区別する", () => {
   const base = networkExpectation();
   const internal = `crdd-internal-${"3".repeat(16)}`;
   const egress = `crdd-egress-${"4".repeat(16)}`;
@@ -97,9 +97,12 @@ test("五用途の既存Network構成だけを観測へ搬送する", () => {
     base,
     {
       ...base,
-      purpose: "create_egress_network",
       expectedName: `crdd-egress-${"1".repeat(16)}`,
       shouldBeInternal: false,
+      key: "create_egress_network",
+      expectedUser: null,
+      tmpfsBytes: null,
+      expectedMounts: [],
     },
     ...(
       [
@@ -109,13 +112,34 @@ test("五用途の既存Network構成だけを観測へ搬送する", () => {
       ] as const
     ).map((purpose) => ({
       ...base,
-      purpose,
       kind: "container" as const,
       expectedName: `crdd-${purpose === "create_subscription_auth_probe" ? "auth" : purpose === "create_provider" ? "codex" : "proxy"}-${"1".repeat(16)}`,
       expectedImage: `sha256:${"b".repeat(64)}`,
       shouldBeInternal: null,
       expectedNetworks:
         purpose === "create_subscription_auth_probe" ? ["none"] : [internal],
+      key: purpose,
+      expectedUser:
+        String(purpose) === "create_internal_network" ||
+        String(purpose) === "create_egress_network"
+          ? null
+          : ("65534:65534" as const),
+      tmpfsBytes:
+        String(purpose) === "create_proxy" ? (16777216 as const) : null,
+      expectedMounts:
+        String(purpose) === "create_subscription_auth_probe"
+          ? [{ destination: "/provider-home", readWrite: false, source: null }]
+          : String(purpose) === "create_provider"
+            ? [
+                {
+                  destination: "/provider-home",
+                  readWrite: true,
+                  source: null,
+                },
+                { destination: "/tmp", readWrite: true, source: null },
+                ...[],
+              ]
+            : [],
     })),
   ];
   configurations.push({
@@ -159,7 +183,7 @@ test("五用途の既存Network構成だけを観測へ搬送する", () => {
         return commandResult();
       },
       "network",
-      `crdd-auth-${"1".repeat(16)}`,
+      "foreign.*",
       base.ownershipLabel,
     ),
     false,
@@ -187,11 +211,12 @@ function networkExpectation(): DockerResourceExpectation {
     ownershipLabel: `crdd.coordinator.runtime=${"2".repeat(16)}`,
     expectedImage: null,
     shouldBeInternal: true,
-    purpose: "create_internal_network",
     expectedNetworks: [],
-    workspaceMounted: false,
-    workspaceReadOnly: false,
     initRequired: false,
+    key: "create_internal_network",
+    expectedUser: null,
+    tmpfsBytes: null,
+    expectedMounts: [],
   };
 }
 
@@ -574,11 +599,16 @@ test("Docker資源回収はexact IDと元名・所有Labelを照合して削除�
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: `sha256:${"b".repeat(64)}`,
       shouldBeInternal: null,
-      purpose: "create_provider",
       expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-      workspaceMounted: true,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_provider",
+      expectedUser: "65534:65534" as const,
+      tmpfsBytes: null,
+      expectedMounts: [
+        { destination: "/provider-home", readWrite: true, source: null },
+        { destination: "/tmp", readWrite: true, source: null },
+        ...[{ destination: "/work", readWrite: !false, source: null }],
+      ],
     }),
     true,
   );
@@ -607,11 +637,16 @@ test("Docker資源回収はreplacement構成を削除せずEvidenceを保持す�
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: `sha256:${"b".repeat(64)}`,
       shouldBeInternal: null,
-      purpose: "create_provider",
       expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-      workspaceMounted: true,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_provider",
+      expectedUser: "65534:65534" as const,
+      tmpfsBytes: null,
+      expectedMounts: [
+        { destination: "/provider-home", readWrite: true, source: null },
+        { destination: "/tmp", readWrite: true, source: null },
+        ...[{ destination: "/work", readWrite: !false, source: null }],
+      ],
     }),
     false,
   );
@@ -658,11 +693,18 @@ test("exact RecoveryはInit差で拒否せず読取り専用診断は従来条�
         ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
         expectedImage: image,
         shouldBeInternal: null,
-        purpose: "create_provider",
         expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-        workspaceMounted: !isAdvice,
-        workspaceReadOnly: false,
         initRequired: isAdvice,
+        key: "create_provider",
+        expectedUser: "65534:65534" as const,
+        tmpfsBytes: null,
+        expectedMounts: [
+          { destination: "/provider-home", readWrite: true, source: null },
+          { destination: "/tmp", readWrite: true, source: null },
+          ...(!isAdvice
+            ? [{ destination: "/work", readWrite: !false, source: null }]
+            : []),
+        ],
       };
       assert.equal(
         observeExpectedDockerResource(fixture.runDockerCommand, expectation),
@@ -723,11 +765,36 @@ test("Proxyと認証Probeのexact RecoveryはInit差と所有Label差を区別�
             ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
             expectedImage: seed.Config.Image,
             shouldBeInternal: null,
-            purpose: purpose,
             expectedNetworks: networks,
-            workspaceMounted: false,
-            workspaceReadOnly: false,
             initRequired: false,
+            key: purpose,
+            expectedUser:
+              String(purpose) === "create_internal_network" ||
+              String(purpose) === "create_egress_network"
+                ? null
+                : ("65534:65534" as const),
+            tmpfsBytes:
+              String(purpose) === "create_proxy" ? (16777216 as const) : null,
+            expectedMounts:
+              String(purpose) === "create_subscription_auth_probe"
+                ? [
+                    {
+                      destination: "/provider-home",
+                      readWrite: false,
+                      source: null,
+                    },
+                  ]
+                : String(purpose) === "create_provider"
+                  ? [
+                      {
+                        destination: "/provider-home",
+                        readWrite: true,
+                        source: null,
+                      },
+                      { destination: "/tmp", readWrite: true, source: null },
+                      ...[],
+                    ]
+                  : [],
           }),
           isExpected,
         );
@@ -762,11 +829,14 @@ test("Docker資源回収はreceipt前crashの二軸不存在をsettlement証明�
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: `sha256:${"b".repeat(64)}`,
       shouldBeInternal: null,
-      purpose: "create_subscription_auth_probe",
       expectedNetworks: Object.freeze(["none"]),
-      workspaceMounted: false,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_subscription_auth_probe",
+      expectedUser: "65534:65534" as const,
+      tmpfsBytes: null,
+      expectedMounts: [
+        { destination: "/provider-home", readWrite: false, source: null },
+      ],
     },
   );
   assert.equal(result, null);
@@ -804,11 +874,16 @@ test("Docker資源回収はreceipt前crashの同一owned resourceを削除前に
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: `sha256:${"b".repeat(64)}`,
       shouldBeInternal: null,
-      purpose: "create_provider",
       expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-      workspaceMounted: true,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_provider",
+      expectedUser: "65534:65534" as const,
+      tmpfsBytes: null,
+      expectedMounts: [
+        { destination: "/provider-home", readWrite: true, source: null },
+        { destination: "/tmp", readWrite: true, source: null },
+        ...[{ destination: "/work", readWrite: !false, source: null }],
+      ],
     }),
     fixture.dockerId,
   );
@@ -836,11 +911,14 @@ test("Docker資源回収はauth probeのDocker none network表現だけを受理
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: `sha256:${"a".repeat(64)}`,
       shouldBeInternal: null,
-      purpose: "create_subscription_auth_probe",
       expectedNetworks: Object.freeze(["none"]),
-      workspaceMounted: false,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_subscription_auth_probe",
+      expectedUser: "65534:65534" as const,
+      tmpfsBytes: null,
+      expectedMounts: [
+        { destination: "/provider-home", readWrite: false, source: null },
+      ],
     }),
     accepted.dockerId,
   );
@@ -855,11 +933,14 @@ test("Docker資源回収はauth probeのDocker none network表現だけを受理
         ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
         expectedImage: `sha256:${"a".repeat(64)}`,
         shouldBeInternal: null,
-        purpose: "create_subscription_auth_probe",
         expectedNetworks: Object.freeze(["none"]),
-        workspaceMounted: false,
-        workspaceReadOnly: false,
         initRequired: false,
+        key: "create_subscription_auth_probe",
+        expectedUser: "65534:65534" as const,
+        tmpfsBytes: null,
+        expectedMounts: [
+          { destination: "/provider-home", readWrite: false, source: null },
+        ],
       }),
       null,
     );
@@ -889,11 +970,12 @@ test("Docker資源回収はreceipt前proxyのinternal-only構成を削除前にe
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       expectedImage: `sha256:${"b".repeat(64)}`,
       shouldBeInternal: null,
-      purpose: "create_proxy",
       expectedNetworks: Object.freeze([internal]),
-      workspaceMounted: false,
-      workspaceReadOnly: false,
       initRequired: false,
+      key: "create_proxy",
+      expectedUser: "65534:65534" as const,
+      tmpfsBytes: 16777216 as const,
+      expectedMounts: [],
     }),
     fixture.dockerId,
   );
@@ -932,11 +1014,16 @@ test("Docker資源回収はreceipt前crashのforeign／ambiguous resourceを採�
           ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
           expectedImage: `sha256:${"b".repeat(64)}`,
           shouldBeInternal: null,
-          purpose: "create_provider",
           expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-          workspaceMounted: true,
-          workspaceReadOnly: false,
           initRequired: false,
+          key: "create_provider",
+          expectedUser: "65534:65534" as const,
+          tmpfsBytes: null,
+          expectedMounts: [
+            { destination: "/provider-home", readWrite: true, source: null },
+            { destination: "/tmp", readWrite: true, source: null },
+            ...[{ destination: "/work", readWrite: !false, source: null }],
+          ],
         },
       ),
       null,
@@ -971,11 +1058,16 @@ test("Docker資源回収は発見IDがinspect前に消えた場合も完了へ�
         ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
         expectedImage: `sha256:${"b".repeat(64)}`,
         shouldBeInternal: null,
-        purpose: "create_provider",
         expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-        workspaceMounted: true,
-        workspaceReadOnly: false,
         initRequired: false,
+        key: "create_provider",
+        expectedUser: "65534:65534" as const,
+        tmpfsBytes: null,
+        expectedMounts: [
+          { destination: "/provider-home", readWrite: true, source: null },
+          { destination: "/tmp", readWrite: true, source: null },
+          ...[{ destination: "/work", readWrite: !false, source: null }],
+        ],
       },
     ),
     null,
@@ -1042,11 +1134,16 @@ test("Docker資源回収はreceipt前照会の失敗・signal・stderr・不正I
           ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
           expectedImage: `sha256:${"b".repeat(64)}`,
           shouldBeInternal: null,
-          purpose: "create_provider",
           expectedNetworks: Object.freeze(["crdd-internal-0123456789abcdef"]),
-          workspaceMounted: true,
-          workspaceReadOnly: false,
           initRequired: false,
+          key: "create_provider",
+          expectedUser: "65534:65534" as const,
+          tmpfsBytes: null,
+          expectedMounts: [
+            { destination: "/provider-home", readWrite: true, source: null },
+            { destination: "/tmp", readWrite: true, source: null },
+            ...[{ destination: "/work", readWrite: !false, source: null }],
+          ],
         },
       ),
       null,

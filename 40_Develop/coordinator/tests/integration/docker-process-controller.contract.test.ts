@@ -233,7 +233,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
           effort: "low",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "probe"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const codexExecutor =
     planProviderExecution(
@@ -253,7 +253,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
           taskRole: "executor",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const codexReviewer =
     planProviderExecution(
@@ -273,7 +273,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
           taskRole: "reviewer",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(codexProbe.status, "candidate");
   assert.equal(codexExecutor.status, "candidate");
@@ -291,7 +291,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         },
         resultSchema: { type: "object" },
       },
-      describeDockerProviderExecutionLocations("codex", "advice"),
+      describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const claudeAdvice =
     planProviderExecution(
@@ -306,7 +306,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         },
         resultSchema: { type: "object" },
       },
-      describeDockerProviderExecutionLocations("claude", "advice"),
+      describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   for (const [provider, argv, role, approval, sandbox] of [
     ["codex", codexProbe.argv, null, "other", "read_only"],

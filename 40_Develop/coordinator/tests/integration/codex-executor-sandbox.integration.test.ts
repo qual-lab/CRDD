@@ -173,7 +173,7 @@ test("Host Windows: Codex Executor SandboxはWorkspaceだけを書込み可能�
         taskRole: "executor",
       },
     },
-    describeDockerProviderExecutionLocations("codex", "task"),
+    describeDockerProviderExecutionLocations("codex", "primary"),
   );
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") throw new Error("fixture_plan_blocked");
@@ -331,7 +331,7 @@ test("Sandbox試験の故障は未検証IDで処置せずRoot清掃又は保持�
           taskRole: "executor",
         },
       },
-      describeDockerProviderExecutionLocations("codex", "task"),
+      describeDockerProviderExecutionLocations("codex", "primary"),
     );
     const hooks: (() => void)[] = [];
     const calls: string[][] = [];
