@@ -11,11 +11,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getBillingPolicy } from "../../../src/index.ts";
 import {
-  describeProviderBillingPolicy,
   PROVIDER_BILLING_POLICY_CONTRACT,
   PROVIDER_BILLING_POLICY_CONTRACT_REVISION,
-} from "../../../src/index.ts";
+} from "../../../src/billing/policy.ts";
 
 /**
  * 標準ProfileはSubscriptionだけを許し有料APIへfallbackしないを検証する。
@@ -30,7 +30,7 @@ import {
  * @boundary ERB-UT-033=N/A: 固定課金方針の純粋記述。
  */
 test("標準ProfileはSubscriptionだけを許し有料APIへfallbackしない", () => {
-  const contract = describeProviderBillingPolicy();
+  const contract = getBillingPolicy();
   assert.equal(contract.contract, PROVIDER_BILLING_POLICY_CONTRACT);
   assert.equal(
     contract.contractRevision,
@@ -66,7 +66,7 @@ test("標準ProfileはSubscriptionだけを許し有料APIへfallbackしない",
  * @boundary ERB-UT-033=N/A: 固定課金方針の純粋記述。
  */
 test("将来の有料APIはユーザー設定だけで実行Authorityを発行しない", () => {
-  const contract = describeProviderBillingPolicy();
+  const contract = getBillingPolicy();
   assert.equal(contract.userConfigurationRequired, true);
   assert.equal(
     contract.userConfigurationEffect,

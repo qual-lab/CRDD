@@ -11,11 +11,9 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  evaluateProviderTaskScope,
-  parseProviderResult,
-  planProviderExecution,
-} from "../../../../ai-adapter/src/index.ts";
+import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/provider/plan.ts";
+import { parseExecutionContent as parseProviderResult } from "../../../../ai-adapter/src/provider/result.ts";
+import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 
 const EXECUTOR = JSON.stringify({
@@ -820,7 +818,7 @@ test("ClaudeのCLI計画上限と報告metadataを比較せず受理する", () 
   for (const taskRole of ["executor", "reviewer"] as const) {
     for (const effort of ["low", "medium", "high"] as const) {
       const plan =
-        planProviderExecution(
+        planExecution(
           {
             provider: "claude",
             purpose: "task",
@@ -932,7 +930,7 @@ test("作業量の有限見積りは全推論で一致し、報告回数とCLI�
     };
     for (const effort of ["low", "medium", "high"] as const) {
       const plan =
-        planProviderExecution(
+        planExecution(
           {
             provider: "claude",
             purpose: "task",

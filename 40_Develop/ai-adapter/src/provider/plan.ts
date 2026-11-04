@@ -9,18 +9,24 @@ import type {
   AiProvider,
   AiReasoningEffort,
   AiModelSelection,
+  ProviderExecutionLocations,
 } from "./types.ts";
 
-import { snapshotPlainRecord, snapshotPlainArray } from "./input.ts";
-import { types as utilTypes } from "node:util";
+import { snapshotPlainRecord } from "./input.ts";
 
-import { resolveAiModelSelection } from "../catalog/resolve.ts";
+import { resolveModelSelection } from "../catalog/resolve.ts";
+
 import {
   planCodexAdviceCommand,
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
   describeCodexExecutionPlanContract,
+  projectCodexExecutionBoundary,
+  type CodexExecutionDefinition,
+  type CodexTaskPlanResult,
+  type CodexProbePlanResult,
 } from "../codex/plan.ts";
+
 import {
   planClaudeAdviceCommand,
   planClaudeIsolatedTask,
@@ -28,12 +34,18 @@ import {
   buildClaudeExecutionArguments,
   planClaudeTaskTurnBudget,
   describeClaudeExecutionPlanContract,
+  type ClaudeExecutionDefinition,
+  type ClaudeTaskPlanResult,
+  type ClaudeProbePlanResult,
+  type ClaudeTaskBudgetResult,
 } from "../claude/plan.ts";
-import type { ProviderExecutionLocations } from "./types.ts";
 
-export const PROVIDER_ADVICE_COMMAND_CONTRACT =
-  "crdd-coordinator/workbench-ai-advice-provider-command";
-export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 2;
+import {
+  parseAdviceReferences,
+  describeAdviceResultSchema,
+} from "./advice-result.ts";
+
+import { prepareProviderEnvironment } from "./validation.ts";
 
 /**
  * Provider計画で使う選定済みModelと推論強度を表す。
@@ -92,36 +104,7 @@ export type ProviderAdvicePlan = Readonly<{
  * @compatibility 既存describe結果のfieldと値を維持する。
  */
 export type ProviderExecutionDefinition<P extends AiProvider = AiProvider> =
-  P extends "codex"
-    ? ReturnType<typeof describeCodexExecutionPlanContract>
-    : ReturnType<typeof describeClaudeExecutionPlanContract>;
-
-/**
- * Providerの固定実行条件を取得する。
- * @responsibility 固定Provider識別から対応する不変定義を選ぶ。
- * @trace ARCH-000010
- * @input provider: 対応する識別子。
- * @returns 固定配布・実行制約の定義。
- * @precondition 対応するProviderを指定する。
- * @postcondition 定義の内容や実資源を変更しない。
- * @effect N/A: 固定定義を返すだけ。
- * @failure 不明Providerは固定エラーで拒否する。
- * @invariant 不明ProviderをClaudeへ配送しない。
- * @boundary 利用側とProvider固有定義。
- * @security 認証値・起動許可を返さない。
- * @concurrency N/A: 同期で共有可変状態なし。
- */
-export function describeProviderExecution<P extends AiProvider>(
-  provider: P,
-): ProviderExecutionDefinition<P> {
-  if (provider !== "codex" && provider !== "claude")
-    throw new Error("provider_execution_provider_invalid");
-  return (
-    provider === "codex"
-      ? describeCodexExecutionPlanContract()
-      : describeClaudeExecutionPlanContract()
-  ) as ProviderExecutionDefinition<P>;
-}
+  P extends "codex" ? CodexExecutionDefinition : ClaudeExecutionDefinition;
 
 /**
  * Provider実行の用途を表す。
@@ -135,6 +118,15 @@ export function describeProviderExecution<P extends AiProvider>(
  */
 
 export type ProviderExecutionPurpose = "advice" | "task" | "probe";
+
+/** 実行計画が確定した内容解析条件。利用側は再構築しない。 */
+export type ProviderResultContext = Readonly<{
+  provider: AiProvider;
+  purpose: ProviderExecutionPurpose;
+  taskRole?: "executor" | "reviewer";
+  selectedEffort?: AiReasoningEffort;
+  allowedReferences?: readonly string[];
+}>;
 
 /**
  * Providerと用途ごとの成功計画を対応付ける。
@@ -150,35 +142,23 @@ export type ProviderExecutionPurpose = "advice" | "task" | "probe";
 type ProviderPlans = {
   codex: {
     advice: ProviderAdvicePlan & Readonly<{ provider: "codex" }>;
-    task: Extract<
-      ReturnType<typeof planCodexIsolatedTask>,
-      { status: "candidate" }
-    > &
+    task: Extract<CodexTaskPlanResult, { status: "candidate" }> &
       Readonly<{
         modelIdentifier: string;
         identifierKind: "exact" | "alias";
         catalogIdentity: string;
       }>;
-    probe: Extract<
-      ReturnType<typeof planCodexReadOnlyProbe>,
-      { status: "candidate" }
-    >;
+    probe: Extract<CodexProbePlanResult, { status: "candidate" }>;
   };
   claude: {
     advice: ProviderAdvicePlan & Readonly<{ provider: "claude" }>;
-    task: Extract<
-      ReturnType<typeof planClaudeIsolatedTask>,
-      { status: "candidate" }
-    > &
+    task: Extract<ClaudeTaskPlanResult, { status: "candidate" }> &
       Readonly<{
         modelIdentifier: string;
         identifierKind: "exact" | "alias";
         catalogIdentity: string;
       }>;
-    probe: Extract<
-      ReturnType<typeof planClaudeReadOnlyProbe>,
-      { status: "candidate" }
-    >;
+    probe: Extract<ClaudeProbePlanResult, { status: "candidate" }>;
   };
 };
 
@@ -201,7 +181,7 @@ export type ProviderExecutionInput<
       provider: P;
       purpose: K;
       modelSelection: ProviderModelSelection;
-      resultSchema: Readonly<Record<string, unknown>>;
+      allowedReferences: unknown;
     }>
   : K extends "task"
     ? Readonly<{
@@ -226,7 +206,24 @@ export type ProviderExecutionInput<
 export type ProviderExecutionPlan<
   P extends AiProvider = AiProvider,
   K extends ProviderExecutionPurpose = ProviderExecutionPurpose,
-> = ProviderPlans[P][K];
+> = ProviderPlans[P][K] &
+  Readonly<{
+    purpose: K;
+    allowedReferences: readonly string[] | null;
+    resultContext: ProviderResultContext;
+    boundary: Readonly<{
+      approvalModeConfigured:
+        | "approve_for_me"
+        | "never"
+        | "not_applicable"
+        | "other";
+      sandboxModeConfigured:
+        | "read_only"
+        | "implicit"
+        | "not_applicable"
+        | "other";
+    }>;
+  }>;
 
 /**
  * 生成できた計画と拒否理由を区別する。
@@ -269,14 +266,16 @@ export type ProviderExecutionPlanResult<
  */
 export type ProviderPlanningReason =
   | Extract<
-      | ReturnType<typeof planCodexIsolatedTask>
-      | ReturnType<typeof planCodexReadOnlyProbe>
-      | ReturnType<typeof planClaudeIsolatedTask>
-      | ReturnType<typeof planClaudeReadOnlyProbe>,
+      | CodexTaskPlanResult
+      | CodexProbePlanResult
+      | ClaudeTaskPlanResult
+      | ClaudeProbePlanResult,
       { status: "blocked" }
     >["reason"]
   | "provider_execution_input_invalid"
-  | "provider_execution_selection_mismatch";
+  | "provider_execution_selection_mismatch"
+  | "provider_environment_invalid"
+  | "workbench_ai_advice_references_invalid";
 
 /**
  * Provider固有のTask範囲評価結果を表す。
@@ -291,12 +290,44 @@ export type ProviderPlanningReason =
 export type ProviderTaskScopeResult<P extends AiProvider = AiProvider> =
   | Readonly<{ status: "blocked"; reason: "provider_execution_input_invalid" }>
   | (P extends "claude"
-      ? ReturnType<typeof planClaudeTaskTurnBudget>
+      ? ClaudeTaskBudgetResult
       : Readonly<{
           status: "candidate";
           maximumTurns: null;
           hardMaximumTurns: null;
         }>);
+
+export const PROVIDER_ADVICE_COMMAND_CONTRACT =
+  "crdd-coordinator/workbench-ai-advice-provider-command";
+
+export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 2;
+
+/**
+ * Providerの固定実行条件を取得する。
+ * @responsibility 固定Provider識別から対応する不変定義を選ぶ。
+ * @trace ARCH-000010
+ * @input provider: 対応する識別子。
+ * @returns 固定配布・実行制約の定義。
+ * @precondition 対応するProviderを指定する。
+ * @postcondition 定義の内容や実資源を変更しない。
+ * @effect N/A: 固定定義を返すだけ。
+ * @failure 不明Providerは固定エラーで拒否する。
+ * @invariant 不明ProviderをClaudeへ配送しない。
+ * @boundary 利用側とProvider固有定義。
+ * @security 認証値・起動許可を返さない。
+ * @concurrency N/A: 同期で共有可変状態なし。
+ */
+export function describeProviderExecution<P extends AiProvider>(
+  provider: P,
+): ProviderExecutionDefinition<P> {
+  if (provider !== "codex" && provider !== "claude")
+    throw new Error("provider_execution_provider_invalid");
+  return (
+    provider === "codex"
+      ? describeCodexExecutionPlanContract()
+      : describeClaudeExecutionPlanContract()
+  ) as ProviderExecutionDefinition<P>;
+}
 
 /**
  * Task範囲からProvider固有の予算条件を評価する。
@@ -353,17 +384,22 @@ export function evaluateProviderTaskScope<P extends AiProvider>(
  * @security Prompt、任意Path、実行許可を生成しない。
  * @concurrency N/A: 純粋な同期処理。
  */
-export function planProviderExecution<
+export function planExecution<
   P extends AiProvider,
   K extends ProviderExecutionPurpose,
 >(
   request: ProviderExecutionInput<P, K>,
+  locations?: ProviderExecutionLocations,
+): ProviderExecutionPlanResult<P, K>;
+
+export function planExecution(
+  request: ProviderExecutionInput,
   locations: ProviderExecutionLocations = {},
-): ProviderExecutionPlanResult<P, K> {
+): ProviderExecutionPlanResult {
   const snapshot =
     snapshotPlainRecord(
       request,
-      new Set(["provider", "purpose", "modelSelection", "resultSchema"]),
+      new Set(["provider", "purpose", "modelSelection", "allowedReferences"]),
     ) ??
     snapshotPlainRecord(
       request,
@@ -373,7 +409,7 @@ export function planProviderExecution<
   const provider = snapshot?.provider;
   const reject = (
     reason: ProviderPlanningReason,
-  ): ProviderExecutionPlanResult<P, K> =>
+  ): ProviderExecutionPlanResult =>
     Object.freeze({
       status: "blocked",
       plan: null,
@@ -385,6 +421,31 @@ export function planProviderExecution<
     });
   if (!snapshot || (provider !== "codex" && provider !== "claude"))
     return reject("provider_execution_input_invalid");
+  const complete = (
+    value: ProviderPlans[AiProvider][ProviderExecutionPurpose],
+    context: ProviderResultContext,
+  ): ProviderExecutionPlanResult => {
+    const environment = prepareProviderEnvironment(provider, value.environment);
+    if (environment.status !== "ready") return reject(environment.reason);
+    return Object.freeze({
+      status: "ready",
+      plan: Object.freeze({
+        ...value,
+        environment: Object.freeze(Object.fromEntries(environment.entries)),
+        purpose: context.purpose,
+        allowedReferences: context.allowedReferences ?? null,
+        resultContext: context,
+        boundary:
+          provider === "codex"
+            ? projectCodexExecutionBoundary(value.argv)
+            : Object.freeze({
+                approvalModeConfigured: "not_applicable",
+                sandboxModeConfigured: "not_applicable",
+              }),
+      }) as ProviderExecutionPlan,
+      error: null,
+    });
+  };
   const purpose = snapshot.purpose;
   if (purpose !== "advice" && purpose !== "task" && purpose !== "probe")
     return reject("provider_execution_input_invalid");
@@ -401,11 +462,7 @@ export function planProviderExecution<
         ? planCodexReadOnlyProbe(snapshot.input, locations)
         : planClaudeReadOnlyProbe(snapshot.input, locations);
     return generated.status === "candidate"
-      ? Object.freeze({
-          status: "ready",
-          plan: generated as ProviderExecutionPlan<P, K>,
-          error: null,
-        })
+      ? complete(generated, Object.freeze({ provider, purpose: "probe" }))
       : reject(generated.reason);
   }
 
@@ -420,7 +477,7 @@ export function planProviderExecution<
   );
   if (!selection || selection.provider !== provider)
     return reject("provider_execution_selection_mismatch");
-  const checked = resolveAiModelSelection({
+  const checked = resolveModelSelection({
     provider,
     modelIdentifier: selection.modelIdentifier,
     reasoningEffort: selection.reasoningEffort,
@@ -438,24 +495,29 @@ export function planProviderExecution<
     reasoningEffort: checked.value.reasoningEffort,
   });
   if (purpose === "advice") {
-    if ("input" in snapshot || !("resultSchema" in snapshot))
+    if ("input" in snapshot || !("allowedReferences" in snapshot))
       return reject("provider_execution_input_invalid");
-    const schema = snapshotResultSchema(snapshot.resultSchema);
-    if (!schema) return reject("provider_execution_input_invalid");
+    const references = parseAdviceReferences(snapshot.allowedReferences);
+    if (references.status !== "confirmed")
+      return reject("workbench_ai_advice_references_invalid");
+    const schema = describeAdviceResultSchema();
     const command =
       provider === "codex"
         ? planCodexAdviceCommand(chosen, locations)
         : planClaudeAdviceCommand(chosen, schema, locations);
-    return Object.freeze({
-      status: "ready",
-      plan: Object.freeze({
+    return complete(
+      Object.freeze({
         contract: PROVIDER_ADVICE_COMMAND_CONTRACT,
         contractRevision: PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
         ...command,
         catalogIdentity: checked.value.catalogIdentity,
-      }) as ProviderExecutionPlan<P, K>,
-      error: null,
-    });
+      }),
+      Object.freeze({
+        provider,
+        purpose: "advice",
+        allowedReferences: references.references,
+      }),
+    );
   }
   if ("resultSchema" in snapshot || !("input" in snapshot))
     return reject("provider_execution_input_invalid");
@@ -481,84 +543,18 @@ export function planProviderExecution<
           ),
         }
       : generated;
-  return Object.freeze({
-    status: "ready",
-    plan: Object.freeze({
+  return complete(
+    Object.freeze({
       ...plan,
       modelIdentifier: chosen.modelIdentifier,
       identifierKind: chosen.identifierKind,
       catalogIdentity: checked.value.catalogIdentity,
-    }) as ProviderExecutionPlan<P, K>,
-    error: null,
-  });
-}
-
-/**
- * 結果Schemaを実行可能PropertyのないJSON値へ固定する。
- * @responsibility 両Providerで同じ検査を行い、文字列化時のGetter実行を防ぐ。
- * @trace ARCH-000010
- * @input candidate: 未信頼の結果Schema。
- * @returns 独立した不変Schema又はnull。
- * @precondition Schemaの意味上の契約は呼出し側が所有する。
- * @postcondition 元入力を文字列化せず、循環・非JSON値・Proxyを拒否する。
- * @effect N/A: Descriptor観測と局所コピーだけ。
- * @failure 不正値又は観測例外はnull。
- * @invariant toJSON・Getter・Proxyのhookを呼ばない。
- * @boundary 公開計画入力とCLI引数のSchema文字列化。
- * @security 計画生成から外部Effectを発行しない。
- * @concurrency 元Objectから独立したSnapshotを同期生成する。
- */
-function snapshotResultSchema(
-  candidate: unknown,
-): Readonly<Record<string, unknown>> | null {
-  const ancestors = new Set<object>();
-  const copy = (value: unknown): unknown => {
-    if (
-      value === null ||
-      typeof value === "string" ||
-      typeof value === "boolean"
-    )
-      return value;
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (
-      typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
-      ancestors.has(value)
-    )
-      throw new Error("provider_execution_schema_invalid");
-    ancestors.add(value);
-    try {
-      if (Array.isArray(value)) {
-        const array = snapshotPlainArray(value, Number.MAX_SAFE_INTEGER);
-        if (array.status !== "ok")
-          throw new Error("provider_execution_schema_invalid");
-        return Object.freeze(array.value.map(copy));
-      }
-      const prototype = Object.getPrototypeOf(value);
-      if (prototype !== Object.prototype && prototype !== null)
-        throw new Error("provider_execution_schema_invalid");
-      const keys = Reflect.ownKeys(value);
-      if (keys.some((key) => typeof key !== "string"))
-        throw new Error("provider_execution_schema_invalid");
-      const record = snapshotPlainRecord(value, new Set(keys as string[]));
-      if (!record) throw new Error("provider_execution_schema_invalid");
-      const result: Record<string, unknown> = Object.create(null);
-      for (const key of keys as string[]) result[key] = copy(record[key]);
-      return Object.freeze(result);
-    } finally {
-      ancestors.delete(value);
-    }
-  };
-  try {
-    if (
-      !candidate ||
-      typeof candidate !== "object" ||
-      utilTypes.isProxy(candidate) ||
-      Array.isArray(candidate)
-    )
-      return null;
-    return copy(candidate) as Readonly<Record<string, unknown>>;
-  } catch {
-    return null;
-  }
+    }),
+    Object.freeze({
+      provider,
+      purpose: "task",
+      taskRole: generated.taskRole,
+      selectedEffort: chosen.reasoningEffort,
+    }),
+  );
 }

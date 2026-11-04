@@ -4,33 +4,46 @@
  * @responsibility 用途ごとの容量・Envelope・拒否順序を区別し、生出力を公開しない。
  * @trace ARCH-000015
  */
+
 import type { AiProvider, ProviderTurnCountDiagnostic } from "./types.ts";
-export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
-  "workbench_ai_provider_output_invalid",
-  "workbench_ai_codex_output_invalid",
-  "workbench_ai_codex_completion_invalid",
-  "workbench_ai_codex_tool_event_forbidden",
-  "workbench_ai_codex_final_message_invalid",
-  "workbench_ai_claude_envelope_invalid",
-  "workbench_ai_claude_completion_invalid",
-  "workbench_ai_claude_turn_count_invalid",
-  "workbench_ai_claude_metadata_invalid",
-  "workbench_ai_claude_structured_output_invalid",
-] as const);
-import { inspectCodexExecutionObservation } from "../codex/observation.ts";
+
+import {
+  type ProviderExecutionPlanResult,
+  type ProviderExecutionPurpose,
+  evaluateProviderTaskScope,
+} from "./plan.ts";
+
+import type { ProviderAuthenticationDefinition } from "../authentication/plan.ts";
+
+import {
+  evaluateProviderAuthentication,
+  type ProviderAuthenticationResult,
+} from "../authentication/result.ts";
+
+import { convertProviderError } from "./error.ts";
+
+import { types as utilTypes } from "node:util";
+
+import {
+  inspectCodexExecutionObservation,
+  type CodexExecutionObservationResult,
+} from "../codex/observation.ts";
+
 import { parseUnambiguousJsonDocument } from "./json.ts";
 
-import { snapshotPlainRecord } from "./input.ts";
+import { snapshotPlainRecord, snapshotPlainArray } from "./input.ts";
+
 import {
   inspectTaskResultContent,
   type TaskResult,
   type TaskReviewFinding,
 } from "./task-result.ts";
+
 import { parseAdviceResult, type AdviceResult } from "./advice-result.ts";
-import { evaluateProviderTaskScope } from "./plan.ts";
+
 import { normalizeCodexStructuredResult } from "../codex/result.ts";
+
 import { normalizeClaudeStructuredResult } from "../claude/result.ts";
-const TASK_MAXIMUM_RAW_BYTES = 65_536;
 
 /**
  * 用途別の結果解析入力を表す。
@@ -65,7 +78,13 @@ export type ProviderEnvelopeInput =
 export type ProviderEnvelopeReason =
   | "codex_structured_result_invalid"
   | "claude_structured_result_invalid"
-  | Exclude<ReturnType<typeof extractProviderTaskEnvelope>["reason"], null>
+  | "provider_task_result_json_invalid"
+  | "provider_turn_limit_exceeded"
+  | "provider_structured_output_retry_exhausted"
+  | "provider_task_result_envelope_status_invalid"
+  | "provider_task_result_turn_count_invalid"
+  | "provider_task_result_cost_metadata_invalid"
+  | "provider_task_reviewer_result_transport_invalid"
   | (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number]
   | "provider_result_input_invalid";
 
@@ -84,9 +103,7 @@ export type ProviderEnvelopeResult<
 > = Readonly<
   {
     providerReportedTurns: number | null;
-    codexExecutionObservation: ReturnType<
-      typeof inspectCodexExecutionObservation
-    >;
+    codexExecutionObservation: CodexExecutionObservationResult;
     rawOutputReported: false;
     turnCountDiagnostic?: ProviderTurnCountDiagnostic;
   } & (
@@ -109,6 +126,97 @@ export type ProviderEnvelopeResult<
       }
   )
 >;
+
+/** 用途別のProvider応答と内容を同じ入口で検査する入力。
+ * @responsibility 内容検査に必要な用途・役割・許可参照だけを受け取る。
+ * @trace ARCH-000015
+ * @invariant 保存・実行・清掃のAuthorityを含めない。
+ */
+export type ProviderResultInput =
+  | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
+  | Readonly<{
+      provider: AiProvider;
+      purpose: "task";
+      taskRole: unknown;
+      selectedEffort: unknown;
+      taskWorkload?: unknown;
+      raw: unknown;
+    }>
+  | Readonly<{
+      provider: AiProvider;
+      purpose: "advice";
+      allowedReferences: readonly string[];
+      raw: unknown;
+    }>;
+
+/** Provider共通解析の実返却型。
+ * @trace ARCH-000015
+ * @invariant 別の結果構造を重複定義しない。
+ */
+export type ProviderResultParseResult<
+  K extends ProviderResultInput["purpose"] = ProviderResultInput["purpose"],
+> = Readonly<
+  {
+    providerExecutionObservation?: NonNullable<CodexExecutionObservationResult>;
+    providerTurnObservation?: Readonly<Record<string, unknown>>;
+    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
+    reviewFindings?: readonly TaskReviewFinding[] | null;
+    rawOutputReported?: false;
+    untrustedProviderTextReported?: false;
+    credentialAbsenceVerified?: false;
+  } & (
+    | {
+        status: "confirmed";
+        normalizedResult: K extends "task"
+          ? TaskResult
+          : K extends "advice"
+            ? AdviceResult
+            : Readonly<{ status: true }>;
+      }
+    | {
+        status: "blocked";
+        reason: ProviderResultReason;
+        normalizedResult: null;
+      }
+  )
+>;
+
+/** 共通結果入口の用途と解釈済み結果の対応。
+ * @trace ARCH-000015
+ * @invariant 用途ごとの結果内容と認証状態を混同しない。
+ */
+interface ExecutionResults {
+  task: ProviderResultParseResult<"task">;
+  advice: ProviderResultParseResult<"advice">;
+  probe: ProviderResultParseResult<"probe">;
+  authentication: ProviderAuthenticationResult;
+}
+
+export type ExecutionResult<
+  K extends keyof ExecutionResults = keyof ExecutionResults,
+> = ExecutionResults[K];
+
+/** 個別内容検査が返す既存の理由値。文字列値域は変更しない。 */
+export type ProviderResultReason = string;
+
+export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
+  "workbench_ai_provider_output_invalid",
+  "workbench_ai_codex_output_invalid",
+  "workbench_ai_codex_completion_invalid",
+  "workbench_ai_codex_tool_event_forbidden",
+  "workbench_ai_codex_final_message_invalid",
+  "workbench_ai_claude_envelope_invalid",
+  "workbench_ai_claude_completion_invalid",
+  "workbench_ai_claude_turn_count_invalid",
+  "workbench_ai_claude_metadata_invalid",
+  "workbench_ai_claude_structured_output_invalid",
+] as const);
+
+const TASK_MAXIMUM_RAW_BYTES = 65_536;
+
+const ADVICE_MAXIMUM_RAW_BYTES = 262_144;
+
+const MAXIMUM_EVENTS = 4_096;
 
 /**
  * 用途別出力を共通の解析結果へ変換する。
@@ -156,9 +264,7 @@ export function extractProviderResult<const I extends ProviderEnvelopeInput>(
   let value: unknown = null;
   let providerReportedTurns: number | null = null;
   let turnCountDiagnostic: ProviderTurnCountDiagnostic | undefined;
-  let codexExecutionObservation: ReturnType<
-    typeof inspectCodexExecutionObservation
-  > = null;
+  let codexExecutionObservation: CodexExecutionObservationResult = null;
   if (
     (provider !== "codex" && provider !== "claude") ||
     (purpose !== "advice" && purpose !== "task" && purpose !== "probe")
@@ -395,47 +501,182 @@ export function parseAdviceContent(
       });
 }
 
-/** 用途別のProvider応答と内容を同じ入口で検査する入力。
- * @responsibility 内容検査に必要な用途・役割・許可参照だけを受け取る。
- * @trace ARCH-000015
- * @invariant 保存・実行・清掃のAuthorityを含めない。
- */
-export type ProviderResultInput =
-  | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
-  | Readonly<{
-      provider: AiProvider;
-      purpose: "task";
-      taskRole: unknown;
-      selectedEffort: unknown;
-      taskWorkload?: unknown;
-      raw: unknown;
-    }>
-  | Readonly<{
-      provider: AiProvider;
-      purpose: "advice";
-      allowedReferences: readonly string[];
-      raw: unknown;
-    }>;
-
 /**
- * Provider差の抽出から用途別内容検査までを完了する。
- * @responsibility Task・Advice・Probeの内容と非秘密観測を区別して返す。
+ * 確定済み計画とProcess観測から、内容・エラー・認証を解釈する。
+ * @responsibility Provider固有の解析を内部で完了し、生出力を返さない。
+ * @trace ARCH-000010
  * @trace ARCH-000015
- * @input 用途、Provider、生応答と用途別検査条件。
- * @returns 検査済み内容又は内容なしの固定理由。
- * @precondition 未信頼入力を閉形式で捕捉する。
- * @postcondition 生Envelope、実行許可、清掃成功を内容に混入させない。
- * @effect N/A: メモリ内の解析だけ。
- * @failure 不正入力・搬送・内容は既存理由で拒否する。
- * @invariant 内容検査成功は実行や採用の成立を意味しない。
- * @boundary Provider応答と型付き内容。
- * @security 生出力を返さない。
- * @concurrency N/A: 状態を保持しない。
+ * @input plan: 元の実行計画又は認証定義。observation: 終了値と出力。
+ * @returns 検査済み内容、分類済み失敗、又は認証の三値。
+ * @effect N/A: 値の解析だけ。
+ * @invariant 内容解析からProcess終了・取消・Cleanup成立を推定しない。
  */
-export function parseProviderResult<const I extends ProviderResultInput>(
+export function parseProviderResult<K extends ProviderExecutionPurpose>(
+  plan: ProviderExecutionPlanResult<AiProvider, K>,
+  observation: Readonly<{
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+  }>,
+): ProviderResultParseResult<K>;
+
+export function parseProviderResult(
+  plan: ProviderAuthenticationDefinition,
+  observation: Readonly<{
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+  }>,
+): ProviderAuthenticationResult;
+
+export function parseProviderResult(
+  plan: ProviderExecutionPlanResult | ProviderAuthenticationDefinition,
+  observation: Readonly<{
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+  }>,
+): ProviderResultParseResult | ProviderAuthenticationResult {
+  const blocked = Object.freeze({
+    status: "blocked" as const,
+    reason: "provider_result_input_invalid" as const,
+    normalizedResult: null,
+  });
+  const output = snapshotPlainRecord(
+    observation,
+    new Set(["stdout", "stderr", "exitCode"]),
+  );
+  if (!plan || typeof plan !== "object" || utilTypes.isProxy(plan))
+    return blocked;
+  const own = (value: object, key: string): unknown =>
+    Object.getOwnPropertyDescriptor(value, key)?.value;
+  if (own(plan, "kind") === "authentication") {
+    const definition = plan as ProviderAuthenticationDefinition;
+    const provider = own(definition, "provider");
+    const offering = own(definition, "offering");
+    const purpose = own(definition, "confirmationPurpose");
+    if (
+      (provider !== "codex" && provider !== "claude") ||
+      (offering !== "chatgpt_subscription_oauth" &&
+        offering !== "claude_max") ||
+      (purpose !== "login" && purpose !== "execution")
+    )
+      return Object.freeze({
+        provider:
+          provider === "codex" || provider === "claude" ? provider : null,
+        status: "unknown" as const,
+        reason: "subscription_auth_output_invalid" as const,
+      });
+    const unknown: ProviderAuthenticationResult = Object.freeze({
+      provider,
+      status: "unknown",
+      reason: "subscription_auth_output_invalid",
+    });
+    if (
+      !output ||
+      typeof output.stdout !== "string" ||
+      typeof output.stderr !== "string" ||
+      typeof output.exitCode !== "number" ||
+      !Number.isSafeInteger(output.exitCode)
+    )
+      return unknown;
+    const authentication = evaluateProviderAuthentication(
+      provider,
+      offering,
+      output.stdout,
+      output.stderr,
+      purpose,
+    );
+    if (output.exitCode === 0) return authentication;
+    if (
+      purpose === "execution" &&
+      output.exitCode === 1 &&
+      authentication.status === "unconfirmed"
+    )
+      return authentication;
+    return unknown;
+  }
+  if (
+    !output ||
+    typeof output.stdout !== "string" ||
+    typeof output.stderr !== "string" ||
+    typeof output.exitCode !== "number" ||
+    !Number.isSafeInteger(output.exitCode)
+  )
+    return blocked;
+  if (own(plan, "status") !== "ready") return blocked;
+  const execution = own(plan, "plan");
+  if (
+    !execution ||
+    typeof execution !== "object" ||
+    utilTypes.isProxy(execution)
+  )
+    return blocked;
+  const context = own(execution, "resultContext");
+  if (!context || typeof context !== "object" || utilTypes.isProxy(context))
+    return blocked;
+  const provider = own(context, "provider");
+  const purpose = own(context, "purpose");
+  if (
+    (provider !== "codex" && provider !== "claude") ||
+    own(execution, "provider") !== provider ||
+    own(execution, "purpose") !== purpose
+  )
+    return blocked;
+  if (
+    purpose === "task" &&
+    (own(execution, "taskRole") !== own(context, "taskRole") ||
+      own(execution, "effort") !== own(context, "selectedEffort"))
+  )
+    return blocked;
+  if (purpose === "advice") {
+    const expected = snapshotPlainArray(
+      own(execution, "allowedReferences"),
+      1024,
+    );
+    const actual = snapshotPlainArray(own(context, "allowedReferences"), 1024);
+    if (
+      expected.status !== "ok" ||
+      actual.status !== "ok" ||
+      expected.value.length !== actual.value.length ||
+      expected.value.some(
+        (reference, index) =>
+          typeof reference !== "string" || reference !== actual.value[index],
+      )
+    )
+      return blocked;
+  }
+  if (output.exitCode !== 0)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: convertProviderError(provider, {
+        stdout: output.stdout,
+        stderr: output.stderr,
+      }).reason,
+      normalizedResult: null,
+    });
+  const keys =
+    purpose === "probe"
+      ? ["provider", "purpose"]
+      : purpose === "advice"
+        ? ["provider", "purpose", "allowedReferences"]
+        : ["provider", "purpose", "taskRole", "selectedEffort"];
+  const captured = snapshotPlainRecord(context, new Set(keys));
+  if (!captured) return blocked;
+  return parseExecutionContent({
+    ...captured,
+    ...(provider === "claude" && purpose === "task"
+      ? { taskWorkload: own(execution, "taskWorkload") }
+      : {}),
+    raw: output.stdout,
+  } as ProviderResultInput);
+}
+
+export function parseExecutionContent<const I extends ProviderResultInput>(
   candidate: I,
 ): ProviderResultParseResult<I["purpose"]>;
-export function parseProviderResult(
+
+export function parseExecutionContent(
   candidate: ProviderResultInput,
 ): ProviderResultParseResult {
   const input =
@@ -515,55 +756,6 @@ export function parseProviderResult(
   });
 }
 
-/** Provider共通解析の実返却型。
- * @trace ARCH-000015
- * @invariant 別の結果構造を重複定義しない。
- */
-export type ProviderResultParseResult<
-  K extends ProviderResultInput["purpose"] = ProviderResultInput["purpose"],
-> = Readonly<
-  {
-    providerExecutionObservation?: NonNullable<
-      ReturnType<typeof inspectCodexExecutionObservation>
-    >;
-    providerTurnObservation?: Readonly<Record<string, unknown>>;
-    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
-    reviewFindings?: readonly TaskReviewFinding[] | null;
-    rawOutputReported?: false;
-    untrustedProviderTextReported?: false;
-    credentialAbsenceVerified?: false;
-  } & (
-    | {
-        status: "confirmed";
-        normalizedResult: K extends "task"
-          ? TaskResult
-          : K extends "advice"
-            ? AdviceResult
-            : Readonly<{ status: true }>;
-      }
-    | {
-        status: "blocked";
-        reason: ProviderResultReason;
-        normalizedResult: null;
-      }
-  )
->;
-
-/** 内容・搬送の検査拒否理由。
- * @trace ARCH-000015
- * @invariant Provider本文を理由に含めない。
- */
-export type ProviderResultReason =
-  | ProviderEnvelopeReason
-  | Extract<
-      ReturnType<typeof parseTaskContent>,
-      { status: "blocked" }
-    >["reason"]
-  | Extract<
-      ReturnType<typeof parseAdviceContent>,
-      { status: "blocked" }
-    >["reason"];
-
 /**
  * JSON値が配列でないobjectかを判定する。
  *
@@ -598,7 +790,7 @@ function isTaskEnvelopeRecord(
  * @effect N/A: 文字列の純粋解析だけを行う。
  * @failure 不正JSONL、失敗Envelope、Turn超過、不正課金情報とReviewer搬送不正を区別して拒否する。
  * @invariant CLI完了通知だけから実Process終了・cleanup成立を主張しない。
- * @boundary AI Adapterの出力解釈とCoordinatorの共通結果判定の間。
+ * @boundary AI Adapter内のProvider出力解釈と共通内容検査の間。
  * @security 生イベント・Command・Pathを観測項目へ複製せず、Authorityを発行しない。
  * @concurrency N/A: 状態と資源を所有しない同期解析である。
  */
@@ -608,9 +800,7 @@ function extractProviderTaskEnvelope(
   raw: string,
 ) {
   let parsed = parseUnambiguousJsonDocument(raw);
-  let codexExecutionObservation: ReturnType<
-    typeof inspectCodexExecutionObservation
-  > = null;
+  let codexExecutionObservation: CodexExecutionObservationResult = null;
   if (provider === "codex" && parsed === null) {
     const events = raw
       .split(/\r?\n/u)
@@ -923,13 +1113,6 @@ function extractProviderTaskEnvelope(
         : null,
   });
 }
-
-export const PROVIDER_ADVICE_OUTPUT_CONTRACT =
-  "crdd-coordinator/workbench-ai-advice-provider-output";
-export const PROVIDER_ADVICE_OUTPUT_CONTRACT_REVISION = 1;
-
-const ADVICE_MAXIMUM_RAW_BYTES = 262_144;
-const MAXIMUM_EVENTS = 4_096;
 
 /**
  * Provider生出力から助言JSONを抽出する。

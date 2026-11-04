@@ -19,7 +19,7 @@
  * @boundary CPR-IT-010=Workbench操作→Domain保存→改訂・状態・確認結果。
  * @boundary CPR-IT-012=Workbench Form→Local保存先故障→固定HTTP応答。
  */
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -3299,7 +3299,7 @@ test("WorkbenchはRepository別AI設定と技術対応を分離して表示す�
       verified.capability,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     assert.equal(saved.status, "saved");
     handle = await startWorkbench({ workingDirectory: fixture });
@@ -3458,10 +3458,8 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_invalid");
     assert.equal(
-      readRepositoryAiSelection(
-        verified.capability,
-        getAiModelCatalog().catalog,
-      ).status,
+      readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
+        .status,
       "available",
     );
     const observed = afterUnknown.aiSelection?.selection.snapshot;
@@ -3498,10 +3496,8 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
     oversized.set("config", "x".repeat(3 * 1024 * 1024 + 16 * 1024));
     assert.equal((await post(oversized)).status, 400);
     assert.equal(
-      readRepositoryAiSelection(
-        verified.capability,
-        getAiModelCatalog().catalog,
-      ).snapshot?.identity,
+      readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
+        .snapshot?.identity,
       identity,
     );
   } finally {

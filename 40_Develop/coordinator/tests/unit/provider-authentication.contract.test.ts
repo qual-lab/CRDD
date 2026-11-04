@@ -20,10 +20,8 @@ import {
   getAuthenticationStatus,
 } from "../../src/api.ts";
 
-import {
-  describeProviderAuthentication,
-  evaluateProviderAuthentication,
-} from "../../../ai-adapter/src/index.ts";
+import { getAuthenticationDefinition } from "../../../ai-adapter/src/index.ts";
+import { evaluateProviderAuthentication } from "../../../ai-adapter/src/authentication/result.ts";
 
 import { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "../../src/execution/authority.ts";
 
@@ -844,7 +842,7 @@ test("再認証は秘密codeの非表示と一回入力を事前案内する", (
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証Planは専用Provider Home以外をmountしない", () => {
-  const cli = describeProviderAuthentication("claude");
+  const cli = getAuthenticationDefinition("claude");
   assert.deepEqual(cli.loginArgv, ["auth", "login", "--claudeai"]);
   assert.deepEqual(cli.statusArgv, ["auth", "status", "--json"]);
   assert.equal(cli.homeDirectoryName, "claude");

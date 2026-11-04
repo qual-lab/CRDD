@@ -5,9 +5,15 @@
  * @trace ARCH-000015
  * @boundary Provider観測と上位の診断・公開投影。本文・Path・Commandは受理しない。
  */
+
 import { snapshotPlainRecord } from "../provider/input.ts";
 
 /** error本文の語句観測。相互排他の原因分類ではない。 */
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type CodexExecutionObservationResult = Readonly<{
+  [x: string]: unknown;
+}> | null;
+
 const ITEM_ERROR_MENTION_KEYS = [
   "itemErrorHostMentionCount",
   "itemErrorSpawnMentionCount",
@@ -63,7 +69,9 @@ const OBSERVATION_KEYS = new Set([
  * @responsibility 実行診断の固定field・数値境界を公開結果と受動診断で共用する。
  * @trace ERB-IT-021
  */
-export function inspectCodexExecutionObservation(raw: unknown) {
+export function inspectCodexExecutionObservation(
+  raw: unknown,
+): CodexExecutionObservationResult {
   const withoutWarningText = new Set(
     [...OBSERVATION_KEYS].filter(
       (key) => key !== "itemErrorKnownWarningTextCount",

@@ -3120,7 +3120,7 @@ test("実Provider Toolの事前設定確認は二経路と同一設定を要求�
           status: scenario === "root_failed" ? "blocked" : "completed",
           capability: "root",
         }),
-        getAiModelCatalog: () => ({ catalog: "catalog" }),
+        getModelCatalog: () => ({ catalog: "catalog" }),
         readRepositoryAiSelection: (root: unknown, catalog: unknown) => {
           assert.equal(root, "root");
           assert.equal(catalog, "catalog");

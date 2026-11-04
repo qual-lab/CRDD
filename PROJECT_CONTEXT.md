@@ -12,6 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+AI Adapterの公開境界を6関数・11型へ整理した。計画時にSchema・環境・許可参照・診断を解決し、結果・非0終了・認証解析を共通入口へ集約する。Coordinatorの助言JSON往復を撤去し、五軸の現在利用判断はCoordinatorへ移した。共有型の明示化、旧別名・未使用定数の撤去、Source宣言順の追従漏れも是正した。AI Adapter45件、Executor100件、Coordinator関連154件、保存14件、Workbench関連18件を各条件で確認した。DIは74ee4f19fを固定し差分0、実AI・Docker・過去保持物は操作していない。横断台帳不整合・文書参照展開先診断は全体合格に読み替えない。[現在の変更・検証範囲](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ai-adapterの解決済み公開境界2026-11-05)を参照する。
+
+
 DI内部の用途非依存化を整理した。固定五資源の構築はExecutor、DIは不透明key・技術期待値・安全なCRDD名前／Labelで実体を照合する。固定ImageのUser・Entrypoint・外部Network条件は既存Catalogへ集約し、Task／Adviceの選択はExecutorが行う。Rootは7関数・15型を維持し、保存Schemaと既知ID／欠測ID・Directoryの既存保証は変更しない。DI197件、Executor100件、Coordinator関連214件、AI Adapter6件が成功し、Source／Architecture独立レビューは必須残指摘0。Checkerの全Package公開一覧と認証検証Toolの旧接続は追従済みで、公開一覧2件・認証有限12件・生成子静的接続3件が成功した。Checkerの配布入口に残る既存型検査エラーと参照展開先診断は全体合格に読み替えない。実AI・Docker・過去保持物は操作していない。[変更記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#di内部の用途非依存化2026-11-04)を参照する。
 
 DIの共有技術検査3公開の追加整理を完了した。IdentityはExecutor／Domain、期待値はExecutorの構築入力、技術的な実観測・回収検査と例外分類はDI内部へ整理し、Rootは共通6操作＋固定構成照会の7関数・15型となった。DI177件、Executor全100件、Coordinator関連206件が成功。制限付き環境で不成立だったWindows取消2件は、固定終了補助がOS logon errorになることを切り分け、通常環境で2件成功を確認した。期限・安全判定は不変。Source／Architecture独立再レビューは必須残指摘0件。実AI・Docker・過去保持物は操作しておらず、実境界・全体QA・Release完了とは分ける。[最終接続と検証結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#最終接続と検証結果2026-11-03)を参照する。

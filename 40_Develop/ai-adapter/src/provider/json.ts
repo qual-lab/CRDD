@@ -16,12 +16,14 @@
  * @security 生文字列・key一覧・実行権限を結果へ含めない。
  * @compatibility 公開APIではなく、同じparser内の走査呼出しで利用する。
  */
+
 type ScanResult = Readonly<{
   nextIndex: number;
   hasDuplicateKey: boolean;
 }>;
 
 const JSON_WHITESPACE = new Set([" ", "\t", "\r", "\n"]);
+
 const HEX_DIGIT = /^[0-9a-f]$/iu;
 
 /**

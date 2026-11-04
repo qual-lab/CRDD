@@ -6,7 +6,7 @@
  */
 
 import { types as utilTypes } from "node:util";
-import type { AiProvider } from "../../../ai-adapter/src/index.ts";
+import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   type AttemptTerminalObservation,

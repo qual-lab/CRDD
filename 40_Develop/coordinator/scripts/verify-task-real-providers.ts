@@ -4,7 +4,7 @@
  * @responsibility stableDirectoryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -75,7 +75,7 @@ function readVerificationAiSelectionIdentity(root: string): string | null {
     if (verified.status !== "completed") return null;
     const read = readRepositoryAiSelection(
       verified.capability,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     if (read.status !== "available") return null;
     for (const provider of ["codex", "claude"] as const) {

@@ -2733,3 +2733,55 @@ CheckerはExecutorを含む全13 Packageを列挙し、各Rootの現在の公開
 | 独立レビュー | Sourceの配線・代役・復元・Checker契約に必須残指摘0 |
 
 Windows専用junction試験は権限不足の先行結果を保持し、今回は実行していない。Checker本体のtsconfig.json単独型検査は終了0だが、配布入口も含む型検査は別の既存配布入口template/tools/crdd-coordinator.ts:12のTS1375で終了1となる。同Fileは今回未変更であり、今回の2系統の追従漏れ修正と区別して残す。参照展開先診断とともに全体QA合格の根拠にしない。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。
+
+#### AI Adapterの解決済み公開境界（2026-11-05）
+
+人間判断によりDIは74ee4f19fを固定点とし、本作業では変更しない。変更が必要になった場合は理由・影響・代替を先に提示する。AI AdapterはgetModelCatalog／resolveModelSelection／planExecution／parseProviderResult／getAuthenticationDefinition／getBillingPolicyの6共通入口へ整理する。中間Schema・環境検査・Provider別Normalizer・エラー分類・認証解析は内部へ統合する。
+
+| 編集単位 | Owner・利用側・保持条件 |
+|---|---|
+| 実行計画 | Advice許可参照を送信前に検査し、固定Schema・環境と構成診断をPlanへ確定。Executorは解決済み値を使用 |
+| 結果 | 実行Planと観測から内容・失敗を解釈。認証結果も同じ公開入口へ接続。Providerの生出力は結果へ返さない |
+| 上位の助言 | 型付き内容を直接搬送しJSON往復・内容再解析を撤去。Effect／取消／Cleanup相関は維持 |
+| 上位判断 | Availability五軸はCoordinatorへ。Provider差の技術規則・認証・CatalogはAI Adapterに維持 |
+| 型・定数 | 入出力に必要な明示型だけをRoot公開し、Snapshotとカタログ本文の二重公開、中間入力型と専用Contract定数を撤去 |
+| 検証 | 基準AI Adapter41件成功。現在候補で利用側、拒否順序・理由・送信前拒否・非秘密診断・取消／Cleanup相関を有限回帰し独立レビュー |
+
+Contract ID・既存保存Schema・CLI版・Image・Network・実行許可・Lock・期限は変更しない。未信頼のJSONや永続読取りを型assertで信用しない。新Manager・Registry・Store・ライブラリ・互換Readerは作らない。専門観点はProvider差、送信前検査、型付き結果搬送、外部境界と保存・実行の分離。詳細ArchitectureとQAの対応を更新し、Source／Architectureの独立レビューを行う。標準準拠規則やRelease判断を変えないため全Conformance監査は対象外とし、変更文書の構造・直接参照・横断影響は対象へ適用する。実AI・Docker・過去保持物は操作しない。
+
+##### 接続・回帰・独立確認（2026-11-05）
+
+公開Rootは6関数・11型とした。計画は固定Schema・検査済み環境・助言の許可参照・非秘密構成診断を解決し、結果入口は元計画又は認証定義とProcess観測を受ける。個別Parser・Normalizer・エラー変換・認証解析・Policy定数はRootから撤去した。利用側の型参照は所有元の定義を再利用し、実行許可や保存Schemaを変更しない。
+
+Coordinatorの型付き助言をJSONへ戻す往復は撤去した。作業量の事前検査は共通計画の拒否理由を使用し、Authority発行前の拒否・Mount返却を保持する。Provider五軸の利用判断はCoordinatorへ移した。Artifact TrustのAIT-UT-005と混同していた旧接続を除き、ERB-IT-006の利用可能性確認を補助する純粋UTとしてHeader・Symbol・QAへ接続する。このUTだけで構成選択のIT成立を示さない。
+
+独立Sourceレビューで検出したClaude作業量の解析条件重複は、contextから削除し元Planを正本とした。元PlanのJSONコピーを受理し、役割・Effort差替え、旧contextへの作業量追加、元作業量の欠落・不正を拒否する。計画上限と報告99Turnsは別の診断として確認し、Turn数を結果採否条件へ追加しない。Architecture／Qualityレビューの旧Owner・公開名・検証ID接続は是正し、最終の表記訂正後に残指摘0を確認する。
+
+| 検証 | 結果・範囲 |
+|---|---|
+| AI Adapter全体 | 45件成功。事前拒否・計画相関・非0終了・認証三値を含む |
+| Executor全体 | 100件成功。実AI・実Dockerは呼ばない |
+| Coordinator対象回帰 | 135件成功。助言・準備・認証・五軸判断・結合を含む |
+| Domain選定保存 | 14件成功。制限環境でhardlink関連2件不成立を確認後、通常Windows権限で同じ試験を実施して成功 |
+| Workbench対象 | 18件中16件は制限環境で成功。localhost子Process通信の2件は通常権限で再確認して成功。実AI・実Dockerなし |
+| 静的検査 | AI Adapter／Executor／Coordinatorのcheck終了0、Domain／Workbenchの型検査終了0 |
+| 公開入口 | Checkerの全Package／DI公開入口2件成功。DI差分0 |
+| 文書 | 最終対象9文書の直接診断0。参照展開先3,399診断による全体終了1は別に保持 |
+
+横断Test Catalogは今回未変更の登録台帳と現存試験の不整合17件によりinvalidである。Reality Symbolの全体11診断も残るが、AI Adapter・移管eligibility・Task結果の対象診断は0である。これらを今回の機能回帰成功で解消したとは扱わず、全体QA・Release完了を主張しない。Domainの変更2Sourceは型参照名の追従のみで、TypeScript除去後の実行内容一致を確認した。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。
+
+##### 公開境界整理の追従漏れ是正（2026-11-05）
+
+追加静的点検で確認した4系統を是正した。参照0の旧助言出力Contract定数2件を撤去し、Provider別計画・結果内容・Codex観測の共有型を実装関数のReturnTypeから明示型へ置換した。固定値の判別Union、Provider固有の拒否shape、既存課金方針型の再利用を維持し、共通化だけの新公開型を追加しない。理由値の実値・既存の文字列値域を変えない。
+
+6関数は内部宣言と利用側も同じ公開名へ揃え、旧名へ戻すaliasと同名destructureを撤去した。旧Snapshot名へのWorkbench内alias、利用可否移管前のヘッダー、TaskResultの実装推論から導出する旧設計説明も訂正した。機械Contract ID・保存Schema・CLI引数・認可・期限は変更しない。
+
+AA src22Fileはヘッダー、import、型、module値、関数の順へ統一した。AST categoryの逆転0、配置変更前後の型除去後runtime宣言のハッシュ・順序一致を確認し、module値initializerの評価順、関数本文、runtime import列を維持した。型確認用のコンパイラー出力は今回生成した未追跡IdentityとRootを照合して回収した。依存先へ出た215宣言Fileも同じ生成時刻・元一覧で照合し除去し、DIの追跡対象Source差分は0である。過去保持物へは触れていない。
+
+AI Adapterのcheckと45件、Executorのcheckと100件、Coordinatorのcheckと関連154件（先行135件＋Provider計画結合19件）が成功した。Domain／Workbench型検査とChecker公開入口2件も成功。SourceとArchitectureの独立再レビューは残指摘0である。Rootは6関数・11型のまま。既存の横断台帳不整合・文書展開先診断は先行記録どおり別に保持し、実AI・実Docker・全体QA・Release成立へ換算しない。実AI・Docker・過去保持物の操作、Commit／Pushは行っていない。
+
+##### 境界ヘッダーの最終照合（2026-11-05）
+
+認証定義の確認目的・省略値・不正入力例外をヘッダーへ追従し、Coordinatorが条件・診断へ使うこととExecutorが認証実行へ使うことを分けた。結果Mapping直前の拒否理由説明を用途別結果の説明へ訂正し、内部の環境・エラー・Schema・Claude引数・結果抽出に残った旧利用側境界も現Ownerへ追従した。実装・API・型shape・理由値は変更しない。
+
+同種のSource／現行Architecture再点検と独立確認の残Must-fixは0。AI Adapterのcheckと45件、Coordinator／Executorのcheckを最終コメント版でも再実行し成功した。先行の100件／154件とコメントだけの最終差分を分けて保持する。DIの追跡対象差分0、未追跡生成物0、差分空白検査成功。既存の横断検証不合格・未実施の実境界は解消したと扱わず、実AI・Docker・過去保持物は操作していない。

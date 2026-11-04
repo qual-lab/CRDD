@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseProviderResult } from "../../../../ai-adapter/src/index.ts";
+import { parseExecutionContent as parseProviderResult } from "../../../../ai-adapter/src/provider/result.ts";
 const parseAdviceContent = (
   provider: "codex" | "claude",
   raw: string,

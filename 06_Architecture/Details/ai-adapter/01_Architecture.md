@@ -25,15 +25,15 @@ Codexの非秘密実行観測の検査は`codex/observation.ts`の内部`inspect
 
 AI AdapterはProvider固有の操作、認証方式、技術対応、入力計画と出力変換を所有する。Repository別の役割既定値・作業分類・明示選択と保存はCoordinatorが所有する。旧Profile Catalog、Host／Repository Profile Store、Family／Tierによる自動選定は撤去対象であり、新形式の互換Readerとして残さない。
 
-技術カタログ（Model Catalog）の正本は`src/catalog/model-catalog.json`。`getAiModelCatalog`が深い不変値と内容Identityを返し、`resolveAiModelSelection`がProvider・Model・用途・Effortを照合する。役割、Tier、推奨Model、既定Effort、現在の認証状態を含まない。`opus`はaliasのまま保持し、未観測の実Model版へ変換しない。
+技術カタログ（Model Catalog）の正本は`src/catalog/model-catalog.json`。`getModelCatalog`が深い不変値と内容Identityを返し、`resolveModelSelection`がProvider・Model・用途・Effortを照合する。役割、Tier、推奨Model、既定Effort、現在の認証状態を含まない。`opus`はaliasのまま保持し、未観測の実Model版へ変換しない。
 
 Repository設定は[Coordinator設計](../coordinator/01_Architecture.md)と[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)が所有する。未設定を同梱の旧Profileで補完しない。旧設定・未終了参照の実移行はフロントAIが行い、過去Evidenceと保持②を変更しない。今回のSource整理・合成確認を実AI・実認証・全体E2Eの完成へ換算しない。
 
 ### 共通実行計画の新しい選定境界
 
-`planProviderExecution`は助言とTaskで`modelSelection`四項目（`provider / modelIdentifier / identifierKind / reasoningEffort`）を受け、用途・Effort・識別方式を技術Catalogへ照合する。同じ選定とCatalog Identityを計画へ保持し、未知Modelや別Providerへfallbackしない。認証probeにはRepositoryのModel選定を渡さない。
+`planExecution`は助言とTaskで`modelSelection`四項目（`provider / modelIdentifier / identifierKind / reasoningEffort`）を受け、用途・Effort・識別方式を技術Catalogへ照合する。同じ選定とCatalog Identityを計画へ保持し、未知Modelや別Providerへfallbackしない。認証probeにはRepositoryのModel選定を渡さない。
 
-助言Command契約は改訂2。旧`exactModelId`入力は受理しない。結果Schemaは通常のJSON値として独立固定し、Getter・Proxy・toJSON・循環・非JSON値を拒否する。Packet・Grant・操作／Role／Attempt／選定Hashの相関、取消・回収はCoordinatorのOwnerへ残す。
+助言Command契約は改訂2。旧`exactModelId`入力は受理しない。結果Schemaは内部固定値を使用し、呼出し元からのSchema指定を拒否する。助言の許可参照は計画時に検査・複製し、不正値を実行前に拒否する。Packet・Grant・操作／Role／Attempt／選定Hashの相関、取消・回収はCoordinatorのOwnerへ残す。
 
 ## Docker配置とProvider操作の分離 — 2026-10-19
 
@@ -47,7 +47,7 @@ Coordinatorは準備時とEffect直前で同じ配置を用いて計画を再照
 
 | 正本 | 担当する責務 | 関係状態 |
 |---|---|---|
-| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 技術Catalog、明示された技術選定、Provider利用可否の値評価 | Covered |
+| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 技術Catalog、明示された技術選定、Provider固有の計画・認証結果の解釈 | Covered |
 | [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Coordinatorから計画・結果変換を利用する境界。業務進行は引き取らない | Covered |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 助言・編集・レビューのProvider差と共通結果の接続 | Covered |
 
@@ -103,7 +103,7 @@ AI Adapter 技術Catalog → CoordinatorのRepository選定
                               ↓ 固定した選定
                         AI Adapter Provider計画
                               ↓
-                        Coordinatorの実行調整 → Docker Isolation
+                        Executorの単一実行 → Docker Isolation
                               ↑ CLI出力
                         AI Adapter 結果変換
 ```
@@ -116,7 +116,7 @@ Provider入力は内部の`provider/input.ts`で通常Object／Arrayを捕捉し
 
 助言参照の入力固定と内容検査は同じ`parseAdviceReferences`を使用する。既存の1024件・512byte上限と文字列・重複条件へ統一し、既存plain-data配列検査で動的Propertyを評価せずコピーする。Executor独自の256件上限は撤去する。新しい汎用Snapshot API、Registry、保存処理は公開しない。
 
-Provider応答の共通内容正規化は`provider/task-result.ts`（編集・レビュー）と`provider/advice-result.ts`（助言・許可参照・Schema）が所有する。公開の`inspectTaskResultContent`、`parseAdviceResult`、`describeAdviceResultSchema`と結果型をExecutor／Coordinatorが使用する。Envelope抽出の`parseProviderResult`と内容検査を混同せず、既存の拒否順序・理由・返却shapeを維持する。是正許可の発行はCoordinatorに残す。
+Provider応答の共通内容正規化は`provider/task-result.ts`（編集・レビュー）と`provider/advice-result.ts`（助言・許可参照・Schema）が所有する。個別内容検査・Schema取得はRoot非公開とし、利用側は`parseProviderResult`の検査済み結果だけを使用する。Envelope抽出と内容検査を一回の共通入口で完了し、既存の拒否順序・理由・返却shapeを維持する。是正許可の発行はCoordinatorに残す。
 
 Domainにあった同じ内容検査は保存処理から利用されていなかったため、元試験とともにAI Adapterへ一実体移管し、Domainの旧ファイル・公開APIは撤去する。正規値・欠測・余剰・動的Property・不正所見・許可外参照と全拒否理由を元契約へ照合する。SchemaのJSON bytesと既存Command Hashも同一とし、Domainの保存Schema・Writer・遷移は変更しない。
 
@@ -124,26 +124,20 @@ Domainにあった同じ内容検査は保存処理から利用されていな�
 
 <a id="ai-adapter-public-api-refactor"></a>
 
-### 採用済みの公開API再編方針 — 2026-10-19
+### 解決済みの公開API — 2026-11-05
 
 | 公開API | 戻り値・責務 |
 |---|---|
-| `getAiModelCatalog` | `AiModelCatalogSnapshot`。不変本文と内容Identity |
-| `resolveAiModelSelection` | `AiModelSelectionResult`。resolved／blocked、補完なし |
-| `planProviderExecution` | `ProviderExecutionPlanResult`。Provider・用途に対応する計画又は拒否 |
-| `evaluateProviderTaskScope` | `ProviderTaskScopeResult`。ClaudeのTurn見積りとCodex非適用を区別 |
-| `parseAdviceReferences` | `AdviceReferencesResult`。confirmedの不変配列／blockedの固定理由。許可集合の選択は上位が所有 |
-| `parseProviderResult` | `ProviderResultParseResult`。用途別解析値又は固定拒否 |
-| `convertProviderError` | `ProviderError`。既存の非正常終了入力をProviderと固定理由へ変換 |
-| `describeProviderExecution` | `ProviderExecutionDefinition`。対応する操作の記述。配布Identityなし |
-| `evaluateProviderAvailability` | `ProviderAvailability`。available／unavailable／unknown／preflight_required |
-| `validateProviderModelId` | `ProviderModelIdValidationResult`。128文字以内の既存構文を無変換検査 |
-| `prepareProviderEnvironment` | `ProviderEnvironmentResult`。禁止名・型・NULを検査し元順序の値組を返す |
-| `describeProviderAuthentication` | `ProviderAuthenticationDefinition`。操作別CLI・Offering・Origin |
-| `evaluateProviderAuthentication` | `ProviderAuthenticationResult`。Codex／Claudeの正規出力を同じ確認済み・未認証・確認不能へ変換。出力先と既知警告の検査もここで所有する |
-| `describeProviderBillingPolicy` | `ProviderBillingPolicy`。Subscription限定の方針記述 |
-| `parseUnambiguousJsonDocument` | 重複key・不正文法・BOM・末尾データを拒否する解析 |
-| 既存boolean Probe解析・契約定数、`projectCodexExecutionBoundary` | 現診断Consumerの用途限定操作。Task／助言完成の証明ではない |
+| `getModelCatalog` | `ModelCatalog`。不変本文と内容Identityを一体で返す |
+| `resolveModelSelection` | `ModelSelectionResult`。用途・Model・Effortを補完せず解決する |
+| `planExecution` | `ExecutionPlan`。固定Schema・環境・許可参照・構成診断と結果解析条件を解決した計画又は拒否 |
+| `parseProviderResult` | `ExecutionResult`。計画又は認証定義とstdout／stderr／終了値から内容・失敗・認証状態を返す |
+| `getAuthenticationDefinition` | `AuthenticationDefinition`。login／status方式・Offering・Origin・確認目的と固定Policy |
+| `getBillingPolicy` | `BillingPolicy`。Subscription限定の方針記述 |
+
+実行結果の解析、非0終了の分類、認証出力の解釈は同じ公開入口に集約する。Schema・個別Parser・Provider別Normalizer・環境検査・Contract定数は内部だけで使用する。認証は終了値不明や非0成功文面を確認済みへ昇格しない。認証の正規未ログインと観測不能も区別する。
+
+計画はProvider・用途・Task役割／推論強度・助言許可参照を結果解析条件と相関させる。コピーされた計画を原本管理で拒否せず、値の不一致を拒否する。計画はAuthorityではなく、CLIの開始・終了・CleanupはExecutorが確認する。
 
 通常の失敗を空値や例外だけで返さず状態で絞れる結果にする。一方、固定定義・変換値まで万能Resultへ統一しない。内部Catalog ValidatorはRootから公開せず、同梱初期化が利用する。旧Profile CRUD・Store・型・自動Family／Tier解決は公開しない。
 
@@ -212,7 +206,7 @@ Profile・storage Folder、Host Catalog、既定Profile JSONは持たない。�
 
 ### 7.1. 責務別配置と公開操作
 
-技術Catalogの検索は`catalog/resolve.ts`、検証は`catalog/validation.ts`。Providerの構文・五軸可用性・固定環境は`provider/validation.ts`に同居する。呼出し元Package名やRoleごとに同じ処理を分割しない。
+技術Catalogの検索は`catalog/resolve.ts`、検証は`catalog/validation.ts`。Providerの構文・固定環境は`provider/validation.ts`が所有する。Capability／認証観測／Quota／配布状態／Policyの五軸利用判断はCoordinatorの`execution/observation.ts`が所有し、AI Adapterは現在状態を集約しない。呼出し元Package名やRoleごとに同じ処理を分割しない。
 
 共通計画は`advice / task / probe`とProviderを入力時に照合する。Task内のexecutor／reviewer、助言のTool／Repository非共有、Probe診断を区別する。Claude Model／Effort付加は共通計画内で行い、準備時とEffect直前で同じ生成を使う。
 
@@ -240,7 +234,7 @@ Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり
 |---|---|---|---|---|---|---|---|---|---|
 | `ai-runtime.catalog-validation` | Schema／Validation | AI Adapter技術Catalog | 閉形式・用途・Effortの一意な対応 | 未知field、重複、Getter／Proxy、破損JSON | UT | N/A | RCM-UT-001／002の固定入力と拒否理由 | Hook・Provider Effect 0 | 実Provider対応は別評価 |
 | `ai-runtime.profile-resolution` | Interface／Data | 技術選定とCoordinator選定Consumer | 無変換、alias保持、同じIdentity | 未設定・非対応・別用途を補完 | UT／IT | Direct Boundary | RCM-UT-001／RCM-IT-005の選定と搬送結果 | 勝手な再選定・実行0 | 実Provider注入 |
-| `ai-runtime.availability` | State／Validation | Provider五軸の値評価 | unknown・preflightを区別 | 未観測をavailableへ丸める | UT | N/A | QA-000010のAIT-UT-005に対応する純粋値と理由 | Authority・Provider Effect 0 | 実Host・認証Observerは上位Ownerで別評価 |
+| `ai-runtime.availability` | State／Validation | CoordinatorのProvider五軸値評価 | unknown・preflightを区別 | 未観測をavailableへ丸める | UT | N/A | ERB-IT-006の純粋前提Oracleとしての値と理由。UTだけで構成選択IT成立を示さない | Authority・Provider Effect 0 | 実Host・認証Observerは上位Ownerで別評価 |
 | `ai-runtime.catalog-adoption` | State／Consistency | Coordinator Repository設定Store | 同じSnapshot、CASと認可を保持 | 競合、Link、観測不能、公開後の不明 | IT | Direct Boundary | RCM-IT-005／010の保存・応答・現在認可 | 暗黙再保存0、旧Store Effect 0 | 実設定移行 |
 | `ai-runtime.profile-administration` | Interface／Security | Workbench設定とMCP旧Tool拒否 | 管理Roleと選択Repository認可、新公開入口 | 旧Tool受理、無認可保存、応答喪失から再送 | IT／ST | Direct Boundary／System/E2E | RCM-IT-010／RCM-ST-012の全Role・Consumer集合・公開結果 | 旧設定操作Effect 0、所有処理終了 | 実Credential・人間操作 |
 | `coord.provider-attempt` | Interface／Validation | 用途別構造化結果 | 唯一のexact結果だけを受理 | 曖昧JSON、不足Envelope、上限逸脱 | UT | N/A | ERB-UT-032の容量・解析値・固定理由 | 生出力非公開、Process起動0 | 実CLI・終了・cleanupは既存IT／ST |
@@ -266,9 +260,9 @@ Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり
 
 ### 結果内容の型の正本
 
-編集・レビューの検査済み内容型は`TaskResult`、助言は`AdviceResult`として本Packageが所有する。`TaskResult`は既存の`inspectTaskResultContent`の実返却内容から導出し、Providerの実行観測、清掃状態、レビュー所見の内部搬送本文、次試行の許可を含めない。Executorはこれらを内容型へ拡張せず、実行結果の外側で扱う。内容検査条件・理由文字列・容量制限は変更しない。
+編集・レビューの検査済み内容型は`TaskResult`、助言は`AdviceResult`として本Packageが所有する。`TaskResult`／`AdviceResult`は明示型を正本とし、内容検査実装の返却値をその契約へ型検査する。内容にはProviderの実行観測、清掃状態、レビュー所見の内部搬送本文、次試行の許可を含めない。Executorはこれらを内容型へ拡張せず、実行結果の外側で扱う。内容検査条件・理由文字列・容量制限は変更しない。
 
-公開`parseProviderResult`はtask／advice／probeに応じ、Envelope抽出と内容検査までを一回の呼出しで完了する。入力はtaskの役割・推論強度・作業量、adviceの許可参照を区別する。返却はconfirmed＋型付きnormalizedResult又はblocked＋固定reason＋nullであり、Provider実行観測・Turn観測・レビュー所見は内容の外側へ分離する。Envelopeだけの抽出`extractProviderResult`はRoot非公開とし、その搬送契約を直接検査する他Packageの試験と限定診断は明示した`./testing`（`scripts/ai-adapter-test.ts`）だけを利用する。製品Sourceからこの試験入口を使用しない。Task／Adviceの個別合成処理をExecutorに再定義しない。
+公開`parseProviderResult`はtask／advice／probeに応じ、Envelope抽出と内容検査までを一回の呼出しで完了する。入力は解決済み計画と実行観測とし、taskの役割・推論強度・作業量、adviceの許可参照は計画内から引き継ぐ。Coordinatorの助言配送は型付き内容を直接受け、JSON再生成・再解析を行わない。未信頼JSONや永続読取りの境界検査は維持する。返却はconfirmed＋型付きnormalizedResult又はblocked＋固定reason＋nullであり、Provider実行観測・Turn観測・レビュー所見は内容の外側へ分離する。Envelopeだけの抽出`extractProviderResult`はRoot非公開とし、その搬送契約を直接検査する他Packageの試験と限定診断は明示した`./testing`（`scripts/ai-adapter-test.ts`）だけを利用する。製品Sourceからこの試験入口を使用しない。Task／Adviceの個別合成処理をExecutorに再定義しない。
 
 ## Checklist
 

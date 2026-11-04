@@ -6,9 +6,9 @@
  * @trace ARCH-000015
  */
 import type {
-  AiModelSelection,
-  AiProvider,
-  AiReasoningEffort,
+  ModelSelection as AiModelSelection,
+  Provider as AiProvider,
+  ReasoningEffort as AiReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
 import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 import type {

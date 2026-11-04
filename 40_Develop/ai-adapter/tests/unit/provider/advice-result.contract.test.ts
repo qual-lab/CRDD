@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseAdviceReferences } from "../../../src/index.ts";
+import { parseAdviceReferences } from "../../../src/provider/advice-result.ts";
 
 import {
   parseAdviceResult as normalizeAdviceResult,

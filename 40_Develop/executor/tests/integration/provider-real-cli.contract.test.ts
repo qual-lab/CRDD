@@ -199,7 +199,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
     const executor=await import(${JSON.stringify(url("../../src/index.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
-    const schema=(await import(${JSON.stringify(url("../../../ai-adapter/src/index.ts"))})).describeAdviceResultSchema();
+    const schema=(await import(${JSON.stringify(url("../../../ai-adapter/src/provider/advice-result.ts"))})).describeAdviceResultSchema();
     for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[]),'task_edit','task_review',...(provider==='codex'?['task_review_command']:[]),'task_cancel','task_cancel_duplicate']){
       const trialMode=mode==='task_edit'?'edit':mode.startsWith('task_review')?'review':mode.startsWith('task_cancel')?'cancel':'advice';
       const spec=api.describeStandaloneProviderTrial(provider,trialMode);if(trialMode==='advice')assert.ok(spec.prompt.includes(JSON.stringify(schema)));assert.equal(createHash('sha256').update(spec.prompt).digest('hex'),spec.promptSha256);

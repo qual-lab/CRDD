@@ -669,7 +669,25 @@ export function createExecutorTestCandidate(
           status: "blocked",
           reason: "docker_process_controller_effect_unavailable",
         });
-      const plan = dependencies.consumePreparedPlan(prepared, management);
+      const candidate = dependencies.consumePreparedPlan(prepared, management);
+      const resolved = candidate ? resolveProviderExecution(candidate) : null;
+      const plan =
+        candidate && resolved
+          ? candidate.providerPlan?.status === "ready" &&
+            candidate.providerPlan.plan.provider === candidate.provider &&
+            candidate.providerPlan.plan.purpose === resolved.purpose &&
+            candidate.providerPlan.plan.resultContext.taskRole ===
+              resolved.resultContext.taskRole
+            ? candidate
+            : Object.freeze({
+                ...candidate,
+                providerPlan: Object.freeze({
+                  status: "ready" as const,
+                  plan: resolved,
+                  error: null,
+                }),
+              })
+          : null;
       if (!plan)
         return createStartResult({
           status: "blocked",
@@ -782,7 +800,25 @@ export function createExecutorLifecycleTestRuntime(host: ExecutorTestHost) {
       handoff?: unknown,
       restriction?: unknown,
     ) => {
-      const plan = host.consumePreparedPlan(prepared, management);
+      const candidate = host.consumePreparedPlan(prepared, management);
+      const resolved = candidate ? resolveProviderExecution(candidate) : null;
+      const plan =
+        candidate && resolved
+          ? candidate.providerPlan?.status === "ready" &&
+            candidate.providerPlan.plan.provider === candidate.provider &&
+            candidate.providerPlan.plan.purpose === resolved.purpose &&
+            candidate.providerPlan.plan.resultContext.taskRole ===
+              resolved.resultContext.taskRole
+            ? candidate
+            : Object.freeze({
+                ...candidate,
+                providerPlan: Object.freeze({
+                  status: "ready" as const,
+                  plan: resolved,
+                  error: null,
+                }),
+              })
+          : null;
       if (!plan)
         return createStartResult({
           status: "blocked",

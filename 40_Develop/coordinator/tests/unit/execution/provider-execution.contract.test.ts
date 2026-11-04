@@ -553,7 +553,7 @@ test("署名資格なしで実行しHost／Docker cleanup完了後にだけ助�
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
-    adviceJson: current.adviceJson,
+    advice: Object.freeze({ ...JSON.parse(current.adviceJson), reason: null }),
     providerEffectIssued: true,
     cleanupConfirmed: true,
   });
@@ -596,7 +596,7 @@ test("Production要求を実Selection Runtimeへ直接接続できる", async ()
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
-    adviceJson: current.adviceJson,
+    advice: Object.freeze({ ...JSON.parse(current.adviceJson), reason: null }),
     providerEffectIssued: true,
     cleanupConfirmed: true,
   });
@@ -902,7 +902,7 @@ test("Host cleanup不成立後は助言を公開せず回復状態を保持す�
   );
   assert.equal(result.providerEffectIssued, true);
   assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.adviceJson, null);
+  assert.equal(result.advice, null);
 });
 
 /**
@@ -1269,7 +1269,7 @@ test("署名資格を要求しない本番助言Factoryも無効Rootを補完し
   assert.deepEqual(result, {
     status: "blocked",
     reason: "workbench_ai_advice_repository_binding_unavailable",
-    adviceJson: null,
+    advice: null,
     providerEffectIssued: false,
     cleanupConfirmed: true,
   });
@@ -1278,7 +1278,7 @@ test("署名資格を要求しない本番助言Factoryも無効Rootを補完し
   assert.deepEqual(await runtime(plan, controller.signal), {
     status: "blocked",
     reason: "workbench_ai_advice_cancelled_before_runtime_effect",
-    adviceJson: null,
+    advice: null,
     providerEffectIssued: false,
     cleanupConfirmed: true,
   });

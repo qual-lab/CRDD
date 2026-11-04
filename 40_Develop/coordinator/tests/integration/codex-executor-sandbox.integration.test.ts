@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "../../../ai-adapter/src/index.ts";
 import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
@@ -156,7 +156,7 @@ test("Host Windows: Codex Executor SandboxはWorkspaceだけを書込み可能�
     .basename(root)
     .slice(-12)
     .toLowerCase()}`;
-  const plan = planProviderExecution(
+  const plan = planExecution(
     {
       provider: "codex",
       purpose: "task",
@@ -314,7 +314,7 @@ test("Sandbox試験の故障は未検証IDで処置せずRoot清掃又は保持�
     "invalid_stdout",
     "inspect_failed",
   ] as const) {
-    const prepared = planProviderExecution(
+    const prepared = planExecution(
       {
         provider: "codex",
         purpose: "task",
@@ -355,7 +355,7 @@ test("Sandbox試験の故障は未検証IDで処置せずRoot清掃又は保持�
       process: { platform: "win32" },
       describeDockerProviderAssets,
       describeDockerProviderExecutionLocations,
-      planProviderExecution: () =>
+      planExecution: () =>
         fault === "before_create" ? { status: "blocked" } : prepared,
       test: (name: string, _options: unknown, fn: unknown) => {
         if (name.startsWith("Host Windows:")) callback = fn as typeof callback;

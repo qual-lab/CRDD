@@ -15,7 +15,6 @@ import {
 import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
-import { CLAUDE_TASK_MAXIMUM_TURNS } from "../../../ai-adapter/src/index.ts";
 import {
   type CoordinatorStateTaskOperation,
   inspectExecutionSelection,
@@ -1950,7 +1949,7 @@ function projectProviderTurnObservation(value: unknown) {
     (taskRole === "executor"
       ? (requestedMaximumTurns as number) < 8
       : (requestedMaximumTurns as number) < 4) ||
-    (requestedMaximumTurns as number) > CLAUDE_TASK_MAXIMUM_TURNS
+    (requestedMaximumTurns as number) > 16
   )
     return null;
   return Object.freeze({

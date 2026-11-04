@@ -334,7 +334,7 @@ Task／Adviceとも同じstartとcompletionを使い、`CompletionResult`の`nor
 
 Docker Commandの構築はExecutor内部のAdapter仕様取得・用途構成とDIの技術Compilerへ接続する。不要になったDIのAdviceCommand wrapper・bindAdviceCommand・hashAdviceCommandも撤去する。Codex助言用Image Digestと非共有のMount・Tool・Session条件は維持する。専用Command Hashはなくすが、旧検証Scriptの完全Command相関は残る。公開・共有結果型は`attempt/types.ts`から明示し、未使用の結果文字列検査は保持しない。内容のbyte上限と文字列条件はAI Adapterの内容検査Ownerが持つ。barrelや互換転送ファイルは追加しない。
 
-Provider固有のEnvelope抽出はTask／AdviceともAI Adapterの`parseProviderResult()`へ委譲する。Executorは同じAI Adapterの内容検査で編集Path・レビュー所見・助言の許可参照を検査し、その値と実行観測を結合する。共通化のためだけのNormalizer入口や汎用変換Frameworkは追加しない。
+Provider固有のEnvelope抽出・内容検査・非0終了分類は、解決済み`ExecutionPlan`と実行観測をAI Adapterの`parseProviderResult()`へ渡して一回で完了する。許可参照・固定Schema・環境・構成診断は`planExecution()`が送信前に解決し、Executorは個別検査を再構成しない。共通化のためだけのNormalizer入口や汎用変換Frameworkは追加しない。
 
 Executorの製品Sourceと公開RootはDomain Modelを参照しない。選定設定・Catalog世代・選定理由を含む完全選定の検査とHash算出は上位が所有する。下位へ渡す選定はProvider、Model識別子、識別種別、推論強度、用途の五項目だけに限定する。`selectionHash`と選定記録IDは上位の元Ownerが保持・照合する。Coordinatorの準備時に完全選定・Packet相関を検査し、Executorの開始時には技術五項目・Command・Mountを検査する。下位の試行Identityへは技術値だけを含め、完全選定Hashは上位の元Ownerで照合する。このIdentityを保存Schemaの変更や過去記録の移行として扱わない。
 
@@ -349,7 +349,7 @@ Probeも同じAI Adapter解析入口を使用し、ExecutorへCodex／Claudeの�
 
 ### 入力検査と理由分類の所有者
 
-`attempt/operations.ts`の`parseModelSelection`は、exact五項目を動的Propertyなしでコピーし、AI Adapterの既存`resolveAiModelSelection`へ四項目だけを明示投影する。返却値と元五項目の一致を検査し、Catalog Identityを含めない新しい凍結値を返す。Provider・Model・推論強度の独自列挙は持たない。privateな`copyPlainDataRecord`はこの入力コピーの補助であり、保存記録やRegistryではない。
+`attempt/operations.ts`の`parseModelSelection`は、exact五項目を動的Propertyなしでコピーし、AI Adapterの既存`resolveModelSelection`へ四項目だけを明示投影する。返却値と元五項目の一致を検査し、Catalog Identityを含めない新しい凍結値を返す。Provider・Model・推論強度の独自列挙は持たない。privateな`copyPlainDataRecord`はこの入力コピーの補助であり、保存記録やRegistryではない。
 
 助言の許可参照はAI Adapterの`parseAdviceReferences`が内容条件と不変コピーを所有する。Executorは準備時のconfirmed配列を保持するだけで、独自の256件上限を持たない。正本は既存の1024件・512byte・非空・周辺空白なし・重複なしであり、sparse・symbol・accessor・Proxyを拒否する。拒否時は乱数・Home取得・隔離Runtime構築前に停止する。
 
@@ -409,11 +409,11 @@ onCompletedとonDiagnosticは受動通知であり、同期throw・非同期拒�
 #### 形式名と内部公開の境界
 
 - `ADVICE_INPUT_CONTRACT`／`ADVICE_RESULT_CONTRACT`とそれぞれの版番号定数はRoot非公開とし、Executor内の形式タグを廃止する。AdvicePacketは同じ操作・選定・Prompt・Hash・非共有条件を保持するが、contract／contractRevisionを要求しない。Coordinatorが私有PacketのHash形式として保持する識別情報はCoordinatorだけが所有し、Executorの実行条件にしない。
-- 助言結果はstatusと四区分・本文・根拠参照を検査する。AIに形式名・版番号を応答させず、必要な形は既存`describeAdviceResultSchema()`から取得する。余分field・重複Key・曖昧JSON・容量超過・許可参照外・空参照の拒否は維持する。Taskへ形式タグ検査を追加して対称化しない。
+- 助言結果はstatusと四区分・本文・根拠参照を検査する。AIに形式名・版番号を応答させず、必要な形は`planExecution()`が内部固定し、許可参照と同じ計画に結合する。余分field・重複Key・曖昧JSON・容量超過・許可参照外・空参照の拒否は維持する。Taskへ形式タグ検査を追加して対称化しない。
 - 旧タグ付き応答を新Schemaとして互換受理する層は追加しない。新しい実行のPromptとSchemaを同時に切り替え、過去の結果・Evidence・保持物は書換えない。実AIの再送は別承認とする。
 - `ATTEMPT_OBSERVATION_KEYS`、内部Command・内部準備型・`readOwnDataProperty`・完全計画検査はRoot非公開。検査の項目集合はvalidationの私有値とし、利用側へは必要な検査関数と結果型を渡す。
 - `TaskPacket`／`AdvicePacket`はCoordinatorの内部搬送型であり、Executor Root／私有Moduleのどちらにも定義しない。Executorへ渡すのは`AttemptRequest`である。`AdviceResultItem`はAI Adapter所有の内容項目型であり、Executorから再公開しない。内容型はAI Adapterから直接参照し、Executorに別定義を作らない。
-- `normalizeTaskResult`、`normalizeAdviceResult`、`describeAdviceResultSchema`、`consumeTaskRemediation`、`hashAdviceCommand`、`bindAdviceCommand`はExecutor Rootから公開しない。内容Schemaが必要な利用側はAI Adapterを利用する。Docker構成はExecutorがDocker Isolationと結合し、上位へ個々のDocker操作を転送するAPIは作らない。
+- `normalizeTaskResult`、`normalizeAdviceResult`、`describeAdviceResultSchema`、`consumeTaskRemediation`、`hashAdviceCommand`、`bindAdviceCommand`はExecutor Rootから公開しない。内容SchemaはAI Adapterの解決済み計画内だけで使用し、利用側が取得・組立てしない。Docker構成はExecutorがDocker Isolationと結合し、上位へ個々のDocker操作を転送するAPIは作らない。
 - 通常Rootと分離した`./testing`には`createExecutorTestCandidate`、`bindIsolationRuntime`、`describeIsolationContract`等、既存の有限検証用接続を置く。準備失敗Factoryは移管先のCoordinatorだけが所有する。本番Authorityや自由な本番Process注入を許可しない。
 
 製品CLIは追加しない。scriptsは有限検証専用で、ライブラリのRoot APIを置き換えない。
@@ -437,7 +437,7 @@ onCompletedとonDiagnosticは受動通知であり、同期throw・非同期拒�
 
 ## 4. 検証と未実施境界
 
-単段試験の合成指示は、既存`describeAdviceResultSchema()`のJSONとexact許可参照集合を同じPromptへ含める。Codex助言はCLIのSchema引数ではなくPromptで結果契約を伝えるためであり、手書きの別Schemaを正本にしない。表示Prompt・Hash・Packet・実stdinは同じ値へ結合する。技術completedと元終端保存が成立した後に内容検査だけが拒否された場合、既存Normalizerの固定理由を結果reasonへ残す。実行失敗又は元終端保存失敗は内容理由で上書きせず、Envelope欠測は既存の未確認理由へ閉じる。生出力は保存しない。
+単段試験の合成指示は、解決済みPlan／Command内の固定Schemaとexact許可参照集合を使用する。Codex助言はCLIのSchema引数ではなくPromptで結果契約を伝えるためであり、手書きの別Schemaを正本にしない。表示Prompt・Hash・Packet・実stdinは同じ値へ結合する。技術completedと元終端保存が成立した後に内容検査だけが拒否された場合、既存Normalizerの固定理由を結果reasonへ残す。実行失敗又は元終端保存失敗は内容理由で上書きせず、Envelope欠測は既存の未確認理由へ閉じる。生出力は保存しない。
 
 単段試験HostのReceiptは、本番Coordinatorと同じくDocker stdoutを`trim()`してから64桁の小文字16進IDとして検査・保存する。複数ID・途中改行・不正文字は拒否し、正常な行末を作成失敗へ読み替えない。生応答は保存しない。
 

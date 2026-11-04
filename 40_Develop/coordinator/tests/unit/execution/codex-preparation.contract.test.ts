@@ -16,9 +16,8 @@ import test, { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
-  describeAdviceResultSchema,
-  describeProviderAuthentication,
-  planProviderExecution,
+  getAuthenticationDefinition,
+  planExecution,
 } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/network/policy.ts";
@@ -534,7 +533,7 @@ function createFixture(
  */
 test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
   const providerCommand =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "advice",
@@ -544,7 +543,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
           reasoningEffort: "low",
           identifierKind: "exact",
         },
-        resultSchema: describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
@@ -713,7 +712,7 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
   assert.ok(plan);
   const firstCommand = plan.commands[0];
   assert.ok(firstCommand);
-  const authenticationCli = describeProviderAuthentication("codex");
+  const authenticationCli = getAuthenticationDefinition("codex");
   assert.ok(Object.isFrozen(authenticationCli));
   assert.ok(Object.isFrozen(authenticationCli.statusArgv));
   assert.deepEqual(authenticationCli.statusArgv, ["login", "status"]);

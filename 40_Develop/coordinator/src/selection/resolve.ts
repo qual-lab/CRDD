@@ -17,8 +17,8 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import {
-  resolveAiModelSelection,
-  getAiModelCatalog,
+  resolveModelSelection,
+  getModelCatalog,
 } from "../../../ai-adapter/src/index.ts";
 
 import type {
@@ -58,7 +58,7 @@ function inspectChoice(
     new Set(["provider", "model", "effort"]),
   );
   if (!choice) return null;
-  const result = resolveAiModelSelection({
+  const result = resolveModelSelection({
     provider: choice.provider,
     modelIdentifier: choice.model,
     reasoningEffort: choice.effort,
@@ -88,10 +88,7 @@ function inspectChoice(
 export function validateAiSelectionConfig(
   candidate: unknown,
 ): AiSelectionConfigResult {
-  return validateDomainAiSelectionConfig(
-    candidate,
-    getAiModelCatalog().catalog,
-  );
+  return validateDomainAiSelectionConfig(candidate, getModelCatalog().catalog);
 }
 
 /**
@@ -159,7 +156,7 @@ export function resolveExecutionSelection(
       value: null,
       reason: "ai_selection_choice_unsupported",
     });
-  const technical = resolveAiModelSelection({
+  const technical = resolveModelSelection({
     provider: selected.provider,
     modelIdentifier: selected.model,
     reasoningEffort: selected.effort,

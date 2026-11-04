@@ -202,7 +202,8 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
         parseProviderResult: (
           ...args: Parameters<typeof ai.parseProviderResult>
         ) => {
-          parses++;
+          if (!("kind" in args[0]) || args[0].kind !== "authentication")
+            parses++;
           return ai.parseProviderResult(...args);
         },
       },
@@ -647,7 +648,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
         import.meta.url,
       ).href
     );
-    const planned = ai.planProviderExecution(
+    const planned = ai.planExecution(
       {
         provider: "claude",
         purpose: "advice",
@@ -657,7 +658,7 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
           identifierKind: "alias",
           reasoningEffort: "low",
         },
-        resultSchema: ai.describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       di.describeIsolationConfiguration("claude").locations.primary,
     );

@@ -8,6 +8,7 @@
  */
 import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
 import { PURPOSES } from "../../src/attempt/constants.ts";
+import { planExecution } from "../../../ai-adapter/src/index.ts";
 
 /**
  * 共通の拒否反例へ使う有効な基本計画を返す。
@@ -24,6 +25,11 @@ export function attemptPlan(): AttemptPlan {
   const suffix = "0101010101010101";
   return {
     provider: "claude",
+    providerPlan: planExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: { provider: "claude", mode: "read_only_probe" },
+    }),
     operationId: "OP-123456",
     grantRef: "PHMGRANT-123456",
     executionSelection: {

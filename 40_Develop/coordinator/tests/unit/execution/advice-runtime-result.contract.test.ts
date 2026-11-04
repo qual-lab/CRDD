@@ -83,7 +83,7 @@ test("exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JS
     return Object.freeze({
       status: "completed" as const,
       reason: null,
-      adviceJson: ADVICE,
+      advice: Object.freeze({ ...JSON.parse(ADVICE), reason: null }),
       providerEffectIssued: true as const,
       cleanupConfirmed: true as const,
     });
@@ -93,7 +93,7 @@ test("exact計画とPromptを一回だけRuntimeへ渡して抽出済み助言JS
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
-    rawOutput: ADVICE,
+    advice: Object.freeze({ ...JSON.parse(ADVICE), reason: null }),
     providerEffectIssued: true,
     cleanupConfirmed: true,
   });
@@ -143,7 +143,7 @@ test("Runtime拒否とcleanup未確認をcompletedへ昇格しない", async () 
     Object.freeze({
       status: "blocked" as const,
       reason: "runtime_cleanup_unknown",
-      adviceJson: null,
+      advice: null,
       providerEffectIssued: true,
       cleanupConfirmed: false,
     }),
@@ -153,7 +153,7 @@ test("Runtime拒否とcleanup未確認をcompletedへ昇格しない", async () 
   assert.equal(result.reason, "runtime_cleanup_unknown");
   assert.equal(result.providerEffectIssued, true);
   assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.rawOutput, null);
+  assert.equal(result.advice, null);
 });
 
 /**
@@ -177,5 +177,5 @@ test("Runtime例外はEffect発行可能性とcleanup不明を保持する", asy
   assert.equal(result.reason, "workbench_ai_advice_runtime_failed_closed");
   assert.equal(result.providerEffectIssued, true);
   assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.rawOutput, null);
+  assert.equal(result.advice, null);
 });

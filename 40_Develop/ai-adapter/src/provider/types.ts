@@ -17,6 +17,7 @@
  * @security Catalog・外部要求から任意Pathを受付ける契約ではない。
  * @compatibility 配置方式・OS・Containerに依存しない値契約。
  */
+
 export type ProviderExecutionLocations = Readonly<{
   commandPath?: string;
   workingDirectory?: string;

@@ -10,9 +10,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  describeAdviceResultSchema,
-  planProviderExecution,
-  resolveAiModelSelection,
+  planExecution,
+  resolveModelSelection,
 } from "../../../ai-adapter/src/index.ts";
 import {
   describeDockerProviderAssets,
@@ -198,6 +197,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     operationMode: "workbench_advice",
     executionSelection: { ...probe.executionSelection, purpose: "advice" },
     providerInput: "synthetic",
+    adviceAllowedReferences: ["synthetic-reference"],
   };
   const adviceExecution = resolveProviderExecution(adviceBase);
   assert.ok(adviceExecution);
@@ -297,7 +297,7 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
   const base = attemptPlan();
   for (const provider of ["codex", "claude"] as const)
     for (const reasoningEffort of ["low", "medium", "high"] as const) {
-      const chosen = resolveAiModelSelection({
+      const chosen = resolveModelSelection({
         provider,
         modelIdentifier: provider === "codex" ? "gpt-5.6-sol" : "opus",
         reasoningEffort,
@@ -315,7 +315,7 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
       const policy = prepareDockerNetworkPolicy(provider, []);
       assert.equal(policy.status, "ready");
       if (policy.status !== "ready") throw Error("fixture");
-      const expected = planProviderExecution(
+      const expected = planExecution(
         {
           provider,
           purpose: "advice",
@@ -325,7 +325,7 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
             identifierKind: selection.identifierKind,
             reasoningEffort,
           },
-          resultSchema: describeAdviceResultSchema(),
+          allowedReferences: ["synthetic-reference"],
         },
         describeDockerProviderExecutionLocations(
           provider,

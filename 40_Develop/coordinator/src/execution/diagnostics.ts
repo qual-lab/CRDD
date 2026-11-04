@@ -24,8 +24,8 @@ import type { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import {
-  PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
-  describeProviderBillingPolicy,
+  getAuthenticationDefinition,
+  getBillingPolicy,
 } from "../../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import {
@@ -5469,7 +5469,7 @@ const FAKE_STATES = Object.freeze([
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 
-const billingPolicy = describeProviderBillingPolicy();
+const billingPolicy = getBillingPolicy();
 
 const providerLifecycleOBSERVATION_KEYS = new Set([
   "contract",
@@ -5610,7 +5610,7 @@ export function planProviderLifecycle(candidate: unknown) {
   if (!isMember(MODES, value.mode))
     return providerLifecycleBlocked("provider_lifecycle_mode_not_supported");
 
-  const authPolicy = AUTH_POLICIES[value.provider];
+  const authPolicy = getAuthenticationDefinition(value.provider).policy;
   return Object.freeze({
     ...providerLifecycleBlocked(
       value.mode === "login"
@@ -5818,7 +5818,10 @@ export function describeProviderLifecycleContract() {
       "synthetic_candidate_and_repository_owned_docker_fake_observation",
     providers: PROVIDERS,
     modes: MODES,
-    authPolicies: AUTH_POLICIES,
+    authPolicies: Object.freeze({
+      codex: getAuthenticationDefinition("codex").policy,
+      claude: getAuthenticationDefinition("claude").policy,
+    }),
     authenticationPolicyState: "approved_policy_only",
     dedicatedProviderHome: describeProviderHomeContract(),
     providerHomeMountGrant: describeProviderHomeMountGrantContract(),

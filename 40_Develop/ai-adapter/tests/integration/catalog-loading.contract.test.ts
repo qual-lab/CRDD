@@ -37,7 +37,11 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @boundary AI Adapterの内容正規化と利用側の計画境界。
  */
 test("応答内容は全拒否理由と基準版のSchema・Provider計画を維持する", async () => {
-  const api = await import("../../src/index.ts");
+  const api = {
+    ...(await import("../../src/provider/plan.ts")),
+    ...(await import("../../src/provider/task-result.ts")),
+    ...(await import("../../src/provider/advice-result.ts")),
+  };
   const { createHash } = await import("node:crypto");
   const docker = await import("../../../docker-isolation/src/index.ts");
   const edit = {
@@ -236,8 +240,8 @@ test("応答内容は全拒否理由と基準版のSchema・Provider計画を維
       capabilities.provider === "codex"
         ? capabilities.locations.alternate
         : capabilities.locations.primary;
-    const plan = api.planProviderExecution(
-      { ...request, resultSchema: schema },
+    const plan = api.planExecution(
+      { ...request, allowedReferences: ["synthetic-reference"] },
       locations,
     ).plan;
     assert.ok(plan && "toolsAllowed" in plan);
@@ -269,7 +273,7 @@ test("公開RootはDomain Modelを解決できなくても利用できる", () =
   const source = `import { registerHooks } from 'node:module';
     registerHooks({resolve(s,c,next){const r=next(s,c);if(r.url.includes('/domain-model/'))throw Error('domain_forbidden');return r;}});
     const api=await import(${JSON.stringify(entry)});
-    if(api.getAiModelCatalog().catalog.models.length===0)throw Error('catalog_empty');
+    if(api.getModelCatalog().catalog.models.length===0)throw Error('catalog_empty');
     console.log('DOMAIN_FREE');`;
   const result = spawnSync(
     process.execPath,
@@ -309,7 +313,7 @@ test("Domain保存契約はAI Adapterを解決せず同じ拒否理由を保持�
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
-  const adapter = await import("../../src/index.ts");
+  const adapter = await import("../../src/provider/result.ts");
   assert.deepEqual(
     JSON.parse(result.stdout),
     adapter.PROVIDER_ADVICE_OUTPUT_REASONS,
@@ -390,7 +394,7 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
           [
             "--input-type=module",
             "-e",
-            'try { const { getAiModelCatalog } = await import("./catalog.ts"); if (getAiModelCatalog().catalog.models.length > 0) console.log("CATALOG_LOADED"); } catch (error) { process.stderr.write(String(error.code ?? error.name) + ": " + error.message + "\\n"); process.exitCode = 1; }',
+            'try { const { getModelCatalog } = await import("./catalog.ts"); if (getModelCatalog().catalog.models.length > 0) console.log("CATALOG_LOADED"); } catch (error) { process.stderr.write(String(error.code ?? error.name) + ": " + error.message + "\\n"); process.exitCode = 1; }',
           ],
           {
             cwd: fixture,

@@ -4,9 +4,13 @@
  * @responsibility Provider搬送・実行・再試行許可を扱わず、内容の閉形式を検査する。
  * @trace ARCH-000015
  */
+
 import { createHash } from "node:crypto";
+
 import { types as utilTypes } from "node:util";
+
 import { snapshotPlainArray, snapshotPlainRecord } from "./input.ts";
+
 /**
  * 内容検査を通ったレビュー所見を表す。
  * @responsibility 内容の利用側へ本文と検査済み相関を渡す。
@@ -32,13 +36,60 @@ export type TaskReviewFinding = Readonly<{
 
 /**
  * 編集・レビューの検査済み内容。実行観測や次試行の許可を含まない。
- * @responsibility 内容検査の実返却型を単一正本から導出する。
+ * @responsibility 内容の明示契約を所有し、実装の返却値を型検査する。
  * @trace ARCH-000015
  * @invariant 内容成立を実行・清掃・採用の成立へ昇格しない。
  */
-export type TaskResult = NonNullable<
-  ReturnType<typeof inspectTaskResultContent>["normalizedResult"]
->;
+export type TaskResult =
+  | Readonly<{
+      status: "completed";
+      changedPaths: readonly string[];
+      verificationCount: number;
+    }>
+  | Readonly<{
+      decision: "approved" | "changes_requested";
+      findingCount: number;
+      findingDiagnostics: readonly Omit<TaskReviewFinding, "message">[];
+    }>;
+
+/**
+ * provider-task-structured-resultで使用する結果 Mismatch Reasonの値契約を定義する。
+ *
+ * @responsibility 結果 Mismatch ReasonのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000015
+ * @shape ResultMismatchReasonが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant ResultMismatchReasonで宣言した値と責務の対応を維持する。
+ * @boundary N/A: ResultMismatchReasonの宣言は外部境界を開かない。
+ * @security ResultMismatchReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility ResultMismatchReasonの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+type ResultMismatchReason =
+  | "provider_task_result_input_invalid"
+  | "provider_task_executor_shape_invalid"
+  | "provider_task_reviewer_shape_invalid"
+  | "provider_task_reviewer_keys_invalid"
+  | "provider_task_reviewer_decision_invalid"
+  | "provider_task_reviewer_summary_invalid"
+  | "provider_task_reviewer_findings_invalid"
+  | "provider_task_reviewer_finding_invalid"
+  | "provider_task_reviewer_decision_inconsistent";
+
+const MAXIMUM_SUMMARY_BYTES = 8_192;
+
+const MAXIMUM_PATHS = 1_000;
+
+const MAXIMUM_FINDINGS = 64;
+
+const MAXIMUM_FINDING_MESSAGE_BYTES = 4_096;
+
+const SEVERITIES = new Set(["critical", "high", "medium", "low", "info"]);
+
+const FINDING_CATEGORIES = new Set([
+  "acceptance_criterion_not_met",
+  "implementation_defect",
+  "verification_defect",
+  "security_or_authority_defect",
+]);
 
 /**
  * 閉じた内容Objectのキー集合を確認する。
@@ -61,6 +112,7 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
     actual.length === keys.length && keys.every((key) => actual.includes(key))
   );
 }
+
 /**
  * 内容として扱える有限文字列を確認する。
  * @responsibility Task内容の固定条件を検査する。
@@ -85,22 +137,6 @@ function validString(value: unknown, maximumBytes: number): value is string {
     Buffer.byteLength(value, "utf8") <= maximumBytes
   );
 }
-const MAXIMUM_SUMMARY_BYTES = 8_192;
-
-const MAXIMUM_PATHS = 1_000;
-
-const MAXIMUM_FINDINGS = 64;
-
-const MAXIMUM_FINDING_MESSAGE_BYTES = 4_096;
-
-const SEVERITIES = new Set(["critical", "high", "medium", "low", "info"]);
-
-const FINDING_CATEGORIES = new Set([
-  "acceptance_criterion_not_met",
-  "implementation_defect",
-  "verification_defect",
-  "security_or_authority_defect",
-]);
 
 /**
  * 記録かを判定する。
@@ -158,28 +194,6 @@ function validPath(value: unknown) {
       )
   );
 }
-
-/**
- * provider-task-structured-resultで使用する結果 Mismatch Reasonの値契約を定義する。
- *
- * @responsibility 結果 Mismatch ReasonのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape ResultMismatchReasonが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ResultMismatchReasonで宣言した値と責務の対応を維持する。
- * @boundary N/A: ResultMismatchReasonの宣言は外部境界を開かない。
- * @security ResultMismatchReasonはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ResultMismatchReasonの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ResultMismatchReason =
-  | "provider_task_result_input_invalid"
-  | "provider_task_executor_shape_invalid"
-  | "provider_task_reviewer_shape_invalid"
-  | "provider_task_reviewer_keys_invalid"
-  | "provider_task_reviewer_decision_invalid"
-  | "provider_task_reviewer_summary_invalid"
-  | "provider_task_reviewer_findings_invalid"
-  | "provider_task_reviewer_finding_invalid"
-  | "provider_task_reviewer_decision_inconsistent";
 
 /**
  * rejectedを決定する。

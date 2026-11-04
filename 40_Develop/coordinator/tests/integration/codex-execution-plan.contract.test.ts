@@ -14,11 +14,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 import {
-  describeProviderAuthentication,
-  describeProviderExecution,
-  planProviderExecution,
-  projectCodexExecutionBoundary,
+  getAuthenticationDefinition,
+  planExecution,
 } from "../../../ai-adapter/src/index.ts";
+import { describeProviderExecution } from "../../../ai-adapter/src/provider/plan.ts";
+import { projectCodexExecutionBoundary } from "../../../ai-adapter/src/codex/plan.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
@@ -93,7 +93,7 @@ test("Codex境界診断はpayloadの承認優先順と最初のsandbox値を保�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公式Codex artifactとSubscription限定のread-only計画を固定する", () => {
-  const authentication = describeProviderAuthentication("codex");
+  const authentication = getAuthenticationDefinition("codex");
   assert.deepEqual(authentication.loginArgv, ["login", "--device-auth"]);
   assert.deepEqual(authentication.statusArgv, ["login", "status"]);
   assert.equal(authentication.offering, "chatgpt_subscription_oauth");
@@ -102,7 +102,7 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
   assert.ok(Object.isFrozen(authentication.loginArgv));
   assert.ok(Object.isFrozen(authentication.statusArgv));
   const plan =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "probe",
@@ -181,7 +181,7 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
     },
   ]) {
     assert.equal(
-      planProviderExecution(
+      planExecution(
         {
           provider: "codex",
           purpose: "probe",
@@ -238,7 +238,7 @@ test("Codex Structured Output Schemaはboolean型を明示したexact形に固�
  */
 test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定する", () => {
   const executor =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "task",
@@ -258,7 +258,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
       describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const reviewer =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "task",
@@ -551,7 +551,7 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
   );
   assert.equal(dockerfile.includes("dangerously-bypass"), false);
   const executor =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "task",

@@ -8,9 +8,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
-  type AiReasoningEffort,
-  evaluateProviderTaskScope,
-  resolveAiModelSelection,
+  type ReasoningEffort as AiReasoningEffort,
+  resolveModelSelection,
+  planExecution,
 } from "../../../ai-adapter/src/index.ts";
 import {
   containsRecognizedSecretMaterial,
@@ -1392,7 +1392,7 @@ export function prepareProviderAdvicePlan(
 
   const fixed = inspectExecutionSelection(input.executionSelection);
   const technical = fixed
-    ? resolveAiModelSelection({
+    ? resolveModelSelection({
         provider: fixed.provider,
         modelIdentifier: fixed.modelIdentifier,
         reasoningEffort: fixed.reasoningEffort,
@@ -3028,7 +3028,7 @@ type ProviderPreparationLifecycleState<
  */
 type ProviderPreparationOperations<M, T, A, P extends object, B, R> = Readonly<{
   blockedResult: (reason: string) => B;
-  validateTask?: (task: T) => string | null;
+  validateTask?: (task: T, selection: M) => string | null;
   buildPlan: (
     binding: AttemptBinding,
     activation: Readonly<{
@@ -3149,21 +3149,28 @@ export function createAttemptPreparation<P extends "codex" | "claude">(
       provider,
       {
         blockedResult: createPreparationFailure,
-        ...(provider === "claude"
-          ? {
-              validateTask: (packet: {
-                taskRole: "executor" | "reviewer";
-                taskWorkload?: unknown;
-              }) => {
-                const budget = evaluateProviderTaskScope(
-                  "claude",
-                  packet.taskRole,
-                  packet.taskWorkload,
-                );
-                return budget.status === "candidate" ? null : budget.reason;
-              },
-            }
-          : {}),
+        validateTask: (task, selection) => {
+          const planned = planExecution({
+            provider,
+            purpose: "task",
+            modelSelection: {
+              provider,
+              modelIdentifier: selection.executionSelection.modelIdentifier,
+              identifierKind: selection.executionSelection.identifierKind,
+              reasoningEffort: selection.executionSelection.reasoningEffort,
+            },
+            input: {
+              provider,
+              mode: "isolated_task",
+              taskRole: task.taskRole,
+              effort: selection.executionSelection.reasoningEffort,
+              ...(provider === "claude" && "taskWorkload" in task
+                ? { taskWorkload: task.taskWorkload }
+                : {}),
+            },
+          });
+          return planned.status === "blocked" ? planned.error.reason : null;
+        },
         buildPlan: (...args) => {
           const [
             binding,
@@ -3854,7 +3861,10 @@ function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
       );
     }
     if (taskPacket && operations.validateTask) {
-      const taskFailure = operations.validateTask(taskPacket);
+      const taskFailure = operations.validateTask(
+        taskPacket,
+        consumedModelSelection,
+      );
       if (taskFailure !== null) {
         state.completeMount(activeMountCapability, managementCapability);
         return operations.blockedResult(taskFailure);

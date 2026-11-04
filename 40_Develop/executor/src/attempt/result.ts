@@ -7,10 +7,9 @@
  */
 import { createHash } from "node:crypto";
 import {
-  convertProviderError,
-  type ProviderResultParseResult,
+  type ExecutionResult as ProviderResultParseResult,
+  type ExecutionPlan,
   parseProviderResult,
-  projectCodexExecutionBoundary,
 } from "../../../ai-adapter/src/index.ts";
 import type { IsolationCommandResult } from "../../../docker-isolation/src/index.ts";
 import { SETUP_COMMAND_FAILURE_REASONS } from "./constants.ts";
@@ -37,33 +36,15 @@ export function parseAttemptOutput(
   execution: NonNullable<IsolationCommandResult["observation"]>,
   stdoutBytes: number,
 ): Readonly<{
-  result: ProviderResultParseResult;
+  result: ProviderResultParseResult<"task" | "advice" | "probe">;
   resultSha256: string | null;
   resultBytes: number;
 }> {
-  const result = parseProviderResult(
-    plan.operationMode === "isolated_task"
-      ? {
-          provider: plan.provider,
-          purpose: "task",
-          taskRole: plan.taskRole,
-          selectedEffort: plan.executionSelection.reasoningEffort,
-          raw: execution.stdout,
-          taskWorkload: plan.taskWorkload,
-        }
-      : plan.operationMode === "workbench_advice"
-        ? {
-            provider: plan.provider,
-            purpose: "advice",
-            raw: execution.stdout,
-            allowedReferences: plan.adviceAllowedReferences ?? [],
-          }
-        : {
-            provider: plan.provider,
-            purpose: "probe",
-            raw: execution.stdout,
-          },
-  );
+  const result = parseProviderResult(plan.providerPlan, {
+    stdout: execution.stdout,
+    stderr: execution.stderr,
+    exitCode: execution.status,
+  });
   return Object.freeze({
     result,
     resultSha256:
@@ -269,6 +250,7 @@ export function convertCommandResult(
   purpose: string,
   provider: "codex" | "claude",
   classified: IsolationCommandResult["classification"],
+  providerPlan?: ExecutionPlan,
 ) {
   const isProvider = purpose === "start_provider_attached";
   if (classified.category === "deadline_exceeded")
@@ -291,7 +273,22 @@ export function convertCommandResult(
     return Object.freeze({
       ok: false,
       reason: isProvider
-        ? convertProviderError(provider, execution).reason
+        ? (() => {
+            if (
+              !providerPlan ||
+              (providerPlan.status === "ready" &&
+                providerPlan.plan.provider !== provider)
+            )
+              return "provider_process_exit_nonzero" as const;
+            const parsed = parseProviderResult(providerPlan, {
+              stdout: execution.stdout,
+              stderr: execution.stderr,
+              exitCode: execution.status,
+            });
+            return parsed.status === "blocked"
+              ? parsed.reason
+              : ("provider_process_exit_nonzero" as const);
+          })()
         : Object.hasOwn(SETUP_COMMAND_FAILURE_REASONS, purpose)
           ? SETUP_COMMAND_FAILURE_REASONS[
               purpose as keyof typeof SETUP_COMMAND_FAILURE_REASONS
@@ -328,8 +325,8 @@ export function createConfigurationNotice(
   );
   const provider = resource?.kind === "container" ? resource : null;
   const codex =
-    plan.provider === "codex"
-      ? projectCodexExecutionBoundary(provider?.argv ?? [])
+    plan.providerPlan.status === "ready"
+      ? plan.providerPlan.plan.boundary
       : null;
   return Object.freeze({
     event: "coordinator_provider_boundary_configured" as const,

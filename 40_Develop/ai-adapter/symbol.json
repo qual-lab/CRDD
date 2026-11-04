@@ -17,7 +17,7 @@
       "path": "src/provider/advice-result.ts",
       "archIds": ["ARCH-000015"]
     },
-    { "symbolId": "domain-model.test.unit.task-result", "kind": "test-suite", "path": "tests/unit/provider/task-result.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-UT-023"], "verifies": ["domain-model.attempt.task-result"] },
+    { "symbolId": "domain-model.test.unit.task-result", "kind": "test-suite", "path": "tests/unit/provider/task-result.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-UT-023", "ERB-UT-016", "ERB-UT-032"], "verifies": ["domain-model.attempt.task-result"] },
     { "symbolId": "domain-model.test.unit.advice-result", "kind": "test-suite", "path": "tests/unit/provider/advice-result.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-UT-023"], "verifies": ["domain-model.attempt.advice"] },
     {
       "symbolId": "ai-adapter.provider.input",
@@ -92,14 +92,6 @@
       "path": "src/provider/result.ts",
       "archIds": [
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "ai-adapter.profile.eligibility",
-      "kind": "file",
-      "path": "src/provider/validation.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {

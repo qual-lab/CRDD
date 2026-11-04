@@ -9,15 +9,12 @@ import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 import {
-  type AiModelSelection,
-  describeAdviceResultSchema,
-  describeProviderAuthentication,
-  evaluateProviderAuthentication,
-  parseAdviceReferences,
-  planProviderExecution,
-  prepareProviderEnvironment,
-  resolveAiModelSelection,
-  type TaskReviewFinding,
+  type ModelSelection as AiModelSelection,
+  getAuthenticationDefinition,
+  parseProviderResult,
+  planExecution,
+  resolveModelSelection,
+  type ExecutionResult,
 } from "../../../ai-adapter/src/index.ts";
 import {
   describeIsolationConfiguration,
@@ -68,6 +65,10 @@ import type {
   PrimaryFailureDiagnostic,
   RuntimeState,
 } from "./types.ts";
+
+type TaskReviewFinding = NonNullable<
+  ExecutionResult<"task">["reviewFindings"]
+>[number];
 
 const BLOCKED_COMPLETION_REASONS = new Set<string>(ATTEMPT_COMPLETION_REASONS);
 
@@ -345,22 +346,29 @@ async function executeAttempt(
         (classification.category === "completed" ||
           classification.category === "nonzero_exit")
       )
-        authenticationStatus = evaluateProviderAuthentication(
-          plan.provider,
-          plan.subscriptionOffering,
-          execution.stdout,
-          execution.stderr,
+        authenticationStatus = parseProviderResult(
+          getAuthenticationDefinition(plan.provider),
+          {
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+            exitCode: execution.status,
+          },
         ).status;
       const classified = convertCommandResult(
         execution,
         purpose,
         plan.provider,
         classification,
+        plan.providerPlan,
       );
       lastStdoutBytes =
         "stdoutBytes" in classification ? classification.stdoutBytes : 0;
       if (!classified.ok) {
-        reject(classified.reason);
+        reject(
+          (BLOCKED_COMPLETION_REASONS.has(classified.reason)
+            ? classified.reason
+            : "provider_process_exit_nonzero") as AttemptResultReason,
+        );
         throw new Error(classified.reason);
       }
     },
@@ -992,13 +1000,6 @@ export function prepareAttempt(
     return null;
   const policyInput = task?.additionalHosts ?? advice?.additionalHosts ?? null;
   const additionalHosts = policyInput;
-  const referencesResult = advice
-    ? parseAdviceReferences(advice.allowedReferences)
-    : null;
-  const adviceAllowedReferences =
-    referencesResult?.status === "confirmed"
-      ? referencesResult.references
-      : null;
   const operationMode = task
     ? ("isolated_task" as const)
     : advice
@@ -1009,9 +1010,16 @@ export function prepareAttempt(
     operationMode,
     executionSelection: selection,
     taskRole: task?.taskRole ?? null,
+    adviceAllowedReferences: advice?.allowedReferences,
     ...(provider === "claude" ? { taskWorkload: task?.taskWorkload } : {}),
   });
   if (!execution) return null;
+  const providerPlan = Object.freeze({
+    status: "ready" as const,
+    plan: execution,
+    error: null,
+  });
+  const adviceAllowedReferences = execution.allowedReferences;
   const claude = execution.provider === "claude" ? execution : null;
   const capabilities = describeIsolationConfiguration(provider);
   const assets = capabilities.assets;
@@ -1056,6 +1064,7 @@ export function prepareAttempt(
       : assets.fixedImageDigest;
   const proxyImageDigest = egress.imageDigest;
   const plan = {
+    providerPlan,
     provider,
     operationId: target.operationId,
     grantRef: target.grantRef,
@@ -1075,7 +1084,7 @@ export function prepareAttempt(
     providerImageDigest,
     proxyImageDigest,
     additionalHosts,
-    subscriptionOffering: describeProviderAuthentication(provider).offering,
+    subscriptionOffering: getAuthenticationDefinition(provider).offering,
     operationMode: task
       ? ("isolated_task" as const)
       : advice
@@ -1111,18 +1120,19 @@ export function prepareAttempt(
     ...plan,
     additionalHosts: isolationRequest.proxy?.additionalHosts ?? null,
     isolationRequest,
+    providerPlan,
   };
   if (!isAttemptPlanValid(completedPlan)) return null;
   return provider === "codex"
     ? Object.freeze({
         ...completedPlan,
         provider: "codex" as const,
-        subscriptionOffering: describeProviderAuthentication("codex").offering,
+        subscriptionOffering: getAuthenticationDefinition("codex").offering,
       })
     : Object.freeze({
         ...completedPlan,
         provider: "claude" as const,
-        subscriptionOffering: describeProviderAuthentication("claude").offering,
+        subscriptionOffering: getAuthenticationDefinition("claude").offering,
         taskWorkload:
           claude && "taskWorkload" in claude ? claude.taskWorkload : null,
       });
@@ -1757,7 +1767,8 @@ export function resolveProviderExecution(
     | "operationMode"
     | "taskRole"
     | "taskWorkload"
-  >,
+  > &
+    Readonly<{ adviceAllowedReferences?: unknown }>,
 ) {
   const purpose =
     plan.operationMode === "isolated_task"
@@ -1765,7 +1776,7 @@ export function resolveProviderExecution(
       : plan.operationMode === "workbench_advice"
         ? "advice"
         : "probe";
-  const selected = resolveAiModelSelection({
+  const selected = resolveModelSelection({
     provider: plan.provider,
     modelIdentifier: plan.executionSelection.modelIdentifier,
     reasoningEffort: plan.executionSelection.reasoningEffort,
@@ -1788,17 +1799,17 @@ export function resolveProviderExecution(
       : null;
   const result =
     purpose === "advice" && modelSelection
-      ? planProviderExecution(
+      ? planExecution(
           {
             provider: plan.provider,
             purpose: "advice",
             modelSelection,
-            resultSchema: describeAdviceResultSchema(),
+            allowedReferences: plan.adviceAllowedReferences,
           },
           locations,
         )
       : purpose === "task" && modelSelection
-        ? planProviderExecution(
+        ? planExecution(
             {
               provider: plan.provider,
               purpose: "task",
@@ -1815,7 +1826,7 @@ export function resolveProviderExecution(
             },
             locations,
           )
-        : planProviderExecution(
+        : planExecution(
             {
               provider: plan.provider,
               purpose: "probe",
@@ -1861,18 +1872,13 @@ export function resolveIsolationCommandInput(
     )
   )
     return null;
-  const environment = prepareProviderEnvironment(
-    plan.provider,
-    execution.environment,
-  );
-  if (environment.status !== "ready") return null;
   const purpose =
     plan.operationMode === "isolated_task"
       ? "task"
       : plan.operationMode === "workbench_advice"
         ? "advice"
         : "probe";
-  const authentication = describeProviderAuthentication(plan.provider);
+  const authentication = getAuthenticationDefinition(plan.provider);
   const { assets, proxy } = describeIsolationConfiguration(plan.provider);
   const expectedImage =
     purpose === "advice" && plan.provider === "codex"
@@ -1944,7 +1950,7 @@ export function resolveIsolationCommandInput(
     },
     execution: {
       argv: execution.argv,
-      environment: Object.fromEntries(environment.entries),
+      environment: execution.environment,
       interactive: purpose !== "probe",
       initRequired:
         plan.provider === "codex" && plan.operationMode === "workbench_advice",
@@ -2086,7 +2092,7 @@ export function parseModelSelection(value: unknown): AiModelSelection | null {
     "purpose",
   ]);
   if (!v) return null;
-  const resolved = resolveAiModelSelection({
+  const resolved = resolveModelSelection({
     provider: v.provider,
     modelIdentifier: v.modelIdentifier,
     reasoningEffort: v.reasoningEffort,
@@ -2173,7 +2179,7 @@ export function isAttemptPlanValid(plan: AttemptPlan): boolean {
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     parseModelSelection(plan.executionSelection)?.provider === plan.provider &&
     plan.subscriptionOffering ===
-      describeProviderAuthentication(plan.provider).offering &&
+      getAuthenticationDefinition(plan.provider).offering &&
     plan.activeMountCapability !== null &&
     typeof plan.activeMountCapability === "object" &&
     (plan.operationMode === "boolean_probe" || isTaskPlan || isAdvicePlan) &&

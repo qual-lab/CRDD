@@ -12,10 +12,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
-  describeProviderAuthentication,
-  prepareProviderEnvironment,
-  resolveAiModelSelection,
+  getAuthenticationDefinition,
+  resolveModelSelection,
 } from "../../../ai-adapter/src/index.ts";
+import { prepareProviderEnvironment } from "../../../ai-adapter/src/provider/validation.ts";
 import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import {
   dockerIsolationCommandsMatch,
@@ -71,7 +71,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
     assert.ok(original);
     for (const purpose of ["probe", "advice", "task"] as const) {
       const catalog = describeIsolationConfiguration(provider);
-      const chosen = resolveAiModelSelection({
+      const chosen = resolveModelSelection({
         provider,
         modelIdentifier:
           provider === "codex" && purpose === "advice"
@@ -104,6 +104,8 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
           remediationFindingCount: 0,
         },
         providerInput: purpose === "probe" ? null : "synthetic",
+        adviceAllowedReferences:
+          purpose === "advice" ? ["synthetic-reference"] : null,
         workspaceSourcePath: purpose === "task" ? "C:/synthetic/work" : null,
         workspaceMountMode: purpose === "task" ? "read_only" : null,
       };
@@ -161,7 +163,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
           `${sourceDeclaration(source, "resolveIsolationCommandInput")}\nresolveIsolationCommandInput`,
           {
             prepareProviderEnvironment,
-            describeProviderAuthentication,
+            getAuthenticationDefinition,
             describeIsolationConfiguration: (p: "codex" | "claude") => {
               const value = describeIsolationConfiguration(p);
               return {

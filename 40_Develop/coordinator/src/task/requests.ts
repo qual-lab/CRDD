@@ -7,7 +7,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
 import {
   type ExecutionSelection,
@@ -1284,7 +1284,7 @@ export function openTaskSession(context: TaskSessionContext) {
     resolveSelection: (command) => {
       const read = readRepositoryAiSelection(
         rootCapability,
-        getAiModelCatalog().catalog,
+        getModelCatalog().catalog,
       );
       if (read.status !== "available") return null;
       const request = {

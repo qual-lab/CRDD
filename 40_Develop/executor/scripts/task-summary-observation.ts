@@ -7,12 +7,15 @@
  */
 import { mock } from "node:test";
 import * as original from "../../ai-adapter/src/index.ts";
+import {
+  parseExecutionContent,
+  type ProviderResultInput,
+  type ProviderResultParseResult,
+} from "../../ai-adapter/src/provider/result.ts";
 import { extractProviderResult as parseProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
 import { containsRecognizedSecretMaterial } from "../../domain-model/src/index.ts";
 
-type Parser = (
-  input: original.ProviderResultInput,
-) => original.ProviderResultParseResult;
+type Parser = (input: ProviderResultInput) => ProviderResultParseResult;
 type Dependencies = Readonly<{
   normalize: Parser;
   parse: typeof parseProviderResult;
@@ -69,10 +72,13 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
   let invalid = false;
   let finished = false;
   const calls: string[] = [];
-  const wrapped: Parser = (input) => {
-    let result: original.ProviderResultParseResult;
+  const wrapped = (
+    input: ProviderResultInput,
+    resolved?: ProviderResultParseResult,
+  ): ProviderResultParseResult => {
+    let result: ProviderResultParseResult;
     try {
-      result = dependencies.normalize(input);
+      result = resolved ?? dependencies.normalize(input);
     } catch (error) {
       invalid = true;
       candidate = null;
@@ -256,7 +262,7 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
  */
 export function installTaskSummaryObservation() {
   const observation = createTaskSummaryObservation({
-    normalize: original.parseProviderResult,
+    normalize: parseExecutionContent,
     parse: parseProviderResult,
     secret: containsRecognizedSecretMaterial,
   });
@@ -265,7 +271,25 @@ export function installTaskSummaryObservation() {
     {
       namedExports: {
         ...original,
-        parseProviderResult: observation.wrapped,
+        parseProviderResult: (
+          plan: original.ExecutionPlan,
+          output: Readonly<{
+            stdout: string;
+            stderr: string;
+            exitCode: number | null;
+          }>,
+        ) => {
+          const resolved = original.parseProviderResult(plan, output);
+          if (plan.status === "ready")
+            observation.wrapped(
+              {
+                ...plan.plan.resultContext,
+                raw: output.stdout,
+              } as ProviderResultInput,
+              resolved,
+            );
+          return resolved;
+        },
       },
     },
   );

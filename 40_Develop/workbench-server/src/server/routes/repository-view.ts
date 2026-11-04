@@ -7,7 +7,7 @@
  * @effect 既存AI／活動・Record・資格観測と、元のGET条件での通知消費を行う。
  * @security 既存の認可・取消・情報境界を維持し、新しい保存状態や自動再送を追加しない。
  */
-import { getAiModelCatalog } from "../../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import type { ServerResponse } from "node:http";
 import { readRepositoryAiSelection } from "../../../../domain-model/src/index.ts";
 import { readWorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
@@ -251,7 +251,7 @@ export async function handleRepositoryView({
       meetingQuery,
       presentation.topicMeetingResult,
       presentation.aiSelection,
-      readRepositoryAiSelection(capability, getAiModelCatalog().catalog)
+      readRepositoryAiSelection(capability, getModelCatalog().catalog)
         .snapshot ?? undefined,
       true,
       presentation.aiSelectionManagementResult,

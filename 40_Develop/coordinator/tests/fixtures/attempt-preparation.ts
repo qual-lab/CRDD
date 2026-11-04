@@ -7,7 +7,7 @@
  * @boundary tests専用。製品の保存・実行契約ではない。
  */
 
-import type { AiProvider } from "../../../ai-adapter/src/index.ts";
+import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
 import type { TestAttemptPlan as AttemptPlan } from "../../../executor/scripts/executor-test.ts";
 import { prepareAttempt } from "../../../executor/scripts/executor-test.ts";
 import { createExecutor, type Executor } from "../../../executor/src/index.ts";

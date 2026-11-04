@@ -4,10 +4,12 @@
  * @responsibility 共通JSON解析を利用し、Claude固有Envelopeの成立条件と結果分類を所有する。
  * @trace ARCH-000015
  */
+
 import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
 export const CLAUDE_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/claude-structured-result";
+
 export const CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION = 2;
 
 const MAXIMUM_API_EQUIVALENT_COST_USD = 0.1;

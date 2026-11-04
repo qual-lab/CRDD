@@ -13,6 +13,7 @@
 import { executionSelection, attemptSelection } from "./ai-selection.ts";
 
 import assert from "node:assert/strict";
+import { planExecution } from "../../../ai-adapter/src/index.ts";
 import {
   createExecutorTestCandidate,
   projectAttemptStartResult,
@@ -50,6 +51,11 @@ export function createTaskControllerCancellationFixture(
     "start_provider_attached",
   ] as const;
   const plan = Object.freeze({
+    providerPlan: planExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: { provider: "claude", mode: "read_only_probe" },
+    }),
     isolationRequest: attemptPlan().isolationRequest,
     additionalHosts: null,
     provider: "claude" as const,

@@ -18,7 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   initializeCoordinatorSnapshot,
@@ -144,7 +144,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       verified.capability,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     ).status,
     "saved",
   );

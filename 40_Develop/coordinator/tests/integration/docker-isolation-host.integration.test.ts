@@ -21,8 +21,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
-  describeProviderAuthentication,
-  planProviderExecution,
+  getAuthenticationDefinition,
+  planExecution,
 } from "../../../ai-adapter/src/index.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
@@ -80,7 +80,7 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
     assert.equal(fs.realpathSync.native(directory), directory);
   }
   const plan =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "task",
@@ -737,9 +737,9 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
     proxyPort: 8080,
     proxyProfile: "claude",
     authenticationCli: {
-      loginArgv: describeProviderAuthentication("claude").loginArgv,
-      statusArgv: describeProviderAuthentication("claude").statusArgv,
-      environment: describeProviderAuthentication("claude").environment,
+      loginArgv: getAuthenticationDefinition("claude").loginArgv,
+      statusArgv: getAuthenticationDefinition("claude").statusArgv,
+      environment: getAuthenticationDefinition("claude").environment,
     },
   };
   const plan = planDockerAuthenticationCommands(input);

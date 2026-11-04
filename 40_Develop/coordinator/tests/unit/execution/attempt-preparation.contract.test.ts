@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseAdviceReferences } from "../../../../ai-adapter/src/index.ts";
+import { parseAdviceReferences } from "../../../../ai-adapter/src/provider/advice-result.ts";
 import { parseModelSelection } from "../../../../executor/src/attempt/operations.ts";
 import type { DockerIsolationRuntimeOptions } from "../../../../executor/src/attempt/types.ts";
 import { attemptPlan } from "../../../../executor/tests/fixtures/attempt-plan.ts";
@@ -56,9 +56,10 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     commands: _commands,
     providerInput: _input,
     isolationRequest: _request,
+    providerPlan: _providerPlan,
     ...record
   } = attemptPlan();
-  void [_commands, _input, _request];
+  void [_commands, _input, _request, _providerPlan];
   const codex: PreparedAttemptPlan<"codex"> = {
     ...record,
     authorityUseCapability: {},

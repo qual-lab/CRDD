@@ -7,6 +7,7 @@
  * @effect N/A: 入力文字列だけを分類する。
  * @security 生出力を公開結果や例外へ複製しない。
  */
+
 import type { AiProvider } from "../provider/types.ts";
 
 import { parseUnambiguousJsonDocument } from "../provider/json.ts";
@@ -23,7 +24,7 @@ import { parseUnambiguousJsonDocument } from "../provider/json.ts";
  */
 export type ProviderAuthenticationResult = Readonly<
   {
-    provider: AiProvider;
+    provider: AiProvider | null;
   } & (
     | { status: "confirmed"; reason: "subscription_auth_confirmed" }
     | { status: "unconfirmed"; reason: "subscription_auth_not_logged_in" }

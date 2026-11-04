@@ -4,14 +4,182 @@
  * @responsibility Codex固有の引数・配布要件・制約と非秘密の構成分類を生成し、実起動・認可・回収を所有しない。
  * @trace ARCH-000010
  */
+
+import {
+  type ProviderBillingPolicy,
+  getBillingPolicy,
+} from "../billing/policy.ts";
+
 import { snapshotPlainArray, snapshotPlainRecord } from "../provider/input.ts";
-import { describeProviderBillingPolicy } from "../billing/policy.ts";
-import { resolveAiModelSelection } from "../catalog/resolve.ts";
+
+import { resolveModelSelection } from "../catalog/resolve.ts";
+
 import type {
   ProviderModelSelection,
   ProviderAdvicePlan,
 } from "../provider/plan.ts";
+
 import type { ProviderExecutionLocations } from "../provider/types.ts";
+
+type ProviderPlanRejection<R extends string> = Readonly<{
+  status: "blocked";
+  reason: R;
+  spawnAllowed: false;
+  providerEffectAllowed: false;
+  apiKeyAllowed: false;
+  paidApiFallbackAllowed: false;
+}>;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type CodexProbePlanResult =
+  | ProviderPlanRejection<
+      | "codex_execution_plan_effort_invalid"
+      | "codex_execution_plan_mode_not_supported"
+      | "codex_execution_plan_provider_mismatch"
+      | "codex_execution_plan_shape_invalid"
+    >
+  | Readonly<{
+      status: "candidate";
+      reason: "runtime_owned_authority_and_distribution_required";
+      spawnAllowed: false;
+      providerEffectAllowed: false;
+      provider: "codex";
+      mode: "read_only_probe";
+      command: string;
+      exactModel: "gpt-5.6-sol";
+      effort: "high" | "low" | "medium";
+      speedMode: "normal";
+      argv: readonly string[];
+      environment: Readonly<{
+        CODEX_HOME?: string;
+        CODEX_DISABLE_AUTO_UPDATE: "1";
+      }>;
+      sessionPersistenceAllowed: false;
+      projectRulesLoaded: false;
+      userConfigLoaded: false;
+      networkAccessForModelRequestOnly: true;
+      loginPolicy: "existing_chatgpt_subscription_oauth";
+      billingPolicy: ProviderBillingPolicy;
+      apiKeyAllowed: false;
+      paidApiFallbackAllowed: false;
+      additionalCreditPurchaseAllowed: false;
+      automaticPlanSwitchAllowed: false;
+    }>;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type CodexTaskPlanResult =
+  | ProviderPlanRejection<
+      | "codex_task_execution_plan_effort_invalid"
+      | "codex_task_execution_plan_mode_not_supported"
+      | "codex_task_execution_plan_provider_mismatch"
+      | "codex_task_execution_plan_role_invalid"
+      | "codex_task_execution_plan_selection_invalid"
+      | "codex_task_execution_plan_shape_invalid"
+    >
+  | Readonly<{
+      status: "candidate";
+      reason: "runtime_owned_task_packet_and_authority_required";
+      spawnAllowed: false;
+      providerEffectAllowed: false;
+      provider: "codex";
+      mode: "isolated_task";
+      taskRole: "executor" | "reviewer";
+      command: string;
+      exactModel: string;
+      effort: "high" | "low" | "medium";
+      speedMode: "normal";
+      argv: readonly string[];
+      environment: Readonly<{
+        CODEX_HOME?: string;
+        CODEX_DISABLE_AUTO_UPDATE: "1";
+      }>;
+      explicitSandboxOption: "approve_for_me_executor_reviewer_read_only";
+      approvalMode: "automatic_review_workspace_write" | "never_read_only";
+      taskPromptTransport: "stdin_only";
+      structuredEventTransport: "fixed_cli_jsonl_v0_164_0";
+      taskPromptInArgvAllowed: false;
+      reviewerFilesystemOrShellToolAllowed: false;
+      reviewerInput: "runtime_owned_immutable_candidate_content_projection_only";
+      commandNetworkAccessAllowed: false;
+      webSearchAllowed: false;
+      mcpAllowed: false;
+      pluginAllowed: false;
+      subagentAllowed: false;
+      memoryAllowed: false;
+      projectInstructionsLoaded: false;
+      userConfigLoaded: false;
+      providerHomeCommandReadAllowed: false;
+      sessionPersistenceAllowed: false;
+      loginPolicy: "existing_chatgpt_subscription_oauth";
+      billingPolicy: ProviderBillingPolicy;
+      apiKeyAllowed: false;
+      paidApiFallbackAllowed: false;
+      additionalCreditPurchaseAllowed: false;
+      automaticPlanSwitchAllowed: false;
+    }>;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type CodexExecutionDefinition = Readonly<{
+  contract: "crdd-coordinator/codex-execution-plan";
+  contractRevision: 17;
+  provider: "codex";
+  authentication: "existing_chatgpt_subscription_oauth_only";
+  apiKeyAllowed: false;
+  paidApiFallbackAllowed: false;
+  readOnlyProbeExactModel: "gpt-5.6-sol";
+  isolatedTaskExactModels: readonly ["gpt-5.5", "gpt-6.1-sol"];
+  efforts: readonly string[];
+  speedMode: "normal_only";
+  outboundProxyPolicy: "official_cli_respect_system_proxy_required";
+  isolatedTask: Readonly<{
+    roles: readonly string[];
+    structuredEventTransport: "fixed_cli_jsonl_v0_164_0";
+    permissionProfile: "root_deny_minimal_read_workspace_role_access";
+    providerHomeCommandReadAllowed: false;
+    commandNetworkAccessAllowed: false;
+    webSearchAllowed: false;
+    taskPromptTransport: "stdin_only";
+    promptInArgvAllowed: false;
+  }>;
+  directProviderSpawnAllowed: false;
+  providerEffectAllowed: false;
+}>;
+
+export const CODEX_EXECUTION_PLAN_CONTRACT =
+  "crdd-coordinator/codex-execution-plan";
+
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 17;
+
+export const CODEX_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
+  "OPENAI_API_KEY",
+  "CODEX_API_KEY",
+  "OPENAI_BASE_URL",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT_ID",
+  "HTTPS_PROXY",
+  "HTTP_PROXY",
+  "ALL_PROXY",
+  "NO_PROXY",
+]);
+
+const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
+
+const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
+
+const EFFORTS = new Set(["low", "medium", "high"]);
+
+const FIXED_PROMPT =
+  "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
+
+const FIXED_SCHEMA_PATH = "codex-result-schema.json";
+
+const EXECUTOR_SCHEMA_PATH = "codex-executor-result-schema.json";
+
+const REVIEWER_SCHEMA_PATH = "codex-reviewer-result-schema.json";
+
+const TASK_MODELS = Object.freeze(["gpt-5.5", "gpt-6.1-sol"] as const);
+
+const billingPolicy = getBillingPolicy();
 
 /**
  * Codexの起動引数から非秘密の構成分類だけを投影する。
@@ -50,33 +218,6 @@ export function projectCodexExecutionBoundary(candidate: unknown) {
         : ("other" as const);
   return Object.freeze({ approvalModeConfigured, sandboxModeConfigured });
 }
-
-export const CODEX_EXECUTION_PLAN_CONTRACT =
-  "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 17;
-
-export const CODEX_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
-  "OPENAI_API_KEY",
-  "CODEX_API_KEY",
-  "OPENAI_BASE_URL",
-  "OPENAI_ORG_ID",
-  "OPENAI_PROJECT_ID",
-  "HTTPS_PROXY",
-  "HTTP_PROXY",
-  "ALL_PROXY",
-  "NO_PROXY",
-]);
-
-const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
-const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
-const EFFORTS = new Set(["low", "medium", "high"]);
-const FIXED_PROMPT =
-  "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
-const FIXED_SCHEMA_PATH = "codex-result-schema.json";
-const EXECUTOR_SCHEMA_PATH = "codex-executor-result-schema.json";
-const REVIEWER_SCHEMA_PATH = "codex-reviewer-result-schema.json";
-const TASK_MODELS = Object.freeze(["gpt-5.5", "gpt-6.1-sol"] as const);
-const billingPolicy = describeProviderBillingPolicy();
 
 /**
  * Codex計画の拒否値を生成する。
@@ -124,7 +265,7 @@ function blocked<R extends string>(reason: R) {
 export function planCodexReadOnlyProbe(
   candidate: unknown,
   locations: ProviderExecutionLocations = {},
-) {
+): CodexProbePlanResult {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("codex_execution_plan_shape_invalid");
   if (value.provider !== "codex")
@@ -206,7 +347,7 @@ export function planCodexIsolatedTask(
   candidate: unknown,
   selection: ProviderModelSelection,
   locations: ProviderExecutionLocations = {},
-) {
+): CodexTaskPlanResult {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
   if (!value) return blocked("codex_task_execution_plan_shape_invalid");
   if (value.provider !== "codex")
@@ -227,7 +368,7 @@ export function planCodexIsolatedTask(
       "reasoningEffort",
     ]),
   );
-  const resolved = resolveAiModelSelection({
+  const resolved = resolveModelSelection({
     provider: selected?.provider,
     modelIdentifier: selected?.modelIdentifier,
     reasoningEffort: selected?.reasoningEffort,
@@ -374,7 +515,7 @@ export function planCodexIsolatedTask(
  * @security describeCodexExecutionPlanContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: describeCodexExecutionPlanContractは共有非同期状態を持たない同期処理である。
  */
-export function describeCodexExecutionPlanContract() {
+export function describeCodexExecutionPlanContract(): CodexExecutionDefinition {
   return Object.freeze({
     contract: CODEX_EXECUTION_PLAN_CONTRACT,
     contractRevision: CODEX_EXECUTION_PLAN_CONTRACT_REVISION,

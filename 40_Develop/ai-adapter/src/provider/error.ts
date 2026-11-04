@@ -7,6 +7,7 @@
  * @effect N/A: 入力文字列だけを分類する。
  * @security 生出力を公開結果や例外へ複製しない。
  */
+
 import type { AiProvider } from "./types.ts";
 
 import { parseUnambiguousJsonDocument } from "./json.ts";
@@ -38,7 +39,7 @@ export type ProviderErrorReason =
  * @trace ARCH-000010
  * @shape Providerと閉じた理由コードの読取り専用構造。
  * @invariant エラー値は再試行・回収の許可ではない。
- * @boundary AI Adapterの公開結果とCoordinatorの一次失敗。
+ * @boundary AI Adapter内部のProvider出力分類と共通結果解析。
  * @security 生出力・Path・秘密値を返さない。
  * @compatibility 理由値の意味と優先順位は変えない。
  */

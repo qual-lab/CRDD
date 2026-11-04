@@ -6,6 +6,7 @@
  * @trace ARCH-000015
  * @boundary AI Adapter内部の入力検査。Domain・保存・Runtimeへ依存しない。
  */
+
 import { types as utilTypes } from "node:util";
 
 type DataDescriptor = PropertyDescriptor & { value: unknown };

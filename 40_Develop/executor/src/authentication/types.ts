@@ -4,8 +4,8 @@
  * @trace ARCH-000010
  */
 import type {
-  AiProvider,
-  ProviderAuthenticationResult,
+  Provider as AiProvider,
+  ExecutionResult,
 } from "../../../ai-adapter/src/index.ts";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { CompletionCallbacks } from "../lifecycle/callbacks.ts";
@@ -80,7 +80,7 @@ export type AuthenticationProjection = Readonly<{
  */
 export type AuthenticationResult = Readonly<{
   reason: string;
-  authenticationStatus: ProviderAuthenticationResult["status"];
+  authenticationStatus: ExecutionResult<"authentication">["status"];
   authenticationConfirmed: boolean;
   providerEffectIssued: boolean;
   processCompletionConfirmed: boolean;

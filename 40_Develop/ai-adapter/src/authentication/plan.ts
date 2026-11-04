@@ -1,13 +1,35 @@
-import type { AiProvider } from "../provider/types.ts";
-
 /**
  * Providerの認証確認用CLI記述を所有する。
  *
  * @packageDocumentation
  * @responsibility Provider別の認証引数とHome変数名を記述し、認証の実行・観測を所有しない。
  * @trace ARCH-000010
- * @boundary AI Adapterの固定CLI記述とCoordinatorの認証確認実行の間。
+ * @boundary AI Adapterの固定認証定義と、Coordinatorの認証条件・診断／Executorの認証実行の間。
  */
+
+import type { AiProvider } from "../provider/types.ts";
+
+import { PROVIDER_AUTHENTICATION_POLICIES } from "./policy.ts";
+
+/**
+ * Providerを識別できる認証方法の定義を表す。
+ * @responsibility 実在する認証引数・Home設定だけを公開する。
+ * @trace ARCH-000010
+ * @shape Provider別の不変定義をProvider識別子で解決する型。
+ * @invariant CodexにClaude固有のlogin設定を補完しない。
+ * @boundary 公開定義と認証条件・診断・実行の利用側。
+ * @security Secret・Host絶対Pathを持たない。
+ * @compatibility 固定CLI引数・環境値を維持する。
+ */
+export type ProviderAuthenticationDefinition<
+  P extends AiProvider = AiProvider,
+> = Readonly<
+  (typeof AUTHENTICATION_DEFINITIONS)[P] & {
+    kind: "authentication";
+    confirmationPurpose: "login" | "execution";
+    policy: (typeof PROVIDER_AUTHENTICATION_POLICIES)[P];
+  }
+>;
 
 const AUTHENTICATION_DEFINITIONS = Object.freeze({
   codex: Object.freeze({
@@ -37,37 +59,34 @@ const AUTHENTICATION_DEFINITIONS = Object.freeze({
 });
 
 /**
- * Providerを識別できる認証方法の定義を表す。
- * @responsibility 実在する認証引数・Home設定だけを公開する。
- * @trace ARCH-000010
- * @shape Provider別の不変定義をProvider識別子で解決する型。
- * @invariant CodexにClaude固有のlogin設定を補完しない。
- * @boundary 公開定義と認証実行Owner。
- * @security Secret・Host絶対Pathを持たない。
- * @compatibility 固定CLI引数・環境値を維持する。
- */
-export type ProviderAuthenticationDefinition<
-  P extends AiProvider = AiProvider,
-> = (typeof AUTHENTICATION_DEFINITIONS)[P];
-
-/**
  * 指定ProviderのSubscription認証確認方法を返す。
  *
  * @responsibility 固定CLIのstatus引数、Provider固有のlogin引数とHome設定を記述する。
  * @trace ARCH-000010
- * @input provider: 対応するProviderの識別子。
+ * @input provider: 対応するProviderの識別子。confirmationPurpose: login又はexecution。省略時はexecution。
  * @returns 不変な認証確認引数、Home環境変数名と専用Homeの相対名。
  * @precondition N/A: Home実体、秘密値、実行Capabilityを受け取らない。
  * @postcondition Host Path、Docker資源名、Mountを含まない。
  * @effect N/A: 固定値を返すだけである。
- * @failure N/A: 失敗分岐を持たない。
+ * @failure 未対応Provider又は確認目的はprovider_authentication_input_invalidで拒否する。
  * @invariant API Key認証や別OfferingへのFallbackを追加しない。
- * @boundary AI AdapterのCLI記述とCoordinatorの認証確認の間。
+ * @boundary AI Adapterの固定認証定義と、Coordinatorの認証条件・診断／Executorの認証実行の間。
  * @security SecretとHost Pathを返さない。
  * @concurrency N/A: 共有可変状態を持たない。
  */
-export function describeProviderAuthentication<P extends AiProvider>(
+export function getAuthenticationDefinition<P extends AiProvider>(
   provider: P,
+  confirmationPurpose: "login" | "execution" = "execution",
 ): ProviderAuthenticationDefinition<P> {
-  return AUTHENTICATION_DEFINITIONS[provider];
+  if (
+    (provider !== "codex" && provider !== "claude") ||
+    (confirmationPurpose !== "login" && confirmationPurpose !== "execution")
+  )
+    throw new Error("provider_authentication_input_invalid");
+  return Object.freeze({
+    ...AUTHENTICATION_DEFINITIONS[provider],
+    kind: "authentication",
+    confirmationPurpose,
+    policy: PROVIDER_AUTHENTICATION_POLICIES[provider],
+  }) as ProviderAuthenticationDefinition<P>;
 }

@@ -7,9 +7,9 @@
 
 import { describeDockerProxyTopology } from "../../docker-isolation/src/network/policy.ts";
 import {
-  type AiProvider,
-  describeProviderAuthentication,
-  evaluateProviderAuthentication,
+  type Provider as AiProvider,
+  getAuthenticationDefinition,
+  parseProviderResult,
 } from "../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../docker-isolation/src/index.ts";
 import {
@@ -137,7 +137,7 @@ export function prepareAuthenticationPlan<A extends "status" | "login">(
       : proxyToken !== null)
   )
     return null;
-  const cli = describeProviderAuthentication(provider);
+  const cli = getAuthenticationDefinition(provider);
   const locations = describeIsolationConfiguration(provider).locations.primary;
   const environment = Object.freeze({
     ...("environment" in cli ? cli.environment : {}),
@@ -462,12 +462,13 @@ export function createAuthenticationUsing(
             !result.error &&
             result.signal === null &&
             (result.status === 0 || result.status === 1)
-              ? evaluateProviderAuthentication(
-                  prepared.provider,
-                  describeProviderAuthentication(prepared.provider).offering,
-                  result.stdout,
-                  result.stderr,
-                  "execution",
+              ? parseProviderResult(
+                  getAuthenticationDefinition(prepared.provider),
+                  {
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    exitCode: result.status,
+                  },
                 )
               : null;
           const notLoggedIn =
@@ -486,12 +487,16 @@ export function createAuthenticationUsing(
           if (value.purpose === "start_probe_attached") {
             const observed =
               statusObservation ??
-              evaluateProviderAuthentication(
-                prepared.provider,
-                describeProviderAuthentication(prepared.provider).offering,
-                result.stdout,
-                result.stderr,
-                prepared.action === "login" ? "login" : "execution",
+              parseProviderResult(
+                getAuthenticationDefinition(
+                  prepared.provider,
+                  prepared.action === "login" ? "login" : "execution",
+                ),
+                {
+                  stdout: result.stdout,
+                  stderr: result.stderr,
+                  exitCode: result.status,
+                },
               );
             authenticationStatus = observed.status;
             if (

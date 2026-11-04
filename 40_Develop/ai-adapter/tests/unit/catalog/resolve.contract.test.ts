@@ -44,8 +44,8 @@ test("試験用抽出入口は通常Rootと製品Sourceから分離する", asyn
 });
 
 import {
-  getAiModelCatalog,
-  resolveAiModelSelection,
+  getModelCatalog,
+  resolveModelSelection,
 } from "../../../src/catalog/resolve.ts";
 
 /**
@@ -60,7 +60,7 @@ import {
  * @boundary 同梱技術カタログから選択結果への純粋変換。
  */
 test("技術選定は確認済みの用途とEffortだけを解決しaliasを維持する", () => {
-  const snapshot = getAiModelCatalog();
+  const snapshot = getModelCatalog();
   assert.match(snapshot.identity, /^[a-f0-9]{64}$/u);
   assert.ok(Object.isFrozen(snapshot));
   assert.ok(Object.isFrozen(snapshot.catalog));
@@ -116,7 +116,7 @@ test("技術選定は確認済みの用途とEffortだけを解決しaliasを維
     assert.equal("defaultReasoningEffort" in model, false);
     for (const purpose of model.supportedPurposes) {
       for (const reasoningEffort of model.supportedEfforts) {
-        const result = resolveAiModelSelection({
+        const result = resolveModelSelection({
           provider: model.provider,
           modelIdentifier: model.modelIdentifier,
           purpose,
@@ -152,7 +152,7 @@ test("技術選定は確認済みの用途とEffortだけを解決しaliasを維
     [{ purpose: "executor" }, "ai_model_selection_invalid"],
     [{ role: "executor" }, "ai_model_selection_invalid"],
   ] as const) {
-    assert.deepEqual(resolveAiModelSelection({ ...base, ...change }), {
+    assert.deepEqual(resolveModelSelection({ ...base, ...change }), {
       status: "blocked",
       value: null,
       error,
@@ -167,9 +167,9 @@ test("技術選定は確認済みの用途とEffortだけを解決しaliasを維
       return base.modelIdentifier;
     },
   });
-  assert.equal(resolveAiModelSelection(getter).status, "blocked");
+  assert.equal(resolveModelSelection(getter).status, "blocked");
   assert.equal(
-    resolveAiModelSelection(
+    resolveModelSelection(
       new Proxy(base, {
         ownKeys() {
           hooks++;
@@ -195,44 +195,11 @@ test("技術選定は確認済みの用途とEffortだけを解決しaliasを維
  */
 test("公開Rootは旧Profile管理を提供しない", () => {
   assert.deepEqual(Object.keys(adapterPublicApi).sort(), [
-    "CLAUDE_EXECUTION_PLAN_CONTRACT",
-    "CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION",
-    "CLAUDE_STRUCTURED_RESULT_CONTRACT",
-    "CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION",
-    "CLAUDE_TASK_MAXIMUM_TURNS",
-    "CODEX_EXECUTION_PLAN_CONTRACT",
-    "CODEX_EXECUTION_PLAN_CONTRACT_REVISION",
-    "CODEX_STRUCTURED_RESULT_CONTRACT",
-    "CODEX_STRUCTURED_RESULT_CONTRACT_REVISION",
-    "PROVIDER_ADVICE_COMMAND_CONTRACT",
-    "PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION",
-    "PROVIDER_ADVICE_OUTPUT_CONTRACT",
-    "PROVIDER_ADVICE_OUTPUT_CONTRACT_REVISION",
-    "PROVIDER_ADVICE_OUTPUT_REASONS",
-    "PROVIDER_AUTHENTICATION_POLICIES",
-    "PROVIDER_BILLING_POLICY_CONTRACT",
-    "PROVIDER_BILLING_POLICY_CONTRACT_REVISION",
-    "convertProviderError",
-    "describeAdviceResultSchema",
-    "describeClaudeStructuredResultContract",
-    "describeCodexStructuredResultContract",
-    "describeProviderAuthentication",
-    "describeProviderBillingPolicy",
-    "describeProviderExecution",
-    "evaluateProviderAuthentication",
-    "evaluateProviderAvailability",
-    "evaluateProviderTaskScope",
-    "getAiModelCatalog",
-    "inspectTaskResultContent",
-    "normalizeClaudeStructuredResult",
-    "normalizeCodexStructuredResult",
-    "parseAdviceReferences",
-    "parseAdviceResult",
+    "getAuthenticationDefinition",
+    "getBillingPolicy",
+    "getModelCatalog",
     "parseProviderResult",
-    "planProviderExecution",
-    "prepareProviderEnvironment",
-    "projectCodexExecutionBoundary",
-    "resolveAiModelSelection",
-    "validateProviderModelId",
+    "planExecution",
+    "resolveModelSelection",
   ]);
 });

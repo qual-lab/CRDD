@@ -5,13 +5,61 @@
  * @trace ARCH-000010
  * @trace ARCH-000015
  */
+
 import type { AiModelSelection } from "../provider/types.ts";
 
 import type { AiModelCatalog } from "./types.ts";
+
 import { createHash } from "node:crypto";
+
 import { snapshotPlainRecord } from "../provider/input.ts";
+
 import modelCatalogData from "./model-catalog.json" with { type: "json" };
+
 import { validateAiModelCatalog } from "./validation.ts";
+
+/**
+ * 同じ技術改訂を相関できる不変カタログを表す。
+ * @responsibility 本文と内容Hashを一緒に提供する。
+ * @trace ARCH-000010
+ * @shape 検証済み本文とSHA-256。
+ * @invariant Identityだけを認証済み配布元の証明にしない。
+ * @boundary 技術定義とRepository設定の検証。
+ * @security Path・秘密値・実行権限なし。
+ * @compatibility 新形式専用。
+ */
+export type AiModelCatalogSnapshot = Readonly<{
+  catalog: AiModelCatalog;
+  identity: string;
+}>;
+
+/**
+ * 技術選定の成功と拒否を区別する。
+ * @responsibility 選択した値とカタログIdentityを同じ結果へ固定する。
+ * @trace ARCH-000010
+ * @shape resolved時だけ技術選定値を持つ直和型。
+ * @invariant 拒否時に代替Modelを返さない。
+ * @boundary 技術ResolverとCoordinator。
+ * @security Authority・認証情報を含めない。
+ * @compatibility aliasをexactへ変換しない新契約。
+ */
+export type AiModelSelectionResult = Readonly<
+  | {
+      status: "resolved";
+      value: AiModelSelection & Readonly<{ catalogIdentity: string }>;
+      error: null;
+    }
+  | {
+      status: "blocked";
+      value: null;
+      error:
+        | "ai_model_selection_invalid"
+        | "ai_model_not_found"
+        | "ai_model_purpose_unsupported"
+        | "ai_model_effort_unsupported";
+    }
+>;
+
 const modelCatalogSnapshot: AiModelCatalogSnapshot = (() => {
   const result = validateAiModelCatalog(modelCatalogData);
   if (result.status !== "valid")
@@ -39,7 +87,7 @@ const modelCatalogSnapshot: AiModelCatalogSnapshot = (() => {
  * @security Identityは完全性の相関値であり署名や実行Authorityではない。
  * @concurrency N/A: 共有可変状態なし。
  */
-export function getAiModelCatalog(): AiModelCatalogSnapshot {
+export function getModelCatalog(): AiModelCatalogSnapshot {
   return modelCatalogSnapshot;
 }
 
@@ -58,7 +106,7 @@ export function getAiModelCatalog(): AiModelCatalogSnapshot {
  * @security 対応一致だけで認証・外部送信・実行を許可しない。
  * @concurrency N/A: 不変Snapshotを同期参照する。
  */
-export function resolveAiModelSelection(
+export function resolveModelSelection(
   candidate: unknown,
 ): AiModelSelectionResult {
   const request = snapshotPlainRecord(
@@ -117,45 +165,3 @@ export function resolveAiModelSelection(
     }),
   });
 }
-
-/**
- * 同じ技術改訂を相関できる不変カタログを表す。
- * @responsibility 本文と内容Hashを一緒に提供する。
- * @trace ARCH-000010
- * @shape 検証済み本文とSHA-256。
- * @invariant Identityだけを認証済み配布元の証明にしない。
- * @boundary 技術定義とRepository設定の検証。
- * @security Path・秘密値・実行権限なし。
- * @compatibility 新形式専用。
- */
-export type AiModelCatalogSnapshot = Readonly<{
-  catalog: AiModelCatalog;
-  identity: string;
-}>;
-
-/**
- * 技術選定の成功と拒否を区別する。
- * @responsibility 選択した値とカタログIdentityを同じ結果へ固定する。
- * @trace ARCH-000010
- * @shape resolved時だけ技術選定値を持つ直和型。
- * @invariant 拒否時に代替Modelを返さない。
- * @boundary 技術ResolverとCoordinator。
- * @security Authority・認証情報を含めない。
- * @compatibility aliasをexactへ変換しない新契約。
- */
-export type AiModelSelectionResult = Readonly<
-  | {
-      status: "resolved";
-      value: AiModelSelection & Readonly<{ catalogIdentity: string }>;
-      error: null;
-    }
-  | {
-      status: "blocked";
-      value: null;
-      error:
-        | "ai_model_selection_invalid"
-        | "ai_model_not_found"
-        | "ai_model_purpose_unsupported"
-        | "ai_model_effort_unsupported";
-    }
->;

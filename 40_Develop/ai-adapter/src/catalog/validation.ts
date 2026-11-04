@@ -7,8 +7,26 @@
 import type { AiReasoningEffort } from "../provider/types.ts";
 
 import type { AiModelCatalog, AiModelDefinition } from "./types.ts";
+
 import { snapshotPlainRecord, snapshotPlainArray } from "../provider/input.ts";
+
+/**
+ * 技術カタログの検証成功と固定拒否を区別する。
+ * @responsibility 未検証値を成功値として返さない。
+ * @trace ARCH-000010
+ * @shape statusで絞り込める閉じた結果型。
+ * @invariant blockedはカタログ値を持たない。
+ * @boundary カタログ検査と同梱構成の初期化。
+ * @security 認証・実行許可を含めない。
+ * @compatibility 新形式専用。
+ */
+export type AiModelCatalogValidationResult = Readonly<
+  | { status: "valid"; value: AiModelCatalog; error: null }
+  | { status: "blocked"; value: null; error: "ai_model_catalog_invalid" }
+>;
+
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
+
 const EFFORTS = new Set<AiReasoningEffort>([
   "low",
   "medium",
@@ -171,18 +189,3 @@ export function validateAiModelCatalog(
     }),
   });
 }
-
-/**
- * 技術カタログの検証成功と固定拒否を区別する。
- * @responsibility 未検証値を成功値として返さない。
- * @trace ARCH-000010
- * @shape statusで絞り込める閉じた結果型。
- * @invariant blockedはカタログ値を持たない。
- * @boundary カタログ検査と同梱構成の初期化。
- * @security 認証・実行許可を含めない。
- * @compatibility 新形式専用。
- */
-export type AiModelCatalogValidationResult = Readonly<
-  | { status: "valid"; value: AiModelCatalog; error: null }
-  | { status: "blocked"; value: null; error: "ai_model_catalog_invalid" }
->;

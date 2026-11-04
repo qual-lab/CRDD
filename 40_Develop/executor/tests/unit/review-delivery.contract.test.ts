@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TaskResult } from "../../../ai-adapter/src/index.ts";
+import type { TaskResult } from "../../../ai-adapter/src/provider/task-result.ts";
 import { createExecutorTestCandidate } from "../../scripts/executor-test.ts";
 import type { ExecutorTestDependencies } from "../../scripts/executor-test.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";

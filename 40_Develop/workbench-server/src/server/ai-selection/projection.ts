@@ -8,8 +8,8 @@
  * @security Credential・Home・Host Pathを返さない。
  */
 import {
-  getAiModelCatalog,
-  type AiModelCatalogSnapshot,
+  getModelCatalog,
+  type ModelCatalog,
 } from "../../../../ai-adapter/src/index.ts";
 import {
   readRepositoryAiSelection,
@@ -28,7 +28,7 @@ import type { VerifiedRepositoryRoot } from "../../../../version-control/src/ind
  * @compatibility 新形式専用。
  */
 export type WorkbenchAiSelectionSurface = Readonly<{
-  catalog: AiModelCatalogSnapshot;
+  catalog: ModelCatalog;
   selection: AiSelectionReadResult;
 }>;
 
@@ -51,7 +51,7 @@ export function readWorkbenchAiSelectionSurface(
   root: VerifiedRepositoryRoot,
 ): WorkbenchAiSelectionSurface {
   return Object.freeze({
-    catalog: getAiModelCatalog(),
-    selection: readRepositoryAiSelection(root, getAiModelCatalog().catalog),
+    catalog: getModelCatalog(),
+    selection: readRepositoryAiSelection(root, getModelCatalog().catalog),
   });
 }

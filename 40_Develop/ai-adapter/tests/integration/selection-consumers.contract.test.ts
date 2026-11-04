@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getAiModelCatalog, planProviderExecution } from "../../src/index.ts";
+import { getModelCatalog, planExecution } from "../../src/index.ts";
 import { resolveExecutionSelection } from "../../../coordinator/src/selection/resolve.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 
@@ -52,8 +52,8 @@ test("技術Catalogの明示選定をProvider計画へ無変換で搬送する",
     assert.equal(resolved.status, "resolved");
     assert.ok(resolved.value);
     const selection = resolved.value;
-    assert.equal(selection.catalogIdentity, getAiModelCatalog().identity);
-    const plan = planProviderExecution({
+    assert.equal(selection.catalogIdentity, getModelCatalog().identity);
+    const plan = planExecution({
       provider,
       purpose: "advice",
       modelSelection: {
@@ -62,11 +62,7 @@ test("技術Catalogの明示選定をProvider計画へ無変換で搬送する",
         identifierKind: selection.identifierKind,
         reasoningEffort: selection.reasoningEffort,
       },
-      resultSchema: {
-        type: "object",
-        properties: {},
-        additionalProperties: false,
-      },
+      allowedReferences: ["synthetic-reference"],
     });
     assert.equal(plan.status, "ready");
     if (plan.status !== "ready") throw new Error("fixture_plan_blocked");
@@ -148,7 +144,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
       taskRole: "executor",
     },
   };
-  const plan = planProviderExecution(
+  const plan = planExecution(
     request,
     describeDockerProviderExecutionLocations("codex", "primary"),
   );
@@ -169,7 +165,7 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   ])
     assert.ok(plan.plan.argv.includes(expected));
   assert.equal(plan.plan.commandNetworkAccessAllowed, false);
-  const reviewer = planProviderExecution(
+  const reviewer = planExecution(
     {
       ...request,
       input: { ...request.input, taskRole: "reviewer" },
@@ -202,21 +198,21 @@ test("新Model設定はmediumを維持しCodexの両役割と保護条件へ接�
   ])
     assert.ok(reviewer.plan.argv.includes(expected));
   assert.equal(
-    planProviderExecution({
+    planExecution({
       ...request,
       input: { ...request.input, effort: "high" },
     }).status,
     "blocked",
   );
   assert.equal(
-    planProviderExecution({
+    planExecution({
       ...request,
       modelSelection: { ...request.modelSelection, identifierKind: "alias" },
     }).status,
     "blocked",
   );
   assert.equal(
-    planProviderExecution({
+    planExecution({
       ...request,
       modelSelection: {
         ...request.modelSelection,

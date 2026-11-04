@@ -48,9 +48,7 @@ registerHooks({
   },
 });
 
-const { resolveAiModelSelection } = await import(
-  "../../ai-adapter/src/index.ts"
-);
+const { resolveModelSelection } = await import("../../ai-adapter/src/index.ts");
 
 const { describeIsolationConfiguration } = await import(
   "../../docker-isolation/src/index.ts"
@@ -70,7 +68,7 @@ const { describeDockerCommandSessionContract } = await import(
 );
 
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
-  await import("../../ai-adapter/src/index.ts");
+  await import("../../ai-adapter/src/provider/advice-result.ts");
 
 const { prepareAttempt } = await import("./executor-test.ts");
 
@@ -122,7 +120,7 @@ export function describeStandaloneProviderTrial(
     throw Error("trial_provider_invalid");
   if (mode !== "advice") return describeTaskTrial(provider, mode);
   const model = provider === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
-  const selected = resolveAiModelSelection({
+  const selected = resolveModelSelection({
     provider,
     modelIdentifier: model,
     reasoningEffort: "medium",
@@ -181,7 +179,7 @@ export function buildStandaloneTrialPlan(
   const operationId = `OP-${BigInt(`0x${randomBytes(12).toString("hex")}`)
     .toString()
     .padStart(6, "0")}`;
-  const selected = resolveAiModelSelection({
+  const selected = resolveModelSelection({
     provider: spec.provider,
     modelIdentifier: spec.model,
     reasoningEffort: spec.effort,

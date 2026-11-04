@@ -11,8 +11,8 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { types as utilTypes } from "node:util";
 import {
-  describeProviderAuthentication,
-  resolveAiModelSelection,
+  getAuthenticationDefinition,
+  resolveModelSelection,
 } from "../../../ai-adapter/src/index.ts";
 import {
   type ExecutionSelection,
@@ -2531,7 +2531,7 @@ function issueSelectionGrant(
     .filter((item) => item?.provider === selection.provider);
   if (eligible.length !== 1 || eligible[0]?.status !== "eligible")
     return createBlockedResult("delegation_selection_provider_unavailable");
-  const technical = resolveAiModelSelection({
+  const technical = resolveModelSelection({
     provider: selection.provider,
     modelIdentifier: selection.modelIdentifier,
     reasoningEffort: selection.reasoningEffort,
@@ -2874,7 +2874,7 @@ export function preflightRuntimeOwnedDelegationExecutionSlate(
         if (
           providers.length !== 1 ||
           providers[0]?.status !== "eligible" ||
-          resolveAiModelSelection({
+          resolveModelSelection({
             provider: selection.provider,
             modelIdentifier: selection.modelIdentifier,
             reasoningEffort: selection.reasoningEffort,
@@ -3233,7 +3233,7 @@ function createSource(binding: Binding, now: number): Source | null {
     !/^OP-[0-9]{6,}$/u.test(binding.operationId)
   )
     return null;
-  const authentication = describeProviderAuthentication(binding.provider);
+  const authentication = getAuthenticationDefinition(binding.provider);
   const specification = Object.freeze({
     provider: authentication.provider,
     origin: authentication.authorityOrigin,
@@ -6905,8 +6905,8 @@ export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
 const providerHomePROVIDERS = Object.freeze(["codex", "claude"] as const);
 
 const providerDirectoryNames = Object.freeze({
-  codex: describeProviderAuthentication("codex").homeDirectoryName,
-  claude: describeProviderAuthentication("claude").homeDirectoryName,
+  codex: getAuthenticationDefinition("codex").homeDirectoryName,
+  claude: getAuthenticationDefinition("claude").homeDirectoryName,
 });
 
 const INPUT_KEYS = new Set(["provider", "localAppDataRoot"]);
@@ -8874,7 +8874,7 @@ export async function authenticateProvider(
       : reason,
     provider,
     action,
-    offering: describeProviderAuthentication(provider).offering,
+    offering: getAuthenticationDefinition(provider).offering,
     humanInteractive: action === "login",
     repositoryMounted: false,
     workspaceMounted: false,

@@ -1,115 +1,46 @@
 /**
- * Provider実行計画・結果変換・認証・技術Catalogを提供する公開境界。
+ * Provider差を解決した計画・結果・認証・技術Catalogの公開境界。
  *
  * @packageDocumentation
- * @responsibility Provider固有差を共通の計画・解析・認証・技術対応APIとして公開し、起動・送信許可・資源回収は利用側Ownerへ残す。
+ * @responsibility 固定仕様と検査済み結果を返し、内部のParser・Schema・環境検査を公開しない。
  * @trace ARCH-000010
- * @boundary AI Adapterと各Consumerの公開境界。
- * @effect Module読込みだけでは操作を開始しない。設定の保存は所有しない。
- * @security Secret、任意実行Path、任意CLI引数を技術Catalogへ含めない。
+ * @boundary AI Adapterと利用側の技術契約。
+ * @effect Module読込みで起動・送信・保存を行わない。
+ * @security 実行許可・Process終了・Cleanup成立は利用側Ownerが確認する。
  */
-export { PROVIDER_AUTHENTICATION_POLICIES } from "./authentication/policy.ts";
-export { evaluateProviderAuthentication } from "./authentication/result.ts";
-export type { ProviderAuthenticationResult } from "./authentication/result.ts";
-export { convertProviderError } from "./provider/error.ts";
-export type {
-  ProviderError,
-  ProviderErrorReason,
-} from "./provider/error.ts";
-export {
-  evaluateProviderAvailability,
-  prepareProviderEnvironment,
-} from "./provider/validation.ts";
-export type {
-  ProviderAvailability,
-  ProviderEnvironmentResult,
-} from "./provider/validation.ts";
-export { validateProviderModelId } from "./provider/validation.ts";
 
-export type { ProviderModelIdValidationResult } from "./provider/validation.ts";
+export type {
+  AiModelCatalogSnapshot as ModelCatalog,
+  AiModelSelectionResult as ModelSelectionResult,
+} from "./catalog/resolve.ts";
 
-export {
-  PROVIDER_ADVICE_COMMAND_CONTRACT,
-  PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
-  type ProviderModelSelection,
-  type ProviderAdvicePlan,
-  type ProviderExecutionInput,
-  type ProviderExecutionPurpose,
-  type ProviderExecutionPlan,
-  type ProviderExecutionPlanResult,
-  type ProviderPlanningReason,
-  planProviderExecution,
-  describeProviderExecution,
-  type ProviderExecutionDefinition,
-  evaluateProviderTaskScope,
-  type ProviderTaskScopeResult,
-} from "./provider/plan.ts";
-export {
-  PROVIDER_ADVICE_OUTPUT_CONTRACT,
-  PROVIDER_ADVICE_OUTPUT_CONTRACT_REVISION,
-  parseProviderResult,
-  type ProviderResultInput,
-  type ProviderResultReason,
-  type ProviderResultParseResult,
-} from "./provider/result.ts";
-export { PROVIDER_ADVICE_OUTPUT_REASONS } from "./provider/result.ts";
-export {
-  describeProviderBillingPolicy,
-  PROVIDER_BILLING_POLICY_CONTRACT,
-  PROVIDER_BILLING_POLICY_CONTRACT_REVISION,
-} from "./billing/policy.ts";
-export type { ProviderBillingPolicy } from "./billing/policy.ts";
-export {
-  getAiModelCatalog,
-  resolveAiModelSelection,
-} from "./catalog/resolve.ts";
 export type {
-  AiModelCatalogSnapshot,
-  AiModelSelectionResult,
-} from "./catalog/resolve.ts";
-export type { AiModelCatalog, AiModelDefinition } from "./catalog/types.ts";
-export type {
-  AiProvider,
-  AiReasoningEffort,
-  AiModelSelection,
-  ProviderTurnCountDiagnostic,
+  AiProvider as Provider,
+  AiReasoningEffort as ReasoningEffort,
+  AiModelSelection as ModelSelection,
+  ProviderTurnCountDiagnostic as TurnCountDiagnostic,
 } from "./provider/types.ts";
 
-export { inspectTaskResultContent } from "./provider/task-result.ts";
-export type { TaskResult, TaskReviewFinding } from "./provider/task-result.ts";
-export {
-  parseAdviceResult,
-  parseAdviceReferences,
-  describeAdviceResultSchema,
-} from "./provider/advice-result.ts";
 export type {
-  AdviceResult,
-  AdviceReferencesResult,
-  AdviceResultItem,
-} from "./provider/advice-result.ts";
-export {
-  CODEX_EXECUTION_PLAN_CONTRACT,
-  CODEX_EXECUTION_PLAN_CONTRACT_REVISION,
-  projectCodexExecutionBoundary,
-} from "./codex/plan.ts";
-export { describeProviderAuthentication } from "./authentication/plan.ts";
-export type { ProviderAuthenticationDefinition } from "./authentication/plan.ts";
-export {
-  CODEX_STRUCTURED_RESULT_CONTRACT,
-  CODEX_STRUCTURED_RESULT_CONTRACT_REVISION,
-  normalizeCodexStructuredResult,
-  describeCodexStructuredResultContract,
-} from "./codex/result.ts";
-export {
-  CLAUDE_EXECUTION_PLAN_CONTRACT,
-  CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
-  CLAUDE_TASK_MAXIMUM_TURNS,
-} from "./claude/plan.ts";
-export {
-  CLAUDE_STRUCTURED_RESULT_CONTRACT,
-  CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION,
-  normalizeClaudeStructuredResult,
-  describeClaudeStructuredResultContract,
-} from "./claude/result.ts";
+  ProviderExecutionInput as ExecutionRequest,
+  ProviderExecutionPlanResult as ExecutionPlan,
+} from "./provider/plan.ts";
 
-export type { ProviderExecutionLocations } from "./provider/types.ts";
+export type { ExecutionResult } from "./provider/result.ts";
+
+export type { ProviderAuthenticationDefinition as AuthenticationDefinition } from "./authentication/plan.ts";
+
+export type { ProviderBillingPolicy as BillingPolicy } from "./billing/policy.ts";
+
+export {
+  getModelCatalog,
+  resolveModelSelection,
+} from "./catalog/resolve.ts";
+
+export { planExecution } from "./provider/plan.ts";
+
+export { parseProviderResult } from "./provider/result.ts";
+
+export { getAuthenticationDefinition } from "./authentication/plan.ts";
+
+export { getBillingPolicy } from "./billing/policy.ts";

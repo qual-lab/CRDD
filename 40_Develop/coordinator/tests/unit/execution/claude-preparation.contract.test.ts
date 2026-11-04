@@ -11,10 +11,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  describeAdviceResultSchema,
-  planProviderExecution,
-} from "../../../../ai-adapter/src/index.ts";
+import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
@@ -201,7 +198,7 @@ function createFixture(
  */
 test("Workbench助言をRepository非共有のClaude Planへ固定する", () => {
   const providerCommand =
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "advice",
@@ -211,7 +208,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
           reasoningEffort: "low",
           identifierKind: "alias",
         },
-        resultSchema: describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");

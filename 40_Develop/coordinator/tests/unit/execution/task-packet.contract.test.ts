@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
+import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { hashExecutionSelection } from "../../../../domain-model/src/index.ts";
 import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
@@ -549,7 +549,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         remediationFindingCount: 0,
       });
       const plan =
-        planProviderExecution({
+        planExecution({
           provider: "claude",
           purpose: "task",
           modelSelection: {

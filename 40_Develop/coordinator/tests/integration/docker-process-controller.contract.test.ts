@@ -17,7 +17,7 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
@@ -223,7 +223,7 @@ function createPlan(
  */
 test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaudeは適用外を維持する", async () => {
   const codexProbe =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "probe",
@@ -236,7 +236,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const codexExecutor =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "task",
@@ -256,7 +256,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       describeDockerProviderExecutionLocations("codex", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const codexReviewer =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "task",
@@ -279,7 +279,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
   assert.equal(codexExecutor.status, "candidate");
   assert.equal(codexReviewer.status, "candidate");
   const codexAdvice =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "advice",
@@ -289,12 +289,12 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
           reasoningEffort: "low",
           identifierKind: "exact",
         },
-        resultSchema: { type: "object" },
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const claudeAdvice =
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "advice",
@@ -304,7 +304,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
           reasoningEffort: "low",
           identifierKind: "alias",
         },
-        resultSchema: { type: "object" },
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");

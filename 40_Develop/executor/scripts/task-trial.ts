@@ -11,8 +11,8 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  planProviderExecution,
-  resolveAiModelSelection,
+  planExecution,
+  resolveModelSelection,
 } from "../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../docker-isolation/src/index.ts";
 import { hashExecutionSelection } from "../../domain-model/src/index.ts";
@@ -66,14 +66,14 @@ export function describeTaskTrial(
     throw Error("trial_mode_invalid");
   const role = mode === "review" ? "reviewer" : "executor";
   const model = provider === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
-  const selected = resolveAiModelSelection({
+  const selected = resolveModelSelection({
     provider,
     modelIdentifier: model,
     reasoningEffort: "medium",
     purpose: "task",
   });
   if (selected.status !== "resolved") throw Error("trial_selection_invalid");
-  const generated = planProviderExecution(
+  const generated = planExecution(
     {
       provider,
       purpose: "task",
@@ -155,7 +155,7 @@ export function buildTaskTrialPlan(
     JSON.stringify(describeTaskTrial(spec.provider, spec.mode))
   )
     throw Error("trial_spec_changed");
-  const selected = resolveAiModelSelection({
+  const selected = resolveModelSelection({
     provider: spec.provider,
     modelIdentifier: spec.model,
     reasoningEffort: spec.effort,

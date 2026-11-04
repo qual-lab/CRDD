@@ -7,7 +7,7 @@
  * @scope 新形式AI選択Storeと既存Repository Root・Filesystem排他。
  * @boundary RCM-IT-005=Direct Boundary: Domain Store→Repository-local Filesystem。
  */
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -117,7 +117,7 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
     f.capability,
     { expectedIdentity: null, config: config() },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(rejected.status, "blocked", JSON.stringify(rejected));
   assert.equal(
@@ -130,7 +130,7 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
   assert.equal(rejected.setupFailure?.cleanupConfirmed, true);
   assert.equal(rejected.setupFailure?.recoveryReference, null);
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
     "missing",
   );
   assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
@@ -142,12 +142,12 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
     f.capability,
     { expectedIdentity: null, config: config() },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
-      .snapshot?.identity,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).snapshot
+      ?.identity,
     saved.snapshot?.identity,
   );
   assert.match(
@@ -171,7 +171,7 @@ test("空templateのGit info未準備は理由付きで拒否し、試験準備�
 test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) => {
   const f = fixture(t);
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
     "missing",
   );
   for (const authorize of [
@@ -185,14 +185,14 @@ test("読取りと未認可保存は作成せず、偽Rootも拒否する", (t) 
         f.capability,
         { expectedIdentity: null, config: config() },
         authorize,
-        getAiModelCatalog().catalog,
+        getModelCatalog().catalog,
       ).status,
       "blocked",
     );
   }
   const fake = Object.freeze({}) as typeof f.capability;
   assert.equal(
-    readRepositoryAiSelection(fake, getAiModelCatalog().catalog).status,
+    readRepositoryAiSelection(fake, getModelCatalog().catalog).status,
     "blocked",
   );
   assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
@@ -215,14 +215,14 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
     f.capability,
     { expectedIdentity: null, config: config() },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(first.status, "saved", JSON.stringify(first));
   if (first.status !== "saved") assert.fail("saved required");
   fs.writeFileSync(f.file, JSON.stringify(first.snapshot.config));
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
-      .snapshot?.identity,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).snapshot
+      ?.identity,
     first.snapshot.identity,
   );
   const changed = config();
@@ -233,7 +233,7 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
       f.capability,
       { expectedIdentity: null, config: changed },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     ).status,
     "conflict",
   );
@@ -242,7 +242,7 @@ test("初回保存・内容CAS・再保存は正本一件へ確定する", (t) =
     f.capability,
     { expectedIdentity: first.snapshot.identity, config: changed },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(next.status, "saved", JSON.stringify(next));
   assert.notEqual(next.snapshot?.identity, first.snapshot.identity);
@@ -271,8 +271,7 @@ test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否す
   ]) {
     fs.writeFileSync(f.file, bytes);
     assert.equal(
-      readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
-        .status,
+      readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
       "blocked",
     );
   }
@@ -283,14 +282,14 @@ test("不正UTF-8・重複JSON・旧形式・容量超過・hardlinkを拒否す
       f.capability,
       { expectedIdentity: null, config: huge },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     ).reason,
     "ai_selection_file_too_large",
   );
   fs.writeFileSync(f.file, JSON.stringify(config()));
   fs.linkSync(f.file, path.join(f.directory, "other.json"));
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).reason,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).reason,
     "ai_selection_file_invalid",
   );
 });
@@ -312,7 +311,7 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
   value.workTypes.coding.label = "あ";
   const normalized = validateAiSelectionConfig(
     value,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(normalized.status, "valid");
   assert.ok(normalized.value);
@@ -324,7 +323,7 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
     f.capability,
     { expectedIdentity: null, config: value },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved", JSON.stringify(saved));
   assert.equal(fs.statSync(f.file).size, AI_SELECTION_MAXIMUM_BYTES);
@@ -334,14 +333,14 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
       f.capability,
       { expectedIdentity: saved.snapshot?.identity, config: value },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     ).reason,
     "ai_selection_file_too_large",
   );
   fs.renameSync(f.file, path.join(f.directory, "linked.json"));
   fs.symlinkSync(path.join(f.directory, "linked.json"), f.file, "file");
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
     "blocked",
   );
   fs.unlinkSync(f.file);
@@ -362,7 +361,7 @@ test("1MiB丁度は受理し、超過・symlink・読取り中の置換を拒否
     }),
   );
   assert.equal(
-    readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog).status,
+    readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
     "blocked",
   );
   mocked.mock.restore();
@@ -389,7 +388,7 @@ test("保存前失効と保存後失効を区別する", (t) => {
       f.capability,
       { expectedIdentity: null, config: config() },
       () => ++calls <= limit,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     if (limit <= 2) {
       assert.equal(result.status, "blocked");
@@ -401,7 +400,7 @@ test("保存前失効と保存後失効を区別する", (t) => {
       assert.equal(result.snapshot, null);
       assert.equal(result.cleanupConfirmed, true);
       assert.equal(
-        readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
+        readRepositoryAiSelection(f.capability, getModelCatalog().catalog)
           .status,
         "available",
       );
@@ -490,7 +489,7 @@ test("保存・公開・回収の故障を成功や不存在へ畳まない", (t
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     fault.mock.restore();
     rename.mock.restore();
@@ -612,7 +611,7 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     for (const item of [open, close, rename, unlink, rm]) item.mock.restore();
     assert.equal(closeFailures, 1);
@@ -674,7 +673,7 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     mocked.mock.restore();
     assert.equal(result.status, "unknown");
@@ -683,8 +682,7 @@ test("tempの置換・hardlink化では削除を拒否し正本へ代用しな�
     assert.ok(result.temporary?.identity);
     assert.equal(fs.existsSync(targetPath), true);
     assert.equal(
-      readRepositoryAiSelection(f.capability, getAiModelCatalog().catalog)
-        .status,
+      readRepositoryAiSelection(f.capability, getModelCatalog().catalog).status,
       "missing",
     );
     assert.equal(
@@ -742,7 +740,7 @@ test("領域確保の元失敗契約とexact回復参照を保持する", async 
       f.capability,
       { expectedIdentity: null, config: config() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     assert.equal(result.status, "unknown");
     if (result.status !== "unknown") assert.fail("unknown required");
@@ -798,7 +796,7 @@ test("不正な保存受付はhookも認可も実行しない", (t) => {
           authorizations++;
           return true;
         },
-        getAiModelCatalog().catalog,
+        getModelCatalog().catalog,
       ).status,
       "blocked",
     );

@@ -11,16 +11,16 @@ Toolのavailable／unavailable／unverified／blockedと、モデル構成のval
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Tool能力発見: Capability Registry。AI Profile／モデル構成: AI Adapter |
+| 状態Owner | Tool能力発見: Capability Registry。技術Model Catalog: AI Adapter。Repository別選択・保存: Domain Model／Coordinator |
 | 所有する責務 | Repositoryに適合するTool能力の発見、AIモデル構成の検証・選択理由 |
 | 所有しない責務 | Tool実行、Provider利用可能性の捏造、Repository Binding |
 | 主な外部境界 | Repository設定、Tool Package、Provider Preflight |
 
-AI Adapterは外部JSONのProfile、モデル・推論設定の解決・管理とProvider固有の入力／出力・認証差を所有する。Tool能力発見とAI構成は一つの実行許可へまとめない。Profile選択やPreflight成功からCoordinatorの送信・実行Authority、Docker資源、Repository書込みAuthorityを生成しない。Callerは作業目的と許可範囲を保持し、Adapterはその範囲を拡張しない。
+AI Adapterは同梱JSONの技術Model Catalog、明示モデル・推論設定の解決とProvider固有の入力／出力・認証差を所有する。Repository別選択・保存・現在の五軸利用判断は上位Ownerが所有する。Tool能力発見とAI構成は一つの実行許可へまとめない。Profile選択やPreflight成功からCoordinatorの送信・実行Authority、Docker資源、Repository書込みAuthorityを生成しない。Callerは作業目的と許可範囲を保持し、Adapterはその範囲を拡張しない。
 
 ## 2. UI観点の入力
 
-共有Profileの一覧・登録・変更・確認付き削除は[ARCH-000013](../ARCH-000013/architecture_definition.md)の現在管理認可へ接続する。AI AdapterはProfile内容・Schema・Catalog Storeを所有し、資格やRoleを解釈しない。現在manager／administratorの判定はAccess Management、両Ownerの接続はSurface構成が担当する。Provider実行、Adapter／Model Catalog変更、CLI配置の許可をこの管理操作から発行しない。
+Repository別AI選択の閲覧・変更は[ARCH-000013](../ARCH-000013/architecture_definition.md)の現在管理認可へ接続する。技術CatalogはAI Adapter、Repository別設定はDomain Modelの保存APIをCoordinatorが使用する。資格・RoleはAccess Managementが判定する。旧Profile Store・共有Profile CRUDを再導入せず、設定変更からProvider実行・配布・CLI配置の許可を発行しない。
 
 | UI分析 | 守る利用者向けの約束 |
 |---|---|

@@ -795,7 +795,7 @@ Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount
 
 Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分、使用上限1回へ固定する。Provider、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。
 
-Home Grant・Provider Authority・Local Personal Authority・Isolation・prelaunchは、Model Profile ID、Tier、Catalog Revision又はモデル選定を保持・入力・再検査しない。Provider固有のOffering・OriginはAI Adapterの`describeProviderAuthentication`を正本とする。モデル側とはoperationとproviderで相関する。Model Grant・Packet・準備計画は受付時の完全選定を保持するが、Home利用許可へ搬送しない。公開利用側の旧設定撤去・本番接続と最終回帰は別の完了条件である。
+Home Grant・Provider Authority・Local Personal Authority・Isolation・prelaunchは、Model Profile ID、Tier、Catalog Revision又はモデル選定を保持・入力・再検査しない。Provider固有のOffering・OriginはAI Adapterの`getAuthenticationDefinition`を正本とする。モデル側とはoperationとproviderで相関する。Model Grant・Packet・準備計画は受付時の完全選定を保持するが、Home利用許可へ搬送しない。公開利用側の旧設定撤去・本番接続と最終回帰は別の完了条件である。
 
 発行control、使用useおよび消費後mount authorizationのaliasは分離する。use時には、Grant発行に使用して消費済みとなった観測Capabilityを再利用せず、Provider Homeを再観測して得たfreshなRuntime所有観測Capabilityを再結合する。再観測が不成立、Provider不一致またはCapability未発行なら、Mount Grantを消費せずProvider Effect 0で停止する。Operation終了時またはmount完了後の取消では、全aliasとrecordを失効しなければならない（MUST）。Process restartではGrantを永続復元せず、全て失ってFail Closedとする。active mount、ContainerおよびOperation Filesystemの回復は、別のDocker／Host Recovery契約が所有する。
 
@@ -2401,6 +2401,12 @@ Coordinator固有署名ToolとManifest設定を撤去したため、現行Runtim
 Checklist評価根拠: §2.3／2.4の公開操作・実Consumer、Provider分割、現在状態の保存時点と旧回復の処置により、Component、Interface、Data／StateおよびSequenceを具体化した。実移管・本番接続は未評価である。QA-000006へ通知・保存・限定終了・未署名通常入口・必要Artifact同一性と旧署名Gate撤去の検証義務を渡した。実観測と必要な実Provider E2Eは未完了である。任意正式配布署名は別の適用範囲に限定する。
 
 HomeLeaseの解放観測は、既存Recovery Ownerが実`release()`の成功直後に元の回復Capability・管理Capability・操作ID・回復参照へ保持する非Authorityの事実である。旧recordの消費後も、元Capabilityが存在する間は同じ相関だけで照合できる。abandonや保存値、コピー結果は実解放の根拠にならない。終端Writerの`released`への変更はこの根拠を必須とし、全清掃成功にはHost・五purpose・Mount・HomeLease・回復完了を共同照合する。このProcess内接続を新Process再入場の証明や本番Producer一体切替済みとして扱わない。
+
+## AI Adapterの解決済み境界 — 2026-11-05
+
+Provider別のSchema・環境検査・内容Parser・エラー変換をCoordinatorで組み合わせない。選定は`resolveModelSelection`、技術計画は`planExecution`、実行・認証観測の解釈は`parseProviderResult`へ接続する。作業量の事前拒否は共通計画の拒否理由を使用し、Authority発行前のMount返却と既存理由を維持する。
+
+助言の検査済み内容はExecutorから型付きで受け、JSONへ戻して再解析しない。Effect／取消／Process終了／清掃と保存の相関は従来どおりCoordinatorが判定する。Capability・認証観測・Quota・配布状態・Policyの五軸現在判断は`execution/observation.ts`が所有し、AI Adapterへ上位状態を持ち込まない。保存Schema、Contract ID、CLI／Image／Network、Owner・Lock・期限は変更しない。
 
 ## Checklist
 

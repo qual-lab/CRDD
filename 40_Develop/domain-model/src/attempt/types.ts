@@ -1,4 +1,4 @@
-import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
+import type { TurnCountDiagnostic as ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 export type { ProviderTurnCountDiagnostic };
 /**
  * 実行状態の共有値・純粋検査を所有する。

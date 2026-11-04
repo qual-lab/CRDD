@@ -11,9 +11,10 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { describeAdviceResultSchema } from "../../../ai-adapter/src/provider/advice-result.ts";
 import {
-  describeAdviceResultSchema,
-  planProviderExecution,
+  planExecution,
+  type ExecutionRequest,
 } from "../../../ai-adapter/src/index.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
@@ -77,12 +78,9 @@ test("選定種別を保持し実行可能な結果Schemaと旧入力を拒否�
       provider,
       purpose: "advice" as const,
       modelSelection,
-      resultSchema: {
-        type: "object",
-        properties: { value: { type: "string" } },
-      },
+      allowedReferences: ["synthetic-reference"],
     };
-    const ready = planProviderExecution(request);
+    const ready = planExecution(request);
     assert.equal(ready.status, "ready");
     assert.equal(ready.plan?.contractRevision, 2);
     assert.equal(ready.plan?.identifierKind, modelSelection.identifierKind);
@@ -100,12 +98,15 @@ test("選定種別を保持し実行可能な結果Schemaと旧入力を拒否�
       { value: 1n },
       { values: [undefined] },
     ]) {
-      const result = planProviderExecution({ ...request, resultSchema });
+      const result = planExecution({
+        ...request,
+        resultSchema,
+      } as unknown as ExecutionRequest);
       assert.equal(result.status, "blocked");
       assert.equal(result.plan, null);
     }
     assert.equal(
-      planProviderExecution({
+      planExecution({
         ...request,
         modelSelection: {
           ...modelSelection,
@@ -116,7 +117,7 @@ test("選定種別を保持し実行可能な結果Schemaと旧入力を拒否�
       "blocked",
     );
     assert.equal(
-      planProviderExecution({
+      planExecution({
         provider,
         purpose: "advice",
         input: {
@@ -124,8 +125,8 @@ test("選定種別を保持し実行可能な結果Schemaと旧入力を拒否�
           exactModelId: modelSelection.modelIdentifier,
           reasoningEffort: "low",
         },
-        resultSchema: { type: "object" },
-      } as unknown as Parameters<typeof planProviderExecution>[0]).status,
+        allowedReferences: ["synthetic-reference"],
+      } as unknown as Parameters<typeof planExecution>[0]).status,
       "blocked",
     );
   }
@@ -146,7 +147,7 @@ test("選定種別を保持し実行可能な結果Schemaと旧入力を拒否�
  */
 test("Codex助言をToolなし・Repository非共有の標準入力計画へ固定する", () => {
   const plan =
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "advice",
@@ -156,7 +157,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
           reasoningEffort: "medium",
           identifierKind: "exact",
         },
-        resultSchema: describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
@@ -261,7 +262,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
  */
 test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定する", () => {
   const plan =
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "advice",
@@ -271,7 +272,7 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
           reasoningEffort: "high",
           identifierKind: "alias",
         },
-        resultSchema: describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
@@ -295,27 +296,19 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
     describeAdviceResultSchema(),
   );
   const callerSchema = Object.freeze({ type: "string", maxLength: 17 });
-  const callerPlan =
-    planProviderExecution(
-      {
-        provider: "claude",
-        purpose: "advice",
-        modelSelection: {
-          provider: "claude",
-          modelIdentifier: "opus",
-          reasoningEffort: "high",
-          identifierKind: "alias",
-        },
-        resultSchema: callerSchema,
-      },
-      describeDockerProviderExecutionLocations("claude", "primary"),
-    ).plan ?? assert.fail("provider_execution_plan_not_ready");
-  assert.deepEqual(
-    JSON.parse(
-      callerPlan.argv[callerPlan.argv.indexOf("--json-schema") + 1] ?? "null",
-    ),
-    callerSchema,
-  );
+  const callerPlan = planExecution({
+    provider: "claude",
+    purpose: "advice",
+    modelSelection: {
+      provider: "claude",
+      modelIdentifier: "opus",
+      reasoningEffort: "high",
+      identifierKind: "alias",
+    },
+    allowedReferences: ["synthetic-reference"],
+    resultSchema: callerSchema,
+  } as unknown as ExecutionRequest);
+  assert.equal(callerPlan.status, "blocked");
   assert.deepEqual(callerSchema, { type: "string", maxLength: 17 });
   assert.equal(plan.argv.filter((value) => value === "--max-turns").length, 1);
   assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "2");
@@ -340,7 +333,7 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
  */
 test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない", () => {
   for (const plan of [
-    planProviderExecution(
+    planExecution(
       {
         provider: "codex",
         purpose: "advice",
@@ -350,11 +343,11 @@ test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない"
           reasoningEffort: "low",
           identifierKind: "exact",
         },
-        resultSchema: describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("codex", "alternate"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "advice",
@@ -364,7 +357,7 @@ test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない"
           reasoningEffort: "low",
           identifierKind: "alias",
         },
-        resultSchema: describeAdviceResultSchema(),
+        allowedReferences: ["synthetic-reference"],
       },
       describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),

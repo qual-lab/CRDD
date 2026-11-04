@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   readCoordinatorQueueEntry,
   saveRepositoryAiSelection,
@@ -77,7 +77,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     verified.capability,
     { expectedIdentity: null, config: selectionConfig() },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   assert.equal(saved.status, "saved");
   const hostId = "host.synthetic-handoff";

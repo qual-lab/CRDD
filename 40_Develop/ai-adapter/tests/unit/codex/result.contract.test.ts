@@ -1,5 +1,5 @@
 import { inspectCodexExecutionObservation } from "../../../scripts/ai-adapter-test.ts";
-import { parseProviderResult as parseFullProviderResult } from "../../../src/index.ts";
+import { parseExecutionContent as parseFullProviderResult } from "../../../src/provider/result.ts";
 import { extractProviderResult as parseProviderResult } from "../../../src/provider/result.ts";
 /**
  * ai-adapter:unit:codex-structured-resultの検証範囲を定義する。
@@ -18,7 +18,7 @@ import { spawnSync } from "node:child_process";
 import {
   describeCodexStructuredResultContract,
   normalizeCodexStructuredResult,
-} from "../../../src/index.ts";
+} from "../../../src/codex/result.ts";
 
 /**
  * 共通入口が両ProviderのProbe解析を同じ結果で返す。
@@ -52,12 +52,14 @@ import {
  * @cleanup 子Processの同期終了を確認する。File・認証・AI・Dockerは使わない。
  */
 test("Codex観測の内部検査失敗は観測なしの成功へfallbackしない", () => {
-  const root = new URL("../../../src/index.ts", import.meta.url).href;
+  const root = new URL("../../../src/provider/result.ts", import.meta.url).href;
   const script = [
     "import {registerHooks} from 'node:module';",
     "let inspections=0;",
     "registerHooks({load(url,ctx,next){if(url.endsWith('/codex/observation.ts')) return {format:'module',shortCircuit:true,source:'export function inspectCodexExecutionObservation(){globalThis.__inspections=(globalThis.__inspections??0)+1;return null;}'};return next(url,ctx);}});",
-    "const {parseProviderResult}=await import(" + JSON.stringify(root) + ");",
+    "const {parseExecutionContent:parseProviderResult}=await import(" +
+      JSON.stringify(root) +
+      ");",
     "const raw=[{type:'item.completed',item:{type:'agent_message',text:JSON.stringify({status:'completed',summary:'synthetic',changedPaths:[],verification:[]})}},{type:'turn.completed'}].map(JSON.stringify).join('\\n');",
     "const result=parseProviderResult({provider:'codex',purpose:'task',taskRole:'executor',selectedEffort:'medium',raw});",
     "console.log(JSON.stringify({status:result.status,reason:result.reason,observation:result.providerExecutionObservation??null,count:globalThis.__inspections}));",

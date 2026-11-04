@@ -17,10 +17,10 @@ import {
  * @scope provider、executor、reviewer、lifecycle、coverage
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate / PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import { evaluateProviderTaskScope } from "../../../ai-adapter/src/provider/plan.ts";
 import {
-  evaluateProviderTaskScope,
-  type ProviderExecutionInput,
-  planProviderExecution,
+  type ExecutionRequest as ProviderExecutionInput,
+  planExecution,
 } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 
@@ -87,7 +87,7 @@ test("共通計画APIは用途・Provider・選定の不一致と入力Trapを�
       },
     }),
   ]) {
-    const result = planProviderExecution(
+    const result = planExecution(
       candidate as unknown as ProviderExecutionInput,
     );
     assert.equal(result.status, "blocked");
@@ -116,7 +116,7 @@ test("共通計画APIは用途・Provider・選定の不一致と入力Trapを�
       },
       { resultSchema: { type: "object" } },
     ]) {
-      const result = planProviderExecution({
+      const result = planExecution({
         ...probe,
         ...extra,
       } as unknown as ProviderExecutionInput);
@@ -295,7 +295,7 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
   for (const item of PLAN_CASES) {
     const plan = (
       item.provider === "codex"
-        ? (planProviderExecution(
+        ? (planExecution(
             {
               provider: "codex",
               purpose: "task",
@@ -314,7 +314,7 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
             },
             describeDockerProviderExecutionLocations("codex", "primary"),
           ).plan ?? assert.fail("provider_execution_plan_not_ready"))
-        : (planProviderExecution(
+        : (planExecution(
             {
               provider: "claude",
               purpose: "task",

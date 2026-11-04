@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
-import { parseProviderResult as parseContent } from "../../../ai-adapter/src/index.ts";
+import { parseExecutionContent as parseContent } from "../../../ai-adapter/src/provider/result.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
 

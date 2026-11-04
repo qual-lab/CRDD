@@ -16,7 +16,7 @@ import test from "node:test";
 import {
   validateProviderModelId,
   prepareProviderEnvironment,
-} from "../../../../ai-adapter/src/index.ts";
+} from "../../../../ai-adapter/src/provider/validation.ts";
 
 import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
 import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
@@ -62,7 +62,7 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
         return Object.freeze({
           status: "blocked" as const,
           reason: "fixture_completed",
-          rawOutput: null,
+          advice: null,
           providerEffectIssued: false,
           cleanupConfirmed: true,
         });
@@ -73,18 +73,18 @@ test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => 
       },
     };
     const outcome = await executors[plan.provider](plan);
-    if (outcome.status === "completed" && typeof outcome.rawOutput === "string")
+    if (outcome.status === "completed" && typeof outcome.advice === "string")
       return {
         status: "completed" as const,
         reason: null,
-        adviceJson: outcome.rawOutput,
+        advice: outcome.advice,
         providerEffectIssued: true as const,
         cleanupConfirmed: true as const,
       };
     return {
       status: "blocked" as const,
       reason: outcome.reason ?? "fixture_blocked",
-      adviceJson: null,
+      advice: null,
       providerEffectIssued: outcome.providerEffectIssued,
       cleanupConfirmed: outcome.cleanupConfirmed,
     };
@@ -158,18 +158,18 @@ test("選定契約不整合を全Executor Effect前に拒否する", async () =>
       },
     };
     const outcome = await executors[plan.provider](plan);
-    if (outcome.status === "completed" && typeof outcome.rawOutput === "string")
+    if (outcome.status === "completed" && typeof outcome.advice === "string")
       return {
         status: "completed" as const,
         reason: null,
-        adviceJson: outcome.rawOutput,
+        advice: outcome.advice,
         providerEffectIssued: true as const,
         cleanupConfirmed: true as const,
       };
     return {
       status: "blocked" as const,
       reason: outcome.reason ?? "fixture_blocked",
-      adviceJson: null,
+      advice: null,
       providerEffectIssued: outcome.providerEffectIssued,
       cleanupConfirmed: outcome.cleanupConfirmed,
     };
@@ -220,18 +220,18 @@ test("Task 選定不一致はAI Adapter移管後もExecutor Effect前に拒否�
       },
     };
     const outcome = await executors[plan.provider](plan);
-    if (outcome.status === "completed" && typeof outcome.rawOutput === "string")
+    if (outcome.status === "completed" && typeof outcome.advice === "string")
       return {
         status: "completed" as const,
         reason: null,
-        adviceJson: outcome.rawOutput,
+        advice: outcome.advice,
         providerEffectIssued: true as const,
         cleanupConfirmed: true as const,
       };
     return {
       status: "blocked" as const,
       reason: outcome.reason ?? "fixture_blocked",
-      adviceJson: null,
+      advice: null,
       providerEffectIssued: outcome.providerEffectIssued,
       cleanupConfirmed: outcome.cleanupConfirmed,
     };

@@ -16,10 +16,12 @@ import test from "node:test";
 import {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
-  describeProviderAuthentication,
-  describeProviderExecution,
-  planProviderExecution,
+} from "../../../ai-adapter/src/claude/plan.ts";
+import {
+  getAuthenticationDefinition,
+  planExecution,
 } from "../../../ai-adapter/src/index.ts";
+import { describeProviderExecution } from "../../../ai-adapter/src/provider/plan.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
@@ -41,7 +43,7 @@ import {
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
-  const neutral = planProviderExecution({
+  const neutral = planExecution({
     provider: "claude",
     purpose: "probe",
     input: { provider: "claude", mode: "read_only_probe" },
@@ -54,7 +56,7 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
     "claude",
     "primary",
   );
-  const fixed = planProviderExecution(
+  const fixed = planExecution(
     {
       provider: "claude",
       purpose: "probe",
@@ -126,7 +128,7 @@ test("ClaudeのCLI契約に過去の配布・認証観測を含めない", () =>
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
-  const definition = describeProviderAuthentication("claude");
+  const definition = getAuthenticationDefinition("claude");
   assert.deepEqual(definition.loginArgv, ["auth", "login", "--claudeai"]);
   assert.deepEqual(definition.statusArgv, ["auth", "status", "--json"]);
   assert.equal(definition.offering, "claude_max");
@@ -183,7 +185,7 @@ test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を�
 test("読取専用probe候補はCLI引数と環境置換要求だけを投影する", () => {
   const contract = describeProviderExecution("claude");
   const plan =
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",
@@ -344,7 +346,7 @@ test("Managed Settingsの固定byte列を検証済みimage identityへ結合す�
  */
 test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定する", () => {
   const executor =
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "task",
@@ -370,7 +372,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
       describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const reviewer =
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "task",
@@ -521,7 +523,7 @@ test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
  */
 test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否する", () => {
   assert.equal(
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",
@@ -532,7 +534,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
     "claude_execution_plan_provider_mismatch",
   );
   assert.equal(
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",
@@ -543,7 +545,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
     "claude_execution_plan_mode_not_supported",
   );
   assert.equal(
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",
@@ -558,7 +560,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
     "claude_execution_plan_shape_invalid",
   );
   assert.equal(
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",
@@ -582,7 +584,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
     value: "read_only_probe",
   });
   assert.equal(
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",
@@ -593,7 +595,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
     "claude_execution_plan_shape_invalid",
   );
   assert.equal(
-    planProviderExecution(
+    planExecution(
       {
         provider: "claude",
         purpose: "probe",

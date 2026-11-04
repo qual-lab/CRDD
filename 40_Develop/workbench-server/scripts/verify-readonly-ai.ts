@@ -4,7 +4,7 @@
  * @trace ARCH-000015
  * @security 本文・資格を保存せず、編集・採用・再送・再起動を行わない。
  */
-import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -79,7 +79,7 @@ async function main() {
     throw new Error("docker_preflight_unconfirmed");
   const selection = readRepositoryAiSelection(
     verified.capability,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   if (selection.status !== "available")
     throw new Error("ai_selection_not_configured");
@@ -91,7 +91,7 @@ async function main() {
   };
   const permitted = () =>
     hash(JSON.stringify(canonical())) === hash(JSON.stringify(before)) &&
-    readRepositoryAiSelection(verified.capability, getAiModelCatalog().catalog)
+    readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
       .snapshot?.identity === configHash;
   const surface = await readWorkbenchProjectSurface(root);
   const owner = openTaskSession({

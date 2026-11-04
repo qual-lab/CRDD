@@ -7,13 +7,11 @@
  */
 
 import type {
-  AdviceResult,
-  AiModelSelection,
-  AiProvider,
-  ProviderResultParseResult,
-  ProviderTurnCountDiagnostic,
-  TaskResult,
-  TaskReviewFinding,
+  ModelSelection as AiModelSelection,
+  Provider as AiProvider,
+  ExecutionResult as ProviderResultParseResult,
+  TurnCountDiagnostic as ProviderTurnCountDiagnostic,
+  ExecutionPlan,
 } from "../../../ai-adapter/src/index.ts";
 import type {
   IsolationRequest,
@@ -30,6 +28,16 @@ import type {
   LifecycleOperations,
 } from "../lifecycle/types.ts";
 import type { ATTEMPT_COMPLETION_REASONS, PURPOSES } from "./constants.ts";
+
+type TaskResult = NonNullable<
+  ProviderResultParseResult<"task">["normalizedResult"]
+>;
+type AdviceResult = NonNullable<
+  ProviderResultParseResult<"advice">["normalizedResult"]
+>;
+type TaskReviewFinding = NonNullable<
+  ProviderResultParseResult<"task">["reviewFindings"]
+>[number];
 
 /** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
 /**
@@ -198,6 +206,7 @@ export type AttemptPlan = AttemptRecordProjection &
       internalSourcePath: string;
     }>;
     isolationRequest: IsolationRequest;
+    providerPlan: ExecutionPlan;
   }>;
 
 /**
@@ -460,7 +469,7 @@ export type CompletionResult = Readonly<{
   resultBytes: number;
   normalizedResult: AttemptContent | null;
   providerExecutionObservation: NonNullable<
-    ProviderResultParseResult["providerExecutionObservation"]
+    ProviderResultParseResult<"task">["providerExecutionObservation"]
   > | null;
   providerTurnObservation: Readonly<Record<string, unknown>> | null;
   reviewFindings: readonly TaskReviewFinding[] | null;

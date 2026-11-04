@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+import { planExecution } from "../../../ai-adapter/src/index.ts";
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
@@ -54,7 +54,7 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
         effort: "low",
       },
     } as const;
-    const neutral = planProviderExecution(request);
+    const neutral = planExecution(request);
     assert.equal(neutral.plan?.command, "codex");
     const locations = {
       commandPath: "/configured/codex",
@@ -63,7 +63,7 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
       executorSchemaPath: "/configured/executor.json",
       reviewerSchemaPath: "/configured/reviewer.json",
     };
-    const bound = planProviderExecution(request, locations);
+    const bound = planExecution(request, locations);
     assert.equal(bound.status, "ready");
     if (bound.status !== "ready") assert.fail("location_plan_rejected");
     const plan = bound.plan;

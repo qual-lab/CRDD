@@ -16,7 +16,7 @@ import { parseUnambiguousJsonDocument } from "../../../src/provider/json.ts";
 import {
   describeClaudeStructuredResultContract,
   normalizeClaudeStructuredResult,
-} from "../../../src/index.ts";
+} from "../../../src/claude/result.ts";
 
 /**
  * createEnvelopeのTest準備責務を実行する。

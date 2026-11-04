@@ -1,7 +1,7 @@
 import type {
-  AiProvider,
-  AiReasoningEffort,
-  AiModelSelection,
+  Provider as AiProvider,
+  ReasoningEffort as AiReasoningEffort,
+  ModelSelection as AiModelSelection,
 } from "../../../ai-adapter/src/index.ts";
 export type { AiProvider, AiReasoningEffort, AiModelSelection };
 /**

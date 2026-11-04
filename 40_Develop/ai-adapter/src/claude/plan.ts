@@ -5,17 +5,401 @@
  * @trace ARCH-000010
  */
 
+import {
+  type ProviderBillingPolicy,
+  getBillingPolicy,
+} from "../billing/policy.ts";
+
 import { snapshotPlainRecord } from "../provider/input.ts";
-import { describeProviderBillingPolicy } from "../billing/policy.ts";
+
 import type {
   ProviderModelSelection,
   ProviderAdvicePlan,
 } from "../provider/plan.ts";
+
 import type { ProviderExecutionLocations } from "../provider/types.ts";
+
+type ClaudePlanRejection<R extends string> = Readonly<{
+  status: "blocked";
+  reason: R;
+  spawnAllowed: false;
+  loginEffectAllowed: false;
+  networkEffectAllowed: false;
+  filesystemEffectAllowed: false;
+  operationCapabilityIssued: false;
+}>;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type ClaudeTaskBudgetResult =
+  | Readonly<{
+      status: "candidate";
+      maximumTurns: number;
+      hardMaximumTurns: 16;
+      basis: "validated_task_scope_counts_not_file_count_or_completion_prediction";
+      hardMaximumTurnsBasis: "validated_task_scope_planning_cap_not_result_acceptance";
+      taskWorkload: Readonly<Readonly<Record<string, unknown>>>;
+    }>
+  | ClaudePlanRejection<
+      "claude_task_workload_invalid" | "claude_task_workload_split_required"
+    >;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type ClaudeProbePlanResult =
+  | ClaudePlanRejection<
+      | "claude_execution_plan_mode_not_supported"
+      | "claude_execution_plan_provider_mismatch"
+      | "claude_execution_plan_shape_invalid"
+    >
+  | Readonly<{
+      status: "candidate";
+      reason: "claude_task_execution_gates_required";
+      activationGates: readonly string[];
+      activationBlockers: readonly string[];
+      spawnAllowed: false;
+      loginEffectAllowed: false;
+      networkEffectAllowed: false;
+      filesystemEffectAllowed: false;
+      operationCapabilityIssued: false;
+      provider: "claude";
+      mode: "read_only_probe";
+      command: string;
+      modelSelection: "coordinator_explainable_selection_and_verified_profile_required";
+      effortSelection: "coordinator_cost_guarded_selection_and_authority_binding_required";
+      fallbackModelAllowed: false;
+      providerAutomaticModelSwitchingAllowed: false;
+      coordinatorPrelaunchModelSelectionAllowed: true;
+      midExecutionModelSwitchingAllowed: false;
+      speedMode: "normal_only";
+      argv: readonly string[];
+      structuredOutputSchema: Readonly<{
+        type: "object";
+        properties: Readonly<{
+          status: Readonly<{
+            const: true;
+          }>;
+        }>;
+        required: readonly string[];
+        additionalProperties: false;
+      }>;
+      environmentMode: "replace_required";
+      environmentReplacementImplemented: true;
+      parentEnvironmentInherited: false;
+      environment: Readonly<{
+        DISABLE_AUTOUPDATER: "1";
+        DISABLE_UPDATES: "1";
+        CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1";
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1";
+        DISABLE_TELEMETRY: "1";
+        DISABLE_ERROR_REPORTING: "1";
+        DISABLE_FEEDBACK_COMMAND: "1";
+        CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1";
+        CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1";
+      }>;
+      managedSettings: Readonly<{
+        forceLoginMethod: "claudeai";
+        autoUpdates: false;
+        feedbackSurveyRate: 0;
+        skipWebFetchPreflight: true;
+      }>;
+      managedSettingsPath: string;
+      bareModeAllowed: false;
+      safeModeRequired: true;
+      runtimeOwnedEnvironmentSlots: readonly string[];
+      forbiddenParentEnvironmentCategories: readonly string[];
+      shellAllowed: false;
+      pathLookupAllowed: false;
+      providerRequestExpected: true;
+      includedSubscriptionUsageMayBeConsumed: true;
+      apiKeyAllowed: false;
+      additionalCreditPurchaseAllowed: false;
+      automaticPlanSwitchAllowed: false;
+      billingPolicy: ProviderBillingPolicy;
+      sessionResumeAllowed: false;
+      sessionPersistenceAllowed: false;
+      builtInToolsRequested: "none";
+      mcpToolsRequested: "none";
+      projectInstructionsRequested: "not_loaded";
+      autoDiscoveredCustomizationsRequested: "not_loaded";
+    }>;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type ClaudeTaskPlanResult =
+  | ClaudePlanRejection<
+      | "claude_task_execution_plan_effort_invalid"
+      | "claude_task_execution_plan_mode_not_supported"
+      | "claude_task_execution_plan_provider_mismatch"
+      | "claude_task_execution_plan_role_invalid"
+      | "claude_task_execution_plan_shape_invalid"
+      | "claude_task_workload_invalid"
+      | "claude_task_workload_split_required"
+    >
+  | Readonly<{
+      status: "candidate";
+      reason: "runtime_owned_activation_gates_required";
+      activationGates: readonly string[];
+      activationBlockers: readonly string[];
+      spawnAllowed: false;
+      loginEffectAllowed: false;
+      networkEffectAllowed: false;
+      filesystemEffectAllowed: false;
+      operationCapabilityIssued: false;
+      provider: "claude";
+      mode: "isolated_task";
+      taskRole: "executor" | "reviewer";
+      effort: "high" | "low" | "medium";
+      command: string;
+      speedMode: "normal_only";
+      argv: readonly string[];
+      environment: Readonly<{
+        DISABLE_AUTOUPDATER: "1";
+        DISABLE_UPDATES: "1";
+        CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1";
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1";
+        DISABLE_TELEMETRY: "1";
+        DISABLE_ERROR_REPORTING: "1";
+        DISABLE_FEEDBACK_COMMAND: "1";
+        CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1";
+        CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1";
+      }>;
+      environmentMode: "replace_required";
+      parentEnvironmentInherited: false;
+      reviewerFilesystemOrShellToolAllowed: false;
+      reviewerInput: "runtime_owned_immutable_candidate_content_projection_only";
+      taskPromptTransport: "stdin_only";
+      resultTransport:
+        | "claude_json_envelope_result_validated_by_crdd"
+        | "claude_structured_output";
+      taskPromptInArgvAllowed: false;
+      shellAllowed: false;
+      commandNetworkAccessAllowed: false;
+      webToolsAllowed: false;
+      mcpAllowed: false;
+      subagentAllowed: false;
+      providerHomeBuiltInToolAccessAllowed: false;
+      maximumTurns: number;
+      maximumTurnsBasis: "validated_task_scope_counts_not_file_count_or_completion_prediction";
+      hardMaximumTurns: 16;
+      hardMaximumTurnsBasis: "validated_task_scope_planning_cap_not_result_acceptance";
+      taskWorkload: Readonly<Readonly<Record<string, unknown>>>;
+      maximumBudgetUsd: null;
+      apiEquivalentUsdBudgetDisposition: "not_applied_to_subscription_only_execution";
+      usageControls: readonly string[];
+      explicitSpendBudgetProfileImplemented: false;
+      sessionPersistenceAllowed: false;
+      loginPolicy: "existing_claude_subscription_oauth";
+      billingPolicy: ProviderBillingPolicy;
+      apiKeyAllowed: false;
+      paidApiFallbackAllowed: false;
+      additionalCreditPurchaseAllowed: false;
+      automaticPlanSwitchAllowed: false;
+    }>;
+
+/** Provider固有の明示契約。実装の返却値を型検査する。 */
+export type ClaudeExecutionDefinition = Readonly<{
+  contract: "crdd-coordinator/claude-execution-plan";
+  contractRevision: 18;
+  provider: "claude";
+  authentication: Readonly<{
+    loginPolicy: "existing_subscription_oauth";
+    explicitLoginCommand: readonly string[];
+    consoleLoginAllowed: false;
+    consoleApiAccountAllowed: false;
+    thirdPartyApiProviderAllowed: false;
+    apiKeyAllowed: false;
+    hostCredentialImportAllowed: false;
+    rawAuthOutputRecorded: false;
+    oauthTokenReadByRuntime: false;
+  }>;
+  billingPolicy: ProviderBillingPolicy;
+  readOnlyProbe: Readonly<{
+    command: "claude";
+    argv: readonly string[];
+    structuredOutputSchema: Readonly<{
+      type: "object";
+      properties: Readonly<{
+        status: Readonly<{
+          const: true;
+        }>;
+      }>;
+      required: readonly string[];
+      additionalProperties: false;
+    }>;
+    environment: Readonly<{
+      DISABLE_AUTOUPDATER: "1";
+      DISABLE_UPDATES: "1";
+      CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1";
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1";
+      DISABLE_TELEMETRY: "1";
+      DISABLE_ERROR_REPORTING: "1";
+      DISABLE_FEEDBACK_COMMAND: "1";
+      CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1";
+      CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1";
+    }>;
+    managedSettings: Readonly<{
+      forceLoginMethod: "claudeai";
+      autoUpdates: false;
+      feedbackSurveyRate: 0;
+      skipWebFetchPreflight: true;
+    }>;
+    environmentMode: "replace_required";
+    parentEnvironmentInherited: false;
+    safeModeRequired: true;
+    bareModeAllowed: false;
+    runtimeOwnedEnvironmentSlots: readonly string[];
+    forbiddenParentEnvironmentCategories: readonly string[];
+    maximumTurns: 2;
+    maximumBudgetUsd: 0.1;
+  }>;
+  isolatedTask: Readonly<{
+    roles: readonly string[];
+    shellAllowed: false;
+    tools: "role_bounded_built_in_filesystem_tools_only";
+    providerHomeBuiltInToolAccessAllowed: false;
+    commandNetworkAccessAllowed: false;
+    webToolsAllowed: false;
+    mcpAllowed: false;
+    taskPromptTransport: "stdin_only";
+    promptInArgvAllowed: false;
+    requestedMaximumTurnsRange: Readonly<{
+      minimum: 4;
+      maximum: 16;
+    }>;
+    requestedMaximumTurnsBasis: "validated_task_scope_counts_with_role_specific_floor";
+    reportedTurnsDisposition: "positive_safe_integer_metadata_not_execution_round_limit";
+    maximumBudgetUsdByEffort: null;
+    apiEquivalentUsdBudgetDisposition: "not_applied_to_subscription_only_execution";
+    usageControls: readonly string[];
+    explicitSpendBudgetProfileImplemented: false;
+  }>;
+  providerSpawn: "runtime_adapter_authority_and_preflight_gated";
+  operationCapabilityIssued: false;
+}>;
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
+
 export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 18;
+
+export const CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "HTTP_PROXY",
+  "NO_PROXY",
+]);
+
+export const CLAUDE_TASK_MAXIMUM_TURNS = 16;
+
+const TASK_WORKLOAD_KEYS = new Set([
+  "readPathCount",
+  "allowedPathCount",
+  "acceptanceCriterionCount",
+  "remediationFindingCount",
+]);
+
+const PLAN_KEYS = new Set(["provider", "mode"]);
+
+const TASK_PLAN_KEYS = new Set([
+  "provider",
+  "mode",
+  "taskRole",
+  "effort",
+  "taskWorkload",
+]);
+
+const billingPolicy = getBillingPolicy();
+
+const FIXED_PROMPT =
+  "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
+
+const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
+  type: "object",
+  properties: Object.freeze({
+    status: Object.freeze({ const: true }),
+  }),
+  required: Object.freeze(["status"]),
+  additionalProperties: false,
+});
+
+const FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT =
+  '{"type":"object","properties":{"status":{"const":true}},"required":["status"],"additionalProperties":false}';
+
+const TASK_SETTINGS_PATH = "claude-task-settings.json";
+
+const EXECUTOR_SCHEMA_ARGUMENT =
+  '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
+
+const FIXED_ARGV = Object.freeze([
+  "--safe-mode",
+  "--setting-sources=",
+  "--strict-mcp-config",
+  "--mcp-config",
+  '{"mcpServers":{}}',
+  "--no-chrome",
+  "--json-schema",
+  FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT,
+  "-p",
+  FIXED_PROMPT,
+  "--output-format",
+  "json",
+  "--max-turns",
+  "2",
+  "--max-budget-usd",
+  "0.10",
+  "--no-session-persistence",
+  "--permission-mode",
+  "plan",
+  "--tools=",
+  "--disallowedTools",
+  "mcp__*",
+  "--disable-slash-commands",
+  "--prompt-suggestions",
+  "false",
+]);
+
+const FIXED_ENVIRONMENT = Object.freeze({
+  DISABLE_AUTOUPDATER: "1",
+  DISABLE_UPDATES: "1",
+  CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1",
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+  DISABLE_TELEMETRY: "1",
+  DISABLE_ERROR_REPORTING: "1",
+  DISABLE_FEEDBACK_COMMAND: "1",
+  CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
+  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1",
+});
+
+const FIXED_MANAGED_SETTINGS = Object.freeze({
+  forceLoginMethod: "claudeai",
+  autoUpdates: false,
+  feedbackSurveyRate: 0,
+  skipWebFetchPreflight: true,
+});
+
+const RUNTIME_OWNED_ENVIRONMENT_SLOTS = Object.freeze([
+  "HOME",
+  "TMPDIR",
+  "HTTPS_PROXY",
+]);
+
+const FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES = Object.freeze([
+  "provider_api_keys",
+  "provider_base_urls",
+  "provider_selectors",
+  "model_or_fallback_selectors",
+  "host_proxy_configuration",
+  "host_credential_or_settings_paths",
+]);
+
+const ACTIVATION_GATES = Object.freeze([
+  "runtime_owned_model_selection_grant",
+  "runtime_owned_minimal_environment_replacement",
+  "interactive_external_send_grant",
+  "subscription_oauth_preflight_before_provider_request",
+]);
+
+const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
 /**
  * 検証済みModelと推論強度をClaude固有のCLI引数へ結合する。
@@ -29,7 +413,7 @@ export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 18;
  * @effect N/A: 値の組立てだけでProcessや外部送信を開始しない。
  * @failure N/A: 受理・拒否判断は選定と固定計画のOwnerが行う。
  * @invariant 任意Path、環境継承、追加Model fallbackを導入しない。
- * @boundary AI AdapterのClaude記述とCoordinatorの実行組立ての間。
+ * @boundary AI Adapter内のClaude固有引数と共通実行計画の間。
  * @security Authority、Prompt本文または認証情報を引数へ追加しない。
  * @concurrency N/A: 同期の純粋計算で共有状態を変更しない。
  */
@@ -40,23 +424,6 @@ export function buildClaudeExecutionArguments(
 ) {
   return Object.freeze(["--model", model, "--effort", effort, ...argv]);
 }
-
-export const CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_AUTH_TOKEN",
-  "ANTHROPIC_BASE_URL",
-  "CLAUDE_CODE_OAUTH_TOKEN",
-  "HTTP_PROXY",
-  "NO_PROXY",
-]);
-
-export const CLAUDE_TASK_MAXIMUM_TURNS = 16;
-const TASK_WORKLOAD_KEYS = new Set([
-  "readPathCount",
-  "allowedPathCount",
-  "acceptanceCriterionCount",
-  "remediationFindingCount",
-]);
 
 /**
  * Claude TaskのTurn予算を評価する。
@@ -77,7 +444,7 @@ const TASK_WORKLOAD_KEYS = new Set([
 export function planClaudeTaskTurnBudget(
   taskRole: unknown,
   taskWorkload: unknown,
-) {
+): ClaudeTaskBudgetResult {
   const workload = snapshotPlainRecord(taskWorkload, TASK_WORKLOAD_KEYS);
   if (!workload || (taskRole !== "executor" && taskRole !== "reviewer"))
     return blocked("claude_task_workload_invalid");
@@ -115,95 +482,6 @@ export function planClaudeTaskTurnBudget(
     taskWorkload: Object.freeze(workload),
   });
 }
-
-const PLAN_KEYS = new Set(["provider", "mode"]);
-const TASK_PLAN_KEYS = new Set([
-  "provider",
-  "mode",
-  "taskRole",
-  "effort",
-  "taskWorkload",
-]);
-const billingPolicy = describeProviderBillingPolicy();
-const FIXED_PROMPT =
-  "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
-const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
-  type: "object",
-  properties: Object.freeze({
-    status: Object.freeze({ const: true }),
-  }),
-  required: Object.freeze(["status"]),
-  additionalProperties: false,
-});
-const FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT =
-  '{"type":"object","properties":{"status":{"const":true}},"required":["status"],"additionalProperties":false}';
-const TASK_SETTINGS_PATH = "claude-task-settings.json";
-const EXECUTOR_SCHEMA_ARGUMENT =
-  '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
-const FIXED_ARGV = Object.freeze([
-  "--safe-mode",
-  "--setting-sources=",
-  "--strict-mcp-config",
-  "--mcp-config",
-  '{"mcpServers":{}}',
-  "--no-chrome",
-  "--json-schema",
-  FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT,
-  "-p",
-  FIXED_PROMPT,
-  "--output-format",
-  "json",
-  "--max-turns",
-  "2",
-  "--max-budget-usd",
-  "0.10",
-  "--no-session-persistence",
-  "--permission-mode",
-  "plan",
-  "--tools=",
-  "--disallowedTools",
-  "mcp__*",
-  "--disable-slash-commands",
-  "--prompt-suggestions",
-  "false",
-]);
-const FIXED_ENVIRONMENT = Object.freeze({
-  DISABLE_AUTOUPDATER: "1",
-  DISABLE_UPDATES: "1",
-  CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1",
-  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-  DISABLE_TELEMETRY: "1",
-  DISABLE_ERROR_REPORTING: "1",
-  DISABLE_FEEDBACK_COMMAND: "1",
-  CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
-  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1",
-});
-const FIXED_MANAGED_SETTINGS = Object.freeze({
-  forceLoginMethod: "claudeai",
-  autoUpdates: false,
-  feedbackSurveyRate: 0,
-  skipWebFetchPreflight: true,
-});
-const RUNTIME_OWNED_ENVIRONMENT_SLOTS = Object.freeze([
-  "HOME",
-  "TMPDIR",
-  "HTTPS_PROXY",
-]);
-const FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES = Object.freeze([
-  "provider_api_keys",
-  "provider_base_urls",
-  "provider_selectors",
-  "model_or_fallback_selectors",
-  "host_proxy_configuration",
-  "host_credential_or_settings_paths",
-]);
-const ACTIVATION_GATES = Object.freeze([
-  "runtime_owned_model_selection_grant",
-  "runtime_owned_minimal_environment_replacement",
-  "interactive_external_send_grant",
-  "subscription_oauth_preflight_before_provider_request",
-]);
-const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
 /**
  * Claude計画の拒否値を生成する。
@@ -252,7 +530,7 @@ function blocked<R extends string>(reason: R) {
 export function planClaudeReadOnlyProbe(
   candidate: unknown,
   locations: ProviderExecutionLocations = {},
-) {
+): ClaudeProbePlanResult {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("claude_execution_plan_shape_invalid");
   if (value.provider !== "claude")
@@ -333,7 +611,7 @@ export function planClaudeReadOnlyProbe(
 export function planClaudeIsolatedTask(
   candidate: unknown,
   locations: ProviderExecutionLocations = {},
-) {
+): ClaudeTaskPlanResult {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
   if (!value) return blocked("claude_task_execution_plan_shape_invalid");
   if (value.provider !== "claude")
@@ -459,7 +737,7 @@ export function planClaudeIsolatedTask(
  * @security describeClaudeExecutionPlanContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: describeClaudeExecutionPlanContractは共有非同期状態を持たない同期処理である。
  */
-export function describeClaudeExecutionPlanContract() {
+export function describeClaudeExecutionPlanContract(): ClaudeExecutionDefinition {
   return Object.freeze({
     contract: CLAUDE_EXECUTION_PLAN_CONTRACT,
     contractRevision: CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,

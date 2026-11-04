@@ -9,6 +9,7 @@
  * @boundary Coordinator Dispatchと固定Fake Provider Adapterの局所境界。
  */
 import assert from "node:assert/strict";
+import { parseAdviceResult } from "../../../../ai-adapter/src/provider/advice-result.ts";
 import test from "node:test";
 
 import { executionSelection } from "../../fixtures/ai-selection.ts";
@@ -89,7 +90,7 @@ test("確定した一依頼だけをProviderへ渡して根拠付き結果を返
     return Object.freeze({
       status: "completed" as const,
       reason: null,
-      rawOutput: RAW_RESULT,
+      advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
       providerEffectIssued: true,
       cleanupConfirmed: true,
     });
@@ -143,7 +144,7 @@ test("cleanupを確認できない完了をunknownへ保つ", async () => {
     Object.freeze({
       status: "completed" as const,
       reason: null,
-      rawOutput: RAW_RESULT,
+      advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
       providerEffectIssued: true,
       cleanupConfirmed: false,
     }),
@@ -166,15 +167,20 @@ test("cleanupを確認できない完了をunknownへ保つ", async () => {
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("投影外参照を含むProvider結果を部分公開せず拒否する", async () => {
-  const dispatch = createAdviceDispatch(async () =>
-    Object.freeze({
-      status: "completed" as const,
-      reason: null,
-      rawOutput: RAW_RESULT.replace('PROJECT_CONTEXT.md"', 'OTHER.md"'),
+  const dispatch = createAdviceDispatch(async () => {
+    const parsed = parseAdviceResult(
+      RAW_RESULT.replace('PROJECT_CONTEXT.md"', 'OTHER.md"'),
+      taskPacket.allowedReferences,
+    );
+    assert.equal(parsed.status, "blocked");
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: parsed.reason,
+      advice: null,
       providerEffectIssued: true,
       cleanupConfirmed: true,
-    }),
-  );
+    });
+  });
   const result = await dispatch(dispatchInput(), new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(result.facts.length, 0);
@@ -220,7 +226,7 @@ test("Provider Effect後の取消競合をcompletedへ畳まない", async () =>
     return Object.freeze({
       status: "completed" as const,
       reason: null,
-      rawOutput: RAW_RESULT,
+      advice: Object.freeze({ ...JSON.parse(RAW_RESULT), reason: null }),
       providerEffectIssued: true,
       cleanupConfirmed: true,
     });

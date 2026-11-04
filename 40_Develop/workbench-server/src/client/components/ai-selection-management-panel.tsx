@@ -18,7 +18,7 @@ import type {
   AiSelectionChoice,
   AiSelectionRole,
 } from "../../../../domain-model/src/index.ts";
-import type { AiModelCatalogSnapshot } from "../../../../ai-adapter/src/index.ts";
+import type { ModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import { WorkbenchPanel, ActionTokenInput } from "./elements.ts";
 import { requestWorkbench } from "../api/connection.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
@@ -129,7 +129,7 @@ export function AiSelectionManagementPanel({
   repositoryId: string | null;
   allowed: boolean;
   initialRead: AiSelectionReadResult | null;
-  catalog?: AiModelCatalogSnapshot | null;
+  catalog?: ModelCatalog | null;
   initialResult?: AiSelectionSaveResult | null;
   refreshReadModel?: (signal: AbortSignal) => Promise<void>;
 }): ReactElement | null {

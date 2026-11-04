@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
-import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/index.ts";
+import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/provider/result.ts";
 
 const ADVICE = Object.freeze({
   status: "completed",

@@ -11,7 +11,9 @@ import {
   type ExecutionSelection,
 } from "../../../domain-model/src/index.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
-import { parseAdviceResult as normalizeAdviceResult } from "../../../ai-adapter/src/index.ts";
+import type { ExecutionResult } from "../../../ai-adapter/src/index.ts";
+import type { RecordedAttemptResult } from "./types.ts";
+type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
 import {
   type ProviderAdviceExecutionPlan,
@@ -29,7 +31,7 @@ import {
 import { readRepositoryNetworkHosts } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
 import { resolveRecoveryReference } from "./validation.ts";
-import type { AdviceResultItem } from "../../../ai-adapter/src/index.ts";
+type AdviceResultItem = AdviceResult["facts"][number];
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -88,14 +90,14 @@ export type ProviderAdviceRuntimeResult = Readonly<
   | {
       status: "completed";
       reason: null;
-      adviceJson: string;
+      advice: AdviceResult;
       providerEffectIssued: true;
       cleanupConfirmed: true;
     }
   | {
       status: "blocked";
       reason: string;
-      adviceJson: null;
+      advice: null;
       providerEffectIssued: boolean;
       cleanupConfirmed: boolean;
     }
@@ -423,7 +425,7 @@ export type AdviceProviderInput = Readonly<{
 export type AdviceProviderOutcome = Readonly<{
   status: "completed" | "blocked" | "unknown";
   reason: string | null;
-  rawOutput: string | null;
+  advice: AdviceResult | null;
   providerEffectIssued: boolean;
   cleanupConfirmed: boolean;
 }>;
@@ -535,22 +537,17 @@ async function dispatchAdviceRequest(
           outcome.reason ?? "workbench_ai_provider_blocked",
         );
   }
-  if (!outcome.providerEffectIssued || outcome.rawOutput === null)
+  if (!outcome.providerEffectIssued || outcome.advice === null)
     return unknown("workbench_ai_provider_completion_unconfirmed");
 
-  const normalized = normalizeAdviceResult(
-    outcome.rawOutput,
-    input.taskPacket.allowedReferences,
-  );
-  if (normalized.status !== "confirmed" || normalized.normalizedResult === null)
-    return createAdviceRejectedResult(normalized.reason);
+  const normalized = outcome.advice;
   return Object.freeze({
     status: "completed" as const,
     reason: null,
-    facts: normalized.normalizedResult.facts,
-    sharedAnalysis: normalized.normalizedResult.sharedAnalysis,
-    additionalInferences: normalized.normalizedResult.additionalInferences,
-    nextOptions: normalized.normalizedResult.nextOptions,
+    facts: normalized.facts,
+    sharedAnalysis: normalized.sharedAnalysis,
+    additionalInferences: normalized.additionalInferences,
+    nextOptions: normalized.nextOptions,
     candidate: null,
   });
 }
@@ -631,7 +628,9 @@ function isValidProviderOutcome(outcome: AdviceProviderOutcome): boolean {
       outcome.status === "unknown") &&
     (outcome.reason === null ||
       (typeof outcome.reason === "string" && outcome.reason.length > 0)) &&
-    (outcome.rawOutput === null || typeof outcome.rawOutput === "string") &&
+    (outcome.advice === null ||
+      (typeof outcome.advice === "object" &&
+        outcome.advice.status === "completed")) &&
     typeof outcome.providerEffectIssued === "boolean" &&
     typeof outcome.cleanupConfirmed === "boolean"
   );
@@ -737,7 +736,7 @@ async function executeAdviceProviderInput(
     return Object.freeze({
       status: "blocked" as const,
       reason: "workbench_ai_provider_profile_invalid",
-      rawOutput: null,
+      advice: null,
       providerEffectIssued: false,
       cleanupConfirmed: true,
     });
@@ -762,7 +761,7 @@ async function executeAdviceProviderInput(
     return Object.freeze({
       status: "blocked" as const,
       reason: "workbench_ai_advice_execution_plan_invalid",
-      rawOutput: null,
+      advice: null,
       providerEffectIssued: false,
       cleanupConfirmed: true,
     });
@@ -805,7 +804,7 @@ function executionSelectionIsValid(input: AdviceProviderInput) {
  * @input runtime: 用途固定の単発Runtime、executionPlan: exact助言計画、cancellationSignal: 元の取消Signal。
  * @returns Promise<AdviceProviderOutcome>として終了・Effect・cleanupの相関結果を返す。
  * @precondition runtimeはProcess、Network、取消およびcleanupを所有する。
- * @postcondition completed時はRuntimeが抽出済みの助言JSONだけをrawOutputへ格納する。
+ * @postcondition completed時はRuntimeが検査済みの型付き助言結果をadviceへ格納する。
  * @effect Executor呼出しごとにruntimeを最大一回呼び出す。
  * @failure 事前取消、Plan不整合、Runtime拒否、cleanup未確認または出力不正をadviceProviderRejectedで返す。
  * @invariant Provider、Model、推論強度およびPromptを変更しない。
@@ -843,7 +842,7 @@ async function executeAdvicePlan(
   }
   if (
     result.status !== "completed" ||
-    result.adviceJson === null ||
+    result.advice === null ||
     !result.providerEffectIssued ||
     !result.cleanupConfirmed
   )
@@ -856,7 +855,7 @@ async function executeAdvicePlan(
   return Object.freeze({
     status: "completed" as const,
     reason: null,
-    rawOutput: result.adviceJson,
+    advice: result.advice,
     providerEffectIssued: true as const,
     cleanupConfirmed: true as const,
   });
@@ -910,9 +909,9 @@ function safePlan(plan: ProviderAdviceExecutionPlan) {
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input reason: 拒否理由、providerEffectIssued: Effect発行有無、cleanupConfirmed: cleanup確認結果。
- * @returns rawOutputを含まないadviceProviderRejected結果。
+ * @returns adviceを含まないadviceProviderRejected結果。
  * @precondition reasonは秘密値やProvider本文を含まない。
- * @postcondition rawOutputは常にnullである。
+ * @postcondition adviceは常にnullである。
  * @effect N/A: 固定Objectを生成するだけである。
  * @failure N/A: 失敗分岐を持たない。
  * @invariant Effect発行済みを未発行へ畳まない。
@@ -928,7 +927,7 @@ function adviceProviderRejected(
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    rawOutput: null,
+    advice: null,
     providerEffectIssued,
     cleanupConfirmed,
   });
@@ -1480,7 +1479,7 @@ function createProviderAdviceRuntime(
         abortListener?.();
       });
 
-      const result = (await completion) as RuntimeRecord;
+      const result = (await completion) as RecordedAttemptResult;
       processControl = null;
       if (result.cleanupConfirmed !== true)
         throw new AdviceRuntimeError(
@@ -1506,22 +1505,13 @@ function createProviderAdviceRuntime(
         throw new AdviceRuntimeError(
           "workbench_ai_advice_recovery_finalization_unavailable",
         );
-      const normalized =
-        providerCompletionReason === null
-          ? recordValue(result.normalizedResult)
+      const advice =
+        providerCompletionReason === null &&
+        result.normalizedResult &&
+        "facts" in result.normalizedResult
+          ? result.normalizedResult
           : null;
-      // 既存の上位配送形式への表示用変換。Provider Envelopeは再解析しない。
-      const adviceJson =
-        normalized?.status === "completed" && Array.isArray(normalized.facts)
-          ? JSON.stringify({
-              status: "completed",
-              facts: normalized.facts,
-              sharedAnalysis: normalized.sharedAnalysis,
-              additionalInferences: normalized.additionalInferences,
-              nextOptions: normalized.nextOptions,
-            })
-          : null;
-      if (providerCompletionReason === null && !adviceJson)
+      if (providerCompletionReason === null && !advice)
         throw new AdviceRuntimeError(
           "workbench_ai_advice_normalized_result_invalid",
         );
@@ -1561,7 +1551,7 @@ function createProviderAdviceRuntime(
         return blocked("workbench_ai_advice_host_generation_lost", true, true);
       if (providerCompletionReason !== null)
         return blocked(providerCompletionReason, true, true);
-      if (adviceJson === null)
+      if (advice === null)
         return blocked(
           "workbench_ai_advice_normalized_result_invalid",
           true,
@@ -1570,7 +1560,7 @@ function createProviderAdviceRuntime(
       return Object.freeze({
         status: "completed" as const,
         reason: null,
-        adviceJson,
+        advice,
         providerEffectIssued: true as const,
         cleanupConfirmed: true as const,
       });
@@ -2026,29 +2016,6 @@ function objectValue(value: unknown): object | null {
 }
 
 /**
- * 読取り助言Runtime境界におけるrecordValueの処理境界を固定する。
- *
- * @responsibility 読取り助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
- * @trace ARCH-000008
- * @input 宣言された引数だけを受け取る。
- * @returns 宣言された結果型を返す。
- * @precondition 呼出し元が型、IdentityおよびAuthorityの契約を満たす。
- * @postcondition 成功時だけ検証済みの結果を返す。
- * @effect 宣言または注入された依存以外へEffectを発行しない。
- * @failure 不正入力、依存失敗または観測不能を成功へ畳まない。
- * @invariant 入力のIdentity、AuthorityおよびScopeを暗黙に拡張しない。
- * @boundary 呼出し元と本Moduleの局所責務境界。
- * @security 秘密値と未許可情報を出力またはlogへ追加しない。
- * @concurrency 共有状態は宣言された所有者とlifecycleに従う。
- */
-
-function recordValue(value: unknown): RuntimeRecord | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as RuntimeRecord)
-    : null;
-}
-
-/**
  * 読取り助言Runtime境界におけるstringValueの処理境界を固定する。
  *
  * @responsibility 読取り助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
@@ -2094,7 +2061,7 @@ function blocked(
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    adviceJson: null,
+    advice: null,
     providerEffectIssued,
     cleanupConfirmed,
   });

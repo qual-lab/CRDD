@@ -2021,14 +2021,13 @@
       "kind": "test-suite",
       "path": "tests/unit/execution/eligibility-observation.contract.test.ts",
       "qaIds": [
-        "QA-000010"
+        "QA-000006"
       ],
       "localTestIds": [
-        "AIT-UT-005"
+        "ERB-IT-006"
       ],
       "verifies": [
-        "coordinator.source.src.security.provider.eligibility.runtime",
-        "ai-adapter.profile.eligibility"
+        "coordinator.source.src.security.provider.eligibility.runtime"
       ]
     },
     {

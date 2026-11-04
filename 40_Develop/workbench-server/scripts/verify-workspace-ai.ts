@@ -11,7 +11,7 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { devNull } from "node:os";
 import path from "node:path";
-import { getAiModelCatalog } from "../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../ai-adapter/src/index.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 import {
   openTaskSession,
@@ -230,7 +230,7 @@ async function verify(
       },
     },
     () => true,
-    getAiModelCatalog().catalog,
+    getModelCatalog().catalog,
   );
   if (savedSelection.status !== "saved")
     throw new Error("fixture_ai_selection_unavailable");
@@ -238,7 +238,7 @@ async function verify(
   const permitted = () =>
     hash(fs.readFileSync(path.join(root, "PROJECT_CONTEXT.md"))) ===
       contextHash &&
-    readRepositoryAiSelection(verified.capability, getAiModelCatalog().catalog)
+    readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
       .snapshot?.identity === configIdentity;
   const owner = openTaskSession({
     rootCapability: verified.capability,

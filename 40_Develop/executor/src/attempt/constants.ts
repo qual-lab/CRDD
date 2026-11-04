@@ -5,7 +5,6 @@
  * @trace ARCH-000008
  * @boundary Executor内部の結果型・検査・実行間で共有する値の境界。
  */
-import { PROVIDER_ADVICE_OUTPUT_REASONS } from "../../../ai-adapter/src/index.ts";
 
 export const ATTEMPT_COMPLETION_REASONS = Object.freeze([
   "provider_deadline_exceeded",
@@ -39,7 +38,16 @@ export const ATTEMPT_COMPLETION_REASONS = Object.freeze([
   "workbench_ai_advice_result_input_invalid",
   "workbench_ai_advice_result_items_invalid",
   "workbench_ai_advice_result_schema_invalid",
-  ...PROVIDER_ADVICE_OUTPUT_REASONS,
+  "workbench_ai_provider_output_invalid",
+  "workbench_ai_codex_output_invalid",
+  "workbench_ai_codex_completion_invalid",
+  "workbench_ai_codex_tool_event_forbidden",
+  "workbench_ai_codex_final_message_invalid",
+  "workbench_ai_claude_envelope_invalid",
+  "workbench_ai_claude_completion_invalid",
+  "workbench_ai_claude_turn_count_invalid",
+  "workbench_ai_claude_metadata_invalid",
+  "workbench_ai_claude_structured_output_invalid",
   "provider_task_result_input_invalid",
   "provider_task_result_json_invalid",
   "provider_task_result_envelope_status_invalid",

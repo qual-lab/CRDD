@@ -8,6 +8,7 @@
  * @effect N/A: 不変の宣言だけを公開する。
  * @security Secretを保持せず、認証済み・実行可能を宣言値から推定しない。
  */
+
 export const PROVIDER_AUTHENTICATION_POLICIES = Object.freeze({
   codex: Object.freeze({
     provider: "codex",

@@ -6,7 +6,7 @@
  */
 
 import { isDeepStrictEqual } from "node:util";
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   type CoordinatorState,
   inspectTaskExecutionSelections,
@@ -1794,7 +1794,7 @@ export async function executeCoordinatorPublicObjective(
           });
         const configured = readRepositoryAiSelection(
           root.capability,
-          getAiModelCatalog().catalog,
+          getModelCatalog().catalog,
         );
         if (configured.status !== "available")
           return Object.freeze({

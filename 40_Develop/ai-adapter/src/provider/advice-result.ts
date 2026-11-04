@@ -4,8 +4,11 @@
  * @responsibility Provider Envelopeや実行状態を扱わず、四区分の内容だけを検査する。
  * @trace ARCH-000015
  */
+
 import { parseUnambiguousJsonDocument } from "./json.ts";
+
 import { snapshotPlainArray } from "./input.ts";
+
 /**
  * 検査済み助言の一項目を表す。
  * @responsibility 説明本文と読取り投影の参照を一つの値契約へまとめる。
@@ -55,7 +58,64 @@ export type AdviceResult = Readonly<{
 type NormalizedProviderResult<T> =
   | Readonly<{ status: "confirmed"; normalizedResult: T }>
   | Readonly<{ status: "blocked"; reason: string; normalizedResult: null }>;
+
+/**
+ * 許可参照入力の確認済み配列と拒否を区別する。
+ * @responsibility 成功時だけ不変の参照を返し、部分的な入力を搬送しない。
+ * @trace ARCH-000015
+ * @invariant 確認済みは参照の形式・固定の成立であり、実行やアクセスの許可ではない。
+ */
+export type AdviceReferencesResult =
+  | Readonly<{
+      status: "confirmed";
+      reason: null;
+      references: readonly string[];
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: "workbench_ai_advice_result_input_invalid";
+      references: null;
+    }>;
+
 const MAXIMUM_RAW_BYTES = 65_536;
+
+const MAXIMUM_TEXT_BYTES = 8_192;
+
+const MAXIMUM_REFERENCE_BYTES = 512;
+
+const MAXIMUM_ITEMS_PER_SECTION = 64;
+
+const MAXIMUM_REFERENCES_PER_ITEM = 16;
+
+const resultKeys = [
+  "status",
+  "facts",
+  "sharedAnalysis",
+  "additionalInferences",
+  "nextOptions",
+] as const;
+
+const itemKeys = ["text", "references"] as const;
+
+const adviceResultSchema = Object.freeze({
+  type: "object",
+  properties: Object.freeze({
+    status: Object.freeze({ const: "completed" }),
+    facts: itemArraySchema(),
+    sharedAnalysis: itemArraySchema(),
+    additionalInferences: itemArraySchema(),
+    nextOptions: itemArraySchema(),
+  }),
+  required: Object.freeze([
+    "status",
+    "facts",
+    "sharedAnalysis",
+    "additionalInferences",
+    "nextOptions",
+  ]),
+  additionalProperties: false,
+});
+
 /**
  * 助言項目に使用できる有限の文字列か判定する。
  * @responsibility 空値・周辺空白・NUL・byte超過を拒否する。
@@ -80,23 +140,6 @@ function validString(value: unknown, maximumBytes: number): value is string {
     Buffer.byteLength(value, "utf8") <= maximumBytes
   );
 }
-const MAXIMUM_TEXT_BYTES = 8_192;
-
-const MAXIMUM_REFERENCE_BYTES = 512;
-
-const MAXIMUM_ITEMS_PER_SECTION = 64;
-
-const MAXIMUM_REFERENCES_PER_ITEM = 16;
-
-const resultKeys = [
-  "status",
-  "facts",
-  "sharedAnalysis",
-  "additionalInferences",
-  "nextOptions",
-] as const;
-
-const itemKeys = ["text", "references"] as const;
 
 /**
  * 生Provider出力を読取り助言結果へ正規化する。
@@ -195,24 +238,6 @@ export function describeAdviceResultContract() {
     rawOutputReported: false,
   });
 }
-
-/**
- * 許可参照入力の確認済み配列と拒否を区別する。
- * @responsibility 成功時だけ不変の参照を返し、部分的な入力を搬送しない。
- * @trace ARCH-000015
- * @invariant 確認済みは参照の形式・固定の成立であり、実行やアクセスの許可ではない。
- */
-export type AdviceReferencesResult =
-  | Readonly<{
-      status: "confirmed";
-      reason: null;
-      references: readonly string[];
-    }>
-  | Readonly<{
-      status: "blocked";
-      reason: "workbench_ai_advice_result_input_invalid";
-      references: null;
-    }>;
 
 /**
  * 助言で使用する許可参照を検査し、呼出し元から独立した値へ固定する。
@@ -363,7 +388,7 @@ function isExactRecord<const Keys extends readonly string[]>(
  * @effect N/A: 固定Objectを生成するだけである。
  * @failure N/A: 失敗分岐を持たない。
  * @invariant Result Normalizerより強い意味主張を追加しない。
- * @boundary ProviderのSchema制約とExecutorの結果検証の間。
+ * @boundary AI Adapter内のProvider Schema制約と共通内容検査の間。
  * @security 許可参照集合は呼出し側が確定し、本Packageの検査へ渡す。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
@@ -393,27 +418,8 @@ function itemArraySchema() {
   });
 }
 
-const adviceResultSchema = Object.freeze({
-  type: "object",
-  properties: Object.freeze({
-    status: Object.freeze({ const: "completed" }),
-    facts: itemArraySchema(),
-    sharedAnalysis: itemArraySchema(),
-    additionalInferences: itemArraySchema(),
-    nextOptions: itemArraySchema(),
-  }),
-  required: Object.freeze([
-    "status",
-    "facts",
-    "sharedAnalysis",
-    "additionalInferences",
-    "nextOptions",
-  ]),
-  additionalProperties: false,
-});
-
 /**
- * Providerの出力制約へ渡す共通助言結果Schemaを公開する。
+ * 内部のProvider実行計画へ渡す共通助言結果Schemaを取得する。
  *
  * @responsibility 四区分の結果意味と項目制約をAI Adapterで所有し、ProviderのCLI計画には中立な値として渡す。
  * @trace ARCH-000015
@@ -424,7 +430,7 @@ const adviceResultSchema = Object.freeze({
  * @effect N/A: 固定Objectを返すだけである。
  * @failure N/A: 失敗分岐を持たない。
  * @invariant Provider差によって結果の意味を変更しない。
- * @boundary AI Adapterの内容SchemaとExecutor／Coordinatorの計画・結果検査の間。
+ * @boundary AI Adapter内の固定内容Schemaと共通計画・結果検査の間。
  * @security Schemaだけで参照を許可せず、呼出し側が渡す許可集合を結果検査で照合する。
  * @concurrency N/A: 共有可変状態を持たない。
  */

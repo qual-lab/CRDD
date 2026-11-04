@@ -87,7 +87,7 @@ test("WorkspaceのPackage直結事前確認はHTTPなしで実GitとDomainまで
   fs.rmdirSync(root);
   assert.equal(fs.existsSync(root), false);
 });
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import { readRepositoryNetworkHosts } from "../../../coordinator/src/index.ts";
 import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
@@ -2258,7 +2258,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         join,
         URLSearchParams,
         Error,
-        getAiModelCatalog,
+        getModelCatalog,
         process: processState,
         console: { log: (v: string) => output.push(v) },
         execFileSync: () => {
@@ -2607,7 +2607,7 @@ for (const transport of ["tool-child-process"] as const) {
         verified.capability,
         { expectedIdentity: null, config: selectionConfig() },
         () => true,
-        getAiModelCatalog().catalog,
+        getModelCatalog().catalog,
       ).status,
       "saved",
     );

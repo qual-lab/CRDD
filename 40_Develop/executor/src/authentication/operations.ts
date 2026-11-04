@@ -6,8 +6,8 @@
 
 import { types } from "node:util";
 import {
-  describeProviderAuthentication,
-  evaluateProviderAuthentication,
+  getAuthenticationDefinition,
+  parseProviderResult,
 } from "../../../ai-adapter/src/index.ts";
 import {
   cleanupIsolation,
@@ -176,7 +176,7 @@ function authenticationIsolationRequest(
       : request.proxyToken !== null)
   )
     throw Error("provider_authentication_input_invalid");
-  const cli = describeProviderAuthentication(request.provider);
+  const cli = getAuthenticationDefinition(request.provider);
   const capabilities = describeIsolationConfiguration(request.provider);
   const locations = capabilities.locations.primary;
   const environment = {
@@ -475,12 +475,16 @@ export function createAuthenticationExecutor(
               "provider_authentication_command_settlement_unconfirmed",
             );
             if (step.key !== "start_probe_attached") return;
-            const observed = evaluateProviderAuthentication(
-              request.provider,
-              describeProviderAuthentication(request.provider).offering,
-              result.stdout,
-              result.stderr,
-              request.action === "login" ? "login" : "execution",
+            const observed = parseProviderResult(
+              getAuthenticationDefinition(
+                request.provider,
+                request.action === "login" ? "login" : "execution",
+              ),
+              {
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.status,
+              },
             );
             if (
               result.status !== 0 &&

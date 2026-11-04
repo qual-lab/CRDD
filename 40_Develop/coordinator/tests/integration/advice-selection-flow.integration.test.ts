@@ -8,7 +8,7 @@
  * @scope Repository別選定、Context読取り、助言の一回実行境界。
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
-import { getAiModelCatalog } from "../../../ai-adapter/src/index.ts";
+import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -96,8 +96,8 @@ globalThis.adviceFixture = {
   runtime: () => async (plan, signal) => {
     calls++; assert.equal(signal, controller.signal); assert.equal(plan.repositoryMounted,false); assert.equal(plan.workspaceMounted,false); assert.equal(plan.provider,"codex");
     if (scenario === "runtime_throw") throw new Error("synthetic");
-    if (scenario === "cleanup_unknown") return { status:"blocked",reason:"synthetic_cleanup_unknown",adviceJson:null,providerEffectIssued:true,cleanupConfirmed:false };
-    return {status:"completed",reason:null,adviceJson:JSON.stringify({status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]}),providerEffectIssued:true,cleanupConfirmed:true};
+    if (scenario === "cleanup_unknown") return { status:"blocked",reason:"synthetic_cleanup_unknown",advice:null,providerEffectIssued:true,cleanupConfirmed:false };
+    return {status:"completed",reason:null,advice:{...{status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]},reason:null},providerEffectIssued:true,cleanupConfirmed:true};
   },
   failure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host,dockerRecoveryId:docker} : null,
 };
@@ -124,7 +124,7 @@ if(scenario === "cancel_before")assert.equal(reads,0);
 assert.equal(response.cleanupConfirmed,scenario !== "cleanup_unknown" && scenario !== "runtime_throw");
 assert.equal(response.hostRecoveryId,scenario === "cleanup_unknown"?host:null);
 assert.equal(response.dockerRecoveryId,scenario === "cleanup_unknown"?docker:null);
-assert.equal(Object.hasOwn(response,"rawOutput"),false);
+assert.equal(Object.hasOwn(response,"advice"),false);
 process.stdout.write("verified");
 `;
     for (const scenario of [
@@ -199,7 +199,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
     assert.equal(root.status, "completed");
     if (root.status !== "completed") throw Error("root_invalid");
     assert.equal(
-      readRepositoryAiSelection(root.capability, getAiModelCatalog().catalog)
+      readRepositoryAiSelection(root.capability, getModelCatalog().catalog)
         .status,
       "missing",
     );
@@ -207,7 +207,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       root.capability,
       { expectedIdentity: null, config: selectionConfig() },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     assert.equal(saved.status, "saved", JSON.stringify(saved));
     if (saved.status !== "saved") throw Error("save_failed");
@@ -229,7 +229,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       root.capability,
       { expectedIdentity: saved.snapshot.identity, config: next },
       () => true,
-      getAiModelCatalog().catalog,
+      getModelCatalog().catalog,
     );
     assert.equal(changed.status, "saved");
     if (changed.status !== "saved") throw Error("change_failed");
@@ -255,12 +255,15 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
         return {
           status: "completed",
           reason: null,
-          adviceJson: JSON.stringify({
-            status: "completed",
-            facts: [{ text: "合成", references: ["PROJECT_CONTEXT.md"] }],
-            sharedAnalysis: [],
-            additionalInferences: [],
-            nextOptions: [],
+          advice: Object.freeze({
+            ...{
+              status: "completed",
+              facts: [{ text: "合成", references: ["PROJECT_CONTEXT.md"] }],
+              sharedAnalysis: [],
+              additionalInferences: [],
+              nextOptions: [],
+            },
+            reason: null,
           }),
           providerEffectIssued: true,
           cleanupConfirmed: true,
@@ -361,7 +364,7 @@ test("旧Profile設定と破損設定を既定Modelへ補正しない", async ()
       );
       const read = readRepositoryAiSelection(
         root.capability,
-        getAiModelCatalog().catalog,
+        getModelCatalog().catalog,
       );
       assert.equal(read.status, "blocked");
       assert.equal(read.snapshot, null);
