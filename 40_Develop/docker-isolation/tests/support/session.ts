@@ -6,13 +6,15 @@
 
 import { types as utilTypes } from "node:util";
 import type {
-  DockerCommandSession,
-  DockerExecutionCallbacks,
   DockerResourceCleanupObservation,
   DockerResourceReceipts,
+} from "../../../executor/src/attempt/types.ts";
+import type {
+  DockerCommandSession,
+  DockerExecutionCallbacks,
   DockerSessionCleanup,
   DockerSessionFailure,
-} from "../../../executor/src/attempt/types.ts";
+} from "../../../executor/scripts/executor-test.ts";
 import {
   type CommandObservation,
   classifyDockerCommandException,

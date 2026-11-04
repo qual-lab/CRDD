@@ -14,7 +14,6 @@ import * as di from "../../../docker-isolation/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { PURPOSES } from "../../src/attempt/constants.ts";
 import * as boundary from "../../src/attempt/operations.ts";
-import type { AttemptPlan, IsolationRuntime } from "../../src/attempt/types.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -40,7 +39,7 @@ test("Executor外側の未知例外はDIとして再分類せず生値を公開�
       createCompletionResult: (value: unknown) => value,
       executeLifecycle: async (operations: {
         execute(): Promise<void>;
-        cleanup(): Promise<void>;
+        finalize(): Promise<void>;
         createResult(
           context: unknown,
           error: unknown,
@@ -48,7 +47,7 @@ test("Executor外側の未知例外はDIとして再分類せず生値を公開�
         ): unknown;
       }) => {
         await operations.execute();
-        await operations.cleanup();
+        await operations.finalize();
         return operations.createResult(null, null, false);
       },
     },
@@ -79,16 +78,9 @@ test("Executor外側の未知例外はDIとして再分類せず生値を公開�
           notices.push(notice);
         },
       },
-      isolation: {
-        startExecution: () => {
-          throw thrown;
-        },
-        cleanupOwnedResources: async () => ({
-          confirmed: false,
-          processTreeTerminated: false,
-          containersAbsent: false,
-          networksAbsent: false,
-        }),
+      prepareIsolation: () => ({ resources: { resources: [] } }),
+      executeIsolation: () => {
+        throw thrown;
       },
     },
     { lifecycle: { cancellationRequested: false } },
@@ -193,10 +185,6 @@ function fixture() {
     stdoutBytes: 9,
     stderrBytes: 0,
   });
-  const source = readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
-    "utf8",
-  );
   const value = attemptPlan();
   const plan = boundary.prepareAttempt(
     { randomBytes: (size) => Buffer.alloc(size, 1) },
@@ -225,6 +213,17 @@ function fixture() {
   let calls = 0;
   let failure: di.IsolationExecutionResult["failure"] = null;
   let snapshot: di.ResourceSnapshot | null = null;
+  let commandFailure: {
+    key: string;
+    code: "PROCESS_FAILURE" | "ETIMEDOUT";
+  } | null = null;
+  let releases = 0;
+  const events: string[] = [];
+  let prepareRejected = false;
+  let invocationFailed = false;
+  let transform = (
+    value: di.IsolationExecutionResult,
+  ): di.IsolationExecutionResult => value;
   const context = {
     ...di,
     ...boundary,
@@ -233,13 +232,15 @@ function fixture() {
     PURPOSES,
     prepareIsolation: (input: di.IsolationRequest) => {
       request = input;
-      return {};
+      if (prepareRejected) return null;
+      return { resources: { resources: [] } };
     },
     executeIsolation: (
       _prepared: unknown,
-      callbacks: di.IsolationCallbacks,
+      callbacks: di.IsolationCallbacks = {},
     ): di.IsolationExecution => {
       calls++;
+      if (invocationFailed) throw Error("synthetic_invocation_failure");
       assert.ok(request);
       const current = request;
       snapshot = Object.freeze({
@@ -286,23 +287,64 @@ function fixture() {
                 const response = {
                   status: 0,
                   signal: null,
-                  stdout: "synthetic",
+                  stdout:
+                    step.key === "start_subscription_auth_probe_attached"
+                      ? JSON.stringify({
+                          loggedIn: true,
+                          authMethod: "claude.ai",
+                          apiProvider: "firstParty",
+                          forcedLoginMethod: "claudeai",
+                          subscriptionType: "max",
+                        })
+                      : JSON.stringify({
+                          type: "result",
+                          subtype: "success",
+                          is_error: false,
+                          num_turns: 1,
+                          total_cost_usd: 0,
+                          structured_output: { status: true },
+                        }),
                   stderr: "",
                   outputExceeded: false,
                 };
                 const commandResult = {
-                  observation: response,
+                  observation:
+                    commandFailure?.key === step.key ? null : response,
                   elapsedMs: 1,
-                  errorCode: null,
-                  classification,
+                  errorCode:
+                    commandFailure?.key === step.key
+                      ? commandFailure.code
+                      : null,
+                  classification:
+                    commandFailure?.key === step.key
+                      ? { category: "deadline_exceeded" as const }
+                      : classification,
                   exitClass: "zero" as const,
                 };
-                await callbacks.onObserved?.(step, commandResult);
-                await callbacks.onCompleted?.(step, commandResult);
+                try {
+                  await callbacks.onObserved?.(step, commandResult);
+                  if (commandResult.observation !== null)
+                    await callbacks.onCompleted?.(step, {
+                      ...commandResult,
+                      observation: commandResult.observation,
+                    });
+                } catch {
+                  failure = {
+                    stepKey: step.key,
+                    stage: "notification",
+                    reason: "notification_failed",
+                    notification: "onObserved",
+                    kind: "threw",
+                    commandHandleObtained: true,
+                    responseObserved: commandResult.observation !== null,
+                    exceptionCode: null,
+                  };
+                  break;
+                }
               }
             }
           }
-          return {
+          return transform({
             failure,
             resources,
             cancellationRequested: false,
@@ -317,7 +359,7 @@ function fixture() {
                 observation: "absent",
               })),
             },
-          };
+          });
         },
       );
       return {
@@ -329,13 +371,52 @@ function fixture() {
       };
     },
   };
-  const bind = runInNewContext(
-    `${sourceDeclaration(source, "bindIsolationRuntime")}\nbindIsolationRuntime`,
-    context,
-  ) as (plan: AttemptPlan) => Omit<IsolationRuntime, "acquireHomeLease">;
+  const management = {};
+  const reference = {
+    recoveryId: `docker-task.${plan.stableLogicalHomeBindingHash}.${"b".repeat(64)}.${"c".repeat(64)}`,
+    recoveryCapability: {},
+  };
+  const state = {
+    controls: new WeakMap(),
+    acquireHomeLease: () => ({
+      release: () => {
+        releases++;
+        events.push("home");
+        return true;
+      },
+    }),
+    prepareIsolation: context.prepareIsolation as typeof di.prepareIsolation,
+    executeIsolation: context.executeIsolation,
+  };
   return {
     plan,
-    bound: bind(plan),
+    releases: () => releases,
+    commandFailure: (key: string, code: "PROCESS_FAILURE" | "ETIMEDOUT") => {
+      commandFailure = { key, code };
+    },
+    events,
+    rejectPrepare: () => {
+      prepareRejected = true;
+    },
+    failInvocation: () => {
+      invocationFailed = true;
+    },
+    transform: (value: typeof transform) => {
+      transform = value;
+    },
+    run: (
+      callbacks: import("../../src/attempt/types.ts").AttemptCallbacks = {},
+    ) => {
+      const started = boundary.start(
+        { ...state, callbacks },
+        plan,
+        management,
+        reference,
+      );
+      assert.equal(started.status, "started");
+      if (started.status !== "started") throw Error("test_start_blocked");
+      return started.completion;
+    },
     request: () => request,
     snapshot: () => snapshot,
     calls: () => calls,
@@ -345,6 +426,181 @@ function fixture() {
     },
   };
 }
+
+/**
+ * DI終了不明・回収不明と要求前拒否を区別してHome解放条件を反証する。
+ * @responsibility 元DI結果を直接解釈し、未確認から不存在を推測しない。
+ * @trace ERB-UT-023
+ * @precondition 実行要求の代役だけを使用し実Docker・AIは起動しない。
+ * @stimulus 終了不明、回収不明、部分観測、純粋準備拒否、要求時例外。
+ * @observation 元回復ID、Snapshot、Home解放回数と最終結果。
+ * @oracle 要求前拒否以外の未確認ではHomeを保持し、自動再要求しない。
+ * @cleanup メモリ内のPromiseだけ。実Home・資源を取得しない。
+ */
+test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を区別する", async () => {
+  for (const transform of [
+    (r: di.IsolationExecutionResult) => ({
+      ...r,
+      processTerminationConfirmed: false,
+    }),
+    (r: di.IsolationExecutionResult) => ({
+      ...r,
+      cleanup: { ...r.cleanup, confirmed: false },
+    }),
+    (r: di.IsolationExecutionResult) => ({
+      ...r,
+      cleanup: {
+        ...r.cleanup,
+        confirmed: false,
+        configCleanupConfirmed: false,
+      },
+    }),
+    (r: di.IsolationExecutionResult) => ({
+      ...r,
+      cleanup: { ...r.cleanup, confirmed: false, observations: [] },
+    }),
+    (r: di.IsolationExecutionResult) => ({
+      ...r,
+      resources: { resources: r.resources.resources.slice(1) },
+    }),
+  ]) {
+    const f = fixture();
+    f.transform(transform);
+    const result = await f.run();
+    assert.equal(f.calls(), 1);
+    assert.equal(f.releases(), 0);
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.homeLeaseReleased, false);
+    assert.ok(result.recoveryId);
+  }
+  const before = fixture();
+  before.rejectPrepare();
+  const rejected = await before.run();
+  assert.equal(before.calls(), 0);
+  assert.equal(before.releases(), 1);
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.resourceSnapshot, null);
+  const after = fixture();
+  after.failInvocation();
+  const unknown = await after.run();
+  assert.equal(after.calls(), 1);
+  assert.equal(after.releases(), 0);
+  assert.equal(unknown.cleanupConfirmed, false);
+  assert.equal(unknown.resourceSnapshot, null);
+  assert.equal(unknown.recoveryId, rejected.recoveryId);
+});
+
+/**
+ * 作成Receipt通知へ到達しなくてもDIの元実IDによる観測を保持する。
+ * @responsibility 作成事実と回収成否を別の事実として扱う。
+ * @trace ERB-UT-023
+ * @precondition 元Snapshotに実IDがある有限の失敗結果。
+ * @stimulus create後、onCreated通知前の中断を再現する。
+ * @observation 作成観測、回復ID、Cleanup未確認とHome保持。
+ * @oracle 元実IDがあれば作成観測true。不明な回収を成功にしない。
+ * @cleanup 実資源なし。
+ */
+test("作成通知前の中断でも最終SnapshotのProvider実IDを観測する", async () => {
+  const f = fixture();
+  f.fail({
+    stepKey: "create_provider",
+    stage: "wait",
+    reason: "fixed_failure",
+    kind: "threw",
+    notification: null,
+    commandHandleObtained: true,
+    responseObserved: false,
+    exceptionCode: "unknown",
+  });
+  f.transform((r) => ({ ...r, cleanup: { ...r.cleanup, confirmed: false } }));
+  let created: boolean | null = null;
+  let receipts = 0;
+  const result = await f.run({
+    onResourceCreated: () => {
+      receipts++;
+    },
+    onDiagnostic: (notice) => {
+      if (notice.event === "coordinator_provider_boundary_settled")
+        created = notice.providerContainerCreatedObserved;
+    },
+  });
+  assert.equal(receipts, 0);
+  assert.equal(created, true);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(f.releases(), 0);
+  assert.ok(result.recoveryId);
+});
+
+/**
+ * 必須通知とHome解放の実順序を確認し、通知失敗でも確認済み技術事実を保持する。
+ * @trace ERB-UT-023
+ * @responsibility 資源終了通知→Home→最終通知の三段を区別する。
+ * @precondition 有限DI完了だけを使用。
+ * @stimulus 正常と各通知の拒否。
+ * @observation 三段の実順序と元回復ID・結果。
+ * @oracle 通知失敗はblocked、確認済みHome解放は保持。
+ * @cleanup 実資源なし。
+ */
+test("資源終了通知とHome解放と最終通知の三段順序を維持する", async () => {
+  for (const mode of ["normal", "closed", "completed"]) {
+    const f = fixture();
+    const result = await f.run({
+      onResourcesClosed: () => {
+        f.events.push("closed");
+        if (mode === "closed") throw Error("synthetic");
+      },
+      onCleanupCompleted: () => {
+        f.events.push("completed");
+        if (mode === "completed") throw Error("synthetic");
+      },
+    });
+    assert.deepEqual(f.events, ["closed", "home", "completed"]);
+    assert.equal(result.status, mode === "normal" ? "completed" : "blocked");
+    assert.equal(result.homeLeaseReleased, true);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.ok(result.recoveryId);
+  }
+});
+
+/**
+ * 通信故障と正規期限超過を元DI観測から別々に分類する。
+ * @responsibility 任意の後続通知故障で一次失敗理由を上書きしない。
+ * @trace ERB-UT-023
+ * @precondition DIの有限Command観測のみ。
+ * @stimulus Provider/setupのETIMEDOUTとProviderのPROCESS_FAILURE。
+ * @observation 固定理由、同じ回復ID、内容非公開とHome終了。
+ * @oracle 期限理由を一般例外へ変換しない。
+ * @cleanup 実資源なし。
+ */
+test("DIの正規Timeoutと通信失敗を分け後着通知で上書きしない", async () => {
+  for (const [key, code, reason] of [
+    [
+      "start_provider_attached",
+      "PROCESS_FAILURE",
+      "docker_process_controller_execution_failed_closed",
+    ],
+    ["start_provider_attached", "ETIMEDOUT", "provider_deadline_exceeded"],
+    [
+      "start_subscription_auth_probe_attached",
+      "ETIMEDOUT",
+      "docker_setup_deadline_exceeded",
+    ],
+  ] as const) {
+    const f = fixture();
+    f.commandFailure(key, code);
+    const result = await f.run({
+      onCleanupCompleted: () => {
+        throw Error("late");
+      },
+    });
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, reason);
+    assert.ok(result.recoveryId);
+    assert.equal(result.normalizedResult, null);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(f.releases(), 1);
+  }
+});
 
 /** 実構成と元結果だけを共通DIの一生涯へ結合する。
  * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
@@ -357,24 +613,14 @@ function fixture() {
  * @boundary ERB-UT-023=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("通常Attemptは五資源・九操作を共通DIへ一回接続し元Snapshotを返す", async () => {
-  const f = fixture(),
-    recovery = {},
-    management = {};
+  const f = fixture();
   const events: string[] = [];
-  let receivedClassification: unknown;
-  assert.ok(f.bound.startExecution);
-  const execution = f.bound.startExecution(f.plan, recovery, management, {
-    onCommandObserved: (_purpose, _result, classification) => {
-      receivedClassification = classification;
-    },
+  const result = await f.run({
     onCommandSubmitting: (key) => {
       events.push(key);
     },
   });
-  const result = await execution.completion;
   assert.equal(f.calls(), 1);
-  assert.strictEqual(receivedClassification, f.classification());
-  assert.equal(result.executionExit, "zero");
   assert.strictEqual(f.request(), f.plan.isolationRequest);
   assert.equal("commands" in f.plan, false);
   assert.ok(Object.isFrozen(f.plan.isolationRequest));
@@ -390,48 +636,14 @@ test("通常Attemptは五資源・九操作を共通DIへ一回接続し元Snaps
   );
   assert.deepEqual(events, Array.from(PURPOSES));
   assert.strictEqual(result.resourceSnapshot, f.snapshot());
-  assert.equal(result.resourceObservations?.length, 5);
-  assert.equal(result.cleanup.confirmed, true);
+  assert.equal(result.resourceSnapshot?.resources.length, 5);
+  assert.equal(result.cleanupConfirmed, true);
   const primary = f.request()?.steps.at(-1);
   assert.equal(primary?.action, "run");
   if (primary?.action === "run") {
     assert.equal(primary.timeoutMs, 300_000);
     assert.equal(primary.deadlineOrigin, "started");
   }
-  assert.ok(
-    f.bound.verifyCleanupOutcome?.(
-      result.cleanup,
-      f.plan,
-      recovery,
-      management,
-    ),
-  );
-  assert.equal(
-    f.bound.verifyCleanupOutcome?.(
-      { ...result.cleanup },
-      f.plan,
-      recovery,
-      management,
-    ),
-    null,
-  );
-  assert.equal(
-    f.bound.verifyCleanupOutcome?.(
-      result.cleanup,
-      { ...f.plan },
-      recovery,
-      management,
-    ),
-    null,
-  );
-  assert.equal(
-    f.bound.verifyCleanupOutcome?.(result.cleanup, f.plan, {}, management),
-    null,
-  );
-  assert.equal(
-    f.bound.verifyCleanupOutcome?.(result.cleanup, f.plan, recovery, {}),
-    null,
-  );
 });
 
 /** Handle取得と応答観測は技術Ownerが報告した実際の段階を保持する。
@@ -457,20 +669,34 @@ test("通常Attemptは共通DIの一次失敗と未発行通知名を推測で�
       responseObserved: stage === "notification",
       exceptionCode: "unknown",
     });
-    assert.ok(f.bound.startExecution);
-    const result = await f.bound.startExecution(f.plan, {}, {}, {}).completion;
+    let diagnostic:
+      | import("../../src/attempt/types.ts").PrimaryFailureDiagnostic
+      | null = null;
+    let notIssued = 0;
+    const result = await f.run({
+      onCommandNotIssued: () => {
+        notIssued++;
+      },
+      onDiagnostic: (notice) => {
+        if (notice.event === "coordinator_provider_boundary_settled")
+          diagnostic = notice.primaryFailure;
+      },
+    });
+    const observed = diagnostic as
+      | import("../../src/attempt/types.ts").PrimaryFailureDiagnostic
+      | null;
+    assert.equal(result.status, "blocked");
     assert.equal(
-      result.failure?.stage,
+      observed?.stage,
       stage === "notification"
-        ? "gate"
+        ? "submission_record"
         : stage === "start"
           ? "command_start"
           : "command_wait",
     );
-    assert.equal(result.failure?.commandHandleObtained, stage !== "start");
-    assert.equal(result.failure?.responseObserved, stage === "notification");
-    if (stage === "notification")
-      assert.equal(result.failure?.gate, "onCommandNotIssued");
+    assert.equal(observed?.commandHandleObtained, stage !== "start");
+    assert.equal(observed?.responseObserved, stage === "notification");
+    assert.equal(notIssued, stage === "notification" ? 1 : 0);
   }
 });
 
@@ -640,12 +866,18 @@ test("資源Identityの不正はHome取得・DI要求より前に拒否する", 
     const state = {
       controls: new WeakMap(),
       callbacks: {},
-      isolation: new Proxy({} as IsolationRuntime, {
-        get() {
-          technicalCalls++;
-          throw Error("must_not_call");
-        },
-      }),
+      acquireHomeLease: () => {
+        technicalCalls++;
+        throw Error("must_not_call");
+      },
+      prepareIsolation: () => {
+        technicalCalls++;
+        throw Error("must_not_call");
+      },
+      executeIsolation: () => {
+        technicalCalls++;
+        throw Error("must_not_call");
+      },
     };
     const result = boundary.start(
       state,

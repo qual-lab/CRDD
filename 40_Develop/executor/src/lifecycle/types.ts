@@ -4,13 +4,16 @@
  * @trace ARCH-000008
  */
 
-export type {
+import type {
   ResourceCleanupResult as IsolationResourceCleanupResult,
   ResourceInspection as IsolationResourceInspection,
   ResourceTarget as IsolationResourceTarget,
 } from "../../../docker-isolation/src/index.ts";
 
 import type {
+  ResourceTarget as AttemptResourceTarget,
+  ResourceCleanupResult as AttemptResourceCleanupResult,
+  ResourceInspection as AttemptResourceInspection,
   AttemptCancelInput,
   CompletionResult as AttemptCompletionResult,
   AttemptExecutor,
@@ -20,6 +23,7 @@ import type {
   StartResult as AttemptStartResult,
 } from "../attempt/types.ts";
 import type {
+  AuthenticationCleanupResult,
   AuthenticationCompletionResult,
   AuthenticationProjection,
   AuthenticationRequest,
@@ -253,20 +257,20 @@ export interface LifecycleOperations {
 }
 
 /**
- * 実行・清掃条件・受動完了通知を共通の順序へ接続する。
+ * 実行・終了処理条件・受動完了通知を共通の順序へ接続する。
  * @responsibility 用途固有の処置と結果解釈を共通Runnerへ渡す。
  * @trace ARCH-000008
- * @shape Context、Execute、Cleanup条件、Cleanup、結果構築、任意通知。
- * @invariant Cleanup条件の否定を回収成功へ変換しない。
+ * @shape Context、Execute、終了処理条件、Finalize、結果構築、任意通知。
+ * @invariant 終了処理条件の否定を回収成功へ変換しない。
  * @boundary 共通実行順序と固有技術条件。
  * @security 一次失敗と未観測を結果Ownerへ保持する。
  * @compatibility 既存結果と通知の同期性を維持する。
  */
 export interface LifecycleOperation<TContext, TResult> {
-  shouldCleanup?(context: TContext): boolean;
+  shouldFinalize?(context: TContext): boolean;
   onCompleted?(result: TResult): void | Promise<void>;
   execute(context: TContext): Promise<void>;
-  cleanup(context: TContext): Promise<void>;
+  finalize?(context: TContext): Promise<void>;
   createResult(context: TContext, failure: unknown, failed: boolean): TResult;
 }
 
@@ -279,3 +283,44 @@ export type AuthenticationResourceTarget = AuthenticationStartContext &
     resources: AuthenticationProjection["resources"] | null;
     callbacks?: ExecutorCallbacks<"authentication">;
   }>;
+
+/** 既存の資源入力・結果を操作別に対応付ける。新しい資源Modelは定義しない。 */
+interface ResourceContracts {
+  attempt: {
+    inspect: AttemptResourceTarget;
+    cleanup: AttemptResourceTarget;
+    inspection: AttemptResourceInspection;
+    result: AttemptResourceCleanupResult;
+  };
+  authentication: {
+    inspect: never;
+    cleanup: AuthenticationResourceTarget;
+    inspection: never;
+    result: AuthenticationCleanupResult;
+  };
+  container: {
+    inspect: IsolationResourceTarget<"container", "inspect">;
+    cleanup: IsolationResourceTarget<"container", "cleanup">;
+    inspection: IsolationResourceInspection<"container">;
+    result: IsolationResourceCleanupResult<"container">;
+  };
+  directory: {
+    inspect: IsolationResourceTarget<"directory", "inspect">;
+    cleanup: IsolationResourceTarget<"directory", "cleanup">;
+    inspection: IsolationResourceInspection<"directory">;
+    result: IsolationResourceCleanupResult<"directory">;
+  };
+}
+/** 操作に必要な既存必須情報を維持し、認証を観測可能対象へ追加しない。 @trace ARCH-000008 */
+export type ResourceTarget<
+  K extends keyof ResourceContracts = keyof ResourceContracts,
+  A extends "inspect" | "cleanup" = "inspect" | "cleanup",
+> = ResourceContracts[K][A];
+/** 用途・資源種別に対応する既存の技術観測。 @trace ARCH-000008 */
+export type ResourceInspection<
+  K extends keyof ResourceContracts = keyof ResourceContracts,
+> = ResourceContracts[K]["inspection"];
+/** 型正本の結果をそのまま公開し、同期性・確認不能を統合しない。 @trace ARCH-000008 */
+export type ResourceCleanupResult<
+  K extends keyof ResourceContracts = keyof ResourceContracts,
+> = ResourceContracts[K]["result"];

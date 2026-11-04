@@ -7,13 +7,15 @@
  */
 
 import type {
-  DockerCommandSession,
   DockerIsolationRuntimeOptions,
   DockerResourceCleanupObservation,
   DockerResourceReceipts,
-  DockerSessionCleanup,
   HomeLease,
 } from "../../../executor/src/attempt/types.ts";
+import type {
+  DockerCommandSession,
+  DockerSessionCleanup,
+} from "../../../executor/scripts/executor-test.ts";
 import { planDockerIsolationCommands } from "./execution-plan.ts";
 
 export type { DockerIsolationRuntimeOptions } from "../../../executor/src/attempt/types.ts";
@@ -52,7 +54,7 @@ export {
   startDockerCommandSessionCandidate,
 } from "./session.ts";
 
-import type { DockerExecutionCallbacks } from "../../../executor/src/attempt/types.ts";
+import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
 
 /**
  * 実行資源の技術計画。相関値は許可ではない。

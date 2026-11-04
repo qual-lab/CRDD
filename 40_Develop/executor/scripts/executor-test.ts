@@ -6,6 +6,12 @@
  * @boundary scripts/tests専用。実行許可や本番構成ではない。
  */
 
+import type {
+  IsolationCommandResult,
+  IsolationExecutionResult,
+  ResourceSnapshot,
+  IsolationCallbacks,
+} from "../../docker-isolation/src/index.ts";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
@@ -37,12 +43,11 @@ import {
   isAttemptPlanValid as validateProductPlan,
 } from "../src/attempt/operations.ts";
 import type {
-  DockerCommandSession,
-  DockerExecutionCallbacks,
   DockerIsolationCommandInput,
   DockerIsolationRuntimeOptions,
-  DockerSessionCleanup,
   HomeLease,
+  AttemptCommandPurpose,
+  DockerResourceCleanupObservation,
 } from "../src/attempt/types.ts";
 
 export { resolveProviderExecution } from "../src/attempt/operations.ts";
@@ -51,7 +56,6 @@ import { createStartResult } from "../src/attempt/result.ts";
 import type {
   AttemptReference,
   AttemptRequest,
-  IsolationRuntime,
   AttemptPlan as ProductAttemptPlan,
   RuntimeState,
   AttemptTerminalObservation as TechnicalObservation,
@@ -65,6 +69,111 @@ import type {
 import type { ExecutorCallbacks } from "../src/lifecycle/callbacks.ts";
 
 /** 旧有限Session Oracleだけが保持するCommand投影。製品Planへ戻さない。 */
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export interface IsolationRuntime {
+  acquireHomeLease(bindingHash: string): HomeLease | null;
+  startExecution(
+    plan: ProductAttemptPlan,
+    recovery: object,
+    management: object,
+    hooks: DockerExecutionCallbacks,
+  ): DockerCommandSession;
+  cleanupOwnedResources(
+    plan: ProductAttemptPlan,
+    recovery: object,
+    management: unknown,
+  ): Promise<DockerSessionCleanup>;
+  verifyCleanupOutcome(
+    result: unknown,
+    plan: ProductAttemptPlan,
+    recovery: unknown,
+    management: unknown,
+  ): DockerSessionCleanup["resourceObservations"];
+}
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerSessionCleanup = Readonly<{
+  confirmed: boolean;
+  processTreeTerminated: boolean;
+  containersAbsent: boolean;
+  networksAbsent: boolean;
+  resourceObservations?: readonly DockerResourceCleanupObservation[] | null;
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export interface DockerExecutionCallbacks {
+  onCommandSubmitting?(purpose: AttemptCommandPurpose): void | Promise<void>;
+  onCommandNotIssued?(purpose: AttemptCommandPurpose): void | Promise<void>;
+  onExecutionSubmitting?(): void | Promise<void>;
+  onResourceCreated?(
+    purpose: AttemptCommandPurpose,
+    dockerId: string,
+  ): void | Promise<void>;
+  onCommandObserved?(
+    purpose: AttemptCommandPurpose,
+    result: NonNullable<IsolationCommandResult["observation"]> | null,
+    classification: IsolationCommandResult["classification"],
+  ): void;
+  onCommandCompleted?(
+    purpose: AttemptCommandPurpose,
+    result: NonNullable<IsolationCommandResult["observation"]>,
+  ): void;
+  /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
+  onExecutionStarted?(): void;
+  onFailure?(failure: DockerSessionFailure): void;
+}
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerSessionFailure = Readonly<{
+  purpose: AttemptCommandPurpose | null;
+  stage:
+    | "command_start"
+    | "provider_start_observation"
+    | "command_wait"
+    | "gate";
+  gate: keyof DockerExecutionCallbacks | null;
+  kind:
+    | "rejected"
+    | "invalid_return"
+    | "threw"
+    | "start_unconfirmed"
+    | "invalid_plan"
+    | "command_failed";
+  exceptionCode: string | null;
+  commandHandleObtained: boolean;
+  responseObserved: boolean;
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerCommandSessionResult = Readonly<{
+  resourceSnapshot?: ResourceSnapshot;
+  failure: DockerSessionFailure | null;
+  notificationDeliveryConfirmed: boolean | null;
+  callbackRegistrationReleased: boolean;
+  cancellationRequested: boolean;
+  executionStarted: boolean;
+  executionCompleted: boolean;
+  executionContainerCreated: boolean;
+  executionExit: IsolationCommandResult["exitClass"];
+  cleanup: DockerSessionCleanup;
+  resourceObservations:
+    | readonly DockerResourceCleanupObservation[]
+    | null
+    | undefined;
+  processTreeTerminationConfirmed: boolean;
+}>;
+
+/** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
+export type DockerCommandSession = Readonly<{
+  cancel: () => Promise<
+    Readonly<{
+      cancellationRequested: boolean;
+      processTerminationObserved: boolean;
+    }>
+  >;
+  completion: Promise<DockerCommandSessionResult>;
+}>;
+
 export type TestAttemptPlan = ProductAttemptPlan &
   Readonly<{ commands: readonly DockerIsolationCommand[] }>;
 type AttemptPlan = TestAttemptPlan;
@@ -1523,7 +1632,11 @@ export function createExecutorTestRuntime(
     ) => {
       try {
         return start(
-          { ...state, isolation, callbacks },
+          {
+            ...state,
+            ...bindLegacyTestIsolation(plan, management, reference, isolation),
+            callbacks,
+          },
           plan,
           management,
           reference,
@@ -1546,6 +1659,199 @@ export function createExecutorTestRuntime(
     abandon: (reference: unknown, management: unknown) =>
       abandon(state, reference, management),
   });
+}
+
+/**
+ * 既存の有限Session OracleをDIの型付き境界へ接続する試験専用変換。
+ * @responsibility 欠測・unknownを成功へ補完せず、製品へ旧Session契約を戻さない。
+ * @trace ERB-IT-004
+ * @effect 試験が渡した代役だけ。実DIの実行・回収は呼ばない。
+ */
+export function bindLegacyTestIsolation(
+  plan: ProductAttemptPlan,
+  management: unknown,
+  reference: AttemptReference,
+  isolation: IsolationRuntime,
+): Pick<
+  RuntimeState,
+  "acquireHomeLease" | "prepareIsolation" | "executeIsolation"
+> {
+  const request = plan.isolationRequest;
+  const identities = new Map<string, string>();
+  const snapshot = (
+    observations?: readonly DockerResourceCleanupObservation[] | null,
+  ): ResourceSnapshot => ({
+    resources: request.resources.map((resource) => {
+      const observed = observations?.find((o) => o.purpose === resource.key);
+      return {
+        key: resource.key,
+        identity: {
+          kind: resource.kind,
+          name: observed?.plannedResourceName ?? resource.name,
+          ownershipLabel: resource.ownershipLabel,
+          dockerId: observed
+            ? observed.dockerId
+            : (identities.get(resource.key) ?? null),
+        },
+        request:
+          observed?.observation === "not_requested" ? "not_issued" : "unknown",
+        configuration: {
+          image: null,
+          command: null,
+          environmentNames: null,
+          mounts: null,
+          networks: null,
+          internal: null,
+        },
+      };
+    }),
+  });
+  const step = (purpose: string) => {
+    const found = request.steps.find((s) => s.key === purpose);
+    if (!found) throw Error("test_isolation_step_missing");
+    return found;
+  };
+  return {
+    acquireHomeLease: isolation.acquireHomeLease,
+    prepareIsolation: () => ({ resources: snapshot() }),
+    executeIsolation: (_prepared, callbacks = {}) => {
+      const hooks: DockerExecutionCallbacks = {
+        onFailure: (failure) => {
+          if (
+            failure.stage === "command_wait" &&
+            failure.kind === "threw" &&
+            failure.purpose
+          )
+            callbacks.onObserved?.(step(failure.purpose), {
+              observation: null,
+              elapsedMs: 0,
+              errorCode: "PROCESS_FAILURE",
+              classification: { category: "deadline_exceeded" },
+              exitClass: "not_observed",
+            });
+        },
+        onCommandSubmitting: (purpose) =>
+          callbacks.onSubmitting?.(step(purpose)),
+        onCommandNotIssued: (purpose) => callbacks.onNotIssued?.(step(purpose)),
+        // 実DIはProvider予定をonSubmittingで通知する。旧Oracleの別通知は重複させない。
+        onExecutionSubmitting() {},
+        onResourceCreated: (purpose, id) => {
+          identities.set(purpose, id);
+          return callbacks.onCreated?.(
+            { ...step(purpose), resource: purpose },
+            snapshot(),
+          );
+        },
+        onExecutionStarted: () =>
+          callbacks.onStarted?.(step("start_provider_attached")),
+        onCommandObserved: (purpose, observation, classification) => {
+          const status = observation?.status;
+          const exitClass = observation?.signal
+            ? "signal"
+            : status === 0
+              ? "zero"
+              : status === 1
+                ? "one"
+                : status === 126
+                  ? "one_two_six"
+                  : status === 127
+                    ? "one_two_seven"
+                    : typeof status === "number"
+                      ? "other_nonzero"
+                      : "not_observed";
+          callbacks.onObserved?.(step(purpose), {
+            observation,
+            classification,
+            exitClass,
+            elapsedMs: 0,
+            errorCode: null,
+          });
+        },
+        onCommandCompleted: (purpose, observation) => {
+          callbacks.onCompleted?.(step(purpose), {
+            observation,
+            classification: {
+              category: "completed",
+              stdoutBytes: Buffer.byteLength(observation.stdout),
+              stderrBytes: Buffer.byteLength(observation.stderr),
+            },
+            exitClass: observation.status === 0 ? "zero" : "not_observed",
+            elapsedMs: 0,
+            errorCode: null,
+          });
+        },
+      };
+      const session = isolation.startExecution(
+        plan,
+        reference.recoveryCapability,
+        management as object,
+        hooks,
+      );
+      return {
+        cancel: session.cancel,
+        completion: session.completion.then(
+          (result): IsolationExecutionResult => {
+            const failure = result.failure;
+            const notifications: Partial<
+              Record<keyof DockerExecutionCallbacks, keyof IsolationCallbacks>
+            > = {
+              onCommandSubmitting: "onSubmitting",
+              onCommandNotIssued: "onNotIssued",
+              onExecutionSubmitting: "onSubmitting",
+              onResourceCreated: "onCreated",
+              onExecutionStarted: "onStarted",
+              onCommandObserved: "onObserved",
+              onCommandCompleted: "onCompleted",
+            };
+            const resources = snapshot(result.resourceObservations);
+            return {
+              resources,
+              cancellationRequested: result.cancellationRequested,
+              processTerminationConfirmed:
+                result.processTreeTerminationConfirmed,
+              notificationDeliveryConfirmed:
+                result.notificationDeliveryConfirmed,
+              callbackRegistrationReleased: result.callbackRegistrationReleased,
+              failure: failure
+                ? {
+                    stepKey: failure.purpose,
+                    stage:
+                      failure.stage === "gate"
+                        ? "notification"
+                        : failure.stage === "command_start"
+                          ? "start"
+                          : "wait",
+                    notification: failure.gate
+                      ? (notifications[failure.gate] ?? null)
+                      : null,
+                    kind:
+                      failure.kind === "rejected" ||
+                      failure.kind === "invalid_plan"
+                        ? "invalid_return"
+                        : failure.kind,
+                    reason: "test_session_failed",
+                    exceptionCode: failure.exceptionCode,
+                    commandHandleObtained: failure.commandHandleObtained,
+                    responseObserved: failure.responseObserved,
+                  }
+                : null,
+              cleanup: {
+                confirmed: result.cleanup.confirmed,
+                configCleanupConfirmed: result.cleanup.confirmed,
+                observations: resources.resources.map((resource) => ({
+                  key: resource.key,
+                  observation:
+                    result.resourceObservations?.find(
+                      (o) => o.purpose === resource.key,
+                    )?.observation ?? "unknown",
+                })),
+              },
+            };
+          },
+        ),
+      };
+    },
+  };
 }
 
 // 現行Hostの開始・在庫投影が返す有限理由だけを受ける。

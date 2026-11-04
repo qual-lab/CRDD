@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import * as isolation from "../../../docker-isolation/src/index.ts";
-import type { IsolationResourceTarget } from "../../src/index.ts";
+import type { ResourceTarget } from "../../src/index.ts";
 
 /**
  * 単一Containerの診断・回収を同じ構成と同じ取消Signalへ結合する。
@@ -40,7 +40,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
     {
       namedExports: {
         ...isolation,
-        inspectIsolation: (target: IsolationResourceTarget<"container">) => {
+        inspectIsolation: (target: ResourceTarget<"container">) => {
           target.signal?.throwIfAborted();
           assert.equal(target.managementDirectory, "management");
           assert.equal(target.configuration, configuration);
@@ -52,7 +52,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
             snapshot: !absent && present ? { resources: [] } : null,
           };
         },
-        cleanupIsolation: (target: IsolationResourceTarget<"container">) => {
+        cleanupIsolation: (target: ResourceTarget<"container">) => {
           target.signal?.throwIfAborted();
           assert.equal(target.configuration, configuration);
           assert.equal(target.signal, controller.signal);
@@ -66,7 +66,7 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
   );
   try {
     const api = await import("../../src/lifecycle/cleanup.ts");
-    const target: IsolationResourceTarget<"container"> = {
+    const target: ResourceTarget<"container"> = {
       kind: "container",
       configuration,
       managementDirectory: "management",

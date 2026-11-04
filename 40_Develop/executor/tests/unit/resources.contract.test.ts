@@ -298,7 +298,9 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       assert.equal(inspectResources(bad).status, "blocked");
       assert.equal((await cleanupResources(bad)).status, "blocked");
     }
-    const proxy = new Proxy({} as ResourceTarget, { get: unexpected });
+    const proxy = new Proxy({} as ResourceTarget<"attempt">, {
+      get: unexpected,
+    });
     assert.throws(() => inspectResources(proxy), /resource_target_invalid/);
     assert.throws(() => cleanupResources(proxy), /resource_target_invalid/);
     assert.equal(calls.length, before);

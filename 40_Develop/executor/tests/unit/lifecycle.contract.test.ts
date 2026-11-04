@@ -396,7 +396,7 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
   const completion = executeLifecycle(
     {
       async execute() {},
-      async cleanup() {
+      async finalize() {
         entered();
         await cleaning;
       },
@@ -425,7 +425,7 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
   const fixedResult = await executeLifecycle(
     {
       async execute() {},
-      async cleanup() {},
+      async finalize() {},
       createResult() {
         queueMicrotask(async () => {
           afterResult = await fixed.cancel();
@@ -446,7 +446,7 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
     executeLifecycle(
       {
         async execute() {},
-        async cleanup() {},
+        async finalize() {},
         createResult() {
           throw null;
         },
@@ -466,8 +466,8 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
   await executeLifecycle(
     {
       async execute() {},
-      shouldCleanup: () => false,
-      async cleanup() {
+      shouldFinalize: () => false,
+      async finalize() {
         cleanupCalls++;
       },
       createResult() {
@@ -527,7 +527,7 @@ test("共通Lifecycleはfalsy例外・二重例外・正常を取り違えない
           async execute() {
             throw primary;
           },
-          async cleanup() {
+          async finalize() {
             cleaned = true;
             if (secondary) throw Error("secondary");
           },
@@ -545,7 +545,7 @@ test("共通Lifecycleはfalsy例外・二重例外・正常を取り違えない
   const clean = await executeLifecycle(
     {
       async execute() {},
-      async cleanup() {},
+      async finalize() {},
       createResult(_context, failure, failed) {
         return { failure, failed };
       },
@@ -556,7 +556,7 @@ test("共通Lifecycleはfalsy例外・二重例外・正常を取り違えない
   const cleanupOnly = await executeLifecycle(
     {
       async execute() {},
-      async cleanup() {
+      async finalize() {
         throw undefined;
       },
       createResult(_context, failure, failed) {
@@ -659,7 +659,7 @@ test("共通Lifecycleは同じContextで清掃をjoinし一次失敗を保持す
         events.push("execute");
         throw primary;
       },
-      async cleanup(actual) {
+      async finalize(actual) {
         assert.equal(actual, context);
         events.push("cleanup");
         await waiting;

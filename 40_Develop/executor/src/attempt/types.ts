@@ -17,7 +17,8 @@ import type {
   IsolationRequest,
   ResourceTarget as IsolationResourceTarget,
   ResourceSnapshot,
-  IsolationCommandResult,
+  prepareIsolation,
+  executeIsolation,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   CompletionCallbacks,
@@ -39,7 +40,6 @@ type TaskReviewFinding = NonNullable<
   ProviderResultParseResult<"task">["reviewFindings"]
 >[number];
 
-/** 固定隔離実装の内部接続。公開APIや業務操作の差替え口ではない。 */
 /**
  * 通常Attemptの必須通知と受動完了通知を定義する。
  * @responsibility 用途に実在する通知引数と完了条件だけを所有する。
@@ -62,28 +62,6 @@ export interface AttemptCallbacks
   ): void | Promise<void>;
   onStarted?(notice: ProcessStartedNotice): void | Promise<void>;
   onDiagnostic?(notice: AttemptDiagnosticNotice): void | Promise<void>;
-}
-
-/** 固定隔離実装への通常接続。技術実装とHome排他を再利用する。 */
-export interface IsolationRuntime {
-  acquireHomeLease(bindingHash: string): HomeLease | null;
-  startExecution(
-    plan: AttemptPlan,
-    recovery: object,
-    management: object,
-    hooks: DockerExecutionCallbacks,
-  ): DockerCommandSession;
-  cleanupOwnedResources(
-    plan: AttemptPlan,
-    recovery: object,
-    management: unknown,
-  ): Promise<DockerSessionCleanup>;
-  verifyCleanupOutcome(
-    result: unknown,
-    plan: AttemptPlan,
-    recovery: unknown,
-    management: unknown,
-  ): DockerSessionCleanup["resourceObservations"];
 }
 
 /**
@@ -119,7 +97,9 @@ export type ExecutionRecord = {
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type RuntimeState = Readonly<{
-  isolation: IsolationRuntime;
+  acquireHomeLease(bindingHash: string): HomeLease | null;
+  prepareIsolation: typeof prepareIsolation;
+  executeIsolation: typeof executeIsolation;
   callbacks: AttemptCallbacks;
   controls: WeakMap<object, ExecutionRecord>;
 }>;
@@ -670,126 +650,6 @@ export type AttemptRecordProjection = Readonly<{
 }>;
 
 /**
- * 一回の技術清掃の元結果を搬送する。
- * @responsibility 清掃boolと資源別の三値観測を分ける。
- * @trace ARCH-000008
- * @shape 四boolと任意の資源別観測。
- * @invariant 未観測を不存在へ補完しない。
- * @boundary 技術清掃Ownerと上位終了処理。
- * @security コピーした成功結果を真正としない。
- * @compatibility 既存清掃結果のfieldを保持する。
- */
-export type DockerSessionCleanup = Readonly<{
-  confirmed: boolean;
-  processTreeTerminated: boolean;
-  containersAbsent: boolean;
-  networksAbsent: boolean;
-  resourceObservations?: readonly DockerResourceCleanupObservation[] | null;
-}>;
-
-/**
- * 発行予定・元資源・完了観測と開始factの通知。
- * @responsibility 技術操作の拒否と上位意味の解釈を有限接続へ限定する。
- * @trace ARCH-000008
- * @shape 発行予定、未発行、元資源ID、完了観測と同期開始通知。
- * @invariant DIへTask・Writer・Credentialの意味を持ち込まない。
- * @boundary 通知の完了待ちと上位の保存・内容判断を区別する。
- * @security 通知は許可・保存成功・新Authorityを返さない。
- * @compatibility 通知例外で後続要求を止め、同じ資源の回収を維持する。
- */
-export interface DockerExecutionCallbacks {
-  onCommandSubmitting?(purpose: AttemptCommandPurpose): void | Promise<void>;
-  onCommandNotIssued?(purpose: AttemptCommandPurpose): void | Promise<void>;
-  onExecutionSubmitting?(): void | Promise<void>;
-  onResourceCreated?(
-    purpose: AttemptCommandPurpose,
-    dockerId: string,
-  ): void | Promise<void>;
-  onCommandObserved?(
-    purpose: AttemptCommandPurpose,
-    result: NonNullable<IsolationCommandResult["observation"]> | null,
-    classification: IsolationCommandResult["classification"],
-  ): void;
-  onCommandCompleted?(
-    purpose: AttemptCommandPurpose,
-    result: NonNullable<IsolationCommandResult["observation"]>,
-  ): void;
-  /** 開始済みProcessの技術signal。公開非同期通知のjoinはExecutorが所有する。 */
-  onExecutionStarted?(): void;
-  onFailure?(failure: DockerSessionFailure): void;
-}
-
-/**
- * 下位の停止点を業務理由とは別に搬送する。
- * @responsibility 技術失敗または有限Gate拒否の元段階を保持する。
- * @trace ARCH-000008
- * @shape purpose、段階、Gate名、拒否種別、固定例外分類と二観測。
- * @invariant 後続cleanupで一次停止点を書き換えない。
- * @boundary 技術停止点と上位の公開理由選択。
- * @security 生例外・生出力・Pathを含めない。
- * @compatibility 上位の既存一次失敗fieldへ接続する。
- */
-export type DockerSessionFailure = Readonly<{
-  purpose: AttemptCommandPurpose | null;
-  stage:
-    | "command_start"
-    | "provider_start_observation"
-    | "command_wait"
-    | "gate";
-  gate: keyof DockerExecutionCallbacks | null;
-  kind:
-    | "rejected"
-    | "invalid_return"
-    | "threw"
-    | "start_unconfirmed"
-    | "invalid_plan"
-    | "command_failed";
-  exceptionCode: string | null;
-  commandHandleObtained: boolean;
-  responseObserved: boolean;
-}>;
-
-/**
- * 一回の技術Sessionの終了観測を搬送する。
- * @responsibility 実行、取消、通知解放、清掃を別々の事実として保持する。
- * @trace ARCH-000008
- * @invariant 未観測の資源を不存在へ補完しない。
- */
-export type DockerCommandSessionResult = Readonly<{
-  resourceSnapshot?: ResourceSnapshot;
-  failure: DockerSessionFailure | null;
-  notificationDeliveryConfirmed: boolean | null;
-  callbackRegistrationReleased: boolean;
-  cancellationRequested: boolean;
-  executionStarted: boolean;
-  executionCompleted: boolean;
-  executionContainerCreated: boolean;
-  executionExit: IsolationCommandResult["exitClass"];
-  cleanup: DockerSessionCleanup;
-  resourceObservations:
-    | readonly DockerResourceCleanupObservation[]
-    | null
-    | undefined;
-  processTreeTerminationConfirmed: boolean;
-}>;
-
-/**
- * 元Sessionの取消と終了待機だけを上位へ返す。
- * @responsibility 生Handleや試験Candidateの表示を本番契約へ含めない。
- * @trace ARCH-000008
- * @invariant 取消要求と終了観測を同一視しない。
- */
-export type DockerCommandSession = Readonly<{
-  cancel: () => Promise<
-    Readonly<{
-      cancellationRequested: boolean;
-      processTerminationObserved: boolean;
-    }>
-  >;
-  completion: Promise<DockerCommandSessionResult>;
-}>;
-
-/**
  * 本番隔離Runtimeへ渡す確定済み所在だけを表す。
  * @responsibility 既存依存契約の必要断面を再利用する。
  * @trace ARCH-000008
@@ -800,8 +660,8 @@ export type DockerIsolationRuntimeOptions = Readonly<{
 }>;
 
 /**
- * 固定隔離Runtimeの開始・清掃・照合操作を表す。
- * @responsibility 下位の技術操作を名前付きの契約で上位へ接続する。
+ * 同じAttemptのHome技術排他を一回解放するHandle。
+ * @responsibility 取得済み排他の同期解放結果だけを搬送する。
  * @trace ARCH-000008
  * @invariant 上位のTask状態や保存方式を所有しない。
  */

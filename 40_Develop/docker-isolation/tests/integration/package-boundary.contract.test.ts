@@ -24,10 +24,8 @@ import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
-import type {
-  DockerCommandSession,
-  DockerIsolationRuntimeOptions,
-} from "../../../executor/src/attempt/types.ts";
+import type { DockerIsolationRuntimeOptions } from "../../../executor/src/attempt/types.ts";
+import type { DockerCommandSession } from "../../../executor/scripts/executor-test.ts";
 import { classifyDockerCommandExecution } from "../../src/execution/result.ts";
 
 import type { DockerCommandExecutionClassification } from "../../src/execution/result.ts";

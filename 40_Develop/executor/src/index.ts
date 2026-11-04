@@ -114,17 +114,10 @@ export type {
   AttemptFailureReason,
   AttemptResultReason,
   AttemptTerminalObservation,
-  DockerSessionCleanup,
   PrimaryFailureDiagnostic,
   ProcessStartedNotice,
-  ResourceCleanupResult,
-  ResourceInspection,
-  ResourceTarget,
 } from "./attempt/types.ts";
-export type {
-  AuthenticationCleanupResult,
-  AuthenticationOptions,
-} from "./authentication/types.ts";
+export type { AuthenticationOptions } from "./authentication/types.ts";
 export type {
   ExecutorCallbacks,
   ResourceCleanupCallbacks,
@@ -134,15 +127,14 @@ export {
   inspectResources,
 } from "./lifecycle/cleanup.ts";
 export type {
-  AuthenticationResourceTarget,
+  ResourceTarget,
+  ResourceInspection,
+  ResourceCleanupResult,
   CancelArguments,
   CancelResult,
   CompletionResult,
   Executor,
   ExecutorRequest,
-  IsolationResourceCleanupResult,
-  IsolationResourceInspection,
-  IsolationResourceTarget,
   RecordProjection,
   StartInput,
   StartResult,

@@ -23,8 +23,8 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  type AuthenticationCleanupResult,
-  type AuthenticationResourceTarget,
+  type ResourceCleanupResult as ExecutorResourceCleanupResult,
+  type ResourceTarget as ExecutorResourceTarget,
   cleanupResources,
   createExecutor as createAuthentication,
   type Executor,
@@ -7814,8 +7814,8 @@ type Dependencies = Readonly<{
     directory: AuthenticationManagementDirectory,
   ) => boolean;
   cleanupAuthentication: (
-    target: AuthenticationResourceTarget,
-  ) => Promise<AuthenticationCleanupResult>;
+    target: ExecutorResourceTarget<"authentication">,
+  ) => Promise<ExecutorResourceCleanupResult<"authentication">>;
   acquireProviderHomeLock: (
     identityHash: string,
   ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;

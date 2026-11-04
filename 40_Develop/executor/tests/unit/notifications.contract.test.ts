@@ -15,11 +15,12 @@ import test, { mock } from "node:test";
 import { runInNewContext } from "node:vm";
 import { startDockerCommandSessionCandidate } from "../../../docker-isolation/tests/support/session.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { createExecutorTestRuntime } from "../../scripts/executor-test.ts";
-import type {
-  DockerResourceReceipts,
-  IsolationRuntime,
-} from "../../src/attempt/types.ts";
+import {
+  createExecutorTestRuntime,
+  bindLegacyTestIsolation,
+} from "../../scripts/executor-test.ts";
+import type { DockerResourceReceipts } from "../../src/attempt/types.ts";
+import type { IsolationRuntime } from "../../scripts/executor-test.ts";
 import type {
   AttemptDiagnosticNotice,
   CompletionResult,
@@ -46,6 +47,10 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
     new URL("../../src/attempt/operations.ts", import.meta.url),
     "utf8",
   );
+  let connection: Pick<
+    import("../../src/attempt/types.ts").RuntimeState,
+    "prepareIsolation" | "executeIsolation"
+  >;
   const createExecutor = runInNewContext(
     `${sourceDeclaration(source, "createAttemptExecutor")}\ncreateAttemptExecutor`,
     {
@@ -66,11 +71,21 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
         acquisitions++;
         return current.isolation.acquireHomeLease("d".repeat(64));
       },
-      bindIsolationRuntime: () => ({
-        startExecution: current.isolation.startExecution,
-        cleanupOwnedResources: current.isolation.cleanupOwnedResources,
-        verifyCleanupOutcome: current.isolation.verifyCleanupOutcome,
-      }),
+      prepareIsolation: (request: di.IsolationRequest) => {
+        connection = bindLegacyTestIsolation(
+          { ...current.plan, isolationRequest: request },
+          current.owner,
+          current.reference,
+          current.isolation,
+        );
+        return connection.prepareIsolation(request);
+      },
+      executeIsolation: (
+        prepared: di.PreparedIsolation,
+        callbacks: di.IsolationCallbacks,
+      ) => connection.executeIsolation(prepared, callbacks),
+      createStartResult: (await import("../../src/attempt/result.ts"))
+        .createStartResult,
       parseAttemptRecoveryReference: runInNewContext(
         `${sourceDeclaration(source, "parseAttemptRecoveryReference")}\nparseAttemptRecoveryReference`,
       ),
@@ -236,7 +251,7 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
       });
       const state = {
         controls: new WeakMap(),
-        isolation: f.isolation,
+        ...bindLegacyTestIsolation(f.plan, f.owner, f.reference, f.isolation),
         callbacks: { onStarted: () => pending },
       };
       const started = start(state, f.plan, f.owner, f.reference);
@@ -281,7 +296,7 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
       const started = start(
         {
           controls: new WeakMap(),
-          isolation: f.isolation,
+          ...bindLegacyTestIsolation(f.plan, f.owner, f.reference, f.isolation),
           callbacks: { onStarted: () => (delayed ? pending : undefined) },
         },
         f.plan,
@@ -393,7 +408,16 @@ function fixture(busy = false, providerOutput?: string) {
               processTreeTerminated: true,
               containersAbsent: true,
               networksAbsent: true,
-              resourceObservations: [],
+              resourceObservations: Object.entries(observed).map(
+                ([purpose, receipt]) => ({
+                  purpose: purpose as keyof DockerResourceReceipts,
+                  plannedResourceName: purpose,
+                  dockerId: receipt.dockerId,
+                  observation: receipt.submitted
+                    ? ("absent" as const)
+                    : ("not_requested" as const),
+                }),
+              ),
             };
           },
           verifyCleanup: (result) => result.resourceObservations ?? null,

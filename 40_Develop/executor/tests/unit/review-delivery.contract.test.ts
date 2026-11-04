@@ -135,7 +135,15 @@ test("レビュー所見は清掃後の同一完了結果で返し、Executorは
           processTreeTerminated: true,
           containersAbsent: true,
           networksAbsent: true,
-          resourceObservations: [],
+          resourceObservations: plan.isolationRequest.resources.map(
+            (resource) => ({
+              purpose:
+                resource.key as keyof import("../../src/attempt/types.ts").DockerResourceReceipts,
+              plannedResourceName: resource.name,
+              dockerId: "a".repeat(64),
+              observation: "absent" as const,
+            }),
+          ),
         };
       },
       recordDockerAbsence: () =>

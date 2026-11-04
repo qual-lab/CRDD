@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Executorの通常AttemptはDIの元Completionを直接解釈する構造へ整理した。旧Session再現層・Cleanup結果のWeakMap照合を撤去し、認証も共通実行後処理へ接続した。公開資源型は既存Owner型の対応に整理し、保存Schema・Control照合・Home排他・期限は維持する。実AI・Docker・過去保持物は操作せず、DI製品SourceとAI Adapterは未変更。現在の非AI確認範囲と独立確認の結果は[今回の変更記録](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#executorのdi結果直接接続2026-11-05)を参照する。
+
 AI Adapterの公開境界を6関数・11型へ整理した。計画時にSchema・環境・許可参照・診断を解決し、結果・非0終了・認証解析を共通入口へ集約する。Coordinatorの助言JSON往復を撤去し、五軸の現在利用判断はCoordinatorへ移した。共有型の明示化、旧別名・未使用定数の撤去、Source宣言順の追従漏れも是正した。AI Adapter45件、Executor100件、Coordinator関連154件、保存14件、Workbench関連18件を各条件で確認した。DIは74ee4f19fを固定し差分0、実AI・Docker・過去保持物は操作していない。横断台帳不整合・文書参照展開先診断は全体合格に読み替えない。[現在の変更・検証範囲](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ai-adapterの解決済み公開境界2026-11-05)を参照する。
 
 

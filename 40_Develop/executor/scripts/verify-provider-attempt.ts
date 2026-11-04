@@ -274,7 +274,7 @@ export function verifyStandaloneProviderAttempt() {
         completeMount:()=>{assert.equal(commit('mount_closed'),true);mounts++;return {status:'completed'};},
         completeRecovery:()=>{assert.equal(commit('recovery_closed'),true);finalizations++;return {status:'completed',recoveryFinalizationCapability:{}};},
         verifyHomeLeaseRelease:()=>true,
-        recordDockerAbsence:(_r,observed)=>{assert.equal(observed,resources);return commit('absence_observed');},
+        recordDockerAbsence:(_r,observed)=>{assert.deepEqual(observed,resources);return commit('absence_observed');},
         recordMountCompletion:()=>commit('mount_recorded'),
         markResourceSubmission:()=>commit('submission_planned'),
         recordResourceReceipt:()=>commit('receipt_recorded'),
@@ -350,9 +350,14 @@ export function verifyStandaloneProviderAttempt() {
         assert.equal(result.reason,'docker_process_controller_cleanup_unconfirmed');
       if(scenario==='submission_throw')
         assert.equal(result.reason,'docker_resource_submission_record_unavailable');
-      if(scenario==='cleanup_unknown')assert.equal(terminal,null);
+      if(scenario==='cleanup_unknown'){
+        assert.ok(terminal);
+        assert.equal(terminal.homeLeaseReleased,false);
+        assert.equal(terminal.containersAbsent,false);
+        assert.ok(terminal.resources.every(r=>r.observation==='unknown'));
+      }
       else {
-        assert.ok(terminal,scenario);assert.equal(terminal.resources,resources);
+        assert.ok(terminal,scenario);assert.deepEqual(terminal.resources,resources);
         assert.equal(terminalResult,result);
         assert.equal(commit('terminal_received'),true);
       }

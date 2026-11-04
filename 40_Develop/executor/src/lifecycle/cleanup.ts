@@ -11,6 +11,7 @@ import {
   type ResourceCleanupResult as IsolationResourceCleanupResult,
   type ResourceInspection as IsolationResourceInspection,
   inspectIsolation,
+  type ResourceTarget as IsolationResourceTarget,
 } from "../../../docker-isolation/src/index.ts";
 import {
   cleanupAttemptResources,
@@ -27,10 +28,7 @@ import type {
 import { cleanupAuthenticationResources } from "../authentication/operations.ts";
 import type { AuthenticationCleanupResult } from "../authentication/types.ts";
 import type { ResourceCleanupCallbacks } from "./callbacks.ts";
-import type {
-  AuthenticationResourceTarget,
-  IsolationResourceTarget,
-} from "./types.ts";
+import type { AuthenticationResourceTarget } from "./types.ts";
 
 /**
  * 保持中のHome技術Leaseを一回解放する。

@@ -293,9 +293,6 @@ export function createIsolationProbe(
             async execute() {
               technical = await session.completion;
             },
-            async cleanup() {
-              /* 技術回収は同じDI Completionの確定前に完了する。 */
-            },
             createResult(_context, _failure, failed): IsolationProbeResult {
               const result = technical as IsolationExecutionResult | null;
               const observedFacts = facts as IsolationProbeResult["facts"];

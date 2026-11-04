@@ -14,9 +14,11 @@ import {
   describeIsolationConfiguration,
   executeIsolation,
   type IsolationExecution,
+  type IsolationExecutionResult,
   type IsolationRequest,
   prepareIsolation,
 } from "../../../docker-isolation/src/index.ts";
+import { executeLifecycle } from "../lifecycle/execute.ts";
 import { createLifecycleOperations } from "../lifecycle/operations.ts";
 import type {
   AuthenticationResourceTarget,
@@ -533,54 +535,58 @@ export function createAuthenticationExecutor(
           completion: null,
         });
       }
+      let technical: IsolationExecutionResult | null = null;
       return Object.freeze({
         kind: "authentication",
         status: "started",
-        completion: (async () => {
-          try {
-            const technical = await session.completion;
-            if (reason === "provider_authentication_completed") {
-              if (!technical.processTerminationConfirmed)
-                reason =
-                  "provider_authentication_process_completion_unconfirmed";
-              else if (lifecycle.cancellationRequested)
-                reason = "provider_authentication_cancelled";
-              else if (technical.failure)
-                reason = `provider_authentication_${technical.failure.stepKey ?? "preparation"}_failed`;
-            }
-            const result: AuthenticationCompletionResult = Object.freeze({
-              kind: "authentication",
-              reason,
-              authenticationStatus,
-              authenticationConfirmed,
-              providerEffectIssued: technical.resources.resources.some(
-                (r) => r.request !== "not_issued",
-              ),
-              processCompletionConfirmed: technical.processTerminationConfirmed,
-              cleanupConfirmed: technical.cleanup.confirmed,
-              resourceSnapshot: technical.resources,
-              status:
-                technical.cleanup.confirmed &&
-                technical.processTerminationConfirmed
-                  ? reason === "provider_authentication_cancelled"
-                    ? "cancelled"
-                    : reason === "provider_authentication_completed"
-                      ? "completed"
-                      : "blocked"
-                  : "blocked",
-            });
-            lifecycle.finish();
-            try {
-              const pending = callbacks.onCompleted?.(result);
-              if (pending) void pending.catch(() => {});
-            } catch {
-              /* 任意通知は結果を変更しない。 */
-            }
-            return result;
-          } finally {
-            lifecycle.finish();
-          }
-        })(),
+        completion: executeLifecycle(
+          {
+            async execute() {
+              technical = await session.completion;
+            },
+            createResult(_context, failure, failed) {
+              if (failed) throw failure;
+              const resultSource = technical as IsolationExecutionResult | null;
+              if (!resultSource)
+                throw Error("provider_authentication_completion_unconfirmed");
+              if (reason === "provider_authentication_completed") {
+                if (!resultSource.processTerminationConfirmed)
+                  reason =
+                    "provider_authentication_process_completion_unconfirmed";
+                else if (lifecycle.cancellationRequested)
+                  reason = "provider_authentication_cancelled";
+                else if (resultSource.failure)
+                  reason = `provider_authentication_${resultSource.failure.stepKey ?? "preparation"}_failed`;
+              }
+              const result: AuthenticationCompletionResult = Object.freeze({
+                kind: "authentication",
+                reason,
+                authenticationStatus,
+                authenticationConfirmed,
+                providerEffectIssued: resultSource.resources.resources.some(
+                  (r) => r.request !== "not_issued",
+                ),
+                processCompletionConfirmed:
+                  resultSource.processTerminationConfirmed,
+                cleanupConfirmed: resultSource.cleanup.confirmed,
+                resourceSnapshot: resultSource.resources,
+                status:
+                  resultSource.cleanup.confirmed &&
+                  resultSource.processTerminationConfirmed
+                    ? reason === "provider_authentication_cancelled"
+                      ? "cancelled"
+                      : reason === "provider_authentication_completed"
+                        ? "completed"
+                        : "blocked"
+                    : "blocked",
+              });
+              return result;
+            },
+            onCompleted: (result) => callbacks.onCompleted?.(result),
+          },
+          undefined,
+          lifecycle,
+        ),
       });
     },
     cancel: () => lifecycle.cancel(),

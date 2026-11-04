@@ -42,7 +42,7 @@ import {
   type ExecutorRequest,
   type IsolationProbeOptions,
   inspectResources,
-  type IsolationResourceTarget,
+  type ResourceTarget,
 } from "../../../executor/src/index.ts";
 import {
   createWindowsHostOperationSupervisorEnvironment,
@@ -5335,7 +5335,7 @@ export function recoverDockerIsolationProbe(
           recoveryId: token,
         };
       requireDockerProbeRecoveryMounts(recovery);
-      const target: IsolationResourceTarget<"container"> = Object.freeze({
+      const target: ResourceTarget<"container"> = Object.freeze({
         kind: "container",
         configuration: Object.freeze({
           id: containerId,

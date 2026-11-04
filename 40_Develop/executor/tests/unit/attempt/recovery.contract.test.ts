@@ -51,7 +51,7 @@ test("回収試験Adapterは現行Cleanup操作の欠測を拒否し旧操作を
   assert.equal(result.recoveryId, "exact-recovery");
   assert.equal(legacy, 0);
 });
-const PROJECTION: ResourceTarget["projection"] = Object.freeze({
+const PROJECTION: ResourceTarget<"attempt">["projection"] = Object.freeze({
   authContainerName: "crdd-auth-0123456789abcdef",
   providerContainerName: "crdd-claude-0123456789abcdef",
   proxyContainerName: "crdd-proxy-0123456789abcdef",
@@ -190,7 +190,7 @@ test("Attempt回収は発見保存と取消確認を削除前に保ちconfigを�
         },
       }));
       const none = Object.freeze({ submitted: false, dockerId: null });
-      const target: ResourceTarget = {
+      const target: ResourceTarget<"attempt"> = {
         kind: "resource_set",
         operationId: "operation-a",
         recoveryId: "exact-recovery",
@@ -209,7 +209,7 @@ test("Attempt回収は発見保存と取消確認を削除前に保ちconfigを�
         },
       };
       const callbacks: ResourceCleanupCallbacks<
-        ResourceCleanupResult["resources"]
+        ResourceCleanupResult<"attempt">["resources"]
       > = {
         onResourceInspecting: () => {
           events.push("inspecting");

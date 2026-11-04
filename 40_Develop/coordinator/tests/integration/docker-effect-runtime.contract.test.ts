@@ -22,7 +22,7 @@ import {
   preparationSelection as attemptSelection,
 } from "../fixtures/ai-selection.ts";
 
-import type { DockerExecutionCallbacks } from "../../../executor/src/attempt/types.ts";
+import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";

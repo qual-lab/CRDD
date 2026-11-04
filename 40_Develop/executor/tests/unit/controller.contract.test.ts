@@ -171,7 +171,13 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
         utilTypes: { isPromise: () => false },
         createLifecycleOperations,
         createDockerIsolationRuntime: () => ({ acquireHomeLease: () => null }),
-        bindIsolationRuntime: () => ({}),
+        prepareIsolation: () => null,
+        executeIsolation: () => {
+          throw Error("must_not_call");
+        },
+        parseAttemptRecoveryReference: () => ({
+          stableLogicalHomeBindingHash: undefined,
+        }),
         prepareAttempt: (source: unknown, input: unknown) => {
           assert.strictEqual(source, random);
           assert.strictEqual(input, request);

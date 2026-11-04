@@ -308,13 +308,14 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       },
       describeDockerProviderExecutionLocations("claude", "primary"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
-  for (const [provider, argv, role, approval, sandbox] of [
-    ["codex", codexProbe.argv, null, "other", "read_only"],
-    ["codex", codexExecutor.argv, "executor", "approve_for_me", "implicit"],
-    ["codex", codexReviewer.argv, "reviewer", "never", "read_only"],
-    ["codex", codexAdvice.argv, null, "never", "read_only"],
-    ["claude", claudeAdvice.argv, null, "not_applicable", "not_applicable"],
+  for (const [provider, executionPlan, role, approval, sandbox] of [
+    ["codex", codexProbe, null, "other", "read_only"],
+    ["codex", codexExecutor, "executor", "approve_for_me", "implicit"],
+    ["codex", codexReviewer, "reviewer", "never", "read_only"],
+    ["codex", codexAdvice, null, "never", "read_only"],
+    ["claude", claudeAdvice, null, "not_applicable", "not_applicable"],
   ] as const) {
+    const argv = executionPlan.argv;
     const base = createPlan({}, {});
     const commands = planDockerIsolationCommands({
       authenticationContainerName: base.authContainerName,
@@ -366,6 +367,15 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       {
         ...(role ? providerStartObservationTaskPlan : {}),
         provider,
+        providerPlan: { status: "ready", plan: executionPlan, error: null },
+        ...(executionPlan.purpose === "advice"
+          ? {
+              operationMode: "workbench_advice",
+              adviceAllowedReferences: ["synthetic-reference"],
+              providerInput: "Synthetic advice",
+              workspaceSourcePath: null,
+            }
+          : {}),
         commands,
         isolationRequest: {
           ...base.isolationRequest,
@@ -1234,7 +1244,7 @@ test("終端観測は固定callbackで清掃後に一回渡され制御を復活
   assert.equal(fixture.readTerminalResult(), result);
   assert.equal(terminal.operationId, "OP-123456");
   assert.equal(terminal.recoveryId, started.recoveryId);
-  assert.equal(terminal.resources, fixture.resourceObservations);
+  assert.deepEqual(terminal.resources, fixture.resourceObservations);
   assert.equal(terminal.primaryFailure, null);
   assert.equal(terminal.mountLeaseReleased, true);
   assert.equal(terminal.recoveryCompleted, true);
@@ -1477,7 +1487,7 @@ const providerStartObservationTaskOutput = createProviderOutput({
  */
 test("認証診断は非0拒否を変えず本体の失敗へ漏れない", async () => {
   for (const [exitCode, stdout, expected] of [
-    [1, createSubscriptionAuthOutput(), "confirmed"],
+    [1, createSubscriptionAuthOutput(), "unknown"],
     [1, JSON.stringify({ loggedIn: false }), "unconfirmed"],
     [1, "synthetic-secret", "unknown"],
     [0, JSON.stringify({ loggedIn: false }), "unconfirmed"],
@@ -1658,11 +1668,13 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
       const primary = settled.primaryFailure as Record<string, unknown>;
       const terminal = fixture.readTerminal();
       if (cleanupMode === "throw") {
-        assert.equal(terminal, null);
+        assert.ok(terminal);
+        assert.equal(terminal.homeLeaseReleased, false);
+        assert.equal(terminal.containersAbsent, false);
       } else {
         assert.ok(terminal);
         assert.equal(terminal.primaryFailure, primary);
-        assert.equal(terminal.resources, fixture.resourceObservations);
+        assert.deepEqual(terminal.resources, fixture.resourceObservations);
       }
       assert.equal(primary.purpose, "create_subscription_auth_probe");
       assert.deepEqual(
@@ -1894,6 +1906,7 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
         taskPacketHash: null,
         advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         advicePacketHash: "a".repeat(64),
+        adviceAllowedReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         providerInput: "Give advice from the supplied projection.",
         workspaceSourcePath: null,
         workspaceMountMode: null,
@@ -3258,7 +3271,7 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
     "mount-completion",
     "recovery-completed",
   ]);
-  assert.equal(
+  assert.deepEqual(
     fixture.getRecordedResourceObservations(),
     fixture.resourceObservations,
   );
@@ -4120,9 +4133,11 @@ for (const dockerCleanupConfirmed of [true, false]) {
     if (dockerCleanupConfirmed) {
       assert.equal(fixture.readTerminal()?.recoveryId, started.recoveryId);
     } else {
-      assert.equal(fixture.readTerminal(), null);
+      assert.ok(fixture.readTerminal());
+      assert.equal(fixture.readTerminal()?.homeLeaseReleased, false);
+      assert.equal(fixture.readTerminal()?.containersAbsent, false);
     }
-    assert.strictEqual(
+    assert.deepEqual(
       fixture.getRecordedResourceObservations(),
       dockerCleanupConfirmed ? fixture.resourceObservations : null,
     );
@@ -5851,7 +5866,7 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
               ? "command_wait"
               : "provider_start_observation",
           reason,
-          exceptionCode: first === "technical" ? "EPIPE" : null,
+          exceptionCode: first === "technical" ? "PROCESS_FAILURE" : null,
           commandObservation: null,
           commandHandleObtained: true,
           responseObserved: false,

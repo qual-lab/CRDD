@@ -2210,14 +2210,14 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
 function projectResourceTarget(
   operation: CoordinatorStateTaskOperation,
   directory: string | null,
-): ResourceTarget {
+): ResourceTarget<"attempt"> {
   if (
     operation.resources.length !== 5 ||
     new Set(operation.resources.map((value) => value.purpose)).size !== 5
   )
     throw Error("docker_task_recovery_resource_missing");
   const identity = JSON.parse(operation.identityJson);
-  const receipt = (purpose: keyof ResourceTarget["receipts"]) => {
+  const receipt = (purpose: keyof ResourceTarget<"attempt">["receipts"]) => {
     const resource = operation.resources.find(
       (value) => value.purpose === purpose,
     );
@@ -2927,15 +2927,15 @@ export function completeRuntimeOwnedDockerTaskTransientRecovery(
 export async function recoverRuntimeOwnedDockerTaskResources(
   capability: unknown,
   cleanup: (
-    target: ResourceTarget,
+    target: ResourceTarget<"attempt">,
     callbacks: ResourceCleanupCallbacks<
-      AttemptResourceCleanupResult["resources"]
+      AttemptResourceCleanupResult<"attempt">["resources"]
     >,
-  ) => Promise<AttemptResourceCleanupResult> = cleanupResources,
+  ) => Promise<AttemptResourceCleanupResult<"attempt">> = cleanupResources,
   inspect: (
-    target: ResourceTarget,
-    purpose?: keyof ResourceTarget["receipts"],
-  ) => ResourceInspection = inspectResources,
+    target: ResourceTarget<"attempt">,
+    purpose?: keyof ResourceTarget<"attempt">["receipts"],
+  ) => ResourceInspection<"attempt"> = inspectResources,
   signal?: AbortSignal,
 ) {
   const record =

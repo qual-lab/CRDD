@@ -243,10 +243,22 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
         before,
         "管理領域取得前のFactoryはDI実体を取得しない",
       );
-      const start = executor.start({});
+      const notificationFailure = action === "login";
+      let notified: unknown = null;
+      const start = executor.start({
+        callbacks: {
+          onCompleted: (value) => {
+            notified = value;
+            if (notificationFailure) return Promise.reject(Error("synthetic"));
+            throw Error("synthetic");
+          },
+        },
+      });
       assert.equal(start.status, "started");
       assert.ok(start.status === "started");
       const result = await start.completion;
+      await Promise.resolve();
+      assert.strictEqual(notified, result);
       assert.equal(
         result.status,
         "completed",
@@ -339,6 +351,7 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
       });
       assert.ok(start.status === "started");
       const result = await start.completion;
+
       assert.equal(
         result.status,
         mode === "unconfirmed" ? "completed" : "blocked",

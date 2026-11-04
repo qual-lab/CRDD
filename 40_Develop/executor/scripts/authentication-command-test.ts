@@ -657,8 +657,8 @@ export function bindAuthenticationLifecycle(
             async execute() {
               result = await authentication.execute(signal, callbacks);
             },
-            shouldCleanup: () => authentication.isProcessCompletionConfirmed(),
-            async cleanup() {
+            shouldFinalize: () => authentication.isProcessCompletionConfirmed(),
+            async finalize() {
               cleanup = await authentication.cleanup(
                 authentication.resources,
                 undefined,

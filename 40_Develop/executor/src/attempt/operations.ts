@@ -19,9 +19,9 @@ import {
 import {
   describeIsolationConfiguration,
   executeIsolation,
-  type IsolationExecution,
+  type IsolationExecutionResult,
+  type IsolationCallbacks,
   type IsolationRequest,
-  type PreparedIsolation,
   prepareIsolation,
   type IsolationCommandResult,
 } from "../../../docker-isolation/src/index.ts";
@@ -53,15 +53,12 @@ import type {
   AttemptRequest,
   AttemptResultReason,
   CompletionResult,
-  DockerCommandSessionResult,
-  DockerExecutionCallbacks,
   DockerIsolationCommandInput,
   DockerIsolationRuntimeOptions,
   DockerResourceReceipts,
-  DockerSessionCleanup,
+  DockerResourceCleanupObservation,
   ExecutionRecord,
   HomeLease,
-  IsolationRuntime,
   PrimaryFailureDiagnostic,
   RuntimeState,
 } from "./types.ts";
@@ -124,16 +121,13 @@ async function executeAttempt(
     IsolationCommandResult["observation"]
   > | null = null;
   let lastStdoutBytes = 0;
-  let cleanup: DockerSessionCleanup = Object.freeze({
-    confirmed: false,
-    processTreeTerminated: false,
-    containersAbsent: false,
-    networksAbsent: false,
-  });
-  let verifiedResourceObservations: DockerSessionCleanup["resourceObservations"] =
+  let executionInvoked = false;
+  let cleanupConfirmed = false;
+  let containersAbsent = false;
+  let networksAbsent = false;
+  let resourceObservations: readonly DockerResourceCleanupObservation[] | null =
     null;
   let processTreeTerminationConfirmed = false;
-  let sessionStarted = false;
   let resourceSnapshot: CompletionResult["resourceSnapshot"] = null;
 
   /**
@@ -207,7 +201,7 @@ async function executeAttempt(
     return true;
   }
 
-  const hooks: DockerExecutionCallbacks = {
+  const hooks: IsolationCallbacks = {
     /**
      * 次コマンドの診断を初期化する。
      * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
@@ -223,7 +217,8 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    onCommandSubmitting: async (purpose) => {
+    onSubmitting: async (step) => {
+      const purpose = step.key as AttemptCommandPurpose;
       diagnosticPurpose = purpose;
       diagnosticStage = "command_restriction";
       hasCommandHandle = false;
@@ -235,6 +230,8 @@ async function executeAttempt(
       diagnosticStage = "submission_record";
       try {
         await state.callbacks.onCommandSubmitting?.(purpose);
+        if (purpose === "start_provider_attached")
+          await state.callbacks.onProviderSubmitting?.();
       } catch {
         reject("docker_resource_submission_record_unavailable");
         throw new Error("docker_resource_submission_record_unavailable");
@@ -255,33 +252,10 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    onCommandNotIssued: async (purpose) => {
+    onNotIssued: async (step) => {
+      const purpose = step.key as AttemptCommandPurpose;
       try {
         await state.callbacks.onCommandNotIssued?.(purpose);
-      } catch {
-        reject("docker_resource_submission_record_unavailable");
-        throw new Error("docker_resource_submission_record_unavailable");
-      }
-    },
-    /**
-     * AI本体の要求予定を利用側へ通知する。
-     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
-     * @trace ARCH-000008
-     * @input N/A: 元計画を使用する。
-     * @returns N/A: 通知の完了だけを返す。
-     * @precondition 同じ操作の検証済み計画とOwnerを使用する。
-     * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
-     * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
-     * @invariant 新Authority・Store・回復管理を作らない。
-     * @boundary 上位の意味と下位の技術実行。
-     * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
-     */
-    onExecutionSubmitting: async () => {
-      diagnosticStage = "submission_record";
-      try {
-        await state.callbacks.onProviderSubmitting?.();
       } catch {
         reject("docker_resource_submission_record_unavailable");
         throw new Error("docker_resource_submission_record_unavailable");
@@ -302,7 +276,16 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    onResourceCreated: async (purpose, dockerId) => {
+    onCreated: async (step, snapshot) => {
+      const purpose = step.key as AttemptCommandPurpose;
+      const dockerId = snapshot.resources.find((r) => r.key === step.resource)
+        ?.identity.dockerId;
+      if (!dockerId) {
+        reject("docker_resource_receipt_unavailable");
+        throw Error("docker_resource_receipt_unavailable");
+      }
+      if (purpose === "create_provider")
+        wasProviderContainerCreationObserved = true;
       diagnosticStage = "resource_receipt_record";
       receiptRecorded = true;
       try {
@@ -327,7 +310,26 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    onCommandObserved: (purpose, execution, classification) => {
+    onObserved: (step, observed) => {
+      const purpose = step.key as AttemptCommandPurpose;
+      const { observation: execution, classification } = observed;
+      if (execution === null && observed.errorCode === "PROCESS_FAILURE") {
+        recordIsolationFailure({
+          stepKey: purpose,
+          stage: "wait",
+          kind: "threw",
+          notification: null,
+          reason: "docker_isolation_command_failed",
+          exceptionCode: observed.errorCode,
+          commandHandleObtained: true,
+          responseObserved: false,
+        });
+        throw Error("docker_isolation_command_failed");
+      }
+      if (purpose === "start_provider_attached") {
+        wasProviderProcessCompletionObserved = execution !== null;
+        providerExitStatusClass = observed.exitClass;
+      }
       diagnosticStage = "execution_classification";
       hasCommandHandle = true;
       hasResponseObservation = execution !== null;
@@ -387,7 +389,9 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    onCommandCompleted: (purpose, execution) => {
+    onCompleted: (step, observed) => {
+      const purpose = step.key as AttemptCommandPurpose;
+      const execution = observed.observation;
       if (purpose === "start_subscription_auth_probe_attached") {
         diagnosticStage = "subscription_auth_verification";
         if (authenticationStatus !== "confirmed") {
@@ -417,7 +421,8 @@ async function executeAttempt(
      * @security 生出力・秘密値を公開通知へ複製しない。
      * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
      */
-    onExecutionStarted: () => {
+    onStarted: (step) => {
+      if (step.key !== "start_provider_attached") return;
       providerRequestStarted = true;
       hasCommandHandle = true;
       startNotification = (async () => {
@@ -438,46 +443,41 @@ async function executeAttempt(
         }
       })();
     },
-    /**
-     * 下位の一次停止点を清掃前に受け取る。
-     * @responsibility 一試行の技術観測を通知し、上位の保存形式・Task判断を扱わない。
-     * @trace ARCH-000008
-     * @input failure: 元の固定技術停止点。
-     * @returns N/A: 同期の値保存だけ。
-     * @precondition 同じ操作の検証済み計画とOwnerを使用する。
-     * @postcondition raw HandleやOS手順を所有しない。
-     * @effect 登録済みの通知と同じ試行の技術処理だけを呼ぶ。
-     * @failure 不成立を固定理由へ閉じて後続実行を拒否する。
-     * @invariant 新Authority・Store・回復管理を作らない。
-     * @boundary 上位の意味と下位の技術実行。
-     * @security 生出力・秘密値を公開通知へ複製しない。
-     * @concurrency 取消を通知待ち中も保持し、技術回収と通知の終了待ちを区別する。
-     */
-    onFailure: (failure) => {
-      if (primaryFailure !== null) return;
-      diagnosticPurpose = failure.purpose;
-      if (failure.stage !== "gate") diagnosticStage = failure.stage;
-      if (failure.gate === "onResourceCreated")
-        diagnosticStage = "resource_receipt_record";
-      hasCommandHandle = failure.commandHandleObtained;
-      hasResponseObservation = failure.responseObserved;
-      const next =
-        failure.kind === "start_unconfirmed"
-          ? "docker_process_controller_provider_start_failed"
-          : failure.gate === "onResourceCreated"
-            ? "docker_resource_receipt_unavailable"
-            : failure.gate === "onExecutionStarted"
-              ? "docker_process_controller_provider_start_observation_failed"
-              : "docker_process_controller_execution_failed_closed";
-      reject(next);
-      const latched = primaryFailure as PrimaryFailureDiagnostic | null;
-      if (latched)
-        primaryFailure = Object.freeze({
-          ...latched,
-          exceptionCode: failure.exceptionCode,
-        });
-    },
   };
+
+  /** DIの元停止点を既存のAttempt診断へ一回投影する。 @trace ARCH-000008 */
+  function recordIsolationFailure(
+    failure: NonNullable<IsolationExecutionResult["failure"]>,
+  ): void {
+    if (primaryFailure !== null) return;
+    diagnosticPurpose = failure.stepKey;
+    if (failure.stage !== "notification")
+      diagnosticStage =
+        failure.kind === "start_unconfirmed"
+          ? "provider_start_observation"
+          : failure.stage === "start"
+            ? "command_start"
+            : "command_wait";
+    if (failure.notification === "onCreated")
+      diagnosticStage = "resource_receipt_record";
+    hasCommandHandle = failure.commandHandleObtained;
+    hasResponseObservation = failure.responseObserved;
+    reject(
+      failure.kind === "start_unconfirmed"
+        ? "docker_process_controller_provider_start_failed"
+        : failure.notification === "onCreated"
+          ? "docker_resource_receipt_unavailable"
+          : failure.notification === "onStarted"
+            ? "docker_process_controller_provider_start_observation_failed"
+            : "docker_process_controller_execution_failed_closed",
+    );
+    const latched = primaryFailure as PrimaryFailureDiagnostic | null;
+    if (latched)
+      primaryFailure = Object.freeze({
+        ...latched,
+        exceptionCode: failure.exceptionCode,
+      });
+  }
 
   let homeLeaseReleased = false;
   let completedObservation:
@@ -495,31 +495,53 @@ async function executeAttempt(
           // 任意診断の失敗は実行結果・回収条件を変更しない。
         }
         try {
-          if (!state.isolation.startExecution)
-            throw new Error("docker_process_controller_execution_unavailable");
-          const session = state.isolation.startExecution(
-            plan,
-            recovery.recoveryCapability,
-            record.managementCapability,
-            hooks,
-          );
-          sessionStarted = true;
+          const prepared = state.prepareIsolation(plan.isolationRequest);
+          if (!prepared) throw Error("docker_effect_plan_invalid");
+          executionInvoked = true;
+          const execution = state.executeIsolation(prepared, hooks);
           record.lifecycle.bindCancellation(
-            async () => (await session.cancel()).processTerminationObserved,
+            async () => (await execution.cancel()).processTerminationObserved,
           );
-          const outcome = await session.completion;
-          resourceSnapshot = outcome.resourceSnapshot ?? null;
-          providerRequestStarted = outcome.executionStarted;
+          const technical = await execution.completion;
+          resourceSnapshot = technical.resources;
           wasProviderContainerCreationObserved =
-            outcome.executionContainerCreated;
-          wasProviderProcessCompletionObserved = outcome.executionCompleted;
-          providerExitStatusClass = outcome.executionExit;
-          cleanup = outcome.cleanup;
-          verifiedResourceObservations = outcome.resourceObservations;
+            wasProviderContainerCreationObserved ||
+            technical.resources.resources.some(
+              (resource) =>
+                resource.key === "create_provider" &&
+                resource.identity.dockerId !== null,
+            );
           processTreeTerminationConfirmed =
-            outcome.processTreeTerminationConfirmed;
-          if (outcome.failure && primaryFailure === null)
-            hooks.onFailure?.(outcome.failure);
+            technical.processTerminationConfirmed;
+          resourceObservations = Object.freeze(
+            technical.resources.resources
+              .map((resource) =>
+                Object.freeze({
+                  purpose: resource.key as keyof DockerResourceReceipts,
+                  plannedResourceName: resource.identity.name,
+                  dockerId: resource.identity.dockerId,
+                  observation:
+                    technical.cleanup.observations.find(
+                      (o) => o.key === resource.key,
+                    )?.observation ??
+                    (resource.request === "not_issued"
+                      ? ("not_requested" as const)
+                      : ("unknown" as const)),
+                }),
+              )
+              .sort((a, b) => a.purpose.localeCompare(b.purpose)),
+          );
+          cleanupConfirmed =
+            technical.cleanup.confirmed &&
+            resourceObservations.length ===
+              plan.isolationRequest.resources.length;
+          containersAbsent = resourceObservations
+            .filter((r) => !r.purpose.endsWith("_network"))
+            .every((r) => r.observation !== "unknown");
+          networksAbsent = resourceObservations
+            .filter((r) => r.purpose.endsWith("_network"))
+            .every((r) => r.observation !== "unknown");
+          if (technical.failure) recordIsolationFailure(technical.failure);
         } catch {
           if (primaryFailure === null) {
             reject("docker_process_controller_execution_failed_closed");
@@ -532,32 +554,25 @@ async function executeAttempt(
           }
         }
       },
-      async cleanup() {
-        if (!sessionStarted) {
-          try {
-            cleanup = await state.isolation.cleanupOwnedResources(
-              plan,
-              recovery.recoveryCapability,
-              record.managementCapability,
-            );
-          } catch {}
-          try {
-            verifiedResourceObservations = state.isolation.verifyCleanupOutcome
-              ? state.isolation.verifyCleanupOutcome(
-                  cleanup,
-                  plan,
-                  recovery.recoveryCapability,
-                  record.managementCapability,
-                )
-              : cleanup.resourceObservations;
-          } catch {
-            verifiedResourceObservations = null;
-          }
-          processTreeTerminationConfirmed =
-            cleanup.confirmed &&
-            cleanup.processTreeTerminated &&
-            (!state.isolation.verifyCleanupOutcome ||
-              verifiedResourceObservations != null);
+      async finalize() {
+        if (!executionInvoked) {
+          // DI準備は資源を取得しない。実行要求前の拒否だけ未発行として終端する。
+          resourceObservations = Object.freeze(
+            plan.isolationRequest.resources
+              .map((resource) =>
+                Object.freeze({
+                  purpose: resource.key as keyof DockerResourceReceipts,
+                  plannedResourceName: resource.name,
+                  dockerId: null,
+                  observation: "not_requested" as const,
+                }),
+              )
+              .sort((a, b) => a.purpose.localeCompare(b.purpose)),
+          );
+          cleanupConfirmed = true;
+          processTreeTerminationConfirmed = true;
+          containersAbsent = true;
+          networksAbsent = true;
         }
         await startNotification;
         if (
@@ -571,18 +586,18 @@ async function executeAttempt(
         const observation = Object.freeze({
           operationId: plan.operationId,
           recoveryId: recovery.recoveryId,
-          resources: verifiedResourceObservations ?? null,
+          resources: resourceObservations ?? null,
           primaryFailure,
           processTreeTerminationConfirmed,
-          containersAbsent: cleanup.containersAbsent,
-          networksAbsent: cleanup.networksAbsent,
+          containersAbsent: containersAbsent,
+          networksAbsent: networksAbsent,
           homeLeaseReleased: false,
         });
         const resourcesClosed =
-          cleanup.confirmed &&
+          cleanupConfirmed &&
           processTreeTerminationConfirmed &&
-          cleanup.containersAbsent &&
-          cleanup.networksAbsent;
+          containersAbsent &&
+          networksAbsent;
         if (resourcesClosed) {
           try {
             await state.callbacks.onResourcesClosed?.(observation);
@@ -633,12 +648,12 @@ async function executeAttempt(
                 wasProviderProcessCompletionObserved,
               providerProcessExitStatusClass: providerExitStatusClass,
               processTreeTerminationObserved: processTreeTerminationConfirmed,
-              containersAbsentObserved: cleanup.containersAbsent,
-              networksAbsentObserved: cleanup.networksAbsent,
+              containersAbsentObserved: containersAbsent,
+              networksAbsentObserved: networksAbsent,
               cleanupConfirmed:
                 processTreeTerminationConfirmed &&
-                cleanup.containersAbsent &&
-                cleanup.networksAbsent &&
+                containersAbsent &&
+                networksAbsent &&
                 homeLeaseReleased,
             }),
           );
@@ -658,8 +673,8 @@ async function executeAttempt(
           providerRequestStarted,
           cancellationRequested: record.lifecycle.cancellationRequested,
           processTreeTerminationConfirmed,
-          containersAbsent: cleanup.containersAbsent,
-          networksAbsent: cleanup.networksAbsent,
+          containersAbsent: containersAbsent,
+          networksAbsent: networksAbsent,
           homeLeaseReleased,
           resultSha256,
           resultBytes,
@@ -740,9 +755,7 @@ export function start(
   });
   let homeLease: HomeLease | null = null;
   try {
-    homeLease = state.isolation.acquireHomeLease(
-      plan.stableLogicalHomeBindingHash,
-    );
+    homeLease = state.acquireHomeLease(plan.stableLogicalHomeBindingHash);
   } catch {
     /* 取得不能を解放済みへ変換しない。 */
   }
@@ -894,11 +907,7 @@ export function createAttemptExecutor(
   if (paths.tmp !== request.target.temporarySourcePath) return null;
   const plan = prepareAttempt(random, request, paths);
   if (!plan) return null;
-  const bound = bindIsolationRuntime(plan);
-  const isolation: IsolationRuntime = {
-    acquireHomeLease,
-    ...bound,
-  };
+
   const state: Pick<RuntimeState, "controls"> = { controls: new WeakMap() };
   const lifecycle = createLifecycleOperations();
   return Object.freeze({
@@ -924,7 +933,13 @@ export function createAttemptExecutor(
       } = input;
       try {
         const result = start(
-          { ...state, isolation, callbacks },
+          {
+            ...state,
+            acquireHomeLease,
+            prepareIsolation,
+            executeIsolation,
+            callbacks,
+          },
           plan,
           management,
           reference,
@@ -1513,236 +1528,6 @@ function freezeIsolationRequest(request: IsolationRequest): IsolationRequest {
  * @effect start後だけ共通DI。開始前拒否では外部資源を取得しない。
  * @invariant 旧Runtime・固定九目的Sessionを起動しない。コピー結果を成功へ再解釈しない。
  */
-function bindIsolationRuntime(original: AttemptPlan) {
-  let prepared: PreparedIsolation | null | undefined;
-  let execution: IsolationExecution | null = null;
-  let outcome: DockerCommandSessionResult | null = null;
-  const results = new WeakMap<
-    object,
-    { recovery: object; management: unknown }
-  >();
-  const empty = () =>
-    Object.freeze({
-      confirmed: false,
-      processTreeTerminated: false,
-      containersAbsent: false,
-      networksAbsent: false,
-      resourceObservations: null,
-    });
-  const startExecution: IsolationRuntime["startExecution"] = (
-    plan,
-    recovery,
-    management,
-    hooks,
-  ) => {
-    if (
-      plan !== original ||
-      !isAttemptPlanValid(plan) ||
-      !recovery ||
-      !management
-    )
-      throw Error("docker_effect_plan_invalid");
-    if (prepared === undefined)
-      prepared = prepareIsolation(plan.isolationRequest);
-    if (!prepared) throw Error("docker_effect_plan_invalid");
-    let executionStarted = false,
-      executionCompleted = false;
-    let executionExit: IsolationCommandResult["exitClass"] = "not_observed";
-    let gate: NonNullable<DockerCommandSessionResult["failure"]>["gate"] = null;
-    execution = executeIsolation(prepared, {
-      onSubmitting: async (step) => {
-        gate = "onCommandSubmitting";
-        await hooks.onCommandSubmitting?.(step.key as AttemptCommandPurpose);
-        if (step.key === "start_provider_attached") {
-          gate = "onExecutionSubmitting";
-          await hooks.onExecutionSubmitting?.();
-        }
-        gate = null;
-      },
-      onNotIssued: (step) => {
-        gate = "onCommandNotIssued";
-        return hooks.onCommandNotIssued?.(step.key as AttemptCommandPurpose);
-      },
-      onCreated: (step, snapshot) => {
-        gate = "onResourceCreated";
-        const id = snapshot.resources.find((r) => r.key === step.resource)
-          ?.identity.dockerId;
-        if (!id) throw Error("docker_resource_receipt_unavailable");
-        return hooks.onResourceCreated?.(step.key as AttemptCommandPurpose, id);
-      },
-      onStarted: (step) => {
-        if (step.key === "start_provider_attached") {
-          executionStarted = true;
-          gate = "onExecutionStarted";
-          return hooks.onExecutionStarted?.();
-        }
-      },
-      onObserved: (step, commandResult) => {
-        const {
-          observation: result,
-          classification,
-          exitClass,
-        } = commandResult;
-        if (step.key === "start_provider_attached") {
-          executionCompleted = result !== null;
-          executionExit = exitClass;
-        }
-        gate = "onCommandObserved";
-        return hooks.onCommandObserved?.(
-          step.key as AttemptCommandPurpose,
-          result,
-          classification,
-        );
-      },
-      onCompleted: (step, commandResult) => {
-        const result = commandResult.observation;
-        gate = "onCommandCompleted";
-        return hooks.onCommandCompleted?.(
-          step.key as AttemptCommandPurpose,
-          result,
-        );
-      },
-    });
-    const active = execution;
-    return Object.freeze({
-      cancel: () => active.cancel(),
-      completion: active.completion.then(
-        (technical): DockerCommandSessionResult => {
-          const f = technical.failure;
-          const purpose = PURPOSES.includes(f?.stepKey as AttemptCommandPurpose)
-            ? (f?.stepKey as AttemptCommandPurpose)
-            : null;
-          const failure: DockerCommandSessionResult["failure"] = f
-            ? Object.freeze({
-                purpose,
-                stage:
-                  f.stage === "notification"
-                    ? "gate"
-                    : f.kind === "start_unconfirmed"
-                      ? "provider_start_observation"
-                      : f.stage === "start"
-                        ? "command_start"
-                        : "command_wait",
-                gate: f.stage === "notification" ? gate : null,
-                kind: f.kind,
-                exceptionCode: f.exceptionCode,
-                commandHandleObtained: f.commandHandleObtained,
-                responseObserved: f.responseObserved,
-              })
-            : null;
-          const resourceObservations = Object.freeze(
-            technical.resources.resources
-              .map((r) =>
-                Object.freeze({
-                  purpose: r.key as keyof DockerResourceReceipts,
-                  plannedResourceName: r.identity.name,
-                  dockerId: r.identity.dockerId,
-                  observation:
-                    technical.cleanup.observations.find((o) => o.key === r.key)
-                      ?.observation ??
-                    (r.request === "not_issued"
-                      ? ("not_requested" as const)
-                      : ("unknown" as const)),
-                }),
-              )
-              .sort((a, b) => a.purpose.localeCompare(b.purpose)),
-          );
-          const containersAbsent = resourceObservations
-            .filter((r) => !r.purpose.endsWith("_network"))
-            .every((r) => r.observation !== "unknown");
-          const networksAbsent = resourceObservations
-            .filter((r) => r.purpose.endsWith("_network"))
-            .every((r) => r.observation !== "unknown");
-          const cleanup = Object.freeze({
-            confirmed:
-              technical.cleanup.confirmed && resourceObservations.length === 5,
-            processTreeTerminated: technical.processTerminationConfirmed,
-            containersAbsent,
-            networksAbsent,
-            resourceObservations,
-          });
-          results.set(cleanup, { recovery, management });
-          outcome = Object.freeze({
-            resourceSnapshot: technical.resources,
-            failure,
-            notificationDeliveryConfirmed:
-              technical.notificationDeliveryConfirmed,
-            callbackRegistrationReleased:
-              technical.callbackRegistrationReleased,
-            cancellationRequested: technical.cancellationRequested,
-            executionStarted,
-            executionCompleted,
-            executionExit,
-            executionContainerCreated: technical.resources.resources.some(
-              (r) =>
-                r.key === "create_provider" && r.identity.dockerId !== null,
-            ),
-            cleanup,
-            resourceObservations,
-            processTreeTerminationConfirmed:
-              technical.processTerminationConfirmed,
-          });
-          return outcome;
-        },
-      ),
-    });
-  };
-  const cleanupOwnedResources: IsolationRuntime["cleanupOwnedResources"] =
-    async (plan, recovery, management) => {
-      if (
-        plan !== original ||
-        !isAttemptPlanValid(plan) ||
-        !recovery ||
-        !management
-      )
-        return empty();
-      if (execution) {
-        await execution.completion;
-        return outcome?.cleanup ?? empty();
-      }
-      const resources = plan.isolationRequest.resources;
-      const resourceObservations = Object.freeze(
-        resources
-          .map((r) =>
-            Object.freeze({
-              purpose: r.key as keyof DockerResourceReceipts,
-              plannedResourceName: r.name,
-              dockerId: null,
-              observation: "not_requested" as const,
-            }),
-          )
-          .sort((a, b) => a.purpose.localeCompare(b.purpose)),
-      );
-      const result = Object.freeze({
-        confirmed: true,
-        processTreeTerminated: true,
-        containersAbsent: true,
-        networksAbsent: true,
-        resourceObservations,
-      });
-      results.set(result, { recovery, management });
-      return result;
-    };
-  const verifyCleanupOutcome: IsolationRuntime["verifyCleanupOutcome"] = (
-    result,
-    plan,
-    recovery,
-    management,
-  ) => {
-    if (!result || typeof result !== "object" || plan !== original) return null;
-    const origin = results.get(result);
-    return origin &&
-      origin.recovery === recovery &&
-      origin.management === management
-      ? (result as DockerSessionCleanup).resourceObservations
-      : null;
-  };
-  return Object.freeze({
-    startExecution,
-    cleanupOwnedResources,
-    verifyCleanupOutcome,
-  });
-}
 
 /**
  * 同じ有限入力からProvider仕様を一箇所で取得する。

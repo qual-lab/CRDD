@@ -927,6 +927,13 @@ ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範�
 - 上位の完全選定借用は同じ有効Operation・選定ID・Hash・試行番号だけを受理し、差替え・別Owner・終了後を拒否する。保存Identityの完全選定を技術五項目へ置換しない。ロールとTask／Adviceの相関は上位準備で検査し、Executorの技術入力へroleを含めた場合は余剰として拒否する。
 - ModelSelection／TaskPacket／AdvicePacketの上位化では、Taskの操作ID・Hash・試行番号・stdin搬送、およびAdviceの操作ID・Hash・Provider・四非共有条件・選定roleの一軸差替えを、Authority発行前の拒否とMount借用終了まで確認する。Executorには管理Packetや選定記録ID・試行番号・利用側相関を渡さず、技術五項目・対象・排他的な実行内容を明示投影する。未知metadataのaccessor非評価、別Plan／別Owner callbackのEffect前拒否、準備消費後の開始拒否における未消費Authority失効とMount返却、上位の原結果・選定借用に基づく許可発行を反証する。既存のStandaloneはCoordinator非存在で同じ技術入力を構築できることを確認する。
 
+### ExecutorのDI結果直接接続の追加反証
+
+- ERB-UT-023では旧Session変換を使わず、本番Attempt開始と有限DIの元Completionを接続する。五資源・九操作・一次失敗段階・Receipt未到達時の作成実ID・同じ回復IDを確認する。
+- Process終了不明、回収不明、config終了不明、部分Snapshot、回収観測欠測ではHomeを解放しない。純粋準備拒否は要求0、実行要求時の例外は要求1・再試行0・Snapshot不明・元回復ID保持として区別する。
+- Authenticationも共通Runnerの結果構築・終端・受動通知へ接続し、任意通知のthrow／rejectで技術結果を変更しない。Probeの空CleanupとAttemptの技術再回収を置かない。
+- 旧Session型と有限結果の変換は試験用Oracleに限定し、実DI・実AIの成立Evidenceと区別する。既存Control CapabilityとHome排他、上位通知順・保存契約は維持する。
+
 ### Executor通知専用化・構造整理の追加反証
 
 ERB-IT-002／ERB-IT-004の既存義務に対し、次の観測を追加する。実AI・実Dockerの成立とは区別する。

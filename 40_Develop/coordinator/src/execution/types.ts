@@ -15,7 +15,6 @@ import type {
   AttemptDiagnosticNotice,
   AttemptTerminalObservation,
   CompletionResult,
-  DockerSessionCleanup,
   Executor,
   ExecutorRequest,
   ProcessStartedNotice,
@@ -578,7 +577,7 @@ export type AttemptCleanupInput = Readonly<{
   recoveryCapability: object;
   managementCapability: unknown;
   recoveryId: string;
-  observations: DockerSessionCleanup["resourceObservations"];
+  observations: AttemptTerminalObservation["resources"];
   mountCompletion: Readonly<{ status: string }> | null;
   mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
