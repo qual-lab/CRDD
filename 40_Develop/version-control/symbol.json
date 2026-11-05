@@ -4,6 +4,26 @@
   "subsystem": "version-control",
   "symbols": [
     {
+      "symbolId": "version-control.workspace.types",
+      "kind": "file",
+      "path": "src/workspace/types.ts",
+      "archIds": ["ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.workspace.validation",
+      "kind": "file",
+      "path": "src/workspace/validation.ts",
+      "archIds": ["ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.test.integration.domain-independence",
+      "kind": "test-suite",
+      "path": "tests/integration/domain-independence.contract.test.ts",
+      "qaIds": ["QA-000001", "QA-000007"],
+      "localTestIds": ["RCM-IT-004", "RFD-IT-029"],
+      "verifies": ["version-control.public-api", "version-control.workspace.types", "version-control.workspace.validation"]
+    },
+    {
       "symbolId": "version-control.workspace.observation",
       "kind": "file",
       "path": "src/workspace/observation.ts",

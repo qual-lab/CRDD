@@ -15,7 +15,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import type { AttemptDiagnosticNotice } from "../src/index.ts";
-import type { TaskFixtureReceipt, TrialMode } from "./task-trial.ts";
+import type {
+  TaskFixtureReceipt,
+  TrialMode,
+} from "../tests/support/task-trial.ts";
 
 type TrialResult = Readonly<{
   mode: TrialMode;
@@ -72,7 +75,14 @@ const {
   removeCommittedJson,
   validateCoordinatorResourceBook,
   validateCoordinatorResourceBookTransition,
+  ensureRepositoryRuntimeDataArea,
+  requireReadyRepositoryRuntimeDataArea,
+  observeRepositoryRuntimeDataArea,
+  RepositoryRuntimeDataAreaBlockedError,
 } = await import("../../domain-model/src/index.ts");
+const { verifyRepositoryRoot } = await import(
+  "../../version-control/src/index.ts"
+);
 
 const { observeWindowsProviderHome } = await import(
   "../../platform-access/src/index.ts"
@@ -99,7 +109,7 @@ const {
   createTaskTrialFixture,
   verifyTaskTrialResult,
   cleanupTaskTrialFixture,
-} = await import("./task-trial.ts");
+} = await import("../tests/support/task-trial.ts");
 
 const reference = "synthetic-context";
 
@@ -241,7 +251,7 @@ export function buildStandaloneTrialRequest(
  * @trace ERB-IT-004
  * @input 承認済み固定Provider・IDと同一子の取消通知。
  * @returns 生出力・Home metadataなしの限定結果。
- * @precondition 親の同意とIPC相関が確認済み。
+ * @precondition 親の同意とIPC相関、名前付きtests領域の準備が確認済み。
  * @postcondition 元completionを待ち、未確認を成功にしない。
  * @effect 新品Root・既存Native二観測・同期排他・固定Executor一回。
  * @failure 取得null／保存拒否／終了不明はRoot保持。
@@ -267,15 +277,11 @@ export async function runStandaloneProviderTrial(
   const repository = fs.realpathSync(
     fileURLToPath(new URL("../../../", import.meta.url)),
   );
-  const parent = path.join(repository, ".crdd", "tests");
-  for (const directory of [path.dirname(parent), parent]) {
-    if (!fs.existsSync(directory)) fs.mkdirSync(directory);
-    if (
-      fs.lstatSync(directory).isSymbolicLink() ||
-      fs.realpathSync(directory).toLowerCase() !== directory.toLowerCase()
-    )
-      throw Error("trial_parent_invalid");
-  }
+  const verified = verifyRepositoryRoot(repository);
+  if (verified.status !== "completed") throw Error(verified.reason);
+  const area = observeRepositoryRuntimeDataArea(verified.capability, "tests");
+  if (area.status !== "ready") throw Error(area.reason);
+  const parent = area.directory;
   if (signal.aborted) throw Error("trial_cancelled_before_root");
   const root = path.join(parent, `executor-real-${spec.provider}-${runId}`);
   fs.mkdirSync(root);
@@ -769,7 +775,11 @@ export function cleanupStandaloneTrialRoot(
     const repository = fs.realpathSync(
       fileURLToPath(new URL("../../../", import.meta.url)),
     );
-    const expectedParent = path.join(repository, ".crdd", "tests");
+    const verified = verifyRepositoryRoot(repository);
+    if (verified.status !== "completed") return false;
+    const area = observeRepositoryRuntimeDataArea(verified.capability, "tests");
+    if (area.status !== "ready") return false;
+    const expectedParent = area.directory;
     const provider = /^executor-real-(codex|claude)-[A-Za-z0-9-]{8,64}$/u.exec(
       path.basename(root),
     )?.[1];
@@ -1191,12 +1201,13 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
   const repository = fs.realpathSync(
     fileURLToPath(new URL("../../../", import.meta.url)),
   );
-  const root = path.join(
-    repository,
-    ".crdd",
-    "tests",
-    `executor-real-${spec.provider}-${runId}`,
-  );
+  const verified = verifyRepositoryRoot(repository);
+  if (verified.status !== "completed") throw Error(verified.reason);
+  const parent = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataArea(verified.capability, "tests"),
+    "trial_parent_invalid",
+  ).directory;
+  const root = path.join(parent, `executor-real-${spec.provider}-${runId}`);
   if (fs.existsSync(root)) throw Error("trial_root_already_exists");
   const cancellation = new AbortController();
   const abort = () => cancellation.abort();
@@ -1577,11 +1588,20 @@ if (process.argv[1] && path.resolve(process.argv[1]) === script) {
       process.exitCode = await runStandaloneProviderTrialCli(
         process.argv.slice(2),
       );
-    } catch {
+    } catch (error) {
       process.stdout.write(
         `${JSON.stringify({
           status: "blocked",
-          reason: "trial_entry_failed_closed",
+          ...(error instanceof RepositoryRuntimeDataAreaBlockedError
+            ? {
+                reason: error.reason,
+                recoveryReference: error.recoveryReference,
+                effectIssued: error.effectIssued,
+                effectStateUnknown: error.effectStateUnknown,
+                cleanupConfirmed: error.cleanupConfirmed,
+                retryAllowed: error.retryAllowed,
+              }
+            : { reason: "trial_entry_failed_closed" }),
         })}\n`,
       );
       process.exitCode = 2;

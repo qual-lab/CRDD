@@ -19,7 +19,10 @@ import {
   writeCommittedJson,
   readCommittedJson,
   removeCommittedJson,
+  ensureRepositoryRuntimeDataArea,
+  requireReadyRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
 
 /**
  * 既存共有Home排他と同じPipe名を試験側で導出する。
@@ -107,15 +110,12 @@ export async function verifyProviderHomeBoundary(
       repository.toLowerCase()
   )
     throw new Error("home_boundary_repository_invalid");
-  const parent = path.join(repository, ".crdd", "tests");
-  for (const directory of [path.dirname(parent), parent]) {
-    if (!fs.existsSync(directory)) fs.mkdirSync(directory);
-    if (
-      fs.lstatSync(directory).isSymbolicLink() ||
-      fs.realpathSync(directory).toLowerCase() !== directory.toLowerCase()
-    )
-      throw new Error("home_boundary_parent_invalid");
-  }
+  const verified = verifyRepositoryRoot(repository);
+  if (verified.status !== "completed") throw Error(verified.reason);
+  const parent = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataArea(verified.capability, "tests"),
+    "home_boundary_parent_invalid",
+  ).directory;
   const root = path.join(parent, `executor-home-${provider}-${runId}`);
   fs.mkdirSync(root); // Existing Roots are never reused or removed.
   const identity = fs.statSync(root, { bigint: true });

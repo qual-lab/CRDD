@@ -14,10 +14,10 @@ import { sourceDeclaration } from "../../../domain-model/tests/support/source-de
 import {
   applyCoordinatorResourceCleanup,
   applyCoordinatorResourceEvent,
-} from "../../../domain-model/src/attempt/crud.ts";
-import { validateCoordinatorResourceBook } from "../../../domain-model/src/attempt/validation.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/state/codec.ts";
-import type { CoordinatorResourceBook } from "../../../domain-model/src/attempt/types.ts";
+  validateCoordinatorResourceBook,
+  encodeRuntimeStateValue,
+  type CoordinatorResourceBook,
+} from "../../../domain-model/src/index.ts";
 
 /** 認証記録の実宣言へ保存代役だけを接続する。 */
 function fixture() {

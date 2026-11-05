@@ -344,6 +344,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     },
   });
   assert.ok(activeBook);
+  let terminalBook = activeBook;
   const repository = { ...observed, operationId: identity.operationId };
   const cleanupObservations = frame.checkpoints.map((item) => ({
     key: item.key,
@@ -434,8 +435,13 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
         return null;
       return Object.freeze({
         resourceSnapshot: {
-          resources: activeBook.snapshot.resources.map((item) =>
-            item.key === "create_provider"
+          resources: terminalBook.snapshot.resources.map((item) =>
+            item.key === "create_provider" &&
+            terminalBook.checkpoints.some(
+              (checkpoint) =>
+                checkpoint.key === item.key &&
+                checkpoint.submission === "intent_saved",
+            )
               ? {
                   ...item,
                   request: observedProviderId ? "issued" : "unknown",
@@ -444,10 +450,10 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
               : item,
           ),
         },
-        resources: activeBook.checkpoints.map((item) => ({
+        resources: terminalBook.checkpoints.map((item) => ({
           key: item.key,
           observation:
-            item.key === "create_provider"
+            item.key === "create_provider" && item.submission === "intent_saved"
               ? observedProviderId
                 ? observedProviderObservation
                 : "unknown"
@@ -1067,6 +1073,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       outcome: { ...value.outcome, cleanupConfirmed: true },
     })),
   };
+  terminalBook = frame;
   fs.writeFileSync(stateFile, `${encodeRuntimeStateValue(historyFixture)}\n`);
   const beforeResultRegistration = fs.readFileSync(stateFile);
   for (const [hostResult, completion, consumers] of [
@@ -1226,10 +1233,17 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       operations: registeredResult.operations.map(
         (item: Record<string, unknown>) => ({
           ...item,
-          resources: (item.resources as Record<string, unknown>[]).map(
-            (resource, index) =>
-              index === 0 ? { ...resource, request: "unknown" } : resource,
-          ),
+          resources: {
+            ...(item.resources as CoordinatorResourceBook),
+            snapshot: {
+              ...(item.resources as CoordinatorResourceBook).snapshot,
+              resources: (
+                item.resources as CoordinatorResourceBook
+              ).snapshot.resources.map((resource, index) =>
+                index === 0 ? { ...resource, request: "unknown" } : resource,
+              ),
+            },
+          },
         }),
       ),
     },
@@ -1541,6 +1555,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   );
   assert.ok(identifiedReady);
   fs.writeFileSync(stateFile, identifiedReady);
+  terminalBook = knownBook;
   observedProviderId = identifiedId;
   try {
     const firstDriver = historyRuntime.settleRuntimeOwnedCoordinatorResult(
@@ -1579,6 +1594,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   } finally {
     observedProviderId = null;
     observedProviderObservation = "absent";
+    terminalBook = frame;
   }
   // 未固定終端から履歴と耐久配送へ一度で接続し、返却前にACKを読まない。
   const initialDriverFixture = JSON.parse(

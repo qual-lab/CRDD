@@ -1249,3 +1249,81 @@ Root・子孫の相対Path／型／サイズ／dev／ino／生成時刻の整列
 実行結果：直前のmanifest・四Hash・exact実Path／祖先・現行参照検査が全成功。通常WindowsのCIM照会が成功し、対象Process・元PIDは零。Dockerのexact名全状態Container、所有label全状態Container／Networkの三照会も成功・対象零だった。空のHost Root、対応marker、合成試験Rootをこの順に削除し、三対象それぞれ直後の不存在を確認した。途中失敗・追加試行・権限修復は零。保持②の既知の今回物理残存と旧Runtime記録の限定清掃は完了した。旧試験の失敗／作成結果unknownとexact回復参照は本履歴へ保持し、旧APIの回収成功・実AI編集E2E成功へ書き換えていない。AI再送・Docker再起動・Docker資源変更・認証領域操作は零。新しいSource・回復機構・保存台帳は追加していない。
 
 履歴上のexact回復参照：`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.3e1615d6c5f027a803efd6518df0d30558cc7b711c766a1610cc98293fea2ad7.7a7a9408b57b0127f42f0e71ce377bd6bef00ac2e28f81d483ac2c46d204b770`。対象Container名は`crdd-auth-68aa19ff3db0048f`。これは廃棄前の追跡情報であり、新しい実行許可ではない。
+
+<a id="version-control-domain-dependency-direction"></a>
+
+## Version Controlの逆依存撤去（2026-11-05）
+
+今回の対象は、Domain Model → Version Controlへの一方向化である。基準はCommit `68011fe76300c847dea6e019b1d989cdf306b6c3`。実行・保存・認可の仕様変更ではなく、既存の技術型と入力検査の所有先を是正した。Executor・Docker Isolation・AI AdapterのSource、実AI、実Docker、過去保持物は変更・操作しない。
+
+| 既存の能力・利用側 | 是正後の正本と処置 | 保持する保証 |
+|---|---|---|
+| Worktreeの観測・結果2型、固定候補の要求・結果・選択・一時参照4型 | Version Controlの`src/workspace/types.ts`へ移管。Domainの保存型は直接利用し、重複定義・技術契約の再公開を撤去 | Property、nullと不明の意味、保存形状を変更しない |
+| 固定候補要求・表示名・Commit IDの3検査 | Version Controlの`src/workspace/validation.ts`へ移管。Git操作は同Package内の正本、Domainの保存値・公開要求はVC公開入口を利用 | 受理・拒否条件を維持。形式成立を認可やGit実体成立へ変換しない |
+| Workspaceの状態・世代・採否・保存相関 | Domainに維持 | Git操作、Lease、保存順序、失敗理由を変更しない |
+| 既知利用側・試験台帳・公開集合 | Architecture、symbol.json、Test Catalogと契約試験を追従 | 旧入口へのfallback・互換Wrapper・新しい管理機構を追加しない |
+
+検証結果：
+
+- Version Controlの`npm test`：整形・型検査・Lintを含め73件成功、失敗・skipなし。合成Repositoryの実Gitを使用し、実Remoteへの公開は行わない。
+- Domain ModelとCoordinatorの静的検査：成功。今回の入力・依存方向・保存相関の追加試験も成功。
+- Domain Model全回帰：実行したが全体未合格。必要なWindows権限下での単体再確認は265件中259成功・6失敗。公開集合／内部参照の2失敗と、試験台帳の4失敗は既存不整合である。独立確認で変更前HEAD相当の公開集合差・同じ内部参照11件・同じ台帳違反18件を再現し、今回の違反増分0を確認した。凍結対象の是正や判定の緩和は行っていない。
+- CoordinatorのWorkspace結合回帰：18件全成功、失敗・skipなし。実Git・実Snapshot・既存Leaseを使う17件と採用記録相関1件を確認し、Provider・Dockerは使用しない。所要約21分であり、今回の移管による性能変化や長時間化の原因をこの結果だけで断定しない。
+- 独立レビュー・再レビュー：必須是正なし。6型は旧定義と完全一致、3検査は私有定数の改名を除き本文一致、Git操作本体・保存Schemaに意味変更なし。Version Control本番SourceのDomain参照0、Domainの旧技術再公開0。
+- 文書・影響確認：正式Architectureの依存方向、技術正本、公開集合、実利用側、試験台帳を照合。準拠基準、決定権限、Releaseは変更せず、全体回帰成功やRelease可能とは表示しない。実AI・実Dockerの再試験は今回の純粋な移管に不要として実施しない。
+
+現在、人間による追加判断は必要ない。既存の公開境界・台帳不整合の是正は本変更の安全な独立保留とし、Qual-Labが対象Packageの凍結を見直す場合または全体回帰を確定する前に再評価する。今回の依存方向是正を、それらの既存不整合の解消と同一視しない。
+
+
+<a id="six-existing-failures-correction"></a>
+
+## 既存6失敗の限定是正（2026-11-05）
+
+直前の逆依存撤去後に残った6失敗を対象に、人間はDI・Executorの試験限定変更を承認した。本番Source・公開API・保存Schema・検査条件・Timeoutは変更しない。前節の失敗結果は当時の観測として保持し、本節を是正後の結果とする。
+
+| 原因 | 最小是正と保持条件 |
+|---|---|
+| Domain公開集合の期待漏れ | 公開済み4関数・1型と並び順を期待一覧へ追従。実装から期待値を自動生成せず、exact集合の検査を維持 |
+| 試験からの非公開Domain参照11箇所 | 9参照は既存公開入口へ。Snapshot補助処理はCoordinator既存のRepository借用へ、認証の非公開判定利用は局所Oracleと終了Hookへ置換。拒否を呼出し側が処理しても違反を失わない負例を追加 |
+| 試験台帳の18件未登録による4試験失敗 | 実在する試験のOwner・Path・段階・非AI／非Docker範囲を登録。集合一致・重複・未登録の検査と必須性は維持 |
+
+利用側回帰では、既存試験の更新漏れも有限範囲で是正した。認証子Processに必要な既存module-mockフラグを渡す。Snapshot試験は現行の資源名文法、Repository-local試験領域、外部CLI代役の登録順・同期環境へ追従する。Docker代役が既存Git／固定Native読取りを巻き込まないよう処理対象を限定し、未知のCLIは実行しない。発見した実IDから過去の要求unknownをissuedへ推定せず、観測済みunknownを未観測へ戻さない期待に修正する。不存在の確認回数は、発見用の追加CLI照会ではなくDIの元の観測結果から検証し、1回／2回の期待、Owner喪失・保存拒否・close不明の拒否条件を維持する。
+
+| 検証 | 現在の結果 |
+|---|---|
+| 対象6試験 | 全成功。台帳違反0、内部参照違反0 |
+| Domain Model全回帰 | 485件中483成功・2失敗。対象6失敗は解消したが、全体成功とはしない |
+| DI通常回帰 | 402成功・明示skip 5・失敗0。実Docker試験は未実施 |
+| Executor回帰 | 113件全成功 |
+| Coordinator認証の局所回帰 | 46件全成功。終了Oracleの負例を含む |
+| Coordinator認証の実記録・Kernel／別Process結合 | 4件全成功。Docker／Provider端は有限代役 |
+| Snapshot／認証unknownの専用Writer結合 | 2利用形態×14シナリオ成功。正常・実ID変異・不存在不明・Owner喪失・Writer拒否／例外・読戻し差・解放不明・再入場・二段close故障を確認 |
+| 独立レビュー | 再レビュー完了、追加の必須是正なし。公開参照・台帳・終了Oracleに加え、Snapshot配置、代役の限定範囲、unknown保持、不存在roundの測定と各負例の維持を確認 |
+
+全Domain回帰に残る2件は、`runtime-settlement.contract.test.ts`の終端保存不成立と、`storage-consumer-closure.integration.test.ts`のExecutor検証scripts5件・10違反である。独立した変更前HEAD相当のメモリ投影で、それぞれ同じ失敗を再現した。今回のDI試験mockは別Processへ漏れず、違反の増分もない。これらを検査除外や本番変更で隠さず、Qual-Labが全体回帰の確定または当該保存・検証Toolの次変更時に別途評価する。現在の6件是正に、追加の人間判断は必要ない。
+
+本番Source／公開APIの今回差分は0。実AI・実Docker・Docker再起動・過去保持物の操作は0。新しいManager・Store・互換入口は追加しない。
+
+<a id="remaining-two-failures-correction"></a>
+
+## 残る2失敗の最小是正（2026-11-05）
+
+人間の追加指示により、前節で独立保留した2件を是正する。変更は試験・検証Tool・配置管理情報に限定し、本番Source、公開API、保存Schema、検査条件、Timeoutは変更しない。
+
+| 原因 | 是正と維持する条件 |
+|---|---|
+| 終端保存試験の資源観測が切替前のfixtureを参照 | 未要求・要求不明・実ID取得済みの各場面で、保存fixtureと有限Host観測を一致させる。保存Writerの拒否条件は不変。後続の旧配列形式の破損負例も、現行Resource BookのSnapshotを破損させる形へ追従 |
+| Executor検証ToolのRuntime領域直組立 | 実Repositoryの`tests`領域は既存の名前付きAPIで取得する。回収時は読取り専用の観測APIを使用し、領域の作成・修復をしない。検出規則やRuntime Rootの所有者一覧は変更しない |
+| 合成Workspaceの保護用空Directoryと実Runtime保存領域の混同 | 合成Taskの固定入力・物理Oracleを`tests/support/task-trial.ts`へ移す。空DirectoryのIdentity・内容・限定清掃条件は不変。実試験Toolが参照できる試験補助はこのexact fixtureだけとし、模擬Executor・他の試験Runtimeへの接続禁止を維持 |
+
+独立レビューの指摘に従い、領域確保は検証CLI親が一回だけ所有し、子の実行関数は準備済み領域を観測するだけにした。領域確保の構造付き失敗は、既存の例外型から元reason・exact回復参照・Effect発行／不明・Cleanup・再試行可否をCLI結果へ保持する。子の領域不在では確保・実行・Root通知0、親の確保失敗では外部Process起動0と元情報保持を有限代役で検証する。
+
+| 検証 | 是正後の結果 |
+|---|---|
+| 終端保存・領域閉包の局所試験 | 8件成功。追加是正後の領域閉包4件も再確認して成功 |
+| Domain Model全回帰 | 485件成功・失敗0（約416秒）。前節で残っていた2失敗を解消 |
+| Executor全回帰 | 113件成功・失敗0（追加是正後、約85秒）。領域準備失敗の2反例を含む |
+| 静的検査・管理情報 | Domain Model／Executorの整形・型・lint成功。Coordinatorの全体整形・型・lintとRuntime／Task設計トレース検査も成功。既存info診断は残るがwarning／errorなし |
+| 独立レビュー・再レビュー | 回復参照の情報喪失1系統を是正し、追加の必須是正なし。確認者が追加反例込みの入口試験を独立実行して成功 |
+
+今回の限定変更に残る失敗はない。実AI・実Docker・Docker再起動・過去保持物の操作は0であり、実境界のE2Eを再実施したとは主張しない。本番Source・公開API・保存判定・Timeoutの変更は0。現在、人間による追加判断は必要ない。

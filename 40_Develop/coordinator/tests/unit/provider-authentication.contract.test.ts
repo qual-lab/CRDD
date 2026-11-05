@@ -19,6 +19,51 @@ import {
 import { evaluateProviderAuthentication } from "../../../ai-adapter/src/authentication/result.ts";
 const STABLE_LOGICAL_HOME_BINDING_HASH = "a".repeat(64);
 
+/**
+ * 依存拒否がSUTへ捕捉されても試験Oracleの違反を失わせない。
+ * @responsibility 未回収資源での完了呼出しを試験終了条件で検出する。
+ * @trace ERB-UT-016
+ * @precondition 共通DIの有限代役とメモリ内認証記録だけを使用する。
+ * @stimulus 完了済み記録を未回収へ変異し、完了依存を直接呼ぶ。
+ * @observation false返却と終了時Oracleの失敗。
+ * @oracle 呼出し側がfalseを処理しても試験自体の違反が残る。
+ * @cleanup 有限DIのCompletionを待つ。実Docker・AIは使用しない。
+ */
+test("認証fixtureは未回収での完了呼出しを終了時にも検出する", async (t) => {
+  const checks: Array<() => void> = [];
+  const f = await createAuthenticationFixture({
+    mock: t.mock,
+    after: (check) => {
+      checks.push(check);
+    },
+  });
+  assert.equal((await f.run()).status, "completed");
+  const current = f.record;
+  assert.ok(current?.resources);
+  f.seed({
+    ...current,
+    state: "active",
+    resources: {
+      ...current.resources,
+      checkpoints: current.resources.checkpoints.map((checkpoint, index) =>
+        index === 0
+          ? {
+              ...checkpoint,
+              submission: "intent_saved",
+              receiptSource: null,
+              observation: "unknown",
+            }
+          : checkpoint,
+      ),
+    },
+  });
+  assert.equal(f.dependencies.completeRecovery(current), false);
+  assert.equal(checks.length, 1);
+  assert.throws(() => {
+    for (const check of checks) check();
+  }, /completion_before_resource_settlement/u);
+});
+
 test("上位認証は両Providerのstatus/loginでIntent・Receipt・最終保存を完了する", async (t) => {
   for (const provider of ["codex", "claude"] as const)
     for (const action of ["status", "login"] as const)

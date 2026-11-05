@@ -895,20 +895,11 @@ export type {
   CoordinatorResultRecord,
   CoordinatorWorkspace,
   CoordinatorWorkspaceCandidate,
-  RepositoryWorktreeObservation,
-  RepositoryWorktreeResult,
-  WorkspaceCandidateRequest,
-  WorkspaceCandidateResult,
-  WorkspaceCandidateSelection,
-  WorkspaceCandidateTemporary,
 } from "./workspace/types.ts";
 export {
   COORDINATOR_INTEGRATION_CONTRACT,
-  isWorkspaceCommitId,
   validCoordinatorResultRecord,
   validCoordinatorWorkspace,
-  validWorkspaceCandidateRequest,
-  validWorkspaceDisplayName,
 } from "./workspace/validation.ts";
 
 export type {

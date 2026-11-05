@@ -52,6 +52,9 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/execution/lease.ts",
   "40_Develop/execution-intelligence/src/storage/store.ts",
+  "40_Develop/executor/scripts/verify-provider-attempt.ts",
+  "40_Develop/executor/scripts/verify-provider-home.ts",
+  "40_Develop/executor/scripts/verify-provider-real.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
 const PUBLIC_COORDINATOR_BOUNDARIES = [

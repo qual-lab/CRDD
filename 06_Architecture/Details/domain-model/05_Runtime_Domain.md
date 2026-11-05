@@ -74,7 +74,7 @@ Core入口をCoordinatorのModule読込みから独立させるため、実行�
 | `state/query.ts` | 状態照会要求の閉形式 | 状態Readerの起動構成 |
 | `objective/request.ts` | 分解済み計画の公開入力・Task入力の相関検査 | 受付・Queue・実行・再試行 |
 | `decision/request.ts` | 人間判断要求の値検査 | 現在Authorityの検証・判断保存 |
-| `workspace/command.ts` | Workspace明示操作の閉じた入力 | Git処置・Workspace寿命管理 |
+| `workspace/command.ts` | Workspace明示操作の閉じた入力。技術的な固定候補入力検査はVersion Controlの正本を利用する | Git処置・Workspace寿命管理 |
 | `workspace/result.ts` | 内容を含まない変更観測の閉形式・相関 | 実Filesystem観測・採用 |
 
 Coordinatorの`state/projection.ts`には投影生成とSchedulerとの接続を残す。Coordinatorの公開名は同じDomain実体を再公開して既存Consumerを保つが、新しいCore ConsumerはDomainの標準入口へ直接接続する。型や純粋Validatorの移管を、Executor又はCoordinator任意化の完成とは扱わない。

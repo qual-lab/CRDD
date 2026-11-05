@@ -132,7 +132,7 @@
     {
       "symbolId": "executor.verification.task-trial",
       "kind": "file",
-      "path": "scripts/task-trial.ts",
+      "path": "tests/support/task-trial.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"

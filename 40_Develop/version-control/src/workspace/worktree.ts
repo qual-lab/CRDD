@@ -7,7 +7,7 @@
 import type {
   RepositoryWorktreeResult,
   RepositoryWorktreeObservation,
-} from "../../../domain-model/src/index.ts";
+} from "./types.ts";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { devNull } from "node:os";

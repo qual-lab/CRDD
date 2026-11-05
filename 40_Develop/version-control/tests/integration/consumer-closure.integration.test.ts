@@ -32,7 +32,9 @@ const developRoot = path.join(repositoryRoot, "40_Develop");
  */
 function publicExportNames(source: string): readonly string[] {
   const names: string[] = [];
-  for (const block of source.matchAll(/export\s*\{([\s\S]*?)\}\s*from/gu))
+  for (const block of source.matchAll(
+    /export\s+(?:type\s+)?\{([\s\S]*?)\}\s*from/gu,
+  ))
     for (const raw of block[1]?.split(",") ?? []) {
       const normalized = raw.trim().replace(/^type\s+/u, "");
       if (normalized.length > 0)
@@ -948,7 +950,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/state/observation.ts",
       "40_Develop/coordinator/src/state/initialize.ts",
       "40_Develop/coordinator/src/state/query.ts",
-      "40_Develop/coordinator/src/state/types.ts",
       "40_Develop/coordinator/src/task/requests.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
@@ -959,6 +960,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/domain-model/src/repository/observe-symbols.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/repository/types.ts",
+      "40_Develop/domain-model/src/state/projection-types.ts",
       "40_Develop/domain-model/src/state/types.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
       "40_Develop/domain-model/src/storage/network-policy.ts",
@@ -983,6 +985,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/workbench-server/src/server/routes/ai-selection.ts",
       "40_Develop/workbench-server/src/server/routes/repository-view.ts",
       "40_Develop/workbench-server/src/server/routes/repository.ts",
+      "40_Develop/workbench-server/src/server/routes/runtime-definition.ts",
       "40_Develop/workbench-server/src/server/routes/shared-view.ts",
       "40_Develop/workbench-server/src/server/routes/workspace.ts",
       "40_Develop/workbench-server/src/server/start.ts",
@@ -1013,6 +1016,9 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
     "40_Develop/coordinator/src/workspace/commands.ts",
     "40_Develop/coordinator/src/workspace/operations.ts",
+    "40_Develop/domain-model/src/workspace/command.ts",
+    "40_Develop/domain-model/src/workspace/types.ts",
+    "40_Develop/domain-model/src/workspace/validation.ts",
   ]);
 });
 

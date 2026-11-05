@@ -475,7 +475,7 @@ tmpは内側から通常unlink／rmdirで回収し、各削除直前に元Root�
 
 ### 単段編集・レビュー・取消の検証候補
 
-検証CLIの有限modeは`advice`（省略時）、`edit`、`review`、`cancel`である。製品APIとTaskの順序管理は変更しない。既存の一子監督・同期Home排他・提出前記録・Receipt・元回復参照・終了保存・close後の限定清掃を共有し、合成Taskの記述・構築・物理検査だけを`scripts/task-trial.ts`へ置く。試験結果契約はv2とし、内容確認は`contentConfirmed`へ統一する。過去v1の記録を読む互換Readerや保持物移行は追加しない。
+検証CLIの有限modeは`advice`（省略時）、`edit`、`review`、`cancel`である。製品APIとTaskの順序管理は変更しない。既存の一子監督・同期Home排他・提出前記録・Receipt・元回復参照・終了保存・close後の限定清掃を共有し、合成Taskの記述・構築・物理検査だけを`tests/support/task-trial.ts`へ置く。このfixture内の保護用空DirectoryはRuntime保存領域ではない。検証CLIの実際の試験領域はDomain Modelの名前付き`tests`領域APIで取得し、回収時は読取り専用の観測APIで確認する。実試験は製品Executorを使用し、模擬Executorや他の試験Runtimeへ接続しない。試験結果契約はv2とし、内容確認は`contentConfirmed`へ統一する。過去v1の記録を読む互換Readerや保持物移行は追加しない。
 
 編集は新品Root内の`work/source.txt`だけを`BASE`から`EDITED_OK`（各末尾LF）へ変更する。保護用の空`.git`・`.crdd`は既存の三Mount構成で読取り専用とする。レビューは同じ検査済みbytesと差分を固定の読取り投影として標準入力で受け、ファイル読取り・ツール利用を指示しない。各試行は新品Rootを使うため、これは内容Hashで相関する単段確認であり、物理Workspaceの引渡し又はCoordinatorの順序制御の検証ではない。
 

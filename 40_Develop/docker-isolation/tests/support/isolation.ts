@@ -163,6 +163,7 @@ export async function createIsolationFixture(
     namedExports: {
       ...environments,
       createDockerProcessEnvironment: () => environment,
+      createDockerCliEnvironment: () => environment,
     },
   });
   t.mock.module("../../src/docker-cli/config.ts", {

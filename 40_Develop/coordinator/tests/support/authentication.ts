@@ -6,6 +6,7 @@
  * @scope メモリ内記録と既存有限CLI代役。実Docker・AI・既存保持物を操作しない。
  */
 import { createHash } from "node:crypto";
+import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs";
 import { types } from "node:util";
@@ -22,7 +23,6 @@ import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
 } from "../../../domain-model/src/index.ts";
-import { coordinatorResourceIsSettled } from "../../../domain-model/src/attempt/validation.ts";
 import type { RecordProjection } from "../../../executor/src/index.ts";
 import {
   authenticateProvider,
@@ -98,7 +98,7 @@ export function authenticationResourceFixture(
 
 /** 外部Processだけ有限化し、保存の試験状態は現在のDomain契約で更新する。 */
 export async function createAuthenticationFixture(
-  t: { mock: TestContext["mock"] },
+  t: { mock: TestContext["mock"]; after: (check: () => void) => void },
   provider: "codex" | "claude" = "claude",
   action: "status" | "login" = "login",
 ) {
@@ -145,6 +145,15 @@ export async function createAuthenticationFixture(
     live = true,
     released = false,
     releaseConfirmed = true;
+  // 実行側が依存例外を捕捉しても、危険な完了呼出しを試験成功へ畳まない。
+  let unsettledCompletionObserved = false;
+  t.after(() => {
+    assert.equal(
+      unsettledCompletionObserved,
+      false,
+      "completion_before_resource_settlement",
+    );
+  });
   const events: string[] = [];
   const home = `C:\\fixture\\ProviderHomes\\${provider}`,
     hash = "a".repeat(64);
@@ -251,14 +260,20 @@ export async function createAuthenticationFixture(
       cleanupAuthentication: f.api.cleanupIsolation,
       completeRecovery: () => {
         events.push("settle");
-        if (
-          !current ||
-          !live ||
-          current.commandState !== "idle" ||
-          (current.resources &&
-            !current.resources.checkpoints.every(coordinatorResourceIsSettled))
-        )
+        if (!current || !live || current.commandState !== "idle") return false;
+        // 試験Oracle: 未発行又はReceipt付き不存在以外の資源で終了してはならない。
+        const unsettled =
+          current.resources?.checkpoints.some(
+            (resource) =>
+              resource.submission !== "none" &&
+              resource.submission !== "not_issued" &&
+              (resource.receiptSource === null ||
+                resource.observation !== "absent"),
+          ) ?? false;
+        if (unsettled) {
+          unsettledCompletionObserved = true;
           return false;
+        }
         current = { ...current, state: "settled" };
         return true;
       },

@@ -40,7 +40,17 @@ const recovery = createProviderAuthenticationRecoveryRecord(
   projection,
 );
 assert.ok(recovery);
-const f = await createAuthenticationFixture({ mock }, "claude", "login");
+const finalChecks: Array<() => void> = [];
+const f = await createAuthenticationFixture(
+  {
+    mock,
+    after: (check) => {
+      finalChecks.push(check);
+    },
+  },
+  "claude",
+  "login",
+);
 const controls = readline.createInterface({ input: process.stdin });
 const input = controls[Symbol.asyncIterator]();
 let held: ReturnType<typeof acquireRuntimeOwnedLogicalProviderHomeKernelLock> =
@@ -101,6 +111,7 @@ assert.equal(recoveryCalls, 0, "recovery_call_after_lock_loss");
 assert.equal(result.status, "blocked");
 assert.equal(result.reason, "provider_authentication_provider_home_lock_lost");
 assert.equal(result.cleanupConfirmed, false);
+for (const check of finalChecks) check();
 process.stdout.write(
   `${JSON.stringify({
     event: "result",

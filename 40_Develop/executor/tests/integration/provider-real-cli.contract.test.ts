@@ -113,7 +113,7 @@ function createResourceRecords(
  * @boundary Docker・Native・認証・外部AIは使用しない。
  */
 test("固定Task試験は両Providerの計画と実Fileの相関を検査する", async () => {
-  const api = await import("../../scripts/task-trial.ts");
+  const api = await import("../support/task-trial.ts");
   const parent = fileURLToPath(
     new URL("../../../../.crdd/tests/", import.meta.url),
   );
@@ -196,9 +196,9 @@ test("固定Task試験は両Providerの計画と実Fileの相関を検査する"
  * @responsibility import・describe・不正Provider・不正引数をEffect前に閉じる。
  * @trace ERB-IT-002
  * @precondition Node子内で外部Process／Native／Lockを禁止する。
- * @stimulus 両Provider計画と不正CLI。
- * @observation 固定Model・Image・Prompt、拒否と呼出し零。
- * @oracle Repo非mount・tools/session無効とexact選択を維持する。
+ * @stimulus 両Provider計画、不正CLI、親の領域確保失敗と子の領域不在。
+ * @observation 固定Model・Image・Prompt、拒否、元の回復参照・Effect情報と呼出し零。
+ * @oracle Repo非mount・tools/session無効・exact選択を維持し、準備失敗を一般エラーへ畳まない。
  * @cleanup N/A: Root作成前に閉じる。
  * @boundary 計画取得だけで利用可能性を保証しない。
  */
@@ -240,6 +240,59 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
   assert.equal(child.error, undefined);
   assert.equal(child.signal, null);
   assert.equal(child.status, 0, child.stderr);
+  const domainEntry = new URL(
+    "../../../domain-model/src/index.ts",
+    import.meta.url,
+  ).href;
+  for (const absent of [false, true]) {
+    const blocked = spawnSync(
+      process.execPath,
+      [
+        "--experimental-test-module-mocks",
+        "--input-type=module",
+        "-e",
+        `
+      import assert from 'node:assert/strict';
+      import cp from 'node:child_process';
+      import {mock} from 'node:test';
+      import {syncBuiltinESMExports} from 'node:module';
+      import {fileURLToPath} from 'node:url';
+      const domain=await import(${JSON.stringify(domainEntry)});
+      const absent=${JSON.stringify(absent)};
+      const failure={status:'blocked',reason:'repository_runtime_data_ignore_unconfirmed',effectIssued:true,effectStateUnknown:true,cleanupConfirmed:false,retryAllowed:false,recoveryReference:'runtime-data.fixture-exact-reference'};
+      let effects=0,ensures=0;
+      for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{effects++;throw Error('external_process_forbidden');};
+      syncBuiltinESMExports();
+      mock.module(${JSON.stringify(domainEntry)},{namedExports:{...domain,
+        ensureRepositoryRuntimeDataArea:()=>{ensures++;return failure;},
+        observeRepositoryRuntimeDataArea:()=>({status:'not_observed',reason:'repository_runtime_data_area_absent',effectIssued:false}),
+      }});
+      if(!absent)process.argv=[process.execPath,fileURLToPath(${JSON.stringify(entry)}),'--run','codex','fixture-12345678'];
+      const api=await import(${JSON.stringify(entry)});
+      if(absent){
+        let roots=0;
+        await assert.rejects(api.runStandaloneProviderTrial('codex','fixture-12345678',new AbortController().signal,async()=>{roots++;}),/repository_runtime_data_area_absent/);
+        assert.equal(roots,0);assert.equal(ensures,0);
+      }else{assert.equal(ensures,1);assert.equal(process.exitCode,2);}
+      assert.equal(effects,0);
+    `,
+      ],
+      { encoding: "utf8", timeout: 15000, windowsHide: true },
+    );
+    assert.equal(blocked.error, undefined);
+    assert.equal(blocked.signal, null);
+    assert.equal(blocked.status, absent ? 0 : 2, blocked.stderr);
+    if (!absent)
+      assert.deepEqual(JSON.parse(blocked.stdout), {
+        status: "blocked",
+        reason: "repository_runtime_data_ignore_unconfirmed",
+        recoveryReference: "runtime-data.fixture-exact-reference",
+        effectIssued: true,
+        effectStateUnknown: true,
+        cleanupConfirmed: false,
+        retryAllowed: false,
+      });
+  }
 });
 
 /**
@@ -313,7 +366,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
       const records=fs.readdirSync(root).filter(n=>/^event-[0-9]{3}\\.json$/.test(n)).map(n=>JSON.parse(fs.readFileSync(path.join(root,n),'utf8')));
       assert.equal(records.filter(v=>v.kind==='receipt_recorded').length,5);for(const v of records){assert.equal(v.recoveryId,result.recoveryId);assert.equal(Object.hasOwn(v,'adviceJson'),false);assert.equal(Object.hasOwn(v,'normalizedResult'),false);assert.equal(Object.hasOwn(v,'stdout'),false);}
       const terminal=records.find(v=>v.kind==='terminal_received');assert.equal(terminal.status,mode.startsWith('task_cancel')?'cancelled':mode==='normal'||trialMode!=='advice'?'completed':'blocked');
-      if(trialMode!=='advice'){const st=fs.statSync(root,{bigint:true});assert.equal(api.cleanupStandaloneTrialRoot(root,[st.dev,st.ino,st.birthtimeNs].map(String).join(':'),result,trialMode),mode!=='task_cancel_duplicate',JSON.stringify({provider,mode,result,terminal}));if(mode!=='task_cancel_duplicate')continue;const taskApi=await import(${JSON.stringify(url("../../scripts/task-trial.ts"))});assert.equal(taskApi.cleanupTaskTrialFixture(root,trialMode,result.fixtureReceipt),true);}
+      if(trialMode!=='advice'){const st=fs.statSync(root,{bigint:true});assert.equal(api.cleanupStandaloneTrialRoot(root,[st.dev,st.ino,st.birthtimeNs].map(String).join(':'),result,trialMode),mode!=='task_cancel_duplicate',JSON.stringify({provider,mode,result,terminal}));if(mode!=='task_cancel_duplicate')continue;const taskApi=await import(${JSON.stringify(url("../support/task-trial.ts"))});assert.equal(taskApi.cleanupTaskTrialFixture(root,trialMode,result.fixtureReceipt),true);}
       assert.equal(fs.lstatSync(root).isSymbolicLink(),false);for(const name of fs.readdirSync(root)){const p=path.join(root,name),s=fs.lstatSync(p);assert.equal(s.isSymbolicLink(),false);if(s.isDirectory()){assert.ok(['tmp','management'].includes(name));assert.equal(fs.readdirSync(p).length,0);}else{assert.equal(s.isFile(),true);assert.equal(s.nlink,1);assert.match(name,/^event-[0-9]{3}\\.json(?:\\.crdd-commit\\.json)?$/);}}
       fs.rmSync(root,{recursive:true});assert.equal(fs.existsSync(root),false);
     }
@@ -427,7 +480,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
         `
     import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash,randomUUID} from 'node:crypto';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {mock} from 'node:test';
     const platform=await import(${JSON.stringify(url("../../../platform-access/src/index.ts"))});const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
-    const awaitTaskApi=await import(${JSON.stringify(url("../../scripts/task-trial.ts"))});
+    const awaitTaskApi=await import(${JSON.stringify(url("../support/task-trial.ts"))});
     const createResourceRecords = ${createResourceRecords.toString()};
     let mode='normal',forks=0,cancelCount=0,output=[],gitCalls=0,beforeWait=null;
     Object.defineProperty(process.stdin,'isTTY',{value:false,configurable:true});Object.defineProperty(process.stdout,'isTTY',{value:false,configurable:true});

@@ -11,6 +11,11 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ensureRepositoryRuntimeDataArea,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../domain-model/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
 
 /**
  * 同じ有限検証をCLIとITから実行する。
@@ -47,15 +52,12 @@ export function verifyStandaloneProviderAttempt() {
     fs.realpathSync(git.stdout.trim()).toLowerCase(),
     repository.toLowerCase(),
   );
-  const parent = path.join(repository, ".crdd", "tests");
-  for (const directory of [path.dirname(parent), parent]) {
-    if (!fs.existsSync(directory)) fs.mkdirSync(directory);
-    assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
-    assert.equal(
-      fs.realpathSync(directory).toLowerCase(),
-      directory.toLowerCase(),
-    );
-  }
+  const verified = verifyRepositoryRoot(repository);
+  assert.equal(verified.status, "completed");
+  const parent = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataArea(verified.capability, "tests"),
+    "standalone_parent_invalid",
+  ).directory;
   const fixtureRoot = fs.mkdtempSync(path.join(parent, "executor-standalone-"));
   const fixtureIdentity = fs.statSync(fixtureRoot, { bigint: true });
   const root = new URL("../src/index.ts", import.meta.url).href;

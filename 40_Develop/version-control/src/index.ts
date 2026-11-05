@@ -78,14 +78,12 @@ export {
   inspectWorkspaceCandidatePatch,
   removeWorkspaceCandidate,
 } from "./workspace/candidate.ts";
-export {
-  validWorkspaceDisplayName,
-  validWorkspaceCandidateRequest,
-  type WorkspaceCandidateRequest,
-  type WorkspaceCandidateResult,
-  type WorkspaceCandidateSelection,
-  type WorkspaceCandidateTemporary,
-} from "../../domain-model/src/index.ts";
+export type {
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+  WorkspaceCandidateSelection,
+  WorkspaceCandidateTemporary,
+} from "./workspace/types.ts";
 export {
   createRepositoryWorktree,
   disposeRepositoryWorktree,
@@ -94,7 +92,7 @@ export {
 export type {
   RepositoryWorktreeObservation,
   RepositoryWorktreeResult,
-} from "../../domain-model/src/index.ts";
+} from "./workspace/types.ts";
 export { gitRepositoryWorktreeViewAdapter } from "./repository/worktree-view.ts";
 export {
   changedPaths,
@@ -147,3 +145,9 @@ export {
   isWorkspaceRelativePath,
   type WorkspaceInventoryEntry,
 } from "./workspace/observation.ts";
+
+export {
+  validWorkspaceDisplayName,
+  validWorkspaceCandidateRequest,
+  isWorkspaceCommitId,
+} from "./workspace/validation.ts";

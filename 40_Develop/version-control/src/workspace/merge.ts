@@ -4,11 +4,11 @@
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
-import {
-  isWorkspaceCommitId,
-  type WorkspaceCandidateRequest,
-  type WorkspaceCandidateResult,
-} from "../../../domain-model/src/index.ts";
+import type {
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+} from "./types.ts";
+import { isWorkspaceCommitId } from "./validation.ts";
 import fs from "node:fs";
 import path from "node:path";
 import type { VerifiedRepositoryRoot } from "../repository/location.ts";

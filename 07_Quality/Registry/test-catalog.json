@@ -1494,6 +1494,330 @@
     }
   ],
   "tests": [
+    {
+      "id": "coordinator:unit:authentication-management",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authentication-management.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authentication",
+        "management"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "original_empty_directory_only"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:authentication-resource-record",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/authentication-resource-record.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authentication",
+        "receipt"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "receipt_saved_before_notification_return"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:host-resource-identity",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/host-resource-identity.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "recovery",
+        "identity"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "exact_resource_identity_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:integration:cleanup-common",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/integration/cleanup-common.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "cleanup",
+        "lifecycle"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "unknown_cleanup_not_success"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:unit:capabilities",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/capabilities.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "configuration",
+        "public-api"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "configuration_read_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:unit:docker-desktop-environment",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/docker-desktop/environment.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "environment",
+        "notification"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "environment_operations_mocked"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:unit:resource-dispatch",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/resource-dispatch.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "resource",
+        "dispatch"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "unknown_resource_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:unit:resource-inspection",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/resource-inspection.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "resource",
+        "inspection"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "known_id_identity_verified"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:unit:resource-snapshot",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/resource-snapshot.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "resource",
+        "snapshot"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "configuration_secrets_not_exposed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:resource-book",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/resource-book.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "snapshot",
+        "receipt"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "resource_checkpoint_correlation_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:attempt-common",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/attempt-common.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "attempt",
+        "notification"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "primary_failure_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:attempt-recovery",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/attempt/recovery.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "cleanup",
+        "recovery"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "cleanup_unknown_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:authentication-common",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/authentication-common.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authentication",
+        "lifecycle"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "notification_failure_stops_next_effect"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:authentication",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/authentication.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "authentication",
+        "cancellation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "cancellation_not_termination"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:binding",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/binding.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "preparation",
+        "validation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "invalid_request_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:environment",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/environment.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "environment",
+        "public-api"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "environment_api_delegates_to_di"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:legacy-snapshot",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/legacy-snapshot.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "snapshot",
+        "submission"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "unknown_request_not_not_issued"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "executor:unit:resources",
+      "owner": "executor",
+      "path": "40_Develop/executor/tests/unit/resources.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "resource",
+        "public-api"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "resource_result_identity_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
     {"id":"coordinator:unit:network-policy-catalog","owner":"coordinator","path":"40_Develop/coordinator/tests/unit/decision/network-policy-catalog.contract.test.ts","level":"unit","kind":"contract","semanticTags":["network","configuration","snapshot"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed"],"mandatoryByDefault":true},
     {"id":"docker-isolation:unit:proxy-configuration","owner":"docker-isolation","path":"40_Develop/docker-isolation/tests/unit/proxy-configuration.contract.test.ts","level":"unit","kind":"contract","semanticTags":["network","configuration","proxy"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["result_observed"],"mandatoryByDefault":true},
     {"id":"executor:integration:container-resources","owner":"executor","path":"40_Develop/executor/tests/integration/container-resources.contract.test.ts","level":"integration","kind":"contract","semanticTags":["container","cleanup","owner"],"environment":"node_process","externalProviderEffect":false,"humanInput":false,"postconditions":["unknown_preserved","exact_configuration","owner_rejection_captured","no_unhandled_rejections"],"mandatoryByDefault":true},
@@ -3660,6 +3984,32 @@
         "identity_verified",
         "descriptors_closed"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:workspace-technical-contract",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/workspace-technical-contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["workspace", "version-control", "dependency"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["workspace_record_correlation_preserved", "repository_effect_absent"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "version-control:integration:domain-independence",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/domain-independence.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["workspace", "public-api", "dependency", "validation"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["domain_dependency_absent", "technical_input_rules_preserved", "repository_effect_absent"],
       "mandatoryByDefault": true
     },
     {

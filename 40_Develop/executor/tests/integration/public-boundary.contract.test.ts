@@ -184,6 +184,9 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     assert.equal(calls,0);
     for (const name of ['verifyProviderSubmissionNotice','verifyUnissuedNotice','borrowTerminalObservations'])
       assert.equal(name in runtime,false,name);
+    // 名前付き領域APIの依存Sourceを先にロードし、以下ではTool自体のimport Effectを検査する。
+    await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
+    await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
     const {default:fs}=await import('node:fs');
     const {default:childProcess}=await import('node:child_process');
     const {syncBuiltinESMExports}=await import('node:module');
@@ -325,20 +328,48 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
 });
 /** 実AI用Toolは製品公開入口だけを実行経路とし、管理情報は現存Sourceへ接続する。 @trace ERB-IT-004 */
 test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
-  for (const name of [
-    "verify-provider-real",
-    "provider-attempt-host",
-    "task-trial",
-  ]) {
+  for (const name of ["verify-provider-real", "provider-attempt-host"]) {
     const source = fs.readFileSync(
       new URL("../../scripts/" + name + ".ts", import.meta.url),
       "utf8",
     );
     assert.doesNotMatch(
       source,
-      /executor-test|tests\/support|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
+      /executor-test|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
+    );
+    const fixtureImports = [
+      ...source.matchAll(/["'](\.\.\/tests\/support\/[^"']+)["']/gu),
+    ].map((match) => match[1]);
+    assert.deepEqual(
+      fixtureImports,
+      name === "verify-provider-real"
+        ? ["../tests/support/task-trial.ts", "../tests/support/task-trial.ts"]
+        : [],
+    );
+    assert.doesNotMatch(
+      source.replaceAll("../tests/support/task-trial.ts", "fixed-task-fixture"),
+      /tests\/support/,
     );
   }
+  const fixture = fs.readFileSync(
+    new URL("../support/task-trial.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    fixture,
+    /executor-test|mock\.|registerHooks|createExecutor|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
+  );
+  assert.deepEqual(
+    [...fixture.matchAll(/from ["']([^"']+)["']/gu)].map((match) => match[1]),
+    [
+      "node:crypto",
+      "node:fs",
+      "node:path",
+      "../../../ai-adapter/src/index.ts",
+      "../../../docker-isolation/src/index.ts",
+      "../../src/index.ts",
+    ],
+  );
   const candidate = fs.readFileSync(
     new URL("../../scripts/verify-provider-attempt.ts", import.meta.url),
     "utf8",

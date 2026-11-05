@@ -14,8 +14,8 @@ import type { IsolationRequest } from "../../src/execution/types.ts";
 import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
-} from "../../../domain-model/src/attempt/crud.ts";
-import type { CoordinatorResourceBook } from "../../../domain-model/src/attempt/types.ts";
+  type CoordinatorResourceBook,
+} from "../../../domain-model/src/index.ts";
 
 /**
  * 作成Receiptを構成検査より先に記録し、失敗・取消でも同じIDを回収まで保持する。

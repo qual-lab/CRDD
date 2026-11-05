@@ -3394,11 +3394,17 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
             return {
               ...book,
               snapshot: {
-                resources: book.snapshot.resources.map((r) =>
-                  r.key === "create_subscription_auth_probe"
-                    ? { ...r, request: "unknown" }
-                    : r,
-                ),
+                resources: book.snapshot.resources.map((r) => ({
+                  ...r,
+                  identity: {
+                    ...r.identity,
+                    name: r.identity.name.replaceAll("_", "-"),
+                  },
+                  request:
+                    r.key === "create_subscription_auth_probe"
+                      ? ("unknown" as const)
+                      : r.request,
+                })),
               },
               checkpoints: book.checkpoints.map((c) =>
                 c.key === "create_subscription_auth_probe"

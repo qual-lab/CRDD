@@ -4,14 +4,16 @@
  * @trace ARCH-000002
  * @trace ARCH-000009
  */
+import type {
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+  WorkspaceCandidateSelection,
+  WorkspaceCandidateTemporary,
+} from "./types.ts";
 import {
   validWorkspaceCandidateRequest,
   isWorkspaceCommitId,
-  type WorkspaceCandidateRequest,
-  type WorkspaceCandidateResult,
-  type WorkspaceCandidateSelection,
-  type WorkspaceCandidateTemporary,
-} from "../../../domain-model/src/index.ts";
+} from "./validation.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";

@@ -16,7 +16,9 @@ import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
   type CoordinatorResourceBook,
+  observeRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
+import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
 import { observeWindowsProviderHome } from "../../platform-access/src/index.ts";
 import {
   createExecutor,
@@ -37,7 +39,11 @@ export function createStandaloneProviderAttemptHost(
   const repository = fs.realpathSync(
     fileURLToPath(new URL("../../../", import.meta.url)),
   );
-  const parent = path.join(repository, ".crdd", "tests");
+  const verified = verifyRepositoryRoot(repository);
+  if (verified.status !== "completed") throw Error(verified.reason);
+  const area = observeRepositoryRuntimeDataArea(verified.capability, "tests");
+  if (area.status !== "ready") throw Error(area.reason);
+  const parent = area.directory;
   const relative = path.relative(parent, root);
   if (
     !relative ||
@@ -46,12 +52,6 @@ export function createStandaloneProviderAttemptHost(
     path.isAbsolute(relative)
   )
     throw Error("standalone_host_root_outside_tests");
-  for (const ancestor of [path.dirname(parent), parent])
-    if (
-      fs.lstatSync(ancestor).isSymbolicLink() ||
-      fs.realpathSync(ancestor).toLowerCase() !== ancestor.toLowerCase()
-    )
-      throw Error("standalone_host_parent_invalid");
   if (
     root.toLowerCase() !== path.resolve(directory).toLowerCase() ||
     fs.lstatSync(root).isSymbolicLink() ||

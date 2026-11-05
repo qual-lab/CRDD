@@ -2,7 +2,7 @@
  * 共通観測入口と既知実ID照合を有限の技術境界で反証する。
  * @responsibility 用途・保存相関を渡さずSnapshotと明示候補だけで観測する。
  * @trace ERB-IT-014
- * @level IT
+ * @level UT
  * @scope 同期CLIとconfigは有限代役。実Docker・AI・保持物は使用しない。
  */
 import assert from "node:assert/strict";

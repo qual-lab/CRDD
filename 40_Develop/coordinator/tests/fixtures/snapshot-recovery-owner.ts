@@ -16,7 +16,7 @@ import { runInThisContext } from "node:vm";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { observeRuntimeStorageRepository } from "../../../domain-model/src/storage/runtime-repository.ts";
+import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../../platform-access/src/index.ts";
 import {
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
@@ -56,7 +56,14 @@ assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
 const verified = verifyRepositoryRoot(repositoryRoot);
 assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
-const observed = observeRuntimeStorageRepository(verified.capability);
+// CoordinatorがDIを読み込む前に、外部CLI端の有限代役を接続する。
+const f = await createIsolationFixture({ mock });
+const { borrowRuntimeOwnedCoordinatorRecoveryRepository } = await import(
+  "../../src/execution/operation.ts"
+);
+const observed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
+  verified.capability,
+);
 assert.ok(observed);
 const repository = { ...observed, operationId };
 const stateFile = path.join(
@@ -82,11 +89,16 @@ const auth = original.snapshot.resources.find(
 );
 assert.ok(auth?.identity.kind === "container");
 const management = path.join(
-  path.dirname(stateFile),
+  repositoryRoot,
+  ".crdd",
+  "tests",
   `snapshot-recovery-${scenario}`,
 );
+assert.equal(
+  fs.realpathSync(path.dirname(management)),
+  path.dirname(management),
+);
 fs.mkdirSync(management);
-const f = await createIsolationFixture({ mock });
 const container = f.request.resources[0];
 assert.ok(container?.kind === "container");
 f.useRequest(
@@ -158,6 +170,15 @@ const mutant = body.replace(
 assert.notEqual(body, mutant);
 const read = () =>
   readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
+const currentSnapshot = read();
+assert.equal(currentSnapshot.status, "completed", currentSnapshot.reason);
+assert.ok(currentSnapshot.value);
+assert.ok(
+  Buffer.from(
+    `${encodeRuntimeStateValue(currentSnapshot.value.snapshot)}\n`,
+  ).equals(before),
+  "fixture_snapshot_must_match_driver_input",
+);
 const driver =
   runInThisContext(`(dependencies)=>{const {Buffer,encodeRuntimeStateValue,decodeCoordinatorStateSnapshot,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
@@ -251,10 +272,39 @@ f.calls.push = (...items: string[][]): number => {
   return originalPush(...items);
 };
 // 追加不存在の同期CLI端だけを有限化する。未知要求は実CLIへ委譲しない。
+const originalSpawnSync = childProcess.spawnSync;
+const fixedNativeExecutable = path.resolve(
+  import.meta.dirname,
+  "../../../..",
+  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+);
 const spawn = mock.method(
   childProcess,
   "spawnSync",
-  (executable: unknown, input: unknown) => {
+  (executable: unknown, input: unknown, options: unknown) => {
+    if (
+      executable !==
+      "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
+    ) {
+      assert.ok(Array.isArray(input));
+      assert.ok(options && typeof options === "object");
+      assert.equal((options as { shell?: unknown }).shell, false);
+      if (executable === "git") {
+        assert.equal(input[0], "-C");
+        assert.equal(input[1], repositoryRoot);
+        assert.equal(input[2], "rev-parse");
+      } else {
+        assert.equal(executable, fixedNativeExecutable);
+        assert.equal(input[0], "--filesystem-entry");
+        assert.equal(input.length, 2);
+      }
+      // Domain/VCが元々行う固定読取りだけを元の境界へ戻す。
+      return Reflect.apply(originalSpawnSync, childProcess, [
+        executable,
+        input,
+        options,
+      ]);
+    }
     assert.equal(
       executable,
       "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
@@ -271,7 +321,6 @@ const spawn = mock.method(
       (scenario === "first_absence_unknown" && round === 1) ||
       (scenario === "second_absence_unknown" && round === 2);
     if (queries % 2 === 0 || failed) {
-      rounds = round;
       events.push(`round:${round}`);
     }
     if (
@@ -315,7 +364,18 @@ try {
   const { inspectIsolation } = await import(
     "../../../docker-isolation/src/cleanup/resources.ts"
   );
-  const result = await driver(owner, f.api.cleanupIsolation, inspectIsolation);
+  const result = await driver(
+    owner,
+    f.api.cleanupIsolation,
+    (...args: Parameters<typeof inspectIsolation>) => {
+      const inspection = inspectIsolation(...args);
+      // 発見用の追加CLI照会を、不存在確認のround数へ混入させない。
+      rounds =
+        inspection.resources.find((resource) => resource.key === auth.key)
+          ?.absenceObservations.length ?? 0;
+      return inspection;
+    },
+  );
   const completed = ["normal", "known_id", "saved_reentry"].includes(scenario);
   assert.equal(result.recoveryId, recoveryId);
   assert.equal(
@@ -419,7 +479,8 @@ try {
         resource.identity.dockerId,
         scenario === "known_id" ? actualId : "e".repeat(64),
       );
-      assert.equal(resource.request, "issued");
+      // 発見Receiptは実IDを確定するが、過去の作成要求unknownを改変しない。
+      assert.equal(resource.request, "unknown");
       assert.equal(checkpoint.receiptSource, "runtime_reconciliation");
       assert.equal(
         checkpoint.observation,
@@ -436,12 +497,7 @@ try {
         "saved_reentry",
         "outer_close_failed",
       ].includes(scenario);
-      assert.equal(
-        checkpoint.observation,
-        savedAbsence
-          ? "absent"
-          : original.checkpoints.find((c) => c.key === auth.key)?.observation,
-      );
+      assert.equal(checkpoint.observation, savedAbsence ? "absent" : "unknown");
       const previousCheckpoint = original.checkpoints.find(
         (c) => c.key === resource.key,
       );
@@ -480,7 +536,10 @@ try {
   mock.restoreAll();
   syncBuiltinESMExports();
   // 自分が作った技術管理領域だけ。有限Docker状態であり実資源は存在しない。
-  const relativeManagement = path.relative(path.dirname(stateFile), management);
+  const relativeManagement = path.relative(
+    path.join(repositoryRoot, ".crdd", "tests"),
+    management,
+  );
   assert.equal(relativeManagement, `snapshot-recovery-${scenario}`);
   fs.rmSync(management, { recursive: true, force: false });
 }

@@ -20,8 +20,8 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
 import {
   applyCoordinatorResourceEvent,
   applyCoordinatorResourceCleanup,
-} from "../../../domain-model/src/attempt/crud.ts";
-import type { CoordinatorResourceBook } from "../../../domain-model/src/attempt/types.ts";
+  type CoordinatorResourceBook,
+} from "../../../domain-model/src/index.ts";
 
 /**
  * DIの停止理由・観測段階を上位理由と分離して保持する。

@@ -234,6 +234,8 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 
 ### 3.1 現行公開Symbol
 
+依存方向はDomain Model → Version Controlとし、Version ControlからDomain Modelを参照しない。`workspace/types.ts`はWorktree・固定候補の要求、選択、観測、結果、一時物参照を、`workspace/validation.ts`はその技術入力検査を所有する。Domain Modelはこれらを直接利用し、Workspaceの保存状態・世代・採用判断を所有する。Domain Model経由の技術契約の再公開は行わない。値の形状、入力の受理・拒否条件、Git操作、保存形式はこの責務移管では変更しない。
+
 `40_Develop/version-control/src/index.ts`の現行公開面は次の集合に限定する。将来候補はここへ先取りせず、公開面を変更する場合は本表と契約試験を同じ変更で更新する。
 
 | Capability | 公開Symbol |
@@ -244,8 +246,8 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
 | Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
-| Repository Worktree Management | `createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree`。観測・結果の共有値型はDomain Modelが所有する |
-| Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
+| Repository Worktree Management | `createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree`、`RepositoryWorktreeObservation`、`RepositoryWorktreeResult`。技術的な観測・結果型はVersion Controlが所有する |
+| Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`isWorkspaceCommitId`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
 | Workspace読取り観測 | `WorkspaceInventoryEntry`、`inspectWorkspaceInventory`、`readWorkspaceFileContent`、`isWorkspaceRelativePath` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |

@@ -4,7 +4,7 @@
  * @trace ERB-IT-017
  * @level IT
  * @scope 通常Caseは新品Repository内の記録だけ。Windows Process Gateは明示選択時だけ。
- * @boundary 実Docker・実AIは使用しない。Process Gateの今回実行はしない。
+ * @boundary 実Docker・実AIは使用しない。Process Gateは既存の明示入口で選択する。
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -343,6 +343,7 @@ test("Windows Process Gate: 認証はCommand中のOwner喪失後にfresh Effect�
   const child = spawn(
     process.execPath,
     [
+      "--experimental-test-module-mocks",
       fileURLToPath(
         new URL(
           "../fixtures/provider-authentication-command-owner.ts",

@@ -4,7 +4,7 @@
  * @responsibility 編集・レビュー・取消の有限試験値と物理Oracleを組み立てる。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
- * @boundary scripts専用。実行・認証・子監督・Task計画は所有しない。
+ * @boundary 合成fixture専用。実行・認証・子監督・Task計画は所有しない。
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -13,9 +13,9 @@ import path from "node:path";
 import {
   planExecution,
   resolveModelSelection,
-} from "../../ai-adapter/src/index.ts";
-import { describeIsolationConfiguration } from "../../docker-isolation/src/index.ts";
-import type { ExecutorRequest } from "../src/index.ts";
+} from "../../../ai-adapter/src/index.ts";
+import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+import type { ExecutorRequest } from "../../src/index.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";
 
