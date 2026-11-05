@@ -9,7 +9,13 @@
  * @boundary 合成技術Operation→統合保存codecと実Filesystem。
  */
 
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+import {
+  encodeRuntimeStateValue,
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+  type CoordinatorResourceBook,
+} from "../../../domain-model/src/index.ts";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { executionSelection } from "./ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -79,7 +85,7 @@ export function registerSyntheticOperations(
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const suffix = String(index).repeat(16);
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v2",
+      schema: "crdd-coordinator/operation-identity/v3",
       operationNonce: String(index).repeat(64),
       provider: "claude",
       consumer: "orchestrator",
@@ -98,17 +104,6 @@ export function registerSyntheticOperations(
       localUserBindingHash: "6".repeat(64),
       repositoryBinding: binding,
       ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
-      resources: {
-        auth: `crdd-auth-${suffix}`,
-        provider: `crdd-claude-${suffix}`,
-        proxy: `crdd-proxy-${suffix}`,
-        internal: `crdd-internal-${suffix}`,
-        egress: `crdd-egress-${suffix}`,
-      },
-      images: {
-        provider: `sha256:${"a".repeat(64)}`,
-        proxy: `sha256:${"b".repeat(64)}`,
-      },
       operationMode: "isolated_task",
       workspaceMountMode: "read_write",
       initialHostRecoveryId: token,
@@ -174,6 +169,61 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     ownerEffect: "disabled",
     workspaceReusable: false,
   };
+  const planned = createResourceBookFixture(
+    identity.ownershipLabel,
+    "planned",
+    [
+      "create_egress_network",
+      "create_internal_network",
+      "create_provider",
+      "create_proxy",
+      "create_subscription_auth_probe",
+    ],
+  );
+  let book: CoordinatorResourceBook | null = null;
+  let snapshot = planned.snapshot;
+  for (const resource of snapshot.resources) {
+    book = applyCoordinatorResourceEvent(book, {
+      event: "submission",
+      key: resource.key,
+      snapshot,
+      cleanup: planned.cleanup,
+    });
+    assert.ok(book);
+    snapshot = {
+      resources: snapshot.resources.map((r) =>
+        r.key === resource.key
+          ? {
+              ...r,
+              request: "issued" as const,
+              identity: {
+                ...r.identity,
+                dockerId: hash(recoveryId + ":" + r.key),
+              },
+            }
+          : r,
+      ),
+    };
+    book = applyCoordinatorResourceEvent(book, {
+      event: "receipt",
+      key: resource.key,
+      snapshot,
+      cleanup: planned.cleanup,
+    });
+    assert.ok(book);
+  }
+  assert.ok(book);
+  book = applyCoordinatorResourceCleanup(
+    book,
+    snapshot,
+    snapshot.resources.map((r) => ({ key: r.key, observation: "absent" })),
+    {
+      recoveryId,
+      previousPayloadSha256: hash(encodeRuntimeStateValue(state)),
+    },
+  );
+  assert.ok(book);
+  operation.resources = book;
   operation.outcome = {
     status: "completed",
     reason: "provider_operation_completed",

@@ -16,11 +16,7 @@ import type {
   IsolationRequest,
   IsolationCleanupRequest,
 } from "./types.ts";
-import {
-  dockerResourceExpectationIsValid,
-  dockerResourceLocatorIsValid,
-} from "../cleanup/validation.ts";
-import type { DockerResourceExpectation } from "../cleanup/types.ts";
+import { dockerResourceLocatorIsValid } from "../cleanup/validation.ts";
 import { prepareDockerNetworkPolicy } from "../network/policy.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "./plan.ts";
 
@@ -302,7 +298,7 @@ export function captureIsolationCleanupRequest(
   const input = capture(value) as IsolationCleanupRequest;
   fields(
     input,
-    "managementDirectory,resources,cleanupOrder,setupTimeoutMs,unreceiptedAbsence,verifyLabelAbsence,previouslyAbsent,discovery",
+    "managementDirectory,resources,cleanupOrder,setupTimeoutMs,unreceiptedAbsence,verifyLabelAbsence,previouslyAbsent",
   );
   if (
     typeof input.managementDirectory !== "string" ||
@@ -320,7 +316,6 @@ export function captureIsolationCleanupRequest(
   if (
     !Array.isArray(input.resources.resources) ||
     !Array.isArray(input.cleanupOrder) ||
-    !Array.isArray(input.discovery) ||
     !Array.isArray(input.previouslyAbsent)
   )
     throw Error("docker_isolation_cleanup_invalid");
@@ -392,27 +387,6 @@ export function captureIsolationCleanupRequest(
     input.previouslyAbsent.some((key) => !keys.has(key))
   )
     throw Error("docker_isolation_cleanup_invalid");
-  const discoveries = new Set<string>();
-  for (const entry of input.discovery) {
-    fields(entry, "key,configurations");
-    const resource = input.resources.resources.find((r) => r.key === entry.key);
-    if (
-      !resource ||
-      discoveries.has(entry.key) ||
-      !Array.isArray(entry.configurations) ||
-      !entry.configurations.length ||
-      entry.configurations.some(
-        (e: Omit<DockerResourceExpectation, "dockerId">) =>
-          !dockerResourceExpectationIsValid(e) ||
-          e.key !== entry.key ||
-          e.kind !== resource.identity.kind ||
-          e.expectedName !== resource.identity.name ||
-          e.ownershipLabel !== resource.identity.ownershipLabel,
-      )
-    )
-      throw Error("docker_isolation_cleanup_invalid");
-    discoveries.add(entry.key);
-  }
   return input;
 }
 

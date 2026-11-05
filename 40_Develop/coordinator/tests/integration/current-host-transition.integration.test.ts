@@ -10,6 +10,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -76,7 +77,7 @@ function fixtureOperation(
     management,
     repository,
     identity: {
-      schema: "crdd-coordinator/operation-identity/v2",
+      schema: "crdd-coordinator/operation-identity/v3",
       operationNonce: nonce,
       provider: "claude",
       consumer: "coordinator_cli",
@@ -94,17 +95,6 @@ function fixtureOperation(
       localUserBindingHash: "6".repeat(64),
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
-      resources: {
-        auth: `crdd-auth-${suffix}`,
-        provider: `crdd-claude-${suffix}`,
-        proxy: `crdd-proxy-${suffix}`,
-        internal: `crdd-internal-${suffix}`,
-        egress: `crdd-egress-${suffix}`,
-      },
-      images: {
-        provider: `sha256:${"a".repeat(64)}`,
-        proxy: `sha256:${"b".repeat(64)}`,
-      },
       operationMode: "isolated_task",
       workspaceMountMode: "read_only",
       initialHostRecoveryId: host.token,
@@ -454,25 +444,36 @@ for (const publicationFault of [
         publicationFault === "cli_entry_orchestrator_identified" ||
         publicationFault === "restart_auth_cli_entry"
       ) {
-        const resource = operation.resources.find(
-          (item) =>
-            item.purpose ===
-            (publicationFault === "restart_auth_cli_entry"
-              ? "create_subscription_auth_probe"
-              : "create_provider"),
+        const planned = createResourceBookFixture(
+          JSON.parse(operation.identityJson).ownershipLabel,
+          "planned",
+          [
+            "create_egress_network",
+            "create_internal_network",
+            "create_provider",
+            "create_proxy",
+            "create_subscription_auth_probe",
+          ],
         );
-        assert.ok(resource);
+        const resource = {
+          key:
+            publicationFault === "restart_auth_cli_entry"
+              ? "create_subscription_auth_probe"
+              : "create_provider",
+          snapshot: planned.snapshot,
+          cleanup: planned.cleanup,
+        };
         const statePath = path.join(
           root,
           ".crdd",
           "domain-model",
           "state.json",
         );
-        const requests =
+        const events =
           publicationFault === "restart_auth_cli_entry"
-            ? (["intent_saved", "unknown"] as const)
-            : (["intent_saved", "issued", "identified"] as const);
-        for (const request of requests) {
+            ? (["submission"] as const)
+            : (["submission", "receipt"] as const);
+        for (const event of events) {
           const previous = fs.readFileSync(statePath);
           const previousSnapshot = JSON.parse(previous.toString());
           const saved = checkpointRuntimeOwnedCoordinatorResource(
@@ -480,11 +481,21 @@ for (const publicationFault of [
             started.recoveryId,
             {
               ...resource,
-              request,
-              dockerId: request === "identified" ? "c".repeat(64) : null,
-              receiptSource:
-                request === "identified" ? "docker_create_result" : null,
-              observation: request === "identified" ? "present" : "unobserved",
+              event,
+              snapshot: {
+                resources: resource.snapshot.resources.map((r) =>
+                  r.key === resource.key
+                    ? {
+                        ...r,
+                        request: event === "receipt" ? "issued" : "unknown",
+                        identity: {
+                          ...r.identity,
+                          dockerId: event === "receipt" ? "c".repeat(64) : null,
+                        },
+                      }
+                    : r,
+                ),
+              },
             },
           );
           assert.equal(saved.status, "completed");
@@ -743,17 +754,18 @@ for (const publicationFault of [
           "upper-current-host",
         );
         if (publicationFault === "cli_entry_orchestrator_identified") {
-          const recoveredResource = finalOperation.resources.find(
-            (item: { purpose: string }) => item.purpose === "create_provider",
+          const recoveredResource =
+            finalOperation.resources.snapshot.resources.find(
+              (item: { key: string }) => item.key === "create_provider",
+            );
+          const checkpoint = finalOperation.resources.checkpoints.find(
+            (item: { key: string }) => item.key === "create_provider",
           );
-          assert.equal(recoveredResource.request, "identified");
-          assert.equal(recoveredResource.dockerId, "c".repeat(64));
-          assert.equal(recoveredResource.observation, "absent");
-          assert.equal(
-            recoveredResource.absence.recoveryId,
-            started.recoveryId,
-          );
-          assert.equal(recoveredResource.absence.dockerId, "c".repeat(64));
+          assert.equal(recoveredResource.request, "issued");
+          assert.equal(recoveredResource.identity.dockerId, "c".repeat(64));
+          assert.equal(checkpoint.receiptSource, "docker_create_result");
+          assert.equal(checkpoint.observation, "absent");
+          assert.match(checkpoint.absenceEvidenceSha256, /^[a-f0-9]{64}$/);
         }
       }
       assert.equal(finalOperation.host.cleanup, "confirmed");
@@ -800,3 +812,143 @@ for (const publicationFault of [
     }
   });
 }
+/**
+ * 子本文内の資源OracleをNativeなしで実行する。
+ * @responsibility 新Bookの完全集合・要求・Receiptと元保存断面の比較を反証する。
+ * @trace ERB-IT-014
+ * @boundary VM局所検証のみ。実Host・Docker・既存保持物は操作しない。
+ */
+test("現在回収子の資源Oracleは新Bookと元断面を使い旧配列を受け付けない", () => {
+  const planned = createResourceBookFixture(
+    "crdd.coordinator.runtime=0123456789abcdef",
+    "planned",
+    [
+      "create_egress_network",
+      "create_internal_network",
+      "create_provider",
+      "create_proxy",
+      "create_subscription_auth_probe",
+    ],
+  );
+  const initial = structuredClone(planned);
+  const auth = initial.snapshot.resources.find(
+    (r) => r.key === "create_subscription_auth_probe",
+  );
+  const checkpoint = initial.checkpoints.find((c) => c.key === auth?.key);
+  assert.ok(auth && checkpoint);
+  Reflect.set(auth, "request", "unknown");
+  Reflect.set(checkpoint, "submission", "intent_saved");
+  for (const source of [
+    currentHostTransitionWorkerSource,
+    currentAuthenticationRecoveryCliSource,
+  ]) {
+    const start = source.indexOf(
+      "assert.deepEqual(target.resources.snapshot.resources.map",
+    );
+    const end = source.indexOf("\n          }", start) + "\n          }".length;
+    assert.ok(start > 0 && end > start);
+    const block = source.slice(start, end);
+    const run = (resources: unknown) =>
+      runInNewContext("const target=JSON.parse(input);" + block, {
+        assert,
+        input: JSON.stringify({ resources }),
+      });
+    run(initial);
+    for (const mutate of [
+      (b: typeof initial) => {
+        const r = b.snapshot.resources.find(
+          (r) => r.key === "create_subscription_auth_probe",
+        );
+        assert.ok(r);
+        Reflect.set(r, "request", "not_issued");
+      },
+      (b: typeof initial) => {
+        Reflect.apply(Array.prototype.pop, b.snapshot.resources, []);
+      },
+      (b: typeof initial) => {
+        const r = b.snapshot.resources.find((r) => r.key === "create_provider");
+        assert.ok(r);
+        Reflect.set(r, "request", "issued");
+      },
+      (b: typeof initial) => {
+        const c = b.checkpoints.find((c) => c.key === "create_provider");
+        assert.ok(c);
+        Reflect.set(c, "submission", "intent_saved");
+      },
+    ]) {
+      const changed = structuredClone(initial);
+      mutate(changed);
+      assert.throws(() => run(changed), { code: "ERR_ASSERTION" });
+    }
+  }
+  const preserved = currentHostTransitionWorkerSource.match(
+    /assert.deepEqual\(JSON.parse\(fs.readFileSync\(statePath\)\)\.operations.find\(item => item.recoveryId === id\)\.resources,initialResources\);/u,
+  )?.[0];
+  assert.ok(preserved);
+  for (const changed of [false, true]) {
+    const resources = changed ? null : initial;
+    const run = () =>
+      runInNewContext(
+        "const initialResources=JSON.parse(original);" + preserved,
+        {
+          assert,
+          original: JSON.stringify(initial),
+          fs: {
+            readFileSync: () =>
+              JSON.stringify({
+                operations: [{ recoveryId: "fixture", resources }],
+              }),
+          },
+          statePath: "synthetic",
+          id: "fixture",
+        },
+      );
+    if (changed) assert.throws(run, { code: "ERR_ASSERTION" });
+    else run();
+  }
+  const start = currentHostTransitionWorkerSource.indexOf("const freshBook =");
+  const end = currentHostTransitionWorkerSource.indexOf(
+    "\n                  stdout =",
+    start,
+  );
+  assert.ok(start > 0 && end > start);
+  const block = currentHostTransitionWorkerSource.slice(start, end);
+  const identified = structuredClone(planned),
+    resource = identified.snapshot.resources.find(
+      (r) => r.key === "create_provider",
+    ),
+    receipt = identified.checkpoints.find((c) => c.key === "create_provider");
+  assert.ok(resource && receipt);
+  Reflect.set(resource, "request", "issued");
+  Reflect.set(resource.identity, "dockerId", "c".repeat(64));
+  Reflect.set(receipt, "submission", "intent_saved");
+  Reflect.set(receipt, "receiptSource", "docker_create_result");
+  const run = (resources: unknown) =>
+    runInNewContext(
+      "const fresh=JSON.parse(input);const resolvedId='fixture',dockerId='c'.repeat(64);" +
+        block,
+      {
+        assert,
+        input: JSON.stringify({
+          operations: [{ recoveryId: "fixture", resources }],
+        }),
+      },
+    );
+  run(identified);
+  for (const mutate of [
+    (b: typeof identified) => {
+      const r = b.snapshot.resources.find((r) => r.key === "create_provider");
+      assert.ok(r);
+      Reflect.set(r.identity, "dockerId", "d".repeat(64));
+    },
+    (b: typeof identified) => {
+      const c = b.checkpoints.find((c) => c.key === "create_provider");
+      assert.ok(c);
+      Reflect.set(c, "receiptSource", "runtime_reconciliation");
+    },
+  ]) {
+    const changed = structuredClone(identified);
+    mutate(changed);
+    assert.throws(() => run(changed), { code: "ERR_ASSERTION" });
+  }
+});

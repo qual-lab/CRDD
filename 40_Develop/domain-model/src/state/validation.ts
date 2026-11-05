@@ -169,7 +169,7 @@ export function decodeRuntimeDomainSnapshot(
       return null;
     const snapshot = value as RuntimeDomainSnapshot;
     if (
-      snapshot.schema !== "crdd-domain/runtime-state/v1" ||
+      snapshot.schema !== "crdd-domain/runtime-state/v2" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -848,7 +848,7 @@ export const COORDINATOR_STATE_CONTRACT =
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const COORDINATOR_STATE_SCHEMA = "crdd-domain/runtime-state/v1";
+export const COORDINATOR_STATE_SCHEMA = "crdd-domain/runtime-state/v2";
 
 /**
  * 検証済み操作の要約本文を一意に符号化する。

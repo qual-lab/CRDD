@@ -23,7 +23,7 @@ import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
 } from "../../../docker-isolation/src/image/assets.ts";
-import { codexAdviceProviderInitRequired } from "../../../executor/src/attempt/recovery.ts";
+import { codexAdviceProviderInitRequired } from "../../../docker-isolation/tests/support/cleanup.ts";
 
 /**
  * 新しい選定と結果Schemaを副作用なしで計画へ固定する。

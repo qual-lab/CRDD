@@ -14,6 +14,7 @@ import type {
   CoordinatorStateTaskOperation,
 } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -963,14 +964,12 @@ test("認証create親の不存在modeは準備回収と製品終了を分離す�
  */
 function producerFacts() {
   const image =
-    "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
+    "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
   const bytes = Buffer.from("fixed current state bytes\n");
   const operation = {
     kind: "docker_task",
     recoveryId: "fixture-exact-recovery-id",
     identityJson: JSON.stringify({
-      images: { provider: image },
-      resources: { auth: "crdd-auth-0123456789abcdef" },
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
       workspaceMountMode: null,
     }),
@@ -979,17 +978,36 @@ function producerFacts() {
       externalSend: "not_issued",
       sharedWrite: "not_issued",
     },
-    resources: [
-      {
-        purpose: "create_subscription_auth_probe",
-        request: "unknown",
-        dockerId: null,
-        receiptSource: null,
-        observation: "unobserved",
-        absence: null,
-      },
-      { purpose: "create_provider", request: "not_requested" },
-    ],
+    resources: (() => {
+      const book = createResourceBookFixture(
+        "crdd.coordinator.runtime=0123456789abcdef",
+        "planned",
+        ["create_subscription_auth_probe", "create_provider"],
+      );
+      return {
+        ...book,
+        snapshot: {
+          resources: book.snapshot.resources.map((r) =>
+            r.key === "create_subscription_auth_probe"
+              ? {
+                  ...r,
+                  request: "not_issued",
+                  identity: {
+                    ...r.identity,
+                    name: "crdd-auth-0123456789abcdef",
+                  },
+                  configuration: { ...r.configuration, image },
+                }
+              : r,
+          ),
+        },
+        checkpoints: book.checkpoints.map((c) =>
+          c.key === "create_subscription_auth_probe"
+            ? { ...c, submission: "intent_saved" }
+            : c,
+        ),
+      };
+    })(),
   } as unknown as CoordinatorStateTaskOperation;
   const snapshot = {
     operations: [operation],
@@ -1554,19 +1572,36 @@ test("認証create親は終端・packet・現在保存の不一致を拒否す�
         base.bytes,
       ),
     );
-  for (const resourcePatch of [
-    { request: "intent_saved" },
-    { dockerId: "1".repeat(64) },
-    { receiptSource: "runtime_reconciliation" },
-    { observation: "present" },
-  ]) {
-    const changed = {
+  assert.ok(base.operation.resources);
+  for (const field of ["submission", "id", "receipt", "observation"] as const) {
+    const book = base.operation.resources;
+    const changed: CoordinatorStateTaskOperation = {
       ...base.operation,
-      resources: [
-        { ...base.operation.resources[0], ...resourcePatch },
-        ...base.operation.resources.slice(1),
-      ],
-    } as CoordinatorStateTaskOperation;
+      resources: {
+        ...book,
+        snapshot: {
+          resources: book.snapshot.resources.map((r, i) =>
+            i === 0 && field === "id"
+              ? { ...r, identity: { ...r.identity, dockerId: "1".repeat(64) } }
+              : r,
+          ),
+        },
+        checkpoints: book.checkpoints.map((c, i) =>
+          i !== 0
+            ? c
+            : {
+                ...c,
+                ...(field === "submission"
+                  ? { submission: "none" as const }
+                  : field === "receipt"
+                    ? { receiptSource: "runtime_reconciliation" as const }
+                    : field === "observation"
+                      ? { observation: "present" as const }
+                      : {}),
+              },
+        ),
+      },
+    };
     assert.throws(() =>
       verifyAuthCreateProducer(base.child, changed, base.bytes),
     );
@@ -1616,10 +1651,7 @@ test("認証create親は現在対象の一意性と未開始を要求する", ()
       }),
     );
   const identity = JSON.parse(operation.identityJson);
-  for (const patch of [
-    { images: { provider: "other" } },
-    { workspaceMountMode: "read_write" },
-  ])
+  for (const patch of [{ workspaceMountMode: "read_write" }])
     assert.throws(() =>
       selectAuthCreateTarget({
         ...snapshot,
@@ -1631,6 +1663,22 @@ test("認証create親は現在対象の一意性と未開始を要求する", ()
         ],
       }),
     );
+  assert.ok(operation.resources);
+  const otherImage = {
+    ...operation,
+    resources: {
+      ...operation.resources,
+      snapshot: {
+        resources: operation.resources.snapshot.resources.map((r) => ({
+          ...r,
+          configuration: { ...r.configuration, image: "other" },
+        })),
+      },
+    },
+  };
+  assert.throws(() =>
+    selectAuthCreateTarget({ ...snapshot, operations: [otherImage] }),
+  );
   assert.equal(selectAuthCreateTarget(snapshot), operation);
 });
 

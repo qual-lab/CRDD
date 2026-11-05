@@ -310,7 +310,7 @@ export function settleRuntimeOwnedCoordinatorResult(
     const cleanedBytes = prepareCoordinatorStateCleanupSnapshot(
       before,
       settlement.recoveryId,
-      terminal.resources,
+      { snapshot: terminal.resourceSnapshot, observations: terminal.resources },
       settlement.repository.repositoryBinding,
     );
     const cleaned = cleanedBytes
@@ -355,7 +355,7 @@ export function settleRuntimeOwnedCoordinatorResult(
     const observed = prepareCoordinatorStateCleanupSnapshot(
       Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
       settlement.recoveryId,
-      terminal.resources,
+      { snapshot: terminal.resourceSnapshot, observations: terminal.resources },
       settlement.repository.repositoryBinding,
     );
     const observedOperation = observed
@@ -370,15 +370,8 @@ export function settleRuntimeOwnedCoordinatorResult(
       : null;
     if (
       !observedOperation ||
-      observedOperation.resources.some((resource, index) => {
-        const previous = operation?.resources[index];
-        return (
-          !previous ||
-          resource.request !== previous.request ||
-          resource.dockerId !== previous.dockerId ||
-          resource.observation !== previous.observation
-        );
-      }) ||
+      encodeRuntimeStateValue(observedOperation.resources) !==
+        encodeRuntimeStateValue(operation.resources) ||
       encodeRuntimeStateValue(operation.primaryFailure) !==
         encodeRuntimeStateValue(terminal.primaryFailure) ||
       encodeRuntimeStateValue(operation.outcome) !==

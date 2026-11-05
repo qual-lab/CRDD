@@ -307,10 +307,17 @@ export type {
   CoordinatorStateOperation,
   CoordinatorStateRepairOperation,
   CoordinatorStateTaskOperation,
+  CoordinatorResourceBook,
   DockerRestartCheckpoint,
   ProviderTurnCountDiagnostic,
 } from "./attempt/types.ts";
 export {
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+} from "./attempt/crud.ts";
+export {
+  validateCoordinatorResourceBook,
+  validateCoordinatorResourceBookTransition,
   coordinatorAuthenticationClosureEvidence,
   coordinatorAuthenticationUnknownCanClose,
   coordinatorOperationNonce,
@@ -743,7 +750,7 @@ export {
   readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
   readRuntimeOwnedCoordinatorRepairHistorySnapshot,
   readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
-  readRuntimeOwnedCoordinatorResourceRequests,
+  readRuntimeOwnedCoordinatorResourceBook,
   readRuntimeOwnedCoordinatorStateSnapshot,
   reconcileCoordinatorReleasedLease,
   registerRuntimeOwnedCoordinatorRecoveryResultDelivery,

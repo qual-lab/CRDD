@@ -82,7 +82,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     assert.equal(publicTypes.includes(retained), true, retained);
   assert.doesNotMatch(publicSource, /\bRecoveryStartFailureDiagnostic\b/);
   const executionSource = fs.readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(executionSource, /reportPassiveBoundaryDiagnostic/);
@@ -99,7 +99,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
         (i === 0 || position > (functionPositions[i - 1] ?? Infinity)),
     ),
   );
-  for (const file of ["attempt/types.ts", "attempt/constants.ts"]) {
+  for (const file of ["lifecycle/types.ts", "lifecycle/attempt.ts"]) {
     const source = fs.readFileSync(
       new URL(`../../src/${file}`, import.meta.url),
       "utf8",
@@ -115,15 +115,22 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
   );
   assert.match(
     publicSource,
-    /export type \{[^}]*\bExecutorCallbacks\b[^}]*\} from "\.\/lifecycle\/callbacks\.ts"/,
+    /export type \{[^}]*\bExecutorCallbacks\b[^}]*\} from "\.\/lifecycle\/types\.ts"/,
   );
   assert.equal(
     fs.existsSync(new URL("../../src/result/", import.meta.url)),
     false,
   );
   assert.deepEqual(
-    fs.readdirSync(new URL("../../src/attempt/", import.meta.url)).sort(),
-    ["constants.ts", "operations.ts", "recovery.ts", "result.ts", "types.ts"],
+    fs.readdirSync(new URL("../../src/lifecycle/", import.meta.url)).sort(),
+    [
+      "attempt.ts",
+      "authentication.ts",
+      "cleanup.ts",
+      "execute.ts",
+      "probe.ts",
+      "types.ts",
+    ],
   );
   assert.doesNotMatch(
     publicSource,
@@ -145,7 +152,7 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
       return resolved;
     }});
     const api=await import(${JSON.stringify(root)});
-    const isolation=await import(${JSON.stringify(new URL("../../src/attempt/operations.ts", import.meta.url).href)});
+    const isolation=await import(${JSON.stringify(new URL("../../src/lifecycle/attempt.ts", import.meta.url).href)});
     assert.equal('describeIsolationContract' in isolation,false);
     assert.equal('isPlanValid' in isolation,false);
     assert.equal('providerBoundaryConfiguration' in isolation,false);
@@ -232,17 +239,17 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
 
 /**
  * Coordinatorなしの単段開始から終了相関までを反証する。
- * @responsibility 有限Command代役と実Controller・DI sessionの正常・取消・不明を確認する。
+ * @responsibility 局所候補Oracleの正常・取消・不明を確認し、本番Factoryの成立根拠と区別する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @precondition 新品子ProcessでCoordinatorの解決を禁止する。
- * @stimulus 候補と本番Factory配線の各構成で正常、wait中取消、清掃不明、同期通知保存例外を実行する。
+ * @stimulus 局所候補で正常、wait中取消、清掃不明、同期通知保存例外を実行する。
  * @observation 九purposeの順序、開始・wait・終了回数、元通知と終端相関。
- * @oracle 取消はjoinと清掃まで未完了、不明はexact回復参照保持、コピー・別Ownerは拒否。
+ * @oracle 取消はjoinと清掃まで未完了、不明はexact回復参照保持。一回消費・別管理参照の取消拒否・終了後取消拒否を確認する。
  * @cleanup 全completionと子Process終了後、自己生成Rootを確認・通常削除して不存在を確認する。
- * @boundary 候補生涯・本番Factory配線・試験fixtureの排他とイベントcommit。本番Host/Home排他・保存、実Dockerは未検証。
+ * @boundary 候補生涯・試験fixtureの排他とイベントcommit。本番Host/Home排他・保存、実Dockerは未検証。
  */
-test("Executor単独の候補・本番Factory配線は四つの終了条件と元Ownerを維持する", () => {
+test("Executorの局所候補Oracleは四つの終了条件と元Ownerを維持する", () => {
   verifyStandaloneProviderAttempt();
 });
 /**
@@ -312,6 +319,61 @@ test("固定Host接続は一つであり保存利用側はExecutorへ逆照会�
       assert.doesNotMatch(
         source,
         new RegExp(`export (?:function|const) ${symbol}\\b`),
+      );
+    }
+  }
+});
+/** 実AI用Toolは製品公開入口だけを実行経路とし、管理情報は現存Sourceへ接続する。 @trace ERB-IT-004 */
+test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
+  for (const name of [
+    "verify-provider-real",
+    "provider-attempt-host",
+    "task-trial",
+  ]) {
+    const source = fs.readFileSync(
+      new URL("../../scripts/" + name + ".ts", import.meta.url),
+      "utf8",
+    );
+    assert.doesNotMatch(
+      source,
+      /executor-test|tests\/support|createDockerIsolationRuntime|startDockerCommandSessionCandidate/,
+    );
+  }
+  const candidate = fs.readFileSync(
+    new URL("../../scripts/verify-provider-attempt.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    candidate,
+    /production_factory|createExecutorLifecycleTestRuntime/,
+  );
+  const testAdapter = fs.readFileSync(
+    new URL("../../scripts/executor-test.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    testAdapter,
+    /export function createExecutorLifecycleTestRuntime/,
+  );
+  const host = fs.readFileSync(
+    new URL("../../scripts/provider-attempt-host.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(host, /createExecutor\(request,/);
+  assert.doesNotMatch(host, /acquireNamedPipeKernelLock/);
+  for (const pkg of ["executor", "docker-isolation"]) {
+    const root = new URL("../../../" + pkg + "/", import.meta.url);
+    const manifest = JSON.parse(
+      fs.readFileSync(new URL("symbol.json", root), "utf8"),
+    ) as { symbols: { symbolId: string; path: string }[] };
+    const ids = new Set<string>();
+    for (const symbol of manifest.symbols) {
+      assert.equal(ids.has(symbol.symbolId), false, symbol.symbolId);
+      ids.add(symbol.symbolId);
+      assert.equal(
+        fs.statSync(new URL(symbol.path, root)).isFile(),
+        true,
+        pkg + ":" + symbol.symbolId,
       );
     }
   }

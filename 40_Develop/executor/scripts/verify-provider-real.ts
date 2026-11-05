@@ -14,6 +14,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
+import type { AttemptDiagnosticNotice } from "../src/index.ts";
 import type { TaskFixtureReceipt, TrialMode } from "./task-trial.ts";
 
 type TrialResult = Readonly<{
@@ -34,9 +35,20 @@ type TrialResult = Readonly<{
   contentConfirmed: boolean;
   resultSha256: string | null;
   resultBytes: number;
-  diagnostic: ReturnType<
-    ReturnType<typeof createStandaloneProviderAttemptHost>["readDiagnostic"]
-  >;
+  diagnostic: Readonly<
+    Pick<
+      Extract<
+        AttemptDiagnosticNotice,
+        { event: "coordinator_provider_boundary_settled" }
+      >,
+      | "primaryFailure"
+      | "providerProcessStartedObserved"
+      | "processTreeTerminationObserved"
+      | "containersAbsentObserved"
+      | "networksAbsentObserved"
+      | "cleanupConfirmed"
+    >
+  > | null;
 }>;
 
 registerHooks({
@@ -54,35 +66,36 @@ const { describeIsolationConfiguration } = await import(
   "../../docker-isolation/src/index.ts"
 );
 
-const { readCommittedJson, writeCommittedJson, removeCommittedJson } =
-  await import("../../domain-model/src/index.ts");
+const {
+  readCommittedJson,
+  writeCommittedJson,
+  removeCommittedJson,
+  validateCoordinatorResourceBook,
+  validateCoordinatorResourceBookTransition,
+} = await import("../../domain-model/src/index.ts");
 
-const { observeWindowsProviderHome, acquireNamedPipeKernelLock } = await import(
+const { observeWindowsProviderHome } = await import(
   "../../platform-access/src/index.ts"
 );
 
-const { isPrimaryFailureDiagnostic } = await import("./executor-test.ts");
-
-const { describeDockerCommandSessionContract } = await import(
-  "../../docker-isolation/tests/support/session.ts"
+const { isPrimaryFailureDiagnostic } = await import(
+  "./provider-attempt-host.ts"
 );
+
+// 親子通信の待機上限。旧Session由来の現行値を維持する。
+const TRIAL_COMPLETION_TIMEOUT_MS = 820_000;
+const TRIAL_CANCELLATION_GRACE_MS = 5_000;
 
 const { describeAdviceResultSchema, parseAdviceResult: normalizeAdviceResult } =
   await import("../../ai-adapter/src/provider/advice-result.ts");
-
-const { prepareAttempt } = await import("./executor-test.ts");
-
-const { resolveValidatedPlan } = await import("./executor-test.ts");
 
 const { createStandaloneProviderAttemptHost } = await import(
   "./provider-attempt-host.ts"
 );
 
-const { homePipeName } = await import("./verify-provider-home.ts");
-
 const {
   describeTaskTrial,
-  buildTaskTrialPlan,
+  buildTaskTrialRequest,
   createTaskTrialFixture,
   verifyTaskTrialResult,
   cleanupTaskTrialFixture,
@@ -160,7 +173,7 @@ export function describeStandaloneProviderTrial(
  * @failure 役割・Model・Prompt・Mount差で停止。
  * @boundary 任意Prompt・任意Pathを受け付けず、編集は固定合成Fileだけ。
  */
-export function buildStandaloneTrialPlan(
+export function buildStandaloneTrialRequest(
   spec: ReturnType<typeof describeStandaloneProviderTrial>,
   root: string,
   home: Extract<
@@ -168,14 +181,14 @@ export function buildStandaloneTrialPlan(
     { status: "candidate" }
   >,
   homePath: string,
-) {
+): import("../src/index.ts").ExecutorRequest<"attempt"> {
   if (
     JSON.stringify(spec) !==
     JSON.stringify(describeStandaloneProviderTrial(spec.provider, spec.mode))
   )
     throw Error("trial_spec_changed");
   if (spec.mode !== "advice")
-    return buildTaskTrialPlan(spec, root, home, homePath);
+    return buildTaskTrialRequest(spec, root, home, homePath);
   const operationId = `OP-${BigInt(`0x${randomBytes(12).toString("hex")}`)
     .toString()
     .padStart(6, "0")}`;
@@ -186,13 +199,7 @@ export function buildStandaloneTrialPlan(
     purpose: "advice",
   });
   if (selected.status !== "resolved") throw Error("trial_selection_invalid");
-  const selection = {
-    ...selected.value,
-    configIdentity: digest(JSON.stringify(spec)),
-    role: "advice" as const,
-    workType: null,
-    source: "explicit" as const,
-  };
+  const selection = selected.value;
   const technicalSelection = Object.freeze({
     provider: selection.provider,
     modelIdentifier: selection.modelIdentifier,
@@ -200,47 +207,31 @@ export function buildStandaloneTrialPlan(
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
   });
-  const built = prepareAttempt(
-    { randomBytes },
-    {
-      kind: "attempt",
-      ...{
-        purpose: "advice",
-        input: prompt,
-        additionalHosts: null,
-        allowedReferences: Object.freeze([reference]),
-      },
-      target: {
-        ...{
-          ...home,
-          operationId,
-          grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
-        },
-        operationId: operationId,
-        workspaceSourcePath: path.join(root, "work"),
-        temporarySourcePath: path.join(root, "tmp"),
-        activeMountCapability: {},
-        providerHomeSourcePath: homePath,
-      },
-      selection: technicalSelection,
+  return Object.freeze({
+    kind: "attempt",
+    ...{
+      purpose: "advice",
+      input: prompt,
+      additionalHosts: null,
+      allowedReferences: Object.freeze([reference]),
     },
-  );
-  if (!built) throw Error("trial_plan_unavailable");
-  const plan = Object.freeze({
-    ...built,
-    consumer: "coordinator_cli" as const,
-    authorityUseCapability: {},
+    target: {
+      ...{
+        provider: home.provider,
+        providerHomeIdentityHash: home.providerHomeIdentityHash,
+        providerHomeProtectionHash: home.providerHomeProtectionHash,
+        localUserBindingHash: home.localUserBindingHash,
+        stableLogicalHomeBindingHash: home.stableLogicalHomeBindingHash,
+        operationId,
+        grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
+      },
+      workspaceSourcePath: path.join(root, "work"),
+      temporarySourcePath: path.join(root, "tmp"),
+      activeMountCapability: {},
+      providerHomeSourcePath: homePath,
+    },
+    selection: technicalSelection,
   });
-  if (
-    !resolveValidatedPlan(plan, path.join(root, "tmp")) ||
-    plan.operationMode !== "workbench_advice" ||
-    plan.workspaceSourcePath !== null ||
-    plan.providerInput !== prompt ||
-    plan.executionSelection.purpose !== "advice" ||
-    plan.providerImageDigest !== spec.providerImageDigest
-  )
-    throw Error("trial_boundary_invalid");
-  return plan;
 }
 
 /**
@@ -303,10 +294,7 @@ export async function runStandaloneProviderTrial(
     cancelCount = 0,
     cancellationConfirmed = false;
   let reviewToolObservation: TrialResult["reviewToolObservation"] = null;
-  let lease: ReturnType<typeof acquireNamedPipeKernelLock> = null,
-    releaseAttempted = false,
-    startAttempted = false,
-    preEffect = false;
+
   let cancelCurrent: (() => Promise<unknown>) | null = null;
   let diagnostic: TrialResult["diagnostic"] = null;
   let cancellation: Promise<unknown> | null = null;
@@ -356,69 +344,35 @@ export async function runStandaloneProviderTrial(
       first.filesystemEffectIssued
     )
       throw Error("trial_home_unconfirmed");
-    lease = acquireNamedPipeKernelLock(
-      homePipeName(first.stableLogicalHomeBindingHash),
-    );
-    if (!lease) throw Error("trial_lease_acquisition_unknown");
-    nativeCleanupConfirmed = false;
-    const second = observeWindowsProviderHome(spec.provider, homePath);
-    nativeCleanupConfirmed =
-      (!second.processEffectIssued || second.helperExitConfirmed) &&
-      second.filesystemEffectIssued === false;
-    if (
-      second.status !== "candidate" ||
-      !second.processEffectIssued ||
-      !second.helperExitConfirmed ||
-      !second.artifactVerifiedBeforeAndAfter ||
-      second.filesystemEffectIssued ||
-      !lease.assertLive() ||
-      [
-        "providerHomeIdentityHash",
-        "providerHomeProtectionHash",
-        "localUserBindingHash",
-        "stableLogicalHomeBindingHash",
-      ].some((key) => Reflect.get(first, key) !== Reflect.get(second, key))
-    )
-      throw Error("trial_home_changed_or_unconfirmed");
-    const plan = buildStandaloneTrialPlan(spec, root, second, homePath);
-    const original = lease;
-    const host = createStandaloneProviderAttemptHost(
-      root,
-      plan,
-      {
-        assertLive: () => original.assertLive(),
-        release: () => {
-          if (releaseAttempted) return false;
-          releaseAttempted = true;
-          releaseConfirmed = original.release() === true;
-          return releaseConfirmed;
-        },
-      },
-      () => {
-        processStartedCount++;
-        if (mode === "cancel") queueMicrotask(cancel);
-      },
-    );
+    const request = buildStandaloneTrialRequest(spec, root, first, homePath);
+    const host = createStandaloneProviderAttemptHost(root, request, () => {
+      processStartedCount++;
+      if (mode === "cancel") queueMicrotask(cancel);
+    });
     if (mode !== "advice") fixtureReceipt = createTaskTrialFixture(root, mode);
     recoveryId = host.recoveryId;
     await onRecovery(recoveryId);
     fs.mkdirSync(path.join(root, "tmp"));
     fs.mkdirSync(path.join(root, "management"));
     await new Promise<void>((resolve) => setImmediate(resolve));
-    if (signal.aborted || !lease.assertLive())
+    if (signal.aborted)
       throw Error("trial_cancelled_or_lease_lost_before_start");
-    startAttempted = true;
     const started = host.start();
     if (started.status !== "started") {
-      preEffect = started.dockerEffectStarted === false;
       reason = started.reason;
       cleanupConfirmed = started.cleanupConfirmed;
     } else {
       cancelCurrent = () =>
-        host.runtime.cancel(started.controlCapability, host.management);
+        host.runtime.cancel({
+          controlCapability: started.controlCapability,
+          managementCapability: host.management,
+        });
       if (signal.aborted) cancel();
       const result = await started.completion;
       diagnostic = host.readDiagnostic();
+      nativeCleanupConfirmed &&= host.nativeCleanupConfirmed;
+      releaseConfirmed = host.releaseConfirmed;
+      if (host.homeFailure) reason ??= host.homeFailure;
       if (cancellation) await cancellation;
       if (result.status !== "completed") reason ??= result.reason;
       cleanupConfirmed = result.cleanupConfirmed;
@@ -511,14 +465,6 @@ export async function runStandaloneProviderTrial(
         : "trial_failed_closed";
   } finally {
     signal.removeEventListener("abort", cancel);
-    if (lease && !releaseAttempted && (!startAttempted || preEffect)) {
-      releaseAttempted = true;
-      try {
-        releaseConfirmed = lease.release() === true;
-      } catch {
-        releaseConfirmed = false;
-      }
-    }
   }
   if (signal.aborted) reason ??= "trial_cancelled";
   if (!releaseConfirmed) reason ??= "trial_home_release_unconfirmed";
@@ -854,7 +800,9 @@ export function cleanupStandaloneTrialRoot(
       return false;
     let operationId: string | null = null;
     let ownershipLabel: string | null = null;
-    const plannedNames = new Map<string, string>();
+    let priorResources:
+      | import("../../domain-model/src/index.ts").CoordinatorResourceBook
+      | null = null;
     const kinds: string[] = [];
     for (const [i, name] of files.entries()) {
       if (name !== `event-${String(i + 1).padStart(3, "0")}.json`) return false;
@@ -896,13 +844,9 @@ export function cleanupStandaloneTrialRoot(
       const fields: Record<string, string[]> = {
         recovery_opened: [],
         recovery_handoff: [],
-        submission_planned: [
-          "purpose",
-          "plannedResourceName",
-          "ownershipLabel",
-        ],
-        receipt_recorded: ["purpose", "dockerId"],
-        resource_not_issued: ["purpose"],
+        submission_planned: ["resources"],
+        receipt_recorded: ["resources"],
+        resource_not_issued: ["resources"],
         provider_submission: [],
         absence_observed: ["resources"],
         home_released: [],
@@ -924,45 +868,81 @@ export function cleanupStandaloneTrialRoot(
           [...fixed, ...(fields[v.kind] ?? [])].sort().join(",")
       )
         return false;
-      const purposes = [
-        "create_provider",
-        "create_proxy",
-        "create_subscription_auth_probe",
-        "create_internal_network",
-        "create_egress_network",
-      ];
       if (
         [
           "submission_planned",
           "receipt_recorded",
           "resource_not_issued",
-        ].includes(v.kind) &&
-        !purposes.includes(String(v.purpose))
-      )
-        return false;
-      if (
-        v.kind === "submission_planned" &&
-        (typeof v.plannedResourceName !== "string" ||
-          !/^crdd-[a-z]+-[a-f0-9]{16}$/u.test(v.plannedResourceName) ||
-          typeof v.ownershipLabel !== "string" ||
-          !/^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
-            v.ownershipLabel,
-          ) ||
-          (v.purpose === "create_provider" &&
-            !v.plannedResourceName.startsWith(`crdd-${provider}-`)) ||
-          (v.purpose !== "create_provider" &&
-            v.plannedResourceName !==
-              `crdd-${({ create_proxy: "proxy", create_subscription_auth_probe: "auth", create_internal_network: "internal", create_egress_network: "egress" } as Record<string, string>)[String(v.purpose)]}-${v.ownershipLabel.split("=")[1]}`))
-      )
-        return false;
-      if (v.kind === "submission_planned") {
+          "absence_observed",
+        ].includes(v.kind)
+      ) {
         if (
-          plannedNames.has(String(v.purpose)) ||
-          (ownershipLabel !== null && ownershipLabel !== v.ownershipLabel)
+          !validateCoordinatorResourceBook(v.resources) ||
+          !v.resources ||
+          !validateCoordinatorResourceBookTransition(
+            priorResources,
+            v.resources,
+          )
         )
           return false;
-        ownershipLabel = String(v.ownershipLabel);
-        plannedNames.set(String(v.purpose), String(v.plannedResourceName));
+        const book = v.resources;
+        if (book.snapshot.resources.length !== 5) return false;
+        const names: Record<string, string> = {
+          create_provider: provider,
+          create_proxy: "proxy",
+          create_subscription_auth_probe: "auth",
+          create_internal_network: "internal",
+          create_egress_network: "egress",
+        };
+        for (const resource of book.snapshot.resources) {
+          const label = resource.identity.ownershipLabel;
+          if (
+            !/^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(label) ||
+            (ownershipLabel !== null && label !== ownershipLabel) ||
+            !Object.hasOwn(names, resource.key) ||
+            !/^crdd-[a-z]+-[a-f0-9]{16}$/u.test(resource.identity.name) ||
+            (resource.key === "create_provider"
+              ? !resource.identity.name.startsWith(`crdd-${provider}-`)
+              : resource.identity.name !==
+                `crdd-${names[resource.key]}-${label.split("=")[1]}`)
+          )
+            return false;
+          ownershipLabel = label;
+        }
+        const changes = book.checkpoints.filter(
+          (c) =>
+            JSON.stringify(c) !==
+            JSON.stringify(
+              priorResources?.checkpoints.find((p) => p.key === c.key) ?? {
+                ...c,
+                submission: "none",
+              },
+            ),
+        );
+        if (
+          v.kind === "submission_planned" &&
+          (changes.length !== 1 || changes[0]?.submission !== "intent_saved")
+        )
+          return false;
+        if (
+          v.kind === "receipt_recorded" &&
+          (changes.length !== 1 ||
+            changes[0]?.receiptSource !== "docker_create_result")
+        )
+          return false;
+        if (
+          v.kind === "resource_not_issued" &&
+          (changes.length !== 1 || changes[0]?.submission !== "not_issued")
+        )
+          return false;
+        if (
+          v.kind === "absence_observed" &&
+          book.checkpoints.some(
+            (c) => !["absent", "not_requested"].includes(c.observation),
+          )
+        )
+          return false;
+        priorResources = book;
       }
       if (v.kind === "execution_settled") {
         const projection = Object.fromEntries(
@@ -971,39 +951,6 @@ export function cleanupStandaloneTrialRoot(
         if (
           !isTrialDiagnostic(projection) ||
           !isDeepStrictEqual(projection, result.diagnostic)
-        )
-          return false;
-      }
-      if (
-        v.kind === "receipt_recorded" &&
-        (typeof v.dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(v.dockerId))
-      )
-        return false;
-      if (v.kind === "absence_observed") {
-        if (
-          plannedNames.size !== 5 ||
-          !Array.isArray(v.resources) ||
-          v.resources.length !== 5 ||
-          new Set(v.resources.map((r) => r?.purpose)).size !== 5 ||
-          v.resources.some(
-            (r) =>
-              !r ||
-              Object.keys(r).sort().join(",") !==
-                ["purpose", "plannedResourceName", "dockerId", "observation"]
-                  .sort()
-                  .join(",") ||
-              !purposes.includes(r.purpose) ||
-              plannedNames.get(r.purpose) !== r.plannedResourceName ||
-              typeof r.plannedResourceName !== "string" ||
-              !/^crdd-[a-z]+-[a-f0-9]{16}$/u.test(r.plannedResourceName) ||
-              !["absent", "not_requested"].includes(r.observation) ||
-              !(
-                r.dockerId === null ||
-                (typeof r.dockerId === "string" &&
-                  /^[a-f0-9]{64}$/u.test(r.dockerId))
-              ) ||
-              (r.observation === "not_requested" && r.dockerId !== null),
-          )
         )
           return false;
       }
@@ -1307,7 +1254,6 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
     });
     child.stderr?.on("data", () => {});
     const closed = await new Promise<boolean>((resolve) => {
-      const contract = describeDockerCommandSessionContract();
       let graceTimer: ReturnType<typeof setTimeout> | null = null;
       let ackSettled = false,
         closeSucceeded = false;
@@ -1317,22 +1263,17 @@ export async function runStandaloneProviderTrialCli(args: readonly string[]) {
         if (graceTimer) clearTimeout(graceTimer);
         resolve(closeSucceeded);
       };
-      const timer = setTimeout(
-        () => {
-          protocolFailure = true;
-          sendCancel();
-          graceTimer = setTimeout(() => {
-            if (child.connected) child.disconnect();
-            child.unref();
-            child.stdout?.destroy();
-            child.stderr?.destroy();
-            resolve(false);
-          }, contract.cancellationGraceMs);
-        },
-        contract.providerTimeoutMs +
-          contract.setupTimeoutMs * (9 + 5 * 8 + 2) +
-          contract.cancellationGraceMs * 2,
-      );
+      const timer = setTimeout(() => {
+        protocolFailure = true;
+        sendCancel();
+        graceTimer = setTimeout(() => {
+          if (child.connected) child.disconnect();
+          child.unref();
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          resolve(false);
+        }, TRIAL_CANCELLATION_GRACE_MS);
+      }, TRIAL_COMPLETION_TIMEOUT_MS);
       child.on("message", (raw: unknown) => {
         if (!raw || typeof raw !== "object") {
           protocolFailure = true;

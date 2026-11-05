@@ -18,7 +18,7 @@ import {
   inspectTaskStageDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
 } from "./task-diagnostic.ts";
-import { isPrimaryFailureDiagnostic } from "../../executor/scripts/executor-test.ts";
+import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-attempt-host.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
 import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
 

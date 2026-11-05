@@ -1,231 +1,290 @@
 /**
- * 認証試験の既存Command代役を新しい通知境界へ接続する。
- * @responsibility 上位保存の反例を維持し、製品に旧Port互換処理を残さない。
+ * 実Coordinator認証・Executor・DIへ有限の外部境界だけを接続する。
+ * @responsibility 旧Command実行・偽Receipt補完・旧Cleanup橋渡しを保持しない。
  * @trace ERB-UT-016
  * @level UT
- * @scope 有限代役のみ。実Docker・AIを使用しない。
- * @boundary 移管前の試験入力と新しい本番オーケストレーション。
+ * @scope メモリ内記録と既存有限CLI代役。実Docker・AI・既存保持物を操作しない。
  */
-
-import type { DockerAuthenticationCommand } from "../../../docker-isolation/tests/support/authentication.ts";
+import { createHash } from "node:crypto";
+import path from "node:path";
+import fs from "node:fs";
+import { types } from "node:util";
+import { runInThisContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { getAuthenticationDefinition } from "../../../ai-adapter/src/index.ts";
+import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
+import { plannedResourceSnapshot } from "../../../docker-isolation/src/execution/preparation.ts";
+import type { TestContext } from "node:test";
+import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
+import { captureIsolationRequest } from "../../../docker-isolation/src/execution/preparation.ts";
+import type { IsolationRequest } from "../../../docker-isolation/src/index.ts";
 import {
-  createAuthenticationUsing,
-  prepareAuthenticationPlan,
-} from "../../../executor/scripts/authentication-command-test.ts";
-import { bindAuthenticationLifecycle } from "../../../executor/scripts/authentication-command-test.ts";
-import type {
-  Authentication,
-  AuthenticationPlan,
-} from "../../../executor/scripts/authentication-command-test.ts";
-import type {
-  ExecutorRequest,
-  RecordProjection,
-} from "../../../executor/src/index.ts";
-import type { AuthenticationRecoveryRecord } from "../../src/execution/authority.ts";
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+} from "../../../domain-model/src/index.ts";
+import { coordinatorResourceIsSettled } from "../../../domain-model/src/attempt/validation.ts";
+import type { RecordProjection } from "../../../executor/src/index.ts";
 import {
-  authenticateProvider as authenticateActual,
-  prepareProviderAuthentication as prepareActual,
+  authenticateProvider,
+  prepareProviderAuthentication,
+  type AuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 
-export type AuthenticationTestExecution = Readonly<{
-  status: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-  error?: Error;
-  processCompletionConfirmed?: boolean;
-  resourceCreationConfirmed?: boolean;
-  resourceReceipt?: Readonly<{ name: string; dockerId: string }>;
-}>;
-export type AuthenticationTestDependencies = Readonly<{
-  resources?: AuthenticationRecoveryRecord["resources"];
-  randomHex: (bytes: number) => string;
-  run: (
-    command: DockerAuthenticationCommand,
-    live: () => boolean,
-    plan: AuthenticationPlan & RecordProjection<"authentication">,
-  ) => Promise<AuthenticationTestExecution>;
-  isProcessCompletionConfirmed?: () => boolean;
-  acquireProviderHomeLock: (
-    hash: string,
-  ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
-  beginRecovery: (
-    record: AuthenticationRecoveryRecord,
-  ) =>
-    | "created"
-    | "existing_idle"
-    | "existing_in_flight"
-    | "unknown"
-    | Readonly<{ status: "prior_action_active"; recoveryId: string }>;
-  setRecoveryCommandState: (
-    record: AuthenticationRecoveryRecord,
-    state: "idle" | "in_flight",
-    purpose: string | null,
-  ) => boolean;
-  completeRecovery: (record: AuthenticationRecoveryRecord) => boolean;
-  recordCreatedResource: (
-    record: AuthenticationRecoveryRecord,
-    result: AuthenticationTestExecution,
-  ) => boolean;
-}>;
-
-/** 既存の保存反例とCommand代役を、Executorの同じ実行・回収本文へ結合する。 */
-export function authenticateProvider(
+/** 構成だけを準備し、元投影とCoordinatorの短命結合を取得する。Docker要求はない。 */
+export function prepareAuthenticationProjection(
   provider: "codex" | "claude",
   action: "status" | "login",
   home: string,
-  binding: string,
-  dependencies?: AuthenticationTestDependencies,
-  signal?: AbortSignal,
-) {
-  if (!dependencies)
-    return authenticateActual(
-      provider,
-      action,
-      home,
-      binding,
-      undefined,
-      signal,
-    );
-  let record: AuthenticationRecoveryRecord | null = null;
-  let last: AuthenticationTestExecution | null = null;
-  const authentications = new WeakMap<
-    ExecutorRequest<"authentication">,
-    Authentication
-  >();
-  const projections = new WeakMap<
-    AuthenticationPlan,
-    AuthenticationPlan & RecordProjection<"authentication">
-  >();
-  const project = (
-    plan: AuthenticationPlan,
-  ): AuthenticationPlan & RecordProjection<"authentication"> => {
-    let value = projections.get(plan);
-    if (!value) {
-      value = Object.freeze({ ...plan, resources: record?.resources ?? [] });
-      projections.set(plan, value);
-    }
-    return value;
-  };
-  return authenticateActual(
+  suffix: string,
+  token: string | null,
+): RecordProjection<"authentication"> | null {
+  return prepareProviderAuthentication(
     provider,
     action,
     home,
-    binding,
-    {
-      randomHex: dependencies.randomHex,
-      createManagementDirectory: (value) => ({
-        directory: value.recordPath.replace(/\.json$/u, ".management"),
-        identity: "synthetic-management",
-      }),
-      removeManagementDirectory: () => true,
-      acquireProviderHomeLock: dependencies.acquireProviderHomeLock,
-      beginRecovery: (value) => {
-        record = value;
-        return dependencies.beginRecovery(value);
-      },
-      setRecoveryCommandState: dependencies.setRecoveryCommandState,
-      completeRecovery: dependencies.completeRecovery,
-      readResources: (value) => dependencies.resources ?? value.resources,
-      recordCreatedResource: (value, receipt) =>
-        dependencies.recordCreatedResource(
-          value,
-          last ?? {
-            status: 0,
-            signal: null,
-            stdout: "",
-            stderr: "",
-            resourceCreationConfirmed: true,
-            resourceReceipt: receipt,
-          },
-        ),
-      cleanupAuthentication: async (target) => {
-        const authentication = authentications.get(target.request);
-        return authentication
-          ? authentication.cleanup(
-              target.resources,
-              target.signal,
-              target.callbacks,
-            )
-          : { confirmed: false, processCompletionConfirmed: false };
-      },
-      createAuthentication: (request) => {
-        const authentication = createAuthenticationUsing(
-          request,
-          async (command, live, plan) => {
-            last = await dependencies.run(command, live, project(plan));
-            const created = command.purpose.startsWith("create_");
-            const at = command.argv.indexOf("--name");
-            const name = at >= 0 ? command.argv[at + 1] : command.argv.at(-1);
-            if (typeof name !== "string")
-              throw new Error("synthetic_authentication_resource_name_missing");
-            return {
-              ...last,
-              processCompletionConfirmed:
-                last.processCompletionConfirmed !== false,
-              ...(created && last.resourceCreationConfirmed === undefined
-                ? {
-                    resourceCreationConfirmed: true,
-                    resourceReceipt: { name, dockerId: "a".repeat(64) },
-                  }
-                : {}),
-            };
-          },
-          dependencies.isProcessCompletionConfirmed,
-        );
-        if (authentication) authentications.set(request, authentication);
-        return bindAuthenticationLifecycle(authentication);
-      },
-    },
-    signal,
+    suffix,
+    token,
+    undefined,
+    path.win32.join(path.win32.dirname(path.win32.dirname(home)), "management"),
   );
 }
 
-/** 技術Plan検査を試験側へ残し、記録用の元投影との結合を検証する。 */
-export function createProviderAuthenticationPlan<A extends "status" | "login">(
+/** 現行認証Sourceの純粋構成を、保存試験の元Snapshotへ接続する。 */
+export function authenticationResourceFixture(
   provider: "codex" | "claude",
-  action: A,
+  action: "status" | "login",
   home: string,
   suffix: string,
-  token: A extends "login" ? string : null,
-): (AuthenticationPlan<A> & RecordProjection<"authentication">) | null {
-  const technical = prepareAuthenticationPlan(
-    provider,
-    action,
-    home,
-    suffix,
-    token,
+  token: string | null,
+  managementDirectory: string,
+) {
+  const source = fs.readFileSync(
+    new URL(
+      "../../../executor/src/lifecycle/authentication.ts",
+      import.meta.url,
+    ),
+    "utf8",
   );
-  if (!technical) return null;
-  const auth = createAuthenticationUsing(
+  const build = runInThisContext(
+    `(deps)=>{const {types,getAuthenticationDefinition,describeIsolationConfiguration}=deps;${sourceDeclaration(source, "authenticationIsolationRequest")};return authenticationIsolationRequest;}`,
+  )({ types, getAuthenticationDefinition, describeIsolationConfiguration }) as (
+    request: unknown,
+    management: string,
+  ) => IsolationRequest;
+  const request = captureIsolationRequest(
+    build(
+      {
+        kind: "authentication",
+        provider,
+        action,
+        providerHomeSourcePath: home,
+        suffix,
+        proxyToken: token,
+      },
+      managementDirectory,
+    ),
+  );
+  return {
+    request,
+    snapshot: plannedResourceSnapshot(request),
+    cleanup: {
+      cleanupOrder: request.cleanupOrder,
+      setupTimeoutMs: request.setupTimeoutMs,
+      unreceiptedAbsence: request.unreceiptedAbsence,
+      verifyLabelAbsence: request.verifyLabelAbsence,
+    },
+  };
+}
+
+/** 外部Processだけ有限化し、保存の試験状態は現在のDomain契約で更新する。 */
+export async function createAuthenticationFixture(
+  t: { mock: TestContext["mock"] },
+  provider: "codex" | "claude" = "claude",
+  action: "status" | "login" = "login",
+) {
+  const f = await createIsolationFixture(t);
+  const lower = await import("../../../docker-isolation/src/index.ts");
+  f.observation = {
+    status: 0,
+    signal: null,
+    stdout:
+      provider === "claude"
+        ? JSON.stringify({
+            loggedIn: true,
+            authMethod: "claude.ai",
+            apiProvider: "firstParty",
+            forcedLoginMethod: "claudeai",
+            subscriptionType: "max",
+          })
+        : "",
+    stderr: provider === "codex" ? "Logged in using ChatGPT" : "",
+    outputExceeded: false,
+  };
+  t.mock.module("../../../docker-isolation/src/index.ts", {
+    namedExports: {
+      ...lower,
+      prepareIsolation: (input: IsolationRequest) => {
+        f.useRequest(captureIsolationRequest(input), provider);
+        return f.api.prepareIsolation(input);
+      },
+      executeIsolation: f.api.executeIsolation,
+      cleanupIsolation: f.api.cleanupIsolation,
+    },
+  });
+  const {
+    createAuthenticationExecutor,
+  }: typeof import("../../../executor/src/lifecycle/authentication.ts") =
+    await import(
+      new URL(
+        "../../../executor/src/lifecycle/authentication.ts?coordinator=" +
+          Math.random(),
+        import.meta.url,
+      ).href
+    );
+  let current: AuthenticationRecoveryRecord | null = null,
+    live = true,
+    released = false,
+    releaseConfirmed = true;
+  const events: string[] = [];
+  const home = `C:\\fixture\\ProviderHomes\\${provider}`,
+    hash = "a".repeat(64);
+  const dependencies: NonNullable<Parameters<typeof authenticateProvider>[4]> =
     {
-      kind: "authentication",
-      provider,
-      action,
-      providerHomeSourcePath: home,
-      suffix,
-      proxyToken: token,
-    },
-    async () => {
-      throw Error("unmocked_authentication_execution");
-    },
-  );
-  if (!auth) return null;
-  const projection = Object.freeze({
-    ...technical,
-    ...auth.projection,
-  }) as AuthenticationPlan<A> & RecordProjection<"authentication">;
-  return prepareActual(
-    provider,
-    action,
-    home,
-    suffix,
-    token,
-    () =>
-      bindAuthenticationLifecycle({
-        ...auth,
-        projection,
+      randomHex: (size) => "b".repeat(size * 2),
+      createAuthentication: (request, options) =>
+        createAuthenticationExecutor(request, options.managementDirectory),
+      createManagementDirectory: () => ({
+        directory: f.request.managementDirectory,
+        identity: "finite-management",
       }),
-    "C:\\synthetic\\management",
-  ) as AuthenticationPlan<A> & RecordProjection<"authentication">;
+      removeManagementDirectory: () => true,
+      acquireProviderHomeLock: () =>
+        live && !released
+          ? {
+              assertLive: () => live && !released,
+              release: () => {
+                events.push("release");
+                released = releaseConfirmed;
+                return releaseConfirmed;
+              },
+            }
+          : null,
+      beginRecovery: (record) => {
+        events.push("begin");
+        if (current?.state === "active")
+          return current.action !== record.action
+            ? { status: "prior_action_active", recoveryId: current.recoveryId }
+            : current.commandState === "in_flight"
+              ? "existing_in_flight"
+              : "existing_idle";
+        current = {
+          ...record,
+          resources: null,
+          state: "active",
+          commandState: "idle",
+          commandPurpose: null,
+        };
+        return "created";
+      },
+      setRecoveryCommandState: (_record, state, purpose, material, key) => {
+        events.push(`${state}:${purpose}`);
+        if (
+          !current ||
+          !live ||
+          (state === "in_flight" && current.commandState !== "idle") ||
+          (state === "idle" && current.commandState !== "in_flight")
+        )
+          return false;
+        let resources = current.resources;
+        if (state === "in_flight" && purpose?.startsWith("create_")) {
+          resources = applyCoordinatorResourceEvent(resources, {
+            ...(material as object),
+            event: "submission",
+            key,
+          });
+          if (!resources) return false;
+        }
+        current = {
+          ...current,
+          resources,
+          commandState: state,
+          commandPurpose: purpose,
+        };
+        return true;
+      },
+      recordResource: (_record, eventValue) => {
+        const event = eventValue as {
+          event: string;
+          snapshot: unknown;
+          observations: unknown;
+        };
+        events.push(event.event);
+        if (!current || !live) return false;
+        const resources =
+          event.event === "cleanup" && current.resources
+            ? applyCoordinatorResourceCleanup(
+                current.resources,
+                event.snapshot,
+                event.observations,
+                {
+                  recoveryId: current.recoveryId,
+                  previousPayloadSha256: createHash("sha256")
+                    .update(JSON.stringify(current))
+                    .digest("hex"),
+                },
+              )
+            : applyCoordinatorResourceEvent(current.resources, event);
+        if (!resources) return false;
+        current = {
+          ...current,
+          resources,
+          ...(event.event === "not_issued"
+            ? { commandState: "idle" as const, commandPurpose: null }
+            : {}),
+        };
+        return true;
+      },
+      readResources: () =>
+        current && current.commandState === "idle"
+          ? { resources: current.resources }
+          : null,
+      cleanupAuthentication: f.api.cleanupIsolation,
+      completeRecovery: () => {
+        events.push("settle");
+        if (
+          !current ||
+          !live ||
+          current.commandState !== "idle" ||
+          (current.resources &&
+            !current.resources.checkpoints.every(coordinatorResourceIsSettled))
+        )
+          return false;
+        current = { ...current, state: "settled" };
+        return true;
+      },
+    };
+  return {
+    f,
+    dependencies,
+    events,
+    home,
+    hash,
+    get record() {
+      return current;
+    },
+    set live(value: boolean) {
+      live = value;
+    },
+    set releaseConfirmed(value: boolean) {
+      releaseConfirmed = value;
+    },
+    seed(record: AuthenticationRecoveryRecord) {
+      current = record;
+    },
+    resetLease() {
+      released = false;
+    },
+    run: (signal?: AbortSignal) =>
+      authenticateProvider(provider, action, home, hash, dependencies, signal),
+  };
 }

@@ -8,8 +8,6 @@ import path from "node:path";
 import { types } from "node:util";
 import { cleanupContainerResources } from "../cleanup/container.ts";
 import { cleanupResourceIdentity } from "../cleanup/operations.ts";
-import { dockerResourceConfigurationMatches } from "../cleanup/validation.ts";
-import type { DockerResourceExpectation } from "../cleanup/types.ts";
 import {
   type DockerRecoveryCommandResult,
   dockerResourceIdentityMatches,
@@ -87,7 +85,6 @@ class IsolationPreparation implements PreparedIsolation {
     protectedFile: boolean;
   }>[];
   readonly cleanupOnly: boolean;
-  readonly discovery: IsolationCleanupRequest["discovery"];
   readonly previouslyAbsent: readonly string[];
   #used = false;
 
@@ -110,12 +107,10 @@ class IsolationPreparation implements PreparedIsolation {
         verifyLabelAbsence: cleanup.verifyLabelAbsence,
       });
       this.resources = cleanup.resources;
-      this.discovery = cleanup.discovery;
       this.previouslyAbsent = cleanup.previouslyAbsent;
     } else {
       this.request = captureIsolationRequest(value as IsolationRequest);
       this.resources = plannedResourceSnapshot(this.request);
-      this.discovery = [];
       this.previouslyAbsent = [];
     }
     const request = this.request;
@@ -157,7 +152,6 @@ class IsolationPreparation implements PreparedIsolation {
       "environment",
       "directories",
       "cleanupOnly",
-      "discovery",
       "previouslyAbsent",
     ] as const)
       Object.defineProperty(this, key, { enumerable: false });
@@ -617,18 +611,13 @@ function runIsolation(
         !cleanupStopped &&
         !(cancelled && owner.cleanupOnly) &&
         r.request !== "not_issued" &&
-        (r.identity.dockerId !== null ||
-          owner.discovery.some((d) => d.key === key) ||
-          input.unreceiptedAbsence === "observe") &&
         terminated
       ) {
         try {
           await notice("onCleanupSubmitting", [key]);
           const originalIdMissing = r.identity.dockerId === null;
-          const configurations =
-            owner.discovery.find((d) => d.key === key)?.configurations ?? [];
           const identity = r.identity;
-          if (originalIdMissing && configurations.length) {
+          if (originalIdMissing) {
             const list = async (...filters: string[]) => {
               const result = await command(
                 [
@@ -667,6 +656,11 @@ function runIsolation(
                 : `name=^${r.identity.name}$`;
             const byName = await list(name),
               byOwner = await list(name, `label=${r.identity.ownershipLabel}`);
+            if (
+              byName.length !== byOwner.length ||
+              (byName.length === 1 && byName[0] !== byOwner[0])
+            )
+              throw Error("docker_isolation_discovery_unconfirmed");
             const found =
               byName.length === 1 &&
               byOwner.length === 1 &&
@@ -676,13 +670,15 @@ function runIsolation(
             if (found) {
               const value = await inspect(r.identity.kind, found);
               if (
-                configurations.some((expected) =>
-                  dockerResourceConfigurationMatches(value, {
-                    ...expected,
-                    dockerId: found,
-                  }),
-                )
-              ) {
+                !dockerResourceIdentityMatches(value, {
+                  kind: identity.kind,
+                  dockerId: found,
+                  expectedName: identity.name,
+                  ownershipLabel: identity.ownershipLabel,
+                })
+              )
+                throw Error("docker_isolation_discovery_unconfirmed");
+              {
                 update(key, found, r.request);
                 const observed = snapshotObservedDockerResource(value, key, {
                   kind: r.identity.kind,
@@ -720,10 +716,7 @@ function runIsolation(
             }
           }
           if (!r.identity.dockerId) {
-            if (
-              input.unreceiptedAbsence === "observe" &&
-              !configurations.length
-            ) {
+            if (input.unreceiptedAbsence === "observe") {
               const result = await command(
                 [r.identity.kind, "inspect", r.identity.name],
                 input.setupTimeoutMs,
@@ -771,15 +764,6 @@ function runIsolation(
             },
             undefined,
             owner.previouslyAbsent.includes(key),
-            originalIdMissing
-              ? (value) =>
-                  configurations.some((expected) =>
-                    dockerResourceConfigurationMatches(value, {
-                      ...expected,
-                      dockerId,
-                    } as DockerResourceExpectation),
-                  )
-              : undefined,
           );
           if (absent) observation = "absent";
           else if (owner.previouslyAbsent.includes(key)) cleanupStopped = true;

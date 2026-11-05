@@ -11,21 +11,23 @@
  */
 
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { isDockerResourcePurpose } from "../fixtures/recovery-resource-expectations.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   COORDINATOR_STATE_SCHEMA,
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+  type CoordinatorResourceBook,
   type CoordinatorStateOperation,
   type CoordinatorStateTaskOperation,
   completeRuntimeOwnedCoordinatorCurrentRecovery,
-  coordinatorAuthenticationUnknownCanClose,
   coordinatorTaskResourcesAreSettled,
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
@@ -51,13 +53,10 @@ import {
   resumeRuntimeOwnedCoordinatorResourcePublication,
   settleRuntimeOwnedCoordinatorResult,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
-  writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
-import { planDockerRecoveryResourceExpectations } from "../../../executor/src/attempt/recovery.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
@@ -86,7 +85,7 @@ import {
   checkpointRuntimeOwnedCoordinatorResource,
   checkpointRuntimeOwnedCoordinatorResourceNotIssued,
   checkpointRuntimeOwnedCoordinatorRestart,
-  readRuntimeOwnedCoordinatorResourceRequests,
+  readRuntimeOwnedCoordinatorResourceBook,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorHostCleanupPreparation,
   saveRuntimeOwnedCoordinatorOperationStart,
@@ -110,6 +109,13 @@ import {
   executionSelection,
 } from "../fixtures/ai-selection.ts";
 
+const RESOURCE_KEYS = [
+  "create_egress_network",
+  "create_internal_network",
+  "create_provider",
+  "create_proxy",
+  "create_subscription_auth_probe",
+] as const;
 const emptyTaskSections = {
   repositoryBindingId: null,
   intakeEpoch: null,
@@ -257,7 +263,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
@@ -276,17 +282,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: repository.repositoryBinding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -298,6 +293,18 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       record: hostRecord,
     },
     hostPaths: { root: "host-root", marker: "host-marker" },
+  };
+  const resourceFrame = createResourceBookFixture(
+    identity.ownershipLabel,
+    "planned",
+    RESOURCE_KEYS,
+  );
+  const resourceName = (key: string) => {
+    const resource = resourceFrame.snapshot.resources.find(
+      (r) => r.key === key,
+    );
+    assert.ok(resource);
+    return resource.identity.name;
   };
   const operationBytes = prepareCoordinatorStateOperationSnapshot(
     secondBytes,
@@ -753,14 +760,16 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         item.recoveryId === recoveryStarted.recoveryId,
     );
     assert.ok(resourceOperation);
-    const providerResource = resourceOperation.resources.find(
-      (item) => item.purpose === "create_provider",
-    );
-    assert.ok(providerResource);
+    assert.equal(resourceOperation.resources, null);
+    const providerResource = {
+      key: "create_provider",
+      snapshot: resourceFrame.snapshot,
+      cleanup: resourceFrame.cleanup,
+    };
     const receiptBefore = prepareCoordinatorStateResourceSnapshot(
       initialRecoveryBytes,
       recoveryStarted.recoveryId,
-      { ...providerResource, request: "intent_saved" },
+      { ...providerResource, event: "submission" },
       repository.repositoryBinding,
     );
     assert.ok(receiptBefore);
@@ -769,9 +778,18 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       recoveryStarted.recoveryId,
       {
         ...providerResource,
-        request: "identified",
-        dockerId: "d".repeat(64),
-        receiptSource: "docker_create_result",
+        event: "receipt",
+        snapshot: {
+          resources: providerResource.snapshot.resources.map((r) =>
+            r.key === providerResource.key
+              ? {
+                  ...r,
+                  request: "issued",
+                  identity: { ...r.identity, dockerId: "d".repeat(64) },
+                }
+              : r,
+          ),
+        },
       },
       repository.repositoryBinding,
     );
@@ -942,29 +960,43 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       outcome: recoveryOperation.outcome,
       summarySha256: recoveryOperation.summarySha256,
     };
-    const names: Record<string, string> = {
-      create_subscription_auth_probe: recoveryIdentity.resources.auth,
-      create_internal_network: recoveryIdentity.resources.internal,
-      create_egress_network: recoveryIdentity.resources.egress,
-      create_proxy: recoveryIdentity.resources.proxy,
-      create_provider: recoveryIdentity.resources.provider,
-    };
-    const firstRecoveryResource = recoveryOperation.resources[0];
+    const firstRecoveryResource = resourceFrame.snapshot.resources[0];
     assert.ok(firstRecoveryResource);
     const intendedResource = {
-      ...firstRecoveryResource,
-      request: "intent_saved" as const,
+      event: "submission",
+      key: firstRecoveryResource.key,
+      snapshot: resourceFrame.snapshot,
+      cleanup: resourceFrame.cleanup,
     };
-    const intendedResources = recoveryOperation.resources.map((resource) =>
-      resource.purpose === firstRecoveryResource.purpose
-        ? intendedResource
-        : resource,
+    const intendedResources = applyCoordinatorResourceEvent(
+      recoveryOperation.resources,
+      intendedResource,
     );
-    const cleanupResources = intendedResources.map((resource) =>
-      resource.purpose === firstRecoveryResource.purpose
-        ? { ...resource, observation: "unknown" as const }
-        : resource,
+    assert.ok(intendedResources);
+    const cleanupPayload = {
+      snapshot: {
+        resources: intendedResources.snapshot.resources.map((r) =>
+          r.key === firstRecoveryResource.key
+            ? { ...r, request: "unknown" as const }
+            : r,
+        ),
+      },
+      observations: intendedResources.checkpoints.map((c) => ({
+        key: c.key,
+        observation:
+          c.key === firstRecoveryResource.key ? "unknown" : "not_requested",
+      })),
+    };
+    const cleanupResources = applyCoordinatorResourceCleanup(
+      intendedResources,
+      cleanupPayload.snapshot,
+      cleanupPayload.observations,
+      {
+        recoveryId: recoveryStarted.recoveryId,
+        previousPayloadSha256: "e".repeat(64),
+      },
     );
+    assert.ok(cleanupResources);
     const unknownHost = {
       ...recoveryOperation.host,
       cleanup: "unknown" as const,
@@ -983,19 +1015,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     };
     for (const [kind, value, expectedOperation] of [
       ["resource", intendedResource, expectedResourceOperation],
-      [
-        "cleanup",
-        intendedResources.map((resource) => ({
-          purpose: resource.purpose,
-          plannedResourceName: names[resource.purpose],
-          dockerId: null,
-          observation:
-            resource.purpose === firstRecoveryResource.purpose
-              ? "unknown"
-              : "not_requested",
-        })),
-        expectedCleanupOperation,
-      ],
+      ["cleanup", cleanupPayload, expectedCleanupOperation],
       ["host", unknownHost, expectedHostOperation],
     ] as const) {
       const beforeFixed = readRuntimeOwnedCoordinatorRecoverySnapshot(
@@ -1656,29 +1676,25 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     (item) => item.kind === "docker_task",
   );
   assert.ok(operation && operation.kind === "docker_task");
-  const initialRequests = readRuntimeOwnedCoordinatorResourceRequests(
-    management,
-    operation.recoveryId,
-  );
-  assert.ok(initialRequests);
-  assert.equal(Object.keys(initialRequests).length, 5);
-  assert.equal(Object.isFrozen(initialRequests), true);
-  for (const receipt of Object.values(initialRequests)) {
-    assert.deepEqual(receipt, { submitted: false, dockerId: null });
-    assert.equal(Object.isFrozen(receipt), true);
-  }
   assert.equal(
-    readRuntimeOwnedCoordinatorResourceRequests({}, operation.recoveryId),
+    readRuntimeOwnedCoordinatorResourceBook(management, operation.recoveryId),
+    null,
+    "初回Snapshot未受領は不存在ではない",
+  );
+  assert.equal(
+    readRuntimeOwnedCoordinatorResourceBook({}, operation.recoveryId),
     null,
   );
   assert.equal(
-    readRuntimeOwnedCoordinatorResourceRequests(management, "other-recovery"),
+    readRuntimeOwnedCoordinatorResourceBook(management, "other-recovery"),
     null,
   );
-  const resource = operation.resources.find(
-    (item) => item.purpose === "create_provider",
-  );
-  assert.ok(resource);
+  const resource = {
+    event: "submission",
+    key: "create_provider",
+    snapshot: resourceFrame.snapshot,
+    cleanup: resourceFrame.cleanup,
+  };
   const readerInitialBytes = fs.readFileSync(
     path.join(area.directory, "state.json"),
   );
@@ -1687,34 +1703,26 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       checkpointRuntimeOwnedCoordinatorResourceNotIssued(
         management,
         operation.recoveryId,
-        resource.purpose,
+        resource.key,
       ).filesystemEffectIssued,
       false,
     );
-    const intentSaved = checkpointRuntimeOwnedCoordinatorResource(
+    const saved = checkpointRuntimeOwnedCoordinatorResource(
       management,
       operation.recoveryId,
-      { ...resource, request: "intent_saved" },
+      resource,
     );
-    assert.equal(intentSaved.status, "completed");
+    assert.equal(saved.status, "completed");
     const intentBytes = fs.readFileSync(
       path.join(area.directory, "state.json"),
     );
-    assert.equal(
-      checkpointRuntimeOwnedCoordinatorResource(
-        management,
-        operation.recoveryId,
-        { ...resource, request: "not_issued" },
-      ).filesystemEffectIssued,
-      false,
-    );
-    for (const [owner, id, purpose] of [
-      [{}, operation.recoveryId, resource.purpose],
-      [management, "other", resource.purpose],
+    for (const [owner, id, key] of [
+      [{}, operation.recoveryId, resource.key],
+      [management, "other", resource.key],
       [management, operation.recoveryId, "unknown"],
     ]) {
       assert.equal(
-        checkpointRuntimeOwnedCoordinatorResourceNotIssued(owner, id, purpose)
+        checkpointRuntimeOwnedCoordinatorResourceNotIssued(owner, id, key)
           .filesystemEffectIssued,
         false,
       );
@@ -1723,34 +1731,40 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         intentBytes,
       );
     }
-    const saved = checkpointRuntimeOwnedCoordinatorResourceNotIssued(
-      management,
-      operation.recoveryId,
-      resource.purpose,
-    );
-    assert.equal(saved.status, "completed");
-    assert.equal(saved.snapshotConfirmed, true);
-    assert.equal(saved.lockReleased, true);
-    assert.deepEqual(
-      readRuntimeOwnedCoordinatorResourceRequests(
+    assert.equal(
+      checkpointRuntimeOwnedCoordinatorResource(
         management,
         operation.recoveryId,
-      )?.create_provider,
-      { submitted: false, dockerId: null },
+        { event: "not_issued", key: resource.key },
+      ).filesystemEffectIssued,
+      false,
+      "通常入口では専用未発行許可を代替しない",
+    );
+    const notIssued = checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+      management,
+      operation.recoveryId,
+      resource.key,
+    );
+    assert.equal(notIssued.status, "completed");
+    const book = readRuntimeOwnedCoordinatorResourceBook(
+      management,
+      operation.recoveryId,
+    );
+    assert.ok(book);
+    assert.equal(
+      book.checkpoints.find((c) => c.key === resource.key)?.submission,
+      "not_issued",
+    );
+    assert.equal(
+      book.snapshot.resources.find((r) => r.key === resource.key)?.identity
+        .dockerId,
+      null,
     );
     assert.equal(
       checkpointRuntimeOwnedCoordinatorResource(
         management,
         operation.recoveryId,
-        { ...resource, request: "issued" },
-      ).filesystemEffectIssued,
-      false,
-    );
-    assert.equal(
-      checkpointRuntimeOwnedCoordinatorResourceNotIssued(
-        management,
-        operation.recoveryId,
-        resource.purpose,
+        resource,
       ).filesystemEffectIssued,
       false,
     );
@@ -1760,122 +1774,137 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       readerInitialBytes,
     );
   }
-  for (const request of ["intent_saved", "issued", "unknown"] as const) {
-    const saved = checkpointRuntimeOwnedCoordinatorResource(
-      management,
-      operation.recoveryId,
-      {
-        ...resource,
-        request,
-        observation: request === "unknown" ? "unknown" : "unobserved",
+  const intentSaved = checkpointRuntimeOwnedCoordinatorResource(
+    management,
+    operation.recoveryId,
+    {
+      ...resource,
+      snapshot: {
+        resources: resource.snapshot.resources.map((r) =>
+          r.key === resource.key ? { ...r, request: "unknown" } : r,
+        ),
       },
-    );
-    assert.equal(saved.status, "completed");
-    assert.equal(saved.snapshotConfirmed, true);
-    assert.equal(saved.lockReleased, true);
-    assert.equal(saved.filesystemEffectIssued, true);
-    const requests = readRuntimeOwnedCoordinatorResourceRequests(
-      management,
-      operation.recoveryId,
-    );
-    assert.ok(requests);
-    assert.deepEqual(requests.create_provider, {
-      submitted: true,
-      dockerId: null,
-    });
-    assert.deepEqual(requests.create_subscription_auth_probe, {
-      submitted: false,
-      dockerId: null,
-    });
-  }
-  const checkpoint = readRuntimeOwnedCoordinatorStateSnapshot(management);
-  assert.equal(checkpoint.value?.snapshot.revision, 6);
-  assert.equal(
-    checkpoint.value?.snapshot.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.find((item) => item.purpose === "create_provider")?.request,
-    "unknown",
+    },
   );
+  assert.equal(intentSaved.status, "completed");
+  assert.equal(intentSaved.snapshotConfirmed, true);
+  assert.equal(intentSaved.lockReleased, true);
+  const checkpoint = readRuntimeOwnedCoordinatorStateSnapshot(management);
   const checkpointOperation = checkpoint.value?.snapshot.operations.find(
     (item) => item.kind === "docker_task",
   );
-  assert.ok(checkpointOperation && checkpointOperation.kind === "docker_task");
-  assert.ok(checkpoint.value);
+  assert.ok(
+    checkpoint.value &&
+      checkpointOperation?.kind === "docker_task" &&
+      checkpointOperation.resources,
+  );
+  assert.equal(
+    checkpointOperation.resources.checkpoints.find(
+      (c) => c.key === resource.key,
+    )?.submission,
+    "intent_saved",
+  );
+  assert.equal(
+    checkpointOperation.resources.snapshot.resources.find(
+      (r) => r.key === resource.key,
+    )?.request,
+    "unknown",
+  );
   const resourceReaderBytes = fs.readFileSync(
     path.join(area.directory, "state.json"),
   );
   try {
-    for (const selected of checkpointOperation.resources) {
-      for (const request of [
-        "not_requested",
+    for (const selected of RESOURCE_KEYS)
+      for (const state of [
+        "none",
         "intent_saved",
-        "issued",
-        "unknown",
-        "identified",
+        "not_issued",
+        "receipt",
       ] as const) {
-        const dockerId = request === "identified" ? "a".repeat(64) : null;
-        const snapshot = {
-          ...checkpoint.value.snapshot,
-          operations: [
-            {
-              ...checkpointOperation,
-              resources: checkpointOperation.resources.map((item) =>
-                item.purpose === selected.purpose
-                  ? {
-                      ...item,
-                      request,
-                      dockerId,
-                      receiptSource:
-                        request === "identified"
-                          ? "docker_create_result"
-                          : null,
-                      observation: "unobserved",
-                    }
-                  : item,
-              ),
-            },
-          ],
+        const planned = createResourceBookFixture(
+          identity.ownershipLabel,
+          "planned",
+          RESOURCE_KEYS,
+        );
+        const book: CoordinatorResourceBook = {
+          ...planned,
+          snapshot: {
+            resources: planned.snapshot.resources.map((r) =>
+              r.key === selected
+                ? {
+                    ...r,
+                    request:
+                      state === "receipt"
+                        ? "issued"
+                        : state === "intent_saved"
+                          ? "unknown"
+                          : "not_issued",
+                    identity: {
+                      ...r.identity,
+                      dockerId: state === "receipt" ? "a".repeat(64) : null,
+                    },
+                  }
+                : r,
+            ),
+          },
+          checkpoints: planned.checkpoints.map((c) =>
+            c.key === selected
+              ? {
+                  ...c,
+                  submission: state === "receipt" ? "intent_saved" : state,
+                  receiptSource:
+                    state === "receipt" ? "docker_create_result" : null,
+                }
+              : c,
+          ),
         };
         fs.writeFileSync(
           path.join(area.directory, "state.json"),
-          `${JSON.stringify(snapshot)}\n`,
+          encodeRuntimeStateValue({
+            ...checkpoint.value.snapshot,
+            operations: [{ ...checkpointOperation, resources: book }],
+          }) + "\n",
         );
-        const requests = readRuntimeOwnedCoordinatorResourceRequests(
-          management,
-          operation.recoveryId,
+        assert.deepEqual(
+          readRuntimeOwnedCoordinatorResourceBook(
+            management,
+            operation.recoveryId,
+          ),
+          book,
         );
-        assert.ok(requests);
-        assert.deepEqual(requests[selected.purpose], {
-          submitted: request !== "not_requested",
-          dockerId,
-        });
       }
-    }
-    for (const resources of [
-      checkpointOperation.resources.slice(1),
-      checkpointOperation.resources.map((item, index) =>
-        index === 1 ? checkpointOperation.resources[0] : item,
-      ),
-      checkpointOperation.resources.map((item, index) =>
-        index === 0
-          ? {
-              ...item,
-              request: "identified",
-              dockerId: "not-an-exact-id",
-              receiptSource: "docker_create_result",
-            }
-          : item,
-      ),
+    const original = checkpointOperation.resources;
+    for (const invalid of [
+      {
+        ...original,
+        snapshot: { resources: original.snapshot.resources.slice(1) },
+      },
+      {
+        ...original,
+        checkpoints: original.checkpoints.map((c, i) =>
+          i === 1 ? original.checkpoints[0] : c,
+        ),
+      },
+      {
+        ...original,
+        snapshot: {
+          resources: original.snapshot.resources.map((r, i) =>
+            i === 0
+              ? { ...r, identity: { ...r.identity, dockerId: "invalid" } }
+              : r,
+          ),
+        },
+      },
     ]) {
       fs.writeFileSync(
         path.join(area.directory, "state.json"),
-        `${JSON.stringify({
+        encodeRuntimeStateValue({
           ...checkpoint.value.snapshot,
-          operations: [{ ...checkpointOperation, resources }],
-        })}\n`,
+          operations: [{ ...checkpointOperation, resources: invalid }],
+        }) + "\n",
       );
       assert.equal(
-        readRuntimeOwnedCoordinatorResourceRequests(
+        readRuntimeOwnedCoordinatorResourceBook(
           management,
           operation.recoveryId,
         ),
@@ -1888,38 +1917,28 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       resourceReaderBytes,
     );
   }
-  const cleanupObservations = checkpointOperation.resources.map((item) => ({
-    purpose: item.purpose,
-    plannedResourceName:
-      identity.resources[
-        (
-          {
-            create_egress_network: "egress",
-            create_internal_network: "internal",
-            create_provider: "provider",
-            create_proxy: "proxy",
-            create_subscription_auth_probe: "auth",
-          } as const
-        )[item.purpose]
-      ],
-    dockerId: item.dockerId,
-    observation: item.request === "not_requested" ? "not_requested" : "unknown",
-  }));
+  const cleanupObservations = checkpointOperation.resources.checkpoints.map(
+    (c) => ({
+      key: c.key,
+      observation:
+        c.submission === "intent_saved" ? "unknown" : "not_requested",
+    }),
+  );
   const cleanupSaved = checkpointRuntimeOwnedCoordinatorCleanup(
     management,
     operation.recoveryId,
-    cleanupObservations,
+    {
+      snapshot: checkpointOperation.resources.snapshot,
+      observations: cleanupObservations,
+    },
   );
   assert.equal(cleanupSaved.status, "completed");
   assert.equal(cleanupSaved.snapshotConfirmed, true);
   assert.equal(cleanupSaved.lockReleased, true);
   const afterCleanup = readRuntimeOwnedCoordinatorStateSnapshot(management);
-  assert.equal(afterCleanup.value?.snapshot.revision, 7);
   assert.equal(
-    afterCleanup.value?.snapshot.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.find((item) => item.purpose === "create_provider")?.request,
-    "unknown",
+    afterCleanup.value?.snapshot.revision,
+    checkpoint.value.snapshot.revision + 1,
   );
   const hostSuccessor = { ...hostRecord, state: "docker_submission_started" };
   const expectedHostToken =
@@ -1959,7 +1978,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(savedHost.lockReleased, true);
   }
   const afterHost = readRuntimeOwnedCoordinatorStateSnapshot(management);
-  assert.equal(afterHost.value?.snapshot.revision, 9);
+  assert.equal(
+    afterHost.value?.snapshot.revision,
+    (afterCleanup.value?.snapshot.revision ?? 0) + 2,
+  );
   assert.equal(
     afterHost.value?.snapshot.operations.find(
       (item) => item.kind === "docker_task",
@@ -2017,7 +2039,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(savedLifecycle.snapshotConfirmed, true);
   assert.equal(savedLifecycle.lockReleased, true);
   const afterLifecycle = readRuntimeOwnedCoordinatorStateSnapshot(management);
-  assert.equal(afterLifecycle.value?.snapshot.revision, 10);
+  assert.equal(
+    afterLifecycle.value?.snapshot.revision,
+    (afterHost.value?.snapshot.revision ?? 0) + 1,
+  );
   assert.deepEqual(
     afterLifecycle.value?.snapshot.operations.find(
       (item) => item.kind === "docker_task",
@@ -2102,7 +2127,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(savedRecoveryOnly.snapshotConfirmed, true);
   assert.equal(savedRecoveryOnly.lockReleased, true);
   const afterReferences = readRuntimeOwnedCoordinatorStateSnapshot(management);
-  assert.equal(afterReferences.value?.snapshot.revision, 11);
+  assert.equal(
+    afterReferences.value?.snapshot.revision,
+    (afterLifecycle.value?.snapshot.revision ?? 0) + 1,
+  );
   assert.deepEqual(afterReferences.value?.snapshot.pendingDeliveries, []);
   assert.deepEqual(
     afterReferences.value?.snapshot.operations,
@@ -2193,8 +2221,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     reason: "provider_result_invalid",
     cleanupConfirmed: true,
   });
-  const observedProviderId: string | null = null;
-  const observedProviderObservation = "absent";
   const transientRecoveryIds = new Set<string>();
   const terminalObservation = (result: unknown, id: unknown, ref: unknown) => {
     if (
@@ -2205,17 +2231,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     )
       return null;
     return Object.freeze({
-      resources: operation.resources.map((item) => ({
-        purpose: item.purpose,
-        plannedResourceName: cleanupObservations.find(
-          (value) => value.purpose === item.purpose,
-        )?.plannedResourceName,
-        dockerId:
-          item.purpose === "create_provider" ? observedProviderId : null,
-        observation:
-          item.purpose === "create_provider" && observedProviderId
-            ? observedProviderObservation
-            : "not_requested",
+      resourceSnapshot: resourceFrame.snapshot,
+      resources: resourceFrame.checkpoints.map((item) => ({
+        key: item.key,
+        observation: "not_requested",
       })),
       homeLeaseReleased: true,
       mountLeaseReleased: true,
@@ -2335,14 +2354,14 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       providerHomeIdentityHash: identity.providerHomeIdentityHash,
       providerHomeProtectionHash: identity.providerHomeProtectionHash,
       localUserBindingHash: identity.localUserBindingHash,
-      authContainerName: identity.resources.auth,
-      providerContainerName: identity.resources.provider,
-      proxyContainerName: identity.resources.proxy,
-      internalNetworkName: identity.resources.internal,
-      egressNetworkName: identity.resources.egress,
+      authContainerName: resourceName("create_subscription_auth_probe"),
+      providerContainerName: resourceName("create_provider"),
+      proxyContainerName: resourceName("create_proxy"),
+      internalNetworkName: resourceName("create_internal_network"),
+      egressNetworkName: resourceName("create_egress_network"),
       ownershipLabel: identity.ownershipLabel,
-      providerImageDigest: identity.images.provider,
-      proxyImageDigest: identity.images.proxy,
+      providerImageDigest: `sha256:${"a".repeat(64)}`,
+      proxyImageDigest: `sha256:${"b".repeat(64)}`,
       operationMode: "isolated_task" as const,
       workspaceMountMode: "read_write" as const,
     };
@@ -3311,7 +3330,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       .digest("hex");
     const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const identityJson = `${JSON.stringify({
-      schema: "crdd-coordinator/operation-identity/v2",
+      schema: "crdd-coordinator/operation-identity/v3",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer,
@@ -3330,17 +3349,6 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       localUserBindingHash: "6".repeat(64),
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-      resources: {
-        auth: "crdd-auth-0123456789abcdef",
-        provider: "crdd-claude-0123456789abcdef",
-        proxy: "crdd-proxy-0123456789abcdef",
-        internal: "crdd-internal-0123456789abcdef",
-        egress: "crdd-egress-0123456789abcdef",
-      },
-      images: {
-        provider: `sha256:${"a".repeat(64)}`,
-        proxy: `sha256:${"b".repeat(64)}`,
-      },
       operationMode: "workbench_advice",
       workspaceMountMode: null,
       initialHostRecoveryId: token,
@@ -3377,23 +3385,28 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
           identitySha256,
           recoveryId,
           phase: "settling",
-          resources: [
-            "create_egress_network",
-            "create_internal_network",
-            "create_provider",
-            "create_proxy",
-            "create_subscription_auth_probe",
-          ].map((purpose) => ({
-            purpose,
-            request:
-              purpose === "create_subscription_auth_probe"
-                ? "unknown"
-                : "not_requested",
-            dockerId: null,
-            receiptSource: null,
-            observation: "unobserved",
-            absence: null,
-          })),
+          resources: (() => {
+            const book = createResourceBookFixture(
+              "crdd.coordinator.runtime=0123456789abcdef",
+              "planned",
+              RESOURCE_KEYS,
+            );
+            return {
+              ...book,
+              snapshot: {
+                resources: book.snapshot.resources.map((r) =>
+                  r.key === "create_subscription_auth_probe"
+                    ? { ...r, request: "unknown" }
+                    : r,
+                ),
+              },
+              checkpoints: book.checkpoints.map((c) =>
+                c.key === "create_subscription_auth_probe"
+                  ? { ...c, submission: "intent_saved" }
+                  : c,
+              ),
+            };
+          })(),
           host: {
             currentToken: token,
             pendingTransitionJson: null,
@@ -3557,82 +3570,45 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     ) => {
       const originals = snapshot.operations[0]?.resources;
       assert.ok(originals);
+      assert.ok(resources);
+      assert.deepEqual(resources.snapshot, originals.snapshot);
+      assert.deepEqual(resources.cleanup, originals.cleanup);
       assert.deepEqual(
-        resources.map((resource) => resource.purpose),
-        originals.map((resource) => resource.purpose),
+        resources.checkpoints.map((c) => ({
+          ...c,
+          ...(c.key === "create_subscription_auth_probe"
+            ? { observation: "unobserved", absenceEvidenceSha256: null }
+            : {}),
+        })),
+        originals.checkpoints,
       );
-      for (const resource of resources) {
-        const original: (typeof originals)[number] | undefined = originals.find(
-          (item) => item.purpose === resource.purpose,
-        );
-        assert.ok(original);
-        if (resource.purpose === "create_subscription_auth_probe") {
-          assert.equal(resource.request, "unknown");
-          assert.equal(resource.dockerId, null);
-          assert.equal(resource.receiptSource, null);
-          assert.deepEqual(
-            {
-              ...resource,
-              observation: original.observation,
-              absence: original.absence,
-            },
-            original,
-          );
-        } else assert.deepEqual(resource, original);
-      }
     };
     assertPreservedResources(operation.resources);
     for (const purpose of [
       "create_internal_network",
       "create_subscription_auth_probe",
     ] as const) {
-      const changed = operation.resources.map((resource) =>
-        resource.purpose !== purpose
-          ? resource
-          : { ...resource, dockerId: "0".repeat(64) },
-      );
+      assert.ok(operation.resources);
+      const changed = {
+        ...operation.resources,
+        snapshot: {
+          resources: operation.resources.snapshot.resources.map((r) =>
+            r.key === purpose
+              ? { ...r, identity: { ...r.identity, dockerId: "0".repeat(64) } }
+              : r,
+          ),
+        },
+      };
+
       assert.throws(() => assertPreservedResources(changed));
     }
     assert.equal(
-      operation.resources.find(
-        (resource) => resource.purpose === "create_subscription_auth_probe",
+      operation.resources?.snapshot.resources.find(
+        (resource) => resource.key === "create_subscription_auth_probe",
       )?.request,
       "unknown",
     );
     assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
-    const recoverySource = fs.readFileSync(
-      new URL("../../src/execution/recovery.ts", import.meta.url),
-      "utf8",
-    );
-    const driverBody = [
-      "projectResourceTarget",
-      "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
-      "recoverRuntimeOwnedDockerTaskResources",
-    ]
-      .map((name) => {
-        const start = recoverySource.indexOf(
-          `${name === "projectResourceTarget" ? "" : "export "}${name === "recoverRuntimeOwnedDockerTaskResources" ? "async " : ""}function ${name}(`,
-        );
-        const end = recoverySource.indexOf("\n/**", start);
-        assert.ok(start > 0 && end > start, name);
-        return stripTypeScriptTypes(recoverySource.slice(start, end)).replace(
-          /export (async )?function/u,
-          "$1function",
-        );
-      })
-      .join("\n");
-    const idMutationPattern =
-      /request: "identified",\s+dockerId,\s+receiptSource: "runtime_reconciliation"/g;
-    const idMutationMatches = [...driverBody.matchAll(idMutationPattern)];
-    assert.equal(idMutationMatches.length, 1);
-    const idMutationMatch = idMutationMatches[0]?.[0];
-    assert.ok(idMutationMatch);
-    const wrongIdDriverBody = driverBody.replace(
-      idMutationMatch,
-      idMutationMatch.replace("dockerId,", 'dockerId: "e".repeat(64),'),
-    );
-    assert.notEqual(wrongIdDriverBody, driverBody);
-    assert.equal([...wrongIdDriverBody.matchAll(idMutationPattern)].length, 0);
     for (const scenario of [
       "normal",
       "known_id",
@@ -3649,348 +3625,34 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "inner_close_failed",
       "outer_close_failed",
     ] as const) {
-      const seed = scenario === "saved_reentry" ? candidate : before;
-      fs.writeFileSync(file, seed);
-      const owner = Object.freeze({});
-      const events: string[] = [];
-      let live = true,
-        rounds = 0,
-        closureWrites = 0,
-        removals = 0,
-        removalOracleHits = 0,
-        idMismatchDetected = 0;
-      const record: {
-        kind: string;
-        rootCapability: unknown;
-        repository: object;
-        recoveryId: string;
-        before: Buffer;
-        closed: boolean;
-        persistenceFailed: boolean;
-        cleanupUnknown: boolean;
-        hostCleanup: string;
-        hostCleanupPublication: null;
-      } = {
-        kind: "recovery",
-        rootCapability: verified.capability,
-        repository,
-        recoveryId,
-        before: Buffer.from(seed),
-        closed: false,
-        persistenceFailed: false,
-        cleanupUnknown: false,
-        hostCleanup: "present",
-        hostCleanupPublication: null,
-      };
-      const map = new WeakMap([[owner, record]]);
-      const driver = runInNewContext(
-        `${scenario === "known_id_mutant" ? wrongIdDriverBody : driverBody}; recoverRuntimeOwnedDockerTaskResources`,
-        {
-          Buffer,
-          Object,
-          Error,
-          Map,
-          dockerRecoveryPreparations: map,
-          borrowHostRecoveryManagementDirectory: () => ({
-            directory: "synthetic-management",
-            assertCurrent: () => live,
-          }),
-          coordinatorTaskResourcesAreSettled,
-          coordinatorAuthenticationUnknownCanClose,
-          isDockerResourcePurpose,
-          planDockerRecoveryResourceExpectations,
-          codexAdviceProviderInitRequired: () => false,
-          encodeRuntimeStateValue,
-          decodeCoordinatorStateSnapshot,
-          assertCurrentRecoveryOwner: () => {
-            events.push("owner");
-            return live;
-          },
-          readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
-            events.push("read");
-            const value = decodeCoordinatorStateSnapshot(
-              fs.readFileSync(file),
-              repository.repositoryBinding,
-            );
-            assert.ok(value);
-            return {
-              status: "completed",
-              lockReleased: true,
-              value:
-                scenario === "readback_mismatch" && closureWrites > 0
-                  ? {
-                      ...value,
-                      snapshot: {
-                        ...value.snapshot,
-                        revision: value.snapshot.revision + 1,
-                      },
-                    }
-                  : value,
-            };
-          },
-          writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-            ...args: Parameters<
-              typeof writeRuntimeOwnedCoordinatorRecoveryCheckpoint
-            >
-          ) => {
-            events.push(`write:${args[3]}`);
-            const saved = writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
-              args[0],
-              args[1],
-              args[2],
-              args[3],
-              JSON.parse(JSON.stringify(args[4])),
-              args[5],
-            );
-            events.push(`checkpoint:${saved.status}:${saved.reason}`);
-            return saved;
-          },
-          writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (
-            ...args: Parameters<
-              typeof writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure
-            >
-          ) => {
-            closureWrites++;
-            events.push("write:closure");
-            if (scenario === "writer_throw")
-              throw new Error("synthetic_closure_writer_failure");
-            if (scenario === "writer_refused")
-              return {
-                status: "blocked",
-                snapshotConfirmed: false,
-                lockReleased: true,
-              };
-            const result =
-              writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-                args[0],
-                args[1],
-                args[2],
-                JSON.parse(JSON.stringify(args[3])),
-                args[4],
-              );
-            return scenario === "release_unknown"
-              ? { ...result, lockReleased: false }
-              : result;
-          },
-        },
-      ) as (
-        capability: object,
-        cleanup: typeof import("../../../executor/src/index.ts").cleanupResources,
-        inspect: typeof import("../../../executor/src/index.ts").inspectResources,
-      ) => {
-        status: string;
-        reason: string;
-        dockerCleanupConfirmed: boolean;
-        recoveryId: string;
-      };
-      const observedId = "d".repeat(64);
-      const operations = {
-        discoverSubmitted: () => {
-          events.push("discover");
-          return ["known_id", "known_id_mutant"].includes(scenario)
-            ? observedId
-            : null;
-        },
-        cleanupObserved: async (
-          expectation: { dockerId: string },
-          signal?: AbortSignal,
-        ) => {
-          events.push("remove");
-          assert.equal(expectation.dockerId, observedId);
-          signal?.throwIfAborted();
-          const current = decodeCoordinatorStateSnapshot(
-            fs.readFileSync(file),
-            repository.repositoryBinding,
-          )?.snapshot.operations[0];
-          assert.ok(current?.kind === "docker_task");
-          const auth = current.resources.find(
-            (resource) => resource.purpose === "create_subscription_auth_probe",
-          );
-          assert.ok(auth);
-          removalOracleHits++;
-          if (auth.dockerId !== observedId) idMismatchDetected++;
-          assert.deepEqual(auth, {
-            purpose: "create_subscription_auth_probe",
-            request: "identified",
-            dockerId: observedId,
-            receiptSource: "runtime_reconciliation",
-            observation: "present",
-            absence: null,
-          });
-          removals++;
-          return true;
-        },
-        observeAbsent: (kind: string, name: string, label: string) => {
-          assert.equal(kind, "container");
-          assert.equal(name, "crdd-auth-0123456789abcdef");
-          assert.equal(label, "crdd.coordinator.runtime=0123456789abcdef");
-          rounds++;
-          events.push(`round:${rounds}`);
-          if (
-            (scenario === "first_owner_lost" && rounds === 1) ||
-            (scenario === "second_owner_lost" && rounds === 2)
-          )
-            live = false;
-          return !(
-            (scenario === "first_absence_unknown" && rounds === 1) ||
-            (scenario === "second_absence_unknown" && rounds === 2)
-          );
-        },
-      };
-      let factories = 0;
-      const closes: number[] = [];
-      const runtime = createAttemptRecoveryTestApi(() => {
-        const number = ++factories;
-        return {
-          status: "ready",
-          executor: {
-            ...operations,
-            close: () => {
-              closes.push(number);
-              events.push(`close:${number}`);
-              return !(
-                (scenario === "inner_close_failed" && number === 2) ||
-                (scenario === "outer_close_failed" && number === 1)
-              );
-            },
-          },
-        };
-      });
-      const result = await driver(
-        owner,
-        runtime.cleanupResources,
-        runtime.inspectResources,
-      );
-      assert.equal(result.recoveryId, recoveryId, scenario);
-      const completed = ["normal", "known_id", "saved_reentry"].includes(
-        scenario,
-      );
-      assert.equal(
-        result.status,
-        completed ? "completed" : "blocked",
-        `${scenario}: ${result.reason}: ${events.join(",")}`,
-      );
-      assert.equal(
-        result.dockerCleanupConfirmed,
-        completed || scenario === "outer_close_failed",
-        scenario,
-      );
-      assert.equal(removals, scenario === "known_id" ? 1 : 0, scenario);
-      assert.equal(
-        removalOracleHits,
-        ["known_id", "known_id_mutant"].includes(scenario) ? 1 : 0,
-        scenario,
-      );
-      assert.equal(
-        idMismatchDetected,
-        scenario === "known_id_mutant" ? 1 : 0,
-        scenario,
-      );
-      const shouldSave = [
-        "normal",
-        "writer_refused",
-        "writer_throw",
-        "readback_mismatch",
-        "release_unknown",
-        "saved_reentry",
-        "outer_close_failed",
-      ].includes(scenario);
-      assert.equal(closureWrites, shouldSave ? 1 : 0, scenario);
-      assert.equal(
-        rounds,
-        ["known_id", "known_id_mutant"].includes(scenario)
-          ? 0
-          : scenario === "first_absence_unknown"
-            ? 1
-            : 2,
-        scenario,
-      );
-      if (shouldSave) {
-        const first = events.indexOf("round:1"),
-          second = events.indexOf("round:2"),
-          write = events.indexOf("write:closure");
-        assert.ok(first >= 0 && second > first && write > second, scenario);
-        assert.ok(events.slice(second + 1, write).includes("owner"), scenario);
-        assert.ok(events.slice(second + 1, write).includes("read"), scenario);
-      }
-      if (scenario === "saved_reentry")
-        assert.equal(events.includes("write:cleanup"), false);
-      if (["inner_close_failed", "outer_close_failed"].includes(scenario)) {
-        assert.deepEqual(closes, [2, 1], scenario);
-        assert.equal(factories, 2, scenario);
-        const inner = events.indexOf("close:2"),
-          outer = events.indexOf("close:1"),
-          write = events.indexOf("write:closure");
-        assert.ok(inner >= 0 && outer > inner, scenario);
-        if (scenario === "outer_close_failed")
-          assert.ok(write > inner && outer > write);
-        else assert.equal(write, -1);
-        const beforeReentry = [...events];
-        assert.equal(
-          (
-            await driver(
-              owner,
-              runtime.cleanupResources,
-              runtime.inspectResources,
-            )
-          ).status,
-          "blocked",
-        );
-        assert.deepEqual(events, beforeReentry);
-        assert.equal(factories, 2);
-      }
-      assert.equal(record.hostCleanup, "present", scenario);
-      const persisted = decodeCoordinatorStateSnapshot(
-        fs.readFileSync(file),
-        repository.repositoryBinding,
-      )?.snapshot.operations[0];
-      assert.ok(persisted?.kind === "docker_task");
-      assert.deepEqual(
-        { ...persisted, resources: snapshot.operations[0]?.resources },
-        snapshot.operations[0],
-        scenario,
-      );
-      if (!["known_id", "known_id_mutant"].includes(scenario)) {
-        assertPreservedResources(persisted.resources);
-        const auth = persisted.resources.find(
-          (resource) => resource.purpose === "create_subscription_auth_probe",
-        );
-        assert.ok(auth);
-        assert.equal(
-          auth.observation === "absent",
-          [
-            "normal",
-            "readback_mismatch",
-            "release_unknown",
-            "saved_reentry",
-            "outer_close_failed",
-          ].includes(scenario),
+      fs.writeFileSync(file, scenario === "saved_reentry" ? candidate : before);
+      const child = spawnSync(
+        process.execPath,
+        [
+          "--experimental-test-module-mocks",
+          fileURLToPath(
+            new URL("../fixtures/snapshot-recovery-owner.ts", import.meta.url),
+          ),
+          root,
+          repository.operationId,
+          recoveryId,
           scenario,
-        );
-      } else {
-        for (const resource of persisted.resources) {
-          if (resource.purpose === "create_subscription_auth_probe") {
-            assert.equal(resource.request, "identified");
-            assert.equal(
-              resource.dockerId,
-              scenario === "known_id" ? observedId : "e".repeat(64),
-            );
-            assert.equal(resource.receiptSource, "runtime_reconciliation");
-            assert.equal(
-              resource.observation,
-              scenario === "known_id" ? "absent" : "present",
-            );
-          } else {
-            assert.deepEqual(
-              resource,
-              snapshot.operations[0]?.resources.find(
-                (original) => original.purpose === resource.purpose,
-              ),
-            );
-          }
-        }
-      }
-      assert.deepEqual(fs.readdirSync(directory), ["state.json"], scenario);
+        ],
+        {
+          cwd: root,
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 30000,
+          maxBuffer: 1024 * 1024,
+        },
+      );
+      assert.equal(child.error, undefined, scenario);
+      assert.equal(child.signal, null, scenario);
+      assert.equal(child.status, 0, scenario + ": " + child.stderr);
+      const result = JSON.parse(child.stdout);
+      assert.equal(result.scenario, scenario);
+      assert.equal(result.recoveryId, recoveryId);
+      assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
     }
     const last = decodeCoordinatorStateSnapshot(
       fs.readFileSync(file),
@@ -4023,15 +3685,14 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     const corruptTask: CoordinatorStateTaskOperation = {
       ...terminalTask,
-      resources: terminalTask.resources.map((resource) =>
-        resource.purpose !== "create_subscription_auth_probe" ||
-        !resource.absence
-          ? resource
-          : {
-              ...resource,
-              absence: { ...resource.absence, evidenceSha256: "0".repeat(64) },
-            },
-      ),
+      resources: terminalTask.resources && {
+        ...terminalTask.resources,
+        checkpoints: terminalTask.resources.checkpoints.map((c) =>
+          c.key === "create_subscription_auth_probe"
+            ? { ...c, absenceEvidenceSha256: "0".repeat(64) }
+            : c,
+        ),
+      },
     };
     const corruptBytes = Buffer.from(
       `${encodeRuntimeStateValue({ ...last.snapshot, operations: [corruptTask] })}\n`,

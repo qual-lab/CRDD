@@ -9,16 +9,14 @@
  */
 
 import assert from "node:assert/strict";
+import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import type {
-  DockerIsolationCommandInput,
-  DockerResourceReceipts,
-} from "../../../executor/src/attempt/types.ts";
+import type { DockerResourceReceipts } from "../support/cleanup.ts";
 import { dockerContainerInitObservationMatches } from "../../src/cleanup/init.ts";
 import type { OwnedCommandHandle } from "../../src/process/start.ts";
 import {

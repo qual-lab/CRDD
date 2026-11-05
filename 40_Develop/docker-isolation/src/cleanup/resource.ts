@@ -1,7 +1,7 @@
 /**
  * fresh再入場の検査済み実IDに対するDocker資源処置を所有する。
  *
- * @responsibility 元実IDの識別照合と、ID欠測時の構成照合を区別して処置する。
+ * @responsibility 元実IDの識別照合と、ID欠測時の二経路発見と識別再照合を区別して処置する。
  * @trace ARCH-000008
  */
 import {
@@ -458,14 +458,14 @@ export function observeIsolationIdentity(
 /**
  * 作成結果不明の予定資源を現在観測から識別する。
  *
- * @responsibility exact名とLabelの単一IDが一致し、隔離構成も成立する場合だけ実IDを返す。
+ * @responsibility exact名と同名＋Labelの一意IDをinspectで再照合し実IDを返す。
  * @trace ARCH-000008
  * @input runDocker: 固定観測primitive。expectation: 上位検査済み予定資源の技術条件。
- * @returns 構成確認済み実ID、またはnull。
+ * @returns 同一性確認済み実ID、またはnull。
  * @precondition 上位が同じ回復参照と限定した未解決作成要求を検査している。
  * @postcondition 名前だけで採用せず、作成成功や清掃完了を宣言しない。
  * @effect 固定Docker ls／inspectで現在資源を観測する。削除しない。
- * @failure 観測不能・複数・名とLabelの差・構成差・資源未発見はnull。
+ * @failure 観測不能・複数・名とLabelの差・実ID差・資源未発見はnull。
  * @invariant 未発見を不存在・過去要求の未発行へ読み替えない。
  * @boundary 限定未解決作成Classから技術的な現在実IDの観測。
  * @security 実IDから新しい処置許可や汎用Recoveryを発行しない。
@@ -473,9 +473,20 @@ export function observeIsolationIdentity(
  */
 export function discoverSubmittedDockerResource(
   runDocker: (argv: readonly string[]) => DockerRecoveryCommandResult,
-  expectation: Omit<DockerResourceExpectation, "dockerId">,
+  expectation: Pick<
+    DockerResourceExpectation,
+    "kind" | "expectedName" | "ownershipLabel"
+  >,
 ) {
-  if (!dockerResourceExpectationIsValid(expectation)) return null;
+  if (
+    !expectation ||
+    !dockerResourceLocatorIsValid(
+      expectation.kind,
+      expectation.expectedName,
+      expectation.ownershipLabel,
+    )
+  )
+    return null;
   const { kind, expectedName, ownershipLabel } = expectation;
 
   const list = (...filters: readonly string[]) =>
@@ -528,9 +539,15 @@ export function discoverSubmittedDockerResource(
     byNameItems[0] !== byOwnershipItems[0]
   )
     return null;
-  return observeExpectedDockerResource(
+  return observeIsolationIdentity(
     runDocker,
-    { ...expectation, dockerId: byNameItems[0] as string },
+    {
+      kind,
+      name: expectedName,
+      ownershipLabel,
+      dockerId: byNameItems[0] as string,
+    },
+    expectedName,
     Object.freeze({
       allowAlreadyAbsent: false,
     }),

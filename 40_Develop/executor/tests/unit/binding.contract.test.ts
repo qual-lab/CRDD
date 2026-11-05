@@ -28,7 +28,7 @@ import {
   resolveIsolationCommandInput,
   resolveProviderExecution,
 } from "../../scripts/executor-test.ts";
-import { attemptPlan } from "../fixtures/attempt-plan.ts";
+import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
 
 /**
  * 旧DI結合処理の正負条件をExecutorの本番構築で確認する。
@@ -44,7 +44,7 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
 test("用途構成はExecutorで一意に結合し固定条件差を拒否する", () => {
   const temporary = "C:/synthetic/tmp";
   const source = readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   for (const provider of ["codex", "claude"] as const) {
@@ -61,10 +61,8 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
           identifierKind: provider === "codex" ? "exact" : "alias",
         },
         target: {
-          ...synthetic,
+          ...attemptTarget(synthetic, "C:/synthetic/work", temporary),
           provider,
-          workspaceSourcePath: "C:/synthetic/work",
-          temporarySourcePath: temporary,
         },
       },
     );

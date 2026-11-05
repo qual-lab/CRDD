@@ -4,7 +4,6 @@
  * @trace ARCH-000008
  */
 
-import type { DockerResourceExpectation } from "../cleanup/types.ts";
 import type { ResourceSnapshot } from "../cleanup/types.ts";
 import type { CommandObservation, IsolationCommandResult } from "./result.ts";
 
@@ -90,7 +89,7 @@ export type IsolationRequest = Readonly<{
   verifyLabelAbsence: boolean;
 }>;
 
-/** 同じDI回収Ownerへ、元SnapshotとID欠測時だけの既存構成期待値を渡す。 */
+/** 元Snapshotの識別値を同じDI回収Ownerへ渡す。実行構成は削除条件にしない。 */
 export type IsolationCleanupRequest = Readonly<{
   managementDirectory: string;
   resources: ResourceSnapshot;
@@ -99,10 +98,6 @@ export type IsolationCleanupRequest = Readonly<{
   unreceiptedAbsence: "retain" | "observe";
   verifyLabelAbsence: boolean;
   previouslyAbsent: readonly string[];
-  discovery: readonly Readonly<{
-    key: string;
-    configurations: readonly Omit<DockerResourceExpectation, "dockerId">[];
-  }>[];
 }>;
 
 /** 同Processの短命な準備結果。値のコピーや保存から実行を復元しない。 */

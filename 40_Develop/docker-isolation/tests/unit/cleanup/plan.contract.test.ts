@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { planDockerRecoveryResourceExpectations } from "../../../../executor/src/attempt/recovery.ts";
+import { planDockerRecoveryResourceExpectations } from "../../support/cleanup.ts";
 import {
   dockerResourceConfigurationMatches,
   dockerResourceExpectationIsValid,

@@ -475,19 +475,10 @@ test("技術構成は新用途Labelを受理し全不一致と別key結合を拒
     unreceiptedAbsence: "retain" as const,
     verifyLabelAbsence: false,
     previouslyAbsent: [],
-    discovery: [{ key: "utility", configurations: [configuration] }],
   };
   assert.ok(captureIsolationCleanupRequest(input));
   assert.throws(() =>
-    captureIsolationCleanupRequest({
-      ...input,
-      discovery: [
-        {
-          key: "utility",
-          configurations: [{ ...configuration, key: "other" }],
-        },
-      ],
-    }),
+    captureIsolationCleanupRequest({ ...input, discovery: [] } as never),
   );
   assert.equal(
     dockerResourceExpectationIsValid({

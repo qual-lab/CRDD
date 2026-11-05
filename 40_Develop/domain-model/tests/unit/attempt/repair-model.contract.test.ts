@@ -1270,7 +1270,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-domain/runtime-state/v1",
+      schema: "crdd-domain/runtime-state/v2",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -3249,7 +3249,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const taskIdentity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
@@ -3277,17 +3277,6 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -3344,12 +3333,42 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     (item) => item.kind === "runtime_repair",
   );
   assert.ok(repairBefore);
-  const resource = task.resources[0];
-  assert.ok(resource);
+  const resource = {
+    event: "submission",
+    key: "resource",
+    snapshot: {
+      resources: [
+        {
+          key: "resource",
+          request: "not_issued",
+          identity: {
+            kind: "container",
+            name: "crdd-fixture",
+            dockerId: null,
+            ownershipLabel: taskIdentity.ownershipLabel,
+          },
+          configuration: {
+            image: null,
+            command: null,
+            environmentNames: null,
+            mounts: null,
+            networks: null,
+            internal: null,
+          },
+        },
+      ],
+    },
+    cleanup: {
+      cleanupOrder: ["resource"],
+      setupTimeoutMs: 10000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: false,
+    },
+  };
   const taskProgress = prepareCoordinatorStateResourceSnapshot(
     repaired,
     task.recoveryId,
-    { ...resource, request: "intent_saved" },
+    resource,
     binding,
   );
   assert.ok(taskProgress);
@@ -3369,7 +3388,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     prepareCoordinatorStateResourceSnapshot(
       taskProgress,
       repair.recoveryId,
-      { ...resource, request: "intent_saved" },
+      resource,
       binding,
     ),
     null,
@@ -3394,6 +3413,19 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   };
   const finishedTask = {
     ...task,
+    resources: {
+      snapshot: resource.snapshot,
+      cleanup: resource.cleanup,
+      checkpoints: [
+        {
+          key: "resource",
+          submission: "not_issued",
+          receiptSource: null,
+          observation: "unobserved",
+          absenceEvidenceSha256: null,
+        },
+      ],
+    },
     phase: "settling",
     lease: "released",
     host: { ...task.host, cleanup: "confirmed" },

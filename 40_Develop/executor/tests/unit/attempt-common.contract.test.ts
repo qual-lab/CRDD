@@ -12,9 +12,114 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import * as di from "../../../docker-isolation/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { PURPOSES } from "../../src/attempt/constants.ts";
-import * as boundary from "../../src/attempt/operations.ts";
+import { PURPOSES } from "../../src/lifecycle/attempt.ts";
+import * as boundary from "../../src/lifecycle/attempt.ts";
+import { isPrimaryFailureDiagnostic } from "../../scripts/provider-attempt-host.ts";
+import type { AttemptDiagnosticNotice, CancelResult } from "../../src/index.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
+import {
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+} from "../../../domain-model/src/attempt/crud.ts";
+import type { CoordinatorResourceBook } from "../../../domain-model/src/attempt/types.ts";
+
+/**
+ * 最初のIntentと作成Receiptへ同じDI由来の保存断面を搬送する。
+ * @responsibility 初期Snapshot・更新Snapshot・元回収方針を再構成しない。
+ * @trace ERB-UT-023
+ * @precondition 実executeAttemptと有限DIの元準備・完了を使用する。
+ * @stimulus 通常の作成前通知と作成Receipt通知を順に実行する。
+ * @observation Snapshot参照、ID相関、回収順序と固定条件。
+ * @oracle 初回は元準備Snapshot、Receiptは元観測Snapshot、回収方針は元Requestと一致。
+ * @cleanup 試験Promiseを完了する。Filesystem・実Docker・AIは使用しない。
+ * @boundary Executor通知の搬送。耐久保存の成立は別のDomain結合試験で確認する。
+ */
+test("必須通知は元Snapshotと回収方針を同じ実行から搬送する", async () => {
+  const f = fixture();
+  let submissions = 0;
+  let receipts = 0;
+  await f.run({
+    onCommandSubmitting: (_purpose, resources) => {
+      const request = f.request();
+      assert.ok(request);
+      if (submissions++ === 0)
+        assert.equal(resources.snapshot, f.initialSnapshot());
+      assert.equal(resources.cleanup.cleanupOrder, request.cleanupOrder);
+      assert.equal(resources.cleanup.setupTimeoutMs, request.setupTimeoutMs);
+      assert.equal(
+        resources.cleanup.unreceiptedAbsence,
+        request.unreceiptedAbsence,
+      );
+      assert.equal(
+        resources.cleanup.verifyLabelAbsence,
+        request.verifyLabelAbsence,
+      );
+    },
+    onResourceCreated: (purpose, id, resources) => {
+      receipts++;
+      assert.equal(resources.snapshot, f.snapshot());
+      assert.equal(
+        resources.snapshot.resources.find((r) => r.key === purpose)?.identity
+          .dockerId,
+        id,
+      );
+    },
+  });
+  assert.ok(submissions > 0);
+  assert.equal(receipts, 5);
+});
+
+/**
+ * 元DI通知をDomainの同じ記録へ順次適用する。
+ * @responsibility 発行前Intent・Receipt・最終観測の順序を結合して確認する。
+ * @trace ERB-UT-023
+ * @boundary 実宣言と純粋Domain。物理耐久性・Docker実体の主張ではない。
+ */
+test("通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できる", async () => {
+  const f = fixture();
+  let book: CoordinatorResourceBook | null = null;
+  let closed = false;
+  await f.run({
+    onCommandSubmitting: (purpose, resources) => {
+      if (!purpose.startsWith("create_")) return;
+      book = applyCoordinatorResourceEvent(
+        book,
+        JSON.parse(
+          JSON.stringify({ ...resources, event: "submission", key: purpose }),
+        ),
+      );
+      assert.ok(book, "後続Effect前に同じ資源のIntentが成立する");
+    },
+    onResourceCreated: (purpose, _id, resources) => {
+      book = applyCoordinatorResourceEvent(
+        book,
+        JSON.parse(
+          JSON.stringify({ ...resources, event: "receipt", key: purpose }),
+        ),
+      );
+      assert.ok(book, "元SnapshotのReceiptだけを同じ記録に結合する");
+    },
+    onResourcesClosed: (observation) => {
+      assert.ok(book);
+      book = applyCoordinatorResourceCleanup(
+        book,
+        JSON.parse(JSON.stringify(observation.resourceSnapshot)),
+        JSON.parse(JSON.stringify(observation.resources)),
+        { recoveryId: "exact-recovery", previousPayloadSha256: "a".repeat(64) },
+      );
+      assert.ok(book);
+      assert.ok(
+        book.checkpoints.every(
+          (c) =>
+            c.receiptSource === "docker_create_result" &&
+            c.observation === "absent",
+        ),
+      );
+      closed = true;
+    },
+  });
+  assert.equal(closed, true);
+});
 
 /**
  * Executor外側の未知例外をDIの技術失敗と取り違えない。
@@ -29,27 +134,14 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  */
 test("Executor外側の未知例外はDIとして再分類せず生値を公開しない", async () => {
   const source = readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   const execute = runInNewContext(
-    sourceDeclaration(source, "executeAttempt") + "\nexecuteAttempt",
+    `${sourceDeclaration(source, "executeAttempt")}\nexecuteAttempt`,
     {
       createConfigurationNotice: () => ({}),
       createCompletionResult: (value: unknown) => value,
-      executeLifecycle: async (operations: {
-        execute(): Promise<void>;
-        finalize(): Promise<void>;
-        createResult(
-          context: unknown,
-          error: unknown,
-          failed: boolean,
-        ): unknown;
-      }) => {
-        await operations.execute();
-        await operations.finalize();
-        return operations.createResult(null, null, false);
-      },
     },
   );
   let reads = 0;
@@ -83,11 +175,17 @@ test("Executor外側の未知例外はDIとして再分類せず生値を公開�
         throw thrown;
       },
     },
-    { lifecycle: { cancellationRequested: false } },
+    { lifecycle: { cancellationRequested: false, finish() {} } },
     {
       operationId: "OP-123456",
       provider: "codex",
       taskRole: "executor",
+      isolationRequest: {
+        cleanupOrder: [],
+        setupTimeoutMs: 10000,
+        unreceiptedAbsence: "retain",
+        verifyLabelAbsence: false,
+      },
     },
     { recoveryId: "exact-recovery" },
   );
@@ -213,6 +311,7 @@ function fixture() {
   let calls = 0;
   let failure: di.IsolationExecutionResult["failure"] = null;
   let snapshot: di.ResourceSnapshot | null = null;
+  let initialSnapshot: di.ResourceSnapshot | null = null;
   let commandFailure: {
     key: string;
     code: "PROCESS_FAILURE" | "ETIMEDOUT";
@@ -233,7 +332,31 @@ function fixture() {
     prepareIsolation: (input: di.IsolationRequest) => {
       request = input;
       if (prepareRejected) return null;
-      return { resources: { resources: [] } };
+      initialSnapshot = Object.freeze({
+        resources: Object.freeze(
+          input.resources.map((resource) =>
+            Object.freeze({
+              key: resource.key,
+              identity: Object.freeze({
+                kind: resource.kind,
+                name: resource.name,
+                ownershipLabel: resource.ownershipLabel,
+                dockerId: null,
+              }),
+              request: "not_issued" as const,
+              configuration: Object.freeze({
+                image: null,
+                command: null,
+                environmentNames: null,
+                mounts: null,
+                networks: null,
+                internal: null,
+              }),
+            }),
+          ),
+        ),
+      });
+      return { resources: initialSnapshot };
     },
     executeIsolation: (
       _prepared: unknown,
@@ -268,7 +391,10 @@ function fixture() {
           ),
         ),
       });
-      const resources = snapshot;
+      const completedResources = snapshot;
+      assert.ok(initialSnapshot);
+      let resources = failure ? snapshot : initialSnapshot;
+      snapshot = resources;
       const completion = Promise.resolve().then(
         async (): Promise<di.IsolationExecutionResult> => {
           if (failure?.notification === "onNotIssued") {
@@ -280,9 +406,22 @@ function fixture() {
           } else if (!failure) {
             for (const step of current.steps) {
               await callbacks.onSubmitting?.(step);
-              if (step.action === "create")
+              if (step.action === "create") {
+                resources = Object.freeze({
+                  resources: Object.freeze(
+                    resources.resources.map((resource) => {
+                      if (resource.key !== step.resource) return resource;
+                      const observed = completedResources.resources.find(
+                        (completed) => completed.key === resource.key,
+                      );
+                      assert.ok(observed);
+                      return observed;
+                    }),
+                  ),
+                });
+                snapshot = resources;
                 await callbacks.onCreated?.(step, resources);
-              else if (step.action === "run") {
+              } else if (step.action === "run") {
                 await callbacks.onStarted?.(step);
                 const response = {
                   status: 0,
@@ -376,9 +515,11 @@ function fixture() {
     recoveryId: `docker-task.${plan.stableLogicalHomeBindingHash}.${"b".repeat(64)}.${"c".repeat(64)}`,
     recoveryCapability: {},
   };
+  let currentControl: unknown = null;
   const state = {
     controls: new WeakMap(),
     acquireHomeLease: () => ({
+      assertLive: () => true,
       release: () => {
         releases++;
         events.push("home");
@@ -405,7 +546,7 @@ function fixture() {
       transform = value;
     },
     run: (
-      callbacks: import("../../src/attempt/types.ts").AttemptCallbacks = {},
+      callbacks: import("../../src/lifecycle/types.ts").AttemptCallbacks = {},
     ) => {
       const started = boundary.start(
         { ...state, callbacks },
@@ -415,10 +556,13 @@ function fixture() {
       );
       assert.equal(started.status, "started");
       if (started.status !== "started") throw Error("test_start_blocked");
+      currentControl = started.controlCapability;
       return started.completion;
     },
+    cancel: () => boundary.cancel(state, currentControl, management),
     request: () => request,
     snapshot: () => snapshot,
+    initialSnapshot: () => initialSnapshot,
     calls: () => calls,
     classification: () => classification,
     fail: (value: NonNullable<di.IsolationExecutionResult["failure"]>) => {
@@ -486,7 +630,12 @@ test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を�
   assert.equal(after.calls(), 1);
   assert.equal(after.releases(), 0);
   assert.equal(unknown.cleanupConfirmed, false);
-  assert.equal(unknown.resourceSnapshot, null);
+  assert.equal(unknown.resourceSnapshot, after.initialSnapshot());
+  assert.ok(
+    unknown.resourceSnapshot?.resources.every(
+      (r) => r.identity.dockerId === null,
+    ),
+  );
   assert.equal(unknown.recoveryId, rejected.recoveryId);
 });
 
@@ -588,13 +737,34 @@ test("DIの正規Timeoutと通信失敗を分け後着通知で上書きしな�
   ] as const) {
     const f = fixture();
     f.commandFailure(key, code);
+    const diagnostics: AttemptDiagnosticNotice[] = [];
     const result = await f.run({
+      onDiagnostic: (notice) => {
+        diagnostics.push(notice);
+      },
       onCleanupCompleted: () => {
         throw Error("late");
       },
     });
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, reason);
+    const settled = diagnostics.find(
+      (n) => n.event === "coordinator_provider_boundary_settled",
+    );
+    assert.ok(
+      settled?.event === "coordinator_provider_boundary_settled" &&
+        settled.primaryFailure,
+    );
+    assert.equal(isPrimaryFailureDiagnostic(settled.primaryFailure), true);
+    assert.equal(
+      isPrimaryFailureDiagnostic({
+        ...settled.primaryFailure,
+        exceptionCode: "unknown free text",
+      }),
+      false,
+    );
+    if (code === "PROCESS_FAILURE")
+      assert.equal(settled.primaryFailure.exceptionCode, "PROCESS_FAILURE");
     assert.ok(result.recoveryId);
     assert.equal(result.normalizedResult, null);
     assert.equal(result.cleanupConfirmed, true);
@@ -670,7 +840,7 @@ test("通常Attemptは共通DIの一次失敗と未発行通知名を推測で�
       exceptionCode: "unknown",
     });
     let diagnostic:
-      | import("../../src/attempt/types.ts").PrimaryFailureDiagnostic
+      | import("../../src/lifecycle/types.ts").PrimaryFailureDiagnostic
       | null = null;
     let notIssued = 0;
     const result = await f.run({
@@ -683,7 +853,7 @@ test("通常Attemptは共通DIの一次失敗と未発行通知名を推測で�
       },
     });
     const observed = diagnostic as
-      | import("../../src/attempt/types.ts").PrimaryFailureDiagnostic
+      | import("../../src/lifecycle/types.ts").PrimaryFailureDiagnostic
       | null;
     assert.equal(result.status, "blocked");
     assert.equal(
@@ -957,7 +1127,7 @@ function preparationFunctions(): {
   ) => Readonly<Record<string, string>> | null;
 } {
   const source = readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   const names = [
@@ -973,3 +1143,49 @@ function preparationFunctions(): {
     { Buffer },
   );
 }
+/**
+ * 最後の受動診断中の取消を最終結果へ反映する。
+ * @responsibility 取消受理と内容公開の矛盾を防ぎ、先行失敗と終了後拒否を保持する。
+ * @trace ERB-UT-023
+ * @boundary 実Attempt本文と有限DIだけ。実AI・Docker・Filesystemなし。
+ */
+test("終端診断中の取消は成功内容を公開せず先行失敗と終了後拒否を維持する", async () => {
+  for (const earlierFailure of [false, true])
+    for (const diagnosticThrows of [false, true]) {
+      const f = fixture();
+      if (earlierFailure)
+        f.commandFailure("start_provider_attached", "PROCESS_FAILURE");
+      const accepted: Promise<CancelResult>[] = [];
+      const afterCompletion: Promise<CancelResult>[] = [];
+      let recoveryId: string | null = null;
+      const result = await f.run({
+        onDiagnostic: (notice) => {
+          if (notice.event !== "coordinator_provider_boundary_settled") return;
+          recoveryId = notice.recoveryId;
+          accepted.push(f.cancel());
+          if (diagnosticThrows) throw Error("passive_diagnostic_failure");
+        },
+        onCompleted: () => {
+          afterCompletion.push(f.cancel());
+        },
+      });
+      assert.equal((await accepted[0])?.status, "requested");
+      assert.equal((await afterCompletion[0])?.status, "blocked");
+      assert.equal(result.status, earlierFailure ? "blocked" : "cancelled");
+      assert.equal(
+        result.reason,
+        earlierFailure
+          ? "docker_process_controller_execution_failed_closed"
+          : "provider_operation_cancelled",
+      );
+      assert.equal(result.cancellationRequested, true);
+      assert.equal(result.normalizedResult, null);
+      assert.equal(result.resultSha256, null);
+      assert.equal(result.resultBytes, 0);
+      assert.equal(result.reviewFindings, null);
+      assert.equal(result.recoveryId, recoveryId);
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(f.releases(), 1);
+      assert.equal((await f.cancel()).status, "blocked");
+    }
+});

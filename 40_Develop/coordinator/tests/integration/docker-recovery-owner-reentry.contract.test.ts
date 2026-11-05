@@ -11,6 +11,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
@@ -1279,13 +1280,7 @@ for (const producerMode of [
         producerMode === "cleanup_withheld" ||
         producerMode === "parent_terminated"
       ) {
-        assert.equal(target.resources.length, 5);
-        assert.ok(
-          target.resources.every(
-            (item: { request: string; dockerId: string | null }) =>
-              item.request === "not_requested" && item.dockerId === null,
-          ),
-        );
+        assert.equal(target.resources, null);
         assert.equal(target.execution.providerStart, "not_started");
         assert.equal(target.execution.externalSend, "not_issued");
         assert.equal(target.execution.sharedWrite, "not_issued");
@@ -1515,34 +1510,114 @@ for (const producerMode of [
           } else assertLegalRejected(changed);
         }
         for (let index = 0; index < 5; index++) {
-          for (const request of [
+          const frame = createResourceBookFixture(
+            identity.ownershipLabel,
+            "planned",
+            [
+              "create_egress_network",
+              "create_internal_network",
+              "create_provider",
+              "create_proxy",
+              "create_subscription_auth_probe",
+            ],
+          );
+          const resource = frame.snapshot.resources[index];
+          assert.ok(resource);
+          for (const variant of [
+            "intent",
             "not_issued",
-            "intent_saved",
-            "issued",
+            "receipt",
             "unknown",
-            "identified",
+            "absent",
           ]) {
-            const changed = structuredClone(retired);
-            changed.resources[index].request = request;
-            if (request === "identified") {
-              changed.resources[index].dockerId = "f".repeat(64);
-              changed.resources[index].receiptSource = "docker_create_result";
+            let book = stateModel.applyCoordinatorResourceEvent(null, {
+              event: "submission",
+              key: resource.key,
+              snapshot: frame.snapshot,
+              cleanup: frame.cleanup,
+            });
+            assert.ok(book);
+            if (variant === "not_issued")
+              book = stateModel.applyCoordinatorResourceEvent(book, {
+                event: "not_issued",
+                key: resource.key,
+              });
+            if (variant === "receipt" || variant === "absent") {
+              const snapshot = {
+                resources: frame.snapshot.resources.map((r) =>
+                  r.key === resource.key
+                    ? {
+                        ...r,
+                        request: "issued" as const,
+                        identity: { ...r.identity, dockerId: "f".repeat(64) },
+                      }
+                    : r,
+                ),
+              };
+              book = stateModel.applyCoordinatorResourceEvent(book, {
+                event: "receipt",
+                key: resource.key,
+                snapshot,
+                cleanup: frame.cleanup,
+              });
+              assert.ok(book);
+              if (variant === "absent")
+                book = stateModel.applyCoordinatorResourceCleanup(
+                  book,
+                  snapshot,
+                  snapshot.resources.map((r) => ({
+                    key: r.key,
+                    observation:
+                      r.key === resource.key ? "absent" : "not_requested",
+                  })),
+                  {
+                    recoveryId: retired.recoveryId,
+                    previousPayloadSha256: "a".repeat(64),
+                  },
+                );
             }
+            if (variant === "unknown") {
+              assert.ok(book);
+              book = stateModel.applyCoordinatorResourceCleanup(
+                book,
+                book.snapshot,
+                book.snapshot.resources.map((r) => ({
+                  key: r.key,
+                  observation:
+                    r.key === resource.key ? "unknown" : "not_requested",
+                })),
+                {
+                  recoveryId: retired.recoveryId,
+                  previousPayloadSha256: "a".repeat(64),
+                },
+              );
+            }
+            assert.ok(book);
+            const changed = structuredClone(retired);
+            changed.resources = book;
             assertLegalRejected(changed);
           }
+          const valid = createResourceBookFixture(
+            identity.ownershipLabel,
+            "absent",
+            frame.snapshot.resources.map((r) => r.key),
+          );
           for (const field of [
             "dockerId",
             "receiptSource",
             "observation",
-            "absence",
+            "absenceEvidenceSha256",
           ]) {
-            // 以下はcodec不合法の防御反例。上の合法要求状態とは区別する。
             const changed = structuredClone(retired);
-            changed.resources[index][field] = "changed";
+            changed.resources = structuredClone(valid);
+            if (field === "dockerId")
+              changed.resources.snapshot.resources[index].identity.dockerId =
+                "changed";
+            else changed.resources.checkpoints[index][field] = "changed";
             assert.equal(
               evaluate(changed, before, changed.host.currentToken, "host_only"),
               false,
-              `${index}:${field}`,
+              index + ":" + field,
             );
           }
         }
@@ -1699,37 +1774,10 @@ for (const producerMode of [
           before.repositoryBinding,
         );
         assert.ok(retired);
-        const resourceNames: Record<string, string> = {
-          create_egress_network: identity.resources.egress,
-          create_internal_network: identity.resources.internal,
-          create_provider: identity.resources.provider,
-          create_proxy: identity.resources.proxy,
-          create_subscription_auth_probe: identity.resources.auth,
-        };
-        const cleanupObservation = target.resources.map(
-          (resource: { purpose: string; dockerId: null }) => ({
-            purpose: resource.purpose,
-            plannedResourceName: resourceNames[resource.purpose],
-            dockerId: resource.dockerId,
-            observation: "not_requested",
-          }),
-        );
-        const resourcesConfirmed =
-          stateModel.prepareCoordinatorStateCleanupSnapshot(
-            retired,
-            emitted.recoveryId,
-            cleanupObservation,
-            before.repositoryBinding,
-          );
-        assert.ok(resourcesConfirmed);
-        const retriedResourcesConfirmed =
-          stateModel.prepareCoordinatorStateCleanupSnapshot(
-            resourcesConfirmed,
-            emitted.recoveryId,
-            cleanupObservation,
-            before.repositoryBinding,
-          );
-        assert.ok(retriedResourcesConfirmed);
+        // 初回Intent前のexactな初期記録には資源Writerを発行しない。
+        assert.equal(target.resources, null);
+        const resourcesConfirmed = retired;
+        const retriedResourcesConfirmed = retired;
         const expectedPending = stateModel.prepareCoordinatorStateHostSnapshot(
           retriedResourcesConfirmed,
           emitted.recoveryId,
@@ -1737,14 +1785,7 @@ for (const producerMode of [
           before.repositoryBinding,
         );
         assert.ok(expectedPending);
-        const expectedRemoval =
-          stateModel.prepareCoordinatorStateCleanupSnapshot(
-            expectedPending,
-            emitted.recoveryId,
-            cleanupObservation,
-            before.repositoryBinding,
-          );
-        assert.ok(expectedRemoval);
+        const expectedRemoval = expectedPending;
         const pendingSnapshot = JSON.parse(expectedPending.toString("utf8"));
         const removalSnapshot = JSON.parse(expectedRemoval.toString("utf8"));
         assert.deepEqual(
@@ -2158,19 +2199,21 @@ for (const fault of [
           value.recoveryId === report.recoveryId,
       );
       assert.ok(target && target.kind === "docker_task");
-      const auth = target.resources.find(
-        (value: { purpose: string }) =>
-          value.purpose === "create_subscription_auth_probe",
+      const auth = target.resources.snapshot.resources.find(
+        (value: { key: string }) =>
+          value.key === "create_subscription_auth_probe",
       );
-      assert.deepEqual(auth, {
-        purpose: "create_subscription_auth_probe",
-        request: ["after_unknown", "packet"].includes(fault)
-          ? "unknown"
-          : "intent_saved",
-        dockerId: null,
+      const checkpoint = target.resources.checkpoints.find(
+        (value: { key: string }) => value.key === auth.key,
+      );
+      assert.equal(auth.request, "not_issued");
+      assert.equal(auth.identity.dockerId, null);
+      assert.deepEqual(checkpoint, {
+        key: auth.key,
+        submission: "intent_saved",
         receiptSource: null,
         observation: "unobserved",
-        absence: null,
+        absenceEvidenceSha256: null,
       });
       const identity = JSON.parse(target.identityJson);
       for (const location of [
@@ -2919,18 +2962,38 @@ for (const { repeatCount, retained } of [
           }>;
         }
       >();
-      const resources = (
-        [
-          ["create_egress_network", plan.egressNetworkName],
-          ["create_internal_network", plan.internalNetworkName],
-          ["create_provider", plan.providerContainerName],
-          ["create_proxy", plan.proxyContainerName],
-          ["create_subscription_auth_probe", plan.authContainerName],
-        ] as const
-      ).map(([purpose, plannedResourceName]) => ({
-        purpose,
-        plannedResourceName,
-        dockerId: null,
+      const resourceSnapshot = {
+        resources: (
+          [
+            ["create_egress_network", plan.egressNetworkName],
+            ["create_internal_network", plan.internalNetworkName],
+            ["create_provider", plan.providerContainerName],
+            ["create_proxy", plan.proxyContainerName],
+            ["create_subscription_auth_probe", plan.authContainerName],
+          ] as const
+        ).map(([key, name]) => ({
+          key,
+          identity: {
+            kind: key.endsWith("_network")
+              ? ("network" as const)
+              : ("container" as const),
+            name,
+            ownershipLabel: plan.ownershipLabel,
+            dockerId: null,
+          },
+          request: "not_issued" as const,
+          configuration: {
+            image: null,
+            command: null,
+            environmentNames: null,
+            mounts: null,
+            networks: null,
+            internal: null,
+          },
+        })),
+      };
+      const resources = resourceSnapshot.resources.map((r) => ({
+        key: r.key,
         observation: "not_requested" as const,
       }));
       const effects = await import("../../src/execution/controller.ts");
@@ -3144,6 +3207,32 @@ for (const { repeatCount, retained } of [
         );
         assert.notEqual(startedHost.snapshot.token, hostBefore.snapshot.token);
         assert.equal(startedHost.hostPaths.root, owned.root);
+        // 有限Host試験はDocker要求を発行しない。元予定と明示未発行通知を保存する。
+        const resourceFrame = {
+          snapshot: resourceSnapshot,
+          cleanup: {
+            cleanupOrder: resourceSnapshot.resources.map((r) => r.key),
+            setupTimeoutMs: 15000,
+            unreceiptedAbsence: "retain",
+            verifyLabelAbsence: true,
+          },
+        };
+        assert.equal(
+          ownerRuntime.markRuntimeOwnedDockerResourceSubmission(
+            capability,
+            "create_subscription_auth_probe",
+            resourceFrame,
+          ),
+          true,
+        );
+        for (const resource of resourceSnapshot.resources)
+          assert.equal(
+            ownerRuntime.recordRuntimeOwnedDockerResourceNotIssued(
+              capability,
+              resource.key,
+            ),
+            true,
+          );
         const beforeComplete = fs.readFileSync(statePath);
         assert.equal(
           ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
@@ -3395,6 +3484,7 @@ for (const { repeatCount, retained } of [
         const terminalObservation = Object.freeze({
           operationId: plan.operationId,
           recoveryId: proof.recoveryId,
+          resourceSnapshot,
           resources,
           primaryFailure: null,
           processTreeTerminationConfirmed: true,
@@ -4390,6 +4480,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       recoveryCapability: capability,
       managementCapability: management,
       recoveryId: "exact-id",
+      resourceSnapshot: { resources: [] },
       observations: [],
       mountCompletion: null,
       mountLeaseReleased: false,
@@ -4459,6 +4550,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       {
         operationId: plan.operationId,
         recoveryId: "exact-id",
+        resourceSnapshot: { resources: [] },
         resources: [],
         primaryFailure: null,
         processTreeTerminationConfirmed: true,
@@ -4532,6 +4624,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         recoveryCapability: projectCapability,
         managementCapability: management,
         recoveryId: "exact-id",
+        resourceSnapshot: { resources: [] },
         observations: [],
         mountCompletion: null,
         mountLeaseReleased: false,
@@ -4556,6 +4649,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       {
         operationId: projectPlan.operationId,
         recoveryId: "exact-id",
+        resourceSnapshot: { resources: [] },
         resources: [],
         primaryFailure: null,
         processTreeTerminationConfirmed: true,
@@ -4681,6 +4775,15 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         runtime.markRuntimeOwnedDockerResourceSubmission(
           stoppedResult,
           "create_provider",
+          {
+            snapshot: { resources: [] },
+            cleanup: {
+              cleanupOrder: [],
+              setupTimeoutMs: 1000,
+              unreceiptedAbsence: "retain",
+              verifyLabelAbsence: false,
+            },
+          },
         ),
         false,
       );
@@ -4697,6 +4800,15 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         runtime.markRuntimeOwnedDockerResourceSubmission(
           failedCapability,
           "create_provider",
+          {
+            snapshot: { resources: [] },
+            cleanup: {
+              cleanupOrder: [],
+              setupTimeoutMs: 1000,
+              unreceiptedAbsence: "retain",
+              verifyLabelAbsence: false,
+            },
+          },
         ),
         false,
       );
@@ -4718,6 +4830,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         recoveryCapability: failedCapability,
         managementCapability: management,
         recoveryId: "exact-id",
+        resourceSnapshot: { resources: [] },
         observations: [],
         mountCompletion: null,
         mountLeaseReleased: false,
@@ -4888,5 +5001,46 @@ test("レビュー所見からの是正許可は同じ終端結果と初回レ�
     );
     assert.equal(returned, fault === "none" ? permit : null, fault);
     assert.equal(issued, fault === "none" ? 1 : 0, fault);
+  }
+});
+
+/**
+ * 回復子の初回Intent前の前提を、実子本文のReader断片で確認する。
+ * @responsibility null Bookを未作成の断定や旧配列へ変換しない。
+ * @trace ERB-IT-014
+ * @boundary Source内の前提だけ。実Host・Native・Dockerには接続しない。
+ */
+test("回復子は初回Intent前のnull Bookだけを受け付ける", () => {
+  const source = fs.readFileSync(
+    new URL("../fixtures/docker-recovery-abandon-worker.ts", import.meta.url),
+    "utf8",
+  );
+  const matches = [
+    ...source.matchAll(
+      /const target = before\.operations\.find\([\s\S]*?(?=[ ]{2}const identity = JSON\.parse\(target\.identityJson\);)/gu,
+    ),
+  ];
+  assert.equal(matches.length, 1);
+  const body = matches[0]?.[0];
+  assert.ok(body);
+  for (const resources of [
+    null,
+    [],
+    { snapshot: { resources: [] }, checkpoints: [] },
+  ]) {
+    const run = (): unknown =>
+      runInNewContext(
+        stripTypeScriptTypes(`(()=>{${body};return target;})()`),
+        {
+          assert,
+          id: "exact-recovery",
+          before: { operations: [{ recoveryId: "exact-recovery", resources }] },
+        },
+      );
+    if (resources === null) {
+      const actual = run();
+      assert.ok(actual && typeof actual === "object" && "resources" in actual);
+      assert.equal(actual.resources, null);
+    } else assert.throws(run);
   }
 });

@@ -159,35 +159,21 @@ export function inspectIsolation(
           observation !== "absent" &&
           input.unreceiptedAbsence === "observe"
         ) {
-          const candidates =
-            input.discovery.find((entry) => entry.key === resource.key)
-              ?.configurations ?? [];
-          for (const expected of candidates) {
+          signal?.throwIfAborted();
+          dockerId = operations.discoverSubmitted({
+            kind: identity.kind,
+            expectedName: identity.name,
+            ownershipLabel: identity.ownershipLabel,
+          });
+          signal?.throwIfAborted();
+          if (dockerId !== null) {
+            const present = operations.inspectIdentity(
+              { ...identity, dockerId },
+              resource.key,
+              { allowAlreadyAbsent: false, onObserved },
+            );
             signal?.throwIfAborted();
-            if (dockerId === null)
-              dockerId = operations.discoverSubmitted(expected);
-            signal?.throwIfAborted();
-            if (dockerId !== null) {
-              const present = operations.recoverObserved(
-                { ...expected, dockerId },
-                {
-                  allowAlreadyAbsent: false,
-                  onObserved: (snapshot) =>
-                    onObserved(
-                      Object.freeze({
-                        resources: Object.freeze(
-                          snapshot.resources.map((item) =>
-                            Object.freeze({ ...item, key: resource.key }),
-                          ),
-                        ),
-                      }),
-                    ),
-                },
-              );
-              signal?.throwIfAborted();
-              observation = present ? "present" : "unknown";
-              if (present) break;
-            }
+            observation = present ? "present" : "unknown";
           }
         }
       }

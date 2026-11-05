@@ -233,7 +233,10 @@ export function createRecoveryExecutor(
       }> = Object.freeze({}),
     ) => observeExpectedDockerResource(run, expectation, options),
     discoverSubmitted: (
-      expectation: Omit<DockerResourceExpectation, "dockerId">,
+      expectation: Pick<
+        DockerResourceExpectation,
+        "kind" | "expectedName" | "ownershipLabel"
+      >,
     ) => discoverSubmittedDockerResource(run, expectation),
     observeAbsent: (
       kind: "container" | "network",
@@ -278,7 +281,10 @@ export type DockerResourceRecoveryOperations = Readonly<{
     }>,
   ) => boolean;
   discoverSubmitted: (
-    expectation: Omit<DockerResourceExpectation, "dockerId">,
+    expectation: Pick<
+      DockerResourceExpectation,
+      "kind" | "expectedName" | "ownershipLabel"
+    >,
   ) => string | null;
   observeAbsent: (
     kind: "container" | "network",

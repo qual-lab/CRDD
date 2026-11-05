@@ -4,18 +4,63 @@
  * @trace ARCH-000008
  */
 
-import type {
-  DockerResourceCleanupObservation,
-  DockerResourceExpectationSet,
-  DockerResourceReceipts,
-  ResourceCleanupResult,
-} from "../../../executor/src/attempt/types.ts";
-import type { ResourceCleanupCallbacks } from "../../../executor/src/lifecycle/callbacks.ts";
+import { types as utilTypes } from "node:util";
+import path from "node:path";
+import {
+  describeIsolationConfiguration,
+  type ResourceSnapshot,
+} from "../../src/index.ts";
 import {
   createRecoveryExecutor,
   type DockerRecoveryExecutionBinding,
   type DockerResourceRecoveryOperations,
 } from "../../src/cleanup/execute.ts";
+
+export type DockerResourceReceipts = Readonly<
+  Record<
+    | "create_provider"
+    | "create_proxy"
+    | "create_subscription_auth_probe"
+    | "create_internal_network"
+    | "create_egress_network",
+    Readonly<{ submitted: boolean; dockerId: string | null }>
+  >
+>;
+
+export type DockerResourceCleanupObservation = Readonly<{
+  purpose: keyof DockerResourceReceipts;
+  plannedResourceName: string;
+  dockerId: string | null;
+  observation: "not_requested" | "absent" | "unknown";
+}>;
+
+export type DockerResourceExpectationSet = readonly Readonly<{
+  purpose: keyof DockerResourceReceipts;
+  expectations: readonly Omit<
+    import("../../../docker-isolation/src/cleanup/types.ts").DockerResourceExpectation,
+    "dockerId"
+  >[];
+}>[];
+
+export type ResourceCleanupResult = Readonly<{
+  resourceSnapshot?: ResourceSnapshot;
+  status: "completed" | "blocked";
+  operationId: string;
+  recoveryId: string;
+  reason: string;
+  dockerCleanupConfirmed: boolean;
+  configCleanupConfirmed: boolean;
+  resources: readonly DockerResourceCleanupObservation[];
+}>;
+export interface ResourceCleanupCallbacks<Observation> {
+  onResourceInspecting?(purpose: keyof DockerResourceReceipts): void;
+  onResourceIdentified?(
+    purpose: keyof DockerResourceReceipts,
+    dockerId: string,
+  ): void;
+  onResourcesClosed?(observation: Observation): void | Promise<void>;
+  onCleanupCompleted?(observation: Observation): void | Promise<void>;
+}
 
 /**
  * 必要な回収通知を同期処理として完了させる。
@@ -221,4 +266,281 @@ export function parseDockerTaskRecoveryId(token: unknown) {
         baseHash: match[3],
       })
     : null;
+}
+
+/** 過去の構成反例だけを保持する有限Oracle。製品回収はSnapshotを使う。 */
+export function codexAdviceProviderInitRequired(
+  operationMode: string,
+  imageDigest: string | null,
+) {
+  return (
+    operationMode === "workbench_advice" &&
+    (imageDigest ===
+      describeIsolationConfiguration("codex").assets.alternateIdentity
+        .fixedImageDigest ||
+      imageDigest ===
+        "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e" ||
+      imageDigest ===
+        "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36")
+  );
+}
+
+/**
+ * 回収する五用途の固定技術期待値を構築する。
+ * @responsibility 回収順、Network、Image、MountとInitを下位の不変計画として所有する。
+ * @trace ARCH-000008
+ * @input input: 五資源名、Label、二Image digest、Workspace／read-only／Initの三boolean。
+ * @returns Container先行の固定五用途と期待値候補、またはnull。
+ * @precondition 上位がIdentityの意味、Provider判断と現在資源の結合を確認する。
+ * @postcondition 秘密値・所在・実ID・状態・Authorityを計画へ含めない。
+ * @effect N/A: 同期の値構築だけ。
+ * @failure 不正な名前・Label・digest・型・欠測は部分計画を返さずnull。
+ * @invariant Proxy候補順と独立booleanの意味を保持する。
+ * @boundary 上位の検証済み非秘密入力とDocker技術構成。
+ * @security この計画から存在・所有・削除許可を推定しない。
+ * @concurrency 入力を書き換えず、返却値と入れ子配列を凍結する。
+ */
+export function planDockerRecoveryResourceExpectations(
+  input: Readonly<{
+    authenticationContainerName: string;
+    executionContainerName: string;
+    proxyContainerName: string;
+    internalNetworkName: string;
+    egressNetworkName: string;
+    ownershipLabel: string;
+    executionImageDigest: string;
+    proxyImageDigest: string;
+    workspaceMounted: boolean;
+    workspaceReadOnly: boolean;
+    initRequired: boolean;
+    workspaceProtected?: boolean;
+    workspaceProtection?: Readonly<{
+      gitSourcePath: string;
+      internalSourcePath: string;
+    }>;
+  }>,
+): DockerResourceExpectationSet | null {
+  try {
+    if (
+      !input ||
+      typeof input !== "object" ||
+      utilTypes.isProxy(input) ||
+      Array.isArray(input)
+    )
+      return null;
+    const stringKeys = [
+      "authenticationContainerName",
+      "executionContainerName",
+      "proxyContainerName",
+      "internalNetworkName",
+      "egressNetworkName",
+      "ownershipLabel",
+      "executionImageDigest",
+      "proxyImageDigest",
+    ] as const;
+    const booleanKeys = [
+      "workspaceMounted",
+      "workspaceReadOnly",
+      "initRequired",
+    ] as const;
+    const keys = [
+      ...stringKeys,
+      ...booleanKeys,
+      ...(Object.hasOwn(input, "workspaceProtected")
+        ? ["workspaceProtected" as const]
+        : []),
+      ...(Object.hasOwn(input, "workspaceProtection")
+        ? ["workspaceProtection" as const]
+        : []),
+    ];
+    const ownKeys = Reflect.ownKeys(input);
+    if (
+      ownKeys.length !== keys.length ||
+      ownKeys.some(
+        (key) =>
+          typeof key !== "string" ||
+          !keys.includes(key as (typeof keys)[number]),
+      )
+    )
+      return null;
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    if (
+      keys.some(
+        (key) => !descriptors[key] || !Object.hasOwn(descriptors[key], "value"),
+      )
+    )
+      return null;
+    const raw = {
+      authenticationContainerName:
+        descriptors.authenticationContainerName.value,
+      executionContainerName: descriptors.executionContainerName.value,
+      proxyContainerName: descriptors.proxyContainerName.value,
+      internalNetworkName: descriptors.internalNetworkName.value,
+      egressNetworkName: descriptors.egressNetworkName.value,
+      ownershipLabel: descriptors.ownershipLabel.value,
+      executionImageDigest: descriptors.executionImageDigest.value,
+      proxyImageDigest: descriptors.proxyImageDigest.value,
+      workspaceMounted: descriptors.workspaceMounted.value,
+      workspaceReadOnly: descriptors.workspaceReadOnly.value,
+      initRequired: descriptors.initRequired.value,
+      ...(descriptors.workspaceProtected
+        ? { workspaceProtected: descriptors.workspaceProtected.value }
+        : {}),
+      ...(descriptors.workspaceProtection
+        ? { workspaceProtection: descriptors.workspaceProtection.value }
+        : {}),
+    };
+    if (
+      stringKeys.some((key) => typeof raw[key] !== "string") ||
+      booleanKeys.some((key) => typeof raw[key] !== "boolean") ||
+      (Object.hasOwn(raw, "workspaceProtected") &&
+        typeof raw.workspaceProtected !== "boolean") ||
+      (raw.workspaceProtected === true && raw.workspaceMounted !== true)
+    )
+      return null;
+    const captured = raw as Readonly<typeof input>;
+    if (
+      !/^crdd-auth-[a-f0-9]{16}$/u.test(captured.authenticationContainerName) ||
+      !/^crdd-(?:claude|codex)-[a-f0-9]{16}$/u.test(
+        captured.executionContainerName,
+      ) ||
+      !/^crdd-proxy-[a-f0-9]{16}$/u.test(captured.proxyContainerName) ||
+      !/^crdd-internal-[a-f0-9]{16}$/u.test(captured.internalNetworkName) ||
+      !/^crdd-egress-[a-f0-9]{16}$/u.test(captured.egressNetworkName) ||
+      !/^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
+        captured.ownershipLabel,
+      ) ||
+      ![captured.executionImageDigest, captured.proxyImageDigest].every(
+        (digest) => /^sha256:[a-f0-9]{64}$/u.test(digest),
+      ) ||
+      (captured.workspaceProtection &&
+        (captured.workspaceProtected !== true ||
+          ![
+            captured.workspaceProtection.gitSourcePath,
+            captured.workspaceProtection.internalSourcePath,
+          ].every(
+            (value) =>
+              typeof value === "string" &&
+              path.isAbsolute(value) &&
+              !/[\0\r\n,]/u.test(value),
+          )))
+    )
+      return null;
+    const order = [
+      "create_provider",
+      "create_subscription_auth_probe",
+      "create_proxy",
+      "create_internal_network",
+      "create_egress_network",
+    ] as const;
+    const names = {
+      create_provider: captured.executionContainerName,
+      create_subscription_auth_probe: captured.authenticationContainerName,
+      create_proxy: captured.proxyContainerName,
+      create_internal_network: captured.internalNetworkName,
+      create_egress_network: captured.egressNetworkName,
+    };
+    const plan = order.map((purpose) => {
+      const network =
+        purpose === "create_internal_network" ||
+        purpose === "create_egress_network";
+      const base: Omit<
+        import("../../../docker-isolation/src/cleanup/types.ts").DockerResourceExpectation,
+        "dockerId"
+      > = {
+        key: purpose,
+        kind: network ? "network" : "container",
+        expectedName: names[purpose],
+        ownershipLabel: captured.ownershipLabel,
+        expectedImage: network
+          ? null
+          : purpose === "create_proxy"
+            ? captured.proxyImageDigest
+            : captured.executionImageDigest,
+        shouldBeInternal: network
+          ? purpose === "create_internal_network"
+          : null,
+        expectedNetworks: Object.freeze(
+          network
+            ? []
+            : purpose === "create_subscription_auth_probe"
+              ? ["none"]
+              : [captured.internalNetworkName],
+        ),
+        expectedUser: network ? null : "65534:65534",
+        expectedMounts: Object.freeze(
+          purpose === "create_subscription_auth_probe"
+            ? [
+                Object.freeze({
+                  destination: "/provider-home",
+                  readWrite: false,
+                  source: null,
+                }),
+              ]
+            : purpose === "create_provider"
+              ? [
+                  Object.freeze({
+                    destination: "/provider-home",
+                    readWrite: true,
+                    source: null,
+                  }),
+                  Object.freeze({
+                    destination: "/tmp",
+                    readWrite: true,
+                    source: null,
+                  }),
+                  ...(captured.workspaceMounted
+                    ? [
+                        Object.freeze({
+                          destination: "/work",
+                          readWrite: !captured.workspaceReadOnly,
+                          source: null,
+                        }),
+                      ]
+                    : []),
+                  ...(captured.workspaceProtected === true
+                    ? [
+                        Object.freeze({
+                          destination: "/work/.git",
+                          readWrite: false,
+                          source:
+                            captured.workspaceProtection?.gitSourcePath ?? null,
+                        }),
+                        Object.freeze({
+                          destination: "/work/.crdd",
+                          readWrite: false,
+                          source:
+                            captured.workspaceProtection?.internalSourcePath ??
+                            null,
+                        }),
+                      ]
+                    : []),
+                ]
+              : [],
+        ),
+        initRequired: purpose === "create_provider" && captured.initRequired,
+        tmpfsBytes: purpose === "create_proxy" ? 16777216 : null,
+      };
+      return Object.freeze({
+        purpose,
+        expectations: Object.freeze([
+          Object.freeze(base),
+          ...(purpose === "create_proxy"
+            ? [
+                Object.freeze({
+                  ...base,
+                  expectedNetworks: Object.freeze([
+                    captured.internalNetworkName,
+                    captured.egressNetworkName,
+                  ]),
+                }),
+              ]
+            : []),
+        ]),
+      });
+    });
+    return Object.freeze(plan);
+  } catch {
+    return null;
+  }
 }

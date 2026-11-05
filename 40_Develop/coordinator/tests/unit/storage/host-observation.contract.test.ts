@@ -56,7 +56,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -75,17 +75,6 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -121,13 +110,45 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
       ownerEffect: "disabled",
       workspaceReusable: false,
     },
-    resources: initialOperation.resources.map((item) => ({
-      ...item,
-      request: "identified",
-      dockerId: "d".repeat(64),
-      receiptSource: "docker_create_result",
-      observation: "absent",
-    })),
+    resources: {
+      snapshot: {
+        resources: [
+          {
+            key: "resource",
+            request: "issued",
+            identity: {
+              kind: "container",
+              name: "crdd-fixture",
+              dockerId: "d".repeat(64),
+              ownershipLabel: identity.ownershipLabel,
+            },
+            configuration: {
+              image: null,
+              command: null,
+              environmentNames: null,
+              mounts: null,
+              networks: null,
+              internal: null,
+            },
+          },
+        ],
+      },
+      checkpoints: [
+        {
+          key: "resource",
+          submission: "intent_saved",
+          receiptSource: "docker_create_result",
+          observation: "absent",
+          absenceEvidenceSha256: "e".repeat(64),
+        },
+      ],
+      cleanup: {
+        cleanupOrder: ["resource"],
+        setupTimeoutMs: 10000,
+        unreceiptedAbsence: "retain",
+        verifyLabelAbsence: false,
+      },
+    },
   };
 
   assert.equal(
@@ -164,6 +185,8 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
       false,
     );
   }
+  const book = releasedOperation.resources;
+  assert.ok(book);
   for (const invalid of [
     { ...releasedOperation, lease: "held" as const },
     {
@@ -184,18 +207,37 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
       ...releasedOperation,
       host: { ...releasedOperation.host, pendingTransitionJson: "pending" },
     },
-    { ...releasedOperation, resources: releasedOperation.resources.slice(1) },
     {
       ...releasedOperation,
-      resources: releasedOperation.resources.map((item, i) =>
-        i === 0 ? { ...item, request: "unknown" as const } : item,
-      ),
+      resources: { ...book, checkpoints: book.checkpoints.slice(1) },
     },
     {
       ...releasedOperation,
-      resources: releasedOperation.resources.map((item, i) =>
-        i === 0 ? { ...item, observation: "unknown" as const } : item,
-      ),
+      resources: {
+        ...book,
+        checkpoints: book.checkpoints.map((item) => ({
+          ...item,
+          receiptSource: null,
+        })),
+        snapshot: {
+          resources: book.snapshot.resources.map((item) => ({
+            ...item,
+            request: "unknown" as const,
+            identity: { ...item.identity, dockerId: null },
+          })),
+        },
+      },
+    },
+    {
+      ...releasedOperation,
+      resources: {
+        ...book,
+        checkpoints: book.checkpoints.map((item) => ({
+          ...item,
+          observation: "unknown" as const,
+          absenceEvidenceSha256: null,
+        })),
+      },
     },
   ])
     assert.equal(coordinatorReleasedTaskCanObserveHostAbsence(invalid), false);

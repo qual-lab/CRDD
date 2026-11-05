@@ -1,135 +1,96 @@
 /**
- * 共通Lifecycleと単独再入場をDI正本の資源APIへ接続する。
- * @packageDocumentation
- * @responsibility 通知と元結果を搬送し、資源探索・構成照合・削除を再実装しない。
+ * 元Snapshotの明示観測・単独回収とHome技術Leaseの解放を提供する。
+ * @responsibility 資源Model・Docker操作・保存判断を再構築せずDI正本へ接続する。
  * @trace ARCH-000008
- * @boundary 保存・許可・保持判断は上位、技術処置はDI。
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   cleanupIsolation,
-  type ResourceCleanupResult as IsolationResourceCleanupResult,
-  type ResourceInspection as IsolationResourceInspection,
   inspectIsolation,
-  type ResourceTarget as IsolationResourceTarget,
+  type IsolationCallbacks,
+  type IsolationExecution,
+  type ResourceTarget,
+  type ResourceInspection,
+  type ResourceCleanupResult,
 } from "../../../docker-isolation/src/index.ts";
-import {
-  cleanupAttemptResources,
-  inspectAttemptResources,
-} from "../attempt/recovery.ts";
-import type {
-  DockerResourceCleanupObservation,
-  DockerResourceReceipts,
-  HomeLease,
-  ResourceCleanupResult,
-  ResourceInspection,
-  ResourceTarget,
-} from "../attempt/types.ts";
-import { cleanupAuthenticationResources } from "../authentication/operations.ts";
-import type { AuthenticationCleanupResult } from "../authentication/types.ts";
-import type { ResourceCleanupCallbacks } from "./callbacks.ts";
-import type { AuthenticationResourceTarget } from "./types.ts";
+import type { HomeLease } from "./types.ts";
 
-/**
- * 保持中のHome技術Leaseを一回解放する。
- * @responsibility Promise・例外・falseを解放成功へ変換しない。
- * @trace ARCH-000008
- * @precondition 呼出し元が実行終了又は開始前拒否を確認している。
- * @postcondition 同じ呼出し内で解放を再試行しない。
- * @effect 元Home Leaseのreleaseを一回だけ呼ぶ。
- */
+/** 元Leaseの一回解放を試み、非同期値・例外を成功へ変換しない。 @trace ARCH-000008 */
 export function releaseHomeLease(homeLease: HomeLease): boolean {
   try {
     const released: unknown = homeLease.release();
-    if (utilTypes.isPromise(released)) void released.catch(() => {});
+    if (types.isPromise(released)) void released.catch(() => {});
     return released === true;
   } catch {
     return false;
   }
 }
 
-/**
- * 対象の現在観測だけを返す。診断の先行実行を回収の条件にしない。
- * @responsibility 元情報をDIへ渡し、unknownを不存在へ変換しない。
- * @trace ARCH-000008
- * @input target: 確定した技術対象。purpose: 資源集合の限定観測。
- * @returns 資源観測又はDirectoryの元結果。
- * @effect DIによる読取りと自作configの取得・終了。
- * @failure 不明は元参照を保持したblocked又はnull。
- */
-export function inspectResources(
-  target: ResourceTarget,
-  purpose?: keyof DockerResourceReceipts,
-): ResourceInspection;
-export function inspectResources(
-  target: IsolationResourceTarget<"directory", "inspect">,
-): IsolationResourceInspection<"directory">;
-export function inspectResources(
-  target: IsolationResourceTarget<"container">,
-): IsolationResourceInspection<"container">;
-export function inspectResources(
-  target:
-    | ResourceTarget
-    | IsolationResourceTarget<"directory", "inspect">
-    | IsolationResourceTarget<"container">,
-  purpose?: keyof DockerResourceReceipts,
-):
-  | ResourceInspection
-  | IsolationResourceInspection<"directory">
-  | IsolationResourceInspection<"container">
-  | null {
-  if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
-  if (target?.kind === "docker_runtime_directory")
-    return inspectIsolation(target);
-  if (target?.kind === "container") return inspectIsolation(target);
-  return inspectAttemptResources(target, purpose);
+/** 不正な用途判別によるgetter／Proxy実行をDI接続前に拒否する。 @trace ARCH-000008 */
+function validateResourceTarget(target: unknown): void {
+  if (!target || typeof target !== "object" || types.isProxy(target))
+    throw Error("resource_target_invalid");
+  const descriptor = Object.getOwnPropertyDescriptor(target, "kind");
+  if (
+    descriptor &&
+    (!("value" in descriptor) ||
+      !["container", "docker_runtime_directory"].includes(descriptor.value))
+  )
+    throw Error("resource_target_invalid");
+  if (!descriptor) {
+    const prototype = Object.getPrototypeOf(target);
+    if (prototype !== Object.prototype && prototype !== null)
+      throw Error("resource_target_invalid");
+  }
 }
 
 /**
- * 確定した資源をDIで回収し、元の技術結果を返す。
- * @responsibility 上位への逆照会や保存判断を追加せず、必要通知と完了を搬送する。
+ * 元資源の観測だけをDIへ委譲する。
+ * @responsibility Signal・unknownと元結果を維持し、診断を回収許可にしない。
  * @trace ARCH-000008
- * @input target: 元資源の技術情報。callbacks: 保存方法を知らない通知。
- * @returns 技術回収の結果。Process終了や保存を推測しない。
- * @effect DIの実体照合・元ID削除・現在不存在確認だけ。
- * @failure 不明時は同じ対象参照と回収未確認を保持する。
+ * @effect 対象限定のDI読取りだけ。新しい構成やRecovery状態を作らない。
+ */
+export function inspectResources(
+  target: ResourceTarget<"snapshot", "inspect">,
+  options?: Readonly<{ signal?: AbortSignal; stopOnUnknownAbsence?: boolean }>,
+): ResourceInspection<"snapshot">;
+export function inspectResources(
+  target: ResourceTarget<"container">,
+): ResourceInspection<"container">;
+export function inspectResources(
+  target: ResourceTarget<"directory", "inspect">,
+): ResourceInspection<"directory">;
+export function inspectResources(
+  target: ResourceTarget,
+  options?: Readonly<{ signal?: AbortSignal; stopOnUnknownAbsence?: boolean }>,
+): ResourceInspection {
+  validateResourceTarget(target);
+  return inspectIsolation(target as ResourceTarget<"snapshot">, options);
+}
+
+/**
+ * 元Snapshotの回収をDIへ委譲する。取消と最終結果は元Sessionに保持する。
+ * @responsibility 通常と再入場で同じ技術契約を使い、Receiptや用途から構成を再生成しない。
+ * @trace ARCH-000008
+ * @effect DIの照合・元ID回収・不存在確認だけ。上位の保持・保存判断は行わない。
  */
 export function cleanupResources(
-  target: AuthenticationResourceTarget,
-): Promise<AuthenticationCleanupResult>;
+  target: ResourceTarget<"snapshot">,
+  callbacks?: IsolationCallbacks,
+): IsolationExecution;
+export function cleanupResources(
+  target: ResourceTarget<"container">,
+): ResourceCleanupResult<"container">;
+export function cleanupResources(
+  target: ResourceTarget<"directory", "cleanup">,
+): Promise<ResourceCleanupResult<"directory">>;
 export function cleanupResources(
   target: ResourceTarget,
-  callbacks?: ResourceCleanupCallbacks<
-    readonly DockerResourceCleanupObservation[]
-  >,
-): Promise<ResourceCleanupResult>;
-export function cleanupResources(
-  target: IsolationResourceTarget<"directory", "cleanup">,
-): Promise<IsolationResourceCleanupResult<"directory">>;
-export function cleanupResources(
-  target: IsolationResourceTarget<"container">,
-): IsolationResourceCleanupResult<"container">;
-export function cleanupResources(
-  target:
-    | ResourceTarget
-    | IsolationResourceTarget<"directory", "cleanup">
-    | AuthenticationResourceTarget
-    | IsolationResourceTarget<"container">,
-  callbacks: ResourceCleanupCallbacks<
-    readonly DockerResourceCleanupObservation[]
-  > = {},
+  callbacks: IsolationCallbacks = {},
 ):
-  | Promise<ResourceCleanupResult>
-  | Promise<IsolationResourceCleanupResult<"directory">>
-  | Promise<AuthenticationCleanupResult>
-  | IsolationResourceCleanupResult<"container"> {
-  if (utilTypes.isProxy(target)) throw Error("resource_target_invalid");
-  if (target?.kind === "docker_runtime_directory")
-    return cleanupIsolation(target);
-  if (target?.kind === "authentication") {
-    target.signal?.throwIfAborted();
-    return cleanupAuthenticationResources(target);
-  }
-  if (target?.kind === "container") return cleanupIsolation(target);
-  return cleanupAttemptResources(target, callbacks);
+  | IsolationExecution
+  | ResourceCleanupResult<"container">
+  | Promise<ResourceCleanupResult<"directory">> {
+  validateResourceTarget(target);
+  return cleanupIsolation(target as ResourceTarget<"snapshot">, callbacks);
 }

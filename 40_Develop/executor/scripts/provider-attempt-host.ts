@@ -1,12 +1,11 @@
 /**
- * 単独試験の元参照・有限記録・Home排他を一試行へ結合する。
- * @packageDocumentation
- * @responsibility 製品Hostを複製せず、試験Root内の同期保存と既存Executorだけを組み立てる。
+ * 単独試験の記録を製品Executorの公開入口へ結合する。
+ * @responsibility 試験Rootの保存と終端受領だけを所有し、実行・Home排他・清掃を複製しない。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
- * @boundary scripts専用。認証・排他取得・Docker起動は呼出し側の明示承認を必要とする。
+ * @boundary 明示承認された試験専用。実行判断と過去保持物の操作は行わない。
  */
-
+import { PURPOSES, isAttemptFailureReason } from "../src/lifecycle/attempt.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,39 +13,24 @@ import { fileURLToPath } from "node:url";
 import {
   readCommittedJson,
   writeCommittedJson,
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+  type CoordinatorResourceBook,
 } from "../../domain-model/src/index.ts";
-import type { acquireNamedPipeKernelLock } from "../../platform-access/src/index.ts";
-import type { DockerResourceReceipts } from "../src/attempt/types.ts";
-import type { AttemptDiagnosticNotice } from "../src/index.ts";
-import type { TestAttemptPlan as AttemptPlan } from "./executor-test.ts";
+import { observeWindowsProviderHome } from "../../platform-access/src/index.ts";
 import {
-  createExecutorLifecycleTestRuntime as createExecutor,
-  type ExecutorTestHost as ExecutorHost,
-  isPrimaryFailureDiagnostic,
-  planIdentity,
-  resolveValidatedPlan,
-} from "./executor-test.ts";
+  createExecutor,
+  type ExecutorRequest,
+  type ExecutorCallbacks,
+  type CompletionResult,
+  type AttemptTerminalObservation,
+  type AttemptDiagnosticNotice,
+} from "../src/index.ts";
 
-/**
- * 既存同期排他を保持した一回限りの試験Hostを組み立てる。
- * @responsibility 元Capability・資源Receipt・終端を同じ保存列へ接続する。
- * @trace ERB-IT-002
- * @trace ERB-IT-004
- * @input directory: 検証済み新品試験Root。plan: 現Homeを再観測済みの固定計画。lease: 同じHomeの保持中排他。
- * @returns 固定一試行の開始・取消・結果記録だけ。生Writerは公開しない。
- * @precondition 呼出し側がRoot・Home観測・同意・固定Image・選定と排他取得を確認する。
- * @postcondition 同期保存が成立する前に発行・終了を成功化しない。
- * @effect 試験Rootに非秘密の確定JSONを保存し、明示start後にだけ固定Executorを呼ぶ。
- * @failure 保存・相関・生存・解放の拒否は停止し、記録や資源を強制削除しない。
- * @invariant 本番Runtime state・Coordinator内部・新Registry・回復Frameworkを使用しない。
- * @boundary 試験Hostと既存Executor／Domain確定JSON／既存同期排他。
- * @security Home Path・四Hashの個別field・Provider生出力・認証内容を保存しない。既存形式の回復参照だけを保持する。
- * @concurrency completionまで元排他を保持し、技術清掃後の同期解放状態だけを記録する。Worker exitの証明ではない。
- */
+/** 元要求と同じRootに必要な通知を保存し、公開ExecutorのCompletionをjoinする。 @trace ERB-IT-004 */
 export function createStandaloneProviderAttemptHost(
   directory: string,
-  plan: AttemptPlan & { readonly consumer: "coordinator_cli" },
-  lease: NonNullable<ReturnType<typeof acquireNamedPipeKernelLock>>,
+  request: ExecutorRequest<"attempt">,
   onProviderStarted?: () => void,
 ) {
   const root = fs.realpathSync(directory);
@@ -61,63 +45,47 @@ export function createStandaloneProviderAttemptHost(
     relative.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relative)
   )
-    throw new Error("standalone_host_root_outside_tests");
-  for (const ancestor of [path.dirname(parent), parent]) {
+    throw Error("standalone_host_root_outside_tests");
+  for (const ancestor of [path.dirname(parent), parent])
     if (
       fs.lstatSync(ancestor).isSymbolicLink() ||
       fs.realpathSync(ancestor).toLowerCase() !== ancestor.toLowerCase()
     )
-      throw new Error("standalone_host_parent_invalid");
-  }
+      throw Error("standalone_host_parent_invalid");
   if (
     root.toLowerCase() !== path.resolve(directory).toLowerCase() ||
     fs.lstatSync(root).isSymbolicLink() ||
-    fs.readdirSync(root).length !== 0
+    fs.readdirSync(root).length
   )
-    throw new Error("standalone_host_root_invalid");
+    throw Error("standalone_host_root_invalid");
   const identity = fs.statSync(root, { bigint: true });
-  const planHash = planIdentity(plan);
-  const temporary = path.join(root, "tmp");
-  if (!resolveValidatedPlan(plan, temporary) || !lease.assertLive())
-    throw new Error("standalone_host_plan_or_lease_invalid");
+  const runtime = createExecutor(request, {
+    paths: {
+      tmp: path.join(root, "tmp"),
+      management: path.join(root, "management"),
+    },
+  });
+  if (!runtime) throw Error("standalone_host_plan_or_lease_invalid");
+  const operationId = request.target.operationId,
+    provider = request.selection.provider;
+  const hash = (value: string) =>
+    createHash("sha256").update(value).digest("hex");
+  const requestHash = hash(JSON.stringify(request));
+  const recoveryId = `docker-task.${request.target.stableLogicalHomeBindingHash}.${hash(root)}.${requestHash}`;
   const management = {},
-    prepared = {},
-    recovery = {},
-    finalization = {};
-  const recoveryId = `docker-task.${plan.stableLogicalHomeBindingHash}.${createHash("sha256").update(root).digest("hex")}.${planHash}`;
-  const expected = {
-    create_provider: plan.providerContainerName,
-    create_proxy: plan.proxyContainerName,
-    create_subscription_auth_probe: plan.authContainerName,
-    create_internal_network: plan.internalNetworkName,
-    create_egress_network: plan.egressNetworkName,
-  };
-  const receipts: Record<
-    keyof DockerResourceReceipts,
-    { submitted: boolean; dockerId: string | null }
-  > = {
-    create_provider: { submitted: false, dockerId: null },
-    create_proxy: { submitted: false, dockerId: null },
-    create_subscription_auth_probe: { submitted: false, dockerId: null },
-    create_internal_network: { submitted: false, dockerId: null },
-    create_egress_network: { submitted: false, dockerId: null },
-  };
+    recovery = {};
   let sequence = 0,
-    consumed = false,
-    authorityConsumed = false,
-    opened = false;
-  let terminalAttempted = false;
-  let terminalResult: object | null = null;
-  let terminalObservation:
-    | Parameters<NonNullable<ExecutorHost["recordTerminalObservation"]>>[2]
-    | null = null;
-  let releaseAttempted = false,
+    opened = false,
     released = false,
-    closed = false;
-  let absence: Parameters<NonNullable<ExecutorHost["recordDockerAbsence"]>>[1] =
-    null;
-  let mountResult: Readonly<{ status: string }> | null = null;
-  let runtime: ReturnType<typeof createExecutor>;
+    closed = false,
+    terminalAttempted = false,
+    homeChecked = false;
+  let nativeCleanupConfirmed = true,
+    homeFailure: string | null = null;
+  let resources: CoordinatorResourceBook | null = null;
+  let lastPayloadSha256 = requestHash;
+  let terminal: AttemptTerminalObservation | null = null;
+  let originalResult: CompletionResult<"attempt"> | null = null;
   let diagnostic: Readonly<
     Pick<
       Extract<
@@ -132,16 +100,7 @@ export function createStandaloneProviderAttemptHost(
       | "cleanupConfirmed"
     >
   > | null = null;
-  /** 現Root・元計画と必要な保持状態を再確認する。
-   * @responsibility 別Ownerや差替え後の保存を拒否する。
-   * @trace ERB-IT-004
-   * @input held: 生きたHome排他を必要とするか。
-   * @returns 現在の局所確認結果。
-   * @effect 試験Root metadataと既存排他状態の読取り。
-   * @failure 例外はfalseへ閉じる。
-   * @boundary 試験Rootと元排他。認証確認ではない。
-   */
-  function current(held: boolean) {
+  function current(): boolean {
     try {
       const stat = fs.statSync(root, { bigint: true });
       return (
@@ -149,30 +108,20 @@ export function createStandaloneProviderAttemptHost(
         stat.dev === identity.dev &&
         stat.ino === identity.ino &&
         stat.birthtimeNs === identity.birthtimeNs &&
-        planIdentity(plan) === planHash &&
-        (held ? !releaseAttempted && lease.assertLive() : released)
+        hash(JSON.stringify(request)) === requestHash
       );
     } catch {
       return false;
     }
   }
-  /** 非秘密の固定イベントを保存し同じ本文を読戻しする。
-   * @responsibility 保存失敗をcallback成功へ変換しない。
-   * @trace ERB-IT-002
-   * @input kindと固定用途の非秘密field。
-   * @returns 保存と読戻しが成立した場合だけtrue。
-   * @effect 今回Rootの連番JSON保存。
-   * @failure 拒否は例外。再試行しない。
-   * @boundary 試験専用記録。製品Storeではない。
-   */
-  function save(kind: string, fields: object = {}, held = true) {
-    if (!current(held)) throw new Error("standalone_host_owner_unconfirmed");
+  function save(kind: string, fields: object = {}): void {
+    if (!current()) throw Error("standalone_host_owner_unconfirmed");
     const name = `event-${String(++sequence).padStart(3, "0")}.json`;
     const value = {
       kind,
       recordedAt: new Date().toISOString(),
-      operationId: plan.operationId,
-      provider: plan.provider,
+      operationId,
+      provider,
       recoveryId,
       sequence,
       ...fields,
@@ -184,297 +133,327 @@ export function createStandaloneProviderAttemptHost(
       read.identityText !== written.identityText ||
       JSON.stringify(read.value) !== JSON.stringify(value)
     )
-      throw new Error("standalone_host_save_unconfirmed");
-    return true;
+      throw Error("standalone_host_save_unconfirmed");
+    lastPayloadSha256 = written.hash;
   }
-  const host: ExecutorHost = {
-    reportProviderProcessStarted: async (notice) => {
-      if (
-        notice.event !== "coordinator_provider_process_started" ||
-        notice.operationId !== plan.operationId ||
-        notice.provider !== plan.provider ||
-        notice.taskRole !== plan.taskRole ||
-        !current(true)
-      )
-        return false;
-      onProviderStarted?.();
-      return true;
+  const callbacks: ExecutorCallbacks<"attempt"> = {
+    onCommandSubmitting: (purpose, frame) => {
+      if (!purpose.startsWith("create_")) return;
+      // Executorが同じHomeの排他を取得した後、最初の資源Effectより前に再観測する。
+      if (!homeChecked) {
+        homeChecked = true;
+        nativeCleanupConfirmed = false;
+        const observed = observeWindowsProviderHome(
+          provider,
+          request.target.providerHomeSourcePath,
+        );
+        nativeCleanupConfirmed =
+          (!observed.processEffectIssued || observed.helperExitConfirmed) &&
+          observed.filesystemEffectIssued === false;
+        if (
+          observed.status !== "candidate" ||
+          !observed.processEffectIssued ||
+          !observed.helperExitConfirmed ||
+          !observed.artifactVerifiedBeforeAndAfter ||
+          observed.filesystemEffectIssued ||
+          [
+            "providerHomeIdentityHash",
+            "providerHomeProtectionHash",
+            "localUserBindingHash",
+            "stableLogicalHomeBindingHash",
+          ].some(
+            (key) =>
+              Reflect.get(observed, key) !== Reflect.get(request.target, key),
+          )
+        ) {
+          homeFailure = "trial_home_changed_or_unconfirmed";
+          throw Error(homeFailure);
+        }
+      }
+      const next = applyCoordinatorResourceEvent(resources, {
+        ...frame,
+        event: "submission",
+        key: purpose,
+      });
+      if (!next) throw Error("resource_submission_unconfirmed");
+      save("submission_planned", { resources: next });
+      resources = next;
     },
-    reportProviderBoundaryDiagnostic: async (notice) => {
+    onCommandNotIssued: (purpose) => {
+      if (!purpose.startsWith("create_")) return;
+      const next = applyCoordinatorResourceEvent(resources, {
+        event: "not_issued",
+        key: purpose,
+      });
+      if (!next) throw Error("resource_not_issued_unconfirmed");
+      save("resource_not_issued", { resources: next });
+      resources = next;
+    },
+    onResourceCreated: (purpose, _id, frame) => {
+      const next = applyCoordinatorResourceEvent(resources, {
+        ...frame,
+        event: "receipt",
+        key: purpose,
+      });
+      if (!next) throw Error("resource_receipt_unconfirmed");
+      save("receipt_recorded", { resources: next });
+      resources = next;
+    },
+    onResourceIdentified: (key, frame) => {
+      const next = applyCoordinatorResourceEvent(resources, {
+        ...frame,
+        event: "identified",
+        key,
+      });
+      if (!next) throw Error("resource_receipt_unconfirmed");
+      save("receipt_recorded", { resources: next });
+      resources = next;
+    },
+    onProviderSubmitting: () => save("provider_submission"),
+    onStarted: () => {
+      onProviderStarted?.();
+    },
+    onCleanupCompleted: (observation) => {
+      terminal = observation;
+      released = observation.homeLeaseReleased;
       if (
-        notice.event !== "coordinator_provider_boundary_settled" ||
-        notice.operationId !== plan.operationId ||
-        notice.provider !== plan.provider ||
-        notice.recoveryId !== recoveryId ||
-        diagnostic !== null ||
-        !isPrimaryFailureDiagnostic(notice.primaryFailure)
+        !released ||
+        !observation.processTreeTerminationConfirmed ||
+        !observation.containersAbsent ||
+        !observation.networksAbsent ||
+        !resources ||
+        !observation.resourceSnapshot ||
+        !observation.resources
       )
-        return false;
-      const projection = {
+        return;
+      const next = applyCoordinatorResourceCleanup(
+        resources,
+        observation.resourceSnapshot,
+        observation.resources,
+        { recoveryId, previousPayloadSha256: lastPayloadSha256 },
+      );
+      if (!next || next.checkpoints.some((c) => c.observation === "unknown"))
+        throw Error("absence_unconfirmed");
+      save("home_released");
+      save("absence_observed", { resources: next });
+      resources = next;
+      save("mount_recorded");
+      save("recovery_closed");
+      closed = true;
+    },
+    onDiagnostic: (notice) => {
+      if (notice.event !== "coordinator_provider_boundary_settled") return;
+      diagnostic = Object.freeze({
         primaryFailure: notice.primaryFailure,
         providerProcessStartedObserved: notice.providerProcessStartedObserved,
         processTreeTerminationObserved: notice.processTreeTerminationObserved,
         containersAbsentObserved: notice.containersAbsentObserved,
         networksAbsentObserved: notice.networksAbsentObserved,
         cleanupConfirmed: notice.cleanupConfirmed,
-      };
-      if (
-        Object.entries(projection).some(
-          ([key, value]) =>
-            key !== "primaryFailure" && typeof value !== "boolean",
-        )
-      )
-        return false;
-      diagnostic = Object.freeze(projection);
-      // 解放拒否・不明後はWriterを呼ばず、同じ結果IPCでだけ搬送する。
-      if (released && closed) save("execution_settled", projection, false);
-      return true;
-    },
-    verifyRevision: (m) => m === management && current(!released),
-    consumePreparedPlan: (p, m) => {
-      if (p !== prepared || m !== management || consumed || !current(true))
-        return null;
-      consumed = true;
-      return plan;
-    },
-    consumeProviderAuthority: (a, mt, m) => {
-      if (
-        a !==
-          Object.getOwnPropertyDescriptor(plan, "authorityUseCapability")
-            ?.value ||
-        mt !== plan.activeMountCapability ||
-        m !== management ||
-        authorityConsumed ||
-        !current(true)
-      )
-        return null;
-      authorityConsumed = true;
-      return {
-        operationId: plan.operationId,
-        provider: plan.provider,
-        providerHomeMountGrantRef: plan.grantRef,
-        runtimeAuthorityIssued: true,
-        providerEffectAllowed: true,
-      };
-    },
-    beginRecovery: (p, m) => {
-      if (
-        planIdentity(p) !== planHash ||
-        p.activeMountCapability !== plan.activeMountCapability ||
-        Object.getOwnPropertyDescriptor(p, "authorityUseCapability")?.value !==
-          Object.getOwnPropertyDescriptor(plan, "authorityUseCapability")
-            ?.value ||
-        m !== management ||
-        opened ||
-        !current(true)
-      )
-        return null;
-      try {
-        save("recovery_opened");
-      } catch {
-        return {
-          status: "blocked",
-          reason: "docker_task_recovery_checkpoint_failed",
-          recoveryId,
-          manualRecoveryRequired: true,
-        };
-      }
-      opened = true;
-      return { status: "ready", recoveryId, recoveryCapability: recovery };
-    },
-    verifyRecoveryBinding: (r, id, m, h) =>
-      opened &&
-      r === recovery &&
-      id === recoveryId &&
-      m === management &&
-      h === plan.stableLogicalHomeBindingHash &&
-      current(true),
-    paths: Object.freeze({
-      tmp: temporary,
-      management: path.join(root, "management"),
-    }),
-    markResourceSubmission: (r, purpose) => {
-      if (r !== recovery || !Object.hasOwn(expected, purpose)) return false;
-      const key = purpose as keyof DockerResourceReceipts;
-      if (receipts[key].submitted) return false;
-      save("submission_planned", {
-        purpose,
-        plannedResourceName: expected[key],
-        ownershipLabel: plan.ownershipLabel,
       });
-      receipts[key].submitted = true;
-      return true;
+      if (closed && released) save("execution_settled", diagnostic);
     },
-    recordResourceReceipt: (r, purpose, rawId) => {
-      const id = typeof rawId === "string" ? rawId.trim() : "";
-      if (
-        r !== recovery ||
-        !Object.hasOwn(expected, purpose) ||
-        !/^[a-f0-9]{64}$/u.test(id)
-      )
-        return false;
-      const key = purpose as keyof DockerResourceReceipts;
-      if (!receipts[key].submitted || receipts[key].dockerId !== null)
-        return false;
-      save("receipt_recorded", { purpose, dockerId: id });
-      receipts[key].dockerId = id;
-      return true;
-    },
-    recordProviderSubmission: (r) =>
-      r === recovery && save("provider_submission"),
-    recordResourceNotIssued: (r, purpose) => {
-      if (r !== recovery || !Object.hasOwn(expected, purpose)) return false;
-      const key = purpose as keyof DockerResourceReceipts;
-      if (receipts[key].dockerId !== null) return false;
-      save("resource_not_issued", { purpose });
-      receipts[key].submitted = false;
-      return true;
-    },
-    recordTerminalObservation: (r, result, observation) => {
-      if (
-        r !== recovery ||
-        observation.operationId !== plan.operationId ||
-        observation.recoveryId !== recoveryId ||
-        terminalResult !== null
-      )
-        throw Error("terminal_delivery_mismatch");
-      terminalResult = result;
-      terminalObservation = observation;
-    },
-    recordDockerAbsence: (r, observed) => {
-      if (
-        r !== recovery ||
-        !observed ||
-        observed.length !== Object.keys(expected).length ||
-        new Set(observed.map((value) => value.purpose)).size !==
-          observed.length ||
-        observed.some(
-          (value) =>
-            !Object.hasOwn(expected, value.purpose) ||
-            value.plannedResourceName !== expected[value.purpose] ||
-            value.observation === "unknown" ||
-            (value.observation === "not_requested" &&
-              receipts[value.purpose].submitted) ||
-            value.dockerId !== receipts[value.purpose].dockerId,
-        )
-      )
-        return false;
-      save("home_released", {}, false);
-      save("absence_observed", { resources: observed }, false);
-      absence = observed;
-      return true;
-    },
-    completeMount: (mt, m) => {
-      if (
-        mt !== plan.activeMountCapability ||
-        m !== management ||
-        releaseAttempted ||
-        !current(true)
-      )
-        return { status: "blocked" };
-      mountResult = Object.freeze({ status: "completed" });
-      return mountResult;
-    },
-    acquireHomeLease: () =>
-      current(true)
-        ? Object.freeze({
-            release: () => {
-              if (releaseAttempted || !current(true)) return false;
-              releaseAttempted = true;
-              try {
-                released = lease.release() === true;
-              } catch {
-                released = false;
-              }
-              return released;
-            },
-          })
-        : null,
-    recordMountCompletion: (r, value) =>
-      r === recovery &&
-      value === mountResult &&
-      released &&
-      save("mount_recorded", {}, false),
-    completeRecovery: (r, m, completion) => {
-      if (
-        r !== recovery ||
-        m !== management ||
-        completion.plan !== plan ||
-        completion.mountCompletion !== mountResult ||
-        !released ||
-        closed ||
-        absence === null
-      )
-        return { status: "blocked" };
-      save("recovery_closed", {}, false);
-      closed = true;
-      return {
-        status: "completed",
-        recoveryFinalizationCapability: finalization,
-      };
-    },
-    verifyHomeLeaseRelease: (r, m, op, id) =>
-      r === recovery &&
-      m === management &&
-      op === plan.operationId &&
-      id === recoveryId &&
-      released &&
-      current(false),
   };
-  runtime = createExecutor(host);
   return Object.freeze({
     runtime,
-    prepared,
     management,
-    recovery,
     recoveryId,
-    readDiagnostic: () => diagnostic,
-    readTerminal: () => terminalObservation,
-    start: () => {
-      const started = runtime.start(
-        prepared,
-        management,
-        (r: object, id: string) =>
-          r === recovery && id === recoveryId && save("recovery_handoff"),
-      );
-      if (started.status === "blocked" && !releaseAttempted) {
-        try {
-          if (lease.assertLive()) {
-            releaseAttempted = true;
-            released = lease.release() === true;
-          }
-        } catch {
-          /* 試験Hostが先行取得したLeaseだけを扱い、成功を推測しない。 */
-        }
-      }
-      return started;
+    get nativeCleanupConfirmed() {
+      return nativeCleanupConfirmed;
     },
-    recordTerminal: (
-      result: Awaited<ReturnType<typeof runtime.start>["completion"]>,
-    ) => {
-      if (!result) return false;
-      const terminal = terminalResult === result ? terminalObservation : null;
+    get releaseConfirmed() {
+      return released;
+    },
+    get homeFailure() {
+      return homeFailure;
+    },
+    readDiagnostic: () => diagnostic,
+    readTerminal: () => terminal,
+    start: () => {
+      if (!opened) {
+        save("recovery_opened");
+        save("recovery_handoff");
+        opened = true;
+      }
+      const started = runtime.start({
+        managementCapability: management,
+        reference: { recoveryId, recoveryCapability: recovery },
+        callbacks,
+      });
+      if (started.status !== "started") return started;
+      return {
+        ...started,
+        completion: started.completion.then((result) => {
+          originalResult = result;
+          return result;
+        }),
+      };
+    },
+    recordTerminal: (result: CompletionResult<"attempt">) => {
       if (
+        result !== originalResult ||
         !terminal ||
-        terminal.resources !== absence ||
         !closed ||
         !released ||
         terminalAttempted ||
-        terminal.homeLeaseReleased !== true ||
-        result.cleanupConfirmed !== true
+        !result.cleanupConfirmed
       )
         return false;
       terminalAttempted = true;
-      return save(
-        "terminal_received",
-        {
-          status: result.status,
-          reason: result.reason,
-          resultSha256: result.resultSha256,
-          resultBytes: result.resultBytes,
-        },
-        false,
-      );
+      save("terminal_received", {
+        status: result.status,
+        reason: result.reason,
+        resultSha256: result.resultSha256,
+        resultBytes: result.resultBytes,
+      });
+      return true;
     },
   });
+}
+/** IPC診断は閉じた非秘密fieldだけを受け取る。 @trace ERB-IT-004 */
+export function isPrimaryFailureDiagnostic(value: unknown): boolean {
+  if (value === null) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const hasObservation = Object.hasOwn(record, "commandObservation");
+  const hasAuthenticationStatus = Object.hasOwn(record, "authenticationStatus");
+  const hasTurnCountDiagnostic = Object.hasOwn(record, "turnCountDiagnostic");
+  const turnCount = record.turnCountDiagnostic as
+    | Record<string, unknown>
+    | undefined;
+  const observation = record.commandObservation as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  return (
+    exactKeys(
+      record,
+      [
+        "commandHandleObtained",
+        "exceptionCode",
+        "purpose",
+        "reason",
+        "receiptRecorded",
+        "responseObserved",
+        "stage",
+        ...(hasObservation ? ["commandObservation"] : []),
+        ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
+        ...(hasTurnCountDiagnostic ? ["turnCountDiagnostic"] : []),
+      ].sort(),
+    ) &&
+    (!hasObservation ||
+      observation === null ||
+      (observation !== undefined &&
+        typeof observation === "object" &&
+        exactKeys(observation, ["exitCode", "stderrBytes", "stdoutBytes"]) &&
+        record.responseObserved === true &&
+        (observation.exitCode === null ||
+          (Number.isSafeInteger(observation.exitCode) &&
+            Number(observation.exitCode) >= 0)) &&
+        [observation.stdoutBytes, observation.stderrBytes].every(
+          (v) => Number.isSafeInteger(v) && Number(v) >= 0,
+        ))) &&
+    (!hasAuthenticationStatus ||
+      (record.purpose === "start_subscription_auth_probe_attached" &&
+        ["execution_classification", "subscription_auth_verification"].includes(
+          String(record.stage),
+        ) &&
+        record.responseObserved === true &&
+        observation != null &&
+        observation.exitCode !== null &&
+        ["confirmed", "unconfirmed", "unknown"].includes(
+          typeof record.authenticationStatus === "string"
+            ? record.authenticationStatus
+            : "",
+        ))) &&
+    (!hasTurnCountDiagnostic ||
+      (record.purpose === "start_provider_attached" &&
+        record.stage === "provider_result_normalization" &&
+        record.reason === "workbench_ai_claude_turn_count_invalid" &&
+        record.responseObserved === true &&
+        observation?.exitCode === 0 &&
+        turnCount != null &&
+        typeof turnCount === "object" &&
+        exactKeys(turnCount, ["numberText", "valueType"]) &&
+        typeof turnCount.valueType === "string" &&
+        [
+          "missing",
+          "null",
+          "boolean",
+          "number",
+          "string",
+          "array",
+          "object",
+        ].includes(turnCount.valueType) &&
+        (turnCount.numberText === null ||
+          (turnCount.valueType === "number" &&
+            typeof turnCount.numberText === "string" &&
+            turnCount.numberText.length <= 32 &&
+            Number.isFinite(Number(turnCount.numberText)) &&
+            String(Number(turnCount.numberText)) === turnCount.numberText &&
+            (!Number.isSafeInteger(Number(turnCount.numberText)) ||
+              Number(turnCount.numberText) < 1))))) &&
+    (record.purpose === null ||
+      (typeof record.purpose === "string" &&
+        (PURPOSES as readonly string[]).includes(record.purpose))) &&
+    typeof record.stage === "string" &&
+    [
+      "submission_record",
+      "command_restriction",
+      "command_start",
+      "provider_start_observation",
+      "command_wait",
+      "execution_classification",
+      "resource_receipt_record",
+      "subscription_auth_verification",
+      "provider_result_normalization",
+    ].includes(record.stage) &&
+    isAttemptFailureReason(record.reason) &&
+    (record.exceptionCode === null ||
+      (typeof record.exceptionCode === "string" &&
+        [
+          "unclassified_exception",
+          "PROCESS_FAILURE",
+          "ENOENT",
+          "EACCES",
+          "EPERM",
+          "ETIMEDOUT",
+          "ECONNREFUSED",
+          "EPIPE",
+          "docker_effect_management_required",
+          "docker_effect_plan_invalid",
+          "docker_effect_plan_replaced",
+          "docker_effect_command_not_owned",
+          "docker_effect_platform_unsupported",
+          "docker_effect_cli_untrusted",
+          "docker_effect_cli_replaced",
+          "docker_effect_path_invalid",
+          "docker_effect_config_invalid",
+          "docker_effect_config_replaced",
+          "docker_effect_filesystem_identity_invalid",
+          "owned_operation_management_binding_required",
+          "owned_operation_unknown_child",
+          "owned_operation_child_replaced",
+          "owned_operation_mount_replaced",
+        ].includes(record.exceptionCode))) &&
+    typeof record.commandHandleObtained === "boolean" &&
+    typeof record.responseObserved === "boolean" &&
+    typeof record.receiptRecorded === "boolean" &&
+    (record.responseObserved !== true ||
+      record.commandHandleObtained === true) &&
+    (record.receiptRecorded !== true ||
+      (record.responseObserved === true &&
+        typeof record.purpose === "string" &&
+        record.purpose.startsWith("create_")))
+  );
+}
+function exactKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const actualKeys = Object.keys(value);
+  return (
+    actualKeys.length === keys.length &&
+    keys.every((key) => actualKeys.includes(key))
+  );
 }

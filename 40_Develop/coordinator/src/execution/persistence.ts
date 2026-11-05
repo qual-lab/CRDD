@@ -116,7 +116,7 @@ export function readRuntimeOwnedCoordinatorStateSnapshot(
 }
 
 /**
- * readRuntimeOwnedCoordinatorResourceRequestsへ元操作の観測を接続する。
+ * readRuntimeOwnedCoordinatorResourceBookへ元操作の観測を接続する。
  * @responsibility 保存Ownerを再発行せず元の操作相関をDomainへ渡す。
  * @trace ARCH-000008
  * @input managementCapability: 既存操作、args: 用途固定の保存入力。
@@ -130,15 +130,15 @@ export function readRuntimeOwnedCoordinatorStateSnapshot(
  * @security 生Writer、短期Owner、任意取引callbackを返さない。
  * @concurrency 観測はDomainが元の照合位置で呼ぶ。
  */
-export function readRuntimeOwnedCoordinatorResourceRequests(
+export function readRuntimeOwnedCoordinatorResourceBook(
   managementCapability: unknown,
   ...args: Parameters<
-    typeof runtimeStore.readRuntimeOwnedCoordinatorResourceRequests
+    typeof runtimeStore.readRuntimeOwnedCoordinatorResourceBook
   > extends [unknown, ...infer Args]
     ? Args
     : never
 ) {
-  return runtimeStore.readRuntimeOwnedCoordinatorResourceRequests(
+  return runtimeStore.readRuntimeOwnedCoordinatorResourceBook(
     {
       identity: managementCapability as object,
       observeRepository: () => {

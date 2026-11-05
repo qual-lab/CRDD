@@ -6,22 +6,13 @@
  * @scope 同期CLIとconfigは有限代役。実Docker・AI・保持物は使用しない。
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
-import { runInThisContext } from "node:vm";
-import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import {
   discoverSubmittedDockerResource,
   observeIsolationIdentity,
 } from "../../src/cleanup/resource.ts";
 import type { ResourceSnapshot, ResourceTarget } from "../../src/index.ts";
-
-const planDockerRecoveryResourceExpectations: typeof import("../../../executor/src/attempt/recovery.ts").planDockerRecoveryResourceExpectations =
-  runInThisContext(
-    `(function(utilTypes,path){${sourceDeclaration(readFileSync(new URL("../../../executor/src/attempt/recovery.ts", import.meta.url), "utf8"), "planDockerRecoveryResourceExpectations")};return planDockerRecoveryResourceExpectations;})`,
-  )(utilTypes, path);
 
 const ID = "a".repeat(64);
 const LABEL = "crdd.coordinator.runtime=0123456789abcdef";
@@ -29,32 +20,21 @@ const NAME = "crdd-codex-0123456789abcdef";
 
 /**
  * 欠測IDから発見した候補を既知Receiptと同じ扱いにしない。
- * @responsibility 名前・Label一致後も既存の完全構成照合を要求する。
+ * @responsibility 名前・Label・実IDの一致を要求し実行構成で所有を代用しない。
  * @trace ERB-IT-014
  * @precondition 元投影の明示候補と有限CLI応答だけを使う。
  * @stimulus 名前・Label・実IDは一致しImage等の構成が異なる応答を返す。
  * @observation 発見結果と削除要求数。
- * @oracle Identityだけでは採用せずnull、削除要求0。
+ * @oracle Identity一致の実IDを返し、削除要求0。
  * @cleanup N/A: 外部資源なし。
  * @boundary 実発見処理・完全構成検査→有限Docker読取り。
  */
-test("欠測IDの発見候補は最小Identityだけで受理しない", () => {
-  const entries = planDockerRecoveryResourceExpectations({
-    authenticationContainerName: "crdd-auth-0123456789abcdef",
-    executionContainerName: NAME,
-    proxyContainerName: "crdd-proxy-0123456789abcdef",
-    internalNetworkName: "crdd-internal-0123456789abcdef",
-    egressNetworkName: "crdd-egress-0123456789abcdef",
+test("欠測IDの発見は構成差を識別不一致にしない", () => {
+  const expected = {
+    kind: "container" as const,
+    expectedName: NAME,
     ownershipLabel: LABEL,
-    executionImageDigest: `sha256:${"b".repeat(64)}`,
-    proxyImageDigest: `sha256:${"c".repeat(64)}`,
-    workspaceMounted: false,
-    workspaceReadOnly: false,
-    initRequired: false,
-  });
-  const expected = entries?.find((entry) => entry.purpose === "create_provider")
-    ?.expectations[0];
-  assert.ok(expected);
+  };
   const id = discoverSubmittedDockerResource((argv) => {
     assert.notEqual(argv[1], "rm");
     return {
@@ -77,17 +57,17 @@ test("欠測IDの発見候補は最小Identityだけで受理しない", () => {
             ]),
     };
   }, expected);
-  assert.equal(id, null);
+  assert.equal(id, ID);
 });
 
 /**
  * 観測の正常・不明・取消・終了失敗を同じ公開入口へ接続する。
- * @responsibility 空候補からの暗黙探索と予定構成の実測扱いを禁止する。
+ * @responsibility 作成Intentの識別情報で観測し予定構成を実測扱いしない。
  * @trace ERB-IT-014
  * @precondition 低位接続factoryだけを代役へ置換する。
  * @stimulus 未要求・既知ID・欠測ID・二回不存在・取消・close失敗を渡す。
  * @observation 要求数、実ID、三値、Snapshotとconfig終了。
- * @oracle 未要求は接続0、空候補は探索0、unknownとclose失敗はblocked。
+ * @oracle 未要求は接続0、欠測IDは識別情報で探索しunknownとclose失敗はblocked。
  * @cleanup 各観測のcloseとModule代役解除を確認する。
  * @boundary 公開DI→実検査・集約→有限同期Transport。
  */
@@ -165,7 +145,12 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
                 discoveries++;
                 assert.equal(expected.expectedName, NAME);
                 assert.ok(
-                  mode === "discover_present" || mode === "discovery_mismatch",
+                  [
+                    "discover_present",
+                    "discovery_mismatch",
+                    "second_unknown",
+                    "empty_discovery",
+                  ].includes(mode),
                 );
                 return mode === "discover_present" ? ID : null;
               },
@@ -240,41 +225,8 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
       unreceiptedAbsence: mode.startsWith("retain") ? "retain" : "observe",
       verifyLabelAbsence: false,
       previouslyAbsent: [],
-      discovery: [],
     };
-    const expectations = planDockerRecoveryResourceExpectations({
-      authenticationContainerName: "crdd-auth-0123456789abcdef",
-      executionContainerName: NAME,
-      proxyContainerName: "crdd-proxy-0123456789abcdef",
-      internalNetworkName: "crdd-internal-0123456789abcdef",
-      egressNetworkName: "crdd-egress-0123456789abcdef",
-      ownershipLabel: LABEL,
-      executionImageDigest: `sha256:${"b".repeat(64)}`,
-      proxyImageDigest: `sha256:${"c".repeat(64)}`,
-      workspaceMounted: false,
-      workspaceReadOnly: false,
-      initRequired: false,
-    });
-    assert.ok(expectations);
-    const candidate = expectations.find(
-      (entry) => entry.purpose === "create_provider",
-    )?.expectations[0];
-    assert.ok(candidate);
-    const input = [
-      "discover_present",
-      "discovery_mismatch",
-      "retain_with_candidate",
-    ].includes(mode)
-      ? {
-          ...request,
-          discovery: [
-            {
-              key: "resource_a",
-              configurations: [{ ...candidate, key: "resource_a" }],
-            },
-          ],
-        }
-      : request;
+    const input = request;
     const result = api.inspectIsolation(input, {
       signal: controller.signal,
       stopOnUnknownAbsence: mode.startsWith("retain"),
@@ -290,7 +242,14 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
     assert.equal("recoveryId" in result, false);
     assert.equal(
       discoveries,
-      ["discover_present", "discovery_mismatch"].includes(mode) ? 1 : 0,
+      [
+        "discover_present",
+        "discovery_mismatch",
+        "second_unknown",
+        "empty_discovery",
+      ].includes(mode)
+        ? 1
+        : 0,
     );
     assert.equal(setups, mode === "not_requested" ? 0 : 1);
     assert.equal(closes, setups);

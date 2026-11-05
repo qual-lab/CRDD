@@ -2807,3 +2807,229 @@ Attemptは同じDI Completionを一回待ち、ResourceSnapshot・Process終了�
 先行固定候補ではExecutor103件、Coordinator関連177件、DI有限接続17件が成功した。制限環境でWindows取消2件は終了観測不成立となったが、通常権限で同じOS子Process試験を再実行し、参照期待の追従後2件成功した。実Docker・実AIの成功ではない。正規Timeoutの追加反例を含む候補でExecutor104件、Coordinator関連177件、DI有限17件、Checker公開一覧1件が成功した。Source独立再レビューは残指摘0。Architecture独立レビューの残1表現は是正し、最終結果との現在地一致を確認する。対象4文書の直接診断0、参照展開先333診断でChecker全体終了1である。試験のonCompleted引数もDIの非null契約へ明示的に追従し、型検査が成功した。既存の横断台帳不整合17件、Reality診断11件と文書参照展開先診断を今回の合格で解消したとは扱わない。Commit／Pushと実AI・Docker・過去保持物の操作は行っていない。
 
 最終型追従後もExecutor全104件とcheckが成功した。Coordinator関連177件、Windows子Process取消2件、DI有限接続17件、Checker公開一覧1件の成功と区別して保持する。Source／Architecture・Qualityの独立再レビューは残Must-fix 0。旧製品Session参照と現行設計の旧説明は零、DI製品Source・AI Adapter差分零、未追跡生成物零、差分空白検査成功を確認した。実AI・実Dockerでの再成立、既存横断QAの解消、Commit／Pushは今回の完了主張に含めない。
+
+#### Executor構造の簡素化とSnapshot回収契約（2026-11-05・着手）
+
+基準feb84aecc。前段104件／177件／Windows2件／DI17件のCapabilityを基準とし、Source7Fileの目標構成、短命Control、DI元Completion、必須保存通知、既存Home解放条件へ対応付ける。着手時点ではDI／AA製品、Image、期限、認可、過去保持物と実AI・Docker操作を対象外とした。後段の人間判断によりDI Cleanupの識別契約だけを変更し、その他の対象外は維持する。単なる移動を完了にせず、汎用LifecycleOperation／Runner、用途別開始・取消の重複、旧5資源再構築、認証回収再構築、旧公開型と互換読取りを撤去する。
+
+| 編集単位 | 新Owner・利用側・保持条件 |
+|---|---|
+| 短命Control | lifecycle/execute.ts。一回開始、開始前取消拒否、DI Session未結合時の取消保持、一回配送、終了後拒否と購読解放。固有Capability・Homeは代替しない |
+| 用途構成と結果 | lifecycle/attempt.ts／authentication.ts／probe.ts。各用途一File。AD解析・DI技術回収をコピーせず、実在する後処理だけを直接実装 |
+| 型と公開入口 | lifecycle/types.ts、index.ts。主要5関数と用途別の型安全性を維持。私有制御と旧Session型をRoot公開しない |
+| 保存・再入場 | Coordinator／Domain。新規開始時にDI Snapshotと回収順序・観測条件を確定する。追加の実行構成照合候補は保存しない。管理所在・Signalは呼出時に借用し、Prompt・環境値・Proxy tokenは保存しない |
+| IntentとReceipt | 発行前意図、未発行確定、元Snapshotの受領を同じOperationへ保存。意図を発行実績へ変換せずunknownを保持 |
+| 単独観測・回収 | lifecycle/cleanup.ts。旧用途Projectionからの再構築を廃止しDI契約へ接続。ID欠測発見とDirectory条件を維持 |
+| 試験と正本 | 既存単体・契約・Coordinator結合、開始／取消五段階、保存失敗・Process中断・Receipt欠測・元ID不一致・Label違いを対応付ける。SourceとArchitecture／QAを独立レビュー |
+
+着手時は既存の完全構成照合を維持する前提でUser・Init・Tmpfsの保存を検討した。その後、下記の必要性再評価と人間の判断により、回収の識別条件から実行構成を分離し、追加保存案を取り下げた。終端Snapshotだけの保存へは縮小しない。旧形式の製品Reader・新Store・Registry・Manager・永続State Machineは作らない。既存保持物は移行・回収済みと扱わずそのまま残す。保存契約・移行に影響するためArchitecture／Quality／直接利用側の横断確認を実施し、標準準拠基準・Release判断を変えないため全面Conformance監査は対象外とする。
+
+##### 短命Controlと7Sourceへの接続
+
+lifecycle/operations.tsと汎用LifecycleOperation／executeLifecycleを撤去し、execute.tsは開始・取消・終端とDI Sessionへの一回配送だけを持つ。各用途は元DI completionを直接解釈し、Attemptだけが必要なHome解放と通知を実施する。Auth／Probeの結果構築後の別microtaskでfinishする経路は独立レビューで検出し、同じ同期handler内のfinallyへ是正した。
+
+srcは目標7Fileへ統合し、型・同じOwnerのimport/export・定数評価順を追従した。用途別フォルダと旧callbacks／constants／configuration／result分割は製品Sourceから撤去した。旧回収構成の再構築はcleanup.tsへ暫定的に残っており、削除済み・統合完了とは扱わない。
+
+移動前のExecutor102件と、移動後の対象29件・Coordinator177件が成功した。移動後の全体102件ではsummary計測のconsumer import順序1件が不成立だった。定数と実行本体の同じOwner化に伴い、計測を先に設置してから合成Plan fixture／正式consumerをimportする順へ試験だけを修正し、当該2件を再実行して成功した。既存の汎用Runnerだけを検証する2件は対象消滅により撤去し、残るControlと用途別の実経路を確認する。これを旧回収契約撤去や実AI／実Dockerの成立へ一般化しない。
+
+人間は新保存形式の採用を承認した。保存はResourceSnapshotに元実IDを一元化し、key別のIntent／Receipt由来・不存在証跡と、不変の非秘密発見条件を分ける案とする。管理DirectoryとSignalは再入場時に借用し、Prompt・環境値・Proxy tokenを保存しない。この時点ではDI準備で確定する非秘密回収条件の追加を判断待ちとしたが、後述の最小識別条件の採用により取り下げた。DIの技術条件をExecutorで再実装したり、ID欠測時の回収能力を縮小したりして完了とはしない。
+
+##### 回収時の構成照合の必要性再評価
+
+人間から、DI準備結果への回収条件追加より先に、照合そのものが過剰でないか確認する指示を受けた。DI項目追加と保存Schema実装を一旦保留した。現コードではID欠測時の候補発見と削除直前だけ、User・Init・Tmpfs等の完全構成を識別条件へ加えている。一方、実削除は元ID指定のcontainer rm --force又はnetwork rmであり、Volume削除は行わない。未信頼AIにHost Docker操作権限は与えていない。
+
+元Intent、資源名、同じ操作のnonce Label、名前照会と名前＋Label照会の一意ID一致、inspectによる実ID・種別・名前・Label照合、発見IDの必要保存、ID限定削除と事後不存在を維持すれば、回収対象の識別と実行構成検査を分離できる可能性がある。Labelは集合で共有されるためLabel単独の一意性を仮定しない。構成一致は同daemon権限者の所有証明ではなく、同じ構成を複製される反例を除外できない。
+
+既知IDの既存最小照合、実行前のImage・User・Mount・Network・Init検査、Directory処置、現在Owner・排他・必要通知、Process終了確認と回収後不存在は変更対象外とする。ID欠測時の既存完全構成条件を削減する場合は、先行の「既存条件維持」から判断を更新する必要があり、Sourceを変更する前に影響と反例を人間へ返す。
+
+##### ID欠測回収の最小識別条件の採用（2026-11-05）
+
+人間は上記の最小照合への変更を承認した。DI PreparedIsolationへのUser／Init／Tmpfs等の追加と、Discovery完全構成の追加保存案は取り下げる。回収はSnapshotのIdentityとrequest状態を使い、未発行資源は処置しない。元未解決Intentに対応する名前とnonce Labelを再利用せず、exact名と同名＋Labelの照会が同じ一意IDを返した後、inspect・ID保存通知・ID限定再照合と削除・事後不存在へ接続する。Label集合全体の一意性は要求しない。
+
+実行前の完全構成検査は維持する。欠測・複数候補・別ID／名前／Label・通知失敗・Process終了未確認・不存在不明は停止する。現在構成の非秘密投影は返すが、保存済み期待値との差分判定は行わず、構成差を回収対象の識別条件にしない。Directory、Image、期限、現在Owner・排他・保存順序は変更しない。変更源はこの識別契約であり、Source行数や型数を回帰面の根拠にしない。
+
+<a id="executor-identity-cleanup-20261105"></a>
+
+##### 最小識別条件の実装・非AI回帰（2026-11-05）
+
+DIの共通Cleanup要求から`discovery`構成候補を撤去した。欠測IDはSnapshotの予定名と名＋所有Labelの二経路で同じ一意実IDを確認し、fresh inspect、必須の発見通知完了、同IDの削除直前再照合、ID限定削除、事後不存在へ進む。通知後の名前／Label差替え、非同期Reject、通知欠測は削除0件と発見ID保持を反証した。Image／Network等の構成差だけは回収を妨げない。実行前の完全構成検査とDirectory条件は維持する。
+
+| 確認対象 | 結果と限界 |
+| --- | --- |
+| DI静的確認 | Formatter・型検査・Lint成功。既存info診断のみ |
+| DI全体回帰 | 394件中389成功・5明示skip。制限環境のWindows junction作成EPERMを分離し、新品Repository内領域の同じ試験を通常権限で成功確認後、全体も同条件で成功 |
+| Executor静的確認・全体回帰 | check成功、102件成功。有限回収Adapterが本番拒否より先に入力検査例外を外へ出す問題を修正し、製品のblocked結果をそのまま観測 |
+| Coordinator静的確認・試験選択逸脱 | check成功。関連6Fileを直接指定した際に通常入口のHost除外条件を付け忘れ、実Host試験を含めた。72件中65成功・7失敗。安全な非AI回帰完了とは扱わず、下記の逸脱と残存不明を優先して停止 |
+| Source独立確認 | 7Source／共通Controlの先行確認と、今回の識別・通知失敗反例の再確認で残Must-fix 0 |
+| Architecture独立確認・文書検査 | 旧完全構成条件とSource配置の説明を是正し、再確認で残Must-fix 0。今回4文書の直接診断0。参照展開先52診断によるChecker全体終了1は別に保持 |
+
+元Snapshotの新保存形式・作成Intent／Receipt保存への接続、旧五資源と認証の回収再構成の撤去は未完了である。7Source化だけを構造リファクタリング全体の完成とはしない。現在の技術確認は実Docker・実AI成立を示さず、過去保持物の読替え・移行・操作も行わない。
+
+##### Coordinator試験選択の逸脱と停止（2026-11-05）
+
+実行者が通常の`test:portable`にある`^(Host Windows:|Windows Process Gate:)`除外条件を、個別6File指定へ引き継がなかった。その結果、禁止範囲の実Docker用5CaseとWindows保存2Caseが選択され、いずれも失敗した。実Docker用Caseは作成・観測・補償回収を含むため、「実Docker操作なし」とは主張しない。外部AIの送信、Docker再起動・Image更新、過去保持物の操作は選択Caseに含めていない。追加のDocker照会・再実行・削除は行わず、残存確認に必要な人間判断へ戻す。
+
+ローカル記録のみで特定した今回の残存は次のとおり。過去の同接頭辞Directoryは操作しない。
+
+| 今回のexact対象 | 確認できたこと・未確認 |
+| --- | --- |
+| `.crdd/tests/docker-isolation-host-2tv6ZR/` | resources.json／cleanup.jsonを保持。nonceは`c9a37554acb508ad`。認証確認Containerの作成要求だけsubmitted=true、実IDはnull。他4資源は未要求。Process終端true、Network不存在true、Container不存在false、Cleanup未確認。falseを不存在へ読み替えない |
+| `.crdd/tests/claude-authentication-record-N9NCrS/` | 子試験用Directoryが残存。ファイル列挙結果は空であり、Docker実体不存在の根拠にはしない |
+
+前者の予定名は`crdd-auth-c9a37554acb508ad`、所有Labelは`crdd.coordinator.runtime=c9a37554acb508ad`。同名・同Labelの読取り観測と関連する今回資源の有無を確認するには、別途Docker照会の明示許可が必要である。現時点では削除を要求しない。物理残存はこの不明状態の確認まで保持し、2026-11-12を再評価上限とする。期限だけでは削除せず、未解決参照・実体・所有を確認する。現在の構造リファクタリングは未完了のまま停止し、上記非AIのDI／Executor成功をCoordinator全体又は実境界の成功へ昇格しない。
+
+##### 許可後の限定読取り結果（2026-11-05）
+
+人間が今回対象のDocker読取りを承認した。固定CLIの信頼を前後確認し、中立環境・固定Linux Engine接続先で予定名のexact filterによるContainer一覧を一回要求した。終了1・Signalなし・Process APIエラーなし・標準エラー224 bytesで失敗したため、Label側一覧とinspectには進まず、再送しなかった。標準エラー本文・認証値・生出力は保存していない。OS側の追加読取りではDocker Desktop／backend／buildの対象Processは0件、固定Engine接続口は未検出だった。この結果を対象Containerの不存在へ換算しない。Dockerの起動・再起動・削除、AI送信、試験物と過去保持物の操作はしていない。実体確認の継続にはDocker Desktopの通常起動の別許可が必要であり、現時点では未確認のまま停止する。
+##### 人間による保留とコード整理再開（2026-11-05）
+
+人間は今回のDocker実体確認を保留し、コード整理の再開を指示した。読取り未確認を不存在又は作成成功へ変更せず、今回の物理試験領域と過去保持物を操作しない。実AI・Docker操作を追加せず、コードと有限代役試験だけを進める。
+
+通常入口にある`^(Host Windows:|Windows Process Gate:)`の除外条件を個別指定にも明示し、Coordinator対象6File・60試験が全て成功した。実Host経路を成功件数へ算入しない。
+
+Executorの既存観測・回収APIへ、DI正本のSnapshot要求を直接渡す接続を追加した。新しい関数・専用資源Model・管理Stateは作らず、既存ResourceTarget／Inspection／CleanupResultの型対応へDI正本を追加する。観測のSignal・停止条件、回収の通知、元Session・取消・Completionの参照をそのまま搬送し、旧五資源Projectionへ変換しない。有限DI代役で入力・通知・Session・結果の同一性を検証した。独立レビューで検出したkind accessorとprototype Proxyの事前実行を是正し、両入口のhook0・DI呼出し増加0を固定した。最終check、Executor全103件、Coordinator型検査とHost除外対象60件が成功し、Source独立再確認の残Must-fixは0。今回5文書の直接診断0、参照展開先349診断による全体終了1は別に保持する。初期Snapshot＋最初のIntentの一回保存、新Schema、作成Receipt保存、再入場の本番接続と旧経路撤去は引き続き未完了である。
+
+##### 保存接続の確定断面（2026-11-05・実装継続対象）
+
+次の保存接続では`resources`を初期未受領のnull、又はSnapshot・key別checkpoint・元回収方針の集合へ置換する。実ID・名前・Label・種別・現在構成はSnapshotだけに置く。checkpointはkey、submission、receiptSource、observation、absenceEvidenceSha256を持ち、同じID・名前・Recovery IDを複製しない。nullを空集合・不存在へ読み替えない。
+
+回収方針は元DI RequestのcleanupOrder・setupTimeoutMs・unreceiptedAbsence・verifyLabelAbsenceだけを保存する。管理Directoryは現在Hostから借用し、previouslyAbsentはcheckpointから導出する。Snapshot配列順や旧五資源知識から回収順を再構築しない。User・Init・Tmpfs・旧Discovery構成は追加しない。
+
+最初の作成通知で初期Snapshotと対象Intentを同じWriter改訂へ保存する。DI作成前のSnapshot.requestがnot_issuedでも、保存Intentだけが残る再入場ではunknownとして投影し、発行済み確定へ昇格しない。Receiptは元Snapshotごと同じ操作へ保存し、既知IDの消去・変更、key／種別／名前／Labelの不一致を拒否する。構成情報は未観測から実測、Network接続後の合法な現在観測へ更新でき、構成差自体を保存・回収拒否条件にしない。非秘密のshape検査は維持する。
+
+この断面は着手前の読取り照合で確定した実装対象であり、新Schema本番接続・旧Reader撤去が完了したという記録ではない。新Store、旧形式互換Reader、保持物の自動移行は追加しない。
+##### Snapshot保存接続の実装と限定検証（2026-11-05・全体未完了）
+
+Domainの資源記録をSnapshot・key別checkpoint・元回収方針の集合へ変更し、初期未受領はnullで保持した。保存Schemaは`crdd-domain/runtime-state/v2`とし、旧配列形式を受理する互換Readerは追加していない。通常Attemptと認証の作成前通知・Receipt通知・発見ID通知・終了観測を同じ操作の記録へ接続した。再入場は保存されたSnapshotと元回収順序等をDIへ渡し、製品Sourceから旧五資源期待値生成・認証資源再構築を除去した。試験側の旧有限Oracleと旧試験Adapterは残り、全面移行済みではない。
+
+途中の独立読取り確認で4点を是正した。連続する同IDの不存在観測では最初の証拠Hashを保持し、履歴確定前の再導出を冪等にした。認証の初期Snapshot＋Intentの読戻しは保存したBook全値のcanonical一致を要求する。認証のexact active／idle記録の読取り成功である`{resources:null}`と、読取り失敗又は未終了Intentのnullを分離した。Domain保存codecはSnapshot全資源のLabelを元OperationのLabelへ結合し、別Label・混在Labelの初回保存を拒否する。4点の是正再確認は残指摘0であり、旧試験移行や全体完成の判定は含まない。
+
+限定検証結果:
+- Domain新資源記録6件と保存codec7件: 13件成功。
+- Domain一般CRUD／保存先切替の結合: 18件成功。初回のリンク作成権限不足による不実行を別に記録し、同じ試験を必要権限で再確認した。
+- Executor通常Attempt・認証・Snapshot資源入口: 17件成功。元DI通知とDomain記録更新の有限結合を含む。
+- Coordinator認証記録: 3件成功。実宣言をメモリ内Filesystemへ接続し、読戻し改変・Receipt相関・未要求と不明を確認した。
+- DIの明示選定した有限資源観測／Snapshot／共通回収: 14件成功。
+- Coordinator製品Sourceのstrict型検査、DI型検査: 成功。新規Domain更新処理・試験、選定Executor試験、認証記録試験のlintは成功。
+
+DI一括回帰の要求は、Host除外名だけでは実Docker経路の不選択を保証できないとして実行前に安全確認で拒否された。迂回せず、本文確認した有限代役の個別試験だけを実施した。実AI・実Docker・保留中の物理試験物・過去保持物は操作していない。
+
+残作業は、旧配列形式に依存するDomain／Coordinator試験と検証スクリプトの追従、旧試験Adapter2ファイルの撤去、Operation Identityに残る旧技術投影の利用確認、固定候補での対象回帰・最終独立レビューである。Domain全体型検査は旧試験の配列参照等で不合格であり、限定成功を全体Passへ昇格しない。現在、人間による追加判断は必要ない。
+##### 旧試験移行とIdentity重複撤去の継続（2026-11-05）
+
+人間が残件1〜3の一括継続を指示した。複数正本の実装責務・保存契約と試験の追従として、変更前保証を読取り照合した。着手前の別確認者が、Snapshot名集合の完全一致、null Book拒否、Operation／選定／Home／Mount相関の保持と、Image比較を別のGateへ移さないことを確認した。新しいHash・Store・互換Readerを追加しない。
+
+Operation Identityはv3へ変更しresources／imagesのコピーをproducerとDomain閉集合から撤去した。Host完了はBook Snapshotから元Planのkey・一意数・件数・名前を完全照合する。認証unknown不存在証拠もSnapshotのcontainer・名前を使う。item3の限定独立確認は残Must-fix0。Coordinator製品strict型検査は成功した。
+
+Executorの認証試験と単独回収試験は、旧Command／Recovery Adapterを介さず、実Executorと実共通DI Lifecycleへ接続した。DI既存の有限CLI・Process・Directory代役をtests/support/isolation.tsへ抽出して再利用しただけで、製品のRuntimeや注入点は追加していない。置換した保証と試験の対応をQA正本へ記録した。認証＋共通Lifecycle22件、単独回収13件、新Identity／資源記録7件、Host名集合1件、Host観測条件1件、Domain終了要約1件、Domain修復状態20件が成功した。実AI・Docker・保持物の操作はない。
+
+単独回収の物理成立と終了通知の失敗は別fieldで扱う。通知失敗時に物理的な回収成功を未回収へ書き戻さず、notificationDeliveryConfirmed=falseを保持し、上位の保存確定は別に要求する。
+
+旧AdapterのExecutor試験からの直接参照は撤去したが、Coordinatorの保存・再入場・Host用試験に参照が残るため2ファイル自体は未撤去。旧Domain配列形式の全試験移行、Coordinator側残参照、固定候補での全体回帰も未完了であり、1〜3全体完了やコミット可能とは表示しない。追加の人間判断は不要である。
+
+##### 旧試験移行1・2の追加断面（2026-11-05・未完了）
+
+認証の旧Command試験Adapterを撤去した。Coordinator認証は実Executor→共通DIを有限CLI端へ接続し、両ProviderのLogin／Status、Intent・Receipt・最終記録・Home解放を検証する。読取り専用の独立確認で見つかった最終Completion直前のHome Owner喪失を反例へ追加し、最終記録・settleの呼出し0と同じ回復参照を確認した。
+
+現在回収試験と再起動準備試験から旧Recovery Adapter参照を撤去し、保存されたBookから実Domain候補・実DI Cleanupを通す。二資源の部分回収後に保存Bookと有限資源状態を別Ownerへ引き継ぎ、既回収実IDの追加削除0と最初の不存在証拠Hash保持を確認した。終了Writerの値FixtureはSnapshot／checkpointのkey・実ID・要求状態を一致させ、Book検査の肯定対照を先に要求する。
+
+Domainの旧配列試験3ファイルを新Bookの入力・イベント・終了観測へ追従させた。巨大な状態遷移試験は実行成功し、履歴・配送・再入場・限定認証閉鎖の反例を維持する。移行時の反例により、同種資源名重複の拒否と、再起動checkpoint確定後の新規Intent禁止が新契約で不足していたため、Domain保存検査へ復元した。既存IntentへのReceipt・発見ID保存と回収は妨げない。追加のManager・互換Reader・DI製品変更は行わない。
+
+| 実施した確認 | 結果と限界 |
+| --- | --- |
+| Domain全体型検査 | 成功。旧配列の型エラーをcastや除外で隠していない |
+| Domain資源記録・状態遷移・codec・履歴要約・修復状態 | 36件成功。状態遷移の1件は内部に複数の正負対照を持つ |
+| Domain保存Writerの明示した有限対象 | 6件成功。実OS排他・実Dockerの成立は含めない |
+| Coordinator認証・記録保存・現在回収・再起動準備 | Host／Windows Process Gateを除外し92件成功 |
+| Executor認証・Attempt・資源入口・単独回収・共通Lifecycle | 52件成功、全体型検査成功 |
+| Coordinator製品Source strict型検査 | 成功。全試験型検査には旧検証Fixture参照が残り不合格 |
+| 上記Home guard・重複名・再起動guard・部分回収・終端Writer入力の限定独立再確認 | 残Must-fix 0。移行全体の完了判定ではない |
+
+runtime-snapshot-ioの広い非Host選定は結果確定前に中断し、全体成功には算入しない。個別に本文確認した有限6件のみを成功として扱う。実AI・実Docker・過去保持物の操作は行わない。
+
+残るRecovery Adapterは、coordinator-state-runtimeの認証unknown再入場試験に一利用が残るため未撤去である。この試験は二段不存在・専用Writer・発見ID保存前削除禁止の変異Oracleを持つ。単に高位結果をmockする置換は採用せず、共通DIの同期観測端と非同期実行端を同じ有限資源状態へ接続し、実保存DirectoryはFixtureの広いFilesystem代役に飲み込ませない。検証Script／Native向けFixtureの旧配列参照も未完了として残す。人間の追加判断は不要であり、1・2全体完了又はコミット可能とは表示しない。
+
+<a id="executor-test-migration-20261105"></a>
+
+##### 旧試験移行1・2のSource接続と非AI回帰（2026-11-05）
+
+上記の未完了断面に続き、人間が許可したコード整理を継続した。旧認証Command Adapterと旧Attempt Recovery Adapterの二ファイルを撤去し、全TypeScript参照0件を確認した。Coordinator全試験、Domain全体、Executor全体の型検査は、旧配列参照を除外やcastで隠さず成功した。
+
+Native親の認証unknown試験は、同じ保存記録を子Processで読み、実Domain Writerと共通DIへ有限CLI端を接続するsnapshot-recovery-owner.tsへ移した。元の14シナリオについて、二段不存在、現在Owner、発見IDの保存前削除禁止、専用閉鎖Writer、保存拒否・読戻し差・解放不明、内側/外側終了と保存の順序、再入場時の追加処置0をSourceに維持した。実Host Gateは実行していない。
+
+手動Producerは五資源の旧再構築をやめ、一資源のDI準備Snapshotと元Intentを保存する。Receipt未保存の故障窓では追加の推測更新を行わない。Snapshotの初期not_issuedとcheckpointのintent_savedを共同で読むため、作成要求済み不明を未発行と解釈しない。固定Image参照とImage IDを分離した。これは試験Sourceの追従であり、手動Producer・Docker要求の実行許可ではない。
+
+追加の全回帰で、単独Host/実AI検証ToolのReaderと有限IPC Fixtureにも旧flat記録が残っていることを検出した。同じDomainイベントを通すBookへ追従し、名前・Label・重複・Provider・不存在時Identityの反例と限定清掃条件を維持した。試験専用の旧Session Oracleでは、初期、要求後ID欠測、明示未発行、Receipt取得を区別する専用反例を追加した。製品へ旧互換Layerを戻していない。
+
+| 固定候補での確認 | 結果と限界 |
+| --- | --- |
+| Executor npm test | 整形・全型検査・Warningを失敗とするLint・全109件成功。実AI/Dockerは使わない |
+| Coordinator npm run check | Repository整形・製品/全試験strict型検査・Warningを失敗とするLint・二種Trace検査成功 |
+| Coordinator認証・現在回収・再起動準備 | 92件成功。実Host/Windows Process Gate除外 |
+| Coordinator追加の保存/Task/再入場/実行接続10 Suite | 197件成功＋junction1件を必要権限で個別成功。初回のjunction権限拒否をコード成功へ読み替えず再確認した |
+| Coordinator手動親/起動確認の純粋Oracle | 15件成功。手動Root読取り入口と実Process Gate除外 |
+| Domain npm run check | 整形・全型検査・Warningを失敗とするLint成功 |
+| Domain資源/状態遷移/codec/履歴/修復 | 36件成功 |
+| Domain保存Writerの限定対象 | 6件成功。Native排他全体の実証ではない |
+| DI全型検査・共通Lifecycle/回収/Snapshot有限対象 | 型検査成功、90件成功。DI製品の新規変更なし |
+| 独立Source確認 | 移管漏れ、Image参照/ID、終了Oracle、欠測IDの扱いを是正後に再確認。限定指摘は解消。最終の旧配列Reader一件も是正し、子本文の有限反例を追加。集合SHA 4545c3ef…の最終独立確認は残Must-fix 0 |
+
+固定Source候補は、40_Develop配下の変更・追加・削除128ファイルについて、pathと各SHA256（削除はdeleted）を昇順でCRLF結合した集合SHA256 `4545c3efdb2f9f709fa69509b7fb9df3f8f56b97d4959e2a13e6c116ad7c4b59` とする。文書の結果記録はこのSource集合の外側で追従する。
+
+実Host/Windows Process Gate、Native親14シナリオの実行、実AI/実Dockerでの新保存形式の再成立、過去の保持物確認/回収、旧保存形式の移行は未実施である。従って非AIのSource整理・対象回帰の結果を、Executor新構造全体の実境界完成、全Repository回帰、QA全体Pass又はRelease成立へ拡張しない。現在、人間による追加判断は必要ない。
+<a id="executor-five-followups-20261105"></a>
+
+### 全Source確認で検出した五系統の是正（2026-11-05）
+
+変更分類は、承認済みExecutor構造整理に対する不具合是正・利用側追従である。旧形式Reader、試験専用Runtimeを実試験へ接続する互換経路、新しいManager／Store／Lockは追加しない。DI製品は今回追加変更していない。
+
+| 系統 | 是正と現在のOwner |
+| --- | --- |
+| Attempt入力 | 公開Factoryの先頭でRequest／target／保護対象を自身のdata propertyとして捕捉。欠測・accessor・Proxyを評価せず、乱数・下位Effect前に拒否 |
+| 実AI用検証Tool | Request構成→公開createExecutor→共通DIへ直接接続。旧試験SessionとToolのHome二重取得を撤去。製品の同一Home Lease生存確認を通知待機後に維持し、Hostは取得後のNative再観測・必須保存・元Completion受領を所有 |
+| 新形式の正例 | current-host-transition、docker-restart-runtime、Task結果fixtureをOperation Identity v3と資源Bookへ追従。Taskの合成終端もDomainのsubmission→receipt→cleanupを使用 |
+| 子本文・再入場 | Native／worker文字列内の旧Identity.resources／imagesとflat配列読取りを撤去。元Book全文比較、Snapshotの要求／実IDとcheckpointのIntent／Receipt由来／証拠を分離し、五key完全一致とauth unknown保持を固定 |
+| 管理情報 | Executor／DIのSymbol参照とDI試験カタログを現存Sourceへ追従。既存識別子を維持し、カタログの段階をIntegrationへ合わせる |
+
+独立レビューで検出した、create以外の未発行通知の誤保存、Home生存確認の移管漏れ、旧変数／配列読取り、auth unknownの独立期待不足、正規PROCESS_FAILURE診断のIPC拒否、Architectureの旧Owner記述を是正した。既知診断コード一値だけを許可し、未知コード・自由文の拒否は維持する。レビュー指摘を安全条件の緩和やDI変更で通さず、実Attempt由来の診断と親IPCの元理由・回復IDを反証した。
+
+固定Source候補は40_Develop配下の変更・追加・削除135ファイルのpathと各SHA256（削除はdeleted）を昇順でCRLF結合した集合SHA256 `48fea113ac93f800b73b54bf03618427b3453feb3796afd4c926c913a7ab716b`。文書と試験カタログはSource集合の外側で追従する。
+
+| 今回の確認 | 結果・限界 |
+| --- | --- |
+| Executor全体 | 最終診断是正後のnpm testで整形・型・Lintと全111件成功（約103秒） |
+| Coordinator静的検査 | npm run check成功。Repository整形、製品／全試験strict型、Warning失敗Lint、二種Trace。最後にCoordinator及びWorkbenchの利用側型検査も再成功 |
+| Coordinator認証・回収・再起動 | 6 Suiteの111件成功。実Host／Windows Process Gateを除外 |
+| Task／Objective代表結合 | 通常結果配送1件、Objective受付・重複抑止・exact回復・混在回復3件、System回復1件が成功。全Task Suite再実行の代用とはしない |
+| Domain | npm run check及び資源Book・修復・codec・状態遷移・履歴の36件成功 |
+| DI | 全型検査と共通Lifecycle／Cleanup／Snapshot／観測の有限90件成功。実Dockerなし |
+| 独立Source／利用側 | 是正後の固定集合でSource・利用側とも残Must-fix 0。Architecture・QA・Catalog・本結果の最終独立再確認も残Must-fix 0 |
+| 全体Checker | 初回3,757エラーから対象2件を是正し、再実行は3,755エラー。今回対象のExecutor／DI、試験カタログ、QA-000006の指摘は0。対象外のリンク／品質整合等は残り、Repository全体Passとはしない |
+
+初回のExecutor回帰不合格は、旧Plan全体をtargetへ渡す試験入力と有限Process代役の影響範囲を特定し、現行Requestと用途ごとの終了観測へ追従後に再実行した。Coordinatorの広めの試験は診断中に中断したため、その未完了runをPassへ換算しない。代表結合試験は改めて通常入口で実行した。中断runの物理試験領域の回収は確認済みとせず、由来・Identityを確定できない領域を名前や日時から削除しない。
+
+今回、実AI・実Docker・Native Host Gate・過去保持物の操作は行っていない。新保存形式の実AI／Docker再成立、旧データ移行、全Repository回帰、全体QA・Releaseは未完了のまま区別する。現在、人間による追加判断は必要ない。
+<a id="executor-final-cancel-and-oracle-20261105"></a>
+
+### 最終取消と検証Ownerの追加是正（2026-11-05）
+
+追加確認で二件を検出し、人間が修正後の全体確認・問題がなければcommit／pushを指示した。
+
+| 指摘 | 是正・保持した条件 |
+| --- | --- |
+| 最終診断内の取消が成功結果に反映されない | 最終取消再判定を同期診断呼出し後・Completion構築直前へ移動。追加await／callbackなし。正常からの取消は内容・Hash・bytes・所見を非公開とし、先行blocked理由・回復ID・技術清掃・一回解放を保持。finish後のonCompleted取消は拒否 |
+| 本番Factory検証と称する旧試験Runtime経路 | production_factory分岐、その旧DI Factoryモック、単一使用のcreateExecutorLifecycleTestRuntimeを撤去。残るcandidateは局所Oracleと明示。本番公開入口の義務は既存Host／CLI→共通DI有限境界試験へ対応。旧API・Owner照合を復活させない |
+
+実Attemptの有限DI試験では正常／先行PROCESS_FAILUREと診断throw有無の四形を確認した。公開Executor→共通DI→Host記録のcancel_diagnostic形でも、取消受理と最終cancelled・内容非公開が対応する。局所候補試験の説明は、実際に確認する一回消費・別管理参照の取消拒否・終了後取消拒否へ限定した。
+
+| 最終確認 | 結果 |
+| --- | --- |
+| Executor npm test | 静的検査と全112件成功。約116秒 |
+| Coordinator利用側 | 準備・Provider接続・助言・資源Identity・認証記録・Host観測の37件成功 |
+| Coordinator npm run check | Repository整形、製品／全試験strict型検査、Warning失敗Lint、二種Trace成功 |
+| 全体読取り | Executor全7 Source、利用側の675 TypeScript、13 Symbol ManifestとCatalog 431 Pathを照合。旧形式・消滅API・本番経路を偽装する分岐の追加未処置なし |
+| 独立確認 | Source・利用側・Architecture／QAを分離して確認。製品Must-fix 0、試験説明のMinorも是正 |
+
+今回のSource集合は135ファイル、前節と同じ算出方法のSHA256 `3f0328609478b86e1ffcc1e210f510f7b0f919dcb064cec321f257011ed4e203`。全112件実行後のSource差は試験説明一行だけであり、動作を変更していない。DI製品・公開IF・保存Schemaはこの二件では変更していない。
+
+実AI・Docker・Native Host Gate・過去保持物は操作していない。前節の実境界未成立、全体Checkerの対象外3,755エラー、中断runの物理試験領域の回収未確認を解消したとは扱わない。ここまでのSource整理と限定回帰・独立確認をcommit／pushすることは、main統合・Release・全体QA合格を意味しない。

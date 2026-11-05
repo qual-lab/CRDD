@@ -17,6 +17,7 @@
 import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
 import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import type { CompletionResult } from "../../../executor/src/index.ts";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -1790,7 +1791,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         stages.push(`${provider}:${role}:${attempt}`);
         const suffix = index.toString(16).padStart(16, "0");
         const identity = {
-          schema: "crdd-coordinator/operation-identity/v2",
+          schema: "crdd-coordinator/operation-identity/v3",
           operationNonce: suffix.repeat(4),
           provider,
           consumer: "orchestrator",
@@ -1819,17 +1820,6 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           localUserBindingHash: "6".repeat(64),
           repositoryBinding: binding,
           ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
-          resources: {
-            auth: `crdd-auth-${suffix}`,
-            provider: `crdd-${provider}-${suffix}`,
-            proxy: `crdd-proxy-${suffix}`,
-            internal: `crdd-internal-${suffix}`,
-            egress: `crdd-egress-${suffix}`,
-          },
-          images: {
-            provider: `sha256:${"a".repeat(64)}`,
-            proxy: `sha256:${"b".repeat(64)}`,
-          },
           operationMode: "isolated_task",
           workspaceMountMode: "read_write",
           initialHostRecoveryId: token,
@@ -1858,8 +1848,8 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           if (fault === "lease") old.lease = "held";
           if (fault === "owner") old.execution.ownerEffect = "active";
           if (fault === "resource") {
-            old.resources[0].observation = "unobserved";
-            old.resources[0].absence = null;
+            old.resources.checkpoints[0].observation = "unobserved";
+            old.resources.checkpoints[0].absenceEvidenceSha256 = null;
           }
           if (fault === "obligation")
             mutated.unresolvedRecoveries.push({
@@ -1903,27 +1893,17 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           ownerEffect: "disabled",
           workspaceReusable: false,
         };
-        const resources = operation.resources.map((resource) => {
-          const key =
-            resource.purpose === "create_subscription_auth_probe"
-              ? "auth"
-              : resource.purpose.replace("create_", "").replace("_network", "");
-          return {
-            ...resource,
-            request: "identified",
-            dockerId: suffix.repeat(4),
-            receiptSource: "runtime_reconciliation",
-            observation: "absent",
-            absence: {
-              recoveryId: operation.recoveryId,
-              purpose: resource.purpose,
-              plannedResourceName:
-                identity.resources[key as keyof typeof identity.resources],
-              dockerId: suffix.repeat(4),
-              evidenceSha256: "e".repeat(64),
-            },
-          };
-        });
+        const resources = createResourceBookFixture(
+          identity.ownershipLabel,
+          "absent",
+          [
+            "create_egress_network",
+            "create_internal_network",
+            "create_provider",
+            "create_proxy",
+            "create_subscription_auth_probe",
+          ],
+        );
         const settled = {
           ...operation,
           execution,

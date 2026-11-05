@@ -46,15 +46,14 @@ import {
   createDockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
 } from "../../../docker-isolation/tests/support/execution.ts";
-import { createAuthenticationCommandTestRuntime } from "../../../executor/scripts/authentication-command-test.ts";
-import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
+import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
-import { createProviderAuthenticationPlan } from "../support/authentication.ts";
+import { prepareAuthenticationProjection } from "../support/authentication.ts";
 
 /**
  * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。
@@ -991,7 +990,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
     completed: true,
     lockReleased: true,
   });
-  const plan = createProviderAuthenticationPlan(
+  const plan = prepareAuthenticationProjection(
     "claude",
     "login",
     home,
@@ -1002,72 +1001,81 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
   const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
   const dependencies = createProviderAuthenticationDependencies();
-  const runtime = createAuthenticationCommandTestRuntime(plan);
   const lock = dependencies.acquireProviderHomeLock(hash);
   assert.ok(lock);
   let complete = false;
   let released = false;
   try {
     assert.equal(dependencies.beginRecovery(record), "existing_idle");
-    const receipts = readProviderAuthenticationResources(record);
+    const observed = readProviderAuthenticationResources(record);
+    assert.ok(observed?.resources);
+    let book = observed.resources;
     assert.ok(
-      receipts &&
-        receipts.length === 5 &&
-        receipts.every((item) => /^[a-f0-9]{64}$/u.test(item.dockerId ?? "")),
+      book.snapshot.resources.every((item) =>
+        /^[a-f0-9]{64}$/u.test(item.identity.dockerId ?? ""),
+      ),
     );
-    for (let index = 0; index < 5; index += 1) {
-      const operations = runtime.recoveryCommands(receipts, plan, index);
-      assert.ok(
-        operations?.cleanupCommand && operations.identityAbsenceCommand,
-      );
-      for (const command of [
-        operations.ownershipCommand,
-        operations.cleanupCommand,
-        operations.identityAbsenceCommand,
-        operations.absenceCommand,
-      ]) {
-        assert.equal(
-          dependencies.setRecoveryCommandState(
-            record,
-            "in_flight",
-            command.purpose,
-          ),
-          true,
-        );
-        const result = await runtime.run(command, lock.assertLive, plan);
-        assert.equal(result.processCompletionConfirmed, true);
-        assert.equal(result.error, undefined);
-        assert.equal(result.signal, null);
-        if (command.purpose.startsWith("confirm_")) {
-          const locator = command.argv.at(-1);
-          const expected = command.purpose.includes("network")
-            ? [`Error response from daemon: network ${locator} not found`]
-            : [
-                `Error: No such container: ${locator}`,
-                `Error response from daemon: No such container: ${locator}`,
-              ];
-          assert.equal(result.status, 1);
-          assert.equal(result.stdout.trim(), "[]");
-          assert.ok(expected.includes(result.stderr.trim()));
-        } else {
-          assert.equal(result.status, 0);
-          if (command.purpose.startsWith("observe_"))
-            assert.equal(
-              result.stdout.trim(),
-              plan.ownershipLabel.split("=")[1],
-            );
-        }
-        assert.equal(lock.assertLive(), true);
-        assert.equal(
-          dependencies.setRecoveryCommandState(record, "idle", null),
-          true,
-        );
-      }
-    }
+    const { cleanupResources } = await import("../../../executor/src/index.ts");
+    const session = cleanupResources(
+      {
+        ...book.cleanup,
+        resources: book.snapshot,
+        managementDirectory: path.join(directory, "management"),
+        previouslyAbsent: [],
+      },
+      {
+        onCleanupSubmitting: (key) => {
+          assert.ok(lock.assertLive());
+          assert.equal(
+            dependencies.setRecoveryCommandState(
+              record,
+              "in_flight",
+              "remove_" + key,
+            ),
+            true,
+          );
+        },
+        onCleanupCompleted: () => {
+          assert.equal(
+            dependencies.setRecoveryCommandState(record, "idle", null),
+            true,
+          );
+        },
+        onResourceIdentified: (key, snapshot) => {
+          assert.equal(
+            dependencies.recordResource(record, {
+              event: "identified",
+              key,
+              snapshot,
+              cleanup: book.cleanup,
+            }),
+            true,
+          );
+        },
+        onResourcesClosed: (snapshot, observations) => {
+          assert.equal(
+            dependencies.recordResource(record, {
+              event: "cleanup",
+              snapshot,
+              observations,
+            }),
+            true,
+          );
+        },
+      },
+    );
+    const result = await session.completion;
+    assert.equal(result.cleanup.confirmed, true);
+    assert.equal(result.processTerminationConfirmed, true);
+    assert.notEqual(result.notificationDeliveryConfirmed, false);
+    const closed = readProviderAuthenticationResources(record);
+    assert.ok(closed?.resources);
+    book = closed.resources;
+    assert.ok(book.checkpoints.every((item) => item.observation === "absent"));
     assert.equal(dependencies.completeRecovery(record), true);
     const settled = JSON.parse(fs.readFileSync(record.recordPath, "utf8"));
     assert.equal(settled.state, "settled");
-    assert.deepEqual(settled.resources, receipts);
+    assert.deepEqual(settled.resources, book);
     complete = true;
   } finally {
     released = lock.release();

@@ -5,7 +5,7 @@
  */
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import type { DockerAuthenticationResources } from "../../../../executor/src/authentication/types.ts";
+import type { DockerAuthenticationResources } from "./cleanup.ts";
 import { dockerContainerInitObservationMatches } from "../../../src/cleanup/init.ts";
 
 /**

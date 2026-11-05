@@ -541,6 +541,7 @@ export type ExecutionRecordOperations = Readonly<{
   markResourceSubmission?: (
     recoveryCapability: object,
     purpose: string,
+    resources: unknown,
   ) => boolean;
   recordProviderSubmission?: (recoveryCapability: object) => boolean;
   recordResourceNotIssued?: (
@@ -550,7 +551,8 @@ export type ExecutionRecordOperations = Readonly<{
   recordResourceReceipt?: (
     recoveryCapability: object,
     purpose: string,
-    dockerId: string,
+    resources: unknown,
+    source?: "receipt" | "identified",
   ) => boolean;
   recordTerminalObservation?: (
     recoveryCapability: object,
@@ -578,6 +580,7 @@ export type AttemptCleanupInput = Readonly<{
   managementCapability: unknown;
   recoveryId: string;
   observations: AttemptTerminalObservation["resources"];
+  resourceSnapshot: AttemptTerminalObservation["resourceSnapshot"];
   mountCompletion: Readonly<{ status: string }> | null;
   mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;

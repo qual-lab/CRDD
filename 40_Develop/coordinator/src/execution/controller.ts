@@ -17,6 +17,7 @@ import { setImmediate } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
 import {
   type CoordinatorStateTaskOperation,
+  coordinatorTaskResourcesAreSettled,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   parseHostRecoveryToken,
@@ -378,6 +379,25 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
     )
       return blocked;
     const identity = JSON.parse(operation.identityJson);
+    const expectedNames = new Map([
+      ["create_subscription_auth_probe", plan.authContainerName],
+      ["create_provider", plan.providerContainerName],
+      ["create_proxy", plan.proxyContainerName],
+      ["create_internal_network", plan.internalNetworkName],
+      ["create_egress_network", plan.egressNetworkName],
+    ]);
+    const resources = operation.resources?.snapshot.resources;
+    if (
+      !resources ||
+      resources.length !== expectedNames.size ||
+      new Set(resources.map((resource) => resource.key)).size !==
+        expectedNames.size ||
+      resources.some(
+        (resource) =>
+          expectedNames.get(resource.key) !== resource.identity.name,
+      )
+    )
+      return blocked;
     if (
       !plan ||
       plan.operationId !== repository.operationId ||
@@ -401,22 +421,7 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
       ].some(
         (key) =>
           identity[key] !== (plan as unknown as Record<string, unknown>)[key],
-      ) ||
-      (
-        [
-          ["auth", "authContainerName"],
-          ["provider", "providerContainerName"],
-          ["proxy", "proxyContainerName"],
-          ["internal", "internalNetworkName"],
-          ["egress", "egressNetworkName"],
-        ] as const
-      ).some(
-        ([key, field]) =>
-          identity.resources[key] !==
-          (plan as unknown as Record<string, unknown>)[field],
-      ) ||
-      identity.images.provider !== plan.providerImageDigest ||
-      identity.images.proxy !== plan.proxyImageDigest
+      )
     )
       return blocked;
     const host = borrowOwnedHostRecoverySnapshot(managementCapability);
@@ -435,24 +440,7 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
         return blocked;
     }
     if (
-      operation.resources.length !== 5 ||
-      operation.resources.some(
-        (item) =>
-          !(
-            (item.request === "not_requested" ||
-              item.request === "not_issued") &&
-            item.observation === "unobserved" &&
-            item.dockerId === null &&
-            item.absence === null
-          ) &&
-          !(
-            item.observation === "absent" &&
-            item.absence !== null &&
-            item.absence.recoveryId === recoveryId &&
-            item.absence.purpose === item.purpose &&
-            item.absence.dockerId === item.dockerId
-          ),
-      ) ||
+      !coordinatorTaskResourcesAreSettled(operation) ||
       !verifyRuntimeOwnedProviderHomeMountCompletion(
         mountCompletion,
         managementCapability,

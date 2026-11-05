@@ -75,7 +75,7 @@ const taskExecutionSelections = () => ({
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-domain/runtime-state/v1",
+    schema: "crdd-domain/runtime-state/v2",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -122,7 +122,7 @@ const empty = {
 test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", () => {
   const empty = {
     ...emptyUnifiedSnapshot(),
-    schema: "crdd-domain/runtime-state/v1",
+    schema: "crdd-domain/runtime-state/v2",
     repositoryBindingId: "binding-a",
     intakeEpoch: "epoch-a",
     managedExecutions: [],

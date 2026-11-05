@@ -8,7 +8,7 @@
  * @scope coordinator、claude-authentication、recovery、kernel-lock
  * @boundary ERB-IT-017=Integration: 別Process・Filesystem・Windows Named Pipe境界
  */
-import { createProviderAuthenticationPlan } from "../support/authentication.ts";
+import { prepareAuthenticationProjection } from "../support/authentication.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
   beginProviderAuthenticationRecovery,
@@ -23,7 +23,7 @@ const lock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
   stableLogicalHomeBindingHash,
 );
 if (!lock) process.exit(71);
-const plan = createProviderAuthenticationPlan(
+const plan = prepareAuthenticationProjection(
   "claude",
   "login",
   providerHome,

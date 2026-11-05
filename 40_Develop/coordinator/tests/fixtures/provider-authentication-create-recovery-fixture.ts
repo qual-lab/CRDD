@@ -1,104 +1,115 @@
 /**
- * 認証を開始せず本番作成・保存Ownerを別Processで確認する。
- * @packageDocumentation
- * @responsibility 自己生成試験Rootの五実IDを既存回復記録へ保存してProcessを終了する。
- * @trace ERB-IT-002
+ * 認証・AIを起動せず、現行DI作成と元Snapshot保存後のProcess終了を構成する。
+ * @responsibility 本番認証構成のcreate/connectだけを使い、元IDの再入場回収を親へ渡す。
  * @trace ERB-IT-017
  * @level IT
- * @scope 未起動認証資源、本番CLI構成、既存記録とHome排他。
- * @boundary 別Node ProcessからDocker／保存／Windows排他。
+ * @scope 明示選択されたWindows Process Gate専用。通常の認証E2Eではない。
  */
-import { createProviderAuthenticationPlan } from "../support/authentication.ts";
-import { createAuthenticationCommandTestRuntime } from "../../../executor/scripts/authentication-command-test.ts";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  prepareIsolation,
+  executeIsolation,
+} from "../../../docker-isolation/src/index.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
+import {
+  authenticationResourceFixture,
+  prepareAuthenticationProjection,
+} from "../support/authentication.ts";
+import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 
-/**
- * 固定試験入力から五資源を作成して保存完了後に終了する。
- * @responsibility 実createとReceipt保存を同じin_flightへ接続する。
- * @trace ERB-IT-002
- * @trace ERB-IT-017
- * @precondition 指定Rootは現在Repositoryの自己生成試験Rootである。
- * @stimulus 本番argv・環境の未起動資源だけを生成して保存・読戻しする。
- * @observation 完了・既存排他解放だけを親へ返す。
- * @oracle 全作成Receiptはidle前に保存される。
- * @cleanup 親が保存実IDから回収する。子は既存排他を解放する。
- * @boundary 実Docker作成結果と既存耐久記録。
- */
-async function createRecordedAuthenticationFixture() {
-  const directory = process.argv[2];
-  const hash = process.argv[3];
-  assert.ok(directory && hash && /^[a-f0-9]{64}$/u.test(hash));
-  const repository = fileURLToPath(new URL("../../../../", import.meta.url));
-  const parent = fs.realpathSync(path.join(repository, ".crdd", "tests"));
-  assert.equal(path.dirname(fs.realpathSync(directory)), parent);
-  assert.ok(
-    path.basename(directory).startsWith("claude-authentication-record-"),
-  );
-  const home = path.join(directory, "ProviderHomes", "claude");
-  const plan = createProviderAuthenticationPlan(
-    "claude",
-    "login",
-    home,
-    hash.slice(0, 16),
-    randomBytes(32).toString("hex"),
-  );
-  assert.ok(plan);
-  const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
-  assert.ok(record);
-  const dependencies = createProviderAuthenticationDependencies();
-  const runtime = createAuthenticationCommandTestRuntime(plan);
-  const lock = dependencies.acquireProviderHomeLock(hash);
-  assert.ok(lock);
-  let completed = false;
-  let released = false;
-  try {
-    assert.equal(dependencies.beginRecovery(record), "created");
-    for (const command of plan.commands.filter(
-      (item) =>
-        item.purpose.startsWith("create_") ||
-        item.purpose === "connect_proxy_egress",
-    )) {
-      assert.equal(
-        dependencies.setRecoveryCommandState(
-          record,
-          "in_flight",
-          command.purpose,
-        ),
-        true,
+const [directory, hash] = process.argv.slice(2);
+assert.ok(directory && hash && /^[a-f0-9]{64}$/u.test(hash));
+const repository = fileURLToPath(new URL("../../../../", import.meta.url)),
+  parent = fs.realpathSync(path.join(repository, ".crdd", "tests"));
+assert.equal(path.dirname(fs.realpathSync(directory)), parent);
+assert.ok(path.basename(directory).startsWith("claude-authentication-record-"));
+const home = path.join(directory, "ProviderHomes", "claude"),
+  token = randomBytes(32).toString("hex"),
+  management = path.join(directory, "management");
+fs.mkdirSync(management);
+const projection = prepareAuthenticationProjection(
+  "claude",
+  "login",
+  home,
+  hash.slice(0, 16),
+  token,
+);
+assert.ok(projection);
+const record = createProviderAuthenticationRecoveryRecord(
+  home,
+  hash,
+  projection,
+);
+assert.ok(record);
+const material = authenticationResourceFixture(
+  "claude",
+  "login",
+  home,
+  hash.slice(0, 16),
+  token,
+  management,
+);
+const input = {
+  ...material.request,
+  steps: material.request.steps.filter((step) => step.action !== "run"),
+};
+const prepared = prepareIsolation(input);
+assert.ok(prepared);
+const deps = createProviderAuthenticationDependencies(),
+  lock = deps.acquireProviderHomeLock(hash);
+assert.ok(lock);
+assert.equal(deps.beginRecovery(record), "created");
+let snapshot: ResourceSnapshot = prepared.resources;
+const last = input.steps.at(-1);
+assert.ok(last?.action === "create");
+const session = executeIsolation(prepared, {
+  onSubmitting: (step) => {
+    assert.ok(lock.assertLive());
+    assert.equal(
+      deps.setRecoveryCommandState(
+        record,
+        "in_flight",
+        step.key,
+        { snapshot, cleanup: material.cleanup },
+        step.resource,
+      ),
+      true,
+    );
+  },
+  onCreated: (step, value) => {
+    snapshot = value;
+    assert.ok(lock.assertLive());
+    assert.equal(
+      deps.recordResource(record, {
+        event: "receipt",
+        key: step.resource,
+        snapshot,
+        cleanup: material.cleanup,
+      }),
+      true,
+    );
+    if (step.key === last.key) {
+      assert.equal(deps.setRecoveryCommandState(record, "idle", null), true);
+      const released = lock.release();
+      assert.equal(released, true);
+      fs.writeSync(
+        1,
+        `${JSON.stringify({ completed: true, lockReleased: released })}\n`,
       );
-      const result = await runtime.run(command, lock.assertLive, plan);
-      assert.equal(result.processCompletionConfirmed, true);
-      assert.equal(result.status, 0);
-      assert.equal(result.error, undefined);
-      if (command.purpose.startsWith("create_")) {
-        assert.ok(result.resourceReceipt);
-        assert.equal(
-          dependencies.recordCreatedResource(record, result.resourceReceipt),
-          true,
-        );
-      }
-      assert.equal(lock.assertLive(), true);
-      assert.equal(
-        dependencies.setRecoveryCommandState(record, "idle", null),
-        true,
-      );
+      // 作成・Receipt保存・idle後のProcess喪失。DIの通常Cleanupへは戻らない。
+      process.exit(0);
     }
-    completed = true;
-  } finally {
-    released = lock.release();
-  }
-  process.stdout.write(
-    `${JSON.stringify({ completed, lockReleased: released })}\n`,
-  );
-  assert.equal(released, true);
-}
-
-await createRecordedAuthenticationFixture();
+  },
+  onCompleted: () => {
+    assert.equal(deps.setRecoveryCommandState(record, "idle", null), true);
+  },
+});
+await session.completion;
+throw Error("fixture_did_not_reach_saved_resource_exit");

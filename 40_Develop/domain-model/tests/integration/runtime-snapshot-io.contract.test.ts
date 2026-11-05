@@ -11,6 +11,7 @@
  * @boundary Domain保存Ownerと実Filesystem。AI・Docker・過去保持物は使用しない。
  */
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -23,6 +24,7 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   type CoordinatorState,
+  type CoordinatorResourceBook,
   type CoordinatorStateTaskOperation,
   coordinatorTaskResourcesAreSettled,
   decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
@@ -32,6 +34,7 @@ import {
   isDockerRestartCheckpointSettled,
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateOperationSnapshot,
+  prepareCoordinatorStateResourceSnapshot,
   prepareCoordinatorUnifiedTaskSnapshot,
   projectCoordinatorTaskSnapshot,
   readCoordinatorCurrentState,
@@ -449,7 +452,7 @@ function recoveryWriterValues() {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -477,17 +480,6 @@ function recoveryWriterValues() {
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -529,7 +521,7 @@ function recoveryWriterValues() {
     ...initialOperation,
     host: { ...initialOperation.host },
     execution: { ...initialOperation.execution },
-    resources: initialOperation.resources.map((resource) => ({ ...resource })),
+    resources: createResourceBookFixture(identity.ownershipLabel),
   };
   const snapshot = { ...preparedState.snapshot, operations: [operation] };
   return {
@@ -553,7 +545,7 @@ function recoveryWriterValues() {
       };
       const hash = (value: unknown) =>
         createHash("sha256")
-          .update(JSON.stringify(value) + "\n")
+          .update(`${JSON.stringify(value)}\n`)
           .digest("hex");
       const currentToken = ["host", rootName, nonce, hash(recordBefore)].join(
         ".",
@@ -565,7 +557,7 @@ function recoveryWriterValues() {
         hash(expectedRecord),
       ].join(".");
       operation.host.currentToken = currentToken;
-      operation.host.pendingTransitionJson = (JSON.stringify({
+      operation.host.pendingTransitionJson = `${JSON.stringify({
         currentToken,
         expectedToken,
         rootName,
@@ -573,11 +565,11 @@ function recoveryWriterValues() {
         currentState: recordBefore.state,
         nextState: expectedRecord.state,
         recordBefore,
-      }) + "\n") as unknown as null;
+      })}\n` as unknown as null;
       operation.execution.ownerEffect = "disabled";
       assert.ok(
         decodeRuntimeDomainSnapshot(
-          Buffer.from(encodeRuntimeStateValue(snapshot) + "\n"),
+          Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`),
           binding,
         ),
       );
@@ -597,29 +589,41 @@ function recoveryWriterValues() {
  * @cleanup N/A: 値の検査のみ。実Filesystem・Process・Dockerなし。
  * @boundary Domainの保存候補生成。保存の実成立を意味しない。
  */
-test("保存Identityは五資源名の重複を候補生成前に拒否する", () => {
+test("保存Snapshotはkeyと同種資源名の重複を候補生成前に拒否する", () => {
   const f = recoveryWriterValues();
   const operation = f.snapshot.operations[0];
-  assert.ok(operation && operation.kind === "docker_task");
-  const identity = JSON.parse(operation.identityJson);
-  assert.ok(
-    prepareCoordinatorStateOperationSnapshot(
-      null,
-      operation.identityJson,
-      f.repository.repositoryBinding,
-    ),
+  assert.ok(operation?.kind === "docker_task" && operation.resources);
+  const initial = prepareCoordinatorStateOperationSnapshot(
+    null,
+    operation.identityJson,
+    f.repository.repositoryBinding,
   );
-  const keys = ["auth", "provider", "proxy", "internal", "egress"];
-  for (let i = 0; i < keys.length; i++) {
-    const changed = structuredClone(identity);
-    const key = keys[i];
-    const other = keys[(i + 1) % keys.length];
-    assert.ok(key && other);
-    changed.resources[key] = changed.resources[other];
+  assert.ok(initial);
+  for (const mode of ["key", "name"] as const) {
+    const book: CoordinatorResourceBook = structuredClone(operation.resources);
+    const first = book.snapshot.resources[0],
+      second = book.snapshot.resources[1];
+    assert.ok(first && second);
+    const invalid = {
+      resources: [
+        first,
+        {
+          ...second,
+          key: mode === "key" ? first.key : second.key,
+          identity: mode === "name" ? { ...first.identity } : second.identity,
+        },
+      ],
+    };
     assert.equal(
-      prepareCoordinatorStateOperationSnapshot(
-        null,
-        JSON.stringify(changed) + "\n",
+      prepareCoordinatorStateResourceSnapshot(
+        initial,
+        f.token,
+        {
+          event: "submission",
+          key: first.key,
+          snapshot: invalid,
+          cleanup: book.cleanup,
+        },
         f.repository.repositoryBinding,
       ),
       null,
@@ -674,9 +678,10 @@ test("現在回収Writerは保存済みHost後続tokenと不変欄を共同確�
     }
     if (fault === "owner") operation.execution.ownerEffect = "active";
     if (fault === "resource") {
-      const resource = operation.resources[0];
-      assert.ok(resource);
-      operation.resources[0] = { ...resource, request: "unknown" };
+      operation.resources = createResourceBookFixture(
+        "crdd.coordinator.runtime=0123456789abcdef",
+        "unknown",
+      );
     }
     if (fault === "cleanup") update.cleanup = "confirmed";
     if (fault === "pending")
@@ -774,8 +779,9 @@ test("現在Host清掃Writerは固定元版・既知終端と保持中Ownerだ�
       operation.host.pendingTransitionJson = "{}" as unknown as null;
     if (fault === "active") operation.execution.ownerEffect = "active";
     if (fault === "resource")
-      operation.resources = operation.resources.map((resource, index) =>
-        index === 0 ? { ...resource, request: "unknown" } : resource,
+      operation.resources = createResourceBookFixture(
+        "crdd.coordinator.runtime=0123456789abcdef",
+        "unknown",
       );
     const before = Buffer.from(`${encodeRuntimeStateValue(f.snapshot)}\n`);
     let candidates = 0,
@@ -2858,7 +2864,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -2886,17 +2892,6 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -2941,13 +2936,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
       ownerEffect: "disabled",
       workspaceReusable: false,
     },
-    resources: initialOperation.resources.map((item) => ({
-      ...item,
-      request: "identified",
-      dockerId: "d".repeat(64),
-      receiptSource: "docker_create_result",
-      observation: "absent",
-    })),
+    resources: createResourceBookFixture(identity.ownershipLabel, "absent"),
   };
   const hostPreparationBefore = Buffer.from(
     `${encodeRuntimeStateValue({
@@ -2955,7 +2944,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
       operations: [
         {
           ...releasedOperation,
-          resources: initialOperation.resources,
+          resources: createResourceBookFixture(identity.ownershipLabel),
           execution: {
             ...releasedOperation.execution,
             providerStart: "not_started",
@@ -3638,7 +3627,7 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
     functionStart,
   );
   const normalEnd = text.indexOf(
-    "      for (const resource of operation.resources)",
+    "      for (const resource of operation.resources?.checkpoints ?? []) {",
     normalStart,
   );
   const settlementStart = text.indexOf(
@@ -3921,27 +3910,52 @@ test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保�
           : scenario === "restart_unknown"
             ? { request: "unknown", cleanup: "pending", result: null }
             : null,
-      resources: purposes.map((purpose) => {
-        const state = scenario.startsWith(`${purpose}:`)
-          ? scenario.slice(purpose.length + 1)
-          : "not_requested";
-        return {
-          purpose,
-          request:
-            state === "present"
-              ? "identified"
-              : state === "unidentified_absent"
-                ? "unknown"
-                : state,
-          observation:
-            state === "unidentified_absent"
-              ? "absent"
-              : state === "present"
-                ? "present"
-                : "unobserved",
-        };
-      }),
+      resources: {
+        ...createResourceBookFixture("crdd.owner=fixture", "planned", purposes),
+        snapshot: {
+          resources: createResourceBookFixture(
+            "crdd.owner=fixture",
+            "planned",
+            purposes,
+          ).snapshot.resources.map((r) => {
+            if (!scenario.startsWith(`${r.key}:`)) return r;
+            return {
+              ...r,
+              request: scenario.endsWith(":present")
+                ? ("issued" as const)
+                : ("unknown" as const),
+              identity: {
+                ...r.identity,
+                dockerId: scenario.endsWith(":present") ? "d".repeat(64) : null,
+              },
+            };
+          }),
+        },
+        checkpoints: purposes.map((key) => {
+          const state = scenario.startsWith(`${key}:`)
+            ? scenario.slice(key.length + 1)
+            : "none";
+          return {
+            key,
+            submission: state === "none" ? "none" : "intent_saved",
+            receiptSource: state === "present" ? "docker_create_result" : null,
+            observation:
+              state === "unidentified_absent"
+                ? "absent"
+                : state === "present"
+                  ? "present"
+                  : "unobserved",
+            absenceEvidenceSha256:
+              state === "unidentified_absent" ? "e".repeat(64) : null,
+          };
+        }),
+      },
     };
+    assert.equal(
+      domain.validateCoordinatorResourceBook(operation.resources),
+      true,
+      scenario,
+    );
     const snapshot = { operations: scenario === "missing" ? [] : [operation] };
     const before = Buffer.from(`${JSON.stringify(snapshot)}\n`);
     let candidates = 0,

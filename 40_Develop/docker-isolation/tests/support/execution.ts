@@ -8,23 +8,25 @@
 
 import type {
   DockerIsolationRuntimeOptions,
-  DockerResourceCleanupObservation,
-  DockerResourceReceipts,
   HomeLease,
-} from "../../../executor/src/attempt/types.ts";
+} from "../../../executor/src/lifecycle/types.ts";
 import type {
   DockerCommandSession,
   DockerSessionCleanup,
 } from "../../../executor/scripts/executor-test.ts";
 import { planDockerIsolationCommands } from "./execution-plan.ts";
 
-export type { DockerIsolationRuntimeOptions } from "../../../executor/src/attempt/types.ts";
+export type { DockerIsolationRuntimeOptions } from "../../../executor/src/lifecycle/types.ts";
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
-import { planDockerRecoveryResourceExpectations } from "../../../executor/src/attempt/recovery.ts";
-import type { DockerIsolationCommandInput } from "../../../executor/src/attempt/types.ts";
+import type {
+  DockerResourceCleanupObservation,
+  DockerResourceReceipts,
+} from "./cleanup.ts";
+import { planDockerRecoveryResourceExpectations } from "./cleanup.ts";
+import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
 import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
 import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import {

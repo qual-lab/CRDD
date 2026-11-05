@@ -3,25 +3,159 @@
   "contractRevision": 1,
   "subsystem": "executor",
   "symbols": [
-    { "symbolId": "executor.lifecycle.execute", "kind": "file", "path": "src/lifecycle/execute.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.lifecycle.callbacks", "kind": "file", "path": "src/lifecycle/callbacks.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.lifecycle.types", "kind": "file", "path": "src/lifecycle/types.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.test.unit.lifecycle", "kind": "test-suite", "path": "tests/unit/lifecycle.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["executor.lifecycle.execute", "executor.lifecycle.callbacks"] },
-    { "symbolId": "executor.resources.execute", "kind": "file", "path": "src/lifecycle/cleanup.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.test.integration.container-resources", "kind": "test-suite", "path": "tests/integration/container-resources.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-014"], "verifies": ["executor.resources.execute"] },
-    { "symbolId": "executor.probe.execute", "kind": "file", "path": "src/probe/operations.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.probe.types", "kind": "file", "path": "src/probe/types.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.test.unit.probe", "kind": "test-suite", "path": "tests/unit/probe.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["executor.probe.execute", "executor.probe.types"] },
-    { "symbolId": "executor.test.support.result-validation", "kind": "file", "path": "tests/support/result-validation.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.result.constants", "kind": "file", "path": "src/attempt/constants.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "executor.verification.test-entry", "kind": "file", "path": "scripts/executor-test.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
-    { "symbolId": "executor.attempt.validation", "kind": "file", "path": "src/attempt/operations.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
-    { "symbolId": "executor.verification.task-trial", "kind": "file", "path": "scripts/task-trial.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
-    { "symbolId": "executor.test.unit.review-delivery", "kind": "test-suite", "path": "tests/unit/review-delivery.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["coordinator.source.src.security.docker.process.controller"] },
+    {
+      "symbolId": "executor.lifecycle.execute",
+      "kind": "file",
+      "path": "src/lifecycle/execute.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.lifecycle.callbacks",
+      "kind": "file",
+      "path": "src/lifecycle/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.lifecycle.types",
+      "kind": "file",
+      "path": "src/lifecycle/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.lifecycle",
+      "kind": "test-suite",
+      "path": "tests/unit/lifecycle.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.lifecycle.execute",
+        "executor.lifecycle.callbacks"
+      ]
+    },
+    {
+      "symbolId": "executor.resources.execute",
+      "kind": "file",
+      "path": "src/lifecycle/cleanup.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.integration.container-resources",
+      "kind": "test-suite",
+      "path": "tests/integration/container-resources.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "executor.resources.execute"
+      ]
+    },
+    {
+      "symbolId": "executor.probe.execute",
+      "kind": "file",
+      "path": "src/lifecycle/probe.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.probe.types",
+      "kind": "file",
+      "path": "src/lifecycle/types.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.probe",
+      "kind": "test-suite",
+      "path": "tests/unit/probe.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "executor.probe.execute",
+        "executor.probe.types"
+      ]
+    },
+    {
+      "symbolId": "executor.test.support.result-validation",
+      "kind": "file",
+      "path": "tests/support/result-validation.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.result.constants",
+      "kind": "file",
+      "path": "src/lifecycle/attempt.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.test-entry",
+      "kind": "file",
+      "path": "scripts/executor-test.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "executor.attempt.validation",
+      "kind": "file",
+      "path": "src/lifecycle/attempt.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "executor.verification.task-trial",
+      "kind": "file",
+      "path": "scripts/task-trial.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "executor.test.unit.review-delivery",
+      "kind": "test-suite",
+      "path": "tests/unit/review-delivery.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.docker.process.controller"
+      ]
+    },
     {
       "symbolId": "executor.result.types",
       "kind": "file",
-      "path": "src/attempt/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"
@@ -52,7 +186,7 @@
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",
-      "path": "src/attempt/operations.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -60,7 +194,7 @@
     {
       "symbolId": "coordinator.execution.provider-observation",
       "kind": "file",
-      "path": "src/attempt/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -68,7 +202,7 @@
     {
       "symbolId": "coordinator.provider.execution-plan",
       "kind": "file",
-      "path": "src/attempt/operations.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -76,7 +210,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.process.controller",
       "kind": "file",
-      "path": "src/attempt/operations.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -84,7 +218,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.effect.runtime",
       "kind": "file",
-      "path": "src/attempt/operations.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -92,7 +226,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/attempt/result.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -100,7 +234,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/attempt/result.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -116,7 +250,7 @@
     {
       "symbolId": "executor.source.attempt.execute",
       "kind": "file",
-      "path": "src/attempt/operations.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -124,7 +258,7 @@
     {
       "symbolId": "executor.source.attempt.types",
       "kind": "file",
-      "path": "src/attempt/types.ts",
+      "path": "src/lifecycle/types.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -306,7 +440,7 @@
     {
       "symbolId": "executor.result.attempt",
       "kind": "file",
-      "path": "src/attempt/result.ts",
+      "path": "src/lifecycle/attempt.ts",
       "archIds": [
         "ARCH-000008"
       ]

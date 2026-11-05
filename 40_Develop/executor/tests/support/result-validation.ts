@@ -12,7 +12,7 @@ import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/suppo
 import {
   isAttemptFailureReason,
   readOwnDataProperty,
-} from "../../src/attempt/operations.ts";
+} from "../../src/lifecycle/attempt.ts";
 
 function resolveRecoveryReference(value: unknown) {
   return parseDockerTaskRecoveryId(value)?.token ?? null;

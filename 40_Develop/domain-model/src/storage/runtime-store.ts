@@ -1226,8 +1226,12 @@ function authenticationUnknownAbsenceChanged(
   return after.operations.some(
     (operation) =>
       operation.kind === "docker_task" &&
-      operation.resources.some((resource) => {
-        if (resource.request !== "unknown" || resource.observation !== "absent")
+      (operation.resources?.checkpoints ?? []).some((resource) => {
+        if (
+          resource.submission !== "intent_saved" ||
+          resource.receiptSource !== null ||
+          resource.observation !== "absent"
+        )
           return false;
         const previous = before?.operations.find(
           (item) =>
@@ -1236,8 +1240,8 @@ function authenticationUnknownAbsenceChanged(
         );
         const priorResource =
           previous?.kind === "docker_task"
-            ? previous.resources.find(
-                (item) => item.purpose === resource.purpose,
+            ? previous.resources?.checkpoints.find(
+                (item) => item.key === resource.key,
               )
             : null;
         return (
@@ -2631,7 +2635,7 @@ function completeCoordinatorCurrentRecovery(
  * @security 旧保存物、資源名による検索または空情報へfallbackしない。
  * @concurrency Writerと同じReaderを使い、排他解放後に投影を返す。
  */
-export function readRuntimeOwnedCoordinatorResourceRequests(
+export function readRuntimeOwnedCoordinatorResourceBook(
   managementCapability: unknown,
   recoveryId: unknown,
 ) {
@@ -2656,24 +2660,7 @@ export function readRuntimeOwnedCoordinatorResourceRequests(
     JSON.parse(operation.identityJson).operationId !== repository.operationId
   )
     return null;
-  return Object.freeze(
-    Object.fromEntries(
-      operation.resources.map((resource) => [
-        resource.purpose,
-        Object.freeze({
-          submitted: !["not_requested", "not_issued"].includes(
-            resource.request,
-          ),
-          dockerId: resource.dockerId,
-        }),
-      ]),
-    ) as Readonly<
-      Record<
-        (typeof operation.resources)[number]["purpose"],
-        Readonly<{ submitted: boolean; dockerId: string | null }>
-      >
-    >,
-  );
+  return operation.resources;
 }
 
 /**
@@ -2704,8 +2691,8 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
     (value): value is CoordinatorStateTaskOperation =>
       value.kind === "docker_task" && value.recoveryId === recoveryId,
   );
-  const resource = operation?.resources.find(
-    (value) => value.purpose === purpose,
+  const resource = operation?.resources?.checkpoints.find(
+    (value) => value.key === purpose,
   );
   if (
     !repository ||
@@ -2716,7 +2703,7 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
     !resource ||
     typeof recoveryId !== "string" ||
     typeof purpose !== "string" ||
-    resource.request !== "intent_saved" ||
+    resource.submission !== "intent_saved" ||
     JSON.parse(operation.identityJson).operationId !== repository.operationId
   )
     return Object.freeze({
@@ -2726,7 +2713,7 @@ export function checkpointRuntimeOwnedCoordinatorResourceNotIssued(
   const next = prepareCoordinatorStateResourceSnapshot(
     Buffer.from(`${encodeRuntimeStateValue(current.value.snapshot)}\n`),
     recoveryId,
-    { ...resource, request: "not_issued", observation: "unobserved" },
+    { event: "not_issued", key: purpose },
     repository.repositoryBinding,
   );
   return writeCoordinatorStateSnapshot(
@@ -4962,9 +4949,11 @@ function prepareCoordinatorStateWrite(
     candidate.snapshot.operations.some(
       (operation) =>
         operation.kind === "docker_task" &&
-        operation.resources.some(
+        (operation.resources?.checkpoints ?? []).some(
           (resource) =>
-            resource.request === "unknown" && resource.observation === "absent",
+            resource.submission === "intent_saved" &&
+            resource.receiptSource === null &&
+            resource.observation === "absent",
         ),
     )
   ) {
@@ -5841,7 +5830,10 @@ function commitCoordinatorStateSnapshotOwned(
       const observed = prepareCoordinatorStateCleanupSnapshot(
         settlement.completion.before,
         settlement.recoveryId,
-        settlement.dockerTerminal.resources,
+        {
+          snapshot: settlement.dockerTerminal.resourceSnapshot,
+          observations: settlement.dockerTerminal.resources,
+        },
         repository.repositoryBinding,
       );
       const observedOperation = observed
@@ -5856,15 +5848,8 @@ function commitCoordinatorStateSnapshotOwned(
         : null;
       if (
         !observedOperation ||
-        observedOperation.resources.some((resource, index) => {
-          const saved = previous.resources[index];
-          return (
-            !saved ||
-            resource.request !== saved.request ||
-            resource.dockerId !== saved.dockerId ||
-            resource.observation !== saved.observation
-          );
-        })
+        encodeRuntimeStateValue(observedOperation.resources) !==
+          encodeRuntimeStateValue(previous.resources)
       )
         throw new Error("completion_terminal_or_acceptance_unconfirmed");
       const fixedLine = prepareCoordinatorStateHistoryLine(
@@ -6064,7 +6049,10 @@ function commitCoordinatorStateSnapshotOwned(
             ? prepareCoordinatorStateCleanupSnapshot(
                 currentBytes,
                 settlement.recoveryId,
-                settlement.dockerTerminal.resources,
+                {
+                  snapshot: settlement.dockerTerminal.resourceSnapshot,
+                  observations: settlement.dockerTerminal.resources,
+                },
                 repository.repositoryBinding,
               )
             : null;
@@ -6164,17 +6152,17 @@ function commitCoordinatorStateSnapshotOwned(
       }
       if (previous && previous.kind !== "docker_task")
         throw new Error("operation_kind_changed");
-      for (const resource of operation.resources) {
-        const before = previous?.resources.find(
-          (value) => value.purpose === resource.purpose,
+      for (const resource of operation.resources?.checkpoints ?? []) {
+        const before = previous?.resources?.checkpoints.find(
+          (value) => value.key === resource.key,
         );
         if (
-          resource.request === "not_issued" &&
-          before?.request !== "not_issued" &&
+          resource.submission === "not_issued" &&
+          before?.submission !== "not_issued" &&
           (!unissued ||
-            before?.request !== "intent_saved" ||
+            before?.submission !== "intent_saved" ||
             unissued.recoveryId !== operation.recoveryId ||
-            unissued.purpose !== resource.purpose)
+            unissued.purpose !== resource.key)
         )
           throw new Error("resource_not_issued_proof_missing");
       }
@@ -6203,7 +6191,10 @@ function commitCoordinatorStateSnapshotOwned(
         const observedBytes = prepareCoordinatorStateCleanupSnapshot(
           currentBytes,
           operation.recoveryId,
-          settlement.dockerTerminal.resources,
+          {
+            snapshot: settlement.dockerTerminal.resourceSnapshot,
+            observations: settlement.dockerTerminal.resources,
+          },
           repository.repositoryBinding,
         );
         const observedOperation = observedBytes
@@ -6218,15 +6209,8 @@ function commitCoordinatorStateSnapshotOwned(
           : null;
         if (
           !observedOperation ||
-          observedOperation.resources.some((value, index) => {
-            const saved = previous.resources[index];
-            return (
-              !saved ||
-              value.request !== saved.request ||
-              value.dockerId !== saved.dockerId ||
-              value.observation !== saved.observation
-            );
-          })
+          encodeRuntimeStateValue(observedOperation.resources) !==
+            encodeRuntimeStateValue(previous.resources)
         )
           throw new Error("history_resource_observation_invalid");
         const expected = prepareCoordinatorStateHistorySnapshot(

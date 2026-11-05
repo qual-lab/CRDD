@@ -18,7 +18,7 @@ import test, { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
-import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
+import type { DockerResourceReceipts } from "../support/cleanup.ts";
 import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
 import type { DockerIsolationRuntimePlan } from "../support/execution.ts";
 import {

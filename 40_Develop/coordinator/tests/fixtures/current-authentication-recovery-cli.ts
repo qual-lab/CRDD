@@ -25,8 +25,19 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   const target = initial.operations.find(item => item.recoveryId === id);
   assert.ok(target && target.kind === 'docker_task');
   const identity = JSON.parse(target.identityJson);
-  const expectedResources = ['create_egress_network','create_internal_network','create_provider','create_proxy','create_subscription_auth_probe'].map(purpose => ({purpose,request:purpose === 'create_subscription_auth_probe'?'unknown':'not_requested',dockerId:null,receiptSource:null,observation:'unobserved',absence:null}));
-  assert.deepEqual(target.resources,expectedResources);
+  assert.deepEqual(target.resources.snapshot.resources.map(r=>r.key).sort(),['create_egress_network','create_internal_network','create_provider','create_proxy','create_subscription_auth_probe']);
+          for(const resource of target.resources.snapshot.resources){
+            const auth=resource.key==='create_subscription_auth_probe';
+            assert.equal(resource.request,auth?'unknown':'not_issued');
+            assert.equal(resource.identity.dockerId,null);
+            const checkpoint=target.resources.checkpoints.find(c=>c.key===resource.key);
+            assert.equal(checkpoint.submission,auth?'intent_saved':'none');
+            assert.equal(checkpoint.receiptSource,null);assert.equal(checkpoint.observation,'unobserved');assert.equal(checkpoint.absenceEvidenceSha256,null);
+          }
+  const authResource=target.resources.snapshot.resources.find(item=>item.key==='create_subscription_auth_probe');assert.ok(authResource);
+  assert.equal(authResource.identity.dockerId,null);
+  assert.equal(target.resources.checkpoints.find(c=>c.key===authResource.key).submission,'intent_saved');
+  assert.ok(target.resources.checkpoints.every(c=>c.receiptSource===null && c.observation==='unobserved' && c.absenceEvidenceSha256===null));
   assert.deepEqual(target.execution,{externalSend:'not_issued',ownerEffect:'disabled',providerStart:'not_started',sharedWrite:'not_issued',workspaceReusable:false});
   assert.equal(identity.consumer,'coordinator_cli');
   assert.equal(target.dockerRestart.request,'confirmed'); assert.equal(target.dockerRestart.cleanup,'confirmed');
@@ -34,7 +45,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
   const nativeExe = path.resolve(path.dirname(cli),'../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
   const nativeModes = ['--host-recovery-namespace-initialize','--host-recovery-namespace-observe','--local-app-data-directory','--system-windows-directory','--host-terminal-save','--host-terminal-read','--host-terminal-known-file-save','--host-terminal-known-file-read','--host-terminal-observe','--host-terminal-known-file-observe'];
-  const list = ['container','ls','--all','--no-trunc','--filter','name=^/'+identity.resources.auth+'$'];
+  const list = ['container','ls','--all','--no-trunc','--filter','name=^/'+authResource.identity.name+'$'];
   const name = [...list,'--format','{{.ID}}'];
   const labelled = [...list,'--filter','label='+identity.ownershipLabel,'--format','{{.ID}}'];
   const commands = [name,labelled,name,labelled,name,labelled];
@@ -99,12 +110,12 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         return {...created,executor:{...created.executor,
           discoverSubmitted: (expectation) => {
             assert.equal(expectation.key,'create_subscription_auth_probe');
-            assert.equal(expectation.expectedName,identity.resources.auth);
+            assert.equal(expectation.expectedName,authResource.identity.name);
             const found = created.executor.discoverSubmitted(expectation);
             assert.equal(found,null); assert.equal(++discoveries,1); return found;
           },
           observeAbsent: (...args) => {
-            assert.deepEqual(args,['container',identity.resources.auth,identity.ownershipLabel]);
+            assert.deepEqual(args,['container',authResource.identity.name,identity.ownershipLabel]);
             assert.equal(calls,2+rounds*2); assert.equal(saves,0);
             const absent = created.executor.observeAbsent(...args);
             assert.equal(absent,true); rounds++; assert.ok(rounds <= 2); return absent;
@@ -133,10 +144,14 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         const saved = JSON.parse(candidate), closed = saved.operations.find(item => item.recoveryId === id);
         assert.deepEqual({...closed,resources:operation.resources},operation);
         assert.deepEqual(saved.operations.filter(item => item.recoveryId !== id),initial.operations.filter(item => item.recoveryId !== id));
-        const auth = closed.resources.find(item => item.purpose === 'create_subscription_auth_probe');
-        assert.equal(auth.request,'unknown'); assert.equal(auth.dockerId,null); assert.equal(auth.receiptSource,null); assert.equal(auth.observation,'absent');
-        assert.equal(auth.absence.recoveryId,id); assert.equal(auth.absence.dockerId,null); assert.equal(auth.absence.plannedResourceName,identity.resources.auth);
-        assert.deepEqual(closed.resources.filter(item => item.purpose !== 'create_subscription_auth_probe'),target.resources.filter(item => item.purpose !== 'create_subscription_auth_probe'));
+        const auth=closed.resources.snapshot.resources.find(item=>item.key==='create_subscription_auth_probe');
+        assert.equal(auth.request,'unknown');
+        const checkpoint=closed.resources.checkpoints.find(item=>item.key===auth.key);
+        assert.equal(auth.request,authResource.request);assert.equal(auth.identity.dockerId,null);
+        assert.equal(checkpoint.submission,'intent_saved');assert.equal(checkpoint.receiptSource,null);assert.equal(checkpoint.observation,'absent');
+        assert.match(checkpoint.absenceEvidenceSha256,/^[a-f0-9]{64}$/);
+        assert.deepEqual(closed.resources.snapshot,operation.resources.snapshot);
+        assert.deepEqual(closed.resources.checkpoints.filter(item=>item.key!==auth.key),target.resources.checkpoints.filter(item=>item.key!==auth.key));
         return result;
       },
     }});

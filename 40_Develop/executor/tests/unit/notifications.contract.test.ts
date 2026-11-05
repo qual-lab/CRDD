@@ -19,14 +19,14 @@ import {
   createExecutorTestRuntime,
   bindLegacyTestIsolation,
 } from "../../scripts/executor-test.ts";
-import type { DockerResourceReceipts } from "../../src/attempt/types.ts";
+import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
 import type { IsolationRuntime } from "../../scripts/executor-test.ts";
 import type {
   AttemptDiagnosticNotice,
   CompletionResult,
   ExecutorCallbacks,
 } from "../../src/index.ts";
-import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
+import { createLifecycleControl } from "../../src/lifecycle/execute.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
@@ -40,15 +40,15 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
  * @cleanup 全PromiseをjoinしModule代役を復元する。外部AI・Dockerは呼ばない。
  */
 test("Requestを受ける公開Factoryは内部Planで一回実行し同じControlで取り消す", async () => {
-  const boundary = await import("../../src/attempt/operations.ts");
+  const boundary = await import("../../src/lifecycle/attempt.ts");
   let current = fixture();
   let acquisitions = 0;
   const source = readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   let connection: Pick<
-    import("../../src/attempt/types.ts").RuntimeState,
+    import("../../src/lifecycle/types.ts").RuntimeState,
     "prepareIsolation" | "executeIsolation"
   >;
   const createExecutor = runInNewContext(
@@ -57,7 +57,7 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       ...boundary,
       Object,
       WeakMap,
-      createLifecycleOperations,
+      createLifecycleControl,
       copyPlainDataRecord: runInNewContext(
         `${sourceDeclaration(source, "copyPlainDataRecord")}\ncopyPlainDataRecord`,
         {
@@ -84,7 +84,7 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
         prepared: di.PreparedIsolation,
         callbacks: di.IsolationCallbacks,
       ) => connection.executeIsolation(prepared, callbacks),
-      createStartResult: (await import("../../src/attempt/result.ts"))
+      createStartResult: (await import("../../src/lifecycle/attempt.ts"))
         .createStartResult,
       parseAttemptRecoveryReference: runInNewContext(
         `${sourceDeclaration(source, "parseAttemptRecoveryReference")}\nparseAttemptRecoveryReference`,
@@ -225,18 +225,18 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
     },
   );
   const resultModule = await import(
-    new URL("../../src/attempt/result.ts?notification-join", import.meta.url)
+    new URL("../../src/lifecycle/attempt.ts?notification-join", import.meta.url)
       .href
   );
   const resultMock = mock.module(
-    new URL("../../src/attempt/result.ts", import.meta.url).href,
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url).href,
     { namedExports: resultModule },
   );
   try {
-    const isolated: typeof import("../../src/attempt/operations.ts") =
+    const isolated: typeof import("../../src/lifecycle/attempt.ts") =
       await import(
         new URL(
-          "../../src/attempt/operations.ts?notification-join",
+          "../../src/lifecycle/attempt.ts?notification-join",
           import.meta.url,
         ).href
       );
@@ -354,6 +354,7 @@ function fixture(busy = false, providerOutput?: string) {
       busy
         ? null
         : {
+            assertLive: () => true,
             release: () => {
               releases++;
               return true;
@@ -363,7 +364,7 @@ function fixture(busy = false, providerOutput?: string) {
       startDockerCommandSessionCandidate(
         input.isolationRequest.steps.map(
           (step) =>
-            step.key as import("../../src/attempt/types.ts").AttemptCommandPurpose,
+            step.key as import("../../src/lifecycle/types.ts").AttemptCommandPurpose,
         ),
         {
           startCommand: (purpose) => {
@@ -666,9 +667,9 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
   try {
     const {
       createAttemptExecutor: createExecutor,
-    }: typeof import("../../src/attempt/operations.ts") = await import(
+    }: typeof import("../../src/lifecycle/attempt.ts") = await import(
       new URL(
-        "../../src/attempt/operations.ts?invalid-input-boundary",
+        "../../src/lifecycle/attempt.ts?invalid-input-boundary",
         import.meta.url,
       ).href
     );

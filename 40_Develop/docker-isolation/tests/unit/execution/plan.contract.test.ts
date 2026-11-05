@@ -17,8 +17,8 @@ import path from "node:path";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import vm from "node:vm";
-import { codexAdviceProviderInitRequired } from "../../../../executor/src/attempt/recovery.ts";
-import type { DockerIsolationCommandInput } from "../../../../executor/src/attempt/types.ts";
+import { codexAdviceProviderInitRequired } from "../../support/cleanup.ts";
+import type { DockerIsolationCommandInput } from "../../../../executor/src/lifecycle/types.ts";
 import { prepareDockerNetworkPolicy } from "../../../src/network/policy.ts";
 import {
   dockerIsolationResourceIdentityIsValid,

@@ -15,12 +15,7 @@ import type {
   DockerRuntimeRepairResult,
 } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import type { DockerRuntimeRestartInput } from "../../../docker-isolation/src/docker-desktop/restart.ts";
-import {
-  type Authentication,
-  bindAuthenticationLifecycle,
-} from "../../scripts/authentication-command-test.ts";
-import type { DockerIsolationRuntimeOptions } from "../../src/attempt/types.ts";
-import type { AuthenticationResult } from "../../src/authentication/types.ts";
+import type { DockerIsolationRuntimeOptions } from "../../src/lifecycle/types.ts";
 import {
   type AttemptCancelInput,
   type CancelArguments,
@@ -35,8 +30,7 @@ import {
   type StartInput,
   type StartResult,
 } from "../../src/index.ts";
-import { executeLifecycle } from "../../src/lifecycle/execute.ts";
-import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
+import { createLifecycleControl } from "../../src/lifecycle/execute.ts";
 
 /**
  * 無指定の公開型を全用途Unionとし、用途確定後の入出力を照合する。
@@ -141,60 +135,6 @@ test("公開型の既定Unionと用途別取消は入出力の相関を維持す
 });
 
 /**
- * 認証の事前取消を開始拒否として返し、操作を再利用しない。
- * @responsibility Signalと開始結果の拒否理由を本番Facadeで接続する。
- * @trace ERB-IT-004
- * @precondition 有限認証操作と未開始Executor。
- * @stimulus 明示取消又は外部Signalの事前abort。
- * @observation execute/cleanup件数、元Projection、拒否理由、再開始結果。
- * @oracle 操作零、cancelled理由のblocked、completionなし、再開始拒否。
- * @cleanup 制御は開始拒否時に終端し、外部資源なし。
- */
-test("認証の開始前取消は実行せず開始を拒否する", async () => {
-  for (const external of [false, true]) {
-    let calls = 0;
-    const core: Authentication = {
-      resources: [],
-      projection: {
-        provider: "codex",
-        action: "status",
-        ownershipLabel: "synthetic",
-        resources: [],
-      },
-      async execute() {
-        calls++;
-        throw Error("unexpected");
-      },
-      async cleanup() {
-        calls++;
-        throw Error("unexpected");
-      },
-      isProcessCompletionConfirmed: () => true,
-    };
-    const executor = bindAuthenticationLifecycle(core);
-    assert.ok(executor);
-    const controller = new AbortController();
-    if (external) controller.abort();
-    else await executor.cancel();
-    const result = executor.start({
-      ...(external ? { signal: controller.signal } : {}),
-    });
-    assert.equal(result.status, "blocked");
-    if (result.status === "blocked") {
-      assert.equal(result.reason, "provider_authentication_cancelled");
-      assert.equal(result.completion, null);
-    }
-    assert.equal(executor.start({}).status, "blocked");
-    assert.equal(calls, 0);
-    assert.deepEqual(await executor.cancel(), {
-      status: "blocked",
-      reason: "invalid",
-    });
-    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
-  }
-});
-
-/**
  * 外部中断と明示取消を同じ一回配送と購読寿命へ接続する。
  * @responsibility 事前取消拒否、登録境界、遅延Handler、Rejectと終端後無配送を反証する。
  * @trace ERB-IT-004
@@ -207,7 +147,7 @@ test("認証の開始前取消は実行せず開始を拒否する", async () =>
 test("外部Signalは共通取消へ一回配送され終端で購読を解放する", async () => {
   const pre = new AbortController();
   pre.abort();
-  const refused = createLifecycleOperations();
+  const refused = createLifecycleControl();
   assert.equal(refused.start(pre.signal), false);
   assert.equal(refused.finished, true);
   assert.equal(refused.cancellationRequested, true);
@@ -216,7 +156,7 @@ test("外部Signalは共通取消へ一回配送され終端で購読を解放�
 
   for (const late of [false, true]) {
     const external = new AbortController();
-    const control = createLifecycleOperations();
+    const control = createLifecycleControl();
     assert.equal(control.start(external.signal), true);
     assert.equal(getEventListeners(external.signal, "abort").length, 1);
     let calls = 0;
@@ -224,9 +164,9 @@ test("外部Signalは共通取消へ一回配送され終端で購読を解放�
       calls++;
       throw Error("delivery");
     };
-    if (!late) control.bindCancellation(handler);
+    if (!late) control.bind(cancellationSession(handler));
     external.abort();
-    if (late) control.bindCancellation(handler);
+    if (late) control.bind(cancellationSession(handler));
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(calls, 1);
     assert.deepEqual(await control.cancel(), {
@@ -245,19 +185,21 @@ test("外部Signalは共通取消へ一回配送され終端で購読を解放�
       add(type, listener, options);
     },
   });
-  const racing = createLifecycleOperations();
+  const racing = createLifecycleControl();
   assert.equal(racing.start(race.signal), false);
   assert.equal(racing.finished, true);
   assert.equal(getEventListeners(race.signal, "abort").length, 0);
 
   const after = new AbortController();
-  const ended = createLifecycleOperations();
+  const ended = createLifecycleControl();
   ended.start(after.signal);
   let deliveries = 0;
-  ended.bindCancellation(async () => {
-    deliveries++;
-    return true;
-  });
+  ended.bind(
+    cancellationSession(async () => {
+      deliveries++;
+      return true;
+    }),
+  );
   ended.finish();
   after.abort();
   await new Promise((resolve) => setImmediate(resolve));
@@ -322,7 +264,7 @@ test("公開Factoryはkindの未知・欠測・矛盾を別用途へ配送しな
  * @cleanup 保留Promiseを全て確定する。外部資源なし。
  */
 test("共通制御は開始・取消配送・終端を一つの正本で管理する", async () => {
-  const before = createLifecycleOperations();
+  const before = createLifecycleControl();
   assert.equal((await before.cancel()).status, "requested");
   assert.equal(before.signal.aborted, true);
   assert.deepEqual(await before.cancel(), {
@@ -333,27 +275,35 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
   assert.equal(before.finished, true);
   assert.equal(before.start(), false);
   let delivered = 0;
-  before.bindCancellation(async () => {
-    delivered++;
-    return true;
-  });
-  before.bindCancellation(async () => {
-    delivered++;
-    return true;
-  });
+  before.bind(
+    cancellationSession(async () => {
+      delivered++;
+      return true;
+    }),
+  );
+  before.bind(
+    cancellationSession(async () => {
+      delivered++;
+      return true;
+    }),
+  );
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(delivered, 0);
-  const delayed = createLifecycleOperations();
+  const delayed = createLifecycleControl();
   assert.equal(delayed.start(), true);
   assert.equal((await delayed.cancel()).status, "requested");
-  delayed.bindCancellation(async () => {
-    delivered++;
-    return true;
-  });
-  delayed.bindCancellation(async () => {
-    delivered++;
-    return true;
-  });
+  delayed.bind(
+    cancellationSession(async () => {
+      delivered++;
+      return true;
+    }),
+  );
+  delayed.bind(
+    cancellationSession(async () => {
+      delivered++;
+      return true;
+    }),
+  );
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(delivered, 1);
   delayed.finish();
@@ -363,120 +313,29 @@ test("共通制御は開始・取消配送・終端を一つの正本で管理�
     reason: "invalid",
   });
   assert.equal(before.start(), false);
-  const failed = createLifecycleOperations();
+  const failed = createLifecycleControl();
   failed.start();
-  failed.bindCancellation(async () => {
-    throw Error("delivery");
-  });
+  failed.bind(
+    cancellationSession(async () => {
+      throw Error("delivery");
+    }),
+  );
   await assert.rejects(failed.cancel(), /delivery/);
   assert.deepEqual(await failed.cancel(), {
     status: "blocked",
     reason: "duplicate",
   });
   const external = new AbortController();
-  const linked = createLifecycleOperations();
+  const linked = createLifecycleControl();
   assert.equal(linked.start(external.signal), true);
   external.abort();
   assert.equal(linked.signal.aborted, true);
   linked.finish();
-  linked.bindCancellation(async () => {
-    throw Error("terminal_delivery");
-  });
-  const running = createLifecycleOperations();
-  running.start();
-  let release: () => void = () => {};
-  const cleaning = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  let entered: () => void = () => {};
-  const cleanupEntered = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  let terminalCancel: unknown;
-  const completion = executeLifecycle(
-    {
-      async execute() {},
-      async finalize() {
-        entered();
-        await cleaning;
-      },
-      createResult() {
-        return { status: "confirmed" };
-      },
-      onCompleted: async () => {
-        terminalCancel = await running.cancel();
-      },
-    },
-    undefined,
-    running,
+  linked.bind(
+    cancellationSession(async () => {
+      throw Error("terminal_delivery");
+    }),
   );
-  await cleanupEntered;
-  assert.equal(running.finished, false);
-  assert.equal((await running.cancel()).status, "requested");
-  release();
-  assert.deepEqual(await completion, { status: "confirmed" });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(running.finished, true);
-  assert.deepEqual(terminalCancel, { status: "blocked", reason: "invalid" });
-
-  const fixed = createLifecycleOperations();
-  fixed.start();
-  let afterResult: unknown;
-  const fixedResult = await executeLifecycle(
-    {
-      async execute() {},
-      async finalize() {},
-      createResult() {
-        queueMicrotask(async () => {
-          afterResult = await fixed.cancel();
-        });
-        return { status: "completed", cancelled: false };
-      },
-    },
-    undefined,
-    fixed,
-  );
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(fixedResult, { status: "completed", cancelled: false });
-  assert.deepEqual(afterResult, { status: "blocked", reason: "invalid" });
-
-  const throwing = createLifecycleOperations();
-  throwing.start();
-  await assert.rejects(
-    executeLifecycle(
-      {
-        async execute() {},
-        async finalize() {},
-        createResult() {
-          throw null;
-        },
-      },
-      undefined,
-      throwing,
-    ),
-    (error) => error === null,
-  );
-  assert.equal(throwing.finished, true);
-  assert.deepEqual(await throwing.cancel(), {
-    status: "blocked",
-    reason: "invalid",
-  });
-
-  let cleanupCalls = 0;
-  await executeLifecycle(
-    {
-      async execute() {},
-      shouldFinalize: () => false,
-      async finalize() {
-        cleanupCalls++;
-      },
-      createResult() {
-        return false;
-      },
-    },
-    undefined,
-  );
-  assert.equal(cleanupCalls, 0);
 });
 
 /** 用途が異なる開始・取消・通知を共通名の型が混同しない。 */
@@ -517,263 +376,97 @@ test("共通公開型は用途と開始・取消・結果・通知の対応を�
   assert.ok(true);
 });
 
-/** falsyな例外も発生事実と値を分け、清掃例外による一次値上書きを拒否する。 */
-test("共通Lifecycleはfalsy例外・二重例外・正常を取り違えない", async () => {
-  for (const primary of [null, undefined, false, 0, ""]) {
-    for (const secondary of [false, true]) {
-      let cleaned = false;
-      const result = await executeLifecycle(
-        {
-          async execute() {
-            throw primary;
-          },
-          async finalize() {
-            cleaned = true;
-            if (secondary) throw Error("secondary");
-          },
-          createResult(_context, failure, failed) {
-            return { failure, failed };
-          },
-        },
-        undefined,
-      );
-      assert.equal(cleaned, true);
-      assert.equal(result.failed, true);
-      assert.equal(result.failure, primary);
-    }
-  }
-  const clean = await executeLifecycle(
-    {
-      async execute() {},
-      async finalize() {},
-      createResult(_context, failure, failed) {
-        return { failure, failed };
-      },
-    },
-    undefined,
-  );
-  assert.deepEqual(clean, { failure: null, failed: false });
-  const cleanupOnly = await executeLifecycle(
-    {
-      async execute() {},
-      async finalize() {
-        throw undefined;
-      },
-      createResult(_context, failure, failed) {
-        return { failure, failed };
-      },
-    },
-    undefined,
-  );
-  assert.deepEqual(cleanupOnly, { failure: undefined, failed: true });
-});
+/**
+ * 取消配送だけを観測する有限DI Session。
+ * @responsibility 実Process・資源の成立を主張せず取消ハンドラーだけを接続する。
+ * @trace ERB-IT-004
+ * @precondition メモリ内の関数のみ。
+ * @stimulus handlerの正常・失敗。
+ * @observation 配送回数と終了観測の値。
+ * @oracle 同じhandlerの結果をそのまま返す。
+ * @cleanup 実資源なし。
+ */
+function cancellationSession(
+  handler: () => Promise<boolean>,
+): import("../../../docker-isolation/src/index.ts").IsolationExecution {
+  return {
+    completion: Promise.resolve(
+      {} as import("../../../docker-isolation/src/index.ts").IsolationExecutionResult,
+    ),
+    cancel: async () => ({
+      cancellationRequested: true,
+      processTerminationObserved: await handler(),
+    }),
+  };
+}
 
-/** 最終command／清掃待機中の取消と、既存一次理由後の清掃例外を固定する。 */
-test("認証は最終取消を反映し清掃例外で一次理由を上書きしない", async () => {
-  for (const mode of [
-    "cancel_execute",
-    "cancel_cleanup",
-    "primary_cleanup_error",
-    "normal_cleanup_error",
-  ]) {
-    let release!: () => void;
-    let ready!: () => void;
-    const reached = new Promise<void>((resolve) => {
-      ready = resolve;
-    });
-    const waiting = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const primary =
-      mode === "primary_cleanup_error"
-        ? "provider_authentication_resource_receipt_unconfirmed"
-        : "provider_authentication_completed";
-    const core: Authentication = {
-      resources: [],
-      projection: {
-        provider: "claude",
-        action: "status",
-        ownershipLabel: "synthetic",
-        resources: [],
-      },
-      async execute() {
-        if (mode === "cancel_execute") {
-          ready();
-          await waiting;
-        }
-        return {
-          reason: primary,
-          authenticationStatus: "confirmed",
-          authenticationConfirmed: true,
-          providerEffectIssued: true,
-          processCompletionConfirmed: true,
-        };
-      },
-      async cleanup() {
-        if (mode === "cancel_cleanup") {
-          ready();
-          await waiting;
-        }
-        if (mode.endsWith("error")) throw null;
-        return { confirmed: true, processCompletionConfirmed: true };
-      },
-      isProcessCompletionConfirmed: () => true,
-    };
-    const executor = bindAuthenticationLifecycle(core);
-    assert.ok(executor);
-    const pending = executor.start({}).completion;
-    if (mode.startsWith("cancel")) {
-      await reached;
-      void executor.cancel();
-      release();
-    }
-    assert.ok(pending);
-    const result = await pending;
-    assert.equal(result.authenticationConfirmed, true);
-    assert.equal(
-      result.reason,
-      mode.startsWith("cancel")
-        ? "provider_authentication_cancelled"
-        : mode === "primary_cleanup_error"
-          ? primary
-          : "provider_authentication_process_completion_unconfirmed",
-    );
-    assert.equal(result.cleanupConfirmed, mode.startsWith("cancel"));
-  }
-});
-
-/** 清掃が終了する前に結果を公開せず、清掃例外で一次失敗を上書きしない。 */
-test("共通Lifecycleは同じContextで清掃をjoinし一次失敗を保持する", async () => {
-  const context = {},
-    events: string[] = [];
-  const primary = Error("primary"),
-    secondary = Error("cleanup");
-  let release!: () => void;
-  const waiting = new Promise<void>((resolve) => {
-    release = resolve;
+/** 入力の取得操作を準備Effectより前に拒否する。 @trace ERB-IT-004 */
+test("Attemptの欠測・accessor・内側Proxyは乱数取得前に非評価で拒否する", () => {
+  let hooks = 0,
+    randomCalls = 0;
+  const getter = () => {
+    hooks++;
+    throw Error("synthetic_getter");
+  };
+  const target = {
+    operationId: "OP-123456",
+    grantRef: "PHMGRANT-123456",
+    provider: "codex",
+    workspaceSourcePath: "C:/fixture/work",
+    temporarySourcePath: "C:/fixture/tmp",
+    providerHomeSourcePath: "C:/fixture/home",
+    providerHomeIdentityHash: "a".repeat(64),
+    providerHomeProtectionHash: "b".repeat(64),
+    localUserBindingHash: "c".repeat(64),
+    stableLogicalHomeBindingHash: "d".repeat(64),
+    activeMountCapability: {},
+  };
+  const base = { kind: "attempt", purpose: "probe", target, selection: {} };
+  const accessor = (value: object, key: string) =>
+    Object.defineProperty({ ...value }, key, { get: getter, enumerable: true });
+  const proxy = new Proxy(target, {
+    get: getter,
+    getOwnPropertyDescriptor: getter,
+    ownKeys: getter,
   });
-  const completion = executeLifecycle(
+  for (const request of [
+    { kind: "attempt" },
+    accessor(base, "target"),
+    { ...base, target: proxy },
+    { ...base, target: accessor(target, "temporarySourcePath") },
+    { ...base, target: accessor(target, "workspaceProtection") },
     {
-      async execute(actual) {
-        assert.equal(actual, context);
-        events.push("execute");
-        throw primary;
-      },
-      async finalize(actual) {
-        assert.equal(actual, context);
-        events.push("cleanup");
-        await waiting;
-        throw secondary;
-      },
-      createResult(actual, failure) {
-        assert.equal(actual, context);
-        events.push("result");
-        return failure;
+      ...base,
+      target: {
+        ...target,
+        workspaceProtection: accessor(
+          {
+            gitSourcePath: "C:/fixture/git",
+            internalSourcePath: "C:/fixture/internal",
+          },
+          "gitSourcePath",
+        ),
       },
     },
-    context,
-  );
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(events, ["execute", "cleanup"]);
-  release();
-  assert.equal(await completion, primary);
-  assert.deepEqual(events, ["execute", "cleanup", "result"]);
-});
-
-/** 認証も一回のstart・取消を同じRuntimeに渡し、終了不明の後に清掃を発行しない。 */
-test("認証の共通Lifecycleは正常・取消・終了不明・清掃失敗を区別する", async () => {
-  for (const mode of [
-    "normal",
-    "cancel",
-    "unknown",
-    "cleanup_failed",
-    "throw",
-  ] as const) {
-    let cleanups = 0;
-    let observedSignal: AbortSignal | undefined;
-    const result: AuthenticationResult = {
-      reason: "provider_authentication_completed",
-      authenticationStatus: "confirmed",
-      authenticationConfirmed: true,
-      providerEffectIssued: true,
-      processCompletionConfirmed: mode !== "unknown",
-    };
-    const core: Authentication = {
-      resources: [],
-      projection: {
-        provider: "codex",
-        action: "status",
-        ownershipLabel: "synthetic",
-        resources: [],
-      },
-      async execute(signal, callbacks) {
-        observedSignal = signal;
-        callbacks?.onCommandSubmitting?.("synthetic");
-        if (mode === "throw") throw Error("synthetic");
-        await new Promise((resolve) => setImmediate(resolve));
-        return {
-          ...result,
-          ...(signal?.aborted
-            ? { reason: "provider_authentication_cancelled" }
-            : {}),
-        };
-      },
-      async cleanup(resources, signal) {
-        cleanups++;
-        assert.deepEqual(resources, []);
-        assert.equal(signal, undefined);
-        return {
-          confirmed: mode !== "cleanup_failed",
-          processCompletionConfirmed: true,
-        };
-      },
-      isProcessCompletionConfirmed: () =>
-        mode !== "unknown" && mode !== "throw",
-    };
-    const executor = bindAuthenticationLifecycle(core);
-    assert.ok(executor);
-    assert.equal(executor.recordProjection, core.projection);
-    const notices: string[] = [];
-    let delivered: CompletionResult<"authentication"> | null = null;
-    const started = executor.start({
-      callbacks: {
-        onCommandSubmitting: (purpose) => {
-          notices.push(purpose);
-        },
-        onCompleted: (result) => {
-          delivered = result;
-          return Promise.reject(Error("passive"));
-        },
-      },
-    });
-    assert.ok(started.status === "started");
-    if (mode === "cancel") {
-      const cancelled = await executor.cancel();
-      assert.equal(cancelled.status, "requested");
-      if (cancelled.status === "requested")
-        assert.equal(cancelled.processTerminationObserved, false);
-    }
-    assert.equal(executor.start({}).status, "blocked");
-    const completed = await started.completion;
-    assert.deepEqual(await executor.cancel(), {
-      status: "blocked",
-      reason: "invalid",
-    });
-    assert.equal(completed.kind, "authentication");
-    assert.equal(delivered, completed);
-    assert.deepEqual(notices, ["synthetic"]);
-    assert.equal(cleanups, mode === "unknown" || mode === "throw" ? 0 : 1);
+    accessor(base, "purpose"),
+    accessor(base, "selection"),
+  ]) {
     assert.equal(
-      completed.cleanupConfirmed,
-      mode === "normal" || mode === "cancel",
+      createExecutor(
+        request as ExecutorRequest<"attempt">,
+        {
+          paths: { tmp: "C:/fixture/tmp", management: "C:/fixture/management" },
+        },
+        {
+          randomBytes: () => {
+            randomCalls++;
+            throw Error("unexpected_random");
+          },
+        },
+      ),
+      null,
     );
-    assert.equal(
-      completed.processCompletionConfirmed,
-      mode !== "unknown" && mode !== "throw",
-    );
-    if (mode === "cancel") {
-      assert.equal(observedSignal?.aborted, true);
-      assert.equal(completed.reason, "provider_authentication_cancelled");
-    }
   }
+  assert.equal(hooks, 0);
+  assert.equal(randomCalls, 0);
 });

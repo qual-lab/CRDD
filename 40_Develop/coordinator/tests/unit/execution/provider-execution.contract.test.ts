@@ -1671,6 +1671,7 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
     const observation = {
       operationId: plan.operationId,
       recoveryId: reference.recoveryId,
+      resourceSnapshot: { resources: [] },
       resources: [],
       primaryFailure: null,
       processTreeTerminationConfirmed: true,
@@ -1872,6 +1873,7 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
   const observation = {
     operationId: plan.operationId,
     recoveryId: reference.recoveryId,
+    resourceSnapshot: { resources: [] },
     resources: [],
     primaryFailure: null,
     processTreeTerminationConfirmed: true,

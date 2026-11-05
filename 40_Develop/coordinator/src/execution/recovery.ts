@@ -71,6 +71,10 @@ import {
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../domain-model/src/index.ts";
 import type {
+  IsolationCallbacks,
+  IsolationExecution,
+} from "../../../docker-isolation/src/index.ts";
+import type {
   Executor,
   StartResult,
   CompletionResult as TechnicalCompletionResult,
@@ -81,7 +85,6 @@ import {
   type DockerEnvironmentResult,
   type DockerEnvironmentRestartEvent,
   inspectResources,
-  type ResourceCleanupCallbacks,
   type ResourceInspection,
   type ResourceTarget,
   restartDockerEnvironment,
@@ -2210,63 +2213,38 @@ export function completeRuntimeOwnedDockerTaskRecoveryHistory(
 function projectResourceTarget(
   operation: CoordinatorStateTaskOperation,
   directory: string | null,
-): ResourceTarget<"attempt"> {
-  if (
-    operation.resources.length !== 5 ||
-    new Set(operation.resources.map((value) => value.purpose)).size !== 5
-  )
-    throw Error("docker_task_recovery_resource_missing");
-  const identity = JSON.parse(operation.identityJson);
-  const receipt = (purpose: keyof ResourceTarget<"attempt">["receipts"]) => {
-    const resource = operation.resources.find(
-      (value) => value.purpose === purpose,
-    );
-    if (!resource) throw Error("docker_task_recovery_resource_missing");
-    return Object.freeze({
-      submitted:
-        resource.request !== "not_requested" &&
-        resource.request !== "not_issued",
-      dockerId: resource.request === "identified" ? resource.dockerId : null,
-    });
-  };
+): ResourceTarget<"snapshot"> {
+  const book = operation.resources;
+  if (!book || !directory) throw Error("docker_task_recovery_resource_missing");
   return Object.freeze({
-    operationId: identity.operationId,
-    kind: "resource_set" as const,
-    recoveryId: operation.recoveryId,
     managementDirectory: directory,
-    projection: Object.freeze({
-      authContainerName: identity.resources.auth,
-      providerContainerName: identity.resources.provider,
-      proxyContainerName: identity.resources.proxy,
-      internalNetworkName: identity.resources.internal,
-      egressNetworkName: identity.resources.egress,
-      ownershipLabel: identity.ownershipLabel,
-      providerImageDigest: identity.images.provider,
-      proxyImageDigest: identity.images.proxy,
-      subscriptionOffering: identity.subscriptionOffering,
-      operationMode: identity.operationMode,
-      workspaceMountMode: identity.workspaceMountMode,
-      ...(identity.workspaceProtected === true
-        ? {
-            workspaceProtected: true,
-            workspaceProtection: identity.workspaceProtection,
-          }
-        : {}),
-    }),
-    receipts: Object.freeze({
-      create_provider: receipt("create_provider"),
-      create_subscription_auth_probe: receipt("create_subscription_auth_probe"),
-      create_proxy: receipt("create_proxy"),
-      create_internal_network: receipt("create_internal_network"),
-      create_egress_network: receipt("create_egress_network"),
+    ...book.cleanup,
+    resources: Object.freeze({
+      resources: Object.freeze(
+        book.snapshot.resources.map((resource) => {
+          const checkpoint = book.checkpoints.find(
+            (item) => item.key === resource.key,
+          );
+          if (!checkpoint) throw Error("docker_task_recovery_resource_missing");
+          return Object.freeze({
+            ...resource,
+            request:
+              checkpoint.submission !== "intent_saved"
+                ? ("not_issued" as const)
+                : resource.identity.dockerId === null
+                  ? ("unknown" as const)
+                  : ("issued" as const),
+          });
+        }),
+      ),
     }),
     previouslyAbsent: Object.freeze(
-      operation.resources
+      book.checkpoints
         .filter(
-          (value) =>
-            value.observation === "absent" && value.request === "identified",
+          (item) =>
+            item.observation === "absent" && item.receiptSource !== null,
         )
-        .map((value) => value.purpose),
+        .map((item) => item.key),
     ),
   });
 }
@@ -2927,15 +2905,16 @@ export function completeRuntimeOwnedDockerTaskTransientRecovery(
 export async function recoverRuntimeOwnedDockerTaskResources(
   capability: unknown,
   cleanup: (
-    target: ResourceTarget<"attempt">,
-    callbacks: ResourceCleanupCallbacks<
-      AttemptResourceCleanupResult<"attempt">["resources"]
-    >,
-  ) => Promise<AttemptResourceCleanupResult<"attempt">> = cleanupResources,
+    target: ResourceTarget<"snapshot">,
+    callbacks: IsolationCallbacks,
+  ) => IsolationExecution = cleanupResources,
   inspect: (
-    target: ResourceTarget<"attempt">,
-    purpose?: keyof ResourceTarget<"attempt">["receipts"],
-  ) => ResourceInspection<"attempt"> = inspectResources,
+    target: ResourceTarget<"snapshot">,
+    options?: Readonly<{
+      signal?: AbortSignal;
+      stopOnUnknownAbsence?: boolean;
+    }>,
+  ) => ResourceInspection<"snapshot"> = inspectResources,
   signal?: AbortSignal,
 ) {
   const record =
@@ -2997,10 +2976,10 @@ export async function recoverRuntimeOwnedDockerTaskResources(
 
   try {
     const initial = current();
-    const requested = initial.resources.some(
-      (value) =>
-        value.request !== "not_requested" && value.request !== "not_issued",
-    );
+    const requested =
+      initial.resources?.checkpoints.some(
+        (value) => value.submission === "intent_saved",
+      ) ?? false;
     const borrowed = requested
       ? borrowHostRecoveryManagementDirectory(
           record.hostToken,
@@ -3016,81 +2995,72 @@ export async function recoverRuntimeOwnedDockerTaskResources(
       return borrowed ? borrowed.assertCurrent() : true;
     };
     if (!owner()) throw Error("docker_task_recovery_host_borrow_unconfirmed");
-    const target = Object.freeze({
-      ...projectResourceTarget(initial, borrowed?.directory ?? null),
-      ...(signal ? { signal } : {}),
-    });
+    signal?.throwIfAborted();
+    if (!requested && coordinatorTaskResourcesAreSettled(initial))
+      return result(true, "docker_task_recovery_resources_clean");
+    const target = projectResourceTarget(initial, borrowed?.directory ?? null);
     let authenticationClosureConfirmed = false;
     let inspectionConfigConfirmed = true;
-    const recovered = await cleanup(target, {
-      onResourceInspecting: (purpose) => {
-        const resource = current().resources.find(
-          (value) => value.purpose === purpose,
-        );
-        if (!resource) throw Error("docker_task_recovery_resource_missing");
+    const execution = cleanup(target, {
+      onCleanupSubmitting: () => {
+        current();
+      },
+      onResourceIdentified: (key, snapshot) => {
+        const book = current().resources;
         if (
-          resource.request === "intent_saved" &&
+          !book ||
           !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
             capability,
             "resource",
-            { ...resource, request: "unknown" },
+            { event: "identified", key, snapshot, cleanup: book.cleanup },
           )
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
         current();
       },
-      onResourceIdentified: (purpose, dockerId) => {
-        const resource = current().resources.find(
-          (value) => value.purpose === purpose,
-        );
-        if (
-          !resource ||
-          !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
-            capability,
-            "resource",
-            {
-              ...resource,
-              request: "identified",
-              dockerId,
-              receiptSource: "runtime_reconciliation",
-              observation: "present",
-              absence: null,
-            },
-          )
-        )
-          throw Error("docker_task_recovery_checkpoint_unconfirmed");
-        current();
-      },
-      onResourcesClosed: (observations) => {
+      onResourcesClosed: (snapshot, observations) => {
         const operation = current();
         const preservesAuthenticationClosure =
           coordinatorTaskResourcesAreSettled(operation) &&
-          operation.resources.some(
+          operation.resources?.checkpoints.some(
             (value) =>
-              value.purpose === "create_subscription_auth_probe" &&
-              value.request === "unknown",
+              value.key === "create_subscription_auth_probe" &&
+              value.receiptSource === null,
           );
         if (
           !preservesAuthenticationClosure &&
           !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
             capability,
             "cleanup",
-            operation.resources.flatMap((resource) =>
-              observations.filter((item) => item.purpose === resource.purpose),
-            ),
+            { snapshot, observations },
           )
         )
           throw Error("docker_task_recovery_checkpoint_unconfirmed");
         const closureOperation = current();
         if (!coordinatorAuthenticationUnknownCanClose(closureOperation)) return;
         const inspection = inspect(
-          projectResourceTarget(closureOperation, borrowed?.directory ?? null),
-          "create_subscription_auth_probe",
+          (() => {
+            const full = projectResourceTarget(
+              closureOperation,
+              borrowed?.directory ?? null,
+            );
+            return {
+              ...full,
+              resources: {
+                resources: full.resources.resources.filter(
+                  (r) => r.key === "create_subscription_auth_probe",
+                ),
+              },
+              cleanupOrder: ["create_subscription_auth_probe"],
+              previouslyAbsent: [],
+            };
+          })(),
+          { stopOnUnknownAbsence: true, ...(signal ? { signal } : {}) },
         );
         inspectionConfigConfirmed = inspection.configCleanupConfirmed;
         if (!inspectionConfigConfirmed) record.cleanupUnknown = true;
         const authentication = inspection.resources.find(
-          (value) => value.purpose === "create_subscription_auth_probe",
+          (value) => value.key === "create_subscription_auth_probe",
         );
         if (
           inspection.status !== "completed" ||
@@ -3150,6 +3120,31 @@ export async function recoverRuntimeOwnedDockerTaskResources(
         authenticationClosureConfirmed = true;
       },
     });
+    const abort = () => {
+      void execution.cancel().catch(() => {});
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    let technical: AttemptResourceCleanupResult<"snapshot">;
+    try {
+      technical = await execution.completion;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+    }
+    const recovered = {
+      configCleanupConfirmed: technical.cleanup.configCleanupConfirmed,
+      dockerCleanupConfirmed:
+        technical.cleanup.confirmed && technical.processTerminationConfirmed,
+      status:
+        technical.cleanup.confirmed && technical.processTerminationConfirmed
+          ? "completed"
+          : "blocked",
+      reason:
+        technical.failure?.reason ??
+        (technical.cleanup.confirmed
+          ? "docker_task_recovery_resources_clean"
+          : "docker_task_recovery_resource_unconfirmed"),
+    };
     if (!owner()) throw Error("docker_task_recovery_host_borrow_unconfirmed");
     record.cleanupUnknown ||=
       !recovered.configCleanupConfirmed || !inspectionConfigConfirmed;
@@ -3921,7 +3916,7 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
     const initialHostRecoveryId = ownedHost.snapshot.token;
     const initialHostRecovery = ownedHost.snapshot;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v2",
+      schema: "crdd-coordinator/operation-identity/v3",
       operationNonce,
       provider: plan.provider,
       consumer,
@@ -3935,17 +3930,6 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
       localUserBindingHash: plan.localUserBindingHash,
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: plan.ownershipLabel,
-      resources: {
-        auth: plan.authContainerName,
-        provider: plan.providerContainerName,
-        proxy: plan.proxyContainerName,
-        internal: plan.internalNetworkName,
-        egress: plan.egressNetworkName,
-      },
-      images: {
-        provider: plan.providerImageDigest,
-        proxy: plan.proxyImageDigest,
-      },
       operationMode: plan.operationMode,
       workspaceMountMode: plan.workspaceMountMode,
       ...(plan.workspaceProtection
@@ -4091,30 +4075,26 @@ export function verifyRuntimeOwnedDockerRecoveryBinding(
 export function markRuntimeOwnedDockerResourceSubmission(
   recoveryCapability: unknown,
   purpose: unknown,
+  resourcesValue: unknown,
 ) {
   const record = durableRecord(recoveryCapability);
   if (!record || typeof purpose !== "string" || !CREATE_PURPOSES.has(purpose))
     return false;
-  const current = readRuntimeOwnedCoordinatorStateSnapshot(
-    record.managementCapability,
-  );
-  const resource = current.value?.snapshot.operations
-    .find(
-      (item): item is CoordinatorStateTaskOperation =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-    )
-    ?.resources.find((item) => item.purpose === purpose);
-  if (resource?.request !== "not_requested") return false;
-  return (
-    checkpointRuntimeOwnedCoordinatorResource(
+  try {
+    const resources = JSON.parse(encodeRuntimeStateValue(resourcesValue));
+    const saved = checkpointRuntimeOwnedCoordinatorResource(
       record.managementCapability,
       record.recoveryId,
-      {
-        ...resource,
-        request: "intent_saved",
-      },
-    ).status === "completed"
-  );
+      { ...resources, event: "submission", key: purpose },
+    );
+    return (
+      saved.status === "completed" &&
+      saved.snapshotConfirmed &&
+      saved.lockReleased
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -4156,10 +4136,10 @@ export function recordRuntimeOwnedUnstartedAttempt(
     operation.phase !== "executing" ||
     operation.outcome !== null ||
     operation.summarySha256 !== null ||
-    operation.resources.some(
-      (resource) =>
-        resource.request !== "not_requested" || resource.dockerId !== null,
-    ) ||
+    (operation.resources?.checkpoints.some(
+      (resource) => resource.submission !== "none",
+    ) ??
+      false) ||
     operation.execution.providerStart !== "not_started" ||
     operation.execution.externalSend !== "not_issued" ||
     operation.execution.sharedWrite !== "not_issued"
@@ -4273,40 +4253,27 @@ export function recordRuntimeOwnedDockerProviderSubmission(
 export function recordRuntimeOwnedDockerResourceReceipt(
   recoveryCapability: unknown,
   purpose: unknown,
-  rawDockerId: unknown,
+  resourcesValue: unknown,
+  source: "receipt" | "identified" = "receipt",
 ) {
   const record = durableRecord(recoveryCapability);
-  const dockerId = typeof rawDockerId === "string" ? rawDockerId.trim() : "";
-  if (
-    !record ||
-    typeof purpose !== "string" ||
-    !CREATE_PURPOSES.has(purpose) ||
-    !HEX64.test(dockerId)
-  )
+  if (!record || typeof purpose !== "string" || !CREATE_PURPOSES.has(purpose))
     return false;
-  const current = readRuntimeOwnedCoordinatorStateSnapshot(
-    record.managementCapability,
-  );
-  const resource = current.value?.snapshot.operations
-    .find(
-      (item): item is CoordinatorStateTaskOperation =>
-        item.kind === "docker_task" && item.recoveryId === record.recoveryId,
-    )
-    ?.resources.find((item) => item.purpose === purpose);
-  if (!resource || !["intent_saved", "issued"].includes(resource.request))
-    return false;
-  return (
-    checkpointRuntimeOwnedCoordinatorResource(
+  try {
+    const resources = JSON.parse(encodeRuntimeStateValue(resourcesValue));
+    const saved = checkpointRuntimeOwnedCoordinatorResource(
       record.managementCapability,
       record.recoveryId,
-      {
-        ...resource,
-        request: "identified",
-        dockerId,
-        receiptSource: "docker_create_result",
-      },
-    ).status === "completed"
-  );
+      { ...resources, event: source, key: purpose },
+    );
+    return (
+      saved.status === "completed" &&
+      saved.snapshotConfirmed &&
+      saved.lockReleased
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -5025,11 +4992,7 @@ function restartScopeIncludes(
     operation.execution.providerStart === "unknown" ||
     operation.execution.externalSend === "unknown" ||
     operation.execution.sharedWrite === "unknown" ||
-    operation.resources.some(
-      (resource) =>
-        !["not_requested", "not_issued"].includes(resource.request) &&
-        (resource.observation !== "absent" || resource.absence === null),
-    )
+    !coordinatorTaskResourcesAreSettled(operation)
   );
 }
 
@@ -7540,7 +7503,10 @@ export function recordRuntimeOwnedAttemptCleanup(
   }
   try {
     if (
-      recordRuntimeOwnedDockerAbsence(recoveryCapability, observations) !== true
+      recordRuntimeOwnedDockerAbsence(recoveryCapability, {
+        snapshot: input.resourceSnapshot,
+        observations,
+      }) !== true
     )
       throw new Error("docker_absence_record_failed");
     if (mountLeaseReleased && mountCompletion) {

@@ -25,11 +25,228 @@ import { coordinatorConsumerCompletionPolicy } from "../task/validation.ts";
 import { inspectExecutionSelection } from "../ai-selection/validation.ts";
 import type { DockerRestartCheckpoint } from "./types.ts";
 import { snapshotPlainRecord } from "../plain-data/snapshot.ts";
-import type { CoordinatorStateTaskOperation } from "./types.ts";
+import type {
+  CoordinatorStateTaskOperation,
+  CoordinatorResourceBook,
+} from "./types.ts";
 import type { CoordinatorRepairRetentionReceipt } from "./types.ts";
 import { decodeDockerRuntimeRepairRetentionTargets } from "./repair-validation.ts";
 import type { DockerRuntimeRepairCheckpoint } from "./repair-types.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
+
+/**
+ * 保存された資源集合の形と相関を確認する。実在や削除許可は判定しない。
+ * @responsibility Identityの重複を作らず、非秘密Snapshotとkey別checkpointを結合する。
+ * @trace ARCH-000008
+ * @effect N/A: JSON値の純粋検査だけ。
+ * @failure 旧配列形式、欠測・重複key、秘密値を含み得る未正規化fieldは拒否する。
+ */
+export function validateCoordinatorResourceBook(
+  value: unknown,
+): value is CoordinatorResourceBook | null {
+  if (value === null) return true;
+  if (!exactRecordKeys(value, ["snapshot", "checkpoints", "cleanup"]))
+    return false;
+  const book = value as CoordinatorResourceBook;
+  if (
+    !exactRecordKeys(book.snapshot, ["resources"]) ||
+    !Array.isArray(book.snapshot.resources) ||
+    !Array.isArray(book.checkpoints) ||
+    book.snapshot.resources.length === 0 ||
+    book.snapshot.resources.length !== book.checkpoints.length ||
+    !exactRecordKeys(book.cleanup, [
+      "cleanupOrder",
+      "setupTimeoutMs",
+      "unreceiptedAbsence",
+      "verifyLabelAbsence",
+    ]) ||
+    !Array.isArray(book.cleanup.cleanupOrder) ||
+    !Number.isSafeInteger(book.cleanup.setupTimeoutMs) ||
+    book.cleanup.setupTimeoutMs <= 0 ||
+    !["retain", "observe"].includes(book.cleanup.unreceiptedAbsence) ||
+    typeof book.cleanup.verifyLabelAbsence !== "boolean"
+  )
+    return false;
+  const keys = new Set<string>();
+  const resourceNames = new Set<string>();
+  for (const resource of book.snapshot.resources) {
+    if (
+      !exactRecordKeys(resource, [
+        "key",
+        "identity",
+        "request",
+        "configuration",
+      ]) ||
+      typeof resource.key !== "string" ||
+      resource.key.length === 0 ||
+      keys.has(resource.key) ||
+      !exactRecordKeys(resource.identity, [
+        "kind",
+        "dockerId",
+        "name",
+        "ownershipLabel",
+      ]) ||
+      !["container", "network"].includes(resource.identity.kind) ||
+      (resource.identity.dockerId !== null &&
+        !isSha256Hex(resource.identity.dockerId)) ||
+      typeof resource.identity.name !== "string" ||
+      !resource.identity.name ||
+      typeof resource.identity.ownershipLabel !== "string" ||
+      !resource.identity.ownershipLabel ||
+      !["not_issued", "issued", "unknown"].includes(resource.request) ||
+      (resource.request === "issued" && resource.identity.dockerId === null) ||
+      (resource.request === "not_issued" &&
+        resource.identity.dockerId !== null) ||
+      !exactRecordKeys(resource.configuration, [
+        "image",
+        "command",
+        "environmentNames",
+        "mounts",
+        "networks",
+        "internal",
+      ])
+    )
+      return false;
+    const resourceName = `${resource.identity.kind}\0${resource.identity.name}`;
+    if (resourceNames.has(resourceName)) return false;
+    resourceNames.add(resourceName);
+    keys.add(resource.key);
+    const c = resource.configuration;
+    if (
+      (c.image !== null && typeof c.image !== "string") ||
+      (c.command !== null &&
+        (!Array.isArray(c.command) ||
+          c.command.some((v: unknown) => v !== "<redacted>"))) ||
+      (c.environmentNames !== null &&
+        (!Array.isArray(c.environmentNames) ||
+          c.environmentNames.some(
+            (v: unknown) =>
+              typeof v !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(v),
+          ))) ||
+      (c.networks !== null &&
+        (!Array.isArray(c.networks) ||
+          c.networks.some((v: unknown) => typeof v !== "string"))) ||
+      (c.internal !== null && typeof c.internal !== "boolean") ||
+      (c.mounts !== null &&
+        (!Array.isArray(c.mounts) ||
+          c.mounts.some(
+            (v: unknown) =>
+              !exactRecordKeys(v, ["source", "target", "readOnly"]) ||
+              typeof (v as { source: unknown }).source !== "string" ||
+              typeof (v as { target: unknown }).target !== "string" ||
+              typeof (v as { readOnly: unknown }).readOnly !== "boolean",
+          )))
+    )
+      return false;
+  }
+  const checkpointKeys = new Set<string>();
+  for (const checkpoint of book.checkpoints) {
+    if (
+      !exactRecordKeys(checkpoint, [
+        "key",
+        "submission",
+        "receiptSource",
+        "observation",
+        "absenceEvidenceSha256",
+      ]) ||
+      !keys.has(checkpoint.key) ||
+      checkpointKeys.has(checkpoint.key) ||
+      !["none", "intent_saved", "not_issued"].includes(checkpoint.submission) ||
+      (checkpoint.receiptSource !== null &&
+        !["docker_create_result", "runtime_reconciliation"].includes(
+          checkpoint.receiptSource,
+        )) ||
+      !["unobserved", "present", "absent", "unknown"].includes(
+        checkpoint.observation,
+      ) ||
+      (checkpoint.absenceEvidenceSha256 !== null &&
+        !isSha256Hex(checkpoint.absenceEvidenceSha256))
+    )
+      return false;
+    checkpointKeys.add(checkpoint.key);
+    const resource = book.snapshot.resources.find(
+      (r) => r.key === checkpoint.key,
+    );
+    if (
+      !resource ||
+      (checkpoint.receiptSource !== null &&
+        resource.identity.dockerId === null) ||
+      (resource.identity.dockerId !== null &&
+        checkpoint.receiptSource === null) ||
+      (checkpoint.submission !== "intent_saved" &&
+        (resource.request !== "not_issued" ||
+          resource.identity.dockerId !== null ||
+          checkpoint.observation !== "unobserved" ||
+          checkpoint.absenceEvidenceSha256 !== null)) ||
+      (checkpoint.observation === "absent") !==
+        (checkpoint.absenceEvidenceSha256 !== null)
+    )
+      return false;
+  }
+  return (
+    book.cleanup.cleanupOrder.length === keys.size &&
+    new Set(book.cleanup.cleanupOrder).size === keys.size &&
+    book.cleanup.cleanupOrder.every((key) => keys.has(key))
+  );
+}
+
+/**
+ * 元資源の識別情報と既知IDを保持したまま観測を更新する。
+ * @responsibility 初回Intentの原子確定と既知事実の巻戻し拒否を所有する。
+ * @trace ARCH-000008
+ * @effect N/A: 値の比較だけ。構成差を回収拒否へ転化しない。
+ */
+export function validateCoordinatorResourceBookTransition(
+  before: CoordinatorResourceBook | null,
+  after: CoordinatorResourceBook | null,
+): boolean {
+  if (!validateCoordinatorResourceBook(after)) return false;
+  if (before === null)
+    return (
+      after === null ||
+      (after.checkpoints.filter((c) => c.submission === "intent_saved")
+        .length === 1 &&
+        after.checkpoints.every(
+          (c) =>
+            c.submission !== "not_issued" &&
+            c.receiptSource === null &&
+            c.observation === "unobserved",
+        ) &&
+        after.snapshot.resources.every((r) => r.identity.dockerId === null))
+    );
+  if (
+    after === null ||
+    encodeRuntimeStateValue(before.cleanup) !==
+      encodeRuntimeStateValue(after.cleanup) ||
+    before.snapshot.resources.length !== after.snapshot.resources.length
+  )
+    return false;
+  for (const resource of after.snapshot.resources) {
+    const previous = before.snapshot.resources.find(
+      (r) => r.key === resource.key,
+    );
+    const checkpoint = after.checkpoints.find((c) => c.key === resource.key);
+    const prior = before.checkpoints.find((c) => c.key === resource.key);
+    if (
+      !previous ||
+      !checkpoint ||
+      !prior ||
+      resource.identity.kind !== previous.identity.kind ||
+      resource.identity.name !== previous.identity.name ||
+      resource.identity.ownershipLabel !== previous.identity.ownershipLabel ||
+      (previous.identity.dockerId !== null &&
+        resource.identity.dockerId !== previous.identity.dockerId) ||
+      (prior.receiptSource !== null &&
+        checkpoint.receiptSource !== prior.receiptSource) ||
+      (prior.submission !== checkpoint.submission &&
+        !["none:intent_saved", "intent_saved:not_issued"].includes(
+          `${prior.submission}:${checkpoint.submission}`,
+        ))
+    )
+      return false;
+  }
+  return true;
+}
 
 /**
  * 修復専用の終端・処置・履歴条件を同じ判定で確認する。
@@ -220,71 +437,14 @@ export function validCoordinatorExecutionState(
         !isSha256Hex(operation.summarySha256))
     )
       return false;
-    if (!Array.isArray(operation.resources) || operation.resources.length !== 5)
+    if (
+      !validateCoordinatorResourceBook(operation.resources) ||
+      operation.resources?.snapshot.resources.some(
+        (resource: CoordinatorResourceBook["snapshot"]["resources"][number]) =>
+          resource.identity.ownershipLabel !== identity.ownershipLabel,
+      )
+    )
       return false;
-    for (const [index, purpose] of Object.keys(purposeResource).entries()) {
-      const resource = operation.resources[index];
-      if (
-        !resource ||
-        !exactRecordKeys(resource, [
-          "purpose",
-          "request",
-          "dockerId",
-          "receiptSource",
-          "observation",
-          "absence",
-        ]) ||
-        resource.purpose !== purpose ||
-        ![
-          "not_requested",
-          "not_issued",
-          "intent_saved",
-          "issued",
-          "identified",
-          "unknown",
-        ].includes(resource.request) ||
-        !["unobserved", "present", "absent", "unknown"].includes(
-          resource.observation,
-        )
-      )
-        return false;
-      if (
-        resource.request === "not_issued" &&
-        (resource.observation !== "unobserved" || resource.absence !== null)
-      )
-        return false;
-      if (
-        resource.request === "identified"
-          ? !isSha256Hex(resource.dockerId) ||
-            !["docker_create_result", "runtime_reconciliation"].includes(
-              resource.receiptSource ?? "",
-            )
-          : resource.dockerId !== null || resource.receiptSource !== null
-      )
-        return false;
-      if (resource.observation === "absent") {
-        const absence = resource.absence;
-        if (
-          !exactRecordKeys(absence, [
-            "recoveryId",
-            "purpose",
-            "plannedResourceName",
-            "dockerId",
-            "evidenceSha256",
-          ]) ||
-          !absence ||
-          absence.recoveryId !== operation.recoveryId ||
-          absence.purpose !== purpose ||
-          absence.plannedResourceName !==
-            identity.resources[
-              purposeResource[purpose as keyof typeof purposeResource]
-            ] ||
-          absence.dockerId !== resource.dockerId ||
-          !isSha256Hex(absence.evidenceSha256)
-        )
-          return false;
-      } else if (resource.absence !== null) return false;
-    }
     if (
       !exactRecordKeys(operation.host, [
         "currentToken",
@@ -756,8 +916,6 @@ export function validateCoordinatorOperationIdentity(
     "localUserBindingHash",
     "repositoryBinding",
     "ownershipLabel",
-    "resources",
-    "images",
     "operationMode",
     "workspaceMountMode",
     ...(Object.hasOwn(identity, "workspaceProtected")
@@ -805,26 +963,6 @@ export function validateCoordinatorOperationIdentity(
     ].every(isSha256Hex) &&
     /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
       String(identity.ownershipLabel ?? ""),
-    ) &&
-    exactRecordKeys(identity.resources, [
-      "auth",
-      "provider",
-      "proxy",
-      "internal",
-      "egress",
-    ]) &&
-    new Set(Object.values(identity.resources as Record<string, unknown>))
-      .size === 5 &&
-    Object.values(identity.resources as Record<string, unknown>).every(
-      (item) =>
-        typeof item === "string" &&
-        /^crdd-(auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u.test(
-          item,
-        ),
-    ) &&
-    exactRecordKeys(identity.images, ["provider", "proxy"]) &&
-    Object.values(identity.images as Record<string, unknown>).every(
-      (item) => typeof item === "string" && /^sha256:[a-f0-9]{64}$/u.test(item),
     ) &&
     ["boolean_probe", "isolated_task", "workbench_advice"].includes(
       String(identity.operationMode),
@@ -1323,21 +1461,29 @@ export function validCoordinatorOutcome(value: unknown): boolean {
 export function coordinatorTaskResourcesAreSettled(
   operation: CoordinatorStateTaskOperation,
 ): boolean {
-  if (operation.resources.every(coordinatorResourceIsSettled)) return true;
+  const book = operation.resources;
+  if (!book)
+    return (
+      operation.phase !== "executing" &&
+      operation.execution.providerStart === "not_started" &&
+      operation.execution.externalSend === "not_issued" &&
+      operation.execution.sharedWrite === "not_issued" &&
+      operation.execution.ownerEffect === "disabled" &&
+      operation.outcome?.status === "blocked" &&
+      operation.outcome.cleanupConfirmed
+    );
+  if (book.checkpoints.every(coordinatorResourceIsSettled)) return true;
   const hash = coordinatorAuthenticationClosureEvidence(operation);
-  const identity = JSON.parse(operation.identityJson);
   return (
     hash !== null &&
-    operation.resources.every(
+    book.checkpoints.every(
       (resource) =>
         coordinatorResourceIsSettled(resource) ||
-        (resource.purpose === "create_subscription_auth_probe" &&
+        (resource.key === "create_subscription_auth_probe" &&
           resource.observation === "absent" &&
-          resource.absence?.evidenceSha256 === hash &&
-          resource.absence.recoveryId === operation.recoveryId &&
-          resource.absence.purpose === resource.purpose &&
-          resource.absence.plannedResourceName === identity.resources.auth &&
-          resource.absence.dockerId === null),
+          resource.absenceEvidenceSha256 === hash &&
+          book.snapshot.resources.find((r) => r.key === resource.key)?.identity
+            .dockerId === null),
     )
   );
 }
@@ -1573,7 +1719,7 @@ export const DOCKER_TASK_RECOVERY_ID =
   /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u;
 
 export const OPERATION_IDENTITY_SCHEMA =
-  "crdd-coordinator/operation-identity/v2";
+  "crdd-coordinator/operation-identity/v3";
 
 /**
  * Host Snapshotの契約を検証する。
@@ -1793,12 +1939,12 @@ export const finalReasons = new Set<string>([
  * @concurrency N/A: 共有状態を変更しない。
  */
 export function coordinatorResourceIsSettled(
-  resource: CoordinatorStateTaskOperation["resources"][number],
+  resource: CoordinatorResourceBook["checkpoints"][number],
 ): boolean {
   return (
-    resource.request === "not_requested" ||
-    resource.request === "not_issued" ||
-    (resource.request === "identified" && resource.observation === "absent")
+    resource.submission === "none" ||
+    resource.submission === "not_issued" ||
+    (resource.receiptSource !== null && resource.observation === "absent")
   );
 }
 
@@ -1822,6 +1968,11 @@ export function coordinatorAuthenticationClosureEvidence(
 ): string | null {
   if (!coordinatorAuthenticationUnknownCanClose(operation)) return null;
   const identity = JSON.parse(operation.identityJson);
+  const resource = operation.resources?.snapshot.resources.find(
+    (item) => item.key === "create_subscription_auth_probe",
+  );
+  if (resource?.identity.kind !== "container" || !resource.identity.name)
+    return null;
   return createHash("sha256")
     .update(
       encodeRuntimeStateValue({
@@ -1829,7 +1980,7 @@ export function coordinatorAuthenticationClosureEvidence(
         identitySha256: operation.identitySha256,
         recoveryId: operation.recoveryId,
         purpose: "create_subscription_auth_probe",
-        plannedResourceName: identity.resources.auth,
+        plannedResourceName: resource.identity.name,
         ownershipLabel: identity.ownershipLabel,
         dockerId: null,
         restart: operation.dockerRestart,
@@ -2147,20 +2298,23 @@ export function coordinatorAuthenticationUnknownCanClose(
   operation: CoordinatorStateTaskOperation,
 ): boolean {
   try {
-    const auth = operation.resources.find(
-      (item) => item.purpose === "create_subscription_auth_probe",
+    const book = operation.resources;
+    const auth = book?.checkpoints.find(
+      (item) => item.key === "create_subscription_auth_probe",
+    );
+    const authResource = book?.snapshot.resources.find(
+      (item) => item.key === "create_subscription_auth_probe",
     );
     const restart = operation.dockerRestart;
     const identity = JSON.parse(operation.identityJson);
     return (
       operation.phase !== "executing" &&
-      operation.resources.length === 5 &&
-      new Set(operation.resources.map((item) => item.purpose)).size === 5 &&
-      auth?.request === "unknown" &&
-      auth.dockerId === null &&
+      book !== null &&
+      auth?.submission === "intent_saved" &&
+      authResource?.identity.dockerId === null &&
       auth.receiptSource === null &&
       auth.observation !== "present" &&
-      operation.resources.every(
+      book.checkpoints.every(
         (item) => item === auth || coordinatorResourceIsSettled(item),
       ) &&
       operation.execution.providerStart === "not_started" &&
@@ -2441,11 +2595,7 @@ export function validateCoordinatorOperationTransitions(
           return false;
         if (
           operation.phase !== "executing" ||
-          operation.resources.some(
-            (resource) =>
-              resource.request !== "not_requested" ||
-              resource.observation !== "unobserved",
-          ) ||
+          operation.resources !== null ||
           operation.host.currentToken !== identity.initialHostRecoveryId ||
           operation.host.pendingTransitionJson !== null ||
           operation.host.cleanup !== "not_requested" ||
@@ -2486,47 +2636,24 @@ export function validateCoordinatorOperationTransitions(
           encodeRuntimeStateValue(prior.resources)
       )
         return false;
-      for (const [index, resource] of operation.resources.entries()) {
-        const before = prior.resources[index];
-        if (!before) return false;
-        if (
-          prior.dockerRestart !== null &&
-          before.request !== resource.request &&
-          ["intent_saved", "issued", "unknown"].includes(resource.request)
+      if (
+        prior.dockerRestart !== null &&
+        operation.resources?.checkpoints.some(
+          (checkpoint) =>
+            checkpoint.submission === "intent_saved" &&
+            prior.resources?.checkpoints.find(
+              (before) => before.key === checkpoint.key,
+            )?.submission !== "intent_saved",
         )
-          return false;
-        if (
-          before.request !== resource.request &&
-          ![
-            "not_requested:intent_saved",
-            "intent_saved:issued",
-            "intent_saved:identified",
-            "intent_saved:not_issued",
-            "intent_saved:unknown",
-            "issued:unknown",
-            "unknown:issued",
-            "unknown:identified",
-            "issued:identified",
-          ].includes(`${before.request}:${resource.request}`)
+      )
+        return false;
+      if (
+        !validateCoordinatorResourceBookTransition(
+          prior.resources,
+          operation.resources,
         )
-          return false;
-        if (
-          before.request === "intent_saved" &&
-          resource.request === "identified" &&
-          (before.observation !== "unobserved" ||
-            before.absence !== null ||
-            resource.receiptSource !== "docker_create_result" ||
-            resource.observation !== "unobserved" ||
-            resource.absence !== null)
-        )
-          return false;
-        if (
-          before.request === "identified" &&
-          (resource.dockerId !== before.dockerId ||
-            resource.receiptSource !== before.receiptSource)
-        )
-          return false;
-      }
+      )
+        return false;
       if (
         prior.primaryFailure !== null &&
         encodeRuntimeStateValue(operation.primaryFailure) !==

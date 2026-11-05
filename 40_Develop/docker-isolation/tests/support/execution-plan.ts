@@ -7,7 +7,7 @@
  */
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import type { DockerIsolationCommandInput } from "../../../executor/src/attempt/types.ts";
+import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "../../src/execution/plan.ts";
 import {
   type DockerNetworkPolicy,

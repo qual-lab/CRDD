@@ -13,11 +13,11 @@ import type {
   IsolationCallbacks,
 } from "../../docker-isolation/src/index.ts";
 import { createHash } from "node:crypto";
+import type { DockerResourceCleanupObservation } from "../../docker-isolation/tests/support/cleanup.ts";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 import { parseDockerTaskRecoveryId } from "../../docker-isolation/tests/support/cleanup.ts";
 import {
-  createDockerIsolationRuntime,
   type DockerIsolationRuntime,
   type DockerIsolationRuntimePlan,
   describeDockerIsolationExecutionEnvironment,
@@ -30,43 +30,42 @@ import {
 } from "../../docker-isolation/tests/support/execution-plan.ts";
 import type { DockerSessionCommandHandle } from "../../docker-isolation/tests/support/session.ts";
 import { startDockerCommandSessionCandidate } from "../../docker-isolation/tests/support/session.ts";
-import { PURPOSES } from "../src/attempt/constants.ts";
+import { PURPOSES } from "../src/lifecycle/attempt.ts";
 import {
   abandon,
   cancel,
-  isAttemptFailureReason,
   prepareAttempt as prepareProductAttempt,
   readOwnDataProperty,
   resolveIsolationCommandInput as resolveProductConfiguration,
   resolveProviderExecution,
   start,
   isAttemptPlanValid as validateProductPlan,
-} from "../src/attempt/operations.ts";
+} from "../src/lifecycle/attempt.ts";
 import type {
   DockerIsolationCommandInput,
   DockerIsolationRuntimeOptions,
   HomeLease,
   AttemptCommandPurpose,
-  DockerResourceCleanupObservation,
-} from "../src/attempt/types.ts";
+  ResourcePreparation,
+} from "../src/lifecycle/types.ts";
 
-export { resolveProviderExecution } from "../src/attempt/operations.ts";
+export { resolveProviderExecution } from "../src/lifecycle/attempt.ts";
 
-import { createStartResult } from "../src/attempt/result.ts";
+import { createStartResult } from "../src/lifecycle/attempt.ts";
 import type {
   AttemptReference,
   AttemptRequest,
   AttemptPlan as ProductAttemptPlan,
   RuntimeState,
   AttemptTerminalObservation as TechnicalObservation,
-} from "../src/attempt/types.ts";
+} from "../src/lifecycle/types.ts";
 import type {
   CompletionResult,
   ProcessStartedNotice,
   StartResult,
   AttemptDiagnosticNotice as TechnicalDiagnosticNotice,
 } from "../src/index.ts";
-import type { ExecutorCallbacks } from "../src/lifecycle/callbacks.ts";
+import type { ExecutorCallbacks } from "../src/lifecycle/types.ts";
 
 /** 旧有限Session Oracleだけが保持するCommand投影。製品Planへ戻さない。 */
 /** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
@@ -279,7 +278,6 @@ export function planIdentity(plan: TestAttemptPlan): string {
     .digest("hex");
 }
 
-export { createAttemptRecoveryTestApi } from "./attempt-recovery-test.ts";
 export const PREPARATION_LIFETIME_MS = 30_000;
 
 /**
@@ -441,7 +439,7 @@ export function bindTestIsolationRuntime(
     verifyCleanupOutcome,
   });
 }
-export { isAttemptFailureReason } from "../src/attempt/operations.ts";
+export { isAttemptFailureReason } from "../src/lifecycle/attempt.ts";
 export {
   projectAttemptResult,
   projectAttemptStartResult,
@@ -515,16 +513,20 @@ type ExecutionRecordOperations = Readonly<{
   markResourceSubmission?: (
     recoveryCapability: object,
     purpose: string,
+    resources: ResourcePreparation,
   ) => boolean;
   recordProviderSubmission?: (recoveryCapability: object) => boolean;
   recordResourceNotIssued?: (
     recoveryCapability: object,
     purpose: string,
+    resources: ResourcePreparation,
   ) => boolean;
   recordResourceReceipt?: (
     recoveryCapability: object,
     purpose: string,
     dockerId: string,
+    resources: ResourcePreparation,
+    source?: "receipt" | "identified",
   ) => boolean;
   recordTerminalObservation?: (
     recoveryCapability: object,
@@ -555,7 +557,8 @@ type AttemptCleanupInput = Readonly<{
   recoveryCapability: object;
   managementCapability: unknown;
   recoveryId: string;
-  observations: DockerSessionCleanup["resourceObservations"];
+  observations: TechnicalObservation["resources"];
+  resourceSnapshot: TechnicalObservation["resourceSnapshot"];
   mountCompletion: Readonly<{ status: string }> | null;
   mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
@@ -639,7 +642,8 @@ export type ExecutorTestCleanup = Readonly<{
   ) => boolean;
   recordDockerAbsence?: (
     recoveryCapability: object,
-    observations: DockerSessionCleanup["resourceObservations"],
+    observations: TechnicalObservation["resources"],
+    snapshot: TechnicalObservation["resourceSnapshot"],
   ) => boolean;
   recordMountCompletion?: (
     recoveryCapability: object,
@@ -659,12 +663,12 @@ export type ExecutorTestDependencies = Omit<
 
 type RecordedStartResult =
   | Exclude<
-      import("../src/attempt/types.ts").StartResult,
+      import("../src/lifecycle/types.ts").AttemptStartResult,
       { status: "started" }
     >
   | (Omit<
       Extract<
-        import("../src/attempt/types.ts").StartResult,
+        import("../src/lifecycle/types.ts").AttemptStartResult,
         { status: "started" }
       >,
       "completion"
@@ -743,6 +747,8 @@ export function createExecutorTestCandidate(
         dependencies.acquireHomeLease ??
         (() =>
           Object.freeze({
+            // この有限代役は実OS Lockを取得せず、生存中の試験Leaseだけを表す。
+            assertLive: () => true,
             release: () => {
               if (!context || !dependencies.verifyHomeLeaseRelease) return true;
               const r = context.recovery as {
@@ -845,6 +851,7 @@ export function completeExecutorTestCleanup(
       dependencies.recordDockerAbsence?.(
         input.recoveryCapability,
         input.observations,
+        input.resourceSnapshot,
       ) ?? true;
     if (utilTypes.isPromise(absence)) void absence.catch(() => {});
     if (absence !== true) throw Error("synthetic_absence_unconfirmed");
@@ -883,73 +890,6 @@ export function completeExecutorTestCleanup(
   });
 }
 
-/**
- * 単独合成Hostと固定DIの検証接続を構成する。
- * @responsibility 試験側の保存判断だけを終了callbackへ結合する。
- * @trace ARCH-000008
- */
-export function createExecutorLifecycleTestRuntime(host: ExecutorTestHost) {
-  const fixed = createDockerIsolationRuntime({
-    paths: host.paths,
-  });
-  const bound = bindTestIsolationRuntime(fixed, host.paths);
-  const runtime = createExecutorTestRuntime(
-    {
-      acquireHomeLease: host.acquireHomeLease ?? fixed.acquireHomeLease,
-      ...bound,
-    },
-    true,
-  );
-  return Object.freeze({
-    cancel: runtime.cancel,
-    abandon: runtime.abandon,
-    start: (
-      prepared: unknown,
-      management: unknown,
-      handoff?: unknown,
-      restriction?: unknown,
-    ) => {
-      const candidate = host.consumePreparedPlan(prepared, management);
-      const resolved = candidate ? resolveProviderExecution(candidate) : null;
-      const plan =
-        candidate && resolved
-          ? candidate.providerPlan?.status === "ready" &&
-            candidate.providerPlan.plan.provider === candidate.provider &&
-            candidate.providerPlan.plan.purpose === resolved.purpose &&
-            candidate.providerPlan.plan.resultContext.taskRole ===
-              resolved.resultContext.taskRole
-            ? candidate
-            : Object.freeze({
-                ...candidate,
-                providerPlan: Object.freeze({
-                  status: "ready" as const,
-                  plan: resolved,
-                  error: null,
-                }),
-              })
-          : null;
-      if (!plan)
-        return createStartResult({
-          status: "blocked",
-          reason: "docker_process_controller_plan_invalid",
-        });
-      return startHostAttempt(
-        runtime,
-        {
-          dependencies: {
-            ...host,
-            completeCleanup: (input) =>
-              completeExecutorTestCleanup(host, input),
-          },
-        },
-        plan,
-        management,
-        handoff,
-        restriction,
-      );
-    },
-  });
-}
 function settleInvalidRecoveryStart(
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,
   plan: AttemptPlan,
@@ -1040,7 +980,7 @@ function startRecordedAttempt(
     if (value !== true) throw Error("record_unconfirmed");
   }
   const callbacks: ExecutorCallbacks<"attempt"> = {
-    onCommandSubmitting: (purpose) => {
+    onCommandSubmitting: (purpose, resources) => {
       if (!commandRestrictionAllows(restriction, purpose)) {
         restrictionRejected = true;
         throw Error("execution_restricted");
@@ -1050,15 +990,17 @@ function startRecordedAttempt(
           operations.markResourceSubmission(
             recovery.recoveryCapability,
             purpose,
+            resources,
           ),
         );
     },
-    onCommandNotIssued: (purpose) => {
+    onCommandNotIssued: (purpose, resources) => {
       if (operations.recordResourceNotIssued)
         requireRecorded(
           operations.recordResourceNotIssued(
             recovery.recoveryCapability,
             purpose,
+            resources,
           ),
         );
     },
@@ -1068,13 +1010,14 @@ function startRecordedAttempt(
           operations.recordProviderSubmission(recovery.recoveryCapability),
         );
     },
-    onResourceCreated: (purpose, id) => {
+    onResourceCreated: (purpose, id, resources) => {
       if (operations.recordResourceReceipt)
         requireRecorded(
           operations.recordResourceReceipt(
             recovery.recoveryCapability,
             purpose,
             id,
+            resources,
           ),
         );
     },
@@ -1151,6 +1094,7 @@ function startRecordedAttempt(
         recoveryCapability: recovery.recoveryCapability,
         recoveryId: recovery.recoveryId,
         observations: observation.resources,
+        resourceSnapshot: observation.resourceSnapshot,
         mountCompletion,
         mountLeaseReleased: cleanup.mountLeaseReleased,
         homeLeaseReleased: observation.homeLeaseReleased,
@@ -1678,6 +1622,8 @@ export function bindLegacyTestIsolation(
 > {
   const request = plan.isolationRequest;
   const identities = new Map<string, string>();
+  const submitted = new Set<string>();
+  const notIssued = new Set<string>();
   const snapshot = (
     observations?: readonly DockerResourceCleanupObservation[] | null,
   ): ResourceSnapshot => ({
@@ -1693,8 +1639,14 @@ export function bindLegacyTestIsolation(
             ? observed.dockerId
             : (identities.get(resource.key) ?? null),
         },
-        request:
-          observed?.observation === "not_requested" ? "not_issued" : "unknown",
+        request: (observed ? observed.dockerId : identities.get(resource.key))
+          ? "issued"
+          : observed?.observation === "not_requested" ||
+              notIssued.has(resource.key)
+            ? "not_issued"
+            : observed?.observation === "unknown" || submitted.has(resource.key)
+              ? "unknown"
+              : "not_issued",
         configuration: {
           image: null,
           command: null,
@@ -1730,9 +1682,17 @@ export function bindLegacyTestIsolation(
               exitClass: "not_observed",
             });
         },
-        onCommandSubmitting: (purpose) =>
-          callbacks.onSubmitting?.(step(purpose)),
-        onCommandNotIssued: (purpose) => callbacks.onNotIssued?.(step(purpose)),
+        onCommandSubmitting: async (purpose) => {
+          await callbacks.onSubmitting?.(step(purpose));
+          if (purpose.startsWith("create_")) submitted.add(purpose);
+        },
+        onCommandNotIssued: async (purpose) => {
+          if (purpose.startsWith("create_")) {
+            submitted.delete(purpose);
+            notIssued.add(purpose);
+          }
+          await callbacks.onNotIssued?.(step(purpose));
+        },
         // 実DIはProvider予定をonSubmittingで通知する。旧Oracleの別通知は重複させない。
         onExecutionSubmitting() {},
         onResourceCreated: (purpose, id) => {
@@ -1998,181 +1958,6 @@ function resolveRecoveryReference(value: unknown) {
   return parseDockerTaskRecoveryId(value)?.token ?? null;
 }
 
-/**
- * 一次失敗の固定診断だけを受理する。
- *
- * @responsibility 自由文や不整合な観測を検証記録へ搬送しない。
- * @trace ARCH-000004
- * @input value: JSONから取得した診断候補。
- * @returns nullまたは完全な固定診断ならtrue。
- * @precondition 値はJSON parserを通過している。
- * @postcondition 未知の項目、理由、例外分類を拒否する。
- * @effect N/A: 値の確認だけを行う。
- * @failure 不正値はfalseへ閉じる。
- * @invariant Handle、応答、記録の順序を逆転させない。
- * @boundary Runtime診断からE2Eの記録への搬送。
- * @security Path、秘密値や生出力を受理しない。
- * @concurrency N/A: 共有状態を変更しない。
- */
-export function isPrimaryFailureDiagnostic(value: unknown): boolean {
-  if (value === null) return true;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  const hasObservation = Object.hasOwn(record, "commandObservation");
-  const hasAuthenticationStatus = Object.hasOwn(record, "authenticationStatus");
-  const hasTurnCountDiagnostic = Object.hasOwn(record, "turnCountDiagnostic");
-  const turnCount = record.turnCountDiagnostic as
-    | Record<string, unknown>
-    | undefined;
-  const observation = record.commandObservation as
-    | Record<string, unknown>
-    | null
-    | undefined;
-  return (
-    exactKeys(
-      record,
-      [
-        "commandHandleObtained",
-        "exceptionCode",
-        "purpose",
-        "reason",
-        "receiptRecorded",
-        "responseObserved",
-        "stage",
-        ...(hasObservation ? ["commandObservation"] : []),
-        ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
-        ...(hasTurnCountDiagnostic ? ["turnCountDiagnostic"] : []),
-      ].sort(),
-    ) &&
-    (!hasObservation ||
-      observation === null ||
-      (observation !== undefined &&
-        typeof observation === "object" &&
-        exactKeys(observation, ["exitCode", "stderrBytes", "stdoutBytes"]) &&
-        record.responseObserved === true &&
-        (observation.exitCode === null ||
-          (Number.isSafeInteger(observation.exitCode) &&
-            Number(observation.exitCode) >= 0)) &&
-        [observation.stdoutBytes, observation.stderrBytes].every(
-          (v) => Number.isSafeInteger(v) && Number(v) >= 0,
-        ))) &&
-    (!hasAuthenticationStatus ||
-      (record.purpose === "start_subscription_auth_probe_attached" &&
-        ["execution_classification", "subscription_auth_verification"].includes(
-          String(record.stage),
-        ) &&
-        record.responseObserved === true &&
-        observation != null &&
-        observation.exitCode !== null &&
-        ["confirmed", "unconfirmed", "unknown"].includes(
-          typeof record.authenticationStatus === "string"
-            ? record.authenticationStatus
-            : "",
-        ))) &&
-    (!hasTurnCountDiagnostic ||
-      (record.purpose === "start_provider_attached" &&
-        record.stage === "provider_result_normalization" &&
-        record.reason === "workbench_ai_claude_turn_count_invalid" &&
-        record.responseObserved === true &&
-        observation?.exitCode === 0 &&
-        turnCount != null &&
-        typeof turnCount === "object" &&
-        exactKeys(turnCount, ["numberText", "valueType"]) &&
-        typeof turnCount.valueType === "string" &&
-        [
-          "missing",
-          "null",
-          "boolean",
-          "number",
-          "string",
-          "array",
-          "object",
-        ].includes(turnCount.valueType) &&
-        (turnCount.numberText === null ||
-          (turnCount.valueType === "number" &&
-            typeof turnCount.numberText === "string" &&
-            turnCount.numberText.length <= 32 &&
-            Number.isFinite(Number(turnCount.numberText)) &&
-            String(Number(turnCount.numberText)) === turnCount.numberText &&
-            (!Number.isSafeInteger(Number(turnCount.numberText)) ||
-              Number(turnCount.numberText) < 1))))) &&
-    (record.purpose === null ||
-      (typeof record.purpose === "string" &&
-        (PURPOSES as readonly string[]).includes(record.purpose))) &&
-    typeof record.stage === "string" &&
-    [
-      "submission_record",
-      "command_restriction",
-      "command_start",
-      "provider_start_observation",
-      "command_wait",
-      "execution_classification",
-      "resource_receipt_record",
-      "subscription_auth_verification",
-      "provider_result_normalization",
-    ].includes(record.stage) &&
-    isAttemptFailureReason(record.reason) &&
-    (record.exceptionCode === null ||
-      (typeof record.exceptionCode === "string" &&
-        [
-          "unclassified_exception",
-          "ENOENT",
-          "EACCES",
-          "EPERM",
-          "ETIMEDOUT",
-          "ECONNREFUSED",
-          "EPIPE",
-          "docker_effect_management_required",
-          "docker_effect_plan_invalid",
-          "docker_effect_plan_replaced",
-          "docker_effect_command_not_owned",
-          "docker_effect_platform_unsupported",
-          "docker_effect_cli_untrusted",
-          "docker_effect_cli_replaced",
-          "docker_effect_path_invalid",
-          "docker_effect_config_invalid",
-          "docker_effect_config_replaced",
-          "docker_effect_filesystem_identity_invalid",
-          "owned_operation_management_binding_required",
-          "owned_operation_unknown_child",
-          "owned_operation_child_replaced",
-          "owned_operation_mount_replaced",
-        ].includes(record.exceptionCode))) &&
-    typeof record.commandHandleObtained === "boolean" &&
-    typeof record.responseObserved === "boolean" &&
-    typeof record.receiptRecorded === "boolean" &&
-    (record.responseObserved !== true ||
-      record.commandHandleObtained === true) &&
-    (record.receiptRecorded !== true ||
-      (record.responseObserved === true &&
-        typeof record.purpose === "string" &&
-        record.purpose.startsWith("create_")))
-  );
-}
-
-/**
- * Keysが完全一致するか判定する。
- *
- * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
- * @trace ARCH-000015
- * @input value: Record<string, unknown>、keys: readonly string[]
- * @returns exactKeysの計算結果を返す。
- * @precondition 「value: Record<string, unknown>、keys: readonly string[]」がexactKeysの入力契約を満たす。
- * @postcondition exactKeysの責務を完了した結果だけを返す。
- * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
- * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
- * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
- */
-function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  const actualKeys = Object.keys(value);
-  return (
-    actualKeys.length === keys.length &&
-    keys.every((key) => actualKeys.includes(key))
-  );
-}
 /**
  * 既存の単一Command検証を本番Session接続から分離する。
  * @responsibility 有限合成試験のCommand所属と正規構成を製品検査へ照合する。

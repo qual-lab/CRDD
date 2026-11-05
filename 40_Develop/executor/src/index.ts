@@ -8,13 +8,17 @@
  */
 // 構成と一試行の生涯。startのcompletionは清掃を含む終了まで待つ。
 import { types } from "node:util";
-import { createAttemptExecutor } from "./attempt/operations.ts";
-import type { DockerIsolationRuntimeOptions } from "./attempt/types.ts";
-import { createAuthenticationExecutor } from "./authentication/operations.ts";
-import type { AuthenticationOptions } from "./authentication/types.ts";
-import type { Executor, ExecutorRequest } from "./lifecycle/types.ts";
-import { createIsolationProbe } from "./probe/operations.ts";
-import type { IsolationProbeOptions } from "./probe/types.ts";
+import { createAttemptExecutor } from "./lifecycle/attempt.ts";
+import type {
+  DockerIsolationRuntimeOptions,
+  AuthenticationOptions,
+  Executor,
+  ExecutorRequest,
+  IsolationProbeOptions,
+} from "./lifecycle/types.ts";
+import { createAuthenticationExecutor } from "./lifecycle/authentication.ts";
+
+import { createIsolationProbe } from "./lifecycle/probe.ts";
 
 /**
  * 用途別の確定入力を既存のOperationへ結合する共通公開入口。
@@ -99,6 +103,10 @@ export function createExecutor(
 }
 
 export type {
+  ResourceTarget,
+  ResourceInspection,
+  ResourceCleanupResult,
+  ResourceSnapshot,
   DockerEnvironmentRequest,
   DockerEnvironmentResult,
   DockerEnvironmentStatus,
@@ -116,20 +124,9 @@ export type {
   AttemptTerminalObservation,
   PrimaryFailureDiagnostic,
   ProcessStartedNotice,
-} from "./attempt/types.ts";
-export type { AuthenticationOptions } from "./authentication/types.ts";
-export type {
+  AuthenticationOptions,
   ExecutorCallbacks,
   ResourceCleanupCallbacks,
-} from "./lifecycle/callbacks.ts";
-export {
-  cleanupResources,
-  inspectResources,
-} from "./lifecycle/cleanup.ts";
-export type {
-  ResourceTarget,
-  ResourceInspection,
-  ResourceCleanupResult,
   CancelArguments,
   CancelResult,
   CompletionResult,
@@ -138,8 +135,8 @@ export type {
   RecordProjection,
   StartInput,
   StartResult,
-} from "./lifecycle/types.ts";
-export type {
   IsolationProbeFacts,
   IsolationProbeOptions,
-} from "./probe/types.ts";
+} from "./lifecycle/types.ts";
+
+export { cleanupResources, inspectResources } from "./lifecycle/cleanup.ts";

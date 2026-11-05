@@ -8,8 +8,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { DockerResourceReceipts } from "../../../executor/src/attempt/types.ts";
-import { captureAuthenticationResources } from "../../../executor/src/authentication/operations.ts";
+import type { DockerResourceReceipts } from "../support/cleanup.ts";
+import { captureAuthenticationResources } from "../support/authentication/cleanup.ts";
 import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import type { DockerResourceExpectation } from "../../src/cleanup/types.ts";
 import { discoverSubmittedDockerResource } from "../../src/cleanup/resource.ts";

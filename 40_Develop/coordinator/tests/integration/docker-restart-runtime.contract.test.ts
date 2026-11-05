@@ -105,9 +105,14 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
       [
         ...new Set(
           [
-            ...callerSource.matchAll(
-              /["'](\.\.\/\.\.\/\.\.\/docker-isolation\/src\/[^"']+)["']/gu,
-            ),
+            ...callerSource
+              .replace(
+                /import\s+type\s*\{[^}]*\}\s*from\s*["'][^"']+["'];?/gu,
+                "",
+              )
+              .matchAll(
+                /["'](\.\.\/\.\.\/\.\.\/docker-isolation\/src\/[^"']+)["']/gu,
+              ),
           ].map((match) => match[1]),
         ),
       ],
@@ -231,7 +236,7 @@ async function compose(fault: string = "normal") {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -257,17 +262,6 @@ async function compose(fault: string = "normal") {
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,

@@ -1,17 +1,11 @@
 /**
- * coordinator:integration:claude-subscription-authentication-recoveryの検証範囲を定義する。
- *
- * @packageDocumentation
- * @responsibility Provider共通の操作別耐久Intent、元回復参照と別Process Kernel Lock再入場を検証する。
+ * 新Snapshot形式の認証記録と別Process再入場を確認する。
+ * @responsibility 初期Intent・Receipt・元回復参照・Kernel Owner喪失の保存条件を維持する。
  * @trace ERB-IT-017
  * @level IT
- * @scope coordinator、provider-authentication、status、login、recovery、kernel-lock
- * @boundary ERB-IT-017=Integration: Filesystem耐久記録とWindows Named Pipe Kernel Lock境界
+ * @scope 通常Caseは新品Repository内の記録だけ。Windows Process Gateは明示選択時だけ。
+ * @boundary 実Docker・実AIは使用しない。Process Gateの今回実行はしない。
  */
-import {
-  authenticateProvider,
-  createProviderAuthenticationPlan,
-} from "../support/authentication.ts";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -19,9 +13,15 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-
+import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+import {
+  authenticationResourceFixture,
+  createAuthenticationFixture,
+  prepareAuthenticationProjection,
+} from "../support/authentication.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
+  authenticateProvider,
   beginProviderAuthenticationRecovery,
   createProviderAuthenticationRecoveryRecord,
   readProviderAuthenticationResources,
@@ -30,40 +30,22 @@ import {
   settleProviderAuthenticationRecovery,
 } from "../../src/execution/authority.ts";
 
-const hash = randomBytes(32).toString("hex");
-const suffix = hash.slice(0, 16);
-const token = "b".repeat(64);
-
-/**
- * 操作切替が同じHomeの旧回復Identityを再利用しないことを確認する。
- * @responsibility activeを保持し、settledだけをpending経由で次の操作へ置換する。
- * @trace ERB-IT-017
- * @precondition Repository-local合成Rootと実Filesystemだけを使う。
- * @stimulus statusのIntent、login要求、settledとloginの新規Intentを順に与える。
- * @observation 正本JSON、回復参照、pending不存在と旧操作からの更新拒否。
- * @oracle 未終了statusは元参照で停止し、終了後loginは五資源に切り替わる。
- * @cleanup 自己生成Rootだけをfinallyで削除する。
- * @boundary ERB-IT-017=Integration: 単一Home回復記録の操作切替。
- */
-test("共通認証は旧操作activeを元参照で保持しsettledだけを次操作へ置換する", () => {
-  const repository = fileURLToPath(new URL("../../../../", import.meta.url));
-  const root = path.join(
-    repository,
-    ".crdd",
-    "tests",
-    `provider-auth-transition-${randomBytes(8).toString("hex")}`,
-  );
+test("認証記録はactiveの操作を保持しsettled後だけ次操作へ切り替わる", () => {
+  const root = createRepositoryTestDirectory("provider-auth-transition-"),
+    hash = randomBytes(32).toString("hex"),
+    suffix = hash.slice(0, 16),
+    token = "b".repeat(64);
   try {
     for (const provider of ["codex", "claude"] as const) {
-      const home = path.join(root, "ProviderHomes", provider);
-      const statusPlan = createProviderAuthenticationPlan(
+      const home = path.join(root.path, "ProviderHomes", provider);
+      const statusPlan = prepareAuthenticationProjection(
         provider,
         "status",
         home,
         suffix,
         null,
       );
-      const loginPlan = createProviderAuthenticationPlan(
+      const loginPlan = prepareAuthenticationProjection(
         provider,
         "login",
         home,
@@ -72,15 +54,15 @@ test("共通認証は旧操作activeを元参照で保持しsettledだけを次�
       );
       assert.ok(statusPlan && loginPlan);
       const status = createProviderAuthenticationRecoveryRecord(
-        home,
-        hash,
-        statusPlan,
-      );
-      const login = createProviderAuthenticationRecoveryRecord(
-        home,
-        hash,
-        loginPlan,
-      );
+          home,
+          hash,
+          statusPlan,
+        ),
+        login = createProviderAuthenticationRecoveryRecord(
+          home,
+          hash,
+          loginPlan,
+        );
       assert.ok(status && login);
       assert.equal(status.recordPath, login.recordPath);
       assert.equal(beginProviderAuthenticationRecovery(status), "created");
@@ -90,109 +72,129 @@ test("共通認証は旧操作activeを元参照で保持しsettledだけを次�
         recoveryId: status.recoveryId,
       });
       assert.equal(fs.readFileSync(status.recordPath, "utf8"), before);
+      const material = authenticationResourceFixture(
+        provider,
+        "status",
+        home,
+        suffix,
+        null,
+        path.join(root.path, "management"),
+      );
       assert.equal(
         setProviderAuthenticationRecoveryCommandState(
           status,
           "in_flight",
           "create_probe",
+          material,
+          "probe",
+        ),
+        false,
+        "Request全体を保存イベントへ混入しない",
+      );
+      const frame = { snapshot: material.snapshot, cleanup: material.cleanup };
+      assert.equal(
+        setProviderAuthenticationRecoveryCommandState(
+          status,
+          "in_flight",
+          "create_probe",
+          frame,
+          "probe",
         ),
         true,
       );
-      assert.deepEqual(beginProviderAuthenticationRecovery(login), {
-        status: "prior_action_active",
-        recoveryId: status.recoveryId,
-      });
       assert.equal(
-        setProviderAuthenticationRecoveryCommandState(status, "idle", null),
+        readProviderAuthenticationResources(status),
+        null,
+        "in-flightをidleの未要求へ丸めない",
+      );
+      assert.equal(
+        recordProviderAuthenticationResource(status, {
+          event: "not_issued",
+          key: "probe",
+        }),
         true,
       );
       assert.equal(settleProviderAuthenticationRecovery(status), true);
       assert.equal(beginProviderAuthenticationRecovery(login), "created");
-      const current = JSON.parse(fs.readFileSync(login.recordPath, "utf8"));
-      assert.equal(current.action, "login");
-      assert.equal(current.resources.length, 5);
-      assert.equal(current.recoveryId, login.recoveryId);
-      assert.equal(fs.existsSync(`${login.recordPath}.pending`), false);
-      assert.equal(settleProviderAuthenticationRecovery(status), false);
-      assert.equal(settleProviderAuthenticationRecovery(login), true);
+      assert.equal(readProviderAuthenticationResources(login)?.resources, null);
+      assert.equal(readProviderAuthenticationResources(status), null);
     }
   } finally {
-    assert.ok(
-      path
-        .resolve(root)
-        .startsWith(path.resolve(repository, ".crdd", "tests") + path.sep),
-    );
-    fs.rmSync(root, { recursive: true, force: true });
+    root.cleanup();
   }
 });
 
-/**
- * 作成Receiptを元Intentへ保存し、状態更新後も同じ実IDを保持する。
- * @responsibility 保存・読戻しと不正なReceipt拒否を実Filesystemで検証する。
- * @trace ERB-IT-017
- * @precondition Repository-localの専用試験Rootだけを使用する。
- * @stimulus 固定Planから記録を作り、作成Intent、Receipt、idle、settledを順に処置する。
- * @observation 各結果と保存JSONの五資源実IDを読む。
- * @oracle 別用途・別名・別IDを拒否し、元実IDはidleとsettled後も変わらない。
- * @cleanup 試験専用Rootをfinallyで削除する。
- * @boundary ERB-IT-017=Integration: 既存回復記録の保存・読戻し。
- */
-test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移で失われない", () => {
-  const repository = fileURLToPath(new URL("../../../../", import.meta.url));
-  const root = path.join(
-    repository,
-    ".crdd",
-    "tests",
-    `claude-auth-receipt-${randomBytes(8).toString("hex")}`,
-  );
-  const home = path.join(root, "ProviderHomes", "claude");
-  const plan = createProviderAuthenticationPlan(
-    "claude",
-    "login",
-    home,
-    suffix,
-    token,
-  );
-  assert.ok(plan);
-  const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
-  assert.ok(record);
-  const id = "c".repeat(64);
+test("作成Receiptは同じIntentの元Snapshotに保存し別key・別ID・旧版を拒否する", () => {
+  const root = createRepositoryTestDirectory("provider-auth-receipt-"),
+    hash = randomBytes(32).toString("hex"),
+    home = path.join(root.path, "ProviderHomes", "claude");
   try {
-    assert.equal(beginProviderAuthenticationRecovery(record), "created");
-    assert.equal(
-      recordProviderAuthenticationResource(record, plan.probeContainerName, id),
-      false,
+    const plan = prepareAuthenticationProjection(
+      "claude",
+      "login",
+      home,
+      hash.slice(0, 16),
+      "b".repeat(64),
     );
+    assert.ok(plan);
+    const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
+    assert.ok(record);
+    const material = authenticationResourceFixture(
+      "claude",
+      "login",
+      home,
+      hash.slice(0, 16),
+      "b".repeat(64),
+      path.join(root.path, "management"),
+    );
+    const frame = { snapshot: material.snapshot, cleanup: material.cleanup };
+    const receipt = {
+      ...frame,
+      snapshot: {
+        resources: frame.snapshot.resources.map((r) =>
+          r.key === "probe"
+            ? {
+                ...r,
+                request: "issued",
+                identity: { ...r.identity, dockerId: "c".repeat(64) },
+              }
+            : r,
+        ),
+      },
+      event: "receipt",
+      key: "probe",
+    };
+    assert.equal(beginProviderAuthenticationRecovery(record), "created");
+    assert.equal(recordProviderAuthenticationResource(record, receipt), false);
     assert.equal(
       setProviderAuthenticationRecoveryCommandState(
         record,
         "in_flight",
         "create_probe",
+        frame,
+        "probe",
       ),
       true,
     );
     assert.equal(
-      recordProviderAuthenticationResource(record, plan.loginContainerName, id),
+      recordProviderAuthenticationResource(record, {
+        ...receipt,
+        key: "login",
+      }),
       false,
     );
+    assert.equal(recordProviderAuthenticationResource(record, receipt), true);
     assert.equal(
-      recordProviderAuthenticationResource(
-        record,
-        plan.probeContainerName,
-        "invalid",
-      ),
-      false,
-    );
-    assert.equal(
-      recordProviderAuthenticationResource(record, plan.probeContainerName, id),
-      true,
-    );
-    assert.equal(
-      recordProviderAuthenticationResource(
-        record,
-        plan.probeContainerName,
-        "d".repeat(64),
-      ),
+      recordProviderAuthenticationResource(record, {
+        ...receipt,
+        snapshot: {
+          resources: receipt.snapshot.resources.map((r) =>
+            r.key === "probe"
+              ? { ...r, identity: { ...r.identity, dockerId: "d".repeat(64) } }
+              : r,
+          ),
+        },
+      }),
       false,
     );
     assert.equal(
@@ -200,79 +202,37 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
       true,
     );
     assert.equal(
-      readProviderAuthenticationResources(record)?.[0]?.dockerId,
-      id,
+      readProviderAuthenticationResources(
+        record,
+      )?.resources?.snapshot.resources.find((r) => r.key === "probe")?.identity
+        .dockerId,
+      "c".repeat(64),
+    );
+    assert.equal(
+      recordProviderAuthenticationResource(record, {
+        event: "cleanup",
+        snapshot: receipt.snapshot,
+        observations: receipt.snapshot.resources.map((r) => ({
+          key: r.key,
+          observation: r.key === "probe" ? "absent" : "not_requested",
+        })),
+      }),
+      true,
     );
     assert.equal(settleProviderAuthenticationRecovery(record), true);
-    assert.equal(
-      JSON.parse(fs.readFileSync(record.recordPath, "utf8")).resources[0]
-        .dockerId,
-      id,
-    );
-    assert.equal(readProviderAuthenticationResources(record), null);
     assert.equal(beginProviderAuthenticationRecovery(record), "created");
-    assert.equal(
-      readProviderAuthenticationResources(record)?.[0]?.dockerId,
-      null,
-    );
     const previous = JSON.parse(fs.readFileSync(record.recordPath, "utf8"));
     fs.writeFileSync(
       record.recordPath,
-      JSON.stringify({ ...previous, contractRevision: 2 }),
+      JSON.stringify({ ...previous, contractRevision: 1 }),
     );
     assert.equal(readProviderAuthenticationResources(record), null);
     assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
   } finally {
-    assert.ok(
-      path
-        .resolve(root)
-        .startsWith(path.resolve(repository, ".crdd", "tests") + path.sep),
-    );
-    fs.rmSync(root, { recursive: true, force: true });
+    root.cleanup();
   }
 });
 
-/**
- * Docker不存在を表す固定stderrを構築する。
- *
- * @responsibility 再認証fixtureの資源種別と固定不存在文を対応付ける。
- * @trace ERB-IT-017
- * @precondition purposeは固定認証Planの確認用途である。
- * @stimulus purposeから対象資源名とDocker不存在文を導く。
- * @observation NetworkまたはContainer用の固定stderrを返す。
- * @oracle 実装が受理するexact不存在形式と一致する。
- * @cleanup N/A: 外部資源を作成しない純粋fixtureである。
- * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
- */
-function absenceError(purpose: string) {
-  const resource = purpose.includes("_id_absent")
-    ? "a".repeat(64)
-    : purpose.includes("network")
-      ? purpose.includes("internal")
-        ? `crdd-internal-${suffix}`
-        : `crdd-egress-${suffix}`
-      : purpose.includes("probe")
-        ? `crdd-auth-${suffix}`
-        : purpose.includes("login")
-          ? `crdd-claude-${suffix}`
-          : `crdd-proxy-${suffix}`;
-  return purpose.includes("network")
-    ? `Error response from daemon: network ${resource} not found`
-    : `Error: No such container: ${resource}`;
-}
-
-/**
- * 子ProcessのJSON行Eventが現れるまで待機する。
- *
- * @responsibility 別Process Fixtureの段階通知を順序付きで待ち、無期限待機を防ぐ。
- * @trace ERB-IT-017
- * @precondition outputへ子Process stdoutが追記される。
- * @stimulus 期待Event名と待機上限を指定する。
- * @observation JSON行を逐次解析し、対象Eventを観測する。
- * @oracle 対象Eventを返し、上限内に現れなければ失敗する。
- * @cleanup Timerを各poll後に解放する。
- * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
- */
 async function waitForFixtureEvent(
   output: () => string,
   event: string,
@@ -294,18 +254,6 @@ async function waitForFixtureEvent(
   throw new Error(`fixture_event_timeout:${event}`);
 }
 
-/**
- * 子Process終了を上限付きで待機する。
- *
- * @responsibility Fixtureの終了Codeと残存stderrを親試験へ返す。
- * @trace ERB-IT-017
- * @precondition childは開始済みである。
- * @stimulus exitまたはerror Eventを待つ。
- * @observation exit Codeとstderrを観測する。
- * @oracle 上限内の終了Codeを返し、起動失敗またはTimeoutを失敗とする。
- * @cleanup Timeoutを終了時に解除する。
- * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
- */
 async function waitForFixtureExit(
   child: ReturnType<typeof spawn>,
   stderr: () => string,
@@ -328,273 +276,124 @@ async function waitForFixtureExit(
   });
 }
 
-/**
- * 別Process喪失後に同じRecovery IDとKernel Lockで再入場することを検証する。
- *
- * @responsibility 実Filesystem記録と実Kernel LockのProcess喪失後契約を検証する。
- * @trace ERB-IT-017
- * @precondition Repository-local試験一時Root内に専用Provider Homeを作成する。
- * @stimulus 子ProcessがLockとactive Intentを作成して解放処理なしで終了し、親Processが再入場する。
- * @observation 子終了、active記録、親Lock取得、cleanup順序、settled記録を観測する。
- * @oracle 同じRecovery IDで旧資源を処置して新規Lifecycleを完了し、記録をsettledへ閉じる。
- * @cleanup 試験専用Rootをfinallyで削除する。
- * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentから再入場する", async () => {
-  const root = path.resolve(
-    "..",
-    "..",
-    ".crdd",
-    "tmp",
-    `claude-auth-${process.pid}`,
-  );
-  const providerHome = path.join(root, "ProviderHomes", "claude");
-  fs.mkdirSync(providerHome, { recursive: true });
-  const ownerFixture = fileURLToPath(
-    new URL(
-      "../fixtures/provider-authentication-recovery-owner.ts",
-      import.meta.url,
-    ),
-  );
+test("Windows Process Gate: 認証は初回Intent前のProcess喪失から同じ記録へ再入場する", async (t) => {
+  const root = createRepositoryTestDirectory("provider-auth-process-"),
+    hash = randomBytes(32).toString("hex"),
+    home = path.join(root.path, "ProviderHomes", "claude"),
+    token = "b".repeat(64);
+  fs.mkdirSync(home, { recursive: true });
   try {
+    const fixture = fileURLToPath(
+      new URL(
+        "../fixtures/provider-authentication-recovery-owner.ts",
+        import.meta.url,
+      ),
+    );
     const child = spawnSync(
       process.execPath,
-      [ownerFixture, hash, providerHome, suffix, token],
-      {
-        cwd: path.dirname(ownerFixture),
-        env: {},
-        encoding: "utf8",
-        shell: false,
-        windowsHide: true,
-        timeout: 15_000,
-      },
+      [fixture, hash, home, hash.slice(0, 16), token],
+      { encoding: "utf8", windowsHide: true, timeout: 15000 },
     );
     assert.equal(child.status, 0, child.stderr);
-
-    const purposes: string[] = [];
-    const commandStateTransitions: Readonly<{
-      state: "idle" | "in_flight";
-      purpose: string | null;
-    }>[] = [];
-    const result = await authenticateProvider(
+    const f = await createAuthenticationFixture(t);
+    const result = await authenticateProvider("claude", "login", home, hash, {
+      ...f.dependencies,
+      randomHex: () => token,
+      acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+      beginRecovery: beginProviderAuthenticationRecovery,
+      setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
+      recordResource: recordProviderAuthenticationResource,
+      readResources: readProviderAuthenticationResources,
+      completeRecovery: settleProviderAuthenticationRecovery,
+    });
+    assert.equal(result.status, "completed", JSON.stringify(result));
+    assert.equal(f.f.ids.size, 0);
+    const projection = prepareAuthenticationProjection(
       "claude",
       "login",
-      providerHome,
-      hash,
-      {
-        randomHex: () => token,
-        acquireProviderHomeLock:
-          acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-        beginRecovery: beginProviderAuthenticationRecovery,
-        recordCreatedResource: () => true,
-        setRecoveryCommandState: (record, state, purpose) => {
-          const isUpdated = setProviderAuthenticationRecoveryCommandState(
-            record,
-            state,
-            purpose,
-          );
-          if (isUpdated)
-            commandStateTransitions.push(Object.freeze({ state, purpose }));
-          return isUpdated;
-        },
-        completeRecovery: settleProviderAuthenticationRecovery,
-        run: async (command) => {
-          purposes.push(command.purpose);
-          return {
-            status: command.purpose.startsWith("confirm_") ? 1 : 0,
-            signal: null,
-            stdout: command.purpose.startsWith("observe_")
-              ? `${suffix}\n`
-              : command.purpose === "start_probe_attached"
-                ? JSON.stringify({
-                    loggedIn: true,
-                    authMethod: "claude.ai",
-                    apiProvider: "firstParty",
-                    subscriptionType: "max",
-                  })
-                : "",
-            stderr: command.purpose.startsWith("confirm_")
-              ? absenceError(command.purpose)
-              : "",
-          };
-        },
-      },
-    );
-    assert.equal(result.status, "completed", result.reason);
-    assert.equal(result.recoveryId, null);
-    assert.equal(
-      purposes.filter((value) => value === "create_internal_network").length,
-      1,
-    );
-    const plan = createProviderAuthenticationPlan(
-      "claude",
-      "login",
-      providerHome,
-      suffix,
+      home,
+      hash.slice(0, 16),
       token,
     );
-    assert.ok(plan);
-    const recoveryPurposes = plan.ownershipCommands.flatMap(
-      (command, index) => {
-        const cleanup = plan.cleanupCommands[index];
-        const absence = plan.absenceCommands[index];
-        assert.ok(cleanup && absence);
-        return [
-          command.purpose,
-          cleanup.purpose,
-          absence.purpose.replace("_absent", "_id_absent"),
-          absence.purpose,
-        ];
-      },
-    );
-    const expectedPurposes = [
-      ...plan.absenceCommands.map((command) => command.purpose),
-      ...plan.commands.map((command) => command.purpose),
-      ...recoveryPurposes,
-    ];
-    assert.deepEqual(purposes, expectedPurposes);
-    assert.equal(commandStateTransitions.length, expectedPurposes.length * 2);
-    for (const [index, purpose] of expectedPurposes.entries()) {
-      assert.deepEqual(commandStateTransitions[index * 2], {
-        state: "in_flight",
-        purpose,
-      });
-      assert.deepEqual(commandStateTransitions[index * 2 + 1], {
-        state: "idle",
-        purpose: null,
-      });
-    }
-    assert.ok(plan.commands.some((command) => command.interactive));
-    assert.ok(plan.commands.some((command) => !command.interactive));
+    assert.ok(projection);
     const record = createProviderAuthenticationRecoveryRecord(
-      providerHome,
+      home,
       hash,
-      plan,
+      projection,
     );
     assert.ok(record);
-    const stored = JSON.parse(fs.readFileSync(record.recordPath, "utf8")) as {
-      state?: unknown;
-    };
-    assert.equal(stored.state, "settled");
+    assert.equal(
+      JSON.parse(fs.readFileSync(record.recordPath, "utf8")).state,
+      "settled",
+    );
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    t.mock.restoreAll();
+    root.cleanup();
   }
 });
 
-/**
- * 旧Commandの終了状態が不明な世代へfresh Ownerが再入場しないことを検証する。
- *
- * @responsibility 別Processが残したin-flight Command Barrierを新しいDocker Effectより前に強制する。
- * @trace ERB-IT-017
- * @precondition 子Processが同じProvider Homeへactiveかつin-flightの耐久記録を残して終了する。
- * @stimulus fresh Processが同じProvider Homeの再認証を開始する。
- * @observation Docker Adapter呼出し、公開Recovery ID、cleanupおよびEffect不明を観測する。
- * @oracle fresh ProcessはDocker Effect 0で停止し、同じRecovery IDと手動回復義務を保持する。
- * @cleanup 試験専用Rootをfinallyで削除する。
- * @boundary ERB-IT-017=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発行しない", async () => {
-  const inFlightHash = randomBytes(32).toString("hex");
-  const root = path.resolve(
-    "..",
-    "..",
-    ".crdd",
-    "tmp",
-    `claude-auth-in-flight-${process.pid}`,
+test("Windows Process Gate: 認証はCommand中のOwner喪失後にfresh Effectを発行しない", async (t) => {
+  const root = createRepositoryTestDirectory("provider-auth-owner-"),
+    hash = randomBytes(32).toString("hex"),
+    home = path.join(root.path, "ProviderHomes", "claude"),
+    token = "b".repeat(64);
+  fs.mkdirSync(home, { recursive: true });
+  let output = "",
+    error = "";
+  const child = spawn(
+    process.execPath,
+    [
+      fileURLToPath(
+        new URL(
+          "../fixtures/provider-authentication-command-owner.ts",
+          import.meta.url,
+        ),
+      ),
+      hash,
+      home,
+      token,
+    ],
+    { windowsHide: true, stdio: ["pipe", "pipe", "pipe"] },
   );
-  const providerHome = path.join(root, "ProviderHomes", "claude");
-  fs.mkdirSync(providerHome, { recursive: true });
-  const commandOwnerFixture = fileURLToPath(
-    new URL(
-      "../fixtures/provider-authentication-command-owner.ts",
-      import.meta.url,
-    ),
-  );
-  let childOutput = "";
-  let childError = "";
-  let child: ReturnType<typeof spawn> | null = null;
+  child.stdout?.on("data", (chunk) => {
+    output += String(chunk);
+  });
+  child.stderr?.on("data", (chunk) => {
+    error += String(chunk);
+  });
   try {
-    child = spawn(
-      process.execPath,
-      [commandOwnerFixture, inFlightHash, providerHome, token],
-      {
-        cwd: path.dirname(commandOwnerFixture),
-        env: {},
-        shell: false,
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "pipe"],
-      },
-    );
-    child.stdout?.setEncoding("utf8");
-    child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk: string) => {
-      childOutput += chunk;
-    });
-    child.stderr?.on("data", (chunk: string) => {
-      childError += chunk;
-    });
-    const inFlight = await waitForFixtureEvent(() => childOutput, "in_flight");
-    assert.equal(
-      inFlight.recoveryId,
-      `provider-auth.claude.login.${inFlightHash}`,
-    );
-    assert.equal(inFlight.purpose, "create_internal_network");
+    const started = await waitForFixtureEvent(() => output, "in_flight");
+    assert.equal(started.recoveryId, `provider-auth.claude.login.${hash}`);
     child.stdin?.write("LOSE\n");
-    const lockLost = await waitForFixtureEvent(() => childOutput, "lock_lost");
-    assert.equal(
-      lockLost.recoveryId,
-      `provider-auth.claude.login.${inFlightHash}`,
-    );
-
-    let dockerEffectCount = 0;
-    const result = await authenticateProvider(
-      "claude",
-      "login",
-      providerHome,
-      inFlightHash,
-      {
-        randomHex: () => token,
-        acquireProviderHomeLock:
-          acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-        beginRecovery: beginProviderAuthenticationRecovery,
-        recordCreatedResource: () => true,
-        setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
-        completeRecovery: settleProviderAuthenticationRecovery,
-        run: async () => {
-          dockerEffectCount += 1;
-          throw new Error("unexpected_effect");
-        },
-      },
-    );
-    assert.equal(result.status, "blocked");
+    await waitForFixtureEvent(() => output, "lock_lost");
+    const f = await createAuthenticationFixture(t);
+    const result = await authenticateProvider("claude", "login", home, hash, {
+      ...f.dependencies,
+      randomHex: () => token,
+      acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+      beginRecovery: beginProviderAuthenticationRecovery,
+      setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
+      recordResource: recordProviderAuthenticationResource,
+      readResources: readProviderAuthenticationResources,
+      completeRecovery: settleProviderAuthenticationRecovery,
+    });
     assert.equal(
       result.reason,
       "provider_authentication_prior_command_in_flight",
     );
     assert.equal(result.cleanupConfirmed, false);
-    assert.equal(result.providerEffectIssued, false);
-    assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(result.effectStateUnknown, true);
-    assert.equal(
-      result.recoveryId,
-      `provider-auth.claude.login.${inFlightHash}`,
-    );
-    assert.equal(dockerEffectCount, 0);
+    assert.equal(f.f.calls.length, 0);
     child.stdin?.write("FINISH\n");
-    const fixtureResult = await waitForFixtureEvent(
-      () => childOutput,
-      "result",
-    );
-    assert.equal(
-      fixtureResult.reason,
-      "provider_authentication_provider_home_lock_lost",
-    );
-    assert.equal(fixtureResult.cleanupConfirmed, false);
-    assert.equal(fixtureResult.receiptCallCount, 0);
-    assert.equal(fixtureResult.recoveryCallCount, 0);
-    assert.equal(await waitForFixtureExit(child, () => childError), 0);
+    const closed = await waitForFixtureEvent(() => output, "result");
+    assert.equal(closed.receiptCallCount, 0);
+    assert.equal(closed.recoveryCallCount, 0);
+    assert.equal(await waitForFixtureExit(child, () => error), 0);
   } finally {
-    if (child && child.exitCode === null) child.kill();
-    fs.rmSync(root, { recursive: true, force: true });
+    if (child.exitCode === null) {
+      child.kill();
+      await waitForFixtureExit(child, () => error);
+    }
+    t.mock.restoreAll();
+    root.cleanup();
   }
 });

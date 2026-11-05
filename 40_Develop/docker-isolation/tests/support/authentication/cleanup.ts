@@ -4,18 +4,26 @@
  * @trace ARCH-000010
  */
 import { types } from "node:util";
-import { captureAuthenticationResources } from "../../../../executor/src/authentication/operations.ts";
-import type {
-  AuthenticationCleanupResult,
-  DockerAuthenticationCleanupCallbacks,
-  DockerAuthenticationResources,
-} from "../../../../executor/src/authentication/types.ts";
 import type { DockerAuthenticationExecution } from "./execute.ts";
 import {
   type DockerAuthenticationCommand,
   type DockerAuthenticationPlan,
   planDockerAuthenticationResourceRecovery,
 } from "./plan.ts";
+
+export type DockerAuthenticationResources = readonly Readonly<{
+  kind: "container" | "network";
+  name: string;
+  dockerId: string | null;
+}>[];
+export type AuthenticationCleanupResult = Readonly<{
+  confirmed: boolean;
+  processCompletionConfirmed: boolean;
+}>;
+export interface DockerAuthenticationCleanupCallbacks {
+  onCommandSubmitting?(purpose: string): void;
+  onCommandCompleted?(): void;
+}
 
 /**
  * Docker資源名を正規表現literalへ変換する。
@@ -271,4 +279,49 @@ function notifyAuthentication(
       );
     throw Error("provider_authentication_notification_unconfirmed");
   }
+}
+
+export function captureAuthenticationResources(
+  expected: DockerAuthenticationResources,
+  value: unknown,
+): DockerAuthenticationResources | null {
+  if (
+    !Array.isArray(value) ||
+    types.isProxy(value) ||
+    value.length !== expected.length
+  )
+    return null;
+  const captured = [];
+  for (let index = 0; index < expected.length; index++) {
+    const original = expected[index];
+    if (!original) return null;
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    const item: unknown =
+      descriptor && Object.hasOwn(descriptor, "value")
+        ? descriptor.value
+        : null;
+    if (!item || typeof item !== "object" || types.isProxy(item)) return null;
+    const fields = Object.getOwnPropertyDescriptors(item);
+    if (
+      Reflect.ownKeys(fields).length !== 3 ||
+      ["kind", "name", "dockerId"].some(
+        (key) => !fields[key] || !Object.hasOwn(fields[key], "value"),
+      )
+    )
+      return null;
+    const kind: unknown = fields.kind?.value,
+      name: unknown = fields.name?.value,
+      dockerId: unknown = fields.dockerId?.value;
+    if (
+      kind !== original.kind ||
+      name !== original.name ||
+      (dockerId !== null &&
+        (typeof dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(dockerId)))
+    )
+      return null;
+    captured.push(
+      Object.freeze({ kind: original.kind, name: original.name, dockerId }),
+    );
+  }
+  return Object.freeze(captured);
 }

@@ -324,9 +324,9 @@ test("summary観測は新品子Processの正式consumerへ接続する", () => {
       "-e",
       `
     import assert from 'node:assert/strict';
-    const {attemptPlan}=await import(${JSON.stringify(new URL("../fixtures/attempt-plan.ts", import.meta.url).href)});
     const {installTaskSummaryObservation}=await import(${JSON.stringify(helper)});
     const observer=installTaskSummaryObservation();
+    const {attemptPlan}=await import(${JSON.stringify(new URL("../fixtures/attempt-plan.ts", import.meta.url).href)});
     try { const module=await import(${JSON.stringify(consumer)});
       const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
       for (const provider of ['codex','claude']) {

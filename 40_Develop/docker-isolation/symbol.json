@@ -3,11 +3,24 @@
   "contractRevision": 1,
   "subsystem": "docker-isolation",
   "symbols": [
-    { "symbolId": "docker-isolation.test.integration.probe-async", "kind": "test-suite", "path": "tests/integration/probe-async.contract.test.ts", "qaIds": ["QA-000006"], "localTestIds": ["ERB-IT-004"], "verifies": ["docker-isolation.execution.probe-runtime"] },
+    {
+      "symbolId": "docker-isolation.test.integration.probe-async",
+      "kind": "test-suite",
+      "path": "tests/integration/probe-async.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-runtime"
+      ]
+    },
     {
       "symbolId": "docker-isolation.test.unit.execution-binding",
       "kind": "test-suite",
-      "path": "tests/unit/execution/binding.contract.test.ts",
+      "path": "tests/integration/isolation-lifecycle.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -21,7 +34,7 @@
     {
       "symbolId": "docker-isolation.execution.binding",
       "kind": "file",
-      "path": "src/execution/binding.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000015"
@@ -109,7 +122,7 @@
     {
       "symbolId": "docker-isolation.execution.command-session",
       "kind": "module",
-      "path": "src/execution/session.ts",
+      "path": "src/execution/operations.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -191,7 +204,7 @@
     {
       "symbolId": "docker-isolation.execution.probe-runtime",
       "kind": "module",
-      "path": "src/probe/execute.ts",
+      "path": "src/execution/operations.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -247,7 +260,7 @@
     {
       "symbolId": "docker-isolation.execution.probe-result",
       "kind": "module",
-      "path": "src/probe/result.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -621,7 +634,7 @@
     {
       "symbolId": "docker-isolation.execution.command-runtime",
       "kind": "file",
-      "path": "src/execution/execute.ts",
+      "path": "src/execution/operations.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -654,7 +667,7 @@
     {
       "symbolId": "docker-isolation.cleanup.resource-configuration",
       "kind": "file",
-      "path": "src/cleanup/plan.ts",
+      "path": "src/cleanup/resource.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -678,7 +691,7 @@
     {
       "symbolId": "docker-isolation.execution.authentication-command-runtime",
       "kind": "file",
-      "path": "src/authentication/execute.ts",
+      "path": "src/execution/operations.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -686,7 +699,7 @@
     {
       "symbolId": "docker-isolation.execution.authentication-command-plan",
       "kind": "file",
-      "path": "src/authentication/plan.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -694,7 +707,7 @@
     {
       "symbolId": "docker-isolation.execution.probe-command",
       "kind": "file",
-      "path": "src/probe/plan.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -702,7 +715,7 @@
     {
       "symbolId": "docker-isolation.execution.attached-process",
       "kind": "file",
-      "path": "src/probe/process.ts",
+      "path": "src/process/start.ts",
       "archIds": [
         "ARCH-000008"
       ]

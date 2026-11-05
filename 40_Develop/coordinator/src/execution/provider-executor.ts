@@ -468,7 +468,7 @@ function startRecordedAttempt(
     if (value !== true) throw Error("record_unconfirmed");
   }
   const callbacks: ExecutorCallbacks<"attempt"> = {
-    onCommandSubmitting: (purpose) => {
+    onCommandSubmitting: (purpose, resources) => {
       if (!commandRestrictionAllows(restriction, purpose)) {
         restrictionRejected = true;
         throw Error("execution_restricted");
@@ -478,6 +478,7 @@ function startRecordedAttempt(
           operations.markResourceSubmission(
             recovery.recoveryCapability,
             purpose,
+            resources,
           ),
         );
     },
@@ -496,13 +497,25 @@ function startRecordedAttempt(
           operations.recordProviderSubmission(recovery.recoveryCapability),
         );
     },
-    onResourceCreated: (purpose, id) => {
+    onResourceIdentified: (key, resources) => {
+      if (!operations.recordResourceReceipt)
+        throw Error("resource_receipt_writer_missing");
+      requireRecorded(
+        operations.recordResourceReceipt(
+          recovery.recoveryCapability,
+          key,
+          resources,
+          "identified",
+        ),
+      );
+    },
+    onResourceCreated: (purpose, _id, resources) => {
       if (operations.recordResourceReceipt)
         requireRecorded(
           operations.recordResourceReceipt(
             recovery.recoveryCapability,
             purpose,
-            id,
+            resources,
           ),
         );
     },
@@ -579,6 +592,7 @@ function startRecordedAttempt(
         recoveryCapability: recovery.recoveryCapability,
         recoveryId: recovery.recoveryId,
         observations: observation.resources,
+        resourceSnapshot: observation.resourceSnapshot,
         mountCompletion,
         mountLeaseReleased: cleanup.mountLeaseReleased,
         homeLeaseReleased: observation.homeLeaseReleased,

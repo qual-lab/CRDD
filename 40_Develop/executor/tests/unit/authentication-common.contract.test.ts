@@ -306,26 +306,25 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
         );
       }
       assert.equal(executor.start({}).status, "blocked");
-      const recovery = await cleanupResources({
-        kind: "authentication",
-        request,
+      const session = cleanupResources({
+        resources: result.resourceSnapshot,
         managementDirectory: "C:\\runtime\\management",
-        resources: executor.recordProjection.resources,
+        cleanupOrder: input.cleanupOrder,
+        setupTimeoutMs: input.setupTimeoutMs,
+        unreceiptedAbsence: input.unreceiptedAbsence,
+        verifyLabelAbsence: input.verifyLabelAbsence,
+        previouslyAbsent: [],
       });
-      assert.equal(recovery.confirmed, true);
+      const recovery = await session.completion;
+      assert.equal(recovery.cleanup.confirmed, true);
       const cleanup = cleanupRequests.at(-1);
       assert.ok(cleanup);
-      assert.equal(cleanup.unreceiptedAbsence, "observe");
       assert.equal(
-        cleanup.resources.resources.length,
-        executor.recordProjection.resources.length,
+        JSON.stringify(cleanup.resources),
+        JSON.stringify(result.resourceSnapshot),
       );
-      assert.equal(cleanup.discovery.length, 0);
-      assert.ok(
-        cleanup.resources.resources.every(
-          (r) => r.request === "unknown" && r.identity.dockerId === null,
-        ),
-      );
+      assert.deepEqual(cleanup.cleanupOrder, input.cleanupOrder);
+      assert.equal(Object.hasOwn(cleanup, "discovery"), false);
     }
   for (const provider of ["codex", "claude"] as const)
     for (mode of ["receipt", "unknown", "unconfirmed", "contradiction"]) {

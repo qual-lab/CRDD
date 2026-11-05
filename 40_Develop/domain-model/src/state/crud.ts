@@ -90,14 +90,23 @@ export function projectCoordinatorCurrentState(
 
 import { decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot } from "./validation.ts";
 import { encodeRuntimeStateValue } from "./codec.ts";
-import type { CoordinatorStateTaskOperation } from "../attempt/types.ts";
+import type {
+  CoordinatorStateTaskOperation,
+  CoordinatorResourceBook,
+} from "../attempt/types.ts";
 import { coordinatorAuthenticationClosureEvidence } from "../attempt/validation.ts";
-import { coordinatorTaskResourcesAreSettled } from "../attempt/validation.ts";
+import {
+  coordinatorTaskResourcesAreSettled,
+  validateCoordinatorResourceBookTransition,
+} from "../attempt/validation.ts";
 import { isSha256Hex } from "./validation.ts";
-import { purposeResource } from "../attempt/validation.ts";
 import type { CoordinatorStateSnapshot } from "./types.ts";
 import { COORDINATOR_STATE_SCHEMA } from "./validation.ts";
 import { associateCoordinatorTaskOperations } from "../task/crud.ts";
+import {
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+} from "../attempt/crud.ts";
 import type { CoordinatorStateRepairOperation } from "../attempt/types.ts";
 import { validCoordinatorRepairOperation } from "../attempt/validation.ts";
 import { coordinatorOperationNonce } from "../attempt/validation.ts";
@@ -169,7 +178,6 @@ export function prepareCoordinatorAuthenticationUnknownClosureSnapshot(
     if (!hash) return null;
     if (coordinatorTaskResourcesAreSettled(operation))
       return Buffer.from(currentBytes as Buffer);
-    const identity = JSON.parse(operation.identityJson);
     const next = {
       ...current.snapshot,
       revision: current.snapshot.revision + 1,
@@ -182,21 +190,18 @@ export function prepareCoordinatorAuthenticationUnknownClosureSnapshot(
           ? item
           : {
               ...operation,
-              resources: operation.resources.map((resource) =>
-                resource.purpose !== "create_subscription_auth_probe"
-                  ? resource
-                  : {
-                      ...resource,
-                      observation: "absent",
-                      absence: {
-                        recoveryId,
-                        purpose: resource.purpose,
-                        plannedResourceName: identity.resources.auth,
-                        dockerId: null,
-                        evidenceSha256: hash,
+              resources: operation.resources && {
+                ...operation.resources,
+                checkpoints: operation.resources.checkpoints.map((resource) =>
+                  resource.key !== "create_subscription_auth_probe"
+                    ? resource
+                    : {
+                        ...resource,
+                        observation: "absent",
+                        absenceEvidenceSha256: hash,
                       },
-                    },
-              ),
+                ),
+              },
             },
       ),
     };
@@ -253,16 +258,7 @@ export function prepareCoordinatorStateOperationSnapshot(
       identitySha256,
       recoveryId,
       phase: "executing",
-      resources: (
-        Object.keys(purposeResource) as (keyof typeof purposeResource)[]
-      ).map((purpose) => ({
-        purpose,
-        request: "not_requested",
-        dockerId: null,
-        receiptSource: null,
-        observation: "unobserved",
-        absence: null,
-      })),
+      resources: null,
       host: {
         currentToken: identity.initialHostRecoveryId,
         pendingTransitionJson: null,
@@ -1095,8 +1091,9 @@ function prepareCoordinatorStateOperationCheckpoint(
     if (
       !operation ||
       (kind === "resource" &&
-        !operation.resources.some(
-          (item) => item.purpose === resource?.purpose,
+        !validateCoordinatorResourceBookTransition(
+          operation.resources,
+          resource,
         )) ||
       (kind === "lifecycle" &&
         !exactRecordKeys(resource, [
@@ -1107,16 +1104,6 @@ function prepareCoordinatorStateOperationCheckpoint(
           "outcome",
           "summarySha256",
         ]))
-    )
-      return null;
-    if (
-      kind === "resource" &&
-      resource?.request === "unknown" &&
-      resource?.observation === "absent" &&
-      !operation.resources.some(
-        (item) =>
-          encodeRuntimeStateValue(item) === encodeRuntimeStateValue(resource),
-      )
     )
       return null;
     if (
@@ -1139,12 +1126,7 @@ function prepareCoordinatorStateOperationCheckpoint(
               dockerRestart: kind === "restart" ? resource : item.dockerRestart,
               ...(kind === "lifecycle" ? resource : {}),
               host: kind === "host" ? resource : item.host,
-              resources:
-                kind !== "resource"
-                  ? item.resources
-                  : item.resources.map((before) =>
-                      before.purpose === resource.purpose ? resource : before,
-                    ),
+              resources: kind !== "resource" ? item.resources : resource,
             },
       ),
     };
@@ -1183,13 +1165,32 @@ export function prepareCoordinatorStateResourceSnapshot(
   resourceValue: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  return prepareCoordinatorStateOperationCheckpoint(
-    currentBytes,
-    recoveryId,
-    resourceValue,
-    repositoryBinding,
-    "resource",
-  );
+  try {
+    const current = decodeCoordinatorStateSnapshot(
+      currentBytes,
+      repositoryBinding,
+    );
+    const operation = current?.snapshot.operations.find(
+      (item): item is CoordinatorStateTaskOperation =>
+        item.kind === "docker_task" && item.recoveryId === recoveryId,
+    );
+    if (!operation) return null;
+    const book = applyCoordinatorResourceEvent(
+      operation.resources,
+      resourceValue,
+    );
+    return book
+      ? prepareCoordinatorStateOperationCheckpoint(
+          currentBytes,
+          recoveryId,
+          book,
+          repositoryBinding,
+          "resource",
+        )
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -1312,66 +1313,47 @@ export function prepareCoordinatorStateCleanupSnapshot(
       repositoryBinding,
     );
     if (!current || typeof recoveryId !== "string") return null;
-    const observations = JSON.parse(encodeRuntimeStateValue(observationsValue));
+    const payload = JSON.parse(encodeRuntimeStateValue(observationsValue));
+    if (!exactRecordKeys(payload, ["snapshot", "observations"])) return null;
+    const observations = payload.observations;
+    const snapshot = payload.snapshot as
+      | CoordinatorResourceBook["snapshot"]
+      | null;
     const operation = current.snapshot.operations.find(
       (item): item is CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
-    if (!operation || !Array.isArray(observations) || observations.length !== 5)
-      return null;
-    const identity = JSON.parse(operation.identityJson);
-    const resources = operation.resources.map((resource, index) => {
-      const observed = observations[index];
+    if (!operation || !Array.isArray(observations)) return null;
+    if (!operation.resources) {
       if (
-        !exactRecordKeys(observed, [
-          "purpose",
-          "plannedResourceName",
-          "dockerId",
-          "observation",
-        ]) ||
-        observed.purpose !== resource.purpose ||
-        observed.plannedResourceName !==
-          identity.resources[purposeResource[resource.purpose]] ||
-        observed.dockerId !== resource.dockerId ||
-        !["not_requested", "absent", "unknown"].includes(observed.observation)
-      )
-        throw new Error("coordinator_state_cleanup_invalid");
-      if (observed.observation === "not_requested") {
-        if (
-          !["not_requested", "not_issued"].includes(resource.request) ||
-          resource.dockerId !== null
+        snapshot !== null ||
+        operation.execution.providerStart !== "not_started" ||
+        operation.execution.externalSend !== "not_issued" ||
+        operation.execution.sharedWrite !== "not_issued" ||
+        observations.length === 0 ||
+        new Set(observations.map((item: { key: string }) => item.key)).size !==
+          observations.length ||
+        observations.some(
+          (item: { observation: string }) =>
+            !exactRecordKeys(item, ["key", "observation"]) ||
+            item.observation !== "not_requested",
         )
-          throw new Error("coordinator_state_cleanup_invalid");
-        return resource;
-      }
-      if (
-        ["not_requested", "not_issued"].includes(resource.request) ||
-        (observed.observation === "absent" && resource.request !== "identified")
       )
-        throw new Error("coordinator_state_cleanup_invalid");
-      return {
-        ...resource,
-        observation: observed.observation,
-        absence:
-          observed.observation === "absent"
-            ? {
-                recoveryId,
-                purpose: resource.purpose,
-                plannedResourceName: observed.plannedResourceName,
-                dockerId: resource.dockerId,
-                evidenceSha256: createHash("sha256")
-                  .update(
-                    encodeRuntimeStateValue({
-                      recoveryId,
-                      previousPayloadSha256: current.payloadSha256,
-                      observation: observed,
-                    }),
-                  )
-                  .digest("hex"),
-              }
-            : null,
-      };
-    });
+        return null;
+      return Buffer.from(currentBytes as Buffer);
+    }
+    if (
+      !snapshot ||
+      observations.length !== operation.resources.checkpoints.length
+    )
+      return null;
+    const resources = applyCoordinatorResourceCleanup(
+      operation.resources,
+      snapshot,
+      observations,
+      { recoveryId, previousPayloadSha256: current.payloadSha256 },
+    );
+    if (!resources) return null;
     const next = {
       ...current.snapshot,
       revision: current.snapshot.revision + 1,
@@ -2345,28 +2327,40 @@ export function classifyCoordinatorResourcePublication(
     if (!prior || !next || prior.identityJson !== next.identityJson)
       return null;
     if (currentBytes.equals(pendingBytes)) return "remove_pending";
-    const changed = next.resources.filter(
-      (resource, index) =>
+    if (!prior.resources || !next.resources) return null;
+    const changed = next.resources.checkpoints.filter(
+      (resource) =>
         encodeRuntimeStateValue(resource) !==
-        encodeRuntimeStateValue(prior.resources[index]),
+        encodeRuntimeStateValue(
+          prior.resources?.checkpoints.find(
+            (item) => item.key === resource.key,
+          ),
+        ),
     );
     const resource = changed[0];
-    const previous = prior.resources.find(
-      (item) => item.purpose === resource?.purpose,
+    const previous = prior.resources.checkpoints.find(
+      (item) => item.key === resource?.key,
     );
     if (
       changed.length !== 1 ||
       !resource ||
-      previous?.request !== "intent_saved" ||
-      resource.request !== "identified" ||
+      previous?.submission !== "intent_saved" ||
+      resource.submission !== "intent_saved" ||
       resource.receiptSource !== "docker_create_result" ||
-      resource.dockerId === null
+      next.resources.snapshot.resources.find(
+        (item) => item.key === resource.key,
+      )?.identity.dockerId == null
     )
       return null;
     const derived = prepareCoordinatorStateResourceSnapshot(
       currentBytes,
       recoveryId,
-      resource,
+      {
+        event: "receipt",
+        key: resource.key,
+        snapshot: next.resources.snapshot,
+        cleanup: next.resources.cleanup,
+      },
       repositoryBinding,
     );
     return derived?.equals(pendingBytes) ? "publish_pending" : null;

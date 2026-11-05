@@ -15,9 +15,8 @@ import type {
 } from "../../../docker-isolation/src/execution/types.ts";
 import { DIAGNOSTIC_IMAGE } from "../../../docker-isolation/src/image/assets.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { executeLifecycle } from "../../../executor/src/lifecycle/execute.ts";
-import { createLifecycleOperations } from "../../../executor/src/lifecycle/operations.ts";
-import { describeIsolationProbeProfile } from "../../../executor/src/probe/configuration.ts";
+import { createLifecycleControl } from "../../../executor/src/lifecycle/execute.ts";
+import { describeIsolationProbeProfile } from "../../../executor/src/lifecycle/probe.ts";
 
 /**
  * 実上位本文を、移管先の実技術本文へ配線する。
@@ -37,7 +36,7 @@ export function runInNewContext(
   if (!code.includes("return runDockerIsolationScenario"))
     return runVm(code, context);
   const source = fs.readFileSync(
-    new URL("../../../executor/src/probe/operations.ts", import.meta.url),
+    new URL("../../../executor/src/lifecycle/probe.ts", import.meta.url),
     "utf8",
   );
   let profile = "normal";
@@ -52,8 +51,7 @@ export function runInNewContext(
       ...context,
       types,
       AbortController,
-      executeLifecycle,
-      createLifecycleOperations,
+      createLifecycleControl,
       DIAGNOSTIC_IMAGE,
       describeIsolationProbeProfile,
       classifyIsolationProbeExecution: () => observedFacts,

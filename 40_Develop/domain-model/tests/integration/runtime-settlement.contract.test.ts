@@ -9,6 +9,7 @@
  * @boundary 保存Ownerのみ。実Host・Docker・Providerの終了証明はCoordinator試験が担う。
  */
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../support/resource-operation.ts";
 import { execFileSync } from "node:child_process";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
@@ -27,6 +28,8 @@ import {
 import * as domain from "../../src/index.ts";
 import {
   coordinatorOperationSummaryBytes,
+  applyCoordinatorResourceEvent,
+  type CoordinatorResourceBook,
   decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   encodeRuntimeStateValue,
   prepareCoordinatorStateCompletionSnapshot,
@@ -265,7 +268,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -293,17 +296,6 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -330,26 +322,31 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     (item) => item.kind === "docker_task",
   );
   assert.ok(operation?.kind === "docker_task");
-  const resource = operation.resources.find(
-    (item) => item.purpose === "create_provider",
-  );
-  assert.ok(resource);
+  const frame = createResourceBookFixture(identity.ownershipLabel, "planned", [
+    "create_egress_network",
+    "create_internal_network",
+    "create_provider",
+    "create_proxy",
+    "create_subscription_auth_probe",
+  ]);
+  const resource = {
+    event: "submission",
+    key: "create_provider",
+    snapshot: frame.snapshot,
+    cleanup: frame.cleanup,
+  };
+  const activeBook = applyCoordinatorResourceEvent(null, {
+    ...resource,
+    snapshot: {
+      resources: frame.snapshot.resources.map((r) =>
+        r.key === resource.key ? { ...r, request: "unknown" } : r,
+      ),
+    },
+  });
+  assert.ok(activeBook);
   const repository = { ...observed, operationId: identity.operationId };
-  const cleanupObservations = operation.resources.map((item) => ({
-    purpose: item.purpose,
-    plannedResourceName:
-      identity.resources[
-        (
-          {
-            create_egress_network: "egress",
-            create_internal_network: "internal",
-            create_provider: "provider",
-            create_proxy: "proxy",
-            create_subscription_auth_probe: "auth",
-          } as const
-        )[item.purpose]
-      ],
-    dockerId: null,
+  const cleanupObservations = frame.checkpoints.map((item) => ({
+    key: item.key,
     observation: "not_requested",
   }));
   const lifecycle = {
@@ -386,15 +383,11 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       {
         ...operation,
         ...lifecycle,
-        resources: operation.resources.map((item) =>
-          item.purpose === "create_provider"
-            ? { ...item, request: "unknown" }
-            : item,
-        ),
+        resources: activeBook,
       },
     ],
   };
-  const checkpointBytes = Buffer.from(encodeRuntimeStateValue(current) + "\n");
+  const checkpointBytes = Buffer.from(`${encodeRuntimeStateValue(current)}\n`);
   assert.ok(decodeCoordinatorStateSnapshot(checkpointBytes, binding));
   const area = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
@@ -440,16 +433,24 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       )
         return null;
       return Object.freeze({
-        resources: operation.resources.map((item) => ({
-          purpose: item.purpose,
-          plannedResourceName: cleanupObservations.find(
-            (value) => value.purpose === item.purpose,
-          )?.plannedResourceName,
-          dockerId:
-            item.purpose === "create_provider" ? observedProviderId : null,
+        resourceSnapshot: {
+          resources: activeBook.snapshot.resources.map((item) =>
+            item.key === "create_provider"
+              ? {
+                  ...item,
+                  request: observedProviderId ? "issued" : "unknown",
+                  identity: { ...item.identity, dockerId: observedProviderId },
+                }
+              : item,
+          ),
+        },
+        resources: activeBook.checkpoints.map((item) => ({
+          key: item.key,
           observation:
-            item.purpose === "create_provider" && observedProviderId
-              ? observedProviderObservation
+            item.key === "create_provider"
+              ? observedProviderId
+                ? observedProviderObservation
+                : "unknown"
               : "not_requested",
         })),
         homeLeaseReleased: true,
@@ -469,14 +470,14 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   const intentFixture = prepareCoordinatorStateResourceSnapshot(
     initial,
     operation.recoveryId,
-    { ...resource, request: "intent_saved" },
+    resource,
     binding,
   );
   assert.ok(intentFixture);
   const notIssuedFixture = prepareCoordinatorStateResourceSnapshot(
     intentFixture,
     operation.recoveryId,
-    { ...resource, request: "not_issued" },
+    { event: "not_issued", key: resource.key },
     binding,
   );
   assert.ok(notIssuedFixture);
@@ -984,19 +985,24 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   const line = Buffer.from(
     `${encodeRuntimeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: JSON.parse(summaryBytes.toString("utf8")) })}\n`,
   );
-  const terminalResource = terminal.operations
-    .find((item: { kind?: unknown }) => item.kind === "docker_task")
-    ?.resources.find(
-      (value: typeof resource) => value.purpose === "create_provider",
-    );
-  assert.ok(terminalResource);
-  const alteredResources = prepareCoordinatorStateResourceSnapshot(
-    terminalBytes,
-    operation.recoveryId,
-    { ...terminalResource, observation: "present", absence: null },
-    repository.repositoryBinding,
+  const alteredState = structuredClone(terminal);
+  const alteredTask = alteredState.operations.find(
+    (item: { kind: string }) => item.kind === "docker_task",
   );
-  assert.ok(alteredResources);
+  assert.ok(alteredTask?.resources);
+  alteredTask.resources = {
+    ...alteredTask.resources,
+    checkpoints: alteredTask.resources.checkpoints.map(
+      (c: CoordinatorResourceBook["checkpoints"][number]) =>
+        c.key === resource.key
+          ? { ...c, observation: "unknown", absenceEvidenceSha256: null }
+          : c,
+    ),
+  };
+  const alteredResources = Buffer.from(
+    `${encodeRuntimeStateValue(alteredState)}\n`,
+  );
+  assert.ok(decodeCoordinatorStateSnapshot(alteredResources, binding));
   for (const dockerCompletion of [
     undefined,
     Object.freeze({
@@ -1050,13 +1056,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     pendingDeliveries: [],
     operations: terminal.operations.map((value: typeof operation) => ({
       ...value,
-      resources: value.resources.map((item) => ({
-        ...item,
-        request: "not_requested",
-        dockerId: null,
-        observation: "unobserved",
-        absence: null,
-      })),
+      resources: frame,
       lease: "released",
       execution: {
         ...value.execution,
@@ -1494,25 +1494,36 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     (item: { kind?: unknown }) => item.kind === "docker_task",
   ).history = null;
   identifiedFixture.pendingDeliveries = [];
-  const identifiedResource = identifiedFixture.operations
-    .find((item: { kind?: unknown }) => item.kind === "docker_task")
-    .resources.find(
-      (item: { purpose: string }) => item.purpose === "create_provider",
-    );
-  assert.ok(identifiedResource);
-  identifiedResource.request = "identified";
-  identifiedResource.dockerId = identifiedId;
-  identifiedResource.receiptSource = "docker_create_result";
-  identifiedResource.observation = "absent";
-  identifiedResource.absence = {
-    recoveryId: operation.recoveryId,
-    purpose: "create_provider",
-    plannedResourceName: cleanupObservations.find(
-      (item) => item.purpose === "create_provider",
-    )?.plannedResourceName,
-    dockerId: identifiedId,
-    evidenceSha256: "c".repeat(64),
+  const identifiedTask = identifiedFixture.operations.find(
+    (item: { kind: string }) => item.kind === "docker_task",
+  );
+  assert.ok(identifiedTask);
+  const knownBook: CoordinatorResourceBook = {
+    ...frame,
+    snapshot: {
+      resources: frame.snapshot.resources.map((r) =>
+        r.key === resource.key
+          ? {
+              ...r,
+              request: "issued",
+              identity: { ...r.identity, dockerId: identifiedId },
+            }
+          : r,
+      ),
+    },
+    checkpoints: frame.checkpoints.map((c) =>
+      c.key === resource.key
+        ? {
+            ...c,
+            submission: "intent_saved",
+            receiptSource: "docker_create_result",
+            observation: "absent",
+            absenceEvidenceSha256: "c".repeat(64),
+          }
+        : c,
+    ),
   };
+  identifiedTask.resources = knownBook;
   const identifiedFixed = prepareCoordinatorStateHistorySnapshot(
     Buffer.from(`${encodeRuntimeStateValue(identifiedFixture)}\n`),
     operation.recoveryId,
@@ -1897,7 +1908,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
       hostHash;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v2",
+      schema: "crdd-coordinator/operation-identity/v3",
       operationNonce: nonce,
       provider: "claude",
       consumer: "orchestrator",
@@ -1925,17 +1936,6 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       localUserBindingHash: "6".repeat(64),
       repositoryBinding: binding,
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-      resources: {
-        auth: "crdd-auth-0123456789abcdef",
-        provider: "crdd-claude-0123456789abcdef",
-        proxy: "crdd-proxy-0123456789abcdef",
-        internal: "crdd-internal-0123456789abcdef",
-        egress: "crdd-egress-0123456789abcdef",
-      },
-      images: {
-        provider: `sha256:${"a".repeat(64)}`,
-        proxy: `sha256:${"b".repeat(64)}`,
-      },
       operationMode: "isolated_task",
       workspaceMountMode: "read_write",
       initialHostRecoveryId: token,
@@ -1955,7 +1955,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       operationMode: "workbench_advice",
       workspaceMountMode: null,
     };
-    const identityJson = JSON.stringify(authIdentity) + "\n";
+    const identityJson = `${JSON.stringify(authIdentity)}\n`;
     const initial = prepareCoordinatorStateOperationSnapshot(
       null,
       identityJson,
@@ -1976,7 +1976,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     assert.ok(requestId);
     const before = Buffer.from(
-      encodeRuntimeStateValue({
+      `${encodeRuntimeStateValue({
         ...decoded.snapshot,
         operations: [
           {
@@ -1989,13 +1989,34 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
               ownerEffect: "disabled",
               workspaceReusable: false,
             },
-            resources: operation.resources.map((item) => ({
-              ...item,
-              request:
-                item.purpose === "create_subscription_auth_probe"
-                  ? "unknown"
-                  : "not_requested",
-            })),
+            resources: (() => {
+              const planned = createResourceBookFixture(
+                identity.ownershipLabel,
+                "planned",
+                [
+                  "create_egress_network",
+                  "create_internal_network",
+                  "create_provider",
+                  "create_proxy",
+                  "create_subscription_auth_probe",
+                ],
+              );
+              return {
+                ...planned,
+                snapshot: {
+                  resources: planned.snapshot.resources.map((r) =>
+                    r.key === "create_subscription_auth_probe"
+                      ? { ...r, request: "unknown" }
+                      : r,
+                  ),
+                },
+                checkpoints: planned.checkpoints.map((c) =>
+                  c.key === "create_subscription_auth_probe"
+                    ? { ...c, submission: "intent_saved" }
+                    : c,
+                ),
+              };
+            })(),
             dockerRestart: {
               requestId,
               scopeSha256: "f".repeat(64),
@@ -2010,7 +2031,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
             },
           },
         ],
-      }) + "\n",
+      })}\n`,
     );
     assert.ok(decodeCoordinatorStateSnapshot(before, binding));
     const area = domain.requireReadyRepositoryRuntimeDataArea(
@@ -2103,8 +2124,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.equal(after.snapshot.operations[0]?.kind, "docker_task");
     if (after.snapshot.operations[0]?.kind === "docker_task")
       assert.equal(
-        after.snapshot.operations[0].resources.find(
-          (item) => item.purpose === "create_subscription_auth_probe",
+        after.snapshot.operations[0].resources?.snapshot.resources.find(
+          (item) => item.key === "create_subscription_auth_probe",
         )?.request,
         "unknown",
       );

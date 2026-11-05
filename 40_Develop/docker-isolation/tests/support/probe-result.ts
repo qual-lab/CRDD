@@ -7,7 +7,7 @@
  */
 import type { SpawnSyncReturns } from "node:child_process";
 
-import type { IsolationProbeFacts } from "../../../executor/src/probe/types.ts";
+import type { IsolationProbeFacts } from "../../../executor/src/lifecycle/types.ts";
 
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const PROBE_MARKER = "crdd-coordinator-isolation-v1";

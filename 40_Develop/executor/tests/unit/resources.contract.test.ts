@@ -8,8 +8,6 @@
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
-import { createAttemptRecoveryTestApi } from "../../scripts/attempt-recovery-test.ts";
-import type { ResourceTarget as AttemptResourceTarget } from "../../src/attempt/types.ts";
 
 import type {
   DockerRuntimeDirectoryCleanupResult,
@@ -23,88 +21,183 @@ import type {
   DockerRuntimeRepairRetentionTargets,
 } from "../../../docker-isolation/src/docker-desktop/types.ts";
 import type { ResourceTarget } from "../../src/index.ts";
+import type {
+  IsolationCallbacks,
+  IsolationExecutionResult,
+} from "../../../docker-isolation/src/index.ts";
 
 /**
- * 未要求・限定観測でも対象集合全体の入力拒否を維持する。
- * @responsibility 選択前の入力検査と技術接続未取得を確認する。
+ * 保存済みSnapshotを用途別の旧投影へ変換せず共通DIへ搬送する。
+ * @responsibility 元入力・通知・Session・最終結果の同一性を確認する。
  * @trace ERB-IT-014
- * @precondition 本番回収本文と有限DI接続代役を使用する。
- * @stimulus 正常未要求と、選択外資源の不正prefixを渡す。
- * @observation completed又はblocked、DI接続取得数。
- * @oracle 正常未要求のみcompleted。不正はblocked、取得0。
- * @cleanup N/A: 外部資源を取得しない。
- * @boundary 上位投影からExecutor入力検査まで。
+ * @precondition DIの公開操作だけを有限代役へ置換する。
+ * @stimulus Snapshot観測・単独回収・取消と最終結果待機を行う。
+ * @observation 入力、Callback、SessionとCompletionの参照。
+ * @oracle 再構築・コピー・取消の別経路を追加しない。
+ * @cleanup Module代役を解除し、試験Promiseの完了を確認する。
+ * @boundary Executor公開入口から有限DI接続。実Docker・Filesystem操作なし。
  */
-test("未要求と限定認証観測も選択外の不正入力を技術要求前に拒否する", async () => {
+test("Snapshot入口は元DI入力・通知・取消とCompletionを直接搬送する", async (t) => {
+  const target: ResourceTarget<"snapshot"> = {
+    managementDirectory: "C:\\synthetic\\management",
+    resources: { resources: [] },
+    cleanupOrder: [],
+    setupTimeoutMs: 10000,
+    unreceiptedAbsence: "retain",
+    verifyLabelAbsence: false,
+    previouslyAbsent: [],
+  };
+  const result: IsolationExecutionResult = {
+    failure: null,
+    resources: target.resources,
+    cancellationRequested: false,
+    processTerminationConfirmed: false,
+    notificationDeliveryConfirmed: null,
+    callbackRegistrationReleased: true,
+    cleanup: {
+      confirmed: false,
+      configCleanupConfirmed: true,
+      observations: [],
+    },
+  };
+  const observed = { status: "blocked", resources: [] };
   let calls = 0;
-  const api = createAttemptRecoveryTestApi(() => {
-    calls++;
-    throw Error("must_not_acquire");
+  let cancellations = 0;
+  const execution = {
+    cancel: async () => {
+      cancellations++;
+      return { cancellationRequested: true, processTerminationObserved: false };
+    },
+    completion: Promise.resolve(result),
+  };
+  const callbacks: IsolationCallbacks = { onResourceIdentified: () => {} };
+  const controller = new AbortController();
+  const options = { signal: controller.signal, stopOnUnknownAbsence: true };
+  const original = await import("../../../docker-isolation/src/index.ts");
+  const lower = t.mock.module(
+    new URL("../../../docker-isolation/src/index.ts", import.meta.url).href,
+    {
+      namedExports: {
+        ...original,
+        inspectIsolation: (input: unknown, received: unknown) => {
+          calls++;
+          assert.equal(input, target);
+          assert.equal(received, options);
+          return observed;
+        },
+        cleanupIsolation: (input: unknown, received: unknown) => {
+          calls++;
+          assert.equal(input, target);
+          assert.equal(received, callbacks);
+          return execution;
+        },
+      },
+    },
+  );
+  t.after(() => lower.restore());
+  const api: typeof import("../../src/lifecycle/cleanup.ts") = await import(
+    new URL("../../src/lifecycle/cleanup.ts?snapshot-contract", import.meta.url)
+      .href
+  );
+  assert.equal(api.inspectResources(target, options), observed);
+  const returned = api.cleanupResources(target, callbacks);
+  assert.equal(returned, execution);
+  assert.equal((await returned.cancel()).processTerminationObserved, false);
+  assert.equal(cancellations, 1);
+  assert.equal(await returned.completion, result);
+  assert.equal(calls, 2);
+  let hooks = 0;
+  const accessor = Object.defineProperty({ ...target }, "kind", {
+    get() {
+      hooks++;
+      return "container";
+    },
   });
-  const projection = {
-    authContainerName: "crdd-auth-0123456789abcdef",
-    providerContainerName: "crdd-codex-0123456789abcdef",
-    proxyContainerName: "crdd-proxy-0123456789abcdef",
-    internalNetworkName: "crdd-internal-0123456789abcdef",
-    egressNetworkName: "crdd-egress-0123456789abcdef",
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    providerImageDigest: `sha256:${"a".repeat(64)}`,
-    proxyImageDigest: `sha256:${"b".repeat(64)}`,
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-  };
-  const receipts = Object.fromEntries(
-    [
-      "create_provider",
-      "create_subscription_auth_probe",
-      "create_proxy",
-      "create_internal_network",
-      "create_egress_network",
-    ].map((key) => [key, { submitted: false, dockerId: null }]),
-  );
-  const target = {
-    kind: "resource_set",
-    operationId: "OP-123456",
-    recoveryId: "exact-recovery",
-    projection,
-    receipts,
-    managementDirectory: null,
-  };
-  const normal = api.inspectResources(
-    target as unknown as AttemptResourceTarget,
-  );
-  assert.equal(normal.status, "completed");
-  assert.equal(
-    (await api.cleanupResources(target as unknown as AttemptResourceTarget))
-      .status,
-    "completed",
-  );
-  for (const submitted of [false, true]) {
-    const invalid = {
-      ...target,
-      projection: {
-        ...projection,
-        egressNetworkName: projection.authContainerName,
+  const inherited = Object.assign(
+    Object.create({
+      get kind() {
+        hooks++;
+        return "container";
       },
-      receipts: {
-        ...receipts,
-        create_subscription_auth_probe: { submitted, dockerId: null },
-      },
-    };
-    assert.equal(
-      api.inspectResources(
-        invalid as unknown as AttemptResourceTarget,
-        "create_subscription_auth_probe",
-      ).status,
-      "blocked",
+    }),
+    target,
+  );
+  const prototypeProxy = Object.assign(
+    Object.create(
+      new Proxy(
+        {},
+        {
+          has() {
+            hooks++;
+            throw Error("unexpected_prototype_has");
+          },
+          get() {
+            hooks++;
+            throw Error("unexpected_prototype_get");
+          },
+        },
+      ),
+    ),
+    target,
+  );
+  const proxy = new Proxy(target, {
+    get() {
+      hooks++;
+      throw Error("unexpected_proxy_get");
+    },
+    has() {
+      hooks++;
+      throw Error("unexpected_proxy_has");
+    },
+    getOwnPropertyDescriptor() {
+      hooks++;
+      throw Error("unexpected_proxy_descriptor");
+    },
+  });
+  for (const invalid of [
+    null,
+    undefined,
+    0,
+    "snapshot",
+    accessor,
+    inherited,
+    prototypeProxy,
+    proxy,
+  ]) {
+    assert.throws(
+      () => api.inspectResources(invalid as never),
+      /resource_target_invalid/u,
     );
-    assert.equal(
-      (await api.cleanupResources(invalid as unknown as AttemptResourceTarget))
-        .status,
-      "blocked",
+    assert.throws(
+      () => api.cleanupResources(invalid as never),
+      /resource_target_invalid/u,
     );
   }
-  assert.equal(calls, 0);
+  assert.equal(hooks, 0);
+  assert.equal(calls, 2);
+});
+
+/**
+ * 旧用途別Targetを公開入口へ再導入しない。
+ * @responsibility 古い投影・Receipt束をDI接続より前に拒否する。
+ * @trace ERB-IT-014
+ * @boundary 値検査のみ。資源の取得・回収を実行しない。
+ */
+test("旧用途別Targetは技術要求前に拒否する", async () => {
+  const { inspectResources, cleanupResources } = await import(
+    "../../src/lifecycle/cleanup.ts"
+  );
+  for (const kind of ["resource_set", "authentication", "attempt", "unknown"]) {
+    const target = { kind } as unknown as ResourceTarget;
+    assert.throws(
+      () => inspectResources(target as ResourceTarget<"container">),
+      /resource_target_invalid/,
+    );
+    assert.throws(
+      () => cleanupResources(target as ResourceTarget<"container">),
+      /resource_target_invalid/,
+    );
+  }
 });
 
 /**
@@ -176,10 +269,15 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     },
   );
   try {
-    const { inspectResources, cleanupResources } = await import(
-      "../../src/lifecycle/cleanup.ts"
-    );
-    const { restartDockerEnvironment } = await import("../../src/index.ts");
+    const { inspectResources, cleanupResources } = (await import(
+      new URL(
+        "../../src/lifecycle/cleanup.ts?directory-contract",
+        import.meta.url,
+      ).href
+    )) as typeof import("../../src/lifecycle/cleanup.ts");
+    const { restartDockerEnvironment } = (await import(
+      new URL("../../src/index.ts?directory-contract", import.meta.url).href
+    )) as typeof import("../../src/index.ts");
     const controller = new AbortController();
     const checkpoint: DockerRuntimeRepairCheckpoint = {
       actions: Object.fromEntries(
@@ -294,11 +392,11 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
         kind,
         operationId: "o",
         recoveryId: "r",
-      } as unknown as AttemptResourceTarget;
-      assert.equal(inspectResources(bad).status, "blocked");
-      assert.equal((await cleanupResources(bad)).status, "blocked");
+      } as unknown as ResourceTarget<"container">;
+      assert.throws(() => inspectResources(bad), /resource_target_invalid/);
+      assert.throws(() => cleanupResources(bad), /resource_target_invalid/);
     }
-    const proxy = new Proxy({} as ResourceTarget<"attempt">, {
+    const proxy = new Proxy({} as ResourceTarget<"container">, {
       get: unexpected,
     });
     assert.throws(() => inspectResources(proxy), /resource_target_invalid/);

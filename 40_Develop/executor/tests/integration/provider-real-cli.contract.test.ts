@@ -14,6 +14,95 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes, createHash } from "node:crypto";
 import test from "node:test";
+import type { CoordinatorResourceBook } from "../../../domain-model/src/index.ts";
+
+/** 合成Receiptを実Domainイベントへ通し、保存Reader試験に使う同じBook列を作る。 @trace ERB-IT-004 */
+function createResourceRecords(
+  domain: typeof import("../../../domain-model/src/index.ts"),
+  resources: readonly {
+    purpose: string;
+    plannedResourceName: string;
+    dockerId: string;
+    observation: string;
+  }[],
+  ownershipLabel: string,
+): { kind: string; resources: CoordinatorResourceBook }[] {
+  let snapshot = {
+    resources: resources.map((r) => ({
+      key: r.purpose,
+      identity: {
+        kind: r.purpose.endsWith("_network")
+          ? ("network" as const)
+          : ("container" as const),
+        name: r.plannedResourceName,
+        ownershipLabel,
+        dockerId: null as string | null,
+      },
+      request: "not_issued" as "not_issued" | "issued",
+      configuration: {
+        image: null,
+        command: null,
+        environmentNames: null,
+        mounts: null,
+        networks: null,
+        internal: null,
+      },
+    })),
+  };
+  const cleanup = {
+    cleanupOrder: resources.map((r) => r.purpose),
+    setupTimeoutMs: 15000,
+    unreceiptedAbsence: "retain",
+    verifyLabelAbsence: true,
+  };
+  let book: CoordinatorResourceBook | null = null;
+  const records: { kind: string; resources: CoordinatorResourceBook }[] = [];
+  for (const resource of resources) {
+    book = domain.applyCoordinatorResourceEvent(book, {
+      event: "submission",
+      key: resource.purpose,
+      snapshot,
+      cleanup,
+    });
+    assert.ok(book);
+    records.push({
+      kind: "submission_planned",
+      resources: structuredClone(book),
+    });
+    snapshot = {
+      resources: snapshot.resources.map((r) =>
+        r.key === resource.purpose
+          ? {
+              ...r,
+              request: "issued" as const,
+              identity: { ...r.identity, dockerId: resource.dockerId },
+            }
+          : r,
+      ),
+    };
+    book = domain.applyCoordinatorResourceEvent(book, {
+      event: "receipt",
+      key: resource.purpose,
+      snapshot,
+      cleanup,
+    });
+    assert.ok(book);
+    records.push({
+      kind: "receipt_recorded",
+      resources: structuredClone(book),
+    });
+  }
+  assert.ok(book);
+  book = domain.applyCoordinatorResourceCleanup(
+    book,
+    snapshot,
+    resources.map((r) => ({ key: r.purpose, observation: r.observation })),
+    { recoveryId: "fixture-recovery", previousPayloadSha256: "a".repeat(64) },
+  );
+  assert.ok(book);
+  records.push({ kind: "absence_observed", resources: structuredClone(book) });
+  return records;
+}
 
 /**
  * 固定Taskの構築と合成FileのOracleを外部実行なしで検査する。
@@ -39,19 +128,33 @@ test("固定Task試験は両Providerの計画と実Fileの相関を検査する"
         localUserBindingHash: "c".repeat(64),
         stableLogicalHomeBindingHash: "d".repeat(64),
       };
-      const plan = api.buildTaskTrialPlan(
+      const request = api.buildTaskTrialRequest(
         spec,
         root,
         home,
         "C:\\synthetic-home-not-used",
       );
-      assert.equal(plan.operationMode, "isolated_task");
-      assert.equal(plan.providerInput, spec.prompt);
+      assert.equal(request.purpose, "task");
+      assert.equal(request.purpose === "task" && request.input, spec.prompt);
+      const executor = (await import("../../src/index.ts")).createExecutor(
+        request,
+        {
+          paths: {
+            tmp: path.join(root, "tmp"),
+            management: path.join(root, "management"),
+          },
+        },
+      );
+      assert.ok(executor);
+      const plan = executor.recordProjection;
       assert.equal(
         plan.workspaceMountMode,
         mode === "review" ? "read_only" : "read_write",
       );
-      assert.equal(plan.taskRole, mode === "review" ? "reviewer" : "executor");
+      assert.equal(
+        request.purpose === "task" && request.taskRole,
+        mode === "review" ? "reviewer" : "executor",
+      );
       const receipt = api.createTaskTrialFixture(root, mode);
       const source = path.join(root, "work", "source.txt");
       if (mode === "edit") fs.writeFileSync(source, api.TASK_TRIAL_TEXT);
@@ -163,44 +266,36 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {randomUUID,createHash} from 'node:crypto';
     import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {mock} from 'node:test';
     for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{throw Error('external_process_forbidden');};syncBuiltinESMExports();
+    const {createIsolationFixture}=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/isolation.ts"))});
+    const f=await createIsolationFixture({mock});
     const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
+    const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
     const platform=await import(${JSON.stringify(url("../../../platform-access/src/index.ts"))});
     const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
+    const createResourceRecords = ${createResourceRecords.toString()};
     let fixture=null,live=false,releases=0;
-    process.env.LOCALAPPDATA='C:/synthetic-home-not-read'.replaceAll('/',String.fromCharCode(92));
+    process.env.LOCALAPPDATA='C:/fixture'.replaceAll('/',String.fromCharCode(92));
     mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
       observeWindowsProviderHome:provider=>({status:'candidate',provider,processEffectIssued:true,helperExitConfirmed:true,artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)}),
       acquireNamedPipeKernelLock:()=>{live=true;return {assertLive:()=>live,release:()=>{releases++;live=false;return true;}};}
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
-    const legacy=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/execution.ts"))});
-    mock.module(${JSON.stringify(url("../../../docker-isolation/tests/support/execution.ts"))},{namedExports:{...di,...legacy,
-      createDockerIsolationRuntime:({paths})=>{
-        let cleanupResult=null,owner=null,recovery=null;
-        return {startCommand:()=>{throw Error('primitive_forbidden');},cleanupOwnedResources:()=>{throw Error('duplicate_cleanup');},
-          startExecution:(p,r,m,hooks)=>{
-            owner=m;recovery=r;assert.equal(p.stdin,fixture.prompt);if(fixture.trialMode==='advice'){assert.ok(p.stdin.includes(JSON.stringify(fixture.schema)));assert.ok(p.stdin.includes('Allowed references: ["synthetic-context"]'));}
-            return legacy.startDockerCommandSessionCandidate(purposes,{
-              startCommand:purpose=>({started:async()=>{if(purpose==='start_provider_attached'&&fixture.mode==='task_cancel_duplicate')queueMicrotask(()=>hooks.onExecutionStarted());return true;},wait:async()=>{if(purpose==='start_provider_attached'){if(fixture.mode.startsWith('task_cancel'))await new Promise(r=>fixture.cancelReady=r);if(fixture.mode==='task_edit')fs.writeFileSync(path.join(fixture.root,'work','source.txt'),'EDITED_OK\\n');}return {status:0,signal:null,stderr:'',outputExceeded:false,stdout:
-                purpose.startsWith('create_')?String(purposes.indexOf(purpose)+1).repeat(64)+'\\n':
-                purpose==='start_subscription_auth_probe_attached'?(fixture.provider==='codex'?'Logged in using ChatGPT\\n':JSON.stringify({loggedIn:true,authMethod:'claude.ai',apiProvider:'firstParty',forcedLoginMethod:'claudeai',subscriptionType:'max'})):
-                purpose==='start_provider_attached'?fixture.output:''};},terminateAndWait:async()=>{fixture.cancelReady?.();return true;}}),
-              cleanup:async(receipts)=>{
-                assert.equal(live,true);const c=p.configuration;assert.ok(receipts);
-                const names={create_provider:c.executionContainerName,create_proxy:c.proxyContainerName,create_subscription_auth_probe:c.authenticationContainerName,create_internal_network:c.internalNetworkName,create_egress_network:c.egressNetworkName};
-                const resources=Object.entries(names).map(([purpose,plannedResourceName])=>({purpose,plannedResourceName,dockerId:receipts[purpose].dockerId,observation:receipts[purpose].submitted?'absent':'not_requested'}));
-                cleanupResult={confirmed:true,processTreeTerminated:true,containersAbsent:true,networksAbsent:true,resourceObservations:resources};return cleanupResult;
-              },verifyCleanup:v=>v===cleanupResult?cleanupResult.resourceObservations:null
-            },hooks);
-          },verifyCleanupOutcome:(v,id,r,m)=>v===cleanupResult&&r===recovery&&m===owner?cleanupResult.resourceObservations:null
-        };
-      }
+    mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
+      prepareIsolation:request=>{f.useRequest(captureIsolationRequest(request),fixture.provider);return f.api.prepareIsolation(request);},
+      executeIsolation:f.api.executeIsolation
     }});
+    f.waitGate=async argv=>{
+      if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)===String(f.request.resources.findIndex(r=>r.key==='create_provider')+1).repeat(64)){
+        if(fixture.mode==='task_edit')fs.writeFileSync(path.join(fixture.root,'work','source.txt'),'EDITED_OK\\n');
+        await new Promise(resolve=>setImmediate(resolve));
+      }
+    };
+    f.observationFilter=(argv,result)=>argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)===String(f.request.resources.findIndex(r=>r.key==='create_provider')+1).repeat(64)?{...result,stdout:fixture.output}:result;
     const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
     const executor=await import(${JSON.stringify(url("../../src/index.ts"))});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
     const schema=(await import(${JSON.stringify(url("../../../ai-adapter/src/provider/advice-result.ts"))})).describeAdviceResultSchema();
-    for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[]),'task_edit','task_review',...(provider==='codex'?['task_review_command']:[]),'task_cancel','task_cancel_duplicate']){
+    for(const provider of ['codex','claude'])for(const mode of ['normal','extra','missing','contract','revision','status','empty','item','reference','transport',...(provider==='codex'?['duplicate']:[]),'task_edit','task_review',...(provider==='codex'?['task_review_command']:[]),'task_cancel']){
       const trialMode=mode==='task_edit'?'edit':mode.startsWith('task_review')?'review':mode.startsWith('task_cancel')?'cancel':'advice';
       const spec=api.describeStandaloneProviderTrial(provider,trialMode);if(trialMode==='advice')assert.ok(spec.prompt.includes(JSON.stringify(schema)));assert.equal(createHash('sha256').update(spec.prompt).digest('hex'),spec.promptSha256);
       const item={text:'A pending documentation task.',references:['synthetic-context']};
@@ -243,7 +338,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
  * @cleanup 実資源がすべて代役である自己生成Rootのみ確認後に回収。
  * @boundary Host単体のITと組み合わせる限定根拠。実OS検証ではない。
  */
-test("単段CLI子の固定計画・取消・保持を確認する", () => {
+test("単段CLI子は製品Executorの排他・再観測・取消・保持を確認する", () => {
   const url = (value: string) => new URL(value, import.meta.url).href;
   const child = spawnSync(
     process.execPath,
@@ -252,57 +347,50 @@ test("単段CLI子の固定計画・取消・保持を確認する", () => {
       "--input-type=module",
       "-e",
       `
-    import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {randomUUID,createHash} from 'node:crypto';import {fileURLToPath} from 'node:url';
-    import {mock} from 'node:test';import {registerHooks,syncBuiltinESMExports} from 'node:module';import cp from 'node:child_process';
-    registerHooks({resolve(s,c,n){const r=n(s,c);if(r.url.includes('/coordinator/'))throw Error('coordinator_forbidden');return r;}});
-    for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{throw Error('external_process_forbidden');};syncBuiltinESMExports();
-    const platform=await import(${JSON.stringify(url("../../../platform-access/src/index.ts"))});
-    const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
-    let mode='normal',observations=0,acquisitions=0,releases=0,starts=0,cancels=0,live=false,controller=null;
-    process.env.LOCALAPPDATA='C:/synthetic-home-not-read'.replaceAll('/',String.fromCharCode(92));
-    mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
-      observeWindowsProviderHome:(provider)=>{observations++;if(mode==='unexpected_error')throw Error('private external error');return {status:mode==='home_unknown'?'blocked':'candidate',provider,processEffectIssued:true,helperExitConfirmed:mode!=='home_unknown',artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:observations===2&&['changed','changed_release_unknown'].includes(mode)?'e'.repeat(64):'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
-      acquireNamedPipeKernelLock:()=>{acquisitions++;if(mode==='acquire_unknown')return null;live=true;return {assertLive:()=>live,release:()=>{releases++;if(['release_unknown','changed_release_unknown'].includes(mode))return false;live=false;return true;}};}
-    }});
-    mock.module(${JSON.stringify(url("../../scripts/provider-attempt-host.ts"))},{namedExports:{createStandaloneProviderAttemptHost:(root,plan,lease)=>{
-      assert.equal(plan.operationMode,'workbench_advice');assert.equal(plan.workspaceSourcePath,null);assert.equal(Object.hasOwn(plan.executionSelection,'role'),false);assert.equal(plan.executionSelection.purpose,'advice');
-      const recoveryId='docker-task.'+'d'.repeat(64)+'.'+createHash('sha256').update(root).digest('hex')+'.'+'f'.repeat(64);let sequence=0,original=null;const wait=Promise.withResolvers();
-      const names={create_provider:plan.providerContainerName,create_proxy:plan.proxyContainerName,create_subscription_auth_probe:plan.authContainerName,create_internal_network:plan.internalNetworkName,create_egress_network:plan.egressNetworkName};
-      const resources=Object.entries(names).map(([purpose,plannedResourceName],i)=>({purpose,plannedResourceName,dockerId:String(i+1).repeat(64),observation:'absent'}));
-      const diagnostic={primaryFailure:null,providerProcessStartedObserved:true,processTreeTerminationObserved:true,containersAbsentObserved:true,networksAbsentObserved:true,cleanupConfirmed:true};
-      const save=(kind,fields={})=>{const name='event-'+String(++sequence).padStart(3,'0')+'.json';const value={kind,recordedAt:new Date().toISOString(),operationId:plan.operationId,provider:plan.provider,recoveryId,sequence,...fields,...(kind==='absence_observed'?{resources}:{}),...(kind==='execution_settled'?diagnostic:{}),...(kind==='terminal_received'?{status:'completed',reason:null,resultSha256:'a'.repeat(64),resultBytes:10}:{})};domain.writeCommittedJson(root,name,name,value);};
-      return {recoveryId,readDiagnostic:()=>diagnostic,management:{},runtime:{cancel:async()=>{cancels++;wait.resolve();return {status:'requested'};}},
-        start:()=>{starts++;save('recovery_opened');save('recovery_handoff');for(const r of resources){save('submission_planned',{purpose:r.purpose,plannedResourceName:r.plannedResourceName,ownershipLabel:plan.ownershipLabel});save('receipt_recorded',{purpose:r.purpose,dockerId:r.dockerId});}return {status:'started',controlCapability:{},completion:(async()=>{
-          if(mode==='cancel'){controller.abort();await wait.promise;}
-          assert.equal(lease.assertLive(),true);const released=lease.release();if(released){save('home_released');save('absence_observed');save('recovery_closed');save('execution_settled');}
-          const item={text:'A pending documentation task.',references:['synthetic-context']};const advice={status:'completed',facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]};
-          original={status:mode==='cancel'?'cancelled':mode==='execution_and_bad_advice'?'blocked':'completed',reason:mode==='cancel'?'provider_operation_cancelled':mode==='execution_and_bad_advice'?'provider_subscription_auth_not_confirmed':null,cleanupConfirmed:released,resultSha256:'a'.repeat(64),resultBytes:10,normalizedResult:['bad_advice','terminal_and_bad_advice','execution_and_bad_advice'].includes(mode)?{status:'completed',facts:[]}:{...advice,reason:null}};return original;
-        })()};},
-        recordTerminal:value=>{if(value!==original||!value.cleanupConfirmed||mode==='terminal_and_bad_advice')return false;save('terminal_received');return true;}
-      };
-    }}});
-    const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
-    const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
-    for(mode of ['normal','cancel','changed','changed_release_unknown','home_unknown','unexpected_error','prestart_cancel','acquire_unknown','release_unknown','bad_advice','terminal_and_bad_advice','execution_and_bad_advice']){
-      observations=0;acquisitions=0;releases=0;starts=0;cancels=0;live=false;controller=new AbortController();
-      const runId='fixture-'+randomUUID();const provider=mode==='normal'?'codex':'claude';const root=path.join(repository,'.crdd','tests','executor-real-'+provider+'-'+runId);
-      const result=await api.runStandaloneProviderTrial(provider,runId,controller.signal,async()=>{},async()=>{if(mode==='prestart_cancel')controller.abort();});
-      const stat=fs.statSync(root,{bigint:true});const identity=[stat.dev,stat.ino,stat.birthtimeNs].map(String).join(':');
-      assert.equal(result.status,mode==='normal'?'completed':['cancel','prestart_cancel'].includes(mode)?'cancelled':'blocked',mode);
-      assert.equal(starts,['changed','changed_release_unknown','home_unknown','unexpected_error','prestart_cancel','acquire_unknown'].includes(mode)?0:1,mode);
-      assert.equal(observations,['acquire_unknown','home_unknown','unexpected_error'].includes(mode)?1:2,mode);assert.equal(acquisitions,['home_unknown','unexpected_error'].includes(mode)?0:1);
-      assert.equal(releases,['acquire_unknown','home_unknown','unexpected_error'].includes(mode)?0:1,mode);assert.equal(cancels,mode==='cancel'?1:0);
-      const reasons={changed:'trial_home_changed_or_unconfirmed',changed_release_unknown:'trial_home_changed_or_unconfirmed',home_unknown:'trial_home_unconfirmed',unexpected_error:'trial_failed_closed',prestart_cancel:'trial_cancelled_or_lease_lost_before_start',acquire_unknown:'trial_lease_acquisition_unknown'};
-      if(mode in reasons)assert.equal(result.reason,reasons[mode],mode);
-      if(mode==='bad_advice')assert.equal(result.reason,'workbench_ai_advice_result_schema_invalid');
-      if(mode==='terminal_and_bad_advice')assert.equal(result.reason,'trial_terminal_or_advice_unconfirmed');
-      if(mode==='execution_and_bad_advice')assert.equal(result.reason,'provider_subscription_auth_not_confirmed');
-      const cleaned=api.cleanupStandaloneTrialRoot(root,identity,result);assert.equal(cleaned,mode==='normal',mode);
-      if(!cleaned){assert.equal(fs.existsSync(root),true);for(const name of fs.readdirSync(root)){const p=path.join(root,name),s=fs.lstatSync(p);assert.equal(s.isSymbolicLink(),false);if(s.isDirectory())assert.equal(fs.readdirSync(p).length,0);else{assert.equal(s.isFile(),true);assert.equal(s.nlink,1);assert.match(name,/^event-[0-9]{3}\\.json(?:\\.crdd-commit\\.json)?$/);}}fs.rmSync(root,{recursive:true});assert.equal(fs.existsSync(root),false);}
-    }
-  `,
+ import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {randomUUID} from 'node:crypto';import {fileURLToPath} from 'node:url';import {mock} from 'node:test';
+ const {createIsolationFixture}=await import(${JSON.stringify(url("../../../docker-isolation/tests/support/isolation.ts"))});
+ const f=await createIsolationFixture({mock});
+ const di=await import(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))});
+ const {captureIsolationRequest}=await import(${JSON.stringify(url("../../../docker-isolation/src/execution/preparation.ts"))});
+ const platform=await import(${JSON.stringify(url("../../../platform-access/src/index.ts"))});
+ let mode='normal',observations=0,acquisitions=0,releases=0,live=false,controller=null;
+ process.env.LOCALAPPDATA='C:\\\\fixture';
+ mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
+   prepareIsolation:request=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request);},executeIsolation:f.api.executeIsolation
+ }});
+ mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
+   observeWindowsProviderHome:provider=>{observations++;if(mode==='unexpected_error')throw Error('private');if(observations===2)assert.equal(live,true);return {status:mode==='home_unknown'?'blocked':'candidate',provider,processEffectIssued:true,helperExitConfirmed:mode!=='home_unknown'&&!(observations===2&&mode==='helper_unknown'),artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:(observations===2&&mode==='changed'?'e':'b').repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
+   acquireNamedPipeKernelLock:()=>{acquisitions++;if(mode==='acquire_unknown')return null;live=true;return {assertLive:()=>live,release:()=>{releases++;if(mode==='release_unknown')return false;live=false;return true;}};}
+ }});
+ f.waitGate=async argv=>{if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)==='2'.repeat(64)){if(mode==='cancel')controller.abort();await new Promise(resolve=>setImmediate(resolve));}};
+ f.observationFilter=(argv,result)=>{if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)==='2'.repeat(64)){
+   const item={text:'A pending documentation task.',references:['synthetic-context']};
+   return {...result,stdout:JSON.stringify({type:'result',subtype:'success',is_error:false,num_turns:1,total_cost_usd:0,structured_output:{status:'completed',facts:[item],sharedAnalysis:[],additionalInferences:[],nextOptions:[item]}})};
+ }return result;};
+ const api=await import(${JSON.stringify(url("../../scripts/verify-provider-real.ts"))});
+ const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));
+ for(mode of ['normal','cancel','changed','helper_unknown','home_unknown','unexpected_error','prestart_cancel','acquire_unknown','release_unknown']){
+   observations=0;acquisitions=0;releases=0;live=false;f.calls.length=0;controller=new AbortController();
+   const runId='fixture-'+randomUUID(),root=path.join(repository,'.crdd','tests','executor-real-claude-'+runId);
+   const result=await api.runStandaloneProviderTrial('claude',runId,controller.signal,async()=>{},async()=>{if(mode==='prestart_cancel')controller.abort();});
+   const stat=fs.statSync(root,{bigint:true}),identity=[stat.dev,stat.ino,stat.birthtimeNs].map(String).join(':');
+   assert.equal(result.status,mode==='normal'?'completed':['cancel','prestart_cancel'].includes(mode)?'cancelled':'blocked',mode+':'+JSON.stringify(result));
+   assert.equal(acquisitions,['home_unknown','unexpected_error','prestart_cancel'].includes(mode)?0:1,mode);
+   assert.equal(observations,['home_unknown','unexpected_error','prestart_cancel','acquire_unknown'].includes(mode)?1:2,mode);
+   if(['changed','helper_unknown','prestart_cancel','acquire_unknown','home_unknown','unexpected_error'].includes(mode))assert.equal(f.calls.some(a=>a[0]==='create'||a[0]==='network'&&a[1]==='create'),false,mode);
+   if(['acquire_unknown','home_unknown','unexpected_error','prestart_cancel'].includes(mode))assert.equal(releases,0,mode);
+   if(['changed','helper_unknown'].includes(mode))assert.equal(result.reason,'trial_home_changed_or_unconfirmed',mode);
+   if(mode==='release_unknown')assert.equal(result.releaseConfirmed,false);
+   const cleaned=api.cleanupStandaloneTrialRoot(root,identity,result);assert.equal(cleaned,mode==='normal',mode);
+   if(!cleaned){
+     assert.equal(fs.statSync(root,{bigint:true}).ino,stat.ino);assert.equal(fs.lstatSync(root).isSymbolicLink(),false);
+     for(const name of fs.readdirSync(root)){const p=path.join(root,name),s=fs.lstatSync(p);assert.equal(s.isSymbolicLink(),false);if(s.isDirectory())assert.equal(fs.readdirSync(p).length,0);else{assert.equal(s.nlink,1);assert.match(name,/^event-[0-9]{3}\\.json(?:\\.crdd-commit\\.json)?$/);}}
+     fs.rmSync(root,{recursive:true});assert.equal(fs.existsSync(root),false);
+   }
+ }
+ `,
     ],
-    { encoding: "utf8", timeout: 25000, windowsHide: true },
+    { encoding: "utf8", timeout: 55_000, windowsHide: true },
   );
   assert.equal(child.error, undefined);
   assert.equal(child.signal, null);
@@ -340,6 +428,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
     import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash,randomUUID} from 'node:crypto';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {mock} from 'node:test';
     const platform=await import(${JSON.stringify(url("../../../platform-access/src/index.ts"))});const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
     const awaitTaskApi=await import(${JSON.stringify(url("../../scripts/task-trial.ts"))});
+    const createResourceRecords = ${createResourceRecords.toString()};
     let mode='normal',forks=0,cancelCount=0,output=[],gitCalls=0,beforeWait=null;
     Object.defineProperty(process.stdin,'isTTY',{value:false,configurable:true});Object.defineProperty(process.stdout,'isTTY',{value:false,configurable:true});
     mock.method(process.stdout,'write',function(value,...rest){const text=String(value);assert.equal(/この端末に|入力してください/.test(text),false);if(text.startsWith('{'))output.push(JSON.parse(text));const callback=rest.find(v=>typeof v==='function');if(callback)callback(null);return true;});
@@ -368,16 +457,17 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
           if(mode.startsWith('tmp_')){const p=path.join(root,'tmp',mode==='tmp_unknown'?'unexpected':'claude-65534');if(mode==='tmp_file')fs.writeFileSync(p,'synthetic');else{fs.mkdirSync(p);if(mode==='tmp_nonempty')fs.writeFileSync(path.join(p,'keep.txt'),'synthetic');if(mode.startsWith('tmp_tree')){fs.mkdirSync(path.join(p,'nested'));fs.mkdirSync(path.join(p,'empty'));fs.writeFileSync(path.join(p,'nested','runtime.bin'),'runtime data');}}}
           if(mode.startsWith('codex_tmp_')){const base=path.join(root,'tmp');if(mode!=='codex_tmp_none'){const p=path.join(base,mode==='codex_tmp_daemon'?'codex-daemon-65534':'codex-bwrap-synthetic-mount-targets-65534');fs.mkdirSync(p);if(!['codex_tmp_daemon','codex_tmp_empty'].includes(mode))fs.writeFileSync(path.join(p,'lock'),mode==='codex_tmp_nonzero'?'unsafe':'');if(mode==='codex_tmp_both')fs.mkdirSync(path.join(base,'codex-daemon-65534'));if(mode==='codex_tmp_extra')fs.writeFileSync(path.join(p,'extra'),'unsafe');}}
           const diagnostic={primaryFailure:null,providerProcessStartedObserved:true,processTreeTerminationObserved:true,containersAbsentObserved:true,networksAbsentObserved:true,cleanupConfirmed:true};
-          const records=[{kind:'recovery_opened'},{kind:'recovery_handoff'},...resources.flatMap(r=>[{kind:'submission_planned',purpose:r.purpose,plannedResourceName:r.plannedResourceName,ownershipLabel:'crdd.coordinator.runtime='+'a'.repeat(16)},{kind:'receipt_recorded',purpose:r.purpose,dockerId:r.dockerId}]),...['home_released','absence_observed','mount_recorded','recovery_closed','execution_settled','terminal_received'].map(kind=>({kind}))];
-          if(mode==='bad_planned_name')records.find(v=>v.kind==='submission_planned'&&v.purpose==='create_subscription_auth_probe').plannedResourceName='crdd-auth-'+'b'.repeat(16);
-          if(mode==='mixed_label')records[2].ownershipLabel='crdd.coordinator.runtime='+'b'.repeat(16);
+          const resourceRecords=createResourceRecords(domain,resources,'crdd.coordinator.runtime='+'a'.repeat(16));
+          const records=[{kind:'recovery_opened'},{kind:'recovery_handoff'},...resourceRecords.filter(r=>r.kind!=='absence_observed'),...['home_released','absence_observed','mount_recorded','recovery_closed','execution_settled','terminal_received'].map(kind=>({kind}))];
+          if(mode==='bad_planned_name')records.find(v=>v.kind==='submission_planned').resources.snapshot.resources.find(r=>r.key==='create_subscription_auth_probe').identity.name='crdd-auth-'+'b'.repeat(16);
+          if(mode==='mixed_label')records[2].resources.snapshot.resources[0].identity.ownershipLabel='crdd.coordinator.runtime='+'b'.repeat(16);
           if(mode==='duplicate_purpose')records.splice(3,0,{...records[2]});
-          if(mode==='bad_provider_name')records[2].plannedResourceName='crdd-codex-'+'c'.repeat(16);
-          if(mode==='bad_absence_name')resources[0].plannedResourceName='crdd-codex-'+'c'.repeat(16);
-          for(const [i,record] of records.entries()){const kind=record.kind,name='event-'+String(i+1).padStart(3,'0')+'.json';domain.writeCommittedJson(root,name,name,{...record,recordedAt:new Date().toISOString(),operationId:'OP-123456',provider:input.provider,recoveryId,sequence:i+1,...(kind==='absence_observed'?{resources}:{}),...(kind==='execution_settled'?diagnostic:{}),...(kind==='terminal_received'?{status:input.mode==='cancel'?'cancelled':'completed',reason:input.mode==='cancel'?'provider_operation_cancelled':null,resultSha256:input.mode==='cancel'?null:'a'.repeat(64),resultBytes:input.mode==='cancel'?0:10}:{})});}
+          if(mode==='bad_provider_name')records[2].resources.snapshot.resources.find(r=>r.key==='create_provider').identity.name='crdd-claude-'+'c'.repeat(16);
+          if(mode==='bad_absence_name')resourceRecords.find(r=>r.kind==='absence_observed').resources.snapshot.resources[0].identity.name='crdd-codex-'+'c'.repeat(16);
+          for(const [i,record] of records.entries()){const kind=record.kind,name='event-'+String(i+1).padStart(3,'0')+'.json';domain.writeCommittedJson(root,name,name,{...record,recordedAt:new Date().toISOString(),operationId:'OP-123456',provider:input.provider,recoveryId,sequence:i+1,...(kind==='absence_observed'?{resources:resourceRecords.find(r=>r.kind==='absence_observed').resources}:{}),...(kind==='execution_settled'?diagnostic:{}),...(kind==='terminal_received'?{status:input.mode==='cancel'?'cancelled':'completed',reason:input.mode==='cancel'?'provider_operation_cancelled':null,resultSha256:input.mode==='cancel'?null:'a'.repeat(64),resultBytes:input.mode==='cancel'?0:10}:{})});}
           const result={mode:input.mode,fixtureReceipt,cancellationConfirmed:input.mode==='cancel',reviewToolObservation:null,status:input.mode==='cancel'?'cancelled':'completed',reason:input.mode==='cancel'?'provider_operation_cancelled':null,recoveryId,cleanupConfirmed:true,releaseConfirmed:true,terminalSaved:true,nativeCleanupConfirmed:true,contentConfirmed:input.mode!=='cancel',resultSha256:input.mode==='cancel'?null:'a'.repeat(64),resultBytes:input.mode==='cancel'?0:10,diagnostic};
           if(mode==='task_cancel_completed')result.status='completed';if(mode==='task_review_cancelled')result.status='cancelled';if(mode==='task_cancel_partial')fs.writeFileSync(path.join(root,'work','source.txt'),'partial');if(mode==='task_wrong_mode')result.mode='advice';
-          if(mode==='failed_diag')Object.assign(result,{status:'blocked',reason:'docker_process_controller_cleanup_unconfirmed',cleanupConfirmed:false,releaseConfirmed:false,terminalSaved:false,contentConfirmed:false,resultSha256:null,resultBytes:0,diagnostic:{...diagnostic,cleanupConfirmed:false,primaryFailure:{purpose:'create_subscription_auth_probe',stage:'command_wait',reason:'docker_process_controller_execution_failed_closed',exceptionCode:null,commandHandleObtained:true,responseObserved:false,receiptRecorded:false,commandObservation:null}}});
+          if(mode==='failed_diag'||mode==='process_failure_diag')Object.assign(result,{status:'blocked',reason:'docker_process_controller_cleanup_unconfirmed',cleanupConfirmed:false,releaseConfirmed:false,terminalSaved:false,contentConfirmed:false,resultSha256:null,resultBytes:0,diagnostic:{...diagnostic,cleanupConfirmed:false,primaryFailure:{purpose:'create_subscription_auth_probe',stage:'command_wait',reason:'docker_process_controller_execution_failed_closed',exceptionCode:mode==='process_failure_diag'?'PROCESS_FAILURE':null,commandHandleObtained:true,responseObserved:false,receiptRecorded:false,commandObservation:null}}});
           if(mode==='raw_diag')result.diagnostic={...diagnostic,rawOutput:'forbidden'};
           finish=()=>{
             beforeWait=fs.readdirSync(root).sort().map(name=>[name,fs.lstatSync(path.join(root,name)).isFile()?fs.readFileSync(path.join(root,name)).toString('base64'):null]);
@@ -405,7 +495,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
     mock.method(fs,'opendirSync',(p,...args)=>{if(mode==='tmp_tree_root_inventory'&&String(p)===root&&++rootInventoryReads===2)fs.writeFileSync(path.join(root,'late-entry.txt'),'synthetic late entry');if(mode==='tmp_tree_read_failure'&&String(p).endsWith('nested'))throw Error('synthetic_read_failure');if(mode==='tmp_tree_limit'&&String(p).endsWith('nested')){let count=0;return {readSync:()=>++count<=10001?{name:'entry-'+count}:null,closeSync:()=>{}};}const directory=originalOpen(p,...args);if(mode==='tmp_tree_inventory'&&String(p).endsWith('claude-65534')&&++inventoryReads>1){let added=false;const read=directory.readSync.bind(directory);directory.readSync=()=>{const entry=read();if(entry)return entry;if(!added){added=true;return {name:'late-entry'};}return null;};}return directory;});
     mock.method(fs,'rmdirSync',(p,...args)=>{if(root&&String(p).startsWith(path.join(root,'tmp')+path.sep))temporaryEffects++;if(String(p).endsWith(path.join('tmp','claude-65534')))childRemovals++;return originalRmdir(p,...args);});
     mock.method(fs,'lstatSync',(p,options)=>{const s=originalLstat(p,options);if(String(p).endsWith('runtime.bin')){const leaf={...s,isFile:()=>s.isFile(),isDirectory:()=>s.isDirectory(),isSymbolicLink:()=>s.isSymbolicLink()};if(mode==='tmp_tree_link')return {...leaf,isSymbolicLink:()=>true};if(mode==='tmp_tree_special')return {...leaf,isDirectory:()=>false,isFile:()=>false};if(mode==='tmp_tree_nlink')return {...leaf,nlink:options?.bigint?2n:2};if(options?.bigint&&++leafReads>1){if(mode==='tmp_tree_changed')return {...leaf,ino:s.ino+1n};if(mode==='tmp_tree_size')return {...leaf,size:s.size+1n};if(mode==='tmp_tree_mtime')return {...leaf,mtimeNs:s.mtimeNs+1n};}}if(String(p).endsWith(path.join('codex-bwrap-synthetic-mount-targets-65534','lock'))){if(mode==='codex_tmp_link')return {...s,isFile:()=>true,isSymbolicLink:()=>true};if(mode==='codex_tmp_nlink')return {...s,nlink:options?.bigint?2n:2,isFile:()=>true,isSymbolicLink:()=>false};}if(String(p)===path.join(root??'','tmp')&&options?.bigint&&++ancestorReads>1){if(mode==='tmp_parent_link')return {...s,isDirectory:()=>true,isSymbolicLink:()=>true};if(mode==='tmp_parent_changed')return {...s,ino:s.ino+1n,isDirectory:()=>true,isSymbolicLink:()=>false};}if(String(p).endsWith(path.join('tmp','claude-65534'))){if(mode==='tmp_link')return {...s,isDirectory:()=>true,isSymbolicLink:()=>true};if(mode==='tmp_changed'&&options?.bigint&&++temporaryReads>1)return {...s,ino:s.ino+1n,isDirectory:()=>true,isSymbolicLink:()=>false};}return s;});
-    for(mode of ['normal','wrong_nonce','duplicate_result','nonzero_close','stdout','close_unknown','disconnected_no_close','cancel_completed','result_lost','late_close','missing_recovery','ack_late','ack_error','ack_missing','failed_diag','raw_diag','bad_planned_name','mixed_label','duplicate_purpose','bad_provider_name','bad_absence_name','tmp_empty','tmp_codex','tmp_unknown','tmp_file','tmp_nonempty','tmp_link','tmp_changed','tmp_parent_link','tmp_parent_changed','tmp_tree','tmp_tree_link','tmp_tree_nlink','tmp_tree_special','tmp_tree_realpath','tmp_tree_read_failure','tmp_tree_limit','tmp_tree_changed','tmp_tree_size','tmp_tree_mtime','tmp_tree_inventory','tmp_tree_remove_failure','tmp_tree_root_inventory','task_edit','task_review','task_cancel','task_cancel_completed','task_review_cancelled','task_cancel_partial','task_wrong_mode','codex_tmp_none','codex_tmp_daemon','codex_tmp_empty','codex_tmp_lock','codex_tmp_both','codex_tmp_nonzero','codex_tmp_extra','codex_tmp_link','codex_tmp_nlink','preparation_failed','preparation_failed_null','preparation_failed_unknown'].filter(value=>${JSON.stringify(group)}==='temporary'?/^tmp_/.test(value)&&!value.startsWith('tmp_tree'):${JSON.stringify(group)}==='temporary-tree'?value.startsWith('tmp_tree'):${JSON.stringify(group)}==='codex-temporary'?value.startsWith('codex_tmp_'):${JSON.stringify(group)}==='fixture'?/^(task_|preparation_)/.test(value):!/^(tmp_|codex_tmp_|task_|preparation_)/.test(value))){
+    for(mode of ['normal','wrong_nonce','duplicate_result','nonzero_close','stdout','close_unknown','disconnected_no_close','cancel_completed','result_lost','late_close','missing_recovery','ack_late','ack_error','ack_missing','failed_diag','process_failure_diag','raw_diag','bad_planned_name','mixed_label','duplicate_purpose','bad_provider_name','bad_absence_name','tmp_empty','tmp_codex','tmp_unknown','tmp_file','tmp_nonempty','tmp_link','tmp_changed','tmp_parent_link','tmp_parent_changed','tmp_tree','tmp_tree_link','tmp_tree_nlink','tmp_tree_special','tmp_tree_realpath','tmp_tree_read_failure','tmp_tree_limit','tmp_tree_changed','tmp_tree_size','tmp_tree_mtime','tmp_tree_inventory','tmp_tree_remove_failure','tmp_tree_root_inventory','task_edit','task_review','task_cancel','task_cancel_completed','task_review_cancelled','task_cancel_partial','task_wrong_mode','codex_tmp_none','codex_tmp_daemon','codex_tmp_empty','codex_tmp_lock','codex_tmp_both','codex_tmp_nonzero','codex_tmp_extra','codex_tmp_link','codex_tmp_nlink','preparation_failed','preparation_failed_null','preparation_failed_unknown'].filter(value=>${JSON.stringify(group)}==='temporary'?/^tmp_/.test(value)&&!value.startsWith('tmp_tree'):${JSON.stringify(group)}==='temporary-tree'?value.startsWith('tmp_tree'):${JSON.stringify(group)}==='codex-temporary'?value.startsWith('codex_tmp_'):${JSON.stringify(group)}==='fixture'?/^(task_|preparation_)/.test(value):!/^(tmp_|codex_tmp_|task_|preparation_)/.test(value))){
       forks=0;cancelCount=0;gitCalls=0;output=[];root=null;timeoutDelay=null;beforeWait=null;
       temporaryReads=0;ancestorReads=0;childRemovals=0;leafReads=0;inventoryReads=0;temporaryEffects=0;rootInventoryReads=0;
       const trialMode=mode.startsWith('preparation_failed')||mode.startsWith('codex_tmp_')?'edit':mode.startsWith('task_')?(mode.includes('cancel')&&!mode.includes('review')?'cancel':mode.includes('review')?'review':'edit'):'advice';
@@ -414,7 +504,7 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
       assert.equal(code,success?0:2,mode);assert.equal(forks,1,mode);
       assert.equal(gitCalls,1);
       assert.equal(result.fixtureCleanupConfirmed,success,mode);assert.ok(timeoutDelay>10000);
-      if(mode==='failed_diag'){assert.equal(result.result.diagnostic.primaryFailure.stage,'command_wait');assert.equal(result.result.diagnostic.cleanupConfirmed,false);}
+      if(mode==='failed_diag'||mode==='process_failure_diag'){assert.equal(result.reason,'docker_process_controller_cleanup_unconfirmed');assert.equal(result.result.diagnostic.primaryFailure.stage,'command_wait');assert.equal(result.result.diagnostic.cleanupConfirmed,false);if(mode==='process_failure_diag')assert.equal(result.result.diagnostic.primaryFailure.exceptionCode,'PROCESS_FAILURE');assert.match(result.recoveryId,/^docker-task\\./);}
       if(mode==='raw_diag'){assert.equal(result.result,null);assert.equal(JSON.stringify(result).includes('forbidden'),false);}
       if(success)assert.equal(fs.existsSync(root),false);else{
         if(mode.startsWith('tmp_')){assert.equal(childRemovals,0,mode);if(mode==='tmp_tree_remove_failure'){assert.ok(temporaryEffects>0,mode);assert.equal(fs.existsSync(path.join(root,'tmp','claude-65534','empty')),false);assert.equal(fs.existsSync(path.join(root,'tmp','claude-65534','nested','runtime.bin')),true);}else assert.equal(temporaryEffects,0,mode);for(const [name,bytes] of beforeWait){if(bytes!==null)assert.equal(fs.readFileSync(path.join(root,name)).toString('base64'),bytes,mode+':'+name);}}

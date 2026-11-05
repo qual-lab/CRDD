@@ -8,7 +8,8 @@ import { types as utilTypes } from "node:util";
 import type {
   DockerResourceCleanupObservation,
   DockerResourceReceipts,
-} from "../../../executor/src/attempt/types.ts";
+} from "./cleanup.ts";
+import type {} from "../../../executor/src/lifecycle/types.ts";
 import type {
   DockerCommandSession,
   DockerExecutionCallbacks,

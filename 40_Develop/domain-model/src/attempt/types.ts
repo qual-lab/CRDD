@@ -1,5 +1,3 @@
-import type { TurnCountDiagnostic as ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
-export type { ProviderTurnCountDiagnostic };
 /**
  * 実行状態の共有値・純粋検査を所有する。
  * @packageDocumentation
@@ -9,20 +7,36 @@ export type { ProviderTurnCountDiagnostic };
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { purposeResource } from "./validation.ts";
+import type { TurnCountDiagnostic as ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { DockerRuntimeRepairCheckpoint } from "./repair-types.ts";
 import type { DockerRuntimeRepairDisposalCheckpoint } from "./repair-types.ts";
 import type { DockerRuntimeRepairRetentionTargets } from "./repair-types.ts";
 
+export type { ProviderTurnCountDiagnostic };
+
+/** 同じ操作の技術Snapshotと記録状態。資源Identityをcheckpointへ複製しない。 */
+export type CoordinatorResourceBook = Readonly<{
+  snapshot: ResourceSnapshot;
+  checkpoints: readonly Readonly<{
+    key: string;
+    submission: "none" | "intent_saved" | "not_issued";
+    receiptSource: "docker_create_result" | "runtime_reconciliation" | null;
+    observation: "unobserved" | "present" | "absent" | "unknown";
+    absenceEvidenceSha256: string | null;
+  }>[];
+  cleanup: Readonly<{
+    cleanupOrder: readonly string[];
+    setupTimeoutMs: number;
+    unreceiptedAbsence: "retain" | "observe";
+    verifyLabelAbsence: boolean;
+  }>;
+}>;
+
 /**
- * 一操作の固定情報と更新可能な現在値を分ける。
- * @responsibility 操作相関、全purposeの評価と一次失敗の保持を型境界にする。
+ * 一操作の固定相関・現在状態・元資源記録を保持する。
+ * @responsibility 永続状態の意味だけを定義し実体観測や操作許可を発行しない。
  * @trace ARCH-000008
- * @shape identityとそのHash、exact回復ID、phase、resources、host、lease、execution、結果と要約参照。
- * @invariant checkpointの更新でidentityと回復IDを変更しない。
- * @boundary 保存内容からRuntimeの現在観測への接続。
- * @security 保存値は操作・回復Authorityを発行しない。
- * @compatibility 最新形式だけを扱い、旧Directory形式の読取りを行わない。
  */
 export type CoordinatorStateTaskOperation = Readonly<{
   kind: "docker_task";
@@ -31,26 +45,7 @@ export type CoordinatorStateTaskOperation = Readonly<{
   identitySha256: string;
   recoveryId: string;
   phase: "executing" | "settling" | "awaiting_delivery";
-  resources: readonly Readonly<{
-    purpose: keyof typeof purposeResource;
-    request:
-      | "not_requested"
-      | "not_issued"
-      | "intent_saved"
-      | "issued"
-      | "identified"
-      | "unknown";
-    dockerId: string | null;
-    receiptSource: "docker_create_result" | "runtime_reconciliation" | null;
-    observation: "unobserved" | "present" | "absent" | "unknown";
-    absence: Readonly<{
-      recoveryId: string;
-      purpose: keyof typeof purposeResource;
-      plannedResourceName: string;
-      dockerId: string | null;
-      evidenceSha256: string;
-    }> | null;
-  }>[];
+  resources: CoordinatorResourceBook | null;
   host: Readonly<{
     currentToken: string;
     pendingTransitionJson: string | null;

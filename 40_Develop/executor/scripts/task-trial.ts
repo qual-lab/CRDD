@@ -15,9 +15,7 @@ import {
   resolveModelSelection,
 } from "../../ai-adapter/src/index.ts";
 import { describeIsolationConfiguration } from "../../docker-isolation/src/index.ts";
-import { hashExecutionSelection } from "../../domain-model/src/index.ts";
-import type { TestAttemptPlan as AttemptPlan } from "./executor-test.ts";
-import { prepareAttempt, resolveValidatedPlan } from "./executor-test.ts";
+import type { ExecutorRequest } from "../src/index.ts";
 
 export type TrialMode = "advice" | "edit" | "review" | "cancel";
 
@@ -128,28 +126,27 @@ export function describeTaskTrial(
 }
 
 /**
- * 固定Taskを既存の正規builderへ接続する。
+ * 固定Taskを製品Executorの公開Requestへ構成する。
  * @responsibility 選定・Packet・Mountと観測済みHomeの相関を固定する。
  * @trace ERB-IT-002
  * @input 固定spec、新品Root、観測済みHomeとHome Path。
- * @returns 既存の完全計画検査を通った元計画。
- * @effect 今回だけの乱数Identity生成。
+ * @returns 解決済み選定・所在・固定内容だけを持つ実行要求。
+ * @effect 今回だけの操作ID生成。実行Planは製品Factoryが構成する。
  * @failure 不正Model・用途・技術値は開始前停止。
  * @boundary CoordinatorやTask全体の計画は使用しない。
  */
-export function buildTaskTrialPlan(
+export function buildTaskTrialRequest(
   spec: ReturnType<typeof describeTaskTrial>,
   root: string,
-  home: Pick<
-    AttemptPlan,
-    | "provider"
-    | "providerHomeIdentityHash"
-    | "providerHomeProtectionHash"
-    | "localUserBindingHash"
-    | "stableLogicalHomeBindingHash"
-  >,
+  home: Readonly<{
+    provider: string;
+    providerHomeIdentityHash: string;
+    providerHomeProtectionHash: string;
+    localUserBindingHash: string;
+    stableLogicalHomeBindingHash: string;
+  }>,
   homePath: string,
-) {
+): ExecutorRequest<"attempt"> {
   if (
     JSON.stringify(spec) !==
     JSON.stringify(describeTaskTrial(spec.provider, spec.mode))
@@ -165,17 +162,7 @@ export function buildTaskTrialPlan(
   const operationId = `OP-${BigInt(`0x${randomBytes(12).toString("hex")}`)
     .toString()
     .padStart(6, "0")}`;
-  const selection = Object.freeze({
-    ...selected.value,
-    configIdentity: hash(JSON.stringify(spec)),
-    role:
-      spec.taskRole === "executor"
-        ? ("executor" as const)
-        : ("independent_reviewer" as const),
-    workType: "implementation" as const,
-    source: "explicit" as const,
-  });
-  const selectionHash = hashExecutionSelection(selection);
+  const selection = selected.value;
   const technicalSelection = Object.freeze({
     provider: selection.provider,
     modelIdentifier: selection.modelIdentifier,
@@ -183,54 +170,37 @@ export function buildTaskTrialPlan(
     reasoningEffort: selection.reasoningEffort,
     purpose: selection.purpose,
   });
-  if (!selectionHash) throw Error("trial_selection_hash_invalid");
   const work = path.join(root, "work");
-  const built = prepareAttempt(
-    { randomBytes },
-    {
-      kind: "attempt",
-      ...{
-        purpose: "task",
-        input: spec.prompt,
-        taskRole: spec.taskRole as "executor" | "reviewer",
-        taskWorkload: workload,
-        additionalHosts: Object.freeze([]),
-      },
-      target: {
-        ...{
-          ...home,
-          provider: spec.provider,
-          operationId,
-          grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
-        },
-        operationId: operationId,
-        workspaceSourcePath: work,
-        temporarySourcePath: path.join(root, "tmp"),
-        activeMountCapability: {},
-        providerHomeSourcePath: homePath,
-        workspaceProtection: {
-          gitSourcePath: path.join(work, ".git"),
-          internalSourcePath: path.join(work, ".crdd"),
-        },
-      },
-      selection: technicalSelection,
+  return Object.freeze({
+    kind: "attempt",
+    ...{
+      purpose: "task",
+      input: spec.prompt,
+      taskRole: spec.taskRole as "executor" | "reviewer",
+      taskWorkload: workload,
+      additionalHosts: Object.freeze([]),
     },
-  );
-  if (!built) throw Error("trial_plan_unavailable");
-  const plan = Object.freeze({
-    ...built,
-    consumer: "coordinator_cli" as const,
-    authorityUseCapability: {},
+    target: {
+      ...{
+        provider: spec.provider,
+        providerHomeIdentityHash: home.providerHomeIdentityHash,
+        providerHomeProtectionHash: home.providerHomeProtectionHash,
+        localUserBindingHash: home.localUserBindingHash,
+        stableLogicalHomeBindingHash: home.stableLogicalHomeBindingHash,
+        operationId,
+        grantRef: `PHMGRANT-${randomBytes(12).toString("hex").toUpperCase()}`,
+      },
+      workspaceSourcePath: work,
+      temporarySourcePath: path.join(root, "tmp"),
+      activeMountCapability: {},
+      providerHomeSourcePath: homePath,
+      workspaceProtection: {
+        gitSourcePath: path.join(work, ".git"),
+        internalSourcePath: path.join(work, ".crdd"),
+      },
+    },
+    selection: technicalSelection,
   });
-  if (
-    !resolveValidatedPlan(plan, path.join(root, "tmp")) ||
-    plan.providerInput !== spec.prompt ||
-    plan.operationMode !== "isolated_task" ||
-    plan.workspaceSourcePath !== work ||
-    plan.providerImageDigest !== spec.providerImageDigest
-  )
-    throw Error("trial_boundary_invalid");
-  return plan;
 }
 
 function entryIdentity(p: string, directory: boolean) {

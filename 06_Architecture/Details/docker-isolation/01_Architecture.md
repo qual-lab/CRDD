@@ -26,7 +26,7 @@
 
 資源集合の同期観測は公開inspectIsolationからcleanup/resources.tsの一実装へ接続する。同じIsolationCleanupRequestのSnapshot・明示探索候補を受け、Operation／Recovery ID・用途別投影・保存先を受け取らない。ResourceInspectionは資源key・実ID・存在三値・実測Snapshotとconfig終了を返す。入力の予定構成を実測としてコピーしない。旧inspectDockerResources／cleanupDockerResourcesと用途投影型のRoot公開は撤去する。
 
-既知IDは共通inspectIdentityで実ID・名前・所有Labelだけを照合する。Image・Command・Mount差は拒否条件へ戻さない。ID欠測時は明示された候補だけをdiscoverSubmittedで完全構成照合し、空候補から自動探索しない。不存在は二回の名前／Label観測と既知ID側の明示不存在を区別し、unknownをabsentへ補完しない。stopOnUnknownAbsenceは最初の不存在不明で止める技術条件で、用途は解釈しない。取消は各要求の前後と固定接続のspawn直前に確認し、config終了失敗は全体blockedにする。Directory・単一同期Containerも同じ公開観測・回収入口へ接続する。ただし技術種別に応じた同期性・固定Scope・不存在条件は個別に維持する。
+既知IDは共通inspectIdentityで実ID・名前・所有Labelだけを照合する。Image・Command・Mount差は拒否条件へ戻さない。ID欠測時は元の作成Intentを持つSnapshotの予定名・所有Labelで二経路探索し、両方が同じ一意実IDを返す場合だけ、実体の種別・実ID・名前・所有Labelを再照合する。実行構成は対象識別の条件にせず、発見実IDの必須通知が完了するまでは削除しない。別途の構成候補やUser・Init・Tmpfsの回収専用保存は要求しない。不存在は二回の名前／Label観測と既知ID側の明示不存在を区別し、unknownをabsentへ補完しない。stopOnUnknownAbsenceは最初の不存在不明で止める技術条件で、用途は解釈しない。取消は各要求の前後と固定接続のspawn直前に確認し、config終了失敗は全体blockedにする。Directory・単一同期Containerも同じ公開観測・回収入口へ接続する。ただし技術種別に応じた同期性・固定Scope・不存在条件は個別に維持する。
 
 旧Probeの低位実行・attach fixture・結果分類は製品Sourceから撤去し、tests/support/probe-plan.ts・probe-process.ts・probe-result.tsへ移管する。固定Image・Engine・profileは引数なしdescribeIsolationConfigurationが所有する。名前・Labelは上位の実行Owner又は既存保存Schemaへ投影し、観測型はExecutorのIsolationProbeFactsを再利用する。旧記述関数とRuntime／Sessionの試験用型は試験supportだけに置き、DI Rootへ公開しない。
 
@@ -57,7 +57,7 @@ runのdeadlineOriginは「起動要求時（request）」又は「開始観測�
 | 対象 | 現在の照合条件 |
 |---|---|
 | 元Receiptの完全実IDがあるContainer／Network | fresh inspectの資源種別・完全実ID・正確な名前・所有Label。Image・Command・環境・Mount・Init等の構成差は削除拒否理由にしない |
-| 実ID欠測からの発見 | 既存の限定探索・完全構成照合・発見実IDの必要通知を維持。発見候補を元Receiptへ無条件昇格しない |
+| 実ID欠測からの発見 | 元Intent・予定名と名／所有Labelによる一意実IDの一致・実体Identity再照合・発見実IDの必須通知を要求する。Image・Mount・Network・User・Init・Tmpfsは対象識別の条件にしない |
 | 実行前検査・構成診断 | 従来の完全構成検査を維持 |
 | Directory | 既存の用途固定・廃棄許可・元実体確認を維持 |
 
@@ -351,7 +351,7 @@ ProxyとProvider Homeの用途別構成はExecutorがIsolationRequestへ確定�
 
 Attach試験用の三シナリオと観測待機は製品Coordinatorから撤去し、既存DIの実Process試験が直接所有する。ready・overflow・終端要求一回・元closeのOracleを維持し、上位のSTや実Docker取消の成立へ昇格しない。
 
-Probeの本番接続はExecutorの`probe/operations.ts`からDIの共通実行Ownerへ渡す。上位確定の管理所在を値で受け取り、同期Readerへの逆照会を保持しない。準備時と各要求直前のCLI／所在確認、Process終了・通知・回収条件は共通Ownerが維持する。旧固定bindingを使う反例は`tests/support/probe.ts`だけに残し、回復時のHost相関と最終公開は上位が所有する。
+Probeの本番接続はExecutorの`lifecycle/probe.ts`からDIの共通実行Ownerへ渡す。上位確定の管理所在を値で受け取り、同期Readerへの逆照会を保持しない。準備時と各要求直前のCLI／所在確認、Process終了・通知・回収条件は共通Ownerが維持する。旧固定bindingを使う反例は`tests/support/probe.ts`だけに残し、回復時のHost相関と最終公開は上位が所有する。
 
 Probeのinspect構成と三つのbind mountの実体照合は、DIの`cleanup/configuration.ts`が所有する。既存の作成構成を実ID・名前・所有Label・Image・User・Entrypoint・完全Command候補とMountへ投影し、共通照合はProbe IDやprofileを解釈しない。旧試験supportのprofileは一候補、同supportで保持する旧record採用一箇所の明示`legacy_recovery`だけ固定六候補を選ぶ。この六候補選択を現製品の共通回収条件へ追加しない。欠測・空・未知profileへ候補集合を補完しない。構成判定は投影済み候補へのmembershipを照合し、上位の6領域全体、Host能力、保存Ownerを受け取らない。固定Image／Name／Label、三RW mount等の現行条件を維持する。Filesystemは各mountで観測側→期待側の順に各一回realpathを読み、例外はfalse、Windowsはen-US小文字、他OSは完全一致とする。これは実資源の包括的な安全性や新しいAuthorityを与える処理ではない。
 
@@ -365,7 +365,7 @@ Probeのinspect構成と三つのbind mountの実体照合は、DIの`cleanup/co
 
 Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技術Ownerである。通常隔離に加え、診断と、上位が許可した実行環境の停止・開始・限定修復の実処理を所有する。Containerを復元して継続するのではなく、所有資源の終端状態を確認し、上位が新しい実行を開始できる状態へ戻す。独立Server、CLI、履歴Store、共有Registry、Lock Frameworkは設けない。
 
-助言Imageのinit条件はExecutorのattempt/recovery.tsが所有する。回復ではworkbench_adviceと現行Image及び保持対象の旧exact二Digestだけを受理する。通常準備ではFactoryで検査済みのCodex助言方式から設定し、同じ条件を維持する。通常Task、Claude、未知・空・欠測Digestへ適用を拡張しない。DIは渡されたinit条件と実構成を技術検査するが、用途判定関数を公開しない。返却値だけではInitの実観測、Process終端や回収成功を意味しない。
+助言Imageの通常準備のinit条件はExecutorの`lifecycle/attempt.ts`、回復時の旧期待値再構築は`lifecycle/cleanup.ts`が暫定所有する。回復ではworkbench_adviceと現行Image及び保持対象の旧exact二Digestだけを受理する。通常準備ではFactoryで検査済みのCodex助言方式から設定し、同じ条件を維持する。通常Task、Claude、未知・空・欠測Digestへ適用を拡張しない。DIは渡されたinit条件と実構成を技術検査するが、用途判定関数を公開しない。返却値だけではInitの実観測、Process終端や回収成功を意味しない。
 
 ### 起動失敗の診断
 
@@ -375,7 +375,7 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 本節全体はtests/support/probe.ts・probe-plan.ts・probe-result.tsへ移した過去の有限反例の保持契約であり、現在の製品APIではない。以下の起動・取消・段階表はこの試験supportだけを指す。現在の製品の実行・取消・回収Ownerは、先頭の「共通実行Owner」を正本とする。
 
-固定六profileのpayloadと期限はExecutorの`probe/configuration.ts`が所有する。現行の技術入力は共通DI plannerへ渡し、保存済み旧recordの採用条件はCoordinatorの既存Ownerへ残す。旧有限試験の固定構成は`tests/support/probe.ts`と`probe-plan.ts`へ分離し、製品の構成正本やAuthorityとして利用しない。profile欠測・空・未知をlegacyやnormalへ補完せず、永続recordのSchemaは変更しない。
+固定六profileのpayloadと期限はExecutorの`lifecycle/probe.ts`が所有する。現行の技術入力は共通DI plannerへ渡し、保存済み旧recordの採用条件はCoordinatorの既存Ownerへ残す。旧有限試験の固定構成は`tests/support/probe.ts`と`probe-plan.ts`へ分離し、製品の構成正本やAuthorityとして利用しない。profile欠測・空・未知をlegacyやnormalへ補完せず、永続recordのSchemaは変更しない。
 
 旧試験supportの固定取消は`tests/support/probe.ts`の`runDockerProbeCancellation`が、保存後のattach前、ready後、候補成立後の三地点で同期の三Path読取りと固定構成inspectを行う。各読取りは初回Pathと一致させ、欠測・Promise・accessor・Proxy・差替えは前進停止とする。readyとcompletionの待機、SIGTERM要求は各5秒、猶予計測にはtimeout／overflow時の必要なjoin時間を含める。期限後の遅延肯定で結果を巻き戻さない。一次失敗、最終理由、post構成確認、attach終端観測と実終端要求数を分離して返す。joinの例外・不明は最終技術理由を上書きするが、上位の既知Container補償回収を妨げない。上位は二保存・同ID・Host清掃を維持し、候補・post確認・attach終端・Host清掃がすべて成立した場合だけ公開verifiedにする。稼働残存開始は同じ技術群でfresh構成→固定start一回10秒→fresh構成かつRunning肯定を行い、成功時の自動回収はしない。これらは一般の外部取消APIではなく固定診断の移管であり、実Container取消と実稼働回収の成立は別に検証する。
 
@@ -550,9 +550,9 @@ Desktop修復の読取り技術処理は、`docker-desktop/directory.ts`と既�
 
 Desktop修復のEngine読取りは内部`observeDockerDesktopRepairEngine()`へ固定する。旧RuntimeState／AppDataの構成領域を要求せず、既存のno-config環境・固定Linux endpoint・出所前後検査を用い、修復用途の4KiB／5秒・Timeout分類を維持する。明示構成付き修復の既存入口とは共通の固定観測処理を使い、Runtime用途の16KiB分類を変更しない。内部prepareには同じNative生涯のsignalと現在確認closureを渡す。発行前の現在確認は新Effectだけを止め、発行後の取得済み結果やunknownの単調記録を捨てない。
 
-現在回収の固定五資源への期待値構築はExecutorのattempt/recovery.tsに置く。五資源名・Label・Image・Workspace・Initの確定値を受け、既存の候補順とown-data検査を維持する。構築入力の用途別prefix・Label・Digest・boolean相関・保護PathはExecutorが構築前に検査する。固定生成された全候補は試験でDI内部predicateへ照合する。DIは実観測・回収入力の技術文法と完全構成の検査を内部で維持し、Builderや個別predicateをRootへ再公開しない。元Receipt・ID欠測の完全照合と不正入力の全体拒否を維持する。
+固定五資源からの旧回復期待値の再構築はExecutorの`lifecycle/cleanup.ts`に暫定的に残る。DIの共通回収はSnapshotのIdentityと要求状態を使用し、実行構成候補を要求しない。元Snapshotの新保存・再入場接続後に、この旧再構築を撤去する。Builderや個別predicateはRootへ再公開しない。
 
-通常実行とAttempt／認証の単独回収はexecution/operations.tsの共通ContextとcleanupResourceIdentityへ接続する。既知実IDはID・名前・所有Label、ID欠測時だけ元完全構成・発見ID通知・通知後再照合を要求する。単独回収で過去不存在が反証されたら残り資源の操作を止める。単独回収の資源終了通知は自作config終了前、最終Cleanup通知はconfig終了後とする。通常Attemptの上位資源終了通知は従来どおりDI config終了後・Home解放前に行う。通常・単独とも自作短命configを所有するが、単独取消後もProcess終了済みなら元実体・空を確認してconfig終了を試みる。同期Container単独操作は従来の同期性・三軸不存在・既不存在時の扱いを維持する例外であり、全操作が同じOwner／Requestになったとは主張しない。
+通常実行とAttempt／認証の単独回収はexecution/operations.tsの共通ContextとcleanupResourceIdentityへ接続する。既知実IDはID・名前・所有Label、ID欠測時は元Intentに基づくexact名／名＋所有Labelの同一一意ID、fresh Identity照合、必須発見ID通知、通知後の同ID再照合を要求する。単独回収で過去不存在が反証されたら残り資源の操作を止める。単独回収の資源終了通知は自作config終了前、最終Cleanup通知はconfig終了後とする。通常Attemptの上位資源終了通知は従来どおりDI config終了後・Home解放前に行う。通常・単独とも自作短命configを所有するが、単独取消後もProcess終了済みなら元実体・空を確認してconfig終了を試みる。同期Container単独操作は従来の同期性・三軸不存在・既不存在時の扱いを維持する例外であり、全操作が同じOwner／Requestになったとは主張しない。
 
 Package Rootの`src/index.ts`から必要な操作と型だけを明示exportする。Capability内barrel、上位Packageへのimport、Provider専用入口は作らない。
 
@@ -581,7 +581,7 @@ Task Packet、モデル選定、送信同意、User Credential、業務結果は
 | 認証資源清掃 | 操作別の元Receiptを同じ元Planへ結合し、実ID指定inspectで実ID・名前・所有Labelを確認後だけ元removal操作を一回実行する。ID欠測Receiptは名前の不存在だけを観測し、発見した資源を削除しない。ID不存在だけから同名資源の不存在を推定せず、事後に実IDと名前を確認する。Proxyの接続形状とtoken形式等の構成条件は作成Receipt・診断で検査し、既知元IDの削除条件にしない。別操作の資源集合を相互代用しない |
 
 診断・認証のDocker CLIと実行方式は下位内部で選ぶ。汎用の実行能力検証が必要な場合は、下位が選んだ同じ候補を既存専門Ownerへfresh照合し、その同一候補だけを実行する。上位の業務Adapterが候補Path・Engine・作業場所を組み立てたり、別のexecutable fieldと検証対象を組み合わせたりしない。認証Runtimeは生成時の元Planへ結合し、別Planの元Commandも拒否する。相関は同Processの元objectだけで行い、公開IDや永続Registryを作らない。認証清掃の観測・削除・不存在確認も、上位の既存exact Recovery記録で各開始前in_flight、Process終了確認後idleとする。清掃の終了不明／例外では後続0・完了保存0・Home解放0を維持し、fresh再入場で未終了操作を再発行しない。三用途は共通実行入口と資源集合／認証Snapshotへ接続済みである。有限試験の接続成立と、未実施の実Docker・実AIの全経路検証は区別する。
-| 資源観測・清掃 | 元Receipt既知IDは実ID・名前・所有Labelを照合する。ID欠測では発見時と削除直前の完全構成照合を維持する。処置後は実IDと名前の不存在を確認する |
+| 資源観測・清掃 | 元Receipt既知IDは実ID・名前・所有Labelを照合する。ID欠測では元Intent、二経路の同一一意実ID、fresh Identity照合、必須発見通知後の同ID再照合を要求し、実行構成差を回収拒否にしない。処置後は実IDと名前の不存在を確認する |
 | 清掃結果照合 | 同じRuntime・操作・計画が返した結果だけを終端根拠にする。コピーした成功値は受理しない |
 | 再入場 | fresh ProcessではCoordinatorが既存保存・Lock・exact回復Identityを検査した用途限定projectionを受け、現在実資源を再観測する。同Processの元結果照合とは分離し、下位で新しい回復記録や処置Authorityを発行しない |
 
@@ -754,8 +754,8 @@ DIの公開値は共通技術操作6件と固定構成照会1件の7入口に限
 
 ### 用途固有の構築と保存判断
 
-- 固定五資源の回復期待値構築と、現行・旧exact助言Imageのinit条件はExecutorのattempt/recovery.tsが所有する。 五資源名の用途対応prefix、所有Label、二Digest、booleanと保護Pathの入力検査も構築Ownerが持つ。固定生成された五用途・Proxy二候補は有限試験でDI内部predicateへ照合する。DIの実観測・回収入力に対する期待値検査と欠測IDの完全構成照合は内部で維持し、Rootへ個別検査関数を公開しない。通常準備は検査済みProvider・実行方式からinitを設定する。欠測IDの完全構成照合はDIの既存検査を再利用する。
-- 認証資源のReceipt列捕捉はExecutorのauthentication/operations.tsが所有する。Proxy・accessor・順序差・名前差・不正実IDの拒否は維持する。
+- 固定五資源の旧回復期待値構築はExecutorの`lifecycle/cleanup.ts`に暫定残存する。通常のinit構成は`lifecycle/attempt.ts`が所有する。DI回収は元Intent・二経路の同一一意ID・fresh Identity照合・必須発見通知・同ID限定削除・不存在確認へ接続し、Image・User・Init・Tmpfs等を識別条件へ加えない。実行前の構成検査は維持する。
+- 認証資源のReceipt列捕捉はExecutorの`lifecycle/authentication.ts`が所有する。Proxy・accessor・順序差・名前差・不正実IDの拒否は維持する。
 - Probe用の名前・Label投影は実行Owner又は既存保存SchemaのOwnerが所有する。DIのCatalogは固定Image・Engine・非秘密profileだけを返す。既存記録の文字列・Schemaは変更しない。
 - Coordinatorの保存済み修復Checkpoint終端判定は既存Domain Modelを使用する。DI内部は技術境界の独立検査を維持し、Domainへの依存は追加しない。
 
@@ -767,7 +767,7 @@ DIは共通Request・Execution・技術Callback、ResourceSnapshot・観測・�
 
 ### 保持する保証と検証範囲
 
-実ID・名前・所有Label、ID欠測時の完全構成、Directoryの固定用途、Receipt通知失敗、Process終了未確認、config終了未確認、取消、元相関とunknownの条件を変えない。有限代役試験と型検査はこれらの配線・値契約を確認するもので、実Docker・実AIの成立を代替しない。
+実ID・名前・所有Label、ID欠測時の元Intent・二経路一意ID・必須通知、Directoryの固定用途、Receipt通知失敗、Process終了未確認、config終了未確認、取消、元相関とunknownの条件を変えない。有限代役試験と型検査はこれらの配線・値契約を確認するもので、実Docker・実AIの成立を代替しない。
 
 
 ## 公開型の最小境界（2026-11-03）
@@ -792,7 +792,7 @@ DIの実行・観測・回収はOperationのpurposeでは分岐しない。Execu
 | 条件 | 照合・拒否 |
 |---|---|
 | 元実IDあり | 元実ID・名前・期待された所有Labelのキーと値を照合する。ImageやMountを新しい削除必須条件にしない |
-| 元実ID欠測 | 作成Intentと技術期待値から候補を再発見し、既存の完全構成照合と識別通知の前後確認を維持する |
+| 元実ID欠測 | 元Intentに基づきexact名／名＋Labelの同一一意IDを発見し、fresh Identity照合、必須識別通知、通知後の同ID照合とID限定削除、不存在確認を行う |
 | 名前・Label | 安全なcrdd名前とcrdd.名前空間のLabel文法に限定し、要求値との完全一致を別に確認する。用途名の閉じた一覧は持たない |
 | Mount・Network | 期待集合・読書き・伝播・指定時のsourceを照合する。source未指定は旧契約どおりsource非比較であり、存在不要の意味ではない |
 | Directory | 既存の固定用途・実体・廃棄条件を維持する |

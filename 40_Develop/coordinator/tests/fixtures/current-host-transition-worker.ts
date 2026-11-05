@@ -77,8 +77,21 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const statePath = path.join(process.cwd(), '.crdd', "domain-model", 'state.json');
         const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
         const target = snapshot.operations.find(item => item.recoveryId === id);
-        const unrequested = ['create_egress_network','create_internal_network','create_provider','create_proxy','create_subscription_auth_probe'].map(purpose => ({purpose,request:authenticationUnknownRestart && purpose === 'create_subscription_auth_probe'?'unknown':'not_requested',dockerId:null,receiptSource:null,observation:'unobserved',absence:null}));
-        assert.deepEqual(target.resources,unrequested);
+        const initialResources=structuredClone(target.resources);
+        if(authenticationUnknownRestart){
+          assert.deepEqual(target.resources.snapshot.resources.map(r=>r.key).sort(),['create_egress_network','create_internal_network','create_provider','create_proxy','create_subscription_auth_probe']);
+          for(const resource of target.resources.snapshot.resources){
+            const auth=resource.key==='create_subscription_auth_probe';
+            assert.equal(resource.request,auth?'unknown':'not_issued');
+            assert.equal(resource.identity.dockerId,null);
+            const checkpoint=target.resources.checkpoints.find(c=>c.key===resource.key);
+            assert.equal(checkpoint.submission,auth?'intent_saved':'none');
+            assert.equal(checkpoint.receiptSource,null);assert.equal(checkpoint.observation,'unobserved');assert.equal(checkpoint.absenceEvidenceSha256,null);
+          }
+          assert.ok(target.resources);assert.equal(target.resources.checkpoints.filter(c=>c.submission==='intent_saved').length,1);
+          assert.equal(target.resources.checkpoints.find(c=>c.key==='create_subscription_auth_probe').submission,'intent_saved');
+          assert.ok(target.resources.checkpoints.every(c=>c.receiptSource===null && c.observation==='unobserved' && c.absenceEvidenceSha256===null));
+        }else assert.equal(target.resources,null);
         const siblings = snapshot.operations.filter(item => item.recoveryId !== id);
         assert.equal(siblings.length,1);
         const siblingIdentity = JSON.parse(siblings[0].identityJson);
@@ -121,7 +134,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(repeated.status,'blocked'); assert.equal(repeated.reason,'docker_restart_existing_attempt_requires_recovery'); assert.equal(repeated.cleanupConfirmed,true);
         assert.equal(restartCalls,1); assert.deepEqual(fs.readFileSync(statePath),restartExpectedBytes);
         assertRestartSiblingPhysical();
-        assert.deepEqual(JSON.parse(fs.readFileSync(statePath)).operations.find(item => item.recoveryId === id).resources,unrequested);
+        assert.deepEqual(JSON.parse(fs.readFileSync(statePath)).operations.find(item => item.recoveryId === id).resources,initialResources);
         const kernel = await import(${JSON.stringify(new URL("../../src/execution/kernel-lock.ts", import.meta.url).href)});
         const acquired = [];
         try {
@@ -145,6 +158,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const target = before.value.snapshot.operations.find(item => item.recoveryId === id);
         assert.ok(target && target.kind === 'docker_task');
         const identity = JSON.parse(target.identityJson);
+        const resourceNames=Object.fromEntries((target.resources?.snapshot.resources??[]).map(r=>[r.key,r.identity.name]));
         const durableConsumer = process.argv[3].startsWith('cli_entry_orchestrator');
         const identifiedProvider = process.argv[3] === 'cli_entry_orchestrator_identified';
         let resolvedId = id;
@@ -167,7 +181,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }
         if(handoffFailure) {
           assert.equal(identity.consumer, 'coordinator_cli');
-          assert.deepEqual(target.resources, ['create_egress_network', 'create_internal_network', 'create_provider', 'create_proxy', 'create_subscription_auth_probe'].map(purpose => ({purpose, request: 'not_requested', dockerId: null, receiptSource: null, observation: 'unobserved', absence: null})));
+          assert.equal(target.resources,null);
         }
         const prepared = handoffFailure ? recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability) : null;
         if(prepared) assert.equal(prepared.status, 'prepared');
@@ -192,9 +206,12 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const {syncBuiltinESMExports} = await import('node:module');
           const originalSpawn = cp.spawnSync;
           const dockerId = 'c'.repeat(64);
-          const selected = target.resources.find(item => item.purpose === 'create_provider');
-          assert.deepEqual(selected, {purpose:'create_provider', request:'identified', dockerId, receiptSource:'docker_create_result', observation:'present', absence:null});
-          assert.ok(target.resources.filter(item => item.purpose !== 'create_provider').every(item => item.request === 'not_requested' && item.dockerId === null && item.receiptSource === null && item.absence === null && item.observation === 'unobserved'));
+          const selected = target.resources.snapshot.resources.find(item=>item.key==='create_provider');
+          const checkpoint=target.resources.checkpoints.find(item=>item.key==='create_provider');
+          assert.ok(selected && checkpoint);
+          assert.equal(selected.request,'issued');assert.equal(selected.identity.dockerId,dockerId);
+          assert.deepEqual(checkpoint,{key:'create_provider',submission:'intent_saved',receiptSource:'docker_create_result',observation:'present',absenceEvidenceSha256:null});
+          assert.ok(target.resources.checkpoints.filter(item=>item.key!=='create_provider').every(item=>item.submission==='none' && item.receiptSource===null && item.observation==='unobserved' && item.absenceEvidenceSha256===null));
           assert.equal(identity.provider, 'claude'); assert.equal(identity.operationMode, 'isolated_task');
           const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
           const nativeExe = path.resolve(path.dirname(cli), '../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
@@ -204,7 +221,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
             ['container','inspect',dockerId],
             ['container','rm','--force',dockerId],
             ['container','ls','--all','--no-trunc','--filter','id='+dockerId,'--format','{{.ID}}'],
-            ['container','ls','--all','--no-trunc','--filter','name=^/'+identity.resources.provider+'$','--format','{{.ID}}'],
+            ['container','ls','--all','--no-trunc','--filter','name=^/'+resourceNames.create_provider+'$','--format','{{.ID}}'],
           ];
           let calls = 0, trustCalls = 0, violation = false, config = null, configIdentity = null;
           cp.spawnSync = function(executable, argv, options) {
@@ -241,16 +258,19 @@ export const currentHostTransitionWorkerSource = `(async () => {
                 assert.deepEqual(argv.slice(4), expectedCommands[calls]);
                 if(calls === 0) stdout = dockerId+'\\n';
                 if(calls === 1) stdout = JSON.stringify([{
-                  Id:dockerId, Name:'/'+identity.resources.provider,
-                  Config:{Labels:{'crdd.coordinator.runtime':identity.ownershipLabel.split('=')[1]}, Image:identity.images.provider, User:'65534:65534'},
+                  Id:dockerId, Name:'/'+resourceNames.create_provider,
+                  Config:{Labels:{'crdd.coordinator.runtime':identity.ownershipLabel.split('=')[1]}, Image:selected.configuration.image, User:'65534:65534'},
                   HostConfig:{ReadonlyRootfs:true, Privileged:false, CapDrop:['ALL'], CapAdd:null, SecurityOpt:['no-new-privileges'], PidsLimit: 0, Init:false},
-                  NetworkSettings:{Networks:{[identity.resources.internal]:{}}},
+                  NetworkSettings:{Networks:{[resourceNames.create_internal_network]:{}}},
                   Mounts:[{Type:'bind',Destination:'/provider-home',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/tmp',RW:true,Propagation:'rprivate'},{Type:'bind',Destination:'/work',RW:identity.workspaceMountMode !== 'read_only',Propagation:'rprivate'}],
                 }]);
                 if(calls === 2) {
                   const fresh = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.crdd',"domain-model",'state.json')));
-                  const freshResource = fresh.operations.find(item => item.recoveryId === resolvedId).resources.find(item => item.purpose === 'create_provider');
-                  assert.equal(freshResource.request, 'identified'); assert.equal(freshResource.dockerId, dockerId);
+                  const freshBook = fresh.operations.find(item => item.recoveryId === resolvedId).resources;
+                  const freshResource = freshBook.snapshot.resources.find(item => item.key === 'create_provider');
+                  const freshCheckpoint = freshBook.checkpoints.find(item => item.key === 'create_provider');
+                  assert.equal(freshResource.request, 'issued'); assert.equal(freshResource.identity.dockerId, dockerId);
+                  assert.equal(freshCheckpoint.submission,'intent_saved');assert.equal(freshCheckpoint.receiptSource,'docker_create_result');
                   stdout = dockerId+'\\n';
                 }
                 calls++;

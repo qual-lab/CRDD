@@ -1406,7 +1406,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       .digest("hex");
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const taskIdentity = {
-      schema: "crdd-coordinator/operation-identity/v2",
+      schema: "crdd-coordinator/operation-identity/v3",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer: "orchestrator",
@@ -1424,17 +1424,6 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
       localUserBindingHash: "6".repeat(64),
       repositoryBinding: repository.repositoryBinding,
       ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-      resources: {
-        auth: "crdd-auth-0123456789abcdef",
-        provider: "crdd-claude-0123456789abcdef",
-        proxy: "crdd-proxy-0123456789abcdef",
-        internal: "crdd-internal-0123456789abcdef",
-        egress: "crdd-egress-0123456789abcdef",
-      },
-      images: {
-        provider: `sha256:${"a".repeat(64)}`,
-        proxy: `sha256:${"b".repeat(64)}`,
-      },
       operationMode: "isolated_task",
       workspaceMountMode: "read_write",
       initialHostRecoveryId: token,

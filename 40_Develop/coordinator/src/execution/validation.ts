@@ -67,10 +67,13 @@ export function coordinatorReleasedTaskCanObserveHostAbsence(
     operation.host.pendingTransitionJson === null &&
     (operation.dockerRestart === null ||
       isDockerRestartCheckpointSettled(operation.dockerRestart)) &&
-    operation.resources.length === 5 &&
-    operation.resources.every(
+    operation.resources !== null &&
+    operation.resources.checkpoints.length > 0 &&
+    operation.resources.checkpoints.length ===
+      operation.resources.snapshot.resources.length &&
+    operation.resources.checkpoints.every(
       (resource) =>
-        resource.request === "identified" && resource.observation === "absent",
+        resource.receiptSource !== null && resource.observation === "absent",
     ) &&
     coordinatorTaskResourcesAreSettled(operation)
   );

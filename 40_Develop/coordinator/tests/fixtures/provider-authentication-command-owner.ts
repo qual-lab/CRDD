@@ -1,131 +1,114 @@
 /**
- * 本番Claude再認証をCommand実行中で保留する別Process Fixtureを提供する。
- *
- * @packageDocumentation
- * @responsibility 本番オーケストレーションがEffect前にin-flightを耐久化する順序と、Lock喪失後にidleへ戻さない契約を観測可能にする。
+ * 実認証通知の保存後、有限Process待機中のOwner喪失を別Processで再現する。
+ * @responsibility 元in-flightと回復参照を保ち、喪失後の記録・次Effectを拒否する。
  * @trace ERB-IT-017
  * @level IT
- * @scope coordinator、claude-authentication、recovery、kernel-lock
- * @boundary ERB-IT-017=Integration: 本番認証関数・別Process・Filesystem・Windows Named Pipe境界
+ * @scope 実記録・Kernel Lock、有限CLI／Process。実Docker・AIは使わない。
  */
-import {
-  authenticateProvider,
-  createProviderAuthenticationPlan,
-} from "../support/authentication.ts";
-import readline from "node:readline";
-import fs from "node:fs";
 import assert from "node:assert/strict";
-
+import fs from "node:fs";
+import readline from "node:readline";
+import { mock } from "node:test";
+import {
+  createAuthenticationFixture,
+  prepareAuthenticationProjection,
+} from "../support/authentication.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
+  authenticateProvider,
   beginProviderAuthenticationRecovery,
   createProviderAuthenticationRecoveryRecord,
+  readProviderAuthenticationResources,
+  recordProviderAuthenticationResource,
   setProviderAuthenticationRecoveryCommandState,
   settleProviderAuthenticationRecovery,
 } from "../../src/execution/authority.ts";
 
-const [stableLogicalHomeBindingHash, providerHome, token] =
-  process.argv.slice(2);
-if (!stableLogicalHomeBindingHash || !providerHome || !token) process.exit(70);
-
-const suffix = stableLogicalHomeBindingHash.slice(0, 16);
-const plan = createProviderAuthenticationPlan(
+const [hash, home, token] = process.argv.slice(2);
+if (!hash || !home || !token) process.exit(70);
+const projection = prepareAuthenticationProjection(
   "claude",
   "login",
-  providerHome,
-  suffix,
+  home,
+  hash.slice(0, 16),
   token,
 );
-if (!plan) process.exit(71);
+assert.ok(projection);
 const recovery = createProviderAuthenticationRecoveryRecord(
-  providerHome,
-  stableLogicalHomeBindingHash,
-  plan,
+  home,
+  hash,
+  projection,
 );
-if (!recovery) process.exit(72);
-
+assert.ok(recovery);
+const f = await createAuthenticationFixture({ mock }, "claude", "login");
 const controls = readline.createInterface({ input: process.stdin });
-const controlIterator = controls[Symbol.asyncIterator]();
-let heldLock: Readonly<{
-  assertLive: () => boolean;
-  release: () => boolean;
-}> | null = null;
-let commandCount = 0;
-let receiptCallCount = 0;
-let recoveryCallCount = 0;
-
-const dependencies = {
+const input = controls[Symbol.asyncIterator]();
+let held: ReturnType<typeof acquireRuntimeOwnedLogicalProviderHomeKernelLock> =
+  null;
+let waiting = false,
+  receiptCalls = 0,
+  recoveryCalls = 0;
+f.f.waitGate = async (argv) => {
+  if (waiting || !argv.includes("create")) return;
+  waiting = true;
+  const stored = JSON.parse(fs.readFileSync(recovery.recordPath, "utf8"));
+  assert.equal(stored.commandState, "in_flight");
+  assert.equal(stored.commandPurpose, "create_internal_network");
+  assert.equal(stored.resources.checkpoints[0].submission, "intent_saved");
+  process.stdout.write(
+    `${JSON.stringify({
+      event: "in_flight",
+      recoveryId: recovery.recoveryId,
+      purpose: stored.commandPurpose,
+    })}\n`,
+  );
+  const lose = await input.next();
+  assert.equal(lose.value, "LOSE");
+  assert.ok(held?.release());
+  process.stdout.write(
+    JSON.stringify({ event: "lock_lost", recoveryId: recovery.recoveryId }) +
+      "\n",
+  );
+  const finish = await input.next();
+  assert.equal(finish.value, "FINISH");
+  throw Error("finite_wait_failed_after_owner_loss");
+};
+const result = await authenticateProvider("claude", "login", home, hash, {
+  ...f.dependencies,
   randomHex: () => token,
-  acquireProviderHomeLock: (identityHash) => {
-    heldLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(identityHash);
-    return heldLock;
+  acquireProviderHomeLock: (value) => {
+    held = acquireRuntimeOwnedLogicalProviderHomeKernelLock(value);
+    return held;
   },
   beginRecovery: beginProviderAuthenticationRecovery,
   setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
-  completeRecovery: settleProviderAuthenticationRecovery,
-  recordCreatedResource: () => {
-    receiptCallCount += 1;
-    throw new Error("resource_receipt_after_lock_loss_forbidden");
+  readResources: readProviderAuthenticationResources,
+  recordResource: (record, event) => {
+    receiptCalls++;
+    return recordProviderAuthenticationResource(record, event);
   },
-  run: async (command) => {
-    commandCount += 1;
-    if (commandCount !== 1) throw new Error("unexpected_second_command");
-    const stored = JSON.parse(
-      await fs.promises.readFile(recovery.recordPath, "utf8"),
-    ) as Record<string, unknown>;
-    if (
-      stored.recoveryId !== recovery.recoveryId ||
-      stored.commandState !== "in_flight" ||
-      stored.commandPurpose !== command.purpose
-    )
-      throw new Error("command_intent_not_durable_before_run");
-    process.stdout.write(
-      `${JSON.stringify({ event: "in_flight", recoveryId: recovery.recoveryId, purpose: command.purpose })}\n`,
-    );
-    const lose = await controlIterator.next();
-    if (lose.done || lose.value !== "LOSE" || !heldLock?.release())
-      throw new Error("kernel_lock_loss_not_triggered");
-    process.stdout.write(
-      `${JSON.stringify({ event: "lock_lost", recoveryId: recovery.recoveryId })}\n`,
-    );
-    const finish = await controlIterator.next();
-    if (finish.done || finish.value !== "FINISH")
-      throw new Error("fixture_finish_not_authorized");
-    return {
-      status: 1,
-      signal: null,
-      stdout: "",
-      stderr: "fixture_command_failed_after_lock_loss",
-    };
+  completeRecovery: (record) => {
+    recoveryCalls++;
+    return settleProviderAuthenticationRecovery(record);
   },
-} satisfies NonNullable<Parameters<typeof authenticateProvider>[4]>;
-const result = await authenticateProvider(
-  "claude",
-  "login",
-  providerHome,
-  stableLogicalHomeBindingHash,
-  dependencies,
-);
-
+});
 controls.close();
-const oracleControl = process.argv[5];
-try {
-  if (oracleControl === "receipt-negative-control")
-    dependencies.recordCreatedResource();
-  if (oracleControl === "recovery-negative-control") recoveryCallCount += 1;
-} catch {
-  // 本番側が例外を吸収しても、独立した呼出し回数のOracleは拒否する。
-}
-assert.equal(receiptCallCount, 0, "receipt_call_after_lock_loss");
-assert.equal(recoveryCallCount, 0, "recovery_call_after_lock_loss");
+mock.restoreAll();
+if (process.argv[5] === "receipt-negative-control") receiptCalls++;
+if (process.argv[5] === "recovery-negative-control") recoveryCalls++;
+assert.equal(receiptCalls, 0, "receipt_call_after_lock_loss");
+assert.equal(recoveryCalls, 0, "recovery_call_after_lock_loss");
+assert.equal(result.status, "blocked");
+assert.equal(result.reason, "provider_authentication_provider_home_lock_lost");
+assert.equal(result.cleanupConfirmed, false);
 process.stdout.write(
-  `${JSON.stringify({ event: "result", status: result.status, reason: result.reason, recoveryId: "recoveryId" in result ? result.recoveryId : null, cleanupConfirmed: result.cleanupConfirmed, receiptCallCount, recoveryCallCount })}\n`,
+  `${JSON.stringify({
+    event: "result",
+    status: result.status,
+    reason: result.reason,
+    recoveryId: "recoveryId" in result ? result.recoveryId : null,
+    cleanupConfirmed: result.cleanupConfirmed,
+    receiptCallCount: receiptCalls,
+    recoveryCallCount: recoveryCalls,
+  })}\n`,
 );
-if (
-  result.status !== "blocked" ||
-  result.reason !== "provider_authentication_provider_home_lock_lost" ||
-  !("recoveryId" in result) ||
-  result.recoveryId !== recovery.recoveryId ||
-  result.cleanupConfirmed !== false
-)
-  process.exit(73);

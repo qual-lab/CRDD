@@ -335,6 +335,9 @@ export function observeRuntimeSettlementRepository(access: unknown) {
  * @compatibility 元のWriterが検査するfieldを維持する。
  */
 export type RuntimeTerminalStorageObservation = Readonly<{
+  resourceSnapshot:
+    | import("../../../docker-isolation/src/index.ts").ResourceSnapshot
+    | null;
   resources: readonly unknown[];
   primaryFailure: unknown;
   homeLeaseReleased: boolean;

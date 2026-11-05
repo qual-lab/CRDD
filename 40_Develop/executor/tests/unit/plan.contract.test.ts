@@ -29,8 +29,8 @@ import {
   resolveProviderExecution,
   resolveValidatedPlan,
 } from "../../scripts/executor-test.ts";
-import type { AttemptRequest } from "../../src/attempt/types.ts";
-import { attemptPlan } from "../fixtures/attempt-plan.ts";
+import type { AttemptRequest } from "../../src/lifecycle/types.ts";
+import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
 
 /**
  * 三用途の必須条件と不正変異を照合する。
@@ -142,11 +142,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
   const synthetic = attemptPlan();
   const temporary = "C:/synthetic/tmp";
   const random = { randomBytes: (size: number) => Buffer.alloc(size, 1) };
-  const target = {
-    ...synthetic,
-    workspaceSourcePath: "C:/synthetic/work",
-    temporarySourcePath: temporary,
-  };
+  const target = attemptTarget(synthetic, "C:/synthetic/work", temporary);
   const probe = prepareAttempt(random, {
     kind: "attempt",
     purpose: "probe",
@@ -343,10 +339,8 @@ test("助言の内部構築は両Providerの既存技術条件を維持する", 
           allowedReferences: ["ref"],
           selection,
           target: {
-            ...base,
+            ...attemptTarget(base, "C:/synthetic/work", "C:/synthetic/tmp"),
             provider,
-            workspaceSourcePath: "C:/synthetic/work",
-            temporarySourcePath: "C:/synthetic/tmp",
           },
         };
         const plan = prepareAttempt(

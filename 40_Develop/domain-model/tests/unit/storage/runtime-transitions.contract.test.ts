@@ -9,6 +9,7 @@
  */
 
 import assert from "node:assert/strict";
+import { createResourceBookFixture } from "../../support/resource-operation.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -16,8 +17,9 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
   COORDINATOR_STATE_SCHEMA,
+  applyCoordinatorResourceEvent,
   type CoordinatorState,
-  type CoordinatorStateSnapshot,
+  type CoordinatorResourceBook,
   type CoordinatorStateTaskOperation,
   type CoordinatorUnifiedSnapshot,
   classifyCoordinatorResourcePublication,
@@ -52,6 +54,13 @@ import {
 import { createManagedRuntimeSnapshotFixture } from "../../support/runtime-state.ts";
 
 const binding = "a".repeat(64);
+const RESOURCE_KEYS = [
+  "create_egress_network",
+  "create_internal_network",
+  "create_provider",
+  "create_proxy",
+  "create_subscription_auth_probe",
+] as const;
 
 /**
  * 実行だけを使う未初期化Task区画の合成値を返す。
@@ -68,7 +77,7 @@ const binding = "a".repeat(64);
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-domain/runtime-state/v1",
+    schema: "crdd-domain/runtime-state/v2",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -138,7 +147,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v2",
+    schema: "crdd-coordinator/operation-identity/v3",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
@@ -166,17 +175,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     localUserBindingHash: "6".repeat(64),
     repositoryBinding: binding,
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
     operationMode: "isolated_task",
     workspaceMountMode: "read_write",
     initialHostRecoveryId: token,
@@ -201,7 +199,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(technical);
   const domainTechnical = {
     ...technical.snapshot,
-    schema: "crdd-domain/runtime-state/v1",
+    schema: "crdd-domain/runtime-state/v2",
     managedExecutions: [],
   };
   const domainRead = decodeRuntimeDomainSnapshot(
@@ -285,6 +283,35 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     nextState: "docker_submission_started",
     recordBefore: hostRecord,
   };
+  const resourceFrame = createResourceBookFixture(
+    identity.ownershipLabel,
+    "planned",
+    RESOURCE_KEYS,
+  );
+  const providerIntent = applyCoordinatorResourceEvent(null, {
+    event: "submission",
+    key: "create_provider",
+    snapshot: resourceFrame.snapshot,
+    cleanup: resourceFrame.cleanup,
+  });
+  assert.ok(providerIntent);
+  const providerBook = applyCoordinatorResourceEvent(providerIntent, {
+    event: "receipt",
+    key: "create_provider",
+    cleanup: resourceFrame.cleanup,
+    snapshot: {
+      resources: resourceFrame.snapshot.resources.map((r) =>
+        r.key === "create_provider"
+          ? {
+              ...r,
+              request: "issued",
+              identity: { ...r.identity, dockerId: "d".repeat(64) },
+            }
+          : r,
+      ),
+    },
+  });
+  assert.ok(providerBook);
   const operation = {
     kind: "docker_task" as const,
     dockerRestart: null,
@@ -292,21 +319,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     identitySha256,
     recoveryId,
     phase: "settling",
-    resources: [
-      "create_egress_network",
-      "create_internal_network",
-      "create_provider",
-      "create_proxy",
-      "create_subscription_auth_probe",
-    ].map((purpose) => ({
-      purpose,
-      request: purpose === "create_provider" ? "identified" : "not_requested",
-      dockerId: purpose === "create_provider" ? "d".repeat(64) : null,
-      receiptSource:
-        purpose === "create_provider" ? "docker_create_result" : null,
-      observation: "unknown",
-      absence: null,
-    })),
+    resources: providerBook,
     host: {
       currentToken: token,
       pendingTransitionJson: `${JSON.stringify(transition)}\n`,
@@ -351,17 +364,21 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           ownerEffect: "disabled",
           workspaceReusable: false,
         },
-        resources: operation.resources.map((resource) => ({
-          ...resource,
-          request:
-            resource.purpose === "create_subscription_auth_probe"
-              ? "unknown"
-              : "not_requested",
-          dockerId: null,
-          receiptSource: null,
-          observation: "unobserved",
-          absence: null,
-        })),
+        resources: {
+          ...resourceFrame,
+          snapshot: {
+            resources: resourceFrame.snapshot.resources.map((resource) =>
+              resource.key === "create_subscription_auth_probe"
+                ? { ...resource, request: "unknown" as const }
+                : resource,
+            ),
+          },
+          checkpoints: resourceFrame.checkpoints.map((resource) =>
+            resource.key === "create_subscription_auth_probe"
+              ? { ...resource, submission: "intent_saved" as const }
+              : resource,
+          ),
+        },
         dockerRestart: {
           requestId: limitedRestartId,
           scopeSha256: "f".repeat(64),
@@ -408,14 +425,19 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { ...closedOperation, resources: limitedOperation.resources },
     limitedOperation,
   );
-  const authClosed = closedOperation.resources.find(
-    (item) => item.purpose === "create_subscription_auth_probe",
+  assert.ok(closedOperation.resources && limitedOperation.resources);
+  const authClosed = closedOperation.resources.checkpoints.find(
+    (item) => item.key === "create_subscription_auth_probe",
   );
-  assert.ok(authClosed?.absence);
-  assert.equal(authClosed.request, "unknown");
-  assert.equal(authClosed.dockerId, null);
+  const authResource = closedOperation.resources.snapshot.resources.find(
+    (item) => item.key === authClosed?.key,
+  );
+  assert.ok(authClosed?.absenceEvidenceSha256 && authResource);
+  assert.equal(authClosed.submission, "intent_saved");
+  assert.equal(authResource.request, "unknown");
+  assert.equal(authResource.identity.dockerId, null);
   assert.equal(
-    authClosed.absence.evidenceSha256,
+    authClosed.absenceEvidenceSha256,
     createHash("sha256")
       .update(
         encodeRuntimeStateValue({
@@ -423,7 +445,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           identitySha256,
           recoveryId,
           purpose: "create_subscription_auth_probe",
-          plannedResourceName: identity.resources.auth,
+          plannedResourceName: authResource.identity.name,
           ownershipLabel: identity.ownershipLabel,
           dockerId: null,
           restart: limitedOperation.dockerRestart,
@@ -449,28 +471,30 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
     null,
   );
-  assert.equal(
-    prepareCoordinatorStateCleanupSnapshot(
-      limitedBytes,
-      recoveryId,
-      limitedOperation.resources.map((resource) => ({
-        purpose: resource.purpose,
-        plannedResourceName: {
-          create_egress_network: identity.resources.egress,
-          create_internal_network: identity.resources.internal,
-          create_provider: identity.resources.provider,
-          create_proxy: identity.resources.proxy,
-          create_subscription_auth_probe: identity.resources.auth,
-        }[resource.purpose],
-        dockerId: null,
+  const observedUnknownAbsence = prepareCoordinatorStateCleanupSnapshot(
+    limitedBytes,
+    recoveryId,
+    {
+      snapshot: limitedOperation.resources.snapshot,
+      observations: limitedOperation.resources.checkpoints.map((resource) => ({
+        key: resource.key,
         observation:
-          resource.purpose === "create_subscription_auth_probe"
-            ? "absent"
-            : "not_requested",
+          resource.key === authClosed.key ? "absent" : "not_requested",
       })),
-      binding,
-    ),
-    null,
+    },
+    binding,
+  );
+  assert.ok(observedUnknownAbsence);
+  const unknownAbsenceState = decodeCoordinatorStateSnapshot(
+    observedUnknownAbsence,
+    binding,
+  );
+  const unknownAbsenceTask = unknownAbsenceState?.snapshot.operations[0];
+  assert.ok(unknownAbsenceTask?.kind === "docker_task");
+  assert.equal(
+    coordinatorTaskResourcesAreSettled(unknownAbsenceTask),
+    false,
+    "観測の保存だけでは専用の終了確定を代替できない",
   );
   for (const invalid of [
     [],
@@ -510,17 +534,16 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.equal(coordinatorAuthenticationUnknownCanClose(changed), false);
     assert.equal(coordinatorTaskResourcesAreSettled(changed), false);
   }
-  const closedAbsence = authClosed.absence;
   const badEvidence = {
     ...closedOperation,
-    resources: closedOperation.resources.map((resource) =>
-      resource !== authClosed
-        ? resource
-        : {
-            ...resource,
-            absence: { ...closedAbsence, evidenceSha256: "0".repeat(64) },
-          },
-    ),
+    resources: {
+      ...closedOperation.resources,
+      checkpoints: closedOperation.resources.checkpoints.map((resource) =>
+        resource === authClosed
+          ? { ...resource, absenceEvidenceSha256: "0".repeat(64) }
+          : resource,
+      ),
+    },
   };
   assert.equal(coordinatorTaskResourcesAreSettled(badEvidence), false);
   // 実Writer外側の値差分guardだけを分離する。Kernel/FSの成立はHost試験が所有する。
@@ -712,101 +735,119 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(readerOnlyRequests, 0);
   assert.equal(readerOnlyReads, 1);
   // 保存前の限定条件と保存後の相関を、同じ正常入力から一軸ずつ崩す。
-  for (const source of [limitedOperation, closedOperation]) {
-    const auth = source.resources.find(
-      (resource) => resource.purpose === "create_subscription_auth_probe",
-    );
-    assert.ok(auth);
-    assert.ok(source.dockerRestart?.result);
+  const closureSources: readonly CoordinatorStateTaskOperation[] = [
+    limitedOperation,
+    closedOperation,
+  ];
+  for (const source of closureSources) {
+    assert.ok(source.resources && source.dockerRestart?.result);
+    const book = source.resources;
     const restart = source.dockerRestart;
-    const restartResult = restart.result;
-    assert.ok(restartResult);
-    const invalidOperations: CoordinatorStateTaskOperation[] = [
+    const mutations: CoordinatorStateTaskOperation[] = [
       { ...source, phase: "executing" },
-      {
-        ...source,
-        execution: {
-          ...source.execution,
-          workspaceReusable: true,
-        } as unknown as CoordinatorStateTaskOperation["execution"],
-      },
       ...(
-        ["not_requested", "not_issued", "intent_saved", "identified"] as const
-      ).map((request) => ({
+        ["providerStart", "externalSend", "sharedWrite", "ownerEffect"] as const
+      ).map((field) => ({
         ...source,
-        resources: source.resources.map((resource) =>
-          resource !== auth ? resource : { ...resource, request },
-        ),
+        execution: { ...source.execution, [field]: "unknown" as const },
       })),
-      ...[
-        { ...auth, dockerId: "a".repeat(64) },
-        { ...auth, receiptSource: "runtime_reconciliation" as const },
-        { ...auth, observation: "present" as const },
-      ].map((changedAuth) => ({
-        ...source,
-        resources: source.resources.map((resource) =>
-          resource !== auth ? resource : changedAuth,
-        ),
-      })),
-      ...source.resources
-        .filter((resource) => resource !== auth)
-        .map((other) => ({
-          ...source,
-          resources: source.resources.map((resource) =>
-            resource !== other
-              ? resource
-              : { ...resource, request: "unknown" as const },
-          ),
-        })),
       { ...source, dockerRestart: null },
+      ...(["not_issued", "unknown", "issued"] as const).map((request) => ({
+        ...source,
+        dockerRestart: { ...restart, request },
+      })),
       ...(["not_required", "pending", "unknown"] as const).map((cleanup) => ({
         ...source,
         dockerRestart: { ...restart, cleanup },
       })),
-      { ...source, dockerRestart: { ...restart, result: null } },
+      { ...source, dockerRestart: { ...source.dockerRestart, result: null } },
       {
         ...source,
-        dockerRestart: { ...restart, requestId: "0".repeat(64) },
+        dockerRestart: { ...source.dockerRestart, requestId: "0".repeat(64) },
       },
       {
         ...source,
         dockerRestart: {
-          ...restart,
-          result: { ...restartResult, effectOutcomeUnknown: true },
+          ...source.dockerRestart,
+          result: {
+            ...source.dockerRestart.result,
+            effectOutcomeUnknown: true,
+          },
         },
       },
-      ...(["not_issued", "unknown", "issued"] as const).map((request) => ({
-        ...source,
-        dockerRestart: {
-          ...restart,
-          result: { ...restartResult, request },
-        },
-      })),
       {
         ...source,
-        dockerRestart: {
-          ...restart,
-          result: { ...restartResult, status: "blocked" as const },
+        resources: {
+          ...book,
+          snapshot: {
+            resources: book.snapshot.resources.map((r) =>
+              r.key === authClosed.key
+                ? {
+                    ...r,
+                    identity: { ...r.identity, dockerId: "a".repeat(64) },
+                  }
+                : r,
+            ),
+          },
+        },
+      },
+      ...(["docker_create_result", "runtime_reconciliation"] as const).map(
+        (receiptSource) => ({
+          ...source,
+          resources: {
+            ...book,
+            checkpoints: book.checkpoints.map((c) =>
+              c.key === authClosed.key ? { ...c, receiptSource } : c,
+            ),
+          },
+        }),
+      ),
+      {
+        ...source,
+        resources: {
+          ...book,
+          checkpoints: book.checkpoints.map((c) =>
+            c.key === authClosed.key
+              ? { ...c, observation: "present" as const }
+              : c,
+          ),
+        },
+      },
+      {
+        ...source,
+        resources: {
+          ...book,
+          checkpoints: book.checkpoints.map((c) =>
+            c.key !== authClosed.key
+              ? { ...c, submission: "intent_saved" as const }
+              : c,
+          ),
         },
       },
     ];
-    for (const changed of invalidOperations) {
-      assert.equal(coordinatorAuthenticationUnknownCanClose(changed), false);
-      const changedAuth = changed.resources.find(
-        (resource) => resource.purpose === "create_subscription_auth_probe",
-      );
-      // 未要求・未発行は既存の通常終端。専用Classだけを拒否する。
+    for (const changed of mutations) {
       assert.equal(
-        coordinatorTaskResourcesAreSettled(changed),
-        changedAuth?.request === "not_requested" ||
-          changedAuth?.request === "not_issued" ||
-          (changedAuth?.request === "identified" &&
-            changedAuth.observation === "absent"),
+        coordinatorAuthenticationUnknownCanClose(changed),
+        false,
+        JSON.stringify(changed),
       );
+      const changedBytes = Buffer.from(
+        encodeRuntimeStateValue({ ...limitedState, operations: [changed] }) +
+          "\n",
+      );
+      if (decodeCoordinatorStateSnapshot(changedBytes, binding))
+        assert.equal(
+          coordinatorTaskResourcesAreSettled(changed),
+          false,
+          JSON.stringify(changed),
+        );
       assert.equal(
         prepareCoordinatorAuthenticationUnknownClosureSnapshot(
           Buffer.from(
-            `${encodeRuntimeStateValue({ ...limitedState, operations: [changed] })}\n`,
+            `${encodeRuntimeStateValue({
+              ...limitedState,
+              operations: [changed],
+            })}\n`,
           ),
           recoveryId,
           observations,
@@ -816,21 +857,52 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       );
     }
   }
-  for (const changedAbsence of [
-    { ...closedAbsence, evidenceSha256: "f".repeat(64) },
-    { ...closedAbsence, recoveryId: `${recoveryId}-other` },
-    { ...closedAbsence, plannedResourceName: "crdd-auth-fedcba9876543210" },
-    { ...closedAbsence, dockerId: "a".repeat(64) },
-  ]) {
+  for (const mode of ["hash", "name", "label", "id"] as const) {
+    const book = closedOperation.resources;
     const changed: CoordinatorStateTaskOperation = {
       ...closedOperation,
-      resources: closedOperation.resources.map((resource) =>
-        resource !== authClosed
-          ? resource
-          : { ...resource, absence: changedAbsence },
-      ),
+      resources: {
+        ...book,
+        snapshot: {
+          resources: book.snapshot.resources.map((r) =>
+            r.key === authClosed.key
+              ? {
+                  ...r,
+                  identity: {
+                    ...r.identity,
+                    ...(mode === "name"
+                      ? { name: "crdd-other" }
+                      : mode === "label"
+                        ? { ownershipLabel: "crdd.owner=foreign" }
+                        : mode === "id"
+                          ? { dockerId: "a".repeat(64) }
+                          : {}),
+                  },
+                }
+              : r,
+          ),
+        },
+        checkpoints: book.checkpoints.map((c) =>
+          c.key === authClosed.key && mode === "hash"
+            ? { ...c, absenceEvidenceSha256: "f".repeat(64) }
+            : c,
+        ),
+      },
     };
-    assert.equal(coordinatorTaskResourcesAreSettled(changed), false);
+    if (mode === "label" || mode === "id")
+      assert.equal(
+        decodeCoordinatorStateSnapshot(
+          Buffer.from(
+            `${encodeRuntimeStateValue({
+              ...limitedState,
+              operations: [changed],
+            })}\n`,
+          ),
+          binding,
+        ),
+        null,
+      );
+    else assert.equal(coordinatorTaskResourcesAreSettled(changed), false);
   }
   assert.ok(
     decodeCoordinatorStateSnapshot(
@@ -968,15 +1040,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.ok(acceptedTask?.kind === "docker_task");
     const badTask: CoordinatorStateTaskOperation = {
       ...acceptedTask,
-      resources: acceptedTask.resources.map((resource) =>
-        resource.purpose !== "create_subscription_auth_probe" ||
-        !resource.absence
-          ? resource
-          : {
-              ...resource,
-              absence: { ...resource.absence, evidenceSha256: "0".repeat(64) },
-            },
-      ),
+      resources: acceptedTask.resources && {
+        ...acceptedTask.resources,
+        checkpoints: acceptedTask.resources.checkpoints.map((resource) =>
+          resource.key === authClosed.key
+            ? { ...resource, absenceEvidenceSha256: "0".repeat(64) }
+            : resource,
+        ),
+      },
     };
     const rejected = Buffer.from(
       `${encodeRuntimeStateValue({ ...acceptedState.snapshot, operations: [badTask] })}\n`,
@@ -1046,14 +1117,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     operations: [
       {
         ...operation,
-        resources: operation.resources.map((item) => ({
-          ...item,
-          request: "not_requested",
-          dockerId: null,
-          receiptSource: null,
-          observation: "unobserved",
-          absence: null,
-        })),
+        resources: resourceFrame,
         host: {
           ...operation.host,
           pendingTransitionJson: null,
@@ -1230,26 +1294,48 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         (item: { kind?: unknown }) => item.kind === "docker_task",
       );
       const matrixIdentity = JSON.parse(matrixOperation.identityJson);
-      const auth = matrixOperation.resources.find(
-        (item: { purpose: string }) =>
-          item.purpose === "create_subscription_auth_probe",
-      );
-      assert.ok(auth);
-      auth.request = request;
-      auth.observation = observation;
-      auth.dockerId = request === "identified" ? "d".repeat(64) : null;
-      auth.receiptSource =
-        request === "identified" ? "runtime_reconciliation" : null;
-      auth.absence =
-        observation === "absent"
-          ? {
-              recoveryId: transientRecoveryId,
-              purpose: auth.purpose,
-              plannedResourceName: matrixIdentity.resources.auth,
-              dockerId: auth.dockerId,
-              evidenceSha256: "e".repeat(64),
-            }
-          : null;
+      const originalBook: CoordinatorResourceBook = matrixOperation.resources;
+      const known = request === "identified";
+      const unrequested =
+        request === "not_requested" || request === "not_issued";
+      matrixOperation.resources = {
+        ...originalBook,
+        snapshot: {
+          resources: originalBook.snapshot.resources.map((r) =>
+            r.key === "create_subscription_auth_probe"
+              ? {
+                  ...r,
+                  request: known
+                    ? "issued"
+                    : unrequested
+                      ? "not_issued"
+                      : "unknown",
+                  identity: {
+                    ...r.identity,
+                    dockerId: known ? "d".repeat(64) : null,
+                  },
+                }
+              : r,
+          ),
+        },
+        checkpoints: originalBook.checkpoints.map((c) =>
+          c.key === "create_subscription_auth_probe"
+            ? {
+                ...c,
+                submission:
+                  request === "not_requested"
+                    ? "none"
+                    : request === "not_issued"
+                      ? "not_issued"
+                      : "intent_saved",
+                receiptSource: known ? "runtime_reconciliation" : null,
+                observation,
+                absenceEvidenceSha256:
+                  observation === "absent" ? "e".repeat(64) : null,
+              }
+            : c,
+        ),
+      };
       const matrixBytes = Buffer.from(
         `${encodeRuntimeStateValue(matrixState)}\n`,
       );
@@ -1299,38 +1385,13 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         `${label}: next attempt`,
       );
       if (request !== "identified" && observation === "absent") {
+        const decoded = decodeCoordinatorStateSnapshot(matrixBytes, binding);
+        const task = decoded?.snapshot.operations[0];
+        assert.ok(task?.kind === "docker_task");
         assert.equal(
-          prepareCoordinatorStateCleanupSnapshot(
-            matrixBytes,
-            transientRecoveryId,
-            matrixOperation.resources.map(
-              (item: {
-                purpose: string;
-                dockerId: string | null;
-                request: string;
-                observation: string;
-              }) => ({
-                purpose: item.purpose,
-                plannedResourceName:
-                  item.purpose === "create_subscription_auth_probe"
-                    ? matrixIdentity.resources.auth
-                    : matrixIdentity.resources[
-                        item.purpose
-                          .replace("create_", "")
-                          .replace("_network", "")
-                      ],
-                dockerId: item.dockerId,
-                observation:
-                  item.request === "not_requested" ||
-                  item.request === "not_issued"
-                    ? "not_requested"
-                    : item.observation,
-              }),
-            ),
-            binding,
-          ),
-          null,
-          `${label}: normal cleanup must not accept unidentified absence`,
+          coordinatorTaskResourcesAreSettled(task),
+          false,
+          "ID未確認の観測を終端根拠にしない",
         );
       }
     }
@@ -1608,14 +1669,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ...operation,
       phase: "executing",
       lease: "released",
-      resources: operation.resources.map((resource) => ({
-        ...resource,
-        request: "not_requested",
-        dockerId: null,
-        receiptSource: null,
-        observation: "unobserved",
-        absence: null,
-      })),
+      resources: resourceFrame,
       host: {
         currentToken: token,
         pendingTransitionJson: null,
@@ -1743,13 +1797,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           result: null,
         },
       },
-      ...normalOld.resources.map((_, index) => ({
+      ...normalOld.resources.checkpoints.map((_, index) => ({
         ...normalOld,
-        resources: normalOld.resources.map((resource, selected) =>
-          selected === index
-            ? { ...resource, request: "intent_saved" }
-            : resource,
-        ),
+        resources: {
+          ...normalOld.resources,
+          checkpoints: normalOld.resources.checkpoints.map((c, i) =>
+            i === index ? { ...c, submission: "intent_saved" as const } : c,
+          ),
+        },
       })),
     ]) {
       const before = Buffer.from(
@@ -2384,12 +2439,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         operationId: "OP-654321",
         stableLogicalHomeBindingHash: "e".repeat(64),
         ownershipLabel: "crdd.coordinator.runtime=fedcba9876543210",
-        resources: Object.fromEntries(
-          Object.entries(identity.resources).map(([key, value]) => [
-            key,
-            value.replace("0123456789abcdef", "fedcba9876543210"),
-          ]),
-        ),
       };
       const recoveryRoot = {
         ...unifiedTerminal,
@@ -2419,6 +2468,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           secondIdentity.operationId,
       );
       assert.ok(second);
+      second.resources = createResourceBookFixture(
+        secondIdentity.ownershipLabel,
+        "planned",
+        RESOURCE_KEYS,
+      );
       second.phase = "settling";
       second.host.cleanup = "confirmed";
       second.lease = "released";
@@ -2852,10 +2906,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
     },
     {
-      resources: terminalOperation.resources.map((resource) =>
-        resource.purpose === "create_provider"
-          ? { ...resource, request: "unknown" }
-          : resource,
+      resources: createResourceBookFixture(
+        identity.ownershipLabel,
+        "unknown",
+        RESOURCE_KEYS,
       ),
     },
   ] satisfies readonly Partial<CoordinatorStateTaskOperation>[]) {
@@ -3438,221 +3492,86 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     revision: beforeRestart.snapshot.revision,
     payloadSha256: beforeRestart.payloadSha256,
   });
-  for (const purpose of beforeRestart.snapshot.operations
-    .find((item) => item.kind === "docker_task")
-    ?.resources.map((item) => item.purpose) ?? []) {
-    for (const [from, to] of [
-      ["not_requested", "intent_saved"],
-      ["intent_saved", "issued"],
-      ["intent_saved", "unknown"],
-      ["issued", "unknown"],
-      ["unknown", "issued"],
-    ] as const) {
-      const baseSnapshot: CoordinatorStateSnapshot = {
-        ...beforeRestart.snapshot,
-        operations: beforeRestart.snapshot.operations
-          .filter((item) => item.kind === "docker_task")
-          .map((item) => ({
-            ...item,
-            resources: item.resources.map((resource) =>
-              resource.purpose === purpose
-                ? { ...resource, request: from }
-                : resource,
-            ),
-          })),
-      };
-      const baseBytes = Buffer.from(
-        `${encodeRuntimeStateValue(baseSnapshot)}\n`,
-      );
-      assert.ok(decodeCoordinatorStateSnapshot(baseBytes, binding));
-      const original = baseSnapshot.operations
-        .find((item) => item.kind === "docker_task")
-        ?.resources.find((item) => item.purpose === purpose);
-      assert.ok(original);
-      const progressed = prepareCoordinatorStateResourceSnapshot(
-        baseBytes,
-        recoveryId,
-        { ...original, request: to },
-        binding,
-      );
-      assert.ok(progressed, `${purpose}:${from}:${to}:before_restart`);
-      const initialized = prepareCoordinatorStateRestartSnapshot(
-        baseBytes,
-        recoveryId,
-        restartRequest,
-        binding,
-      );
-      assert.ok(initialized);
-      assert.equal(
-        prepareCoordinatorStateResourceSnapshot(
-          initialized,
-          recoveryId,
-          { ...original, request: to },
-          binding,
-        ),
-        null,
-        `${purpose}:${from}:${to}:after_restart`,
-      );
-
-      const simultaneous = decodeCoordinatorStateSnapshot(progressed, binding);
-      assert.ok(simultaneous);
-      const simultaneousBytes = Buffer.from(
-        `${encodeRuntimeStateValue({
-          ...simultaneous.snapshot,
-          operations: simultaneous.snapshot.operations
-            .filter((item) => item.kind === "docker_task")
-            .map((item) => ({
-              ...item,
-              dockerRestart: restartRequest,
-            })),
-        })}\n`,
-      );
-      assert.ok(decodeCoordinatorStateSnapshot(simultaneousBytes, binding));
-      assert.equal(
-        validateCoordinatorStateTransition(
-          baseBytes,
-          simultaneousBytes,
-          binding,
-        ),
-        false,
-        `${purpose}:${from}:${to}:simultaneous`,
-      );
-    }
-
-    const pending = {
-      ...beforeRestart.snapshot,
-      operations: beforeRestart.snapshot.operations
-        .filter((item) => item.kind === "docker_task")
-        .map((item) => ({
-          ...item,
-          resources: item.resources.map((resource) =>
-            resource.purpose === purpose
-              ? { ...resource, request: "intent_saved" }
-              : resource,
-          ),
-        })),
+  for (const key of RESOURCE_KEYS) {
+    const frame = {
+      snapshot: resourceFrame.snapshot,
+      cleanup: resourceFrame.cleanup,
+      key,
     };
-    const pendingBytes = Buffer.from(`${encodeRuntimeStateValue(pending)}\n`);
-    const pendingResource = pending.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.find((item) => item.purpose === purpose);
-    assert.ok(pendingResource);
-    const normalized = prepareCoordinatorStateResourceSnapshot(
-      pendingBytes,
+    const intent = prepareCoordinatorStateResourceSnapshot(
+      prepared,
       recoveryId,
-      { ...pendingResource, request: "unknown" },
+      { ...frame, event: "submission" },
       binding,
     );
-    assert.ok(normalized);
+    assert.ok(intent);
+    assert.equal(
+      prepareCoordinatorStateResourceSnapshot(
+        restartInitial,
+        recoveryId,
+        { ...frame, event: "submission" },
+        binding,
+      ),
+      null,
+    );
     const initialized = prepareCoordinatorStateRestartSnapshot(
-      normalized,
+      intent,
       recoveryId,
       restartRequest,
       binding,
     );
     assert.ok(initialized);
-    assert.ok(
-      prepareCoordinatorStateResourceSnapshot(
-        initialized,
-        recoveryId,
-        { ...pendingResource, request: "unknown" },
-        binding,
-      ),
-      `${purpose}:same_request`,
-    );
+    const receiptFrame = {
+      ...frame,
+      snapshot: {
+        resources: frame.snapshot.resources.map((r) =>
+          r.key === key
+            ? {
+                ...r,
+                request: "issued" as const,
+                identity: { ...r.identity, dockerId: "d".repeat(64) },
+              }
+            : r,
+        ),
+      },
+    };
     const identified = prepareCoordinatorStateResourceSnapshot(
       initialized,
       recoveryId,
-      {
-        ...pendingResource,
-        request: "identified",
-        dockerId: "d".repeat(64),
-        receiptSource: "runtime_reconciliation",
-        observation: "present",
-      },
+      { ...receiptFrame, event: "identified" },
       binding,
     );
-    assert.ok(identified, `${purpose}:unknown_to_identified`);
-    const identifiedSnapshot = decodeCoordinatorStateSnapshot(
-      identified,
-      binding,
-    );
-    assert.ok(identifiedSnapshot);
-    const cleanupObservations = identifiedSnapshot.snapshot.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.map((resource) => ({
-        purpose: resource.purpose,
-        plannedResourceName:
-          identity.resources[
-            {
-              create_egress_network: "egress",
-              create_internal_network: "internal",
-              create_provider: "provider",
-              create_proxy: "proxy",
-              create_subscription_auth_probe: "auth",
-            }[resource.purpose] as keyof typeof identity.resources
-          ],
-        dockerId: resource.dockerId,
-        observation: resource.purpose === purpose ? "absent" : "not_requested",
-      }));
+    assert.ok(identified);
+    const identifiedState = decodeCoordinatorStateSnapshot(identified, binding);
+    const task = identifiedState?.snapshot.operations[0];
+    assert.ok(task?.kind === "docker_task" && task.resources);
+    const observations = task.resources.checkpoints.map((c) => ({
+      key: c.key,
+      observation: c.key === key ? "absent" : "not_requested",
+    }));
     assert.ok(
       prepareCoordinatorStateCleanupSnapshot(
         identified,
         recoveryId,
-        cleanupObservations,
+        { snapshot: task.resources.snapshot, observations },
         binding,
       ),
-      `${purpose}:identified_cleanup`,
     );
-    const beforeObservation: CoordinatorStateSnapshot = {
-      ...identifiedSnapshot.snapshot,
-      operations: identifiedSnapshot.snapshot.operations
-        .filter((item) => item.kind === "docker_task")
-        .map((item) => ({
-          ...item,
-          kind: "docker_task",
-          dockerRestart: null,
-        })),
-    };
-    const beforeObservationBytes = Buffer.from(
-      `${encodeRuntimeStateValue(beforeObservation)}\n`,
-    );
-    const identifiedResource = beforeObservation.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.find((item) => item.purpose === purpose);
-    assert.ok(identifiedResource);
-    const observedOnly = prepareCoordinatorStateResourceSnapshot(
-      beforeObservationBytes,
-      recoveryId,
-      { ...identifiedResource, observation: "unknown" },
-      binding,
-    );
-    assert.ok(observedOnly);
-    const observedSnapshot = decodeCoordinatorStateSnapshot(
-      observedOnly,
-      binding,
-    );
-    assert.ok(observedSnapshot);
-    const simultaneousObservation = Buffer.from(
+    const progressed = decodeCoordinatorStateSnapshot(intent, binding);
+    assert.ok(progressed);
+    const simultaneous = Buffer.from(
       `${encodeRuntimeStateValue({
-        ...observedSnapshot.snapshot,
-        operations: observedSnapshot.snapshot.operations
-          .filter((item) => item.kind === "docker_task")
-          .map((item) => ({
-            ...item,
-            dockerRestart: restartRequest,
-          })),
+        ...progressed.snapshot,
+        operations: progressed.snapshot.operations.map((op) => ({
+          ...op,
+          dockerRestart: restartRequest,
+        })),
       })}\n`,
     );
-    assert.ok(decodeCoordinatorStateSnapshot(simultaneousObservation, binding));
     assert.equal(
-      validateCoordinatorStateTransition(
-        beforeObservationBytes,
-        simultaneousObservation,
-        binding,
-      ),
+      validateCoordinatorStateTransition(prepared, simultaneous, binding),
       false,
-      `${purpose}:same_request_observation_change_with_restart`,
+      "再起動と新Intentを同時確定しない",
     );
   }
   for (const value of [
@@ -3706,7 +3625,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     { ...identity, repositoryBinding: undefined },
     { ...identity, providerHomeIdentityHash: "invalid" },
     { ...identity, initialHostRecoveryId: "invalid" },
-    { ...identity, resources: { ...identity.resources, auth: "invalid" } },
+    { ...identity, resources: { auth: "invalid" } },
   ]) {
     assert.equal(
       prepareCoordinatorStateOperationSnapshot(
@@ -3819,24 +3738,33 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
   }
-  const resource = initialOperation?.resources.find(
-    (item) => item.purpose === "create_provider",
-  );
-  assert.ok(resource);
+  assert.equal(initialOperation.resources, null);
+  const frame = {
+    snapshot: resourceFrame.snapshot,
+    cleanup: resourceFrame.cleanup,
+    key: "create_provider",
+  };
   const intent = prepareCoordinatorStateResourceSnapshot(
     prepared,
     recoveryId,
-    { ...resource, request: "intent_saved" },
+    { ...frame, event: "submission" },
     binding,
   );
   assert.ok(intent);
   const directReceipt = {
-    ...resource,
-    request: "identified",
-    dockerId: "d".repeat(64),
-    receiptSource: "docker_create_result",
-    observation: "unobserved",
-    absence: null,
+    ...frame,
+    event: "receipt",
+    snapshot: {
+      resources: frame.snapshot.resources.map((r) =>
+        r.key === frame.key
+          ? {
+              ...r,
+              request: "issued" as const,
+              identity: { ...r.identity, dockerId: "d".repeat(64) },
+            }
+          : r,
+      ),
+    },
   };
   const receiptCandidate = prepareCoordinatorStateResourceSnapshot(
     intent,
@@ -3863,7 +3791,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
     "remove_pending",
   );
-  for (const [before, candidate, token, repository] of [
+  for (const [before, candidate, id, repository] of [
     [prepared, receiptCandidate, recoveryId, binding],
     [intent, receiptCandidate, "wrong", binding],
     [intent, receiptCandidate, recoveryId, "b".repeat(64)],
@@ -3877,16 +3805,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ],
   ])
     assert.equal(
-      classifyCoordinatorResourcePublication(
-        before,
-        candidate,
-        token,
-        repository,
-      ),
+      classifyCoordinatorResourcePublication(before, candidate, id, repository),
       null,
     );
   const alteredPublication = JSON.parse(receiptCandidate.toString());
-  alteredPublication.operations[0].phase = "settling";
+  alteredPublication.operations[0].execution.externalSend = "unknown";
   assert.equal(
     classifyCoordinatorResourcePublication(
       intent,
@@ -3896,331 +3819,154 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
     null,
   );
-  assert.ok(
-    prepareCoordinatorStateResourceSnapshot(
-      intent,
-      recoveryId,
-      directReceipt,
-      binding,
-    ),
-  );
-  for (const [current, value] of [
-    [prepared, directReceipt],
-    [intent, { ...directReceipt, dockerId: null }],
-    [intent, { ...directReceipt, dockerId: "invalid" }],
-    [intent, { ...directReceipt, receiptSource: "runtime_reconciliation" }],
-    [intent, { ...directReceipt, observation: "present" }],
-    [intent, { ...directReceipt, observation: "unknown" }],
-    [intent, { ...directReceipt, absence: {} }],
-  ] as const) {
-    assert.equal(
-      prepareCoordinatorStateResourceSnapshot(
-        current,
-        recoveryId,
-        value,
-        binding,
-      ),
-      null,
-    );
-  }
   const notIssued = prepareCoordinatorStateResourceSnapshot(
     intent,
     recoveryId,
-    { ...resource, request: "not_issued" },
+    { event: "not_issued", key: frame.key },
     binding,
   );
   assert.ok(notIssued);
   assert.equal(
     prepareCoordinatorStateResourceSnapshot(
-      prepared,
+      receiptCandidate,
       recoveryId,
-      { ...resource, request: "not_issued" },
+      { event: "not_issued", key: frame.key },
       binding,
     ),
     null,
   );
-  for (const request of [
-    "not_requested",
-    "intent_saved",
-    "issued",
-    "unknown",
-  ] as const) {
+  for (const invalid of [
+    { ...directReceipt, extra: true },
+    { ...directReceipt, key: "other" },
+    {
+      ...directReceipt,
+      snapshot: {
+        resources: directReceipt.snapshot.resources.map((r) =>
+          r.key === frame.key
+            ? { ...r, identity: { ...r.identity, dockerId: "e".repeat(64) } }
+            : r,
+        ),
+      },
+    },
+    { ...frame, event: "submission" },
+    { event: "unknown", key: frame.key },
+  ])
     assert.equal(
       prepareCoordinatorStateResourceSnapshot(
-        notIssued,
+        receiptCandidate,
         recoveryId,
-        { ...resource, request },
+        invalid,
         binding,
       ),
       null,
     );
-  }
-  const issued = prepareCoordinatorStateResourceSnapshot(
-    intent,
-    recoveryId,
-    { ...resource, request: "issued" },
-    binding,
-  );
-  assert.ok(issued);
   assert.equal(
     prepareCoordinatorStateResourceSnapshot(
-      issued,
+      prepared,
       recoveryId,
-      { ...resource, request: "not_issued" },
+      directReceipt,
       binding,
     ),
     null,
+    "Receipt前にIntent必須",
   );
-  const unknown = prepareCoordinatorStateResourceSnapshot(
-    issued,
-    recoveryId,
-    { ...resource, request: "unknown", observation: "unknown" },
+  const identifiedState = decodeCoordinatorStateSnapshot(
+    receiptCandidate,
     binding,
   );
-  assert.ok(unknown);
-  assert.equal(
-    prepareCoordinatorStateResourceSnapshot(
-      unknown,
-      recoveryId,
-      { ...resource, request: "not_issued" },
-      binding,
-    ),
-    null,
+  const identifiedOperation = identifiedState?.snapshot.operations[0];
+  assert.ok(
+    identifiedOperation?.kind === "docker_task" &&
+      identifiedOperation.resources,
   );
-  const receipt = {
-    ...resource,
-    request: "identified",
-    dockerId: "d".repeat(64),
-    receiptSource: "docker_create_result",
-    observation: "present",
+  const cleanupPayload = {
+    snapshot: identifiedOperation.resources.snapshot,
+    observations: identifiedOperation.resources.checkpoints.map((c) => ({
+      key: c.key,
+      observation: c.key === frame.key ? "absent" : "not_requested",
+    })),
   };
-  const identified = prepareCoordinatorStateResourceSnapshot(
-    unknown,
-    recoveryId,
-    receipt,
-    binding,
-  );
-  assert.ok(identified);
-  assert.equal(
-    prepareCoordinatorStateResourceSnapshot(
-      identified,
-      recoveryId,
-      { ...resource, request: "not_issued" },
-      binding,
-    ),
-    null,
-  );
-  const identifiedState = decodeCoordinatorStateSnapshot(identified, binding);
-  assert.ok(identifiedState);
-  const identifiedOperation = identifiedState.snapshot.operations.find(
-    (item) => item.kind === "docker_task",
-  );
-  assert.ok(identifiedOperation && identifiedOperation.kind === "docker_task");
-  const cleanupObservations = identifiedOperation.resources.map((item) => ({
-    purpose: item.purpose,
-    plannedResourceName:
-      identity.resources[
-        (
-          {
-            create_egress_network: "egress",
-            create_internal_network: "internal",
-            create_provider: "provider",
-            create_proxy: "proxy",
-            create_subscription_auth_probe: "auth",
-          } as const
-        )[item.purpose]
-      ],
-    dockerId: item.dockerId,
-    observation: item.request === "not_requested" ? "not_requested" : "absent",
-  }));
   const cleanupBytes = prepareCoordinatorStateCleanupSnapshot(
-    identified,
+    receiptCandidate,
     recoveryId,
-    cleanupObservations,
+    cleanupPayload,
     binding,
   );
   assert.ok(cleanupBytes);
-  const unissuedCleanup = prepareCoordinatorStateCleanupSnapshot(
-    notIssued,
-    recoveryId,
-    cleanupObservations.map((item) => ({
-      ...item,
-      dockerId: null,
-      observation: "not_requested",
-    })),
-    binding,
-  );
-  assert.ok(unissuedCleanup);
-  assert.equal(
-    decodeCoordinatorStateSnapshot(unissuedCleanup, binding)
-      ?.snapshot.operations.find((item) => item.kind === "docker_task")
-      ?.resources.find((item) => item.purpose === resource.purpose)?.request,
-    "not_issued",
-  );
-  for (const observation of ["absent", "unknown"] as const) {
-    assert.equal(
-      prepareCoordinatorStateCleanupSnapshot(
-        notIssued,
-        recoveryId,
-        cleanupObservations.map(
-          (item): Record<string, unknown> => ({
-            ...item,
-            dockerId: null,
-            observation:
-              item.purpose === resource.purpose ? observation : "not_requested",
-          }),
-        ),
-        binding,
-      ),
-      null,
-    );
-  }
   const cleanupState = decodeCoordinatorStateSnapshot(cleanupBytes, binding);
-  assert.ok(cleanupState);
+  const cleanupTask = cleanupState?.snapshot.operations[0];
+  assert.ok(cleanupTask?.kind === "docker_task" && cleanupTask.resources);
   assert.equal(
-    cleanupState.snapshot.revision,
-    identifiedState.snapshot.revision + 1,
+    cleanupTask.resources.checkpoints.find((c) => c.key === frame.key)
+      ?.receiptSource,
+    "docker_create_result",
   );
   assert.equal(
-    cleanupState.snapshot.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.find((item) => item.purpose === "create_provider")
+    cleanupTask.resources.checkpoints.find((c) => c.key === frame.key)
       ?.observation,
     "absent",
   );
   assert.deepEqual(
-    cleanupState.snapshot.operations.find((item) => item.kind === "docker_task")
-      ?.host,
-    identifiedState.snapshot.operations.find(
-      (item) => item.kind === "docker_task",
-    )?.host,
+    cleanupTask.resources.snapshot,
+    identifiedOperation.resources.snapshot,
   );
-  for (const invalidValues of [
-    null,
-    [],
-    cleanupObservations.slice(1),
-    [...cleanupObservations].reverse(),
-    cleanupObservations.map(() => cleanupObservations[0]),
-    [...cleanupObservations, cleanupObservations[0]],
-    cleanupObservations.map((item) => ({ ...item, dockerId: "e".repeat(64) })),
-    cleanupObservations.map((item) => ({
-      ...item,
-      plannedResourceName: "foreign",
-    })),
-    cleanupObservations.map((item) => ({
-      ...item,
-      observation: "not_requested",
-    })),
-  ]) {
+  for (const invalid of [
+    { ...cleanupPayload, observations: cleanupPayload.observations.slice(1) },
+    {
+      ...cleanupPayload,
+      observations: cleanupPayload.observations.map(
+        () => cleanupPayload.observations[0],
+      ),
+    },
+    {
+      ...cleanupPayload,
+      observations: [
+        ...cleanupPayload.observations,
+        cleanupPayload.observations[0],
+      ],
+    },
+    {
+      ...cleanupPayload,
+      snapshot: {
+        resources: cleanupPayload.snapshot.resources.map((r) =>
+          r.key === frame.key
+            ? { ...r, identity: { ...r.identity, dockerId: "e".repeat(64) } }
+            : r,
+        ),
+      },
+    },
+    {
+      ...cleanupPayload,
+      snapshot: {
+        resources: cleanupPayload.snapshot.resources.map((r) =>
+          r.key === frame.key
+            ? {
+                ...r,
+                identity: {
+                  ...r.identity,
+                  ownershipLabel: "crdd.owner=foreign",
+                },
+              }
+            : r,
+        ),
+      },
+    },
+  ])
     assert.equal(
       prepareCoordinatorStateCleanupSnapshot(
-        identified,
+        receiptCandidate,
         recoveryId,
-        invalidValues,
+        invalid,
         binding,
       ),
       null,
     );
-  }
-  assert.equal(
-    prepareCoordinatorStateCleanupSnapshot(
-      unknown,
-      recoveryId,
-      cleanupObservations,
-      binding,
-    ),
-    null,
-  );
-  assert.equal(
-    prepareCoordinatorStateCleanupSnapshot(
-      identified,
-      `${recoveryId}0`,
-      cleanupObservations,
-      binding,
-    ),
-    null,
-  );
-  assert.equal(
-    prepareCoordinatorStateCleanupSnapshot(
-      identified,
-      recoveryId,
-      cleanupObservations,
-      "b".repeat(64),
-    ),
-    null,
-  );
-  let isCleanupGetterInvoked = false;
-  const hostileCleanup = Object.defineProperty({}, "purpose", {
+  let getterCalls = 0;
+  const hostileResource = Object.defineProperty({}, "event", {
     enumerable: true,
-    get: () => {
-      isCleanupGetterInvoked = true;
-      return "create_provider";
-    },
-  });
-  assert.equal(
-    prepareCoordinatorStateCleanupSnapshot(
-      identified,
-      recoveryId,
-      [hostileCleanup, ...cleanupObservations.slice(1)],
-      binding,
-    ),
-    null,
-  );
-  assert.equal(isCleanupGetterInvoked, false);
-  assert.equal(
-    identifiedState.snapshot.revision,
-    preparedState.snapshot.revision + 4,
-  );
-  assert.equal(
-    identifiedState.snapshot.operations.find(
-      (item) => item.kind === "docker_task",
-    )?.identityJson,
-    identityJson,
-  );
-  assert.deepEqual(
-    identifiedState.snapshot.operations.find(
-      (item) => item.kind === "docker_task",
-    )?.host,
-    initialOperation?.host,
-  );
-  assert.deepEqual(
-    identifiedState.snapshot.operations
-      .find((item) => item.kind === "docker_task")
-      ?.resources.filter((item) => item.purpose !== "create_provider"),
-    initialOperation?.resources.filter(
-      (item) => item.purpose !== "create_provider",
-    ),
-  );
-  for (const [before, ref, update, owner] of [
-    [prepared, recoveryId, { ...resource, request: "issued" }, binding],
-    [intent, recoveryId, receipt, binding],
-    [unknown, recoveryId, resource, binding],
-    [identified, recoveryId, { ...receipt, dockerId: "e".repeat(64) }, binding],
-    [
-      prepared,
-      `${recoveryId}0`,
-      { ...resource, request: "intent_saved" },
-      binding,
-    ],
-    [
-      prepared,
-      recoveryId,
-      { ...resource, request: "intent_saved", extra: true },
-      binding,
-    ],
-    [prepared, recoveryId, { ...resource, purpose: "other" }, binding],
-    [prepared, recoveryId, resource, "b".repeat(64)],
-  ])
-    assert.equal(
-      prepareCoordinatorStateResourceSnapshot(before, ref, update, owner),
-      null,
-    );
-  let isResourceGetterInvoked = false;
-  const hostileResource = Object.defineProperty({}, "purpose", {
-    enumerable: true,
-    get: () => {
-      isResourceGetterInvoked = true;
-      return "create_provider";
+    get() {
+      getterCalls++;
+      return "submission";
     },
   });
   assert.equal(
@@ -4232,7 +3978,23 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
     null,
   );
-  assert.equal(isResourceGetterInvoked, false);
+  const hostileCleanup = Object.defineProperty({}, "observations", {
+    enumerable: true,
+    get() {
+      getterCalls++;
+      return [];
+    },
+  });
+  assert.equal(
+    prepareCoordinatorStateCleanupSnapshot(
+      receiptCandidate,
+      recoveryId,
+      hostileCleanup,
+      binding,
+    ),
+    null,
+  );
+  assert.equal(getterCalls, 0);
   const secondIdentityJson = `${JSON.stringify({
     ...identity,
     operationNonce: "0".repeat(64),
@@ -4374,13 +4136,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     ),
     null,
   );
-  assert.ok(
-    initialOperation?.resources.every(
-      (resource) =>
-        resource.request === "not_requested" &&
-        resource.observation === "unobserved",
-    ),
-  );
+  assert.equal(initialOperation.resources, null);
   assert.equal(
     prepareCoordinatorStateOperationSnapshot(prepared, identityJson, binding),
     null,
@@ -4467,8 +4223,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     identityJson,
   );
   assert.equal(
-    accepted.snapshot.operations.find((item) => item.kind === "docker_task")
-      ?.resources[2]?.dockerId,
+    accepted.snapshot.operations
+      .find((item) => item.kind === "docker_task")
+      ?.resources?.snapshot.resources.find((r) => r.key === "create_provider")
+      ?.identity.dockerId,
     "d".repeat(64),
   );
   for (const replacement of [
@@ -4480,7 +4238,17 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ...operation,
       identityJson: `${encodeRuntimeStateValue(identity)}\n`,
     },
-    { ...operation, resources: [...operation.resources].reverse() },
+    {
+      ...operation,
+      resources: {
+        ...operation.resources,
+        snapshot: {
+          resources: operation.resources.snapshot.resources.map((r, i) =>
+            i === 0 ? { ...r, key: "create_provider" } : r,
+          ),
+        },
+      },
+    },
     {
       ...operation,
       host: {
@@ -4544,11 +4312,19 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       operations: [
         {
           ...operation,
-          resources: operation.resources.map((resource) =>
-            resource.purpose === "create_provider"
-              ? { ...resource, dockerId: "e".repeat(64) }
-              : resource,
-          ),
+          resources: {
+            ...operation.resources,
+            snapshot: {
+              resources: operation.resources.snapshot.resources.map((r) =>
+                r.key === "create_provider"
+                  ? {
+                      ...r,
+                      identity: { ...r.identity, dockerId: "e".repeat(64) },
+                    }
+                  : r,
+              ),
+            },
+          },
         },
       ],
     },
@@ -4557,16 +4333,20 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       operations: [
         {
           ...operation,
-          resources: operation.resources.map((resource) =>
-            resource.purpose === "create_provider"
-              ? {
-                  ...resource,
-                  request: "unknown",
-                  dockerId: null,
-                  receiptSource: null,
-                }
-              : resource,
-          ),
+          resources: {
+            ...operation.resources,
+            snapshot: {
+              resources: operation.resources.snapshot.resources.map((r) =>
+                r.key === "create_provider"
+                  ? {
+                      ...r,
+                      request: "unknown",
+                      identity: { ...r.identity, dockerId: null },
+                    }
+                  : r,
+              ),
+            },
+          },
         },
       ],
     },

@@ -34,6 +34,8 @@ import type {
 } from "../../../domain-model/src/index.ts";
 
 const fixedImage =
+  "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
+const fixedImageId =
   "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
 const endpoint = "npipe:////./pipe/dockerDesktopLinuxEngine";
 
@@ -119,15 +121,40 @@ export function captureAuthCreateCleanupTree(root: string) {
  * @cleanup N/A: 値の観測のみ。
  * @boundary 実Readerの検証済みSnapshotと試験相関。
  */
+export function assertRecordedAuthReceipt(
+  operation: CoordinatorStateTaskOperation,
+  dockerId: string,
+) {
+  assert.ok(operation.resources);
+  const resource = operation.resources.snapshot.resources.find(
+    (r) => r.key === "create_subscription_auth_probe",
+  );
+  assert.ok(resource);
+  assert.equal(resource.identity.dockerId, dockerId);
+  assert.equal(resource.request, "issued");
+  assert.deepEqual(
+    operation.resources.checkpoints.find((c) => c.key === resource.key),
+    {
+      key: resource.key,
+      submission: "intent_saved",
+      receiptSource: "runtime_reconciliation",
+      observation: "present",
+      absenceEvidenceSha256: null,
+    },
+  );
+}
+
+/** 元Snapshotと発行前記録が相関する一つの操作だけを選ぶ。 @trace ERB-IT-014 */
 export function selectAuthCreateTarget(snapshot: CoordinatorStateSnapshot) {
   const candidates = snapshot.operations.filter(
     (value): value is CoordinatorStateTaskOperation =>
       value.kind === "docker_task" &&
-      value.resources.some(
+      (value.resources?.checkpoints.some(
         (resource) =>
-          resource.purpose === "create_subscription_auth_probe" &&
-          ["intent_saved", "unknown"].includes(resource.request),
-      ),
+          resource.key === "create_subscription_auth_probe" &&
+          resource.submission === "intent_saved",
+      ) ??
+        false),
   );
   assert.equal(candidates.length, 1);
   const operation = candidates[0];
@@ -136,7 +163,12 @@ export function selectAuthCreateTarget(snapshot: CoordinatorStateSnapshot) {
   assert.equal(operation.execution.externalSend, "not_issued");
   assert.equal(operation.execution.sharedWrite, "not_issued");
   const identity = JSON.parse(operation.identityJson);
-  assert.equal(identity.images.provider, fixedImage);
+  assert.equal(
+    operation.resources?.snapshot.resources.find(
+      (r) => r.key === "create_subscription_auth_probe",
+    )?.configuration.image,
+    fixedImage,
+  );
   assert.equal(identity.workspaceMountMode, null);
   return operation;
 }
@@ -170,7 +202,11 @@ export function verifyAuthCreateProducer(
   assert.equal(packet.hostStarts, 1);
   assert.equal(packet.receiptRegistered, false);
   assert.equal(packet.providerStarted, false);
-  assert.equal(packet.containerName, identity.resources.auth);
+  const resource = operation.resources?.snapshot.resources.find(
+    (r) => r.key === "create_subscription_auth_probe",
+  );
+  assert.ok(resource);
+  assert.equal(packet.containerName, resource.identity.name);
   assert.equal(packet.ownershipLabel, identity.ownershipLabel);
   assert.equal(packet.image, fixedImage);
   assert.match(packet.dockerId, /^[a-f0-9]{64}$/u);
@@ -186,25 +222,26 @@ export function verifyAuthCreateProducer(
     createHash("sha256").update(stateBytes).digest("hex"),
   );
   assert.deepEqual(
-    operation.resources.find(
-      (value) => value.purpose === "create_subscription_auth_probe",
+    operation.resources?.checkpoints.find(
+      (value) => value.key === "create_subscription_auth_probe",
     ),
     {
-      purpose: "create_subscription_auth_probe",
-      request: "unknown",
-      dockerId: null,
+      key: "create_subscription_auth_probe",
+      submission: "intent_saved",
       receiptSource: null,
       observation: "unobserved",
-      absence: null,
+      absenceEvidenceSha256: null,
     },
   );
   assert.ok(
-    operation.resources.every(
+    operation.resources?.checkpoints.every(
       (value) =>
-        value.purpose === "create_subscription_auth_probe" ||
-        value.request === "not_requested",
+        value.key === "create_subscription_auth_probe" ||
+        value.submission === "none",
     ),
   );
+  assert.equal(resource.request, "not_issued");
+  assert.equal(resource.identity.dockerId, null);
   return packet.dockerId as string;
 }
 
@@ -382,9 +419,6 @@ async function executeApprovedAuthCreateClosure() {
   process.on("SIGINT", cancel);
   const recoveryOperations = await import(
     "../../../docker-isolation/src/cleanup/execute.ts"
-  );
-  const recoveryPlan = await import(
-    "../../../docker-isolation/src/cleanup/validation.ts"
   );
   const store = await import("../../../domain-model/src/index.ts");
   let recoveryMock: { restore(): void } | null = null;
@@ -593,7 +627,7 @@ async function executeApprovedAuthCreateClosure() {
         "--format",
         "{{.Id}}",
       ]).trim(),
-      fixedImage,
+      fixedImageId,
     );
     const before = baseline();
     stage = "producer";
@@ -723,19 +757,7 @@ async function executeApprovedAuthCreateClosure() {
           }
           assert.equal(absentAuth, false);
           assert.equal(discovered, true);
-          assert.deepEqual(
-            currentTarget().resources.find(
-              (item) => item.purpose === "create_subscription_auth_probe",
-            ),
-            {
-              purpose: "create_subscription_auth_probe",
-              request: "identified",
-              dockerId,
-              receiptSource: "runtime_reconciliation",
-              observation: "present",
-              absence: null,
-            },
-          );
+          assertRecordedAuthReceipt(currentTarget(), dockerId);
           rmRequests++;
           assert.equal(rmRequests, 1);
           const result = Reflect.apply(originalSpawnSync, cp, args);
@@ -812,8 +834,10 @@ async function executeApprovedAuthCreateClosure() {
                   >[0],
                 ) => {
                   assert.equal(
-                    expectation.key,
-                    "create_subscription_auth_probe",
+                    expectation.expectedName,
+                    target.resources?.snapshot.resources.find(
+                      (r) => r.key === "create_subscription_auth_probe",
+                    )?.identity.name,
                   );
                   const found = created.executor.discoverSubmitted(expectation);
                   assert.equal(found, absentAuth ? null : dockerId);
@@ -827,7 +851,12 @@ async function executeApprovedAuthCreateClosure() {
                 ) => {
                   assert.equal(absentAuth, true);
                   assert.equal(args[0], "container");
-                  assert.equal(args[1], identity.resources.auth);
+                  assert.equal(
+                    args[1],
+                    target.resources?.snapshot.resources.find(
+                      (r) => r.key === "create_subscription_auth_probe",
+                    )?.identity.name,
+                  );
                   assert.equal(args[2], identity.ownershipLabel);
                   assert.equal(args.length, 3);
                   const observed = created.executor.observeAbsent(...args);
@@ -843,20 +872,7 @@ async function executeApprovedAuthCreateClosure() {
                   assert.equal(discovered, true);
                   assert.equal(args[0].key, "create_subscription_auth_probe");
                   assert.equal(args[0].dockerId, dockerId);
-                  assert.deepEqual(
-                    currentTarget().resources.find(
-                      (item) =>
-                        item.purpose === "create_subscription_auth_probe",
-                    ),
-                    {
-                      purpose: "create_subscription_auth_probe",
-                      request: "identified",
-                      dockerId,
-                      receiptSource: "runtime_reconciliation",
-                      observation: "present",
-                      absence: null,
-                    },
-                  );
+                  assertRecordedAuthReceipt(currentTarget(), dockerId);
                   recoverObservedCalls++;
                   assert.equal(recoverObservedCalls, 1);
                   return created.executor.recoverObserved(...args);
@@ -887,15 +903,22 @@ async function executeApprovedAuthCreateClosure() {
               assert.equal(result.status, "completed");
               assert.equal(result.snapshotConfirmed, true);
               assert.equal(result.lockReleased, true);
-              const auth = currentTarget().resources.find(
-                (value) => value.purpose === "create_subscription_auth_probe",
+              const closed = currentTarget();
+              assert.ok(closed.resources);
+              const auth = closed.resources.checkpoints.find(
+                (c) => c.key === "create_subscription_auth_probe",
               );
               assert.ok(auth);
-              assert.equal(auth.request, "unknown");
-              assert.equal(auth.dockerId, null);
+              assert.equal(auth.submission, "intent_saved");
               assert.equal(auth.receiptSource, null);
               assert.equal(auth.observation, "absent");
-              assert.equal(auth.absence?.dockerId, null);
+              assert.ok(auth.absenceEvidenceSha256);
+              assert.equal(
+                closed.resources.snapshot.resources.find(
+                  (r) => r.key === auth.key,
+                )?.identity.dockerId,
+                null,
+              );
               closureSaves++;
               assert.equal(closureSaves, 1);
               return result;
@@ -913,12 +936,12 @@ async function executeApprovedAuthCreateClosure() {
       new URL("../../src/execution/recovery.ts", import.meta.url).href,
       { namedExports: { ...lifecycle } },
     );
-    const { expectedRecoveryResources } = await import(
+    const { readRecoveryResourceSnapshots } = await import(
       "./recovery-resource-expectations.ts"
     );
-    const expectation = expectedRecoveryResources(target).find(
-      (value) => value.purpose === "create_subscription_auth_probe",
-    )?.expectations[0];
+    const expectation = readRecoveryResourceSnapshots(target).find(
+      (value) => value.key === "create_subscription_auth_probe",
+    );
     assert.ok(expectation);
     const authExpectation = expectation;
     /**
@@ -935,12 +958,15 @@ async function executeApprovedAuthCreateClosure() {
     function positiveControl() {
       const values = JSON.parse(readDocker(["container", "inspect", dockerId]));
       assert.equal(values.length, 1);
-      assert.equal(
-        recoveryPlan.dockerResourceConfigurationMatches(values[0], {
-          ...authExpectation,
+      assert.deepEqual(
+        [values[0].Id, values[0].Name, values[0].Config?.Labels],
+        [
           dockerId,
-        }),
-        true,
+          "/" + authExpectation.identity.name,
+          Object.fromEntries([
+            authExpectation.identity.ownershipLabel.split("="),
+          ]),
+        ],
       );
       assert.equal(values[0].State.Status, "created");
     }
@@ -993,15 +1019,16 @@ async function executeApprovedAuthCreateClosure() {
     assert.deepEqual(baseline(dockerId, true), before);
     if (absentAuth) {
       stage = "prepare_absence";
-      const currentAuth = currentTarget().resources.find(
-        (value) => value.purpose === "create_subscription_auth_probe",
+      const currentAuth = currentTarget().resources?.checkpoints.find(
+        (value) => value.key === "create_subscription_auth_probe",
       );
       assert.deepEqual(
         currentAuth,
-        target.resources.find(
-          (value) => value.purpose === "create_subscription_auth_probe",
+        target.resources?.checkpoints.find(
+          (value) => value.key === "create_subscription_auth_probe",
         ),
       );
+
       positiveControl();
       assert.deepEqual(baseline(dockerId), before);
       const stateBefore = fs.lstatSync(statePath, { bigint: true });
@@ -1025,7 +1052,7 @@ async function executeApprovedAuthCreateClosure() {
       for (const filters of [
         [`id=${dockerId}`],
         [
-          `name=^/${identity.resources.auth}$`,
+          `name=^/${target.resources?.snapshot.resources.find((r) => r.key === "create_subscription_auth_probe")?.identity.name}$`,
           `label=${identity.ownershipLabel}`,
         ],
       ])
@@ -1080,9 +1107,11 @@ async function executeApprovedAuthCreateClosure() {
       if (sample) await delay(250);
       for (const filters of [
         [`id=${dockerId}`],
-        [`name=^/${identity.resources.auth}$`],
         [
-          `name=^/${identity.resources.auth}$`,
+          `name=^/${target.resources?.snapshot.resources.find((r) => r.key === "create_subscription_auth_probe")?.identity.name}$`,
+        ],
+        [
+          `name=^/${target.resources?.snapshot.resources.find((r) => r.key === "create_subscription_auth_probe")?.identity.name}$`,
           `label=${identity.ownershipLabel}`,
         ],
       ])

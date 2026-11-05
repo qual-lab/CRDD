@@ -12,9 +12,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { createStartResult } from "../../src/attempt/result.ts";
+import { createStartResult } from "../../src/lifecycle/attempt.ts";
 import type { StartResult } from "../../src/index.ts";
-import { createLifecycleOperations } from "../../src/lifecycle/operations.ts";
+import { createLifecycleControl } from "../../src/lifecycle/execute.ts";
 
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。
@@ -133,7 +133,7 @@ test("開始成功と拒否は同じFactoryから生成し元のControlとPromis
  */
 test("公開開始は解決済み計画を渡し同じ終了結果を通知する", async () => {
   const source = readFileSync(
-    new URL("../../src/attempt/operations.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   for (const mode of ["blocked", "started"]) {
@@ -169,7 +169,7 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
           Object.getOwnPropertyDescriptor(value, key)?.value,
         createStartResult,
         utilTypes: { isPromise: () => false },
-        createLifecycleOperations,
+        createLifecycleControl,
         createDockerIsolationRuntime: () => ({ acquireHomeLease: () => null }),
         prepareIsolation: () => null,
         executeIsolation: () => {
@@ -270,7 +270,7 @@ test("開始拒否は清掃と元回復参照と下位義務を独立に保持�
  */
 test("終端結果は技術清掃と上位保存の全64組合せを区別し、上位判断を所有しない", () => {
   const source = readFileSync(
-    new URL("../../src/attempt/result.ts", import.meta.url),
+    new URL("../../src/lifecycle/attempt.ts", import.meta.url),
     "utf8",
   );
   const project = runInNewContext(

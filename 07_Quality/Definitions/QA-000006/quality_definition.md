@@ -102,9 +102,9 @@ DI共通回収を通常Sessionと単独再入場の双方から利用し、全Re
 
 無指定の共通型は三用途Unionとして確認し、kindで絞ったExecutorと要求・StartResult・CompletionResultの相関を型正例へ接続する。未絞込みの任意入力開始、Attempt取消の入力省略、認証取消への余分な入力、認証要求のAttempt overload利用、RecordProjection<"isolation_probe">は型負例で拒否する。Projection既定Unionへの認証投影代入、共通StartInput／Callbacks／取消タプルの用途別値の受渡しも確認する。Rootから撤去した三つの環境型は公開再export集合に残らず、mode別要求から元入力へ、関数から元結果へ型が接続できることを確認する。ReturnType由来の公開別名は追加しない。
 
-事前取消は認証／Probeの公開startで拒否し、実行・清掃要求零、取消理由と重複開始理由の区別、再開始不可を確認する。外部Signalの登録前・登録境界・登録後取消、Handler前後の登録、一回配送とReject捕捉、外部取消後の明示duplicate、finish後のlistener零・追加配送零を標準AbortControllerで観測する。Probeの初回読取り故障は開始拒否、Bindingの第一／第二mkdir・環境構築失敗は共通Runnerのblocked結果と上位Host清掃へ接続し、Container／Processの未発行とHost領域の清掃を混同しない。結果構築throw時の共通終端も確認する。
+事前取消は認証／Probeの公開startで拒否し、実行・清掃要求零、取消理由と重複開始理由の区別、再開始不可を確認する。外部Signalの登録前・登録境界・登録後取消、Handler前後の登録、一回配送とReject捕捉、外部取消後の明示duplicate、finish後のlistener零・追加配送零を標準AbortControllerで観測する。Probeの初回読取り故障は開始拒否、Bindingの第一／第二mkdir・環境構築失敗は用途別のlifecycle処理のblocked結果と上位Host清掃へ接続し、Container／Processの未発行とHost領域の清掃を混同しない。結果構築throw時の共通終端も確認する。
 
-共通実行制御はlifecycle/operations.tsを正本とし、三用途に独立した開始済み・取消済み・終端BooleanやAbortControllerが残らないことを照合する。事前取消、重複開始／取消、終了後取消、遅延接続の取消配送一回、配送Reject後の再配送零、Cleanup保留中の取消と結果固定後の受動通知再入を確認する。Attemptの不正Control／managementでは共通取消を消費しない。Process終了不明で追加Effectを止め、cleanup不要／不能を成功へ補完しない。公開Requestのkind欠測・未知・accessor・用途矛盾は準備前に拒否し、既存の型・各Consumerの実値へ接続する。
+共通実行制御はlifecycle/execute.tsの短命Controlを正本とし、三用途に独立した開始済み・取消済み・終端BooleanやAbortControllerが残らないことを照合する。事前取消、重複開始／取消、終了後取消、遅延接続の取消配送一回、配送Reject後の再配送零、Cleanup保留中の取消と結果固定後の受動通知再入を確認する。Attemptの不正Control／managementでは共通取消を消費しない。Process終了不明で追加Effectを止め、cleanup不要／不能を成功へ補完しない。公開Requestのkind欠測・未知・accessor・用途矛盾は準備前に拒否し、既存の型・各Consumerの実値へ接続する。
 
 公開IF統合では、Executor<K>・StartInput<K>・StartResult<K>・CompletionResult<K>・CancelArguments<K>／CancelResult・ExecutorCallbacks<K>を各用途から検証する。Kの混同、Attempt管理参照なしの取消、認証へのAttempt専用abandon、Probeへの非該当通知登録を型負例で拒否する。結果kind・共通statusと既存認証三値／Probe実体観測の対応、重複開始拒否時の追加Effect零、元Control不一致、同期通知の誤Promise、受動通知のthrow／Rejectで確定結果が変わらないことを維持する。用途別の結果・通知・Executorの旧Root名は撤去し、新しい形を利用側・検証scripts・exact field検査へ接続する。保存DTOの形式変更や過去結果の移行を同時に実装しない。
 
@@ -150,7 +150,8 @@ Task／Adviceの応答内容正規化はAI Adapterが一実体で所有する。
 |---|---|---|
 | CoordinatorなしのRootロード、必要な公開集合、不正開始、無効Control、import副作用 | executor/tests/integration/public-boundary.contract.test.ts | 上位依存解決なし、Effect呼出し0、私有Map・内部Key・形式タグ定数の非公開 |
 | 上位準備の元object・管理参照・一回消費、二時計の期限・逆行・観測不能、失効失敗 | coordinator/tests/unit/execution/attempt-preparation.contract.test.ts | 上位が両ProviderのMapを所有。回収不明を消費成功にしない |
-| Codex／Claude、候補／本番Factory配線、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 用途順序、取消後join、単一清掃、元回復参照、固定callback、終端搬送、試験排他解放と新品Root処置 |
+| Codex／Claudeの局所候補Oracle、正常／wait中取消／清掃不明／同期通知例外 | executor/scripts/verify-provider-attempt.ts（上記公開境界試験から実行） | 候補内の順序・join・一回性・相関と試験領域処置。本番Factory・Home・DI実行の証明には使わない |
+| 製品公開Factory、両Providerの内容・取消と記録 | executor/tests/integration/provider-attempt-host.contract.test.ts、provider-real-cli.contract.test.ts | 公開createExecutor→共通DIの有限CLI接続、必須通知、Home生存・解放、Receipt・回収・元Completion、親IPCを確認 |
 | 固定構成の非秘密診断投影 | executor/tests/unit/observation.contract.test.ts | 元操作・Providerの相関を保ち、Command・Home Pathを公開しない |
 | 任意診断の同期例外・Promise拒否、必須通知待機と取消 | executor/tests/unit/notifications.contract.test.ts | 受動通知の故障を実行結果へ伝播させず、必須通知の拒否でも実清掃を一回行い元回復参照を保持する |
 | 開始基本条件と固定Commandの完全照合 | executor/tests/unit/plan.contract.test.ts | 基本検査の成立を完全計画の検証と混同しない |
@@ -931,7 +932,7 @@ ExecutorのDomain非依存化では、既存ERB-IT-002／004とPRL-IT-012の範�
 
 - ERB-UT-023では旧Session変換を使わず、本番Attempt開始と有限DIの元Completionを接続する。五資源・九操作・一次失敗段階・Receipt未到達時の作成実ID・同じ回復IDを確認する。
 - Process終了不明、回収不明、config終了不明、部分Snapshot、回収観測欠測ではHomeを解放しない。純粋準備拒否は要求0、実行要求時の例外は要求1・再試行0・Snapshot不明・元回復ID保持として区別する。
-- Authenticationも共通Runnerの結果構築・終端・受動通知へ接続し、任意通知のthrow／rejectで技術結果を変更しない。Probeの空CleanupとAttemptの技術再回収を置かない。
+- Authenticationも用途別のlifecycle処理の結果構築・終端・受動通知へ接続し、任意通知のthrow／rejectで技術結果を変更しない。Probeの空CleanupとAttemptの技術再回収を置かない。
 - 旧Session型と有限結果の変換は試験用Oracleに限定し、実DI・実AIの成立Evidenceと区別する。既存Control CapabilityとHome排他、上位通知順・保存契約は維持する。
 
 ### Executor通知専用化・構造整理の追加反証
@@ -976,7 +977,7 @@ Attempt診断・回収移管では、基準版の現在資源回収・Owner再�
 
 共通資源APIではAttempt同期return・既存通知順・発見保存前の削除0を維持する。Directoryの元input・Signal・Query・Promise・結果の同一性、未知／欠測kindのDI要求0を検証する。Directoryの三値要求と現在不存在、保持照合集合の用途内nullと全体失敗nullを混同しない。既存修復Machine・Native join・二読取り・Scope差・保存失敗・取消・再入場・部分処置を下位とCoordinatorの対象回帰で確認し、共通名への変更だけで実境界完成を主張しない。Recovery管理簡素化・期限自動廃棄・実AI・Docker操作・過去保持物操作は対象外。
 
-認証技術の移管は、Executor単独の両Provider×status/login、通知の同期throw／誤Promise、作成Receipt未確認、Process終了不明のsticky拒否を確認する。Coordinatorは既存の保存・再入場・Home Lock・exact参照の反例を新実行本文へ接続し、旧Portの試験互換はtests内だけに置く。DIは元Plan所属、Home／Workspace／Network、実ID構成・明示不存在、共通Process終端を維持する。技術成功・保存成功・Home解放・認証三値を独立して確認し、実AI／Docker成立を非AI試験から主張しない。
+認証技術の移管は、Executor単独の両Provider×status/login、通知の同期throw／誤Promise、作成Receipt未確認、Process終了不明のsticky拒否を確認する。Coordinatorは既存の保存・再入場・Home Lock・exact参照の反例を新実行本文へ接続し、旧認証・Recovery Adapterは撤去し、実Executor→共通DIと有限CLI・Process代役へ接続する。DIは元Plan所属、Home／Workspace／Network、実ID構成・明示不存在、共通Process終端を維持する。技術成功・保存成功・Home解放・認証三値を独立して確認し、実AI／Docker成立を非AI試験から主張しない。
 
 固定合成Probeの移管では、既存createExecutor入口からの作成前Intent・実ID保存、通知throw／誤Promise、作成不明、構成不一致、取消、attach終了不明、回収不明、await後のMount差を非AIで確認する。DIの非同期attachは期限・出力超過の元分類、重複取消、例外後join、Listener／Timer解除を確認する。Coordinatorの私有相関はHost ID・Probe ID・Container ID・Root名と同じExecutorの技術結果へ結合し、一回消費と別対象への転用拒否を維持する。技術回収だけでHost清掃・最終Fake判定を省略しない。故障注入・意図的残存は検証入口だけに限定し、実Docker・実AIの成立はこの有限試験から主張しない。
 
@@ -984,7 +985,7 @@ Attempt診断・回収移管では、基準版の現在資源回収・Owner再�
 
 | 検証対象 | 必須の反証・観測 |
 |---|---|
-| 構築Owner | Executorの実宣言で回復期待値・認証Receiptを検査し、Proxy・accessor・余剰field・順序・名前・ID差を拒否する |
+| 構築Owner | Executorの実宣言で開始前構成・認証Receiptを検査し、Proxy・accessor・余剰field・順序・名前・ID差を拒否する |
 | 固定Catalog | 引数なしの非秘密metadataが既存Image・Engine・profileを保ち、稼働保証や任意Image許可にならない |
 | 技術分類 | DI内部とExecutorが同一の例外分類表を使用し、不明を成功・不存在へ変換しない |
 | 保存判断 | Domainの終端判定とDI内部の技術判定を既存の正常・不明・故障fixtureで照合する |
@@ -1005,10 +1006,51 @@ Attempt診断・回収移管では、基準版の現在資源回収・Owner再�
 | 検証対象 | 観測とOracle |
 |---|---|
 | 不透明keyと安全な新用途Label | 既存用途一覧の変更なしで共通実行・回収が完了し、代役の資源集合が空になる |
-| ID欠測の期待構成 | ID・Name・Labelキー／値・Image・User・Network・Mount・保護fieldの単独不一致を拒否する |
-| 探索候補の相関 | 別keyの期待値結合を入力検査で拒否する |
+| ID欠測の対象識別 | 元Intent、exact名／名＋Labelの同一一意実ID、fresh Identity照合、必須発見通知、同ID限定削除と不存在を確認。構成差だけでは拒否しない |
+| 発見・通知の相関 | 複数候補・照会間のID差・通知後の名前／Label差替え・通知欠測／Rejectは削除0。旧discovery fieldは入力拒否 |
 | 固定Image Catalog | 全既存Imageの許可条件を受理し、未知Image・別User・Entrypoint・外部接続を拒否する |
-| Executor投影 | 既存五資源・候補順・source未指定とTmpfs非比較の意味を維持し、新Schemaや互換Readerを作らない |
+| Executor投影と保存移管 | 元Snapshot搬送と既存通知・Home排他を維持。新Schemaの本番保存・同じSnapshotの再入場を検証し、旧形式互換Readerは作らない |
+
+### Executorの元Snapshot搬送（2026-11-05・非AI確認）
+
+単独観測・回収のSnapshot入力はDI正本を使う。有限DI代役により、入力・読取りオプション・通知・Session・Completion結果の参照同一性を確認する。取消要求をProcess終了確認へ昇格せず、DIの失敗とCleanup未確認をそのまま返す。入口の不正kind accessor、Proxy、原始値はhook実行・DI呼出し前に拒否する。回収の作成／削除算法や新しい保存状態はExecutorへ追加しない。
+
+初回時点の確認はSnapshot直送の配線に限定した。その後の新保存接続ではDomain資源記録、必須通知、保存読戻し、同じSnapshotによる再入場を別の試験で評価した。現在の旧Adapter撤去・回帰結果と未実施の実境界は次節及びCHG-000082の継続記録で区別する。実AI・実Docker試験と保持物の操作は含めない。Coordinatorの個別回帰にも通常入口と同じHost除外条件を明示する。
+
+### 旧Adapter試験の置換対応（2026-11-05）
+
+旧試験の実装名ではなく保証ごとに置換先を対応付ける。用途別Command実行・旧Session結果を試験内で再現する入口は撤去対象とし、実Executor→共通DI Lifecycleと既存の有限CLI／Process代役を通す。
+
+| 維持する保証 | 現在の試験接続 |
+| --- | --- |
+| 認証の両Provider・Login／Status・Intent→Receipt→完了 | executor/tests/unit/authentication.contract.test.tsの四構成。元Snapshotと実DI回収まで確認 |
+| 開始前取消・外部事前中断・二重開始／終端後拒否 | 同認証試験とlifecycle.contract.test.tsの共通Control試験 |
+| 明示取消・Process終了未確認・Cleanup停止 | 同認証試験の終了確認二形。要求受付を最終確認へ昇格しない |
+| 必須通知throw／Reject／非void、Receipt保存拒否 | 同認証試験。Effect前停止、元実ID保持、一次理由保持 |
+| 単独回収・発見IDの保存前削除禁止・通知拒否 | executor/tests/unit/attempt/recovery.contract.test.ts。実DIのSnapshot Cleanupへ直接接続 |
+| 単独回収の取消・config終了不明・終了観測通知失敗 | 同回収試験。物理回収と通知成立を別fieldとして確認 |
+| Identity v3閉集合・元Snapshotの資源名相関 | Domain resource-book.contract.test.tsとCoordinator host-resource-identity.contract.test.ts |
+| Host不存在観測のOwner・Lease・資源集合・再起動条件 | Coordinator storage/host-observation.contract.test.ts。新Bookへ追従 |
+| Taskと修復の同居・双方向更新で非対象全文を保持 | Domain attempt/repair-model.contract.test.ts。新Identity／Snapshotイベントへ追従 |
+
+旧認証・Recovery試験Adapterの二ファイルは撤去し、全Source参照は0件。DomainとCoordinatorの全試験型検査、Coordinator製品strict型検査は成功した。部分回収後の別Owner再入場は既ID追加削除0・証拠Hash保持、最終Completion前のHome Owner喪失は最終記録0・settle0を確認する。同種資源名重複と再起動後の新規Intent禁止は新Book検査で維持する。
+
+Native親の認証unknown反例はsnapshot-recovery-owner.tsへ移し、実Writer・共通DI・有限CLIを接続する。二段不存在、保存前削除禁止、専用閉鎖Writer、内側／外側終了と保存順序の14シナリオをSourceへ維持した。実Host Gateは未実行であり、Source移管を実境界の成功へ換算しない。手動親の有限11件はSnapshotのIntent／ReceiptとImage参照／実IDを分離して確認する。実AI・実Docker・過去保持物の操作は行わない。最新の実施結果・未実施範囲はCHG-000082の継続記録を正本とする。
+
+
+### 五系統の追従漏れの追加反証（2026-11-05）
+
+| 対象 | 確認する条件と試験 |
+| --- | --- |
+| 入力の非評価拒否 | lifecycle.contract.test.tsで欠測target、外側／内側accessor・Proxy、保護対象差を与え、getter及び乱数呼出し0を確認 |
+| 実AI用Toolの製品接続 | provider-attempt-host／provider-real-cli.contract.test.tsで公開Executor→共通DIを通し、両ProviderのEnvelope、編集・レビュー・取消、元記録・子IPC・限定清掃を確認。旧Session代役は経由しない |
+| 最後の診断中の取消 | attempt-common.contract.test.ts及びprovider-attempt-host.contract.test.tsで終端診断内の取消を受理し、最終cancelled・内容／Hash／所見非公開を確認。先行blocked理由・元回復ID・回収事実は保持。onCompletedの取消は拒否 |
+| Homeの生涯 | 製品取得後のNative再観測、Provider送信前通知中の喪失、assertLive例外、解放拒否を分け、後続Effect0・元回復参照・回収と解放未確認の保持を確認 |
+| Operation Identity v3と資源Bookの正例 | Task結果fixtureはOperation Identity v3とDomainのsubmission→receipt→cleanupイベントを経由。Operation Identity v2を正例として再受理しない |
+| 子本文の資源Oracle | current-host-transition.integration.test.tsのVM局所試験で完全五key、auth unknown／他資源未要求、元断面の全文保持、実ID・Receipt由来を確認。合法な値の変異と比較省略を負対照にする |
+| 管理情報 | Executor公開境界試験でExecutor／DIの全Symbolの現存Sourceと識別子重複を検査。実AI用Toolの旧試験Runtime参照も拒否 |
+
+実Host／Native Gateを実行しない本文局所試験と、実Filesystemを用いるTask保存・再入場の代表結合試験は別の根拠とする。回帰での初回不合格・中断を成功へ換算せず、是正後の固定候補の結果をCHG-000082へ記録する。
 
 ## Checklist
 

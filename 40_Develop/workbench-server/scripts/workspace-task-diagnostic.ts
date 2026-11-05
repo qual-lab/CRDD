@@ -11,7 +11,7 @@ import {
   inspectTaskStageDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
 } from "../../coordinator/scripts/task-diagnostic.ts";
-import { isPrimaryFailureDiagnostic } from "../../executor/scripts/executor-test.ts";
+import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-attempt-host.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
 
 type Event = Extract<

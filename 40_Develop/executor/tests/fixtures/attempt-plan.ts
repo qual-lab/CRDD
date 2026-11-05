@@ -7,7 +7,7 @@
  * @boundary Executor局所試験。
  */
 import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
-import { PURPOSES } from "../../src/attempt/constants.ts";
+import { PURPOSES } from "../../src/lifecycle/attempt.ts";
 import { planExecution } from "../../../ai-adapter/src/index.ts";
 
 /**
@@ -87,5 +87,25 @@ export function attemptPlan(): AttemptPlan {
       verifyLabelAbsence: false,
     },
     commands: PURPOSES.map((purpose) => ({ purpose, argv: [purpose] })),
+  };
+}
+/** 製品Requestが受け取る所在・Home相関だけを合成Planから明示投影する。 @trace ERB-IT-004 */
+export function attemptTarget(
+  plan: AttemptPlan,
+  workspaceSourcePath: string,
+  temporarySourcePath: string,
+) {
+  return {
+    operationId: plan.operationId,
+    grantRef: plan.grantRef,
+    provider: plan.provider,
+    workspaceSourcePath,
+    temporarySourcePath,
+    providerHomeSourcePath: plan.providerHomeSourcePath,
+    providerHomeIdentityHash: plan.providerHomeIdentityHash,
+    providerHomeProtectionHash: plan.providerHomeProtectionHash,
+    localUserBindingHash: plan.localUserBindingHash,
+    stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
+    activeMountCapability: plan.activeMountCapability,
   };
 }

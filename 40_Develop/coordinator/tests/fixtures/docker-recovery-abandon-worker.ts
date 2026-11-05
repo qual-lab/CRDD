@@ -17,7 +17,12 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
 import { fileURLToPath } from "node:url";
-import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
+import {
+  prepareIsolation,
+  type IsolationRequest,
+} from "../../../docker-isolation/src/index.ts";
+import { containerCreation } from "../../../docker-isolation/src/execution/preparation.ts";
+import { DIAGNOSTIC_IMAGE } from "../../../docker-isolation/src/image/assets.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   type CoordinatorStateOperation,
@@ -62,7 +67,8 @@ if (mode === "auth_create_unknown") {
   assert.equal(fs.realpathSync(expectedRoot), expectedRoot);
   assert.equal(fs.lstatSync(expectedRoot).isSymbolicLink(), false);
 }
-const authCreateImage =
+const authCreateImage = DIAGNOSTIC_IMAGE;
+const authCreateImageId =
   "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
 if (mode === "auth_create_failure") {
   assert.equal(process.platform, "win32");
@@ -130,7 +136,6 @@ if (mode !== "recovery") {
     ...domain,
     ...(await import("../../src/execution/persistence.ts")),
   };
-  const model = await import("../../../domain-model/src/index.ts");
   const homes = await import("../../src/execution/authority.ts");
   const locks = await import("../../src/execution/kernel-lock.ts");
   const area = domain.requireReadyRepositoryRuntimeDataArea(
@@ -452,9 +457,7 @@ if (mode !== "recovery") {
         capability = begun.recoveryCapability;
         if (authCreateMode) {
           authRecoveryId = begun.recoveryId;
-          const recoveryOperations = await import(
-            "../../../docker-isolation/src/cleanup/validation.ts"
-          );
+
           assert.equal(startWrites, 1);
           assert.equal(hostStarts, 1);
           assert.deepEqual(fs.readdirSync(owned.directories.providerHome), []);
@@ -463,43 +466,65 @@ if (mode !== "recovery") {
             "auth-create-config",
           );
           fs.mkdirSync(config);
-          const commands = planDockerIsolationCommands({
-            authenticationContainerName: plan.authContainerName,
-            executionContainerName: plan.providerContainerName,
-            proxyContainerName: plan.proxyContainerName,
-            internalNetworkName: plan.internalNetworkName,
-            egressNetworkName: plan.egressNetworkName,
+          const resource: IsolationRequest["resources"][number] = {
+            kind: "container",
+            key: "create_subscription_auth_probe",
+            name: plan.authContainerName,
             ownershipLabel: plan.ownershipLabel,
-            executionImageDigest: authCreateImage,
-            proxyImageDigest: authCreateImage,
-            homeSourcePath: owned.directories.providerHome,
-            temporarySourcePath: owned.directories.tmp,
-            workspace: null,
-            authentication: { argv: ["python", "-c", "pass"], environment: {} },
-            execution: {
-              argv: ["python", "-c", "pass"],
-              environment: {},
-              interactive: false,
-              initRequired: false,
-              seccompProfile: null,
+            image: authCreateImage,
+            argv: ["python", "-c", "pass"],
+            environment: { HOME: "/provider-home" },
+            mounts: [
+              {
+                source: owned.directories.providerHome,
+                target: "/provider-home",
+                readOnly: true,
+              },
+            ],
+            network: null,
+            networkAlias: null,
+            user: "65532:65532",
+            workingDirectory: null,
+            entrypoint: null,
+            tmpfsBytes: null,
+            interactive: false,
+            tty: false,
+            init: false,
+            seccomp: null,
+          };
+          const request: IsolationRequest = {
+            managementDirectory: owned.directories.management,
+            resources: [resource],
+            steps: [
+              {
+                key: "create",
+                action: "create",
+                resource: resource.key,
+                timeoutMs: 15000,
+              },
+            ],
+            cleanupOrder: [resource.key],
+            setupTimeoutMs: 15000,
+            unreceiptedAbsence: "retain",
+            verifyLabelAbsence: true,
+          };
+          const prepared = prepareIsolation(request);
+          assert.ok(prepared);
+          const frame = {
+            snapshot: prepared.resources,
+            cleanup: {
+              cleanupOrder: request.cleanupOrder,
+              setupTimeoutMs: request.setupTimeoutMs,
+              unreceiptedAbsence: request.unreceiptedAbsence,
+              verifyLabelAbsence: request.verifyLabelAbsence,
             },
-            proxy: {
-              profile: "codex",
-              token: "0".repeat(64),
-              port: 8080,
-              extendedProxyEnvironment: false,
-            },
-          });
-          assert.ok(commands);
-          const command = commands.find(
-            (value) => value.purpose === "create_subscription_auth_probe",
-          );
-          assert.ok(command);
-          const createArgv = command.argv;
+          };
+          const createArgv = containerCreation(resource, null);
           const expected = [
             "create",
             "--pull=never",
-            "--network=none",
+            "--network",
+            "none",
             "--read-only",
             "--name",
             plan.authContainerName,
@@ -507,7 +532,7 @@ if (mode !== "recovery") {
             plan.ownershipLabel,
             "--cap-drop=ALL",
             "--security-opt=no-new-privileges",
-            "--user=65534:65534",
+            "--user=65532:65532",
             "--env",
             "HOME=/provider-home",
             "--mount",
@@ -517,12 +542,13 @@ if (mode !== "recovery") {
             "-c",
             "pass",
           ];
-          assert.deepEqual(command.argv, expected);
+          assert.deepEqual(createArgv, expected);
           assert.equal(authCheckpointResults.length, 0);
           assert.equal(
             owner.markRuntimeOwnedDockerResourceSubmission(
               begun.recoveryCapability,
               "create_subscription_auth_probe",
+              frame,
             ),
             true,
           );
@@ -546,16 +572,22 @@ if (mode !== "recovery") {
                 value.recoveryId === begun.recoveryId,
             );
           assert.ok(intentOperation);
-          const auth = intentOperation.resources.find(
-            (value) => value.purpose === "create_subscription_auth_probe",
+          assert.ok(intentOperation.resources);
+          const auth = intentOperation.resources.snapshot.resources.find(
+            (value) => value.key === resource.key,
           );
-          assert.deepEqual(auth, {
-            purpose: "create_subscription_auth_probe",
-            request: "intent_saved",
-            dockerId: null,
+          const authCheckpoint = intentOperation.resources.checkpoints.find(
+            (value) => value.key === resource.key,
+          );
+          assert.ok(auth);
+          assert.equal(auth.identity.dockerId, null);
+          assert.equal(auth.request, "not_issued");
+          assert.deepEqual(authCheckpoint, {
+            key: resource.key,
+            submission: "intent_saved",
             receiptSource: null,
             observation: "unobserved",
-            absence: null,
+            absenceEvidenceSha256: null,
           });
           authExpectedBytes = Buffer.from(
             `${encodeRuntimeStateValue(savedIntent.value.snapshot)}\n`,
@@ -630,7 +662,7 @@ if (mode !== "recovery") {
               Name: `/${plan.authContainerName}`,
               Config: {
                 Image: authCreateImage,
-                User: "65534:65534",
+                User: "65532:65532",
                 Labels: { "crdd.coordinator.runtime": suffix },
               },
               HostConfig: {
@@ -660,7 +692,7 @@ if (mode !== "recovery") {
               pid: process.pid,
               stdout:
                 stage === "image"
-                  ? `${authCreateImage}\n`
+                  ? `${authCreateImageId}\n`
                   : stage === "create"
                     ? `${fakeId}\n`
                     : JSON.stringify([inspected]),
@@ -679,8 +711,8 @@ if (mode !== "recovery") {
           assert.equal(image.signal, null);
           assert.equal(image.status, 0);
           assert.equal(image.stderr, "");
-          assert.equal(image.stdout.trim(), authCreateImage);
-          const created = runAuthDocker([...dockerPrefix, ...command.argv]);
+          assert.equal(image.stdout.trim(), authCreateImageId);
+          const created = runAuthDocker([...dockerPrefix, ...createArgv]);
           assert.equal(created.error, undefined);
           assert.equal(created.signal, null);
           assert.equal(created.status, 0);
@@ -700,45 +732,23 @@ if (mode !== "recovery") {
           assert.equal(inspected.stderr, "");
           const values = JSON.parse(inspected.stdout);
           assert.equal(values.length, 1);
-          const { expectedRecoveryResources } = await import(
-            "./recovery-resource-expectations.ts"
-          );
-          const expectation = expectedRecoveryResources(intentOperation).find(
-            (value) => value.purpose === "create_subscription_auth_probe",
-          );
-          assert.ok(expectation?.expectations[0]);
-          assert.equal(
-            recoveryOperations.dockerResourceConfigurationMatches(values[0], {
-              ...expectation.expectations[0],
-              dockerId,
-            }),
-            true,
+          assert.equal(values[0].Id, dockerId);
+          assert.equal(values[0].Name, "/" + resource.name);
+          assert.deepEqual(
+            values[0].Config.Labels,
+            Object.fromEntries([resource.ownershipLabel.split("=")]),
           );
           assert.equal(values[0].State.Status, "created");
           if (authFault === "before_unknown") {
             faultReached++;
             throw injectedFailure;
           }
-          const expectedUnknown = model.prepareCoordinatorStateResourceSnapshot(
-            authExpectedBytes,
-            begun.recoveryId,
-            { ...auth, request: "unknown" },
-            binding.repositoryBinding,
-          );
-          assert.ok(expectedUnknown);
-          const unknown = actualStore.checkpointRuntimeOwnedCoordinatorResource(
-            management,
-            begun.recoveryId,
-            { ...auth, request: "unknown" },
-          );
+          // Intentは耐久保存済み。Receiptを保存しない故障窓なので追加の推測更新は行わない。
+          const expectedUnknown = authExpectedBytes;
           if (authFault === "after_unknown") {
-            authExpectedBytes = expectedUnknown;
             faultReached++;
             throw injectedFailure;
           }
-          assert.equal(unknown.status, "completed");
-          assert.equal(unknown.snapshotConfirmed, true);
-          assert.equal(unknown.lockReleased, true);
           const savedUnknown =
             actualStore.readRuntimeOwnedCoordinatorStateSnapshot(management);
           assert.equal(savedUnknown.status, "completed");
@@ -760,13 +770,20 @@ if (mode !== "recovery") {
                 value.recoveryId === begun.recoveryId,
             );
           assert.ok(unknownOperation);
-          const unknownAuth = unknownOperation.resources.find(
-            (value) => value.purpose === "create_subscription_auth_probe",
+          assert.ok(unknownOperation.resources);
+          const unknownAuth =
+            unknownOperation.resources.snapshot.resources.find(
+              (value) => value.key === resource.key,
+            );
+          const unknownCheckpoint = unknownOperation.resources.checkpoints.find(
+            (value) => value.key === resource.key,
           );
-          assert.ok(unknownAuth);
-          assert.equal(unknownAuth.request, "unknown");
+          assert.ok(unknownAuth && unknownCheckpoint);
+          assert.equal(unknownAuth.request, "not_issued");
+          assert.equal(unknownCheckpoint.submission, "intent_saved");
           const receiptRegistered =
-            unknownAuth.dockerId !== null || unknownAuth.receiptSource !== null;
+            unknownAuth.identity.dockerId !== null ||
+            unknownCheckpoint.receiptSource !== null;
           const providerStarted =
             unknownOperation.execution.providerStart !== "not_started";
           assert.equal(receiptRegistered, false);
@@ -805,15 +822,7 @@ if (mode !== "recovery") {
                 item.recoveryId === begun.recoveryId,
             );
           assert.ok(target?.kind === "docker_task");
-          assert.equal(target.resources.length, 5);
-          assert.ok(
-            target.resources.every(
-              (item) =>
-                item.request === "not_requested" &&
-                item.dockerId === null &&
-                item.receiptSource === null,
-            ),
-          );
+          assert.equal(target.resources, null);
           assert.equal(target.execution.providerStart, "not_started");
           assert.equal(target.execution.externalSend, "not_issued");
           assert.equal(target.execution.sharedWrite, "not_issued");
@@ -972,6 +981,15 @@ if (mode !== "recovery") {
               owner.markRuntimeOwnedDockerResourceSubmission(
                 refused.recoveryCapability,
                 "create_provider",
+                {
+                  snapshot: { resources: [] },
+                  cleanup: {
+                    cleanupOrder: [],
+                    setupTimeoutMs: 15000,
+                    unreceiptedAbsence: "retain",
+                    verifyLabelAbsence: true,
+                  },
+                },
               ),
               false,
             );
@@ -1244,11 +1262,7 @@ if (mode !== "recovery") {
     (item: { recoveryId: string }) => item.recoveryId === id,
   );
   assert.ok(target);
-  assert.ok(
-    target.resources.every(
-      (resource: { request: string }) => resource.request === "not_requested",
-    ),
-  );
+  assert.equal(target.resources, null);
   const identity = JSON.parse(target.identityJson);
   const native = path.join(
     distribution,

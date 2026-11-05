@@ -40,6 +40,7 @@ export async function simulateAuthCreateClosure(
   const source = fs.readFileSync(new URL(fixtureUrl), "utf8");
   const names = [
     "captureAuthCreateCleanupTree",
+    "assertRecordedAuthReceipt",
     "selectAuthCreateTarget",
     "verifyAuthCreateProducer",
     "projectAuthCreateDefaultBridge",
@@ -57,7 +58,7 @@ export async function simulateAuthCreateClosure(
     return source.slice(start, end).replace(/^export /u, "");
   });
   let body = bodies.join("\n");
-  assert.equal((body.match(/await import\(/gu) ?? []).length, 8);
+  assert.equal((body.match(/await import\(/gu) ?? []).length, 7);
   assert.ok(
     body.includes(
       'const absentAuth = process.argv[3] === "--verify-absent-auth"',
@@ -80,12 +81,9 @@ export async function simulateAuthCreateClosure(
     body = body.replaceAll(guard, "void absenceRounds;");
   } else if (mutation === "omit_positive_configuration") {
     const guard =
-      /assert\.equal\(\s*recoveryPlan\.dockerResourceConfigurationMatches\(values\[0\], \{[\s\S]*?\}\),\s*true,\s*\);/u;
-    assert.equal([...body.matchAll(new RegExp(guard.source, "gu"))].length, 1);
-    body = body.replace(
-      guard,
-      "void recoveryPlan.dockerResourceConfigurationMatches(values[0], { ...authExpectation, dockerId });",
-    );
+      /assert\.deepEqual\(\s*\[values\[0\]\.Id,[\s\S]*?authExpectation\.identity\.ownershipLabel\.split\("="\)[\s\S]*?\);/gu;
+    assert.equal([...body.matchAll(guard)].length, 1);
+    body = body.replace(guard, "void values;");
   } else if (mutation === "wrong_lifecycle_import") {
     const original = body;
     const target = "execution/recovery.ts?auth-create-parent";
@@ -94,10 +92,10 @@ export async function simulateAuthCreateClosure(
     body = body.replace(target, "execution/recovery.ts?unregistered");
     assert.notEqual(body, original);
   } else if (mutation === "omit_identified_guards") {
-    const guards =
-      /assert\.deepEqual\(\s*currentTarget\(\)\.resources\.find\([\s\S]*?absence: null,\s*\},\s*\);/gu;
-    assert.equal([...body.matchAll(guards)].length, 2);
-    body = body.replace(guards, "void 0;");
+    const guard =
+      /assertRecordedAuthReceipt\(currentTarget\(\),\s*dockerId\);/gu;
+    assert.equal([...body.matchAll(guard)].length, 2);
+    body = body.replace(guard, "void 0;");
   } else if (mutation === "early_bridge_acceptance") {
     const guard = "assert.deepEqual(baseline(dockerId, false, true), before);";
     assert.ok(body.includes(guard));
@@ -197,6 +195,8 @@ export async function simulateAuthCreateClosure(
   const hostRoot = path.join(root, ".crdd", "tests", "owned-host");
   const marker = path.join(root, ".crdd", "tests", "owned-marker");
   const image =
+    "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
+  const imageId =
     "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
   const dockerId = "1".repeat(64),
     existingId = "2".repeat(64);
@@ -267,8 +267,6 @@ export async function simulateAuthCreateClosure(
   ])
     put(directory, true);
   const identity = {
-    images: { provider: image },
-    resources: { auth: "crdd-auth-0123456789abcdef" },
     ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
     workspaceMountMode: null,
     hostPaths: { root: hostRoot, marker },
@@ -282,17 +280,33 @@ export async function simulateAuthCreateClosure(
       externalSend: "not_issued",
       sharedWrite: "not_issued",
     },
-    resources: [
-      {
-        purpose: "create_subscription_auth_probe",
-        request: "unknown",
-        dockerId: null,
-        receiptSource: null,
-        observation: "unobserved",
-        absence: null,
+    resources: {
+      snapshot: {
+        resources: [
+          {
+            key: "create_subscription_auth_probe",
+            identity: {
+              kind: "container",
+              name: "crdd-auth-0123456789abcdef",
+              ownershipLabel: identity.ownershipLabel,
+              dockerId: null,
+            },
+            request: "not_issued",
+            configuration: { image },
+          },
+        ],
       },
-      { purpose: "create_provider", request: "not_requested" },
-    ],
+      checkpoints: [
+        {
+          key: "create_subscription_auth_probe",
+          submission: "intent_saved",
+          receiptSource: null,
+          observation: "unobserved",
+          absenceEvidenceSha256: null,
+        },
+      ],
+      cleanup: {},
+    },
     dockerRestart: null as unknown,
   };
   const other = {
@@ -504,7 +518,7 @@ export async function simulateAuthCreateClosure(
         hostStarts: 1,
         receiptRegistered: false,
         providerStarted: false,
-        containerName: identity.resources.auth,
+        containerName: "crdd-auth-0123456789abcdef",
         ownershipLabel: identity.ownershipLabel,
         image,
         dockerId,
@@ -554,9 +568,9 @@ export async function simulateAuthCreateClosure(
       if (command.includes("--filter")) {
         const alternatives = [
           [`id=${dockerId}`],
-          [`name=^/${identity.resources.auth}$`],
+          [`name=^/${"crdd-auth-0123456789abcdef"}$`],
           [
-            `name=^/${identity.resources.auth}$`,
+            `name=^/${"crdd-auth-0123456789abcdef"}$`,
             `label=${identity.ownershipLabel}`,
           ],
         ];
@@ -632,8 +646,22 @@ export async function simulateAuthCreateClosure(
         hits++;
         return { ...ok("[]"), status: 1 };
       }
+      const inspectedId =
+        fault === "positive_configuration" && restartCalls > 0
+          ? "foreign"
+          : dockerId;
+      if (inspectedId !== dockerId) hits++;
       return ok(
-        JSON.stringify([{ Id: dockerId, State: { Status: "created" } }]),
+        JSON.stringify([
+          {
+            Id: inspectedId,
+            Name: "/" + "crdd-auth-0123456789abcdef",
+            Config: {
+              Labels: { "crdd.coordinator.runtime": "0123456789abcdef" },
+            },
+            State: { Status: "created" },
+          },
+        ]),
       );
     }
     if (command[0] === "image" && command[1] === "inspect") {
@@ -653,11 +681,11 @@ export async function simulateAuthCreateClosure(
         hits++;
         listeners.get("SIGINT")?.();
       }
-      return ok(image);
+      return ok(imageId);
     }
     if (command[0] === "image" && command[1] === "ls") {
       assert.deepEqual(command, ["image", "ls", "--quiet", "--no-trunc"]);
-      return ok(image);
+      return ok(imageId);
     }
     if (command[0] === "network" && command[1] === "ls") {
       assert.deepEqual(command, [
@@ -756,9 +784,6 @@ export async function simulateAuthCreateClosure(
   const recoveryUrl = moduleUrl(
     "../../../docker-isolation/src/cleanup/execute.ts",
   );
-  const recoveryPlanUrl = moduleUrl(
-    "../../../docker-isolation/src/cleanup/validation.ts",
-  );
   const restartUrl = moduleUrl(
     "../../../docker-isolation/src/docker-desktop/restart.ts",
   );
@@ -768,7 +793,6 @@ export async function simulateAuthCreateClosure(
     moduleUrl("../../../version-control/src/index.ts"),
     moduleUrl("../../../domain-model/src/index.ts"),
     recoveryUrl,
-    recoveryPlanUrl,
     moduleUrl("../../../domain-model/src/index.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("./recovery-resource-expectations.ts"),
@@ -1001,8 +1025,7 @@ export async function simulateAuthCreateClosure(
       };
       return initialIsolation;
     }
-    if (loads.length === 4) return initialIsolation;
-    if (loads.length === 5)
+    if (loads.length === 4)
       return {
         writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: () => {
           events.push("closure_save");
@@ -1015,13 +1038,20 @@ export async function simulateAuthCreateClosure(
             };
           }
           if (fault === "closure_save_unconfirmed") hits++;
-          const auth = target.resources[0];
+          const auth = target.resources.checkpoints[0];
           assert.ok(auth);
           snapshot.operations[0] = {
             ...target,
-            resources: [
-              { ...auth, observation: "absent", absence: { dockerId: null } },
-            ],
+            resources: {
+              ...target.resources,
+              checkpoints: [
+                {
+                  ...auth,
+                  observation: "absent",
+                  absenceEvidenceSha256: "e".repeat(64),
+                },
+              ],
+            },
           };
           return {
             status: "completed",
@@ -1076,7 +1106,7 @@ export async function simulateAuthCreateClosure(
           };
         },
       };
-    if (loads.length === 6) {
+    if (loads.length === 5) {
       assert.ok(mocks.has(recoveryUrl));
       activeLifecycle = {
         recoverRuntimeOwnedDockerTaskForCurrentConsumer: async (
@@ -1100,11 +1130,13 @@ export async function simulateAuthCreateClosure(
           const executor = factory().executor;
           const found = executor.discoverSubmitted({
             key: "create_subscription_auth_probe",
+            expectedName: "crdd-auth-0123456789abcdef",
           });
           if (fault === "discovery_duplicate") {
             hits++;
             executor.discoverSubmitted({
               key: "create_subscription_auth_probe",
+              expectedName: "crdd-auth-0123456789abcdef",
             });
           }
           let recovered: boolean;
@@ -1122,7 +1154,7 @@ export async function simulateAuthCreateClosure(
               if (
                 !executor.observeAbsent(
                   "container",
-                  identity.resources.auth,
+                  "crdd-auth-0123456789abcdef",
                   identity.ownershipLabel,
                 )
               )
@@ -1142,16 +1174,21 @@ export async function simulateAuthCreateClosure(
             else
               snapshot.operations[0] = {
                 ...target,
-                resources: [
-                  {
-                    purpose: "create_subscription_auth_probe",
-                    request: "identified",
-                    dockerId: found,
+                resources: {
+                  ...target.resources,
+                  snapshot: {
+                    resources: target.resources.snapshot.resources.map((r) => ({
+                      ...r,
+                      request: "issued",
+                      identity: { ...r.identity, dockerId: found },
+                    })),
+                  },
+                  checkpoints: target.resources.checkpoints.map((c) => ({
+                    ...c,
                     receiptSource: "runtime_reconciliation",
                     observation: "present",
-                    absence: null,
-                  },
-                ],
+                  })),
+                },
               };
             recovered = executor.recoverObserved({
               key: "create_subscription_auth_probe",
@@ -1200,14 +1237,10 @@ export async function simulateAuthCreateClosure(
       };
       return activeLifecycle;
     }
-    if (loads.length === 7)
+    if (loads.length === 6)
       return {
-        expectedRecoveryResources: () => [
-          {
-            purpose: "create_subscription_auth_probe",
-            expectations: [{ key: "create_subscription_auth_probe" }],
-          },
-        ],
+        readRecoveryResourceSnapshots: () =>
+          target.resources.snapshot.resources,
       };
     assert.ok(mocks.has(lifecycleUrl));
     return {
@@ -1301,7 +1334,7 @@ export async function simulateAuthCreateClosure(
     },
   };
   const factory = runInThisContext(`(function(context) {
-    const { assert, cp, execFileSync, createHash, fs, path, mock, delay, yieldEvents, fileURLToPath, fixedImage, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
+    const { assert, cp, execFileSync, createHash, fs, path, mock, delay, yieldEvents, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
     let spawnSync = cp.spawnSync;
     const syncBuiltinESMExports = () => { spawnSync = cp.spawnSync; context.synced(); };
     context.observeNamed(() => spawnSync);
@@ -1493,6 +1526,7 @@ export async function simulateAuthCreateClosure(
       yieldEvents: async () => undefined,
       fileURLToPath,
       fixedImage: image,
+      fixedImageId: imageId,
       endpoint,
       fixtureUrl,
       process: fakeProcess,

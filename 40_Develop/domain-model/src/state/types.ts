@@ -61,7 +61,7 @@ export type CoordinatorUnifiedSnapshot = Omit<
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-domain/runtime-state/v1";
+    schema: "crdd-domain/runtime-state/v2";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
     projects: readonly RuntimeProjectDefinition[];
@@ -421,7 +421,7 @@ export type RuntimeManagedExecution = Pick<
  * @invariant 新しいState File・Registry・二重Writerを持たない。
  * @boundary 新Schemaの値モデル。保存先有効化は別の条件。
  * @security codec成立から認可・出版・資源不存在を推定しない。
- * @compatibility crdd-domain/runtime-state/v1のみを表す。
+ * @compatibility crdd-domain/runtime-state/v2のみを表す。
  */
 export type RuntimeDomainSnapshot = CoordinatorUnifiedSnapshot;
 

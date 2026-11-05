@@ -5,57 +5,28 @@
  * @trace ERB-IT-014
  * @trace PRL-IT-005
  * @level IT
- * @scope 本番回収・Coordinator待機本文、模擬現在状態、実空configとspawnSync差替え。
+ * @scope 本番回収・Coordinator待機本文、実Domain候補、有限CLI・Process・Directory代役。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
 
 import assert from "node:assert/strict";
-import childProcess from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
-import path from "node:path";
-import test, { mock, type TestContext } from "node:test";
-import { fileURLToPath } from "node:url";
+import { stripTypeScriptTypes } from "node:module";
+import test from "node:test";
 import { isDeepStrictEqual, types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
 import {
-  createDockerOperationRecoveryExecutor,
-  observeDockerRecoveryConfigIdentity,
-} from "../../../docker-isolation/src/cleanup/execute.ts";
-import { isDockerResourcePurpose } from "../fixtures/recovery-resource-expectations.ts";
-import { createDockerResourceRecoveryExecutor } from "../../../docker-isolation/tests/support/cleanup.ts";
-import {
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorTaskResourcesAreSettled,
   snapshotPlainRecord,
+  applyCoordinatorResourceEvent,
 } from "../../../domain-model/src/index.ts";
-import { createAttemptRecoveryTestApi } from "../../../executor/scripts/attempt-recovery-test.ts";
-import { planDockerRecoveryResourceExpectations } from "../../../executor/src/attempt/recovery.ts";
+import { createRecoveryFixture } from "../support/recovery.ts";
 
 const source = fs.readFileSync(
   new URL("../../src/execution/recovery.ts", import.meta.url),
   "utf8",
 );
 const start = source.indexOf("function projectResourceTarget(");
-const end = source.indexOf("function validProductionPlan(", start);
-assert.ok(start >= 0 && end > start);
-const body = stripTypeScriptTypes(
-  source
-    .slice(start, end)
-    .replaceAll("export function", "function")
-    .replaceAll("export async function", "async function"),
-);
-const purposes = [
-  "create_egress_network",
-  "create_internal_network",
-  "create_provider",
-  "create_proxy",
-  "create_subscription_auth_probe",
-] as const;
-const id = "a".repeat(64);
-const label = "crdd.coordinator.runtime=0123456789abcdef";
-const name = "crdd-internal-0123456789abcdef";
+assert.ok(start >= 0);
 
 /**
  * 退役処理と既存checkpoint本文を結合し、保存候補と読戻し境界を反証する。
@@ -2522,1092 +2493,136 @@ test("現在transient終了: genuine Owner・一回性・借用失効", () => {
 });
 
 /**
- * 同じ本番本文を模擬Owner・状態と実Executorへ結合する。
- * @responsibility 固定要求と保存順を観測し、試験物を自己所有Rootへ限定する。
+ * 元Snapshot・必須保存・共通DI Cleanupを一つの本番経路で反証する。
+ * @responsibility 旧Projection Adapterや偽ID補完を使用しない。
  * @trace ERB-IT-014
- * @precondition Repository Rootの.gitと通常tests親を検証する。
- * @stimulus 一つのNetworkと四つの未要求資源を構築する。
- * @observation 要求、Writer、読戻し、元操作と非対象操作を返す。
- * @oracle 本番本文とDI本体を変更せず、spawnだけを差し替える。
- * @cleanup mockを復元し、exact自己生成Directoryを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: Owner→実Executorと空config。
+ * @boundary 実保存候補と有限CLIだけ。実Docker・AI・保持物の操作なし。
  */
-function fixture(
-  t: TestContext,
-  request: "unknown" | "intent_saved" | "identified" = "unknown",
-  withEgress = false,
-  existingAbsence = false,
-  operationFactory = false,
-) {
-  const root = fileURLToPath(new URL("../../../../", import.meta.url));
-  assert.ok(fs.statSync(path.join(root, ".git")).isDirectory());
-  const parent = path.join(root, ".crdd", "tests");
-  fs.mkdirSync(parent, { recursive: true });
-  assert.equal(fs.realpathSync(parent), parent);
-  const directory = fs.mkdtempSync(
-    path.join(parent, "current-recovery-resources-"),
-  );
-  const configDirectory = path.join(directory, "config");
-  fs.mkdirSync(configDirectory);
-  const managementDirectory = path.join(directory, "management");
-  const oldConfigDirectory = path.join(
-    managementDirectory,
-    "docker-recovery-config-old",
-  );
-  if (operationFactory) {
-    fs.mkdirSync(managementDirectory);
-    fs.mkdirSync(oldConfigDirectory);
-    fs.writeFileSync(path.join(oldConfigDirectory, "preserved"), "old-config");
-  }
-  let operationConfig: string | null = null;
-  let factoryCalls = 0,
-    closeCalls = 0;
-  const events: string[] = [];
-  const argvLog: string[][] = [];
-  let live = true,
-    writerRefused = false,
-    staleReadback = false,
-    removed = existingAbsence;
-  const cleanupWrites: {
-    previousHash: string;
-    observations: {
-      purpose: string;
-      plannedResourceName: string;
-      dockerId: string | null;
-      observation: string;
-    }[];
-  }[] = [];
-  let mode = "normal";
-  const resources = purposes.map((purpose) => ({
-    purpose,
-    request:
-      purpose === "create_internal_network"
-        ? request
-        : withEgress && purpose === "create_egress_network"
-          ? "unknown"
-          : "not_requested",
-    dockerId:
-      purpose === "create_internal_network" && request === "identified"
-        ? id
-        : null,
-    receiptSource:
-      purpose === "create_internal_network" && request === "identified"
-        ? "docker_create_result"
-        : null,
-    observation:
-      purpose === "create_internal_network" && existingAbsence
-        ? "absent"
-        : "unobserved",
-    absence:
-      purpose === "create_internal_network" && existingAbsence
-        ? {
-            recoveryId: "exact-recovery",
-            purpose,
-            plannedResourceName: name,
-            dockerId: id,
-            evidenceSha256: "e".repeat(64),
-          }
-        : (null as {
-            recoveryId: string;
-            purpose: string;
-            plannedResourceName: string;
-            dockerId: string | null;
-            evidenceSha256: string;
-          } | null),
-  }));
-  const operation = {
-    kind: "docker_task",
-    recoveryId: "exact-recovery",
-    identityJson: JSON.stringify({
-      operationId: "operation-a",
-      subscriptionOffering: "claude_subscription",
-      resources: {
-        internal: name,
-        egress: "crdd-egress-0123456789abcdef",
-        provider: "crdd-claude-0123456789abcdef",
-        proxy: "crdd-proxy-0123456789abcdef",
-        auth: "crdd-auth-0123456789abcdef",
-      },
-      ownershipLabel: label,
-      images: {
-        provider: `sha256:${"b".repeat(64)}`,
-        proxy: `sha256:${"c".repeat(64)}`,
-      },
-      operationMode: "isolated_task",
-      workspaceMountMode: "read_write",
-    }),
-    resources,
-    host: { cleanup: "not_requested" },
-    lease: "held",
-    outcome: null,
-    primaryFailure: { reason: "original_failure" },
-  };
-  const untouched = { recoveryId: "other-recovery", marker: "unchanged" };
-  const snapshot = { operations: [operation, untouched] };
-  const initial = JSON.stringify(snapshot);
-  const capability = Object.freeze({});
-  const record = {
-    kind: "recovery",
-    recoveryId: operation.recoveryId,
-    rootCapability: {},
-    before: Buffer.from(`${JSON.stringify(snapshot)}\n`),
-    closed: false,
-    persistenceFailed: false,
-    cleanupUnknown: false,
-    hostCleanup: "present",
-    hostCleanupPublication: null,
-    repository: { repositoryBinding: "f".repeat(64) },
-    hostToken: "exact-host-token",
-    hostGeneration: Object.freeze({}),
-  };
-  const map = new WeakMap([[capability, record]]);
-  const replacement = mock.method(
-    childProcess,
-    "spawnSync",
-    (
-      executable: string,
-      argv: readonly string[],
-      options: childProcess.SpawnSyncOptions,
-    ) => {
-      assert.equal(
-        executable,
-        "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+test("Snapshot回収は既知Receiptと発見Receiptを同じDomain保存へ接続する", async (t) => {
+  for (const missing of [false, true])
+    await t.test(String(missing), async (t) => {
+      const f = await createRecoveryFixture(t, missing);
+      const result = await f.run();
+      assert.equal(result.status, "completed", JSON.stringify(result));
+      assert.equal(f.f.ids.size, 0);
+      assert.ok(f.writes > 0);
+      const operation = f.state.snapshot.operations[0];
+      assert.ok(operation?.kind === "docker_task" && operation.resources);
+      assert.ok(
+        operation.resources.checkpoints.every(
+          (c) => c.receiptSource !== null && c.observation === "absent",
+        ),
       );
-      const selectedConfig = argv[3];
-      if (operationFactory) {
-        assert.ok(selectedConfig);
-        assert.equal(path.dirname(selectedConfig), managementDirectory);
-        assert.ok(
-          path.basename(selectedConfig).startsWith("docker-recovery-config-"),
-        );
-        assert.notEqual(selectedConfig, oldConfigDirectory);
-        assert.equal(operationConfig, selectedConfig);
-      }
-      assert.deepEqual(argv.slice(0, 4), [
-        "--host",
-        "npipe:////./pipe/dockerDesktopLinuxEngine",
-        "--config",
-        operationFactory ? operationConfig : configDirectory,
-      ]);
-      assert.equal(options.shell, false);
-      assert.equal(options.windowsHide, true);
-      assert.equal(options.timeout, 10_000);
-      assert.equal(options.maxBuffer, 1_048_576);
-      assert.deepEqual({ ...options.env }, { SystemRoot: "fixed-test" });
-      const command = argv.slice(4);
-      argvLog.push([...command]);
-      events.push(`docker:${command[1]}`);
-      let stdout = "",
-        stderr = "",
-        status: number | null = 0;
-      let signal: NodeJS.Signals | null = null;
-      let error: Error | undefined;
-      if (mode === "signal") signal = "SIGTERM";
-      if (mode === "error") {
-        error = new Error("synthetic failure");
-        status = null;
-      }
-      if (mode === "stderr") stderr = "synthetic diagnostic";
-      if (command[1] === "ls" && !removed) {
-        stdout =
-          mode === "empty"
-            ? ""
-            : mode === "multiple"
-              ? `${id}\n${"d".repeat(64)}\n`
-              : `${id}\n`;
-        if (mode === "disappear" && command.includes(`id=${id}`)) stdout = "";
-        if (
-          mode === "foreign" &&
-          command.some((value) => value.startsWith("label="))
-        )
-          stdout = `${"d".repeat(64)}\n`;
-      } else if (command[1] === "inspect") {
-        stdout = JSON.stringify([
-          {
-            Id: id,
-            Name: name,
-            Labels: { "crdd.coordinator.runtime": "0123456789abcdef" },
-            Driver: "bridge",
-            Scope: "local",
-            Internal: true,
-          },
-        ]);
-      } else if (command[1] === "rm") {
-        const selected = operation.resources.find(
-          (value) => value.purpose === "create_internal_network",
-        );
-        assert.equal(selected?.dockerId, id);
-        assert.equal(selected?.request, "identified");
-        assert.equal(record.before.toString(), `${JSON.stringify(snapshot)}\n`);
-        removed = true;
-        stdout = `${id}\n`;
-      }
-      if (
-        mode === "owner-lost" ||
-        (mode === "inspect-owner-lost" && command[1] === "inspect")
-      )
-        live = false;
-      return {
-        pid: 0,
-        output: [null, stdout, stderr],
-        stdout,
-        stderr,
-        status,
-        signal,
-        ...(error ? { error } : {}),
-      };
-    },
-  );
-  syncBuiltinESMExports();
-  let disposed = false;
-  /**
-   * 自己生成試験境界を一度だけ片付ける。
-   * @responsibility 後続fixtureへProcess差替えを漏らさない。
-   * @trace ERB-IT-014
-   * @precondition このfixtureが作成したexact Directoryとmockを持つ。
-   * @stimulus 正常終了またはTest hookから呼ぶ。
-   * @observation mock復元とDirectory不存在。
-   * @oracle 同じRoot内の自作物だけを回収する。
-   * @cleanup 本関数が所有するmockと空configを回収する。
-   * @boundary 試験の固定Process差替えとRepository-local試験物。
-   */
-  const dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    replacement.mock.restore();
-    syncBuiltinESMExports();
-    assert.equal(
-      path.dirname(fs.realpathSync(directory)),
-      fs.realpathSync(parent),
-    );
-    fs.rmSync(directory, { recursive: true });
-    assert.equal(fs.existsSync(directory), false);
-  };
-  t.after(dispose);
-  const executor = createDockerResourceRecoveryExecutor({
-    configDirectory,
-    configIdentity: observeDockerRecoveryConfigIdentity(configDirectory),
-    environment: () => ({ SystemRoot: "fixed-test" }),
-    verifyCli: () => {
-      events.push("cli");
-    },
-  });
-  const context = {
-    coordinatorTaskResourcesAreSettled,
-    coordinatorAuthenticationUnknownCanClose,
-    planDockerRecoveryResourceExpectations,
-    isDockerResourcePurpose,
-    Buffer,
-    Object,
-    Error,
-    Map,
-    dockerRecoveryPreparations: map,
-    assertCurrentRecoveryOwner: () => {
-      const observed = live;
-      return observed;
-    },
-    encodeRuntimeStateValue: JSON.stringify,
-    codexAdviceProviderInitRequired: () => false,
-    decodeCoordinatorStateSnapshot: (bytes: Buffer, binding: string) => {
-      assert.equal(binding, record.repository.repositoryBinding);
-      assert.equal(bytes.toString(), record.before.toString());
-      return { snapshot: JSON.parse(bytes.toString()) };
-    },
-    borrowHostRecoveryManagementDirectory: (
-      token: string,
-      generation: object,
-    ) => {
-      assert.equal(token, record.hostToken);
-      assert.equal(generation, record.hostGeneration);
-      events.push("borrow");
-      return {
-        directory: managementDirectory,
-        assertCurrent: () => mode !== "factory-refused",
-      };
-    },
-    createTrustedDockerRecoveryExecutor: (
-      input: Pick<
-        Parameters<typeof createDockerOperationRecoveryExecutor>[0],
-        "managementDirectory" | "signal"
-      >,
-    ) => {
-      if (!operationFactory)
-        return {
-          status: "ready",
-          executor: { ...executor, close: () => true },
-        };
-      factoryCalls++;
-      events.push("factory");
-      assert.equal(input.managementDirectory, managementDirectory);
-      assert.deepEqual(Object.keys(input), ["managementDirectory", "signal"]);
-      const created = createDockerOperationRecoveryExecutor({
-        managementDirectory: input.managementDirectory,
-        ...(input.signal ? { signal: input.signal } : {}),
-        verifyCli: () => {
-          events.push("cli");
-        },
-        environment: () => ({ SystemRoot: "fixed-test" }),
-      });
-      if (created.status !== "ready") return created;
-      const configs = fs
-        .readdirSync(managementDirectory)
-        .filter(
-          (entry) =>
-            entry.startsWith("docker-recovery-config-") &&
-            entry !== "docker-recovery-config-old",
-        );
-      assert.equal(configs.length, 1);
-      operationConfig = path.join(managementDirectory, configs[0] as string);
-      return {
-        ...created,
-        executor: {
-          ...created.executor,
-          close: () => {
-            closeCalls++;
-            events.push("close");
-            const confirmed = created.executor.close();
-            if (mode === "close-throw")
-              throw new Error("synthetic close observation failure");
-            return confirmed;
-          },
-        },
-      };
-    },
-    readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
-      events.push("readback");
-      return {
-        status: "completed",
-        lockReleased: true,
-        value: { snapshot: staleReadback ? JSON.parse(initial) : snapshot },
-      };
-    },
-    persistRuntimeOwnedDockerTaskRecoveryCheckpoint: (
-      _capability: unknown,
-      kind: string,
-      value: unknown,
-    ) => {
-      events.push(`write:${kind}`);
-      if (writerRefused) {
-        record.persistenceFailed = true;
-        return false;
-      }
-      if (kind === "resource") {
-        const next = value as (typeof resources)[number];
-        operation.resources = operation.resources.map((old) =>
-          old.purpose === next.purpose ? next : old,
-        );
-      } else {
-        const observations = value as {
-          purpose: string;
-          plannedResourceName: string;
-          dockerId: string | null;
-          observation: string;
-        }[];
-        const previousHash = createHash("sha256")
-          .update(record.before)
-          .digest("hex");
-        cleanupWrites.push({
-          previousHash,
-          observations: JSON.parse(JSON.stringify(observations)),
-        });
-        operation.resources = operation.resources.map((old) => {
-          const observed = observations.find(
-            (item) => item.purpose === old.purpose,
-          );
-          assert.ok(observed);
-          if (observed.observation === "not_requested") return old;
-          return {
-            ...old,
-            observation: observed.observation,
-            absence:
-              observed.observation === "absent"
-                ? {
-                    recoveryId: operation.recoveryId,
-                    purpose: old.purpose,
-                    plannedResourceName: observed.plannedResourceName,
-                    dockerId: old.dockerId,
-                    evidenceSha256: createHash("sha256")
-                      .update(
-                        JSON.stringify({
-                          recoveryId: operation.recoveryId,
-                          previousPayloadSha256: previousHash,
-                          observation: observed,
-                        }),
-                      )
-                      .digest("hex"),
-                  }
-                : old.absence,
-          };
-        });
-      }
-      record.before = Buffer.from(`${JSON.stringify(snapshot)}\n`);
-      if (
-        operationFactory &&
-        kind === "cleanup" &&
-        ["nonempty-close", "identity-close"].includes(mode)
-      ) {
-        assert.ok(operationConfig);
-        if (mode === "nonempty-close")
-          fs.writeFileSync(
-            path.join(operationConfig, "unexpected"),
-            "known-test-byte",
-          );
-        if (mode === "identity-close") {
-          fs.renameSync(operationConfig, `${operationConfig}-original`);
-          fs.mkdirSync(operationConfig);
-        }
-      }
-      return true;
-    },
-  };
-  const recoveryApi = createAttemptRecoveryTestApi(
-    context.createTrustedDockerRecoveryExecutor,
-  );
-  Object.assign(context, recoveryApi);
-  const run = runInNewContext(
-    `${body}\nrecoverRuntimeOwnedDockerTaskResources`,
-    context,
-  ) as (
-    owner: unknown,
-    cleanup: typeof recoveryApi.cleanupResources,
-    inspect: typeof recoveryApi.inspectResources,
-  ) => Promise<{
-    status: string;
-    dockerCleanupConfirmed: boolean;
-    recoveryId: string;
-    reason: string;
-  }>;
-  const execute = runInNewContext(
-    `${body}\nexecuteRuntimeOwnedDockerTaskResourceRecovery`,
-    context,
-  ) as (
-    owner: unknown,
-  ) => Promise<
-    Awaited<ReturnType<typeof run>> & { configCleanupConfirmed: boolean }
-  >;
-  return {
-    executor,
-    dispose,
-    events,
-    argvLog,
-    cleanupWrites,
-    operation,
-    untouched,
-    initial,
-    record,
-    managementDirectory,
-    oldConfigDirectory,
-    execute: () => execute(capability),
-    get operationConfig() {
-      return operationConfig;
-    },
-    get factoryCalls() {
-      return factoryCalls;
-    },
-    get closeCalls() {
-      return closeCalls;
-    },
-    run: () =>
-      run(
-        capability,
-        recoveryApi.cleanupResources,
-        recoveryApi.inspectResources,
-      ),
-    set mode(value: string) {
-      mode = value;
-    },
-    set writerRefused(value: boolean) {
-      writerRefused = value;
-    },
-    set staleReadback(value: boolean) {
-      staleReadback = value;
-    },
-  };
-}
-
-/**
- * 実Executorの発見と削除をID保存・読戻しで順序付ける。
- * @responsibility 予定名だけの削除と保存前削除を拒否するOracleを所有する。
- * @trace ERB-IT-014
- * @precondition 一Networkのみ要求済み、他四資源は未要求。
- * @stimulus unknown・intent_saved・known IDを回収する。
- * @observation 実固定argv、保存・読戻し順と最終五観測。
- * @oracle intentをunknownへ保存、発見IDをreconciliation保存、読戻し後にだけrm。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 現在Owner→DI Executor。
- */
-test("実ExecutorのID発見は同state保存・読戻し後にだけ削除する", async (t) => {
-  for (const request of ["unknown", "intent_saved", "identified"] as const) {
-    const f = fixture(t, request);
-    const result = await f.run();
-    assert.equal(result.status, "completed", result.reason);
-    assert.equal(result.dockerCleanupConfirmed, true);
-    const rm = f.events.indexOf("docker:rm");
-    assert.ok(rm > 0);
-    const writes = f.events.flatMap((value, index) =>
-      value === "write:resource" ? [index] : [],
-    );
-    assert.equal(
-      writes.length,
-      request === "intent_saved" ? 2 : request === "unknown" ? 1 : 0,
-    );
-    for (const write of writes) {
-      assert.ok(write < rm);
-      assert.ok(f.events.slice(write + 1, rm).includes("readback"));
-    }
-    if (request === "intent_saved") {
-      const firstWrite = writes[0];
-      assert.ok(firstWrite !== undefined);
-      assert.ok(firstWrite < f.events.indexOf("docker:ls"));
-    }
-    assert.equal(f.argvLog.filter((argv) => argv[1] === "rm").length, 1);
-    assert.deepEqual(
-      f.argvLog.find((argv) => argv[1] === "rm"),
-      ["network", "rm", id],
-    );
-    assert.ok(f.argvLog.slice(-2).every((argv) => argv[1] === "ls"));
-    assert.equal(
-      f.operation.resources.find(
-        (value) => value.purpose === "create_internal_network",
-      )?.observation,
-      "absent",
-    );
-    assert.deepEqual(f.operation.host, { cleanup: "not_requested" });
-    assert.equal(f.operation.lease, "held");
-    assert.equal(f.operation.outcome, null);
-    assert.deepEqual(f.operation.primaryFailure, {
-      reason: "original_failure",
+      if (missing) assert.equal(f.events[0], "save:resource");
     });
-    assert.deepEqual(f.untouched, {
-      recoveryId: "other-recovery",
-      marker: "unchanged",
-    });
-    f.dispose();
-  }
 });
 
-/**
- * 上位本番組立てが自作configを全返却経路で閉じる。
- * @responsibility 操作管理直下の一意configと既存残存の非使用を確認する。
- * @trace ERB-IT-014
- * @precondition Host借用と現在状態だけを差し替え、DI factoryとFilesystemは実本体を使う。
- * @stimulus 正常、未発見、保存拒否、Owner失効を与える。
- * @observation factory件数、実spawn config、close、自作不存在と旧prefix本文。
- * @oracle config清掃とDocker結果を分離し、旧prefix変更0、Host・Lease・結果不変。
- * @cleanup fixtureのexact自己生成領域とmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 上位execute→実DI factory／spawn差替え。
- */
-test("本番config接続は正常と拒否でも自作だけを閉じる", async (t) => {
-  for (const failure of ["normal", "empty", "writer", "owner-lost"]) {
-    const f = fixture(t, "unknown", false, false, true);
-    const preserved = JSON.stringify({
-      host: f.operation.host,
-      lease: f.operation.lease,
-      outcome: f.operation.outcome,
-      primary: f.operation.primaryFailure,
-      other: f.untouched,
-    });
-    if (failure === "writer") f.writerRefused = true;
-    else f.mode = failure;
-    const result = await f.execute();
-    assert.equal(
-      result.status,
-      failure === "normal" ? "completed" : "blocked",
-      failure,
-    );
-    assert.equal(result.recoveryId, "exact-recovery");
-    assert.equal(result.dockerCleanupConfirmed, failure === "normal");
-    assert.equal(result.configCleanupConfirmed, true);
-    assert.equal(f.factoryCalls, 1);
-    assert.equal(f.closeCalls, 1);
-    assert.ok(f.operationConfig);
-    assert.equal(fs.existsSync(f.operationConfig), false);
-    assert.deepEqual(fs.readdirSync(f.managementDirectory), [
-      "docker-recovery-config-old",
-    ]);
-    assert.equal(
-      fs.readFileSync(path.join(f.oldConfigDirectory, "preserved"), "utf8"),
-      "old-config",
-    );
-    assert.equal(
-      JSON.stringify({
-        host: f.operation.host,
-        lease: f.operation.lease,
-        outcome: f.operation.outcome,
-        primary: f.operation.primaryFailure,
-        other: f.untouched,
-      }),
-      preserved,
-    );
-    if (failure !== "normal")
+test("Snapshot部分回収後の別Owner再入場は保存済み不存在を再削除しない", async (t) => {
+  const first = await createRecoveryFixture(t, false, true);
+  let removals = 0;
+  first.f.waitGate = async (argv) => {
+    if (argv.includes("rm") && ++removals === 2)
+      throw Error("synthetic_cleanup_response_lost");
+  };
+  const result = await first.run();
+  assert.equal(result.status, "blocked");
+  const operation = first.state.snapshot.operations[0];
+  assert.ok(operation?.kind === "docker_task" && operation.resources);
+  const book = operation.resources;
+  const confirmed = book.checkpoints.find((c) => c.key === "container");
+  assert.equal(confirmed?.observation, "absent");
+  assert.ok(confirmed.absenceEvidenceSha256);
+  t.mock.restoreAll();
+  const next = await createRecoveryFixture(t, false, true);
+  next.setBook(book);
+  next.f.ids.clear();
+  for (const id of first.f.ids) next.f.ids.add(id);
+  const before = next.f.calls.length;
+  const reentered = await next.run();
+  assert.equal(reentered.status, "completed", JSON.stringify(reentered));
+  assert.equal(
+    next.f.calls
+      .slice(before)
+      .some((argv) => argv.includes("rm") && argv.includes("a".repeat(64))),
+    false,
+  );
+  const after = next.state.snapshot.operations[0];
+  assert.ok(after?.kind === "docker_task" && after.resources);
+  assert.equal(
+    after.resources.checkpoints.find((c) => c.key === "container")
+      ?.absenceEvidenceSha256,
+    confirmed.absenceEvidenceSha256,
+  );
+});
+
+test("Snapshot発見IDの保存拒否・読戻し差・Owner喪失では削除しない", async (t) => {
+  for (const mode of [
+    "save",
+    "readback",
+    "owner",
+    "reader_unlock",
+    "borrow",
+    "expired",
+  ] as const)
+    await t.test(mode, async (t) => {
+      const f = await createRecoveryFixture(t, true),
+        calls = f.f.calls.length;
+      if (mode === "save") f.writeRejected = true;
+      if (mode === "readback") f.staleReadback = true;
+      if (mode === "owner") f.loseAfterWrite = true;
+      if (mode === "reader_unlock") f.readerReleased = false;
+      if (mode === "borrow") f.borrowLive = false;
+      if (mode === "expired") f.live = false;
+      const result = await f.run();
+      assert.equal(result.status, "blocked");
+      assert.ok(result.recoveryId);
+      assert.equal(f.f.ids.size, 1);
       assert.equal(
-        f.argvLog.some((argv) => argv[1] === "rm"),
+        f.f.calls.slice(calls).some((argv) => argv.includes("rm")),
         false,
       );
-    f.dispose();
-  }
-});
-
-/**
- * factory拒否ではconfig作成・Docker要求を発行しない。
- * @responsibility Host借用成功だけを技術処置許可へ昇格しない。
- * @trace ERB-IT-014
- * @precondition 実DI factoryのOwner確認だけをfalseにする。
- * @stimulus 作成前拒否と同Ownerへの再呼出し。
- * @observation argv0、管理領域entries、factoryとclose件数。
- * @oracle 旧prefixのみ保持、自作生成0・要求0、同参照blocked。
- * @cleanup fixtureの自己生成領域とmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: execute→DI factory拒否。
- */
-test("本番config factory拒否は作成前Effect0で停止する", async (t) => {
-  const f = fixture(t, "unknown", false, false, true);
-  f.mode = "factory-refused";
-  const before = JSON.stringify(f.operation);
-  const result = await f.execute();
-  assert.equal(result.status, "blocked");
-  assert.equal(result.configCleanupConfirmed, true);
-  assert.equal(result.recoveryId, "exact-recovery");
-  assert.equal(f.operationConfig, null);
-  assert.equal(f.closeCalls, 0);
-  assert.deepEqual(f.argvLog, []);
-  assert.deepEqual(fs.readdirSync(f.managementDirectory), [
-    "docker-recovery-config-old",
-  ]);
-  assert.equal(JSON.stringify(f.operation), before);
-  const events = [...f.events];
-  assert.equal((await f.execute()).status, "blocked");
-  assert.deepEqual(f.events, events);
-});
-
-/**
- * closeの非空・実体差・例外を資源回収成功と区別する。
- * @responsibility 自作config不明をstickyに保持し、再実行で成功へ戻さない。
- * @trace ERB-IT-014
- * @precondition 実factoryの自作configを使い、close直前に故障だけを注入する。
- * @stimulus 非空、実体差替え、実close後の観測例外を与える。
- * @observation 資源結果とconfig結果、旧prefix、再呼出し要求数。
- * @oracle 同参照blocked・cleanupUnknown保持、二度目factory／要求0、旧prefix不変。
- * @cleanup 由来既知の故障注入物をfixture終了時だけ回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 実DI close→上位finally。
- */
-test("本番config close不明は資源成功を全体完成へ昇格しない", async (t) => {
-  for (const failure of ["nonempty-close", "identity-close", "close-throw"]) {
-    const f = fixture(t, "unknown", false, false, true);
-    f.mode = failure;
-    const result = await f.execute();
-    assert.equal(result.status, "blocked");
-    assert.equal(result.dockerCleanupConfirmed, true);
-    assert.equal(result.configCleanupConfirmed, false);
-    assert.equal(
-      result.reason,
-      "docker_task_recovery_config_cleanup_unconfirmed",
-    );
-    assert.equal(result.recoveryId, "exact-recovery");
-    assert.equal(f.record.cleanupUnknown, true);
-    assert.equal(f.closeCalls, 1);
-    assert.ok(f.operationConfig);
-    assert.equal(fs.existsSync(f.operationConfig), failure !== "close-throw");
-    assert.equal(
-      fs.readFileSync(path.join(f.oldConfigDirectory, "preserved"), "utf8"),
-      "old-config",
-    );
-    assert.deepEqual(f.operation.host, { cleanup: "not_requested" });
-    assert.equal(f.operation.lease, "held");
-    assert.equal(f.operation.outcome, null);
-    const events = [...f.events];
-    const again = await f.execute();
-    assert.equal(again.status, "blocked");
-    assert.equal(again.recoveryId, "exact-recovery");
-    assert.equal(again.configCleanupConfirmed, false);
-    assert.equal(f.record.cleanupUnknown, true);
-    assert.deepEqual(f.events, events);
-    assert.equal(f.factoryCalls, 1);
-    assert.equal(f.closeCalls, 1);
-    assert.equal((await f.run()).status, "blocked");
-    assert.deepEqual(f.events, events);
-    f.dispose();
-  }
-});
-
-/**
- * 全未要求では上位factoryも借用も生成しない。
- * @responsibility 不要な短命設定を未要求の操作へ追加しない。
- * @trace ERB-IT-014
- * @precondition 五用途を全てnot_requestedまたはnot_issuedにする。
- * @stimulus 本番executeの未要求分岐を呼ぶ。
- * @observation factory／close／argv0と管理領域entries。
- * @oracle config生成0・Host借用0、資源値とHost／Lease／結果を保持する。
- * @cleanup fixtureの自己生成領域とmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: execute未要求分岐→固定Writer。
- */
-test("本番executeは全未要求でfactoryとHost借用を呼ばない", async (t) => {
-  for (const request of ["not_requested", "not_issued"]) {
-    const f = fixture(t, "unknown", false, false, true);
-    f.operation.resources = f.operation.resources.map((resource) => ({
-      ...resource,
-      request,
-    }));
-    f.record.before = Buffer.from(
-      `${JSON.stringify({ operations: [f.operation, f.untouched] })}\n`,
-    );
-    const before = JSON.stringify(f.operation);
-    const result = await f.execute();
-    assert.equal(result.status, "completed");
-    assert.equal(result.dockerCleanupConfirmed, true);
-    assert.equal(result.configCleanupConfirmed, true);
-    assert.equal(f.factoryCalls, 0);
-    assert.equal(f.closeCalls, 0);
-    assert.deepEqual(f.argvLog, []);
-    assert.equal(f.events.includes("borrow"), false);
-    assert.equal(JSON.stringify(f.operation), before);
-    assert.deepEqual(fs.readdirSync(f.managementDirectory), [
-      "docker-recovery-config-old",
-    ]);
-    f.dispose();
-  }
-});
-
-/**
- * 実Executorの拒否をunknownとして保持し削除しない。
- * @responsibility 外部Process結果不明から清掃成功を捏造しない。
- * @trace ERB-IT-014
- * @precondition 未識別のNetwork作成結果がunknown。
- * @stimulus foreign、複数ID、途中消失、空照会、Signal、error、stderrを与える。
- * @observation 固定要求と最終unknown、削除件数。
- * @oracle 削除0、Docker清掃確認false、同参照と非対象不変。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 現在Owner→DI拒否。
- */
-test("foreign・観測不能・未発見を清掃成功へ補完しない", async (t) => {
-  for (const mode of [
-    "foreign",
-    "multiple",
-    "disappear",
-    "empty",
-    "signal",
-    "error",
-    "stderr",
-  ]) {
-    const f = fixture(t);
-    f.mode = mode;
-    const result = await f.run();
-    assert.equal(result.status, "blocked", mode);
-    assert.equal(result.dockerCleanupConfirmed, false, mode);
-    assert.equal(result.recoveryId, "exact-recovery");
-    assert.equal(
-      f.argvLog.some((argv) => argv[1] === "rm"),
-      false,
-      mode,
-    );
-    assert.equal(
-      f.operation.resources.find(
-        (value) => value.purpose === "create_internal_network",
-      )?.observation,
-      "unknown",
-      mode,
-    );
-    assert.equal(
-      f.events.filter((event) => event === "write:resource").length,
-      0,
-      mode,
-    );
-    assert.deepEqual(f.untouched, {
-      recoveryId: "other-recovery",
-      marker: "unchanged",
+      assert.equal(f.record.persistenceFailed, true);
     });
-    f.dispose();
-  }
 });
 
-/**
- * 保存拒否・読戻し差・Owner失効で後続削除を止める。
- * @responsibility 一度不明となったOwnerから追加処置を発行しない。
- * @trace ERB-IT-014
- * @precondition DI発見前後の模擬状態境界だけを故障させる。
- * @stimulus Writer拒否、保存後別値読戻し、Docker応答中Owner失効。
- * @observation Writerと削除件数、再入場時の追加要求。
- * @oracle 削除0、同参照保持、不明後のWriter・要求再発行0。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 保存・Owner拒否→DI停止。
- */
-test("保存・Owner不明は実Executorの削除前に停止する", async (t) => {
-  for (const mode of ["writer", "readback", "owner"]) {
-    const f = fixture(t);
-    if (mode === "writer") f.writerRefused = true;
-    if (mode === "readback") f.staleReadback = true;
-    if (mode === "owner") f.mode = "owner-lost";
-    assert.equal((await f.run()).status, "blocked", mode);
-    assert.equal(
-      f.argvLog.some((argv) => argv[1] === "rm"),
-      false,
-      mode,
-    );
-    const before = [...f.events];
-    assert.equal((await f.run()).status, "blocked");
-    assert.deepEqual(f.events, before);
-    f.dispose();
-  }
+test("Snapshot回収は構成不足とProcess取消を物理成功へ丸めない", async (t) => {
+  for (const mode of ["config", "identity", "cancel"] as const)
+    await t.test(mode, async (t) => {
+      const f = await createRecoveryFixture(t);
+      const controller = new AbortController();
+      if (mode === "config") f.f.configObservation = "EACCES";
+      if (mode === "identity") f.f.inspectName = "foreign";
+      if (mode === "cancel") controller.abort();
+      const result = await f.run(controller.signal);
+      assert.equal(result.status, "blocked");
+      if (mode === "config") assert.equal(result.configCleanupConfirmed, false);
+      else assert.equal(f.f.ids.size, 1);
+    });
 });
 
-/**
- * 旧同期資源観測には削除やOwner逆照会を残さない。
- * @responsibility 同期の観測だけと非同期の共通処置を区別する。
- * @trace ERB-IT-014
- * @precondition 同構成のknown Networkを使用する。
- * @stimulus callbackへtrue、false、throw、thenableを返す。
- * @observation 旧callback未評価、then非実行と削除件数を確認する。
- * @oracle 全入力で読取り成立、旧callback0、削除0。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 構成検査→削除直前確認。
- */
-test("同期資源観測は削除やOwner逆照会を実行しない", async (t) => {
-  for (const mode of ["true", "false", "throw", "thenable"]) {
-    const f = fixture(t, "identified");
-    let checks = 0,
-      thenCalls = 0;
-    const options = {
-      allowAlreadyAbsent: false,
-      assertBeforeRemoval: () => {
-        checks += 1;
-        if (mode === "throw") throw new Error("synthetic owner failure");
-        if (mode === "thenable")
-          return {
-            // biome-ignore lint/suspicious/noThenProperty: hostile thenableのthenを実行しない反証入力。
-            then: () => {
-              thenCalls += 1;
-            },
-          } as unknown as boolean;
-        return mode === "true";
-      },
-    };
-    const confirmed = f.executor.recoverObserved(
-      {
-        kind: "network",
-        dockerId: id,
-        expectedName: name,
-        ownershipLabel: label,
-        expectedImage: null,
-        shouldBeInternal: true,
-        expectedNetworks: [],
-        initRequired: false,
-        key: "create_internal_network",
-        expectedUser: null,
-        tmpfsBytes: null,
-        expectedMounts: [],
-      },
-      options,
-    );
-    assert.equal(confirmed, true, mode);
-    assert.equal(checks, 0, mode);
-    assert.equal(thenCalls, 0, mode);
-    assert.equal(f.argvLog.filter((argv) => argv[1] === "rm").length, 0, mode);
-    f.dispose();
-  }
+test("初回Intent前と正式未発行の回収はDI・Host借用を発行しない", async (t) => {
+  for (const mode of ["initial", "not_issued"] as const)
+    await t.test(mode, async (t) => {
+      const f = await createRecoveryFixture(t, true);
+      f.f.ids.clear();
+      if (mode === "initial") f.setBook(null);
+      else {
+        const op = f.state.snapshot.operations[0];
+        assert.ok(op?.kind === "docker_task" && op.resources);
+        const next = applyCoordinatorResourceEvent(op.resources, {
+          event: "not_issued",
+          key: op.resources.checkpoints[0]?.key,
+        });
+        assert.ok(next);
+        f.setBook(next);
+      }
+      const calls = f.f.calls.length;
+      const result = await f.run();
+      assert.equal(result.status, "completed", JSON.stringify(result));
+      assert.equal(f.borrows, 0);
+      assert.equal(f.f.calls.length, calls);
+    });
 });
-
-/**
- * 技術回収中のOwner変化は下位が逆照会せず上位確定で拒否する。
- * @responsibility 受理した処置と上位の保存・進行判断を分離する。
- * @trace ERB-IT-014
- * @precondition 一つのknown Networkと後続の未要求資源を用意する。
- * @stimulus 実DI inspectの応答中に元Ownerを失効させる。
- * @observation rm、後続要求、Writerと再入場時の追加Effect。
- * @oracle 受理済み技術処置は完了、上位Writer0、同参照で停止し再入場の追加処置0。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: DI技術処置→上位の確定前確認。
- */
-test("回収中Owner変化は技術処置を逆照会せず上位確定で拒否する", async (t) => {
-  const f = fixture(t, "identified", true);
-  f.mode = "inspect-owner-lost";
-  const result = await f.run();
-  assert.equal(result.status, "blocked");
-  assert.equal(result.recoveryId, "exact-recovery");
-  assert.equal(
-    f.argvLog.some((argv) => argv[1] === "rm"),
-    true,
-  );
-  assert.equal(
-    f.events.some((event) => event.startsWith("write:")),
-    false,
-  );
-  assert.equal(f.argvLog.at(-1)?.[1], "ls");
-  const before = [...f.events];
-  assert.equal((await f.run()).status, "blocked");
-  assert.deepEqual(f.events, before);
-});
-
-/**
- * 保存済みabsenceも実Executorで現在のID・名前不存在を確認する。
- * @responsibility 過去absenceを再観測なしの清掃成功へ流用しない。
- * @trace ERB-IT-014
- * @precondition identified・exact ID・既absenceが保存済みの模擬現在状態。
- * @stimulus 現在のIDと予定名がともに空の成功照会を返す。
- * @observation inspect／rm件数、二軸ls、absenceと現在元版の相関。
- * @oracle inspect0・rm0、ID／absence事実を保持し今回元版へ再相関。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 保存済みabsence→DI現在観測。
- */
-test("identified既absenceは現在ID・名前の二軸不存在で再確認する", async (t) => {
-  const f = fixture(t, "identified", false, true);
-  const original = f.operation.resources.find(
-    (resource) => resource.purpose === "create_internal_network",
-  );
-  assert.ok(original?.absence);
-  const result = await f.run();
-  assert.equal(result.status, "completed", result.reason);
-  assert.equal(f.argvLog.length, 2);
-  assert.ok(f.argvLog.every((argv) => argv[1] === "ls"));
-  assert.ok(f.argvLog[0]?.includes(`id=${id}`));
-  assert.ok(f.argvLog[1]?.includes(`name=^${name}$`));
-  assert.equal(
-    f.argvLog.some((argv) => argv[1] === "inspect" || argv[1] === "rm"),
-    false,
-  );
-  const resource = f.operation.resources.find(
-    (value) => value.purpose === "create_internal_network",
-  );
-  assert.equal(resource?.request, "identified");
-  assert.equal(resource?.dockerId, id);
-  assert.equal(resource?.observation, "absent");
-  const write = f.cleanupWrites[0];
-  assert.ok(write);
-  const observation = write.observations.find(
-    (value) => value.purpose === "create_internal_network",
-  );
-  assert.ok(observation);
-  assert.equal(
-    resource?.absence?.evidenceSha256,
-    createHash("sha256")
-      .update(
-        JSON.stringify({
-          recoveryId: "exact-recovery",
-          previousPayloadSha256: write.previousHash,
-          observation,
-        }),
-      )
-      .digest("hex"),
-  );
-  assert.equal(
-    write.previousHash,
-    createHash("sha256").update(`${f.initial}\n`).digest("hex"),
-  );
-});
-
-/**
- * 部分回収成功と未解決資源を同じcleanupへ保存し再入場する。
- * @responsibility 後続unknownで既確認ID・absenceを消さず二度削除しない。
- * @trace ERB-IT-014
- * @precondition Internalはidentified、Egressは作成結果unknown。
- * @stimulus Internal回収後にEgress未発見を返し、同じContextへ再入場する。
- * @observation cleanup共同値、二回目のID／名前観測、rmと元版Hash。
- * @oracle blockedでもabsent＋unknownを保持、二回目rm0・後者再観測、他状態不変。
- * @cleanup fixtureが空configとmockを回収する。
- * @boundary ERB-IT-014=Related 2 Blocks: 部分回収→同Owner再入場。
- */
-test("部分回収後のunknownは既absenceを保持し再入場で二度削除しない", async (t) => {
-  const f = fixture(t, "identified", true);
-  const preserved = JSON.stringify({
-    host: f.operation.host,
-    lease: f.operation.lease,
-    outcome: f.operation.outcome,
-    primaryFailure: f.operation.primaryFailure,
-    other: f.untouched,
-  });
-  const first = await f.run();
-  assert.equal(first.status, "blocked");
-  assert.equal(first.recoveryId, "exact-recovery");
-  assert.equal(f.argvLog.filter((argv) => argv[1] === "rm").length, 1);
-  const firstWrite = f.cleanupWrites[0];
-  assert.ok(firstWrite);
-  assert.deepEqual(
-    firstWrite.observations
-      .filter((value) =>
-        ["create_internal_network", "create_egress_network"].includes(
-          value.purpose,
-        ),
-      )
-      .map((value) => ({
-        purpose: value.purpose,
-        observation: value.observation,
-        dockerId: value.dockerId,
-      })),
-    [
-      {
-        purpose: "create_egress_network",
-        observation: "unknown",
-        dockerId: null,
-      },
-      {
-        purpose: "create_internal_network",
-        observation: "absent",
-        dockerId: id,
-      },
-    ],
-  );
-  const firstEvidence = f.operation.resources.find(
-    (value) => value.purpose === "create_internal_network",
-  )?.absence?.evidenceSha256;
-  assert.ok(firstEvidence);
-  const afterFirst = `${JSON.stringify({ operations: [f.operation, f.untouched] })}\n`;
-  const beforeCalls = f.argvLog.length;
-  const second = await f.run();
-  assert.equal(second.status, "blocked");
-  assert.equal(second.recoveryId, "exact-recovery");
-  const calls = f.argvLog.slice(beforeCalls);
-  assert.equal(
-    calls.some((argv) => argv[1] === "rm" || argv[1] === "inspect"),
-    false,
-  );
-  assert.ok(calls.some((argv) => argv.includes(`id=${id}`)));
-  assert.ok(calls.some((argv) => argv.includes(`name=^${name}$`)));
-  assert.ok(
-    calls.some((argv) => argv.includes("name=^crdd-egress-0123456789abcdef$")),
-  );
-  const resource = f.operation.resources.find(
-    (value) => value.purpose === "create_internal_network",
-  );
-  assert.equal(resource?.dockerId, id);
-  assert.equal(resource?.observation, "absent");
-  assert.equal(
-    f.operation.resources.find(
-      (value) => value.purpose === "create_egress_network",
-    )?.observation,
-    "unknown",
-  );
-  const secondWrite = f.cleanupWrites[1];
-  assert.ok(secondWrite);
-  assert.equal(
-    secondWrite.previousHash,
-    createHash("sha256").update(afterFirst).digest("hex"),
-  );
-  const observation = secondWrite.observations.find(
-    (value) => value.purpose === "create_internal_network",
-  );
-  assert.equal(
-    resource?.absence?.evidenceSha256,
-    createHash("sha256")
-      .update(
-        JSON.stringify({
-          recoveryId: "exact-recovery",
-          previousPayloadSha256: secondWrite.previousHash,
-          observation,
-        }),
-      )
-      .digest("hex"),
-  );
-  assert.notEqual(resource?.absence?.evidenceSha256, firstEvidence);
-  assert.equal(
-    JSON.stringify({
-      host: f.operation.host,
-      lease: f.operation.lease,
-      outcome: f.operation.outcome,
-      primaryFailure: f.operation.primaryFailure,
-      other: f.untouched,
-    }),
-    preserved,
-  );
-});
-
 /**
  * 現在回収の配送借用を同じOwnerの同期処理へ限定する。
  * @responsibility 偽キー・未解放・Host再出現と保存不明の再発行を反証する。

@@ -1,134 +1,31 @@
 /**
- * AIツール認証固有の構成・実行と技術回収を所有する。
- * @responsibility 保存通知を待ち、同じPlanのProcess終了・資源回収を上位判断から分離する。
- * @trace ARCH-000010
+ * 認証の構成・必要通知と結果解釈を所有する。
+ * @packageDocumentation
+ * @responsibility 上位の判断・永続化とDIの技術実行を再実装しない。
+ * @trace ARCH-000008
  */
-
 import { types } from "node:util";
 import {
   getAuthenticationDefinition,
   parseProviderResult,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  cleanupIsolation,
   describeIsolationConfiguration,
   executeIsolation,
   type IsolationExecution,
-  type IsolationExecutionResult,
   type IsolationRequest,
   prepareIsolation,
 } from "../../../docker-isolation/src/index.ts";
-import { executeLifecycle } from "../lifecycle/execute.ts";
-import { createLifecycleOperations } from "../lifecycle/operations.ts";
+import { createLifecycleControl } from "./execute.ts";
 import type {
-  AuthenticationResourceTarget,
+  ResourcePreparation,
   Executor,
-} from "../lifecycle/types.ts";
-import type {
   AuthenticationCallbacks,
-  AuthenticationCleanupResult,
   AuthenticationCompletionResult,
   AuthenticationProjection,
   AuthenticationRequest,
   AuthenticationResult,
-  DockerAuthenticationResources,
 } from "./types.ts";
-
-/**
- * 認証再入場の確定Receiptを、通常と同じDI Cleanupへ搬送する。
- * @responsibility 認証の固定対象だけを選び、技術的な照合・削除・不存在を再実装しない。
- * @trace ARCH-000010
- * @input target: 同じHome Lock下で上位が確定した資源・管理所在・通知。
- * @returns Process終了と技術回収の個別結果。
- * @effect DI共通回収だけ。login・statusの実行は発行しない。
- * @failure ID欠測は正規不存在観測だけを許し、名前だけで削除しない。
- */
-export async function cleanupAuthenticationResources(
-  target: AuthenticationResourceTarget,
-): Promise<AuthenticationCleanupResult> {
-  let session: IsolationExecution | null = null;
-  const stop = () => {
-    void session?.cancel().catch(() => {});
-  };
-  try {
-    target.signal?.throwIfAborted();
-    const input = authenticationIsolationRequest(
-      target.request,
-      target.managementDirectory,
-    );
-    const expected = input.cleanupOrder.map((key) => {
-      const resource = input.resources.find((r) => r.key === key);
-      if (!resource) throw Error("provider_authentication_resource_missing");
-      return Object.freeze({
-        kind: resource.kind,
-        name: resource.name,
-        dockerId: null,
-      });
-    });
-    const receipts = captureAuthenticationResources(expected, target.resources);
-    if (!receipts)
-      return { confirmed: false, processCompletionConfirmed: false };
-    const callbacks = target.callbacks ?? {};
-    session = cleanupIsolation(
-      {
-        managementDirectory: target.managementDirectory,
-        resources: {
-          resources: input.cleanupOrder.map((key, i) => {
-            const receipt = receipts[i];
-            if (!receipt)
-              throw Error("provider_authentication_resource_missing");
-            return {
-              key,
-              identity: {
-                ...receipt,
-                ownershipLabel: input.resources[0]?.ownershipLabel ?? "",
-              },
-              request:
-                receipt.dockerId === null
-                  ? ("unknown" as const)
-                  : ("issued" as const),
-              configuration: {
-                image: null,
-                command: null,
-                environmentNames: null,
-                mounts: null,
-                networks: null,
-                internal: null,
-              },
-            };
-          }),
-        },
-        cleanupOrder: input.cleanupOrder,
-        setupTimeoutMs: 30_000,
-        unreceiptedAbsence: "observe",
-        verifyLabelAbsence: false,
-        discovery: [],
-        previouslyAbsent: [],
-      },
-      {
-        onCleanupSubmitting: (key) =>
-          notifyAuthentication(callbacks.onCommandSubmitting, `remove_${key}`),
-        onCleanupCompleted: () =>
-          notifyAuthentication(callbacks.onCommandCompleted),
-      },
-    );
-    target.signal?.addEventListener("abort", stop, { once: true });
-    if (target.signal?.aborted) stop();
-    const result = await session.completion;
-    return Object.freeze({
-      confirmed: result.cleanup.confirmed,
-      processCompletionConfirmed: result.processTerminationConfirmed,
-      resourceSnapshot: result.resources,
-    });
-  } catch {
-    return Object.freeze({
-      confirmed: false,
-      processCompletionConfirmed: false,
-    });
-  } finally {
-    target.signal?.removeEventListener("abort", stop);
-  }
-}
 
 /**
  * 認証固有のHome・通信・対話条件を共通DI入力へ固定する。
@@ -394,22 +291,11 @@ export function createAuthenticationExecutor(
   } catch {
     return null;
   }
-  const lifecycle = createLifecycleOperations();
+  const lifecycle = createLifecycleControl();
   const projection: AuthenticationProjection = Object.freeze({
     provider: request.provider,
     action: request.action,
     ownershipLabel: `crdd.coordinator.authentication=${request.suffix}`,
-    resources: Object.freeze(
-      input.cleanupOrder.map((key) => {
-        const resource = input.resources.find((r) => r.key === key);
-        if (!resource) throw Error("provider_authentication_resource_missing");
-        return Object.freeze({
-          kind: resource.kind,
-          name: resource.name,
-          dockerId: null,
-        });
-      }),
-    ),
   });
   return Object.freeze<Executor<"authentication">>({
     kind: "authentication",
@@ -433,10 +319,10 @@ export function createAuthenticationExecutor(
       const required = (
         notify: ((...args: never[]) => void) | undefined,
         failed: string,
-        value?: unknown,
+        ...values: unknown[]
       ) => {
         try {
-          notifyAuthentication(notify, value);
+          notifyAuthentication(notify, ...values);
         } catch (error) {
           if (reason === "provider_authentication_completed") reason = failed;
           throw error;
@@ -446,14 +332,47 @@ export function createAuthenticationExecutor(
         const prepared = prepareIsolation(input);
         if (!prepared)
           throw Error("provider_authentication_preparation_failed");
+        let resources: ResourcePreparation = Object.freeze({
+          snapshot: prepared.resources,
+          cleanup: Object.freeze({
+            cleanupOrder: input.cleanupOrder,
+            setupTimeoutMs: input.setupTimeoutMs,
+            unreceiptedAbsence: input.unreceiptedAbsence,
+            verifyLabelAbsence: input.verifyLabelAbsence,
+          }),
+        });
         session = executeIsolation(prepared, {
           onSubmitting: (step) =>
             required(
               callbacks.onCommandSubmitting,
               "provider_authentication_command_intent_unconfirmed",
               step.key,
+              resources,
+              step.resource,
             ),
+          onNotIssued: (step) =>
+            required(
+              callbacks.onCommandNotIssued,
+              "provider_authentication_command_settlement_unconfirmed",
+              step.key,
+              resources,
+              step.resource,
+            ),
+          onResourceIdentified: (key, snapshot) => {
+            resources = Object.freeze({ ...resources, snapshot });
+            if (!callbacks.onResourceIdentified)
+              throw Error(
+                "provider_authentication_resource_receipt_unconfirmed",
+              );
+            required(
+              callbacks.onResourceIdentified,
+              "provider_authentication_resource_receipt_unconfirmed",
+              key,
+              resources,
+            );
+          },
           onCreated: (step, snapshot) => {
+            resources = Object.freeze({ ...resources, snapshot });
             const resource = snapshot.resources.find(
               (r) => r.key === step.resource,
             );
@@ -465,9 +384,11 @@ export function createAuthenticationExecutor(
               callbacks.onResourceCreated,
               "provider_authentication_resource_receipt_unconfirmed",
               Object.freeze({
+                key: step.resource,
                 name: resource.identity.name,
                 dockerId: resource.identity.dockerId,
               }),
+              resources,
             );
           },
           onCompleted: (step, commandResult) => {
@@ -516,6 +437,8 @@ export function createAuthenticationExecutor(
               callbacks.onCommandSubmitting,
               "provider_authentication_command_intent_unconfirmed",
               `remove_${key}`,
+              resources,
+              key,
             ),
           onCleanupCompleted: () =>
             required(
@@ -523,9 +446,7 @@ export function createAuthenticationExecutor(
               "provider_authentication_command_settlement_unconfirmed",
             ),
         });
-        lifecycle.bindCancellation(
-          async () => (await session.cancel()).processTerminationObserved,
-        );
+        lifecycle.bind(session);
       } catch {
         lifecycle.finish();
         return Object.freeze({
@@ -535,58 +456,67 @@ export function createAuthenticationExecutor(
           completion: null,
         });
       }
-      let technical: IsolationExecutionResult | null = null;
       return Object.freeze({
         kind: "authentication",
         status: "started",
-        completion: executeLifecycle(
-          {
-            async execute() {
-              technical = await session.completion;
-            },
-            createResult(_context, failure, failed) {
-              if (failed) throw failure;
-              const resultSource = technical as IsolationExecutionResult | null;
-              if (!resultSource)
-                throw Error("provider_authentication_completion_unconfirmed");
-              if (reason === "provider_authentication_completed") {
-                if (!resultSource.processTerminationConfirmed)
-                  reason =
-                    "provider_authentication_process_completion_unconfirmed";
-                else if (lifecycle.cancellationRequested)
-                  reason = "provider_authentication_cancelled";
-                else if (resultSource.failure)
-                  reason = `provider_authentication_${resultSource.failure.stepKey ?? "preparation"}_failed`;
+        completion: session.completion
+          .then(
+            (technical) => {
+              try {
+                const resultSource = technical;
+                if (!resultSource)
+                  throw Error("provider_authentication_completion_unconfirmed");
+                if (reason === "provider_authentication_completed") {
+                  if (!resultSource.processTerminationConfirmed)
+                    reason =
+                      "provider_authentication_process_completion_unconfirmed";
+                  else if (lifecycle.cancellationRequested)
+                    reason = "provider_authentication_cancelled";
+                  else if (resultSource.failure)
+                    reason = `provider_authentication_${resultSource.failure.stepKey ?? "preparation"}_failed`;
+                }
+                const result: AuthenticationCompletionResult = Object.freeze({
+                  kind: "authentication",
+                  reason,
+                  authenticationStatus,
+                  authenticationConfirmed,
+                  providerEffectIssued: resultSource.resources.resources.some(
+                    (r) => r.request !== "not_issued",
+                  ),
+                  processCompletionConfirmed:
+                    resultSource.processTerminationConfirmed,
+                  cleanupConfirmed: resultSource.cleanup.confirmed,
+                  resourceSnapshot: resultSource.resources,
+                  resourceObservations: resultSource.cleanup.observations,
+                  status:
+                    resultSource.cleanup.confirmed &&
+                    resultSource.processTerminationConfirmed
+                      ? reason === "provider_authentication_cancelled"
+                        ? "cancelled"
+                        : reason === "provider_authentication_completed"
+                          ? "completed"
+                          : "blocked"
+                      : "blocked",
+                });
+                return result;
+              } finally {
+                lifecycle.finish();
               }
-              const result: AuthenticationCompletionResult = Object.freeze({
-                kind: "authentication",
-                reason,
-                authenticationStatus,
-                authenticationConfirmed,
-                providerEffectIssued: resultSource.resources.resources.some(
-                  (r) => r.request !== "not_issued",
-                ),
-                processCompletionConfirmed:
-                  resultSource.processTerminationConfirmed,
-                cleanupConfirmed: resultSource.cleanup.confirmed,
-                resourceSnapshot: resultSource.resources,
-                status:
-                  resultSource.cleanup.confirmed &&
-                  resultSource.processTerminationConfirmed
-                    ? reason === "provider_authentication_cancelled"
-                      ? "cancelled"
-                      : reason === "provider_authentication_completed"
-                        ? "completed"
-                        : "blocked"
-                    : "blocked",
-              });
-              return result;
             },
-            onCompleted: (result) => callbacks.onCompleted?.(result),
-          },
-          undefined,
-          lifecycle,
-        ),
+            (failure: unknown) => {
+              lifecycle.finish();
+              throw failure;
+            },
+          )
+          .then((result) => {
+            try {
+              const pending = callbacks.onCompleted?.(result);
+              if (pending) void pending.catch(() => {});
+            } catch {
+              /* 任意通知は確定結果を変更しない。 */
+            }
+            return result;
+          }),
       });
     },
     cancel: () => lifecycle.cancel(),
@@ -610,16 +540,12 @@ export function createAuthenticationExecutor(
  */
 export function notifyAuthentication(
   notify: ((...args: never[]) => void) | undefined,
-  argument?: unknown,
+  ...arguments_: unknown[]
 ): void {
   if (!notify) return;
   if (types.isAsyncFunction(notify))
     throw Error("provider_authentication_notification_unconfirmed");
-  const result: unknown = Reflect.apply(
-    notify,
-    undefined,
-    argument === undefined ? [] : [argument],
-  );
+  const result: unknown = Reflect.apply(notify, undefined, arguments_);
   if (result !== undefined) {
     if (types.isPromise(result))
       void Promise.prototype.then.call(
@@ -629,59 +555,4 @@ export function notifyAuthentication(
       );
     throw Error("provider_authentication_notification_unconfirmed");
   }
-}
-
-/**
- * 元認証計画と同じ資源列だけを通常データとして捕捉する。
- * @responsibility 欠測、順序・名前差、accessor、Proxyと不正IDを拒否する。
- * @trace ARCH-000010
- * @input expected: 元の資源列。value: 開始時又は再入場時のReceipt列。
- * @returns 入れ子を含め固定した元構成のReceipt列、又はnull。
- * @effect N/A: own-dataの読取りだけ。
- * @failure 分類不能・不一致はnull。
- * @invariant indexだけで別資源を結合しない。
- */
-export function captureAuthenticationResources(
-  expected: DockerAuthenticationResources,
-  value: unknown,
-): DockerAuthenticationResources | null {
-  if (
-    !Array.isArray(value) ||
-    types.isProxy(value) ||
-    value.length !== expected.length
-  )
-    return null;
-  const captured = [];
-  for (let index = 0; index < expected.length; index++) {
-    const original = expected[index];
-    if (!original) return null;
-    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-    const item: unknown =
-      descriptor && Object.hasOwn(descriptor, "value")
-        ? descriptor.value
-        : null;
-    if (!item || typeof item !== "object" || types.isProxy(item)) return null;
-    const fields = Object.getOwnPropertyDescriptors(item);
-    if (
-      Reflect.ownKeys(fields).length !== 3 ||
-      ["kind", "name", "dockerId"].some(
-        (key) => !fields[key] || !Object.hasOwn(fields[key], "value"),
-      )
-    )
-      return null;
-    const kind: unknown = fields.kind?.value,
-      name: unknown = fields.name?.value,
-      dockerId: unknown = fields.dockerId?.value;
-    if (
-      kind !== original.kind ||
-      name !== original.name ||
-      (dockerId !== null &&
-        (typeof dockerId !== "string" || !/^[a-f0-9]{64}$/u.test(dockerId)))
-    )
-      return null;
-    captured.push(
-      Object.freeze({ kind: original.kind, name: original.name, dockerId }),
-    );
-  }
-  return Object.freeze(captured);
 }

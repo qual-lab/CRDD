@@ -16,14 +16,22 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import {
   type ExecutionSelection,
+  type CoordinatorResourceBook,
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+  validateCoordinatorResourceBook,
+  encodeRuntimeStateValue,
   hashExecutionSelection,
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
+import type {
+  IsolationCallbacks,
+  IsolationExecution,
+} from "../../../docker-isolation/src/index.ts";
 import {
-  type ResourceCleanupResult as ExecutorResourceCleanupResult,
   type ResourceTarget as ExecutorResourceTarget,
   cleanupResources,
   createExecutor as createAuthentication,
@@ -7814,8 +7822,9 @@ type Dependencies = Readonly<{
     directory: AuthenticationManagementDirectory,
   ) => boolean;
   cleanupAuthentication: (
-    target: ExecutorResourceTarget<"authentication">,
-  ) => Promise<ExecutorResourceCleanupResult<"authentication">>;
+    target: ExecutorResourceTarget<"snapshot">,
+    callbacks: IsolationCallbacks,
+  ) => IsolationExecution;
   acquireProviderHomeLock: (
     identityHash: string,
   ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
@@ -7831,15 +7840,17 @@ type Dependencies = Readonly<{
     record: AuthenticationRecoveryRecord,
     state: "idle" | "in_flight",
     purpose: string | null,
+    resources?: unknown,
+    key?: string,
   ) => boolean;
   completeRecovery: (record: AuthenticationRecoveryRecord) => boolean;
-  recordCreatedResource: (
+  recordResource: (
     record: AuthenticationRecoveryRecord,
-    receipt: Readonly<{ name: string; dockerId: string }>,
+    event: unknown,
   ) => boolean;
   readResources: (
     record: AuthenticationRecoveryRecord,
-  ) => RecordProjection<"authentication">["resources"] | null;
+  ) => Readonly<{ resources: CoordinatorResourceBook | null }> | null;
 }>;
 
 /** 同じHome Lock下で自作した管理Directoryの短命実体。保存・権限ではない。 */
@@ -7946,18 +7957,13 @@ const authenticationPreparations = new WeakMap<
  */
 export type AuthenticationRecoveryRecord = Readonly<{
   contract: "crdd-coordinator/provider-authentication-recovery";
-  contractRevision: 1;
+  contractRevision: 2;
   provider: "codex" | "claude";
   action: "status" | "login";
   recoveryId: string;
   stableLogicalHomeBindingHash: string;
   suffix: string;
-  resourceNames: readonly string[];
-  resources: readonly Readonly<{
-    kind: "container" | "network";
-    name: string;
-    dockerId: string | null;
-  }>[];
+  resources: CoordinatorResourceBook | null;
   ownershipLabel: string;
   state: "active" | "settled";
   commandState: "idle" | "in_flight";
@@ -7998,12 +8004,7 @@ export function createProviderAuthenticationRecoveryRecord(
   )
     return null;
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
-  const resources = authenticationResources(plan.provider, plan.action, suffix);
-  if (
-    plan.ownershipLabel !== `crdd.coordinator.authentication=${suffix}` ||
-    plan.resources.map((resource) => resource.name).join("\0") !==
-      resources.map((resource) => resource.name).join("\0")
-  )
+  if (plan.ownershipLabel !== `crdd.coordinator.authentication=${suffix}`)
     return null;
   const runtimeRoot = path.win32.dirname(
     path.win32.dirname(providerHomeSourcePath),
@@ -8016,7 +8017,7 @@ export function createProviderAuthenticationRecoveryRecord(
   );
   return Object.freeze({
     contract: "crdd-coordinator/provider-authentication-recovery",
-    contractRevision: 1,
+    contractRevision: 2,
     provider: plan.provider,
     action: plan.action,
     recoveryId: `provider-auth.${plan.provider}.${plan.action}.${stableLogicalHomeBindingHash}`,
@@ -8026,8 +8027,7 @@ export function createProviderAuthenticationRecoveryRecord(
     state: "active",
     commandState: "idle",
     commandPurpose: null,
-    resourceNames: Object.freeze(resources.map((resource) => resource.name)),
-    resources,
+    resources: null,
     recordPath,
   });
 }
@@ -8057,7 +8057,7 @@ function sameRecoveryRecord(
   const record = value as Record<string, unknown>;
   if (
     Object.keys(record).sort().join(",") !==
-    "action,commandPurpose,commandState,contract,contractRevision,ownershipLabel,provider,recoveryId,resourceNames,resources,stableLogicalHomeBindingHash,state,suffix"
+    "action,commandPurpose,commandState,contract,contractRevision,ownershipLabel,provider,recoveryId,resources,stableLogicalHomeBindingHash,state,suffix"
   )
     return false;
   const isCommandStateValid =
@@ -8077,28 +8077,12 @@ function sameRecoveryRecord(
     record.ownershipLabel === expected.ownershipLabel &&
     (record.state === "active" || record.state === "settled") &&
     isCommandStateValid &&
-    Array.isArray(record.resources) &&
-    record.resources.length === expected.resources.length &&
-    record.resources.every((resource: unknown, index: number) => {
-      if (!resource || typeof resource !== "object" || Array.isArray(resource))
-        return false;
-      const value = resource as Record<string, unknown>;
-      const target = expected.resources[index];
-      return (
-        target !== undefined &&
-        Object.keys(value).sort().join(",") === "dockerId,kind,name" &&
-        value.kind === target.kind &&
-        value.name === target.name &&
-        (value.dockerId === null ||
-          (typeof value.dockerId === "string" &&
-            /^[a-f0-9]{64}$/u.test(value.dockerId)))
-      );
-    }) &&
-    Array.isArray(record.resourceNames) &&
-    record.resourceNames.length === expected.resourceNames.length &&
-    record.resourceNames.every(
-      (name, index) => name === expected.resourceNames[index],
-    )
+    validateCoordinatorResourceBook(record.resources) &&
+    (record.resources === null ||
+      record.resources.snapshot.resources.every(
+        (resource) =>
+          resource.identity.ownershipLabel === expected.ownershipLabel,
+      ))
   );
 }
 
@@ -8132,17 +8116,11 @@ export function beginProviderAuthenticationRecovery(
       const existing = JSON.parse(previous) as Record<string, unknown>;
       const action = existing.action;
       if (action !== "status" && action !== "login") return "unknown";
-      const resources = authenticationResources(
-        record.provider,
-        action,
-        record.suffix,
-      );
       const expected: AuthenticationRecoveryRecord = {
         ...record,
         action,
         recoveryId: `provider-auth.${record.provider}.${action}.${record.stableLogicalHomeBindingHash}`,
-        resources,
-        resourceNames: resources.map((resource) => resource.name),
+        resources: null,
       };
       if (!sameRecoveryRecord(existing, expected)) return "unknown";
       if (existing.state === "active") {
@@ -8215,6 +8193,8 @@ export function setProviderAuthenticationRecoveryCommandState(
   record: AuthenticationRecoveryRecord,
   state: "idle" | "in_flight",
   purpose: string | null,
+  resourcesValue?: unknown,
+  key?: string,
 ) {
   if (
     (state === "idle" && purpose !== null) ||
@@ -8235,6 +8215,16 @@ export function setProviderAuthenticationRecoveryCommandState(
       (state === "idle" && current.commandState !== "in_flight")
     )
       return false;
+    let resources = current.resources as CoordinatorResourceBook | null;
+    if (state === "in_flight" && purpose?.startsWith("create_")) {
+      const material = JSON.parse(encodeRuntimeStateValue(resourcesValue));
+      resources = applyCoordinatorResourceEvent(resources, {
+        ...material,
+        event: "submission",
+        key,
+      });
+      if (!resources) return false;
+    }
     fs.writeFileSync(
       record.recordPath,
       `${JSON.stringify({
@@ -8243,6 +8233,7 @@ export function setProviderAuthenticationRecoveryCommandState(
         state: "active",
         commandState: state,
         commandPurpose: purpose,
+        resources,
       })}\n`,
       { encoding: "utf8", flush: true },
     );
@@ -8253,7 +8244,9 @@ export function setProviderAuthenticationRecoveryCommandState(
       sameRecoveryRecord(updated, record) &&
       updated.state === "active" &&
       updated.commandState === state &&
-      updated.commandPurpose === purpose
+      updated.commandPurpose === purpose &&
+      encodeRuntimeStateValue(updated.resources) ===
+        encodeRuntimeStateValue(resources)
     );
   } catch {
     return false;
@@ -8278,53 +8271,52 @@ export function setProviderAuthenticationRecoveryCommandState(
  */
 export function recordProviderAuthenticationResource(
   record: AuthenticationRecoveryRecord,
-  name: string,
-  dockerId: string,
+  eventValue: unknown,
 ) {
-  if (!/^[a-f0-9]{64}$/u.test(dockerId)) return false;
   try {
-    const current = JSON.parse(
-      fs.readFileSync(record.recordPath, "utf8"),
-    ) as AuthenticationRecoveryRecord;
-    if (
-      !sameRecoveryRecord(current, record) ||
-      current.state !== "active" ||
-      current.commandState !== "in_flight"
-    )
+    const raw = fs.readFileSync(record.recordPath, "utf8");
+    const current = JSON.parse(raw) as AuthenticationRecoveryRecord;
+    const event = JSON.parse(encodeRuntimeStateValue(eventValue));
+    if (!sameRecoveryRecord(current, record) || current.state !== "active")
       return false;
-    const index = record.resourceNames.indexOf(name);
-    const purposes = [
-      "create_probe",
-      "create_login",
-      "create_proxy",
-      "create_internal_network",
-      "create_egress_network",
-    ];
-    if (index < 0 || current.commandPurpose !== purposes[index]) return false;
-    const resource = current.resources[index];
-    if (
-      !resource ||
-      (resource.dockerId !== null && resource.dockerId !== dockerId)
-    )
-      return false;
-    const resources = current.resources.map((value, position) =>
-      position === index ? { ...value, dockerId } : value,
-    );
-    fs.writeFileSync(
-      record.recordPath,
-      `${JSON.stringify({ ...current, recordPath: undefined, resources })}\n`,
-      { encoding: "utf8", flush: true },
-    );
-    const updated = JSON.parse(
-      fs.readFileSync(record.recordPath, "utf8"),
-    ) as unknown;
+    let resources: CoordinatorResourceBook | null;
+    if (event.event === "cleanup") {
+      if (!current.resources) return false;
+      resources = applyCoordinatorResourceCleanup(
+        current.resources,
+        event.snapshot,
+        event.observations,
+        {
+          recoveryId: current.recoveryId,
+          previousPayloadSha256: createHash("sha256").update(raw).digest("hex"),
+        },
+      );
+    } else {
+      if (
+        current.commandState !== "in_flight" ||
+        current.commandPurpose !==
+          (event.event === "identified" ? "remove_" : "create_") + event.key
+      )
+        return false;
+      resources = applyCoordinatorResourceEvent(current.resources, event);
+    }
+    if (!resources) return false;
+    const next = {
+      ...current,
+      recordPath: undefined,
+      resources,
+      ...(event.event === "not_issued"
+        ? { commandState: "idle", commandPurpose: null }
+        : {}),
+    };
+    fs.writeFileSync(record.recordPath, JSON.stringify(next) + "\n", {
+      encoding: "utf8",
+      flush: true,
+    });
+    const updated = JSON.parse(fs.readFileSync(record.recordPath, "utf8"));
     return (
       sameRecoveryRecord(updated, record) &&
-      JSON.stringify((updated as AuthenticationRecoveryRecord).resources) ===
-        JSON.stringify(resources) &&
-      (updated as AuthenticationRecoveryRecord).commandState === "in_flight" &&
-      (updated as AuthenticationRecoveryRecord).commandPurpose ===
-        current.commandPurpose
+      JSON.stringify(updated) === JSON.stringify(next)
     );
   } catch {
     return false;
@@ -8354,11 +8346,14 @@ export function readProviderAuthenticationResources(
     const current = JSON.parse(
       fs.readFileSync(record.recordPath, "utf8"),
     ) as AuthenticationRecoveryRecord;
-    if (!sameRecoveryRecord(current, record) || current.state !== "active")
+    if (
+      !sameRecoveryRecord(current, record) ||
+      current.state !== "active" ||
+      current.commandState !== "idle" ||
+      current.commandPurpose !== null
+    )
       return null;
-    return Object.freeze(
-      current.resources.map((resource) => Object.freeze({ ...resource })),
-    );
+    return { resources: current.resources };
   } catch {
     return null;
   }
@@ -8436,12 +8431,7 @@ export function createProviderAuthenticationDependencies(): Dependencies {
     setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
     completeRecovery: settleProviderAuthenticationRecovery,
     readResources: readProviderAuthenticationResources,
-    recordCreatedResource: (record, receipt) =>
-      recordProviderAuthenticationResource(
-        record,
-        receipt.name,
-        receipt.dockerId,
-      ),
+    recordResource: recordProviderAuthenticationResource,
   });
 }
 
@@ -8509,17 +8499,49 @@ function authenticationCallbacks(
   current: () => boolean,
 ): ExecutorCallbacks<"authentication"> {
   return {
-    onCommandSubmitting: (purpose) => {
+    onCommandSubmitting: (purpose, resources, key) => {
       if (!current())
         throw Error("provider_authentication_provider_home_lock_lost");
-      if (!dependencies.setRecoveryCommandState(recovery, "in_flight", purpose))
+      if (
+        !dependencies.setRecoveryCommandState(
+          recovery,
+          "in_flight",
+          purpose,
+          resources,
+          key,
+        )
+      )
         throw Error("provider_authentication_command_intent_unconfirmed");
     },
-    onResourceCreated: (receipt) => {
+    onResourceIdentified: (key, resources) => {
+      if (
+        !current() ||
+        !dependencies.recordResource(recovery, {
+          ...resources,
+          event: "identified",
+          key,
+        })
+      )
+        throw Error("provider_authentication_resource_receipt_unconfirmed");
+    },
+    onResourceCreated: (receipt, resources) => {
       if (!current())
         throw Error("provider_authentication_provider_home_lock_lost");
-      if (!dependencies.recordCreatedResource(recovery, receipt))
+      if (
+        !dependencies.recordResource(recovery, {
+          ...resources,
+          event: "receipt",
+          key: receipt.key,
+        })
+      )
         throw Error("provider_authentication_resource_receipt_unconfirmed");
+    },
+    onCommandNotIssued: (_purpose, _resources, key) => {
+      if (
+        !current() ||
+        !dependencies.recordResource(recovery, { event: "not_issued", key })
+      )
+        throw Error("provider_authentication_command_settlement_unconfirmed");
     },
     onCommandCompleted: () => {
       if (!current())
@@ -8554,19 +8576,93 @@ async function cleanAuthenticationResources(
   if (!authorityLive())
     return { confirmed: false, processCompletionConfirmed: false };
   const authentication = authenticationPreparations.get(plan);
-  return authentication
-    ? dependencies.cleanupAuthentication({
-        kind: "authentication",
-        request: authentication.request,
-        managementDirectory: authentication.managementDirectory,
-        resources: dependencies.readResources(recovery),
-        callbacks: authenticationCallbacks(
-          recovery,
-          dependencies,
-          authorityLive,
-        ),
-      })
-    : { confirmed: false, processCompletionConfirmed: false };
+  const observed = dependencies.readResources(recovery);
+  if (!authentication || !observed)
+    return { confirmed: false, processCompletionConfirmed: false };
+  const book = observed.resources;
+  // 成功したexact idle読取りだけが、初回Intent前の未要求窓を示す。
+  if (book === null)
+    return { confirmed: true, processCompletionConfirmed: true };
+  let material: Readonly<{
+    snapshot: CoordinatorResourceBook["snapshot"];
+    cleanup: CoordinatorResourceBook["cleanup"];
+  }> = {
+    snapshot: {
+      resources: book.snapshot.resources.map((resource) => ({
+        ...resource,
+        request:
+          book.checkpoints.find((item) => item.key === resource.key)
+            ?.submission !== "intent_saved"
+            ? ("not_issued" as const)
+            : resource.identity.dockerId === null
+              ? ("unknown" as const)
+              : ("issued" as const),
+      })),
+    },
+    cleanup: book.cleanup,
+  };
+  const execution = dependencies.cleanupAuthentication(
+    {
+      ...book.cleanup,
+      resources: material.snapshot,
+      managementDirectory: authentication.managementDirectory,
+      previouslyAbsent: book.checkpoints
+        .filter((item) => item.observation === "absent")
+        .map((item) => item.key),
+    },
+    {
+      onCleanupSubmitting: (key) => {
+        if (
+          !authorityLive() ||
+          !dependencies.setRecoveryCommandState(
+            recovery,
+            "in_flight",
+            "remove_" + key,
+            material,
+            key,
+          )
+        )
+          throw Error("provider_authentication_command_intent_unconfirmed");
+      },
+      onResourceIdentified: (key, snapshot) => {
+        material = { ...material, snapshot };
+        if (
+          !authorityLive() ||
+          !dependencies.recordResource(recovery, {
+            ...material,
+            event: "identified",
+            key,
+          })
+        )
+          throw Error("provider_authentication_resource_receipt_unconfirmed");
+      },
+      onCleanupCompleted: () => {
+        if (
+          !authorityLive() ||
+          !dependencies.setRecoveryCommandState(recovery, "idle", null)
+        )
+          throw Error("provider_authentication_command_settlement_unconfirmed");
+      },
+      onResourcesClosed: (snapshot, observations) => {
+        if (
+          !authorityLive() ||
+          !dependencies.recordResource(recovery, {
+            event: "cleanup",
+            snapshot,
+            observations,
+          })
+        )
+          throw Error("provider_authentication_resource_receipt_unconfirmed");
+      },
+    },
+  );
+  const result = await execution.completion;
+  return {
+    confirmed:
+      result.cleanup.confirmed &&
+      result.notificationDeliveryConfirmed !== false,
+    processCompletionConfirmed: result.processTerminationConfirmed,
+  };
 }
 
 /**
@@ -8823,8 +8919,16 @@ export async function authenticateProvider(
         cleanup = { confirmed: true, processCompletionConfirmed: true };
       } else {
         const result = await started.completion;
+        const resourcesSaved =
+          result.resourceSnapshot === null ||
+          (providerHomeLock.assertLive() &&
+            activeDependencies.recordResource(recovery, {
+              event: "cleanup",
+              snapshot: result.resourceSnapshot,
+              observations: result.resourceObservations,
+            }));
         cleanup = {
-          confirmed: result.cleanupConfirmed,
+          confirmed: result.cleanupConfirmed && resourcesSaved,
           processCompletionConfirmed: result.processCompletionConfirmed,
         };
         reason = result.reason;
@@ -8889,43 +8993,6 @@ export async function authenticateProvider(
     hostPathReported: false,
     credentialReported: false,
   });
-}
-
-/**
- * 認証操作が所有する固定資源集合を導く。
- * @responsibility status一資源とlogin五資源の相関を同じOwnerへ閉じる。
- * @trace ARCH-000010
- * @input action: 固定操作、suffix: 検査済みHome由来hex。
- * @returns Receipt未発行の不変資源列。
- * @precondition actionとsuffixは閉形式検査済み。
- * @postcondition statusにProxy・Network・loginを含めない。
- * @effect N/A: 局所値だけ。
- * @failure N/A: 固定集合から構築する。
- * @invariant 同名・経過時間だけから所有を推定しない。
- * @boundary 認証計画と耐久Identity。
- * @security 実IDは実create結果が得られるまでnull。
- * @concurrency 同期構築。
- */
-function authenticationResources(
-  provider: Provider,
-  action: "status" | "login",
-  suffix: string,
-) {
-  const entries: ["container" | "network", string][] =
-    action === "status"
-      ? [["container", `crdd-auth-${suffix}`]]
-      : [
-          ["container", `crdd-auth-${suffix}`],
-          ["container", `crdd-${provider}-${suffix}`],
-          ["container", `crdd-proxy-${suffix}`],
-          ["network", `crdd-internal-${suffix}`],
-          ["network", `crdd-egress-${suffix}`],
-        ];
-  return Object.freeze(
-    entries.map(([kind, name]) =>
-      Object.freeze({ kind, name, dockerId: null }),
-    ),
-  );
 }
 
 /**
