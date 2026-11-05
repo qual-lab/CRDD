@@ -11,6 +11,144 @@ import assert from "node:assert/strict";
 import { createIsolationFixture as fixture } from "../support/isolation.ts";
 import test from "node:test";
 import type { IsolationRequest } from "../../src/execution/types.ts";
+import {
+  applyCoordinatorResourceEvent,
+  applyCoordinatorResourceCleanup,
+} from "../../../domain-model/src/attempt/crud.ts";
+import type { CoordinatorResourceBook } from "../../../domain-model/src/attempt/types.ts";
+
+/**
+ * 作成Receiptを構成検査より先に記録し、失敗・取消でも同じIDを回収まで保持する。
+ * @responsibility 作成応答・構成確認・保存・技術回収を別の事実として確認する。
+ * @trace ERB-IT-004
+ * @precondition 実DI共通Ownerと有限CLI／FS代役、純粋Domainだけを使用する。
+ * @stimulus 正常、構成・Identity・Image・JSON拒否、通知拒否、応答後取消、不正ID。
+ * @observation 通知時点のinspect数、保存ID、後続run、回収後Book。
+ * @oracle 完全IDを検査前に通知し、検査拒否を成功にせず、Receipt済みBookは回収結果に接続できる。
+ * @cleanup 同じ模擬資源の回収完了を待ち代役を復元する。
+ * @boundary 実Docker・AI・保持物は使用しない。物理耐久性の証明ではない。
+ */
+test("作成Receiptは構成検査前に確定し拒否・取消後も回収記録へ接続する", async (t) => {
+  for (const mode of [
+    "normal",
+    "configuration",
+    "identity",
+    "image",
+    "json",
+    "receipt_throw",
+    "receipt_reject",
+    "cancel",
+    "invalid_id",
+  ] as const)
+    await t.test(mode, async (t) => {
+      const f = await fixture(t);
+      const prepared = f.api.prepareIsolation(f.request);
+      assert.ok(prepared);
+      const cleanup = {
+        cleanupOrder: f.request.cleanupOrder,
+        setupTimeoutMs: f.request.setupTimeoutMs,
+        unreceiptedAbsence: f.request.unreceiptedAbsence,
+        verifyLabelAbsence: f.request.verifyLabelAbsence,
+      };
+      let book: CoordinatorResourceBook | null = null;
+      let receipts = 0,
+        mutated = false;
+      f.observationFilter = (argv, result) => {
+        if (!result) return result;
+        if (mode === "invalid_id" && argv.includes("create"))
+          return { ...result, stdout: "invalid-id\n" };
+        if (mutated || !argv.includes("inspect")) return result;
+        const image = argv.includes("image");
+        if (mode === "image" ? !image : image) return result;
+        if (!["configuration", "identity", "image", "json"].includes(mode))
+          return result;
+        mutated = true;
+        if (mode === "json") return { ...result, stdout: "{" };
+        const data = JSON.parse(result.stdout);
+        if (mode === "configuration") data[0].HostConfig.ReadonlyRootfs = false;
+        if (mode === "identity") data[0].Name = "/different";
+        if (mode === "image") data[0].Id = `sha256:${"f".repeat(64)}`;
+        return { ...result, stdout: JSON.stringify(data) };
+      };
+      const execution = f.api.executeIsolation(prepared, {
+        onSubmitting: (step) => {
+          if (step.action !== "create") return;
+          book = applyCoordinatorResourceEvent(book, {
+            event: "submission",
+            key: step.resource,
+            snapshot: prepared.resources,
+            cleanup,
+          });
+          assert.ok(book);
+        },
+        onObserved: (step) => {
+          if (mode === "cancel" && step.action === "create")
+            void execution.cancel();
+        },
+        onCreated: (_step, snapshot) => {
+          receipts++;
+          assert.equal(f.calls.filter((a) => a.includes("inspect")).length, 0);
+          assert.equal(
+            snapshot.resources[0]?.identity.dockerId,
+            "a".repeat(64),
+          );
+          if (mode === "receipt_throw") throw Error("synthetic_save_failure");
+          if (mode === "receipt_reject")
+            return Promise.reject(Error("synthetic_save_failure"));
+          book = applyCoordinatorResourceEvent(book, {
+            event: "receipt",
+            key: "container",
+            snapshot,
+            cleanup,
+          });
+          assert.ok(book);
+          assert.equal(
+            book.checkpoints[0]?.receiptSource,
+            "docker_create_result",
+          );
+          assert.equal(book.checkpoints[0]?.observation, "unobserved");
+        },
+        onResourceIdentified: (key, snapshot) => {
+          // 不正create応答から推測せず、既存の再発見通知でだけIDを記録する。
+          assert.equal(mode, "invalid_id");
+          book = applyCoordinatorResourceEvent(book, {
+            event: "identified",
+            key,
+            snapshot,
+            cleanup,
+          });
+          assert.ok(book);
+        },
+      });
+      const result = await execution.completion;
+      assert.equal(receipts, mode === "invalid_id" ? 0 : 1);
+      assert.equal(
+        f.calls.some((a) => a[0] === "start"),
+        mode === "normal",
+      );
+      assert.equal(
+        result.failure === null,
+        mode === "normal" || mode === "cancel",
+      );
+      assert.equal(result.cancellationRequested, mode === "cancel");
+      assert.equal(result.cleanup.confirmed, true);
+      assert.equal(f.ids.size, 0);
+      if (!["invalid_id", "receipt_throw", "receipt_reject"].includes(mode)) {
+        assert.ok(book);
+        const closed = applyCoordinatorResourceCleanup(
+          book,
+          result.resources,
+          result.cleanup.observations,
+          {
+            recoveryId: "exact-recovery",
+            previousPayloadSha256: "a".repeat(64),
+          },
+        );
+        assert.ok(closed);
+        assert.equal(closed.checkpoints[0]?.observation, "absent");
+      }
+    });
+});
 
 /**
  * config終了の明示不存在と観測不能を通常・単独回収で区別する。
@@ -123,10 +261,37 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       `../../../executor/src/index.ts?common-chain=${Math.random()}`
     );
   for (const provider of ["codex", "claude"] as const)
-    for (const mode of ["normal", "notice_failure", "cancel"] as const)
+    for (const mode of [
+      "normal",
+      "notice_failure",
+      "cancel",
+      "configuration_failure",
+    ] as const)
       await t.test(`${provider}:${mode}`, async () => {
         selected = provider;
         released = 0;
+        const callOffset = f.calls.length;
+        let book: CoordinatorResourceBook | null = null;
+        let mutated = false,
+          closed = false;
+        let diagnostic:
+          | import("../../../executor/src/index.ts").PrimaryFailureDiagnostic
+          | null = null;
+        f.observationFilter = (argv, result) => {
+          if (
+            mode !== "configuration_failure" ||
+            mutated ||
+            !result ||
+            !argv.includes("inspect") ||
+            argv.includes("image")
+          )
+            return result;
+          const data = JSON.parse(result.stdout);
+          if (!data[0]?.HostConfig) return result;
+          mutated = true;
+          data[0].HostConfig.ReadonlyRootfs = false;
+          return { ...result, stdout: JSON.stringify(data) };
+        };
         const target = {
           provider,
           operationId: "OP-123456",
@@ -198,7 +363,18 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
             recoveryCapability: {},
           },
           callbacks: {
-            onCommandSubmitting: async (purpose) => {
+            onCommandSubmitting: async (purpose, resources) => {
+              if (
+                mode === "configuration_failure" &&
+                purpose.startsWith("create_")
+              ) {
+                book = applyCoordinatorResourceEvent(book, {
+                  ...resources,
+                  event: "submission",
+                  key: purpose,
+                });
+                assert.ok(book);
+              }
               if (purpose === "create_provider") {
                 if (mode === "notice_failure")
                   throw Error("synthetic_checkpoint_refusal");
@@ -208,6 +384,40 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
                     managementCapability: management,
                   });
               }
+            },
+            onResourceCreated: (purpose, _id, resources) => {
+              if (mode !== "configuration_failure") return;
+              book = applyCoordinatorResourceEvent(book, {
+                ...resources,
+                event: "receipt",
+                key: purpose,
+              });
+              assert.ok(book);
+            },
+            onCleanupCompleted: (observation) => {
+              if (mode !== "configuration_failure") return;
+              assert.ok(book);
+              const final = applyCoordinatorResourceCleanup(
+                book,
+                observation.resourceSnapshot,
+                observation.resources,
+                {
+                  recoveryId: observation.recoveryId,
+                  previousPayloadSha256: "a".repeat(64),
+                },
+              );
+              assert.ok(final);
+              assert.equal(
+                final.checkpoints.find(
+                  (c) => c.key === "create_subscription_auth_probe",
+                )?.observation,
+                "absent",
+              );
+              closed = true;
+            },
+            onDiagnostic: (notice) => {
+              if (notice.event === "coordinator_provider_boundary_settled")
+                diagnostic = notice.primaryFailure;
             },
           },
         });
@@ -229,6 +439,22 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
         assert.equal(f.ids.size, 0);
         assert.equal(result.resourceSnapshot?.resources.length, 5);
         assert.equal(result.hostPathReported, true);
+        if (mode === "configuration_failure") {
+          assert.equal(closed, true);
+          assert.ok(diagnostic);
+          const captured =
+            diagnostic as import("../../../executor/src/index.ts").PrimaryFailureDiagnostic;
+          assert.equal(captured.receiptRecorded, true);
+          assert.equal(captured.isolationFailure?.stage, "observation");
+          assert.equal(
+            captured.isolationFailure?.reason,
+            "docker_isolation_root_readonly_mismatch",
+          );
+          assert.equal(
+            f.calls.slice(callOffset).some((argv) => argv[0] === "start"),
+            false,
+          );
+        }
         assert.equal(
           JSON.stringify(result.resourceSnapshot).includes(
             "synthetic task input",

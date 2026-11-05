@@ -109,6 +109,7 @@ export interface PreparedIsolation {
 export interface IsolationCallbacks {
   onSubmitting?(step: IsolationStep): void | Promise<void>;
   onNotIssued?(step: IsolationStep): void | Promise<void>;
+  /** 作成応答の完全IDを構成検査前に通知する。構成検査成功・現在存在の証明ではない。 */
   onCreated?(
     step: IsolationStep,
     snapshot: ResourceSnapshot,

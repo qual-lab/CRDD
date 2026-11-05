@@ -3033,3 +3033,201 @@ Native親の認証unknown試験は、同じ保存記録を子Processで読み、
 今回のSource集合は135ファイル、前節と同じ算出方法のSHA256 `3f0328609478b86e1ffcc1e210f510f7b0f919dcb064cec321f257011ed4e203`。全112件実行後のSource差は試験説明一行だけであり、動作を変更していない。DI製品・公開IF・保存Schemaはこの二件では変更していない。
 
 実AI・Docker・Native Host Gate・過去保持物は操作していない。前節の実境界未成立、全体Checkerの対象外3,755エラー、中断runの物理試験領域の回収未確認を解消したとは扱わない。ここまでのSource整理と限定回帰・独立確認をcommit／pushすることは、main統合・Release・全体QA合格を意味しない。
+<a id="executor-real-e2e-first-stop-20261105"></a>
+
+### 公開Executorの実E2E初回停止（2026-11-05）
+
+対象Commitは `a80829f4e5460f650025045d670163483a4825d4`。人間がExecutorの実AI／実Docker E2Eと、停止していたDocker Desktopの通常起動を承認した。署名確認後に通常起動を一回要求し、公開環境観測でbackend running／Engine ready／観測cleanup confirmedを確認した。再起動・修復・Image更新は行っていない。
+
+計画はCodex／Claudeそれぞれadvice・edit・review・cancelを各一回、最大八試行とした。GPT-6.1 Sol／Opus 5.5、いずれもMedium、既存固定Image、合成Prompt及び新品work/source.txtだけを対象とし、実Repository本文は送信しない。1件の失敗又は不明で残り全件を停止し、自動再送しない条件で実行した。
+
+| 確認項目 | 観測 |
+| --- | --- |
+| 実施した試行 | Codex advice、`EXEC-20261105-165950-6d4aed04-01`、終了値2 |
+| 結果 | blocked／docker_process_controller_execution_failed_closed |
+| 停止点 | create_subscription_auth_probe。作成要求のHandle取得・応答受領あり。終了0、stdout 65 bytes、stderr 0 bytes。Receiptは未記録 |
+| 診断 | stage command_wait、exceptionCode unclassified_exception。作成応答受領後からReceipt確定前までの詳細な失敗箇所は、この診断だけでは確定できない |
+| AI実行 | providerProcessStartedObserved false。今回ProviderのAI実行は開始確認なし。残り七試行は未開始 |
+| 技術終了と回収 | Node子close、Process tree終了、Container／Network不存在、Home解放、Native観測の終了をToolが確認。cleanupConfirmed／releaseConfirmed／nativeCleanupConfirmed true |
+| 保存・試験領域 | terminalSaved false、fixtureCleanupConfirmed false。通常cleanup条件を満たさずRootを保持。強制清掃・追加回復・再試行なし |
+| 耐久記録 | recovery_opened、recovery_handoff、最初のsubmission_plannedを確定読取り。outcome.jsonも元runIdで確定読取り成功 |
+| 領域の内容 | management／tmpは空。イベント三件と各commit記録、outcomeとそのcommit記録。生Provider出力・認証値は保存していない |
+
+保持Rootは `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261105-165950-6d4aed04-01`、観測Identityは `1687905628:151996487424747370:1793865591295049100`。元回復参照は `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.4ce6e769d2e256e33a7851b11f06d8ad51a04ab588005d57dd8ffddd4f64c3a4.1250a57aa2b61abf08f05a4e6572bd48afba668e2e7ef07b312c5d10360df4ee`。再評価時刻は `2026-11-12T07:59:54.587Z`。期限だけでは削除しない。
+
+保存されたBookにはauth資源のIntentと予定名 `crdd-auth-74f2c8e01399d33f`、所有Label `crdd.coordinator.runtime=74f2c8e01399d33f` があり、実ID／Receipt／不存在証拠は未確定のままである。Toolの技術回収確認を、未確定Bookや上位終端の保存成功へ読み替えない。今回分を過去保持物と混ぜず、保持物への追加操作は行っていない。実E2Eは不合格であり、先行の非AI回帰成功から解消済みとは扱わない。
+
+### 作成応答後からReceipt前の非AI切分け（2026-11-05）
+
+対象は同じ基準Commit。実装変更ではなく、既存Sourceの読取りと有限技術境界による診断調査である。DIの実行前構成検査、Executorの診断投影、Domainの資源記録照合を確認した。実AI、Docker CLI、保持物の読取り・変更・清掃は行わず、過去記録については直前の確認結果だけを参照した。規範・公開契約・実行許可の変更はないため、今回の調査へ準拠監査や工程横断監査を追加しない。製品是正・独立レビューは未実施である。
+
+- DIの作成経路は、create応答→内部SnapshotへID保持→onObserved→Container inspect→Identity照合→Image inspect→完全構成照合→Snapshot投影→onCreated通知、の順である。
+- ExecutorのrecordIsolationFailureは、DIのobservation段階をcommand_waitへ投影し、元のreasonをdocker_process_controller_execution_failed_closedへ集約する。通常Errorはunclassified_exceptionとなる。従って今回の診断は、Receipt保存失敗そのものや認証期限切れを示さない。
+- 既存の有限CLI／Process／Filesystem代役を使用し、本番DIの共通入口へ正常、inspect JSON不正、Identity不一致、Image未確認、構成不一致の五ケースを入力した。正常だけonCreatedが一回、他の四ケースは零回だった。異常四件はいずれもobservation段階・未分類例外となり、元reasonだけが異なる。全五件で模擬資源回収と残存零を確認した。これは実Dockerの正常性の証明ではない。
+- 実際の停止原因が上記のどれであるかは、現在保存された診断から一意に復元できない。構成不一致やMount不一致と断定しない。原因候補の追加実測は行っていない。
+- 終端保存の不成立は別途説明できる。通常create応答のIDは構成確認が完了するまで上位へ通知されず、途中失敗では保存BookのIDがnullのままになる。DomainのapplyCoordinatorResourceCleanupは保存IDと最終SnapshotのIDが違えばresource_receipt_requiredとして拒否する。技術回収成功をそのまま保存確定へ変換できない設計であり、この照合を緩めることは提案しない。
+
+最小是正案は二段階とする。第一はExecutorの既存診断に、DIが既に返す固定reason・stageを失わず残すこと。自由文・生inspect・認証値・新しいLog基盤は不要で、DIの実装変更も不要である。第二は、作成応答から既知になったIDの通知と、実行前構成検査成功の通知を区別し、前者を既存onResourceIdentifiedで構成検査より前に耐久記録へ渡すこと。後者は既存onCreatedの意味を維持する。第二にはDIの通知順序の限定変更が必要になる理由があり、DI固定方針の例外として明示してから対応する。IDを通知しただけで構成検査済み・実行許可済みとは扱わず、必要通知の失敗で後続Effectを停止し、元IDを回収まで保持する。実装前に通知失敗・構成拒否・保存拒否の反例と利用側を確認する。
+
+静的確認はDIのformat／typecheck／lintを終了値0で通過した（lint情報表示9件、Warning／Errorなし）。有限切分けは五件成功。製品コード、期限、安全条件、Image及び保持物は変更していない。AI再送・Docker再起動も未実施である。
+
+### 作成Receiptの前倒しと元診断保持の限定是正（2026-11-05）
+
+人間が上記二点の最小是正、利用側・試験・文書の追従、非AI回帰と独立レビューを承認した。変更分類は実装詳細と通知・診断契約の限定修正であり、DI固定方針の例外は通知位置の変更だけである。着手前に読取り専用確認者がDomainのreceipt／identifiedの違い、認証・Probeの利用側、完全ID確認、応答後取消、診断受入れを確認した。規範・準拠・保存Schemaを変更しないため、文書全体監査・準拠監査は追加せず、Sourceと結合試験の独立レビューを実施した。
+
+実装では直前調査の候補を一部訂正した。onResourceIdentifiedは再発見とpresent観測を意味するため流用しない。既存onCreatedを、成功したcreate応答の完全64桁IDを内部Snapshotへ保持した後、取消判定及びobserveの前へ移した。通知を待ってから実体・Identity・Image・構成検査を行い、検査拒否又は取消なら後続実行へ進まない。ID不正は通知しない。通知拒否でも元IDを回収まで保持する。ExecutorのreceiptRecordedはReceipt通知が正常終了してから更新し、拒否を記録済みと扱わない。
+
+PrimaryFailureDiagnosticへ任意のisolationFailureを追加し、DIの既存failure型を再利用した。元reason・stage・通知・kind・例外分類・要求／応答観測を保持し、従前の上位reasonとstageは維持する。既に保持した一次技術診断は後着失敗で上書きしない。検証ToolのexactなJSON受入れ、利用側の診断期待値、Architecture二文書を追従させた。公開関数・Root Export・Domain保存Schema・安全判定・Timeout・Imageは変更していない。
+
+| 確認 | 最終結果と限界 |
+| --- | --- |
+| Executor npm test | 静的段階と113試験成功。実AI・実Dockerは実行しない |
+| DI npm test | 静的段階と401試験成功、明示的対象外5件。通常権限でWindowsリンク作成がEPERMとなったため、許可された実行権限で再確認した。実Dockerは実行しない |
+| 新規Receipt試験 | 正常、構成／Identity／Image／JSON拒否、同期通知例外、非同期Reject、応答後取消、不正IDの9ケース。完全IDの早期通知、後続run停止、元ID回収、Domain記録への接続を確認 |
+| 実Executor→実DI→純粋Domain | 両Providerの構成拒否でReceipt保存済み、元診断保持、回収後Bookのabsence更新を確認。物理的な耐久保存・実Docker成立の証明ではない |
+| Coordinator npm run check | Formatter、型検査、Lint、Runtime／Task設計トレースを通過。Lintの既存InfoはError・Warningとは区別 |
+| Coordinator対象回帰 | docker-process-controllerと両Provider準備試験の153件中152成功・既存不合格1件。全体Passではない |
+| 独立レビュー | 別確認者がSource・利用側・Domain・文書を再確認し今回範囲のMust-fix 0件。新Receipt試験と両Provider結合試験も独立実行して成功 |
+
+残る既存不合格は `coordinator/tests/integration/docker-process-controller.contract.test.ts` の「作成境界の一次失敗を清掃結果から分離する」。清掃例外のケースでterminal.homeLeaseReleasedがtrue、期待値がfalseとなる。基準HEADのattempt.tsをGitから取得し、Filesystemを書き換えずメモリ上のModule代役として同じ試験へ接続した場合も同一箇所で再現した。今回の診断・通知位置変更による新しい回帰とは区別するが、既存不合格を安全成立へ読み替えない。OwnerはCoordinatorの同試験とExecutor試験用接続で、再評価契機は当該故障注入・Home終了観測の整合調査である。今回これを通すためのHome解放条件変更、期待falseのtrue化、試験除外は行っていない。この未解決項目があるため、Coordinator回帰全体の合格、Executor実E2Eの解消又はRelease可能とは主張しない。
+
+今回二点の限定是正と独立レビューは完了した。AI再送、Docker起動／再起動／修復、Image更新、保持物の読取り・変更・削除は未実施。元E2E失敗の具体的な技術理由を新診断で取得する実試行は、今回の許可範囲では実施していない。
+
+### 限定是正後のExecutor実E2E初回停止（2026-11-05）
+
+人間がExecutor単独の実AI／実Docker E2Eを承認した。Codex／Claudeのadvice・edit・review・cancelを各一回、最大八件、最初の失敗又は不明で全件停止する条件。固定合成Prompt及び新品試験領域だけを対象とし、モデルはGPT-6.1 Sol／Opus 5.5、各Medium、既存固定Imageを使用する。事前に公開環境観測はbackend stopped／Engine ready／観測cleanup confirmedを返した。Engineの応答があるためDockerの起動・再起動・修復は行っていない。
+
+実行対象はHEAD `a80829f4e5460f650025045d670163483a4825d4` と未コミットの限定是正を含む差分。開始時のgit diff --binaryのSHA-256は `20e30bc2f479d06ec423ffba76b82e319ca27f82b2ce721d7cb7f640aaf7e67b`。各試行の前に同じ差分を確認する構成とした。最初の試行 `EXEC-20261105082545-6fedf404-01`（Codex advice）が終了値2となり、残り七件を未開始のまま停止した。自動再送はない。
+
+| 観測 | 結果 |
+| --- | --- |
+| 停止箇所 | create_subscription_auth_probe。create応答は終了0／stdout 65 bytes／stderr 0 bytes |
+| 今回保持できた元診断 | isolationFailure.stage observation、reason docker_isolation_configuration_mismatch、notification null、kind command_failed、exceptionCode unclassified_exception |
+| Receipt | receiptRecorded true。前回と異なり構成検査拒否より前に記録できた |
+| 上位終端保存 | terminalSaved true。前回のID未搬送による保存未確定とは区別する |
+| 技術終了と回収 | childCloseConfirmed／childCloseObserved、Process tree終了、Container／Network不存在、Home解放、Native終了のすべてをToolが確認。cleanupConfirmed／releaseConfirmed／nativeCleanupConfirmed true |
+| AI開始 | providerProcessStartedObserved false。AI実行の開始は確認されていない |
+| 試験Root | fixtureCleanupConfirmed false、retentionRecordConfirmed true。成功結果と内容確認を要求する既存cleanup条件により保持。強制削除・追加回復は実施しない |
+
+今回Rootは `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261105082545-6fedf404-01`、元回復参照は `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.260f8332f48f95c24041e60078a36560c4c4394981309817b6bd520f3272f30b.746079786a94a9ea1fe18b18d05b57aa5a81cf1e6b4d4c15a634b8c8963d9010`。再評価時刻は `2026-11-12T08:25:56.761Z`。期限だけで削除しない。今回Rootの追加読取り・変更や過去保持物の操作はしていない。
+
+今回二点の是正による元理由の搬送とReceipt／終端保存の改善は実境界でも観測できた。一方、E2Eは不合格である。完全構成検査のどの項目が不一致かは現行の固定理由では識別できず、Mount・User・Image等のいずれかと推定して確定しない。Docker再起動・Image更新・判定緩和・追加試行は行わず、必要なら次の非AI切分けで扱う。
+
+### 構成照合項目の非AI調査（2026-11-05）
+
+人間の調査継続指示に基づき、認証確認Containerの構成生成とDIの完全構成照合、有限CLIのinspect代役を確認した。製品Sourceは変更せず、Docker CLI・外部AI・保持物へアクセスしていない。外部参照は内部情報を含まない一般的なDocker bind mountの仕様照会だけに限定した。
+
+照合対象はImage、User、TTY／stdin、RO root、非特権、Capability、SecurityOpt、Init、Entrypoint／Command／WorkingDir、環境、Network、Mount、Tmpfsである。Mount元はDocker inspectのSourceをWindows側のfs.realpathSync.nativeへ直接渡し、元Host Pathと比較している。[Dockerの公式bind mount資料](https://docs.docker.com/engine/storage/bind-mounts/)はDocker DesktopのLinux VMとHost Filesystemの橋渡しを説明しているため、HostとEngineのパス表現差は候補となる。ただし今回の実Source表現は観測されておらず、原因確定ではない。
+
+既存の有限代役へ合成Mount一件を与えた七ケースを実行した。元構成とno-new-privileges:true表記は成功し、VM側Source表記、Propagation空値、Network空集合、CapDrop小文字、Image Env欠測はすべて同じdocker_isolation_configuration_mismatchとなった。七試験成功、模擬回収成功・残存零。これらは候補の識別不能を示す反例であり、実Dockerがどの表現を返したかの証拠ではない。元の実inspectは構成拒否前に公開・保存しておらず、過去試行の具体的な不一致fieldを現記録から復元することはできない。
+
+次候補は、同じ固定Imageと隔離設定、認証値なしの空Homeを使う停止Container一件を新品Rootへ作り、起動せず、各照合項目の一致／不一致／観測不能だけを記録して今回分を回収する非AI比較である。任意Pathの正規化・チェック省略・判定緩和は提案しない。この追加Docker作成は失敗停止済みの八件E2E承認から推定せず、別途の限定承認を得てから実行する。
+
+### 構成拒否理由の項目別搬送（2026-11-05）
+
+人間が追加Docker試験より先に構成拒否理由を分離する方針を採用したため、上記Container比較は未承認・未実施のまま保留した。今回の変更分類はDIの既存構成検査における診断情報の限定是正であり、許可・採否・保存Schemaの変更ではない。Rootの公開IFを変えず、既存の検査条件・順序・Timeout・回収境界を保持する方針とSourceを着手前に照合した。Sourceの独立レビューと有限試験を選び、規範・準拠・保存Schemaに変更がないため文書全体監査・準拠監査を追加しない。
+
+- 内部bool関数isolationResourceConfigurationMatchesをinspectIsolationResourceConfigurationへ置換した。一致はnull、拒否は最初の不一致又は観測不能項目の固定理由を返す。旧bool入口や互換Wrapperは残さない。
+- Image、User、TTY、stdin、RO root、特権、Capability、Device、SecurityOpt、Init、Entrypoint、Command、WorkingDir、環境、Network、Mount、Tmpfsを区別する。Network資源はDriver／Scope／Internalを区別する。Mountは集合・対象・RO・Propagation・Sourceに分け、Source実体の確認不能と確認済み不一致を分ける。
+- operations.tsは返された固定理由だけを既存failure.reasonへ載せる。ExecutorのisolationFailure.reasonまで同じ理由が届く。Rootの公開関数・型・Export、Domain保存Schema、通知型を追加しない。生inspect・Path・環境値・期待値／実値・例外本文を理由へ含めない。
+- 既存の項目別負例・欠測・形状不正・観測例外、従来許可済み表記差及び複数不一致の先着順を試験し、両Providerの実Executor→DI→Domain接続の期待理由もroot_readonly_mismatchへ追従させた。Architectureへ同じ契約を反映した。
+
+最終確認はDIのnpm testで静的段階と402試験成功、明示対象外5件、失敗0件。Executorのnpm testで静的段階と113試験成功、失敗0件。git diff --checkも通過した。別確認者が旧bool関数と新関数を実Sourceから抽出して641変異ケースで受理・拒否の差0を確認し、項目別理由試験も独立実行した。今回範囲の独立レビューMust-fixは0件である。これは有限入力における同等性の根拠であり、任意入力の完全証明や実Dockerでの原因特定ではない。
+
+前述のCoordinator既存不合格1件は今回の診断変更の対象外であり、解消済みとはしない。実E2Eの構成不一致項目自体も未確定である。実AI、Docker操作、Image更新、保持物の読取り・変更・清掃は行っていない。次の実境界確認を実施する場合に、今回の項目別診断を利用できる状態までを完了とする。
+
+### 項目別診断付き実E2Eの初回停止（2026-11-05）
+
+人間のE2E継続許可により、同じ合成入力・固定Image・GPT-6.1 Sol／Opus 5.5各Mediumで、両Providerのadvice・edit・review・cancelを各一回、最大八件の範囲を再度実行した。最初の失敗で停止する条件は維持した。事前観測はbackend stopped／Engine ready／観測cleanup confirmedであり、Dockerの起動・再起動・修復は行っていない。実行対象はHEAD `a80829f4e5460f650025045d670163483a4825d4` と未コミットの項目別診断までの差分で、git diff --binaryのSHA-256は `8e8f260f5bafaf21a0bbbde921dbbf9ea6ad986ecdd9a5f9dba57c8a87deb29e`。各試行の直前にこの差分を確認する構成とした。
+
+初回Codex advice `EXEC-20261105083654-7b6f9173-01` は終了値2。元DI診断はcreate_subscription_auth_probe／observation／docker_isolation_tmpfs_mismatchであり、Tmpfs照合で拒否されたことが初めて確認できた。生成要求上、この認証確認ContainerのtmpfsBytesはnullである。実inspectのTmpfs fieldが欠測、空値又は別値のどれだったかまでは記録しておらず、具体的な表現を推測で確定しない。先のMount元仮説は今回の停止項目ではなかった。create応答は終了0／stdout 65 bytes／stderr 0 bytes、Receipt記録はtrue、終端保存もtrueである。
+
+AI Providerの開始は確認なし。残り七試行は未開始のまま停止し、自動再試行は行っていない。Toolは子close、Process tree終了、Container／Network不存在、Home解放、Native終了及び技術回収を確認した。一方、失敗結果は既存の試験Root清掃条件を満たさないため、fixtureCleanupConfirmed false／retentionRecordConfirmed trueで保持している。
+
+今回Rootは `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261105083654-7b6f9173-01`、元回復参照は `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.f76149b13da385a881abb5337d1db0c9e42d63772e48c0e47e318aad6459b362.df39437efbf764a2460216f0dd3a5bdd306cd02adf36e4fbf6bb0e3afe0f37a1`。再評価時刻は `2026-11-12T08:37:05.694Z`。期限だけで削除しない。今回Rootの追加読取り・変更・強制削除、過去保持物の操作、Image更新は行っていない。E2Eは不合格であり、今回の範囲では製品是正や追加Docker試行へ進んでいない。
+
+### Tmpfs未指定表現の原因調査（2026-11-05）
+
+調査指示に基づき、製品変更・Docker操作・外部AI・保持物アクセスなしで、DIのTmpfs判定と試験代役を確認した。認証確認ContainerはtmpfsBytes:nullで、Compilerは--tmpfsを付けない。一方、inspect照合はHostConfig.Tmpfsがnull又は空Objectの場合だけ未指定と認め、fieldが省略された場合のundefinedを拒否する。
+
+[Mobyの公式HostConfig定義](https://github.com/moby/moby/blob/master/api/types/container/hostconfig.go)ではTmpfs mapにJSONのomitemptyが付いている。従って、成功した完全なHostConfig観測における未設定Tmpfsのfield省略は、Docker APIが許す未設定表現であって、inspect全体の取得失敗とは異なる。DIがその表現を拒否する実装上の欠落を確認した。試験代役は未指定時に常にTmpfs:nullを返しており、実APIのfield省略を再現していなかった。
+
+| 合成条件 | 現行DIの結果 |
+| --- | --- |
+| Tmpfs要求なし／field省略 | docker_isolation_tmpfs_mismatch（再現した欠落） |
+| Tmpfs要求なし／null | 成功 |
+| Tmpfs要求なし／空Object | 成功 |
+| Tmpfs要求なし／予期しない設定あり | 拒否 |
+| Tmpfs要求あり／一致設定 | 成功 |
+| Tmpfs要求あり／field省略 | 拒否 |
+
+六ケースを既存の有限CLI／FS代役と実DI共通入口で実行し、全件で期待した現行挙動と模擬回収・残存零を確認した。元実E2Eの生inspectは保持していないため、当時のTmpfs field自体を事後に確認した証拠とはしない。ただし実APIで正当な未設定表現とDIの拒否条件の不整合は、公式定義と独立の合成再現で特定できた。
+
+最小是正候補は、取得済みHostConfigにおいてTmpfsを要求していない場合に限り、fieldの省略を未指定として認めること。Tmpfs要求ありの欠測拒否、予期しないTmpfsの拒否、Mount集合検査及びinspect全体の観測不能拒否は維持する。代役の省略表現と上記負例を固定試験へ追加する。今回の指示は原因調査のため、この製品是正とAI／Docker再試行は未実施である。
+
+### Tmpfs未指定の省略表現への限定是正（2026-11-05）
+
+人間の継続指示で最小是正を実施した。認証確認ContainerのTmpfs未指定は意図通りであり、tmpfsBytes:null、--tmpfsを付けない要求は変更していない。変更は、取得済みHostConfigについてTmpfs要求がない場合だけ、own fieldがなく値もundefinedである正当な省略表現を認める一条件の追加である。null／空Objectの従来受理は維持する。明示undefined、HostConfig全体の欠測、予期しないTmpfs、要求ありの省略・null・空設定は引き続き拒否する。
+
+試験代役の未指定表現二箇所をTmpfs:null固定からfield省略へ追従させ、項目別試験へ省略／null／空Object／明示undefined／予期しない設定／要求あり欠測と完全一致を追加した。公開IF、Schema、Image、Timeout、実行設定、回収条件は変更しない。変更分類はDocker APIの未設定表現に対する限定適合修正として、Source・有限境界試験・Architectureを更新した。規範・準拠判断を変更しないため全体文書監査・準拠監査は追加しない。
+
+最終結果はDIのnpm testで静的段階と402試験成功・明示対象外5件、Executorのnpm testで静的段階と113試験成功、失敗0件。独立レビューはMust-fix 0件で、別確認者が項目別試験及び両Provider結合試験の10件を独立実行して成功した。git diff --checkも通過した。Coordinatorの既存不合格一件及び実E2Eの未再確認は別途残す。今回、実AI・Docker操作・保持物アクセスは行っていない。
+
+### Tmpfs是正後の実E2E・Proxy Command照合での停止（2026-11-05）
+
+人間のE2E継続指示に従い、同じ固定合成入力、既存固定Image、GPT-6.1 Sol／Opus 5.5各Medium、各四用途一回・最大八件・最初の失敗で停止する条件で実行した。公開環境観測はbackend stopped／Engine ready／観測cleanup confirmedで、Dockerの起動・再起動・修復は行っていない。対象はHEAD `a80829f4e5460f650025045d670163483a4825d4` と未コミットのTmpfs是正までの差分、git diff --binaryのSHA-256は `efd0f2815fa4a8b0464f63b799ccc0bc4387cdb9fc7b517952e0d29e8af8d60f`。各試行前に同じ差分を確認する構成とした。
+
+初回Codex advice `EXEC-20261105084332-0abec0e7-01` が終了値2で停止した。認証確認ContainerのTmpfs照合及び認証確認は通過し、次のcreate_proxyで元DI理由docker_isolation_command_mismatch、stage observationとなった。作成応答は終了0／stdout 65 bytes／stderr 0 bytes、receiptRecorded true。期待CommandとDocker観測Commandの具体的な差はこの理由だけでは確定しない。追加Docker観測や製品修正は行っていない。
+
+ProviderのAI開始は確認なし、残り七件は未開始のまま停止した。childCloseConfirmed／childCloseObserved、cleanupConfirmed／releaseConfirmed／terminalSaved／nativeCleanupConfirmedはいずれもtrue、Container／Network不存在・Process tree終了も確認済み。fixtureCleanupConfirmed false、retentionRecordConfirmed trueで、失敗時の既存条件に従い今回試験Rootを保持している。
+
+今回Rootは `C:\project\CRDD\.crdd\tests\executor-real-codex-EXEC-20261105084332-0abec0e7-01`、元回復参照は `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.fe330d9be7373cf2551db00a73d0c1d2865c0eb25e6a648711c199e22ba3fe69.e0b3b8559f75a602548d61ba9584048fa7a052b15ca32944a6ef3b76d3510bb0`。再評価時刻は `2026-11-12T08:43:48.953Z`。期限だけでは削除しない。AI自動再試行、Image更新、Docker再起動、今回Rootの追加アクセス・強制削除、過去保持物の操作は未実施。Tmpfs是正の当該実境界通過と、E2E全体不合格を区別して記録する。
+
+### Proxyの空Command表現の非AI調査（2026-11-05）
+
+人間の調査指示に基づき、製品Source・Docker・保持物を変更せず、Proxy構成、Dockerfile、DIのCommand照合と有限代役を確認した。Proxyはargv:[]で、固定ImageのENTRYPOINT（PythonのProxy本体）を利用し、追加Command引数を渡さない。[Docker公式仕様](https://docs.docker.com/reference/dockerfile/#understand-how-cmd-and-entrypoint-interact)ではENTRYPOINT定義時に継承CMDが空へリセットされる。[OCI ImageConfig](https://github.com/opencontainers/image-spec/blob/main/specs-go/v1/config.go)のCmdはomitemptyであり省略され得る一方、[Moby Container Config](https://github.com/moby/moby/blob/master/api/types/container/config.go)のCmdは省略指定のない配列である。
+
+DIは、要求argvが空の場合のImage既定CmdとContainer Config.CmdをJSON.stringifyの文字列表現でexact比較している。従って、同じ空Commandを表すImage側省略とContainer側null、又は空配列とnullが不一致になる。有限代役はImage.Cmdを[]、空argvのContainer.Cmdも[]に固定しており、API間の空表現差を再現していなかった。
+
+八ケースの合成値で実DI共通入口を確認した。Image省略／Container null、Image []／Container null、Image省略／Container []はいずれも今回と同じdocker_isolation_command_mismatchを再現。null同士、空配列同士、指定済み非空Commandの完全一致は成功し、余剰Commandや非空既定値に対するnullは拒否した。八試験成功、模擬回収成功・残存零。元実試行の生inspectは保持していないため、当時の両fieldがどの空表現だったかは事後確定しない。確認した実装上の問題は、意味が同じ空Commandの正当な表現差をexact文字列比較で拒否することである。
+
+最小是正候補は、要求argvが空でImageの既定Commandも空の場合だけ、APIが表す空値を意味的に一致させること。非空Commandの値・順序・余剰引数の拒否、Entrypointの照合、観測全体欠測の拒否は維持する。Image自体や起動設定を変えて通す必要はない。今回は調査指示であり、製品是正、Docker操作、AI再試行、保持物アクセスは行っていない。
+
+### 空Command表現の限定是正と近接残件（2026-11-05）
+
+人間の継続指示に従い、Image／起動設定を変えず、DIのCommand照合だけを是正した。要求argvが空でImage.Cmdが正当な空表現（field省略・null・空配列）の場合に限り、Container.Cmdのnull／空配列を同じ追加引数なしと扱う。Containerのfield欠測・明示undefined・不正型は空へ補完しない。非空Commandは文字列配列の全値・順序・長さを要求し、明示argvをImage既定値より優先する。Entrypoint照合、Timeout、通知、回収条件及び公開IFは維持する。旧判定を通すためのImage変更・追加引数は不要であり実施しない。
+
+有限代役のImage.Cmdを空配列固定から省略へ、空argv時のContainer.Cmdをnullへ追従させた。固定試験に空表現の全組合せ、非空既定値、明示argv優先、引数順序・余剰・欠測・不正型の拒否を追加し、Architectureへ反映した。最終結果はDI npm testで静的段階と402件成功・明示対象外5件、Executor npm testで静的段階と113件成功、失敗0件。独立レビューはMust-fix 0件、別確認者が項目別試験及び両Provider結合試験10件を独立実行して成功した。git diff --checkも通過した。
+
+近接するImage既定値の非AI確認で、Image.WorkingDirを省略しContainer.WorkingDirを空文字とした合成入力がdocker_isolation_workdir_mismatchになることを再現した。OCI ImageConfigのWorkingDirも省略可能であり、Image既定値未指定とContainer側の空文字を直接比較する同類の残件候補である。現実のProxy Imageの当該fieldは追加観測していないため、次の実E2E停止を予言・確定するものではない。OwnerはDIの同構成照合で、再評価契機は次回実E2E前の未設定WorkingDirの意味確認。今回の空Command修正へ無断で含めず、未変更として残す。今回、実AI・Docker操作・保持物アクセスは行っていない。
+
+### WorkingDir未指定表現の限定是正（2026-11-05）
+
+人間が上記残件の是正を承認したため、Image.WorkingDirがown field省略かつundefinedである場合だけ、空文字既定として扱う修正を実施した。要求で明示したworkingDirectoryはImage既定値より優先し、Container側は文字列かつ期待値との完全一致を要求する。Containerのfield欠測・null・undefined・不正型、Image既定値を利用する場合の明示undefined・null・不正型は拒否する。別パス・大小文字・末尾slashを同一視しない。実行要求、Image、Timeout、回収条件、公開IFは変更していない。
+
+試験代役のImage.WorkingDir二箇所を空文字固定からfield省略へ追従させ、固定試験へ省略、Container欠測、不正なImage既定値、非空Image既定値、明示要求の優先及び厳密不一致を追加した。実行要求に許された既存の/workを明示Path試験へ使用し、許可Pathを拡張しない。Architectureにも同じ意味を反映した。
+
+最終確認はDI npm testで静的段階と402件成功・明示対象外5件、Executor npm testで静的段階と113件成功、失敗0件。独立レビューはMust-fix 0件、別確認者が項目別及び両Provider結合の10試験を独立実行して成功した。git diff --checkも通過した。今回、実AI・Docker操作・保持物アクセスは未実施であり、実E2Eの再成立とCoordinatorの既存不合格一件の解消は主張しない。
+
+### Executor単独・実AI／実Docker八項目成功（2026-11-05）
+
+人間のE2E継続許可に基づき、WorkingDir是正までの固定候補を、既存のverify-provider-real.ts --runで実行した。対象HEADは `a80829f4e5460f650025045d670163483a4825d4`、未コミット差分を含むgit diff --binaryのSHA-256は `b50d8d908efe47168d55e4dfbb1e1982424af2fea46a16d77e5ddd2322407720`。各試行直前と八件終了後の同一差分を確認した。事前の公開環境観測はbackend stopped／Engine ready／観測cleanup confirmed。Docker起動・再起動・修復は不要であり実施していない。
+
+CodexはGPT-6.1 Sol Medium、ClaudeはOpus 5.5 Medium。既存固定Image、合成Promptと新品source.txtだけを使用し、実Repository本文は送信しない。各用途一回・最大八件・最初の失敗又は不明で停止する条件を維持し、全八件が初回で成功した。試行IDの共通prefixは `EXEC-20261105085337-75dd6e58-`。
+
+| suffix | Provider | 用途 | 一次結果 | 内容確認又は取消確認 | 終了値 | 結果bytes／SHA-256 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 01 | Codex | advice | completed | contentConfirmed true | 0 | 694／dca8437666601bd09c5bf196210dcf523d716e6df4ced72dfa1e1fc273cbec57 |
+| 02 | Codex | edit | completed | contentConfirmed true | 0 | 2049／ff28e82d1aa32f7c612324984bd20d1e190cf12bb9c31d784de601123896e153 |
+| 03 | Codex | review | completed | contentConfirmed true | 0 | 805／69686cd3d60729a4ee1c90c19447820c607c4889363c3d6d31ba9386ca75b3ba |
+| 04 | Codex | cancel | cancelled | cancellationConfirmed true | 0 | 0／null（取消で内容成功を要求しない） |
+| 05 | Claude | advice | completed | contentConfirmed true | 0 | 2306／46869abff8ad07088cd6ef5bf2b88020f32707a640f91851ed7eb636e67a0fde |
+| 06 | Claude | edit | completed | contentConfirmed true | 0 | 2082／4d90f81d853ae38c567995606329e8014ca8835c7d0f061d11b8d120c5779177 |
+| 07 | Claude | review | completed | contentConfirmed true | 0 | 1785／8db4b90fd0fbce0bd669df1227f235734356295f838f995f99a51aed6e5215d6 |
+| 08 | Claude | cancel | cancelled | cancellationConfirmed true | 0 | 0／null（取消で内容成功を要求しない） |
+
+全八件でchildCloseConfirmed／childCloseObserved、cleanupConfirmed／releaseConfirmed／terminalSaved／nativeCleanupConfirmed／fixtureCleanupConfirmedはtrue、primaryFailureはnull、Provider開始・Process tree終了・Container／Network不存在も確認された。取消二件は単なる要求配送ではなく、一次結果cancelledとcancellationConfirmedを確認している。Toolの外側status completedは試験成功を意味し、取消一次結果を通常完了へ書き換えたものではない。
+
+全件fixtureRoot null／reviewAfter null／retentionRecordConfirmed falseとなり、終了後に今回作成した正確な八Rootだけをlstatで再確認し、すべてENOENTだった。実ID・名前・Labelの不存在は各試行のDI技術回収で確認し、FilesystemのRoot不存在とは別に成立している。生Provider出力・認証情報は記録していない。過去の保持物の読取り・変更・清掃、Image更新、再試行は行っていない。
+
+これにより、今回固定候補におけるExecutor単独の二Provider×四用途の実境界確認は成功した。Tmpfs、Proxy Command及びWorkingDirの過去停止点も通過した。Coordinator／Workbench／MCPとの上位E2E、既存Coordinator不合格一件、過去保持物の解決又はリリース全体の合格をこの八件から推定しない。

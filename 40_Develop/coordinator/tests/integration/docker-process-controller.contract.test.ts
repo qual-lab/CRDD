@@ -1244,7 +1244,14 @@ test("終端観測は固定callbackで清掃後に一回渡され制御を復活
   assert.equal(fixture.readTerminalResult(), result);
   assert.equal(terminal.operationId, "OP-123456");
   assert.equal(terminal.recoveryId, started.recoveryId);
-  assert.deepEqual(terminal.resources, fixture.resourceObservations);
+  assert.ok(terminal.resources);
+  assert.equal(terminal.resources.length, fixture.resourceObservations.length);
+  assert.deepEqual(
+    Object.fromEntries(terminal.resources.map((r) => [r.key, r.observation])),
+    Object.fromEntries(
+      fixture.resourceObservations.map((r) => [r.purpose, r.observation]),
+    ),
+  );
   assert.equal(terminal.primaryFailure, null);
   assert.equal(terminal.mountLeaseReleased, true);
   assert.equal(terminal.recoveryCompleted, true);
@@ -1674,7 +1681,19 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
       } else {
         assert.ok(terminal);
         assert.equal(terminal.primaryFailure, primary);
-        assert.deepEqual(terminal.resources, fixture.resourceObservations);
+        assert.ok(terminal.resources);
+        assert.equal(
+          terminal.resources.length,
+          fixture.resourceObservations.length,
+        );
+        assert.deepEqual(
+          Object.fromEntries(
+            terminal.resources.map((r) => [r.key, r.observation]),
+          ),
+          Object.fromEntries(
+            fixture.resourceObservations.map((r) => [r.purpose, r.observation]),
+          ),
+        );
       }
       assert.equal(primary.purpose, "create_subscription_auth_probe");
       assert.deepEqual(
@@ -1721,7 +1740,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
         primary.responseObserved,
         scenario === "nonzero" || scenario.startsWith("receipt"),
       );
-      assert.equal(primary.receiptRecorded, scenario.startsWith("receipt"));
+      assert.equal(primary.receiptRecorded, false);
       assert.equal(settled.cleanupConfirmed, cleanupMode === "complete");
       if (cleanupMode !== "complete")
         assert.equal(
@@ -2151,6 +2170,16 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
         responseObserved: true,
         receiptRecorded: false,
         commandObservation: { exitCode: 127, stdoutBytes: 0, stderrBytes: 0 },
+        isolationFailure: {
+          stepKey: "start_provider_attached",
+          stage: "notification",
+          reason: "test_session_failed",
+          kind: "threw",
+          notification: "onObserved",
+          exceptionCode: "unclassified_exception",
+          commandHandleObtained: true,
+          responseObserved: true,
+        },
       },
     },
   ]);
@@ -3271,9 +3300,14 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
     "mount-completion",
     "recovery-completed",
   ]);
+  const recorded = fixture.getRecordedResourceObservations();
+  assert.ok(Array.isArray(recorded));
+  assert.equal(recorded.length, fixture.resourceObservations.length);
   assert.deepEqual(
-    fixture.getRecordedResourceObservations(),
-    fixture.resourceObservations,
+    Object.fromEntries(recorded.map((r) => [r.key, r.observation])),
+    Object.fromEntries(
+      fixture.resourceObservations.map((r) => [r.purpose, r.observation]),
+    ),
   );
   for (const purpose of [
     "create_subscription_auth_probe",
@@ -5860,6 +5894,16 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
         );
         assert.ok(settled);
         assert.deepEqual(settled.primaryFailure, {
+          isolationFailure: {
+            stepKey: "start_provider_attached",
+            stage: "wait",
+            kind: "threw",
+            notification: null,
+            reason: "docker_isolation_command_failed",
+            exceptionCode: "PROCESS_FAILURE",
+            commandHandleObtained: true,
+            responseObserved: false,
+          },
           purpose: "start_provider_attached",
           stage:
             first === "technical"

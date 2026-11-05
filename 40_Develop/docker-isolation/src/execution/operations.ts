@@ -45,7 +45,7 @@ import {
   captureIsolationCleanupRequest,
   captureIsolationRequest,
   containerCreation,
-  isolationResourceConfigurationMatches,
+  inspectIsolationResourceConfiguration,
   plannedResourceSnapshot,
 } from "./preparation.ts";
 import {
@@ -570,15 +570,13 @@ function runIsolation(
         throw Error("docker_isolation_image_unconfirmed");
       image = metadata.Config as Record<string, unknown>;
     }
-    if (
-      !isolationResourceConfigurationMatches(
-        definition,
-        value,
-        image,
-        connections.get(key) ?? [],
-      )
-    )
-      throw Error("docker_isolation_configuration_mismatch");
+    const configurationFailure = inspectIsolationResourceConfiguration(
+      definition,
+      value,
+      image,
+      connections.get(key) ?? [],
+    );
+    if (configurationFailure) throw Error(configurationFailure);
     const observed = snapshotObservedDockerResource(value, key, identity);
     if (!observed) throw Error("docker_isolation_snapshot_unconfirmed");
     snapshot = Object.freeze({
@@ -997,9 +995,18 @@ function runIsolation(
             )
               throw Error("docker_isolation_command_failed");
             if (current.action === "create") {
+              // 作成Receiptは構成検査成功ではない。既知IDを先に上位へ渡す。
+              const dockerId = snapshot.resources.find(
+                (r) => r.key === current.resource,
+              )?.identity.dockerId;
+              if (
+                typeof dockerId !== "string" ||
+                !/^[a-f0-9]{64}$/u.test(dockerId)
+              )
+                throw Error("docker_isolation_receipt_missing");
+              await notice("onCreated", [current, snapshot]);
               if (cancelled) break;
               await observe(current.resource);
-              await notice("onCreated", [current, snapshot]);
             } else if (current.action === "connect") {
               const network = definitions.get(current.network);
               if (!network) throw Error("docker_isolation_resource_missing");

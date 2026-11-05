@@ -1,5 +1,15 @@
 # Docker隔離の詳細設計
 
+WorkingDirは、要求で明示したパスを優先し、未指定時だけImage既定値を使う。取得済みImage構成でWorkingDir項目が省略されている場合は空文字既定として扱う。Container側のWorkingDir欠測・null・undefined・不正型を空へ補完せず、文字列の完全一致を要求する。Image側の明示undefined・null・不正型も、既定値として利用する場合は拒否する。非空パスの大小文字・末尾区切り・別パスを同一視せず、起動設定・Timeout・回収条件・公開IFは変更しない。
+
+Commandは実行意味で照合する。要求argvが空でImage既定Cmdも省略・null・空配列の場合に限り、Container Cmdのnull・空配列を同じ「追加引数なし」と扱う。Container側のCmd欠測・undefinedや不正型は空へ補完しない。非空のImage既定Cmd又は明示argvは、文字列配列の全値・順序・長さの一致を要求し、明示argvをImage既定値より優先する。Entrypoint・Image・起動設定・Timeout・回収条件は変更しない。ImageのCommandを追加／変更して照合を通す方式は採らない。
+
+Tmpfsを要求していない場合、取得に成功したHostConfig内のTmpfs項目の省略、null、空Objectを未設定表現として扱う。Docker APIのomitemptyに対応するものであり、Tmpfsを追加して実行する変更ではない。HostConfig全体の欠測・取得失敗は拒否し、Tmpfs要求ありの場合の項目省略・null・空設定、要求していないTmpfsの追加も拒否する。認証確認ContainerのtmpfsBytes:nullと--tmpfsを付けない構成、Timeout及び回収条件は維持する。
+
+実行前の完全構成照合は、一致ならnull、拒否なら最初に拒否した項目の固定理由を返す。Image、User、TTY／stdin、RO root、特権、Capability、Device、SecurityOpt、Init、Entrypoint／Command／WorkingDir、環境、Network、Mount及びTmpfsを区別する。Mount元は確認不能と実体不一致を分離する。観測不能を一致と扱わず、既存の検査順・条件・Timeout・回収照合は変更しない。理由は既存IsolationExecutionResult.failure.reasonからExecutorのisolationFailure.reasonへ搬送し、新しい公開関数・型・通知は追加しない。固定理由に期待値・実値・Path・環境値・例外本文を埋め込まない。
+
+作成応答の完全64桁実IDを同じSnapshotへ保持した後、onCreatedを実体・構成検査より前に待機通知する。これは作成Receiptであり、構成検査成功や現在存在の証明ではない。応答後取消でも通知を省略せず、通知後に取消又は検査拒否なら後続実行を止める。通知拒否でも内部の元IDを失わず、既存の条件で回収する。実行前のIdentity・Image・構成検査、必要通知の待機、Process終了確認及び全Timeoutは変更しない。回収時の再発見を表すonResourceIdentifiedは、この作成Receiptの代用にしない。
+
 ## 技術入口への収束と現在の移管範囲
 
 乱数のBuffer／exact長検査、Providerに対応する資源名の生成、認証Home環境の構成はExecutorの準備責務へ移す。DIでは三関数と戻り値専用型を撤去し、Rootへ公開しない。DIのRequest捕捉・資源Identity文法・固定Image・Mount・Processの技術検査は維持し、上位が生成した値を無検査で信頼しない。固定資産とDIの一般的な入力検査はDIに維持する。CRDD固有の五資源名・Label・Digestの開始前検査は、生成OwnerのExecutorが所有する。用途固有のinit条件はExecutorへ移し、既存の適用条件を維持する。

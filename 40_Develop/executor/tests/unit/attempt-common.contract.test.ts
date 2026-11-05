@@ -24,6 +24,74 @@ import {
 import type { CoordinatorResourceBook } from "../../../domain-model/src/attempt/types.ts";
 
 /**
+ * DIの停止理由・観測段階を上位理由と分離して保持する。
+ * @responsibility 後着の通知拒否で一次技術診断を消さず、検証Toolも同じ値を受理する。
+ * @trace ERB-UT-023
+ * @precondition 有限DI結果のみ。実Docker・AI・保持物は使用しない。
+ * @stimulus JSON／Identity／Image／構成拒否を表す元失敗と後着の終了通知拒否。
+ * @observation 上位理由と元failure全field、検証Toolの受理・不正値拒否。
+ * @oracle 異なるDI理由を復元でき、自由文と余剰fieldは受理しない。
+ * @cleanup 有限Completionまで待つ。
+ */
+test("DIの元失敗を診断に保持し検証Toolへ欠落なく搬送する", async () => {
+  for (const reason of [
+    "docker_isolation_execution_failed",
+    "docker_isolation_identity_mismatch",
+    "docker_isolation_image_unconfirmed",
+    "docker_isolation_root_readonly_mismatch",
+    "docker_isolation_mount_source_unconfirmed",
+  ]) {
+    const f = fixture();
+    const failure: NonNullable<di.IsolationExecutionResult["failure"]> =
+      Object.freeze({
+        stepKey: "create_subscription_auth_probe",
+        stage: "observation",
+        reason,
+        notification: null,
+        kind: "command_failed",
+        exceptionCode: "unclassified_exception",
+        commandHandleObtained: true,
+        responseObserved: true,
+      });
+    f.fail(failure);
+    let diagnostic:
+      | import("../../src/index.ts").PrimaryFailureDiagnostic
+      | null = null;
+    const result = await f.run({
+      onDiagnostic: (notice) => {
+        if (notice.event === "coordinator_provider_boundary_settled")
+          diagnostic = notice.primaryFailure;
+      },
+      onCleanupCompleted: () => {
+        throw Error("late_notification_failure");
+      },
+    });
+    assert.equal(
+      result.reason,
+      "docker_process_controller_execution_failed_closed",
+    );
+    assert.ok(diagnostic);
+    const captured =
+      diagnostic as import("../../src/index.ts").PrimaryFailureDiagnostic;
+    assert.deepEqual(captured.isolationFailure, failure);
+    assert.equal(isPrimaryFailureDiagnostic(captured), true);
+    for (const changed of [
+      { reason: "private exception text" },
+      { stage: "unknown" },
+      { extra: "raw-output" },
+      { exceptionCode: "secret-value" },
+    ])
+      assert.equal(
+        isPrimaryFailureDiagnostic({
+          ...captured,
+          isolationFailure: { ...failure, ...changed },
+        }),
+        false,
+      );
+  }
+});
+
+/**
  * 最初のIntentと作成Receiptへ同じDI由来の保存断面を搬送する。
  * @responsibility 初期Snapshot・更新Snapshot・元回収方針を再構成しない。
  * @trace ERB-UT-023
@@ -471,7 +539,7 @@ function fixture() {
                   failure = {
                     stepKey: step.key,
                     stage: "notification",
-                    reason: "notification_failed",
+                    reason: "docker_isolation_notification_failed",
                     notification: "onObserved",
                     kind: "threw",
                     commandHandleObtained: true,

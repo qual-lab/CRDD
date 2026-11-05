@@ -819,6 +819,8 @@ export type AttemptResultReason =
  * @compatibility 診断は実行・清掃・Recoveryの判定を変更しない。
  */
 export type PrimaryFailureDiagnostic = Readonly<{
+  /** DIの元停止点。既存の上位理由を置換せず、非秘密の技術診断を保持する。 */
+  isolationFailure?: IsolationExecutionResult["failure"];
   purpose: string | null;
   stage:
     | "submission_record"

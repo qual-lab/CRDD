@@ -19,7 +19,11 @@ import {
   dockerResourceExpectationIsValid,
 } from "../../src/cleanup/validation.ts";
 import type { DockerResourceExpectation } from "../../src/cleanup/types.ts";
-import { captureIsolationCleanupRequest } from "../../src/execution/preparation.ts";
+import {
+  captureIsolationCleanupRequest,
+  inspectIsolationResourceConfiguration,
+} from "../../src/execution/preparation.ts";
+import type { IsolationContainer } from "../../src/execution/types.ts";
 
 import {
   dockerResourceIdentityMatches,
@@ -32,6 +36,418 @@ const EXPECTED = Object.freeze({
   dockerId: "a".repeat(64),
   expectedName: "crdd-codex-0123456789abcdef",
   ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
+});
+
+/**
+ * 完全構成検査の拒否箇所を固定語彙で区別し、判定条件・最初の拒否順を維持する。
+ * @responsibility 観測不能と不一致を生値なしで搬送する。
+ * @trace ERB-UT-023
+ * @precondition 合成inspectとメモリ内のrealpath代役だけ。
+ * @stimulus 全構成項目の単一変異、複数変異、Path観測例外と受理済み表記差。
+ * @observation null又は項目別の固定理由。
+ * @oracle 不正入力を成功へ変換せず、Path・環境値・例外本文を返さない。
+ * @cleanup 代役を復元。実Docker・AI・Filesystem書込み・保持物なし。
+ */
+test("完全構成検査は項目別の拒否理由を返し観測不能を一致にしない", (t) => {
+  const source = "C:\\synthetic\\home";
+  t.mock.method(fs.realpathSync, "native", (value: fs.PathLike) => {
+    if (String(value) === source) return source;
+    if (String(value) === "C:\\synthetic\\other") return String(value);
+    throw Error("private-path-and-exception-must-not-escape");
+  });
+  const resource: IsolationContainer = {
+    kind: "container",
+    key: "container",
+    name: "crdd-example-0123456789abcdef",
+    ownershipLabel: "crdd.example=0123456789abcdef",
+    image: `sha256:${"b".repeat(64)}`,
+    argv: ["synthetic"],
+    environment: { HOME: "/provider-home" },
+    mounts: [{ source, target: "/provider-home", readOnly: true }],
+    network: null,
+    networkAlias: null,
+    user: "65534:65534",
+    workingDirectory: null,
+    entrypoint: null,
+    tmpfsBytes: null,
+    interactive: false,
+    tty: false,
+    init: false,
+    seccomp: null,
+  };
+  const image = { Entrypoint: null, Cmd: [], WorkingDir: "", Env: [] };
+  const value = {
+    Config: {
+      Image: resource.image,
+      User: resource.user,
+      Tty: false,
+      OpenStdin: false,
+      Entrypoint: null,
+      Cmd: ["synthetic"],
+      WorkingDir: "",
+      Env: ["HOME=/provider-home"],
+    },
+    HostConfig: {
+      ReadonlyRootfs: true,
+      Privileged: false,
+      CapDrop: ["ALL"],
+      CapAdd: null,
+      Devices: null,
+      SecurityOpt: ["no-new-privileges"],
+      Init: null,
+      NetworkMode: "none",
+      Tmpfs: null,
+    },
+    NetworkSettings: { Networks: { none: {} } },
+    Mounts: [
+      {
+        Type: "bind",
+        Source: source,
+        Destination: "/provider-home",
+        RW: false,
+        Propagation: "rprivate",
+      },
+    ],
+  };
+  const check = (actual: unknown) =>
+    inspectIsolationResourceConfiguration(resource, actual, image, ["none"]);
+  assert.equal(check(value), null);
+  const emptyCommandResource = { ...resource, argv: [] };
+  const { Cmd: _cmd, ...withoutCommand } = image;
+  for (const defaults of [
+    withoutCommand,
+    { ...image, Cmd: null },
+    { ...image, Cmd: [] },
+  ]) {
+    for (const actual of [null, []])
+      assert.equal(
+        inspectIsolationResourceConfiguration(
+          emptyCommandResource,
+          {
+            ...value,
+            Config: { ...value.Config, Cmd: actual },
+          },
+          defaults,
+          ["none"],
+        ),
+        null,
+      );
+    for (const actual of [undefined, "", ["unexpected"], [null]])
+      assert.equal(
+        inspectIsolationResourceConfiguration(
+          emptyCommandResource,
+          {
+            ...value,
+            Config: { ...value.Config, Cmd: actual },
+          },
+          defaults,
+          ["none"],
+        ),
+        "docker_isolation_command_mismatch",
+      );
+    const { Cmd: _actual, ...withoutActualCommand } = value.Config;
+    assert.equal(
+      inspectIsolationResourceConfiguration(
+        emptyCommandResource,
+        {
+          ...value,
+          Config: withoutActualCommand,
+        },
+        defaults,
+        ["none"],
+      ),
+      "docker_isolation_command_mismatch",
+    );
+  }
+  for (const defaults of [undefined, "", {}])
+    assert.equal(
+      inspectIsolationResourceConfiguration(
+        emptyCommandResource,
+        {
+          ...value,
+          Config: { ...value.Config, Cmd: null },
+        },
+        { ...image, Cmd: defaults },
+        ["none"],
+      ),
+      "docker_isolation_command_mismatch",
+    );
+  const defaultCommand = { ...image, Cmd: ["tool", "argument"] };
+  for (const actual of [
+    null,
+    [],
+    ["argument", "tool"],
+    ["tool"],
+    ["tool", "argument", "extra"],
+  ])
+    assert.equal(
+      inspectIsolationResourceConfiguration(
+        emptyCommandResource,
+        {
+          ...value,
+          Config: { ...value.Config, Cmd: actual },
+        },
+        defaultCommand,
+        ["none"],
+      ),
+      "docker_isolation_command_mismatch",
+    );
+  assert.equal(
+    inspectIsolationResourceConfiguration(
+      emptyCommandResource,
+      {
+        ...value,
+        Config: { ...value.Config, Cmd: ["tool", "argument"] },
+      },
+      defaultCommand,
+      ["none"],
+    ),
+    null,
+  );
+  // 明示argvはImageの既定値より優先し、従来どおり全引数を照合する。
+  assert.equal(
+    inspectIsolationResourceConfiguration(resource, value, defaultCommand, [
+      "none",
+    ]),
+    null,
+  );
+  // Imageの未設定WorkingDirは省略され得るがContainerの観測欠測とは区別する。
+  const { WorkingDir: _workdir, ...withoutWorkingDirectory } = image;
+  assert.equal(
+    inspectIsolationResourceConfiguration(
+      resource,
+      value,
+      withoutWorkingDirectory,
+      ["none"],
+    ),
+    null,
+  );
+  for (const defaults of [undefined, null, 0, {}])
+    assert.equal(
+      inspectIsolationResourceConfiguration(
+        resource,
+        value,
+        { ...image, WorkingDir: defaults },
+        ["none"],
+      ),
+      "docker_isolation_workdir_mismatch",
+    );
+  const { WorkingDir: _actualDirectory, ...withoutActualDirectory } =
+    value.Config;
+  assert.equal(
+    check({ ...value, Config: withoutActualDirectory }),
+    "docker_isolation_workdir_mismatch",
+  );
+  for (const actual of [undefined, null, 0, "/other"])
+    assert.equal(
+      check({ ...value, Config: { ...value.Config, WorkingDir: actual } }),
+      "docker_isolation_workdir_mismatch",
+    );
+  const imageDirectory = { ...image, WorkingDir: "/image-work" };
+  assert.equal(
+    inspectIsolationResourceConfiguration(
+      resource,
+      { ...value, Config: { ...value.Config, WorkingDir: "/image-work" } },
+      imageDirectory,
+      ["none"],
+    ),
+    null,
+  );
+  assert.equal(
+    inspectIsolationResourceConfiguration(resource, value, imageDirectory, [
+      "none",
+    ]),
+    "docker_isolation_workdir_mismatch",
+  );
+  const explicitDirectory = { ...resource, workingDirectory: "/work" as const };
+  for (const defaults of [withoutWorkingDirectory, imageDirectory]) {
+    assert.equal(
+      inspectIsolationResourceConfiguration(
+        explicitDirectory,
+        { ...value, Config: { ...value.Config, WorkingDir: "/work" } },
+        defaults,
+        ["none"],
+      ),
+      null,
+    );
+    for (const actual of ["", "/image-work", "/work/", "/Work"])
+      assert.equal(
+        inspectIsolationResourceConfiguration(
+          explicitDirectory,
+          { ...value, Config: { ...value.Config, WorkingDir: actual } },
+          defaults,
+          ["none"],
+        ),
+        "docker_isolation_workdir_mismatch",
+      );
+  }
+  // Dockerのomitemptyは、成功したHostConfig観測内の未設定表現である。
+  const { Tmpfs: _tmpfs, ...withoutTmpfs } = value.HostConfig;
+  const omitted = { ...value, HostConfig: withoutTmpfs };
+  assert.equal(check(omitted), null);
+  assert.equal(
+    check({ ...value, HostConfig: { ...withoutTmpfs, Tmpfs: {} } }),
+    null,
+  );
+  assert.equal(
+    check({ ...value, HostConfig: { ...withoutTmpfs, Tmpfs: undefined } }),
+    "docker_isolation_tmpfs_mismatch",
+  );
+  assert.equal(
+    check({
+      ...value,
+      HostConfig: { ...withoutTmpfs, Tmpfs: { "/unexpected": "rw" } },
+    }),
+    "docker_isolation_tmpfs_mismatch",
+  );
+  const required = { ...resource, tmpfsBytes: 16_777_216 as const };
+  for (const observed of [
+    omitted,
+    value,
+    { ...value, HostConfig: { ...withoutTmpfs, Tmpfs: {} } },
+  ])
+    assert.equal(
+      inspectIsolationResourceConfiguration(required, observed, image, [
+        "none",
+      ]),
+      "docker_isolation_tmpfs_mismatch",
+    );
+  const configured = {
+    ...value,
+    HostConfig: {
+      ...withoutTmpfs,
+      Tmpfs: { "/tmp": "rw,noexec,nosuid,size=16777216" },
+    },
+  };
+  assert.equal(
+    inspectIsolationResourceConfiguration(required, configured, image, [
+      "none",
+    ]),
+    null,
+  );
+  assert.equal(
+    check({
+      ...value,
+      HostConfig: {
+        ...value.HostConfig,
+        SecurityOpt: ["no-new-privileges:true"],
+      },
+    }),
+    null,
+  );
+  const cases: Array<readonly [unknown, string]> = [
+    [null, "configuration_unconfirmed"],
+    [{ ...value, Config: null }, "container_config_unconfirmed"],
+    [{ ...value, HostConfig: null }, "host_config_unconfirmed"],
+    ...(
+      [
+        ["Image", "different", "image_mismatch"],
+        ["User", "0:0", "user_mismatch"],
+        ["Tty", true, "tty_mismatch"],
+        ["OpenStdin", true, "stdin_mismatch"],
+        ["Entrypoint", ["other"], "entrypoint_mismatch"],
+        ["Cmd", ["other"], "command_mismatch"],
+        ["WorkingDir", "/other", "workdir_mismatch"],
+        ["Env", null, "environment_unconfirmed"],
+        ["Env", ["HOME=private-value"], "environment_mismatch"],
+        ["Env", ["HOME=x", "HOME=y"], "environment_unconfirmed"],
+      ] as const
+    ).map(
+      ([key, changed, reason]) =>
+        [
+          { ...value, Config: { ...value.Config, [key]: changed } },
+          reason,
+        ] as const,
+    ),
+    ...(
+      [
+        ["ReadonlyRootfs", false, "root_readonly_mismatch"],
+        ["Privileged", true, "privileged_mismatch"],
+        ["CapDrop", [], "cap_drop_mismatch"],
+        ["CapAdd", ["ALL"], "cap_add_mismatch"],
+        ["Devices", [{}], "devices_mismatch"],
+        ["SecurityOpt", [], "security_options_mismatch"],
+        ["Init", true, "init_mismatch"],
+        ["NetworkMode", "bridge", "network_mismatch"],
+        ["Tmpfs", { "/other": "rw" }, "tmpfs_mismatch"],
+      ] as const
+    ).map(
+      ([key, changed, reason]) =>
+        [
+          { ...value, HostConfig: { ...value.HostConfig, [key]: changed } },
+          reason,
+        ] as const,
+    ),
+    [{ ...value, NetworkSettings: { Networks: {} } }, "network_mismatch"],
+    [{ ...value, Mounts: null }, "mounts_unconfirmed"],
+    [{ ...value, Mounts: [null] }, "mounts_unconfirmed"],
+    [{ ...value, Mounts: [] }, "mount_set_mismatch"],
+    ...(
+      [
+        ["Destination", "/other", "mount_target_mismatch"],
+        ["RW", true, "mount_readonly_mismatch"],
+        ["Propagation", "rshared", "mount_propagation_mismatch"],
+        ["Source", null, "mount_source_unconfirmed"],
+        ["Source", "C:\\synthetic\\other", "mount_source_mismatch"],
+        [
+          "Source",
+          "/run/desktop/mnt/host/c/synthetic/home",
+          "mount_source_unconfirmed",
+        ],
+      ] as const
+    ).map(
+      ([key, changed, reason]) =>
+        [
+          { ...value, Mounts: [{ ...value.Mounts[0], [key]: changed }] },
+          reason,
+        ] as const,
+    ),
+  ];
+  for (const [actual, reason] of cases)
+    assert.equal(check(actual), `docker_isolation_${reason}`);
+  assert.equal(
+    inspectIsolationResourceConfiguration(resource, value, null, ["none"]),
+    "docker_isolation_image_config_unconfirmed",
+  );
+  assert.equal(
+    inspectIsolationResourceConfiguration(
+      resource,
+      value,
+      { ...image, Env: null },
+      ["none"],
+    ),
+    "docker_isolation_image_environment_unconfirmed",
+  );
+  assert.equal(
+    check({ ...value, Config: { ...value.Config, User: "0:0" }, Mounts: [] }),
+    "docker_isolation_user_mismatch",
+  );
+  const network = {
+    kind: "network",
+    key: "network",
+    name: "crdd-network-0123456789abcdef",
+    ownershipLabel: resource.ownershipLabel,
+    internal: true,
+  } as const;
+  const observed = { Driver: "bridge", Scope: "local", Internal: true };
+  assert.equal(
+    inspectIsolationResourceConfiguration(network, observed, null, []),
+    null,
+  );
+  for (const [key, changed, reason] of [
+    ["Driver", "other", "driver"],
+    ["Scope", "other", "scope"],
+    ["Internal", false, "internal"],
+  ] as const)
+    assert.equal(
+      inspectIsolationResourceConfiguration(
+        network,
+        { ...observed, [key]: changed },
+        null,
+        [],
+      ),
+      `docker_isolation_network_${reason}_mismatch`,
+    );
 });
 
 /** 単一inspectの正対照を独立に構築する。

@@ -240,8 +240,6 @@ export async function createIsolationFixture(
                   Id: argv.at(-1),
                   Config: {
                     Entrypoint: null,
-                    Cmd: [],
-                    WorkingDir: "",
                     Env: [],
                   },
                 },
@@ -280,7 +278,7 @@ export async function createIsolationFixture(
                       Entrypoint: resource.entrypoint
                         ? [resource.entrypoint]
                         : null,
-                      Cmd: resource.argv,
+                      Cmd: resource.argv.length ? resource.argv : null,
                       Env: Object.entries(resource.environment).map(
                         ([key, value]) => `${key}=${value}`,
                       ),
@@ -302,11 +300,13 @@ export async function createIsolationFixture(
                       ],
                       Init: resource.init,
                       NetworkMode: connected.get(id)?.[0],
-                      Tmpfs: resource.tmpfsBytes
+                      ...(resource.tmpfsBytes
                         ? {
-                            "/tmp": `rw,noexec,nosuid,size=${resource.tmpfsBytes}`,
+                            Tmpfs: {
+                              "/tmp": `rw,noexec,nosuid,size=${resource.tmpfsBytes}`,
+                            },
                           }
-                        : null,
+                        : {}),
                     },
                     Mounts: resource.mounts.map((mount) => ({
                       Type: "bind",
@@ -403,8 +403,6 @@ export async function createIsolationFixture(
                     Id: image,
                     Config: {
                       Entrypoint: null,
-                      Cmd: [],
-                      WorkingDir: "",
                       Env: [],
                     },
                   },
@@ -451,7 +449,6 @@ export async function createIsolationFixture(
                         SecurityOpt: ["no-new-privileges"],
                         Init: null,
                         NetworkMode: "none",
-                        Tmpfs: null,
                       },
                       Mounts: [],
                       NetworkSettings: { Networks: { none: {} } },

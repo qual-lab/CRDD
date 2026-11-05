@@ -318,6 +318,11 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
   const hasObservation = Object.hasOwn(record, "commandObservation");
   const hasAuthenticationStatus = Object.hasOwn(record, "authenticationStatus");
   const hasTurnCountDiagnostic = Object.hasOwn(record, "turnCountDiagnostic");
+  const hasIsolationFailure = Object.hasOwn(record, "isolationFailure");
+  const isolation = record.isolationFailure as
+    | Record<string, unknown>
+    | null
+    | undefined;
   const turnCount = record.turnCountDiagnostic as
     | Record<string, unknown>
     | undefined;
@@ -339,8 +344,64 @@ export function isPrimaryFailureDiagnostic(value: unknown): boolean {
         ...(hasObservation ? ["commandObservation"] : []),
         ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
         ...(hasTurnCountDiagnostic ? ["turnCountDiagnostic"] : []),
+        ...(hasIsolationFailure ? ["isolationFailure"] : []),
       ].sort(),
     ) &&
+    (!hasIsolationFailure ||
+      isolation === null ||
+      (isolation != null &&
+        typeof isolation === "object" &&
+        exactKeys(isolation, [
+          "commandHandleObtained",
+          "exceptionCode",
+          "kind",
+          "notification",
+          "reason",
+          "responseObserved",
+          "stage",
+          "stepKey",
+        ]) &&
+        isolation.stepKey === record.purpose &&
+        typeof isolation.stage === "string" &&
+        [
+          "preparation",
+          "notification",
+          "start",
+          "wait",
+          "observation",
+        ].includes(isolation.stage) &&
+        typeof isolation.reason === "string" &&
+        /^docker_[a-z_]{1,160}$/u.test(isolation.reason) &&
+        typeof isolation.kind === "string" &&
+        [
+          "threw",
+          "invalid_return",
+          "start_unconfirmed",
+          "command_failed",
+        ].includes(isolation.kind) &&
+        (isolation.notification === null ||
+          (typeof isolation.notification === "string" &&
+            [
+              "onSubmitting",
+              "onNotIssued",
+              "onCreated",
+              "onStarted",
+              "onObserved",
+              "onCompleted",
+              "onCleanupSubmitting",
+              "onResourceIdentified",
+              "onCleanupCompleted",
+              "onResourcesClosed",
+            ].includes(isolation.notification))) &&
+        typeof isolation.commandHandleObtained === "boolean" &&
+        typeof isolation.responseObserved === "boolean" &&
+        (!isolation.responseObserved || isolation.commandHandleObtained) &&
+        (isolation.exceptionCode === null ||
+          (typeof isolation.exceptionCode === "string" &&
+            isolation.exceptionCode.length <= 100 &&
+            /^(?:unclassified_exception|E[A-Z]+|PROCESS_FAILURE|docker_effect_[a-z_]+|owned_operation_[a-z_]+)$/u.test(
+              isolation.exceptionCode,
+            ))))) &&
     (!hasObservation ||
       observation === null ||
       (observation !== undefined &&

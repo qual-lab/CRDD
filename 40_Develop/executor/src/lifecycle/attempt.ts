@@ -413,13 +413,13 @@ async function executeAttempt(
       if (purpose === "create_provider")
         wasProviderContainerCreationObserved = true;
       diagnosticStage = "resource_receipt_record";
-      receiptRecorded = true;
       try {
         await state.callbacks.onResourceCreated?.(
           purpose,
           dockerId,
           resourcePreparation,
         );
+        receiptRecorded = true;
       } catch {
         reject("docker_resource_receipt_unavailable");
         throw new Error("docker_resource_receipt_unavailable");
@@ -579,7 +579,13 @@ async function executeAttempt(
   function recordIsolationFailure(
     failure: NonNullable<IsolationExecutionResult["failure"]>,
   ): void {
-    if (primaryFailure !== null) return;
+    if (primaryFailure !== null) {
+      primaryFailure = Object.freeze({
+        ...primaryFailure,
+        isolationFailure: primaryFailure.isolationFailure ?? failure,
+      });
+      return;
+    }
     diagnosticPurpose = failure.stepKey;
     if (failure.stage !== "notification")
       diagnosticStage =
@@ -606,6 +612,7 @@ async function executeAttempt(
       primaryFailure = Object.freeze({
         ...latched,
         exceptionCode: failure.exceptionCode,
+        isolationFailure: failure,
       });
   }
 

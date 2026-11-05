@@ -492,53 +492,56 @@ export function plannedResourceSnapshot(
  * @responsibility 回収Identityの最小照合とは分離して、隔離条件を検査する。
  * @trace ARCH-000008
  * @input resource: 確定構成。value: 単一inspect。image: 同じ固定ImageのConfig。
- * @returns 完全構成とMount元実体を確認できた場合だけtrue。
+ * @returns 一致時はnull、それ以外は最初に拒否した項目の固定理由。
  * @effect Mount元のrealpath読取りだけ。
- * @failure 欠測・型差・観測不能はfalse。
+ * @failure 欠測・型差・観測不能を固定理由で区別し、生値・例外本文を返さない。
  * @invariant 構成検査の成功を削除権限として公開しない。
  */
-export function isolationResourceConfigurationMatches(
+export function inspectIsolationResourceConfiguration(
   resource: IsolationRequest["resources"][number],
   value: unknown,
   image: Readonly<Record<string, unknown>> | null,
   networks: readonly string[],
-): boolean {
+): string | null {
+  let unconfirmed = "docker_isolation_configuration_unconfirmed";
   try {
     if (!value || typeof value !== "object" || Array.isArray(value))
-      return false;
+      return unconfirmed;
     const v = value as Record<string, unknown>;
-    if (resource.kind === "network")
-      return (
-        v.Driver === "bridge" &&
-        v.Scope === "local" &&
-        v.Internal === resource.internal
-      );
-    if (
-      !image ||
-      !v.Config ||
-      typeof v.Config !== "object" ||
-      !v.HostConfig ||
-      typeof v.HostConfig !== "object"
-    )
-      return false;
+    if (resource.kind === "network") {
+      unconfirmed = "docker_isolation_network_unconfirmed";
+      if (v.Driver !== "bridge")
+        return "docker_isolation_network_driver_mismatch";
+      if (v.Scope !== "local") return "docker_isolation_network_scope_mismatch";
+      if (v.Internal !== resource.internal)
+        return "docker_isolation_network_internal_mismatch";
+      return null;
+    }
+    if (!image) return "docker_isolation_image_config_unconfirmed";
+    if (!v.Config || typeof v.Config !== "object")
+      return "docker_isolation_container_config_unconfirmed";
+    if (!v.HostConfig || typeof v.HostConfig !== "object")
+      return "docker_isolation_host_config_unconfirmed";
     const c = v.Config as Record<string, unknown>,
       h = v.HostConfig as Record<string, unknown>;
-    if (
-      c.Image !== resource.image ||
-      c.User !== resource.user ||
-      c.Tty !== resource.tty ||
-      c.OpenStdin !== resource.interactive ||
-      h.ReadonlyRootfs !== true ||
-      h.Privileged !== false ||
-      JSON.stringify(h.CapDrop) !== '["ALL"]'
-    )
-      return false;
+    if (c.Image !== resource.image) return "docker_isolation_image_mismatch";
+    if (c.User !== resource.user) return "docker_isolation_user_mismatch";
+    if (c.Tty !== resource.tty) return "docker_isolation_tty_mismatch";
+    if (c.OpenStdin !== resource.interactive)
+      return "docker_isolation_stdin_mismatch";
+    if (h.ReadonlyRootfs !== true)
+      return "docker_isolation_root_readonly_mismatch";
+    if (h.Privileged !== false) return "docker_isolation_privileged_mismatch";
+    if (JSON.stringify(h.CapDrop) !== '["ALL"]')
+      return "docker_isolation_cap_drop_mismatch";
     for (const field of ["CapAdd", "Devices"])
       if (
         h[field] !== null &&
         (!Array.isArray(h[field]) || h[field].length !== 0)
       )
-        return false;
+        return field === "CapAdd"
+          ? "docker_isolation_cap_add_mismatch"
+          : "docker_isolation_devices_mismatch";
     if (
       !Array.isArray(h.SecurityOpt) ||
       !h.SecurityOpt.some(
@@ -552,23 +555,55 @@ export function isolationResourceConfigurationMatches(
             !(resource.seccomp && v.startsWith("seccomp="))),
       )
     )
-      return false;
+      return "docker_isolation_security_options_mismatch";
     if (
       resource.init
         ? h.Init !== true
         : h.Init !== undefined && h.Init !== null && h.Init !== false
     )
-      return false;
+      return "docker_isolation_init_mismatch";
     if (
       JSON.stringify(c.Entrypoint) !==
-        JSON.stringify(
-          resource.entrypoint ? [resource.entrypoint] : image.Entrypoint,
-        ) ||
-      JSON.stringify(c.Cmd) !==
-        JSON.stringify(resource.argv.length ? resource.argv : image.Cmd) ||
-      c.WorkingDir !== (resource.workingDirectory ?? image.WorkingDir)
+      JSON.stringify(
+        resource.entrypoint ? [resource.entrypoint] : image.Entrypoint,
+      )
     )
-      return false;
+      return "docker_isolation_entrypoint_mismatch";
+    const expectedCommand = resource.argv.length ? resource.argv : image.Cmd;
+    const actualCommand = c.Cmd;
+    const emptyCommandExpected =
+      resource.argv.length === 0 &&
+      ((!Object.hasOwn(image, "Cmd") && expectedCommand === undefined) ||
+        expectedCommand === null ||
+        (Array.isArray(expectedCommand) && expectedCommand.length === 0));
+    if (
+      emptyCommandExpected
+        ? !(
+            actualCommand === null ||
+            (Array.isArray(actualCommand) && actualCommand.length === 0)
+          )
+        : !Array.isArray(expectedCommand) ||
+          !Array.isArray(actualCommand) ||
+          expectedCommand.length !== actualCommand.length ||
+          expectedCommand.some(
+            (argument, index) =>
+              typeof argument !== "string" || argument !== actualCommand[index],
+          )
+    )
+      return "docker_isolation_command_mismatch";
+    const imageWorkingDirectory =
+      !Object.hasOwn(image, "WorkingDir") && image.WorkingDir === undefined
+        ? ""
+        : image.WorkingDir;
+    const expectedWorkingDirectory =
+      resource.workingDirectory ?? imageWorkingDirectory;
+    if (
+      typeof expectedWorkingDirectory !== "string" ||
+      typeof c.WorkingDir !== "string" ||
+      c.WorkingDir !== expectedWorkingDirectory
+    )
+      return "docker_isolation_workdir_mismatch";
+    unconfirmed = "docker_isolation_environment_unconfirmed";
     const environment = (value: unknown) => {
       if (!Array.isArray(value)) return null;
       const values = new Map<string, string>();
@@ -587,14 +622,16 @@ export function isolationResourceConfigurationMatches(
     };
     const defaults = environment(image.Env),
       actual = environment(c.Env);
-    if (!defaults || !actual) return false;
+    if (!defaults) return "docker_isolation_image_environment_unconfirmed";
+    if (!actual) return "docker_isolation_environment_unconfirmed";
     for (const [k, v] of Object.entries(resource.environment))
       defaults.set(k, v);
     if (
       defaults.size !== actual.size ||
       [...defaults].some(([k, v]) => actual.get(k) !== v)
     )
-      return false;
+      return "docker_isolation_environment_mismatch";
+    unconfirmed = "docker_isolation_network_unconfirmed";
     const settings = v.NetworkSettings as Record<string, unknown> | null;
     if (
       !settings?.Networks ||
@@ -603,8 +640,9 @@ export function isolationResourceConfigurationMatches(
         JSON.stringify([...networks].sort()) ||
       h.NetworkMode !== networks[0]
     )
-      return false;
-    if (!Array.isArray(v.Mounts)) return false;
+      return "docker_isolation_network_mismatch";
+    unconfirmed = "docker_isolation_mounts_unconfirmed";
+    if (!Array.isArray(v.Mounts)) return unconfirmed;
     const binds = v.Mounts.filter((m) => m.Type === "bind");
     if (
       binds.length !== resource.mounts.length ||
@@ -618,40 +656,43 @@ export function isolationResourceConfigurationMatches(
           ),
       )
     )
-      return false;
+      return "docker_isolation_mount_set_mismatch";
     for (const expected of resource.mounts) {
       const actual = binds.filter((m) => m.Destination === expected.target);
-      if (
-        actual.length !== 1 ||
-        actual[0].RW !== !expected.readOnly ||
-        actual[0].Propagation !== "rprivate" ||
-        typeof actual[0].Source !== "string"
-      )
-        return false;
+      if (actual.length !== 1) return "docker_isolation_mount_target_mismatch";
+      if (actual[0].RW !== !expected.readOnly)
+        return "docker_isolation_mount_readonly_mismatch";
+      if (actual[0].Propagation !== "rprivate")
+        return "docker_isolation_mount_propagation_mismatch";
+      if (typeof actual[0].Source !== "string")
+        return "docker_isolation_mount_source_unconfirmed";
       const canonical = (source: string) =>
         process.platform === "win32"
           ? fs.realpathSync.native(source).toLocaleLowerCase("en-US")
           : fs.realpathSync.native(source);
+      unconfirmed = "docker_isolation_mount_source_unconfirmed";
       if (canonical(actual[0].Source) !== canonical(expected.source))
-        return false;
+        return "docker_isolation_mount_source_mismatch";
     }
-    const tmpfs = h.Tmpfs as Record<string, unknown> | null;
+    unconfirmed = "docker_isolation_tmpfs_unconfirmed";
+    const tmpfs = h.Tmpfs as Record<string, unknown> | null | undefined;
     if (!resource.tmpfsBytes)
-      return (
+      return (!Object.hasOwn(h, "Tmpfs") && tmpfs === undefined) ||
         tmpfs === null ||
         (typeof tmpfs === "object" && Object.keys(tmpfs).length === 0)
-      );
-    return (
-      !!tmpfs &&
+        ? null
+        : "docker_isolation_tmpfs_mismatch";
+    return !!tmpfs &&
       Object.keys(tmpfs).length === 1 &&
       typeof tmpfs["/tmp"] === "string" &&
       JSON.stringify(tmpfs["/tmp"].split(",").sort()) ===
         JSON.stringify(
           ["rw", "noexec", "nosuid", `size=${resource.tmpfsBytes}`].sort(),
         )
-    );
+      ? null
+      : "docker_isolation_tmpfs_mismatch";
   } catch {
-    return false;
+    return unconfirmed;
   }
 }
 
