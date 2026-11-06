@@ -294,7 +294,7 @@ B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安
 
 OS判定は`objective/execute.ts`が`process.platform`を直接使用し、PID生存は`execution/kernel-lock.ts`の既存Lease Ownerが入力検査後に`process.kill(pid, 0)`で三値観測する。PAにOS／PIDの単純搬送APIは置かない。Lease入力・世代結合はCoordinator、子環境は`createChildProcessEnvironment`のOS／Profile差分と各操作固有設定へ接続する。OSのaliveは世代同一性の証明ではない。[PA標準API整理](../platform-access/01_Architecture.md#pa廃止へ向けた標準apiと環境入口の整理--2026-11-06)を参照する。
 
-固定OS端末のopen・TTY検査・callback完了待ち・全close試行はPAの`terminal/console.ts`が所有する。旧B2ではCoordinatorからこの契約を呼び出したが、専用送信同意の撤去後は通常Taskから利用しない。PA一般端末と認証loginのTTYでは、既存の終了確認・不明時の拒否を維持する。
+旧B2専用の確認コード・固定OS端末契約は、本番ConsumerがないためPAと試験支援から代替なしで撤去した。認証loginが使う既存DIの対話Process・TTYと終了確認は別契約として維持する。
 
 旧B2時点では確認コードの技術搬送、固定Reader、Named Pipe Worker／Supervisorと終了観測をPAへ移し、コード生成・期待値一致・同意・送信許可をCoordinatorに残した。現在は専用送信確認とその調停を廃止しており、この比較を現役のTask処理として扱わない。PAの一般的な搬送・終了確認は維持する。`execution/kernel-lock.ts`は引き続き対象と世代、用途別HashとPipe名の導出を所有し、PA Rootの技術取得へ接続する。新しい許可・永続State・監視・回復機構は追加しない。
 
@@ -1222,7 +1222,7 @@ Workbench助言の初期化失敗では、Operationが呼出し元へ返る前�
 
 旧Coordinator codecとcaller準備処理は廃止した。旧revision 2／3、選択Hash、caller保存との結合は歴史比較に限り、現在のNative観測Protocolや通常回復の検証を削除・変更する根拠にしない。
 
-Host終端の観測・保存・読戻しは、`createWindowsHostTerminalHelperEnvironment`の専用環境を共用する。一般Native helperの空`TMP`／`TEMP`を変更せず、既存Host producerと同じ`os.tmpdir()`の候補を通常Directory・非symlinkとして確認し、正規の実Pathを両fieldへ同じ値で搬送する。不正・取得不能では別場所へ補完しない。この値は所在候補であって所有証明ではない。Nativeは全祖先の保持、選択利用者、三実体と二保護を確認し、上位Ownerは元対象の親との一致を独立した根拠へ結合する。固定`terminal-v1`の欠落・保護不適合では停止し、自動作成・ACL修復・削除を行わない。専用保存先の初期化は、別の用途限定操作とexact Rootへの許可が成立するまで実行しない。
+未接続のHost終端記録APIは退役した。存続するNamespace初期化だけが既存の専用環境とNative保護を使用し、通常HostRecoveryのNode保存は別経路として維持する。
 
 既存共有recoveryのWindows保護は、通常producerのUnix mode指定だけでは成立しない。2026-10-04の人間判断により、共有Directoryの限定ACL移行と通常producerの保護付き作成／fresh検証を、同じCHGの設計・実装・試験へ追加した。これは実ACL変更、実OS作成、Process停止または旧三件削除の許可ではない。通常入口は既存不適合を停止し、自動ACL修復・旧marker更新・新保存先へのfallbackを行わない。[比較と判断境界](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#共有管理フォルダの保護不一致と次の判断--2026-10-04)を参照する。
 

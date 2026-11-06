@@ -271,7 +271,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
     const child = spawn(
       binary,
       [
-        "host_record::record::tests::terminal_namespace_fixture",
+        "host_record::host_namespace::tests::terminal_namespace_fixture",
         "--exact",
         "--ignored",
         "--nocapture",

@@ -1,5 +1,36 @@
 # Platform Accessの構造・Native接続再編
 
+## 本番未使用の端末・旧Root観測の撤去 — 2026-11-06
+
+人間承認により6 Sourceと部分削除候補を撤去した。確認コード・端末の5 File、旧Rust Root観測、Reader起動登録、旧Root Request／構成検査・AppContainer Pipe受付、未使用公式停止Wrapperが対象。代替・互換Reader・新Packageを作らない。現存37 Sourceは、本番利用中の共有Pipe、Home／Namespace、Native実体、環境差分、Docker補助Process等に限定する。PA全廃は未完了。
+
+着手前の独立確認により、旧Root内のHome Hash・SID反例2件を存続Ownerへ移した。専用端末の試験・支援と旧Root専用Caseは退役し、共通入力上限・拒否書込み失敗と旧Root／AppContainer拒否を確認する。Provider Homeの要求・応答、共有Directory保護、Pipeの同期／非同期とHome Lease、DI内部の実停止処理は変更しない。型・試験・Symbol／Catalog・Architectureの直接伝播を確認する技術責務Refactorで、規範・Release監査は対象外とする。
+
+限定回帰はPA96、Coordinator24（制限下23成功・リンク作成EPERM 1件を通常権限で再確認）、Executor7、Checker35、VC13件が成功した。PA／Coordinator／Executor／Checkerの型検査、PAの書式・LintとRust全targetコンパイルも成功。Rust通常試験は28成功・12既存ignored、退役CLI拒否は2成功。Catalog439件validは静的整合であり、正式QA全体や実AI／Docker E2Eの成功ではない。外部AI・Dockerコマンド・過去保持物は操作しない。独立レビューで見つかったDI設計の旧Wrapper説明とWorkflowの旧起動手順を是正し、再レビューの未解消指摘は0件。コミット・プッシュは未実施。
+
+通常Runtimeに旧受付を残さないため、固定toolchain 1.94.1・固定依存・`--target x86_64-pc-windows-msvc --release --frozen --offline`の今回Cargo出力一件を取得し、既存固定配布Pathとbootstrap期待値へ反映した。実配布物は265,216 bytes、SHA-256 `5ef70c6702203df63c6d9c68c3c38cac855e9da79fee331848e5de1619b9cdea`。配布物自身のbootstrap照合、旧七mode拒否、旧Root／一般不正／入力上限の三拒否を実Processで確認した。Provider Home／Namespace初期化・Docker操作へ接続しない負例であり、バージョン／Release確定ではない。対象環境明示のRust通常試験28成功・12ignoredとCLI拒否2成功も再確認した。以前の無印cacheによる確認だけを配布物の根拠にしない。
+
+配布更新後にもPA通常96件を再実行して全成功。固定配布物・bootstrap・合成fixtureのHash一致と現行接続の最終独立確認に追加指摘はなかった。DIは説明文だけの追従で、本番Source・公開API・停止条件は変更しない。新しい認可や回復管理、代替端末、旧入口の別名受付は追加していない。
+
+## 未接続Host終端記録・専用Leaseの退役 — 2026-11-06
+
+本番Consumerと削除履歴を照合し、旧Host終端記録の公開12操作、専用caller Lease、対応するRust受付・保存処理・専用検証Toolを代替なしで撤去した。通常のCoordinator回復記録はNode.jsの既存実装に残し、保存形式の移行や過去保持物の操作は行わない。Namespaceが共有していた保護・handle処理と診断fixtureは保持し、Namespace所有へ接続し直した。
+
+技術責務のRefactorとして利用側、台帳、Architecture、試験を追従した。NamespaceのSID／DACL・祖先handle保護、共有PipeのWorker／同期・非同期契約は変更しない。実AI・Docker・保持物は対象外。規範・Releaseを変更しないため全体準拠・Release監査は追加しない。
+
+限定回帰はPA 108、Coordinator 25、VC 13、Checker 35件成功。Rustは全targetコンパイル成功、Namespace関連4件成功・実環境診断4件ignored、旧六mode拒否1件成功。Checkerのリンク試験は制限環境でEPERMとなり、通常権限で35件全成功を確認した。Catalogは444件validであり、正式QA全体のPassや実Windows保護・実Docker成立を示さない。
+
+固定差分の独立レビューで試験代役二箇所の旧Native mode許可と説明二箇所の追従漏れを検出し、旧六modeだけを除去した。存続四modeと旧mode不存在を既存Caseへ接続し、Coordinatorの追加有限4件と型検査は成功。再レビューの未解消確定指摘は0件。過去の実境界Evidenceを削除せず、現在のNamespace試験と退役Capabilityの履歴を区別した。コミット・プッシュは未実施。
+
+残る判断は次のとおり。
+
+| 対象 | 現在のOwner・次候補 | 変更しない保証／未確定事項 |
+|---|---|---|
+| Namespace作成・Path管理 | Node.js標準への移管候補 | Windows専用保護を撤廃するとSID／DACLの厳密照合・祖先差替え防止は失われる。OSユーザー専用領域と基本的なPath確認は別途維持する。今回は変更しない |
+| 共有Pipe | CoordinatorのKernel／Authority、ExecutorのHome Lease、Domain Storageが直接利用 | Executorも直接取得しているためDomainへ単純移動できない。新Package・実装複製・逆依存は追加せず、配置は未確定 |
+| 同期取得 | Domain等の同期保存に接続 | 同一threadの同期待機中にも取得を進めるWorkerが必要。非同期化は保存順序への影響を別途評価する |
+| Native全体 | Docker Desktop Helper・Provider Home等が残る | 今回の退役だけでRust／PA全体の撤去完了とはしない |
+
 現在のChecker責務は[責務境界整理](checker-responsibility-boundary.md)へ更新した。以下の全Source命名・Header検査と450件Catalogは先行候補の履歴であり、現在のChecker機能や全Source是正完了を示さない。
 
 ## 承認済みWorkspace値検査の接続完了 — 2026-11-06

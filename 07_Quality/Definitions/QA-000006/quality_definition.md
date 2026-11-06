@@ -417,7 +417,7 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 | `ERB-IT-012` | 回復 | IT | Docker Repair Handoff | Coordinator→Repair Record→Platform Adapter | Related 2 Blocks | exact Repair Identity、旧Effect記録、署名検証済みorigin／adoption／handoff chain、同一Sessionで更新した現在Release、旧Continuation、fresh観測、手組みOperation、chain外tuple、現在境界未結合、別Session反例 | Record Storeが検証したchainと現在実行境界から旧Continuationの発行元を導出し、既存Repairを現在境界で継続可能なPlatform要求へ変換する | Repair Identity、Authority順序、同一SessionでのRelease更新、Continuationの発行元と追記元、fresh状態、Effect要求、拒否理由を記録する | Record Storeの検証結果だけをAuthorityとし、同一SessionのRelease更新では検証済み現在境界を末尾Authorityに加える。旧Effectを再発行せず同じRepair義務を現在境界から追記し、手組み・chain外・未結合はEffect 0で拒否する | Identity、chain、現在Release、Continuation sequence、追記tuple、状態、要求、Effect件数、判定 | 重複Effect 0、別Repair 0、未検証Authority 0 | Automated |
 ```
 
-検証Toolとして登録する三script（`verify-native-protection.ts`、`verify-native-terminal-namespace.ts`、`verify-native-terminal-fixtures.ts`）と判定部品`native-terminal-oracles.ts`の局所保全は、既存`ERB-IT-001`／002／003の対応断面だけを扱う。検証Toolへの試験関係は本番Sourceの実装関係・意味Coverageへ加算せず、局所試験の成功を実Native／OS／Task／Dockerの成立やLocal Item全体の正式Passへ換算しない。元の実境界検証義務は維持する。
+存続する検証Toolはverify-native-protection.tsとverify-native-terminal-namespace.tsである。専用Host終端fixture群とそのoracleは退役し、Namespaceの値検査・保護付き作成・Directory共有拒否の診断と既存ignored条件を維持する。局所結果を実Native／Task／DockerやLocal Item全体のPassへ昇格しない。
 
 ## 1. 情報源と網羅条件
 
@@ -722,7 +722,9 @@ Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護
 
 これは同一Processの現在観測とopaque bytes相関だけである。正規Schema／producer／対象binding、元file連続性、過去receipt、caller耐久再入場、別Process、ACL異常／reparse／OS観測故障／実close失敗、容量予約、Authority、実残存三件または全Recoveryを検証済みにしない。Local Item数・観測件数・停止Gateは維持する。File Relationの既存001／002／003と新Case／HelperのTrace和集合を別に照合する。
 
-`ERB-IT-001`のNative CLI確認へ、専用`--host-terminal-observe`の不正要求、余分argv、標準modeとの混用拒否を接続する。専用不正入力は実exit 2・phase 1・取得0・stderrなしを観測する。この拒否試験は、正常な十一実体観測、署名配布物、回復Ownerの実呼出し、清掃または全Recoveryを証明しない。
+以下のHost終端専用CLI・世代排他・対象fixture・保存frameの記述は、2026-11-06に退役した未接続Capabilityの過去検証記録であり、現在の実装・実行集合を示さない。現在は六つの旧CLI modeが標準の不正引数として拒否されることを確認する。Namespace初期化・保護・共有Pipeの試験と通常Recoveryは維持する。
+
+`ERB-IT-001`の旧Native CLI確認では、専用`--host-terminal-observe`の不正要求、余分argv、標準modeとの混用拒否を確認した。専用不正入力は実exit 2・phase 1・取得0・stderrなしを観測した。この過去の拒否試験は、正常な十一実体観測、署名配布物、回復Ownerの実呼出し、清掃または全Recoveryを証明しない。
 
 `windows::terminal::tests::terminal_generation_exclusion_and_release`は、`ERB-IT-001`の実Windows排他境界を限定確認する。freshな自己生成UUIDだけを使い、同世代の重複取得拒否、別世代の独立取得、同handleの選択利用者／SYSTEM二ACE保護と解放後の再取得、全所有handleの明示closeを観測する。Filesystem、実残存、DockerとProviderへ接続しない。既存Node／Supervisorとの相互運用は次の専用Caseへ分離する。当初Processの終了、旧領域の非使用、最終処置の連続排他、署名Runtimeと回復経路全体は別の未成立条件であり、この局所確認からLocal Item全体やQuality集計を完了にしない。
 

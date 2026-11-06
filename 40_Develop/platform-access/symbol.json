@@ -3,57 +3,9 @@
   "contractRevision": 1,
   "subsystem": "platform-access",
   "symbols": [
-    { "symbolId": "platform-access.source.in-process-pipe-lease", "kind": "file", "path": "src/lock/in-process.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "platform-access.source.in-process-pipe-lifecycle", "kind": "file", "path": "src/lock/in-process-lifecycle.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "platform-access.test.unit.in-process-pipe-lifecycle", "kind": "test-suite", "path": "tests/unit/lock/in-process-lifecycle.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["platform-access.source.in-process-pipe-lifecycle", "platform-access.source.in-process-pipe-lease"] },
     { "symbolId": "platform-access.source.lock-lifecycle", "kind": "file", "path": "src/lock/lifecycle.ts", "archIds": ["ARCH-000015"] },
     { "symbolId": "platform-access.source.lock-worker", "kind": "file", "path": "src/lock/worker.ts", "archIds": ["ARCH-000015"] },
     { "symbolId": "platform-access.source.lock-supervisor", "kind": "file", "path": "src/lock/supervisor.ts", "archIds": ["ARCH-000004"] },
-    { "symbolId": "platform-access.source.reader-lifecycle", "kind": "file", "path": "src/terminal/reader-lifecycle.ts", "archIds": ["ARCH-000008"] },
-    {
-      "symbolId": "platform-access.source.terminal-console",
-      "kind": "file",
-      "path": "src/terminal/console.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.terminal-console",
-      "kind": "test-suite",
-      "path": "tests/unit/terminal/console.contract.test.ts",
-      "qaIds": [
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-UT-016"
-      ],
-      "verifies": [
-        "platform-access.source.terminal-console"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.terminal-output",
-      "kind": "file",
-      "path": "src/terminal/output.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.terminal-output",
-      "kind": "test-suite",
-      "path": "tests/unit/terminal/output.contract.test.ts",
-      "qaIds": [
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-UT-016"
-      ],
-      "verifies": [
-        "platform-access.source.terminal-output"
-      ]
-    },
     {
       "symbolId": "platform-access.source.protected-root-protocol",
       "kind": "module",
@@ -251,14 +203,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.source.terminal-target",
-      "kind": "module",
-      "path": "src/native/host_record/windows/terminal_target.rs",
-      "archIds": [
-        "ARCH-000011"
-      ]
-    },
-    {
       "symbolId": "platform-access.source.protected-file",
       "kind": "module",
       "path": "src/native/host_record/windows/protected_file.rs",
@@ -400,32 +344,9 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "platform-access.source.windows-terminal",
         "platform-access.source.host-namespace",
-        "platform-access.source.host-namespace-protocol"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.terminal-protocol",
-      "kind": "module",
-      "path": "src/native/protocol/host_record.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.terminal-protocol",
-      "kind": "test-suite",
-      "path": "src/native/protocol/host_record.rs",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "platform-access.source.terminal-protocol"
+        "platform-access.source.host-namespace-protocol",
+        "platform-access.source.protected-file"
       ]
     },
     {
@@ -444,19 +365,9 @@
       ]
     },
     {
-      "symbolId": "platform-access.source.windows-terminal",
-      "kind": "module",
-      "path": "src/native/host_record/windows/record.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.windows-terminal",
+      "symbolId": "platform-access.test.integration.host-namespace",
       "kind": "test-suite",
-      "path": "tests/integration/host_record.rs",
+      "path": "tests/integration/host_namespace.rs",
       "qaIds": [
         "QA-000006"
       ],
@@ -466,11 +377,8 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "platform-access.source.windows-terminal",
-        "platform-access.source.terminal-target",
-        "platform-access.source.protected-file",
         "platform-access.source.host-namespace",
-        "coordinator.host-execution.kernel-lock"
+        "platform-access.source.protected-file"
       ]
     },
     {
@@ -516,23 +424,9 @@
       ]
     },
     {
-      "symbolId": "platform-access.test.unit.main",
+      "symbolId": "platform-access.test.unit.protected-root",
       "kind": "test-suite",
-      "path": "src/native/main.rs",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "platform-access.native-entry"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.windows",
-      "kind": "test-suite",
-      "path": "src/native/filesystem/windows/root_observation.rs",
+      "path": "src/native/filesystem/windows/protected_root.rs",
       "qaIds": [
         "QA-000008"
       ],
@@ -540,10 +434,21 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "platform-access.native-entry",
-        "platform-access.source.principal",
-        "platform-access.source.protection",
         "platform-access.source.provider-home"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.native-protection",
+      "kind": "test-suite",
+      "path": "src/native/filesystem/windows/protection.rs",
+      "qaIds": [
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "RDL-UT-005"
+      ],
+      "verifies": [
+        "platform-access.source.protection"
       ]
     },
     {
@@ -707,45 +612,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.source.host-record",
-      "kind": "file",
-      "path": "src/host-record/record.ts",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.host-record",
-      "kind": "test-suite",
-      "path": "tests/unit/host-record/record.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "platform-access.source.host-record"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.host-record-native-observation",
-      "kind": "test-suite",
-      "path": "tests/integration/host-record-native-observation.contract.test.ts",
-      "qaIds": [
-        "QA-000006",
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-IT-002",
-        "ERB-IT-004"
-      ],
-      "verifies": [
-        "platform-access.source.host-record"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.typescript-child-entrypoints",
       "kind": "test-suite",
       "path": "tests/integration/typescript-child-entrypoints.contract.test.ts",
@@ -765,22 +631,6 @@
       "path": "src/process/child.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.core.interactive.console.reader",
-      "kind": "file",
-      "path": "src/terminal/confirmation-reader.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.input",
-      "kind": "file",
-      "path": "src/terminal/input.ts",
-      "archIds": [
-        "ARCH-000008"
       ]
     },
     {
@@ -806,21 +656,6 @@
         "platform-access.source.lock-lifecycle",
         "platform-access.source.lock-worker",
         "platform-access.source.lock-supervisor"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.system.terminal-reader",
-      "kind": "test-suite",
-      "path": "tests/system/terminal-reader.contract.test.ts",
-      "qaIds": [
-        "QA-000009"
-      ],
-      "localTestIds": [
-        "EST-ST-003"
-      ],
-      "verifies": [
-        "coordinator.source.src.core.interactive.console.reader",
-        "platform-access.source.reader-lifecycle"
       ]
     }
   ]

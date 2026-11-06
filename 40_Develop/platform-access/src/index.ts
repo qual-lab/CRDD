@@ -2,14 +2,14 @@
  * Platform AccessのNode公開境界。
  *
  * @packageDocumentation
- * @responsibility 固定Native、保護Root／Homeの技術搬送とOS／Profile差分の共通子Process環境を公開する。
+ * @responsibility 固定Native、Provider Home／Namespaceの技術搬送、共有PipeとOS／Profile差分の子Process環境を公開する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @trace ARCH-000010
  * @trace ARCH-000011
  * @trace ARCH-000014
  * @trace ARCH-000015
- * @boundary Filesystem読取り、固定Native Process、用途固定の環境導出と固定OS端末。権限・任意PathのI/O・任意環境builder・内部実体は公開しない。
+ * @boundary Filesystem読取り、固定Native Process、用途固定の環境導出と共有Pipe。権限・任意PathのI/O・任意環境builder・内部実体は公開しない。
  */
 export {
   PLATFORM_ACCESS_TARGET,
@@ -22,17 +22,6 @@ export {
 } from "./artifact/identity.ts";
 export { observeSystemWindowsDirectory } from "./filesystem/system-directory.ts";
 export { observeWindowsLocalAppDataDirectory } from "./filesystem/local-app-data.ts";
-export {
-  withTerminalOutcome,
-  withTerminalAsyncOutcome,
-  type TerminalHandles,
-  type TerminalOperationOutcome,
-} from "./terminal/console.ts";
-export {
-  writeWindowsTerminalTextOutcome,
-  WINDOWS_TERMINAL_WRITE_TIMEOUT_MS,
-  type InteractiveConsoleTextWriteOutcome,
-} from "./terminal/output.ts";
 export {
   observeWindowsFilesystemEntry,
   type WindowsEntryObservation,
@@ -66,30 +55,12 @@ export { initializeWindowsHostRecordNamespace } from "./host-record/namespace.ts
 export {
   startDockerDesktopRepairHelper,
   startDockerDesktopRestartHelper,
-  requestDockerDesktopOfficialShutdown,
   type DockerDesktopRepairNativeHelperOutcome,
   type DockerDesktopRepairNativeHelperSession,
   type DockerDesktopRepairHelperReleaseOutcome,
   type DockerDesktopRestartNativeHelperOutcome,
 } from "./docker-desktop/native-process.ts";
-export {
-  createHostTerminalCurrentObservationRequest,
-  createHostTerminalReadRequest,
-  createHostTerminalSaveRequest,
-  createKnownFileHostTerminalCurrentObservationRequest,
-  createKnownFileHostTerminalReadRequest,
-  createKnownFileHostTerminalSaveRequest,
-  observeHostTerminalWindowsCandidate,
-  observeKnownFileHostTerminalWindowsCandidate,
-  readHostTerminalWindowsRecord,
-  readKnownFileHostTerminalWindowsRecord,
-  saveHostTerminalWindowsRecord,
-  saveKnownFileHostTerminalWindowsRecord,
-  type HostTerminalWindowsIdentity,
-} from "./host-record/record.ts";
 
-export { readConfirmationCodeOutcome } from "./terminal/input.ts";
-export { INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS } from "./terminal/confirmation-reader.ts";
 export {
   acquireNamedPipeKernelLock,
   acquireNamedPipeKernelLockOutcome,
@@ -100,5 +71,3 @@ export type {
   HostOperationSupervisorLockOutcome,
   InteractiveConsoleKernelLockOutcome,
 } from "./lock/lifecycle.ts";
-export { acquireHostTerminalCallerPipeLease } from "./lock/in-process.ts";
-export type { InProcessPipeLease } from "./lock/in-process-lifecycle.ts";

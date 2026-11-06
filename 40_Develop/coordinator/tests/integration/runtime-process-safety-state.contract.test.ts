@@ -9,7 +9,7 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
@@ -215,67 +215,4 @@ test("Host failure drain中はTask／External SendをEffect前に一時拒否し
     () => startRuntimeOwnedCoordinatorTask(Object.freeze({}), "C:\\repository"),
     /coordinator_task_workspace_target_invalid/u,
   );
-});
-
-/**
- * 全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止するを検証する。
- *
- * @responsibility 全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止するの合否判定を所有する。
- * @trace PRL-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止する", () => {
-  const fixture = path.join(
-    import.meta.dirname,
-    "..",
-    "fixtures",
-    "runtime-process-poison-boundary.ts",
-  );
-  for (const mode of [
-    "descriptor_close",
-    "writer_cleanup",
-    "reader_cleanup",
-    "lock_acquire_cleanup",
-    "lock_release_cleanup",
-    "sync_convenience_cleanup",
-    "async_convenience_cleanup",
-    "reader_convenience_cleanup",
-    "sync_outcome_cleanup",
-    "async_outcome_cleanup",
-  ]) {
-    const result = spawnSync(process.execPath, [fixture, mode], {
-      shell: false,
-      windowsHide: true,
-      env: {},
-      encoding: "utf8",
-      timeout: 15_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stderr, "");
-    assert.deepEqual(JSON.parse(result.stdout), {
-      mode,
-      initialPoisonState: false,
-      originStatus: mode.endsWith("convenience_cleanup")
-        ? "null"
-        : mode.endsWith("outcome_cleanup")
-          ? "cleanup_unknown:null"
-          : "cleanup_unknown",
-      originPendingAtGate:
-        mode === "writer_cleanup" || mode === "reader_cleanup",
-      poisonedAtOriginBoundary: true,
-      finalPoisonState: true,
-      taskInputReadCount: 0,
-      taskReason: "coordinator_task_process_restart_required",
-      runnerStatus: "blocked",
-      runnerReason: "signed_general_task_process_restart_required",
-      runnerManualRecoveryRequired: true,
-      runnerHostRecoveryId: null,
-    });
-  }
 });

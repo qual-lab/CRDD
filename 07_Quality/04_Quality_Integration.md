@@ -1,5 +1,13 @@
 # Quality Integration
 
+## 本番未使用の端末・旧Root観測の退役 — 2026-11-06
+
+端末5 Source・旧Root観測・Reader登録・AppContainer受付・未使用停止Wrapperと専用試験を退役した。共有Home Hash・SID反例は存続Ownerへ移し、共有Pipe・Namespace・実停止能力は維持する。PA96・Coordinator24・Executor7・Checker35・VC13件成功、Rust28成功・12既存ignored、旧CLI拒否2成功、Catalog439件valid。正式QA全体・実AI／Docker E2Eへ一般化しない。[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)に独立レビューと未実施範囲を接続する。
+
+## 未接続Host終端機能の退役 — 2026-11-06
+
+Host終端記録・専用caller Leaseと専用検証を代替なしで退役した。Namespaceの共有処理・診断は維持し、共有Pipeと通常Recoveryは変更しない。限定回帰はPA108・Coordinator25・VC13・Checker35件成功。Rust全target確認、Namespace関連4件成功・4件ignored、旧CLI拒否1件成功。Catalog444件validは静的整合であり、正式QA全体の成立ではない。独立レビューの現在結果・影響範囲は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)へ接続する。実AI・Docker・過去保持物は操作しない。
+
 ## Checker全体回帰50失敗の是正 — 2026-11-06
 
 試験前提・故障注入・依存コピー・固定期待値の六系統を試験側で是正し、最終全体回帰は23 File／432 Case、431成功・失敗0・取消0・既存対象外1、exit0で完走した。静的検査、Catalog449件整合と独立レビューの指摘是正も完了した。製品Source512 Fileは作業前後で完全一致し、公開API・探索・安全検査は変更していない。既存二Suiteの台帳終了後確認事項だけを追従し、Suite ID・QA／Local Item・段階は維持した。

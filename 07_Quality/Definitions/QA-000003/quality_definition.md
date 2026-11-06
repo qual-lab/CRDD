@@ -393,7 +393,7 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 
 保存・Host・Providerの残る整理はこの受付試験の成功へ含めず、既存の保存・回復・所有者再入場の検証へ別途接続する。過去Evidenceや正式QA全体の結果を受付整理だけで更新しない。
 
-Provider別の薄い準備中継撤去では`PRL-UT-014`の両Provider試験を共通実体へ接続し、別Store・一回消費・期限・管理一致・Authority失効とMount終了を維持する。Host通知の`PRL-UT-006`はPA内の`in-process-lifecycle`試験へ実移管し、共有Directory・Host activation・診断判断の三CaseはCoordinatorへ残す。固定namespace外の拒否を追加し、Nativeの共有排他・終了確認は維持し、廃止caller専用の保存・解放相関を現行義務へ残さない。低層通知試験を保存・回復全体の成立へ拡張しない。
+Provider準備のPRL-UT-014と共有の通知・失敗・排他義務は維持する。本番未接続のHost終端記録と専用caller Leaseの退役により、そのin-process-lifecycle専用試験接続を撤去する。加えて本番未使用の端末・確認コードと旧Root／AppContainer受付の専用試験を退役し、共有Pipe・通常Process poison・Provider Home・SID反例を維持する。Namespace・通常Recovery・共有Pipeの成立を代替なしで削除したことにはしない。
 
 C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、現在stateのSettlement Writer、共通JSONのDomain committed-json、Host callerのhost-submissionの確定順はそれぞれ現行ITで検査し、退役した旧Journal試験を新版の根拠へ流用しない。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
 

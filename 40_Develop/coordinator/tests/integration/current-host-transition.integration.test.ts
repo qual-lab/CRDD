@@ -127,6 +127,15 @@ test("回収子の技術代役は現行Moduleへ接続し旧Rootへ注入しな�
     assert.match(source, /docker-isolation\/src\/docker-desktop\/restart\.ts/u);
     assert.doesNotMatch(source, /docker-isolation\/src\/index\.ts/u);
     assert.doesNotMatch(source, /createDockerTaskRecoveryExecutor/u);
+    assert.doesNotMatch(source, /--host-terminal-/u);
+    for (const mode of [
+      "--host-recovery-namespace-initialize",
+      "--host-recovery-namespace-observe",
+      "--local-app-data-directory",
+      "--system-windows-directory",
+    ]) {
+      assert.ok(source.includes(mode));
+    }
   }
   assert.match(
     currentAuthenticationRecoveryCliSource,

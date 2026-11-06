@@ -10,8 +10,6 @@
       "path": "src/execution/files.ts",
       "archIds": ["ARCH-000008", "ARCH-000013"]
     },
-    {"symbolId":"coordinator.test.support.console","kind":"file","path":"tests/support/console.ts","archIds":["ARCH-000008"]},
-    {"symbolId":"coordinator.test.unit.console","kind":"test-suite","path":"tests/unit/decision/console.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.test.support.console"]},
     { "symbolId": "coordinator.verification.probe", "kind": "file", "path": "scripts/probe-verification.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.test.support.probe-executor", "kind": "file", "path": "tests/support/probe-executor.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.execution.preparation-types", "kind": "file", "path": "src/execution/types.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
@@ -1277,7 +1275,6 @@
       ],
       "verifies": [
         "coordinator.source.src.core.runtime.process.safety.state",
-        "coordinator.test.support.console",
         "coordinator.task-runtime"
       ]
     },
@@ -1401,8 +1398,6 @@
         "EST-ST-003"
       ],
       "verifies": [
-        "coordinator.test.support.console",
-        "coordinator.source.src.core.interactive.console.reader",
         "coordinator.source.src.core.node.runtime.version",
         "coordinator.source.src.core.runtime.process.safety.state",
         "platform-access.source.windows-child-environment",
@@ -1544,20 +1539,6 @@
       "verifies": [
         "coordinator.source.scripts.verify.signed.general.task",
         "coordinator.source.scripts.verify.signed.route.matrix"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.system.terminal-interaction-probe",
-      "kind": "test-suite",
-      "path": "tests/system/terminal-interaction-probe.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-ST-005"
-      ],
-      "verifies": [
-        "coordinator.test.support.console"
       ]
     },
     {
@@ -2331,7 +2312,6 @@
         "coordinator.source.scripts.verify.signed.general.task",
         "coordinator.source.src.security.claude.execution.plan",
         "coordinator.source.src.security.execution.environment",
-        "coordinator.test.support.console",
         "coordinator.source.src.security.provider.task.packet.runtime",
         "coordinator.source.src.security.provider.task.structured.result"
       ]
@@ -3242,34 +3222,6 @@
       "verifies": []
     },
     {
-      "symbolId": "coordinator.verification.native-terminal-fixtures",
-      "kind": "verification-tool",
-      "path": "scripts/verify-native-terminal-fixtures.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002",
-        "ERB-IT-003"
-      ],
-      "verifies": []
-    },
-    {
-      "symbolId": "coordinator.verification.native-terminal-oracles",
-      "kind": "verification-tool",
-      "path": "tests/fixtures/native-terminal-oracles.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002",
-        "ERB-IT-003"
-      ],
-      "verifies": []
-    },
-    {
       "symbolId": "coordinator.test.integration.native-tool-process",
       "kind": "test-suite",
       "path": "tests/integration/native-tool-process.contract.test.ts",
@@ -3282,7 +3234,6 @@
       ],
       "verifies": [
         "coordinator.verification.native-protection",
-        "coordinator.verification.native-terminal-fixtures",
         "coordinator.verification.native-terminal-namespace"
       ]
     },
@@ -3299,22 +3250,6 @@
       "verifies": [
         "coordinator.verification.native-protection",
         "coordinator.verification.native-terminal-namespace"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.native-terminal-oracles",
-      "kind": "test-suite",
-      "path": "tests/integration/native-terminal-oracles.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002",
-        "ERB-IT-003"
-      ],
-      "verifies": [
-        "coordinator.verification.native-terminal-oracles"
       ]
     },
     {

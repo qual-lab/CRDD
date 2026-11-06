@@ -24,7 +24,6 @@ const DISTRIBUTION_MODULE_PATH =
  * @compatibility RuntimeLocalTypeScriptChildRoleの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type RuntimeLocalTypeScriptChildRole =
-  | "interactive_console_reader"
   | "kernel_lock_worker"
   | "host_operation_lock_supervisor";
 
@@ -96,12 +95,6 @@ function declareLocalTypeScriptChildEntrypoint(
 }
 
 const runtimeLocalTypeScriptChildEntrypoints = Object.freeze([
-  declareLocalTypeScriptChildEntrypoint(
-    "interactive_console_reader",
-    "spawn",
-    "../terminal/confirmation-reader.ts",
-    import.meta.url,
-  ),
   declareLocalTypeScriptChildEntrypoint(
     "kernel_lock_worker",
     "worker",

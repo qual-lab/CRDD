@@ -9,11 +9,41 @@
 //! @boundary Node所有診断→Native試験Process→Windows Filesystem／handle／別Process。既定実行しない。
 
 use super::*;
+use crate::filesystem::protection::OwnedHandle;
+use crate::filesystem::protection::root_information;
 use crate::filesystem::protection::security_descriptor;
-use crate::protocol::access::FileIdentity;
+use crate::filesystem::protection::{ACCESS_ALLOWED_ACE_TYPE, bounded_ace_sid};
+use crate::filesystem::protection::{DirectoryIdentity, directory_identity};
+use crate::process::principal::copy_sid_bytes;
+use crate::process::principal::process_tokens;
+use crate::process::principal::{local_system_sid_bytes, token_user_sid_bytes};
+use std::ffi::c_void;
 use std::fs;
 use std::io::{Read, Write};
+use std::mem::size_of;
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+use std::path::Path;
+use std::ptr::null;
+use std::ptr::null_mut;
+use windows_sys::Win32::Foundation::{CloseHandle, LocalFree};
+use windows_sys::Win32::Foundation::{GetLastError, HANDLE, INVALID_HANDLE_VALUE};
+use windows_sys::Win32::Security::{
+    ACCESS_ALLOWED_ACE, ACL, ACL_REVISION, ACL_SIZE_INFORMATION, AclSizeInformation,
+    AddAccessAllowedAceEx, GetAce, GetAclInformation, GetSecurityDescriptorControl,
+    GetSecurityDescriptorDacl, GetSecurityDescriptorOwner, InitializeAcl,
+    InitializeSecurityDescriptor, SE_DACL_PROTECTED, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR,
+    SetSecurityDescriptorControl, SetSecurityDescriptorDacl, SetSecurityDescriptorOwner,
+};
+use windows_sys::Win32::Storage::FileSystem::CreateDirectoryW;
+use windows_sys::Win32::Storage::FileSystem::{
+    CreateFileW, DELETE, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
+    FILE_SHARE_WRITE,
+};
+use windows_sys::Win32::Storage::FileSystem::{
+    FILE_ALL_ACCESS, FILE_FLAG_BACKUP_SEMANTICS, OPEN_EXISTING,
+};
+use windows_sys::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_REPARSE_POINT, FILE_READ_ATTRIBUTES};
+use windows_sys::Win32::Storage::FileSystem::{FILE_GENERIC_READ, FILE_SHARE_READ, READ_CONTROL};
 
 /// 試験が所有するhandleの終了を明示的に観測する。
 ///
@@ -80,7 +110,7 @@ fn open_probe_handle(path: &Path, access: u32, share: u32) -> Result<OwnedHandle
 /// @oracle 情報取得・非reparse・close成功が全て成立した場合だけIdentityを返す。
 /// @cleanup 観測handleを必ず明示解放試行し、不明を成功へ変換しない。
 /// @boundary 同一試験Process→Windows metadata API。
-fn probe_identity(path: &Path) -> Result<FileIdentity, &'static str> {
+fn probe_identity(path: &Path) -> Result<DirectoryIdentity, &'static str> {
     let mut handle = open_probe_handle(
         path,
         FILE_READ_ATTRIBUTES,
@@ -93,11 +123,7 @@ fn probe_identity(path: &Path) -> Result<FileIdentity, &'static str> {
     if !closed || information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
         return Err("identity_or_close_unconfirmed");
     }
-    Ok(FileIdentity {
-        volume_serial_number: information.dwVolumeSerialNumber,
-        file_index_high: information.nFileIndexHigh,
-        file_index_low: information.nFileIndexLow,
-    })
+    Ok(directory_identity(&information))
 }
 
 /// fixtureの所有者と二ACEのprotected DACLを観測する。
@@ -295,7 +321,7 @@ fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static s
         return Err("worker_start_cutoff");
     }
     let command = format!(
-        "\"{}\" --exact host_record::record::protection_tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
+        "\"{}\" --exact host_record::host_namespace::protection_tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
         executable.display()
     );
     let environment = format!(

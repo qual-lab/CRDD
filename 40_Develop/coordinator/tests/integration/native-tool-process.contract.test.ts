@@ -21,7 +21,6 @@ import { runInNewContext } from "node:vm";
 const tools = [
   "verify-native-protection.ts",
   "verify-native-terminal-namespace.ts",
-  "verify-native-terminal-fixtures.ts",
 ] as const;
 
 /**
@@ -29,7 +28,7 @@ const tools = [
  *
  * @responsibility 複製Sourceや旧結果を現在の実装として扱わない。
  * @trace ERB-IT-001
- * @precondition nameは固定三Toolのいずれかである。
+ * @precondition nameは固定二Toolのいずれかである。
  * @stimulus Sourceを読み改行だけを正規化する。
  * @observation 現在の実装本文。
  * @oracle 実ファイルの欠測は試験失敗になる。
@@ -135,23 +134,6 @@ test("Native検証Toolは固定Cargo構成を一回だけ要求する", () => {
     {
       file: tools[1],
       name: "buildNativeTerminalNamespaceArtifact",
-      args: [
-        ...prefix,
-        "test",
-        "--manifest-path",
-        [crate, "/Cargo.toml"].join(""),
-        "--locked",
-        "--no-run",
-        "--target",
-        "x86_64-pc-windows-msvc",
-        "--target-dir",
-        target,
-        "--message-format=json",
-      ],
-    },
-    {
-      file: tools[2],
-      name: "buildNativeTerminalFixtureArtifact",
       args: [
         ...prefix,
         "test",
@@ -346,21 +328,15 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
   const runRoot = "/fixed/run";
   const fixture = "/fixed/run/fixture";
   const exactTest =
-    "host_record::record::protection_tests::terminal_protection_fixture_observes_handle_sharing";
+    "host_record::host_namespace::protection_tests::terminal_protection_fixture_observes_handle_sharing";
   for (const file of tools) {
     const protection = file === tools[0];
     const fragment = toolFragment(
       readTool(file),
-      protection
-        ? "  const started = Date.now();"
-        : file === tools[1]
-          ? '  let stdout = "";'
-          : '    let stdout = "";',
+      protection ? "  const started = Date.now();" : '  let stdout = "";',
       protection
         ? "  const matchingEntries = output"
-        : file === tools[1]
-          ? "  const result = { stdout"
-          : "    const result = { stdout",
+        : "  const result = { stdout",
     );
     for (const scenario of ["normal", "error", "timeout"]) {
       const child = Object.assign(new EventEmitter(), {
@@ -396,20 +372,9 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
         fixture,
         exactTest,
         verificationOperation: "fixed-operation",
-        fixtureCase: {
-          test: "fixed-fixture",
-          env: "CRDD_FIXED_RUN",
-          kind: "target",
-        },
         process: host,
         Buffer,
         createHash,
-        fs: {
-          readFileSync: (selected: string) => {
-            assert.equal(selected, host.execPath);
-            return Buffer.from("fixed-node");
-          },
-        },
         setTimeout: (callback: () => void, milliseconds: number) => {
           assert.equal(milliseconds, protection ? 30_000 : 15_000);
           deadline = callback;
@@ -431,9 +396,7 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
                 "--test-threads=1",
               ]
             : [
-                file === tools[1]
-                  ? "host_record::record::tests::terminal_namespace_fixture"
-                  : "fixed-fixture",
+                "host_record::host_namespace::tests::terminal_namespace_fixture",
                 "--exact",
                 "--ignored",
                 "--nocapture",
@@ -449,25 +412,13 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
                 TEMP: "/fixed/run/tmp",
                 TMP: "/fixed/run/tmp",
               }
-            : file === tools[1]
-              ? {
-                  PRESERVED: "fixed",
-                  CRDD_TERMINAL_NAMESPACE_RUN: "fixed-operation",
-                  CRDD_TERMINAL_NAMESPACE_ROOT: fixture,
-                  TEMP: fixture,
-                  TMP: fixture,
-                }
-              : {
-                  PRESERVED: "fixed",
-                  CRDD_FIXED_RUN: "fixed-operation",
-                  CRDD_TERMINAL_FIXTURE_ROOT: runRoot,
-                  CRDD_TEST_NODE_BINARY: host.execPath,
-                  CRDD_TEST_NODE_SHA256: createHash("sha256")
-                    .update("fixed-node")
-                    .digest("hex"),
-                  TEMP: fixture,
-                  TMP: fixture,
-                };
+            : {
+                PRESERVED: "fixed",
+                CRDD_TERMINAL_NAMESPACE_RUN: "fixed-operation",
+                CRDD_TERMINAL_NAMESPACE_ROOT: fixture,
+                TEMP: fixture,
+                TMP: fixture,
+              };
           assert.deepEqual(JSON.parse(JSON.stringify(options)), {
             cwd: repository,
             shell: false,

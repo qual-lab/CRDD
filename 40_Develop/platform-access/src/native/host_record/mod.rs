@@ -1,4 +1,4 @@
-//! Host記録の保存先・対象・保護File・保存をWindows実装へ接続する。
+//! Host Namespaceの保護付き初期化をWindows実装へ接続する。
 //!
 //! @responsibility 固定Nativeの技術契約だけを所有し、清掃の許可判断を行わない。
 //! @trace ARCH-000008
@@ -13,11 +13,3 @@ pub(crate) mod host_namespace;
 #[path = "windows/protected_file.rs"]
 #[allow(dead_code)]
 pub(crate) mod protected_file;
-#[cfg(windows)]
-#[path = "windows/record.rs"]
-#[allow(dead_code)]
-pub(crate) mod record;
-#[cfg(windows)]
-#[path = "windows/terminal_target.rs"]
-#[allow(dead_code)]
-pub(crate) mod terminal_target;

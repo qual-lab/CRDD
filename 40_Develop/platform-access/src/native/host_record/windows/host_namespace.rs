@@ -1,6 +1,6 @@
 //! 固定Host保存境界の期待実体・所在候補と保持Directory chainを検査する。
 //!
-//! @responsibility Namespaceの相異・非Reparse条件、固定名・所在候補、親chainの取得・照合・明示終了と期待値付き固定child初期化を所有し、対象観測はterminal_targetへ分離する。
+//! @responsibility Namespaceの相異・非Reparse条件、固定名・所在候補、親chainの取得・照合・明示終了と期待値付き固定child初期化を所有する。専用Host終端記録・対象観測は退役済み。
 //! @trace ARCH-000011
 
 use crate::filesystem::protected_root::DRIVE_FIXED;
@@ -29,6 +29,8 @@ use windows_sys::Win32::Storage::FileSystem::{
     FILE_READ_ATTRIBUTES, FILE_SHARE_READ, GetDriveTypeW, GetTempPathW, READ_CONTROL,
 };
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+const MAX_CHAIN_HANDLES: usize = 64;
 
 pub(super) static CAPACITY_SETTLEMENT_UNKNOWN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
@@ -308,7 +310,7 @@ impl TerminalDirectory {
             {
                 return Err("terminal_directory_path_invalid");
             }
-            if components.len() - 1 > crate::protocol::host_record::MAX_CHAIN_HANDLES {
+            if components.len() - 1 > MAX_CHAIN_HANDLES {
                 return Err("terminal_directory_chain_too_large");
             }
             let mut primary = null_mut();
@@ -749,7 +751,7 @@ pub(super) fn host_namespace_at_parent(
             if selected_user != expected_user {
                 return Err("terminal_selected_user_mismatch");
             }
-            if guard.handles.len() > crate::protocol::host_record::MAX_CHAIN_HANDLES - 2 {
+            if guard.handles.len() > MAX_CHAIN_HANDLES - 2 {
                 return Err("terminal_namespace_chain_limit");
             }
             for (index, child) in [HostNamespaceChild::Recovery, HostNamespaceChild::Terminal]
@@ -914,27 +916,6 @@ pub(super) fn validate_terminal_namespace(
     Ok(())
 }
 
-/// 対象の単純名を八handle取得前に検査する。
-///
-/// @responsibility traversal、自由suffix、別位置の名前を対象にしない。
-/// @trace ARCH-000011
-/// @input Root名とmarker名。Pathではない。
-/// @returns 固定名形の一致または拒否。
-/// @precondition Rootは親直下、markerはrecovery直下でのみ使用する。
-/// @postcondition ASCIIの単純leafだけを受理する。
-/// @effect N/A: 値検査のみ。
-/// @failure prefix/長さ/文字種不正を拒否する。
-/// @invariant 名前一致を由来や非使用の証明にしない。
-/// @boundary 私有consumer→対象open準備。
-/// @security 任意絶対Pathや環境値を受け付けない。
-/// @concurrency N/A: 不変borrowの純検査。
-pub(super) fn validate_terminal_target_names(root: &str, marker: &str) -> Result<(), &'static str> {
-    if !crate::protocol::host_record::valid_target_names(root, marker) {
-        return Err("terminal_target_name_invalid");
-    }
-    Ok(())
-}
-
 /// OS一時所在候補を切詰めず固定Drive絶対Pathへ変換する。
 ///
 /// @responsibility API返却を存在・ACL・Authorityの保証にしない。
@@ -975,3 +956,13 @@ pub(super) fn decode_terminal_temporary_parent(
     }
     Ok(path)
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/fixtures/host_namespace_creation.rs"]
+mod host_namespace_creation_tests;
+#[cfg(test)]
+#[path = "../../../../tests/fixtures/windows_protection.rs"]
+mod protection_tests;
+#[cfg(test)]
+#[path = "../../../../tests/integration/host_namespace.rs"]
+mod tests;

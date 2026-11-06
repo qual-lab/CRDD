@@ -727,3 +727,55 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
         stable_logical_home_binding_hash,
     }
 }
+
+#[cfg(test)]
+mod preserved_contract_tests {
+    use super::*;
+    use crate::filesystem::protection::DirectoryIdentity;
+    use crate::process::principal::{
+        REQUIRED_SELECTED_USER_PRINCIPAL_FLAGS, TokenBindingObservation, local_user_binding_hash,
+    };
+    #[test]
+    fn provider_home_hash_domains_bind_provider_identity_and_login_session() {
+        let codex = ProviderHomeRequest {
+            provider: crate::protocol::access::Provider::Codex,
+            initialize_if_missing: false,
+            nonce: [1_u8; 32],
+            mount_source_hash: [2_u8; 32],
+        };
+        let claude = ProviderHomeRequest {
+            provider: crate::protocol::access::Provider::Claude,
+            initialize_if_missing: false,
+            nonce: [1_u8; 32],
+            mount_source_hash: [2_u8; 32],
+        };
+        let identity = DirectoryIdentity {
+            volume_serial_number: 1,
+            file_index_high: 2,
+            file_index_low: 3,
+            creation_time_low: 4,
+            creation_time_high: 5,
+            attributes: FILE_ATTRIBUTE_DIRECTORY,
+        };
+        assert_ne!(
+            provider_home_identity_hash(&codex, identity),
+            provider_home_identity_hash(&claude, identity)
+        );
+        assert_ne!(
+            provider_home_mount_source_hash(&codex, Path::new(r"C:\ProviderHomes\codex")),
+            provider_home_mount_source_hash(&claude, Path::new(r"C:\ProviderHomes\claude"))
+        );
+
+        let binding = TokenBindingObservation {
+            principal_identity_hash: [7_u8; 32],
+            principal_flags: REQUIRED_SELECTED_USER_PRINCIPAL_FLAGS,
+            authentication_id: [8_u8; 8],
+        };
+        let mut next_login = binding;
+        next_login.authentication_id[0] ^= 1;
+        assert_ne!(
+            local_user_binding_hash(binding),
+            local_user_binding_hash(next_login)
+        );
+    }
+}

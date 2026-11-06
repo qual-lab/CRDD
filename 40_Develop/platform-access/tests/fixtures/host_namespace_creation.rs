@@ -7,8 +7,20 @@
 //! @scope 固定Repository内の自己生成対象で、新規作成・無変更再利用・既存不適合の拒否を確認するignored局所試験。
 //! @boundary cfg(test)の私有作成部品→Windows File API。実共有保存領域、旧三件、署名Runtimeと公開Recoveryは対象外。
 
-use super::*;
+use crate::filesystem::protection::DirectoryIdentity;
+use crate::host_record::host_namespace::{
+    HostNamespaceChild, create_host_namespace_child, host_namespace_at_parent,
+};
+use crate::host_record::host_namespace::{TerminalDirectory, terminal_identity_fields};
+use crate::host_record::protected_file::{
+    close_terminal_handle, observe_terminal_presence, open_terminal_handle, terminal_identity,
+};
+use crate::process::principal::process_tokens;
+use crate::process::principal::selected_user_token_binding;
 use std::fs;
+use std::path::Path;
+use windows_sys::Win32::Storage::FileSystem::FILE_READ_ATTRIBUTES;
+use windows_sys::Win32::Storage::FileSystem::{FILE_SHARE_READ, READ_CONTROL};
 
 /// 自作fixtureの同handle実体と明示終了を観測する。
 ///

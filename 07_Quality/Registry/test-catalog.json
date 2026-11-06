@@ -1838,44 +1838,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:terminal-console",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/unit/terminal/console.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "terminal",
-        "console",
-        "cleanup"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:terminal-output",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/unit/terminal/output.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "terminal",
-        "output",
-        "cleanup"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "docker-isolation:unit:network-proxy",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/unit/network/proxy.contract.test.ts",
@@ -3542,28 +3504,6 @@
         "previous_run_blocks_generation",
         "ancestor_replacement_rejected",
         "changed_or_unavailable_input_rejected"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:native-terminal-oracles",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/native-terminal-oracles.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "native",
-        "terminal",
-        "packet",
-        "correlation"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "finite_packet_schemas_preserved",
-        "correlated_observation_failure_rejected",
-        "not_observed_not_absent"
       ],
       "mandatoryByDefault": true
     },
@@ -6192,26 +6132,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:system:terminal-interaction-probe",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/terminal-interaction-probe.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": [
-        "terminal",
-        "interaction",
-        "probe"
-      ],
-      "environment": "fixed_system_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "public_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:system:verification-result-record",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/system/verification-result-record.contract.test.ts",
@@ -6995,25 +6915,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:console",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/decision/console.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "console",
-        "notification",
-        "completion"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:host-generation-loss-transition",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/execution/generation-loss-transition.contract.test.ts",
@@ -7576,27 +7477,6 @@
         "runtime",
         "profile",
         "transport"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed",
-        "source_unchanged"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:in-process-pipe-lifecycle",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/unit/lock/in-process-lifecycle.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "pipe",
-        "lock",
-        "cancellation",
-        "lifecycle"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -8808,25 +8688,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:terminal-protocol",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/protocol/host_record.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "protocol",
-        "recovery"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:unit:docker_repair",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/src/native/docker_desktop/windows/repair.rs",
@@ -8846,48 +8707,47 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:main",
+      "id": "platform-access:unit:protected-root",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/main.rs",
+      "path": "40_Develop/platform-access/src/native/filesystem/windows/protected_root.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [
-        "cli",
-        "protocol"
+        "identity",
+        "protection"
       ],
       "environment": "windows_rust_runtime",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
+        "pure_contract_checked",
+        "no_external_effect"
       ],
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:windows",
+      "id": "platform-access:unit:protection",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/filesystem/windows/root_observation.rs",
+      "path": "40_Develop/platform-access/src/native/filesystem/windows/protection.rs",
       "level": "unit",
       "kind": "unit",
       "semanticTags": [
-        "windows",
-        "process",
-        "filesystem"
+        "identity",
+        "protection"
       ],
       "environment": "windows_rust_runtime",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
+        "pure_contract_checked",
+        "no_external_effect"
       ],
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:integration:windows_terminal",
+      "id": "platform-access:integration:host_namespace",
       "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/host_record.rs",
+      "path": "40_Develop/platform-access/tests/integration/host_namespace.rs",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10603,44 +10463,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:host-record",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/unit/host-record/record.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "record"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:host-record-native-observation",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/host-record-native-observation.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "record"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "orchestrator:unit:objective-profile-transport",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/objective/selection-transport.contract.test.ts",
@@ -10666,25 +10488,6 @@
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/integration/lock-lifecycle.contract.test.ts",
       "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "terminal",
-        "lock",
-        "cleanup"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:system:terminal-reader",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/system/terminal-reader.contract.test.ts",
-      "level": "system",
       "kind": "contract",
       "semanticTags": [
         "terminal",

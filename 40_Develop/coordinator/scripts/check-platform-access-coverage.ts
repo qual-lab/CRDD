@@ -49,7 +49,6 @@ const expectedSources = new Set(
       "native",
       "filesystem",
       "windows",
-      "root_observation.rs",
     ),
     path.join(
       crateRoot,
@@ -73,14 +72,6 @@ const expectedSources = new Set(
       "native",
       "host_record",
       "windows",
-      "record.rs",
-    ),
-    path.join(
-      crateRoot,
-      "src",
-      "native",
-      "host_record",
-      "windows",
       "protected_file.rs",
     ),
     path.join(
@@ -90,14 +81,6 @@ const expectedSources = new Set(
       "host_record",
       "windows",
       "host_namespace.rs",
-    ),
-    path.join(
-      crateRoot,
-      "src",
-      "native",
-      "host_record",
-      "windows",
-      "terminal_target.rs",
     ),
     path.join(crateRoot, "src", "native", "process", "windows", "principal.rs"),
     path.join(
@@ -125,7 +108,7 @@ const expectedSources = new Set(
       "identity.rs",
     ),
     path.join(crateRoot, "tests", "integration", "native_cli.rs"),
-    path.join(crateRoot, "tests", "integration", "host_record.rs"),
+    path.join(crateRoot, "tests", "integration", "host_namespace.rs"),
   ].map(path.normalize),
 );
 

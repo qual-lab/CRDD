@@ -5,7 +5,6 @@
 //! @trace ARCH-000011
 
 use crate::filesystem::windows_directory::MAXIMUM_KNOWN_FOLDER_CODE_UNITS;
-use crate::protocol::access::FileIdentity;
 use std::ffi::c_void;
 use std::mem::size_of;
 use std::os::windows::ffi::OsStrExt;
@@ -244,39 +243,6 @@ pub(crate) fn directory_identity_bytes(identity: DirectoryIdentity) -> [u8; 24] 
     bytes
 }
 
-/// rootを固定Identityで開く。
-///
-/// @responsibility rootを固定Identityで開く責務を所有し、観測不能または不正な入力を成功へ畳まない。
-/// @trace ARCH-000011
-/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
-/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
-/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
-/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-/// @effect OS APIからread-only観測を取得する。
-/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-/// @boundary Native Worker→Windows Identity／ACL API。
-/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-/// @concurrency N/A: 共有可変状態を持たない同期処理である。
-pub(crate) fn open_root(path: &str) -> Option<OwnedHandle> {
-    let mut wide: Vec<u16> = Path::new(path).as_os_str().encode_wide().collect();
-    wide.push(0);
-    // SAFETY: wide is NUL-terminated, all pointer arguments remain valid for the call,
-    // and the returned handle is immediately transferred to OwnedHandle.
-    let handle = unsafe {
-        CreateFileW(
-            wide.as_ptr(),
-            FILE_READ_ATTRIBUTES | READ_CONTROL,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            null(),
-            OPEN_EXISTING,
-            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-            null_mut(),
-        )
-    };
-    (handle != INVALID_HANDLE_VALUE).then_some(OwnedHandle(handle))
-}
-
 /// directoryを固定Identityで開く。
 ///
 /// @responsibility directoryを固定Identityで開く責務を所有し、観測不能または不正な入力を成功へ畳まない。
@@ -342,29 +308,6 @@ pub(crate) fn root_information(handle: HANDLE) -> Option<BY_HANDLE_FILE_INFORMAT
     // SAFETY: information is a valid writable output and handle remains owned by caller.
     let succeeded = unsafe { GetFileInformationByHandle(handle, &mut information) } != 0;
     succeeded.then_some(information)
-}
-
-/// Windows Root・Provider Home観測のidentity matches責務を実行する。
-///
-/// @responsibility Windows Root・Provider Home観測のidentity matches責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
-/// @trace ARCH-000011
-/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
-/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
-/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
-/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-/// @effect OS APIからread-only観測を取得する。
-/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-/// @boundary Native Worker→Windows Identity／ACL API。
-/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-/// @concurrency N/A: 共有可変状態を持たない同期処理である。
-pub(crate) fn identity_matches(
-    information: &BY_HANDLE_FILE_INFORMATION,
-    expected: FileIdentity,
-) -> bool {
-    information.dwVolumeSerialNumber == expected.volume_serial_number
-        && information.nFileIndexHigh == expected.file_index_high
-        && information.nFileIndexLow == expected.file_index_low
 }
 
 /// Windows Root・Provider Home観測のsecurity descriptor責務を実行する。
@@ -561,4 +504,35 @@ pub(crate) fn bounded_ace_sid(
     }
     // SAFETY: the length was derived from the bounded SID header and fits inside this ACE.
     Some(unsafe { std::slice::from_raw_parts(ace.add(sid_offset), sid_length) }.to_vec())
+}
+
+#[cfg(test)]
+mod preserved_contract_tests {
+    use super::*;
+
+    #[test]
+    fn bounded_ace_sid_rejects_truncated_or_noncanonical_sid() {
+        let valid = [1_u8, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
+        assert_eq!(
+            bounded_ace_sid(valid.as_ptr(), valid.len(), 0),
+            Some(valid.to_vec())
+        );
+        assert_eq!(bounded_ace_sid(valid.as_ptr(), valid.len() - 1, 0), None);
+        let mut wrong_revision = valid;
+        wrong_revision[0] = 2;
+        assert_eq!(
+            bounded_ace_sid(wrong_revision.as_ptr(), wrong_revision.len(), 0),
+            None
+        );
+        let mut too_many_subauthorities = valid;
+        too_many_subauthorities[1] = 16;
+        assert_eq!(
+            bounded_ace_sid(
+                too_many_subauthorities.as_ptr(),
+                too_many_subauthorities.len(),
+                0
+            ),
+            None
+        );
+    }
 }

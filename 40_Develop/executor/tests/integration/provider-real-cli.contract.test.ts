@@ -224,7 +224,7 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
     for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{throw Error('external_process_forbidden');};syncBuiltinESMExports();
     const platform=await import(${JSON.stringify(platform)});let calls=0;
     const forbidden=()=>{calls++;throw Error('platform_forbidden');};
-    mock.module(${JSON.stringify(platform)},{namedExports:{...platform,observeWindowsProviderHome:forbidden,acquireNamedPipeKernelLock:forbidden,readConfirmationCodeOutcome:forbidden}});
+    mock.module(${JSON.stringify(platform)},{namedExports:{...platform,observeWindowsProviderHome:forbidden,acquireNamedPipeKernelLock:forbidden}});
     const api=await import(${JSON.stringify(entry)});
     for(const provider of ['codex','claude']){const spec=api.describeStandaloneProviderTrial(provider);assert.equal(spec.model,provider==='codex'?'gpt-6.1-sol':'claude-opus-5-5');assert.equal(spec.effort,'medium');assert.equal(spec.maximumProviderRequests,1);assert.equal(spec.repositoryMounted,false);assert.equal(spec.workspaceMounted,false);assert.equal(spec.toolsAllowed,false);assert.equal(spec.sessionPersistenceAllowed,false);assert.match(spec.providerImageDigest,/^sha256:[a-f0-9]{64}$/);}
     assert.throws(()=>api.describeStandaloneProviderTrial('other'));
@@ -486,7 +486,6 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
     Object.defineProperty(process.stdin,'isTTY',{value:false,configurable:true});Object.defineProperty(process.stdout,'isTTY',{value:false,configurable:true});
     mock.method(process.stdout,'write',function(value,...rest){const text=String(value);assert.equal(/この端末に|入力してください/.test(text),false);if(text.startsWith('{'))output.push(JSON.parse(text));const callback=rest.find(v=>typeof v==='function');if(callback)callback(null);return true;});
     mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
-      readConfirmationCodeOutcome:async()=>{throw Error('console_input_forbidden');},
       observeWindowsProviderHome:()=>{throw Error('native_forbidden');},acquireNamedPipeKernelLock:()=>{throw Error('lock_forbidden');}
     }});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));let root=null;

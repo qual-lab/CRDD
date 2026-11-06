@@ -25,7 +25,6 @@
     "platform-access:native-runtime-trace": "node ./scripts/check-native-runtime-trace.ts",
     "platform-access:verify-protection": "cd ../.. && node ./40_Develop/coordinator/scripts/verify-native-protection.ts",
     "platform-access:verify-namespace": "cd ../.. && node ./40_Develop/coordinator/scripts/verify-native-terminal-namespace.ts",
-    "platform-access:verify-terminal-fixtures": "cd ../.. && node ./40_Develop/coordinator/scripts/verify-native-terminal-fixtures.ts",
     "platform-access:test": "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --all-features --target x86_64-pc-windows-msvc",
     "platform-access:ts-coverage": "node ./scripts/check-platform-access-ts-coverage.ts",
     "platform-access:worker-build": "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",

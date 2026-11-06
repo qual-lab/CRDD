@@ -215,7 +215,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(identity.provider, 'claude'); assert.equal(identity.operationMode, 'isolated_task');
           const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
           const nativeExe = path.resolve(path.dirname(cli), '../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
-          const nativeModes = ['--host-recovery-namespace-initialize','--host-recovery-namespace-observe','--local-app-data-directory','--system-windows-directory','--host-terminal-save','--host-terminal-read','--host-terminal-known-file-save','--host-terminal-known-file-read','--host-terminal-observe','--host-terminal-known-file-observe'];
+          const nativeModes = ['--host-recovery-namespace-initialize','--host-recovery-namespace-observe','--local-app-data-directory','--system-windows-directory'];
           const expectedCommands = [
             ['container','ls','--all','--no-trunc','--filter','id='+dockerId,'--format','{{.ID}}'],
             ['container','inspect',dockerId],

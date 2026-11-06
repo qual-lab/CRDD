@@ -58,9 +58,7 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 
 静的確認後、Repository Rootから`npm run platform-access:verify-namespace --prefix 40_Develop/coordinator`で起動する。入口は同じ共有cacheから今回Cargoのtest実行物一件を取得し、`.crdd/tests/native-terminal-<UUID>/namespace-r2`だけを自己生成対象とする。保存境界3Directoryの正常例と19拒否例、全handle終了、exact試験一件、exit/close、入力不変と直接不存在を共同確認する。結果保存・清掃前は成否と独立して全保存祖先を再照合し、置換・観測不能では書込みと清掃を止める。成功時は小さなrunを回収し、失敗時は保持して次回開始前に処置する。
 
-残る自己生成試験はRepository Rootから`npm run platform-access:verify-terminal-fixtures --prefix 40_Develop/coordinator`で実行する。対象観測、保存、容量（処置前・処置後）、現在候補、cold観測、rename候補、公開、disposition、既知fileの九能力十実行に、固定NodeとNativeの排他互換試験一件を加える。元の判定、個別handle終了、旧内容保持、子の実体・終了観測を維持する。coldと排他互換だけ検証子を起動し、他の試験は直接子一件に閉じる。実行中は入力を編集しない。
-
-各試験は同じ共有cacheと新しい`.crdd/tests/native-terminal-<UUID>/`を用い、成功時だけ小さなrunを回収する。対象観測だけはWindowsの`GetTempPathW`に自己生成fixture位置を搬送し、その他はrun内`tmp`を使う。旧Rootの読戻し・変更拒否診断は履歴専用であり、現在候補・cold・rename・公開の再実行可能な自己生成試験へ能力を対応付けて廃止する。過去の失敗を成功へ書き換えない。旧残存は人間の許可、現在の非使用、非alias、領域内hardlink集合、排他openと削除直前の入力照合後にのみ回収する。署名、本番回復、Docker、Provider、全E2Eの成立は主張しない。
+専用Host終端記録の観測・保存・容量・公開・disposition等の旧自己生成試験は、未接続Capabilityとともに退役した。旧Toolを再実行せず、過去保持物の観測・回収許可へ流用しない。存続するNamespace・保護試験は各専用入口の範囲だけで実施する。
 
 ## 自己生成Native保護試験の反復と終了処置
 
@@ -386,20 +384,9 @@ v0.20.0ではこの機械的遷移を実行しないまま公式tagを作成し�
 
 <a id="terminal-interaction-check"></a>
 
-### 端末の表示・入力を確認する
+### 端末の表示・入力確認（退役）
 
-[UIの確認範囲](../04_UI/06_Current_Interface_Reference.md#4-現行表示の参照と表現方針)に従い、既に開いているWindows Terminal／PowerShellで、検証したリポジトリRootから次を実行する。これは秘密入力・署名・外部送信・実行許可を伴わない参照であり、製品Taskの成功を証明するものではない。
-
-```shell
-node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts match
-node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts mismatch
-node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts timeout
-node 40_Develop/coordinator/tests/fixtures/terminal-interaction-probe.ts cancel
-```
-
-`match`では`123456`、`mismatch`では`654321`を入力し、それぞれEnterを1回だけ押す。秘密や実際の承認コードは使わない。`timeout`は5秒、`cancel`は1秒、何も入力せず結果を待つ。各結果の`scenarioMatched`と`cleanupConfirmed`がともに`true`であることを確認する。不成立時は結果を保存して原因を調べ、入力を自動補完したり成功へ読み替えたりしない。`cancel`は入力待ちへの取消要求の確認であり、Ctrl+Cのキー搬送やTask資源全体の取消完了の確認ではない。
-
-日本語、入力位置、折返し、文字拡大、結果が読める状態で端末が残ることは人間が確認する。プログラムは終了保持のための追加Enterを消費せず、ウィンドウ保持は呼出し元端末が所有する。端末の実バージョンと表示条件、確認結果、未確認範囲を検証結果へ残す。読み上げは今回未評価である。
+旧確認コード・固定端末Probeは、本番Consumerがないため2026-11-06に実装・専用試験とともに退役した。旧四scenarioの起動手順は現在利用しない。認証loginの対話入出力はDIの既存技術契約に残り、一般Taskの実行成功や承認をこの旧Probeから推定しない。
 
 ### 自動試験と開発確認
 

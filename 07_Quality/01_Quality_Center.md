@@ -1,5 +1,9 @@
 # CRDD内部ツールの品質の現在状態
 
+本番未使用の端末・確認コード・旧Root観測を退役した。共用処理の限定回帰と台帳整合は成功し、Windows保護やPA全体の撤去完了とはしない。[現在の限定結果](04_Quality_Integration.md#本番未使用の端末旧root観測の退役2026-11-06)を参照する。
+
+未接続Host終端記録・専用caller Leaseを退役し、Namespace・共有Pipe・通常Recoveryを維持した。局所回帰と台帳照合の結果は[Quality Integration](04_Quality_Integration.md#未接続host終端機能の退役2026-11-06)と[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)を参照する。Rust／PA全体の撤去、Windows保護変更、正式QA全体のPassを示さない。
+
 ## Checker試験回帰の是正完了 — 2026-11-06
 
 Checkerの50失敗は試験側の六系統で是正し、最終432 Caseは431成功・失敗0・取消0・既存対象外1で完走した。静的検査・台帳449件整合・独立再レビューを確認した。製品Source512 File、公開APIと検査条件は今回不変更である。ただしRepository自身の検査にはリンク／アンカー3,753件と品質関係・件数7件の指摘が残り、npm test全体Gate・正式QA・Releaseは未成立。以下の全体回帰未成立や旧診断件数は先行候補の履歴として保持する。範囲と限界は[Quality Integration](04_Quality_Integration.md)と[変更記録](../99_Roadmap/Changes/CHG-000082/checker-responsibility-boundary.md)を参照する。実AI・Docker・過去保持物は操作していない。
