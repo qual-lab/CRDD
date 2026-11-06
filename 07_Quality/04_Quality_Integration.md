@@ -1,5 +1,9 @@
 # Quality Integration
 
+## Version Controlの技術理由と保存相関 — 2026-11-06
+
+VCのCandidate由来の技術理由をCommit生成・Merge・コピー・差分・一時Index回収へ分離し、既存QA-000007のGit操作・内容読取りとCoordinatorのWorkspace保存試験へ接続した。Domain／Coordinatorの業務Candidateは維持し、旧成功理由の拒否、新成功理由とCommit相関、一次失敗とCleanup未確認の保持を確認した。最終VC全回帰84／84、関連保存・Git試験8／8、純粋契約3／3、関連Object読取り・配置41成功・環境対象外1、静的検査と限定独立再レビューを確認した。公開入口・安全検査・処理順序・期限は変更しない。対象結果と試験領域の是正、実行環境による制約は[変更記録](../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md#candidate由来の技術理由内部名の是正2026-11-06)へ集約し、限定回帰を全体QA成立へ昇格しない。実AI・Docker・過去保持物操作と旧保存物の自動移行は対象外である。
+
 ## DI内部関数名と利用側の追従 — 2026-11-06
 
 DI内部22関数の責務名への改名は、既存ERB-IT-004の公開／内部境界、ERB-IT-014の修復・再起動の有限結合、ERB-IT-001の固定Trust契約へ接続した。DI402成功・既存対象外5スキップ、Executor113／113、修復記録47／47、再起動・認証create模擬26／26、Directory bootstrap拒否対照1／1、Trust固定値1／1と関連静的検査を確認した。型・Source切出し・VM注入・namespace参照と現行Architectureを追従し、保存形式・IPC名・公開7関数・判定と期限は維持する。実AI・Docker・Host Windows実Writer／Helper・過去保持物操作は対象外であり、既存の未成立範囲は成功へ昇格しない。[変更記録](../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)に結果と限界を分離して記録する。

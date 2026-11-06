@@ -402,7 +402,9 @@ export function manageCoordinatorWorkspace(
           !(
             prior.cleanupFailure === null ||
             (typeof prior.cleanupFailure === "string" &&
-              /^(candidate|worktree)_[a-z_]+$/u.test(prior.cleanupFailure))
+              /^(?:candidate|worktree|commit_(?:create|temporary))_[a-z_]+$/u.test(
+                prior.cleanupFailure,
+              ))
           )
         )
           throw new Error("orchestrator_candidate_closure_mismatch");

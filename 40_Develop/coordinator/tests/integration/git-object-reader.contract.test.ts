@@ -78,21 +78,18 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
   );
   const base = { commonDirectory, revision, relativePath: "input-65537.bin" };
   assert.equal(
-    readGitCommitFileCandidate({ ...base, relativePath: "input-65536.bin" })
-      ?.bytes.length,
+    readGitCommitFile({ ...base, relativePath: "input-65536.bin" })?.bytes
+      .length,
     65_536,
   );
-  assert.equal(readGitCommitFileCandidate(base), null);
+  assert.equal(readGitCommitFile(base), null);
   assert.equal(
-    readGitCommitFileCandidate({ ...base, maximumBytes: 65_537 })?.bytes.length,
+    readGitCommitFile({ ...base, maximumBytes: 65_537 })?.bytes.length,
     65_537,
   );
+  assert.equal(readGitCommitFile({ ...base, maximumBytes: 65_536 }), null);
   assert.equal(
-    readGitCommitFileCandidate({ ...base, maximumBytes: 65_536 }),
-    null,
-  );
-  assert.equal(
-    readGitCommitFileCandidate({
+    readGitCommitFile({
       ...base,
       relativePath: "input-67108864.bin",
       maximumBytes: 64 * 1024 * 1024,
@@ -100,7 +97,7 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
     64 * 1024 * 1024,
   );
   assert.equal(
-    readGitCommitFileCandidate({
+    readGitCommitFile({
       ...base,
       relativePath: "input-67108864.bin",
       maximumBytes: 64 * 1024 * 1024 - 1,
@@ -117,9 +114,9 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
     {},
     64 * 1024 * 1024 + 1,
   ])
-    assert.equal(readGitCommitFileCandidate({ ...base, maximumBytes }), null);
+    assert.equal(readGitCommitFile({ ...base, maximumBytes }), null);
   assert.equal(
-    readGitCommitFileCandidate({ ...base, maximumBytes: 65_537, extra: true }),
+    readGitCommitFile({ ...base, maximumBytes: 65_537, extra: true }),
     null,
   );
   let getterCalls = 0;
@@ -129,7 +126,7 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
       return 65_537;
     },
   });
-  assert.equal(readGitCommitFileCandidate(accessor), null);
+  assert.equal(readGitCommitFile(accessor), null);
   assert.equal(getterCalls, 0);
   const verified = getRepository(root);
   assert.equal(verified.status, "completed");
@@ -161,25 +158,25 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
 
 import {
   describeGitObjectReaderContract,
-  inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate as materializeVersionControlTree,
-  readGitCommitFileCandidate,
+  inspectGitCommitTree,
+  copyGitCommitTree as materializeVersionControlTree,
+  readGitCommitFile,
 } from "../../../version-control/src/git/objects.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 
 /**
- * materializeGitCommitTreeCandidateのTest準備責務を実行する。
+ * copyGitCommitTreeのTest準備責務を実行する。
  *
- * @responsibility materializeGitCommitTreeCandidateがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @responsibility copyGitCommitTreeがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace RFD-IT-012
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus materializeGitCommitTreeCandidateを呼び出す。
+ * @stimulus copyGitCommitTreeを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-function materializeGitCommitTreeCandidate(candidate: unknown) {
+function copyGitCommitTree(candidate: unknown) {
   return materializeVersionControlTree(
     candidate,
     containsRecognizedSecretMaterial,
@@ -300,7 +297,7 @@ test("Commit treeはheader先頭だけを採用し本文、欠落、重複と非
    * @boundary RFD-IT-012=Direct Boundary: coordinator Test Source→対象契約
    */
   const inspect = (commitBytes: string) =>
-    inspectGitCommitTreeCandidate({
+    inspectGitCommitTree({
       commonDirectory: fixture.commonDirectory,
       revision: writeObject(
         fixture.commonDirectory,
@@ -377,7 +374,7 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
     ),
   );
 
-  const result = materializeGitCommitTreeCandidate({
+  const result = copyGitCommitTree({
     commonDirectory: fixture.commonDirectory,
     revision: commitId,
     workspace: fixture.workspace,
@@ -397,7 +394,7 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
   );
   assert.equal(result?.repositoryPathReported, false);
   assert.equal(result?.workspacePathReported, false);
-  const fixedFile = readGitCommitFileCandidate({
+  const fixedFile = readGitCommitFile({
     commonDirectory: fixture.commonDirectory,
     revision: commitId,
     relativePath: "README.md",
@@ -405,7 +402,7 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
   assert.equal(fixedFile?.status, "read");
   assert.equal(fixedFile?.bytes.toString("utf8"), "hello\n");
   assert.equal(
-    readGitCommitFileCandidate({
+    readGitCommitFile({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
       relativePath: "missing.md",
@@ -457,7 +454,7 @@ test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
     Buffer.from(`tree ${rootTreeId}\n\nfixture\n`),
   );
 
-  const result = materializeGitCommitTreeCandidate({
+  const result = copyGitCommitTree({
     commonDirectory: fixture.commonDirectory,
     revision: commitId,
     workspace: fixture.workspace,
@@ -479,7 +476,7 @@ test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
     "exact-directory",
   );
   fs.mkdirSync(exactDirectoryWorkspace);
-  const exactDirectory = materializeGitCommitTreeCandidate({
+  const exactDirectory = copyGitCommitTree({
     commonDirectory: fixture.commonDirectory,
     revision: commitId,
     workspace: exactDirectoryWorkspace,
@@ -545,7 +542,7 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
       Buffer.from(`tree ${rootTreeId}\n\nfixture\n`),
     );
 
-    const fixedFile = readGitCommitFileCandidate({
+    const fixedFile = readGitCommitFile({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
       relativePath: ".crdd/config/external-send-policy.json",
@@ -555,7 +552,7 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
 
     for (const relativePath of ["unsupported", "unsupported/child.txt"]) {
       assert.equal(
-        readGitCommitFileCandidate({
+        readGitCommitFile({
           commonDirectory: fixture.commonDirectory,
           revision: commitId,
           relativePath,
@@ -568,7 +565,7 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
       );
       fs.mkdirSync(selectedWorkspace);
       assert.equal(
-        materializeGitCommitTreeCandidate({
+        copyGitCommitTree({
           commonDirectory: fixture.commonDirectory,
           revision: commitId,
           workspace: selectedWorkspace,
@@ -585,7 +582,7 @@ test("未選択の未対応modeだけを除外し、exact・祖先選択と全�
     );
     fs.mkdirSync(fullWorkspace);
     assert.equal(
-      materializeGitCommitTreeCandidate({
+      copyGitCommitTree({
         commonDirectory: fixture.commonDirectory,
         revision: commitId,
         workspace: fullWorkspace,
@@ -630,7 +627,7 @@ test("認識済みSecretを含むPathまたは内容はworkspaceへ書く前に�
       "commit",
       Buffer.from(`tree ${treeId}\n\nfixture\n`),
     );
-    const materialized = materializeGitCommitTreeCandidate({
+    const materialized = copyGitCommitTree({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
       workspace: fixture.workspace,
@@ -642,7 +639,7 @@ test("認識済みSecretを含むPathまたは内容はworkspaceへ書く前に�
       "git_read_projection_recognized_secret_rejected",
     );
     assert.deepEqual(fs.readdirSync(fixture.workspace), []);
-    const localRead = readGitCommitFileCandidate({
+    const localRead = readGitCommitFile({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
       relativePath: fileName,
@@ -703,7 +700,7 @@ test("Secret名を使う通常のSource参照はRead Projectionを誤停止し�
     "commit",
     Buffer.from(`tree ${treeId}\n\nfixture\n`),
   );
-  const materialized = materializeGitCommitTreeCandidate({
+  const materialized = copyGitCommitTree({
     commonDirectory: fixture.commonDirectory,
     revision: commitId,
     workspace: fixture.workspace,
@@ -750,7 +747,7 @@ test("公開env例のplaceholderはRead Projectionを誤停止しない", (t) =>
     "commit",
     Buffer.from(`tree ${treeId}\n\nfixture\n`),
   );
-  const materialized = materializeGitCommitTreeCandidate({
+  const materialized = copyGitCommitTree({
     commonDirectory: fixture.commonDirectory,
     revision: commitId,
     workspace: fixture.workspace,
@@ -808,7 +805,7 @@ test("Source内CommentとStringの認識済みSecretはRead Projection前に拒�
       "commit",
       Buffer.from(`tree ${treeId}\n\nfixture\n`),
     );
-    const materialized = materializeGitCommitTreeCandidate({
+    const materialized = copyGitCommitTree({
       commonDirectory: fixture.commonDirectory,
       revision: commitId,
       workspace: fixture.workspace,
@@ -869,7 +866,7 @@ test("symlink、submodule、Windows case衝突と非empty workspaceを拒否す�
       fs.writeFileSync(path.join(fixture.workspace, "existing.txt"), "keep");
     }
     assert.equal(
-      materializeGitCommitTreeCandidate({
+      copyGitCommitTree({
         commonDirectory: fixture.commonDirectory,
         revision: commitId,
         workspace: fixture.workspace,
@@ -926,7 +923,7 @@ test("object改変、余分field、SHA-256 Repository IDと動的入力をfail c
       },
     ),
   ]) {
-    assert.equal(materializeGitCommitTreeCandidate(candidate), null);
+    assert.equal(copyGitCommitTree(candidate), null);
   }
 });
 

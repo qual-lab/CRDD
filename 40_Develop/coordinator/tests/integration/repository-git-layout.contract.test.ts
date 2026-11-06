@@ -15,8 +15,8 @@ import path from "node:path";
 import test from "node:test";
 import type { TestContext } from "node:test";
 
-import { inspectGitRepositoryLayoutCandidate } from "../../../version-control/src/repository/layout.ts";
-import { inspectRepositoryGitObjectFormatCandidate } from "../../../version-control/src/repository/layout.ts";
+import { inspectGitRepositoryLayout } from "../../../version-control/src/repository/layout.ts";
+import { inspectRepositoryGitObjectFormat } from "../../../version-control/src/repository/layout.ts";
 import { assertPresent, errorCode } from "../support/contract-assertions.ts";
 
 /**
@@ -91,19 +91,19 @@ test("Windowsの上位bit付きFile IDは同一性を保ち欠測・差替えを
     });
   }
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "candidate",
   );
   changed = true;
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "blocked",
   );
   changed = false;
   for (const value of [0n, -(1n << 63n) - 1n]) {
     invalid = value;
     assert.equal(
-      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+      inspectGitRepositoryLayout({ repositoryRoot }).status,
       "blocked",
     );
   }
@@ -124,7 +124,7 @@ test("Windowsの上位bit付きFile IDは同一性を保ち欠測・差替えを
 test("通常worktreeのcommon metadata候補をPath非保持で識別する", (t) => {
   const repositoryRoot = temporaryRoot(t);
   makeGitDirectory(path.join(repositoryRoot, ".git"));
-  const result = inspectGitRepositoryLayoutCandidate({ repositoryRoot });
+  const result = inspectGitRepositoryLayout({ repositoryRoot });
   assert.equal(result.status, "candidate");
   assertPresent(result.layout);
   assert.equal(result.layout.kind, "normal_worktree");
@@ -166,7 +166,7 @@ test("linked worktreeはcommondirを解決する", (t) => {
     "utf8",
   );
   fs.writeFileSync(path.join(gitDirectory, "commondir"), "../..\n", "utf8");
-  const result = inspectGitRepositoryLayoutCandidate({ repositoryRoot });
+  const result = inspectGitRepositoryLayout({ repositoryRoot });
   assert.equal(result.status, "candidate");
   assertPresent(result.layout);
   assert.equal(result.layout.kind, "linked_worktree");
@@ -195,7 +195,7 @@ test("core.worktreeを使わない限定gitfile worktreeを候補化する", (t)
     `gitdir: ${gitDirectory}\n`,
     "utf8",
   );
-  const result = inspectGitRepositoryLayoutCandidate({ repositoryRoot });
+  const result = inspectGitRepositoryLayout({ repositoryRoot });
   assert.equal(result.status, "candidate");
   assertPresent(result.layout);
   assert.equal(result.layout.kind, "gitfile_worktree");
@@ -230,7 +230,7 @@ test("標準submodule自身のcore.worktree構成をexact Rootとして受理す
     `gitdir: ${gitDirectory}\n`,
     "utf8",
   );
-  const result = inspectGitRepositoryLayoutCandidate({ repositoryRoot });
+  const result = inspectGitRepositoryLayout({ repositoryRoot });
   assert.equal(result.status, "candidate");
   assertPresent(result.layout);
   assert.equal(result.layout.kind, "gitfile_worktree");
@@ -267,10 +267,10 @@ test("別Rootを指すcore.worktreeは全てのGit観測経路で拒否する", 
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "blocked",
   );
-  assert.equal(inspectRepositoryGitObjectFormatCandidate(repositoryRoot), null);
+  assert.equal(inspectRepositoryGitObjectFormat(repositoryRoot), null);
 });
 
 /**
@@ -289,14 +289,14 @@ test("bare Repositoryと不正gitfileを拒否する", (t) => {
   const bare = temporaryRoot(t);
   fs.writeFileSync(path.join(bare, "HEAD"), "ref: refs/heads/main\n", "utf8");
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot: bare }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot: bare }).reason,
     "repository_worktree_required",
   );
   const invalid = path.join(bare, "worktree");
   fs.mkdirSync(invalid);
   fs.writeFileSync(path.join(invalid, ".git"), "not-a-gitdir\n", "utf8");
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot: invalid }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot: invalid }).reason,
     "repository_git_file_invalid",
   );
 });
@@ -317,7 +317,7 @@ test("Git directoryのHEADまたは共通configが欠落する候補を拒否す
   const repositoryRoot = temporaryRoot(t);
   fs.mkdirSync(path.join(repositoryRoot, ".git"));
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "blocked",
   );
 });
@@ -341,7 +341,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
   const config = path.join(gitDirectory, "config");
   fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 0\n", "utf8");
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_config_unsupported",
   );
   for (const value of ["true", "", "yes", "on", "1", "no", "off", "0"]) {
@@ -351,7 +351,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
       "utf8",
     );
     assert.equal(
-      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+      inspectGitRepositoryLayout({ repositoryRoot }).reason,
       "repository_git_config_unsupported",
     );
   }
@@ -361,7 +361,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_config_unsupported",
   );
   fs.writeFileSync(
@@ -370,7 +370,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_config_unsupported",
   );
   fs.writeFileSync(
@@ -379,7 +379,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_config_unsupported",
   );
   fs.writeFileSync(
@@ -388,7 +388,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_config_unsupported",
   );
   fs.writeFileSync(
@@ -397,7 +397,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_config_unsupported",
   );
   fs.writeFileSync(
@@ -406,7 +406,7 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
     "utf8",
   );
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "candidate",
   );
 });
@@ -429,12 +429,12 @@ test("control fileは上限ちょうどを受理し上限+1を拒否する", (t)
   const head = path.join(repositoryRoot, ".git", "HEAD");
   fs.writeFileSync(head, "a".repeat(4096), "utf8");
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "candidate",
   );
   fs.writeFileSync(head, "a".repeat(4097), "utf8");
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    inspectGitRepositoryLayout({ repositoryRoot }).status,
     "blocked",
   );
 });
@@ -467,7 +467,7 @@ test("lstat後にcontrol fileを同名の別実体へ置換しても読まない
   };
   try {
     assert.equal(
-      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+      inspectGitRepositoryLayout({ repositoryRoot }).status,
       "blocked",
     );
   } finally {
@@ -501,7 +501,7 @@ test("同一handleの読取り中にsizeが変わる場合はblockedへ閉じる
   });
   try {
     assert.equal(
-      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+      inspectGitRepositoryLayout({ repositoryRoot }).status,
       "blocked",
     );
   } finally {
@@ -543,7 +543,7 @@ test("realpath解決中にRepository directoryを別実体へ置換しても候�
   );
   try {
     assert.equal(
-      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+      inspectGitRepositoryLayout({ repositoryRoot }).status,
       "blocked",
     );
   } finally {
@@ -577,7 +577,7 @@ test("control fileのclose失敗を成功へ流用しない", (t) => {
   };
   try {
     assert.equal(
-      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+      inspectGitRepositoryLayout({ repositoryRoot }).status,
       "blocked",
     );
   } finally {
@@ -618,7 +618,7 @@ test("Git markerのlinkを拒否する", (t) => {
     throw error;
   }
   assert.equal(
-    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).reason,
+    inspectGitRepositoryLayout({ repositoryRoot }).reason,
     "repository_git_marker_link_rejected",
   );
 });
@@ -645,7 +645,7 @@ test("accessorとProxyを実行せずblockedへ閉じる", () => {
       return path.resolve("fixture");
     },
   });
-  assert.equal(inspectGitRepositoryLayoutCandidate(accessor).status, "blocked");
+  assert.equal(inspectGitRepositoryLayout(accessor).status, "blocked");
   assert.equal(calls, 0);
   const target = { repositoryRoot: path.resolve("fixture") };
   const proxy = new Proxy(target, {
@@ -654,6 +654,6 @@ test("accessorとProxyを実行せずblockedへ閉じる", () => {
       return ["repositoryRoot"];
     },
   });
-  assert.equal(inspectGitRepositoryLayoutCandidate(proxy).status, "blocked");
+  assert.equal(inspectGitRepositoryLayout(proxy).status, "blocked");
   assert.equal(calls, 0);
 });

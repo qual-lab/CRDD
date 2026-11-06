@@ -18,6 +18,9 @@ import type {
   CommitTemporary,
 } from "./types.ts";
 
+// 既存一時領域のexact再入場Identity。業務候補の分類ではない。
+const COMMIT_TEMPORARY_PREFIX = "candidate-index-";
+
 type MutableCommitResult = {
   status: "completed" | "blocked";
   reason: string;
@@ -107,14 +110,14 @@ export function createCommit(
       }
       if (previousCommit !== null) {
         if (!isCommitId(previousCommit))
-          throw new Error("candidate_input_invalid");
+          throw new Error("commit_create_input_invalid");
         result.changedPaths = verifyCommitSelection(
           ctx,
           request,
           previousCommit,
         );
         result.commitId = previousCommit;
-        result.reason = "candidate_fixed_existing";
+        result.reason = "commit_create_existing_confirmed";
         return;
       }
       const observation = ctx.inspect();
@@ -126,11 +129,11 @@ export function createCommit(
         observation.head !== request.expectedHead ||
         (ctx.branch !== "" && observation.branchHead !== request.expectedHead)
       )
-        throw new Error("candidate_workspace_mismatch");
+        throw new Error("commit_create_worktree_mismatch");
       const temporary = fs.mkdtempSync(
         path.join(
           commitTemporaryParent(ctx, request.temporaryDirectory),
-          "candidate-index-",
+          COMMIT_TEMPORARY_PREFIX,
         ),
       );
       result.temporary = {
@@ -162,7 +165,7 @@ export function createCommit(
           indexFile,
           ...(input === undefined ? {} : { input }),
         });
-        if (response.status !== 0) throw new Error("candidate_git_failed");
+        if (response.status !== 0) throw new Error("commit_create_git_failed");
         return response.stdout.trim();
       };
       try {
@@ -182,13 +185,13 @@ export function createCommit(
               info.isSymbolicLink() ||
               fs.existsSync(path.join(cursor, ".git"))
             )
-              throw new Error("candidate_path_invalid");
+              throw new Error("commit_create_path_invalid");
           }
           const absolute = path.join(ctx.target, ...segments);
           if (item.blobId === null) {
             try {
               fs.lstatSync(absolute);
-              throw new Error("candidate_deletion_mismatch");
+              throw new Error("commit_create_deletion_mismatch");
             } catch (error) {
               if ((error as NodeJS.ErrnoException).code !== "ENOENT")
                 throw error;
@@ -202,7 +205,7 @@ export function createCommit(
               info.nlink !== 1 ||
               info.size > 64 * 1024 * 1024
             )
-              throw new Error("candidate_path_invalid");
+              throw new Error("commit_create_path_invalid");
             const bytes = fs.readFileSync(absolute);
             const calculated = createHash(
               item.blobId.length === 40 ? "sha1" : "sha256",
@@ -211,10 +214,10 @@ export function createCommit(
               .update(bytes)
               .digest("hex");
             if (calculated !== item.blobId)
-              throw new Error("candidate_content_changed");
+              throw new Error("commit_create_content_changed");
             result.effectIssued = true;
             if (run(["hash-object", "-w", "--stdin"], bytes) !== item.blobId)
-              throw new Error("candidate_blob_mismatch");
+              throw new Error("commit_create_blob_mismatch");
             run([
               "update-index",
               "--add",
@@ -238,8 +241,8 @@ export function createCommit(
         result.commitId = commit;
         result.changedPaths = verifyCommitSelection(ctx, request, commit);
         if (ctx.inspect().head !== request.expectedHead)
-          throw new Error("candidate_workspace_mismatch");
-        result.reason = "candidate_fixed";
+          throw new Error("commit_create_worktree_mismatch");
+        result.reason = "commit_create_completed";
       } finally {
         try {
           cleanCommitTemporary(
@@ -267,7 +270,7 @@ function operateCommit(
 ): CommitCreateResult {
   const result: MutableCommitResult = {
     status: "blocked",
-    reason: "candidate_input_invalid",
+    reason: "commit_create_input_invalid",
     commitId: null,
     effectIssued: false,
     cleanupConfirmed: previousTemporary === null,
@@ -276,19 +279,21 @@ function operateCommit(
   };
   try {
     if (!validCommitCreateRequest(request))
-      throw Error("candidate_input_invalid");
+      throw Error("commit_create_input_invalid");
     const ctx = createWorktreeGitContext(repository, request.worktree);
     if (request.previousCommit == null || previousTemporary !== null)
       commitTemporaryParent(ctx, request.temporaryDirectory);
     action(ctx, result);
     if (result.cleanupConfirmed) result.status = "completed";
-    else result.reason = "candidate_temporary_cleanup_unconfirmed";
+    else result.reason = "commit_temporary_cleanup_unconfirmed";
   } catch (error) {
     result.reason =
       error instanceof Error &&
-      /^(?:candidate|worktree)_[a-z_]+$/u.test(error.message)
+      /^(?:commit_create|commit_temporary|worktree)_[a-z_]+$/u.test(
+        error.message,
+      )
         ? error.message
-        : "candidate_outcome_unknown";
+        : "commit_create_outcome_unknown";
   }
   return result;
 }
@@ -309,7 +314,7 @@ function verifyCommitSelection(
     parents.status !== 0 ||
     parents.stdout.trim() !== `${commit} ${request.baseCommit}`
   )
-    throw new Error("candidate_parent_mismatch");
+    throw new Error("commit_create_parent_mismatch");
   const diff = ctx.run(ctx.owner, [
     "diff-tree",
     "--no-commit-id",
@@ -320,13 +325,13 @@ function verifyCommitSelection(
     request.baseCommit,
     commit,
   ]);
-  if (diff.status !== 0) throw new Error("candidate_diff_unavailable");
+  if (diff.status !== 0) throw new Error("commit_create_diff_unavailable");
   const paths = diff.stdout.split("\0").filter(Boolean);
   if (
     !paths.length ||
     paths.some((p) => !request.selection.some((s) => s.path === p))
   )
-    throw new Error("candidate_selection_mismatch");
+    throw new Error("commit_create_selection_mismatch");
   for (const item of request.selection) {
     const entry = ctx.run(ctx.owner, [
       "ls-tree",
@@ -340,7 +345,7 @@ function verifyCommitSelection(
         ? ""
         : `${item.mode} blob ${item.blobId}\t${item.path}\0`;
     if (entry.status !== 0 || entry.stdout !== expected)
-      throw new Error("candidate_content_mismatch");
+      throw new Error("commit_create_content_mismatch");
   }
   return paths;
 }
@@ -386,23 +391,23 @@ export function cleanCommitTemporary(
   relativeDirectory: string,
   temporary: CommitTemporary,
 ): void {
-  const prefix = `${relativeDirectory}/candidate-index-`;
+  const prefix = `${relativeDirectory}/${COMMIT_TEMPORARY_PREFIX}`;
   if (
     !temporary.relativePath.startsWith(prefix) ||
     !/^[A-Za-z0-9]{6}$/u.test(temporary.relativePath.slice(prefix.length)) ||
     temporary.identity === null ||
     !/^[a-f0-9]{64}$/u.test(temporary.identity)
   )
-    throw new Error("candidate_temporary_identity_mismatch");
+    throw new Error("commit_temporary_identity_mismatch");
   const parent = commitTemporaryParent(ctx, relativeDirectory);
   if (
     fs.realpathSync.native(parent) !== parent ||
     fs.lstatSync(parent).isSymbolicLink()
   )
-    throw new Error("candidate_temporary_identity_mismatch");
+    throw new Error("commit_temporary_identity_mismatch");
   const target = path.join(ctx.owner, ...temporary.relativePath.split("/"));
   if (path.dirname(target) !== parent)
-    throw new Error("candidate_temporary_identity_mismatch");
+    throw new Error("commit_temporary_identity_mismatch");
   let info: fs.Stats;
   try {
     info = fs.lstatSync(target);
@@ -415,7 +420,7 @@ export function cleanCommitTemporary(
     info.isSymbolicLink() ||
     temporaryIdentity(info) !== temporary.identity
   )
-    throw new Error("candidate_temporary_identity_mismatch");
+    throw new Error("commit_temporary_identity_mismatch");
   for (const name of fs.readdirSync(target)) {
     const item = fs.lstatSync(path.join(target, name));
     if (
@@ -424,7 +429,7 @@ export function cleanCommitTemporary(
       item.isSymbolicLink() ||
       item.nlink !== 1
     )
-      throw new Error("candidate_temporary_contents_unknown");
+      throw new Error("commit_temporary_contents_unknown");
   }
   fs.rmSync(target, { recursive: true });
   try {
@@ -433,7 +438,7 @@ export function cleanCommitTemporary(
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
     throw error;
   }
-  throw new Error("candidate_temporary_cleanup_unconfirmed");
+  throw new Error("commit_temporary_cleanup_unconfirmed");
 }
 
 /** 上位確定のRepository-local一時Index親をlink非追従で確認する。 */
@@ -455,7 +460,7 @@ function commitTemporaryParent(
           /[\\:\x00-\x1f\x7f]/u.test(segment),
       )
   )
-    throw Error("candidate_temporary_identity_mismatch");
+    throw Error("commit_temporary_identity_mismatch");
   let parent = ctx.owner;
   for (const segment of relativeDirectory.split("/")) {
     parent = path.join(parent, segment);
@@ -465,7 +470,7 @@ function commitTemporaryParent(
       info.isSymbolicLink() ||
       fs.realpathSync.native(parent) !== parent
     )
-      throw Error("candidate_temporary_identity_mismatch");
+      throw Error("commit_temporary_identity_mismatch");
   }
   return parent;
 }

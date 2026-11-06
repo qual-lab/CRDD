@@ -158,9 +158,9 @@ export type CommitFilesCopyResult =
       status: "blocked";
       reason:
         | "fixed_snapshot_content_policy_rejected"
-        | "candidate_output_invalid"
-        | "candidate_materialization_failed"
-        | "candidate_materialization_cleanup_unconfirmed";
+        | "commit_copy_destination_invalid"
+        | "commit_copy_failed"
+        | "commit_copy_cleanup_unconfirmed";
       effectIssued: boolean;
       effectStateUnknown: boolean;
       cleanupConfirmed: boolean;

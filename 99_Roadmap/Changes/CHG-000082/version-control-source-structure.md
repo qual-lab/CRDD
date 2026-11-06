@@ -1,5 +1,25 @@
 # Version ControlのSource構造整理・棚卸し
 
+## Candidate由来の技術理由・内部名の是正（2026-11-06）
+
+基準は`d93740181`。利用者は既存の名称変更を許可し、VCのCandidate由来の成功・失敗理由と内部名をGit技術語彙へ是正する方針を承認した。Commit生成はcommit_create_*、Mergeはcommit_merge_*、固定内容コピーはcommit_copy_*、固定Commit差分はcommit_diff_*、共有一時Index回収はcommit_temporary_*へ分ける。同名の旧入力不正等を全体置換せず、各操作Ownerで判定する。
+
+内部HelperはinspectGitCommitTree／copyGitCommitTree／readGitCommitFile／inspectRepositoryGitObjectFormat／inspectGitRepositoryLayoutへ改名し、Mergeの局所candidateCommitをsourceCommitへ揃える。一般的な未検証入力のcandidateや内部観測statusのcandidateは業務採否ではなく、今回のstatus維持の対象とする。公開関数・型の追加や新しいError Registry・互換Wrapperは作らない。
+
+一時Directoryのcandidate-index-はexact再入場Identityなので値を維持し、SourceではCOMMIT_TEMPORARY_PREFIXとして技術Ownerを明示する。Path・Ref・保存field・IPC・実資源の同一性条件を変更せず、過去保持物を読み替え・移行・削除しない。Domain／Coordinator自身のCandidate業務名・Ref意味付けは維持する。
+
+公開理由値には互換性影響がある。新成功理由をDomainの固定／Merge状態の閉検査へ接続し、旧成功理由を持つ既存の固定／Merge状態は新検査で拒否する。自動移行・旧理由へのfallbackは追加しない。保存形状が同じでも意味上の互換性影響がないとは扱わない。失敗理由の通過正規表現、保存側のprimaryFailure／cleanupFailure／lastResultとClose記録も、実際に搬送する操作系列へ限定して追従する。
+
+着手前の親照合と独立確認で、理由の非潰し・成功理由の相関・旧成功理由拒否・Ref回収の一時Index相関を対応付け、追加人間判断不要を確認した。既存のVC実Git全回帰、公開境界、Coordinator／Domainの関連保存・再入場試験と型検査、独立レビューで検証する。実AI・Docker・過去保持物・追加Host診断は操作しない。処理順序・期限・Effect発行／不明・一次失敗・Cleanup未確認・Root／OID／Path／Index／親関係・実体照合の判定を維持する。準拠基準・決定権限・Releaseは変更せず、準拠／Release監査と実AI／Docker E2Eは対象外とする。
+
+### 本是正の確認結果と限界
+
+- Coordinatorの選択外Path拒否は業務側の`candidate_path_invalid`を維持する。独立レビューで境界を再確認し、選択内でVCの`worktree_repository_invalid`へ進む純粋な対照試験を追加した。期待値の初期誤りは試験だけを実際の既存分類へ是正し、3／3成功した。
+- Git Object読取り・配置の関連42件は41成功・1対象外（制限環境のlink作成EPERM）。初回の1失敗は、Repository内コピーAPIへOS一時領域を出力先として渡していた旧fixtureの不整合だった。新品のRepository内tests領域へ接続し、既存cleanup失敗時は後続削除せず、同一実体・空Directory限定で回収する。製品のRoot境界検査は緩めていない。
+- CoordinatorのGit固定・Merge・再入場・保存の関連8／8、Domainの型検査、Coordinatorの書式・型・Lint・二つの追跡Checkerは成功した。VC内部の`candidate_`理由とCandidate接尾のHelperは残存0。実Pathの`candidate-index-`と一般的な未検証値・内部観測statusは維持する。
+- VC全回帰は是正中候補で84／84成功。その後の最終制限環境では77成功・7失敗となり、Git子ProcessのMSYS権限拒否、link作成拒否等を観測した。製品Sourceや検査を変更せず通常実行条件で最終全回帰を実行し、書式・型・Lintを含め84／84成功（176502ms、失敗・skip 0）した。初回失敗や対象外を成功件数へ含めない。試験Wrapperが保持した今回所有のcompile cacheだけを境界・非link・内容確認後に回収し、対象Rootの不存在を確認した。
+- 読み取り専用の限定独立再レビューは追加必須指摘なし。Source・保存相関・fixtureの処置を対象とし、実AI／Docker E2Eや全体QA・Release成立を意味しない。過去保持物を操作しない。
+
 ## DI改名確定時のVC仕上げ確認（2026-11-06）
 
 利用者の追加指摘3点を点検した。index.tsの責務説明をGit Repository／Worktree／Working Directory／Commit／Reference／Remoteの技術操作へ是正する。Candidate由来の名称は、Commit・Merge・コピーの技術判定であり、Task状態・採否・CHG・Workspace業務Lifecycleへの依存は検出されていない。candidate_*は公開Resultと保存側の分類、candidate-index-は短命Indexの再入場にも関わるため、今回のコメント更新で機械判定値・Pathを改名しない。

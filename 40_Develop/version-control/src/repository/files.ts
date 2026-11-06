@@ -9,10 +9,7 @@ import { createWorktreeGitContext } from "../worktree/crud.ts";
 import { isCommitId, isCommitPath } from "./commit.ts";
 import path from "node:path";
 import { types } from "node:util";
-import {
-  materializeGitCommitTreeCandidate,
-  readGitCommitFileCandidate,
-} from "../git/objects.ts";
+import { copyGitCommitTree, readGitCommitFile } from "../git/objects.ts";
 import { resolveRepositoryGitLayout } from "./layout.ts";
 import { runGitReadCommand } from "../git/read.ts";
 import { readRepositoryFormat } from "./revision.ts";
@@ -326,7 +323,7 @@ export function readCommitFile(
       typeof input.path !== "string"
     )
       return null;
-    const result = readGitCommitFileCandidate({
+    const result = readGitCommitFile({
       commonDirectory:
         resolveRepositoryGitLayout(root).commonDirectory.realPath,
       revision: input.commit,
@@ -440,13 +437,13 @@ export function copyCommitFiles(
       typeof input.inspectContent === "function"
     )
   ) {
-    return blockedCopy("candidate_output_invalid", false, false, true);
+    return blockedCopy("commit_copy_destination_invalid", false, false, true);
   }
   const outputRepository = input.outputRepository as Repository;
   let paths: readonly string[] | null = null;
   if (input.paths !== null) {
     if (types.isProxy(input.paths))
-      return blockedCopy("candidate_output_invalid", false, false, true);
+      return blockedCopy("commit_copy_destination_invalid", false, false, true);
     const descriptors = Object.getOwnPropertyDescriptors(input.paths);
     const captured: string[] = [];
     for (let index = 0; index < input.paths.length; index++) {
@@ -456,14 +453,19 @@ export function copyCommitFiles(
         !("value" in descriptor) ||
         typeof descriptor.value !== "string"
       )
-        return blockedCopy("candidate_output_invalid", false, false, true);
+        return blockedCopy(
+          "commit_copy_destination_invalid",
+          false,
+          false,
+          true,
+        );
       captured.push(descriptor.value);
     }
     paths = Object.freeze(captured);
   }
   const outputRoot = resolveVerifiedRepositoryRoot(outputRepository);
   if (outputRoot === null)
-    return blockedCopy("candidate_output_invalid", false, false, true);
+    return blockedCopy("commit_copy_destination_invalid", false, false, true);
   let directory: string;
   try {
     const relative = validateRelativePath(input.relativeDirectory, false);
@@ -474,14 +476,14 @@ export function copyCommitFiles(
       throw Error("copy_output_invalid");
     directory = path.join(outputRoot, ...relative.split("/"));
   } catch {
-    return blockedCopy("candidate_output_invalid", false, false, true);
+    return blockedCopy("commit_copy_destination_invalid", false, false, true);
   }
   const source = observeCopyDirectory(sourceRoot);
   const owner = observeCopyDirectory(outputRoot);
   const parent = observeCopyDirectory(path.dirname(directory));
   const target = observeCopyDirectory(directory);
   if (!source || !owner || !parent || !target)
-    return blockedCopy("candidate_output_invalid", false, false, true);
+    return blockedCopy("commit_copy_destination_invalid", false, false, true);
   const sameTarget = () => {
     if (
       !isCopyDirectoryUnchanged(source) ||
@@ -506,9 +508,9 @@ export function copyCommitFiles(
   };
   try {
     if (!sameTarget() || fs.readdirSync(directory).length !== 0)
-      return blockedCopy("candidate_output_invalid", false, false, true);
+      return blockedCopy("commit_copy_destination_invalid", false, false, true);
   } catch {
-    return blockedCopy("candidate_output_invalid", false, false, true);
+    return blockedCopy("commit_copy_destination_invalid", false, false, true);
   }
   let isInvalidated = false;
   let isContentRejected = false;
@@ -516,7 +518,7 @@ export function copyCommitFiles(
   try {
     const inspect = input.inspectContent;
     wasMaterializationInvoked = true;
-    const result = materializeGitCommitTreeCandidate(
+    const result = copyGitCommitTree(
       {
         commonDirectory:
           resolveRepositoryGitLayout(sourceRoot).commonDirectory.realPath,
@@ -557,7 +559,7 @@ export function copyCommitFiles(
   }
   if (isInvalidated || !sameTarget())
     return blockedCopy(
-      "candidate_materialization_cleanup_unconfirmed",
+      "commit_copy_cleanup_unconfirmed",
       isInvalidated ? false : wasMaterializationInvoked,
       true,
       false,
@@ -580,7 +582,7 @@ export function copyCommitFiles(
     }
   } catch {
     return blockedCopy(
-      "candidate_materialization_cleanup_unconfirmed",
+      "commit_copy_cleanup_unconfirmed",
       effectIssued,
       true,
       false,
@@ -589,7 +591,7 @@ export function copyCommitFiles(
   return blockedCopy(
     isContentRejected
       ? "fixed_snapshot_content_policy_rejected"
-      : "candidate_materialization_failed",
+      : "commit_copy_failed",
     effectIssued,
     !isContentRejected,
     true,

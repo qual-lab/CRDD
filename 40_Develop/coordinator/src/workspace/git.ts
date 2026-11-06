@@ -268,7 +268,7 @@ export function removeWorkspaceCandidate(
     reference_result_unconfirmed: "candidate_ref_removal_unconfirmed",
     reference_not_direct: "candidate_ref_not_direct",
     reference_temporary_cleanup_unconfirmed:
-      "candidate_temporary_cleanup_unconfirmed",
+      "commit_temporary_cleanup_unconfirmed",
   };
   return {
     ...result,

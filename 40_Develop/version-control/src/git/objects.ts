@@ -1072,17 +1072,17 @@ function contentManifest(entries: readonly WorkspaceEntry[]) {
  * @responsibility Git Commit Tree 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
- * @returns inspectGitCommitTreeCandidateの計算結果を返す。
- * @precondition 「candidate: unknown」がinspectGitCommitTreeCandidateの入力契約を満たす。
- * @postcondition inspectGitCommitTreeCandidateの責務を完了した結果だけを返す。
+ * @returns inspectGitCommitTreeの計算結果を返す。
+ * @precondition 「candidate: unknown」がinspectGitCommitTreeの入力契約を満たす。
+ * @postcondition inspectGitCommitTreeの責務を完了した結果だけを返す。
  * @effect 固定Git Objectを読み取り検証する。出力先や元Repositoryへの書込みは行わない。
- * @failure inspectGitCommitTreeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant inspectGitCommitTreeCandidateは宣言した境界以外へEffectを拡張しない。
+ * @failure inspectGitCommitTreeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectGitCommitTreeは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: inspectGitCommitTreeCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectGitCommitTreeCandidateは共有非同期状態を持たない同期処理である。
+ * @security N/A: inspectGitCommitTreeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectGitCommitTreeは共有非同期状態を持たない同期処理である。
  */
-export function inspectGitCommitTreeCandidate(candidate: unknown) {
+export function inspectGitCommitTree(candidate: unknown) {
   try {
     if (
       !candidate ||
@@ -1128,17 +1128,17 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
  * @responsibility Git Commit Tree 候補の入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown、shouldRejectContent: ContentPolicy
- * @returns materializeGitCommitTreeCandidateの計算結果を返す。
- * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy」がmaterializeGitCommitTreeCandidateの入力契約を満たす。
- * @postcondition materializeGitCommitTreeCandidateの責務を完了した結果だけを返す。
+ * @returns copyGitCommitTreeの計算結果を返す。
+ * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy」がcopyGitCommitTreeの入力契約を満たす。
+ * @postcondition copyGitCommitTreeの責務を完了した結果だけを返す。
  * @effect 固定Objectを読み取り、Content Policy検査後に指定出力先へ生成する。
- * @failure materializeGitCommitTreeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant materializeGitCommitTreeCandidateは宣言した境界以外へEffectを拡張しない。
+ * @failure copyGitCommitTreeは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant copyGitCommitTreeは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: materializeGitCommitTreeCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: materializeGitCommitTreeCandidateは共有非同期状態を持たない同期処理である。
+ * @security N/A: copyGitCommitTreeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: copyGitCommitTreeは共有非同期状態を持たない同期処理である。
  */
-export function materializeGitCommitTreeCandidate(
+export function copyGitCommitTree(
   candidate: unknown,
   shouldRejectContent: ContentPolicy,
 ) {
@@ -1252,17 +1252,17 @@ export function materializeGitCommitTreeCandidate(
  * @responsibility Git Commit File 候補の読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
- * @returns readGitCommitFileCandidateの計算結果を返す。
- * @precondition 「candidate: unknown」がreadGitCommitFileCandidateの入力契約を満たす。
- * @postcondition readGitCommitFileCandidateの責務を完了した結果だけを返す。
+ * @returns readGitCommitFileの計算結果を返す。
+ * @precondition 「candidate: unknown」がreadGitCommitFileの入力契約を満たす。
+ * @postcondition readGitCommitFileの責務を完了した結果だけを返す。
  * @effect 固定Objectと対象Blobを有界で読み取る。書込みは行わない。
- * @failure readGitCommitFileCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readGitCommitFileCandidateは宣言した境界以外へEffectを拡張しない。
+ * @failure readGitCommitFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readGitCommitFileは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readGitCommitFileCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readGitCommitFileCandidateは共有非同期状態を持たない同期処理である。
+ * @security N/A: readGitCommitFileはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readGitCommitFileは共有非同期状態を持たない同期処理である。
  */
-export function readGitCommitFileCandidate(candidate: unknown) {
+export function readGitCommitFile(candidate: unknown) {
   try {
     const value = candidate as Record<string, unknown>;
     if (

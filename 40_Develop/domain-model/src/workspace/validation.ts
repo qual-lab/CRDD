@@ -268,7 +268,9 @@ export function validCandidateRecord(
     !(
       c.primaryFailure === null ||
       (typeof c.primaryFailure === "string" &&
-        /^(candidate|worktree)_[a-z_]+$/u.test(c.primaryFailure))
+        /^(?:candidate|worktree|commit_(?:create|merge|temporary))_[a-z_]+$/u.test(
+          c.primaryFailure,
+        ))
     )
   )
     return false;
@@ -276,7 +278,9 @@ export function validCandidateRecord(
     !(
       c.cleanupFailure === null ||
       (typeof c.cleanupFailure === "string" &&
-        /^(candidate|worktree)_[a-z_]+$/u.test(c.cleanupFailure))
+        /^(?:candidate|worktree|commit_(?:create|temporary))_[a-z_]+$/u.test(
+          c.cleanupFailure,
+        ))
     )
   )
     return false;
@@ -320,7 +324,9 @@ export function validCandidateRecord(
         "candidateCommit,candidateRef,changedPaths,cleanupConfirmed,effectIssued,mergeCommit,reason,status,temporary" ||
       !["completed", "blocked"].includes(String(result.status)) ||
       typeof result.reason !== "string" ||
-      !/^(candidate|worktree)_[a-z_]+$/u.test(result.reason) ||
+      !/^(?:candidate|worktree|commit_(?:create|merge|temporary))_[a-z_]+$/u.test(
+        result.reason,
+      ) ||
       !(result.candidateCommit === null || hash(result.candidateCommit)) ||
       !(result.mergeCommit === null || hash(result.mergeCommit)) ||
       !(
@@ -367,9 +373,10 @@ export function validCandidateRecord(
       c.phase === "fixed" &&
       (result.status !== "completed" ||
         result.cleanupConfirmed !== true ||
-        !["candidate_fixed", "candidate_fixed_existing"].includes(
-          String(result.reason),
-        ) ||
+        ![
+          "commit_create_completed",
+          "commit_create_existing_confirmed",
+        ].includes(String(result.reason)) ||
         result.candidateCommit !== c.candidateCommit)
     )
       return false;
@@ -378,13 +385,13 @@ export function validCandidateRecord(
       (result.status !== "completed" ||
         result.cleanupConfirmed !== true ||
         ![
-          "candidate_merged",
-          "candidate_merge_existing",
-          "candidate_already_integrated",
+          "commit_merge_completed",
+          "commit_merge_existing_confirmed",
+          "commit_merge_already_integrated",
         ].includes(String(result.reason)) ||
         result.candidateCommit !== c.candidateCommit ||
         (result.mergeCommit === null &&
-          result.reason !== "candidate_already_integrated"))
+          result.reason !== "commit_merge_already_integrated"))
     )
       return false;
   }

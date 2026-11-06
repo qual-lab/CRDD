@@ -1949,7 +1949,7 @@ test("CandidateのObject後故障・未完了Merge・偽二親Treeを同対象�
     childProcess.spawnSync = spawn;
     syncBuiltinESMExports();
   }
-  assert.equal(interrupted.reason, "candidate_merge_commit_failed");
+  assert.equal(interrupted.reason, "commit_merge_commit_failed");
   assert.equal(interrupted.effectIssued, true);
   assert.equal(
     candidateGit(f.root, ["rev-parse", "MERGE_HEAD"]),
@@ -1959,7 +1959,7 @@ test("CandidateのObject後故障・未完了Merge・偽二親Treeを同対象�
   fs.writeFileSync(mergeHeadFile, `${candidateCommit}\n${f.base}\n`);
   assert.equal(
     mergeWorkspaceCandidate(f.capability, input, target).reason,
-    "candidate_merge_in_progress",
+    "commit_merge_in_progress",
   );
   assert.equal(candidateGit(f.root, ["rev-parse", "HEAD"]), f.base);
   fs.writeFileSync(mergeHeadFile, `${candidateCommit}\n`);
@@ -1983,7 +1983,7 @@ test("CandidateのObject後故障・未完了Merge・偽二親Treeを同対象�
     resumed.mergeCommit,
   ]);
   const denied = mergeWorkspaceCandidate(f.capability, input, target);
-  assert.equal(denied.reason, "candidate_merge_tree_mismatch");
+  assert.equal(denied.reason, "commit_merge_tree_mismatch");
   assert.equal(candidateGit(f.root, ["rev-parse", "HEAD"]), fake);
 });
 
@@ -2215,7 +2215,7 @@ test("固定は内容変更・管理Path・不正名を拒否し削除は明示�
   );
   assert.equal(
     freezeWorkspaceCandidate(f.capability, input).reason,
-    "candidate_content_changed",
+    "commit_create_content_changed",
   );
   assert.equal(
     freezeWorkspaceCandidate(f.capability, {
@@ -2301,14 +2301,14 @@ test("FF可能でも二親Mergeし名前を記録、dirty保全して二重取�
   );
   assert.equal(
     mergeWorkspaceCandidate(f.capability, input, target).reason,
-    "candidate_merge_existing",
+    "commit_merge_existing_confirmed",
   );
   assert.equal(
     mergeWorkspaceCandidate(f.capability, input, {
       ...target,
       expectedTargetHead: merged.mergeCommit,
     }).reason,
-    "candidate_already_integrated",
+    "commit_merge_already_integrated",
   );
   assert.notDeepEqual(
     fs.readFileSync(path.join(f.root, ".git", "index")),
@@ -2360,7 +2360,7 @@ test("分岐の通常MergeとConflict停止、Ref変更拒否を確認する", (
       expectedTargetHead: head,
     });
     if (conflict) {
-      assert.equal(merged.reason, "candidate_conflict");
+      assert.equal(merged.reason, "commit_merge_conflict");
       assert.equal(candidateGit(f.root, ["rev-parse", "HEAD"]), head);
       assert.deepEqual(
         fs.readFileSync(path.join(f.root, ".git", "index")),

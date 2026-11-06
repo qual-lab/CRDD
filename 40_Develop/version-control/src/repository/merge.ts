@@ -24,7 +24,7 @@ export function mergeCommit(
     effectIssued: boolean;
   } = {
     status: "blocked",
-    reason: "candidate_input_invalid",
+    reason: "commit_merge_input_invalid",
     sourceCommit: request.sourceCommit,
     commitId: null,
     effectIssued: false,
@@ -37,7 +37,7 @@ export function mergeCommit(
       request.message.length > 4096 ||
       /[\x00\x7f]/u.test(request.message)
     )
-      throw Error("candidate_input_invalid");
+      throw Error("commit_merge_input_invalid");
     const ctx = createWorktreeGitContext(repository);
     const drivers = ctx.run(ctx.target, [
       "config",
@@ -48,20 +48,20 @@ export function mergeCommit(
       "^merge\\..*\\.driver$",
     ]);
     if (drivers.status !== 1 || drivers.stdout !== "")
-      throw Error("candidate_merge_driver_unsupported");
+      throw Error("commit_merge_driver_unsupported");
     const target = {
-      candidateCommit: request.sourceCommit,
+      sourceCommit: request.sourceCommit,
       targetBranch: request.targetBranch,
       expectedTargetHead: request.expectedHead,
     };
     if (
-      !isCommitId(target.candidateCommit) ||
+      !isCommitId(target.sourceCommit) ||
       !isCommitId(target.expectedTargetHead) ||
-      target.candidateCommit.length !== request.baseCommit.length ||
+      target.sourceCommit.length !== request.baseCommit.length ||
       target.expectedTargetHead.length !== request.baseCommit.length ||
       !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(target.targetBranch)
     )
-      throw new Error("candidate_target_invalid");
+      throw new Error("commit_merge_target_invalid");
 
     /**
      * 取込先を所属Rootへ固定してGit要求を送る。
@@ -100,11 +100,11 @@ export function mergeCommit(
         "merge-tree",
         "--write-tree",
         target.expectedTargetHead,
-        target.candidateCommit,
+        target.sourceCommit,
       ]);
-      if (preview.status === 1) throw new Error("candidate_conflict");
+      if (preview.status === 1) throw new Error("commit_merge_conflict");
       if (preview.status !== 0 || !isCommitId(preview.stdout.trim()))
-        throw new Error("candidate_preview_unavailable");
+        throw new Error("commit_merge_preview_unavailable");
       return preview.stdout.trim();
     };
     const branch = run(["symbolic-ref", "--quiet", "HEAD"]);
@@ -112,27 +112,28 @@ export function mergeCommit(
       branch.status !== 0 ||
       branch.stdout.trim() !== `refs/heads/${target.targetBranch}`
     )
-      throw new Error("candidate_target_mismatch");
+      throw new Error("commit_merge_target_mismatch");
     const head = run(["rev-parse", "--verify", "HEAD"]);
     if (head.status !== 0 || !isCommitId(head.stdout.trim()))
-      throw new Error("candidate_target_unavailable");
+      throw new Error("commit_merge_target_unavailable");
     const current = head.stdout.trim();
     const parents = run(["rev-list", "--parents", "-n", "1", current]);
-    if (parents.status !== 0) throw new Error("candidate_target_unavailable");
+    if (parents.status !== 0)
+      throw new Error("commit_merge_target_unavailable");
     if (
       parents.stdout.trim() ===
-      `${current} ${target.expectedTargetHead} ${target.candidateCommit}`
+      `${current} ${target.expectedTargetHead} ${target.sourceCommit}`
     ) {
       const expected = expectedMergeTree();
       const actual = run(["rev-parse", `${current}^{tree}`]);
       if (actual.status !== 0 || actual.stdout.trim() !== expected)
-        throw new Error("candidate_merge_tree_mismatch");
+        throw new Error("commit_merge_tree_mismatch");
       result.commitId = current;
-      result.reason = "candidate_merge_existing";
+      result.reason = "commit_merge_existing_confirmed";
       return { ...result, status: "completed" };
     }
     if (current !== target.expectedTargetHead)
-      throw new Error("candidate_target_changed");
+      throw new Error("commit_merge_target_changed");
     const baseIncluded = run([
       "merge-base",
       "--is-ancestor",
@@ -140,25 +141,25 @@ export function mergeCommit(
       current,
     ]);
     if (baseIncluded.status === 1)
-      throw new Error("candidate_base_not_integrated");
+      throw new Error("commit_merge_base_not_integrated");
     if (baseIncluded.status !== 0)
-      throw new Error("candidate_ancestry_unavailable");
+      throw new Error("commit_merge_ancestry_unavailable");
     const ancestor = run([
       "merge-base",
       "--is-ancestor",
-      target.candidateCommit,
+      target.sourceCommit,
       current,
     ]);
     if (ancestor.status === 0) {
-      result.reason = "candidate_already_integrated";
+      result.reason = "commit_merge_already_integrated";
       return { ...result, status: "completed" };
     }
     if (ancestor.status !== 1)
-      throw new Error("candidate_ancestry_unavailable");
+      throw new Error("commit_merge_ancestry_unavailable");
     const inProgress = readCommitMergeHead(ctx.target);
-    const resuming = inProgress === target.candidateCommit;
+    const resuming = inProgress === target.sourceCommit;
     if (!resuming && inProgress !== null)
-      throw new Error("candidate_merge_in_progress");
+      throw new Error("commit_merge_in_progress");
     const expectedTree = expectedMergeTree();
     const status = run([
       "status",
@@ -166,7 +167,7 @@ export function mergeCommit(
       "-z",
       "--untracked-files=all",
     ]);
-    if (status.status !== 0) throw new Error("candidate_status_unavailable");
+    if (status.status !== 0) throw new Error("commit_merge_status_unavailable");
     const message = request.message;
     const fresh = run(["rev-parse", "HEAD"]);
     const freshStatus = run([
@@ -181,7 +182,7 @@ export function mergeCommit(
       freshStatus.status !== 0 ||
       freshStatus.stdout !== status.stdout
     )
-      throw new Error("candidate_target_changed");
+      throw new Error("commit_merge_target_changed");
     result.effectIssued = true;
     if (!resuming) {
       const merged = run([
@@ -195,12 +196,12 @@ export function mergeCommit(
         "--no-gpg-sign",
         "-m",
         message,
-        target.candidateCommit,
+        target.sourceCommit,
       ]);
-      if (merged.status !== 0) throw new Error("candidate_merge_failed");
+      if (merged.status !== 0) throw new Error("commit_merge_failed");
     }
-    if (readCommitMergeHead(ctx.target) !== target.candidateCommit)
-      throw new Error("candidate_merge_in_progress");
+    if (readCommitMergeHead(ctx.target) !== target.sourceCommit)
+      throw new Error("commit_merge_in_progress");
     const stagedTree = run(["write-tree"]);
     const commitHead = run(["rev-parse", "HEAD"]);
     if (
@@ -209,12 +210,11 @@ export function mergeCommit(
       commitHead.status !== 0 ||
       commitHead.stdout.trim() !== current
     )
-      throw new Error("candidate_merge_content_changed");
-    if (readCommitMergeHead(ctx.target) !== target.candidateCommit)
-      throw new Error("candidate_merge_in_progress");
+      throw new Error("commit_merge_content_changed");
+    if (readCommitMergeHead(ctx.target) !== target.sourceCommit)
+      throw new Error("commit_merge_in_progress");
     const committed = run(["commit", "--no-gpg-sign", "-m", message]);
-    if (committed.status !== 0)
-      throw new Error("candidate_merge_commit_failed");
+    if (committed.status !== 0) throw new Error("commit_merge_commit_failed");
     const after = run(["rev-parse", "HEAD"]);
     const observed = after.stdout.trim();
     const afterParents = run(["rev-list", "--parents", "-n", "1", observed]);
@@ -224,20 +224,20 @@ export function mergeCommit(
       !isCommitId(observed) ||
       afterParents.status !== 0 ||
       afterParents.stdout.trim() !==
-        `${observed} ${current} ${target.candidateCommit}` ||
+        `${observed} ${current} ${target.sourceCommit}` ||
       tree.status !== 0 ||
       tree.stdout.trim() !== expectedTree
     )
-      throw new Error("candidate_merge_unconfirmed");
+      throw new Error("commit_merge_unconfirmed");
     result.commitId = observed;
-    result.reason = "candidate_merged";
+    result.reason = "commit_merge_completed";
     result.status = "completed";
   } catch (error) {
     result.reason =
       error instanceof Error &&
-      /^(?:candidate|worktree)_[a-z_]+$/u.test(error.message)
+      /^(?:commit_merge|worktree)_[a-z_]+$/u.test(error.message)
         ? error.message
-        : "candidate_outcome_unknown";
+        : "commit_merge_outcome_unknown";
   }
   return result;
 }
@@ -267,7 +267,7 @@ function readCommitMergeHead(owner: string): string | null {
     info = fs.lstatSync(file);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw new Error("candidate_merge_state_unavailable");
+    throw new Error("commit_merge_state_unavailable");
   }
   if (
     !info.isFile() ||
@@ -275,7 +275,7 @@ function readCommitMergeHead(owner: string): string | null {
     info.nlink !== 1 ||
     info.size > 256
   )
-    throw new Error("candidate_merge_in_progress");
+    throw new Error("commit_merge_in_progress");
   const descriptor = fs.openSync(file, "r");
   try {
     const before = fs.fstatSync(descriptor);
@@ -290,10 +290,10 @@ function readCommitMergeHead(owner: string): string | null {
       info.mtimeMs !== before.mtimeMs ||
       before.mtimeMs !== after.mtimeMs
     )
-      throw new Error("candidate_merge_state_unavailable");
+      throw new Error("commit_merge_state_unavailable");
     const value = bytes.subarray(0, length).toString("utf8");
     const matched = /^([a-f0-9]{40}|[a-f0-9]{64})(?:\r?\n)?$/u.exec(value);
-    if (!matched?.[1]) throw new Error("candidate_merge_in_progress");
+    if (!matched?.[1]) throw new Error("commit_merge_in_progress");
     return matched[1];
   } finally {
     fs.closeSync(descriptor);

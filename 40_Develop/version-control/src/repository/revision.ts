@@ -9,9 +9,9 @@ import type { ReferenceResult } from "./types.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { inspectGitCommitTreeCandidate } from "../git/objects.ts";
+import { inspectGitCommitTree } from "../git/objects.ts";
 import {
-  inspectRepositoryGitObjectFormatCandidate,
+  inspectRepositoryGitObjectFormat,
   type RepositoryGitLayout,
   resolveRepositoryGitLayout,
 } from "./layout.ts";
@@ -73,7 +73,7 @@ export function readRepositorySnapshot(
     if (initial === null) return null;
     const before = readRootRevision(initial.root);
     if (before?.objectFormat !== "sha1") return null;
-    const snapshot = inspectGitCommitTreeCandidate({
+    const snapshot = inspectGitCommitTree({
       commonDirectory: initial.layout.commonDirectory.realPath,
       revision: before.revisionIdentity,
     });
@@ -462,7 +462,7 @@ export function readRepositoryFormat(
   const root =
     capability === null ? null : resolveVerifiedRepositoryRoot(capability);
   if (root === null) return null;
-  const result = inspectRepositoryGitObjectFormatCandidate(root);
+  const result = inspectRepositoryGitObjectFormat(root);
   return result?.status === "candidate"
     ? Object.freeze({ objectFormat: result.objectFormat })
     : null;

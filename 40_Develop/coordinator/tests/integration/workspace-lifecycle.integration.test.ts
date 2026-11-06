@@ -801,7 +801,7 @@ test("未固定の拒否は正式不採用で閉じ、改名後も同操作の�
       "changed after confirmation\n",
     );
     const failed = f.operate(input);
-    assert.equal(failed.reason, "candidate_content_changed");
+    assert.equal(failed.reason, "commit_create_content_changed");
     assert.equal(f.snapshot().workspaces[0]?.candidate?.candidateCommit, null);
     assert.equal(
       f.operate({ operation: "rename", name: "後の表示名" }).status,
@@ -814,7 +814,7 @@ test("未固定の拒否は正式不採用で閉じ、改名後も同操作の�
       assert.equal(fixed.workspace?.candidate?.request.workspaceName, null);
       assert.equal(
         fixed.workspace?.candidate?.primaryFailure,
-        "candidate_content_changed",
+        "commit_create_content_changed",
       );
       const commit = fixed.candidateResult?.candidateCommit;
       assert.ok(commit);
@@ -1264,7 +1264,7 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
   );
   assert.equal(
     repeatedAdoption.candidateResult?.reason,
-    "candidate_merge_existing",
+    "commit_merge_existing_confirmed",
   );
   assert.equal(
     f
@@ -1391,7 +1391,7 @@ test("Merge成功後の保存失敗は別Process再入場で二重Mergeせず閉
   }
   assert.equal(injected, true);
   assert.equal(failed.status, "blocked");
-  assert.equal(failed.candidateResult?.reason, "candidate_merged");
+  assert.equal(failed.candidateResult?.reason, "commit_merge_completed");
   const head = git(f.root, ["rev-parse", "HEAD"]);
   assert.equal(f.snapshot().workspaces[0]?.candidate?.phase, "merging");
   const module = pathToFileURL(
@@ -1406,7 +1406,10 @@ test("Merge成功後の保存失敗は別Process再入場で二重Mergeせず閉
     ),
   );
   assert.equal(resumed.status, "completed", JSON.stringify(resumed));
-  assert.equal(resumed.candidateResult.reason, "candidate_merge_existing");
+  assert.equal(
+    resumed.candidateResult.reason,
+    "commit_merge_existing_confirmed",
+  );
   assert.equal(git(f.root, ["rev-parse", "HEAD"]), head);
   assert.equal(f.snapshot().results.length, 1);
   assert.equal(
@@ -1730,6 +1733,18 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
       { ...candidate, disposition: "adopted" },
       { ...candidate, candidateCommit: null },
       { ...candidate, lastResult: null },
+      {
+        ...candidate,
+        lastResult: { ...candidate.lastResult, reason: "candidate_fixed" },
+      },
+      {
+        ...candidate,
+        lastResult: {
+          ...candidate.lastResult,
+          reason: "candidate_fixed_existing",
+        },
+      },
+      { ...candidate, primaryFailure: "commit_copy_failed" },
       { ...candidate, phase: "merged", disposition: "adopted", target },
       {
         ...candidate,

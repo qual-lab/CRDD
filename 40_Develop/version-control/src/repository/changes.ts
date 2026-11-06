@@ -147,7 +147,7 @@ export function readCommitDiff(
     !isCommitId(request.commitId) ||
     !isCommitPath(request.path)
   )
-    throw Error("candidate_input_invalid");
+    throw Error("commit_diff_input_invalid");
   const root = resolveVerifiedRepositoryRoot(repository);
   if (root === null) throw Error("verified_repository_root_required");
   const bytes = readPatchBytes(root, [
@@ -161,7 +161,7 @@ export function readCommitDiff(
     request.path,
   ]);
   if (bytes.length > MAX_PATCH_BYTES)
-    throw Error("candidate_observation_unavailable");
+    throw Error("commit_diff_observation_unavailable");
   const patch = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   return {
     baseCommit: request.baseCommit,

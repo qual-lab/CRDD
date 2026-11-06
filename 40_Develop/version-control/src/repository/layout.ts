@@ -96,17 +96,17 @@ function response<const S extends string, T>(
  * @responsibility Git Repository Layout 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input rawInput: unknown
- * @returns inspectGitRepositoryLayoutCandidateの計算結果を返す。
- * @precondition 「rawInput: unknown」がinspectGitRepositoryLayoutCandidateの入力契約を満たす。
- * @postcondition inspectGitRepositoryLayoutCandidateの責務を完了した結果だけを返す。
+ * @returns inspectGitRepositoryLayoutの計算結果を返す。
+ * @precondition 「rawInput: unknown」がinspectGitRepositoryLayoutの入力契約を満たす。
+ * @postcondition inspectGitRepositoryLayoutの責務を完了した結果だけを返す。
  * @effect Filesystemの配置・実体・構成を読み取る。書込みやProcess起動は行わない。
- * @failure inspectGitRepositoryLayoutCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant inspectGitRepositoryLayoutCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @failure inspectGitRepositoryLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectGitRepositoryLayoutは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: inspectGitRepositoryLayoutCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectGitRepositoryLayoutCandidateは共有非同期状態を持たない同期処理である。
+ * @security N/A: inspectGitRepositoryLayoutはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectGitRepositoryLayoutは共有非同期状態を持たない同期処理である。
  */
-export function inspectGitRepositoryLayoutCandidate(rawInput: unknown) {
+export function inspectGitRepositoryLayout(rawInput: unknown) {
   const repositoryRoot = readExactRepositoryRoot(rawInput);
   if (repositoryRoot === null)
     return response("blocked", "repository_git_layout_input_invalid");
@@ -935,19 +935,17 @@ function assertConfiguredWorktreeMatchesRoot(
  * @responsibility Repository Git Object Format 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000002
  * @input repositoryRoot: unknown
- * @returns inspectRepositoryGitObjectFormatCandidateの計算結果を返す。
- * @precondition 「repositoryRoot: unknown」がinspectRepositoryGitObjectFormatCandidateの入力契約を満たす。
- * @postcondition inspectRepositoryGitObjectFormatCandidateの責務を完了した結果だけを返す。
+ * @returns inspectRepositoryGitObjectFormatの計算結果を返す。
+ * @precondition 「repositoryRoot: unknown」がinspectRepositoryGitObjectFormatの入力契約を満たす。
+ * @postcondition inspectRepositoryGitObjectFormatの責務を完了した結果だけを返す。
  * @effect Git構成とRevisionの形式をFilesystemから読み取る。書込みは行わない。
- * @failure inspectRepositoryGitObjectFormatCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant inspectRepositoryGitObjectFormatCandidateは宣言した境界以外へEffectを拡張しない。
+ * @failure inspectRepositoryGitObjectFormatは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant inspectRepositoryGitObjectFormatは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: inspectRepositoryGitObjectFormatCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectRepositoryGitObjectFormatCandidateは共有非同期状態を持たない同期処理である。
+ * @security N/A: inspectRepositoryGitObjectFormatはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectRepositoryGitObjectFormatは共有非同期状態を持たない同期処理である。
  */
-export function inspectRepositoryGitObjectFormatCandidate(
-  repositoryRoot: unknown,
-) {
+export function inspectRepositoryGitObjectFormat(repositoryRoot: unknown) {
   try {
     if (typeof repositoryRoot !== "string" || repositoryRoot.length === 0)
       return null;

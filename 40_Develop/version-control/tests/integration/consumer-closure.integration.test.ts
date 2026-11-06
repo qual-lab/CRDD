@@ -1141,6 +1141,15 @@ test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを
  * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("変更集合の完成操作はWorktree内容Ownerだけが定義し旧Adapterを残さない", () => {
+  for (const file of fs.globSync("**/*.ts", {
+    cwd: path.join(developRoot, "version-control/src"),
+  })) {
+    const source = fs.readFileSync(
+      path.join(developRoot, "version-control/src", file),
+      "utf8",
+    );
+    assert.doesNotMatch(source, /["']candidate_[a-z_]+["']/u, file);
+  }
   const sources = productionSources(developRoot).map((sourcePath) => ({
     relativePath: path
       .relative(repositoryRoot, sourcePath)

@@ -14,9 +14,9 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate,
-  readGitCommitFileCandidate,
+  inspectGitCommitTree,
+  copyGitCommitTree,
+  readGitCommitFile,
 } from "../../../version-control/src/git/objects.ts";
 import {
   copyCommitFiles,
@@ -34,7 +34,11 @@ import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
 } from "../../src/execution/operation.ts";
-import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
+import {
+  containsRecognizedSecretMaterial,
+  ensureRepositoryRuntimeDataArea,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
 import {
   createGitPackedObjectFixture,
   mutateGitPackedObjectFixture,
@@ -53,10 +57,7 @@ import {
  * @boundary RFD-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
-  return materializeGitCommitTreeCandidate(
-    candidate,
-    containsRecognizedSecretMaterial,
-  );
+  return copyGitCommitTree(candidate, containsRecognizedSecretMaterial);
 }
 
 for (const kind of ["base", "ofs", "ref"] as const) {
@@ -78,18 +79,15 @@ for (const kind of ["base", "ofs", "ref"] as const) {
     const fixture = createGitPackedObjectFixture(kind);
     t.after(() => fixture.dispose());
     const { commonDirectory, revision, tree } = fixture;
-    assert.deepEqual(
-      inspectGitCommitTreeCandidate({ commonDirectory, revision }),
-      {
-        status: "candidate",
-        commit: revision,
-        tree,
-        externalGitCliUsed: false,
-        repositoryPathReported: false,
-      },
-    );
+    assert.deepEqual(inspectGitCommitTree({ commonDirectory, revision }), {
+      status: "candidate",
+      commit: revision,
+      tree,
+      externalGitCliUsed: false,
+      repositoryPathReported: false,
+    });
     for (const file of fixture.files) {
-      const read = readGitCommitFileCandidate({
+      const read = readGitCommitFile({
         commonDirectory,
         revision,
         relativePath: file.name,
@@ -169,12 +167,9 @@ for (const mutation of [
       revision,
       relativePath: fixture.selected.name,
     };
-    assert.deepEqual(
-      readGitCommitFileCandidate(request)?.bytes,
-      fixture.selected.bytes,
-    );
+    assert.deepEqual(readGitCommitFile(request)?.bytes, fixture.selected.bytes);
     mutateGitPackedObjectFixture(fixture, mutation);
-    const inspection = inspectGitCommitTreeCandidate({
+    const inspection = inspectGitCommitTree({
       commonDirectory,
       revision,
     });
@@ -184,7 +179,7 @@ for (const mutation of [
       assert.equal(inspection?.status, "candidate");
       assert.equal(inspection?.tree, fixture.tree);
     }
-    assert.equal(readGitCommitFileCandidate(request), null);
+    assert.equal(readGitCommitFile(request), null);
     const workspace = path.join(fixture.root, "workspace");
     fs.mkdirSync(workspace);
     assert.equal(
@@ -221,7 +216,7 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
   assert.equal(repository?.status, "observed");
   assert.equal(repository?.repositoryPathReported, false);
   assert.equal(repository?.repositoryForm, "primary");
-  const exact = inspectGitCommitTreeCandidate({
+  const exact = inspectGitCommitTree({
     commonDirectory: layout.commonDirectory.realPath,
     revision: repository?.revisionIdentity,
   });
@@ -246,8 +241,46 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
  */
 test("現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
-  const owned = createOwnedOperationDirectories();
-  t.after(() => cleanupOwnedOperationDirectories(owned));
+  const owner = getRepository(repositoryRoot);
+  assert.equal(owner.status, "completed");
+  if (owner.status !== "completed") return;
+  const tests = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataArea(owner.capability, "tests"),
+    "projection_test_root_invalid",
+  );
+  const parent = fs.mkdtempSync(path.join(tests.directory, "object-current-"));
+  const parentIdentity = fs.lstatSync(parent, { bigint: true });
+  let owned: unknown = null;
+  let recoveryIdentity: fs.BigIntStats | null = null;
+  t.after(() => {
+    if (owned !== null) cleanupOwnedOperationDirectories(owned);
+    const current = fs.lstatSync(parent, { bigint: true });
+    assert.equal(current.isSymbolicLink(), false);
+    assert.equal(fs.realpathSync.native(parent), parent);
+    assert.equal(current.dev, parentIdentity.dev);
+    assert.equal(current.ino, parentIdentity.ino);
+    assert.equal(current.birthtimeNs, parentIdentity.birthtimeNs);
+    for (const entry of fs.readdirSync(parent)) {
+      assert.equal(entry, "crdd-coordinator-recovery-v1");
+      const recovery = path.join(parent, entry);
+      const metadata = fs.lstatSync(recovery, { bigint: true });
+      assert.ok(recoveryIdentity);
+      assert.equal(metadata.isSymbolicLink(), false);
+      assert.equal(metadata.dev, recoveryIdentity.dev);
+      assert.equal(metadata.ino, recoveryIdentity.ino);
+      assert.equal(metadata.birthtimeNs, recoveryIdentity.birthtimeNs);
+      assert.equal(fs.realpathSync.native(recovery), recovery);
+      assert.deepEqual(fs.readdirSync(recovery), []);
+      fs.rmdirSync(recovery);
+    }
+    fs.rmdirSync(parent);
+    assert.equal(fs.existsSync(parent), false);
+  });
+  owned = createOwnedOperationDirectories(parent);
+  recoveryIdentity = fs.lstatSync(
+    path.join(parent, "crdd-coordinator-recovery-v1"),
+    { bigint: true },
+  );
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
