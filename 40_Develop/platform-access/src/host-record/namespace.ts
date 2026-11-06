@@ -21,7 +21,7 @@ const distributionRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 const RESPONSE_LIMIT = 1024;
 
 /**
- * 親・共有管理先・終端保存先のNative実体を保持する。
+ * 親・共有管理先のNative実体を保持する。
  *
  * @responsibility NodeのmetadataとNativeの識別値を混同しない。
  * @trace ARCH-000011
@@ -29,7 +29,7 @@ const RESPONSE_LIMIT = 1024;
  * @invariant 自己申告またはHashだけを同一実体へ昇格しない。
  * @boundary 専用frame→内部初期化Owner。
  * @security Path、SID、Authorityなし。
- * @compatibility CRDDNR01専用。旧Node三識別値へ暗黙変換しない。
+ * @compatibility CRDDNR02専用。旧Node三識別値へ暗黙変換しない。
  */
 type NamespaceIdentity = readonly [
   number,
@@ -45,7 +45,7 @@ type NamespaceIdentity = readonly [
  *
  * @responsibility 停止の部分作成・元理由・不明を消さない。
  * @trace ARCH-000011
- * @shape 状態、理由、三実体、利用者Hash、二つの部分receipt、TokenとDirectoryの個別close。
+ * @shape 状態、理由、二実体、利用者Hash、一つの部分receipt、TokenとDirectoryの個別close。
  * @invariant 初期化完了をTask回復や非使用へ昇格しない。
  * @boundary Native専用応答→Coordinator内部。
  * @security 共有Directory削除・ACL移行のAuthorityを含まない。
@@ -113,7 +113,7 @@ export function decodeHostRecoveryNamespaceResponse(
 ): NamespaceObservation | null {
   if (
     !Buffer.isBuffer(input) ||
-    input.length < 59 ||
+    input.length < 54 ||
     input.length > RESPONSE_LIMIT ||
     !/^[0-9a-f]{64}$/u.test(nonceHex) ||
     /^0+$/u.test(nonceHex)
@@ -121,8 +121,8 @@ export function decodeHostRecoveryNamespaceResponse(
     return null;
   const bytes = Buffer.from(input);
   if (
-    !bytes.subarray(0, 8).equals(Buffer.from("CRDDNR01", "ascii")) ||
-    bytes.readUInt16LE(8) !== 1 ||
+    !bytes.subarray(0, 8).equals(Buffer.from("CRDDNR02", "ascii")) ||
+    bytes.readUInt16LE(8) !== 2 ||
     bytes.subarray(10, 42).toString("hex") !== nonceHex
   )
     return null;
@@ -142,7 +142,7 @@ export function decodeHostRecoveryNamespaceResponse(
     operationLength === undefined ||
     operationLength > 96 ||
     mask === undefined ||
-    mask > 7 ||
+    mask > 3 ||
     selected === undefined ||
     selected > 1 ||
     tokens === undefined ||
@@ -152,7 +152,7 @@ export function decodeHostRecoveryNamespaceResponse(
   )
     return null;
   const childObservations: NamespaceObservation["children"][number][] = [];
-  for (let index = 0; index < 2; index += 1) {
+  for (let index = 0; index < 1; index += 1) {
     const offset = 49 + index * 5;
     const present = bytes[offset];
     const issued = bytes[offset + 1];
@@ -189,12 +189,12 @@ export function decodeHostRecoveryNamespaceResponse(
       );
     }
   }
-  const identityCount = [0, 1, 2].filter(
+  const identityCount = [0, 1].filter(
     (index) => (mask & (1 << index)) !== 0,
   ).length;
   if (
     bytes.length !==
-    59 +
+    54 +
       reasonLength +
       operationLength +
       selected * 32 +
@@ -203,7 +203,7 @@ export function decodeHostRecoveryNamespaceResponse(
       directories
   )
     return null;
-  let offset = 59;
+  let offset = 54;
   if (
     [...bytes.subarray(offset, offset + reasonLength + operationLength)].some(
       (value) => value > 127,
@@ -229,7 +229,7 @@ export function decodeHostRecoveryNamespaceResponse(
   if (selectedUserSha256 !== null && /^0+$/u.test(selectedUserSha256))
     return null;
   const identities: (NamespaceIdentity | null)[] = [];
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 2; index += 1) {
     if ((mask & (1 << index)) === 0) {
       identities.push(null);
       continue;
@@ -255,7 +255,7 @@ export function decodeHostRecoveryNamespaceResponse(
   );
   if (
     !shouldInitialize &&
-    (childObservations.some((child) => child !== null) || (mask & 6) !== 0)
+    (childObservations.some((child) => child !== null) || (mask & 2) !== 0)
   )
     return null;
   if (status !== 0) {
@@ -263,7 +263,7 @@ export function decodeHostRecoveryNamespaceResponse(
       status !== (shouldInitialize ? 2 : 1) ||
       operation !== "" ||
       selected !== 1 ||
-      mask !== (shouldInitialize ? 7 : 1) ||
+      mask !== (shouldInitialize ? 3 : 1) ||
       tokens !== 2 ||
       tokenCloses.some((isConfirmed) => !isConfirmed) ||
       directories === 0 ||

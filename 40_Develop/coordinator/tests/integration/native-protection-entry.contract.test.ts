@@ -14,7 +14,6 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { areNativeTerminalBoundariesUnchanged } from "../../scripts/verify-native-terminal-namespace.ts";
 import {
   areInputsUnchanged,
   assertNoPreviousNativeRuns,
@@ -157,62 +156,6 @@ test("Native protection: changed or unavailable direct input cannot match", () =
     assert.throws(() => areInputsUnchanged(inputs));
     assert.throws(() => assertNoPreviousNativeRuns(path.join(root, "missing")));
   } finally {
-    fs.rmdirSync(root);
-  }
-});
-
-/**
- * 失敗結果でも置換した祖先へ保存・清掃しない。
- * @responsibility 成功判定のfalseが保存境界確認を迂回しないことを検証する。
- * @trace ERB-IT-001
- * @precondition 自己生成小領域と固定した祖先Identityを使う。
- * @stimulus 保存親をjunctionへ置換し、起動失敗・timeout相当のfalseと組み合わせる。
- * @observation 保存・清掃要求数と置換先内容。
- * @oracle 境界確認false、要求0、置換先不変。
- * @cleanup 自己生成junctionと空Directoryだけを非再帰回収する。
- * @boundary Node→Repository-local試験Directory。
- */
-test("Native terminal: failed result cannot bypass changed ancestor", () => {
-  const root = fixtureRoot();
-  const parent = path.join(root, "parent");
-  const destination = path.join(root, "destination");
-  fs.mkdirSync(parent);
-  fs.mkdirSync(destination);
-  const normalized = parent.replaceAll("\\", "/");
-  const expectedEntries = [nodeIdentity(normalized)];
-  assert.equal(
-    areNativeTerminalBoundariesUnchanged([normalized], expectedEntries),
-    true,
-  );
-  fs.renameSync(parent, parent + "-old");
-  fs.symlinkSync(destination, parent, "junction");
-  try {
-    for (const failure of ["timeout", "launch_failed"]) {
-      assert.ok(failure);
-      const isPermitted = areNativeTerminalBoundariesUnchanged(
-        [normalized],
-        expectedEntries,
-      );
-      assert.equal(isPermitted, false);
-      let writes = 0;
-      if (isPermitted) {
-        writes++;
-        fs.writeFileSync(path.join(parent, "result.json"), "{}");
-      }
-      assert.equal(writes, 0);
-      assert.deepEqual(fs.readdirSync(destination), []);
-    }
-    assert.equal(
-      areNativeTerminalBoundariesUnchanged(
-        [normalized + "/missing"],
-        expectedEntries,
-      ),
-      false,
-    );
-  } finally {
-    fs.unlinkSync(parent);
-    fs.rmdirSync(parent + "-old");
-    fs.rmdirSync(destination);
     fs.rmdirSync(root);
   }
 });

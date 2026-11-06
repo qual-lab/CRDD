@@ -18,10 +18,7 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 
-const tools = [
-  "verify-native-protection.ts",
-  "verify-native-terminal-namespace.ts",
-] as const;
+const tools = ["verify-native-protection.ts"] as const;
 
 /**
  * 現行Toolだけを現在のCheckoutから読み取る。
@@ -131,23 +128,6 @@ test("Native検証Toolは固定Cargo構成を一回だけ要求する", () => {
         target,
       ],
     },
-    {
-      file: tools[1],
-      name: "buildNativeTerminalNamespaceArtifact",
-      args: [
-        ...prefix,
-        "test",
-        "--manifest-path",
-        [crate, "/Cargo.toml"].join(""),
-        "--locked",
-        "--no-run",
-        "--target",
-        "x86_64-pc-windows-msvc",
-        "--target-dir",
-        target,
-        "--message-format=json",
-      ],
-    },
   ]) {
     const fragment = toolFragment(
       readTool(item.file),
@@ -173,10 +153,10 @@ test("Native検証Toolは固定Cargo構成を一回だけ要求する", () => {
           assert.deepEqual(JSON.parse(JSON.stringify(options)), {
             cwd: repository,
             encoding: "utf8",
-            ...(item.file === tools[0] ? { shell: false } : {}),
+            shell: false,
             windowsHide: true,
-            timeout: item.file === tools[0] ? 180_000 : 120_000,
-            maxBuffer: (item.file === tools[0] ? 4 : 8) * 1024 * 1024,
+            timeout: 180_000,
+            maxBuffer: 4 * 1024 * 1024,
           });
           return result;
         },
@@ -207,13 +187,10 @@ test("Native検証Toolは一件の通常実体だけを選択する", () => {
   );
   for (const file of tools) {
     const source = readTool(file);
-    const protection = file === tools[0];
     const fragment = toolFragment(
       source,
-      protection
-        ? "  const artifacts: string[] = [];"
-        : "  const artifacts = build.stdout",
-      protection ? "  const cacheAncestors:" : "  const expectedHash =",
+      "  const artifacts: string[] = [];",
+      "  const cacheAncestors:",
     );
     for (const fault of [
       "normal",
@@ -292,9 +269,7 @@ test("Native検証Toolは一件の通常実体だけを選択する", () => {
         runInNewContext(
           stripTypeScriptTypes(
             [
-              protection
-                ? "const previousBuildBoundaries = [crateRoot, buildRoot];"
-                : "",
+              "const previousBuildBoundaries = [crateRoot, buildRoot];",
               fragment,
               "binary;",
             ].join("\n"),
@@ -330,13 +305,10 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
   const exactTest =
     "host_record::host_namespace::protection_tests::terminal_protection_fixture_observes_handle_sharing";
   for (const file of tools) {
-    const protection = file === tools[0];
     const fragment = toolFragment(
       readTool(file),
-      protection ? "  const started = Date.now();" : '  let stdout = "";',
-      protection
-        ? "  const matchingEntries = output"
-        : "  const result = { stdout",
+      "  const started = Date.now();",
+      "  const matchingEntries = output",
     );
     for (const scenario of ["normal", "error", "timeout"]) {
       const child = Object.assign(new EventEmitter(), {
@@ -360,9 +332,7 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
       const code = [
         "(async () => {",
         fragment,
-        protection
-          ? "return { isExitObserved, isCloseObserved, isTimedOut, failed: isErrorObserved };"
-          : "return { isExitObserved, isCloseObserved, isTimedOut, failed: error !== undefined };",
+        "return { isExitObserved, isCloseObserved, isTimedOut, failed: isErrorObserved };",
         "})()",
       ].join("\n");
       const pending = runInNewContext(stripTypeScriptTypes(code), {
@@ -376,7 +346,7 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
         Buffer,
         createHash,
         setTimeout: (callback: () => void, milliseconds: number) => {
-          assert.equal(milliseconds, protection ? 30_000 : 15_000);
+          assert.equal(milliseconds, 30_000);
           deadline = callback;
           return timer;
         },
@@ -387,38 +357,22 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
         spawn: (exe: unknown, args: unknown, options: unknown) => {
           calls += 1;
           assert.equal(exe, binary);
-          const expectedArgs = protection
-            ? [
-                exactTest,
-                "--ignored",
-                "--exact",
-                "--nocapture",
-                "--test-threads=1",
-              ]
-            : [
-                "host_record::host_namespace::tests::terminal_namespace_fixture",
-                "--exact",
-                "--ignored",
-                "--nocapture",
-                "--test-threads=1",
-              ];
+          const expectedArgs = [
+            exactTest,
+            "--ignored",
+            "--exact",
+            "--nocapture",
+            "--test-threads=1",
+          ];
           assert.deepEqual(JSON.parse(JSON.stringify(args)), expectedArgs);
-          const env = protection
-            ? {
-                PRESERVED: "fixed",
-                CRDD_NATIVE_PROTECTION_RUN: "fixed-operation",
-                CRDD_NATIVE_PROTECTION_ROOT: runRoot,
-                CRDD_NATIVE_PROTECTION_EXE: binary,
-                TEMP: "/fixed/run/tmp",
-                TMP: "/fixed/run/tmp",
-              }
-            : {
-                PRESERVED: "fixed",
-                CRDD_TERMINAL_NAMESPACE_RUN: "fixed-operation",
-                CRDD_TERMINAL_NAMESPACE_ROOT: fixture,
-                TEMP: fixture,
-                TMP: fixture,
-              };
+          const env = {
+            PRESERVED: "fixed",
+            CRDD_NATIVE_PROTECTION_RUN: "fixed-operation",
+            CRDD_NATIVE_PROTECTION_ROOT: runRoot,
+            CRDD_NATIVE_PROTECTION_EXE: binary,
+            TEMP: "/fixed/run/tmp",
+            TMP: "/fixed/run/tmp",
+          };
           assert.deepEqual(JSON.parse(JSON.stringify(options)), {
             cwd: repository,
             shell: false,

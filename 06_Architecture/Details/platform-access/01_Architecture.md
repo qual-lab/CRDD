@@ -1,5 +1,23 @@
 # Windowsネイティブ部品の設計
 
+## Namespaceの旧子撤去とNode.js統合の検討 — 2026-11-06
+
+旧終端記録用`terminal-v1`の作成・実体／ACL照合・専用観測を撤去した。既存の旧子は観測・移行・削除しない。通常回復用`crdd-coordinator-recovery-v1`の作成、選択利用者SID、protected DACL、祖先Handle保持、独立期待値と処置後照合、部分Receiptと初回closeは維持する。要求CRDDNC01／CRDDNI01は不変更。短命応答はCRDDNR02 revision 2の二実体・一Receiptへ縮小し、旧応答は受け付けない。通常HostRecovery保存DTOと公開関数の引数は変更しない。
+
+### Node.js側への統合案（未実装）
+
+Coordinatorの`operation.ts`にある`createProtectedRuntimeOwnedOperationDirectories()`と`ensureHostRecoveryDirectory()`の二段接続を整理し、既存の後者を通常回復Directory初期化のOwnerとする。Policy維持案では、WindowsだけNativeの保護付き作成・照合を先に完了し、その後Node.jsの実Path・Identity照合と通常Operation生成・記録へ進む。Nodeの通常mkdirで先に作成すると、継承ACLのDirectoryを現Nativeが正しく拒否し得るため、単純に作成順を逆転しない。新しいManager・Callback・Storeは不要だが、全呼出し元と試験用直接入口の整理は実装前に再確認する。
+
+Policyを別途撤廃する場合は、既存`ensureHostRecoveryDirectory()`のmkdir・realpath・lstat・Identity・競合後再照合へ一本化できる。今回この変更は行わない。
+
+| 外す保護 | 失う確認・影響 | Node.js側で維持できる範囲 |
+|---|---|---|
+| 選択利用者SID・Tokenの照合 | OS主体への結合を検証できず、Pathが同じだけでは意図した実行利用者を証明できない | os由来の所在、正規Path・実体・Root範囲の確認。SID照合と同値ではない |
+| 所有者・厳密protected DACL | 選択利用者／SYSTEMに限定した保護を作成時から保証できない。親から継承したACLにより、他の主体の読取り・改変を許す可能性がある | OSユーザー専用の適切な保存場所、非link・Identity・作成結果確認。Windowsのmkdir mode 0700だけでは同値のACLにならない |
+| 祖先DirectoryのHandle保持 | Native処理区間の祖先差替え防止を失い、Path確認と操作間の競合余地が増える | lstat／realpath・操作前後の実体再確認。ただし原子的な差替え排除ではない |
+
+現行もHandle保持はNative呼出し内に限り、戻った後のNode処理全体を連続保護しているわけではない。Node化の影響を過大にも過小にも評価しない。通常回復記録は維持し、Provider認証Homeの保護Policyをこの判断へ混ぜない。
+
 ## 本番未使用の端末・旧Root観測の退役 — 2026-11-06
 
 端末・確認コード用の5 SourceとRustの旧Root観測を代替なしで撤去した。旧Readerの子起動登録、Root要求のparse／構成、AppContainer Pipe受付、未使用の公式停止Wrapperも撤去した。一般の不正要求には既存の固定拒否frameを返し、旧観測を別名で受け付けない。Provider Home、Namespace、共有Pipe、DIが使用する実際の停止能力は維持する。
@@ -28,7 +46,7 @@ OS判定はCoordinatorが`process.platform`を直接使う。PID観測は既存`
 
 TypeScriptは機能別Folderへ配置し、Rustは`src/native/<責務>/windows/`へ実装をまとめ、責務の`mod.rs`が`#[cfg(windows)]`でビルド時に選択する。共通化するのは必要な操作・結果・終了保証であってOS APIそのものではない。Linux／macOSの空実装・Factory・Registryは作らず、現行の非Windows拒否を維持する。既存Protocol・保存形式・失敗理由・同じ回復参照・同期／非同期方式は構造変更から変更しない。
 
-Namespaceの存続試験は`tests/integration/host_namespace.rs`へ接続する。`host_namespace::tests`と`host_namespace_creation_tests`／`protection_tests`の既存ignored条件を維持し、専用記録の保存・容量・現在候補・Known処理は退役する。
+Namespaceの存続試験は`tests/integration/host_namespace.rs`へ接続する。`host_namespace::tests`の親・Recovery値契約と`host_namespace_creation_tests`／`protection_tests`のignored条件を維持し、専用記録の保存・容量・現在候補・Known処理は退役する。
 
 PAから上位Packageを参照しない。開発観測の前後二回borrowとCapability判断は上位に残し、後確認が不成立なら発行しない。DI Policy Hashは上位が取得した用途固定入力であり、汎用raw argv／frame・任意実行物のAPIは公開しない。Rust側のWindows Publisher検証はCRDD署名の退役と別責務として維持する。
 
@@ -277,7 +295,7 @@ RootやHomeの観測結果は、用途別Adapterが同じOperationのRepository�
 
 ### 固定保存境界の私有観測
 
-Namespaceの親・固定二childの実体と保護確認だけを維持する。専用Host対象・終端記録のCurrent／Known観測、保存、読戻しとcaller Leaseは本番未接続のため退役した。旧形式の互換Reader、代替保存、過去保持物の移行・削除は提供しない。
+Namespaceの親・Recovery Directoryの実体と保護確認だけを維持する。専用Host対象・終端記録のCurrent／Known観測、保存、読戻しとcaller Leaseは本番未接続のため退役した。旧形式の互換Reader、代替保存、過去保持物の移行・削除は提供しない。
 
 ### 共有管理フォルダの保護付き作成と限定移行
 
@@ -286,18 +304,17 @@ Namespaceの親・固定二childの実体と保護確認だけを維持する。
 | 処理 | 対象と処置 | 停止条件 |
 |---|---|---|
 | 通常producerの共有作成 | 検証済み一時親の固定child `crdd-coordinator-recovery-v1`だけ。作成済み共有物は検証だけ行う。 | 存在不明、file／reparse、owner・保護不一致、実体差または取得・close不明。 |
-| 終端保存先の初期化 | 保護確認済み共有フォルダの固定child `terminal-v1`だけ。通常Taskから暗黙作成しない。 | 共有フォルダの保護不適合、作成・再取得・fresh ACLまたはclose不明。 |
 | 既存共有ACLの限定移行 | 独立保持した親・共有実体・利用者・変更前ACLに結合した明示操作。通常作成・観測・保存から呼ばない。 | 人間の実操作許可、全producerの開始抑止・終了、既存childへの影響と旧exact回復の維持を確認できない場合はEffect 0で停止。 |
 
 発火例は固定childの明示不存在、非発火例は適合済み共有物の再利用、境界例は作成競合と既存不適合、情報不足例は存在・close・現在使用の不明である。通常作成は、新しい共有排他の存在だけで全producer停止を主張しない。限定移行はACL更新APIの継承波及を事前に確認し、childのIdentity・bytes・保護と旧回復の利用能力を変更前後で比較する。確認できない場合は移行を開始しない。部分Effectを保持し、自動rollback・再実行しない。
 
 2026-10-04の承認は設計・実装・自己生成fixture試験の追加だけであり、実共有Directoryの作成・権限変更・Process停止・旧三件削除ではない。Native私有部品の試験から、通常producer、署名済み搬送、限定移行または公開Recovery全体の成立を推定しない。
 
-私有の`open_bootstrap_parent`と`create_host_namespace_child`をSource上に実装し、自己生成fixtureで保護付き作成、無変更再利用、不適合ACL・同名fileの拒否、全取得guardの明示closeと自作r2の直接不存在を確認した。通常の`open_observed`は最終保護とnamespace検査を維持する。作成前guardをそのまま記録保存へ渡さず、通常の三実体・二ACL・利用者の検査へ再結合する。通常producer・専用Protocol・署名搬送のSourceを接続し、専用r3でNative本体と固定frameの局所確認を追加した。署名付き実OS初期化・既存ACL移行・作成競合・OS API／close故障の実測は残る。[観測範囲](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#通常作成入口と専用搬送の接続--2026-10-04)を参照する。
+私有の`open_bootstrap_parent`と`create_host_recovery_directory`は、親chainを保持してRecovery Directoryを保護付き作成・再利用し、fresh Identity／ACLと全取得handleの初回closeを確認する。旧終端子向け`open_observed`・固定namespaceのCurrent／Known経路は撤去した。新品fixtureで通常作成・reuse・不適合ACL／同名file拒否と旧子File／Directoryの無変更を確認する。実共有領域の初期化・既存ACL移行・OS API／close故障の実測は、この局所確認へ含めない。
 
-保護付き初期化の搬送は、親の読取り確認 `--host-recovery-namespace-observe` と、独立期待値付き作成 `--host-recovery-namespace-initialize` を分離する。候補要求はそれぞれ `CRDDNC01`（42bytes）と `CRDDNI01`（98bytes）、応答は `CRDDNR01`、revision 1とする。作成要求は親の六識別値と選択利用者Hashを必須とし、読取り要求には作成を指示するfieldを設けない。自由Path、SID、ACL mask、移行指定は受理しない。
+保護付き初期化の搬送は、親の読取り確認 `--host-recovery-namespace-observe` と、独立期待値付き作成 `--host-recovery-namespace-initialize` を分離する。候補要求はそれぞれ `CRDDNC01`（42bytes）と `CRDDNI01`（98bytes）、応答は `CRDDNR02`、revision 2とする。作成要求は親の六識別値と選択利用者Hashを必須とし、読取り要求には作成を指示するfieldを設けない。自由Path、SID、ACL mask、移行指定は受理しない。
 
-応答は親・共有管理先・終端保存先の部分実体、二つの固定childそれぞれの作成発行・作成結果・handle取得・初回close、Tokenと祖先handleの個別closeを保持する。作成結果不明は未発行へ戻さず、終了不明では元理由を別に保持する。正常な初期化は三実体・現在利用者・二保護・全終了が共同成立した場合だけ返す。搬送失敗または応答相関不成立では、発行した初期化のEffectを不明として停止し、共有Directoryを自動削除しない。通常の記録保存入口は既存の三実体・二保護検証を引き続き必要とする。
+応答は親とRecovery Directoryの部分実体、一つの作成発行・作成結果・handle取得・初回close、Tokenと祖先handleの個別closeを保持する。作成結果不明を未発行へ戻さず、終了不明では元理由を保持する。初期化成功は二実体・現在利用者・Recoveryの保護・全終了の共同成立が必要である。搬送や相関不成立ではEffect不明として停止し、共有Directoryを自動削除しない。旧子の実体・存在・保護は成功条件にしない。
 
 #### 対象一式の私有読取り接続
 
@@ -333,7 +350,7 @@ Root／Homeは`protocol/access.rs`、Namespaceは`protocol/host_namespace.rs`、
 | Provider Home／Runtime State | revision 3、`CRDDPH02`／`CRDDHO02`、要求76・応答182 bytes | provider、nonce、主体・保護・安定Identity。初期化flagはRuntime Stateだけ。旧Store値は拒否する |
 | Docker障害修復 | `CRDDDR05`、応答41 bytes | 現行公式成果物の署名・同一操作Identityを固定し、公式停止と残存Process終了を分離して返す |
 | 検証付き再起動 | `CRDDDS01`、応答41 bytes | 現行公式成果物の署名・同一操作Identityを固定する別mode。`S`だけが公式停止を許可し、`N`未発行／`T`exit 0と子回収確認／`P`発行後不明を返す |
-| Namespace | `--host-recovery-namespace-observe`／`--host-recovery-namespace-initialize`と既存CRDDNR01応答 | 親・固定childの実体、部分作成、保護と個別終了。専用記録の保存・読戻しは提供しない |
+| Namespace | `--host-recovery-namespace-observe`／`--host-recovery-namespace-initialize`と既存CRDDNR02応答 | 親・固定childの実体、部分作成、保護と個別終了。専用記録の保存・読戻しは提供しない |
 
 部分応答・nonce不一致・異常終了を成功へ補完せず、raw出力や秘密を公開しない。
 

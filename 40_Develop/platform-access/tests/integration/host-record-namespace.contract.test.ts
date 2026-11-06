@@ -45,36 +45,25 @@ function responseFrame(
       : status === 2
         ? "terminal_namespace_initialized"
         : "terminal_namespace_create_unconfirmed");
-  const frame = Buffer.alloc(59);
-  frame.write("CRDDNR01", 0, "ascii");
-  frame.writeUInt16LE(1, 8);
+  const frame = Buffer.alloc(54);
+  frame.write("CRDDNR02", 0, "ascii");
+  frame.writeUInt16LE(2, 8);
   nonce.copy(frame, 10);
   frame[42] = status;
   frame[43] = text.length;
-  frame[45] = status === 2 ? 7 : 1;
+  frame[45] = status === 2 ? 3 : 1;
   frame[46] = 1;
   frame[47] = 2;
-  frame[48] = status === 2 ? 3 : 1;
+  frame[48] = status === 2 ? 2 : 1;
   frame.set(
     status === 1
-      ? [0, 0, 2, 0, 2, 0, 0, 2, 0, 2]
+      ? [0, 0, 2, 0, 2]
       : status === 2
-        ? [
-            1,
-            shouldReuse ? 0 : 1,
-            shouldReuse ? 0 : 1,
-            1,
-            1,
-            1,
-            shouldReuse ? 0 : 1,
-            shouldReuse ? 0 : 1,
-            1,
-            1,
-          ]
-        : [1, 1, 2, 0, 2, 0, 0, 2, 0, 2],
+        ? [1, shouldReuse ? 0 : 1, shouldReuse ? 0 : 1, 1, 1]
+        : [1, 1, 2, 0, 2],
     49,
   );
-  const ids = Buffer.alloc(status === 2 ? 72 : 24);
+  const ids = Buffer.alloc(status === 2 ? 48 : 24);
   for (let index = 0; index < ids.length / 24; index += 1) {
     [1, 2, index + 3, 4, 5, 0x10].forEach((value, field) => {
       ids.writeUInt32LE(value, index * 24 + field * 4);
@@ -85,7 +74,7 @@ function responseFrame(
     Buffer.from(text, "ascii"),
     Buffer.alloc(32, 8),
     ids,
-    Buffer.alloc(status === 2 ? 5 : 3, 1),
+    Buffer.alloc(status === 2 ? 4 : 3, 1),
   ]);
 }
 
@@ -105,6 +94,35 @@ test("共有初期化frameはmode・実体・個別終了を共同検証する",
   const nonce = Buffer.alloc(32, 7);
   const captured = responseFrame(nonce, 1);
   const initialized = responseFrame(nonce, 2);
+  const oldResponse = Buffer.from(initialized);
+  oldResponse.write("CRDDNR01", 0, "ascii");
+  oldResponse.writeUInt16LE(1, 8);
+  assert.equal(
+    decodeHostRecoveryNamespaceResponse(
+      oldResponse,
+      nonce.toString("hex"),
+      true,
+    ),
+    null,
+  );
+  const parsed = decodeHostRecoveryNamespaceResponse(
+    initialized,
+    nonce.toString("hex"),
+    true,
+  );
+  assert.equal(parsed?.identities.length, 2);
+  assert.equal(parsed?.children.length, 1);
+  const nativeSource = readFileSync(
+    new URL(
+      "../../src/native/host_record/windows/host_namespace.rs",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    nativeSource,
+    /terminal-v1|HostNamespaceChild|open_fixed_namespace|capture_fixed_namespace/u,
+  );
   assert.equal(
     decodeHostRecoveryNamespaceResponse(captured, nonce.toString("hex"), false)
       ?.status,
@@ -151,7 +169,7 @@ test("共有初期化frameはmode・実体・個別終了を共同検証する",
     );
   }
   const highAscii = Buffer.from(initialized);
-  highAscii[59] = 0xf4;
+  highAscii[54] = 0xf4;
   assert.equal(
     decodeHostRecoveryNamespaceResponse(highAscii, nonce.toString("hex"), true),
     null,

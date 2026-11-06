@@ -8,10 +8,10 @@
 //! @boundary cfg(test)の私有作成部品→Windows File API。実共有保存領域、旧三件、署名Runtimeと公開Recoveryは対象外。
 
 use crate::filesystem::protection::DirectoryIdentity;
-use crate::host_record::host_namespace::{
-    HostNamespaceChild, create_host_namespace_child, host_namespace_at_parent,
-};
 use crate::host_record::host_namespace::{TerminalDirectory, terminal_identity_fields};
+use crate::host_record::host_namespace::{
+    create_host_recovery_directory, host_namespace_at_parent,
+};
 use crate::host_record::protected_file::{
     close_terminal_handle, observe_terminal_presence, open_terminal_handle, terminal_identity,
 };
@@ -46,7 +46,7 @@ fn fixture_identity(path: &Path) -> DirectoryIdentity {
 /// @responsibility 私有作成部品の成立を署名済みproducer・ACL移行・公開Recoveryへ昇格しない。
 /// @trace ERB-IT-003
 /// @precondition 固定cwd・run、自己生成Rootの明示不存在、先行静的検査をOwnerが確認する。
-/// @stimulus 固定二childの新規作成と再利用、継承ACLの既存Directory、同名fileを与える。
+/// @stimulus 固定Recovery Directoryの新規作成と再利用、継承ACLの既存Directory、同名fileを与える。
 /// @observation 作成発行、API結果、fresh Identity・ACL、個別close、拒否前後の実体・bytes。
 /// @oracle 作成はprotected二ACE、再利用は作成Effect 0、不適合はACL変更0で元理由を保持する。
 /// @cleanup 正常oracle完了後、自作物をfresh Identity確認して非再帰清掃する。不明・失敗時は保持する。
@@ -71,7 +71,12 @@ fn host_namespace_creation_fixture() {
     ];
     assert_eq!(token_closes, [true, true]);
     assert!(selected.is_some(), "fixture_selected_user_unavailable");
-    let root = Path::new("C:/project/CRDD/.crdd/tests/host-namespace-protected-261004-r3");
+    let run = std::env::var("CRDD_NAMESPACE_FIXTURE_RUN").unwrap();
+    assert_eq!(run.len(), 32);
+    assert!(run.bytes().all(|c| c.is_ascii_hexdigit()));
+    let root_path = std::path::PathBuf::from("C:/project/CRDD/.crdd/tests")
+        .join(format!("namespace-recovery-{run}"));
+    let root = root_path.as_path();
     assert_eq!(observe_terminal_presence(root), Ok(false));
     assert!(root.parent().unwrap().is_dir());
     fs::create_dir(root).unwrap();
@@ -85,36 +90,22 @@ fn host_namespace_creation_fixture() {
     let mut guard = TerminalDirectory::open_bootstrap_parent(&normal, normal_identity).unwrap();
     assert!(guard.selected_user.is_some());
     assert_eq!(guard.token_closes, [true, true]);
-    let recovery = create_host_namespace_child(&mut guard, HostNamespaceChild::Recovery).unwrap();
+    let recovery = create_host_recovery_directory(&mut guard).unwrap();
     assert!(recovery.create_issued);
     assert_eq!(recovery.created, Some(true));
     assert!(recovery.child_handle_acquired);
     assert_eq!(recovery.child_close_confirmed, None);
     guard.verify().unwrap();
     cleanup.push((guard.path.clone(), recovery.identity.unwrap()));
-    let terminal = create_host_namespace_child(&mut guard, HostNamespaceChild::Terminal).unwrap();
-    assert!(terminal.create_issued);
-    assert_eq!(terminal.created, Some(true));
-    guard.verify().unwrap();
-    let terminal_path = guard.path.clone();
-    cleanup.push((terminal_path.clone(), terminal.identity.unwrap()));
     assert!(guard.close());
     assert!(guard.directory_closes.iter().all(|closed| *closed));
     assert_eq!(guard.directory_closes.len(), guard.handles.len());
 
-    // Existing observation retains its original mandatory recovery and terminal protection checks.
-    let mut observed = TerminalDirectory::open_observed(&terminal_path, None, None).unwrap();
-    observed.verify().unwrap();
-    assert!(observed.close());
     let mut reused = TerminalDirectory::open_bootstrap_parent(&normal, normal_identity).unwrap();
-    let existing = create_host_namespace_child(&mut reused, HostNamespaceChild::Recovery).unwrap();
+    let existing = create_host_recovery_directory(&mut reused).unwrap();
     assert!(!existing.create_issued);
     assert_eq!(existing.created, Some(false));
     assert_eq!(existing.identity, recovery.identity);
-    let existing_terminal =
-        create_host_namespace_child(&mut reused, HostNamespaceChild::Terminal).unwrap();
-    assert!(!existing_terminal.create_issued);
-    assert_eq!(existing_terminal.identity, terminal.identity);
     assert!(reused.close());
 
     // Run the same connected Owner with a self-generated parent, not the real OS namespace.
@@ -151,11 +142,7 @@ fn host_namespace_creation_fixture() {
     );
     assert!(crate::protocol::host_namespace::encode_response(&initialized).is_some());
     let connected_recovery = connected_parent.join("crdd-coordinator-recovery-v1");
-    let connected_terminal = connected_recovery.join("terminal-v1");
-    for (index, target) in [connected_recovery, connected_terminal]
-        .into_iter()
-        .enumerate()
-    {
+    for (index, target) in [connected_recovery].into_iter().enumerate() {
         let identity = fixture_identity(&target);
         assert_eq!(
             Some(terminal_identity_fields(identity)),
@@ -173,6 +160,29 @@ fn host_namespace_creation_fixture() {
                 && receipt.close == Some(true)))
     );
     assert!(crate::protocol::host_namespace::encode_response(&reused).is_some());
+    // 旧子は既存FileでもDirectoryでも観測・変更・初期化条件にしない。
+    let legacy = connected_parent
+        .join("crdd-coordinator-recovery-v1")
+        .join("terminal-v1");
+    for is_file in [true, false] {
+        if is_file {
+            fs::write(&legacy, b"UNCHANGED\n").unwrap();
+        } else {
+            fs::create_dir(&legacy).unwrap();
+        }
+        let before = fixture_identity(&legacy);
+        let current = host_namespace_at_parent(&initialize_request, &connected_parent);
+        assert_eq!(current.status, 2);
+        assert_eq!(current.children.len(), 1);
+        assert_eq!(current.identities.len(), 2);
+        assert_eq!(fixture_identity(&legacy), before);
+        if is_file {
+            assert_eq!(fs::read(&legacy).unwrap(), b"UNCHANGED\n");
+            fs::remove_file(&legacy).unwrap();
+        } else {
+            fs::remove_dir(&legacy).unwrap();
+        }
+    }
     for changed in [true, false] {
         let mut bad_request = crate::protocol::host_namespace::NamespaceRequest {
             nonce: [9; 32],
@@ -212,8 +222,7 @@ fn host_namespace_creation_fixture() {
         let before = fixture_identity(&target);
         let mut rejected =
             TerminalDirectory::open_bootstrap_parent(&parent, parent_identity).unwrap();
-        let failure =
-            create_host_namespace_child(&mut rejected, HostNamespaceChild::Recovery).unwrap_err();
+        let failure = create_host_recovery_directory(&mut rejected).unwrap_err();
         assert_eq!(
             failure.reason,
             if is_file {

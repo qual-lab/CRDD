@@ -15,7 +15,7 @@ export const PLATFORM_ACCESS_RUST_TOOLCHAIN = "1.94.1";
 export const PLATFORM_ACCESS_PROTOCOL_REVISION = 3;
 // Fixed bootstrap observation only; this hash issues no Runtime authority.
 export const PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256 =
-  "5ef70c6702203df63c6d9c68c3c38cac855e9da79fee331848e5de1619b9cdea";
+  "6df45144263f041c2adf98279ae28440a7b4c0b5861560100c5e33d10736ffb6";
 export const PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES = 16 * 1024 * 1024;
 export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe";

@@ -54,7 +54,6 @@ pub(super) struct TerminalDirectory {
     pub(super) close_confirmed: Option<bool>,
     pub(super) token_closes: Vec<bool>,
     pub(super) directory_closes: Vec<bool>,
-    pub(super) namespace: Option<TerminalNamespaceIdentity>,
 }
 
 /// 部分openの元理由と取得済み資源の初回終了を保持する。
@@ -77,163 +76,6 @@ pub(super) struct TerminalDirectoryOpenFailure {
 }
 
 impl TerminalDirectory {
-    /// OS一時所在候補の固定二childだけを開く。
-    ///
-    /// @responsibility 任意保存Pathを受け付けず、独立期待実体へ結ぶ。
-    /// @trace ARCH-000011
-    /// @input 三Directoryの独立五field・属性と現在選択利用者Hash。
-    /// @returns 全chain保持guard、または取得・個別closeを含む失敗。
-    /// @precondition 上位が期待値の由来・許可境界を確認する。専用観測Protocolとfixtureが利用する。
-    /// @postcondition parent/recovery/terminalと二protected ACLを保持handleで照合する。
-    /// @effect GetTempPathWとread-only handle取得。mkdir・保存・削除0。
-    /// @failure 不正期待値、所在候補不明、namespace欠落・差替え・保護不一致は停止。
-    /// @invariant TEMP/TMP値や同じ実体の観測からAuthorityを作らない。
-    /// @boundary 固定私有namespace→Windows temporary pathとFile API。
-    /// @security fallback、自由suffix、SID出力、旧Task再開を行わない。
-    /// @concurrency 全祖先保持後、後続verifyも同じ三実体・二ACLを再確認する。
-    pub(super) fn open_fixed_namespace(
-        expected: TerminalNamespaceIdentity,
-    ) -> Result<Self, TerminalDirectoryOpenFailure> {
-        let prepared = (|| {
-            validate_terminal_namespace(expected)?;
-            let mut buffer = [0_u16; 4097];
-            // SAFETY: bounded writable buffer; no pointer escapes the synchronous call.
-            let length = unsafe { GetTempPathW(buffer.len() as u32, buffer.as_mut_ptr()) };
-            let parent = decode_terminal_temporary_parent(&buffer, length)?;
-            Ok(parent
-                .join("crdd-coordinator-recovery-v1")
-                .join("terminal-v1"))
-        })();
-        match prepared {
-            Ok(path) => Self::open_observed(&path, Some(expected.terminal), Some(expected)),
-            Err(reason) => Err(TerminalDirectoryOpenFailure {
-                reason,
-                operation_reason: reason,
-                tokens_acquired: 0,
-                token_closes: Vec::new(),
-                directories_acquired: 0,
-                directory_closes: Vec::new(),
-            }),
-        }
-    }
-
-    /// 固定保存場所の実体と保護を初回観測する。
-    ///
-    /// @responsibility 未取得の期待値を捏造せず、CurrentからKnownへの入力を取得する。
-    /// @trace ARCH-000011
-    /// @input N/A: 固定OS所在と固定二childだけを使用する。
-    /// @returns 全chain・二保護・選択利用者を確認したguard、または取得と終了を持つ失敗。
-    /// @precondition 上位はCurrentを過去の連続性や非使用へ昇格しない。
-    /// @postcondition 三実体を保持handleから取得し、型・相異・二ACLを確認する。
-    /// @effect 読取りhandleとTokenの取得・終了だけ。作成・修復・削除0。
-    /// @failure 所在・欠落・保護・利用者・close不明は停止する。
-    /// @invariant 旧namespace未指定primitiveとは異なり、両Directoryの保護を必須とする。
-    /// @boundary 固定OS所在→Native初回保存境界。
-    /// @security 自由Path、SID出力、削除Authorityを追加しない。
-    /// @concurrency 全chain保持中に現在値を採取し、取得後も同じ実体で再照合する。
-    pub(super) fn capture_fixed_namespace() -> Result<Self, TerminalDirectoryOpenFailure> {
-        let mut buffer = [0_u16; 4097];
-        // SAFETY: bounded writable buffer and synchronous observation only.
-        let length = unsafe { GetTempPathW(buffer.len() as u32, buffer.as_mut_ptr()) };
-        match decode_terminal_temporary_parent(&buffer, length) {
-            Ok(parent) => Self::open_observed(
-                &parent
-                    .join("crdd-coordinator-recovery-v1")
-                    .join("terminal-v1"),
-                None,
-                None,
-            ),
-            Err(reason) => Err(TerminalDirectoryOpenFailure {
-                reason,
-                operation_reason: reason,
-                tokens_acquired: 0,
-                token_closes: Vec::new(),
-                directories_acquired: 0,
-                directory_closes: Vec::new(),
-            }),
-        }
-    }
-
-    /// 保持済みの固定三実体と二Directory保護を再確認する。
-    ///
-    /// @responsibility 最終Directoryだけの照合をnamespace全体の成立にしない。
-    /// @trace ARCH-000011
-    /// @input guard内の独立期待値と保持handle。
-    /// @returns 三実体・二ACL一致、または閉じた失敗。
-    /// @precondition 全chainを取得済み。旧primitiveはnamespaceを宣言しない。
-    /// @postcondition 属性・日時の差から重複実体を相異と扱わない。
-    /// @effect 同じ保持handleのmetadata・ACL読取りだけ。
-    /// @failure 欠落、Identity不一致または保護不明で停止。
-    /// @invariant 現在値を期待値へ書き戻さない。
-    /// @boundary Native chain guard→Windows metadata/ACL。
-    /// @security 非使用、削除許可、Root/marker成立を主張しない。
-    /// @concurrency 一意guardの同期借用だけ。
-    pub(super) fn verify_namespace(&self) -> Result<(), &'static str> {
-        let Some(expected) = self.namespace else {
-            return Ok(());
-        };
-        validate_terminal_namespace(expected)?;
-        let length = self.handles.len();
-        if length < 4 {
-            return Err("terminal_namespace_chain_missing");
-        }
-        for (offset, identity) in [
-            (3, expected.parent),
-            (2, expected.recovery),
-            (1, expected.terminal),
-        ] {
-            let handle = self.handles[length - offset].0;
-            if terminal_identity(handle)? != identity {
-                return Err("terminal_namespace_identity_mismatch");
-            }
-            if offset != 3 {
-                verify_terminal_protection(handle, &self.user, &self.system)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// local diskの全祖先を保持し、最後のDirectoryを照合する。
-    ///
-    /// @responsibility 相関済みDirectoryだけをstage作成へ渡す。
-    /// @trace ARCH-000011
-    /// @input 内部Path、期待する五field/属性Identity。
-    /// @returns 私有guard、または全close確認を含む失敗。
-    /// @precondition 上位が固定保存境界と許可範囲を確認する。現consumerは自己生成fixtureだけ。
-    /// @postcondition 全祖先非reparseと最後の保護を確認して保持する。
-    /// @effect 読取り/保持handleとTokenを取得する。Filesystem変更0。
-    /// @failure 不正/UNC/相対Path、open、Identity、保護、close不明で停止。
-    /// @invariant Directory保持をchild file保護へ昇格しない。
-    /// @boundary Native→Windows local directory chain。
-    /// @security ownerは現在Tokenの利用者。公開Path受付ではない。
-    /// @concurrency 全chainのshareREADをguard生存中保持する。
-    #[cfg(test)]
-    pub(super) fn open(path: &Path, expected: DirectoryIdentity) -> Result<Self, &'static str> {
-        Self::open_observed(path, Some(expected), None).map_err(|failure| failure.reason)
-    }
-
-    /// 全chainの取得と失敗時の個別終了を共同保持する。
-    ///
-    /// @responsibility 旧私有入口と固定namespace入口で取得・終了の意味を揃える。
-    /// @trace ARCH-000011
-    /// @input 内部Path、Known時だけ独立した最終実体とnamespace。Current時は両方None。
-    /// @returns 保持guard、または元理由と全取得済み資源の初回close結果。
-    /// @precondition Pathは公開入力ではなく内部Ownerが決定している。
-    /// @postcondition 受理時は全chain非reparse・最終保護・適用するnamespaceを確認する。
-    /// @effect TokenとDirectoryの読取りhandle取得。Filesystem変更0。
-    /// @failure 部分取得、利用者・実体・ACL不一致とclose不明を共同保持する。
-    /// @invariant Dropを明示closeの代替にせず、Currentの取得値を過去の期待値にしない。
-    /// @boundary 私有Native→Windows Token/File API。
-    /// @security 元Task TokenやAuthorityを発行しない。
-    /// @concurrency 同threadの全chain保持と同期取得だけ。
-    pub(super) fn open_observed(
-        path: &Path,
-        expected: Option<DirectoryIdentity>,
-        namespace: Option<TerminalNamespaceIdentity>,
-    ) -> Result<Self, TerminalDirectoryOpenFailure> {
-        Self::open_guard(path, expected, namespace, false)
-    }
-
     /// 保護付き作成前の一時親だけを全祖先とともに保持する。
     ///
     /// @responsibility 未作成childの保護を親の保護から推定しない。
@@ -253,17 +95,17 @@ impl TerminalDirectory {
         path: &Path,
         expected: DirectoryIdentity,
     ) -> Result<Self, TerminalDirectoryOpenFailure> {
-        Self::open_guard(path, Some(expected), None, true)
+        Self::open_guard(path, Some(expected))
     }
 
     /// 通常保存と作成前の親取得で同じchain取得・終了を使用する。
     ///
     /// @responsibility 作成前の親だけに最終ACL検査の非適用を限定する。
     /// @trace ARCH-000011
-    /// @input 内部Path、独立期待値、保存時namespace、私有bootstrap指定。
+    /// @input 内部Path、独立期待値、親の独立期待値。
     /// @returns 全取得guardまたは元理由と個別close。
-    /// @precondition bootstrapはnamespaceなしの固定一時親。期待値なしは読取り専用の現在値採取だけ。
-    /// @postcondition 既存保存入口の最終ACL・namespace検査は省略しない。
+    /// @precondition 固定一時親だけ。期待値なしは読取り専用の現在値採取だけ。
+    /// @postcondition 親chainを保持し、Recovery作成後のACL検査へ接続する。
     /// @effect 読取りToken・Directory取得だけ。
     /// @failure 不正組合せ、chain・実体・保護または終了不明を停止。
     /// @invariant bootstrap guardは終端記録の保存Authorityではない。
@@ -273,8 +115,6 @@ impl TerminalDirectory {
     pub(super) fn open_guard(
         path: &Path,
         expected: Option<DirectoryIdentity>,
-        namespace: Option<TerminalNamespaceIdentity>,
-        bootstrap: bool,
     ) -> Result<Self, TerminalDirectoryOpenFailure> {
         let mut guard = Self {
             path: path.to_path_buf(),
@@ -293,13 +133,9 @@ impl TerminalDirectory {
             close_confirmed: None,
             token_closes: Vec::new(),
             directory_closes: Vec::new(),
-            namespace,
         };
         let mut acquisition_reason = None;
         let observed = (|| {
-            if bootstrap && namespace.is_some() {
-                return Err("terminal_bootstrap_context_invalid");
-            }
             let components: Vec<_> = path.components().collect();
             if !matches!(components.first(), Some(Component::Prefix(prefix)) if matches!(prefix.kind(), std::path::Prefix::Disk(_)))
                 || components.get(1) != Some(&Component::RootDir)
@@ -343,18 +179,9 @@ impl TerminalDirectory {
             let token_observed = (|| {
                 let user = token_user_sid_bytes(primary.0).ok_or("terminal_user_unknown")?;
                 let system = local_system_sid_bytes().ok_or("terminal_system_unknown")?;
-                let selected = if guard.namespace.is_some() || expected.is_none() || bootstrap {
-                    let binding = selected_user_token_binding(primary.0, impersonation.0)
-                        .ok_or("terminal_selected_user_unknown")?;
-                    if guard.namespace.is_some_and(|namespace| {
-                        binding.principal_identity_hash != namespace.selected_user
-                    }) {
-                        return Err("terminal_selected_user_mismatch");
-                    }
-                    Some(binding.principal_identity_hash)
-                } else {
-                    None
-                };
+                let binding = selected_user_token_binding(primary.0, impersonation.0)
+                    .ok_or("terminal_selected_user_unknown")?;
+                let selected = Some(binding.principal_identity_hash);
                 Ok((user, system, selected))
             })();
             guard
@@ -400,24 +227,7 @@ impl TerminalDirectory {
                 return Err("terminal_directory_identity_mismatch");
             }
             guard.identity = current_identity;
-            if expected.is_none() && !bootstrap {
-                let length = guard.handles.len();
-                if length < 4 {
-                    return Err("terminal_namespace_chain_missing");
-                }
-                guard.namespace = Some(TerminalNamespaceIdentity {
-                    parent: terminal_identity(guard.handles[length - 3].0)?,
-                    recovery: terminal_identity(guard.handles[length - 2].0)?,
-                    terminal: current_identity,
-                    selected_user: selected.ok_or("terminal_selected_user_unknown")?,
-                });
-            }
-            if bootstrap {
-                Ok(())
-            } else {
-                verify_terminal_protection(handle, &guard.user, &guard.system)?;
-                guard.verify_namespace()
-            }
+            Ok(())
         })();
         if let Err(reason) = observed {
             let closed = guard.close();
@@ -460,7 +270,7 @@ impl TerminalDirectory {
             return Err("terminal_directory_identity_mismatch");
         }
         verify_terminal_protection(handle, &self.user, &self.system)?;
-        self.verify_namespace()
+        Ok(())
     }
 
     /// 全保持handleの終了を逆順に明示確認する。
@@ -495,21 +305,6 @@ impl TerminalDirectory {
         }
         closed
     }
-}
-
-/// 保護付き初期化が扱える固定childを区別する。
-///
-/// @responsibility 共有管理先と終端保存先の作成を同じ自由Path操作にしない。
-/// @trace ARCH-000011
-/// @shape RecoveryとTerminalの閉じた二variant。
-/// @invariant 既存ACL移行または任意名を表すvariantは持たない。
-/// @boundary 私有Native初期化Owner。
-/// @security 観測・保存の要求から暗黙発火しない。
-/// @compatibility 現行の固定二child名を維持する。
-#[derive(Clone, Copy)]
-pub(super) enum HostNamespaceChild {
-    Recovery,
-    Terminal,
 }
 
 /// 初期化の発行・観測・部分終了を保持する。
@@ -560,9 +355,8 @@ pub(super) struct HostNamespaceCreationFailure {
 /// @boundary 私有Native初期化→Windows Directory/ACL API。
 /// @security 任意Path・SID・mask、汎用mkdirまたは権限移行の公開入口ではない。
 /// @concurrency 親chainを保持し、作成競合後もfreshなchild handleで照合する。
-pub(super) fn create_host_namespace_child(
+pub(super) fn create_host_recovery_directory(
     parent: &mut TerminalDirectory,
-    child: HostNamespaceChild,
 ) -> Result<HostNamespaceCreationReceipt, HostNamespaceCreationFailure> {
     let mut receipt = HostNamespaceCreationReceipt {
         create_issued: false,
@@ -573,10 +367,7 @@ pub(super) fn create_host_namespace_child(
     };
     let mut operation_reason = None;
     let result = (|| {
-        if parent.close_confirmed.is_some()
-            || parent.namespace.is_some()
-            || parent.selected_user.is_none()
-        {
+        if parent.close_confirmed.is_some() || parent.selected_user.is_none() {
             return Err("terminal_bootstrap_parent_invalid");
         }
         let parent_handle = parent.handles.last().ok_or("terminal_directory_missing")?.0;
@@ -588,18 +379,7 @@ pub(super) fn create_host_namespace_child(
                 return Err("terminal_not_directory");
             }
         }
-        let leaf = match child {
-            HostNamespaceChild::Recovery => "crdd-coordinator-recovery-v1",
-            HostNamespaceChild::Terminal => {
-                if parent.path.file_name()
-                    != Some(std::ffi::OsStr::new("crdd-coordinator-recovery-v1"))
-                {
-                    return Err("terminal_bootstrap_parent_invalid");
-                }
-                verify_terminal_protection(parent_handle, &parent.user, &parent.system)?;
-                "terminal-v1"
-            }
-        };
+        let leaf = "crdd-coordinator-recovery-v1";
         let target = parent.path.join(leaf);
         if !observe_terminal_presence(&target)? {
             let mut wide: Vec<u16> = target.as_os_str().encode_wide().collect();
@@ -680,7 +460,7 @@ pub(super) fn create_host_namespace_child(
 /// @input 専用parserのnonceと作成時だけ独立親Identity・利用者Hash。
 /// @returns 親観測、三境界確認、または停止と部分receipt。
 /// @precondition 上位が署名実行物と呼出し許可を確認する。
-/// @postcondition 両childの保護・三実体相異・全終了を確認して初期化完了を返す。
+/// @postcondition 両childの保護・二実体相異・全終了を確認して初期化完了を返す。
 /// @effect GetTempPathW、Token・祖先handle観測、作成要求時だけ固定childの作成。
 /// @failure 所在・実体・利用者・作成・保護・終了の不明を停止する。
 /// @invariant 既存不適合ACLを修復せず、共有境界をrollbackしない。
@@ -707,7 +487,7 @@ pub(crate) fn host_recovery_namespace_request(
 /// @returns 同nonceの部分結果と個別終了。
 /// @precondition 本番はGetTempPathW固定親、試験はRepository内の自作fixtureだけ。
 /// @postcondition 期待値一致前はchild作成0。成功でも記録保存Authorityを持たない。
-/// @effect 読取りchainと、期待値付き要求時だけ固定二childを作成する。
+/// @effect 読取りchainと、期待値付き要求時だけ固定Recovery Directoryを作成する。
 /// @failure 取得・期待差・子作成・検証・終了不明を停止結果へ保持する。
 /// @invariant 失敗後も初期化receiptを捨てず、共有物を削除しない。
 /// @boundary 私有Native Owner→Windows。
@@ -727,7 +507,7 @@ pub(super) fn host_namespace_at_parent(
         creation_time_high: fields[4],
         attributes: fields[5],
     });
-    let opened = TerminalDirectory::open_guard(parent, expected, None, true);
+    let opened = TerminalDirectory::open_guard(parent, expected);
     let mut guard = match opened {
         Ok(guard) => guard,
         Err(failure) => {
@@ -741,7 +521,7 @@ pub(super) fn host_namespace_at_parent(
     response.identities[0] = Some(terminal_identity_fields(guard.identity));
     response.selected_user = guard.selected_user;
     let parent_slot = guard.handles.len() - 1;
-    let mut held_slots = [None; 2];
+    let mut held_slots = [None; 1];
     let mut recovery_identity = None;
     let result = (|| {
         let selected_user = guard
@@ -751,36 +531,29 @@ pub(super) fn host_namespace_at_parent(
             if selected_user != expected_user {
                 return Err("terminal_selected_user_mismatch");
             }
-            if guard.handles.len() > MAX_CHAIN_HANDLES - 2 {
+            if guard.handles.len() > MAX_CHAIN_HANDLES - 1 {
                 return Err("terminal_namespace_chain_limit");
             }
-            for (index, child) in [HostNamespaceChild::Recovery, HostNamespaceChild::Terminal]
-                .into_iter()
-                .enumerate()
-            {
-                let slot = guard.handles.len();
-                let (receipt, failure) = match create_host_namespace_child(&mut guard, child) {
-                    Ok(receipt) => (receipt, None),
-                    Err(failure) => {
-                        response.operation_reason = Some(failure.operation_reason);
-                        (failure.receipt, Some(failure.reason))
-                    }
-                };
-                response.identities[index + 1] = receipt.identity.map(terminal_identity_fields);
-                if index == 0 {
-                    recovery_identity = receipt.identity;
+            let slot = guard.handles.len();
+            let (receipt, failure) = match create_host_recovery_directory(&mut guard) {
+                Ok(receipt) => (receipt, None),
+                Err(failure) => {
+                    response.operation_reason = Some(failure.operation_reason);
+                    (failure.receipt, Some(failure.reason))
                 }
-                response.children[index] = Some(ChildReceipt {
-                    create_issued: receipt.create_issued,
-                    created: receipt.created,
-                    handle_acquired: receipt.child_handle_acquired,
-                    close: receipt.child_close_confirmed,
-                });
-                if let Some(reason) = failure {
-                    return Err(reason);
-                }
-                held_slots[index] = Some(slot);
+            };
+            response.identities[1] = receipt.identity.map(terminal_identity_fields);
+            recovery_identity = receipt.identity;
+            response.children[0] = Some(ChildReceipt {
+                create_issued: receipt.create_issued,
+                created: receipt.created,
+                handle_acquired: receipt.child_handle_acquired,
+                close: receipt.child_close_confirmed,
+            });
+            if let Some(reason) = failure {
+                return Err(reason);
             }
+            held_slots[0] = Some(slot);
             guard.verify()?;
             if terminal_identity(guard.handles[parent_slot].0)?
                 != expected.ok_or("terminal_bootstrap_parent_invalid")?
@@ -797,7 +570,6 @@ pub(super) fn host_namespace_at_parent(
             validate_terminal_namespace(TerminalNamespaceIdentity {
                 parent: expected.ok_or("terminal_bootstrap_parent_invalid")?,
                 recovery: recovery_identity.ok_or("terminal_directory_identity_unknown")?,
-                terminal: guard.identity,
                 selected_user,
             })?;
             response.status = 2;
@@ -862,7 +634,7 @@ pub(super) fn terminal_identity_fields(value: DirectoryIdentity) -> [u32; 6] {
 ///
 /// @responsibility 観測値をその場で期待値へ付け替えない。
 /// @trace ARCH-000011
-/// @shape parent/recovery/terminalの五fieldと属性、選択利用者Hash。
+/// @shape parent/recoveryの五fieldと属性、選択利用者Hash。
 /// @invariant 三対象はvolume/file-indexで相異なる。
 /// @boundary 私有Native固定境界。公開Protocolへ未接続。
 /// @security Path、SID、Authorityを入力値へ含めない。
@@ -871,7 +643,6 @@ pub(super) fn terminal_identity_fields(value: DirectoryIdentity) -> [u32; 6] {
 pub(super) struct TerminalNamespaceIdentity {
     pub(super) parent: DirectoryIdentity,
     pub(super) recovery: DirectoryIdentity,
-    pub(super) terminal: DirectoryIdentity,
     pub(super) selected_user: [u8; 32],
 }
 
@@ -880,7 +651,7 @@ pub(super) struct TerminalNamespaceIdentity {
 /// @responsibility 同じfile-indexを日時・属性差で別対象へ見せない。
 /// @trace ARCH-000011
 /// @input 私有namespaceの独立期待値。
-/// @returns Directory・非reparse・三実体相異ならOk。
+/// @returns Directory・非reparse・二実体相異ならOk。
 /// @precondition Identity取得の由来と許可は上位Ownerが確認する。
 /// @postcondition 不正期待値からOS handleを取得しない。
 /// @effect N/A: 値の検査だけ。
@@ -892,7 +663,7 @@ pub(super) struct TerminalNamespaceIdentity {
 pub(super) fn validate_terminal_namespace(
     expected: TerminalNamespaceIdentity,
 ) -> Result<(), &'static str> {
-    let identities = [expected.parent, expected.recovery, expected.terminal];
+    let identities = [expected.parent, expected.recovery];
     for (index, identity) in identities.iter().enumerate() {
         if identity.attributes & FILE_ATTRIBUTE_DIRECTORY == 0
             || identity.attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0

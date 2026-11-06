@@ -196,10 +196,10 @@ fn dedicated_namespace_modes_reject_before_os_effect() {
         assert_eq!(output.status.code(), Some(2));
         assert!(output.stderr.is_empty());
         if arguments.len() == 1 {
-            assert_eq!(&output.stdout[..8], b"CRDDNR01");
+            assert_eq!(&output.stdout[..8], b"CRDDNR02");
             assert_eq!(&output.stdout[42..49], &[0, 34, 0, 0, 0, 0, 0]);
-            assert_eq!(&output.stdout[49..59], &[0, 0, 2, 0, 2, 0, 0, 2, 0, 2]);
-            assert_eq!(&output.stdout[59..], b"terminal_namespace_request_invalid");
+            assert_eq!(&output.stdout[49..54], &[0, 0, 2, 0, 2]);
+            assert_eq!(&output.stdout[54..], b"terminal_namespace_request_invalid");
         } else {
             assert_eq!(&output.stdout[..8], b"CRDDPR03");
         }

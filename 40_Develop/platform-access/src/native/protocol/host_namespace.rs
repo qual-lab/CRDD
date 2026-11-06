@@ -21,7 +21,7 @@ pub(crate) struct NamespaceRequest {
     pub expected: Option<([u32; 6], [u8; 32])>,
 }
 
-/// 二つの固定childそれぞれの部分結果を保持する。
+/// 固定Recovery Directoryそれぞれの部分結果を保持する。
 ///
 /// @responsibility 未試行、発行、結果不明とclose不明を分ける。
 /// @trace ARCH-000011
@@ -42,19 +42,19 @@ pub(crate) struct ChildReceipt {
 ///
 /// @responsibility 完了主張を実体・処置・終了の共同成立へ限定する。
 /// @trace ARCH-000011
-/// @shape status 0=停止、1=親観測、2=初期化確認、三実体、利用者Hash、二receipt、close列。
+/// @shape status 0=停止、1=親観測、2=初期化確認、二実体、利用者Hash、一receipt、close列。
 /// @invariant 初期化確認はTask回復や旧資源の非使用を意味しない。
 /// @boundary Native→Coordinator内部初期化Owner。
 /// @security Path、SID、元TokenとAuthorityを含まない。
-/// @compatibility CRDDNR01 revision 1のみ。
+/// @compatibility CRDDNR02 revision 2のみ。
 pub(crate) struct NamespaceResponse {
     pub nonce: [u8; 32],
     pub status: u8,
     pub reason: &'static str,
     pub operation_reason: Option<&'static str>,
-    pub identities: [Option<[u32; 6]>; 3],
+    pub identities: [Option<[u32; 6]>; 2],
     pub selected_user: Option<[u8; 32]>,
-    pub children: [Option<ChildReceipt>; 2],
+    pub children: [Option<ChildReceipt>; 1],
     pub token_closes: Vec<bool>,
     pub directory_closes: Vec<bool>,
 }
@@ -122,9 +122,9 @@ pub(crate) fn blocked(nonce: [u8; 32], reason: &'static str) -> NamespaceRespons
         status: 0,
         reason,
         operation_reason: None,
-        identities: [None; 3],
+        identities: [None; 2],
         selected_user: None,
-        children: [None; 2],
+        children: [None; 1],
         token_closes: Vec::new(),
         directory_closes: Vec::new(),
     }
@@ -168,7 +168,7 @@ pub(crate) fn encode_response(response: &NamespaceResponse) -> Option<Vec<u8>> {
         return None;
     }
     if response.status != 0 {
-        let count = if response.status == 1 { 1 } else { 3 };
+        let count = if response.status == 1 { 1 } else { 2 };
         if response.nonce == [0; 32]
             || response.operation_reason.is_some()
             || response
@@ -217,8 +217,8 @@ pub(crate) fn encode_response(response: &NamespaceResponse) -> Option<Vec<u8>> {
             mask | (u8::from(value.is_some()) << index)
         });
     let mut bytes = Vec::with_capacity(MAX_RESPONSE_BYTES);
-    bytes.extend_from_slice(b"CRDDNR01");
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(b"CRDDNR02");
+    bytes.extend_from_slice(&2_u16.to_le_bytes());
     bytes.extend_from_slice(&response.nonce);
     bytes.extend_from_slice(&[
         response.status,

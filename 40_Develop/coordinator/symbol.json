@@ -3208,20 +3208,6 @@
       "verifies": []
     },
     {
-      "symbolId": "coordinator.verification.native-terminal-namespace",
-      "kind": "verification-tool",
-      "path": "scripts/verify-native-terminal-namespace.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002",
-        "ERB-IT-003"
-      ],
-      "verifies": []
-    },
-    {
       "symbolId": "coordinator.test.integration.native-tool-process",
       "kind": "test-suite",
       "path": "tests/integration/native-tool-process.contract.test.ts",
@@ -3233,8 +3219,7 @@
         "ERB-IT-002"
       ],
       "verifies": [
-        "coordinator.verification.native-protection",
-        "coordinator.verification.native-terminal-namespace"
+        "coordinator.verification.native-protection"
       ]
     },
     {
@@ -3248,8 +3233,7 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.verification.native-protection",
-        "coordinator.verification.native-terminal-namespace"
+        "coordinator.verification.native-protection"
       ]
     },
     {

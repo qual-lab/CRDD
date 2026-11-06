@@ -1,5 +1,7 @@
 # CRDD内部ツールの品質の現在状態
 
+Namespace旧子は作成・検査対象から撤去し、通常RecoveryのSID／DACL・祖先保持を維持した。Node統合と保護Policy撤廃は未実装である。[今回の限定確認](04_Quality_Integration.md#namespace旧子の撤去--2026-11-06)を参照する。過去保持物は不変更。
+
 本番未使用の端末・確認コード・旧Root観測を退役した。共用処理の限定回帰と台帳整合は成功し、Windows保護やPA全体の撤去完了とはしない。[現在の限定結果](04_Quality_Integration.md#本番未使用の端末旧root観測の退役2026-11-06)を参照する。
 
 未接続Host終端記録・専用caller Leaseを退役し、Namespace・共有Pipe・通常Recoveryを維持した。局所回帰と台帳照合の結果は[Quality Integration](04_Quality_Integration.md#未接続host終端機能の退役2026-11-06)と[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)を参照する。Rust／PA全体の撤去、Windows保護変更、正式QA全体のPassを示さない。

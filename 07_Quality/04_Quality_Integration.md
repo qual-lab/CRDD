@@ -1,5 +1,9 @@
 # Quality Integration
 
+## Namespace旧子の撤去 — 2026-11-06
+
+親＋Recovery Directoryの保護を維持し、旧終端子の作成・検査・専用診断を退役した。PA96・Coordinator8・Checker35・VC13件とNamespace純値／Protocol4件が成功した。新品自己生成fixtureでは作成・reuse・不適合拒否・旧子無変更・回収後不存在を確認した。既存保持物や保護Policyは変更していない。結果・制限環境でのEffect前停止・Node統合未実装は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)へ接続し、正式QA全体へ一般化しない。
+
 ## 本番未使用の端末・旧Root観測の退役 — 2026-11-06
 
 端末5 Source・旧Root観測・Reader登録・AppContainer受付・未使用停止Wrapperと専用試験を退役した。共有Home Hash・SID反例は存続Ownerへ移し、共有Pipe・Namespace・実停止能力は維持する。PA96・Coordinator24・Executor7・Checker35・VC13件成功、Rust28成功・12既存ignored、旧CLI拒否2成功、Catalog439件valid。正式QA全体・実AI／Docker E2Eへ一般化しない。[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)に独立レビューと未実施範囲を接続する。

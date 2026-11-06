@@ -1,5 +1,17 @@
 # Platform Accessの構造・Native接続再編
 
+## Namespace旧子の撤去・Node統合案 — 2026-11-06
+
+承認範囲は旧`terminal-v1`の新規作成・実体／ACL検査の撤去と、通常回復Directory初期化のNode統合案の整理である。保護Policy、通常HostRecovery保存DTO、既存保持物は変更しない。旧子用の固定再観測・専用fixture／Toolも退役し、親＋Recoveryの二実体・一Receiptへ縮小した。要求はCRDDNC01／CRDDNI01のまま、短命応答だけCRDDNR02 revision 2へ切り替え、旧応答fallbackはない。
+
+着手前の独立確認と実装照合では、親の独立Identity・selected SID、Recoveryの作成時protected DACL・fresh実体・処置後照合、祖先Handleの保持・全取得資源の初回close、部分Effect／元理由の保持を不変条件とした。変更分類は限定的な技術Refactorであり、利用側・台帳・Architecture・Workflowと対象回帰・独立レビューを実施する。標準規範・Release・保存Schemaを変更しないため全体準拠／Release監査は追加しない。
+
+新品run `9bc133a8a493cc0918fcf915abd2bde7`の既存Creation fixtureで保護付き作成・無変更reuse・不適合ACL／同名File拒否・旧子File／Directoryの同一性／内容不変を確認し、自作物を非再帰回収して不存在を確認した。制限環境の先行runはSID判定でDirectory作成前に停止し、条件は緩めていない。既存旧子、実共有領域、外部AI、Dockerは操作しない。旧子linkの実作成は行わず、Native本体に旧子名・探索／観測経路が存在しないことを静的反証で確認する。
+
+PA通常96・Coordinator8・Checker35・VC13件成功、Namespace純粋／Protocol4件成功（3既存ignored）、Catalog439件valid、対象の型・書式・Rust全target確認成功。固定targetのrelease buildから配布Nativeを更新し、261,120 bytes・SHA-256 `6df45144263f041c2adf98279ae28440a7b4c0b5861560100c5e33d10736ffb6`をbootstrapと合成fixtureへ反映した。配布物自身の二mode不正要求も取得前拒否・revision 2・実体なし／未試行Receiptとして確認した。正式QA全体・実AI／Docker E2Eの成立ではない。独立レビューの旧Protocol説明指摘は親＋Recovery／revision 2へ是正し、再レビューに未解消の確定指摘はない。コミット・プッシュは未実施。
+
+Node統合案と、SID／DACL・祖先Handle保護を外した場合の影響は[PA詳細設計](../../../06_Architecture/Details/platform-access/01_Architecture.md#namespaceの旧子撤去とnodejs統合の検討--2026-11-06)に置く。Policy維持ならNodeの既存初期化OwnerからWindowsの保護付き作成を先に完了し、Nodeによる通常mkdir先行は行わない。Policy撤廃ならNode標準へ一本化できるが、Windowsのmode 0700は厳密DACLの代替ではない。現在の許可はこのPolicy変更を含まない。
+
 ## 本番未使用の端末・旧Root観測の撤去 — 2026-11-06
 
 人間承認により6 Sourceと部分削除候補を撤去した。確認コード・端末の5 File、旧Rust Root観測、Reader起動登録、旧Root Request／構成検査・AppContainer Pipe受付、未使用公式停止Wrapperが対象。代替・互換Reader・新Packageを作らない。現存37 Sourceは、本番利用中の共有Pipe、Home／Namespace、Native実体、環境差分、Docker補助Process等に限定する。PA全廃は未完了。

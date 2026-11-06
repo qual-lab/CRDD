@@ -56,9 +56,9 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 
 ## 自己生成Native保存境界試験
 
-静的確認後、Repository Rootから`npm run platform-access:verify-namespace --prefix 40_Develop/coordinator`で起動する。入口は同じ共有cacheから今回Cargoのtest実行物一件を取得し、`.crdd/tests/native-terminal-<UUID>/namespace-r2`だけを自己生成対象とする。保存境界3Directoryの正常例と19拒否例、全handle終了、exact試験一件、exit/close、入力不変と直接不存在を共同確認する。結果保存・清掃前は成否と独立して全保存祖先を再照合し、置換・観測不能では書込みと清掃を止める。成功時は小さなrunを回収し、失敗時は保持して次回開始前に処置する。
+旧`terminal-v1`専用の三実体観測・19拒否例と、その専用起動Toolは退役した。現在の親・Recovery Directoryの作成／再利用／既存不適合拒否は、`host_namespace_creation_fixture`が自己生成領域だけで確認する。固定targetの今回Cargo出力一件を取得し、Repository Root・32桁の新品run識別子・未存在の`.crdd/tests/namespace-recovery-<run>`を固定して明示実行する。成功後は試験が自作対象だけをIdentity確認して非再帰回収し、不明・失敗時はそのexact領域を保持する。通常の実共有領域や既存`terminal-v1`を試験へ使わない。
 
-専用Host終端記録の観測・保存・容量・公開・disposition等の旧自己生成試験は、未接続Capabilityとともに退役した。旧Toolを再実行せず、過去保持物の観測・回収許可へ流用しない。存続するNamespace・保護試験は各専用入口の範囲だけで実施する。
+専用のNative読取り・初期化応答はCRDDNR02 revision 2であり、親とRecoveryの二実体・一Receiptだけを返す。要求形式と、利用者SID／DACL／祖先Handle・処置後照合・初回終了の条件は維持する。Node.js統合や保護Policyの撤廃は、この試験の実行許可には含めない。
 
 ## 自己生成Native保護試験の反復と終了処置
 
