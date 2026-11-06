@@ -15,6 +15,26 @@ export {
   pushRepositoryRevision,
 } from "./repository/remote.ts";
 export type {
+  PathsRequest,
+  ChangesCommitRequest,
+  RepositoryPushRequest,
+  ReferenceCreateRequest,
+  ReferenceRemoveRequest,
+  ReferenceResult,
+  Repository,
+  RepositoryResult,
+  CommitFileReadRequest,
+  CommitFile,
+  CommitFilesCopyRequest,
+  CommitFilesCopyResult,
+  CommitCreateRequest,
+  CommitCreateResult,
+  CommitMergeRequest,
+  CommitMergeResult,
+  FileReadRequest,
+  WorkingFile,
+  CommitDiffRequest,
+  CommitDiff,
   CommitSelection,
   CommitTemporary,
   ChangesResult,
@@ -37,13 +57,14 @@ export {
 export type {
   WorktreeTarget,
   WorktreeResult,
+  WorktreeCreateRequest,
+  WorktreeRemoveRequest,
 } from "./worktree/types.ts";
 export { readWorkingChanges } from "./repository/working-directory.ts";
 export { registerRepositoryLocalIgnore } from "./repository/ignore.ts";
 export {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  type Repository,
   getRepository,
   getRepositoryFromWorkingDirectory,
 } from "./repository/location.ts";
@@ -61,3 +82,7 @@ export {
 export { readFileDiff, readCommitDiff } from "./repository/changes.ts";
 
 export { mergeCommit } from "./repository/merge.ts";
+export type {
+  FixedRevisionIdentity,
+  RepositoryRevisionObservation,
+} from "./repository/revision.ts";

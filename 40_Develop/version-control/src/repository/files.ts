@@ -15,6 +15,7 @@ import {
 } from "../git/objects.ts";
 import { resolveRepositoryGitLayout } from "./layout.ts";
 import { runGitReadCommand } from "../git/read.ts";
+import { readRepositoryFormat } from "./revision.ts";
 import {
   getRepositoryFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
@@ -23,7 +24,6 @@ import {
 import type {
   FileReadRequest,
   WorkingFile,
-  CommitSelection,
   TreeEntry,
   TreePage,
   CommitFile,
@@ -596,14 +596,23 @@ export function copyCommitFiles(
   );
 }
 
-/** 現在Worktreeの確認内容と固定に使うraw Blob値を同じ対象から読む。 */
+/**
+ * 現在Worktreeの内容・比較差分・raw Blob値を同じ対象から読む。
+ * @responsibility 省略時の比較HEADを一度確定し、明示Baseと同じ前後照合を行う。
+ * @trace ARCH-000002 ARCH-000009
+ * @failure HEADなし・不正Base・形式不一致・内容／HEAD変更は拒否する。
+ * @security Path・link・容量・期限の既存検査を維持し、読取りを採用許可にしない。
+ */
 export function readFile(
   capability: Repository,
   request: FileReadRequest,
 ): WorkingFile {
-  const { baseCommit, path: selectedPath } = request;
-  if (!isCommitId(baseCommit) || !isCommitPath(selectedPath))
-    throw Error("candidate_input_invalid");
+  const { baseCommit: requestedBase, path: selectedPath } = request;
+  if (
+    (requestedBase !== undefined && !isCommitId(requestedBase)) ||
+    !isCommitPath(selectedPath)
+  )
+    throw Error("repository_file_input_invalid");
   const ctx = createWorktreeGitContext(capability);
   const before = ctx.inspect();
   if (
@@ -613,7 +622,16 @@ export function readFile(
     before.prunable ||
     !before.head
   )
-    throw new Error("candidate_workspace_mismatch");
+    throw new Error("repository_file_worktree_mismatch");
+  const format = readRepositoryFormat(capability);
+  if (format === null)
+    throw new Error("repository_file_observation_unavailable");
+  const oidLength = format.objectFormat === "sha1" ? 40 : 64;
+  if (before.head.length !== oidLength)
+    throw new Error("repository_file_worktree_mismatch");
+  const baseCommit = requestedBase ?? before.head;
+  if (baseCommit.length !== oidLength)
+    throw new Error("repository_file_input_invalid");
   const segments = selectedPath.split("/");
   let directory = ctx.target;
   for (const segment of segments.slice(0, -1)) {
@@ -624,7 +642,7 @@ export function readFile(
       info.isSymbolicLink() ||
       fs.existsSync(path.join(directory, ".git"))
     )
-      throw new Error("candidate_path_invalid");
+      throw new Error("repository_file_path_invalid");
   }
   const file = path.join(ctx.target, ...segments);
   let bytes: Buffer | null = null;
@@ -637,10 +655,10 @@ export function readFile(
       info.nlink !== 1 ||
       info.size > 1024 * 1024
     )
-      throw new Error("candidate_path_invalid");
+      throw new Error("repository_file_path_invalid");
     bytes = fs.readFileSync(file);
     if (bytes.length > 1024 * 1024)
-      throw new Error("candidate_content_too_large");
+      throw new Error("repository_file_content_too_large");
     const tracked = ctx.run(ctx.owner, [
       "ls-tree",
       baseCommit,
@@ -648,7 +666,7 @@ export function readFile(
       selectedPath,
     ]);
     if (tracked.status !== 0)
-      throw new Error("candidate_observation_unavailable");
+      throw new Error("repository_file_observation_unavailable");
     mode = (
       process.platform === "win32"
         ? tracked.stdout.startsWith("100755 ")
@@ -669,9 +687,9 @@ export function readFile(
     selectedPath,
   ]);
   if (diff.status !== 0 || Buffer.byteLength(diff.stdout) > 256 * 1024)
-    throw new Error("candidate_observation_unavailable");
+    throw new Error("repository_file_observation_unavailable");
   if (ctx.inspect().head !== before.head)
-    throw new Error("candidate_workspace_mismatch");
+    throw new Error("repository_file_worktree_mismatch");
   if (bytes !== null) {
     const fresh = fs.lstatSync(file);
     if (
@@ -681,11 +699,11 @@ export function readFile(
       fresh.size > 1024 * 1024 ||
       !fs.readFileSync(file).equals(bytes)
     )
-      throw new Error("candidate_content_changed");
+      throw new Error("repository_file_content_changed");
   } else {
     try {
       fs.lstatSync(file);
-      throw new Error("candidate_content_changed");
+      throw new Error("repository_file_content_changed");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -693,7 +711,7 @@ export function readFile(
   const blobId =
     bytes === null
       ? null
-      : createHash(baseCommit.length === 40 ? "sha1" : "sha256")
+      : createHash(format.objectFormat)
           .update(`blob ${bytes.length}\0`)
           .update(bytes)
           .digest("hex");
@@ -715,10 +733,10 @@ export function readFile(
       path: selectedPath,
       blobId,
       mode,
-    } as CommitSelection,
+    },
     content,
     binary,
     patch: diff.stdout,
-    truncated: false as const,
+    truncated: false,
   };
 }

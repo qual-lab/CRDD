@@ -214,7 +214,11 @@ export type CommitMergeResult = Readonly<{
   effectIssued: boolean;
 }>;
 
-export type FileReadRequest = Readonly<{ baseCommit: string; path: string }>;
+/** 現在Fileを読む。比較基準の省略時は同じ観測のHEADを使う。 */
+export type FileReadRequest = Readonly<{
+  baseCommit?: string | undefined;
+  path: string;
+}>;
 export type WorkingFile = Readonly<{
   baseCommit: string;
   head: string;

@@ -124,7 +124,8 @@
         "version-control.git-read-command",
         "version-control.git.execute",
         "version-control.repository.files",
-        "version-control.repository.working-directory"
+        "version-control.repository.working-directory",
+        "version-control.repository.commit"
       ]
     },
     {

@@ -14,9 +14,55 @@ import path from "node:path";
 import test from "node:test";
 
 import { getRepository } from "../../src/repository/location.ts";
+import {
+  createCommit,
+  mergeCommit,
+  pushRepositoryRevision,
+  createReference,
+  type Repository,
+  type CommitCreateRequest,
+  type CommitCreateResult,
+  type CommitMergeRequest,
+  type CommitMergeResult,
+  type RepositoryPushRequest,
+  type ChangesResult,
+  type ReferenceCreateRequest,
+  type ReferenceResult,
+} from "../../src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const developRoot = path.join(repositoryRoot, "40_Develop");
+
+/** 公開操作の入力構築・結果保持に必要なOwner型がRootから直接参照できる。 */
+test("完成操作は既存の明示Request／Result型で参照できる", () => {
+  const operations: {
+    create: (
+      repository: Repository,
+      request: CommitCreateRequest,
+    ) => CommitCreateResult;
+    merge: (
+      repository: Repository,
+      request: CommitMergeRequest,
+    ) => CommitMergeResult;
+    push: (
+      repository: Repository,
+      request: RepositoryPushRequest,
+    ) => ChangesResult;
+    reference: (
+      repository: Repository,
+      request: ReferenceCreateRequest,
+    ) => ReferenceResult;
+  } = {
+    create: createCommit,
+    merge: mergeCommit,
+    push: pushRepositoryRevision,
+    reference: createReference,
+  };
+  assert.equal(operations.create, createCommit);
+  assert.equal(operations.merge, mergeCommit);
+  assert.equal(operations.push, pushRepositoryRevision);
+  assert.equal(operations.reference, createReference);
+});
 
 /**
  * publicExportNamesのTest準備責務を実行する。

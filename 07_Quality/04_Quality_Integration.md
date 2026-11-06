@@ -1,5 +1,9 @@
 # Quality Integration
 
+## Version Controlの公開契約とMain／Linked対照 — 2026-11-06
+
+既存QA-000007のRFD-IT-005／008／014とQA-000001のRCM-IT-004へ、既存Request／Result型のRoot参照、現在Fileの比較基準省略、Main／Linkedの対象分離を接続した。新しい品質項目は追加しない。VC全回帰84／84（実Git・契約・故障代役の試験を含む）、公開Workspace結合1／1、利用側型検査と独立再レビューは成功した。SHA-256は既存Root入口の拒否対照であり、対応成功ではない。制限下の広範囲試験失敗や従来の全体QA未成立を解消済みへ変更しない。試験条件・失敗の区別と結果は[変更記録](../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md#本是正の結果2026-11-06)を参照する。実AI・Docker・過去保持物操作は対象外である。
+
 ## 実AI編集とHTTP照会の検証分離 — 2026-10-30
 
 ERB-IT-021の編集ToolはCoordinator公開APIで受付・wait・exact同ID取消・closeを行い、Domain保存の同Request終端を照合する。新しい試験専用子ではAI開始を禁止し、Docker観測だけを合成化し、実Git・Domain保存・両Workspaceの候補固定／二親Merge／回収を確認する。HTTPを使う既存の通常受付・取消・応答喪失・期限の試験は別に維持する。

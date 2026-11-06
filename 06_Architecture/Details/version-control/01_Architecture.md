@@ -241,17 +241,17 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 
 | Owner・用途 | 公開Symbol |
 |---|---|
-| Repository対象 | `Repository`、`getRepository`、`getRepositoryFromWorkingDirectory`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory` |
-| 改訂・技術Identity | `readRepositorySnapshot`、`readRepositoryFormat`、`readRepositoryRevision`、`readRepositoryStorageIdentity` |
-| Worktree | `getWorktree`、`createWorktree`、`removeWorktree`、`WorktreeTarget`、`WorktreeResult` |
-| 現在内容・Index | `readTree`、`readFile`、`readFileDiff`、`readWorkingChanges`、`stagePaths`、`unstagePaths`、`WorkingChanges`、`TreePage`、`FileDiff` |
-| 固定Commit・差分・コピー | `readCommitFile`、`copyCommitFiles`、`readCommitDiff` |
-| Commit・Merge | `commitChanges`、`createCommit`、`mergeCommit`、`ChangesResult`、`CommitSelection`、`CommitTemporary` |
-| Ref | `createReference`、`removeReference` |
-| Remote | `readRemoteTarget`、`pushRepositoryRevision`、`RemoteTarget` |
+| Repository対象 | `Repository`、`RepositoryResult`、`getRepository`、`getRepositoryFromWorkingDirectory`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory` |
+| 改訂・技術Identity | `readRepositorySnapshot`、`readRepositoryFormat`、`readRepositoryRevision`、`readRepositoryStorageIdentity`、`FixedRevisionIdentity`、`RepositoryRevisionObservation` |
+| Worktree | `getWorktree`、`createWorktree`、`removeWorktree`、`WorktreeTarget`、`WorktreeResult`、`WorktreeCreateRequest`、`WorktreeRemoveRequest` |
+| 現在内容・Index | `readTree`、`readFile`、`readFileDiff`、`readWorkingChanges`、`stagePaths`、`unstagePaths`、`WorkingChanges`、`TreePage`、`FileDiff`、`PathsRequest`、`FileReadRequest`、`WorkingFile` |
+| 固定Commit・差分・コピー | `readCommitFile`、`copyCommitFiles`、`readCommitDiff`、`CommitFileReadRequest`、`CommitFile`、`CommitFilesCopyRequest`、`CommitFilesCopyResult`、`CommitDiffRequest`、`CommitDiff` |
+| Commit・Merge | `commitChanges`、`createCommit`、`mergeCommit`、`ChangesResult`、`CommitSelection`、`CommitTemporary`、`ChangesCommitRequest`、`CommitCreateRequest`、`CommitCreateResult`、`CommitMergeRequest`、`CommitMergeResult` |
+| Ref | `createReference`、`removeReference`、`ReferenceCreateRequest`、`ReferenceRemoveRequest`、`ReferenceResult` |
+| Remote | `readRemoteTarget`、`pushRepositoryRevision`、`RemoteTarget`、`RepositoryPushRequest` |
 | 宣言と除外 | `readRepositorySubmodules`、`readRepositoryEntries`、`registerRepositoryLocalIgnore` |
 
-直接共有する必要のないRequest／Result型19件はRoot再exportだけを撤去し、各操作Ownerの定義を再利用する。共有保持に必要な10型は維持する。型の独立した実Consumerが必要になった場合、型複製やReturnTypeによる迂回ではなくOwner型の公開要否を再評価する。
+公開操作の入力構築・結果保持に必要な既存Request／Result型は、そのOwner定義をRootから公開する。型の複製や関数型からの迂回導出は行わない。内部Git ContextとTreeの構成要素単独の型は公開しない。
 
 RootのDirectory再確認2関数は、Domain等がGit以外のRepository-local保存を行う直前の原本確認に必要な実利用があるため維持する。静的なLocation説明辞書は撤去し、診断では取得結果と発行済みTokenの契約値だけを表示する。借用Treeの所属は既存の保存用実体Identityで確認し、HEAD不要の条件を維持する。Layout検査のRoot公開は撤去し、技術解析と既存反証は内部に保持する。未使用の契約定数のRoot再公開とLayoutの静的Adapter説明関数は撤去する。Host Pathを返す内部利用の値は利用者向け結果へ載せない。
 
@@ -260,6 +260,12 @@ RootのDirectory再確認2関数は、Domain等がGit以外のRepository-local�
 removeReference は、保存済みの自己生成短命Index参照が指定された場合に限り、固定管理範囲・元実体・限定内容を照合して先に回収する。Commit ID未取得の回収を createCommit の新規Object生成へ読み替えない。任意Path削除、追加のStore／Registry／再探索は行わない。
 
 ### 3.2 用途を限定した公開入口
+
+`readFile(repository,{path,baseCommit?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、容量超過、観測中のHEAD／内容変更は拒否する。この操作の失敗名はrepository_file系とし、候補固定の失敗と区別する。CoordinatorのWorkspace内容確認は保存済みBaseを引き続き明示する。
+
+内容・Index操作の対象は渡された検証済みRepositoryである。Main固定ではなく、LinkedのRootを取得すれば同じ操作を利用できる。実Git対照試験では異なるHEAD・Index・作業内容を設定し、読取りとStage／Unstage／Commitの対象一致、反対側のHEAD・Index・作業File不変を両方向で確認する。共有Object Databaseや対象Branchの更新はこの不変条件に含めない。
+
+今回SHA-256の操作対応は追加しない。既存Root入口のSHA-1限定を維持し、SHA-256 RepositoryはCapability発行前の拒否対照として確認する。内部のObject形式観測が可能なことを、公開操作全体のSHA-256対応と解釈しない。
 
 `readWorkingChanges`は4観測が全て成功した後、既存の文字順・重複排除で`changedPaths`を一度だけ集約する。独立した集約関数は公開せず、Workbenchの表示用変更集合は既存fieldだけを明示投影する。
 

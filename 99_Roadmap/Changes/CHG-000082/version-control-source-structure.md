@@ -1,5 +1,32 @@
 # Version ControlのSource構造整理・棚卸し
 
+## 公開契約・現在File読取り・Main／Linked対照の是正（2026-11-06）
+
+基準は`0111a1942bb8ff3b035ce00ff47d98a4d0382750`。利用者が既存Request／Result型の必要な公開、readFileの比較基準の任意化、Main／Linked対照試験を承認した。DI・Executor・AI Adapter・保持物は変更せず、新API・新しい型正本・Adapter・Storeは追加しない。
+
+変更分類は公開型とGit読取り契約の局所是正。OwnerはVersion Control、利用側はCoordinatorのWorkspace投影、確認先は既存Architecture・公開集合契約・実Git試験とする。着手前整合確認で、省略／undefined／明示Base、不正値／形式違い、HEADなし、内容・HEAD変更、Windows mode、Main／Linkedの別HEAD・Index・作業Fileを照合した。独立の読み取り確認でも方針整合を確認し、追加の人間判断は不要とした。
+
+既存の入力・Path・link・容量・Root／Worktree・前後のHEAD／内容検査、30秒期限、明示Baseの意味、保存DTO・Path／Ref規約を維持する。Base省略時は同じ呼出しで観測したHEADを比較基準として返す。Blob形式は入力OIDの長さから推測せずRepositoryの形式観測を使い、明示Baseの幅も照合する。未Commit Repositoryへの新しいFile読取り能力は追加しない。
+
+公開型は完成操作の入出力・保持に必要な既存定義を正本から公開する。内部WorktreeGitContext・Process結果・Tree構成要素を一律公開せず、利用側の型複製や型導出で迂回しない。MainとLinkedを別実装へ分割せず、異なるHEAD・Index・内容で読取りとStage／Unstage／Commit等の対象独立性を実Gitで検証する。LinkedのRefや共有Object領域まで不変とは要求しない。
+
+技術レビュー、文書・利用側の影響確認と回帰を行い、準拠基準・決定権限・Releaseを変えないため準拠監査と実AI／Docker試験は実行しない。既存の全体QA未成立や保持物の状態を、本是正の成功で解消したとは扱わない。
+
+### 本是正の結果（2026-11-06）
+
+| 確認範囲 | 結果 |
+|---|---|
+| 公開入口 | 関数30件は維持。完成操作の既存入出力型を直接公開し、型は33件。内部Context・Tree要素型は非公開 |
+| 現在File | 省略／undefinedは同一観測HEAD、明示Baseは従来の比較。理由名はこの操作だけrepository_file系へ整理 |
+| Main／Linked | 異なるHEAD・Index・内容で双方向の読取り、Stage／Unstage／Commit、反対側不変、binary・削除Fileを実Gitで確認 |
+| 最終VC回帰 | format・typecheck・lintとVC全回帰84／84成功（実Git・契約・故障代役の試験を含む、200477.8069ms）。既存lint情報8件はwarning／errorではない |
+| 利用側 | Coordinatorの公開Workspace操作1／1成功（105867.5896ms）。Coordinator、Domain Model、Workbench、MCP、Checker、Execution Intelligenceの型検査成功 |
+| 独立レビュー | SHA-256成功試験の前提誤り1件を是正し、再レビューで必須是正なし。SHA-256は既存Root入口の拒否対照とし、対応拡張はしない |
+
+最初の制限下回帰にはGit子処理・OS一時領域の権限制限による失敗があり、別のCoordinator広範囲試験もHost記録のrename拒否等で失敗した。これらを成功として扱わない。今回の変更に直結する公開Workspace結合はRepository-localの新品一時領域で再確認した。修正途中のVC83／84はSHA-256試験の前提誤りであり、上表は是正後の固定候補による全体結果である。既存の全体QA課題が解消したという主張ではない。
+
+今回の回帰で作成した一時領域のNode compile cacheは、exact Rootと非reparse・内容を確認して回収し、Rootの不存在を確認した。過去保持物の調査・移行・削除は行っていない。DI・Executor・AI Adapterの差分なし。実AI・実Docker・外部Remoteへの送信は未実施。
+
 ## Git技術責務への再編計画（2026-11-05、実装中）
 
 現在の基準は`26c35783acdc911b4b31ea960afc2ba3ba6a7412`。利用者は、Git専用の完成操作、`get`による対象取得、`read`による内容取得、Repository内のFile／差分／Index／Commit処理の集約、Worktree管理の分離、不要Adapterの撤去を承認した。以下の旧計画・Evidenceは当時の記録として保持し、本節を現在の実装計画とする。

@@ -21,7 +21,17 @@ import {
   stagePaths,
 } from "../../src/repository/working-directory.ts";
 import { readFileDiff } from "../../src/repository/changes.ts";
-import { readTree } from "../../src/repository/files.ts";
+import {
+  readTree,
+  readFile,
+  commitChanges,
+  unstagePaths,
+  type FileReadRequest,
+  type WorkingFile,
+  type PathsRequest,
+  type ChangesCommitRequest,
+  type ChangesResult,
+} from "../../src/index.ts";
 import {
   getRepository,
   getRepositoryFromWorkingDirectory,
@@ -34,6 +44,192 @@ const repository = path.resolve(
 );
 const testsRoot = path.join(repository, ".crdd", "tests");
 const emptyConfig = process.platform === "win32" ? "NUL" : devNull;
+
+/**
+ * 省略BaseでもHEAD・Object形式・安定読取りの拒否条件を維持する。
+ * @responsibility HEADなし、不正OID幅、読取り中の内容差替えを拒否する。
+ * @trace RFD-IT-005 RFD-IT-008
+ * @precondition 試験専用の新規Repositoryを使う。
+ * @stimulus SHA-1の内容差替えと、未対応SHA-256の入口拒否を対照する。
+ * @observation 公開読取り結果・拒否理由・故障注入到達。
+ * @oracle 誤形式や差替えを成功へ変換しない。
+ * @cleanup 生成fixtureと試験内の関数差替えを回収する。
+ * @boundary ローカル実Gitと試験内FS故障だけを使う。
+ */
+test("省略Baseの安定読取りと未対応Object形式の入口拒否を維持する", (t) => {
+  fs.mkdirSync(testsRoot, { recursive: true });
+  const fixture = fs.mkdtempSync(path.join(testsRoot, "vc-file-base-"));
+  const original = childProcess.spawnSync;
+  t.after(() => {
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+    fs.rmSync(fixture, { recursive: true, force: true });
+  });
+  for (const format of ["sha1", "sha256"] as const) {
+    const root = path.join(fixture, format);
+    fs.mkdirSync(root);
+    git(root, [
+      "init",
+      `--object-format=${format}`,
+      "--initial-branch=main",
+      "--template=",
+    ]);
+    git(root, ["config", "user.name", "CRDD Test"]);
+    git(root, ["config", "user.email", "test@example.invalid"]);
+    fs.writeFileSync(path.join(root, "file.txt"), "base\n");
+    const unborn = getRepository(root);
+    if (unborn.status === "completed") {
+      assert.throws(
+        () => readFile(unborn.capability, { path: "file.txt" }),
+        /repository_file_worktree_mismatch/u,
+      );
+    } else {
+      assert.equal(unborn.capability, null);
+    }
+    git(root, ["add", "."]);
+    git(root, ["commit", "-qm", "base"]);
+    if (format === "sha256") {
+      assert.equal(getRepository(root).status, "blocked");
+      continue;
+    }
+    const capability = repositoryTarget(root);
+    const head = git(root, ["rev-parse", "HEAD"]);
+    assert.equal(readFile(capability, { path: "file.txt" }).baseCommit, head);
+    const wrong = "a".repeat(64);
+    assert.throws(
+      () => readFile(capability, { path: "file.txt", baseCommit: wrong }),
+      /repository_file_input_invalid/u,
+    );
+    let injected = false;
+    childProcess.spawnSync = ((
+      ...args: Parameters<typeof childProcess.spawnSync>
+    ) => {
+      const result = original(...args);
+      if (!injected && Array.isArray(args[1]) && args[1].includes("diff")) {
+        injected = true;
+        fs.writeFileSync(path.join(root, "file.txt"), "changed\n");
+      }
+      return result;
+    }) as typeof childProcess.spawnSync;
+    syncBuiltinESMExports();
+    assert.throws(
+      () => readFile(capability, { path: "file.txt" }),
+      /repository_file_content_changed/u,
+    );
+    assert.equal(injected, true);
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+  }
+});
+
+/**
+ * 公開型で現在内容を読み、Main／LinkedのHEAD・Index・File分離を実Gitで対照する。
+ * @responsibility 省略Baseと明示Base、各Worktreeの読取り・Stage・Commit対象を確認する。
+ * @trace RFD-IT-005 RFD-IT-008 RFD-IT-014
+ * @precondition 自己生成Repositoryだけを使用する。
+ * @stimulus 異なるHEAD、Index、作業内容を両側へ設定して公開操作を発行する。
+ * @observation 実GitのHEAD・Index Tree・作業Fileと公開結果。
+ * @oracle 反対側は不変、比較基準は対象HEADまたは明示Baseと一致する。
+ * @cleanup この試験が生成したfixtureのみafterで回収する。
+ * @boundary 外部AI・Docker・既存保持物を使わないローカル実Git。
+ */
+test("公開File読取りとIndex操作はMain／Linkedで同じ契約を守る", (t) => {
+  fs.mkdirSync(testsRoot, { recursive: true });
+  const fixture = fs.mkdtempSync(path.join(testsRoot, "vc-main-linked-"));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const main = path.join(fixture, "main");
+  const linked = path.join(fixture, "linked");
+  fs.mkdirSync(main);
+  git(main, ["init", "--initial-branch=main", "--template="]);
+  git(main, ["config", "user.name", "CRDD Test"]);
+  git(main, ["config", "user.email", "test@example.invalid"]);
+  git(main, ["config", "commit.gpgSign", "false"]);
+  git(main, ["config", "core.hooksPath", emptyConfig]);
+  fs.writeFileSync(path.join(main, "same.txt"), "base\n");
+  git(main, ["add", "."]);
+  git(main, ["commit", "-qm", "base"]);
+  const base = git(main, ["rev-parse", "HEAD"]);
+  git(main, ["worktree", "add", "-b", "linked", linked]);
+  fs.writeFileSync(path.join(linked, "same.txt"), "linked head\n");
+  git(linked, ["add", "."]);
+  git(linked, ["commit", "-qm", "linked head"]);
+  for (const [root, label] of [
+    [main, "main"],
+    [linked, "linked"],
+  ] as const) {
+    fs.writeFileSync(path.join(root, "same.txt"), `${label} index\n`);
+    git(root, ["add", "."]);
+    fs.writeFileSync(path.join(root, "same.txt"), `${label} working\n`);
+  }
+  for (const [root, other, label] of [
+    [main, linked, "main"],
+    [linked, main, "linked"],
+  ] as const) {
+    const capability = repositoryTarget(root);
+    const otherBefore = [
+      git(other, ["rev-parse", "HEAD"]),
+      git(other, ["write-tree"]),
+      fs.readFileSync(path.join(other, "same.txt"), "utf8"),
+    ];
+    const head = git(root, ["rev-parse", "HEAD"]);
+    const request: FileReadRequest = { path: "same.txt" };
+    const current: WorkingFile = readFile(capability, request);
+    assert.equal(current.baseCommit, head);
+    assert.equal(current.head, head);
+    assert.equal(current.content, `${label} working\n`);
+    assert.deepEqual(
+      readFile(capability, { ...request, baseCommit: undefined }),
+      current,
+    );
+    const explicit = readFile(capability, { ...request, baseCommit: base });
+    assert.equal(explicit.baseCommit, base);
+    assert.match(explicit.patch, /-base/u);
+    const changes = readWorkingChanges(capability, head);
+    assert.ok(changes.changedPaths.includes("same.txt"));
+    assert.match(
+      JSON.stringify(readTree(capability, changes, "", null, 100)),
+      /same.txt/u,
+    );
+    assert.match(
+      JSON.stringify(
+        readFileDiff(capability, { unregisteredPaths: [] }, "same.txt"),
+      ),
+      new RegExp(`${label} working`, "u"),
+    );
+    assert.throws(
+      () => readFile(capability, { path: "same.txt", baseCommit: "bad" }),
+      /repository_file_input_invalid/u,
+    );
+    assert.throws(
+      () => readFile(capability, { path: "../same.txt" }),
+      /repository_file_input_invalid/u,
+    );
+    const paths: PathsRequest = { paths: ["same.txt"] };
+    const unstaged: ChangesResult = unstagePaths(capability, paths);
+    assert.equal(unstaged.status, "completed");
+    assert.equal(git(root, ["diff", "--cached", "--name-only"]), "");
+    assert.equal(stagePaths(capability, paths).status, "completed");
+    assert.equal(git(root, ["show", ":same.txt"]), `${label} working`);
+    const commit: ChangesCommitRequest = { message: `${label} local` };
+    assert.equal(commitChanges(capability, commit).status, "completed");
+    assert.notEqual(git(root, ["rev-parse", "HEAD"]), head);
+    assert.deepEqual(
+      [
+        git(other, ["rev-parse", "HEAD"]),
+        git(other, ["write-tree"]),
+        fs.readFileSync(path.join(other, "same.txt"), "utf8"),
+      ],
+      otherBefore,
+    );
+    fs.writeFileSync(path.join(root, "same.txt"), Buffer.from([0, 1, 2]));
+    assert.equal(readFile(capability, request).binary, true);
+    fs.unlinkSync(path.join(root, "same.txt"));
+    const deleted = readFile(capability, request);
+    assert.equal(deleted.content, null);
+    assert.equal(deleted.selection.blobId, null);
+    fs.writeFileSync(path.join(root, "same.txt"), `${label} working\n`);
+  }
+});
 
 /** Root不成立ではGitを発行せず、正常な子Directoryは同じRootで読む。 */
 test("DiscoveryはRoot拒否後に生Pathへfallbackしない", (t) => {

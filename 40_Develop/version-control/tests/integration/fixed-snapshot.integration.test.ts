@@ -16,11 +16,9 @@ import {
   copyCommitFiles,
   readCommitFile,
   getRepository,
+  type CommitFileReadRequest,
+  type CommitFilesCopyRequest,
 } from "../../src/index.ts";
-import type {
-  CommitFileReadRequest,
-  CommitFilesCopyRequest,
-} from "../../src/repository/types.ts";
 
 const parent = path.resolve(
   import.meta.dirname,

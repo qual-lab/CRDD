@@ -18,6 +18,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import {
   readFile,
+  type FileReadRequest,
   readWorkingChanges,
   getWorktree,
   resolveVerifiedRepositoryRoot,
@@ -294,19 +295,19 @@ export function executeWorkspace(
     const target = getRepository(path.join(ownerRoot, observed.relativePath));
     if (target.status !== "completed")
       throw new Error("workspace_target_unavailable");
-    data =
-      command.operation === "inspect"
-        ? readFile(target.capability, {
-            baseCommit: record.baseCommit,
-            path: command.path,
-          })
-        : {
-            workspace: workspaceView(record),
-            changedPaths: readWorkingChanges(
-              target.capability,
-              record.baseCommit,
-            ).changedPaths,
-          };
+    if (command.operation === "inspect") {
+      const request: FileReadRequest = {
+        baseCommit: record.baseCommit,
+        path: command.path,
+      };
+      data = readFile(target.capability, request);
+    } else {
+      data = {
+        workspace: workspaceView(record),
+        changedPaths: readWorkingChanges(target.capability, record.baseCommit)
+          .changedPaths,
+      };
+    }
   } else {
     const { operation, ...input } = command;
     const result = manageCoordinatorWorkspace({
