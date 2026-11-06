@@ -1,5 +1,9 @@
 # Architecture工程のQuality分析
 
+## Workspace保存値のUT導出 — 2026-11-06
+
+ARCH-000009／`arch-000009.qa-000007`のRepository／Workspace識別と、候補の業務要求・保存DTOをDomainが所有する境界から、QA-000007／RFD-UT-030を導出する。同Workspaceへの保存相関、要求の閉形式、Commit形式・選択Path・表示名・関連CHGの受理条件は、Git実体を作らずに反証すべき条件。実GitのIT-029、公開export集合、Domain共通Outcomeや管理状態Schemaとは入力・Oracleが異なるため統合しない。承認済み追加UT一件として既存二Caseへ接続し、局所結果と正式評価を分離する。保存・Git・採否・回収の実境界は既存IT／STへ維持する。
+
 ## Core独立契約からの追加導出 — 2026-10-27
 
 ARCH-000004の責務確認により、文書群のMilestone／Roadmap／WBSとRuntime集約を区別する。Callerが計画分解・文書反映を所有する境界をQA-000003のPRL-IT-008／012へ導出し、自動同期を検証対象Capabilityとして新設しない。現行の機械的包装を分解済みTask Graph受付の成立と扱わない。

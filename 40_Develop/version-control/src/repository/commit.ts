@@ -21,6 +21,7 @@ import type {
 // 既存一時領域のexact再入場Identity。業務候補の分類ではない。
 const COMMIT_TEMPORARY_PREFIX = "candidate-index-";
 
+/** Commit処理の途中で確定した事実と未確認条件の内部集約。 */
 type MutableCommitResult = {
   status: "completed" | "blocked";
   reason: string;
@@ -298,6 +299,7 @@ function operateCommit(
   return result;
 }
 
+/** 生成Commitの親と変更Pathを要求へ再照合し、不一致では成功にしない。 */
 function verifyCommitSelection(
   ctx: WorktreeGitContext,
   request: CommitCreateRequest,

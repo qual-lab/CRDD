@@ -105,6 +105,7 @@ export type CoordinatorWorkspaceResult = Readonly<{
   workspaceDeletionIssued: false;
 }>;
 
+/** Workspace記録へ保持するGit Worktreeの技術結果。 */
 export type RepositoryWorktreeResult = Readonly<{
   status: "completed" | "blocked";
   reason: string;
@@ -119,6 +120,7 @@ export type RepositoryWorktreeResult = Readonly<{
   observation: RepositoryWorktreeObservation | null;
 }>;
 
+/** 保存に用いるWorktree登録・実体・Revisionの技術観測。 */
 export type RepositoryWorktreeObservation = Readonly<{
   registered: boolean;
   directoryPresent: boolean;
@@ -129,6 +131,7 @@ export type RepositoryWorktreeObservation = Readonly<{
   dirty: boolean | null;
 }>;
 
+/** 候補のWorkspace・表示名・関連変更と選択内容のDomain要求。 */
 export type WorkspaceCandidateRequest = Readonly<{
   workspaceId: string;
   operationId: string;
@@ -139,6 +142,7 @@ export type WorkspaceCandidateRequest = Readonly<{
   candidateName: string | null;
   relatedChangeIds: readonly string[];
 }>;
+/** 候補固定・取込の結果と元操作相関を保存するDomain値。 */
 export type WorkspaceCandidateResult = Readonly<{
   status: "completed" | "blocked";
   reason: string;

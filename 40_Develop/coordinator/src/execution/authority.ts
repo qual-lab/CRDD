@@ -2280,7 +2280,7 @@ type SelectionRecord = {
  * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type delegationSelectionGrantRuntimeState = Readonly<{
+type DelegationSelectionGrantRuntimeState = Readonly<{
   records: Map<string, SelectionRecord>;
   controlCapabilities: WeakMap<object, string>;
   useCapabilities: WeakMap<object, string>;
@@ -2311,10 +2311,10 @@ type delegationSelectionGrantRuntimeState = Readonly<{
  */
 function delegationSelectionGrantCreateRuntimeState(
   dependencies: Omit<
-    delegationSelectionGrantRuntimeState,
+    DelegationSelectionGrantRuntimeState,
     "records" | "controlCapabilities" | "useCapabilities"
   >,
-): delegationSelectionGrantRuntimeState {
+): DelegationSelectionGrantRuntimeState {
   return Object.freeze({
     records: new Map(),
     controlCapabilities: new WeakMap(),
@@ -2422,7 +2422,7 @@ function delegationSelectionGrantPerformSafely<T>(
  * @security createSelectionRecordIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: createSelectionRecordIdは共有非同期状態を持たない同期処理である。
  */
-function createSelectionRecordId(state: delegationSelectionGrantRuntimeState) {
+function createSelectionRecordId(state: DelegationSelectionGrantRuntimeState) {
   const value = state.randomBytes(12);
   return Buffer.isBuffer(value) && value.byteLength === 12
     ? `MODELSEL-${value.toString("hex").toUpperCase()}`
@@ -2446,7 +2446,7 @@ function createSelectionRecordId(state: delegationSelectionGrantRuntimeState) {
  * @concurrency N/A: isSelectionFreshは共有非同期状態を持たない同期処理である。
  */
 function isSelectionFresh(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   record: SelectionRecord,
 ) {
   const wallAge = state.wallNow() - record.issuedWallClockMs;
@@ -2478,7 +2478,7 @@ function isSelectionFresh(
  * @concurrency N/A: removeSelectionRecordは共有非同期状態を持たない同期処理である。
  */
 function removeSelectionRecord(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   record: SelectionRecord,
 ) {
   state.records.delete(record.selectionRecordId);
@@ -2503,7 +2503,7 @@ function removeSelectionRecord(
  * @concurrency N/A: issueSelectionGrantは共有非同期状態を持たない同期処理である。
  */
 function issueSelectionGrant(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   managementCapability: unknown,
   rawRequest: unknown,
 ) {
@@ -2630,7 +2630,7 @@ function issueSelectionGrant(
  * @concurrency N/A: findSelectionRecordは共有非同期状態を持たない同期処理である。
  */
 function findSelectionRecord(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   capability: unknown,
   aliases: WeakMap<object, string>,
   managementCapability: unknown,
@@ -2665,7 +2665,7 @@ function findSelectionRecord(
  * @concurrency N/A: consumeSelectionGrantは共有非同期状態を持たない同期処理である。
  */
 function consumeSelectionGrant(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   useCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -2711,7 +2711,7 @@ function consumeSelectionGrant(
  * @concurrency N/A: revokeSelectionGrantは共有非同期状態を持たない同期処理である。
  */
 function revokeSelectionGrant(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   controlCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -2751,7 +2751,7 @@ function revokeSelectionGrant(
  * @concurrency N/A: supersedeSelectionGrantは共有非同期状態を持たない同期処理である。
  */
 function supersedeSelectionGrant(
-  state: delegationSelectionGrantRuntimeState,
+  state: DelegationSelectionGrantRuntimeState,
   controlCapability: unknown,
   managementCapability: unknown,
   rawReplacementRequest: unknown,
@@ -3021,7 +3021,7 @@ export function supersedeRuntimeOwnedDelegationSelectionGrant(
  */
 export function createIsolatedDelegationSelectionGrantRuntimeCandidate(
   dependencies: Omit<
-    delegationSelectionGrantRuntimeState,
+    DelegationSelectionGrantRuntimeState,
     "records" | "controlCapabilities" | "useCapabilities"
   >,
 ) {
@@ -4106,7 +4106,7 @@ type Observation = NonNullable<
  * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type providerHomeMountAuthorizationRuntimeState = Readonly<{
+type ProviderHomeMountAuthorizationRuntimeState = Readonly<{
   mountCompletions: WeakMap<
     object,
     Readonly<{
@@ -4150,7 +4150,7 @@ type providerHomeMountAuthorizationRuntimeState = Readonly<{
  */
 function providerHomeMountAuthorizationCreateRuntimeState(
   dependencies: Pick<
-    providerHomeMountAuthorizationRuntimeState,
+    ProviderHomeMountAuthorizationRuntimeState,
     | "verifyOperation"
     | "consumeObservation"
     | "consumeMountSource"
@@ -4160,7 +4160,7 @@ function providerHomeMountAuthorizationCreateRuntimeState(
     | "randomBytes"
     | "production"
   >,
-): providerHomeMountAuthorizationRuntimeState {
+): ProviderHomeMountAuthorizationRuntimeState {
   return Object.freeze({
     mountCompletions: new WeakMap(),
     aliases: new WeakMap(),
@@ -4261,7 +4261,7 @@ function failClosed<T>(reason: string, action: () => T) {
  * @security runtimeGrantRefはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: runtimeGrantRefは共有非同期状態を持たない同期処理である。
  */
-function runtimeGrantRef(state: providerHomeMountAuthorizationRuntimeState) {
+function runtimeGrantRef(state: ProviderHomeMountAuthorizationRuntimeState) {
   for (let attempt = 0; attempt < MAXIMUM_REFERENCE_ATTEMPTS; attempt += 1) {
     const random = state.randomBytes(8).readBigUInt64BE();
     const digits = (random % 10n ** BigInt(GRANT_REFERENCE_DIGITS))
@@ -4290,7 +4290,7 @@ function runtimeGrantRef(state: providerHomeMountAuthorizationRuntimeState) {
  * @concurrency N/A: createAliasは共有非同期状態を持たない同期処理である。
  */
 function createAlias(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   runtimeGrant: RuntimeGrant,
   role: AliasRole,
 ) {
@@ -4317,7 +4317,7 @@ function createAlias(
  * @concurrency N/A: aliasは共有非同期状態を持たない同期処理である。
  */
 function alias(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   capability: unknown,
   expectedRole: AliasRole,
 ): Readonly<{ role: AliasRole; runtimeGrant: RuntimeGrant }> | null {
@@ -4343,7 +4343,7 @@ function alias(
  * @concurrency N/A: operationBindingは共有非同期状態を持たない同期処理である。
  */
 function operationBinding(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   managementCapability: unknown,
 ): Readonly<{ operationId: string; createdAt: string }> | null {
   try {
@@ -4429,7 +4429,7 @@ function grantRecord(
  * @concurrency N/A: currentRuntimeAgeは共有非同期状態を持たない同期処理である。
  */
 function currentRuntimeAge(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   runtimeGrant: RuntimeGrant,
 ) {
   const now = state.wallNow();
@@ -4465,7 +4465,7 @@ function currentRuntimeAge(
  * @concurrency N/A: sameManagementCapabilityは共有非同期状態を持たない同期処理である。
  */
 function sameManagementCapability(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   runtimeGrant: RuntimeGrant,
   managementCapability: unknown,
 ) {
@@ -4499,7 +4499,7 @@ function sameManagementCapability(
  * @concurrency N/A: removeAliasは共有非同期状態を持たない同期処理である。
  */
 function removeAlias(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   runtimeGrant: RuntimeGrant,
   capability: object,
 ) {
@@ -4524,7 +4524,7 @@ function removeAlias(
  * @concurrency N/A: revokeAllAliasesは共有非同期状態を持たない同期処理である。
  */
 function revokeAllAliases(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   runtimeGrant: RuntimeGrant,
 ) {
   for (const capability of runtimeGrant.aliases) {
@@ -4550,7 +4550,7 @@ function revokeAllAliases(
  * @concurrency N/A: revokeMountSourceは共有非同期状態を持たない同期処理である。
  */
 function revokeMountSource(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   runtimeGrant: RuntimeGrant,
 ) {
   if (runtimeGrant.mountSourceCapability) {
@@ -4576,7 +4576,7 @@ function revokeMountSource(
  * @concurrency N/A: issueは共有非同期状態を持たない同期処理である。
  */
 function issue(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   managementCapability: unknown,
   observationCapability: unknown,
 ) {
@@ -4666,7 +4666,7 @@ function issue(
  * @concurrency N/A: consumeは共有非同期状態を持たない同期処理である。
  */
 function consume(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   useCapability: unknown,
   managementCapability: unknown,
   currentObservationCapability: unknown,
@@ -4776,7 +4776,7 @@ function consume(
  * @concurrency N/A: activateMountは共有非同期状態を持たない同期処理である。
  */
 function activateMount(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   mountAuthorizationCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -4857,7 +4857,7 @@ function activateMount(
  * @concurrency N/A: activeMountSourceは共有非同期状態を持たない同期処理である。
  */
 function activeMountSource(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   activeMountCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -4894,7 +4894,7 @@ function activeMountSource(
  * @concurrency N/A: inspectActiveMountは共有非同期状態を持たない同期処理である。
  */
 function inspectActiveMount(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   activeMountCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -4947,7 +4947,7 @@ function inspectActiveMount(
  * @concurrency N/A: completeMountは共有非同期状態を持たない同期処理である。
  */
 function completeMount(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   activeMountCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -5015,7 +5015,7 @@ function completeMount(
  * @concurrency N/A: 待機と再発行を伴わない同期照合。
  */
 function verifyMountCompletion(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   result: unknown,
   managementCapability: unknown,
   activeMountCapability: unknown,
@@ -5052,7 +5052,7 @@ function verifyMountCompletion(
  * @concurrency N/A: inspectMountAuthorizationは共有非同期状態を持たない同期処理である。
  */
 function inspectMountAuthorization(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   mountAuthorizationCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -5106,7 +5106,7 @@ function inspectMountAuthorization(
  * @concurrency N/A: revokeは共有非同期状態を持たない同期処理である。
  */
 function revoke(
-  state: providerHomeMountAuthorizationRuntimeState,
+  state: ProviderHomeMountAuthorizationRuntimeState,
   controlCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -5454,13 +5454,13 @@ export function verifyRuntimeOwnedProviderHomeMountCompletion(
  */
 export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
   dependencies: Readonly<{
-    verifyOperation: providerHomeMountAuthorizationRuntimeState["verifyOperation"];
-    consumeObservation: providerHomeMountAuthorizationRuntimeState["consumeObservation"];
-    consumeMountSource: providerHomeMountAuthorizationRuntimeState["consumeMountSource"];
-    revokeMountSource: providerHomeMountAuthorizationRuntimeState["revokeMountSource"];
-    wallNow: providerHomeMountAuthorizationRuntimeState["wallNow"];
-    monotonicNow: providerHomeMountAuthorizationRuntimeState["monotonicNow"];
-    randomBytes: providerHomeMountAuthorizationRuntimeState["randomBytes"];
+    verifyOperation: ProviderHomeMountAuthorizationRuntimeState["verifyOperation"];
+    consumeObservation: ProviderHomeMountAuthorizationRuntimeState["consumeObservation"];
+    consumeMountSource: ProviderHomeMountAuthorizationRuntimeState["consumeMountSource"];
+    revokeMountSource: ProviderHomeMountAuthorizationRuntimeState["revokeMountSource"];
+    wallNow: ProviderHomeMountAuthorizationRuntimeState["wallNow"];
+    monotonicNow: ProviderHomeMountAuthorizationRuntimeState["monotonicNow"];
+    randomBytes: ProviderHomeMountAuthorizationRuntimeState["randomBytes"];
   }>,
 ) {
   const state = providerHomeMountAuthorizationCreateRuntimeState({

@@ -1,11 +1,12 @@
 /**
  * 固定Windows Named Pipeの技術的な取得・保持・解放を所有する。
  * @responsibility 固定Worker／Supervisorと既存の終了観測を接続する。
- * @trace ARCH-000015 ARCH-000004
+ * @trace ARCH-000015
+ * @trace ARCH-000004
  */
 import type { ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { createWindowsHostOperationSupervisorEnvironment } from "../process/environment.ts";
+import { createChildProcessEnvironment } from "../process/environment.ts";
 import {
   createRuntimeLocalTypeScriptWorker,
   spawnRuntimeLocalTypeScriptChild,
@@ -217,7 +218,7 @@ export function acquireNamedPipeSupervisorLock(
     return Promise.resolve(
       Object.freeze({ status: "unavailable", lock: null }),
     );
-  const environment = createWindowsHostOperationSupervisorEnvironment();
+  const environment = createChildProcessEnvironment({ platform: "win32" });
   if (!environment)
     return Promise.resolve(
       Object.freeze({ status: "unavailable", lock: null }),

@@ -1,7 +1,8 @@
 /**
  * 開始時の基本検査を固定Commandの完全照合と区別する。
+ * @packageDocumentation
  * @responsibility 三modeと開始拒否の基本条件を反証する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope 純粋な合成計画のみ。
  * @boundary Executorの基本計画検査。
@@ -35,13 +36,14 @@ import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
 /**
  * 三用途の必須条件と不正変異を照合する。
  * @responsibility 検査移管でmode・consumer・Identity・Command順を緩めない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 実Effectを持たない合成基本計画。
  * @stimulus Probe／編集／レビュー／助言と不正fieldを渡す。
  * @observation 基本検査と完全照合のbool。
  * @oracle 基本形は用途別に受理し、不正fieldと擬似Commandの完全照合は拒否。
  * @cleanup N/A: 外部資源なし。
- * @boundary ERB-IT-004=Direct Boundary: 計画検査。
+ * @boundary ERB-UT-023=Direct Boundary: 計画検査。
+
  */
 test("基本計画検査は用途とIdentityを維持し完全Command検査の代替にならない", () => {
   const probe = attemptPlan();
@@ -134,12 +136,14 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
 /**
  * 共通基本検査と追加の完全照合が同じ本番Session接続へ到達することを確認する。
  * @responsibility 二重管理を撤去しても各拒否条件と下位要求前停止を維持する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 正規Builderと固定構成だけを使い、Runtimeは有限代役にする。
  * @stimulus 三用途・二役割の正例、基本形変異とbyte・Path・Hash・Command変異。
  * @observation 構成取得可否と下位Session開始回数。
  * @oracle 全負例はnull、基本不正は下位開始零、正例だけ代役へ到達する。
  * @cleanup N/A: ファイル書込み・Process・AI・Docker要求なし。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+
  */
 test("共通基本検査と完全構成照合を通った計画だけをSessionへ渡す", () => {
   const synthetic = attemptPlan();
@@ -166,7 +170,17 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
   });
   assert.ok(probe);
   assert.ok(codex);
-  /** 既存の正規Docker構成を合成計画へ一度だけ反映する。 */
+  /**
+   * 検証用の固定Docker計画を合成Attemptへ接続する。
+   * @responsibility 検証用の固定Docker計画を合成Attemptへ接続する。
+   * @trace ERB-UT-023
+   * @precondition 合成Planと固定の所在・IDを使用する。
+   * @stimulus 既存の構成解決と試験用Command構築を呼ぶ。
+   * @observation 構築成功と返却commands。
+   * @oracle 正規の技術計画だけを後続の完全照合へ渡す。
+   * @cleanup N/A: 計画を構築するだけで実行しない。
+   * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+   */
   function withCommands(plan: TestAttemptPlan): TestAttemptPlan {
     const configuration = resolveIsolationCommandInput(
       plan,
@@ -219,6 +233,17 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     { ...task, workspaceMountMode: "read_only" },
   ];
   let starts = 0;
+  /**
+   * 純粋計画検査が副作用用関数へ到達しないことを検出する。
+   * @responsibility 純粋計画検査が副作用用関数へ到達しないことを検出する。
+   * @trace ERB-UT-023
+   * @precondition 呼出し計数を零にする。
+   * @stimulus 予期しない関数呼出しを計数する。
+   * @observation 呼出し件数。
+   * @oracle 入力拒否時に当該関数へ到達しない。
+   * @cleanup N/A: メモリ内計数のみ。
+   * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+   */
   const unexpectedHook = () => {
     throw Error("unexpected_hook");
   };
@@ -291,6 +316,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
  * @oracle 12構成で同じ技術条件、Commandや専用Hashは上位入力に不要。
  * @cleanup N/A: 値構築だけ。実AI・Dockerなし。
  * @boundary 確定要求→Executor内部→Adapter／DI。
+
  */
 test("助言の内部構築は両Providerの既存技術条件を維持する", () => {
   const base = attemptPlan();

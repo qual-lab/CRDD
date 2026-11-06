@@ -192,6 +192,7 @@ interface ExecutionResults {
   authentication: ProviderAuthenticationResult;
 }
 
+/** 用途別に解析済みのProvider内容を対応付ける共通結果。 */
 export type ExecutionResult<
   K extends keyof ExecutionResults = keyof ExecutionResults,
 > = ExecutionResults[K];
@@ -667,6 +668,7 @@ export function parseProviderResult(
   } as ProviderResultInput);
 }
 
+/** Provider応答を用途別に解析し、曖昧・不正内容を部分成功として返さない。 */
 export function parseExecutionContent<const I extends ProviderResultInput>(
   candidate: I,
 ): ProviderResultParseResult<I["purpose"]>;

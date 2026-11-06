@@ -20,6 +20,17 @@ import {
   inspectRuntimeProjectDefinition,
 } from "../../../src/objective/validation.ts";
 
+/**
+ * planでDomainへ移管した実行計画の値境界を検証する。。
+ * @responsibility planでDomainへ移管した実行計画の値境界を検証する。
+ * @trace PPR-UT-006
+ * @precondition Domainの実行依頼定義。外部Process・保存・AI・Dockerは使用しない。
+ * @stimulus planでDomainへ移管した実行計画の値境界を検証する。。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary Process内の不変値だけを扱う。
+ */
 function plan() {
   return {
     milestoneAcceptanceCriteria: ["全体の確認"],
@@ -45,6 +56,7 @@ function plan() {
  * @oracle 作成途中はCoreだけが受理し、完全定義だけが実行受付を通る。
  * @cleanup 局所値のみ。
  * @boundary 保存や実行開始は行わない。
+ * @responsibility Coreの作成途中の計画は実行開始可能な計画ではない
  */
 test("Coreの作成途中の計画は実行開始可能な計画ではない", () => {
   const complete = plan();
@@ -80,6 +92,7 @@ test("Coreの作成途中の計画は実行開始可能な計画ではない", (
  * @oracle 未完成を許しても不正な定義は受理しない。
  * @cleanup 局所値のみ。
  * @boundary 純粋な値検査。
+ * @responsibility Coreと実行受付は不正参照・重複・循環・上限超過を共に拒否する
  */
 test("Coreと実行受付は不正参照・重複・循環・上限超過を共に拒否する", () => {
   const complete = plan();
@@ -113,6 +126,7 @@ test("Coreと実行受付は不正参照・重複・循環・上限超過を共�
  * @oracle 実行Ownerを補完せず、不正値を実行しない。
  * @cleanup 局所値のみ。
  * @boundary 型・値境界だけ。保存先や本番Schemaの切替を証明しない。
+ * @responsibility Core Projectの新形式は実行資格なしで固定し未知値を拒否する
  */
 test("Core Projectの新形式は実行資格なしで固定し未知値を拒否する", () => {
   const input = {
@@ -194,6 +208,7 @@ test("Core Projectの新形式は実行資格なしで固定し未知値を拒�
  * @oracle 三層の条件は混同されず、元入力の変更を含まない。
  * @cleanup 局所値だけ。資源を作らない。
  * @boundary 純粋な値検査。
+ * @responsibility Domainは実行設定なしで計画を不変Snapshotへ固定する
  */
 test("Domainは実行設定なしで計画を不変Snapshotへ固定する", () => {
   const input = plan();
@@ -224,6 +239,7 @@ test("Domainは実行設定なしで計画を不変Snapshotへ固定する", () 
  * @oracle Getter／Proxyは呼ばれず、許可範囲を拡大しない。
  * @cleanup 局所値のみ。
  * @boundary 入力Objectの境界。
+ * @responsibility Domainの計画検査はAccessor・Proxy・未知field・範囲外を拒否する
  */
 test("Domainの計画検査はAccessor・Proxy・未知field・範囲外を拒否する", () => {
   let effects = 0;
@@ -274,6 +290,7 @@ test("Domainの計画検査はAccessor・Proxy・未知field・範囲外を拒�
  * @oracle Segment境界と既存の大小文字規則を維持する。
  * @cleanup 局所値のみ。
  * @boundary Path文字列だけ。Symlink保護の証明ではない。
+ * @responsibility Repository Pathは文字列のSegment境界と従来規則を保つ
  */
 test("Repository Pathは文字列のSegment境界と従来規則を保つ", () => {
   assert.equal(normalizeRepositoryRelativePath("src\\code.ts"), "src/code.ts");

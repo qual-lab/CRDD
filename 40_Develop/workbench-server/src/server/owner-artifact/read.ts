@@ -197,6 +197,7 @@ export async function readWorkbenchChangeArtifact(
   ).catch(() => null);
 }
 
+/** Markdownの見出しと安全な相対文書リンクからProject Contextの参照関係を抽出する。 */
 function extractMarkdownRelations(markdown: string): readonly Readonly<{
   relativePath: string;
   origin: "project_context";

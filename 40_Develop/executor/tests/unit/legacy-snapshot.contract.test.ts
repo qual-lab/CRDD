@@ -4,6 +4,8 @@
  * @trace ERB-UT-023
  * @level UT
  * @boundary 試験専用変換。実Process・Docker・外部AI・保存は使用しない。
+ * @packageDocumentation
+ * @scope 試験専用変換。実Process・Docker・外部AI・保存は使用しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,6 +16,17 @@ import {
 } from "../../scripts/executor-test.ts";
 import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
+/**
+ * 有限代役のSnapshotは初期・unknown・未発行・Receiptを区別する。
+ * @responsibility 有限代役のSnapshotは初期・unknown・未発行・Receiptを区別する
+ * @trace ERB-UT-023
+ * @precondition 試験専用変換。実Process・Docker・外部AI・保存は使用しない。
+ * @stimulus 有限代役のSnapshotは初期・unknown・未発行・Receiptを区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 有限代役のSnapshotは初期・unknown・未発行・Receiptを区別するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 試験専用変換。実Process・Docker・外部AI・保存は使用しない。
+ */
 test("有限代役のSnapshotは初期・unknown・未発行・Receiptを区別する", async () => {
   for (const state of [
     "initial",

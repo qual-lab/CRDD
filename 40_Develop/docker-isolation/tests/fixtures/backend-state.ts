@@ -39,7 +39,7 @@ await mock.module(
   {
     namedExports: {
       ...platformAccess,
-      createWindowsNativeHelperEnvironment: () =>
+      createChildProcessEnvironment: () =>
         scenario === "environment" ? null : environment,
     },
   },

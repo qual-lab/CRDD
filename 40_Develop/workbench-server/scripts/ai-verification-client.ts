@@ -5,6 +5,8 @@
  * @trace ERB-IT-021
  * @boundary 一件のIPC入力に限定したactionToken/Formと公開HTTP。Task Ownerは親に残す。
  * @security Provider資格・Root Capability・環境・再送・redirect・子孫生成を持たない。
+ * @level IT
+ * @scope 検証専用のHTTP搬送・子Process又は受動診断。実Provider／Dockerの成功は主張しない。
  */
 import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
@@ -19,6 +21,17 @@ let requestCreatedAt: number | null = null;
 let headersSendingAt: number | null = null;
 let observedRequest: object | null = null;
 // 専用一要求Process内だけの観測。本文・Header・socketを保持しない。
+/**
+ * createdで検証用の要求・観測を搬送する。
+ * @responsibility createdで検証用の要求・観測を搬送する。
+ * @trace ERB-IT-021
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus createdで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+ * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+ */
 const created = (message: unknown) => {
   try {
     const request = (message as { request: object }).request;
@@ -30,6 +43,17 @@ const created = (message: unknown) => {
     /* 計測故障はHTTP結果を変えない。 */
   }
 };
+/**
+ * sendingで検証用の要求・観測を搬送する。
+ * @responsibility sendingで検証用の要求・観測を搬送する。
+ * @trace ERB-IT-021
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus sendingで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+ * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+ */
 const sending = (message: unknown) => {
   try {
     if (
@@ -47,10 +71,32 @@ try {
       reject(Error("input_invalid"));
       return;
     }
+    /**
+     * disconnectedで検証用の要求・観測を搬送する。
+     * @responsibility disconnectedで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus disconnectedで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const disconnected = () => {
       process.off("message", receive);
       reject(Error("input_invalid"));
     };
+    /**
+     * receiveで検証用の要求・観測を搬送する。
+     * @responsibility receiveで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus receiveで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const receive = (value: unknown) => {
       process.off("disconnect", disconnected);
       try {

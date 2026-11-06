@@ -2,8 +2,7 @@
  * 通知専用interfaceと単発実行の終了条件を反証する。
  * @packageDocumentation
  * @responsibility 通知待ち・失敗・未登録を技術実行と上位保存から区別する。
- * @trace ERB-IT-002
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope 合成計画・有限Handle・メモリ内観測のみ。
  * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
@@ -32,12 +31,13 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
 /**
  * 公開FactoryからPlanを往復せず、同じ一試行を実行・取消・回収する。
  * @responsibility Requestから作った内部構成と公開startの実接続を有限隔離だけで確認する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition AI AdapterとFactory／startは実装本体、隔離とHomeだけをメモリ代役へ置換する。
  * @stimulus 正常、開始通知待ちの取消、Home競合、同じExecutorへの再開始。
  * @observation 準備中の要求零、元ID、同じ結果通知、回収・解放回数。
  * @oracle 完全Plan・prepareは公開せず、一回実行と元Controlの取消を維持する。
  * @cleanup 全PromiseをjoinしModule代役を復元する。外部AI・Dockerは呼ばない。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("Requestを受ける公開Factoryは内部Planで一回実行し同じControlで取り消す", async () => {
   const boundary = await import("../../src/lifecycle/attempt.ts");
@@ -199,12 +199,13 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
 /**
  * 開始通知の保留・遅い拒否を、開始済みProcessの技術回収から分離する。
  * @responsibility 技術清掃は進め、内容受理とcompletionだけを通知join後に限定する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成sessionとParser呼出し計数だけを使う。
  * @stimulus 通知resolve・reject・保留中取消の三経路。
  * @observation Parser回数、清掃回数、元ID、completionの未確定。
  * @oracle 保留中は清掃一回・Parser零、resolveだけParser一回。
  * @cleanup 各通知をsettleし、completionをjoin、module mockを復元する。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("開始通知を待つ間も技術清掃し、通知成功後だけProvider内容を受理する", async () => {
   const ai = await import("../../../ai-adapter/src/index.ts");
@@ -331,12 +332,13 @@ test("開始通知を待つ間も技術清掃し、通知成功後だけProvider
 /**
  * 実在する隔離境界だけを有限代役にする。
  * @responsibility 元IDを清掃へ搬送し、通知を保存操作にしない。
- * @trace ERB-IT-002
+ * @trace ERB-UT-023
  * @precondition 実資源を使用しない。
  * @stimulus 呼出し側が明示start・cancelを行う。
  * @observation 発行・清掃・Home解放と局所Receipt。
  * @oracle 各実行の元Promiseと通知を同じOwnerへ結合する。
  * @cleanup 呼出しCaseが全completionを待つ。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 function fixture(busy = false, providerOutput?: string) {
   const plan = attemptPlan();
@@ -446,12 +448,13 @@ function fixture(busy = false, providerOutput?: string) {
 /**
  * 任意通知の未登録と受動通知の拒否を完了条件へ混同しない。
  * @responsibility 保存やACKなしで技術結果を返す境界を固定する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 有効な合成計画と元参照。
  * @stimulus 未登録、受動通知のsync throw／async reject。
  * @observation 同じ結果object、九要求、清掃・解放各一回。
  * @oracle 上位の保存fieldを生成せず技術完了を維持する。
  * @cleanup 各completionと拒否観測を待つ。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("通知なしでも技術完了し、受動通知失敗は同じ結果を変えない", async () => {
   for (const mode of ["absent", "throw", "reject"]) {
@@ -530,12 +533,13 @@ test("通知なしでも技術完了し、受動通知失敗は同じ結果を�
 /**
  * 必要通知の拒否と清掃用ID保持を独立に照合する。
  * @responsibility 通知先の失敗で次要求を発行せず、取得済みIDを失わない。
- * @trace ERB-IT-002
+ * @trace ERB-UT-023
  * @precondition 失敗先を一つだけ選ぶ。
  * @stimulus 発行予定、Receipt、資源終了、清掃終了のthrow／reject。
  * @observation 次要求数、ID、Home解放と元参照。
  * @oracle 保存判断を受け取らず技術清掃を各一回行う。
  * @cleanup 全completionを待つ。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("必要通知の例外・拒否は次のEffectを止め、元Receiptと解放事実を保持する", async () => {
   for (const name of [
@@ -546,6 +550,17 @@ test("必要通知の例外・拒否は次のEffectを止め、元Receiptと解�
   ] as const)
     for (const asynchronous of [false, true]) {
       const f = fixture();
+      /**
+       * 必須通知の拒否を同期例外で刺激する。
+       * @responsibility 必須通知の拒否を同期例外で刺激する
+       * @trace ERB-UT-023
+       * @precondition 合成計画・有限Handle・メモリ内観測のみ。
+       * @stimulus 必須通知の拒否を同期例外で刺激する。
+       * @observation 構築した候補、有限応答または検出した例外。
+       * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+       * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+       * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
+       */
       const refuse = () => {
         if (asynchronous) return Promise.reject(Error("synthetic"));
         throw Error("synthetic");
@@ -579,12 +594,13 @@ test("必要通知の例外・拒否は次のEffectを止め、元Receiptと解�
 /**
  * 通知待機中の取消とHome競合をEffectなしへ閉じる。
  * @responsibility 未開始を清掃・Home解放済みへ昇格しない。
- * @trace ERB-IT-002
+ * @trace ERB-UT-023
  * @precondition 同じ元Control・Ownerを使う。
  * @stimulus intent通知待ち中の取消、又はHome競合。
  * @observation 要求0、未発行通知一回、exact回復ID。
  * @oracle 保留通知を待ち終えてから同じ試行を終える。
  * @cleanup 保留Promiseを解放しcompletionを待つ。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("通知待機中の取消は未発行を通知し、Home競合は同IDの未開始結果を返す", async () => {
   let enter!: () => void, finish!: () => void;
@@ -634,12 +650,13 @@ test("通知待機中の取消は未発行を通知し、Home競合は同IDの�
 /**
  * 不正な選定・参照は乱数と隔離Runtime構築より前に拒否する。
  * @responsibility 実ParserとFactoryへ接続し準備失敗のEffect零を確認する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 隔離構築だけを有限代役へ替え、外部AI・Dockerは使わない。
  * @stimulus 未登録Model・種別差・動的項目、参照の重複・hole・Proxy・件数超過。
  * @observation 正例の準備成功と、負例の乱数・Runtime構築・Home取得零。
  * @oracle getter／Proxyを実行せず、Providerへ到達しない。
  * @cleanup Module代役を復元する。実資源は生成しない。
+ * @boundary 実AI・Docker・Filesystem・保存の成立は主張しない。
  */
 test("不正な選定・参照は乱数と隔離構築より前に拒否する", async () => {
   const ai = await import("../../../ai-adapter/src/index.ts");

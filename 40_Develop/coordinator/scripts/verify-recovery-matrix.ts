@@ -18,7 +18,7 @@ import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../../platform-access/src/index.ts";
+import { createChildProcessEnvironment } from "../../platform-access/src/index.ts";
 import { recoverDockerIsolationProbe } from "../src/execution/diagnostics.ts";
 import { createDynamicFakeProviderRecoverableResidue } from "./probe-verification.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
@@ -151,7 +151,7 @@ function recoveryCompleted(result: RuntimeRecord | null) {
  * @concurrency N/A: createRecoveryMatrixChildEnvironmentは共有非同期状態を持たない同期処理である。
  */
 function createRecoveryMatrixChildEnvironment(): NodeJS.ProcessEnv | null {
-  const observedEnvironment = createInteractiveConsoleReaderEnvironment();
+  const observedEnvironment = createChildProcessEnvironment();
   if (!observedEnvironment || process.platform !== "win32") return null;
   try {
     const profile = fs.realpathSync.native(os.userInfo().homedir);

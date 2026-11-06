@@ -13,10 +13,13 @@ import type {
   ExecutionSelection,
 } from "../../../../coordinator/src/index.ts";
 
+/** Workbenchが受け付けるAI依頼の用途区分。 */
 export type WorkbenchAiRequestMode = "read_only_advice" | "workspace_edit";
 
+/** AI依頼の入力・対象・実行条件を受け付ける要求。 */
 export type WorkbenchAiRequestCommand = SingleTaskCommand;
 
+/** AI依頼の受付結果と追跡参照。 */
 export type WorkbenchAiRequestStartResult = Readonly<{
   status: "accepted" | "blocked";
   requestId: string | null;
@@ -39,6 +42,7 @@ export type WorkbenchAiResultItem = Readonly<{
   references: readonly string[];
 }>;
 
+/** 同一AI依頼の進行・終端・回復情報の公開投影。 */
 export type WorkbenchAiRequestSnapshot = Readonly<{
   requestId: string;
   mode: WorkbenchAiRequestMode | null;
@@ -67,6 +71,7 @@ export type WorkbenchAiRequestSnapshot = Readonly<{
   secondaryFailures?: readonly string[];
 }>;
 
+/** AI依頼の開始・照会・取消・終了を結ぶWorkbench側の操作契約。 */
 export type WorkbenchAiRequests = Readonly<{
   start: (
     request: WorkbenchAiRequestCommand,

@@ -1,5 +1,20 @@
 # Checkerの設計
 
+## 回帰試験のGit境界 — 2026-11-06
+
+通常のRepository試験は、その試験が作成したRootを独立Git Repositoryとして初期化し、Gitが返すRootの実体一致を確認する。共通のDirectory fixtureを一律初期化せず、非Git応答・Git未導入・Filesystem探索は明示した試験条件として分離する。親Repositoryのignoreを製品側で無視する処理は追加しない。
+
+試験専用の故障注入器は、現行Git起動形式のRootとsubcommandを照合して対象操作だけを置換し、未対象要求は元のcommand・引数・optionsへそのまま委譲する。HEAD本文の観測失敗は、配置検証を維持したままRevision Readerの読取りで再現する。子Process終了時の試験専用markerを試験Helperが検査・除去し、注入されていない故障を成功扱いしない。markerは製品の診断・公開APIではない。WindowsのRoot大文字小文字は旧Git応答の模擬ではなく、実Rootを正式CLIへ渡して確認する。
+
+Semantic Coverageの試験では、検証Toolとその参照Suiteの非空・一意・代表対象の包含と、全対象の製品実装／Meaning充足への非混入を確認する。台帳への追加だけで無関係に失敗する固定件数をOracleにしない。既存のSuite ID・QA義務・段階は維持する。実submodule試験の依存Sourceは、元fixture RepositoryのCommit前へ含め、clone側の追跡済みFileを確認する。固定Commit外への後付けSourceで起動を補わない。
+
+## コード規約と成果物整合の境界 — 2026-11-06
+
+Checkerは成果物・ID・参照・台帳・関係の構造整合を所有する。Sourceの言語、識別子、型、コメント、overload、固定tagや階層数の一律検査は所有しない。言語別の構文・型・書式は各Packageの標準ツール、責務・命名・説明・安全条件は独立AIレビューへ接続する。新しい言語Adapter・Review Engineは追加しない。
+
+Checker自身の公開API・受付・配布入口・依存方向・試験Runnerの契約試験は通常の製品試験として維持する。既存13 TSツール間の公開Module接続は、宣言済み組合せの結合試験として維持し、全言語・全Packageへ適用するChecker能力とはしない。各Packageの既存公開API試験と利用側型検査も維持する。SuiteとToolのQA ID・段階・Owner・実在Path・verifiesは引き続き台帳から確認するが、各Case／HelperのSourceを解析して対応を証明しない。
+
+
 ## 文書入口とRepository観測の分離 — 2026-10-20（実装済み・最終確認中）
 
 旧Profileは撤去した。`cli/document.ts`は引数・Root初回確認・表示・終了値を所有し、`repository/document.ts`は探索・Scope・参照・文書状態・工程観測の順序と報告集計を所有する。工程観測はproject-context、work-lifecycle、discovery-ux、ia、ui、spec、architecture、qualityの八Fileへ分ける。工程間をつなぐ共通Reader、Snapshot、Registryは作らず、取得済み値をDomainへ渡す。既存参照解決関数だけをDiscovery／UXへ明示搬送し、Readerを再構築しない。診断は元の追記配列に配送し、途中の例外でも先行診断を破棄しない。
@@ -273,7 +288,7 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 | [配布入口](../../../template/tools/crdd-check.ts) | 安定CLI名から同じ基準版Root内の公式Repository CLIへ相対接続する | 採用Repository向け入口を維持しつつ、検査意味を`template`に二重管理しない |
 | [Checker実装正本](../../../40_Develop/checker) | Checker固有Finding、Repository観測、CLIおよび結果報告を所有する | Rule追加のたびにlauncherを変更せず、共通能力をChecker専有にしない |
 | [公式Repository CLI](../../../40_Develop/checker/bin/checker.ts) | 同じChecker公開APIへ接続する | 実装工程から発見できる入口を持ち、コピーを作らない |
-| [private package](../../../40_Develop/checker/package.json) | 型・命名・静的解析・試験の開発環境 | 開発依存を採用先の必須導入物へ広げない |
+| [private package](../../../40_Develop/checker/package.json) | Checker実装の型・Lint・試験の開発環境 | 開発依存を採用先の必須導入物へ広げない |
 | [試験runner](../../../40_Develop/checker/tests/test-runner.ts) | 安全に列挙した試験を子Processで実行する | 通常Checkerの検査と、fixtureを作る開発試験を分ける |
 
 `template/tools`は配布契約として残すが、Checker実装本体を所有しない。起動入口だけを単独コピーした実行形態は対象外とし、公式clone／submodule内の`40_Develop`実装を相対importで解決できなければProcess開始時に停止する。CheckerはRepositoryを読む補助Toolであり、Provider Effect、Runtime Authorityまたは共有Effectを発行しない。このためCoordinatorの署名済みRuntime閉包へ含めず、通常のRepository Root、regular file、link非介在、公開入口およびConsumer Closureを検証境界とする。
@@ -453,15 +468,14 @@ Architecture Definition          Quality Definition
 | Global Symbol Graph | ARCH→実装、QA→試験、試験→実装と各逆方向のIndex。構造Findingが1件でもあればGraphを発行しない | Reality Gapの意味分類 |
 | Quality Local Item解決 | Test SymbolのLocal Test IDが、同じSymbolに結合したQA定義の検証項目に実在することを確認 | Test実装済み・Passの主張 |
 | Test Catalog Adapter | Test SymbolのPathとOwnerがTest Catalogへexactに一度だけ登録されていることを確認 | Test CatalogをGraph Coreへ直接読ませること、試験結果の意味評価 |
-| Source Header | Production Named SymbolはARCH-ID、Test File／Case／Helper／FixtureはQuality Local Itemへ接続する局所Navigation Hintを必須で持つ。`symbol.json`との不一致を検出する | Relationの正本、HeaderからCanonical Relationを逆生成すること |
+| Source Header | 開発者・AIレビュー向けのNavigation Hint。Checkerの一律走査対象にはしない | Relationの正本、HeaderからCanonical Relationの逆生成、コード規約の合否判定 |
 
 新Subsystemは`40_Develop/<subsystem>/symbol.json`を追加して参加する。Checker CoreへSubsystem名を追加しない。Implementation SymbolはARCH Relationだけを、Test SymbolはQA、Local Test、`verifies` Relationだけを所有し、設計と検証の責務を一つのSymbolへ混在させない。Symbol Pathは途中要素を含めてlink／junctionではない通常fileであり、実体PathもSubsystem内に留まる場合だけ受理する。Test SymbolはTest Catalog Adapterが返す登録集合へexact Pathと同一Ownerで接続する。`symbol.json`が存在しPathとIDが解決できることはRelationの構造成立だけを意味し、`Covered`、実装済み、試験済みまたは合格済みを意味しない。
 
 本番実装を呼ばない合成環境の実証は、Test Symbolへ`verificationTarget: "environment"`を明示する。この場合もQA・Local Test・実Pathの関係を必須とし、`verifies`は空集合だけを許す。通常試験の`verifies`非空条件は維持し、環境実証を実装Symbol又は実装の意味Coverageへ加算しない。未知値、実装Symbolへの付与、架空の実装関係との併記は拒否する。
 
-検証Tool自身の構築・判定・終了制御を検査するSuiteは、環境実証へ分類しない。検証Toolと用途限定判定fixtureを`kind: "verification-tool"`としてQA・Local Test・実Pathへ接続し、Suiteは非空の`verifies`で実際の対象Toolへ結合する。ToolのPathはPackage内の`scripts/`または`tests/fixtures/`の通常TypeScript／Rust fileだけを許す。ARCH・意味実装・環境指定とTool自身の検証辺を禁止し、`verifies`は明示空配列とする。既存のPath実体観測、QA／Local解決、通常試験の参照条件を維持する。Tool宛て辺は実装検証Indexへ登録せず、Semantic CoverageもToolを実装や意味の検証証拠へ加算しない。ここで確認するのは検証手段の局所契約であり、本番Capabilityや実Native／OS動作の合格ではない。
+検証Tool自身の構築・判定・終了制御を検査するSuiteは、環境実証へ分類しない。検証Toolと用途限定判定fixtureを`kind: "verification-tool"`としてQA・Local Test・実Pathへ接続し、Suiteは非空の`verifies`で実際の対象Toolへ結合する。ToolのPathはPackage内の`scripts/`または`tests/fixtures/`の通常fileだけを許す。言語や拡張子で参加条件を分けない。ARCH・意味実装・環境指定とTool自身の検証辺を禁止し、`verifies`は明示空配列とする。既存のPath実体観測、QA／Local解決、通常試験の参照条件を維持する。Tool宛て辺は実装検証Indexへ登録せず、Semantic CoverageもToolを実装や意味の検証証拠へ加算しない。ここで確認するのは検証手段の局所契約であり、本番Capabilityや実Native／OS動作の合格ではない。
 
-Header検査もこの分類に従う。検証済みManifestと宣言元Package内の通常実Pathへexactに結合した検証ToolにはQuality Headerを適用し、Production Headerを重複要求しない。Toolの識別子命名とQA／Local Item対応の検査は維持し、未登録script、不正Manifest、別Packageへの解決、重複又は実装との混在を免除に利用しない。同じTypeScript Symbolのoverload集合は先頭宣言のHeaderを一度検査し、後続宣言にHeaderがないことだけを重複診断しない。先頭の不足、後続に明示した不正Header、別Symbolの不足、各宣言の命名・parameterは引き続き検査する。
 
 Test Catalogの定義、変更影響からの試験選択、試験段階の実行および結果集約は[Verification Runner](../verification-runner/01_Architecture.md)が所有する。CheckerのTest Catalog Adapterは、Reality Symbolとの構造整合だけを読取り検査し、試験を選択・実行しない。
 

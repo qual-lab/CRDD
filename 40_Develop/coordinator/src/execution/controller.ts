@@ -132,7 +132,7 @@ const LIFECYCLE_NOTICE_TIMEOUT_MS = 5_000;
  * @trace ARCH-000004
  */
 function reportTaskDiagnostic(
-  state: Readonly<{ dependencies: taskRuntimeDependencies }>,
+  state: Readonly<{ dependencies: TaskRuntimeDependencies }>,
   notice: ProviderBoundaryDiagnosticNotice,
 ) {
   try {
@@ -1477,7 +1477,7 @@ interface TaskRuntimeCallbacks {
  * @security 実行許可は既存の判断Ownerへ委ねる。
  * @compatibility 通信・保存Schema、取消・回復条件を維持する。
  */
-type taskRuntimeDependencies = Readonly<{
+type TaskRuntimeDependencies = Readonly<{
   beginInvocation?: (
     provider: Provider,
     role: TaskRole,
@@ -1682,8 +1682,8 @@ type ControlRecord = {
  * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type taskRuntimeState = Readonly<{
-  dependencies: taskRuntimeDependencies;
+type TaskRuntimeState = Readonly<{
+  dependencies: TaskRuntimeDependencies;
   controls: WeakMap<object, ControlRecord>;
 }>;
 
@@ -1704,7 +1704,7 @@ type taskRuntimeState = Readonly<{
  * @concurrency N/A: advanceLifecycleStateは共有非同期状態を持たない同期処理である。
  */
 function advanceLifecycleState(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   control: ControlRecord,
   next: RuntimeLifecycleState,
 ) {
@@ -2232,7 +2232,7 @@ function exactProcessCancellationReceipt(value: unknown) {
  * @concurrency requestControlCancellationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 function requestControlCancellation(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   control: ControlRecord,
 ) {
   if (control.cancellationReceipt) return control.cancellationReceipt;
@@ -2430,7 +2430,7 @@ function canRunManagedDockerCleanup(
  * @security poisonRuntimeProcessはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: poisonRuntimeProcessは共有非同期状態を持たない同期処理である。
  */
-function poisonRuntimeProcess(state: taskRuntimeState, control: ControlRecord) {
+function poisonRuntimeProcess(state: TaskRuntimeState, control: ControlRecord) {
   control.processPoisoned = true;
   state.dependencies.poisonProcessAfterCleanupUnknown?.();
 }
@@ -2685,7 +2685,7 @@ function samePaths(left: unknown, right: unknown) {
  * @trace ERB-IT-021
  */
 function reportCandidateValidationFailure(
-  state: Readonly<{ dependencies: taskRuntimeDependencies }>,
+  state: Readonly<{ dependencies: TaskRuntimeDependencies }>,
   operation: Operation,
   correlationId: string | null,
   provider: unknown,
@@ -2742,7 +2742,7 @@ function reportCandidateValidationFailure(
  * @trace ERB-IT-021
  */
 function reportTaskStage(
-  state: Readonly<{ dependencies: taskRuntimeDependencies }>,
+  state: Readonly<{ dependencies: TaskRuntimeDependencies }>,
   operation: Operation,
   correlationId: string | null,
   provider: unknown,
@@ -2861,7 +2861,7 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
  * @concurrency executeStageBodyは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function executeStageBody(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   operation: Operation,
   request: RuntimeRecord,
   repositoryBindingCapability: object,
@@ -3297,7 +3297,7 @@ async function executeStageBody(
  * @concurrency runCoordinatorTaskCoreは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function runCoordinatorTaskCore(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   rawRequest: unknown,
   repositoryRoot: unknown,
   control: ControlRecord,
@@ -3910,7 +3910,7 @@ async function runCoordinatorTaskCore(
  * @concurrency runCoordinatorTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function runCoordinatorTask(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   rawRequest: unknown,
   repositoryRoot: unknown,
   control: ControlRecord,
@@ -4097,7 +4097,7 @@ async function createProductionOperation() {
   }
 }
 
-const productionDependencies = Object.freeze<taskRuntimeDependencies>({
+const productionDependencies = Object.freeze<TaskRuntimeDependencies>({
   reportProviderBoundaryDiagnostic: createRuntimeOwnedLifecycleNoticeReporter(
     process.stderr,
   ),
@@ -4158,7 +4158,7 @@ const productionDependencies = Object.freeze<taskRuntimeDependencies>({
  * @concurrency retainRuntimeRecoveryStateは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function retainRuntimeRecoveryState(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   control: ControlRecord,
 ) {
   control.retainOperationRoot = !control.hostCleanupCompleted;
@@ -4193,8 +4193,8 @@ async function retainRuntimeRecoveryState(
  * @security createRuntimeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency createRuntimeは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-function createRuntime(dependencies: taskRuntimeDependencies) {
-  const state: taskRuntimeState = Object.freeze({
+function createRuntime(dependencies: TaskRuntimeDependencies) {
+  const state: TaskRuntimeState = Object.freeze({
     dependencies: Object.freeze(dependencies),
     controls: new WeakMap(),
   });
@@ -4719,7 +4719,7 @@ function createRuntime(dependencies: taskRuntimeDependencies) {
  * @concurrency Control削除後も捕捉済み参照だけを使い、各利用時に現在条件を再確認する。
  */
 function captureProjectTaskResultDelivery(
-  state: taskRuntimeState,
+  state: TaskRuntimeState,
   control: ControlRecord,
 ) {
   const ready = () =>
@@ -5178,7 +5178,7 @@ export function cancelRuntimeOwnedDevelopmentObjectiveTask(
  * @concurrency N/A: createIsolatedCoordinatorTaskRuntimeCandidateは共有非同期状態を持たない同期処理である。
  */
 export function createIsolatedCoordinatorTaskRuntimeCandidate(
-  dependencies: taskRuntimeDependencies,
+  dependencies: TaskRuntimeDependencies,
 ) {
   return Object.freeze({
     productionAuthority: false as const,

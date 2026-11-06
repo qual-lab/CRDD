@@ -1,5 +1,9 @@
 # QA-000004 読取り投影と時間的出所の検証定義
 
+## 構造登録と実行結果の分離 — 2026-11-06
+
+PPR-UT-017のRelation Consistency義務は維持する。CheckerがSourceのskip宣言だけでSuite全体の登録を拒否する処理と、その字句Parser専用試験は撤去する。これはskipを含むSuiteも構造登録できる受理条件変更であり、挙動不変とは扱わない。実在Path・Owner・ID・参照・QA関係の検査は残す。skip・未実施・Passは既存試験Runnerと品質評価の実行結果で確認し、登録Graphを実行済みEvidenceとしない。Parser専用の旧成功を移管先の検証成立へ繰り越さない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000004`
 検証目標: 読取り投影が出所、観測時点、対象改訂版、欠測および評価候補を失わず返すこと

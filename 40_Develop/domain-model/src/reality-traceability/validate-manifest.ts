@@ -359,7 +359,7 @@ export function validateRealitySymbolManifest(
     const isVerificationTool = kind === "verification-tool";
     if (
       isVerificationTool &&
-      (!/^(?:scripts\/|tests\/fixtures\/).+\.(?:ts|rs)$/u.test(symbolPath) ||
+      (!/^(?:scripts\/|tests\/fixtures\/).+/u.test(symbolPath) ||
         !["qaIds", "localTestIds", "verifies"].every(
           (key) =>
             Object.hasOwn(rawSymbol, key) && Array.isArray(rawSymbol[key]),

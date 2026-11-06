@@ -1,9 +1,3 @@
-import type {
-  Provider,
-  ReasoningEffort,
-  ModelSelection,
-} from "../../../ai-adapter/src/index.ts";
-export type { Provider, ReasoningEffort, ModelSelection };
 /**
  * Repository別AI選択設定の共有値契約。
  * @packageDocumentation
@@ -11,6 +5,13 @@ export type { Provider, ReasoningEffort, ModelSelection };
  * @trace ARCH-000004
  * @boundary 秘密値・実行Authorityを含めない設定データ。
  */
+import type {
+  Provider,
+  ReasoningEffort,
+  ModelSelection,
+} from "../../../ai-adapter/src/index.ts";
+export type { Provider, ReasoningEffort, ModelSelection };
+
 /**
  * v0.22の固定した五つの作業上の役割。
  * @responsibility アクセス管理のロールとは異なるAIの担当を表す。

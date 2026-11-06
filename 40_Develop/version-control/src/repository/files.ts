@@ -1,7 +1,8 @@
 /**
  * Repositoryの現在作業内容のTree読取り。
  * @responsibility Main／Linkedの共通Git読取り、Path・Cursor検査とページングを所有する。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  */
 import fs from "node:fs";
 import { createHash } from "node:crypto";
@@ -51,6 +52,7 @@ export function readRepositoryPaths(root: string): readonly string[] {
   );
 }
 
+/** HEAD・Index・Working Treeで区別する変更Path集合。 */
 type ChangePathSets = Readonly<{
   prepared: ReadonlySet<string>;
   working: ReadonlySet<string>;
@@ -257,6 +259,7 @@ export function readTree(
   });
 }
 
+/** 固定内容の展開先Directoryとコピー時の境界情報。 */
 type CopyDirectory = Readonly<{
   path: string;
   dev: bigint;
@@ -601,7 +604,8 @@ export function copyCommitFiles(
 /**
  * 現在Worktreeの内容・比較差分・raw Blob値を同じ対象から読む。
  * @responsibility 省略時の比較HEADを一度確定し、明示Baseと同じ前後照合を行う。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  * @failure HEADなし・不正Base・形式不一致・内容／HEAD変更は拒否する。
  * @security Path・link・容量・期限の既存検査を維持し、読取りを採用許可にしない。
  */

@@ -10,11 +10,26 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { types } from "node:util";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
-import {
-  RECOVERY_START_FAILURE_STAGES,
-  type RecoveryStartFailureDiagnostic,
-} from "./types.ts";
-import type { Recovery } from "./types.ts";
+import type { RecoveryStartFailureDiagnostic, Recovery } from "./types.ts";
+
+/**
+ * 回復開始診断の許容段階を検証Ownerで固定する。
+ * @responsibility 未知の開始段階を診断の成功値へ補完しない。
+ * @trace ARCH-000008
+ */
+export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
+  "plan_validation",
+  "operation_context",
+  "provider_home",
+  "home_lock",
+  "operation_binding",
+  "state_conflict",
+  "operation_start_save",
+  "settlement_binding",
+  "host_submission",
+  "home_lock_release",
+  "unknown",
+] as const);
 
 // 現行Hostの開始・在庫投影が返す有限理由だけを受ける。
 // 旧保存方式のProducer不在理由を分類契約として保持しない。未知値は従来どおりunavailable。

@@ -3,6 +3,10 @@
  * @responsibility 元stderrの意味を変えず、固定診断を既存の安全な結果へ搬送する。
  * @trace ERB-IT-021
  * @security 生出力・任意本文は保持せず、別Taskの診断を受領しない。
+ * @packageDocumentation
+ * @level IT
+ * @scope 検証専用のHTTP搬送・子Process又は受動診断。実Provider／Dockerの成功は主張しない。
+ * @boundary 同じ検証Tool内の要求・観測・終了。Task進行のAuthorityを生成しない。
  */
 import type { Writable } from "node:stream";
 import { parseUnambiguousJsonDocument } from "../../domain-model/src/index.ts";
@@ -49,7 +53,17 @@ export type RecoveryDiagnosticIdentity = Readonly<{
 const marker =
   '[Coordinator lifecycle] {"event":"coordinator_provider_recovery_start_failed"';
 
-/** 同Processで一つだけ取得し、Owner終了後に元のwriteへ復元する。 */
+/**
+ * 同Processで一つだけ取得し、Owner終了後に元のwriteへ復元する。
+ * @responsibility captureWorkspaceTaskDiagnosticで検証用の要求・観測を搬送する。
+ * @trace ERB-IT-021
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus captureWorkspaceTaskDiagnosticで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+ * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+ */
 export function captureWorkspaceTaskDiagnostic(stream: Writable) {
   const original = stream.write;
   const events: Event[] = [];
@@ -62,6 +76,17 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
   let boundaryStatus: Status | "task_history_only" = status;
   let active = !installed;
   let finished = false;
+  /**
+   * exactで検証用の要求・観測を搬送する。
+   * @responsibility exactで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus exactで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const exact = (value: object, keys: string[]) =>
     Object.keys(value).sort().join("\0") === keys.sort().join("\0");
   const intercept = function (

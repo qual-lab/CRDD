@@ -49,15 +49,18 @@ await mock.module(
   new URL("../../../platform-access/src/index.ts", import.meta.url).href,
   {
     namedExports: {
-      createInteractiveConsoleReaderEnvironment: (platform: string) => {
-        assert.equal(platform, "win32");
+      createChildProcessEnvironment: (options: {
+        platform: string;
+        userProfile?: boolean;
+      }) => {
+        assert.equal(options.platform, "win32");
+        if (options.userProfile)
+          return scenario === "native_unknown"
+            ? null
+            : Object.freeze({ ...neutral, USERPROFILE: "D:\\Users\\fixture" });
         consoleObservations += 1;
         return scenario === "console_unknown" ? null : neutral;
       },
-      createWindowsNativeHelperEnvironment: () =>
-        scenario === "native_unknown"
-          ? null
-          : Object.freeze({ ...neutral, USERPROFILE: "D:\\Users\\fixture" }),
       deriveWindowsSystemDrive: (directory: unknown) => {
         assert.equal(directory, "D:\\Windows");
         return scenario === "drive_unknown" ? null : "D:";

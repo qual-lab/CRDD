@@ -1,10 +1,11 @@
 /**
  * 環境APIの薄い接続と観測の意味を有限代役で確認する。
  * @responsibility 要求・通知・取消・元結果の同一性と診断の非操作性を反証する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @level UT
  * @scope Docker Isolationをメモリ代役へ置換し、実Docker・AI・保存領域へ接続しない。
  * @boundary この試験は実Desktopの成立根拠ではない。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
@@ -23,12 +24,13 @@ import type {
 /**
  * 診断と再起動を同じ有限下位代役で区別する。
  * @responsibility 診断からの再起動0と再起動の無変換委譲を確認する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @precondition 実APIをimportする前にDIを代役へ置換する。
  * @stimulus 全観測分類、cleanup不明、正常・取消・保存失敗の要求。
  * @observation 呼出し順、元入力・Promise・結果、例外の参照。
  * @oracle unknown・delivery・Signal・通知を補完・再構築しない。
  * @cleanup module mockを解除する。外部資源は作らない。
+ * @boundary この試験は実Desktopの成立根拠ではない。
  */
 test("環境診断は読取りのみ、再起動は元要求と元Promiseをそのまま委譲する", async () => {
   const calls: string[] = [];

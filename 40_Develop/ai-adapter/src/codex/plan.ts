@@ -18,6 +18,7 @@ import type {
 
 import type { ProviderExecutionLocations } from "../provider/types.ts";
 
+/** Codex計画で受理できない入力の固定拒否結果。 */
 type ProviderPlanRejection<R extends string> = Readonly<{
   status: "blocked";
   reason: R;

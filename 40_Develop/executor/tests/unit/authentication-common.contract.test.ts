@@ -1,10 +1,11 @@
 /**
  * 認証の固定構成と共通DI生涯への接続を反証する。
  * @responsibility 両Provider・二操作の構成、通知停止、Snapshotと終了条件を確認する。
- * @trace ARCH-000010
+ * @trace ERB-UT-016
  * @level UT
  * @scope 共通DIの有限代役のみ。実Docker・実AI・認証情報・Filesystem操作はない。
  * @boundary 公開Executor→認証固有構成→共通技術契約。物理終了はDI試験の責務。
+ * @packageDocumentation
  */
 import {
   classifyDockerCommandExecution,
@@ -29,7 +30,7 @@ import * as original from "../../../docker-isolation/src/index.ts";
 
 /** 同じRoot入口の全認証構成と、通知拒否・未終了の負例を確認する。
  * @responsibility 当該Caseの入力・通知・技術結果の対応を確認する。
- * @trace ERB-UT-023
+ * @trace ERB-UT-016
  * @precondition 当該Caseの有限代役又はRepository内の新品試験領域だけを使用する。
  * @stimulus Case名に示す正常・境界・失敗条件を同じ実装へ与える。
  * @observation 同じ呼出しの返却値・元実ID・要求順序と終了条件を観測する。

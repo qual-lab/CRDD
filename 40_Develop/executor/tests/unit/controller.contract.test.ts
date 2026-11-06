@@ -2,7 +2,7 @@
  * Controller終端の状態・清掃・結果公開の共同条件を反証する。
  * @packageDocumentation
  * @responsibility 元回復参照と五清掃条件の終端投影を検査する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope 実宣言の純粋な値投影。実Process・Docker・保存なし。
  * @boundary Executor Controllerの終端結果。
@@ -19,12 +19,14 @@ import { createLifecycleControl } from "../../src/lifecycle/execute.ts";
 /**
  * 選択三項目の全存在／全不存在を型検査で固定する。
  * @responsibility 実Factoryが作らない部分的な選択情報を公開型が許容しない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 型検査ではexpect-errorを必ず消費し、実行時は局所値だけを扱う。
  * @stimulus 全存在・全不存在と、六つの部分集合。
  * @observation 正例の型成立と、各部分集合のコンパイル拒否。
  * @oracle 一項目又は二項目だけの選択値はStartResultにならない。
  * @cleanup N/A: 外部資源なし。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+
  */
 test("選択三項目の部分集合を明示結果型が拒否する", () => {
   const base = {
@@ -85,12 +87,14 @@ test("選択三項目の部分集合を明示結果型が拒否する", () => {
 /**
  * 明示型の開始成功結果で、実行Ownerの参照を保持する。
  * @responsibility Factoryが制御やPromiseを生成し直さないことを検査する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成のControlと未実行Promise。
  * @stimulus 開始成功と既存選択metadataを渡す。
  * @observation status、exact参照、固定field、凍結。
  * @oracle 同じControlとPromiseを返し、Provider開始・清掃完了を推定しない。
  * @cleanup N/A: 実行も外部資源も作らない。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+
  */
 test("開始成功と拒否は同じFactoryから生成し元のControlとPromiseを保つ", () => {
   const control = Object.freeze({});
@@ -124,12 +128,14 @@ test("開始成功と拒否は同じFactoryから生成し元のControlとPromis
 /**
  * 解決済み計画を同じ実行Ownerへ渡し、終了通知で元結果を変更しない。
  * @responsibility 上位の選定・準備を実行Factoryに戻さない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 有限Runtime代役のみ。
  * @stimulus 開始拒否／成功を返す。
  * @observation 元計画・管理参照・Control・最終結果の同一性。
  * @oracle 準備callbackは呼ばず、完了結果をコピーしない。
  * @cleanup 合成Promiseの完了だけを待つ。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+
  */
 test("公開開始は解決済み計画を渡し同じ終了結果を通知する", async () => {
   const source = readFileSync(
@@ -225,13 +231,14 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
 /**
  * 開始拒否の清掃・回復参照・下位義務を全組合せで照合する。
  * @responsibility Effect前拒否を清掃成功や回復不要と混同しない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成のreasonと回復参照だけを使用する。
  * @stimulus 三条件の八組合せを渡す。
  * @observation 清掃・manualRecoveryRequired・元参照・非公開field。
  * @oracle 下位義務、清掃不明、回復参照ありのいずれでもmanualを維持する。
  * @cleanup N/A: 値生成だけ。
- * @boundary ERB-IT-004=Direct Boundary: 開始拒否結果。
+ * @boundary ERB-UT-023=Direct Boundary: 開始拒否結果。
+
  */
 test("開始拒否は清掃と元回復参照と下位義務を独立に保持する", () => {
   for (const clean of [false, true])
@@ -260,13 +267,14 @@ test("開始拒否は清掃と元回復参照と下位義務を独立に保持�
 /**
  * 五つの物理清掃条件と保存受理の全組合せを照合する。
  * @responsibility 一条件の欠測も成功や結果公開へ丸めないことを反証する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 実Controllerの純粋な終端投影宣言だけを構文木から抽出する。
  * @stimulus 64組合せとcompleted／blocked／cancelledを渡す。
  * @observation 状態、元回復参照、本文とHash、回復Capabilityを照合する。
  * @oracle 全条件成立時だけ清掃確定し、本文公開はさらにcompletedを要する。
  * @cleanup N/A: 実Process、保存、Dockerを操作しない。
- * @boundary ERB-IT-004=Direct Boundary: Controller終端の相関不変条件。
+ * @boundary ERB-UT-023=Direct Boundary: Controller終端の相関不変条件。
+
  */
 test("終端結果は技術清掃と上位保存の全64組合せを区別し、上位判断を所有しない", () => {
   const source = readFileSync(

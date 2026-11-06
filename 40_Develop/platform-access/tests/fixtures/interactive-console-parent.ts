@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInteractiveConsoleReaderLifecycle } from "../../src/terminal/reader-lifecycle.ts";
 import { spawnRuntimeLocalTypeScriptChild } from "../../src/process/child.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../../src/index.ts";
+import { createChildProcessEnvironment } from "../../src/index.ts";
 import { acquireNamedPipeKernelLockOutcome } from "../../src/index.ts";
 
 const lockOutcome = await acquireNamedPipeKernelLockOutcome(
@@ -26,7 +26,7 @@ let descriptor: number | null = null;
 try {
   descriptor = fs.openSync("\\\\.\\CONIN$", "r");
   const controller = new AbortController();
-  const environment = createInteractiveConsoleReaderEnvironment();
+  const environment = createChildProcessEnvironment();
   if (!environment) process.exit(5);
   const child = spawnRuntimeLocalTypeScriptChild(
     "interactive_console_reader",

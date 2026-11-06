@@ -137,7 +137,7 @@ UI対応の後勝ち、Screen行内の最初の一致、関係の出現順・重
 
 `artifact/ux-handoff.ts`は読取り済み本文の正式な引渡し先を判定する。`isUxHandoffTargetSetExact`は四つの引渡し先の順序と完全一致を要求し、次の二段階または三段階見出しで対象Sectionを終える。`isUxRootHandoffValid`は入口の関係する三ラベルだけを比較し、二段階見出しだけで終える。この違いを汎用Parserへ畳まず、既存のコメント・Fence除外と判定条件を維持する。観測順と診断はCheckerが所有する。
 
-`reality-traceability/test-source.ts`の`hasSkippedTestDeclaration`は、既存の文字列・コメント除外とskip宣言検出をそのまま所有する。汎用TypeScript Parserや実行済みEvidenceの証明へ拡張しない。
+Realityの登録は成果物関係の構造だけを確認する。Sourceのskip宣言を字句解析する旧`hasSkippedTestDeclaration`と専用Sourceは撤去した。skipを含むSuiteも構造登録できるが、登録を実行・Pass・観測済みEvidenceへ昇格しない。実際のskip・未実施・結果は各Packageの試験Runnerと品質評価が所有し、PPR-UT-017のRelation Consistency義務は維持する。
 
 ### 工程Checklist期待項目の所有 — 2026-10-20
 

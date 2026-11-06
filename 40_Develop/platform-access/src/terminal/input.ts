@@ -7,7 +7,7 @@ import type { ChildProcess } from "node:child_process";
 import path from "node:path";
 import tty from "node:tty";
 import { fileURLToPath } from "node:url";
-import { createInteractiveConsoleReaderEnvironment } from "../process/environment.ts";
+import { createChildProcessEnvironment } from "../process/environment.ts";
 import { spawnRuntimeLocalTypeScriptChild } from "../process/child.ts";
 import {
   runInteractiveConsoleReaderLifecycle,
@@ -45,7 +45,7 @@ export function readConfirmationCodeOutcome(
         line: null,
       }) as InteractiveConsoleReaderLifecycleOutcome,
     );
-  const environment = createInteractiveConsoleReaderEnvironment();
+  const environment = createChildProcessEnvironment();
   if (!environment)
     return Promise.resolve(
       Object.freeze({

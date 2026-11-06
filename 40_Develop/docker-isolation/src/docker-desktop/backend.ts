@@ -6,7 +6,7 @@
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { createWindowsNativeHelperEnvironment } from "../../../platform-access/src/index.ts";
+import { createChildProcessEnvironment } from "../../../platform-access/src/index.ts";
 
 /**
  * 修復Ownerの要求で固定Docker Desktop backendだけを停止する。
@@ -27,7 +27,10 @@ export function terminateDockerDesktopBackendForRepair(): Readonly<{
   issued: boolean;
   confirmation: "not_issued" | "confirmed" | "unknown";
 }> {
-  const environment = createWindowsNativeHelperEnvironment();
+  const environment = createChildProcessEnvironment({
+    platform: "win32",
+    userProfile: true,
+  });
   const systemRoot = environment?.SystemRoot;
   if (!environment || !systemRoot)
     return Object.freeze({ issued: false, confirmation: "not_issued" });
@@ -187,7 +190,7 @@ export function observeBackendState(): BackendState {
   if (process.platform !== "win32") return "unknown";
   try {
     const environment: Readonly<Record<string, string>> | null =
-      createWindowsNativeHelperEnvironment();
+      createChildProcessEnvironment({ platform: "win32", userProfile: true });
     if (!environment?.SystemRoot) return "unknown";
     const executable = path.win32.join(
       environment.SystemRoot,

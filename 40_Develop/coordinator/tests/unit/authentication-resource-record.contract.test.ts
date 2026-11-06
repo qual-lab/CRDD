@@ -1,9 +1,11 @@
 /**
  * 認証の元Snapshot・Intent・Receipt保存を有限Filesystemで反証する。
  * @responsibility 通知正常終了より前の保存読戻しと未要求窓の区別を確認する。
- * @trace ARCH-000010
+ * @trace ERB-UT-016
  * @level UT
  * @scope Source宣言とメモリ内保存。実AI・Docker・Directory操作はない。
+ * @packageDocumentation
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -19,7 +21,17 @@ import {
   type CoordinatorResourceBook,
 } from "../../../domain-model/src/index.ts";
 
-/** 認証記録の実宣言へ保存代役だけを接続する。 */
+/**
+ * 認証記録の実宣言へ保存代役だけを接続する。
+ * @responsibility このSuiteの合成依存と初期入力を構築する
+ * @trace ERB-UT-016
+ * @precondition Source宣言とメモリ内保存。実AI・Docker・Directory操作はない。
+ * @stimulus このSuiteの合成依存と初期入力を構築する。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 function fixture() {
   const source = fs.readFileSync(
     new URL("../../src/execution/authority.ts", import.meta.url),
@@ -142,6 +154,17 @@ function fixture() {
   };
 }
 
+/**
+ * 認証は初回Intentと元Snapshotの保存読戻しが一致した時だけ通知を完了する。
+ * @responsibility 認証は初回Intentと元Snapshotの保存読戻しが一致した時だけ通知を完了する
+ * @trace ERB-UT-016
+ * @precondition Source宣言とメモリ内保存。実AI・Docker・Directory操作はない。
+ * @stimulus 認証は初回Intentと元Snapshotの保存読戻しが一致した時だけ通知を完了するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 認証は初回Intentと元Snapshotの保存読戻しが一致した時だけ通知を完了するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("認証は初回Intentと元Snapshotの保存読戻しが一致した時だけ通知を完了する", () => {
   for (const tamper of [
     null,
@@ -166,6 +189,17 @@ test("認証は初回Intentと元Snapshotの保存読戻しが一致した時だ
   }
 });
 
+/**
+ * 認証のReceiptは同じIntentへだけ保存し、終端結果から実IDを補完しない。
+ * @responsibility 認証のReceiptは同じIntentへだけ保存し、終端結果から実IDを補完しない
+ * @trace ERB-UT-016
+ * @precondition Source宣言とメモリ内保存。実AI・Docker・Directory操作はない。
+ * @stimulus 認証のReceiptは同じIntentへだけ保存し、終端結果から実IDを補完しないの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 認証のReceiptは同じIntentへだけ保存し、終端結果から実IDを補完しないという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("認証のReceiptは同じIntentへだけ保存し、終端結果から実IDを補完しない", () => {
   const f = fixture();
   assert.equal(
@@ -216,6 +250,17 @@ test("認証のReceiptは同じIntentへだけ保存し、終端結果から実I
   );
 });
 
+/**
+ * 認証の未要求を確認した読取りと観測不能・未終了Intentを区別する。
+ * @responsibility 認証の未要求を確認した読取りと観測不能・未終了Intentを区別する
+ * @trace ERB-UT-016
+ * @precondition Source宣言とメモリ内保存。実AI・Docker・Directory操作はない。
+ * @stimulus 認証の未要求を確認した読取りと観測不能・未終了Intentを区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 認証の未要求を確認した読取りと観測不能・未終了Intentを区別するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("認証の未要求を確認した読取りと観測不能・未終了Intentを区別する", () => {
   const f = fixture();
   const observed = f.api.read(f.record);

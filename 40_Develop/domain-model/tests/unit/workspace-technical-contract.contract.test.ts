@@ -1,7 +1,8 @@
 /**
  * DomainがWorkspace保存契約を所有し、Git技術要求と区別することを確認する。
+ * @packageDocumentation
  * @responsibility 既存の保存形状・業務ID・表示名・CHG相関を維持する。
- * @trace RCM-UT-014 RFD-IT-029
+ * @trace RFD-UT-030
  * @level UT
  * @scope 候補保存値とPackage依存方向。
  * @boundary 同一Processの値検査。Git・保存Effectなし。
@@ -19,12 +20,14 @@ import { validCandidateRecord } from "../../src/workspace/validation.ts";
 
 /**
  * 上位の保存相関と下位の技術入力検査を同じ値へ適用する。
- * @trace RCM-UT-014
- * @precondition VC公開型で構築した要求。
+ * @responsibility 候補保存値の閉形式と保存対象Workspaceへの相関を反証する。
+ * @trace RFD-UT-030
+ * @precondition Domainの要求型で構築した合成値。
  * @stimulus 正常・別Workspace・不正要求を保存検査へ渡す。
  * @observation 同対象の正常だけtrue。
  * @oracle 型移管後も既存保存相関が保たれる。
  * @cleanup N/A: 純粋値のみ。
+ * @boundary RFD-UT-030=N/A: Domainの値検査のみ。Git・保存Effectなし。
  */
 test("候補保存値はDomainの要求形式とWorkspace相関の双方を検査する", () => {
   const workspaceId = "00000000-0000-0000-0000-000000000001";
@@ -76,12 +79,14 @@ const REQUEST: WorkspaceCandidateRequest = {
 
 /**
  * 移管前の正常・境界・不正・欠測を技術正本で確認する。
- * @trace RFD-IT-029
+ * @responsibility 要求・Commit形式・選択Path・表示名・関連CHGの受理境界を固定する。
+ * @trace RFD-UT-030
  * @precondition 既存の技術要求を使用する。
  * @stimulus 欠測、追加キー、別形式、管理Path、重複選択を入力する。
  * @observation 正常とSHA-256は受理、不正は拒否。
  * @oracle 値検査の受理・拒否条件が保持される。
  * @cleanup N/A: 純粋値のみ。
+ * @boundary RFD-UT-030=N/A: 値の受理／拒否だけを検査し実Gitを呼ばない。
  */
 test("技術入力の閉形式と境界条件を維持する", () => {
   assert.equal(validWorkspaceCandidateRequest(REQUEST), true);

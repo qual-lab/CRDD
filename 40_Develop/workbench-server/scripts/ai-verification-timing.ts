@@ -4,6 +4,9 @@
  * @trace ERB-IT-021
  * @boundary Node HTTP診断通知と同じToolのClient／Owner。Task状態は変更しない。
  * @security URL・本文・Token・結果・例外本文を記録しない。
+ * @packageDocumentation
+ * @level IT
+ * @scope 検証専用のHTTP搬送・子Process又は受動診断。実Provider／Dockerの成功は主張しない。
  */
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -25,6 +28,13 @@ type ServerTiming = {
  * @effect bind後だけNode診断通知を購読し、disposeで解除する。
  * @failure 欠測・上限超過は件数として残し、元の処理結果を変更しない。
  * @concurrency 同じToolの逐次HTTP。Ownerの相関候補が複数ならnullとする。
+ * @responsibility createReadonlyVerificationTimingで検証用の要求・観測を搬送する。
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus createReadonlyVerificationTimingで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+ * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
  */
 export function createReadonlyVerificationTiming() {
   const limit = 512;
@@ -63,6 +73,17 @@ export function createReadonlyVerificationTiming() {
       : route === "/ai-request/action"
         ? "action"
         : null;
+  /**
+   * receiveで検証用の要求・観測を搬送する。
+   * @responsibility receiveで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus receiveで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const receive = (message: unknown) => {
     try {
       const { request, response } = message as {
@@ -95,6 +116,17 @@ export function createReadonlyVerificationTiming() {
       dropped++;
     }
   };
+  /**
+   * finishで検証用の要求・観測を搬送する。
+   * @responsibility finishで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus finishで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const finish = (message: unknown) => {
     try {
       const row = responses.get(

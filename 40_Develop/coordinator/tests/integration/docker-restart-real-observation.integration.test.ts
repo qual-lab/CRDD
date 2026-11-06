@@ -20,8 +20,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { describeDockerArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import {
-  createInteractiveConsoleReaderEnvironment,
-  createWindowsNativeHelperEnvironment,
+  createChildProcessEnvironment,
   observePlatformAccessArtifactCandidate,
   observeSystemWindowsDirectory,
   startDockerDesktopRestartHelper,
@@ -46,7 +45,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
     process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
   timeout: 30_000,
 }, () => {
-  const parentEnvironment = createInteractiveConsoleReaderEnvironment();
+  const parentEnvironment = createChildProcessEnvironment();
   assert.ok(parentEnvironment);
   const profile = fs.realpathSync.native(os.userInfo().homedir);
   const temporary = fs.realpathSync.native(
@@ -110,7 +109,9 @@ test("Windows environment observation completes with three runtime lock workers"
       locks.push(lock);
     }
     for (let index = 0; index < 20; index += 1) {
-      assert.ok(createWindowsNativeHelperEnvironment());
+      assert.ok(
+        createChildProcessEnvironment({ platform: "win32", userProfile: true }),
+      );
     }
   } finally {
     const releaseResults = locks.map((lock) => lock.release());

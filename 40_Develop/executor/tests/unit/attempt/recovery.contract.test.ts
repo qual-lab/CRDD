@@ -1,9 +1,11 @@
 /**
  * 元Snapshotによる単独回収を実Executor・共通DI Lifecycleで確認する。
  * @responsibility 旧用途別Adapterを介さず通知・取消・回収未確認を反証する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @level UT
  * @scope 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @packageDocumentation
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
@@ -15,7 +17,17 @@ import type {
 
 const ID = "a".repeat(64);
 
-/** 共通DIの端だけを有限化し、公開回収関数へ元Sessionを接続する。 */
+/**
+ * 共通DIの端だけを有限化し、公開回収関数へ元Sessionを接続する。
+ * @responsibility このSuiteの合成依存と初期入力を構築する
+ * @trace ERB-UT-023
+ * @precondition 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @stimulus このSuiteの合成依存と初期入力を構築する。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 async function fixture(t: TestContext) {
   const f = await createIsolationFixture(t);
   const original = await import("../../../../docker-isolation/src/index.ts");
@@ -44,7 +56,17 @@ async function fixture(t: TestContext) {
   return { f, api, target };
 }
 
-/** 通常完了で得た元Snapshotをそのまま単独回収へ渡す。 */
+/**
+ * 通常完了で得た元Snapshotをそのまま単独回収へ渡す。
+ * @responsibility 単独回収は元Snapshot・実IDで共通DIへ接続し技術結果を返す
+ * @trace ERB-UT-023
+ * @precondition 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @stimulus 単独回収は元Snapshot・実IDで共通DIへ接続し技術結果を返すの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 単独回収は元Snapshot・実IDで共通DIへ接続し技術結果を返すという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("単独回収は元Snapshot・実IDで共通DIへ接続し技術結果を返す", async (t) => {
   const { f, api, target } = await fixture(t);
   f.ids.add(ID);
@@ -55,7 +77,17 @@ test("単独回収は元Snapshot・実IDで共通DIへ接続し技術結果を�
   assert.equal(f.ids.size, 0);
 });
 
-/** ID欠測の再発見は必須通知の完了前に削除しない。 */
+/**
+ * ID欠測の再発見は必須通知の完了前に削除しない。
+ * @responsibility 発見実IDは保存通知完了後だけ削除し通知拒否では保持する
+ * @trace ERB-UT-023
+ * @precondition 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @stimulus 発見実IDは保存通知完了後だけ削除し通知拒否では保持するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 発見実IDは保存通知完了後だけ削除し通知拒否では保持するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("発見実IDは保存通知完了後だけ削除し通知拒否では保持する", async (t) => {
   for (const mode of ["saved", "throw", "reject", "missing"] as const)
     await t.test(mode, async (t) => {
@@ -99,7 +131,17 @@ test("発見実IDは保存通知完了後だけ削除し通知拒否では保持
     });
 });
 
-/** 回収前通知の失敗を削除許可へ変換しない。 */
+/**
+ * 回収前通知の失敗を削除許可へ変換しない。
+ * @responsibility 回収前通知のthrow・Rejectでは元資源を処置しない
+ * @trace ERB-UT-023
+ * @precondition 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @stimulus 回収前通知のthrow・Rejectでは元資源を処置しないの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回収前通知のthrow・Rejectでは元資源を処置しないという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("回収前通知のthrow・Rejectでは元資源を処置しない", async (t) => {
   for (const asyncFailure of [false, true])
     await t.test(String(asyncFailure), async (t) => {
@@ -117,7 +159,17 @@ test("回収前通知のthrow・Rejectでは元資源を処置しない", async 
     });
 });
 
-/** 取消受付と最終回収の成立は別の事実として保持する。 */
+/**
+ * 取消受付と最終回収の成立は別の事実として保持する。
+ * @responsibility 単独回収の取消は次の資源削除を止め元Sessionに完了を残す
+ * @trace ERB-UT-023
+ * @precondition 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @stimulus 単独回収の取消は次の資源削除を止め元Sessionに完了を残すの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 単独回収の取消は次の資源削除を止め元Sessionに完了を残すという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("単独回収の取消は次の資源削除を止め元Sessionに完了を残す", async (t) => {
   const { f, api, target } = await fixture(t);
   f.ids.add(ID);
@@ -130,7 +182,17 @@ test("単独回収の取消は次の資源削除を止め元Sessionに完了を�
   assert.equal(f.ids.has(ID), true);
 });
 
-/** 資源不存在だけでconfig終了の不明を成功へ変換しない。 */
+/**
+ * 資源不存在だけでconfig終了の不明を成功へ変換しない。
+ * @responsibility config終了不明と通知不成立を物理回収成立から分離する
+ * @trace ERB-UT-023
+ * @precondition 既存の有限CLI／Process／Directory代役。実Docker・外部AI・保持物は操作しない。
+ * @stimulus config終了不明と通知不成立を物理回収成立から分離するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle config終了不明と通知不成立を物理回収成立から分離するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("config終了不明と通知不成立を物理回収成立から分離する", async (t) => {
   for (const mode of ["config", "notice"] as const)
     await t.test(mode, async (t) => {

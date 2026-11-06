@@ -5,6 +5,7 @@
  * @trace ERB-IT-004
  * @level IT
  * @scope 模擬CLI・Process・Directory。実Docker・AI・保持物は使用しない。
+ * @boundary ERB-IT-004=Direct Boundary: 本番Executor・DIから有限CLI／Process／Directoryへの接続。
  */
 import { captureIsolationRequest } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
@@ -1122,7 +1123,7 @@ test("共通入口の実行中取消は終了確認と回収可否を分離す�
 /**
  * 共通実行Ownerが同じ観測から分類し同期通知へ渡すことを反証する。
  * @responsibility byte上限・Signal・終了値・未観測を別軸で保持する。
- * @trace ERB-UT-023
+ * @trace ERB-IT-004
  * @precondition CLI・Processはfixtureの有限代役のみ。
  * @stimulus null、UTF-8、byte境界、超過とSignal、126／127、通知の例外とPromise返却。
  * @observation 通知の元結果・分類・終了値分類と回収状態。

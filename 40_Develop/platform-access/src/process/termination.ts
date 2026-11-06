@@ -5,7 +5,7 @@
  */
 import { ChildProcess, spawn } from "node:child_process";
 import path from "node:path";
-import { createInteractiveConsoleReaderEnvironment } from "./environment.ts";
+import { createChildProcessEnvironment } from "./environment.ts";
 
 /**
  * 終端補助Processの観測結果。
@@ -101,7 +101,7 @@ export function startWindowsChildTreeTermination(
   )
     return null;
   const environment: Readonly<Record<string, string>> | null =
-    createInteractiveConsoleReaderEnvironment("win32");
+    createChildProcessEnvironment({ platform: "win32" });
   if (!environment?.SystemRoot) return null;
   if (child.exitCode !== null || child.signalCode !== null) return null;
   let helper: ChildProcess;

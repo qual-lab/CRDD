@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createWindowsHostOperationSupervisorEnvironment } from "../../../platform-access/src/index.ts";
+import { createChildProcessEnvironment } from "../../../platform-access/src/index.ts";
 import { inspectNativeRuntimeTrace } from "../../scripts/native-runtime-trace.ts";
 
 const OPTIONS = Object.freeze({
@@ -316,7 +316,7 @@ test("重複Image Loadを同一Pathへ畳み、大小文字差を同じSystem32�
 test("trace確認CLIは実ファイル搬送・引数・読取り拒否を終了コードへ接続する", {
   skip: process.platform !== "win32",
 }, () => {
-  const environment = createWindowsHostOperationSupervisorEnvironment();
+  const environment = createChildProcessEnvironment({ platform: "win32" });
   assert.ok(environment);
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const parent = path.join(

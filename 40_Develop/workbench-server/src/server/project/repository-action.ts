@@ -59,7 +59,8 @@ export function createStandaloneRepositoryActionRequest(
 /**
  * Workbenchの確定済み操作をGitの完成操作へ対応付ける。
  * @responsibility UI操作名を技術要求へ変換し、認可・搬送・保存は呼出し側に残す。
- * @trace ARCH-000009 ARCH-000012
+ * @trace ARCH-000009
+ * @trace ARCH-000012
  * @input 現在認可を確認済みのRepositoryと閉形式のUI操作要求。
  * @returns VCの元の技術結果をそのまま返す。
  * @precondition HTTPの対象・資格・現在許可は呼出し側で確認済み。

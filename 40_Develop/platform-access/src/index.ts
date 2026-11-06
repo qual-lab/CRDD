@@ -2,8 +2,13 @@
  * Platform AccessのNode公開境界。
  *
  * @packageDocumentation
- * @responsibility 固定Native・OS生存観測、保護Root／Homeの技術搬送と用途固定の共通子Process環境を公開する。
- * @trace ARCH-000004 ARCH-000008 ARCH-000010 ARCH-000011 ARCH-000014 ARCH-000015
+ * @responsibility 固定Native、保護Root／Homeの技術搬送とOS／Profile差分の共通子Process環境を公開する。
+ * @trace ARCH-000004
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000011
+ * @trace ARCH-000014
+ * @trace ARCH-000015
  * @boundary Filesystem読取り、固定Native Process、用途固定の環境導出と固定OS端末。権限・任意PathのI/O・任意環境builder・内部実体は公開しない。
  */
 export {
@@ -29,10 +34,6 @@ export {
   type InteractiveConsoleTextWriteOutcome,
 } from "./terminal/output.ts";
 export {
-  observeProcessLiveness,
-  observePlatformFamily,
-} from "./process/observation.ts";
-export {
   observeWindowsFilesystemEntry,
   type WindowsEntryObservation,
 } from "./filesystem/entry.ts";
@@ -45,10 +46,7 @@ export {
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-  createInteractiveConsoleReaderEnvironment,
-  createWindowsNodeConsoleReaderEnvironment,
-  createWindowsHostOperationSupervisorEnvironment,
-  createWindowsNativeHelperEnvironment,
+  createChildProcessEnvironment,
   createWindowsHostTerminalHelperEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,

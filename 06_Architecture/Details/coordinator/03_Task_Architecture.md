@@ -450,7 +450,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 `objective/types.ts`は具体依存の署名を共有するため、`execution/controller.ts`の`startRuntimeOwnedCoordinatorTask / cancelRuntimeOwnedCoordinatorTask / captureRuntimeOwnedCoordinatorTaskResultDelivery`、`decision/store.ts`の`openRuntimeOwnedWindowsProjectDecisionStore`、`task/dispatch.ts`の`recordCoordinatorExecutionEvent`だけを型専用で参照できる。各辺は一つの名前を持つ型専用辺として検査し、値import・別Symbol・別Pathは拒否する。これらの実行値を型Moduleで生成・取得しない。
 
-状態判定のSnapshot検査は既存`state/validation.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/execution/diagnostics.ts` / `src/execution/kernel-lock.ts`が所有し、PID生存・Platform観測はPA Rootの`observeProcessLiveness`／`observePlatformFamily`、環境構築はPAの既存用途別APIへ直接接続する。Lease入力・世代結合・Profile選択は上位に保持する。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
+状態判定のSnapshot検査は既存`state/validation.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/execution/diagnostics.ts` / `src/execution/kernel-lock.ts`が所有する。Platform選択は`objective/execute.ts`の`process.platform`、PID生存は既存Lease Ownerの`process.kill(pid, 0)`へ直結し、PAの単純観測入口を経由しない。環境は`createChildProcessEnvironment`でOSと検証済みProfile付与の実差分だけを選択する。Lease入力・世代結合・Profile選択は上位に保持し、PID存在から世代一致を推定しない。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
 
 | 境界 | Coreが要求する保証 | Adapterの責務 |
 |---|---|---|

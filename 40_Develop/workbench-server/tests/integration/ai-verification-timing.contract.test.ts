@@ -5,6 +5,7 @@
  * @level IT
  * @scope 合成loopback通信と有限Owner。Docker・資格・Repositoryを使わない。
  * @boundary 診断通知と検証Toolのみ。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import { channel } from "node:diagnostics_channel";
@@ -22,6 +23,10 @@ import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-
  * @stimulus 二GET、別経路、Owner拒否と終了後の通知。
  * @oracle 本文・Tokenなし、元結果・例外は同一、終了後記録増加零。
  * @cleanup finallyでServer・診断購読を閉じる。
+ * @responsibility 有限時計は実HTTPとOwnerを観測し購読解除する
+ * @precondition 合成loopback通信と有限Owner。Docker・資格・Repositoryを使わない。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @boundary 診断通知と検証Toolのみ。
  */
 test("有限時計は実HTTPとOwnerを観測し購読解除する", async () => {
   const timing = createReadonlyVerificationTiming();
@@ -97,6 +102,10 @@ test("有限時計は実HTTPとOwnerを観測し購読解除する", async () =>
  * @stimulus 合成通知、別port／address／path、513通知。
  * @oracle 各配列上限512、曖昧なOwner相関null、dispose後不変。
  * @cleanup 診断購読だけをfinallyで解除する。
+ * @responsibility 有限時計は対象を限定し過大・曖昧な通知を成功へ補完しない
+ * @precondition 合成loopback通信と有限Owner。Docker・資格・Repositoryを使わない。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @boundary 診断通知と検証Toolのみ。
  */
 test("有限時計は対象を限定し過大・曖昧な通知を成功へ補完しない", async () => {
   const timing = createReadonlyVerificationTiming();
@@ -136,6 +145,10 @@ test("有限時計は対象を限定し過大・曖昧な通知を成功へ補�
  * @stimulus 応答しない合成Serverへの一GET。
  * @oracle 15秒の元失敗、headers／finish欠測、Owner開始なしを維持する。
  * @cleanup 子終了後に診断購読とServer／Socketを閉じる。
+ * @responsibility 計測付きHTTPも15秒失敗を成功へ変換しない
+ * @precondition 合成loopback通信と有限Owner。Docker・資格・Repositoryを使わない。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @boundary 診断通知と検証Toolのみ。
  */
 test("計測付きHTTPも15秒失敗を成功へ変換しない", async () => {
   const timing = createReadonlyVerificationTiming();

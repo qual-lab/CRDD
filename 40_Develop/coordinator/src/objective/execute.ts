@@ -17,7 +17,6 @@ import {
   snapshotRuntimeStateRecord,
   type TaskExecutionSelections,
 } from "../../../domain-model/src/index.ts";
-import { observePlatformFamily } from "../../../platform-access/src/index.ts";
 import {
   readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -1759,10 +1758,8 @@ export async function executeCoordinatorPublicObjective(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const observedPlatform = observePlatformFamily();
   const platform =
-    observedPlatform.status === "observed" &&
-    observedPlatform.platformFamily === "windows"
+    process.platform === "win32"
       ? createCoordinatorWindowsPlatformAdapter()
       : null;
   const observeLeaseOwner = (

@@ -30,6 +30,10 @@ import {
  * @stimulus 型不正、過大、多byte、曖昧JSON、余分field、非loopback。
  * @oracle 固定失敗frame／終了1、stderr零、IPC切断、受信HTTP零。
  * @cleanup 親の有限監視で子closeを確認する。
+ * @responsibility IPC子は不正入力でもchannelを残さず終了する
+ * @precondition 固定子の起動失敗、pipe、上限、終了値、期限、実loopback通信。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 test("IPC子は不正入力でもchannelを残さず終了する", async () => {
   let requests = 0;
@@ -118,6 +122,10 @@ test("IPC子は不正入力でもchannelを残さず終了する", async () => {
  * @stimulus 二件通知、受領前disconnect、型不正、JSON拒否、HTTP例外。
  * @oracle HTTP最大一回、元の固定結果と終了値、message/disconnect listener零。
  * @cleanup VMのPromiseをjoinする。実Processなし。
+ * @responsibility IPC子は二件目を実行せず拒否経路でも購読を解除する
+ * @precondition 固定子の起動失敗、pipe、上限、終了値、期限、実loopback通信。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 test("IPC子は二件目を実行せず拒否経路でも購読を解除する", async () => {
   const source = fs.readFileSync(
@@ -219,6 +227,11 @@ test("IPC子は二件目を実行せず拒否経路でも購読を解除する",
  * @trace ERB-IT-021
  * @boundary 合成loopback一要求。AI・Docker・Repository入力なし。
  * @cleanup Client実close、時計解除、Server socketとServer closeを確認する。
+ * @responsibility HTTP送出時計はServer受信前のevent loop待ちを区別する
+ * @precondition 固定子の起動失敗、pipe、上限、終了値、期限、実loopback通信。
+ * @stimulus HTTP送出時計はServer受信前のevent loop待ちを区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle HTTP送出時計はServer受信前のevent loop待ちを区別するという条件をassertionで判定する。
  */
 test("HTTP送出時計はServer受信前のevent loop待ちを区別する", async () => {
   const server = createServer((_request, response) =>
@@ -274,6 +287,10 @@ test("HTTP送出時計はServer受信前のevent loop待ちを区別する", asy
  * @stimulus 正式send直後に親だけ22秒停止。独立Serverは即時応答する。
  * @oracle HTTP200／子close0、子内15秒以内、期限延長・再送なし。
  * @cleanup spawn差替えを復元し、独立Serverのcloseを有限確認する。
+ * @responsibility IPC入力は親22秒停止中にも子のHTTP完了を妨げない
+ * @precondition 固定子の起動失敗、pipe、上限、終了値、期限、実loopback通信。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 test("IPC入力は親22秒停止中にも子のHTTP完了を妨げない", async () => {
   const original = childProcess.spawn;
@@ -358,6 +375,8 @@ test("IPC入力は親22秒停止中にも子のHTTP完了を妨げない", async
  * @observation 子への入力、kill回数、close待機、返却又は固定失敗。
  * @oracle closeなしの成功0、kill最大1、秘密本文・stderrの診断流出0。
  * @cleanup 全有限TimerとPromiseを完了し実Processを作らない。
+ * @responsibility HTTP子は結果frameと実closeを共同確認し異常を有限分類する
+ * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 test("HTTP子は結果frameと実closeを共同確認し異常を有限分類する", async () => {
   const source = fs.readFileSync(
@@ -687,6 +706,8 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
  * @observation 正式子close後の結果と有限Transport診断。
  * @oracle 期限値を変更せずtimedOutを保持し、本文を保存しない。
  * @cleanup 子を正式処理でjoin後にServer接続を閉じる。
+ * @responsibility 実HTTP子は通常・切断・15秒期限を区別して終了する
+ * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 test("実HTTP子は通常・切断・15秒期限を区別して終了する", async () => {
   let mode = "normal";
@@ -805,6 +826,8 @@ test("HTTP子の診断は閉形式だけを搬送する", () => {
  * @observation POST数、GET数、同IDの結果・回復参照、close拒否。
  * @oracle 再送0、終了未確認では新要求0、Taskを成功へ丸めない。
  * @cleanup 全Promiseをjoinする。実Process・Taskは作らない。
+ * @responsibility HTTP子の故障は同ID観測を保持し終了未確認だけをstickyにする
+ * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 test("HTTP子の故障は同ID観測を保持し終了未確認だけをstickyにする", async () => {
   const source = fs.readFileSync(

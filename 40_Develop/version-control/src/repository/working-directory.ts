@@ -1,7 +1,8 @@
 /**
  * 対象Worktreeの変更を読み取り、明示選択を固有Indexへ反映する。
  * @responsibility 四区分の変更観測とStage／Unstageの結果分類。内容の採否は上位が所有する。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  */
 import type { SpawnSyncReturns } from "node:child_process";
 import { runGitReadCommand } from "../git/read.ts";

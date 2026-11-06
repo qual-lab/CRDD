@@ -11,16 +11,19 @@ import type {
   RepositoryPushRequest,
   ChangesResult,
 } from "./types.ts";
+/** Git子Processの出力・終了・起動失敗の観測値。 */
 type ProcessResult = Pick<
   SpawnSyncReturns<Buffer>,
   "error" | "signal" | "status" | "stdout"
 >;
+/** Repository設定を使う固定Git操作を入出力上限付きで発行する。 */
 function runGit(root: string, args: readonly string[]) {
   return executeGit(root, args, {
     maxBuffer: 4 * 1024 * 1024,
     configuration: "repository",
   });
 }
+/** 成功応答から単一Revisionを取得し、失敗・不正値はnullにする。 */
 function revisionFrom(result: ProcessResult): string | null {
   if (result.error !== undefined || result.signal || result.status !== 0)
     return null;
@@ -34,6 +37,7 @@ function revisionFrom(result: ProcessResult): string | null {
   }
 }
 
+/** Remote照会の一行からRevisionを取得し、複数行・失敗・不正値はnullにする。 */
 function remoteRevisionFrom(result: ProcessResult): string | null {
   if (result.error !== undefined || result.signal || result.status !== 0)
     return null;
@@ -51,6 +55,7 @@ function remoteRevisionFrom(result: ProcessResult): string | null {
   }
 }
 
+/** 成功応答から制御文字を含まない一行だけを取得し、不明はnullにする。 */
 function singleLineValue(result: ProcessResult): string | null {
   if (result.error !== undefined || result.signal || result.status !== 0)
     return null;

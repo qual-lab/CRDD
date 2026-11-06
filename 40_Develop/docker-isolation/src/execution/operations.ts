@@ -158,11 +158,13 @@ class IsolationPreparation implements PreparedIsolation {
     Object.freeze(this);
   }
 
+  /** 同じ準備済み隔離の二重実行を拒否し、最初の実行だけを消費済みにする。 */
   take(): void {
     if (this.#used) throw Error("docker_isolation_already_started");
     this.#used = true;
   }
 
+  /** Directory Identityと信頼済みDocker CLIを再確認し、変化は実行前に拒否する。 */
   verify(): void {
     for (const directory of this.directories)
       if (

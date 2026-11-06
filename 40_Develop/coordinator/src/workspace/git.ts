@@ -1,7 +1,8 @@
 /**
  * Workspaceの配置規約とGit技術結果の保存投影を所有する。
  * @responsibility VCへ業務IDを渡さず、既存Path・Branch・DTOを保持する。
- * @trace ARCH-000004 ARCH-000009
+ * @trace ARCH-000004
+ * @trace ARCH-000009
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -27,6 +28,7 @@ import {
   type WorktreeTarget,
 } from "../../../version-control/src/index.ts";
 
+/** 検証したWorkspace UUIDから上位所有の配置とBranchを導く。Git操作は行わない。 */
 export function workspaceWorktreeTarget(workspaceId: string): WorktreeTarget {
   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(workspaceId))
     throw new Error("worktree_id_invalid");

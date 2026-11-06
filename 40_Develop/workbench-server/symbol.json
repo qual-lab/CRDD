@@ -111,7 +111,8 @@
       "verifies": [
         "workbench.server",
         "workbench.project.repository-action",
-        "version-control.change-publication",
+        "version-control.repository.working-directory",
+        "version-control.repository.remote",
         "workbench.http.repository"
       ]
     },
@@ -1064,6 +1065,13 @@
       "verifies": [
         "workbench.runtime-definition"
       ]
-    }
+    },
+    {"symbolId":"workbench-server.scripts.ai-verification-client","kind":"verification-tool","path":"scripts/ai-verification-client.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
+    {"symbolId":"workbench-server.scripts.ai-verification-http","kind":"verification-tool","path":"scripts/ai-verification-http.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
+    {"symbolId":"workbench-server.scripts.ai-verification-timing","kind":"verification-tool","path":"scripts/ai-verification-timing.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
+    {"symbolId":"workbench-server.test.integration.ai-verification-client","kind":"test-suite","path":"tests/integration/ai-verification-client.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.ai-verification-client","workbench-server.scripts.ai-verification-http","workbench-server.scripts.ai-verification-timing"]},
+    {"symbolId":"workbench-server.test.integration.ai-verification-timing","kind":"test-suite","path":"tests/integration/ai-verification-timing.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.ai-verification-timing","workbench-server.scripts.ai-verification-http"]},
+    {"symbolId":"workbench-server.scripts.workspace-task-diagnostic","kind":"verification-tool","path":"scripts/workspace-task-diagnostic.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":[]},
+    {"symbolId":"workbench-server.test.integration.workspace-task-diagnostic","kind":"test-suite","path":"tests/integration/workspace-task-diagnostic.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-021"],"verifies":["workbench-server.scripts.workspace-task-diagnostic"]}
   ]
 }

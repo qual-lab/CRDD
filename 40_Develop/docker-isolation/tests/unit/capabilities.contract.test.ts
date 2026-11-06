@@ -5,6 +5,7 @@
  * @level UT
  * @scope 固定構成のみ。実AI・Docker・Filesystem操作なし。
  * @boundary 実物・認証・通信許可の成立は対象外。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
@@ -30,6 +31,17 @@ test("固定構成はImage・配置だけを返しPolicy生成や実観測を含
     imageAssets.describeIsolationConfiguration,
   );
   let io = 0;
+  /**
+   * 予定外の依存呼出しを例外として検出する。
+   * @responsibility 予定外の依存呼出しを例外として検出する
+   * @trace ERB-UT-023
+   * @precondition 固定構成のみ。実AI・Docker・Filesystem操作なし。
+   * @stimulus 予定外の依存呼出しを例外として検出する。
+   * @observation 構築した候補、有限応答または検出した例外。
+   * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+   * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+   * @boundary 実物・認証・通信許可の成立は対象外。
+   */
   const unexpected = () => {
     io++;
     throw Error("unexpected_io");

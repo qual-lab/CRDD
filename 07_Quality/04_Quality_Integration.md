@@ -1,5 +1,31 @@
 # Quality Integration
 
+## Checker全体回帰50失敗の是正 — 2026-11-06
+
+試験前提・故障注入・依存コピー・固定期待値の六系統を試験側で是正し、最終全体回帰は23 File／432 Case、431成功・失敗0・取消0・既存対象外1、exit0で完走した。静的検査、Catalog449件整合と独立レビューの指摘是正も完了した。製品Source512 Fileは作業前後で完全一致し、公開API・探索・安全検査は変更していない。既存二Suiteの台帳終了後確認事項だけを追従し、Suite ID・QA／Local Item・段階は維持した。
+
+Repository自身のChecker実行は別軸で3,760指摘（リンク／アンカー3,753、品質関係・件数7）により未合格であり、npm test全体Gate・正式QA・Releaseの成立とはしない。以下の「全体回帰未成立」は各先行候補の履歴である。結果、是正範囲、未実施は[変更記録](../99_Roadmap/Changes/CHG-000082/checker-responsibility-boundary.md)に集約する。実AI・Docker・過去保持物は操作していない。
+
+## Checkerの責務境界 — 2026-11-06
+
+Checkerは成果物・ID・参照・台帳・関係の構造整合に限定し、Source内部の命名・Header・skip推定を撤去した。コード規約の意味は独立レビュー、構文・型・書式は言語標準ツールが確認する。関連Checker26件とDomain15件は成功し、Catalog449件validを確認した。構造登録の成功は試験実行・合格ではない。責務境界整理直後の候補では診断・集計契約等の全体回帰が未成立だった。今回の試験回帰の現在結果は上節へ更新した。以下の命名・Header全体未合格の記述は旧検査時点の履歴として保持し、Source全件是正済みへ読み替えない。[変更記録](../99_Roadmap/Changes/CHG-000082/checker-responsibility-boundary.md)に受理条件の変更と未確認範囲を記録する。
+
+## 11SuiteのUT／IT接続是正完了 — 2026-11-06
+
+人間承認によりQA-000007に`RFD-UT-030`を一件追加し、DomainのWorkspace保存値・入力形式を確認する既存二Caseへ接続した。ARCH／DetailのQuality分析・検証設計・Quality Center・Symbol Manifestを追従し、公開集合／実Gitの不適合な接続をこのSuiteから撤去した。対象11Suiteの段階・台帳・全Headerの限定照合、Domain二Case再実行と静的検査は成功した。新義務の正式Local Item評価や全体QA合格は主張しない。実GitのIT-029と過去Evidenceは維持する。全体Header検査の別件と命名・コメント課題は残る。直下の判断待ちは承認前の履歴であり、今回の現在状態ではない。詳細と検査範囲は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)を参照する。実AI・Docker・過去保持物は操作していない。
+
+## 既存試験のUT／IT接続是正 — 2026-11-06、10Suite是正・1Suite判断待ち
+
+Executor七SuiteとCoordinator二Suiteは型・純粋値・有限依存のUTとして既存ERB-UT-023等へ接続し、DI isolation-lifecycleは本番Owner同士を有限CLIへ接続するITとしてERB-IT-004へ追従した。Domain workspace-technical-contractは純粋検査UTだが、既存の公開集合RCM-UT-014、共通Outcome RCM-UT-016、実Git RFD-IT-029とは観測義務が異なる。独立確認で便宜的なUT付替えを撤回し、対象限定のQA義務追加の判断待ちとする。関連107試験と四Package静的検査は成功したが、分類一件と全体Header・命名検査は未完了。規約の全固定tag要求や命名分類の費用をChecker実装の逸脱と区別して[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)へ整理した。規約・Checker判定・正式結果は変更しない。実AI・Docker・過去保持物は操作しない。
+
+## 横断構造Checkerの是正と未完了範囲 — 2026-11-06
+
+PA整理後の既存4失敗について、Rust試験名・公開Module期待値・自動試験登録とHeaderを是正した。関連試験129件（Coordinator9・DI22・Executor58・Domain13・VC2・Workbench25）とRust compile-checkは成功したが、全件走査で責務コメント・参照2,770件、命名1,557件、型分類不能1件の計4,328件と、既存11Suiteの検証段階不一致が露出した。同じ宣言への重複指摘を含む検出件数であり、固有識別子数ではない。横断Checkerは未合格である。Catalog450件validは静的結果であり、検証実施や全体QA合格を意味しない。独立確認を経て広域改名・QA ID付替えを停止し、追加範囲の人間判断を待つ。その後の10Suite是正と残る一件は本書先頭で区別する。実AI・Docker・過去保持物は操作しない。詳細は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)に集約する。
+
+## PAの標準API直結と子環境入口 — 2026-11-06
+
+既存PRL-UT-014のPID三値・不正入力時のOS照会0をCoordinatorのLease Owner試験へ移し、PAの専用観測API・Source・旧試験登録を撤去した。既存PRL-UT-006とEST-ST-003の環境検証は共通子環境のOS固定・Profile選択へ追従し、非Windowsの空環境とWindows固定取得不能、Profile欠測、Host TMP／TEMPを区別した。PA143／143、DI402成功・既存対象外5、Coordinatorの限定29＋5＋6件と関連静的検査は成功した。横断構造試験の既存4失敗は未解消であり、全体QA合格としない。実AI・Docker・Host Windowsの実修復・過去保持物操作は対象外とする。[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#標準api直結と子環境の重複撤去--2026-11-06)へ結果を集約し、PA全廃・Native不要の実証へ昇格しない。
+
 ## Version Controlの技術理由と保存相関 — 2026-11-06
 
 VCのCandidate由来の技術理由をCommit生成・Merge・コピー・差分・一時Index回収へ分離し、既存QA-000007のGit操作・内容読取りとCoordinatorのWorkspace保存試験へ接続した。Domain／Coordinatorの業務Candidateは維持し、旧成功理由の拒否、新成功理由とCommit相関、一次失敗とCleanup未確認の保持を確認した。最終VC全回帰84／84、関連保存・Git試験8／8、純粋契約3／3、関連Object読取り・配置41成功・環境対象外1、静的検査と限定独立再レビューを確認した。公開入口・安全検査・処理順序・期限は変更しない。対象結果と試験領域の是正、実行環境による制約は[変更記録](../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md#candidate由来の技術理由内部名の是正2026-11-06)へ集約し、限定回帰を全体QA成立へ昇格しない。実AI・Docker・過去保持物操作と旧保存物の自動移行は対象外である。

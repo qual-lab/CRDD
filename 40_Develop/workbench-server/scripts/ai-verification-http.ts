@@ -3,10 +3,12 @@
  *
  * @packageDocumentation
  * @responsibility 検証が内部Applicationを直接呼ばず、公開FormとRead Modelを通ることを保証する。
- * @trace ARCH-000015
+ * @trace ERB-IT-021
  * @boundary 検証Runner→loopback Workbench HTTP。
  * @effect 明示されたHTTP要求だけを発行する。
  * @security Token、Prompt、結果本文を出力せず、自動再送とredirect追従を禁止する。
+ * @level IT
+ * @scope 検証専用のHTTP搬送・子Process又は受動診断。実Provider／Dockerの成功は主張しない。
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -52,6 +54,10 @@ const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
  * @boundary 検証Tool専用。Coordinatorの実行・保存・権限は移譲しない。
  * @security actionToken/FormはIPCのみ、Provider資格・Root Capability・環境を渡さない。
  * @concurrency 一要求一子。結果より実closeを優先し、全pipeを終了まで排出する。
+ * @stimulus loopback URL、固定route、Form、任意の非秘密時計observer。
+ * @observation 従来のHTTP結果。子の未終了・不正出力は固定失敗。
+ * @oracle 子の異常終了をTask成功又は取消成功へ変換しない。
+ * @cleanup 正常返却は子close、exit0、完全な一結果を共同確認済み。
  */
 export async function requestInChild(
   baseUrl: string,
@@ -122,6 +128,17 @@ export async function requestInChild(
     let finished = false;
     let inputSent = false;
     let closeTimer: ReturnType<typeof setTimeout> | undefined;
+    /**
+     * terminateで検証用の要求・観測を搬送する。
+     * @responsibility terminateで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus terminateで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const terminate = () => {
       if (terminating || finished) return;
       terminating = true;
@@ -152,6 +169,17 @@ export async function requestInChild(
       },
       route === "/workspace/action" ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
     );
+    /**
+     * pipeFailureで検証用の要求・観測を搬送する。
+     * @responsibility pipeFailureで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus pipeFailureで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const pipeFailure = () => {
       if (finished) return;
       firstFailureStage ??= "pipe";
@@ -213,6 +241,17 @@ export async function requestInChild(
     }
   });
   // 自由文・本文・stderrは搬送せず、最初の故障と終了観測だけを保持する。
+  /**
+   * processFailureで検証用の要求・観測を搬送する。
+   * @responsibility processFailureで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus processFailureで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const processFailure = (stage: string) =>
     new Error(
       completion.closed
@@ -369,14 +408,53 @@ const digest = (value: unknown): string => {
  * @effect 既存CLIの一覧・inspectだけ。起動／作成／再起動を発行しない。
  * @security inspectの本文・環境変数・Host Pathは出力しない。
  * @boundary 省電力cacheをlive Engineの証明とは扱わない。
+ * @responsibility observeVerificationDockerInventoryで検証用の要求・観測を搬送する。
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus observeVerificationDockerInventoryで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
  */
 export function observeVerificationDockerInventory(): VerificationDockerInventory | null {
   try {
     const record = (v: unknown): v is Record<string, unknown> =>
       v !== null && typeof v === "object" && !Array.isArray(v);
+    /**
+     * nullableRecordで検証用の要求・観測を搬送する。
+     * @responsibility nullableRecordで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus nullableRecordで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const nullableRecord = (v: unknown) => v === null || record(v);
+    /**
+     * nullableStringsで検証用の要求・観測を搬送する。
+     * @responsibility nullableStringsで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus nullableStringsで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const nullableStrings = (v: unknown) =>
       v === null || (Array.isArray(v) && v.every((s) => typeof s === "string"));
+    /**
+     * dockerで検証用の要求・観測を搬送する。
+     * @responsibility dockerで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus dockerで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const docker = (...args: string[]) =>
       execFileSync("docker", args, {
         encoding: "utf8",
@@ -385,6 +463,17 @@ export function observeVerificationDockerInventory(): VerificationDockerInventor
         maxBuffer: 1024 * 1024,
         stdio: ["ignore", "pipe", "pipe"],
       });
+    /**
+     * listで検証用の要求・観測を搬送する。
+     * @responsibility listで検証用の要求・観測を搬送する。
+     * @trace ERB-IT-021
+     * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+     * @stimulus listで検証用の要求・観測を搬送する。
+     * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+     * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+     * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+     * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+     */
     const list = (...args: string[]) =>
       docker(...args)
         .trim()
@@ -501,6 +590,17 @@ export function observeVerificationDockerInventory(): VerificationDockerInventor
   }
 }
 
+/**
+ * validInventoryで検証用の要求・観測を搬送する。
+ * @responsibility validInventoryで検証用の要求・観測を搬送する。
+ * @trace ERB-IT-021
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus validInventoryで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+ * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+ */
 function validInventory(value: unknown): value is VerificationDockerInventory {
   if (!value || typeof value !== "object") return false;
   const v = value as VerificationDockerInventory;
@@ -571,6 +671,12 @@ function validInventory(value: unknown): value is VerificationDockerInventory {
  * @trace ERB-IT-021
  * @effect N/A: 純粋比較。標準資源名だけの例外・欠測の空配列化を禁止する。
  * @boundary 成立は捕捉属性に限定し、全設定・Filesystem内容・Engine生存を保証しない。
+ * @responsibility assessVerificationDockerInventoryで検証用の要求・観測を搬送する。
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus assessVerificationDockerInventoryで検証用の要求・観測を搬送する。
+ * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
  */
 export function assessVerificationDockerInventory(
   before: unknown,
@@ -583,9 +689,31 @@ export function assessVerificationDockerInventory(
       reason: "docker_inventory_unobserved",
       standardNetworkIdentityChanged: false,
     };
+  /**
+   * systemで検証用の要求・観測を搬送する。
+   * @responsibility systemで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus systemで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const system = (name: string) => ["bridge", "host", "none"].includes(name);
   const ordered = <T extends { name: string }>(items: readonly T[]) =>
     [...items].sort((a, b) => a.name.localeCompare(b.name));
+  /**
+   * sameで検証用の要求・観測を搬送する。
+   * @responsibility sameで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus sameで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const same = (a: unknown, b: unknown) => digest(a) === digest(b);
   const standardBefore = ordered(before.networks.filter((n) => system(n.name)));
   const standardAfter = ordered(after.networks.filter((n) => system(n.name)));
@@ -652,7 +780,7 @@ export function assessVerificationDockerInventory(
  * 固定Workbench Routeの応答を受信中の上限付きで取得する。
  *
  * @responsibility 応答の無制限蓄積、redirect追従と暗黙再送を防ぐ。
- * @trace ARCH-000015
+ * @trace ERB-IT-021
  * @input baseUrl、固定Routeと任意Form。
  * @returns Status、Locationと上限内本文。
  * @precondition 呼出し元がloopback URLを検証済み。
@@ -663,6 +791,10 @@ export function assessVerificationDockerInventory(
  * @boundary 検証Runnerと公開HTTP Transport。
  * @security 本文、Tokenおよび例外本文をlogへ出さない。
  * @concurrency 各要求が独立したAbortControllerを所有する。
+ * @stimulus baseUrl、固定Routeと任意Form。
+ * @observation Status、Locationと上限内本文。
+ * @oracle POST失敗を未実行と推定しない。
+ * @cleanup 受信Readerと期限Timerを解放する。
  */
 export async function requestBounded(
   baseUrl: string,
@@ -803,6 +935,13 @@ export async function requestBounded(
  * @returns 固定理由、観測段階、期限超過、既知code。未知例外はnull。
  * @effect なし。
  * @security URL・Token・本文・自由な例外messageを返さない。
+ * @responsibility projectVerificationTransportFailureで検証用の要求・観測を搬送する。
+ * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+ * @stimulus 同じ試験器が送出した例外。
+ * @observation 固定理由、観測段階、期限超過、既知code。未知例外はnull。
+ * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+ * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+ * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
  */
 export function projectVerificationTransportFailure(error: unknown) {
   if (
@@ -900,7 +1039,7 @@ export function projectVerificationTransportFailure(error: unknown) {
  * 公開JSONからMain Viewだけを受理する。
  *
  * @responsibility 既存の結果parserを維持して公開モデルを検証する。
- * @trace ARCH-000015
+ * @trace ERB-IT-021
  * @input 検証済みloopback baseUrl。
  * @returns Main Viewのモデル。
  * @precondition Workbench Listenerが起動している。
@@ -911,6 +1050,10 @@ export function projectVerificationTransportFailure(error: unknown) {
  * @boundary 公開Read Model→検証Oracle。
  * @security 取得本文はmemory内だけで扱う。
  * @concurrency N/A: 一要求の読取りに閉じる。
+ * @stimulus 検証済みloopback baseUrl。
+ * @observation Main Viewのモデル。
+ * @oracle 観測失敗を結果なしへ変換しない。
+ * @cleanup 別Viewを結果として返さない。
  */
 export async function readMain(
   baseUrl: string,
@@ -933,7 +1076,7 @@ export async function readMain(
  * 本番Applicationへの直呼出しを公開HTTP操作へ置き換える。
  *
  * @responsibility 同じrequestId、modeと固定選定を公開結果から照合する。
- * @trace ARCH-000015
+ * @trace ERB-IT-021
  * @input 起動済みWorkbenchのloopback URL。
  * @returns start／observe／cancelと候補確認・破棄の検証用接続部。採用操作は含めない。
  * @precondition CallerがListenerと本番Applicationの終了・回復を所有する。
@@ -944,6 +1087,10 @@ export async function readMain(
  * @boundary 検証Runner→公開Workbench受付→注入された本番Application。
  * @security 送信確認を自動付与せず、PROJECT_CONTEXT.mdだけを正式入力にする。
  * @concurrency 一Sessionで一依頼ずつ実行するCaller契約。
+ * @stimulus 起動済みWorkbenchのloopback URL。
+ * @observation start／observe／cancelと候補確認・破棄の検証用接続部。採用操作は含めない。
+ * @oracle 303だけをAI完了と表示しない。Listener終了はProvider回収を意味しない。
+ * @cleanup 内部Application、署名またはProviderへ直接アクセスしない。
  */
 export async function createWorkbenchAiVerificationHttpClient(
   baseUrl: string,
@@ -986,6 +1133,17 @@ export async function createWorkbenchAiVerificationHttpClient(
     );
     return promise;
   };
+  /**
+   * readで検証用の要求・観測を搬送する。
+   * @responsibility readで検証用の要求・観測を搬送する。
+   * @trace ERB-IT-021
+   * @precondition 呼出し元が同じ検証runの入力と終了処理を所有する。
+   * @stimulus readで検証用の要求・観測を搬送する。
+   * @observation 要求・診断の搬送結果と、取得・終了の観測値。
+   * @oracle 入力の相関・欠測・失敗を保持し、搬送だけからTask成功を生成しない。
+   * @cleanup 購読・子Process等の終了はこの関数又は呼出し元の明示的な終了処理で確認する。
+   * @boundary 検証Tool内部の技術搬送。Provider実成功や処置許可は返さない。
+   */
   const read = () => run(() => readMain(baseUrl, observe));
   return Object.freeze<WorkbenchAiRequests>({
     start: async (request) => {

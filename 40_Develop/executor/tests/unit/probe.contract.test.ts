@@ -1,7 +1,8 @@
 /**
  * Probe固有構成と共通DI入口の結合を検証する。
+ * @packageDocumentation
  * @responsibility 固定構成の搬送・必要通知・結果解釈と取消の一次理由を反証する。
- * @trace ARCH-000008
+ * @trace ERB-UT-023
  * @level UT
  * @scope 有限DI代役のみ。Process・Filesystem・実AI・Dockerは操作しない。
  * @boundary 公開createExecutor→確定技術構成→共通DI。物理終了はDI契約試験が所有する。
@@ -17,7 +18,17 @@ import type {
 } from "../../../docker-isolation/src/index.ts";
 import * as original from "../../../docker-isolation/src/index.ts";
 
-/** 旧用途別手順の反例を、新しい技術入口と意味Ownerへ対応付ける。 */
+/**
+ * 有限DI代役に対するProbe構成・通知・取消・結果の接続を反証する。
+ * @responsibility 有限DI代役に対するProbe構成・通知・取消・結果の接続を反証する。
+ * @trace ERB-UT-023
+ * @precondition 共通DI入口をModule代役へ置換する。
+ * @stimulus 正常・故障・通知拒否・取消・終了不明を与える。
+ * @observation 構成、通知順、取消件数、終端理由と回収状態。
+ * @oracle 不明を成功にせず、同じ実行へ取消と回収結果を接続する。
+ * @cleanup 全completionを待ちModule代役をTestContextで復元する。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+ */
 test("固定Probeは共通技術入口で構成・通知・取消・終了・回収を維持する", async (t) => {
   const id = "a".repeat(64),
     probeId = "12345678-1234-4234-8234-123456789abc";
@@ -43,6 +54,17 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
     home_isolated: true,
     tmp_isolated: true,
   });
+  /**
+   * 作成要求と実ID取得の段階を表す非秘密Snapshotを構築する。
+   * @responsibility 作成要求と実ID取得の段階を表す非秘密Snapshotを構築する。
+   * @trace ERB-UT-023
+   * @precondition 固定の単一資源要求と発行・ID取得状態を渡す。
+   * @stimulus 状態に応じてrequestとdockerIdを設定する。
+   * @observation 返却SnapshotのIdentityと発行区分。
+   * @oracle 未発行・実ID欠測・取得済みを別々に表す。
+   * @cleanup N/A: 合成値だけでDocker操作なし。
+   * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+   */
   function snapshot(
     request: IsolationRequest,
     issued: boolean,

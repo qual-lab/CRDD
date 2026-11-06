@@ -1,7 +1,8 @@
 /**
  * 単発実行の技術理由集合と一次故障の固定診断を検査する。
+ * @packageDocumentation
  * @responsibility 発行理由と保存受理集合の一致、未知理由と不正な報告値の拒否を確認する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope 固定理由・合成診断だけ。保存・回復処置は行わない。
  * @boundary Executorの技術理由・検証用診断とDomainの保存受理集合。
@@ -22,7 +23,7 @@ import { convertCommandResult } from "../../../src/lifecycle/attempt.ts";
 /**
  * 発行する技術理由と保存受理する理由の集合をexact照合する。
  * @responsibility 片側追加・欠落・未知値を黙って受理しない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 固定の二集合だけを使用する。
  * @stimulus 全要素と未知・大文字・欠測相当を検査する。
  * @observation 配列の一致と拒否結果。
@@ -33,12 +34,14 @@ import { convertCommandResult } from "../../../src/lifecycle/attempt.ts";
 /**
  * ターン数の不正報告診断をProvider側の現行条件へ照合する。
  * @responsibility 上限2を再導入せず、正常な報告を不正診断として受け付けない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 非秘密の合成診断だけ。
  * @stimulus safe integer境界、小数、零、非canonical数値文字列。
  * @observation 診断の受理可否。
  * @oracle 不正報告の数値条件はsafe integerかつ1以上の否定と一致する。
  * @cleanup N/A: 外部資源なし。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+
  */
 test("ターン不正診断は上限比較ではなく報告値の形式条件に一致する", () => {
   const diagnostic = {
@@ -73,7 +76,17 @@ test("ターン不正診断は上限比較ではなく報告値の形式条件�
       numberText,
     );
 });
-
+/**
+ * 技術理由と保存受理集合の同値性を純粋値で確認する。
+ * @responsibility 技術理由と保存受理集合の同値性を純粋値で確認する。
+ * @trace ERB-UT-023
+ * @precondition 固定の発行理由・保存受理理由を取得する。
+ * @stimulus 全要素と未知・欠測・余剰の診断を照合する。
+ * @observation 集合の一致と理由検査の受理結果。
+ * @oracle 片側だけの理由や未知値を黙って受理しない。
+ * @cleanup N/A: 保存処理・回復処置を呼ばない。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+ */
 test("技術理由は保存受理集合と一致し未知・欠測・余剰を拒否する", () => {
   for (const value of [
     ATTEMPT_COMPLETION_REASONS,
@@ -110,12 +123,14 @@ test("技術理由は保存受理集合と一致し未知・欠測・余剰を�
 /**
  * Setup失敗Mapの未知用途と継承Propertyを固定の一般理由へ閉じる。
  * @responsibility 関数のinline化で用途判定を部分一致やprototype参照へ変えない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成の非0終了観測のみ。
  * @stimulus 全Setup用途と未知値・prototype名を渡す。
  * @observation 元の固定理由とfallback。
  * @oracle 所有keyだけを採用し、継承値を理由へ昇格しない。
  * @cleanup N/A: 外部資源なし。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+
  */
 test("Setup失敗の変換はMap自身の用途だけを扱い未知・継承名を拒否する", () => {
   const observation = {

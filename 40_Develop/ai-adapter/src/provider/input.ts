@@ -9,6 +9,7 @@
 
 import { types } from "node:util";
 
+/** 未信頼Objectのown data propertyだけを読むためのdescriptor契約。 */
 type DataDescriptor = PropertyDescriptor & { value: unknown };
 
 /**

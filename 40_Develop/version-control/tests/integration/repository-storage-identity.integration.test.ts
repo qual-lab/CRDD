@@ -6,6 +6,7 @@
  * @level IT
  * @scope 自己生成RepositoryとWorktreeだけ。外部AI・Dockerなし。
  * @boundary Version Controlの内部観測とPackage公開結果。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";

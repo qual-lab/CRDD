@@ -1,9 +1,11 @@
 /**
  * 共通観測入口と既知実ID照合を有限の技術境界で反証する。
  * @responsibility 用途・保存相関を渡さずSnapshotと明示候補だけで観測する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @level UT
  * @scope 同期CLIとconfigは有限代役。実Docker・AI・保持物は使用しない。
+ * @packageDocumentation
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -21,7 +23,7 @@ const NAME = "crdd-codex-0123456789abcdef";
 /**
  * 欠測IDから発見した候補を既知Receiptと同じ扱いにしない。
  * @responsibility 名前・Label・実IDの一致を要求し実行構成で所有を代用しない。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @precondition 元投影の明示候補と有限CLI応答だけを使う。
  * @stimulus 名前・Label・実IDは一致しImage等の構成が異なる応答を返す。
  * @observation 発見結果と削除要求数。
@@ -63,7 +65,7 @@ test("欠測IDの発見は構成差を識別不一致にしない", () => {
 /**
  * 観測の正常・不明・取消・終了失敗を同じ公開入口へ接続する。
  * @responsibility 作成Intentの識別情報で観測し予定構成を実測扱いしない。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @precondition 低位接続factoryだけを代役へ置換する。
  * @stimulus 未要求・既知ID・欠測ID・二回不存在・取消・close失敗を渡す。
  * @observation 要求数、実ID、三値、Snapshotとconfig終了。
@@ -275,7 +277,7 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
 /**
  * 既知IDの構成差を識別不一致へ戻さない。
  * @responsibility 名前・所有Label・実IDと実測Snapshotを同じinspectから確定する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @precondition 固定CLI応答だけを返す有限関数を使う。
  * @stimulus Image・Command・Mount差、別ID・名前・Labelと一覧失敗を渡す。
  * @observation bool、要求列と非秘密Snapshot。

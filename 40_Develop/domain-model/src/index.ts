@@ -497,7 +497,6 @@ export {
   type RealitySymbolManifest,
   realitySymbolKinds,
 } from "./reality-traceability/manifest.ts";
-export { hasSkippedTestDeclaration } from "./reality-traceability/test-source.ts";
 export { validateRealitySymbolManifest } from "./reality-traceability/validate-manifest.ts";
 export { createFilesystemRepositoryObservationPort } from "./repository/create-observer.ts";
 export {

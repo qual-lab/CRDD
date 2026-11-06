@@ -1,5 +1,98 @@
 # Platform Accessの構造・Native接続再編
 
+現在のChecker責務は[責務境界整理](checker-responsibility-boundary.md)へ更新した。以下の全Source命名・Header検査と450件Catalogは先行候補の履歴であり、現在のChecker機能や全Source是正完了を示さない。
+
+## 承認済みWorkspace値検査の接続完了 — 2026-11-06
+
+人間承認により、QA-000007へ`RFD-UT-030`を一件追加した。既存のARCH-000009とWorkspace詳細のDomain所有DTOから、保存候補の閉形式・Workspace相関・Commit形式・表示名・関連CHG・選択内容の純粋検査を導出し、ARCH／DetailのQuality分析、検証設計、Quality CenterとDomainの既存二Case・Symbol Manifestを追従した。新しい製品機構や試験、規約・Checkerの免除は追加しない。無関係な公開集合RCM-UT-014／実Git RFD-IT-029の接続はこのSuiteだけから撤去し、他Suiteと過去Evidenceは維持する。
+
+対象11Suiteに限定して同じChecker関数をメモリ内で実行した台帳・段階・全Header照合は成功した。これは製品Checkerの対象除外ではなく、原因層の限定確認である。Domainの既存二Caseを再実行し2／2成功、format／type／lint成功、Catalog450件valid・testExecution not_started、diffの空白検査も成功した。先行段階の関連107試験成功はその対象改訂版の局所結果として維持し、新義務の正式Passへ遡及転記しない。
+
+11Suiteの分類不一致は是正済み。全体Header検査では別の既存DI integration/probe-asyncのpackageDocumentation不足に到達し、命名・コメントの全体課題も未是正である。直下の「10Suite是正・1Suite判断待ち」は承認前の履歴として読む。実AI・Docker・過去保持物は操作せず、コミット・プッシュは行わない。
+
+## 試験段階の是正とChecker要求の評価 — 2026-11-06
+
+今回の実装範囲は既存11Suiteの段階・QA接続と、その直接参照・Headerの是正。製品Source、公開API、規範、保存形式、試験のassertionは変更しない。技術・品質の独立確認、対象回帰と直接伝播確認を行い、規範・Release不変更のため準拠・Release監査は追加しない。
+
+### 是正した10Suite
+
+| 試験 | 維持する段階・接続先 | 根拠 |
+|---|---|---|
+| Executor lifecycle／probe／review-delivery／observation／controller／plan／attempt/validation | UT、ERB-UT-023 | 型・純粋値・有限DI／Command代役による入力、取消、通知、結果解釈。実DI・実Provider成立ではない |
+| Coordinator execution/attempt-preparation | UT、PRL-UT-014とERB-UT-023 | 模擬Storeの準備相関・一回消費・二時計と用途別入力 |
+| Coordinator execution/eligibility-observation | UT、ERB-UT-023 | 選定前の五軸分類。実認証・利用可能性のIT成立ではない |
+| DI integration/isolation-lifecycle | IT、ERB-IT-004 | 本番Executor・DIの準備／実行／回収を有限CLI・Process・Directoryへ接続。実Dockerではない |
+
+### 残る1Suiteと独立確認による是正
+
+Domainのworkspace-technical-contractは保存候補の閉形式、Workspace相関、表示名・OID・選択の純粋検査でありUTが妥当。しかし既存のRCM-UT-014は公開export/import集合、RCM-UT-016はDomain共通Outcomeの専用義務であり、このSuiteの観測と一致しない。親が一度行ったRCM-UT-016への付替えは独立確認で否定され、撤回した。元のRCM-UT-014／RFD-IT-029の接続も適合済みとはしない。
+
+QA-000007の既存UT-006はIdentity／Revision Policy、UT-028は管理状態の専用Schemaであり、Workspace候補の純粋値検査をそのまま充足する項目は確認できない。推奨はQA-000007に対象限定のUT義務を一件定義し、既存Suiteを接続すること。新しい製品機構・試験は不要だが、検証設計の追加になるため、今回その項目を無断追加せず判断待ちとする。IT-029の実Git義務と既存結果は維持する。
+
+### Checker要求の評価（規則変更は未実施）
+
+先の4,328件は、是正前候補の検出件数であり、固有識別子数ではない。内訳は責務コメント・参照2,770、命名1,557、型分類不能1。命名のみ4,328という旧説明は訂正する。複数tag不足は同じ宣言に重複計上される。
+
+| 対象 | 現在の根拠・評価 | 推奨する次の処置 |
+|---|---|---|
+| File／Symbolの責務と設計参照 | Coding Standards §4.3の明示要求。Git実行Sourceの一行複数ARCH参照などは現行の一tag一ID形式と不一致。Checker独自要求とはいえない | 参照と責務を維持し、形式不一致と説明不足を別集計する |
+| 局所Helperの全固定tagと非該当理由 | 規約は短い局所処理の簡潔さも求めるが、同時に全tag・非該当理由を要求。型検査専用Helperにも終了・清掃・境界の反復を生む。現在のCheckerは全tag側を実装している | 小さな純粋HelperはSummary／責務を基本とし、Effect・資源・外部境界を持つものだけ詳細化する案を規約側で評価する。現時点で免除しない |
+| Type AliasのShape／Invariant／Security／Compatibility等 | 規約の型契約Headerに対応するため、Checkerだけが過剰とは断定しない。一つの既存型を再利用する局所型にも同じ記述量を要求する費用がある | 公開・共有契約と局所型の必要記述を区別する案を評価。型や保証を削るのではなく重複説明を減らす |
+| Boolean接頭辞・配列複数形・固定定数分類 | §4の明示規則に対応。固定集合・型分類・escape解析等の複雑さはCheckerが独自導入したものではなく規約にも存在する | 外部契約名を保持し、文脈上明確な内部名まで改名する価値と、分類器維持費を比較する。全件改名はまだ行わない |
+| 単独名の一律拒否 | §5の禁止集合に対応する一方、同節は関数・Methodの単独動詞を呼出し文脈で評価するとも定める。§3.2との適用境界は要整理 | 値の曖昧名と、対象の明確な操作名を分ける。文脈判断が必要なものを機械的に全て不合格にするべきか先に規約判断する |
+| 型分類不能一件 | 型取得できないことは名前が悪い証明ではない。ただし現規約は分類不能を成功扱いしない | 型解決の故障か入力型の問題かを切り分け、分類不能と命名違反の表示を区別する |
+
+規約の採用範囲や例外を今回変更せず、Checkerの検査を弱めて合格にする処置も行わない。Sourceの全Header自動生成や、命名の機械的一括置換を次の既定作業にはしない。
+
+### 検証と限界
+
+対象11Suiteの実行は107件成功（Executor20・Coordinator12・Domain2・DI73）。四Packageのformat／type／lintとCoordinator追跡検査は成功。Catalog450件validは静的結果であり正式Passではない。独立確認では上記Domain接続一件を検出し、誤った新接続を撤回した。全体のHeader検査は別の既存DI integration/probe-asyncのpackageDocumentation不足に到達し未合格。今回10Suite是正を横断Checker全体や11Suite全完了へ昇格しない。補助的な実行token列比較は検査Scriptのメモリ不足で未成立であり、回帰成功の根拠に含めない。実AI・Docker・過去保持物は操作せず、コミット・プッシュは行わない。
+
+## 横断Checkerの既存失敗の是正 — 2026-11-06、未完了
+
+今回の対象は、前節のPA整理で残った横断構造試験4失敗の最小是正である。Rust試験3ファイルをsnake_caseへ改名しCargo・参照・台帳を追従した。実際のRoot再export集合へCheckerの4Package期待値を合わせ、未登録の自動試験27Suiteと検証Tool4件を既存QA義務へ接続した。人間操作の未実施UATは自動試験として登録しない。試験のHeader不足も補い、実行処理・検査の免除は追加しない。types.tsで発見した回復開始stage定数は、値・順序を変えず既存validation.tsへ移管した。
+
+- Rust全targetのoffline compile-checkは成功した。Native実試験や実修復の成功ではない。
+- 関連試験はCoordinator9、DI22、Executor58、Domain13、VC実Git2、Workbench25が全件成功した。Workbenchの制限下20成功・5失敗は通常条件で25成功へ再確認し、外部AI・Dockerは使わない。
+- Coordinatorの型・書式・Lint・追跡検査とCatalog450件の静的検査は成功した。CatalogのtestExecutionはnot_startedであり、正式なQA項目のPassへ換算しない。
+- 当初の先行エラーを解消した全件走査で、全Packageにまたがる識別子命名違反4,328件と、既存登録済み11SuiteのUT／ITとQA Local Item段階の不一致が露出した。これらは未是正であり、横断Checker全体は未合格。命名の一括置換、規則の緩和、QA IDの機械的付替えは行わない。
+- 読取り専用の独立確認は現在差分に追加の確定不整合を検出せず、上記広域課題を最小是正へ無断で拡張しない停止判断を支持した。4,328件と11Suiteの全件再導出を独立確認が実施したという意味ではない。
+
+次の判断は、公開名・保存値・外部契約を保ちながら命名規則をどの対象へ適用するかと、11Suiteの実観測に対応する検証段階の確定である。条件付きのコミット・プッシュは未実施とし、現在差分を保持する。実AI・Docker・過去保持物の操作は行わない。
+
+## 標準API直結と子環境の重複撤去 — 2026-11-06
+
+利用者はPA廃止を第一候補とし、現行の強い保証を一律必須としない方針を採用した。今回はOS／PIDの標準API直結と同値環境入口の統合を実装する。親の着手前照合と読取り専用の独立確認では、Windows固定と現在OS選択、Profile付与の実差分、PID三値・入力拒否を保持条件とした。技術責務のRefactorとして、利用側・試験・台帳・Architecture・QAの追従と限定独立レビューを行う。規範・Release不変更のため全体準拠監査は実施しない。
+
+PAのOS・PID観測二APIと専用Sourceを撤去し、Coordinatorは`process.platform`と、既存Ownerの入力検査後の`process.kill(pid, 0)`を直接使用する。ESRCHだけ不存在、他の失敗は不明。不正PIDではOS照会0、PID存在を同一世代と見なさない条件を維持し、反証試験を既存Coordinator試験へ移管する。CatalogとSymbolの旧試験・旧Source接続は撤去して新Ownerへ追従する。
+
+環境はConsole／Node Reader／Supervisor／Nativeの四入口から`createChildProcessEnvironment({ platform?, userProfile? })`一入口へ統合する。任意envや任意Pathを受け付けるbuilderは作らず、実OS差とOS由来Profileの付与要否だけを選ぶ。Windows固定Consumerは明示optionを使い、Profileは必要な呼出しだけ付与する。Host記録TMP／TEMP・PowerShell五項目・Docker固有設定は実差分として維持する。DIの変更理由はPA利用API追従だけであり、Dockerの実行・回収・信頼検査・保存・期限は変更しない。
+
+### 残機能の評価（未実装・判断候補）
+
+| 機能 | 残す必要と推奨案 | 現方式を外す場合の影響 |
+|---|---|---|
+| 共有Pipe排他 | 保存Writer・Home・操作排他は現在も必要。Node実装を前提に、同期／非同期Consumerと保持寿命を照合して配置を決める | 全てCoordinatorへ移すと逆依存、各Ownerへ一式コピーすると重複。PA全廃の配置判断は未確定 |
+| Runtime／Homeの厳密Token・ACL | 秘密・保存先の境界は必要。対話ログオン限定や固定ACL形状は必須と決めず、通常OS利用者境界で足りるか評価 | 独自の権限不備検出やService等の拒否が減る。Nodeのchmodだけで同等とは扱わない |
+| OS所在のNative取得・中立環境 | 今回は維持。標準の起動環境を信頼してよいかを先に判断する | 親環境を根拠にできない現条件が変わる。C:\\Windows等の固定推測へは置換しない |
+| Host終端の未接続記録・専用Lease | 本番接続を確認できない退役候補。旧Callerは既に廃止済みだが、PA私有技術契約維持の旧判断は別途更新が必要 | 通常Recovery記録は既存Node保存に残す。未接続の専用保護・保存能力を失う |
+| Host Namespace初期化 | Coordinatorの本番接続あり。通常保存先初期化と特別ACLを分けて評価 | 無条件撤去では本番初期化が壊れる。特別ACL廃止には保護条件の再判断が必要 |
+| Docker強制修復 | 公式停止・起動を第一候補とし、失敗時は人間へ戻す案を推奨 | 強制終了による自動復旧範囲が狭くなる。公式CLIをNodeから呼ぶことと組込みAPIだけの処理は区別 |
+| 特殊reparse残存物 | 不明項目を自動削除せず保持・手動対応にする案を評価 | 自動回収能力が減るが、不明を安全へ読み替える必要はない |
+| Jobによる親異常終了時の回収 | 通常取消・実終了観測は残す。補助子の子孫・親異常終了保証が本当に必要かを個別評価 | kill要求受付ではJobの子孫回収保証を代替できない。孤児残存の可能性と再入場を評価 |
+| Native Artifact・Protocol | Nativeが最後まで不要になった後にBuild・配布・照合も撤去 | Native利用中は先に削除しない。外部Docker実行物の信頼確認とは別 |
+
+保証変更を伴う残件を今回の名称統合に混ぜず、PA全廃／Native全廃の成立は主張しない。実AI・Docker・過去保持物は操作しない。
+
+### 検証結果と未成立範囲
+
+- PA通常全回帰143／143成功。DI通常回帰は制限環境で401成功・junction作成EPERM 1失敗・既存対象外5、その後製品・検査不変更で通常権限にて402成功・失敗0・既存対象外5。実Docker項目は未実行のまま維持する。
+- CoordinatorのPlatform／Lease・Native読取り判定29／29、環境・Profile／所在故障の限定5／5、Task純粋閉包とNode直結の6／6成功。専用PID試験の2反証は既存Owner試験へ移し、Node標準のOS値を返すだけの旧試験は撤去した。新環境入口はWindows／非Windows・明示Windows固定・Profile付与／欠測を模擬し、実Native操作とは分けた。
+- PA／DI／Coordinatorの型・書式・LintとCoordinator二追跡Checkerが成功。三PackageのSymbol Manifestはcomplete・issues 0、Catalogは450件valid・試験未開始という静的結果。Catalog成功を試験成功へ換算しない。
+- 独立確認で旧Source必須の試験2箇所とCoordinator Architecture2箇所を検出し、Node直結のOwnerへ追従した。横断確認で露出した基準版由来のSource未分類2件は技術実行へ分類し、VC配置試験の同一verifies二重登録は1要素へ統合した。対象集合の免除や製品Sourceの追加変更は行わない。
+- 横断Checkerの構造試験は通常権限で19成功・4失敗。残りは既存Rust試験File名`host-record.rs`、DIの廃止済configurationを要求する期待値（2試験）、既存authentication-management試験のSymbol不足であり、今回PAのNode直結へ伴う失敗とは分ける。全体Checker／QAを合格とはしない。実修復・Native Build・実AI／Docker・過去保持物操作は実施しない。
+- 是正後のSource・利用側・管理情報・文書を固定した読取り専用の最終独立再レビューは、追加必須指摘なし。今回の限定結果をPA廃止や実環境の全保証成立へ拡張しない。
+
 対象: CRDD v0.22 / CHG-000082 第二段階
 基準Commit: `3e5bd9135`
 状態: 既存TypeScript配置の移管・限定回帰・独立レビュー完了。Native接続抽出・Rust再配置は後続単位

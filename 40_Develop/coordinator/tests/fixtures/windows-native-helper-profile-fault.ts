@@ -90,7 +90,10 @@ try {
     "../../../platform-access/src/index.ts"
   );
   isEnvironmentNull =
-    environmentModule.createWindowsNativeHelperEnvironment() === null;
+    environmentModule.createChildProcessEnvironment({
+      platform: "win32",
+      userProfile: true,
+    }) === null;
 } catch (error) {
   operationFailure = error;
 } finally {

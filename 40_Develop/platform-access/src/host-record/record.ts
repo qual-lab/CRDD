@@ -23,7 +23,8 @@ import type { DevelopmentNativeSourceReader } from "../filesystem/root.ts";
 /**
  * Host記録のWin32実体を搬送する。
  * @responsibility 六u32を技術的期待値として保持する。
- * @trace ARCH-000008 ARCH-000011
+ * @trace ARCH-000008
+ * @trace ARCH-000011
  * @shape volume、file index、creation time、属性。
  * @invariant 値だけから所有・非使用・清掃権限を発行しない。
  * @boundary 上位の意味検査済み記録からNative相関への投影。
@@ -45,7 +46,8 @@ export type HostTerminalWindowsIdentity = Readonly<
 /**
  * Native記録へ渡す閉じた技術fieldを所有copyへ固定する。
  * @responsibility 固定要求が用いるfieldだけを読み、Proxy・Accessor・未知fieldを拒否する。
- * @trace ARCH-000008 ARCH-000011
+ * @trace ARCH-000008
+ * @trace ARCH-000011
  * @input 未検証値と内部で固定したfield集合。
  * @returns 所有したfield値またはnull。
  * @precondition key集合はこのHost Protocol内だけで指定する。
@@ -180,7 +182,8 @@ function copyHostIdentity(value: unknown): HostTerminalWindowsIdentity {
 /**
  * 正規本文と同じ一回のencodeから投影した期待値を固定する。
  * @responsibility 本文Hash・参照・対象・利用者の技術相関を所有し、producerや処置順は解釈しない。
- * @trace ARCH-000008 ARCH-000011
+ * @trace ARCH-000008
+ * @trace ARCH-000011
  * @input serialized、sha256、reference、selectedUserSha256、targetの閉投影。
  * @returns Native要求に必要な所有値、またはnull。
  * @precondition 上位Ownerが記録の意味と保存許可を検証する。

@@ -1,7 +1,8 @@
 /**
  * 一般Task検証が所有する独立Worktreeを既存Git操作へ接続する。
  * @responsibility 上位Toolだけが作成・成果読取り・明示終了を所有する。
- * @trace ARCH-000004 ARCH-000009
+ * @trace ARCH-000004
+ * @trace ARCH-000009
  * @boundary 自己生成するRepository-local Worktree。Providerの実行・回収は所有しない。
  */
 import { randomUUID, createHash } from "node:crypto";
@@ -30,7 +31,8 @@ export type VerificationWorkspacePreparation = Readonly<{
 /**
  * 各検証経路へ異なるUUIDと固定BaseのWorktreeを用意する。
  * @responsibility 共有dirtyを複製せず、作成結果不明でも同じ対象を返す。
- * @trace ARCH-000004 ARCH-000009
+ * @trace ARCH-000004
+ * @trace ARCH-000009
  * @input 所属Root、固定Base Commit。
  * @returns 解決済み対象と作成・不存在確認の状態。
  * @effect VC標準APIによる専用WorktreeとBranchの作成。
@@ -68,7 +70,8 @@ export function prepareVerificationWorkspace(
 /**
  * 固定Pathの実内容とGit観測を同じ解決済み対象から読む。
  * @responsibility Bundle化や永続保存をせず、実Byteを検証側へ返す。
- * @trace ARCH-000004 ARCH-000009
+ * @trace ARCH-000004
+ * @trace ARCH-000009
  * @input 上位で作った対象、固定相対Path、Taskの変更観測。
  * @returns 内容を含むTool内部の短命な観測。公開結果へ本文を渡さない。
  * @effect 既存VCによるGit読取りと固定File読取り。
@@ -131,7 +134,8 @@ export function readVerificationWorkspaceOutput(
 /**
  * 技術回収を確認したTaskの自己生成Worktreeだけを明示終了する。
  * @responsibility Provider回収とGit作業領域回収を混同しない。
- * @trace ARCH-000004 ARCH-000009
+ * @trace ARCH-000004
+ * @trace ARCH-000009
  * @input 元対象と同Taskの確定結果。
  * @returns Git登録・専用Branch・Directoryの終了確認、又は保持。
  * @effect 成立条件を満たす場合だけ既存VCの明示破棄を一回呼ぶ。

@@ -5,6 +5,7 @@
  * @level IT
  * @scope メモリ内の固定資源と有限代役だけを使用する。
  * @boundary DI共通回収。実Docker・AI・既存保持物は操作しない。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -15,7 +16,17 @@ import type { DockerResourceExpectation } from "../../src/cleanup/types.ts";
 import { discoverSubmittedDockerResource } from "../../src/cleanup/resource.ts";
 import { cleanupResourceSet } from "../support/cleanup.ts";
 
-/** 入力読取りでaccessorを実行せず、元計画の順序・種類・実IDだけを採用する。 */
+/**
+ * 入力読取りでaccessorを実行せず、元計画の順序・種類・実IDだけを採用する。
+ * @responsibility 認証Receiptは元構成と一致した通常データだけを固定する
+ * @trace ERB-IT-004
+ * @precondition メモリ内の固定資源と有限代役だけを使用する。
+ * @stimulus 認証Receiptは元構成と一致した通常データだけを固定するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 認証Receiptは元構成と一致した通常データだけを固定するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary DI共通回収。実Docker・AI・既存保持物は操作しない。
+ */
 test("認証Receiptは元構成と一致した通常データだけを固定する", () => {
   const expected = [
     {
@@ -55,7 +66,17 @@ test("認証Receiptは元構成と一致した通常データだけを固定す�
   assert.equal(reads, 0);
 });
 
-/** 発見通知後の構成変化でも、ID欠測由来の削除直前完全構成検査を維持する。 */
+/**
+ * 発見通知後の構成変化でも、ID欠測由来の削除直前完全構成検査を維持する。
+ * @responsibility 共通回収は元Receiptと発見IDの照合条件を通知後も混同しない
+ * @trace ERB-IT-004
+ * @precondition メモリ内の固定資源と有限代役だけを使用する。
+ * @stimulus 共通回収は元Receiptと発見IDの照合条件を通知後も混同しないの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 共通回収は元Receiptと発見IDの照合条件を通知後も混同しないという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary DI共通回収。実Docker・AI・既存保持物は操作しない。
+ */
 test("共通回収は元Receiptと発見IDの照合条件を通知後も混同しない", async () => {
   for (const mode of ["receipt", "discovery", "discovery_changed"] as const) {
     const id = "a".repeat(64);
@@ -88,6 +109,17 @@ test("共通回収は元Receiptと発見IDの照合条件を通知後も混同�
       tmpfsBytes: null,
       expectedMounts: [],
     };
+    /**
+     * 固定argvを有限CLI応答と呼出し記録へ結合する。
+     * @responsibility 固定argvを有限CLI応答と呼出し記録へ結合する
+     * @trace ERB-IT-004
+     * @precondition メモリ内の固定資源と有限代役だけを使用する。
+     * @stimulus 固定argvを有限CLI応答と呼出し記録へ結合する。
+     * @observation 構築した候補、有限応答または検出した例外。
+     * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+     * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+     * @boundary DI共通回収。実Docker・AI・既存保持物は操作しない。
+     */
     const run = (argv: readonly string[]) => {
       let stdout = "";
       if (argv.includes("inspect"))
@@ -149,7 +181,17 @@ test("共通回収は元Receiptと発見IDの照合条件を通知後も混同�
   }
 });
 
-/** 同じ回収coreへ渡したReceipt列を、通常と再入場で同じ条件で処置する。 */
+/**
+ * 同じ回収coreへ渡したReceipt列を、通常と再入場で同じ条件で処置する。
+ * @responsibility 共通回収は全Receipt検査・通知完了・明示取消を処置前に要求する
+ * @trace ERB-IT-004
+ * @precondition メモリ内の固定資源と有限代役だけを使用する。
+ * @stimulus 共通回収は全Receipt検査・通知完了・明示取消を処置前に要求するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 共通回収は全Receipt検査・通知完了・明示取消を処置前に要求するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary DI共通回収。実Docker・AI・既存保持物は操作しない。
+ */
 test("共通回収は全Receipt検査・通知完了・明示取消を処置前に要求する", async () => {
   const none = { submitted: false, dockerId: null };
   const receipts: DockerResourceReceipts = {

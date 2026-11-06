@@ -16,8 +16,8 @@ type StatLike = Readonly<{
 }>;
 type SpawnResult = Readonly<{
   status: number | null;
-  stdout: string;
-  stderr: string | undefined;
+  stdout: string | Buffer;
+  stderr: string | Buffer | undefined;
 }>;
 type MutableChildProcess = {
   spawnSync: (
@@ -27,6 +27,7 @@ type MutableChildProcess = {
   ) => SpawnResult;
 };
 type MutableFs = {
+  openSync: (value: unknown, ...restArguments: unknown[]) => number;
   lstatSync: (value: unknown, ...restArguments: unknown[]) => StatLike;
   statSync: (value: unknown, ...restArguments: unknown[]) => StatLike;
   readdirSync: (value: unknown, ...restArguments: unknown[]) => unknown;
@@ -50,6 +51,7 @@ const target = process.env.CRDD_CHECK_FAULT_TARGET
 const root = process.env.CRDD_CHECK_FAULT_ROOT
   ? path.resolve(process.env.CRDD_CHECK_FAULT_ROOT)
   : null;
+const originalOpenSync = fs.openSync;
 const originalLstatSync = fs.lstatSync;
 const originalStatSync = fs.statSync;
 const originalReaddirSync = fs.readdirSync;
@@ -58,6 +60,7 @@ const originalRelative = path.relative;
 const originalSpawnSync = childProcess.spawnSync;
 let targetLstatCalls = 0;
 let isTargetDirectoryRead = false;
+let gitFaultInjections = 0;
 
 function isTarget(value: unknown): boolean {
   return target !== null && path.resolve(String(value)) === target;
@@ -234,129 +237,163 @@ if (fault === "git-root-failed" || fault === "git-root-failed-no-stderr") {
   };
 }
 
-if (fault === "git-list-custom") {
-  childProcess.spawnSync = function injectedGitList(
+/** 現行の固定Git起動形式からRootと実subcommandを読み、未対応形式は注入しない。 */
+function gitInvocation(
+  command: unknown,
+  args: readonly unknown[],
+  options: unknown,
+): { root: string; subcommand: string; args: readonly unknown[] } | null {
+  if (command !== "git") return null;
+  let commandRoot =
+    typeof options === "object" &&
+    options !== null &&
+    "cwd" in options &&
+    typeof options.cwd === "string"
+      ? options.cwd
+      : null;
+  const flags = [
+    "--no-pager",
+    "--no-optional-locks",
+    "--literal-pathspecs",
+    "--no-replace-objects",
+  ];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (typeof arg !== "string") return null;
+    if (arg === "-C" || arg === "-c") {
+      const value = args[++index];
+      if (typeof value !== "string") return null;
+      if (arg === "-C") commandRoot = value;
+      continue;
+    }
+    if (arg.startsWith("--work-tree=")) {
+      commandRoot = arg.slice("--work-tree=".length);
+      continue;
+    }
+    if (arg.startsWith("--git-dir=") || flags.includes(arg)) continue;
+    if (arg.startsWith("-") || commandRoot === null) return null;
+    return {
+      root: path.resolve(commandRoot),
+      subcommand: arg,
+      args: args.slice(index + 1),
+    };
+  }
+  return null;
+}
+
+if (
+  fault === "git-not-repository" ||
+  fault === "git-list-custom" ||
+  fault === "git-stage-failed"
+) {
+  childProcess.spawnSync = function injectedGitObservation(
     command: unknown,
-    argumentValues: unknown[] = [],
+    args: unknown[] = [],
+    options?: unknown,
   ) {
-    if (command !== "git") {
-      throw new Error(
-        `Unexpected command during injected Git list: ${command}`,
-      );
-    }
-    if (
-      argumentValues[0] === "config" &&
-      process.env.CRDD_CHECK_FAULT_GIT_CONFIG_FAILED === "1"
-    ) {
-      return {
-        status: 2,
-        stdout: "",
-        stderr: "injected Git config parse failure",
-      };
-    }
-    if (
-      argumentValues[0] === "config" &&
-      process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT !== undefined
-    ) {
-      return {
-        status: 0,
-        stdout: `${process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT}\0`,
-        stderr: "",
-      };
-    }
-    if (argumentValues.includes("ls-files")) {
-      if (argumentValues.includes("--stage")) {
-        const injectedStages = JSON.parse(
-          process.env.CRDD_CHECK_FAULT_GIT_STAGE_JSON || "[]",
-        );
+    const invocation = gitInvocation(command, args, options);
+    if (invocation?.root === root) {
+      if (
+        fault === "git-not-repository" &&
+        invocation.subcommand === "rev-parse" &&
+        invocation.args.includes("--show-toplevel")
+      ) {
+        gitFaultInjections += 1;
         return {
-          status: 0,
-          stdout: `${injectedStages.join("\0")}\0`,
-          stderr: "",
+          status: 128,
+          stdout: "",
+          stderr: "fatal: not a git repository",
         };
       }
-      const injectedFiles = JSON.parse(
-        process.env.CRDD_CHECK_FAULT_GIT_LIST_JSON || "[]",
+      if (
+        fault === "git-stage-failed" &&
+        invocation.subcommand === "ls-files" &&
+        invocation.args.includes("--stage")
+      ) {
+        gitFaultInjections += 1;
+        return {
+          status: 2,
+          stdout: "",
+          stderr: "injected Git index mode failure",
+        };
+      }
+      if (fault === "git-list-custom") {
+        if (
+          invocation.subcommand === "config" &&
+          process.env.CRDD_CHECK_FAULT_GIT_CONFIG_FAILED === "1"
+        ) {
+          gitFaultInjections += 1;
+          return {
+            status: 2,
+            stdout: "",
+            stderr: "injected Git config parse failure",
+          };
+        }
+        if (
+          invocation.subcommand === "config" &&
+          process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT !== undefined
+        ) {
+          gitFaultInjections += 1;
+          return {
+            status: 0,
+            stdout: `${process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT}\0`,
+            stderr: "",
+          };
+        }
+        if (invocation.subcommand === "ls-files") {
+          gitFaultInjections += 1;
+          const source = invocation.args.includes("--stage")
+            ? process.env.CRDD_CHECK_FAULT_GIT_STAGE_JSON
+            : process.env.CRDD_CHECK_FAULT_GIT_LIST_JSON;
+          const values = JSON.parse(source || "[]");
+          return { status: 0, stdout: `${values.join("\0")}\0`, stderr: "" };
+        }
+      }
+    }
+    return originalSpawnSync(command, args, options);
+  };
+}
+
+if (fault === "baseline-head-failed" && target !== null) {
+  // 配置検証のO_NOFOLLOW付きopenは維持し、Revision本文観測のread-only openだけを失敗させる。
+  const marker = path.join(target, ".git");
+  const markerStat = originalLstatSync(marker);
+  const gitDirectory = markerStat.isDirectory()
+    ? marker
+    : path.resolve(
+        target,
+        String(originalReadFileSync(marker, "utf8"))
+          .trim()
+          .replace(/^gitdir:\s*/u, ""),
       );
-      return {
-        status: 0,
-        stdout: `${injectedFiles.join("\0")}\0`,
-        stderr: "",
-      };
+  const head = path.resolve(gitDirectory, "HEAD");
+  fs.openSync = function injectedBaselineHeadOpen(
+    value: unknown,
+    ...args: unknown[]
+  ) {
+    if (path.resolve(String(value)) === head && args[0] === "r") {
+      gitFaultInjections += 1;
+      throw Object.assign(new Error("injected baseline HEAD access failure"), {
+        code: "EACCES",
+      });
     }
-    const commandRoot = path.resolve(String(argumentValues[1]));
-    if (commandRoot === root) {
-      return { status: 0, stdout: `${root}\n`, stderr: "" };
-    }
-    return { status: 1, stdout: "", stderr: "not a separate Git root" };
+    return originalOpenSync(value, ...args);
   };
 }
 
-if (fault === "baseline-head-failed") {
-  childProcess.spawnSync = function injectedBaselineHeadFailure(
-    command: unknown,
-    argumentValues: unknown[] = [],
-    options: unknown,
-  ) {
-    if (
-      command === "git" &&
-      argumentValues?.[0] === "-C" &&
-      isTarget(argumentValues[1]) &&
-      argumentValues.includes("--verify") &&
-      argumentValues.includes("HEAD")
-    ) {
-      return {
-        status: 2,
-        stdout: "",
-        stderr: "injected baseline HEAD access failure",
-      };
-    }
-    return originalSpawnSync(command, argumentValues, options);
-  };
-}
-
-if (fault === "baseline-root-case-changed") {
-  childProcess.spawnSync = function injectedBaselineRootCase(
-    command: unknown,
-    argumentValues: unknown[] = [],
-    options: unknown,
-  ) {
-    const result = originalSpawnSync(command, argumentValues, options);
-    if (
-      command === "git" &&
-      argumentValues?.[0] === "-C" &&
-      isTarget(argumentValues[1]) &&
-      argumentValues.includes("--show-toplevel") &&
-      result.status === 0
-    ) {
-      return {
-        ...result,
-        stdout: result.stdout.toUpperCase(),
-      };
-    }
-    return result;
-  };
-}
-
-if (fault === "git-stage-failed") {
-  childProcess.spawnSync = function injectedGitStageFailure(
-    command: unknown,
-    argumentValues: unknown[] = [],
-    options: unknown,
-  ) {
-    if (
-      command === "git" &&
-      argumentValues?.includes("ls-files") &&
-      argumentValues.includes("--stage")
-    ) {
-      return {
-        status: 2,
-        stdout: "",
-        stderr: "injected Git index mode failure",
-      };
-    }
-    return originalSpawnSync(command, argumentValues, options);
-  };
+if (
+  [
+    "git-not-repository",
+    "git-list-custom",
+    "git-stage-failed",
+    "baseline-head-failed",
+  ].includes(fault ?? "")
+) {
+  process.on("exit", () => {
+    process.stderr.write(
+      `CRDD_TEST_GIT_FAULT:${fault}:${gitFaultInjections}\n`,
+    );
+  });
 }
 
 syncBuiltinESMExports();

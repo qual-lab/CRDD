@@ -5,6 +5,7 @@
  * @level UT
  * @scope Domain Readerだけ有限化。実AI・Docker・保存操作なし。
  * @boundary この試験は通信強制やHost名の技術検査を主張しない。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";

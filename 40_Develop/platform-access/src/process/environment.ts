@@ -2,7 +2,8 @@
  * 用途を固定したWindows子Process環境を導出する。
  *
  * @responsibility OS由来の所在を検証し、親ambient環境を採用せずConsole・Native・Host終端の環境を構成する。
- * @trace ARCH-000008 ARCH-000011
+ * @trace ARCH-000008
+ * @trace ARCH-000011
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -183,89 +184,32 @@ function observedWindowsUserProfileFromOs() {
 }
 
 /**
- * Console reader用に親環境を継承しない環境を導出する。
- *
- * @responsibility Windowsの中立環境と非Windowsの固定空集合を用途に合わせて返す。
+ * Node子Processへ渡す環境を、実OS差と検証済みProfileの要否だけで構成する。
+ * @responsibility 同値の用途別入口を持たず、任意環境・任意Profileを受け付けない。
  * @trace ARCH-000008
- * @input platform: 呼出し元のConsole実装が扱うNode Platform。既定は現在OS。
- * @returns 凍結した環境、Windowsで観測不能ならnull。
- * @precondition 呼出し元がConsole実装に合うPlatformを選択する。
- * @postcondition WindowsではOS由来Directoryと中立値、他Platformでは空集合となる。
- * @effect Windowsでは固定Native・Filesystem観測。非Windowsでは値の構成だけ。
- * @failure WindowsのOS観測不成立はnull。
- * @invariant process.envを環境として返さない。
- * @boundary Console実装の選択→用途固定のOS環境。
- * @security 環境選択は実行物や外部送信のAuthorityを発行しない。
- * @concurrency 同期処理。返却する環境は凍結した値であり、実行時の実体確認は利用側が所有する。
+ * @input options: 選択するPlatformと、OS由来USERPROFILEの付与要否。
+ * @returns 凍結した環境。Windowsの所在取得不能はnull。
+ * @precondition 呼出しOwnerが必要なOSとProfileの差分を選択する。
+ * @postcondition Windows固定は取得不能時にnull、他OSの既定は空環境。
+ * @effect Windowsでは既存のNative所在・Filesystem読取りのみ。
+ * @failure Windows固定選択を非Windowsの空環境へfallbackしない。
+ * @invariant 親環境の中立化・Profile検査・返却値は従来どおり。
+ * @boundary Nodeのspawn環境と既存OS所在観測。
+ * @security 任意環境・Profile値と実行Authorityを入力・返却しない。
+ * @concurrency 同期の値構築。Processの起動・終了は利用Ownerが管理する。
  */
-export function createInteractiveConsoleReaderEnvironment(
-  platform: NodeJS.Platform = process.platform,
-) {
-  if (platform === "win32") return fixedWindowsEnvironment(Object.freeze({}));
-  return Object.freeze({});
-}
-
-/**
- * Windows Console readerの用途固定環境を取得する。
- *
- * @responsibility Console readerのWindows Profileを既存の共通構成へ結ぶ。
- * @trace ARCH-000008
- * @input N/A: 用途とPlatformは固定。
- * @returns Windowsの凍結した中立環境、またはnull。
- * @precondition 現在Windowsの固定OS観測が成立する。
- * @postcondition 親ambient値を継承しない。
- * @effect 固定Native・Filesystem観測を共通構成から使用する。
- * @failure Windows環境の取得不能はnull。
- * @invariant Profileや任意envを入力として受け付けない。
- * @boundary Windows Console reader→共通OS環境。
- * @security readerの起動許可と環境候補を分離する。
- * @concurrency 同期処理。返却する環境は凍結した値であり、実行時の実体確認は利用側が所有する。
- */
-export function createWindowsNodeConsoleReaderEnvironment() {
-  return createInteractiveConsoleReaderEnvironment("win32");
-}
-
-/**
- * Windows Host監視子の用途固定環境を取得する。
- *
- * @responsibility Host監視子を親ambient環境から分離する。
- * @trace ARCH-000008
- * @input N/A: 用途とPlatformは固定。
- * @returns 凍結したWindows中立環境、またはnull。
- * @precondition 現在Windowsの固定OS観測が成立する。
- * @postcondition USERPROFILE・TMP／TEMPを任意値で補完しない。
- * @effect 固定Native・Filesystem観測を共通構成から使用する。
- * @failure Windows環境の取得不能はnull。
- * @invariant 環境候補はLockやHost操作のAuthorityではない。
- * @boundary Host監視子→共通OS環境。
- * @security 監視対象と操作許可は上位Ownerが別に検証する。
- * @concurrency 同期処理。返却する環境は凍結した値であり、実行時の実体確認は利用側が所有する。
- */
-export function createWindowsHostOperationSupervisorEnvironment() {
-  return createInteractiveConsoleReaderEnvironment("win32");
-}
-
-/**
- * 検証済みProfileをNative補助子の最小環境へ結ぶ。
- *
- * @responsibility 一般Native補助子だけにOS由来USERPROFILEを設定する。
- * @trace ARCH-000008
- * @input N/A: OS由来ProfileとDirectoryを取得する。
- * @returns 凍結した最小環境、またはnull。
- * @precondition 現在WindowsのDirectory／Profile所在を検証できる。
- * @postcondition USERPROFILE以外のambient名は中立値を維持する。
- * @effect 固定Native、OS利用者情報とFilesystem読取り。
- * @failure 非Windows、ProfileまたはDirectory不能はnull。
- * @invariant TMP／TEMPとSYSTEMDRIVEは一般Native環境で付与しない。
- * @boundary OS由来所在→一般Native補助の用途固定環境。
- * @security Profile候補をRoot書込み・初期化・Native操作のAuthorityへ昇格しない。
- * @concurrency 同期処理。返却する環境は凍結した値であり、実行時の実体確認は利用側が所有する。
- */
-export function createWindowsNativeHelperEnvironment() {
+export function createChildProcessEnvironment(
+  options: Readonly<{ platform?: NodeJS.Platform; userProfile?: boolean }> = {},
+): Readonly<Record<string, string>> | null {
+  const platform = options.platform ?? process.platform;
+  if (platform !== "win32")
+    return options.userProfile ? null : Object.freeze({});
+  if (!options.userProfile) return fixedWindowsEnvironment(Object.freeze({}));
   if (process.platform !== "win32") return null;
   const userProfile = observedWindowsUserProfileFromOs();
-  if (!userProfile) return null;
-  return fixedWindowsEnvironment(Object.freeze({ USERPROFILE: userProfile }));
+  return userProfile
+    ? fixedWindowsEnvironment(Object.freeze({ USERPROFILE: userProfile }))
+    : null;
 }
 
 /**
@@ -286,7 +230,10 @@ export function createWindowsNativeHelperEnvironment() {
  * @concurrency 所在を一回解決する。処理中の差替えはNative保持handleとKnown照合で確認する。
  */
 export function createWindowsHostTerminalHelperEnvironment() {
-  const environment = createWindowsNativeHelperEnvironment();
+  const environment = createChildProcessEnvironment({
+    platform: "win32",
+    userProfile: true,
+  });
   if (!environment) return null;
   try {
     const candidate = os.tmpdir();

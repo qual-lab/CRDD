@@ -179,7 +179,7 @@ test("RootとHomeはtokenを返さずNative確認と開発Readerの順序を閉�
                   : artifact,
             };
           },
-          createWindowsNativeHelperEnvironment: () =>
+          createChildProcessEnvironment: () =>
             fault === "environment" ? null : Object.freeze({}),
           verifyPlatformAccessArtifactObservation: (value: unknown) => {
             assert.equal(value, token);

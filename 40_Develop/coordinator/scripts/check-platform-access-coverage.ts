@@ -124,8 +124,8 @@ const expectedSources = new Set(
       "windows",
       "identity.rs",
     ),
-    path.join(crateRoot, "tests", "integration", "native-cli.rs"),
-    path.join(crateRoot, "tests", "integration", "host-record.rs"),
+    path.join(crateRoot, "tests", "integration", "native_cli.rs"),
+    path.join(crateRoot, "tests", "integration", "host_record.rs"),
   ].map(path.normalize),
 );
 

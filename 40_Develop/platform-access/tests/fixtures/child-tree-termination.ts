@@ -49,7 +49,7 @@ await mock.module(
   {
     namedExports: {
       ...commonEnvironment,
-      createInteractiveConsoleReaderEnvironment: () => {
+      createChildProcessEnvironment: () => {
         if (scenario === "late_closed")
           Object.defineProperty(original, "exitCode", { value: 0 });
         return scenario === "environment" ? null : environment;

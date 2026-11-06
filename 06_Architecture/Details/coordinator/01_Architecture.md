@@ -292,7 +292,7 @@ B棚卸し基準版のSource108 Fileと公開19宣言の再編候補は、[統�
 
 B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安全性判定を既存検証Toolのscripts補助へ移し、その時点の製品Sourceは105 Fileとなった。通常Runtimeの公開API・許可・実行・保存は変えない。Doctorが使うLifecycle説明と開発Taskの時間計測は実Consumerがある。独立したTrust読取り評価は本番Consumerがなく、2026-10-23の人間承認で専用実装・試験を廃止した。上流の評価意図は未接続として保持する。旧`verify-signed-*`は署名不要の実責務に合わせFile名を整理するが、既存の結果識別子・理由・CLI引数を改変せず、署名Gateを追加しない。[B1の処置と検証範囲](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#9-b1不要候補と検証専用処理の処置)を参照する。
 
-OS生存・Platform観測はPAの`process/observation.ts`が所有し、Lease入力・世代結合・用途別環境選択はOrchestratorの既存Windows Adapterが所有する。OSのaliveは世代同一性の証明ではない。[B2の対応と保持条件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#10-b2os観測端末排他の技術境界)を参照する。
+OS判定は`objective/execute.ts`が`process.platform`を直接使用し、PID生存は`execution/kernel-lock.ts`の既存Lease Ownerが入力検査後に`process.kill(pid, 0)`で三値観測する。PAにOS／PIDの単純搬送APIは置かない。Lease入力・世代結合はCoordinator、子環境は`createChildProcessEnvironment`のOS／Profile差分と各操作固有設定へ接続する。OSのaliveは世代同一性の証明ではない。[PA標準API整理](../platform-access/01_Architecture.md#pa廃止へ向けた標準apiと環境入口の整理--2026-11-06)を参照する。
 
 固定OS端末のopen・TTY検査・callback完了待ち・全close試行はPAの`terminal/console.ts`が所有する。旧B2ではCoordinatorからこの契約を呼び出したが、専用送信同意の撤去後は通常Taskから利用しない。PA一般端末と認証loginのTTYでは、既存の終了確認・不明時の拒否を維持する。
 

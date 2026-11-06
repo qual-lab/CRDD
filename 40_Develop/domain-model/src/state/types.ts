@@ -212,6 +212,7 @@ export type CoordinatorSnapshot = Readonly<{
     }>[];
   }>;
 
+/** Repository共有状態を構成する各保存領域のSnapshot。 */
 export type CoordinatorStateSnapshot = RuntimeDomainSnapshot;
 
 /**

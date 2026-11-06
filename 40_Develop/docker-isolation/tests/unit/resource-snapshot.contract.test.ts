@@ -5,7 +5,6 @@
  * @trace ERB-UT-023
  * @level UT
  * @scope JSON inspect値とRepository内の新品ポインタFile。実Docker・Processは使用しない。
- * @trace ERB-UT-023
  * @boundary 識別・構成投影と元Filesystem実体。実Dockerの成立を主張しない。
  */
 import assert from "node:assert/strict";
@@ -47,6 +46,7 @@ const EXPECTED = Object.freeze({
  * @observation null又は項目別の固定理由。
  * @oracle 不正入力を成功へ変換せず、Path・環境値・例外本文を返さない。
  * @cleanup 代役を復元。実Docker・AI・Filesystem書込み・保持物なし。
+ * @boundary 識別・構成投影と元Filesystem実体。実Dockerの成立を主張しない。
  */
 test("完全構成検査は項目別の拒否理由を返し観測不能を一致にしない", (t) => {
   const source = "C:\\synthetic\\home";
@@ -109,6 +109,17 @@ test("完全構成検査は項目別の拒否理由を返し観測不能を一�
       },
     ],
   };
+  /**
+   * 構成候補を本番の照合関数へ渡す。
+   * @responsibility 構成候補を本番の照合関数へ渡す
+   * @trace ERB-UT-023
+   * @precondition JSON inspect値とRepository内の新品ポインタFile。実Docker・Processは使用しない。
+   * @stimulus 構成候補を本番の照合関数へ渡す。
+   * @observation 構築した候補、有限応答または検出した例外。
+   * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+   * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+   * @boundary 識別・構成投影と元Filesystem実体。実Dockerの成立を主張しない。
+   */
   const check = (actual: unknown) =>
     inspectIsolationResourceConfiguration(resource, actual, image, ["none"]);
   assert.equal(check(value), null);
@@ -732,6 +743,17 @@ test("資源観測collectorは同期throw・非同期Reject・非void返値を�
   for (const mode of ["normal", "throw", "reject", "value"] as const) {
     let inspections = 0,
       captured: unknown = null;
+    /**
+     * 固定argvを有限CLI応答と呼出し記録へ結合する。
+     * @responsibility 固定argvを有限CLI応答と呼出し記録へ結合する
+     * @trace ERB-UT-023
+     * @precondition JSON inspect値とRepository内の新品ポインタFile。実Docker・Processは使用しない。
+     * @stimulus 固定argvを有限CLI応答と呼出し記録へ結合する。
+     * @observation 構築した候補、有限応答または検出した例外。
+     * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+     * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+     * @boundary 識別・構成投影と元Filesystem実体。実Dockerの成立を主張しない。
+     */
     const run = (argv: readonly string[]) => {
       const inspecting = argv.includes("inspect");
       if (inspecting) inspections++;

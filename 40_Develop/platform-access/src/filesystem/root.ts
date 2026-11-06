@@ -2,7 +2,9 @@
  * 保護RootとProvider Homeの用途固定Native観測を接続する。
  * @packageDocumentation
  * @responsibility 固定要求、実行物の前後同一性、子Processの有界実行と応答相関を所有する。
- * @trace ARCH-000008 ARCH-000010 ARCH-000015
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @boundary Nodeから固定Windows Nativeへの同期搬送。上位Capability・回復判断は所有しない。
  */
 import { spawnSync } from "node:child_process";
@@ -15,7 +17,7 @@ import {
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   verifyPlatformAccessArtifactObservation,
 } from "../artifact/identity.ts";
-import { createWindowsNativeHelperEnvironment } from "../process/environment.ts";
+import { createChildProcessEnvironment } from "../process/environment.ts";
 import {
   createProviderHomeObservationRequest,
   createRuntimeStateObservationRequest,
@@ -115,7 +117,9 @@ function sameArtifact(left: unknown, right: unknown): boolean {
 /**
  * 固定保護Root要求をNativeへ同期搬送する。
  * @responsibility Artifact・環境・Process・応答frameと開発観測の既存順序を保持する。
- * @trace ARCH-000008 ARCH-000010 ARCH-000015
+ * @trace ARCH-000008
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  * @input 私有の固定要求と用途限定の開発観測Reader。
  * @returns 完全frameまたは固定失敗区分と観測したEffect・終了情報。
  * @precondition 要求は同Fileの用途固定APIが生成済み。
@@ -183,7 +187,10 @@ function invokeRootObservation(
   ) {
     return blocked("artifact_not_verified");
   }
-  const environment = createWindowsNativeHelperEnvironment();
+  const environment = createChildProcessEnvironment({
+    platform: "win32",
+    userProfile: true,
+  });
   if (!environment) return blocked("environment_unavailable");
   if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
     return blocked("artifact_changed");
@@ -237,7 +244,8 @@ function invokeRootObservation(
 /**
  * 選択済みRuntime State Rootを固定Nativeで観測する。
  * @responsibility 固定用途の要求構築・搬送・応答検査を型付き結果として返す。
- * @trace ARCH-000008 ARCH-000015
+ * @trace ARCH-000008
+ * @trace ARCH-000015
  * @input 上位の選択Root、既存初期化指定、任意の開発観測Reader。
  * @returns 観測候補または失敗区分とProcess・Artifact確認結果。
  * @precondition 上位は初期化許可と開発実行の採用を確認する。
@@ -309,7 +317,8 @@ export function observeWindowsRuntimeState(
 /**
  * 選択済みProvider Homeを固定Nativeで観測する。
  * @responsibility Providerと対象Pathを相関した要求・応答を観測候補へ変換する。
- * @trace ARCH-000008 ARCH-000010
+ * @trace ARCH-000008
+ * @trace ARCH-000010
  * @input Provider、上位選択Home、任意の開発観測Reader。
  * @returns 観測候補または失敗区分とProcess・Artifact確認結果。
  * @precondition 上位はProvider選択と開発実行の採用を確認する。

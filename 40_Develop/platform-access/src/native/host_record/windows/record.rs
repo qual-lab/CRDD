@@ -2027,5 +2027,5 @@ fn preserve_terminal_close(slot: &mut Option<bool>, observed: bool) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/integration/host-record.rs"]
+#[path = "../../../../tests/integration/host_record.rs"]
 mod tests;

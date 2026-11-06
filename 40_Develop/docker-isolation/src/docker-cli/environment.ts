@@ -8,8 +8,7 @@
  */
 import path from "node:path";
 import {
-  createInteractiveConsoleReaderEnvironment,
-  createWindowsNativeHelperEnvironment,
+  createChildProcessEnvironment,
   deriveWindowsSystemDrive,
 } from "../../../platform-access/src/index.ts";
 
@@ -45,7 +44,7 @@ export function createDockerCliEnvironment(
   ) {
     return null;
   }
-  const environment = createInteractiveConsoleReaderEnvironment("win32");
+  const environment = createChildProcessEnvironment({ platform: "win32" });
   if (!environment) return null;
   const result: Record<string, string> = Object.assign(
     Object.create(null),
@@ -83,7 +82,10 @@ export function createDockerCliEnvironment(
 export function createDockerDesktopRepairHelperEnvironment(): Readonly<
   Record<string, string>
 > | null {
-  const environment = createWindowsNativeHelperEnvironment();
+  const environment = createChildProcessEnvironment({
+    platform: "win32",
+    userProfile: true,
+  });
   if (!environment) return null;
   const systemDrive = deriveWindowsSystemDrive(environment.SystemRoot);
   if (!systemDrive) return null;

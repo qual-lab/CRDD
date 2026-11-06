@@ -1,5 +1,9 @@
 # UI／SPEC DetailのQuality分析
 
+## Workspace保存値の純粋検査接続 — 2026-11-06
+
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)のDomain所有の候補要求・表示名・関連CHG・保存DTOを、ARCH-000009／`arch-000009.qa-000007`からQA-000007／RFD-UT-030へ具体化する。入力は合成要求と保存値、刺激は同Workspaceと別Workspace、40／64桁Commit、欠測・余剰field、選択Path・重複・表示名の境界。観測は受理／拒否と保存対象の相関で、外部境界はN/A: I/Oなし。既存二Caseは値契約の確認であり、Git作成・永続保存・候補採用・回収の成立を証明しない。IT-029や公開集合UTへの便宜的接続は撤去する。
+
 成果物種別: Quality分析（UI／SPEC Detail観点）
 分析Origin: `UI Detail／SPEC Detail`
 状態: Canonical

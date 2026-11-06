@@ -22,20 +22,7 @@ import type {
   StartResult,
 } from "../../../executor/src/index.ts";
 import type { RecoveryStartFailureNotice } from "./observation.ts";
-
-export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
-  "plan_validation",
-  "operation_context",
-  "provider_home",
-  "home_lock",
-  "operation_binding",
-  "state_conflict",
-  "operation_start_save",
-  "settlement_binding",
-  "host_submission",
-  "home_lock_release",
-  "unknown",
-] as const);
+import type { RECOVERY_START_FAILURE_STAGES } from "./validation.ts";
 
 /** 開始Ownerから受動診断へ渡す固定段階と、取得済みの場合だけの元参照。 */
 export type RecoveryStartFailureDiagnostic = Readonly<{
@@ -301,6 +288,7 @@ export type RecoveryPlan = RecordProjection<"attempt"> &
     recoveryCorrelationId?: string | null;
   }>;
 
+/** AuthorityとMount相関を付加したProvider別の準備済み計画。 */
 export type PreparedAttemptPlan<P extends Provider> = Readonly<
   Omit<
     RecoveryPlan,
@@ -586,12 +574,14 @@ export type AttemptCleanupInput = Readonly<{
   homeLeaseReleased: boolean;
 }>;
 
+/** 上位の排他解放・回復記録の確定状態。Dockerの不存在とは区別する。 */
 export type ResourceCleanupResult = Readonly<{
   mountLeaseReleased: boolean;
   homeLeaseReleased: boolean;
   recoveryCompleted: boolean;
   recoveryFinalizationCapability: object | null;
 }>;
+/** 確保済みの同一回復IDと、その記録操作に用いるCapability。 */
 export type Recovery = Readonly<{
   status: "ready";
   recoveryId: string;
@@ -616,13 +606,16 @@ export type BlockedRecovery = Readonly<{
   recoveryId: string | null;
   manualRecoveryRequired?: boolean;
 }>;
+/** 元完了結果に上位所有の解放・記録状態を付加する。 */
 export type RecordedAttemptResult = CompletionResult<"attempt"> &
   ResourceCleanupResult;
+/** 元の終端観測にMount解放と回復記録の確定状態を付加する。 */
 export type RecordedAttemptObservation = AttemptTerminalObservation &
   Readonly<{
     mountLeaseReleased: boolean;
     recoveryCompleted: boolean;
   }>;
+/** 開始結果を保持し、完了Promiseを上位記録済み結果へ接続する。 */
 export type RecordedStartResult =
   | Exclude<StartResult<"attempt">, { status: "started" }>
   | (Omit<

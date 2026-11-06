@@ -220,10 +220,7 @@
       "symbolId": "ai-runtime.test.catalog-store",
       "kind": "test-suite",
       "path": "tests/integration/catalog-loading.contract.test.ts",
-      "qaIds": [
-        "QA-000001",
-        "QA-000006"
-      ],
+      "qaIds": ["QA-000001"],
       "localTestIds": [
         "RCM-IT-005"
       ],

@@ -3,7 +3,7 @@
  * @packageDocumentation
  * @responsibility 元Owner・二時計・取消後保持を両Providerで反証する。
  * @trace PRL-UT-014
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope Process内の模擬Storeのみ。
  * @boundary Coordinatorの準備OwnerとExecutorへの入力捕捉。
@@ -44,12 +44,13 @@ import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts"
 /**
  * 共通計画の再利用で準備時の必須項目とProvider相関を緩めない。
  * @responsibility 計画の段階差を型正負例とexact key集合で固定する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 型検査用の合成値だけを扱い、実行へ渡さない。
  * @stimulus 両Provider正例、欠測、購読種別不一致、任意purposeを構築する。
  * @observation 型負例の拒否と、準備計画の全key一致。
  * @oracle 実行計画へ渡せても準備時の追加保証は失わない。
  * @cleanup N/A: 値の構築のみ。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
  */
 test("準備計画は共有項目を再利用しProvider相関と段階差を維持する", () => {
   const {
@@ -205,7 +206,17 @@ test("準備計画は共有項目を再利用しProvider相関と段階差を維
     missingWorkload,
   ];
 });
-
+/**
+ * 準備構成の必須接続と開始拒否値を明示型・実値で固定する。
+ * @responsibility 準備構成の必須接続と開始拒否値を明示型・実値で固定する。
+ * @trace ERB-UT-023
+ * @precondition 模擬Storeと両Providerの無効入力だけを使う。
+ * @stimulus 構成の型負例と準備失敗・取消を与える。
+ * @observation expect-error、拒否fieldと一回消費結果。
+ * @oracle 必須項目を緩めず拒否時の外部Effectを零に保つ。
+ * @cleanup N/A: 合成値とProcess内Storeのみ。
+ * @boundary ERB-UT-023=N/A: 型・合成値・有限依存の検査。実AI・Docker・保存なし。
+ */
 test("明示した構成・準備型は既存必須項目と拒否値を保持する", () => {
   const paths: Pick<DockerIsolationRuntimeOptions, "paths"> = {
     paths: { tmp: "synthetic", management: "synthetic" },
@@ -308,7 +319,7 @@ test("明示した構成・準備型は既存必須項目と拒否値を保持�
 /**
  * 用途限定の捕捉と六技術項目を動的値から分離する。
  * @responsibility Domain非依存化で拒否条件を欠落させない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成値のみ。
  * @stimulus 各field欠測・余剰・prototype・getter・Proxy・疎配列を渡す。
  * @observation null又は独立した凍結値、getter／trap零。

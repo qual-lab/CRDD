@@ -55,28 +55,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.test.unit.process-observation",
-      "kind": "test-suite",
-      "path": "tests/unit/process/observation.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.orchestrator.windows.platform.adapter"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.windows.platform.adapter",
-      "kind": "file",
-      "path": "src/process/observation.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "platform-access.source.protected-root-protocol",
       "kind": "module",
       "path": "src/filesystem/protection.ts",
@@ -478,7 +456,7 @@
     {
       "symbolId": "platform-access.test.integration.windows-terminal",
       "kind": "test-suite",
-      "path": "tests/integration/host-record.rs",
+      "path": "tests/integration/host_record.rs",
       "qaIds": [
         "QA-000006"
       ],
@@ -571,7 +549,7 @@
     {
       "symbolId": "platform-access.test.integration.windows-entry-diagnostic",
       "kind": "test-suite",
-      "path": "tests/integration/windows-entry-diagnostic.rs",
+      "path": "tests/integration/windows_entry_diagnostic.rs",
       "qaIds": [
         "QA-000006"
       ],
@@ -585,7 +563,7 @@
     {
       "symbolId": "platform-access.test.integration.cli",
       "kind": "test-suite",
-      "path": "tests/integration/native-cli.rs",
+      "path": "tests/integration/native_cli.rs",
       "qaIds": [
         "QA-000006"
       ],

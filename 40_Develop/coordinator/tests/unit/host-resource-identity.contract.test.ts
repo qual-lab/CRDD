@@ -1,9 +1,11 @@
 /**
  * Host復帰の資源相関を元Snapshotへ一本化したことを確認する。
  * @responsibility 資源集合欠測・別名・別操作を拒否し構成差を削除条件へ戻さない。
- * @trace ARCH-000008
+ * @trace ERB-UT-023
  * @level UT
  * @scope 実関数本文と有限Owner代役。実Filesystem・Docker・AI操作は行わない。
+ * @packageDocumentation
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -12,7 +14,17 @@ import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { coordinatorTaskResourcesAreSettled } from "../../../domain-model/src/index.ts";
 
-/** 元相関と資源集合の各一軸だけを変更する。 */
+/**
+ * 元相関と資源集合の各一軸だけを変更する。
+ * @responsibility Host復帰はSnapshotの完全なkey・名前集合と元Operationを要求する
+ * @trace ERB-UT-023
+ * @precondition 実関数本文と有限Owner代役。実Filesystem・Docker・AI操作は行わない。
+ * @stimulus Host復帰はSnapshotの完全なkey・名前集合と元Operationを要求するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle Host復帰はSnapshotの完全なkey・名前集合と元Operationを要求するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
+ */
 test("Host復帰はSnapshotの完全なkey・名前集合と元Operationを要求する", () => {
   const source = fs.readFileSync(
     new URL("../../src/execution/controller.ts", import.meta.url),

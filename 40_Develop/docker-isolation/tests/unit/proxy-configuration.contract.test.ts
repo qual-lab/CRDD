@@ -1,10 +1,11 @@
 /**
  * 確定通信条件からのProxy・Client環境構成を純粋な入力検査で反証する。
  * @responsibility 実行前のPolicy相関・変更隔離・上書き拒否を確認する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope 通常dataだけ。CLI・Filesystem・Docker・AIを使用しない。
  * @boundary 固定技術RequestとDIの純粋構成。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -20,7 +21,17 @@ import {
   resolveDockerImageProfile,
 } from "../../src/image/assets.ts";
 
-/** 有限の技術資源と操作列だけを組み立てる。外部資源を作成しない。 */
+/**
+ * 有限の技術資源と操作列だけを組み立てる。外部資源を作成しない。
+ * @responsibility requestで確定通信条件からのProxy・Client環境構成を純粋な入力検査で反証する。
+ * @trace ERB-UT-023
+ * @precondition 通常dataだけ。CLI・Filesystem・Docker・AIを使用しない。
+ * @stimulus requestで確定通信条件からのProxy・Client環境構成を純粋な入力検査で反証する。。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 固定技術RequestとDIの純粋構成。
+ */
 function request(
   additionalHosts: readonly string[] | null = ["registry.npmjs.org"],
 ): IsolationRequest {
@@ -113,12 +124,13 @@ function request(
 /**
  * 正規Policy・Client環境と入力分離を独立期待値で確認する。
  * @responsibility 構成成功を通信や実行の成功へ昇格しない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成Requestだけを使用する。
  * @stimulus 正常、再捕捉、後発変更、追加なしを渡す。
  * @observation Hash・環境・凍結と元入力の不変。
  * @oracle 同じ確定入力からPolicyと接続環境が一致する。
  * @cleanup N/A: 外部Effectなし。
+ * @boundary 固定技術RequestとDIの純粋構成。
  */
 test("通信構成は同じ入力からPolicyとProxy環境を生成し後発変更を分離する", () => {
   const hosts = ["registry.npmjs.org"];
@@ -174,12 +186,13 @@ test("通信構成は同じ入力からPolicyとProxy環境を生成し後発変
 /**
  * 不正Host・参照差・直接通信・矛盾環境を構成段階で拒否する。
  * @responsibility 同じ入力と接続環境の相関を省略しない。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 合成通常dataだけ。
  * @stimulus 上限境界、上書き、参照欠測、旧環境だけ、Proxy・getterを与える。
  * @observation 構成例外とgetter実行数0。
  * @oracle DockerやFilesystemへ接続せず拒否する。
  * @cleanup N/A: 外部資源なし。
+ * @boundary 固定技術RequestとDIの純粋構成。
  */
 test("不正通信構成は要求前に拒否し旧Proxy環境へfallbackしない", () => {
   assert.doesNotThrow(() =>
@@ -234,7 +247,7 @@ test("不正通信構成は要求前に拒否し旧Proxy環境へfallbackしな�
 /**
  * 固定Imageの技術制約を同じCatalogで検証する。
  * @responsibility User・Entrypoint・外向き接続を用途分岐から分離する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 固定Catalogと純粋な共通入力捕捉だけを使用する。
  * @stimulus 全固定Imageの制約、未知Digest、User／Entrypoint差、直接外向き接続を与える。
  * @observation 制約の不変値と入力の受理・拒否。

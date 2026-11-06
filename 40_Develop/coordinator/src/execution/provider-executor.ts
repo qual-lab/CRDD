@@ -385,6 +385,7 @@ export function abandonRuntimeOwnedExecutorAttempt(
 ): boolean {
   return abandonBoundExecutorAttempt(recovery, management);
 }
+/** 不正な回復開始後の記録・Mount終了を試み、元回復参照と清掃未確認を保持する。 */
 function settleInvalidRecoveryStart(
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,
   plan: RecoveryPlan,
@@ -413,6 +414,7 @@ function settleInvalidRecoveryStart(
   });
 }
 
+/** 同期の追加拒否条件だけを評価し、throw・Promise・不正返却では起動を許可しない。 */
 function commandRestrictionAllows(restriction: unknown, purpose: string) {
   if (restriction === undefined) return true;
   if (
@@ -738,6 +740,7 @@ function startRecordedAttempt(
   });
 }
 
+/** 確定した計画をExecutorへ渡し、元回復参照と開始・完了を上位記録へ接続する。 */
 function startHostAttempt(
   executor: Executor<"attempt">,
   state: Readonly<{ dependencies: ExecutionRecordOperations }>,

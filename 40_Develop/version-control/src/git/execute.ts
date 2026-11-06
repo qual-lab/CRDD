@@ -1,13 +1,15 @@
 /**
  * Git Processの技術的な起動条件を共有する。
  * @responsibility exactなGit配置、親環境の分離、有界入出力と終了結果を所有する。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  * @boundary Package内部専用。任意Commandを公開するAPIではない。
  */
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { devNull } from "node:os";
 import path from "node:path";
 
+/** 固定Git実行の期限・入出力上限・Indexと設定分離を指定する。 */
 type GitExecutionOptions = Readonly<{
   maxBuffer: number;
   timeout?: number;
@@ -39,7 +41,8 @@ export function inspectGitExternalFilters(
 /**
  * 呼出し元が構成した固定Git操作を、指定Worktreeの管理領域へ送る。
  * @responsibility Linkedの.git FileをDirectoryと誤認せず、HEADとIndexの対象を固定する。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  * @input 検証済みRoot、内部固定引数、既存の期限・容量・一時Index条件。
  * @returns 子Processの元の終了値・error・有界bytes。
  * @precondition 呼出し元がRoot・Git配置・操作入力と発行許可を検証済み。.git FileはGitの標準解決へ渡す。

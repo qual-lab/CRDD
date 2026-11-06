@@ -1,3 +1,8 @@
+/**
+ * Workspaceの結果保存へ渡すRepository・Project・Queueの結合情報を定義する。
+ * @responsibility 上位の保存要求に必要な値契約を所有し、保存やGit操作を発行しない。
+ * @trace ARCH-000005
+ */
 import type { CoordinatorPortResult } from "../state/result.ts";
 
 /**

@@ -1,10 +1,11 @@
 /**
  * Attempt入力の事前拒否と共通資源APIの薄い搬送を確認する。
  * @responsibility 入力・Promise・不明値の保持と未知kindの処置0を反証する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @level UT
  * @scope DIを有限代役へ置換。実Docker・AI・Filesystem処置は行わない。
  * @boundary DIの実体確認は既存DI試験が所有し、本試験は入口の配線だけを扱う。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
@@ -29,7 +30,7 @@ import type {
 /**
  * 保存済みSnapshotを用途別の旧投影へ変換せず共通DIへ搬送する。
  * @responsibility 元入力・通知・Session・最終結果の同一性を確認する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @precondition DIの公開操作だけを有限代役へ置換する。
  * @stimulus Snapshot観測・単独回収・取消と最終結果待機を行う。
  * @observation 入力、Callback、SessionとCompletionの参照。
@@ -180,8 +181,13 @@ test("Snapshot入口は元DI入力・通知・取消とCompletionを直接搬送
 /**
  * 旧用途別Targetを公開入口へ再導入しない。
  * @responsibility 古い投影・Receipt束をDI接続より前に拒否する。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @boundary 値検査のみ。資源の取得・回収を実行しない。
+ * @precondition DIを有限代役へ置換。実Docker・AI・Filesystem処置は行わない。
+ * @stimulus 旧用途別Targetは技術要求前に拒否するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 旧用途別Targetは技術要求前に拒否するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  */
 test("旧用途別Targetは技術要求前に拒否する", async () => {
   const { inspectResources, cleanupResources } = await import(
@@ -203,7 +209,7 @@ test("旧用途別Targetは技術要求前に拒否する", async () => {
 /**
  * 固定Directoryの観測・回収と環境操作の薄い接続を検証する。
  * @responsibility 実在する下位操作へ元入力を渡す。
- * @trace ERB-IT-014
+ * @trace ERB-UT-023
  * @precondition DIを有限代役へ置換する。
  * @stimulus 正常・取消・不明を与える。
  * @observation 元入力とPromise、処置数。
@@ -228,6 +234,17 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     scopeSha256: null,
   });
   const repaired = Promise.resolve(repairResult);
+  /**
+   * 予定外の依存呼出しを例外として検出する。
+   * @responsibility 予定外の依存呼出しを例外として検出する
+   * @trace ERB-UT-023
+   * @precondition DIを有限代役へ置換。実Docker・AI・Filesystem処置は行わない。
+   * @stimulus 予定外の依存呼出しを例外として検出する。
+   * @observation 構築した候補、有限応答または検出した例外。
+   * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+   * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+   * @boundary DIの実体確認は既存DI試験が所有し、本試験は入口の配線だけを扱う。
+   */
   const unexpected = () => {
     throw Error("unexpected_attempt_operation");
   };

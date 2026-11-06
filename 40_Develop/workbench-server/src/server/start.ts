@@ -72,6 +72,7 @@ const HOST = "127.0.0.1";
 const CONTRACT = "crdd/workbench/v1";
 const HEALTH_PATH = "/.well-known/crdd-workbench-health";
 
+/** Workbenchの公開先とRepository接続・任意の利用側機能の構成。 */
 export type WorkbenchStartRequest = Readonly<{
   workingDirectory: string;
   publicOrigin?: string;
@@ -89,6 +90,7 @@ export type WorkbenchStartRequest = Readonly<{
   activityReader?: WorkbenchActivityReader;
 }>;
 
+/** 起動済みWorkbenchのURLと所有Listenerを閉じる操作。 */
 export type WorkbenchHandle = Readonly<{
   contract: typeof CONTRACT;
   baseUrl: string;

@@ -12,7 +12,6 @@ import {
   acquireNamedPipeSupervisorLock,
   type HostOperationSupervisorLockOutcome,
   type InteractiveConsoleKernelLockOutcome,
-  observeProcessLiveness,
 } from "../../../platform-access/src/index.ts";
 
 /**
@@ -432,8 +431,21 @@ export function observeLeaseOwner(
     return invalid;
   const ownerProcessId = Number(owner.ownerProcessId);
   const ownerGeneration = owner.ownerGeneration;
+  let status: "alive" | "absent" | "unknown" = "unknown";
+  try {
+    process.kill(ownerProcessId, 0);
+    status = "alive";
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ESRCH"
+    )
+      status = "absent";
+  }
   return Object.freeze({
-    status: observeProcessLiveness(ownerProcessId),
+    status,
     ownerProcessId,
     ownerGeneration,
   });

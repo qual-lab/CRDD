@@ -5,6 +5,7 @@
  * @trace ERB-UT-023
  * @level UT
  * @scope 合成入力と有限metadata代役のみ。Docker・Process・外部AIなし。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 
 import assert from "node:assert/strict";

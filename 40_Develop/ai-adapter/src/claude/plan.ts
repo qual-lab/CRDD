@@ -16,6 +16,7 @@ import type {
 
 import type { ProviderExecutionLocations } from "../provider/types.ts";
 
+/** Claude計画で受理できない入力の固定拒否結果。 */
 type ClaudePlanRejection<R extends string> = Readonly<{
   status: "blocked";
   reason: R;

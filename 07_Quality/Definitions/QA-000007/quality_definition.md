@@ -1,5 +1,12 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## Workspace保存値の純粋検査 — 2026-11-06
+
+人間が承認した追加UT義務を`RFD-UT-030`とする。導出元は`ARCH-000009`／`arch-000009.qa-000007`と[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の「候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する」という境界。Model Itemは候補要求の閉形式・保存対象のWorkspace相関・Commit形式・選択内容である。Git実体へ要求を発行する前に保存値そのものの受理条件を検査するため、実Gitの`RFD-IT-029`と分ける。公開export集合の`RCM-UT-014`、共通Outcomeの`RCM-UT-016`、管理状態専用Schemaの`RFD-UT-028`を代用しない。
+
+
+接続先はDomainの既存`workspace-technical-contract.contract.test.ts`の二Case。新しい製品機構・試験は追加せず、誤って付いていた公開集合／実GitのQA接続を置き換える。承認済み追加義務はこの一件だけ。過去の項目数・Evidenceは変更せず、正式Local Item評価と全体QA成立を局所試験成功と区別する。
+
 B4の借用Tree読取りはVCの`workspace/observation.ts`へ移管する。`RFD-IT-029`でdirty・未追跡・削除・容量境界とHEAD／Index不変、既存`RFD-IT-013`／`PRL-IT-013`の上位結合でPath・case・link／hardlink・深さ・File数・容量・途中差とレビュー投影を維持する。採否・許可Path・Secret・Task Capabilityは上位に残し、Git Snapshotへの置換や既存dirty破棄を行わない。正式結果と歴史Evidenceは配置変更だけでは更新しない。
 
 ## 固定Candidate・二親Mergeの追加検証条件（2026-10-18）
@@ -97,7 +104,7 @@ Quality ID: `QA-000007`
 
 | 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
 | --- | --- | --- | --- | --- |
-| UT | Required | Identity、Binding、Grant、Exposureと9 Role分担行×三Roleの純粋判定規則と初回条件・四状態・分岐 | N/A | FilesystemやSession接続前に区別を反証するため |
+| UT | Required | Identity、Binding、Grant、Exposureと9 Role分担行×三Roleの純粋判定規則、初回条件・四状態・分岐、およびWorkspace候補要求・保存値 | N/A | FilesystemやSession接続前に区別を反証するため |
 | IT | Required | Version Control Adapter、Repository Root、Stage／Commit／通常Push、Session、Workspaceと通常7保存操作と初回設定の保存・読戻し・新Process再観測境界 | Related 2 Blocks | Root解決、変更Effectおよび権限伝播を段階的に確認するため |
 | ST | Required | Workbenchから確認済み通常Push、Credentialから複数Repository投影、通常管理と初回Hostの実入口から結果・受領・通常接続まで | System/E2E | 利用者操作から外部EffectまでとFederation全体を確認するため |
 | UAT | Required | 初回Host設定の達成・四状態と次行動、および利用可能・利用不能なProject範囲を理解する場面 | User Acceptance | 採用済み初回設定の利用者達成・理解を確認するため（他のWorkbench／MCP体験は条件付き） |
@@ -109,7 +116,7 @@ Quality ID: `QA-000007`
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 | --- | --- | --- | --- |
 | 正常 | Required | RFD-IT-001、RFD-ST-003、RFD-IT-005、RFD-IT-017、RFD-ST-022、RFD-IT-024、RFD-ST-026 | 通常の成立経路を独立して確認する。|
-| 境界 | Required | RFD-ST-004、RFD-UT-006、RFD-UAT-007、RFD-IT-008、RFD-IT-009、RFD-ST-010、RFD-IT-011、RFD-IT-013、RFD-IT-014、RFD-IT-018、RFD-IT-019、RFD-UT-020、RFD-IT-021、RFD-UT-023、RFD-UAT-027、RFD-IT-029 | 値、Authority、情報、責務または利用者判断の境界を確認する。|
+| 境界 | Required | RFD-ST-004、RFD-UT-006、RFD-UAT-007、RFD-IT-008、RFD-IT-009、RFD-ST-010、RFD-IT-011、RFD-IT-013、RFD-IT-014、RFD-IT-018、RFD-IT-019、RFD-UT-020、RFD-IT-021、RFD-UT-023、RFD-UAT-027、RFD-IT-029、RFD-UT-030 | 値、Authority、情報、責務または利用者判断の境界を確認する。|
 | 準正常 | Required | RFD-ST-016 | 発行／記録不明と確定後提示結果未確認を分け、同じ元Identityの再観測と別の明示Operationを区別する。通常発行・通常管理の部分成立反証は各項目本文に保持し、交換Recoveryを付与しない。 |
 | 異常 | Required | RFD-IT-002、RFD-IT-012、RFD-UT-028 | 不正入力、故障または拒否経路を通常成功へ畳まない。|
 | 回復 | Required | RFD-ST-015、RFD-IT-025 | Push結果不明時の再観測と初回途中状態の再入場を確認する。ST016に含まれる各鍵交換内のexact Recoveryと、確定後の別Operation／別Recovery交換の区別も同項目の本文に保持する。|
@@ -147,6 +154,8 @@ Quality ID: `QA-000007`
 | `RFD-ST-026` | 正常 | ST | 初回Host設定の公開縦断 | 実Host対話入口→Access Management保存→一度提示→実HTTPのSurface別限定接続→確認確定→次要求の通常認証、Workbench接続操作 | System/E2E | 正規未試行、既存・途中・観測不能、提示未確認・接続不成立、不正discover／Tool要求、Local Form不正、保存故障・応答喪失、Host明示交換、WorkbenchとCRDD固有MCP-only接続 | 実Hostで表示名を入力・明示開始し、TTY一度出力後、MCPの限定discoverまたはLocal Workbench専用connect POSTを実行する。確認保存・読戻し・清掃／Lock終了が応答に先行し、次要求で通常認証へ進むことを実観測する。実TTYの全byte出力／callback／errorと実HTTPの完全要求／保存／応答を確認する。模擬callback成功で代替しない。| 実入口・元試行・初期／確認資格の非秘密相関、提示前unconfirmedとサービス側出力、確認出版・終了・応答の順、初回完了表示と次通常要求、所有資源終了。実境界でnot_attempted保存→別改訂unconfirmed確定→一回出力→サービス出力成立→fresh照合→別改訂confirmedの順を観測。| Host一度提示、通常の追加受領操作0。Workbenchは初回設定／初回秘密提示をせず接続操作を扱う。MCPは完全限定discover、Local Workbenchは閉じた専用connect POSTだけ初回確認を許可し、不正／Tool要求は確認出版0。確認保存終了前の成功応答・通常Authority0。通常Host交換と初回を分離、応答受領・人間閲覧を出力完了から推定しない。模擬Adapter成功だけでPassにしない。Hostは実TTY callback、Workbench接続は実HTTPを観測し、内部成功だけを本番成立にしない。| 固定版・実公開入口・非秘密段階と結果・回数・Oracle。秘密値を記録／添付しない | 暗黙登録・公開・内容付与0、Secret保存／再表示0、所有Process／handle／Lock／短命Fileの解放を個別観測。未接続の具体観測は未評価。未解決事実は保持し成功にしない | Hybrid |
 | `RFD-UAT-027` | 境界 | UAT | 初回設定の利用者達成・理解 | 初回Host入口とWorkbench案内→利用者 | User Acceptance | 未初期化・既存・確認済み途中・観測不能、正常達成、発行／記録不明、Host提示未確認・限定接続未確認、接続未成立 | 利用者が表示名入力・明示開始・Host鍵一度表示・接続操作・次要求の通常利用へ進み、各状態で次の行動を選ぶ。コピー後に追加受領ボタンを押す手順を要求しない | 達成結果、状態と次行動の理解、選択理由、表示名／UUID／鍵／Roleの区別、提示と初回限定接続・通常利用の個別理解、未理解範囲 | 正常に初回管理接続へ到達できる。表示名≠認証／Authority、サービス側提示≠本人受領保証、限定接続確認≠同要求の通常操作許可、既存拒否≠途中再観測を理解。初期化繰返し・Secret再表示・自動再発行を期待せず、両確定後だけ別明示指定交換へ進める | 参加条件・固定Scenario・非秘密の選択／理由／達成・Oracle。秘密値・個人情報を複製しない | 理解確認だけで保存・資源終了を証明しない。実処置は現在Host Authorityと同意範囲で行い、未許可Effect0は別観測、未判断を成功にしない | Manual |
 | `RFD-IT-029` | 境界 | IT | Git Lifecycle／Concurrency／Fault | Orchestrator明示要求→Version Control→実GitのWorktree／Branch／Ref | Direct Boundary | 同RepositoryのDirectと二Isolated、clean／dirty、固定対象Commit、参照中Commit、競合、別Processの共有Ref更新、作成／登録／取込／除去の各途中失敗 | 許可された作成・読取り・固定・Merge前計算・取込・除去を段階別に実行し、各故障点で同対象へ再入場する | 要求／受理／実Git結果、HEAD／Ref／Worktree登録／実体、元dirty・他Task成果、Lock解放、Task相関・記録と未解決参照を前後比較 | Direct選択だけではWorktree生成0。Merge前計算はTree／Branch更新0、Object生成を記録。明示取込前にRevision・認可・dirty方針を再確認。途中失敗を未発行へ巻戻さず二重取込0。継続利用で参照中のCommit・明示破棄範囲外の未保全成果の破棄0。不明は停止し別対象を処置しない | 固定Source／Git版・環境・合成Repository、段階と対象の相関、前後観測・失敗と再入場・Oracle判定。秘密値・製品本文・許可外Pathは保存しない | 短期Git処理・試験Process／Lockを終了。明示破棄した試験物の不存在と、保持対象・共有Git・他Workspaceの非破壊を確認。不明は同対象残件として保持 | Automated |
+
+| `RFD-UT-030` | 境界 | UT | Workspace保存値／純粋入力検査 | Domainの候補要求・保存値の検証 | N/A: 同一Process内の値検査のみ | 同Workspaceの要求と保存値、別Workspace、40／64桁Commit、欠測・余剰field、不正名、管理Path・Traversal・重複選択、関連CHG重複 | 候補保存値・要求・表示名・Commit形式の各検査へ合成値を渡す | 各値の受理／拒否とWorkspace相関 | 正常な閉形式と同Workspaceだけ受理。要求と期待HEADのCommit形式不一致、禁止Path、空・重複選択、欠測・余剰field、不正表示名・重複CHGを拒否し補完しない。Pathだけの選択は既存契約どおり受理 | 固定改訂版、非秘密の入力分類、受理／拒否、Oracle判定。候補本文・秘密・Host絶対Pathを記録しない | Filesystem／Git／保存Effect 0。値検査成功をGit作成・保存・採用・回収の成立へ換算しない | Automated |
 
 ### 通常管理の完全な導出対応
 

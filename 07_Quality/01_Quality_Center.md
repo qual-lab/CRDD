@@ -1,5 +1,17 @@
 # CRDD内部ツールの品質の現在状態
 
+## Checker試験回帰の是正完了 — 2026-11-06
+
+Checkerの50失敗は試験側の六系統で是正し、最終432 Caseは431成功・失敗0・取消0・既存対象外1で完走した。静的検査・台帳449件整合・独立再レビューを確認した。製品Source512 File、公開APIと検査条件は今回不変更である。ただしRepository自身の検査にはリンク／アンカー3,753件と品質関係・件数7件の指摘が残り、npm test全体Gate・正式QA・Releaseは未成立。以下の全体回帰未成立や旧診断件数は先行候補の履歴として保持する。範囲と限界は[Quality Integration](04_Quality_Integration.md)と[変更記録](../99_Roadmap/Changes/CHG-000082/checker-responsibility-boundary.md)を参照する。実AI・Docker・過去保持物は操作していない。
+
+## Checkerの責務境界更新 — 2026-11-06
+
+Checkerは成果物・ID・参照・台帳・関係の整合に限定する。命名・HeaderのSource全件走査は撤去し、コードの意味・規約は独立レビュー、構文・型・書式は言語標準ツールで確認する。過去の命名・Header診断と未合格表示は旧候補の履歴であり、Source是正済みとは扱わない。責務境界整理直後は関連41試験・静的検査・Catalog449件整合が成功した一方、表示・診断・集計等の全体回帰は未成立だった。試験回帰の現在結果は上節へ更新した。範囲と限界は[Quality Integration](04_Quality_Integration.md)と[変更記録](../99_Roadmap/Changes/CHG-000082/checker-responsibility-boundary.md)を参照する。
+
+## Workspace値契約の検証項目追加 — 2026-11-06
+
+人間承認によりQA-000007に`RFD-UT-030`一件を追加し、Domainの既存二CaseをWorkspace保存値・入力形式のUTへ接続する。過去に表示した設計集合の件数・正式結果・Evidenceを遡及更新しない。局所実行結果と11Suiteの段階是正の現在状態は[Quality Integration](04_Quality_Integration.md)へ記録する。当該先行候補では命名・Headerの全体Checkerが未合格だった。現在の責務は上記へ更新し、全体QA成立・Release可能とはしない。
+
 Core独立の[Runtime Domain設計](../06_Architecture/Details/domain-model/05_Runtime_Domain.md)に基づく共通保存・一般CRUD・公開入口、Provider単段のExecutor分離と任意Coordinator接続はSourceへ反映した。非AIの確認結果・不合格・適用範囲は[責務再編の最終記録](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#executor-optional-final-results)を参照する。Sourceの保存先切替と実データ移行を区別し、正式項目の全数再評価、実AI／Docker、人間操作、全体QA／Releaseの成立へ換算しない。DomainのWindows rename拒否は未解消。Coordinator全回帰の二不合格と是正後二Suite十五件成功は別結果として保持する。実AI・Docker・過去保持物は操作していない。
 
 2026-10-24の公開操作・認証・AI選択再設計は、実装・本番接続と追従漏れ是正後の非AI影響回帰を限定完了した。初回全体及び影響四Suiteの不合格、是正後の範囲別成功、実AI・認証・人間確認・実移行の未実施は[現在の限定結果](../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)を正本とする。正式199項目の全数再評価、既存横断QA不合格、main統合・Releaseの判定は変更しない。以下は各記録当時の対象版に限定する。

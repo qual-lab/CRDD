@@ -4,6 +4,7 @@
  * @trace ARCH-000009
  */
 export type WorktreeTarget = Readonly<{ relativePath: string; branch: string }>;
+/** Worktree登録・実Directory・BranchとHEAD・Lock・dirtyの個別観測。 */
 export type WorktreeObservation = Readonly<{
   registered: boolean;
   directoryPresent: boolean;
@@ -13,6 +14,7 @@ export type WorktreeObservation = Readonly<{
   prunable: boolean;
   dirty: boolean | null;
 }>;
+/** Worktree操作の発行有無、部分削除、実体観測と停止理由。 */
 export type WorktreeResult = Readonly<{
   status: "completed" | "blocked";
   reason: string;
@@ -25,11 +27,14 @@ export type WorktreeResult = Readonly<{
   parentDirectoryRetained: boolean | null;
   observation: WorktreeObservation | null;
 }>;
+/** 生成対象のWorktreeと開始Commitを指定する。 */
 export type WorktreeCreateRequest = WorktreeTarget &
   Readonly<{ baseCommit: string }>;
+/** 削除対象の期待HEADと変更破棄の明示条件を指定する。 */
 export type WorktreeRemoveRequest = WorktreeTarget &
   Readonly<{ expectedHead: string; discardChanges?: boolean }>;
 
+/** 対象WorktreeのGit管理領域と、そのHEAD・Indexへの内部接続。 */
 export type WorktreeGitContext = {
   root: string;
   owner: string;

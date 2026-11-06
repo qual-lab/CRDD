@@ -23,6 +23,7 @@ import {
 import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
+  inspectRealityRepository,
 } from "../../../src/repository/reality.ts";
 import { getRepository } from "../../../../version-control/src/index.ts";
 
@@ -61,6 +62,50 @@ const checkerRoot = path.resolve(
   "../../..",
 );
 const repositoryRoot = path.resolve(checkerRoot, "../..");
+
+/**
+ * 登録整合の観測が実装言語の本文解析へ戻らないことを確認する。
+ * @responsibility Source内のskipや構文から実行済みEvidenceを推定しない境界を固定する。
+ * @trace PPR-UT-017
+ * @precondition 現RepositoryのManifest・Catalogと登録Pathは読取り可能である。
+ * @stimulus TS・Rust・Python本文の読取りを拒否する監視を置き、Reality観測を呼ぶ。
+ * @observation Source本文読取り件数と返却診断。
+ * @oracle Source本文読取り零、旧skip字句診断零。構造診断の有無を実行Passに換算しない。
+ * @cleanup 同期観測終了後にfsの代役を復元する。Repositoryへ書かない。
+ * @boundary PPR-UT-017=Direct Boundary: Checker観測から実Manifest／Catalog・Path確認。
+ */
+test("Realityの構造観測はSource本文を解析せず実行状態を推定しない", (t) => {
+  const originalRead = fs.readFileSync;
+  const sourceReads: string[] = [];
+  t.mock.method(
+    fs,
+    "readFileSync",
+    (...args: Parameters<typeof fs.readFileSync>) => {
+      const file = args[0];
+      if (typeof file === "string" && /\.(?:ts|tsx|rs|py)$/u.test(file)) {
+        sourceReads.push(file);
+        throw Error("unexpected_source_content_read");
+      }
+      return Reflect.apply(originalRead, fs, args);
+    },
+  );
+  try {
+    const findings: { code: string }[] = [];
+    inspectRealityRepository(repositoryRoot, (finding) =>
+      findings.push(finding),
+    );
+    assert.equal(sourceReads.length, 0);
+    assert.equal(
+      findings.some(
+        (finding) =>
+          finding.code === "reality-symbol-skipped-test-evidence-forbidden",
+      ),
+      false,
+    );
+  } finally {
+    t.mock.restoreAll();
+  }
+});
 
 /**
  * Subsystem-local symbol.jsonからGlobal Symbol Graphを構築するを検証する。
@@ -195,11 +240,12 @@ test("検証Toolは所有PathとQuality関係を要求し実装へ誤分類し�
     [{}, true],
     [{ path: "tests/fixtures/oracle.ts" }, true],
     [{ path: "scripts/check.rs" }, true],
+    [{ path: "scripts/check.py" }, true],
     [{ path: "src/owner.ts" }, false],
     [{ path: "tests/case.test.ts" }, false],
     [{ path: "scripts/../src/owner.ts" }, false],
     [{ path: "/scripts/verify.ts" }, false],
-    [{ path: "scripts/verify.json" }, false],
+    [{ path: "scripts/verify.json" }, true],
     [{ archIds: ["ARCH-000001"] }, false],
     [{ implements: ["sample.meaning"] }, false],
     [{ verificationTarget: "environment" }, false],

@@ -36,6 +36,7 @@ type GitObservationResult = {
   stderr: string;
   error?: NodeJS.ErrnoException;
 };
+/** Rootを再検証して固定Git観測を発行し、終了不明を成功へ補完しない。 */
 function runGitCommand(
   root: string,
   commandArguments: readonly string[],

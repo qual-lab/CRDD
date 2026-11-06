@@ -814,7 +814,6 @@ test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体
     "coordinator",
     "execution-intelligence",
     "mcp-server",
-    "orchestrator",
     "version-control",
   ];
   for (const packageRoot of packageRoots) {
@@ -1866,6 +1865,7 @@ test("IA定義Mappingは実在する分析ObjectとCanonical Objectだけを使�
  */
 test("REQ表示をDiscovery分析へ偽装接続できない", () => {
   const root = iaReconstructionFixtureRoot();
+  initializeGit(root);
   write(
     path.join(root, "06_Architecture", "sample.md"),
     "# Sample\n\n要求: [`REQ-000001`](../01_Discovery/Analysis/EXP-000001/exploration.md)\n",
@@ -7687,6 +7687,7 @@ function detailRelationClosureFixtureRoot(): string {
  */
 function architectureReconstructionFixtureRoot(): string {
   const root = specReconstructionFixtureRoot();
+  initializeGit(root);
   const architectureLensEvaluation = `### 観点別評価
 
 | 観点 | 判定 | 根拠・引渡し |
@@ -9529,6 +9530,13 @@ function initializeGit(root: string): void {
     encoding: "utf8",
   });
   assert.equal(initialized.status, 0, initialized.stderr);
+  const observed = spawnSync(
+    "git",
+    ["-C", root, "rev-parse", "--show-toplevel"],
+    { encoding: "utf8" },
+  );
+  assert.equal(observed.status, 0, observed.stderr);
+  assert.equal(fs.realpathSync(observed.stdout.trim()), fs.realpathSync(root));
 }
 
 /**
@@ -10187,7 +10195,7 @@ function runWithFault(
   const nodeOptions = [process.env.NODE_OPTIONS, `--import=${faultInjector}`]
     .filter(Boolean)
     .join(" ");
-  return runWithEnv(
+  const result = runWithEnv(
     root,
     {
       ...env,
@@ -10198,6 +10206,22 @@ function runWithFault(
     },
     ...extraArguments,
   );
+  if (
+    [
+      "git-list-custom",
+      "git-stage-failed",
+      "baseline-head-failed",
+      "git-not-repository",
+    ].includes(fault)
+  ) {
+    const marker = new RegExp(
+      `^CRDD_TEST_GIT_FAULT:${fault}:([1-9][0-9]*)\\r?\\n`,
+      "mu",
+    );
+    assert.match(result.stderr, marker, `fault not delivered: ${fault}`);
+    return { ...result, stderr: result.stderr.replace(marker, "") };
+  }
+  return result;
 }
 
 /**
@@ -10920,6 +10944,7 @@ function stableReleaseClosureFixture() {
  */
 test("Stable最終候補に残った現行MarkdownのCandidate表示を拒否する", () => {
   const root = stableReleaseClosureFixture();
+  initializeGit(root);
   write(
     path.join(root, "06_Architecture", "01_Architecture.md"),
     "# 設計\n\n状態: Candidate（v0.17.0、Released Baseline: v0.16.0）\n",
@@ -11008,6 +11033,7 @@ test("Stable最終候補では全CRDD正本の版と状態を閉包検査する"
  */
 test("Change Traceは公式tag前にReleasedを名乗らず引渡し可能状態を保持する", () => {
   const root = stableReleaseClosureFixture();
+  initializeGit(root);
   const changePath = path.join(
     root,
     "99_Roadmap",
@@ -12207,6 +12233,7 @@ test("採用先のCRDD正本文書間の版不一致は検出する", () => {
  */
 test("安定コンテキストIDを含むファイル名を拒否する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "REQ-000001.md"), "# requirement\n");
   const result = runChecker(root);
@@ -12232,6 +12259,7 @@ test("安定コンテキストIDを含むファイル名を拒否する", () => 
  */
 test("安定コンテキストIDへ手動改訂番号を結合した表記を拒否する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "02_UX", "01_User_Experience.md"),
@@ -12260,6 +12288,7 @@ test("安定コンテキストIDへ手動改訂番号を結合した表記を拒
  */
 test("範囲指定でも全体不変条件を確認し、部分確認を明示する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "Discovery.md"), "# Discovery\n");
   write(path.join(root, "02_UX", "UX.md"), "[missing](missing.md)\n");
@@ -12291,9 +12320,10 @@ test("範囲指定でも全体不変条件を確認し、部分確認を明示�
  */
 test("全体確認は実行情報と件数を返す", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "Discovery.md"), "# Discovery\n");
-  const result = runChecker(root);
+  const result = runWithFault(root, "git-not-repository", root);
   assert.equal(result.status, 0);
   assert.equal(result.report.check_mode, "full");
   assert.equal(result.report.discovery_source, "walk-fallback");
@@ -12318,6 +12348,7 @@ test("全体確認は実行情報と件数を返す", () => {
  */
 test("明示された安定コンテキストID定義の重複を検出する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "id: REQ-000001\n");
   write(path.join(root, "01_Discovery", "B.md"), "## REQ-000001 Requirement\n");
@@ -12344,6 +12375,7 @@ test("明示された安定コンテキストID定義の重複を検出する", 
  */
 test("深いEvidence階層のMarkdownも内容を検査する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(
@@ -12382,6 +12414,7 @@ test("深いEvidence階層のMarkdownも内容を検査する", () => {
  */
 test("参照関係を重複回数付きで集約する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[B](B.md)\n[B2](B.md)\n");
   write(path.join(root, "01_Discovery", "B.md"), "[A](A.md)\n");
@@ -12407,6 +12440,7 @@ test("参照関係を重複回数付きで集約する", () => {
  */
 test("分岐網羅率の分母・分子・割合の不整合を検出する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "01_Quality_Center.md"),
@@ -12488,6 +12522,7 @@ test("適用先では無関係なtemplateフォルダより00_CRDDを優先す�
  */
 test("同一ファイル内の安定コンテキストID重複定義を検出する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "Requirements.md"),
@@ -12516,6 +12551,7 @@ test("同一ファイル内の安定コンテキストID重複定義を検出す
  */
 test("ルート外リンクを読み取らず未確認として返す", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -12582,6 +12618,7 @@ test("Git無視ファイルを除外し未追跡・非無視ファイルを確�
  */
 test("英語の分岐網羅率と不正な測定値を検出する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Quality.md"),
@@ -12671,6 +12708,7 @@ test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
  */
 test("不正なURIエンコードを例外にせず警告する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[bad](%ZZ.md)\n");
   const result = runChecker(root);
@@ -12748,9 +12786,10 @@ test("リポジトリ内のディレクトリリンクを検査対象外と誤�
  */
 test("Git未導入と非Git対象のフォールバック理由を区別する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
 
-  const notRepository = runChecker(root);
+  const notRepository = runWithFault(root, "git-not-repository", root);
   assert.equal(notRepository.report.discovery_git_failure, "not-repository");
 
   const noGitPath = fixture();
@@ -13305,6 +13344,7 @@ test("親indexのmodeを読めない場合はgitlink欠落と断定しない", (
  */
 test("競合中のgitlinkを確定Revisionとして扱わない", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, ".gitmodules"),
@@ -13354,6 +13394,7 @@ test("競合中のgitlinkを確定Revisionとして扱わない", () => {
  */
 test("gitmodulesを検証できない場合は宣言欠落と断定しない", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, ".gitmodules"),
@@ -13398,6 +13439,7 @@ test("gitmodulesを検証できない場合は宣言欠落と断定しない", (
  */
 test("git configの不正な出力をsubmodule宣言として採用しない", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, ".gitmodules"),
@@ -13586,6 +13628,7 @@ test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", (
  */
 test("シンボリックリンク経由のルート外参照を読み取らない", () => {
   const root = fixture();
+  initializeGit(root);
   const outside = fixture();
   makeStructure(root);
   write(
@@ -13679,6 +13722,11 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     path.join(source, "40_Develop", "version-control", "src"),
     { recursive: true },
   );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "platform-access", "src"),
+    path.join(source, "40_Develop", "platform-access", "src"),
+    { recursive: true },
+  );
   assert.equal(
     spawnSync("git", ["init", "--quiet", source], { encoding: "utf8" }).status,
     0,
@@ -13736,6 +13784,19 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     "[Rule](00_CRDD/01_Principles.md#actual-submodule-rule)\n",
   );
 
+  const dependency = spawnSync(
+    "git",
+    [
+      "-C",
+      path.join(root, "00_CRDD"),
+      "ls-files",
+      "--error-unmatch",
+      "--",
+      "40_Develop/platform-access/src/index.ts",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(dependency.status, 0, dependency.stderr);
   const installedChecker = path.join(
     root,
     "00_CRDD",
@@ -13789,11 +13850,8 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   assert.equal(references.inbound[0].source, "README.md");
 
   if (process.platform === "win32") {
-    const caseChanged = runWithFault(
-      root,
-      "baseline-root-case-changed",
-      path.join(root, "00_CRDD"),
-    );
+    // 旧Git出力の模擬ではなく、正式CLIへ大文字化した実Rootを渡してWindowsの対象照合を確認する。
+    const caseChanged = runChecker(root.toUpperCase());
     assert.equal(caseChanged.status, 0, caseChanged.stderr);
     assert.equal(
       caseChanged.report.baseline_submodule_state.gitdir_accessible,
@@ -13884,6 +13942,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
  */
 test("構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   fs.rmSync(path.join(root, "02_UX"), { recursive: true });
   fs.mkdirSync(path.join(root, "08_Quality"), { recursive: true });
@@ -13918,6 +13977,7 @@ test("構造上の欠落・旧配置・予約領域・中央集約をまとめ�
  */
 test("外部リンクと山括弧リンクと公式ひな型の正本読替えを扱う", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(path.join(root, "template"));
   write(
     path.join(root, "01_Principles.md"),
@@ -13956,6 +14016,7 @@ test("外部リンクと山括弧リンクと公式ひな型の正本読替え�
  */
 test("範囲指定を直接の参照元と参照先へ広げる", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[UX](../02_UX/B.md)\n");
   write(path.join(root, "02_UX", "B.md"), "# UX\n");
@@ -14114,6 +14175,7 @@ test("公式ひな型ルートのジャンクションを拒否する", () => {
  */
 test("非JSON出力に指摘と参照マップを表示する", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[missing](missing.md)\n");
   const result = runRaw(
@@ -14432,6 +14494,7 @@ test("a generic repository does not require the CRDD template structure", () => 
  */
 test("duplicate headings use the same suffixes as GitHub anchors", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14461,6 +14524,7 @@ test("duplicate headings use the same suffixes as GitHub anchors", () => {
  */
 test("heading anchors remove Japanese punctuation without removing Japanese text", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14487,6 +14551,7 @@ test("heading anchors remove Japanese punctuation without removing Japanese text
  */
 test("heading anchors preserve consecutive, leading, and trailing hyphens", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14520,6 +14585,7 @@ test("heading anchors preserve consecutive, leading, and trailing hyphens", () =
  */
 test("heading anchors use rendered Markdown text", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14549,6 +14615,7 @@ test("heading anchors use rendered Markdown text", () => {
  */
 test("heading anchors preserve literal underscores outside emphasis", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14620,6 +14687,7 @@ test("heading anchors preserve literal underscores outside emphasis", () => {
  */
 test("heading anchors use visible labels from common inline Markdown", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14667,6 +14735,7 @@ test("heading anchors use visible labels from common inline Markdown", () => {
  */
 test("duplicate heading suffixes avoid anchors generated by another heading", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[third](B.md#foo-2)\n");
   write(
@@ -14693,6 +14762,7 @@ test("duplicate heading suffixes avoid anchors generated by another heading", ()
  */
 test("an anchor-only Markdown link resolves to its source file", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -14990,6 +15060,7 @@ test("Git repository discovery failures use the explicit fallback reason", () =>
  */
 test("Git file discovery rejects outside, missing, and linked entries", () => {
   const root = fixture();
+  initializeGit(root);
   const outside = fixture();
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "# A\n");
@@ -15109,6 +15180,7 @@ test("fallback rejects a gitdir directory reached through a junction", () => {
  */
 test("empty heading anchors are ignored", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "# !!!\n");
   write(path.join(root, "01_Discovery", "B.md"), "[empty](A.md#empty)\n");
@@ -15134,6 +15206,7 @@ test("empty heading anchors are ignored", () => {
  */
 test("finding order falls back to the message when other keys are equal", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -15224,6 +15297,7 @@ test("fallback fails closed when the root disappears before directory walking", 
  */
 test("reference maps omit external links", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
@@ -15399,6 +15473,7 @@ test("fallback rejects a directory removed after its entries are read", () => {
  */
 test("reference maps aggregate links for a directory target", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[B](B.md)\n");
   write(path.join(root, "01_Discovery", "B.md"), "# B\n");
@@ -15465,6 +15540,7 @@ test("child-process fault injection records a directory replacement", () => {
  */
 test("recognizable remediation tables validate a resolved row", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15496,6 +15572,7 @@ test("recognizable remediation tables validate a resolved row", () => {
  */
 test("recognizable remediation tables reject fixed and premature resolution", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15545,6 +15622,7 @@ test("recognizable remediation tables reject fixed and premature resolution", ()
  */
 test("recognizable remediation tables require restart information for blockers", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15580,6 +15658,7 @@ test("recognizable remediation tables require restart information for blockers",
  */
 test("remediation tables support outer-pipe-free GFM and pipes inside cells", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15611,6 +15690,7 @@ test("remediation tables support outer-pipe-free GFM and pipes inside cells", ()
  */
 test("remediation tables report a missing state axis", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15646,6 +15726,7 @@ test("remediation tables report a missing state axis", () => {
  */
 test("resolved remediation rejects inconsistent progress and blocker axes", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   const closure =
     "| observed | comparison | Result.md | reviewer: Pass | Current.md |";
@@ -15749,6 +15830,7 @@ test("generic tables with two short state aliases are not remediation tables", (
  */
 test("explicit remediation context detects a missing state axis without auxiliary columns", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15784,6 +15866,7 @@ test("explicit remediation context detects a missing state axis without auxiliar
  */
 test("canonical English remediation headers are recognized", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Remediation.md"),
@@ -15815,6 +15898,7 @@ test("canonical English remediation headers are recognized", () => {
  */
 test("branch coverage tables use one parser for GFM headers and rows", () => {
   const root = fixture();
+  initializeGit(root);
   makeStructure(root);
   write(
     path.join(root, "07_Quality", "Coverage.md"),

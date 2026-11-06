@@ -1,11 +1,10 @@
-import type { Provider, ReasoningEffort } from "../provider/types.ts";
-
 /**
  * 技術CatalogのModel・用途・Effortと選定結果の型を定義する。
  *
  * @responsibility 実利用される値契約だけを所有し、実行・保存・認可を開始しない。
  * @trace ARCH-000010
  */
+import type { Provider, ReasoningEffort } from "../provider/types.ts";
 
 /**
  * Model識別子と確認済みの実行対応を表す。

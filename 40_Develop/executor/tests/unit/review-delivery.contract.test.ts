@@ -2,9 +2,10 @@
  * レビュー内容の完了と、Hostが所有する次試行許可を分離する。
  * @packageDocumentation
  * @responsibility 実Executorと有限Command代役で所見返却・清掃・通知の相関を検査する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @level UT
  * @scope 合成Planとメモリ内Commandのみ。実AI・Docker・保存なし。
+ * @boundary ERB-UT-023=N/A: 合成値と有限依存の検査。実AI・Docker・保存を行わない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -15,13 +16,15 @@ import { attemptPlan } from "../fixtures/attempt-plan.ts";
 
 /**
  * 所見返却と終端通知の故障を同じ実行と清掃へ接続する。
- * @trace ERB-IT-004
+ * @trace ERB-UT-023
  * @precondition 外部EffectのないCommand代役を使用する。
  * @stimulus 各Host構成で一回のレビューを実行する。
  * @observation 内容、所見、callback回数と清掃後の通知順序。
  * @oracle 所見は同じ完了結果で返し、通知故障でも内容完了と清掃を変えない。
  * @cleanup メモリ内sessionのcompletionを全件待つ。
  * @boundary Executorから既存Hostへの内部通知。
+ * @responsibility 所見返却と終端通知の故障を同じ実行と清掃へ接続する。
+
  */
 test("レビュー所見は清掃後の同一完了結果で返し、Executorは是正許可を扱わない", async () => {
   for (const mode of [

@@ -1573,7 +1573,7 @@ type TaskPacket = Readonly<{
  * @security PacketRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility PacketRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type taskPacketPacketRecord = Readonly<{
+type TaskPacketPacketRecord = Readonly<{
   managementCapability: object;
   packet: TaskPacket;
   controlCapability: object;
@@ -1591,9 +1591,9 @@ type taskPacketPacketRecord = Readonly<{
  * @security RuntimeStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type taskPacketRuntimeState = Readonly<{
-  controlRecords: WeakMap<object, taskPacketPacketRecord>;
-  useRecords: WeakMap<object, taskPacketPacketRecord>;
+type TaskPacketRuntimeState = Readonly<{
+  controlRecords: WeakMap<object, TaskPacketPacketRecord>;
+  useRecords: WeakMap<object, TaskPacketPacketRecord>;
   verifyExternalSendPolicy: (
     capability: unknown,
     management: unknown,
@@ -1625,8 +1625,8 @@ type taskPacketRuntimeState = Readonly<{
  * @concurrency N/A: createStateは共有非同期状態を持たない同期処理である。
  */
 function taskPacketCreateState(
-  verifyExternalSendPolicy: taskPacketRuntimeState["verifyExternalSendPolicy"],
-): taskPacketRuntimeState {
+  verifyExternalSendPolicy: TaskPacketRuntimeState["verifyExternalSendPolicy"],
+): TaskPacketRuntimeState {
   return Object.freeze({
     controlRecords: new WeakMap(),
     useRecords: new WeakMap(),
@@ -1662,6 +1662,7 @@ const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
   informationClassification: "same_as_original_task" as const,
 });
 
+/** 単一Taskの目的・受入条件・読取り範囲・変更許可範囲。 */
 type TaskScope = Readonly<{
   objective: string;
   acceptanceCriteria: readonly string[];
@@ -1669,6 +1670,7 @@ type TaskScope = Readonly<{
   readPaths: readonly string[];
 }>;
 
+/** Taskの閉形式・文字列容量・Path集合を検査し、不正入力はnullにする。 */
 function normalizeTaskScope(rawScope: unknown): TaskScope | null {
   const value = snapshotPlainRecord(rawScope, SCOPE_KEYS);
   const acceptanceCriteria = value
@@ -2133,7 +2135,7 @@ function promptFor(packet: TaskPacket) {
  * @concurrency N/A: issueは共有非同期状態を持たない同期処理である。
  */
 function taskPacketIssue(
-  state: taskPacketRuntimeState,
+  state: TaskPacketRuntimeState,
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
   provider: unknown,
@@ -2334,7 +2336,7 @@ function taskPacketIssue(
  * @concurrency N/A: consumeは共有非同期状態を持たない同期処理である。
  */
 function taskPacketConsume(
-  state: taskPacketRuntimeState,
+  state: TaskPacketRuntimeState,
   useCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -2380,7 +2382,7 @@ function taskPacketConsume(
  * @concurrency N/A: revokeは共有非同期状態を持たない同期処理である。
  */
 function taskPacketRevoke(
-  state: taskPacketRuntimeState,
+  state: TaskPacketRuntimeState,
   controlCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -2508,7 +2510,7 @@ export function revokeRuntimeOwnedProviderTaskPacket(
  * @concurrency N/A: createIsolatedProviderTaskPacketRuntimeCandidateは共有非同期状態を持たない同期処理である。
  */
 export function createIsolatedProviderTaskPacketRuntimeCandidate(
-  verifyExternalSendPolicy: taskPacketRuntimeState["verifyExternalSendPolicy"],
+  verifyExternalSendPolicy: TaskPacketRuntimeState["verifyExternalSendPolicy"],
 ) {
   const state = taskPacketCreateState(verifyExternalSendPolicy);
   return Object.freeze({

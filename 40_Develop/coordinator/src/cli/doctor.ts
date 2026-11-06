@@ -1,7 +1,8 @@
 /**
  * 環境診断・回復のCLI受付を正式APIへ接続する。
  * @responsibility 引数、現在Root、取消Listenerと安全な表示を所有する。
- * @trace ARCH-000004 ARCH-000008
+ * @trace ARCH-000004
+ * @trace ARCH-000008
  */
 import {
   diagnoseEnvironment,
@@ -24,7 +25,8 @@ import { bindTaskCliCancellationSignals } from "./cancellation.ts";
 /**
  * 診断・回復Commandを一回実行し、取消解除後に結果を表示する。
  * @responsibility CLIの接続条件だけを検査し、回復種別の判断と処置は正式APIへ委譲する。
- * @trace ARCH-000004 ARCH-000008
+ * @trace ARCH-000004
+ * @trace ARCH-000008
  * @input arguments_: 対象、操作、任意のexact参照と--json。
  * @returns 終了値を設定して完了する。
  * @precondition 共通受付でNode版を確認済み。

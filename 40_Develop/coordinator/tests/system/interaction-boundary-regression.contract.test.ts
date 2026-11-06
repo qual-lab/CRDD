@@ -37,10 +37,7 @@ import {
   createDockerDesktopRepairHelperEnvironment,
 } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import {
-  createInteractiveConsoleReaderEnvironment,
-  createWindowsHostOperationSupervisorEnvironment,
-  createWindowsNativeHelperEnvironment,
-  createWindowsNodeConsoleReaderEnvironment,
+  createChildProcessEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
   describeWindowsChildEnvironmentContract,
@@ -542,7 +539,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
  * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("POSIX reader Profileは親環境を受けない固定空集合にする", () => {
-  assert.deepEqual(createInteractiveConsoleReaderEnvironment("linux"), {});
+  assert.deepEqual(createChildProcessEnvironment({ platform: "linux" }), {});
 });
 
 /**
@@ -687,9 +684,12 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     return;
   }
   for (const [kind, environment] of [
-    ["console", createWindowsNodeConsoleReaderEnvironment()],
-    ["supervisor", createWindowsHostOperationSupervisorEnvironment()],
-    ["native", createWindowsNativeHelperEnvironment()],
+    ["console", createChildProcessEnvironment({ platform: "win32" })],
+    ["supervisor", createChildProcessEnvironment({ platform: "win32" })],
+    [
+      "native",
+      createChildProcessEnvironment({ platform: "win32", userProfile: true }),
+    ],
   ] as const) {
     assert.ok(environment);
     const result = spawnSync(
@@ -811,9 +811,10 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     actualChildObservationRequired: true,
   });
   assert.deepEqual(createDockerDesktopRepairHelperEnvironment(), {
-    ...createWindowsNativeHelperEnvironment(),
+    ...createChildProcessEnvironment({ platform: "win32", userProfile: true }),
     SYSTEMDRIVE: deriveWindowsSystemDrive(
-      createWindowsNativeHelperEnvironment()?.SystemRoot,
+      createChildProcessEnvironment({ platform: "win32", userProfile: true })
+        ?.SystemRoot,
     ),
   });
 });
@@ -908,7 +909,7 @@ test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期
     context.skip("Windows contract");
     return;
   }
-  const parentEnvironment = createInteractiveConsoleReaderEnvironment();
+  const parentEnvironment = createChildProcessEnvironment();
   assert.ok(parentEnvironment);
   const profile = fs.realpathSync.native(os.userInfo().homedir);
   const temporary = fs.realpathSync.native(
@@ -1006,10 +1007,14 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
       environment.SYSTEMDRIVE,
       deriveWindowsSystemDrive(environment.SystemRoot),
     );
-    assert.equal(createWindowsNativeHelperEnvironment()?.SYSTEMDRIVE, "");
+    assert.equal(
+      createChildProcessEnvironment({ platform: "win32", userProfile: true })
+        ?.SYSTEMDRIVE,
+      "",
+    );
     assert.equal(
       (
-        createWindowsNodeConsoleReaderEnvironment() as Readonly<
+        createChildProcessEnvironment({ platform: "win32" }) as Readonly<
           Record<string, string>
         >
       )?.SYSTEMDRIVE,
@@ -1071,8 +1076,13 @@ test("Windows directoryの親環境差替えを子Environment Authorityにしな
     process.env.SystemRoot = root;
     process.env.WINDIR = root;
     process.env.USERPROFILE = root;
-    const consoleEnvironment = createWindowsNodeConsoleReaderEnvironment();
-    const nativeEnvironment = createWindowsNativeHelperEnvironment();
+    const consoleEnvironment = createChildProcessEnvironment({
+      platform: "win32",
+    });
+    const nativeEnvironment = createChildProcessEnvironment({
+      platform: "win32",
+      userProfile: true,
+    });
     assert.ok(consoleEnvironment);
     assert.ok(nativeEnvironment);
     const consoleValues = consoleEnvironment as Readonly<

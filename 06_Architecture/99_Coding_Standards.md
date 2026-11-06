@@ -444,25 +444,19 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 | enum相当の型名 | `PascalCase` | `RiskLevel` |
 | 関数 / メソッド | `camelCase`の動詞句 | `resolveRepositoryRoot()` |
 | 変数 / parameter / property | `camelCase`の責務名 | `repositoryRoot` |
-| Booleanの変数 / parameter | 意味に合う補助動詞predicate、または主語＋閉じた状態／イベントpredicate | `isReady`, `hasFindings`, `configurationMatches` |
-| Array / readonly Array | 内容を表す複数形 | `findings`, `candidatePaths` |
+| Booleanの変数 / parameter | camelCase。意味に合うpredicateを推奨 | `isReady`, `hasFindings`, `configurationMatches` |
+| Array / readonly Array | camelCase。内容を表す複数形・集合名を推奨 | `findings`, `candidatePaths` |
 | 真の定数 | `UPPER_SNAKE_CASE` | `MAX_INPUT_BYTES` |
 
-Browser Buildが所有するReact Componentは、JSXの要素型またはReact rendererのComponent契約へ実際に渡す関数・Component bindingに限り`PascalCase`を使う。`memo`／`forwardRef`等のComponent wrapperも実利用を確認する。大文字名、`.tsx`配置または`ReactNode`等の戻り型だけを根拠に通常関数を例外にしない。Hook、イベントHandler、通常Helper、Component内の変数・parameterは通常規則を維持する。File名の`kebab-case`、Header・Trace・本体内識別子の検査は免除しない。この適用境界の機械検査への接続と既存Symbolの評価は、規約更新だけで完了としない。
+Browser Buildが所有するReact Componentは、JSXの要素型またはReact rendererのComponent契約へ実際に渡す関数・Component bindingに限り`PascalCase`を使う。`memo`／`forwardRef`等のComponent wrapperも実利用を確認する。大文字名、`.tsx`配置または`ReactNode`等の戻り型だけを根拠に通常関数を例外にしない。Hook、イベントHandler、通常Helper、Component内の変数・parameterは通常規則を維持する。File名、Header・Trace・本体内識別子の規約も適用する。言語標準ツールで確認できる形式と、独立レビューで確認する意味を区別し、CRDD CheckerへSource内部の解析を要求しない。既存Symbolの評価は、規約更新だけで完了としない。
 
-Boolean規則はBoolean型の変数とparameterへ適用する。`null`または`undefined`を除いたunionの全構成がBooleanまたはBoolean literalである場合もBooleanとして扱う。許可する文法は、次の三つの閉集合だけである。
-
-- 補助動詞prefix: `is`、`has`、`can`、`should`、`did`、`does`、`was`、`were`、`will`。prefixの直後は大文字で始まる責務名とし、prefix単独を許可しない
-- 主語先行suffix: `Active`、`Allowed`、`Available`、`Complete`、`Completed`、`Confirmed`、`Created`、`Eligible`、`Exceeded`、`Executed`、`Failed`、`Issued`、`Present`、`Absent`、`Recorded`、`Released`、`Removed`、`Requested`、`Required`、`Settled`、`Spawned`、`Started`、`Submitted`、`Terminated`、`Transferred`、`Exists`、`Fails`、`Match`、`Matches`、`Throw`、`Performed`。suffixの前には小文字で始まる主語を一つ以上置く
-- standalone state: `released`、`closed`、`submitted`、`present`、`settled`、`exceeded`、`confirmed`、`terminated`、`exists`
-
-現在状態、能力、方針、照合または過去動作には、上記から意味に合うpredicateを使用する。一文字違い、大小文字違い、未知prefix／suffixおよび文法上不自然な組合せを、任意の`camelCase` Booleanとして許可しない。機械検査はこの三集合と完全一致し、集合の追加または削除は本書の変更として扱う。単に検査を通すため曖昧な名詞を使用しない。動作を表す関数は動詞句を使用し、Boolean predicateを値として公開する場合も同じ境界を使用する。object propertyはSchemaまたは公開結果契約の一部になり得るため、その所有契約が定める形式を優先する。
+Boolean名は状態・条件・能力が読み取れるpredicateを推奨する。is／has等の接頭辞、主語＋状態、文脈で明確な状態名のいずれも使用できる。接頭辞・接尾辞の閉集合との一致を機械的な合否条件にしない。名前の意味が明確かは利用箇所を含めてレビューする。外部契約が所有するproperty名は、その契約を優先する。
 
 外部または共有function signatureを満たすため宣言が必要だが、そのfunction body内で参照しないparameterだけは、単一の先頭`_`＋`camelCase`で未使用を明示できる。参照が1件以上あるparameter、local variable、function、methodまたはpropertyへこの形式を使用してはならない。
 
-配列規則は`Array<T>`、`readonly T[]`、alias、型制約付きジェネリック（generic）およびnullable unionを含む同じ意味の可変／不変配列へ適用する。型parameterは制約を循環なしに解決し、制約のないジェネリックは一般の`camelCase` bindingとして扱う。固定位置に別の意味を持つtuple、`Buffer`、TypedArray、`Set`および`Map`は複数形規則の対象外だが、実際の責務が分かる名前を使用する。機械検査では末尾の`s`、不規則複数形`Children`、`Criteria`、`Indices`、`Vertices`、`People`、`Media`、`Data`、集合として用いる`Evidence`／`Inventory`、exact standalone collective `evidence`、および標準的な引数vector名exact `argv`を複数形として扱う。これらを任意の単数名またはファイル別例外へ一般化しない。destructuringではproperty名ではなくCRDD所有のlocal binding名を検査する。
+配列は内容と集合であることが分かる名前を推奨する。複数形、標準的なargv、集合名などを使い、英語の語尾や例外語彙の一覧への一致を機械的な合否条件にしない。tuple、Buffer、TypedArray、Set、Mapも実際の責務が分かる名前を使用する。destructuringでは外部property名を変更せず、内部bindingの意味を評価する。
 
-真の定数とは、module scopeの`const`で共有し、実行中に概念上変化しないlimit、pattern、contract literal、固定policyまたは既定値である。機械分類はprimitive／regular expression／固定template、固定値だけの配列・object・二項式、固定値から作る`Set`、固定引数1件の`Object.freeze(...)`、`BigInt(...)`、`Symbol(...)`および限定した組込み要素（intrinsic）の参照に限定する。直接記述した配列・objectは、module-localかつ非exportで、要素が再帰的に固定され、全参照を分類でき、変更、alias、引数渡し、returnその他のescapeが一件もない場合だけ固定集約値（fixed aggregate）とする。固定集約値からのreadは、元のliteral構造へ各segmentを照合できるown data property、範囲内でholeのないcanonical非負整数index、および配列自身の終端`length`だけを許可する。中間segmentも同じ直接literalでなければならず、終端はnullishを含まないBoolean／string／number／bigintだけとする。利用文脈は、括弧、`as`、`satisfies`、non-null wrapper、代入ではない明示した二項readおよびテンプレート補間（template interpolation）を途中の式合成として最外利用先まで畳み、最終的に直接`void`参照または非export・非destructuring変数宣言の初期値（VariableDeclaration initializer）へ到達した場合だけ許可する。二項式またはテンプレート補間自体を終端許可にはしない。代入演算子、`++`／`--`、`delete`、引数渡し、`new`、return／yield、export、destructuring、暗黙return、tagged template、条件式、commaその他の未定義文脈は一般bindingへfail closedにする。`constructor`、`prototype`、`__proto__`、method、accessor、spread、重複key、dynamic key、範囲外index、aggregate自体の取出しおよび型または由来を分類できないreadも一般bindingへfail closedにする。`Object.freeze(...)`を固定集約値とする場合は、global `Object.freeze`のexact 1引数が再帰固定された直接配列／object literalである場合だけとする。分類不能な参照が一件でもあれば一般bindingとして扱う。同じCRDD所有のプロジェクト依存グラフ（project graph）のmodule定数を参照するときはシンボル（symbol）の宣言元とinitializerを循環なしに再評価し、単なる名前の一致や任意のimportを固定値とみなさない。`Date`、`Date.now`、`Date.prototype.toISOString`、TypedArrayの組込み`byteLength` getterおよび、固定algorithm・入力・出力encodingを持つ`createHash(...).update(...).digest(...)`の終端ダイジェスト（terminal digest）だけを固有の構文として認める。shadowされたglobal、`Date.parse`、`Date.prototype`単体、`createHash(...)`の生成handle、動的値を凍結したobject、Path、snapshot、`WeakMap`、decoderその他のresource handleまたは一時的な`const` bindingを大文字化しない。判定順は関数binding、真の定数、Boolean、Array、一般の変数とする。型または構文を分類できないCRDD所有宣言は成功扱いにせず、規約または実装へ戻す。
+真の定数とは、module scopeで共有し、実行中に概念上変化しないlimit、pattern、contract literal、固定policyまたは既定値であり、UPPER_SNAKE_CASEを使用する。可変のRegistry・Cache・resource handleや一時的なconst bindingを、const構文だけで真の定数とみなさない。局所変数と関数には通常のcamelCaseを適用する。値の固定性、共有する理由、資源の所有はSourceの責務と利用側をレビューして確認する。CRDD Checkerは定数の意味や命名を推定しない。言語標準ツールによる形式検査の成功を不変性・純粋性・資源安全の証明にしない。
 
 名前付き関数式（`named function expression`）と名前付きclass式（`named class expression`）も、それぞれ関数名と型名の規則へ含める。取得アクセサー（`get accessor`）と設定アクセサー（`set accessor`）は関数相当宣言（function-like declaration）として走査し、内部名のcaseと曖昧名を検査する。外部契約が所有するoverride名とobject／interface propertyは機械property境界を優先するが、設定アクセサーのparameterとbody内bindingは通常の識別子規則へ含める。
 
@@ -472,7 +466,7 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 
 Rustは`40_Develop/platform-access/**`のprivate crateだけへ適用する。module／file、function、method、variableおよびparameterは`snake_case`、struct、enum、traitおよび型は`PascalCase`、定数およびstaticは`SCREAMING_SNAKE_CASE`とする。FFIの`unsafe`はWindows API接続moduleへ限定し、各blockへ所有権、pointer lifetimeおよび解放責務の安全根拠を記載する。Rust標準の命名と型境界は`rustfmt`、rustcおよびClippyで検査し、TypeScript AST分類器へ混在させない。
 
-同crateの`src/native/`は言語実装境界とし、Rust専用Directoryは`snake_case`で命名する。`src/native/<責務>/<OS>/`の三階層までを許可し、責務ごとの`mod.rs`がOS実装を選択する。他のTypeScript Sourceの二階層制限や命名規則は変更せず、Native配下を実体・Header検査から除外しない。
+同crateの`src/native/`は言語実装境界とし、Rust専用Directoryは`snake_case`で命名する。`src/native/<責務>/<OS>/`の三階層までを許可し、責務ごとの`mod.rs`がOS実装を選択する。他のTypeScript Sourceの二階層制限や命名規則は変更しない。Native配下も成果物の実在・参照検査の対象とし、Source内部の規約はRust標準ツールと独立レビューで確認する。
 
 `40_Develop/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。ただし`target`実体が通常Directoryかつsymbolic link／junctionでないことを除外前に確認し、通常file、symbolic link、junctionまたは分類不能な実体は検査失敗とする。`.rs`実体は同crateのexact `src/native/build.rs`、`src/native/**`または`tests/**`へ限定し、`Cargo.lock`を追跡する。crate rootの別名`.rs`をCargo build scriptとみなさない。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`40_Develop/**`へ追加しない。
 
@@ -531,9 +525,13 @@ Source HeaderはCodeの逐語説明ではなく、Symbolが存在する理由、
 | Class、名前付きClass式 | 状態所有Headerを適用し、個別Methodには実行責務Headerを適用する |
 | Local Variable、通常の`const`、匿名Callback、Inline Object Type | Symbol Headerの対象外とする |
 
-既存Symbolもprivateであることを恒久免除にしない。意味を確認せず名前だけから定型Headerを一括生成せず、Symbolの責務、Owner、失敗・Effect・境界を確認して移行する。短い局所処理でも独立した名前と責務を与えた場合は、巨大な説明ではなく簡潔なSummaryと`@responsibility`を残す。
+既存Symbolもprivateであることだけを説明省略の根拠にしない。意味を確認せず名前だけから定型Headerを一括生成せず、Symbolの責務、Owner、失敗・Effect・境界を確認して移行する。必要な説明を短く保ち、次の局所処理と公開・共有・資源境界の区別に従う。
 
-Header項目は宣言種別ごとに分ける。型宣言へ実行時の入出力を形式的に書かせず、実行責務へ型の互換性を形式的に書かせない。いずれも平易なSummary、`@responsibility`および`@trace`を共通必須項目とする。非該当項目も省略せず、`N/A:`に続けてそのSymbolで非該当となる理由を記録する。単に`N/A`、`none`または同じ定型理由を全Symbolへ複製して処置済みにしない。ProductionのNamed Symbolは、それが実現する既存ARCH-IDへ接続する。SymbolごとにARCH-IDを新設せず、複数Symbolが同じARCH-IDを実現してよい。責務を持つNamed SymbolをどのARCH-IDにも接続できない場合はDocumentation例外にせず、Architecture側のGapとして戻す。存在しないID、File Pathまたは説明用の局所名をCanonical Traceとして捏造しない。
+Symbol Headerは、存在理由・責務が分かる簡潔なSummaryを基本とする。Summaryと同じ内容の@responsibilityを重複記載する必要はない。Fileの責務と同じ設計を実現するSymbolはFileの実在ARCH参照を利用でき、個別@traceを反復しなくてよい。別の責務・設計を持つ場合は、その参照を明示するかSourceのOwnerを見直す。明示された参照は実在確認の対象とし、架空IDや単なるPathで代替しない。
+
+局所的な型・Helperは、呼出し文脈とFileの説明で責務が明白なら独立したHeaderを必須にしない。ただし公開・共有契約、Effect、Process、保存、通知、取消、共有資源、安全境界や回復を扱う処理は、公開有無・関数の長さにかかわらず、保証すること／しないこと、失敗・不明・終了条件を記載する（MUST）。本文または必要なtagで記述できる。機械検査は局所性や安全性を推定して保証せず、これらの意味と不足を独立レビューで確認する。
+
+以下の種別別tagは記述の選択肢であり、全項目の記入や非該当理由の反復を必須にしない。実際に適用する条件だけを記載し、N/Aを記載する場合は理由を添える。型宣言へ実行時の入出力、純粋Helperへ存在しない資源終了や互換性を形式的に書かせない。
 
 全Production Fileは、個別Symbol Headerとは別に、File先頭へSummary、`@responsibility`および一つ以上の実在`@trace ARCH-XXXXXX`を持つFile Headerを置く（MUST）。File HeaderはFileがまとめる責務境界を説明し、内部Symbolの逐語一覧や無関係なARCH-IDの和集合にしない。公開入口だけは`@packageDocumentation`も加え、公開するCapabilityとExport境界を説明する。TypeScriptの`src/`だけでなく、実行責務を持つ`bin/`、`scripts/`および配布入口も同じProduction母集団へ含める。Rustのcrate root、moduleおよびBuild Scriptは同じ意味をRustdoc module Headerで保持する。Test Fileは後述するQuality Local Item用Headerを使い、Production File Headerを重複させない。
 
@@ -546,7 +544,7 @@ Header項目は宣言種別ごとに分ける。型宣言へ実行時の入出�
  */
 ```
 
-実行責務HeaderのCanonical形は次とする。項目の並びも機械検査と人間の読取りを安定させるために維持する。
+実行責務Headerで使用できる項目を次に示す。全項目を機械的に記入するテンプレートではない。
 
 ```ts
 /**
@@ -652,9 +650,9 @@ HeaderはCodeから明白な「値を返す」「関数を実行する」等を�
   └─ OPEN       → 判断先と再開条件を保持し、完成主張を停止
 ```
 
-Test CodeではARCH-IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test File HeaderはそのFileが扱う一つ以上のLocal Itemを示し、個別Test Case、名前付きTest Helperおよび名前付きFixtureは対応する一つ以上のLocal Itemへ`@trace`する。Local ItemがArchitectureとのRelationを所有するため、Test側へARCH-IDを重複記載しない。匿名CallbackやInline Object等、独立責務を持たない処理はSymbol Header対象外だが、`test`／`it`等で宣言する個別Test Caseは匿名Callbackであっても検証責務を持つため、呼出し直前のTSDocを必須とする。
+Test CodeではARCH-IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test File HeaderはそのFileが扱う一つ以上のLocal Itemを示し、個別Test Case、名前付きTest Helperおよび名前付きFixtureは対応する一つ以上のLocal Itemへ`@trace`する。Local ItemがArchitectureとのRelationを所有するため、Test側へARCH-IDを重複記載しない。匿名CallbackやInline Object等、独立責務を持たない処理はSymbol Header対象外とする。Caseの必要な説明は、その言語の標準的なコメントまたはdocstringで記述できる。
 
-検証Toolとその用途限定の判定fixtureは、実装CapabilityではなくQualityが所有する検証手段である。これらを試験する場合、Symbol Manifestでは`kind: "verification-tool"`としてQA・Local Item・実Pathへ接続し、試験Suiteから既存の`verifies`で対象Toolを参照する。対象はPackage内の`scripts/`または`tests/fixtures/`にある通常のTypeScript／Rust fileに限定し、`src/`の本番実装をこの分類へ移さない。ToolはARCH・意味実装・環境実証のRelationを持たず、自身の`verifies`は明示空配列とする。ToolのFileとNamed Helperにも、以下のQuality HeaderとLocal Itemの対応を適用する。通常試験の非空`verifies`条件は維持する。Toolとそれを検査するSuiteの関係は本番実装／意味Coverageへ加算せず、Tool試験の成功を実Native・OS・Runtimeの成立へ読み替えない。
+検証Toolとその用途限定の判定fixtureは、実装CapabilityではなくQualityが所有する検証手段である。これらを試験する場合、Symbol Manifestでは`kind: "verification-tool"`としてQA・Local Item・実Pathへ接続し、試験Suiteから既存の`verifies`で対象Toolを参照する。対象はPackage内の`scripts/`または`tests/fixtures/`にある通常fileに限定し、言語や拡張子を参加条件にせず、`src/`の本番実装をこの分類へ移さない。ToolはARCH・意味実装・環境実証のRelationを持たず、自身の`verifies`は明示空配列とする。ToolのFileとNamed Helperにも、以下のQuality HeaderとLocal Itemの対応を適用する。通常試験の非空`verifies`条件は維持する。Toolとそれを検査するSuiteの関係は本番実装／意味Coverageへ加算せず、Tool試験の成功を実Native・OS・Runtimeの成立へ読み替えない。
 
 Test File Headerは、File全体の検証範囲を示す。
 
@@ -671,7 +669,7 @@ Test File Headerは、File全体の検証範囲を示す。
  */
 ```
 
-個別Test Case、名前付きTest Helperおよび名前付きFixtureは次の固定Headerを持つ。Helper／Fixtureも入力準備の責務と失敗が検証結果へ影響するため、項目を省略しない。
+個別Test Caseは、開始条件・刺激・観測・Oracle・終了後条件が分かる説明を持つ。次のtagは記述例であり、全項目の固定Headerを必須にしない。Helper／Fixtureは、その準備責務と失敗が結果へ与える条件が文脈から明白でない場合だけ補足する。検証義務の意味と十分性はレビューで確認する。
 
 ```ts
 /**
@@ -689,18 +687,18 @@ Test File Headerは、File全体の検証範囲を示す。
 ```
 
 ```text
-Production Named Symbol → ARCH-ID
+Production File → ARCH-ID。同じ責務のNamed Symbolはこの参照を利用できる
 Test Case／Named Test Helper／Fixture → Quality Local Item
 Quality Local Item → Architecture Meaning
 ```
 
 Test Levelを含むLocal Item IDとTest Fileの論理配置が不一致の場合は、どちらかを説明で上書きせず、Quality Definitionまたは試験配置の誤りとして是正する。
 
-機械検査は、対象となるProduction Named SymbolのHeader、Summary、全固定tagの非空値、実在ARCH-IDへの`@trace`、Test Case／名前付きTest Helper／FixtureのHeader、実在Local Itemへの`@trace`、Test Levelとの一致、曖昧なFile名および公開入口からの無名Barrel Export等、決定論的に判定できる構造を扱う。Header本文の責務妥当性、`N/A`理由の妥当性、責務分割、Common Contract、過剰抽象化およびCanonical IDとの意味一致は独立reviewで確認する。機械検査のためだけに同じ定型文を複製してはならない（MUST NOT）。
+CRDD Checkerは成果物・ID・参照・台帳・関係の整合を確認する。Source内部の識別子、型、コメント、overload、固定tag、言語別の実装規約を一律走査しない。Source HeaderとQA義務の意味対応、責務、命名、過剰抽象化、Effect・資源・失敗条件の十分性はAIレビューを含む独立レビューで確認する。Formatter・Lint・型検査で確定できることは、各言語の既存標準ツールへ任せる。Checker合格をコード規約適合や安全性の完全証明にしない。
 
 ## 5. 曖昧な名前
 
-次の単独名で対象や責務を隠してはならない。既存名の移行と外部固定語彙は第2節・3.2節に従う。
+次の単独名は曖昧になりやすいため、対象や責務が文脈から分かるかをレビューする。単語だけを理由に機械的に拒否しない。既存名の移行と外部固定語彙は第2節・3.2節に従う。
 
 - `helper`
 - `util`
@@ -765,8 +763,8 @@ Rust等の言語またはFrameworkの標準配置を維持する場合は、物�
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
 - Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とセキュリティ判断上の検証義務を別の確認として記録する。coverage runnerは実Directoryとして検証したcrate直下の`target`へrun固有Directoryを作り、既存treeを削除または再利用しない。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
-- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は、固定TypeScript 7.0.2でCRDD所有の全TypeScript packageが宣言する標準`tsconfig.json`および用途別TypeScript設定から取得する。対象Packageと設定は現行の`40_Develop/*/package.json`、各Packageの公開入口・SourceとTypeScript設定から列挙する。2026-10-19の17Packageは[現行棚卸し](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)に示すが、その件数を検査母集団の固定値にしない。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
-- 命名contract testの移行先は3.2節を正本とし、曖昧なSource File名、責務単位の共有型の`types.ts`配置と実行値・実処理の非混在、標準公開入口および正式公開Subpathの入口FileのPackage Headerおよび無名Barrel Exportを検査する。子Directoryの`index.ts`不存在と`bin/`主要File名も検査対象とする。局所型を一律に別Fileへ移す判定を使用しない。責務別配置と無関係な型集積の不存在はArchitectureとの照合・独立reviewでも確認する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、固定tagと非該当理由の十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。今回の規約改訂で検査実装は変更していない。旧検査条件と新規約の差分、対象母集団と未移行をCHG-000082で追跡し、新規約の検査実装済み・全Source適合と表示しない。
+- CRDD Checkerは登録成果物の実在Path、ID、Owner、参照、QA／Local Item、試験段階、verifies等の構造整合を検査する。Sourceの言語・識別子・型・コメントを全件走査する汎用規約エンジンは持たない。言語追加をCheckerのAST対応追加へ結び付けない。
+- コード規約は、各Packageの既存format／lint／typecheck等とAIレビューへ接続する。標準ツールが判定できない責務・名前の意味・説明・安全条件は独立レビューで確認する。新しいReview Engineや言語別Adapterは作らない。構文検査や型検査の成功を意味上の適合へ換算しない。
 - `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp-server.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
 - Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。

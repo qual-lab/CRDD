@@ -2,7 +2,8 @@
  * Coordinatorが借用する実行領域のFileとinventoryを安定読取りする。
  * @packageDocumentation
  * @responsibility File実体・容量・Path・linkと読取り前後差を検査する。
- * @trace ARCH-000008 ARCH-000013
+ * @trace ARCH-000008
+ * @trace ARCH-000013
  * @boundary Git非管理の実行領域を含む、上位で所在を確定したFilesystemの読取り。
  * @effect Fileを読取り、Commit・採用・巻戻し・削除を発行しない。
  */

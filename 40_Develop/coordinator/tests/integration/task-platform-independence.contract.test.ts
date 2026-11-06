@@ -155,6 +155,8 @@ const SOURCE_ROLES = {
   ],
   storage: ["decision/store.ts"],
   technicalExecution: [
+    "execution/files.ts",
+    "workspace/git.ts",
     "execution/types.ts",
     "execution/lease.ts",
     "execution/controller.ts",
@@ -1060,10 +1062,12 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
   }
   assert.equal(
     /process\.platform/u.test(
-      readRuntimeSource(
-        "40_Develop/platform-access/src/process/observation.ts",
-      ),
+      readRuntimeSource("40_Develop/coordinator/src/objective/execute.ts"),
     ),
     true,
+  );
+  assert.match(
+    readRuntimeSource("40_Develop/coordinator/src/execution/kernel-lock.ts"),
+    /process\.kill\(ownerProcessId, 0\)/u,
   );
 });

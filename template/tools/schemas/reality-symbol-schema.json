@@ -117,7 +117,7 @@
               "required": ["qaIds", "localTestIds", "verifies"],
               "not": { "required": ["verificationTarget"] },
               "properties": {
-                "path": { "pattern": "^(scripts/|tests/fixtures/).+\\.(ts|rs)$" },
+                "path": { "pattern": "^(scripts/|tests/fixtures/).+" },
                 "archIds": { "maxItems": 0 },
                 "qaIds": { "minItems": 1 },
                 "localTestIds": { "minItems": 1 },

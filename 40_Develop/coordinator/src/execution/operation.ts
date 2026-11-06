@@ -1212,7 +1212,8 @@ export function inspectBorrowedExecutionTarget(
 /**
  * 元Operationへ借用対象と自己所有placeholderを短期結合する。
  * @responsibility 清掃先を変更せず、Provider用実行先だけを提供する。
- * @trace ARCH-000004 ARCH-000008
+ * @trace ARCH-000004
+ * @trace ARCH-000008
  * @input 正真正の管理・Mount参照と検証対象。
  * @returns 対象又はnull。
  * @precondition 通常Sourceの走査が別途成立する。

@@ -4,6 +4,8 @@
  * @level UT
  * @scope 本番開始本文と閉じた診断変換。
  * @boundary メモリ代役のみ。Docker・認証・実Writerは使用しない。
+ * @packageDocumentation
+ * @responsibility 回復開始の段階診断を外部Effectなしで検証する。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -218,7 +220,17 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
   }
 });
 
-/** 固定段階・元参照だけを受理し、未知内容を保存候補へ通さない。 */
+/**
+ * 固定段階・元参照だけを受理し、未知内容を保存候補へ通さない。
+ * @responsibility 回復開始診断codecは未知段階・余分field・偽参照を拒否する
+ * @trace PRL-UT-006
+ * @precondition 本番開始本文と閉じた診断変換。
+ * @stimulus 回復開始診断codecは未知段階・余分field・偽参照を拒否するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回復開始診断codecは未知段階・余分field・偽参照を拒否するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary メモリ代役のみ。Docker・認証・実Writerは使用しない。
+ */
 test("回復開始診断codecは未知段階・余分field・偽参照を拒否する", () => {
   assert.deepEqual(
     inspectRecoveryStartFailureDiagnostic({
@@ -258,7 +270,7 @@ test("回復開始診断codecは未知段階・余分field・偽参照を拒否�
 /**
  * 正常応答と不正な回復値を照合する。
  * @responsibility 原Capabilityとexact参照の結合を維持する。
- * @trace ERB-IT-004
+ * @trace PRL-UT-006
  * @precondition 合成のHome hash・回復参照・不透明Capability。
  * @stimulus Owner有無、別Home、Proxy、accessor、余分・欠測を渡す。
  * @observation 所有Snapshot又はnull、getter未実行。

@@ -193,6 +193,7 @@ export type ResourceCleanupResult<
   K extends keyof ResourceOperations = keyof ResourceOperations,
 > = ResourceOperations[K]["cleanupResult"];
 
+/** 資源観測・対象照合・回収へ使用する固定の技術操作契約。 */
 interface ResourceOperations {
   snapshot: {
     inspect: IsolationCleanupRequest;

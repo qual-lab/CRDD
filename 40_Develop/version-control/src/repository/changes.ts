@@ -1,7 +1,8 @@
 /**
  * 選択FileのIndex／作業内容の差分を固定Git実装から読み取る。
  * @responsibility 原本・Pathの確認、差分の区分、出力上限と観測不能時の拒否を所有する。
- * @trace ARCH-000002 ARCH-000009
+ * @trace ARCH-000002
+ * @trace ARCH-000009
  */
 import { isCommitId, isCommitPath } from "./commit.ts";
 import type { CommitDiffRequest, CommitDiff, FileDiff } from "./types.ts";

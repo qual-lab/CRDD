@@ -13,6 +13,7 @@ import {
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import type { ExecutionResult } from "../../../ai-adapter/src/index.ts";
 import type { RecordedAttemptResult } from "./types.ts";
+/** AI Adapterの解釈済み助言を返却内容として使用する。 */
 type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
 import {
@@ -31,6 +32,7 @@ import {
 import { readRepositoryNetworkHosts } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
 import { resolveRecoveryReference } from "./validation.ts";
+/** 解釈済み助言の一項目を内容型の正本から再利用する。 */
 type AdviceResultItem = AdviceResult["facts"][number];
 import path from "node:path";
 import fs from "node:fs";

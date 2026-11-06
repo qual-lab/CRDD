@@ -46,7 +46,8 @@ import {
 /**
  * 計画の品質受入に必要な既存Git採用記録を再観測する。
  * @responsibility 元計画・Queue・Workspace・固定候補・取込HEADを結合する。
- * @trace ARCH-000005 ARCH-000004
+ * @trace ARCH-000005
+ * @trace ARCH-000004
  * @input 所属Root、Repository結合、Project／Milestone、元計画Revision、現在HEAD。
  * @returns Direct又は同じ計画の明示採用を確認できた場合だけtrue。
  * @effect 既存Snapshotの読取りのみ。Git変更・Task開始なし。

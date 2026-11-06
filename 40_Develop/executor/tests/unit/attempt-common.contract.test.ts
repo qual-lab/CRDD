@@ -5,6 +5,7 @@
  * @level UT
  * @scope 実入力構築とAdapter本文。実Process・Docker・AIは使用しない。
  * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
+ * @packageDocumentation
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -32,6 +33,7 @@ import {
  * @observation 上位理由と元failure全field、検証Toolの受理・不正値拒否。
  * @oracle 異なるDI理由を復元でき、自由文と余剰fieldは受理しない。
  * @cleanup 有限Completionまで待つ。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("DIの元失敗を診断に保持し検証Toolへ欠落なく搬送する", async () => {
   for (const reason of [
@@ -142,6 +144,11 @@ test("必須通知は元Snapshotと回収方針を同じ実行から搬送する
  * @responsibility 発行前Intent・Receipt・最終観測の順序を結合して確認する。
  * @trace ERB-UT-023
  * @boundary 実宣言と純粋Domain。物理耐久性・Docker実体の主張ではない。
+ * @precondition 実入力構築とAdapter本文。実Process・Docker・AIは使用しない。
+ * @stimulus 通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できるの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できるという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  */
 test("通常Attemptの必須通知は同じBookへIntent・Receipt・最終観測を接続できる", async () => {
   const f = fixture();
@@ -648,6 +655,7 @@ function fixture() {
  * @observation 元回復ID、Snapshot、Home解放回数と最終結果。
  * @oracle 要求前拒否以外の未確認ではHomeを保持し、自動再要求しない。
  * @cleanup メモリ内のPromiseだけ。実Home・資源を取得しない。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を区別する", async () => {
   for (const transform of [
@@ -716,6 +724,7 @@ test("DIの未確認結果はHomeを保持し準備拒否と要求時例外を�
  * @observation 作成観測、回復ID、Cleanup未確認とHome保持。
  * @oracle 元実IDがあれば作成観測true。不明な回収を成功にしない。
  * @cleanup 実資源なし。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("作成通知前の中断でも最終SnapshotのProvider実IDを観測する", async () => {
   const f = fixture();
@@ -757,6 +766,7 @@ test("作成通知前の中断でも最終SnapshotのProvider実IDを観測す�
  * @observation 三段の実順序と元回復ID・結果。
  * @oracle 通知失敗はblocked、確認済みHome解放は保持。
  * @cleanup 実資源なし。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("資源終了通知とHome解放と最終通知の三段順序を維持する", async () => {
   for (const mode of ["normal", "closed", "completed"]) {
@@ -788,6 +798,7 @@ test("資源終了通知とHome解放と最終通知の三段順序を維持す�
  * @observation 固定理由、同じ回復ID、内容非公開とHome終了。
  * @oracle 期限理由を一般例外へ変換しない。
  * @cleanup 実資源なし。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("DIの正規Timeoutと通信失敗を分け後着通知で上書きしない", async () => {
   for (const [key, code, reason] of [
@@ -1140,6 +1151,7 @@ test("資源Identityの不正はHome取得・DI要求より前に拒否する", 
  * @observation 元環境値又はnull。
  * @oracle 不正値の補完・文字列変換なし。
  * @cleanup 局所VMのみ。実資源なし。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 test("Executorの認証環境構築は予約名を拒否し固定Homeだけを返す", () => {
   const { createAuthenticationEnvironment } = preparationFunctions();
@@ -1172,6 +1184,7 @@ test("Executorの認証環境構築は予約名を拒否し固定Homeだけを�
  * @observation 移管先の同じ関数。
  * @oracle 手書きの置換実装を使わない。
  * @cleanup メモリ内のVMのみ。
+ * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  */
 function preparationFunctions(): {
   createRandomHex: (
@@ -1216,6 +1229,11 @@ function preparationFunctions(): {
  * @responsibility 取消受理と内容公開の矛盾を防ぎ、先行失敗と終了後拒否を保持する。
  * @trace ERB-UT-023
  * @boundary 実Attempt本文と有限DIだけ。実AI・Docker・Filesystemなし。
+ * @precondition 実入力構築とAdapter本文。実Process・Docker・AIは使用しない。
+ * @stimulus 終端診断中の取消は成功内容を公開せず先行失敗と終了後拒否を維持するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 終端診断中の取消は成功内容を公開せず先行失敗と終了後拒否を維持するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  */
 test("終端診断中の取消は成功内容を公開せず先行失敗と終了後拒否を維持する", async () => {
   for (const earlierFailure of [false, true])

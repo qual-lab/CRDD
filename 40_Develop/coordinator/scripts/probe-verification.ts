@@ -244,6 +244,7 @@ function ownString(value: unknown, key: string): string | null {
   return typeof candidate === "string" ? candidate : null;
 }
 
+/** 例外から文字列messageだけを取り出し、取得できなければnullを返す。 */
 function isolationProbeErrorMessage(error: unknown): string | null {
   return error instanceof Error ? error.message : ownString(error, "message");
 }

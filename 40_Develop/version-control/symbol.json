@@ -345,6 +345,7 @@
         "ARCH-000002",
         "ARCH-000009"
       ]
-    }
+    },
+    {"symbolId":"version-control.test.integration.repository-storage-identity","kind":"test-suite","path":"tests/integration/repository-storage-identity.integration.test.ts","qaIds":["QA-000007"],"localTestIds":["RFD-IT-001","RFD-IT-002"],"verifies":["version-control.source.src.repository.location","version-control.source.src.fixed.revision"]}
   ]
 }

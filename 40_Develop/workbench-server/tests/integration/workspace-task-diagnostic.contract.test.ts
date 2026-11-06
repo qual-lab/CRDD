@@ -1,11 +1,14 @@
-import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * Workspace試験の回復開始・候補検査診断を、同じTaskと有限な安全結果へ結合する。
  * @trace ERB-IT-021
  * @level IT
  * @scope 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
  * @boundary 受動通知→検証Toolの結果記録。
+ * @packageDocumentation
+ * @responsibility Workspace試験の回復開始・候補検査診断を、同じTaskと有限な安全結果へ結合する。
  */
+import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
 import fs from "node:fs";
@@ -21,6 +24,17 @@ import { inspectCodexExecutionObservation } from "../../../ai-adapter/scripts/ai
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
 const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+/**
+ * Task相関を持つ診断event候補を構築する。
+ * @responsibility Task相関を持つ診断event候補を構築する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus Task相関を持つ診断event候補を構築する。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 const event = (overrides: Record<string, unknown> = {}) => ({
   event: "coordinator_provider_recovery_start_failed",
   provider: "codex",
@@ -31,6 +45,17 @@ const event = (overrides: Record<string, unknown> = {}) => ({
   diagnostic: { stage: "operation_start_save", recoveryId },
   ...overrides,
 });
+/**
+ * 診断候補を試験用JSON frameへ符号化する。
+ * @responsibility 診断候補を試験用JSON frameへ符号化する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 診断候補を試験用JSON frameへ符号化する。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 const frame = (value: object) =>
   `[Coordinator lifecycle] ${JSON.stringify(value)}\n`;
 const identity = {
@@ -42,7 +67,17 @@ const identity = {
   recoveryId,
 };
 
-/** 合成Provider応答を実Parserで投影し、検査対象の私有Key一覧には依存しない。 */
+/**
+ * 合成Provider応答を実Parserで投影し、検査対象の私有Key一覧には依存しない。
+ * @responsibility 要求・応答・終了の合成観測を構築する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 要求・応答・終了の合成観測を構築する。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 function executionObservationFixture(): Record<string, unknown> {
   const parsed = extractProviderResult({
     provider: "codex",
@@ -74,6 +109,12 @@ function executionObservationFixture(): Record<string, unknown> {
 /** 境界終端は既存一次失敗だけを保存し、本文・別試行・不完全相関を受理しない。
  * @trace ERB-IT-021
  * @boundary 合成通知→同じ有限collector。AI・Docker・Filesystemなし。
+ * @responsibility 境界終端診断は要求・応答・Receiptの停止点を完全相関で搬送する
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 境界終端診断は要求・応答・Receiptの停止点を完全相関で搬送するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 境界終端診断は要求・応答・Receiptの停止点を完全相関で搬送するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  */
 test("境界終端診断は要求・応答・Receiptの停止点を完全相関で搬送する", () => {
   for (const stage of [
@@ -194,6 +235,12 @@ test("境界終端診断は要求・応答・Receiptの停止点を完全相関�
 /** 退役後の履歴帰属は完全Identity確認と区別し、exact参照欠落を推測しない。
  * @trace ERB-IT-021
  * @boundary 合成の履歴参照→既存collector。保存や実資源の操作なし。
+ * @responsibility 境界終端の履歴のみ帰属は同exact参照一件に限定する
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 境界終端の履歴のみ帰属は同exact参照一件に限定するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 境界終端の履歴のみ帰属は同exact参照一件に限定するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
  */
 test("境界終端の履歴のみ帰属は同exact参照一件に限定する", () => {
   for (const mode of [
@@ -259,6 +306,17 @@ test("境界終端の履歴のみ帰属は同exact参照一件に限定する", 
   }
 });
 
+/**
+ * 候補検証の固定相関eventを構築する。
+ * @responsibility 候補検証の固定相関eventを構築する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 候補検証の固定相関eventを構築する。
+ * @observation 構築した候補、有限応答または検出した例外。
+ * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+ * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 const candidateEvent = (overrides: Record<string, unknown> = {}) => ({
   ...event(),
   event: "coordinator_task_candidate_validation_failed",
@@ -272,7 +330,17 @@ const candidateEvent = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-/** 四段階は同じ取得器で相関し、復元・不正入力拒否と本文非保存を維持する。 */
+/**
+ * 四段階は同じ取得器で相関し、復元・不正入力拒否と本文非保存を維持する。
+ * @responsibility 段階診断は初回・是正の編集とレビューを本文なしで搬送する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 段階診断は初回・是正の編集とレビューを本文なしで搬送するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 段階診断は初回・是正の編集とレビューを本文なしで搬送するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("段階診断は初回・是正の編集とレビューを本文なしで搬送する", () => {
   for (const mode of [
     "valid",
@@ -381,7 +449,17 @@ test("段階診断は初回・是正の編集とレビューを本文なしで�
   );
 });
 
-/** 現行観測は新件数を必須とし、旧診断の欠測を零補完しない。 */
+/**
+ * 現行観測は新件数を必須とし、旧診断の欠測を零補完しない。
+ * @responsibility 内部エラー観測は版・欠測・部分集合相関を検査する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 内部エラー観測は版・欠測・部分集合相関を検査するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 内部エラー観測は版・欠測・部分集合相関を検査するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("内部エラー観測は版・欠測・部分集合相関を検査する", () => {
   const base = executionObservationFixture();
   for (const [total, code, valid] of [
@@ -586,7 +664,17 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
     assert.equal(inspectCodexExecutionObservation(invalid), null);
 });
 
-/** 完了を期待する段階の欠測・逆順は、Task成功や取得成功へ補完しない。 */
+/**
+ * 完了を期待する段階の欠測・逆順は、Task成功や取得成功へ補完しない。
+ * @responsibility 段階取得は完了時の二段階・四段階と欠測・逆順を区別する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 段階取得は完了時の二段階・四段階と欠測・逆順を区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 段階取得は完了時の二段階・四段階と欠測・逆順を区別するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("段階取得は完了時の二段階・四段階と欠測・逆順を区別する", () => {
   for (const sequence of [
     ["executor:0", "reviewer:0"],
@@ -656,7 +744,17 @@ test("段階取得は完了時の二段階・四段階と欠測・逆順を区�
   }
 });
 
-/** 候補診断は現在操作の完全相関と履歴だけの帰属を区別する。 */
+/**
+ * 候補診断は現在操作の完全相関と履歴だけの帰属を区別する。
+ * @responsibility 候補collectorは既存一取得器で完全相関・履歴相関と独立欠測を区別する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 候補collectorは既存一取得器で完全相関・履歴相関と独立欠測を区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 候補collectorは既存一取得器で完全相関・履歴相関と独立欠測を区別するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("候補collectorは既存一取得器で完全相関・履歴相関と独立欠測を区別する", () => {
   for (const mode of [
     "current",
@@ -723,7 +821,17 @@ test("候補collectorは既存一取得器で完全相関・履歴相関と独�
   }
 });
 
-/** 無関係・不正・重複を受領済みへ畳まず、本文を結果へ複製しない。 */
+/**
+ * 無関係・不正・重複を受領済みへ畳まず、本文を結果へ複製しない。
+ * @responsibility 候補collectorは不正・別相関・重複・超過を拒否する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 候補collectorは不正・別相関・重複・超過を拒否するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 候補collectorは不正・別相関・重複・超過を拒否するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("候補collectorは不正・別相関・重複・超過を拒否する", () => {
   for (const scenario of [
     "foreign-task",
@@ -795,7 +903,17 @@ test("候補collectorは不正・別相関・重複・超過を拒否する", ()
   }
 });
 
-/** 診断の件数・一致関係と既存コマンド観測を共通検査へ接続する。 */
+/**
+ * 診断の件数・一致関係と既存コマンド観測を共通検査へ接続する。
+ * @responsibility 診断frameは重複key・異なるevent・非objectを保持しない
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 診断frameは重複key・異なるevent・非objectを保持しないの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 診断frameは重複key・異なるevent・非objectを保持しないという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("診断frameは重複key・異なるevent・非objectを保持しない", () => {
   for (const value of [event(), candidateEvent()]) {
     for (const suffix of [
@@ -836,7 +954,17 @@ test("診断frameは重複key・異なるevent・非objectを保持しない", (
   }
 });
 
-/** 診断の件数・一致関係と既存コマンド観測を共通検査へ接続する。 */
+/**
+ * 診断の件数・一致関係と既存コマンド観測を共通検査へ接続する。
+ * @responsibility 候補診断の閉形式は相関する件数と非秘密観測だけを受理する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 候補診断の閉形式は相関する件数と非秘密観測だけを受理するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 候補診断の閉形式は相関する件数と非秘密観測だけを受理するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("候補診断の閉形式は相関する件数と非秘密観測だけを受理する", () => {
   const observation = executionObservationFixture();
   observation.transport = "fixed_cli_jsonl_v0_164_0";
@@ -886,7 +1014,17 @@ test("候補診断の閉形式は相関する件数と非秘密観測だけを�
   );
 });
 
-/** 元write・callbackを透過し、検査済みイベントだけを同じTaskへ返す。 */
+/**
+ * 元write・callbackを透過し、検査済みイベントだけを同じTaskへ返す。
+ * @responsibility 回復開始collectorは元stderrを透過し同じTaskだけ取得する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 回復開始collectorは元stderrを透過し同じTaskだけ取得するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回復開始collectorは元stderrを透過し同じTaskだけ取得するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("回復開始collectorは元stderrを透過し同じTaskだけ取得する", () => {
   const chunks: string[] = [];
   const stream = new Writable({
@@ -912,7 +1050,17 @@ test("回復開始collectorは元stderrを透過し同じTaskだけ取得する"
   );
 });
 
-/** 欠測・拒否・過大・別相関・重複を成功診断へ丸めない。 */
+/**
+ * 欠測・拒否・過大・別相関・重複を成功診断へ丸めない。
+ * @responsibility 回復開始collectorは欠測・不正・過大・別Taskを区別する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 回復開始collectorは欠測・不正・過大・別Taskを区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回復開始collectorは欠測・不正・過大・別Taskを区別するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("回復開始collectorは欠測・不正・過大・別Taskを区別する", () => {
   for (const scenario of [
     "empty-success",
@@ -1003,7 +1151,17 @@ test("回復開始collectorは欠測・不正・過大・別Taskを区別する"
   }
 });
 
-/** 同じ参照でも各Identityの差を拒否し、ID前診断をexactと表示しない。 */
+/**
+ * 同じ参照でも各Identityの差を拒否し、ID前診断をexactと表示しない。
+ * @responsibility 回復開始collectorは完全IdentityとTask相関のみを区別する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 回復開始collectorは完全IdentityとTask相関のみを区別するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回復開始collectorは完全IdentityとTask相関のみを区別するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("回復開始collectorは完全IdentityとTask相関のみを区別する", () => {
   for (const overrides of [
     {},
@@ -1156,7 +1314,17 @@ test("回復開始collectorは完全IdentityとTask相関のみを区別する",
   }
 });
 
-/** 復元できない場合は同Processで新しい取得を許可しない。 */
+/**
+ * 復元できない場合は同Processで新しい取得を許可しない。
+ * @responsibility 回復開始collectorは復元不能後の再設置を拒否する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 回復開始collectorは復元不能後の再設置を拒否するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回復開始collectorは復元不能後の再設置を拒否するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("回復開始collectorは復元不能後の再設置を拒否する", () => {
   const stream = new Writable({
     write(_chunk, _encoding, done) {
@@ -1164,6 +1332,17 @@ test("回復開始collectorは復元不能後の再設置を拒否する", () =>
     },
   });
   const collector = captureWorkspaceTaskDiagnostic(stream);
+  /**
+   * 元Writerと異なる関数を用意して復元失敗を刺激する。
+   * @responsibility 元Writerと異なる関数を用意して復元失敗を刺激する
+   * @trace ERB-IT-021
+   * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+   * @stimulus 元Writerと異なる関数を用意して復元失敗を刺激する。
+   * @observation 構築した候補、有限応答または検出した例外。
+   * @oracle 呼出し元の対照試験へ固定入力・観測を渡し、実処理の成功を捏造しない。
+   * @cleanup 実資源の所有は呼出し元Caseに残し、構築した合成値自体に解放処理はない。
+   * @boundary 受動通知→検証Toolの結果記録。
+   */
   const foreignWrite = (() => true) as typeof stream.write;
   stream.write = foreignWrite;
   const result = collector.finish(correlation, [], false);
@@ -1181,7 +1360,17 @@ test("回復開始collectorは復元不能後の再設置を拒否する", () =>
   );
 });
 
-/** writeの復元代入自体が失敗しても同じProcessのlatchを解除しない。 */
+/**
+ * writeの復元代入自体が失敗しても同じProcessのlatchを解除しない。
+ * @responsibility 回復開始collectorは復元代入の拒否と無反映を保持する
+ * @trace ERB-IT-021
+ * @precondition 固定診断・stderr透過・終了時復元。外部AIと実Dockerは使用しない。
+ * @stimulus 回復開始collectorは復元代入の拒否と無反映を保持するの対照入力・故障条件を与える。
+ * @observation 返却値・例外と、このCaseが捕捉する要求／通知の記録。
+ * @oracle 回復開始collectorは復元代入の拒否と無反映を保持するという条件をassertionで判定する。
+ * @cleanup このCaseのmock／hookで今回取得した資源を終了する。合成値だけのCaseは解放不要。
+ * @boundary 受動通知→検証Toolの結果記録。
+ */
 test("回復開始collectorは復元代入の拒否と無反映を保持する", () => {
   const source = fs.readFileSync(
     new URL("../../scripts/workspace-task-diagnostic.ts", import.meta.url),

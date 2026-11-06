@@ -1,9 +1,11 @@
 /**
  * 共通資源入口の同期Containerと固定Directory接続を確認する。
  * @responsibility 技術順序・同期性・元Promiseと取消の保持を反証する。
- * @trace ARCH-000008
+ * @trace ERB-UT-023
  * @level UT
  * @scope 有限依存だけを使用し、Docker・Native・既存保持物は操作しない。
+ * @packageDocumentation
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -15,12 +17,13 @@ import { runInNewContext } from "node:vm";
 /**
  * 移管したContainerの合成順序を実本文で確認する。
  * @responsibility 不存在と不明を区別し、各要求前の取消を維持する。
- * @trace ARCH-000008
+ * @trace ERB-UT-023
  * @precondition 低位Docker接続は有限代役。
  * @stimulus 不存在・存在・不明・取消。
  * @observation 操作列と返却結果。
  * @oracle 不存在ならinspectせず、取消後は要求0。
  * @cleanup VMのみ。実資源なし。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 test("Container技術Ownerは三軸不存在を先行し取消後の要求を止める", () => {
   const source = fs.readFileSync(
@@ -118,12 +121,13 @@ test("Container技術Ownerは三軸不存在を先行し取消後の要求を止
 /**
  * 公開入口が技術対象だけで振り分け元の同期性を保つことを確認する。
  * @responsibility Directory入力・結果・Promiseを包み直さない。
- * @trace ARCH-000008
+ * @trace ERB-UT-023
  * @precondition 下位の限定操作はModule代役。
  * @stimulus Container・DirectoryとDirectory観測不能。
  * @observation 同じ対象・結果・Promise参照。
  * @oracle 別用途の実行・変換・補完0。
  * @cleanup mock解除。実資源なし。
+ * @boundary 合成依存から本番判定への限定境界。実AI・Dockerの成立は主張しない。
  */
 test("DI共通公開入口はContainer同期結果とDirectory元Promiseを保持する", async () => {
   const container = await import("../../src/cleanup/container.ts");

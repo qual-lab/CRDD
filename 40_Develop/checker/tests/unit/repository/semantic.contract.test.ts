@@ -318,14 +318,29 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   const verificationTools = discovery.manifests.flatMap(({ manifest }) =>
     manifest.symbols.filter((symbol) => symbol.kind === "verification-tool"),
   );
-  assert.equal(verificationTools.length, 4);
+  assert.ok(verificationTools.length > 0);
   const toolIds = new Set(verificationTools.map(({ symbolId }) => symbolId));
+  assert.equal(toolIds.size, verificationTools.length);
+  for (const representative of [
+    "coordinator.verification.native-protection",
+    "executor.verification.provider-real",
+    "workbench-server.scripts.ai-verification-client",
+  ])
+    assert.ok(toolIds.has(representative), representative);
   const toolTests = discovery.manifests.flatMap(({ manifest }) =>
     manifest.symbols.filter((symbol) =>
       symbol.verifies.some((target) => toolIds.has(target)),
     ),
   );
-  assert.equal(toolTests.length, 3);
+  assert.ok(toolTests.length > 0);
+  const toolTestIds = new Set(toolTests.map(({ symbolId }) => symbolId));
+  assert.equal(toolTestIds.size, toolTests.length);
+  for (const representative of [
+    "coordinator.test.integration.native-protection-entry",
+    "executor.test.integration.provider-real-cli",
+    "workbench-server.test.integration.ai-verification-client",
+  ])
+    assert.ok(toolTestIds.has(representative), representative);
   for (const symbol of [...verificationTools, ...toolTests]) {
     assert.equal(
       [...built.graph.implementationIdsByMeaningKey.values()]

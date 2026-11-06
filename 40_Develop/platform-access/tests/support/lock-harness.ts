@@ -13,7 +13,7 @@ import type {
   HostOperationSupervisorLockOutcome,
   InteractiveConsoleKernelLockOutcome,
 } from "../../src/index.ts";
-import { createWindowsHostOperationSupervisorEnvironment } from "../../src/index.ts";
+import { createChildProcessEnvironment } from "../../src/index.ts";
 
 import {
   runHostOperationSupervisorLifecycle,
@@ -61,7 +61,7 @@ export async function acquireHostOperationSupervisorLockUsingChildFactory(
       "\\\\.\\pipe\\CRDD.Coordinator.HostOperation.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     timing,
   };
-  const environment = createWindowsHostOperationSupervisorEnvironment();
+  const environment = createChildProcessEnvironment({ platform: "win32" });
   if (!environment) return Object.freeze({ status: "unavailable", lock: null });
   const fixedRequest = Object.freeze({ ...request, environment });
   let child: ChildProcess;

@@ -145,6 +145,7 @@ export type DockerEnvironmentRequest<
     keyof DockerEnvironmentOperations = keyof DockerEnvironmentOperations,
 > = DockerEnvironmentOperations[M]["request"];
 
+/** 環境操作の固定依存関数を結ぶ実行・観測・終了の契約。 */
 interface DockerEnvironmentOperations {
   restart: {
     request: Readonly<{ mode: "restart"; input: RestartInput }>;

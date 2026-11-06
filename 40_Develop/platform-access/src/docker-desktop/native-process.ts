@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  createWindowsNativeHelperEnvironment,
+  createChildProcessEnvironment,
   deriveWindowsSystemDrive,
 } from "../process/environment.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "./protocol.ts";
@@ -283,7 +283,10 @@ async function acquireRuntimeOwnedDockerDesktopNativeHelper(
   const artifactObservation = beginPlatformAccessArtifactObservation(
     dockerDesktopDistributionRoot,
   );
-  const baseEnvironment = createWindowsNativeHelperEnvironment();
+  const baseEnvironment = createChildProcessEnvironment({
+    platform: "win32",
+    userProfile: true,
+  });
   const systemDrive =
     baseEnvironment && deriveWindowsSystemDrive(baseEnvironment.SystemRoot);
   const environment =

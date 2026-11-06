@@ -1,14 +1,11 @@
 /**
  * Repositoryの実装・試験Traceを観測して診断へ接続する。
  *
- * @responsibility Root再検証、Manifest・Catalog・Test Sourceの読取り順を所有する。
+ * @responsibility Root再検証とManifest・Catalogから成果物関係を構築する。Source内部は解析しない。
  * @trace ARCH-000001
  */
-import fs from "node:fs";
-import path from "node:path";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
-  hasSkippedTestDeclaration,
   createRealitySymbolGraph as createDomainRealitySymbolGraph,
   type LoadedRealitySymbolManifest,
   type RealitySymbolGraph,
@@ -24,15 +21,15 @@ import type { CheckerFinding } from "../report/types.ts";
 /**
  * 固定された適用条件の後でRealityの観測と診断を行う。
  *
- * @responsibility 既存のRoot・Manifest・Catalog・Graph・skip検査順を維持する。
+ * @responsibility Root・Manifest・Catalog・Graphの構造確認を行い、実行結果を推定しない。
  * @trace ARCH-000001
  * @input repositoryRoot: 適用対象Root。add: この観測の診断収集先。
  * @returns N/A: 診断をaddへ渡す。
  * @precondition 適用の初期観測と十工程の検査は呼出し元が実施済みである。
  * @postcondition 取得不能を正常化せず、既存code・rule・Path・文言を渡す。
- * @effect Rootを再検証し、Manifestがある場合だけCatalogを読む。Test Sourceを同期読取りする。書込みなし。
+ * @effect Rootを再検証し、Manifestがある場合だけCatalogを読む。登録Pathの実体は観測するがSource本文は解析しない。書込みなし。
  * @failure Root未検証は診断、その他の既存観測例外・add例外は伝播する。
- * @invariant 観測順やskip検出の受理集合を拡張しない。
+ * @invariant 登録の構造成立を試験実行・Pass・観測済みEvidenceへ昇格しない。
  * @boundary Repository・Version Control公開APIとDomainモデルの境界。
  * @security 未実行の宣言を実行済みEvidenceにしない。
  * @concurrency N/A: 同じ起動内の同期観測。
@@ -73,26 +70,6 @@ export function inspectRealityRepository(
       rule: "current-profile.reality-symbol-graph",
       message: finding.message,
     });
-  for (const loaded of discovery.manifests)
-    for (const symbol of loaded.manifest.symbols) {
-      if (
-        symbol.localTestIds.length === 0 ||
-        (symbol.kind !== "test-suite" && symbol.kind !== "test-case")
-      )
-        continue;
-      const testPath = path.join(loaded.subsystemRoot, symbol.path);
-      if (!fs.existsSync(testPath)) continue;
-      const source = fs.readFileSync(testPath, "utf8");
-      if (hasSkippedTestDeclaration(source))
-        add({
-          severity: "error",
-          code: "reality-symbol-skipped-test-evidence-forbidden",
-          path: path.relative(repositoryRoot, testPath).replaceAll("\\", "/"),
-          rule: "current-profile.reality-symbol-graph",
-          message:
-            "A skipped test placeholder cannot own Local Item relations or count as observed verification evidence.",
-        });
-    }
 }
 
 /**

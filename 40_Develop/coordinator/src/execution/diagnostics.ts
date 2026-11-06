@@ -45,8 +45,7 @@ import {
   type ResourceTarget,
 } from "../../../executor/src/index.ts";
 import {
-  createWindowsHostOperationSupervisorEnvironment,
-  createWindowsNativeHelperEnvironment,
+  createChildProcessEnvironment,
   observeNativeArtifact,
 } from "../../../platform-access/src/index.ts";
 import {
@@ -1062,7 +1061,7 @@ const sourceDistributionRoot = path.resolve(
  * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type developmentMeasurementSessionProvider = "codex" | "claude";
+type DevelopmentMeasurementSessionProvider = "codex" | "claude";
 
 /**
  * development-measurement-sessionで使用するRoleの値契約を定義する。
@@ -1075,7 +1074,7 @@ type developmentMeasurementSessionProvider = "codex" | "claude";
  * @security RoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility Roleの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type developmentMeasurementSessionRole = "executor" | "reviewer";
+type DevelopmentMeasurementSessionRole = "executor" | "reviewer";
 
 /**
  * development-measurement-sessionで使用するConstraintsの値契約を定義する。
@@ -1122,8 +1121,8 @@ type TaskRequest = Extract<
 type Task = Readonly<{
   request: TaskRequest;
   scopeSha256: string;
-  executor: developmentMeasurementSessionProvider;
-  reviewer: developmentMeasurementSessionProvider;
+  executor: DevelopmentMeasurementSessionProvider;
+  reviewer: DevelopmentMeasurementSessionProvider;
 }>;
 
 /**
@@ -2040,8 +2039,8 @@ function createSessionRuntime(dependencies: Dependencies) {
      */
     reserveInvocation(
       taskCapability: object,
-      provider: developmentMeasurementSessionProvider,
-      role: developmentMeasurementSessionRole,
+      provider: DevelopmentMeasurementSessionProvider,
+      role: DevelopmentMeasurementSessionRole,
     ) {
       const binding = taskBindings.get(taskCapability);
       const observed =
@@ -2077,8 +2076,8 @@ function createSessionRuntime(dependencies: Dependencies) {
     consumeInvocation(
       taskCapability: object,
       invocationCapability: object,
-      provider: developmentMeasurementSessionProvider,
-      role: developmentMeasurementSessionRole,
+      provider: DevelopmentMeasurementSessionProvider,
+      role: DevelopmentMeasurementSessionRole,
     ) {
       const binding = taskBindings.get(taskCapability);
       const observed =
@@ -2483,8 +2482,8 @@ export function reserveRuntimeOwnedDevelopmentMeasurementTask(
         repositoryBindingCapability,
       ),
     beginInvocation: (
-      provider: developmentMeasurementSessionProvider,
-      role: developmentMeasurementSessionRole,
+      provider: DevelopmentMeasurementSessionProvider,
+      role: DevelopmentMeasurementSessionRole,
     ) => {
       const invocation = productionRuntime.reserveInvocation(
         taskCapability,
@@ -6895,11 +6894,14 @@ function deriveChildEnvironment(
   if (profile === "native_helper") {
     if (Object.keys(request).length !== 1)
       return blocked("windows_child_environment_request_invalid");
-    environment = createWindowsNativeHelperEnvironment();
+    environment = createChildProcessEnvironment({
+      platform: "win32",
+      userProfile: true,
+    });
   } else if (profile === "host_operation_supervisor") {
     if (Object.keys(request).length !== 1)
       return blocked("windows_child_environment_request_invalid");
-    environment = createWindowsHostOperationSupervisorEnvironment();
+    environment = createChildProcessEnvironment({ platform: "win32" });
   }
   if (environment === null)
     return blocked("windows_child_environment_unavailable");

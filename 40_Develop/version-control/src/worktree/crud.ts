@@ -21,6 +21,7 @@ import {
 } from "../repository/location.ts";
 import { resolveRepositoryGitLayout } from "../repository/layout.ts";
 
+/** Git worktree一覧から得た登録対象の内部表現。 */
 type RecordEntry = {
   root: string;
   head: string | null;
