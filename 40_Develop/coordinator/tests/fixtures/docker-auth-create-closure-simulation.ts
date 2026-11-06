@@ -158,8 +158,8 @@ export async function simulateAuthCreateClosure(
   } else if (mutation.startsWith("boundary_")) {
     const replacements: Record<string, [string, string]> = {
       boundary_root: [
-        "vc.verifyRepositoryRoot(root)",
-        "vc.verifyRepositoryRoot(path.dirname(root))",
+        "vc.getRepository(root)",
+        "vc.getRepository(path.dirname(root))",
       ],
       boundary_capability: [
         "const rootCapability = verified.capability;",
@@ -815,7 +815,7 @@ export async function simulateAuthCreateClosure(
     loads.push(resolved);
     if (loads.length === 1)
       return {
-        verifyRepositoryRoot: (location: string) => {
+        getRepository: (location: string) => {
           rootVerifications++;
           assert.ok(location === root || location === distribution);
           return {

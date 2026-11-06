@@ -10,18 +10,14 @@
  * @boundary RFD-IT-005=Direct Boundary: Coordinator Port→Version Control Adapter / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import childProcess, { execFileSync } from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createGitLocalChangeSetAdapter } from "../../src/repository/changes.ts";
-import {
-  changedPaths,
-  observeLocalChangeSet,
-} from "../../src/repository/changes.ts";
-import { gitLocalChangeSetAdapter } from "../../src/repository/changes.ts";
-import { verifyRepositoryRoot } from "../../src/repository/location.ts";
+import { readWorkingChanges } from "../../src/repository/working-directory.ts";
+import { getRepository } from "../../src/repository/location.ts";
 
 /**
  * gitのTest準備責務を実行する。
@@ -75,19 +71,15 @@ test("実RepositoryのRevision・準備・作業・未登録変更を分離し�
   fs.writeFileSync(path.join(root, "working.txt"), "working\n", "utf8");
   fs.writeFileSync(path.join(root, "unregistered.txt"), "new\n", "utf8");
 
-  const rootResult = verifyRepositoryRoot(root);
+  const rootResult = getRepository(root);
   assert.equal(rootResult.status, "completed");
   if (rootResult.status !== "completed") return;
-  const observed = observeLocalChangeSet(
-    rootResult.capability,
-    base,
-    gitLocalChangeSetAdapter,
-  );
+  const observed = readWorkingChanges(rootResult.capability, base);
   assert.deepEqual(observed.revisionChanges, ["revision.txt"]);
   assert.deepEqual(observed.preparedChanges, ["prepared.txt"]);
   assert.deepEqual(observed.workingChanges, ["working.txt"]);
   assert.deepEqual(observed.unregisteredPaths, ["unregistered.txt"]);
-  assert.deepEqual(changedPaths(observed), [
+  assert.deepEqual(observed.changedPaths, [
     "prepared.txt",
     "revision.txt",
     "unregistered.txt",
@@ -97,18 +89,18 @@ test("実RepositoryのRevision・準備・作業・未登録変更を分離し�
 });
 
 /**
- * 未Commit状態と差替Adapterで同じPort契約を利用できることを検証する。
+ * 未Commit変更を完成したGit読取り操作だけで観測できることを検証する。
  *
- * @responsibility 通常のRepository作業がCommit SHAまたはGit具象Adapterを成立条件にせず、検証済みRootとVersion Control Portの情報だけで継続できることを確認する。
+ * @responsibility 未Commitの作業変更を完成操作で読み取り、原本と入力の拒否条件を確認する。
  * @trace RFD-IT-005
- * @precondition Test Fileが未Commit変更を持つ実Repositoryと、同じLocalChangeSetAdapter契約を実装する差替Adapterを構築する。
- * @stimulus 両Adapterを使って同じobserveLocalChangeSet操作を実行する。
- * @observation 両結果の契約、変更集合、Adapter受領入力およびRepositoryの未Commit状態を観測する。
- * @oracle 両経路が同じPort契約と変更集合を返し、Git具象情報またはCommit SHAをCore結果へ漏らさない。
+ * @precondition 未Commit変更を持つ合成Repositoryを構築する。
+ * @stimulus 正規対象、複製した対象、不正な比較基準を完成操作へ渡す。
+ * @observation 四区分の変更集合、拒否理由、元の未Commit状態を観測する。
+ * @oracle Gitの変更を返し、不正な原本・入力を拒否し、絶対Pathを結果へ含めない。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RFD-IT-005=Direct Boundary: version-control Test Source→対象契約
  */
-test("未Commit状態と差替Adapterで同じPort契約を利用できる", (t) => {
+test("未Commit変更を完成したGit読取り操作で観測し原本以外を拒否する", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-port-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   git(root, ["init"]);
@@ -120,49 +112,27 @@ test("未Commit状態と差替Adapterで同じPort契約を利用できる", (t)
   fs.writeFileSync(path.join(root, "tracked.txt"), "working\n", "utf8");
   fs.writeFileSync(path.join(root, "unregistered.txt"), "new\n", "utf8");
 
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
 
-  const gitObserved = observeLocalChangeSet(
-    verified.capability,
-    "HEAD",
-    gitLocalChangeSetAdapter,
-  );
-  let replacementInput: Readonly<{
-    repositoryRoot: string;
-    comparisonBase: string;
-  }> | null = null;
-  const replacementObserved = observeLocalChangeSet(
-    verified.capability,
-    "working-baseline",
-    (repositoryRoot, comparisonBase) => {
-      replacementInput = Object.freeze({ repositoryRoot, comparisonBase });
-      return {
-        revisionChanges: [],
-        preparedChanges: [],
-        workingChanges: ["tracked.txt"],
-        unregisteredPaths: ["unregistered.txt"],
-      };
-    },
-  );
+  const gitObserved = readWorkingChanges(verified.capability, "HEAD");
 
-  assert.deepEqual(changedPaths(gitObserved), [
+  assert.deepEqual(gitObserved.changedPaths, [
     "tracked.txt",
     "unregistered.txt",
   ]);
-  assert.deepEqual(replacementObserved, {
-    ...gitObserved,
-    workingChanges: ["tracked.txt"],
-    unregisteredPaths: ["unregistered.txt"],
-  });
-  assert.deepEqual(replacementInput, {
-    repositoryRoot: root,
-    comparisonBase: "working-baseline",
-  });
+  assert.throws(
+    () => readWorkingChanges({ ...verified.capability }, "HEAD"),
+    /verified_repository_root_required/u,
+  );
+  assert.throws(
+    () => readWorkingChanges(verified.capability, "--unsafe"),
+    /change_comparison_base_invalid/u,
+  );
   assert.equal(git(root, ["status", "--porcelain"]).length > 0, true);
-  assert.equal(JSON.stringify(replacementObserved).includes(root), false);
-  assert.equal(JSON.stringify(replacementObserved).includes("git"), false);
+  assert.equal(JSON.stringify(gitObserved).includes(root), false);
+  assert.equal(JSON.stringify(gitObserved).includes("git"), false);
 });
 
 /**
@@ -186,7 +156,7 @@ test("四つの観測のどこで失敗しても部分的な変更集合を公�
   fs.writeFileSync(path.join(root, "tracked.txt"), "baseline\n", "utf8");
   git(root, ["add", "."]);
   git(root, ["commit", "-m", "baseline"]);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const phases = [
@@ -195,18 +165,26 @@ test("四つの観測のどこで失敗しても部分的な変更集合を公�
     "working_changes",
     "unregistered_paths",
   ];
+  const original = childProcess.spawnSync;
+  t.after(() => {
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+  });
   for (const [failureIndex, phase] of phases.entries()) {
     let call = 0;
-    const adapter = createGitLocalChangeSetAdapter(() => {
+    childProcess.spawnSync = ((_command: unknown, argv: readonly string[]) => {
+      if (argv.includes("config"))
+        return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
       const current = call;
       call += 1;
       return {
         status: current === failureIndex ? 1 : 0,
         stdout: Buffer.from("observed.ts\0", "utf8"),
       };
-    });
+    }) as unknown as typeof childProcess.spawnSync;
+    syncBuiltinESMExports();
     assert.throws(
-      () => observeLocalChangeSet(verified.capability, "HEAD", adapter),
+      () => readWorkingChanges(verified.capability, "HEAD"),
       new RegExp(`local_change_set_observation_failed:${phase}`, "u"),
     );
   }
@@ -228,15 +206,25 @@ test("表現できないbackslashを含む名前を別Pathへ変換せず拒否�
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-verbatim-path-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   git(root, ["init"]);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const adapter = createGitLocalChangeSetAdapter(() => ({
-    status: 0,
-    stdout: Buffer.from("directory\\name.ts\0", "utf8"),
-  }));
+  const original = childProcess.spawnSync;
+  t.after(() => {
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+  });
+  childProcess.spawnSync = ((_command: unknown, argv: readonly string[]) =>
+    argv.includes("config")
+      ? { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) }
+      : {
+          status: 0,
+          stdout: Buffer.from("directory\\name.ts\0", "utf8"),
+          stderr: Buffer.alloc(0),
+        }) as unknown as typeof childProcess.spawnSync;
+  syncBuiltinESMExports();
   assert.throws(
-    () => observeLocalChangeSet(verified.capability, "HEAD", adapter),
+    () => readWorkingChanges(verified.capability, "HEAD"),
     /local_change_set_observation_invalid:revision_changes/u,
   );
 });

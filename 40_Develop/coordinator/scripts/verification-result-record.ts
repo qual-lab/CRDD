@@ -8,20 +8,20 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import {
+  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
+  TESTS_RELATIVE_PATH,
+  snapshotPlainArray,
 } from "../../domain-model/src/index.ts";
-import { TESTS_RELATIVE_PATH } from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
+  readRepositorySnapshot,
 } from "../../version-control/src/index.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
-import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
-import { inspectRepositoryRevisionCandidate } from "../../version-control/src/index.ts";
 import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
 import {
@@ -503,14 +503,14 @@ export async function runRecordedVerification<T, E>(
       throw new Error("verification_record_input_invalid");
     const root =
       resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
-    const verifiedRuntimeRoot = verifyRepositoryRoot(root);
+    const verifiedRuntimeRoot = getRepository(root);
     if (verifiedRuntimeRoot.status !== "completed")
       throw new Error("verification_record_runtime_path_invalid");
     const verificationArea = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataArea(verifiedRuntimeRoot.capability, "tests"),
       "verification_record_runtime_path_invalid",
     );
-    const revision = inspectRepositoryRevisionCandidate(root);
+    const revision = readRepositorySnapshot(getRepository(root).capability);
     if (!revision) throw new Error("verification_record_revision_unavailable");
     directories = [
       observeDirectory(root),
@@ -532,7 +532,10 @@ export async function runRecordedVerification<T, E>(
       recordId,
       kind,
       startedAt: new Date().toISOString(),
-      repositoryAtStart: { commit: revision.commit, tree: revision.tree },
+      repositoryAtStart: {
+        commit: revision.revisionIdentity,
+        tree: revision.snapshotIdentity,
+      },
       repositoryRevisionIsExecutionVersion: false,
       authorityConferred: false,
     });

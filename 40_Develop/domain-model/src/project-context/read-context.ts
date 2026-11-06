@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import type { RepositoryManifest } from "../configuration/types.ts";
 import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
@@ -32,7 +32,7 @@ import type { RepositoryProjectContextReadResult } from "./types.ts";
  * @concurrency 単一本文の安定読取り。期待manifestとの複数File原子性や再読取りは保証しない。
  */
 export function readRepositoryProjectContext(
-  root: VerifiedRepositoryRoot,
+  root: Repository,
   expectedManifest: RepositoryManifest,
 ): RepositoryProjectContextReadResult {
   let observedRoot: string | null = null;

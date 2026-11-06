@@ -26,7 +26,7 @@ import { ensureRepositoryRuntimeDataArea } from "../../src/storage/ensure-area.t
 import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
 import { resolveRepositoryRuntimeDataPaths } from "../../src/repository/resolve-storage-paths.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { settleTemporaryOperationWithRemovalForVerification } from "../../src/storage/temporary-operation.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -64,7 +64,7 @@ function resumeWithNextIdentity(
  * @boundary 通常Temporary OperationとFilesystem保存。実Process喪失は主張しない。
  */
 test("通常作業の再入場公開前後と読戻し失敗でexact参照を保持する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   for (const fault of [
@@ -184,7 +184,7 @@ test("通常作業の再入場公開前後と読戻し失敗でexact参照を保
  * @boundary JavaScript入力と通常Temporary Operation API。
  */
 test("旧storage入力と回復参照を処置前に拒否する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   for (const storage of ["signature", undefined] as const) {
@@ -270,7 +270,7 @@ test("旧storage入力と回復参照を処置前に拒否する", () => {
  * @boundary 通常Temporary Operationの保存文書と再入場Reader。
  */
 test("v4とstorage付き文書を通常v3へ読み替えない", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -348,7 +348,7 @@ test("v4とstorage付き文書を通常v3へ読み替えない", () => {
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   for (const outcome of [
@@ -392,7 +392,7 @@ test("tmp Operationは正常・失敗・取消・Timeoutで不存在まで確認
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("親Process喪失はexact Recovery参照を返し物理残存を削除しない", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-parent-lost-${process.pid}`;
@@ -442,7 +442,7 @@ test("親Process喪失はexact Recovery参照を返し物理残存を削除し�
  * @boundary RDL-IT-003=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("再入場はexact Recovery Identity以外をEffect前に拒否する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-identity-${process.pid}`;
@@ -580,7 +580,7 @@ test("Evidence未昇格ではtmpを削除しない", (t) => {
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入場できる", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-cleanup-recovery-${process.pid}`;
@@ -635,7 +635,7 @@ test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-lock-recovery-${process.pid}`;
@@ -687,7 +687,7 @@ test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("初回Capability返却前に終了したpreparing世代は既知参照から回復できる", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-process-loss-${process.pid}`;
@@ -733,7 +733,7 @@ test("初回Capability返却前に終了したpreparing世代は既知参照か�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Canonical公開前に終了した初回stagingは既知参照から回復できる", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-prepublish-${process.pid}`;
@@ -778,7 +778,7 @@ test("Canonical公開前に終了した初回stagingは既知参照から回復�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Canonical公開直後のProcess死は同一fileの初回staging aliasまで回収する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-linked-staging-${process.pid}`;
@@ -834,7 +834,7 @@ test("Canonical公開直後のProcess死は同一fileの初回staging aliasま�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("初回staging書込み中のProcess死はexact stagingだけを不存在へ戻す", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const operationId = `runtime-data-test-partial-staging-${process.pid}`;
@@ -892,7 +892,7 @@ test("初回staging書込み中のProcess死はexact stagingだけを不存在�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock公開前のProcess死はcaller-known Identityで再入場できる", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -946,7 +946,7 @@ test("Lock公開前のProcess死はcaller-known Identityで再入場できる", 
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -1000,7 +1000,7 @@ test("Lock公開直後のProcess死はCanonicalとstagingの両方を再入場�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Lock staging書込み中のProcess死も同じ次世代Identityで回収する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -1054,7 +1054,7 @@ test("Lock staging書込み中のProcess死も同じ次世代Identityで回収�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("返却済み新世代の実Process死後も使用済み旧参照を拒否する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -1111,7 +1111,7 @@ test("返却済み新世代の実Process死後も使用済み旧参照を拒否�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("新世代公開後・Capability返却前のProcess死でも次世代参照を再構成できる", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -1170,7 +1170,7 @@ test("新世代公開後・Capability返却前のProcess死でも次世代参照
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用できない", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -1230,7 +1230,7 @@ test("使用済みの旧世代Recovery参照は後続の親喪失後も再利用
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("active中の再入場・stale Capability・不正な終端値を拒否する", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const opened = createTemporaryOperation(root.capability, {
@@ -1283,7 +1283,7 @@ test("active中の再入場・stale Capability・不正な終端値を拒否す�
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("既存Operationとの衝突では既存内容を削除せず内部Pathも返さない", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const paths = resolveRepositoryRuntimeDataPaths(root.capability);
@@ -1327,7 +1327,7 @@ test("既存Operationとの衝突では既存内容を削除せず内部Pathも�
  * @boundary RDL-IT-004=Direct Boundary: Test fixture→Root検証／Filesystem
  */
 function createEvidencePromotionFixture(t: TestContext) {
-  const current = verifyRepositoryRoot(repositoryRoot);
+  const current = getRepository(repositoryRoot);
   if (current.status !== "completed") throw new Error("fixture_root_invalid");
   const area = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataArea(current.capability, "tests"),
@@ -1351,7 +1351,7 @@ function createEvidencePromotionFixture(t: TestContext) {
     path.join(fixtureRoot, ".git", "config"),
     "[core]\nrepositoryformatversion = 0\nbare = false\n",
   );
-  const root = verifyRepositoryRoot(fixtureRoot);
+  const root = getRepository(fixtureRoot);
   if (root.status !== "completed") throw new Error("fixture_root_invalid");
   return { root, repositoryRoot: fixtureRoot };
 }

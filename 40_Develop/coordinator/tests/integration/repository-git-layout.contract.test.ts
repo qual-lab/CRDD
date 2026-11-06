@@ -15,10 +15,7 @@ import path from "node:path";
 import test from "node:test";
 import type { TestContext } from "node:test";
 
-import {
-  describeGitRepositoryLayoutAdapterContract,
-  inspectGitRepositoryLayoutCandidate,
-} from "../../../version-control/src/repository/layout.ts";
+import { inspectGitRepositoryLayoutCandidate } from "../../../version-control/src/repository/layout.ts";
 import { inspectRepositoryGitObjectFormatCandidate } from "../../../version-control/src/repository/layout.ts";
 import { assertPresent, errorCode } from "../support/contract-assertions.ts";
 
@@ -659,49 +656,4 @@ test("accessorとProxyを実行せずblockedへ閉じる", () => {
   });
   assert.equal(inspectGitRepositoryLayoutCandidate(proxy).status, "blocked");
   assert.equal(calls, 0);
-});
-
-/**
- * Repository形態contractは参照Repository非変更と未実装境界を保つを検証する。
- *
- * @responsibility Repository形態contractは参照Repository非変更と未実装境界を保つの合否判定を所有する。
- * @trace RFD-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Repository形態contractは参照Repository非変更と未実装境界を保つの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Repository形態contractは参照Repository非変更と未実装境界を保つ", () => {
-  const contract = describeGitRepositoryLayoutAdapterContract();
-  assert.deepEqual(contract.supportedWorktreeForms, [
-    "normal_worktree",
-    "linked_worktree",
-    "gitfile_worktree_without_core_worktree",
-    "gitfile_worktree_with_matching_core_worktree",
-  ]);
-  assert.equal(contract.bareRepositorySupported, false);
-  assert.equal(contract.referencedSubmodulesModified, false);
-  assert.equal(contract.referencedRepositoriesModified, false);
-  assert.equal(contract.multiRepositoryWriteOperationSupported, false);
-  assert.equal(contract.filesystemResolutionCore, "implemented");
-  assert.equal(
-    contract.supportedRepositoryFormat,
-    "version_0_without_extensions_or_includes",
-  );
-  assert.equal(contract.gitCliAuthorityRequired, false);
-  assert.equal(
-    contract.repositoryIdentityVerification,
-    "repository_location_port",
-  );
-  assert.equal(
-    contract.metadataPlacementLayoutVerification,
-    "implemented_narrow_parser",
-  );
-  assert.equal(
-    contract.metadataWriteIntegration,
-    "repository_local_ignore_port",
-  );
-  assert.equal(contract.runtimeCapabilityIssued, false);
 });

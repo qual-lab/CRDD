@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  verifyRepositoryRoot,
+  getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../version-control/src/index.ts";
 
@@ -103,7 +103,7 @@ async function runNativeProtection(): Promise<void> {
   assert.equal(process.platform, "win32");
   assert.deepEqual(process.argv.slice(2), []);
   assert.equal(process.cwd().replaceAll("\\", "/"), repository);
-  const verified = verifyRepositoryRoot(repository);
+  const verified = getRepository(repository);
   assert.equal(verified.status, "completed", "repository_root_unconfirmed");
   if (verified.status !== "completed")
     throw new Error("repository_root_unconfirmed");

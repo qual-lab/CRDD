@@ -6,7 +6,7 @@
  * @trace ARCH-000008
  * @trace ARCH-000009
  */
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 
 /**
  * Repository内容を副作用なしで観測する公開境界。
@@ -120,7 +120,7 @@ export type RepositoryObservationPort = Readonly<{
  * @security N/A: RepositoryRootCapabilityはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility RepositoryRootCapabilityの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type RepositoryRootCapability = VerifiedRepositoryRoot;
+export type RepositoryRootCapability = Repository;
 import type { REPOSITORY_AREAS } from "../configuration/storage-paths.ts";
 
 /**

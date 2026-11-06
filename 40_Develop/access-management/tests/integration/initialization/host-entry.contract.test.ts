@@ -21,7 +21,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  getRepositoryFromWorkingDirectory,
 } from "../../../../version-control/src/index.ts";
 import { runHostAccessCommand } from "../../../src/cli/command.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
@@ -68,7 +68,7 @@ function assertRepositoryMarker(markerPath: string): void {
  */
 function fixture(t: TestContext) {
   const repository = path.resolve(import.meta.dirname, "../../../../..");
-  const verified = verifyRepositoryRootFromWorkingDirectory(repository);
+  const verified = getRepositoryFromWorkingDirectory(repository);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed")
     throw new Error("test_repository_unverified");

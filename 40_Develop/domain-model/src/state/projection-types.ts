@@ -6,7 +6,7 @@
  * @trace ARCH-000008
  * @boundary Domain値と利用側の入力・公開結果。
  */
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import type { ProjectTaskState } from "../task/types.ts";
 import type {
   ProjectMilestoneState,
@@ -26,7 +26,7 @@ import type { COORDINATOR_STATE_QUERY_CONTRACT } from "./query.ts";
 export type ActivityRepository = Readonly<{
   projectId: string;
   repositoryId: string;
-  root: VerifiedRepositoryRoot;
+  root: Repository;
 }>;
 
 /**

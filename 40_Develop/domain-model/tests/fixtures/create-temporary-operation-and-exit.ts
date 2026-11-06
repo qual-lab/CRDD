@@ -1,12 +1,12 @@
 import { createTemporaryOperation } from "../../src/storage/temporary-operation.ts";
 import { createTemporaryOperationWithInterruptionForVerification } from "../../src/storage/temporary-operation.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = process.argv[2];
 const operationId = process.argv[3];
 const identity = process.argv[4];
 const mode = process.argv[5] ?? "after-return";
-const root = verifyRepositoryRoot(repositoryRoot);
+const root = getRepository(repositoryRoot);
 if (root.status !== "completed" || !operationId || !identity)
   throw new Error("temporary_operation_fixture_input_invalid");
 const input = {

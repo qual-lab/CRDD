@@ -1,9 +1,9 @@
 /**
- * 借用中のWorking Treeを変更せず、File内容とinventoryを安定読取りする。
+ * Coordinatorが借用する実行領域のFileとinventoryを安定読取りする。
  * @packageDocumentation
  * @responsibility File実体・容量・Path・linkと読取り前後差を検査する。
- * @trace ARCH-000002 ARCH-000013
- * @boundary Repository Filesystemの読取り。
+ * @trace ARCH-000008 ARCH-000013
+ * @boundary Git非管理の実行領域を含む、上位で所在を確定したFilesystemの読取り。
  * @effect Fileを読取り、Commit・採用・巻戻し・削除を発行しない。
  */
 import fs from "node:fs";
@@ -27,7 +27,7 @@ const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
  * @security InventoryEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility InventoryEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type WorkspaceInventoryEntry = Readonly<{
+export type ExecutionFileEntry = Readonly<{
   relativePath: string;
   byteLength: number;
   sha256: string;
@@ -68,17 +68,17 @@ function validSegment(segment: string) {
  * @responsibility Relative Pathの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000013
  * @input relativePath: string
- * @returns isWorkspaceRelativePathの計算結果を返す。
- * @precondition 「relativePath: string」がisWorkspaceRelativePathの入力契約を満たす。
- * @postcondition isWorkspaceRelativePathの責務を完了した結果だけを返す。
- * @effect N/A: isWorkspaceRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isWorkspaceRelativePathは独自の失敗分岐を所有しない。
- * @invariant isWorkspaceRelativePathは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isWorkspaceRelativePathはProcess内の同一Subsystemで完結する。
- * @security isWorkspaceRelativePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isWorkspaceRelativePathは共有非同期状態を持たない同期処理である。
+ * @returns isExecutionRelativePathの計算結果を返す。
+ * @precondition 「relativePath: string」がisExecutionRelativePathの入力契約を満たす。
+ * @postcondition isExecutionRelativePathの責務を完了した結果だけを返す。
+ * @effect N/A: isExecutionRelativePathは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isExecutionRelativePathは独自の失敗分岐を所有しない。
+ * @invariant isExecutionRelativePathは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isExecutionRelativePathはProcess内の同一Subsystemで完結する。
+ * @security isExecutionRelativePathはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isExecutionRelativePathは共有非同期状態を持たない同期処理である。
  */
-export function isWorkspaceRelativePath(relativePath: string) {
+export function isExecutionRelativePath(relativePath: string) {
   return (
     relativePath.length > 0 &&
     !path.isAbsolute(relativePath) &&
@@ -166,17 +166,17 @@ function stableFile(target: string, maximumBytes: number) {
  * @responsibility File Contentの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000013
  * @input target: string、maximumBytes: number
- * @returns readWorkspaceFileContentの計算結果を返す。
- * @precondition 「target: string、maximumBytes: number」がreadWorkspaceFileContentの入力契約を満たす。
- * @postcondition readWorkspaceFileContentの責務を完了した結果だけを返す。
- * @effect readWorkspaceFileContentは内容と実体を読取り、書込みを発行しない。
- * @failure readWorkspaceFileContentは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readWorkspaceFileContentは宣言した境界以外へEffectを拡張しない。
+ * @returns readExecutionFileの計算結果を返す。
+ * @precondition 「target: string、maximumBytes: number」がreadExecutionFileの入力契約を満たす。
+ * @postcondition readExecutionFileの責務を完了した結果だけを返す。
+ * @effect readExecutionFileは内容と実体を読取り、書込みを発行しない。
+ * @failure readExecutionFileは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant readExecutionFileは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security readWorkspaceFileContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: readWorkspaceFileContentは共有非同期状態を持たない同期処理である。
+ * @security readExecutionFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: readExecutionFileは共有非同期状態を持たない同期処理である。
  */
-export function readWorkspaceFileContent(target: string, maximumBytes: number) {
+export function readExecutionFile(target: string, maximumBytes: number) {
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
@@ -243,12 +243,12 @@ export function readWorkspaceFileContent(target: string, maximumBytes: number) {
  * @security inventoryは上位の許可Path・Secret・Capability判定を代替せず、Authorityを発行しない。
  * @concurrency N/A: inventoryは共有非同期状態を持たない同期処理である。
  */
-export function inspectWorkspaceInventory(workspace: string, borrowed = false) {
+export function readExecutionInventory(workspace: string, borrowed = false) {
   const root = fs.realpathSync.native(workspace);
   const rootMetadata = fs.lstatSync(root);
   if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink())
     throw new Error("repository_workspace_root_invalid");
-  const entries: WorkspaceInventoryEntry[] = [];
+  const entries: ExecutionFileEntry[] = [];
   const comparisonPaths = new Set<string>();
   let totalBytes = 0;
 
@@ -290,7 +290,7 @@ export function inspectWorkspaceInventory(workspace: string, borrowed = false) {
       const relativePath = parentPath
         ? `${parentPath}/${entry.name}`
         : entry.name;
-      if (!isWorkspaceRelativePath(relativePath))
+      if (!isExecutionRelativePath(relativePath))
         throw new Error("repository_workspace_path_invalid");
       const target = path.join(directory, entry.name);
       const metadata = fs.lstatSync(target);

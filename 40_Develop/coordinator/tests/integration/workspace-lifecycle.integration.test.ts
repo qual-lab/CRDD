@@ -58,8 +58,8 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
-import type { CoordinatorWorkspaceRequest } from "../../src/workspace/operations.ts";
 import {
+  type CoordinatorWorkspaceRequest,
   manageCoordinatorWorkspace,
   resolveCoordinatorWorkspaceTaskTarget,
   workspacePlanReadyForAcceptance,
@@ -1185,7 +1185,7 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
   assert.equal(missed.status, "blocked");
   assert.equal(
     f.snapshot().workspaces[0]?.candidate?.cleanupFailure,
-    "candidate_ref_mismatch",
+    "candidate_ref_unavailable",
   );
   assert.equal(JSON.stringify(f.snapshot().results), original);
   const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
@@ -2267,9 +2267,9 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
       recoveryId,
     });
     const execute = new Function(
-      "verifyRepositoryRoot",
+      "getRepository",
       "verifyRuntimePersistenceRepository",
-      "inspectGitRepositoryLayoutCandidate",
+      "readRepositoryStorageIdentity",
       "readCoordinatorWorkspaceState",
       "acquireCoordinatorSnapshotLease",
       "writeCoordinatorWorkspaceRecord",
@@ -2277,7 +2277,7 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
     )(
       () => ({ status: "completed", capability: {} }),
       () => Object.freeze({}),
-      () => ({ status: "candidate", layout: { kind: "main" } }),
+      () => ({ repositoryForm: "primary" }),
       () => {
         reads++;
         return {

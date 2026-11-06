@@ -18,7 +18,7 @@ import {
 } from "./execution/recovery.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../version-control/src/index.ts";
 import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
 import type { ProviderAuthenticationRequest as AuthenticationRequest } from "./execution/authority.ts";
@@ -101,7 +101,7 @@ export { readAuthorizedRuntimeActivity as queryActivity } from "./state/observat
  * @compatibility 保存契約とは別のProcess-local Context。
  */
 export type ExecutionContext = Readonly<{
-  rootCapability: VerifiedRepositoryRoot;
+  rootCapability: Repository;
 }>;
 
 /**

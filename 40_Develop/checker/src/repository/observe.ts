@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { observeDeclaredNestedRepositoryPaths } from "../../../version-control/src/index.ts";
+import { readRepositorySubmodules } from "../../../version-control/src/index.ts";
 
 /**
  * error Codeを決定する。
@@ -267,7 +267,7 @@ export function observeRepositoryLayout(root: string) {
     gitmodulesStat?.isFile() === true &&
     !pathContainsSymbolicLink(root, gitmodules);
   const declaredNestedRepositories = isGitmodulesReadableFile
-    ? observeDeclaredNestedRepositoryPaths(gitmodules)
+    ? readRepositorySubmodules(root)
     : null;
   const isGitmodulesParsed =
     !gitmodulesStat ||

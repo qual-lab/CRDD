@@ -3,44 +3,82 @@
   "contractRevision": 1,
   "subsystem": "version-control",
   "symbols": [
+    {"symbolId":"version-control.worktree.types","kind":"file","path":"src/worktree/types.ts","archIds":["ARCH-000009"]},
     {
-      "symbolId": "version-control.workspace.types",
+      "symbolId": "version-control.repository.reference",
       "kind": "file",
-      "path": "src/workspace/types.ts",
-      "archIds": ["ARCH-000009"]
-    },
-    {
-      "symbolId": "version-control.workspace.validation",
-      "kind": "file",
-      "path": "src/workspace/validation.ts",
-      "archIds": ["ARCH-000009"]
-    },
-    {
-      "symbolId": "version-control.test.integration.domain-independence",
-      "kind": "test-suite",
-      "path": "tests/integration/domain-independence.contract.test.ts",
-      "qaIds": ["QA-000001", "QA-000007"],
-      "localTestIds": ["RCM-IT-004", "RFD-IT-029"],
-      "verifies": ["version-control.public-api", "version-control.workspace.types", "version-control.workspace.validation"]
-    },
-    {
-      "symbolId": "version-control.workspace.observation",
-      "kind": "file",
-      "path": "src/workspace/observation.ts",
-      "archIds": ["ARCH-000002", "ARCH-000013"]
-    },
-    {
-      "symbolId": "version-control.workspace-candidate",
-      "kind": "file",
-      "path": "src/workspace/candidate.ts",
+      "path": "src/repository/reference.ts",
       "archIds": [
         "ARCH-000009"
       ]
     },
     {
+      "symbolId": "version-control.repository.types",
+      "kind": "file",
+      "path": "src/repository/types.ts",
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "version-control.repository.working-directory",
+      "kind": "file",
+      "path": "src/repository/working-directory.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "version-control.repository.commit",
+      "kind": "file",
+      "path": "src/repository/commit.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "version-control.repository.remote",
+      "kind": "file",
+      "path": "src/repository/remote.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "version-control.git.execute",
+      "kind": "file",
+      "path": "src/git/execute.ts",
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
+      ]
+    },
+
+
+    {
+      "symbolId": "version-control.test.integration.domain-independence",
+      "kind": "test-suite",
+      "path": "tests/integration/domain-independence.contract.test.ts",
+      "qaIds": [
+        "QA-000001",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RCM-IT-004",
+        "RFD-IT-029"
+      ],
+      "verifies": [
+        "version-control.public-api",
+        "domain-model.workspace.types",
+        "domain-model.workspace.validation"
+      ]
+    },
+
+    {
       "symbolId": "version-control.git-worktree-management",
       "kind": "file",
-      "path": "src/workspace/worktree.ts",
+      "path": "src/worktree/crud.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -57,9 +95,8 @@
       ],
       "verifies": [
         "version-control.git-worktree-management",
-        "version-control.workspace-candidate",
-        "version-control.workspace.observation",
-        "version-control.source.src.workspace.merge"
+        "version-control.repository.commit",
+        "version-control.repository.merge"
       ]
     },
     {
@@ -80,12 +117,14 @@
       ],
       "localTestIds": [
         "RFD-IT-005",
-        "RFD-IT-008"
+        "RFD-IT-008",
+        "RFD-IT-014"
       ],
       "verifies": [
         "version-control.git-read-command",
-        "version-control.git-repository-worktree-view-adapter",
-        "version-control.source.src.git.local.change.set.adapter"
+        "version-control.git.execute",
+        "version-control.repository.files",
+        "version-control.repository.working-directory"
       ]
     },
     {
@@ -100,34 +139,9 @@
       ]
     },
     {
-      "symbolId": "version-control.change-publication",
+      "symbolId": "version-control.repository.files",
       "kind": "file",
-      "path": "src/publication/change.ts",
-      "archIds": [
-        "ARCH-000009"
-      ]
-    },
-    {
-      "symbolId": "version-control.git-change-publication-adapter",
-      "kind": "file",
-      "path": "src/publication/git.ts",
-      "archIds": [
-        "ARCH-000009"
-      ]
-    },
-    {
-      "symbolId": "version-control.repository-worktree-view",
-      "kind": "file",
-      "path": "src/repository/worktree-view.ts",
-      "archIds": [
-        "ARCH-000002",
-        "ARCH-000009"
-      ]
-    },
-    {
-      "symbolId": "version-control.git-repository-worktree-view-adapter",
-      "kind": "file",
-      "path": "src/repository/worktree-view.ts",
+      "path": "src/repository/files.ts",
       "archIds": [
         "ARCH-000002",
         "ARCH-000009"
@@ -144,14 +158,15 @@
         "RFD-IT-014"
       ],
       "verifies": [
-        "version-control.change-publication",
-        "version-control.git-change-publication-adapter"
+        "version-control.repository.working-directory",
+        "version-control.repository.commit",
+        "version-control.repository.remote"
       ]
     },
     {
-      "symbolId": "version-control.checker-repository-observation-adapter",
+      "symbolId": "version-control.repository.discovery",
       "kind": "module",
-      "path": "src/git/observation.ts",
+      "path": "src/repository/discovery.ts",
       "archIds": [
         "ARCH-000002",
         "ARCH-000009",
@@ -185,8 +200,7 @@
         "RFD-IT-008"
       ],
       "verifies": [
-        "version-control.source.src.git.local.change.set.adapter",
-        "version-control.source.src.local.change.set",
+        "version-control.repository.working-directory",
         "version-control.source.src.repository.location"
       ]
     },
@@ -201,8 +215,8 @@
         "RFD-IT-008"
       ],
       "verifies": [
-        "version-control.repository-worktree-view",
-        "version-control.git-repository-worktree-view-adapter"
+        "version-control.repository.files",
+        "version-control.repository.changes"
       ]
     },
     {
@@ -234,8 +248,7 @@
         "RFD-IT-008"
       ],
       "verifies": [
-        "version-control.source.src.fixed.snapshot",
-        "version-control.source.src.git.fixed.snapshot.adapter",
+        "version-control.repository.files",
         "version-control.source.src.repository.location"
       ]
     },
@@ -251,9 +264,7 @@
       ],
       "verifies": [
         "version-control.source.src.fixed.revision",
-        "version-control.source.src.git.fixed.revision.adapter",
         "version-control.source.src.git.repository.layout",
-        "version-control.source.src.git.repository.local.ignore.adapter",
         "version-control.source.src.repository.local.ignore",
         "version-control.source.src.repository.location"
       ]
@@ -275,22 +286,6 @@
       ]
     },
     {
-      "symbolId": "version-control.source.src.git.fixed.snapshot.adapter",
-      "kind": "file",
-      "path": "src/repository/snapshot.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
-    {
-      "symbolId": "version-control.source.src.fixed.snapshot",
-      "kind": "file",
-      "path": "src/repository/snapshot.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
-    {
       "symbolId": "version-control.source.src.git.repository.layout",
       "kind": "file",
       "path": "src/repository/layout.ts",
@@ -306,22 +301,7 @@
         "ARCH-000002"
       ]
     },
-    {
-      "symbolId": "version-control.source.src.git.repository.layout.adapter",
-      "kind": "file",
-      "path": "src/repository/layout.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
-    {
-      "symbolId": "version-control.source.src.git.local.change.set.adapter",
-      "kind": "file",
-      "path": "src/repository/changes.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
+
     {
       "symbolId": "version-control.source.src.checker.observation.index",
       "kind": "file",
@@ -330,30 +310,7 @@
         "ARCH-000002"
       ]
     },
-    {
-      "symbolId": "version-control.source.src.local.change.set",
-      "kind": "file",
-      "path": "src/repository/changes.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
-    {
-      "symbolId": "version-control.source.src.git.fixed.revision.adapter",
-      "kind": "file",
-      "path": "src/repository/revision.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
-    {
-      "symbolId": "version-control.source.src.git.repository.local.ignore.adapter",
-      "kind": "file",
-      "path": "src/repository/ignore.ts",
-      "archIds": [
-        "ARCH-000002"
-      ]
-    },
+
     {
       "symbolId": "version-control.source.src.fixed.revision",
       "kind": "file",
@@ -371,9 +328,18 @@
       ]
     },
     {
-      "symbolId": "version-control.source.src.workspace.merge",
+      "symbolId": "version-control.repository.merge",
       "kind": "file",
-      "path": "src/workspace/merge.ts",
+      "path": "src/repository/merge.ts",
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "version-control.repository.changes",
+      "kind": "file",
+      "path": "src/repository/changes.ts",
       "archIds": [
         "ARCH-000002",
         "ARCH-000009"

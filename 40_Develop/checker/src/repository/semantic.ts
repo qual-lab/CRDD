@@ -13,7 +13,7 @@ import {
   type LoadedRealitySymbolManifest,
   createFilesystemRepositoryObservationPort,
 } from "../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import { mapSemanticDomainIssueToDiagnostic } from "../report/semantic.ts";
 import type { SemanticCoverageDiagnostic } from "../report/types.ts";
 /**
@@ -34,9 +34,9 @@ type SemanticSourceDocument = Readonly<{ path: string; source: string }>;
  *
  * @responsibility 読取り成功文書と観測不能Diagnosticを同じBatch結果へ分ける。
  * @trace ARCH-000008
- * @input capability: VerifiedRepositoryRoot、paths: readonly string[]
+ * @input capability: Repository、paths: readonly string[]
  * @returns Readonly<{ documents: readonly SemanticSourceDocument[]; findings: readonly SemanticCoverageDiagnostic[]; }>を返す。
- * @precondition capability: VerifiedRepositoryRoot、paths: readonly string[]がobserveDocumentsの入力契約を満たす。
+ * @precondition capability: Repository、paths: readonly string[]がobserveDocumentsの入力契約を満たす。
  * @postcondition observeDocumentsの責務を完了した結果だけを返す。
  * @effect 検証済みRepository内の指定文書を既存の有界Observerで読み取る。書込みは行わない。
  * @failure N/A: observeDocumentsは独自の失敗分岐を所有しない。
@@ -46,7 +46,7 @@ type SemanticSourceDocument = Readonly<{ path: string; source: string }>;
  * @concurrency N/A: observeDocumentsは共有非同期状態を持たない同期処理である。
  */
 function observeDocuments(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   paths: readonly string[],
 ): Readonly<{
   documents: readonly SemanticSourceDocument[];
@@ -74,9 +74,9 @@ function observeDocuments(
  *
  * @responsibility 観測不能とDomain変換失敗を同じDiagnostic契約へ投影する。
  * @trace ARCH-000008
- * @input capability: VerifiedRepositoryRoot、sourceDocument: string、subsystem: string、architectureDefinitionIds: ReadonlySet<string>
+ * @input capability: Repository、sourceDocument: string、subsystem: string、architectureDefinitionIds: ReadonlySet<string>
  * @returns compileSemanticIrFromRepositoryの計算結果を返す。
- * @precondition capability: VerifiedRepositoryRoot、sourceDocument: string、subsystem: string、architectureDefinitionIds: ReadonlySet<string>がcompileSemanticIrFromRepositoryの入力契約を満たす。
+ * @precondition capability: Repository、sourceDocument: string、subsystem: string、architectureDefinitionIds: ReadonlySet<string>がcompileSemanticIrFromRepositoryの入力契約を満たす。
  * @postcondition compileSemanticIrFromRepositoryの責務を完了した結果だけを返す。
  * @effect 検証済みRepository内の指定文書を読み取る。書込みは行わない。
  * @failure N/A: compileSemanticIrFromRepositoryは独自の失敗分岐を所有しない。
@@ -86,7 +86,7 @@ function observeDocuments(
  * @concurrency N/A: compileSemanticIrFromRepositoryは共有非同期状態を持たない同期処理である。
  */
 export function compileSemanticIrFromRepository(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   sourceDocument: string,
   subsystem: string,
   architectureDefinitionIds: ReadonlySet<string>,
@@ -110,9 +110,9 @@ export function compileSemanticIrFromRepository(
  *
  * @responsibility 一つでも観測不能な入力がある場合に部分Relationを返さない。
  * @trace ARCH-000008
- * @input capability: VerifiedRepositoryRoot、sourceDocuments: readonly string[]、semanticIrs: readonly SemanticIr[]
+ * @input capability: Repository、sourceDocuments: readonly string[]、semanticIrs: readonly SemanticIr[]
  * @returns compileQualitySemanticRelationsFromRepositoryの計算結果を返す。
- * @precondition capability: VerifiedRepositoryRoot、sourceDocuments: readonly string[]、semanticIrs: readonly SemanticIr[]がcompileQualitySemanticRelationsFromRepositoryの入力契約を満たす。
+ * @precondition capability: Repository、sourceDocuments: readonly string[]、semanticIrs: readonly SemanticIr[]がcompileQualitySemanticRelationsFromRepositoryの入力契約を満たす。
  * @postcondition compileQualitySemanticRelationsFromRepositoryの責務を完了した結果だけを返す。
  * @effect 検証済みRepository内の指定Quality文書を読み取る。書込みは行わない。
  * @failure N/A: compileQualitySemanticRelationsFromRepositoryは独自の失敗分岐を所有しない。
@@ -122,7 +122,7 @@ export function compileSemanticIrFromRepository(
  * @concurrency N/A: compileQualitySemanticRelationsFromRepositoryは共有非同期状態を持たない同期処理である。
  */
 export function compileQualitySemanticRelationsFromRepository(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   sourceDocuments: readonly string[],
   semanticIrs: readonly SemanticIr[],
 ) {

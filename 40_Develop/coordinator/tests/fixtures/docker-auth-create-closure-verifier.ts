@@ -376,7 +376,7 @@ async function executeApprovedAuthCreateClosure() {
   );
   const root = path.join(distribution, ".crdd", "tests", "auth-create-closure");
   const vc = await import("../../../version-control/src/index.ts");
-  const distributionVerified = vc.verifyRepositoryRoot(distribution);
+  const distributionVerified = vc.getRepository(distribution);
   assert.equal(distributionVerified.status, "completed");
   assert.equal(
     vc.resolveVerifiedRepositoryRoot(distributionVerified.capability),
@@ -448,7 +448,7 @@ async function executeApprovedAuthCreateClosure() {
       ],
       { windowsHide: true },
     );
-    const verified = vc.verifyRepositoryRoot(root);
+    const verified = vc.getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const rootCapability = verified.capability;

@@ -8,9 +8,8 @@
  */
 
 import type {
-  RepositoryWorktreeResult,
-  WorkspaceCandidateRequest,
-  WorkspaceCandidateResult,
+  CommitSelection,
+  CommitTemporary,
 } from "../../../version-control/src/index.ts";
 import type { COORDINATOR_INTEGRATION_CONTRACT } from "./validation.ts";
 
@@ -104,4 +103,50 @@ export type CoordinatorWorkspaceResult = Readonly<{
   canonicalRepositoryChanged: boolean | null;
   changeAttribution: "unattributed";
   workspaceDeletionIssued: false;
+}>;
+
+export type RepositoryWorktreeResult = Readonly<{
+  status: "completed" | "blocked";
+  reason: string;
+  workspaceId: string;
+  relativePath: string | null;
+  branch: string | null;
+  expectedCommit: string | null;
+  effectIssued: boolean;
+  worktreeRemoved: boolean | null;
+  branchRemoved: boolean | null;
+  workspaceDirectoryRetained: boolean | null;
+  observation: RepositoryWorktreeObservation | null;
+}>;
+
+export type RepositoryWorktreeObservation = Readonly<{
+  registered: boolean;
+  directoryPresent: boolean;
+  branchHead: string | null;
+  head: string | null;
+  locked: boolean;
+  prunable: boolean;
+  dirty: boolean | null;
+}>;
+
+export type WorkspaceCandidateRequest = Readonly<{
+  workspaceId: string;
+  operationId: string;
+  baseCommit: string;
+  expectedWorkspaceHead: string;
+  selection: readonly CommitSelection[];
+  workspaceName: string | null;
+  candidateName: string | null;
+  relatedChangeIds: readonly string[];
+}>;
+export type WorkspaceCandidateResult = Readonly<{
+  status: "completed" | "blocked";
+  reason: string;
+  candidateRef: string | null;
+  candidateCommit: string | null;
+  mergeCommit: string | null;
+  effectIssued: boolean;
+  cleanupConfirmed: boolean;
+  temporary: CommitTemporary | null;
+  changedPaths: readonly string[];
 }>;

@@ -47,7 +47,7 @@ import {
   type DockerIsolationRuntimePlan,
 } from "../../../docker-isolation/tests/support/execution.ts";
 import type { DockerResourceReceipts } from "../../../docker-isolation/tests/support/cleanup.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
@@ -72,7 +72,7 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
   const repository = path.resolve(
     fileURLToPath(new URL("../../../../", import.meta.url)),
   );
-  assert.equal(verifyRepositoryRoot(repository).status, "completed");
+  assert.equal(getRepository(repository).status, "completed");
   const parent = path.join(repository, ".crdd", "tests");
   for (const directory of [path.join(repository, ".crdd"), parent]) {
     assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);

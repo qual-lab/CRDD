@@ -14,7 +14,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import type { ChangePublicationResult } from "../../../../version-control/src/index.ts";
+import type { ChangesResult } from "../../../../version-control/src/index.ts";
 import {
   validateRepositoryActionForm,
   inspectRepositoryActionResult,
@@ -51,7 +51,7 @@ export function RepositoryOperationPanel({
   const [busy, setBusy] = useState(false),
     [current, setCurrent] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
-  const [result, setResult] = useState<ChangePublicationResult | null>(null);
+  const [result, setResult] = useState<ChangesResult | null>(null);
   const pending = useRef(false),
     generation = useRef(0),
     mounted = useRef(false);
@@ -123,7 +123,7 @@ export function RepositoryOperationPanel({
     setBusy(true);
     setNotice(null);
     setResult(null);
-    let known: ChangePublicationResult | null = null;
+    let known: ChangesResult | null = null;
     try {
       const response = await requestWorkbenchMutation("/repository/action", {
         method: "POST",

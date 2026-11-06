@@ -12,7 +12,7 @@ import {
 } from "../api.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { parseDoctorArguments, UsageError } from "./options.ts";
 import {
@@ -45,7 +45,7 @@ export async function runDoctorCommand(
     if (parsed.status !== "ok" || !parsed.value)
       throw new UsageError(parsed.reason ?? "doctor_arguments_invalid");
     const options = parsed.value;
-    const verified = verifyRepositoryRoot(
+    const verified = getRepository(
       resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
     );
     if (verified.status !== "completed")

@@ -15,7 +15,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   evaluateManagementPermission,
@@ -128,7 +128,7 @@ function observeRegistration(
   repositoryId: string,
   repositoryRoot: string,
 ): AccessManagementState["registeredRepositories"][number] | null {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed") return null;
   const root = resolveVerifiedRepositoryRoot(verified.capability);
   if (root === null) return null;

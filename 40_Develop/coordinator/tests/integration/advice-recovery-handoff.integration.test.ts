@@ -19,7 +19,7 @@ import {
   readCoordinatorQueueEntry,
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { updateCoordinatorSingleTask } from "../../src/task/queue.ts";
@@ -70,7 +70,7 @@ test("助言の初回終端はHostとDockerのexact参照を保持し後付け�
     ],
     { cwd: root, windowsHide: true, stdio: "ignore" },
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_required");
   const saved = saveRepositoryAiSelection(

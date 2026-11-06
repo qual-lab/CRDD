@@ -15,7 +15,7 @@ import {
   readRepositoryAiSelection,
   type AiSelectionReadResult,
 } from "../../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../../version-control/src/index.ts";
+import type { Repository } from "../../../../version-control/src/index.ts";
 
 /**
  * 技術Catalogと当該Repositoryの設定観測を保持する。
@@ -48,7 +48,7 @@ export type WorkbenchAiSelectionSurface = Readonly<{
  * @concurrency 一回の読取りSnapshotを利用する。
  */
 export function readWorkbenchAiSelectionSurface(
-  root: VerifiedRepositoryRoot,
+  root: Repository,
 ): WorkbenchAiSelectionSurface {
   return Object.freeze({
     catalog: getModelCatalog(),

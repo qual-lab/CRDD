@@ -5,11 +5,14 @@
  * @trace ARCH-000004
  */
 
-import type { CoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
-import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import {
-  inspectRepositoryIdentityCandidate,
+  type CoordinatorAcceptanceDecisionRecord,
+  RepositoryRuntimeDataAreaBlockedError,
+} from "../../../domain-model/src/index.ts";
+import {
+  readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
@@ -345,7 +348,9 @@ export function executeCoordinatorPublicAcceptanceDecision(
         effectState: "no_effect" as const,
       });
     }
-    const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+    const identity = readRepositorySnapshot(
+      getRepository(repositoryRoot).capability,
+    );
     const candidate =
       rawRequest && typeof rawRequest === "object"
         ? (rawRequest as Readonly<{
@@ -363,14 +368,14 @@ export function executeCoordinatorPublicAcceptanceDecision(
       typeof candidate.milestoneId !== "string" ||
       !(
         (candidate.decision !== "accept" &&
-          identity.commit === candidate.repositoryRevision) ||
+          identity.revisionIdentity === candidate.repositoryRevision) ||
         workspacePlanReadyForAcceptance(
           repositoryRoot,
           deriveCoordinatorRepositoryBindingId(repositoryRoot),
           candidate.projectId,
           candidate.milestoneId,
           candidate.repositoryRevision,
-          identity.commit,
+          identity.revisionIdentity,
         )
       )
     )

@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   prepareRuntimeOwnedCoordinatorSettlement,
   publishRuntimeOwnedCoordinatorHistory,
@@ -212,7 +212,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     ],
     { windowsHide: true },
   );
-  const verifiedOtherRoot = verifyRepositoryRoot(otherRoot);
+  const verifiedOtherRoot = getRepository(otherRoot);
   assert.equal(verifiedOtherRoot.status, "completed");
   if (verifiedOtherRoot.status !== "completed")
     throw Error("fixture_other_root_invalid");
@@ -239,7 +239,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     ],
     { windowsHide: true },
   );
-  const verifiedRoot = verifyRepositoryRoot(root);
+  const verifiedRoot = getRepository(root);
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed") throw Error("fixture_root_invalid");
   const observed = observeRuntimeStorageRepository(verifiedRoot.capability);
@@ -1154,7 +1154,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     ).summarySha256,
     consumer: "orchestrator",
   });
-  const recoveryResultRoot = verifyRepositoryRoot(root);
+  const recoveryResultRoot = getRepository(root);
   assert.equal(recoveryResultRoot.status, "completed");
   const recoveryReadHistoryFile = path.join(area.directory, "history.jsonl");
   const historyBeforeRecoveryRead = fs.existsSync(recoveryReadHistoryFile)
@@ -1167,9 +1167,9 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
         "--experimental-strip-types",
         "-e",
         `(async () => {
-          const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+          const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
           const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/storage/runtime-store.ts", import.meta.url).href)});
-          const root = verifyRepositoryRoot(process.argv[1]);
+          const root = getRepository(process.argv[1]);
           process.stdout.write(JSON.stringify(readRuntimeOwnedCoordinatorRecoveryResult(root.capability, process.argv[2])));
         })().catch(() => { process.exitCode = 1; });`,
         root,
@@ -1895,7 +1895,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       ],
       { windowsHide: true },
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_invalid");
     const observed = observeRuntimeStorageRepository(verified.capability);

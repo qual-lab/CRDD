@@ -13,7 +13,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { types } from "node:util";
 import vm from "node:vm";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import * as domain from "../../src/index.ts";
 import {
   observeRuntimeExecutionRepository,
@@ -131,7 +131,7 @@ test("四用途は同じ実体結合を使いながら現在性条件を混同�
   fs.writeFileSync(path.join(git, "HEAD"), "ref: refs/heads/main\n");
   const reference = path.join(git, "refs", "heads", "main");
   fs.writeFileSync(reference, `${"1".repeat(40)}\n`);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const capability = verified.capability;

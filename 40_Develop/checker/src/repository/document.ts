@@ -38,7 +38,10 @@ import { inspectQualityRepository } from "../repository/quality.ts";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveRevisionIdentity } from "../../../version-control/src/index.ts";
+import {
+  getRepository,
+  readRepositoryRevision,
+} from "../../../version-control/src/index.ts";
 import {
   parseCanonicalReleaseHeader,
   parseChangeTraceHeader,
@@ -519,11 +522,13 @@ export function inspectDocumentRepository(
       const finding = mapStableReleaseIssueToFinding(issue);
       add(finding.severity, finding.code, finding.path, finding.message);
     }
-    const stableTagCommit = resolveRevisionIdentity(
-      root,
-      `refs/tags/${stableVersion}^{commit}`,
-    );
-    const currentHeadCommit = resolveRevisionIdentity(root, "HEAD");
+    const repository = getRepository(root);
+    const stableTagCommit =
+      readRepositoryRevision(repository.capability, {
+        revision: `refs/tags/${stableVersion}^{commit}`,
+      })?.revisionIdentity ?? null;
+    const currentHeadCommit =
+      readRepositoryRevision(repository.capability)?.revisionIdentity ?? null;
     const hasDifferentCandidateVersion = allMarkdownFiles.some((file) => {
       const header = read(file).split(/\r?\n/u).slice(0, 16).join("\n");
       const candidateVersion = parseCandidateVersionHeader(header);

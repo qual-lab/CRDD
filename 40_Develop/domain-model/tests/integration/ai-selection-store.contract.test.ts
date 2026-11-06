@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
@@ -80,7 +80,7 @@ function fixture(t: test.TestContext, emptyTemplate = false) {
     ["init", "--quiet", ...(emptyTemplate ? ["--template="] : []), root],
     { windowsHide: true },
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   assert.ok(verified.capability);
   t.after(() => {

@@ -1123,24 +1123,24 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
 }
 
 /**
- * Git Commit Tree 候補 Using PolicyをFilesystem上の候補として具体化する。
+ * Git Commit Tree 候補を内容検査後にFilesystem上へ具体化する。
  *
- * @responsibility Git Commit Tree 候補 Using Policyの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
+ * @responsibility Git Commit Tree 候補の入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
  * @trace ARCH-000002
- * @input candidate: unknown、shouldRejectContent: ContentPolicy | null
- * @returns materializeGitCommitTreeCandidateUsingPolicyの計算結果を返す。
- * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy | null」がmaterializeGitCommitTreeCandidateUsingPolicyの入力契約を満たす。
- * @postcondition materializeGitCommitTreeCandidateUsingPolicyの責務を完了した結果だけを返す。
+ * @input candidate: unknown、shouldRejectContent: ContentPolicy
+ * @returns materializeGitCommitTreeCandidateの計算結果を返す。
+ * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy」がmaterializeGitCommitTreeCandidateの入力契約を満たす。
+ * @postcondition materializeGitCommitTreeCandidateの責務を完了した結果だけを返す。
  * @effect 固定Objectを読み取り、Content Policy検査後に指定出力先へ生成する。
- * @failure materializeGitCommitTreeCandidateUsingPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant materializeGitCommitTreeCandidateUsingPolicyは宣言した境界以外へEffectを拡張しない。
+ * @failure materializeGitCommitTreeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant materializeGitCommitTreeCandidateは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: materializeGitCommitTreeCandidateUsingPolicyはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: materializeGitCommitTreeCandidateUsingPolicyは共有非同期状態を持たない同期処理である。
+ * @security N/A: materializeGitCommitTreeCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: materializeGitCommitTreeCandidateは共有非同期状態を持たない同期処理である。
  */
-function materializeGitCommitTreeCandidateUsingPolicy(
+export function materializeGitCommitTreeCandidate(
   candidate: unknown,
-  shouldRejectContent: ContentPolicy | null,
+  shouldRejectContent: ContentPolicy,
 ) {
   try {
     const candidateKeys =
@@ -1203,7 +1203,6 @@ function materializeGitCommitTreeCandidateUsingPolicy(
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
     if (
-      shouldRejectContent !== null &&
       entries.some((entry) =>
         shouldRejectContent(entry.relativePath, entry.bytes),
       )
@@ -1245,52 +1244,6 @@ function materializeGitCommitTreeCandidateUsingPolicy(
   } catch {
     return null;
   }
-}
-
-/**
- * Git Commit Tree 候補をFilesystem上の候補として具体化する。
- *
- * @responsibility Git Commit Tree 候補の入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
- * @trace ARCH-000002
- * @input candidate: unknown、shouldRejectContent: ContentPolicy
- * @returns materializeGitCommitTreeCandidateの計算結果を返す。
- * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy」がmaterializeGitCommitTreeCandidateの入力契約を満たす。
- * @postcondition materializeGitCommitTreeCandidateの責務を完了した結果だけを返す。
- * @effect Content Policyを満たす固定内容を指定出力先へ生成する。
- * @failure N/A: materializeGitCommitTreeCandidateは独自の失敗分岐を所有しない。
- * @invariant materializeGitCommitTreeCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: materializeGitCommitTreeCandidateはProcess内の同一Subsystemで完結する。
- * @security N/A: materializeGitCommitTreeCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: materializeGitCommitTreeCandidateは共有非同期状態を持たない同期処理である。
- */
-export function materializeGitCommitTreeCandidate(
-  candidate: unknown,
-  shouldRejectContent: ContentPolicy,
-) {
-  return materializeGitCommitTreeCandidateUsingPolicy(
-    candidate,
-    shouldRejectContent,
-  );
-}
-
-/**
- * Git Release 候補 TreeをFilesystem上の候補として具体化する。
- *
- * @responsibility Git Release 候補 Treeの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
- * @trace ARCH-000002
- * @input candidate: unknown
- * @returns materializeGitReleaseCandidateTreeの計算結果を返す。
- * @precondition 「candidate: unknown」がmaterializeGitReleaseCandidateTreeの入力契約を満たす。
- * @postcondition materializeGitReleaseCandidateTreeの責務を完了した結果だけを返す。
- * @effect 既存の選択条件で固定内容を指定出力先へ生成する。
- * @failure N/A: materializeGitReleaseCandidateTreeは独自の失敗分岐を所有しない。
- * @invariant materializeGitReleaseCandidateTreeは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: materializeGitReleaseCandidateTreeはProcess内の同一Subsystemで完結する。
- * @security N/A: materializeGitReleaseCandidateTreeはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: materializeGitReleaseCandidateTreeは共有非同期状態を持たない同期処理である。
- */
-export function materializeGitReleaseCandidateTree(candidate: unknown) {
-  return materializeGitCommitTreeCandidateUsingPolicy(candidate, null);
 }
 
 /**

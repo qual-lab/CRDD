@@ -15,12 +15,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { gitRepositoryWorktreeViewAdapter } from "../../src/repository/worktree-view.ts";
-import {
-  observeRepositoryWorktreeFileDiff,
-  observeRepositoryWorktreeTree,
-} from "../../src/repository/worktree-view.ts";
-import { verifyRepositoryRoot } from "../../src/repository/location.ts";
+import { readFileDiff } from "../../src/repository/changes.ts";
+import { readTree } from "../../src/repository/files.ts";
+import { getRepository } from "../../src/repository/location.ts";
 
 /**
  * Test Repositoryへ固定Git Commandを実行する。
@@ -67,6 +64,8 @@ test("Repository Treeを遅延展開し選択Fileの差分を区分して読む"
   );
   fs.writeFileSync(path.join(root, "docs", "working.md"), "baseline\n", "utf8");
   fs.writeFileSync(path.join(root, "root.txt"), "root\n", "utf8");
+  for (const name of ["a.txt", "B.txt", "é.txt", "あ.txt"])
+    fs.writeFileSync(path.join(root, "docs", name), "page\n", "utf8");
   git(root, ["add", "."]);
   git(root, ["commit", "-m", "baseline"]);
   fs.writeFileSync(
@@ -78,7 +77,7 @@ test("Repository Treeを遅延展開し選択Fileの差分を区分して読む"
   fs.writeFileSync(path.join(root, "docs", "working.md"), "working\n", "utf8");
   fs.writeFileSync(path.join(root, "docs", "new.md"), "new\n", "utf8");
 
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const changes = {
@@ -86,14 +85,7 @@ test("Repository Treeを遅延展開し選択Fileの差分を区分して読む"
     workingChanges: ["docs/working.md"],
     unregisteredPaths: ["docs/new.md"],
   } as const;
-  const first = observeRepositoryWorktreeTree(
-    verified.capability,
-    changes,
-    "",
-    undefined,
-    1,
-    gitRepositoryWorktreeViewAdapter,
-  );
+  const first = readTree(verified.capability, changes, "", undefined, 1);
   assert.deepEqual(first.entries, [
     {
       path: "docs",
@@ -105,23 +97,28 @@ test("Repository Treeを遅延展開し選択Fileの差分を区分して読む"
     },
   ]);
   assert.ok(first.nextCursor);
-  const second = observeRepositoryWorktreeTree(
+  const second = readTree(
     verified.capability,
     changes,
     "",
     first.nextCursor,
     1,
-    gitRepositoryWorktreeViewAdapter,
   );
   assert.equal(second.entries[0]?.path, "root.txt");
-  const docs = observeRepositoryWorktreeTree(
-    verified.capability,
-    changes,
-    "docs",
-    undefined,
-    50,
-    gitRepositoryWorktreeViewAdapter,
+  const docs = readTree(verified.capability, changes, "docs", undefined, 50);
+  const paged: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = readTree(verified.capability, changes, "docs", cursor, 1);
+    paged.push(...page.entries.map((entry) => entry.path));
+    assert.ok(paged.length <= docs.entries.length);
+    cursor = page.nextCursor;
+  } while (cursor !== null);
+  assert.deepEqual(
+    paged,
+    docs.entries.map((entry) => entry.path),
   );
+  assert.deepEqual(paged, [...new Set(paged)].sort());
   assert.deepEqual(
     docs.entries.map((entry) => [
       entry.path,
@@ -130,46 +127,30 @@ test("Repository Treeを遅延展開し選択Fileの差分を区分して読む"
       entry.unregistered,
     ]),
     [
+      ["docs/B.txt", false, false, false],
+      ["docs/a.txt", false, false, false],
       ["docs/new.md", false, false, true],
       ["docs/prepared.md", true, false, false],
       ["docs/working.md", false, true, false],
+      ["docs/é.txt", false, false, false],
+      ["docs/あ.txt", false, false, false],
     ],
   );
-  const prepared = observeRepositoryWorktreeFileDiff(
+  const prepared = readFileDiff(
     verified.capability,
     changes,
     "docs/prepared.md",
-    gitRepositoryWorktreeViewAdapter,
   );
   assert.match(prepared.preparedPatch, /\+prepared/u);
   assert.equal(prepared.workingPatch, "");
-  const working = observeRepositoryWorktreeFileDiff(
-    verified.capability,
-    changes,
-    "docs/working.md",
-    gitRepositoryWorktreeViewAdapter,
-  );
+  const working = readFileDiff(verified.capability, changes, "docs/working.md");
   assert.match(working.workingPatch, /\+working/u);
   assert.throws(
-    () =>
-      observeRepositoryWorktreeTree(
-        verified.capability,
-        changes,
-        "docs",
-        first.nextCursor,
-        10,
-        gitRepositoryWorktreeViewAdapter,
-      ),
+    () => readTree(verified.capability, changes, "docs", first.nextCursor, 10),
     /repository_worktree_cursor_invalid/u,
   );
   assert.throws(
-    () =>
-      observeRepositoryWorktreeFileDiff(
-        verified.capability,
-        changes,
-        "../outside.txt",
-        gitRepositoryWorktreeViewAdapter,
-      ),
+    () => readFileDiff(verified.capability, changes, "../outside.txt"),
     /repository_worktree_path_invalid/u,
   );
 });

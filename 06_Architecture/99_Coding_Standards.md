@@ -2,7 +2,7 @@
 
 Status: Draft (v0.22.0 Source構造改訂。実装・機械検査の移行は未完了)
 Owner: Qual-Lab
-Last Updated: 2026-10-31
+Last Updated: 2026-11-06
 Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する
 
 ## 1. 目的と正本
@@ -307,6 +307,28 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 `scripts/`は開発・保守・生成・署名・診断・実測の定型作業を所有する。開発・診断の必要性がある場合、同じPackageの内部Sourceを直接参照できるが、Script利用だけのために内部Capabilityを公開APIへ追加してはならない（MUST NOT）。通常Runtimeの実装を複製せず、共有する製品実装は`src/`へ置く。`src/`から`scripts/`または`tests/`を通常Runtimeの実装依存としてimport／再exportしてはならない（MUST NOT）。Architectureで宣言した用途限定の検証子入口のPath登録は実装依存と区別し、任意Script起動の許可へ広げない。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。Root配置が外部ecosystem契約として必要な場合は、exact filenameと理由を本節または対象Architectureへ固定する。
 
 CRDD所有APIはNamed Exportを基本とし、Default Exportは明確な理由がある場合だけ使用する。`src/index.ts`では公開Symbolと型を明示列挙する。Frameworkが要求する設定入口等のDefault Exportは理由付き例外として扱い、その例外を製品API全体へ広げない。
+
+#### import／exportで元のSymbol名を維持する
+
+Named import／exportでは、宣言元のSymbol名をそのまま使用する（MUST）。同一Scopeの他の宣言と実際に識別子が競合する場合を除き、`as`による別名への変更は禁止する（MUST NOT）。`import type`、`export type`およびinlineの`type`指定も同じ規則に従う。短縮、好み、Package名の除去、公開名だけの整形又は互換名の維持は、競合回避の理由にしない。
+
+名前が責務に合わない場合は、所有元の宣言を適切な名前へ改名し、import／export、利用側、試験および公開契約を同じ変更で追従させる（MUST）。別名型や再export専用の中継で禁止を迂回しない（MUST NOT）。外部が所有するSymbolは、利用側の都合だけでその正本名を変更しない。
+
+競合回避に別名が必要な場合は、同じScopeで競合する宣言と参照元を確認し、必要な箇所だけに用途を区別できる名前を付ける（MUST）。理由をimport／export付近のコメント又は変更記録から追跡できるようにする。競合の有無を確認できない場合は例外とみなさず、宣言と利用箇所を確認してから変更する。
+
+```typescript
+// 禁止：公開名を整えるだけの別名。所有元の宣言をModelSelectionへ改名する。
+export type { AiModelSelection as ModelSelection } from "./provider/types.ts";
+
+// 原則：宣言元と利用側で同じ名前を使う。
+export type { ModelSelection } from "./provider/types.ts";
+
+// 例外：同一Scopeで二つのreadが競合するため、参照元を区別する。
+import { read as readRepositoryFile } from "./repository/files.ts";
+import { read as readIndexFile } from "./index/files.ts";
+```
+
+この規則はSymbolの別名に対するものであり、型アサーションの`value as Type`や、既存Symbolを改名しないNamespace束縛の`import * as namespace`とは区別する。これらを許可する別規則・公開Namespace契約を緩めるものではない。既存Sourceの適用は対象と利用側ごとに追跡し、規約追加だけを全Sourceの適用完了又は機械検査済みと扱わない。
 
 #### TypeScript File内の記述順序
 

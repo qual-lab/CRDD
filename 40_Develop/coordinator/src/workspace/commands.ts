@@ -14,16 +14,14 @@ import {
   readCoordinatorWorkspaceState,
   saveCoordinatorIntegrationRecord,
   saveCoordinatorWorkspaceRecord,
+  inspectWorkspaceCommand,
 } from "../../../domain-model/src/index.ts";
 import {
-  changedPaths,
-  gitLocalChangeSetAdapter,
-  inspectWorkspaceCandidatePatch,
-  inspectWorkspaceFile,
-  observeLocalChangeSet,
-  observeRepositoryWorktree,
+  readFile,
+  readWorkingChanges,
+  getWorktree,
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { StoreResult } from "../state/result.ts";
@@ -32,6 +30,7 @@ import {
   deriveCoordinatorRepositoryBindingId,
   validIdentity as isStableId,
 } from "../state/validation.ts";
+import { readWorkspaceCandidatePatch, workspaceWorktreeTarget } from "./git.ts";
 import { manageCoordinatorWorkspace } from "./operations.ts";
 import type {
   CoordinatorIntegrationRecordPort,
@@ -169,7 +168,7 @@ export function executeWorkspaceCommand(
     throw new Error("workspace_input_invalid");
   const allowed = () => !signal.aborted && authorize();
   if (!allowed()) throw new Error("workspace_access_unavailable");
-  const root = verifyRepositoryRoot(ownerRoot);
+  const root = getRepository(ownerRoot);
   if (
     root.status !== "completed" ||
     resolveVerifiedRepositoryRoot(root.capability) !== ownerRoot
@@ -265,7 +264,7 @@ export function executeWorkspaceCommand(
     if (command.operation === "candidate-diff") {
       if (!record.candidate?.candidateCommit)
         throw new Error("workspace_target_unavailable");
-      data = inspectWorkspaceCandidatePatch(
+      data = readWorkspaceCandidatePatch(
         root.capability,
         record.candidate.request,
         record.candidate.candidateCommit,
@@ -281,40 +280,32 @@ export function executeWorkspaceCommand(
         data,
       };
     }
-    const observed = observeRepositoryWorktree(
+    const observed = getWorktree(
       root.capability,
-      record.workspaceId,
+      workspaceWorktreeTarget(record.workspaceId),
     );
     if (
       observed.status !== "completed" ||
-      observed.workspaceId !== record.workspaceId ||
       observed.relativePath === null ||
       observed.observation?.head !== record.head ||
       record.phase !== "ready"
     )
       throw new Error("workspace_target_unavailable");
-    const target = verifyRepositoryRoot(
-      path.join(ownerRoot, observed.relativePath),
-    );
+    const target = getRepository(path.join(ownerRoot, observed.relativePath));
     if (target.status !== "completed")
       throw new Error("workspace_target_unavailable");
     data =
       command.operation === "inspect"
-        ? inspectWorkspaceFile(
-            root.capability,
-            record.workspaceId,
-            record.baseCommit,
-            command.path,
-          )
+        ? readFile(target.capability, {
+            baseCommit: record.baseCommit,
+            path: command.path,
+          })
         : {
             workspace: workspaceView(record),
-            changedPaths: changedPaths(
-              observeLocalChangeSet(
-                target.capability,
-                record.baseCommit,
-                gitLocalChangeSetAdapter,
-              ),
-            ),
+            changedPaths: readWorkingChanges(
+              target.capability,
+              record.baseCommit,
+            ).changedPaths,
           };
   } else {
     const { operation, ...input } = command;
@@ -454,5 +445,3 @@ export function writeCoordinatorWorkspaceRecord(
     { processId: process.pid, now: () => Date.now() },
   );
 }
-
-import { inspectWorkspaceCommand } from "../../../domain-model/src/index.ts";

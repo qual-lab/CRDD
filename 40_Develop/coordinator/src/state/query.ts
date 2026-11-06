@@ -5,15 +5,16 @@
  * @trace ARCH-000005
  */
 
-import type { CoordinatorState } from "../../../domain-model/src/index.ts";
 import {
+  type CoordinatorState,
   RepositoryRuntimeDataAreaBlockedError,
   readCoordinatorCurrentState,
   readCoordinatorExecutionState,
 } from "../../../domain-model/src/index.ts";
 import {
-  inspectRepositoryIdentityCandidate,
+  readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../decision/store.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
@@ -21,8 +22,7 @@ import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
 import { projectCoordinatorState } from "./projection.ts";
 
-import type { StoreResult } from "./result.ts";
-import { coordinatorDataBoundaryBlocked } from "./result.ts";
+import { type StoreResult, coordinatorDataBoundaryBlocked } from "./result.ts";
 import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "./transaction.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
@@ -156,9 +156,11 @@ export function executeCoordinatorPublicStateQuery(
       effectState: "no_effect" as const,
     });
   }
-  const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const identity = readRepositorySnapshot(
+    getRepository(repositoryRoot).capability,
+  );
   const adoptedPlan =
-    identity && identity.commit !== request.repositoryRevision
+    identity && identity.revisionIdentity !== request.repositoryRevision
       ? readCoordinatorExecutionState(
           verifyRuntimePersistenceRepository(repositoryRoot),
           deriveCoordinatorRepositoryBindingId(repositoryRoot),
@@ -170,7 +172,7 @@ export function executeCoordinatorPublicStateQuery(
       : null;
   if (
     !identity ||
-    (identity.commit !== request.repositoryRevision &&
+    (identity.revisionIdentity !== request.repositoryRevision &&
       (!adoptedPlan ||
         !workspacePlanReadyForAcceptance(
           repositoryRoot,
@@ -178,7 +180,7 @@ export function executeCoordinatorPublicStateQuery(
           request.projectId,
           adoptedPlan.milestoneId,
           request.repositoryRevision,
-          identity.commit,
+          identity.revisionIdentity,
         )))
   )
     return Object.freeze({

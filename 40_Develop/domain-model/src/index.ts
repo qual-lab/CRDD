@@ -962,3 +962,15 @@ export {
 } from "./workspace/command.ts";
 
 export type { CoordinatorWorkspaceResult } from "./workspace/types.ts";
+
+export type { RepositoryWorktreeResult } from "./workspace/types.ts";
+
+export type {
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+} from "./workspace/types.ts";
+export {
+  validWorkspaceDisplayName,
+  validWorkspaceCandidateRequest,
+  isWorkspaceCommitId,
+} from "./workspace/validation.ts";

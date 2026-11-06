@@ -70,7 +70,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
-      const id = process.argv[2], verified = vc.verifyRepositoryRoot(process.cwd());
+      const id = process.argv[2], verified = vc.getRepository(process.cwd());
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
       if(restartEntry) {
         const restart = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});

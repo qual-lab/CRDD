@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { describeRepositoryLocationContract } from "../../src/repository/location.ts";
+import { getRepository } from "../../src/repository/location.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const developRoot = path.join(repositoryRoot, "40_Develop");
@@ -149,6 +149,50 @@ function importedVersionControlNames(source: string): readonly string[] {
     const next = tokens[index + 1] ?? "";
     if (next === "(" || /^["'`]/u.test(next)) {
       const literal = next === "(" ? (tokens[index + 2] ?? "") : next;
+      if (literal.includes("version-control/src/") && next === "(") {
+        assert.equal(
+          kind,
+          "import",
+          "Version Control Root re-export bypass is forbidden",
+        );
+        assert.ok(
+          /^["']/u.test(literal) &&
+            literal.slice(1, -1).endsWith("version-control/src/index.ts"),
+          "Version Control Root is the only Package entrypoint",
+        );
+        assert.equal(
+          tokens[index + 3],
+          ")",
+          "Version Control Root import must have one literal target",
+        );
+        assert.deepEqual(
+          tokens.slice(index - 3, index),
+          ["}", "=", "await"],
+          "Version Control Root requires an exact Named binding",
+        );
+        let open = index - 4;
+        while (open >= 0 && tokens[open] !== "{" && tokens[open] !== ";")
+          open--;
+        assert.equal(
+          tokens[open - 1],
+          "const",
+          "Version Control Root requires a const Named binding",
+        );
+        const bindings = tokens.slice(open + 1, index - 3).join(" ");
+        for (const raw of bindings.split(",").filter((part) => part.trim())) {
+          assert.match(
+            raw.trim(),
+            /^[A-Za-z_$][\w$]*(?:\s*:\s*[A-Za-z_$][\w$]*)?$/u,
+            "Version Control Root requires plain Named bindings",
+          );
+          names.push(raw.trim().split(/\s*:\s*/u)[0] as string);
+        }
+        assert.ok(
+          bindings.trim().length > 0,
+          "Version Control Root requires Named bindings",
+        );
+        continue;
+      }
       assert.ok(
         !literal.includes("version-control/src/"),
         "Version Control Root requires a static Named import",
@@ -209,19 +253,21 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
   const root = "../../../version-control/src/index.ts";
   assert.deepEqual(
     importedVersionControlNames(
-      `import { verifyRepositoryRoot as verify, type VerifiedRepositoryRoot } from "${root}";\nimport type { RepositoryEntryObservation } from "${root}";`,
+      `import { getRepository as verify, type Repository } from "${root}";\nimport type { RepositoryEntryObservation } from "${root}";`,
     ),
-    [
-      "RepositoryEntryObservation",
-      "VerifiedRepositoryRoot",
-      "verifyRepositoryRoot",
-    ],
+    ["Repository", "RepositoryEntryObservation", "getRepository"],
   );
   assert.deepEqual(
     importedVersionControlNames(
-      `const before = 1; import/*comment*/ type { VerifiedRepositoryRoot } from/*comment*/ "${root}";`,
+      `const before = 1; import/*comment*/ type { Repository } from/*comment*/ "${root}";`,
     ),
-    ["VerifiedRepositoryRoot"],
+    ["Repository"],
+  );
+  assert.deepEqual(
+    importedVersionControlNames(
+      `const { getRepository: verify, resolveVerifiedRepositoryRoot } = await import("${root}");`,
+    ),
+    ["getRepository", "resolveVerifiedRepositoryRoot"],
   );
   assert.deepEqual(
     importedVersionControlNames(
@@ -246,9 +292,9 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
     const expression = `${prefix} /[\`{}]/u`;
     assert.deepEqual(
       importedVersionControlNames(
-        `const matched = ${expression}; import { verifyRepositoryRoot } from "${root}";`,
+        `const matched = ${expression}; import { getRepository } from "${root}";`,
       ),
-      ["verifyRepositoryRoot"],
+      ["getRepository"],
     );
     for (const target of [
       root,
@@ -265,20 +311,24 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
   for (const source of [
     `import * as versionControl from "${root}";`,
     `import versionControl from "${root}";`,
-    `import versionControl, { verifyRepositoryRoot } from "${root}";`,
+    `import versionControl, { getRepository } from "${root}";`,
     `const versionControl = await import("${root}");`,
+    `const { ...versionControl } = await import("${root}");`,
+    `const { [name]: versionControl } = await import("${root}");`,
+    `const { getRepository = fallback } = await import("${root}");`,
+    'const { getRepository } = await import("../../../version-control/src/repository/location.ts");',
     `import "${root}";`,
-    `export { verifyRepositoryRoot } from "${root}";`,
+    `export { getRepository } from "${root}";`,
     `export * from "${root}";`,
     `export * as versionControl from "${root}";`,
-    'import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
-    'import type { VerifiedRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
-    'import { verifyRepositoryRoot as verify } from "../../../version-control/src/repository/location.ts";',
+    'import { getRepository } from "../../../version-control/src/repository/location.ts";',
+    'import type { Repository } from "../../../version-control/src/repository/location.ts";',
+    'import { getRepository as verify } from "../../../version-control/src/repository/location.ts";',
     'const versionControl = await import("../../../version-control/src/repository/location.ts");',
-    'export { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
-    'const before = 1; import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
-    'import/*comment*/ { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";',
-    'import { verifyRepositoryRoot } from/*comment*/ "../../../version-control/src/repository/location.ts";',
+    'export { getRepository } from "../../../version-control/src/repository/location.ts";',
+    'const before = 1; import { getRepository } from "../../../version-control/src/repository/location.ts";',
+    'import/*comment*/ { getRepository } from "../../../version-control/src/repository/location.ts";',
+    'import { getRepository } from/*comment*/ "../../../version-control/src/repository/location.ts";',
     "const value = import(`../../../version-control/src/repository/location.ts`);",
     // biome-ignore lint/suspicious/noTemplateCurlyInString: テンプレート構文を解析対象の文字列として保持する。
     'const value = `${await import("../../../version-control/src/repository/location.ts")}`;',
@@ -312,7 +362,10 @@ function productionSources(root: string): readonly string[] {
     if (entry.name === "node_modules" || entry.name === "tests") continue;
     const target = path.join(root, entry.name);
     if (entry.isDirectory()) foundFiles.push(...productionSources(target));
-    else if (entry.isFile() && entry.name.endsWith(".ts"))
+    else if (
+      entry.isFile() &&
+      /\.(?:[cm]?ts|tsx|[cm]?js|jsx)$/u.test(entry.name)
+    )
       foundFiles.push(target);
   }
   return foundFiles;
@@ -477,108 +530,63 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       .sort();
 
   assert.deepEqual(
-    externalConsumers(
-      /\b(?:inspectFixedSnapshot|readFixedSnapshotFile|materializeFixedSnapshotCandidate|inspectRepositoryFixedSnapshot|gitFixedSnapshotAdapter)\b/u,
-    ),
+    externalConsumers(/\b(?:readCommitFile|copyCommitFiles)\b/u),
     [
+      "40_Develop/checker/src/repository/references.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/decision/external-send-policy.ts",
     ],
   );
   assert.deepEqual(
-    externalConsumers(
-      /\b(?:observeFixedRevisionIdentity|gitFixedRevisionIdentityAdapter|observeRepositoryRevision|gitRepositoryRevisionAdapter)\b/u,
-    ),
+    externalConsumers(/\b(?:readRepositorySnapshot|readRepositoryRevision)\b/u),
     [
+      "40_Develop/checker/src/repository/discover.ts",
+      "40_Develop/checker/src/repository/document.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
+      "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
+      "40_Develop/coordinator/scripts/verification-result-record.ts",
+      "40_Develop/coordinator/scripts/verify-general-task.ts",
+      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
+      "40_Develop/coordinator/src/decision/acceptance.ts",
+      "40_Develop/coordinator/src/execution/diagnostics.ts",
       "40_Develop/coordinator/src/execution/operation.ts",
+      "40_Develop/coordinator/src/objective/execute.ts",
       "40_Develop/coordinator/src/state/observation.ts",
+      "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/task/requests.ts",
+      "40_Develop/coordinator/src/workspace/git.ts",
       "40_Develop/domain-model/src/storage/runtime-repository.ts",
       "40_Develop/domain-model/src/storage/runtime-store.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
     ],
   );
 
-  const candidateConsumers = {
-    inspectRepositoryIdentityCandidate: [
-      "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
-      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
-      "40_Develop/coordinator/src/decision/acceptance.ts",
-      "40_Develop/coordinator/src/execution/diagnostics.ts",
-      "40_Develop/coordinator/src/execution/operation.ts",
-      "40_Develop/coordinator/src/objective/execute.ts",
-      "40_Develop/coordinator/src/state/query.ts",
-    ],
-    inspectRepositoryRevisionCandidate: [
-      "40_Develop/coordinator/scripts/verification-result-record.ts",
-      "40_Develop/coordinator/scripts/verify-general-task.ts",
-      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
-      "40_Develop/coordinator/src/execution/diagnostics.ts",
-    ],
-  };
-  /**
-   * Repository観測候補の本番利用集合を同じOracleで照合する。
-   * @responsibility 欠測・余剰と公開Rootを迂回するimport形式を拒否する。
-   * @trace RCM-IT-004
-   * @precondition 読取り済みSource集合または合成変異を渡す。
-   * @stimulus Named importを解析し、固定した利用側集合と比較する。
-   * @observation 操作別の利用File集合とimport形式を確認する。
-   * @oracle 全集合一致かつ迂回形式がない場合だけ正常終了する。
-   * @cleanup N/A: 外部資源を生成しない。
-   * @boundary 同一ProcessのSource検査だけを行う。
-   */
-  const verifyCandidateConsumers = (entries: typeof sources) => {
-    for (const [name, expected] of Object.entries(candidateConsumers)) {
-      const actual = entries
-        .filter(
-          ({ relativePath }) =>
-            !relativePath.startsWith("40_Develop/version-control/"),
-        )
-        .filter(({ source }) => {
-          const names = importedVersionControlNames(source);
-          assert.doesNotMatch(source, new RegExp(`\\b${name}\\s+as\\s+`, "u"));
-          return names.includes(name);
-        })
-        .map(({ relativePath }) => relativePath)
-        .sort();
-      assert.deepEqual(actual, [...expected].sort());
-    }
-  };
-  verifyCandidateConsumers(sources);
-  for (const name of Object.keys(candidateConsumers)) {
-    const index = sources.findIndex(
-      ({ relativePath, source }) =>
-        !relativePath.startsWith("40_Develop/version-control/") &&
-        importedVersionControlNames(source).includes(name),
-    );
-    assert.ok(index >= 0);
-    const selected = sources[index];
-    assert.ok(selected);
-    assert.throws(() =>
-      verifyCandidateConsumers(
-        sources.filter(
-          (entry, position) => entry !== selected && position !== index,
-        ),
+  const commitConsumers = sources
+    .filter(({ source }) =>
+      importedVersionControlNames(source).some((name) =>
+        [
+          "createCommit",
+          "mergeCommit",
+          "createReference",
+          "removeReference",
+          "CommitSelection",
+          "CommitTemporary",
+          "readFile",
+          "readCommitDiff",
+        ].includes(name),
       ),
-    );
-    const specifier = "../../../version-control/src/index.ts";
-    for (const source of [
-      `import { ${name} } from "${specifier}";`,
-      `import { ${name} as renamed } from "${specifier}";`,
-      `import * as vc from "${specifier}"; vc.${name};`,
-      `import vc from "${specifier}"; vc.${name};`,
-      `export { ${name} } from "${specifier}";`,
-      `const vc = await import("${specifier}"); vc.${name};`,
-    ]) {
-      assert.throws(() =>
-        verifyCandidateConsumers([
-          ...sources,
-          { relativePath: "40_Develop/synthetic-consumer.ts", source },
-        ]),
-      );
-    }
-  }
+    )
+    .map(({ relativePath }) => relativePath)
+    .sort();
+  assert.deepEqual(commitConsumers, [
+    "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
+    "40_Develop/coordinator/src/workspace/commands.ts",
+    "40_Develop/coordinator/src/workspace/git.ts",
+    "40_Develop/coordinator/src/workspace/operations.ts",
+    "40_Develop/domain-model/src/workspace/command.ts",
+    "40_Develop/domain-model/src/workspace/types.ts",
+    "40_Develop/workbench-server/src/client/components/workspace-panel.tsx",
+  ]);
 });
 
 /**
@@ -594,7 +602,10 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
  * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
 test("Repository Locationの公開ProjectionにGit固有語彙を出さない", () => {
-  const projection = JSON.stringify(describeRepositoryLocationContract());
+  const observed = getRepository(repositoryRoot);
+  assert.equal(observed.status, "completed");
+  assert.ok(observed.capability);
+  const projection = JSON.stringify(observed.capability);
   for (const term of ["commit", "tree", "index", "worktree", "staged"])
     assert.equal(projection.toLocaleLowerCase("en-US").includes(term), false);
 });
@@ -642,19 +653,23 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
 
   assert.deepEqual(
     consumers(
-      /\b(?:verifyRepositoryRoot|verifyRepositoryRootFromWorkingDirectory|resolveVerifiedRepositoryRootFromWorkingDirectory|describeRepositoryLocationContract)\b/u,
+      /\b(?:getRepository|getRepositoryFromWorkingDirectory|resolveVerifiedRepositoryRootFromWorkingDirectory)\b/u,
     ),
     [
       "40_Develop/access-management/src/repository/register.ts",
       "40_Develop/access-management/src/repository/resolve.ts",
       "40_Develop/checker/src/cli/semantic.ts",
       "40_Develop/checker/src/cli/test-catalog.ts",
+      "40_Develop/checker/src/repository/discover.ts",
+      "40_Develop/checker/src/repository/document.ts",
       "40_Develop/checker/src/repository/project-context.ts",
       "40_Develop/checker/src/repository/reality.ts",
+      "40_Develop/checker/src/repository/references.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/scripts/prepare-codex-image.ts",
+      "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
       "40_Develop/coordinator/scripts/verify-native-protection.ts",
@@ -678,6 +693,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/src/state/initialize.ts",
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
+      "40_Develop/coordinator/src/workspace/git.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
@@ -685,6 +701,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/domain-model/src/storage/runtime-lock.ts",
       "40_Develop/domain-model/src/storage/runtime-store.ts",
       "40_Develop/execution-intelligence/src/record/recorder.ts",
+      "40_Develop/executor/scripts/provider-attempt-host.ts",
+      "40_Develop/executor/scripts/verify-provider-attempt.ts",
+      "40_Develop/executor/scripts/verify-provider-home.ts",
+      "40_Develop/executor/scripts/verify-provider-real.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
       "40_Develop/visual-preview/src/preview/server.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
@@ -697,12 +717,9 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/workbench-server/src/server/start.ts",
     ].sort(),
   );
-  assert.deepEqual(
-    consumers(
-      /\b(?:registerRepositoryLocalIgnore|gitRepositoryLocalIgnoreAdapter)\b/u,
-    ),
-    ["40_Develop/domain-model/src/storage/ensure-area.ts"],
-  );
+  assert.deepEqual(consumers(/\bregisterRepositoryLocalIgnore\b/u), [
+    "40_Develop/domain-model/src/storage/ensure-area.ts",
+  ]);
 });
 
 /**
@@ -857,9 +874,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
   }));
 
   const localChangeSetConsumers = sources
-    .filter(({ source }) =>
-      /\b(observeLocalChangeSet|gitLocalChangeSetAdapter)\b/u.test(source),
-    )
+    .filter(({ source }) => /\breadWorkingChanges\b/u.test(source))
     .map(({ relativePath }) => relativePath)
     .filter(
       (relativePath) => !relativePath.startsWith("40_Develop/version-control/"),
@@ -876,11 +891,10 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       importedVersionControlNames(source).some((name) =>
         [
           "RepositoryEntryObservation",
-          "observeDeclaredNestedRepositoryPaths",
-          "observeNestedRepository",
-          "observeRepositoryEntries",
-          "readFixedSnapshotText",
-          "resolveRevisionIdentity",
+          "readRepositorySubmodules",
+          "readRepositoryEntries",
+          "readCommitFile",
+          "readRepositoryRevision",
         ].includes(name),
       ),
     )
@@ -891,6 +905,15 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     "40_Develop/checker/src/repository/document.ts",
     "40_Develop/checker/src/repository/observe.ts",
     "40_Develop/checker/src/repository/references.ts",
+    "40_Develop/coordinator/scripts/native-git-provenance.ts",
+    "40_Develop/coordinator/src/decision/external-send-policy.ts",
+    "40_Develop/coordinator/src/execution/operation.ts",
+    "40_Develop/coordinator/src/state/observation.ts",
+    "40_Develop/coordinator/src/task/requests.ts",
+    "40_Develop/coordinator/src/workspace/git.ts",
+    "40_Develop/domain-model/src/storage/runtime-repository.ts",
+    "40_Develop/domain-model/src/storage/runtime-store.ts",
+    "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
   ]);
 
   const repositoryIdentityConsumers = sources
@@ -899,12 +922,11 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
         [
           "REPOSITORY_LOCATION_CONTRACT",
           "REPOSITORY_LOCATION_CONTRACT_REVISION",
-          "VerifiedRepositoryRoot",
-          "describeRepositoryLocationContract",
+          "Repository",
           "resolveVerifiedRepositoryRoot",
           "resolveVerifiedRepositoryRootFromWorkingDirectory",
-          "verifyRepositoryRoot",
-          "verifyRepositoryRootFromWorkingDirectory",
+          "getRepository",
+          "getRepositoryFromWorkingDirectory",
         ].includes(name),
       ),
     )
@@ -918,13 +940,17 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/access-management/src/repository/types.ts",
       "40_Develop/checker/src/cli/semantic.ts",
       "40_Develop/checker/src/cli/test-catalog.ts",
+      "40_Develop/checker/src/repository/discover.ts",
+      "40_Develop/checker/src/repository/document.ts",
       "40_Develop/checker/src/repository/project-context.ts",
       "40_Develop/checker/src/repository/reality.ts",
+      "40_Develop/checker/src/repository/references.ts",
       "40_Develop/checker/src/repository/semantic.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/scripts/prepare-codex-image.ts",
+      "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
       "40_Develop/coordinator/scripts/verify-native-protection.ts",
@@ -952,6 +978,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/task/requests.ts",
       "40_Develop/coordinator/src/workspace/commands.ts",
+      "40_Develop/coordinator/src/workspace/git.ts",
       "40_Develop/coordinator/src/workspace/operations.ts",
       "40_Develop/domain-model/src/configuration/read-tool-config.ts",
       "40_Develop/domain-model/src/storage/ai-selection.ts",
@@ -971,6 +998,10 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/domain-model/src/storage/semantic-store.ts",
       "40_Develop/domain-model/src/storage/temporary-operation.ts",
       "40_Develop/execution-intelligence/src/record/recorder.ts",
+      "40_Develop/executor/scripts/provider-attempt-host.ts",
+      "40_Develop/executor/scripts/verify-provider-attempt.ts",
+      "40_Develop/executor/scripts/verify-provider-home.ts",
+      "40_Develop/executor/scripts/verify-provider-real.ts",
       "40_Develop/execution-intelligence/src/storage/store.ts",
       "40_Develop/mcp-server/src/request/authentication.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
@@ -981,6 +1012,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/workbench-server/src/server/activity/observe.ts",
       "40_Develop/workbench-server/src/server/ai-selection/projection.ts",
       "40_Develop/workbench-server/src/server/connection/configuration.ts",
+      "40_Develop/workbench-server/src/server/project/repository-action.ts",
       "40_Develop/workbench-server/src/server/project/surface.ts",
       "40_Develop/workbench-server/src/server/routes/ai-selection.ts",
       "40_Develop/workbench-server/src/server/routes/repository-view.ts",
@@ -1012,14 +1044,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     )
     .map(({ relativePath }) => relativePath)
     .sort();
-  assert.deepEqual(candidateConsumers, [
-    "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
-    "40_Develop/coordinator/src/workspace/commands.ts",
-    "40_Develop/coordinator/src/workspace/operations.ts",
-    "40_Develop/domain-model/src/workspace/command.ts",
-    "40_Develop/domain-model/src/workspace/types.ts",
-    "40_Develop/domain-model/src/workspace/validation.ts",
-  ]);
+  assert.deepEqual(candidateConsumers, []);
 });
 
 /**
@@ -1069,7 +1094,7 @@ test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-004=Direct Boundary: version-control Test Source→対象契約
  */
-test("GitによるLocal Change Set観測能力はVersion Control Adapterだけが発行する", () => {
+test("変更集合の完成操作はWorktree内容Ownerだけが定義し旧Adapterを残さない", () => {
   const sources = productionSources(developRoot).map((sourcePath) => ({
     relativePath: path
       .relative(repositoryRoot, sourcePath)
@@ -1078,15 +1103,20 @@ test("GitによるLocal Change Set観測能力はVersion Control Adapterだけ�
   }));
   const owners = sources
     .filter(({ source }) =>
-      source.includes(
-        "const gitLocalChangeSetAdapter = createGitLocalChangeSetAdapter()",
-      ),
+      /export function readWorkingChanges\(/u.test(source),
     )
     .map(({ relativePath }) => relativePath)
     .sort();
   assert.deepEqual(owners, [
-    "40_Develop/version-control/src/repository/changes.ts",
+    "40_Develop/version-control/src/repository/working-directory.ts",
   ]);
+  for (const { relativePath, source } of sources) {
+    assert.doesNotMatch(
+      source,
+      /\b(?:gitLocalChangeSetAdapter|createGitLocalChangeSetAdapter|LocalChangeSetAdapter|gitRepositoryWorktreeViewAdapter|RepositoryWorktreeViewAdapter)\b/u,
+      relativePath,
+    );
+  }
 });
 
 /**

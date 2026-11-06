@@ -9,21 +9,20 @@
  * @boundary RFD-IT-014=Related 2 Blocks: Version Control Port→Git Adapter→Local bare Remote
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import childProcess, { execFileSync } from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
 import {
-  createGitChangePublicationAdapter,
-  gitChangePublicationAdapter,
-  gitChangePublicationTargetObservationAdapter,
-} from "../../src/publication/git.ts";
-import {
-  executeChangePublication,
-  observeChangePublicationTarget,
-} from "../../src/publication/change.ts";
-import { verifyRepositoryRoot } from "../../src/repository/location.ts";
+  stagePaths,
+  unstagePaths,
+  commitChanges,
+  readRemoteTarget,
+  pushRepositoryRevision,
+} from "../../src/index.ts";
+import { getRepository } from "../../src/repository/location.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../src/repository/location.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
@@ -91,48 +90,103 @@ test("選択差分だけをRevision化し確認済みRemoteへ通常公開する
 
     await writeFile(path.join(local, "selected.txt"), "selected\n", "utf8");
     await writeFile(path.join(local, "remaining.txt"), "remaining\n", "utf8");
-    const verified = verifyRepositoryRoot(local);
+    const verified = getRepository(local);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") return;
-    const target = observeChangePublicationTarget(
-      verified.capability,
-      gitChangePublicationTargetObservationAdapter,
-    );
+    const target = readRemoteTarget(verified.capability);
     assert.equal(target.status, "available");
     assert.equal(target.destination, "origin");
     assert.equal(target.branch, "main");
     assert.equal(target.revisionIdentity, git(local, "rev-parse", "HEAD"));
 
-    const prepared = executeChangePublication(
-      verified.capability,
-      { operation: "prepare", paths: ["selected.txt", "remaining.txt"] },
-      gitChangePublicationAdapter,
-    );
+    // ローカル設定の観測だけで分類し、URLや未登録名を公開しない。
+    for (const destination of [".", "チーム/共有"]) {
+      if (destination !== ".") git(local, "remote", "add", destination, remote);
+      git(local, "config", "branch.main.remote", destination);
+      assert.equal(
+        readRemoteTarget(verified.capability).destination,
+        destination,
+      );
+    }
+    for (const destination of [
+      "https://dummy:synthetic-secret@example.invalid/repo",
+      remote,
+      "unregistered",
+    ]) {
+      git(local, "config", "branch.main.remote", destination);
+      const rejected = readRemoteTarget(verified.capability);
+      assert.equal(rejected.status, "unknown");
+      assert.equal(rejected.destination, null);
+      assert.equal(JSON.stringify(rejected).includes(destination), false);
+    }
+    git(local, "config", "branch.main.remote", "origin");
+    const originalSpawn = childProcess.spawnSync;
+    try {
+      for (const scenario of [
+        "missing",
+        "failed",
+        "error",
+        "signal",
+        "mixed",
+      ] as const) {
+        childProcess.spawnSync = ((
+          file: string,
+          argv: readonly string[],
+          options: object,
+        ) => {
+          const index = argv.indexOf("config");
+          if (index >= 0 && argv[index + 1] === "--get") {
+            const missing =
+              scenario === "missing" ||
+              (scenario === "mixed" &&
+                argv[index + 2] === "branch.main.remote");
+            return {
+              status: missing ? 1 : 2,
+              signal: scenario === "signal" ? "SIGTERM" : null,
+              error:
+                scenario === "error"
+                  ? new Error("synthetic config failure")
+                  : undefined,
+              stdout: Buffer.alloc(0),
+              stderr: Buffer.alloc(0),
+              output: [],
+              pid: 1,
+            };
+          }
+          return originalSpawn(file, argv, options);
+        }) as typeof childProcess.spawnSync;
+        syncBuiltinESMExports();
+        const observed = readRemoteTarget(verified.capability);
+        assert.equal(
+          observed.status,
+          scenario === "missing" ? "not_configured" : "unknown",
+        );
+        assert.equal(observed.destination, null);
+      }
+    } finally {
+      childProcess.spawnSync = originalSpawn;
+      syncBuiltinESMExports();
+    }
+
+    const prepared = stagePaths(verified.capability, {
+      paths: ["selected.txt", "remaining.txt"],
+    });
     assert.equal(prepared.status, "completed");
-    const unprepared = executeChangePublication(
-      verified.capability,
-      { operation: "unprepare", paths: ["remaining.txt"] },
-      gitChangePublicationAdapter,
-    );
+    const unprepared = unstagePaths(verified.capability, {
+      paths: ["remaining.txt"],
+    });
     assert.equal(unprepared.status, "completed");
-    const revision = executeChangePublication(
-      verified.capability,
-      { operation: "create_revision", message: "selected change" },
-      gitChangePublicationAdapter,
-    );
+    const revision = commitChanges(verified.capability, {
+      message: "selected change",
+    });
     assert.equal(revision.status, "completed");
     assert.ok(revision.revisionIdentity);
-    const publication = executeChangePublication(
-      verified.capability,
-      {
-        operation: "publish_revision",
-        destination: "origin",
-        branch: "main",
-        revisionIdentity: revision.revisionIdentity,
-        humanConfirmed: true,
-      },
-      gitChangePublicationAdapter,
-    );
+    const publication = pushRepositoryRevision(verified.capability, {
+      destination: "origin",
+      branch: "main",
+      revisionIdentity: revision.revisionIdentity,
+      humanConfirmed: true,
+    });
     assert.equal(publication.status, "completed");
     assert.equal(publication.effectConfirmed, true);
     assert.equal(publication.automaticRetryIssued, false);
@@ -160,20 +214,15 @@ test("選択差分だけをRevision化し確認済みRemoteへ通常公開する
  * @boundary RFD-IT-014=Direct Boundary: version-control Test Source→対象契約
  */
 test("確認後にRevisionが変われば公開Effect前に拒否する", () => {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const result = executeChangePublication(
-    verified.capability,
-    {
-      operation: "publish_revision",
-      destination: "origin",
-      branch: "main",
-      revisionIdentity: "0".repeat(40),
-      humanConfirmed: true,
-    },
-    gitChangePublicationAdapter,
-  );
+  const result = pushRepositoryRevision(verified.capability, {
+    destination: "origin",
+    branch: "main",
+    revisionIdentity: "0".repeat(40),
+    humanConfirmed: true,
+  });
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "publication_revision_changed");
   assert.equal(result.effectIssued, false);
@@ -193,8 +242,8 @@ test("確認後にRevisionが変われば公開Effect前に拒否する", () => 
  * @cleanup N/A: 差替Runnerは実RepositoryとRemoteを変更しない。
  * @boundary RFD-IT-014=Direct Boundary: version-control Test Source→対象契約
  */
-test("通常公開の通信断と反映再観測不能を成功へ畳まず再送しない", () => {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+test("通常公開の通信断と反映再観測不能を成功へ畳まず再送しない", (t) => {
+  const verified = getRepository(repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const revisionIdentity = "1".repeat(40);
@@ -220,11 +269,36 @@ test("通常公開の通信断と反映再観測不能を成功へ畳まず再�
           stdout: Buffer.alloc(0),
         };
   };
-  const communication = executeChangePublication(
-    verified.capability,
-    request,
-    createGitChangePublicationAdapter(communicationRunner),
-  );
+  const originalSpawn = childProcess.spawnSync;
+  t.after(() => {
+    childProcess.spawnSync = originalSpawn;
+    syncBuiltinESMExports();
+  });
+  const install = (runner: typeof communicationRunner) => {
+    childProcess.spawnSync = ((
+      file: string,
+      argv: readonly string[],
+      options: { cwd?: string },
+    ) => {
+      assert.equal(file, "git");
+      assert.equal(options.cwd, repositoryRoot);
+      const index = argv.findIndex((arg) =>
+        ["rev-parse", "push", "ls-remote"].includes(arg),
+      );
+      assert.ok(index >= 0);
+      const result = runner(repositoryRoot, argv.slice(index));
+      return {
+        ...result,
+        stderr: Buffer.alloc(0),
+        signal: null,
+        output: [],
+        pid: 1,
+      };
+    }) as unknown as typeof childProcess.spawnSync;
+    syncBuiltinESMExports();
+  };
+  install(communicationRunner);
+  const communication = pushRepositoryRevision(verified.capability, request);
   assert.equal(communication.status, "unknown");
   assert.equal(communication.reason, "publication_result_unknown");
   assert.equal(communication.effectIssued, true);
@@ -249,11 +323,8 @@ test("通常公開の通信断と反映再観測不能を成功へ畳まず再�
       return { error: undefined, status: 0, stdout: Buffer.alloc(0) };
     return { error: undefined, status: 1, stdout: Buffer.alloc(0) };
   };
-  const observation = executeChangePublication(
-    verified.capability,
-    request,
-    createGitChangePublicationAdapter(observationRunner),
-  );
+  install(observationRunner);
+  const observation = pushRepositoryRevision(verified.capability, request);
   assert.equal(observation.status, "unknown");
   assert.equal(observation.reason, "publication_observation_unknown");
   assert.equal(observation.effectIssued, true);
@@ -261,4 +332,24 @@ test("通常公開の通信断と反映再観測不能を成功へ畳まず再�
   assert.equal(observation.automaticRetryIssued, false);
   assert.equal(observation.forcePublicationIssued, false);
   assert.equal(observationCalls.length, 3);
+  // Signal終了は発行済みの不明であり、拒否・未実施へ読み替えない。
+  childProcess.spawnSync = ((_file: unknown, args: unknown) => ({
+    error: undefined,
+    status: (args as string[]).includes("config") ? 1 : null,
+    signal: (args as string[]).includes("config") ? null : "SIGTERM",
+    stdout: Buffer.alloc(0),
+    stderr: null,
+    output: [],
+    pid: 1,
+  })) as unknown as typeof childProcess.spawnSync;
+  syncBuiltinESMExports();
+  for (const action of [stagePaths, unstagePaths]) {
+    const interrupted = action(verified.capability, {
+      paths: ["synthetic-only.txt"],
+    });
+    assert.equal(interrupted.status, "unknown");
+    assert.equal(interrupted.effectIssued, true);
+    assert.equal(interrupted.effectConfirmed, false);
+    assert.equal(interrupted.reason, "repository_effect_unknown");
+  }
 });

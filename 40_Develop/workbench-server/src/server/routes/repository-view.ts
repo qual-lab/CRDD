@@ -39,13 +39,12 @@ import type {
   TopicMeetingAccess,
 } from "../../../../domain-model/src/index.ts";
 import {
-  type VerifiedRepositoryRoot,
+  type Repository,
   resolveVerifiedRepositoryRoot,
-  type RepositoryWorktreeTreePage,
-  type RepositoryWorktreeFileDiff,
-  gitRepositoryWorktreeViewAdapter,
-  observeRepositoryWorktreeTree,
-  observeRepositoryWorktreeFileDiff,
+  type TreePage,
+  type FileDiff,
+  readTree,
+  readFileDiff,
 } from "../../../../version-control/src/index.ts";
 import type { WorkbenchActivityReader } from "../activity/observe.ts";
 import type {
@@ -100,7 +99,7 @@ export async function handleRepositoryView({
   artifactSelection: ReturnType<typeof readWorkbenchArtifactSelection>;
   credentialAdministration: CredentialAdministration | undefined;
   repositoryRoot: string;
-  capability: VerifiedRepositoryRoot;
+  capability: Repository;
   topicMeeting: TopicMeetingAccess | undefined;
   portfolio: PortfolioProjection | undefined;
   connectionState: WorkbenchConnectionState;
@@ -198,8 +197,8 @@ export async function handleRepositoryView({
     };
     let worktreeView: Readonly<{
       state: "available" | "unknown";
-      tree: RepositoryWorktreeTreePage | null;
-      diff: RepositoryWorktreeFileDiff | null;
+      tree: TreePage | null;
+      diff: FileDiff | null;
     }> = Object.freeze({ state: "unknown", tree: null, diff: null });
     if (
       presentation.projectSurface.repository.state === "available" &&
@@ -207,24 +206,18 @@ export async function handleRepositoryView({
     ) {
       try {
         const changeSet = presentation.projectSurface.repository.changeSet;
-        const tree = observeRepositoryWorktreeTree(
+        const tree = readTree(
           capability,
           changeSet,
           requestUrl.searchParams.get("treeDirectory") ?? "",
           requestUrl.searchParams.get("treeCursor") ?? undefined,
           50,
-          gitRepositoryWorktreeViewAdapter,
         );
         const diffPath = requestUrl.searchParams.get("diffPath");
         const diff =
           diffPath === null
             ? null
-            : observeRepositoryWorktreeFileDiff(
-                capability,
-                changeSet,
-                diffPath,
-                gitRepositoryWorktreeViewAdapter,
-              );
+            : readFileDiff(capability, changeSet, diffPath);
         worktreeView = Object.freeze({ state: "available", tree, diff });
       } catch {
         worktreeView = Object.freeze({

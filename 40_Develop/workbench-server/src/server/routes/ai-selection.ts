@@ -23,7 +23,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../../version-control/src/index.ts";
 import type { FilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
@@ -45,12 +45,12 @@ import { readActionForm, setResponseHeaders } from "../security.ts";
  * @concurrency 認可関数を保存Ownerへ渡す。
  */
 function resolveSelectionAccess(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   accessRoot: FilesystemStoreRoot | undefined,
   administration: CredentialAdministration | undefined,
   repositoryId: string | null,
   signal: AbortSignal,
-): Readonly<{ root: VerifiedRepositoryRoot; authorize: () => boolean }> {
+): Readonly<{ root: Repository; authorize: () => boolean }> {
   if (!accessRoot) {
     if (repositoryId !== null) throw new Error("ai_selection_input_invalid");
     const initial = resolveVerifiedRepositoryRoot(capability);
@@ -139,7 +139,7 @@ export async function handleAiSelection({
   requestUrl: URL;
   origin: string | null;
   actionToken: string;
-  capability: VerifiedRepositoryRoot;
+  capability: Repository;
   localAccessRoot: FilesystemStoreRoot | undefined;
   credentialAdministration: CredentialAdministration | undefined;
 }>): Promise<void> {

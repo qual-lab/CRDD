@@ -22,7 +22,7 @@ import {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
+import { getRepository } from "../../version-control/src/index.ts";
 
 /**
  * 既存共有Home排他と同じPipe名を試験側で導出する。
@@ -110,7 +110,7 @@ export async function verifyProviderHomeBoundary(
       repository.toLowerCase()
   )
     throw new Error("home_boundary_repository_invalid");
-  const verified = verifyRepositoryRoot(repository);
+  const verified = getRepository(repository);
   if (verified.status !== "completed") throw Error(verified.reason);
   const parent = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataArea(verified.capability, "tests"),

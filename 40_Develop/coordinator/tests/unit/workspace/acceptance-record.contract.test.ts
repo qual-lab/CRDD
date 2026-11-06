@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { validWorkspaceCandidateRequest } from "../../../../version-control/src/index.ts";
+import { validWorkspaceCandidateRequest } from "../../../../domain-model/src/index.ts";
 
 /**
  * 本番判定を有限の既存保存結果へ接続する。

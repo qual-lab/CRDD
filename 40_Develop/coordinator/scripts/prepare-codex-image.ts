@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
+import { getRepository } from "../../version-control/src/index.ts";
 import buildInputs from "../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
@@ -43,7 +43,7 @@ export function prepareCodexImage(
     path.dirname(fileURLToPath(import.meta.url)),
     "../../..",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   if (verified.status !== "completed") throw new Error(verified.reason);
   const inputs = [
     {

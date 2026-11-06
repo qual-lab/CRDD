@@ -34,8 +34,8 @@ import {
 import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  type VerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  type Repository,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   createRepositoryWorkbenchActivityReader,
@@ -81,7 +81,7 @@ export type WorkbenchStartRequest = Readonly<{
   localAccessRoot?: FilesystemStoreRoot;
   aiRequests?: WorkbenchAiRequests;
   sharedAiRequestsFactory?: (
-    root: VerifiedRepositoryRoot,
+    root: Repository,
     projectId: string,
     principalId: string,
     authorize: () => boolean,
@@ -168,7 +168,7 @@ export async function startWorkbench(
   ).catch(() => null);
   if (clientAsset === null)
     throw new Error("workbench_client_asset_unavailable");
-  const verification = verifyRepositoryRoot(repositoryRoot);
+  const verification = getRepository(repositoryRoot);
   if (verification.status !== "completed")
     throw new Error("workbench_repository_root_invalid");
   const initialProjectSurface =

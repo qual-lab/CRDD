@@ -133,7 +133,7 @@ test("現在CLIは正式APIを一度待機しRootと取消を結合する", asyn
             throw Error("PRIVATE_FIXTURE_DETAIL");
           return "fixture-root";
         },
-        verifyRepositoryRoot: () =>
+        getRepository: () =>
           scenario === "root"
             ? { status: "blocked" }
             : { status: "completed", capability: controllerRoot },

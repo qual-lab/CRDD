@@ -91,7 +91,7 @@ import {
 } from "../../../executor/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
@@ -1000,7 +1000,7 @@ export function inspectRuntimeOwnedDockerTaskAdmission(
 ) {
   let lockReleased = false;
   try {
-    const root = verifyRepositoryRoot(repositoryRoot);
+    const root = getRepository(repositoryRoot);
     if (root.status !== "completed")
       return Object.freeze({
         status: "blocked" as const,
@@ -6378,7 +6378,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       return stopped("runtime_repair_boundary_unavailable");
     if (!repository || !currentOwner())
       return stopped("runtime_repair_boundary_unavailable");
-    const verified = verifyRepositoryRoot(repository.repositoryRoot);
+    const verified = getRepository(repository.repositoryRoot);
     if (verified.status !== "completed" || !currentOwner())
       return stopped("runtime_repair_boundary_unavailable");
     const area = observeRepositoryRuntimeDataArea(
@@ -7305,7 +7305,7 @@ function verifyRecoverySettlementRepository(
       ) !== fixedRepository.repositoryRoot
     )
       return null;
-    const verified = verifyRepositoryRoot(fixedRepository.repositoryRoot);
+    const verified = getRepository(fixedRepository.repositoryRoot);
     return verified.status === "completed" ? verified.capability : null;
   } catch {
     return null;

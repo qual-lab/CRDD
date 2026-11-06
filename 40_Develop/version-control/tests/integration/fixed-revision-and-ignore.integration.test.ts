@@ -14,19 +14,13 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { gitFixedRevisionIdentityAdapter } from "../../src/repository/revision.ts";
 import {
-  gitRepositoryLocalIgnoreAdapter,
   writeRepositoryLocalExclude,
+  registerRepositoryLocalIgnore,
 } from "../../src/repository/ignore.ts";
-import { observeFixedRevisionIdentity } from "../../src/repository/revision.ts";
-import { registerRepositoryLocalIgnore } from "../../src/repository/ignore.ts";
-import { verifyRepositoryRoot } from "../../src/repository/location.ts";
+import { getRepository } from "../../src/repository/location.ts";
 import { resolveRepositoryGitLayout } from "../../src/repository/layout.ts";
-import {
-  inspectRepositoryIdentityCandidate,
-  inspectRepositoryRevisionCandidate,
-} from "../../src/index.ts";
+import { readRepositorySnapshot } from "../../src/index.ts";
 
 /**
  * 自己生成Git試験領域をRepository内だけに作成する。
@@ -94,8 +88,7 @@ function observationRepository(t: test.TestContext) {
  */
 test("Repository候補観測は不正Rootをnullで拒否する", () => {
   for (const value of [null, {}, 1, "", "relative", "C:\\invalid\u0000root"]) {
-    assert.equal(inspectRepositoryRevisionCandidate(value), null);
-    assert.equal(inspectRepositoryIdentityCandidate(value), null);
+    assert.equal(readRepositorySnapshot(getRepository(value).capability), null);
   }
 });
 
@@ -112,21 +105,28 @@ test("Repository候補観測は不正Rootをnullで拒否する", () => {
  */
 test("Repository候補観測はHEADとTreeを結合し既存作業を変更しない", (t) => {
   const root = observationRepository(t);
-  const before = inspectRepositoryIdentityCandidate(root);
+  const before = readRepositorySnapshot(getRepository(root).capability);
   assert.ok(before);
-  assert.equal(before.commit, git(root, ["rev-parse", "HEAD"]));
-  assert.equal(before.tree, git(root, ["rev-parse", "HEAD^{tree}"]));
-  assert.equal(before.revision, before.commit);
-  assert.equal(before.repositoryKind, "primary");
+  assert.equal(before.revisionIdentity, git(root, ["rev-parse", "HEAD"]));
+  assert.equal(
+    before.snapshotIdentity,
+    git(root, ["rev-parse", "HEAD^{tree}"]),
+  );
+  assert.equal(before.repositoryForm, "primary");
   assert.equal(before.repositoryPathReported, false);
-  assert.equal(before.externalGitCliUsed, false);
   fs.writeFileSync(path.join(root, "source.txt"), "staged\n");
   git(root, ["add", "--", "source.txt"]);
   fs.writeFileSync(path.join(root, "source.txt"), "dirty\n");
   fs.writeFileSync(path.join(root, "untracked.txt"), "untracked\n");
   const status = git(root, ["status", "--porcelain=v1"]);
-  assert.deepEqual(inspectRepositoryIdentityCandidate(root), before);
-  assert.equal(inspectRepositoryRevisionCandidate(root)?.tree, before.tree);
+  assert.deepEqual(
+    readRepositorySnapshot(getRepository(root).capability),
+    before,
+  );
+  assert.equal(
+    readRepositorySnapshot(getRepository(root).capability)?.snapshotIdentity,
+    before.snapshotIdentity,
+  );
   assert.equal(git(root, ["status", "--porcelain=v1"]), status);
   assert.equal(JSON.stringify(before).includes(root), false);
 });
@@ -146,21 +146,18 @@ test("Repository候補観測はLinked Worktreeの個別実体を区別する", (
   const root = observationRepository(t);
   const linked = path.join(root, "linked");
   git(root, ["worktree", "add", "--detach", linked, "HEAD"]);
-  const primary = inspectRepositoryIdentityCandidate(root);
-  const observed = inspectRepositoryIdentityCandidate(linked);
+  const primary = readRepositorySnapshot(getRepository(root).capability);
+  const observed = readRepositorySnapshot(getRepository(linked).capability);
   assert.ok(primary);
   assert.ok(observed);
-  assert.equal(observed.repositoryKind, "linked");
-  assert.equal(
-    observed.logicalRepositoryIdentity,
-    primary.logicalRepositoryIdentity,
-  );
+  assert.equal(observed.repositoryForm, "linked");
+  assert.equal(observed.repositoryIdentity, primary.repositoryIdentity);
   assert.notEqual(
     observed.repositoryInstanceIdentity,
     primary.repositoryInstanceIdentity,
   );
-  assert.equal(observed.commit, primary.commit);
-  assert.equal(observed.tree, primary.tree);
+  assert.equal(observed.revisionIdentity, primary.revisionIdentity);
+  assert.equal(observed.snapshotIdentity, primary.snapshotIdentity);
 });
 
 /**
@@ -179,16 +176,110 @@ test("Repository候補観測は不正HEADと欠測Commitを拒否する", (t) =>
   const headPath = path.join(root, ".git", "HEAD");
   const head = fs.readFileSync(headPath);
   fs.writeFileSync(headPath, "invalid\n");
-  assert.equal(inspectRepositoryRevisionCandidate(root), null);
-  assert.equal(inspectRepositoryIdentityCandidate(root), null);
+  assert.equal(readRepositorySnapshot(getRepository(root).capability), null);
   fs.writeFileSync(headPath, head);
   const commit = git(root, ["rev-parse", "HEAD"]);
   const missingCommit = "f".repeat(40);
   assert.notEqual(commit, missingCommit);
   fs.writeFileSync(headPath, `${missingCommit}\n`);
-  assert.equal(inspectRepositoryRevisionCandidate(root), null);
-  assert.equal(inspectRepositoryIdentityCandidate(root), null);
+  assert.equal(readRepositorySnapshot(getRepository(root).capability), null);
 });
+
+for (const mode of ["head", "root"] as const) {
+  /**
+   * 一つのSnapshot取得中に実体を変更し、混在した成功を拒否する。
+   * @responsibility 前後HEADと最終Root再確認の省略を実Filesystemの反例で検出する。
+   * @trace RFD-IT-008
+   * @precondition 自己生成Repositoryと同内容の交換用Rootだけを使用する。
+   * @stimulus 中央Commit Object読取り後のHEAD変更、又は後HEAD読取り後のRoot交換。
+   * @observation 故障注入到達、同じ呼出しのnull、元Root復元後の正常取得。
+   * @oracle 元実体と別改訂又は別Rootを混在させたSnapshotを返さない。
+   * @cleanup 差替えたFS関数を戻し、所有Rootを復元して交換用Directoryも回収する。
+   * @boundary 実Git ObjectとFilesystem。外部AI・Dockerなし。
+   */
+  test("Snapshot取得中の" + mode + "変更を拒否する", (t) => {
+    const root = observationRepository(t);
+    const first = git(root, ["rev-parse", "HEAD"]);
+    fs.writeFileSync(path.join(root, "source.txt"), "second\n");
+    git(root, ["add", "--", "source.txt"]);
+    git(root, [
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-m",
+      "second",
+    ]);
+    const second = git(root, ["rev-parse", "HEAD"]);
+    const ref = path.join(root, ".git", "refs", "heads", "main");
+    fs.writeFileSync(ref, first + "\n");
+    const capability = getRepository(root).capability;
+    assert.ok(capability);
+    const replacement = root + "-replacement";
+    const prior = root + "-prior";
+    if (mode === "root") fs.cpSync(root, replacement, { recursive: true });
+    const object = path.join(
+      root,
+      ".git",
+      "objects",
+      first.slice(0, 2),
+      first.slice(2),
+    );
+    const open = fs.openSync,
+      close = fs.closeSync;
+    const tracked = new Map<number, "object" | "head">();
+    let revisionReads = 0,
+      injected = false;
+    fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
+      const handle = Reflect.apply(open, fs, args);
+      if (args[0] === object) tracked.set(handle, "object");
+      if (
+        args[0] === path.join(root, ".git", "HEAD") &&
+        new Error().stack?.includes("at readRevision (")
+      )
+        tracked.set(handle, "head");
+      return handle;
+    }) as typeof fs.openSync;
+    fs.closeSync = (handle) => {
+      close(handle);
+      const kind = tracked.get(handle);
+      tracked.delete(handle);
+      if (kind === "head") revisionReads++;
+      if (
+        !injected &&
+        ((mode === "head" && kind === "object") ||
+          (mode === "root" && kind === "head" && revisionReads === 2))
+      ) {
+        injected = true;
+        if (mode === "head") fs.writeFileSync(ref, second + "\n");
+        else {
+          fs.renameSync(root, prior);
+          fs.renameSync(replacement, root);
+        }
+      }
+    };
+    try {
+      assert.equal(readRepositorySnapshot(capability), null);
+      assert.equal(injected, true);
+    } finally {
+      fs.openSync = open;
+      fs.closeSync = close;
+      if (mode === "head") fs.writeFileSync(ref, first + "\n");
+      if (mode === "root") {
+        if (fs.existsSync(prior)) {
+          fs.rmSync(root, { recursive: true });
+          fs.renameSync(prior, root);
+        }
+        if (fs.existsSync(replacement))
+          fs.rmSync(replacement, { recursive: true });
+      }
+    }
+    assert.equal(readRepositorySnapshot(capability)?.revisionIdentity, first);
+  });
+}
 
 /**
  * gitのTest準備責務を実行する。
@@ -249,13 +340,10 @@ test("現在の固定Revision Identityは未Commit変更に依存しない", (t)
   const root = repository(t);
   const revision = git(root, ["rev-parse", "HEAD"]);
   fs.writeFileSync(path.join(root, "tracked.txt"), "working\n", "utf8");
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const identity = observeFixedRevisionIdentity(
-    verified.capability,
-    gitFixedRevisionIdentityAdapter,
-  );
+  const identity = readRepositorySnapshot(verified.capability);
   assert.equal(identity?.revisionIdentity, revision);
   assert.equal(identity?.repositoryForm, "primary");
   assert.equal(JSON.stringify(identity).includes(root), false);
@@ -275,19 +363,11 @@ test("現在の固定Revision Identityは未Commit変更に依存しない", (t)
  */
 test("Repository-local ignore登録は原子的・冪等でreadbackされる", (t) => {
   const root = repository(t);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const first = registerRepositoryLocalIgnore(
-    verified.capability,
-    ".crdd/",
-    gitRepositoryLocalIgnoreAdapter,
-  );
-  const second = registerRepositoryLocalIgnore(
-    verified.capability,
-    ".crdd/",
-    gitRepositoryLocalIgnoreAdapter,
-  );
+  const first = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
+  const second = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
   assert.equal(first.status, "registered");
   assert.equal(second.status, "registered");
   if (first.status !== "registered" || second.status !== "registered") return;
@@ -328,20 +408,15 @@ test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別
   for (const phase of phases) {
     await t.test(phase, () => {
       const root = repository(t);
-      const verified = verifyRepositoryRoot(root);
+      const verified = getRepository(root);
       assert.equal(verified.status, "completed");
       if (verified.status !== "completed") return;
-      const result = registerRepositoryLocalIgnore(
-        verified.capability,
+      const result = writeRepositoryLocalExclude(
+        resolveRepositoryGitLayout(root),
         ".crdd/",
-        (repositoryRoot, entry) =>
-          writeRepositoryLocalExclude(
-            resolveRepositoryGitLayout(repositoryRoot),
-            entry,
-            (current) => {
-              if (current === phase) throw new Error(`injected_${phase}`);
-            },
-          ),
+        (current) => {
+          if (current === phase) throw new Error("synthetic_phase_failure");
+        },
       );
       assert.equal(result.status, "blocked");
       if (result.status !== "blocked") return;
@@ -352,7 +427,6 @@ test("Repository-local ignoreは失敗段階ごとにEffectと後始末を区別
         result.effectConfirmation,
         isAfterRename ? "unknown" : "not_issued",
       );
-      assert.equal(result.effectStateUnknown, isAfterRename);
       assert.equal(result.cleanupConfirmed, true);
     });
   }
@@ -379,14 +453,10 @@ test("Repository-local ignoreは競合Writerを未変更として扱わない", 
     ".crdd-runtime-exclude.lock",
   );
   fs.writeFileSync(lockPath, "other-writer\n", "utf8");
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const result = registerRepositoryLocalIgnore(
-    verified.capability,
-    ".crdd/",
-    gitRepositoryLocalIgnoreAdapter,
-  );
+  const result = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
   assert.equal(result.status, "blocked");
   if (result.status !== "blocked") return;
   assert.equal(result.effectIssued, false);
@@ -517,14 +587,10 @@ test("linked worktreeからのRepository-local ignoreは共有common directory�
     fs.rmSync(root, { recursive: true, force: true });
   });
   git(root, ["worktree", "add", "-b", "linked-ignore", linked]);
-  const verified = verifyRepositoryRoot(linked);
+  const verified = getRepository(linked);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const result = registerRepositoryLocalIgnore(
-    verified.capability,
-    ".crdd/",
-    gitRepositoryLocalIgnoreAdapter,
-  );
+  const result = registerRepositoryLocalIgnore(verified.capability, ".crdd/");
   assert.equal(result.status, "registered");
   assert.match(
     fs.readFileSync(path.join(root, ".git", "info", "exclude"), "utf8"),

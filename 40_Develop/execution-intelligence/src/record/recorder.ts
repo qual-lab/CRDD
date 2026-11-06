@@ -5,8 +5,8 @@
  * @trace ARCH-000007
  */
 import {
-  verifyRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  getRepository,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 
 import {
@@ -189,7 +189,7 @@ export function createExecutionIntelligenceRecorder(repositoryRoot: string):
  * @security N/A: VerifiedExecutionRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility VerifiedExecutionRepositoryRootの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type VerifiedExecutionRepositoryRoot = VerifiedRepositoryRoot;
+export type VerifiedExecutionRepositoryRoot = Repository;
 
 /**
  * Execution Intelligence Repository Rootを検証する。
@@ -217,7 +217,7 @@ export function verifyExecutionIntelligenceRepositoryRoot(candidate: string):
       status: "blocked";
       reason: "execution_repository_root_invalid";
     }> {
-  const verified = verifyRepositoryRoot(candidate);
+  const verified = getRepository(candidate);
   if (verified.status === "blocked")
     return Object.freeze({
       status: "blocked" as const,

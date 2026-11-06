@@ -6,14 +6,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { gitRepositoryLocalIgnoreAdapter } from "../../../version-control/src/index.ts";
 import {
+  getRepositoryFromWorkingDirectory,
   registerRepositoryLocalIgnore,
-  type RepositoryLocalIgnoreAdapter,
-} from "../../../version-control/src/index.ts";
-import {
-  verifyRepositoryRootFromWorkingDirectory,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import {
   REPOSITORY_AREAS,
@@ -41,7 +37,7 @@ import type { RepositoryRuntimeArea } from "../repository/types.ts";
  * @concurrency 既存の上位利用調停下で呼び、将来の置換不存在は保証しない。
  */
 export function checkRepositoryRuntimeDataProtectionDirectory(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   operation: "observe" | "prepare",
 ): "ready" | "absent" | "blocked" {
   try {
@@ -113,9 +109,7 @@ function ensureCanonicalDirectory(target: string): void {
  * @security 任意Path、旧保存形式や操作Authorityを受理しない。
  * @concurrency 呼出し側のCoordinator排他に加え、mkdirのEEXISTで競合作成を拒否する。
  */
-export function createCoordinatorRuntimeDataArea(
-  capability: VerifiedRepositoryRoot,
-) {
+export function createCoordinatorRuntimeDataArea(capability: Repository) {
   let effectIssued = false;
   try {
     const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
@@ -181,7 +175,7 @@ export function createCoordinatorRuntimeDataArea(
  * @concurrency 同じKernel排他下で処置直前と出版境界を再確認する。
  */
 export function assertRuntimeStateInitializationBoundary(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): void {
   const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
   if (!paths) throw new Error("runtime_initialization_boundary_unavailable");
@@ -223,60 +217,19 @@ export function assertRuntimeStateInitializationBoundary(
 }
 
 /**
- * Creates or verifies one declared repository-local area. Consumers receive
- *
- * @responsibility Repository Runtime Data Areaの成立条件、作成または再利用、失敗時の非成立境界を所有する。
+ * 宣言済みRuntime領域を、ローカル除外の確定後だけ作成する。
+ * @responsibility VCの完成した登録結果を受け、保存領域の判断と失敗情報を保持する。
  * @trace ARCH-000011
- * @input capability: VerifiedRepositoryRoot、area: RepositoryRuntimeArea
- * @returns ensureRepositoryRuntimeDataAreaの計算結果を返す。
- * @precondition 「capability: VerifiedRepositoryRoot、area: RepositoryRuntimeArea」がensureRepositoryRuntimeDataAreaの入力契約を満たす。
- * @postcondition ensureRepositoryRuntimeDataAreaの責務を完了した結果だけを返す。
- * @effect N/A: ensureRepositoryRuntimeDataAreaは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ensureRepositoryRuntimeDataAreaは独自の失敗分岐を所有しない。
- * @invariant ensureRepositoryRuntimeDataAreaは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ensureRepositoryRuntimeDataAreaはProcess内の同一Subsystemで完結する。
- * @security ensureRepositoryRuntimeDataAreaはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ensureRepositoryRuntimeDataAreaは共有非同期状態を持たない同期処理である。
+ * @effect 除外登録後に既存のRepository内領域を作成する。
+ * @failure 除外のEffect不明・回収不明はblockedのまま返し、領域を作らない。
  */
 export function ensureRepositoryRuntimeDataArea(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   area: RepositoryRuntimeArea,
-) {
-  return ensureRepositoryRuntimeDataAreaWithAdapter(
-    capability,
-    area,
-    gitRepositoryLocalIgnoreAdapter,
-  );
-}
-
-/**
- * Internal test seam for exact Ignore lifecycle failure injection.
- *
- * @responsibility Repository Runtime Data Area With Adapterの成立条件、作成または再利用、失敗時の非成立境界を所有する。
- * @trace ARCH-000011
- * @input capability: VerifiedRepositoryRoot、area: RepositoryRuntimeArea、ignoreAdapter: RepositoryLocalIgnoreAdapter
- * @returns ensureRepositoryRuntimeDataAreaWithAdapterの計算結果を返す。
- * @precondition 「capability: VerifiedRepositoryRoot、area: RepositoryRuntimeArea、ignoreAdapter: RepositoryLocalIgnoreAdapter」がensureRepositoryRuntimeDataAreaWithAdapterの入力契約を満たす。
- * @postcondition ensureRepositoryRuntimeDataAreaWithAdapterの責務を完了した結果だけを返す。
- * @effect N/A: ensureRepositoryRuntimeDataAreaWithAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ensureRepositoryRuntimeDataAreaWithAdapterは独自の失敗分岐を所有しない。
- * @invariant ensureRepositoryRuntimeDataAreaWithAdapterは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ensureRepositoryRuntimeDataAreaWithAdapterはProcess内の同一Subsystemで完結する。
- * @security ensureRepositoryRuntimeDataAreaWithAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: ensureRepositoryRuntimeDataAreaWithAdapterは共有非同期状態を持たない同期処理である。
- */
-export function ensureRepositoryRuntimeDataAreaWithAdapter(
-  capability: VerifiedRepositoryRoot,
-  area: RepositoryRuntimeArea,
-  ignoreAdapter: RepositoryLocalIgnoreAdapter,
 ) {
   const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
   if (!paths || !REPOSITORY_AREAS.includes(area)) return null;
-  const ignore = registerRepositoryLocalIgnore(
-    capability,
-    ".crdd/",
-    ignoreAdapter,
-  );
+  const ignore = registerRepositoryLocalIgnore(capability, ".crdd/");
   if (ignore.status !== "registered")
     return Object.freeze({
       status: "blocked" as const,
@@ -319,7 +272,7 @@ export function ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
   workingDirectory: unknown,
   area: RepositoryRuntimeArea,
 ) {
-  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
     ? ensureRepositoryRuntimeDataArea(verified.capability, area)
     : null;

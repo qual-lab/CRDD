@@ -5,8 +5,8 @@
  */
 
 import {
-  type VerifiedRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  type Repository,
+  getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "./runtime-kernel-lock.ts";
 import {
@@ -84,11 +84,11 @@ export function readCoordinatorStorageOwnerBinding(owner: object) {
  * @concurrency このOwnerの内部借用ではKernelを再取得しない。
  */
 export function acquireCoordinatorStorageOwner(
-  workingDirectory: string | VerifiedRepositoryRoot,
+  workingDirectory: string | Repository,
 ): CoordinatorStorageOwner | null {
   const verified =
     typeof workingDirectory === "string"
-      ? verifyRepositoryRootFromWorkingDirectory(workingDirectory)
+      ? getRepositoryFromWorkingDirectory(workingDirectory)
       : null;
   const repository =
     typeof workingDirectory !== "string"
@@ -233,7 +233,7 @@ export function isLiveCoordinatorStorageOwner(
  * @concurrency 同Rootのcase差と配下起動を同じ排他へ結合する。
  */
 export function acquireCoordinatorSnapshotPilotLock(
-  workingDirectory: string | VerifiedRepositoryRoot,
+  workingDirectory: string | Repository,
 ): StoreResult<CoordinatorSnapshotOwner> {
   const owner = acquireCoordinatorStorageOwner(workingDirectory);
   return owner

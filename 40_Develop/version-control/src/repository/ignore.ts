@@ -20,30 +20,11 @@ import {
   verifyLayoutForWrite,
   verifySnapshot,
 } from "./layout.ts";
-import {
-  resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
-} from "./location.ts";
+import { resolveVerifiedRepositoryRoot, type Repository } from "./location.ts";
 
-export const gitRepositoryLocalIgnoreAdapter: RepositoryLocalIgnoreAdapter = (
-  repositoryRoot,
-  entry,
-) => {
-  try {
-    return writeRepositoryLocalExclude(
-      resolveRepositoryGitLayout(repositoryRoot),
-      entry,
-    );
-  } catch {
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "repository_local_ignore_update_blocked" as const,
-      effectIssued: false,
-      effectConfirmation: "not_issued" as const,
-      cleanupConfirmed: true,
-    });
-  }
-};
+const REPOSITORY_LOCAL_IGNORE_CONTRACT =
+  "crdd-version-control/repository-local-ignore/v1";
+const REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION = 1;
 
 /**
  * Excludeを検証済み値へ復号する。
@@ -202,7 +183,7 @@ export type RepositoryLocalExcludeWriteResult =
     }>;
 
 /**
- * repository-local-ignore-adapterで使用するRepository Local Exclude Phaseの値契約を定義する。
+ * repository-local-ignoreで使用するRepository Local Exclude Phaseの値契約を定義する。
  *
  * @responsibility Repository Local Exclude PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000002
@@ -515,76 +496,16 @@ export function writeRepositoryLocalExclude(
   }
 }
 
-export const REPOSITORY_LOCAL_IGNORE_CONTRACT =
-  "crdd-version-control/repository-local-ignore/v1";
-
-export const REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION = 1;
-
 /**
- * repository-local-ignoreで使用するRepository Local Ignore Adapter 結果の値契約を定義する。
- *
- * @responsibility Repository Local Ignore Adapter 結果のProperty、Identity、状態制約を型境界として所有する。
+ * 検証済みRepositoryのローカル除外を登録する。
+ * @responsibility 入力検査・実更新・読戻し・失敗後の回復情報を完成操作として返す。
  * @trace ARCH-000002
- * @shape RepositoryLocalIgnoreAdapterResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RepositoryLocalIgnoreAdapterResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: RepositoryLocalIgnoreAdapterResultの宣言は外部境界を開かない。
- * @security N/A: RepositoryLocalIgnoreAdapterResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RepositoryLocalIgnoreAdapterResultの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type RepositoryLocalIgnoreAdapterResult =
-  | Readonly<{
-      status: "completed";
-      changed: boolean;
-      beforeContentIdentity: string;
-      afterContentIdentity: string;
-      effectIssued: boolean;
-      effectConfirmation: "confirmed";
-      cleanupConfirmed: true;
-    }>
-  | Readonly<{
-      status: "blocked";
-      reason: "repository_local_ignore_update_blocked";
-      effectIssued: boolean;
-      effectConfirmation: "not_issued" | "unknown";
-      cleanupConfirmed: boolean;
-    }>;
-
-/**
- * repository-local-ignoreで使用するRepository Local Ignore Adapterの値契約を定義する。
- *
- * @responsibility Repository Local Ignore AdapterのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000002
- * @shape RepositoryLocalIgnoreAdapterが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RepositoryLocalIgnoreAdapterで宣言した値と責務の対応を維持する。
- * @boundary N/A: RepositoryLocalIgnoreAdapterの宣言は外部境界を開かない。
- * @security N/A: RepositoryLocalIgnoreAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RepositoryLocalIgnoreAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type RepositoryLocalIgnoreAdapter = (
-  repositoryRoot: string,
-  entry: string,
-) => RepositoryLocalIgnoreAdapterResult;
-
-/**
- * Repository Local Ignoreを登録する。
- *
- * @responsibility Repository Local Ignoreの登録条件、Identity、一意性境界を所有する。
- * @trace ARCH-000002
- * @input capability: VerifiedRepositoryRoot、entry: unknown、adapter: RepositoryLocalIgnoreAdapter
- * @returns registerRepositoryLocalIgnoreの計算結果を返す。
- * @precondition 「capability: VerifiedRepositoryRoot、entry: unknown、adapter: RepositoryLocalIgnoreAdapter」がregisterRepositoryLocalIgnoreの入力契約を満たす。
- * @postcondition registerRepositoryLocalIgnoreの責務を完了した結果だけを返す。
- * @effect 指定AdapterへRepository内の除外設定の観測・更新を委譲する。
- * @failure registerRepositoryLocalIgnoreは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant registerRepositoryLocalIgnoreは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 指定Adapterによる除外設定のFilesystem更新と結果の境界。
- * @security registerRepositoryLocalIgnoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: registerRepositoryLocalIgnoreは共有非同期状態を持たない同期処理である。
+ * @effect Git共通管理領域の除外Fileを既存Lock・原子的置換で更新する。
+ * @failure 発行前拒否と発行後不明を区別し、再試行可否とexact回復参照を保持する。
  */
 export function registerRepositoryLocalIgnore(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   entry: unknown,
-  adapter: RepositoryLocalIgnoreAdapter,
 ) {
   if (
     typeof entry !== "string" ||
@@ -606,7 +527,21 @@ export function registerRepositoryLocalIgnore(
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   if (repositoryRoot === null)
     throw new Error("verified_repository_root_required");
-  const result = adapter(repositoryRoot, entry);
+  let result: RepositoryLocalExcludeWriteResult;
+  try {
+    result = writeRepositoryLocalExclude(
+      resolveRepositoryGitLayout(repositoryRoot),
+      entry,
+    );
+  } catch {
+    result = {
+      status: "blocked",
+      reason: "repository_local_ignore_update_blocked",
+      effectIssued: false,
+      effectConfirmation: "not_issued",
+      cleanupConfirmed: true,
+    };
+  }
   return result.status === "completed"
     ? Object.freeze({
         contract: REPOSITORY_LOCAL_IGNORE_CONTRACT,

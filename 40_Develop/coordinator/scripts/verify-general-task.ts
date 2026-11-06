@@ -9,7 +9,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  readRepositorySnapshot,
+  getRepository,
+} from "../../version-control/src/index.ts";
 import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
 import {
@@ -21,6 +25,7 @@ import {
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
+  observeRuntimeOwnedDevelopmentSource,
 } from "../src/execution/diagnostics.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
@@ -39,13 +44,9 @@ import {
   type CoordinatorTaskPublicReason,
 } from "../src/execution/result.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
   isCanonicalCrddGitObjectId,
   isSupportedCrddRuntimeGitObjectId,
-} from "./verification-safety.ts";
-import { inspectRepositoryRevisionCandidate } from "../../version-control/src/index.ts";
-import {
   evaluateVerificationSafetyObservation,
   salvageVerificationNullableRecovery,
   salvageVerificationRecoveryPair,
@@ -414,23 +415,23 @@ export function bindSignedGeneralTaskCancellation(
 const productionDependencies: VerificationDependencies = Object.freeze({
   observeSource: () => {
     const root = fileURLToPath(new URL("../../../", import.meta.url));
-    const before = inspectRepositoryRevisionCandidate(root);
+    const before = readRepositorySnapshot(getRepository(root).capability);
     const source = observeRuntimeOwnedDevelopmentSource();
-    const after = inspectRepositoryRevisionCandidate(root);
+    const after = readRepositorySnapshot(getRepository(root).capability);
     if (
       !source ||
-      before?.status !== "candidate" ||
-      after?.status !== "candidate" ||
-      before.commit !== after.commit ||
-      before.tree !== after.tree
+      before?.status !== "observed" ||
+      after?.status !== "observed" ||
+      before.revisionIdentity !== after.revisionIdentity ||
+      before.snapshotIdentity !== after.snapshotIdentity
     )
       return null;
     return Object.freeze({
       scope: source.scope,
       sourceSha256: source.sourceSha256,
       sourceIdentitySha256: source.sourceIdentitySha256,
-      crddCommit: before.commit,
-      crddTree: before.tree,
+      crddCommit: before.revisionIdentity,
+      crddTree: before.snapshotIdentity,
     });
   },
   prepareWorkspace: prepareVerificationWorkspace,
@@ -447,7 +448,19 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   readWorkspaceOutput: (target, result) =>
     readVerificationWorkspaceOutput(target, TARGET_PATH, result),
   closeWorkspace: closeVerificationWorkspace,
-  inspectRepositoryRevision: inspectRepositoryRevisionCandidate,
+  inspectRepositoryRevision: (root) => {
+    const snapshot = readRepositorySnapshot(getRepository(root).capability);
+    return snapshot === null
+      ? null
+      : {
+          status: "candidate",
+          commit: snapshot.revisionIdentity,
+          tree: snapshot.snapshotIdentity,
+          repositoryKind: snapshot.repositoryForm,
+          externalGitCliUsed: false,
+          repositoryPathReported: false,
+        };
+  },
   readBaseContent: (repositoryRoot) =>
     readFileSync(path.join(repositoryRoot, ...TARGET_PATH.split("/"))),
   now: () => new Date().toISOString(),

@@ -9,8 +9,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
-  type VerifiedRepositoryRoot,
+  getRepositoryFromWorkingDirectory,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import { CROS_DIRECTORY_ID } from "../configuration/validate-declarations.ts";
 import {
@@ -71,9 +71,9 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
  *
  * @responsibility Repository Runtime Data Pathsの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: Repository
  * @returns resolveRepositoryRuntimeDataPathsの計算結果を返す。
- * @precondition 「capability: VerifiedRepositoryRoot」がresolveRepositoryRuntimeDataPathsの入力契約を満たす。
+ * @precondition 「capability: Repository」がresolveRepositoryRuntimeDataPathsの入力契約を満たす。
  * @postcondition resolveRepositoryRuntimeDataPathsの責務を完了した結果だけを返す。
  * @effect N/A: resolveRepositoryRuntimeDataPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resolveRepositoryRuntimeDataPathsは独自の失敗分岐を所有しない。
@@ -82,9 +82,7 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
  * @security resolveRepositoryRuntimeDataPathsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: resolveRepositoryRuntimeDataPathsは共有非同期状態を持たない同期処理である。
  */
-export function resolveRepositoryRuntimeDataPaths(
-  capability: VerifiedRepositoryRoot,
-) {
+export function resolveRepositoryRuntimeDataPaths(capability: Repository) {
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   if (repositoryRoot === null) return null;
   const resolved =
@@ -100,9 +98,9 @@ export function resolveRepositoryRuntimeDataPaths(
  *
  * @responsibility Repository Runtime Data Paths For Internal Useの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000011
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: Repository
  * @returns resolveRepositoryRuntimeDataPathsForInternalUseの計算結果を返す。
- * @precondition 「capability: VerifiedRepositoryRoot」がresolveRepositoryRuntimeDataPathsForInternalUseの入力契約を満たす。
+ * @precondition 「capability: Repository」がresolveRepositoryRuntimeDataPathsForInternalUseの入力契約を満たす。
  * @postcondition resolveRepositoryRuntimeDataPathsForInternalUseの責務を完了した結果だけを返す。
  * @effect N/A: resolveRepositoryRuntimeDataPathsForInternalUseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resolveRepositoryRuntimeDataPathsForInternalUseは独自の失敗分岐を所有しない。
@@ -112,7 +110,7 @@ export function resolveRepositoryRuntimeDataPaths(
  * @concurrency N/A: resolveRepositoryRuntimeDataPathsForInternalUseは共有非同期状態を持たない同期処理である。
  */
 export function resolveRepositoryRuntimeDataPathsForInternalUse(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ) {
   const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
   return repositoryRoot === null
@@ -136,7 +134,7 @@ export function resolveRepositoryRuntimeDataPathsForInternalUse(
  * @concurrency 開始・終了の不透明Identity比較で境界置換を検出できる。将来の状態を保証しない。
  */
 export function observeRepositoryRuntimeDataArea(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   area: RepositoryRuntimeArea,
 ): RepositoryRuntimeDataAreaObservation {
   try {
@@ -221,7 +219,7 @@ export function observeRepositoryRuntimeDataArea(
 export function resolveRepositoryRuntimeDataPathsFromWorkingDirectory(
   workingDirectory: unknown,
 ) {
-  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
     ? resolveRepositoryRuntimeDataPaths(verified.capability)
     : null;

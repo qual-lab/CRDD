@@ -391,7 +391,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       : refused;
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,verifyRepositoryRoot,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const restartDockerEnvironment = request => runDockerRuntimeRepairSession(request.input); const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,getRepository,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const restartDockerEnvironment = request => runDockerRuntimeRepairSession(request.input); const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
     randomBytes,
@@ -478,7 +478,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
             revalidate: () => state.alive,
           }
         : null,
-    verifyRepositoryRoot: () => ({ status: "completed", capability: root }),
+    getRepository: () => ({ status: "completed", capability: root }),
     observeRepositoryRuntimeDataArea: () => ({
       status: state.bytes ? "ready" : "not_observed",
     }),

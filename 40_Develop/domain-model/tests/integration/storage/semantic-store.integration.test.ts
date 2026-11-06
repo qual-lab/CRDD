@@ -16,7 +16,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
+import { getRepository } from "../../../../version-control/src/index.ts";
 import { publishSemanticCoverageBundleWithHooks } from "../../../src/storage/semantic-store.ts";
 
 /**
@@ -36,7 +36,7 @@ test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () 
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../../..",
   );
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const testRoot = path.join(repositoryRoot, ".crdd", "tests", "domain-model");
@@ -119,7 +119,7 @@ test("Root外とLink出力を拒否し失敗後に一時成果物を残さない
     );
     assert.equal(initialized.status, 0, initialized.stderr);
     const repositoryRoot = temporaryRoot;
-    const verified = verifyRepositoryRoot(repositoryRoot);
+    const verified = getRepository(repositoryRoot);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") return;
     const outsideRelativePath = path

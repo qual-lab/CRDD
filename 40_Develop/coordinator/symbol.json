@@ -3,6 +3,13 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
+    {"symbolId":"coordinator.workspace.git","kind":"file","path":"src/workspace/git.ts","archIds":["ARCH-000004","ARCH-000009"]},
+    {
+      "symbolId": "coordinator.execution.files",
+      "kind": "file",
+      "path": "src/execution/files.ts",
+      "archIds": ["ARCH-000008", "ARCH-000013"]
+    },
     {"symbolId":"coordinator.test.support.console","kind":"file","path":"tests/support/console.ts","archIds":["ARCH-000008"]},
     {"symbolId":"coordinator.test.unit.console","kind":"test-suite","path":"tests/unit/decision/console.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.test.support.console"]},
     { "symbolId": "coordinator.verification.probe", "kind": "file", "path": "scripts/probe-verification.ts", "archIds": ["ARCH-000008"] },
@@ -1186,7 +1193,7 @@
       ],
       "verifies": [
         "version-control.source.src.git.repository.layout",
-        "version-control.source.src.git.repository.layout.adapter"
+        "version-control.source.src.git.repository.layout"
       ]
     },
     {
@@ -1231,7 +1238,11 @@
         "RFD-IT-013"
       ],
       "verifies": [
-        "version-control.workspace.observation",
+        "coordinator.workspace.git",
+        "version-control.repository.commit",
+        "version-control.repository.reference",
+        "version-control.repository.merge",
+        "coordinator.execution.files",
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.source.src.security.repository.workspace.runtime",

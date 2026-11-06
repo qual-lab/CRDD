@@ -13,7 +13,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   isProjectContextProjectionInvalid,
   isProjectContextManifestIdentityInvalid,
@@ -95,7 +95,7 @@ export function inspectProjectContextRepository(
       );
     }
     if (!target.template) {
-      const verifiedRoot = verifyRepositoryRoot(root);
+      const verifiedRoot = getRepository(root);
       const runtimePaths =
         verifiedRoot.status === "completed"
           ? resolveRepositoryRuntimeDataPaths(verifiedRoot.capability)

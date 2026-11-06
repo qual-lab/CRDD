@@ -1,59 +1,68 @@
 /**
- * 固定Candidateを明示統合し、取込先・二親・Treeと途中状態を確認する。
- * @responsibility 固定Candidateを明示統合し、取込先・二親・Treeと途中状態を確認する。
- * @trace ARCH-000002
+ * 現在Worktreeへ固定CommitをMergeし、親順序・Tree・途中状態を確認する。
+ * @responsibility 業務採否やRef命名を持たずGit標準Mergeの技術結果だけを返す。
  * @trace ARCH-000009
  */
-import type {
-  WorkspaceCandidateRequest,
-  WorkspaceCandidateResult,
-} from "./types.ts";
-import { isWorkspaceCommitId } from "./validation.ts";
 import fs from "node:fs";
 import path from "node:path";
-import type { VerifiedRepositoryRoot } from "../repository/location.ts";
-import { resolveRepositoryGitLayout } from "../repository/layout.ts";
-import {
-  operateCandidate,
-  verifyCandidate,
-  temporaryIdentity,
-} from "./candidate.ts";
+import { createWorktreeGitContext } from "../worktree/crud.ts";
+import { resolveRepositoryGitLayout } from "./layout.ts";
+import { temporaryIdentity, isCommitId } from "./commit.ts";
+import type { Repository } from "./location.ts";
+import type { CommitMergeRequest, CommitMergeResult } from "./types.ts";
 
-/**
- * 固定Candidateを指定Branchへ二親Mergeする。
- * @responsibility 事前競合評価、直前照合と同操作の二重Merge拒否。
- * @trace ARCH-000009
- * @input 固定要求、候補OID、取込先Branchと期待HEAD。
- * @returns 実Merge Commit又は既取込・停止結果。
- * @precondition 上位は別操作の採用認可と非使用を保持。
- * @postcondition 新Mergeの親順序を読戻す。
- * @effect Git標準Mergeのみ。通常Pushはしない。
- * @failure Conflict・変更・unknownは停止、自動abortしない。
- * @invariant 自動Stash／Reset／Clean／Rebaseなし。
- * @boundary 所属Rootの現在Branch。
- * @security Messageは非Authority、Shellは使用しない。
- * @concurrency Git標準保護と既存上位Leaseを使う。
- */
-export function mergeWorkspaceCandidate(
-  capability: VerifiedRepositoryRoot,
-  request: WorkspaceCandidateRequest,
-  target: Readonly<{
-    candidateCommit: string;
-    targetBranch: string;
-    expectedTargetHead: string;
-  }>,
-): WorkspaceCandidateResult {
-  return operateCandidate(capability, request, (ctx, result) => {
+/** 同一の固定Commitを現在WorktreeのHEADへ二親Mergeする。自動abortや再送はしない。 */
+export function mergeCommit(
+  repository: Repository,
+  request: CommitMergeRequest,
+): CommitMergeResult {
+  const result: {
+    status: "completed" | "blocked";
+    reason: string;
+    sourceCommit: string;
+    commitId: string | null;
+    effectIssued: boolean;
+  } = {
+    status: "blocked",
+    reason: "candidate_input_invalid",
+    sourceCommit: request.sourceCommit,
+    commitId: null,
+    effectIssued: false,
+  };
+  try {
     if (
-      !isWorkspaceCommitId(target.candidateCommit) ||
-      !isWorkspaceCommitId(target.expectedTargetHead) ||
+      !isCommitId(request.baseCommit) ||
+      typeof request.message !== "string" ||
+      !request.message.trim() ||
+      request.message.length > 4096 ||
+      /[\x00\x7f]/u.test(request.message)
+    )
+      throw Error("candidate_input_invalid");
+    const ctx = createWorktreeGitContext(repository);
+    const drivers = ctx.run(ctx.target, [
+      "config",
+      "--includes",
+      "--null",
+      "--name-only",
+      "--get-regexp",
+      "^merge\\..*\\.driver$",
+    ]);
+    if (drivers.status !== 1 || drivers.stdout !== "")
+      throw Error("candidate_merge_driver_unsupported");
+    const target = {
+      candidateCommit: request.sourceCommit,
+      targetBranch: request.targetBranch,
+      expectedTargetHead: request.expectedHead,
+    };
+    if (
+      !isCommitId(target.candidateCommit) ||
+      !isCommitId(target.expectedTargetHead) ||
       target.candidateCommit.length !== request.baseCommit.length ||
       target.expectedTargetHead.length !== request.baseCommit.length ||
       !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(target.targetBranch)
     )
       throw new Error("candidate_target_invalid");
-    result.candidateCommit = target.candidateCommit;
-    result.changedPaths = verifyCandidate(ctx, request, target.candidateCommit);
+
     /**
      * 取込先を所属Rootへ固定してGit要求を送る。
      * @responsibility Worktreeや親環境による対象差替えを避ける。
@@ -69,7 +78,7 @@ export function mergeWorkspaceCandidate(
      * @security hook／親Git環境を遮断。
      * @concurrency 既存採用Lease下。
      */
-    const run = (args: string[]) => ctx.run(ctx.owner, args);
+    const run = (args: string[]) => ctx.run(ctx.target, args);
     /**
      * 同じ固定二Commitから期待Merge Treeを再計算する。
      * @responsibility 初回と再入場の内容判定を共用する。
@@ -94,18 +103,10 @@ export function mergeWorkspaceCandidate(
         target.candidateCommit,
       ]);
       if (preview.status === 1) throw new Error("candidate_conflict");
-      if (preview.status !== 0 || !isWorkspaceCommitId(preview.stdout.trim()))
+      if (preview.status !== 0 || !isCommitId(preview.stdout.trim()))
         throw new Error("candidate_preview_unavailable");
       return preview.stdout.trim();
     };
-    const fixed = run([
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      result.candidateRef as string,
-    ]);
-    if (fixed.status !== 0 || fixed.stdout.trim() !== target.candidateCommit)
-      throw new Error("candidate_ref_mismatch");
     const branch = run(["symbolic-ref", "--quiet", "HEAD"]);
     if (
       branch.status !== 0 ||
@@ -113,7 +114,7 @@ export function mergeWorkspaceCandidate(
     )
       throw new Error("candidate_target_mismatch");
     const head = run(["rev-parse", "--verify", "HEAD"]);
-    if (head.status !== 0 || !isWorkspaceCommitId(head.stdout.trim()))
+    if (head.status !== 0 || !isCommitId(head.stdout.trim()))
       throw new Error("candidate_target_unavailable");
     const current = head.stdout.trim();
     const parents = run(["rev-list", "--parents", "-n", "1", current]);
@@ -126,9 +127,9 @@ export function mergeWorkspaceCandidate(
       const actual = run(["rev-parse", `${current}^{tree}`]);
       if (actual.status !== 0 || actual.stdout.trim() !== expected)
         throw new Error("candidate_merge_tree_mismatch");
-      result.mergeCommit = current;
+      result.commitId = current;
       result.reason = "candidate_merge_existing";
-      return;
+      return { ...result, status: "completed" };
     }
     if (current !== target.expectedTargetHead)
       throw new Error("candidate_target_changed");
@@ -150,11 +151,11 @@ export function mergeWorkspaceCandidate(
     ]);
     if (ancestor.status === 0) {
       result.reason = "candidate_already_integrated";
-      return;
+      return { ...result, status: "completed" };
     }
     if (ancestor.status !== 1)
       throw new Error("candidate_ancestry_unavailable");
-    const inProgress = readCandidateMergeHead(ctx.owner);
+    const inProgress = readCommitMergeHead(ctx.target);
     const resuming = inProgress === target.candidateCommit;
     if (!resuming && inProgress !== null)
       throw new Error("candidate_merge_in_progress");
@@ -166,15 +167,7 @@ export function mergeWorkspaceCandidate(
       "--untracked-files=all",
     ]);
     if (status.status !== 0) throw new Error("candidate_status_unavailable");
-    const message = [
-      `Merge Candidate: ${request.candidateName ?? request.operationId}`,
-      "",
-      ...(request.workspaceName ? [`Workspace: ${request.workspaceName}`] : []),
-      `Workspace-ID: ${request.workspaceId}`,
-      `Base-Commit: ${request.baseCommit}`,
-      `Candidate-Commit: ${target.candidateCommit}`,
-      ...request.relatedChangeIds.map((id) => `Related-CHG: ${id}`),
-    ].join("\n");
+    const message = request.message;
     const fresh = run(["rev-parse", "HEAD"]);
     const freshStatus = run([
       "status",
@@ -206,7 +199,7 @@ export function mergeWorkspaceCandidate(
       ]);
       if (merged.status !== 0) throw new Error("candidate_merge_failed");
     }
-    if (readCandidateMergeHead(ctx.owner) !== target.candidateCommit)
+    if (readCommitMergeHead(ctx.target) !== target.candidateCommit)
       throw new Error("candidate_merge_in_progress");
     const stagedTree = run(["write-tree"]);
     const commitHead = run(["rev-parse", "HEAD"]);
@@ -217,7 +210,7 @@ export function mergeWorkspaceCandidate(
       commitHead.stdout.trim() !== current
     )
       throw new Error("candidate_merge_content_changed");
-    if (readCandidateMergeHead(ctx.owner) !== target.candidateCommit)
+    if (readCommitMergeHead(ctx.target) !== target.candidateCommit)
       throw new Error("candidate_merge_in_progress");
     const committed = run(["commit", "--no-gpg-sign", "-m", message]);
     if (committed.status !== 0)
@@ -228,7 +221,7 @@ export function mergeWorkspaceCandidate(
     const tree = run(["rev-parse", `${observed}^{tree}`]);
     if (
       after.status !== 0 ||
-      !isWorkspaceCommitId(observed) ||
+      !isCommitId(observed) ||
       afterParents.status !== 0 ||
       afterParents.stdout.trim() !==
         `${observed} ${current} ${target.candidateCommit}` ||
@@ -236,9 +229,17 @@ export function mergeWorkspaceCandidate(
       tree.stdout.trim() !== expectedTree
     )
       throw new Error("candidate_merge_unconfirmed");
-    result.mergeCommit = observed;
+    result.commitId = observed;
     result.reason = "candidate_merged";
-  });
+    result.status = "completed";
+  } catch (error) {
+    result.reason =
+      error instanceof Error &&
+      /^(?:candidate|worktree)_[a-z_]+$/u.test(error.message)
+        ? error.message
+        : "candidate_outcome_unknown";
+  }
+  return result;
 }
 
 /**
@@ -256,7 +257,7 @@ export function mergeWorkspaceCandidate(
  * @security 通常単linkfileだけを読む。
  * @concurrency descriptor前後の実体・更新を照合する。
  */
-function readCandidateMergeHead(owner: string): string | null {
+function readCommitMergeHead(owner: string): string | null {
   const file = path.join(
     resolveRepositoryGitLayout(owner).gitDirectory.realPath,
     "MERGE_HEAD",

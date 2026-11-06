@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   createObjective,
   createTask,
@@ -85,7 +85,7 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           fs.mkdirSync(target);
           fs.symlinkSync(target, legacy, "junction");
         }
-        const verified = verifyRepositoryRoot(root);
+        const verified = getRepository(root);
         assert.equal(verified.status, "completed");
         if (verified.status !== "completed") return;
         const access: RuntimeAccess = {
@@ -229,7 +229,7 @@ test("Coreだけで初期化・一般CRUD・現在認可とCASを同じ実Store�
     path.join(root, ".git", "refs", "heads", "main"),
     "1".repeat(40) + "\n",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("invalid_fixture");
   let allowed = true;
@@ -416,7 +416,7 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
         path.join(root, ".git", "refs", "heads", "main"),
         "1".repeat(40) + "\n",
       );
-      const verified = verifyRepositoryRoot(root);
+      const verified = getRepository(root);
       assert.equal(verified.status, "completed");
       if (verified.status !== "completed") return;
       let allowed = true;
@@ -579,7 +579,7 @@ test("初期化途中の出版不明を保持し二重初期化を拒否する",
         path.join(root, ".git", "refs", "heads", "main"),
         "1".repeat(40) + "\n",
       );
-      const verified = verifyRepositoryRoot(root);
+      const verified = getRepository(root);
       assert.equal(verified.status, "completed");
       if (verified.status !== "completed") return;
       const access: RuntimeAccess = {

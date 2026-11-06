@@ -3989,7 +3989,7 @@
     {
       "id": "domain-model:unit:workspace-technical-contract",
       "owner": "domain-model",
-      "path": "40_Develop/domain-model/tests/unit/workspace-technical-contract.test.ts",
+      "path": "40_Develop/domain-model/tests/unit/workspace-technical-contract.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": ["workspace", "version-control", "dependency"],

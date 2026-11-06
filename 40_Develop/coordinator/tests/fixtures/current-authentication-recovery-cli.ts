@@ -158,7 +158,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const lifecycle = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts?auth-unknown-cli-fixture", import.meta.url).href)});
     lifecycleMock = mock.module(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)},{namedExports:{...lifecycle}});
     const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-    const verified = vc.verifyRepositoryRoot(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
+    const verified = vc.getRepository(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
     const read = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
     assert.equal(read.status,'completed'); assert.equal(read.lockReleased,true); assert.deepEqual(read.value.snapshot,initial);
     process.argv = [process.execPath,cli,'recovery','resume',id,'--json'];

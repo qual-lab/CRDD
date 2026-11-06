@@ -7,12 +7,10 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  readFixedSnapshotFile,
-  gitFixedSnapshotAdapter,
+  readCommitFile,
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
-  observeRepositoryRevision,
-  gitRepositoryRevisionAdapter,
+  getRepositoryFromWorkingDirectory,
+  readRepositoryRevision,
 } from "../../version-control/src/index.ts";
 import {
   observeNativeArtifact,
@@ -47,7 +45,7 @@ export function inspectPlatformAccessNativeGitProvenanceCandidate(
       fs.realpathSync.native(distributionRoot) !== distributionRoot
     )
       return null;
-    const verified = verifyRepositoryRootFromWorkingDirectory(distributionRoot);
+    const verified = getRepositoryFromWorkingDirectory(distributionRoot);
     if (verified.status !== "completed") return null;
     const repositoryRoot = resolveVerifiedRepositoryRoot(verified.capability);
     if (!repositoryRoot) return null;
@@ -71,10 +69,7 @@ export function inspectPlatformAccessNativeGitProvenanceCandidate(
       )
         return null;
     }
-    const revision = observeRepositoryRevision(
-      verified.capability,
-      gitRepositoryRevisionAdapter,
-    );
+    const revision = readRepositoryRevision(verified.capability);
     if (revision?.observationComplete !== true) return null;
     const native = observeNativeArtifact(distributionRoot);
     if (!native) return null;
@@ -82,13 +77,11 @@ export function inspectPlatformAccessNativeGitProvenanceCandidate(
       ...(prefix === "" ? [] : prefix.split(path.sep)),
       ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
     ].join("/");
-    const fixed = readFixedSnapshotFile(
-      verified.capability,
-      revision.revisionIdentity,
-      relativePath,
-      gitFixedSnapshotAdapter,
-      PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
-    );
+    const fixed = readCommitFile(verified.capability, {
+      commit: revision.revisionIdentity,
+      path: relativePath,
+      maximumBytes: PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
+    });
     if (
       !fixed ||
       fixed.revisionIdentity !== revision.revisionIdentity ||
@@ -100,12 +93,8 @@ export function inspectPlatformAccessNativeGitProvenanceCandidate(
         native.artifact.sha256 ||
       !observeNativeArtifact(distributionRoot, native.identitySha256) ||
       resolveVerifiedRepositoryRoot(verified.capability) !== repositoryRoot ||
-      JSON.stringify(
-        observeRepositoryRevision(
-          verified.capability,
-          gitRepositoryRevisionAdapter,
-        ),
-      ) !== JSON.stringify(revision)
+      JSON.stringify(readRepositoryRevision(verified.capability)) !==
+        JSON.stringify(revision)
     )
       return null;
     return Object.freeze({

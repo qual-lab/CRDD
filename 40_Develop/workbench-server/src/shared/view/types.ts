@@ -15,9 +15,9 @@ import type {
   TopicMeetingRelation,
 } from "../../../../domain-model/src/index.ts";
 import type {
-  ChangePublicationResult,
-  RepositoryWorktreeFileDiff,
-  RepositoryWorktreeTreePage,
+  ChangesResult,
+  FileDiff,
+  TreePage,
 } from "../../../../version-control/src/index.ts";
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
 import type {
@@ -150,11 +150,11 @@ export type WorkbenchMainViewModel = Readonly<{
   selectedRepositoryId: string | null;
   recordActionsConfigured: boolean;
   repositoryActionsConfigured: boolean;
-  repositoryResult: ChangePublicationResult | null;
+  repositoryResult: ChangesResult | null;
   worktree: Readonly<{
     state: "available" | "unknown";
-    tree: RepositoryWorktreeTreePage | null;
-    diff: RepositoryWorktreeFileDiff | null;
+    tree: TreePage | null;
+    diff: FileDiff | null;
   }>;
   credentials: WorkbenchCredentialAdministrationView;
   aiSelection: WorkbenchAiSelectionSurface | null;

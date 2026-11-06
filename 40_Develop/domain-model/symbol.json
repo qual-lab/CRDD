@@ -6,10 +6,10 @@
     {
       "symbolId": "domain-model.test.unit.workspace-technical-contract",
       "kind": "test-suite",
-      "path": "tests/unit/workspace-technical-contract.test.ts",
+      "path": "tests/unit/workspace-technical-contract.contract.test.ts",
       "qaIds": ["QA-000001", "QA-000007"],
       "localTestIds": ["RCM-UT-014", "RFD-IT-029"],
-      "verifies": ["domain-model.workspace.command", "version-control.workspace.types", "version-control.workspace.validation"]
+      "verifies": ["domain-model.workspace.command", "domain-model.workspace.types", "domain-model.workspace.validation"]
     },
     { "symbolId": "domain-model.test.unit.history-candidates", "kind": "test-suite", "path": "tests/unit/state/history-candidates.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["domain-model.state.history"] },
     { "symbolId": "domain-model.attempt.lease", "kind": "file", "path": "src/attempt/lease.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },

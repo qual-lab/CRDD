@@ -7,11 +7,6 @@ import path from "node:path";
 import { types as utilTypes, TextDecoder } from "node:util";
 import fs from "node:fs";
 
-export const GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT =
-  "crdd-version-control/git-repository-layout-adapter/v1" as const;
-
-export const GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION = 1 as const;
-
 const MAX_PATH_CHARACTERS = 4096;
 
 /**
@@ -139,47 +134,6 @@ export function inspectGitRepositoryLayoutCandidate(rawInput: unknown) {
       return response("blocked", message);
     return response("blocked", "repository_git_layout_invalid");
   }
-}
-
-/**
- * Git Repository Layout Adapter 契約の公開契約を記述する。
- *
- * @responsibility Git Repository Layout Adapter 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000002
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeGitRepositoryLayoutAdapterContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeGitRepositoryLayoutAdapterContractの入力契約を満たす。
- * @postcondition describeGitRepositoryLayoutAdapterContractの責務を完了した結果だけを返す。
- * @effect N/A: describeGitRepositoryLayoutAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeGitRepositoryLayoutAdapterContractは独自の失敗分岐を所有しない。
- * @invariant describeGitRepositoryLayoutAdapterContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: describeGitRepositoryLayoutAdapterContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeGitRepositoryLayoutAdapterContractは共有非同期状態を持たない同期処理である。
- */
-export function describeGitRepositoryLayoutAdapterContract() {
-  return Object.freeze({
-    contract: GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT,
-    contractRevision: GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION,
-    supportedWorktreeForms: Object.freeze([
-      "normal_worktree",
-      "linked_worktree",
-      "gitfile_worktree_without_core_worktree",
-      "gitfile_worktree_with_matching_core_worktree",
-    ]),
-    supportedRepositoryFormat: "version_0_without_extensions_or_includes",
-    gitCliAuthorityRequired: false,
-    bareRepositorySupported: false,
-    referencedSubmodulesModified: false,
-    referencedRepositoriesModified: false,
-    multiRepositoryWriteOperationSupported: false,
-    commonGitDirectoryExcludeBackend: true,
-    filesystemResolutionCore: "implemented",
-    repositoryIdentityVerification: "repository_location_port",
-    metadataPlacementLayoutVerification: "implemented_narrow_parser",
-    metadataWriteIntegration: "repository_local_ignore_port",
-    runtimeCapabilityIssued: false,
-  });
 }
 
 const MAX_CONTROL_FILE_BYTES = 4096;

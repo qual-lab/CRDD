@@ -13,7 +13,7 @@ import {
 } from "../api.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   parseRepositoryProjectContextMarkdown,
@@ -179,7 +179,7 @@ export async function runSingleTaskCommand(args: readonly string[]) {
     const root = resolveVerifiedRepositoryRootFromWorkingDirectory(
       process.cwd(),
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     if (verified.status !== "completed")
       throw new UsageError("task_repository_configuration_unavailable");
     const context = parseRepositoryProjectContextMarkdown(

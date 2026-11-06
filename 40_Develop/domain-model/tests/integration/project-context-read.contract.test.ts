@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test, { type TestContext } from "node:test";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   inspectRepositoryManifest,
   readRepositoryProjectContext,
@@ -45,7 +45,7 @@ function fixture(t: TestContext) {
     encoding: "utf8",
   });
   assert.equal(git.status, 0, git.stderr);
-  const verified = verifyRepositoryRoot(directory);
+  const verified = getRepository(directory);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("fixture_root_failed");
   const manifest = inspectRepositoryManifest({

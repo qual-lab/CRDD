@@ -55,7 +55,7 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
   createAccessMcpResolver,
@@ -905,7 +905,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       sourceA = expectedSources[0];
     assert.ok(a && b && sourceA);
     const binding = `binding-${createHash("sha256").update(a.target).digest("hex").slice(0, 40)}`;
-    const repository = verifyRepositoryRoot(a.target);
+    const repository = getRepository(a.target);
     assert.equal(repository.status, "completed");
     if (repository.status !== "completed")
       throw Error("fixture_repository_invalid");

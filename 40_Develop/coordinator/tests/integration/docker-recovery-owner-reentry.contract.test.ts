@@ -44,7 +44,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   requestInChild,
   type VerificationHttpTiming,
@@ -2397,7 +2397,7 @@ for (const { repeatCount, retained } of [
         "normal_owner_hosts",
       );
       if (repeatCount === 1) {
-        const verified = verifyRepositoryRoot(root);
+        const verified = getRepository(root);
         assert.equal(verified.status, "completed");
         if (verified.status !== "completed")
           throw new Error("root_unavailable");

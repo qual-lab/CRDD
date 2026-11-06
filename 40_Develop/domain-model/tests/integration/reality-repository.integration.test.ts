@@ -13,7 +13,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 import { createRealitySymbolGraph } from "../../src/reality-traceability/graph.ts";
 import { validateRealitySymbolManifest } from "../../src/reality-traceability/validate-manifest.ts";
@@ -36,7 +36,7 @@ test("Repository観測をReality Symbol契約へ渡してGraphを構築する", 
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../..",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const observed = createFilesystemRepositoryObservationPort(

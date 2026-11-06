@@ -20,7 +20,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import { readActionForm, setResponseHeaders } from "../security.ts";
@@ -128,7 +128,7 @@ export async function handleWorkspaceAction({
         );
       };
     } else {
-      const verified = verifyRepositoryRoot(ownerRoot);
+      const verified = getRepository(ownerRoot);
       if (verified.status !== "completed")
         throw new Error("workspace_access_unavailable");
       const observer = createFilesystemRepositoryObservationPort(

@@ -8,8 +8,8 @@
  */
 import path from "node:path";
 import {
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import {
   observeRealitySymbolRepository,
@@ -87,8 +87,8 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
     return { exitCode: 64 };
   }
   const verifiedRepository = hasExplicitRoot
-    ? verifyRepositoryRoot(repositoryRoot)
-    : verifyRepositoryRootFromWorkingDirectory(request.cwd);
+    ? getRepository(repositoryRoot)
+    : getRepositoryFromWorkingDirectory(request.cwd);
   if (verifiedRepository.status !== "completed") {
     request.writeError("semantic_coverage_repository_root_unverified\n");
     return { exitCode: 2 };

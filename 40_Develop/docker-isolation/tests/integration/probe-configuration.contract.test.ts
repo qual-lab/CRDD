@@ -16,7 +16,7 @@ import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { dockerContainerConfigurationMatches } from "../../src/cleanup/configuration.ts";
 import {
@@ -40,7 +40,7 @@ import type { DockerContainerConfigurationExpectation } from "../../src/cleanup/
  */
 function fixture(t: TestContext) {
   const root = fileURLToPath(new URL("../../../../", import.meta.url));
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   assert.ok(verified.capability);
   assert.equal(

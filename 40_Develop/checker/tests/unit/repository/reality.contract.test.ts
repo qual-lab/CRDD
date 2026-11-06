@@ -24,7 +24,7 @@ import {
   createRealitySymbolGraph,
   discoverRealitySymbolManifests,
 } from "../../../src/repository/reality.ts";
-import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
+import { getRepository } from "../../../../version-control/src/index.ts";
 
 import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../../../src/report/reality.ts";
@@ -75,7 +75,7 @@ const repositoryRoot = path.resolve(checkerRoot, "../..");
  * @boundary PPR-UT-017=Direct Boundary: checker Test Source→対象契約
  */
 test("Subsystem-local symbol.jsonからGlobal Symbol Graphを構築する", () => {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const discovery = discoverRealitySymbolManifests(verified.capability);

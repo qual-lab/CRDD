@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../repository/resolve-storage-paths.ts";
 
 import type { ToolRuntimeConfig, ToolRuntimeConfigResult } from "./types.ts";
@@ -73,7 +73,7 @@ function component(value: unknown) {
  * 検証済みRootの保持期間を読取り専用で取得する。
  * @responsibility 不存在、破損、alias、観測不能を区別する。
  * @trace ARCH-000011
- * @input 発行済みVerifiedRepositoryRootと固定ツール名。
+ * @input 発行済みRepositoryと固定ツール名。
  * @returns 既定値または検証済み設定、あるいはblocked。
  * @precondition 設定を利用する履歴所有者が自身の排他を保持する。
  * @postcondition 存在するFileと親Directoryの同一性を再確認する。
@@ -85,7 +85,7 @@ function component(value: unknown) {
  * @concurrency 一回の呼出しで不変Snapshotを返し、利用側が処理全体へ適用する。
  */
 function readToolRuntimeConfig(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   tool: "execution-intelligence" | "coordinator",
 ): ToolRuntimeConfigResult {
   try {
@@ -216,7 +216,7 @@ function readToolRuntimeConfig(
  * @concurrency Snapshotを一処理内で固定する。
  */
 export function readExecutionIntelligenceConfig(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): ToolRuntimeConfigResult {
   return readToolRuntimeConfig(capability, "execution-intelligence");
 }
@@ -237,7 +237,7 @@ export function readExecutionIntelligenceConfig(
  * @concurrency Snapshotを一処理内で固定する。
  */
 export function readCoordinatorConfig(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): ToolRuntimeConfigResult {
   return readToolRuntimeConfig(capability, "coordinator");
 }

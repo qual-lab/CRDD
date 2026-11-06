@@ -13,8 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import * as publicApi from "../../src/index.ts";
-import { verifyRepositoryRoot } from "../../src/repository/location.ts";
-import { observeRepositoryStorageIdentity } from "../../src/repository/revision.ts";
+import { getRepository } from "../../src/repository/location.ts";
+import { readRepositoryStorageIdentity } from "../../src/repository/revision.ts";
 
 /**
  * 内外のGit設定を引き継がず自己生成Repositoryだけを準備する。
@@ -97,7 +97,7 @@ function storageIdentityFixture(t: test.TestContext, linked = false) {
   const root = linked ? path.join(area, "linked") : primary;
   if (linked)
     storageIdentityGit(primary, ["worktree", "add", "--detach", root]);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   return {
@@ -133,7 +133,7 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
       return Reflect.apply(original, fs, args);
     }) as typeof original;
     try {
-      const before = observeRepositoryStorageIdentity(fixture.capability);
+      const before = readRepositoryStorageIdentity(fixture.capability);
       assert.ok(before);
       assert.equal(opens, 2);
       assert.deepEqual(Object.keys(before).sort(), [
@@ -145,28 +145,25 @@ test("保存Identityはnormal／linkedをfresh二探索で確認し公開APIを�
       assert.equal(before.repositoryForm, linked ? "linked" : "primary");
       opens = 0;
       assert.deepEqual(
-        observeRepositoryStorageIdentity(fixture.capability),
+        readRepositoryStorageIdentity(fixture.capability),
         before,
       );
       assert.equal(opens, 2);
       opens = 0;
       assert.equal(
-        observeRepositoryStorageIdentity({ ...fixture.capability }),
+        readRepositoryStorageIdentity({ ...fixture.capability }),
         null,
       );
       assert.equal(opens, 0);
       const config = fs.readFileSync(fixture.config);
       try {
         fs.writeFileSync(fixture.config, "[extensions]\nunsupported=true\n");
-        assert.equal(
-          observeRepositoryStorageIdentity(fixture.capability),
-          null,
-        );
+        assert.equal(readRepositoryStorageIdentity(fixture.capability), null);
       } finally {
         fs.writeFileSync(fixture.config, config);
       }
       assert.deepEqual(
-        observeRepositoryStorageIdentity(fixture.capability),
+        readRepositoryStorageIdentity(fixture.capability),
         before,
       );
     } finally {
@@ -195,7 +192,7 @@ test("保存Identityは二観測間の差替え・reparse・観測不能を拒�
     "unknown",
   ] as const) {
     const fixture = storageIdentityFixture(t);
-    const before = observeRepositoryStorageIdentity(fixture.capability);
+    const before = readRepositoryStorageIdentity(fixture.capability);
     assert.ok(before);
     const original = fs.lstatSync;
     let passes = 0;
@@ -237,7 +234,7 @@ test("保存Identityは二観測間の差替え・reparse・観測不能を拒�
     });
     try {
       assert.equal(
-        observeRepositoryStorageIdentity(fixture.capability),
+        readRepositoryStorageIdentity(fixture.capability),
         null,
         scenario,
       );
@@ -247,7 +244,7 @@ test("保存Identityは二観測間の差替え・reparse・観測不能を拒�
       restore();
     }
     assert.deepEqual(
-      observeRepositoryStorageIdentity(fixture.capability),
+      readRepositoryStorageIdentity(fixture.capability),
       before,
       scenario,
     );

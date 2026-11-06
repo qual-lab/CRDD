@@ -18,7 +18,7 @@ import {
   type CoordinatorResourceBook,
   observeRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
+import { getRepository } from "../../version-control/src/index.ts";
 import { observeWindowsProviderHome } from "../../platform-access/src/index.ts";
 import {
   createExecutor,
@@ -39,7 +39,7 @@ export function createStandaloneProviderAttemptHost(
   const repository = fs.realpathSync(
     fileURLToPath(new URL("../../../", import.meta.url)),
   );
-  const verified = verifyRepositoryRoot(repository);
+  const verified = getRepository(repository);
   if (verified.status !== "completed") throw Error(verified.reason);
   const area = observeRepositoryRuntimeDataArea(verified.capability, "tests");
   if (area.status !== "ready") throw Error(area.reason);

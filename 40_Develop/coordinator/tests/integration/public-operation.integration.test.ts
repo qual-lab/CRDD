@@ -31,7 +31,7 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/decision/store.ts";
 import {
@@ -135,7 +135,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     windowsHide: true,
   }).trim();
   const decisionRoot = path.join(root, ".decision-store");
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed")
     throw new Error("fixture_root_not_verified");

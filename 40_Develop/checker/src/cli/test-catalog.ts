@@ -20,12 +20,10 @@ import {
   type TestLevel,
 } from "../../../domain-model/src/index.ts";
 import {
-  changedPaths,
-  gitLocalChangeSetAdapter,
-  observeLocalChangeSet,
+  readWorkingChanges,
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import type { CheckerRunRequest, CheckerResult } from "./types.ts";
 
@@ -103,8 +101,8 @@ export function runTestCatalog(request: CheckerRunRequest): CheckerResult {
   const explicitRoot = value("--root");
   const verified =
     explicitRoot === null
-      ? verifyRepositoryRootFromWorkingDirectory(request.cwd)
-      : verifyRepositoryRoot(path.resolve(request.cwd, explicitRoot));
+      ? getRepositoryFromWorkingDirectory(request.cwd)
+      : getRepository(path.resolve(request.cwd, explicitRoot));
   if (verified.status !== "completed") {
     request.writeError("test_catalog_repository_root_unverified\n");
     return { exitCode: 2 };
@@ -162,13 +160,7 @@ export function runTestCatalog(request: CheckerRunRequest): CheckerResult {
     const paths = flags.has("--all")
       ? catalog.tests.map((entry) => entry.path)
       : base !== null
-        ? changedPaths(
-            observeLocalChangeSet(
-              verified.capability,
-              base,
-              gitLocalChangeSetAdapter,
-            ),
-          )
+        ? readWorkingChanges(verified.capability, base).changedPaths
         : explicitPaths;
     if (paths.length === 0) {
       request.writeError("regression_change_set_required\n");

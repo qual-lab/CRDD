@@ -21,7 +21,7 @@ import {
 } from "../../src/storage/temporary-operation.ts";
 import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
 import { resolveRepositoryRuntimeDataPaths } from "../../src/repository/resolve-storage-paths.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -57,7 +57,7 @@ function resume(
  * @boundary RDL-ST-002=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("終了理由ごとに対象だけを清掃し、回復対象は義務解消まで保持する", (t) => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   const paths = resolveRepositoryRuntimeDataPaths(root.capability);

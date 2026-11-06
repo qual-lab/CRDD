@@ -7,11 +7,10 @@
 import { createHash } from "node:crypto";
 import { types } from "node:util";
 import {
-  gitRepositoryRevisionAdapter,
-  observeRepositoryRevision,
-  observeRepositoryStorageIdentity,
+  readRepositoryRevision,
+  readRepositoryStorageIdentity,
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 
 /**
@@ -28,7 +27,7 @@ export type RuntimeExecutionStorageAccess = Readonly<{
   identity: object;
   observeRepository: () => Readonly<{
     purpose: "execution";
-    root: VerifiedRepositoryRoot;
+    root: Repository;
     operationId: string;
     revalidate: () => boolean;
   }> | null;
@@ -46,7 +45,7 @@ export type RuntimeExecutionStorageAccess = Readonly<{
  */
 export type RuntimeSettlementStorageAccess = Readonly<{
   purpose: "settlement";
-  root: VerifiedRepositoryRoot;
+  root: Repository;
   operationId: string;
   revalidate: () => boolean;
 }>;
@@ -131,10 +130,10 @@ function synchronous(callback: unknown, ...args: unknown[]): unknown {
  * @security Root Capabilityを返却DTO・JSONへ複製しない。
  * @concurrency 再検証は元のI/O境界で呼ぶ。
  */
-export function observeRuntimeStorageRepository(root: VerifiedRepositoryRoot) {
+export function observeRuntimeStorageRepository(root: Repository) {
   try {
     const repositoryRoot = resolveVerifiedRepositoryRoot(root);
-    const observed = observeRepositoryStorageIdentity(root);
+    const observed = readRepositoryStorageIdentity(root);
     if (!repositoryRoot || !observed) return null;
     return Object.freeze({
       repositoryRoot,
@@ -150,7 +149,7 @@ export function observeRuntimeStorageRepository(root: VerifiedRepositoryRoot) {
         )
         .digest("hex"),
       revalidate() {
-        const fresh = observeRepositoryStorageIdentity(root);
+        const fresh = readRepositoryStorageIdentity(root);
         return (
           fresh !== null &&
           fresh.repositoryForm === observed.repositoryForm &&
@@ -182,7 +181,7 @@ export function observeRuntimeStorageRepository(root: VerifiedRepositoryRoot) {
  */
 export function observeRuntimeExecutionRepository(access: unknown) {
   const context = synchronous(data(access, "observeRepository"));
-  const root = data(context, "root") as VerifiedRepositoryRoot;
+  const root = data(context, "root") as Repository;
   const operationId = data(context, "operationId");
   const revalidate = data(context, "revalidate");
   if (
@@ -241,13 +240,10 @@ export function runtimeStorageOperationIdentity(access: unknown) {
  * @concurrency Readerの元の前後観測点で再検証する。
  */
 export function observeRuntimeRecoveryRepository(input: unknown) {
-  const root = input as VerifiedRepositoryRoot;
+  const root = input as Repository;
   try {
     const repositoryRoot = resolveVerifiedRepositoryRoot(root);
-    const initial = observeRepositoryRevision(
-      root,
-      gitRepositoryRevisionAdapter,
-    );
+    const initial = readRepositoryRevision(root);
     if (!repositoryRoot || !initial) return null;
     return Object.freeze({
       repositoryRoot,
@@ -266,10 +262,7 @@ export function observeRuntimeRecoveryRepository(input: unknown) {
         try {
           if (resolveVerifiedRepositoryRoot(root) !== repositoryRoot)
             return false;
-          const fresh = observeRepositoryRevision(
-            root,
-            gitRepositoryRevisionAdapter,
-          );
+          const fresh = readRepositoryRevision(root);
           return (
             fresh !== null &&
             fresh.repositoryForm === initial.repositoryForm &&
@@ -304,7 +297,7 @@ export function observeRuntimeRecoveryRepository(input: unknown) {
  * @concurrency 元のI/O前後の照合位置を維持する。
  */
 export function observeRuntimeSettlementRepository(access: unknown) {
-  const root = data(access, "root") as VerifiedRepositoryRoot;
+  const root = data(access, "root") as Repository;
   const operationId = data(access, "operationId");
   const revalidate = data(access, "revalidate");
   if (
@@ -448,7 +441,7 @@ export function observeRuntimeContentRepository(
   >[0],
   target: Readonly<{ projectId: string; milestoneId: string }>,
 ) {
-  const root = data(access, "root") as VerifiedRepositoryRoot;
+  const root = data(access, "root") as Repository;
   const principal = data(access, "principalId");
   const revalidate = data(access, "revalidate");
   if (

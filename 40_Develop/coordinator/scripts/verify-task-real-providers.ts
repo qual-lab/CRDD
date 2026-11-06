@@ -14,19 +14,16 @@ import { fileURLToPath } from "node:url";
 import {
   createFilesystemRepositoryObservationPort,
   resolveRepositoryRuntimeDataPaths,
+  readRepositoryAiSelection,
 } from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
+  readRepositorySnapshot,
 } from "../../version-control/src/index.ts";
-import { readRepositoryAiSelection } from "../../domain-model/src/index.ts";
 import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
-import {
-  inspectRepositoryIdentityCandidate,
-  inspectRepositoryRevisionCandidate,
-} from "../../version-control/src/index.ts";
 import {
   buildCoordinatorRealProviderReport,
   captureCanonicalRepositorySnapshot,
@@ -71,7 +68,7 @@ const VERIFICATION_CHOICES = Object.freeze({
  */
 function readVerificationAiSelectionIdentity(root: string): string | null {
   try {
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     if (verified.status !== "completed") return null;
     const read = readRepositoryAiSelection(
       verified.capability,
@@ -123,14 +120,14 @@ let isMcpStartRequested = false;
 function observeRuntimeSource() {
   try {
     const sourceRoot = fileURLToPath(new URL("../../../", import.meta.url));
-    const verified = verifyRepositoryRoot(sourceRoot);
+    const verified = getRepository(sourceRoot);
     if (
       verified.status !== "completed" ||
       resolveVerifiedRepositoryRoot(verified.capability) !==
         path.resolve(sourceRoot)
     )
       return null;
-    const before = inspectRepositoryRevisionCandidate(sourceRoot);
+    const before = readRepositorySnapshot(getRepository(sourceRoot).capability);
     const source = observeRuntimeOwnedDevelopmentSource();
     const entryPath = path.join(
       sourceRoot,
@@ -178,23 +175,23 @@ function observeRuntimeSource() {
         entryAfter.nlink,
       ].map(String),
     );
-    const after = inspectRepositoryRevisionCandidate(sourceRoot);
+    const after = readRepositorySnapshot(getRepository(sourceRoot).capability);
     if (
       !source ||
       entry.status !== "resolved" ||
       entryIdentityBefore !== entryIdentityAfter ||
-      before?.status !== "candidate" ||
-      after?.status !== "candidate" ||
-      before.commit !== after.commit ||
-      before.tree !== after.tree
+      before?.status !== "observed" ||
+      after?.status !== "observed" ||
+      before.revisionIdentity !== after.revisionIdentity ||
+      before.snapshotIdentity !== after.snapshotIdentity
     )
       return null;
     return Object.freeze({
       scope: source.scope,
       sourceSha256: source.sourceSha256,
       sourceIdentitySha256: source.sourceIdentitySha256,
-      crddCommit: before.commit,
-      crddTree: before.tree,
+      crddCommit: before.revisionIdentity,
+      crddTree: before.snapshotIdentity,
       // Domain Readerが返したUTF8文字列のHash。生byteの完全性証明ではない。
       mcpEntrySourceSha256: createHash("sha256")
         .update(entry.source, "utf8")
@@ -457,9 +454,11 @@ async function main() {
   const runtimeSourceBefore = observeRuntimeSource();
   if (!runtimeSourceBefore)
     throw new Error("orchestrator_verification_source_unavailable");
-  const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
-  assert.equal(repository?.status, "candidate");
-  if (repository?.status !== "candidate")
+  const repository = readRepositorySnapshot(
+    getRepository(repositoryRoot).capability,
+  );
+  assert.equal(repository?.status, "observed");
+  if (repository?.status !== "observed")
     throw new Error("repository_identity_not_verified");
   for (const marker of [MARKER, CANCELLATION_MARKER])
     assert.equal(
@@ -472,7 +471,7 @@ async function main() {
     throw new Error("orchestrator_verification_ai_selection_unavailable");
   verifiedRepositoryRootForFixtureCleanup = repositoryRoot;
 
-  const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
+  const verifiedRuntimeRoot = getRepository(repositoryRoot);
   const runtimePaths =
     verifiedRuntimeRoot.status === "completed"
       ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
@@ -482,7 +481,7 @@ async function main() {
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const commonFields = Object.freeze({
-    repositoryRevision: repository.commit,
+    repositoryRevision: repository.revisionIdentity,
     objective: `Replace ${MARKER} with the exact required single-line content.`,
     acceptanceCriteria: Object.freeze([
       `The only changed path is ${MARKER}.`,
@@ -534,7 +533,7 @@ async function main() {
       ...candidate,
       intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
         projectId: candidate.projectId,
-        repositoryRevision: repository.commit,
+        repositoryRevision: repository.revisionIdentity,
       }),
     });
     const snapshotBefore = captureCanonicalRepositorySnapshot(repositoryRoot);
@@ -584,7 +583,7 @@ async function main() {
     ...commonFields,
     intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
       projectId: `crdd-orchestrator-public-cancel-${runId}`,
-      repositoryRevision: repository.commit,
+      repositoryRevision: repository.revisionIdentity,
     }),
     requestId: `orchestrator-public-cancel-${runId}`,
     projectId: `crdd-orchestrator-public-cancel-${runId}`,
@@ -632,7 +631,7 @@ async function main() {
     ...commonFields,
     intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
       projectId: `crdd-orchestrator-public-recovery-${runId}`,
-      repositoryRevision: repository.commit,
+      repositoryRevision: repository.revisionIdentity,
     }),
     requestId: `orchestrator-public-recovery-${runId}`,
     projectId: `crdd-orchestrator-public-recovery-${runId}`,
@@ -709,8 +708,8 @@ async function main() {
           : "changed";
     })(),
     executionIdentity: Object.freeze({
-      commit: repository.commit,
-      tree: repository.tree,
+      commit: repository.revisionIdentity,
+      tree: repository.snapshotIdentity,
     }),
     runtimeSource: Object.freeze({
       scope: runtimeSourceBefore.scope,
@@ -813,8 +812,10 @@ try {
     const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
       process.cwd(),
     );
-    const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
-    const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
+    const repository = readRepositorySnapshot(
+      getRepository(repositoryRoot).capability,
+    );
+    const verifiedRuntimeRoot = getRepository(repositoryRoot);
     const runtimePaths =
       verifiedRuntimeRoot.status === "completed"
         ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
@@ -838,8 +839,11 @@ try {
       processRestartRequired: true,
       effectState: "unknown",
       executionIdentity:
-        repository?.status === "candidate"
-          ? Object.freeze({ commit: repository.commit, tree: repository.tree })
+        repository?.status === "observed"
+          ? Object.freeze({
+              commit: repository.revisionIdentity,
+              tree: repository.snapshotIdentity,
+            })
           : null,
       runtimeSource: null,
       releaseAuthorityConferred: false,

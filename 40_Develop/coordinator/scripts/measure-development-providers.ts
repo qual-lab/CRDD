@@ -15,7 +15,7 @@ import {
 } from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../version-control/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/execution/controller.ts";
@@ -309,7 +309,7 @@ async function main() {
   if (process.argv.length !== 2)
     throw new Error("measurement_arguments_invalid");
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());
-  const verifiedRuntimeRoot = verifyRepositoryRoot(root);
+  const verifiedRuntimeRoot = getRepository(root);
   if (verifiedRuntimeRoot.status !== "completed")
     throw new Error("measurement_runtime_data_path_invalid");
   const testsArea = requireReadyRepositoryRuntimeDataArea(

@@ -102,8 +102,8 @@ import {
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
 import {
-  gitRepositoryRevisionAdapter,
-  verifyRepositoryRoot,
+  readRepositoryRevision,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   assessVerificationDockerInventory,
@@ -449,7 +449,7 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
         finish: () => ({ captureStatus: "captured", events: [], closed: true }),
       }),
       verified: { capability: {} },
-      verifyRepositoryRoot: () => ({ status: "blocked" }),
+      getRepository: () => ({ status: "blocked" }),
       readRepositoryNetworkHosts: () => ({
         status: "ready",
         policies: { codex: { policyHash: "a".repeat(64) } },
@@ -885,7 +885,7 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           };
         },
         process: processState,
-        verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+        getRepository: () => ({ status: "completed", capability: {} }),
         resolveVerifiedRepositoryRoot: () => processState.cwd(),
         resolveRepositoryRuntimeDataPaths: () => ({
           tests: path.join(processState.cwd(), ".crdd", "tests"),
@@ -1330,7 +1330,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         onSnapshotRead: () => {
           releases++;
         },
-        verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+        getRepository: () => ({ status: "completed", capability: {} }),
         resolveRepositoryRuntimeDataPaths: () => ({
           temporary: path.join(
             parentPath,
@@ -2264,12 +2264,14 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         execFileSync: () => {
           throw new Error("git_process_forbidden");
         },
-        gitRepositoryRevisionAdapter: (directory: string) => {
-          const expected = gitRepositoryRevisionAdapter(directory);
+        readRepositoryRevision: (
+          repository: Parameters<typeof readRepositoryRevision>[0],
+        ) => {
+          const expected = readRepositoryRevision(repository);
           const previous = process.env.GIT_DIR;
           try {
             process.env.GIT_DIR = join(root, "nonexistent-synthetic-git-dir");
-            const actual = gitRepositoryRevisionAdapter(directory);
+            const actual = readRepositoryRevision(repository);
             assert.deepEqual(actual, expected);
             return actual;
           } finally {
@@ -2278,7 +2280,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
           }
         },
         readFileSync: () => Buffer.from("synthetic context"),
-        verifyRepositoryRoot,
+        getRepository,
         readRepositoryNetworkHosts,
         readRepositoryAiSelection: () => ({
           status: "available",
@@ -2599,7 +2601,7 @@ for (const transport of ["tool-child-process"] as const) {
       ],
       { cwd: root, windowsHide: true, stdio: "ignore" },
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_required");
     assert.equal(
@@ -2627,7 +2629,8 @@ for (const transport of ["tool-child-process"] as const) {
         taskExecutionSelections: null,
       }),
       observeRevision: () =>
-        gitRepositoryRevisionAdapter(root)?.revisionIdentity ?? null,
+        readRepositoryRevision(getRepository(root).capability)
+          ?.revisionIdentity ?? null,
       execute: async (
         _command,
         _execution,

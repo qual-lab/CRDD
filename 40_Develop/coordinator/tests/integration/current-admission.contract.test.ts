@@ -23,7 +23,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
@@ -70,7 +70,7 @@ test("現在入場: 正式Readerは真正Rootと現在本文だけを搬送す�
       ],
       { windowsHide: true },
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const binding = borrowRuntimeOwnedCoordinatorRecoveryRepository(
@@ -188,7 +188,7 @@ test("現在入場: 有限Domain結果と領域失敗を公開DTOへ投影する
     const result = runInNewContext(
       `${inspector}\ninspectRuntimeOwnedDockerTaskAdmission("fixture");`,
       {
-        verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+        getRepository: () => ({ status: "completed", capability: {} }),
         readRuntimeOwnedCoordinatorAdmissionSnapshot: () => ({
           status: "blocked",
           reason,

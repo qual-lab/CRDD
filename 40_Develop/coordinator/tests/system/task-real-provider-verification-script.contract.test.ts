@@ -180,12 +180,12 @@ test("実Provider Toolは起動未発行を回復不明として記録しない"
         if (!entersSpawn) throw new Error("observation_failed");
         return "target";
       },
-      inspectRepositoryIdentityCandidate: () => ({
-        status: "candidate",
-        commit: "a",
-        tree: "b",
+      readRepositorySnapshot: () => ({
+        status: "observed",
+        revisionIdentity: "a",
+        snapshotIdentity: "b",
       }),
-      verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+      getRepository: () => ({ status: "completed", capability: {} }),
       resolveRepositoryRuntimeDataPaths: () => ({
         tests: "target/.crdd/tests",
       }),
@@ -916,19 +916,19 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
         resolve: (value: string) => value,
         join: (...parts: string[]) => parts.join("/"),
       },
-      verifyRepositoryRoot: (value: string) => {
+      getRepository: (value: string) => {
         assert.equal(value, root);
         return { status: "completed", capability: "root-capability" };
       },
       resolveVerifiedRepositoryRoot: () =>
         scenario === "root_changed" ? "other" : root,
-      inspectRepositoryRevisionCandidate: () => ({
-        status: "candidate",
-        commit: (scenario === "git_changed" && revisions++ > 0
+      readRepositorySnapshot: () => ({
+        status: "observed",
+        revisionIdentity: (scenario === "git_changed" && revisions++ > 0
           ? "b"
           : "a"
         ).repeat(40),
-        tree: "b".repeat(40),
+        snapshotIdentity: "b".repeat(40),
       }),
       observeRuntimeOwnedDevelopmentSource: () =>
         scenario === "source_missing"
@@ -3116,7 +3116,7 @@ test("実Provider Toolの事前設定確認は二経路と同一設定を要求�
     const read = runInNewContext(
       `${body}; readVerificationAiSelectionIdentity`,
       {
-        verifyRepositoryRoot: () => ({
+        getRepository: () => ({
           status: scenario === "root_failed" ? "blocked" : "completed",
           capability: "root",
         }),

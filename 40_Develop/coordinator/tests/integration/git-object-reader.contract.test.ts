@@ -18,9 +18,8 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 
 import {
-  gitFixedSnapshotAdapter,
-  readFixedSnapshotFile,
-  verifyRepositoryRoot,
+  readCommitFile,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 
 /**
@@ -132,36 +131,30 @@ test("固定Snapshotは既定64KiBを保ち明示64MiBまでの読取上限だ�
   });
   assert.equal(readGitCommitFileCandidate(accessor), null);
   assert.equal(getterCalls, 0);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   assert.equal(
-    readFixedSnapshotFile(
-      verified.capability,
-      revision,
-      base.relativePath,
-      gitFixedSnapshotAdapter,
-    ),
+    readCommitFile(verified.capability, {
+      commit: revision,
+      path: base.relativePath,
+    }),
     null,
   );
   assert.equal(
-    readFixedSnapshotFile(
-      verified.capability,
-      revision,
-      base.relativePath,
-      gitFixedSnapshotAdapter,
-      65_537,
-    )?.bytes.length,
+    readCommitFile(verified.capability, {
+      commit: revision,
+      path: base.relativePath,
+      maximumBytes: 65_537,
+    })?.bytes.length,
     65_537,
   );
   assert.equal(
-    readFixedSnapshotFile(
-      verified.capability,
-      revision,
-      base.relativePath,
-      gitFixedSnapshotAdapter,
-      Infinity,
-    ),
+    readCommitFile(verified.capability, {
+      commit: revision,
+      path: base.relativePath,
+      maximumBytes: Infinity,
+    }),
     null,
   );
 });

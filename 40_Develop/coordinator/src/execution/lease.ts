@@ -32,8 +32,8 @@ import {
   validId,
 } from "../../../domain-model/src/index.ts";
 import {
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import type {
   CoordinatorLease,
@@ -846,7 +846,7 @@ function ensureDirectory(parent: string, name: string) {
  */
 
 export function resolveCoordinatorNamedPaths(workingDirectory: string) {
-  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
     ? resolveRepositoryRuntimeDataPaths(verified.capability)
     : null;
@@ -871,7 +871,7 @@ function observeCoordinatorArea(
   repositoryRoot: string,
   area: "domain-model" | "tmp",
 ) {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("orchestrator_repository_root_invalid");
   const observation = observeRepositoryRuntimeDataArea(

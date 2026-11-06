@@ -9,7 +9,7 @@ import path from "node:path";
 
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import { createFilesystemRepositoryObservationPort } from "../repository/create-observer.ts";
 
@@ -108,9 +108,9 @@ function isContained(root: string, target: string): boolean {
  *
  * @responsibility 一時Fileの作成、同期、内容確認、置換および全経路cleanupを所有する。
  * @trace ARCH-000008
- * @input capability: VerifiedRepositoryRoot、request: SemanticBundlePublishRequest、hooks: SemanticBundleWriterHooks
+ * @input capability: Repository、request: SemanticBundlePublishRequest、hooks: SemanticBundleWriterHooks
  * @returns SemanticBundlePublishReceiptを返す。
- * @precondition capability: VerifiedRepositoryRoot、request: SemanticBundlePublishRequest、hooks: SemanticBundleWriterHooksがpublishSemanticCoverageBundleWithHooksの入力契約を満たす。
+ * @precondition capability: Repository、request: SemanticBundlePublishRequest、hooks: SemanticBundleWriterHooksがpublishSemanticCoverageBundleWithHooksの入力契約を満たす。
  * @postcondition publishSemanticCoverageBundleWithHooksの責務を完了した結果だけを返す。
  * @effect 検証済みRepository内の指定Bundleを置換する。
  * @failure 部分書込みやRoot外Pathでは既存Snapshotを維持する。
@@ -120,7 +120,7 @@ function isContained(root: string, target: string): boolean {
  * @concurrency N/A: publishSemanticCoverageBundleWithHooksは共有非同期状態を持たない同期処理である。
  */
 export function publishSemanticCoverageBundleWithHooks(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   request: SemanticBundlePublishRequest,
   hooks: SemanticBundleWriterHooks = {},
 ): SemanticBundlePublishReceipt {
@@ -181,9 +181,9 @@ export function publishSemanticCoverageBundleWithHooks(
  *
  * @responsibility Repository Capabilityを公開PortのClosureへ限定する。
  * @trace ARCH-000008
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: Repository
  * @returns SemanticBundlePublisherを返す。
- * @precondition capability: VerifiedRepositoryRootがcreateFilesystemSemanticBundlePublisherの入力契約を満たす。
+ * @precondition capability: RepositoryがcreateFilesystemSemanticBundlePublisherの入力契約を満たす。
  * @postcondition createFilesystemSemanticBundlePublisherの責務を完了した結果だけを返す。
  * @effect N/A: createFilesystemSemanticBundlePublisherは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createFilesystemSemanticBundlePublisherは独自の失敗分岐を所有しない。
@@ -193,7 +193,7 @@ export function publishSemanticCoverageBundleWithHooks(
  * @concurrency N/A: createFilesystemSemanticBundlePublisherは共有非同期状態を持たない同期処理である。
  */
 export function createFilesystemSemanticBundlePublisher(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): SemanticBundlePublisher {
   return {
     publish: (request) =>

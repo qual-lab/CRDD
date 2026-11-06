@@ -16,15 +16,15 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
-  gitRepositoryRevisionAdapter,
-  observeRepositoryStorageIdentity,
+  readRepositoryRevision,
+  readRepositoryStorageIdentity,
 } from "../../src/repository/revision.ts";
 
 import {
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "../../src/repository/location.ts";
 
 /**
@@ -93,18 +93,15 @@ test("保存Identityは未CommitのGitでも成立し実行Revisionを捏造し�
     assert.equal(fs.existsSync(root), false);
   });
   git(root, ["init", "--quiet"]);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("fixture");
-  const before = observeRepositoryStorageIdentity(verified.capability);
+  const before = readRepositoryStorageIdentity(verified.capability);
   assert.ok(before);
   assert.equal(Object.isFrozen(before), true);
   assert.equal(Object.hasOwn(before, "revisionIdentity"), false);
-  assert.equal(gitRepositoryRevisionAdapter(root), null);
-  assert.equal(
-    observeRepositoryStorageIdentity({ ...verified.capability }),
-    null,
-  );
+  assert.equal(readRepositoryRevision(getRepository(root).capability), null);
+  assert.equal(readRepositoryStorageIdentity({ ...verified.capability }), null);
   git(root, [
     "-c",
     "user.name=CRDD Test",
@@ -115,13 +112,10 @@ test("保存Identityは未CommitのGitでも成立し実行Revisionを捏造し�
     "-m",
     "synthetic",
   ]);
-  assert.deepEqual(
-    observeRepositoryStorageIdentity(verified.capability),
-    before,
-  );
-  assert.ok(gitRepositoryRevisionAdapter(root));
+  assert.deepEqual(readRepositoryStorageIdentity(verified.capability), before);
+  assert.ok(readRepositoryRevision(getRepository(root).capability));
   fs.renameSync(path.join(root, ".git"), path.join(root, "retired-git"));
-  assert.equal(observeRepositoryStorageIdentity(verified.capability), null);
+  assert.equal(readRepositoryStorageIdentity(verified.capability), null);
 });
 
 /**
@@ -141,8 +135,8 @@ test("exact and nested repository locations issue the same scoped capability", (
   const nested = path.join(root, "nested", "deeper");
   fs.mkdirSync(nested, { recursive: true });
 
-  const exact = verifyRepositoryRoot(root);
-  const enclosing = verifyRepositoryRootFromWorkingDirectory(nested);
+  const exact = getRepository(root);
+  const enclosing = getRepositoryFromWorkingDirectory(nested);
   assert.equal(exact.status, "completed");
   assert.equal(enclosing.status, "completed");
   assert.equal(resolveVerifiedRepositoryRoot(exact.capability), root);
@@ -168,7 +162,7 @@ test("an invalid nested boundary is terminal", (t) => {
   fs.mkdirSync(nested);
   fs.writeFileSync(path.join(nested, ".git"), "not a gitdir\n", "utf8");
 
-  assert.deepEqual(verifyRepositoryRootFromWorkingDirectory(nested), {
+  assert.deepEqual(getRepositoryFromWorkingDirectory(nested), {
     status: "blocked",
     reason: "repository_root_invalid",
     capability: null,
@@ -201,7 +195,7 @@ test("a linked worktree is a valid exact repository root", (t) => {
   t.after(() => fs.rmSync(linked, { recursive: true, force: true }));
   git(root, ["worktree", "add", "--detach", linked]);
 
-  const result = verifyRepositoryRoot(fs.realpathSync.native(linked));
+  const result = getRepository(fs.realpathSync.native(linked));
   assert.equal(result.status, "completed");
 });
 
@@ -231,7 +225,7 @@ test("a standard submodule worktree is a distinct valid repository root", (t) =>
   ]);
   const dependency = fs.realpathSync.native(path.join(root, "dependency"));
 
-  const result = verifyRepositoryRoot(dependency);
+  const result = getRepository(dependency);
   assert.equal(result.status, "completed");
   assert.equal(resolveVerifiedRepositoryRoot(result.capability), dependency);
 });
@@ -250,7 +244,7 @@ test("a standard submodule worktree is a distinct valid repository root", (t) =>
  */
 test("repository-local runtime writes do not invalidate repository identity", (t) => {
   const root = repository(t);
-  const result = verifyRepositoryRoot(root);
+  const result = getRepository(root);
   assert.equal(result.status, "completed");
 
   fs.mkdirSync(path.join(root, ".crdd"));
@@ -271,7 +265,7 @@ test("repository-local runtime writes do not invalidate repository identity", (t
  */
 test("a capability fails closed after its repository boundary disappears", (t) => {
   const root = repository(t);
-  const result = verifyRepositoryRoot(root);
+  const result = getRepository(root);
   assert.equal(result.status, "completed");
 
   fs.rmSync(path.join(root, ".git"), { recursive: true, force: true });
@@ -293,7 +287,7 @@ test("a capability fails closed after its repository boundary disappears", (t) =
 test("arbitrary directories and forged capability values fail closed", (t) => {
   const arbitrary = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-none-"));
   t.after(() => fs.rmSync(arbitrary, { recursive: true, force: true }));
-  assert.equal(verifyRepositoryRoot(arbitrary).status, "blocked");
+  assert.equal(getRepository(arbitrary).status, "blocked");
   assert.equal(
     resolveVerifiedRepositoryRoot({
       contract: "crdd-version-control/repository-location/v1",
@@ -318,5 +312,5 @@ test("Windows repository identity does not depend on caller path casing", {
   skip: process.platform !== "win32",
 }, (t) => {
   const root = repository(t);
-  assert.equal(verifyRepositoryRoot(root.toUpperCase()).status, "completed");
+  assert.equal(getRepository(root.toUpperCase()).status, "completed");
 });

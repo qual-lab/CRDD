@@ -6,7 +6,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   hasSkippedTestDeclaration,
   createRealitySymbolGraph as createDomainRealitySymbolGraph,
@@ -17,7 +17,7 @@ import {
   type RepositoryObservationPort,
   inspectRealityTestCatalog,
 } from "../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../report/reality.ts";
 import type { CheckerRealityFinding } from "../report/types.ts";
 import type { CheckerFinding } from "../report/types.ts";
@@ -41,7 +41,7 @@ export function inspectRealityRepository(
   repositoryRoot: string,
   add: (finding: CheckerFinding) => void,
 ): void {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed") {
     add({
       severity: "error",
@@ -146,9 +146,9 @@ export function createRealitySymbolGraph(
  *
  * @responsibility Reality Symbol Manifestsの探索Root、対象母集団、未観測境界を所有する。
  * @trace ARCH-000001
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: Repository
  * @returns Readonly<{ manifests: readonly LoadedRealitySymbolManifest[]; knownArchIds: ReadonlySet<string>; knownQaIds: ReadonlySet<string>; knownLocalTestIdsByQaId: ReadonlyMap<string, ReadonlySet<string>>; findings: readonly CheckerRealityFinding[]; }>を返す。
- * @precondition 「capability: VerifiedRepositoryRoot」がdiscoverRealitySymbolManifestsの入力契約を満たす。
+ * @precondition 「capability: Repository」がdiscoverRealitySymbolManifestsの入力契約を満たす。
  * @postcondition discoverRealitySymbolManifestsの責務を完了した結果だけを返す。
  * @effect 検証済みRepositoryのManifest・関連文書を観測する。書込みなし。
  * @failure N/A: discoverRealitySymbolManifestsは独自の失敗分岐を所有しない。
@@ -158,7 +158,7 @@ export function createRealitySymbolGraph(
  * @concurrency N/A: discoverRealitySymbolManifestsは共有非同期状態を持たない同期処理である。
  */
 export function discoverRealitySymbolManifests(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): Readonly<{
   manifests: readonly LoadedRealitySymbolManifest[];
   knownArchIds: ReadonlySet<string>;
@@ -188,9 +188,9 @@ export function discoverRealitySymbolManifests(
  *
  * @responsibility Registered Reality Testsの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000001
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: Repository
  * @returns ReturnType<typeof readRegisteredRealityTestsFromRepository>を返す。
- * @precondition 「capability: VerifiedRepositoryRoot」がreadRegisteredRealityTestsの入力契約を満たす。
+ * @precondition 「capability: Repository」がreadRegisteredRealityTestsの入力契約を満たす。
  * @postcondition readRegisteredRealityTestsの責務を完了した結果だけを返す。
  * @effect 検証済みRepositoryのCatalogを同期観測する。書込みなし。
  * @failure N/A: readRegisteredRealityTestsは独自の失敗分岐を所有しない。
@@ -200,7 +200,7 @@ export function discoverRealitySymbolManifests(
  * @concurrency N/A: readRegisteredRealityTestsは共有非同期状態を持たない同期処理である。
  */
 export function readRegisteredRealityTests(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): ReturnType<typeof readRegisteredRealityTestsFromRepository> {
   return readRegisteredRealityTestsFromRepository(
     createFilesystemRepositoryObservationPort(capability),

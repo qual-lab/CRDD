@@ -16,7 +16,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
@@ -214,7 +214,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
             },
           };
         },
-        verifyRepositoryRoot: (input: string) => {
+        getRepository: (input: string) => {
           assert.equal(input, root);
           return { status: "completed", capability };
         },
@@ -388,7 +388,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       ],
       { windowsHide: true },
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const repository = borrowRuntimeOwnedCoordinatorRecoveryRepository(

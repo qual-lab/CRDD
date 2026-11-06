@@ -45,7 +45,7 @@ import {
   verifyRuntimeOwnedRepositoryOperation,
 } from "../../src/execution/operation.ts";
 import {
-  verifyRepositoryRoot,
+  getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 
@@ -484,7 +484,7 @@ test("保存の四用途はRevisionとOwnerの条件を分離しRoot参照を搬
     createOwnedMountCapability(owned),
   );
   assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const execution = borrowRuntimeOwnedCoordinatorStateRepository(management);
@@ -562,7 +562,7 @@ test("保存借用は呼出しごとの二探索と実体差替え拒否を維�
   const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
   fs.mkdirSync(parent, { recursive: true });
   const root = temporaryRepository(t, parent);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const borrowed = borrowRuntimeOwnedCoordinatorStorageRepository(

@@ -506,9 +506,10 @@ if (process.argv[2] !== "--probe") {
           nativeVerifications: map,
           sourceDistributionRoot: "fixed-source",
           digest: (value: unknown) => JSON.stringify(value),
-          inspectRepositoryIdentityCandidate: () => {
+          getRepository: () => ({ capability: {} }),
+          readRepositorySnapshot: () => {
             events.push("repository");
-            return { commit: "a", tree: "b" };
+            return { revisionIdentity: "a", snapshotIdentity: "b" };
           },
           observeRuntimeOwnedDevelopmentSource: () => {
             events.push("source");
@@ -927,14 +928,14 @@ async function runProbe(target: string, scenario: string) {
   await mock.module(versionControlUrl, {
     namedExports: {
       ...(await import(versionControlUrl)),
-      inspectRepositoryIdentityCandidate: () => ({
-        commit:
+      readRepositorySnapshot: () => ({
+        revisionIdentity:
           isArmed &&
           nativeEffectObservations > 0 &&
           scenario === "post-repository"
             ? "9".repeat(40)
             : "a".repeat(40),
-        tree: "b".repeat(40),
+        snapshotIdentity: "b".repeat(40),
       }),
     },
   });
@@ -1260,7 +1261,7 @@ async function runProbe(target: string, scenario: string) {
     `import { verifyOwnedOperationManagementCapability, borrowRuntimeOwnedRepositorySource } from "${moduleUrl("execution-environment")}";`,
     `import { snapshotPlainArray, snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
     `import { observeNativeArtifact } from "${moduleUrl("native-artifact-observation")}";`,
-    `import { inspectRepositoryIdentityCandidate } from "${versionControlUrl}";`,
+    `import { readRepositorySnapshot, getRepository } from "${versionControlUrl}";`,
     `const observeRuntimeOwnedDevelopmentSource = globalThis[${JSON.stringify(observationKey)}];`,
   ].join("\n");
   const sessionSource = `${imports}\n${declarations.replaceAll("import.meta.url", JSON.stringify(diagnosticsUrl))}\nexport { createDevelopmentExecutionTiming, writeDevelopmentMeasurementProgress, createDevelopmentMeasurementConstraints, requestRuntimeOwnedDevelopmentMeasurementSession, inspectRuntimeOwnedDevelopmentMeasurementSession, readRuntimeOwnedDevelopmentMeasurementTasks, cancelRuntimeOwnedDevelopmentMeasurementSession, borrowRuntimeOwnedDevelopmentNativeObservation, inspectRuntimeOwnedDevelopmentOperationContext, reserveRuntimeOwnedDevelopmentMeasurementTask, createIsolatedDevelopmentMeasurementSessionCandidate };`;

@@ -33,8 +33,8 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import type { IsolationProbeFacts } from "../../../executor/src/index.ts";
 import {
+  type IsolationProbeFacts,
   type CompletionResult,
   cleanupResources,
   createExecutor,
@@ -50,10 +50,10 @@ import {
   observeNativeArtifact,
 } from "../../../platform-access/src/index.ts";
 import {
-  describeRepositoryLocationContract,
-  inspectRepositoryIdentityCandidate,
-  inspectRepositoryRevisionCandidate,
+  getRepositoryFromWorkingDirectory,
+  readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   type DockerMounts,
@@ -1432,13 +1432,13 @@ function observeProduction(
       !observeNativeArtifact(sourceDistributionRoot, prior.identitySha256))
   )
     return null;
-  const repository = inspectRepositoryIdentityCandidate(
-    configuration.repositoryRoot,
+  const repository = readRepositorySnapshot(
+    getRepository(configuration.repositoryRoot).capability,
   );
   if (
     !repository ||
-    repository.commit !== configuration.expectedCommit ||
-    repository.tree !== configuration.expectedTree
+    repository.revisionIdentity !== configuration.expectedCommit ||
+    repository.snapshotIdentity !== configuration.expectedTree
   )
     return null;
   const source = observeRuntimeOwnedDevelopmentSource();
@@ -1446,8 +1446,8 @@ function observeProduction(
     return null;
   const native = observeNativeArtifact(sourceDistributionRoot);
   if (!native?.bootstrapVerified) return null;
-  const reobserved = inspectRepositoryIdentityCandidate(
-    configuration.repositoryRoot,
+  const reobserved = readRepositorySnapshot(
+    getRepository(configuration.repositoryRoot).capability,
   );
   if (JSON.stringify(repository) !== JSON.stringify(reobserved)) return null;
   if (
@@ -1467,7 +1467,17 @@ function observeProduction(
     repositoryIdentitySha256: digest([
       "crdd-development-repository/v1",
       configuration.repositoryRoot,
-      repository,
+      {
+        repositoryKind: repository.repositoryForm,
+        logicalRepositoryIdentity: repository.repositoryIdentity,
+        repositoryInstanceIdentity: repository.repositoryInstanceIdentity,
+        revision: repository.revisionIdentity,
+        status: "candidate",
+        commit: repository.revisionIdentity,
+        tree: repository.snapshotIdentity,
+        externalGitCliUsed: false,
+        repositoryPathReported: false,
+      },
     ]),
   });
   nativeVerifications.set(
@@ -3448,13 +3458,13 @@ export function discoverCommand(
  * @concurrency N/A: probeGitRepositoryは共有非同期状態を持たない同期処理である。
  */
 function probeGitRepository(cwd: string) {
-  const identity = inspectRepositoryRevisionCandidate(cwd);
+  const identity = readRepositorySnapshot(getRepository(cwd).capability);
 
   return {
-    gitAvailable: identity?.status === "candidate",
-    identityAvailable: identity?.status === "candidate",
-    headCommit: identity?.commit ?? null,
-    headTree: identity?.tree ?? null,
+    gitAvailable: identity?.status === "observed",
+    identityAvailable: identity?.status === "observed",
+    headCommit: identity?.revisionIdentity ?? null,
+    headTree: identity?.snapshotIdentity ?? null,
     workingState: "not_observed",
     externalGitCliUsed: false,
   };
@@ -3657,6 +3667,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
   const normalizedOptions = normalizeDoctorOptions(options);
   const isIsolationActive = normalizedOptions.activeIsolation;
   const cwd = normalizedOptions.cwd;
+  const repositoryLocation = getRepositoryFromWorkingDirectory(cwd);
   let operation: ReturnType<typeof createRuntimeOwnedCoordinatorOperation>;
   try {
     operation = createRuntimeOwnedCoordinatorOperation();
@@ -3812,7 +3823,11 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
         profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
       },
       rootProtectionPolicy: describeRootProtectionPolicyContract(),
-      repositoryLocation: describeRepositoryLocationContract(),
+      repositoryLocation: {
+        status: repositoryLocation.status,
+        contract: repositoryLocation.capability?.contract ?? null,
+        pathReported: false,
+      },
       providerLifecycle: describeProviderLifecycleContract(),
       fakeProviderLifecycle: isolation.fakeProviderLifecycle,
       egress: {

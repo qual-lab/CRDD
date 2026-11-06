@@ -7,7 +7,7 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import type { TaskExecutionSelections } from "../ai-selection/types.ts";
 import type { CoordinatorStateOperation } from "../attempt/types.ts";
 import type {
@@ -462,7 +462,7 @@ export type StateVersion = Readonly<{
  * @compatibility 新Role・Grant・Authority発行を追加しない。
  */
 export type RuntimeAccess = Readonly<{
-  root: VerifiedRepositoryRoot;
+  root: Repository;
   principalId: string;
   revalidate: (
     operation:

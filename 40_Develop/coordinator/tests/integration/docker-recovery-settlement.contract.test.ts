@@ -105,7 +105,7 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
         rootReads += 1;
         return fixed.repositoryRoot;
       },
-      verifyRepositoryRoot: () => ({
+      getRepository: () => ({
         status: isRootVerified ? "completed" : "blocked",
         capability: isRootVerified ? capability : null,
       }),

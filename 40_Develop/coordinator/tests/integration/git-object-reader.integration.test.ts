@@ -18,13 +18,12 @@ import {
   materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
 } from "../../../version-control/src/git/objects.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/repository/snapshot.ts";
 import {
-  materializeFixedSnapshotCandidate,
-  verifyCandidateOutputDirectory,
-} from "../../../version-control/src/repository/snapshot.ts";
+  copyCommitFiles,
+  readRepositorySnapshot,
+} from "../../../version-control/src/index.ts";
 import { resolveRepositoryGitLayout } from "../../../version-control/src/repository/layout.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
+import { getRepository } from "../../../version-control/src/repository/location.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
@@ -32,12 +31,9 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/execution/operation.ts";
-import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
 } from "../../src/execution/operation.ts";
-import { inspectRepositoryRevisionCandidate } from "../../../version-control/src/index.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 import {
   createGitPackedObjectFixture,
@@ -219,18 +215,19 @@ for (const mutation of [
 test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合する", () => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
   const layout = resolveRepositoryGitLayout(repositoryRoot);
-  const repository = inspectRepositoryRevisionCandidate(repositoryRoot);
-  assert.equal(repository?.status, "candidate");
-  assert.equal(repository?.externalGitCliUsed, false);
+  const repository = readRepositorySnapshot(
+    getRepository(repositoryRoot).capability,
+  );
+  assert.equal(repository?.status, "observed");
   assert.equal(repository?.repositoryPathReported, false);
-  assert.equal(repository?.repositoryKind, "primary");
+  assert.equal(repository?.repositoryForm, "primary");
   const exact = inspectGitCommitTreeCandidate({
     commonDirectory: layout.commonDirectory.realPath,
-    revision: repository?.commit,
+    revision: repository?.revisionIdentity,
   });
   assert.equal(exact?.status, "candidate");
-  assert.equal(exact?.commit, repository?.commit);
-  assert.equal(exact?.tree, repository?.tree);
+  assert.equal(exact?.commit, repository?.revisionIdentity);
+  assert.equal(exact?.tree, repository?.snapshotIdentity);
   assert.equal(exact?.externalGitCliUsed, false);
   assert.equal(exact?.repositoryPathReported, false);
 });
@@ -271,25 +268,19 @@ test("現行CRDDのpacked objectから明示Read Projectionだけを隔離worksp
     managementCapability,
     mountCapability,
   );
-  const verified = verifyRepositoryRoot(source.repositoryRoot);
+  const verified = getRepository(source.repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
-  const output = verifyCandidateOutputDirectory(
-    binding.mounts.workspace,
-    mountCapability,
-    binding.mounts.workspace,
-  );
-  assert.equal(output.status, "completed");
-  if (output.status !== "completed") return;
-  const materialized = materializeFixedSnapshotCandidate(
-    verified.capability,
-    source.revision,
-    mountCapability,
-    output.capability,
-    ["README.md"],
-    containsRecognizedSecretMaterial,
-    gitFixedSnapshotAdapter,
-  );
+  const materialized = copyCommitFiles(verified.capability, {
+    commit: source.revision,
+    outputRepository: verified.capability,
+    relativeDirectory: path
+      .relative(repositoryRoot, binding.mounts.workspace)
+      .split(path.sep)
+      .join("/"),
+    paths: ["README.md"],
+    inspectContent: containsRecognizedSecretMaterial,
+  });
   assert.equal(materialized?.status, "materialized");
   assert.equal(materialized?.baseRevisionIdentity, repository.revision);
   assert.equal(materialized?.fileCount, 1);

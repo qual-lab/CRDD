@@ -14,7 +14,7 @@ import type {
 } from "./types.ts";
 
 import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../repository/resolve-storage-paths.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -891,9 +891,9 @@ function issueCapability(
  *
  * @responsibility Temporary Operation Internalの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void
+ * @input rootCapability: Repository、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void
  * @returns createTemporaryOperationInternalの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void」がcreateTemporaryOperationInternalの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、input: TemporaryOperationInput、afterStagingDocumentCreated: () => void、afterStagingDocumentWritten: () => void、afterCanonicalDocumentLinked: () => void、afterControlDocumentPublished: () => void」がcreateTemporaryOperationInternalの入力契約を満たす。
  * @postcondition createTemporaryOperationInternalの責務を完了した結果だけを返す。
  * @effect createTemporaryOperationInternalはFilesystemの読取りまたは書込みを実行する。
  * @failure createTemporaryOperationInternalは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -903,7 +903,7 @@ function issueCapability(
  * @concurrency N/A: createTemporaryOperationInternalは共有非同期状態を持たない同期処理である。
  */
 function createTemporaryOperationInternal(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   input: TemporaryOperationInput,
   afterStagingDocumentCreated: () => void,
   afterStagingDocumentWritten: () => void,
@@ -1056,9 +1056,9 @@ function createTemporaryOperationInternal(
  *
  * @responsibility Temporary Operationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput
+ * @input rootCapability: Repository、input: TemporaryOperationInput
  * @returns createTemporaryOperationの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput」がcreateTemporaryOperationの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、input: TemporaryOperationInput」がcreateTemporaryOperationの入力契約を満たす。
  * @postcondition createTemporaryOperationの責務を完了した結果だけを返す。
  * @effect N/A: createTemporaryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createTemporaryOperationは独自の失敗分岐を所有しない。
@@ -1068,7 +1068,7 @@ function createTemporaryOperationInternal(
  * @concurrency N/A: createTemporaryOperationは共有非同期状態を持たない同期処理である。
  */
 export function createTemporaryOperation(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   input: TemporaryOperationInput,
 ) {
   return createTemporaryOperationInternal(
@@ -1086,9 +1086,9 @@ export function createTemporaryOperation(
  *
  * @responsibility Temporary Operation With Interruption For Verificationの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void
+ * @input rootCapability: Repository、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void
  * @returns createTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void」がcreateTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、input: TemporaryOperationInput、phase: | "after_staging_created" | "after_staging" | "after_staging_linked" | "after_control"、interrupt: () => void」がcreateTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
  * @postcondition createTemporaryOperationWithInterruptionForVerificationの責務を完了した結果だけを返す。
  * @effect N/A: createTemporaryOperationWithInterruptionForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createTemporaryOperationWithInterruptionForVerificationは独自の失敗分岐を所有しない。
@@ -1098,7 +1098,7 @@ export function createTemporaryOperation(
  * @concurrency N/A: createTemporaryOperationWithInterruptionForVerificationは共有非同期状態を持たない同期処理である。
  */
 export function createTemporaryOperationWithInterruptionForVerification(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   input: TemporaryOperationInput,
   phase:
     | "after_staging_created"
@@ -1122,9 +1122,9 @@ export function createTemporaryOperationWithInterruptionForVerification(
  *
  * @responsibility resume Temporary Operation Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void
+ * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void
  * @returns resumeTemporaryOperationInternalの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void」がresumeTemporaryOperationInternalの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void」がresumeTemporaryOperationInternalの入力契約を満たす。
  * @postcondition resumeTemporaryOperationInternalの責務を完了した結果だけを返す。
  * @effect resumeTemporaryOperationInternalはFilesystemの読取りまたは書込みを実行する。
  * @failure resumeTemporaryOperationInternalは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1134,7 +1134,7 @@ export function createTemporaryOperationWithInterruptionForVerification(
  * @concurrency N/A: resumeTemporaryOperationInternalは共有非同期状態を持たない同期処理である。
  */
 function resumeTemporaryOperationInternal(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   reference: TemporaryOperationRecoveryReference,
   nextIdentity: string,
   afterStagingLockCreated: () => void,
@@ -1360,9 +1360,9 @@ function resumeTemporaryOperationInternal(
  *
  * @responsibility resume Temporary Operationの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string
+ * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string
  * @returns resumeTemporaryOperationの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string」がresumeTemporaryOperationの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string」がresumeTemporaryOperationの入力契約を満たす。
  * @postcondition resumeTemporaryOperationの責務を完了した結果だけを返す。
  * @effect N/A: resumeTemporaryOperationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resumeTemporaryOperationは独自の失敗分岐を所有しない。
@@ -1372,7 +1372,7 @@ function resumeTemporaryOperationInternal(
  * @concurrency N/A: resumeTemporaryOperationは共有非同期状態を持たない同期処理である。
  */
 export function resumeTemporaryOperation(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   reference: TemporaryOperationRecoveryReference,
   nextIdentity: string,
 ) {
@@ -1392,9 +1392,9 @@ export function resumeTemporaryOperation(
  *
  * @responsibility temporary-operation-storeの入力からresume Temporary Operation With Interruption For Verificationを導く規則と結果境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void
+ * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void
  * @returns resumeTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void」がresumeTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void」がresumeTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
  * @postcondition resumeTemporaryOperationWithInterruptionForVerificationの責務を完了した結果だけを返す。
  * @effect N/A: resumeTemporaryOperationWithInterruptionForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resumeTemporaryOperationWithInterruptionForVerificationは独自の失敗分岐を所有しない。
@@ -1404,7 +1404,7 @@ export function resumeTemporaryOperation(
  * @concurrency N/A: resumeTemporaryOperationWithInterruptionForVerificationは共有非同期状態を持たない同期処理である。
  */
 export function resumeTemporaryOperationWithInterruptionForVerification(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   reference: TemporaryOperationRecoveryReference,
   nextIdentity: string,
   phase:
@@ -1530,7 +1530,7 @@ function readTemporaryOperationEvidenceHash(
  *
  * @responsibility Temporary Operation Evidence Promotionの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: VerifiedRepositoryRoot、capability: TemporaryOperationCapability、input: 正式Evidence相対Path、artifactName、sha256。
+ * @input rootCapability: Repository、capability: TemporaryOperationCapability、input: 正式Evidence相対Path、artifactName、sha256。
  * @returns verifyTemporaryOperationEvidencePromotionの計算結果を返す。
  * @precondition 呼出し側が同一RootのCHG／Release Evidenceへ正式copyを完了している。
  * @postcondition verifyTemporaryOperationEvidencePromotionの責務を完了した結果だけを返す。
@@ -1542,7 +1542,7 @@ function readTemporaryOperationEvidenceHash(
  * @concurrency N/A: verifyTemporaryOperationEvidencePromotionは共有非同期状態を持たない同期処理である。
  */
 export function verifyTemporaryOperationEvidencePromotion(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   capability: TemporaryOperationCapability,
   input: Readonly<{
     evidenceRelativePath: string;

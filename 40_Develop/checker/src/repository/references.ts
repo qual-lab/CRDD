@@ -7,7 +7,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { readFixedSnapshotText } from "../../../version-control/src/index.ts";
+import {
+  getRepository,
+  readCommitFile,
+} from "../../../version-control/src/index.ts";
 import {
   parseMarkdownAnchors,
   parseMarkdownLinkReference,
@@ -307,11 +310,15 @@ export function createDocumentReferenceReader(
     const normalized = relativePath.replaceAll("\\", "/");
     if (historicalContentCache.has(normalized))
       return historicalContentCache.get(normalized) ?? null;
-    const content = readFixedSnapshotText(
-      root,
-      fixedHistoryMigration.sourceCommit,
-      normalized,
-    );
+    const repository = getRepository(root);
+    const content =
+      repository.status === "completed"
+        ? (readCommitFile(repository.capability, {
+            commit: fixedHistoryMigration.sourceCommit,
+            path: normalized,
+            maximumBytes: 16 * 1024 * 1024,
+          })?.bytes.toString("utf8") ?? null)
+        : null;
     historicalContentCache.set(normalized, content);
     return content;
   }

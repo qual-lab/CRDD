@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
+import { getRepository } from "../../version-control/src/index.ts";
 import {
   assertCoverageRunRoot,
   createCoverageRunRoot,
@@ -22,7 +22,7 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const crateRoot = path.resolve(coordinatorRoot, "..", "platform-access");
 const manifestPath = path.join(crateRoot, "Cargo.toml");
 const repositoryRoot = path.resolve(crateRoot, "../..");
-const verifiedRepository = verifyRepositoryRoot(repositoryRoot);
+const verifiedRepository = getRepository(repositoryRoot);
 if (verifiedRepository.status !== "completed")
   throw new Error(verifiedRepository.reason);
 const resultsRoot = requireReadyRepositoryRuntimeDataArea(

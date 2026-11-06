@@ -28,7 +28,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import * as bindings from "../../src/execution/operation.ts";
 
 let acquireCount = 0;
@@ -360,7 +360,7 @@ function createRepairOwnerFixture() {
     randomBytes,
     randomUUID,
     observeRepositoryRuntimeDataArea: domain.observeRepositoryRuntimeDataArea,
-    verifyRepositoryRoot,
+    getRepository,
     borrowRuntimeOwnedCoordinatorRecoveryRepository:
       bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
     encodeRuntimeStateValue,
@@ -382,7 +382,7 @@ function createRepairOwnerFixture() {
     "randomBytes",
     "randomUUID",
     "observeRepositoryRuntimeDataArea",
-    "verifyRepositoryRoot",
+    "getRepository",
     "runDockerRuntimeRepairSession",
     "dockerRuntimeRepairCheckpointIsSettled",
     "borrowRuntimeOwnedCoordinatorRecoveryRepository",
@@ -490,7 +490,7 @@ function prepareRepairOwnerFixture(t: TestContext) {
     { windowsHide: true },
   );
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests");
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("root_unavailable");
   stateFile = path.join(root, ".crdd", "domain-model", "state.json");

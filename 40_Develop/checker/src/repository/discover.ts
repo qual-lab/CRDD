@@ -7,8 +7,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  observeNestedRepository,
-  observeRepositoryEntries,
+  getRepository,
+  readRepositoryRevision,
+  readRepositoryEntries,
 } from "../../../version-control/src/index.ts";
 import {
   errorCode,
@@ -252,7 +253,7 @@ export function observeProjectFiles(
     }
     return discoveredFiles.sort();
   }
-  const repositoryEntries = observeRepositoryEntries(root);
+  const repositoryEntries = readRepositoryEntries(root);
   const gitFailure: string | null =
     repositoryEntries.status === "unavailable"
       ? repositoryEntries.reason === "version_control_not_installed"
@@ -312,9 +313,19 @@ export function observeProjectFiles(
       ? isBaselineEntryDirectory &&
         !pathContainsSymbolicLink(root, baselineCandidateRoot)
       : null;
-    const baselineObservation =
+    const baselineRepository =
       isBaselineWorktreePresent === true
-        ? observeNestedRepository(root, "00_CRDD")
+        ? getRepository(path.join(root, "00_CRDD"))
+        : null;
+    const baselineObservation =
+      baselineRepository?.status === "completed"
+        ? {
+            exactRepository: true,
+            metadataAccessible: true,
+            revisionIdentity:
+              readRepositoryRevision(baselineRepository.capability)
+                ?.revisionIdentity ?? null,
+          }
         : null;
     const isBaselineOwnRepository =
       baselineObservation?.exactRepository === true;

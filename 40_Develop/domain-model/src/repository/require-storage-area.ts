@@ -4,10 +4,7 @@
  * @responsibility 保存失敗の回復・cleanup情報を保持し、不正・停止結果をreadyへ畳まない。
  * @trace ARCH-000011
  */
-import type {
-  ensureRepositoryRuntimeDataArea,
-  ensureRepositoryRuntimeDataAreaWithAdapter,
-} from "../storage/ensure-area.ts";
+import type { ensureRepositoryRuntimeDataArea } from "../storage/ensure-area.ts";
 
 /**
  * RepositoryRuntimeDataAreaBlockedErrorが担う状態と操作を提供する。
@@ -34,7 +31,7 @@ export class RepositoryRuntimeDataAreaBlockedError extends Error {
 
   constructor(
     result: Exclude<
-      ReturnType<typeof ensureRepositoryRuntimeDataAreaWithAdapter>,
+      ReturnType<typeof ensureRepositoryRuntimeDataArea>,
       null | { status: "ready" }
     >,
   ) {

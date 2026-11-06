@@ -24,7 +24,11 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/diagnostics.ts";
-import { inspectRepositoryRevisionCandidate } from "../../../version-control/src/index.ts";
+import {
+  getRepository,
+  readRepositorySnapshot,
+  type Repository,
+} from "../../../version-control/src/index.ts";
 import {
   isCallExpression,
   isExportDeclaration,
@@ -990,16 +994,19 @@ test("Source本番観測は固定module RootとGit前後照合を使用する", 
     .replace("import.meta.url", JSON.stringify(scriptUrl.href));
   const root = path.resolve(coordinatorRoot, "../..");
   const expectedSource = observeRuntimeOwnedDevelopmentSource();
-  const expectedGit = inspectRepositoryRevisionCandidate(root);
-  assert.ok(expectedSource && expectedGit?.status === "candidate");
+  const expectedGit = readRepositorySnapshot(getRepository(root).capability);
+  assert.ok(expectedSource && expectedGit?.status === "observed");
   const order: string[] = [];
   const observe = runInNewContext(stripTypeScriptTypes(`(${body})`), {
     URL,
     fileURLToPath,
-    inspectRepositoryRevisionCandidate: (observed: string) => {
+    getRepository: (observed: string) => {
       assert.equal(path.resolve(observed), root);
+      return getRepository(observed);
+    },
+    readRepositorySnapshot: (observed: Repository | null) => {
       order.push("git");
-      return inspectRepositoryRevisionCandidate(observed);
+      return readRepositorySnapshot(observed);
     },
     observeRuntimeOwnedDevelopmentSource: () => {
       order.push("source");
@@ -1010,23 +1017,31 @@ test("Source本番観測は固定module RootとGit前後照合を使用する", 
     scope: expectedSource.scope,
     sourceSha256: expectedSource.sourceSha256,
     sourceIdentitySha256: expectedSource.sourceIdentitySha256,
-    crddCommit: expectedGit.commit,
-    crddTree: expectedGit.tree,
+    crddCommit: expectedGit.revisionIdentity,
+    crddTree: expectedGit.snapshotIdentity,
   });
   assert.deepEqual(order, ["git", "source", "git"]);
   for (const [before, after, observed] of [
     [null, expectedGit, expectedSource],
     [expectedGit, null, expectedSource],
-    [expectedGit, { ...expectedGit, commit: "e".repeat(40) }, expectedSource],
-    [expectedGit, { ...expectedGit, tree: "e".repeat(40) }, expectedSource],
+    [
+      expectedGit,
+      { ...expectedGit, revisionIdentity: "e".repeat(40) },
+      expectedSource,
+    ],
+    [
+      expectedGit,
+      { ...expectedGit, snapshotIdentity: "e".repeat(40) },
+      expectedSource,
+    ],
     [expectedGit, expectedGit, null],
   ] as const) {
     let count = 0;
     const fixture = runInNewContext(stripTypeScriptTypes(`(${body})`), {
       URL,
       fileURLToPath,
-      inspectRepositoryRevisionCandidate: () =>
-        count++ === 0 ? before : after,
+      getRepository,
+      readRepositorySnapshot: () => (count++ === 0 ? before : after),
       observeRuntimeOwnedDevelopmentSource: () => observed,
     }) as () => unknown;
     assert.equal(fixture(), null);

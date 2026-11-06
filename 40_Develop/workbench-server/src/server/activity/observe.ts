@@ -11,7 +11,7 @@
  * @security Recovery Authority、Credential、Host Pathまたは非開示Task内容を入力契約へ含めない。
  */
 import type { RepositoryProjectContext } from "../../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
+import { getRepository } from "../../../../version-control/src/index.ts";
 
 /**
  * Workbenchが表示するCoordinator現在投影の値契約。
@@ -207,7 +207,7 @@ export function createRepositoryWorkbenchActivityReader(
   const validIdentity =
     /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(fixedIdentity.projectId) &&
     /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(fixedIdentity.repositoryId);
-  const verification = verifyRepositoryRoot(repositoryRoot);
+  const verification = getRepository(repositoryRoot);
   return Object.freeze({
     observe: async (projectId, page = {}) => {
       if (

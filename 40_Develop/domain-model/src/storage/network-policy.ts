@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import { resolveRepositoryRuntimeDataPathsForInternalUse } from "../repository/resolve-storage-paths.ts";
 import {
   DEFAULT_NETWORK_POLICY,
@@ -56,7 +56,7 @@ export type NetworkPolicyReadResult =
  * @concurrency 観測後の変更を返却済みSnapshotへ反映しない。
  */
 export function readNetworkPolicy(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): NetworkPolicyReadResult {
   try {
     const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);

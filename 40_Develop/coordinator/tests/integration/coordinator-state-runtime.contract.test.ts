@@ -57,7 +57,7 @@ import {
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
 import {
@@ -197,7 +197,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.ok(binding);
   const repository = borrowRuntimeOwnedCoordinatorStateRepository(management);
   assert.ok(repository);
-  const verifiedRoot = verifyRepositoryRoot(root);
+  const verifiedRoot = getRepository(root);
   assert.equal(verifiedRoot.status, "completed");
   assert.ok(verifiedRoot.capability);
   assert.equal(
@@ -536,7 +536,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
            Object.fromEntries(${JSON.stringify(recoveryExports)}.map(name=>[name,()=>{throw new Error("fixture_recovery_during_setup_forbidden")}]))});
          const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
          const store = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
-         const verified = vc.verifyRepositoryRoot(process.cwd());
+         const verified = vc.getRepository(process.cwd());
          const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
          const host = await import(${JSON.stringify(hostModule)});
          const probe = await import(${JSON.stringify(probeModule)});
@@ -3036,7 +3036,7 @@ for (const issuedFailure of [false, true]) {
     assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
     const repository = borrowRuntimeOwnedCoordinatorStateRepository(management);
     assert.ok(repository);
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
@@ -3282,7 +3282,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       ],
       { windowsHide: true },
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const borrowed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
@@ -4136,7 +4136,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     { windowsHide: true },
   );
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests");
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("root unavailable");
   const repository = borrowRuntimeOwnedCoordinatorRecoveryRepository(
@@ -4519,7 +4519,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     { windowsHide: true },
   );
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory(failedRoot, "tests");
-  const failedVerified = verifyRepositoryRoot(failedRoot);
+  const failedVerified = getRepository(failedRoot);
   assert.equal(failedVerified.status, "completed");
   if (failedVerified.status !== "completed")
     throw new Error("root unavailable");

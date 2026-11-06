@@ -1,5 +1,9 @@
 # CoordinatorのTask・Objective管理アーキテクチャ
 
+## 借用実行領域のFile観測 — 2026-11-05
+
+`execution/files.ts`は、所在を確定した借用実行領域のFile内容とinventoryを安定読取りする。Git非管理の実行領域にも使用するため、Version ControlからCoordinatorへ戻した。`execution/operation.ts`が既存の管理Capability・Mount・許可Pathとの相関を所有し、このSourceは保存・採否・Git操作・削除を行わない。既存の容量、File数、深さ、case衝突、link／hardlink、読取り前後のIdentity検査と不明時停止を維持する。
+
 ## 共通定義と実行Admissionの分離 — 2026-10-27
 
 次の公開受付は[Caller Task Graph入力](../domain-model/05_Runtime_Domain.md#caller-task-graph-intake)を目標とする。PlanのTask定義とTask別の既存実行指示・Review条件を厳密に結合し、本文を保存せず同じ受付Hashへ固定する。現在の1＋1包装と共通指示コピーは置換対象で、API・Schema・CLI／MCPの新形式追従は未実装。新しい計画器・自動再送・文書同期は作らない。

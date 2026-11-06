@@ -19,9 +19,9 @@ import type {
   TopicMeetingListQuery,
 } from "../../../../domain-model/src/index.ts";
 import type {
-  ChangePublicationResult,
-  RepositoryWorktreeTreePage,
-  RepositoryWorktreeFileDiff,
+  ChangesResult,
+  TreePage,
+  FileDiff,
 } from "../../../../version-control/src/index.ts";
 import type { WorkbenchRuntimeActivityObservation } from "../activity/observe.ts";
 import type { WorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
@@ -165,7 +165,7 @@ export function createWorkbenchMainViewModel(
   surface: WorkbenchProjectSurface,
   portfolio: PortfolioProjection | undefined,
   actionToken: string,
-  lastResult: ChangePublicationResult | null,
+  lastResult: ChangesResult | null,
   credentialAdministration: CredentialAdministration | undefined,
   connectionState: WorkbenchConnectionState,
   topicCollection: WorkbenchProjectSurface["topics"],
@@ -188,8 +188,8 @@ export function createWorkbenchMainViewModel(
   portfolioQuery: Readonly<{ query: string; state: string; cursor: string }>,
   worktree: Readonly<{
     state: "available" | "unknown";
-    tree: RepositoryWorktreeTreePage | null;
-    diff: RepositoryWorktreeFileDiff | null;
+    tree: TreePage | null;
+    diff: FileDiff | null;
   }>,
   selectedRepositoryId?: string,
   recordActionsConfigured = connectionState === "repository",

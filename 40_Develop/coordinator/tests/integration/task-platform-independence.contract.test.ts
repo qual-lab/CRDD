@@ -882,8 +882,8 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'import x = require("./module.ts");',
     'import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";',
     'import type { T } from "../../src/execution/task.ts";',
-    'import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";',
-    'import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";',
+    'import type { Repository } from "../../../version-control/src/index.ts";',
+    'import { getRepository } from "../../../version-control/src/index.ts";',
     'import { randomUUID as random } from "node:crypto";',
     'import { readCurrentCoordinatorState } from "../storage/state.ts";',
     'import { queryCoordinatorState } from "./query.ts";',
@@ -895,7 +895,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'export {} from "../storage/state.ts";',
     'import { type T } from "../storage/state.ts";',
     'export { type T } from "../storage/state.ts";',
-    'export type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";',
+    'export type { Repository } from "../../../version-control/src/index.ts";',
   ];
   const files = examples.map((_, index) =>
     path.join(root, `.crdd-import-${index}.ts`).replaceAll("\\", "/"),

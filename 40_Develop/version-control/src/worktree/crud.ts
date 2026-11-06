@@ -5,16 +5,19 @@
  * @trace ARCH-000009
  */
 import type {
-  RepositoryWorktreeResult,
-  RepositoryWorktreeObservation,
+  WorktreeGitContext,
+  WorktreeResult,
+  WorktreeObservation,
+  WorktreeTarget,
+  WorktreeCreateRequest,
+  WorktreeRemoveRequest,
 } from "./types.ts";
-import { spawnSync } from "node:child_process";
+import { executeGit } from "../git/execute.ts";
 import fs from "node:fs";
-import { devNull } from "node:os";
 import path from "node:path";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../repository/location.ts";
 import { resolveRepositoryGitLayout } from "../repository/layout.ts";
 
@@ -31,7 +34,7 @@ type RecordEntry = {
  * 一要求のGit起動・一覧と固定配置を作る。
  * @responsibility 親Git設定の遮断、所属Root解決、Pathの限定。
  * @trace ARCH-000009
- * @input capability: 既存Root、workspaceId: 上位UUID。
+ * @input capability: 既存Root、targetInput: 上位確定の相対PathとBranch。
  * @returns 寿命が一要求に閉じる技術操作。
  * @precondition 認可と非使用の調停は上位が所有する。
  * @postcondition 所属Rootの固定Pathだけが操作候補となる。
@@ -43,28 +46,31 @@ type RecordEntry = {
  * @concurrency 非協調Host変更の原子性は保証しない。
  */
 export function createWorktreeGitContext(
-  capability: VerifiedRepositoryRoot,
-  workspaceId: string,
-) {
+  capability: Repository,
+  targetInput?: WorktreeTarget,
+): WorktreeGitContext {
   if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(
-      workspaceId,
-    )
+    targetInput &&
+    (typeof targetInput.relativePath !== "string" ||
+      !targetInput.relativePath ||
+      targetInput.relativePath
+        .split("/")
+        .some(
+          (segment) =>
+            !segment ||
+            segment === "." ||
+            segment === ".." ||
+            segment.toLowerCase() === ".git" ||
+            /[\\:\x00-\x1f\x7f*?\[\]]/u.test(segment) ||
+            /[. ]$/u.test(segment),
+        ) ||
+      typeof targetInput.branch !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(targetInput.branch))
   )
-    throw new Error("worktree_id_invalid");
+    throw new Error("worktree_target_invalid");
   const root = resolveVerifiedRepositoryRoot(capability);
   if (root === null) throw new Error("worktree_repository_invalid");
   const layout = resolveRepositoryGitLayout(root);
-  const empty = process.platform === "win32" ? "NUL" : devNull;
-  const env = {
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^GIT_/iu.test(key)),
-    ),
-    GIT_CONFIG_GLOBAL: empty,
-    GIT_CONFIG_SYSTEM: empty,
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_NO_LAZY_FETCH: "1",
-  };
   const deadline = performance.now() + 30_000;
   let commandRoot = root;
   const run = (
@@ -74,44 +80,19 @@ export function createWorktreeGitContext(
   ) => {
     const timeout = Math.ceil(deadline - performance.now());
     if (timeout <= 0) throw new Error("worktree_deadline_exceeded");
-    const atLayout = resolveRepositoryGitLayout(at);
-    const result = spawnSync(
-      "git",
-      [
-        "--no-pager",
-        "--no-optional-locks",
-        ...(args[0] === "check-ignore" ? [] : ["--literal-pathspecs"]),
-        "--no-replace-objects",
-        `--git-dir=${atLayout.gitDirectory.realPath}`,
-        `--work-tree=${at}`,
-        "-c",
-        "core.bare=false",
-        "-c",
-        "core.fsmonitor=false",
-        "-c",
-        `core.hooksPath=${empty}`,
-        "-c",
-        "commit.gpgSign=false",
-        "-c",
-        "merge.autoStash=false",
-        ...args,
-      ],
-      {
-        cwd: at,
-        env: {
-          ...env,
-          ...(options.indexFile ? { GIT_INDEX_FILE: options.indexFile } : {}),
-        },
-        input: options.input,
-        encoding: "utf8",
-        windowsHide: true,
-        shell: false,
-        timeout,
-        maxBuffer: 2 * 1024 * 1024,
-      },
-    );
-    if (result.error || result.signal)
+    const raw = executeGit(at, args, {
+      ...options,
+      gitDirectory: resolveRepositoryGitLayout(at).gitDirectory.realPath,
+      timeout,
+      maxBuffer: 2 * 1024 * 1024,
+    });
+    if (raw.error || raw.signal)
       throw new Error("worktree_git_outcome_unknown");
+    const result = {
+      ...raw,
+      stdout: raw.stdout.toString("utf8"),
+      stderr: raw.stderr.toString("utf8"),
+    };
     return result;
   };
   const list = () => {
@@ -141,7 +122,7 @@ export function createWorktreeGitContext(
         };
       } else if (!entry) throw new Error("worktree_list_invalid");
       else if (key === "HEAD" && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(value))
-        entry.head = value;
+        entry.head = /^0+$/u.test(value) ? null : value;
       else if (key === "branch" && value.startsWith("refs/heads/"))
         entry.branch = value.slice(11);
       else if (key === "locked") entry.locked = true;
@@ -177,21 +158,48 @@ export function createWorktreeGitContext(
   ]);
   if (filters.status !== 1 || filters.stdout !== "")
     throw new Error("worktree_external_filter_unsupported");
-  const relativePath = `.crdd/workspaces/${workspaceId}/worktree`;
+  const current = list().find((entry) => pathKey(entry.root) === pathKey(root));
+  if (!current) throw new Error("worktree_target_mismatch");
+  const relativePath =
+    targetInput?.relativePath ??
+    (path.relative(owner.root.realPath, root).split(path.sep).join("/") || ".");
   const target = path.join(owner.root.realPath, ...relativePath.split("/"));
-  const branch = `crdd/workspace/${workspaceId}`;
-  const inspect = (): RepositoryWorktreeObservation => {
+  const branch = targetInput?.branch ?? current.branch ?? "";
+  if (
+    branch &&
+    run(commandRoot, ["check-ref-format", `refs/heads/${branch}`]).status !== 0
+  )
+    throw new Error("worktree_branch_invalid");
+  const inspect = (): WorktreeObservation => {
     const entries = list();
     const registered = entries.find(
       (entry) => pathKey(entry.root) === pathKey(target),
     );
-    const present = safeDirectoryPath(owner.root.realPath, target);
+    const freshOwner = resolveRepositoryGitLayout(owner.root.realPath);
+    if (
+      freshOwner.root.identity.dev !== owner.root.identity.dev ||
+      freshOwner.root.identity.ino !== owner.root.identity.ino ||
+      freshOwner.root.identity.birthtimeNs !==
+        owner.root.identity.birthtimeNs ||
+      freshOwner.commonDirectory.identity.dev !==
+        owner.commonDirectory.identity.dev ||
+      freshOwner.commonDirectory.identity.ino !==
+        owner.commonDirectory.identity.ino ||
+      freshOwner.commonDirectory.identity.birthtimeNs !==
+        owner.commonDirectory.identity.birthtimeNs
+    )
+      throw new Error("worktree_repository_invalid");
+    if (!targetInput && resolveVerifiedRepositoryRoot(capability) !== root)
+      throw new Error("worktree_repository_invalid");
+    const present = targetInput
+      ? safeDirectoryPath(owner.root.realPath, target)
+      : true;
     const symbolic = run(commandRoot, [
       "symbolic-ref",
       "--quiet",
       `refs/heads/${branch}`,
     ]);
-    if (symbolic.status !== 1 || symbolic.stdout !== "")
+    if (branch && (symbolic.status !== 1 || symbolic.stdout !== ""))
       throw new Error("worktree_branch_not_direct");
     const ref = run(commandRoot, [
       "rev-parse",
@@ -205,14 +213,16 @@ export function createWorktreeGitContext(
       /^(?:[0-9a-f]{40}|[0-9a-f]{64})\r?\n$/u.test(ref.stdout)
     )
       branchHead = ref.stdout.trim();
-    else if (ref.status !== 1 || ref.stdout !== "")
+    else if (branch && (ref.status !== 1 || ref.stdout !== ""))
       throw new Error("worktree_ref_unavailable");
-    if (registered && registered.branch !== branch)
+    if (registered && (registered.branch ?? "") !== branch)
       throw new Error("worktree_target_mismatch");
     if (
       entries.some(
         (entry) =>
-          entry.branch === branch && pathKey(entry.root) !== pathKey(target),
+          branch !== "" &&
+          entry.branch === branch &&
+          pathKey(entry.root) !== pathKey(target),
       )
     )
       throw new Error("worktree_branch_in_use");
@@ -328,9 +338,7 @@ function safeDirectoryPath(root: string, target: string) {
  * @security linkは追従しない。
  * @concurrency 上位の利用調停が必要。
  */
-function rejectNestedRepositories(
-  ctx: ReturnType<typeof createWorktreeGitContext>,
-) {
+function rejectNestedRepositories(ctx: WorktreeGitContext) {
   const tracked = ctx.run(ctx.target, ["ls-files", "--stage", "-z"]);
   if (
     tracked.status !== 0 ||
@@ -360,7 +368,7 @@ function rejectNestedRepositories(
  * @responsibility 全return／throwの部分Effect保持。
  * @trace ARCH-000009
  * @input Root、ID、期待Commitと操作。
- * @returns 非秘密のRepositoryWorktreeResult。
+ * @returns 非秘密のWorktreeResult。
  * @precondition 呼出し元が認可・利用調停を維持する。
  * @postcondition unknownを不存在へ変換しない。
  * @effect 渡された固定操作のGit／Filesystem更新。
@@ -371,25 +379,25 @@ function rejectNestedRepositories(
  * @concurrency 同期処理、一要求内の30秒枠。
  */
 function operate(
-  capability: VerifiedRepositoryRoot,
-  workspaceId: string,
+  capability: Repository,
+  targetInput: WorktreeTarget | undefined,
   expectedCommit: string | null,
   action: (
-    ctx: ReturnType<typeof createWorktreeGitContext>,
+    ctx: WorktreeGitContext,
     result: {
       effectIssued: boolean;
       worktreeRemoved: boolean | null;
       branchRemoved: boolean | null;
-      workspaceDirectoryRetained: boolean | null;
+      parentDirectoryRetained: boolean | null;
     },
-  ) => RepositoryWorktreeObservation,
-): RepositoryWorktreeResult {
-  let ctx: ReturnType<typeof createWorktreeGitContext> | null = null;
+  ) => WorktreeObservation,
+): WorktreeResult {
+  let ctx: WorktreeGitContext | null = null;
   const progress = {
     effectIssued: false,
     worktreeRemoved: null as boolean | null,
     branchRemoved: null as boolean | null,
-    workspaceDirectoryRetained: null as boolean | null,
+    parentDirectoryRetained: null as boolean | null,
   };
   try {
     if (
@@ -397,12 +405,11 @@ function operate(
       !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(expectedCommit)
     )
       throw new Error("worktree_commit_invalid");
-    ctx = createWorktreeGitContext(capability, workspaceId);
+    ctx = createWorktreeGitContext(capability, targetInput);
     const observation = action(ctx, progress);
     return {
       status: "completed",
       reason: "worktree_operation_completed",
-      workspaceId,
       relativePath: ctx.relativePath,
       branch: ctx.branch,
       expectedCommit,
@@ -417,7 +424,6 @@ function operate(
     return {
       status: "blocked",
       reason,
-      workspaceId,
       relativePath: ctx?.relativePath ?? null,
       branch: ctx?.branch ?? null,
       expectedCommit,
@@ -431,7 +437,7 @@ function operate(
  * 固定Commitから専用Branch／Worktreeを作る。
  * @responsibility 衝突拒否、共有dirty非継承、作成後照合。
  * @trace ARCH-000009
- * @input 検証済みRoot、workspaceId、full baseCommit。
+ * @input 検証済みRoot、相対Path・Branch・full baseCommit。
  * @returns 作成結果又は同対象の部分失敗。
  * @precondition 上位が作成許可を確認する。
  * @postcondition HEAD・Branch・登録・clean一致時だけcompleted。
@@ -442,87 +448,80 @@ function operate(
  * @security fixed Path／Baseのみ。
  * @concurrency Git標準排他を使用する。
  */
-export function createRepositoryWorktree(
-  capability: VerifiedRepositoryRoot,
-  request: Readonly<{ workspaceId: string; baseCommit: string }>,
+export function createWorktree(
+  capability: Repository,
+  request: WorktreeCreateRequest,
 ) {
-  return operate(
-    capability,
-    request.workspaceId,
-    request.baseCommit,
-    (ctx, progress) => {
-      const before = ctx.inspect();
-      if (before.registered || before.directoryPresent || before.branchHead)
-        throw new Error("worktree_target_exists");
-      const base = ctx.run(ctx.root, [
-        "rev-parse",
-        "--verify",
-        `${request.baseCommit}^{commit}`,
-      ]);
-      if (base.status !== 0 || base.stdout.trim() !== request.baseCommit)
-        throw new Error("worktree_commit_invalid");
-      const tree = ctx.run(ctx.root, [
-        "ls-tree",
-        "-r",
-        "-z",
-        request.baseCommit,
-      ]);
-      if (
-        tree.status !== 0 ||
-        tree.stdout.split("\0").some((entry) => entry.startsWith("160000 "))
-      )
-        throw new Error("worktree_nested_repository_unsupported");
-      const ignored = ctx.run(ctx.owner, [
-        "check-ignore",
-        "--quiet",
-        "--no-index",
-        "--",
-        ctx.relativePath,
-      ]);
-      if (ignored.status !== 0) throw new Error("worktree_runtime_not_ignored");
-      const parent = path.dirname(ctx.target);
-      if (safeDirectoryPath(ctx.owner, parent))
-        throw new Error("worktree_target_exists");
-      progress.effectIssued = true;
-      // 各階層を個別作成・検証し、既存成果のあるWorkspaceを再利用しない。
-      for (const relative of [".crdd", ".crdd/workspaces"]) {
-        const directory = path.join(ctx.owner, relative);
-        if (!safeDirectoryPath(ctx.owner, directory)) fs.mkdirSync(directory);
-        safeDirectoryPath(ctx.owner, directory);
-      }
-      fs.mkdirSync(parent);
-      if (!safeDirectoryPath(ctx.owner, parent))
-        throw new Error("worktree_path_invalid");
-      const added = ctx.run(ctx.owner, [
-        "worktree",
-        "add",
-        "--no-track",
-        "-b",
-        ctx.branch,
-        "--",
-        ctx.target,
-        request.baseCommit,
-      ]);
-      if (added.status !== 0) throw new Error("worktree_create_failed");
-      const after = ctx.inspect();
-      if (
-        !after.registered ||
-        !after.directoryPresent ||
-        after.head !== request.baseCommit ||
-        after.branchHead !== request.baseCommit ||
-        after.dirty !== false
-      )
-        throw new Error("worktree_create_unconfirmed");
-      return after;
-    },
-  );
+  return operate(capability, request, request.baseCommit, (ctx, progress) => {
+    const before = ctx.inspect();
+    if (before.registered || before.directoryPresent || before.branchHead)
+      throw new Error("worktree_target_exists");
+    const base = ctx.run(ctx.root, [
+      "rev-parse",
+      "--verify",
+      `${request.baseCommit}^{commit}`,
+    ]);
+    if (base.status !== 0 || base.stdout.trim() !== request.baseCommit)
+      throw new Error("worktree_commit_invalid");
+    const tree = ctx.run(ctx.root, ["ls-tree", "-r", "-z", request.baseCommit]);
+    if (
+      tree.status !== 0 ||
+      tree.stdout.split("\0").some((entry) => entry.startsWith("160000 "))
+    )
+      throw new Error("worktree_nested_repository_unsupported");
+    const ignored = ctx.run(ctx.owner, [
+      "check-ignore",
+      "--quiet",
+      "--no-index",
+      "--",
+      ctx.relativePath,
+    ]);
+    if (ignored.status !== 0) throw new Error("worktree_runtime_not_ignored");
+    const parent = path.dirname(ctx.target);
+    safeDirectoryPath(ctx.owner, parent);
+    progress.effectIssued = true;
+    // 上位指定の相対Pathの祖先を一階層ずつ検証する。
+    let cursor = ctx.owner;
+    for (const segment of path
+      .relative(ctx.owner, parent)
+      .split(path.sep)
+      .slice(0, -1)) {
+      cursor = path.join(cursor, segment);
+      if (!safeDirectoryPath(ctx.owner, cursor)) fs.mkdirSync(cursor);
+      safeDirectoryPath(ctx.owner, cursor);
+    }
+    if (!safeDirectoryPath(ctx.owner, parent)) fs.mkdirSync(parent);
+    if (!safeDirectoryPath(ctx.owner, parent))
+      throw new Error("worktree_path_invalid");
+    const added = ctx.run(ctx.owner, [
+      "worktree",
+      "add",
+      "--no-track",
+      "-b",
+      ctx.branch,
+      "--",
+      ctx.target,
+      request.baseCommit,
+    ]);
+    if (added.status !== 0) throw new Error("worktree_create_failed");
+    const after = ctx.inspect();
+    if (
+      !after.registered ||
+      !after.directoryPresent ||
+      after.head !== request.baseCommit ||
+      after.branchHead !== request.baseCommit ||
+      after.dirty !== false
+    )
+      throw new Error("worktree_create_unconfirmed");
+    return after;
+  });
 }
 
 /**
  * 同じ対象の登録・実体・Branch・dirtyを観測する。
  * @responsibility 作成／削除途中を通常の観測で再発見する。
  * @trace ARCH-000009
- * @input 検証済みRootとWorkspace UUID。
+ * @input 検証済みRootと任意の技術対象（省略時は現在Worktree）。
  * @returns 独立観測又はblocked。
  * @precondition 上位が閲覧許可を確認する。
  * @postcondition 不明を不存在へ補完しない。
@@ -533,119 +532,97 @@ export function createRepositoryWorktree(
  * @security Host Path／生stderr非公開。
  * @concurrency 結果は現在観測であり将来状態の予約ではない。
  */
-export function observeRepositoryWorktree(
-  capability: VerifiedRepositoryRoot,
-  workspaceId: string,
-) {
-  return operate(capability, workspaceId, null, (ctx) => ctx.inspect());
+export function getWorktree(
+  capability: Repository,
+  targetInput?: WorktreeTarget,
+): WorktreeResult {
+  return operate(capability, targetInput, null, (ctx) => ctx.inspect());
 }
 
 /**
  * 明示終了した専用WorktreeとBranchを順に削除する。
  * @responsibility exact期待HEAD、破棄範囲と段階別不存在確認。
  * @trace ARCH-000009
- * @input 検証済みRoot、UUID、期待HEAD、discardChanges（既定false）。
+ * @input 検証済みRoot、相対Path・Branch、期待HEAD、discardChanges（既定false）。
  * @returns 部分削除も同対象で返す。
  * @precondition 上位が採否・成果保全・非使用を処置期間中保証する。
  * @postcondition completedでは登録／Worktree／専用Ref不存在。
- * @effect 対象Worktree、専用Ref、空の親Directoryだけを削除。
+ * @effect 対象Worktreeと指定Branch Refだけを削除。
  * @failure dirty未許可・lock・別HEAD・入れ子Git・不明は停止。
- * @invariant Direct、他Workspace、通常Branchは削除しない。
+ * @invariant Mainと指定外のWorktree／Branchは削除しない。
  * @boundary 標準Gitのworktree removeと期待値付きupdate-ref。
  * @security forceは明示破棄時一指定のみ。lock突破なし。
  * @concurrency Git Ref期待値比較と上位利用調停を併用する。
  */
-export function disposeRepositoryWorktree(
-  capability: VerifiedRepositoryRoot,
-  request: Readonly<{
-    workspaceId: string;
-    expectedHead: string;
-    discardChanges?: boolean;
-  }>,
+export function removeWorktree(
+  capability: Repository,
+  request: WorktreeRemoveRequest,
 ) {
-  return operate(
-    capability,
-    request.workspaceId,
-    request.expectedHead,
-    (ctx, progress) => {
-      let state = ctx.inspect();
+  return operate(capability, request, request.expectedHead, (ctx, progress) => {
+    if (pathKey(ctx.target) === pathKey(ctx.owner))
+      throw new Error("worktree_main_not_removable");
+    let state = ctx.inspect();
+    if (state.branchHead !== null && state.branchHead !== request.expectedHead)
+      throw new Error("worktree_head_changed");
+    if (state.registered !== state.directoryPresent || state.prunable)
+      throw new Error("worktree_target_mismatch");
+    if (state.locked) throw new Error("worktree_locked");
+    if (state.registered) {
       if (
-        state.branchHead !== null &&
+        state.head !== request.expectedHead ||
         state.branchHead !== request.expectedHead
       )
         throw new Error("worktree_head_changed");
-      if (state.registered !== state.directoryPresent || state.prunable)
-        throw new Error("worktree_target_mismatch");
-      if (state.locked) throw new Error("worktree_locked");
-      if (state.registered) {
-        if (
-          state.head !== request.expectedHead ||
-          state.branchHead !== request.expectedHead
-        )
-          throw new Error("worktree_head_changed");
-        if (state.dirty !== false && request.discardChanges !== true)
-          throw new Error("worktree_changes_not_discarded");
-        rejectNestedRepositories(ctx);
-        // 処置直前にもGit登録・HEADと実体を再観測する。
-        state = ctx.inspect();
-        if (
-          state.head !== request.expectedHead ||
-          state.branchHead !== request.expectedHead ||
-          state.locked ||
-          state.prunable ||
-          !state.registered ||
-          !state.directoryPresent
-        )
-          throw new Error("worktree_target_changed");
-        if (state.dirty !== false && request.discardChanges !== true)
-          throw new Error("worktree_changes_not_discarded");
-        progress.effectIssued = true;
-        const removed = ctx.run(ctx.owner, [
-          "worktree",
-          "remove",
-          ...(request.discardChanges === true ? ["--force"] : []),
-          "--",
-          ctx.target,
-        ]);
-        if (removed.status !== 0) throw new Error("worktree_remove_failed");
-      }
-      state = ctx.inspect();
-      if (state.registered || state.directoryPresent)
-        throw new Error("worktree_remove_unconfirmed");
-      progress.worktreeRemoved = true;
-      if (state.branchHead !== null) {
-        if (state.branchHead !== request.expectedHead)
-          throw new Error("worktree_head_changed");
-        progress.effectIssued = true;
-        const removed = ctx.run(ctx.owner, [
-          "update-ref",
-          "--no-deref",
-          "-d",
-          `refs/heads/${ctx.branch}`,
-          request.expectedHead,
-        ]);
-        if (removed.status !== 0)
-          throw new Error("worktree_branch_remove_failed");
-      }
+      if (state.dirty !== false && request.discardChanges !== true)
+        throw new Error("worktree_changes_not_discarded");
+      rejectNestedRepositories(ctx);
+      // 処置直前にもGit登録・HEADと実体を再観測する。
       state = ctx.inspect();
       if (
-        state.branchHead !== null ||
-        state.registered ||
-        state.directoryPresent
+        state.head !== request.expectedHead ||
+        state.branchHead !== request.expectedHead ||
+        state.locked ||
+        state.prunable ||
+        !state.registered ||
+        !state.directoryPresent
       )
-        throw new Error("worktree_branch_remove_unconfirmed");
-      progress.branchRemoved = true;
-      const parent = path.dirname(ctx.target);
-      if (
-        safeDirectoryPath(ctx.owner, parent) &&
-        fs.readdirSync(parent).length === 0
-      )
-        fs.rmdirSync(parent);
-      progress.workspaceDirectoryRetained = safeDirectoryPath(
-        ctx.owner,
-        parent,
-      );
-      return state;
-    },
-  );
+        throw new Error("worktree_target_changed");
+      if (state.dirty !== false && request.discardChanges !== true)
+        throw new Error("worktree_changes_not_discarded");
+      progress.effectIssued = true;
+      const removed = ctx.run(ctx.owner, [
+        "worktree",
+        "remove",
+        ...(request.discardChanges === true ? ["--force"] : []),
+        "--",
+        ctx.target,
+      ]);
+      if (removed.status !== 0) throw new Error("worktree_remove_failed");
+    }
+    state = ctx.inspect();
+    if (state.registered || state.directoryPresent)
+      throw new Error("worktree_remove_unconfirmed");
+    progress.worktreeRemoved = true;
+    if (state.branchHead !== null) {
+      if (state.branchHead !== request.expectedHead)
+        throw new Error("worktree_head_changed");
+      progress.effectIssued = true;
+      const removed = ctx.run(ctx.owner, [
+        "update-ref",
+        "--no-deref",
+        "-d",
+        `refs/heads/${ctx.branch}`,
+        request.expectedHead,
+      ]);
+      if (removed.status !== 0)
+        throw new Error("worktree_branch_remove_failed");
+    }
+    state = ctx.inspect();
+    if (state.branchHead !== null || state.registered || state.directoryPresent)
+      throw new Error("worktree_branch_remove_unconfirmed");
+    progress.branchRemoved = true;
+    const parent = path.dirname(ctx.target);
+    progress.parentDirectoryRetained = safeDirectoryPath(ctx.owner, parent);
+    return state;
+  });
 }

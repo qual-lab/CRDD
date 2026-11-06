@@ -77,7 +77,7 @@ if (mode === "auth_create_failure") {
   assert.equal(fs.lstatSync(root).isSymbolicLink(), false);
 }
 const vc = await import("../../../version-control/src/index.ts");
-const verified = vc.verifyRepositoryRoot(root);
+const verified = vc.getRepository(root);
 assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 assert.equal(vc.resolveVerifiedRepositoryRoot(verified.capability), root);

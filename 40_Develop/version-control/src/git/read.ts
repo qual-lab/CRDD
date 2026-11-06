@@ -6,12 +6,10 @@
  * @boundary Version Control内部からローカルGit子Process。
  * @security 公開API・認可・保存・Lockを追加しない。
  */
-import { spawnSync } from "node:child_process";
-import { devNull } from "node:os";
-import path from "node:path";
+import { executeGit, inspectGitExternalFilters } from "./execute.ts";
 
 /**
- * 二Adapterが組み立てたdiff／ls-filesを同じ読取り条件で実行する。
+ * 内容読取り操作が組み立てたdiff／ls-filesを同じ条件で実行する。
  * @responsibility 固定Root、非対話、外部変換なしの同期子Processを所有する。
  * @trace ARCH-000002
  * @trace ARCH-000009
@@ -33,55 +31,12 @@ export function runGitReadCommand(
 ) {
   if (args[0] !== "diff" && args[0] !== "ls-files")
     throw new Error("git_read_command_unsupported");
-  const environment = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^GIT_/iu.test(name)),
-  );
-  // Git for WindowsはNodeのdevice Path（\\.\nul）をconfig Pathとして受理しない。
-  const emptyConfig = process.platform === "win32" ? "NUL" : devNull;
-  const prefix = [
-    "--no-pager",
-    "--no-optional-locks",
-    "--literal-pathspecs",
-    "--no-replace-objects",
-    `--git-dir=${path.join(repositoryRoot, ".git")}`,
-    `--work-tree=${repositoryRoot}`,
-    "-c",
-    "core.bare=false",
-    "-c",
-    "core.fsmonitor=false",
-  ];
-  const options = {
-    cwd: repositoryRoot,
-    env: {
-      ...environment,
-      GIT_CONFIG_GLOBAL: emptyConfig,
-      GIT_CONFIG_SYSTEM: emptyConfig,
-      GIT_TERMINAL_PROMPT: "0",
-      GIT_NO_LAZY_FETCH: "1",
-    },
-    encoding: "buffer" as const,
-    windowsHide: true,
-    shell: false,
-    timeout: 30_000,
-    maxBuffer,
-  };
   const started = performance.now();
   if (args[0] === "diff") {
-    const filters = spawnSync(
-      "git",
-      [
-        ...prefix,
-        "config",
-        "--includes",
-        "--null",
-        "--name-only",
-        "--get-regexp",
-        "^filter\\..*\\.(clean|process)$",
-      ],
-      options,
-    );
+    const filters = inspectGitExternalFilters(repositoryRoot, { maxBuffer });
     if (
       filters.error ||
+      filters.signal ||
       filters.status !== 1 ||
       filters.stdout.byteLength !== 0
     )
@@ -106,5 +61,5 @@ export function runGitReadCommand(
         code: "ETIMEDOUT",
       }),
     };
-  return spawnSync("git", [...prefix, ...args], { ...options, timeout });
+  return executeGit(repositoryRoot, args, { maxBuffer, timeout });
 }

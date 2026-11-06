@@ -38,7 +38,7 @@ import {
 } from "../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../version-control/src/index.ts";
 import {
   assessVerificationDockerInventory,
@@ -104,7 +104,7 @@ function fixture(parent: string, mode: "direct" | "isolated") {
   git(root, ["config", "user.email", "test@example.invalid"]);
   fs.mkdirSync(path.join(root, ".git", "info"), { recursive: true });
   fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
-  const verifiedFixture = verifyRepositoryRoot(root);
+  const verifiedFixture = getRepository(root);
   assert.equal(verifiedFixture.status, "completed");
   if (verifiedFixture.status !== "completed")
     throw new Error("fixture_root_unverified");
@@ -151,7 +151,7 @@ function fixture(parent: string, mode: "direct" | "isolated") {
     }),
   );
   // 人間が許可した既存の非秘密送信契約。実Contextや資格は複製しない。
-  const policyOwner = verifyRepositoryRoot(process.cwd());
+  const policyOwner = getRepository(process.cwd());
   assert.equal(policyOwner.status, "completed");
   if (policyOwner.status !== "completed")
     throw new Error("policy_owner_unverified");
@@ -195,7 +195,7 @@ async function verify(
   preflight: boolean,
 ) {
   const { root, base, contextHash, paths } = fixture(parent, mode);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed", "fixture_root_invalid");
   if (verified.status !== "completed") throw new Error("fixture_root_invalid");
   const savedSelection = saveRepositoryAiSelection(
@@ -650,7 +650,7 @@ async function verify(
         recoveryId: string;
       }[] = [];
       try {
-        const currentRoot = verifyRepositoryRoot(root);
+        const currentRoot = getRepository(root);
         if (currentRoot.status === "completed") {
           {
             const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
@@ -773,7 +773,7 @@ function assessFixtureRemoval(
       assert.deepEqual(task.secondaryFailures, []);
     }
     const root = path.join(parent, mode);
-    const verifiedRoot = verifyRepositoryRoot(root);
+    const verifiedRoot = getRepository(root);
     assert.equal(verifiedRoot.status, "completed");
     if (verifiedRoot.status !== "completed")
       throw new Error("fixture_root_invalid");
@@ -1175,7 +1175,7 @@ async function main() {
     return;
   }
   const repository = process.cwd();
-  const verified = verifyRepositoryRoot(repository);
+  const verified = getRepository(repository);
   assert.equal(verified.status, "completed", "repository_unverified");
   if (
     verified.status !== "completed" ||

@@ -26,9 +26,9 @@ import {
   type TaskExecutionSelections,
 } from "../../../domain-model/src/index.ts";
 import {
-  gitRepositoryRevisionAdapter,
+  readRepositoryRevision,
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import {
   recoverProviderAdviceHostOperation,
@@ -1280,7 +1280,7 @@ export function openTaskSession(context: TaskSessionContext) {
       };
     },
     observeRevision: () =>
-      gitRepositoryRevisionAdapter(root)?.revisionIdentity ?? null,
+      readRepositoryRevision(rootCapability)?.revisionIdentity ?? null,
     resolveSelection: (command) => {
       const read = readRepositoryAiSelection(
         rootCapability,
@@ -1462,7 +1462,7 @@ export function openTaskSession(context: TaskSessionContext) {
  * @compatibility 新形式専用。旧Profile Storeを受け付けない。
  */
 export type TaskSessionContext = Readonly<{
-  rootCapability: VerifiedRepositoryRoot;
+  rootCapability: Repository;
   projectId: string;
   principalId: string;
   authorize: () => boolean;

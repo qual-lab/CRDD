@@ -20,7 +20,10 @@ import {
 } from "./task-diagnostic.ts";
 import { isPrimaryFailureDiagnostic } from "../../executor/scripts/provider-attempt-host.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
-import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
+import {
+  readRepositorySnapshot,
+  getRepository,
+} from "../../version-control/src/index.ts";
 
 /**
  * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。
@@ -1128,7 +1131,7 @@ export async function observePublicMcpProcess(
  */
 export function captureCanonicalRepositorySnapshot(repositoryRoot: string) {
   const root = fs.realpathSync.native(repositoryRoot);
-  const identity = inspectRepositoryIdentityCandidate(root);
+  const identity = readRepositorySnapshot(getRepository(root).capability);
   if (!identity) throw new Error("canonical_repository_identity_unavailable");
   const excludedDirectoryNames = Object.freeze([
     ".crdd",
@@ -1171,8 +1174,8 @@ export function captureCanonicalRepositorySnapshot(repositoryRoot: string) {
   }
   return Object.freeze({
     sha256: hash.digest("hex"),
-    headCommit: identity.commit,
-    headTree: identity.tree,
+    headCommit: identity.revisionIdentity,
+    headTree: identity.snapshotIdentity,
     fileHashes: Object.freeze(fileHashes.map((value) => Object.freeze(value))),
     excludedDirectoryNames,
   });

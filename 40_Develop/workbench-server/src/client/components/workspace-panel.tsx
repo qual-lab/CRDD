@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { WorkspaceView } from "../../../../coordinator/src/index.ts";
-import type { WorkspaceCandidateSelection } from "../../../../version-control/src/index.ts";
+import type { CommitSelection } from "../../../../version-control/src/index.ts";
 import type { WorkspaceCommand } from "../../../../domain-model/src/index.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { WorkbenchPanel } from "./elements.ts";
@@ -26,7 +26,7 @@ import { WorkbenchPanel } from "./elements.ts";
 type FilePreview = Readonly<{
   baseCommit: string;
   head: string;
-  selection: WorkspaceCandidateSelection;
+  selection: CommitSelection;
   content: string | null;
   patch: string;
   binary: boolean;
@@ -143,9 +143,7 @@ export function WorkspacePanel({
   const [workspace, setWorkspace] = useState<WorkspaceView | null>(null);
   const [paths, setPaths] = useState<readonly string[]>([]);
   const [preview, setPreview] = useState<FilePreview | null>(null);
-  const [selection, setSelection] = useState<
-    readonly WorkspaceCandidateSelection[]
-  >([]);
+  const [selection, setSelection] = useState<readonly CommitSelection[]>([]);
   const [name, setName] = useState("");
   const [base, setBase] = useState(initialHead);
   const [candidateName, setCandidateName] = useState("");

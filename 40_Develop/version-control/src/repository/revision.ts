@@ -3,12 +3,9 @@
  * @responsibility 現在Revision・形式と固定Identityの契約・Git読取りを所有する。
  * @trace ARCH-000002
  */
-import {
-  observeVerifiedRepositoryLayout,
-  resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
-  type VerifiedRepositoryRoot,
-} from "./location.ts";
+import { executeGit } from "../git/execute.ts";
+import { readReference } from "./reference.ts";
+import type { ReferenceResult } from "./types.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,11 +15,21 @@ import {
   type RepositoryGitLayout,
   resolveRepositoryGitLayout,
 } from "./layout.ts";
+import {
+  observeVerifiedRepositoryLayout,
+  resolveVerifiedRepositoryRoot,
+  type Repository,
+} from "./location.ts";
 
 export const FIXED_REVISION_IDENTITY_CONTRACT =
   "crdd-version-control/fixed-revision-identity/v1";
 
 export const FIXED_REVISION_IDENTITY_CONTRACT_REVISION = 1;
+
+const MAX_HEAD_BYTES = 4_096;
+const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
+const OBJECT_ID = /^[a-f0-9]{40}$/u;
+const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
 /**
  * fixed-revisionで使用するFixed Revision Identityの値契約を定義する。
@@ -50,51 +57,60 @@ export type FixedRevisionIdentity = Readonly<{
 }>;
 
 /**
- * fixed-revisionで使用するFixed Revision Identity Adapterの値契約を定義する。
- *
- * @responsibility Fixed Revision Identity AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * 同じRepository実体の現在Commit・TreeとIdentityを一度の完成観測として返す。
+ * @responsibility 前後の実体・HEADと中央のCommit／Treeを照合し、混在と観測不能を拒否する。
  * @trace ARCH-000002
- * @shape FixedRevisionIdentityAdapterが表すProperty、識別子およびRelationを型として固定する。
- * @invariant FixedRevisionIdentityAdapterで宣言した値と責務の対応を維持する。
- * @boundary N/A: FixedRevisionIdentityAdapterの宣言は外部境界を開かない。
- * @security N/A: FixedRevisionIdentityAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility FixedRevisionIdentityAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @effect Git管理情報とObjectの有界読取りのみ。書込み・Git Process起動なし。
+ * @failure 未Commit、不正原本、欠測Object、途中変更はnull。
+ * @security Pathを返さず、観測を操作許可へ昇格しない。
  */
-export type FixedRevisionIdentityAdapter = (
-  repositoryRoot: string,
-) => FixedRevisionIdentity | null;
-
-/**
- * Fixed Revision Identityを観測する。
- *
- * @responsibility Fixed Revision Identityの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000002
- * @input capability: VerifiedRepositoryRoot、adapter: FixedRevisionIdentityAdapter
- * @returns FixedRevisionIdentity | nullを返す。
- * @precondition 「capability: VerifiedRepositoryRoot、adapter: FixedRevisionIdentityAdapter」がobserveFixedRevisionIdentityの入力契約を満たす。
- * @postcondition observeFixedRevisionIdentityの責務を完了した結果だけを返す。
- * @effect 指定AdapterへRepositoryの改訂または形式の観測を委譲する。
- * @failure N/A: observeFixedRevisionIdentityは独自の失敗分岐を所有しない。
- * @invariant observeFixedRevisionIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 指定Adapterの外部観測と型付き観測結果の境界。
- * @security observeFixedRevisionIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: observeFixedRevisionIdentityは共有非同期状態を持たない同期処理である。
- */
-export function observeFixedRevisionIdentity(
-  capability: VerifiedRepositoryRoot,
-  adapter: FixedRevisionIdentityAdapter,
+export function readRepositorySnapshot(
+  capability: Repository | null,
 ): FixedRevisionIdentity | null {
-  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-  return repositoryRoot === null ? null : adapter(repositoryRoot);
+  try {
+    if (capability === null) return null;
+    const initial = observeVerifiedRepositoryLayout(capability);
+    if (initial === null) return null;
+    const before = readRootRevision(initial.root);
+    if (before?.objectFormat !== "sha1") return null;
+    const snapshot = inspectGitCommitTreeCandidate({
+      commonDirectory: initial.layout.commonDirectory.realPath,
+      revision: before.revisionIdentity,
+    });
+    const after = readRootRevision(initial.root);
+    const final = observeVerifiedRepositoryLayout(capability);
+    if (
+      snapshot?.status !== "candidate" ||
+      snapshot.commit !== before.revisionIdentity ||
+      JSON.stringify(before) !== JSON.stringify(after) ||
+      final === null ||
+      final.root !== initial.root ||
+      final.layout.kind !== initial.layout.kind ||
+      before.repositoryIdentity !==
+        identity(
+          "crdd-logical-repository-v1",
+          initial.layout.commonDirectory,
+        ) ||
+      before.repositoryInstanceIdentity !==
+        identity("crdd-repository-instance-v1", initial.layout.root) ||
+      before.repositoryIdentity !==
+        identity("crdd-logical-repository-v1", final.layout.commonDirectory) ||
+      before.repositoryInstanceIdentity !==
+        identity("crdd-repository-instance-v1", final.layout.root)
+    )
+      return null;
+    return Object.freeze({
+      contract: FIXED_REVISION_IDENTITY_CONTRACT,
+      contractRevision: FIXED_REVISION_IDENTITY_CONTRACT_REVISION,
+      status: "observed",
+      ...before,
+      objectFormat: before.objectFormat,
+      snapshotIdentity: snapshot.tree,
+    });
+  } catch {
+    return null;
+  }
 }
-
-const MAX_HEAD_BYTES = 4_096;
-
-const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
-
-const OBJECT_ID = /^[a-f0-9]{40}$/u;
-
-const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
 /**
  * Fileを安定Identityへ変換する。
@@ -287,12 +303,21 @@ function identity(domain: string, entity: RepositoryGitLayout["root"]): string {
     .digest("hex");
 }
 
-export const gitRepositoryRevisionAdapter: RepositoryRevisionAdapter = (
-  repositoryRoot,
-) => {
+/** Git管理領域からHEADを読み、共有RepositoryとWorktreeの実体Identityを対応付ける。
+ * @responsibility Main／LinkedのHEADと共有Object領域を混同せずに観測する。
+ * @trace ARCH-000002
+ */
+function readRootRevision(
+  repositoryRoot: string,
+  selector?: string,
+): RepositoryRevisionObservation | null {
   try {
     const layout = resolveRepositoryGitLayout(repositoryRoot);
-    const revision = readRevision(layout);
+    const revision =
+      selector === undefined
+        ? readRevision(layout)
+        : readSelectedRevision(repositoryRoot, selector);
+    if (revision === null) return null;
     const repositoryForm =
       layout.kind === "normal_worktree"
         ? ("primary" as const)
@@ -310,14 +335,15 @@ export const gitRepositoryRevisionAdapter: RepositoryRevisionAdapter = (
       ),
       repositoryForm,
       revisionIdentity: revision,
-      objectFormat: "sha1" as const,
+      objectFormat:
+        revision.length === 64 ? ("sha256" as const) : ("sha1" as const),
       observationComplete: true as const,
       repositoryPathReported: false as const,
     });
   } catch {
     return null;
   }
-};
+}
 
 /**
  * 保存先に結合するRepository実体だけを観測する。
@@ -334,9 +360,7 @@ export const gitRepositoryRevisionAdapter: RepositoryRevisionAdapter = (
  * @security 任意PathやGit管理情報を書き換えない。
  * @concurrency 更新排他は呼出し側が保持する。
  */
-export function observeRepositoryStorageIdentity(
-  capability: VerifiedRepositoryRoot,
-) {
+export function readRepositoryStorageIdentity(capability: Repository) {
   try {
     const initial = observeVerifiedRepositoryLayout(capability);
     if (initial === null) return null;
@@ -373,37 +397,6 @@ export function observeRepositoryStorageIdentity(
   }
 }
 
-export const gitRepositoryFormatAdapter: RepositoryFormatAdapter = (
-  repositoryRoot,
-) => {
-  const result = inspectRepositoryGitObjectFormatCandidate(repositoryRoot);
-  return result?.status === "candidate"
-    ? Object.freeze({ objectFormat: result.objectFormat })
-    : null;
-};
-
-export const gitFixedRevisionIdentityAdapter: FixedRevisionIdentityAdapter = (
-  repositoryRoot,
-) => {
-  const current = gitRepositoryRevisionAdapter(repositoryRoot);
-  if (!current) return null;
-  const layout = resolveRepositoryGitLayout(repositoryRoot);
-  const snapshot = inspectGitCommitTreeCandidate({
-    commonDirectory: layout.commonDirectory.realPath,
-    revision: current.revisionIdentity,
-  });
-  return snapshot?.status === "candidate" &&
-    snapshot.commit === current.revisionIdentity
-    ? Object.freeze({
-        contract: "crdd-version-control/fixed-revision-identity/v1" as const,
-        contractRevision: 1 as const,
-        status: "observed" as const,
-        ...current,
-        snapshotIdentity: snapshot.tree,
-      })
-    : null;
-};
-
 /**
  * repository-revisionで使用するRepository Revision Observationの値契約を定義する。
  *
@@ -420,195 +413,75 @@ export type RepositoryRevisionObservation = Readonly<{
   repositoryInstanceIdentity: string;
   repositoryForm: "primary" | "linked" | "embedded";
   revisionIdentity: string;
-  objectFormat: "sha1";
+  objectFormat: "sha1" | "sha256";
   observationComplete: true;
   repositoryPathReported: false;
 }>;
 
 /**
- * repository-revisionで使用するRepository Revision Adapterの値契約を定義する。
- *
- * @responsibility Repository Revision AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * 検証済みRepositoryの現在HEADと技術的Identityを読み取る。
+ * @responsibility Git実装を固定し、読取り対象の原本確認とRevision観測を一つの完成操作で行う。
  * @trace ARCH-000002
- * @shape RepositoryRevisionAdapterが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RepositoryRevisionAdapterで宣言した値と責務の対応を維持する。
- * @boundary N/A: RepositoryRevisionAdapterの宣言は外部境界を開かない。
- * @security N/A: RepositoryRevisionAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RepositoryRevisionAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @effect Git管理領域の読取りのみ。外部Process・書込みなし。
+ * @failure 不正Root、未Commit、破損または観測不能はnull。
+ * @security 絶対Pathや生のGit診断を返さない。
  */
-export type RepositoryRevisionAdapter = (
-  repositoryRoot: string,
-) => RepositoryRevisionObservation | null;
-
-/**
- * repository-revisionで使用するRepository Format Adapterの値契約を定義する。
- *
- * @responsibility Repository Format AdapterのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000002
- * @shape RepositoryFormatAdapterが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RepositoryFormatAdapterで宣言した値と責務の対応を維持する。
- * @boundary N/A: RepositoryFormatAdapterの宣言は外部境界を開かない。
- * @security N/A: RepositoryFormatAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RepositoryFormatAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type RepositoryFormatAdapter = (
-  repositoryRoot: string,
-) => Readonly<{ objectFormat: "sha1" | "sha256" }> | null;
-
-/**
- * Repository Revisionを観測する。
- *
- * @responsibility Repository Revisionの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000002
- * @input capability: VerifiedRepositoryRoot、adapter: RepositoryRevisionAdapter
- * @returns RepositoryRevisionObservation | nullを返す。
- * @precondition 「capability: VerifiedRepositoryRoot、adapter: RepositoryRevisionAdapter」がobserveRepositoryRevisionの入力契約を満たす。
- * @postcondition observeRepositoryRevisionの責務を完了した結果だけを返す。
- * @effect 指定AdapterへRepositoryの改訂または形式の観測を委譲する。
- * @failure N/A: observeRepositoryRevisionは独自の失敗分岐を所有しない。
- * @invariant observeRepositoryRevisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 指定Adapterの外部観測と型付き観測結果の境界。
- * @security observeRepositoryRevisionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: observeRepositoryRevisionは共有非同期状態を持たない同期処理である。
- */
-export function observeRepositoryRevision(
-  capability: VerifiedRepositoryRoot,
-  adapter: RepositoryRevisionAdapter,
-): RepositoryRevisionObservation | null {
-  const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-  return repositoryRoot === null ? null : adapter(repositoryRoot);
+export function readRepositoryRevision(
+  capability: Repository | null,
+  request: Readonly<{ revision: string }>,
+): RepositoryRevisionObservation | null;
+export function readRepositoryRevision(
+  capability: Repository | null,
+): RepositoryRevisionObservation | null;
+export function readRepositoryRevision(
+  capability: Repository,
+  request: Readonly<{ reference: string }>,
+): ReferenceResult;
+export function readRepositoryRevision(
+  capability: Repository | null,
+  request?: Readonly<{ reference: string }> | Readonly<{ revision: string }>,
+): RepositoryRevisionObservation | ReferenceResult | null {
+  if (request !== undefined && "reference" in request) {
+    if (capability === null) throw Error("verified_repository_root_required");
+    return readReference(capability, request.reference);
+  }
+  const root =
+    capability === null ? null : resolveVerifiedRepositoryRoot(capability);
+  return root === null
+    ? null
+    : readRootRevision(
+        root,
+        request && "revision" in request ? request.revision : undefined,
+      );
 }
 
-/**
- * Repository Formatを観測する。
- *
- * @responsibility Repository Formatの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000002
- * @input repositoryRoot: unknown、adapter: RepositoryFormatAdapter
- * @returns inspectRepositoryFormatの計算結果を返す。
- * @precondition 「repositoryRoot: unknown、adapter: RepositoryFormatAdapter」がinspectRepositoryFormatの入力契約を満たす。
- * @postcondition inspectRepositoryFormatの責務を完了した結果だけを返す。
- * @effect 指定AdapterへRepositoryの改訂または形式の観測を委譲する。
- * @failure N/A: inspectRepositoryFormatは独自の失敗分岐を所有しない。
- * @invariant inspectRepositoryFormatは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 指定Adapterの外部観測と型付き観測結果の境界。
- * @security N/A: inspectRepositoryFormatはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectRepositoryFormatは共有非同期状態を持たない同期処理である。
- */
-export function inspectRepositoryFormat(
-  repositoryRoot: unknown,
-  adapter: RepositoryFormatAdapter,
-) {
-  return typeof repositoryRoot === "string" ? adapter(repositoryRoot) : null;
+/** 検証済みRepositoryのObject形式を読み取る。未CommitのRepositoryも対象とする。 */
+export function readRepositoryFormat(
+  capability: Repository | null,
+): Readonly<{ objectFormat: "sha1" | "sha256" }> | null {
+  const root =
+    capability === null ? null : resolveVerifiedRepositoryRoot(capability);
+  if (root === null) return null;
+  const result = inspectRepositoryGitObjectFormatCandidate(root);
+  return result?.status === "candidate"
+    ? Object.freeze({ objectFormat: result.objectFormat })
+    : null;
 }
 
-/**
- * Repository実体と現在HEADの候補を観測する。
- * @responsibility Git読取りからIdentity候補を作り、観測不能と相関差を拒否する。
- * @trace ARCH-000002
- * @input repositoryRoot: 通常またはLinked WorktreeのRoot。
- * @returns Logical／Instance／Revisionの候補値。
- * @precondition 入力を信頼済みPathと仮定しない。
- * @postcondition 観測だけで書込み許可または実行Authorityを与えない。
- * @effect 固定Git管理情報・Commit・TreeをFilesystemから読取る。外部Git CLIを起動しない。
- * @failure 不正Root、欠測、破損、観測不能または読取り間の差はnull（内部helperは例外）となる。
- * @invariant 異なるRepository実体や改訂の観測を一つのIdentityへ補完しない。
- * @boundary Git管理情報とProcess内の読取り候補の境界。
- * @security Rootの絶対Pathを返却せず、Hook・外部Diff・書込み操作を発行しない。
- * @concurrency 同期読取り。呼出し側のLockや実行排他を新設しない。
- */
-function observeRepositoryCandidateIdentity(repositoryRoot: string) {
-  const verified = verifyRepositoryRoot(repositoryRoot);
-  if (verified.status !== "completed")
-    throw new Error("repository_root_invalid");
-  const observed = observeRepositoryRevision(
-    verified.capability,
-    gitRepositoryRevisionAdapter,
-  );
-  if (!observed) throw new Error("repository_revision_invalid");
-  return Object.freeze({
-    repositoryKind: observed.repositoryForm,
-    logicalRepositoryIdentity: observed.repositoryIdentity,
-    repositoryInstanceIdentity: observed.repositoryInstanceIdentity,
-    revision: observed.revisionIdentity,
+/** 固定selectorを同じGit実行条件でOIDへ読む。解析・文字列置換を上位へ分散させない。 */
+function readSelectedRevision(root: string, selector: string): string | null {
+  if (
+    typeof selector !== "string" ||
+    selector.length === 0 ||
+    selector.length > 1024 ||
+    /[\x00-\x1f\x7f]/u.test(selector) ||
+    selector.startsWith("-")
+  )
+    return null;
+  const result = executeGit(root, ["rev-parse", "--verify", selector], {
+    maxBuffer: 16 * 1024 * 1024,
   });
-}
-
-/**
- * 現在HEADとCommit Treeを読取り専用候補として観測する。
- * @responsibility Git読取りからIdentity候補を作り、観測不能と相関差を拒否する。
- * @trace ARCH-000002
- * @input repositoryRoot: 未検証のRoot候補。
- * @returns 固定HEAD／Tree候補。不正または観測不能時はnull。
- * @precondition 入力を信頼済みPathと仮定しない。
- * @postcondition 観測だけで書込み許可または実行Authorityを与えない。
- * @effect 固定Git管理情報・Commit・TreeをFilesystemから読取る。外部Git CLIを起動しない。
- * @failure 不正Root、欠測、破損、観測不能または読取り間の差はnull（内部helperは例外）となる。
- * @invariant 異なるRepository実体や改訂の観測を一つのIdentityへ補完しない。
- * @boundary Git管理情報とProcess内の読取り候補の境界。
- * @security Rootの絶対Pathを返却せず、Hook・外部Diff・書込み操作を発行しない。
- * @concurrency 同期読取り。呼出し側のLockや実行排他を新設しない。
- */
-export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
-  try {
-    if (
-      typeof repositoryRoot !== "string" ||
-      !path.isAbsolute(repositoryRoot) ||
-      repositoryRoot.length > 4_096 ||
-      /[\0-\x1f\x7f]/u.test(repositoryRoot)
-    ) {
-      return null;
-    }
-    const verified = verifyRepositoryRoot(repositoryRoot);
-    if (verified.status !== "completed") return null;
-    const identity = observeFixedRevisionIdentity(
-      verified.capability,
-      gitFixedRevisionIdentityAdapter,
-    );
-    return identity
-      ? Object.freeze({
-          status: "candidate" as const,
-          commit: identity.revisionIdentity,
-          tree: identity.snapshotIdentity,
-          repositoryKind: identity.repositoryForm,
-          externalGitCliUsed: false,
-          repositoryPathReported: false,
-        })
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 前後のRepository実体とHEAD／Treeが一致するIdentity候補を返す。
- * @responsibility Git読取りからIdentity候補を作り、観測不能と相関差を拒否する。
- * @trace ARCH-000002
- * @input repositoryRoot: 未検証のRoot候補。
- * @returns 同じ実体・改訂に結合した候補、またはnull。
- * @precondition 入力を信頼済みPathと仮定しない。
- * @postcondition 観測だけで書込み許可または実行Authorityを与えない。
- * @effect 固定Git管理情報・Commit・TreeをFilesystemから読取る。外部Git CLIを起動しない。
- * @failure 不正Root、欠測、破損、観測不能または読取り間の差はnull（内部helperは例外）となる。
- * @invariant 異なるRepository実体や改訂の観測を一つのIdentityへ補完しない。
- * @boundary Git管理情報とProcess内の読取り候補の境界。
- * @security Rootの絶対Pathを返却せず、Hook・外部Diff・書込み操作を発行しない。
- * @concurrency 同期読取り。呼出し側のLockや実行排他を新設しない。
- */
-export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
-  try {
-    if (typeof repositoryRoot !== "string") return null;
-    const before = observeRepositoryCandidateIdentity(repositoryRoot);
-    const revision = inspectRepositoryRevisionCandidate(repositoryRoot);
-    const after = observeRepositoryCandidateIdentity(repositoryRoot);
-    if (
-      !revision ||
-      revision.commit !== before.revision ||
-      JSON.stringify(before) !== JSON.stringify(after)
-    )
-      return null;
-    return Object.freeze({ ...before, ...revision });
-  } catch {
-    return null;
-  }
+  if (result.error || result.signal || result.status !== 0) return null;
+  const value = result.stdout.toString("utf8").trim().toLowerCase();
+  return /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value) ? value : null;
 }

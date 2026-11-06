@@ -18,7 +18,7 @@ import {
   withFilesystemStoreLock,
 } from "../index.ts";
 import { parseUnambiguousJsonDocument } from "../plain-data/json.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import { validateAiSelectionConfig } from "../ai-selection/validation.ts";
 import type {
   AiSelectionSnapshot,
@@ -145,7 +145,7 @@ type ConfigAreaFailure = Extract<
  * @concurrency Snapshot内で同じbytesと境界を確認する。
  */
 function inspectSelectionFile(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   catalog: AiSelectionCatalog,
 ): Readonly<{ result: AiSelectionReadResult; bytes: Buffer | null }> {
   const blocked = (
@@ -259,7 +259,7 @@ function inspectSelectionFile(
  * @concurrency 安定Snapshotを一回取得する。
  */
 export function readRepositoryAiSelection(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   catalog: AiSelectionCatalog,
 ): AiSelectionReadResult {
   return inspectSelectionFile(capability, catalog).result;
@@ -328,7 +328,7 @@ function authorized(authorize: () => boolean): boolean {
  * @concurrency 同じ排他に参加するWriter間だけを直列化し、外部Editorの完全CASは主張しない。
  */
 export function saveRepositoryAiSelection(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   candidate: unknown,
   authorize: () => boolean,
   catalog: AiSelectionCatalog,

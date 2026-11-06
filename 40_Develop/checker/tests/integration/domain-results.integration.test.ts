@@ -22,7 +22,7 @@ import {
   parseMarkdownArtifact,
   validateArtifactSchema,
 } from "../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { runChecker, runSemanticCoverage } from "../../src/index.ts";
 import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
 import { mapRealityDomainIssueToCheckerFinding } from "../../src/report/reality.ts";
@@ -285,7 +285,7 @@ test("Realityの実Source欠測は公開診断と終了1へ届く", () => {
         ],
       }),
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed")
       throw new Error("fixture_root_unverified");

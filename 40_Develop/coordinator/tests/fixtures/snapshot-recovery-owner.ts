@@ -13,7 +13,7 @@ import path from "node:path";
 import { mock } from "node:test";
 import { syncBuiltinESMExports } from "node:module";
 import { runInThisContext } from "node:vm";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../../platform-access/src/index.ts";
@@ -53,7 +53,7 @@ const testsRoot = fs.realpathSync(
 );
 const relative = path.relative(testsRoot, repositoryRoot);
 assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
-const verified = verifyRepositoryRoot(repositoryRoot);
+const verified = getRepository(repositoryRoot);
 assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 // CoordinatorがDIを読み込む前に、外部CLI端の有限代役を接続する。

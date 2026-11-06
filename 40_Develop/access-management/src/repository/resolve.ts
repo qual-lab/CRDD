@@ -14,7 +14,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { selectConnectionAuthentication } from "../initialization/connection.ts";
@@ -303,7 +303,7 @@ export function observeRepositoryAccess(
   revision: number,
   workspaceId: "development" | "management",
 ): RepositoryAccess | null {
-  const verified = verifyRepositoryRoot(registration.repositoryRoot);
+  const verified = getRepository(registration.repositoryRoot);
   if (verified.status !== "completed") return null;
   const root = resolveVerifiedRepositoryRoot(verified.capability);
   if (

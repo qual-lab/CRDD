@@ -274,6 +274,7 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
   let mutationCalls = 0,
     revokeAfterMutation = false,
     injectProcessFailure = false;
+  let submittingMarker: string | null = null;
   const spy = t.mock.method(
     childProcess,
     "spawnSync",
@@ -282,11 +283,33 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       args: readonly string[],
       options: childProcess.SpawnSyncOptions,
     ) => {
+      let commandIndex = 0;
+      while (commandIndex < args.length) {
+        const argument = args[commandIndex] ?? "";
+        if (argument === "-c") commandIndex += 2;
+        else if (
+          [
+            "--no-pager",
+            "--no-optional-locks",
+            "--literal-pathspecs",
+            "--no-replace-objects",
+          ].includes(argument) ||
+          argument.startsWith("--git-dir=") ||
+          argument.startsWith("--work-tree=")
+        )
+          commandIndex++;
+        else break;
+      }
       const mutation =
         command === "git" &&
-        ["add", "reset", "commit", "push"].includes(args[0] ?? "") &&
+        ["add", "reset", "commit", "push"].includes(args[commandIndex] ?? "") &&
         roots.includes(String(options.cwd));
       if (mutation) mutationCalls++;
+      if (mutation && args[commandIndex] === "commit" && submittingMarker) {
+        // 試験専用の配送観測点。Process開始・Effect成立を意味しない。
+        fs.writeFileSync(submittingMarker, "submitting");
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
+      }
       if (mutation && injectProcessFailure)
         return {
           pid: 0,
@@ -409,6 +432,25 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       400,
     );
     assert.equal(mutationCalls, 0);
+    const indexBeforeFilter = fs.readFileSync(path.join(b, ".git", "index"));
+    run(b, ["config", "filter.synthetic.clean", "git --version"]);
+    fs.writeFileSync(
+      path.join(b, ".gitattributes"),
+      "*.txt filter=synthetic\n",
+    );
+    const filterResponse = await send(form("prepare", { path: "work.txt" }));
+    assert.equal(filterResponse.status, 200);
+    const filterResult = await filterResponse.json();
+    assert.equal(filterResult.reason, "prepare_external_filter_unavailable");
+    assert.equal(filterResult.effectIssued, false);
+    assert.equal(filterResult.effectConfirmed, false);
+    assert.equal(mutationCalls, 0);
+    assert.deepEqual(
+      fs.readFileSync(path.join(b, ".git", "index")),
+      indexBeforeFilter,
+    );
+    run(b, ["config", "--unset", "filter.synthetic.clean"]);
+    fs.unlinkSync(path.join(b, ".gitattributes"));
     let response = await send(form("prepare", { path: "work.txt" }));
     assert.equal(response.status, 200);
     assert.equal((await response.json()).reason, "prepare_completed");
@@ -512,12 +554,14 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
     ).arrayBuffer();
     assert.equal(mutationCalls, beforeLoss + 1);
     const marker = path.join(fixture, "commit-started");
-    const hookCode = `require("node:fs").writeFileSync(${JSON.stringify(marker)},"started");setTimeout(()=>{},300);`;
+    const hookMarker = path.join(fixture, "unexpected-commit-hook");
+    const hookCode = `require("node:fs").writeFileSync(${JSON.stringify(hookMarker)},"called");`;
     fs.writeFileSync(
       path.join(fixture, "hooks-1", "pre-commit"),
       `#!/bin/sh\n${JSON.stringify(process.execPath.replaceAll("\\", "/"))} -e '${hookCode.replaceAll("'", "'\\''")}'\n`,
     );
     fs.chmodSync(path.join(fixture, "hooks-1", "pre-commit"), 0o700);
+    submittingMarker = marker;
     const beforeCutHead = run(b, ["rev-parse", "HEAD"]),
       beforeCutCalls = mutationCalls;
     let cutResponse: ServerResponse | null = null,
@@ -602,7 +646,9 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       assert.equal(successBodies, 0);
       assert.equal(mutationCalls, beforeCutCalls + 1);
       assert.notEqual(run(b, ["rev-parse", "HEAD"]), beforeCutHead);
+      assert.equal(fs.existsSync(hookMarker), false);
     } finally {
+      submittingMarker = null;
       await worker.terminate();
       assignSpy.mock.restore();
       endSpy.mock.restore();

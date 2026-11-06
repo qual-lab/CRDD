@@ -33,7 +33,9 @@
 
 対象はRepository識別とそのRepositoryに所属するWorkspace識別で結合する。ID文字列やCWDだけでPath・権限を確定しない。DirectのID表現・具体APIは未決であり、仮の値を永続契約として発行しない。
 
-Isolatedの技術APIでは上位発行の小文字UUIDを使い、Version Controlが専用Branchを`crdd/workspace/<uuid>`、配置を所属Repository直下の`.crdd/workspaces/<uuid>/worktree/`へ導く。UUIDは操作許可ではない。採否・保留・非使用はOrchestratorが既存利用調停で処置期間を通じ維持し、削除時は期待HEADと変更破棄の明示有無を渡す。新しいWorkspace台帳・Lockは追加しない。この値形式の確定だけでUI・Task保存Schemaと本番接続を完成としない。
+Isolatedでは上位発行の小文字UUIDを使い、Coordinatorが専用Branchを`crdd/workspace/<uuid>`、配置を所属Repository直下の`.crdd/workspaces/<uuid>/worktree/`へ導き、確定した相対PathとBranchをVersion Controlへ渡す。UUIDは操作許可ではない。採否・保留・非使用はOrchestratorが既存利用調停で処置期間を通じ維持し、削除時は期待HEADと変更破棄の明示有無を渡す。Workspace専用親の再利用禁止と明示回収も上位が所有し、VCは指定Worktree／Branchの技術処置と観測に集中する。新しい台帳・Lockは追加せず、既存の保存Path／Ref名・DTOは変更しない。
+
+候補の業務要求・表示名・関連CHGと既存保存DTOはDomainが所有する。Coordinatorの`workspace/git.ts`が技術要求と保存結果を投影し、Intent保存後に同期的な`createCommit`→`createReference`、採用時の`mergeCommit`、明示終了時の`removeReference`を接続する。Commit生成と保持Refの間に保存やawaitを挟まず、Ref確定前又は短命Index回収未確認を候補固定成功としない。技術契約と実体照合は[Version Control](../version-control/01_Architecture.md#31-現行公開symbol)を正本とする。
 
 新設Workspaceの名称はこの作業領域に用いる。既存のdevelopment／managementを表す`workspaceId(s)`は内容領域（設計名`contentAreaId(s)`）へ改名する。権限の意味を変えず、Role／Exposure・Manifest・通信・保存Schemaと全利用側を同じ切替単位で更新する。内容領域への閲覧許可から新Workspace作成・実行・Mergeの許可を自動生成しない。既存の短命作業領域は一時実行領域等の実責務名へ改め、Dockerや外部CLIの予約語は変更しない。過去Evidenceの名称・署名・Hashは維持する。
 

@@ -19,9 +19,9 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { observePlatformFamily } from "../../../platform-access/src/index.ts";
 import {
-  inspectRepositoryIdentityCandidate,
+  readRepositorySnapshot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
 import {
@@ -1742,7 +1742,9 @@ export async function executeCoordinatorPublicObjective(
       effectState: "no_effect" as const,
     });
   }
-  const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const identity = readRepositorySnapshot(
+    getRepository(repositoryRoot).capability,
+  );
   const authenticated = runtimeDependencies.openDecisionStore();
   if (
     authenticated.status !== "completed" ||
@@ -1785,7 +1787,7 @@ export async function executeCoordinatorPublicObjective(
     {
       authenticatedPrincipalId: authenticated.principalId,
       resolveTaskSelections(request) {
-        const root = verifyRepositoryRoot(repositoryRoot);
+        const root = getRepository(repositoryRoot);
         if (root.status !== "completed")
           return Object.freeze({
             status: "blocked" as const,
@@ -1825,15 +1827,15 @@ export async function executeCoordinatorPublicObjective(
        */
       verifyProjectBinding(input) {
         if (
-          identity?.status !== "candidate" ||
-          (identity.commit !== input.repositoryRevision &&
+          identity?.status !== "observed" ||
+          (identity.revisionIdentity !== input.repositoryRevision &&
             !workspacePlanReadyForAcceptance(
               repositoryRoot,
               deriveCoordinatorRepositoryBindingId(repositoryRoot),
               input.projectId,
               input.milestoneId,
               input.repositoryRevision,
-              identity.commit,
+              identity.revisionIdentity,
             ))
         )
           return Object.freeze({
@@ -1915,7 +1917,7 @@ export async function executeCoordinatorPublicObjective(
       },
       observeLeaseOwner,
       recoverTaskRecovery: (recoveryId, signal) => {
-        const root = verifyRepositoryRoot(repositoryRoot);
+        const root = getRepository(repositoryRoot);
         return recoverRuntimeOwnedDockerTaskForCurrentConsumer(
           recoveryId,
           root.status === "completed" ? root.capability : null,
@@ -1932,7 +1934,7 @@ export async function executeCoordinatorPublicObjective(
       resolveTaskRecoveryCorrelations:
         runtimeDependencies.resolveTaskRecoveryCorrelations ??
         ((ids) => {
-          const root = verifyRepositoryRoot(repositoryRoot);
+          const root = getRepository(repositoryRoot);
           return resolveRuntimeOwnedDockerTaskCurrentCorrelations(
             ids,
             root.status === "completed" ? root.capability : null,
@@ -2025,7 +2027,7 @@ export async function executeCoordinatorPublicObjective(
       request.projectId,
       request.milestoneId,
       request.repositoryRevision,
-      identity?.commit ?? "",
+      identity?.revisionIdentity ?? "",
     );
     return createCoordinatorObjectiveResult(request, {
       ...execution,

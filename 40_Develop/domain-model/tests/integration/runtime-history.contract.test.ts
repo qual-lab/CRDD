@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
@@ -875,7 +875,7 @@ test("Host Windows: 履歴のaliasと観測不能を不存在へ畳まない", (
  * @boundary 試験準備。実行Authorityを作らない。
  */
 function verifiedRoot(root: string) {
-  const observed = verifyRepositoryRoot(root);
+  const observed = getRepository(root);
   if (observed.status !== "completed")
     throw Error("fixture_repository_invalid");
   return observed.capability;

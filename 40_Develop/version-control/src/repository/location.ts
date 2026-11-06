@@ -1,15 +1,18 @@
 /**
  * repository-locationに属する責務をまとめる。
  *
- * @responsibility VerifiedRepositoryRootを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Repositoryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000002
  */
 import fs from "node:fs";
 import path from "node:path";
+import type { Repository, RepositoryResult } from "./types.ts";
 import {
   type RepositoryGitLayout,
   resolveRepositoryGitLayout,
 } from "./layout.ts";
+
+export type { Repository } from "./types.ts";
 
 export const REPOSITORY_LOCATION_CONTRACT =
   "crdd-version-control/repository-location/v1" as const;
@@ -17,21 +20,6 @@ export const REPOSITORY_LOCATION_CONTRACT =
 export const REPOSITORY_LOCATION_CONTRACT_REVISION = 1 as const;
 
 const roots = new WeakMap<object, string>();
-
-/**
- * repository-locationで使用するVerified Repository Rootの値契約を定義する。
- *
- * @responsibility Verified Repository RootのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000002
- * @shape VerifiedRepositoryRootが表すProperty、識別子およびRelationを型として固定する。
- * @invariant VerifiedRepositoryRootで宣言した値と責務の対応を維持する。
- * @boundary N/A: VerifiedRepositoryRootの宣言は外部境界を開かない。
- * @security N/A: VerifiedRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility VerifiedRepositoryRootの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type VerifiedRepositoryRoot = Readonly<{
-  contract: typeof REPOSITORY_LOCATION_CONTRACT;
-}>;
 
 /**
  * Pathが同一かを判定する。
@@ -155,7 +143,7 @@ function observeExactRepositoryLayout(
  * @responsibility Capabilityの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000002
  * @input root: string
- * @returns VerifiedRepositoryRootを返す。
+ * @returns Repositoryを返す。
  * @precondition 「root: string」がissueCapabilityの入力契約を満たす。
  * @postcondition issueCapabilityの責務を完了した結果だけを返す。
  * @effect N/A: issueCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -165,7 +153,7 @@ function observeExactRepositoryLayout(
  * @security N/A: issueCapabilityはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: issueCapabilityは共有非同期状態を持たない同期処理である。
  */
-function issueCapability(root: string): VerifiedRepositoryRoot {
+function issueCapability(root: string): Repository {
   const capability = Object.freeze({
     contract: REPOSITORY_LOCATION_CONTRACT,
   });
@@ -179,27 +167,17 @@ function issueCapability(root: string): VerifiedRepositoryRoot {
  * @responsibility Repository Rootの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input candidate: unknown
- * @returns | Readonly<{ status: "completed"; reason: "repository_root_verified"; capability: VerifiedRepositoryRoot; }> | Readonly<{ status: "blocked"; reason: "repository_root_invalid"; capability: null; }>を返す。
- * @precondition 「candidate: unknown」がverifyRepositoryRootの入力契約を満たす。
- * @postcondition verifyRepositoryRootの責務を完了した結果だけを返す。
+ * @returns | Readonly<{ status: "completed"; reason: "repository_root_verified"; capability: Repository; }> | Readonly<{ status: "blocked"; reason: "repository_root_invalid"; capability: null; }>を返す。
+ * @precondition 「candidate: unknown」がgetRepositoryの入力契約を満たす。
+ * @postcondition getRepositoryの責務を完了した結果だけを返す。
  * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
- * @failure N/A: verifyRepositoryRootは独自の失敗分岐を所有しない。
- * @invariant verifyRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
+ * @failure N/A: getRepositoryは独自の失敗分岐を所有しない。
+ * @invariant getRepositoryは入力から導いた結果以外の共有状態を変更しない。
  * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
- * @security N/A: verifyRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: verifyRepositoryRootは共有非同期状態を持たない同期処理である。
+ * @security N/A: getRepositoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: getRepositoryは共有非同期状態を持たない同期処理である。
  */
-export function verifyRepositoryRoot(candidate: unknown):
-  | Readonly<{
-      status: "completed";
-      reason: "repository_root_verified";
-      capability: VerifiedRepositoryRoot;
-    }>
-  | Readonly<{
-      status: "blocked";
-      reason: "repository_root_invalid";
-      capability: null;
-    }> {
+export function getRepository(candidate: unknown): RepositoryResult {
   const root = observeExactRepositoryLayout(candidate)?.root.realPath ?? null;
   return root === null
     ? Object.freeze({
@@ -220,25 +198,25 @@ export function verifyRepositoryRoot(candidate: unknown):
  * @responsibility Repository Root From Working Directoryの検証根拠、成立条件、観測不能時の拒否境界を所有する。
  * @trace ARCH-000002
  * @input workingDirectory: unknown
- * @returns ReturnType<typeof verifyRepositoryRoot>を返す。
- * @precondition 「workingDirectory: unknown」がverifyRepositoryRootFromWorkingDirectoryの入力契約を満たす。
- * @postcondition verifyRepositoryRootFromWorkingDirectoryの責務を完了した結果だけを返す。
+ * @returns RepositoryResultを返す。
+ * @precondition 「workingDirectory: unknown」がgetRepositoryFromWorkingDirectoryの入力契約を満たす。
+ * @postcondition getRepositoryFromWorkingDirectoryの責務を完了した結果だけを返す。
  * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
- * @failure verifyRepositoryRootFromWorkingDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifyRepositoryRootFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
+ * @failure getRepositoryFromWorkingDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant getRepositoryFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
  * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
- * @security N/A: verifyRepositoryRootFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: verifyRepositoryRootFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
+ * @security N/A: getRepositoryFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: getRepositoryFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
  */
-export function verifyRepositoryRootFromWorkingDirectory(
+export function getRepositoryFromWorkingDirectory(
   workingDirectory: unknown,
-): ReturnType<typeof verifyRepositoryRoot> {
+): RepositoryResult {
   try {
-    return verifyRepositoryRoot(
+    return getRepository(
       resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory),
     );
   } catch {
-    return verifyRepositoryRoot(null);
+    return getRepository(null);
   }
 }
 
@@ -247,9 +225,9 @@ export function verifyRepositoryRootFromWorkingDirectory(
  *
  * @responsibility Verified Repository Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000002
- * @input capability: VerifiedRepositoryRoot
+ * @input capability: Repository
  * @returns string | nullを返す。
- * @precondition 「capability: VerifiedRepositoryRoot」がresolveVerifiedRepositoryRootの入力契約を満たす。
+ * @precondition 「capability: Repository」がresolveVerifiedRepositoryRootの入力契約を満たす。
  * @postcondition resolveVerifiedRepositoryRootの責務を完了した結果だけを返す。
  * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
  * @failure N/A: resolveVerifiedRepositoryRootは独自の失敗分岐を所有しない。
@@ -259,7 +237,7 @@ export function verifyRepositoryRootFromWorkingDirectory(
  * @concurrency N/A: resolveVerifiedRepositoryRootは共有非同期状態を持たない同期処理である。
  */
 export function resolveVerifiedRepositoryRoot(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): string | null {
   return observeVerifiedRepositoryLayout(capability)?.root ?? null;
 }
@@ -270,7 +248,7 @@ export function resolveVerifiedRepositoryRoot(
  * @trace ARCH-000002
  * @input capability: 私有WeakMapへ結合済みのRoot。
  * @returns 発行時Rootと現在配置、又は不正・観測不能のnull。
- * @precondition capabilityは同moduleのverifyRepositoryRootが発行し私有WeakMapへ結合済みである。
+ * @precondition capabilityは同moduleのgetRepositoryが発行し私有WeakMapへ結合済みである。
  * @postcondition 毎回exact Rootとfresh配置を照合する。
  * @effect Filesystem読取りだけ。書込み・Process・権限発行なし。
  * @failure 偽Capability、実Path差、配置不正はnull。
@@ -280,7 +258,7 @@ export function resolveVerifiedRepositoryRoot(
  * @concurrency cacheや新しいLockを持たない。
  */
 export function observeVerifiedRepositoryLayout(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
 ): Readonly<{ root: string; layout: RepositoryGitLayout }> | null {
   const stored = roots.get(capability);
   if (stored === undefined) return null;
@@ -329,32 +307,4 @@ export function resolveVerifiedRepositoryRootFromWorkingDirectory(
       throw new Error("repository_boundary_invalid");
     return current;
   }
-}
-
-/**
- * Repository Location 契約の公開契約を記述する。
- *
- * @responsibility Repository Location 契約の公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000002
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeRepositoryLocationContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRepositoryLocationContractの入力契約を満たす。
- * @postcondition describeRepositoryLocationContractの責務を完了した結果だけを返す。
- * @effect N/A: describeRepositoryLocationContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeRepositoryLocationContractは独自の失敗分岐を所有しない。
- * @invariant describeRepositoryLocationContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeRepositoryLocationContractはProcess内の同一Subsystemで完結する。
- * @security N/A: describeRepositoryLocationContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeRepositoryLocationContractは共有非同期状態を持たない同期処理である。
- */
-export function describeRepositoryLocationContract() {
-  return Object.freeze({
-    contract: REPOSITORY_LOCATION_CONTRACT,
-    contractRevision: REPOSITORY_LOCATION_CONTRACT_REVISION,
-    selection: "nearest_enclosing_verified_repository_root",
-    workingDirectoryIsRepositoryAuthority: false,
-    invalidNestedBoundaryTraversalAllowed: false,
-    pathReported: false,
-    filesystemEffectIssued: false,
-  });
 }

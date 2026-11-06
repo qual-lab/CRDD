@@ -137,6 +137,14 @@ test("Repository操作結果は理由とEffectを操作へ相関する", () => {
   const cases = [
     ["prepare", "prepare_completed", "completed", true, true, null],
     ["prepare", "prepare_rejected", "blocked", true, false, null],
+    [
+      "prepare",
+      "prepare_external_filter_unavailable",
+      "blocked",
+      false,
+      false,
+      null,
+    ],
     ["prepare", "repository_effect_unknown", "unknown", true, false, null],
     ["unprepare", "unprepare_completed", "completed", true, true, null],
     ["unprepare", "unprepare_rejected", "blocked", true, false, null],

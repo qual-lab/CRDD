@@ -7,7 +7,7 @@
  * @security 資格、認可結果、Task正本、実行Owner、共有AI Sessionを保持せず、公開APIへexportしない。
  */
 import type { AiSelectionSaveResult } from "../../../../domain-model/src/index.ts";
-import type { ChangePublicationResult } from "../../../../version-control/src/index.ts";
+import type { ChangesResult } from "../../../../version-control/src/index.ts";
 import type { WorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type { WorkbenchAiRequestSnapshot } from "../ai-request/types.ts";
 import type { WorkbenchProjectSurface } from "../project/surface.ts";
@@ -40,7 +40,7 @@ export type WorkbenchPresentationState = {
   runtimeActivityObservation: WorkbenchRuntimeActivityObservation | undefined;
   projectSurface: WorkbenchProjectSurface | undefined;
   aiSelection: WorkbenchAiSelectionSurface;
-  lastActionResult: ChangePublicationResult | null;
+  lastActionResult: ChangesResult | null;
   topicMeetingResult: TopicMeetingActionResult | null;
   currentAiRequestId: string | null;
   aiRequestSnapshot: WorkbenchAiRequestSnapshot | null;

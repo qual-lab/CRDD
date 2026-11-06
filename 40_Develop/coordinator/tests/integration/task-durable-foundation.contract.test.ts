@@ -37,9 +37,9 @@ import {
   saveCoordinatorIntegrationRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  observeRepositoryStorageIdentity,
+  readRepositoryStorageIdentity,
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   createCoordinatorSnapshotAcceptanceDecisionStore,
@@ -132,11 +132,11 @@ function seedSnapshot(
  * @boundary 試験期待値の組立て。製品保存API・Authorityではない。
  */
 function fixtureRepositoryHash(root: string) {
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const actualRoot = resolveVerifiedRepositoryRoot(verified.capability);
-  const identity = observeRepositoryStorageIdentity(verified.capability);
+  const identity = readRepositoryStorageIdentity(verified.capability);
   assert.ok(actualRoot && identity);
   return createHash("sha256")
     .update("crdd-coordinator-repository-state-binding-v1\0")
@@ -2323,7 +2323,7 @@ test("一般CRUDは既存の管理実行・待機受付・技術区画を保全�
     { windowsHide: true },
   );
   fs.appendFileSync(path.join(root, ".git", "info", "exclude"), "\n.crdd/\n");
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   const access = {

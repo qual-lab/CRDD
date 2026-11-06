@@ -3,6 +3,12 @@
   "contractRevision": 1,
   "subsystem": "workbench-server",
   "symbols": [
+    {
+      "symbolId": "workbench.shared.repository.types",
+      "kind": "file",
+      "path": "src/shared/repository/types.ts",
+      "archIds": ["ARCH-000009", "ARCH-000012"]
+    },
     { "symbolId": "workbench.verification.workspace-summary", "kind": "file", "path": "scripts/verify-workspace-summary.ts", "archIds": ["ARCH-000015"] },
     {
       "symbolId": "workbench.verification.readonly-cli",

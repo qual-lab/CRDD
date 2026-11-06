@@ -1,13 +1,13 @@
 import { resumeTemporaryOperation } from "../../src/storage/temporary-operation.ts";
 import type { TemporaryOperationRecoveryReference } from "../../src/storage/types.ts";
 import { resumeTemporaryOperationWithInterruptionForVerification } from "../../src/storage/temporary-operation.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 const [repositoryRoot, encodedReference, nextIdentity, mode] =
   process.argv.slice(2);
 if (!repositoryRoot || !encodedReference || !nextIdentity || !mode)
   throw new Error("temporary_operation_fixture_arguments_invalid");
-const root = verifyRepositoryRoot(repositoryRoot);
+const root = getRepository(repositoryRoot);
 if (root.status !== "completed")
   throw new Error("temporary_operation_fixture_root_invalid");
 const reference = JSON.parse(

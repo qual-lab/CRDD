@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { readCoordinatorConfig } from "../configuration/read-tool-config.ts";
 import { observeRepositoryRuntimeDataArea } from "../repository/resolve-storage-paths.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
@@ -133,7 +133,7 @@ export function updateCoordinatorHistoryOwned(
   )
     return blocked;
   try {
-    const root = verifyRepositoryRoot(owner.repositoryRoot);
+    const root = getRepository(owner.repositoryRoot);
     if (root.status !== "completed") return blocked;
     const area = observeRepositoryRuntimeDataArea(
       root.capability,
@@ -309,7 +309,7 @@ export function inspectCoordinatorHistorySettlement(
 ): "recorded" | "expired" | null {
   if (!isLiveCoordinatorStorageOwner(owner)) return null;
   try {
-    const root = verifyRepositoryRoot(owner.repositoryRoot);
+    const root = getRepository(owner.repositoryRoot);
     if (root.status !== "completed") return null;
     const area = observeRepositoryRuntimeDataArea(
       root.capability,

@@ -17,7 +17,7 @@ import {
   readExecutionIntelligenceConfig,
   readCoordinatorConfig,
 } from "../../src/configuration/read-tool-config.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 /**
  * Coordinator設定の配布例とSchemaがReader契約へ一致することを確認する。
@@ -103,7 +103,7 @@ test("保持設定は読取り専用で閉じたSchemaと真正不存在を区�
     path.join(root, ".git", "config"),
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("fixture");
   const initialEntries = fs.readdirSync(root);

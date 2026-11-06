@@ -17,8 +17,7 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
 import {
-  gitRepositoryRevisionAdapter,
-  observeRepositoryRevision,
+  readRepositoryRevision,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
@@ -171,10 +170,7 @@ export async function readAuthorizedRuntimeActivity(
     let revision: string | null = null;
     if (root !== null) {
       try {
-        const target = observeRepositoryRevision(
-          repository.root,
-          gitRepositoryRevisionAdapter,
-        );
+        const target = readRepositoryRevision(repository.root);
         revision = target?.revisionIdentity ?? null;
       } catch {
         revision = null;

@@ -16,14 +16,14 @@ import {
 } from "../../../../access-management/src/index.ts";
 import type { FilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
 import {
-  type VerifiedRepositoryRoot,
-  executeChangePublication,
-  gitChangePublicationAdapter,
-  gitChangePublicationTargetObservationAdapter,
-  observeChangePublicationTarget,
+  type Repository,
+  readRemoteTarget,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
-import { createStandaloneRepositoryActionRequest } from "../project/repository-action.ts";
+import {
+  createStandaloneRepositoryActionRequest,
+  executeRepositoryAction,
+} from "../project/repository-action.ts";
 import {
   validateRepositoryActionForm,
   inspectRepositoryActionResult,
@@ -103,7 +103,7 @@ export async function handleRepositoryAction({
   credentialAdministration: CredentialAdministration | undefined;
   localAccessRoot: FilesystemStoreRoot | undefined;
   repositoryRoot: string;
-  capability: VerifiedRepositoryRoot;
+  capability: Repository;
   presentation: Pick<
     WorkbenchPresentationState,
     "projectSurface" | "lastActionResult"
@@ -153,10 +153,7 @@ export async function handleRepositoryAction({
       )
         throw new Error("workbench_repository_access_unavailable");
       if (validated.request.operation === "publish_revision") {
-        const target = observeChangePublicationTarget(
-          selected.root,
-          gitChangePublicationTargetObservationAdapter,
-        );
+        const target = readRemoteTarget(selected.root);
         if (
           target.status !== "available" ||
           target.destination !== validated.request.destination ||
@@ -168,11 +165,7 @@ export async function handleRepositoryAction({
       dispatched = true;
       const result = inspectRepositoryActionResult(
         validated.request,
-        executeChangePublication(
-          selected.root,
-          validated.request,
-          gitChangePublicationAdapter,
-        ),
+        executeRepositoryAction(selected.root, validated.request),
       );
       const body = JSON.stringify(result);
       await yieldToTransport(0);
@@ -211,10 +204,9 @@ export async function handleRepositoryAction({
     const form = await readActionForm(incoming);
     if (form.get("actionToken") !== actionToken)
       throw new Error("workbench_action_token_invalid");
-    presentation.lastActionResult = executeChangePublication(
+    presentation.lastActionResult = executeRepositoryAction(
       capability,
       createStandaloneRepositoryActionRequest(form),
-      gitChangePublicationAdapter,
     );
     try {
       presentation.projectSurface =

@@ -62,7 +62,7 @@ import {
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
 import {
-  verifyRepositoryRoot,
+  getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
@@ -3292,7 +3292,7 @@ test("WorkbenchはRepository別AI設定と技術対応を分離して表示す�
     );
     git(fixture, "init", "--initial-branch=main");
 
-    const verified = verifyRepositoryRoot(fixture);
+    const verified = getRepository(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_invalid");
     const saved = saveRepositoryAiSelection(
@@ -3454,7 +3454,7 @@ test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送�
         .effort,
       "low",
     );
-    const verified = verifyRepositoryRoot(fixture);
+    const verified = getRepository(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") throw Error("fixture_root_invalid");
     assert.equal(

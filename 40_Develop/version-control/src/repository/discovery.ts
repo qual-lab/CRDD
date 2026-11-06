@@ -3,10 +3,14 @@
  * @responsibility 入れ子Repository・固定本文・改訂の有限なGit観測を提供する。
  * @trace ARCH-000002
  */
-import { spawnSync } from "node:child_process";
+import { executeGit } from "../git/execute.ts";
+import {
+  getRepositoryFromWorkingDirectory,
+  resolveVerifiedRepositoryRoot,
+} from "./location.ts";
 import path from "node:path";
 
-// Git固有の観測をCheckerが利用する中立なRepository結果へ変換するAdapter。
+// Repositoryの一覧と宣言されたsubmoduleを技術値として観測する。
 
 const MAX_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 
@@ -26,40 +30,31 @@ const MAX_OUTPUT_BYTES = 16 * 1_024 * 1_024;
  * @security N/A: runGitCommandはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: runGitCommandは共有非同期状態を持たない同期処理である。
  */
-function runGitCommand(root: string, commandArguments: readonly string[]) {
-  return spawnSync("git", ["-C", root, ...commandArguments], {
-    encoding: "utf8",
-    windowsHide: true,
-    shell: false,
-    timeout: 30_000,
+type GitObservationResult = {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  error?: NodeJS.ErrnoException;
+};
+function runGitCommand(
+  root: string,
+  commandArguments: readonly string[],
+): GitObservationResult {
+  const repository = getRepositoryFromWorkingDirectory(root);
+  const actual =
+    repository.status === "completed"
+      ? resolveVerifiedRepositoryRoot(repository.capability)
+      : null;
+  if (actual === null) return { status: null, stdout: "", stderr: "" };
+  const result = executeGit(actual, commandArguments, {
     maxBuffer: MAX_OUTPUT_BYTES,
-    stdio: ["ignore", "pipe", "pipe"],
   });
-}
-
-/**
- * Pathが同一かを判定する。
- *
- * @responsibility Pathの同一性Propertyと一致／不一致境界を所有する。
- * @trace ARCH-000002
- * @input left: string、right: string
- * @returns booleanを返す。
- * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
- * @postcondition samePathの責務を完了した結果だけを返す。
- * @effect N/A: Path文字列を比較するだけで外部Process・Filesystem操作は行わない。
- * @failure N/A: samePathは独自の失敗分岐を所有しない。
- * @invariant samePathは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: samePathはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: samePathは共有非同期状態を持たない同期処理である。
- */
-function samePath(left: string, right: string): boolean {
-  const leftResolved = path.resolve(left);
-  const rightResolved = path.resolve(right);
-  return process.platform === "win32"
-    ? leftResolved.toLocaleLowerCase("en-US") ===
-        rightResolved.toLocaleLowerCase("en-US")
-    : leftResolved === rightResolved;
+  return {
+    status: result.error || result.signal ? null : result.status,
+    stdout: result.stdout?.toString("utf8") ?? "",
+    stderr: result.stderr?.toString("utf8") ?? "",
+    ...(result.error ? { error: result.error } : {}),
+  };
 }
 
 /**
@@ -67,9 +62,9 @@ function samePath(left: string, right: string): boolean {
  *
  * @responsibility failure Reasonの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000002
- * @input result: ReturnType<typeof runGitCommand>
+ * @input result: GitObservationResult
  * @returns stringを返す。
- * @precondition 「result: ReturnType<typeof runGitCommand>」がfailureReasonの入力契約を満たす。
+ * @precondition 「result: GitObservationResult」がfailureReasonの入力契約を満たす。
  * @postcondition failureReasonの責務を完了した結果だけを返す。
  * @effect N/A: failureReasonは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: failureReasonは独自の失敗分岐を所有しない。
@@ -78,7 +73,7 @@ function samePath(left: string, right: string): boolean {
  * @security N/A: failureReasonはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: failureReasonは共有非同期状態を持たない同期処理である。
  */
-function failureReason(result: ReturnType<typeof runGitCommand>): string {
+function failureReason(result: GitObservationResult): string {
   if (result.error && "code" in result.error && result.error.code === "ENOENT")
     return "version_control_not_installed";
   if (/not a git repository/iu.test(result.stderr || ""))
@@ -111,39 +106,36 @@ export type RepositoryEntryObservation = Readonly<{
  * @trace ARCH-000002
  * @input configPath: string
  * @returns | Readonly<{ status: "completed"; paths: readonly string[] }> | Readonly<{ status: "unavailable"; paths: readonly string[] }>を返す。
- * @precondition 「configPath: string」がobserveDeclaredNestedRepositoryPathsの入力契約を満たす。
- * @postcondition observeDeclaredNestedRepositoryPathsの責務を完了した結果だけを返す。
+ * @precondition 「configPath: string」がreadRepositorySubmodulesの入力契約を満たす。
+ * @postcondition readRepositorySubmodulesの責務を完了した結果だけを返す。
  * @effect ローカルGit子Processで宣言を読み取る。書込み・外部送信は行わない。
- * @failure N/A: observeDeclaredNestedRepositoryPathsは独自の失敗分岐を所有しない。
- * @invariant observeDeclaredNestedRepositoryPathsは宣言した境界以外へEffectを拡張しない。
+ * @failure N/A: readRepositorySubmodulesは独自の失敗分岐を所有しない。
+ * @invariant readRepositorySubmodulesは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: observeDeclaredNestedRepositoryPathsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: observeDeclaredNestedRepositoryPathsは共有非同期状態を持たない同期処理である。
+ * @security N/A: readRepositorySubmodulesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readRepositorySubmodulesは共有非同期状態を持たない同期処理である。
  */
-export function observeDeclaredNestedRepositoryPaths(
-  configPath: string,
+export function readRepositorySubmodules(
+  repositoryRoot: string,
 ):
   | Readonly<{ status: "completed"; paths: readonly string[] }>
   | Readonly<{ status: "unavailable"; paths: readonly string[] }> {
-  const result = spawnSync(
-    "git",
+  const raw = executeGit(
+    repositoryRoot,
     [
       "config",
       "-z",
       "--file",
-      configPath,
+      path.join(repositoryRoot, ".gitmodules"),
       "--get-regexp",
       "^submodule\\..*\\.path$",
     ],
-    {
-      encoding: "utf8",
-      windowsHide: true,
-      shell: false,
-      timeout: 30_000,
-      maxBuffer: MAX_OUTPUT_BYTES,
-      stdio: ["ignore", "pipe", "pipe"],
-    },
+    { maxBuffer: MAX_OUTPUT_BYTES },
   );
+  const result = {
+    status: raw.error || raw.signal ? null : raw.status,
+    stdout: raw.stdout?.toString("utf8") ?? "",
+  };
   if (result.status === 1)
     return Object.freeze({ status: "completed", paths: Object.freeze([]) });
   if (result.status !== 0)
@@ -171,16 +163,16 @@ export function observeDeclaredNestedRepositoryPaths(
  * @trace ARCH-000002
  * @input scopeRoot: string
  * @returns | Readonly<{ status: "completed"; entries: readonly RepositoryEntryObservation[]; nestedRepositoryObservationComplete: boolean; repositoryPathReported: false; }> | Readonly<{ status: "unavailable"; reason: string; entries: readonly RepositoryEntryObservation[]; repositoryPathReported: false; }>を返す。
- * @precondition 「scopeRoot: string」がobserveRepositoryEntriesの入力契約を満たす。
- * @postcondition observeRepositoryEntriesの責務を完了した結果だけを返す。
+ * @precondition 「scopeRoot: string」がreadRepositoryEntriesの入力契約を満たす。
+ * @postcondition readRepositoryEntriesの責務を完了した結果だけを返す。
  * @effect ローカルGit子Processで対象Entryを観測する。書込み・外部送信は行わない。
- * @failure N/A: observeRepositoryEntriesは独自の失敗分岐を所有しない。
- * @invariant observeRepositoryEntriesは入力から導いた結果以外の共有状態を変更しない。
+ * @failure N/A: readRepositoryEntriesは独自の失敗分岐を所有しない。
+ * @invariant readRepositoryEntriesは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: observeRepositoryEntriesはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: observeRepositoryEntriesは共有非同期状態を持たない同期処理である。
+ * @security N/A: readRepositoryEntriesはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: readRepositoryEntriesは共有非同期状態を持たない同期処理である。
  */
-export function observeRepositoryEntries(scopeRoot: string):
+export function readRepositoryEntries(scopeRoot: string):
   | Readonly<{
       status: "completed";
       entries: readonly RepositoryEntryObservation[];
@@ -307,115 +299,4 @@ export function observeRepositoryEntries(scopeRoot: string):
     nestedRepositoryObservationComplete: true,
     repositoryPathReported: false,
   });
-}
-
-/**
- * Nested Repositoryを観測する。
- *
- * @responsibility Nested Repositoryの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000002
- * @input scopeRoot: string、relativePath: string
- * @returns observeNestedRepositoryの計算結果を返す。
- * @precondition 「scopeRoot: string、relativePath: string」がobserveNestedRepositoryの入力契約を満たす。
- * @postcondition observeNestedRepositoryの責務を完了した結果だけを返す。
- * @effect ローカルGit子Processで所在・管理領域・改訂を読む。書込み・外部送信は行わない。
- * @failure N/A: observeNestedRepositoryは独自の失敗分岐を所有しない。
- * @invariant observeNestedRepositoryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: observeNestedRepositoryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: observeNestedRepositoryは共有非同期状態を持たない同期処理である。
- */
-export function observeNestedRepository(
-  scopeRoot: string,
-  relativePath: string,
-) {
-  const target = path.resolve(scopeRoot, relativePath);
-  const top = runGitCommand(target, ["rev-parse", "--show-toplevel"]);
-  const metadata = runGitCommand(target, ["rev-parse", "--absolute-git-dir"]);
-  const revision = runGitCommand(target, ["rev-parse", "--verify", "HEAD"]);
-  const revisionIdentity =
-    revision.status === 0 && /^[0-9a-f]{40,64}$/iu.test(revision.stdout.trim())
-      ? revision.stdout.trim().toLowerCase()
-      : null;
-  return Object.freeze({
-    exactRepository: top.status === 0 && samePath(top.stdout.trim(), target),
-    metadataAccessible: metadata.status === 0,
-    revisionIdentity,
-    repositoryPathReported: false,
-  });
-}
-
-/**
- * Fixed Snapshot Textを読み取る。
- *
- * @responsibility Fixed Snapshot Textの読取り元、上限、読取不能時の結果境界を所有する。
- * @trace ARCH-000002
- * @input repositoryRoot: string、revisionIdentity: string、relativePath: string
- * @returns string | nullを返す。
- * @precondition 「repositoryRoot: string、revisionIdentity: string、relativePath: string」がreadFixedSnapshotTextの入力契約を満たす。
- * @postcondition readFixedSnapshotTextの責務を完了した結果だけを返す。
- * @effect ローカルGit子Processで指定改訂の本文を読む。書込み・外部送信は行わない。
- * @failure N/A: readFixedSnapshotTextは独自の失敗分岐を所有しない。
- * @invariant readFixedSnapshotTextは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readFixedSnapshotTextはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readFixedSnapshotTextは共有非同期状態を持たない同期処理である。
- */
-export function readFixedSnapshotText(
-  repositoryRoot: string,
-  revisionIdentity: string,
-  relativePath: string,
-): string | null {
-  if (
-    !/^[0-9a-f]{40,64}$/iu.test(revisionIdentity) ||
-    relativePath.length === 0 ||
-    path.isAbsolute(relativePath) ||
-    relativePath.includes("\\") ||
-    relativePath
-      .split("/")
-      .some((segment) => segment === "" || segment === "." || segment === "..")
-  )
-    return null;
-  const result = runGitCommand(repositoryRoot, [
-    "--no-replace-objects",
-    "show",
-    `${revisionIdentity}:${relativePath}`,
-  ]);
-  return result.status === 0 ? result.stdout : null;
-}
-
-/**
- * Revision Identityを一意に解決する。
- *
- * @responsibility Revision Identityの候補集合、解決規則、曖昧時の拒否境界を所有する。
- * @trace ARCH-000002
- * @input repositoryRoot: string、selector: string
- * @returns string | nullを返す。
- * @precondition 「repositoryRoot: string、selector: string」がresolveRevisionIdentityの入力契約を満たす。
- * @postcondition resolveRevisionIdentityの責務を完了した結果だけを返す。
- * @effect ローカルGit子Processで指定Revisionを解決する。書込み・外部送信は行わない。
- * @failure N/A: resolveRevisionIdentityは独自の失敗分岐を所有しない。
- * @invariant resolveRevisionIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: resolveRevisionIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: resolveRevisionIdentityは共有非同期状態を持たない同期処理である。
- */
-export function resolveRevisionIdentity(
-  repositoryRoot: string,
-  selector: string,
-): string | null {
-  if (
-    selector.length === 0 ||
-    selector.length > 1_024 ||
-    /[\u0000-\u001f\u007f]/u.test(selector) ||
-    selector.startsWith("-")
-  )
-    return null;
-  const result = runGitCommand(repositoryRoot, [
-    "rev-parse",
-    "--verify",
-    selector,
-  ]);
-  const value = result.status === 0 ? result.stdout.trim().toLowerCase() : "";
-  return /^[0-9a-f]{40,64}$/u.test(value) ? value : null;
 }

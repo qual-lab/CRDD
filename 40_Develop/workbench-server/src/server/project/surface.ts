@@ -21,13 +21,11 @@ import {
   type TopicRecord,
 } from "../../../../domain-model/src/index.ts";
 import {
-  type ChangePublicationTargetObservation,
-  gitChangePublicationTargetObservationAdapter,
-  gitLocalChangeSetAdapter,
-  type LocalChangeSet,
-  observeChangePublicationTarget,
-  observeLocalChangeSet,
-  verifyRepositoryRoot,
+  type RemoteTarget,
+  type WorkingChanges,
+  readRemoteTarget,
+  readWorkingChanges,
+  getRepository,
 } from "../../../../version-control/src/index.ts";
 import {
   readWorkbenchOwnerArtifactCatalog,
@@ -89,8 +87,8 @@ export type WorkbenchProjectSurface = Readonly<{
   ownerArtifacts: WorkbenchOwnerArtifactCatalog;
   repository: Readonly<{
     state: "available" | "unknown";
-    changeSet: LocalChangeSet | null;
-    publicationTarget: ChangePublicationTargetObservation | null;
+    changeSet: Omit<WorkingChanges, "changedPaths"> | null;
+    publicationTarget: RemoteTarget | null;
     reason: "repository_root_invalid" | "observation_failed" | null;
   }>;
 }>;
@@ -228,7 +226,7 @@ async function readQuality(
 function readRepositoryChangeSet(
   repositoryRoot: string,
 ): WorkbenchProjectSurface["repository"] {
-  const verification = verifyRepositoryRoot(repositoryRoot);
+  const verification = getRepository(repositoryRoot);
   if (verification.status !== "completed")
     return Object.freeze({
       state: "unknown",
@@ -237,17 +235,20 @@ function readRepositoryChangeSet(
       reason: "repository_root_invalid",
     });
   try {
+    const changes = readWorkingChanges(verification.capability, "HEAD");
     return Object.freeze({
       state: "available",
-      changeSet: observeLocalChangeSet(
-        verification.capability,
-        "HEAD",
-        gitLocalChangeSetAdapter,
-      ),
-      publicationTarget: observeChangePublicationTarget(
-        verification.capability,
-        gitChangePublicationTargetObservationAdapter,
-      ),
+      changeSet: Object.freeze({
+        contract: changes.contract,
+        contractRevision: changes.contractRevision,
+        revisionChanges: changes.revisionChanges,
+        preparedChanges: changes.preparedChanges,
+        workingChanges: changes.workingChanges,
+        unregisteredPaths: changes.unregisteredPaths,
+        observationComplete: changes.observationComplete,
+        repositoryPathReported: changes.repositoryPathReported,
+      }),
+      publicationTarget: readRemoteTarget(verification.capability),
       reason: null,
     });
   } catch {

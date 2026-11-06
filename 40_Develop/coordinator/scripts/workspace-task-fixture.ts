@@ -9,11 +9,15 @@ import { readFileSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { resolveRepositoryRuntimeDataPaths } from "../../domain-model/src/index.ts";
 import {
-  verifyRepositoryRoot,
-  createRepositoryWorktree,
-  disposeRepositoryWorktree,
-  inspectWorkspaceFile,
+  getRepository,
+  createWorktree,
+  removeWorktree,
+  readFile,
 } from "../../version-control/src/index.ts";
+import {
+  workspaceWorktreeTarget,
+  workspaceWorktreeResult,
+} from "../src/workspace/git.ts";
 import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
 
 /** 一回の検証Toolが所有する作成結果。新しい永続台帳ではない。 */
@@ -38,7 +42,7 @@ export function prepareVerificationWorkspace(
   baseCommit: string,
 ): VerificationWorkspacePreparation {
   const workspaceId = randomUUID();
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   if (verified.status !== "completed")
     throw new Error("verification_workspace_root_invalid");
   const paths = resolveRepositoryRuntimeDataPaths(verified.capability);
@@ -50,8 +54,8 @@ export function prepareVerificationWorkspace(
     baseCommit,
     head: baseCommit,
   });
-  const created = createRepositoryWorktree(verified.capability, {
-    workspaceId,
+  const created = createWorktree(verified.capability, {
+    ...workspaceWorktreeTarget(workspaceId),
     baseCommit,
   });
   return {
@@ -78,15 +82,16 @@ export function readVerificationWorkspaceOutput(
 ) {
   if (target.workspaceId === null || target.baseCommit === null)
     throw new Error("verification_workspace_target_invalid");
-  const verified = verifyRepositoryRoot(target.ownerRepositoryRoot);
+  const verified = getRepository(target.ownerRepositoryRoot);
   if (verified.status !== "completed")
     throw new Error("verification_workspace_root_invalid");
-  const observed = inspectWorkspaceFile(
-    verified.capability,
-    target.workspaceId,
-    target.baseCommit,
-    relativePath,
-  );
+  const working = getRepository(target.executionTree);
+  if (working.status !== "completed")
+    throw Error("verification_workspace_target_invalid");
+  const observed = readFile(working.capability, {
+    baseCommit: target.baseCommit,
+    path: relativePath,
+  });
   if (
     observed.head !== target.head ||
     observed.binary ||
@@ -162,14 +167,19 @@ export function closeVerificationWorkspace(
       .canonicalRepositoryChanged !== false
   )
     return Object.freeze({ status: "retained", cleanupConfirmed: false });
-  const verified = verifyRepositoryRoot(target.ownerRepositoryRoot);
+  const verified = getRepository(target.ownerRepositoryRoot);
   if (verified.status !== "completed")
     return Object.freeze({ status: "retained", cleanupConfirmed: false });
-  const closed = disposeRepositoryWorktree(verified.capability, {
-    workspaceId: target.workspaceId,
-    expectedHead: target.head,
-    discardChanges: true,
-  });
+  const closed = workspaceWorktreeResult(
+    target.ownerRepositoryRoot,
+    target.workspaceId,
+    removeWorktree(verified.capability, {
+      ...workspaceWorktreeTarget(target.workspaceId),
+      expectedHead: target.head,
+      discardChanges: true,
+    }),
+    true,
+  );
   const removed =
     closed.status === "completed" &&
     closed.worktreeRemoved === true &&

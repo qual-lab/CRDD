@@ -20,7 +20,7 @@ import path from "node:path";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { runInNewContext, runInThisContext } from "node:vm";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   type CoordinatorState,
@@ -113,7 +113,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
       ],
       { windowsHide: true },
     );
-    const verified = verifyRepositoryRoot(root);
+    const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const binding = observeRuntimeStorageRepository(verified.capability);
@@ -225,7 +225,7 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
     assert.equal(areaCreations, 0);
     areaThrows = false;
     const inspect = (directory: string) => {
-      const observed = verifyRepositoryRoot(directory);
+      const observed = getRepository(directory);
       return store.readRuntimeOwnedCoordinatorAdmissionSnapshot(
         observed.status === "completed" ? observed.capability : null,
       );
@@ -911,7 +911,7 @@ test("Host Windows: 保存区画の不正更新と二世代欠落を出版しな
   skip: process.platform !== "win32",
 }, (t) => {
   const { root, state } = fixture(t);
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const cap = verified.capability;
@@ -1311,7 +1311,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     ],
     { windowsHide: true },
   );
-  const verifiedRoot = verifyRepositoryRoot(root);
+  const verifiedRoot = getRepository(root);
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed") throw Error("fixture_root_invalid");
   const observed = observeRuntimeStorageRepository(verifiedRoot.capability);
@@ -1409,9 +1409,9 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
         "--experimental-strip-types",
         "-e",
         `(async () => {
-     const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
+     const { getRepository } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
      const domain = await import(${JSON.stringify(new URL("../../src/index.ts", import.meta.url).href)});
-     const root = verifyRepositoryRoot(process.argv[1]);
+     const root = getRepository(process.argv[1]);
      const result = domain.readRuntimeOwnedCoordinatorRecoverySnapshot(root.capability);
      process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
      })().catch(error => { console.error(error); process.exitCode = 1; });`,
@@ -1447,7 +1447,7 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
     ],
     { windowsHide: true },
   );
-  const verifiedOtherRoot = verifyRepositoryRoot(otherRoot);
+  const verifiedOtherRoot = getRepository(otherRoot);
   assert.ok(verifiedOtherRoot.capability);
   const otherArea = path.join(otherRoot, ".crdd", "domain-model");
   fs.mkdirSync(otherArea, { recursive: true });
@@ -1765,7 +1765,7 @@ test("配送Readerは確定版と同一のpendingを拒否する", () => {
  * @boundary 試験準備。
  */
 function initializeCoordinatorSnapshot(root: string, binding: string) {
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   return initializeSnapshot(verified.capability, binding);
@@ -2735,7 +2735,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
     );
     const location = path.join(root, ".crdd", "domain-model", "state.json");
     const baseJson = fs.readFileSync(location, "utf8");
-    const repository = verifyRepositoryRoot(root);
+    const repository = getRepository(root);
     assert.equal(repository.status, "completed");
     if (repository.status !== "completed") throw Error("fixture_root_invalid");
     const probe = stateWithStoredBytes(state, MAX_RECORD_BYTES, baseJson);

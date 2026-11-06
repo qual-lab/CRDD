@@ -199,17 +199,12 @@ function violations(sources: SourceSet): string[] {
       findings.push(`raw-root:${item}`);
     // Topic探索の固定除外式はPath構築ではない。同Fileの他のliteralは免除しない。
     const rootLiteralSource =
-      item === "40_Develop/version-control/src/workspace/worktree.ts"
+      item === "40_Develop/domain-model/src/storage/topic-meeting-store.ts"
         ? source.replace(
-            '[".crdd", ".crdd/workspaces"]',
-            "versionControlWorkspaceParents",
+            '[".git", ".crdd", "node_modules"].includes(entry.name)',
+            "repositoryExplorationExclusion",
           )
-        : item === "40_Develop/domain-model/src/storage/topic-meeting-store.ts"
-          ? source.replace(
-              '[".git", ".crdd", "node_modules"].includes(entry.name)',
-              "repositoryExplorationExclusion",
-            )
-          : source;
+        : source;
     if (
       !SEMANTIC_ROOT_LITERAL_OWNERS.has(item) &&
       /["'](?:\.crdd|crdd)["']/u.test(rootLiteralSource)
@@ -377,7 +372,8 @@ test("本番Runtime Data Consumer集合は公開された名前付き境界だ�
  */
 test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒否する", () => {
   const sources = consumerSources();
-  const workspaceOwner = "40_Develop/version-control/src/workspace/worktree.ts";
+  const workspaceOwner = "40_Develop/version-control/src/worktree/crud.ts";
+  assert.ok(sources.has(workspaceOwner));
   sources.set(
     workspaceOwner,
     `${sources.get(workspaceOwner)}\nconst unrelated = path.join(root, ".crdd", "other");`,

@@ -15,9 +15,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  describeRepositoryLocationContract,
-  REPOSITORY_LOCATION_CONTRACT,
-  REPOSITORY_LOCATION_CONTRACT_REVISION,
+  getRepository,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 
@@ -111,14 +109,14 @@ test("repository root resolution fails closed when no Git boundary exists", () =
  * @boundary RFD-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("repository root resolution contract exposes no path", () => {
-  const contract = describeRepositoryLocationContract();
-  assert.equal(contract.contract, REPOSITORY_LOCATION_CONTRACT);
+  const observed = getRepository(repositoryRoot);
+  assert.equal(observed.status, "completed");
+  assert.ok(observed.capability);
+  const contract = observed.capability;
   assert.equal(
-    contract.contractRevision,
-    REPOSITORY_LOCATION_CONTRACT_REVISION,
+    contract.contract,
+    "crdd-version-control/repository-location/v1",
   );
-  assert.equal(contract.workingDirectoryIsRepositoryAuthority, false);
-  assert.equal(contract.invalidNestedBoundaryTraversalAllowed, false);
-  assert.equal(contract.pathReported, false);
+  assert.deepEqual(Object.keys(contract), ["contract"]);
   assert.equal(JSON.stringify(contract).includes(repositoryRoot), false);
 });

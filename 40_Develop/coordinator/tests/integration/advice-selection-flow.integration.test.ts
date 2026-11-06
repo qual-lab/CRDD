@@ -23,7 +23,7 @@ import {
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
 import { resolveExecutionSelection } from "../../src/selection/resolve.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../src/execution/advice.ts";
 import { createAdviceDispatch } from "../../src/execution/advice.ts";
 import type { ProviderAdviceExecutionPlan } from "../../src/execution/preparation.ts";
@@ -74,7 +74,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { mock } from "node:test";
 import { stripTypeScriptTypes } from "node:module";
-import { verifyRepositoryRoot } from ${JSON.stringify(moduleUrl("40_Develop/version-control/src/index.ts"))};
+import { getRepository } from ${JSON.stringify(moduleUrl("40_Develop/version-control/src/index.ts"))};
 import { executionSelection } from ${JSON.stringify(moduleUrl("40_Develop/coordinator/tests/fixtures/ai-selection.ts"))};
 const fixture = ${JSON.stringify(fixture)};
 const scenario = process.argv[1];
@@ -114,7 +114,7 @@ adviceSource = adviceSource.replace(/from "(\\.[^"]+)"/g, (_, specifier) => "fro
 const adviceFixture = await import("data:text/javascript;base64," + Buffer.from(adviceSource).toString("base64"));
 mock.module(adviceUrl, { namedExports: adviceFixture });
 const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))});
-const verified = verifyRepositoryRoot(fixture); assert.equal(verified.status,"completed");
+const verified = getRepository(fixture); assert.equal(verified.status,"completed");
 if(scenario === "cancel_before")controller.abort();
 const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_advice",executionSelection:executionSelection("advice"),prompt:"合成状態を説明",contextReferences:["PROJECT_CONTEXT.md"],allowedPaths:[]},controller.signal);
 const success=scenario === "normal" || scenario === "limit";
@@ -195,7 +195,7 @@ test("Repository設定の更新後も受付時の完全選定だけを助言へ�
       "# Project Context\n\n合成情報\n",
       "utf8",
     );
-    const root = verifyRepositoryRoot(fixture);
+    const root = getRepository(fixture);
     assert.equal(root.status, "completed");
     if (root.status !== "completed") throw Error("root_invalid");
     assert.equal(
@@ -352,7 +352,7 @@ test("旧Profile設定と破損設定を既定Modelへ補正しない", async ()
       windowsHide: true,
       stdio: "ignore",
     });
-    const root = verifyRepositoryRoot(fixture);
+    const root = getRepository(fixture);
     assert.equal(root.status, "completed");
     if (root.status !== "completed") throw Error("root_invalid");
     await mkdir(path.join(fixture, ".crdd", "config"), { recursive: true });

@@ -9,11 +9,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
 import {
-  gitRepositoryRevisionAdapter,
-  observeRepositoryRevision,
-  type VerifiedRepositoryRoot,
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  readRepositoryRevision,
+  type Repository,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import {
   prepareCoordinatorLeaseAcquisitionConfirmation,
@@ -232,7 +231,7 @@ export const MAX_RECORD_BYTES = 16 * 1024 * 1024;
  * @concurrency 読取りと解放確認を同じ呼出しに閉じる。
  */
 export function readCoordinatorSnapshotIntakeEpoch(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
 ): StoreResult<string> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
@@ -306,7 +305,7 @@ export function observeCoordinatorSnapshotObligations(
  */
 
 export function resolveCoordinatorNamedPaths(workingDirectory: string) {
-  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
     ? resolveRepositoryRuntimeDataPaths(verified.capability)
     : null;
@@ -331,7 +330,7 @@ export function observeCoordinatorArea(
   repositoryRoot: string,
   area: "domain-model" | "tmp",
 ) {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("orchestrator_repository_root_invalid");
   const observation = observeRepositoryRuntimeDataArea(
@@ -611,7 +610,7 @@ export function ensureDirectory(parent: string, name: string) {
  * @concurrency 同Rootの短期OS排他を取得し解放確認まで成功を保留する。
  */
 export function readCoordinatorSnapshot(
-  workingDirectory: string | VerifiedRepositoryRoot,
+  workingDirectory: string | Repository,
   binding: string,
 ): StoreResult<CoordinatorSnapshot | null> {
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
@@ -640,7 +639,7 @@ export function readCoordinatorSnapshot(
  * @concurrency 同Rootの短期Ownerで検査と保存を直列化する。
  */
 export function initializeCoordinatorSnapshot(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
 ): StoreResult<string> {
   if (typeof workingDirectory !== "object" || workingDirectory === null)
@@ -685,7 +684,7 @@ export function initializeCoordinatorSnapshot(
  * @concurrency 読取り・比較・保存まで一つの短期Ownerを保持し外部待機しない。
  */
 export function writeCoordinatorSnapshotState(
-  workingDirectory: string | VerifiedRepositoryRoot,
+  workingDirectory: string | Repository,
   binding: string,
   stateJson: string,
   expectedGeneration: number,
@@ -856,7 +855,7 @@ export function readCoordinatorSnapshotOwned(
  * @concurrency 同Rootの短期OS排他だけを保持し外部待機しない。
  */
 export function writeCoordinatorSnapshot(
-  workingDirectory: string | VerifiedRepositoryRoot,
+  workingDirectory: string | Repository,
   binding: string,
   payloadJson: string,
   expectedRevision: number,
@@ -1000,7 +999,7 @@ export function writeCoordinatorSnapshotOwned(
  * @concurrency 一回取得し、全処置結果から一回の解放確認へ戻す。
  */
 function withCoordinatorSnapshotOperation<T>(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   operation: (
     current: CoordinatorSnapshot,
@@ -2125,7 +2124,7 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
     for (let pass = 0; pass < 3; pass++) {
       if (!repository.revalidate() || !lock.assertLive())
         throw new Error("owner");
-      const verified = verifyRepositoryRoot(repository.repositoryRoot);
+      const verified = getRepository(repository.repositoryRoot);
       if (verified.status !== "completed") throw new Error("root");
       const area = observeRepositoryRuntimeDataArea(
         verified.capability,
@@ -3027,7 +3026,7 @@ export function readCoordinatorStateSnapshot(
   let repairCompletionAbsent = false;
   let repairRetentionReviewAfter: string | null = null;
   try {
-    const verified = verifyRepositoryRoot(repository.repositoryRoot);
+    const verified = getRepository(repository.repositoryRoot);
     if (
       verified.status !== "completed" ||
       !repository.revalidate() ||
@@ -3699,7 +3698,7 @@ export function readCoordinatorStateSnapshot(
       }
     }
     const finalFile = fs.lstatSync(file, { bigint: true });
-    const freshRoot = verifyRepositoryRoot(repository.repositoryRoot);
+    const freshRoot = getRepository(repository.repositoryRoot);
     if (freshRoot.status !== "completed") throw new Error("root");
     const fresh = observeRepositoryRuntimeDataArea(
       freshRoot.capability,
@@ -3980,7 +3979,7 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
         .every((values) => values.length === 0) &&
       facts.length === 0
     ) {
-      const verified = verifyRepositoryRoot(issued.repositoryRoot);
+      const verified = getRepository(issued.repositoryRoot);
       if (
         verified.status !== "completed" ||
         !isLiveCoordinatorStorageOwner(owner)
@@ -4197,7 +4196,7 @@ function prepareCoordinatorStateInitialization(
   let effectIssued = false;
   let isPrepared = false;
   try {
-    const verified = verifyRepositoryRoot(repository.repositoryRoot);
+    const verified = getRepository(repository.repositoryRoot);
     if (
       verified.status !== "completed" ||
       !repository.revalidate() ||
@@ -4447,7 +4446,7 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
   let noPending = false;
   let lockReleased = false;
   try {
-    const verified = verifyRepositoryRoot(repository.repositoryRoot);
+    const verified = getRepository(repository.repositoryRoot);
     if (verified.status !== "completed" || !assertOwner() || !lock.assertLive())
       throw new Error("owner");
     const area = observeRepositoryRuntimeDataArea(
@@ -5093,7 +5092,7 @@ function commitCoordinatorStateSnapshotOwned(
   let initialHistoryLine: string | null = null;
   let historyAlreadyConfirmed = false;
   try {
-    const verified = verifyRepositoryRoot(repository.repositoryRoot);
+    const verified = getRepository(repository.repositoryRoot);
     if (verified.status !== "completed") throw new Error("root");
     const initial = observeRepositoryRuntimeDataArea(
       verified.capability,
@@ -5138,7 +5137,7 @@ function commitCoordinatorStateSnapshotOwned(
         )
           throw new Error("current_history_config_changed");
       }
-      const fresh = verifyRepositoryRoot(repository.repositoryRoot);
+      const fresh = getRepository(repository.repositoryRoot);
       if (fresh.status !== "completed") throw new Error("root");
       if (initializationBoundaryRequired)
         assertRuntimeStateInitializationBoundary(fresh.capability);
@@ -7440,7 +7439,7 @@ export function readCoordinatorHistoryResumeCandidate(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function saveCoordinatorIntegrationRecord(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorIntegrationRecordCreation
@@ -7474,7 +7473,7 @@ export function saveCoordinatorIntegrationRecord(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function saveCoordinatorWorkspaceRecord(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof prepareCoordinatorWorkspaceRecordUpdate> extends [
     unknown,
@@ -7509,7 +7508,7 @@ export function saveCoordinatorWorkspaceRecord(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function createCoordinatorAcceptanceDecision(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorAcceptanceDecisionCreation
@@ -7543,7 +7542,7 @@ export function createCoordinatorAcceptanceDecision(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readCoordinatorAcceptanceDecision(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof projectCoordinatorAcceptanceDecisionRecord
@@ -7577,7 +7576,7 @@ export function readCoordinatorAcceptanceDecision(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function finalizeCoordinatorAcceptanceDecision(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorAcceptanceDecisionFinalization
@@ -7611,7 +7610,7 @@ export function finalizeCoordinatorAcceptanceDecision(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function createCoordinatorDecisionRecovery(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorDecisionRecoveryCreation
@@ -7645,7 +7644,7 @@ export function createCoordinatorDecisionRecovery(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readCoordinatorDecisionRecovery(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof projectCoordinatorDecisionRecoveryRecord
@@ -7679,7 +7678,7 @@ export function readCoordinatorDecisionRecovery(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function updateCoordinatorDecisionRecovery(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorDecisionRecoveryUpdate
@@ -7713,7 +7712,7 @@ export function updateCoordinatorDecisionRecovery(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readCoordinatorLeaseAcquisitionOwner(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof projectCoordinatorLeaseAcquisitionOwner> extends [
     unknown,
@@ -7748,7 +7747,7 @@ export function readCoordinatorLeaseAcquisitionOwner(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function confirmCoordinatorLeaseAcquisition(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorLeaseAcquisitionConfirmation
@@ -7782,7 +7781,7 @@ export function confirmCoordinatorLeaseAcquisition(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function saveCoordinatorLeaseReleaseIntent(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof prepareCoordinatorLeaseReleaseIntent> extends [
     unknown,
@@ -7817,7 +7816,7 @@ export function saveCoordinatorLeaseReleaseIntent(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function settleCoordinatorLeaseRelease(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorLeaseReleaseSettlement
@@ -7851,7 +7850,7 @@ export function settleCoordinatorLeaseRelease(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function verifyCoordinatorQueueIntake(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof inspectCoordinatorQueueIntake> extends [
     unknown,
@@ -7886,7 +7885,7 @@ export function verifyCoordinatorQueueIntake(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readCoordinatorQueueProject(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof projectCoordinatorQueueProjectState> extends [
     unknown,
@@ -7921,7 +7920,7 @@ export function readCoordinatorQueueProject(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function createCoordinatorQueueEntry(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof prepareCoordinatorQueueEntryCreation> extends [
     unknown,
@@ -7956,7 +7955,7 @@ export function createCoordinatorQueueEntry(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readCoordinatorQueueEntry(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof projectCoordinatorQueueEntry> extends [
     unknown,
@@ -7991,7 +7990,7 @@ export function readCoordinatorQueueEntry(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function settleCoordinatorQueueRecovery(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorQueueRecoverySettlement
@@ -8025,7 +8024,7 @@ export function settleCoordinatorQueueRecovery(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function createCoordinatorSingleTaskQueue(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorSingleTaskQueueCreation
@@ -8059,7 +8058,7 @@ export function createCoordinatorSingleTaskQueue(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function closeCoordinatorUnstartedTaskQueue(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<
     typeof prepareCoordinatorUnstartedTaskQueueClosure
@@ -8093,7 +8092,7 @@ export function closeCoordinatorUnstartedTaskQueue(
  * @concurrency fresh読取りから確定まで一つの短期Ownerを使用する。
  */
 export function readCoordinatorCurrentState(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof projectCoordinatorCurrentState> extends [
     unknown,
@@ -8156,7 +8155,7 @@ type CoordinatorRootObservedInput<T extends readonly unknown[]> = T extends [
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function reserveCoordinatorLeaseAcquisition(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: CoordinatorRootObservedInput<
     Parameters<typeof prepareCoordinatorLeaseAcquisitionReservation>
@@ -8201,7 +8200,7 @@ export function reserveCoordinatorLeaseAcquisition(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function readCoordinatorLeaseOwnerLoss(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: CoordinatorRootObservedInput<
     Parameters<typeof projectCoordinatorLeaseOwnerLossState>
@@ -8239,7 +8238,7 @@ export function readCoordinatorLeaseOwnerLoss(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function reconcileCoordinatorReleasedLease(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: CoordinatorRootObservedInput<
     Parameters<typeof prepareCoordinatorReleasedLeaseReconciliation>
@@ -8279,7 +8278,7 @@ export function reconcileCoordinatorReleasedLease(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function reserveCoordinatorLeaseRecovery(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: CoordinatorRootObservedInput<
     Parameters<typeof prepareCoordinatorLeaseRecoveryReservation>
@@ -8321,7 +8320,7 @@ export function reserveCoordinatorLeaseRecovery(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function settleCoordinatorLeaseRecovery(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: CoordinatorRootObservedInput<
     Parameters<typeof prepareCoordinatorLeaseRecoverySettlement>
@@ -8368,7 +8367,7 @@ export function settleCoordinatorLeaseRecovery(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function settleCoordinatorQueueLeaseRelease(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: CoordinatorRootObservedInput<
     Parameters<typeof prepareCoordinatorQueueLeaseReleaseSettlement>
@@ -8409,7 +8408,7 @@ export function settleCoordinatorQueueLeaseRelease(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function updateCoordinatorQueueEntry(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof prepareCoordinatorQueueOperationUpdate> extends [
     unknown,
@@ -8451,7 +8450,7 @@ export function updateCoordinatorQueueEntry(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function updateCoordinatorSingleTaskQueue(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   ...input: Parameters<typeof prepareCoordinatorSingleTaskQueueUpdate> extends [
     unknown,
@@ -8493,7 +8492,7 @@ export function updateCoordinatorSingleTaskQueue(
  * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
  */
 export function selectCoordinatorQueueEntry(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   select: (
     entries: readonly ProjectQueueEntry[],
@@ -8525,7 +8524,7 @@ export function selectCoordinatorQueueEntry(
  * @concurrency 各段階を同Rootの短期Ownerで直列化する。
  */
 export function maintainCoordinatorSnapshotRecords(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   now = Date.now(),
 ): StoreResult<number> {
@@ -8581,7 +8580,7 @@ export function maintainCoordinatorSnapshotRecords(
  * @concurrency 同じ実発行Ownerを借用し自己再取得しない。
  */
 export function transferCoordinatorSnapshotHistoryRecords(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   now = Date.now(),
 ): StoreResult<Readonly<{ recorded: number; expired: number }>> {
@@ -8621,7 +8620,7 @@ export function transferCoordinatorSnapshotHistoryRecords(
  * @concurrency 元の短期排他を一回取得・解放する。
  */
 export function readCoordinatorWorkspaceState(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
 ): StoreResult<Pick<
   CoordinatorSnapshot,
@@ -8661,7 +8660,7 @@ export function readCoordinatorWorkspaceState(
  * @concurrency 元の短期排他を一回取得・解放する。
  */
 export function readCoordinatorTaskIntakeState(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
 ): StoreResult<Pick<
   CoordinatorSnapshot,
@@ -8699,7 +8698,7 @@ export function readCoordinatorTaskIntakeState(
  * @concurrency 元の短期排他を一回取得・解放する。
  */
 export function readCoordinatorExecutionState(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
 ): StoreResult<Pick<
   CoordinatorSnapshot,
@@ -8796,10 +8795,7 @@ function saveRuntimeDefinition<K extends keyof RuntimeDefinitionValues>(
   let released = false;
   try {
     const current = readCoordinatorStorageSnapshotOwned(owner, true);
-    const revision = observeRepositoryRevision(
-      access.root,
-      gitRepositoryRevisionAdapter,
-    );
+    const revision = readRepositoryRevision(access.root);
     if (
       current.status === "completed" &&
       current.value &&
@@ -9687,7 +9683,7 @@ type RuntimeContentViews = {
  * @concurrency CASと解放確認を同じ保存呼出しへ閉じる。
  */
 export function saveCoordinatorManagedProject(
-  workingDirectory: VerifiedRepositoryRoot,
+  workingDirectory: Repository,
   binding: string,
   state: CoordinatorState,
   expectedGeneration: number,

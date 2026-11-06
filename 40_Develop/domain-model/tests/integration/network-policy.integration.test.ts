@@ -17,7 +17,7 @@ import {
   ensureRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 
 /**
  * 現在Repository内だけに独立した試験Rootを作る。
@@ -31,7 +31,7 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
  * @boundary 試験だけが所有するRepository-local Root。
  */
 function createNetworkPolicyFixture(t: TestContext) {
-  const current = verifyRepositoryRoot(
+  const current = getRepository(
     path.resolve(import.meta.dirname, "../../../.."),
   );
   if (current.status !== "completed") assert.fail("fixture_root_invalid");
@@ -53,7 +53,7 @@ function createNetworkPolicyFixture(t: TestContext) {
     path.join(root, ".git", "config"),
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   if (verified.status !== "completed") assert.fail("fixture_invalid");
   return {
     root,

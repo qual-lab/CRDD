@@ -11,29 +11,26 @@ import {
   snapshotPlainRecord,
   hashExecutionSelection,
   type ExecutionSelection,
-} from "../../../domain-model/src/index.ts";
-
-import {
-  type WorkspaceInventoryEntry as InventoryEntry,
-  inspectWorkspaceInventory as inventory,
-  isWorkspaceRelativePath as validRelativePath,
-  verifyRepositoryRoot,
-  readWorkspaceFileContent as stableFileContent,
-  inspectGitRepositoryLayoutCandidate,
-  inspectRepositoryIdentityCandidate,
-  observeRepositoryRevision,
-  gitRepositoryRevisionAdapter,
-  inspectRepositoryFormat,
-  gitRepositoryFormatAdapter,
-  type VerifiedRepositoryRoot,
-  resolveVerifiedRepositoryRoot,
-  observeRepositoryStorageIdentity,
-} from "../../../version-control/src/index.ts";
-import { createHash, randomUUID } from "node:crypto";
-import {
   containsRecognizedSecretMaterial,
   checkRepositoryRuntimeDataProtectionDirectory,
 } from "../../../domain-model/src/index.ts";
+
+import {
+  getRepository,
+  readRepositorySnapshot,
+  readRepositoryRevision,
+  readRepositoryFormat,
+  type Repository,
+  resolveVerifiedRepositoryRoot,
+  readRepositoryStorageIdentity,
+} from "../../../version-control/src/index.ts";
+import {
+  type ExecutionFileEntry as InventoryEntry,
+  readExecutionInventory as inventory,
+  isExecutionRelativePath as validRelativePath,
+  readExecutionFile as stableFileContent,
+} from "./files.ts";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Operation } from "./controller.ts";
 import { types } from "node:util";
@@ -412,7 +409,7 @@ export function bindRuntimeOwnedExecutionSnapshot(
     const readPaths =
       rawReadPaths === undefined ? null : allowedPaths(rawReadPaths);
     if (rawReadPaths !== undefined && !readPaths) return null;
-    const verified = verifyRepositoryRoot(source.repositoryRoot);
+    const verified = getRepository(source.repositoryRoot);
     if (verified.status !== "completed") return null;
     if (borrowedTarget !== undefined) {
       const target = bindBorrowedExecutionTarget(
@@ -1144,14 +1141,15 @@ export function inspectBorrowedExecutionTarget(
       typeof target.executionTree !== "string"
     )
       return null;
-    const root = verifyRepositoryRoot(ownerRoot);
-    const layout = inspectGitRepositoryLayoutCandidate({
-      repositoryRoot: ownerRoot,
-    });
+    const root = getRepository(ownerRoot);
+    const layout =
+      root.status === "completed"
+        ? readRepositoryStorageIdentity(root.capability)
+        : null;
     if (
       root.status !== "completed" ||
-      layout.status !== "candidate" ||
-      layout.layout?.kind === "linked_worktree"
+      layout === null ||
+      layout.repositoryForm === "linked"
     )
       return null;
     // Workspace IDは上位の相関値だけ。配置検索・方式選択には使わない。
@@ -1170,20 +1168,17 @@ export function inspectBorrowedExecutionTarget(
       )
     )
       return null;
-    const executionLayout = inspectGitRepositoryLayoutCandidate({
-      repositoryRoot: target.executionTree,
-    });
-    const identity = inspectRepositoryIdentityCandidate(target.executionTree);
-    const ownerIdentity = inspectRepositoryIdentityCandidate(ownerRoot);
+    const identity = readRepositorySnapshot(
+      getRepository(target.executionTree).capability,
+    );
+    const ownerIdentity = readRepositorySnapshot(
+      getRepository(ownerRoot).capability,
+    );
     if (
-      executionLayout.status !== "candidate" ||
-      !executionLayout.layout ||
-      !layout.layout ||
       !ownerIdentity ||
-      identity?.logicalRepositoryIdentity !==
-        ownerIdentity.logicalRepositoryIdentity ||
+      identity?.repositoryIdentity !== ownerIdentity.repositoryIdentity ||
       !identity ||
-      (target.head !== null && identity.commit !== target.head) ||
+      (target.head !== null && identity.revisionIdentity !== target.head) ||
       (target.executionTree !== ownerRoot && target.head === null) ||
       (target.executionTree !== ownerRoot &&
         !target.executionTree.startsWith(ownerRoot + path.sep))
@@ -1199,7 +1194,7 @@ export function inspectBorrowedExecutionTarget(
       !(git.isDirectory() || git.isFile())
     )
       return null;
-    const executionRoot = verifyRepositoryRoot(target.executionTree);
+    const executionRoot = getRepository(target.executionTree);
     if (
       executionRoot.status !== "completed" ||
       checkRepositoryRuntimeDataProtectionDirectory(
@@ -1239,7 +1234,7 @@ export function bindBorrowedExecutionTarget(
   if (!target || borrowed.has(management)) return null;
   const binding = verifyOwnedOperationManagementMountBinding(management, mount);
   // 空のMount先だけを初期化する。状態・履歴をこのTreeへ保存しない。
-  const executionRoot = verifyRepositoryRoot(target.executionTree);
+  const executionRoot = getRepository(target.executionTree);
   if (
     executionRoot.status !== "completed" ||
     checkRepositoryRuntimeDataProtectionDirectory(
@@ -6712,7 +6707,7 @@ type Binding = Readonly<{
   managementCapability: object;
   operationId: string;
   repositoryRoot: string;
-  verifiedRoot: VerifiedRepositoryRoot;
+  verifiedRoot: Repository;
   repositoryKind: string;
   logicalRepositoryIdentity: string;
   repositoryInstanceIdentity: string;
@@ -6740,13 +6735,10 @@ const capabilities = new WeakMap<object, Binding>();
  * @concurrency N/A: observeは共有非同期状態を持たない同期処理である。
  */
 function observe(repositoryRoot: string) {
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("repository_root_invalid");
-  const observed = observeRepositoryRevision(
-    verified.capability,
-    gitRepositoryRevisionAdapter,
-  );
+  const observed = readRepositoryRevision(verified.capability);
   if (!observed) throw new Error("repository_revision_invalid");
   return Object.freeze({
     verifiedRoot: verified.capability,
@@ -6785,9 +6777,8 @@ export function inspectRepositoryObjectFormatCandidate(
     ) {
       return null;
     }
-    const format = inspectRepositoryFormat(
-      repositoryRoot,
-      gitRepositoryFormatAdapter,
+    const format = readRepositoryFormat(
+      getRepository(repositoryRoot).capability,
     );
     if (!format) return null;
     return Object.freeze({
@@ -6989,7 +6980,7 @@ export function borrowRuntimeOwnedCoordinatorStateRepository(
     ) as Readonly<
       typeof repository & {
         purpose: "execution";
-        root: VerifiedRepositoryRoot;
+        root: Repository;
       }
     >;
   } catch {
@@ -7045,9 +7036,9 @@ export function borrowRuntimeOwnedCoordinatorStorageRepository(
   rootCapability: unknown,
 ) {
   try {
-    const capability = rootCapability as VerifiedRepositoryRoot;
+    const capability = rootCapability as Repository;
     const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
-    const observed = observeRepositoryStorageIdentity(capability);
+    const observed = readRepositoryStorageIdentity(capability);
     if (!repositoryRoot || !observed) return null;
     const repository = {
       repositoryRoot,
@@ -7057,7 +7048,7 @@ export function borrowRuntimeOwnedCoordinatorStorageRepository(
         observed.repositoryInstanceIdentity,
       ),
       revalidate: () => {
-        const fresh = observeRepositoryStorageIdentity(capability);
+        const fresh = readRepositoryStorageIdentity(capability);
         return (
           fresh !== null &&
           fresh.repositoryForm === observed.repositoryForm &&
@@ -7075,7 +7066,7 @@ export function borrowRuntimeOwnedCoordinatorStorageRepository(
     ) as Readonly<
       typeof repository & {
         purpose: "storage";
-        root: VerifiedRepositoryRoot;
+        root: Repository;
       }
     >;
   } catch {
@@ -7104,7 +7095,7 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
   try {
     if (!rootCapability || typeof rootCapability !== "object") return null;
     const repositoryRoot = resolveVerifiedRepositoryRoot(
-      rootCapability as VerifiedRepositoryRoot,
+      rootCapability as Repository,
     );
     if (!repositoryRoot) return null;
     const initial = observe(repositoryRoot);
@@ -7133,9 +7124,8 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
       revalidate() {
         try {
           if (
-            resolveVerifiedRepositoryRoot(
-              rootCapability as VerifiedRepositoryRoot,
-            ) !== repositoryRoot
+            resolveVerifiedRepositoryRoot(rootCapability as Repository) !==
+            repositoryRoot
           )
             return false;
           const current = observe(repositoryRoot);
@@ -7160,7 +7150,7 @@ export function borrowRuntimeOwnedCoordinatorRecoveryRepository(
     ) as Readonly<
       typeof repository & {
         purpose: "recovery";
-        root: VerifiedRepositoryRoot;
+        root: Repository;
       }
     >;
   } catch {
@@ -7238,7 +7228,7 @@ export function borrowRuntimeOwnedCoordinatorSettlementRepository(
   ) as Readonly<
     Omit<typeof repository, "purpose" | "root"> & {
       purpose: "settlement";
-      root: VerifiedRepositoryRoot;
+      root: Repository;
     }
   >;
 }

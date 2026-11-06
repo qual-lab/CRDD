@@ -9,25 +9,32 @@ import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import type { CoordinatorWorkspace } from "../../../domain-model/src/index.ts";
-import { readCoordinatorWorkspaceState } from "../../../domain-model/src/index.ts";
-import type {
-  RepositoryWorktreeResult,
-  WorkspaceCandidateResult,
-  WorkspaceCandidateSelection,
-} from "../../../version-control/src/index.ts";
 import {
-  createRepositoryWorktree,
-  disposeRepositoryWorktree,
-  freezeWorkspaceCandidate,
-  inspectGitRepositoryLayoutCandidate,
-  mergeWorkspaceCandidate,
-  observeRepositoryWorktree,
-  removeWorkspaceCandidate,
+  type RepositoryWorktreeResult,
+  type CoordinatorWorkspace,
+  readCoordinatorWorkspaceState,
+  type WorkspaceCandidateResult,
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
-  verifyRepositoryRoot,
+} from "../../../domain-model/src/index.ts";
+
+import {
+  type CommitSelection,
+  createWorktree,
+  removeWorktree,
+  readRepositoryStorageIdentity,
+  getWorktree,
+  getRepository,
 } from "../../../version-control/src/index.ts";
+
+import {
+  mergeWorkspaceCandidate,
+  freezeWorkspaceCandidate,
+  removeWorkspaceCandidate,
+  workspaceWorktreeTarget,
+  workspaceWorktreeResult,
+  assertWorkspaceDirectoryAvailable,
+} from "./git.ts";
 import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
@@ -141,7 +148,7 @@ export type CoordinatorWorkspaceRequest = Readonly<{
         operationId: string;
         baseCommit: string;
         expectedHead: string;
-        selection: readonly WorkspaceCandidateSelection[];
+        selection: readonly CommitSelection[];
         candidateName: string | null;
         relatedChangeIds: readonly string[];
         authorize: () => boolean;
@@ -205,14 +212,15 @@ export function manageCoordinatorWorkspace(
       ...result,
       reason: "orchestrator_workspace_adoption_not_connected",
     };
-  const verified = verifyRepositoryRoot(request.ownerRepositoryRoot);
-  const layout = inspectGitRepositoryLayoutCandidate({
-    repositoryRoot: request.ownerRepositoryRoot,
-  });
+  const verified = getRepository(request.ownerRepositoryRoot);
+  const layout =
+    verified.status === "completed"
+      ? readRepositoryStorageIdentity(verified.capability)
+      : null;
   if (
     verified.status !== "completed" ||
-    layout.status !== "candidate" ||
-    layout.layout?.kind === "linked_worktree"
+    layout === null ||
+    layout.repositoryForm === "linked"
   )
     return result;
   const initial = readCoordinatorWorkspaceState(
@@ -436,10 +444,19 @@ export function manageCoordinatorWorkspace(
       });
       if (request.authorize && !request.authorize())
         throw new Error("orchestrator_candidate_not_authorized");
-      result.gitResult = createRepositoryWorktree(verified.capability, {
-        workspaceId: request.workspaceId,
-        baseCommit: request.baseCommit,
-      });
+      assertWorkspaceDirectoryAvailable(
+        request.ownerRepositoryRoot,
+        request.workspaceId,
+      );
+      result.gitResult = workspaceWorktreeResult(
+        request.ownerRepositoryRoot,
+        request.workspaceId,
+        createWorktree(verified.capability, {
+          ...workspaceWorktreeTarget(request.workspaceId),
+          baseCommit: request.baseCommit,
+        }),
+        false,
+      );
     } else {
       if (!record) throw new Error("orchestrator_workspace_not_found");
       if (request.operation === "rename") {
@@ -692,15 +709,24 @@ export function manageCoordinatorWorkspace(
         });
         if (request.authorize && !request.authorize())
           throw new Error("orchestrator_candidate_not_authorized");
-        result.gitResult = disposeRepositoryWorktree(verified.capability, {
-          workspaceId: request.workspaceId,
-          expectedHead: request.expectedHead,
-          discardChanges: request.discardChanges === true,
-        });
-      } else
-        result.gitResult = observeRepositoryWorktree(
-          verified.capability,
+        result.gitResult = workspaceWorktreeResult(
+          request.ownerRepositoryRoot,
           request.workspaceId,
+          removeWorktree(verified.capability, {
+            ...workspaceWorktreeTarget(request.workspaceId),
+            expectedHead: request.expectedHead,
+            discardChanges: request.discardChanges === true,
+          }),
+          true,
+        );
+      } else
+        result.gitResult = workspaceWorktreeResult(
+          request.ownerRepositoryRoot,
+          request.workspaceId,
+          getWorktree(
+            verified.capability,
+            workspaceWorktreeTarget(request.workspaceId),
+          ),
         );
     }
     if (result.gitResult && record) {
@@ -854,16 +880,15 @@ export function resolveCoordinatorWorkspaceTaskTarget(
     (record.candidate && !["fixed", "merged"].includes(record.candidate.phase))
   )
     return failed("orchestrator_workspace_not_ready");
-  const verified = verifyRepositoryRoot(ownerRepositoryRoot);
+  const verified = getRepository(ownerRepositoryRoot);
   if (verified.status !== "completed")
     return failed("orchestrator_workspace_root_invalid");
-  const git = observeRepositoryWorktree(
+  const git = getWorktree(
     verified.capability,
-    record.workspaceId,
+    workspaceWorktreeTarget(record.workspaceId),
   );
   if (
     git.status !== "completed" ||
-    git.workspaceId !== record.workspaceId ||
     git.relativePath === null ||
     git.observation?.registered !== true ||
     !git.observation.directoryPresent ||

@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 
 /**
@@ -32,7 +32,7 @@ export function createNetworkPolicyDirectory() {
   if (!/^[a-z][a-z0-9-]{0,79}-$/u.test(prefix))
     throw new Error("testing_directory_prefix_invalid");
   const candidate = path.resolve(import.meta.dirname, "../../../..");
-  const verified = verifyRepositoryRoot(candidate);
+  const verified = getRepository(candidate);
   const repositoryRoot =
     verified.status === "completed"
       ? resolveVerifiedRepositoryRoot(verified.capability)

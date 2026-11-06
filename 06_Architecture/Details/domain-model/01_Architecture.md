@@ -1,5 +1,9 @@
 # Domain Modelの責務境界
 
+## Workspace保存とGit技術契約の境界 — 2026-11-06
+
+Domainは既存の`WorkspaceCandidateRequest`・`WorkspaceCandidateResult`・`RepositoryWorktreeResult`と、表示名・変更ID・候補要求の業務検査を所有する。検査入口は`validWorkspaceDisplayName`・`validWorkspaceCandidateRequest`・`isWorkspaceCommitId`。Git操作を呼ぶのはCoordinatorであり、VCからDomainへの逆依存はない。選択内容と短命Index参照はVCの`CommitSelection`・`CommitTemporary`を再利用する。永続DTOのfield・既存Path／Refは変更しない。
+
 ## Runtime Domainの設計正本 — 2026-10-27
 
 移管するPlan／Objective／MilestoneはCallerが渡す実行依頼の値であり、CRDD文書側のMilestone／Roadmap／WBSの別正本ではない。[文書・Caller・実行の境界](05_Runtime_Domain.md#document-and-execution-ownership)を適用し、文書への自動同期や上位計画の再作成をDomain機能として増やさない。

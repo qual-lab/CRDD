@@ -8,7 +8,7 @@
 import path from "node:path";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import type { RepositoryObservationPort } from "./types.ts";
 import { createFilesystemRepositoryObservationPortFromRootBinding } from "./filesystem-observer.ts";
@@ -18,9 +18,9 @@ import { createFilesystemRepositoryObservationPortFromRootBinding } from "./file
  *
  * @responsibility Filesystem Repository Observation Portの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000009
- * @input capability: VerifiedRepositoryRoot、任意の正のsafe integer maximumFileBytes。
+ * @input capability: Repository、任意の正のsafe integer maximumFileBytes。
  * @returns RepositoryObservationPortを返す。
- * @precondition 「capability: VerifiedRepositoryRoot」がcreateFilesystemRepositoryObservationPortの入力契約を満たす。
+ * @precondition 「capability: Repository」がcreateFilesystemRepositoryObservationPortの入力契約を満たす。
  * @postcondition createFilesystemRepositoryObservationPortの責務を完了した結果だけを返す。
  * @effect 検証済みRootを現在解決する。返却操作のFile読取りは呼出し時に行い、保存はしない。
  * @failure 不正な容量上限はRoot観測前に例外で拒否する。無効Capabilityは観測不能。
@@ -30,7 +30,7 @@ import { createFilesystemRepositoryObservationPortFromRootBinding } from "./file
  * @concurrency N/A: createFilesystemRepositoryObservationPortは共有非同期状態を持たない同期処理である。
  */
 export function createFilesystemRepositoryObservationPort(
-  capability: VerifiedRepositoryRoot,
+  capability: Repository,
   maximumFileBytes?: number,
 ): RepositoryObservationPort {
   if (

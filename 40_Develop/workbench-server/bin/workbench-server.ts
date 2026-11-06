@@ -22,7 +22,7 @@ import {
 } from "../../access-management/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../version-control/src/index.ts";
 
 /**
@@ -47,7 +47,7 @@ async function startRepositoryWorkbench(
 ): Promise<WorkbenchHandle> {
   if (!automation)
     return startWorkbench({ workingDirectory: repositoryRoot, port });
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("verified_repository_root_required");
   const surface = await readWorkbenchProjectSurface(repositoryRoot);

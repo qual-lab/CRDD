@@ -4,7 +4,7 @@
  * @trace ARCH-000004、ARCH-000008
  */
 import * as runtimeStore from "../../../domain-model/src/index.ts";
-import { verifyRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { getRepositoryFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { borrowRuntimeOwnedCoordinatorStateRepository } from "./operation.ts";
 
 /**
@@ -23,7 +23,7 @@ import { borrowRuntimeOwnedCoordinatorStateRepository } from "./operation.ts";
  * @concurrency 保存Portは返却参照を保持し、各操作のDomain側で再観測する。
  */
 export function verifyRuntimePersistenceRepository(workingDirectory: string) {
-  const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+  const verified = getRepositoryFromWorkingDirectory(workingDirectory);
   if (verified.status !== "completed")
     throw new Error("orchestrator_repository_root_invalid");
   return verified.capability;

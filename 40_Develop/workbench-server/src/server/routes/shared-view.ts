@@ -41,9 +41,8 @@ import {
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  gitRepositoryWorktreeViewAdapter,
-  observeRepositoryWorktreeTree,
-  observeRepositoryWorktreeFileDiff,
+  readTree,
+  readFileDiff,
 } from "../../../../version-control/src/index.ts";
 import { readWorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import {
@@ -226,24 +225,18 @@ export async function handleSharedView({
         const changeSet = surface.repository.changeSet;
         if (surface.repository.state === "available" && changeSet !== null) {
           try {
-            const tree = observeRepositoryWorktreeTree(
+            const tree = readTree(
               selected.root,
               changeSet,
               requestUrl.searchParams.get("treeDirectory") ?? "",
               requestUrl.searchParams.get("treeCursor") ?? undefined,
               50,
-              gitRepositoryWorktreeViewAdapter,
             );
             const diffPath = requestUrl.searchParams.get("diffPath");
             const diff =
               diffPath === null
                 ? null
-                : observeRepositoryWorktreeFileDiff(
-                    selected.root,
-                    changeSet,
-                    diffPath,
-                    gitRepositoryWorktreeViewAdapter,
-                  );
+                : readFileDiff(selected.root, changeSet, diffPath);
             worktree = { state: "available", tree, diff };
           } catch {
             worktree = { state: "unknown", tree: null, diff: null };

@@ -180,7 +180,7 @@ test("MCP RootはCoordinatorなしで保存・再読取り・CASを維持する"
     const sdk = await import(${JSON.stringify(modules.sdk)});
     assert.equal(runtime.inspectMcpCoordinatorObjectiveResult(null),null);
     const vc = await import(${JSON.stringify(modules.vc)});
-    const verified = vc.verifyRepositoryRoot(${JSON.stringify(root)});
+    const verified = vc.getRepository(${JSON.stringify(root)});
     assert.equal(verified.status, "completed");
     let authorized = true;
     const access = { root: verified.capability, principalId: "host-test", revalidate: () => authorized };

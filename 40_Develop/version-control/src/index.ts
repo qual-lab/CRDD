@@ -1,5 +1,5 @@
 /**
- * Version Control機能を差し替え可能にする公開境界。
+ * Gitの完成した技術操作を提供する公開境界。
  * @packageDocumentation
  * @responsibility Repository観測、固定Snapshot、専用Worktree・Candidate・Mergeと通常変更公開を提供する。
  * @trace ARCH-000002
@@ -7,147 +7,57 @@
  * @effect 明示操作ではローカル除外・出力先・Worktree／Branch・共有Git情報を更新し、確認済みの通常PushでRemoteへ送信し得る。
  */
 
+export { stagePaths, unstagePaths } from "./repository/working-directory.ts";
+export { commitChanges, createCommit } from "./repository/commit.ts";
+export { createReference, removeReference } from "./repository/reference.ts";
 export {
-  type ChangePublicationAdapter,
-  type ChangePublicationRequest,
-  type ChangePublicationResult,
-  type ChangePublicationTargetObservation,
-  type ChangePublicationTargetObservationAdapter,
-  executeChangePublication,
-  observeChangePublicationTarget,
-} from "./publication/change.ts";
-export {
-  FIXED_REVISION_IDENTITY_CONTRACT,
-  FIXED_REVISION_IDENTITY_CONTRACT_REVISION,
-  type FixedRevisionIdentity,
-  type FixedRevisionIdentityAdapter,
-  observeFixedRevisionIdentity,
-  inspectRepositoryRevisionCandidate,
-  inspectRepositoryIdentityCandidate,
-} from "./repository/revision.ts";
-export {
-  type CandidateMaterialization,
-  type CandidateMaterializationBlocked,
-  type CandidateOutputCapability,
-  FIXED_SNAPSHOT_CONTRACT,
-  FIXED_SNAPSHOT_CONTRACT_REVISION,
-  type FixedSnapshotAdapter,
-  type FixedSnapshotContentPolicy,
-  type FixedSnapshotFile,
-  type FixedSnapshotIdentity,
-  inspectFixedSnapshot,
-  materializeFixedSnapshotCandidate,
-  readFixedSnapshotFile,
-  verifyCandidateOutputDirectory,
-} from "./repository/snapshot.ts";
-export {
-  type ChangePublicationCommandRunner,
-  createGitChangePublicationAdapter,
-  createGitChangePublicationTargetObservationAdapter,
-  gitChangePublicationAdapter,
-  gitChangePublicationTargetObservationAdapter,
-} from "./publication/git.ts";
-export {
-  observeDeclaredNestedRepositoryPaths,
-  observeNestedRepository,
-  observeRepositoryEntries,
-  type RepositoryEntryObservation,
-  readFixedSnapshotText,
-  resolveRevisionIdentity,
-} from "./git/observation.ts";
-export {
-  gitFixedSnapshotAdapter,
-  inspectRepositoryFixedSnapshot,
-} from "./repository/snapshot.ts";
-export {
-  describeGitRepositoryLayoutAdapterContract,
-  GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT,
-  GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION,
-  inspectGitRepositoryLayoutCandidate,
-} from "./repository/layout.ts";
-export { gitLocalChangeSetAdapter } from "./repository/changes.ts";
-export { gitRepositoryLocalIgnoreAdapter } from "./repository/ignore.ts";
-export {
-  gitFixedRevisionIdentityAdapter,
-  gitRepositoryFormatAdapter,
-  gitRepositoryRevisionAdapter,
-} from "./repository/revision.ts";
-export {
-  freezeWorkspaceCandidate,
-  inspectWorkspaceFile,
-  inspectWorkspaceCandidatePatch,
-  removeWorkspaceCandidate,
-} from "./workspace/candidate.ts";
+  readRemoteTarget,
+  pushRepositoryRevision,
+} from "./repository/remote.ts";
 export type {
-  WorkspaceCandidateRequest,
-  WorkspaceCandidateResult,
-  WorkspaceCandidateSelection,
-  WorkspaceCandidateTemporary,
-} from "./workspace/types.ts";
+  CommitSelection,
+  CommitTemporary,
+  ChangesResult,
+  RemoteTarget,
+  WorkingChanges,
+  TreePage,
+  FileDiff,
+} from "./repository/types.ts";
+
+export { readRepositorySnapshot } from "./repository/revision.ts";
 export {
-  createRepositoryWorktree,
-  disposeRepositoryWorktree,
-  observeRepositoryWorktree,
-} from "./workspace/worktree.ts";
+  readRepositorySubmodules,
+  readRepositoryEntries,
+} from "./repository/discovery.ts";
+export {
+  createWorktree,
+  getWorktree,
+  removeWorktree,
+} from "./worktree/crud.ts";
 export type {
-  RepositoryWorktreeObservation,
-  RepositoryWorktreeResult,
-} from "./workspace/types.ts";
-export { gitRepositoryWorktreeViewAdapter } from "./repository/worktree-view.ts";
+  WorktreeTarget,
+  WorktreeResult,
+} from "./worktree/types.ts";
+export { readWorkingChanges } from "./repository/working-directory.ts";
+export { registerRepositoryLocalIgnore } from "./repository/ignore.ts";
 export {
-  changedPaths,
-  LOCAL_CHANGE_SET_CONTRACT,
-  LOCAL_CHANGE_SET_CONTRACT_REVISION,
-  type LocalChangeSet,
-  type LocalChangeSetAdapter,
-  type LocalChangeSetObservation,
-  observeLocalChangeSet,
-} from "./repository/changes.ts";
-export {
-  REPOSITORY_LOCAL_IGNORE_CONTRACT,
-  REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION,
-  type RepositoryLocalIgnoreAdapter,
-  type RepositoryLocalIgnoreAdapterResult,
-  registerRepositoryLocalIgnore,
-} from "./repository/ignore.ts";
-export {
-  describeRepositoryLocationContract,
-  REPOSITORY_LOCATION_CONTRACT,
-  REPOSITORY_LOCATION_CONTRACT_REVISION,
   resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  type VerifiedRepositoryRoot,
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  type Repository,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "./repository/location.ts";
 export {
-  inspectRepositoryFormat,
-  observeRepositoryRevision,
-  observeRepositoryStorageIdentity,
-  type RepositoryFormatAdapter,
-  type RepositoryRevisionAdapter,
-  type RepositoryRevisionObservation,
+  readRepositoryFormat,
+  readRepositoryRevision,
+  readRepositoryStorageIdentity,
 } from "./repository/revision.ts";
 export {
-  observeRepositoryWorktreeFileDiff,
-  observeRepositoryWorktreeTree,
-  type RepositoryWorktreeEntry,
-  type RepositoryWorktreeFileDiff,
-  type RepositoryWorktreeTreePage,
-  type RepositoryWorktreeViewAdapter,
-  type RepositoryWorktreeViewObservation,
-} from "./repository/worktree-view.ts";
+  readFile,
+  readTree,
+  readCommitFile,
+  copyCommitFiles,
+} from "./repository/files.ts";
+export { readFileDiff, readCommitDiff } from "./repository/changes.ts";
 
-export { mergeWorkspaceCandidate } from "./workspace/merge.ts";
-export {
-  inspectWorkspaceInventory,
-  readWorkspaceFileContent,
-  isWorkspaceRelativePath,
-  type WorkspaceInventoryEntry,
-} from "./workspace/observation.ts";
-
-export {
-  validWorkspaceDisplayName,
-  validWorkspaceCandidateRequest,
-  isWorkspaceCommitId,
-} from "./workspace/validation.ts";
+export { mergeCommit } from "./repository/merge.ts";

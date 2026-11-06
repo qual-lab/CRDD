@@ -6,7 +6,7 @@
  */
 
 import type { RepositoryManifest } from "../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 
 /**
  * 今回要求で使用する検証済みRepositoryを相関する。
@@ -24,7 +24,7 @@ export type RepositoryAccess = Readonly<{
   workspaceId: "development" | "management";
   bindingId: string;
   manifest: RepositoryManifest;
-  root: VerifiedRepositoryRoot;
+  root: Repository;
 }>;
 
 /**
@@ -64,7 +64,7 @@ export type AuthorizedRepository = Readonly<{
   workspaceIds: readonly ("development" | "management")[];
   bindingId: string;
   manifest: RepositoryManifest;
-  root: VerifiedRepositoryRoot;
+  root: Repository;
 }>;
 
 /**

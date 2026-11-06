@@ -21,7 +21,7 @@ import test from "node:test";
 import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
-  verifyRepositoryRoot,
+  getRepository,
 } from "../../../../version-control/src/index.ts";
 import {
   describeAdviceTaskContract,
@@ -218,7 +218,7 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
     path.join(root, "PROJECT_CONTEXT.md"),
     "# Synthetic Project Context\nStatus: ready\n",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   let observedTask:
@@ -278,7 +278,7 @@ test("未登録または非Coordinator ProfileはDispatch前に拒否する", as
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
-  const verified = verifyRepositoryRoot(repositoryRoot);
+  const verified = getRepository(repositoryRoot);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   let dispatchCount = 0;

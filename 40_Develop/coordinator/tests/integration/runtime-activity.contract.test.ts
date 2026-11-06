@@ -26,7 +26,7 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 
 import { queryActivity as readAuthorizedRuntimeActivity } from "../../src/index.ts";
@@ -49,7 +49,7 @@ const projectId = "project-a";
  */
 function repository(t: test.TestContext, repositoryId: string, commit = true) {
   const base = path.resolve(import.meta.dirname, "../../../..");
-  const checked = verifyRepositoryRoot(base);
+  const checked = getRepository(base);
   assert.equal(checked.status, "completed");
   if (checked.status !== "completed") throw new Error("fixture_root_invalid");
   const area = requireReadyRepositoryRuntimeDataArea(
@@ -83,7 +83,7 @@ function repository(t: test.TestContext, repositoryId: string, commit = true) {
       ],
       { windowsHide: true },
     );
-  const verification = verifyRepositoryRoot(root);
+  const verification = getRepository(root);
   assert.equal(verification.status, "completed");
   if (verification.status !== "completed")
     throw new Error("fixture_root_invalid");

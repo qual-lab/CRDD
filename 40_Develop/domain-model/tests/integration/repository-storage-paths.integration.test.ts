@@ -31,10 +31,9 @@ import {
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../src/repository/require-storage-area.ts";
-import { ensureRepositoryRuntimeDataAreaWithAdapter } from "../../src/storage/ensure-area.ts";
 import {
-  verifyRepositoryRoot,
-  verifyRepositoryRootFromWorkingDirectory,
+  getRepository,
+  getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -142,7 +141,7 @@ test("Windowsの上位bit付きFile IDで保存Readerの同一性確認を維持
  * @boundary RDL-IT-001=Direct Boundary: Owner observer→VCS／Filesystem metadata
  */
 test("Owner読取り観測は不存在・境界置換・観測不能をEffect0で区別する", (t) => {
-  const current = verifyRepositoryRoot(repositoryRoot);
+  const current = getRepository(repositoryRoot);
   if (current.status !== "completed") throw new Error("fixture_root_invalid");
   const testArea = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataArea(current.capability, "tests"),
@@ -163,7 +162,7 @@ test("Owner読取り観測は不存在・境界置換・観測不能をEffect0�
     path.join(root, ".git", "config"),
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   if (verified.status !== "completed") throw new Error("fixture_invalid");
   const initialEntries = fs.readdirSync(root);
   assert.equal(
@@ -374,7 +373,7 @@ test("Owner読取り観測は不存在・境界置換・観測不能をEffect0�
  * @boundary RDL-IT-001=Direct Boundary: Root能力→名前付きPath
  */
 test("検証済みRepository Rootだけから全Repository-local Pathを解決する", () => {
-  const verification = verifyRepositoryRoot(repositoryRoot);
+  const verification = getRepository(repositoryRoot);
   assert.equal(verification.status, "completed");
   if (verification.status !== "completed") return;
   const paths = resolveRepositoryRuntimeDataPaths(verification.capability);
@@ -434,7 +433,7 @@ test("Consumerはraw Rootではなく名前付き領域だけを作成・検証�
     path.join(isolatedRepository, ".git", "config"),
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
   );
-  const verification = verifyRepositoryRoot(isolatedRepository);
+  const verification = getRepository(isolatedRepository);
   assert.equal(verification.status, "completed");
   if (verification.status !== "completed") return;
   const area = ensureRepositoryRuntimeDataArea(
@@ -485,20 +484,32 @@ test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない"
     path.join(isolatedRepository, ".git", "config"),
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
   );
-  const verification = verifyRepositoryRoot(isolatedRepository);
+  const verification = getRepository(isolatedRepository);
   assert.equal(verification.status, "completed");
   if (verification.status !== "completed") return;
-  const result = ensureRepositoryRuntimeDataAreaWithAdapter(
+  const rename = fs.renameSync;
+  const open = fs.openSync;
+  const exclude = path.join(isolatedRepository, ".git", "info", "exclude");
+  let replaced = false;
+  t.mock.method(
+    fs,
+    "renameSync",
+    (...args: Parameters<typeof fs.renameSync>) => {
+      const result = rename(...args);
+      if (args[1] === exclude) replaced = true;
+      return result;
+    },
+  );
+  t.mock.method(fs, "openSync", (...args: Parameters<typeof fs.openSync>) => {
+    if (replaced && args[0] === exclude)
+      throw Object.assign(new Error("synthetic_readback_unavailable"), {
+        code: "EIO",
+      });
+    return open(...args);
+  });
+  const result = ensureRepositoryRuntimeDataArea(
     verification.capability,
     "tests",
-    () =>
-      Object.freeze({
-        status: "blocked" as const,
-        reason: "repository_local_ignore_update_blocked" as const,
-        effectIssued: true,
-        effectConfirmation: "unknown" as const,
-        cleanupConfirmed: true,
-      }),
   );
   assert.equal(result?.status, "blocked");
   if (result?.status !== "blocked") return;
@@ -536,7 +547,7 @@ test("IgnoreのEffect不明をnullへ畳まずRuntime Data領域を作らない"
  * @boundary RDL-IT-001=Direct Boundary: runtime-data Test Source→対象契約
  */
 test("Repositoryの子DirectoryはRoot Capabilityとして拒否する", () => {
-  assert.deepEqual(verifyRepositoryRoot(import.meta.dirname), {
+  assert.deepEqual(getRepository(import.meta.dirname), {
     status: "blocked",
     reason: "repository_root_invalid",
     capability: null,
@@ -560,7 +571,7 @@ test("任意Directoryと非公開のraw Root入口からPath能力を取得で�
     path.join(os.tmpdir(), "crdd-runtime-root-"),
   );
   t.after(() => fs.rmSync(arbitrary, { recursive: true, force: true }));
-  assert.equal(verifyRepositoryRoot(arbitrary).status, "blocked");
+  assert.equal(getRepository(arbitrary).status, "blocked");
   const publicApi = await import("../../src/index.ts");
   assert.equal(
     "resolveRepositoryRuntimeDataPathsFromValidatedRoot" in publicApi,
@@ -600,7 +611,7 @@ test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒�
   try {
     fs.symlinkSync(repositoryRoot, alias, "junction");
     assert.deepEqual(
-      verifyRepositoryRootFromWorkingDirectory(
+      getRepositoryFromWorkingDirectory(
         path.join(alias, "40_Develop", "domain-model"),
       ),
       {
@@ -628,7 +639,7 @@ test("junction経由のWorking DirectoryはRepository Rootへ正規化せず拒�
  * @boundary RDL-IT-001=Direct Boundary: 廃止Area要求→Owner拒否
  */
 test("廃止verification Areaに新規Effectや互換aliasを発行しない", () => {
-  const root = verifyRepositoryRoot(repositoryRoot);
+  const root = getRepository(repositoryRoot);
   if (root.status !== "completed") throw new Error("fixture_root_invalid");
   const paths = resolveRepositoryRuntimeDataPaths(root.capability);
   assert.ok(paths);

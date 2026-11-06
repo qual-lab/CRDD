@@ -14,8 +14,8 @@ import {
 import {
   validWorkspaceCandidateRequest,
   validWorkspaceDisplayName,
-  type WorkspaceCandidateSelection,
-} from "../../../version-control/src/index.ts";
+} from "./validation.ts";
+import type { CommitSelection } from "../../../version-control/src/index.ts";
 /**
  * 公開入力の閉じた操作集合。
  * @responsibility 読取り・固定・採用・終了を別要求にする。
@@ -54,7 +54,7 @@ export type WorkspaceCommand =
                   operationId: string;
                   baseCommit: string;
                   expectedHead: string;
-                  selection: readonly WorkspaceCandidateSelection[];
+                  selection: readonly CommitSelection[];
                   candidateName: string | null;
                   relatedChangeIds: readonly string[];
                 }

@@ -16,8 +16,8 @@ import {
   readRepositoryAiSelection,
 } from "../../domain-model/src/index.ts";
 import {
-  gitRepositoryRevisionAdapter,
-  verifyRepositoryRoot,
+  readRepositoryRevision,
+  getRepository,
 } from "../../version-control/src/index.ts";
 import { readWorkbenchProjectSurface, startWorkbench } from "../src/index.ts";
 import type {
@@ -56,12 +56,12 @@ async function main() {
   if (provider !== "codex" && provider !== "claude")
     throw Error("provider_invalid");
   const root = process.cwd();
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   if (verified.status !== "completed") throw new Error("root_unverified");
   const hash = (v: string | Buffer) =>
     createHash("sha256").update(v).digest("hex");
   const canonical = () => {
-    const revision = gitRepositoryRevisionAdapter(root);
+    const revision = readRepositoryRevision(getRepository(root).capability);
     if (revision === null) throw new Error("revision_unobserved");
     return {
       commit: revision.revisionIdentity,

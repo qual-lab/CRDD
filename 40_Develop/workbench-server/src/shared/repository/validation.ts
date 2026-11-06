@@ -6,10 +6,8 @@
  * @trace ARCH-000012
  * @boundary Browser FormとVersion Control操作の境界。
  */
-import type {
-  ChangePublicationRequest,
-  ChangePublicationResult,
-} from "../../../../version-control/src/index.ts";
+import type { RepositoryActionRequest } from "./types.ts";
+import type { ChangesResult } from "../../../../version-control/src/index.ts";
 
 /**
  * Repository操作Formを配送前に閉検査する。
@@ -33,7 +31,7 @@ export function validateRepositoryActionForm(
   shared: boolean,
 ): Readonly<{
   repositoryId: string | null;
-  request: ChangePublicationRequest;
+  request: RepositoryActionRequest;
 }> {
   const operation = form.get("operation");
   const fields =
@@ -64,7 +62,7 @@ export function validateRepositoryActionForm(
       !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(repositoryId))
   )
     throw new Error("repository_action_input_invalid");
-  let request: ChangePublicationRequest;
+  let request: RepositoryActionRequest;
   if (operation === "prepare" || operation === "unprepare") {
     const selectedPath = form.get("path") ?? "";
     if (
@@ -136,9 +134,9 @@ export function validateRepositoryActionForm(
  * @concurrency 他要求の結果を相関に使用しない。
  */
 export function inspectRepositoryActionResult(
-  request: ChangePublicationRequest,
+  request: RepositoryActionRequest,
   value: unknown,
-): ChangePublicationResult {
+): ChangesResult {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     throw new Error("repository_action_result_invalid");
   const result = value as Record<string, unknown>;
@@ -157,7 +155,12 @@ export function inspectRepositoryActionResult(
     throw new Error("repository_action_result_invalid");
   let expected: readonly [string, boolean, boolean, boolean] | undefined;
   if (request.operation === "prepare" || request.operation === "unprepare") {
-    if (result.reason === `${request.operation}_completed`)
+    if (
+      request.operation === "prepare" &&
+      result.reason === "prepare_external_filter_unavailable"
+    )
+      expected = ["blocked", false, false, false];
+    else if (result.reason === `${request.operation}_completed`)
       expected = ["completed", true, true, false];
     else if (result.reason === `${request.operation}_rejected`)
       expected = ["blocked", true, false, false];
@@ -197,7 +200,7 @@ export function inspectRepositoryActionResult(
   )
     throw new Error("repository_action_result_invalid");
   return Object.freeze({
-    status: expected[0] as ChangePublicationResult["status"],
+    status: expected[0] as ChangesResult["status"],
     reason: result.reason,
     effectIssued: expected[1],
     effectConfirmed: expected[2],

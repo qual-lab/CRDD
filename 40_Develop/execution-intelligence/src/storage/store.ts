@@ -21,7 +21,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../version-control/src/index.ts";
 import {
   MutationBoundaryError,
@@ -189,9 +189,9 @@ function ensureDirectory(directory: string): void {
  *
  * @responsibility store Layoutの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: Repository、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver
  * @returns StoreLayout | nullを返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
  * @postcondition storeLayoutの責務を完了した結果だけを返す。
  * @effect storeLayoutはFilesystemの読取りまたは書込みを実行する。
  * @failure storeLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -201,7 +201,7 @@ function ensureDirectory(directory: string): void {
  * @concurrency N/A: storeLayoutは共有非同期状態を持たない同期処理である。
  */
 function storeLayout(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   shouldCreate: boolean,
   resolveArea: RuntimeDataAreaResolver = ensureRepositoryRuntimeDataArea,
 ): StoreLayout | null {
@@ -227,7 +227,7 @@ function storeLayout(
     });
   }
   let observedArea = resolveArea(
-    rootCapability as VerifiedRepositoryRoot,
+    rootCapability as Repository,
     "execution-intelligence",
   );
   for (
@@ -239,7 +239,7 @@ function storeLayout(
   ) {
     Atomics.wait(waitArray, 0, 0, LOCK_RETRY_MS);
     observedArea = resolveArea(
-      rootCapability as VerifiedRepositoryRoot,
+      rootCapability as Repository,
       "execution-intelligence",
     );
   }
@@ -310,9 +310,9 @@ function existingPublication(
  *
  * @responsibility Execution Intelligence Event With Runtime Data Areaの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: Repository、value: unknown、resolveArea: RuntimeDataAreaResolver
  * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver」がwriteExecutionIntelligenceEventWithRuntimeDataAreaの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、value: unknown、resolveArea: RuntimeDataAreaResolver」がwriteExecutionIntelligenceEventWithRuntimeDataAreaの入力契約を満たす。
  * @postcondition writeExecutionIntelligenceEventWithRuntimeDataAreaの責務を完了した結果だけを返す。
  * @effect writeExecutionIntelligenceEventWithRuntimeDataAreaはFilesystemの読取りまたは書込みを実行する。
  * @failure writeExecutionIntelligenceEventWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -322,7 +322,7 @@ function existingPublication(
  * @concurrency Root全体のLockで設定取得・読取り・保持整理・原子的公開を直列化する。
  */
 export function writeExecutionIntelligenceEventWithRuntimeDataArea(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   value: unknown,
   resolveArea: RuntimeDataAreaResolver,
   clock: () => number = Date.now,
@@ -517,9 +517,9 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
  *
  * @responsibility Execution Intelligence Eventの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedRepositoryRoot、value: unknown
+ * @input rootCapability: Repository、value: unknown
  * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
  * @postcondition writeExecutionIntelligenceEventの責務を完了した結果だけを返す。
  * @effect Repository-local履歴領域を作成し、history.lockの排他取得、pending書込み、履歴のatomic置換と保持期間整理を実行する。
  * @failure 入力不正、保存・観測・排他・回収の失敗を下位保存Ownerの結果として返し、Effect不明を未発行へ畳まない。
@@ -529,7 +529,7 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
  * @concurrency history.lockを排他的に取得し、保存確定と読戻し後に所有Lockの解放結果を確認する。
  */
 export function writeExecutionIntelligenceEvent(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   value: unknown,
 ): ExecutionIntelligencePublicationResult {
   return writeExecutionIntelligenceEventWithRuntimeDataArea(
@@ -644,9 +644,9 @@ function readFromExecutionDirectory(directory: string) {
  *
  * @responsibility Execution Intelligence With Runtime Data Areaの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedRepositoryRoot、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: Repository、resolveArea: RuntimeDataAreaResolver
  * @returns | ReturnType<typeof readFromExecutionDirectory> | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
  * @postcondition readExecutionIntelligenceWithRuntimeDataAreaの責務を完了した結果だけを返す。
  * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
  * @failure readExecutionIntelligenceWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -656,7 +656,7 @@ function readFromExecutionDirectory(directory: string) {
  * @concurrency Lock／pendingを読取り前後に観測し、原子的に公開した完全なhistory snapshotだけを返す。
  */
 export function readExecutionIntelligenceWithRuntimeDataArea(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   resolveArea: RuntimeDataAreaResolver,
   options?: ExecutionIntelligenceReadOptions,
 ):
@@ -797,9 +797,9 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
  *
  * @responsibility Execution Intelligenceの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedRepositoryRoot
+ * @input rootCapability: Repository
  * @returns readExecutionIntelligenceの計算結果を返す。
- * @precondition 「rootCapability: VerifiedRepositoryRoot」がreadExecutionIntelligenceの入力契約を満たす。
+ * @precondition 「rootCapability: Repository」がreadExecutionIntelligenceの入力契約を満たす。
  * @postcondition readExecutionIntelligenceの責務を完了した結果だけを返す。
  * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
  * @failure N/A: readExecutionIntelligenceは独自の失敗分岐を所有しない。
@@ -809,7 +809,7 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
  * @concurrency N/A: readExecutionIntelligenceは共有非同期状態を持たない同期処理である。
  */
 export function readExecutionIntelligence(
-  rootCapability: VerifiedRepositoryRoot,
+  rootCapability: Repository,
   options?: ExecutionIntelligenceReadOptions,
 ) {
   return readExecutionIntelligenceWithRuntimeDataArea(

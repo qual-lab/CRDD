@@ -30,7 +30,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
-  type VerifiedRepositoryRoot,
+  type Repository,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import { readActionForm, setResponseHeaders } from "../security.ts";
@@ -86,7 +86,7 @@ export async function handleRuntimeDefinition({
   requestUrl: URL;
   origin: string | null;
   actionToken: string;
-  capability: VerifiedRepositoryRoot;
+  capability: Repository;
   localAccessRoot: FilesystemStoreRoot | undefined;
   credentialAdministration: CredentialAdministration | undefined;
 }>): Promise<void> {

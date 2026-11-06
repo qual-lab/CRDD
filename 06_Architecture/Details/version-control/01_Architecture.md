@@ -2,43 +2,45 @@
 
 ## 保存Identity観測の重複探索統合
 
-`repository/location.ts`のPackage内部観測は、私有WeakMapで検証済みCapabilityを照合し、exact Rootの絶対Directory・実PathとfreshなGit配置を一回の探索で返す。Package Rootの公開APIには追加せず、観測結果をcache・Authority・永続状態にしない。`observeRepositoryStorageIdentity`はこの観測をbefore／afterで一回ずつ実行し、Root、配置種別、common directory由来の論理IdentityとRoot由来の実体Identityの一致だけを既存shapeで返す。どちらかの観測が不正・不明又は不一致ならnullとする。
+`repository/location.ts`のPackage内部観測は、私有WeakMapで検証済みCapabilityを照合し、exact Rootの絶対Directory・実PathとfreshなGit配置を一回の探索で返す。Package Rootの公開APIには追加せず、観測結果をcache・Authority・永続状態にしない。`readRepositoryStorageIdentity`はこの観測をbefore／afterで一回ずつ実行し、Root、配置種別、common directory由来の論理IdentityとRoot由来の実体Identityの一致だけを既存shapeで返す。どちらかの観測が不正・不明又は不一致ならnullとする。
 
 一回のIdentity観測内部にあった文字列Root解決と配置読取りの重複だけを統合する。別々のAPI呼出しやI/O phaseを跨いで結果を使い回さない。書込み前後・atomic replace／readback後・Lock／cleanupで必要なfresh確認は各Ownerが従来どおり呼ぶ。保存用のIdentityをCommit観測・AI実行許可へ昇格しない。
 
 ## B4の借用Tree観測 — 2026-10-21
 
-`workspace/observation.ts`へ既存の安定File読取りと容量制限付きinventoryを移管する。開始時dirtyを含む実Treeを観測し、Git Commitへ勝手に置き換えない。既存のPath・case衝突・link／hardlink・深さ・File数・容量・読取り前後Identityの検査と拒否順序を保持し、書込み・巻戻し・採用・削除を行わない。Task Capability、許可Path・Secretの意味、レビュー公開範囲とWorkspace寿命は上位Ownerに残す。
+2026-11-05のGit技術責務への再編で、借用領域の安定File読取りと容量制限付きinventoryを`coordinator/src/execution/files.ts`へ戻す。対象にはGit非管理の実行領域が含まれるため、Version ControlのGit読取りへ偽装しない。開始時dirtyを含む実Treeを観測し、Git Commitへ勝手に置き換えない。既存のPath・case衝突・link／hardlink・深さ・File数・容量・読取り前後Identityの検査と拒否順序を保持し、書込み・巻戻し・採用・削除を行わない。Task Capability、許可Path・Secretの意味、レビュー公開範囲とWorkspace寿命も引き続き上位Ownerに残す。
 
-## Source構造の再編 — 2026-10-20（対象の再配置・回帰完了）
+## Git技術責務によるSource構造 — 2026-11-06（最新候補の回帰確認中）
 
-利用者が[全数対応表](../../../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md)の配置と、未使用の移行比較API・専用合成試験・Fixture撤去を承認した。Repository、Workspace、通常変更公開、共通Git技術の四領域へ整理する。Git CLI、Object Reader、引数順序・環境・出力制限・期限、結果・失敗相関、安全条件は変更しない。
+Repository、Worktree、共通Git技術をOwnerにする。業務上のWorkspace ID・表示名・関連CHG・保持Ref名とPathの選択はDomain／Coordinatorが所有し、Version Controlは確定した技術要求を実行する。実Path／Branch／Refと保存DTOの値は変えない。
 
 ```text
 src/
-├ index.ts                  各実Ownerから明示公開
+├ index.ts
 ├ repository/
-│  ├ location.ts            exact Rootと能力の再確認
-│  ├ layout.ts              Git配置・実体と構成の検査
-│  ├ revision.ts            現在／固定Revisionと形式
-│  ├ snapshot.ts            固定内容の検査・読取り・限定実体化
-│  ├ changes.ts             変更集合の受付と観測
-│  ├ worktree-view.ts       読取りTree・差分・ページング
-│  └ ignore.ts              ローカル除外登録と安全な更新
-├ workspace/
-│  ├ worktree.ts            専用Worktree／Branchの技術操作
-│  ├ candidate.ts           選択差分固定・検査・専用Ref回収
-│  └ merge.ts               明示Merge・親とTreeの読戻し
-├ publication/
-│  ├ change.ts              通常Stage／Commit／Pushの要求・結果
-│  └ git.ts                 通常公開操作の具体的Git接続
+│  ├ location.ts            検証済みRepositoryの取得・freshなRoot再確認
+│  ├ layout.ts              Git管理配置・実体の検査
+│  ├ revision.ts            現在／指定Revision・形式・技術Identity
+│  ├ discovery.ts           Entry一覧と宣言されたsubmodule
+│  ├ files.ts               現在Tree／File・固定Commit File・選択コピー
+│  ├ changes.ts             現在Fileと固定Commit間の差分
+│  ├ working-directory.ts   Working Tree／Indexの変更集合・Stage／Unstage
+│  ├ commit.ts              通常Commit・選択Commitと短命Indexの照合
+│  ├ merge.ts               現在WorktreeへのMerge・親／Tree／途中状態
+│  ├ reference.ts           上位指定RefのCAS・readback・限定された短命Index回収
+│  ├ remote.ts              Remote観測と明示Push
+│  ├ ignore.ts              ローカル除外の安全な更新
+│  └ types.ts               Repository操作の要求・結果
+├ worktree/
+│  ├ crud.ts                Main／Linked観測、指定Linkedの生成・除去
+│  └ types.ts               Worktree対象・要求・観測・結果
 └ git/
-   ├ read.ts                diff／ls-filesだけの限定実行
-   ├ objects.ts             既存Object読取り・解析
-   └ observation.ts         入れ子Repository等の観測
+   ├ execute.ts             exactなGit Process構成と有界入出力
+   ├ read.ts                読取りCommandの既存制約
+   └ objects.ts             Object読取り・解析
 ```
 
-型・操作と具体Adapterは同じ責務Fileへ同居するが、公開型・Adapter値・契約ID／revisionは名称整理だけを理由に変えない。`merge → candidate → worktree`の一方向で実共有検査を利用し、helper複製・新しい中継・Lock方式を作らない。通常変更公開は本番Workbenchが利用しておりCandidate採否へ統合しない。CLIを持たないPackageへbin／CLI受付を追加しない。
+旧 `workspace/`・`publication/`・用途別Adapter／Factoryは撤去する。単に別Sourceの旧経路を呼ぶFacadeにはしない。Main／Linkedの内容操作は同じ実装を使い、MergeのHEAD／Index／MERGE_HEADは入力Worktree固有とする。CLI・新しいLock・Store・互換Readerは追加しない。
 
 移行比較の`inspectMigrationSystemClosure`・`MigrationConsumerObservation`はRuntime公開から撤去する。合成配列の比較を実Consumer移行の成立根拠にしない。`version-control.contract-migration-closure`の確認義務とQA-000001の`RCM-ST-012`はOPENを維持し、Root観測・固定Snapshot・実際の利用側閉包を使って必要な入力を提供する。公開・Release・Recoveryを含む実System全体の成立は別途観測し、削除した合成試験の成功を流用しない。過去Evidenceは変更しない。
 
@@ -59,7 +61,7 @@ Workspace再編で追加するGit操作は[Workspace詳細](../coordinator/05_Wo
 | Candidate Ref回収 | Workspace Branchと別資源としてRef・期待Commitを既存上位記録へ返す。上位が採用時の取込済み又は不採用の明示破棄、必要参照・保持・非使用を確認した後、標準Gitの期待値付きRef削除を行う。Workspace継続中も独立処置でき、他Refを変更しない。不一致・使用中・観測不能では削除0、途中失敗は同対象へ再入場し、Objectの即時消去は要求しない |
 | 既存作業 | HEAD／dirty／staged／未追跡を直前に再観測し、上書き又は選択外混入のおそれがあれば発行しない。非衝突dirtyも一律cleanへ制限しない。Gitが保全できない入力は理由を返して停止する |
 | 結果・中断 | 発行前拒否、Conflict、Git成功、応答喪失、結果読戻し不能を分ける。途中状態を自動abort／reset／stash／cleanで解消しない。既存上位記録へ元操作と期待／観測HEADを返し、Message一致だけから再入場の成立を推定しない |
-| Message | 上位が渡した一行表示名とUUID／Base／Candidate／関連CHGを検査し、shellを使わず渡す。内容を認可や品質証明と解釈せず、Credential等を含めない。表示名をRefやPathへ転用しない |
+| Message | Coordinatorが表示名・UUID・Base・候補・関連CHGを既存形式のMessageへ投影する。VCは技術的な長さ・制御文字を検査し、shellを使わずGitへ渡す。Messageを認可や品質証明と解釈しない |
 
 反証には、Fast-forward可能時の二親生成、分岐時の正常Merge、既取込の非発行、未選択過去Commitとstageの非混入、共有側の非衝突dirty保全、衝突／未追跡上書き拒否、確認後のHEAD変更、制御文字を含む名前、Git成功後の上位保存失敗を含める。実Git境界はQA-000007の`RFD-IT-029`、上位の選択・認可・保存・名前搬送はQA-000005へ接続する。[現在のSource・実Git結果](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)を参照し、既存Worktree作成・観測・除去の成功で代替しない。
 
@@ -69,9 +71,9 @@ Workspace再編で追加するGit操作は[Workspace詳細](../coordinator/05_Wo
 
 | 操作・境界 | 契約 |
 |---|---|
-| 入力の結合 | 既存の検証済みRepository Rootと上位発行の小文字UUIDを受け、専用Branchを`crdd/workspace/<uuid>`、配置を`.crdd/workspaces/<uuid>/worktree/`へ固定する。作成はfull Base Commit、削除は期待HEADを必須とする。上位UI・Task保存Schemaの完成は意味しない |
+| 入力の結合 | 検証済みRepositoryと上位指定の相対Path／Branchを受け、作成はfull Base Commit、削除は期待HEADを必須とする。WorkspaceのUUIDと既存Path／Branchの選択はCoordinatorが所有する。Mainは観測・内容操作対象であり、削除対象にしない |
 | 所属Repository | 標準GitのWorktree一覧のmainを候補にし、既存Root検証・layoutの共通管理領域との一致を確認する。linkedからの呼出しでも所属Root直下へ置く。bare、別Repository、移動・重複・観測不能を推測で補わない |
-| 配置 | 所属Rootの`.crdd/workspaces/<id>/worktree/`のみ。IDのPath混入、祖先link、既存Directory・登録・Branchの衝突は上書きしない。ignore設定を暗黙更新せず、既存除外の成立を前提確認する |
+| 配置 | 上位が所属Root内の相対PathとBranchを明示する。既存Workspaceの配置選択はCoordinatorが所有する。Path逸脱、祖先link、既存Worktree・登録・Branchの衝突は上書きしない。既存の親Directoryは許容するがVCでは除去しない。ignore設定を暗黙更新せず、既存除外の成立を前提確認する |
 | 作成 | full Commit IDをCommit実体へ照合後、標準Gitで専用BranchとWorktreeを作る。共有Treeのdirtyをコピーしない。登録・実体・HEAD・Branch・cleanを読戻し確認する |
 | 観測 | 登録と実体の有無、HEAD、Branch、locked／prunableを観測する。staged・unstaged・未追跡・ignoredを含む変更・残存の有無をdirtyとして検知し、未取得nullと区別する。観測失敗を不存在・cleanへ畳まない |
 | 終了要求 | Orchestratorが採用・取込済み又は不採用・破棄を確定し、対象と非使用を確認して要求する。採用時は取込先の成果と採用記録を確認し、未取込残差・未追跡・ignored成果の破棄範囲も明示する。採用という結果だけで未取込内容まで消さない |
@@ -82,7 +84,7 @@ Workspace再編で追加するGit操作は[Workspace詳細](../coordinator/05_Wo
 | 途中失敗 | 要求未発行、発行後の非0、timeout、部分登録、読戻し不能を分ける。Worktree除去とBranch削除を別に観測し、一方だけの成立を全体成功にしない。同じ対象と成立済み段階へ再入場できる情報を返し、別ID再試行・自動Rollback・reset・prune・対象不明の強制清掃はしない |
 | 競合 | 標準GitのRef／Worktree保護を使う。Hostによる非協調変更を完全に原子化する保証は作らず、独自Lock・Registry・常駐監視を追加しない |
 
-技術APIは`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree`とする。削除の`discardChanges`は省略時false、明示trueだけで変更・未追跡・ignoredの破棄を許容する。上位は処置期間を通じ既存の利用調停で非使用を維持する。VC単独でTask実行中・採否・保留を判定したとは表示しない。WorktreeとBranchの不存在を独立観測し、Branchだけ残る部分状態も同ID・期待HEADで再入場する。親Workspace Directoryは空なら回収し、判断資料等が残る場合はOwnerへ残存を返す。submoduleのgitlinkと現物、未追跡の入れ子Gitは拒否し、任意再帰削除をしない。
+技術APIは`createWorktree`、`getWorktree`、`removeWorktree`とする。削除の`discardChanges`は省略時false、明示trueだけで変更・未追跡・ignoredの破棄を許容する。上位は処置期間を通じ既存の利用調停で非使用を維持する。VC単独でTask実行中・採否・保留を判定したとは表示しない。WorktreeとBranchの不存在を独立観測し、Branchだけ残る部分状態も同ID・期待HEADで再入場する。親DirectoryはVCでは削除せず実観測を返す。CoordinatorがWorkspace専用親の再利用禁止と明示回収・保存投影を所有し、観測不能はnullで保持する。submoduleのgitlinkと現物、未追跡の入れ子Gitは拒否し、任意再帰削除をしない。
 
 正常例はdirty共有Treeから固定Baseのclean Worktreeを作り、採用・取込済み又は不採用・破棄の確定後に不要なWorktreeと専用Branchを削除する場合。非発火例はTaskの終了・取消だけで継続Workspaceを削除しない場合。境界例はignored開発fileを含む明示破棄、未mergeの不採用Branch、処置直前のHEAD変更。判定情報不足例は要求後のtimeoutや一覧取得失敗で、同対象の部分成立／不明として停止する。
 
@@ -94,9 +96,11 @@ Workspace再編で追加するGit操作は[Workspace詳細](../coordinator/05_Wo
 
 ### Workspace切替前の共通読取り
 
-Tree／Diffの既存二Adapterは、Package内部の`git/read.ts`でdiff／ls-filesの既定起動だけを共用する。親Git環境とglobal／system設定からの対象差替えを防ぎ、Git管理情報と作業Treeを指定Rootへ固定する。外部Diff・textconv・fsmonitor・pager・lazy fetchとoptional lockによる任意更新を抑止し、literal Pathを扱う。2MiB／16MiBの既存上限・30秒・利用側の失敗分類・注入Runnerは維持する。新しい公開API・State・Lock・Git実装Frameworkは作らない。これは二Adapterの有限操作だけで、Status／Log・全Git操作・Direct全体の安全やWorktree管理API完成を意味しない。実装と試験の現在結果は[差分と実装順序](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)へ接続する。
+Tree／Diffの完成操作は、Package内部の共通Git読取りを利用する。親Git環境とglobal／system設定からの対象差替えを防ぎ、Git管理情報と作業Treeを指定Rootへ固定する。外部Diff・textconv・fsmonitor・pager・lazy fetchとoptional lockによる任意更新を抑止し、literal Pathを扱う。既存の出力上限・30秒期限・利用側の失敗分類を維持する。公開Adapterや注入Runnerは設けず、Gitの実行詳細は内部で所有する。通常作業全体へCommitを要求せず、操作ごとの成立範囲を結果で示す。
 
 diff前には同じRoot・固定環境で標準Gitの設定名だけを有界観測し、clean／process filterがある場合は観測を拒否する。変換処理の独自実装・設定の強制上書き・属性や改行変換全体の削除は行わない。Git LFS等のfilter利用Repositoryの差分は現経路では未対応となり、空差分や成功へ補完しない。設定なしは正規のexit1・stdout空・起動errorなしだけで確認する。二要求の合計待機枠は従来の30秒以内に収める。設定観測とdiffの間に非協調のHost操作者が設定を変更する場合の原子性は保証せず、新しいLockや監視を追加しない。
+
+通常Stageも同じ設定名観測を共有するが、Stage本体と同じRepository・global・systemの有効設定範囲を使う。設定がある場合だけ、Gitのliteral Path選択による候補File列挙と`check-attr`で今回の対象への適用を照合する。外部clean／processが適用される場合、観測失敗、Signal終了、総30秒期限の消費時は`add`を発行せず、`blocked / prepare_external_filter_unavailable / effectIssued:false / effectConfirmed:false / revisionIdentity:null`を返す。属性応答は全Path・属性名・件数を照合し、予約表示値と同名driverの曖昧さも許可へ補完しない。標準LFS設定があるだけで未適用のFileまで拒否しない。Workbenchはprepare専用の組合せとして受理する。UnstageとStage発行後の不明分類は変更しない。Filter Command値は返さず、属性・認証・Author設定を強制上書きしない。設定・属性観測とEffect間の非協調な変更の原子性は保証せず、新しいLockや監視は追加しない。
 
 ## 基本設計との関係
 
@@ -176,10 +180,10 @@ Version ControlはRuntime Dataの保存内容ではない。Runtime Dataは「�
 Checker ───────────────┐
 Runtime Data ──────────┤
 Execution Intelligence ┤
-Orchestrator ───────┼──→ 目的別Version Control Port
+Orchestrator ───────┼──→ Version Control完成操作
 Coordinator ───────────┤                 │
 Release／Signing ──────┘                 ▼
-                                      Git Adapter
+                                      共通Git技術処理
                                           │
                                           ▼
                                     Git CLI／Git Store
@@ -187,19 +191,18 @@ Release／Signing ──────┘                 ▼
 
 ## 2. 責務境界
 
-Git Adapter内部では、`src/git/layout.ts`がRepository配置・実体Identityの観測と共通再検証を所有し、`src/git/local-ignore-adapter.ts`が除外設定の内容生成・Lock・書込み・atomic確定・readback・清掃結果を所有する。更新側は同じ実体確認primitiveを利用し、配置観測を複製しない。これらの内部named exportをPackage Rootの公開APIへ追加しない。配置の分離によってLock名、更新順序、結果値、観測不能と不存在の区別を変更しない。
+`repository/layout.ts`がRepository配置・実体Identityの観測と共通再検証を、`repository/ignore.ts`が除外設定の内容生成・Lock・書込み・原子的確定・readback・清掃結果を所有する。公開の`registerRepositoryLocalIgnore`は固定実装へ直接接続し、利用側のAdapter選択・注入を要求しない。Domain側も完成結果の確定後だけRuntime領域を作成する。内部の段階別故障試験と、実更新後の読戻し故障を通じたDomain結合試験を分ける。Lock名、更新順序、結果値、観測不能と不存在の区別は維持する。
 
 | Owner | 所有すること | 所有しないこと |
 |---|---|---|
 | 利用側Component | 必要な意味、許可する操作、失敗時の処置 | Gitコマンド、`.git`配置、Object形式の再解釈 |
-| Version Control Port | Repository、変更状態、Snapshot等の目的別契約 | Git固有Path、Process起動、業務Object Identity |
-| Git Adapter | Git CLI／Storeとの接続、出力検証、Git固有失敗の正規化 | 利用側の採用判断、Release判断、Runtime Data保存 |
+| Version Control | Repository・Worktree・変更内容の完成操作、Git CLI／Object読取り、技術結果の分類 | 業務Object Identity、採否・Release判断、Runtime Data保存 |
 | Runtime Data | 検証済みRepository Rootに結合した`.crdd` PathとLifecycle | Repository RootまたはRevisionの独自観測 |
 | Release／Signing | 固定Snapshotが必要な理由と署名Gate | 通常作業へClean TreeまたはCommitを要求すること |
 
 ## 3. 目的別Port
 
-一つの巨大な`VersionControl` Interfaceへ全操作を集めない。利用側は必要な最小Portだけへ依存する。
+以下は完成操作の責務分類であり、実行時Port／Adapterを別々に構築する契約ではない。利用側はRootから必要な完成操作だけを参照し、固定Git実装は内部共通処理へ直接接続する。本書の移行表に残るPort／Git Adapterという呼称は、操作境界／内部Git実装を指す。交換用の抽象層やFactoryの存続を要求しない。
 
 | Port | 入力 | 結果 | 固定Revision必須 | 代表利用側 |
 |---|---|---|---|---|
@@ -208,13 +211,13 @@ Git Adapter内部では、`src/git/layout.ts`がRepository配置・実体Identit
 | Repository Worktree View | 検証済みRoot、Directory、Cursor、選択File | Directory直下Entry、変更区分、Query拘束Continuation、Prepared／Working Patchと切詰め状態 | いいえ | Workbench |
 | Change Publication | 検証済みRoot、選択差分、Commit内容、確認済みRemote・Branch・送信Commit、人間Authority | Stage／Unstage、Commit、通常Pushの各結果と終了後状態 | いいえ | Workbench |
 | Fixed Snapshot Read | 検証済みRoot、明示Revision、対象Path | Revision／Snapshot Identity付きの固定内容または観測不能 | はい | 固定履歴、外部送信Policy、候補生成 |
-| Candidate Materialization | 固定Snapshot、許可Path、空で安定した出力Directoryから発行したopaque Capability | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Orchestrator統合 |
+| Candidate Materialization | 固定Commit、許可Path、検証済み出力Repository内の空Directory。独立Tokenは発行しない | 隔離された候補と内容Identity。失敗時は部分生成の不存在またはcleanup観測不能 | はい | Coordinator、Orchestrator統合 |
 | Fixed Revision Identity | 検証済みRoot、固定候補 | Revision／Snapshot／Object FormatのIdentity | はい | 署名、Release準備 |
 | Repository-local Ignore Registration | 検証済みRoot、固定のignore entry | `registered`／`blocked`、原子的・冪等な登録結果、適用前後の内容Identity、Effect発行・確認・cleanup状態 | いいえ | Runtime用Repository-local除外の登録 |
 
 通常の文書読取り、編集、Communication、Topic、Meeting、ProjectionおよびWorkbench表示は、Local Change Set Observationが変更ありを返しても成立する。Git Adapterが取得したCommit SHAはRevision Identityの実装値として出所へ付加できるが、業務ObjectのIdentity、通常保存の前提または正しさの代替にしない。
 
-Portの公開結果ではGit固有語彙を使わない。Git Adapterだけが次の対応を所有する。
+Version ControlはGit技術PackageとしてCommit・Index・Refを明示する。業務側はその技術値を業務Identityや採否の代替にしない。既存の保存値・観測値で使う意味の対応は次のとおり。
 
 | Canonicalな意味 | Git Adapter内の観測例 |
 |---|---|
@@ -234,38 +237,35 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 
 ### 3.1 現行公開Symbol
 
-依存方向はDomain Model → Version Controlとし、Version ControlからDomain Modelを参照しない。`workspace/types.ts`はWorktree・固定候補の要求、選択、観測、結果、一時物参照を、`workspace/validation.ts`はその技術入力検査を所有する。Domain Modelはこれらを直接利用し、Workspaceの保存状態・世代・採用判断を所有する。Domain Model経由の技術契約の再公開は行わない。値の形状、入力の受理・拒否条件、Git操作、保存形式はこの責務移管では変更しない。
+依存方向はDomain Model → Version Controlとする。Domainが既存Workspace保存DTOと業務検査を所有し、技術選択・短命Index参照はVC正本の型を再利用する。CoordinatorがCommitと保持Ref、採用とMerge、明示終了とRef削除を合成する。
 
-`40_Develop/version-control/src/index.ts`の現行公開面は次の集合に限定する。将来候補はここへ先取りせず、公開面を変更する場合は本表と契約試験を同じ変更で更新する。
-
-| Capability | 公開Symbol |
+| Owner・用途 | 公開Symbol |
 |---|---|
-| Fixed Revision Identity | `FIXED_REVISION_IDENTITY_CONTRACT`、`FIXED_REVISION_IDENTITY_CONTRACT_REVISION`、`FixedRevisionIdentity`、`FixedRevisionIdentityAdapter`、`observeFixedRevisionIdentity` |
-| Fixed Snapshot | `CandidateOutputCapability`、`CandidateMaterialization`、`CandidateMaterializationBlocked`、`FIXED_SNAPSHOT_CONTRACT`、`FIXED_SNAPSHOT_CONTRACT_REVISION`、`FixedSnapshotAdapter`、`FixedSnapshotContentPolicy`、`FixedSnapshotFile`、`FixedSnapshotIdentity`、`inspectFixedSnapshot`、`materializeFixedSnapshotCandidate`、`readFixedSnapshotFile`、`verifyCandidateOutputDirectory` |
-| Fixed Revision Git Adapter | `gitFixedRevisionIdentityAdapter`、`gitRepositoryFormatAdapter`、`gitRepositoryRevisionAdapter` |
-| Fixed Snapshot Git Adapter | `gitFixedSnapshotAdapter`、`inspectRepositoryFixedSnapshot` |
-| Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
-| Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
-| Repository Worktree Management | `createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree`、`RepositoryWorktreeObservation`、`RepositoryWorktreeResult`。技術的な観測・結果型はVersion Controlが所有する |
-| Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`isWorkspaceCommitId`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
-| Workspace読取り観測 | `WorkspaceInventoryEntry`、`inspectWorkspaceInventory`、`readWorkspaceFileContent`、`isWorkspaceRelativePath` |
-| Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
-| Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
-| Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |
-| Repository-local Ignore Git Adapter | `gitRepositoryLocalIgnoreAdapter` |
-| Local Change Set | `changedPaths`、`LOCAL_CHANGE_SET_CONTRACT`、`LOCAL_CHANGE_SET_CONTRACT_REVISION`、`LocalChangeSet`、`LocalChangeSetAdapter`、`LocalChangeSetObservation`、`observeLocalChangeSet` |
-| Repository Worktree View | `RepositoryWorktreeEntry`、`RepositoryWorktreeFileDiff`、`RepositoryWorktreeTreePage`、`RepositoryWorktreeViewAdapter`、`RepositoryWorktreeViewObservation`、`observeRepositoryWorktreeFileDiff`、`observeRepositoryWorktreeTree` |
-| Change Publication | `ChangePublicationAdapter`、`ChangePublicationRequest`、`ChangePublicationResult`、`ChangePublicationTargetObservation`、`ChangePublicationTargetObservationAdapter`、`executeChangePublication`、`observeChangePublicationTarget` |
-| Repository-local Ignore | `REPOSITORY_LOCAL_IGNORE_CONTRACT`、`REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION`、`RepositoryLocalIgnoreAdapter`、`RepositoryLocalIgnoreAdapterResult`、`registerRepositoryLocalIgnore` |
-| Repository Location | `describeRepositoryLocationContract`、`REPOSITORY_LOCATION_CONTRACT`、`REPOSITORY_LOCATION_CONTRACT_REVISION`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`VerifiedRepositoryRoot`、`verifyRepositoryRoot`、`verifyRepositoryRootFromWorkingDirectory` |
-| Repository Revision | `inspectRepositoryFormat`、`observeRepositoryRevision`、`RepositoryFormatAdapter`、`RepositoryRevisionAdapter`、`RepositoryRevisionObservation`、`inspectRepositoryRevisionCandidate`、`inspectRepositoryIdentityCandidate` |
-| 保存先のRepository実体 | `observeRepositoryStorageIdentity`。検証済みRootの論理・実体Identityと配置種別だけを返し、Commit未作成でも保存先を識別する。実行Revisionの観測・Authorityは提供しない |
+| Repository対象 | `Repository`、`getRepository`、`getRepositoryFromWorkingDirectory`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory` |
+| 改訂・技術Identity | `readRepositorySnapshot`、`readRepositoryFormat`、`readRepositoryRevision`、`readRepositoryStorageIdentity` |
+| Worktree | `getWorktree`、`createWorktree`、`removeWorktree`、`WorktreeTarget`、`WorktreeResult` |
+| 現在内容・Index | `readTree`、`readFile`、`readFileDiff`、`readWorkingChanges`、`stagePaths`、`unstagePaths`、`WorkingChanges`、`TreePage`、`FileDiff` |
+| 固定Commit・差分・コピー | `readCommitFile`、`copyCommitFiles`、`readCommitDiff` |
+| Commit・Merge | `commitChanges`、`createCommit`、`mergeCommit`、`ChangesResult`、`CommitSelection`、`CommitTemporary` |
+| Ref | `createReference`、`removeReference` |
+| Remote | `readRemoteTarget`、`pushRepositoryRevision`、`RemoteTarget` |
+| 宣言と除外 | `readRepositorySubmodules`、`readRepositoryEntries`、`registerRepositoryLocalIgnore` |
+
+直接共有する必要のないRequest／Result型19件はRoot再exportだけを撤去し、各操作Ownerの定義を再利用する。共有保持に必要な10型は維持する。型の独立した実Consumerが必要になった場合、型複製やReturnTypeによる迂回ではなくOwner型の公開要否を再評価する。
+
+RootのDirectory再確認2関数は、Domain等がGit以外のRepository-local保存を行う直前の原本確認に必要な実利用があるため維持する。静的なLocation説明辞書は撤去し、診断では取得結果と発行済みTokenの契約値だけを表示する。借用Treeの所属は既存の保存用実体Identityで確認し、HEAD不要の条件を維持する。Layout検査のRoot公開は撤去し、技術解析と既存反証は内部に保持する。未使用の契約定数のRoot再公開とLayoutの静的Adapter説明関数は撤去する。Host Pathを返す内部利用の値は利用者向け結果へ載せない。
+
+選択固定は既存Intent保存後、同期的に `createCommit → createReference` を呼び、必要なIndex回収とRef確定の合成結果だけを保存する。Commit生成後に回収が未確認でも既知OIDを捨てず、Ref確保を試みるが成功へ昇格しない。Ref読取りは `readRepositoryRevision(repository,{reference})` に明示不存在・存在・観測不能を保持する。指定Revisionの参照解決も同じ入口へ接続し、Checker用の独立したGit実行／固定本文Readerは撤去する。
+
+removeReference は、保存済みの自己生成短命Index参照が指定された場合に限り、固定管理範囲・元実体・限定内容を照合して先に回収する。Commit ID未取得の回収を createCommit の新規Object生成へ読み替えない。任意Path削除、追加のStore／Registry／再探索は行わない。
 
 ### 3.2 用途を限定した公開入口
 
-`inspectRepositoryRevisionCandidate`は検証済みRepository実体の現在改訂を、`inspectRepositoryIdentityCandidate`は前後のRepository・改訂一致と中央のHEAD／Tree対応を照合して返す。観測不能・差替えは既存のnull契約へ閉じる。CoordinatorのOperation Capabilityや40桁限定の実行許可は所有しない。Orchestratorの受付・採用・状態観測はCoordinatorの内部Git観測へ依存せず、この公開操作を利用する。
+`readWorkingChanges`は4観測が全て成功した後、既存の文字順・重複排除で`changedPaths`を一度だけ集約する。独立した集約関数は公開せず、Workbenchの表示用変更集合は既存fieldだけを明示投影する。
 
-`observeRepositoryStorageIdentity`は保存初期化と短期保存Ownerへの結合に用途を限定する。HEADの存在を前提にせず、Git共通管理領域と作業Rootの実体を前後で確認する。実行対象や回復でCommit観測が必要な利用側は従来のRevision操作を使い、この保存用結果で代用しない。
+`readRepositorySnapshot`は検証済みRepositoryを受け、前後のRepository・改訂一致と中央のCommit／Tree対応を一つの実装で照合し、既存Fixed Revision Identity形式を返す。旧3入口と候補形式への中間変換は撤去する。保存値やHashの既存候補形式が必要な利用側は、その正本形式へ明示投影する。観測不能・差替えは既存のnull契約へ閉じる。CoordinatorのOperation Capabilityや40桁限定の実行許可は所有しない。Orchestratorの受付・採用・状態観測はCoordinatorの内部Git観測へ依存せず、この公開操作を利用する。
+
+`readRepositoryStorageIdentity`は保存初期化と短期保存Ownerへの結合に用途を限定する。HEADの存在を前提にせず、Git共通管理領域と作業Rootの実体を前後で確認する。実行対象や回復でCommit観測が必要な利用側は従来のRevision操作を使い、この保存用結果で代用しない。
 
 標準公開入口は`src/index.ts`に統合する。以下は別Fileの入口ではなく、Root公開API内の用途別Symbol集合である。Checker、Semantic Coverage、Domain Model等の利用側は必要なNamed Symbolだけをimportする。Rootの静的依存閉包には他用途のModuleも含まれ得るため、用途別importだけから狭い物理閉包や外部Effect不存在を推定しない。Module読込みと操作実行を区別し、Git内部実装への直接依存は禁止する。
 
@@ -275,7 +275,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 
 | Capability | 公開Symbol |
 |---|---|
-| Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
+| Checker Repository Observation | `readRepositorySubmodules`、`readRepositoryEntries`、`getRepository`、`readRepositoryRevision`、`readCommitFile` |
 
 #### Repository Identity
 
@@ -283,7 +283,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 
 | Capability | 公開Symbol |
 |---|---|
-| Repository Location | `REPOSITORY_LOCATION_CONTRACT`、`REPOSITORY_LOCATION_CONTRACT_REVISION`、`VerifiedRepositoryRoot`、`describeRepositoryLocationContract`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`verifyRepositoryRoot`、`verifyRepositoryRootFromWorkingDirectory` |
+| Repository Location | `Repository`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`getRepository`、`getRepositoryFromWorkingDirectory` |
 
 ## 4. Capabilityと再確認
 
@@ -296,7 +296,7 @@ Repository Capabilityは、構造が同じ値を利用側が作るだけでは�
 | 外部Effect直前 | 対象Snapshot、許可Path、利用側Authority、観測時点 |
 | 結果公開前 | 実際に使ったRoot／Revision／変更集合と観測不能範囲 |
 
-Candidate Materializationの出力Capabilityは、既存の空Directoryを実体Path・Directory Identity・link非介在とともに確認した場合だけ発行する。利用側は生PathをMaterialization Portへ渡せない。失敗後はOwnerがそのDirectoryを削除して不存在を確認し、確認できない場合は成功や未変更へ畳まない。
+`copyCommitFiles`は明示された出力Repositoryの原本と、そのRoot内の相対Directoryを受け取る。Root自体、管理Path、逸脱、link、途中の別Repository境界と非空Directoryを拒否し、Root・親・出力先の実体を同じ同期呼出し内で確認する。内容検査関数の呼出し後、成功返却前、失敗Cleanup前にも照合し、差し替えられた実体は削除しない。独立した出力Token・WeakMap・借用管理は撤去する。
 
 Repository-local Ignoreは、`info/exclude`のPathを公開せず、適用前後の内容Hashを返す。rename前の失敗は`effectConfirmation: not_issued`、rename後にreadbackを完了できない失敗は`effectConfirmation: unknown`として区別する。Lock残存のcleanupを確認できない場合も再試行可能とは表示しない。
 
@@ -341,7 +341,7 @@ Release／Signingを移行
 本番Sourceの直接Git依存を機械的に拒否
 ```
 
-各段階で、旧Consumerと新Adapterが同じ意味を別々に解釈する期間を最小化する。新Portへ移したConsumerは旧APIへ戻せない契約試験を持ち、全Consumer移行前に旧実装を削除しない。
+各段階で、旧Consumerと完成操作が同じ意味を別々に解釈する期間を最小化する。完成操作へ移したConsumerは旧APIへ戻せない契約試験を持ち、全Consumer移行前に旧実装を削除しない。
 
 ## 7. 検証
 
@@ -355,11 +355,11 @@ Release／Signingを移行
 | Fixed Revision／Release利用側 | 通常作業は未Commitで成立し、署名／Releaseだけが固定Snapshot不足を拒否する。Release Identityは利用側が合成する |
 | Consumer Closure | 本番Sourceの直接Git CLI／内部構造依存、旧API import、未登録Consumerを拒否する |
 | 署名Runtime依存閉包 | 配布対象のGit Adapterにある子Process呼出しが、呼出し元・primitive・実行ファイル・引数・結果受領の登録集合と完全一致し、未登録または未使用の宣言を拒否する |
-| Port語彙 | 公開型へ`commit`、`tree`、`index`、`worktree`、`staged`等のGit固有語彙が現れない |
+| 公開契約 | Repository・Worktree・Commit等の技術実体は公開名に使う。GitのProcess生結果・内部Context・不要なAdapter／Factoryは公開しない |
 
 実Gitとの結合試験は、呼出し、結果取得、取消／失敗、後始末までのLifecycleを対象にする。Mockだけから実Git境界の成立を推定しない。
 
-Candidate出力Capabilityは、利用側が検証済みのmount、Runtime Data領域またはRelease stagingの所有Capabilityと所有Directoryへ結合する。空であるだけの任意Directoryには発行せず、別Ownerへの流用と所有Directory外への書込みを拒否する。Portが返す内容Policy拒否、Effect前停止、cleanup済み失敗およびcleanup不明は利用側で再解釈しない。cleanupまたはEffectが不明な場合、耐久Recordからexactな実体へ再入場できる既存OperationだけをRecovery参照へ昇格する。解決可能なRecordがなければ擬似IDを生成せず、手動回復が必要でRecovery IDは未確定であることを返す。
+コピーの内容検査は同期の判断関数であり、`true`を拒否、`false`を許可として扱う。通知・ACKへ読み替えない。非Boolean値も拒否し、実Promiseが返った場合はRejectを捕捉するが待機しない。内容拒否など明示的な書込み前経路以外では、段階情報のない下位失敗を発行可能性・Effect不明として保持し、空一覧から未発行を推定しない。同じ出力実体のCleanup確認も、その過去不明を消さない。結果の`outputPathReported: false`は絶対Pathを搬送しないことを示す。旧Snapshotの個別型と`workspacePathReported`を新公開正本として残さず、永続化DTOや既存OperationのRecovery Schemaは変更しない。耐久Recordへ結合していない新しい回復IDは作らない。
 
 Candidate採用は、全変更の適用成功、途中失敗後のrollback確認済み、rollback不明を区別する。先行PathへEffectを発行した後にrollbackを確認できない場合は、後続処理や一時Workspaceのcleanup成否にかかわらずEffect不明として停止する。rollback確認済みだけを正本Effectなしへ戻し、採用済みEffectと一時Workspace cleanupも別fieldで表現する。
 
@@ -404,7 +404,7 @@ v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版Root�
 
 ## 10. 対象外と未決事項
 
-- Git以外のAdapter実装はv0.21の必須範囲にしない。ただしPortはGit固有語彙を公開しない。
+- Git実装を前提とした完成操作を公開する。将来のVCS差替えのためだけのAdapter・Factory・Portは設けず、GitのProcess生結果や内部Contextは公開しない。
 - Git操作全般を提供する汎用Libraryや、任意Command実行入口は作らない。
 - Git履歴が不要なRuntime DataをVersion Control Componentへ移さない。
 - Remote Repository Hosting、認証情報管理、Pull、Force Push、RebaseおよびServer側Git管理は対象外とする。Branch／Worktree作成・MergeはWorkspace再編の明示要求に限定して設計対象へ戻すが、一般Git管理機能へ拡張しない。通常Pushは確認済みUpstreamへの限定Effectとして扱う。
@@ -415,7 +415,7 @@ v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版Root�
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
 |---|---|---|---|---|---|---|
 | Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.change-publication`<br>`version-control.contract-migration-closure` |
-| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Repository Root、Snapshot、差分観測と変更公開を、Git具象へ交換可能なVersion Control Port契約へ揃える。 | 利用側は通常作業全体へCommitを要求せず、変更公開時だけ選択差分と確認済み送信対象を渡す。 | Git固有OIDやCommand結果がDomainへ漏れ、同等機能への差替えやdirty状態の扱いが破綻する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.change-publication`<br>`version-control.contract-migration-closure` |
+| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | Repository Root、Snapshot、差分観測と変更公開を、Gitの技術実体に対応する完成操作へ揃える。 | 利用側は通常作業全体へCommitを要求せず、変更公開時だけ選択差分と確認済み送信対象を渡す。 | Gitの生Command結果や内部Contextが利用側へ漏れ、対象照合やdirty状態の扱いが破綻する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.change-publication`<br>`version-control.contract-migration-closure` |
 | Creation／Selection | Required | この観点を成立させる構造と責務が存在するため。 | Authority、入力または配置条件を満たした後にだけ具象・処理経路を選ぶ。 | 選択前の検証と選択後のIdentityを分け、未確認時はEffect 0とする。 | 選択条件の変更はTrust、Authorityまたは利用側契約へ波及する。 | `version-control.root-capability` |
 | State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `version-control.root-capability` |
 | Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `version-control.root-capability`<br>`version-control.snapshot-port`<br>`version-control.contract-migration-closure` |

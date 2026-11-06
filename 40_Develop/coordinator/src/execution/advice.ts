@@ -24,7 +24,7 @@ import {
   revokeRuntimeOwnedProviderAdvicePacket,
 } from "./preparation.ts";
 import {
-  type VerifiedRepositoryRoot,
+  type Repository,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 
@@ -138,7 +138,7 @@ const PROJECT_CONTEXT_REFERENCE = "PROJECT_CONTEXT.md";
  * @concurrency 一要求ごとの閉包で結果を捕捉し、既存の排他と一回消費に従う。
  */
 export async function runRepositoryAdvice(
-  root: VerifiedRepositoryRoot,
+  root: Repository,
   request: CoordinatorAiRequestInput,
   signal: AbortSignal,
   observation?: Pick<
@@ -218,7 +218,7 @@ export type AdviceDispatch = (
  * @concurrency 呼出しごとのSignalだけを利用する。
  */
 export function createRepositoryAdviceExecutor(
-  repositoryRootCapability: VerifiedRepositoryRoot,
+  repositoryRootCapability: Repository,
   dispatchReadOnlyAdvice: AdviceDispatch,
 ): CoordinatorAiRequestExecutor {
   return (request, signal) =>
@@ -246,7 +246,7 @@ export function createRepositoryAdviceExecutor(
  * @concurrency 呼出しごとのSignalだけを利用する。
  */
 async function executeAdviceRequest(
-  repositoryRootCapability: VerifiedRepositoryRoot,
+  repositoryRootCapability: Repository,
   dispatchReadOnlyAdvice: AdviceDispatch,
   request: CoordinatorAiRequestInput,
   cancellationSignal: AbortSignal,
@@ -302,7 +302,7 @@ async function executeAdviceRequest(
  * @concurrency 読取り前後の取消を確認し、取消後にDispatchへ進まない。
  */
 async function prepareRepositoryAdvicePacket(
-  repositoryRootCapability: VerifiedRepositoryRoot,
+  repositoryRootCapability: Repository,
   request: CoordinatorAiRequestInput,
   cancellationSignal: AbortSignal,
 ): Promise<AdviceTaskPacket | null> {
@@ -1150,7 +1150,7 @@ export type ProviderAdviceRuntimeDependencies = Readonly<{
  * @concurrency 呼出しごとに独立Operationを生成し、共有Authorityを使い回さない。
  */
 export function createRuntimeOwnedProviderAdviceRuntime(
-  repositoryRootCapability: VerifiedRepositoryRoot,
+  repositoryRootCapability: Repository,
   observation?: Pick<
     ProviderAdviceRuntimeDependencies,
     "recoveryCorrelationId" | "observeOperation" | "observeStarted"

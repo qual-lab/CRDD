@@ -15,7 +15,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import type { SemanticIr } from "../../../../domain-model/src/index.ts";
-import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
+import { getRepository } from "../../../../version-control/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
@@ -59,7 +59,7 @@ test("Semantic前提診断はGraph構築を省略し同じ診断列を返す", (
   assert.equal(result.graph, null);
   assert.equal(result.findings, findings);
 });
-const verifiedRepository = verifyRepositoryRoot(repositoryRoot);
+const verifiedRepository = getRepository(repositoryRoot);
 assert.equal(verifiedRepository.status, "completed");
 if (verifiedRepository.status !== "completed")
   throw new Error("repository root verification failed");

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import * as domain from "../../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../../version-control/src/index.ts";
+import type { Repository } from "../../../../version-control/src/index.ts";
 
 /**
  * 開始時に追加Hostを一回捕捉し、変更は次Taskから適用する。
@@ -26,7 +26,7 @@ import type { VerifiedRepositoryRoot } from "../../../../version-control/src/ind
 test("Taskの追加Hostは開始時に捕捉し次Taskだけが変更を採用する", async (t) => {
   const root = Object.freeze({
     fixture: "selected_repository",
-  }) as unknown as VerifiedRepositoryRoot;
+  }) as unknown as Repository;
   const hosts = ["pypi.org", "registry.npmjs.org"];
   let unavailable = false,
     reads = 0;

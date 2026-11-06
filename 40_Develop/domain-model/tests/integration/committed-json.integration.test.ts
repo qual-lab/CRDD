@@ -169,7 +169,7 @@ test("recovery test directory rejects uncertain roots before creation or deletio
       Error,
       Object,
       path,
-      verifyRepositoryRoot: () =>
+      getRepository: () =>
         scenario === "invalid-repository"
           ? { status: "blocked" }
           : { status: "completed", capability: {} },

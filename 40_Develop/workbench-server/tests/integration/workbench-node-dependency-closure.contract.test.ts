@@ -51,7 +51,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
   );
   assert.match(
     runtime,
-    /function createRuntimeOwnedProviderAdviceRuntime\(\s*repositoryRootCapability: VerifiedRepositoryRoot,/,
+    /function createRuntimeOwnedProviderAdviceRuntime\(\s*repositoryRootCapability: Repository,/,
   );
 });
 

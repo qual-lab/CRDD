@@ -28,7 +28,7 @@ import {
   REPOSITORY_MANIFEST_RELATIVE_PATH,
 } from "../../40_Develop/domain-model/src/index.ts";
 import {
-  verifyRepositoryRoot,
+  getRepository,
   resolveVerifiedRepositoryRoot,
 } from "../../40_Develop/version-control/src/index.ts";
 import { createMeetingOperations } from "../../40_Develop/domain-model/src/index.ts";
@@ -180,7 +180,7 @@ async function createRequestRoutingDependencies(
   const workspace: NonNullable<McpServerDependencies["workspace"]> = (
     repositoryId,
   ) => {
-    const verified = verifyRepositoryRoot(repositoryRoot);
+    const verified = getRepository(repositoryRoot);
     if (verified.status !== "completed") return null;
     const observer = createFilesystemRepositoryObservationPort(
       verified.capability,
@@ -211,7 +211,7 @@ async function createRequestRoutingDependencies(
       if (signal.aborted) return null;
       const access = workspace(repositoryId);
       if (!access) return null;
-      const verified = verifyRepositoryRoot(access.ownerRoot);
+      const verified = getRepository(access.ownerRoot);
       if (verified.status !== "completed") return null;
       return {
         root: verified.capability,

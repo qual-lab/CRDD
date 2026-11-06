@@ -6,7 +6,7 @@
 import * as fs from "node:fs/promises";
 import type { Stats } from "node:fs";
 import path from "node:path";
-import { verifyRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { getRepositoryFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { observeRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
 /**
@@ -67,7 +67,7 @@ export async function readMcpServerConfiguration(
   workingDirectory: string,
 ): Promise<Readonly<{ publicOrigin?: string }>> {
   try {
-    const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
+    const verified = getRepositoryFromWorkingDirectory(workingDirectory);
     if (verified.status !== "completed") throw new Error("invalid");
     const area = observeRepositoryRuntimeDataArea(
       verified.capability,

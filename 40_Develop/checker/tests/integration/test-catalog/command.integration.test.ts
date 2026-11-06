@@ -15,10 +15,8 @@ import path from "node:path";
 import test from "node:test";
 import { runTestCatalog } from "../../../src/index.ts";
 import {
-  verifyRepositoryRoot,
-  observeLocalChangeSet,
-  changedPaths,
-  gitLocalChangeSetAdapter,
+  getRepository,
+  readWorkingChanges,
 } from "../../../../version-control/src/index.ts";
 
 const root = path.resolve(import.meta.dirname, "../../../../..");
@@ -239,16 +237,13 @@ test("公開計画はGit変更集合の全成分を保持する", () => {
     git("mv", "old.txt", "new.txt");
     fs.writeFileSync(path.join(fixture, "working.txt"), "dirty\n");
     fs.writeFileSync(path.join(fixture, "untracked.txt"), "untracked\n");
-    const verified = verifyRepositoryRoot(fixture);
+    const verified = getRepository(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") return;
-    const observedEntries = changedPaths(
-      observeLocalChangeSet(
-        verified.capability,
-        base,
-        gitLocalChangeSetAdapter,
-      ),
-    );
+    const observedEntries = readWorkingChanges(
+      verified.capability,
+      base,
+    ).changedPaths;
     for (const expected of [
       "committed.txt",
       "old.txt",
@@ -258,16 +253,13 @@ test("公開計画はGit変更集合の全成分を保持する", () => {
     ])
       assert.ok(observedEntries.includes(expected), expected);
     let output = "";
-    const ownRoot = verifyRepositoryRoot(root);
+    const ownRoot = getRepository(root);
     assert.equal(ownRoot.status, "completed");
     if (ownRoot.status !== "completed") return;
-    const expectedPaths = changedPaths(
-      observeLocalChangeSet(
-        ownRoot.capability,
-        "HEAD~1",
-        gitLocalChangeSetAdapter,
-      ),
-    );
+    const expectedPaths = readWorkingChanges(
+      ownRoot.capability,
+      "HEAD~1",
+    ).changedPaths;
     const result = runTestCatalog({
       cwd: root,
       arguments: ["--base", "HEAD~1"],

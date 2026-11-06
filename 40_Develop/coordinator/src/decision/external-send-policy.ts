@@ -12,11 +12,10 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { Repository } from "../../../version-control/src/index.ts";
 import {
-  gitFixedSnapshotAdapter,
-  readFixedSnapshotFile,
-  verifyRepositoryRoot,
+  readCommitFile,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
@@ -174,9 +173,7 @@ export type ResolvedExternalSendPolicy = ExternalSendPolicy &
  * @security Path・本文・File Hash・秘密を返さず、許可を発行しない。
  * @concurrency 返却後のFile変更を現在Snapshotへ反映しない。
  */
-export function readRepositoryNetworkHosts(
-  repositoryRoot: VerifiedRepositoryRoot,
-) {
+export function readRepositoryNetworkHosts(repositoryRoot: Repository) {
   const read = readNetworkPolicy(repositoryRoot);
   if (read.status !== "ready")
     return Object.freeze({ status: "blocked" as const, reason: read.reason });
@@ -459,14 +456,12 @@ export function resolveRuntimeOwnedExternalSendPolicy(
     ) {
       return null;
     }
-    const verified = verifyRepositoryRoot(source.repositoryRoot);
+    const verified = getRepository(source.repositoryRoot);
     if (verified.status !== "completed") return null;
-    const file = readFixedSnapshotFile(
-      verified.capability,
-      source.revision,
-      EXTERNAL_SEND_POLICY_FILE,
-      gitFixedSnapshotAdapter,
-    );
+    const file = readCommitFile(verified.capability, {
+      commit: source.revision,
+      path: EXTERNAL_SEND_POLICY_FILE,
+    });
     if (file?.mode !== "100644") return null;
     const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
       file.bytes,

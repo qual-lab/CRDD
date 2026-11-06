@@ -14,9 +14,8 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
 import {
-  gitFixedSnapshotAdapter,
-  readFixedSnapshotFile,
-  verifyRepositoryRoot,
+  readCommitFile,
+  getRepository,
 } from "../../../version-control/src/index.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../../platform-access/src/index.ts";
 import { inspectPlatformAccessNativeGitProvenanceCandidate } from "../../scripts/native-git-provenance.ts";
@@ -35,7 +34,7 @@ import { inspectPlatformAccessNativeGitProvenanceCandidate } from "../../scripts
 function createNativeProvenanceFixture(t: TestContext, prefix: "" | "01_CRDD") {
   const repository = path.resolve(import.meta.dirname, "../../../..");
   const testsRoot = path.join(repository, ".crdd", "tests");
-  assert.equal(verifyRepositoryRoot(repository).status, "completed");
+  assert.equal(getRepository(repository).status, "completed");
   const createdParents: string[] = [];
   let ownedRoot: { path: string; identity: fs.BigIntStats } | null = null;
   t.after(() => {
@@ -251,15 +250,13 @@ for (const prefix of ["", "01_CRDD"] as const) {
     assert.equal(result.runtimeCapabilityIssued, false);
     assert.equal(result.filesystemEffectIssued, false);
     assert.equal(JSON.stringify(result).includes(value.root), false);
-    const root = verifyRepositoryRoot(value.root);
+    const root = getRepository(value.root);
     assert.equal(root.status, "completed");
     if (root.status !== "completed") return;
-    const document = readFixedSnapshotFile(
-      root.capability,
-      value.revision,
-      `${prefix === "" ? "" : `${prefix}/`}README.md`,
-      gitFixedSnapshotAdapter,
-    );
+    const document = readCommitFile(root.capability, {
+      commit: value.revision,
+      path: `${prefix === "" ? "" : `${prefix}/`}README.md`,
+    });
     assert.ok(document);
     assert.deepEqual(document.bytes, value.documentBytes);
     fs.writeFileSync(value.documentPath, "dirty tracked documentation\n");

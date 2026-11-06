@@ -20,7 +20,7 @@ import { encodeRuntimeStateValue } from "../../src/index.ts";
 import * as kernel from "../../src/storage/runtime-kernel-lock.ts";
 import { observeRuntimeStorageRepository } from "../../src/storage/runtime-repository.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { getRepository } from "../../../version-control/src/index.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 /**
  * 同値進捗の保存入口を実Readerの戻り値契約から独立に反証する。
@@ -299,7 +299,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
     ],
     { windowsHide: true },
   );
-  const verified = verifyRepositoryRoot(root);
+  const verified = getRepository(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw Error("fixture_root_invalid");
   const f = { root, capability: verified.capability };
