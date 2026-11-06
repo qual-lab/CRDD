@@ -22,7 +22,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
@@ -230,7 +230,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
     cleanupConfirmed: true,
   };
   let bytes: Buffer = Buffer.from(`${encodeRuntimeStateValue(state)}\n`);
-  assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
   const at = new Date().toISOString();
   for (const confirmed of [false, true]) {
     const next = prepareCoordinatorStateHistorySnapshot(
@@ -253,7 +253,7 @@ export function settleSyntheticOperation(root: string, recoveryId: string) {
   );
   assert.ok(delivered);
   bytes = delivered;
-  const saved = decodeCoordinatorStateSnapshot(bytes, binding);
+  const saved = decodeRuntimeDomainSnapshot(bytes, binding);
   const delivery = saved?.snapshot.pendingDeliveries.find(
     (item) => item.recoveryId === recoveryId,
   );

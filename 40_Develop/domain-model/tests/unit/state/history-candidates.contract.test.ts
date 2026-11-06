@@ -10,9 +10,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  prepareCoordinatorHistoryPending as prepare,
-  prepareCoordinatorTerminalRecordRetirement as retire,
-  prepareCoordinatorHistoryTransfer as transfer,
+  prepareCoordinatorHistoryPending,
+  prepareCoordinatorTerminalRecordRetirement,
+  prepareCoordinatorHistoryTransfer,
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   COORDINATOR_INTEGRATION_CONTRACT,
   encodeRuntimeStateValue,
@@ -146,9 +146,12 @@ test("pending生成は時刻・Schemaを先に検査し既存対象の観測を�
   const { current, row } = fixture(),
     o = observations(),
     before = encodeRuntimeStateValue(current);
-  assert.equal(prepare(current, -1, o.ops).status, "blocked");
   assert.equal(
-    prepare(
+    prepareCoordinatorHistoryPending(current, -1, o.ops).status,
+    "blocked",
+  );
+  assert.equal(
+    prepareCoordinatorHistoryPending(
       { ...current, schema: "wrong" } as unknown as CoordinatorSnapshot,
       1000,
       o.ops,
@@ -156,13 +159,13 @@ test("pending生成は時刻・Schemaを先に検査し既存対象の観測を�
     "blocked",
   );
   assert.deepEqual(o.calls, []);
-  const result = prepare(current, 1000, o.ops);
+  const result = prepareCoordinatorHistoryPending(current, 1000, o.ops);
   assert.equal(result.status, "completed");
   assert.deepEqual(o.calls, ["obligations", "lease", "lease"]);
   if (result.status === "completed")
     assert.deepEqual(result.value.next, { ...current, historyPending: [row] });
   const existing = observations();
-  const repeated = prepare(
+  const repeated = prepareCoordinatorHistoryPending(
     { ...current, historyPending: [row] },
     1000,
     existing.ops,
@@ -201,7 +204,7 @@ test("退役は閉鎖判定と履歴再読の後だけQueue・受付を除きepo
     ],
     historyPending: [f.row],
   };
-  const result = retire(current, o.ops);
+  const result = prepareCoordinatorTerminalRecordRetirement(current, o.ops);
   assert.equal(result.status, "completed");
   assert.deepEqual(o.calls, [
     "obligations",
@@ -237,7 +240,7 @@ test("退役は観測不能・非同期の履歴を拒否しepochを発行しな
     before = encodeRuntimeStateValue(current);
   for (const value of [null, Promise.resolve("recorded"), true]) {
     const o = observations();
-    const result = retire(current, {
+    const result = prepareCoordinatorTerminalRecordRetirement(current, {
       ...o.ops,
       historySettlement: () => {
         o.calls.push("history");
@@ -250,7 +253,7 @@ test("退役は観測不能・非同期の履歴を拒否しepochを発行しな
   const o = observations();
   assert.throws(
     () =>
-      retire(current, {
+      prepareCoordinatorTerminalRecordRetirement(current, {
         ...o.ops,
         historySettlement: () => {
           throw Error("observation");
@@ -278,7 +281,7 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
     other = { ...f.row, id: "queue-b" },
     current = { ...f.current, historyPending: [f.row, other] };
   const calls: string[] = [];
-  const bad = transfer(current, {
+  const bad = prepareCoordinatorHistoryTransfer(current, {
     historySettlement: (row) => {
       calls.push(row.id);
       return null;
@@ -286,7 +289,7 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
   });
   assert.equal(bad.status, "blocked");
   assert.deepEqual(calls, ["queue-a"]);
-  const result = transfer(current, {
+  const result = prepareCoordinatorHistoryTransfer(current, {
     historySettlement: (row) => (row.id === "queue-a" ? "recorded" : "expired"),
   });
   assert.equal(result.status, "completed");
@@ -294,7 +297,7 @@ test("搬送候補は先頭不明で後続を読まず、全行確認後だけpe
     assert.deepEqual(result.value.value, { recorded: 1, expired: 1 });
     assert.deepEqual(result.value.next, { ...current, historyPending: [] });
   }
-  const empty = transfer(f.current, {
+  const empty = prepareCoordinatorHistoryTransfer(f.current, {
     historySettlement: () => {
       throw Error("must_not_run");
     },
@@ -361,7 +364,7 @@ test("adoption-only退役と退役零件はepochを生成しない", () => {
     historyPending: [{ ...f.row, id }],
   };
   const o = observations(),
-    result = retire(current, o.ops);
+    result = prepareCoordinatorTerminalRecordRetirement(current, o.ops);
   assert.equal(result.status, "completed");
   assert.equal(o.calls.includes("epoch"), false);
   if (result.status === "completed") {
@@ -370,7 +373,7 @@ test("adoption-only退役と退役零件はepochを生成しない", () => {
     assert.deepEqual(result.value.next?.queueEntries, current.queueEntries);
   }
   const zero = observations(),
-    none = retire(f.current, zero.ops);
+    none = prepareCoordinatorTerminalRecordRetirement(f.current, zero.ops);
   assert.equal(none.status, "completed");
   if (none.status === "completed") assert.equal(none.value.next, null);
   assert.deepEqual(zero.calls, []);

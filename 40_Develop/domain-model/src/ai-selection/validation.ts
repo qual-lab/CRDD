@@ -8,7 +8,7 @@
 import type { ExecutionSelection } from "./types.ts";
 import type { TaskExecutionSelections } from "./types.ts";
 import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { snapshotPlainRecord } from "../plain-data/snapshot.ts";
 import type {
   AiSelectionRole,
@@ -109,7 +109,7 @@ function snapshotEntries(
     if (
       !candidate ||
       typeof candidate !== "object" ||
-      utilTypes.isProxy(candidate) ||
+      types.isProxy(candidate) ||
       Array.isArray(candidate)
     )
       return null;
@@ -303,7 +303,7 @@ export function inspectExecutionSelection(
     if (
       candidate === null ||
       typeof candidate !== "object" ||
-      utilTypes.isProxy(candidate)
+      types.isProxy(candidate)
     )
       return null;
     const prototype = Object.getPrototypeOf(candidate);
@@ -405,11 +405,7 @@ export function inspectExecutionSelection(
 export function inspectTaskExecutionSelections(
   candidate: unknown,
 ): TaskExecutionSelections | null {
-  if (
-    !candidate ||
-    typeof candidate !== "object" ||
-    utilTypes.isProxy(candidate)
-  )
+  if (!candidate || typeof candidate !== "object" || types.isProxy(candidate))
     return null;
   const prototype = Object.getPrototypeOf(candidate);
   if (prototype !== Object.prototype && prototype !== null) return null;

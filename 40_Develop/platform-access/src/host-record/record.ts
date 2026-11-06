@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   beginPlatformAccessArtifactObservation,
   beginPlatformAccessBootstrapObservation,
@@ -65,7 +65,7 @@ export function readHostFields<const K extends string>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;
@@ -117,7 +117,7 @@ function readHostNamespaceIdentities(value: unknown) {
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       !Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Array.prototype
     )
@@ -2055,7 +2055,7 @@ function copyTerminalFrame(
   try {
     if (
       !Buffer.isBuffer(value) ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       !frameLengthGetter ||
       !frameOffsetGetter ||
       !frameBufferGetter
@@ -2064,7 +2064,7 @@ function copyTerminalFrame(
     const length: number = frameLengthGetter.call(value);
     const offset: number = frameOffsetGetter.call(value);
     const buffer: unknown = frameBufferGetter.call(value);
-    if (length < 53 || length > maximum || !utilTypes.isArrayBuffer(buffer))
+    if (length < 53 || length > maximum || !types.isArrayBuffer(buffer))
       return null;
     return Buffer.from(new Uint8Array(buffer, offset, length));
   } catch {

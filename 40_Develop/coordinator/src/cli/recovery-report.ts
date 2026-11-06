@@ -4,7 +4,7 @@
  * @responsibility 回復診断の非秘密結果をCLIの表示形式へ投影する。
  * @trace ARCH-000003
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { classifyDoctorOperationInitializationFailure } from "../execution/diagnostics.ts";
 
 /**
@@ -64,7 +64,7 @@ function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
     !value ||
     typeof value !== "object" ||
     Array.isArray(value) ||
-    utilTypes.isProxy(value)
+    types.isProxy(value)
   )
     return null;
   const prototype = Object.getPrototypeOf(value);
@@ -90,7 +90,7 @@ function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
  * @concurrency N/A: plainArrayは共有非同期状態を持たない同期処理である。
  */
 function plainArray(value: unknown): readonly unknown[] {
-  return Array.isArray(value) && !utilTypes.isProxy(value) ? value : [];
+  return Array.isArray(value) && !types.isProxy(value) ? value : [];
 }
 
 /**

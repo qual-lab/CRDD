@@ -1684,8 +1684,8 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
     ],
     [
       "scripts/verify-general-task.ts",
-      /isSupportedCoordinatorNodeRuntime\(\s*dependencies\.runtimeVersion\(\),?\s*\)/u,
-      /import\s*\{[^}]*\bisSupportedCoordinatorNodeRuntime\b[^}]*\}\s*from "\.\.\/src\/execution\/diagnostics\.ts"/u,
+      /isSupportedNodeRuntime\(\s*dependencies\.runtimeVersion\(\),?\s*\)/u,
+      /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "\.\.\/src\/execution\/diagnostics\.ts"/u,
     ],
   ] as const;
   for (const [relative, call, imported] of guardedEntrypoints) {

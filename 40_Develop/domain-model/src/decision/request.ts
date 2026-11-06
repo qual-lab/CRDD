@@ -6,7 +6,7 @@
  * @trace ARCH-000008
  * @boundary Domain値と利用側の入力・公開結果。
  */
-import { snapshotPlainRecord } from "../state/validation.ts";
+import { snapshotRuntimeStateRecord } from "../state/validation.ts";
 export const COORDINATOR_HUMAN_DECISION_CONTRACT =
   "crdd-coordinator/orchestrator-human-decision/v1" as const;
 
@@ -159,8 +159,8 @@ export function inspectCoordinatorDecisionRequest(
   value: unknown,
 ): CoordinatorDecisionRequest | null {
   const request =
-    snapshotPlainRecord(value, decisionKeysWithComment) ??
-    snapshotPlainRecord(value, requiredDecisionKeys);
+    snapshotRuntimeStateRecord(value, decisionKeysWithComment) ??
+    snapshotRuntimeStateRecord(value, requiredDecisionKeys);
   const comment = (request as Readonly<Record<string, unknown>> | null)
     ?.comment;
   if (

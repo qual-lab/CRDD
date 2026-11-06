@@ -1334,7 +1334,7 @@ export async function simulateAuthCreateClosure(
     },
   };
   const factory = runInThisContext(`(function(context) {
-    const { assert, cp, execFileSync, createHash, fs, path, mock, delay, yieldEvents, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
+    const { assert, cp, execFileSync, createHash, fs, path, mock, setTimeout, setImmediate, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
     let spawnSync = cp.spawnSync;
     const syncBuiltinESMExports = () => { spawnSync = cp.spawnSync; context.synced(); };
     context.observeNamed(() => spawnSync);
@@ -1520,10 +1520,10 @@ export async function simulateAuthCreateClosure(
       fs: fakeFs,
       path,
       mock: fakeMock,
-      delay: async () => {
+      setTimeout: async () => {
         events.push("interval");
       },
-      yieldEvents: async () => undefined,
+      setImmediate: async () => undefined,
       fileURLToPath,
       fixedImage: image,
       fixedImageId: imageId,

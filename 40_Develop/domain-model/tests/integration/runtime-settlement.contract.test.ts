@@ -30,7 +30,7 @@ import {
   coordinatorOperationSummaryBytes,
   applyCoordinatorResourceEvent,
   type CoordinatorResourceBook,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorStateHistorySnapshot,
@@ -100,7 +100,7 @@ test("transient終了WriterはReader五故障を保存成功へ補完しない",
           {
             Object,
             settlements: new WeakMap(),
-            borrowRuntimeOwnedCoordinatorRecoveryRepository: () => ({}),
+            observeRuntimeRecoveryRepository: () => ({}),
             readRuntimeOwnedCoordinatorCurrentCompletionSnapshot: () => {
               if (scenario === "reader_throw") throw new Error("fixture");
               if (
@@ -316,7 +316,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     binding,
   );
   assert.ok(initial);
-  const initialDecoded = decodeCoordinatorStateSnapshot(initial, binding);
+  const initialDecoded = decodeRuntimeDomainSnapshot(initial, binding);
   assert.ok(initialDecoded);
   const operation = initialDecoded.snapshot.operations.find(
     (item) => item.kind === "docker_task",
@@ -389,7 +389,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     ],
   };
   const checkpointBytes = Buffer.from(`${encodeRuntimeStateValue(current)}\n`);
-  assert.ok(decodeCoordinatorStateSnapshot(checkpointBytes, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(checkpointBytes, binding));
   const area = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       root,
@@ -978,7 +978,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
       terminalBytes,
     );
   }
-  const terminalOperation = decodeCoordinatorStateSnapshot(
+  const terminalOperation = decodeRuntimeDomainSnapshot(
     terminalBytes,
     repository.repositoryBinding,
   )?.snapshot.operations.find((item) => item.kind === "docker_task");
@@ -1008,7 +1008,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
   const alteredResources = Buffer.from(
     `${encodeRuntimeStateValue(alteredState)}\n`,
   );
-  assert.ok(decodeCoordinatorStateSnapshot(alteredResources, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(alteredResources, binding));
   for (const dockerCompletion of [
     undefined,
     Object.freeze({
@@ -1978,7 +1978,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       binding,
     );
     assert.ok(initial);
-    const decoded = decodeCoordinatorStateSnapshot(initial, binding);
+    const decoded = decodeRuntimeDomainSnapshot(initial, binding);
     assert.ok(decoded);
     const operation = decoded.snapshot.operations.find(
       (item) => item.kind === "docker_task",
@@ -2049,7 +2049,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
         ],
       })}\n`,
     );
-    assert.ok(decodeCoordinatorStateSnapshot(before, binding));
+    assert.ok(decodeRuntimeDomainSnapshot(before, binding));
     const area = domain.requireReadyRepositoryRuntimeDataArea(
       domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
         root,
@@ -2132,10 +2132,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       );
     assert.equal(saved.status, "completed", saved.reason);
     assert.equal(saved.lockReleased, true);
-    const after = decodeCoordinatorStateSnapshot(
-      fs.readFileSync(file),
-      binding,
-    );
+    const after = decodeRuntimeDomainSnapshot(fs.readFileSync(file), binding);
     assert.ok(after);
     assert.equal(after.snapshot.operations[0]?.kind, "docker_task");
     if (after.snapshot.operations[0]?.kind === "docker_task")

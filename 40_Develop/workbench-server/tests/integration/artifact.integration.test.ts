@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { request as httpRequest, ServerResponse } from "node:http";
+import { request, ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
@@ -508,7 +508,7 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
     );
     syncBuiltinESMExports();
     try {
-      const client = httpRequest(
+      const client = request(
         handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
         { headers },
       );

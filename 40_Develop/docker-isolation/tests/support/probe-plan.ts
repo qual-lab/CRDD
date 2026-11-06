@@ -5,7 +5,7 @@
  */
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { describeIsolationConfiguration } from "../../src/configuration.ts";
 import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
 
@@ -67,7 +67,7 @@ export function planDockerProbeCommand(
   if (
     command === null ||
     typeof command !== "object" ||
-    utilTypes.isProxy(command) ||
+    types.isProxy(command) ||
     (Object.getPrototypeOf(command) !== Object.prototype &&
       Object.getPrototypeOf(command) !== null) ||
     Reflect.ownKeys(command).some(
@@ -122,7 +122,7 @@ export function planDockerProbeCommand(
       if (
         mountInput === null ||
         typeof mountInput !== "object" ||
-        utilTypes.isProxy(mountInput) ||
+        types.isProxy(mountInput) ||
         (Object.getPrototypeOf(mountInput) !== Object.prototype &&
           Object.getPrototypeOf(mountInput) !== null) ||
         Reflect.ownKeys(mountInput).some(

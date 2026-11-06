@@ -15,7 +15,7 @@
  * @security Credential値及び支出Authorityを含めない。
  * @compatibility 既存のfield・値・固定契約IDを維持する。
  */
-export type ProviderBillingPolicy = Readonly<{
+export type BillingPolicy = Readonly<{
   contract: typeof PROVIDER_BILLING_POLICY_CONTRACT;
   contractRevision: typeof PROVIDER_BILLING_POLICY_CONTRACT_REVISION;
   defaultProfile: "subscription_only";
@@ -63,7 +63,7 @@ const FUTURE_PAID_API_REQUIREMENTS = Object.freeze([
  * @security getBillingPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: getBillingPolicyは共有非同期状態を持たない同期処理である。
  */
-export function getBillingPolicy(): ProviderBillingPolicy {
+export function getBillingPolicy(): BillingPolicy {
   return Object.freeze({
     contract: PROVIDER_BILLING_POLICY_CONTRACT,
     contractRevision: PROVIDER_BILLING_POLICY_CONTRACT_REVISION,

@@ -10,8 +10,8 @@ import {
 } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "./runtime-kernel-lock.ts";
 import {
-  type observeRuntimeRecoveryRepository as borrowRuntimeOwnedCoordinatorRecoveryRepository,
-  observeRuntimeStorageRepository as borrowRuntimeOwnedCoordinatorStorageRepository,
+  type observeRuntimeRecoveryRepository,
+  observeRuntimeStorageRepository,
 } from "./runtime-repository.ts";
 import type { StoreResult } from "./runtime-result.ts";
 import { blocked, completed } from "./runtime-result.ts";
@@ -38,9 +38,7 @@ const storageOwners = new WeakMap<
   object,
   Readonly<{
     repository: Pick<
-      NonNullable<
-        ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-      >,
+      NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
       "repositoryRoot" | "repositoryBinding" | "revalidate"
     >;
     lock: NonNullable<
@@ -92,9 +90,9 @@ export function acquireCoordinatorStorageOwner(
       : null;
   const repository =
     typeof workingDirectory !== "string"
-      ? borrowRuntimeOwnedCoordinatorStorageRepository(workingDirectory)
+      ? observeRuntimeStorageRepository(workingDirectory)
       : verified?.status === "completed"
-        ? borrowRuntimeOwnedCoordinatorStorageRepository(verified.capability)
+        ? observeRuntimeStorageRepository(verified.capability)
         : null;
   return repository
     ? acquireCoordinatorStorageOwnerForRepository(repository)
@@ -118,9 +116,7 @@ export function acquireCoordinatorStorageOwner(
  */
 export function acquireCoordinatorStorageOwnerForRepository(
   repository: Pick<
-    NonNullable<
-      ReturnType<typeof borrowRuntimeOwnedCoordinatorRecoveryRepository>
-    >,
+    NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
     "repositoryRoot" | "repositoryBinding" | "revalidate"
   >,
 ): CoordinatorStorageOwner | null {

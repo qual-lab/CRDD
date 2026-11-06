@@ -4,11 +4,11 @@
  * @trace ARCH-000008
  */
 import {
-  compileQualitySemanticRelations as compileDomainQualitySemanticRelations,
+  compileQualitySemanticRelations,
   type QualitySemanticRelation,
-  compileSemanticIr as compileDomainSemanticIr,
+  compileSemanticIr,
   type SemanticIr,
-  createSemanticCoverageGraph as createDomainSemanticCoverageGraph,
+  createSemanticCoverageGraph,
   type SemanticCoverageGraph,
   type LoadedRealitySymbolManifest,
   createFilesystemRepositoryObservationPort,
@@ -94,7 +94,7 @@ export function compileSemanticIrFromRepository(
   const observed = observeDocuments(capability, [sourceDocument]);
   const [document] = observed.documents;
   if (!document) return { ir: null, findings: observed.findings };
-  const outcome = compileDomainSemanticIr(
+  const outcome = compileSemanticIr(
     document,
     subsystem,
     architectureDefinitionIds,
@@ -129,7 +129,7 @@ export function compileQualitySemanticRelationsFromRepository(
   const observed = observeDocuments(capability, sourceDocuments);
   if (observed.findings.length > 0)
     return { relations: null, findings: observed.findings };
-  const outcome = compileDomainQualitySemanticRelations(
+  const outcome = compileQualitySemanticRelations(
     observed.documents,
     semanticIrs,
   );
@@ -166,7 +166,7 @@ export function createSemanticCoverageGraphResult(
 }> {
   if (prerequisiteFindings.length > 0)
     return { graph: null, findings: prerequisiteFindings };
-  const outcome = createDomainSemanticCoverageGraph(
+  const outcome = createSemanticCoverageGraph(
     semanticIrs,
     manifests,
     qualityRelations,

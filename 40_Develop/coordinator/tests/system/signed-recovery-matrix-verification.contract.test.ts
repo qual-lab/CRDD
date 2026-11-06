@@ -100,7 +100,7 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
     .slice(start, source.indexOf("\n/**", start))
     .replace("export ", "");
   const nodeCheck =
-    '  if (!isSupportedCoordinatorNodeRuntime(process.versions.node))\n    return blocked("signed_recovery_matrix_node_version_unsupported");\n';
+    '  if (!isSupportedNodeRuntime(process.versions.node))\n    return blocked("signed_recovery_matrix_node_version_unsupported");\n';
   assert.equal(body.split(nodeCheck).length, 2);
   /**
    * 実本文を閉じた模擬環境で評価する。
@@ -125,7 +125,7 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
       SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION,
       MINIMUM_COORDINATOR_NODE_VERSION: "24.12.0",
       process: { versions: { node: "24.19.0" } },
-      isSupportedCoordinatorNodeRuntime: (version: string) => {
+      isSupportedNodeRuntime: (version: string) => {
         assert.equal(version, "24.19.0");
         events.push("node");
         return supported;
@@ -269,7 +269,7 @@ test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", asy
   );
   const start = source.indexOf("async function runInternalResidueChild(");
   const body = source.slice(start, source.indexOf("\n/**", start));
-  const checkStart = body.indexOf("  if (!isSupportedCoordinatorNodeRuntime(");
+  const checkStart = body.indexOf("  if (!isSupportedNodeRuntime(");
   const rootStart = body.indexOf(
     "  const owned = createOwnedOperationDirectories();",
   );
@@ -311,7 +311,7 @@ test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", asy
       process: childProcess,
       CHILD_READY_CONTRACT:
         "crdd-coordinator/signed-recovery-matrix-parent-loss-child",
-      isSupportedCoordinatorNodeRuntime: (version: string) => {
+      isSupportedNodeRuntime: (version: string) => {
         assert.equal(version, "24.19.0");
         events.push("node");
         return supported;

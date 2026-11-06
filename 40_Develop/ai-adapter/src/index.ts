@@ -10,27 +10,27 @@
  */
 
 export type {
-  AiModelCatalogSnapshot as ModelCatalog,
-  AiModelSelectionResult as ModelSelectionResult,
+  ModelCatalog,
+  ModelSelectionResult,
 } from "./catalog/resolve.ts";
 
 export type {
-  AiProvider as Provider,
-  AiReasoningEffort as ReasoningEffort,
-  AiModelSelection as ModelSelection,
-  ProviderTurnCountDiagnostic as TurnCountDiagnostic,
+  Provider,
+  ReasoningEffort,
+  ModelSelection,
+  TurnCountDiagnostic,
 } from "./provider/types.ts";
 
 export type {
-  ProviderExecutionInput as ExecutionRequest,
-  ProviderExecutionPlanResult as ExecutionPlan,
+  ExecutionRequest,
+  ExecutionPlan,
 } from "./provider/plan.ts";
 
 export type { ExecutionResult } from "./provider/result.ts";
 
-export type { ProviderAuthenticationDefinition as AuthenticationDefinition } from "./authentication/plan.ts";
+export type { AuthenticationDefinition } from "./authentication/plan.ts";
 
-export type { ProviderBillingPolicy as BillingPolicy } from "./billing/policy.ts";
+export type { BillingPolicy } from "./billing/policy.ts";
 
 export {
   getModelCatalog,

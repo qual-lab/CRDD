@@ -31,7 +31,7 @@ import {
 import { readWorkbenchRecordQuery } from "../presentation/record.ts";
 import type { WorkbenchTopicMeetingDocumentReader } from "../topic-meeting/action.ts";
 import { setResponseHeaders } from "../security.ts";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import {
   type RepositoryAccessCollectionResult,
   resolveRepositoryAccessCollection,
@@ -243,11 +243,11 @@ export async function handleSharedView({
           }
         }
         let activity: WorkbenchRuntimeActivityObservation;
-        await yieldToTransport(0);
+        await setTimeout(0);
         if (requestSignal.aborted || response.destroyed) return true;
         try {
           const cursor = requestUrl.searchParams.get("runtimeCursor");
-          const { queryActivity } = await import(
+          const { queryActivity: queryActivity } = await import(
             "../../../../coordinator/src/index.ts"
           );
           if (requestSignal.aborted || response.destroyed) return true;
@@ -293,7 +293,7 @@ export async function handleSharedView({
             eventContinuation: null,
           };
         }
-        await yieldToTransport(0);
+        await setTimeout(0);
         if (requestSignal.aborted || response.destroyed) return true;
         const selectedAi = sharedAiSession(
           credentialAdministration,

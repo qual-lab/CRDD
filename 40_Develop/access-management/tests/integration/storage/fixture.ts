@@ -30,8 +30,8 @@ import {
   createInitialAdministrator,
   initializeAccessManagementState,
 } from "../../../src/initialization/execution.ts";
-import { saveExposure as updateExposure } from "../../../src/repository/exposure.ts";
-import { saveRepositoryRegistration as registerRepository } from "../../../src/repository/register.ts";
+import { saveExposure } from "../../../src/repository/exposure.ts";
+import { saveRepositoryRegistration } from "../../../src/repository/register.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
 
@@ -284,7 +284,7 @@ export function contentFixture(t: TestContext) {
   const f = managementFixture(t),
     target = repositoryFixture(t);
   assert.equal(
-    registerRepository(
+    saveRepositoryRegistration(
       f.root,
       f.tokens.manager,
       1,
@@ -295,7 +295,7 @@ export function contentFixture(t: TestContext) {
     "completed",
   );
   assert.equal(
-    updateExposure(
+    saveExposure(
       f.root,
       f.tokens.manager,
       2,

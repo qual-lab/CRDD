@@ -20,7 +20,7 @@ export type { DockerIsolationRuntimeOptions } from "../../../executor/src/lifecy
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type {
   DockerResourceCleanupObservation,
   DockerResourceReceipts,
@@ -206,7 +206,7 @@ export function createDockerIsolationRuntime(
   if (
     !dependencies ||
     typeof dependencies !== "object" ||
-    utilTypes.isProxy(dependencies) ||
+    types.isProxy(dependencies) ||
     (Object.getPrototypeOf(dependencies) !== Object.prototype &&
       Object.getPrototypeOf(dependencies) !== null)
   )
@@ -224,7 +224,7 @@ export function createDockerIsolationRuntime(
   if (
     !paths ||
     typeof paths !== "object" ||
-    utilTypes.isProxy(paths) ||
+    types.isProxy(paths) ||
     (Object.getPrototypeOf(paths) !== Object.prototype &&
       Object.getPrototypeOf(paths) !== null)
   )

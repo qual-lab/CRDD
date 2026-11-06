@@ -3,7 +3,7 @@
  * @responsibility 実ID照合・明示探索・不存在・自作config終了だけを所有する。
  * @trace ARCH-000008
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { observeDockerRuntimeRepairRetention } from "../docker-desktop/repair-session.ts";
 import type { DockerRuntimeRepairRetentionTargets } from "../docker-desktop/types.ts";
 import { captureIsolationCleanupRequest } from "../execution/preparation.ts";
@@ -60,7 +60,7 @@ export function inspectIsolation(
   if (
     request &&
     typeof request === "object" &&
-    !utilTypes.isProxy(request) &&
+    !types.isProxy(request) &&
     Object.getOwnPropertyDescriptor(request, "kind")?.value ===
       "docker_runtime_directory"
   )
@@ -70,7 +70,7 @@ export function inspectIsolation(
   if (
     request &&
     typeof request === "object" &&
-    !utilTypes.isProxy(request) &&
+    !types.isProxy(request) &&
     Object.getOwnPropertyDescriptor(request, "kind")?.value === "container"
   )
     return inspectContainerResources(request as ContainerResourceTarget);

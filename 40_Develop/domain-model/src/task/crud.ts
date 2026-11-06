@@ -7,7 +7,7 @@
  */
 import type { CoordinatorSnapshot } from "../state/types.ts";
 import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../state/validation.ts";
-import { plainObject } from "../state/validation.ts";
+import { isRuntimeStateObject } from "../state/validation.ts";
 import { validCoordinatorSnapshot } from "../state/validation.ts";
 import type {
   CoordinatorState,
@@ -19,7 +19,7 @@ import type {
 } from "../state/types.ts";
 import {
   decodeRuntimeDomainSnapshot,
-  exactRecordKeys,
+  hasRuntimeStateRecordKeys,
   hashRuntimeProjectDefinition,
 } from "../state/validation.ts";
 import {
@@ -69,7 +69,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
         ?.generation ?? 0) !== expectedGeneration ||
       !Array.isArray(facts) ||
       !facts.every((f) =>
-        exactRecordKeys(f, [
+        hasRuntimeStateRecordKeys(f, [
           "taskId",
           "attemptId",
           "operationId",
@@ -141,7 +141,7 @@ export function normalizeCoordinatorTaskProjects(
     !Array.isArray(facts) ||
     !facts.every(
       (f, i) =>
-        exactRecordKeys(f, [
+        hasRuntimeStateRecordKeys(f, [
           "projectId",
           "taskId",
           "attemptId",
@@ -412,7 +412,7 @@ export function prepareCoordinatorUnifiedTaskSections(
     const facts: unknown = JSON.parse(encodeRuntimeStateValue(factsValue));
     if (
       !current ||
-      !plainObject(view) ||
+      !isRuntimeStateObject(view) ||
       !validCoordinatorSnapshot(
         view,
         String(view.repositoryBindingId),

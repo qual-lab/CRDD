@@ -9,7 +9,7 @@
  * @security 要求前段の資格と現在認可を使用し、新しい保存状態・再送・回復処理を追加しない。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import {
   resolveRepositoryAccessCollection,
   sameAccessCollection,
@@ -91,7 +91,7 @@ export async function handleRecordAction({
       validateTopicMeetingActionForm(form);
       if (form.get("actionToken") !== actionToken || !credentialAdministration)
         throw new Error("workbench_record_input_invalid");
-      await yieldToTransport(0);
+      await setTimeout(0);
       if (requestSignal.aborted || response.destroyed) return;
       const collection = resolveRepositoryAccessCollection(
         credentialAdministration.root,
@@ -112,7 +112,7 @@ export async function handleRecordAction({
         ...createTopicMeetingResultView(result),
         filesystemEffectCount: result.filesystemEffectCount,
       });
-      await yieldToTransport(0);
+      await setTimeout(0);
       if (requestSignal.aborted || response.destroyed) return;
       if (
         !sameAccessCollection(

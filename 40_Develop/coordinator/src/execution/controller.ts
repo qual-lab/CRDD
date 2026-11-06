@@ -14,7 +14,7 @@ import {
 } from "./provider-executor.ts";
 import type { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   type CoordinatorStateTaskOperation,
   coordinatorTaskResourcesAreSettled,
@@ -679,9 +679,7 @@ function optionalIdentity(value: unknown): value is string | null {
  * @concurrency N/A: isOpaqueCapabilityは共有非同期状態を持たない同期処理である。
  */
 function isOpaqueCapability(value: unknown): value is object {
-  return (
-    typeof value === "object" && value !== null && !utilTypes.isProxy(value)
-  );
+  return typeof value === "object" && value !== null && !types.isProxy(value);
 }
 
 /**
@@ -734,7 +732,7 @@ function isPlainContainer(value: unknown): value is object {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return false;
     const prototype = Object.getPrototypeOf(value);
@@ -867,7 +865,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
       !optionalIdentity(candidateRecoveryId) ||
       !optionalIdentity(candidateStoreRecoveryId) ||
       !Array.isArray(rawDockerRecoveryIds) ||
-      utilTypes.isProxy(rawDockerRecoveryIds) ||
+      types.isProxy(rawDockerRecoveryIds) ||
       rawDockerRecoveryIds.length > 128 ||
       (executorProvider !== undefined &&
         executorProvider !== "codex" &&
@@ -1886,7 +1884,7 @@ function ownPlainDataValue(value: unknown, key: string) {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return undefined;
     const prototype = Object.getPrototypeOf(value);
@@ -2155,7 +2153,7 @@ function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return null;
     const prototype = Object.getPrototypeOf(value);
@@ -5383,9 +5381,7 @@ export async function runCoordinatorSingleTaskAttempt(
           let delivery: CoordinatorTaskResultDelivery | null = null;
           try {
             const descriptor =
-              started &&
-              typeof started === "object" &&
-              !utilTypes.isProxy(started)
+              started && typeof started === "object" && !types.isProxy(started)
                 ? Object.getOwnPropertyDescriptor(started, "controlCapability")
                 : undefined;
             if (descriptor && "value" in descriptor)

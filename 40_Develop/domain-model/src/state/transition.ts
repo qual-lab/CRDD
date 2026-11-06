@@ -21,9 +21,9 @@ import type { ProjectQueueEntry, SingleTaskRecord } from "../task/types.ts";
 import type { CoordinatorResultRecord } from "../workspace/types.ts";
 import type { CoordinatorDecisionRecoveryIntent } from "../decision/types.ts";
 import {
-  exactKeys,
+  hasRuntimeStateKeys,
   leaseIdentity,
-  plainObject,
+  isRuntimeStateObject,
   isSha256Hex,
   validId,
 } from "./validation.ts";
@@ -840,8 +840,8 @@ export function coordinatorQueueIsClosed(
       if (
         !receipt ||
         !candidate ||
-        !plainObject(receipt.value) ||
-        !plainObject(candidate.value) ||
+        !isRuntimeStateObject(receipt.value) ||
+        !isRuntimeStateObject(candidate.value) ||
         receipt.value.status !== "completed" ||
         receipt.value.cleanupConfirmed !== true ||
         receipt.value.beforeRevision !== candidate.value.baseRevision ||
@@ -907,8 +907,8 @@ export function coordinatorAdoptionWasRejected(
 ): boolean {
   return (
     record.kind === "adoption" &&
-    plainObject(record.value) &&
-    exactKeys(record.value, [
+    isRuntimeStateObject(record.value) &&
+    hasRuntimeStateKeys(record.value, [
       "status",
       "reason",
       "ownerGeneration",
@@ -995,9 +995,9 @@ export function coordinatorStandaloneAdoptionIsClosed(
       record !== undefined && coordinatorAdoptionWasRejected(record);
     if (
       !record ||
-      !plainObject(record.value) ||
+      !isRuntimeStateObject(record.value) ||
       (!isRejected &&
-        (!exactKeys(record.value, [
+        (!hasRuntimeStateKeys(record.value, [
           "status",
           "receiptId",
           "beforeRevision",

@@ -9,7 +9,7 @@
  * @security 要求前段の資格と現在認可を使用し、新しい保存状態・再送・回復処理を追加しない。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import {
   resolveRepositoryAccessCollection,
   sameAccessCollection,
@@ -125,7 +125,7 @@ export async function handleRepositoryAction({
       const validated = validateRepositoryActionForm(form, actionToken, true);
       if (!credentialAdministration)
         throw new Error("workbench_repository_access_unavailable");
-      await yieldToTransport(0);
+      await setTimeout(0);
       if (requestSignal.aborted || response.destroyed) return;
       const collection = resolveRepositoryAccessCollection(
         credentialAdministration.root,
@@ -140,7 +140,7 @@ export async function handleRepositoryAction({
         throw new Error("workbench_repository_access_unavailable");
       const selected = matches[0];
       if (!selected) throw new Error("workbench_repository_access_unavailable");
-      await yieldToTransport(0);
+      await setTimeout(0);
       if (requestSignal.aborted || response.destroyed) return;
       if (
         !sameAccessCollection(
@@ -168,7 +168,7 @@ export async function handleRepositoryAction({
         executeRepositoryAction(selected.root, validated.request),
       );
       const body = JSON.stringify(result);
-      await yieldToTransport(0);
+      await setTimeout(0);
       if (requestSignal.aborted || response.destroyed) return;
       if (
         !sameAccessCollection(

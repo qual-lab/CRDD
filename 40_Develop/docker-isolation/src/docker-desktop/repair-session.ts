@@ -6,11 +6,11 @@
  * @boundary 元Sessionは同子を回収し、終了後回収・保持照合は新Repair Sessionを取得しない。現在の許可と真正Writerは上位Ownerが所有する。
  */
 import type {
-  DockerRuntimeRepairCheckpoint as Checkpoint,
+  DockerRuntimeRepairCheckpoint,
   DockerRuntimeRepairRetentionTargets,
 } from "./types.ts";
 import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
+  decodeDockerRuntimeRepairCheckpoint,
   dockerRuntimeRepairCheckpointIsSettled,
 } from "./validation.ts";
 import type {
@@ -52,10 +52,10 @@ export interface DockerRuntimeRepairCallbacks {
     value: Readonly<{
       ownerBindingSha256: string;
       scopeSha256: string;
-      checkpoint: Checkpoint;
+      checkpoint: DockerRuntimeRepairCheckpoint;
     }>,
   ): void;
-  onCheckpoint(value: Checkpoint): void;
+  onCheckpoint(value: DockerRuntimeRepairCheckpoint): void;
 }
 
 /**
@@ -74,7 +74,7 @@ export type DockerRuntimeRepairInput = Readonly<{
   resume: Readonly<{
     ownerBindingSha256: string;
     scopeSha256: string;
-    checkpoint: Checkpoint;
+    checkpoint: DockerRuntimeRepairCheckpoint;
   }> | null;
   canIssueEffect: () => unknown;
 }> &
@@ -102,7 +102,7 @@ export type DockerRuntimeRepairResult = Readonly<{
     cleanup: DockerDesktopRepairHelperReleaseOutcome;
     observationCleanupFailure: "observation_cleanup_unknown" | null;
   }> | null;
-  checkpoint: Checkpoint | null;
+  checkpoint: DockerRuntimeRepairCheckpoint | null;
   finalCheckpointConfirmed: false;
   ownerBindingSha256: string | null;
   scopeSha256: string | null;
@@ -122,7 +122,7 @@ export type DockerRuntimeDirectoryInspectionInput = Readonly<{
   operationNonce: string;
   ownerBindingSha256: string;
   scopeSha256: string;
-  checkpoint: Checkpoint;
+  checkpoint: DockerRuntimeRepairCheckpoint;
   signal: AbortSignal;
   canObserve: () => unknown;
 }>;
@@ -225,7 +225,7 @@ export type DockerRuntimeRepairDisposalInput = Readonly<{
   operationNonce: string;
   ownerBindingSha256: string;
   scopeSha256: string;
-  checkpoint: Checkpoint;
+  checkpoint: DockerRuntimeRepairCheckpoint;
   purpose: "primary" | "failed" | "auxiliary";
   signal: AbortSignal;
   canIssueEffect: () => unknown;
@@ -264,7 +264,7 @@ export async function disposeDockerRuntimeRepairDirectory(
       "signal",
       "canIssueEffect",
     ]);
-    const checkpoint = decode(fields?.checkpoint);
+    const checkpoint = decodeDockerRuntimeRepairCheckpoint(fields?.checkpoint);
     if (
       !fields ||
       !checkpoint ||
@@ -349,7 +349,7 @@ export function observeDockerRuntimeRepairRetention(
       "signal",
       "canObserve",
     ]);
-    const checkpoint = decode(fields?.checkpoint);
+    const checkpoint = decodeDockerRuntimeRepairCheckpoint(fields?.checkpoint);
     if (
       !fields ||
       !checkpoint ||
@@ -543,7 +543,7 @@ function confirmRepair(callback: unknown, value?: unknown): boolean {
  * @concurrency N/A: 共有状態なし。
  */
 function initialRepairCheckpoint() {
-  return decode({
+  return decodeDockerRuntimeRepairCheckpoint({
     actions: Object.fromEntries(
       [
         "stop_runtime",
@@ -615,7 +615,7 @@ export async function runDockerRuntimeRepairSessionUsing(
     | "boundary_unavailable"
     | "correlation_mismatch"
     | "prepared" = "input_rejected";
-  let notifiedCheckpoint: Checkpoint | null = null;
+  let notifiedCheckpoint: DockerRuntimeRepairCheckpoint | null = null;
   let ownerBindingSha256: string | null = null;
   let scopeSha256: string | null = null;
   let observationCleanupFailure: "observation_cleanup_unknown" | null = null;
@@ -686,7 +686,7 @@ export async function runDockerRuntimeRepairSessionUsing(
         "scopeSha256",
         "checkpoint",
       ]);
-      const checkpoint = decode(prior?.checkpoint);
+      const checkpoint = decodeDockerRuntimeRepairCheckpoint(prior?.checkpoint);
       if (
         prior &&
         checkpoint &&
@@ -839,9 +839,11 @@ export async function runDockerRuntimeRepairSessionUsing(
   );
   recordObservationCleanup();
   const machine = lifecycle.value;
-  const last = machine ? decode(machine.checkpoint) : notifiedCheckpoint;
+  const last = machine
+    ? decodeDockerRuntimeRepairCheckpoint(machine.checkpoint)
+    : notifiedCheckpoint;
   const checkpoint = last
-    ? decode({
+    ? decodeDockerRuntimeRepairCheckpoint({
         ...last,
         cleanup:
           observationCleanupFailure !== null

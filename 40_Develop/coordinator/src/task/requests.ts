@@ -21,8 +21,8 @@ import {
   readCoordinatorTaskIntakeState,
   readRepositoryAiSelection,
   type SingleTaskRecord,
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
   type TaskExecutionSelections,
 } from "../../../domain-model/src/index.ts";
 import {
@@ -164,10 +164,10 @@ export function inspectSingleTaskCommand(
     "workspaceId",
   ];
   const r =
-    snapshotPlainRecord(raw, new Set([...keys, "choice"])) ??
-    snapshotPlainRecord(raw, new Set(keys));
-  const refs = snapshotPlainArray<string>(r?.contextReferences, 1);
-  const paths = snapshotPlainArray<string>(r?.allowedPaths, 1024);
+    snapshotRuntimeStateRecord(raw, new Set([...keys, "choice"])) ??
+    snapshotRuntimeStateRecord(raw, new Set(keys));
+  const refs = snapshotRuntimeStateArray<string>(r?.contextReferences, 1);
+  const paths = snapshotRuntimeStateArray<string>(r?.allowedPaths, 1024);
   if (
     !r ||
     Object.keys(r).length !== 6 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
@@ -1083,7 +1083,7 @@ function snapshotSingleTaskOutcome(
   raw: unknown,
   executionSelection: ExecutionSelection,
 ): SingleTaskOutcome | null {
-  const value = snapshotPlainRecord(
+  const value = snapshotRuntimeStateRecord(
     raw,
     new Set([
       "mode",
@@ -1117,7 +1117,7 @@ function snapshotSingleTaskOutcome(
   if (value.workspaceResult !== null && workspaceResult === null) return null;
   let advice: SingleTaskOutcome["advice"] = null;
   if (value.advice !== null) {
-    const groups = snapshotPlainRecord(
+    const groups = snapshotRuntimeStateRecord(
       value.advice,
       new Set([
         "facts",
@@ -1137,11 +1137,17 @@ function snapshotSingleTaskOutcome(
       "additionalInferences",
       "nextOptions",
     ]) {
-      const items = snapshotPlainArray(groups[key as keyof typeof groups], 100);
+      const items = snapshotRuntimeStateArray(
+        groups[key as keyof typeof groups],
+        100,
+      );
       if (items.status !== "ok") return null;
       const rows = [];
       for (const item of items.value) {
-        const row = snapshotPlainRecord(item, new Set(["text", "references"]));
+        const row = snapshotRuntimeStateRecord(
+          item,
+          new Set(["text", "references"]),
+        );
         if (
           !row ||
           typeof row.text !== "string" ||
@@ -1149,7 +1155,7 @@ function snapshotSingleTaskOutcome(
           row.text.length > 32000
         )
           return null;
-        const refs = snapshotPlainArray<string>(row.references, 100);
+        const refs = snapshotRuntimeStateArray<string>(row.references, 100);
         if (
           refs.status !== "ok" ||
           refs.value.length === 0 ||

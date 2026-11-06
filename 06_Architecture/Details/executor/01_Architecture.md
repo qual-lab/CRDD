@@ -248,7 +248,7 @@ ExecutorはProvider一段を一試行として、開始、取消、終了待ち�
 | `ProviderDockerPreparationState`・`PreparationHost`・`PreparedAttempt` | Coordinatorの既存準備Ownerへ移管。二WeakMapを移し、重複生成しない | 元Owner・一回消費・期限・準備中のMount解放 |
 | `PreparedAttemptPlan`・`PreparedPlan`・`ProviderAttemptPlan` | 技術入力と上位の受付・選定・保存Contextへ分解。Executorには一試行の技術構成だけを残す | 元九Commandの正規構成照合、実行前の相関検査、同じ回復参照 |
 | `ConsumedTaskPacket`・`TaskPacket`・`AdvicePacket`・`ModelSelection` | 発行・消費・送信範囲・選定の意味をCoordinatorへ移管。本文・許可参照・解決済みModel等の必要値だけExecutorへ渡す | Packet差替え拒否、選定・用途・役割との一致、本文非保存 |
-| `AttemptSelection`（削除済み） | AI Adapterの`AiModelSelection`を直接参照。ロールの相関はCoordinatorの準備Ownerが検査する | Provider・Model・識別種別・Effort・用途と実行Roleの整合 |
+| `AttemptSelection`（削除済み） | AI Adapterの`ModelSelection`を直接参照。ロールの相関はCoordinatorの準備Ownerが検査する | Provider・Model・識別種別・Effort・用途と実行Roleの整合 |
 | `AttemptInput` | 上位で解決済みの一試行入力へ整理。管理操作・Packetの生Capabilityを直接解釈しない | plain-data捕捉、欠測・余剰・Proxy・accessor拒否 |
 | 旧`Command`・`CommandHandle` | 製品は既存PURPOSESから導出するAttemptCommandPurposeとDI所有の実行・取消・Completion契約を使用。argv付き旧CommandとHandle代役はDI試験supportだけへ限定 | 固定九用途、Command正規性、Process開始と完了・終了観測の区別 |
 | `Recovery`・`BlockedRecovery` | 上位が確定した受付結果を受け取るcallback契約として整理。永続回復状態の判断は上位 | 最初の失敗から同じexact参照、不明を不存在へ変換しない |
@@ -310,7 +310,7 @@ Executor内のAttempt実行型は`lifecycle/types.ts`、通知interfaceは各用
 
 builderは乱数供給と、一つの`AttemptRequest`を受け取る。Request内に実行対象の`target`、AI Adapterの五項目`selection`、Probe／Task／Adviceの排他的な実行内容をまとめ、独立した`AttemptTarget`型は撤去する。上位はBindingとGrantの同一操作・Provider対応、選定ID／Hash・試行番号・Packet参照／Hash・stdin搬送・roleと用途・助言四非共有条件を検査する。下位は五項目選定・本文・Command・Image・Mountの技術的一致を維持する。利用側名、試行番号、選定記録ID、Packet相関をExecutorのPlanへ含めない。
 
-`AttemptPlan`はFactory内部の技術構成であり、Taskの計画・順序を表さずRootから公開しない。Model／EffortはAI Adapterの`AiModelSelection`だけから取得する。Coordinatorは対象・選定・用途別内容をRequestへ明示投影し、完全なCommandやProvider本文を受け戻さない。元の上位準備記録が試行専用ExecutorとAuthorityを保持し、別Owner・期限切れ・二重消費を既存の二WeakMapで拒否する。Executorの通知とcompletionは同じ技術CompletionResultを返す。CoordinatorはMount・保存の成立を加えたTask結果を一度組み立て、同じ上位結果を保存と上位completionへ渡す。保存失敗によって確認済みHome解放を未解放へ戻さない。
+`AttemptPlan`はFactory内部の技術構成であり、Taskの計画・順序を表さずRootから公開しない。Model／EffortはAI Adapterの`ModelSelection`だけから取得する。Coordinatorは対象・選定・用途別内容をRequestへ明示投影し、完全なCommandやProvider本文を受け戻さない。元の上位準備記録が試行専用ExecutorとAuthorityを保持し、別Owner・期限切れ・二重消費を既存の二WeakMapで拒否する。Executorの通知とcompletionは同じ技術CompletionResultを返す。CoordinatorはMount・保存の成立を加えたTask結果を一度組み立て、同じ上位結果を保存と上位completionへ渡す。保存失敗によって確認済みHome解放を未解放へ戻さない。
 
 共通の公開`Executor<K>`は`lifecycle/types.ts`、Attempt固有型は`lifecycle/types.ts`でstart／cancelの引数・callback・結果を明示し、`createExecutor(request, options, random?): Executor | null`を型検査する。FactoryのReturnTypeで公開契約を代用しない。選択三項目は全存在又は全不存在のUnionとし、部分集合を許容しない。取消結果は要求理由と終了観測のtrue／falseを対応させる。Command制約・Authority・保存成立の判断は上位の既存操作で行う。Executorの通知は任意メソッドのvoid又はPromise<void>であり、戻り値で許可や保存成功を受け取らない。
 

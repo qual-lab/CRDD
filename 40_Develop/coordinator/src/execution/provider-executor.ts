@@ -5,8 +5,8 @@
  * @boundary CoordinatorのHost管理とExecutorの技術生涯の間。
  */
 
-import { types as utilTypes } from "node:util";
-import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
+import { types } from "node:util";
+import type { Provider } from "../../../ai-adapter/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   type AttemptTerminalObservation,
@@ -99,7 +99,7 @@ const claudePreparation = createAttemptPreparation(
  * @invariant 完了結果は複製せず、技術解放条件は変更しない。
  */
 function createExecutionRecordOperations(
-  owned: PreparedAttemptPlan<AiProvider>,
+  owned: PreparedAttemptPlan<Provider>,
   technical: RecoveryPlan,
   management: unknown,
   admission: {
@@ -216,7 +216,7 @@ function createBlockedPreparationStart(
  * @effect 同じ準備のAuthority失効・Mount返却だけ。Home Leaseへ触れない。
  */
 function settleUnstartedPreparation(
-  plan: PreparedAttemptPlan<AiProvider>,
+  plan: PreparedAttemptPlan<Provider>,
   management: unknown,
   admission: {
     authorityConsumed: boolean;
@@ -264,7 +264,7 @@ function settleUnstartedPreparation(
  * @concurrency 返されたcompletionは上位が終了まで管理する。
  */
 export function startRuntimeOwnedDockerProcessController(
-  provider: AiProvider,
+  provider: Provider,
   input: PreparationInput,
   handoff: (capability: object, recoveryId: string) => boolean,
   restriction?: (purpose: string) => boolean,
@@ -417,13 +417,13 @@ function commandRestrictionAllows(restriction: unknown, purpose: string) {
   if (restriction === undefined) return true;
   if (
     typeof restriction !== "function" ||
-    utilTypes.isProxy(restriction) ||
-    utilTypes.isAsyncFunction(restriction)
+    types.isProxy(restriction) ||
+    types.isAsyncFunction(restriction)
   )
     return false;
   try {
     const result: unknown = restriction(purpose);
-    if (utilTypes.isPromise(result)) {
+    if (types.isPromise(result)) {
       // A mistakenly returned native Promise cannot authorize a synchronous
       // launch. Observe rejection without awaiting or invoking a custom then.
       void Promise.prototype.then.call(
@@ -464,7 +464,7 @@ function startRecordedAttempt(
   };
   let terminalObservation: AttemptTerminalObservation | null = null;
   function requireRecorded(value: unknown): void {
-    if (utilTypes.isPromise(value)) void value.catch(() => {});
+    if (types.isPromise(value)) void value.catch(() => {});
     if (value !== true) throw Error("record_unconfirmed");
   }
   const callbacks: ExecutorCallbacks<"attempt"> = {

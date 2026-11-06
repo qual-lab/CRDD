@@ -4,7 +4,7 @@
  * @responsibility 検証結果の閉じた安全投影と、検証Scriptで使用するRelease Identityの値文法を所有する。
  * @trace ARCH-000014
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 
@@ -158,7 +158,7 @@ export function salvageVerificationNullableRecovery(
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       throw new Error("recovery_record_invalid");
     const prototype = Object.getPrototypeOf(value);
@@ -206,7 +206,7 @@ export function salvageVerificationRecoveryPair(
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       throw new Error("recovery_record_invalid");
     const prototype = Object.getPrototypeOf(value);
@@ -290,7 +290,7 @@ export function evaluateVerificationSafetyObservation(
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       throw new Error("safety_observation_record_invalid");
     const prototype = Object.getPrototypeOf(value);

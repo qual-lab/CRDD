@@ -7,7 +7,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
@@ -23,7 +23,7 @@ import {
 import { isDockerIsolationRecoveryIdCandidate } from "../src/state/probe-record.ts";
 import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
 import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
+import { isSupportedNodeRuntime } from "../src/execution/diagnostics.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,
@@ -124,7 +124,7 @@ function ownValue(record: unknown, key: string): unknown {
     !record ||
     typeof record !== "object" ||
     Array.isArray(record) ||
-    utilTypes.isProxy(record)
+    types.isProxy(record)
   )
     return undefined;
   const prototype = Object.getPrototypeOf(record);
@@ -497,7 +497,7 @@ export async function runRecordedVerification<T, E>(
   let started: Readonly<Record<string, unknown>>;
   try {
     if (
-      !isSupportedCoordinatorNodeRuntime(process.versions.node) ||
+      !isSupportedNodeRuntime(process.versions.node) ||
       (kind !== "routes" && kind !== "recovery" && kind !== "reviewer-boundary")
     )
       throw new Error("verification_record_input_invalid");

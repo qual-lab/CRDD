@@ -23,7 +23,7 @@ import { verifyRuntimePersistenceRepository } from "../execution/persistence.ts"
 import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./store.ts";
@@ -1043,7 +1043,7 @@ export function recoverCoordinatorHumanDecision(
  * @security 秘密値や判断Authorityは返さず、検証済みPrincipal IDだけを公開する。
  * @concurrency 下位Storeの排他・検証契約を変更せず、呼出しごとに観測する。
  */
-export function observeRuntimeOwnedProjectClientPrincipal() {
+export function observeClientPrincipal() {
   const observed = openRuntimeOwnedWindowsProjectDecisionStore();
   return observed.status === "completed"
     ? Object.freeze({
@@ -1150,7 +1150,7 @@ export function executeCoordinatorPublicDecision(
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
     ),
     capability: decisionCapability,
-    persistence: createCoordinatorPersistencePorts(
+    persistence: createCurrentCoordinatorPersistencePorts(
       repositoryRoot,
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
     ),
@@ -1190,17 +1190,17 @@ export function executeCoordinatorPublicDecision(
  * @responsibility Coordinator Public Decisionの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
- * @returns runCoordinatorPublicDecisionの計算結果を返す。
- * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunCoordinatorPublicDecisionの入力契約を満たす。
- * @postcondition runCoordinatorPublicDecisionの責務を完了した結果だけを返す。
+ * @returns submitDecisionの計算結果を返す。
+ * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がsubmitDecisionの入力契約を満たす。
+ * @postcondition submitDecisionの責務を完了した結果だけを返す。
  * @effect 認証済み主体と判断記録を観測し、判断の保存と許可済み処置を既存Ownerへ委譲する。
- * @failure runCoordinatorPublicDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure submitDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 判断の対象・世代・既存処置の相関を維持し、二重処置へ補正しない。
  * @boundary 公開判断入力→Principal観測・判断Store・処置委譲の境界を接続する。
  * @security 認証済み主体と判断対象の相関を確認し、判断Capabilityの発行・消費を既存Ownerへ限定する。
  * @concurrency 返却される非同期判断処理の完了・失敗を呼出し側へ搬送する。
  */
-export function runCoordinatorPublicDecision(
+export function submitDecision(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,

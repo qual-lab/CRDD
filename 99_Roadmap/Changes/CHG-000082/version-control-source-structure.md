@@ -140,6 +140,110 @@ AI AdapterのRoot入口には、公開名へ置換する型の別名exportが10�
 
 ### VC完了後の一括対応：Symbol別名の移行候補（2026-11-06）
 
+#### 一括是正の着手（基準`3dc6989b8034`）
+
+VC完了後、利用者が横断是正を承認した。構文木で追跡対象のNamed import／exportを再抽出し、実指定368箇所（本番src150箇所）を確認した。下記369件は当時の字句候補として保持し、現在の実母集団と区別する。型アサーション、Namespace束縛、過去Evidence、試験内の例示をNamed指定へ誤算入しない。
+
+変更分類は動作不変を意図した横断リファクタリングと公開Symbol追従。公開名だけの再exportは所有元宣言を現在の公開名へ揃え、短縮importは正本名へ戻す。AD→DM等の再export鎖もSymbol単位で追従し、互換別名型・空Wrapperは追加しない。同じScopeで実在する宣言・参照と競合する場合だけ別名を維持し、根拠を記録する。Object短縮記法・Destructuring等はbinding名とproperty名を分け、保存／JSON／公開Objectのキーを維持する。現行Source名を検査する試験文字列、台帳、Architectureは意味を確認して同期する。
+
+着手前整合確認で、所有元と再export鎖、型／値Scope、利用側、保持する契約・Schema・Symbol IDを照合した。独立の読み取り確認でもこれらを重点とし、修正後は構文木再抽出、全影響Packageの静的検査、非AI回帰、固定候補の独立技術・文書／変更影響レビューを行う。準拠基準・決定権限・Release判断は変更せず、準拠監査と実AI／Docker E2Eは対象外。過去保持物は操作しない。DI等の固定Packageに触れる理由は今回承認された名前の正本化だけであり、実行処理・安全判定・期限は変更しない。
+
+#### 一括是正の実装候補と競合例外
+
+Named指定368箇所のうち318箇所は元名または宣言元の正本名へ統一した。32件の別名exportは所有元宣言を公開名へ改名して撤去し、再export鎖と全利用側を追従した。再抽出で別名exportは0件、Named importの別名は50件である。型アサーション・Namespace import・過去の例示は対象外。JSON／DTOのproperty key、保存Schema、契約ID、Symbol ID、Timeout・安全判定は変更しない。
+
+残る別名は同じScopeの同名宣言、別Ownerからの同名import、または同Scopeで使用する標準APIと競合する。Promise版setTimeoutはcallback版の既存呼出しを隠さないために維持する。検証Toolでは製品型と試験用の同名契約、Native候補試験では製品関数と局所的な代役を区別する。短縮だけを根拠にする例外は認めない。
+
+| 所在 | 実競合により維持する元名 → 別名 |
+|---|---|
+| `40_Develop/checker/src/repository/reality.ts` | `createRealitySymbolGraph` → `createDomainRealitySymbolGraph` |
+| `40_Develop/checker/tests/integration/crdd-check.contract.test.ts` | `runChecker` → `runDocumentChecker` |
+| `40_Develop/checker/tests/unit/repository/reality.contract.test.ts` | `validateRealitySymbolManifest` → `validateDomainRealitySymbolManifest` |
+| `40_Develop/checker/tests/unit/repository/semantic.contract.test.ts` | `validateRealitySymbolManifest` → `validateDomainRealitySymbolManifest` |
+| `40_Develop/coordinator/src/execution/observation.ts` | `Provider` → `AiProvider` |
+| `40_Develop/coordinator/src/execution/provider-executor.ts` | `abandonRuntimeOwnedExecutorAttempt` → `abandonBoundExecutorAttempt` |
+| `40_Develop/coordinator/src/execution/recovery.ts` | `ResourceCleanupResult` → `AttemptResourceCleanupResult` |
+| `40_Develop/coordinator/src/execution/types.ts` | `ModelSelection` → `AiModelSelection` |
+| `40_Develop/coordinator/src/selection/resolve.ts` | `validateAiSelectionConfig` → `validateDomainAiSelectionConfig` |
+| `40_Develop/coordinator/tests/fixtures/attempt-preparation.ts` | `createAttemptPreparation` → `createOwner` |
+| `40_Develop/coordinator/tests/integration/git-object-reader.contract.test.ts` | `materializeGitCommitTreeCandidate` → `materializeVersionControlTree` |
+| `40_Develop/coordinator/tests/integration/repository-workspace-runtime.contract.test.ts` | `bindRuntimeOwnedExecutionSnapshot` → `materializeReceivedTarget` |
+| `40_Develop/coordinator/tests/integration/task-execution.contract.test.ts` | `runCoordinatorOperation` → `runCoordinatorOperationWithPorts` |
+| `40_Develop/coordinator/tests/integration/task-full-flow.integration.test.ts` | `resolveCoordinatorReplan` → `resolveCoordinatorReplanWithPort` |
+| `40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts` | `runCoordinatorObjective` → `runCoordinatorObjectiveWithPorts` |
+| `40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts` | `resolveCoordinatorReplan` → `resolveCoordinatorReplanWithPort` |
+| `40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts` | `runCoordinatorOperation` → `runCoordinatorOperationWithPorts` |
+| `40_Develop/coordinator/tests/support/probe-executor.ts` | `runInNewContext` → `runVm` |
+| `40_Develop/coordinator/tests/system/task-recovery.contract.test.ts` | `runCoordinatorObjective` → `runCoordinatorObjectiveWithPorts` |
+| `40_Develop/coordinator/tests/unit/provider-authentication.contract.test.ts` | `authenticateProvider` → `authenticateFromApi` |
+| `40_Develop/docker-isolation/tests/integration/repair-machine.contract.test.ts` | `parseDockerTaskRecoveryId` → `parseTechnicalRecovery` |
+| `40_Develop/docker-isolation/tests/integration/repair-machine.contract.test.ts` | `parseDockerTaskRecoveryId` → `parseStoredRecovery` |
+| `40_Develop/domain-model/tests/integration/runtime-snapshot-io.contract.test.ts` | `initializeCoordinatorSnapshot` → `initializeSnapshot` |
+| `40_Develop/executor/scripts/executor-test.ts` | `prepareAttempt` → `prepareProductAttempt` |
+| `40_Develop/executor/scripts/executor-test.ts` | `resolveIsolationCommandInput` → `resolveProductConfiguration` |
+| `40_Develop/executor/scripts/executor-test.ts` | `isAttemptPlanValid` → `validateProductPlan` |
+| `40_Develop/executor/scripts/executor-test.ts` | `AttemptPlan` → `ProductAttemptPlan` |
+| `40_Develop/executor/scripts/executor-test.ts` | `AttemptTerminalObservation` → `TechnicalObservation` |
+| `40_Develop/executor/scripts/executor-test.ts` | `AttemptDiagnosticNotice` → `TechnicalDiagnosticNotice` |
+| `40_Develop/mcp-server/tests/integration/access-capabilities.integration.test.ts` | `request` → `httpRequest` |
+| `40_Develop/mcp-server/tests/integration/initial-connection.integration.test.ts` | `request` → `httpRequest` |
+| `40_Develop/mcp-server/tests/integration/transport-lifecycle.contract.test.ts` | `request` → `httpRequest` |
+| `40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts` | `request` → `httpRequest` |
+| `40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts` | `createServer` → `createHttpsServer` |
+| `40_Develop/mcp-server/tests/system/streamable-http-transport.integration.test.ts` | `request` → `httpsRequest` |
+| `40_Develop/platform-access/tests/unit/host-record/record.contract.test.ts` | `createHostTerminalObservationRequest` → `native_createHostTerminalObservationRequest` |
+| `40_Develop/platform-access/tests/unit/host-record/record.contract.test.ts` | `createHostTerminalReadRequest` → `native_createHostTerminalReadRequest` |
+| `40_Develop/platform-access/tests/unit/host-record/record.contract.test.ts` | `createHostTerminalSaveRequest` → `native_createHostTerminalSaveRequest` |
+| `40_Develop/platform-access/tests/unit/host-record/record.contract.test.ts` | `createKnownFileHostTerminalReadRequest` → `native_createKnownFileHostTerminalReadRequest` |
+| `40_Develop/platform-access/tests/unit/host-record/record.contract.test.ts` | `createKnownFileHostTerminalSaveRequest` → `native_createKnownFileHostTerminalSaveRequest` |
+| `40_Develop/visual-preview/src/browser/devtools.ts` | `setTimeout` → `wait` |
+| `40_Develop/visual-preview/src/browser/process.ts` | `setTimeout` → `wait` |
+| `40_Develop/workbench-server/tests/integration/management.integration.test.ts` | `request` → `httpRequest` |
+| `40_Develop/workbench-server/tests/integration/management.integration.test.ts` | `setTimeout` → `delay` |
+| `40_Develop/workbench-server/tests/integration/public-origin.contract.test.ts` | `request` → `httpRequest` |
+| `40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts` | `setTimeout` → `delay` |
+| `40_Develop/workbench-server/tests/system/workbench-server-entry.integration.test.ts` | `createServer` → `createHttpServer` |
+| `40_Develop/workbench-server/tests/system/workbench-server-entry.integration.test.ts` | `request` → `httpRequest` |
+| `40_Develop/workbench-server/tests/system/workbench-server-entry.integration.test.ts` | `createServer` → `createHttpsServer` |
+| `40_Develop/workbench-server/tests/system/workbench-server-entry.integration.test.ts` | `request` → `httpsRequest` |
+
+DIの`configuration.ts`統合とDockerRuntime系の不要型・命名見直しは追加相談として区別する。今回の別名是正に伴う動作変更へ混ぜず、固定構成関数のImage Ownerへの統合可否、内部型の削除・統合と短縮を次に確認する。廃止決定済みの履歴は現在の調査範囲では未確認であり、既決事項と断定しない。
+
+#### 一括是正の検証結果と限界
+
+構文木で再抽出した最終集合はNamed importの実競合50件、別名exportは0件。所有元宣言32件と再export鎖、利用側を同時に追従した。回帰で見つかったSource切出し・VM注入・公開Symbol一覧の旧名も正本へ合わせ、旧名を受け付ける互換経路は追加していない。別OwnerのPlain DataとRuntime Stateの関数は統合せず、利用先の実装に一致させた。
+
+13Packageの型検査、Repository全体1,074Fileの整形検査とLint、CoordinatorのRuntime／Task追跡契約検査が成功した。Lintの既存infoは成功と区別して保持し、無関係な一括修正は行っていない。
+
+| 検証 | 結果と範囲 |
+|---|---|
+| AD／DI／Executor | AD45件、DIの通常portable回帰、Executor113件が成功。実AI・Dockerは使用しない |
+| Domain | 広域回帰で検出した旧VM接続等を是正し、是正対象108件と公開境界・Consumer閉包の18件が成功 |
+| その他Package | Access Management、Execution Intelligence、MCP、Platform Access portable、Visual Previewの回帰が成功 |
+| VC | 広域回帰のGit初期化異常1件は、切り離した対象2件の再確認で成功。製品の検査・期限は変えていない |
+| Workbench | 通常Integrationの事前確認以外は成功。初回事前確認は実行中の他Source編集によるsourceUnchanged不成立だったため、編集を止めた候補で17件成功を確認。追加した非既定の実Browser管理試験は準備確認と420秒期限で不成立。実Browser成立・全System QA成功は主張しない |
+| Checker | 影響する局所21件は成功。広域回帰は不合格。変更していないHEADのCoordinator Symbol[91]にも同じverifies重複があり、廃止済みorchestrator参照もHEADに残る。他の旧fixture／現在Schemaとの不整合を今回の改名是正で隠蔽・緩和しない |
+| Coordinator | 広域回帰の旧名関連7失敗は、修正後の回収契約31件・Source/VM関連対象・最後の宣言切出し1件で再確認した。残るSHA-256疑似fixtureの形式取得不成立と、passive doctorのHost名前空間初期化／清掃未確認は非Passとして分離する。前者はHEAD/configだけの疑似Git領域であり、同じ新品入力を基準版と現在版のRoot検証へ渡して、両方がrepository_root_invalidで拒否することを確認した。後者はDocker試験前のHost初期化失敗で、追加実行・保持物操作はしない。名前の差分がないことを因果不存在の証明にはせず、原因未確定として保留する。初期化時のEffect 0やHost清掃成立は推定しない |
+| 独立確認 | 宣言元・再export鎖、実競合、Object key／Schema、Source検査、Architectureを読み取り専用で確認。旧名試験、Plain DataのOwner取り違え、Header／公開説明の3系統を是正し、追加の限定再確認を含め必須残指摘0件 |
+
+上記は命名是正の確認範囲であり、全体QAのPass、実AI／Docker E2E、Release／統合判断とは区別する。実AI・Docker・過去保持物は操作していない。今回の終了済み試験が作った3つのcompile-cache専用Rootだけは、exact Root・境界・reparse不存在を確認して清掃し、不存在を確認した。生出力をFileへ保存していない。
+
+今回のCoordinator試験Root内のHost名前空間は、次の範囲だけを清掃未確認として保持する。過去保持物は操作しない。
+
+| 項目 | 観測・扱い |
+|---|---|
+| Repository相対のexact対象 | `.crdd/tests/alias-coordinator-9b332492108a458caccac8fbe6103b88/crdd-coordinator-recovery-v1` |
+| 2026-11-06の観測 | 空Directory、reparse・読取り不能とも0。Native参照の不存在は未確認 |
+| 実体識別 | この作業の会話内の観測記録に保持。Path自体を削除Authorityにしない |
+| 担当責務 | Coordinator／Platform Accessの試験接続 |
+| 再評価期限 | 2026-11-13。未確認なら人間判断へ戻し、自動削除・無期限保持の承認とはしない |
+| 回収条件 | 対象Identity・元試験とNative参照の終了・空であることを再確認する |
+| 保証限界 | 今回の空Directoryの保持であり、Docker資源の残存又は清掃完了を示さない。作業時の観測で、操作前の現在性照合を置換しない |
+
+試験追従の一般化可能な原因は、型検査がSource切出し名・VM依存key・生成コード内の識別子を検査しない点にあった。既存の「利用側・試験も同時追従する」規約へこれらを含めて適用し、既存契約試験の実行で照合した。新しいAlias Registryや互換fallbackは追加していない。
+
+次の順序は利用者指示により、VCの公開Request／Result型・readFile比較基準・Main／Linked内容操作の見直しを先行し、その後にDIのconfiguration.ts移管とDockerRuntime系内部型の削除・統合・命名整理を扱う。VCの3点は静的照合までであり、ここではVC／DIの追加実装完了を主張しない。
+
 利用者が、AI Adapterだけでなく他Packageの別名もVC完了後にまとめて対応するよう指定した。VCの実装完了を優先し、この棚卸しを理由に各Packageの改名や公開契約変更を先行しない。DI／Executor／AI Adapterの本番Sourceも、この時点では追加変更しない。
 
 現在の未Commit作業Treeを対象に、`40_Develop/**`と`template/tools/**`の追跡・追加済みTS／JS系SourceからNamed import／exportの`元名 as 別名`を抽出した。型アサーションとNamespace束縛を除く。字句抽出であり、試験内の例示文字列等を含み得る移行候補であって、競合判定済みの違反一覧又はASTによる網羅証明ではない。実装時に再棚卸しし、各候補を実競合による維持、宣言元からの改名、元名へ戻す、例示・非該当のいずれかへ判定する。

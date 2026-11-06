@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { disposeDockerRepairDirectory } from "./dispose.ts";
 
 /**
@@ -144,7 +144,7 @@ function captureRepairDirectoryIdentity(expectedIdentity: unknown) {
   if (
     !expectedIdentity ||
     typeof expectedIdentity !== "object" ||
-    utilTypes.isProxy(expectedIdentity)
+    types.isProxy(expectedIdentity)
   )
     return null;
   const descriptors = Object.getOwnPropertyDescriptors(expectedIdentity);
@@ -493,7 +493,7 @@ export function createDockerDesktopRepairDirectoryAccess(
       !["initial", "failed", "auxiliary"].includes(purpose) ||
       (expected !== null && !identity) ||
       typeof canIssue !== "function" ||
-      utilTypes.isProxy(canIssue)
+      types.isProxy(canIssue)
     )
       return Object.freeze({
         request: "not_issued" as const,

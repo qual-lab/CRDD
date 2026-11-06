@@ -8,7 +8,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type { IsolationProbeFacts } from "../../../executor/src/lifecycle/types.ts";
 import { inspectDockerContainer } from "../../src/cleanup/container.ts";
 import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
@@ -166,7 +166,7 @@ function captureProbeMounts(value: unknown): ProbeMounts {
   if (
     !value ||
     typeof value !== "object" ||
-    utilTypes.isProxy(value) ||
+    types.isProxy(value) ||
     (Object.getPrototypeOf(value) !== Object.prototype &&
       Object.getPrototypeOf(value) !== null)
   )

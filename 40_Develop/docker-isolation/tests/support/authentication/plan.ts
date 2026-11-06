@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type { DockerAuthenticationResources } from "./cleanup.ts";
 import { dockerContainerInitObservationMatches } from "../../../src/cleanup/init.ts";
 
@@ -517,7 +517,7 @@ export function planDockerAuthenticationCommands(
   if (
     input === null ||
     typeof input !== "object" ||
-    utilTypes.isProxy(input) ||
+    types.isProxy(input) ||
     Object.getPrototypeOf(input) !== Object.prototype ||
     Reflect.ownKeys(input).some(
       (key) =>
@@ -826,7 +826,7 @@ function snapshotAuthenticationCli(candidate: unknown, login: boolean) {
   if (
     !candidate ||
     typeof candidate !== "object" ||
-    utilTypes.isProxy(candidate) ||
+    types.isProxy(candidate) ||
     Object.getPrototypeOf(candidate) !== Object.prototype
   )
     throw Error("docker_authentication_cli_invalid");
@@ -852,7 +852,7 @@ function snapshotAuthenticationCli(candidate: unknown, login: boolean) {
     const argv = record[name];
     if (
       !Array.isArray(argv) ||
-      utilTypes.isProxy(argv) ||
+      types.isProxy(argv) ||
       Object.getPrototypeOf(argv) !== Array.prototype ||
       Reflect.ownKeys(argv).some(
         (key) =>
@@ -880,7 +880,7 @@ function snapshotAuthenticationCli(candidate: unknown, login: boolean) {
   if (
     !environment ||
     typeof environment !== "object" ||
-    utilTypes.isProxy(environment) ||
+    types.isProxy(environment) ||
     Object.getPrototypeOf(environment) !== Object.prototype ||
     Reflect.ownKeys(environment).length > 64 ||
     Reflect.ownKeys(environment).some(

@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 
-import { snapshotPlainRecord } from "./validation.ts";
+import { snapshotRuntimeStateRecord } from "./validation.ts";
 import type { CoordinatorStateQuery } from "./projection-types.ts";
 
 export const COORDINATOR_STATE_QUERY_CONTRACT =
@@ -79,7 +79,7 @@ function validRevision(value: unknown): value is string {
 export function inspectCoordinatorStateQuery(
   value: unknown,
 ): CoordinatorStateQuery | null {
-  const request = snapshotPlainRecord(value, queryKeys);
+  const request = snapshotRuntimeStateRecord(value, queryKeys);
   if (
     !request ||
     !validId(request.requestId) ||

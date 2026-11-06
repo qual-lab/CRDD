@@ -66,9 +66,9 @@ const PUBLIC_COORDINATOR_BOUNDARIES = [
 const COORDINATOR_BLOCKED_PROJECTION =
   "40_Develop/coordinator/src/state/result.ts";
 const coordinatorStoreFactoryNames = [
-  "createCoordinatorPersistencePorts",
+  "createCurrentCoordinatorPersistencePorts",
   "createCoordinatorSnapshotDecisionRecoveryStore",
-  "createCoordinatorAcceptanceDecisionStore",
+  "createCoordinatorSnapshotAcceptanceDecisionStore",
 ] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
   "40_Develop/execution-intelligence/src/storage/store.ts";

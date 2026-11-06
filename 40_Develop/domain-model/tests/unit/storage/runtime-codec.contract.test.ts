@@ -16,7 +16,6 @@ import {
   type CoordinatorState,
   type CoordinatorUnifiedSnapshot,
   coordinatorConsumerCompletionPolicy,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   hashRuntimeProjectDefinition,
@@ -329,7 +328,7 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
     createHash("sha256").update(bytes).digest("hex"),
   );
   assert.deepEqual(
-    decodeCoordinatorStateSnapshot(bytes, binding)?.snapshot,
+    decodeRuntimeDomainSnapshot(bytes, binding)?.snapshot,
     snapshot,
   );
   for (const invalid of [
@@ -545,7 +544,7 @@ test("結果受領方式: 固定利用側と任意降格の拒否", () => {
  */
 test("Snapshot: 正規本文、改訂、結合と空集合", () => {
   const text = `${encodeRuntimeStateValue(empty)}\n`;
-  const result = decodeCoordinatorStateSnapshot(Buffer.from(text), binding);
+  const result = decodeRuntimeDomainSnapshot(Buffer.from(text), binding);
   assert.ok(result);
   assert.equal(result.payloadSha256, hashRuntimeStateContent(empty));
   assert.ok(Object.isFrozen(result.snapshot.operations));
@@ -557,34 +556,28 @@ test("Snapshot: 正規本文、改訂、結合と空集合", () => {
     { ...empty, pendingDeliveries: [{ operationNonce: binding }] },
   ])
     assert.equal(
-      decodeCoordinatorStateSnapshot(
+      decodeRuntimeDomainSnapshot(
         Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
         binding,
       ),
       null,
     );
   assert.equal(
-    decodeCoordinatorStateSnapshot(
+    decodeRuntimeDomainSnapshot(
       Buffer.from(`${JSON.stringify(empty)}\n`),
       binding,
     ),
     null,
   );
   assert.equal(
-    decodeCoordinatorStateSnapshot(
+    decodeRuntimeDomainSnapshot(
       Buffer.from(text.replace('"revision":1', '"revision":1,"revision":1')),
       binding,
     ),
     null,
   );
-  assert.equal(
-    decodeCoordinatorStateSnapshot(Buffer.from([0xff]), binding),
-    null,
-  );
-  assert.equal(
-    decodeCoordinatorStateSnapshot(Buffer.from(text), "wrong"),
-    null,
-  );
+  assert.equal(decodeRuntimeDomainSnapshot(Buffer.from([0xff]), binding), null);
+  assert.equal(decodeRuntimeDomainSnapshot(Buffer.from(text), "wrong"), null);
 });
 
 /**
@@ -625,17 +618,17 @@ test("Snapshot: hostile値と配列順", () => {
       throw new Error("trap");
     },
   });
-  assert.equal(decodeCoordinatorStateSnapshot(proxyBytes, binding), null);
+  assert.equal(decodeRuntimeDomainSnapshot(proxyBytes, binding), null);
   Object.defineProperty(bytes, "length", {
     get() {
       isInvoked = true;
       throw new Error("getter");
     },
   });
-  assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
   assert.equal(isInvoked, false);
   assert.equal(
-    decodeCoordinatorStateSnapshot(
+    decodeRuntimeDomainSnapshot(
       Buffer.concat([
         Buffer.from([0xef, 0xbb, 0xbf]),
         Buffer.from(`${encodeRuntimeStateValue(empty)}\n`),

@@ -10,7 +10,7 @@
  */
 import type { ChildProcess } from "node:child_process";
 
-import type { InteractiveConsoleReaderLifecycleOutcome as InteractiveConsoleReadOutcome } from "../../src/terminal/reader-lifecycle.ts";
+import type { InteractiveConsoleReaderLifecycleOutcome } from "../../src/terminal/reader-lifecycle.ts";
 import { runInteractiveConsoleReaderLifecycle } from "../../src/terminal/reader-lifecycle.ts";
 
 export function readInteractiveConsoleLineOutcomeUsingAdapter(
@@ -22,7 +22,7 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
     setTimeout: typeof setTimeout;
     clearTimeout: typeof clearTimeout;
   }>,
-): Promise<InteractiveConsoleReadOutcome> {
+): Promise<InteractiveConsoleReaderLifecycleOutcome> {
   if (
     !Number.isSafeInteger(inputDescriptor) ||
     inputDescriptor < 0 ||
@@ -33,7 +33,7 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       Object.freeze({
         status: cancellationSignal.aborted ? "cancelled" : "reader_failed",
         line: null,
-      }) as InteractiveConsoleReadOutcome,
+      }) as InteractiveConsoleReaderLifecycleOutcome,
     );
   let child: ChildProcess;
   try {
@@ -43,7 +43,7 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       Object.freeze({
         status: "reader_failed",
         line: null,
-      }) as InteractiveConsoleReadOutcome,
+      }) as InteractiveConsoleReaderLifecycleOutcome,
     );
   }
   return runInteractiveConsoleReaderLifecycle(

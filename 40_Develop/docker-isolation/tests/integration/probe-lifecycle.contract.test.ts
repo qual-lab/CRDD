@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import { describeDockerProbeConfiguration } from "../support/probe.ts";
 import { classifyDockerProbeCancellation } from "../support/probe-result.ts";
@@ -191,7 +191,7 @@ test("Probe取消は三地点の実体確認と元失敗を保持し同じHandle
         Promise,
         Buffer,
         Set,
-        utilTypes,
+        types,
         describeDockerProbeConfiguration,
         classifyDockerProbeCancellation,
         performance: { now: () => clock },
@@ -497,7 +497,7 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
         Object,
         Reflect,
         Error,
-        utilTypes,
+        types,
         describeDockerProbeConfiguration,
         inspectDockerContainer: (
           actual: object,

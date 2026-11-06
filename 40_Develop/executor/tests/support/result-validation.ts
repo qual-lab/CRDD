@@ -7,7 +7,7 @@
  * @scope 合成結果と本番同等結果の値だけを扱う。
  * @boundary Executorの試験入口。本番Sourceから参照しない。
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/tests/support/cleanup.ts";
 import {
   isAttemptFailureReason,
@@ -111,7 +111,7 @@ function exactPlainRecord(value: unknown, expectedKeys: readonly string[]) {
     !value ||
     typeof value !== "object" ||
     Array.isArray(value) ||
-    utilTypes.isProxy(value)
+    types.isProxy(value)
   )
     return null;
   try {
@@ -162,10 +162,7 @@ export function projectAttemptStartResult(
   handedOffRecoveryId: unknown,
   expectedOperationId?: unknown,
 ): Readonly<Record<string, unknown>> | null {
-  if (
-    utilTypes.isProxy(value) ||
-    readOwnDataProperty(value, "kind") !== "attempt"
-  )
+  if (types.isProxy(value) || readOwnDataProperty(value, "kind") !== "attempt")
     return null;
   const blockedRecord = exactPlainRecord(value, BLOCKED_START_KEYS);
   if (
@@ -253,10 +250,7 @@ export function projectAttemptResult(
   expectedRecoveryId: unknown,
   expectedOperationId?: unknown,
 ): Readonly<Record<string, unknown>> | null {
-  if (
-    utilTypes.isProxy(value) ||
-    readOwnDataProperty(value, "kind") !== "attempt"
-  )
+  if (types.isProxy(value) || readOwnDataProperty(value, "kind") !== "attempt")
     return null;
   const record = exactPlainRecord(value, COMPLETION_KEYS);
   if (!record) return null;

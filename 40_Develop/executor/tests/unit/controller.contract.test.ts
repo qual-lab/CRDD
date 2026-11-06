@@ -168,7 +168,7 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
         readOwnDataProperty: (value: object, key: string) =>
           Object.getOwnPropertyDescriptor(value, key)?.value,
         createStartResult,
-        utilTypes: { isPromise: () => false },
+        types: { isPromise: () => false },
         createLifecycleControl,
         createDockerIsolationRuntime: () => ({ acquireHomeLease: () => null }),
         prepareIsolation: () => null,

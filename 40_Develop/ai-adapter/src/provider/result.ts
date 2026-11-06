@@ -5,15 +5,15 @@
  * @trace ARCH-000015
  */
 
-import type { AiProvider, ProviderTurnCountDiagnostic } from "./types.ts";
+import type { Provider, TurnCountDiagnostic } from "./types.ts";
 
 import {
-  type ProviderExecutionPlanResult,
+  type ExecutionPlan,
   type ProviderExecutionPurpose,
   evaluateProviderTaskScope,
 } from "./plan.ts";
 
-import type { ProviderAuthenticationDefinition } from "../authentication/plan.ts";
+import type { AuthenticationDefinition } from "../authentication/plan.ts";
 
 import {
   evaluateProviderAuthentication,
@@ -22,7 +22,7 @@ import {
 
 import { convertProviderError } from "./error.ts";
 
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 import {
   inspectCodexExecutionObservation,
@@ -56,10 +56,10 @@ import { normalizeClaudeStructuredResult } from "../claude/result.ts";
  * @compatibility Task／助言のEnvelope・Schema境界を維持し、報告回数を要求上限と比較しない。
  */
 export type ProviderEnvelopeInput =
-  | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
-  | Readonly<{ provider: AiProvider; purpose: "advice"; raw: unknown }>
+  | Readonly<{ provider: Provider; purpose: "probe"; raw: unknown }>
+  | Readonly<{ provider: Provider; purpose: "advice"; raw: unknown }>
   | Readonly<{
-      provider: AiProvider;
+      provider: Provider;
       purpose: "task";
       taskRole: "executor" | "reviewer";
       raw: string;
@@ -105,7 +105,7 @@ export type ProviderEnvelopeResult<
     providerReportedTurns: number | null;
     codexExecutionObservation: CodexExecutionObservationResult;
     rawOutputReported: false;
-    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
+    turnCountDiagnostic?: TurnCountDiagnostic;
   } & (
     | {
         status: "confirmed";
@@ -120,7 +120,7 @@ export type ProviderEnvelopeResult<
         status: "blocked";
         value: null;
         error: Readonly<{
-          provider: AiProvider | null;
+          provider: Provider | null;
           reason: ProviderEnvelopeReason;
         }>;
       }
@@ -133,9 +133,9 @@ export type ProviderEnvelopeResult<
  * @invariant 保存・実行・清掃のAuthorityを含めない。
  */
 export type ProviderResultInput =
-  | Readonly<{ provider: AiProvider; purpose: "probe"; raw: unknown }>
+  | Readonly<{ provider: Provider; purpose: "probe"; raw: unknown }>
   | Readonly<{
-      provider: AiProvider;
+      provider: Provider;
       purpose: "task";
       taskRole: unknown;
       selectedEffort: unknown;
@@ -143,7 +143,7 @@ export type ProviderResultInput =
       raw: unknown;
     }>
   | Readonly<{
-      provider: AiProvider;
+      provider: Provider;
       purpose: "advice";
       allowedReferences: readonly string[];
       raw: unknown;
@@ -159,7 +159,7 @@ export type ProviderResultParseResult<
   {
     providerExecutionObservation?: NonNullable<CodexExecutionObservationResult>;
     providerTurnObservation?: Readonly<Record<string, unknown>>;
-    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
+    turnCountDiagnostic?: TurnCountDiagnostic;
     reviewFindings?: readonly TaskReviewFinding[] | null;
     rawOutputReported?: false;
     untrustedProviderTextReported?: false;
@@ -263,7 +263,7 @@ export function extractProviderResult<const I extends ProviderEnvelopeInput>(
   let reason: ProviderEnvelopeReason | null = null;
   let value: unknown = null;
   let providerReportedTurns: number | null = null;
-  let turnCountDiagnostic: ProviderTurnCountDiagnostic | undefined;
+  let turnCountDiagnostic: TurnCountDiagnostic | undefined;
   let codexExecutionObservation: CodexExecutionObservationResult = null;
   if (
     (provider !== "codex" && provider !== "claude") ||
@@ -512,7 +512,7 @@ export function parseAdviceContent(
  * @invariant 内容解析からProcess終了・取消・Cleanup成立を推定しない。
  */
 export function parseProviderResult<K extends ProviderExecutionPurpose>(
-  plan: ProviderExecutionPlanResult<AiProvider, K>,
+  plan: ExecutionPlan<Provider, K>,
   observation: Readonly<{
     stdout: string;
     stderr: string;
@@ -521,7 +521,7 @@ export function parseProviderResult<K extends ProviderExecutionPurpose>(
 ): ProviderResultParseResult<K>;
 
 export function parseProviderResult(
-  plan: ProviderAuthenticationDefinition,
+  plan: AuthenticationDefinition,
   observation: Readonly<{
     stdout: string;
     stderr: string;
@@ -530,7 +530,7 @@ export function parseProviderResult(
 ): ProviderAuthenticationResult;
 
 export function parseProviderResult(
-  plan: ProviderExecutionPlanResult | ProviderAuthenticationDefinition,
+  plan: ExecutionPlan | AuthenticationDefinition,
   observation: Readonly<{
     stdout: string;
     stderr: string;
@@ -546,12 +546,11 @@ export function parseProviderResult(
     observation,
     new Set(["stdout", "stderr", "exitCode"]),
   );
-  if (!plan || typeof plan !== "object" || utilTypes.isProxy(plan))
-    return blocked;
+  if (!plan || typeof plan !== "object" || types.isProxy(plan)) return blocked;
   const own = (value: object, key: string): unknown =>
     Object.getOwnPropertyDescriptor(value, key)?.value;
   if (own(plan, "kind") === "authentication") {
-    const definition = plan as ProviderAuthenticationDefinition;
+    const definition = plan as AuthenticationDefinition;
     const provider = own(definition, "provider");
     const offering = own(definition, "offering");
     const purpose = own(definition, "confirmationPurpose");
@@ -606,14 +605,10 @@ export function parseProviderResult(
     return blocked;
   if (own(plan, "status") !== "ready") return blocked;
   const execution = own(plan, "plan");
-  if (
-    !execution ||
-    typeof execution !== "object" ||
-    utilTypes.isProxy(execution)
-  )
+  if (!execution || typeof execution !== "object" || types.isProxy(execution))
     return blocked;
   const context = own(execution, "resultContext");
-  if (!context || typeof context !== "object" || utilTypes.isProxy(context))
+  if (!context || typeof context !== "object" || types.isProxy(context))
     return blocked;
   const provider = own(context, "provider");
   const purpose = own(context, "purpose");
@@ -1261,7 +1256,7 @@ function extractClaude(raw: string) {
             ? "null"
             : Array.isArray(envelope.num_turns)
               ? "array"
-              : (typeof envelope.num_turns as ProviderTurnCountDiagnostic["valueType"]),
+              : (typeof envelope.num_turns as TurnCountDiagnostic["valueType"]),
         numberText:
           typeof envelope.num_turns === "number" &&
           Number.isFinite(envelope.num_turns)
@@ -1323,7 +1318,7 @@ function confirmed(adviceJson: string) {
  */
 function blocked(
   reason: (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number],
-  turnCountDiagnostic?: ProviderTurnCountDiagnostic,
+  turnCountDiagnostic?: TurnCountDiagnostic,
 ) {
   return Object.freeze({
     status: "blocked" as const,

@@ -151,7 +151,7 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
         );
       },
       {
-        borrowRuntimeOwnedCoordinatorRecoveryRepository: () => ({
+        observeRuntimeRecoveryRepository: () => ({
           repositoryRoot: "unused",
           repositoryBinding: binding,
           revalidate: () => true,

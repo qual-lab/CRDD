@@ -23,7 +23,7 @@ import {
   coordinatorAuthenticationUnknownCanClose,
   coordinatorTaskResourcesAreSettled,
   createDockerRestartRequestId,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   isDockerRestartCheckpointSettled,
   parseHostRecoveryToken,
@@ -169,7 +169,7 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
     binding,
   );
   assert.ok(bytes);
-  const decoded = decodeCoordinatorStateSnapshot(bytes, binding);
+  const decoded = decodeRuntimeDomainSnapshot(bytes, binding);
   assert.ok(decoded);
   const initial = decoded.snapshot.operations[0];
   assert.ok(initial?.kind === "docker_task");
@@ -202,7 +202,7 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
     null,
     "isDockerRestartCheckpointSettled",
     "prepareCoordinatorStateOperationSnapshot",
-    "decodeCoordinatorStateSnapshot",
+    "decodeRuntimeDomainSnapshot",
   ] as const) {
     const calls = { restart: 0, prepare: 0, decode: 0 };
     const context = {
@@ -220,11 +220,11 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
         calls.prepare++;
         return prepareCoordinatorStateOperationSnapshot(...args);
       },
-      decodeCoordinatorStateSnapshot: (
-        ...args: Parameters<typeof decodeCoordinatorStateSnapshot>
+      decodeRuntimeDomainSnapshot: (
+        ...args: Parameters<typeof decodeRuntimeDomainSnapshot>
       ) => {
         calls.decode++;
-        return decodeCoordinatorStateSnapshot(...args);
+        return decodeRuntimeDomainSnapshot(...args);
       },
     };
     if (omitted) Reflect.deleteProperty(context, omitted);
@@ -475,7 +475,7 @@ function fixture(mode: "restart" | "recovery" = "restart") {
         JSON.parse(JSON.stringify(value)),
       ),
     prepareCoordinatorStateOperationSnapshot,
-    decodeCoordinatorStateSnapshot,
+    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
     canonical: (value: unknown) => `${JSON.stringify(value)}\n`,
     validateHostRecoveryTransitionLineage: (value: unknown, required: string) =>
       validateHostRecoveryTransitionLineage(

@@ -13,7 +13,7 @@ import {
   type CoordinatorStateRepairOperation,
 } from "../../../src/index.ts";
 import {
-  encodeRuntimeStateValue as encode,
+  encodeRuntimeStateValue,
   RUNTIME_STATE_MAXIMUM_BYTES,
 } from "../../../src/index.ts";
 import assert from "node:assert/strict";
@@ -27,26 +27,25 @@ type DockerRuntimeRepairDisposalCheckpoint = NonNullable<
   CoordinatorStateRepairOperation["disposal"]
 >["checkpoint"];
 import {
-  decodeRuntimeDomainSnapshot as decode,
-  prepareCoordinatorStateRepairSnapshot as start,
-  prepareCoordinatorStateRepairCheckpointSnapshot as checkpoint,
+  prepareCoordinatorStateRepairSnapshot,
+  prepareCoordinatorStateRepairCheckpointSnapshot,
   prepareCoordinatorStateRepairSessionSnapshot,
-  prepareCoordinatorStateRepairDisposalDecisionSnapshot as discard,
-  prepareCoordinatorStateRepairDisposalProgressSnapshot as progress,
-  validateCoordinatorStateRepairDisposalTransition as disposalTransition,
+  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
+  prepareCoordinatorStateRepairDisposalProgressSnapshot,
+  validateCoordinatorStateRepairDisposalTransition,
   validateCoordinatorStateRepairSessionTransition,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateResourceSnapshot,
   validateCoordinatorStateTransition,
-  classifyCoordinatorRepairPublication as publication,
-  prepareCoordinatorStateRepairRetentionHandoffSnapshot as handoff,
-  validateCoordinatorStateRepairRetentionHandoffTransition as handoffTransition,
-  prepareCoordinatorRepairHistorySummary as repairSummary,
-  prepareCoordinatorRepairHistorySnapshot as repairHistory,
-  prepareCoordinatorRepairHistoryLine as repairLine,
-  prepareCoordinatorRepairHistoryPublication as repairPublication,
+  classifyCoordinatorRepairPublication,
+  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
+  validateCoordinatorStateRepairRetentionHandoffTransition,
+  prepareCoordinatorRepairHistorySummary,
+  prepareCoordinatorRepairHistorySnapshot,
+  prepareCoordinatorRepairHistoryLine,
+  prepareCoordinatorRepairHistoryPublication,
   prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
+  prepareCoordinatorStateRepairCompletionSnapshot,
 } from "../../../src/index.ts";
 import {
   prepareCoordinatorStateHistoryLine,
@@ -132,9 +131,9 @@ const initial = {
  * @boundary N/A: 値生成のみ。
  */
 function fixture() {
-  const bytes = start(null, text, binding);
+  const bytes = prepareCoordinatorStateRepairSnapshot(null, text, binding);
   assert.ok(bytes);
-  const observed = decode(bytes, binding);
+  const observed = decodeRuntimeDomainSnapshot(bytes, binding);
   assert.ok(observed);
   const operation = observed.snapshot.operations[0];
   assert.ok(operation?.kind === "runtime_repair");
@@ -203,7 +202,7 @@ function retentionFixture(phase: CoordinatorStateRepairOperation["phase"]) {
     };
   }
   const bytes = Buffer.from(
-    `${encode({
+    `${encodeRuntimeStateValue({
       ...f.observed.snapshot,
       operations: [
         {
@@ -225,7 +224,7 @@ function retentionFixture(phase: CoordinatorStateRepairOperation["phase"]) {
       ],
     })}\n`,
   );
-  const current = decode(bytes, binding);
+  const current = decodeRuntimeDomainSnapshot(bytes, binding);
   assert.ok(current, phase);
   const operation = current.snapshot.operations[0];
   assert.ok(operation?.kind === "runtime_repair");
@@ -256,27 +255,54 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     },
   };
   const before = Buffer.from(f.bytes);
-  const candidate = handoff(f.bytes, id, receipt, binding);
+  const candidate = prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+    f.bytes,
+    id,
+    receipt,
+    binding,
+  );
   assert.ok(candidate);
-  assert.equal(handoffTransition(f.bytes, candidate, id, binding), true);
   assert.equal(
-    publication(f.bytes, candidate, id, binding)?.mode,
+    validateCoordinatorStateRepairRetentionHandoffTransition(
+      f.bytes,
+      candidate,
+      id,
+      binding,
+    ),
+    true,
+  );
+  assert.equal(
+    classifyCoordinatorRepairPublication(f.bytes, candidate, id, binding)?.mode,
     "retention_handoff",
   );
   assert.equal(
-    publication(candidate, candidate, id, binding)?.mode,
+    classifyCoordinatorRepairPublication(candidate, candidate, id, binding)
+      ?.mode,
     "remove_pending",
   );
-  assert.equal(publication(f.bytes, candidate, "different-id", binding), null);
   assert.equal(
-    publication(Buffer.from(` ${f.bytes.toString()}`), candidate, id, binding),
+    classifyCoordinatorRepairPublication(
+      f.bytes,
+      candidate,
+      "different-id",
+      binding,
+    ),
+    null,
+  );
+  assert.equal(
+    classifyCoordinatorRepairPublication(
+      Buffer.from(` ${f.bytes.toString()}`),
+      candidate,
+      id,
+      binding,
+    ),
     null,
   );
   assert.equal(
     validateCoordinatorStateTransition(f.bytes, candidate, binding),
     false,
   );
-  const next = decode(candidate, binding);
+  const next = decodeRuntimeDomainSnapshot(candidate, binding);
   assert.ok(next);
   const operation = next.snapshot.operations[0];
   assert.ok(operation?.kind === "runtime_repair");
@@ -291,7 +317,15 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     revision: f.current.snapshot.revision,
     payloadSha256: f.current.payloadSha256,
   });
-  assert.equal(handoff(candidate, id, receipt, binding), null);
+  assert.equal(
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      candidate,
+      id,
+      receipt,
+      binding,
+    ),
+    null,
+  );
   for (const invalid of [
     null,
     { ...receipt, extra: true },
@@ -321,16 +355,38 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     },
     { ...receipt, targets: { primary: null, failed: null, auxiliary: null } },
   ])
-    assert.equal(handoff(f.bytes, id, invalid, binding), null);
+    assert.equal(
+      prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+        f.bytes,
+        id,
+        invalid,
+        binding,
+      ),
+      null,
+    );
   assert.equal(
-    handoff(retentionFixture("settling").bytes, id, receipt, binding),
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      retentionFixture("settling").bytes,
+      id,
+      receipt,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    handoff(Buffer.from(` ${f.bytes.toString()}`), id, receipt, binding),
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      Buffer.from(` ${f.bytes.toString()}`),
+      id,
+      receipt,
+      binding,
+    ),
     null,
   );
-  const summary = repairSummary(candidate, id, binding);
+  const summary = prepareCoordinatorRepairHistorySummary(
+    candidate,
+    id,
+    binding,
+  );
   assert.ok(summary && f.operation.checkpoint);
   const expected = {
     schema: "crdd-coordinator/repair-summary/v1",
@@ -356,19 +412,33 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
   };
   assert.ok(
     summary.summaryBytes.equals(
-      Buffer.from(`${encode({ ...expected, retention: receipt })}\n`),
+      Buffer.from(
+        `${encodeRuntimeStateValue({ ...expected, retention: receipt })}\n`,
+      ),
     ),
   );
-  const old = repairSummary(retentionFixture("settling").bytes, id, binding);
+  const old = prepareCoordinatorRepairHistorySummary(
+    retentionFixture("settling").bytes,
+    id,
+    binding,
+  );
   assert.ok(
-    old?.summaryBytes.equals(Buffer.from(`${encode(expected)}\n`)),
+    old?.summaryBytes.equals(
+      Buffer.from(`${encodeRuntimeStateValue(expected)}\n`),
+    ),
     "non_handoff_bytes_unchanged",
   );
   assert.equal(
-    repairHistory(candidate, id, "2026-10-17T00:00:00.001Z", false, binding),
+    prepareCoordinatorRepairHistorySnapshot(
+      candidate,
+      id,
+      "2026-10-17T00:00:00.001Z",
+      false,
+      binding,
+    ),
     null,
   );
-  const pending = repairHistory(
+  const pending = prepareCoordinatorRepairHistorySnapshot(
     candidate,
     id,
     receipt.decidedAt,
@@ -376,7 +446,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     binding,
   );
   assert.ok(pending);
-  const published = repairHistory(
+  const published = prepareCoordinatorRepairHistorySnapshot(
     pending,
     id,
     receipt.decidedAt,
@@ -385,15 +455,22 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
   );
   assert.ok(published);
   assert.ok(
-    repairLine(pending, id, binding)?.equals(
-      repairLine(published, id, binding) as Buffer,
+    prepareCoordinatorRepairHistoryLine(pending, id, binding)?.equals(
+      prepareCoordinatorRepairHistoryLine(published, id, binding) as Buffer,
     ),
   );
-  assert.equal(completeRepair(pending, id, binding), null);
-  const completed = completeRepair(published, id, binding);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(pending, id, binding),
+    null,
+  );
+  const completed = prepareCoordinatorStateRepairCompletionSnapshot(
+    published,
+    id,
+    binding,
+  );
   assert.ok(completed);
-  const beforeCompletion = decode(published, binding);
-  const afterCompletion = decode(completed, binding);
+  const beforeCompletion = decodeRuntimeDomainSnapshot(published, binding);
+  const afterCompletion = decodeRuntimeDomainSnapshot(completed, binding);
   assert.ok(beforeCompletion && afterCompletion);
   assert.deepEqual(afterCompletion.snapshot, {
     ...beforeCompletion.snapshot,
@@ -417,27 +494,39 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     ]) {
       Date.now = () => Date.parse(now);
       assert.ok(
-        completeRepair(published, id, binding)?.equals(completed),
+        prepareCoordinatorStateRepairCompletionSnapshot(
+          published,
+          id,
+          binding,
+        )?.equals(completed),
         "completion_is_not_expiry_gated",
       );
     }
   } finally {
     Date.now = originalNow;
   }
-  assert.equal(handoff(published, id, receipt, binding), null);
-  const row = repairLine(published, id, binding);
+  assert.equal(
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      published,
+      id,
+      receipt,
+      binding,
+    ),
+    null,
+  );
+  const row = prepareCoordinatorRepairHistoryLine(published, id, binding);
   assert.ok(row && decodeCoordinatorHistoryRows(row));
   const rows = decodeCoordinatorHistoryRows(row);
   assert.equal(
     rows?.[0] && "reviewAfter" in rows[0] ? rows[0].reviewAfter : null,
     receipt.reviewAfter,
   );
-  const publishedValue = decode(published, binding);
+  const publishedValue = decodeRuntimeDomainSnapshot(published, binding);
   assert.ok(publishedValue);
   const withoutOperation = Buffer.from(
-    `${encode({ ...publishedValue.snapshot, operations: [] })}\n`,
+    `${encodeRuntimeStateValue({ ...publishedValue.snapshot, operations: [] })}\n`,
   );
-  assert.ok(decode(withoutOperation, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(withoutOperation, binding));
   const activeStates: readonly Buffer[] = [pending, published];
   for (const now of [
     "2026-10-23T23:59:59.999Z",
@@ -491,7 +580,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     "normal_retention_still_applies_after_deadline",
   );
   const oldState = retentionFixture("settling").bytes;
-  const oldPending = repairHistory(
+  const oldPending = prepareCoordinatorRepairHistorySnapshot(
     oldState,
     id,
     receipt.decidedAt,
@@ -499,7 +588,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     binding,
   );
   assert.ok(oldPending);
-  const oldPublished = repairHistory(
+  const oldPublished = prepareCoordinatorRepairHistorySnapshot(
     oldPending,
     id,
     receipt.decidedAt,
@@ -507,7 +596,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     binding,
   );
   assert.ok(oldPublished);
-  const oldRow = repairLine(oldPublished, id, binding);
+  const oldRow = prepareCoordinatorRepairHistoryLine(oldPublished, id, binding);
   assert.ok(oldRow);
   const decodedOldRows = decodeCoordinatorHistoryRows(oldRow);
   assert.ok(decodedOldRows?.[0]);
@@ -532,7 +621,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
   assert.equal(
     prepareCoordinatorHistoryRetention(
       withoutOperation,
-      Buffer.from(`${encode(corruptDeadline)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(corruptDeadline)}\n`),
       receipt.reviewAfter,
       1,
       binding,
@@ -542,15 +631,25 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
   const wrongRow = JSON.parse(row.toString());
   wrongRow.occurredAt = "2026-10-17T00:00:00.001Z";
   assert.equal(
-    decodeCoordinatorHistoryRows(Buffer.from(`${encode(wrongRow)}\n`)),
+    decodeCoordinatorHistoryRows(
+      Buffer.from(`${encodeRuntimeStateValue(wrongRow)}\n`),
+    ),
     null,
   );
-  const forged = decode(candidate, binding);
+  const forged = decodeRuntimeDomainSnapshot(candidate, binding);
   assert.ok(forged);
   const mutated = Buffer.from(
-    `${encode({ ...forged.snapshot, operations: [{ ...operation, primaryFailure: null, identitySha256: "1".repeat(64) }] })}\n`,
+    `${encodeRuntimeStateValue({ ...forged.snapshot, operations: [{ ...operation, primaryFailure: null, identitySha256: "1".repeat(64) }] })}\n`,
   );
-  assert.equal(handoffTransition(f.bytes, mutated, id, binding), false);
+  assert.equal(
+    validateCoordinatorStateRepairRetentionHandoffTransition(
+      f.bytes,
+      mutated,
+      id,
+      binding,
+    ),
+    false,
+  );
   const legalChangedCheckpoint = {
     ...operation.checkpoint,
     actions: {
@@ -563,10 +662,21 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     },
   };
   const legalChanged = Buffer.from(
-    `${encode({ ...forged.snapshot, operations: [{ ...operation, checkpoint: legalChangedCheckpoint }] })}\n`,
+    `${encodeRuntimeStateValue({ ...forged.snapshot, operations: [{ ...operation, checkpoint: legalChangedCheckpoint }] })}\n`,
   );
-  assert.ok(decode(legalChanged, binding), "legal_source_change_before_oracle");
-  assert.equal(handoffTransition(f.bytes, legalChanged, id, binding), false);
+  assert.ok(
+    decodeRuntimeDomainSnapshot(legalChanged, binding),
+    "legal_source_change_before_oracle",
+  );
+  assert.equal(
+    validateCoordinatorStateRepairRetentionHandoffTransition(
+      f.bytes,
+      legalChanged,
+      id,
+      binding,
+    ),
+    false,
+  );
   for (const hasExpected of [false, true]) {
     const original = structuredClone(f.current.snapshot);
     const mixedOperation = original.operations[0];
@@ -595,33 +705,51 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
       },
     };
     const mixedBytes = Buffer.from(
-      `${encode({ ...original, operations: [{ ...mixedOperation, checkpoint: mixedCheckpoint }] })}\n`,
+      `${encodeRuntimeStateValue({ ...original, operations: [{ ...mixedOperation, checkpoint: mixedCheckpoint }] })}\n`,
     );
-    assert.ok(decode(mixedBytes, binding), "legal_mixed_absent");
+    assert.ok(
+      decodeRuntimeDomainSnapshot(mixedBytes, binding),
+      "legal_mixed_absent",
+    );
     const mixedReceipt = {
       ...receipt,
       targets: { ...receipt.targets, failed: null },
     };
-    const mixedCandidate = handoff(mixedBytes, id, mixedReceipt, binding);
+    const mixedCandidate =
+      prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+        mixedBytes,
+        id,
+        mixedReceipt,
+        binding,
+      );
     assert.ok(mixedCandidate);
     assert.equal(
-      handoffTransition(mixedBytes, mixedCandidate, id, binding),
+      validateCoordinatorStateRepairRetentionHandoffTransition(
+        mixedBytes,
+        mixedCandidate,
+        id,
+        binding,
+      ),
       true,
     );
     assert.equal(
       validateCoordinatorStateTransition(mixedBytes, mixedCandidate, binding),
       false,
     );
-    const mixedSummary = repairSummary(mixedCandidate, id, binding);
+    const mixedSummary = prepareCoordinatorRepairHistorySummary(
+      mixedCandidate,
+      id,
+      binding,
+    );
     assert.ok(mixedSummary);
     assert.ok(
       mixedSummary.summaryBytes.equals(
         Buffer.from(
-          `${encode({ ...expected, technical: { ...expected.technical, actions: mixedCheckpoint.actions }, retention: mixedReceipt })}\n`,
+          `${encodeRuntimeStateValue({ ...expected, technical: { ...expected.technical, actions: mixedCheckpoint.actions }, retention: mixedReceipt })}\n`,
         ),
       ),
     );
-    const mixedHistory = repairHistory(
+    const mixedHistory = prepareCoordinatorRepairHistorySnapshot(
       mixedCandidate,
       id,
       receipt.decidedAt,
@@ -630,7 +758,7 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
     );
     assert.ok(mixedHistory);
     assert.equal(
-      repairHistory(
+      prepareCoordinatorRepairHistorySnapshot(
         mixedCandidate,
         id,
         "2026-10-17T00:00:00.001Z",
@@ -640,12 +768,17 @@ test("保持引渡し候補: exact7日と三用途を一度だけ固定する", 
       null,
     );
     assert.equal(
-      handoff(mixedBytes, id, receipt, binding),
+      prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+        mixedBytes,
+        id,
+        receipt,
+        binding,
+      ),
       null,
       "absent_target_nonnull",
     );
     assert.equal(
-      handoff(
+      prepareCoordinatorStateRepairRetentionHandoffSnapshot(
         mixedBytes,
         id,
         {
@@ -687,7 +820,7 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
   const siblingJson = `${JSON.stringify(siblingIdentity)}\n`;
   const siblingHash = createHash("sha256").update(siblingJson).digest("hex");
   const before = Buffer.from(
-    `${encode({
+    `${encodeRuntimeStateValue({
       ...f.current.snapshot,
       operations: [
         f.operation,
@@ -700,12 +833,17 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
       ],
     })}\n`,
   );
-  assert.ok(decode(before, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(before, binding));
   const id = f.operation.recoveryId;
   const time = "2026-10-17T00:00:00.000Z";
-  const candidate = discard(before, id, time, binding);
+  const candidate = prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+    before,
+    id,
+    time,
+    binding,
+  );
   assert.ok(candidate);
-  const actual = decode(candidate, binding);
+  const actual = decodeRuntimeDomainSnapshot(candidate, binding);
   assert.ok(actual);
   const operation = actual.snapshot.operations[0];
   assert.ok(operation?.kind === "runtime_repair" && operation.disposal);
@@ -722,7 +860,7 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
   );
   assert.deepEqual(
     actual.snapshot.operations[1],
-    decode(before, binding)?.snapshot.operations[1],
+    decodeRuntimeDomainSnapshot(before, binding)?.snapshot.operations[1],
   );
   assert.deepEqual(
     actual.snapshot.unresolvedRecoveries,
@@ -735,22 +873,36 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
   assert.equal(actual.snapshot.revision, f.current.snapshot.revision + 1);
   assert.deepEqual(actual.snapshot.previous, {
     revision: f.current.snapshot.revision,
-    payloadSha256: decode(before, binding)?.payloadSha256,
+    payloadSha256: decodeRuntimeDomainSnapshot(before, binding)?.payloadSha256,
   });
   assert.equal(
-    disposalTransition(before, candidate, id, "decision", binding),
+    validateCoordinatorStateRepairDisposalTransition(
+      before,
+      candidate,
+      id,
+      "decision",
+      binding,
+    ),
     true,
   );
   assert.equal(
-    publication(before, candidate, id, binding)?.mode,
+    classifyCoordinatorRepairPublication(before, candidate, id, binding)?.mode,
     "disposal_decision",
   );
   assert.equal(
     validateCoordinatorStateTransition(before, candidate, binding),
     false,
   );
-  assert.equal(discard(candidate, id, time, binding), null);
-  const same = progress(
+  assert.equal(
+    prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+      candidate,
+      id,
+      time,
+      binding,
+    ),
+    null,
+  );
+  const same = prepareCoordinatorStateRepairDisposalProgressSnapshot(
     candidate,
     id,
     "primary",
@@ -759,7 +911,13 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
   );
   assert.ok(same?.equals(candidate));
   assert.equal(
-    disposalTransition(candidate, same, id, "primary", binding),
+    validateCoordinatorStateRepairDisposalTransition(
+      candidate,
+      same,
+      id,
+      "primary",
+      binding,
+    ),
     true,
   );
   for (const purpose of ["primary", "failed", "auxiliary"] as const) {
@@ -776,19 +934,34 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
         },
       },
     };
-    const next = progress(candidate, id, purpose, changed, binding);
+    const next = prepareCoordinatorStateRepairDisposalProgressSnapshot(
+      candidate,
+      id,
+      purpose,
+      changed,
+      binding,
+    );
     assert.ok(next);
     assert.equal(
-      disposalTransition(candidate, next, id, purpose, binding),
+      validateCoordinatorStateRepairDisposalTransition(
+        candidate,
+        next,
+        id,
+        purpose,
+        binding,
+      ),
       true,
     );
     assert.equal(
-      publication(candidate, next, id, binding)?.mode,
+      classifyCoordinatorRepairPublication(candidate, next, id, binding)?.mode,
       `disposal_${purpose}`,
     );
-    assert.equal(publication(next, next, id, binding)?.mode, "remove_pending");
     assert.equal(
-      disposalTransition(
+      classifyCoordinatorRepairPublication(next, next, id, binding)?.mode,
+      "remove_pending",
+    );
+    assert.equal(
+      validateCoordinatorStateRepairDisposalTransition(
         candidate,
         next,
         id,
@@ -801,7 +974,7 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
       validateCoordinatorStateTransition(candidate, next, binding),
       false,
     );
-    const observed = decode(next, binding);
+    const observed = decodeRuntimeDomainSnapshot(next, binding);
     assert.ok(observed);
     const target = observed.snapshot.operations[0];
     assert.ok(target?.kind === "runtime_repair" && target.disposal);
@@ -815,15 +988,32 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
       revision: actual.snapshot.revision,
       payloadSha256: actual.payloadSha256,
     });
-    assert.ok(progress(next, id, purpose, changed, binding)?.equals(next));
-    assert.equal(completeRepair(next, id, binding), null);
+    assert.ok(
+      prepareCoordinatorStateRepairDisposalProgressSnapshot(
+        next,
+        id,
+        purpose,
+        changed,
+        binding,
+      )?.equals(next),
+    );
+    assert.equal(
+      prepareCoordinatorStateRepairCompletionSnapshot(next, id, binding),
+      null,
+    );
   }
   assert.equal(
-    progress(before, id, "primary", operation.disposal.checkpoint, binding),
+    prepareCoordinatorStateRepairDisposalProgressSnapshot(
+      before,
+      id,
+      "primary",
+      operation.disposal.checkpoint,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    progress(
+    prepareCoordinatorStateRepairDisposalProgressSnapshot(
       candidate,
       `${id}0`,
       "primary",
@@ -833,15 +1023,26 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
     null,
   );
   assert.equal(
-    progress(candidate, id, "unknown", operation.disposal.checkpoint, binding),
+    prepareCoordinatorStateRepairDisposalProgressSnapshot(
+      candidate,
+      id,
+      "unknown",
+      operation.disposal.checkpoint,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    discard(Buffer.from(` ${before.toString()}`), id, time, binding),
+    prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+      Buffer.from(` ${before.toString()}`),
+      id,
+      time,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    progress(
+    prepareCoordinatorStateRepairDisposalProgressSnapshot(
       Buffer.from(` ${candidate.toString()}`),
       id,
       "primary",
@@ -866,9 +1067,14 @@ test("修復回収: 専用判断と一用途進捗だけを結合する", () => 
 test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を拒否する", () => {
   const f = retentionFixture("awaiting_disposition");
   const id = f.operation.recoveryId;
-  const candidate = discard(f.bytes, id, "2026-10-17T00:00:00.000Z", binding);
+  const candidate = prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+    f.bytes,
+    id,
+    "2026-10-17T00:00:00.000Z",
+    binding,
+  );
   assert.ok(candidate);
-  const actual = decode(candidate, binding);
+  const actual = decodeRuntimeDomainSnapshot(candidate, binding);
   assert.ok(actual);
   const target = actual.snapshot.operations[0];
   assert.ok(target?.kind === "runtime_repair" && target.disposal);
@@ -878,9 +1084,17 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     "2026-10-17T09:00:00+09:00",
     "2026-10-17T00:00:00Z",
   ])
-    assert.equal(discard(f.bytes, id, time, binding), null);
+    assert.equal(
+      prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+        f.bytes,
+        id,
+        time,
+        binding,
+      ),
+      null,
+    );
   assert.equal(
-    discard(
+    prepareCoordinatorStateRepairDisposalDecisionSnapshot(
       retentionFixture("settling").bytes,
       id,
       "2026-10-17T00:00:00.000Z",
@@ -910,9 +1124,9 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     },
   ]) {
     const bytes: Buffer = Buffer.from(
-      `${encode({ ...actual.snapshot, operations: [{ ...target, ...change }] })}\n`,
+      `${encodeRuntimeStateValue({ ...actual.snapshot, operations: [{ ...target, ...change }] })}\n`,
     );
-    assert.equal(decode(bytes, binding), null);
+    assert.equal(decodeRuntimeDomainSnapshot(bytes, binding), null);
   }
   const progressValue = {
     ...target.disposal.checkpoint,
@@ -925,9 +1139,15 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
       },
     },
   };
-  const next = progress(candidate, id, "primary", progressValue, binding);
+  const next = prepareCoordinatorStateRepairDisposalProgressSnapshot(
+    candidate,
+    id,
+    "primary",
+    progressValue,
+    binding,
+  );
   assert.ok(next);
-  const nextState = decode(next, binding);
+  const nextState = decodeRuntimeDomainSnapshot(next, binding);
   assert.ok(nextState);
   assert.ok(target.checkpoint);
   const replacedIdentity = { dev: "91", ino: "92", birthtimeNs: "93" };
@@ -953,11 +1173,20 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     { checkpoint: replacedCheckpoint },
   ]) {
     const forged: Buffer = Buffer.from(
-      `${encode({ ...nextState.snapshot, operations: [{ ...nextState.snapshot.operations[0], ...change }] })}\n`,
+      `${encodeRuntimeStateValue({ ...nextState.snapshot, operations: [{ ...nextState.snapshot.operations[0], ...change }] })}\n`,
     );
-    assert.ok(decode(forged, binding), "codec_legal_forbidden_change");
+    assert.ok(
+      decodeRuntimeDomainSnapshot(forged, binding),
+      "codec_legal_forbidden_change",
+    );
     assert.equal(
-      disposalTransition(candidate, forged, id, "primary", binding),
+      validateCoordinatorStateRepairDisposalTransition(
+        candidate,
+        forged,
+        id,
+        "primary",
+        binding,
+      ),
       false,
     );
     assert.equal(
@@ -966,7 +1195,7 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     );
   }
   const inconsistentCleanup = Buffer.from(
-    `${encode({
+    `${encodeRuntimeStateValue({
       ...nextState.snapshot,
       operations: [
         {
@@ -976,24 +1205,47 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
       ],
     })}\n`,
   );
-  assert.equal(decode(inconsistentCleanup, binding), null);
+  assert.equal(decodeRuntimeDomainSnapshot(inconsistentCleanup, binding), null);
   assert.equal(
-    disposalTransition(candidate, inconsistentCleanup, id, "primary", binding),
+    validateCoordinatorStateRepairDisposalTransition(
+      candidate,
+      inconsistentCleanup,
+      id,
+      "primary",
+      binding,
+    ),
     false,
   );
-  const summary = repairSummary(candidate, id, binding);
+  const summary = prepareCoordinatorRepairHistorySummary(
+    candidate,
+    id,
+    binding,
+  );
   assert.equal(summary, null, "partial_disposal_has_no_summary");
   const missing = JSON.parse(candidate.toString());
   delete missing.operations[0].disposal;
-  assert.equal(decode(Buffer.from(`${encode(missing)}\n`), binding), null);
-  assert.equal(repairSummary(next, id, binding), null);
   assert.equal(
-    repairHistory(candidate, id, "2026-10-17T00:01:00.000Z", false, binding),
+    decodeRuntimeDomainSnapshot(
+      Buffer.from(`${encodeRuntimeStateValue(missing)}\n`),
+      binding,
+    ),
+    null,
+  );
+  assert.equal(prepareCoordinatorRepairHistorySummary(next, id, binding), null);
+  assert.equal(
+    prepareCoordinatorRepairHistorySnapshot(
+      candidate,
+      id,
+      "2026-10-17T00:01:00.000Z",
+      false,
+      binding,
+    ),
     null,
   );
   let settled = candidate;
   for (const purpose of ["primary", "failed", "auxiliary"] as const) {
-    const current = decode(settled, binding)?.snapshot.operations[0];
+    const current = decodeRuntimeDomainSnapshot(settled, binding)?.snapshot
+      .operations[0];
     assert.ok(current?.kind === "runtime_repair" && current.disposal);
     const intent = {
       ...current.disposal.checkpoint,
@@ -1006,9 +1258,15 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
         },
       },
     };
-    const saved = progress(settled, id, purpose, intent, binding);
+    const saved = prepareCoordinatorStateRepairDisposalProgressSnapshot(
+      settled,
+      id,
+      purpose,
+      intent,
+      binding,
+    );
     assert.ok(saved);
-    const completed = progress(
+    const completed = prepareCoordinatorStateRepairDisposalProgressSnapshot(
       saved,
       id,
       purpose,
@@ -1028,7 +1286,11 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     assert.ok(completed);
     settled = completed;
   }
-  const settledSummary = repairSummary(settled, id, binding);
+  const settledSummary = prepareCoordinatorRepairHistorySummary(
+    settled,
+    id,
+    binding,
+  );
   assert.ok(settledSummary);
   const projected = JSON.parse(settledSummary.summaryBytes.toString());
   const originalIdentity = JSON.parse(target.identityJson);
@@ -1078,10 +1340,15 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
   };
   assert.deepEqual(projected, expected);
   assert.ok(
-    settledSummary.summaryBytes.equals(Buffer.from(`${encode(expected)}\n`)),
+    settledSummary.summaryBytes.equals(
+      Buffer.from(`${encodeRuntimeStateValue(expected)}\n`),
+    ),
   );
-  assert.equal(completeRepair(settled, id, binding), null);
-  const unpublished = repairHistory(
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(settled, id, binding),
+    null,
+  );
+  const unpublished = prepareCoordinatorRepairHistorySnapshot(
     settled,
     id,
     "2026-10-17T00:01:00.000Z",
@@ -1089,7 +1356,7 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     binding,
   );
   assert.ok(unpublished);
-  const published = repairHistory(
+  const published = prepareCoordinatorRepairHistorySnapshot(
     unpublished,
     id,
     "2026-10-17T00:01:00.000Z",
@@ -1099,28 +1366,53 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
   assert.ok(published);
   for (const version of [unpublished, published]) {
     assert.equal(
-      discard(version, id, "2026-10-17T00:00:00.000Z", binding),
+      prepareCoordinatorStateRepairDisposalDecisionSnapshot(
+        version,
+        id,
+        "2026-10-17T00:00:00.000Z",
+        binding,
+      ),
       null,
     );
     assert.equal(
-      progress(version, id, "primary", progressValue, binding),
+      prepareCoordinatorStateRepairDisposalProgressSnapshot(
+        version,
+        id,
+        "primary",
+        progressValue,
+        binding,
+      ),
       null,
     );
-    const operation = decode(version, binding)?.snapshot.operations[0];
+    const operation = decodeRuntimeDomainSnapshot(version, binding)?.snapshot
+      .operations[0];
     assert.ok(operation?.kind === "runtime_repair" && operation.disposal);
     assert.equal(
-      progress(version, id, "primary", operation.disposal.checkpoint, binding),
+      prepareCoordinatorStateRepairDisposalProgressSnapshot(
+        version,
+        id,
+        "primary",
+        operation.disposal.checkpoint,
+        binding,
+      ),
       null,
     );
     assert.ok(
-      repairSummary(version, id, binding)?.summaryBytes.equals(
-        settledSummary.summaryBytes,
-      ),
+      prepareCoordinatorRepairHistorySummary(
+        version,
+        id,
+        binding,
+      )?.summaryBytes.equals(settledSummary.summaryBytes),
     );
   }
-  assert.equal(completeRepair(unpublished, id, binding), null);
-  assert.ok(completeRepair(published, id, binding));
-  const line = repairLine(published, id, binding);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(unpublished, id, binding),
+    null,
+  );
+  assert.ok(
+    prepareCoordinatorStateRepairCompletionSnapshot(published, id, binding),
+  );
+  const line = prepareCoordinatorRepairHistoryLine(published, id, binding);
   assert.ok(line);
   assert.ok(decodeCoordinatorHistoryRows(line));
   for (const purpose of ["failed", "auxiliary"] as const) {
@@ -1129,7 +1421,9 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     const row = JSON.parse(line.toString());
     row.summary = altered;
     assert.ok(
-      decodeCoordinatorHistoryRows(Buffer.from(`${encode(row)}\n`)),
+      decodeCoordinatorHistoryRows(
+        Buffer.from(`${encodeRuntimeStateValue(row)}\n`),
+      ),
       "legal_negative_control",
     );
     assert.throws(() => assert.deepEqual(altered, expected));
@@ -1148,17 +1442,22 @@ test("修復回収: 元結果と判断を凍結し後続出版の先行偽装を
     const row = JSON.parse(line.toString());
     row.summary = change;
     assert.equal(
-      decodeCoordinatorHistoryRows(Buffer.from(`${encode(row)}\n`)),
+      decodeCoordinatorHistoryRows(
+        Buffer.from(`${encodeRuntimeStateValue(row)}\n`),
+      ),
       null,
     );
   }
-  const legacy = decode(unpublished, binding);
+  const legacy = decodeRuntimeDomainSnapshot(unpublished, binding);
   assert.ok(legacy);
   const legacyPartial = Buffer.from(
-    `${encode({ ...legacy.snapshot, operations: [{ ...legacy.snapshot.operations[0], disposal: target.disposal }] })}\n`,
+    `${encodeRuntimeStateValue({ ...legacy.snapshot, operations: [{ ...legacy.snapshot.operations[0], disposal: target.disposal }] })}\n`,
   );
-  assert.equal(decode(legacyPartial, binding), null);
-  assert.equal(completeRepair(candidate, id, binding), null);
+  assert.equal(decodeRuntimeDomainSnapshot(legacyPartial, binding), null);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(candidate, id, binding),
+    null,
+  );
 });
 
 /**
@@ -1201,7 +1500,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     };
   }
   const before = Buffer.from(
-    `${encode({
+    `${encodeRuntimeStateValue({
       ...f.current.snapshot,
       operations: [
         {
@@ -1212,19 +1511,41 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
       ],
     })}\n`,
   );
-  assert.ok(decode(before, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(before, binding));
   const id = f.operation.recoveryId;
-  assert.equal(completeRepair(before, id, binding), null);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(before, id, binding),
+    null,
+  );
   const at = "2026-10-16T00:00:00.000Z";
-  const pending = repairHistory(before, id, at, false, binding);
+  const pending = prepareCoordinatorRepairHistorySnapshot(
+    before,
+    id,
+    at,
+    false,
+    binding,
+  );
   assert.ok(pending);
-  assert.equal(completeRepair(pending, id, binding), null);
-  const confirmed = repairHistory(pending, id, at, true, binding);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(pending, id, binding),
+    null,
+  );
+  const confirmed = prepareCoordinatorRepairHistorySnapshot(
+    pending,
+    id,
+    at,
+    true,
+    binding,
+  );
   assert.ok(confirmed);
-  const removed = completeRepair(confirmed, id, binding);
+  const removed = prepareCoordinatorStateRepairCompletionSnapshot(
+    confirmed,
+    id,
+    binding,
+  );
   assert.ok(removed);
-  const previous = decode(confirmed, binding);
-  const next = decode(removed, binding);
+  const previous = decodeRuntimeDomainSnapshot(confirmed, binding);
+  const next = decodeRuntimeDomainSnapshot(removed, binding);
   assert.ok(previous && next);
   assert.equal(next.snapshot.operations.length, 0);
   assert.equal(next.snapshot.revision, previous.snapshot.revision + 1);
@@ -1241,11 +1562,27 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     validateCoordinatorStateTransition(confirmed, removed, binding),
     false,
   );
-  assert.equal(completeRepair(confirmed, "wrong", binding), null);
-  assert.equal(completeRepair(removed, id, binding), null);
-  const retainedPending = repairHistory(f.bytes, id, at, false, binding);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(
+      confirmed,
+      "wrong",
+      binding,
+    ),
+    null,
+  );
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(removed, id, binding),
+    null,
+  );
+  const retainedPending = prepareCoordinatorRepairHistorySnapshot(
+    f.bytes,
+    id,
+    at,
+    false,
+    binding,
+  );
   assert.ok(retainedPending);
-  const retainedConfirmed = repairHistory(
+  const retainedConfirmed = prepareCoordinatorRepairHistorySnapshot(
     retainedPending,
     id,
     at,
@@ -1253,7 +1590,14 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     binding,
   );
   assert.ok(retainedConfirmed);
-  assert.equal(completeRepair(retainedConfirmed, id, binding), null);
+  assert.equal(
+    prepareCoordinatorStateRepairCompletionSnapshot(
+      retainedConfirmed,
+      id,
+      binding,
+    ),
+    null,
+  );
   /**
    * 修復記録を現行単一状態の合成区画へ接続する。
    * @responsibility 元の修復相関値を保持し未初期化のTask区画だけを付加する。
@@ -1266,7 +1610,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
    * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
    */
   const unifiedFixture = (bytes: Buffer) => {
-    const source = decode(bytes, binding);
+    const source = decodeRuntimeDomainSnapshot(bytes, binding);
     assert.ok(source);
     return {
       ...source.snapshot,
@@ -1292,10 +1636,10 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     [retainedConfirmed, false],
   ] as const) {
     const snapshot = unifiedFixture(bytes);
-    const currentBytes = Buffer.from(`${encode(snapshot)}\n`);
+    const currentBytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
     assert.ok(decodeRuntimeDomainSnapshot(currentBytes, binding));
     const candidate = Buffer.from(
-      `${encode({
+      `${encodeRuntimeStateValue({
         ...snapshot,
         revision: snapshot.revision + 1,
         previous: {
@@ -1326,9 +1670,9 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   const end = source.indexOf("/**", begin);
   assert.ok(begin >= 0 && end > begin);
   const compile = runInThisContext(
-    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${source.slice(begin, end)}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
+    `(function(deps){const {decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${source.slice(begin, end)}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
   );
-  const baseline = decode(confirmed, binding);
+  const baseline = decodeRuntimeDomainSnapshot(confirmed, binding);
   assert.ok(baseline);
   const faults = [
     {
@@ -1380,7 +1724,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     })),
   ];
   for (const fault of faults) {
-    const value: NonNullable<ReturnType<typeof decode>> = {
+    const value: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>> = {
       ...structuredClone(baseline),
       snapshot: {
         ...structuredClone(baseline.snapshot),
@@ -1392,15 +1736,16 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
         ],
       },
     };
-    const unchanged: NonNullable<ReturnType<typeof decode>> =
-      structuredClone(value);
+    const unchanged: NonNullable<
+      ReturnType<typeof decodeRuntimeDomainSnapshot>
+    > = structuredClone(value);
     // codecと要約を意図的に受理させ、終了関数自身の拒否を観測する。
     const guarded = compile({
-      decodeCoordinatorStateSnapshot: () => value,
-      encodeRuntimeStateValue: encode,
+      decodeRuntimeDomainSnapshot: () => value,
+      encodeRuntimeStateValue: encodeRuntimeStateValue,
       prepareCoordinatorRepairHistorySummary: () => ({}),
       coordinatorRepairCanComplete,
-    }) as typeof completeRepair;
+    }) as typeof prepareCoordinatorStateRepairCompletionSnapshot;
     assert.equal(guarded(confirmed, id, binding), null);
     assert.deepEqual(value, unchanged);
   }
@@ -1422,7 +1767,7 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
   const id = f.operation.recoveryId;
   const at = "2026-10-16T00:00:00.000Z";
   const before = Buffer.from(f.bytes);
-  const summary = repairSummary(f.bytes, id, binding);
+  const summary = prepareCoordinatorRepairHistorySummary(f.bytes, id, binding);
   assert.ok(summary);
   const value = JSON.parse(summary.summaryBytes.toString("utf8"));
   assert.equal(value.schema, "crdd-coordinator/repair-summary/v1");
@@ -1438,16 +1783,25 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
     "hostPaths",
   ])
     assert.equal(key in value || key in value.technical, false, key);
-  assert.equal(repairHistory(f.bytes, id, at, true, binding), null);
-  const initialHistory = repairHistory(f.bytes, id, at, false, binding);
+  assert.equal(
+    prepareCoordinatorRepairHistorySnapshot(f.bytes, id, at, true, binding),
+    null,
+  );
+  const initialHistory = prepareCoordinatorRepairHistorySnapshot(
+    f.bytes,
+    id,
+    at,
+    false,
+    binding,
+  );
   assert.ok(initialHistory);
-  const pending = decode(initialHistory, binding);
+  const pending = decodeRuntimeDomainSnapshot(initialHistory, binding);
   assert.ok(pending);
   const operation = pending.snapshot.operations[0];
   assert.ok(operation?.kind === "runtime_repair" && operation.history);
   assert.equal(operation.summarySha256, summary.summarySha256);
   assert.equal(operation.history.confirmed, false);
-  const line = repairLine(initialHistory, id, binding);
+  const line = prepareCoordinatorRepairHistoryLine(initialHistory, id, binding);
   assert.ok(line);
   assert.equal(
     operation.history.lineSha256,
@@ -1458,22 +1812,47 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
     summary.summarySha256,
   );
   assert.ok(
-    repairHistory(initialHistory, id, at, false, binding)?.equals(
+    prepareCoordinatorRepairHistorySnapshot(
       initialHistory,
-    ),
+      id,
+      at,
+      false,
+      binding,
+    )?.equals(initialHistory),
   );
-  const confirmed = repairHistory(initialHistory, id, at, true, binding);
+  const confirmed = prepareCoordinatorRepairHistorySnapshot(
+    initialHistory,
+    id,
+    at,
+    true,
+    binding,
+  );
   assert.ok(confirmed);
-  assert.ok(repairLine(confirmed, id, binding)?.equals(line));
   assert.ok(
-    repairSummary(confirmed, id, binding)?.summaryBytes.equals(
-      summary.summaryBytes,
-    ),
+    prepareCoordinatorRepairHistoryLine(confirmed, id, binding)?.equals(line),
   );
-  assert.ok(repairHistory(confirmed, id, at, true, binding)?.equals(confirmed));
-  assert.equal(repairHistory(confirmed, id, at, false, binding), null);
+  assert.ok(
+    prepareCoordinatorRepairHistorySummary(
+      confirmed,
+      id,
+      binding,
+    )?.summaryBytes.equals(summary.summaryBytes),
+  );
+  assert.ok(
+    prepareCoordinatorRepairHistorySnapshot(
+      confirmed,
+      id,
+      at,
+      true,
+      binding,
+    )?.equals(confirmed),
+  );
   assert.equal(
-    repairHistory(
+    prepareCoordinatorRepairHistorySnapshot(confirmed, id, at, false, binding),
+    null,
+  );
+  assert.equal(
+    prepareCoordinatorRepairHistorySnapshot(
       initialHistory,
       id,
       "2026-10-17T00:00:00.000Z",
@@ -1482,9 +1861,27 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
     ),
     null,
   );
-  assert.equal(repairHistory(f.bytes, id, "2026-10-16", false, binding), null);
-  assert.equal(repairHistory(f.bytes, `${id}0`, at, false, binding), null);
-  assert.equal(repairLine(f.bytes, id, binding), null);
+  assert.equal(
+    prepareCoordinatorRepairHistorySnapshot(
+      f.bytes,
+      id,
+      "2026-10-16",
+      false,
+      binding,
+    ),
+    null,
+  );
+  assert.equal(
+    prepareCoordinatorRepairHistorySnapshot(
+      f.bytes,
+      `${id}0`,
+      at,
+      false,
+      binding,
+    ),
+    null,
+  );
+  assert.equal(prepareCoordinatorRepairHistoryLine(f.bytes, id, binding), null);
   for (const phase of [
     "repairing",
     "awaiting_disposition",
@@ -1492,7 +1889,11 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
   ] as const) {
     const invalid = retentionFixture(phase);
     assert.equal(
-      repairSummary(invalid.bytes, invalid.operation.recoveryId, binding),
+      prepareCoordinatorRepairHistorySummary(
+        invalid.bytes,
+        invalid.operation.recoveryId,
+        binding,
+      ),
       null,
     );
   }
@@ -1502,12 +1903,12 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
     { history: null },
   ]) {
     const invalid: Buffer = Buffer.from(
-      `${encode({ ...pending.snapshot, operations: [{ ...operation, ...change }] })}\n`,
+      `${encodeRuntimeStateValue({ ...pending.snapshot, operations: [{ ...operation, ...change }] })}\n`,
     );
-    assert.equal(decode(invalid, binding), null);
+    assert.equal(decodeRuntimeDomainSnapshot(invalid, binding), null);
   }
   const jump = Buffer.from(
-    `${encode({ ...decode(confirmed, binding)?.snapshot, revision: 99 })}\n`,
+    `${encodeRuntimeStateValue({ ...decodeRuntimeDomainSnapshot(confirmed, binding)?.snapshot, revision: 99 })}\n`,
   );
   assert.equal(
     validateCoordinatorStateTransition(initialHistory, jump, binding),
@@ -1573,10 +1974,10 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
           },
         };
         const before = Buffer.from(
-          `${encode({ ...f.observed.snapshot, operations: [operation] })}\n`,
+          `${encodeRuntimeStateValue({ ...f.observed.snapshot, operations: [operation] })}\n`,
         );
-        assert.ok(decode(before, binding));
-        const pending = repairHistory(
+        assert.ok(decodeRuntimeDomainSnapshot(before, binding));
+        const pending = prepareCoordinatorRepairHistorySnapshot(
           before,
           f.operation.recoveryId,
           at,
@@ -1584,7 +1985,7 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
           binding,
         );
         assert.ok(pending);
-        const confirmed = repairHistory(
+        const confirmed = prepareCoordinatorRepairHistorySnapshot(
           pending,
           f.operation.recoveryId,
           at,
@@ -1592,7 +1993,11 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
           binding,
         );
         assert.ok(confirmed);
-        const line = repairLine(confirmed, f.operation.recoveryId, binding);
+        const line = prepareCoordinatorRepairHistoryLine(
+          confirmed,
+          f.operation.recoveryId,
+          binding,
+        );
         assert.ok(line && decodeCoordinatorHistoryRows(line));
         const row = JSON.parse(line.toString("utf8"));
         assert.deepEqual(row.summary.outcome, operation.outcome);
@@ -1600,11 +2005,21 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
         assert.deepEqual(row.summary.technical.actions, technical.actions);
         assert.equal(row.summary.technical.cleanup, cleanup);
         assert.equal(
-          completeRepair(confirmed, f.operation.recoveryId, binding),
+          prepareCoordinatorStateRepairCompletionSnapshot(
+            confirmed,
+            f.operation.recoveryId,
+            binding,
+          ),
           null,
         );
         assert.equal(
-          repairHistory(confirmed, f.operation.recoveryId, at, false, binding),
+          prepareCoordinatorRepairHistorySnapshot(
+            confirmed,
+            f.operation.recoveryId,
+            at,
+            false,
+            binding,
+          ),
           null,
         );
         for (const changes of [
@@ -1640,7 +2055,7 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
           assert.equal(
             decodeCoordinatorHistoryRows(
               Buffer.from(
-                `${encode({ ...row, summary: { ...row.summary, ...changes } })}\n`,
+                `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, ...changes } })}\n`,
               ),
             ),
             null,
@@ -1660,11 +2075,15 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
     "retained_by_human_decision",
   ] as const) {
     const bytes = Buffer.from(
-      `${encode({ ...retained.current.snapshot, operations: [{ ...failed, disposition }] })}\n`,
+      `${encodeRuntimeStateValue({ ...retained.current.snapshot, operations: [{ ...failed, disposition }] })}\n`,
     );
-    assert.ok(decode(bytes, binding));
+    assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
     assert.equal(
-      repairSummary(bytes, failed.recoveryId, binding) !== null,
+      prepareCoordinatorRepairHistorySummary(
+        bytes,
+        failed.recoveryId,
+        binding,
+      ) !== null,
       disposition === "retained_by_human_decision",
     );
   }
@@ -1683,7 +2102,7 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
  */
 test("修復履歴: schemaと九処置の不正を単独で拒否する", () => {
   const f = retentionFixture("settling");
-  const bytes = repairHistory(
+  const bytes = prepareCoordinatorRepairHistorySnapshot(
     f.bytes,
     f.operation.recoveryId,
     "2026-10-16T00:00:00.000Z",
@@ -1691,7 +2110,11 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
     binding,
   );
   assert.ok(bytes);
-  const line = repairLine(bytes, f.operation.recoveryId, binding);
+  const line = prepareCoordinatorRepairHistoryLine(
+    bytes,
+    f.operation.recoveryId,
+    binding,
+  );
   assert.ok(line);
   const row = JSON.parse(line.toString("utf8"));
   const changes = [
@@ -1737,9 +2160,13 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
   ];
   for (const change of changes) {
     const bad = Buffer.from(
-      `${encode({ ...row, summary: { ...row.summary, ...change } })}\n`,
+      `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, ...change } })}\n`,
     );
-    assert.equal(decodeCoordinatorHistoryRows(bad), null, encode(change));
+    assert.equal(
+      decodeCoordinatorHistoryRows(bad),
+      null,
+      encodeRuntimeStateValue(change),
+    );
     assert.equal(
       decodeCoordinatorHistoryRows(Buffer.concat([line, bad])),
       null,
@@ -1754,7 +2181,9 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
         result: "not_required",
       };
       assert.ok(
-        decodeCoordinatorHistoryRows(Buffer.from(`${encode(notRequired)}\n`)),
+        decodeCoordinatorHistoryRows(
+          Buffer.from(`${encodeRuntimeStateValue(notRequired)}\n`),
+        ),
         `${name}:${intent}:not_required`,
       );
     }
@@ -1767,18 +2196,20 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
       { intent: "not_saved", request: "not_issued", result: "unobserved" },
     ]) {
       const bad = Buffer.from(
-        `${encode({ ...row, summary: { ...row.summary, technical: { ...row.summary.technical, actions: { ...row.summary.technical.actions, [name]: action } } } })}\n`,
+        `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, technical: { ...row.summary.technical, actions: { ...row.summary.technical.actions, [name]: action } } } })}\n`,
       );
       assert.equal(
         decodeCoordinatorHistoryRows(bad),
         null,
-        `${name}:${encode(action)}`,
+        `${name}:${encodeRuntimeStateValue(action)}`,
       );
     }
     const missing = structuredClone(row);
     delete missing.summary.technical.actions[name];
     assert.equal(
-      decodeCoordinatorHistoryRows(Buffer.from(`${encode(missing)}\n`)),
+      decodeCoordinatorHistoryRows(
+        Buffer.from(`${encodeRuntimeStateValue(missing)}\n`),
+      ),
       null,
       name,
     );
@@ -1787,7 +2218,9 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
   noRetained.summary.technical.stale = "absent";
   noRetained.summary.disposition = "not_applicable";
   assert.equal(
-    decodeCoordinatorHistoryRows(Buffer.from(`${encode(noRetained)}\n`)),
+    decodeCoordinatorHistoryRows(
+      Buffer.from(`${encodeRuntimeStateValue(noRetained)}\n`),
+    ),
     null,
   );
   for (const name of [
@@ -1801,7 +2234,9 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
       result: "not_required",
     };
   assert.ok(
-    decodeCoordinatorHistoryRows(Buffer.from(`${encode(noRetained)}\n`)),
+    decodeCoordinatorHistoryRows(
+      Buffer.from(`${encodeRuntimeStateValue(noRetained)}\n`),
+    ),
   );
   for (const key of [
     "directories",
@@ -1813,7 +2248,7 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
     assert.equal(
       decodeCoordinatorHistoryRows(
         Buffer.from(
-          `${encode({ ...row, summary: { ...row.summary, technical: { ...row.summary.technical, [key]: "forbidden" } } })}\n`,
+          `${encodeRuntimeStateValue({ ...row, summary: { ...row.summary, technical: { ...row.summary.technical, [key]: "forbidden" } } })}\n`,
         ),
       ),
       null,
@@ -1842,7 +2277,9 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
     },
   ])
     assert.equal(
-      decodeCoordinatorHistoryRows(Buffer.from(`${encode(candidate)}\n`)),
+      decodeCoordinatorHistoryRows(
+        Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
+      ),
       null,
     );
   assert.equal(decodeCoordinatorHistoryRows(Buffer.concat([line, line])), null);
@@ -1865,11 +2302,17 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
   const f = retentionFixture("settling");
   const id = f.operation.recoveryId;
   const at = "2026-10-16T00:00:00.000Z";
-  const initialHistory = repairHistory(f.bytes, id, at, false, binding);
+  const initialHistory = prepareCoordinatorRepairHistorySnapshot(
+    f.bytes,
+    id,
+    at,
+    false,
+    binding,
+  );
   assert.ok(initialHistory);
-  const line = repairLine(initialHistory, id, binding);
+  const line = prepareCoordinatorRepairHistoryLine(initialHistory, id, binding);
   assert.ok(line);
-  const publication = repairPublication(
+  const publication = prepareCoordinatorRepairHistoryPublication(
     initialHistory,
     id,
     Buffer.alloc(0),
@@ -1881,11 +2324,11 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
   assert.ok(publication.historyBytes.equals(line));
   assert.equal(publication.historyChanged, true);
   assert.equal(
-    decode(publication.snapshotBytes, binding)?.snapshot.operations[0]?.history
-      ?.confirmed,
+    decodeRuntimeDomainSnapshot(publication.snapshotBytes, binding)?.snapshot
+      .operations[0]?.history?.confirmed,
     true,
   );
-  const duplicate = repairPublication(
+  const duplicate = prepareCoordinatorRepairHistoryPublication(
     initialHistory,
     id,
     line,
@@ -1897,7 +2340,7 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
   assert.equal(duplicate.historyChanged, false);
   assert.ok(duplicate.snapshotBytes.equals(publication.snapshotBytes));
   assert.equal(
-    repairPublication(
+    prepareCoordinatorRepairHistoryPublication(
       publication.snapshotBytes,
       id,
       Buffer.alloc(0),
@@ -1909,7 +2352,14 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
   );
   for (const days of [0, -1, 1.5, "30", null, Number.MAX_SAFE_INTEGER])
     assert.equal(
-      repairPublication(initialHistory, id, line, null, days, binding),
+      prepareCoordinatorRepairHistoryPublication(
+        initialHistory,
+        id,
+        line,
+        null,
+        days,
+        binding,
+      ),
       null,
     );
   for (const [canonical, pending] of [
@@ -1919,16 +2369,23 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
     [Buffer.alloc(0), Buffer.alloc(0)],
   ] as const)
     assert.equal(
-      repairPublication(initialHistory, id, canonical, pending, 30, binding),
+      prepareCoordinatorRepairHistoryPublication(
+        initialHistory,
+        id,
+        canonical,
+        pending,
+        30,
+        binding,
+      ),
       null,
     );
   const different = JSON.parse(line.toString("utf8"));
   different.occurredAt = "2026-10-15T00:00:00.000Z";
   assert.equal(
-    repairPublication(
+    prepareCoordinatorRepairHistoryPublication(
       initialHistory,
       id,
-      Buffer.from(`${encode(different)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(different)}\n`),
       null,
       30,
       binding,
@@ -1994,7 +2451,7 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
       },
     });
   assert.ok(
-    repairPublication(
+    prepareCoordinatorRepairHistoryPublication(
       initialHistory,
       id,
       hostile,
@@ -2011,7 +2468,14 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
     },
   });
   assert.equal(
-    repairPublication(initialHistory, id, Buffer.alloc(0), wrong, 30, binding),
+    prepareCoordinatorRepairHistoryPublication(
+      initialHistory,
+      id,
+      Buffer.alloc(0),
+      wrong,
+      30,
+      binding,
+    ),
     null,
   );
   const proxy = new Proxy(Buffer.from(line), {
@@ -2025,11 +2489,18 @@ test("修復履歴: 有限出版と30日整理を再導出する", () => {
     },
   });
   assert.equal(
-    repairPublication(initialHistory, id, proxy, null, 30, binding),
+    prepareCoordinatorRepairHistoryPublication(
+      initialHistory,
+      id,
+      proxy,
+      null,
+      30,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    repairPublication(
+    prepareCoordinatorRepairHistoryPublication(
       initialHistory,
       id,
       Buffer.alloc(RUNTIME_STATE_MAXIMUM_BYTES + 1),
@@ -2057,9 +2528,9 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
   const f = retentionFixture("awaiting_disposition");
   const before = Buffer.from(f.bytes);
   const candidate = Buffer.from(
-    `${encode({ ...f.current.snapshot, revision: f.current.snapshot.revision + 1, previous: { revision: f.current.snapshot.revision, payloadSha256: f.current.payloadSha256 }, operations: [{ ...f.operation, phase: "settling", disposition: "retained_by_human_decision" }] })}\n`,
+    `${encodeRuntimeStateValue({ ...f.current.snapshot, revision: f.current.snapshot.revision + 1, previous: { revision: f.current.snapshot.revision, payloadSha256: f.current.payloadSha256 }, operations: [{ ...f.operation, phase: "settling", disposition: "retained_by_human_decision" }] })}\n`,
   );
-  const actual = decode(candidate, binding);
+  const actual = decodeRuntimeDomainSnapshot(candidate, binding);
   assert.ok(actual);
   assert.deepEqual(actual.snapshot.operations, [
     {
@@ -2087,7 +2558,7 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     false,
   );
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       f.bytes,
       f.operation.recoveryId,
       update(f.operation, {
@@ -2099,11 +2570,21 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     null,
   );
   assert.equal(
-    publication(f.bytes, candidate, f.operation.recoveryId, binding),
+    classifyCoordinatorRepairPublication(
+      f.bytes,
+      candidate,
+      f.operation.recoveryId,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    handoffTransition(f.bytes, candidate, f.operation.recoveryId, binding),
+    validateCoordinatorStateRepairRetentionHandoffTransition(
+      f.bytes,
+      candidate,
+      f.operation.recoveryId,
+      binding,
+    ),
     false,
   );
   assert.ok(f.operation.checkpoint);
@@ -2117,21 +2598,41 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     },
   };
   assert.equal(
-    handoff(candidate, f.operation.recoveryId, receipt, binding),
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      candidate,
+      f.operation.recoveryId,
+      receipt,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    handoff(f.bytes, `${f.operation.recoveryId}0`, receipt, binding),
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      f.bytes,
+      `${f.operation.recoveryId}0`,
+      receipt,
+      binding,
+    ),
     null,
   );
   assert.equal(
-    handoff(f.bytes, f.operation.recoveryId, receipt, "0".repeat(64)),
+    prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+      f.bytes,
+      f.operation.recoveryId,
+      receipt,
+      "0".repeat(64),
+    ),
     null,
   );
   for (const phase of ["repairing", "settling", "awaiting_delivery"] as const) {
     const other = retentionFixture(phase);
     assert.equal(
-      handoff(other.bytes, other.operation.recoveryId, receipt, binding),
+      prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+        other.bytes,
+        other.operation.recoveryId,
+        receipt,
+        binding,
+      ),
       null,
     );
   }
@@ -2160,15 +2661,20 @@ test("修復保持: codec合法な旧判断候補の新規生成を拒否する"
     },
   ]) {
     const invalid = Buffer.from(
-      `${encode({ ...f.current.snapshot, operations: [{ ...f.operation, ...changes }] })}\n`,
+      `${encodeRuntimeStateValue({ ...f.current.snapshot, operations: [{ ...f.operation, ...changes }] })}\n`,
     );
     assert.equal(
-      decode(invalid, binding),
+      decodeRuntimeDomainSnapshot(invalid, binding),
       null,
       "technical_failure_is_rejected_by_codec",
     );
     assert.equal(
-      handoff(invalid, f.operation.recoveryId, receipt, binding),
+      prepareCoordinatorStateRepairRetentionHandoffSnapshot(
+        invalid,
+        f.operation.recoveryId,
+        receipt,
+        binding,
+      ),
       null,
     );
   }
@@ -2216,7 +2722,7 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
               : f.operation.disposition,
       };
       const bytes = Buffer.from(
-        `${encode({
+        `${encodeRuntimeStateValue({
           ...next.current.snapshot,
           operations: [nextOperation],
           revision: f.current.snapshot.revision + 1,
@@ -2226,7 +2732,10 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
           },
         })}\n`,
       );
-      assert.ok(decode(bytes, binding), `${from}:${to}:codec`);
+      assert.ok(
+        decodeRuntimeDomainSnapshot(bytes, binding),
+        `${from}:${to}:codec`,
+      );
       assert.equal(
         validateCoordinatorStateTransition(f.bytes, bytes, binding),
         allowed.has(`${from}:${to}`),
@@ -2237,7 +2746,7 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
   const f = retentionFixture("awaiting_disposition");
   const before = Buffer.from(f.bytes);
   const withoutDecision = Buffer.from(
-    `${encode({
+    `${encodeRuntimeStateValue({
       ...f.current.snapshot,
       revision: f.current.snapshot.revision + 1,
       previous: {
@@ -2247,7 +2756,7 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
       operations: [{ ...f.operation, phase: "settling" }],
     })}\n`,
   );
-  assert.ok(decode(withoutDecision, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(withoutDecision, binding));
   assert.equal(
     validateCoordinatorStateTransition(f.bytes, withoutDecision, binding),
     false,
@@ -2256,7 +2765,7 @@ test("修復phase: 保持判断を含む許可辺を16組合せで固定する",
   assert.ok(f.bytes.equals(before));
   for (const phase of ["repairing", "settling"] as const) {
     const prior = retentionFixture("repairing");
-    const forged = checkpoint(
+    const forged = prepareCoordinatorStateRepairCheckpointSnapshot(
       prior.bytes,
       prior.operation.recoveryId,
       update(prior.operation, {
@@ -2285,24 +2794,33 @@ test("修復出版: 初回・次版・同値と不正候補を区別する", () 
   const f = fixture();
   const id = f.operation.recoveryId;
   assert.equal(
-    publication(null, f.bytes, id, binding)?.mode,
+    classifyCoordinatorRepairPublication(null, f.bytes, id, binding)?.mode,
     "initial_publication",
   );
   assert.equal(
-    publication(f.bytes, f.bytes, id, binding)?.mode,
+    classifyCoordinatorRepairPublication(f.bytes, f.bytes, id, binding)?.mode,
     "remove_pending",
   );
-  assert.equal(publication(f.bytes, f.bytes, `${id}0`, binding), null);
-  const next = checkpoint(
+  assert.equal(
+    classifyCoordinatorRepairPublication(f.bytes, f.bytes, `${id}0`, binding),
+    null,
+  );
+  const next = prepareCoordinatorStateRepairCheckpointSnapshot(
     f.bytes,
     id,
     update(f.operation, { checkpoint: { ...initial, cleanup: "pending" } }),
     binding,
   );
   assert.ok(next);
-  assert.equal(publication(f.bytes, next, id, binding)?.mode, "checkpoint");
-  assert.equal(publication(null, next, id, binding), null);
-  const clean = checkpoint(
+  assert.equal(
+    classifyCoordinatorRepairPublication(f.bytes, next, id, binding)?.mode,
+    "checkpoint",
+  );
+  assert.equal(
+    classifyCoordinatorRepairPublication(null, next, id, binding),
+    null,
+  );
+  const clean = prepareCoordinatorStateRepairCheckpointSnapshot(
     next,
     id,
     update(f.operation, { checkpoint: { ...initial, cleanup: "confirmed" } }),
@@ -2315,25 +2833,46 @@ test("修復出版: 初回・次版・同値と不正候補を区別する", () 
     binding,
   );
   assert.ok(session);
-  assert.equal(publication(clean, session, id, binding)?.mode, "session_begin");
-  const empty = Buffer.from(
-    `${encode({ ...f.observed.snapshot, revision: 1, previous: null, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+  assert.equal(
+    classifyCoordinatorRepairPublication(clean, session, id, binding)?.mode,
+    "session_begin",
   );
-  const added = start(empty, text, binding);
+  const empty = Buffer.from(
+    `${encodeRuntimeStateValue({ ...f.observed.snapshot, revision: 1, previous: null, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+  );
+  const added = prepareCoordinatorStateRepairSnapshot(empty, text, binding);
   assert.ok(added);
-  assert.equal(publication(empty, added, id, binding)?.mode, "identity");
+  assert.equal(
+    classifyCoordinatorRepairPublication(empty, added, id, binding)?.mode,
+    "identity",
+  );
   for (const candidate of [
     Buffer.from(` ${f.bytes.toString("utf8")}`),
     Buffer.from(`${f.bytes.toString("utf8")}\n`),
-    Buffer.from(encode({ ...f.observed.snapshot, revision: 3 })),
+    Buffer.from(
+      encodeRuntimeStateValue({ ...f.observed.snapshot, revision: 3 }),
+    ),
   ]) {
-    assert.equal(publication(null, candidate, id, binding), null);
+    assert.equal(
+      classifyCoordinatorRepairPublication(null, candidate, id, binding),
+      null,
+    );
   }
   const different = Buffer.from(
-    `${encode({ ...f.observed.snapshot, operations: [{ ...f.operation, identityJson: f.operation.identityJson.replace("OP-123456", "OP-999999") }] })}\n`,
+    `${encodeRuntimeStateValue({ ...f.observed.snapshot, operations: [{ ...f.operation, identityJson: f.operation.identityJson.replace("OP-123456", "OP-999999") }] })}\n`,
   );
-  assert.equal(publication(f.bytes, different, id, binding), null);
-  assert.ok(publication(null, f.bytes, id, binding)?.candidate.equals(f.bytes));
+  assert.equal(
+    classifyCoordinatorRepairPublication(f.bytes, different, id, binding),
+    null,
+  );
+  assert.ok(
+    classifyCoordinatorRepairPublication(
+      null,
+      f.bytes,
+      id,
+      binding,
+    )?.candidate.equals(f.bytes),
+  );
 });
 
 /**
@@ -2361,20 +2900,26 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
    * @cleanup N/A: メモリだけ。
    * @boundary fixture値とbyte列。
    */
-  const serialize = (value: unknown) => Buffer.from(`${encode(value)}\n`);
-  const next = checkpoint(
+  const serialize = (value: unknown) =>
+    Buffer.from(`${encodeRuntimeStateValue(value)}\n`);
+  const next = prepareCoordinatorStateRepairCheckpointSnapshot(
     f.bytes,
     id,
     update(f.operation, { checkpoint: { ...initial, cleanup: "pending" } }),
     binding,
   );
   assert.ok(next);
-  const nextValue = decode(next, binding);
+  const nextValue = decodeRuntimeDomainSnapshot(next, binding);
   assert.ok(nextValue);
   const otherText = `${JSON.stringify({ ...identity, operationNonce: "f".repeat(64), operationId: "OP-999999" })}\n`;
-  const otherInitial = start(null, otherText, binding);
+  const otherInitial = prepareCoordinatorStateRepairSnapshot(
+    null,
+    otherText,
+    binding,
+  );
   assert.ok(otherInitial);
-  const otherValue = decode(otherInitial, binding)?.snapshot.operations[0];
+  const otherValue = decodeRuntimeDomainSnapshot(otherInitial, binding)
+    ?.snapshot.operations[0];
   assert.ok(otherValue?.kind === "runtime_repair");
   const other = {
     ...otherValue,
@@ -2389,15 +2934,15 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
     ...f.observed.snapshot,
     operations: [f.operation, other],
   });
-  assert.ok(decode(withOther, binding));
-  const validNext = checkpoint(
+  assert.ok(decodeRuntimeDomainSnapshot(withOther, binding));
+  const validNext = prepareCoordinatorStateRepairCheckpointSnapshot(
     withOther,
     id,
     update(f.operation, { checkpoint: { ...initial, cleanup: "pending" } }),
     binding,
   );
   assert.ok(validNext);
-  const validValue = decode(validNext, binding);
+  const validValue = decodeRuntimeDomainSnapshot(validNext, binding);
   assert.ok(validValue);
   const cases: readonly [Buffer | null, Buffer][] = [
     [
@@ -2473,12 +3018,12 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
    * @cleanup N/A: メモリのみ。
    * @boundary 値分類とOracle。
    */
-  const reject = (classify: typeof publication) => {
+  const reject = (classify: typeof classifyCoordinatorRepairPublication) => {
     for (const [before, candidate] of cases) {
-      const value = decode(candidate, binding);
+      const value = decodeRuntimeDomainSnapshot(candidate, binding);
       assert.ok(value, "counterexample_must_decode");
       assert.ok(serialize(value.snapshot).equals(candidate));
-      if (before) assert.ok(decode(before, binding));
+      if (before) assert.ok(decodeRuntimeDomainSnapshot(before, binding));
       const original = Buffer.from(candidate),
         originalBefore = before && Buffer.from(before);
       assert.equal(
@@ -2490,7 +3035,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
       if (before && originalBefore) assert.ok(before.equals(originalBefore));
     }
   };
-  reject(publication);
+  reject(classifyCoordinatorRepairPublication);
   const source = fs.readFileSync(
     new URL("../../../src/state/crud.ts", import.meta.url),
     "utf8",
@@ -2510,16 +3055,16 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
     "expected !== null",
   );
   const mutant = runInThisContext(
-    `(function(decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,validateCoordinatorStateRepairDisposalTransition,validateCoordinatorStateRepairRetentionHandoffTransition){${changed};return classifyCoordinatorRepairPublication;})`,
+    `(function(decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,validateCoordinatorStateRepairDisposalTransition,validateCoordinatorStateRepairRetentionHandoffTransition){${changed};return classifyCoordinatorRepairPublication;})`,
   )(
-    decode,
-    encode,
-    start,
-    checkpoint,
+    decodeRuntimeDomainSnapshot,
+    encodeRuntimeStateValue,
+    prepareCoordinatorStateRepairSnapshot,
+    prepareCoordinatorStateRepairCheckpointSnapshot,
     prepareCoordinatorStateRepairSessionSnapshot,
-    disposalTransition,
-    handoffTransition,
-  ) as typeof publication;
+    validateCoordinatorStateRepairDisposalTransition,
+    validateCoordinatorStateRepairRetentionHandoffTransition,
+  ) as typeof classifyCoordinatorRepairPublication;
   assert.throws(() => reject(mutant), /forbidden_publication/u);
 });
 
@@ -2536,7 +3081,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
  */
 test("修復variant: 観測回収不明を保持しfreshと成功主張を拒否する", () => {
   const { bytes, operation } = fixture();
-  const begun = checkpoint(
+  const begun = prepareCoordinatorStateRepairCheckpointSnapshot(
     bytes,
     operation.recoveryId,
     update(operation, { checkpoint: initial }),
@@ -2548,14 +3093,14 @@ test("修復variant: 観測回収不明を保持しfreshと成功主張を拒否
     cleanup: "unknown",
     cleanupFailure: "observation_cleanup_unknown",
   };
-  const failed = checkpoint(
+  const failed = prepareCoordinatorStateRepairCheckpointSnapshot(
     begun,
     operation.recoveryId,
     update(operation, { checkpoint: failedCheckpoint }),
     binding,
   );
   assert.ok(failed);
-  const decoded = decode(failed, binding);
+  const decoded = decodeRuntimeDomainSnapshot(failed, binding);
   assert.ok(decoded);
   const repaired = decoded.snapshot.operations[0];
   assert.ok(repaired?.kind === "runtime_repair");
@@ -2572,7 +3117,7 @@ test("修復variant: 観測回収不明を保持しfreshと成功主張を拒否
     null,
   );
   for (const cleanupConfirmed of [false, true]) {
-    const settled = checkpoint(
+    const settled = prepareCoordinatorStateRepairCheckpointSnapshot(
       failed,
       operation.recoveryId,
       update(repaired, {
@@ -2619,25 +3164,40 @@ test("修復variant: v2-onlyとIdentity／IDの相関", () => {
       ...observed.snapshot,
       operations: [{ ...operation, ...extra }],
     };
-    assert.equal(decode(Buffer.from(`${encode(changed)}\n`), binding), null);
+    assert.equal(
+      decodeRuntimeDomainSnapshot(
+        Buffer.from(`${encodeRuntimeStateValue(changed)}\n`),
+        binding,
+      ),
+      null,
+    );
   }
   const old = {
     ...observed.snapshot,
     schema: "crdd-coordinator/current-state/v1",
   };
-  assert.equal(decode(Buffer.from(`${encode(old)}\n`), binding), null);
   assert.equal(
-    start(
+    decodeRuntimeDomainSnapshot(
+      Buffer.from(`${encodeRuntimeStateValue(old)}\n`),
+      binding,
+    ),
+    null,
+  );
+  assert.equal(
+    prepareCoordinatorStateRepairSnapshot(
       bytes,
       `${JSON.stringify({ ...identity, operationNonce: "f".repeat(64) })}\n`,
       binding,
     ),
     null,
   );
-  assert.equal(start(bytes, text, binding), null);
+  assert.equal(
+    prepareCoordinatorStateRepairSnapshot(bytes, text, binding),
+    null,
+  );
   const { ownerBindingSha256, ...withoutOwner } = identity;
   assert.equal(
-    start(
+    prepareCoordinatorStateRepairSnapshot(
       null,
       `${JSON.stringify({ ...withoutOwner, localUserBindingHash: ownerBindingSha256 })}\n`,
       binding,
@@ -2655,14 +3215,14 @@ test("修復variant: v2-onlyとIdentity／IDの相関", () => {
       },
     ],
   };
-  const mixedBytes = Buffer.from(`${encode(mixedRecovery)}\n`);
-  assert.equal(decode(mixedBytes, binding), null);
+  const mixedBytes = Buffer.from(`${encodeRuntimeStateValue(mixedRecovery)}\n`);
+  assert.equal(decodeRuntimeDomainSnapshot(mixedBytes, binding), null);
   assert.equal(
     validateCoordinatorStateTransition(null, mixedBytes, binding),
     false,
   );
   assert.equal(
-    start(
+    prepareCoordinatorStateRepairSnapshot(
       null,
       `${JSON.stringify({ ...identity, provider: "claude" })}\n`,
       binding,
@@ -2684,14 +3244,14 @@ test("修復variant: v2-onlyとIdentity／IDの相関", () => {
  */
 test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する", () => {
   const { bytes, operation } = fixture();
-  const begun = checkpoint(
+  const begun = prepareCoordinatorStateRepairCheckpointSnapshot(
     bytes,
     operation.recoveryId,
     update(operation, { checkpoint: initial }),
     binding,
   );
   assert.ok(begun);
-  const clean = checkpoint(
+  const clean = prepareCoordinatorStateRepairCheckpointSnapshot(
     begun,
     operation.recoveryId,
     update(operation, { checkpoint: { ...initial, cleanup: "confirmed" } }),
@@ -2714,8 +3274,8 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
     ),
     true,
   );
-  const before = decode(clean, binding);
-  const after = decode(next, binding);
+  const before = decodeRuntimeDomainSnapshot(clean, binding);
+  const after = decodeRuntimeDomainSnapshot(next, binding);
   assert.ok(before && after);
   const actual = after.snapshot.operations[0];
   assert.ok(actual?.kind === "runtime_repair");
@@ -2767,12 +3327,12 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
     },
   ]) {
     const source: Buffer = Buffer.from(
-      `${encode({
+      `${encodeRuntimeStateValue({
         ...before.snapshot,
         operations: [{ ...before.snapshot.operations[0], ...changes }],
       })}\n`,
     );
-    assert.ok(decode(source, binding));
+    assert.ok(decodeRuntimeDomainSnapshot(source, binding));
     assert.equal(
       prepareCoordinatorStateRepairSessionSnapshot(
         source,
@@ -2796,7 +3356,7 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
     assert.equal(
       validateCoordinatorStateRepairSessionTransition(
         clean,
-        Buffer.from(`${encode(changed)}\n`),
+        Buffer.from(`${encodeRuntimeStateValue(changed)}\n`),
         operation.recoveryId,
         binding,
       ),
@@ -2875,7 +3435,10 @@ test("修復variant: 回復結果は全九処置の確認または明示不要�
       ],
     };
     assert.ok(
-      decode(Buffer.from(`${encode(candidate)}\n`), binding),
+      decodeRuntimeDomainSnapshot(
+        Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
+        binding,
+      ),
       String(confirmedCount),
     );
     for (const key of names) {
@@ -2888,7 +3451,10 @@ test("修復variant: 回復結果は全九処置の確認または明示不要�
         result: "unobserved",
       };
       assert.equal(
-        decode(Buffer.from(`${encode(incomplete)}\n`), binding),
+        decodeRuntimeDomainSnapshot(
+          Buffer.from(`${encodeRuntimeStateValue(incomplete)}\n`),
+          binding,
+        ),
         null,
         `${confirmedCount}:${key}`,
       );
@@ -2909,7 +3475,7 @@ test("修復variant: 回復結果は全九処置の確認または明示不要�
  */
 test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否する", () => {
   const { bytes, operation } = fixture();
-  const begun = checkpoint(
+  const begun = prepareCoordinatorStateRepairCheckpointSnapshot(
     bytes,
     operation.recoveryId,
     update(operation, { checkpoint: initial }),
@@ -2922,7 +3488,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
     request: "not_issued",
     result: "unobserved",
   };
-  const intent = checkpoint(
+  const intent = prepareCoordinatorStateRepairCheckpointSnapshot(
     begun,
     operation.recoveryId,
     update(operation, { checkpoint: saved }),
@@ -2932,7 +3498,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
   const issued = structuredClone(saved);
   issued.actions.stop_runtime.request = "issued";
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       begun,
       operation.recoveryId,
       update(operation, { checkpoint: issued }),
@@ -2946,7 +3512,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
     request: "unknown",
     result: "unknown",
   };
-  const uncertain = checkpoint(
+  const uncertain = prepareCoordinatorStateRepairCheckpointSnapshot(
     intent,
     operation.recoveryId,
     update(operation, { checkpoint: unknown }),
@@ -2954,7 +3520,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
   );
   assert.ok(uncertain);
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       uncertain,
       operation.recoveryId,
       update(operation, { checkpoint: issued }),
@@ -2963,7 +3529,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
     null,
   );
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       uncertain,
       operation.recoveryId,
       update(operation, { checkpoint: initial }),
@@ -2972,7 +3538,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
     null,
   );
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       intent,
       operation.recoveryId,
       { ...update(operation), identityJson: text },
@@ -2980,7 +3546,7 @@ test("修復variant: checkpointの意図前発行とunknown巻戻しを拒否す
     ),
     null,
   );
-  const parsed = decode(intent, binding);
+  const parsed = decodeRuntimeDomainSnapshot(intent, binding);
   assert.ok(parsed);
   assert.equal(
     parsed.snapshot.previous?.payloadSha256,
@@ -3022,7 +3588,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
     },
   ])
     assert.equal(
-      checkpoint(
+      prepareCoordinatorStateRepairCheckpointSnapshot(
         bytes,
         operation.recoveryId,
         update(operation, changes),
@@ -3034,7 +3600,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
     stage: "preparation",
     reason: "runtime_repair_failed_closed",
   };
-  const failed = checkpoint(
+  const failed = prepareCoordinatorStateRepairCheckpointSnapshot(
     bytes,
     operation.recoveryId,
     update(operation, {
@@ -3050,7 +3616,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
   );
   assert.ok(failed);
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       failed,
       operation.recoveryId,
       update(operation, {
@@ -3081,7 +3647,7 @@ test("修復variant: ready単独・清掃不明・保持判断の捏造を拒否
  */
 test("修復variant: 後続清掃の確定は一次結果を上書きしない", () => {
   const { bytes, operation } = fixture();
-  const begun = checkpoint(
+  const begun = prepareCoordinatorStateRepairCheckpointSnapshot(
     bytes,
     operation.recoveryId,
     update(operation, { checkpoint: initial }),
@@ -3102,7 +3668,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     reason: "runtime_repair_cleanup_unknown",
     cleanupConfirmed: false,
   };
-  const failed = checkpoint(
+  const failed = prepareCoordinatorStateRepairCheckpointSnapshot(
     begun,
     operation.recoveryId,
     update(operation, {
@@ -3118,7 +3684,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
   const lateIntent = structuredClone(failedCheckpoint);
   lateIntent.actions.stop_runtime.intent = "saved";
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       failed,
       operation.recoveryId,
       update(operation, {
@@ -3131,7 +3697,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     ),
     null,
   );
-  const withoutPrimary = checkpoint(
+  const withoutPrimary = prepareCoordinatorStateRepairCheckpointSnapshot(
     begun,
     operation.recoveryId,
     update(operation, {
@@ -3144,7 +3710,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
   );
   assert.ok(withoutPrimary);
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       withoutPrimary,
       operation.recoveryId,
       update(operation, {
@@ -3163,7 +3729,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     primaryFailure,
     outcome: { ...outcome, cleanupConfirmed: true },
   };
-  const settled = checkpoint(
+  const settled = prepareCoordinatorStateRepairCheckpointSnapshot(
     failed,
     operation.recoveryId,
     update(operation, next),
@@ -3171,7 +3737,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
   );
   assert.ok(settled);
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       settled,
       operation.recoveryId,
       update(operation, { ...next, phase: "awaiting_delivery" }),
@@ -3179,7 +3745,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     ),
     null,
   );
-  const deliverable = checkpoint(
+  const deliverable = prepareCoordinatorStateRepairCheckpointSnapshot(
     settled,
     operation.recoveryId,
     update(operation, {
@@ -3191,7 +3757,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
   );
   assert.ok(deliverable);
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       settled,
       operation.recoveryId,
       update(operation, {
@@ -3204,7 +3770,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
     null,
   );
   assert.equal(
-    checkpoint(
+    prepareCoordinatorStateRepairCheckpointSnapshot(
       settled,
       operation.recoveryId,
       update(operation, {
@@ -3295,11 +3861,12 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     binding,
   );
   assert.ok(taskBytes);
-  const task = decode(taskBytes, binding)?.snapshot.operations[0];
+  const task = decodeRuntimeDomainSnapshot(taskBytes, binding)?.snapshot
+    .operations[0];
   assert.ok(task?.kind === "docker_task");
-  const both = start(taskBytes, text, binding);
+  const both = prepareCoordinatorStateRepairSnapshot(taskBytes, text, binding);
   assert.ok(both);
-  const parsed = decode(both, binding);
+  const parsed = decodeRuntimeDomainSnapshot(both, binding);
   assert.ok(parsed);
   assert.equal(parsed.snapshot.operations.length, 2);
   const repair = parsed.snapshot.operations.find(
@@ -3307,27 +3874,27 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   );
   assert.ok(repair);
   assert.equal(
-    encode(
+    encodeRuntimeStateValue(
       parsed.snapshot.operations.find((item) => item.kind === "docker_task"),
     ),
-    encode(task),
+    encodeRuntimeStateValue(task),
   );
-  const repaired = checkpoint(
+  const repaired = prepareCoordinatorStateRepairCheckpointSnapshot(
     both,
     repair.recoveryId,
     update(repair, { checkpoint: initial }),
     binding,
   );
   assert.ok(repaired);
-  const withRepair = decode(repaired, binding);
+  const withRepair = decodeRuntimeDomainSnapshot(repaired, binding);
   assert.ok(withRepair);
   assert.equal(
-    encode(
+    encodeRuntimeStateValue(
       withRepair.snapshot.operations.find(
         (item) => item.kind === "docker_task",
       ),
     ),
-    encode(task),
+    encodeRuntimeStateValue(task),
   );
   const repairBefore = withRepair.snapshot.operations.find(
     (item) => item.kind === "runtime_repair",
@@ -3372,16 +3939,21 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     binding,
   );
   assert.ok(taskProgress);
-  const last = decode(taskProgress, binding);
+  const last = decodeRuntimeDomainSnapshot(taskProgress, binding);
   assert.ok(last);
   assert.equal(
-    encode(
+    encodeRuntimeStateValue(
       last.snapshot.operations.find((item) => item.kind === "runtime_repair"),
     ),
-    encode(repairBefore),
+    encodeRuntimeStateValue(repairBefore),
   );
   assert.equal(
-    checkpoint(taskProgress, task.recoveryId, update(repair), binding),
+    prepareCoordinatorStateRepairCheckpointSnapshot(
+      taskProgress,
+      task.recoveryId,
+      update(repair),
+      binding,
+    ),
     null,
   );
   assert.equal(
@@ -3394,13 +3966,14 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     null,
   );
   const ready = retentionFixture("settling");
-  const otherStart = start(
+  const otherStart = prepareCoordinatorStateRepairSnapshot(
     null,
     `${JSON.stringify({ ...identity, operationNonce: "f".repeat(64), operationId: "OP-999999" })}\n`,
     binding,
   );
   assert.ok(otherStart);
-  const otherValue = decode(otherStart, binding)?.snapshot.operations[0];
+  const otherValue = decodeRuntimeDomainSnapshot(otherStart, binding)?.snapshot
+    .operations[0];
   assert.ok(otherValue?.kind === "runtime_repair");
   const other = {
     ...otherValue,
@@ -3456,8 +4029,8 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       },
     ],
   };
-  const mixed = Buffer.from(`${encode(nonempty)}\n`);
-  assert.ok(decode(mixed, binding));
+  const mixed = Buffer.from(`${encodeRuntimeStateValue(nonempty)}\n`);
+  assert.ok(decodeRuntimeDomainSnapshot(mixed, binding));
   const at = "2026-10-16T00:00:00.000Z";
   /**
    * 非空のTask・他Repair・回復参照・配送を同じOracleで保全する。
@@ -3470,7 +4043,9 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
    * @cleanup Source不変更、メモリ内だけ。
    * @boundary 実値モデルと一条件変異。
    */
-  const preserve = (prepare: typeof repairHistory) => {
+  const preserve = (
+    prepare: typeof prepareCoordinatorRepairHistorySnapshot,
+  ) => {
     const candidate = prepare(
       mixed,
       ready.operation.recoveryId,
@@ -3479,7 +4054,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       binding,
     );
     assert.ok(candidate, "repair_history_candidate_required");
-    const changed = decode(candidate, binding);
+    const changed = decodeRuntimeDomainSnapshot(candidate, binding);
     assert.ok(changed);
     assert.deepEqual(
       changed.snapshot.operations.filter(
@@ -3499,7 +4074,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     );
     return candidate;
   };
-  const repairPending = preserve(repairHistory);
+  const repairPending = preserve(prepareCoordinatorRepairHistorySnapshot);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
       new URL("../../../src/state/crud.ts", import.meta.url),
@@ -3555,7 +4130,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     };
   }
   const absentMixed = Buffer.from(
-    `${encode({
+    `${encodeRuntimeStateValue({
       ...nonempty,
       operations: [
         finishedTask,
@@ -3568,8 +4143,8 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       ],
     })}\n`,
   );
-  assert.ok(decode(absentMixed, binding));
-  const absentPending = repairHistory(
+  assert.ok(decodeRuntimeDomainSnapshot(absentMixed, binding));
+  const absentPending = prepareCoordinatorRepairHistorySnapshot(
     absentMixed,
     ready.operation.recoveryId,
     at,
@@ -3577,7 +4152,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     binding,
   );
   assert.ok(absentPending);
-  const absentConfirmed = repairHistory(
+  const absentConfirmed = prepareCoordinatorRepairHistorySnapshot(
     absentPending,
     ready.operation.recoveryId,
     at,
@@ -3596,15 +4171,17 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
    * @cleanup N/A: メモリのみ。
    * @boundary 値契約だけ、物理保存なし。
    */
-  const preserveCompletion = (prepare: typeof completeRepair) => {
+  const preserveCompletion = (
+    prepare: typeof prepareCoordinatorStateRepairCompletionSnapshot,
+  ) => {
     const candidate = prepare(
       absentConfirmed,
       ready.operation.recoveryId,
       binding,
     );
     assert.ok(candidate, "repair_completion_candidate_required");
-    const value = decode(candidate, binding);
-    const before = decode(absentConfirmed, binding);
+    const value = decodeRuntimeDomainSnapshot(candidate, binding);
+    const before = decodeRuntimeDomainSnapshot(absentConfirmed, binding);
     assert.ok(value && before);
     assert.deepEqual(
       value.snapshot.operations,
@@ -3623,34 +4200,36 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     assert.equal(value.snapshot.revision, before.snapshot.revision + 1);
     assert.equal(value.snapshot.previous?.payloadSha256, before.payloadSha256);
   };
-  preserveCompletion(completeRepair);
+  preserveCompletion(prepareCoordinatorStateRepairCompletionSnapshot);
   const completionBody = body(
     "prepareCoordinatorStateRepairCompletionSnapshot",
   );
   const completionNeedle = "item.recoveryId !== recoveryId";
   assert.equal(completionBody.split(completionNeedle).length, 2);
   const completionMutant = runInThisContext(
-    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${completionBody.replace(completionNeedle, "false")}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
+    `(function(deps){const {decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${completionBody.replace(completionNeedle, "false")}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
   )({
-    decodeCoordinatorStateSnapshot: decode,
-    encodeRuntimeStateValue: encode,
-    prepareCoordinatorRepairHistorySummary: repairSummary,
+    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
+    encodeRuntimeStateValue: encodeRuntimeStateValue,
+    prepareCoordinatorRepairHistorySummary:
+      prepareCoordinatorRepairHistorySummary,
     coordinatorRepairCanComplete,
-  }) as typeof completeRepair;
+  }) as typeof prepareCoordinatorStateRepairCompletionSnapshot;
   assert.throws(() => preserveCompletion(completionMutant));
   const original = body("prepareCoordinatorRepairHistorySnapshot");
   assert.equal(original.split("...current.snapshot,").length, 2);
   const mutant = runInThisContext(
-    `(function(deps){const {createHash,decodeCoordinatorStateSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,validateCoordinatorStateTransition}=deps; ${body("coordinatorRepairSummaryBytes")} ${body("coordinatorRepairHistoryLineBytes")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; return prepareCoordinatorRepairHistorySnapshot;})`,
+    `(function(deps){const {createHash,decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorRepairHistorySummary,validateCoordinatorStateTransition}=deps; ${body("coordinatorRepairSummaryBytes")} ${body("coordinatorRepairHistoryLineBytes")} ${original.replace("...current.snapshot,", "...current.snapshot, pendingDeliveries: [],")}; return prepareCoordinatorRepairHistorySnapshot;})`,
   )({
     createHash,
-    decodeCoordinatorStateSnapshot: decode,
-    encodeRuntimeStateValue: encode,
-    prepareCoordinatorRepairHistorySummary: repairSummary,
+    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
+    encodeRuntimeStateValue: encodeRuntimeStateValue,
+    prepareCoordinatorRepairHistorySummary:
+      prepareCoordinatorRepairHistorySummary,
     validateCoordinatorStateTransition,
-  }) as typeof repairHistory;
+  }) as typeof prepareCoordinatorRepairHistorySnapshot;
   assert.throws(() => preserve(mutant), /repair_history_candidate_required/u);
-  const repairConfirmed = repairHistory(
+  const repairConfirmed = prepareCoordinatorRepairHistorySnapshot(
     repairPending,
     ready.operation.recoveryId,
     at,
@@ -3680,7 +4259,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     task.recoveryId,
     binding,
   );
-  const currentRepairLine = repairLine(
+  const currentRepairLine = prepareCoordinatorRepairHistoryLine(
     taskPending,
     ready.operation.recoveryId,
     binding,
@@ -3733,7 +4312,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   assert.equal(
     validateCoordinatorStateTransition(
       taskProgress,
-      Buffer.from(`${encode(removed)}\n`),
+      Buffer.from(`${encodeRuntimeStateValue(removed)}\n`),
       binding,
     ),
     false,

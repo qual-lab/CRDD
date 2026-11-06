@@ -8,7 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import type { DockerContainerBinding as ProbeBinding } from "../../docker-isolation/src/cleanup/container.ts";
+import type { DockerContainerBinding } from "../../docker-isolation/src/cleanup/container.ts";
 import { cleanupDockerContainer } from "../../docker-isolation/src/cleanup/container.ts";
 import {
   createDockerProbeContainer,
@@ -510,7 +510,7 @@ function normalizeFailure(
  * @concurrency N/A: cleanupOwnedContainerは共有非同期状態を持たない同期処理である。
  */
 function cleanupOwnedContainer(
-  cli: ProbeBinding,
+  cli: DockerContainerBinding,
   capability: object,
   mounts: DockerMounts,
   hostRecoveryId: string,
@@ -582,7 +582,7 @@ export async function runDynamicFakeProviderCancellationVerification(
 ): Promise<DynamicFakeProviderCancellationResult> {
   const probeId = randomUUID();
   const recoveryNonce = randomUUID();
-  let cli: ProbeBinding | null = null;
+  let cli: DockerContainerBinding | null = null;
   let mountCapability: Readonly<{ kind: "owned_operation_mounts" }> | null =
     null;
   let mounts: DockerMounts | null = null;

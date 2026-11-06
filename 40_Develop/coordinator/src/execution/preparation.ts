@@ -8,7 +8,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
-  type ReasoningEffort as AiReasoningEffort,
+  type ReasoningEffort,
   resolveModelSelection,
   planExecution,
 } from "../../../ai-adapter/src/index.ts";
@@ -1283,7 +1283,7 @@ export type ProviderAdviceExecutionInput = Readonly<{
   projectionHash: string;
   executionSelection: ExecutionSelection;
   exactModelId: string;
-  reasoningEffort: AiReasoningEffort;
+  reasoningEffort: ReasoningEffort;
   offering: "chatgpt_subscription_oauth" | "claude_max";
 }>;
 

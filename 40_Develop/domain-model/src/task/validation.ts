@@ -8,10 +8,10 @@
  */
 
 import type { ProjectResultAcceptance } from "./types.ts";
-import { snapshotPlainRecord } from "../state/validation.ts";
+import { snapshotRuntimeStateRecord } from "../state/validation.ts";
 import type { CoordinatorState } from "../state/types.ts";
-import { plainObject } from "../state/validation.ts";
-import { exactKeys } from "../state/validation.ts";
+import { isRuntimeStateObject } from "../state/validation.ts";
+import { hasRuntimeStateKeys } from "../state/validation.ts";
 import { inspectTaskExecutionSelections } from "../ai-selection/validation.ts";
 import { validId } from "../state/validation.ts";
 import { REVISION } from "../state/validation.ts";
@@ -27,7 +27,7 @@ import { nullableResultReference } from "../state/validation.ts";
 import type { ProjectTaskRecoveryObligation } from "./types.ts";
 import { nullableRecoveryId } from "../state/validation.ts";
 import { inspectExecutionSelection } from "../ai-selection/validation.ts";
-import { snapshotPlainArray } from "../state/validation.ts";
+import { snapshotRuntimeStateArray } from "../state/validation.ts";
 
 /**
  * 新しい結果受理本文の閉じた形式を検査する。
@@ -47,7 +47,7 @@ import { snapshotPlainArray } from "../state/validation.ts";
 export function decodeProjectResultAcceptance(
   value: unknown,
 ): ProjectResultAcceptance | null {
-  const acceptance = snapshotPlainRecord(
+  const acceptance = snapshotRuntimeStateRecord(
     value,
     new Set([
       "repositoryBindingId",
@@ -110,8 +110,8 @@ export function validCoordinatorState(
   value: unknown,
 ): value is CoordinatorState {
   if (
-    !plainObject(value) ||
-    !exactKeys(value, [
+    !isRuntimeStateObject(value) ||
+    !hasRuntimeStateKeys(value, [
       "contract",
       "taskExecutionSelections",
       "projectId",
@@ -138,8 +138,8 @@ export function validCoordinatorState(
     !Number.isSafeInteger(value.maximumConcurrency) ||
     Number(value.maximumConcurrency) < 1 ||
     Number(value.maximumConcurrency) > 5 ||
-    !plainObject(value.milestone) ||
-    !exactKeys(value.milestone, [
+    !isRuntimeStateObject(value.milestone) ||
+    !hasRuntimeStateKeys(value.milestone, [
       "id",
       "acceptanceCriteria",
       "state",
@@ -170,10 +170,17 @@ export function validCoordinatorState(
   const objectiveIds = new Set<string>();
   for (const objective of value.objectives) {
     if (
-      !plainObject(objective) ||
-      !exactKeys(objective, ["definition", "state", "criterionEvidenceIds"]) ||
-      !plainObject(objective.definition) ||
-      !exactKeys(objective.definition, ["id", "acceptanceCriteria"]) ||
+      !isRuntimeStateObject(objective) ||
+      !hasRuntimeStateKeys(objective, [
+        "definition",
+        "state",
+        "criterionEvidenceIds",
+      ]) ||
+      !isRuntimeStateObject(objective.definition) ||
+      !hasRuntimeStateKeys(objective.definition, [
+        "id",
+        "acceptanceCriteria",
+      ]) ||
       !validId(objective.definition.id) ||
       objectiveIds.has(objective.definition.id) ||
       !stringArray(objective.definition.acceptanceCriteria) ||
@@ -195,19 +202,19 @@ export function validCoordinatorState(
   const taskIds = new Set<string>();
   const dependencies: Array<readonly string[]> = [];
   for (const task of value.tasks) {
-    const definition = plainObject(task) ? task.definition : null;
-    const taskDependencies = plainObject(definition)
+    const definition = isRuntimeStateObject(task) ? task.definition : null;
+    const taskDependencies = isRuntimeStateObject(definition)
       ? definition.dependencies
       : null;
-    const allowedPaths = plainObject(definition)
+    const allowedPaths = isRuntimeStateObject(definition)
       ? definition.allowedPaths
       : null;
-    const conflictKeys = plainObject(definition)
+    const conflictKeys = isRuntimeStateObject(definition)
       ? definition.conflictKeys
       : null;
     if (
-      !plainObject(task) ||
-      !exactKeys(task, [
+      !isRuntimeStateObject(task) ||
+      !hasRuntimeStateKeys(task, [
         "definition",
         "state",
         "attemptId",
@@ -222,8 +229,8 @@ export function validCoordinatorState(
         "retryCount",
         "supersededBy",
       ]) ||
-      !plainObject(task.definition) ||
-      !exactKeys(task.definition, [
+      !isRuntimeStateObject(task.definition) ||
+      !hasRuntimeStateKeys(task.definition, [
         "id",
         "objectiveId",
         "dependencies",
@@ -317,8 +324,8 @@ export function validCoordinatorState(
  */
 export function validQueueEntry(value: unknown): value is ProjectQueueEntry {
   return (
-    plainObject(value) &&
-    exactKeys(value, [
+    isRuntimeStateObject(value) &&
+    hasRuntimeStateKeys(value, [
       "queueId",
       "projectId",
       "milestoneId",
@@ -437,8 +444,8 @@ export function recoveryObligations(
       acknowledgement.taskId === scope.taskId &&
       acknowledgement.settlementGeneration <= scope.generation;
     if (
-      !plainObject(entry) ||
-      !exactKeys(
+      !isRuntimeStateObject(entry) ||
+      !hasRuntimeStateKeys(
         entry,
         entry.phase === "acknowledged"
           ? ["kind", "recoveryId", "phase", "acknowledgement"]
@@ -618,8 +625,8 @@ export function validTaskLifecycleTuple(
  */
 export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
   const value =
-    snapshotPlainRecord(raw, KEYS) ??
-    snapshotPlainRecord(raw, new Set([...KEYS, "adviceOperation"]));
+    snapshotRuntimeStateRecord(raw, KEYS) ??
+    snapshotRuntimeStateRecord(raw, new Set([...KEYS, "adviceOperation"]));
   if (
     !value ||
     Object.keys(value).length !==
@@ -627,7 +634,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
   )
     return null;
   const adviceOperation = Object.hasOwn(value, "adviceOperation")
-    ? snapshotPlainRecord(
+    ? snapshotRuntimeStateRecord(
         value.adviceOperation,
         new Set(["operationId", "hostRecoveryId"]),
       )
@@ -668,7 +675,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
     )
   )
     return null;
-  const recoveries = snapshotPlainArray(value.recoveryIds, 64);
+  const recoveries = snapshotRuntimeStateArray(value.recoveryIds, 64);
   if (recoveries.status !== "ok") return null;
   const recoveryIds: string[] = [];
   for (const recoveryId of recoveries.value) {

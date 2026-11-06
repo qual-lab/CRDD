@@ -8,8 +8,8 @@
  * @boundary 実修復Adapter・Machineと有限OS代役。実Host修復の成立は主張しない。
  */
 import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
+  decodeDockerRuntimeRepairCheckpoint,
+  type DockerRuntimeRepairCheckpoint,
 } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -23,13 +23,13 @@ import {
   describeDockerRuntimeArtifactTrustContract,
 } from "../../src/docker-cli/trust.ts";
 import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
-import { createDockerDesktopRepairOperations as operations } from "../../src/docker-desktop/repair-operations.ts";
-import { runDockerRuntimeRepairSessionUsing as run } from "../../src/docker-desktop/repair-session.ts";
+import { createDockerDesktopRepairOperations } from "../../src/docker-desktop/repair-operations.ts";
+import { runDockerRuntimeRepairSessionUsing } from "../../src/docker-desktop/repair-session.ts";
 import {
-  validateDockerRuntimeRepairCheckpointTransition as transition,
+  validateDockerRuntimeRepairCheckpointTransition,
   prepareDockerRuntimeRepairSessionCheckpoint,
 } from "../../../domain-model/src/index.ts";
-import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
+import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-access/src/index.ts";
 
 /**
  * 三対象・同Native子・Engineの模擬実境界を構成する。
@@ -50,8 +50,13 @@ import type { DockerDesktopRepairNativeHelperSession as Session } from "../../..
  * @oracle 同じfixtureで正常と故障を比べ、処置順・保存順の差を検出できる。
  * @cleanup 技術操作は有限代役だけで、実DirectoryやProcessを作らない。
  */
-function fixture(continuation = false, createOperations = operations) {
-  type Identity = NonNullable<Checkpoint["directories"]["primary"]["expected"]>;
+function fixture(
+  continuation = false,
+  createOperations = createDockerDesktopRepairOperations,
+) {
+  type Identity = NonNullable<
+    DockerRuntimeRepairCheckpoint["directories"]["primary"]["expected"]
+  >;
   const identity = (ino: string): Identity => ({
     dev: "1",
     ino,
@@ -89,9 +94,11 @@ function fixture(continuation = false, createOperations = operations) {
     waitReadyAfterRestart: false,
     stoppedDrift: "none" as "none" | "engine" | "process",
     termination: "terminated" as Awaited<
-      ReturnType<Session["terminateProcesses"]>
+      ReturnType<DockerDesktopRepairNativeHelperSession["terminateProcesses"]>
     >,
-    launching: "started" as Awaited<ReturnType<Session["launchDesktop"]>>,
+    launching: "started" as Awaited<
+      ReturnType<DockerDesktopRepairNativeHelperSession["launchDesktop"]>
+    >,
   };
   const calls = {
     verify: 0,
@@ -106,7 +113,7 @@ function fixture(continuation = false, createOperations = operations) {
     retain: [] as string[],
     lock: [] as string[],
     events: [] as string[],
-    saved: [] as Checkpoint[],
+    saved: [] as DockerRuntimeRepairCheckpoint[],
     phases: [] as string[],
     driftInjected: 0,
     prepared: 0,
@@ -115,11 +122,13 @@ function fixture(continuation = false, createOperations = operations) {
     waitStages: [] as string[],
   };
   let signal: AbortSignal | null = null;
-  let saved: Checkpoint | null = null;
-  let resume: Parameters<typeof run>[0]["resume"] = null;
-  let onSave: (value: Checkpoint) => void = () => {};
+  let saved: DockerRuntimeRepairCheckpoint | null = null;
+  let resume: Parameters<
+    typeof runDockerRuntimeRepairSessionUsing
+  >[0]["resume"] = null;
+  let onSave: (value: DockerRuntimeRepairCheckpoint) => void = () => {};
   let afterWait: () => void = () => {};
-  const session: Session = {
+  const session: DockerDesktopRepairNativeHelperSession = {
     assertLive: () => true,
     failureDetected: new Promise(() => {}),
     onFailureDetected: () => () => {},
@@ -175,7 +184,7 @@ function fixture(continuation = false, createOperations = operations) {
       return { cleanup: "confirmed", protocol: "completed" };
     },
   };
-  const access: Parameters<typeof operations>[1] = {
+  const access: Parameters<typeof createDockerDesktopRepairOperations>[1] = {
     scopeSha256: "b".repeat(64),
     verify: () => state.scope,
     observe: (purpose) => {
@@ -231,7 +240,7 @@ function fixture(continuation = false, createOperations = operations) {
    * @security 実OS要求0。
    * @concurrency 同内部signalのlistenerを観測する。
    */
-  const connectOperations: typeof operations = (
+  const connectOperations: typeof createDockerDesktopRepairOperations = (
     sameSession,
     sameAccess,
     internalSignal,
@@ -305,7 +314,9 @@ function fixture(continuation = false, createOperations = operations) {
    * @cleanup 模擬Sessionのrelease/abortと通知解除を親Caseが確認する。
    * @boundary 実Runtime・Machineと有限技術代役。実Dockerなし。
    */
-  const execute = (runtime: typeof run = run) =>
+  const execute = (
+    runtime: typeof runDockerRuntimeRepairSessionUsing = runDockerRuntimeRepairSessionUsing,
+  ) =>
     runtime(
       {
         operationNonce: "1".repeat(64),
@@ -318,7 +329,9 @@ function fixture(continuation = false, createOperations = operations) {
           return;
         },
         onCheckpoint: (value) => {
-          assert.ok(transition(saved, value));
+          assert.ok(
+            validateDockerRuntimeRepairCheckpointTransition(saved, value),
+          );
           saved = value;
           calls.saved.push(value);
           if (
@@ -362,7 +375,7 @@ function fixture(continuation = false, createOperations = operations) {
     access,
     connectOperations,
     setResume: (
-      checkpoint: Checkpoint,
+      checkpoint: DockerRuntimeRepairCheckpoint,
       owner = "a".repeat(64),
       scope = "b".repeat(64),
     ) => {
@@ -432,11 +445,11 @@ async function productionComposition(
     .replaceAll("export async function", "async function");
   const result = await f.execute(async (input, dependencies) => {
     const main = runInThisContext(
-      `((describeDockerRuntimeArtifactTrustContract, types, decode, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runDockerRuntimeRepairSession; })`,
+      `((describeDockerRuntimeArtifactTrustContract, types, decodeDockerRuntimeRepairCheckpoint, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runDockerRuntimeRepairSession; })`,
     )(
       describeDockerRuntimeArtifactTrustContract,
       types,
-      decode,
+      decodeDockerRuntimeRepairCheckpoint,
       prepareDockerRuntimeRepairSessionCheckpoint,
       runDockerRuntimeRepairMachine,
       dockerDesktopDistributionRoot,
@@ -504,8 +517,8 @@ async function productionComposition(
         return f.access;
       },
       (
-        session: Session,
-        access: Parameters<typeof operations>[1],
+        session: DockerDesktopRepairNativeHelperSession,
+        access: Parameters<typeof createDockerDesktopRepairOperations>[1],
         signal: AbortSignal,
         live: () => boolean,
       ) => {
@@ -518,7 +531,9 @@ async function productionComposition(
         assert.equal(live(), true);
         return f.connectOperations(session, access, signal, live);
       },
-    ) as (value: unknown) => ReturnType<typeof run>;
+    ) as (
+      value: unknown,
+    ) => ReturnType<typeof runDockerRuntimeRepairSessionUsing>;
     if (fault === "cancel_before_start") f.controller.abort();
     return main(
       fault === "invalid"
@@ -837,7 +852,7 @@ test("修復実操作接続: 同exact部分継続は完了済み処置を再発�
     assert.equal(interrupted, 1, cut);
     assert.notEqual(stopped.machine?.status, "recovered", cut);
     assert.equal(stopped.checkpoint?.cleanup, "confirmed", cut);
-    const checkpoint = decode(stopped.checkpoint);
+    const checkpoint = decodeDockerRuntimeRepairCheckpoint(stopped.checkpoint);
     assert.ok(checkpoint, cut);
     const next = fixture(true);
     Object.assign(next.state, first.state, {
@@ -972,8 +987,10 @@ test("修復実操作接続: ready最終観測中の新世代差替えを拒否�
   const guard = "JSON.stringify(again) !== JSON.stringify(sample.pair)";
   assert.equal(source.split(guard).length, 2);
   const mutant = runInThisContext(
-    `(function(decode){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
-  )(decode) as typeof operations;
+    `(function(decodeDockerRuntimeRepairCheckpoint){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
+  )(
+    decodeDockerRuntimeRepairCheckpoint,
+  ) as typeof createDockerDesktopRepairOperations;
   /**
    * 停止後に元Directory実体が変わった場合の拒否を確認する。
    * @responsibility 停止後に元Directory実体が変わった場合の拒否を確認する。
@@ -985,7 +1002,9 @@ test("修復実操作接続: ready最終観測中の新世代差替えを拒否�
    * @cleanup fixture内の観測代役を終了して破棄する。
    * @boundary 実operations接続の故障刺激。Host Directoryを変更しない。
    */
-  const verify = async (createOperations: typeof operations) => {
+  const verify = async (
+    createOperations: typeof createDockerDesktopRepairOperations,
+  ) => {
     const f = fixture(false, createOperations);
     const observe = f.access.observe;
     let armed = false;
@@ -1029,7 +1048,7 @@ test("修復実操作接続: ready最終観測中の新世代差替えを拒否�
     assert.deepEqual(f.calls.retain, ["initial"]);
     assert.equal(f.calls.release + f.calls.abort, 1);
   };
-  await verify(operations);
+  await verify(createDockerDesktopRepairOperations);
   await assert.rejects(() => verify(mutant), /new_generation_swap_accepted/u);
 });
 
@@ -1139,7 +1158,7 @@ test("修復実操作接続: Native不明と待機中停止を未発行成功へ
  * @cleanup 模擬Sessionを終了し実Desktopは変更しない。
  */
 async function assertStoppedDriftRejected(
-  createOperations: typeof operations,
+  createOperations: typeof createDockerDesktopRepairOperations,
   drift: "engine" | "process",
 ) {
   const f = fixture(true, createOperations);
@@ -1206,10 +1225,15 @@ test("修復実操作接続: 停止confirmedでもEngine未静止・Process残�
   const guard = 'state !== "known_unavailable" || processes !== "absent"';
   assert.equal(source.split(guard).length, 2);
   const mutant = runInThisContext(
-    `(function(decode){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
-  )(decode) as typeof operations;
+    `(function(decodeDockerRuntimeRepairCheckpoint){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
+  )(
+    decodeDockerRuntimeRepairCheckpoint,
+  ) as typeof createDockerDesktopRepairOperations;
   for (const drift of ["engine", "process"] as const) {
-    await assertStoppedDriftRejected(operations, drift);
+    await assertStoppedDriftRejected(
+      createDockerDesktopRepairOperations,
+      drift,
+    );
     await assert.rejects(
       () => assertStoppedDriftRejected(mutant, drift),
       /stopped_drift_retention_issued/u,

@@ -26,7 +26,7 @@ import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
   createCoordinatorExecutionHostPorts,
   describeCoordinatorExecutionContract,
@@ -87,7 +87,10 @@ for (const mode of [
    */
   test(`通常結果配送は上位実保存後だけ整理しTask結果を保持する ${mode}`, async (t) => {
     const { root, input } = fixture(t, [task("task-a")], 1);
-    const persistence = createCoordinatorPersistencePorts(root, "binding-a");
+    const persistence = createCurrentCoordinatorPersistencePorts(
+      root,
+      "binding-a",
+    );
     let starts = 0;
     let reads = 0;
     let completes = 0;
@@ -426,7 +429,7 @@ function runCoordinatorOperation(
         ...(now ? { now } : {}),
         ...(poisonAfterCleanupUnknown ? { poisonAfterCleanupUnknown } : {}),
       }),
-      persistence: createCoordinatorPersistencePorts(
+      persistence: createCurrentCoordinatorPersistencePorts(
         workingDirectory,
         repositoryBindingId,
       ),
@@ -1532,7 +1535,7 @@ test("PR-A-04 releases the physical lease when a post-acquire Queue write become
     before.status === "completed" && before.value.ownerGeneration,
     null,
   );
-  const reconciled = createCoordinatorPersistencePorts(
+  const reconciled = createCurrentCoordinatorPersistencePorts(
     root,
     "binding-a",
   ).lease.reconcileOperationOwnerLoss("project-a", "queue-a", () => {

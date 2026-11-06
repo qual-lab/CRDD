@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type {
   DockerResourceCleanupObservation,
   DockerResourceReceipts,
@@ -192,7 +192,7 @@ export function startDockerCommandSession(
       notificationRequested = true;
       try {
         const delivered = callbacks.current?.onFailure?.(failure);
-        if (utilTypes.isPromise(delivered))
+        if (types.isPromise(delivered))
           void Promise.prototype.then.call(
             delivered,
             undefined,
@@ -236,7 +236,7 @@ export function startDockerCommandSession(
         name === "onCommandNotIssued" ||
         name === "onResourceCreated" ||
         name === "onExecutionSubmitting";
-      if (!asynchronous && utilTypes.isPromise(pending)) {
+      if (!asynchronous && types.isPromise(pending)) {
         void pending.catch(() => {});
         notificationDeliveryConfirmed = false;
         fail("invalid_return");
@@ -244,7 +244,7 @@ export function startDockerCommandSession(
       }
       const accepted = asynchronous ? await pending : pending;
       if (accepted === undefined) return true;
-      if (utilTypes.isPromise(accepted))
+      if (types.isPromise(accepted))
         void Promise.prototype.then.call(accepted, undefined, () => undefined);
       notificationDeliveryConfirmed = false;
       fail(accepted === false ? "rejected" : "invalid_return");
@@ -347,7 +347,7 @@ export function startDockerCommandSession(
               if (callbacks.current?.onExecutionStarted)
                 notificationRequested = true;
               const delivered = callbacks.current?.onExecutionStarted?.();
-              if (utilTypes.isPromise(delivered))
+              if (types.isPromise(delivered))
                 void Promise.prototype.then.call(
                   delivered,
                   undefined,

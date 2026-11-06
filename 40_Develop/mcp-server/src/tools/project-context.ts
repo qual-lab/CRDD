@@ -10,7 +10,7 @@
  * @concurrency 一Requestにつき一つの不変Portfolio Snapshotを使用する。
  * @security 入力ProjectionにないProject、Repositoryまたは期待Contextを補完しない。
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
 import {
@@ -59,7 +59,7 @@ function plain(value: unknown): value is Record<string, unknown> {
     !value ||
     typeof value !== "object" ||
     Array.isArray(value) ||
-    utilTypes.isProxy(value) ||
+    types.isProxy(value) ||
     Object.getPrototypeOf(value) !== Object.prototype
   )
     return false;

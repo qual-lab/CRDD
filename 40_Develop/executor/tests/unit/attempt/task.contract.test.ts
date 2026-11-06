@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/provider/plan.ts";
-import { parseExecutionContent as parseProviderResult } from "../../../../ai-adapter/src/provider/result.ts";
+import { parseExecutionContent } from "../../../../ai-adapter/src/provider/result.ts";
 import { planExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/image/assets.ts";
 
@@ -51,7 +51,7 @@ const parseTaskContent = (
   raw: unknown,
   taskWorkload?: unknown,
 ) =>
-  parseProviderResult({
+  parseExecutionContent({
     provider: provider as "codex" | "claude",
     purpose: "task",
     taskRole,

@@ -19,7 +19,7 @@ import { runInNewContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   RUNTIME_STATE_MAXIMUM_BYTES,
@@ -28,7 +28,7 @@ import {
 } from "../../src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
 import { acquireCoordinatorStorageOwner } from "../../src/storage/runtime-lock.ts";
-import { observeRuntimeRecoveryRepository as borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/storage/runtime-repository.ts";
+import { observeRuntimeRecoveryRepository } from "../../src/storage/runtime-repository.ts";
 import {
   cleanupRuntimeOwnedCoordinatorStateMarker,
   readCoordinatorStorageSnapshotOwned,
@@ -185,10 +185,10 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
         path,
         RUNTIME_STATE_MAXIMUM_BYTES,
         sameStableFileIdentity,
-        decodeCoordinatorStateSnapshot,
+        decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
         decodeCoordinatorHistoryRows: (bytes: Buffer) =>
           bytes.toString() === "history" ? [] : null,
-        borrowRuntimeOwnedCoordinatorRecoveryRepository: (input: unknown) => {
+        observeRuntimeRecoveryRepository: (input: unknown) => {
           assert.equal(input, capability);
           return scenario === "root_invalid"
             ? null
@@ -391,9 +391,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     const verified = getRepository(root);
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
-    const repository = borrowRuntimeOwnedCoordinatorRecoveryRepository(
-      verified.capability,
-    );
+    const repository = observeRuntimeRecoveryRepository(verified.capability);
     assert.ok(repository);
     const storage = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
@@ -506,7 +504,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
         assert.ok("ownerHeld" in observed && observed.ownerHeld);
         assert.equal(
           observed.value?.payloadSha256,
-          decodeCoordinatorStateSnapshot(bytes, repository.repositoryBinding)
+          decodeRuntimeDomainSnapshot(bytes, repository.repositoryBinding)
             ?.payloadSha256,
         );
       }

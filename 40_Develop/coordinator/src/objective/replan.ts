@@ -5,8 +5,8 @@
  * @trace ARCH-000004
  */
 import {
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
 } from "../../../domain-model/src/index.ts";
 import {
   applyCoordinatorPartialReplan,
@@ -93,7 +93,7 @@ function inspectStrings(
   maximum: number,
   isEmptyAllowed: boolean,
 ) {
-  const snapshot = snapshotPlainArray<string>(value, maximum);
+  const snapshot = snapshotRuntimeStateArray<string>(value, maximum);
   if (
     snapshot.status !== "ok" ||
     (!isEmptyAllowed && snapshot.value.length === 0) ||
@@ -121,7 +121,7 @@ function inspectStrings(
  * @concurrency N/A: inspectTaskDefinitionは共有非同期状態を持たない同期処理である。
  */
 function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
-  const task = snapshotPlainRecord(
+  const task = snapshotRuntimeStateRecord(
     value,
     new Set([
       "allowedPaths",
@@ -163,7 +163,7 @@ function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
  * @concurrency N/A: inspectDecisionは共有非同期状態を持たない同期処理である。
  */
 function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
-  const maintain = snapshotPlainRecord(
+  const maintain = snapshotRuntimeStateRecord(
     raw,
     new Set(["disposition", "reason"] as const),
   );
@@ -172,7 +172,7 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
       disposition: "maintain_plan",
       reason: maintain.reason,
     });
-  const human = snapshotPlainRecord(
+  const human = snapshotRuntimeStateRecord(
     raw,
     new Set(["disposition", "objectiveId", "reason"] as const),
   );
@@ -186,7 +186,7 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
       objectiveId: human.objectiveId,
       reason: human.reason,
     });
-  const partial = snapshotPlainRecord(
+  const partial = snapshotRuntimeStateRecord(
     raw,
     new Set(["disposition", "failedTaskId", "replacements"] as const),
   );
@@ -195,7 +195,7 @@ function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
     !validId(partial.failedTaskId)
   )
     return null;
-  const replacements = snapshotPlainArray(partial.replacements, 128);
+  const replacements = snapshotRuntimeStateArray(partial.replacements, 128);
   if (replacements.status !== "ok" || replacements.value.length === 0)
     return null;
   const inspectedTasks = replacements.value.map(inspectTaskDefinition);

@@ -9,7 +9,7 @@ import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
 
 import fs from "node:fs";
 import path from "node:path";
-import { setImmediate as yieldToOwner } from "node:timers/promises";
+import { setImmediate } from "node:timers/promises";
 import { types } from "node:util";
 import {
   observeWindowsFilesystemEntry,
@@ -326,7 +326,7 @@ export async function disposeDockerRepairDirectory(
      * @concurrency entry間待機後も現在条件を確認する。
      */
     const collect = async (target: string, depth: number): Promise<void> => {
-      await yieldToOwner();
+      await setImmediate();
       if (
         depth > maximumDepth ||
         nodes.length >= maximumEntries ||
@@ -425,7 +425,7 @@ export async function disposeDockerRepairDirectory(
       }
     };
     for (const node of nodes.reverse()) {
-      await yieldToOwner();
+      await setImmediate();
       const currentRoot = nodeDirectory(targets.target);
       if (
         !baseGuard() ||

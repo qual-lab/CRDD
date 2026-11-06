@@ -7,8 +7,8 @@
  */
 import type {
   ModelSelection as AiModelSelection,
-  Provider as AiProvider,
-  ReasoningEffort as AiReasoningEffort,
+  Provider,
+  ReasoningEffort,
 } from "../../../ai-adapter/src/index.ts";
 import type { ExecutionSelection } from "../../../domain-model/src/index.ts";
 import type {
@@ -114,7 +114,7 @@ export type PreparationInput = Readonly<{
  * @trace ARCH-000015
  * @invariant 本番の返却型と公開型を別々に定義しない。
  */
-export type AttemptPreparation<P extends AiProvider = AiProvider> = Readonly<{
+export type AttemptPreparation<P extends Provider = Provider> = Readonly<{
   productionAuthority: false;
   prepare: (input: PreparationInput) => PreparationResult<P>;
   cancel: (
@@ -133,7 +133,7 @@ export type AttemptPreparation<P extends AiProvider = AiProvider> = Readonly<{
  * @trace ARCH-000015
  * @invariant preparedを実行完了へ昇格しない。
  */
-export type PreparationResult<P extends AiProvider = AiProvider> =
+export type PreparationResult<P extends Provider = Provider> =
   | PreparedAttempt<P>
   | PreparationFailure;
 
@@ -282,7 +282,7 @@ export type ProviderDockerPreparationState<
 export type RecoveryPlan = RecordProjection<"attempt"> &
   ExecutorRequest<"attempt">["target"] &
   Readonly<{
-    provider: AiProvider;
+    provider: Provider;
     executionSelection: AiModelSelection;
     executor: Executor<"attempt">;
     authorityUseCapability: object;
@@ -301,7 +301,7 @@ export type RecoveryPlan = RecordProjection<"attempt"> &
     recoveryCorrelationId?: string | null;
   }>;
 
-export type PreparedAttemptPlan<P extends AiProvider> = Readonly<
+export type PreparedAttemptPlan<P extends Provider> = Readonly<
   Omit<
     RecoveryPlan,
     | "provider"
@@ -347,7 +347,7 @@ export type AdvicePacket = Readonly<{
   executionSelection: AiModelSelection &
     Readonly<{ role: ExecutionSelection["role"] }>;
   selectionHash: string;
-  provider: AiProvider;
+  provider: Provider;
   packetHash: string;
   additionalHosts: readonly string[];
   providerPrompt: string;
@@ -371,13 +371,13 @@ export type AdvicePacket = Readonly<{
 export type ModelSelection = Readonly<{
   selectionRecordId: string;
   operationId: string;
-  executorProvider: AiProvider;
+  executorProvider: Provider;
   executionSelection: AiModelSelection &
     Readonly<{ role: ExecutionSelection["role"] }>;
   selectionHash: string;
   taskAttempt: 0 | 1;
   model: string;
-  effort: AiReasoningEffort;
+  effort: ReasoningEffort;
   selectionNotice: string;
 }>;
 
@@ -416,7 +416,7 @@ export type TaskPacket = Readonly<{
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type ConsumedTaskPacket<P extends AiProvider> = Omit<
+export type ConsumedTaskPacket<P extends Provider> = Omit<
   TaskPacket,
   "taskWorkload"
 > &
@@ -433,7 +433,7 @@ export type ConsumedTaskPacket<P extends AiProvider> = Omit<
  * @security Capabilityをこの型から生成・永続化しない。
  * @compatibility 既存二ProviderのFactory依存を維持する。
  */
-export type PreparationHost<P extends AiProvider> = Omit<
+export type PreparationHost<P extends Provider> = Omit<
   ProviderDockerPreparationState<
     ModelSelection,
     ConsumedTaskPacket<P>,
@@ -458,7 +458,7 @@ export type PreparationHost<P extends AiProvider> = Omit<
  * @security Path、秘密、commandと内部Authorityを公開しない。
  * @compatibility Provider別結果のfield有無と値を維持する。
  */
-export type PreparedAttempt<P extends AiProvider = AiProvider> = Readonly<{
+export type PreparedAttempt<P extends Provider = Provider> = Readonly<{
   status: "prepared";
   reason: string;
   preparedCapability: object;
@@ -466,7 +466,7 @@ export type PreparedAttempt<P extends AiProvider = AiProvider> = Readonly<{
   grantRef: string;
   selectionRecordId: string;
   selectedModel: string;
-  selectedEffort: AiReasoningEffort;
+  selectedEffort: ReasoningEffort;
   selectionNotice: string;
   providerHomeMountLeaseActive: true;
   dockerEffectIssued: false;

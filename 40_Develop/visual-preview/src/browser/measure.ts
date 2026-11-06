@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { setTimeout as wait } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import type {
   BrowserWindowSize,
   BrowserZoomMeasurement,
@@ -321,7 +321,7 @@ export async function measureDocumentAtZoom(
         devTools.port,
         url,
       );
-      await wait(250);
+      await setTimeout(250);
       try {
         rawValue = await evaluateInPage(
           pageWebSocketUrl,
@@ -333,7 +333,7 @@ export async function measureDocumentAtZoom(
           !error.message.includes("Execution context was destroyed")
         )
           throw error;
-        await wait(100);
+        await setTimeout(100);
       }
     }
     if (rawValue === undefined)

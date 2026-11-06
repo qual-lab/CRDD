@@ -2,7 +2,7 @@
  * @responsibility Topic／Meeting MCP Adapter境界の公開Protocolと検証境界を所有する。
  * @trace ARCH-000005
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 import {
   parseTopicMarkdown,
@@ -110,7 +110,7 @@ function plain(value: unknown): value is Record<string, unknown> {
     value &&
       typeof value === "object" &&
       !Array.isArray(value) &&
-      !utilTypes.isProxy(value) &&
+      !types.isProxy(value) &&
       Object.getPrototypeOf(value) === Object.prototype &&
       Object.values(Object.getOwnPropertyDescriptors(value)).every(
         (descriptor) => "value" in descriptor,

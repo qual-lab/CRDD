@@ -1255,7 +1255,7 @@ async function runProbe(target: string, scenario: string) {
     'import path from "node:path";',
     'import { performance } from "node:perf_hooks";',
     'import { fileURLToPath } from "node:url";',
-    'import { types as utilTypes } from "node:util";',
+    'import { types } from "node:util";',
     `import { isRuntimeProcessEffectBlocked } from "${new URL("../../src/execution/process-safety-state.ts", import.meta.url).href}";`,
     `import { snapshotCoordinatorTaskRequest } from "${new URL("../../src/execution/request.ts", import.meta.url).href}";`,
     `import { verifyOwnedOperationManagementCapability, borrowRuntimeOwnedRepositorySource } from "${moduleUrl("execution-environment")}";`,

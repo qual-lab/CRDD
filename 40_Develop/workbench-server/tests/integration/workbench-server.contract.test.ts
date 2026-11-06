@@ -34,11 +34,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import {
-  createServer,
-  request as httpRequest,
-  ServerResponse,
-} from "node:http";
+import { createServer, request, ServerResponse } from "node:http";
 import { syncBuiltinESMExports } from "node:module";
 import { connect } from "node:net";
 import path from "node:path";
@@ -258,7 +254,7 @@ async function requestTransport(
 > {
   const url = new URL(baseUrl);
   return await new Promise((resolve, reject) => {
-    const outgoing = httpRequest(
+    const outgoing = request(
       {
         hostname: url.hostname,
         port: url.port,

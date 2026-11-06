@@ -8,7 +8,7 @@
  */
 import { captureIsolationRequest } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
-import { createIsolationFixture as fixture } from "../support/isolation.ts";
+import { createIsolationFixture } from "../support/isolation.ts";
 import test from "node:test";
 import type { IsolationRequest } from "../../src/execution/types.ts";
 import {
@@ -41,7 +41,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
     "invalid_id",
   ] as const)
     await t.test(mode, async (t) => {
-      const f = await fixture(t);
+      const f = await createIsolationFixture(t);
       const prepared = f.api.prepareIsolation(f.request);
       assert.ok(prepared);
       const cleanup = {
@@ -172,7 +172,7 @@ test("config終了はENOENTだけを不存在とし再出現・観測不能・�
       "remove_failed",
     ])
       await t.test(`${mode}:${observation}`, async (t) => {
-        const f = await fixture(t);
+        const f = await createIsolationFixture(t);
         const prepared = f.api.prepareIsolation(f.request);
         assert.ok(prepared);
         if (mode === "normal") {
@@ -229,7 +229,7 @@ test("config終了はENOENTだけを不存在とし再出現・観測不能・�
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有限CLIへ接続する", async (t) => {
-  const f = await fixture(t);
+  const f = await createIsolationFixture(t);
   const di = await import("../../src/index.ts");
   const platform = await import("../../../platform-access/src/index.ts");
   let selected: "codex" | "claude" = "codex",
@@ -497,7 +497,7 @@ test("開始時の再検証失敗はDI結果へ分類し要求を発行しない
     "directory_changed",
   ]) {
     await t.test(code, async (t) => {
-      const f = await fixture(t);
+      const f = await createIsolationFixture(t);
       const prepared = f.api.prepareIsolation(f.request);
       assert.ok(prepared);
       if (code === "directory_changed") f.directoryIdentity = "replacement";
@@ -550,7 +550,7 @@ test("開始時の再検証失敗はDI結果へ分類し要求を発行しない
  * @boundary 元準備から共通Lifecycleまで。
  */
 test("共通入口は元準備を一回だけ実行し非秘密Snapshotと回収結果を返す", async (t) => {
-  const f = await fixture(t),
+  const f = await createIsolationFixture(t),
     notices: string[] = [];
   const prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
@@ -604,7 +604,7 @@ test("共通入口は元準備を一回だけ実行し非秘密Snapshotと回収
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("共通入口はService開始と資源集合Snapshot・逆順回収を同じOwnerで確定する", async (t) => {
-  const f = await fixture(t, true);
+  const f = await createIsolationFixture(t, true);
   const prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const receipts: string[] = [],
@@ -647,7 +647,7 @@ test("共通入口はService開始と資源集合Snapshot・逆順回収を同�
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("通常と単独Cleanupは同じ元Snapshot・技術回収を使い再実行しない", async (t) => {
-  const f = await fixture(t),
+  const f = await createIsolationFixture(t),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const first = await f.api.executeIsolation(prepared).completion;
@@ -698,7 +698,7 @@ test("通常と単独Cleanupは同じ元Snapshot・技術回収を使い再実�
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("単独Cleanupは既不存在Checkpointと現在残存の矛盾で削除しない", async (t) => {
-  const f = await fixture(t, true),
+  const f = await createIsolationFixture(t, true),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const first = await f.api.executeIsolation(prepared).completion;
@@ -731,7 +731,7 @@ test("単独Cleanupは既不存在Checkpointと現在残存の矛盾で削除し
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("単独Cleanupは取消後の次資源を削除せずconfig終了を確認する", async (t) => {
-  const f = await fixture(t, true),
+  const f = await createIsolationFixture(t, true),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const first = await f.api.executeIsolation(prepared).completion;
@@ -785,7 +785,7 @@ test("単独Cleanupは構成差を識別不一致にせず発見通知欠測で�
     "missing_notice",
   ] as const)
     await t.test(mode, async (t) => {
-      const f = await fixture(t),
+      const f = await createIsolationFixture(t),
         id = "a".repeat(64);
       f.ids.add(id);
       const identity = {
@@ -861,7 +861,7 @@ test("単独Cleanupは構成差を識別不一致にせず発見通知欠測で�
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("共通入口は開始前取消でDocker要求0を維持する", async (t) => {
-  const f = await fixture(t),
+  const f = await createIsolationFixture(t),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const execution = f.api.executeIsolation(prepared);
@@ -884,7 +884,7 @@ test("共通入口は開始前取消でDocker要求0を維持する", async (t) 
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("共通準備は全構築入口で検査し疎配列とconfig省略を拒否する", async (t) => {
-  const f = await fixture(t),
+  const f = await createIsolationFixture(t),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const missingConfig = {
@@ -939,7 +939,7 @@ test("共通準備は全構築入口で検査し疎配列とconfig省略を拒�
 test("起動要求起算の期限は開始観測待機でリセットしない", {
   timeout: 2_000,
 }, async (t) => {
-  const f = await fixture(t);
+  const f = await createIsolationFixture(t);
   f.pendingStarted = true;
   const steps = f.request.steps.map((s) =>
     s.action === "run"
@@ -974,7 +974,7 @@ test("起動要求起算の期限は開始観測待機でリセットしない",
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("要求起算でも観測できた開始は一回通知する", async (t) => {
-  const f = await fixture(t);
+  const f = await createIsolationFixture(t);
   const steps = f.request.steps.map((s) =>
     s.action === "run" ? { ...s, deadlineOrigin: "request" as const } : s,
   );
@@ -1003,7 +1003,7 @@ test("要求起算でも観測できた開始は一回通知する", async (t) =
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("要求起算の開始通知失敗は捕捉され回収結果へ接続される", async (t) => {
-  const f = await fixture(t);
+  const f = await createIsolationFixture(t);
   const steps = f.request.steps.map((s) =>
     s.action === "run" ? { ...s, deadlineOrigin: "request" as const } : s,
   );
@@ -1030,7 +1030,7 @@ test("要求起算の開始通知失敗は捕捉され回収結果へ接続さ�
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("共通入口はReceipt通知失敗後に前進せず元IDだけを回収する", async (t) => {
-  const f = await fixture(t),
+  const f = await createIsolationFixture(t),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const result = await f.api.executeIsolation(prepared, {
@@ -1062,7 +1062,7 @@ test("共通入口はReceipt通知失敗後に前進せず元IDだけを回収�
  * @boundary ERB-IT-004=Direct Boundary: 明示したSource接続と有限技術境界。実AI・Dockerの成立を主張しない。
  */
 test("共通入口は回収前通知の失敗を削除許可へ変換しない", async (t) => {
-  const f = await fixture(t),
+  const f = await createIsolationFixture(t),
     prepared = f.api.prepareIsolation(f.request);
   assert.ok(prepared);
   const result = await f.api.executeIsolation(prepared, {
@@ -1091,7 +1091,7 @@ test("共通入口は回収前通知の失敗を削除許可へ変換しない",
 test("共通入口の実行中取消は終了確認と回収可否を分離する", async (t) => {
   for (const confirmed of [true, false])
     await t.test(String(confirmed), async (t) => {
-      const f = await fixture(t);
+      const f = await createIsolationFixture(t);
       f.pendingRun = true;
       f.processTermination = confirmed;
       const prepared = f.api.prepareIsolation(f.request);
@@ -1191,7 +1191,7 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
   ];
   for (const c of cases)
     await t.test(c.name, async (t) => {
-      const f = await fixture(t);
+      const f = await createIsolationFixture(t);
       f.observation = c.value;
       const prepared = f.api.prepareIsolation(f.request);
       assert.ok(prepared);
@@ -1228,7 +1228,7 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
     });
   for (const mode of ["throw", "promise"])
     await t.test(mode, async (t) => {
-      const f = await fixture(t),
+      const f = await createIsolationFixture(t),
         prepared = f.api.prepareIsolation(f.request);
       assert.ok(prepared);
       const result = await f.api.executeIsolation(prepared, {
@@ -1256,7 +1256,7 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
  * @boundary 公開DIの準備・実行・回収。
  */
 test("用途一覧の変更なしで新しい相関key・Labelを実行回収する", async (t) => {
-  const f = await fixture(t);
+  const f = await createIsolationFixture(t);
   const resource = f.request.resources[0];
   assert.ok(resource);
   const request: IsolationRequest = {

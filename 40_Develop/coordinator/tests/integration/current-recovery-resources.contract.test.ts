@@ -13,10 +13,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
-import { isDeepStrictEqual, types as utilTypes } from "node:util";
+import { isDeepStrictEqual, types } from "node:util";
 import { runInNewContext } from "node:vm";
 import {
-  snapshotPlainRecord,
+  snapshotRuntimeStateRecord,
   applyCoordinatorResourceEvent,
 } from "../../../domain-model/src/index.ts";
 import { createRecoveryFixture } from "../support/recovery.ts";
@@ -983,7 +983,7 @@ test("既Host不存在checkpoint: 同じHostのpendingだけを保存する", ()
         dockerRecoveryPreparations: new WeakMap([[capability, record]]),
         encodeRuntimeStateValue: JSON.stringify,
         assertCurrentRecoveryOwner: () => scenario !== "owner",
-        decodeCoordinatorStateSnapshot: () => ({ snapshot }),
+        decodeRuntimeDomainSnapshot: () => ({ snapshot }),
         coordinatorReleasedTaskCanObserveHostAbsence: () =>
           scenario !== "unsettled",
         writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
@@ -1140,7 +1140,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
       `${driverBody}; recoverRuntimeOwnedDockerTaskFromCurrentRepository`,
       {
         AbortSignal,
-        utilTypes,
+        types,
         Object,
         Buffer,
         parseDockerTaskRecoveryId: (token: unknown) =>
@@ -1161,7 +1161,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
               }
             : { status: "prepared", capability };
         },
-        async yieldRecoveryEvents() {
+        async setImmediate() {
           if (retirementYieldPending) {
             retirementYieldPending = false;
             retirementEvents.push("yield_after_retirement");
@@ -1203,7 +1203,7 @@ test("現在回収組立て: 順序・一次失敗・段階間取消", async () 
           assert.equal(key, capability);
           return scenario !== "absence_failed";
         },
-        decodeCoordinatorStateSnapshot: () => ({
+        decodeRuntimeDomainSnapshot: () => ({
           snapshot: {
             operations: [
               {
@@ -1845,7 +1845,7 @@ test("現在相関Resolverは完全観測と上位相関だけを使う", () => 
         Map,
         Set,
         JSON,
-        utilTypes,
+        types,
         readRuntimeOwnedCoordinatorRecoverySnapshot(received: unknown) {
           reads++;
           if (scenario === "throw") throw new Error("secret");
@@ -1986,7 +1986,7 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
         dockerRecoveryPreparations: new WeakMap(
           scenario === "missing_owner" ? [] : [[key, owner]],
         ),
-        decodeCoordinatorStateSnapshot: () => ({
+        decodeRuntimeDomainSnapshot: () => ({
           snapshot: {
             operations: [
               {
@@ -2096,7 +2096,7 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
   const end = source.indexOf("\n/**", start);
   const check = runInNewContext(
     `${stripTypeScriptTypes(source.slice(start, end))}; exactRecoveryCompleted`,
-    { snapshotPlainRecord, Set, Array },
+    { snapshotRuntimeStateRecord, Set, Array },
   ) as (value: unknown, kind: string, id: string) => boolean;
   const base = {
     contract: "crdd-coordinator/current-task-recovery",
@@ -2257,7 +2257,7 @@ test("耐久受領準備のガード負対照は処置ゼロOracleに拒否さ�
   assert.equal(source.includes("finalizeDockerAcknowledgement("), false);
   const start = source.indexOf("let acknowledgementResult: unknown;");
   const end = source.indexOf(
-    "const acknowledged = snapshotPlainRecord(",
+    "const acknowledged = snapshotRuntimeStateRecord(",
     start,
   );
   assert.ok(start >= 0 && end > start);

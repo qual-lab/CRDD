@@ -9,7 +9,7 @@
  * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 固定composition→技術factory。
  */
 import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
+  decodeDockerRuntimeRepairCheckpoint,
   dockerRuntimeRepairCheckpointIsSettled,
 } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
@@ -78,7 +78,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
     cleanup: "confirmed",
     cleanupFailure: null,
   };
-  assert.ok(decode(raw));
+  assert.ok(decodeDockerRuntimeRepairCheckpoint(raw));
   for (const scenario of [
     "normal",
     "scope",
@@ -120,7 +120,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
           request: "unknown",
           result: "unknown",
         };
-      assert.ok(decode(checkpoint), scenario);
+      assert.ok(decodeDockerRuntimeRepairCheckpoint(checkpoint), scenario);
       const before = JSON.stringify(checkpoint);
       let driver = 0,
         acquired = 0,
@@ -135,7 +135,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
           Promise,
           AbortSignal,
           types,
-          decode,
+          decodeDockerRuntimeRepairCheckpoint,
           dockerRuntimeRepairCheckpointIsSettled,
           dockerDesktopDistributionRoot: "fixed-distribution",
           observeNativeArtifact: (root: string, expected?: string) => {
@@ -415,7 +415,7 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
         request: "not_issued",
         result: "not_required",
       };
-    assert.ok(decode(checkpoint), scenario);
+    assert.ok(decodeDockerRuntimeRepairCheckpoint(checkpoint), scenario);
     const before = JSON.stringify(checkpoint);
     assert.equal(Object.isFrozen(checkpoint), false);
     for (const pair of Object.values(checkpoint.directories)) {
@@ -490,7 +490,7 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
         Promise,
         AbortSignal,
         types,
-        decode,
+        decodeDockerRuntimeRepairCheckpoint,
         dockerRuntimeRepairCheckpointIsSettled,
         dockerDesktopDistributionRoot: "fixed-distribution",
         observeNativeArtifact: (_root: string, expected?: string) =>

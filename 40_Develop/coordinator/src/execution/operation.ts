@@ -25,10 +25,10 @@ import {
   readRepositoryStorageIdentity,
 } from "../../../version-control/src/index.ts";
 import {
-  type ExecutionFileEntry as InventoryEntry,
-  readExecutionInventory as inventory,
-  isExecutionRelativePath as validRelativePath,
-  readExecutionFile as stableFileContent,
+  type ExecutionFileEntry,
+  readExecutionInventory,
+  isExecutionRelativePath,
+  readExecutionFile,
 } from "./files.ts";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -138,7 +138,7 @@ type WorkspaceRecord = Readonly<{
   baseCommit: string;
   baseTree: string;
   baseManifestHash: string;
-  baseEntries: ReadonlyMap<string, InventoryEntry>;
+  baseEntries: ReadonlyMap<string, ExecutionFileEntry>;
   sourceTree?: string;
 }>;
 
@@ -192,7 +192,7 @@ export function observeBorrowedExecutionChanges(capability: object) {
     return Object.freeze(
       changedPaths(
         record.baseEntries,
-        entryMap(inventory(record.sourceTree, true)),
+        entryMap(readExecutionInventory(record.sourceTree, true)),
       ),
     );
   } catch {
@@ -216,7 +216,7 @@ export function observeBorrowedExecutionChanges(capability: object) {
  * @security manifestHashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: manifestHashは共有非同期状態を持たない同期処理である。
  */
-function manifestHash(entries: readonly InventoryEntry[]) {
+function manifestHash(entries: readonly ExecutionFileEntry[]) {
   const hash = createHash("sha256").update("crdd-workspace-inventory-v1\0");
   for (const entry of entries) {
     hash
@@ -246,7 +246,7 @@ function manifestHash(entries: readonly InventoryEntry[]) {
  * @security entryMapはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: entryMapは共有非同期状態を持たない同期処理である。
  */
-function entryMap(entries: readonly InventoryEntry[]) {
+function entryMap(entries: readonly ExecutionFileEntry[]) {
   return new Map(entries.map((entry) => [entry.relativePath, entry]));
 }
 
@@ -287,7 +287,7 @@ function allowedPaths(rawAllowedPaths: unknown) {
       const relativePath = isDirectory
         ? descriptor.value.slice(0, -1)
         : descriptor.value;
-      if (!validRelativePath(relativePath)) return null;
+      if (!isExecutionRelativePath(relativePath)) return null;
       normalizedAllowedPaths.push(
         isDirectory ? `${relativePath}/` : relativePath,
       );
@@ -345,8 +345,8 @@ function isAllowed(relativePath: string, paths: readonly string[]) {
  * @concurrency N/A: changedPathsは共有非同期状態を持たない同期処理である。
  */
 function changedPaths(
-  baseEntries: ReadonlyMap<string, InventoryEntry>,
-  currentEntries: ReadonlyMap<string, InventoryEntry>,
+  baseEntries: ReadonlyMap<string, ExecutionFileEntry>,
+  currentEntries: ReadonlyMap<string, ExecutionFileEntry>,
 ) {
   const paths = new Set([...baseEntries.keys(), ...currentEntries.keys()]);
   return [...paths]
@@ -419,7 +419,7 @@ export function bindRuntimeOwnedExecutionSnapshot(
         borrowedTarget,
       );
       if (!target) return null;
-      const baseInventory = inventory(target.executionTree, true);
+      const baseInventory = readExecutionInventory(target.executionTree, true);
       const baseManifestHash = manifestHash(baseInventory);
       const workspaceCapability = Object.freeze({});
       workspaces.set(
@@ -554,7 +554,7 @@ export function captureExecutionChangeSnapshot(
     );
     const normalizedAllowedPaths = allowedPaths(rawAllowedPaths);
     if (!current || !normalizedAllowedPaths) return null;
-    const currentInventory = inventory(
+    const currentInventory = readExecutionInventory(
       current.workspace,
       Boolean(current.workspaceRecord.sourceTree),
     );
@@ -587,7 +587,7 @@ export function captureExecutionChangeSnapshot(
         }
         continue;
       }
-      const observed = stableFileContent(
+      const observed = readExecutionFile(
         path.join(current.workspace, ...relativePath.split("/")),
         MAXIMUM_FILE_BYTES,
       );
@@ -700,7 +700,7 @@ export function projectReviewerReadContent(
     if (!current || !candidate || !readPaths) return null;
     if (candidate.workspaceRecord !== current.workspaceRecord) return null;
 
-    const currentInventory = inventory(
+    const currentInventory = readExecutionInventory(
       current.workspace,
       Boolean(current.workspaceRecord.sourceTree),
     );
@@ -728,7 +728,7 @@ export function projectReviewerReadContent(
           status: "blocked" as const,
           reason: "candidate_read_projection_budget_exceeded" as const,
         });
-      const observed = stableFileContent(
+      const observed = readExecutionFile(
         path.join(current.workspace, ...entry.relativePath.split("/")),
         MAXIMUM_REVIEW_PROJECTION_BYTES,
       );
@@ -840,7 +840,7 @@ export function verifyExecutionChangeSnapshot(
         .executionTree !== record.workspaceRecord.sourceTree
     )
       return null;
-    const currentInventory = inventory(
+    const currentInventory = readExecutionInventory(
       record.workspaceRecord.sourceTree ?? binding.mounts.workspace,
       Boolean(record.workspaceRecord.sourceTree),
     );

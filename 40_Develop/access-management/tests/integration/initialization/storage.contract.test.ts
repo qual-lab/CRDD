@@ -18,7 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
-import { readCurrentAccessState as readCurrentAccess } from "../../../src/authorization/current.ts";
+import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
 import {
   createCredentialMaterial,
@@ -43,7 +43,7 @@ import {
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import { readAccessManagementState } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
-import { saveUserRegistration as registerUser } from "../../../src/user/crud.ts";
+import { saveUserRegistration } from "../../../src/user/crud.ts";
 import {
   bytes,
   fixture,
@@ -1180,12 +1180,12 @@ test("初回途中の本人readは非更新で不成立状態を開示しない"
   const current = path.join(f.directory, "access-management.json");
   const before = fs.readFileSync(current);
   assert.equal(
-    readCurrentAccess(f.root, issued.value.token).status,
+    readCurrentAccessState(f.root, issued.value.token).status,
     "completed",
   );
   assert.deepEqual(fs.readFileSync(current), before);
   assert.equal(
-    registerUser(
+    saveUserRegistration(
       f.root,
       issued.value.token,
       3,
@@ -1197,7 +1197,7 @@ test("初回途中の本人readは非更新で不成立状態を開示しない"
   );
   assert.deepEqual(fs.readFileSync(current), before);
   const unknown = createCredentialMaterial().token;
-  assert.deepEqual(readCurrentAccess(f.root, unknown), {
+  assert.deepEqual(readCurrentAccessState(f.root, unknown), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });
@@ -1206,7 +1206,7 @@ test("初回途中の本人readは非更新で不成立状態を開示しない"
   assert.ok(credential);
   credential.revoked = true;
   fs.writeFileSync(current, bytes(state));
-  assert.deepEqual(readCurrentAccess(f.root, issued.value.token), {
+  assert.deepEqual(readCurrentAccessState(f.root, issued.value.token), {
     status: "unavailable",
     reason: "current_access_observation_unknown",
   });
@@ -1222,16 +1222,16 @@ test("初回途中の本人readは非更新で不成立状態を開示しない"
     path.join(normal.directory, "access-management.json"),
     bytes(normal.state),
   );
-  assert.deepEqual(readCurrentAccess(normal.root, normal.tokens.manager), {
+  assert.deepEqual(readCurrentAccessState(normal.root, normal.tokens.manager), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });
   fs.writeFileSync(current, "{");
-  assert.deepEqual(readCurrentAccess(f.root, issued.value.token), {
+  assert.deepEqual(readCurrentAccessState(f.root, issued.value.token), {
     status: "unavailable",
     reason: "current_access_observation_unknown",
   });
-  assert.deepEqual(readCurrentAccess(f.root, "invalid"), {
+  assert.deepEqual(readCurrentAccessState(f.root, "invalid"), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });

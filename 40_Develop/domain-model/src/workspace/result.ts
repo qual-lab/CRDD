@@ -6,11 +6,11 @@
  * @trace ARCH-000008
  * @boundary Domain値と利用側の入力・公開結果。
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type { CoordinatorWorkspaceResult } from "./types.ts";
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
   validId,
 } from "../state/validation.ts";
 import { COORDINATOR_MAXIMUM_TASKS } from "../state/projection.ts";
@@ -64,7 +64,7 @@ function isPlainContainer(value: unknown): value is object {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return false;
     const prototype = Object.getPrototypeOf(value);
@@ -128,7 +128,7 @@ export function snapshotCoordinatorWorkspaceResult(
     if (paths !== null) {
       if (
         !Array.isArray(paths) ||
-        utilTypes.isProxy(paths) ||
+        types.isProxy(paths) ||
         paths.length > 1000 ||
         Reflect.ownKeys(paths).length !== paths.length + 1
       )
@@ -195,7 +195,7 @@ export function inspectCoordinatorWorkspaceResults(
       result: CoordinatorWorkspaceResult;
     }>[]
   | null {
-  const array = snapshotPlainArray(raw, COORDINATOR_MAXIMUM_TASKS);
+  const array = snapshotRuntimeStateArray(raw, COORDINATOR_MAXIMUM_TASKS);
   if (array.status !== "ok" || array.value.length === 0) return null;
   const entries: Readonly<{
     taskId: string;
@@ -207,7 +207,7 @@ export function inspectCoordinatorWorkspaceResults(
   const operations = new Set<string>();
   let workspaceId = expectedWorkspaceId;
   for (const value of array.value) {
-    const entry = snapshotPlainRecord(
+    const entry = snapshotRuntimeStateRecord(
       value,
       new Set(["taskId", "attemptId", "operationId", "result"] as const),
     );

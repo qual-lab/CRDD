@@ -22,21 +22,21 @@ import {
   queryPlan,
   savePlan,
 } from "../../../../domain-model/src/index.ts";
-import { readCurrentAccessState as readCurrentAccess } from "../../../src/authorization/current.ts";
+import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import {
   resolveRepositoryAccess,
   resolveRuntimeContentAccess,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
 } from "../../../src/index.ts";
-import { saveExposure as updateExposure } from "../../../src/repository/exposure.ts";
+import { saveExposure } from "../../../src/repository/exposure.ts";
 import {
-  saveRepositoryRegistration as registerRepository,
-  saveRepositoryRemoval as unregisterRepository,
+  saveRepositoryRegistration,
+  saveRepositoryRemoval,
 } from "../../../src/repository/register.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import { readAccessManagementState } from "../../../src/storage/store.ts";
-import { saveUserRegistration as registerUser } from "../../../src/user/crud.ts";
+import { saveUserRegistration } from "../../../src/user/crud.ts";
 import {
   bytes,
   contentFixture,
@@ -422,7 +422,7 @@ test("本人権限は管理候補と内容・Exposure交差を分離する", (t)
   fs.writeFileSync(current, bytes(f.state));
   const before = fs.readFileSync(current);
   for (const role of ["developer", "manager", "administrator"] as const) {
-    const result = readCurrentAccess(f.root, f.tokens[role]);
+    const result = readCurrentAccessState(f.root, f.tokens[role]);
     assert.equal(result.status, "completed");
     if (result.status !== "completed") continue;
     const dto = result.snapshot;
@@ -554,7 +554,7 @@ test("本人権限は管理候補と内容・Exposure交差を分離する", (t)
   f.state.revision = 2;
   f.state.operationId = crypto.randomUUID();
   fs.writeFileSync(current, bytes(f.state));
-  const changed = readCurrentAccess(f.root, f.tokens.manager);
+  const changed = readCurrentAccessState(f.root, f.tokens.manager);
   assert.equal(changed.status, "completed");
   if (changed.status === "completed") {
     assert.equal(changed.snapshot.revision, 2);
@@ -607,7 +607,7 @@ test("User登録の容量超過はUUID生成前に拒否する", (t) => {
     return originalUUID();
   };
   try {
-    const result = registerUser(
+    const result = saveUserRegistration(
       f.root,
       f.tokens.manager,
       1,
@@ -657,7 +657,7 @@ test("許可Repository集合は同改訂・全範囲・一意な実体を保持"
     second.context.replaceAll("repository.fixture", "repository.second"),
   );
   assert.equal(
-    updateExposure(
+    saveExposure(
       f.root,
       f.tokens.manager,
       3,
@@ -668,7 +668,7 @@ test("許可Repository集合は同改訂・全範囲・一意な実体を保持"
     "completed",
   );
   assert.equal(
-    registerRepository(
+    saveRepositoryRegistration(
       f.root,
       f.tokens.manager,
       4,
@@ -679,7 +679,7 @@ test("許可Repository集合は同改訂・全範囲・一意な実体を保持"
     "completed",
   );
   assert.equal(
-    updateExposure(
+    saveExposure(
       f.root,
       f.tokens.manager,
       5,
@@ -821,7 +821,7 @@ test("許可Repository集合は同改訂・全範囲・一意な実体を保持"
   );
   fs.writeFileSync(second.manifestPath, JSON.stringify(secondManifest));
   assert.equal(
-    updateExposure(
+    saveExposure(
       f.root,
       f.tokens.manager,
       6,
@@ -954,7 +954,7 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
    */
   const op = (n: number) =>
     `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-  const registered = registerRepository(
+  const registered = saveRepositoryRegistration(
     f.root,
     f.tokens.manager,
     1,
@@ -971,7 +971,7 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
   assert.deepEqual(current.value.users, before.users);
   assert.deepEqual(current.value.credentials, before.credentials);
   assert.equal(
-    updateExposure(
+    saveExposure(
       f.root,
       f.tokens.manager,
       2,
@@ -982,7 +982,7 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
     "completed",
   );
   assert.equal(
-    updateExposure(
+    saveExposure(
       f.root,
       f.tokens.administrator,
       3,
@@ -1004,7 +1004,7 @@ test("Repository登録と公開は独立し旧Root不成立でも解除できる
   );
   const manifestBefore = fs.readFileSync(target.manifestPath);
   assert.equal(
-    unregisterRepository(
+    saveRepositoryRemoval(
       f.root,
       f.tokens.manager,
       4,
@@ -1064,7 +1064,7 @@ test("登録は認可前にRootを観測せずIdentity差を保存しない", (t
       [f.tokens.manager, 1, "invalid id"],
     ] as const) {
       assert.deepEqual(
-        registerRepository(
+        saveRepositoryRegistration(
           f.root,
           token,
           revision,
@@ -1078,7 +1078,7 @@ test("登録は認可前にRootを観測せずIdentity差を保存しない", (t
     }
     assert.equal(observed, 0);
     assert.deepEqual(
-      registerRepository(
+      saveRepositoryRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -1093,7 +1093,7 @@ test("登録は認可前にRootを観測せずIdentity差を保存しない", (t
     );
     assert.equal(observed, 0, "Root長超過はPath観測前に拒否する");
     assert.equal(
-      registerRepository(
+      saveRepositoryRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -1132,7 +1132,7 @@ test("登録は認可前にRootを観測せずIdentity差を保存しない", (t
     );
     if (variant === "git")
       fs.rmSync(path.join(target.directory, ".git"), { recursive: true });
-    const result = registerRepository(
+    const result = saveRepositoryRegistration(
       f.root,
       f.tokens.manager,
       1,
@@ -1190,7 +1190,7 @@ test("登録固定Fileは各1 MiB上限と開閉の一致を守る", (t) => {
       fs.writeFileSync(target.manifestPath, JSON.stringify(target.manifest));
       fs.writeFileSync(contextPath, target.context);
       fs.writeFileSync(file, "x".repeat(1_048_577));
-      const result = registerRepository(
+      const result = saveRepositoryRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -1217,7 +1217,7 @@ test("登録固定Fileは各1 MiB上限と開閉の一致を守る", (t) => {
         " ".repeat(1_048_576 - Buffer.byteLength(target.context, "utf8")),
     );
     assert.equal(
-      registerRepository(
+      saveRepositoryRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -1258,7 +1258,7 @@ test("Exposure入力拒否と出版後清掃不明を区別する", (t) => {
   const op = "00000000-0000-4000-8000-000000000090",
     nextOp = "00000000-0000-4000-8000-000000000091";
   assert.equal(
-    registerRepository(
+    saveRepositoryRegistration(
       f.root,
       f.tokens.administrator,
       1,
@@ -1276,14 +1276,14 @@ test("Exposure入力拒否と出版後清掃不明を区別する", (t) => {
     [f.tokens.manager, id, ["unknown"]],
     [f.tokens.manager, id, ["development", "development"]],
   ] as const) {
-    assert.deepEqual(updateExposure(f.root, token, 2, nextOp, repo, ranges), {
+    assert.deepEqual(saveExposure(f.root, token, 2, nextOp, repo, ranges), {
       status: "unavailable",
       reason: "management_operation_rejected",
     });
     assert.deepEqual(fs.readFileSync(currentPath), before);
   }
   assert.deepEqual(
-    registerRepository(
+    saveRepositoryRegistration(
       f.root,
       f.tokens.manager,
       2,
@@ -1299,9 +1299,9 @@ test("Exposure入力拒否と出版後清掃不明を区別する", (t) => {
       throw new Error("injected");
     return originalRemove(p, options);
   };
-  let result: ReturnType<typeof updateExposure>;
+  let result: ReturnType<typeof saveExposure>;
   try {
-    result = updateExposure(f.root, f.tokens.manager, 2, nextOp, id, [
+    result = saveExposure(f.root, f.tokens.manager, 2, nextOp, id, [
       "management",
     ]);
   } finally {
@@ -1339,7 +1339,7 @@ test("Exposure入力拒否と出版後清掃不明を区別する", (t) => {
       ["invalid", 3],
       [f.tokens.manager, 2],
     ] as const) {
-      assert.deepEqual(updateExposure(f.root, token, revision, op, id, []), {
+      assert.deepEqual(saveExposure(f.root, token, revision, op, id, []), {
         status: "unavailable",
         reason: "management_operation_rejected",
       });
@@ -1350,7 +1350,7 @@ test("Exposure入力拒否と出版後清掃不明を区別する", (t) => {
         );
       });
     }
-    const settled = updateExposure(f.root, f.tokens.manager, 3, op, id, []);
+    const settled = saveExposure(f.root, f.tokens.manager, 3, op, id, []);
     assert.equal(settled.status, "unavailable");
     if (
       settled.status === "unavailable" &&

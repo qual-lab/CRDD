@@ -7,13 +7,13 @@
 
 import {
   type InteractiveConsoleTextWriteOutcome,
-  type TerminalHandles as InteractiveConsoleHandles,
-  type TerminalOperationOutcome as InteractiveConsoleOperationOutcome,
+  type TerminalHandles,
+  type TerminalOperationOutcome,
   withTerminalOutcome,
   withTerminalAsyncOutcome,
   readConfirmationCodeOutcome,
   writeWindowsTerminalTextOutcome,
-  WINDOWS_TERMINAL_WRITE_TIMEOUT_MS as TERMINAL_WRITE_TIMEOUT_MS,
+  WINDOWS_TERMINAL_WRITE_TIMEOUT_MS,
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
 } from "../../../platform-access/src/index.ts";
 import {
@@ -176,7 +176,7 @@ export type InteractiveConsoleReadOutcome = Readonly<{
  * @concurrency N/A: withInteractiveConsoleは共有非同期状態を持たない同期処理である。
  */
 export function withInteractiveConsole<T>(
-  operation: (handles: InteractiveConsoleHandles) => T,
+  operation: (handles: TerminalHandles) => T,
 ): T | null {
   const outcome = withInteractiveConsoleOutcome(operation);
   return outcome.status === "completed" ? outcome.value : null;
@@ -199,8 +199,8 @@ export function withInteractiveConsole<T>(
  * @concurrency N/A: withInteractiveConsoleOutcomeは共有非同期状態を持たない同期処理である。
  */
 export function withInteractiveConsoleOutcome<T>(
-  operation: (handles: InteractiveConsoleHandles) => T,
-): InteractiveConsoleOperationOutcome<T> {
+  operation: (handles: TerminalHandles) => T,
+): TerminalOperationOutcome<T> {
   const outcome = withTerminalOutcome(operation);
   if (outcome.status === "cleanup_unknown")
     poisonRuntimeProcessAfterInteractiveCleanupUnknown();
@@ -227,7 +227,7 @@ export function withInteractiveConsoleOutcome<T>(
  * @concurrency N/A: withInteractiveConsoleAsyncは共有非同期状態を持たない同期処理である。
  */
 export function withInteractiveConsoleAsync<T>(
-  operation: (handles: InteractiveConsoleHandles) => Promise<T>,
+  operation: (handles: TerminalHandles) => Promise<T>,
 ) {
   return withInteractiveConsoleAsyncOutcome(operation).then((outcome) =>
     outcome.status === "completed" ? outcome.value : null,
@@ -251,7 +251,7 @@ export function withInteractiveConsoleAsync<T>(
  * @concurrency PAの非同期完了後、必要なpoisonと値投影を行って一度だけ返す。
  */
 export function withInteractiveConsoleAsyncOutcome<T>(
-  operation: (handles: InteractiveConsoleHandles) => Promise<T>,
+  operation: (handles: TerminalHandles) => Promise<T>,
 ) {
   return withTerminalAsyncOutcome(operation).then((outcome) => {
     if (outcome.status === "cleanup_unknown")
@@ -520,7 +520,7 @@ export function describeInteractiveConsoleContract() {
     windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
     windowsDeviceOpenModes: Object.freeze({ input: "r", output: "r+" }),
     windowsUnicodeOutput: "node_unicode_tty_output_required",
-    windowsTerminalWriteTimeoutMs: TERMINAL_WRITE_TIMEOUT_MS,
+    windowsTerminalWriteTimeoutMs: WINDOWS_TERMINAL_WRITE_TIMEOUT_MS,
     windowsTerminalWriteOutcomes: Object.freeze([
       "completed",
       "write_failed",

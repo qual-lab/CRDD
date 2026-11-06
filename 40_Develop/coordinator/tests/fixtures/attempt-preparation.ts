@@ -7,8 +7,8 @@
  * @boundary tests専用。製品の保存・実行契約ではない。
  */
 
-import type { Provider as AiProvider } from "../../../ai-adapter/src/index.ts";
-import type { TestAttemptPlan as AttemptPlan } from "../../../executor/scripts/executor-test.ts";
+import type { Provider } from "../../../ai-adapter/src/index.ts";
+import type { TestAttemptPlan } from "../../../executor/scripts/executor-test.ts";
 import { prepareAttempt } from "../../../executor/scripts/executor-test.ts";
 import { createExecutor, type Executor } from "../../../executor/src/index.ts";
 import { createAttemptPreparation as createOwner } from "../../src/execution/preparation.ts";
@@ -25,7 +25,7 @@ import type {
  * @effect 試験内のMapのみ。Home取得・Command発行・永続化は行わない。
  * @invariant 上位への内部Plan投影は試験のconsumeだけで、製品Sourceには存在しない。
  */
-export function createAttemptPreparation<P extends AiProvider>(
+export function createAttemptPreparation<P extends Provider>(
   provider: P,
   dependencies: PreparationHost<P>,
 ): Omit<AttemptPreparation<P>, "consume"> &
@@ -34,9 +34,9 @@ export function createAttemptPreparation<P extends AiProvider>(
     consume(
       prepared: unknown,
       management: unknown,
-    ): (PreparedAttemptPlan<P> & AttemptPlan) | null;
+    ): (PreparedAttemptPlan<P> & TestAttemptPlan) | null;
   }> {
-  const plans = new WeakMap<Executor<"attempt">, AttemptPlan>();
+  const plans = new WeakMap<Executor<"attempt">, TestAttemptPlan>();
   const owner = createOwner(provider, dependencies, (request, random) => {
     const values = [random.randomBytes(8), random.randomBytes(32)];
     const replay = () => {
@@ -74,7 +74,7 @@ export function createAttemptPreparation<P extends AiProvider>(
       const plan = plans.get(owned.executor);
       if (!plan) throw Error("fixture_plan_missing");
       return Object.freeze({ ...owned, ...plan }) as PreparedAttemptPlan<P> &
-        AttemptPlan;
+        TestAttemptPlan;
     },
   });
 }

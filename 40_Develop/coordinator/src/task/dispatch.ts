@@ -33,7 +33,7 @@ import {
   validIdentity,
   isCoordinatorRecoveryIdentity,
 } from "../state/validation.ts";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 import {
   observeProjectTaskStarted,
@@ -96,7 +96,7 @@ export function validSingleTaskResult(
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))
     )
       return false;
@@ -170,7 +170,7 @@ export function validSingleTaskResult(
         (typeof record.candidateId !== "string" ||
           record.candidateId.length > 512)) ||
       !Array.isArray(record.recoveryIds) ||
-      utilTypes.isProxy(record.recoveryIds) ||
+      types.isProxy(record.recoveryIds) ||
       record.recoveryIds.length > 128 ||
       Reflect.ownKeys(record.recoveryIds).some(
         (key) =>
@@ -201,7 +201,7 @@ export function validSingleTaskResult(
     if (rawObligations !== undefined) {
       if (
         !Array.isArray(rawObligations) ||
-        utilTypes.isProxy(rawObligations) ||
+        types.isProxy(rawObligations) ||
         rawObligations.length > 128
       )
         return false;
@@ -218,7 +218,7 @@ export function validSingleTaskResult(
           !entry ||
           typeof entry !== "object" ||
           Array.isArray(entry) ||
-          utilTypes.isProxy(entry) ||
+          types.isProxy(entry) ||
           ![Object.prototype, null].includes(Object.getPrototypeOf(entry))
         )
           return false;
@@ -1312,7 +1312,7 @@ export async function runCoordinatorOperation(
               if (
                 !reference ||
                 typeof reference !== "object" ||
-                utilTypes.isProxy(reference) ||
+                types.isProxy(reference) ||
                 Reflect.ownKeys(reference).length !== keys.length ||
                 keys.some((key) => {
                   const descriptor = Object.getOwnPropertyDescriptor(

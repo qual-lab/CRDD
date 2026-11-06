@@ -496,7 +496,7 @@ unknown   Store、Identityまたは改訂版を現在値として確認不能
 |---|---|---|---|
 | `runObjective`／内部`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、分類・明示選択と保存済み選定組、取消 → 相関検査済み結果 | CLI、MCP Server | 初回選定と継承を区別し、Project Stateを保存する。下位の新選定接続は未完了。Task完了から受入を生成しない。 |
 | `runCoordinatorOperation` | Queue・Task・Attempt・Operationの結合 → 各Task結果と未解決義務 | Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
-| `manageCoordinatorWorkspace`／`executeWorkspaceCommand` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
+| `manageCoordinatorWorkspace`／`executeWorkspace` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
 | `recordCoordinatorAcceptanceDecision` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | CLI、MCP Server | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
 | `issueCoordinatorHumanDecision`／`submitCoordinatorHumanDecision` | exact判断要求・許可選択肢・一回Capability → 継続状態と適用結果 | 判断操作 | 保護保存とProject Stateの別境界を再照合し、跨る一括確定を主張しない。 |
 | `replaceCoordinatorHumanDecision`／`invalidateCoordinatorHumanDecision`／`recoverCoordinatorHumanDecision` | 現在判断・適用世代・exact回復参照 → 置換／失効／回復結果 | 判断操作 | 旧Capabilityと現在適用を検査する。応答喪失から自動再発行しない。 |

@@ -6,9 +6,9 @@
  */
 
 import type {
-  AiProvider,
-  AiReasoningEffort,
-  AiModelSelection,
+  Provider,
+  ReasoningEffort,
+  ModelSelection,
   ProviderExecutionLocations,
 } from "./types.ts";
 
@@ -60,7 +60,7 @@ import { prepareProviderEnvironment } from "./validation.ts";
  */
 
 export type ProviderModelSelection = Pick<
-  AiModelSelection,
+  ModelSelection,
   "provider" | "modelIdentifier" | "identifierKind" | "reasoningEffort"
 >;
 
@@ -86,7 +86,7 @@ export type ProviderAdvicePlan = Readonly<{
   modelIdentifier: string;
   identifierKind: "exact" | "alias";
   catalogIdentity: string;
-  reasoningEffort: AiReasoningEffort;
+  reasoningEffort: ReasoningEffort;
   promptTransport: "stdin_only";
   resultTransport: "codex_cli_jsonl" | "claude_json_envelope";
   toolsAllowed: false;
@@ -103,7 +103,7 @@ export type ProviderAdvicePlan = Readonly<{
  * @security 実行Authority・秘密値を含めない。
  * @compatibility 既存describe結果のfieldと値を維持する。
  */
-export type ProviderExecutionDefinition<P extends AiProvider = AiProvider> =
+export type ProviderExecutionDefinition<P extends Provider = Provider> =
   P extends "codex" ? CodexExecutionDefinition : ClaudeExecutionDefinition;
 
 /**
@@ -121,10 +121,10 @@ export type ProviderExecutionPurpose = "advice" | "task" | "probe";
 
 /** 実行計画が確定した内容解析条件。利用側は再構築しない。 */
 export type ProviderResultContext = Readonly<{
-  provider: AiProvider;
+  provider: Provider;
   purpose: ProviderExecutionPurpose;
   taskRole?: "executor" | "reviewer";
-  selectedEffort?: AiReasoningEffort;
+  selectedEffort?: ReasoningEffort;
   allowedReferences?: readonly string[];
 }>;
 
@@ -173,8 +173,8 @@ type ProviderPlans = {
  * @compatibility 内部計画の既存引数・制約を維持する。
  */
 
-export type ProviderExecutionInput<
-  P extends AiProvider = AiProvider,
+export type ExecutionRequest<
+  P extends Provider = Provider,
   K extends ProviderExecutionPurpose = ProviderExecutionPurpose,
 > = K extends "advice"
   ? Readonly<{
@@ -204,7 +204,7 @@ export type ProviderExecutionInput<
  */
 
 export type ProviderExecutionPlan<
-  P extends AiProvider = AiProvider,
+  P extends Provider = Provider,
   K extends ProviderExecutionPurpose = ProviderExecutionPurpose,
 > = ProviderPlans[P][K] &
   Readonly<{
@@ -236,8 +236,8 @@ export type ProviderExecutionPlan<
  * @compatibility 内部計画の既存引数・制約を維持する。
  */
 
-export type ProviderExecutionPlanResult<
-  P extends AiProvider = AiProvider,
+export type ExecutionPlan<
+  P extends Provider = Provider,
   K extends ProviderExecutionPurpose = ProviderExecutionPurpose,
 > =
   | Readonly<{
@@ -249,7 +249,7 @@ export type ProviderExecutionPlanResult<
       status: "blocked";
       plan: null;
       error: Readonly<{
-        provider: AiProvider | null;
+        provider: Provider | null;
         reason: ProviderPlanningReason;
       }>;
     }>;
@@ -287,7 +287,7 @@ export type ProviderPlanningReason =
  * @security 実行許可を発行しない。
  * @compatibility 既存Claude予算の計算と理由を維持する。
  */
-export type ProviderTaskScopeResult<P extends AiProvider = AiProvider> =
+export type ProviderTaskScopeResult<P extends Provider = Provider> =
   | Readonly<{ status: "blocked"; reason: "provider_execution_input_invalid" }>
   | (P extends "claude"
       ? ClaudeTaskBudgetResult
@@ -317,7 +317,7 @@ export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 2;
  * @security 認証値・起動許可を返さない。
  * @concurrency N/A: 同期で共有可変状態なし。
  */
-export function describeProviderExecution<P extends AiProvider>(
+export function describeProviderExecution<P extends Provider>(
   provider: P,
 ): ProviderExecutionDefinition<P> {
   if (provider !== "codex" && provider !== "claude")
@@ -344,7 +344,7 @@ export function describeProviderExecution<P extends AiProvider>(
  * @security 起動・再試行・回収を開始しない。
  * @concurrency N/A: 同期の純粋評価。
  */
-export function evaluateProviderTaskScope<P extends AiProvider>(
+export function evaluateProviderTaskScope<P extends Provider>(
   provider: P,
   taskRole: unknown,
   taskWorkload: unknown,
@@ -385,17 +385,17 @@ export function evaluateProviderTaskScope<P extends AiProvider>(
  * @concurrency N/A: 純粋な同期処理。
  */
 export function planExecution<
-  P extends AiProvider,
+  P extends Provider,
   K extends ProviderExecutionPurpose,
 >(
-  request: ProviderExecutionInput<P, K>,
+  request: ExecutionRequest<P, K>,
   locations?: ProviderExecutionLocations,
-): ProviderExecutionPlanResult<P, K>;
+): ExecutionPlan<P, K>;
 
 export function planExecution(
-  request: ProviderExecutionInput,
+  request: ExecutionRequest,
   locations: ProviderExecutionLocations = {},
-): ProviderExecutionPlanResult {
+): ExecutionPlan {
   const snapshot =
     snapshotPlainRecord(
       request,
@@ -407,9 +407,7 @@ export function planExecution(
     ) ??
     snapshotPlainRecord(request, new Set(["provider", "purpose", "input"]));
   const provider = snapshot?.provider;
-  const reject = (
-    reason: ProviderPlanningReason,
-  ): ProviderExecutionPlanResult =>
+  const reject = (reason: ProviderPlanningReason): ExecutionPlan =>
     Object.freeze({
       status: "blocked",
       plan: null,
@@ -422,9 +420,9 @@ export function planExecution(
   if (!snapshot || (provider !== "codex" && provider !== "claude"))
     return reject("provider_execution_input_invalid");
   const complete = (
-    value: ProviderPlans[AiProvider][ProviderExecutionPurpose],
+    value: ProviderPlans[Provider][ProviderExecutionPurpose],
     context: ProviderResultContext,
-  ): ProviderExecutionPlanResult => {
+  ): ExecutionPlan => {
     const environment = prepareProviderEnvironment(provider, value.environment);
     if (environment.status !== "ready") return reject(environment.reason);
     return Object.freeze({

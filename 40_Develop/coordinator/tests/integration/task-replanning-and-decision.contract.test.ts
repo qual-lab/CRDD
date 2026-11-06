@@ -41,7 +41,7 @@ import type {
   CoordinatorReplanInput,
 } from "../../src/objective/types.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import {
   createCoordinatorExecutionHostPorts,
   runCoordinatorOperation as runCoordinatorOperationWithPorts,
@@ -71,7 +71,7 @@ const revision = "a".repeat(40);
 function decisionApplicationDependencies(root: string) {
   return {
     capability: createCoordinatorDecisionCapabilityAdapter(),
-    persistence: createCoordinatorPersistencePorts(root, "binding-a"),
+    persistence: createCurrentCoordinatorPersistencePorts(root, "binding-a"),
   };
 }
 /**
@@ -119,7 +119,7 @@ function runCoordinatorOperation(
     {
       ...dependencies,
       ...createCoordinatorExecutionHostPorts(),
-      persistence: createCoordinatorPersistencePorts(
+      persistence: createCurrentCoordinatorPersistencePorts(
         workingDirectory,
         repositoryBindingId,
       ),
@@ -145,7 +145,7 @@ function resolveCoordinatorReplan(
     Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
   classify: CoordinatorReplanClassifier,
 ) {
-  const ports = createCoordinatorPersistencePorts(
+  const ports = createCurrentCoordinatorPersistencePorts(
     input.workingDirectory,
     input.repositoryBindingId,
   );

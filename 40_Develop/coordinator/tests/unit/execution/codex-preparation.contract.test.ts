@@ -35,7 +35,7 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "../../../src/execution/provider-executor.ts";
 import {
-  preparationSelection as attemptSelection,
+  preparationSelection,
   executionSelection,
 } from "../../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
@@ -358,7 +358,7 @@ const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
   executorProvider: "codex" as const,
-  ...attemptSelection(fixedSelection),
+  ...preparationSelection(fixedSelection),
   selectionHash: hashExecutionSelection(fixedSelection) as string,
   taskAttempt: 0 as const,
   model: fixedSelection.modelIdentifier,
@@ -464,7 +464,7 @@ function createFixture(
       assert.equal(management, managementCapability);
       return Object.freeze({
         ...MODEL_SELECTION,
-        ...attemptSelection(selected),
+        ...preparationSelection(selected),
         selectionHash: hashExecutionSelection(selected) as string,
         model: selected.modelIdentifier,
         effort: selected.reasoningEffort,
@@ -550,7 +550,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
   const dependencies = {
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
-      ...attemptSelection(
+      ...preparationSelection(
         executionSelection("advice", {
           provider: "codex",
           model: "gpt-5.6-sol",
@@ -572,7 +572,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
-        ...attemptSelection(
+        ...preparationSelection(
           executionSelection("advice", {
             provider: "codex",
             model: "gpt-5.6-sol",
@@ -1426,7 +1426,10 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
       consumeModelSelection: (selection, management) => {
         const consumed = selectionRuntime.consume(selection, management);
         return consumed
-          ? { ...consumed, ...attemptSelection(consumed.executionSelection) }
+          ? {
+              ...consumed,
+              ...preparationSelection(consumed.executionSelection),
+            }
           : null;
       },
     },
@@ -1723,7 +1726,7 @@ test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒�
       {
         consumeModelSelection: () => ({
           ...MODEL_SELECTION,
-          ...attemptSelection(selected as typeof original),
+          ...preparationSelection(selected as typeof original),
           selectionHash: hashExecutionSelection(selected) ?? "0".repeat(64),
           model:
             typeof selected.modelIdentifier === "string"

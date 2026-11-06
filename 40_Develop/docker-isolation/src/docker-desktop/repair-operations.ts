@@ -5,9 +5,9 @@
  * @trace ARCH-000008
  * @boundary DI内部。保存Owner・Root・上位の復旧判断を所有しない。
  */
-import type { DockerRuntimeRepairCheckpoint as Checkpoint } from "./types.ts";
-import { decodeDockerRuntimeRepairCheckpoint as decode } from "./validation.ts";
-import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
+import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
+import { decodeDockerRuntimeRepairCheckpoint } from "./validation.ts";
+import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-access/src/index.ts";
 import type { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 
 import type { runDockerRuntimeRepairMachine } from "./repair.ts";
@@ -55,7 +55,8 @@ type Technical = Parameters<typeof runDockerRuntimeRepairMachine>[1];
  * @security Authorityではない。
  * @compatibility 最新checkpointだけ。
  */
-type Identity = Checkpoint["directories"]["primary"]["expected"];
+type Identity =
+  DockerRuntimeRepairCheckpoint["directories"]["primary"]["expected"];
 /**
  * 同じ用途の元と退避先の現在観測。
  * @responsibility 不存在と観測不能を維持する。
@@ -109,7 +110,7 @@ function sameIdentity(left: Identity, right: Identity) {
  * @concurrency 読取りawaitは前後で境界を照合し、Effect await後は取得済み結果を返して後続Effectだけ停止する。
  */
 export function createDockerDesktopRepairOperations(
-  session: Session,
+  session: DockerDesktopRepairNativeHelperSession,
   directories: Access,
   signal: AbortSignal,
   canIssue: () => boolean,
@@ -254,7 +255,7 @@ export function createDockerDesktopRepairOperations(
    * @security 別Pathへ探索しない。
    * @concurrency Native await後に同Scopeを再確認する。
    */
-  const failedLaunch = async (checkpoint: Checkpoint) => {
+  const failedLaunch = async (checkpoint: DockerRuntimeRepairCheckpoint) => {
     if (!(await boundary())) return null;
     const state = engine();
     if (state !== "known_unavailable" && state !== "transient_unavailable")
@@ -316,7 +317,10 @@ export function createDockerDesktopRepairOperations(
             retained: { state: "absent", identity: null },
           };
         }
-        const value = decode({ ...checkpoint, directories: directoriesValue });
+        const value = decodeDockerRuntimeRepairCheckpoint({
+          ...checkpoint,
+          directories: directoriesValue,
+        });
         if (!value) throw new Error("repair_failed_launch_unknown");
         return value;
       }
@@ -421,7 +425,7 @@ export function createDockerDesktopRepairOperations(
       }
       if (!live() || !directories.verify())
         throw new Error("repair_boundary_unavailable");
-      const value = decode({
+      const value = decodeDockerRuntimeRepairCheckpoint({
         ...checkpoint,
         directories: dirs,
         engine:
@@ -640,7 +644,7 @@ export function createDockerDesktopRepairOperations(
         retainedMatches(pair, expected) &&
         pair?.source.state === "confirmed_absent";
       const observation = confirmed
-        ? decode({
+        ? decodeDockerRuntimeRepairCheckpoint({
             ...checkpoint,
             stale: "retained",
             directories: {

@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { request as httpRequest } from "node:http";
+import { request } from "node:http";
 import path from "node:path";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
@@ -147,7 +147,7 @@ async function requestRaw(
 > {
   const url = new URL(baseUrl);
   return await new Promise((resolve, reject) => {
-    const outgoing = httpRequest(
+    const outgoing = request(
       {
         hostname: url.hostname,
         port: url.port,

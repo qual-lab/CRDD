@@ -7,7 +7,7 @@
  * @boundary AI Adapterの固定認証定義と、Coordinatorの認証条件・診断／Executorの認証実行の間。
  */
 
-import type { AiProvider } from "../provider/types.ts";
+import type { Provider } from "../provider/types.ts";
 
 import { PROVIDER_AUTHENTICATION_POLICIES } from "./policy.ts";
 
@@ -21,9 +21,7 @@ import { PROVIDER_AUTHENTICATION_POLICIES } from "./policy.ts";
  * @security Secret・Host絶対Pathを持たない。
  * @compatibility 固定CLI引数・環境値を維持する。
  */
-export type ProviderAuthenticationDefinition<
-  P extends AiProvider = AiProvider,
-> = Readonly<
+export type AuthenticationDefinition<P extends Provider = Provider> = Readonly<
   (typeof AUTHENTICATION_DEFINITIONS)[P] & {
     kind: "authentication";
     confirmationPurpose: "login" | "execution";
@@ -74,10 +72,10 @@ const AUTHENTICATION_DEFINITIONS = Object.freeze({
  * @security SecretとHost Pathを返さない。
  * @concurrency N/A: 共有可変状態を持たない。
  */
-export function getAuthenticationDefinition<P extends AiProvider>(
+export function getAuthenticationDefinition<P extends Provider>(
   provider: P,
   confirmationPurpose: "login" | "execution" = "execution",
-): ProviderAuthenticationDefinition<P> {
+): AuthenticationDefinition<P> {
   if (
     (provider !== "codex" && provider !== "claude") ||
     (confirmationPurpose !== "login" && confirmationPurpose !== "execution")
@@ -88,5 +86,5 @@ export function getAuthenticationDefinition<P extends AiProvider>(
     kind: "authentication",
     confirmationPurpose,
     policy: PROVIDER_AUTHENTICATION_POLICIES[provider],
-  }) as ProviderAuthenticationDefinition<P>;
+  }) as AuthenticationDefinition<P>;
 }

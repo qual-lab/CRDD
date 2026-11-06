@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import { openTaskSession } from "../../coordinator/src/index.ts";
 import {
   type AiSelectionChoice,
@@ -158,7 +158,7 @@ async function main() {
       ["accepted", "running"].includes(result.status) &&
       Date.now() < deadline
     ) {
-      await delay(1500);
+      await setTimeout(1500);
       result = await client.observe(start.requestId);
     }
     timedOut = ["accepted", "running"].includes(result.status);

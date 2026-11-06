@@ -21,8 +21,8 @@ import {
   type Repository,
 } from "../../version-control/src/index.ts";
 import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
-import type { ProviderAuthenticationRequest as AuthenticationRequest } from "./execution/authority.ts";
-export type { ProviderAuthenticationRequest as AuthenticationRequest } from "./execution/authority.ts";
+import type { AuthenticationRequest } from "./execution/authority.ts";
+export type { AuthenticationRequest } from "./execution/authority.ts";
 
 /**
  * Providerの現在認証状態を隔離環境で確認する。
@@ -83,12 +83,12 @@ export type {
 } from "./task/requests.ts";
 export { initializeProject } from "./state/initialize.ts";
 export type { ProjectInitializationRequest } from "./state/initialize.ts";
-export { runCoordinatorPublicObjective as runObjective } from "./objective/composition.ts";
-export { runCoordinatorPublicDecision as submitDecision } from "./decision/lifecycle.ts";
-export { runCoordinatorPublicAcceptanceDecision as acceptResult } from "./decision/acceptance.ts";
-export { runCoordinatorPublicStateQuery as queryState } from "./state/query.ts";
-export { executeWorkspaceCommand as executeWorkspace } from "./workspace/commands.ts";
-export { readAuthorizedRuntimeActivity as queryActivity } from "./state/observation.ts";
+export { runObjective } from "./objective/composition.ts";
+export { submitDecision } from "./decision/lifecycle.ts";
+export { acceptResult } from "./decision/acceptance.ts";
+export { queryState } from "./state/query.ts";
+export { executeWorkspace } from "./workspace/commands.ts";
+export { queryActivity } from "./state/observation.ts";
 
 /**
  * 信頼したHost入口が渡す実行対象。
@@ -396,10 +396,10 @@ export type { CoordinatorObjectiveRequest } from "../../domain-model/src/index.t
 export type { CoordinatorDecisionRequest } from "../../domain-model/src/index.ts";
 export type { CoordinatorStateQuery } from "../../domain-model/src/index.ts";
 export type { CoordinatorStateQueryResult } from "../../domain-model/src/index.ts";
-export { observeRuntimeOwnedProjectClientPrincipal as observeClientPrincipal } from "./decision/lifecycle.ts";
+export { observeClientPrincipal } from "./decision/lifecycle.ts";
 export {
-  isSupportedCoordinatorNodeRuntime as isSupportedNodeRuntime,
-  getCoordinatorCapabilities as getCapabilities,
+  isSupportedNodeRuntime,
+  getCapabilities,
 } from "./execution/diagnostics.ts";
 
 /**

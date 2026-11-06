@@ -64,7 +64,7 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
           Object,
           Array,
           Reflect,
-          utilTypes: (await import("node:util")).types,
+          types: (await import("node:util")).types,
         },
       ),
       acquireHomeLease: () => {

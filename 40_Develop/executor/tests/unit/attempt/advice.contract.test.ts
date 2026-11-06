@@ -9,13 +9,18 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseExecutionContent as parseProviderResult } from "../../../../ai-adapter/src/provider/result.ts";
+import { parseExecutionContent } from "../../../../ai-adapter/src/provider/result.ts";
 const parseAdviceContent = (
   provider: "codex" | "claude",
   raw: string,
   allowedReferences: readonly string[],
 ) =>
-  parseProviderResult({ provider, purpose: "advice", raw, allowedReferences });
+  parseExecutionContent({
+    provider,
+    purpose: "advice",
+    raw,
+    allowedReferences,
+  });
 
 /**
  * 両ProviderのEnvelope変換と拒否を同じ内部契約へ拘束する。

@@ -13,11 +13,11 @@ import {
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
 } from "../state/crud.ts";
-import { decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot } from "../state/validation.ts";
+import { decodeRuntimeDomainSnapshot } from "../state/validation.ts";
 import {
-  observeRuntimeSettlementStorageAccess as borrowRuntimeOwnedCoordinatorSettlementRepository,
-  observeRuntimeTerminalForStorage as borrowRuntimeOwnedDockerTerminalObservations,
-  captureRuntimeCleanupVerification as captureOwnedOperationCleanupVerification,
+  observeRuntimeSettlementStorageAccess,
+  observeRuntimeTerminalForStorage,
+  captureRuntimeCleanupVerification,
   runtimeStorageOperationIdentity,
 } from "../storage/runtime-repository.ts";
 import {
@@ -34,7 +34,7 @@ const liveSettlements = new WeakMap<
   {
     kind: "live";
     repository: NonNullable<
-      ReturnType<typeof borrowRuntimeOwnedCoordinatorSettlementRepository>
+      ReturnType<typeof observeRuntimeSettlementStorageAccess>
     >;
     recoveryId: string;
     managementCapability: unknown;
@@ -42,7 +42,7 @@ const liveSettlements = new WeakMap<
     completion?: { before: Buffer; candidate: Buffer };
     originalInputs?: { cleanupOutcome: unknown; dockerCompletion: unknown };
     verifyCleanup: NonNullable<
-      ReturnType<typeof captureOwnedOperationCleanupVerification>
+      ReturnType<typeof captureRuntimeCleanupVerification>
     >;
   }
 >();
@@ -93,9 +93,8 @@ export function prepareRuntimeOwnedCoordinatorSettlement(
   const policy = coordinatorConsumerCompletionPolicy(consumer);
   if (policy === null) return null;
   const repository =
-    borrowRuntimeOwnedCoordinatorSettlementRepository(managementCapability);
-  const verifyCleanup =
-    captureOwnedOperationCleanupVerification(managementCapability);
+    observeRuntimeSettlementStorageAccess(managementCapability);
+  const verifyCleanup = captureRuntimeCleanupVerification(managementCapability);
   const current =
     readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
   const operation = current.value?.snapshot.operations.find(
@@ -153,7 +152,7 @@ export function writeRuntimeOwnedCoordinatorSettlement(
       ? {
           ...settlement,
           cleanupStatus: settlement.verifyCleanup(cleanupOutcome),
-          dockerTerminal: borrowRuntimeOwnedDockerTerminalObservations(
+          dockerTerminal: observeRuntimeTerminalForStorage(
             dockerCompletion,
             settlement.managementCapability,
             settlement.repository.operationId,
@@ -191,7 +190,7 @@ export function captureRuntimeOwnedCoordinatorSettlementInputs(
       settlement.originalInputs.cleanupOutcome === cleanupOutcome &&
       settlement.originalInputs.dockerCompletion === dockerCompletion
     );
-  const terminal = borrowRuntimeOwnedDockerTerminalObservations(
+  const terminal = observeRuntimeTerminalForStorage(
     dockerCompletion,
     settlement.managementCapability,
     settlement.repository.operationId,
@@ -260,7 +259,7 @@ export function settleRuntimeOwnedCoordinatorResult(
     )
   )
     return refused();
-  const terminal = borrowRuntimeOwnedDockerTerminalObservations(
+  const terminal = observeRuntimeTerminalForStorage(
     dockerCompletion,
     settlement.managementCapability,
     settlement.repository.operationId,
@@ -314,7 +313,7 @@ export function settleRuntimeOwnedCoordinatorResult(
       settlement.repository.repositoryBinding,
     );
     const cleaned = cleanedBytes
-      ? decodeCoordinatorStateSnapshot(
+      ? decodeRuntimeDomainSnapshot(
           cleanedBytes,
           settlement.repository.repositoryBinding,
         )
@@ -359,7 +358,7 @@ export function settleRuntimeOwnedCoordinatorResult(
       settlement.repository.repositoryBinding,
     );
     const observedOperation = observed
-      ? decodeCoordinatorStateSnapshot(
+      ? decodeRuntimeDomainSnapshot(
           observed,
           settlement.repository.repositoryBinding,
         )?.snapshot.operations.find(
@@ -482,7 +481,7 @@ export function writeRuntimeOwnedCoordinatorHistoryCheckpoint(
 ) {
   const settlement = readLiveSettlement(context);
   const dockerTerminal = settlement
-    ? borrowRuntimeOwnedDockerTerminalObservations(
+    ? observeRuntimeTerminalForStorage(
         dockerCompletion,
         settlement.managementCapability,
         settlement.repository.operationId,
@@ -549,7 +548,7 @@ export function registerRuntimeOwnedCoordinatorSettlementResultDeliveries(
 ) {
   const settlement = readLiveSettlement(context);
   const dockerTerminal = settlement
-    ? borrowRuntimeOwnedDockerTerminalObservations(
+    ? observeRuntimeTerminalForStorage(
         dockerCompletion,
         settlement.managementCapability,
         settlement.repository.operationId,
@@ -611,7 +610,7 @@ export function completeRuntimeOwnedCoordinatorSettlement(
 ) {
   const settlement = readLiveSettlement(context);
   const dockerTerminal = settlement
-    ? borrowRuntimeOwnedDockerTerminalObservations(
+    ? observeRuntimeTerminalForStorage(
         dockerCompletion,
         settlement.managementCapability,
         settlement.repository.operationId,
@@ -652,7 +651,7 @@ export function completeRuntimeOwnedCoordinatorSettlement(
       return writeCoordinatorStateSnapshot(null, null, null, null);
     completion = { before, candidate };
   }
-  const previous = decodeCoordinatorStateSnapshot(
+  const previous = decodeRuntimeDomainSnapshot(
     completion.before,
     settlement.repository.repositoryBinding,
   )?.snapshot.operations.find(
@@ -702,7 +701,7 @@ export function publishRuntimeOwnedCoordinatorHistory(
 ) {
   const settlement = readLiveSettlement(context);
   const terminal = settlement
-    ? borrowRuntimeOwnedDockerTerminalObservations(
+    ? observeRuntimeTerminalForStorage(
         dockerCompletion,
         settlement.managementCapability,
         settlement.repository.operationId,

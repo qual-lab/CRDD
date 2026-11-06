@@ -18,7 +18,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { runInNewContext, runInThisContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
@@ -27,7 +27,6 @@ import {
   type CoordinatorResourceBook,
   type CoordinatorStateTaskOperation,
   coordinatorTaskResourcesAreSettled,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
@@ -41,7 +40,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   saveCoordinatorManagedProject,
 } from "../../src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock as acquireRuntimeOwnedProjectStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
 import {
   leaseIdentity,
   leaseAcquisitionRecoveryId,
@@ -510,7 +509,7 @@ function recoveryWriterValues() {
     binding,
   );
   assert.ok(prepared);
-  const preparedState = decodeCoordinatorStateSnapshot(prepared, binding);
+  const preparedState = decodeRuntimeDomainSnapshot(prepared, binding);
   assert.ok(preparedState);
   const initialOperation = preparedState.snapshot.operations.find(
     (item) => item.kind === "docker_task",
@@ -2120,11 +2119,11 @@ test("Snapshot排他は不正Hashと非Windowsを取得前に拒否する", () =
     "A".repeat(64),
     1,
   ]) {
-    assert.equal(acquireRuntimeOwnedProjectStateKernelLock(value), null);
+    assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(value), null);
   }
   if (process.platform !== "win32") {
     assert.equal(
-      acquireRuntimeOwnedProjectStateKernelLock("a".repeat(64)),
+      acquireRuntimeOwnedCoordinatorStateKernelLock("a".repeat(64)),
       null,
     );
   }
@@ -2922,7 +2921,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     binding,
   );
   assert.ok(prepared);
-  const preparedState = decodeCoordinatorStateSnapshot(prepared, binding);
+  const preparedState = decodeRuntimeDomainSnapshot(prepared, binding);
   assert.ok(preparedState);
   const initialOperation = preparedState.snapshot.operations.find(
     (item) => item.kind === "docker_task",
@@ -2955,7 +2954,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
       ],
     })}\n`,
   );
-  assert.ok(decodeCoordinatorStateSnapshot(hostPreparationBefore, binding));
+  assert.ok(decodeRuntimeDomainSnapshot(hostPreparationBefore, binding));
   const hostPreparationCandidate = prepareCoordinatorStateHostSnapshot(
     hostPreparationBefore,
     recoveryId,
@@ -2970,15 +2969,15 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
   let hostPreparationLoseOwnerAfterRead = false;
   const hostPreparationOwner = Object.freeze({});
   const saveHostPreparation = runInThisContext(
-    `(scope) => { const { encodeRuntimeStateValue, decodeCoordinatorStateSnapshot, prepareCoordinatorStateHostSnapshot, borrowRuntimeOwnedCoordinatorStateRepository, readCoordinatorStateSnapshot, writeCoordinatorStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/storage/runtime-store.ts", import.meta.url), "utf8"), "saveRuntimeOwnedCoordinatorHostCleanupPreparation")}\nreturn saveRuntimeOwnedCoordinatorHostCleanupPreparation; }`,
+    `(scope) => { const { encodeRuntimeStateValue, decodeRuntimeDomainSnapshot, prepareCoordinatorStateHostSnapshot, observeRuntimeExecutionRepository, readCoordinatorStateSnapshot, writeCoordinatorStateSnapshot } = scope; ${sourceDeclaration(fs.readFileSync(new URL("../../src/storage/runtime-store.ts", import.meta.url), "utf8"), "saveRuntimeOwnedCoordinatorHostCleanupPreparation")}\nreturn saveRuntimeOwnedCoordinatorHostCleanupPreparation; }`,
   )({
     Buffer,
     Object,
     JSON,
     encodeRuntimeStateValue,
-    decodeCoordinatorStateSnapshot,
+    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
     prepareCoordinatorStateHostSnapshot,
-    borrowRuntimeOwnedCoordinatorStateRepository: (owner: unknown) =>
+    observeRuntimeExecutionRepository: (owner: unknown) =>
       owner === hostPreparationOwner && hostPreparationOwnerLive
         ? {
             repositoryBinding: binding,
@@ -2992,7 +2991,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
         status: "completed",
         reason: "observed",
         lockReleased: hostPreparationReadLockReleased,
-        value: decodeCoordinatorStateSnapshot(hostPreparationCurrent, binding),
+        value: decodeRuntimeDomainSnapshot(hostPreparationCurrent, binding),
       };
     },
     writeCoordinatorStateSnapshot: (
@@ -3034,7 +3033,7 @@ test("Host準備保存は元OwnerとReader完了を再確認する", () => {
     "completed",
   );
   assert.equal(hostPreparationWrites, 1);
-  const confirmedHostPreparation = decodeCoordinatorStateSnapshot(
+  const confirmedHostPreparation = decodeRuntimeDomainSnapshot(
     hostPreparationCandidate,
     binding,
   );
@@ -3202,11 +3201,11 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
         `${dispatch}\n${mutated ? wrapperMutant : wrapper}; writeRuntimeOwnedCoordinatorRepairSnapshot`,
         {
           Buffer,
-          types: utilTypes,
+          types: types,
           settlements: new WeakMap(),
           initializations: new WeakMap(),
-          borrowRuntimeOwnedCoordinatorRecoveryRepository: () => repository,
-          decodeCoordinatorStateSnapshot: (value: Buffer) => ({
+          observeRuntimeRecoveryRepository: () => repository,
+          decodeRuntimeDomainSnapshot: (value: Buffer) => ({
             snapshot: JSON.parse(value.toString("utf8")),
           }),
           validateCoordinatorStateTransition: () => true,
@@ -3366,10 +3365,10 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
         `${mutant ? wrapperMutant : wrapper}; writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure`,
         {
           Buffer,
-          types: utilTypes,
+          types: types,
           settlements: new WeakMap(),
           encodeRuntimeStateValue: JSON.stringify,
-          decodeCoordinatorStateSnapshot: (value: Buffer) => ({
+          decodeRuntimeDomainSnapshot: (value: Buffer) => ({
             snapshot: JSON.parse(value.toString()),
           }),
           prepareCoordinatorAuthenticationUnknownClosureSnapshot: () => bytes,
@@ -3528,15 +3527,15 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
           Buffer,
           Object,
           Promise,
-          types: utilTypes,
+          types: types,
           settlements: new WeakMap(),
           initializations: new WeakMap(),
-          borrowRuntimeOwnedCoordinatorRecoveryRepository: () => ({
+          observeRuntimeRecoveryRepository: () => ({
             repositoryRoot: root,
             repositoryBinding: "a".repeat(64),
             revalidate: () => true,
           }),
-          decodeCoordinatorStateSnapshot: () => ({ snapshot: candidate }),
+          decodeRuntimeDomainSnapshot: () => ({ snapshot: candidate }),
           validateCoordinatorStateTransition: () => true,
           encodeRuntimeStateValue: JSON.stringify,
           prepareCoordinatorStateInitialization: () => {

@@ -4,7 +4,7 @@
  * @trace ARCH-000002
  */
 import path from "node:path";
-import { types as utilTypes, TextDecoder } from "node:util";
+import { types, TextDecoder } from "node:util";
 import fs from "node:fs";
 
 const MAX_PATH_CHARACTERS = 4096;
@@ -30,7 +30,7 @@ function readExactRepositoryRoot(value: unknown): string | null {
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))
     )

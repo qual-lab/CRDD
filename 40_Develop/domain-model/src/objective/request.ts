@@ -7,8 +7,8 @@
  * @boundary 未信頼要求とDomainの値契約。
  */
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
 } from "../state/validation.ts";
 import { normalizeRepositoryRelativePath } from "../repository/path.ts";
 import { inspectExecutionPlan, inspectCallerTaskInputs } from "./validation.ts";
@@ -143,7 +143,7 @@ function inspectStrings(
   maximumItems: number,
   maximumText: number,
 ): readonly string[] | null {
-  const snapshot = snapshotPlainArray(value, maximumItems);
+  const snapshot = snapshotRuntimeStateArray(value, maximumItems);
   if (
     snapshot.status !== "ok" ||
     snapshot.value.length === 0 ||
@@ -218,7 +218,7 @@ export function inspectCoordinatorObjectiveRequest(
   const requestSnapshot = requestKeySets.reduce<Readonly<
     Record<string, unknown>
   > | null>(
-    (accepted, keys) => accepted ?? snapshotPlainRecord(value, keys),
+    (accepted, keys) => accepted ?? snapshotRuntimeStateRecord(value, keys),
     null,
   );
   if (!requestSnapshot) return null;
@@ -236,7 +236,7 @@ export function inspectCoordinatorObjectiveRequest(
   const replacement =
     request.decisionCapabilityReplacement === undefined
       ? undefined
-      : snapshotPlainRecord(
+      : snapshotRuntimeStateRecord(
           request.decisionCapabilityReplacement,
           new Set(["decisionId", "replacementRequestId"] as const),
         );

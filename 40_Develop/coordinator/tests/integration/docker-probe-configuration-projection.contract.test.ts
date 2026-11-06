@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { sourceDeclaration as functionSource } from "../../../domain-model/tests/support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 
 import type { DockerContainerConfigurationExpectation } from "../../../docker-isolation/src/cleanup/configuration.ts";
 
@@ -31,7 +31,7 @@ test("旧record回復は最小IdentityをExecutorへ渡し不明時に削除し�
     new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
-  const body = functionSource(s, "recoverDockerIsolationProbe");
+  const body = sourceDeclaration(s, "recoverDockerIsolationProbe");
   assert.doesNotMatch(
     body,
     /createDockerProbeRuntimeBinding|inspectDockerContainer|cleanupDockerContainer/u,

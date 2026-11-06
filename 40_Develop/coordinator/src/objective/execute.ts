@@ -13,8 +13,8 @@ import {
   type ProjectTaskRecoveryObligation,
   readCoordinatorTaskIntakeState,
   readRepositoryAiSelection,
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
   type TaskExecutionSelections,
 } from "../../../domain-model/src/index.ts";
 import { observePlatformFamily } from "../../../platform-access/src/index.ts";
@@ -164,7 +164,7 @@ function exactRecoveryCompleted(
   recoveryId: string,
 ) {
   if (kind === "docker") {
-    const record = snapshotPlainRecord(
+    const record = snapshotRuntimeStateRecord(
       value,
       new Set([
         "contract",
@@ -1081,11 +1081,11 @@ export async function executeCoordinatorObjective(
         } catch {
           acknowledgementResult = null;
         }
-        const acknowledged = snapshotPlainRecord(
+        const acknowledged = snapshotRuntimeStateRecord(
           acknowledgementResult,
           new Set(["status", "reason", "acknowledgement"]),
         );
-        const evidence = snapshotPlainRecord(
+        const evidence = snapshotRuntimeStateRecord(
           acknowledged?.acknowledgement,
           new Set([
             "repositoryBinding",
@@ -1543,7 +1543,7 @@ export function createCoordinatorTaskExecutionSet(
   clockIdentity: CoordinatorClockIdentityPort,
 ): readonly CoordinatorTaskExecution[] | null {
   const activeTasks = state.tasks.filter((task) => task.state !== "superseded");
-  const rawExecutions = snapshotPlainArray(raw, activeTasks.length);
+  const rawExecutions = snapshotRuntimeStateArray(raw, activeTasks.length);
   if (
     rawExecutions.status !== "ok" ||
     rawExecutions.value.length !== activeTasks.length
@@ -1551,7 +1551,7 @@ export function createCoordinatorTaskExecutionSet(
     return null;
   const executions: CoordinatorTaskExecution[] = [];
   for (const rawExecution of rawExecutions.value) {
-    const execution = snapshotPlainRecord(
+    const execution = snapshotRuntimeStateRecord(
       rawExecution,
       new Set(["taskId", "taskRequest", "repositoryRoot"] as const),
     );
@@ -2058,7 +2058,7 @@ export async function executeCoordinatorPublicObjective(
  * @concurrency N/A: inspectBindingは共有非同期状態を持たない同期処理である。
  */
 function inspectBinding(raw: unknown, revision: string) {
-  const value = snapshotPlainRecord(
+  const value = snapshotRuntimeStateRecord(
     raw,
     new Set([
       "status",

@@ -15,7 +15,7 @@ import type {
 import { createHash } from "node:crypto";
 import type { DockerResourceCleanupObservation } from "../../docker-isolation/tests/support/cleanup.ts";
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { parseDockerTaskRecoveryId } from "../../docker-isolation/tests/support/cleanup.ts";
 import {
   type DockerIsolationRuntime,
@@ -853,14 +853,14 @@ export function completeExecutorTestCleanup(
         input.observations,
         input.resourceSnapshot,
       ) ?? true;
-    if (utilTypes.isPromise(absence)) void absence.catch(() => {});
+    if (types.isPromise(absence)) void absence.catch(() => {});
     if (absence !== true) throw Error("synthetic_absence_unconfirmed");
     const mount = input.mountCompletion;
     if (mountLeaseReleased && mount) {
       const receipt: unknown =
         dependencies.recordMountCompletion?.(input.recoveryCapability, mount) ??
         true;
-      if (utilTypes.isPromise(receipt)) void receipt.catch(() => {});
+      if (types.isPromise(receipt)) void receipt.catch(() => {});
       if (receipt !== true) throw Error("synthetic_mount_unconfirmed");
       const result = dependencies.completeRecovery(
         input.recoveryCapability,
@@ -922,13 +922,13 @@ function commandRestrictionAllows(restriction: unknown, purpose: string) {
   if (restriction === undefined) return true;
   if (
     typeof restriction !== "function" ||
-    utilTypes.isProxy(restriction) ||
-    utilTypes.isAsyncFunction(restriction)
+    types.isProxy(restriction) ||
+    types.isAsyncFunction(restriction)
   )
     return false;
   try {
     const result: unknown = restriction(purpose);
-    if (utilTypes.isPromise(result)) {
+    if (types.isPromise(result)) {
       // A mistakenly returned native Promise cannot authorize a synchronous
       // launch. Observe rejection without awaiting or invoking a custom then.
       void Promise.prototype.then.call(
@@ -976,7 +976,7 @@ function startRecordedAttempt(
   };
   let terminalObservation: TechnicalObservation | null = null;
   function requireRecorded(value: unknown): void {
-    if (utilTypes.isPromise(value)) void value.catch(() => {});
+    if (types.isPromise(value)) void value.catch(() => {});
     if (value !== true) throw Error("record_unconfirmed");
   }
   const callbacks: ExecutorCallbacks<"attempt"> = {
@@ -1507,7 +1507,7 @@ function snapshotBlockedRecoveryWithExactId(
   expectedStableLogicalHomeBindingHash: string,
 ) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  if (utilTypes.isProxy(value)) return null;
+  if (types.isProxy(value)) return null;
   let hasOwner = false;
   try {
     const keys = Object.keys(value).sort().join("\0");
@@ -1542,7 +1542,7 @@ function snapshotBlockedRecoveryWithExactId(
     hasOwner &&
     (!capability ||
       typeof capability !== "object" ||
-      utilTypes.isProxy(capability) ||
+      types.isProxy(capability) ||
       readOwnDataProperty(value, "manualRecoveryRequired") !== true)
   )
     return null;
@@ -1863,7 +1863,7 @@ function snapshotRecoveryRecord<const K extends string>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;

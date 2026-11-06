@@ -311,7 +311,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
       isDockerRestartCheckpointSettled,
       dockerRecoveryPreparations: preparations,
       encodeRuntimeStateValue: encodeRuntimeStateValue,
-      decodeCoordinatorStateSnapshot: stateModel.decodeRuntimeDomainSnapshot,
+      decodeRuntimeDomainSnapshot: stateModel.decodeRuntimeDomainSnapshot,
       prepareCoordinatorStateOperationSnapshot:
         stateModel.prepareCoordinatorStateOperationSnapshot,
       prepareCoordinatorStateHostSnapshot:
@@ -1298,7 +1298,7 @@ for (const producerMode of [
         assert.ok(start > 0 && end > start);
         const body = stripTypeScriptTypes(source.slice(start, end));
         const evaluate = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isUnsubmittedInitialTaskHost; })`,
+          `(function(prepareCoordinatorStateOperationSnapshot, decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeRuntimeDomainSnapshot,
@@ -1314,7 +1314,7 @@ for (const producerMode of [
         const comparisonOmitted = `${body.slice(0, comparisonStart)}return true;\n}`;
         assert.notEqual(comparisonOmitted, body);
         const evaluateMutant = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isUnsubmittedInitialTaskHost; })`,
+          `(function(prepareCoordinatorStateOperationSnapshot, decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeRuntimeDomainSnapshot,
@@ -1386,7 +1386,7 @@ for (const producerMode of [
           "!isDockerRestartCheckpointSettled(operation.dockerRestart)";
         assert.equal(body.split(restartGuard).length - 1, 1);
         const guardMutant = runInThisContext(
-          `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isUnsubmittedInitialTaskHost; })`,
+          `(function(prepareCoordinatorStateOperationSnapshot, decodeRuntimeDomainSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeRuntimeDomainSnapshot,

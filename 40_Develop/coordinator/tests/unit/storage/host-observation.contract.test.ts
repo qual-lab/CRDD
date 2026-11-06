@@ -14,7 +14,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
   type CoordinatorStateTaskOperation,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   decodeDockerRestartCheckpoint,
   prepareCoordinatorStateOperationSnapshot,
 } from "../../../../domain-model/src/index.ts";
@@ -95,7 +95,7 @@ test("解放済みTaskのHost観測条件はOwner・資源・再起動相関を�
     binding,
   );
   assert.ok(prepared);
-  const preparedState = decodeCoordinatorStateSnapshot(prepared, binding);
+  const preparedState = decodeRuntimeDomainSnapshot(prepared, binding);
   assert.ok(preparedState);
   const initialOperation = preparedState.snapshot.operations.find(
     (item): item is CoordinatorStateTaskOperation =>

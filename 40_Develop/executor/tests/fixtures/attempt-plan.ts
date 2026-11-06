@@ -6,7 +6,7 @@
  * @scope 値だけのfixture。実Command成立は主張しない。
  * @boundary Executor局所試験。
  */
-import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
 import { PURPOSES } from "../../src/lifecycle/attempt.ts";
 import { planExecution } from "../../../ai-adapter/src/index.ts";
 
@@ -21,7 +21,7 @@ import { planExecution } from "../../../ai-adapter/src/index.ts";
  * @cleanup N/A: 外部資源なし。
  * @boundary Executorの型付き合成入力。
  */
-export function attemptPlan(): AttemptPlan {
+export function attemptPlan(): TestAttemptPlan {
   const suffix = "0101010101010101";
   return {
     provider: "claude",
@@ -91,7 +91,7 @@ export function attemptPlan(): AttemptPlan {
 }
 /** 製品Requestが受け取る所在・Home相関だけを合成Planから明示投影する。 @trace ERB-IT-004 */
 export function attemptTarget(
-  plan: AttemptPlan,
+  plan: TestAttemptPlan,
   workspaceSourcePath: string,
   temporarySourcePath: string,
 ) {

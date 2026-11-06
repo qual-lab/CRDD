@@ -8,7 +8,7 @@ import {
   isDockerRestartCheckpointSettled,
   coordinatorTaskResourcesAreSettled,
 } from "../../../domain-model/src/index.ts";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   RECOVERY_START_FAILURE_STAGES,
@@ -165,7 +165,7 @@ export function snapshotBlockedRecoveryWithExactId(
   expectedStableLogicalHomeBindingHash: string,
 ) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  if (utilTypes.isProxy(value)) return null;
+  if (types.isProxy(value)) return null;
   let hasOwner = false;
   try {
     const keys = Object.keys(value).sort().join("\0");
@@ -200,7 +200,7 @@ export function snapshotBlockedRecoveryWithExactId(
     hasOwner &&
     (!capability ||
       typeof capability !== "object" ||
-      utilTypes.isProxy(capability) ||
+      types.isProxy(capability) ||
       ownDataValue(value, "manualRecoveryRequired") !== true)
   )
     return null;
@@ -241,7 +241,7 @@ function snapshotRecoveryRecord<const K extends string>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;

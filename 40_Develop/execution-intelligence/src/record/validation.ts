@@ -4,7 +4,7 @@
  * @trace ARCH-000007
  */
 import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type {
   TaskAttemptExecutionIntelligenceEvent,
   OperationExecutionIntelligenceEvent,
@@ -54,7 +54,7 @@ function isPlainRecord(value: unknown): value is object {
       value === null ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return false;
     const prototype = Object.getPrototypeOf(value);
@@ -168,7 +168,7 @@ export function snapshotPlainArray<T = unknown>(
   try {
     if (
       !Array.isArray(value) ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Object.getPrototypeOf(value) !== Array.prototype ||
       !Number.isSafeInteger(maximumLength) ||
       maximumLength < 0

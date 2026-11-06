@@ -15,7 +15,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import vm from "node:vm";
 import { codexAdviceProviderInitRequired } from "../../support/cleanup.ts";
 import type { DockerIsolationCommandInput } from "../../../../executor/src/lifecycle/types.ts";
@@ -418,7 +418,7 @@ test("Proxy投影は固定包装だけを読み欠測・重複・暗黙変換を
   const mutant = vm.runInNewContext(
     `${body.replace(needle, "")}\nprojectDockerProxyConfiguration`,
     {
-      utilTypes,
+      types,
       DIAGNOSTIC_COMMAND_LIMIT: 9,
     },
   ) as typeof projectDockerProxyConfiguration;
@@ -862,11 +862,7 @@ test("診断descriptorは隔離VMの継承value・継承必須keyを受理しな
   const prelude =
     "const DIAGNOSTIC_COMMAND_LIMIT = 9; const DIAGNOSTIC_CREATE_ARGUMENT_LIMIT = 427;";
   const actual = JSON.parse(
-    vm.runInNewContext(
-      prelude + body + probe,
-      { utilTypes },
-      { timeout: 1000 },
-    ),
+    vm.runInNewContext(prelude + body + probe, { types }, { timeout: 1000 }),
   );
   assert.deepEqual(actual, {
     normal: true,
@@ -892,7 +888,7 @@ test("診断descriptorは隔離VMの継承value・継承必須keyを受理しな
     const mutated = JSON.parse(
       vm.runInNewContext(
         prelude + mutant + probe,
-        { utilTypes },
+        { types },
         { timeout: 1000 },
       ),
     );
@@ -908,7 +904,7 @@ test("診断descriptorは隔離VMの継承value・継承必須keyを受理しな
   const lookedUp = JSON.parse(
     vm.runInNewContext(
       prelude + lookupMutant + probe,
-      { utilTypes },
+      { types },
       { timeout: 1000 },
     ),
   );

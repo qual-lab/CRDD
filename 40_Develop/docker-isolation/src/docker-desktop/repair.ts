@@ -5,10 +5,10 @@
  * @trace ARCH-000008
  * @boundary Package内部。Native取得・回収、上位状態・Path・保存実装は所有しない。
  */
-import type { DockerRuntimeRepairCheckpoint as Checkpoint } from "./types.ts";
-import { decodeDockerRuntimeRepairCheckpoint as decode } from "./validation.ts";
+import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
+import { decodeDockerRuntimeRepairCheckpoint } from "./validation.ts";
 import { types } from "node:util";
-import { validateDockerRuntimeRepairCheckpointTransition as transition } from "./validation.ts";
+import { validateDockerRuntimeRepairCheckpointTransition } from "./validation.ts";
 import type { DockerRepairEngineState } from "./engine.ts";
 
 const actions = [
@@ -34,10 +34,10 @@ const actions = [
  * @compatibility Root非公開。
  */
 type MachineInput = Readonly<{
-  checkpoint: Checkpoint;
+  checkpoint: DockerRuntimeRepairCheckpoint;
   signal: AbortSignal;
   canIssueEffect: () => unknown;
-  onCheckpoint: (checkpoint: Checkpoint) => void;
+  onCheckpoint: (checkpoint: DockerRuntimeRepairCheckpoint) => void;
 }>;
 
 /**
@@ -52,26 +52,26 @@ type MachineInput = Readonly<{
  */
 type TechnicalBoundary = Readonly<{
   observe: (
-    checkpoint: Checkpoint,
+    checkpoint: DockerRuntimeRepairCheckpoint,
     phase: "current" | "failed_launch",
-  ) => Promise<Checkpoint>;
+  ) => Promise<DockerRuntimeRepairCheckpoint>;
   precondition: (
     action: (typeof actions)[number],
-    checkpoint: Checkpoint,
+    checkpoint: DockerRuntimeRepairCheckpoint,
   ) => Promise<"proceed" | "not_required" | "unknown">;
   execute: (
     action: (typeof actions)[number],
-    checkpoint: Checkpoint,
+    checkpoint: DockerRuntimeRepairCheckpoint,
   ) => Promise<
     Readonly<{
       issued: boolean | null;
       confirmation: "confirmed" | "not_issued" | "unknown";
-      observation: Checkpoint;
+      observation: DockerRuntimeRepairCheckpoint;
     }>
   >;
   awaitEngine: (
     stage: "after_initial_start" | "after_continuation_restart",
-    checkpoint: Checkpoint,
+    checkpoint: DockerRuntimeRepairCheckpoint,
   ) => Promise<
     Readonly<{
       state: DockerRepairEngineState;
@@ -93,7 +93,7 @@ type TechnicalBoundary = Readonly<{
  * @compatibility 上位outcomeの確定ではない。
  */
 export type DockerRuntimeRepairMachineResult = Readonly<{
-  checkpoint: Checkpoint | null;
+  checkpoint: DockerRuntimeRepairCheckpoint | null;
   checkpointNotificationCompleted: boolean;
   status: "recovered" | "incomplete" | "failed" | "cancelled";
   reason:
@@ -122,7 +122,10 @@ export type DockerRuntimeRepairMachineResult = Readonly<{
  * @security 関数Proxyとasync関数は実行しない。
  * @concurrency awaitしない。
  */
-function confirm(callback: unknown, argument?: Checkpoint): boolean {
+function confirm(
+  callback: unknown,
+  argument?: DockerRuntimeRepairCheckpoint,
+): boolean {
   if (
     typeof callback !== "function" ||
     types.isProxy(callback) ||
@@ -159,7 +162,9 @@ function confirm(callback: unknown, argument?: Checkpoint): boolean {
  * @security fresh実体照合を代替しない。
  * @concurrency N/A: 同期処理。
  */
-function canResumeRepairContinuation(checkpoint: Checkpoint): boolean {
+function canResumeRepairContinuation(
+  checkpoint: DockerRuntimeRepairCheckpoint,
+): boolean {
   const { primary, failed, auxiliary } = checkpoint.directories;
   if (
     !primary.expected ||
@@ -233,7 +238,7 @@ export async function runDockerRuntimeRepairMachine(
   input: MachineInput,
   technical: TechnicalBoundary,
 ): Promise<DockerRuntimeRepairMachineResult> {
-  let current = decode(input.checkpoint);
+  let current = decodeDockerRuntimeRepairCheckpoint(input.checkpoint);
   let lastNotified = current;
   let notificationFailed = false;
   let engineObservation: DockerRepairEngineState | null = null;
@@ -322,8 +327,11 @@ export async function runDockerRuntimeRepairMachine(
    */
   const publish = (candidate: unknown): boolean => {
     if (notificationFailed || !current) return false;
-    const next = decode(candidate);
-    if (!next || !transition(current, next)) {
+    const next = decodeDockerRuntimeRepairCheckpoint(candidate);
+    if (
+      !next ||
+      !validateDockerRuntimeRepairCheckpointTransition(current, next)
+    ) {
       notificationFailed = true;
       return false;
     }
@@ -352,7 +360,7 @@ export async function runDockerRuntimeRepairMachine(
    */
   const replaceAction = (
     action: (typeof actions)[number],
-    value: Checkpoint["actions"][typeof action],
+    value: DockerRuntimeRepairCheckpoint["actions"][typeof action],
   ) =>
     current
       ? { ...current, actions: { ...current.actions, [action]: value } }
@@ -375,7 +383,7 @@ export async function runDockerRuntimeRepairMachine(
   const uncertain = (action: (typeof actions)[number]) => {
     if (!lastNotified) return null;
     const prior = lastNotified.actions[action];
-    return decode({
+    return decodeDockerRuntimeRepairCheckpoint({
       ...lastNotified,
       actions: {
         ...lastNotified.actions,
@@ -407,7 +415,9 @@ export async function runDockerRuntimeRepairMachine(
     requireReady = false,
   ): Promise<boolean> => {
     if (!current || !issueAllowed()) return false;
-    const observed = decode(await technical.observe(current, phase));
+    const observed = decodeDockerRuntimeRepairCheckpoint(
+      await technical.observe(current, phase),
+    );
     if (
       !observed ||
       JSON.stringify(observed.actions) !== JSON.stringify(current.actions) ||
@@ -621,10 +631,10 @@ export async function runDockerRuntimeRepairMachine(
       if (repeatedPrecondition !== "proceed")
         return result("incomplete", "runtime_repair_observation_unknown");
       let effect: Awaited<ReturnType<TechnicalBoundary["execute"]>>;
-      let observed: Checkpoint | null;
+      let observed: DockerRuntimeRepairCheckpoint | null;
       try {
         effect = await technical.execute(action, current);
-        observed = decode(effect.observation);
+        observed = decodeDockerRuntimeRepairCheckpoint(effect.observation);
       } catch {
         const unknown = uncertain(action);
         if (unknown === null || !publish(unknown)) current = unknown;
@@ -639,7 +649,7 @@ export async function runDockerRuntimeRepairMachine(
         JSON.stringify(observed.actions) !== JSON.stringify(current.actions) ||
         observed.cleanup !== current.cleanup ||
         observed.cleanupFailure !== current.cleanupFailure ||
-        !transition(current, observed)
+        !validateDockerRuntimeRepairCheckpointTransition(current, observed)
       ) {
         const unknown = uncertain(action);
         if (unknown === null || !publish(unknown)) current = unknown;

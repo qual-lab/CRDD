@@ -8,7 +8,7 @@
  * @security 検査の成功から認証成立・実行Authority・隔離成立を推定しない。
  */
 
-import type { AiProvider } from "./types.ts";
+import type { Provider } from "./types.ts";
 
 import { CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES } from "../claude/plan.ts";
 
@@ -71,7 +71,7 @@ const claudeForbiddenEnvironmentNames = new Set(
  * @concurrency N/A: 共有集合を変更しない同期検査である。
  */
 export function prepareProviderEnvironment(
-  provider: AiProvider,
+  provider: Provider,
   environment: Readonly<Record<string, string>>,
 ): ProviderEnvironmentResult {
   const forbiddenNames =

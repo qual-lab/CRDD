@@ -32,9 +32,8 @@ import { validCoordinatorAcceptanceDecisionEnvelope } from "../decision/validati
 import { validCoordinatorDecisionRecoveryIntent } from "../decision/validation.ts";
 import type { CoordinatorStateTaskOperation } from "../attempt/types.ts";
 import { createHash } from "node:crypto";
-import type { CoordinatorLeaseKind as LeaseKind } from "./types.ts";
+import type { CoordinatorLeaseKind } from "./types.ts";
 import type { HistoryRow } from "./types.ts";
-import { types as utilTypes } from "node:util";
 import type { ProjectQueueEntry } from "../task/types.ts";
 import type { SingleTaskRecord } from "../task/types.ts";
 import type { ArraySnapshot } from "./types.ts";
@@ -142,7 +141,7 @@ export function decodeRuntimeDomainSnapshot(
     const value = decoded?.value;
     if (
       !decoded ||
-      !exactRecordKeys(value, [
+      !hasRuntimeStateRecordKeys(value, [
         "schema",
         "revision",
         "previous",
@@ -175,13 +174,16 @@ export function decodeRuntimeDomainSnapshot(
       snapshot.revision < 1 ||
       (snapshot.revision === 1
         ? snapshot.previous !== null
-        : !exactRecordKeys(snapshot.previous, ["revision", "payloadSha256"]) ||
+        : !hasRuntimeStateRecordKeys(snapshot.previous, [
+            "revision",
+            "payloadSha256",
+          ]) ||
           snapshot.previous?.revision !== snapshot.revision - 1 ||
           !isSha256Hex(snapshot.previous?.payloadSha256)) ||
       !validCoordinatorExecutionState(snapshot, repositoryBinding) ||
       !Array.isArray(snapshot.pendingDeliveries) ||
       !snapshot.pendingDeliveries.every((delivery) =>
-        exactRecordKeys(delivery, [
+        hasRuntimeStateRecordKeys(delivery, [
           "operationNonce",
           "recoveryId",
           "resultId",
@@ -212,7 +214,7 @@ export function decodeRuntimeDomainSnapshot(
     const seen = new Set<string>();
     for (const execution of snapshot.managedExecutions) {
       if (
-        !exactRecordKeys(execution, [
+        !hasRuntimeStateRecordKeys(execution, [
           "projectId",
           "milestoneId",
           "definitionHash",
@@ -247,7 +249,7 @@ export function decodeRuntimeDomainSnapshot(
       const tasks: CoordinatorStoredTask[] = [];
       for (const task of execution.tasks) {
         if (
-          !exactRecordKeys(task, [
+          !hasRuntimeStateRecordKeys(task, [
             "taskId",
             "state",
             "attemptId",
@@ -330,17 +332,20 @@ export function isSha256Hex(value: unknown): value is string {
  * @responsibility 記録 Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown、keys: readonly string[]
- * @returns exactRecordKeysの計算結果を返す。
- * @precondition 「value: unknown、keys: readonly string[]」がexactRecordKeysの入力契約を満たす。
- * @postcondition exactRecordKeysの責務を完了した結果だけを返す。
- * @effect N/A: exactRecordKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: exactRecordKeysは独自の失敗分岐を所有しない。
- * @invariant exactRecordKeysは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: exactRecordKeysはProcess内の同一Subsystemで完結する。
- * @security exactRecordKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: exactRecordKeysは共有非同期状態を持たない同期処理である。
+ * @returns hasRuntimeStateRecordKeysの計算結果を返す。
+ * @precondition 「value: unknown、keys: readonly string[]」がhasRuntimeStateRecordKeysの入力契約を満たす。
+ * @postcondition hasRuntimeStateRecordKeysの責務を完了した結果だけを返す。
+ * @effect N/A: hasRuntimeStateRecordKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasRuntimeStateRecordKeysは独自の失敗分岐を所有しない。
+ * @invariant hasRuntimeStateRecordKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasRuntimeStateRecordKeysはProcess内の同一Subsystemで完結する。
+ * @security hasRuntimeStateRecordKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasRuntimeStateRecordKeysは共有非同期状態を持たない同期処理である。
  */
-export function exactRecordKeys(value: unknown, keys: readonly string[]) {
+export function hasRuntimeStateRecordKeys(
+  value: unknown,
+  keys: readonly string[],
+) {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -376,9 +381,9 @@ export function projectCoordinatorTaskSettlement(
 ): Readonly<{ cleanupConfirmed: boolean; recoveryUnresolved: boolean }> | null {
   try {
     const fact: unknown = JSON.parse(encodeRuntimeStateValue(input));
-    if (!plainObject(fact) || types.isProxy(fact)) return null;
+    if (!isRuntimeStateObject(fact) || types.isProxy(fact)) return null;
     if (fact.kind === "pending" || fact.kind === "unissued") {
-      if (!exactKeys(fact, ["kind"])) return null;
+      if (!hasRuntimeStateKeys(fact, ["kind"])) return null;
       return Object.freeze({
         cleanupConfirmed: fact.kind === "unissued",
         recoveryUnresolved: false,
@@ -386,7 +391,11 @@ export function projectCoordinatorTaskSettlement(
     }
     if (fact.kind === "executor_result") {
       if (
-        !exactKeys(fact, ["kind", "cleanupConfirmed", "recoveryUnresolved"]) ||
+        !hasRuntimeStateKeys(fact, [
+          "kind",
+          "cleanupConfirmed",
+          "recoveryUnresolved",
+        ]) ||
         typeof fact.cleanupConfirmed !== "boolean" ||
         typeof fact.recoveryUnresolved !== "boolean"
       )
@@ -398,7 +407,7 @@ export function projectCoordinatorTaskSettlement(
     }
     if (
       fact.kind !== "operations" ||
-      !exactKeys(fact, ["kind", "recoveryIds", "resultUnresolved"]) ||
+      !hasRuntimeStateKeys(fact, ["kind", "recoveryIds", "resultUnresolved"]) ||
       typeof fact.resultUnresolved !== "boolean" ||
       !Array.isArray(fact.recoveryIds) ||
       fact.recoveryIds.length === 0 ||
@@ -557,8 +566,8 @@ function validRuntimeTaskReferences(
   const intake = new Set<string>();
   for (const item of snapshot.intakeBindings) {
     if (
-      !plainObject(item) ||
-      !exactKeys(item, ["queueId", "epoch"]) ||
+      !isRuntimeStateObject(item) ||
+      !hasRuntimeStateKeys(item, ["queueId", "epoch"]) ||
       !validId(item.epoch) ||
       !queues.has(item.queueId) ||
       intake.has(item.queueId)
@@ -570,8 +579,8 @@ function validRuntimeTaskReferences(
   const evidenceGroups = new Map<string, LeaseEvidenceEnvelope[]>();
   for (const record of snapshot.leaseEvidence) {
     if (
-      !plainObject(record) ||
-      !exactKeys(record, [
+      !isRuntimeStateObject(record) ||
+      !hasRuntimeStateKeys(record, [
         "schema",
         "schemaRevision",
         "recordKind",
@@ -591,7 +600,8 @@ function validRuntimeTaskReferences(
       record.createdGeneration !== 1 ||
       record.updatedGeneration !==
         (record.content.disposition === "acquired" ? 1 : 2) ||
-      record.contentHash !== digest(encodeRuntimeStateValue(record.content)) ||
+      record.contentHash !==
+        hashRuntimeStateValueText(encodeRuntimeStateValue(record.content)) ||
       !(record.content.kind === "canonical-adoption"
         ? record.content.queueId === "canonical"
         : queues.get(record.content.queueId)?.projectId === record.projectId)
@@ -630,8 +640,8 @@ function validRuntimeTaskReferences(
   const intentOwners = new Map<string, string>();
   for (const item of snapshot.leaseIntents) {
     if (
-      !plainObject(item) ||
-      !exactKeys(item, [
+      !isRuntimeStateObject(item) ||
+      !hasRuntimeStateKeys(item, [
         "projectId",
         "queueId",
         "kind",
@@ -754,8 +764,8 @@ function validRuntimeTaskReferences(
     >();
     for (const item of snapshot.acceptanceDecisions) {
       if (
-        !plainObject(item) ||
-        !exactKeys(item, [
+        !isRuntimeStateObject(item) ||
+        !hasRuntimeStateKeys(item, [
           "contract",
           "repositoryBindingId",
           "recordId",
@@ -769,8 +779,8 @@ function validRuntimeTaskReferences(
           binding,
           item.recordId,
         ) ||
-        !plainObject(item.record) ||
-        !exactKeys(item.record, [
+        !isRuntimeStateObject(item.record) ||
+        !hasRuntimeStateKeys(item.record, [
           "recordId",
           "decisionId",
           "sourceSpecId",
@@ -801,20 +811,21 @@ function validRuntimeTaskReferences(
         groups.length > 2 ||
         new Set(groups.map((item) => item.generation)).size !== groups.length ||
         (second &&
-          second.previousHash !== digest(encodeRuntimeStateValue(first)))
+          second.previousHash !==
+            hashRuntimeStateValueText(encodeRuntimeStateValue(first)))
       )
         return false;
     }
     const recoveries = new Set<string>();
     for (const item of snapshot.decisionRecoveries) {
       if (
-        !plainObject(item) ||
-        !exactKeys(item, ["generation", "value"]) ||
+        !isRuntimeStateObject(item) ||
+        !hasRuntimeStateKeys(item, ["generation", "value"]) ||
         !Number.isSafeInteger(item.generation) ||
         Number(item.generation) < 1 ||
         !validCoordinatorDecisionRecoveryIntent(item.value) ||
-        !plainObject(item.value) ||
-        !exactKeys(item.value, [
+        !isRuntimeStateObject(item.value) ||
+        !hasRuntimeStateKeys(item.value, [
           "recoveryId",
           "recordId",
           "projectId",
@@ -957,16 +968,16 @@ export function coordinatorHistoryLineBytes(
  * @trace ARCH-000004
  * @input value: unknown、expectedKeys: ReadonlySet<K>
  * @returns Readonly<Record<K, unknown>> | nullを返す。
- * @precondition 「value: unknown、expectedKeys: ReadonlySet<K>」がsnapshotPlainRecordの入力契約を満たす。
- * @postcondition snapshotPlainRecordの責務を完了した結果だけを返す。
- * @effect N/A: snapshotPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure snapshotPlainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant snapshotPlainRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotPlainRecordはProcess内の同一Subsystemで完結する。
- * @security N/A: snapshotPlainRecordはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: snapshotPlainRecordは共有非同期状態を持たない同期処理である。
+ * @precondition 「value: unknown、expectedKeys: ReadonlySet<K>」がsnapshotRuntimeStateRecordの入力契約を満たす。
+ * @postcondition snapshotRuntimeStateRecordの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotRuntimeStateRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotRuntimeStateRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotRuntimeStateRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotRuntimeStateRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotRuntimeStateRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotRuntimeStateRecordは共有非同期状態を持たない同期処理である。
  */
-export function snapshotPlainRecord<const K extends string>(
+export function snapshotRuntimeStateRecord<const K extends string>(
   value: unknown,
   expectedKeys: ReadonlySet<K>,
 ): Readonly<Record<K, unknown>> | null {
@@ -998,16 +1009,18 @@ export function snapshotPlainRecord<const K extends string>(
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がplainObjectの入力契約を満たす。
- * @postcondition plainObjectの責務を完了した結果だけを返す。
- * @effect N/A: plainObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: plainObjectは独自の失敗分岐を所有しない。
- * @invariant plainObjectは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: plainObjectはProcess内の同一Subsystemで完結する。
- * @security plainObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: plainObjectは共有非同期状態を持たない同期処理である。
+ * @precondition 「value: unknown」がisRuntimeStateObjectの入力契約を満たす。
+ * @postcondition isRuntimeStateObjectの責務を完了した結果だけを返す。
+ * @effect N/A: isRuntimeStateObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isRuntimeStateObjectは独自の失敗分岐を所有しない。
+ * @invariant isRuntimeStateObjectは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isRuntimeStateObjectはProcess内の同一Subsystemで完結する。
+ * @security isRuntimeStateObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isRuntimeStateObjectは共有非同期状態を持たない同期処理である。
  */
-export function plainObject(value: unknown): value is Record<string, unknown> {
+export function isRuntimeStateObject(
+  value: unknown,
+): value is Record<string, unknown> {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -1022,17 +1035,17 @@ export function plainObject(value: unknown): value is Record<string, unknown> {
  * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: object、keys: readonly string[]
- * @returns exactKeysの計算結果を返す。
- * @precondition 「value: object、keys: readonly string[]」がexactKeysの入力契約を満たす。
- * @postcondition exactKeysの責務を完了した結果だけを返す。
- * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
- * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
- * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
+ * @returns hasRuntimeStateKeysの計算結果を返す。
+ * @precondition 「value: object、keys: readonly string[]」がhasRuntimeStateKeysの入力契約を満たす。
+ * @postcondition hasRuntimeStateKeysの責務を完了した結果だけを返す。
+ * @effect N/A: hasRuntimeStateKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasRuntimeStateKeysは独自の失敗分岐を所有しない。
+ * @invariant hasRuntimeStateKeysは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasRuntimeStateKeysはProcess内の同一Subsystemで完結する。
+ * @security hasRuntimeStateKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hasRuntimeStateKeysは共有非同期状態を持たない同期処理である。
  */
-export function exactKeys(value: object, keys: readonly string[]) {
+export function hasRuntimeStateKeys(value: object, keys: readonly string[]) {
   const actualValues = Object.keys(value).sort();
   const expectedValues = [...keys].sort();
   return (
@@ -1064,8 +1077,8 @@ export const COORDINATOR_DURABLE_FOUNDATION_CONTRACT =
  */
 export function validLeaseEvidence(value: unknown) {
   return (
-    plainObject(value) &&
-    exactKeys(value, [
+    isRuntimeStateObject(value) &&
+    hasRuntimeStateKeys(value, [
       "kind",
       "queueId",
       "ownerGeneration",
@@ -1091,17 +1104,17 @@ export function validLeaseEvidence(value: unknown) {
  * @responsibility durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: string
- * @returns digestの計算結果を返す。
- * @precondition 「value: string」がdigestの入力契約を満たす。
- * @postcondition digestの責務を完了した結果だけを返す。
- * @effect N/A: digestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: digestは独自の失敗分岐を所有しない。
- * @invariant digestは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: digestはProcess内の同一Subsystemで完結する。
- * @security digestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: digestは共有非同期状態を持たない同期処理である。
+ * @returns hashRuntimeStateValueTextの計算結果を返す。
+ * @precondition 「value: string」がhashRuntimeStateValueTextの入力契約を満たす。
+ * @postcondition hashRuntimeStateValueTextの責務を完了した結果だけを返す。
+ * @effect N/A: hashRuntimeStateValueTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hashRuntimeStateValueTextは独自の失敗分岐を所有しない。
+ * @invariant hashRuntimeStateValueTextは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hashRuntimeStateValueTextはProcess内の同一Subsystemで完結する。
+ * @security hashRuntimeStateValueTextはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hashRuntimeStateValueTextは共有非同期状態を持たない同期処理である。
  */
-export function digest(value: string) {
+export function hashRuntimeStateValueText(value: string) {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
@@ -1125,7 +1138,7 @@ export function leaseIdentity(
   repositoryBindingId: string,
   projectId: string,
   queueId: string,
-  kind: LeaseKind,
+  kind: CoordinatorLeaseKind,
 ) {
   return kind === "project-operation"
     ? `${kind}-${repositoryBindingId}`
@@ -1154,7 +1167,7 @@ export function leaseAcquisitionRecoveryId(
   repositoryBindingId: string,
   projectId: string,
   queueId: string,
-  kind: LeaseKind,
+  kind: CoordinatorLeaseKind,
 ) {
   const identityInput =
     kind === "project-operation"
@@ -1162,7 +1175,7 @@ export function leaseAcquisitionRecoveryId(
       : kind === "canonical-adoption"
         ? `${repositoryBindingId}\0${projectId}\0${kind}`
         : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
-  return `lease-acquisition-${digest(identityInput).slice(0, 40)}`;
+  return `lease-acquisition-${hashRuntimeStateValueText(identityInput).slice(0, 40)}`;
 }
 
 export const HASH = /^[0-9a-f]{64}$/u;
@@ -1247,7 +1260,7 @@ export function isPlainRecord(value: unknown): value is object {
       value === null ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return false;
     const prototype = Object.getPrototypeOf(value);
@@ -1525,23 +1538,23 @@ export function nullableRecoveryId(value: unknown) {
  * @trace ARCH-000004
  * @input value: unknown、maximumLength: number
  * @returns ArraySnapshot<T>を返す。
- * @precondition 「value: unknown、maximumLength: number」がsnapshotPlainArrayの入力契約を満たす。
- * @postcondition snapshotPlainArrayの責務を完了した結果だけを返す。
- * @effect N/A: snapshotPlainArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure snapshotPlainArrayは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant snapshotPlainArrayは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotPlainArrayはProcess内の同一Subsystemで完結する。
- * @security N/A: snapshotPlainArrayはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: snapshotPlainArrayは共有非同期状態を持たない同期処理である。
+ * @precondition 「value: unknown、maximumLength: number」がsnapshotRuntimeStateArrayの入力契約を満たす。
+ * @postcondition snapshotRuntimeStateArrayの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotRuntimeStateArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotRuntimeStateArrayは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotRuntimeStateArrayは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotRuntimeStateArrayはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotRuntimeStateArrayはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotRuntimeStateArrayは共有非同期状態を持たない同期処理である。
  */
-export function snapshotPlainArray<T = unknown>(
+export function snapshotRuntimeStateArray<T = unknown>(
   value: unknown,
   maximumLength: number,
 ): ArraySnapshot<T> {
   try {
     if (
       !Array.isArray(value) ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Object.getPrototypeOf(value) !== Array.prototype ||
       !Number.isSafeInteger(maximumLength) ||
       maximumLength < 0
@@ -1690,7 +1703,7 @@ function projectRuntimeSnapshotSections(
     const tasks: ProjectTaskRecord[] = [];
     for (const task of project.tasks) {
       if (
-        !exactRecordKeys(task, [
+        !hasRuntimeStateRecordKeys(task, [
           "definition",
           "state",
           "attemptId",
@@ -1747,12 +1760,19 @@ function projectRuntimeSnapshotSections(
       const recoveryObligations: ProjectTaskRecoveryObligation[] = [];
       for (const obligation of task.recoveryObligations) {
         if (obligation.kind !== "docker") {
-          if (!exactRecordKeys(obligation, ["kind", "recoveryId", "phase"]))
+          if (
+            !hasRuntimeStateRecordKeys(obligation, [
+              "kind",
+              "recoveryId",
+              "phase",
+            ])
+          )
             return null;
           recoveryObligations.push(obligation);
           continue;
         }
-        if (!exactRecordKeys(obligation, ["kind", "recoveryId"])) return null;
+        if (!hasRuntimeStateRecordKeys(obligation, ["kind", "recoveryId"]))
+          return null;
         const acknowledgement = receipts.get(obligation.recoveryId);
         if (acknowledgement) {
           recoveryObligations.push({
@@ -1864,8 +1884,8 @@ export function validCoordinatorSnapshot(
 ): value is CoordinatorSnapshot {
   try {
     if (
-      !plainObject(value) ||
-      !exactKeys(value, [
+      !isRuntimeStateObject(value) ||
+      !hasRuntimeStateKeys(value, [
         "schema",
         "schemaRevision",
         "repositoryRootHash",

@@ -10,15 +10,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  projectCoordinatorLeaseAcquisitionOwner as projectOwner,
-  prepareCoordinatorLeaseAcquisitionReservation as reserve,
-  prepareCoordinatorLeaseAcquisitionConfirmation as acquire,
-  prepareCoordinatorLeaseReleaseIntent as releaseIntent,
-  prepareCoordinatorLeaseReleaseSettlement as release,
-  projectCoordinatorLeaseOwnerLossState as inspectLoss,
-  prepareCoordinatorReleasedLeaseReconciliation as reconcileReleased,
-  prepareCoordinatorLeaseRecoveryReservation as reserveRecovery,
-  prepareCoordinatorLeaseRecoverySettlement as settleRecovery,
+  projectCoordinatorLeaseAcquisitionOwner,
+  prepareCoordinatorLeaseAcquisitionReservation,
+  prepareCoordinatorLeaseAcquisitionConfirmation,
+  prepareCoordinatorLeaseReleaseIntent,
+  prepareCoordinatorLeaseReleaseSettlement,
+  projectCoordinatorLeaseOwnerLossState,
+  prepareCoordinatorReleasedLeaseReconciliation,
+  prepareCoordinatorLeaseRecoveryReservation,
+  prepareCoordinatorLeaseRecoverySettlement,
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   encodeRuntimeStateValue,
   hashRuntimeStateValueText,
@@ -149,7 +149,7 @@ function observations() {
 function acquiredFixture() {
   const f = fixture();
   const reserved = { ...f.current, leaseIntents: [f.intent] };
-  const result = acquire(
+  const result = prepareCoordinatorLeaseAcquisitionConfirmation(
     reserved,
     "binding-a",
     "project-a",
@@ -221,16 +221,16 @@ function assertEvidence(
 test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する", () => {
   const { current, intent } = fixture();
   assert.equal(
-    projectOwner(current, "binding-a").reason,
+    projectCoordinatorLeaseAcquisitionOwner(current, "binding-a").reason,
     "orchestrator_lease_acquisition_absent",
   );
   const state = { ...current, leaseIntents: [intent] };
   const before = encodeRuntimeStateValue(state);
-  const result = projectOwner(state, "binding-a");
+  const result = projectCoordinatorLeaseAcquisitionOwner(state, "binding-a");
   assert.equal(result.status, "completed");
   if (result.status === "completed")
     assert.equal(result.value.value.acquisition?.recoveryId, "recovery-a");
-  const mismatch = projectOwner(
+  const mismatch = projectCoordinatorLeaseAcquisitionOwner(
     {
       ...state,
       leaseIntents: [intent, { ...intent, ownerGeneration: "other" }],
@@ -246,7 +246,10 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
     "recovery-a",
   );
   assert.equal(
-    projectOwner({ ...state, queueEntries: [] }, "binding-a").status,
+    projectCoordinatorLeaseAcquisitionOwner(
+      { ...state, queueEntries: [] },
+      "binding-a",
+    ).status,
     "blocked",
   );
   assert.equal(encodeRuntimeStateValue(state), before);
@@ -266,7 +269,7 @@ test("取得Owner投影は不存在・同じ参照・混在Ownerを分離する"
 test("取得予約は前提拒否・資源不明・Root例外でmarkを発行しない", () => {
   const f = fixture();
   const run = (state: CoordinatorSnapshot, ops = observations().ops) =>
-    reserve(
+    prepareCoordinatorLeaseAcquisitionReservation(
       state,
       "binding-a",
       "project-a",
@@ -391,7 +394,7 @@ test("取得確定は元intent一致後だけLockを観測し取得証拠を同�
   const f = acquiredFixture();
   const o = observations();
   const run = (state: CoordinatorSnapshot, ops = o.ops) =>
-    acquire(
+    prepareCoordinatorLeaseAcquisitionConfirmation(
       state,
       "binding-a",
       "project-a",
@@ -449,17 +452,28 @@ test("取得確定は元intent一致後だけLockを観測し取得証拠を同�
 test("解放候補は別実体を拒否し同intent除去とreleased証拠を一体にする", () => {
   const f = acquiredFixture();
   assert.equal(
-    releaseIntent(f.acquired, f.intent, "c".repeat(64)).status,
+    prepareCoordinatorLeaseReleaseIntent(f.acquired, f.intent, "c".repeat(64))
+      .status,
     "blocked",
   );
-  const pending = releaseIntent(f.acquired, f.intent, f.physical);
+  const pending = prepareCoordinatorLeaseReleaseIntent(
+    f.acquired,
+    f.intent,
+    f.physical,
+  );
   assert.equal(pending.status, "completed");
   if (pending.status !== "completed") throw Error("fixture");
   assert.equal(
-    release(f.acquired, "binding-a", f.intent, f.physical, 7).status,
+    prepareCoordinatorLeaseReleaseSettlement(
+      f.acquired,
+      "binding-a",
+      f.intent,
+      f.physical,
+      7,
+    ).status,
     "blocked",
   );
-  const result = release(
+  const result = prepareCoordinatorLeaseReleaseSettlement(
     pending.value.next,
     "binding-a",
     f.intent,
@@ -491,7 +505,7 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
   const f = fixture(),
     o = observations();
   assert.equal(
-    inspectLoss(
+    projectCoordinatorLeaseOwnerLossState(
       { ...f.current, queueEntries: [] },
       "project-a",
       "queue-a",
@@ -501,7 +515,7 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
     "blocked",
   );
   assert.deepEqual(o.calls, []);
-  const result = inspectLoss(
+  const result = projectCoordinatorLeaseOwnerLossState(
     { ...f.current, leaseIntents: [f.intent] },
     "project-a",
     "queue-a",
@@ -532,9 +546,13 @@ test("Owner-loss初回照会は値結合の後だけRootを一回観測する", 
 
 test("released照合は元Queue・証拠の後に資源不存在を確認し回復待ちを保持する", () => {
   const f = acquiredFixture();
-  const pending = releaseIntent(f.acquired, f.intent, f.physical);
+  const pending = prepareCoordinatorLeaseReleaseIntent(
+    f.acquired,
+    f.intent,
+    f.physical,
+  );
   if (pending.status !== "completed") throw Error("fixture");
-  const result = release(
+  const result = prepareCoordinatorLeaseReleaseSettlement(
     pending.value.next,
     "binding-a",
     f.intent,
@@ -550,7 +568,7 @@ test("released照合は元Queue・証拠の後に資源不存在を確認し回�
   const current = { ...result.value.next, queueEntries: [queue] };
   const o = observations();
   const run = (state: CoordinatorSnapshot, old = queue, ops = o.ops) =>
-    reconcileReleased(
+    prepareCoordinatorReleasedLeaseReconciliation(
       state,
       "project-a",
       "queue-a",
@@ -601,7 +619,7 @@ test("回復intent予約はRootと元集合を照合し同じpendingだけ再入
     physicalIdentity: null,
   };
   const run = (state: CoordinatorSnapshot, ops = o.ops, own = [f.intent]) =>
-    reserveRecovery(
+    prepareCoordinatorLeaseRecoveryReservation(
       state,
       "project-a",
       "queue-a",
@@ -637,7 +655,7 @@ test("回復intent予約はRootと元集合を照合し同じpendingだけ再入
   assert.equal(repeated.status, "completed");
   if (repeated.status === "completed") assert.equal(repeated.value.next, null);
   const wrong = { ...pending, physicalIdentity: "c".repeat(64) };
-  const mismatched = reserveRecovery(
+  const mismatched = prepareCoordinatorLeaseRecoveryReservation(
     { ...current, leaseIntents: [f.intent, wrong] },
     "project-a",
     "queue-a",
@@ -684,7 +702,7 @@ test("回復確定はunknown取得を成功へ変えず終了証拠と対象Queu
       leaseEvidence: hadAcquired ? f.acquired.leaseEvidence : [],
     };
     const run = (state: CoordinatorSnapshot, ops = observations().ops) =>
-      settleRecovery(
+      prepareCoordinatorLeaseRecoverySettlement(
         state,
         "binding-a",
         "project-a",

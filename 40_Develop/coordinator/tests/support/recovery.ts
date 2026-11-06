@@ -135,13 +135,13 @@ export async function createRecoveryFixture(
     "recoverRuntimeOwnedDockerTaskResources",
   ];
   const api =
-    runInThisContext(`(deps)=>{const {Buffer,encodeRuntimeStateValue,decodeCoordinatorStateSnapshot,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
+    runInThisContext(`(deps)=>{const {Buffer,encodeRuntimeStateValue,decodeRuntimeDomainSnapshot,dockerRecoveryPreparations,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence}=deps;
  ${names.map((n) => sourceDeclaration(source, n)).join("\n")}
  return {run:recoverRuntimeOwnedDockerTaskResources,target:projectResourceTarget};}`)(
       {
         Buffer,
         encodeRuntimeStateValue,
-        decodeCoordinatorStateSnapshot: decodeRuntimeDomainSnapshot,
+        decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
         dockerRecoveryPreparations: new Map([[capability, record]]),
         assertCurrentRecoveryOwner: (owner: unknown) =>
           owner === capability && live,

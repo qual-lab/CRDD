@@ -4,7 +4,7 @@
  * @responsibility TaskCliSignalを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 const intrinsicPromiseThen = Promise.prototype.then;
 const taskCliSignals = ["SIGINT", "SIGTERM"] as const;
@@ -94,8 +94,8 @@ export function createTaskCliCancellationLatch(
       if (
         !observed ||
         typeof observed !== "object" ||
-        utilTypes.isProxy(observed) ||
-        !utilTypes.isPromise(observed) ||
+        types.isProxy(observed) ||
+        !types.isPromise(observed) ||
         Object.getPrototypeOf(observed) !== Promise.prototype ||
         Object.getOwnPropertyDescriptor(observed, "then") !== undefined
       )

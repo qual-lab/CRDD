@@ -5,10 +5,7 @@
  * @trace ARCH-000010
  */
 
-import {
-  type ProviderBillingPolicy,
-  getBillingPolicy,
-} from "../billing/policy.ts";
+import { type BillingPolicy, getBillingPolicy } from "../billing/policy.ts";
 
 import { snapshotPlainArray, snapshotPlainRecord } from "../provider/input.ts";
 
@@ -59,7 +56,7 @@ export type CodexProbePlanResult =
       userConfigLoaded: false;
       networkAccessForModelRequestOnly: true;
       loginPolicy: "existing_chatgpt_subscription_oauth";
-      billingPolicy: ProviderBillingPolicy;
+      billingPolicy: BillingPolicy;
       apiKeyAllowed: false;
       paidApiFallbackAllowed: false;
       additionalCreditPurchaseAllowed: false;
@@ -111,7 +108,7 @@ export type CodexTaskPlanResult =
       providerHomeCommandReadAllowed: false;
       sessionPersistenceAllowed: false;
       loginPolicy: "existing_chatgpt_subscription_oauth";
-      billingPolicy: ProviderBillingPolicy;
+      billingPolicy: BillingPolicy;
       apiKeyAllowed: false;
       paidApiFallbackAllowed: false;
       additionalCreditPurchaseAllowed: false;

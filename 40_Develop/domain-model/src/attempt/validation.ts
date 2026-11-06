@@ -11,7 +11,7 @@ import { validateDockerRuntimeRepairSessionCheckpoint } from "./repair-validatio
 import { validateDockerRuntimeRepairCheckpointTransition } from "./repair-validation.ts";
 import type { CoordinatorStateSnapshot } from "../state/types.ts";
 import type { CoordinatorStateOperation } from "./types.ts";
-import { exactRecordKeys } from "../state/validation.ts";
+import { hasRuntimeStateRecordKeys } from "../state/validation.ts";
 import { createHash } from "node:crypto";
 import { isSha256Hex } from "../state/validation.ts";
 import { coordinatorOperationSummaryBytes } from "../state/validation.ts";
@@ -45,16 +45,16 @@ export function validateCoordinatorResourceBook(
   value: unknown,
 ): value is CoordinatorResourceBook | null {
   if (value === null) return true;
-  if (!exactRecordKeys(value, ["snapshot", "checkpoints", "cleanup"]))
+  if (!hasRuntimeStateRecordKeys(value, ["snapshot", "checkpoints", "cleanup"]))
     return false;
   const book = value as CoordinatorResourceBook;
   if (
-    !exactRecordKeys(book.snapshot, ["resources"]) ||
+    !hasRuntimeStateRecordKeys(book.snapshot, ["resources"]) ||
     !Array.isArray(book.snapshot.resources) ||
     !Array.isArray(book.checkpoints) ||
     book.snapshot.resources.length === 0 ||
     book.snapshot.resources.length !== book.checkpoints.length ||
-    !exactRecordKeys(book.cleanup, [
+    !hasRuntimeStateRecordKeys(book.cleanup, [
       "cleanupOrder",
       "setupTimeoutMs",
       "unreceiptedAbsence",
@@ -71,7 +71,7 @@ export function validateCoordinatorResourceBook(
   const resourceNames = new Set<string>();
   for (const resource of book.snapshot.resources) {
     if (
-      !exactRecordKeys(resource, [
+      !hasRuntimeStateRecordKeys(resource, [
         "key",
         "identity",
         "request",
@@ -80,7 +80,7 @@ export function validateCoordinatorResourceBook(
       typeof resource.key !== "string" ||
       resource.key.length === 0 ||
       keys.has(resource.key) ||
-      !exactRecordKeys(resource.identity, [
+      !hasRuntimeStateRecordKeys(resource.identity, [
         "kind",
         "dockerId",
         "name",
@@ -97,7 +97,7 @@ export function validateCoordinatorResourceBook(
       (resource.request === "issued" && resource.identity.dockerId === null) ||
       (resource.request === "not_issued" &&
         resource.identity.dockerId !== null) ||
-      !exactRecordKeys(resource.configuration, [
+      !hasRuntimeStateRecordKeys(resource.configuration, [
         "image",
         "command",
         "environmentNames",
@@ -131,7 +131,7 @@ export function validateCoordinatorResourceBook(
         (!Array.isArray(c.mounts) ||
           c.mounts.some(
             (v: unknown) =>
-              !exactRecordKeys(v, ["source", "target", "readOnly"]) ||
+              !hasRuntimeStateRecordKeys(v, ["source", "target", "readOnly"]) ||
               typeof (v as { source: unknown }).source !== "string" ||
               typeof (v as { target: unknown }).target !== "string" ||
               typeof (v as { readOnly: unknown }).readOnly !== "boolean",
@@ -142,7 +142,7 @@ export function validateCoordinatorResourceBook(
   const checkpointKeys = new Set<string>();
   for (const checkpoint of book.checkpoints) {
     if (
-      !exactRecordKeys(checkpoint, [
+      !hasRuntimeStateRecordKeys(checkpoint, [
         "key",
         "submission",
         "receiptSource",
@@ -367,7 +367,7 @@ export function validCoordinatorExecutionState(
     }
     if (operation.kind !== "docker_task") return false;
     if (
-      !exactRecordKeys(operation, [
+      !hasRuntimeStateRecordKeys(operation, [
         "kind",
         "dockerRestart",
         "identityJson",
@@ -446,7 +446,7 @@ export function validCoordinatorExecutionState(
     )
       return false;
     if (
-      !exactRecordKeys(operation.host, [
+      !hasRuntimeStateRecordKeys(operation.host, [
         "currentToken",
         "pendingTransitionJson",
         "cleanup",
@@ -470,7 +470,7 @@ export function validCoordinatorExecutionState(
       if (
         `${JSON.stringify(transition)}\n` !==
           operation.host.pendingTransitionJson ||
-        !exactRecordKeys(transition, [
+        !hasRuntimeStateRecordKeys(transition, [
           "currentToken",
           "expectedToken",
           "rootName",
@@ -501,7 +501,7 @@ export function validCoordinatorExecutionState(
     }
     const execution = operation.execution;
     if (
-      !exactRecordKeys(execution, [
+      !hasRuntimeStateRecordKeys(execution, [
         "providerStart",
         "externalSend",
         "sharedWrite",
@@ -528,7 +528,11 @@ export function validCoordinatorExecutionState(
       const history = operation.history;
       if (
         !operation.outcome ||
-        !exactRecordKeys(history, ["occurredAt", "lineSha256", "confirmed"]) ||
+        !hasRuntimeStateRecordKeys(history, [
+          "occurredAt",
+          "lineSha256",
+          "confirmed",
+        ]) ||
         typeof history.occurredAt !== "string" ||
         !Number.isFinite(Date.parse(history.occurredAt)) ||
         new Date(Date.parse(history.occurredAt)).toISOString() !==
@@ -549,7 +553,7 @@ export function validCoordinatorExecutionState(
   for (const recovery of snapshot.unresolvedRecoveries) {
     const referencedOperation = operations.get(recovery.operationNonce);
     if (
-      !exactRecordKeys(recovery, [
+      !hasRuntimeStateRecordKeys(recovery, [
         "operationNonce",
         "recoveryId",
         "reason",
@@ -585,7 +589,7 @@ export function validCoordinatorExecutionState(
   for (const delivery of snapshot.pendingDeliveries) {
     const deliveryOperation = operations.get(delivery.operationNonce);
     if (
-      !exactRecordKeys(delivery, [
+      !hasRuntimeStateRecordKeys(delivery, [
         "operationNonce",
         "recoveryId",
         "resultId",
@@ -632,7 +636,7 @@ export function validCoordinatorRepairOperation(
   repositoryBinding: string,
 ): boolean {
   if (
-    !exactRecordKeys(operation, [
+    !hasRuntimeStateRecordKeys(operation, [
       "kind",
       "identityJson",
       "identitySha256",
@@ -654,7 +658,7 @@ export function validCoordinatorRepairOperation(
   try {
     const identity = JSON.parse(operation.identityJson);
     if (
-      !exactRecordKeys(identity, [
+      !hasRuntimeStateRecordKeys(identity, [
         "schema",
         "kind",
         "operationNonce",
@@ -727,7 +731,7 @@ export function validCoordinatorRepairOperation(
     if (operation.disposal !== null) {
       const disposal = operation.disposal;
       if (
-        !exactRecordKeys(disposal, ["decidedAt", "checkpoint"]) ||
+        !hasRuntimeStateRecordKeys(disposal, ["decidedAt", "checkpoint"]) ||
         typeof disposal.decidedAt !== "string" ||
         !Number.isFinite(Date.parse(disposal.decidedAt)) ||
         new Date(disposal.decidedAt).toISOString() !== disposal.decidedAt ||
@@ -744,7 +748,7 @@ export function validCoordinatorRepairOperation(
     const failure = operation.primaryFailure;
     if (
       failure !== null &&
-      (!exactRecordKeys(failure, ["stage", "reason"]) ||
+      (!hasRuntimeStateRecordKeys(failure, ["stage", "reason"]) ||
         !["preparation", "checkpoint", "repair", "delivery"].includes(
           failure.stage,
         ) ||
@@ -755,7 +759,11 @@ export function validCoordinatorRepairOperation(
     const outcome = operation.outcome;
     if (outcome !== null) {
       if (
-        !exactRecordKeys(outcome, ["status", "reason", "cleanupConfirmed"]) ||
+        !hasRuntimeStateRecordKeys(outcome, [
+          "status",
+          "reason",
+          "cleanupConfirmed",
+        ]) ||
         !["recovered", "blocked", "cancelled"].includes(outcome.status) ||
         !repairReasons.has(outcome.reason) ||
         typeof outcome.cleanupConfirmed !== "boolean"
@@ -808,7 +816,11 @@ export function validCoordinatorRepairOperation(
     const history = operation.history;
     return (
       coordinatorRepairCanSummarize(operation) &&
-      exactRecordKeys(history, ["occurredAt", "lineSha256", "confirmed"]) &&
+      hasRuntimeStateRecordKeys(history, [
+        "occurredAt",
+        "lineSha256",
+        "confirmed",
+      ]) &&
       typeof history.occurredAt === "string" &&
       Number.isFinite(Date.parse(history.occurredAt)) &&
       new Date(history.occurredAt).toISOString() === history.occurredAt &&
@@ -930,7 +942,7 @@ export function validateCoordinatorOperationIdentity(
   ];
   const hasCorrelation = Object.hasOwn(identity ?? {}, "recoveryCorrelationId");
   if (
-    !exactRecordKeys(
+    !hasRuntimeStateRecordKeys(
       value,
       hasCorrelation ? [...keys, "recoveryCorrelationId"] : keys,
     )
@@ -974,7 +986,7 @@ export function validateCoordinatorOperationIdentity(
       (identity.workspaceProtected === true &&
         identity.operationMode === "isolated_task" &&
         identity.workspaceMountMode !== null &&
-        exactRecordKeys(identity.workspaceProtection, [
+        hasRuntimeStateRecordKeys(identity.workspaceProtection, [
           "gitSourcePath",
           "internalSourcePath",
         ]) &&
@@ -994,7 +1006,7 @@ export function validateCoordinatorOperationIdentity(
           identity.recoveryCorrelationId,
         ))) &&
     validateHostSnapshot(identity.initialHostRecovery, token) &&
-    exactRecordKeys(identity.hostPaths, ["root", "marker"]) &&
+    hasRuntimeStateRecordKeys(identity.hostPaths, ["root", "marker"]) &&
     typeof (identity.hostPaths as Record<string, unknown>).root === "string" &&
     typeof (identity.hostPaths as Record<string, unknown>).marker === "string"
   );
@@ -1303,7 +1315,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
     typeof value === "object" &&
     Object.hasOwn(value, "turnCountDiagnostic");
   if (
-    !exactRecordKeys(value, [
+    !hasRuntimeStateRecordKeys(value, [
       "purpose",
       "stage",
       "reason",
@@ -1363,7 +1375,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
         failure.reason === "workbench_ai_claude_turn_count_invalid" &&
         failure.responseObserved &&
         failure.commandObservation?.exitCode === 0 &&
-        exactRecordKeys(failure.turnCountDiagnostic, [
+        hasRuntimeStateRecordKeys(failure.turnCountDiagnostic, [
           "valueType",
           "numberText",
         ]) &&
@@ -1391,7 +1403,7 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
     (!hasObservation ||
       failure.commandObservation === null ||
       (failure.responseObserved &&
-        exactRecordKeys(failure.commandObservation, [
+        hasRuntimeStateRecordKeys(failure.commandObservation, [
           "exitCode",
           "stdoutBytes",
           "stderrBytes",
@@ -1423,7 +1435,9 @@ export function validCoordinatorPrimaryFailure(value: unknown): boolean {
  */
 export function validCoordinatorOutcome(value: unknown): boolean {
   if (value === null) return true;
-  if (!exactRecordKeys(value, ["status", "reason", "cleanupConfirmed"]))
+  if (
+    !hasRuntimeStateRecordKeys(value, ["status", "reason", "cleanupConfirmed"])
+  )
     return false;
   const outcome = value as NonNullable<
     CoordinatorStateTaskOperation["outcome"]
@@ -1506,7 +1520,9 @@ export function coordinatorTaskResourcesAreSettled(
 export function validCoordinatorRepairRetentionReceipt(
   value: unknown,
 ): value is CoordinatorRepairRetentionReceipt {
-  if (!exactRecordKeys(value, ["decidedAt", "reviewAfter", "targets"]))
+  if (
+    !hasRuntimeStateRecordKeys(value, ["decidedAt", "reviewAfter", "targets"])
+  )
     return false;
   const receipt = value as CoordinatorRepairRetentionReceipt;
   if (
@@ -1739,7 +1755,7 @@ export const OPERATION_IDENTITY_SCHEMA =
  */
 export function validateHostSnapshot(value: unknown, initialToken: string) {
   if (
-    !exactRecordKeys(value, [
+    !hasRuntimeStateRecordKeys(value, [
       "token",
       "recordHash",
       "directoryIdentity",
@@ -1755,7 +1771,7 @@ export function validateHostSnapshot(value: unknown, initialToken: string) {
   const rootIdentity = hostRecord?.rootIdentity;
   const childIdentities = hostRecord?.childIdentities;
   const identityValid = (identity: unknown, isChild: boolean) =>
-    exactRecordKeys(
+    hasRuntimeStateRecordKeys(
       identity,
       isChild
         ? ["pathName", "dev", "ino", "birthtimeNs"]
@@ -1778,7 +1794,7 @@ export function validateHostSnapshot(value: unknown, initialToken: string) {
     /^\d+:\d+:\d+$/u.test(snapshot.directoryIdentity) &&
     typeof snapshot.markerIdentity === "string" &&
     /^\d+:\d+:\d+$/u.test(snapshot.markerIdentity) &&
-    exactRecordKeys(record, [
+    hasRuntimeStateRecordKeys(record, [
       "schema",
       "state",
       "rootName",
@@ -2018,7 +2034,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     typeof value === "object" &&
     (value as { disposition?: unknown }).disposition === "discard";
   if (
-    !exactRecordKeys(value, [
+    !hasRuntimeStateRecordKeys(value, [
       "schema",
       "operationId",
       "operationNonce",
@@ -2061,7 +2077,10 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
   };
   if (
     discard &&
-    (!exactRecordKeys(summary.disposal, ["decidedAt", "checkpoint"]) ||
+    (!hasRuntimeStateRecordKeys(summary.disposal, [
+      "decidedAt",
+      "checkpoint",
+    ]) ||
       typeof summary.disposal?.decidedAt !== "string" ||
       !Number.isFinite(Date.parse(summary.disposal.decidedAt)) ||
       new Date(summary.disposal.decidedAt).toISOString() !==
@@ -2093,7 +2112,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     "restart_runtime",
   ];
   if (
-    exactRecordKeys(summary.outcome, [
+    hasRuntimeStateRecordKeys(summary.outcome, [
       "status",
       "reason",
       "cleanupConfirmed",
@@ -2119,13 +2138,13 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
       (summary.outcome.status === "cancelled") ===
         (summary.outcome.reason === "runtime_repair_cancelled") &&
       (failure === null ||
-        (exactRecordKeys(failure, ["stage", "reason"]) &&
+        (hasRuntimeStateRecordKeys(failure, ["stage", "reason"]) &&
           ["preparation", "checkpoint", "repair", "delivery"].includes(
             failure.stage as string,
           ) &&
           failure.reason === summary.outcome.reason)) &&
       (summary.outcome.status !== "cancelled" || failure === null) &&
-      exactRecordKeys(technical, [
+      hasRuntimeStateRecordKeys(technical, [
         "actions",
         "engine",
         "stale",
@@ -2154,12 +2173,12 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
         summary.disposition === "retained_by_human_decision") ||
         (["absent", "unknown"].includes(technical.stale as string) &&
           summary.disposition === "not_applicable")) &&
-      exactRecordKeys(technical.actions, names) &&
+      hasRuntimeStateRecordKeys(technical.actions, names) &&
       names.every((name, index) => {
         const action = technical.actions[name];
         if (
           !action ||
-          !exactRecordKeys(action, ["intent", "request", "result"]) ||
+          !hasRuntimeStateRecordKeys(action, ["intent", "request", "result"]) ||
           !["not_saved", "saved"].includes(action.intent as string) ||
           !["not_issued", "issued", "unknown"].includes(
             action.request as string,
@@ -2213,7 +2232,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     summary.recoveryId ===
       `docker-runtime-repair.${summary.operationNonce}.${summary.identitySha256}` &&
     summary.primaryFailure === null &&
-    exactRecordKeys(summary.outcome, [
+    hasRuntimeStateRecordKeys(summary.outcome, [
       "status",
       "reason",
       "cleanupConfirmed",
@@ -2221,7 +2240,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     summary.outcome.status === "recovered" &&
     summary.outcome.reason === "runtime_repair_recovered" &&
     summary.outcome.cleanupConfirmed === true &&
-    exactRecordKeys(technical, [
+    hasRuntimeStateRecordKeys(technical, [
       "actions",
       "engine",
       "stale",
@@ -2239,12 +2258,12 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
         ["retained_by_human_decision", "discard"].includes(
           summary.disposition as string,
         ))) &&
-    exactRecordKeys(technical.actions, names) &&
+    hasRuntimeStateRecordKeys(technical.actions, names) &&
     names.every((name) => {
       const action = technical.actions[name];
       return (
         action !== undefined &&
-        exactRecordKeys(action, ["intent", "request", "result"]) &&
+        hasRuntimeStateRecordKeys(action, ["intent", "request", "result"]) &&
         ((action.result === "confirmed" &&
           action.intent === "saved" &&
           action.request === "issued") ||

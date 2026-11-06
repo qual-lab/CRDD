@@ -7,7 +7,7 @@
  * @boundary Schemaの意味・操作認可・状態遷移・実資源の観測を所有しない。
  */
 import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 /** 現在状態の既存byte上限。通常の設定JSONの上限とは区別する。 */
 export const RUNTIME_STATE_MAXIMUM_BYTES = 16 * 1024 * 1024;
@@ -28,7 +28,7 @@ export const RUNTIME_STATE_MAXIMUM_BYTES = 16 * 1024 * 1024;
  * @concurrency N/A: 同期の値変換で共有状態を更新しない。
  */
 export function encodeRuntimeStateValue(value: unknown, depth = 0): string {
-  if (depth > 32 || utilTypes.isProxy(value))
+  if (depth > 32 || types.isProxy(value))
     throw new Error("coordinator_state_value_invalid");
   if (value === null || typeof value === "boolean" || typeof value === "string")
     return JSON.stringify(value);
@@ -107,7 +107,7 @@ export function hashRuntimeStateContent(value: unknown): string {
  */
 export function decodeRuntimeStateBytes(input: unknown) {
   try {
-    if (utilTypes.isProxy(input) || !Buffer.isBuffer(input)) return null;
+    if (types.isProxy(input) || !Buffer.isBuffer(input)) return null;
     const intrinsic = Object.getPrototypeOf(Uint8Array.prototype);
     const length = Object.getOwnPropertyDescriptor(
       intrinsic,

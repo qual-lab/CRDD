@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import path from "node:path";
 import {
   describeIsolationConfiguration,
@@ -324,7 +324,7 @@ export function planDockerRecoveryResourceExpectations(
     if (
       !input ||
       typeof input !== "object" ||
-      utilTypes.isProxy(input) ||
+      types.isProxy(input) ||
       Array.isArray(input)
     )
       return null;

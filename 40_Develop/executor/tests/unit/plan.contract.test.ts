@@ -19,9 +19,9 @@ import {
 } from "../../../docker-isolation/src/image/assets.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/network/policy.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
-import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
 import {
-  bindTestIsolationRuntime as bindIsolationRuntime,
+  bindTestIsolationRuntime,
   isAttemptPlanValid,
   planIdentity,
   prepareAttempt,
@@ -45,7 +45,7 @@ import { attemptPlan, attemptTarget } from "../fixtures/attempt-plan.ts";
  */
 test("基本計画検査は用途とIdentityを維持し完全Command検査の代替にならない", () => {
   const probe = attemptPlan();
-  const unsupported: AttemptPlan["commands"][number] = {
+  const unsupported: TestAttemptPlan["commands"][number] = {
     // @ts-expect-error Docker Isolationが定義しない用途は型でも受理しない。
     purpose: "unsupported_command",
     argv: ["create_subscription_auth_probe"],
@@ -57,7 +57,7 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     }),
     false,
   );
-  const task: AttemptPlan = {
+  const task: TestAttemptPlan = {
     ...probe,
     operationMode: "isolated_task",
     taskRole: "executor",
@@ -65,7 +65,7 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     workspaceSourcePath: "C:/synthetic/work",
     workspaceMountMode: "read_write",
   };
-  const advice: AttemptPlan = {
+  const advice: TestAttemptPlan = {
     ...probe,
     operationMode: "workbench_advice",
     providerInput: "synthetic",
@@ -76,7 +76,7 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     { ...task, taskRole: "reviewer", workspaceMountMode: "read_only" },
     advice,
   ]) {
-    assert.equal(isAttemptPlanValid(plan as AttemptPlan), true);
+    assert.equal(isAttemptPlanValid(plan as TestAttemptPlan), true);
   }
   for (const overrides of [
     { executionSelection: { ...probe.executionSelection, provider: "codex" } },
@@ -93,7 +93,10 @@ test("基本計画検査は用途とIdentityを維持し完全Command検査の�
     },
   ])
     assert.equal(
-      isAttemptPlanValid({ ...probe, ...overrides } as unknown as AttemptPlan),
+      isAttemptPlanValid({
+        ...probe,
+        ...overrides,
+      } as unknown as TestAttemptPlan),
       false,
     );
   assert.equal(
@@ -164,7 +167,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
   assert.ok(probe);
   assert.ok(codex);
   /** 既存の正規Docker構成を合成計画へ一度だけ反映する。 */
-  function withCommands(plan: AttemptPlan): AttemptPlan {
+  function withCommands(plan: TestAttemptPlan): TestAttemptPlan {
     const configuration = resolveIsolationCommandInput(
       plan,
       temporary,
@@ -188,7 +191,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     taskRole: "reviewer",
     workspaceMountMode: "read_only",
   });
-  const adviceBase: AttemptPlan = {
+  const adviceBase: TestAttemptPlan = {
     ...probe,
     operationMode: "workbench_advice",
     executionSelection: { ...probe.executionSelection, purpose: "advice" },
@@ -202,7 +205,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     assert.equal(isAttemptPlanValid(plan), true);
     assert.ok(resolveValidatedPlan(plan, temporary));
   }
-  const basicFailures: AttemptPlan[] = [
+  const basicFailures: TestAttemptPlan[] = [
     { ...probe, operationId: "bad" },
     { ...probe, grantRef: "bad" },
     { ...probe, provider: "codex" },
@@ -229,7 +232,7 @@ test("共通基本検査と完全構成照合を通った計画だけをSession�
     onExecutionStarted: unexpectedHook,
     onFailure: unexpectedHook,
   };
-  const bound = bindIsolationRuntime(
+  const bound = bindTestIsolationRuntime(
     {
       startExecution: () => {
         starts++;

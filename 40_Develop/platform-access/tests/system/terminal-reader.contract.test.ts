@@ -17,7 +17,7 @@ import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
   parseInteractiveConsoleLine,
-  readInteractiveConsoleLineFromStream as readTerminalLineUsingStream,
+  readInteractiveConsoleLineFromStream,
   readOwnedInteractiveConsoleLineOutcomeUsingAdapter,
 } from "../../src/terminal/confirmation-reader.ts";
 import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/terminal-reader-harness.ts";
@@ -91,7 +91,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   {
     const scenario = inputScenario();
     const controller = new AbortController();
-    const line = readTerminalLineUsingStream(
+    const line = readInteractiveConsoleLineFromStream(
       scenario.stream,
       controller.signal,
     );
@@ -107,7 +107,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   for (const outcome of ["abort", "error", "end"] as const) {
     const scenario = inputScenario();
     const controller = new AbortController();
-    const line = readTerminalLineUsingStream(
+    const line = readInteractiveConsoleLineFromStream(
       scenario.stream,
       controller.signal,
     );
@@ -129,7 +129,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   ]) {
     const scenario = inputScenario(overrides);
     assert.equal(
-      await readTerminalLineUsingStream(
+      await readInteractiveConsoleLineFromStream(
         scenario.stream,
         new AbortController().signal,
       ),
@@ -145,7 +145,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
       },
     });
     assert.equal(
-      await readTerminalLineUsingStream(
+      await readInteractiveConsoleLineFromStream(
         scenario.stream,
         new AbortController().signal,
       ),
@@ -168,7 +168,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
       },
     });
     assert.equal(
-      await readTerminalLineUsingStream(
+      await readInteractiveConsoleLineFromStream(
         scenario.stream,
         new AbortController().signal,
       ),
@@ -186,7 +186,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
         throw new Error("pause failed");
       },
     });
-    const line = readTerminalLineUsingStream(
+    const line = readInteractiveConsoleLineFromStream(
       scenario.stream,
       new AbortController().signal,
     );
@@ -205,7 +205,7 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
         throw new Error("remove failed");
       },
     });
-    const line = readTerminalLineUsingStream(
+    const line = readInteractiveConsoleLineFromStream(
       scenario.stream,
       new AbortController().signal,
     );
@@ -216,8 +216,10 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
 
   const actualInput = new PassThrough();
   Object.defineProperty(actualInput, "isTTY", { value: true });
-  const actualLine = readTerminalLineUsingStream(
-    actualInput as unknown as Parameters<typeof readTerminalLineUsingStream>[0],
+  const actualLine = readInteractiveConsoleLineFromStream(
+    actualInput as unknown as Parameters<
+      typeof readInteractiveConsoleLineFromStream
+    >[0],
     new AbortController().signal,
   );
   actualInput.write(Buffer.from("123456\r\n", "utf8"));
@@ -228,9 +230,9 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
 
   const delayedErrorInput = new PassThrough();
   Object.defineProperty(delayedErrorInput, "isTTY", { value: true });
-  const delayedErrorLine = readTerminalLineUsingStream(
+  const delayedErrorLine = readInteractiveConsoleLineFromStream(
     delayedErrorInput as unknown as Parameters<
-      typeof readTerminalLineUsingStream
+      typeof readInteractiveConsoleLineFromStream
     >[0],
     new AbortController().signal,
   );
@@ -246,9 +248,9 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   const cancelledInput = new PassThrough();
   Object.defineProperty(cancelledInput, "isTTY", { value: true });
   const controller = new AbortController();
-  const cancelledLine = readTerminalLineUsingStream(
+  const cancelledLine = readInteractiveConsoleLineFromStream(
     cancelledInput as unknown as Parameters<
-      typeof readTerminalLineUsingStream
+      typeof readInteractiveConsoleLineFromStream
     >[0],
     controller.signal,
   );

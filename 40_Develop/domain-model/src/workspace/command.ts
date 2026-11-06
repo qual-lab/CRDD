@@ -8,8 +8,8 @@
  */
 import { types } from "node:util";
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
 } from "../state/validation.ts";
 import {
   validWorkspaceCandidateRequest,
@@ -167,7 +167,7 @@ export function inspectWorkspaceCommand(
   if (!value || typeof value !== "object" || types.isProxy(value)) return null;
   const operation = Object.getOwnPropertyDescriptor(value, "operation")?.value;
   if (operation === "list") {
-    const r = snapshotPlainRecord(
+    const r = snapshotRuntimeStateRecord(
       value,
       new Set(["operation", "projectId", "cursor", "limit"]),
     );
@@ -187,7 +187,7 @@ export function inspectWorkspaceCommand(
     operation === "get" ||
     operation === "inspect" ||
     operation === "candidate-diff";
-  const r = snapshotPlainRecord(
+  const r = snapshotRuntimeStateRecord(
     value,
     new Set([
       "operation",
@@ -246,11 +246,11 @@ export function inspectWorkspaceCommand(
   )
     return null;
   if (operation === "freeze") {
-    const selection = snapshotPlainArray(r.selection, 1000);
-    const changes = snapshotPlainArray(r.relatedChangeIds, 100);
+    const selection = snapshotRuntimeStateArray(r.selection, 1000);
+    const changes = snapshotRuntimeStateArray(r.relatedChangeIds, 100);
     if (selection.status !== "ok" || changes.status !== "ok") return null;
     const items = selection.value.map((item) =>
-      snapshotPlainRecord(item, new Set(["path", "blobId", "mode"])),
+      snapshotRuntimeStateRecord(item, new Set(["path", "blobId", "mode"])),
     );
     if (items.some((item) => item === null)) return null;
     const safe = { ...r, selection: items, relatedChangeIds: changes.value };

@@ -11,7 +11,7 @@ import {
   validateCoordinatorResourceBookTransition,
 } from "./validation.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
-import { exactRecordKeys, isSha256Hex } from "../state/validation.ts";
+import { hasRuntimeStateRecordKeys, isSha256Hex } from "../state/validation.ts";
 
 /**
  * 初期Snapshotと最初のIntent、又は同じ資源の後続観測を適用する。
@@ -33,7 +33,7 @@ export function applyCoordinatorResourceEvent(
       !["submission", "receipt", "identified", "not_issued"].includes(
         event.event,
       ) ||
-      !exactRecordKeys(
+      !hasRuntimeStateRecordKeys(
         event,
         event.event === "not_issued"
           ? ["event", "key"]
@@ -147,7 +147,7 @@ export function applyCoordinatorResourceCleanup(
         (item) => item.key === checkpoint.key,
       );
       if (
-        !exactRecordKeys(observed, ["key", "observation"]) ||
+        !hasRuntimeStateRecordKeys(observed, ["key", "observation"]) ||
         !resource ||
         !["not_requested", "absent", "unknown"].includes(observed.observation)
       )

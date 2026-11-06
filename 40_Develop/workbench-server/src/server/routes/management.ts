@@ -10,7 +10,7 @@
  * @security 生鍵の発行・提示は所有せず、固定JSONと有界な非秘密管理結果だけを返す。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import type { ManagementView } from "../../shared/management/validation.ts";
 import {
@@ -117,7 +117,7 @@ export async function handleManagementRequest({
           controller.signal,
         );
       }
-      await yieldToTransport(0);
+      await setTimeout(0);
       if (controller.signal.aborted || response.destroyed) return;
       let body = JSON.stringify(result);
       if (Buffer.byteLength(body, "utf8") > 16777216)

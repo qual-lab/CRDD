@@ -38,7 +38,7 @@ import {
   initializeAccessManagementState,
 } from "../../../access-management/src/initialization/execution.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import { executeWorkspace as executeWorkspaceCommand } from "../../../coordinator/src/index.ts";
+import { executeWorkspace } from "../../../coordinator/src/index.ts";
 import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
 import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
@@ -1234,12 +1234,7 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
         "development",
       );
       assert.equal(access.status, "completed", JSON.stringify(access));
-      executeWorkspaceCommand(
-        target.target,
-        "project.fixture",
-        command,
-        () => true,
-      );
+      executeWorkspace(target.target, "project.fixture", command, () => true);
       assert.ok(a.result?.structuredContent, JSON.stringify(a));
       const b = await sendWb(command);
       assert.equal(b.status, 200);

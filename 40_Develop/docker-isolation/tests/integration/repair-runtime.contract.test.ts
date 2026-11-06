@@ -8,8 +8,8 @@
  * @boundary 実Session所有処理と有限Native代役。実Processの終了証明とは区別する。
  */
 import {
-  decodeDockerRuntimeRepairCheckpoint as decode,
-  type DockerRuntimeRepairCheckpoint as Checkpoint,
+  decodeDockerRuntimeRepairCheckpoint,
+  type DockerRuntimeRepairCheckpoint,
 } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -19,13 +19,13 @@ import { runInThisContext } from "node:vm";
 import { getEventListeners } from "node:events";
 import { types } from "node:util";
 import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
-import { ownDockerRepairNativeSession as run } from "../../src/docker-desktop/repair-session.ts";
-import { runDockerRuntimeRepairSessionUsing as runSession } from "../../src/docker-desktop/repair-session.ts";
+import { ownDockerRepairNativeSession } from "../../src/docker-desktop/repair-session.ts";
+import { runDockerRuntimeRepairSessionUsing } from "../../src/docker-desktop/repair-session.ts";
 import {
-  validateDockerRuntimeRepairCheckpointTransition as transition,
+  validateDockerRuntimeRepairCheckpointTransition,
   prepareDockerRuntimeRepairSessionCheckpoint,
 } from "../../../domain-model/src/index.ts";
-import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
+import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-access/src/index.ts";
 
 /**
  * 同じ子のclose回数と通知解除を観測する。
@@ -54,7 +54,7 @@ function fixture(
 ) {
   let listener = () => {};
   const counts = { abort: 0, release: 0, unsubscribe: 0 };
-  const session: Session = {
+  const session: DockerDesktopRepairNativeHelperSession = {
     assertLive: () => true,
     onFailureDetected: (callback) => {
       listener = callback;
@@ -117,8 +117,8 @@ function sessionFixture() {
     checkpoint: 0,
     execute: 0,
   };
-  let saved: Checkpoint | null = null;
-  const input: Parameters<typeof runSession>[0] = {
+  let saved: DockerRuntimeRepairCheckpoint | null = null;
+  const input: Parameters<typeof runDockerRuntimeRepairSessionUsing>[0] = {
     operationNonce: "1".repeat(64),
     signal: new AbortController().signal,
     resume: null,
@@ -131,56 +131,60 @@ function sessionFixture() {
     onCheckpoint: (value) => {
       counts.checkpoint++;
       assert.ok(saved);
-      assert.equal(transition(saved, value), true);
+      assert.equal(
+        validateDockerRuntimeRepairCheckpointTransition(saved, value),
+        true,
+      );
       saved = value;
       return;
     },
   };
-  const dependencies: Parameters<typeof runSession>[1] = {
-    acquire: async () => {
-      counts.acquire++;
-      return f.acquire();
-    },
-    prepare: async (session, owner, nonce) => {
-      counts.prepare++;
-      assert.equal(session, f.session);
-      assert.equal(owner, "a".repeat(64));
-      assert.equal(nonce, input.operationNonce);
-      return {
-        scopeSha256: "b".repeat(64),
-        cleanupFailure: () => null,
-        technical: {
-          observe: async (checkpoint) => {
-            counts.observe++;
-            return {
-              ...checkpoint,
-              engine: "ready",
-              hostSafety: "safe",
-              stale: "absent",
-              directories: Object.fromEntries(
-                Object.entries(checkpoint.directories).map(
-                  ([name, directory]) => [
-                    name,
-                    {
-                      ...directory,
-                      source: { state: "absent", identity: null },
-                      retained: { state: "absent", identity: null },
-                    },
-                  ],
-                ),
-              ) as Checkpoint["directories"],
-            };
+  const dependencies: Parameters<typeof runDockerRuntimeRepairSessionUsing>[1] =
+    {
+      acquire: async () => {
+        counts.acquire++;
+        return f.acquire();
+      },
+      prepare: async (session, owner, nonce) => {
+        counts.prepare++;
+        assert.equal(session, f.session);
+        assert.equal(owner, "a".repeat(64));
+        assert.equal(nonce, input.operationNonce);
+        return {
+          scopeSha256: "b".repeat(64),
+          cleanupFailure: () => null,
+          technical: {
+            observe: async (checkpoint) => {
+              counts.observe++;
+              return {
+                ...checkpoint,
+                engine: "ready",
+                hostSafety: "safe",
+                stale: "absent",
+                directories: Object.fromEntries(
+                  Object.entries(checkpoint.directories).map(
+                    ([name, directory]) => [
+                      name,
+                      {
+                        ...directory,
+                        source: { state: "absent", identity: null },
+                        retained: { state: "absent", identity: null },
+                      },
+                    ],
+                  ),
+                ) as DockerRuntimeRepairCheckpoint["directories"],
+              };
+            },
+            precondition: async () => "not_required",
+            execute: async () => {
+              counts.execute++;
+              throw new Error("unexpected effect");
+            },
+            awaitEngine: async () => ({ state: "ready", continuation: null }),
           },
-          precondition: async () => "not_required",
-          execute: async () => {
-            counts.execute++;
-            throw new Error("unexpected effect");
-          },
-          awaitEngine: async () => ({ state: "ready", continuation: null }),
-        },
-      };
-    },
-  };
+        };
+      },
+    };
   return {
     ...f,
     nativeCounts: f.counts,
@@ -212,7 +216,10 @@ function sessionFixture() {
  */
 test("修復接続: 初回とclean再入場を実Machineへ結びfinal候補を未保存で返す", async () => {
   const f = sessionFixture();
-  const result = await runSession(f.input, f.dependencies);
+  const result = await runDockerRuntimeRepairSessionUsing(
+    f.input,
+    f.dependencies,
+  );
   assert.equal(result.preparation, "prepared");
   assert.equal(result.machine?.status, "recovered");
   assert.equal(result.lifecycle?.cleanup.cleanup, "confirmed");
@@ -225,7 +232,7 @@ test("修復接続: 初回とclean再入場を実Machineへ結びfinal候補を�
   assert.equal(f.counts.execute, 0);
   assert.ok(result.checkpoint);
   const next = sessionFixture();
-  const resumed = await runSession(
+  const resumed = await runDockerRuntimeRepairSessionUsing(
     {
       ...next.input,
       resume: {
@@ -277,7 +284,7 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
           return cleanup;
         },
       });
-      const result = await runSession(
+      const result = await runDockerRuntimeRepairSessionUsing(
         {
           ...f.input,
           onCheckpoint: (value) => {
@@ -343,10 +350,15 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
       assert.equal(result.finalCheckpointConfirmed, false);
       assert.equal(f.nativeCounts.abort, 1);
       assert.equal(f.nativeCounts.release, 0);
-      assert.ok(transition(f.saved(), result.checkpoint));
+      assert.ok(
+        validateDockerRuntimeRepairCheckpointTransition(
+          f.saved(),
+          result.checkpoint,
+        ),
+      );
       const next = sessionFixture();
       assert.ok(result.checkpoint);
-      const rejected = await runSession(
+      const rejected = await runDockerRuntimeRepairSessionUsing(
         {
           ...next.input,
           resume: {
@@ -383,7 +395,7 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
  * @cleanup 同じ模擬子をabortし後続通知を解除する。
  */
 async function assertPreparationCleanupUnknown(
-  connection: typeof runSession,
+  connection: typeof runDockerRuntimeRepairSessionUsing,
   cancel: boolean,
 ) {
   const f = sessionFixture();
@@ -460,7 +472,10 @@ test("修復接続: prepare返却時のcleanup不明は準備拒否・取消よ�
     source.replace(capture, "").replace(later, capture + later),
   );
   for (const cancel of [false, true]) {
-    await assertPreparationCleanupUnknown(runSession, cancel);
+    await assertPreparationCleanupUnknown(
+      runDockerRuntimeRepairSessionUsing,
+      cancel,
+    );
     await assert.rejects(() => assertPreparationCleanupUnknown(mutant, cancel));
   }
 });
@@ -486,8 +501,12 @@ test("修復接続: prepare返却時のcleanup不明は準備拒否・取消よ�
  */
 test("修復接続: 不正再入場と準備保存拒否はMachine開始前に止まる", async () => {
   const baseline = sessionFixture();
-  const complete = (await runSession(baseline.input, baseline.dependencies))
-    .checkpoint;
+  const complete = (
+    await runDockerRuntimeRepairSessionUsing(
+      baseline.input,
+      baseline.dependencies,
+    )
+  ).checkpoint;
   assert.ok(complete);
   for (const checkpoint of [
     { ...complete, cleanup: "pending" },
@@ -517,13 +536,13 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
     },
   ]) {
     const f = sessionFixture();
-    const result = await runSession(
+    const result = await runDockerRuntimeRepairSessionUsing(
       {
         ...f.input,
         resume: {
           ownerBindingSha256: "a".repeat(64),
           scopeSha256: "b".repeat(64),
-          checkpoint: checkpoint as Checkpoint,
+          checkpoint: checkpoint as DockerRuntimeRepairCheckpoint,
         },
       },
       f.dependencies,
@@ -534,7 +553,7 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
   }
   for (const field of ["ownerBindingSha256", "scopeSha256"] as const) {
     const f = sessionFixture();
-    const result = await runSession(
+    const result = await runDockerRuntimeRepairSessionUsing(
       {
         ...f.input,
         resume: {
@@ -563,7 +582,7 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
     const f = sessionFixture();
     const controller = new AbortController();
     let preparedCalls = 0;
-    const result = await runSession(
+    const result = await runDockerRuntimeRepairSessionUsing(
       {
         ...f.input,
         signal: controller.signal,
@@ -617,7 +636,9 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
  * @oracle Source抽出が成立しなければ停止し、変異だけを同じOracleへ渡す。
  * @cleanup VMとSource変異をメモリ内で破棄する。
  */
-function repairConnectionMutant(source: string): typeof runSession {
+function repairConnectionMutant(
+  source: string,
+): typeof runDockerRuntimeRepairSessionUsing {
   const stripped = stripTypeScriptTypes(
     source
       .replace(/import[\s\S]*?from "[^"]+";/gu, "")
@@ -628,10 +649,10 @@ function repairConnectionMutant(source: string): typeof runSession {
     `((types, decode, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine) => { ${stripped}; return runDockerRuntimeRepairSessionUsing; })`,
   )(
     types,
-    decode,
+    decodeDockerRuntimeRepairCheckpoint,
     prepareDockerRuntimeRepairSessionCheckpoint,
     runDockerRuntimeRepairMachine,
-  ) as typeof runSession;
+  ) as typeof runDockerRuntimeRepairSessionUsing;
 }
 
 /**
@@ -655,7 +676,7 @@ function repairConnectionMutant(source: string): typeof runSession {
  */
 test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証する", async () => {
   const oracle = async (
-    runner: typeof runSession,
+    runner: typeof runDockerRuntimeRepairSessionUsing,
     mode: "normal" | "reject" | "lost",
   ) => {
     const f = sessionFixture();
@@ -674,7 +695,7 @@ test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証す
      * @cleanup N/A: 局所の文字列配列のみ。
      * @boundary 実Runtime通知と有限処置。実OS操作なし。
      */
-    const record = (checkpoint: Checkpoint) => {
+    const record = (checkpoint: DockerRuntimeRepairCheckpoint) => {
       const value = Object.values(checkpoint.actions.stop_runtime).join(":");
       if (sequence.at(-1) !== value) sequence.push(value);
     };
@@ -745,7 +766,7 @@ test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証す
     }
   };
   for (const mode of ["normal", "reject", "lost"] as const)
-    await oracle(runSession, mode);
+    await oracle(runDockerRuntimeRepairSessionUsing, mode);
   const source = fs.readFileSync(
     new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
@@ -799,7 +820,7 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
   ] as const) {
     const f = sessionFixture();
     const controller = new AbortController();
-    const result = await runSession(
+    const result = await runDockerRuntimeRepairSessionUsing(
       {
         ...f.input,
         signal: controller.signal,
@@ -829,7 +850,9 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
   let traps = 0;
   for (const mode of ["getter", "input_proxy", "signal_proxy"] as const) {
     const f = sessionFixture();
-    let input: Parameters<typeof runSession>[0] = { ...f.input };
+    let input: Parameters<typeof runDockerRuntimeRepairSessionUsing>[0] = {
+      ...f.input,
+    };
     if (mode === "getter")
       Object.defineProperty(input, "operationNonce", {
         get() {
@@ -855,7 +878,8 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
         }),
       };
     assert.equal(
-      (await runSession(input, f.dependencies)).preparation,
+      (await runDockerRuntimeRepairSessionUsing(input, f.dependencies))
+        .preparation,
       "input_rejected",
     );
     assert.equal(f.counts.acquire, 0);
@@ -888,7 +912,12 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
             },
           );
     assert.equal(
-      (await runSession({ ...f.input, onPrepared }, f.dependencies)).machine,
+      (
+        await runDockerRuntimeRepairSessionUsing(
+          { ...f.input, onPrepared },
+          f.dependencies,
+        )
+      ).machine,
       null,
     );
     assert.equal(f.counts.observe, 0);
@@ -921,7 +950,7 @@ test("修復生涯: 取消中に遅れて取得した同じ子を終了待機す
   const controller = new AbortController();
   controller.abort();
   let acquisitions = 0;
-  const early = await run(
+  const early = await ownDockerRepairNativeSession(
     controller.signal,
     async () => {
       acquisitions++;
@@ -944,7 +973,7 @@ test("修復生涯: 取消中に遅れて取得した同じ子を終了待機す
   let acquire!: (value: Awaited<ReturnType<typeof f.acquire>>) => void;
   let executed = 0;
   let settled = false;
-  const pending = run(
+  const pending = ownDockerRepairNativeSession(
     next.signal,
     () =>
       new Promise((resolve) => {
@@ -994,7 +1023,7 @@ test("修復生涯: 正常releaseとNative失敗abortを分離する", async () 
       if (mode === "close_throw") throw new Error();
       return { cleanup: "confirmed", protocol: "completed" };
     });
-    const result = await run(
+    const result = await ownDockerRepairNativeSession(
       new AbortController().signal,
       f.acquire,
       async (session, owner, signal) => {
@@ -1060,7 +1089,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
     "acquired",
   ] as const) {
     const controller = new AbortController();
-    const pending = run(
+    const pending = ownDockerRepairNativeSession(
       controller.signal,
       async () => {
         controller.abort();
@@ -1075,16 +1104,20 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
   for (const first of ["cancelled", "helper_failed"] as const) {
     const controller = new AbortController();
     const f = fixture();
-    const result = await run(controller.signal, f.acquire, async () => {
-      if (first === "cancelled") {
-        controller.abort();
-        f.fail();
-      } else {
-        f.fail();
-        controller.abort();
-      }
-      return { value: 7, abortRequired: false };
-    });
+    const result = await ownDockerRepairNativeSession(
+      controller.signal,
+      f.acquire,
+      async () => {
+        if (first === "cancelled") {
+          controller.abort();
+          f.fail();
+        } else {
+          f.fail();
+          controller.abort();
+        }
+        return { value: 7, abortRequired: false };
+      },
+    );
     assert.equal(result.failure, first);
     assert.deepEqual(f.counts, { abort: 1, release: 0, unsubscribe: 1 });
   }
@@ -1097,7 +1130,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
         return { cleanup: "unknown" as const, protocol };
       },
     };
-    const result = await run(
+    const result = await ownDockerRepairNativeSession(
       new AbortController().signal,
       async () => ({
         status: "acquired",
@@ -1122,7 +1155,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
    * @cleanup 取り付けたSignal観測代役を復元して同じSessionを終了する。
    * @boundary 取消とNative Sessionの有限代役。実Processは生成しない。
    */
-  const oracle = async (runner: typeof run) => {
+  const oracle = async (runner: typeof ownDockerRepairNativeSession) => {
     const controller = new AbortController();
     const initialListeners = getEventListeners(
       controller.signal,
@@ -1172,7 +1205,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
     assert.equal((internal as AbortSignal | null)?.aborted, false);
     assert.equal(notifications, 0);
   };
-  await oracle(run);
+  await oracle(ownDockerRepairNativeSession);
   const source = fs.readFileSync(
     new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
@@ -1187,7 +1220,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
   );
   const mutated = runInThisContext(
     `(() => { ${mutant}; return ownDockerRepairNativeSession; })()`,
-  ) as typeof run;
+  ) as typeof ownDockerRepairNativeSession;
   await assert.rejects(() => oracle(mutated), assert.AssertionError);
   assert.equal(
     source.split('signal.removeEventListener("abort", cancel);').length,
@@ -1205,7 +1238,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
   );
   const removalMutant = runInThisContext(
     `(() => { ${noRemoval}; return ownDockerRepairNativeSession; })()`,
-  ) as typeof run;
+  ) as typeof ownDockerRepairNativeSession;
   await assert.rejects(() => oracle(removalMutant), assert.AssertionError);
 });
 
@@ -1236,7 +1269,7 @@ test("修復生涯: 取得不能の回収分類と同期失敗を保持する", 
     "acquired",
   ] as const) {
     let executed = 0;
-    const result = await run(
+    const result = await ownDockerRepairNativeSession(
       new AbortController().signal,
       async () => ({ status, session: null, ownerBindingSha256: null }),
       async () => {
@@ -1257,7 +1290,7 @@ test("修復生涯: 取得不能の回収分類と同期失敗を保持する", 
       status === "protocol_failed" ? "failed" : "not_applicable",
     );
   }
-  const thrown = await run(
+  const thrown = await ownDockerRepairNativeSession(
     new AbortController().signal,
     async () => {
       throw new Error();
@@ -1278,7 +1311,7 @@ test("修復生涯: 取得不能の回収分類と同期失敗を保持する", 
       };
     },
   };
-  const result = await run(
+  const result = await ownDockerRepairNativeSession(
     new AbortController().signal,
     async () => ({
       status: "acquired",

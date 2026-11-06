@@ -39,17 +39,17 @@ const productionExecutionDependencies: PublicExecutionDependencies =
  * @responsibility Coordinator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
- * @returns runCoordinatorPublicObjectiveの計算結果を返す。
- * @precondition 「rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunCoordinatorPublicObjectiveの入力契約を満たす。
- * @postcondition runCoordinatorPublicObjectiveの責務を完了した結果だけを返す。
+ * @returns runObjectiveの計算結果を返す。
+ * @precondition 「rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunObjectiveの入力契約を満たす。
+ * @postcondition runObjectiveの責務を完了した結果だけを返す。
  * @effect Repository・判断記録を観測し、受付状態の保存と認可済みTask実行を既存Ownerへ委譲する。
- * @failure runCoordinatorPublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure runObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 予約・開始・結果保存・配送の順序と同じ要求Identityを維持する。
  * @boundary 公開Objective入力→認証・保存・実行依存の境界を接続する。
  * @security 認証済み主体・Repository・要求範囲を既存境界で検証し、現在の許可外へ実行を拡張しない。
  * @concurrency 取消Signalと実行・保存・結果搬送の非同期完了を既存Lifecycleへ接続する。
  */
-export function runCoordinatorPublicObjective(
+export function runObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),

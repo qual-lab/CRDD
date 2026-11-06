@@ -21,7 +21,7 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "../../../src/execution/provider-executor.ts";
 import {
-  preparationSelection as attemptSelection,
+  preparationSelection,
   executionSelection,
 } from "../../fixtures/ai-selection.ts";
 import { createAttemptPreparation } from "../../fixtures/attempt-preparation.ts";
@@ -35,7 +35,7 @@ const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
   executorProvider: "claude" as const,
-  ...attemptSelection(fixedSelection),
+  ...preparationSelection(fixedSelection),
   selectionHash: hashExecutionSelection(fixedSelection) as string,
   taskAttempt: 0 as const,
   model: fixedSelection.modelIdentifier,
@@ -215,7 +215,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
   const fixture = createFixture({
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
-      ...attemptSelection(
+      ...preparationSelection(
         executionSelection("advice", {
           provider: "claude",
           model: "opus",
@@ -236,7 +236,7 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
-        ...attemptSelection(
+        ...preparationSelection(
           executionSelection("advice", {
             provider: "claude",
             model: "opus",
@@ -688,7 +688,7 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
   const fixture = createFixture({
     consumeModelSelection: () => ({
       ...MODEL_SELECTION,
-      ...attemptSelection(
+      ...preparationSelection(
         executionSelection("executor", {
           provider: "claude",
           model: "opus",
@@ -976,7 +976,7 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
     consumeModelSelection: (selection, management) => {
       const consumed = selectionRuntime.consume(selection, management);
       return consumed
-        ? { ...consumed, ...attemptSelection(consumed.executionSelection) }
+        ? { ...consumed, ...preparationSelection(consumed.executionSelection) }
         : null;
     },
   });

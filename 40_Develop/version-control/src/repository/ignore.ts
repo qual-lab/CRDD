@@ -10,7 +10,7 @@ import {
   resolveRepositoryGitLayout,
   type EntitySnapshot,
   type RepositoryGitLayout,
-  REPOSITORY_GIT_EXCLUDE_MAX_BYTES as MAX_EXCLUDE_FILE_BYTES,
+  REPOSITORY_GIT_EXCLUDE_MAX_BYTES,
   decodeUtf8,
   identity,
   isEnoent,
@@ -97,7 +97,7 @@ function desiredExcludeBytes(
     existing,
     Buffer.from(`${separator}${entry}\n`, "utf8"),
   ]);
-  if (bytes.length > MAX_EXCLUDE_FILE_BYTES)
+  if (bytes.length > REPOSITORY_GIT_EXCLUDE_MAX_BYTES)
     throw new Error("repository_git_exclude_too_large");
   return Object.freeze({ changed: true, bytes });
 }
@@ -255,7 +255,7 @@ function writeRepositoryLocalExcludeInternal(
   try {
     const read = readStableFileBytes(
       excludePath,
-      MAX_EXCLUDE_FILE_BYTES,
+      REPOSITORY_GIT_EXCLUDE_MAX_BYTES,
       [layout.commonDirectory, layout.infoDirectory],
       true,
     );
@@ -384,7 +384,7 @@ function writeRepositoryLocalExcludeInternal(
       verifyEntitySnapshot(lockSnapshot);
       const closed = readStableFileBytes(
         lockPath,
-        MAX_EXCLUDE_FILE_BYTES,
+        REPOSITORY_GIT_EXCLUDE_MAX_BYTES,
         [layout.commonDirectory],
         true,
       );
@@ -420,7 +420,7 @@ function writeRepositoryLocalExcludeInternal(
       verifyEntitySnapshot(layout.infoDirectory);
       const verified = readStableFileBytes(
         excludePath,
-        MAX_EXCLUDE_FILE_BYTES,
+        REPOSITORY_GIT_EXCLUDE_MAX_BYTES,
         [layout.commonDirectory],
         true,
       );

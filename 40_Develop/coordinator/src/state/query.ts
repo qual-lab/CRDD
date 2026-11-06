@@ -23,7 +23,7 @@ import type { CoordinatorStatePort } from "./persistence.ts";
 import { projectCoordinatorState } from "./projection.ts";
 
 import { type StoreResult, coordinatorDataBoundaryBlocked } from "./result.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "./transaction.ts";
+import { createCurrentCoordinatorPersistencePorts } from "./transaction.ts";
 
 import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 
@@ -236,7 +236,7 @@ export function executeCoordinatorPublicStateQuery(
       effectState: "no_effect" as const,
     });
   return queryCoordinatorState(
-    createCoordinatorPersistencePorts(
+    createCurrentCoordinatorPersistencePorts(
       repositoryRoot,
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
     ).state,
@@ -251,17 +251,17 @@ export function executeCoordinatorPublicStateQuery(
  * @responsibility Coordinator Public 状態 Queryの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
- * @returns runCoordinatorPublicStateQueryの計算結果を返す。
- * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunCoordinatorPublicStateQueryの入力契約を満たす。
- * @postcondition runCoordinatorPublicStateQueryの責務を完了した結果だけを返す。
+ * @returns queryStateの計算結果を返す。
+ * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がqueryStateの入力契約を満たす。
+ * @postcondition queryStateの責務を完了した結果だけを返す。
  * @effect Repositoryと保存済みSnapshotを観測する。Task実行や状態変更は行わない。
- * @failure runCoordinatorPublicStateQueryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure queryStateは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 読取りのみを行い、欠測・観測不能を正常な状態へ補完しない。
  * @boundary 公開照会入力→Repository・認証済み主体・保存済み状態の読取り境界を接続する。
  * @security 認証済み主体とRepository相関を確認し、認可した照会結果だけを返す。
  * @concurrency 返却される読取り処理の完了・失敗を呼出し側へ搬送する。
  */
-export function runCoordinatorPublicStateQuery(
+export function queryState(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,

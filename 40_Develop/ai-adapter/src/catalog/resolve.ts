@@ -6,7 +6,7 @@
  * @trace ARCH-000015
  */
 
-import type { AiModelSelection } from "../provider/types.ts";
+import type { ModelSelection } from "../provider/types.ts";
 
 import type { AiModelCatalog } from "./types.ts";
 
@@ -28,7 +28,7 @@ import { validateAiModelCatalog } from "./validation.ts";
  * @security Path・秘密値・実行権限なし。
  * @compatibility 新形式専用。
  */
-export type AiModelCatalogSnapshot = Readonly<{
+export type ModelCatalog = Readonly<{
   catalog: AiModelCatalog;
   identity: string;
 }>;
@@ -43,10 +43,10 @@ export type AiModelCatalogSnapshot = Readonly<{
  * @security Authority・認証情報を含めない。
  * @compatibility aliasをexactへ変換しない新契約。
  */
-export type AiModelSelectionResult = Readonly<
+export type ModelSelectionResult = Readonly<
   | {
       status: "resolved";
-      value: AiModelSelection & Readonly<{ catalogIdentity: string }>;
+      value: ModelSelection & Readonly<{ catalogIdentity: string }>;
       error: null;
     }
   | {
@@ -60,7 +60,7 @@ export type AiModelSelectionResult = Readonly<
     }
 >;
 
-const modelCatalogSnapshot: AiModelCatalogSnapshot = (() => {
+const modelCatalogSnapshot: ModelCatalog = (() => {
   const result = validateAiModelCatalog(modelCatalogData);
   if (result.status !== "valid")
     throw new Error("ai_model_default_catalog_invalid");
@@ -87,7 +87,7 @@ const modelCatalogSnapshot: AiModelCatalogSnapshot = (() => {
  * @security Identityは完全性の相関値であり署名や実行Authorityではない。
  * @concurrency N/A: 共有可変状態なし。
  */
-export function getModelCatalog(): AiModelCatalogSnapshot {
+export function getModelCatalog(): ModelCatalog {
   return modelCatalogSnapshot;
 }
 
@@ -108,7 +108,7 @@ export function getModelCatalog(): AiModelCatalogSnapshot {
  */
 export function resolveModelSelection(
   candidate: unknown,
-): AiModelSelectionResult {
+): ModelSelectionResult {
   const request = snapshotPlainRecord(
     candidate,
     new Set(["provider", "modelIdentifier", "reasoningEffort", "purpose"]),

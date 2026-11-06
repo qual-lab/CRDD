@@ -7,7 +7,7 @@
  * @security 資格は要求Contextだけに保持し、結果・例外へ転記しない。
  */
 
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import {
   authenticateNormalConnection,
   updateUserRole,
@@ -221,7 +221,7 @@ export async function handleMcpAccessRequest(
   try {
     if (params.name === MCP_CURRENT_ACCESS_TOOL) {
       const projected = readCurrentAccess(context.root, context.token);
-      await yieldToTransport(0);
+      await setTimeout(0);
       return signal.aborted
         ? protocolError(request.id, -32800, "Request cancelled")
         : completeManagementResponse(request.id, projected);
@@ -320,7 +320,7 @@ export async function handleMcpAccessRequest(
     }
     // 同期AM処理を終えてから、届いたTransport取消を処置する機会を設ける。
     // 切断の到着や保存の取消を保証する待機ではない。
-    await yieldToTransport(0);
+    await setTimeout(0);
     if (signal.aborted)
       return protocolError(request.id, -32800, "Request cancelled");
     return completeManagementResponse(request.id, projected);

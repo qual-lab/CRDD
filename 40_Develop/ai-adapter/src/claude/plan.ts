@@ -5,10 +5,7 @@
  * @trace ARCH-000010
  */
 
-import {
-  type ProviderBillingPolicy,
-  getBillingPolicy,
-} from "../billing/policy.ts";
+import { type BillingPolicy, getBillingPolicy } from "../billing/policy.ts";
 
 import { snapshotPlainRecord } from "../provider/input.ts";
 
@@ -113,7 +110,7 @@ export type ClaudeProbePlanResult =
       apiKeyAllowed: false;
       additionalCreditPurchaseAllowed: false;
       automaticPlanSwitchAllowed: false;
-      billingPolicy: ProviderBillingPolicy;
+      billingPolicy: BillingPolicy;
       sessionResumeAllowed: false;
       sessionPersistenceAllowed: false;
       builtInToolsRequested: "none";
@@ -187,7 +184,7 @@ export type ClaudeTaskPlanResult =
       explicitSpendBudgetProfileImplemented: false;
       sessionPersistenceAllowed: false;
       loginPolicy: "existing_claude_subscription_oauth";
-      billingPolicy: ProviderBillingPolicy;
+      billingPolicy: BillingPolicy;
       apiKeyAllowed: false;
       paidApiFallbackAllowed: false;
       additionalCreditPurchaseAllowed: false;
@@ -210,7 +207,7 @@ export type ClaudeExecutionDefinition = Readonly<{
     rawAuthOutputRecorded: false;
     oauthTokenReadByRuntime: false;
   }>;
-  billingPolicy: ProviderBillingPolicy;
+  billingPolicy: BillingPolicy;
   readOnlyProbe: Readonly<{
     command: "claude";
     argv: readonly string[];

@@ -8,7 +8,7 @@
  * @security 生出力を公開結果や例外へ複製しない。
  */
 
-import type { AiProvider } from "./types.ts";
+import type { Provider } from "./types.ts";
 
 import { parseUnambiguousJsonDocument } from "./json.ts";
 
@@ -44,7 +44,7 @@ export type ProviderErrorReason =
  * @compatibility 理由値の意味と優先順位は変えない。
  */
 export type ProviderError = Readonly<{
-  provider: AiProvider;
+  provider: Provider;
   reason: ProviderErrorReason;
 }>;
 
@@ -65,7 +65,7 @@ export type ProviderError = Readonly<{
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function convertProviderError(
-  provider: AiProvider,
+  provider: Provider,
   execution: Readonly<{ stdout: string; stderr: string }>,
 ): ProviderError {
   let claudeEnvelope: Record<string, unknown> | null = null;

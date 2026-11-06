@@ -10,7 +10,7 @@
 import { getModelCatalog } from "../../../../ai-adapter/src/index.ts";
 import { parseUnambiguousJsonDocument } from "../../../../domain-model/src/index.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import {
   evaluateAiProfileManagementPermission,
   resolveRepositoryAccess,
@@ -181,7 +181,7 @@ export async function handleAiSelection({
       requestUrl.searchParams.getAll("repositoryId").length > 1
     )
       throw new Error("ai_selection_input_invalid");
-    await yieldToTransport(0);
+    await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
     const access = resolveSelectionAccess(
       capability,
@@ -214,7 +214,7 @@ export async function handleAiSelection({
         getModelCatalog().catalog,
       );
     const body = JSON.stringify(result);
-    await yieldToTransport(0);
+    await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
     if (!access.authorize()) throw new Error("ai_selection_access_unavailable");
     setResponseHeaders(response);

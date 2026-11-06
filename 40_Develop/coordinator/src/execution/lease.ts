@@ -9,15 +9,15 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   confirmCoordinatorLeaseAcquisition,
-  hashRuntimeStateValueText as digest,
+  hashRuntimeStateValueText,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  hasRuntimeStateKeys as exactKeys,
+  hasRuntimeStateKeys,
   type LeaseKind,
   leaseAcquisitionRecoveryId,
   leaseIdentity,
   observeRepositoryRuntimeDataArea,
   type ProjectQueueEntry,
-  isRuntimeStateObject as plainObject,
+  isRuntimeStateObject,
   type RepositoryRuntimeDataAreaObservation,
   readCoordinatorLeaseAcquisitionOwner,
   readCoordinatorLeaseOwnerLoss,
@@ -135,7 +135,7 @@ export function activeLeaseIsObserved(activeLease: ActiveLease) {
         boundary,
       );
       return (
-        digest(
+        hashRuntimeStateValueText(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         ) === activeLease.snapshotPhysicalIdentity
       );
@@ -236,7 +236,7 @@ export function acquireCoordinatorSnapshotLease(
         const metadata = fs.lstatSync(repositoryRoot);
         return {
           repositoryRoot: repositoryRoot,
-          rootIdentity: digest(
+          rootIdentity: hashRuntimeStateValueText(
             JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
           ),
         };
@@ -273,7 +273,7 @@ export function acquireCoordinatorSnapshotLease(
       !rootMetadata.isDirectory() ||
       rootMetadata.isSymbolicLink() ||
       fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
-      digest(
+      hashRuntimeStateValueText(
         JSON.stringify([
           rootMetadata.dev,
           rootMetadata.ino,
@@ -296,7 +296,7 @@ export function acquireCoordinatorSnapshotLease(
     assertDirectory(locks);
     assertDirectory(lock);
     const metadata = fs.lstatSync(lock);
-    physicalIdentity = digest(
+    physicalIdentity = hashRuntimeStateValueText(
       JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
     );
     assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
@@ -325,7 +325,7 @@ export function acquireCoordinatorSnapshotLease(
         return (
           metadata.isDirectory() &&
           !metadata.isSymbolicLink() &&
-          digest(
+          hashRuntimeStateValueText(
             JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
           ) === physicalIdentity
         );
@@ -471,7 +471,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         const metadata = fs.lstatSync(repositoryRoot);
         return {
           repositoryRoot: repositoryRoot,
-          rootIdentity: digest(
+          rootIdentity: hashRuntimeStateValueText(
             JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
           ),
         };
@@ -585,8 +585,12 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     );
   }
   if (
-    !plainObject(observation) ||
-    !exactKeys(observation, ["status", "ownerProcessId", "ownerGeneration"]) ||
+    !isRuntimeStateObject(observation) ||
+    !hasRuntimeStateKeys(observation, [
+      "status",
+      "ownerProcessId",
+      "ownerGeneration",
+    ]) ||
     observation.ownerProcessId !== first.ownerProcessId ||
     observation.ownerGeneration !== first.ownerGeneration
   )
@@ -634,7 +638,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
             true,
             recoveryId,
           );
-        physicalIdentity = digest(
+        physicalIdentity = hashRuntimeStateValueText(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         );
         assertCoordinatorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
@@ -667,7 +671,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         const metadata = fs.lstatSync(repositoryRoot);
         return {
           repositoryRoot: repositoryRoot,
-          rootIdentity: digest(
+          rootIdentity: hashRuntimeStateValueText(
             JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
           ),
         };
@@ -686,7 +690,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       rootMetadata.isSymbolicLink() ||
       fs.realpathSync.native(initial.repositoryRoot) !==
         initial.repositoryRoot ||
-      digest(
+      hashRuntimeStateValueText(
         JSON.stringify([
           rootMetadata.dev,
           rootMetadata.ino,
@@ -709,7 +713,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       const metadata = fs.lstatSync(lock);
       if (
         physicalIdentity === null ||
-        digest(
+        hashRuntimeStateValueText(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         ) !== physicalIdentity ||
         fs.readdirSync(lock).length !== 0
@@ -750,7 +754,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         const metadata = fs.lstatSync(repositoryRoot);
         return {
           repositoryRoot: repositoryRoot,
-          rootIdentity: digest(
+          rootIdentity: hashRuntimeStateValueText(
             JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
           ),
         };

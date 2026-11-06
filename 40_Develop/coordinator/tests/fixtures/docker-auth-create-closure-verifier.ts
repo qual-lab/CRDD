@@ -20,10 +20,7 @@ import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { mock } from "node:test";
-import {
-  setTimeout as delay,
-  setImmediate as yieldEvents,
-} from "node:timers/promises";
+import { setTimeout, setImmediate } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import * as dockerEnvironmentOperations from "../../../docker-isolation/src/docker-cli/environment.ts";
 import * as dockerTrustOperations from "../../../docker-isolation/src/docker-cli/trust.ts";
@@ -650,7 +647,7 @@ async function executeApprovedAuthCreateClosure() {
         maxBuffer: 64 * 1024,
       },
     );
-    await yieldEvents();
+    await setImmediate();
     const saved =
       store.readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
     assert.equal(saved.status, "completed");
@@ -1104,7 +1101,7 @@ async function executeApprovedAuthCreateClosure() {
     }
     stage = "absence";
     for (let sample = 0; sample < 2; sample++) {
-      if (sample) await delay(250);
+      if (sample) await setTimeout(250);
       for (const filters of [
         [`id=${dockerId}`],
         [

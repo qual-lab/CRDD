@@ -22,7 +22,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import type { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   getAuthenticationDefinition,
   getBillingPolicy,
@@ -380,7 +380,7 @@ export function createDevelopmentExecutionTiming(
  * @security 秘密・Root・認証状態を含めない。
  * @concurrency 不変の局所値。
  */
-export function getCoordinatorCapabilities() {
+export function getCapabilities() {
   return Object.freeze({
     contract: "crdd-coordinator/capabilities",
     contractRevision: 5,
@@ -1689,7 +1689,7 @@ function createSessionRuntime(dependencies: Dependencies) {
       try {
         if (
           !signal ||
-          utilTypes.isProxy(signal) ||
+          types.isProxy(signal) ||
           !(signal instanceof AbortSignal) ||
           signal.aborted ||
           dependencies.isEffectBlocked()
@@ -3598,7 +3598,7 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
     if (
       !rawOptions ||
       typeof rawOptions !== "object" ||
-      utilTypes.isProxy(rawOptions) ||
+      types.isProxy(rawOptions) ||
       Array.isArray(rawOptions)
     ) {
       throw new Error("doctor_options_invalid");
@@ -3739,10 +3739,8 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
     const checks = [
       check(
         "runtime.node",
-        isSupportedCoordinatorNodeRuntime(process.versions.node)
-          ? "confirmed"
-          : "blocked",
-        isSupportedCoordinatorNodeRuntime(process.versions.node)
+        isSupportedNodeRuntime(process.versions.node) ? "confirmed" : "blocked",
+        isSupportedNodeRuntime(process.versions.node)
           ? null
           : "node_24_12_or_newer_required",
       ),
@@ -3801,7 +3799,7 @@ export async function runDoctor(options: unknown = {}, signal?: AbortSignal) {
       platform: process.platform,
       node: {
         version: process.version,
-        supported: isSupportedCoordinatorNodeRuntime(process.versions.node),
+        supported: isSupportedNodeRuntime(process.versions.node),
       },
       repository,
       credentials: {
@@ -5892,17 +5890,17 @@ const MINIMUM = Object.freeze({ major: 24, minor: 12, patch: 0 });
  * @responsibility Supported Coordinator Node Runtimeの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
- * @returns isSupportedCoordinatorNodeRuntimeの計算結果を返す。
- * @precondition 「value: unknown」がisSupportedCoordinatorNodeRuntimeの入力契約を満たす。
- * @postcondition isSupportedCoordinatorNodeRuntimeの責務を完了した結果だけを返す。
- * @effect N/A: isSupportedCoordinatorNodeRuntimeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isSupportedCoordinatorNodeRuntimeは独自の失敗分岐を所有しない。
- * @invariant isSupportedCoordinatorNodeRuntimeは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isSupportedCoordinatorNodeRuntimeはProcess内の同一Subsystemで完結する。
- * @security N/A: isSupportedCoordinatorNodeRuntimeはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isSupportedCoordinatorNodeRuntimeは共有非同期状態を持たない同期処理である。
+ * @returns isSupportedNodeRuntimeの計算結果を返す。
+ * @precondition 「value: unknown」がisSupportedNodeRuntimeの入力契約を満たす。
+ * @postcondition isSupportedNodeRuntimeの責務を完了した結果だけを返す。
+ * @effect N/A: isSupportedNodeRuntimeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isSupportedNodeRuntimeは独自の失敗分岐を所有しない。
+ * @invariant isSupportedNodeRuntimeは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isSupportedNodeRuntimeはProcess内の同一Subsystemで完結する。
+ * @security N/A: isSupportedNodeRuntimeはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isSupportedNodeRuntimeは共有非同期状態を持たない同期処理である。
  */
-export function isSupportedCoordinatorNodeRuntime(value: unknown) {
+export function isSupportedNodeRuntime(value: unknown) {
   if (typeof value !== "string") return false;
   const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.exec(value);
   if (!match) return false;
@@ -5935,7 +5933,7 @@ export function isSupportedCoordinatorNodeRuntime(value: unknown) {
  * @concurrency N/A: assertSupportedCoordinatorNodeRuntimeは共有非同期状態を持たない同期処理である。
  */
 export function assertSupportedCoordinatorNodeRuntime(value: unknown) {
-  if (!isSupportedCoordinatorNodeRuntime(value)) {
+  if (!isSupportedNodeRuntime(value)) {
     throw new Error("coordinator_node_version_unsupported");
   }
 }
@@ -6520,7 +6518,7 @@ function isPlainContainer(value: unknown): value is object {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return false;
     const prototype = Object.getPrototypeOf(value);
@@ -6571,7 +6569,7 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
       ownDataProperty(description, "unsupportedPlatformFallback") !== "none" ||
       !validPlatformFamily(platformFamily) ||
       !Array.isArray(supportedBoundaries) ||
-      utilTypes.isProxy(supportedBoundaries) ||
+      types.isProxy(supportedBoundaries) ||
       !isPlainContainer(satisfiedGuarantees)
     )
       return null;
@@ -6593,7 +6591,7 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
     for (const boundary of COORDINATOR_PLATFORM_BOUNDARIES) {
       const rawGuarantees = ownDataProperty(satisfiedGuarantees, boundary);
       if (rawGuarantees === undefined) continue;
-      if (!Array.isArray(rawGuarantees) || utilTypes.isProxy(rawGuarantees))
+      if (!Array.isArray(rawGuarantees) || types.isProxy(rawGuarantees))
         return null;
       const allowed = new Set<string>(
         COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],

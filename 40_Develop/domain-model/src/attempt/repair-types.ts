@@ -7,8 +7,8 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { actions } from "./repair-validation.ts";
-import type { directories } from "./repair-validation.ts";
+import type { RUNTIME_REPAIR_ACTIONS } from "./repair-validation.ts";
+import type { RUNTIME_REPAIR_DIRECTORIES } from "./repair-validation.ts";
 
 /**
  * 修復Machineが所有し保存Ownerへ渡す技術状態。
@@ -21,10 +21,12 @@ import type { directories } from "./repair-validation.ts";
  * @compatibility 旧Journal・署名chain・OS別phaseを受理しない。
  */
 export type DockerRuntimeRepairCheckpoint = Readonly<{
-  actions: Readonly<Record<(typeof actions)[number], RepairAction>>;
+  actions: Readonly<
+    Record<(typeof RUNTIME_REPAIR_ACTIONS)[number], RepairAction>
+  >;
   directories: Readonly<
     Record<
-      (typeof directories)[number],
+      (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
       Readonly<{
         expected: DirectoryIdentity | null;
         source: DirectoryObservation;
@@ -56,7 +58,7 @@ export type DockerRuntimeRepairCheckpoint = Readonly<{
 export type DockerRuntimeRepairDisposalCheckpoint = Readonly<{
   directories: Readonly<
     Record<
-      (typeof directories)[number],
+      (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
       Readonly<{
         intent: "not_saved" | "saved";
         request: "not_issued" | "issued" | "unknown";
@@ -124,5 +126,5 @@ export type DirectoryObservation = Readonly<{
  * @compatibility 現行checkpointと固定nonceの三用途だけ。
  */
 export type DockerRuntimeRepairRetentionTargets = Readonly<
-  Record<(typeof directories)[number], DirectoryIdentity | null>
+  Record<(typeof RUNTIME_REPAIR_DIRECTORIES)[number], DirectoryIdentity | null>
 >;

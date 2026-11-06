@@ -21,7 +21,7 @@ import {
   leaseIdentity,
 } from "../state/validation.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
-import { digest } from "../state/validation.ts";
+import { hashRuntimeStateValueText } from "../state/validation.ts";
 /**
  * Lease取得Ownerの記録参照を投影する。
  * @responsibility fresh元版と閉じた入力を照合し、同対象だけの候補又は固定投影を返す。
@@ -725,7 +725,7 @@ function createLeaseEvidence(
     projectId,
     createdGeneration: 1,
     updatedGeneration,
-    contentHash: digest(serialized),
+    contentHash: hashRuntimeStateValueText(serialized),
     content,
   });
 }

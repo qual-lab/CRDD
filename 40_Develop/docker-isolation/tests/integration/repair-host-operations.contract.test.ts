@@ -16,7 +16,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import {
   createDockerDesktopRepairDirectoryAccess,
@@ -317,7 +317,7 @@ test("修復Directoryアクセスは同じScope対象だけを観測・退避す
   );
   const factory = runInNewContext(
     `${body}; createDockerDesktopRepairDirectoryAccess`,
-    { fs, createHash, Buffer, path, utilTypes, process: { platform: "win32" } },
+    { fs, createHash, Buffer, path, types, process: { platform: "win32" } },
   ) as typeof createDockerDesktopRepairDirectoryAccess;
   const discarded = factory(
     localAppData,
@@ -498,7 +498,7 @@ test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", 
         {
           Buffer,
           path,
-          utilTypes,
+          types,
           createHash,
           process: { platform: scenario === "non_windows" ? "linux" : "win32" },
           fs: {
@@ -635,7 +635,7 @@ test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", 
       {
         Buffer,
         path,
-        utilTypes,
+        types,
         createHash,
         process: { platform: "win32" },
         fs: {
@@ -906,7 +906,7 @@ test("固定三用途の退避は入力・同一実体・事後不存在を必�
           fs: fakeFs,
           Buffer,
           path,
-          utilTypes,
+          types,
           process: { platform: scenario === "non_windows" ? "linux" : "win32" },
         },
       ) as {
@@ -1020,7 +1020,7 @@ test("固定三用途の退避は入力・同一実体・事後不存在を必�
             fs: fakeFs,
             Buffer,
             path,
-            utilTypes,
+            types,
             process: { platform: "win32" },
           },
         ) as typeof functions;
@@ -1112,7 +1112,7 @@ test("LocalAppDataの固定正常Pathだけを受理し不正値はFS0", () => {
       {
         Buffer,
         path,
-        utilTypes,
+        types,
         process: { platform: "win32" },
         fs: {
           lstatSync() {

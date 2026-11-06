@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  isSupportedCoordinatorNodeRuntime,
+  isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/execution/diagnostics.ts";
 import {
@@ -440,7 +440,7 @@ async function verifyCleanupUnknownThenRecover() {
  * @concurrency runInternalResidueChildは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function runInternalResidueChild(shouldWaitForTermination: boolean) {
-  if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
+  if (!isSupportedNodeRuntime(process.versions.node)) {
     process.stdout.write(
       `${JSON.stringify({ contract: CHILD_READY_CONTRACT, status: "blocked", reason: "signed_recovery_matrix_node_version_unsupported" })}\n`,
     );
@@ -486,7 +486,7 @@ async function runInternalResidueChild(shouldWaitForTermination: boolean) {
  * @concurrency runSignedRecoveryMatrixVerificationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runSignedRecoveryMatrixVerification() {
-  if (!isSupportedCoordinatorNodeRuntime(process.versions.node))
+  if (!isSupportedNodeRuntime(process.versions.node))
     return blocked("signed_recovery_matrix_node_version_unsupported");
   try {
     const failures = await verifyDynamicFakeProviderFailures();

@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
@@ -201,8 +201,8 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
       const calls: [string, string][] = [];
       const run = runInNewContext(`${program}; disposeDockerRepairDirectory`, {
         path,
-        types: utilTypes,
-        yieldToOwner: async () => {
+        types: types,
+        setImmediate: async () => {
           yields++;
           if (scenario === "late_intermediate" && yields === 4)
             entries.set(`${root}\\nested`, { kind: "directory", ino: 999n });
@@ -523,7 +523,7 @@ test("回収factoryは三つの固定対象だけを接続する", async () => {
       Buffer,
       path,
       createHash,
-      utilTypes,
+      types,
       process: { platform: "win32" },
       fs: {
         lstatSync: () => ({

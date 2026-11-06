@@ -6,15 +6,14 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
-  type ModelSelection as AiModelSelection,
+  type ModelSelection,
   getAuthenticationDefinition,
   parseProviderResult,
   planExecution,
   resolveModelSelection,
   type ExecutionResult,
-  type ExecutionResult as ProviderResultParseResult,
   type ExecutionPlan,
 } from "../../../ai-adapter/src/index.ts";
 import {
@@ -43,7 +42,7 @@ import type {
   AttemptReference,
   AttemptRequest,
   AttemptResultReason,
-  AttemptCompletionResult as CompletionResult,
+  AttemptCompletionResult,
   DockerIsolationCommandInput,
   DockerIsolationRuntimeOptions,
   ExecutionRecord,
@@ -52,7 +51,7 @@ import type {
   RuntimeState,
   AttemptDiagnosticNotice,
   CompletionResultInput,
-  AttemptStartResult as StartResult,
+  AttemptStartResult,
   StartResultInput,
 } from "./types.ts";
 
@@ -193,7 +192,7 @@ async function executeAttempt(
   let resultSha256: string | null = null;
   let resultBytes = 0;
   let normalizedResult: AttemptContent | null = null;
-  let providerExecutionObservation: CompletionResult["providerExecutionObservation"] =
+  let providerExecutionObservation: AttemptCompletionResult["providerExecutionObservation"] =
     null;
   let providerTurnObservation: Readonly<Record<string, unknown>> | null = null;
   let reviewFindings: readonly TaskReviewFinding[] | null = null;
@@ -225,7 +224,7 @@ async function executeAttempt(
     | IsolationExecutionResult["cleanup"]["observations"]
     | null = null;
   let processTreeTerminationConfirmed = false;
-  let resourceSnapshot: CompletionResult["resourceSnapshot"] = null;
+  let resourceSnapshot: AttemptCompletionResult["resourceSnapshot"] = null;
   let resourcePreparation: ResourcePreparation | null = null;
 
   /**
@@ -620,7 +619,7 @@ async function executeAttempt(
   let completedObservation:
     | import("./types.ts").AttemptTerminalObservation
     | null = null;
-  let finalResult: CompletionResult;
+  let finalResult: AttemptCompletionResult;
   try {
     try {
       try {
@@ -1147,7 +1146,7 @@ export function prepareAttempt(
   request: AttemptRequest,
   paths: DockerIsolationRuntimeOptions["paths"],
 ) {
-  if (!request || typeof request !== "object" || utilTypes.isProxy(request))
+  if (!request || typeof request !== "object" || types.isProxy(request))
     return null;
   const purpose = Object.getOwnPropertyDescriptor(request, "purpose")?.value;
   const requestKeys = [
@@ -1170,11 +1169,7 @@ export function prepareAttempt(
   const captured = copyPlainDataRecord(request, requestKeys);
   if (captured?.kind !== "attempt") return null;
   const rawTarget = captured.target;
-  if (
-    !rawTarget ||
-    typeof rawTarget !== "object" ||
-    utilTypes.isProxy(rawTarget)
-  )
+  if (!rawTarget || typeof rawTarget !== "object" || types.isProxy(rawTarget))
     return null;
   const targetData = copyPlainDataRecord(rawTarget, [
     "operationId",
@@ -1915,7 +1910,7 @@ export function resolveIsolationCommandInput(
   if (
     (plan.additionalHosts !== null &&
       (!Array.isArray(plan.additionalHosts) ||
-        utilTypes.isProxy(plan.additionalHosts))) ||
+        types.isProxy(plan.additionalHosts))) ||
     assets.fixedDigestImageRequired !== true ||
     plan.providerImageDigest !== expectedImage ||
     plan.proxyImageDigest !== proxy.imageDigest ||
@@ -2063,7 +2058,7 @@ function copyPlainDataRecord(value: unknown, keys: readonly string[]) {
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;
@@ -2110,7 +2105,7 @@ function copyPlainDataRecord(value: unknown, keys: readonly string[]) {
  * @security Hashから完全選定や許可を推定しない。
  * @concurrency 元入力から分離する。
  */
-export function parseModelSelection(value: unknown): AiModelSelection | null {
+export function parseModelSelection(value: unknown): ModelSelection | null {
   const v = copyPlainDataRecord(value, [
     "provider",
     "modelIdentifier",
@@ -2297,7 +2292,7 @@ export function parseAttemptOutput(
   execution: NonNullable<IsolationCommandResult["observation"]>,
   stdoutBytes: number,
 ): Readonly<{
-  result: ProviderResultParseResult<"task" | "advice" | "probe">;
+  result: ExecutionResult<"task" | "advice" | "probe">;
   resultSha256: string | null;
   resultBytes: number;
 }> {
@@ -2333,15 +2328,15 @@ export function parseAttemptOutput(
  */
 export function createStartResult(
   input: StartResultInput & Readonly<{ status: "blocked" }>,
-): StartResult & Readonly<{ status: "blocked" }>;
+): AttemptStartResult & Readonly<{ status: "blocked" }>;
 
 export function createStartResult(
   input: StartResultInput & Readonly<{ status: "started" }>,
-): StartResult & Readonly<{ status: "started" }>;
+): AttemptStartResult & Readonly<{ status: "started" }>;
 
-export function createStartResult(input: StartResultInput): StartResult;
+export function createStartResult(input: StartResultInput): AttemptStartResult;
 
-export function createStartResult(input: StartResultInput): StartResult {
+export function createStartResult(input: StartResultInput): AttemptStartResult {
   const result =
     input.status === "started"
       ? {
@@ -2416,7 +2411,7 @@ export function createStartResult(input: StartResultInput): StartResult {
  */
 export function createCompletionResult(
   input: CompletionResultInput,
-): CompletionResult {
+): AttemptCompletionResult {
   const { status, reason, operationId, recoveryId } = input;
   const cleanupConfirmed =
     input.processTreeTerminationConfirmed &&

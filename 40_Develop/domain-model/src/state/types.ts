@@ -239,9 +239,9 @@ export type CoordinatorTaskSettlementFact =
     }>;
 
 /**
- * durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
+ * durable-foundationで使用するLease Evidence RuntimeStateEnvelopeの値契約を定義する。
  *
- * @responsibility Lease Evidence EnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Lease Evidence RuntimeStateEnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape LeaseEvidenceEnvelopeが表すProperty、識別子およびRelationを型として固定する。
  * @invariant LeaseEvidenceEnvelopeで宣言した値と責務の対応を維持する。
@@ -249,21 +249,21 @@ export type CoordinatorTaskSettlementFact =
  * @security LeaseEvidenceEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility LeaseEvidenceEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type LeaseEvidenceEnvelope = Envelope &
+export type LeaseEvidenceEnvelope = RuntimeStateEnvelope &
   Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
 
 /**
- * durable-foundationで使用するEnvelopeの値契約を定義する。
+ * durable-foundationで使用するRuntimeStateEnvelopeの値契約を定義する。
  *
- * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility RuntimeStateEnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Envelopeで宣言した値と責務の対応を維持する。
- * @boundary N/A: Envelopeの宣言は外部境界を開かない。
- * @security EnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Envelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape RuntimeStateEnvelopeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant RuntimeStateEnvelopeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: RuntimeStateEnvelopeの宣言は外部境界を開かない。
+ * @security RuntimeStateEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility RuntimeStateEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type Envelope = Readonly<{
+export type RuntimeStateEnvelope = Readonly<{
   schema: typeof COORDINATOR_DURABLE_FOUNDATION_CONTRACT;
   schemaRevision: 1;
   recordKind: "project-state" | "queue-entry" | "lease-evidence";

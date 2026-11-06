@@ -12,7 +12,7 @@ import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
-  preparationSelection as attemptSelection,
+  preparationSelection,
 } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
@@ -215,7 +215,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     consumeModelSelection: (useCapability: unknown, management: unknown) => {
       const consumed = selectionRuntime.consume(useCapability, management);
       return consumed
-        ? { ...consumed, ...attemptSelection(consumed.executionSelection) }
+        ? { ...consumed, ...preparationSelection(consumed.executionSelection) }
         : null;
     },
     issueProviderAuthority: (management: unknown, active: unknown) =>

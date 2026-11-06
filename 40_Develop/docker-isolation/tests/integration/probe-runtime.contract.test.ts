@@ -14,7 +14,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import {
   createDockerProbeContainer,
@@ -53,12 +53,12 @@ test("Probe bindingは旧所在Queryを呼ばず拒否する", () => {
   );
   const script = `
     import {runInNewContext} from 'node:vm';
-    import {types as utilTypes} from 'node:util';
+    import {types} from 'node:util';
     import path from 'node:path';
     let reads=0, mkdir=0, unhandled=0, getters=0, reason=null;
     process.on('unhandledRejection',()=>{unhandled++;});
     const factory=runInNewContext(${JSON.stringify(`${body};createDockerProbeRuntimeBinding`)},{
-      process:{platform:'win32'},utilTypes,path,
+      process:{platform:'win32'},types,path,
       observeTrustedDockerCli:()=>({}),verifyTrustedDockerCliSnapshot:()=> 'fixed',
       fs:{mkdirSync:()=>{mkdir++;}},createDockerCliEnvironment:()=>({}),
     });
@@ -183,7 +183,7 @@ test("本番Probe bindingは固定所在の実体と同じCLI snapshotを維持�
     const factory = runInNewContext(
       `${body}; createDockerProbeRuntimeBinding`,
       {
-        utilTypes,
+        types,
         process: { platform: mode === "platform" ? "linux" : "win32" },
         path,
         observeTrustedDockerCli: () => {

@@ -1,6 +1,6 @@
 import { inspectCodexExecutionObservation } from "../../../scripts/ai-adapter-test.ts";
-import { parseExecutionContent as parseFullProviderResult } from "../../../src/provider/result.ts";
-import { extractProviderResult as parseProviderResult } from "../../../src/provider/result.ts";
+import { parseExecutionContent } from "../../../src/provider/result.ts";
+import { extractProviderResult } from "../../../src/provider/result.ts";
 /**
  * ai-adapter:unit:codex-structured-resultの検証範囲を定義する。
  *
@@ -96,7 +96,7 @@ test("Codex観測の検査Ownerは現行・旧形と動的入力の拒否を維�
   ]
     .map((value) => JSON.stringify(value))
     .join("\n");
-  const parsed = parseFullProviderResult({
+  const parsed = parseExecutionContent({
     provider: "codex",
     purpose: "task",
     taskRole: "executor",
@@ -175,7 +175,7 @@ test("共通Probe解析はCodexとClaudeの差を吸収する", () => {
     }),
   };
   for (const provider of ["codex", "claude"] as const) {
-    const parsed = parseProviderResult({
+    const parsed = extractProviderResult({
       provider,
       purpose: "probe",
       raw: output[provider],
@@ -184,16 +184,16 @@ test("共通Probe解析はCodexとClaudeの差を吸収する", () => {
     assert.deepEqual(parsed.value, { status: true });
     assert.equal(parsed.rawOutputReported, false);
     assert.equal(
-      parseProviderResult({ provider, purpose: "probe", raw: "{}" }).status,
+      extractProviderResult({ provider, purpose: "probe", raw: "{}" }).status,
       "blocked",
     );
     assert.equal(
-      parseProviderResult({
+      extractProviderResult({
         provider,
         purpose: "probe",
         raw: output[provider],
         taskRole: "executor",
-      } as unknown as Parameters<typeof parseProviderResult>[0]).status,
+      } as unknown as Parameters<typeof extractProviderResult>[0]).status,
       "blocked",
     );
   }
@@ -250,7 +250,7 @@ test("Task内部エラーはツール未使用と区別し本文を返さない"
     ]
       .map((e) => JSON.stringify(e))
       .join("\n");
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: "codex",
       purpose: "task",
       taskRole: "executor",
@@ -318,7 +318,7 @@ test("内部エラーの語句観測は重複・未分類・欠測を区別す�
     ]
       .map((event) => JSON.stringify(event))
       .join("\n");
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: "codex",
       purpose: "task",
       taskRole: "executor",
@@ -394,7 +394,7 @@ test("既知Warning文面は補助一致だけを返し未知のerrorを警告�
       ]
         .map((event) => JSON.stringify(event))
         .join("\n");
-      const result = parseProviderResult({
+      const result = extractProviderResult({
         provider: "codex",
         purpose: "task",
         taskRole: "executor",

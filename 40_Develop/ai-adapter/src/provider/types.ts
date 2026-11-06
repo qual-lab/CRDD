@@ -39,7 +39,7 @@ export type ProviderExecutionLocations = Readonly<{
  * @security 秘密値や操作Authorityを発行しない。
  * @compatibility 既存の型名・Property・値域を維持する。
  */
-export type AiProvider = "codex" | "claude";
+export type Provider = "codex" | "claude";
 
 /**
  * Catalogで選択可能な推論強度の値を表す。
@@ -51,7 +51,7 @@ export type AiProvider = "codex" | "claude";
  * @security 秘密値や操作Authorityを発行しない。
  * @compatibility 既存の型名・Property・値域を維持する。
  */
-export type AiReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
+export type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 /**
  * 一回の実行へ適用できる技術構成を表す。
@@ -63,11 +63,11 @@ export type AiReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
  * @security 値の妥当性だけで実行を許可しない。
  * @compatibility 新形式の実行選定値である。
  */
-export type AiModelSelection = Readonly<{
-  provider: AiProvider;
+export type ModelSelection = Readonly<{
+  provider: Provider;
   modelIdentifier: string;
   identifierKind: "exact" | "alias";
-  reasoningEffort: AiReasoningEffort;
+  reasoningEffort: ReasoningEffort;
   purpose: "advice" | "task";
 }>;
 
@@ -81,7 +81,7 @@ export type AiModelSelection = Readonly<{
  * @security 数値以外の実値・生Envelopeを含めない。
  * @compatibility 既存結果への任意の診断追加。
  */
-export type ProviderTurnCountDiagnostic = Readonly<{
+export type TurnCountDiagnostic = Readonly<{
   valueType:
     | "missing"
     | "null"

@@ -4,7 +4,7 @@
  * @responsibility DataDescriptorを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000014
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 /**
  * plain-data-snapshotで使用するData Descriptorの値契約を定義する。
@@ -96,7 +96,7 @@ export function snapshotPlainRecord<const K extends string>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;
@@ -145,7 +145,7 @@ export function snapshotPlainArray<T = unknown>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       !Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Array.prototype
     ) {

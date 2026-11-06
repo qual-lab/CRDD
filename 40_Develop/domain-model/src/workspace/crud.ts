@@ -12,7 +12,7 @@ import {
   validCoordinatorWorkspace,
   COORDINATOR_INTEGRATION_CONTRACT,
 } from "./validation.ts";
-import { digest, historyRow } from "../state/validation.ts";
+import { hashRuntimeStateValueText, historyRow } from "../state/validation.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
 /**
  * Workspaceの現在記録を元世代と非使用条件へ限定して更新する。
@@ -244,7 +244,9 @@ export function prepareCoordinatorIntegrationRecordCreation(
     milestoneId: binding.milestoneId,
     queueId: binding.queueId,
     identity: record.identity,
-    contentHash: digest(encodeRuntimeStateValue(record.value)),
+    contentHash: hashRuntimeStateValueText(
+      encodeRuntimeStateValue(record.value),
+    ),
     value: record.value,
   };
   if (!validCoordinatorResultRecord(value))

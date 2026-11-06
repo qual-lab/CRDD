@@ -14,7 +14,7 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import vm from "node:vm";
 import { createDockerCliEnvironment } from "../../src/docker-cli/environment.ts";
 import {
@@ -671,7 +671,7 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
             record.networkPolicyHash === policy.policy.policyHash,
         );
         if (ready) break;
-        await delay(100);
+        await setTimeout(100);
       }
       assert.ok(ready, "network_trial_proxy_not_ready");
       const proxyUrl = `http://crdd:${token}@proxy:8080`;
@@ -762,7 +762,7 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
           !output.includes("CRDD_NETWORK_TRIAL_FAILED") &&
           Date.now() < deadline
         )
-          await delay(100);
+          await setTimeout(100);
         if (output.startsWith("CRDD_NETWORK_TRIAL_FAILED ")) {
           try {
             const report = JSON.parse(
@@ -838,7 +838,7 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
         );
         stage = `${scenario}_waiting_cancel`;
         docker(["container", "stop", "--time", "2", client]);
-        await Promise.race([closed, delay(10000)]);
+        await Promise.race([closed, setTimeout(10000)]);
         assert.ok(joined, "network_trial_attach_unjoined");
         t.diagnostic(
           `${scenario}: version/allow/deny/direct-deny/wait-cancel observed; policy=${policy.policy.policyHash}`,
@@ -894,11 +894,11 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
             /* 正式なfinally回収で再観測する。 */
           }
           const deadline = Date.now() + 10000;
-          while (!joined && Date.now() < deadline) await delay(100);
+          while (!joined && Date.now() < deadline) await setTimeout(100);
           if (!joined) {
             child.kill();
             const closeDeadline = Date.now() + 5000;
-            while (!joined && Date.now() < closeDeadline) await delay(100);
+            while (!joined && Date.now() < closeDeadline) await setTimeout(100);
             processUnjoined = !joined;
           }
         }

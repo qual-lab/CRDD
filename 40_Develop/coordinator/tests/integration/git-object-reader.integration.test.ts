@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   inspectGitCommitTreeCandidate,
-  materializeGitCommitTreeCandidate as materializeVersionControlTree,
+  materializeGitCommitTreeCandidate,
   readGitCommitFileCandidate,
 } from "../../../version-control/src/git/objects.ts";
 import {
@@ -53,7 +53,7 @@ import {
  * @boundary RFD-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function materializeProtectedGitCommitTreeCandidate(candidate: unknown) {
-  return materializeVersionControlTree(
+  return materializeGitCommitTreeCandidate(
     candidate,
     containsRecognizedSecretMaterial,
   );

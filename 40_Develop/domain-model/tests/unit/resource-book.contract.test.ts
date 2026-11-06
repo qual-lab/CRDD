@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createResourceOperationFixture as operationState } from "../support/resource-operation.ts";
+import { createResourceOperationFixture } from "../support/resource-operation.ts";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import {
   applyCoordinatorResourceCleanup,
@@ -78,7 +78,7 @@ function initial(): CoordinatorResourceBook {
 /** 既存Host契約を満たす自己生成Operationを、製品codecで初期化する。 */
 
 test("Operation Identityはv3だけを受理し旧資源名・Imageコピーを保存しない", () => {
-  const { identity, binding } = operationState();
+  const { identity, binding } = createResourceOperationFixture();
   assert.equal(
     validateCoordinatorOperationIdentity(
       identity,
@@ -103,7 +103,7 @@ test("Operation Identityはv3だけを受理し旧資源名・Imageコピーを�
 });
 
 test("保存codecは初回Snapshot＋Intentを同じ改訂へ結合し別OperationのLabelを拒否する", () => {
-  const f = operationState();
+  const f = createResourceOperationFixture();
   for (const foreign of ["none", "all", "mixed"]) {
     const original = snapshot();
     const resources = {

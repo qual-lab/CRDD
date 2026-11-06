@@ -1,4 +1,4 @@
-import type { AiProvider, AiReasoningEffort } from "../provider/types.ts";
+import type { Provider, ReasoningEffort } from "../provider/types.ts";
 
 /**
  * 技術CatalogのModel・用途・Effortと選定結果の型を定義する。
@@ -18,10 +18,10 @@ import type { AiProvider, AiReasoningEffort } from "../provider/types.ts";
  * @compatibility 新形式のみを表し、旧Profileの役割・Tierを持たない。
  */
 export type AiModelDefinition = Readonly<{
-  provider: AiProvider;
+  provider: Provider;
   modelIdentifier: string;
   identifierKind: "exact" | "alias";
-  supportedEfforts: readonly AiReasoningEffort[];
+  supportedEfforts: readonly ReasoningEffort[];
   supportedPurposes: readonly ("advice" | "task")[];
   compatibilityReason: "gpt_5_6_task_not_verified_in_current_runtime" | null;
 }>;

@@ -10,7 +10,7 @@
  */
 import type {
   InteractiveConsoleTextWriteOutcome,
-  TerminalOperationOutcome as InteractiveConsoleOperationOutcome,
+  TerminalOperationOutcome,
 } from "../../../platform-access/src/index.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,7 +44,7 @@ type ProbeHandles = Readonly<{ input: number; output: number }>;
 export type TerminalInteractionProbeAdapter = Readonly<{
   withConsole: (
     operation: (handles: ProbeHandles) => Promise<ProbeStatus>,
-  ) => Promise<InteractiveConsoleOperationOutcome<ProbeStatus>>;
+  ) => Promise<TerminalOperationOutcome<ProbeStatus>>;
   writeText: (
     descriptor: number,
     text: string,

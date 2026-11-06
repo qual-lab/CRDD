@@ -26,7 +26,7 @@ import path from "node:path";
 import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
 import type { TestContext } from "node:test";
 import test from "node:test";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { createDevelopmentExecutionTiming } from "../../src/execution/diagnostics.ts";
 
 import {
@@ -43,8 +43,7 @@ import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/exec
 import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
 import {
   selectionConfig,
-  executionSelection as createExecutionSelection,
-  type executionSelection,
+  executionSelection,
 } from "../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../../domain-model/src/index.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
@@ -67,7 +66,7 @@ import {
 } from "../support/runtime-trace-case.ts";
 import {
   prepareCoordinatorStateOperationSnapshot,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
 } from "../../../domain-model/src/index.ts";
 
 type TraceSnapshot = Readonly<{
@@ -1802,7 +1801,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
               ? "other-task-operation"
               : "task-operation-continuation",
           grantRef: "PHMGRANT-CONTINUATION",
-          executionSelection: createExecutionSelection(
+          executionSelection: executionSelection(
             role === "executor" ? "executor" : "independent_reviewer",
             {
               provider,
@@ -1837,7 +1836,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
           },
         };
         const before = bytes
-          ? decodeCoordinatorStateSnapshot(bytes, binding)
+          ? decodeRuntimeDomainSnapshot(bytes, binding)
           : null;
         if (index === 3 && fault !== "none" && bytes) {
           const mutated = JSON.parse(bytes.toString("utf8"));
@@ -1859,7 +1858,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
               obligations: ["docker_resources"],
             });
           bytes = Buffer.from(`${encodeRuntimeStateValue(mutated)}\n`);
-          assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
+          assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
         }
         const next = prepareCoordinatorStateOperationSnapshot(
           bytes,
@@ -1868,7 +1867,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         );
         if (!next) return false;
         const snapshot = structuredClone(
-          decodeCoordinatorStateSnapshot(next, binding)?.snapshot,
+          decodeRuntimeDomainSnapshot(next, binding)?.snapshot,
         );
         assert.ok(snapshot);
         if (before)
@@ -1913,7 +1912,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
         bytes = Buffer.from(
           `${encodeRuntimeStateValue({ ...snapshot, operations: snapshot.operations.map((item) => (item.recoveryId === operation.recoveryId ? settled : item)) })}\n`,
         );
-        assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
+        assert.ok(decodeRuntimeDomainSnapshot(bytes, binding));
         return true;
       },
     });
@@ -1959,7 +1958,7 @@ test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不�
       String(bytes).includes("SYNTHETIC_REVIEW_FINDING_PRIVATE"),
       false,
     );
-    for (const operation of decodeCoordinatorStateSnapshot(bytes, binding)
+    for (const operation of decodeRuntimeDomainSnapshot(bytes, binding)
       ?.snapshot.operations ?? []) {
       if (operation.kind !== "docker_task") continue;
       assert.equal(operation.execution.providerStart, "unknown");
@@ -5311,8 +5310,8 @@ test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async (
 test("Task producerはRunnerが安全に観測できるexact native completionを返す", async () => {
   const harness = fixture();
   const started = harness.runtime.start(request(), "C:\\repository");
-  assert.equal(utilTypes.isProxy(started.completion), false);
-  assert.equal(utilTypes.isPromise(started.completion), true);
+  assert.equal(types.isProxy(started.completion), false);
+  assert.equal(types.isPromise(started.completion), true);
   assert.strictEqual(
     Object.getPrototypeOf(started.completion),
     Promise.prototype,

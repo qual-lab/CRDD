@@ -7,13 +7,13 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { TurnCountDiagnostic as ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
+import type { TurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import type { DockerRuntimeRepairCheckpoint } from "./repair-types.ts";
 import type { DockerRuntimeRepairDisposalCheckpoint } from "./repair-types.ts";
 import type { DockerRuntimeRepairRetentionTargets } from "./repair-types.ts";
 
-export type { ProviderTurnCountDiagnostic };
+export type { TurnCountDiagnostic };
 
 /** 同じ操作の技術Snapshotと記録状態。資源Identityをcheckpointへ複製しない。 */
 export type CoordinatorResourceBook = Readonly<{
@@ -68,7 +68,7 @@ export type CoordinatorStateTaskOperation = Readonly<{
     responseObserved: boolean;
     receiptRecorded: boolean;
     authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
-    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
+    turnCountDiagnostic?: TurnCountDiagnostic;
     commandObservation?: Readonly<{
       exitCode: number | null;
       stdoutBytes: number;

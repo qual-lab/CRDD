@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../../../src/execution/diagnostics.ts";
+import { isSupportedNodeRuntime } from "../../../src/execution/diagnostics.ts";
 import test from "node:test";
 
 import type { DiagnosticCheck } from "../../../src/execution/diagnostics.ts";
@@ -39,10 +39,10 @@ import { renderDoctorCommandFailure } from "../../../src/cli/recovery-report.ts"
  */
 test("Node基準は24.12.0以上だけを受理する", () => {
   for (const version of ["24.12.0", "24.19.0", "25.0.0"]) {
-    assert.equal(isSupportedCoordinatorNodeRuntime(version), true);
+    assert.equal(isSupportedNodeRuntime(version), true);
   }
   for (const version of ["24.11.9", "23.99.0", "v24.12.0", "bad"]) {
-    assert.equal(isSupportedCoordinatorNodeRuntime(version), false);
+    assert.equal(isSupportedNodeRuntime(version), false);
   }
 });
 

@@ -28,7 +28,7 @@ import type { StoreResult } from "../state/result.ts";
 
 import {
   deriveCoordinatorRepositoryBindingId,
-  validIdentity as isStableId,
+  validIdentity,
 } from "../state/validation.ts";
 import { readWorkspaceCandidatePatch, workspaceWorktreeTarget } from "./git.ts";
 import { manageCoordinatorWorkspace } from "./operations.ts";
@@ -154,7 +154,7 @@ function containsWorkspaceOutputSecret(value: unknown): boolean {
  * @security 保存BindingとHost Pathを返さない。
  * @concurrency 同期Ownerの終了を待ち、操作内でも現在許可を再検査する。
  */
-export function executeWorkspaceCommand(
+export function executeWorkspace(
   ownerRoot: string,
   projectId: string,
   raw: unknown,
@@ -225,7 +225,7 @@ export function executeWorkspaceCommand(
         cursor.length !== 3 ||
         cursor[0] !== projectId ||
         cursor[1] !== current.snapshotRevision ||
-        !isStableId(cursor[2])
+        !validIdentity(cursor[2])
       )
         throw new Error("workspace_cursor_stale");
       after = cursor[2];

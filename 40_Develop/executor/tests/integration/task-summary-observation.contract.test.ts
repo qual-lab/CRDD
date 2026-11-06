@@ -10,8 +10,8 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
-import { parseExecutionContent as parseContent } from "../../../ai-adapter/src/provider/result.ts";
+import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { parseExecutionContent } from "../../../ai-adapter/src/provider/result.ts";
 import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 import { createTaskSummaryObservation } from "../../scripts/task-summary-observation.ts";
 
@@ -118,7 +118,7 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
     "display-throw",
   ] as const) {
     let normalizations = 0;
-    const returned = parseContent(args("synthetic"));
+    const returned = parseExecutionContent(args("synthetic"));
     const observer = createTaskSummaryObservation({
       normalize: () => {
         normalizations++;
@@ -129,7 +129,7 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
           ? () => {
               throw Error("PRIVATE");
             }
-          : parseProviderResult,
+          : extractProviderResult,
       secret:
         scenario === "screen-throw"
           ? () => {
@@ -251,19 +251,21 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
       },
     }),
   ]) {
-    const expected = parseContent(
-      invalidInput as Parameters<typeof parseContent>[0],
+    const expected = parseExecutionContent(
+      invalidInput as Parameters<typeof parseExecutionContent>[0],
     );
     const probe = createTaskSummaryObservation({
       normalize: (input) => {
         assert.equal(input, invalidInput);
-        return parseContent(input);
+        return parseExecutionContent(input);
       },
-      parse: parseProviderResult,
+      parse: extractProviderResult,
       secret: containsRecognizedSecretMaterial,
     });
     assert.deepEqual(
-      probe.wrapped(invalidInput as Parameters<typeof parseContent>[0]),
+      probe.wrapped(
+        invalidInput as Parameters<typeof parseExecutionContent>[0],
+      ),
       expected,
     );
   }
@@ -272,7 +274,7 @@ test("summary観測は元結果を保全し、検査・順序・清掃の不成�
     normalize: () => {
       throw failure;
     },
-    parse: parseProviderResult,
+    parse: extractProviderResult,
     secret: containsRecognizedSecretMaterial,
   });
   assert.throws(

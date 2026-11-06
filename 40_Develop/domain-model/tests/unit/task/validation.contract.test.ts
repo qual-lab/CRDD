@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import vm from "node:vm";
 import { it } from "node:test";
 import { decodeProjectResultAcceptance } from "../../../src/index.ts";
@@ -119,8 +119,8 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   const executable = [
     "isPlainRecord",
     "isDataDescriptor",
-    "snapshotPlainRecord",
-    "snapshotPlainArray",
+    "snapshotRuntimeStateRecord",
+    "snapshotRuntimeStateArray",
   ]
     .map((name) => sourceDeclaration(helperSource, name))
     .join("\n");
@@ -133,9 +133,9 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
       Object.defineProperty(Object.prototype, "value", { value: "inherited", configurable: true });
       const keys = new Set(["resultId"]);
       JSON.stringify({
-        accessorRejected: snapshotPlainRecord(accessor, keys) === null,
-        getterRejected: snapshotPlainRecord(getterInput, keys) === null,
-        dataAccepted: snapshotPlainRecord({ resultId: "valid" }, keys)?.resultId === "valid",
+        accessorRejected: snapshotRuntimeStateRecord(accessor, keys) === null,
+        getterRejected: snapshotRuntimeStateRecord(getterInput, keys) === null,
+        dataAccepted: snapshotRuntimeStateRecord({ resultId: "valid" }, keys)?.resultId === "valid",
         getterCalls,
       });
     } finally {
@@ -146,7 +146,7 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   const observed = JSON.parse(
     vm.runInNewContext(
       `${executable}\n${stimulus}`,
-      { utilTypes },
+      { types },
       { timeout: 1000 },
     ),
   );
@@ -160,11 +160,7 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   assert.equal(executable.split(predicate).length, 2);
   const mutant = executable.replace(predicate, '"value" in descriptor');
   const mutantObserved = JSON.parse(
-    vm.runInNewContext(
-      `${mutant}\n${stimulus}`,
-      { utilTypes },
-      { timeout: 1000 },
-    ),
+    vm.runInNewContext(`${mutant}\n${stimulus}`, { types }, { timeout: 1000 }),
   );
   assert.equal(mutantObserved.accessorRejected, false);
   assert.deepEqual(

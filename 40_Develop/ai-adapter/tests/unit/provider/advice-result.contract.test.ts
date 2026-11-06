@@ -11,7 +11,7 @@ import test from "node:test";
 import { parseAdviceReferences } from "../../../src/provider/advice-result.ts";
 
 import {
-  parseAdviceResult as normalizeAdviceResult,
+  parseAdviceResult,
   describeAdviceResultContract,
 } from "../../../src/provider/advice-result.ts";
 
@@ -39,7 +39,7 @@ test("読取り助言の単一JSONを許可済み根拠参照へ拘束する", (
       { text: "次の確認", references: ["PROJECT_CONTEXT.md#next"] },
     ],
   });
-  const result = normalizeAdviceResult(raw, [
+  const result = parseAdviceResult(raw, [
     "PROJECT_CONTEXT.md#current",
     "99_Roadmap/01_Roadmap.md#risk",
     "PROJECT_CONTEXT.md#next",
@@ -79,7 +79,7 @@ test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () =
     { contract: null },
   ]) {
     assert.equal(
-      normalizeAdviceResult(
+      parseAdviceResult(
         JSON.stringify({ ...fixture, ...change }),
         allowedResults,
       ).status,
@@ -87,7 +87,7 @@ test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () =
     );
   }
   assert.equal(
-    normalizeAdviceResult(
+    parseAdviceResult(
       JSON.stringify({
         ...fixture,
         facts: [{ text: "推測", references: ["SECRET.md#unknown"] }],
@@ -97,7 +97,7 @@ test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () =
     "blocked",
   );
   assert.equal(
-    normalizeAdviceResult(
+    parseAdviceResult(
       JSON.stringify({
         ...fixture,
         facts: [{ text: "根拠なし", references: [] }],
@@ -107,14 +107,14 @@ test("読取り投影外参照・根拠なし・曖昧JSONを拒否する", () =
     "blocked",
   );
   assert.equal(
-    normalizeAdviceResult(
+    parseAdviceResult(
       `${JSON.stringify(fixture)}${JSON.stringify(fixture)}`,
       allowedResults,
     ).status,
     "blocked",
   );
   assert.equal(
-    normalizeAdviceResult(
+    parseAdviceResult(
       '{"contract":"crdd-executor/advice-result","contract":"duplicate"}',
       allowedResults,
     ).status,
@@ -170,7 +170,7 @@ test("助言の許可参照は一つの内容規則で検査され元配列か�
       count <= 1024,
     );
     assert.equal(
-      normalizeAdviceResult(raw, references).status,
+      parseAdviceResult(raw, references).status,
       count <= 1024 ? "confirmed" : "blocked",
     );
   }

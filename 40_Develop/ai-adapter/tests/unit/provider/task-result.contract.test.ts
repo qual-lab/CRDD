@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import {
   planExecution,
-  parseProviderResult as parseResolvedResult,
+  parseProviderResult,
   getAuthenticationDefinition,
   type ExecutionPlan,
 } from "../../../src/index.ts";
@@ -70,7 +70,7 @@ test("公開解析はTaskの役割・Effortと元計画の作業量を使用す�
       },
     }),
   };
-  const result = parseResolvedResult(plan, observation);
+  const result = parseProviderResult(plan, observation);
   assert.equal(result.status, "confirmed");
   assert.equal(
     result.providerTurnObservation?.requestedMaximumTurns,
@@ -78,7 +78,7 @@ test("公開解析はTaskの役割・Effortと元計画の作業量を使用す�
   );
   assert.equal(result.providerTurnObservation?.providerReportedTurns, 99);
   assert.deepEqual(
-    parseResolvedResult(
+    parseProviderResult(
       JSON.parse(JSON.stringify(plan)) as ExecutionPlan<"claude", "task">,
       observation,
     ),
@@ -96,14 +96,14 @@ test("公開解析はTaskの役割・Effortと元計画の作業量を使用す�
         resultContext: { ...plan.plan.resultContext, ...change },
       },
     } as ExecutionPlan<"claude", "task">;
-    assert.equal(parseResolvedResult(modified, observation).status, "blocked");
+    assert.equal(parseProviderResult(modified, observation).status, "blocked");
   }
   for (const taskWorkload of [undefined, null, { readPathCount: 0 }]) {
     const modified = {
       ...plan,
       plan: { ...plan.plan, taskWorkload },
     } as ExecutionPlan<"claude", "task">;
-    assert.equal(parseResolvedResult(modified, observation).status, "blocked");
+    assert.equal(parseProviderResult(modified, observation).status, "blocked");
   }
 });
 
@@ -380,9 +380,9 @@ test("公開解析は元Planの内容と失敗を解決しcontext差替えを拒
       },
     }),
   };
-  assert.equal(parseResolvedResult(plan, observation).status, "confirmed");
+  assert.equal(parseProviderResult(plan, observation).status, "confirmed");
   assert.equal(
-    parseResolvedResult(
+    parseProviderResult(
       JSON.parse(JSON.stringify(plan)) as ExecutionPlan,
       observation,
     ).status,
@@ -400,9 +400,9 @@ test("公開解析は元Planの内容と失敗を解決しcontext差替えを拒
         resultContext: { ...plan.plan.resultContext, ...change },
       },
     } as unknown as ExecutionPlan;
-    assert.equal(parseResolvedResult(candidate, observation).status, "blocked");
+    assert.equal(parseProviderResult(candidate, observation).status, "blocked");
   }
-  const failed = parseResolvedResult(plan, {
+  const failed = parseProviderResult(plan, {
     exitCode: 1,
     stderr: "",
     stdout: JSON.stringify({
@@ -438,14 +438,14 @@ test("共通解析は認証の終了不明と正規未ログインを区別す�
     stderr: "",
     exitCode: 0,
   };
-  assert.equal(parseResolvedResult(plan, output).status, "confirmed");
+  assert.equal(parseProviderResult(plan, output).status, "confirmed");
   for (const exitCode of [null, 1, 2])
     assert.equal(
-      parseResolvedResult(plan, { ...output, exitCode }).status,
+      parseProviderResult(plan, { ...output, exitCode }).status,
       "unknown",
     );
   assert.equal(
-    parseResolvedResult(plan, {
+    parseProviderResult(plan, {
       stdout: JSON.stringify({ loggedIn: false }),
       stderr: "",
       exitCode: 1,

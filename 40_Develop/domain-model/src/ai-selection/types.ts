@@ -1,9 +1,9 @@
 import type {
-  Provider as AiProvider,
-  ReasoningEffort as AiReasoningEffort,
-  ModelSelection as AiModelSelection,
+  Provider,
+  ReasoningEffort,
+  ModelSelection,
 } from "../../../ai-adapter/src/index.ts";
-export type { AiProvider, AiReasoningEffort, AiModelSelection };
+export type { Provider, ReasoningEffort, ModelSelection };
 /**
  * Repository別AI選択設定の共有値契約。
  * @packageDocumentation
@@ -116,7 +116,7 @@ export type TaskExecutionSelections = Readonly<{
  * @security 選定結果は実行Authorityではない。
  * @compatibility 新方式の実行入力である。
  */
-export type ExecutionSelection = AiModelSelection &
+export type ExecutionSelection = ModelSelection &
   Readonly<{
     catalogIdentity: string;
     configIdentity: string;

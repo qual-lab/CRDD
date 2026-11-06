@@ -4,7 +4,7 @@
  * @trace ARCH-000010
  */
 
-import type { AiReasoningEffort } from "../provider/types.ts";
+import type { ReasoningEffort } from "../provider/types.ts";
 
 import type { AiModelCatalog, AiModelDefinition } from "./types.ts";
 
@@ -27,7 +27,7 @@ export type AiModelCatalogValidationResult = Readonly<
 
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
 
-const EFFORTS = new Set<AiReasoningEffort>([
+const EFFORTS = new Set<ReasoningEffort>([
   "low",
   "medium",
   "high",
@@ -148,7 +148,7 @@ export function validateAiModelCatalog(
       (model.identifierKind !== "exact" && model.identifierKind !== "alias") ||
       efforts.status !== "ok" ||
       !parseStringArray(efforts.value, (item) =>
-        EFFORTS.has(item as AiReasoningEffort),
+        EFFORTS.has(item as ReasoningEffort),
       ) ||
       purposes.status !== "ok" ||
       !parseStringArray(
@@ -170,7 +170,7 @@ export function validateAiModelCatalog(
         identifierKind: model.identifierKind,
         supportedEfforts: Object.freeze([
           ...efforts.value,
-        ]) as readonly AiReasoningEffort[],
+        ]) as readonly ReasoningEffort[],
         supportedPurposes: Object.freeze([...purposes.value]) as readonly (
           | "advice"
           | "task"

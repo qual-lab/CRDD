@@ -180,12 +180,12 @@ assert.ok(
   "fixture_snapshot_must_match_driver_input",
 );
 const driver =
-  runInThisContext(`(dependencies)=>{const {Buffer,encodeRuntimeStateValue,decodeCoordinatorStateSnapshot,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure}=dependencies;
+  runInThisContext(`(dependencies)=>{const {Buffer,encodeRuntimeStateValue,decodeRuntimeDomainSnapshot,dockerRecoveryPreparations,borrowHostRecoveryManagementDirectory,coordinatorTaskResourcesAreSettled,coordinatorAuthenticationUnknownCanClose,coordinatorReleasedTaskCanObserveHostAbsence,assertCurrentRecoveryOwner,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRecoveryCheckpoint,writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure}=dependencies;
 ${scenario === "known_id_mutant" ? mutant : body}
 return recoverRuntimeOwnedDockerTaskResources;}`)({
     Buffer,
     encodeRuntimeStateValue,
-    decodeCoordinatorStateSnapshot: decodeRuntimeDomainSnapshot,
+    decodeRuntimeDomainSnapshot: decodeRuntimeDomainSnapshot,
     dockerRecoveryPreparations: new WeakMap([[owner, record]]),
     borrowHostRecoveryManagementDirectory: () => ({
       directory: management,

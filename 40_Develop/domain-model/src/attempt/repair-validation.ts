@@ -43,8 +43,11 @@ export function decodeDockerRuntimeRepairCheckpoint(
     "cleanupFailure",
   ]);
   if (!record) return null;
-  const actionValues = capture(record.actions, actions);
-  const directoryValues = capture(record.directories, directories);
+  const actionValues = capture(record.actions, RUNTIME_REPAIR_ACTIONS);
+  const directoryValues = capture(
+    record.directories,
+    RUNTIME_REPAIR_DIRECTORIES,
+  );
   if (
     !actionValues ||
     !directoryValues ||
@@ -77,8 +80,11 @@ export function decodeDockerRuntimeRepairCheckpoint(
     record.cleanup !== "confirmed"
   )
     return null;
-  const capturedActions = {} as Record<(typeof actions)[number], RepairAction>;
-  for (const [index, key] of actions.entries()) {
+  const capturedActions = {} as Record<
+    (typeof RUNTIME_REPAIR_ACTIONS)[number],
+    RepairAction
+  >;
+  for (const [index, key] of RUNTIME_REPAIR_ACTIONS.entries()) {
     const action = capture(actionValues[key], ["intent", "request", "result"]);
     if (
       !action ||
@@ -106,18 +112,18 @@ export function decodeDockerRuntimeRepairCheckpoint(
     // 明示不要の記録は新Effectを発行しない。意図保存・発行は前処置の確定後だけ。
     if (
       action.intent === "saved" &&
-      !actions
-        .slice(0, index)
-        .every((previous) => settled(capturedActions[previous]))
+      !RUNTIME_REPAIR_ACTIONS.slice(0, index).every((previous) =>
+        settled(capturedActions[previous]),
+      )
     )
       return null;
     capturedActions[key] = Object.freeze(action) as RepairAction;
   }
   const capturedDirectories = {} as Record<
-    (typeof directories)[number],
+    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
     DockerRuntimeRepairCheckpoint["directories"]["primary"]
   >;
-  for (const key of directories) {
+  for (const key of RUNTIME_REPAIR_DIRECTORIES) {
     const pair = capture(directoryValues[key], [
       "expected",
       "source",
@@ -151,10 +157,10 @@ export function decodeDockerRuntimeRepairCheckpoint(
     )
       return null;
   }
-  const retained = directories.some(
+  const retained = RUNTIME_REPAIR_DIRECTORIES.some(
     (key) => capturedDirectories[key].retained.state === "present",
   );
-  const absent = directories.every(
+  const absent = RUNTIME_REPAIR_DIRECTORIES.every(
     (key) => capturedDirectories[key].retained.state === "absent",
   );
   if (record.stale !== (retained ? "retained" : absent ? "absent" : "unknown"))
@@ -189,13 +195,15 @@ export function decodeDockerRuntimeRepairDisposalCheckpoint(
   value: unknown,
 ): DockerRuntimeRepairDisposalCheckpoint | null {
   const record = capture(value, ["directories"]);
-  const values = record ? capture(record.directories, directories) : null;
+  const values = record
+    ? capture(record.directories, RUNTIME_REPAIR_DIRECTORIES)
+    : null;
   if (!values) return null;
   const result = {} as Record<
-    (typeof directories)[number],
+    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
     DockerRuntimeRepairDisposalCheckpoint["directories"]["primary"]
   >;
-  for (const purpose of directories) {
+  for (const purpose of RUNTIME_REPAIR_DIRECTORIES) {
     const item = capture(values[purpose], ["intent", "request", "absence"]);
     if (
       !item ||
@@ -236,7 +244,7 @@ export function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
   const checkpoint = decodeDockerRuntimeRepairDisposalCheckpoint(value);
   return (
     checkpoint !== null &&
-    directories.every(
+    RUNTIME_REPAIR_DIRECTORIES.every(
       (purpose) =>
         checkpoint.directories[purpose].intent === "saved" &&
         checkpoint.directories[purpose].absence === "confirmed_absent",
@@ -265,11 +273,11 @@ export function dockerRuntimeRepairCheckpointIsSettled(
   const checkpoint = decodeDockerRuntimeRepairCheckpoint(value);
   return (
     checkpoint !== null &&
-    actions.every((key) => settled(checkpoint.actions[key]))
+    RUNTIME_REPAIR_ACTIONS.every((key) => settled(checkpoint.actions[key]))
   );
 }
 
-export const actions = Object.freeze([
+export const RUNTIME_REPAIR_ACTIONS = Object.freeze([
   "stop_runtime",
   "terminate_runtime",
   "stop_backend",
@@ -281,7 +289,7 @@ export const actions = Object.freeze([
   "restart_runtime",
 ] as const);
 
-export const directories = Object.freeze([
+export const RUNTIME_REPAIR_DIRECTORIES = Object.freeze([
   "primary",
   "failed",
   "auxiliary",
@@ -423,17 +431,17 @@ export function observation(value: unknown): DirectoryObservation | null {
 export function decodeDockerRuntimeRepairRetentionTargets(
   value: unknown,
 ): DockerRuntimeRepairRetentionTargets | null {
-  const record = capture(value, directories);
+  const record = capture(value, RUNTIME_REPAIR_DIRECTORIES);
   if (!record) return null;
   const targets: Record<
-    (typeof directories)[number],
+    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
     DirectoryIdentity | null
   > = {
     primary: null,
     failed: null,
     auxiliary: null,
   };
-  for (const purpose of directories) {
+  for (const purpose of RUNTIME_REPAIR_DIRECTORIES) {
     const target = record[purpose] === null ? null : identity(record[purpose]);
     if (record[purpose] !== null && target === null) return null;
     targets[purpose] = target;
@@ -451,7 +459,7 @@ export function decodeDockerRuntimeRepairRetentionTargets(
  * @postcondition pending／unknownや過去の回収失敗を新取得で解消しない。
  * @effect N/A: 同期の値生成だけ。
  * @failure 不正値、cleanup未確認または失敗記録ありはnull。
- * @invariant actions・Directory実体・Engine・保持・安全性・失敗を変更しない。
+ * @invariant RUNTIME_REPAIR_ACTIONS・Directory実体・Engine・保持・安全性・失敗を変更しない。
  * @boundary fresh準備の技術候補と保存Owner。
  * @security 候補は取得・保存・実処置Authorityではない。
  * @concurrency N/A: 共有状態なし。
@@ -482,10 +490,10 @@ export function prepareDockerRuntimeRepairSessionCheckpoint(
  */
 export function createDockerRuntimeRepairDisposalCheckpoint(): DockerRuntimeRepairDisposalCheckpoint {
   const result = {} as Record<
-    (typeof directories)[number],
+    (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
     DockerRuntimeRepairDisposalCheckpoint["directories"]["primary"]
   >;
-  for (const purpose of directories)
+  for (const purpose of RUNTIME_REPAIR_DIRECTORIES)
     result[purpose] = Object.freeze({
       intent: "not_saved",
       request: "not_issued",
@@ -519,10 +527,12 @@ export function validateDockerRuntimeRepairDisposalTransition(
   if (
     !before ||
     !after ||
-    !directories.includes(purpose as (typeof directories)[number])
+    !RUNTIME_REPAIR_DIRECTORIES.includes(
+      purpose as (typeof RUNTIME_REPAIR_DIRECTORIES)[number],
+    )
   )
     return false;
-  for (const key of directories) {
+  for (const key of RUNTIME_REPAIR_DIRECTORIES) {
     const a = before.directories[key];
     const b = after.directories[key];
     if (JSON.stringify(a) === JSON.stringify(b)) continue;
@@ -592,7 +602,7 @@ export function validateDockerRuntimeRepairCheckpointTransition(
   const before = decodeDockerRuntimeRepairCheckpoint(beforeValue);
   const after = decodeDockerRuntimeRepairCheckpoint(afterValue);
   if (!before || !after) return false;
-  for (const key of actions) {
+  for (const key of RUNTIME_REPAIR_ACTIONS) {
     const a = before.actions[key];
     const b = after.actions[key];
     if (JSON.stringify(a) === JSON.stringify(b)) continue;
@@ -610,7 +620,7 @@ export function validateDockerRuntimeRepairCheckpointTransition(
     )
       return false;
   }
-  for (const key of directories) {
+  for (const key of RUNTIME_REPAIR_DIRECTORIES) {
     const a = before.directories[key];
     const b = after.directories[key];
     if (

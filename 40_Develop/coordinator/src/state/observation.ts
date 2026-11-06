@@ -5,11 +5,11 @@
  * @trace ARCH-000004
  */
 
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   readCoordinatorExecutionState,
-  snapshotRuntimeStateArray as snapshotPlainArray,
-  snapshotRuntimeStateRecord as snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
 } from "../../../domain-model/src/index.ts";
 import {
   readExecutionIntelligence,
@@ -44,9 +44,9 @@ import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 function inspectActivityRequest(
   input: RuntimeActivityRequest,
 ): RuntimeActivityRequest {
-  if (!input || typeof input !== "object" || utilTypes.isProxy(input))
+  if (!input || typeof input !== "object" || types.isProxy(input))
     throw new Error("runtime_activity_input_invalid");
-  const record = snapshotPlainRecord(
+  const record = snapshotRuntimeStateRecord(
     input,
     new Set(
       Object.hasOwn(input, "cursor")
@@ -54,7 +54,7 @@ function inspectActivityRequest(
         : ["projectId", "repositories", "limit"],
     ),
   );
-  const entries = snapshotPlainArray(record?.repositories, 10000);
+  const entries = snapshotRuntimeStateArray(record?.repositories, 10000);
   if (
     !record ||
     typeof record.projectId !== "string" ||
@@ -72,7 +72,7 @@ function inspectActivityRequest(
   const repositories: ActivityRepository[] = [];
   const ids = new Set<string>();
   for (const raw of entries.value) {
-    const entry = snapshotPlainRecord(
+    const entry = snapshotRuntimeStateRecord(
       raw,
       new Set(["projectId", "repositoryId", "root"]),
     );
@@ -84,7 +84,7 @@ function inspectActivityRequest(
       ids.has(entry.repositoryId) ||
       !entry.root ||
       typeof entry.root !== "object" ||
-      utilTypes.isProxy(entry.root)
+      types.isProxy(entry.root)
     )
       throw new Error("runtime_activity_input_invalid");
     ids.add(entry.repositoryId);
@@ -159,7 +159,7 @@ function projectActivityEvent(
  * @security 資格、内部Pathと保存Bindingを公開しない。
  * @concurrency 一要求の観測だけを返し、共有Cacheや固定Snapshotを作らない。
  */
-export async function readAuthorizedRuntimeActivity(
+export async function queryActivity(
   input: RuntimeActivityRequest,
   signal?: AbortSignal,
 ): Promise<RuntimeActivityObservation> {

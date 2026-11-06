@@ -11,7 +11,7 @@ import http, {
   type ServerResponse,
 } from "node:http";
 import type { Socket } from "node:net";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   createMcpHandler,
   isJsonContentType,
@@ -96,7 +96,7 @@ function plain(value: unknown): value is Record<string, unknown> {
     value &&
       typeof value === "object" &&
       !Array.isArray(value) &&
-      !utilTypes.isProxy(value) &&
+      !types.isProxy(value) &&
       Object.getPrototypeOf(value) === Object.prototype,
   );
 }

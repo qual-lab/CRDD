@@ -22,7 +22,7 @@ import {
   planDockerIsolationCommands,
 } from "../../../docker-isolation/tests/support/execution-plan.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import type { TestAttemptPlan as AttemptPlan } from "../../scripts/executor-test.ts";
+import type { TestAttemptPlan } from "../../scripts/executor-test.ts";
 import {
   prepareAttempt,
   resolveIsolationCommandInput,
@@ -80,7 +80,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
       });
       assert.equal(chosen.status, "resolved");
       if (chosen.status !== "resolved") throw Error("fixture");
-      const plan: AttemptPlan = {
+      const plan: TestAttemptPlan = {
         ...original,
         operationMode:
           purpose === "task"
@@ -140,7 +140,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
       ]) {
         assert.equal(
           resolveIsolationCommandInput(
-            { ...plan, ...change } as AttemptPlan,
+            { ...plan, ...change } as TestAttemptPlan,
             temporary,
             "a".repeat(64),
           ),
@@ -202,7 +202,7 @@ test("用途構成はExecutorで一意に結合し固定条件差を拒否する
             : command.argv,
       }));
       const mismatch = resolveIsolationCommandInput(
-        { ...plan, commands: altered } as AttemptPlan,
+        { ...plan, commands: altered } as TestAttemptPlan,
         temporary,
       );
       assert.ok(mismatch);

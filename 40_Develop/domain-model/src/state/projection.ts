@@ -12,8 +12,8 @@ import type {
 } from "./projection-types.ts";
 import type { ProjectTaskState } from "../task/types.ts";
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
   validId,
 } from "./validation.ts";
 import { COORDINATOR_STATE_QUERY_CONTRACT } from "./query.ts";
@@ -148,7 +148,7 @@ function countSnapshot<T extends string>(
   states: readonly T[],
   maximum: number,
 ): Readonly<Record<T, number>> | null {
-  const record = snapshotPlainRecord(value, new Set(states));
+  const record = snapshotRuntimeStateRecord(value, new Set(states));
   if (!record) return null;
   let total = 0;
   const entries: [T, number][] = [];
@@ -183,7 +183,7 @@ function countSnapshot<T extends string>(
 export function inspectCoordinatorProjection(
   value: unknown,
 ): CoordinatorProjection | null {
-  const record = snapshotPlainRecord(value, projectionKeys);
+  const record = snapshotRuntimeStateRecord(value, projectionKeys);
   if (!record) return null;
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
@@ -195,7 +195,7 @@ export function inspectCoordinatorProjection(
     TASK_STATES,
     COORDINATOR_MAXIMUM_TASKS,
   );
-  const rawSummaries = snapshotPlainArray(
+  const rawSummaries = snapshotRuntimeStateArray(
     record.objectiveTaskSummaries,
     COORDINATOR_MAXIMUM_OBJECTIVES,
   );
@@ -204,7 +204,7 @@ export function inspectCoordinatorProjection(
   const summaries: CoordinatorProjection["objectiveTaskSummaries"][number][] =
     [];
   for (const raw of rawSummaries.value) {
-    const summary = snapshotPlainRecord(
+    const summary = snapshotRuntimeStateRecord(
       raw,
       new Set(["objectiveId", "objectiveState", "taskCounts"]),
     );
@@ -301,7 +301,7 @@ export function inspectCoordinatorProjection(
 export function inspectCoordinatorStateQueryResult(
   value: unknown,
 ): CoordinatorStateQueryResult | null {
-  const result = snapshotPlainRecord(value, resultKeys);
+  const result = snapshotRuntimeStateRecord(value, resultKeys);
   if (
     !result ||
     (result.status === "completed"

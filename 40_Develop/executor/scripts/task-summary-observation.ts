@@ -12,13 +12,13 @@ import {
   type ProviderResultInput,
   type ProviderResultParseResult,
 } from "../../ai-adapter/src/provider/result.ts";
-import { extractProviderResult as parseProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
+import { extractProviderResult } from "../../ai-adapter/scripts/ai-adapter-test.ts";
 import { containsRecognizedSecretMaterial } from "../../domain-model/src/index.ts";
 
 type Parser = (input: ProviderResultInput) => ProviderResultParseResult;
 type Dependencies = Readonly<{
   normalize: Parser;
-  parse: typeof parseProviderResult;
+  parse: typeof extractProviderResult;
   secret: typeof containsRecognizedSecretMaterial;
 }>;
 type Trace = {
@@ -263,7 +263,7 @@ export function createTaskSummaryObservation(dependencies: Dependencies) {
 export function installTaskSummaryObservation() {
   const observation = createTaskSummaryObservation({
     normalize: parseExecutionContent,
-    parse: parseProviderResult,
+    parse: extractProviderResult,
     secret: containsRecognizedSecretMaterial,
   });
   const replacement = mock.module(

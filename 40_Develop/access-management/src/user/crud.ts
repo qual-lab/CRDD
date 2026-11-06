@@ -14,7 +14,7 @@ import {
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
-import { isAccessRole as isRole } from "../permission/validation.ts";
+import { isAccessRole } from "../permission/validation.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
@@ -98,7 +98,7 @@ export function prepareUserChange(
   next.operationId = operationId;
   let userId: string | null = null;
   if (change.operation === "registerUser") {
-    if (!isUserName(change.username) || !isRole(change.plannedRole))
+    if (!isUserName(change.username) || !isAccessRole(change.plannedRole))
       return null;
     if (
       evaluateManagementPermission(actor.role, {

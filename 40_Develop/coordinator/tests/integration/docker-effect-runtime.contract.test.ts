@@ -19,7 +19,7 @@ import { createAttemptPreparation } from "../fixtures/attempt-preparation.ts";
 import assert from "node:assert/strict";
 import {
   executionSelection,
-  preparationSelection as attemptSelection,
+  preparationSelection,
 } from "../fixtures/ai-selection.ts";
 
 import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
@@ -141,7 +141,7 @@ function createPlanFixture(
         operationId,
         executorProvider: provider,
         model,
-        ...attemptSelection(selected),
+        ...preparationSelection(selected),
         selectionHash: hashExecutionSelection(selected) as string,
         taskAttempt: 0 as const,
         effort: isCompatibilityTask ? ("medium" as const) : ("low" as const),
@@ -173,7 +173,7 @@ function createPlanFixture(
         contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId,
-        ...attemptSelection(selected),
+        ...preparationSelection(selected),
         provider,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),

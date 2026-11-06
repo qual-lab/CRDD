@@ -14,21 +14,18 @@ import crypto, { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { readManagementStateSnapshot as readManagementState } from "../../../src/authorization/management.ts";
+import { readManagementStateSnapshot } from "../../../src/authorization/management.ts";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import { evaluateAiProfileManagementPermission } from "../../../src/index.ts";
 import { createInitialCredential } from "../../../src/initialization/execution.ts";
 import {
-  saveUserRole as updateUserRole,
-  saveRoleContentAccess as updateRoleContentAccess,
+  saveUserRole,
+  saveRoleContentAccess,
 } from "../../../src/role/assign.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
-import {
-  saveUserRegistration as registerUser,
-  saveUserName as updateUserName,
-} from "../../../src/user/crud.ts";
+import { saveUserRegistration, saveUserName } from "../../../src/user/crud.ts";
 import {
   bytes,
   fixture,
@@ -223,7 +220,7 @@ test("管理readは四対象と三Roleの現在範囲だけを返す", (t) => {
       "registeredRepositories",
       "exposure",
     ] as const) {
-      const result = readManagementState(f.root, f.tokens[role], kind);
+      const result = readManagementStateSnapshot(f.root, f.tokens[role], kind);
       if (role === "developer") {
         assert.deepEqual(result, {
           status: "unavailable",
@@ -335,10 +332,13 @@ test("管理readは四対象と三Roleの現在範囲だけを返す", (t) => {
   f.state.revision++;
   f.state.operationId = crypto.randomUUID();
   fs.writeFileSync(current, bytes(f.state));
-  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "users"), {
-    status: "unavailable",
-    reason: "management_state_read_rejected",
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.manager, "users"),
+    {
+      status: "unavailable",
+      reason: "management_state_read_rejected",
+    },
+  );
 });
 
 /**
@@ -385,29 +385,42 @@ test("管理read拒否は材料保持と不正kindの観測0を守る", (t) => {
       },
     ),
   ])
-    assert.deepEqual(readManagementState(f.root, f.tokens.manager, kind), {
-      status: "unavailable",
-      reason: "management_state_read_rejected",
-    });
+    assert.deepEqual(
+      readManagementStateSnapshot(f.root, f.tokens.manager, kind),
+      {
+        status: "unavailable",
+        reason: "management_state_read_rejected",
+      },
+    );
   assert.equal(opened, 0);
   assert.equal(converted, 0);
   fs.openSync = open;
   assert.deepEqual(
-    readManagementState(f.root, createCredentialMaterial().token, "users"),
+    readManagementStateSnapshot(
+      f.root,
+      createCredentialMaterial().token,
+      "users",
+    ),
     {
       status: "unavailable",
       reason: "management_state_authentication_rejected",
     },
   );
-  assert.deepEqual(readManagementState(f.root, f.tokens.developer, "users"), {
-    status: "unavailable",
-    reason: "management_state_read_rejected",
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.developer, "users"),
+    {
+      status: "unavailable",
+      reason: "management_state_read_rejected",
+    },
+  );
   assert.equal(fs.readFileSync(pending, "utf8"), "{");
-  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "users"), {
-    status: "unavailable",
-    reason: "management_state_cleanup_pending",
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.manager, "users"),
+    {
+      status: "unavailable",
+      reason: "management_state_cleanup_pending",
+    },
+  );
   const initial = fixture(t);
   const attempt = prepareInitialUser(initial);
   const issued = createInitialCredential(initial.root, attempt);
@@ -418,7 +431,7 @@ test("管理read拒否は材料保持と不正kindの観測0を守る", (t) => {
     "{",
   );
   assert.deepEqual(
-    readManagementState(initial.root, issued.value.token, "users"),
+    readManagementStateSnapshot(initial.root, issued.value.token, "users"),
     { status: "unavailable", reason: "management_state_read_rejected" },
   );
   assert.equal(
@@ -456,34 +469,46 @@ test("管理readは清掃・解放・観測不明で一覧を返さない", (t) 
       throw new Error("injected");
     return remove(target, options);
   };
-  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "exposure"), {
-    status: "unavailable",
-    reason: "management_state_cleanup_pending",
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.manager, "exposure"),
+    {
+      status: "unavailable",
+      reason: "management_state_cleanup_pending",
+    },
+  );
   fs.rmSync = remove;
-  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "exposure"), {
-    status: "completed",
-    snapshot: { revision: 1, kind: "exposure", repositories: [] },
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.manager, "exposure"),
+    {
+      status: "completed",
+      snapshot: { revision: 1, kind: "exposure", repositories: [] },
+    },
+  );
   fs.rmSync = (target, options) => {
     if (String(target).endsWith("access-management.lock"))
       throw new Error("injected");
     return remove(target, options);
   };
-  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "users"), {
-    status: "unavailable",
-    reason: "management_state_release_unknown",
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.manager, "users"),
+    {
+      status: "unavailable",
+      reason: "management_state_release_unknown",
+    },
+  );
   fs.rmSync = remove;
   assert.equal(
-    readManagementState(f.root, f.tokens.manager, "users").status,
+    readManagementStateSnapshot(f.root, f.tokens.manager, "users").status,
     "completed",
   );
   fs.writeFileSync(path.join(f.directory, "access-management.json"), "{");
-  assert.deepEqual(readManagementState(f.root, f.tokens.manager, "exposure"), {
-    status: "unavailable",
-    reason: "management_state_observation_unknown",
-  });
+  assert.deepEqual(
+    readManagementStateSnapshot(f.root, f.tokens.manager, "exposure"),
+    {
+      status: "unavailable",
+      reason: "management_state_observation_unknown",
+    },
+  );
 });
 
 /**
@@ -508,7 +533,7 @@ test("三Roleと対象三Roleの通常4操作は36組の保存分担を守る", 
         {
           requiresAdministrator: target.role === "administrator",
           invoke: () =>
-            registerUser(
+            saveUserRegistration(
               f.root,
               f.tokens[actorRole],
               1,
@@ -520,7 +545,7 @@ test("三Roleと対象三Roleの通常4操作は36組の保存分担を守る", 
         {
           requiresAdministrator: false,
           invoke: () =>
-            updateUserName(
+            saveUserName(
               f.root,
               f.tokens[actorRole],
               1,
@@ -532,7 +557,7 @@ test("三Roleと対象三Roleの通常4操作は36組の保存分担を守る", 
         {
           requiresAdministrator: target.role === "administrator",
           invoke: () =>
-            updateUserRole(
+            saveUserRole(
               f.root,
               f.tokens[actorRole],
               1,
@@ -545,7 +570,7 @@ test("三Roleと対象三Roleの通常4操作は36組の保存分担を守る", 
         {
           requiresAdministrator: target.role === "administrator",
           invoke: () =>
-            updateRoleContentAccess(
+            saveRoleContentAccess(
               f.root,
               f.tokens[actorRole],
               1,

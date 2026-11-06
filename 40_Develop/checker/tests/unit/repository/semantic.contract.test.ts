@@ -19,7 +19,7 @@ import { getRepository } from "../../../../version-control/src/index.ts";
 import {
   compileQualitySemanticRelationsFromRepository,
   compileSemanticIrFromRepository,
-  createSemanticCoverageGraphResult as createSemanticCoveragePilotGraph,
+  createSemanticCoverageGraphResult,
 } from "../../../src/repository/semantic.ts";
 import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
 import { observeRealitySymbolRepository } from "../../../../domain-model/src/index.ts";
@@ -50,7 +50,7 @@ test("Semantic前提診断はGraph構築を省略し同じ診断列を返す", (
   const findings = [
     { code: "precondition", path: "source.md", message: "unobserved" },
   ];
-  const result = createSemanticCoveragePilotGraph(
+  const result = createSemanticCoverageGraphResult(
     inaccessibleInputs,
     [],
     [],
@@ -286,7 +286,7 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   assert.ok(qualityRelations.relations);
   const discovery = discoverRealitySymbolManifests(repositoryRoot);
   assert.deepEqual(discovery.findings, []);
-  const built = createSemanticCoveragePilotGraph(
+  const built = createSemanticCoverageGraphResult(
     semanticIrs.filter((ir) => ir !== null),
     discovery.manifests,
     qualityRelations.relations,
@@ -469,7 +469,7 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
       ],
     },
   };
-  const result = createSemanticCoveragePilotGraph(
+  const result = createSemanticCoverageGraphResult(
     semanticIrs,
     [manifest],
     relations,
@@ -503,7 +503,7 @@ test("検証Toolを意味実装と偽装しても実装と検証Coverageへ加�
   ).ir;
   assert.ok(ir);
   const key = "coordinator.objective-lifecycle";
-  const result = createSemanticCoveragePilotGraph(
+  const result = createSemanticCoverageGraphResult(
     [
       {
         ...ir,
@@ -609,7 +609,7 @@ test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒�
       ),
     },
   ];
-  const result = createSemanticCoveragePilotGraph(
+  const result = createSemanticCoverageGraphResult(
     semanticIrs,
     [
       {

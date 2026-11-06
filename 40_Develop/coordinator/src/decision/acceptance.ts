@@ -16,10 +16,10 @@ import {
 } from "../../../version-control/src/index.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../state/transaction.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import { createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore } from "./lifecycle.ts";
+import { createCoordinatorSnapshotAcceptanceDecisionStore } from "./lifecycle.ts";
 import {
   COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
   type CoordinatorAcceptanceDecisionRequest,
@@ -407,14 +407,14 @@ export function executeCoordinatorPublicAcceptanceDecision(
       deriveCoordinatorRepositoryBindingId(repositoryRoot);
     const result = recordCoordinatorAcceptanceDecision(
       Object.freeze({
-        state: createCoordinatorPersistencePorts(
+        state: createCurrentCoordinatorPersistencePorts(
           repositoryRoot,
           repositoryBindingId,
         ).state,
         authority: createCoordinatorAcceptanceAuthorityAdapter(
           authenticated.principalId,
         ),
-        store: createCoordinatorAcceptanceDecisionStore(
+        store: createCoordinatorSnapshotAcceptanceDecisionStore(
           repositoryRoot,
           repositoryBindingId,
         ),
@@ -466,7 +466,7 @@ export function executeCoordinatorPublicAcceptanceDecision(
  * @security Store自体を公開せずPrincipal観測結果だけをAuthorityへ渡す。
  * @concurrency 下位Storeの世代制御を維持する。
  */
-export function runCoordinatorPublicAcceptanceDecision(
+export function acceptResult(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,

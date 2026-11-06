@@ -13,7 +13,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { readCurrentAccessState as readCurrentAccess } from "../../../src/authorization/current.ts";
+import { readCurrentAccessState } from "../../../src/authorization/current.ts";
 import { authenticateCredential } from "../../../src/credential/authentication.ts";
 import { createCredentialMaterial } from "../../../src/credential/token.ts";
 import { authenticateNormalConnection } from "../../../src/index.ts";
@@ -221,13 +221,13 @@ test("本人読取りは拒否・材料不明・解放不明でDTOを返さな�
   const wrong =
     f.tokens.manager.slice(0, -1) +
     (f.tokens.manager.endsWith("A") ? "B" : "A");
-  assert.deepEqual(readCurrentAccess(f.root, wrong), {
+  assert.deepEqual(readCurrentAccessState(f.root, wrong), {
     status: "unavailable",
     reason: "current_access_authentication_rejected",
   });
   assert.deepEqual(fs.readFileSync(pending), before);
   fs.writeFileSync(pending, "{");
-  assert.deepEqual(readCurrentAccess(f.root, f.tokens.manager), {
+  assert.deepEqual(readCurrentAccessState(f.root, f.tokens.manager), {
     status: "unavailable",
     reason: "current_access_cleanup_pending",
   });
@@ -241,21 +241,27 @@ test("本人読取りは拒否・材料不明・解放不明でDTOを返さな�
       throw new Error("injected");
     return remove(target, options);
   };
-  assert.deepEqual(readCurrentAccess(f.root, f.tokens.manager), {
+  assert.deepEqual(readCurrentAccessState(f.root, f.tokens.manager), {
     status: "unavailable",
     reason: "current_access_cleanup_pending",
   });
   fs.rmSync = remove;
-  assert.equal(readCurrentAccess(f.root, f.tokens.manager).status, "completed");
+  assert.equal(
+    readCurrentAccessState(f.root, f.tokens.manager).status,
+    "completed",
+  );
   fs.rmSync = (target, options) => {
     if (String(target).endsWith("access-management.lock"))
       throw new Error("injected");
     return remove(target, options);
   };
-  assert.deepEqual(readCurrentAccess(f.root, f.tokens.manager), {
+  assert.deepEqual(readCurrentAccessState(f.root, f.tokens.manager), {
     status: "unavailable",
     reason: "current_access_release_unknown",
   });
   fs.rmSync = remove;
-  assert.equal(readCurrentAccess(f.root, f.tokens.manager).status, "completed");
+  assert.equal(
+    readCurrentAccessState(f.root, f.tokens.manager).status,
+    "completed",
+  );
 });

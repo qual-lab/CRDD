@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   readRepositorySnapshot,
@@ -23,7 +23,7 @@ import {
   type VerificationWorkspacePreparation,
 } from "./workspace-task-fixture.ts";
 import {
-  isSupportedCoordinatorNodeRuntime,
+  isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
   observeRuntimeOwnedDevelopmentSource,
 } from "../src/execution/diagnostics.ts";
@@ -527,7 +527,7 @@ function plainRecord(value: unknown): RuntimeRecord | null {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     ) {
       return null;
     }
@@ -581,7 +581,7 @@ function snapshotStartedTask(value: unknown) {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return Object.freeze({
         controlCapability,
@@ -605,7 +605,7 @@ function snapshotStartedTask(value: unknown) {
       control.enumerable === true &&
       control.value &&
       typeof control.value === "object" &&
-      !utilTypes.isProxy(control.value)
+      !types.isProxy(control.value)
     )
       controlCapability = control.value;
     const observedCompletion = descriptors.completion;
@@ -617,8 +617,8 @@ function snapshotStartedTask(value: unknown) {
       observedCompletion.enumerable === true &&
       observedCompletion.value &&
       typeof observedCompletion.value === "object" &&
-      !utilTypes.isProxy(observedCompletion.value) &&
-      utilTypes.isPromise(observedCompletion.value) &&
+      !types.isProxy(observedCompletion.value) &&
+      types.isPromise(observedCompletion.value) &&
       Object.getPrototypeOf(observedCompletion.value) === Promise.prototype &&
       Object.getOwnPropertyDescriptor(observedCompletion.value, "then") ===
         undefined
@@ -1613,9 +1613,7 @@ export async function runSignedGeneralTaskVerification(
   }
   let isSupportedRuntime = false;
   try {
-    isSupportedRuntime = isSupportedCoordinatorNodeRuntime(
-      dependencies.runtimeVersion(),
-    );
+    isSupportedRuntime = isSupportedNodeRuntime(dependencies.runtimeVersion());
   } catch {
     // The explicit prerequisites remain unconfirmed.
   }

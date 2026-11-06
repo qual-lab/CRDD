@@ -364,7 +364,7 @@ function createRepairOwnerFixture() {
     borrowRuntimeOwnedCoordinatorRecoveryRepository:
       bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
     encodeRuntimeStateValue,
-    decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
+    decodeRuntimeDomainSnapshot: domain.decodeRuntimeDomainSnapshot,
     runDockerRuntimeRepairSession:
       isolationModule.namedExports.runDockerRuntimeRepairSession,
     observeDockerRuntimeRepairRetention:
@@ -386,7 +386,7 @@ function createRepairOwnerFixture() {
     "runDockerRuntimeRepairSession",
     "dockerRuntimeRepairCheckpointIsSettled",
     "borrowRuntimeOwnedCoordinatorRecoveryRepository",
-    "decodeCoordinatorStateSnapshot",
+    "decodeRuntimeDomainSnapshot",
     "encodeRuntimeStateValue",
     "prepareCoordinatorStateRepairSnapshot",
     "prepareCoordinatorStateRepairCheckpointSnapshot",

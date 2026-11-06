@@ -224,7 +224,7 @@ export function createRepositoryWorkbenchActivityReader(
           events: Object.freeze([]),
           eventContinuation: null,
         });
-      const { queryActivity } = await import(
+      const { queryActivity: queryActivity } = await import(
         "../../../../coordinator/src/index.ts"
       );
       const observation = await queryActivity({

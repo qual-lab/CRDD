@@ -32,7 +32,7 @@ import {
 } from "../../../execution-intelligence/src/index.ts";
 import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import {
-  createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
+  createCoordinatorSnapshotAcceptanceDecisionStore,
   createCoordinatorDecisionCapabilityAdapter,
   issueCoordinatorHumanDecision,
   submitCoordinatorHumanDecision,
@@ -48,8 +48,8 @@ import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,
 } from "../../src/objective/types.ts";
-import { readCurrentCoordinatorState as readCoordinatorState } from "../../src/state/query.ts";
-import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { readCurrentCoordinatorState } from "../../src/state/query.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 
@@ -72,7 +72,7 @@ function resolveCoordinatorReplan(
     Readonly<{ workingDirectory: string; repositoryBindingId: string }>,
   classify: CoordinatorReplanClassifier,
 ) {
-  const ports = createCoordinatorPersistencePorts(
+  const ports = createCurrentCoordinatorPersistencePorts(
     input.workingDirectory,
     input.repositoryBindingId,
   );
@@ -100,14 +100,14 @@ function acceptIntegratedResult(
     objectiveId: string;
   }>,
 ) {
-  const persistence = createCoordinatorPersistencePorts(
+  const persistence = createCurrentCoordinatorPersistencePorts(
     input.root,
     input.repositoryBindingId,
   );
   const dependencies = Object.freeze({
     state: persistence.state,
     authority: createCoordinatorAcceptanceAuthorityAdapter("operator-a"),
-    store: createCoordinatorAcceptanceDecisionStore(
+    store: createCoordinatorSnapshotAcceptanceDecisionStore(
       input.root,
       input.repositoryBindingId,
     ),
@@ -117,7 +117,7 @@ function acceptIntegratedResult(
     targetId: string,
     suffix: string,
   ) => {
-    const observed = readCoordinatorState(
+    const observed = readCurrentCoordinatorState(
       input.root,
       input.repositoryBindingId,
       input.projectId,
@@ -340,7 +340,7 @@ test("public intake, bounded retry, progress and integration form one accepted f
     milestoneId: context.request.milestoneId,
     objectiveId: "objective-full",
   });
-  const finalState = readCoordinatorState(
+  const finalState = readCurrentCoordinatorState(
     context.root,
     "binding-full",
     context.request.projectId,
@@ -593,7 +593,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
     reason: "human choice required",
   }));
   assert.equal(escalated.reason, "orchestrator_human_decision_required");
-  const state = readCoordinatorState(
+  const state = readCurrentCoordinatorState(
     context.root,
     "binding-full",
     context.request.projectId,
@@ -624,7 +624,7 @@ test("human decision is one-time and resumes only through a fresh bounded plan",
   const commonFields = {
     ...input,
     capability: createCoordinatorDecisionCapabilityAdapter(),
-    persistence: createCoordinatorPersistencePorts(
+    persistence: createCurrentCoordinatorPersistencePorts(
       context.root,
       "binding-full",
     ),

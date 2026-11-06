@@ -1,4 +1,4 @@
-import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * Workspace試験の回復開始・候補検査診断を、同じTaskと有限な安全結果へ結合する。
  * @trace ERB-IT-021
@@ -44,7 +44,7 @@ const identity = {
 
 /** 合成Provider応答を実Parserで投影し、検査対象の私有Key一覧には依存しない。 */
 function executionObservationFixture(): Record<string, unknown> {
-  const parsed = parseProviderResult({
+  const parsed = extractProviderResult({
     provider: "codex",
     purpose: "task",
     taskRole: "executor",
@@ -509,7 +509,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
   ]
     .map((entry) => JSON.stringify(entry))
     .join("\n");
-  const parsed = parseProviderResult({
+  const parsed = extractProviderResult({
     provider: "codex",
     purpose: "task",
     taskRole: "executor",
@@ -534,7 +534,7 @@ test("内部エラー観測は版・欠測・部分集合相関を検査する",
   assert.equal(JSON.stringify(projection).includes("DO_NOT_RETAIN"), false);
   const warning =
     "Under-development features enabled: code_mode. Under-development features are incomplete and may behave unpredictably. To suppress this warning, set `suppress_unstable_features_warning = true` in /DO_NOT_RETAIN/config.toml.";
-  const warningParsed = parseProviderResult({
+  const warningParsed = extractProviderResult({
     provider: "codex",
     purpose: "task",
     taskRole: "executor",

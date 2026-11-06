@@ -1,4 +1,4 @@
-import { extractProviderResult as parseProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
+import { extractProviderResult } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * Workbench助言のProvider出力抽出契約を検証する。
  *
@@ -67,7 +67,7 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
   ] as const;
   const observed = new Set<string>();
   for (const [provider, raw] of cases) {
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: provider,
       purpose: "advice",
       raw: raw,
@@ -122,7 +122,7 @@ test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () =>
     }),
     JSON.stringify({ type: "turn.completed" }),
   ].join("\n");
-  const result = parseProviderResult({
+  const result = extractProviderResult({
     provider: "codex",
     purpose: "advice",
     raw: raw,
@@ -164,7 +164,7 @@ test("Codexの未知・不正Itemを拒否する", () => {
         }),
         JSON.stringify({ type: "turn.completed" }),
       ].join("\n");
-      const result = parseProviderResult({
+      const result = extractProviderResult({
         provider: "codex",
         purpose: "advice",
         raw: raw,
@@ -212,7 +212,7 @@ test("公式CLIの既知通知を最終助言と分離する", () => {
         },
         { type: "turn.completed" },
       ];
-      const missing = parseProviderResult({
+      const missing = extractProviderResult({
         provider: "codex",
         purpose: "advice",
         raw: events.map((event) => JSON.stringify(event)).join("\n"),
@@ -226,7 +226,7 @@ test("公式CLIの既知通知を最終助言と分離する", () => {
           text: JSON.stringify(ADVICE),
         },
       });
-      const result = parseProviderResult({
+      const result = extractProviderResult({
         provider: "codex",
         purpose: "advice",
         raw: events.map((event) => JSON.stringify(event)).join("\n"),
@@ -272,7 +272,7 @@ test("正常な思考通知を非公開のまま最終助言と分離する", ()
   ]
     .map((event) => JSON.stringify(event))
     .join("\n");
-  const result = parseProviderResult({
+  const result = extractProviderResult({
     provider: "codex",
     purpose: "advice",
     raw: raw,
@@ -285,7 +285,7 @@ test("正常な思考通知を非公開のまま最終助言と分離する", ()
     .map((event) => JSON.stringify(event))
     .join("\n");
   assert.equal(
-    parseProviderResult({
+    extractProviderResult({
       provider: "codex",
       purpose: "advice",
       raw: reasoningOnly,
@@ -326,7 +326,7 @@ test("正常回答があっても不正Itemと不正本文を無視しない", (
     ]
       .map((event) => JSON.stringify(event))
       .join("\n");
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: "codex",
       purpose: "advice",
       raw: raw,
@@ -368,7 +368,7 @@ test("Codexの失敗Turnと複数最終本文を拒否する", () => {
     ].join("\n"),
   ]) {
     assert.equal(
-      parseProviderResult({ provider: "codex", purpose: "advice", raw: raw })
+      extractProviderResult({ provider: "codex", purpose: "advice", raw: raw })
         .status,
       "blocked",
     );
@@ -389,7 +389,7 @@ test("Codexの失敗Turnと複数最終本文を拒否する", () => {
  */
 test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
   for (const numberOfTurns of [1, 2]) {
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: "claude",
       purpose: "advice",
       raw: JSON.stringify({
@@ -438,7 +438,7 @@ test("ClaudeのError、不正Turn数、Cost不正および出力欠落を拒否�
     { total_cost_usd: -1 },
     { structured_output: undefined },
   ]) {
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: "claude",
       purpose: "advice",
       raw: JSON.stringify({
@@ -505,7 +505,7 @@ test("Claude拒否層は先頭不成立だけを返し正の安全整数を受�
     [{ total_cost_usd: -1, structured_output: null }, "metadata_invalid"],
   ];
   for (const [overrides, suffix] of cases) {
-    const result = parseProviderResult({
+    const result = extractProviderResult({
       provider: "claude",
       purpose: "advice",
       raw: JSON.stringify({ ...baseline, ...overrides }),
@@ -517,7 +517,7 @@ test("Claude拒否層は先頭不成立だけを返し正の安全整数を受�
   }
   for (const raw of ["null", "[]", "not-json"])
     assert.equal(
-      parseProviderResult({ provider: "claude", purpose: "advice", raw: raw })
+      extractProviderResult({ provider: "claude", purpose: "advice", raw: raw })
         .error?.reason,
       "workbench_ai_claude_envelope_invalid",
     );
@@ -538,7 +538,7 @@ test("Claude拒否層は先頭不成立だけを返し正の安全整数を受�
         ])
           for (const totalCostUsd of [0, -1, "0", null])
             for (const structuredOutput of [ADVICE, null, []]) {
-              const result = parseProviderResult({
+              const result = extractProviderResult({
                 provider: "claude",
                 purpose: "advice",
                 raw: JSON.stringify({

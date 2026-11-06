@@ -29,7 +29,7 @@ import {
 import { getRepository } from "../../../version-control/src/index.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 
-import { queryActivity as readAuthorizedRuntimeActivity } from "../../src/index.ts";
+import { queryActivity } from "../../src/index.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -233,7 +233,7 @@ function event(
 test("実状態の不存在・単一Owner・複数競合・改訂差を区別する", async (t) => {
   const a = repository(t, "repo-a"),
     b = repository(t, "repo-b");
-  let result = await readAuthorizedRuntimeActivity({
+  let result = await queryActivity({
     projectId,
     repositories: [b.input, a.input],
     limit: 20,
@@ -246,7 +246,7 @@ test("実状態の不存在・単一Owner・複数競合・改訂差を区別す
   );
   assert.ok(a.revision);
   state(a.root, a.revision);
-  result = await readAuthorizedRuntimeActivity({
+  result = await queryActivity({
     projectId,
     repositories: [a.input, b.input],
     limit: 20,
@@ -256,7 +256,7 @@ test("実状態の不存在・単一Owner・複数競合・改訂差を区別す
   assert.equal(result.projection?.projectId, projectId);
   assert.ok(b.revision);
   state(b.root, b.revision);
-  result = await readAuthorizedRuntimeActivity({
+  result = await queryActivity({
     projectId,
     repositories: [a.input, b.input],
     limit: 20,
@@ -280,7 +280,7 @@ test("実状態の不存在・単一Owner・複数競合・改訂差を区別す
     ],
     { windowsHide: true },
   );
-  result = await readAuthorizedRuntimeActivity({
+  result = await queryActivity({
     projectId,
     repositories: [a.input],
     limit: 20,
@@ -307,18 +307,18 @@ test("実履歴は出所を保って全体ページングし集合・改訂変�
   event(b.root, "task-new", "2026-10-12T00:00:03.000Z");
   event(a.root, "task-other", "2026-10-12T00:00:04.000Z", "other-project");
   const request = { projectId, repositories: [b.input, a.input], limit: 1 };
-  const first = await readAuthorizedRuntimeActivity(request);
+  const first = await queryActivity(request);
   assert.equal(first.events.length, 1);
   assert.equal(first.events[0]?.repositoryId, "repo-b");
   assert.ok(first.eventContinuation);
-  const second = await readAuthorizedRuntimeActivity({
+  const second = await queryActivity({
     ...request,
     cursor: first.eventContinuation,
   });
   assert.equal(second.events[0]?.taskId, "task-old");
   assert.equal(second.eventContinuation, null);
   await assert.rejects(
-    readAuthorizedRuntimeActivity({
+    queryActivity({
       ...request,
       repositories: [a.input],
       cursor: first.eventContinuation,
@@ -343,7 +343,7 @@ test("実履歴は出所を保って全体ページングし集合・改訂変�
     { windowsHide: true },
   );
   await assert.rejects(
-    readAuthorizedRuntimeActivity({
+    queryActivity({
       ...request,
       cursor: first.eventContinuation,
     }),
@@ -372,7 +372,7 @@ test("履歴一件不明・出所重複と状態pendingを独立判定する", a
     b = repository(t, "repo-b");
   event(a.root, "task-same", "2026-10-12T00:00:01.000Z");
   event(b.root, "task-same", "2026-10-12T00:00:01.000Z");
-  let result = await readAuthorizedRuntimeActivity({
+  let result = await queryActivity({
     projectId,
     repositories: [a.input, b.input],
     limit: 20,
@@ -384,7 +384,7 @@ test("履歴一件不明・出所重複と状態pendingを独立判定する", a
     path.join(b.root, ".crdd", "execution-intelligence", "history.jsonl"),
     "broken\n",
   );
-  result = await readAuthorizedRuntimeActivity({
+  result = await queryActivity({
     projectId,
     repositories: [a.input, b.input],
     limit: 20,
@@ -397,7 +397,7 @@ test("履歴一件不明・出所重複と状態pendingを独立判定する", a
     path.join(a.root, ".crdd", "domain-model", "state.pending.json"),
     "broken",
   );
-  result = await readAuthorizedRuntimeActivity({
+  result = await queryActivity({
     projectId,
     repositories: [a.input],
     limit: 20,
@@ -423,7 +423,7 @@ test("Git改訂nullは第一Pageを保持して継続を拒否する", async (t)
   event(a.root, "task-1", "2026-10-12T00:00:01.000Z");
   event(a.root, "task-2", "2026-10-12T00:00:02.000Z");
   const request = { projectId, repositories: [a.input], limit: 1 };
-  const result = await readAuthorizedRuntimeActivity(request);
+  const result = await queryActivity(request);
   assert.equal(result.sources[0]?.revision, null);
   assert.equal(result.state, "unknown");
   assert.equal(result.eventState, "observed");
@@ -440,7 +440,7 @@ test("Git改訂nullは第一Pageを保持して継続を拒否する", async (t)
     "utf8",
   ).toString("base64url");
   await assert.rejects(
-    readAuthorizedRuntimeActivity({ ...request, cursor }),
+    queryActivity({ ...request, cursor }),
     /runtime_activity_cursor_revision_unknown/,
   );
 });
@@ -460,31 +460,31 @@ test("入力境界と開始前取消は内容読取りへ進まない", async (t
   const a = repository(t, "repo-a");
   const request = { projectId, repositories: [a.input], limit: 20 };
   await assert.rejects(
-    readAuthorizedRuntimeActivity({ ...request, repositories: [] }),
+    queryActivity({ ...request, repositories: [] }),
     /input_invalid/,
   );
   await assert.rejects(
-    readAuthorizedRuntimeActivity({
+    queryActivity({
       ...request,
       repositories: [a.input, a.input],
     }),
     /input_invalid/,
   );
   await assert.rejects(
-    readAuthorizedRuntimeActivity({
+    queryActivity({
       ...request,
       repositories: [{ ...a.input, projectId: "foreign" }],
     }),
     /input_invalid/,
   );
   await assert.rejects(
-    readAuthorizedRuntimeActivity({
+    queryActivity({
       ...request,
       bindingId: "am-binding",
     } as typeof request),
     /input_invalid/,
   );
-  const fake = await readAuthorizedRuntimeActivity({
+  const fake = await queryActivity({
     ...request,
     repositories: [{ ...a.input, root: { contract: a.input.root.contract } }],
   });
@@ -506,7 +506,7 @@ test("入力境界と開始前取消は内容読取りへ進まない", async (t
   });
   try {
     await assert.rejects(
-      readAuthorizedRuntimeActivity(request, controller.signal),
+      queryActivity(request, controller.signal),
       /runtime_activity_cancelled/,
     );
     assert.equal(reads, 0);
@@ -533,7 +533,7 @@ test("公開活動結果はProject・Source・Event・Cursor相関を閉じる",
   state(a.root, a.revision);
   event(a.root, "task-1", "2026-10-12T00:00:01.000Z");
   event(a.root, "task-2", "2026-10-12T00:00:02.000Z");
-  const result = await readAuthorizedRuntimeActivity({
+  const result = await queryActivity({
     projectId,
     repositories: [a.input, b.input],
     limit: 20,
@@ -673,10 +673,10 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
   const older = event(a.root, "task-offset-old", "2026-10-12T01:00:00+02:00");
   const newer = event(a.root, "task-utc-new", "2026-10-12T00:30:00Z");
   const request = { projectId, repositories: [a.input], limit: 1 };
-  const first = await readAuthorizedRuntimeActivity(request);
+  const first = await queryActivity(request);
   assert.equal(first.events[0]?.eventId, newer.eventId);
   assert.ok(first.eventContinuation);
-  const second = await readAuthorizedRuntimeActivity({
+  const second = await queryActivity({
     ...request,
     cursor: first.eventContinuation,
   });
@@ -687,7 +687,7 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
       .size,
     2,
   );
-  const whole = await readAuthorizedRuntimeActivity({ ...request, limit: 20 });
+  const whole = await queryActivity({ ...request, limit: 20 });
   assert.ok(parseRuntimeActivityObservation(whole));
   assert.equal(
     parseRuntimeActivityObservation({
@@ -701,7 +701,7 @@ test("offset日時も実時刻順で並び同じ境界から継続する", async
     "task-offset-equal",
     "2026-10-12T01:30:00+01:00",
   );
-  const all = await readAuthorizedRuntimeActivity({ ...request, limit: 20 });
+  const all = await queryActivity({ ...request, limit: 20 });
   assert.deepEqual(
     all.events.slice(0, 2).map((item) => item.eventId),
     [newer.eventId, equivalent.eventId].sort().reverse(),

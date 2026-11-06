@@ -7,7 +7,7 @@
  * @boundary AI Adapter内部の入力検査。Domain・保存・Runtimeへ依存しない。
  */
 
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 type DataDescriptor = PropertyDescriptor & { value: unknown };
 
@@ -88,7 +88,7 @@ export function snapshotPlainRecord<const K extends string>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;
@@ -137,7 +137,7 @@ export function snapshotPlainArray<T = unknown>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       !Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Array.prototype
     ) {

@@ -4,7 +4,7 @@
  * @responsibility getterや後発変更を最終照合後に評価しないsnapshotを所有する。
  * @trace ARCH-000008
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 /**
  * Host観測が返した環境を固定した文字列mapへ取込む。
@@ -26,7 +26,7 @@ export function captureDockerProcessEnvironment(value: unknown) {
   if (
     value === null ||
     typeof value !== "object" ||
-    utilTypes.isProxy(value) ||
+    types.isProxy(value) ||
     Array.isArray(value) ||
     (Object.getPrototypeOf(value) !== Object.prototype &&
       Object.getPrototypeOf(value) !== null)

@@ -109,7 +109,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           repositoryBinding: "binding",
         }),
         prepareCoordinatorStateOperationSnapshot: () => Buffer.from("state"),
-        decodeCoordinatorStateSnapshot: () => ({
+        decodeRuntimeDomainSnapshot: () => ({
           snapshot: { operations: [{ recoveryId: id }] },
         }),
         durableRecords: new WeakMap(),

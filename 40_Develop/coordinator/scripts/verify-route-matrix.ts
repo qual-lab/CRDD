@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
 import {
   isRuntimeProcessPoisoned,
@@ -180,7 +180,7 @@ function snapshotRouteRecord(value: unknown) {
       !value ||
       typeof value !== "object" ||
       Array.isArray(value) ||
-      utilTypes.isProxy(value)
+      types.isProxy(value)
     )
       return null;
     const prototype = Object.getPrototypeOf(value);

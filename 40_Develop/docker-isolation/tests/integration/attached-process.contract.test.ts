@@ -15,11 +15,11 @@ import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import type { CommandExecution } from "../../src/execution/result.ts";
 import { startOwnedWindowsProcess } from "../../src/process/start.ts";
-import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../support/authentication/execute.ts";
+import { createDockerAuthenticationRuntimeUsing } from "../support/authentication/execute.ts";
 import { dockerAuthenticationCommandIsPlanned } from "../support/authentication/plan.ts";
 import {
   type DockerAuthenticationInput,
@@ -466,7 +466,7 @@ test("認証NetworkのReceiptはcreateと即時inspectの実ID・構成一致後
       return child;
     }) as unknown as typeof childProcess.spawn;
     syncBuiltinESMExports();
-    const runtime = createDockerAuthenticationRuntime(
+    const runtime = createDockerAuthenticationRuntimeUsing(
       { ...binding, workingDirectory: "C:\\Windows\\System32" },
       plan,
     );
@@ -657,14 +657,14 @@ test("認証Processは許可喪失後に元子と終端補助子をjoinする", 
   const command = plan.commands[0];
   assert.ok(command);
   let live = true;
-  const runtime = createDockerAuthenticationRuntime(
+  const runtime = createDockerAuthenticationRuntimeUsing(
     { ...binding, workingDirectory: "C:\\Windows\\System32" },
     plan,
   );
   const resultPromise = runtime.execute(command, () => live);
   fixture.child.emit("spawn");
   live = false;
-  await delay(300);
+  await setTimeout(300);
   assert.equal(fixture.calls.length, 2);
   fixture.child.emit("close", null, "SIGTERM");
   fixture.helper.emit("close", 0, null);
@@ -691,9 +691,9 @@ test("認証ProcessはコピーCommandと開始前許可喪失でEffect0", async
   const command = plan.commands[0];
   assert.ok(command);
   const configured = { ...binding, workingDirectory: "C:\\Windows\\System32" };
-  const runtime = createDockerAuthenticationRuntime(configured, plan);
+  const runtime = createDockerAuthenticationRuntimeUsing(configured, plan);
   assert.throws(
-    () => createDockerAuthenticationRuntime(configured, { ...plan }),
+    () => createDockerAuthenticationRuntimeUsing(configured, { ...plan }),
     /plan_not_planned/u,
   );
   const other = planDockerAuthenticationCommands(authenticationInput())
@@ -731,7 +731,7 @@ test("認証対話は共通Ownerのinherit方式で捕捉0", async (context) => 
     (c) => c.purpose === "start_login_attached",
   );
   assert.ok(command);
-  const runtime = createDockerAuthenticationRuntime(
+  const runtime = createDockerAuthenticationRuntimeUsing(
     { ...binding, workingDirectory: "C:\\Windows\\System32" },
     plan,
   );

@@ -16,7 +16,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test, { mock } from "node:test";
 import { fileURLToPath } from "node:url";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
 import type { DockerResourceReceipts } from "../support/cleanup.ts";
 import { observeDockerDirectoryIdentity } from "../../src/docker-cli/config.ts";
@@ -246,7 +246,7 @@ test("公開Factoryはdescriptorの継承valueを受理しない", () => {
     `,
       ),
       {
-        utilTypes,
+        types,
         process: { platform: "win32" },
         createDockerIsolationRuntimeCandidate: () => ({}),
         observeDockerDirectoryIdentity: () => "",
@@ -1074,7 +1074,7 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
         Object,
         Reflect,
         Error,
-        utilTypes,
+        types,
         process: { platform: "win32" },
         observeTrustedDockerCli: () => {
           events.push("observe");

@@ -9,7 +9,7 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import {
   getAuthenticationDefinition,
   resolveModelSelection,
@@ -32,9 +32,9 @@ import type {
   IsolationExecution,
 } from "../../../docker-isolation/src/index.ts";
 import {
-  type ResourceTarget as ExecutorResourceTarget,
+  type ResourceTarget,
   cleanupResources,
-  createExecutor as createAuthentication,
+  createExecutor,
   type Executor,
   type ExecutorCallbacks,
   type ExecutorRequest,
@@ -7786,7 +7786,7 @@ export function readExecutionCancellation(signal: unknown): boolean | null {
   if (
     !signal ||
     typeof signal !== "object" ||
-    utilTypes.isProxy(signal) ||
+    types.isProxy(signal) ||
     Object.getPrototypeOf(signal) !== AbortSignal.prototype ||
     Object.getOwnPropertyDescriptor(signal, "aborted") !== undefined ||
     !executionAbortedGetter
@@ -7822,7 +7822,7 @@ type Dependencies = Readonly<{
     directory: AuthenticationManagementDirectory,
   ) => boolean;
   cleanupAuthentication: (
-    target: ExecutorResourceTarget<"snapshot">,
+    target: ResourceTarget<"snapshot">,
     callbacks: IsolationCallbacks,
   ) => IsolationExecution;
   acquireProviderHomeLock: (
@@ -8422,7 +8422,7 @@ export function settleProviderAuthenticationRecovery(
 export function createProviderAuthenticationDependencies(): Dependencies {
   return Object.freeze({
     randomHex: (bytes) => randomBytes(bytes).toString("hex"),
-    createAuthentication,
+    createAuthentication: createExecutor,
     createManagementDirectory: createAuthenticationManagementDirectory,
     removeManagementDirectory: removeAuthenticationManagementDirectory,
     cleanupAuthentication: cleanupResources,
@@ -8456,7 +8456,7 @@ export function prepareProviderAuthentication(
   providerHomeSourcePath: string,
   suffix: string,
   proxyToken: string | null,
-  prepare: Dependencies["createAuthentication"] = createAuthentication,
+  prepare: Dependencies["createAuthentication"] = createExecutor,
   managementDirectory: string,
 ): RecordProjection<"authentication"> | null {
   const request: ExecutorRequest<"authentication"> = {
@@ -9005,7 +9005,7 @@ export async function authenticateProvider(
  * @security 認証値を搬送しない。
  * @compatibility 新形式だけを受理する。
  */
-export type ProviderAuthenticationRequest = Readonly<{
+export type AuthenticationRequest = Readonly<{
   provider: "codex" | "claude";
 }>;
 
@@ -9026,13 +9026,13 @@ export type ProviderAuthenticationRequest = Readonly<{
  */
 export async function runProviderAuthenticationRequest(
   action: "status" | "login",
-  request: ProviderAuthenticationRequest,
+  request: AuthenticationRequest,
   signal?: AbortSignal,
 ) {
   const descriptors =
     request &&
     typeof request === "object" &&
-    !utilTypes.isProxy(request) &&
+    !types.isProxy(request) &&
     Object.getPrototypeOf(request) === Object.prototype
       ? Object.getOwnPropertyDescriptors(request)
       : null;

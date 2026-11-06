@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  type ProviderEnvelopeInput as ProviderResultInput,
-  extractProviderResult as parseProviderResult,
+  type ProviderEnvelopeInput,
+  extractProviderResult,
 } from "../../../ai-adapter/scripts/ai-adapter-test.ts";
 /**
  * coordinator:integration:provider-execution-boundary-matrixの検証範囲を定義する。
@@ -19,7 +19,7 @@ import {
  */
 import { evaluateProviderTaskScope } from "../../../ai-adapter/src/provider/plan.ts";
 import {
-  type ExecutionRequest as ProviderExecutionInput,
+  type ExecutionRequest,
   planExecution,
 } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
@@ -87,9 +87,7 @@ test("共通計画APIは用途・Provider・選定の不一致と入力Trapを�
       },
     }),
   ]) {
-    const result = planExecution(
-      candidate as unknown as ProviderExecutionInput,
-    );
+    const result = planExecution(candidate as unknown as ExecutionRequest);
     assert.equal(result.status, "blocked");
     assert.equal(result.plan, null);
     assert.ok(result.error);
@@ -119,7 +117,7 @@ test("共通計画APIは用途・Provider・選定の不一致と入力Trapを�
       const result = planExecution({
         ...probe,
         ...extra,
-      } as unknown as ProviderExecutionInput);
+      } as unknown as ExecutionRequest);
       assert.equal(result.status, "blocked");
       assert.equal(result.plan, null);
     }
@@ -153,7 +151,7 @@ test("共通結果APIは用途・容量・上位Schema判断を区別する", ()
     taskRole: "executor",
     raw: '{"status":true}',
   } as const;
-  const parsed = parseProviderResult(input);
+  const parsed = extractProviderResult(input);
   assert.equal(parsed.status, "confirmed");
   assert.deepEqual(parsed.value, { status: true });
   assert.equal(parsed.error, null);
@@ -179,8 +177,8 @@ test("共通結果APIは用途・容量・上位Schema判断を区別する", ()
       },
     }),
   ]) {
-    const result = parseProviderResult(
-      candidate as unknown as ProviderResultInput,
+    const result = extractProviderResult(
+      candidate as unknown as ProviderEnvelopeInput,
     );
     assert.equal(result.status, "blocked");
     assert.equal(result.value, null);

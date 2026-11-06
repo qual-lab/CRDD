@@ -8,8 +8,8 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
-import { types as utilTypes } from "node:util";
+import { setImmediate } from "node:timers/promises";
+import { types } from "node:util";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
@@ -28,7 +28,7 @@ import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
   type DockerRuntimeRepairCheckpoint,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   dockerRuntimeRepairCheckpointIsSettled,
   dockerRuntimeRepairDisposalIsSettled,
   type ExecutionSelection,
@@ -77,7 +77,7 @@ import type {
 import type {
   Executor,
   StartResult,
-  CompletionResult as TechnicalCompletionResult,
+  CompletionResult,
 } from "../../../executor/src/index.ts";
 import {
   type ResourceCleanupResult as AttemptResourceCleanupResult,
@@ -102,7 +102,7 @@ import {
   saveRuntimeOwnedCoordinatorHostCleanupPreparation,
   saveRuntimeOwnedCoordinatorOperationStart,
 } from "../execution/persistence.ts";
-import { readCurrentCoordinatorState as readCoordinatorState } from "../state/query.ts";
+import { readCurrentCoordinatorState } from "../state/query.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
@@ -327,7 +327,7 @@ function exactDenseStringArray(value: unknown) {
   if (
     !value ||
     typeof value !== "object" ||
-    utilTypes.isProxy(value) ||
+    types.isProxy(value) ||
     !Array.isArray(value) ||
     Object.getPrototypeOf(value) !== Array.prototype ||
     value.length > MAX_RECOVERY_IDS
@@ -382,7 +382,7 @@ function exactPlainRecord(
   if (
     !value ||
     typeof value !== "object" ||
-    utilTypes.isProxy(value) ||
+    types.isProxy(value) ||
     Array.isArray(value)
   )
     return null;
@@ -434,7 +434,7 @@ function exactPlainRecordArray(
   if (
     !value ||
     typeof value !== "object" ||
-    utilTypes.isProxy(value) ||
+    types.isProxy(value) ||
     !Array.isArray(value) ||
     Object.getPrototypeOf(value) !== Array.prototype ||
     value.length > MAX_RECOVERY_IDS
@@ -875,7 +875,7 @@ export function evaluateHostOrphanRecoveryPlan(
   if (
     input !== null &&
     typeof input === "object" &&
-    !utilTypes.isProxy(input) &&
+    !types.isProxy(input) &&
     !Array.isArray(input)
   ) {
     const prototype = Object.getPrototypeOf(input);
@@ -1192,7 +1192,7 @@ export function bindRuntimeOwnedExecutorAttempt(
   const control = started.controlCapability;
   record.executorControl = control;
   durableRecords.set(control, record);
-  const close = (result?: TechnicalCompletionResult<"attempt">) => {
+  const close = (result?: CompletionResult<"attempt">) => {
     if (record.executorControl !== control) return;
     durableRecords.delete(control);
     delete record.executorControl;
@@ -1843,7 +1843,7 @@ export function persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
     const checkpointValue =
       kind === "host" ? JSON.parse(encodeRuntimeStateValue(value)) : value;
     if (absentHostCheckpoint) {
-      const current = decodeCoordinatorStateSnapshot(
+      const current = decodeRuntimeDomainSnapshot(
         record.before,
         record.repository.repositoryBinding,
       );
@@ -2373,7 +2373,7 @@ export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
     });
   try {
     if (
-      utilTypes.isProxy(correlationIds) ||
+      types.isProxy(correlationIds) ||
       !Array.isArray(correlationIds) ||
       Object.getPrototypeOf(correlationIds) !== Array.prototype ||
       correlationIds.length === 0 ||
@@ -2494,7 +2494,7 @@ export async function recoverRuntimeOwnedDockerTaskForCurrentConsumer(
     const owner = dockerRecoveryPreparations.get(technical.preparation);
     const snapshot =
       owner?.kind === "recovery"
-        ? decodeCoordinatorStateSnapshot(
+        ? decodeRuntimeDomainSnapshot(
             owner.before,
             owner.repository.repositoryBinding,
           )
@@ -2591,7 +2591,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
     });
   if (
     signal !== undefined &&
-    (utilTypes.isProxy(signal) || !(signal instanceof AbortSignal))
+    (types.isProxy(signal) || !(signal instanceof AbortSignal))
   )
     return Object.freeze({
       ...base,
@@ -2621,12 +2621,12 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
     settled = false;
   try {
     if (record?.kind !== "recovery") throw new Error(reason);
-    await yieldRecoveryEvents();
+    await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
     reason = "docker_task_recovery_owner_retirement_unconfirmed";
     if (!retireRuntimeOwnedDockerTaskExecutionOwner(capability))
       throw new Error(reason);
-    await yieldRecoveryEvents();
+    await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
     if (record.hostCleanup === "present") {
       const resources = await executeRuntimeOwnedDockerTaskResourceRecovery(
@@ -2641,7 +2641,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
       )
         throw new Error(reason);
       dockerCleanupConfirmed = true;
-      await yieldRecoveryEvents();
+      await setImmediate();
       if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
       reason = "docker_task_recovery_host_absence_unconfirmed";
       if (!confirmRuntimeOwnedDockerTaskHostAbsence(capability))
@@ -2650,9 +2650,9 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
       // prepareが既知終端の五資源と現在Host両不存在を照合済み。
       dockerCleanupConfirmed = true;
     } else throw new Error(reason);
-    await yieldRecoveryEvents();
+    await setImmediate();
     if (signal?.aborted) throw new Error("docker_task_recovery_cancelled");
-    const snapshot = decodeCoordinatorStateSnapshot(
+    const snapshot = decodeRuntimeDomainSnapshot(
       record.before,
       record.repository.repositoryBinding,
     );
@@ -2708,7 +2708,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
   let historyConfirmed = false;
   let finalizationReason = "docker_task_recovery_terminal_unconfirmed";
   try {
-    await yieldRecoveryEvents();
+    await setImmediate();
     if (signal?.aborted)
       return Object.freeze({
         ...state,
@@ -2729,7 +2729,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
           ? null
           : "docker_task_recovery_release_unconfirmed",
       });
-    await yieldRecoveryEvents();
+    await setImmediate();
     if (signal?.aborted)
       return Object.freeze({
         ...state,
@@ -2752,7 +2752,7 @@ export async function recoverRuntimeOwnedDockerTaskFromCurrentRepository(
           ? null
           : "docker_task_recovery_release_unconfirmed",
       });
-    await yieldRecoveryEvents();
+    await setImmediate();
     if (signal?.aborted)
       return Object.freeze({
         ...state,
@@ -3232,8 +3232,8 @@ function isUnsubmittedInitialTaskHost(
     snapshot.repositoryBinding,
   );
   const initial = bytes
-    ? decodeCoordinatorStateSnapshot(bytes, snapshot.repositoryBinding)
-        ?.snapshot.operations[0]
+    ? decodeRuntimeDomainSnapshot(bytes, snapshot.repositoryBinding)?.snapshot
+        .operations[0]
     : null;
   if (initial?.kind !== "docker_task") return false;
   const nonce = JSON.parse(operation.identityJson).operationNonce;
@@ -3771,7 +3771,7 @@ function beginProductionRecovery(
         : null;
       const initial =
         initialBytes && repository
-          ? decodeCoordinatorStateSnapshot(
+          ? decodeRuntimeDomainSnapshot(
               initialBytes,
               repository.repositoryBinding,
             )
@@ -4756,7 +4756,7 @@ export function prepareRuntimeOwnedDockerHostCleanup(
  */
 export function registerRuntimeOwnedReviewFindings(
   capability: object,
-  result: TechnicalCompletionResult<"attempt">,
+  result: CompletionResult<"attempt">,
 ) {
   const record = durableRecord(capability);
   const plan = record?.normalRestoration?.plan as RecoveryPlan | undefined;
@@ -5877,7 +5877,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         storageFailed = true;
         return false;
       }
-      const decoded = decodeCoordinatorStateSnapshot(
+      const decoded = decodeRuntimeDomainSnapshot(
         candidate,
         repository.repositoryBinding,
       );
@@ -6777,7 +6777,7 @@ export async function repairRuntimeOwnedDockerRuntime(
               repository.repositoryBinding,
             );
             const preparedTarget = candidate
-              ? decodeCoordinatorStateSnapshot(
+              ? decodeRuntimeDomainSnapshot(
                   candidate,
                   repository.repositoryBinding,
                 )?.snapshot.operations.find(
@@ -7240,7 +7240,7 @@ export function consumeProjectSettledDockerRecoveryWithRuntimeBoundary<T>(
       status: "blocked" as const,
       reason: "docker_task_recovery_settlement_authority_invalid",
     });
-  const observed = readCoordinatorState(
+  const observed = readCurrentCoordinatorState(
     String(settlement.workingDirectory),
     String(settlement.repositoryBindingId),
     String(settlement.projectId),

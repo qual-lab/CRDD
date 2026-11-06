@@ -4,7 +4,7 @@
  * @responsibility DataDescriptorを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000012
  */
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 /**
  * plain-data-snapshotで使用するData Descriptorの値契約を定義する。
@@ -79,14 +79,14 @@ function dataDescriptor(
  * @trace ARCH-000012
  * @input value: unknown、allowedKeys: ReadonlySet<K>
  * @returns Readonly<Record<K, unknown>> | nullを返す。
- * @precondition 「value: unknown、allowedKeys: ReadonlySet<K>」がsnapshotPlainRecordの入力契約を満たす。
- * @postcondition snapshotPlainRecordの責務を完了した結果だけを返す。
- * @effect N/A: snapshotPlainRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure snapshotPlainRecordは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant snapshotPlainRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotPlainRecordはProcess内の同一Subsystemで完結する。
- * @security N/A: snapshotPlainRecordはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: snapshotPlainRecordは共有非同期状態を持たない同期処理である。
+ * @precondition 「value: unknown、allowedKeys: ReadonlySet<K>」がsnapshotRuntimeStateRecordの入力契約を満たす。
+ * @postcondition snapshotRuntimeStateRecordの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotRuntimeStateRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure snapshotRuntimeStateRecordは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant snapshotRuntimeStateRecordは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotRuntimeStateRecordはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotRuntimeStateRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotRuntimeStateRecordは共有非同期状態を持たない同期処理である。
  */
 export function snapshotPlainRecord<const K extends string>(
   value: unknown,
@@ -96,7 +96,7 @@ export function snapshotPlainRecord<const K extends string>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;
@@ -144,7 +144,7 @@ export function snapshotOpenPlainRecord(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       Array.isArray(value)
     )
       return null;
@@ -189,7 +189,7 @@ export function snapshotPlainArray<T = unknown>(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       !Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Array.prototype
     ) {

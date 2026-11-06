@@ -8,7 +8,7 @@ import {
   authenticateProvider,
   getAuthenticationStatus,
   PROVIDER_AUTHENTICATION_INPUT_NOTICE,
-  isSupportedNodeRuntime as isSupportedCoordinatorNodeRuntime,
+  isSupportedNodeRuntime,
 } from "../api.ts";
 import { bindTaskCliCancellationSignals } from "./cancellation.ts";
 /**
@@ -45,13 +45,13 @@ export async function runAuthenticationCommand(
     (format !== undefined && (format !== "--json" || action !== "status"));
   if (
     invalid ||
-    !isSupportedCoordinatorNodeRuntime(process.versions.node) ||
+    !isSupportedNodeRuntime(process.versions.node) ||
     (action === "login" &&
       (process.stdin.isTTY !== true || process.stdout.isTTY !== true))
   ) {
     const reason = invalid
       ? "provider_authentication_arguments_invalid"
-      : !isSupportedCoordinatorNodeRuntime(process.versions.node)
+      : !isSupportedNodeRuntime(process.versions.node)
         ? "coordinator_node_version_unsupported"
         : "provider_authentication_interactive_terminal_required";
     process.stderr.write(`${reason}\n`);

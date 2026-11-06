@@ -13,10 +13,7 @@ import {
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { ManagementOperationOutcome } from "../permission/types.ts";
-import {
-  isAccessRole as isRole,
-  parseContentAreaIds,
-} from "../permission/validation.ts";
+import { isAccessRole, parseContentAreaIds } from "../permission/validation.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
@@ -148,7 +145,7 @@ export function prepareRoleAssignment(
   next.operationId = operationId;
   let userId: string | null = null;
   if (change.operation === "updateRoleContentAccess") {
-    if (!isRole(change.targetRole)) return null;
+    if (!isAccessRole(change.targetRole)) return null;
     const workspaceIds = parseContentAreaIds(change.workspaceIds);
     const target = next.roleContentAccess.find(
       (item) => item.role === change.targetRole,
@@ -170,7 +167,7 @@ export function prepareRoleAssignment(
     userId = target.userId;
 
     if (
-      !isRole(change.nextRole) ||
+      !isAccessRole(change.nextRole) ||
       change.currentRole !== target.role ||
       evaluateManagementPermission(actor.role, {
         operation: change.operation,

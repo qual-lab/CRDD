@@ -154,7 +154,7 @@ export function createAccessMcpResolver(
               });
               if (signal.aborted)
                 throw new Error("runtime_activity_unavailable");
-              const { queryActivity } = await import(
+              const { queryActivity: queryActivity } = await import(
                 "../../../coordinator/src/index.ts"
               );
               if (

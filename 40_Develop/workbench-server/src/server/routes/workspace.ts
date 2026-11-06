@@ -10,7 +10,7 @@
  * @security Root・資格・任意実行引数をBrowserから受けず、配送後の結果不明と処置前拒否を区別する。
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import { resolveRepositoryAccess } from "../../../../access-management/src/index.ts";
 import {
   createFilesystemRepositoryObservationPort,
@@ -89,7 +89,7 @@ export async function handleWorkspaceAction({
       JSON.parse(form.get("command") ?? "null"),
     );
     if (!command) throw new Error("workspace_input_invalid");
-    await yieldToTransport(0);
+    await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
     let ownerRoot = repositoryRoot;
     let projectId: string;
@@ -154,7 +154,7 @@ export async function handleWorkspaceAction({
       };
     }
     dispatched = true;
-    const { executeWorkspace } = await import(
+    const { executeWorkspace: executeWorkspace } = await import(
       "../../../../coordinator/src/index.ts"
     );
     if (requestSignal.aborted || response.destroyed) return;
@@ -166,7 +166,7 @@ export async function handleWorkspaceAction({
       requestSignal,
     );
     const body = JSON.stringify(result);
-    await yieldToTransport(0);
+    await setTimeout(0);
     if (requestSignal.aborted || response.destroyed) return;
     if (!authorize()) throw new Error("workspace_result_unavailable");
     setResponseHeaders(response);

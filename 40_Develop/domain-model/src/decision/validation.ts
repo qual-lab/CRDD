@@ -9,7 +9,7 @@ import type {
   CoordinatorAcceptanceDecisionRecord,
   CoordinatorDecisionRecord,
   CoordinatorDecisionRecoveryIntent,
-  CoordinatorAcceptanceDecisionEnvelope as Envelope,
+  CoordinatorAcceptanceDecisionEnvelope,
 } from "./types.ts";
 
 const COORDINATOR_DECISION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -150,7 +150,7 @@ export const COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT =
  * @security Capabilityや秘密値Propertyを許可しない。
  * @concurrency N/A: 局所値だけを扱う。
  */
-function validRecord(
+function validCoordinatorAcceptanceDecisionRecord(
   value: unknown,
 ): value is CoordinatorAcceptanceDecisionRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value))
@@ -203,14 +203,14 @@ function validRecord(
  * @security Host Pathまたは秘密値を返さない。
  * @concurrency N/A: 局所値だけを扱う。
  */
-function validEnvelope(
+function validCoordinatorAcceptanceDecisionEnvelope(
   value: unknown,
   repositoryBindingId: string,
   recordId: string,
-): value is Envelope {
+): value is CoordinatorAcceptanceDecisionEnvelope {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     return false;
-  const envelope = value as Partial<Envelope>;
+  const envelope = value as Partial<CoordinatorAcceptanceDecisionEnvelope>;
   return (
     envelope.contract === COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT &&
     envelope.repositoryBindingId === repositoryBindingId &&
@@ -219,7 +219,7 @@ function validEnvelope(
     (envelope.previousHash === null ||
       (typeof envelope.previousHash === "string" &&
         HASH.test(envelope.previousHash))) &&
-    validRecord(envelope.record) &&
+    validCoordinatorAcceptanceDecisionRecord(envelope.record) &&
     envelope.record.recordId === recordId &&
     ((envelope.generation === 1 &&
       envelope.previousHash === null &&
@@ -231,8 +231,8 @@ function validEnvelope(
 }
 
 export {
-  validRecord as validCoordinatorAcceptanceDecisionRecord,
-  validEnvelope as validCoordinatorAcceptanceDecisionEnvelope,
+  validCoordinatorAcceptanceDecisionRecord,
+  validCoordinatorAcceptanceDecisionEnvelope,
 };
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -248,16 +248,16 @@ const recoveryRecordID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
  * @trace ARCH-000008
  * @input value: unknown
  * @returns value is CoordinatorDecisionRecoveryIntentを返す。
- * @precondition 「value: unknown」がvalidIntentの入力契約を満たす。
- * @postcondition validIntentの責務を完了した結果だけを返す。
- * @effect N/A: validIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validIntentは独自の失敗分岐を所有しない。
- * @invariant validIntentは入力から導いた結果以外の共有状態を変更しない。
+ * @precondition 「value: unknown」がvalidCoordinatorDecisionRecoveryIntentの入力契約を満たす。
+ * @postcondition validCoordinatorDecisionRecoveryIntentの責務を完了した結果だけを返す。
+ * @effect N/A: validCoordinatorDecisionRecoveryIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validCoordinatorDecisionRecoveryIntentは独自の失敗分岐を所有しない。
+ * @invariant validCoordinatorDecisionRecoveryIntentは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security validIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validIntentは共有非同期状態を持たない同期処理である。
+ * @security validCoordinatorDecisionRecoveryIntentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validCoordinatorDecisionRecoveryIntentは共有非同期状態を持たない同期処理である。
  */
-function validIntent(
+function validCoordinatorDecisionRecoveryIntent(
   value: unknown,
 ): value is CoordinatorDecisionRecoveryIntent {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -295,4 +295,4 @@ function validIntent(
   );
 }
 
-export { validIntent as validCoordinatorDecisionRecoveryIntent };
+export { validCoordinatorDecisionRecoveryIntent };

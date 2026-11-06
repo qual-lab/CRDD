@@ -32,7 +32,7 @@ import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
   decodeCoordinatorHistoryRows,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   hashRuntimeStateContent,
@@ -230,7 +230,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const secondBytes = Buffer.from(`${encodeRuntimeStateValue(second)}\n`);
   // 純粋な保存反例はDomainへ移管済み。Host結合Caseには同じ改訂2の合成元版を置く。
   assert.ok(
-    decodeCoordinatorStateSnapshot(secondBytes, repository.repositoryBinding),
+    decodeRuntimeDomainSnapshot(secondBytes, repository.repositoryBinding),
   );
   fs.writeFileSync(path.join(area.directory, "state.json"), secondBytes, {
     flag: "wx",
@@ -313,7 +313,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   assert.ok(operationBytes);
   await t.test("Host清掃準備は固定元版から同じpendingを一回確定する", () => {
-    const decoded = decodeCoordinatorStateSnapshot(
+    const decoded = decodeRuntimeDomainSnapshot(
       operationBytes,
       repository.repositoryBinding,
     );
@@ -342,7 +342,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       })}\n`,
     );
     assert.ok(
-      decodeCoordinatorStateSnapshot(before, repository.repositoryBinding),
+      decodeRuntimeDomainSnapshot(before, repository.repositoryBinding),
     );
     const candidate = prepareCoordinatorStateHostSnapshot(
       before,
@@ -379,7 +379,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     } finally {
       failure.mock.restore();
     }
-    const published = decodeCoordinatorStateSnapshot(
+    const published = decodeRuntimeDomainSnapshot(
       candidate,
       repository.repositoryBinding,
     );
@@ -749,7 +749,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       initialRecoveryBytes,
     );
     // 実保存中断と同じ資源Receipt pairをfresh回収Ownerへ接続する。
-    const resourceStart = decodeCoordinatorStateSnapshot(
+    const resourceStart = decodeRuntimeDomainSnapshot(
       initialRecoveryBytes,
       repository.repositoryBinding,
     );
@@ -3044,7 +3044,7 @@ for (const issuedFailure of [false, true]) {
     );
     // 初期化の私有反例はDomainへ移管済み。このCaseは認証処置の前状態だけを配置する。
     assert.ok(
-      decodeCoordinatorStateSnapshot(initial, repository.repositoryBinding),
+      decodeRuntimeDomainSnapshot(initial, repository.repositoryBinding),
     );
     const initialArea = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "domain-model"),
@@ -3448,7 +3448,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       pendingDeliveries: [],
     };
     const before = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
-    const decodedBefore = decodeCoordinatorStateSnapshot(
+    const decodedBefore = decodeRuntimeDomainSnapshot(
       before,
       repository.repositoryBinding,
     );
@@ -3660,7 +3660,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       assert.equal(result.recoveryId, recoveryId);
       assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
     }
-    const last = decodeCoordinatorStateSnapshot(
+    const last = decodeRuntimeDomainSnapshot(
       fs.readFileSync(file),
       repository.repositoryBinding,
     );
@@ -3684,10 +3684,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       `${encodeRuntimeStateValue({ ...last.snapshot, operations: [terminalTask] })}\n`,
     );
     assert.ok(
-      decodeCoordinatorStateSnapshot(
-        terminalBytes,
-        repository.repositoryBinding,
-      ),
+      decodeRuntimeDomainSnapshot(terminalBytes, repository.repositoryBinding),
     );
     const corruptTask: CoordinatorStateTaskOperation = {
       ...terminalTask,
@@ -3704,10 +3701,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       `${encodeRuntimeStateValue({ ...last.snapshot, operations: [corruptTask] })}\n`,
     );
     assert.ok(
-      decodeCoordinatorStateSnapshot(
-        corruptBytes,
-        repository.repositoryBinding,
-      ),
+      decodeRuntimeDomainSnapshot(corruptBytes, repository.repositoryBinding),
     );
     fs.writeFileSync(file, corruptBytes);
     const refusedHistory = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
@@ -3885,7 +3879,7 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
   const extract = (name: string) => {
     const ownerSource = fs.readFileSync(
       new URL(
-        name === "exactRecordKeys"
+        name === "hasRuntimeStateRecordKeys"
           ? "../../../domain-model/src/state/validation.ts"
           : "../../../domain-model/src/attempt/validation.ts",
         import.meta.url,
@@ -3895,7 +3889,7 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
     return sourceDeclaration(ownerSource, name);
   };
   const validate = runInNewContext(
-    `${extract("exactRecordKeys")}\n${extract("validCoordinatorPrimaryFailure")}\nvalidCoordinatorPrimaryFailure`,
+    `${extract("hasRuntimeStateRecordKeys")}\n${extract("validCoordinatorPrimaryFailure")}\nvalidCoordinatorPrimaryFailure`,
     {
       commandPurposes: [
         "start_provider_attached",
@@ -4159,7 +4153,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     repository.repositoryBinding,
   );
   assert.ok(first);
-  const initial = decodeCoordinatorStateSnapshot(
+  const initial = decodeRuntimeDomainSnapshot(
     first,
     repository.repositoryBinding,
   );
@@ -4288,7 +4282,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     ).status,
     "completed",
   );
-  const beforeSession = decodeCoordinatorStateSnapshot(
+  const beforeSession = decodeRuntimeDomainSnapshot(
     prepared,
     repository.repositoryBinding,
   );
@@ -4408,7 +4402,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   assert.equal(stale.filesystemEffectIssued, false);
   // 複数Repairの保全用fixtureだけが既存codecの配送待ち値を用いる。
   // 現在CLIの生成経路ではなく、許可辺を飛び越えない二段保存として扱う。
-  const settledValue = decodeCoordinatorStateSnapshot(
+  const settledValue = decodeRuntimeDomainSnapshot(
     complete,
     repository.repositoryBinding,
   );
@@ -4429,7 +4423,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     repository.repositoryBinding,
   );
   assert.ok(deliveredFixture);
-  const deliveryValue = decodeCoordinatorStateSnapshot(
+  const deliveryValue = decodeRuntimeDomainSnapshot(
     deliveredFixture,
     repository.repositoryBinding,
   );
@@ -4460,7 +4454,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     repository.repositoryBinding,
   );
   assert.ok(next);
-  const nextDecoded = decodeCoordinatorStateSnapshot(
+  const nextDecoded = decodeRuntimeDomainSnapshot(
     next,
     repository.repositoryBinding,
   );
@@ -4478,11 +4472,11 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     "checkpoint",
   );
   assert.equal(added.status, "completed");
-  const observed = decodeCoordinatorStateSnapshot(
+  const observed = decodeRuntimeDomainSnapshot(
     fs.readFileSync(state),
     repository.repositoryBinding,
   );
-  const prior = decodeCoordinatorStateSnapshot(
+  const prior = decodeRuntimeDomainSnapshot(
     complete,
     repository.repositoryBinding,
   );
@@ -4533,7 +4527,7 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
     failedBinding.repositoryBinding,
   );
   assert.ok(failedFirst);
-  const failedValue = decodeCoordinatorStateSnapshot(
+  const failedValue = decodeRuntimeDomainSnapshot(
     failedFirst,
     failedBinding.repositoryBinding,
   );

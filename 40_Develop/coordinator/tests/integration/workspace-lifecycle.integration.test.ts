@@ -39,10 +39,7 @@ import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/a
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
-import {
-  executeWorkspace as executeWorkspaceCommand,
-  type WorkspaceView,
-} from "../../src/index.ts";
+import { executeWorkspace, type WorkspaceView } from "../../src/index.ts";
 import { executeCoordinatorObjective } from "../../src/objective/execute.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
@@ -430,7 +427,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
         const selections = ["task-a.txt", "task-b.txt"].map(
           (file) =>
             (
-              executeWorkspaceCommand(
+              executeWorkspace(
                 f.root,
                 "project-a",
                 {
@@ -601,19 +598,15 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
    * @trace CPR-IT-004
    * @trace CPR-IT-006
    * @precondition 同じroot・project・common binding。
-   * @stimulus executeWorkspaceCommandへcommandを渡す。
+   * @stimulus executeWorkspaceへcommandを渡す。
    * @observation 閉入力拒否と操作結果、観測回数。
    * @oracle hostile値は処置前拒否し正常対象だけ配送する。
    * @cleanup fixtureが所有Workspace・Ref・Rootを回収する。
    * @boundary 実Owner入口。認可callbackのみ固定しAM実認可の証明にしない。
    */
   const call = (command: Record<string, unknown>) =>
-    executeWorkspaceCommand(
-      f.root,
-      "project-a",
-      { ...common, ...command },
-      () => true,
-    ).data as {
+    executeWorkspace(f.root, "project-a", { ...common, ...command }, () => true)
+      .data as {
       workspace: WorkspaceView | null;
       status: string;
       reason: string;
@@ -648,7 +641,7 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
   );
   assert.throws(
     () =>
-      executeWorkspaceCommand(
+      executeWorkspace(
         f.root,
         "project-a",
         {
@@ -666,7 +659,7 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
   cancelled.abort();
   assert.throws(
     () =>
-      executeWorkspaceCommand(
+      executeWorkspace(
         f.root,
         "project-a",
         { ...common, operation: "get" },
@@ -690,7 +683,7 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
   assert.equal(stale.status, "blocked");
   assert.equal(stale.reason, "orchestrator_workspace_generation_conflict");
   fs.writeFileSync(path.join(f.tree, "source.txt"), "selected\n");
-  const preview = executeWorkspaceCommand(
+  const preview = executeWorkspace(
     f.root,
     "project-a",
     { ...common, operation: "inspect", path: "source.txt" },
@@ -710,7 +703,7 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
   current = fixed.workspace;
   assert.ok(current?.candidate?.candidateCommit);
   fs.writeFileSync(path.join(f.tree, "source.txt"), "later-not-selected\n");
-  const patch = executeWorkspaceCommand(
+  const patch = executeWorkspace(
     f.root,
     "project-a",
     { ...common, operation: "candidate-diff", path: "source.txt" },

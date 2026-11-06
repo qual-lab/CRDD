@@ -7,7 +7,7 @@
 
 import { createHash } from "node:crypto";
 
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 import { snapshotPlainArray, snapshotPlainRecord } from "./input.ts";
 
@@ -158,7 +158,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return (
     value !== null &&
     typeof value === "object" &&
-    !utilTypes.isProxy(value) &&
+    !types.isProxy(value) &&
     !Array.isArray(value)
   );
 }

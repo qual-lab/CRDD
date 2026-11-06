@@ -88,7 +88,7 @@ export function projectCoordinatorCurrentState(
       });
 }
 
-import { decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot } from "./validation.ts";
+import { decodeRuntimeDomainSnapshot } from "./validation.ts";
 import { encodeRuntimeStateValue } from "./codec.ts";
 import type {
   CoordinatorStateTaskOperation,
@@ -110,7 +110,7 @@ import {
 import type { CoordinatorStateRepairOperation } from "../attempt/types.ts";
 import { validCoordinatorRepairOperation } from "../attempt/validation.ts";
 import { coordinatorOperationNonce } from "../attempt/validation.ts";
-import { exactRecordKeys } from "./validation.ts";
+import { hasRuntimeStateRecordKeys } from "./validation.ts";
 import { prepareDockerRuntimeRepairSessionCheckpoint } from "../attempt/repair-validation.ts";
 import { validCoordinatorRepairRetentionReceipt } from "../attempt/validation.ts";
 import { dockerRuntimeRepairCheckpointIsSettled } from "../attempt/repair-validation.ts";
@@ -155,7 +155,7 @@ export function prepareCoordinatorAuthenticationUnknownClosureSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -244,7 +244,7 @@ export function prepareCoordinatorStateOperationSnapshot(
     const current =
       currentBytes === null
         ? null
-        : decodeCoordinatorStateSnapshot(currentBytes, repositoryBinding);
+        : decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
     if (currentBytes !== null && !current) return null;
     const identity = JSON.parse(identityJson);
     const identitySha256 = createHash("sha256")
@@ -348,7 +348,7 @@ export function prepareCoordinatorStateRepairSnapshot(
     const current =
       currentBytes === null
         ? null
-        : decodeCoordinatorStateSnapshot(currentBytes, repositoryBinding);
+        : decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
     if (currentBytes !== null && !current) return null;
     const identity = JSON.parse(identityJson);
     const hash = createHash("sha256")
@@ -432,14 +432,14 @@ export function prepareCoordinatorStateRepairCheckpointSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
     if (!current) return null;
     const value = JSON.parse(encodeRuntimeStateValue(update));
     if (
-      !exactRecordKeys(value, [
+      !hasRuntimeStateRecordKeys(value, [
         "phase",
         "checkpoint",
         "disposition",
@@ -498,7 +498,7 @@ export function prepareCoordinatorStateRepairSessionSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -564,7 +564,7 @@ export function prepareCoordinatorStateRepairRetentionHandoffSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -620,9 +620,7 @@ export function prepareCoordinatorStateRepairRetentionHandoffSnapshot(
         ),
       })}\n`,
     );
-    return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
-      ? bytes
-      : null;
+    return decodeRuntimeDomainSnapshot(bytes, repositoryBinding) ? bytes : null;
   } catch {
     return null;
   }
@@ -649,7 +647,7 @@ export function validateCoordinatorStateRepairRetentionHandoffTransition(
   recoveryId: unknown,
   repositoryBinding: unknown,
 ): boolean {
-  const next = decodeCoordinatorStateSnapshot(nextBytes, repositoryBinding);
+  const next = decodeRuntimeDomainSnapshot(nextBytes, repositoryBinding);
   const target = next?.snapshot.operations.find(
     (operation): operation is CoordinatorStateRepairOperation =>
       operation.kind === "runtime_repair" &&
@@ -720,10 +718,7 @@ export function prepareCoordinatorStateRepairDisposalDecisionSnapshot(
   decidedAt: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   if (
     !current ||
     !Buffer.isBuffer(currentBytes) ||
@@ -781,9 +776,7 @@ export function prepareCoordinatorStateRepairDisposalDecisionSnapshot(
     ),
   };
   const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-  return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
-    ? bytes
-    : null;
+  return decodeRuntimeDomainSnapshot(bytes, repositoryBinding) ? bytes : null;
 }
 
 /**
@@ -808,10 +801,7 @@ export function prepareCoordinatorStateRepairDisposalProgressSnapshot(
   checkpoint: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const captured = decodeDockerRuntimeRepairDisposalCheckpoint(checkpoint);
   if (
     !current ||
@@ -865,9 +855,7 @@ export function prepareCoordinatorStateRepairDisposalProgressSnapshot(
     ),
   };
   const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-  return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
-    ? bytes
-    : null;
+  return decodeRuntimeDomainSnapshot(bytes, repositoryBinding) ? bytes : null;
 }
 
 /**
@@ -892,7 +880,7 @@ export function validateCoordinatorStateRepairDisposalTransition(
   purpose: unknown,
   repositoryBinding: unknown,
 ): boolean {
-  const next = decodeCoordinatorStateSnapshot(nextBytes, repositoryBinding);
+  const next = decodeRuntimeDomainSnapshot(nextBytes, repositoryBinding);
   const target = next?.snapshot.operations.find(
     (item): item is CoordinatorStateRepairOperation =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
@@ -939,11 +927,11 @@ export function classifyCoordinatorRepairPublication(
 ) {
   if (!Buffer.isBuffer(pendingBytes) || typeof recoveryId !== "string")
     return null;
-  const next = decodeCoordinatorStateSnapshot(pendingBytes, repositoryBinding);
+  const next = decodeRuntimeDomainSnapshot(pendingBytes, repositoryBinding);
   const before =
     currentBytes === null
       ? null
-      : decodeCoordinatorStateSnapshot(currentBytes, repositoryBinding);
+      : decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   if (
     !next ||
     (currentBytes !== null && !before) ||
@@ -1078,7 +1066,7 @@ function prepareCoordinatorStateOperationCheckpoint(
   kind: "resource" | "host" | "lifecycle" | "restart",
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -1096,7 +1084,7 @@ function prepareCoordinatorStateOperationCheckpoint(
           resource,
         )) ||
       (kind === "lifecycle" &&
-        !exactRecordKeys(resource, [
+        !hasRuntimeStateRecordKeys(resource, [
           "phase",
           "lease",
           "execution",
@@ -1166,7 +1154,7 @@ export function prepareCoordinatorStateResourceSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -1308,13 +1296,14 @@ export function prepareCoordinatorStateCleanupSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
     if (!current || typeof recoveryId !== "string") return null;
     const payload = JSON.parse(encodeRuntimeStateValue(observationsValue));
-    if (!exactRecordKeys(payload, ["snapshot", "observations"])) return null;
+    if (!hasRuntimeStateRecordKeys(payload, ["snapshot", "observations"]))
+      return null;
     const observations = payload.observations;
     const snapshot = payload.snapshot as
       | CoordinatorResourceBook["snapshot"]
@@ -1335,7 +1324,7 @@ export function prepareCoordinatorStateCleanupSnapshot(
           observations.length ||
         observations.some(
           (item: { observation: string }) =>
-            !exactRecordKeys(item, ["key", "observation"]) ||
+            !hasRuntimeStateRecordKeys(item, ["key", "observation"]) ||
             item.observation !== "not_requested",
         )
       )
@@ -1401,7 +1390,7 @@ export function prepareCoordinatorStateReferencesSnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -1415,7 +1404,7 @@ export function prepareCoordinatorStateReferencesSnapshot(
     if (
       !operation ||
       !nonce ||
-      !exactRecordKeys(references, ["recovery", "deliveries"]) ||
+      !hasRuntimeStateRecordKeys(references, ["recovery", "deliveries"]) ||
       !Array.isArray(references.deliveries)
     )
       return null;
@@ -1500,7 +1489,7 @@ export function prepareCoordinatorStateHistorySummary(
   sourcePayloadSha256: string;
 }> | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -1553,7 +1542,7 @@ export function prepareCoordinatorStateResultDeliverySnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -1645,10 +1634,7 @@ export function prepareCoordinatorRepairHistorySummary(
   recoveryId: unknown,
   repositoryBinding: unknown,
 ) {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is CoordinatorStateRepairOperation =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
@@ -1691,10 +1677,7 @@ export function prepareCoordinatorRepairHistorySnapshot(
   confirmed: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is CoordinatorStateRepairOperation =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
@@ -1776,10 +1759,7 @@ export function prepareCoordinatorRepairHistoryLine(
   recoveryId: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is CoordinatorStateRepairOperation =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
@@ -1861,10 +1841,7 @@ export function prepareCoordinatorRepairHistoryPublication(
       ? null
       : copyCoordinatorRepairHistoryBytes(pendingBytes);
   if (!canonical || (pendingBytes !== null && !pending)) return null;
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is CoordinatorStateRepairOperation =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
@@ -1959,7 +1936,7 @@ export function prepareCoordinatorRecoveredHistoryPublication(
     const canonical = copied[0];
     const pending = pendingBytes === null ? null : copied[1];
     if (canonical === undefined || pending === undefined) return null;
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -2030,7 +2007,7 @@ export function prepareCoordinatorStateHistorySnapshot(
   repositoryBinding: unknown,
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -2119,10 +2096,7 @@ export function prepareCoordinatorStateCompletionSnapshot(
   recoveryId: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (value): value is CoordinatorStateTaskOperation =>
       value.kind === "docker_task" && value.recoveryId === recoveryId,
@@ -2184,9 +2158,7 @@ export function prepareCoordinatorStateCompletionSnapshot(
     ),
   };
   const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-  return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
-    ? bytes
-    : null;
+  return decodeRuntimeDomainSnapshot(bytes, repositoryBinding) ? bytes : null;
 }
 
 /**
@@ -2209,10 +2181,7 @@ export function prepareCoordinatorStateRepairCompletionSnapshot(
   recoveryId: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (item): item is CoordinatorStateRepairOperation =>
       item.kind === "runtime_repair" && item.recoveryId === recoveryId,
@@ -2240,9 +2209,7 @@ export function prepareCoordinatorStateRepairCompletionSnapshot(
     ),
   };
   const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-  return decodeCoordinatorStateSnapshot(bytes, repositoryBinding)
-    ? bytes
-    : null;
+  return decodeRuntimeDomainSnapshot(bytes, repositoryBinding) ? bytes : null;
 }
 
 /**
@@ -2297,11 +2264,11 @@ export function classifyCoordinatorResourcePublication(
   try {
     if (!Buffer.isBuffer(currentBytes) || !Buffer.isBuffer(pendingBytes))
       return null;
-    const current = decodeCoordinatorStateSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
-    const pending = decodeCoordinatorStateSnapshot(
+    const pending = decodeRuntimeDomainSnapshot(
       pendingBytes,
       repositoryBinding,
     );
@@ -2391,11 +2358,11 @@ function validateCoordinatorStateTransitionValue(
   repairSessionId: string | null,
 ): boolean {
   try {
-    const next = decodeCoordinatorStateSnapshot(nextBytes, repositoryBinding);
+    const next = decodeRuntimeDomainSnapshot(nextBytes, repositoryBinding);
     const current =
       currentBytes === null
         ? null
-        : decodeCoordinatorStateSnapshot(currentBytes, repositoryBinding);
+        : decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
     if (!next || (currentBytes !== null && !current)) return false;
     if (current) {
       const expectedProjects = associateCoordinatorTaskOperations(

@@ -16,7 +16,7 @@ import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 import { createTopicMeetingRepository } from "../../src/storage/topic-meeting-store.ts";
@@ -892,14 +892,14 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
               "Lock取得前に第一子が終了しない",
             );
             assert.ok(Date.now() < deadline, "Lock取得通知の期限");
-            await delay(10);
+            await setTimeout(10);
           }
           assert.equal(fs.readFileSync(ready, "utf8"), "lock_acquired");
           assert.ok(fs.lstatSync(lock).isFile());
         } else {
           while (!observed.closed) {
             assert.ok(Date.now() < deadline, "第二子closeの期限");
-            await delay(10);
+            await setTimeout(10);
           }
           assert.deepEqual(
             await observed.done,
@@ -922,7 +922,7 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
       const deadline = Date.now() + 10000;
       while (!first.closed) {
         assert.ok(Date.now() < deadline, "第一子closeの期限");
-        await delay(10);
+        await setTimeout(10);
       }
       assert.deepEqual(
         await first.done,
@@ -965,7 +965,7 @@ fs.writeFileSync(result, JSON.stringify(outcome), { flag: "wx" });
         }
       }
       const deadline = Date.now() + 10000;
-      while (!observed.closed && Date.now() < deadline) await delay(10);
+      while (!observed.closed && Date.now() < deadline) await setTimeout(10);
       if (!observed.closed)
         cleanupErrors.push(new Error(`fixture_child_join_unknown:${scope}`));
       else await observed.done;

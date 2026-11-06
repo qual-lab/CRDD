@@ -15,7 +15,7 @@ import type {
   AttemptCancelInput,
 } from "../../../../executor/src/index.ts";
 
-import type { PreparationInput as AttemptInput } from "../../../src/execution/types.ts";
+import type { PreparationInput } from "../../../src/execution/types.ts";
 import test from "node:test";
 import fs from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -39,7 +39,7 @@ import {
 } from "../../../src/execution/advice.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation.ts";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 
 const selection = executionSelection("advice");
 const prepared = prepareProviderAdvicePlan(
@@ -389,7 +389,7 @@ function fixture(
     revokePacket: () => true,
     startProcess: (
       _provider: "codex" | "claude",
-      input: AttemptInput,
+      input: PreparationInput,
       register: unknown,
     ) => {
       const { managementCapability: capability, selectionUseCapability } =
@@ -1624,7 +1624,7 @@ test("本番通知一式と終端保存を上位Ownerが保持し、拒否時は
   const run = runInNewContext(`${declaration}\nstartRecordedAttempt`, {
     Object,
     Error,
-    utilTypes,
+    types,
     commandRestrictionAllows: () => true,
     bindRuntimeOwnedExecutorAttempt: () => true,
   });
@@ -1829,7 +1829,7 @@ test("Control結合失敗でも同じExecutorを一回取り消し元completion�
     {
       Object,
       Error,
-      utilTypes,
+      types,
       commandRestrictionAllows: () => true,
       bindRuntimeOwnedExecutorAttempt: (
         supplied: unknown,

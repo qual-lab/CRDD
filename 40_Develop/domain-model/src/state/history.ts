@@ -11,10 +11,10 @@ import {
   encodeRuntimeStateValue,
 } from "./codec.ts";
 import {
-  exactRecordKeys,
+  hasRuntimeStateRecordKeys,
   isSha256Hex,
   historyRow,
-  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot,
 } from "./validation.ts";
 import {
   validCoordinatorRepairSummary,
@@ -57,9 +57,13 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
         const summary = row?.summary;
         if (summary?.schema === "crdd-coordinator/task-summary/v1") {
           if (
-            !exactRecordKeys(row, ["schema", "occurredAt", "summary"]) ||
+            !hasRuntimeStateRecordKeys(row, [
+              "schema",
+              "occurredAt",
+              "summary",
+            ]) ||
             row.schema !== "crdd-coordinator/history-row/v2" ||
-            !exactRecordKeys(summary, ["schema", "record"]) ||
+            !hasRuntimeStateRecordKeys(summary, ["schema", "record"]) ||
             `${encodeRuntimeStateValue(row)}\n` !== `${line}\n`
           )
             throw new Error("task_history_row_invalid");
@@ -80,7 +84,11 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
         }
         if (summary?.schema === "crdd-coordinator/repair-summary/v1") {
           if (
-            !exactRecordKeys(row, ["schema", "occurredAt", "summary"]) ||
+            !hasRuntimeStateRecordKeys(row, [
+              "schema",
+              "occurredAt",
+              "summary",
+            ]) ||
             row.schema !== "crdd-coordinator/history-row/v2" ||
             typeof row.occurredAt !== "string" ||
             !Number.isFinite(Date.parse(row.occurredAt)) ||
@@ -107,14 +115,18 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
           });
         }
         if (
-          !exactRecordKeys(row, ["schema", "occurredAt", "summary"]) ||
+          !hasRuntimeStateRecordKeys(row, [
+            "schema",
+            "occurredAt",
+            "summary",
+          ]) ||
           row.schema !== "crdd-coordinator/history-row/v2" ||
           typeof row.occurredAt !== "string" ||
           !Number.isFinite(Date.parse(row.occurredAt)) ||
           new Date(Date.parse(row.occurredAt)).toISOString() !==
             row.occurredAt ||
           `${encodeRuntimeStateValue(row)}\n` !== `${line}\n` ||
-          !exactRecordKeys(summary, [
+          !hasRuntimeStateRecordKeys(summary, [
             "schema",
             ...(summary?.schema === "crdd-coordinator/operation-summary/v4"
               ? ["consumer", "recoveryCorrelationId"]
@@ -158,7 +170,7 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
           !isSha256Hex(summary.operationNonce) ||
           !isSha256Hex(summary.identitySha256) ||
           !validCoordinatorPrimaryFailure(summary.primaryFailure) ||
-          !exactRecordKeys(summary.execution, [
+          !hasRuntimeStateRecordKeys(summary.execution, [
             "providerStart",
             "externalSend",
             "sharedWrite",
@@ -229,10 +241,7 @@ export function prepareCoordinatorHistoryRetention(
   retentionDays: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorStateSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const rows = decodeCoordinatorHistoryRows(historyBytes);
   if (
     !current ||

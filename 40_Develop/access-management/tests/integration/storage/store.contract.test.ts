@@ -32,10 +32,10 @@ import {
   revokeCredential,
 } from "../../../src/index.ts";
 import { createInitialCredential } from "../../../src/initialization/execution.ts";
-import { saveExposure as updateExposure } from "../../../src/repository/exposure.ts";
+import { saveExposure } from "../../../src/repository/exposure.ts";
 import {
-  saveUserRole as updateUserRole,
-  saveRoleContentAccess as updateRoleContentAccess,
+  saveUserRole,
+  saveRoleContentAccess,
 } from "../../../src/role/assign.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
 import {
@@ -43,10 +43,7 @@ import {
   updateAccessManagementState,
 } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
-import {
-  saveUserRegistration as registerUser,
-  saveUserName as updateUserName,
-} from "../../../src/user/crud.ts";
+import { saveUserRegistration, saveUserName } from "../../../src/user/crud.ts";
 import type { UserRoleManagementResult } from "../../../src/user/types.ts";
 import {
   bytes,
@@ -85,7 +82,7 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
   let revision = 1;
   const operations = [
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         revision,
@@ -94,7 +91,7 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
         "developer",
       ),
     () =>
-      updateUserName(
+      saveUserName(
         f.root,
         f.tokens.manager,
         revision,
@@ -103,7 +100,7 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
         "名前だけ変更",
       ),
     () =>
-      updateUserRole(
+      saveUserRole(
         f.root,
         f.tokens.manager,
         revision,
@@ -113,7 +110,7 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
         "manager",
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         revision,
@@ -160,7 +157,7 @@ test("通常管理4操作は現在認可で対象fieldだけ保存する", (t) =
   if (name.status === "completed")
     assert.equal(name.snapshot.username, "名前だけ変更");
   assert.equal(
-    registerUser(
+    saveUserRegistration(
       f.root,
       f.tokens.manager,
       revision,
@@ -215,7 +212,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
   });
   const operations = [
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.developer,
         1,
@@ -224,7 +221,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -232,9 +229,17 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "名前",
         "administrator",
       ),
-    () => registerUser(f.root, "invalid", 1, operationId, "名前", "developer"),
     () =>
-      registerUser(
+      saveUserRegistration(
+        f.root,
+        "invalid",
+        1,
+        operationId,
+        "名前",
+        "developer",
+      ),
+    () =>
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         0,
@@ -243,7 +248,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         2,
@@ -252,9 +257,16 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      registerUser(f.root, f.tokens.manager, 1, "invalid", "名前", "developer"),
+      saveUserRegistration(
+        f.root,
+        f.tokens.manager,
+        1,
+        "invalid",
+        "名前",
+        "developer",
+      ),
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -263,7 +275,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -272,7 +284,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -281,7 +293,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         1,
@@ -290,7 +302,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         Array(100_000).fill("development"),
       ),
     () =>
-      registerUser(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         1,
@@ -299,18 +311,18 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      registerUser(f.root, f.tokens.manager, 1, operationId, "a", "management"),
-    () =>
-      updateUserName(
+      saveUserRegistration(
         f.root,
         f.tokens.manager,
         1,
         operationId,
-        "missing",
-        "名前",
+        "a",
+        "management",
       ),
     () =>
-      updateUserRole(
+      saveUserName(f.root, f.tokens.manager, 1, operationId, "missing", "名前"),
+    () =>
+      saveUserRole(
         f.root,
         f.tokens.manager,
         1,
@@ -320,7 +332,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "developer",
       ),
     () =>
-      updateUserRole(
+      saveUserRole(
         f.root,
         f.tokens.manager,
         1,
@@ -330,7 +342,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         "manager",
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         1,
@@ -339,7 +351,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         [],
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         1,
@@ -348,7 +360,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         ["unknown"],
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         1,
@@ -357,7 +369,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         ["development", "development"],
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         1,
@@ -366,7 +378,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
         accessor,
       ),
     () =>
-      updateRoleContentAccess(
+      saveRoleContentAccess(
         f.root,
         f.tokens.manager,
         1,
@@ -391,7 +403,14 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
   credential.revoked = true;
   fs.writeFileSync(currentPath, bytes(revoked));
   assert.deepEqual(
-    registerUser(f.root, f.tokens.manager, 1, operationId, "名前", "developer"),
+    saveUserRegistration(
+      f.root,
+      f.tokens.manager,
+      1,
+      operationId,
+      "名前",
+      "developer",
+    ),
     { status: "unavailable", reason: "management_operation_rejected" },
   );
   assert.deepEqual(fs.readFileSync(currentPath), bytes(revoked));
@@ -403,7 +422,7 @@ test("通常管理拒否は非開示・UUID0・保存0", (t) => {
     const initialPath = path.join(initial.directory, "access-management.json");
     const saved = fs.readFileSync(initialPath);
     assert.deepEqual(
-      registerUser(
+      saveUserRegistration(
         initial.root,
         issued.value.token,
         3,
@@ -469,7 +488,7 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
       );
       const operations: (() => UserRoleManagementResult)[] = [
         () =>
-          registerUser(
+          saveUserRegistration(
             f.root,
             "invalid",
             current.revision,
@@ -478,7 +497,7 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
             "developer",
           ),
         () =>
-          registerUser(
+          saveUserRegistration(
             f.root,
             f.tokens.developer,
             current.revision,
@@ -487,7 +506,7 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
             "developer",
           ),
         () =>
-          registerUser(
+          saveUserRegistration(
             f.root,
             f.tokens.manager,
             current.revision + 1,
@@ -496,7 +515,7 @@ test("非認可の通常管理はbase／nextの先行保存材料を保持する
             "developer",
           ),
         () =>
-          updateUserRole(
+          saveUserRole(
             f.root,
             f.tokens.manager,
             current.revision,
@@ -786,7 +805,7 @@ test("内容認可と実Rootを相関し次要求で公開解除を反映", (t) 
     "completed",
   );
   assert.equal(
-    updateExposure(f.root, f.tokens.manager, 3, crypto.randomUUID(), id, [])
+    saveExposure(f.root, f.tokens.manager, 3, crypto.randomUUID(), id, [])
       .status,
     "completed",
   );
@@ -929,7 +948,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
   next.operationId = "00000000-0000-4000-8000-000000000091";
   prepare(f, next);
   assert.deepEqual(
-    updateUserName(
+    saveUserName(
       f.root,
       f.tokens.manager,
       1,
@@ -957,7 +976,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
     return administrator.userId as `${string}-${string}-${string}-${string}-${string}`;
   };
   try {
-    const collision = registerUser(
+    const collision = saveUserRegistration(
       f.root,
       f.tokens.manager,
       1,
@@ -982,7 +1001,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
     throw new Error("injected");
   };
   try {
-    const failed = updateUserName(
+    const failed = saveUserName(
       f.root,
       f.tokens.manager,
       1,
@@ -1014,7 +1033,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
       return originalRm(target, options);
     };
     try {
-      const failed = updateUserName(
+      const failed = saveUserName(
         f.root,
         f.tokens.manager,
         1,

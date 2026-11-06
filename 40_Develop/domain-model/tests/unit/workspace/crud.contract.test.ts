@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  prepareCoordinatorIntegrationRecordCreation as resultCandidate,
-  prepareCoordinatorWorkspaceRecordUpdate as workspaceCandidate,
+  prepareCoordinatorIntegrationRecordCreation,
+  prepareCoordinatorWorkspaceRecordUpdate,
   projectCoordinatorCurrentState,
   validCoordinatorWorkspace,
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
@@ -132,32 +132,48 @@ test("結果候補は元の本文HashとIdentityを保つ", () => {
     identity: "candidate-a",
     value: { result: "synthetic" },
   };
-  const created = resultCandidate(current, binding, record);
+  const created = prepareCoordinatorIntegrationRecordCreation(
+    current,
+    binding,
+    record,
+  );
   assert.equal(created.status, "completed");
   if (created.status !== "completed" || !created.value.next)
     throw Error("fixture");
   assert.equal(created.value.next.results.length, 1);
   assert.strictEqual(created.value.next.workspaces, current.workspaces);
-  assert.deepEqual(resultCandidate(created.value.next, binding, record), {
-    status: "completed",
-    reason: "orchestrator_result_durable",
-    value: { next: null, value: { written: true } },
-  });
+  assert.deepEqual(
+    prepareCoordinatorIntegrationRecordCreation(
+      created.value.next,
+      binding,
+      record,
+    ),
+    {
+      status: "completed",
+      reason: "orchestrator_result_durable",
+      value: { next: null, value: { written: true } },
+    },
+  );
   assert.equal(
-    resultCandidate(created.value.next, binding, {
+    prepareCoordinatorIntegrationRecordCreation(created.value.next, binding, {
       ...record,
       value: { result: "other" },
     }).reason,
     "orchestrator_result_identity_conflict",
   );
   assert.equal(
-    resultCandidate(current, { ...binding, projectId: "project-b" }, record)
-      .reason,
+    prepareCoordinatorIntegrationRecordCreation(
+      current,
+      { ...binding, projectId: "project-b" },
+      record,
+    ).reason,
     "orchestrator_result_binding_invalid",
   );
   assert.equal(
-    resultCandidate(current, binding, { ...record, identity: "../escape" })
-      .reason,
+    prepareCoordinatorIntegrationRecordCreation(current, binding, {
+      ...record,
+      identity: "../escape",
+    }).reason,
     "orchestrator_result_invalid",
   );
   assert.equal(Object.isFrozen(created), true);
@@ -199,7 +215,7 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
     generation = 1,
     pid = 7,
   ) =>
-    workspaceCandidate(
+    prepareCoordinatorWorkspaceRecordUpdate(
       snapshot,
       "project-a",
       "queue-a",
@@ -324,7 +340,7 @@ test("Workspace候補は非使用・元世代・有限時計を維持する", ()
   let throwCalls = 0;
   assert.throws(
     () =>
-      workspaceCandidate(
+      prepareCoordinatorWorkspaceRecordUpdate(
         current,
         "project-a",
         "queue-a",

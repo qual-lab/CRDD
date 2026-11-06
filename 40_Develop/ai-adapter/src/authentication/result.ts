@@ -8,7 +8,7 @@
  * @security 生出力を公開結果や例外へ複製しない。
  */
 
-import type { AiProvider } from "../provider/types.ts";
+import type { Provider } from "../provider/types.ts";
 
 import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
@@ -24,7 +24,7 @@ import { parseUnambiguousJsonDocument } from "../provider/json.ts";
  */
 export type ProviderAuthenticationResult = Readonly<
   {
-    provider: AiProvider | null;
+    provider: Provider | null;
   } & (
     | { status: "confirmed"; reason: "subscription_auth_confirmed" }
     | { status: "unconfirmed"; reason: "subscription_auth_not_logged_in" }
@@ -54,7 +54,7 @@ export type ProviderAuthenticationResult = Readonly<
  * @concurrency N/A: 共有可変状態を持たない。
  */
 export function evaluateProviderAuthentication(
-  provider: AiProvider,
+  provider: Provider,
   expectedOffering: "chatgpt_subscription_oauth" | "claude_max",
   stdout: string,
   stderr: string,

@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   assertSupportedCoordinatorNodeRuntime,
   describeCoordinatorNodeRuntimeVersionContract,
-  isSupportedCoordinatorNodeRuntime,
+  isSupportedNodeRuntime,
 } from "../../../src/execution/diagnostics.ts";
 
 /**
@@ -31,7 +31,7 @@ import {
  */
 test("Node 24.12.0以上だけをCoordinator保守Runtime候補にする", () => {
   for (const value of ["24.12.0", "24.19.0", "25.0.0"]) {
-    assert.equal(isSupportedCoordinatorNodeRuntime(value), true);
+    assert.equal(isSupportedNodeRuntime(value), true);
     assert.doesNotThrow(() => assertSupportedCoordinatorNodeRuntime(value));
   }
   for (const value of [
@@ -44,7 +44,7 @@ test("Node 24.12.0以上だけをCoordinator保守Runtime候補にする", () =>
     null,
     Object.freeze({}),
   ]) {
-    assert.equal(isSupportedCoordinatorNodeRuntime(value), false);
+    assert.equal(isSupportedNodeRuntime(value), false);
     assert.throws(
       () => assertSupportedCoordinatorNodeRuntime(value),
       /coordinator_node_version_unsupported/u,

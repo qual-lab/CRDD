@@ -73,18 +73,7 @@ export function createRuntimeStorageSourceFixture(
     ...plainData,
     ...definitionCandidates,
     assertRuntimeStateInitializationBoundary,
-    decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
-    exactRecordKeys: domain.hasRuntimeStateRecordKeys,
-    digest: domain.hashRuntimeStateValueText,
-    plainObject: domain.isRuntimeStateObject,
-    exactKeys: domain.hasRuntimeStateKeys,
     ...kernel,
-    borrowRuntimeOwnedCoordinatorStorageRepository:
-      storageRepository.observeRuntimeStorageRepository,
-    borrowRuntimeOwnedCoordinatorRecoveryRepository:
-      storageRepository.observeRuntimeRecoveryRepository,
-    borrowRuntimeOwnedCoordinatorStateRepository:
-      storageRepository.observeRuntimeExecutionRepository,
     ...overrides,
   };
   const declarations = new Set(

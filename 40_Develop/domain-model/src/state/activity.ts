@@ -7,13 +7,16 @@
  * @boundary Domain値と利用側の入力・公開結果。
  */
 import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type {
   ActivitySource,
   RuntimeActivityEvent,
   RuntimeActivityObservation,
 } from "./projection-types.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "./validation.ts";
+import {
+  snapshotRuntimeStateArray,
+  snapshotRuntimeStateRecord,
+} from "./validation.ts";
 import { inspectCoordinatorProjection } from "./projection.ts";
 /**
  * Projectと正規Sourceの相関Hashを導出する。
@@ -67,7 +70,7 @@ export function decodeActivityCursor(
   } catch {
     throw new Error("runtime_activity_cursor_invalid");
   }
-  const parsed = snapshotPlainArray(raw, 3);
+  const parsed = snapshotRuntimeStateArray(raw, 3);
   if (
     parsed.status !== "ok" ||
     parsed.value.length !== 3 ||
@@ -191,8 +194,8 @@ export function parseRuntimeActivityObservation(
     "currentSourceRepositoryId",
   ]);
   const record =
-    snapshotPlainRecord(value, keys) ??
-    snapshotPlainRecord(
+    snapshotRuntimeStateRecord(value, keys) ??
+    snapshotRuntimeStateRecord(
       value,
       new Set([
         "projectId",
@@ -227,7 +230,7 @@ export function parseRuntimeActivityObservation(
   if (record.projection !== null) {
     if (
       typeof record.projection !== "object" ||
-      utilTypes.isProxy(record.projection)
+      types.isProxy(record.projection)
     )
       return null;
     for (const key of [
@@ -255,10 +258,10 @@ export function parseRuntimeActivityObservation(
     RuntimeActivityObservation["singleTasks"]
   >[number][] = [];
   if (Object.hasOwn(record, "singleTasks")) {
-    const items = snapshotPlainArray(record.singleTasks, 10000);
+    const items = snapshotRuntimeStateArray(record.singleTasks, 10000);
     if (items.status !== "ok") return null;
     for (const item of items.value) {
-      const task = snapshotPlainRecord(
+      const task = snapshotRuntimeStateRecord(
         item,
         new Set([
           "repositoryId",
@@ -327,7 +330,7 @@ export function parseRuntimeActivityObservation(
     (record.eventState === "unknown" && record.eventContinuation !== null)
   )
     return null;
-  const rawEvents = snapshotPlainArray(record.events, 50);
+  const rawEvents = snapshotRuntimeStateArray(record.events, 50);
   if (rawEvents.status !== "ok") return null;
   if (record.eventState === "unknown" && rawEvents.value.length !== 0)
     return null;
@@ -403,7 +406,7 @@ export function parseRuntimeActivityObservation(
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function parseRuntimeEvent(value: unknown): RuntimeActivityEvent | null {
-  const record = snapshotPlainRecord(
+  const record = snapshotRuntimeStateRecord(
     value,
     new Set([
       "repositoryId",
@@ -461,12 +464,12 @@ function parseRuntimeEvent(value: unknown): RuntimeActivityEvent | null {
 function parseActivitySources(
   value: unknown,
 ): readonly ActivitySource[] | null {
-  const raw = snapshotPlainArray(value, 10000);
+  const raw = snapshotRuntimeStateArray(value, 10000);
   if (raw.status !== "ok" || raw.value.length === 0) return null;
   const sources: ActivitySource[] = [];
   for (const entry of raw.value) {
     const previous = sources.at(-1);
-    const source = snapshotPlainRecord(
+    const source = snapshotRuntimeStateRecord(
       entry,
       new Set(["repositoryId", "revision"]),
     );

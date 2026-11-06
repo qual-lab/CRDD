@@ -6,7 +6,7 @@
  * @boundary tests/scripts専用。共通技術Requestの実行保証は製品Lifecycle試験が所有する。
  */
 import path from "node:path";
-import { types as utilTypes } from "node:util";
+import { types } from "node:util";
 import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
 import { resolveFixedCodexExecutorSeccompProfile } from "../../src/execution/plan.ts";
 import {
@@ -175,8 +175,7 @@ export function projectDockerProxyConfiguration(
     let candidate: unknown = null;
     let found = false;
     for (const item of items) {
-      if (!item || typeof item !== "object" || utilTypes.isProxy(item))
-        return null;
+      if (!item || typeof item !== "object" || types.isProxy(item)) return null;
       const purpose = Object.getOwnPropertyDescriptor(item, "purpose");
       const args = Object.getOwnPropertyDescriptor(item, "argv");
       if (
@@ -260,7 +259,7 @@ function snapshotDockerBoundaryArray(
     if (
       !value ||
       typeof value !== "object" ||
-      utilTypes.isProxy(value) ||
+      types.isProxy(value) ||
       !Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Array.prototype
     )
@@ -317,8 +316,7 @@ export function projectDockerExecutionBoundary(
     let candidate: unknown = null;
     let hasCandidate = false;
     for (const item of items) {
-      if (!item || typeof item !== "object" || utilTypes.isProxy(item))
-        return null;
+      if (!item || typeof item !== "object" || types.isProxy(item)) return null;
       const purpose = Object.getOwnPropertyDescriptor(item, "purpose");
       const args = Object.getOwnPropertyDescriptor(item, "argv");
       if (

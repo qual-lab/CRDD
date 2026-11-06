@@ -13,7 +13,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { channel } from "node:diagnostics_channel";
 import fs from "node:fs";
-import { type ClientRequest, request as httpRequest } from "node:http";
+import { type ClientRequest, request } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import path, { join } from "node:path";
 import test from "node:test";
@@ -2778,7 +2778,7 @@ for (const transport of ["tool-child-process"] as const) {
     dropResponse = true;
     boundaryTiming.setStage("start");
     await new Promise<void>((resolve, reject) => {
-      disconnectedRequest = httpRequest(
+      disconnectedRequest = request(
         new URL("/ai-request/action", baseUrl),
         {
           method: "POST",

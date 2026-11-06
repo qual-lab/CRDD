@@ -19,7 +19,7 @@ import {
 import {
   COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   validId,
-  digest,
+  hashRuntimeStateValueText,
 } from "../state/validation.ts";
 import { encodeRuntimeStateValue } from "../state/codec.ts";
 
@@ -201,7 +201,7 @@ export function prepareCoordinatorAcceptanceDecisionFinalization(
     repositoryBindingId: binding,
     recordId: expected.recordId,
     generation: 2,
-    previousHash: digest(encodeRuntimeStateValue(first)),
+    previousHash: hashRuntimeStateValueText(encodeRuntimeStateValue(first)),
     record: next,
   };
   return completed("orchestrator_acceptance_record_finalized", {

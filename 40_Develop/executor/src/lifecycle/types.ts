@@ -12,12 +12,11 @@ import type {
   executeIsolation,
 } from "../../../docker-isolation/src/index.ts";
 import type {
-  ModelSelection as AiModelSelection,
-  Provider as AiProvider,
-  ExecutionResult as ProviderResultParseResult,
-  TurnCountDiagnostic as ProviderTurnCountDiagnostic,
-  ExecutionPlan,
+  ModelSelection,
+  Provider,
   ExecutionResult,
+  TurnCountDiagnostic,
+  ExecutionPlan,
 } from "../../../ai-adapter/src/index.ts";
 import type { ATTEMPT_COMPLETION_REASONS, PURPOSES } from "./attempt.ts";
 
@@ -317,16 +316,12 @@ interface Callbacks {
   isolation_probe: IsolationProbeCallbacks;
 }
 
-type TaskResult = NonNullable<
-  ProviderResultParseResult<"task">["normalizedResult"]
->;
+type TaskResult = NonNullable<ExecutionResult<"task">["normalizedResult"]>;
 
-type AdviceResult = NonNullable<
-  ProviderResultParseResult<"advice">["normalizedResult"]
->;
+type AdviceResult = NonNullable<ExecutionResult<"advice">["normalizedResult"]>;
 
 type TaskReviewFinding = NonNullable<
-  ProviderResultParseResult<"task">["reviewFindings"]
+  ExecutionResult<"task">["reviewFindings"]
 >[number];
 
 /**
@@ -429,7 +424,7 @@ export type AttemptReference = Readonly<{
  */
 export type AttemptRequest = Readonly<{
   kind: "attempt";
-  selection: AiModelSelection;
+  selection: ModelSelection;
   target: Readonly<{
     operationId: string;
     grantRef: string;
@@ -474,10 +469,10 @@ export type AttemptRequest = Readonly<{
 export type AttemptPlan = AttemptRecordProjection &
   Readonly<{
     additionalHosts: readonly string[] | null;
-    provider: AiProvider;
+    provider: Provider;
     operationId: string;
     grantRef: string;
-    executionSelection: AiModelSelection;
+    executionSelection: ModelSelection;
     activeMountCapability: object;
     providerHomeSourcePath: string;
     providerHomeIdentityHash: string;
@@ -583,7 +578,7 @@ export type ProcessStartedNotice = Readonly<{
 export type AttemptContent =
   | TaskResult
   | AdviceResult
-  | NonNullable<ProviderResultParseResult<"probe">["normalizedResult"]>;
+  | NonNullable<ExecutionResult<"probe">["normalizedResult"]>;
 
 /**
  * 開始成功・拒否ごとに必要な組立て入力を表す。
@@ -757,7 +752,7 @@ export type AttemptCompletionResult = Readonly<{
   resultBytes: number;
   normalizedResult: AttemptContent | null;
   providerExecutionObservation: NonNullable<
-    ProviderResultParseResult<"task">["providerExecutionObservation"]
+    ExecutionResult<"task">["providerExecutionObservation"]
   > | null;
   providerTurnObservation: Readonly<Record<string, unknown>> | null;
   reviewFindings: readonly TaskReviewFinding[] | null;
@@ -840,7 +835,7 @@ export type PrimaryFailureDiagnostic = Readonly<{
   /** 診断専用。confirmedでも非0終了を実行許可へ変換しない。 */
   authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
   /** Claude助言のTurn拒否だけに付く非秘密metadata。 */
-  turnCountDiagnostic?: ProviderTurnCountDiagnostic;
+  turnCountDiagnostic?: TurnCountDiagnostic;
   commandObservation: Readonly<{
     exitCode: number | null;
     stdoutBytes: number;
@@ -1017,7 +1012,7 @@ export interface AuthenticationCallbacks
 /** 選定済みの認証構成。kindで他用途から区別する。 */
 export type AuthenticationRequest = Readonly<{
   kind: "authentication";
-  provider: AiProvider;
+  provider: Provider;
   action: "status" | "login";
   providerHomeSourcePath: string;
   suffix: string;
@@ -1038,7 +1033,7 @@ export type AuthenticationOptions = Readonly<{ managementDirectory: string }>;
  * @compatibility 既存の資源順序と記録Schemaを維持する。
  */
 export type AuthenticationProjection = Readonly<{
-  provider: AiProvider;
+  provider: Provider;
   action: "status" | "login";
   ownershipLabel: string;
 }>;
