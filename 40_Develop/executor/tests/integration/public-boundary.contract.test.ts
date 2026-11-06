@@ -69,6 +69,10 @@ test("ExecutorはCoordinator非存在でロードでき、不正な開始をEffe
     "DockerRuntimeRepairResult",
     "DockerRuntimeRestartInput",
     "DockerRuntimeRestartResult",
+    "RepairInput",
+    "RepairResult",
+    "RestartInput",
+    "RestartResult",
     "CancelInput",
   ])
     assert.equal(publicTypes.includes(removed), false, removed);

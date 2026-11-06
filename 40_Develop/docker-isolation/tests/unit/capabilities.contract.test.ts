@@ -10,10 +10,7 @@ import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
 import test from "node:test";
-import {
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-} from "../../src/image/assets.ts";
+import * as imageAssets from "../../src/image/assets.ts";
 import { describeIsolationConfiguration } from "../../src/index.ts";
 
 /**
@@ -28,6 +25,10 @@ import { describeIsolationConfiguration } from "../../src/index.ts";
  * @boundary 純粋構成の確認。実環境の成立は別検証。
  */
 test("固定構成はImage・配置だけを返しPolicy生成や実観測を含めない", (t) => {
+  assert.equal(
+    describeIsolationConfiguration,
+    imageAssets.describeIsolationConfiguration,
+  );
   let io = 0;
   const unexpected = () => {
     io++;
@@ -40,10 +41,13 @@ test("固定構成はImage・配置だけを返しPolicy生成や実観測を含
   t.mock.method(fs, "lstatSync", unexpected);
   for (const provider of ["codex", "claude"] as const) {
     const value = describeIsolationConfiguration(provider);
-    assert.equal(value.assets, describeDockerProviderAssets(provider));
+    assert.equal(
+      value.assets,
+      imageAssets.describeDockerProviderAssets(provider),
+    );
     assert.deepEqual(
       value.locations.primary,
-      describeDockerProviderExecutionLocations(provider, "primary"),
+      imageAssets.describeDockerProviderExecutionLocations(provider, "primary"),
     );
     assert.equal(value.proxy, value.assets.proxy);
     assert.equal(Object.hasOwn(value, "networkPolicy"), false);
@@ -53,7 +57,10 @@ test("固定構成はImage・配置だけを返しPolicy生成や実観測を含
     if (value.provider === "codex") {
       assert.deepEqual(
         value.locations.alternate,
-        describeDockerProviderExecutionLocations("codex", "alternate"),
+        imageAssets.describeDockerProviderExecutionLocations(
+          "codex",
+          "alternate",
+        ),
       );
       assert.notEqual(
         value.assets.fixedImageDigest,

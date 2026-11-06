@@ -319,6 +319,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
  * @boundary 公開APIの存在だけで実Dockerの成立は主張しない。
  */
 test("必要な隔離技術APIは公開し内部生成Primitiveは公開しない", async () => {
+  assert.equal(fs.existsSync(path.join(sourceRoot, "configuration.ts")), false);
   const namespace = await import("../../src/index.ts");
   for (const name of [
     "prepareIsolation",

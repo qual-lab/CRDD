@@ -16,16 +16,13 @@ import {
  *
  * @responsibility Docker Restart Engine ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @shape DockerRuntimeEngineStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DockerRuntimeEngineStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: DockerRuntimeEngineStateの宣言は外部境界を開かない。
- * @security DockerRuntimeEngineStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DockerRuntimeEngineStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape EngineStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EngineStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EngineStateの宣言は外部境界を開かない。
+ * @security EngineStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility EngineStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type DockerRuntimeEngineState =
-  | "ready"
-  | "known_unavailable"
-  | "unknown";
+export type EngineState = "ready" | "known_unavailable" | "unknown";
 /**
  * docker-restart-machineで使用するDocker Restart Engine Pipe Observationの値契約を定義する。
  *
@@ -43,14 +40,14 @@ export type DockerEnginePipeState = "present" | "absent" | "unknown";
  *
  * @responsibility Docker Restart Engine Observation 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @shape DockerRuntimeEngineObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DockerRuntimeEngineObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: DockerRuntimeEngineObservationの宣言は外部境界を開かない。
- * @security DockerRuntimeEngineObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DockerRuntimeEngineObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape EngineObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant EngineObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: EngineObservationの宣言は外部境界を開かない。
+ * @security EngineObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility EngineObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type DockerRuntimeEngineObservation = Readonly<{
-  state: DockerRuntimeEngineState;
+export type EngineObservation = Readonly<{
+  state: EngineState;
   cleanup: "confirmed" | "unknown";
 }>;
 /**
@@ -241,7 +238,7 @@ export function awaitDockerRepairEngine(
  * @responsibility Docker Restart Engine 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input result: Readonly<{ pid?: number; status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>、observeEnginePipe: () => DockerEnginePipeObservation
- * @returns DockerRuntimeEngineObservationを返す。
+ * @returns EngineObservationを返す。
  * @precondition 「result: Readonly<{ pid?: number; status: number | null; signal: string | null; error?: unknown; stdout: unknown; stderr: unknown; }>、observeEnginePipe: () => DockerEnginePipeObservation」がclassifyDockerEngineResultの入力契約を満たす。
  * @postcondition classifyDockerEngineResultの責務を完了した結果だけを返す。
  * @effect N/A: 入力を分類し、既知の未起動候補だけで固定pipe観測を呼ぶ。観測のcleanupは結果へ保持する。
@@ -261,7 +258,7 @@ export function classifyDockerEngineResult(
     stderr: unknown;
   }>,
   observeEnginePipe: () => DockerEnginePipeObservation,
-): DockerRuntimeEngineObservation {
+): EngineObservation {
   if (
     result.status === 0 &&
     result.signal === null &&
@@ -310,7 +307,7 @@ export function classifyDockerEngineResult(
  * @responsibility Docker Engineの検索条件、参照範囲、未検出結果境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
- * @returns DockerRuntimeEngineObservationを返す。
+ * @returns EngineObservationを返す。
  * @precondition 「N/A: 実行時引数を受け取らない。」がobserveDockerRuntimeEngineの入力契約を満たす。
  * @postcondition observeDockerRuntimeEngineの責務を完了した結果だけを返す。
  * @effect observeDockerRuntimeEngineは外部ProcessまたはRuntime境界の操作を呼び出す。
@@ -320,7 +317,7 @@ export function classifyDockerEngineResult(
  * @security observeDockerRuntimeEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: observeDockerRuntimeEngineは共有非同期状態を持たない同期処理である。
  */
-export function observeDockerRuntimeEngine(): DockerRuntimeEngineObservation {
+export function observeDockerRuntimeEngine(): EngineObservation {
   if (process.platform !== "win32")
     return Object.freeze({ state: "unknown", cleanup: "confirmed" });
   try {
@@ -366,7 +363,7 @@ export function observeDockerRuntimeEngine(): DockerRuntimeEngineObservation {
  * @compatibility 実環境とcleanupの状態は独立して利用側へ渡す。
  */
 export type DockerRepairEngineObservation = Readonly<{
-  state: DockerRuntimeEngineState | "transient_unavailable";
+  state: EngineState | "transient_unavailable";
   cleanup: "confirmed" | "unknown";
 }>;
 

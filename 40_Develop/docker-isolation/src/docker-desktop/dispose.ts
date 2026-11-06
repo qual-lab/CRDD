@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  * @boundary DI内部。固定factory由来の対象だけを扱いRoot公開APIにはしない。
  */
-import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
+import type { RepairCheckpoint } from "./types.ts";
 
 import fs from "node:fs";
 import path from "node:path";
@@ -142,7 +142,7 @@ function nodeDirectory(target: string): fs.BigIntStats {
  */
 export async function disposeDockerRepairDirectory(
   targets: Readonly<{ source: string; target: string }>,
-  expected: DockerRuntimeRepairCheckpoint["directories"]["primary"]["expected"],
+  expected: RepairCheckpoint["directories"]["primary"]["expected"],
   boundary: () => unknown,
 ): Promise<
   Readonly<{

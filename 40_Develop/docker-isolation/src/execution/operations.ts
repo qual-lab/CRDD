@@ -34,7 +34,7 @@ import {
   verifyTrustedDockerCliSnapshot,
 } from "../docker-cli/trust.ts";
 import {
-  type DockerRuntimeDirectoryCleanupResult,
+  type DirectoryCleanupResult,
   disposeDockerRuntimeRepairDirectory,
 } from "../docker-desktop/repair-session.ts";
 import {
@@ -245,7 +245,7 @@ export function cleanupIsolation(
 ):
   | IsolationExecution
   | Readonly<{ confirmed: boolean; reason: string }>
-  | Promise<DockerRuntimeDirectoryCleanupResult> {
+  | Promise<DirectoryCleanupResult> {
   if (
     request &&
     typeof request === "object" &&

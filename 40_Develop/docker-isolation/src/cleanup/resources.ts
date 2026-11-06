@@ -5,7 +5,7 @@
  */
 import { types } from "node:util";
 import { observeDockerRuntimeRepairRetention } from "../docker-desktop/repair-session.ts";
-import type { DockerRuntimeRepairRetentionTargets } from "../docker-desktop/types.ts";
+import type { RepairRetentionTargets } from "../docker-desktop/types.ts";
 import { captureIsolationCleanupRequest } from "../execution/preparation.ts";
 import type { IsolationCleanupRequest } from "../execution/types.ts";
 import { inspectContainerResources } from "./container.ts";
@@ -55,7 +55,7 @@ export function inspectIsolation(
 ):
   | SnapshotResourceInspection
   | ContainerResourceInspection
-  | DockerRuntimeRepairRetentionTargets
+  | RepairRetentionTargets
   | null {
   if (
     request &&

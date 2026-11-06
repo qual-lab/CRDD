@@ -75,13 +75,13 @@ export type WslListCompletion = Readonly<{
  *
  * @responsibility Docker Wsl 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @shape DockerRuntimeBackendStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant DockerRuntimeBackendStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: DockerRuntimeBackendStateの宣言は外部境界を開かない。
- * @security DockerRuntimeBackendStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility DockerRuntimeBackendStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape BackendStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant BackendStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: BackendStateの宣言は外部境界を開かない。
+ * @security BackendStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility BackendStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type DockerRuntimeBackendState = "stopped" | "running" | "unknown";
+export type BackendState = "stopped" | "running" | "unknown";
 
 /**
  * Distribution Listを構造化値へ解析する。
@@ -142,7 +142,7 @@ function parseDistributionList(
  * @responsibility Docker Wsl 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input registeredResult: WslListCompletion、runningResult: WslListCompletion
- * @returns DockerRuntimeBackendStateを返す。
+ * @returns BackendStateを返す。
  * @precondition 「registeredResult: WslListCompletion、runningResult: WslListCompletion」がclassifyDockerBackendListsの入力契約を満たす。
  * @postcondition classifyDockerBackendListsの責務を完了した結果だけを返す。
  * @effect N/A: classifyDockerBackendListsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -155,7 +155,7 @@ function parseDistributionList(
 export function classifyDockerBackendLists(
   registeredResult: WslListCompletion,
   runningResult: WslListCompletion,
-): DockerRuntimeBackendState {
+): BackendState {
   const registeredNames = parseDistributionList(registeredResult);
   const runningNames = parseDistributionList(runningResult);
   if (
@@ -183,7 +183,7 @@ export function classifyDockerBackendLists(
  * @security 親環境・任意argv・任意実行物・Runtime署名Authorityを使用しない。
  * @concurrency 同期の有界観測。二つの一覧をatomic Snapshotとは扱わない。
  */
-export function observeDockerRuntimeBackendState(): DockerRuntimeBackendState {
+export function observeDockerRuntimeBackendState(): BackendState {
   if (process.platform !== "win32") return "unknown";
   try {
     const environment: Readonly<Record<string, string>> | null =

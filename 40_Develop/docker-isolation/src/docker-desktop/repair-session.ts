@@ -5,10 +5,7 @@
  * @trace ARCH-000008
  * @boundary 元Sessionは同子を回収し、終了後回収・保持照合は新Repair Sessionを取得しない。現在の許可と真正Writerは上位Ownerが所有する。
  */
-import type {
-  DockerRuntimeRepairCheckpoint,
-  DockerRuntimeRepairRetentionTargets,
-} from "./types.ts";
+import type { RepairCheckpoint, RepairRetentionTargets } from "./types.ts";
 import {
   decodeDockerRuntimeRepairCheckpoint,
   dockerRuntimeRepairCheckpointIsSettled,
@@ -26,7 +23,7 @@ import {
 import { prepareDockerRuntimeRepairSessionCheckpoint } from "./validation.ts";
 import {
   runDockerRuntimeRepairMachine,
-  type DockerRuntimeRepairMachineResult,
+  type RepairMachineResult,
 } from "./repair.ts";
 import { startDockerDesktopRepairHelper } from "../../../platform-access/src/index.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
@@ -47,15 +44,15 @@ import {
  * @security Path、任意命令、保存実装を含めない。
  * @compatibility 最新checkpointだけ。
  */
-export interface DockerRuntimeRepairCallbacks {
+export interface RepairCallbacks {
   onPrepared(
     value: Readonly<{
       ownerBindingSha256: string;
       scopeSha256: string;
-      checkpoint: DockerRuntimeRepairCheckpoint;
+      checkpoint: RepairCheckpoint;
     }>,
   ): void;
-  onCheckpoint(value: DockerRuntimeRepairCheckpoint): void;
+  onCheckpoint(value: RepairCheckpoint): void;
 }
 
 /**
@@ -68,17 +65,17 @@ export interface DockerRuntimeRepairCallbacks {
  * @security 任意Path・OS処置・Store操作を含めない。
  * @compatibility checkpointのSchemaとexact相関は不変。
  */
-export type DockerRuntimeRepairInput = Readonly<{
+export type RepairInput = Readonly<{
   operationNonce: string;
   signal: AbortSignal;
   resume: Readonly<{
     ownerBindingSha256: string;
     scopeSha256: string;
-    checkpoint: DockerRuntimeRepairCheckpoint;
+    checkpoint: RepairCheckpoint;
   }> | null;
   canIssueEffect: () => unknown;
 }> &
-  DockerRuntimeRepairCallbacks;
+  RepairCallbacks;
 
 /**
  * 修復Sessionの技術結果。上位の永続保存確定を意味しない。
@@ -90,19 +87,19 @@ export type DockerRuntimeRepairInput = Readonly<{
  * @security 生Session・Path・秘密情報を含めない。
  * @compatibility 既存の無名結果と同形で、値やSchemaを変更しない。
  */
-export type DockerRuntimeRepairResult = Readonly<{
+export type RepairResult = Readonly<{
   preparation:
     | "input_rejected"
     | "boundary_unavailable"
     | "correlation_mismatch"
     | "prepared";
-  machine: DockerRuntimeRepairMachineResult | null;
+  machine: RepairMachineResult | null;
   lifecycle: Readonly<{
     failure: RepairSessionResult<unknown>["failure"];
     cleanup: DockerDesktopRepairHelperReleaseOutcome;
     observationCleanupFailure: "observation_cleanup_unknown" | null;
   }> | null;
-  checkpoint: DockerRuntimeRepairCheckpoint | null;
+  checkpoint: RepairCheckpoint | null;
   finalCheckpointConfirmed: false;
   ownerBindingSha256: string | null;
   scopeSha256: string | null;
@@ -118,11 +115,11 @@ export type DockerRuntimeRepairResult = Readonly<{
  * @security 保存値だけで現在の許可を復元しない。
  * @compatibility 既存の閉field入力と同形である。
  */
-export type DockerRuntimeDirectoryInspectionInput = Readonly<{
+export type DirectoryInspectionInput = Readonly<{
   operationNonce: string;
   ownerBindingSha256: string;
   scopeSha256: string;
-  checkpoint: DockerRuntimeRepairCheckpoint;
+  checkpoint: RepairCheckpoint;
   signal: AbortSignal;
   canObserve: () => unknown;
 }>;
@@ -137,7 +134,7 @@ export type DockerRuntimeDirectoryInspectionInput = Readonly<{
  * @security 完了値を別対象の処置許可へ流用しない。
  * @compatibility 既存の返却値をそのまま表す明示型である。
  */
-export type DockerRuntimeDirectoryCleanupResult = Readonly<{
+export type DirectoryCleanupResult = Readonly<{
   request: "not_issued" | "issued" | "unknown";
   absence: "confirmed_absent" | "unknown";
 }>;
@@ -158,8 +155,8 @@ export type DockerRuntimeDirectoryCleanupResult = Readonly<{
  * @concurrency Usingの入力検査後にだけ取得し、準備await後も現在許可を照合する。
  */
 export async function runDockerRuntimeRepairSession(
-  value: DockerRuntimeRepairInput,
-): Promise<DockerRuntimeRepairResult> {
+  value: RepairInput,
+): Promise<RepairResult> {
   let artifact: NonNullable<
     ReturnType<typeof observePlatformAccessArtifactCandidate>["artifact"]
   > | null = null;
@@ -221,11 +218,11 @@ export async function runDockerRuntimeRepairSession(
  * @security canIssueEffectは同用途の意図保存・読戻し・排他解放も確認する。
  * @compatibility 現行の終了済み修復だけ。
  */
-export type DockerRuntimeRepairDisposalInput = Readonly<{
+export type RepairDisposalInput = Readonly<{
   operationNonce: string;
   ownerBindingSha256: string;
   scopeSha256: string;
-  checkpoint: DockerRuntimeRepairCheckpoint;
+  checkpoint: RepairCheckpoint;
   purpose: "primary" | "failed" | "auxiliary";
   signal: AbortSignal;
   canIssueEffect: () => unknown;
@@ -247,8 +244,8 @@ export type DockerRuntimeRepairDisposalInput = Readonly<{
  * @concurrency Driver待機後にもArtifact・Scope・取消・現在Ownerを再確認する。
  */
 export async function disposeDockerRuntimeRepairDirectory(
-  value: DockerRuntimeRepairDisposalInput,
-): Promise<DockerRuntimeDirectoryCleanupResult> {
+  value: RepairDisposalInput,
+): Promise<DirectoryCleanupResult> {
   let handedOff = false;
   const unavailable = Object.freeze({
     request: "not_issued",
@@ -338,8 +335,8 @@ export async function disposeDockerRuntimeRepairDirectory(
  * @concurrency 各読取り前後に同じ取消・Owner・Artifact・Scopeを再確認する。
  */
 export function observeDockerRuntimeRepairRetention(
-  value: DockerRuntimeDirectoryInspectionInput,
-): DockerRuntimeRepairRetentionTargets | null {
+  value: DirectoryInspectionInput,
+): RepairRetentionTargets | null {
   try {
     const fields = repairData(value, [
       "operationNonce",
@@ -386,7 +383,7 @@ export function observeDockerRuntimeRepairRetention(
     );
     if (!access || access.scopeSha256 !== fields.scopeSha256) return null;
     const targets: {
-      -readonly [P in keyof DockerRuntimeRepairRetentionTargets]: DockerRuntimeRepairRetentionTargets[P];
+      -readonly [P in keyof RepairRetentionTargets]: RepairRetentionTargets[P];
     } = { primary: null, failed: null, auxiliary: null };
     for (let pass = 0; pass < 2; pass++) {
       for (const purpose of ["primary", "failed", "auxiliary"] as const) {
@@ -594,7 +591,7 @@ function initialRepairCheckpoint() {
  * @concurrency await前後と通知後に生存・取消・現在許可を照合する。
  */
 export async function runDockerRuntimeRepairSessionUsing(
-  value: DockerRuntimeRepairInput,
+  value: RepairInput,
   dependencies: Readonly<{
     acquire: () => Promise<DockerDesktopRepairNativeHelperOutcome>;
     prepare: (
@@ -609,13 +606,13 @@ export async function runDockerRuntimeRepairSessionUsing(
       cleanupFailure: () => "observation_cleanup_unknown" | null;
     }> | null>;
   }>,
-): Promise<DockerRuntimeRepairResult> {
+): Promise<RepairResult> {
   let preparation:
     | "input_rejected"
     | "boundary_unavailable"
     | "correlation_mismatch"
     | "prepared" = "input_rejected";
-  let notifiedCheckpoint: DockerRuntimeRepairCheckpoint | null = null;
+  let notifiedCheckpoint: RepairCheckpoint | null = null;
   let ownerBindingSha256: string | null = null;
   let scopeSha256: string | null = null;
   let observationCleanupFailure: "observation_cleanup_unknown" | null = null;
@@ -668,7 +665,7 @@ export async function runDockerRuntimeRepairSessionUsing(
     "onPrepared",
     "onCheckpoint",
   ]);
-  let input: DockerRuntimeRepairInput | null = null;
+  let input: RepairInput | null = null;
   if (
     fields &&
     typeof fields.operationNonce === "string" &&
@@ -679,7 +676,7 @@ export async function runDockerRuntimeRepairSessionUsing(
       (callback) => typeof callback === "function",
     )
   ) {
-    let resume: DockerRuntimeRepairInput["resume"] = null;
+    let resume: RepairInput["resume"] = null;
     if (fields.resume !== null) {
       const prior = repairData(fields.resume, [
         "ownerBindingSha256",
@@ -718,7 +715,7 @@ export async function runDockerRuntimeRepairSessionUsing(
           scopeSha256,
         });
     }
-    input = Object.freeze({ ...fields, resume }) as DockerRuntimeRepairInput;
+    input = Object.freeze({ ...fields, resume }) as RepairInput;
   }
   if (!input)
     return Object.freeze({

@@ -11,10 +11,10 @@ import { getEventListeners } from "node:events";
 import test from "node:test";
 
 import type {
-  DockerRuntimeRepairInput,
-  DockerRuntimeRepairResult,
+  RepairInput,
+  RepairResult,
 } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import type { DockerRuntimeRestartInput } from "../../../docker-isolation/src/docker-desktop/restart.ts";
+import type { RestartInput } from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import type { DockerIsolationRuntimeOptions } from "../../src/lifecycle/types.ts";
 import {
   type AttemptCancelInput,
@@ -119,11 +119,11 @@ test("公開型の既定Unionと用途別取消は入出力の相関を維持す
     const noProjection: RecordProjection<"isolation_probe"> = projection;
     void noProjection;
     if (environment.mode === "restart") {
-      const original: DockerRuntimeRestartInput = environment.input;
+      const original: RestartInput = environment.input;
       void original;
     } else {
-      const original: DockerRuntimeRepairInput = environment.input;
-      const pending: Promise<DockerRuntimeRepairResult> =
+      const original: RepairInput = environment.input;
+      const pending: Promise<RepairResult> =
         restartDockerEnvironment(environment);
       void original;
       void pending;

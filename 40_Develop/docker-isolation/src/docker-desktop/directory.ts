@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { types } from "node:util";
+import type { DirectoryIdentity } from "./types.ts";
 import { disposeDockerRepairDirectory } from "./dispose.ts";
 
 /**
@@ -709,28 +710,12 @@ const knownSocketErrorCodes = Object.freeze(
 );
 const MAXIMUM_RUNTIME_DIRECTORY_ENTRIES = 64;
 /**
- * Docker Runtime Directoryの実体識別子。
- * @responsibility Directoryの前後の実体を比較する最小値を定義する。
- * @trace ARCH-000008
- * @shape dev・ino・birthtimeNsは実lstatから得た正の十進文字列。
- * @invariant 識別子自体を操作許可として扱わない。
- * @boundary ファイルシステムの観測値。
- * @security 秘密値・Authorityを含まない。
- * @compatibility 上位記録の識別値と構造的に一致する。
- */
-type DockerRuntimeDirectoryIdentity = Readonly<{
-  dev: string;
-  ino: string;
-  birthtimeNs: string;
-}>;
-
-/**
  * directoryIdentityを決定する。
  *
  * @responsibility directoryIdentityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
  * @input metadata: fs.BigIntStats
- * @returns DockerRuntimeDirectoryIdentity | nullを返す。
+ * @returns DirectoryIdentity | nullを返す。
  * @precondition 「metadata: fs.BigIntStats」がdirectoryIdentityの入力契約を満たす。
  * @postcondition directoryIdentityの責務を完了した結果だけを返す。
  * @effect N/A: directoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -740,9 +725,7 @@ type DockerRuntimeDirectoryIdentity = Readonly<{
  * @security directoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: directoryIdentityは共有非同期状態を持たない同期処理である。
  */
-function directoryIdentity(
-  metadata: fs.BigIntStats,
-): DockerRuntimeDirectoryIdentity | null {
+function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity | null {
   return metadata.isDirectory() &&
     !metadata.isSymbolicLink() &&
     metadata.dev > 0n &&
@@ -761,9 +744,9 @@ function directoryIdentity(
  *
  * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
  * @trace ARCH-000008
- * @input left: DockerRuntimeDirectoryIdentity、right: DockerRuntimeDirectoryIdentity
+ * @input left: DirectoryIdentity、right: DirectoryIdentity
  * @returns sameDirectoryIdentityの計算結果を返す。
- * @precondition 「left: DockerRuntimeDirectoryIdentity、right: DockerRuntimeDirectoryIdentity」がsameDirectoryIdentityの入力契約を満たす。
+ * @precondition 「left: DirectoryIdentity、right: DirectoryIdentity」がsameDirectoryIdentityの入力契約を満たす。
  * @postcondition sameDirectoryIdentityの責務を完了した結果だけを返す。
  * @effect N/A: sameDirectoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: sameDirectoryIdentityは独自の失敗分岐を所有しない。
@@ -773,8 +756,8 @@ function directoryIdentity(
  * @concurrency N/A: sameDirectoryIdentityは共有非同期状態を持たない同期処理である。
  */
 function sameDirectoryIdentity(
-  left: DockerRuntimeDirectoryIdentity,
-  right: DockerRuntimeDirectoryIdentity,
+  left: DirectoryIdentity,
+  right: DirectoryIdentity,
 ) {
   return (
     left.dev === right.dev &&
@@ -812,7 +795,7 @@ type RuntimeDirectoryEntryObservation = Readonly<{
  * @compatibility RuntimeDirectoryLockObservationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type RuntimeDirectoryLockObservationDependencies = Readonly<{
-  identityAt: (target: string) => DockerRuntimeDirectoryIdentity | null;
+  identityAt: (target: string) => DirectoryIdentity | null;
   readEntries: (
     directory: string,
   ) => readonly RuntimeDirectoryEntryObservation[];

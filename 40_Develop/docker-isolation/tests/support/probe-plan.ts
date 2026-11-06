@@ -6,7 +6,7 @@
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import path from "node:path";
 import { types } from "node:util";
-import { describeIsolationConfiguration } from "../../src/configuration.ts";
+import { describeIsolationConfiguration } from "../../src/image/assets.ts";
 import { captureDockerProcessEnvironment } from "../../src/process/environment.ts";
 
 const ENGINE = "npipe:////./pipe/dockerDesktopLinuxEngine";

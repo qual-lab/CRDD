@@ -1,5 +1,9 @@
 # Quality Integration
 
+## DI固定構成Ownerと内部型 — 2026-11-06
+
+固定構成のImage Ownerへの統合とDI内部型の短縮は、既存ERB-UT-023（固定値・I/Oなし）、ERB-IT-004（公開境界）、ERB-IT-014（環境操作・修復の有限境界）へ接続した。DI全回帰402成功・既存対象外5スキップ、Executor113／113、保存・利用側の有限試験47／47、関連静的検査と独立再レビューを確認した。追加のHost Windows実Writer試験は中断であり、有限試験の成功と区別する。今回の試験Rootだけは対象確認・回収・不存在確認済みだが、Host全体の資源不存在や実Writer成立は主張しない。実AI・Docker・過去保持物操作は対象外とし、既存の全体QA課題は解消済みにしない。[変更記録](../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)に条件と限界を記録する。
+
 ## Version Controlの公開契約とMain／Linked対照 — 2026-11-06
 
 既存QA-000007のRFD-IT-005／008／014とQA-000001のRCM-IT-004へ、既存Request／Result型のRoot参照、現在Fileの比較基準省略、Main／Linkedの対象分離を接続した。新しい品質項目は追加しない。VC全回帰84／84（実Git・契約・故障代役の試験を含む）、公開Workspace結合1／1、利用側型検査と独立再レビューは成功した。SHA-256は既存Root入口の拒否対照であり、対応成功ではない。制限下の広範囲試験失敗や従来の全体QA未成立を解消済みへ変更しない。試験条件・失敗の区別と結果は[変更記録](../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md#本是正の結果2026-11-06)を参照する。実AI・Docker・過去保持物操作は対象外である。

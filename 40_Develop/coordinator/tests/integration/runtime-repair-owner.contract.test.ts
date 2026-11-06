@@ -172,7 +172,7 @@ const isolationModule = {
       };
     },
     disposeDockerRuntimeRepairDirectory: async (
-      input: import("../../../docker-isolation/src/docker-desktop/repair-session.ts").DockerRuntimeRepairDisposalInput,
+      input: import("../../../docker-isolation/src/docker-desktop/repair-session.ts").RepairDisposalInput,
     ) => {
       disposalCalls.push(input.purpose);
       assert.equal(input.canIssueEffect(), true);

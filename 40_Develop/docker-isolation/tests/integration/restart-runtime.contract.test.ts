@@ -16,7 +16,7 @@ import {
 import {
   restartDockerRuntimeForVerification,
   type DockerEnvironmentRestartEvent,
-  type DockerRuntimeRestartInput,
+  type RestartInput,
 } from "../../src/docker-desktop/restart.ts";
 
 /**
@@ -61,7 +61,7 @@ test("不正入力はdata property捕捉前に固定拒否する", async () => {
     { ...f.input, onEvent: true },
   ]) {
     const result = await restartDockerRuntimeForVerification(
-      invalid as unknown as DockerRuntimeRestartInput,
+      invalid as unknown as RestartInput,
       f.dependencies,
     );
     assert.equal(result.reason, "docker_restart_input_invalid");
@@ -154,7 +154,7 @@ function fixture(
     failureDetected: new Promise<void>(() => {}),
     onFailureDetected: () => () => {},
   };
-  const input: DockerRuntimeRestartInput = {
+  const input: RestartInput = {
     requestId: "a".repeat(64),
     signal: controller.signal,
     verifyBoundary: () => permission,
@@ -772,7 +772,7 @@ test("上位入力Objectの変更で元要求を再結合しない", async () =>
   const f = fixture();
   const foreign = new AbortController();
   foreign.abort();
-  const input: DockerRuntimeRestartInput = {
+  const input: RestartInput = {
     ...f.input,
     onRequesting: () => {
       Object.assign(input, {

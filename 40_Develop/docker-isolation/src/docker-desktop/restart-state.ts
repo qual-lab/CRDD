@@ -13,12 +13,12 @@ import {
 } from "../docker-cli/trust.ts";
 import type { DockerDesktopRestartNativeHelperOutcome } from "../../../platform-access/src/index.ts";
 import {
-  type DockerRuntimeEngineState,
-  type DockerRuntimeEngineObservation,
+  type EngineState,
+  type EngineObservation,
   observeDockerRuntimeEngine,
 } from "./engine.ts";
 import {
-  type DockerRuntimeBackendState,
+  type BackendState,
   observeDockerRuntimeBackendState,
 } from "./backend.ts";
 
@@ -93,10 +93,8 @@ export type DockerRestartStartFailure =
  */
 type MachinePorts = Readonly<{
   session: Session;
-  observeBackend: () => DockerRuntimeBackendState;
-  observeEngine: () =>
-    | DockerRuntimeEngineState
-    | DockerRuntimeEngineObservation;
+  observeBackend: () => BackendState;
+  observeEngine: () => EngineState | EngineObservation;
   containersAbsent: () => boolean;
   now: () => number;
   wait: () => Promise<void>;

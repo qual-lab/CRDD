@@ -1,5 +1,33 @@
 # Docker Isolationの構造再編と追加通信先設定
 
+## 固定構成の統合と内部型の命名整理（2026-11-06）
+
+基準はVC是正をCommit・Pushした`fb5caeb49`。利用者はDIのroot configuration.ts統合とDockerRuntime系の型名整理を承認した。変更分類は構成Ownerの統合と内部型の整理であり、実行順序・判定・永続Schema・公開APIの意味は変更しない。実AI・Docker・過去保持物は操作しない。
+
+固定Imageと配置の合成は既存image/assets.tsへ統合し、root configuration.tsと中継importを撤去する。describeIsolationConfigurationの公開名、Overload、値、凍結、同期性、I/Oなしを維持する。cleanup/configuration.tsは実資源の構成照合を所有する別Sourceであり変更対象にしない。
+
+DI所有の内部型17件はBackendState／EngineState／EngineObservation、RestartInput／Result／Observation／Callbacks、RepairInput／Result／Callbacks／Checkpoint／DisposalCheckpoint／RetentionTargets／MachineResult、DirectoryInspectionInput／CleanupResult、RepairDisposalInputへ責務別に短縮する。directory.tsの重複Directory識別型は既存DirectoryIdentityを参照する。使用中の異なる結果・観測・通知を数の削減のために統合しない。別名再export・互換Wrapper・新Managerは追加しない。
+
+Domainが所有する保存型・decoder、IPCのDockerRuntimeState、契約ID・reason・Hash・Path・固定Image・期限・安全条件と履歴は維持する。操作関数は今回の型名整理から自動的に改名しない。利用側はDI正本の型参照と試験の参照を追従するだけとする。
+
+着手前に正本・利用側・同名衝突・値契約・既存Evidenceを照合し、独立確認で方針整合と追加の人間判断不要を確認した。DIの既存有限回帰、Executorと保存境界の有限試験、利用側の型検査、公開集合と構成のI/Oなしを確認し、独立レビューを行う。実E2Eの既存成功記録を今回の実境界再成立へ流用しない。準拠基準・決定権限・Releaseを変えないため準拠監査・Release監査は実行しない。
+
+### 今回の結果と限界
+
+| 範囲 | 結果 |
+|---|---|
+| 固定構成 | 実装をimage/assets.tsへ統合、旧root configuration.ts撤去。公開関数は同じ実装を直接再exportし、I/Oなし・固定値・凍結・未知Provider拒否を維持 |
+| 型 | DI所有の17型を短縮、同形の局所Directory識別型1件を撤去。Domain保存型・操作関数・IPC・保存field・reasonは改名しない |
+| DI全回帰 | npm test成功。407件中402成功、既存対象外5スキップ、失敗0（20590.4405ms）。実Docker試験とHost Windows試験の成立とは別 |
+| Executor全回帰 | npm test、113／113成功（83069.4916ms）。追加した新旧非公開名の保証は公開境界4／4でも再確認 |
+| 保存・利用側 | Coordinator／Domain修復記録の有限試験47／47成功（8716.3495ms）。Host Windowsを除外し、全件を実Writer試験とは扱わない |
+| 静的検査 | DIとExecutorのformat・typecheck・lint成功。Coordinator checkはformat・型・lint・Runtime／Task台帳の全段成功。Domain・Workbench・MCP型検査成功 |
+| 独立レビュー | 型式importとSource切出し文字列の追従漏れ2件を検証で検出し是正。更新候補の独立再レビューは追加必須指摘なし |
+
+追加のHost Windows実Writer試験は待機が継続したため中断し、成功扱いにしない。その試験のexact作成領域は`C:\project\CRDD\.crdd\tests\repair-owner-tbp8dd`。今回の起動時刻との対応、非reparse、対象Node Process不在を確認し、同領域43要素を回収してRootの不存在を確認した。これをHost全体のNative資源不存在や実Writer成立の根拠にはしない。過去保持物の調査・移行・削除、実AI・Docker・Image更新は行っていない。
+
+構成関数の本文は移管前と空白を除き同じであり、今回の実装変更は配置・型参照に限定する。実行順序・判定・Timeout・取消・回収条件や永続化形式を緩めて回帰を通す変更はしていない。全体QA・実E2E・Release完了は主張しない。VCの前段是正だけを`fb5caeb49`としてCommit・Push済みであり、本節のDI変更とは区別する。
+
 成果物種別: 変更計画
 状態: In Progress — Source・固定資産の配置とImage情報縮小を実装、追加Allowlistは本番未接続
 対象変更: [CHG-000082](change.md)

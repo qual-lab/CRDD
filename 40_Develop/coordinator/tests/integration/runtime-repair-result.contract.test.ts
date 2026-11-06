@@ -17,7 +17,7 @@ import { runInThisContext } from "node:vm";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as technicalValidation from "../../../docker-isolation/src/docker-desktop/validation.ts";
 
-import type { DockerRuntimeRepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import type { CoordinatorStateRepairOperation } from "../../../domain-model/src/index.ts";
 import * as model from "../../../domain-model/src/index.ts";
 import * as historyValues from "../../../domain-model/src/index.ts";
@@ -425,9 +425,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       };
     },
     dockerRuntimeRepairDisposalIsSettled,
-    disposeDockerRuntimeRepairDirectory: async (
-      input: DockerRuntimeRepairDisposalInput,
-    ) => {
+    disposeDockerRuntimeRepairDirectory: async (input: RepairDisposalInput) => {
       state.disposalCalls.push(input.purpose);
       if (input.canIssueEffect() !== true)
         return { request: "not_issued", absence: "unknown" };

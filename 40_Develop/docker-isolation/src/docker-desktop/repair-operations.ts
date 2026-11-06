@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  * @boundary DI内部。保存Owner・Root・上位の復旧判断を所有しない。
  */
-import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
+import type { RepairCheckpoint } from "./types.ts";
 import { decodeDockerRuntimeRepairCheckpoint } from "./validation.ts";
 import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-access/src/index.ts";
 import type { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
@@ -55,8 +55,7 @@ type Technical = Parameters<typeof runDockerRuntimeRepairMachine>[1];
  * @security Authorityではない。
  * @compatibility 最新checkpointだけ。
  */
-type Identity =
-  DockerRuntimeRepairCheckpoint["directories"]["primary"]["expected"];
+type Identity = RepairCheckpoint["directories"]["primary"]["expected"];
 /**
  * 同じ用途の元と退避先の現在観測。
  * @responsibility 不存在と観測不能を維持する。
@@ -255,7 +254,7 @@ export function createDockerDesktopRepairOperations(
    * @security 別Pathへ探索しない。
    * @concurrency Native await後に同Scopeを再確認する。
    */
-  const failedLaunch = async (checkpoint: DockerRuntimeRepairCheckpoint) => {
+  const failedLaunch = async (checkpoint: RepairCheckpoint) => {
     if (!(await boundary())) return null;
     const state = engine();
     if (state !== "known_unavailable" && state !== "transient_unavailable")

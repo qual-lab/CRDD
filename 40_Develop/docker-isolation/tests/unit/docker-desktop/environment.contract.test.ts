@@ -8,16 +8,16 @@
  */
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
-import type { DockerRuntimeBackendState } from "../../../src/docker-desktop/backend.ts";
-import type { DockerRuntimeEngineObservation } from "../../../src/docker-desktop/engine.ts";
+import type { BackendState } from "../../../src/docker-desktop/backend.ts";
+import type { EngineObservation } from "../../../src/docker-desktop/engine.ts";
 
 import type {
-  DockerRuntimeRepairInput,
-  DockerRuntimeRepairResult,
+  RepairInput,
+  RepairResult,
 } from "../../../src/docker-desktop/repair-session.ts";
 import type {
-  DockerRuntimeRestartInput,
-  DockerRuntimeRestartResult,
+  RestartInput,
+  RestartResult,
 } from "../../../src/docker-desktop/restart.ts";
 
 /**
@@ -32,13 +32,13 @@ import type {
  */
 test("環境診断は読取りのみ、再起動は元要求と元Promiseをそのまま委譲する", async () => {
   const calls: string[] = [];
-  let backend: DockerRuntimeBackendState = "unknown";
-  let engine: DockerRuntimeEngineObservation = {
+  let backend: BackendState = "unknown";
+  let engine: EngineObservation = {
     state: "unknown",
     cleanup: "unknown",
   };
-  let supplied: DockerRuntimeRestartInput | null = null;
-  const result: DockerRuntimeRestartResult = Object.freeze({
+  let supplied: RestartInput | null = null;
+  const result: RestartResult = Object.freeze({
     requestId: "synthetic-request",
     status: "blocked",
     reason: "synthetic_unknown",
@@ -54,7 +54,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     delivery: "unknown",
   });
   const pending = Promise.resolve(result);
-  const repairResult: DockerRuntimeRepairResult = Object.freeze({
+  const repairResult: RepairResult = Object.freeze({
     preparation: "boundary_unavailable",
     machine: null,
     lifecycle: null,
@@ -64,7 +64,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     scopeSha256: null,
   });
   const repaired = Promise.resolve(repairResult);
-  let repairSupplied: DockerRuntimeRepairInput | null = null;
+  let repairSupplied: RepairInput | null = null;
   const failure = new Error("synthetic_save_refused");
   let reject = false;
   const isolation = [
@@ -86,7 +86,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     }),
     mock.module("../../../src/docker-desktop/restart.ts", {
       namedExports: {
-        restartDockerRuntime: (input: DockerRuntimeRestartInput) => {
+        restartDockerRuntime: (input: RestartInput) => {
           calls.push("restart");
           supplied = input;
           return reject ? Promise.reject(failure) : pending;
@@ -95,7 +95,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     }),
     mock.module("../../../src/docker-desktop/repair-session.ts", {
       namedExports: {
-        runDockerRuntimeRepairSession: (input: DockerRuntimeRepairInput) => {
+        runDockerRuntimeRepairSession: (input: RepairInput) => {
           calls.push("repair");
           repairSupplied = input;
           return reject ? Promise.reject(failure) : repaired;
@@ -155,7 +155,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     }
     assert.equal(calls.length, before);
     const controller = new AbortController();
-    const request: DockerRuntimeRestartInput = Object.freeze({
+    const request: RestartInput = Object.freeze({
       requestId: result.requestId,
       signal: controller.signal,
       verifyBoundary: () => false,
@@ -184,7 +184,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     );
     assert.equal(supplied, request);
     reject = false;
-    const repair: DockerRuntimeRepairInput = Object.freeze({
+    const repair: RepairInput = Object.freeze({
       operationNonce: "a".repeat(64),
       signal: controller.signal,
       resume: null,

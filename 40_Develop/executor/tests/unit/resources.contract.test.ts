@@ -10,15 +10,15 @@ import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 
 import type {
-  DockerRuntimeDirectoryCleanupResult,
-  DockerRuntimeDirectoryInspectionInput,
-  DockerRuntimeRepairDisposalInput,
-  DockerRuntimeRepairInput,
-  DockerRuntimeRepairResult,
+  DirectoryCleanupResult,
+  DirectoryInspectionInput,
+  RepairDisposalInput,
+  RepairInput,
+  RepairResult,
 } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import type {
-  DockerRuntimeRepairCheckpoint,
-  DockerRuntimeRepairRetentionTargets,
+  RepairCheckpoint,
+  RepairRetentionTargets,
 } from "../../../docker-isolation/src/docker-desktop/types.ts";
 import type { ResourceTarget } from "../../src/index.ts";
 import type {
@@ -213,12 +213,12 @@ test("旧用途別Targetは技術要求前に拒否する", async () => {
  */
 test("共通資源APIは固定DI入力と対象別の同期性を保持する", async () => {
   const calls: unknown[] = [];
-  let targets: DockerRuntimeRepairRetentionTargets | null = null;
-  let cleanup: Promise<DockerRuntimeDirectoryCleanupResult> = Promise.resolve({
+  let targets: RepairRetentionTargets | null = null;
+  let cleanup: Promise<DirectoryCleanupResult> = Promise.resolve({
     request: "not_issued",
     absence: "unknown",
   });
-  const repairResult: DockerRuntimeRepairResult = Object.freeze({
+  const repairResult: RepairResult = Object.freeze({
     preparation: "boundary_unavailable",
     machine: null,
     lifecycle: null,
@@ -279,7 +279,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       new URL("../../src/index.ts?directory-contract", import.meta.url).href
     )) as typeof import("../../src/index.ts");
     const controller = new AbortController();
-    const checkpoint: DockerRuntimeRepairCheckpoint = {
+    const checkpoint: RepairCheckpoint = {
       actions: Object.fromEntries(
         [
           "stop_runtime",
@@ -295,7 +295,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
           key,
           { intent: "not_saved", request: "not_issued", result: "unobserved" },
         ]),
-      ) as DockerRuntimeRepairCheckpoint["actions"],
+      ) as RepairCheckpoint["actions"],
       directories: {
         primary: {
           expected: null,
@@ -319,7 +319,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       cleanup: "not_requested",
       cleanupFailure: null,
     };
-    const inspect: DockerRuntimeDirectoryInspectionInput = Object.freeze({
+    const inspect: DirectoryInspectionInput = Object.freeze({
       operationNonce: "a".repeat(64),
       ownerBindingSha256: "b".repeat(64),
       scopeSha256: "c".repeat(64),
@@ -337,7 +337,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       inspectResources({ kind: "docker_runtime_directory", input: inspect }),
       targets,
     );
-    const disposal: DockerRuntimeRepairDisposalInput = Object.freeze({
+    const disposal: RepairDisposalInput = Object.freeze({
       operationNonce: inspect.operationNonce,
       ownerBindingSha256: inspect.ownerBindingSha256,
       scopeSha256: inspect.scopeSha256,
@@ -372,7 +372,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       cleanupResources({ kind: "docker_runtime_directory", input: disposal }),
       (error) => error === failed,
     );
-    const request: DockerRuntimeRepairInput = Object.freeze({
+    const request: RepairInput = Object.freeze({
       operationNonce: inspect.operationNonce,
       signal: controller.signal,
       resume: null,

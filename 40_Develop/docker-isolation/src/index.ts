@@ -10,7 +10,7 @@
  * @security Task・送信許可・Credential・永続Stateを所有せず、実ID／固定構成の照合前に削除しない。
  */
 
-export { describeIsolationConfiguration } from "./configuration.ts";
+export { describeIsolationConfiguration } from "./image/assets.ts";
 export type {
   ResourceInspection,
   ResourceTarget,

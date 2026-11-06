@@ -7,16 +7,10 @@
  * @boundary 技術入力・通知の値契約だけ。永続化と実資源観測は別Owner。
  */
 
-import type { DockerRuntimeBackendState } from "./backend.ts";
-import type { DockerRuntimeEngineObservation } from "./engine.ts";
-import type {
-  DockerRuntimeRepairInput,
-  DockerRuntimeRepairResult,
-} from "./repair-session.ts";
-import type {
-  DockerRuntimeRestartInput,
-  DockerRuntimeRestartResult,
-} from "./restart.ts";
+import type { BackendState } from "./backend.ts";
+import type { EngineObservation } from "./engine.ts";
+import type { RepairInput, RepairResult } from "./repair-session.ts";
+import type { RestartInput, RestartResult } from "./restart.ts";
 import type { actions, directories } from "./validation.ts";
 
 /**
@@ -29,7 +23,7 @@ import type { actions, directories } from "./validation.ts";
  * @security 復号成功は実資源観測・排他・実行許可ではない。
  * @compatibility 旧Journal・署名chain・OS別phaseを受理しない。
  */
-export type DockerRuntimeRepairCheckpoint = Readonly<{
+export type RepairCheckpoint = Readonly<{
   actions: Readonly<Record<(typeof actions)[number], RepairAction>>;
   directories: Readonly<
     Record<
@@ -62,7 +56,7 @@ export type DockerRuntimeRepairCheckpoint = Readonly<{
  * @security 実体、Scope、Path、Authority、保持判断を複製しない。
  * @compatibility 元の九処置checkpointとは別の最新値契約。
  */
-export type DockerRuntimeRepairDisposalCheckpoint = Readonly<{
+export type RepairDisposalCheckpoint = Readonly<{
   directories: Readonly<
     Record<
       (typeof directories)[number],
@@ -132,7 +126,7 @@ export type DirectoryObservation = Readonly<{
  * @security 明示保持限定の非秘密metadata。
  * @compatibility 現行checkpointと固定nonceの三用途だけ。
  */
-export type DockerRuntimeRepairRetentionTargets = Readonly<
+export type RepairRetentionTargets = Readonly<
   Record<(typeof directories)[number], DirectoryIdentity | null>
 >;
 
@@ -153,12 +147,12 @@ export type DockerEnvironmentRequest<
 
 interface DockerEnvironmentOperations {
   restart: {
-    request: Readonly<{ mode: "restart"; input: DockerRuntimeRestartInput }>;
-    result: DockerRuntimeRestartResult;
+    request: Readonly<{ mode: "restart"; input: RestartInput }>;
+    result: RestartResult;
   };
   repair: {
-    request: Readonly<{ mode: "repair"; input: DockerRuntimeRepairInput }>;
-    result: DockerRuntimeRepairResult;
+    request: Readonly<{ mode: "repair"; input: RepairInput }>;
+    result: RepairResult;
   };
 }
 
@@ -173,8 +167,8 @@ interface DockerEnvironmentOperations {
  * @compatibility 各観測の意味と期限はDocker Isolationの契約に従う。
  */
 export type DockerEnvironmentStatus = Readonly<{
-  backend: DockerRuntimeBackendState;
-  engine: DockerRuntimeEngineObservation;
+  backend: BackendState;
+  engine: EngineObservation;
 }>;
 
 /** 明示modeに対応する元技術結果。通知・清掃の未確認を保持する。 */

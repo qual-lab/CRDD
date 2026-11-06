@@ -36,7 +36,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
     new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
   );
-  const begin = source.indexOf("export type DockerRuntimeRepairDisposalInput");
+  const begin = source.indexOf("export type RepairDisposalInput");
   assert.ok(begin > 0);
   const body = stripTypeScriptTypes(
     source.slice(begin).replace(/^export /gmu, ""),

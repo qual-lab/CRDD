@@ -7,13 +7,13 @@
  * @boundary 技術入力・通知の値契約だけ。永続化と実資源観測は別Owner。
  */
 
-import type { DockerRuntimeRepairCheckpoint } from "./types.ts";
+import type { RepairCheckpoint } from "./types.ts";
 import type { RepairAction } from "./types.ts";
-import type { DockerRuntimeRepairDisposalCheckpoint } from "./types.ts";
+import type { RepairDisposalCheckpoint } from "./types.ts";
 import { types } from "node:util";
 import type { DirectoryIdentity } from "./types.ts";
 import type { DirectoryObservation } from "./types.ts";
-import type { DockerRuntimeRepairRetentionTargets } from "./types.ts";
+import type { RepairRetentionTargets } from "./types.ts";
 
 /**
  * 有限な修復checkpointを独立した凍結DTOへ復号する。
@@ -32,7 +32,7 @@ import type { DockerRuntimeRepairRetentionTargets } from "./types.ts";
  */
 export function decodeDockerRuntimeRepairCheckpoint(
   value: unknown,
-): DockerRuntimeRepairCheckpoint | null {
+): RepairCheckpoint | null {
   const record = capture(value, [
     "actions",
     "directories",
@@ -115,7 +115,7 @@ export function decodeDockerRuntimeRepairCheckpoint(
   }
   const capturedDirectories = {} as Record<
     (typeof directories)[number],
-    DockerRuntimeRepairCheckpoint["directories"]["primary"]
+    RepairCheckpoint["directories"]["primary"]
   >;
   for (const key of directories) {
     const pair = capture(directoryValues[key], [
@@ -167,7 +167,7 @@ export function decodeDockerRuntimeRepairCheckpoint(
     hostSafety: record.hostSafety,
     cleanup: record.cleanup,
     cleanupFailure: record.cleanupFailure,
-  }) as DockerRuntimeRepairCheckpoint;
+  }) as RepairCheckpoint;
 }
 
 /**
@@ -187,13 +187,13 @@ export function decodeDockerRuntimeRepairCheckpoint(
  */
 export function decodeDockerRuntimeRepairDisposalCheckpoint(
   value: unknown,
-): DockerRuntimeRepairDisposalCheckpoint | null {
+): RepairDisposalCheckpoint | null {
   const record = capture(value, ["directories"]);
   const values = record ? capture(record.directories, directories) : null;
   if (!values) return null;
   const result = {} as Record<
     (typeof directories)[number],
-    DockerRuntimeRepairDisposalCheckpoint["directories"]["primary"]
+    RepairDisposalCheckpoint["directories"]["primary"]
   >;
   for (const purpose of directories) {
     const item = capture(values[purpose], ["intent", "request", "absence"]);
@@ -422,7 +422,7 @@ export function observation(value: unknown): DirectoryObservation | null {
  */
 export function decodeDockerRuntimeRepairRetentionTargets(
   value: unknown,
-): DockerRuntimeRepairRetentionTargets | null {
+): RepairRetentionTargets | null {
   const record = capture(value, directories);
   if (!record) return null;
   const targets: Record<
@@ -458,7 +458,7 @@ export function decodeDockerRuntimeRepairRetentionTargets(
  */
 export function prepareDockerRuntimeRepairSessionCheckpoint(
   value: unknown,
-): DockerRuntimeRepairCheckpoint | null {
+): RepairCheckpoint | null {
   const before = decodeDockerRuntimeRepairCheckpoint(value);
   if (before?.cleanup !== "confirmed" || before.cleanupFailure !== null)
     return null;
@@ -480,10 +480,10 @@ export function prepareDockerRuntimeRepairSessionCheckpoint(
  * @security Path・Identity・Authorityを生成しない。
  * @concurrency 呼出しごとに別の凍結値を返す。
  */
-export function createDockerRuntimeRepairDisposalCheckpoint(): DockerRuntimeRepairDisposalCheckpoint {
+export function createDockerRuntimeRepairDisposalCheckpoint(): RepairDisposalCheckpoint {
   const result = {} as Record<
     (typeof directories)[number],
-    DockerRuntimeRepairDisposalCheckpoint["directories"]["primary"]
+    RepairDisposalCheckpoint["directories"]["primary"]
   >;
   for (const purpose of directories)
     result[purpose] = Object.freeze({

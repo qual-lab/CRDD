@@ -5,15 +5,15 @@
  */
 
 import type {
-  DockerRuntimeDirectoryInspectionInput,
-  DockerRuntimeDirectoryCleanupResult,
-  DockerRuntimeRepairDisposalInput,
+  DirectoryInspectionInput,
+  DirectoryCleanupResult,
+  RepairDisposalInput,
 } from "../docker-desktop/repair-session.ts";
 import type {
   IsolationCleanupRequest,
   IsolationExecutionResult,
 } from "../execution/types.ts";
-import type { DockerRuntimeRepairRetentionTargets } from "../docker-desktop/types.ts";
+import type { RepairRetentionTargets } from "../docker-desktop/types.ts";
 import type { DockerContainerConfigurationExpectation } from "./configuration.ts";
 
 /**
@@ -154,7 +154,7 @@ export type ContainerResourceInspection = Readonly<{
  */
 export type DirectoryResourceInspectionTarget = Readonly<{
   kind: "docker_runtime_directory";
-  input: DockerRuntimeDirectoryInspectionInput;
+  input: DirectoryInspectionInput;
 }>;
 
 /**
@@ -169,7 +169,7 @@ export type DirectoryResourceInspectionTarget = Readonly<{
  */
 export type DirectoryResourceCleanupTarget = Readonly<{
   kind: "docker_runtime_directory";
-  input: DockerRuntimeRepairDisposalInput;
+  input: RepairDisposalInput;
 }>;
 
 /**
@@ -209,7 +209,7 @@ interface ResourceOperations {
   directory: {
     inspect: DirectoryResourceInspectionTarget;
     cleanup: DirectoryResourceCleanupTarget;
-    inspection: DockerRuntimeRepairRetentionTargets | null;
-    cleanupResult: DockerRuntimeDirectoryCleanupResult;
+    inspection: RepairRetentionTargets | null;
+    cleanupResult: DirectoryCleanupResult;
   };
 }

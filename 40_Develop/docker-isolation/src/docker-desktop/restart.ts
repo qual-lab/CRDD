@@ -30,7 +30,7 @@ import {
  * @security Path・Session・生出力・署名資格を返さない。
  * @compatibility Machine phaseは非公開。停止・起動失敗位置は固定診断として返し、処置許可へ使わない。
  */
-export type DockerRuntimeRestartObservation = Readonly<{
+export type RestartObservation = Readonly<{
   requestId: string;
   status: "completed" | "blocked";
   reason: string;
@@ -55,7 +55,7 @@ export type DockerRuntimeRestartObservation = Readonly<{
  * @security 操作権限・生出力を含めない。
  * @compatibility 既存の返却値に名前を付け、値と形式を変更しない。
  */
-export type DockerRuntimeRestartResult = DockerRuntimeRestartObservation &
+export type RestartResult = RestartObservation &
   Readonly<{ delivery: "not_requested" | "confirmed" | "unknown" }>;
 
 /**
@@ -76,7 +76,7 @@ export type DockerEnvironmentRestartEvent =
     }>
   | Readonly<{
       event: "settled";
-      observation: DockerRuntimeRestartObservation;
+      observation: RestartObservation;
     }>;
 
 /**
@@ -89,7 +89,7 @@ export type DockerEnvironmentRestartEvent =
  * @security argv・環境・実行物Path・生Sessionは指定できない。
  * @compatibility 現在境界は同期boolean、通知は同期voidとして用途を区別する。
  */
-export interface DockerRuntimeRestartCallbacks {
+export interface RestartCallbacks {
   onRequesting(): void;
   onEvent?(event: DockerEnvironmentRestartEvent): void;
 }
@@ -104,12 +104,12 @@ export interface DockerRuntimeRestartCallbacks {
  * @security 任意argv・OS処置・保存操作を受け取らない。
  * @compatibility 元要求ID・取消・回収条件は維持する。
  */
-export type DockerRuntimeRestartInput = Readonly<{
+export type RestartInput = Readonly<{
   requestId: string;
   signal: AbortSignal;
   verifyBoundary: () => unknown;
 }> &
-  DockerRuntimeRestartCallbacks;
+  RestartCallbacks;
 
 /**
  * 同期の確認だけをbooleanとして消費する。
@@ -159,8 +159,8 @@ function confirmSynchronousRestartBoundary(confirm: () => unknown) {
  * @concurrency 上位の既存排他を各Effect前に再確認し、取消後の資源joinを省略しない。
  */
 export function restartDockerRuntime(
-  input: DockerRuntimeRestartInput,
-): Promise<DockerRuntimeRestartResult> {
+  input: RestartInput,
+): Promise<RestartResult> {
   return restartDockerRuntimeForVerification(input, {
     platform: process.platform,
     acquire: async () => {
@@ -194,15 +194,15 @@ export function restartDockerRuntime(
  * @concurrency 通知を同期直列で呼び、終了後callback 0とする。
  */
 export async function restartDockerRuntimeForVerification(
-  input: DockerRuntimeRestartInput,
+  input: RestartInput,
   dependencies: Readonly<{
     platform: string;
     acquire: () => Promise<DockerDesktopRestartNativeHelperOutcome>;
     createMachine: typeof createDockerRestartMachine;
     now: () => number;
   }>,
-): Promise<DockerRuntimeRestartResult> {
-  let captured: DockerRuntimeRestartInput;
+): Promise<RestartResult> {
+  let captured: RestartInput;
   try {
     if (!input || typeof input !== "object" || types.isProxy(input))
       throw new Error();
@@ -265,7 +265,7 @@ export async function restartDockerRuntimeForVerification(
     });
   }
   const { requestId, signal, verifyBoundary, onRequesting } = captured;
-  let request: DockerRuntimeRestartObservation["request"] = "not_issued";
+  let request: RestartObservation["request"] = "not_issued";
   let primaryFailure: string | null = null;
   let stopFailure: DockerRestartStopFailure | null = null;
   let startFailure: DockerRestartStartFailure | null = null;
@@ -496,7 +496,7 @@ export async function restartDockerRuntimeForVerification(
     session = null;
     machine = null;
   }
-  const observation: DockerRuntimeRestartObservation = Object.freeze({
+  const observation: RestartObservation = Object.freeze({
     requestId: requestId,
     status: restartCompleted && cleanupConfirmed ? "completed" : "blocked",
     reason,
