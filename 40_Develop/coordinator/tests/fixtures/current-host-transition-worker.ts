@@ -23,7 +23,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         const restartUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/docker-desktop/restart.ts", import.meta.url).href)};
         const restartOperations = await import(restartUrl);
         const {mock} = await import('node:test');
-        mock.module(restartUrl, {namedExports: {...restartOperations, restartDockerRuntime: async (input) => {
+        mock.module(restartUrl, {namedExports: {...restartOperations, restartDesktop: async (input) => {
           assert.equal(++restartCalls, 1);
           assert.equal(input.signal.aborted, false);
           assert.equal(input.verifyBoundary(), true);

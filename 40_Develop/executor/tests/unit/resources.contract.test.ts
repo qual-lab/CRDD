@@ -250,9 +250,9 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
           calls.push(target.input);
           return cleanup;
         },
-        observeDockerRuntimeBackendState: unexpected,
-        observeDockerRuntimeEngine: unexpected,
-        restartDockerRuntime: unexpected,
+        observeBackendState: unexpected,
+        observeDockerEngine: unexpected,
+        restartDesktop: unexpected,
         restartDockerEnvironment: (request: {
           mode: string;
           input: unknown;
@@ -261,7 +261,7 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
           calls.push(request.input);
           return repaired;
         },
-        runDockerRuntimeRepairSession: (input: unknown) => {
+        runRepairSession: (input: unknown) => {
           calls.push(input);
           return repaired;
         },

@@ -111,10 +111,7 @@ test("本番内部exportは固定Directory処置へ接続する", (t) => {
  * @boundary ERB-IT-001=Direct Boundary: Package公開集合。
  */
 test("修復Host操作は独立したRoot APIとして公開しない", () => {
-  assert.equal(
-    typeof dockerRepairOperations.runDockerRuntimeRepairSession,
-    "function",
-  );
+  assert.equal(typeof dockerRepairOperations.runRepairSession, "function");
   for (const name of [
     "requestDockerDesktopOfficialShutdown",
     "terminateDockerDesktopBackendForRepair",
@@ -123,7 +120,7 @@ test("修復Host操作は独立したRoot APIとして公開しない", () => {
     "observeDockerDesktopRepairScope",
     "createDockerDesktopRepairDirectoryAccess",
     "createDockerDesktopRepairOperations",
-    "runDockerRuntimeRepairSessionUsing",
+    "runRepairSessionWithDependencies",
     "dockerDesktopDistributionRoot",
   ])
     assert.equal(name in publicApi, false);
@@ -304,13 +301,13 @@ test("修復Directoryアクセスは同じScope対象だけを観測・退避す
     "utf8",
   );
   const returned =
-    "return observeDockerRuntimeDirectoryLock(scope.targets[purpose].source);";
+    "return observeDirectoryLock(scope.targets[purpose].source);";
   assert.equal(moduleSource.split(returned).length, 2);
   const body = stripTypeScriptTypes(
     moduleSource
       .replace(
         returned,
-        "observeDockerRuntimeDirectoryLock(scope.targets[purpose].source); return null;",
+        "observeDirectoryLock(scope.targets[purpose].source); return null;",
       )
       .replace(/^import[\s\S]*?;\r?\n/gmu, "")
       .replace(/^export /gmu, ""),

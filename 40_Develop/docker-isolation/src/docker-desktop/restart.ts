@@ -8,7 +8,7 @@
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
-import { describeDockerRuntimeArtifactTrustContract } from "../docker-cli/trust.ts";
+import { describeDockerArtifactTrustContract } from "../docker-cli/trust.ts";
 import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
 import {
   startDockerDesktopRestartHelper,
@@ -158,10 +158,8 @@ function confirmSynchronousRestartBoundary(confirm: () => unknown) {
  * @security 現在Artifactの同一性・Hashと固定Publisher条件を下位で照合する。
  * @concurrency 上位の既存排他を各Effect前に再確認し、取消後の資源joinを省略しない。
  */
-export function restartDockerRuntime(
-  input: RestartInput,
-): Promise<RestartResult> {
-  return restartDockerRuntimeForVerification(input, {
+export function restartDesktop(input: RestartInput): Promise<RestartResult> {
+  return restartDesktopForVerification(input, {
     platform: process.platform,
     acquire: async () => {
       const root = fileURLToPath(new URL("../../../..", import.meta.url));
@@ -169,7 +167,7 @@ export function restartDockerRuntime(
       return observed.status === "candidate"
         ? startDockerDesktopRestartHelper(
             observed.artifact,
-            describeDockerRuntimeArtifactTrustContract().policySha256,
+            describeDockerArtifactTrustContract().policySha256,
           )
         : Object.freeze({ status: "unavailable" as const, session: null });
     },
@@ -193,7 +191,7 @@ export function restartDockerRuntime(
  * @security 上位の任意argv・OS処置・保存Pathを受け取らない。
  * @concurrency 通知を同期直列で呼び、終了後callback 0とする。
  */
-export async function restartDockerRuntimeForVerification(
+export async function restartDesktopForVerification(
   input: RestartInput,
   dependencies: Readonly<{
     platform: string;

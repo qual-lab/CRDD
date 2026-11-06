@@ -17,7 +17,7 @@ import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
 import { runInThisContext } from "node:vm";
 import * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import * as model from "../../../domain-model/src/index.ts";
 import * as domain from "../../../domain-model/src/index.ts";
@@ -36,13 +36,11 @@ let scope = "c".repeat(64);
 let observeCount = 0;
 let stateFile = "";
 let delayedCheckpoint:
-  | Parameters<
-      typeof directoryOperations.runDockerRuntimeRepairSession
-    >[0]["onCheckpoint"]
+  | Parameters<typeof directoryOperations.runRepairSession>[0]["onCheckpoint"]
   | null = null;
 let lastCheckpoint: model.DockerRuntimeRepairCheckpoint | null = null;
 let lastRuntimeResult: Awaited<
-  ReturnType<typeof runDockerRuntimeRepairSessionUsing>
+  ReturnType<typeof runRepairSessionWithDependencies>
 > | null = null;
 const owner = "b".repeat(64);
 let observeMode: "ready" | "incomplete" | "effect_unknown" | "retained" =
@@ -157,10 +155,8 @@ const storeModule = {
 const isolationModule = {
   namedExports: {
     ...isolation,
-    observeDockerRuntimeRepairRetention: (
-      input: Parameters<
-        typeof directoryOperations.observeDockerRuntimeRepairRetention
-      >[0],
+    observeRepairDirectories: (
+      input: Parameters<typeof directoryOperations.observeRepairDirectories>[0],
     ) => {
       retentionReads++;
       assert.equal(input.canObserve(), true);
@@ -171,7 +167,7 @@ const isolationModule = {
         auxiliary: input.checkpoint.directories.auxiliary.retained.identity,
       };
     },
-    disposeDockerRuntimeRepairDirectory: async (
+    cleanupRepairDirectory: async (
       input: import("../../../docker-isolation/src/docker-desktop/repair-session.ts").RepairDisposalInput,
     ) => {
       disposalCalls.push(input.purpose);
@@ -186,14 +182,12 @@ const isolationModule = {
         absence: "confirmed_absent",
       };
     },
-    runDockerRuntimeRepairSession: (
-      input: Parameters<
-        typeof directoryOperations.runDockerRuntimeRepairSession
-      >[0],
+    runRepairSession: (
+      input: Parameters<typeof directoryOperations.runRepairSession>[0],
     ) => {
       runtimeEntries++;
       delayedCheckpoint = input.onCheckpoint;
-      return runDockerRuntimeRepairSessionUsing(input, {
+      return runRepairSessionWithDependencies(input, {
         acquire: async () => {
           acquireCount++;
           return {
@@ -365,12 +359,10 @@ function createRepairOwnerFixture() {
       bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
     encodeRuntimeStateValue,
     decodeRuntimeDomainSnapshot: domain.decodeRuntimeDomainSnapshot,
-    runDockerRuntimeRepairSession:
-      isolationModule.namedExports.runDockerRuntimeRepairSession,
-    observeDockerRuntimeRepairRetention:
-      isolationModule.namedExports.observeDockerRuntimeRepairRetention,
-    disposeDockerRuntimeRepairDirectory:
-      isolationModule.namedExports.disposeDockerRuntimeRepairDirectory,
+    runRepairSession: isolationModule.namedExports.runRepairSession,
+    observeRepairDirectories:
+      isolationModule.namedExports.observeRepairDirectories,
+    cleanupRepairDirectory: isolationModule.namedExports.cleanupRepairDirectory,
     dockerRuntimeRepairCheckpointIsSettled:
       domain.dockerRuntimeRepairCheckpointIsSettled,
     dockerRuntimeRepairDisposalIsSettled:
@@ -383,7 +375,7 @@ function createRepairOwnerFixture() {
     "randomUUID",
     "observeRepositoryRuntimeDataArea",
     "getRepository",
-    "runDockerRuntimeRepairSession",
+    "runRepairSession",
     "dockerRuntimeRepairCheckpointIsSettled",
     "borrowRuntimeOwnedCoordinatorRecoveryRepository",
     "decodeRuntimeDomainSnapshot",
@@ -392,7 +384,7 @@ function createRepairOwnerFixture() {
     "prepareCoordinatorStateRepairCheckpointSnapshot",
     "prepareCoordinatorStateRepairSessionSnapshot",
     "prepareCoordinatorStateRepairRetentionHandoffSnapshot",
-    "observeDockerRuntimeRepairRetention",
+    "observeRepairDirectories",
     "prepareCoordinatorRepairHistorySummary",
     "readRuntimeOwnedCoordinatorRepairHistorySnapshot",
     "advanceRuntimeOwnedCoordinatorRepairHistory",
@@ -404,21 +396,18 @@ function createRepairOwnerFixture() {
     "writeRuntimeOwnedCoordinatorRepairSnapshot",
     "prepareCoordinatorStateRepairDisposalDecisionSnapshot",
     "prepareCoordinatorStateRepairDisposalProgressSnapshot",
-    "disposeDockerRuntimeRepairDirectory",
+    "cleanupRepairDirectory",
     "dockerRuntimeRepairDisposalIsSettled",
   ] as const;
   const realOperations = {
-    runDockerRuntimeRepairSession:
-      directoryOperations.runDockerRuntimeRepairSession,
-    observeDockerRuntimeRepairRetention:
-      directoryOperations.observeDockerRuntimeRepairRetention,
-    disposeDockerRuntimeRepairDirectory:
-      directoryOperations.disposeDockerRuntimeRepairDirectory,
+    runRepairSession: directoryOperations.runRepairSession,
+    observeRepairDirectories: directoryOperations.observeRepairDirectories,
+    cleanupRepairDirectory: directoryOperations.cleanupRepairDirectory,
   };
   for (const name of [
-    "runDockerRuntimeRepairSession",
-    "observeDockerRuntimeRepairRetention",
-    "disposeDockerRuntimeRepairDirectory",
+    "runRepairSession",
+    "observeRepairDirectories",
+    "cleanupRepairDirectory",
   ] as const) {
     assert.notEqual(
       dependencies[name],
@@ -433,7 +422,7 @@ function createRepairOwnerFixture() {
       `missing fixture dependency: ${name}`,
     );
   return runInThisContext(
-    `(function(deps){ const {${names.join(",")}} = deps; const restartDockerEnvironment = request => runDockerRuntimeRepairSession(request.input); const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
+    `(function(deps){ const {${names.join(",")}} = deps; const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
   )(
     dependencies,
   ) as typeof import("../../src/execution/recovery.ts").repairRuntimeOwnedDockerRuntime;

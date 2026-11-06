@@ -136,7 +136,7 @@ const dockerInternalOperations = await import(
 );
 const observed =
   purpose === "runtime"
-    ? dockerInternalOperations.observeDockerRuntimeEngine()
+    ? dockerInternalOperations.observeDockerEngine()
     : purpose === "repair"
       ? dockerInternalOperations.observeDockerRepairEngine(configurationRoot)
       : (

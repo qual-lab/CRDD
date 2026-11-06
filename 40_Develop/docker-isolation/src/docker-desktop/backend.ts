@@ -183,7 +183,7 @@ export function classifyDockerBackendLists(
  * @security 親環境・任意argv・任意実行物・Runtime署名Authorityを使用しない。
  * @concurrency 同期の有界観測。二つの一覧をatomic Snapshotとは扱わない。
  */
-export function observeDockerRuntimeBackendState(): BackendState {
+export function observeBackendState(): BackendState {
   if (process.platform !== "win32") return "unknown";
   try {
     const environment: Readonly<Record<string, string>> | null =

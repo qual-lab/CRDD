@@ -431,7 +431,7 @@ export function createDockerDesktopRepairDirectoryAccess(
   const lock = (purpose: "initial" | "failed" | "auxiliary") => {
     if (!["initial", "failed", "auxiliary"].includes(purpose) || !verify())
       return null;
-    return observeDockerRuntimeDirectoryLock(scope.targets[purpose].source);
+    return observeDirectoryLock(scope.targets[purpose].source);
   };
   /**
    * 捕捉した同じtargetsだけを退避する。
@@ -865,17 +865,17 @@ function validRuntimeDirectoryEntry(entry: RuntimeDirectoryEntryObservation) {
  * @responsibility Docker Desktop Runtime Directory Lock Using Dependenciesの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000008
  * @input directory: string、dependencies: RuntimeDirectoryLockObservationDependencies
- * @returns observeDockerRuntimeDirectoryLockUsingDependenciesの計算結果を返す。
- * @precondition 「directory: string、dependencies: RuntimeDirectoryLockObservationDependencies」がobserveDockerRuntimeDirectoryLockUsingDependenciesの入力契約を満たす。
- * @postcondition observeDockerRuntimeDirectoryLockUsingDependenciesの責務を完了した結果だけを返す。
+ * @returns observeDirectoryLockWithDependenciesの計算結果を返す。
+ * @precondition 「directory: string、dependencies: RuntimeDirectoryLockObservationDependencies」がobserveDirectoryLockWithDependenciesの入力契約を満たす。
+ * @postcondition observeDirectoryLockWithDependenciesの責務を完了した結果だけを返す。
  * @effect 固定依存のDirectory識別・entry列挙・entry読取り観測を前後で呼ぶ。変更操作は行わない。
  * @failure 空集合、上限超過、未知エラー、親実体・entry差はnullを返す。
- * @invariant observeDockerRuntimeDirectoryLockUsingDependenciesは入力から導いた結果以外の共有状態を変更しない。
+ * @invariant observeDirectoryLockWithDependenciesは入力から導いた結果以外の共有状態を変更しない。
  * @boundary Directoryの前後観測とentryへのアクセス拒否。依存差替えはPackage内試験だけに使う。
- * @security observeDockerRuntimeDirectoryLockUsingDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: observeDockerRuntimeDirectoryLockUsingDependenciesは共有非同期状態を持たない同期処理である。
+ * @security observeDirectoryLockWithDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDirectoryLockWithDependenciesは共有非同期状態を持たない同期処理である。
  */
-export function observeDockerRuntimeDirectoryLockUsingDependencies(
+export function observeDirectoryLockWithDependencies(
   directory: string,
   dependencies: RuntimeDirectoryLockObservationDependencies,
 ) {
@@ -934,9 +934,9 @@ export function observeDockerRuntimeDirectoryLockUsingDependencies(
  * @security 任意コマンド・依存差替え・操作Authorityを公開しない。
  * @concurrency 前後照合はatomic snapshotではなく、同一Userを信頼する現在観測である。
  */
-export function observeDockerRuntimeDirectoryLock(directory: string) {
+export function observeDirectoryLock(directory: string) {
   if (process.platform !== "win32") return null;
-  return observeDockerRuntimeDirectoryLockUsingDependencies(directory, {
+  return observeDirectoryLockWithDependencies(directory, {
     identityAt: (target) => {
       try {
         return directoryIdentity(fs.lstatSync(target, { bigint: true }));

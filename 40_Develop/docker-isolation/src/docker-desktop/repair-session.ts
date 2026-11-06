@@ -7,8 +7,8 @@
  */
 import type { RepairCheckpoint, RepairRetentionTargets } from "./types.ts";
 import {
-  decodeDockerRuntimeRepairCheckpoint,
-  dockerRuntimeRepairCheckpointIsSettled,
+  decodeRepairCheckpoint,
+  isRepairCheckpointSettled,
 } from "./validation.ts";
 import type {
   DockerDesktopRepairNativeHelperOutcome,
@@ -18,13 +18,10 @@ import type {
 import { types } from "node:util";
 import {
   dockerDesktopDistributionRoot,
-  describeDockerRuntimeArtifactTrustContract,
+  describeDockerArtifactTrustContract,
 } from "../docker-cli/trust.ts";
-import { prepareDockerRuntimeRepairSessionCheckpoint } from "./validation.ts";
-import {
-  runDockerRuntimeRepairMachine,
-  type RepairMachineResult,
-} from "./repair.ts";
+import { prepareRepairSessionCheckpoint } from "./validation.ts";
+import { executeRepairSteps, type RepairMachineResult } from "./repair.ts";
 import { startDockerDesktopRepairHelper } from "../../../platform-access/src/index.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 import { createDockerDesktopRepairOperations } from "./repair-operations.ts";
@@ -154,13 +151,13 @@ export type DirectoryCleanupResult = Readonly<{
  * @security 環境変数・旧State Root・任意Pathへfallbackしない。
  * @concurrency Usingの入力検査後にだけ取得し、準備await後も現在許可を照合する。
  */
-export async function runDockerRuntimeRepairSession(
+export async function runRepairSession(
   value: RepairInput,
 ): Promise<RepairResult> {
   let artifact: NonNullable<
     ReturnType<typeof observePlatformAccessArtifactCandidate>["artifact"]
   > | null = null;
-  return runDockerRuntimeRepairSessionUsing(value, {
+  return runRepairSessionWithDependencies(value, {
     acquire: async () => {
       const candidate = observePlatformAccessArtifactCandidate(
         dockerDesktopDistributionRoot,
@@ -174,7 +171,7 @@ export async function runDockerRuntimeRepairSession(
       artifact = Object.freeze({ ...candidate.artifact });
       return startDockerDesktopRepairHelper(
         artifact,
-        describeDockerRuntimeArtifactTrustContract().policySha256,
+        describeDockerArtifactTrustContract().policySha256,
       );
     },
     prepare: async (session, owner, nonce, signal, live) => {
@@ -243,7 +240,7 @@ export type RepairDisposalInput = Readonly<{
  * @security 任意Path・Command・新Store／Lock・再起動を提供しない。
  * @concurrency Driver待機後にもArtifact・Scope・取消・現在Ownerを再確認する。
  */
-export async function disposeDockerRuntimeRepairDirectory(
+export async function cleanupRepairDirectory(
   value: RepairDisposalInput,
 ): Promise<DirectoryCleanupResult> {
   let handedOff = false;
@@ -261,7 +258,7 @@ export async function disposeDockerRuntimeRepairDirectory(
       "signal",
       "canIssueEffect",
     ]);
-    const checkpoint = decodeDockerRuntimeRepairCheckpoint(fields?.checkpoint);
+    const checkpoint = decodeRepairCheckpoint(fields?.checkpoint);
     if (
       !fields ||
       !checkpoint ||
@@ -280,7 +277,7 @@ export async function disposeDockerRuntimeRepairDirectory(
       checkpoint.engine !== "ready" ||
       checkpoint.hostSafety !== "safe" ||
       checkpoint.stale !== "retained" ||
-      !dockerRuntimeRepairCheckpointIsSettled(checkpoint) ||
+      !isRepairCheckpointSettled(checkpoint) ||
       fields.signal.aborted ||
       !confirmRepair(fields.canIssueEffect)
     )
@@ -334,7 +331,7 @@ export async function disposeDockerRuntimeRepairDirectory(
  * @security 任意Path・依存差替え・削除・再起動・保存能力を公開しない。
  * @concurrency 各読取り前後に同じ取消・Owner・Artifact・Scopeを再確認する。
  */
-export function observeDockerRuntimeRepairRetention(
+export function observeRepairDirectories(
   value: DirectoryInspectionInput,
 ): RepairRetentionTargets | null {
   try {
@@ -346,7 +343,7 @@ export function observeDockerRuntimeRepairRetention(
       "signal",
       "canObserve",
     ]);
-    const checkpoint = decodeDockerRuntimeRepairCheckpoint(fields?.checkpoint);
+    const checkpoint = decodeRepairCheckpoint(fields?.checkpoint);
     if (
       !fields ||
       !checkpoint ||
@@ -364,7 +361,7 @@ export function observeDockerRuntimeRepairRetention(
       checkpoint.engine !== "ready" ||
       checkpoint.hostSafety !== "safe" ||
       checkpoint.stale !== "retained" ||
-      !dockerRuntimeRepairCheckpointIsSettled(checkpoint) ||
+      !isRepairCheckpointSettled(checkpoint) ||
       fields.signal.aborted ||
       !confirmRepair(fields.canObserve)
     )
@@ -540,7 +537,7 @@ function confirmRepair(callback: unknown, value?: unknown): boolean {
  * @concurrency N/A: 共有状態なし。
  */
 function initialRepairCheckpoint() {
-  return decodeDockerRuntimeRepairCheckpoint({
+  return decodeRepairCheckpoint({
     actions: Object.fromEntries(
       [
         "stop_runtime",
@@ -590,7 +587,7 @@ function initialRepairCheckpoint() {
  * @security 任意AdapterをRoot公開しない。
  * @concurrency await前後と通知後に生存・取消・現在許可を照合する。
  */
-export async function runDockerRuntimeRepairSessionUsing(
+export async function runRepairSessionWithDependencies(
   value: RepairInput,
   dependencies: Readonly<{
     acquire: () => Promise<DockerDesktopRepairNativeHelperOutcome>;
@@ -602,7 +599,7 @@ export async function runDockerRuntimeRepairSessionUsing(
       canIssueEffect: () => boolean,
     ) => Promise<Readonly<{
       scopeSha256: string;
-      technical: Parameters<typeof runDockerRuntimeRepairMachine>[1];
+      technical: Parameters<typeof executeRepairSteps>[1];
       cleanupFailure: () => "observation_cleanup_unknown" | null;
     }> | null>;
   }>,
@@ -683,7 +680,7 @@ export async function runDockerRuntimeRepairSessionUsing(
         "scopeSha256",
         "checkpoint",
       ]);
-      const checkpoint = decodeDockerRuntimeRepairCheckpoint(prior?.checkpoint);
+      const checkpoint = decodeRepairCheckpoint(prior?.checkpoint);
       if (
         prior &&
         checkpoint &&
@@ -794,9 +791,7 @@ export async function runDockerRuntimeRepairSessionUsing(
       ownerBindingSha256 = owner;
       scopeSha256 = prepared.scopeSha256;
       const checkpoint = captured.resume
-        ? prepareDockerRuntimeRepairSessionCheckpoint(
-            captured.resume.checkpoint,
-          )
+        ? prepareRepairSessionCheckpoint(captured.resume.checkpoint)
         : initialRepairCheckpoint();
       if (
         !checkpoint ||
@@ -814,7 +809,7 @@ export async function runDockerRuntimeRepairSessionUsing(
       notifiedCheckpoint = checkpoint;
       preparation = "prepared";
       if (!live()) return { value: null, abortRequired: true };
-      const machine = await runDockerRuntimeRepairMachine(
+      const machine = await executeRepairSteps(
         {
           checkpoint,
           signal,
@@ -837,10 +832,10 @@ export async function runDockerRuntimeRepairSessionUsing(
   recordObservationCleanup();
   const machine = lifecycle.value;
   const last = machine
-    ? decodeDockerRuntimeRepairCheckpoint(machine.checkpoint)
+    ? decodeRepairCheckpoint(machine.checkpoint)
     : notifiedCheckpoint;
   const checkpoint = last
-    ? decodeDockerRuntimeRepairCheckpoint({
+    ? decodeRepairCheckpoint({
         ...last,
         cleanup:
           observationCleanupFailure !== null

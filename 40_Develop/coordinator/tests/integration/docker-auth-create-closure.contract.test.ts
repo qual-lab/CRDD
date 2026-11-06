@@ -484,7 +484,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
     "utf8",
   );
   const engineStart = engineText.indexOf(
-    "export function observeDockerRuntimeEngine()",
+    "export function observeDockerEngine()",
   );
   const engineEnd = engineText.indexOf("\n/**", engineStart);
   assert.ok(engineStart > 0 && engineEnd > engineStart);
@@ -592,7 +592,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
         };
       };
       const runtime = runInNewContext(
-        `(()=>{${body};const spawnSync=(...args)=>{captureOptions(args[2]);return cp.spawnSync(...args);};${engineSource};${querySource};return {engine:observeDockerRuntimeEngine,query:queryContainersAbsent,spy:cp.spawnSync};})()`,
+        `(()=>{${body};const spawnSync=(...args)=>{captureOptions(args[2]);return cp.spawnSync(...args);};${engineSource};${querySource};return {engine:observeDockerEngine,query:queryContainersAbsent,spy:cp.spawnSync};})()`,
         {
           assert,
           cp,

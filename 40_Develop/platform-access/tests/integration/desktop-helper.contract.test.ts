@@ -15,7 +15,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
+import { describeDockerArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
 import { describeDockerDesktopRepairNativeHelperContract } from "../../src/docker-desktop/native-process.ts";
 import { startDockerDesktopRepairHelper } from "../../src/docker-desktop/native-process.ts";
 import { observePlatformAccessArtifactCandidate } from "../../src/index.ts";
@@ -119,7 +119,7 @@ test("Host Windows: Repair06の同利用者相関と読取り専用終了", asyn
   if (artifact.status !== "candidate") throw new Error("artifact unavailable");
   const acquired = await startDockerDesktopRepairHelper(
     artifact.artifact,
-    describeDockerRuntimeArtifactTrustContract().policySha256,
+    describeDockerArtifactTrustContract().policySha256,
   );
   let released = false;
   try {
@@ -677,7 +677,7 @@ test("Native終了待機はCoordinatorの応答期限より短い全体期限へ
  * @boundary ERB-IT-001=Direct Boundary: Platform Access Test Source→対象契約
  */
 test("現在の障害修復と再起動はDocker更新を許容し操作中の実体だけを固定する", () => {
-  const contract = describeDockerRuntimeArtifactTrustContract();
+  const contract = describeDockerArtifactTrustContract();
   assert.equal(contract.publisherOrganization, "Docker Inc");
   assert.equal(contract.authenticodeRequired, true);
   assert.equal(contract.exactVersionRequired, false);

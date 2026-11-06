@@ -1,5 +1,31 @@
 # Docker Isolationの構造再編と追加通信先設定
 
+## DI内部22関数の責務名への整理（2026-11-06）
+
+基準は`bcedc0d5e`。利用者は、DI所有の技術操作12関数と純粋な値生成・検証10関数を提示案へ改名する方針を承認した。Root公開7関数、Domainの同名検証関数10件、Coordinatorの管理関数、保存field・Schema・契約ID・Hash・reason・IPC名は変更しない。型整理の次段階であり、既存処理の移管や新しい管理機構は追加しない。
+
+技術操作はobserveBackendState／observeDockerEngine／restartDesktop／restartDesktopForVerification／runRepairSession／runRepairSessionWithDependencies／executeRepairSteps／cleanupRepairDirectory／observeRepairDirectories／observeDirectoryLock／observeDirectoryLockWithDependencies／describeDockerArtifactTrustContractへ改名する。値操作はdecodeRepairCheckpoint／decodeRepairDisposalCheckpoint／isRepairCheckpointSettled／isRepairDisposalSettled／decodeRepairRetentionTargets／prepareRepairSessionCheckpoint／createRepairDisposalCheckpoint／validateRepairDisposalTransition／validateRepairSessionCheckpoint／validateRepairCheckpointTransitionへ揃える。依存差替え入口をRoot公開せず、互換Wrapperやimport/exportの別名は作らない。
+
+着手前に正本・22宣言・各Consumer・Source切出し・VM注入を照合し、独立確認で追加人間判断不要を確認した。Platform AccessのTrust契約試験も直接Consumerとして追従する。Domainの既存関数をDI用VMへ注入する試験は、DIの新propertyとDomainの元関数値を明示対応させる。Machineの既存propertyを名称の部分一致で置換しない。
+
+既存の402成功・対象外5skip、Executor113件、保存・利用側有限47件は基準Evidenceであり、新改訂版の成功へ流用しない。DI・Executorの非AI回帰、Platform Accessの型検査と有限Trust試験、Coordinator／Domainの有限修復記録と利用側型検査、独立レビューで再確認する。実AI・Docker・過去保持物・Host Windows実Writer／Helperは操作しない。処理順序・元Promise・通知・取消・一次失敗・回収判定・期限・固定Trust値を維持する。準拠基準・決定権限・Releaseを変えないため準拠／Release監査と実E2Eは対象外とする。
+
+### 関数改名後の検証結果
+
+| 範囲 | 今回の結果 |
+|---|---|
+| DI製品Source | 対象22宣言と呼出しを改名。旧DockerRuntime系関数宣言0、Root公開7関数は不変。依存差替え入口は引き続き内部限定 |
+| DI全回帰 | npm test成功。407件中402成功・既存対象外5スキップ・失敗0（23062.0586ms）。正常・取消・通知失敗・一次失敗・回収不明と純粋検証を有限境界で確認 |
+| Executor全回帰 | npm test、113／113成功（96635.5724ms）。旧名を使っていた下位代役も新DI宣言へ追従 |
+| 保存・上位有限結合 | Coordinator／Domainの修復記録47／47成功。再起動・認証createの模擬接続26／26成功。Windows Directory bootstrapの有限拒否対照1／1成功 |
+| Trust | Platform Accessの固定Trust条件試験1／1成功。Policy Hash・更新許容範囲・操作中Identity固定の値は不変 |
+| 静的検査 | DI・Executor・Platform Accessのcheck成功。Coordinatorのformat・型・lint・二台帳成功。Domain・Workbench・MCPの型検査成功 |
+| 独立レビュー | 現行Architectureの旧内部名とCoordinatorの旧直接DI委譲記述を検出し、実SourceのExecutor経由へ是正。製品・VM接続の追加不備は検出されていない |
+
+試験のSource抽出名・namespace参照・VMの引数名／注入keyを新宣言へ合わせた。Domainの元関数値を注入する場所だけ明示property対応とし、Domain側をDIの新名へ書き換えたり別名importを追加したりしない。DI Source差分は対象識別子と整形に限定し、IPC名・保存field・Hash入力・reason・固定値・判定・制御順序を変更していない。
+
+実AI・Docker・Host Windows実Writer／Helperは未実行。過去保持物へ触れる固定Root確認試験も今回の選択範囲から除外した。既存のHost中断記録、全体QA課題、実E2E・Releaseの未成立を今回の有限成功で解消したとは扱わない。実行物・Imageの更新、保存物の移行・削除、追加のStore／Manager／回復機構はない。
+
 ## 固定構成の統合と内部型の命名整理（2026-11-06）
 
 基準はVC是正をCommit・Pushした`fb5caeb49`。利用者はDIのroot configuration.ts統合とDockerRuntime系の型名整理を承認した。変更分類は構成Ownerの統合と内部型の整理であり、実行順序・判定・永続Schema・公開APIの意味は変更しない。実AI・Docker・過去保持物は操作しない。

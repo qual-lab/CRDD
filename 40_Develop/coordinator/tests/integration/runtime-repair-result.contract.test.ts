@@ -14,7 +14,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 import { runInThisContext } from "node:vm";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as technicalValidation from "../../../docker-isolation/src/docker-desktop/validation.ts";
 
 import type { RepairDisposalInput } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
@@ -39,7 +39,7 @@ import * as stateValues from "../../src/state/validation.ts";
  * @boundary 物理Writerの肯定証明は別Host試験。
  */
 function fixture(transform: (source: string) => string = (source) => source) {
-  type Input = Parameters<typeof runDockerRuntimeRepairSessionUsing>[0];
+  type Input = Parameters<typeof runRepairSessionWithDependencies>[0];
   const root = Object.freeze({});
   const binding = "a".repeat(64);
   const controller = new AbortController();
@@ -391,7 +391,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       : refused;
   };
   const run = runInThisContext(
-    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,getRepository,runDockerRuntimeRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeDockerRuntimeRepairRetention,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,disposeDockerRuntimeRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const restartDockerEnvironment = request => runDockerRuntimeRepairSession(request.input); const inspectResources = target => observeDockerRuntimeRepairRetention(target.input); const cleanupResources = target => disposeDockerRuntimeRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
+    `(function(deps){ const {Date,createHash,randomBytes,randomUUID,observeRepositoryRuntimeDataArea,getRepository,runRepairSession,dockerRuntimeRepairCheckpointIsSettled,borrowRuntimeOwnedCoordinatorRecoveryRepository,decodeRuntimeDomainSnapshot,encodeRuntimeStateValue,prepareCoordinatorStateRepairSnapshot,prepareCoordinatorStateRepairCheckpointSnapshot,prepareCoordinatorStateRepairSessionSnapshot,prepareCoordinatorStateRepairRetentionHandoffSnapshot,observeRepairDirectories,prepareCoordinatorRepairHistorySummary,readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceRuntimeOwnedCoordinatorRepairHistory,readRuntimeOwnedCoordinatorRepairCompletionSnapshot,completeRuntimeOwnedCoordinatorRepair,resumeRuntimeOwnedCoordinatorRepairPublication,cleanupRuntimeOwnedCoordinatorStateMarker,readRuntimeOwnedCoordinatorRecoverySnapshot,writeRuntimeOwnedCoordinatorRepairSnapshot,prepareCoordinatorStateRepairDisposalDecisionSnapshot,prepareCoordinatorStateRepairDisposalProgressSnapshot,cleanupRepairDirectory,dockerRuntimeRepairDisposalIsSettled}=deps; const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime;})`,
   )({
     createHash,
     randomBytes,
@@ -406,9 +406,9 @@ function fixture(transform: (source: string) => string = (source) => source) {
         if (value === undefined) state.dateReads++;
       }
     },
-    observeDockerRuntimeRepairRetention: (
+    observeRepairDirectories: (
       input: Parameters<
-        typeof import("../../../docker-isolation/src/docker-desktop/repair-session.ts").observeDockerRuntimeRepairRetention
+        typeof import("../../../docker-isolation/src/docker-desktop/repair-session.ts").observeRepairDirectories
       >[0],
     ) => {
       state.retentionReads++;
@@ -425,7 +425,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       };
     },
     dockerRuntimeRepairDisposalIsSettled,
-    disposeDockerRuntimeRepairDirectory: async (input: RepairDisposalInput) => {
+    cleanupRepairDirectory: async (input: RepairDisposalInput) => {
       state.disposalCalls.push(input.purpose);
       if (input.canIssueEffect() !== true)
         return { request: "not_issued", absence: "unknown" };
@@ -628,7 +628,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
         lockReleased: true,
       };
     },
-    runDockerRuntimeRepairSession: (input: Input) => {
+    runRepairSession: (input: Input) => {
       state.entries++;
       late = input.onCheckpoint;
       /**
@@ -657,7 +657,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
               : ("completed" as const),
         };
       };
-      return runDockerRuntimeRepairSessionUsing(input, {
+      return runRepairSessionWithDependencies(input, {
         acquire: async () => {
           state.acquired++;
           return {
@@ -2553,19 +2553,13 @@ test("修復出版: 部分成立の後は新処置へ進まない", async () => 
  */
 function dockerRuntimeRepairCheckpointIsSettled(value: unknown): boolean {
   const result = model.dockerRuntimeRepairCheckpointIsSettled(value);
-  assert.equal(
-    result,
-    technicalValidation.dockerRuntimeRepairCheckpointIsSettled(value),
-  );
+  assert.equal(result, technicalValidation.isRepairCheckpointSettled(value));
   return result;
 }
 
 /** 廃棄判定も同じ保存fixtureで両Ownerの同値性を確認する。 */
 function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
   const result = model.dockerRuntimeRepairDisposalIsSettled(value);
-  assert.equal(
-    result,
-    technicalValidation.dockerRuntimeRepairDisposalIsSettled(value),
-  );
+  assert.equal(result, technicalValidation.isRepairDisposalSettled(value));
   return result;
 }

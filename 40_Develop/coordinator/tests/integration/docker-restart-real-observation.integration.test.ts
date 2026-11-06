@@ -17,7 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
+import { describeDockerArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
@@ -198,7 +198,7 @@ for (const hasRuntimeLock of [false, true]) {
     assert.equal(artifact.status, "candidate");
     const acquired = await startDockerDesktopRestartHelper(
       artifact.artifact,
-      describeDockerRuntimeArtifactTrustContract().policySha256,
+      describeDockerArtifactTrustContract().policySha256,
     );
     assert.equal(acquired.status, "acquired");
     const session = acquired.session;

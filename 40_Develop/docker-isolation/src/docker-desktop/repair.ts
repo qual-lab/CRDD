@@ -6,9 +6,9 @@
  * @boundary Package内部。Native取得・回収、上位状態・Path・保存実装は所有しない。
  */
 import type { RepairCheckpoint } from "./types.ts";
-import { decodeDockerRuntimeRepairCheckpoint } from "./validation.ts";
+import { decodeRepairCheckpoint } from "./validation.ts";
 import { types } from "node:util";
-import { validateDockerRuntimeRepairCheckpointTransition } from "./validation.ts";
+import { validateRepairCheckpointTransition } from "./validation.ts";
 import type { DockerRepairEngineState } from "./engine.ts";
 
 const actions = [
@@ -229,11 +229,11 @@ function canResumeRepairContinuation(checkpoint: RepairCheckpoint): boolean {
  * @security Rootへ公開せず、任意コマンド・Pathを受けない。
  * @concurrency 一つの呼出しだけで直列化し、返却後通知0。
  */
-export async function runDockerRuntimeRepairMachine(
+export async function executeRepairSteps(
   input: MachineInput,
   technical: TechnicalBoundary,
 ): Promise<RepairMachineResult> {
-  let current = decodeDockerRuntimeRepairCheckpoint(input.checkpoint);
+  let current = decodeRepairCheckpoint(input.checkpoint);
   let lastNotified = current;
   let notificationFailed = false;
   let engineObservation: DockerRepairEngineState | null = null;
@@ -322,11 +322,8 @@ export async function runDockerRuntimeRepairMachine(
    */
   const publish = (candidate: unknown): boolean => {
     if (notificationFailed || !current) return false;
-    const next = decodeDockerRuntimeRepairCheckpoint(candidate);
-    if (
-      !next ||
-      !validateDockerRuntimeRepairCheckpointTransition(current, next)
-    ) {
+    const next = decodeRepairCheckpoint(candidate);
+    if (!next || !validateRepairCheckpointTransition(current, next)) {
       notificationFailed = true;
       return false;
     }
@@ -378,7 +375,7 @@ export async function runDockerRuntimeRepairMachine(
   const uncertain = (action: (typeof actions)[number]) => {
     if (!lastNotified) return null;
     const prior = lastNotified.actions[action];
-    return decodeDockerRuntimeRepairCheckpoint({
+    return decodeRepairCheckpoint({
       ...lastNotified,
       actions: {
         ...lastNotified.actions,
@@ -410,7 +407,7 @@ export async function runDockerRuntimeRepairMachine(
     requireReady = false,
   ): Promise<boolean> => {
     if (!current || !issueAllowed()) return false;
-    const observed = decodeDockerRuntimeRepairCheckpoint(
+    const observed = decodeRepairCheckpoint(
       await technical.observe(current, phase),
     );
     if (
@@ -629,7 +626,7 @@ export async function runDockerRuntimeRepairMachine(
       let observed: RepairCheckpoint | null;
       try {
         effect = await technical.execute(action, current);
-        observed = decodeDockerRuntimeRepairCheckpoint(effect.observation);
+        observed = decodeRepairCheckpoint(effect.observation);
       } catch {
         const unknown = uncertain(action);
         if (unknown === null || !publish(unknown)) current = unknown;
@@ -644,7 +641,7 @@ export async function runDockerRuntimeRepairMachine(
         JSON.stringify(observed.actions) !== JSON.stringify(current.actions) ||
         observed.cleanup !== current.cleanup ||
         observed.cleanupFailure !== current.cleanupFailure ||
-        !validateDockerRuntimeRepairCheckpointTransition(current, observed)
+        !validateRepairCheckpointTransition(current, observed)
       ) {
         const unknown = uncertain(action);
         if (unknown === null || !publish(unknown)) current = unknown;

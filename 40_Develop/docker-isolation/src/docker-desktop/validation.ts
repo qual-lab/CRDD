@@ -30,7 +30,7 @@ import type { RepairRetentionTargets } from "./types.ts";
  * @security Path、秘密、Task Authorityを取り込まない。
  * @concurrency N/A: 共有可変状態なし。
  */
-export function decodeDockerRuntimeRepairCheckpoint(
+export function decodeRepairCheckpoint(
   value: unknown,
 ): RepairCheckpoint | null {
   const record = capture(value, [
@@ -185,7 +185,7 @@ export function decodeDockerRuntimeRepairCheckpoint(
  * @security 任意Path・実行処理・旧形式を受け付けない。
  * @concurrency N/A: 同期の値捕捉だけ。
  */
-export function decodeDockerRuntimeRepairDisposalCheckpoint(
+export function decodeRepairDisposalCheckpoint(
   value: unknown,
 ): RepairDisposalCheckpoint | null {
   const record = capture(value, ["directories"]);
@@ -232,8 +232,8 @@ export function decodeDockerRuntimeRepairDisposalCheckpoint(
  * @security 保存値だけで実対象の現在不存在を証明しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
-  const checkpoint = decodeDockerRuntimeRepairDisposalCheckpoint(value);
+export function isRepairDisposalSettled(value: unknown): boolean {
+  const checkpoint = decodeRepairDisposalCheckpoint(value);
   return (
     checkpoint !== null &&
     directories.every(
@@ -259,10 +259,8 @@ export function dockerRuntimeRepairDisposalIsSettled(value: unknown): boolean {
  * @security 任意操作や外部資源へ接続しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function dockerRuntimeRepairCheckpointIsSettled(
-  value: unknown,
-): boolean {
-  const checkpoint = decodeDockerRuntimeRepairCheckpoint(value);
+export function isRepairCheckpointSettled(value: unknown): boolean {
+  const checkpoint = decodeRepairCheckpoint(value);
   return (
     checkpoint !== null &&
     actions.every((key) => settled(checkpoint.actions[key]))
@@ -420,7 +418,7 @@ export function observation(value: unknown): DirectoryObservation | null {
  * @security Path・Owner・Scopeを受け付けない。
  * @concurrency N/A: 入力を変更しない。
  */
-export function decodeDockerRuntimeRepairRetentionTargets(
+export function decodeRepairRetentionTargets(
   value: unknown,
 ): RepairRetentionTargets | null {
   const record = capture(value, directories);
@@ -456,13 +454,13 @@ export function decodeDockerRuntimeRepairRetentionTargets(
  * @security 候補は取得・保存・実処置Authorityではない。
  * @concurrency N/A: 共有状態なし。
  */
-export function prepareDockerRuntimeRepairSessionCheckpoint(
+export function prepareRepairSessionCheckpoint(
   value: unknown,
 ): RepairCheckpoint | null {
-  const before = decodeDockerRuntimeRepairCheckpoint(value);
+  const before = decodeRepairCheckpoint(value);
   if (before?.cleanup !== "confirmed" || before.cleanupFailure !== null)
     return null;
-  return decodeDockerRuntimeRepairCheckpoint({ ...before, cleanup: "pending" });
+  return decodeRepairCheckpoint({ ...before, cleanup: "pending" });
 }
 
 /**
@@ -480,7 +478,7 @@ export function prepareDockerRuntimeRepairSessionCheckpoint(
  * @security Path・Identity・Authorityを生成しない。
  * @concurrency 呼出しごとに別の凍結値を返す。
  */
-export function createDockerRuntimeRepairDisposalCheckpoint(): RepairDisposalCheckpoint {
+export function createRepairDisposalCheckpoint(): RepairDisposalCheckpoint {
   const result = {} as Record<
     (typeof directories)[number],
     RepairDisposalCheckpoint["directories"]["primary"]
@@ -509,13 +507,13 @@ export function createDockerRuntimeRepairDisposalCheckpoint(): RepairDisposalChe
  * @security trueは削除許可ではない。同値候補のWriterはno-op／Effect 0とする。
  * @concurrency N/A: 元版CAS・排他・実観測は外側で確認する。
  */
-export function validateDockerRuntimeRepairDisposalTransition(
+export function validateRepairDisposalTransition(
   beforeValue: unknown,
   afterValue: unknown,
   purpose: unknown,
 ): boolean {
-  const before = decodeDockerRuntimeRepairDisposalCheckpoint(beforeValue);
-  const after = decodeDockerRuntimeRepairDisposalCheckpoint(afterValue);
+  const before = decodeRepairDisposalCheckpoint(beforeValue);
+  const after = decodeRepairDisposalCheckpoint(afterValue);
   if (
     !before ||
     !after ||
@@ -557,12 +555,12 @@ export function validateDockerRuntimeRepairDisposalTransition(
  * @security trueは実補助子の取得や現在許可を証明しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function validateDockerRuntimeRepairSessionCheckpoint(
+export function validateRepairSessionCheckpoint(
   beforeValue: unknown,
   afterValue: unknown,
 ): boolean {
-  const expected = prepareDockerRuntimeRepairSessionCheckpoint(beforeValue);
-  const after = decodeDockerRuntimeRepairCheckpoint(afterValue);
+  const expected = prepareRepairSessionCheckpoint(beforeValue);
+  const after = decodeRepairCheckpoint(afterValue);
   return (
     expected !== null &&
     after !== null &&
@@ -585,12 +583,12 @@ export function validateDockerRuntimeRepairSessionCheckpoint(
  * @security trueは実処置や現在許可を保証しない。
  * @concurrency N/A: 共有状態なし。
  */
-export function validateDockerRuntimeRepairCheckpointTransition(
+export function validateRepairCheckpointTransition(
   beforeValue: unknown,
   afterValue: unknown,
 ): boolean {
-  const before = decodeDockerRuntimeRepairCheckpoint(beforeValue);
-  const after = decodeDockerRuntimeRepairCheckpoint(afterValue);
+  const before = decodeRepairCheckpoint(beforeValue);
+  const after = decodeRepairCheckpoint(afterValue);
   if (!before || !after) return false;
   for (const key of actions) {
     const a = before.actions[key];

@@ -164,11 +164,11 @@ test("DI共通公開入口はContainer同期結果とDirectory元Promiseを保�
     {
       namedExports: {
         ...directory,
-        observeDockerRuntimeRepairRetention: (value: unknown) => {
+        observeRepairDirectories: (value: unknown) => {
           assert.equal(value, input);
           return null;
         },
-        disposeDockerRuntimeRepairDirectory: (value: unknown) => {
+        cleanupRepairDirectory: (value: unknown) => {
           assert.equal(value, input);
           return pending;
         },

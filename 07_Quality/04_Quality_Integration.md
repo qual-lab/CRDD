@@ -1,5 +1,9 @@
 # Quality Integration
 
+## DI内部関数名と利用側の追従 — 2026-11-06
+
+DI内部22関数の責務名への改名は、既存ERB-IT-004の公開／内部境界、ERB-IT-014の修復・再起動の有限結合、ERB-IT-001の固定Trust契約へ接続した。DI402成功・既存対象外5スキップ、Executor113／113、修復記録47／47、再起動・認証create模擬26／26、Directory bootstrap拒否対照1／1、Trust固定値1／1と関連静的検査を確認した。型・Source切出し・VM注入・namespace参照と現行Architectureを追従し、保存形式・IPC名・公開7関数・判定と期限は維持する。実AI・Docker・Host Windows実Writer／Helper・過去保持物操作は対象外であり、既存の未成立範囲は成功へ昇格しない。[変更記録](../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)に結果と限界を分離して記録する。
+
 ## DI固定構成Ownerと内部型 — 2026-11-06
 
 固定構成のImage Ownerへの統合とDI内部型の短縮は、既存ERB-UT-023（固定値・I/Oなし）、ERB-IT-004（公開境界）、ERB-IT-014（環境操作・修復の有限境界）へ接続した。DI全回帰402成功・既存対象外5スキップ、Executor113／113、保存・利用側の有限試験47／47、関連静的検査と独立再レビューを確認した。追加のHost Windows実Writer試験は中断であり、有限試験の成功と区別する。今回の試験Rootだけは対象確認・回収・不存在確認済みだが、Host全体の資源不存在や実Writer成立は主張しない。実AI・Docker・過去保持物操作は対象外とし、既存の全体QA課題は解消済みにしない。[変更記録](../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)に条件と限界を記録する。

@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { restartDockerRuntimeForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
+import { restartDesktopForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import {
   createDockerRestartRequestId,
@@ -464,7 +464,7 @@ async function compose(fault: string = "normal") {
     },
     finalizeRuntimeOwnedDockerRestartPreparation: (
       _owner: unknown,
-      result: Awaited<ReturnType<typeof restartDockerRuntimeForVerification>>,
+      result: Awaited<ReturnType<typeof restartDesktopForVerification>>,
     ) => {
       assert.equal(released, true);
       calls.push("finalize");
@@ -522,11 +522,11 @@ async function compose(fault: string = "normal") {
     },
     restartDockerEnvironment: (request: {
       mode: "restart";
-      input: Parameters<typeof restartDockerRuntimeForVerification>[0];
+      input: Parameters<typeof restartDesktopForVerification>[0];
     }) => {
       calls.push("lower");
       assert.equal(request.mode, "restart");
-      return restartDockerRuntimeForVerification(request.input, dependencies);
+      return restartDesktopForVerification(request.input, dependencies);
     },
   };
   const run = runInNewContext(

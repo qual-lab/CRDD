@@ -314,7 +314,7 @@ const runtimeArtifactTrustPolicySha256 = createHash("sha256")
  * @security この値の取得は実行許可やArtifact検証成功を意味しない。CRDDのRuntime署名Gateとは独立する。
  * @concurrency N/A: 共有非同期状態を持たない。
  */
-export function describeDockerRuntimeArtifactTrustContract() {
+export function describeDockerArtifactTrustContract() {
   return Object.freeze({
     policySha256: runtimeArtifactTrustPolicySha256,
     officialFixedPathsRequired: true,

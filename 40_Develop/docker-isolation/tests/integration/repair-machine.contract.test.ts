@@ -18,7 +18,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { types } from "node:util";
 import test from "node:test";
-import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
+import { executeRepairSteps } from "../../src/docker-desktop/repair.ts";
 import { validateDockerRuntimeRepairCheckpointTransition } from "../../../domain-model/src/index.ts";
 import * as technicalContract from "../../src/docker-desktop/validation.ts";
 import * as storedContract from "../../../domain-model/src/index.ts";
@@ -45,22 +45,22 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
   };
   const pairs = [
     [
-      technicalContract.decodeDockerRuntimeRepairCheckpoint,
+      technicalContract.decodeRepairCheckpoint,
       storedContract.decodeDockerRuntimeRepairCheckpoint,
       fixture().input.checkpoint,
     ],
     [
-      technicalContract.decodeDockerRuntimeRepairCheckpoint,
+      technicalContract.decodeRepairCheckpoint,
       storedContract.decodeDockerRuntimeRepairCheckpoint,
       fixture(5, true).input.checkpoint,
     ],
     [
-      technicalContract.decodeDockerRuntimeRepairDisposalCheckpoint,
+      technicalContract.decodeRepairDisposalCheckpoint,
       storedContract.decodeDockerRuntimeRepairDisposalCheckpoint,
-      technicalContract.createDockerRuntimeRepairDisposalCheckpoint(),
+      technicalContract.createRepairDisposalCheckpoint(),
     ],
     [
-      technicalContract.decodeDockerRuntimeRepairRetentionTargets,
+      technicalContract.decodeRepairRetentionTargets,
       storedContract.decodeDockerRuntimeRepairRetentionTargets,
       {
         primary: { dev: "1", ino: "2", birthtimeNs: "3" },
@@ -190,36 +190,30 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
   }
   for (const prefix of [0, 5]) {
     const f = fixture(prefix, prefix === 5);
-    await runDockerRuntimeRepairMachine(f.input, f.technical);
+    await executeRepairSteps(f.input, f.technical);
     let before = f.input.checkpoint;
     for (const next of f.calls.notifications) {
       assert.deepEqual(
-        technicalContract.decodeDockerRuntimeRepairCheckpoint(next),
+        technicalContract.decodeRepairCheckpoint(next),
         storedContract.decodeDockerRuntimeRepairCheckpoint(next),
       );
       assert.equal(
-        technicalContract.validateDockerRuntimeRepairCheckpointTransition(
-          before,
-          next,
-        ),
+        technicalContract.validateRepairCheckpointTransition(before, next),
         storedContract.validateDockerRuntimeRepairCheckpointTransition(
           before,
           next,
         ),
       );
       assert.equal(
-        technicalContract.dockerRuntimeRepairCheckpointIsSettled(next),
+        technicalContract.isRepairCheckpointSettled(next),
         storedContract.dockerRuntimeRepairCheckpointIsSettled(next),
       );
       assert.deepEqual(
-        technicalContract.prepareDockerRuntimeRepairSessionCheckpoint(next),
+        technicalContract.prepareRepairSessionCheckpoint(next),
         storedContract.prepareDockerRuntimeRepairSessionCheckpoint(next),
       );
       assert.equal(
-        technicalContract.validateDockerRuntimeRepairSessionCheckpoint(
-          before,
-          next,
-        ),
+        technicalContract.validateRepairSessionCheckpoint(before, next),
         storedContract.prepareDockerRuntimeRepairSessionCheckpoint(before) !==
           null &&
           JSON.stringify(
@@ -232,8 +226,7 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
       before = next;
     }
   }
-  const disposal =
-    technicalContract.createDockerRuntimeRepairDisposalCheckpoint();
+  const disposal = technicalContract.createRepairDisposalCheckpoint();
   for (const purpose of technicalContract.directories) {
     for (const request of ["not_issued", "issued", "unknown"] as const) {
       const next = copy(disposal);
@@ -243,7 +236,7 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
         absence: "unknown",
       });
       assert.equal(
-        technicalContract.validateDockerRuntimeRepairDisposalTransition(
+        technicalContract.validateRepairDisposalTransition(
           disposal,
           next,
           purpose,
@@ -251,7 +244,7 @@ test("技術checkpointと保存受理は異常入力・全field・通知遷移�
         false,
       );
       assert.equal(
-        technicalContract.dockerRuntimeRepairDisposalIsSettled(next),
+        technicalContract.isRepairDisposalSettled(next),
         storedContract.dockerRuntimeRepairDisposalIsSettled(next),
       );
     }
@@ -410,7 +403,7 @@ function fixture(prefix = 0, continuation = false) {
       return;
     },
   };
-  const technical: Parameters<typeof runDockerRuntimeRepairMachine>[1] = {
+  const technical: Parameters<typeof executeRepairSteps>[1] = {
     observe: async (value, phase) => {
       calls.observe++;
       if (phase === "failed_launch") {
@@ -516,7 +509,7 @@ function fixture(prefix = 0, continuation = false) {
 test("修復Machine: 通常五処置と限定継続四処置", async () => {
   for (const continuation of [false, true]) {
     const f = fixture(0, continuation);
-    const observed = await runDockerRuntimeRepairMachine(f.input, f.technical);
+    const observed = await executeRepairSteps(f.input, f.technical);
     assert.equal(observed.status, "recovered");
     assert.equal(observed.primaryFailure, null);
     assert.equal(observed.checkpointNotificationCompleted, true);
@@ -625,7 +618,7 @@ test("修復Machine: 九slotの保存拒否・取消とfresh切断窓", async ()
           return value;
         },
       };
-      const observed = await runDockerRuntimeRepairMachine(f.input, technical);
+      const observed = await executeRepairSteps(f.input, technical);
       assert.equal(f.calls.observe, index < 5 ? 1 : 2);
       assert.ok(f.calls.precondition.every((action) => action === name));
       assert.equal(
@@ -689,7 +682,7 @@ test("修復Machine: 九slotの保存拒否・取消とfresh切断窓", async ()
         actions: { ...f.input.checkpoint.actions, [name]: slot },
       });
       assert.ok(checkpoint);
-      const observed = await runDockerRuntimeRepairMachine(
+      const observed = await executeRepairSteps(
         { ...f.input, checkpoint },
         f.technical,
       );
@@ -736,7 +729,7 @@ test("修復Machine: 九slotの不要と未発行失敗・不明を分離する"
         notifications++;
         return record(value);
       };
-      const observed = await runDockerRuntimeRepairMachine(f.input, {
+      const observed = await executeRepairSteps(f.input, {
         ...f.technical,
         precondition: async (action) =>
           action !== name
@@ -809,7 +802,7 @@ test("修復Machine: Engine五分類と不正通知", async () => {
     "unknown",
   ] as const) {
     const f = fixture(5);
-    const observed = await runDockerRuntimeRepairMachine(f.input, {
+    const observed = await executeRepairSteps(f.input, {
       ...f.technical,
       awaitEngine: async () => ({ state, continuation: null }),
     });
@@ -845,7 +838,7 @@ test("修復Machine: Engine五分類と不正通知", async () => {
     }),
   ]) {
     const f = fixture();
-    const observed = await runDockerRuntimeRepairMachine(
+    const observed = await executeRepairSteps(
       { ...f.input, onCheckpoint },
       f.technical,
     );
@@ -880,7 +873,7 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
     ] as const) {
       const f = fixture(5, true);
       const stages: string[] = [];
-      const result = await runDockerRuntimeRepairMachine(f.input, {
+      const result = await executeRepairSteps(f.input, {
         ...f.technical,
         awaitEngine: async (stage, checkpoint) => {
           stages.push(stage);
@@ -923,7 +916,7 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
       },
     });
     assert.ok(checkpoint);
-    const result = await runDockerRuntimeRepairMachine(
+    const result = await executeRepairSteps(
       { ...f.input, checkpoint },
       {
         ...f.technical,
@@ -937,7 +930,7 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
     assert.equal(f.calls.execute.length, 0);
   }
   const f = fixture(5, true);
-  const result = await runDockerRuntimeRepairMachine(f.input, {
+  const result = await executeRepairSteps(f.input, {
     ...f.technical,
     awaitEngine: async (stage) =>
       stage === "after_initial_start"
@@ -971,9 +964,7 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
  * @oracle 退避実体の対応を保存しないまま停止処置へ進まない。
  * @cleanup 有限通知とfixtureを破棄し実Directoryは変更しない。
  */
-async function assertFailedGenerationSaved(
-  runner: typeof runDockerRuntimeRepairMachine,
-) {
+async function assertFailedGenerationSaved(runner: typeof executeRepairSteps) {
   const f = fixture(5, true);
   const order: string[] = [];
   const record = f.input.onCheckpoint;
@@ -1026,7 +1017,7 @@ async function assertFailedGenerationSaved(
  * @boundary 実Adapterのfresh照合・部分再開は未成立。
  */
 test("修復Machine: failed-launchの両世代を保存してから追加処置へ進む", async () => {
-  await assertFailedGenerationSaved(runDockerRuntimeRepairMachine);
+  await assertFailedGenerationSaved(executeRepairSteps);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
       new URL("../../src/docker-desktop/repair.ts", import.meta.url),
@@ -1044,12 +1035,12 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
   ] as const) {
     assert.equal(source.split(before).length, 2);
     const mutant = runInThisContext(
-      `(function(decodeDockerRuntimeRepairCheckpoint, validateDockerRuntimeRepairCheckpointTransition, types){${source.replace(before, after)}; return runDockerRuntimeRepairMachine;})`,
+      `(function(decodeRepairCheckpoint, validateRepairCheckpointTransition, types){${source.replace(before, after)}; return executeRepairSteps;})`,
     )(
       decodeDockerRuntimeRepairCheckpoint,
       validateDockerRuntimeRepairCheckpointTransition,
       types,
-    ) as typeof runDockerRuntimeRepairMachine;
+    ) as typeof executeRepairSteps;
     await assert.rejects(() => assertFailedGenerationSaved(mutant));
   }
   for (const mode of [
@@ -1078,7 +1069,7 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
       }
       return record(checkpoint);
     };
-    const result = await runDockerRuntimeRepairMachine(f.input, {
+    const result = await executeRepairSteps(f.input, {
       ...f.technical,
       observe: async (checkpoint, phase) => {
         const value = await f.technical.observe(
@@ -1116,7 +1107,7 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
       const checkpoint = result.checkpoint;
       assert.ok(checkpoint);
       const next = fixture(5, true);
-      const resumed = await runDockerRuntimeRepairMachine(
+      const resumed = await executeRepairSteps(
         { ...next.input, checkpoint },
         next.technical,
       );
@@ -1146,7 +1137,7 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
     engine: "ready",
   });
   assert.ok(readyCheckpoint);
-  const completed = await runDockerRuntimeRepairMachine(
+  const completed = await executeRepairSteps(
     { ...ready.input, checkpoint: readyCheckpoint },
     ready.technical,
   );
@@ -1163,7 +1154,7 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
     engine: "unknown",
   });
   assert.ok(unknownCheckpoint);
-  const refused = await runDockerRuntimeRepairMachine(
+  const refused = await executeRepairSteps(
     { ...unknown.input, checkpoint: unknownCheckpoint },
     {
       ...unknown.technical,
@@ -1180,7 +1171,7 @@ test("修復Machine: 初期Engineと追加四処置の分岐を混同しない",
     hostSafety: "unknown",
   });
   assert.ok(hostCheckpoint);
-  const remaining = await runDockerRuntimeRepairMachine(
+  const remaining = await executeRepairSteps(
     { ...host.input, checkpoint: hostCheckpoint },
     host.technical,
   );
@@ -1237,7 +1228,7 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
         let effectStarted = false;
         let effects = 0;
         let unknownNotifications = 0;
-        const observed = await runDockerRuntimeRepairMachine(
+        const observed = await executeRepairSteps(
           {
             ...f.input,
             checkpoint,
@@ -1355,12 +1346,12 @@ test("修復Machine: issued通知省略は故障注入の必須到達Oracleが�
   for (const [index, name] of names.entries()) {
     for (const text of [source, mutant]) {
       const runner = runInThisContext(
-        `(function(decodeDockerRuntimeRepairCheckpoint, validateDockerRuntimeRepairCheckpointTransition, types){${text}; return runDockerRuntimeRepairMachine;})`,
+        `(function(decodeRepairCheckpoint, validateRepairCheckpointTransition, types){${text}; return executeRepairSteps;})`,
       )(
         decodeDockerRuntimeRepairCheckpoint,
         validateDockerRuntimeRepairCheckpointTransition,
         types,
-      ) as typeof runDockerRuntimeRepairMachine;
+      ) as typeof executeRepairSteps;
       const f = fixture(index, index >= 5);
       const injections: { action: string; stage: string }[] = [];
       let notifications = 0;
@@ -1416,7 +1407,7 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
     }
     return;
   };
-  await runDockerRuntimeRepairMachine(seed.input, seed.technical);
+  await executeRepairSteps(seed.input, seed.technical);
   assert.equal(captured.length, 1);
   const base = captured[0];
   assert.ok(base);
@@ -1478,12 +1469,12 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
   const guard = "resumingContinuation && !canResumeRepairContinuation(current)";
   assert.equal(source.split(guard).length, 2);
   const mutant = runInThisContext(
-    `(function(decodeDockerRuntimeRepairCheckpoint, validateDockerRuntimeRepairCheckpointTransition, types){${source.replace(guard, "false")}; return runDockerRuntimeRepairMachine;})`,
+    `(function(decodeRepairCheckpoint, validateRepairCheckpointTransition, types){${source.replace(guard, "false")}; return executeRepairSteps;})`,
   )(
     decodeDockerRuntimeRepairCheckpoint,
     validateDockerRuntimeRepairCheckpointTransition,
     types,
-  ) as typeof runDockerRuntimeRepairMachine;
+  ) as typeof executeRepairSteps;
   for (const [index, candidate] of candidates.entries()) {
     const checkpoint = decodeDockerRuntimeRepairCheckpoint(candidate);
     assert.ok(checkpoint, `candidate_decode:${index}`);
@@ -1498,7 +1489,7 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
      * @cleanup N/A: fixture内の計数と値だけ。
      * @boundary 修復Machineへの入力境界で実修復を起動しない。
      */
-    const verify = async (runner: typeof runDockerRuntimeRepairMachine) => {
+    const verify = async (runner: typeof executeRepairSteps) => {
       const f = fixture(5, true);
       const before = JSON.stringify(checkpoint);
       const result = await runner({ ...f.input, checkpoint }, f.technical);
@@ -1510,7 +1501,7 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
       assert.notEqual(result.status, "recovered");
       assert.equal(JSON.stringify(checkpoint), before);
     };
-    await verify(runDockerRuntimeRepairMachine);
+    await verify(executeRepairSteps);
     await assert.rejects(() => verify(mutant), /fresh_observation_started/u);
   }
 });

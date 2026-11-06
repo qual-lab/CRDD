@@ -14,7 +14,7 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import * as dockerDirectoryOperations from "../../src/docker-desktop/directory.ts";
-import { observeDockerRuntimeDirectoryLockUsingDependencies } from "../../src/docker-desktop/directory.ts";
+import { observeDirectoryLockWithDependencies } from "../../src/docker-desktop/directory.ts";
 import * as publicApi from "../../src/index.ts";
 
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
@@ -31,17 +31,12 @@ const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
  * @boundary ERB-IT-001=Related 2 Blocks: 内部Owner→固定FS接続→技術観測。
  */
 test("内部Directory観測は固定FSを使いRootへ公開しない", (t) => {
-  assert.equal("observeDockerRuntimeDirectoryLock" in publicApi, false);
-  assert.equal(
-    "observeDockerRuntimeDirectoryLockUsingDependencies" in publicApi,
-    false,
-  );
+  assert.equal("observeDirectoryLock" in publicApi, false);
+  assert.equal("observeDirectoryLockWithDependencies" in publicApi, false);
   assert.equal("awaitDockerRepairEngineUsing" in publicApi, false);
   if (process.platform !== "win32") {
     assert.equal(
-      dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
-        "C:\\Docker\\run",
-      ),
+      dockerDirectoryOperations.observeDirectoryLock("C:\\Docker\\run"),
       null,
     );
     return;
@@ -76,9 +71,7 @@ test("内部Directory観測は固定FSを使いRootへ公開しない", (t) => {
     throw Object.assign(new Error("fixture"), { code: errorCode });
   });
   assert.deepEqual(
-    dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
-      "C:\\Docker\\run",
-    ),
+    dockerDirectoryOperations.observeDirectoryLock("C:\\Docker\\run"),
     {
       dev: String(observed.dev),
       ino: String(observed.ino),
@@ -87,9 +80,7 @@ test("内部Directory観測は固定FSを使いRootへ公開しない", (t) => {
   );
   mode = "unknown";
   assert.equal(
-    dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
-      "C:\\Docker\\run",
-    ),
+    dockerDirectoryOperations.observeDirectoryLock("C:\\Docker\\run"),
     null,
   );
   mode = "close_failure";
@@ -98,9 +89,7 @@ test("内部Directory観測は固定FSを使いRootへ公開しない", (t) => {
     const beforeOpen = opens,
       beforeClose = closes;
     assert.equal(
-      dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
-        "C:\\Docker\\run",
-      ),
+      dockerDirectoryOperations.observeDirectoryLock("C:\\Docker\\run"),
       null,
       code,
     );
@@ -113,9 +102,7 @@ test("内部Directory観測は固定FSを使いRootへ公開しない", (t) => {
     const beforeOpen = opens,
       beforeClose = closes;
     assert.ok(
-      dockerDirectoryOperations.observeDockerRuntimeDirectoryLock(
-        "C:\\Docker\\run",
-      ),
+      dockerDirectoryOperations.observeDirectoryLock("C:\\Docker\\run"),
       code,
     );
     assert.equal(opens - beforeOpen, 1, code);
@@ -139,16 +126,14 @@ test("未対応OSではDirectory観測のFS要求を発行しない", () => {
     new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
   );
-  const begin = source.indexOf(
-    "export function observeDockerRuntimeDirectoryLock(",
-  );
+  const begin = source.indexOf("export function observeDirectoryLock(");
   assert.ok(begin >= 0);
   const body = stripTypeScriptTypes(
     source.slice(begin).replace("export function", "function"),
   );
   for (const platform of ["linux", "unknown"]) {
     let calls = 0;
-    const run = runInNewContext(`${body}; observeDockerRuntimeDirectoryLock`, {
+    const run = runInNewContext(`${body}; observeDirectoryLock`, {
       process: { platform },
       fs: new Proxy(
         {},
@@ -159,7 +144,7 @@ test("未対応OSではDirectory観測のFS要求を発行しない", () => {
           },
         },
       ),
-      observeDockerRuntimeDirectoryLockUsingDependencies: () => {
+      observeDirectoryLockWithDependencies: () => {
         calls++;
         throw new Error("unexpected_observation");
       },
@@ -192,10 +177,10 @@ test("Docker runtime directoryのlock観測は特定socket名に依存せず、�
   ] as const;
   const observe = (
     overrides: Partial<
-      Parameters<typeof observeDockerRuntimeDirectoryLockUsingDependencies>[1]
+      Parameters<typeof observeDirectoryLockWithDependencies>[1]
     > = {},
   ) =>
-    observeDockerRuntimeDirectoryLockUsingDependencies("C:\\Docker\\run", {
+    observeDirectoryLockWithDependencies("C:\\Docker\\run", {
       identityAt: () => RUN_IDENTITY,
       readEntries: () => entries,
       probeEntry: (target) => {

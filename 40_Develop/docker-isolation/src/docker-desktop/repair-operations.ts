@@ -6,17 +6,17 @@
  * @boundary DI内部。保存Owner・Root・上位の復旧判断を所有しない。
  */
 import type { RepairCheckpoint } from "./types.ts";
-import { decodeDockerRuntimeRepairCheckpoint } from "./validation.ts";
+import { decodeRepairCheckpoint } from "./validation.ts";
 import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-access/src/index.ts";
 import type { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 
-import type { runDockerRuntimeRepairMachine } from "./repair.ts";
+import type { executeRepairSteps } from "./repair.ts";
 import {
   observeDockerDesktopRepairEngine,
   awaitDockerRepairEngine,
 } from "./engine.ts";
 import {
-  observeDockerRuntimeBackendState,
+  observeBackendState,
   terminateDockerDesktopBackendForRepair,
 } from "./backend.ts";
 
@@ -44,7 +44,7 @@ type Access = Pick<
  * @security 任意命令を追加しない。
  * @compatibility 同じMachineだけ。
  */
-type Technical = Parameters<typeof runDockerRuntimeRepairMachine>[1];
+type Technical = Parameters<typeof executeRepairSteps>[1];
 /**
  * 保存済み期待実体または未固定値。
  * @responsibility 実体型を既存checkpointへ従属させる。
@@ -115,12 +115,12 @@ export function createDockerDesktopRepairOperations(
   canIssue: () => boolean,
   observations: Readonly<{
     engine: typeof observeDockerDesktopRepairEngine;
-    backend: typeof observeDockerRuntimeBackendState;
+    backend: typeof observeBackendState;
     terminateBackend: typeof terminateDockerDesktopBackendForRepair;
     wait: typeof awaitDockerRepairEngine;
   }> = {
     engine: observeDockerDesktopRepairEngine,
-    backend: observeDockerRuntimeBackendState,
+    backend: observeBackendState,
     terminateBackend: terminateDockerDesktopBackendForRepair,
     wait: awaitDockerRepairEngine,
   },
@@ -316,7 +316,7 @@ export function createDockerDesktopRepairOperations(
             retained: { state: "absent", identity: null },
           };
         }
-        const value = decodeDockerRuntimeRepairCheckpoint({
+        const value = decodeRepairCheckpoint({
           ...checkpoint,
           directories: directoriesValue,
         });
@@ -424,7 +424,7 @@ export function createDockerDesktopRepairOperations(
       }
       if (!live() || !directories.verify())
         throw new Error("repair_boundary_unavailable");
-      const value = decodeDockerRuntimeRepairCheckpoint({
+      const value = decodeRepairCheckpoint({
         ...checkpoint,
         directories: dirs,
         engine:
@@ -643,7 +643,7 @@ export function createDockerDesktopRepairOperations(
         retainedMatches(pair, expected) &&
         pair?.source.state === "confirmed_absent";
       const observation = confirmed
-        ? decodeDockerRuntimeRepairCheckpoint({
+        ? decodeRepairCheckpoint({
             ...checkpoint,
             stale: "retained",
             directories: {

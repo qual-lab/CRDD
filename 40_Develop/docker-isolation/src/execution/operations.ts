@@ -35,7 +35,7 @@ import {
 } from "../docker-cli/trust.ts";
 import {
   type DirectoryCleanupResult,
-  disposeDockerRuntimeRepairDirectory,
+  cleanupRepairDirectory,
 } from "../docker-desktop/repair-session.ts";
 import {
   type OwnedCommandHandle,
@@ -253,7 +253,7 @@ export function cleanupIsolation(
     Object.getOwnPropertyDescriptor(request, "kind")?.value ===
       "docker_runtime_directory"
   )
-    return disposeDockerRuntimeRepairDirectory(
+    return cleanupRepairDirectory(
       (request as DirectoryResourceCleanupTarget).input,
     );
   if (

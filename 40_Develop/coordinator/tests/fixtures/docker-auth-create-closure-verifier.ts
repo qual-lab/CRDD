@@ -780,14 +780,12 @@ async function executeApprovedAuthCreateClosure() {
       {
         namedExports: {
           ...dockerRestartOperations,
-          restartDockerRuntime: async (
-            input: Parameters<
-              typeof dockerRestartOperations.restartDockerRuntime
-            >[0],
+          restartDesktop: async (
+            input: Parameters<typeof dockerRestartOperations.restartDesktop>[0],
           ) => {
             restartCalls++;
             assert.equal(restartCalls, 1);
-            return dockerRestartOperations.restartDockerRuntime({
+            return dockerRestartOperations.restartDesktop({
               ...input,
               onRequesting: () => {
                 const result = input.onRequesting();

@@ -308,16 +308,16 @@ export function classifyDockerEngineResult(
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns EngineObservationを返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がobserveDockerRuntimeEngineの入力契約を満たす。
- * @postcondition observeDockerRuntimeEngineの責務を完了した結果だけを返す。
- * @effect observeDockerRuntimeEngineは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure observeDockerRuntimeEngineは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant observeDockerRuntimeEngineは宣言した境界以外へEffectを拡張しない。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がobserveDockerEngineの入力契約を満たす。
+ * @postcondition observeDockerEngineの責務を完了した結果だけを返す。
+ * @effect observeDockerEngineは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observeDockerEngineは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeDockerEngineは宣言した境界以外へEffectを拡張しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security observeDockerRuntimeEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: observeDockerRuntimeEngineは共有非同期状態を持たない同期処理である。
+ * @security observeDockerEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeDockerEngineは共有非同期状態を持たない同期処理である。
  */
-export function observeDockerRuntimeEngine(): EngineObservation {
+export function observeDockerEngine(): EngineObservation {
   if (process.platform !== "win32")
     return Object.freeze({ state: "unknown", cleanup: "confirmed" });
   try {

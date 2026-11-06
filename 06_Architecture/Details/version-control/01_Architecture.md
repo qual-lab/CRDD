@@ -261,6 +261,10 @@ removeReference は、保存済みの自己生成短命Index参照が指定さ�
 
 ### 3.2 用途を限定した公開入口
 
+Candidate由来の内部名称は業務判定の有無と分けて扱う。現在のCommit生成・Merge・固定Fileコピーは、GitのOID・Tree・Path・Index・親関係・途中状態・技術的回収だけを判定し、Task状態、採否、CHG、Workspaceの業務Lifecycleを判断しない。candidate_*は公開Resultの理由値にも、candidate-index-は短命Indexの識別・再入場にも使うため、説明の更新だけで変更しない。改名する場合は保存側の閉形式検査・再入場・利用側との対応を別途確認する。
+
+resolveVerifiedRepositoryRootは、Domain等のRepository-local保存や所在照合のために維持する。Root取得はGit操作を利用側へ移す入口ではない。内容・Index・Commit・Reference・Merge・Remote操作はVCの完成操作で完結する。本番srcのRoot利用を点検した範囲では、RootからGit操作を自作する確定事例はない。検証Scriptの実GitによるRoot対照と自己生成fixtureの準備・観測は、本番のGit操作再実装とは区別する。
+
 `readFile(repository,{path,baseCommit?})`は現在の作業Fileを読む。比較基準の省略または明示undefinedでは同じ呼出しの開始時HEADを使い、結果のbaseCommitへ返す。明示Baseは従来どおり比較に使う。Repositoryの実Object形式に一致する完全長OIDのみ受け付け、HEADなし、不正Path、link、容量超過、観測中のHEAD／内容変更は拒否する。この操作の失敗名はrepository_file系とし、候補固定の失敗と区別する。CoordinatorのWorkspace内容確認は保存済みBaseを引き続き明示する。
 
 内容・Index操作の対象は渡された検証済みRepositoryである。Main固定ではなく、LinkedのRootを取得すれば同じ操作を利用できる。実Git対照試験では異なるHEAD・Index・作業内容を設定し、読取りとStage／Unstage／Commitの対象一致、反対側のHEAD・Index・作業File不変を両方向で確認する。共有Object Databaseや対象Branchの更新はこの不変条件に含めない。

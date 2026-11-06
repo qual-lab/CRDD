@@ -89,10 +89,10 @@ await mock.module("node:child_process", {
     },
   },
 });
-const { observeDockerRuntimeBackendState } = await import(
+const { observeBackendState } = await import(
   "../../src/docker-desktop/backend.ts"
 );
-const state = observeDockerRuntimeBackendState();
+const state = observeBackendState();
 assert.equal(
   state,
   scenario === "stopped" || scenario === "running" ? scenario : "unknown",

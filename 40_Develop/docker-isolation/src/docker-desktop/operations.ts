@@ -6,10 +6,10 @@
  */
 
 import { types } from "node:util";
-import { observeDockerRuntimeBackendState } from "./backend.ts";
-import { observeDockerRuntimeEngine } from "./engine.ts";
-import { runDockerRuntimeRepairSession } from "./repair-session.ts";
-import { restartDockerRuntime } from "./restart.ts";
+import { observeBackendState } from "./backend.ts";
+import { observeDockerEngine } from "./engine.ts";
+import { runRepairSession } from "./repair-session.ts";
+import { restartDesktop } from "./restart.ts";
 import type {
   DockerEnvironmentRequest,
   DockerEnvironmentResult,
@@ -33,8 +33,8 @@ import type {
  */
 export function inspectDockerEnvironment(): DockerEnvironmentStatus {
   return Object.freeze({
-    backend: observeDockerRuntimeBackendState(),
-    engine: observeDockerRuntimeEngine(),
+    backend: observeBackendState(),
+    engine: observeDockerEngine(),
   });
 }
 
@@ -77,8 +77,7 @@ export function restartDockerEnvironment(
   const input = Object.getOwnPropertyDescriptor(request, "input");
   if (!mode || !("value" in mode) || !input || !("value" in input))
     throw Error("docker_environment_mode_invalid");
-  if (mode.value === "restart") return restartDockerRuntime(input.value);
-  if (mode.value === "repair")
-    return runDockerRuntimeRepairSession(input.value);
+  if (mode.value === "restart") return restartDesktop(input.value);
+  if (mode.value === "repair") return runRepairSession(input.value);
   throw Error("docker_environment_mode_invalid");
 }

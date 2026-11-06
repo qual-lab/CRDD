@@ -306,7 +306,7 @@ OS生存・Platform観測はPAの`process/observation.ts`が所有し、Lease入
 
 CLIの通常明示修復は既存`--repair-docker-desktop-runtime`を維持して新compositionへ接続し、新exact IDは既存`--recover-isolation`でTask／Host／Probeより先に分類する。現在Rootを検証し、取消をsignalへ結合、finallyでlistenerを解除してから固定診断を表示する。解除不明は一次理由を上書きせず別fieldとexit2へ投影し、表示失敗から処置を再発行しない。旧close／adopt／after-repairと署名Root引数は撤去し、処置前の未知引数拒否とする。現行repair／retain／restart／recoverを維持し、旧Desktop記録3 Source・旧Inventory／回復APIは撤去済みである。実保持物・次Task・実Docker／再ログオン／E2Eの未完了は別に保持する。
 
-再起動の上位Callerは`execution/recovery.ts`が所有する。検証済みRoot・同じ回復対象の許可と現在checkpointを接続し、処置はDI公開`restartDockerRuntime`へ委譲する。準備・確認・保存・解放・終了確定の5操作はCoordinator私有の現在状態接続であり、Package Rootへ再公開しない。CallerはDIのprivate module、旧Desktop記録、OS／Desktopの起動方式を参照しない。移動は処理・保存契約・公開関数名を変更せず、技術再起動とTask回復完了を区別する。
+再起動の上位Callerは`execution/recovery.ts`が所有する。検証済みRoot・同じ回復対象の許可と現在checkpointを接続し、処置はExecutor公開`restartDockerEnvironment`へ委譲する。ExecutorはDIの同名公開関数へ接続し、DI内部の再起動処理をCoordinatorへ公開しない。準備・確認・保存・解放・終了確定の5操作はCoordinator私有の現在状態接続であり、Package Rootへ再公開しない。CallerはDIのprivate module、旧Desktop記録、OS／Desktopの起動方式を参照しない。今回の内部関数改名は処理・保存契約・公開関数名を変更せず、技術再起動とTask回復完了を区別する。
 
 公開診断`crdd-coordinator/current-runtime-repair`は、status／有限reason／exact recoveryIdと、結果・保持・履歴・終了整理・Native回収・CLI解除の個別確認だけを固定fieldで投影する。内部のRoot・Scope・checkpoint・出版／marker objectは公開しない。getter／Proxyを実行せず拒否する。
 

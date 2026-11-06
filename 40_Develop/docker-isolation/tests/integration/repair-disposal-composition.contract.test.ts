@@ -127,89 +127,86 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
         calls = 0,
         allowed = true,
         artifactCurrent = true;
-      const run = runInNewContext(
-        `${body}; disposeDockerRuntimeRepairDirectory`,
-        {
-          Object,
-          Buffer,
-          Promise,
-          AbortSignal,
-          types,
-          decodeDockerRuntimeRepairCheckpoint,
-          dockerRuntimeRepairCheckpointIsSettled,
-          dockerDesktopDistributionRoot: "fixed-distribution",
-          observeNativeArtifact: (root: string, expected?: string) => {
-            assert.equal(root, "fixed-distribution");
-            if (
-              expected !== undefined &&
-              (scenario === "artifact_changed" || !artifactCurrent)
-            )
-              return null;
-            return scenario === "artifact_missing"
-              ? null
-              : {
-                  identitySha256: "a".repeat(64),
-                  artifact: {
-                    sha256:
-                      scenario === "artifact_changed"
-                        ? "e".repeat(64)
-                        : "d".repeat(64),
-                  },
-                };
-          },
-          observeWindowsLocalAppDataDirectory: () =>
-            scenario === "local_missing"
-              ? null
-              : scenario === "local_changed"
-                ? "changed-local"
-                : "fixed-local",
-          startDockerDesktopRepairHelper: () => {
-            acquired++;
-            throw new Error("must_not_acquire");
-          },
-          createDockerDesktopRepairDirectoryAccess: (
-            local: string,
-            nonce: string,
-            owner: string,
-            artifact: string,
-          ) => {
-            if (scenario === "factory_missing") return null;
-            const matched =
-              local === "fixed-local" &&
-              nonce === "a".repeat(64) &&
-              owner === "b".repeat(64) &&
-              artifact === "d".repeat(64);
-            return {
-              scopeSha256: matched ? "c".repeat(64) : "f".repeat(64),
-              dispose: async (
-                actualPurpose: string,
-                expected: unknown,
-                boundary: () => boolean,
-              ) => {
-                driver++;
-                assert.equal(
-                  actualPurpose,
-                  purpose === "primary" ? "initial" : purpose,
-                );
-                assert.deepEqual(expected, raw.directories[purpose]?.expected);
-                await Promise.resolve();
-                if (scenario === "cancel_during") controller.abort();
-                if (scenario === "owner_after_wait") allowed = false;
-                if (scenario === "artifact_after_wait") artifactCurrent = false;
-                if (scenario === "driver_throw")
-                  throw new Error("fixture_after_handoff");
-                return boundary()
-                  ? {
-                      request: scenario === "absent" ? "not_issued" : "issued",
-                      absence:
-                        scenario === "partial" ? "unknown" : "confirmed_absent",
-                    }
-                  : { request: "not_issued", absence: "unknown" };
-              },
-            };
-          },
+      const run = runInNewContext(`${body}; cleanupRepairDirectory`, {
+        Object,
+        Buffer,
+        Promise,
+        AbortSignal,
+        types,
+        decodeRepairCheckpoint: decodeDockerRuntimeRepairCheckpoint,
+        isRepairCheckpointSettled: dockerRuntimeRepairCheckpointIsSettled,
+        dockerDesktopDistributionRoot: "fixed-distribution",
+        observeNativeArtifact: (root: string, expected?: string) => {
+          assert.equal(root, "fixed-distribution");
+          if (
+            expected !== undefined &&
+            (scenario === "artifact_changed" || !artifactCurrent)
+          )
+            return null;
+          return scenario === "artifact_missing"
+            ? null
+            : {
+                identitySha256: "a".repeat(64),
+                artifact: {
+                  sha256:
+                    scenario === "artifact_changed"
+                      ? "e".repeat(64)
+                      : "d".repeat(64),
+                },
+              };
         },
-      ) as (value: unknown) => Promise<unknown>;
+        observeWindowsLocalAppDataDirectory: () =>
+          scenario === "local_missing"
+            ? null
+            : scenario === "local_changed"
+              ? "changed-local"
+              : "fixed-local",
+        startDockerDesktopRepairHelper: () => {
+          acquired++;
+          throw new Error("must_not_acquire");
+        },
+        createDockerDesktopRepairDirectoryAccess: (
+          local: string,
+          nonce: string,
+          owner: string,
+          artifact: string,
+        ) => {
+          if (scenario === "factory_missing") return null;
+          const matched =
+            local === "fixed-local" &&
+            nonce === "a".repeat(64) &&
+            owner === "b".repeat(64) &&
+            artifact === "d".repeat(64);
+          return {
+            scopeSha256: matched ? "c".repeat(64) : "f".repeat(64),
+            dispose: async (
+              actualPurpose: string,
+              expected: unknown,
+              boundary: () => boolean,
+            ) => {
+              driver++;
+              assert.equal(
+                actualPurpose,
+                purpose === "primary" ? "initial" : purpose,
+              );
+              assert.deepEqual(expected, raw.directories[purpose]?.expected);
+              await Promise.resolve();
+              if (scenario === "cancel_during") controller.abort();
+              if (scenario === "owner_after_wait") allowed = false;
+              if (scenario === "artifact_after_wait") artifactCurrent = false;
+              if (scenario === "driver_throw")
+                throw new Error("fixture_after_handoff");
+              return boundary()
+                ? {
+                    request: scenario === "absent" ? "not_issued" : "issued",
+                    absence:
+                      scenario === "partial" ? "unknown" : "confirmed_absent",
+                  }
+                : { request: "not_issued", absence: "unknown" };
+            },
+          };
+        },
+      }) as (value: unknown) => Promise<unknown>;
       const result = await run({
         operationNonce: (scenario === "nonce" ? "e" : "a").repeat(64),
         ownerBindingSha256: (scenario === "h" ? "e" : "b").repeat(64),
@@ -274,9 +271,7 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
     new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
   );
-  const begin = source.indexOf(
-    "export function observeDockerRuntimeRepairRetention",
-  );
+  const begin = source.indexOf("export function observeRepairDirectories");
   assert.ok(begin > 0);
   const body = stripTypeScriptTypes(
     source.slice(begin).replace(/^export /gmu, ""),
@@ -482,110 +477,105 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
         post.replace(guardPattern, "false") +
         candidateBody.slice(end);
     }
-    const run = runInNewContext(
-      `${candidateBody}; observeDockerRuntimeRepairRetention`,
-      {
-        Object,
-        Buffer,
-        Promise,
-        AbortSignal,
-        types,
-        decodeDockerRuntimeRepairCheckpoint,
-        dockerRuntimeRepairCheckpointIsSettled,
-        dockerDesktopDistributionRoot: "fixed-distribution",
-        observeNativeArtifact: (_root: string, expected?: string) =>
-          scenario === "artifact_missing" ||
-          (expected !== undefined && !artifact)
-            ? null
-            : {
-                artifact: { sha256: "d".repeat(64) },
-                identitySha256: "a".repeat(64),
-              },
-        observeWindowsLocalAppDataDirectory: () =>
-          scenario === "local" ? null : "fixed-local",
-        startDockerDesktopRepairHelper: () => {
-          native++;
-          throw new Error("unexpected_native");
-        },
-        createDockerDesktopRepairDirectoryAccess: (
-          _local: string,
-          nonce: string,
-          owner: string,
-          hash: string,
-        ) => ({
-          scopeSha256:
-            nonce === "a".repeat(64) &&
-            owner === "b".repeat(64) &&
-            hash === "d".repeat(64) &&
-            scenario !== "artifact_binding"
-              ? "c".repeat(64)
-              : "e".repeat(64),
-          verify: () => scope,
-          dispose: () => {
-            effects++;
-            throw new Error("unexpected_dispose");
-          },
-          observe: (purpose: "initial" | "failed" | "auxiliary") => {
-            reads++;
-            calls.push(purpose);
-            const key = purpose === "initial" ? "primary" : purpose;
-            const retained = structuredClone(
-              checkpoint.directories[key]?.retained,
-            );
-            assert.ok(retained);
-            if (retained.state === "absent")
-              retained.state = "confirmed_absent";
-            if (
-              [
-                "fresh_absent",
-                "fresh_unknown",
-                "fresh_other",
-                "fresh_null",
-                "swapped",
-              ].includes(scenario) ||
-              (reads > 3 &&
-                ["second_absent", "second_unknown", "second_other"].includes(
-                  scenario,
-                )) ||
-              (scenario === "last_target" && reads === 6)
-            ) {
-              if (scenario === "fresh_null") return null;
-              if (scenario.endsWith("absent")) {
-                retained.state = "confirmed_absent";
-                retained.identity = null;
-              } else if (scenario.endsWith("other") || scenario === "swapped")
-                retained.identity =
-                  identities[key === "primary" ? "failed" : "primary"];
-              else {
-                retained.state = "unknown";
-                retained.identity = null;
-              }
-            }
-            if (scenario === "null_present" && key === "failed") {
-              retained.state = "present";
-              retained.identity = identities.failed;
-            }
-            if (scenario === "scope_after") scope = false;
-            if (scenario === "artifact_after") artifact = false;
-            if (scenario === "owner_after") allowed = false;
-            if (scenario === "cancel_after") controller.abort();
-            if (reads === 6 && scenario.startsWith("final_")) {
-              if (scenario.startsWith("final_scope")) scope = false;
-              if (scenario.startsWith("final_artifact")) artifact = false;
-              if (scenario.startsWith("final_owner")) allowed = false;
-              if (scenario.startsWith("final_cancel")) controller.abort();
-            }
-            return {
-              source: {
-                state: "present",
-                identity: { dev: "9", ino: "9", birthtimeNs: "9" },
-              },
-              retained,
-            };
-          },
-        }),
+    const run = runInNewContext(`${candidateBody}; observeRepairDirectories`, {
+      Object,
+      Buffer,
+      Promise,
+      AbortSignal,
+      types,
+      decodeRepairCheckpoint: decodeDockerRuntimeRepairCheckpoint,
+      isRepairCheckpointSettled: dockerRuntimeRepairCheckpointIsSettled,
+      dockerDesktopDistributionRoot: "fixed-distribution",
+      observeNativeArtifact: (_root: string, expected?: string) =>
+        scenario === "artifact_missing" || (expected !== undefined && !artifact)
+          ? null
+          : {
+              artifact: { sha256: "d".repeat(64) },
+              identitySha256: "a".repeat(64),
+            },
+      observeWindowsLocalAppDataDirectory: () =>
+        scenario === "local" ? null : "fixed-local",
+      startDockerDesktopRepairHelper: () => {
+        native++;
+        throw new Error("unexpected_native");
       },
-    ) as (value: unknown) => unknown;
+      createDockerDesktopRepairDirectoryAccess: (
+        _local: string,
+        nonce: string,
+        owner: string,
+        hash: string,
+      ) => ({
+        scopeSha256:
+          nonce === "a".repeat(64) &&
+          owner === "b".repeat(64) &&
+          hash === "d".repeat(64) &&
+          scenario !== "artifact_binding"
+            ? "c".repeat(64)
+            : "e".repeat(64),
+        verify: () => scope,
+        dispose: () => {
+          effects++;
+          throw new Error("unexpected_dispose");
+        },
+        observe: (purpose: "initial" | "failed" | "auxiliary") => {
+          reads++;
+          calls.push(purpose);
+          const key = purpose === "initial" ? "primary" : purpose;
+          const retained = structuredClone(
+            checkpoint.directories[key]?.retained,
+          );
+          assert.ok(retained);
+          if (retained.state === "absent") retained.state = "confirmed_absent";
+          if (
+            [
+              "fresh_absent",
+              "fresh_unknown",
+              "fresh_other",
+              "fresh_null",
+              "swapped",
+            ].includes(scenario) ||
+            (reads > 3 &&
+              ["second_absent", "second_unknown", "second_other"].includes(
+                scenario,
+              )) ||
+            (scenario === "last_target" && reads === 6)
+          ) {
+            if (scenario === "fresh_null") return null;
+            if (scenario.endsWith("absent")) {
+              retained.state = "confirmed_absent";
+              retained.identity = null;
+            } else if (scenario.endsWith("other") || scenario === "swapped")
+              retained.identity =
+                identities[key === "primary" ? "failed" : "primary"];
+            else {
+              retained.state = "unknown";
+              retained.identity = null;
+            }
+          }
+          if (scenario === "null_present" && key === "failed") {
+            retained.state = "present";
+            retained.identity = identities.failed;
+          }
+          if (scenario === "scope_after") scope = false;
+          if (scenario === "artifact_after") artifact = false;
+          if (scenario === "owner_after") allowed = false;
+          if (scenario === "cancel_after") controller.abort();
+          if (reads === 6 && scenario.startsWith("final_")) {
+            if (scenario.startsWith("final_scope")) scope = false;
+            if (scenario.startsWith("final_artifact")) artifact = false;
+            if (scenario.startsWith("final_owner")) allowed = false;
+            if (scenario.startsWith("final_cancel")) controller.abort();
+          }
+          return {
+            source: {
+              state: "present",
+              identity: { dev: "9", ino: "9", birthtimeNs: "9" },
+            },
+            retained,
+          };
+        },
+      }),
+    }) as (value: unknown) => unknown;
     const result = run({
       operationNonce: (scenario === "nonce" ? "e" : "a").repeat(64),
       ownerBindingSha256: (scenario === "owner_binding" ? "e" : "b").repeat(64),

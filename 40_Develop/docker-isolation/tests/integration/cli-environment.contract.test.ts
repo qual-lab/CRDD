@@ -29,8 +29,7 @@ import * as dockerIsolation from "../../src/index.ts";
  * @boundary Package Root→固定契約。実Publisher検査や実操作の成立は主張しない。
  */
 test("実行物Trustは既存Policy Hashと操作内実体固定を維持する", () => {
-  const contract =
-    dockerTrustOperations.describeDockerRuntimeArtifactTrustContract();
+  const contract = dockerTrustOperations.describeDockerArtifactTrustContract();
   assert.deepEqual(contract, {
     policySha256: createHash("sha256")
       .update(

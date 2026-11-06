@@ -20,11 +20,11 @@ import { runInThisContext } from "node:vm";
 import { types } from "node:util";
 import {
   dockerDesktopDistributionRoot,
-  describeDockerRuntimeArtifactTrustContract,
+  describeDockerArtifactTrustContract,
 } from "../../src/docker-cli/trust.ts";
-import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
+import { executeRepairSteps } from "../../src/docker-desktop/repair.ts";
 import { createDockerDesktopRepairOperations } from "../../src/docker-desktop/repair-operations.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../src/docker-desktop/repair-session.ts";
+import { runRepairSessionWithDependencies } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition,
   prepareDockerRuntimeRepairSessionCheckpoint,
@@ -123,9 +123,8 @@ function fixture(
   };
   let signal: AbortSignal | null = null;
   let saved: DockerRuntimeRepairCheckpoint | null = null;
-  let resume: Parameters<
-    typeof runDockerRuntimeRepairSessionUsing
-  >[0]["resume"] = null;
+  let resume: Parameters<typeof runRepairSessionWithDependencies>[0]["resume"] =
+    null;
   let onSave: (value: DockerRuntimeRepairCheckpoint) => void = () => {};
   let afterWait: () => void = () => {};
   const session: DockerDesktopRepairNativeHelperSession = {
@@ -315,7 +314,7 @@ function fixture(
    * @boundary 実Runtime・Machineと有限技術代役。実Dockerなし。
    */
   const execute = (
-    runtime: typeof runDockerRuntimeRepairSessionUsing = runDockerRuntimeRepairSessionUsing,
+    runtime: typeof runRepairSessionWithDependencies = runRepairSessionWithDependencies,
   ) =>
     runtime(
       {
@@ -445,13 +444,13 @@ async function productionComposition(
     .replaceAll("export async function", "async function");
   const result = await f.execute(async (input, dependencies) => {
     const main = runInThisContext(
-      `((describeDockerRuntimeArtifactTrustContract, types, decodeDockerRuntimeRepairCheckpoint, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runDockerRuntimeRepairSession; })`,
+      `((describeDockerArtifactTrustContract, types, decodeRepairCheckpoint, prepareRepairSessionCheckpoint, executeRepairSteps, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runRepairSession; })`,
     )(
-      describeDockerRuntimeArtifactTrustContract,
+      describeDockerArtifactTrustContract,
       types,
       decodeDockerRuntimeRepairCheckpoint,
       prepareDockerRuntimeRepairSessionCheckpoint,
-      runDockerRuntimeRepairMachine,
+      executeRepairSteps,
       dockerDesktopDistributionRoot,
       (root: unknown) => {
         counts.artifact++;
@@ -533,7 +532,7 @@ async function productionComposition(
       },
     ) as (
       value: unknown,
-    ) => ReturnType<typeof runDockerRuntimeRepairSessionUsing>;
+    ) => ReturnType<typeof runRepairSessionWithDependencies>;
     if (fault === "cancel_before_start") f.controller.abort();
     return main(
       fault === "invalid"
@@ -987,7 +986,7 @@ test("修復実操作接続: ready最終観測中の新世代差替えを拒否�
   const guard = "JSON.stringify(again) !== JSON.stringify(sample.pair)";
   assert.equal(source.split(guard).length, 2);
   const mutant = runInThisContext(
-    `(function(decodeDockerRuntimeRepairCheckpoint){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
+    `(function(decodeRepairCheckpoint){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
   )(
     decodeDockerRuntimeRepairCheckpoint,
   ) as typeof createDockerDesktopRepairOperations;
@@ -1225,7 +1224,7 @@ test("修復実操作接続: 停止confirmedでもEngine未静止・Process残�
   const guard = 'state !== "known_unavailable" || processes !== "absent"';
   assert.equal(source.split(guard).length, 2);
   const mutant = runInThisContext(
-    `(function(decodeDockerRuntimeRepairCheckpoint){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
+    `(function(decodeRepairCheckpoint){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
   )(
     decodeDockerRuntimeRepairCheckpoint,
   ) as typeof createDockerDesktopRepairOperations;

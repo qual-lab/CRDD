@@ -885,7 +885,7 @@ export async function simulateAuthCreateClosure(
           }
           return true;
         },
-        restartDockerRuntime: async (input: {
+        restartDesktop: async (input: {
           onRequesting(): void;
           onEvent(event: unknown): void;
           signal: AbortSignal;
@@ -1252,7 +1252,7 @@ export async function simulateAuthCreateClosure(
         assert.equal(_id, target.recoveryId);
         assert.equal(rootCapability, capability);
         assert.equal(_capSignal, signal);
-        const restart = mocks.get(restartUrl)?.restartDockerRuntime as (
+        const restart = mocks.get(restartUrl)?.restartDesktop as (
           input: unknown,
         ) => Promise<Record<string, unknown>>;
         const result = await restart({

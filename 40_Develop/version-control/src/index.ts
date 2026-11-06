@@ -1,7 +1,7 @@
 /**
  * Gitの完成した技術操作を提供する公開境界。
  * @packageDocumentation
- * @responsibility Repository観測、固定Snapshot、専用Worktree・Candidate・Mergeと通常変更公開を提供する。
+ * @responsibility Git Repository、Worktree、Working Directory、Commit、Reference、Remoteの技術操作を提供する。
  * @trace ARCH-000002
  * @boundary Git実装とCRDD Domain利用側の境界。
  * @effect 明示操作ではローカル除外・出力先・Worktree／Branch・共有Git情報を更新し、確認済みの通常PushでRemoteへ送信し得る。

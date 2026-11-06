@@ -15,12 +15,9 @@ import type { DockerDesktopRestartNativeHelperOutcome } from "../../../platform-
 import {
   type EngineState,
   type EngineObservation,
-  observeDockerRuntimeEngine,
+  observeDockerEngine,
 } from "./engine.ts";
-import {
-  type BackendState,
-  observeDockerRuntimeBackendState,
-} from "./backend.ts";
+import { type BackendState, observeBackendState } from "./backend.ts";
 
 /**
  * docker-restart-machineで使用するSessionの値契約を定義する。
@@ -422,8 +419,8 @@ export function createDockerRestartMachine(
     signal,
     ...(onRequestAccepted ? { onRequestAccepted } : {}),
     ...(onRequestAttempted ? { onRequestAttempted } : {}),
-    observeBackend: observeDockerRuntimeBackendState,
-    observeEngine: observeDockerRuntimeEngine,
+    observeBackend: observeBackendState,
+    observeEngine: observeDockerEngine,
     containersAbsent: queryContainersAbsent,
     now: Date.now,
     wait: () => new Promise((resolve) => setTimeout(resolve, 1_000)),

@@ -18,9 +18,9 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { getEventListeners } from "node:events";
 import { types } from "node:util";
-import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
+import { executeRepairSteps } from "../../src/docker-desktop/repair.ts";
 import { ownDockerRepairNativeSession } from "../../src/docker-desktop/repair-session.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../src/docker-desktop/repair-session.ts";
+import { runRepairSessionWithDependencies } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition,
   prepareDockerRuntimeRepairSessionCheckpoint,
@@ -118,7 +118,7 @@ function sessionFixture() {
     execute: 0,
   };
   let saved: DockerRuntimeRepairCheckpoint | null = null;
-  const input: Parameters<typeof runDockerRuntimeRepairSessionUsing>[0] = {
+  const input: Parameters<typeof runRepairSessionWithDependencies>[0] = {
     operationNonce: "1".repeat(64),
     signal: new AbortController().signal,
     resume: null,
@@ -139,52 +139,51 @@ function sessionFixture() {
       return;
     },
   };
-  const dependencies: Parameters<typeof runDockerRuntimeRepairSessionUsing>[1] =
-    {
-      acquire: async () => {
-        counts.acquire++;
-        return f.acquire();
-      },
-      prepare: async (session, owner, nonce) => {
-        counts.prepare++;
-        assert.equal(session, f.session);
-        assert.equal(owner, "a".repeat(64));
-        assert.equal(nonce, input.operationNonce);
-        return {
-          scopeSha256: "b".repeat(64),
-          cleanupFailure: () => null,
-          technical: {
-            observe: async (checkpoint) => {
-              counts.observe++;
-              return {
-                ...checkpoint,
-                engine: "ready",
-                hostSafety: "safe",
-                stale: "absent",
-                directories: Object.fromEntries(
-                  Object.entries(checkpoint.directories).map(
-                    ([name, directory]) => [
-                      name,
-                      {
-                        ...directory,
-                        source: { state: "absent", identity: null },
-                        retained: { state: "absent", identity: null },
-                      },
-                    ],
-                  ),
-                ) as DockerRuntimeRepairCheckpoint["directories"],
-              };
-            },
-            precondition: async () => "not_required",
-            execute: async () => {
-              counts.execute++;
-              throw new Error("unexpected effect");
-            },
-            awaitEngine: async () => ({ state: "ready", continuation: null }),
+  const dependencies: Parameters<typeof runRepairSessionWithDependencies>[1] = {
+    acquire: async () => {
+      counts.acquire++;
+      return f.acquire();
+    },
+    prepare: async (session, owner, nonce) => {
+      counts.prepare++;
+      assert.equal(session, f.session);
+      assert.equal(owner, "a".repeat(64));
+      assert.equal(nonce, input.operationNonce);
+      return {
+        scopeSha256: "b".repeat(64),
+        cleanupFailure: () => null,
+        technical: {
+          observe: async (checkpoint) => {
+            counts.observe++;
+            return {
+              ...checkpoint,
+              engine: "ready",
+              hostSafety: "safe",
+              stale: "absent",
+              directories: Object.fromEntries(
+                Object.entries(checkpoint.directories).map(
+                  ([name, directory]) => [
+                    name,
+                    {
+                      ...directory,
+                      source: { state: "absent", identity: null },
+                      retained: { state: "absent", identity: null },
+                    },
+                  ],
+                ),
+              ) as DockerRuntimeRepairCheckpoint["directories"],
+            };
           },
-        };
-      },
-    };
+          precondition: async () => "not_required",
+          execute: async () => {
+            counts.execute++;
+            throw new Error("unexpected effect");
+          },
+          awaitEngine: async () => ({ state: "ready", continuation: null }),
+        },
+      };
+    },
+  };
   return {
     ...f,
     nativeCounts: f.counts,
@@ -216,7 +215,7 @@ function sessionFixture() {
  */
 test("修復接続: 初回とclean再入場を実Machineへ結びfinal候補を未保存で返す", async () => {
   const f = sessionFixture();
-  const result = await runDockerRuntimeRepairSessionUsing(
+  const result = await runRepairSessionWithDependencies(
     f.input,
     f.dependencies,
   );
@@ -232,7 +231,7 @@ test("修復接続: 初回とclean再入場を実Machineへ結びfinal候補を�
   assert.equal(f.counts.execute, 0);
   assert.ok(result.checkpoint);
   const next = sessionFixture();
-  const resumed = await runDockerRuntimeRepairSessionUsing(
+  const resumed = await runRepairSessionWithDependencies(
     {
       ...next.input,
       resume: {
@@ -284,7 +283,7 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
           return cleanup;
         },
       });
-      const result = await runDockerRuntimeRepairSessionUsing(
+      const result = await runRepairSessionWithDependencies(
         {
           ...f.input,
           onCheckpoint: (value) => {
@@ -358,7 +357,7 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
       );
       const next = sessionFixture();
       assert.ok(result.checkpoint);
-      const rejected = await runDockerRuntimeRepairSessionUsing(
+      const rejected = await runRepairSessionWithDependencies(
         {
           ...next.input,
           resume: {
@@ -395,7 +394,7 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
  * @cleanup 同じ模擬子をabortし後続通知を解除する。
  */
 async function assertPreparationCleanupUnknown(
-  connection: typeof runDockerRuntimeRepairSessionUsing,
+  connection: typeof runRepairSessionWithDependencies,
   cancel: boolean,
 ) {
   const f = sessionFixture();
@@ -473,7 +472,7 @@ test("修復接続: prepare返却時のcleanup不明は準備拒否・取消よ�
   );
   for (const cancel of [false, true]) {
     await assertPreparationCleanupUnknown(
-      runDockerRuntimeRepairSessionUsing,
+      runRepairSessionWithDependencies,
       cancel,
     );
     await assert.rejects(() => assertPreparationCleanupUnknown(mutant, cancel));
@@ -502,7 +501,7 @@ test("修復接続: prepare返却時のcleanup不明は準備拒否・取消よ�
 test("修復接続: 不正再入場と準備保存拒否はMachine開始前に止まる", async () => {
   const baseline = sessionFixture();
   const complete = (
-    await runDockerRuntimeRepairSessionUsing(
+    await runRepairSessionWithDependencies(
       baseline.input,
       baseline.dependencies,
     )
@@ -536,7 +535,7 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
     },
   ]) {
     const f = sessionFixture();
-    const result = await runDockerRuntimeRepairSessionUsing(
+    const result = await runRepairSessionWithDependencies(
       {
         ...f.input,
         resume: {
@@ -553,7 +552,7 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
   }
   for (const field of ["ownerBindingSha256", "scopeSha256"] as const) {
     const f = sessionFixture();
-    const result = await runDockerRuntimeRepairSessionUsing(
+    const result = await runRepairSessionWithDependencies(
       {
         ...f.input,
         resume: {
@@ -582,7 +581,7 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
     const f = sessionFixture();
     const controller = new AbortController();
     let preparedCalls = 0;
-    const result = await runDockerRuntimeRepairSessionUsing(
+    const result = await runRepairSessionWithDependencies(
       {
         ...f.input,
         signal: controller.signal,
@@ -638,7 +637,7 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
  */
 function repairConnectionMutant(
   source: string,
-): typeof runDockerRuntimeRepairSessionUsing {
+): typeof runRepairSessionWithDependencies {
   const stripped = stripTypeScriptTypes(
     source
       .replace(/import[\s\S]*?from "[^"]+";/gu, "")
@@ -646,13 +645,13 @@ function repairConnectionMutant(
       .replaceAll("export async function", "async function"),
   );
   return runInThisContext(
-    `((types, decode, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine) => { ${stripped}; return runDockerRuntimeRepairSessionUsing; })`,
+    `((types, decodeRepairCheckpoint, prepareRepairSessionCheckpoint, executeRepairSteps) => { ${stripped}; return runRepairSessionWithDependencies; })`,
   )(
     types,
     decodeDockerRuntimeRepairCheckpoint,
     prepareDockerRuntimeRepairSessionCheckpoint,
-    runDockerRuntimeRepairMachine,
-  ) as typeof runDockerRuntimeRepairSessionUsing;
+    executeRepairSteps,
+  ) as typeof runRepairSessionWithDependencies;
 }
 
 /**
@@ -676,7 +675,7 @@ function repairConnectionMutant(
  */
 test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証する", async () => {
   const oracle = async (
-    runner: typeof runDockerRuntimeRepairSessionUsing,
+    runner: typeof runRepairSessionWithDependencies,
     mode: "normal" | "reject" | "lost",
   ) => {
     const f = sessionFixture();
@@ -766,7 +765,7 @@ test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証す
     }
   };
   for (const mode of ["normal", "reject", "lost"] as const)
-    await oracle(runDockerRuntimeRepairSessionUsing, mode);
+    await oracle(runRepairSessionWithDependencies, mode);
   const source = fs.readFileSync(
     new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
@@ -820,7 +819,7 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
   ] as const) {
     const f = sessionFixture();
     const controller = new AbortController();
-    const result = await runDockerRuntimeRepairSessionUsing(
+    const result = await runRepairSessionWithDependencies(
       {
         ...f.input,
         signal: controller.signal,
@@ -850,7 +849,7 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
   let traps = 0;
   for (const mode of ["getter", "input_proxy", "signal_proxy"] as const) {
     const f = sessionFixture();
-    let input: Parameters<typeof runDockerRuntimeRepairSessionUsing>[0] = {
+    let input: Parameters<typeof runRepairSessionWithDependencies>[0] = {
       ...f.input,
     };
     if (mode === "getter")
@@ -878,7 +877,7 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
         }),
       };
     assert.equal(
-      (await runDockerRuntimeRepairSessionUsing(input, f.dependencies))
+      (await runRepairSessionWithDependencies(input, f.dependencies))
         .preparation,
       "input_rejected",
     );
@@ -913,7 +912,7 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
           );
     assert.equal(
       (
-        await runDockerRuntimeRepairSessionUsing(
+        await runRepairSessionWithDependencies(
           { ...f.input, onPrepared },
           f.dependencies,
         )

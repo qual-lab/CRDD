@@ -14,7 +14,7 @@ import {
   createDockerRestartMachineForVerification,
 } from "../../src/docker-desktop/restart-state.ts";
 import {
-  restartDockerRuntimeForVerification,
+  restartDesktopForVerification,
   type DockerEnvironmentRestartEvent,
   type RestartInput,
 } from "../../src/docker-desktop/restart.ts";
@@ -60,7 +60,7 @@ test("不正入力はdata property捕捉前に固定拒否する", async () => {
     { ...f.input, onRequesting: null },
     { ...f.input, onEvent: true },
   ]) {
-    const result = await restartDockerRuntimeForVerification(
+    const result = await restartDesktopForVerification(
       invalid as unknown as RestartInput,
       f.dependencies,
     );
@@ -231,10 +231,7 @@ function fixture(
  */
 test("固定再起動は受付から回収まで閉じた観測だけを返す", async () => {
   const f = fixture();
-  const result = await restartDockerRuntimeForVerification(
-    f.input,
-    f.dependencies,
-  );
+  const result = await restartDesktopForVerification(f.input, f.dependencies);
   assert.deepEqual(f.calls, [
     "checkpoint",
     "acquire",
@@ -293,7 +290,7 @@ for (const stage of ["verifyBoundary", "onRequesting"] as const) {
       const f = fixture();
       let thenReads = 0;
       let asyncCalls = 0;
-      const result = await restartDockerRuntimeForVerification(
+      const result = await restartDesktopForVerification(
         {
           ...f.input,
           [stage]:
@@ -363,10 +360,7 @@ for (const fault of [
    */
   test(`固定再起動は ${fault} を全体成功にしない`, async () => {
     const f = fixture(fault);
-    const result = await restartDockerRuntimeForVerification(
-      f.input,
-      f.dependencies,
-    );
+    const result = await restartDesktopForVerification(f.input, f.dependencies);
     assert.equal(result.status, "blocked");
     assert.equal(result.restartCompleted, false);
     const cleanupFailed =
@@ -443,7 +437,7 @@ for (const failure of ["throw", "value", "promise", "async"] as const) {
   test(`受付通知 ${failure} 後も資源終端を待つ`, async () => {
     const f = fixture();
     let calls = 0;
-    const result = await restartDockerRuntimeForVerification(
+    const result = await restartDesktopForVerification(
       {
         ...f.input,
         onEvent:
@@ -500,7 +494,7 @@ test("取得待機中の取消は遅れて得たSessionを終端してから返�
     continueAcquisition = resolve;
   });
   let returned = false;
-  const resultPromise = restartDockerRuntimeForVerification(f.input, {
+  const resultPromise = restartDesktopForVerification(f.input, {
     ...f.dependencies,
     acquire: async () => {
       const acquired = await f.dependencies.acquire();
@@ -571,13 +565,12 @@ for (const first of ["stop", "abort"] as const) {
       return { cleanup: "confirmed", protocol: "not_applicable" };
     };
     let returned = false;
-    const pending = restartDockerRuntimeForVerification(
-      f.input,
-      f.dependencies,
-    ).then((result) => {
-      returned = true;
-      return result;
-    });
+    const pending = restartDesktopForVerification(f.input, f.dependencies).then(
+      (result) => {
+        returned = true;
+        return result;
+      },
+    );
     await enteredStop;
     f.controller.abort();
     await enteredAbort;
@@ -636,10 +629,7 @@ for (const fault of ["permission_after_stop", "cancel_after_stop"] as const) {
         return { cleanup: "unknown", protocol: "completed" };
       };
     }
-    const result = await restartDockerRuntimeForVerification(
-      f.input,
-      f.dependencies,
-    );
+    const result = await restartDesktopForVerification(f.input, f.dependencies);
     assert.deepEqual(result, {
       requestId: f.input.requestId,
       status: "blocked",
@@ -692,7 +682,7 @@ for (const fault of ["permission_after_stop", "cancel_after_stop"] as const) {
  */
 test("終端通知の失敗は技術結果と回収結果を上書きしない", async () => {
   const f = fixture();
-  const result = await restartDockerRuntimeForVerification(
+  const result = await restartDesktopForVerification(
     {
       ...f.input,
       onEvent: (event) => {
@@ -733,7 +723,7 @@ test("未対応環境・開始前取消・不正IDはcheckpoint前に拒否す�
   for (const failure of ["environment", "cancel", "id"] as const) {
     const f = fixture();
     if (failure === "cancel") f.controller.abort();
-    const result = await restartDockerRuntimeForVerification(
+    const result = await restartDesktopForVerification(
       {
         ...f.input,
         requestId: failure === "id" ? "invalid" : f.input.requestId,
@@ -786,10 +776,7 @@ test("上位入力Objectの変更で元要求を再結合しない", async () =>
       return f.input.onRequesting();
     },
   };
-  const result = await restartDockerRuntimeForVerification(
-    input,
-    f.dependencies,
-  );
+  const result = await restartDesktopForVerification(input, f.dependencies);
   assert.equal(result.status, "completed");
   assert.equal(result.requestId, f.input.requestId);
   assert.equal(f.events[0]?.event, "request_accepted");

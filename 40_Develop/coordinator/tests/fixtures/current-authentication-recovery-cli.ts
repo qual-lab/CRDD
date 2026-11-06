@@ -98,7 +98,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const restartUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/docker-desktop/restart.ts", import.meta.url).href)};
     const restartOperations = await import(restartUrl);
     restartMock = mock.module(restartUrl,{namedExports:{...restartOperations,
-      restartDockerRuntime: () => { restartCalls++; throw new Error('unexpected_restart'); },
+      restartDesktop: () => { restartCalls++; throw new Error('unexpected_restart'); },
     }});
     const recoveryUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/cleanup/execute.ts", import.meta.url).href)};
     const recoveryOperations = await import(recoveryUrl);

@@ -70,7 +70,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
   const isolation = [
     mock.module("../../../src/docker-desktop/backend.ts", {
       namedExports: {
-        observeDockerRuntimeBackendState: () => {
+        observeBackendState: () => {
           calls.push("backend");
           return backend;
         },
@@ -78,7 +78,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     }),
     mock.module("../../../src/docker-desktop/engine.ts", {
       namedExports: {
-        observeDockerRuntimeEngine: () => {
+        observeDockerEngine: () => {
           calls.push("engine");
           return engine;
         },
@@ -86,7 +86,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     }),
     mock.module("../../../src/docker-desktop/restart.ts", {
       namedExports: {
-        restartDockerRuntime: (input: RestartInput) => {
+        restartDesktop: (input: RestartInput) => {
           calls.push("restart");
           supplied = input;
           return reject ? Promise.reject(failure) : pending;
@@ -95,7 +95,7 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     }),
     mock.module("../../../src/docker-desktop/repair-session.ts", {
       namedExports: {
-        runDockerRuntimeRepairSession: (input: RepairInput) => {
+        runRepairSession: (input: RepairInput) => {
           calls.push("repair");
           repairSupplied = input;
           return reject ? Promise.reject(failure) : repaired;

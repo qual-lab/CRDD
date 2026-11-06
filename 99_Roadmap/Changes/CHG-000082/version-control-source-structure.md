@@ -1,5 +1,15 @@
 # Version ControlのSource構造整理・棚卸し
 
+## DI改名確定時のVC仕上げ確認（2026-11-06）
+
+利用者の追加指摘3点を点検した。index.tsの責務説明をGit Repository／Worktree／Working Directory／Commit／Reference／Remoteの技術操作へ是正する。Candidate由来の名称は、Commit・Merge・コピーの技術判定であり、Task状態・採否・CHG・Workspace業務Lifecycleへの依存は検出されていない。candidate_*は公開Resultと保存側の分類、candidate-index-は短命Indexの再入場にも関わるため、今回のコメント更新で機械判定値・Pathを改名しない。
+
+Root取得の本番src Consumer24ファイルを照合し、Rootを解決してGit操作を自作する確定事例は検出しなかった。Repository-local保存、所在・権限境界確認とVC完成操作への接続に使われており、Root公開は維持する。Executor検証Scriptのgit rev-parseによるRoot対照と、Workbench等の自己生成Git fixtureは本番Git操作の再実装と区別し、今回無断で削除しない。静的な利用側走査は任意の将来Consumerや動的経路の不存在証明ではない。
+
+変更分類は技術責務の説明訂正と既存境界の確認。実装動作・API・型・保存形式は変更しない。着手前の独立確認でもヘッダーのみの最小是正を推奨し、Candidateの技術分類と業務判断を区別した。公開集合・既知Consumer契約と静的検査を確認し、DI22関数の既存回帰・独立レビューとは検証集合を分ける。実AI・Docker・過去保持物・Host Windows実Writer／Helperは操作しない。
+
+今回のVC check（format・typecheck・lint）と公開集合／既知Consumer契約13／13は成功した。VCの実行コードはコメント以外変更していないため、実Git全回帰・Push／Remote試験を追加実行せず、過去の84件成功を今回実行した結果として記載しない。DIの関数改名では製品Sourceに追加変更がなく、前段の402成功＋対象外5skip、Executor113件、関連有限結合と独立再レビューの範囲を維持する。履歴・機械判定値・旧保存物の移行は実施していない。
+
 ## 公開契約・現在File読取り・Main／Linked対照の是正（2026-11-06）
 
 基準は`0111a1942bb8ff3b035ce00ff47d98a4d0382750`。利用者が既存Request／Result型の必要な公開、readFileの比較基準の任意化、Main／Linked対照試験を承認した。DI・Executor・AI Adapter・保持物は変更せず、新API・新しい型正本・Adapter・Storeは追加しない。

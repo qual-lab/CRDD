@@ -4,7 +4,7 @@
  * @trace ARCH-000008
  */
 import { types } from "node:util";
-import { observeDockerRuntimeRepairRetention } from "../docker-desktop/repair-session.ts";
+import { observeRepairDirectories } from "../docker-desktop/repair-session.ts";
 import type { RepairRetentionTargets } from "../docker-desktop/types.ts";
 import { captureIsolationCleanupRequest } from "../execution/preparation.ts";
 import type { IsolationCleanupRequest } from "../execution/types.ts";
@@ -64,7 +64,7 @@ export function inspectIsolation(
     Object.getOwnPropertyDescriptor(request, "kind")?.value ===
       "docker_runtime_directory"
   )
-    return observeDockerRuntimeRepairRetention(
+    return observeRepairDirectories(
       (request as DirectoryResourceInspectionTarget).input,
     );
   if (

@@ -23,7 +23,7 @@ import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext, runInThisContext } from "node:vm";
 import type * as directoryOperations from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
+import { runRepairSessionWithDependencies } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import type {
   CoordinatorStateSnapshot,
@@ -2463,13 +2463,13 @@ for (const { repeatCount, retained } of [
           {
             namedExports: {
               ...isolation,
-              disposeDockerRuntimeRepairDirectory: async () => {
+              cleanupRepairDirectory: async () => {
                 disposalCalls++;
                 throw new Error("unexpected_fixture_disposal");
               },
-              observeDockerRuntimeRepairRetention: (
+              observeRepairDirectories: (
                 input: Parameters<
-                  typeof directoryOperations.observeDockerRuntimeRepairRetention
+                  typeof directoryOperations.observeRepairDirectories
                 >[0],
               ) => {
                 retentionReads++;
@@ -2495,12 +2495,12 @@ for (const { repeatCount, retained } of [
                   auxiliary: null,
                 };
               },
-              runDockerRuntimeRepairSession: (
+              runRepairSession: (
                 input: Parameters<
-                  typeof directoryOperations.runDockerRuntimeRepairSession
+                  typeof directoryOperations.runRepairSession
                 >[0],
               ) =>
-                runDockerRuntimeRepairSessionUsing(input, {
+                runRepairSessionWithDependencies(input, {
                   acquire: async () => {
                     acquisitions++;
                     return {

@@ -320,7 +320,40 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
  */
 test("必要な隔離技術APIは公開し内部生成Primitiveは公開しない", async () => {
   assert.equal(fs.existsSync(path.join(sourceRoot, "configuration.ts")), false);
+  for (const file of fs.globSync("**/*.ts", { cwd: sourceRoot })) {
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(sourceRoot, file), "utf8"),
+      /^(?:export )?(?:async )?function\s+\w*(?:DockerRuntime|dockerRuntime)\w*\b/gmu,
+      file,
+    );
+  }
   const namespace = await import("../../src/index.ts");
+  for (const name of [
+    "observeBackendState",
+    "observeDockerEngine",
+    "restartDesktop",
+    "restartDesktopForVerification",
+    "runRepairSession",
+    "runRepairSessionWithDependencies",
+    "executeRepairSteps",
+    "cleanupRepairDirectory",
+    "observeRepairDirectories",
+    "observeDirectoryLock",
+    "observeDirectoryLockWithDependencies",
+    "describeDockerArtifactTrustContract",
+    "decodeRepairCheckpoint",
+    "decodeRepairDisposalCheckpoint",
+    "isRepairCheckpointSettled",
+    "isRepairDisposalSettled",
+    "decodeRepairRetentionTargets",
+    "prepareRepairSessionCheckpoint",
+    "createRepairDisposalCheckpoint",
+    "validateRepairDisposalTransition",
+    "validateRepairSessionCheckpoint",
+    "validateRepairCheckpointTransition",
+  ] as const) {
+    assert.equal(Object.hasOwn(namespace, name), false, name);
+  }
   for (const name of [
     "prepareIsolation",
     "executeIsolation",
