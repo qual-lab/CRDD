@@ -57,6 +57,7 @@ Quality／Development
 | [visual-preview](Details/visual-preview/01_Architecture.md) | ARCH-000003 | Repository内Visual成果物のlocalhost限定・読取り専用Preview | Canonical |
 | [version-control](Details/version-control/01_Architecture.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016 | Repository Root、履歴境界、Binding、完全性入力、差替可能なPort | Canonical |
 | [workbench-server](Details/workbench-server/01_Architecture.md) | ARCH-000005、ARCH-000006、ARCH-000009、ARCH-000010、ARCH-000012、ARCH-000013、ARCH-000015、ARCH-000016、ARCH-000017 | Project運営、Repository作業、AI依頼および接続設定を既存公開契約から表示・操作するLocal Web Surface | Candidate |
+| [lock](Details/lock/01_Architecture.md) | ARCH-000004、ARCH-000006、ARCH-000008、ARCH-000011、ARCH-000013、ARCH-000018 | Ownerが指定した既存Directory内の協調wx取得・元世代保持・一回解放。Scope・認可・保存・Recovery判断は各Ownerに維持 | Candidate／局所契約接続。実運用切替・全体QAは未成立 |
 
 ## 3. Architecture定義の閉包
 
@@ -65,21 +66,21 @@ Quality／Development
 | ARCH-000001 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | checker、domain-model |
 | ARCH-000002 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | checker、contract-migration、domain-model、version-control |
 | ARCH-000003 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | quality-change-control、verification-runner、visual-preview |
-| ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | ai-adapter、coordinator、domain-model、docker-isolation、platform-access |
+| ARCH-000004 | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | ai-adapter、coordinator、domain-model、docker-isolation、platform-access、lock |
 | ARCH-000005 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | coordinator、cros、domain-model、mcp-server、workbench-server |
-| ARCH-000006 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | cros、domain-model、workbench-server |
+| ARCH-000006 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | cros、domain-model、workbench-server、lock |
 | ARCH-000007 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | coordinator、execution-intelligence |
-| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、docker-isolation、domain-model、executor、platform-access、semantic-coverage |
+| ARCH-000008 | [実行境界の診断](Definitions/ARCH-000008/architecture_definition.md) | coordinator、docker-isolation、domain-model、executor、platform-access、semantic-coverage、lock |
 | ARCH-000009 | [Repository境界とBinding](Definitions/ARCH-000009/architecture_definition.md) | cros、domain-model、version-control、workbench-server |
 | ARCH-000010 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | ai-adapter、coordinator、cros、workbench-server |
-| ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | domain-model、platform-access |
+| ARCH-000011 | [Runtime Dataの配置・保持・清掃](Definitions/ARCH-000011/architecture_definition.md) | domain-model、platform-access、lock |
 | ARCH-000012 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | coordinator、mcp-server、workbench-server |
-| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management、cros、domain-model、mcp-server、workbench-server |
+| ARCH-000013 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | access-management、cros、domain-model、mcp-server、workbench-server、lock |
 | ARCH-000014 | [Runtime Artifactの信頼評価](Definitions/ARCH-000014/architecture_definition.md) | artifact-signing、coordinator、platform-access、runtime-trust、version-control |
 | ARCH-000015 | [外部送信・結果帰還・候補採用](Definitions/ARCH-000015/architecture_definition.md) | ai-adapter、coordinator、cros、executor、mcp-server、workbench-server |
 | ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | cros、domain-model、execution-intelligence、version-control、workbench-server |
 | ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | official-asset-governance、workbench-server |
-| ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence |
+| ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence、lock |
 
 ARCH-000014の上記関係集合は設計参照の閉包であり、実装Ownerの稼働一覧ではない。現在の境界確認はcoordinator／platform-access／version-control、独立評価器はMissing／OPEN、artifact-signing／runtime-trustは廃止方式の歴史比較のみである。
 

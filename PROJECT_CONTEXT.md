@@ -12,6 +12,10 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+残るEI・Topic／Meeting・一時Operationの技術排他を共通Lockへ接続した。取得・所有照合・解放は一つのwx実装とし、保存・改訂・世代・根拠昇格は各Ownerに残す。EEXISTの自動待機・PID不在による削除・Lock専用staging/hardlink公開を撤去し、再入場の最初の変更前から終端清掃後まで必要な区間を保持する。先行13 Packageの旧試験・管理情報等7系統を最小是正し、関連再試験と独立再レビューが成功した。Coordinator通常回帰は成功1,726・失敗0・skip5で完走した。Repository Checkerは基準Commitの3,787件に対して今回追加17件を是正し、残る既存指摘は未解消。全体QA合格は未成立。実AI・Docker・過去保持物は操作していない。[現在の回帰・Checker差分と限界](99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#17-設計品質登録とchecker差分の閉包--2026-11-07)を参照する。
+
+PAの本番未使用の環境契約記述は撤去したが、PA全廃は未完了。残るNative処理はSID／DACL・祖先Handle、OS既定所在、reparse tag、Job Object／Publisher等を実利用しており、Node標準へ替えるだけでは同等にならない。保護Policyを無断変更せず、利用先と外した場合の影響を[PA設計](06_Architecture/Details/platform-access/01_Architecture.md#現在の残存範囲--2026-11-07)へ整理した。
+
 Executorは7 Sourceへ整理し、共通の短命Controlが開始・取消配送・終端だけを所有する。製品の旧Session再現層・重複Cleanup照合・汎用二重Runnerと旧Recovery再構築を撤去した。元DI Snapshot＋key別checkpoint＋回収方針を通常・認証の必須通知からDomainへ保存し、再入場で同じ契約を使う。Operation Identity v3から資源名・Imageのコピーを撤去した。ID欠測時も元Intent・一意実ID・名前・所有Label、発見ID保存後の削除と事後不存在確認を維持する。
 
 旧認証・Recovery試験Adapter撤去後の五系統に続き、最終診断中の取消の結果反映と、本番Factory検証を装っていた旧試験Runtime経路を是正した。公開Executor→共通DI試験と局所候補Oracleを分離し、試験・利用側・管理情報・文書を追従した。Executor全112件、利用側37件と静的検査が成功し、Source・利用側・Architecture／QAの独立確認は残指摘0。先行候補のCoordinator111件＋代表結合5件、Domain36件、DI90件の結果とは別集合で記録する。実Host／Windows Process Gate、実AI・実Dockerの再成立は未実施。対象外Checkerエラーと中断runの回収未確認は保持し、全体QA・Release完成とはしない。過去保持物は操作していない。[最終是正・結果と限界](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#executor-final-cancel-and-oracle-20261105)を参照する。

@@ -49,6 +49,7 @@ import {
   fixture,
   managementFixture,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
 
 /**
@@ -201,6 +202,7 @@ test("Host初回Readerは材料・状態・Lock不明をfreshへ丸めない", (
     assert.deepEqual(readHostInitializationState(f.root), unknown);
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.deepEqual(readHostInitializationState(f.root), { status: "existing" });
   assert.deepEqual(fs.readFileSync(current), valid);
@@ -284,6 +286,8 @@ test("Host初回ReaderはProcess喪失後の元試行とUserを再開できる",
   });
   assert.equal(child.error, undefined);
   assert.equal(child.status, 23, child.stderr);
+  assert.ok(child.pid);
+  removeKnownStoppedTestLock(f.directory, child.pid);
   assert.equal(child.stdout, "");
   const observed = readHostInitializationState(f.root);
   assert.ok(
@@ -497,6 +501,8 @@ test("初回資格のProcess喪失は再生成せず保存段階を保持する"
     );
     assert.equal(child.error, undefined);
     assert.equal(child.status, 23, child.stderr);
+    assert.ok(child.pid);
+    removeKnownStoppedTestLock(f.directory, child.pid);
     assert.equal(child.stdout, "");
     const random = crypto.randomBytes;
     let calls = 0;
@@ -563,6 +569,7 @@ test("初回資格のLock解放不明は短命鍵を外へ返さない", (t) => 
     failed = createInitialCredential(f.root, attempt);
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.equal(failed.status, "unavailable");
   assert.equal(failed.publication, "confirmed");
@@ -1155,6 +1162,7 @@ test("資格管理一覧は初回と観測解放不明で情報を返さない",
     } finally {
       fs.openSync = open;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
   }
 });
@@ -1342,6 +1350,8 @@ test("初回UserのProcess喪失はbase保持とnext再観測を区別する", (
     );
     assert.equal(child.error, undefined);
     assert.equal(child.status, 23, child.stderr);
+    assert.ok(child.pid);
+    removeKnownStoppedTestLock(f.directory, child.pid);
     const saved = fs.readFileSync(current);
     const random = crypto.randomUUID;
     let calls = 0;
@@ -1610,12 +1620,15 @@ test("初回User競合は一生成だけ採用し出版後Lock不明を保持す
     failed = createInitialAdministrator(g.root, attempt, "管理者");
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.equal(failed.status, "unavailable");
   assert.equal(failed.publication, "confirmed");
   assert.equal(failed.revision, 2);
   assert.equal(failed.cleanupConfirmed, false);
   if (failed.status === "unavailable") assert.ok(failed.lockRecoveryId);
+  assert.equal(readAccessManagementState(g.root).status, "unavailable");
+  removeKnownStoppedTestLock(g.directory, process.pid);
   const random = crypto.randomUUID;
   let calls = 0;
   crypto.randomUUID = () => {
@@ -1866,6 +1879,8 @@ test("初回Process喪失のpartialと完全相関を再観測する", (t) => {
     });
     assert.equal(child.error, undefined);
     assert.equal(child.status, 23, child.stderr);
+    assert.ok(child.pid);
+    removeKnownStoppedTestLock(f.directory, child.pid);
     const before = fs.readFileSync(current);
     let count = 0;
     const result = initializeAccessManagementState(
@@ -1942,6 +1957,7 @@ test("初回競合は一件だけ採用し解放不明を保持する", async (t
   const remove = fs.rmSync;
   t.after(() => {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   });
   fs.rmSync = (target, options) => {
     if (String(target).endsWith("access-management.lock"))
@@ -1955,10 +1971,13 @@ test("初回競合は一件だけ採用し解放不明を保持する", async (t
     () => ["uninitialized", "absent"],
   );
   fs.rmSync = remove;
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(failed.status, "unavailable");
   assert.equal(failed.publication, "confirmed");
   assert.equal(failed.cleanupConfirmed, false);
   if (failed.status === "unavailable") assert.ok(failed.lockRecoveryId);
+  assert.equal(readAccessManagementState(g.root).status, "unavailable");
+  removeKnownStoppedTestLock(g.directory, process.pid);
   assert.equal(readAccessManagementState(g.root).status, "completed");
 });
 

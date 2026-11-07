@@ -40,7 +40,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   saveCoordinatorManagedProject,
 } from "../../src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
 import {
   leaseIdentity,
   leaseAcquisitionRecoveryId,
@@ -141,14 +141,17 @@ test("現在Readerは初期不存在・作成失敗・途中置換と解放不�
         }
         return value;
       },
-      acquireRuntimeOwnedCoordinatorStateKernelLock: () => {
+      acquireRuntimeStateLock: () => {
         acquisitions++;
         return {
-          assertLive: () => live,
-          release: () => {
-            releases++;
-            if (releaseThrows) throw new Error("fixture_release");
-            return releaseResult;
+          status: "acquired",
+          lock: {
+            assertLive: () => live,
+            release: () => {
+              releases++;
+              if (releaseThrows) throw new Error("fixture_release");
+              return releaseResult;
+            },
           },
         };
       },
@@ -1537,7 +1540,8 @@ test("Host Windows: 初期化証拠とpending再入場は元Rootと本文に結�
   let isReplaced = false;
   fs.fsyncSync = (fd) => {
     originalFsync(fd);
-    if (!isReplaced) {
+    // wx取得自身のfsyncではなく、保存marker作成後の出版区間に注入する。
+    if (!isReplaced && fs.existsSync(path.join(area.directory, "state.lock"))) {
       isReplaced = true;
       const state = path.join(area.directory, "state.json");
       fs.renameSync(state, path.join(root, "replaced-state"));
@@ -2010,7 +2014,7 @@ test("Task保存のpending作成前失敗は自分のmarkerだけ回収する", 
  * @cleanup fixture hookが所有Rootを清掃する。
  * @boundary Repository Runtime Data Owner→foundation Reader。
  */
-test("名前付き保存領域の不存在はReader初期化Effectを発行しない", (t) => {
+test("名前付き保存領域の不存在はwx所在だけを準備しDomain状態を初期化しない", (t) => {
   const { root } = fixture(t);
   const rootNames = fs.readdirSync(root);
   const excludePath = path.join(root, ".git", "info", "exclude");
@@ -2018,7 +2022,11 @@ test("名前付き保存領域の不存在はReader初期化Effectを発行し�
   const snapshot = readCoordinatorSnapshot(root, "binding-a");
   assert.equal(snapshot.status, "completed");
   assert.equal(snapshot.value, null);
-  assert.deepEqual(fs.readdirSync(root), rootNames);
+  assert.deepEqual(
+    fs.readdirSync(root).filter((name) => name !== ".crdd"),
+    rootNames.filter((name) => name !== ".crdd"),
+  );
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   assert.deepEqual(fs.readFileSync(excludePath), excludeBytes);
 });
 
@@ -2110,7 +2118,7 @@ test("名前付き空areaの途中置換はSnapshot Readerを停止する", (t) 
  * @cleanup N/A: 拒否入力はWorkerを取得しない。
  * @boundary PRL-IT-005=Direct Boundary: 入力→Windows排他入口。
  */
-test("Snapshot排他は不正Hashと非Windowsを取得前に拒否する", () => {
+test("Snapshot排他は不正Hashと未確定Rootを取得前に拒否する", () => {
   for (const value of [
     null,
     undefined,
@@ -2119,13 +2127,10 @@ test("Snapshot排他は不正Hashと非Windowsを取得前に拒否する", () =
     "A".repeat(64),
     1,
   ]) {
-    assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(value), null);
+    assert.equal(acquireRuntimeStateLock(value, "").status, "blocked");
   }
   if (process.platform !== "win32") {
-    assert.equal(
-      acquireRuntimeOwnedCoordinatorStateKernelLock("a".repeat(64)),
-      null,
-    );
+    assert.equal(acquireRuntimeStateLock("a".repeat(64), "").status, "blocked");
   }
 });
 
@@ -2244,7 +2249,7 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   const empty = readCoordinatorSnapshot(root, "binding-a");
   assert.equal(empty.status, "completed");
   assert.equal(empty.value, null);
-  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   for (const generation of [-1, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
     assert.equal(
       writeCoordinatorSnapshotState(
@@ -2265,7 +2270,7 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
       .status,
     "blocked",
   );
-  assert.equal(fs.existsSync(path.join(root, ".crdd")), false);
+  assert.equal(fs.existsSync(path.join(root, ".crdd", "domain-model")), false);
   const held = acquireCoordinatorSnapshotPilotLock(root);
   assert.equal(held.status, "completed");
   if (held.status !== "completed") throw new Error("lock_fixture_failed");

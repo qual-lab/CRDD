@@ -429,3 +429,28 @@ npm run test --prefix 40_Develop/checker
 Checkerの`test`はFormatter確認、型検査、Lint、package rootから`../..`を明示するCRDD公式Repository全体Checker、Checker回帰試験本体をこの順に実行する。個別の`check`、`verify:repository`、`test:run`は原因を限定する内部入口であり、単独結果を全回帰完了としない。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
 
 Rust packageを移設した後は、旧配置から持ち越した`target`を検証の根拠に使わない。コンパイル時に埋め込まれた絶対Pathが残り、コードを変更していなくても試験用binaryを起動できない場合がある。検証したcrate Rootの`target`配下に新しい実行専用Directoryを選び、そのProcessの`CARGO_TARGET_DIR`へ設定して、固定toolchain・`--frozen --offline`で再ビルドと試験を行う。既存キャッシュや署名配布物の削除は必要ない。生成物はGit非追跡のまま保持し、同じPathの古い試験結果を新配置の合格へ流用しない。
+
+<a id="wx-lock-stopped-recovery"></a>
+
+## wx Lockの切替と停止下の明示Recovery（v0.22）
+
+対象は[共通Lock設計](../06_Architecture/Details/lock/01_Architecture.md)でwx接続済みとしたScopeのみ。Crash後にFileが残り自動再開しないことは意図的な運用制約である。未切替のPipe／Supervisorと新wxのProcessを同じ保護対象で並走させない。今回のSource変更だけで既存Runtimeを再起動・回復済みとは扱わない。
+
+| 理由 | 利用者への意味と処置 |
+|---|---|
+| `lock_exists`／`filesystem_store_lock_exists` | Lock Fileが存在するため停止した。稼働OwnerかCrash残存かはこの結果だけでは判断できない。自動削除・再試行をしない |
+| `lock_initialization_failed`／`filesystem_store_lock_recovery_required` | 新しい取得の初期化に失敗し、同じ所在・取得参照の処置が未確認。Fileとdescriptor終了の結果を別に保持する |
+| `coordinator_state_lock_initialization_failed`／`coordinator_state_lock_descriptor_close_unconfirmed`等の利用側理由 | 業務操作は未開始。該当Scopeを停止し元の取得参照と残存を保全する。descriptor終了不明でも取得を再試行せず、取得元を含む全関係Process停止後にだけ回復する。参照欠測を推測で補って削除しない |
+| `lock_observation_unknown`／`filesystem_store_lock_observation_unknown` | 対象・実体・旧清掃義務等を安全に確認できない。不存在や解放済みにしない |
+| `filesystem_store_lock_operation_completed_cleanup_unknown`／`filesystem_store_lock_operation_failed_cleanup_unknown` | 操作の成立／元失敗とは別にLock解放が未確認。保存を再発行せず、元の結果と取得世代を保持する |
+
+手動処置は次の順で行う。ここで人間の停止確認を自己申告booleanのオンラインAPIへ置き換えない。
+
+1. 対象Repository／Store、共有Home等のScope、exact Lock Pathと取得参照を特定し、作業担当者と処置許可を確認する。未知の所在や世代は推測で補完しない。
+2. 関連するCoordinator・Workbench・MCP Server・Worker・Provider子Process・検証Script・清掃Tool等、対象資源を使う全利用者を停止する。共有Homeは全Repositoryが対象。停止中の新規起動も抑止する。OwnerのPID不存在だけを全停止の証明にしない。
+3. 停止確認を維持したまま、親DirectoryとFileが意図した非Link実体であること、Lock Identity・Owner・Generation・File Identityが取得参照と一致することを確認する。Record未完成、旧形式、所在差、別世代、複数Link、観測不能は保全して調査へ戻す。
+4. 対象資源の終了・保存の現状態も確認する。Lock Fileを消してもProvider終了・Docker回収・保存成立の証明にはならない。未解決なら再開しない。
+5. 許可したexact取得のFileだけを処置し、結果を再観測する。不明なら停止を維持する。Directory一括削除・名前検索による削除・時刻／PIDによるStale判定は行わない。本変更は過去保持物の削除許可ではない。
+6. 同じ保護対象のReader・Writer・Recovery・清掃・検証入口を同じ新方式へ切り替えたことを確認してから再開する。取得失敗時に旧Pipeへfallbackしない。別世代・新しい未知物が見つかったら再び停止する。
+
+この手順は単一Host・ローカルFilesystemの協調運用を対象とする。ネットワーク共有や複数Hostでは別方式の評価が必要である。非協調Processの最終照合後置換に対する原子的保護を、この手順の存在だけで保証しない。

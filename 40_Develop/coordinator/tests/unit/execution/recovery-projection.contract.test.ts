@@ -62,15 +62,21 @@ test("試行専用ExecutorのControlは回復Authorityにならず終端で失�
     let cancels = 0,
       abandons = 0;
     const executor = {
-      cancel: async (c: unknown, m: unknown) => {
-        assert.strictEqual(c, control);
-        assert.strictEqual(m, management);
+      cancel: async (input: {
+        controlCapability: unknown;
+        managementCapability: unknown;
+      }) => {
+        assert.strictEqual(input.controlCapability, control);
+        assert.strictEqual(input.managementCapability, management);
         cancels++;
         return { status: "requested" };
       },
-      abandon: (c: unknown, m: unknown) => {
-        assert.strictEqual(c, capability);
-        assert.strictEqual(m, management);
+      abandon: (input: {
+        recoveryCapability: unknown;
+        managementCapability: unknown;
+      }) => {
+        assert.strictEqual(input.recoveryCapability, capability);
+        assert.strictEqual(input.managementCapability, management);
         abandons++;
         return true;
       },

@@ -3,9 +3,6 @@
   "contractRevision": 1,
   "subsystem": "platform-access",
   "symbols": [
-    { "symbolId": "platform-access.source.lock-lifecycle", "kind": "file", "path": "src/lock/lifecycle.ts", "archIds": ["ARCH-000015"] },
-    { "symbolId": "platform-access.source.lock-worker", "kind": "file", "path": "src/lock/worker.ts", "archIds": ["ARCH-000015"] },
-    { "symbolId": "platform-access.source.lock-supervisor", "kind": "file", "path": "src/lock/supervisor.ts", "archIds": ["ARCH-000004"] },
     {
       "symbolId": "platform-access.source.protected-root-protocol",
       "kind": "module",
@@ -609,53 +606,6 @@
         "platform-access.source.desktop-helper",
         "platform-access.source.desktop-protocol",
         "docker-isolation.execution.cli-trust"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.typescript-child-entrypoints",
-      "kind": "test-suite",
-      "path": "tests/integration/typescript-child-entrypoints.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002"
-      ],
-      "verifies": [
-        "coordinator.source.src.core.runtime.local.typescript.child.entrypoints"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
-      "kind": "file",
-      "path": "src/process/child.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.pipe",
-      "kind": "file",
-      "path": "src/lock/pipe.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.lock-lifecycle",
-      "kind": "test-suite",
-      "path": "tests/integration/lock-lifecycle.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-003"
-      ],
-      "verifies": [
-        "platform-access.source.pipe",
-        "platform-access.source.lock-lifecycle",
-        "platform-access.source.lock-worker",
-        "platform-access.source.lock-supervisor"
       ]
     }
   ]

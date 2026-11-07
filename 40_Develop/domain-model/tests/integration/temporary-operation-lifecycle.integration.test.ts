@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { acquireLock } from "../../../lock/src/index.ts";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
 
@@ -30,6 +31,43 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import { settleTemporaryOperationWithRemovalForVerification } from "../../src/storage/temporary-operation.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
+
+/**
+ * 試験のexact Lockを、子Process終了/元descriptor終了確認後に明示処置する。
+ * @trace RDL-IT-004
+ * @precondition このfixtureの全子は終了済み。再起動・別Ownerはない。
+ * @oracle 元Identity・世代・実体・bytesの不一致では処置しない。
+ * @cleanup 自作の単一Fileだけを除去し不存在を確認する。製品Recoveryではない。
+ */
+function recoverStoppedFixtureLock(
+  capability: Parameters<typeof resolveRepositoryRuntimeDataPaths>[0],
+  reference: TemporaryOperationRecoveryReference,
+): void {
+  assert.match(reference.operationId, /^runtime-data-test-/u);
+  const paths = resolveRepositoryRuntimeDataPaths(capability);
+  assert.ok(paths);
+  const parent = path.join(paths.temporary, ".operations");
+  assert.equal(fs.realpathSync.native(parent), parent);
+  const target = path.join(parent, `${reference.operationId}.lock`);
+  assert.equal(path.dirname(target), parent);
+  const before = fs.lstatSync(target);
+  assert.equal(
+    before.isFile() && !before.isSymbolicLink() && before.nlink === 1,
+    true,
+  );
+  const bytes = fs.readFileSync(target);
+  const record = JSON.parse(bytes.toString("utf8"));
+  assert.equal(record.schema, "crdd-lock/v1");
+  assert.equal(record.identity, `temporary-operation:${reference.operationId}`);
+  assert.equal(typeof record.generation, "string");
+  assert.equal(typeof record.owner.processIdentity, "string");
+  const after = fs.lstatSync(target);
+  assert.equal(after.dev, before.dev);
+  assert.equal(after.ino, before.ino);
+  assert.deepEqual(fs.readFileSync(target), bytes);
+  fs.unlinkSync(target);
+  assert.equal(fs.existsSync(target), false);
+}
 
 /**
  * resumeWithNextIdentityのTest準備責務を実行する。
@@ -63,6 +101,168 @@ function resumeWithNextIdentity(
  * @cleanup mockを必ず復元し、返却されたexact参照で再入場して試験物を回収する。
  * @boundary 通常Temporary OperationとFilesystem保存。実Process喪失は主張しない。
  */
+/**
+ * 終端清掃中の正規再入場を実子Processで交差させる。
+ * @trace RDL-IT-004
+ * @precondition 今回だけのOperationを作成する。
+ * @stimulus Directory回収の直前で別Processから同じOperationの再入場を要求する。
+ * @observation 子のblocked、文書bytes不変、最終的な対象・Lock不存在。
+ * @oracle 清掃・文書除去まで共通Lockを保持し、新世代を旧清掃で消さない。
+ * @cleanup 本来の終端処理で自己生成物だけを回収する。
+ */
+test("終端清掃中の別Process再入場は処置0で停止する", () => {
+  const root = getRepository(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const operationId = `runtime-data-test-cleanup-barrier-${process.pid}`;
+  const opened = createTemporaryOperation(root.capability, {
+    operationId,
+    owner: "runtime-data-test",
+    identity: randomUUID(),
+    purpose: "cleanup exclusion",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
+  const paths = resolveRepositoryRuntimeDataPaths(root.capability);
+  assert.ok(paths);
+  const control = path.join(paths.temporary, ".operations");
+  const document = path.join(control, `${operationId}.json`);
+  let crossed = false;
+  const result = settleTemporaryOperationWithRemovalForVerification(
+    opened.capability,
+    "failed",
+    null,
+    (directory) => {
+      const before = fs.readFileSync(document);
+      const child = spawnSync(
+        process.execPath,
+        [
+          path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
+          repositoryRoot,
+          Buffer.from(JSON.stringify(opened.recoveryReference)).toString(
+            "base64url",
+          ),
+          randomUUID(),
+          "observe-result",
+        ],
+        {
+          cwd: path.resolve("."),
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 10_000,
+        },
+      );
+      assert.equal(child.error, undefined);
+      assert.equal(child.status, 0, child.stderr);
+      const observed = JSON.parse(child.stdout);
+      assert.equal(observed.status, "blocked");
+      assert.equal(observed.reason, "temporary_operation_lifecycle_busy");
+      assert.deepEqual(fs.readFileSync(document), before);
+      crossed = true;
+      fs.rmSync(directory, { recursive: true });
+    },
+  );
+  assert.equal(crossed, true);
+  assert.equal(result.status, "completed");
+  assert.equal(fs.existsSync(document), false);
+  assert.equal(fs.existsSync(path.join(control, `${operationId}.lock`)), false);
+});
+
+/**
+ * 共通Lockの初期化失敗が業務処置前でもexact回復参照を保持する。
+ * @trace RDL-IT-004
+ * @precondition 自作Operation・自作Fileだけを使う。
+ * @stimulus Lockだけのwrite/fsyncへ故障を注入する。
+ * @observation 文書不変、File実体、同Scope拒否、回復参照。
+ * @cleanup 終了済みの自作descriptor・実体を照合して明示処置し、元Capabilityで終端化。
+ */
+test("Lock初期化残存は処置0と同じOperation回復参照を保持する", () => {
+  const root = getRepository(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const paths = resolveRepositoryRuntimeDataPaths(root.capability);
+  assert.ok(paths);
+  for (const mode of ["write", "sync"]) {
+    const operationId = `runtime-data-test-lock-init-${mode}-${process.pid}`;
+    const opened = createTemporaryOperation(root.capability, {
+      operationId,
+      owner: "runtime-data-test",
+      identity: randomUUID(),
+      purpose: "initialization failure",
+      allowedContent: ["fixture"],
+      evidencePromotion: "not_required",
+    });
+    assert.equal(opened.status, "completed");
+    if (opened.status !== "completed") return;
+    const control = path.join(paths.temporary, ".operations");
+    const document = path.join(control, `${operationId}.json`);
+    const target = path.join(control, `${operationId}.lock`);
+    const bytes = fs.readFileSync(document);
+    const originalOpen = fs.openSync,
+      originalWrite = fs.writeFileSync,
+      originalSync = fs.fsyncSync;
+    let descriptor: number | null = null;
+    let identity: fs.Stats | null = null;
+    const open = mock.method(fs, "openSync", ((
+      file: fs.PathLike,
+      ...args: unknown[]
+    ) => {
+      const fd = Reflect.apply(originalOpen, fs, [file, ...args]) as number;
+      if (String(file) === target) {
+        descriptor = fd;
+        identity = fs.fstatSync(fd);
+      }
+      return fd;
+    }) as typeof fs.openSync);
+    const write = mock.method(fs, "writeFileSync", ((
+      file: fs.PathOrFileDescriptor,
+      ...args: unknown[]
+    ) => {
+      if (file === descriptor && mode === "write")
+        throw new Error("injected_lock_write");
+      return Reflect.apply(originalWrite, fs, [file, ...args]);
+    }) as typeof fs.writeFileSync);
+    const sync = mock.method(fs, "fsyncSync", (fd: number) => {
+      if (fd === descriptor && mode === "sync")
+        throw new Error("injected_lock_sync");
+      return originalSync(fd);
+    });
+    const result = (() => {
+      try {
+        return settleTemporaryOperation(opened.capability, "failed", null);
+      } finally {
+        sync.mock.restore();
+        write.mock.restore();
+        open.mock.restore();
+      }
+    })();
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.recoveryRequired, true);
+    assert.deepEqual(result.recoveryReference, opened.recoveryReference);
+    assert.deepEqual(fs.readFileSync(document), bytes);
+    assert.equal(
+      settleTemporaryOperation(opened.capability, "failed", null).reason,
+      "temporary_operation_lifecycle_busy",
+    );
+    assert.ok(identity);
+    const observed = fs.lstatSync(target);
+    assert.equal(observed.isFile() && !observed.isSymbolicLink(), true);
+    assert.equal(observed.ino, (identity as fs.Stats).ino);
+    assert.equal(observed.dev, (identity as fs.Stats).dev);
+    assert.notEqual(descriptor, null);
+    assert.throws(() => fs.fstatSync(descriptor as number), { code: "EBADF" });
+    fs.unlinkSync(target);
+    assert.equal(fs.existsSync(target), false);
+    assert.equal(
+      settleTemporaryOperation(opened.capability, "failed", null).status,
+      "completed",
+    );
+  }
+});
+
 test("通常作業の再入場公開前後と読戻し失敗でexact参照を保持する", () => {
   const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
@@ -623,18 +823,18 @@ test("cleanup失敗は耐久状態へ遷移しexact参照で一度だけ再入�
 });
 
 /**
- * Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収するを検証する。
+ * Lock解放失敗は残存を自動回収せず明示処置まで再入場を拒否するを検証する。
  *
- * @responsibility Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収するの合否判定を所有する。
+ * @responsibility Lock解放失敗は残存を自動回収せず明示処置まで再入場を拒否するの合否判定を所有する。
  * @trace RDL-IT-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収するの対象操作を実行する。
+ * @stimulus Lock解放失敗は残存を自動回収せず明示処置まで再入場を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
-test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収する", () => {
+test("Lock解放失敗は残存を自動回収せず明示処置まで再入場を拒否する", () => {
   const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
@@ -649,29 +849,36 @@ test("Lock cleanup失敗はreleased Lockを残し再入場時に安全に回収�
   });
   assert.equal(opened.status, "completed");
   if (opened.status !== "completed") return;
-  const failed = settleTemporaryOperationWithRemovalForVerification(
-    opened.capability,
-    "failed",
-    null,
-    (directory) => fs.rmSync(directory, { recursive: true }),
-    () => {
+  const remove = fs.rmSync;
+  const fault = mock.method(fs, "rmSync", ((
+    target: fs.PathLike,
+    options?: fs.RmOptions,
+  ) => {
+    if (String(target).endsWith(`${operationId}.lock`))
       throw new Error("injected_lock_remove_failure");
-    },
-  );
+    return remove(target, options);
+  }) as typeof fs.rmSync);
+  const failed = (() => {
+    try {
+      return settleTemporaryOperation(opened.capability, "failed", null);
+    } finally {
+      fault.mock.restore();
+    }
+  })();
   assert.equal(failed.status, "blocked");
   assert.equal(failed.reason, "temporary_operation_lock_cleanup_unconfirmed");
   assert.equal(failed.recoveryRequired, true);
   assert.ok(failed.recoveryReference);
-  const resumed = resumeWithNextIdentity(
-    root.capability,
-    failed.recoveryReference,
-  );
-  assert.equal(resumed.status, "completed");
-  if (resumed.status !== "completed") return;
   assert.equal(
-    settleTemporaryOperation(resumed.capability, "failed", null).status,
-    "completed",
+    resumeWithNextIdentity(root.capability, failed.recoveryReference).reason,
+    "temporary_operation_lifecycle_busy",
   );
+  recoverStoppedFixtureLock(root.capability, failed.recoveryReference);
+  assert.equal(
+    resumeWithNextIdentity(root.capability, failed.recoveryReference).reason,
+    "temporary_operation_recovery_identity_mismatch",
+  );
+  assert.equal(fs.existsSync(path.dirname(opened.workDirectory)), false);
 });
 
 /**
@@ -756,6 +963,35 @@ test("Canonical公開前に終了した初回stagingは既知参照から回復�
     identity,
     generation: 1,
   });
+  const paths = resolveRepositoryRuntimeDataPaths(root.capability);
+  assert.ok(paths);
+  const control = path.join(paths.temporary, ".operations");
+  const stage = path.join(
+    control,
+    ".staging",
+    `${operationId}.${identity}.1.preparing.json`,
+  );
+  const before = fs.readFileSync(stage);
+  const held = acquireLock({
+    directory: control,
+    name: `${operationId}.lock`,
+    identity: `temporary-operation:${operationId}`,
+  });
+  assert.equal(held.status, "acquired");
+  if (held.status !== "acquired") return;
+  try {
+    assert.equal(
+      resumeWithNextIdentity(root.capability, reference).reason,
+      "temporary_operation_lifecycle_busy",
+    );
+    assert.deepEqual(fs.readFileSync(stage), before);
+    assert.equal(
+      fs.existsSync(path.join(control, `${operationId}.json`)),
+      false,
+    );
+  } finally {
+    assert.equal(held.lock.release(), true);
+  }
   const resumed = resumeWithNextIdentity(root.capability, reference);
   assert.equal(resumed.status, "completed");
   if (resumed.status === "completed")
@@ -857,12 +1093,29 @@ test("初回staging書込み中のProcess死はexact stagingだけを不存在�
     identity,
     generation: 1,
   });
-  const cleaned = resumeWithNextIdentity(root.capability, reference);
+  const remove = fs.rmSync;
+  const fault = mock.method(fs, "rmSync", ((
+    target: fs.PathLike,
+    options?: fs.RmOptions,
+  ) => {
+    if (String(target).endsWith(`${operationId}.lock`))
+      throw new Error("injected_lock_release");
+    return remove(target, options);
+  }) as typeof fs.rmSync);
+  const cleaned = (() => {
+    try {
+      return resumeWithNextIdentity(root.capability, reference);
+    } finally {
+      fault.mock.restore();
+    }
+  })();
   assert.equal(
     cleaned.reason,
     "temporary_operation_prepublication_cleanup_confirmed",
   );
-  assert.equal(cleaned.cleanupConfirmed, true);
+  assert.equal(cleaned.cleanupConfirmed, false);
+  assert.deepEqual(cleaned.recoveryReference, reference);
+  recoverStoppedFixtureLock(root.capability, reference);
   const reopened = createTemporaryOperation(root.capability, {
     operationId,
     owner: "runtime-data-test",
@@ -880,18 +1133,18 @@ test("初回staging書込み中のProcess死はexact stagingだけを不存在�
 });
 
 /**
- * Lock公開前のProcess死はcaller-known Identityで再入場できるを検証する。
+ * Lock取得後のProcess死は残存を保持し停止下の明示処置後だけ再入場するを検証する。
  *
- * @responsibility Lock公開前のProcess死はcaller-known Identityで再入場できるの合否判定を所有する。
+ * @responsibility Lock取得後のProcess死は残存を保持し停止下の明示処置後だけ再入場するの合否判定を所有する。
  * @trace RDL-IT-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Lock公開前のProcess死はcaller-known Identityで再入場できるの対象操作を実行する。
+ * @stimulus Lock取得後のProcess死は残存を保持し停止下の明示処置後だけ再入場するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
  */
-test("Lock公開前のProcess死はcaller-known Identityで再入場できる", () => {
+test("Lock取得後のProcess死は残存を保持し停止下の明示処置後だけ再入場する", () => {
   const root = getRepository(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
@@ -915,119 +1168,20 @@ test("Lock公開前のProcess死はcaller-known Identityで再入場できる", 
       repositoryRoot,
       Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
       nextIdentity,
-      "after-lock-staging",
+      "after-lock-acquired",
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
   assert.equal(child.status, 84, child.stderr);
-  const resumed = resumeWithNextIdentity(
-    root.capability,
-    lost.recoveryReference,
-    nextIdentity,
-  );
-  assert.equal(resumed.status, "completed");
-  if (resumed.status === "completed")
-    assert.equal(
-      settleTemporaryOperation(resumed.capability, "failed", null).status,
-      "completed",
-    );
-});
-
-/**
- * Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収するを検証する。
- *
- * @responsibility Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収するの合否判定を所有する。
- * @trace RDL-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
- */
-test("Lock公開直後のProcess死はCanonicalとstagingの両方を再入場で回収する", () => {
-  const root = getRepository(repositoryRoot);
-  assert.equal(root.status, "completed");
-  if (root.status !== "completed") return;
-  const opened = createTemporaryOperation(root.capability, {
-    operationId: `runtime-data-test-lock-linked-${process.pid}`,
-    owner: "runtime-data-test",
-    identity: randomUUID(),
-    purpose: "linked lock process loss verification",
-    allowedContent: ["fixture"],
-    evidencePromotion: "not_required",
-  });
-  assert.equal(opened.status, "completed");
-  if (opened.status !== "completed") return;
-  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
-  assert.ok(lost.recoveryReference);
-  const nextIdentity = randomUUID();
-  const child = spawnSync(
-    process.execPath,
-    [
-      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
-      repositoryRoot,
-      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
+  assert.equal(
+    resumeWithNextIdentity(
+      root.capability,
+      lost.recoveryReference,
       nextIdentity,
-      "after-lock-linked",
-    ],
-    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+    ).reason,
+    "temporary_operation_lifecycle_busy",
   );
-  assert.equal(child.status, 84, child.stderr);
-  const resumed = resumeWithNextIdentity(
-    root.capability,
-    lost.recoveryReference,
-    nextIdentity,
-  );
-  assert.equal(resumed.status, "completed");
-  if (resumed.status === "completed")
-    assert.equal(
-      settleTemporaryOperation(resumed.capability, "failed", null).status,
-      "completed",
-    );
-});
-
-/**
- * Lock staging書込み中のProcess死も同じ次世代Identityで回収するを検証する。
- *
- * @responsibility Lock staging書込み中のProcess死も同じ次世代Identityで回収するの合否判定を所有する。
- * @trace RDL-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Lock staging書込み中のProcess死も同じ次世代Identityで回収するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RDL-IT-004=Direct Boundary: runtime-data Test Source→対象契約
- */
-test("Lock staging書込み中のProcess死も同じ次世代Identityで回収する", () => {
-  const root = getRepository(repositoryRoot);
-  assert.equal(root.status, "completed");
-  if (root.status !== "completed") return;
-  const opened = createTemporaryOperation(root.capability, {
-    operationId: `runtime-data-test-lock-partial-${process.pid}`,
-    owner: "runtime-data-test",
-    identity: randomUUID(),
-    purpose: "partial lock staging process loss verification",
-    allowedContent: ["fixture"],
-    evidencePromotion: "not_required",
-  });
-  assert.equal(opened.status, "completed");
-  if (opened.status !== "completed") return;
-  const lost = settleTemporaryOperation(opened.capability, "parent_lost", null);
-  assert.ok(lost.recoveryReference);
-  const nextIdentity = randomUUID();
-  const child = spawnSync(
-    process.execPath,
-    [
-      path.resolve("tests/fixtures/resume-temporary-operation-and-exit.ts"),
-      repositoryRoot,
-      Buffer.from(JSON.stringify(lost.recoveryReference)).toString("base64url"),
-      nextIdentity,
-      "after-lock-staging-created",
-    ],
-    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
-  );
-  assert.equal(child.status, 84, child.stderr);
+  recoverStoppedFixtureLock(root.capability, lost.recoveryReference);
   const resumed = resumeWithNextIdentity(
     root.capability,
     lost.recoveryReference,
@@ -1139,6 +1293,7 @@ test("新世代公開後・Capability返却前のProcess死でも次世代参照
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
   assert.equal(child.status, 84, child.stderr);
+  recoverStoppedFixtureLock(root.capability, lost.recoveryReference);
   const nextReference: TemporaryOperationRecoveryReference = Object.freeze({
     ...lost.recoveryReference,
     identity: nextIdentity,

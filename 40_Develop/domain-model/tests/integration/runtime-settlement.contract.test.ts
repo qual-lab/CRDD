@@ -532,25 +532,25 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     {
       namedExports: {
         ...stateKernelLocks,
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (hash: unknown) => {
-          const acquired =
-            stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock(
-              hash,
-            );
-          if (!acquired) return acquired;
+        acquireRuntimeStateLock: (hash: unknown, root: string) => {
+          const acquired = stateKernelLocks.acquireRuntimeStateLock(hash, root);
+          if (acquired.status !== "acquired") return acquired;
           return {
             ...acquired,
-            release: () => {
-              const released = acquired.release();
-              if (isCompletionReleaseObservationMissing) {
-                completionReleaseCount += 1;
-                // 出版後の再入場は保持候補を使い、更新Writerの解放だけ欠測にする。
-                if (completionReleaseCount === completionReleaseMissingAt) {
-                  completionActualReleaseConfirmed = released;
-                  return false;
+            lock: {
+              ...acquired.lock,
+              release: () => {
+                const released = acquired.lock.release();
+                if (isCompletionReleaseObservationMissing) {
+                  completionReleaseCount += 1;
+                  // 出版後の再入場は保持候補を使い、更新Writerの解放だけ欠測にする。
+                  if (completionReleaseCount === completionReleaseMissingAt) {
+                    completionActualReleaseConfirmed = released;
+                    return false;
+                  }
                 }
-              }
-              return released;
+                return released;
+              },
             },
           };
         },
@@ -562,8 +562,7 @@ test("Host Windows: 正常終端保存は元入力・履歴・配送と一回証
     "../../src/storage/runtime-kernel-lock.ts"
   );
   const historyStore = createRuntimeStorageSourceFixture(undefined, {
-    acquireRuntimeOwnedCoordinatorStateKernelLock:
-      currentCompletionKernel.acquireRuntimeOwnedCoordinatorStateKernelLock,
+    acquireRuntimeStateLock: currentCompletionKernel.acquireRuntimeStateLock,
   });
   const historyStorageMock = t.mock.module(
     new URL("../../src/storage/runtime-store.ts", import.meta.url).href,
@@ -2098,9 +2097,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     let live = true,
       acquisitions = 0;
     const worker = createRuntimeStorageSourceFixture(undefined, {
-      acquireRuntimeOwnedCoordinatorStateKernelLock: (hash: unknown) => {
-        const lock =
-          stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock(hash);
+      acquireRuntimeStateLock: (hash: unknown, root: string) => {
+        const lock = stateKernelLocks.acquireRuntimeStateLock(hash, root);
         assert.ok(lock);
         acquisitions++;
         live = false;

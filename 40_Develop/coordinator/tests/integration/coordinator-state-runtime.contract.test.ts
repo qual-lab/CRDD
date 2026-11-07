@@ -10,6 +10,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
 
+import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
 import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -58,7 +59,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
+import { acquireProviderHomeLock } from "../../src/execution/kernel-lock.ts";
 import * as executionEnvironment from "../../src/execution/operation.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
@@ -671,9 +672,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       true,
     );
     recoveryOwnerAbandoned = true;
-    const activeHome = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+    const activeHomeAcquisition = acquireProviderHomeLock(
       "1".repeat(64),
+      providerHomesDirectoryCandidate(),
     );
+    assert.ok(activeHomeAcquisition.status === "acquired");
+    const activeHome = activeHomeAcquisition.lock;
     assert.ok(activeHome);
     try {
       const refusedHome = prepareRuntimeOwnedDockerTaskRecovery(

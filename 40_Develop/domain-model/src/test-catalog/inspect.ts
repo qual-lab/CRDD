@@ -69,6 +69,7 @@ export type TestCatalogEntry = Readonly<{
     | "domain-model"
     | "execution-intelligence"
     | "executor"
+    | "lock"
     | "mcp-server"
     | "version-control"
     | "platform-access"
@@ -112,6 +113,7 @@ export type TestCatalog = Readonly<{
     "domain-model": "node_test";
     "execution-intelligence": "node_test";
     executor: "node_test";
+    lock: "node_test";
     "mcp-server": "node_test";
     "version-control": "node_test";
     "platform-access": "node_and_cargo_test";
@@ -158,6 +160,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "domain-model",
   "execution-intelligence",
   "executor",
+  "lock",
   "mcp-server",
   "version-control",
   "platform-access",
@@ -173,6 +176,7 @@ const RUNNER_PROFILES = Object.freeze({
   "domain-model": "node_test",
   "execution-intelligence": "node_test",
   executor: "node_test",
+  lock: "node_test",
   "mcp-server": "node_test",
   "version-control": "node_test",
   "platform-access": "node_and_cargo_test",
@@ -338,6 +342,7 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "domain-model",
     "execution-intelligence",
     "executor",
+    "lock",
     "mcp-server",
     "version-control",
     "visual-preview",
@@ -410,7 +415,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 function expectedNodeLevel(entryPath: string): string | null {
   if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|executor|mcp-server|platform-access|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|executor|lock|mcp-server|platform-access|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1049,6 +1054,7 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/executor/")) return "executor";
+  if (changedPath.startsWith("40_Develop/lock/")) return "lock";
   if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp-server";
   if (changedPath.startsWith("40_Develop/version-control/"))
     return "version-control";

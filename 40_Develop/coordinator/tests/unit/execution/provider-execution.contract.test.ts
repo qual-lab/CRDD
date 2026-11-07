@@ -1114,7 +1114,7 @@ test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送�
          * @cleanup N/A: Process外資源を取得しない。
          * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
          */
-        activate: async () => {
+        activate: () => {
           if (stage === "activation") throw new Error("fixture_activation");
           return "activated" as const;
         },
@@ -1130,23 +1130,8 @@ test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送�
          * @cleanup N/A: Process外資源を取得しない。
          * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
          */
-        confirmReadiness: async () => {
+        assertLock: () => {
           throw new Error("fixture_readiness");
-        },
-        /**
-         * 失敗試験で喪失観測へ到達しないことを守る。
-         *
-         * @responsibility observeLossの局所反証を所有する。
-         * @trace ERB-UT-023
-         * @precondition 固定した偽依存と対象段だけを使う。
-         * @stimulus 本番と同じ初期化処理から呼び出す。
-         * @observation 返値、例外および局所呼出しを観測する。
-         * @oracle 到達した場合は固定例外を投げる。
-         * @cleanup N/A: Process外資源を取得しない。
-         * @boundary ERB-UT-023=Direct Boundary: 偽依存→初期化処理。
-         */
-        observeLoss: () => {
-          throw new Error("fixture_loss_observation_not_expected");
         },
         /**
          * 世代Lock準備失敗後の清掃回数と結果を返す。

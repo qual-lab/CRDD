@@ -1,151 +1,176 @@
 /**
- * Runtime保存専用Kernelの実競合・解放・Owner終了を確認する。
- * @packageDocumentation
- * @responsibility 保存Ownerの実OS境界をDomain内へ閉じる。
+ * CurrentStateのwx排他・通常解放・Crash残存と停止下再入場を確認する。
  * @trace ERB-IT-003
  * @level IT
- * @scope Windows Named Pipe。AI・Dockerは使用しない。
- * @boundary Domain保存KernelとPlatform Access公開primitive。
+ * @boundary 新品Repository-local領域と実Node子Process。AI・Dockerは使用しない。
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import test from "node:test";
+import fs from "node:fs";
+import path from "node:path";
+import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireCoordinatorStorageOwnerForRepository } from "../../src/storage/runtime-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
 
-const ownerFixture = new URL(
-  "../fixtures/runtime-kernel-owner.ts",
-  import.meta.url,
-);
+function fixture(t: TestContext) {
+  const parent = fileURLToPath(
+    new URL("../../../../.crdd/tests/", import.meta.url),
+  );
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "current-state-wx-"));
+  t.after(() => {
+    assert.equal(fs.realpathSync.native(root), root);
+    assert.equal(path.dirname(root), path.resolve(parent));
+    fs.rmSync(root, { recursive: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  return { root, hash: randomBytes(32).toString("hex") };
+}
 
-/**
- * Coordinator Snapshotの短期排他をWindows実資源で確認する。
- * @responsibility 同じRootの競合、別Root・別Ownerとの独立、解放後の再取得を確認する。
- * @trace ERB-IT-003
- * @precondition Windowsの名前付きPipeを使用しDockerとProviderは使用しない。
- * @stimulus 同じRootと異なるRootでLockを取得し解放する。
- * @observation 取得結果、assertLive、解放と再取得を観測する。
- * @oracle 同じRootだけが競合し解放後は再取得できる。
- * @cleanup 取得した全Lockをfinallyで解放する。
- * @boundary ERB-IT-003=Direct Boundary: Domain保存Owner→Windows排他資源。
- */
-test("Host Windows: Coordinator Snapshot排他はRootとOwnerを分離し解放後に再取得できる", {
-  skip: process.platform !== "win32",
-}, () => {
-  for (const invalid of [null, {}, "", "A".repeat(64), "a".repeat(63)]) {
-    assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(invalid), null);
+test("同じCurrentStateだけが競合し、通常解放後は新世代で取得する", (t) => {
+  const { root, hash } = fixture(t);
+  for (const value of [null, {}, "", "A".repeat(64), "a".repeat(63)]) {
+    assert.equal(acquireRuntimeStateLock(value, root).status, "blocked");
   }
-  const hash = randomBytes(32).toString("hex");
-  const first = acquireRuntimeOwnedCoordinatorStateKernelLock(hash);
-  assert.ok(first);
-  const other = acquireRuntimeOwnedCoordinatorStateKernelLock(
-    randomBytes(32).toString("hex"),
+  const first = acquireRuntimeStateLock(hash, root);
+  assert.ok(first.status === "acquired");
+  assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+  const other = acquireRuntimeStateLock(randomBytes(32).toString("hex"), root);
+  assert.ok(other.status === "acquired");
+  assert.equal(other.lock.release(), true);
+  assert.equal(first.lock.assertLive(), true);
+  assert.equal(first.lock.release(), true);
+  assert.equal(first.lock.release(), false);
+  const next = acquireRuntimeStateLock(hash, root);
+  assert.ok(next.status === "acquired");
+  assert.notEqual(
+    next.lock.reference.generation,
+    first.lock.reference.generation,
   );
-  const projectIdentity = createHash("sha256")
-    .update("crdd-orchestrator-state-kernel-lock-v1\0")
-    .update(hash)
-    .digest("hex")
-    .slice(0, 32);
-  const project = acquireNamedPipeKernelLock(
-    `\\\\.\\pipe\\CRDD.Coordinator.CoordinatorState.${projectIdentity}`,
-  );
-  try {
-    assert.equal(first.assertLive(), true);
-    assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(hash), null);
-    assert.ok(other);
-    assert.ok(project);
-    assert.equal(other.assertLive(), true);
-    assert.equal(project.assertLive(), true);
-  } finally {
-    other?.release();
-    project?.release();
-    assert.equal(first.release(), true);
-  }
-  assert.equal(first.assertLive(), false);
-  const reacquired = acquireRuntimeOwnedCoordinatorStateKernelLock(hash);
-  assert.ok(reacquired);
-  assert.equal(reacquired.release(), true);
+  assert.equal(next.lock.release(), true);
 });
 
-/**
- * Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するを検証する。
- *
- * @responsibility Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するの合否判定を所有する。
- * @trace ERB-IT-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-003=Direct Boundary: domain-model Test Source→対象契約
- */
-test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {
-  assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock("invalid"), null);
-  if (process.platform !== "win32") return;
-  const protectionHash = createHash("sha256")
-    .update(randomBytes(32))
-    .digest("hex");
-  const first = acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
-  assert.ok(first);
-  assert.equal(
-    acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash),
-    null,
-  );
-  assert.equal(first.release(), true);
-  assert.equal(first.release(), false);
-  const next = acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
-  assert.ok(next);
-  assert.equal(next.release(), true);
-});
-
-/**
- * Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるを検証する。
- *
- * @responsibility Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるの合否判定を所有する。
- * @trace ERB-IT-003
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-003=Direct Boundary: domain-model Test Source→対象契約
- */
-test("Windows kernel lockはowner process強制終了後にstale residueなしで再取得できる", async (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows Local Personal contract");
-    return;
-  }
-  const protectionHash = createHash("sha256")
-    .update(randomBytes(32))
-    .digest("hex");
+test("CurrentState Owner強制終了後も残存で拒否し、停止下のexact処置後だけ再入場する", {
+  timeout: 15000,
+}, async (t) => {
+  const { root, hash } = fixture(t);
   const child = spawn(
     process.execPath,
-    [fileURLToPath(ownerFixture), protectionHash],
+    [
+      fileURLToPath(
+        new URL("../fixtures/runtime-kernel-owner.ts", import.meta.url),
+      ),
+      hash,
+      root,
+    ],
     {
+      shell: false,
+      windowsHide: true,
       env: {},
       stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
     },
   );
-  context.after(() => {
-    if (child.exitCode === null) child.kill();
+  const closed = once(child, "close");
+  t.after(async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill();
+      await closed;
+    }
   });
-  let stdout = "";
-  while (!stdout.includes("READY\n")) {
-    const [chunk] = (await once(child.stdout, "data")) as [Buffer];
-    stdout += chunk.toString("utf8");
-  }
-  assert.equal(
-    acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash),
-    null,
-  );
+  const ready = await Promise.race([
+    once(child.stdout, "data"),
+    closed.then(() => {
+      throw new Error("owner_not_ready");
+    }),
+  ]);
+  assert.equal(ready[0].toString(), "READY\n");
+  assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+  const target = path.join(root, ".crdd", `current-state.${hash}.lock`);
+  const bytes = fs.readFileSync(target);
+  const stat = fs.lstatSync(target, { bigint: true });
+  const record = JSON.parse(bytes.toString());
+  assert.equal(record.owner.processId, child.pid);
+  assert.equal(record.identity, `current-state:${hash}`);
   assert.equal(child.kill(), true);
-  await once(child, "exit");
-  const recovered =
-    acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
-  assert.ok(recovered);
-  assert.equal(recovered.release(), true);
+  await closed;
+  assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+  const current = fs.lstatSync(target, { bigint: true });
+  assert.equal(current.dev, stat.dev);
+  assert.equal(current.ino, stat.ino);
+  assert.deepEqual(fs.readFileSync(target), bytes);
+  // 唯一の子はjoin済み。この試験の全利用者停止下で元世代だけを回収する。
+  fs.unlinkSync(target);
+  const next = acquireRuntimeStateLock(hash, root);
+  assert.ok(next.status === "acquired");
+  assert.notEqual(next.lock.reference.generation, record.generation);
+  assert.equal(next.lock.release(), true);
+});
+
+/**
+ * 新規Lock初期化故障を保存Ownerの停止結果まで搬送する。
+ * @trace ERB-IT-003
+ * @boundary 今回のRootだけ。書込み・同期・closeを有限故障にし、元fdは試験でjoinする。
+ */
+test("CurrentStateの初期化失敗は取得参照・手動回復とdescriptor終了不明を失わない", async (t) => {
+  for (const fault of ["write", "sync", "close"] as const)
+    await t.test(fault, (st) => {
+      const { root, hash } = fixture(st);
+      const open = fs.openSync,
+        close = fs.closeSync;
+      let descriptor: number | null = null;
+      st.mock.method(
+        fs,
+        "openSync",
+        (...args: Parameters<typeof fs.openSync>) => {
+          const fd = open(...args);
+          if (String(args[1]) === "wx") descriptor = fd;
+          return fd;
+        },
+      );
+      if (fault === "write" || fault === "close")
+        st.mock.method(fs, "writeFileSync", () => {
+          throw Error("finite_write");
+        });
+      else
+        st.mock.method(fs, "fsyncSync", () => {
+          throw Error("finite_sync");
+        });
+      if (fault === "close")
+        st.mock.method(fs, "closeSync", () => {
+          throw Error("finite_close");
+        });
+      const outcome = acquireCoordinatorStorageOwnerForRepository({
+        repositoryRoot: root,
+        repositoryBinding: hash,
+        revalidate: () => true,
+      });
+      assert.equal(outcome.status, "blocked");
+      assert.ok(outcome.status === "blocked");
+      assert.equal(outcome.manualRecoveryRequired, true);
+      assert.match(
+        outcome.recoveryId ?? "",
+        /^current-state-lock\.[a-f0-9-]{36}$/u,
+      );
+      assert.equal(
+        outcome.reason,
+        fault === "close"
+          ? "coordinator_state_lock_descriptor_close_unconfirmed"
+          : "coordinator_state_lock_initialization_failed",
+      );
+      assert.equal(JSON.stringify(outcome).includes(root), false);
+      st.mock.restoreAll();
+      const file = path.join(root, ".crdd", `current-state.${hash}.lock`);
+      assert.equal(fs.existsSync(file), true);
+      assert.equal(acquireRuntimeStateLock(hash, root).status, "blocked");
+      assert.notEqual(descriptor, null);
+      const fd = descriptor;
+      assert.ok(typeof fd === "number");
+      if (fault === "close") close(fd);
+      assert.throws(() => fs.fstatSync(fd), { code: "EBADF" });
+      // 呼出し完了・元descriptor終了後、今回の未知／部分Recordを試験だけで明示回収する。
+      fs.unlinkSync(file);
+    });
 });

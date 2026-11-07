@@ -4,6 +4,8 @@
  * @responsibility VerifiedRootを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import type { LockResult } from "../../../lock/src/index.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "../execution/process-safety-state.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,7 +19,7 @@ import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "../execution/authority.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
+import { acquireRuntimeStateLock } from "../execution/kernel-lock.ts";
 import type { CoordinatorDecisionStore } from "./types.ts";
 
 export const COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT =
@@ -306,12 +308,23 @@ function unknown() {
  */
 function withLock<T>(
   expectedRoot: VerifiedRoot,
-  acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null,
+  acquire: (
+    bindingHash: string,
+    directory: string,
+  ) => LockResult<Readonly<{ release(): boolean }>>,
   reobserve: () => VerifiedRoot | null,
   operation: (root: VerifiedRoot) => T,
 ): T | null {
-  const lock = acquire(expectedRoot.stableLogicalHomeBindingHash);
-  if (!lock) return null;
+  const acquisition = acquire(
+    expectedRoot.stableLogicalHomeBindingHash,
+    expectedRoot.rootPath,
+  );
+  if (acquisition.status !== "acquired") {
+    if (!acquisition.descriptorClosed)
+      poisonRuntimeProcessAfterCleanupUnknown();
+    return null;
+  }
+  const lock = acquisition.lock;
   let output: T | null = null;
   let isFailed = false;
   try {
@@ -348,7 +361,10 @@ function withLock<T>(
  */
 function createStore(
   root: VerifiedRoot,
-  acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null,
+  acquire: (
+    bindingHash: string,
+    directory: string,
+  ) => LockResult<Readonly<{ release(): boolean }>>,
   reobserve: () => VerifiedRoot | null,
 ) {
   const store: CoordinatorDecisionStore = Object.freeze({
@@ -502,10 +518,8 @@ export function openRuntimeOwnedWindowsProjectDecisionStore(
     return Object.freeze({ status: "blocked", store: null, principalId: null });
   return Object.freeze({
     status: "completed",
-    store: createStore(
-      root,
-      acquireRuntimeOwnedDockerRuntimeStateKernelLock,
-      () => inspectRoot(false, options.developmentContext),
+    store: createStore(root, acquireRuntimeStateLock, () =>
+      inspectRoot(false, options.developmentContext),
     ),
     principalId: root.localUserBindingHash,
   });
@@ -543,7 +557,11 @@ export function createCoordinatorWindowsDecisionStoreTestingAdapter(
   });
   return createStore(
     root,
-    () => Object.freeze({ release: () => true }),
+    () =>
+      Object.freeze({
+        status: "acquired",
+        lock: Object.freeze({ release: () => true }),
+      }),
     () => root,
   );
 }

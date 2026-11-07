@@ -19,7 +19,7 @@ import {
   createAuthenticationFixture,
   prepareAuthenticationProjection,
 } from "../support/authentication.ts";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
+import { acquireProviderHomeLock } from "../../src/execution/kernel-lock.ts";
 import {
   authenticateProvider,
   beginProviderAuthenticationRecovery,
@@ -299,7 +299,7 @@ test("Windows Process Gate: 認証は初回Intent前のProcess喪失から同じ
     const result = await authenticateProvider("claude", "login", home, hash, {
       ...f.dependencies,
       randomHex: () => token,
-      acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+      acquireProviderHomeLock: acquireProviderHomeLock,
       beginRecovery: beginProviderAuthenticationRecovery,
       setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
       recordResource: recordProviderAuthenticationResource,
@@ -371,7 +371,7 @@ test("Windows Process Gate: 認証はCommand中のOwner喪失後にfresh Effect�
     const result = await authenticateProvider("claude", "login", home, hash, {
       ...f.dependencies,
       randomHex: () => token,
-      acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+      acquireProviderHomeLock: acquireProviderHomeLock,
       beginRecovery: beginProviderAuthenticationRecovery,
       setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
       recordResource: recordProviderAuthenticationResource,

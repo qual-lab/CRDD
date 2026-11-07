@@ -89,7 +89,19 @@ test("省略Baseの安定読取りと未対応Object形式の入口拒否を維�
     git(root, ["add", "."]);
     git(root, ["commit", "-qm", "base"]);
     if (format === "sha256") {
-      assert.equal(getRepository(root).status, "blocked");
+      assert.deepEqual(getRepository(root), {
+        status: "blocked",
+        reason: "repository_object_format_unsupported",
+        capability: null,
+        objectFormat: "sha256",
+      });
+      // 形式とRevision幅の不整合を、未対応形式の確定診断へ変換しない。
+      fs.writeFileSync(path.join(root, ".git", "HEAD"), `${"a".repeat(40)}\n`);
+      assert.deepEqual(getRepository(root), {
+        status: "blocked",
+        reason: "repository_root_invalid",
+        capability: null,
+      });
       continue;
     }
     const capability = repositoryTarget(root);

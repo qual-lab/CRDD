@@ -394,7 +394,7 @@ Repository／Version Control Infrastructure
 | Package Root `domain-model/src/index.ts` | 各責務が保持する既存公開Symbolを`src/index.ts`から明示exportする。実行時・型を含む完全集合は同Fileと固定公開集合の契約試験で照合する | Module公開だけでは操作を実行しない。呼出し時のEffectは各責務の契約に従う | 中間Barrelの追加、未宣言操作の公開、Root集約を理由にAuthorityや用途を拡張すること |
 | Artifact `domain-model/src/index.ts` | Artifact Model、Schema検証、Relation Graphの公開型と決定論的関数 | なし | Checker Finding、利用者向けmessage |
 | Plain Data `domain-model/src/index.ts` | `snapshotPlainRecord`、`snapshotPlainArray`だけ。exact own key・prototype・data descriptorを検査し、浅い所有Snapshotまたは既存拒否結果を返す | なし | getter／Proxy trapの実行、nested値全体の安全性保証、Authority発行、Store／Writer・Provider実行への依存 |
-| Storage `domain-model/src/index.ts` | 検証済みStore Root、Root内Path解決、Kernel排他、exact Lock回復、短命操作の作成・再入場・終了、上限付き安定ファイル読取り | 用途限定Root内の保存・回収とKernel Endpoint。安定読取りは読取り専用descriptorを使用する | 任意絶対PathのAuthority化、個別Domain判断、Filesystem Recordだけによる排他推定 |
+| Storage `domain-model/src/index.ts` | 検証済みStore Root、Root内Path解決、wx排他、停止下の明示回復、短命操作の作成・再入場・終了、上限付き安定ファイル読取り | 用途限定Root内の保存・回収と共通wx。安定読取りは読取り専用descriptorを使用する | 任意絶対PathのAuthority化、個別Domain判断、PID・時刻だけによる自動回復 |
 | Configuration `domain-model/src/index.ts` | Manifest／設定Schema検証、Repository別Tool設定読取り | 設定読取りだけ。Root作成と設定の自動書込みなし | Policyの採用、Trust Framework、Credential・Authorityの発行 |
 | Project Context `domain-model/src/index.ts` | Project Context／Release／Qualityの構造化Reader、Source投影、Context固有候補判断 | 本文の解析・意味変換はEffectなし | Roadmap・品質・実行状態の第二正本、一般Task候補の採用 |
 | Topic `domain-model/src/index.ts` | Topic解析・状態変換・登録・編集・取得・一覧・昇格・誤登録削除 | 認可済みRepository内の明示CRUDだけ | Meeting本文・CHG本文の複製、Git Commit／Push、別Repositoryの自動選択 |
@@ -409,11 +409,10 @@ Repository／Version Control Infrastructure
 
 Domain Modelの各責務は共通Rootから公開する。本表は操作の責務・Effect境界を示し、Rootの実行時・型を含む明示export集合は固定許可集合の契約試験で完全一致を検査する。`./outcome`は共通結果だけの既存Subpathとして維持し、廃止したCapability別Subpathを再導入しない。新しい公開Symbolは対象責務と本表へ接続し、固定許可集合の変更を審査する。
 
-Filesystem Storeの所有権遷移は、WindowsではNamed Pipe、LinuxではAbstract Unix SocketをWorker lifetimeへ結合したOS Kernel排他で直列化する。Lock RecordはRecovery IdentityとOwner PIDを保持する耐久根拠であり、排他そのものではない。Recordの生成、観測および回復対象の確定は同じKernel Lock内で行う。Kernel Endpoint解放後のRecord削除は、同じexact IdentityのObligationを再確認する二段階cleanupとして別世代を保護する。
+Filesystem Storeの排他は、既存Store Root内の固定Fileを共通Lockのwx取得へ接続する。ReaderとWriterが同じ保護対象を使い、残存・不完全Record・観測不能ではEffect前に停止する。PID不存在Proof、オンライン回復、Kernel Endpointと清掃義務の新規生成は撤去する。旧清掃義務が残る場合は読取り拒否だけで保全する。取得・解放の技術契約は[Lock設計](../lock/01_Architecture.md)、全利用者停止下の処置は[Runtime Workflow](../../../19_Workflows/01_Coordinator_Runtime.md#wx-lock-stopped-recovery)が所有する。
 
-通常Operationと回復Operationのどちらでも、Kernel Endpointを解放する前に同じRootへexact Recovery IdentityのRecovery Obligation Recordを書き込み、`fsync`で耐久化する。Operation結果とcleanup結果は別に扱い、Effect発行後に解放を確認できない場合はEffect状態を`issued`、`not_issued`または`unknown`として搬送し、Lock RecordとObligation Recordを残す。成功結果はKernel Endpointの解放、同じRecordの再確認、Obligation解消まで確認した場合だけ返す。後続Ownerは通常Recordより先にObligationを確認してEffect 0で停止し、同じIdentityの再入場だけが再確認と解消を行える。
+CurrentStateの短期排他もRepositoryの同じ所在でwxを使用する。Lock取得はCAS・保存成立・技術資源の清掃確認を代替しない。旧方式との並走は認めず、既存Processを稼働させたまま安全に切替済みとは表示しない。
 
-Owner不存在の観測でもKernel Endpointの解放を確認できなければProofを返さず観測不能とする。空、部分、破損または読取り不能なRecordは`recovery_required`へ昇格せず観測不能としてEffect 0で停止する。`recovery_required`を返す場合は、検証済みRecordに含まれる非nullのexact Recovery Identityを必須とする。対応するKernel原語を提供しないOSではFilesystem Lockへ縮退せず、観測不能として停止する。
 
 ## 4. Data Flow
 
@@ -486,7 +485,7 @@ Domain結果は`kind`、`targetIdentity`、`location`、`reason`、`details`、`
 
 ## 6. 配布と開発の境界
 
-Coordinatorの保護実行から保存公開入口へ到達する場合、保存排他のWorkerも実行閉包に含める。WorkerのOwnerと起動はDomain Model内に維持し、Coordinatorへの逆依存やCoordinator専用起動APIをDomainへ導入しない。配布観測は`storage/root-and-lock.ts`の一つの直接起動と、同じ保存責務内の`kernel-lock-worker.ts`への固定相対参照を対応付け、起動元・参照先・Worker実体とその依存を検査する。参照の変更・間接化・起動追加・欠落、実体欠落または観測不能では停止する。Domain全Sourceを一律に署名するのではなく、実到達した閉包へ同Workerを接続する。
+汎用Storeの保存排他は`storage/root-and-lock.ts`から[共通Lock](../lock/01_Architecture.md)のwx処理へ接続する。Root・相対Path・保存結果はDomain Model、File取得・元世代の通常解放はLockが所有する。汎用StoreのWorker起動・PID不存在Proof・オンライン回復入口は撤去し、残存は処理せず停止する。Access Managementにも自動回復後再取得を残さない。配布Source閉包は`lock/src/index.ts`／`operations.ts`／`types.ts`で構成する。CurrentState保存も同じwx正本へ接続し、旧OS Workerの閉包は撤去した。利用側回帰と初期化失敗の搬送確認は継続中である。汎用Storeの旧Pipe利用Processと新wx利用Processは混在させず、切替・明示Recoveryは全利用者停止下で行う。
 
 | 領域 | 責務 |
 |---|---|
@@ -609,7 +608,7 @@ Provider計画の分離時に、Coordinatorの共通入力防御を`plain-data/s
 | `parseMarkdownArtifact`、`buildArtifactGraph`、`validateArtifactSchema`とArtifact／Schema型 | `src/index.ts`の該当Symbol | Checker、Semantic Coverage、成果物解析の利用側。`RCM-IT-009/013`で依存方向、`RCM-UT-014`で公開集合、`RCM-IT-003/004`でConsumer閉包を確認する。 |
 | `createRealitySymbolGraph`、`validateRealitySymbolManifest`、`discoverRealitySymbols`、`realitySymbolKinds`とSymbol型 | `src/index.ts`の該当Symbol | Checker、Semantic Coverage、Reality Audit。意味GraphとSymbol Graphを混同せず、旧七導出キーと実観測の不足区分を保持する。 |
 | `fixQualityCandidate`、`integrateQualityGate`、`reenterQualityReview`と品質Gate型 | `src/index.ts`の該当Symbol | 品質・変更の判定利用側。`RCM-IT-011/RCM-UT-016`で共通結果とChecker結果を分離し、品質GateからRelease Authorityを生成しない。 |
-| `createFilesystemStoreRoot`、`resolveFilesystemStorePath`、`withFilesystemStoreLock`、`observeFilesystemStoreLockOwnerAbsence`、`recoverFilesystemStoreLock`とRoot／Lock型 | `src/index.ts`の該当Symbol | 各Store Owner。worker起動URLは同じstorage配下の実workerへ接続する。`RDL-IT-001/003/004`でRoot・排他・再入場・回収を、`RCM-IT-003/004`で移管後の利用側を確認する。Lock Fileだけを実排他の証拠にしない。 |
+| `createFilesystemStoreRoot`、`resolveFilesystemStorePath`、`withFilesystemStoreLock`とRoot型 | `src/index.ts`の該当Symbol | 各Store Owner。共通wx取得・Identity／Owner／Generation／File実体照合へ接続する。`RFD-IT-021`のStore境界とAI設定／AMのIT、共通LockのITで保持・残存停止・明示再入場を確認する。PID照会による自動回復公開入口は廃止。停止手順はRuntime Workflowに置く。 |
 | `createFilesystemRepositoryObservationPort`、`observeRealitySymbolRepository`とRepository観測型 | `src/index.ts`の該当Symbol | Checker、Semantic Coverage、Repository表示。`RFD-IT-012`でRoot外・link・regular file・観測不能とHandle終了を確認する。 |
 | Runtime DataのPath解決・観測・ready検査、CWD起点の二resolverと`resolveCrosRuntimeRoots` | `src/index.ts`の該当Symbol | Coordinator、Orchestrator、Execution Intelligence、CROS、試験入口。CWDは対象Rootそのものではなく、Version Control境界で確定する入力として維持する。CROS Rootを単体Repository書込み許可へ拡張しない。`RDL-IT-001/003/004`と`RFD-ST-003`へ対応する。 |
 | Runtime Dataの領域作成、temporary operationの作成・再入場・終了、`verifyTemporaryOperationEvidencePromotion`とReceipt／Capability型 | `src/index.ts`の該当Symbol | 署名準備、各Runtimeと試験入口。操作状態・世代・exact参照と正式Evidence昇格確認を保持する。`RDL-IT-001/003/004`で未解決保護と終了後条件を確認する。 |
@@ -700,6 +699,10 @@ Provider計画の分離時に、Coordinatorの共通入力防御を`plain-data/s
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 
 Checklist評価根拠: §9の公開集合・保存Owner・呼出し順と全ファイル対応により、Component、Interface、Data／StateおよびSequenceを具体化した。実装移管と実起動は未評価である。 §9.3で旧三領域の公開集合を既存Local Itemへ対応し、対象・反証・観測・終了後条件をQualityへ渡した。設計の対応を試験Passと扱っていない。
+
+## 保存処理の技術排他
+
+Topic／Meetingと一時Operationの技術排他は共通Lockを利用する。種別Root／Operation ID／改訂／世代／文書／根拠昇格／回復判断はDomainが所有し、Lock専用Record・PID不在による削除・自動再取得を持たない。再入場のstaging処置前に取得し、終端の資源・文書清掃と結果観測後まで保持する。一次失敗と解放不明、初期化残存は同時に保持し、清掃確認は必要な処置とLock解放の双方が成立した場合だけ返す。詳細な移管・反証対応は[変更記録§15](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)に記録する。
 
 ## Checklist
 

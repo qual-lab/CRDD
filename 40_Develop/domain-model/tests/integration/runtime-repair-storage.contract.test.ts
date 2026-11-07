@@ -739,19 +739,91 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         assert.ok(noOpCandidate);
         assert.ok(noOpCandidate.equals(next));
         const identityBefore = fs.lstatSync(stateFile, { bigint: true });
+        const lockDirectory = path.join(borrowed.repositoryRoot, ".crdd");
+        const lockPath = path.join(
+          lockDirectory,
+          `current-state.${borrowed.repositoryBinding}.lock`,
+        );
+        assert.equal(fs.lstatSync(lockDirectory).isDirectory(), true);
+        assert.equal(fs.lstatSync(lockDirectory).isSymbolicLink(), false);
+        assert.equal(fs.existsSync(lockPath), false);
+        const lockDescriptors = new Set<number>();
+        const open = fs.openSync;
+        const close = fs.closeSync;
+        const write = fs.writeFileSync;
+        const mkdir = fs.mkdirSync;
+        const remove = fs.rmSync;
+        let lockWrites = 0;
+        let lockRemovals = 0;
         let mutations = 0;
         const mutationHooks = [
-          "writeFileSync",
           "renameSync",
           "unlinkSync",
-          "mkdirSync",
-          "rmSync",
           "rmdirSync",
         ] as const;
+        const denied = () => {
+          mutations++;
+          throw new Error("no_op_must_not_write");
+        };
+        const opened = t.mock.method(
+          fs,
+          "openSync",
+          (target: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
+            const lockCreation = String(target) === lockPath && flags === "wx";
+            if (
+              !lockCreation &&
+              flags !== "r" &&
+              flags !== "rs" &&
+              flags !== "sr" &&
+              flags !== fs.constants.O_RDONLY
+            )
+              return denied();
+            const descriptor = open(target, flags, mode);
+            if (lockCreation) lockDescriptors.add(descriptor);
+            return descriptor;
+          },
+        );
+        const closed = t.mock.method(fs, "closeSync", (descriptor: number) => {
+          lockDescriptors.delete(descriptor);
+          return close(descriptor);
+        });
+        const written = t.mock.method(
+          fs,
+          "writeFileSync",
+          (
+            target: fs.PathOrFileDescriptor,
+            data: string | NodeJS.ArrayBufferView,
+            options?: fs.WriteFileOptions,
+          ) => {
+            if (typeof target !== "number" || !lockDescriptors.has(target))
+              return denied();
+            lockWrites++;
+            return write(target, data, options);
+          },
+        );
+        const created = t.mock.method(
+          fs,
+          "mkdirSync",
+          (
+            target: fs.PathLike,
+            options?: fs.MakeDirectoryOptions | fs.Mode,
+          ) => {
+            if (String(target) !== lockDirectory) return denied();
+            return mkdir(target, options);
+          },
+        );
+        const removed = t.mock.method(
+          fs,
+          "rmSync",
+          (target: fs.PathLike, options?: fs.RmOptions) => {
+            if (String(target) !== lockPath) return denied();
+            lockRemovals++;
+            return remove(target, options);
+          },
+        );
         const hooks = mutationHooks.map((name) =>
           t.mock.method(fs, name, () => {
-            mutations++;
-            throw new Error("no_op_must_not_write");
+            return denied();
           }),
         );
         try {
@@ -773,9 +845,19 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
               ?.snapshot.revision,
           );
           assert.equal(mutations, 0);
+          assert.ok(lockWrites > 0);
+          assert.ok(lockRemovals > 0);
         } finally {
           for (const hook of hooks.reverse()) hook.mock.restore();
+          removed.mock.restore();
+          created.mock.restore();
+          written.mock.restore();
+          closed.mock.restore();
+          opened.mock.restore();
         }
+        assert.equal(fs.existsSync(lockPath), false);
+        assert.equal(fs.existsSync(pending), false);
+        assert.equal(fs.existsSync(marker), false);
         const identityAfter = fs.lstatSync(stateFile, { bigint: true });
         assert.equal(identityAfter.ino, identityBefore.ino);
         assert.equal(identityAfter.mtimeNs, identityBefore.mtimeNs);
@@ -1163,16 +1245,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
           }
           return domain.readStableBoundedFileSnapshot(...args);
         },
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (
-          ...args: Parameters<
-            typeof kernel.acquireRuntimeOwnedCoordinatorStateKernelLock
-          >
+        acquireRuntimeStateLock: (
+          ...args: Parameters<typeof kernel.acquireRuntimeStateLock>
         ) => {
-          const lock = kernel.acquireRuntimeOwnedCoordinatorStateKernelLock(
-            ...args,
-          );
+          const lock = kernel.acquireRuntimeStateLock(...args);
           locks++;
-          if (lock && locks === 2) {
+          if (lock.status === "acquired" && locks === 2) {
             if (fault === "file_changed") {
               const previous = fs.lstatSync(historyFile, { bigint: true });
               const temporary = path.join(directory, "replacement.fixture");
@@ -1200,10 +1278,13 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
             if (fault === "release_unknown")
               return {
                 ...lock,
-                release: () => {
-                  assert.equal(lock.release(), true);
-                  hit++;
-                  return false;
+                lock: {
+                  ...lock.lock,
+                  release: () => {
+                    assert.equal(lock.lock.release(), true);
+                    hit++;
+                    return false;
+                  },
                 },
               };
           }
@@ -1559,13 +1640,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
         return source.replace(pattern, 'observed.status !== "completed"');
       },
       {
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (
-          ...args: Parameters<
-            typeof kernel.acquireRuntimeOwnedCoordinatorStateKernelLock
-          >
+        acquireRuntimeStateLock: (
+          ...args: Parameters<typeof kernel.acquireRuntimeStateLock>
         ) => {
           locks++;
-          return kernel.acquireRuntimeOwnedCoordinatorStateKernelLock(...args);
+          return kernel.acquireRuntimeStateLock(...args);
         },
       },
     );

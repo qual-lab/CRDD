@@ -9,6 +9,7 @@
  * @boundary 旧Owner Processの終了後の現在回復。専用モードの同期CLI終了は子孫tree／daemon queue終端の証明ではない。
  */
 
+import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -259,16 +260,15 @@ if (mode !== "recovery") {
     {
       namedExports: {
         ...locks,
-        acquireRuntimeOwnedLogicalProviderHomeKernelLock: (home: unknown) => {
-          const lease =
-            locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(home);
-          if (lease && afterHomeAcquire) {
+        acquireProviderHomeLock: (home: unknown, directory: string) => {
+          const lease = locks.acquireProviderHomeLock(home, directory);
+          if (lease.status === "acquired" && afterHomeAcquire) {
             const hook = afterHomeAcquire;
             afterHomeAcquire = null;
             try {
               hook();
             } catch (error) {
-              assert.equal(lease.release(), true);
+              assert.equal(lease.lock.release(), true);
               throw error;
             }
           }
@@ -1006,8 +1006,12 @@ if (mode !== "recovery") {
               true,
             );
           }
-          const available =
-            locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash);
+          const availableAcquisition = locks.acquireProviderHomeLock(
+            hash,
+            providerHomesDirectoryCandidate(),
+          );
+          assert.ok(availableAcquisition.status === "acquired");
+          const available = availableAcquisition.lock;
           assert.ok(available);
           assert.equal(available.release(), true);
           assert.deepEqual(captureCoordinatorFiles(), expectedFiles);
@@ -1031,8 +1035,9 @@ if (mode !== "recovery") {
       const snapshot = host.borrowOwnedHostRecoverySnapshot(management);
       const marker = fs.readFileSync(snapshot.hostPaths.marker);
       assert.equal(
-        locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash),
-        null,
+        locks.acquireProviderHomeLock(hash, providerHomesDirectoryCandidate())
+          .status,
+        "blocked",
       );
       assert.equal(
         owner.abandonRuntimeOwnedDockerRecovery({ ...capability }),
@@ -1055,8 +1060,12 @@ if (mode !== "recovery") {
         owner.prepareRuntimeOwnedDockerHostCleanup(capability),
         null,
       );
-      const reacquired =
-        locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash);
+      const reacquiredAcquisition = locks.acquireProviderHomeLock(
+        hash,
+        providerHomesDirectoryCandidate(),
+      );
+      assert.ok(reacquiredAcquisition.status === "acquired");
+      const reacquired = reacquiredAcquisition.lock;
       assert.ok(reacquired);
       assert.equal(reacquired.release(), true);
       const startsBeforeConflict = hostStarts;
@@ -1075,8 +1084,12 @@ if (mode !== "recovery") {
       assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
       assert.deepEqual(fs.readFileSync(statePath), before);
       assert.deepEqual(fs.readFileSync(snapshot.hostPaths.marker), marker);
-      const afterConflict =
-        locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash);
+      const afterConflictAcquisition = locks.acquireProviderHomeLock(
+        hash,
+        providerHomesDirectoryCandidate(),
+      );
+      assert.ok(afterConflictAcquisition.status === "acquired");
+      const afterConflict = afterConflictAcquisition.lock;
       assert.ok(afterConflict);
       assert.equal(afterConflict.release(), true);
       assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
@@ -1121,9 +1134,12 @@ if (mode !== "recovery") {
         assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
         assert.deepEqual(fs.readFileSync(statePath), before);
         assert.deepEqual(fs.readFileSync(snapshot.hostPaths.marker), marker);
-        const released = locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+        const releasedAcquisition = locks.acquireProviderHomeLock(
           rootPlan.stableLogicalHomeBindingHash,
+          providerHomesDirectoryCandidate(),
         );
+        assert.ok(releasedAcquisition.status === "acquired");
+        const released = releasedAcquisition.lock;
         assert.ok(released);
         assert.equal(released.release(), true);
         assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
@@ -1201,10 +1217,12 @@ if (mode !== "recovery") {
           fs.readFileSync(currentPaths.marker),
           authHostBefore.marker,
         );
-        const lease =
-          locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash);
-        assert.ok(lease);
-        assert.equal(lease.release(), true);
+        const lease = locks.acquireProviderHomeLock(
+          hash,
+          providerHomesDirectoryCandidate(),
+        );
+        assert.ok(lease.status === "acquired");
+        assert.equal(lease.lock.release(), true);
         assert.equal(
           fs.existsSync(
             path.join(path.dirname(statePath), "state.pending.json"),
@@ -1273,7 +1291,7 @@ if (mode !== "recovery") {
     "crdd-platform-access.exe",
   );
   const supervisor = fileURLToPath(
-    new URL("../../../platform-access/src/lock/supervisor.ts", import.meta.url),
+    new URL("../../../platform-access/src/supervisor.ts", import.meta.url),
   );
   const generation = createHash("sha256")
     .update("crdd-host-operation-generation-v1\0")

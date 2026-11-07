@@ -272,12 +272,15 @@ export function updateCoordinatorHistoryPilot(
   recordJson: string | null,
   now = Date.now(),
 ) {
-  const owner = acquireCoordinatorStorageOwner(workingDirectory);
-  if (!owner)
+  const acquired = acquireCoordinatorStorageOwner(workingDirectory);
+  if (acquired.status !== "completed")
     return {
       status: "blocked" as const,
-      reason: "coordinator_history_owner_unavailable",
+      reason: acquired.reason,
+      manualRecoveryRequired: acquired.manualRecoveryRequired,
+      recoveryId: acquired.recoveryId,
     };
+  const owner = acquired.value;
   const result = updateCoordinatorHistoryOwned(owner, recordJson, now);
   return owner.release()
     ? result

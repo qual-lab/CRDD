@@ -189,7 +189,7 @@ Claudeの非0終了分類は既存`ERB-UT-032`と`ERB-IT-002`で確認する。�
 
 B3〜B5の旧Docker構成一致検査は、DIのtests/support/execution-plan.tsと旧plan試験に有限Oracleとして維持する。これは旧用途・順序・全argv差の履歴上の反証であり、現在のRequest接続の証明にはしない。現行のRequest正本化・DI実Compiler接続の義務は本書の薄型化・Request接続の段落に従う。助言のProvider Adapterと結果中継は一つへ統合し、既存の四つの一回実行／取消／cleanup不明／例外Oracleを統合後の受付から確認する。Profile・Catalog・Task／通信Hash・Repository非共有・元Host参照を維持し、編集Taskや追加Reviewerへ変換しない。局所成功を実AI・実Docker・正式全項目Passへ読み替えない。
 
-B2の排他移管では、`ERB-IT-003`のWorker／Supervisor故障・ready往復・解放・終了観測をPA内の`lock-lifecycle`結合試験へ移す。Coordinator側は用途別対象・世代・namespaceの検査と、本番Root APIを使った実排他・取得順・回復判断を維持する。入力拒否と技術lifecycleを別Oracleとして対応付け、試験用再exportや公開APIの追加で私有依存を迂回しない。項目の正式結果と歴史Evidenceは移管だけでは変更しない。
+B2の排他は、人間が採用した単一Host・協調wx方式へ切り替える。旧Worker／Supervisorのready往復・喪失通知・子終了専用試験は撤去対象であり、現在の保証として維持しない。`ERB-IT-003`は共通Lockの実Process競合、正常解放、Crash残存、元世代照合、停止下の明示再入場へ接続する。Coordinator側は共有Home／Runtime状態のScope、Host清掃前の保持確認と未確認結果の保全を検証する。項目の正式結果・歴史Evidenceを、Source移管や試験削減だけでPassへ変更しない。
 
 
 2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
@@ -218,7 +218,7 @@ Hostから渡すSeccompはImageの外なので、実行時の実体・容量・H
 
 合成編集試験器の終了処置も`ERB-IT-021`の有限反例で確認する。受付前失敗・受付応答不明では別ID取消／Task再送0、受付後の観測失敗では同じIDの取消一回と結果受領後のServer closeを観測する。取消成功・未確認・例外・別ID・実行中返却・close失敗を分け、最初の通信失敗を保持する。通信診断は応答前／本文受信中、期限発火と清掃abort、既知／未知codeを区別し、秘密本文を出さない。有限代役の成功を実Provider再試行、今回残存の回収成立又は公開取消HTTPの実証へ拡張しない。
 
-外部AIなしの有限Ownerと公開HTTPで、一Provider一回・固定入力・明示同意と引数拒否を確認する。標準Network ID差と構成差、既存Container／利用者Network変更、未知追加、重複、不正型、取得・parse・容量等の観測不能、cleanup不明を反証する。一次失敗＋close失敗を分離し、timeout後の完了競合でも成功にしない。比較成立だけでProvider結果・個別回収・全E2E成立へ換算しない。保存Lock Workerのstdio分離は`RFD-UT-006`と既存`ERB-IT-002`で、親listener不増に加え取得・競合・解放・error／exitの保持を確認する。
+外部AIなしの有限Ownerと公開HTTPで、一Provider一回・固定入力・明示同意と引数拒否を確認する。標準Network ID差と構成差、既存Container／利用者Network変更、未知追加、重複、不正型、取得・parse・容量等の観測不能、cleanup不明を反証する。一次失敗＋close失敗を分離し、timeout後の完了競合でも成功にしない。比較成立だけでProvider結果・個別回収・全E2E成立へ換算しない。旧Lock Workerは撤去し、その子起動・listener・exit専用契約を現行保証とは扱わない。汎用StoreはWorkerを撤去し、`RFD-IT-021`の実Filesystem境界と共通Lock ITのwx・残存停止・明示再入場へ接続する。
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
@@ -242,7 +242,7 @@ Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一
 
 Native検証Toolの通常構築は`native-tool-process.contract.test.ts`で、`ERB-IT-001`／`ERB-IT-002`の局所断面として確認する。三Toolの四Cargo helperの実本文から固定argv／optionsを照合し、三Toolのartifact選択は正常一件・0件・2件・nonfile・link・nlink差・realpath差を区別する。実spawn〜close断面は仮子・仮timerで構成を照合し、error／exitだけで未完了、close後の完了・timer解除・Signal listener解除を確認する。実Cargo／Native／OS資源を生成せず、実Build、Tool全体、実Native終了・回収、Docker・Provider・E2Eの成立は主張しない。旧Source graphの任意改変拒否を再実装しない。
 
-旧配布試験から分離した`typescript-child-entrypoints.contract.test.ts`は、`ERB-IT-002`のうち子Process／Workerの生成前入力拒否だけを確認する。実Wrapperへ不明role、kind違い、shell、evalの六反例を渡し固定理由を照合する。開始後の搬送、取消、handle回収や実Native／Dockerの成立へ拡張しない。DIのPackage境界試験は必要な実Root APIに加えて内部資源回収・子生成Primitive五件の非公開を確認する。
+共通Lockの旧`typescript-child-entrypoints.contract.test.ts`は、固定Worker入口とともに撤去する。共通Lockは子Processを生成しない。非公開Primitive検査は、現存する公開APIと実Callerを正本に追従する。削除した入口の拒否試験を新方式の実行・取消・回収の保証へ流用しない。
 
 隔離Packageの依存配置は`package-boundary.contract.test.ts`で現行src全数と同じ判定による反例を確認する。既知Node builtin、同Package src、Platform AccessのRoot公開入口だけを許可し、type-only／再export／literal dynamic importの上位依存・PA内部参照・未知moduleを拒否する。非literal dynamicは未検査のまま通さず拒否する。この限定静的検査と実Rootの必要API存在は`ERB-IT-004`の前提配置だけであり、完全なTypeScript構文解析、敵対Sourceの安全性、実Effectの拒否や隔離成立は主張しない。
 
@@ -443,6 +443,8 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 | [ARCH-000015](../../../06_Architecture/Definitions/ARCH-000015/architecture_definition.md) | `arch-000015.qa-000006` | Architecture Definition／詳細設計（結果と公開境界） | 曖昧な構造化結果を拒否し、生Provider出力を公開しない。共通結果判定とProvider固有解析を分ける | UT | `ERB-UT-032` |
 
 ### Architecture詳細設計入力
+
+[lock](../../../06_Architecture/Details/lock/01_Architecture.md)の`lock.cooperative-file-lifecycle`を既存`ERB-IT-003`へ接続する。実Processの競合、正常解放、Crash残存、元世代・File／親実体、初期化・close不明、停止下の明示再入場を確認し、自動回復・PIDによる奪取を期待しない。Scopeと保持区間・保存CASは各利用側の既存項目で確認する。共通Primitiveの成功から全Ownerの業務完成・実運用切替・全体QAを推定しない。新Local Itemは追加しない。
 
 [Executor](../../../06_Architecture/Details/executor/01_Architecture.md)の単段実行・同期証拠・取消／終了待ちを、既存`ERB-IT-002`／`ERB-IT-004`の移管後反例へ接続する。新しいLocal Itemを増やさず、非AIの固定callback・元Owner照合を実Docker／実Provider成功に読み替えない。
 
@@ -728,9 +730,11 @@ Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護
 
 `windows::terminal::tests::terminal_generation_exclusion_and_release`は、`ERB-IT-001`の実Windows排他境界を限定確認する。freshな自己生成UUIDだけを使い、同世代の重複取得拒否、別世代の独立取得、同handleの選択利用者／SYSTEM二ACE保護と解放後の再取得、全所有handleの明示closeを観測する。Filesystem、実残存、DockerとProviderへ接続しない。既存Node／Supervisorとの相互運用は次の専用Caseへ分離する。当初Processの終了、旧領域の非使用、最終処置の連続排他、署名Runtimeと回復経路全体は別の未成立条件であり、この局所確認からLocal Item全体やQuality集計を完了にしない。
 
-`windows::terminal::tests::terminal_generation_node_interoperation`は、`ERB-IT-001`のNativeと同期Node Worker／非同期Supervisorの相互運用を確認する。Nodeの既存production Lockを[専用fixture](../../../40_Develop/coordinator/tests/fixtures/host-terminal-generation-worker.ts)から呼び、両経路でNative保持中のNode拒否、Native解放後のNode取得・解放、Node保持中のNative拒否、Nodeの明示解放・実Process終了後のNative再取得を順に観測する。Supervisorは本番の取得関数・往復確認・exit確認付き解放を使い、独自の代替Lockへ切り替えない。固定Node実行物のHash、通常のfile起動、最小環境、fresh UUIDと固定応答を使い、未知応答・終了失敗・解放不明を成功へ補完しない。fixtureはNative試験の支援資源であり、Node runnerの独立した検証項目へ数えない。
+旧`windows::terminal::tests::terminal_generation_node_interoperation`とNode／Supervisor専用fixtureの相互運用は、wx移行後の完成条件ではない。旧方式と新方式は相互排他しないため、実利用の切替は全利用者停止下に限定する。現在のHost世代排他はCoordinatorのwx実Process試験で確認し、Native Mutexとの相互運用を成立済みと表示しない。過去の検証結果は当時の方式の履歴として保持する。
 
-この試験はSupervisorの異常終了・IPC故障、旧版consumerの再入場抑止、親Process喪失、実close故障、OS保存namespace、旧三件の非使用、最終処置の連続保持および公開Recoveryを検証したことにはしない。Local Item数・全体の観測済み件数・停止Gateは維持する。
+wx切替後は、競合・初期化残存・descriptor終了不明の利用側搬送、marker清掃での元理由保持、同Scopeの再取得拒否を確認する。取得失敗を正常解放や業務開始へ変えず、元取得を含む全関係Process停止下の明示回復だけを許す。全利用側回帰は確認継続中であり、3 Source化・局所試験の成功を、旧Process停止、過去保持物の非使用、全Scopeの停止下回復、公開RecoveryまたはLocal Item全体のPassへ昇格しない。現状は[変更トレース§14](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#14-残るos排他のwx切替と3-source化--2026-11-07検証継続中)へ記録する。
+
+残るFile排他の共通化は[変更トレース§15](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)へ接続する。一時Operationは取得前の業務処置0、清掃終了までの保持、staging清掃成功とLock解放不明の合成、初期化残存の元参照を既存RDL-IT-004で反証する。旧Lock専用hardlink工程の試験を残す代わりに共通Lockの故障・Crash残存とOwner結合を確認する。PAの固定説明値を照合する試験の撤去を、実環境構築・Native保護・終了確認の証明へ読み替えない。正式品質項目数と全体評価は変更しない。
 
 `windows::terminal::tests::terminal_disposition_fixture`は、`ERB-IT-001`／`ERB-IT-002`のOS意味を実測するcfg(test)の限定試験である。固定Repository-localの自己生成親・Root・六child・markerだけを使い、親guardとfreshな同世代排他を保持して、通常`FileDispositionInfo`の要求受理、対象handle明示close、直接不存在を区別する。非空childの拒否と、互換readerが残るmarkerを不存在にしない反例を含む。Root不存在→marker不存在→世代解放の順を確認し、成功時だけ自作の空親を非再帰清掃する。途中失敗では取得handleの終了を試し、自作物を保持する。通常cargo testからはignoredとし、固定cwd・run指定・fresh不存在を確認したOwnerだけが実行する。
 

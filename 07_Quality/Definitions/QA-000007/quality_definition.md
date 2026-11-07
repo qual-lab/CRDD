@@ -40,7 +40,7 @@ clean／process filterは実Gitの発火対照を置き、新経路では設定�
 
 本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 
-`RFD-UT-006`の保存排他構築は既存root-and-lock UTで実private本文へ接続する。固定Worker URL、optionsの単一workerData、freezeされたendpoint／共有状態、Rootと相対Lock Pathの順序付きSHA-256導出、取得値1／-1／-2とrelease一回を局所代役で確認する。terminate要求を実Worker終了と同一視せず、実Worker・OS排他・解放不明後の再入場は既存の実試験が所有する。旧署名ASTの任意Source改変拒否は再実装しない。
+`RFD-IT-021`の汎用Store実Filesystem境界は共通wx処理へ接続し、`tests/integration/filesystem-store-lock.contract.test.ts`でRoot／Path境界、同じScopeのReader／Writer、元例外と解放不明の分離、未知の残存停止、PIDベース回復公開入口の不存在を確認する。旧Worker構築とオンライン回復の期待は、採用したA案の適用範囲では現行保証としない。共通LockのITで正規Process間の競合・通常解放・Crash後のFile残存・有限試験の全利用者停止後の明示再入場を観測し、AM／AI設定のITで利用側を結合する。wxは作成を排他するが、所有照合と削除を一体の原子操作にはしない。観測した所有不一致・不明は保全し、非協調Processの最終照合後置換は保証しない。全Consumer・清掃・Recoveryの協調と単一Host・ローカルFilesystemが前提である。旧署名ASTの任意Source改変拒否は再実装しない。CurrentStateも共通wxへ切り替え、同じScopeの競合・Crash残存・停止下再入場を実Node子で確認する。広い保存回帰と初期化失敗の利用側搬送は確認継続中であり、局所2件成功を全保存契約のPassへ昇格しない。
 
 成果物種別: Quality定義
 Quality ID: `QA-000007`

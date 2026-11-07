@@ -40,7 +40,13 @@ test("有限代役のSnapshotは初期・unknown・未発行・Receiptを区別�
     assert.ok(resource);
     const id = "a".repeat(64);
     const runtime: IsolationRuntime = {
-      acquireHomeLease: () => null,
+      acquireHomeLease: () => ({
+        status: "blocked",
+        reason: "lock_exists",
+        reference: null,
+        cleanupConfirmed: true,
+        descriptorClosed: true,
+      }),
       cleanupOwnedResources: async () => {
         throw Error("unused");
       },

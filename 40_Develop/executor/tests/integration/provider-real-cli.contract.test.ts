@@ -224,7 +224,8 @@ test("単段CLIの計画・Effect前拒否を確認する", () => {
     for(const name of ['spawn','spawnSync','fork','exec','execSync','execFile','execFileSync'])cp[name]=()=>{throw Error('external_process_forbidden');};syncBuiltinESMExports();
     const platform=await import(${JSON.stringify(platform)});let calls=0;
     const forbidden=()=>{calls++;throw Error('platform_forbidden');};
-    mock.module(${JSON.stringify(platform)},{namedExports:{...platform,observeWindowsProviderHome:forbidden,acquireNamedPipeKernelLock:forbidden}});
+    mock.module(${JSON.stringify(platform)},{namedExports:{...platform,observeWindowsProviderHome:forbidden,}});
+    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:forbidden}});
     const api=await import(${JSON.stringify(entry)});
     for(const provider of ['codex','claude']){const spec=api.describeStandaloneProviderTrial(provider);assert.equal(spec.model,provider==='codex'?'gpt-6.1-sol':'claude-opus-5-5');assert.equal(spec.effort,'medium');assert.equal(spec.maximumProviderRequests,1);assert.equal(spec.repositoryMounted,false);assert.equal(spec.workspaceMounted,false);assert.equal(spec.toolsAllowed,false);assert.equal(spec.sessionPersistenceAllowed,false);assert.match(spec.providerImageDigest,/^sha256:[a-f0-9]{64}$/);}
     assert.throws(()=>api.describeStandaloneProviderTrial('other'));
@@ -330,7 +331,8 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     process.env.LOCALAPPDATA='C:/fixture'.replaceAll('/',String.fromCharCode(92));
     mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
       observeWindowsProviderHome:provider=>({status:'candidate',provider,processEffectIssued:true,helperExitConfirmed:true,artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:'b'.repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)}),
-      acquireNamedPipeKernelLock:()=>{live=true;return {assertLive:()=>live,release:()=>{releases++;live=false;return true;}};}
+      }});
+    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;live=false;return true;}}};}
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
@@ -413,7 +415,8 @@ test("単段CLI子は製品Executorの排他・再観測・取消・保持を確
  }});
  mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
    observeWindowsProviderHome:provider=>{observations++;if(mode==='unexpected_error')throw Error('private');if(observations===2)assert.equal(live,true);return {status:mode==='home_unknown'?'blocked':'candidate',provider,processEffectIssued:true,helperExitConfirmed:mode!=='home_unknown'&&!(observations===2&&mode==='helper_unknown'),artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:(observations===2&&mode==='changed'?'e':'b').repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},
-   acquireNamedPipeKernelLock:()=>{acquisitions++;if(mode==='acquire_unknown')return null;live=true;return {assertLive:()=>live,release:()=>{releases++;if(mode==='release_unknown')return false;live=false;return true;}};}
+   }});
+    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{acquisitions++;if(mode==='acquire_unknown')return {status:'blocked',reason:'lock_exists',reference:null,cleanupConfirmed:true,descriptorClosed:true};live=true;return {status:'acquired',lock:{assertLive:()=>live,release:()=>{releases++;if(mode==='release_unknown')return false;live=false;return true;}}};}
  }});
  f.waitGate=async argv=>{if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)==='2'.repeat(64)){if(mode==='cancel')controller.abort();await new Promise(resolve=>setImmediate(resolve));}};
  f.observationFilter=(argv,result)=>{if(argv[0]==='start'&&argv.includes('--attach')&&argv.at(-1)==='2'.repeat(64)){
@@ -486,7 +489,8 @@ test("単段CLI親は端末入力なしでIPC・終了・清掃を分離する",
     Object.defineProperty(process.stdin,'isTTY',{value:false,configurable:true});Object.defineProperty(process.stdout,'isTTY',{value:false,configurable:true});
     mock.method(process.stdout,'write',function(value,...rest){const text=String(value);assert.equal(/この端末に|入力してください/.test(text),false);if(text.startsWith('{'))output.push(JSON.parse(text));const callback=rest.find(v=>typeof v==='function');if(callback)callback(null);return true;});
     mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
-      observeWindowsProviderHome:()=>{throw Error('native_forbidden');},acquireNamedPipeKernelLock:()=>{throw Error('lock_forbidden');}
+      observeWindowsProviderHome:()=>{throw Error('native_forbidden');},}});
+    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock:()=>{throw Error('lock_forbidden');}
     }});
     const repository=fileURLToPath(new URL('../../../',${JSON.stringify(url("../../scripts/verify-provider-real.ts"))}));let root=null;
     const actualTimeout=globalThis.setTimeout;let timeoutDelay=null;

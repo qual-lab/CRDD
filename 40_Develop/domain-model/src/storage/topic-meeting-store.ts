@@ -28,6 +28,7 @@ import type {
   TopicMeetingRepository,
 } from "../activity/types.ts";
 import path from "node:path";
+import { acquireLock } from "../../../lock/src/index.ts";
 
 import { parseTopicMarkdown } from "../topic/markdown.ts";
 import { parseMeetingMarkdown } from "../meeting/markdown.ts";
@@ -309,18 +310,16 @@ export function createTopicMeetingRepository(
     if (!observeDirectoryChain(target.rootDirectory, true))
       throw new Error("project_operation_record_directory_invalid");
     const lockPath = path.join(target.rootDirectory, `.${id}.lock`);
-    let descriptor: number;
-    try {
-      descriptor = openSync(lockPath, "wx");
-    } catch (error) {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        error.code === "EEXIST"
-      )
-        return null;
-      throw error;
+    const acquired = acquireLock({
+      directory: target.rootDirectory,
+      name: path.basename(lockPath),
+      identity: `project-record:${kind}:${id}`,
+    });
+    if (acquired.status === "blocked") {
+      if (acquired.reason === "lock_exists") return null;
+      throw new Error("project_operation_record_lock_acquisition_failed", {
+        cause: acquired,
+      });
     }
     let outcome: { failed: false; value: T } | { failed: true; error: unknown };
     try {
@@ -329,18 +328,10 @@ export function createTopicMeetingRepository(
       outcome = { failed: true, error };
     }
     const cleanupFailures: unknown[] = [];
-    try {
-      closeSync(descriptor);
-    } catch (error) {
-      cleanupFailures.push(error);
-    }
-    try {
-      if (!observeDirectoryChain(target.rootDirectory))
-        throw new Error("project_operation_record_directory_invalid");
-      unlinkSync(lockPath);
-    } catch (error) {
-      cleanupFailures.push(error);
-    }
+    if (!acquired.lock.release())
+      cleanupFailures.push(
+        new Error("project_operation_record_lock_release_failed"),
+      );
     if (cleanupFailures.length > 0)
       throw new AggregateError(
         cleanupFailures,

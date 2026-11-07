@@ -10,7 +10,6 @@
 
 import assert from "node:assert/strict";
 import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -27,78 +26,41 @@ import type { DockerIsolationCommand } from "../support/execution-plan.ts";
 import { planDockerIsolationCommands } from "../support/execution-plan.ts";
 
 /**
- * 移管したHome排他の技術Identityと元Handle搬送を反証する。
- * @responsibility 既存の排他名前空間を保ち、不正値・未対応OSでNativeを呼ばない。
+ * Home排他の同一所在・Identityと元Handleを反証する。
  * @trace ERB-IT-004
- * @precondition 実宣言と有限Native代役だけを使う。
- * @stimulus Hash境界、Windows以外、取得不能、取得例外を渡す。
- * @observation Native呼出し回数・exact Pipe名・元Lease参照。
- * @oracle 元Hash導出を保持し、nullを取得済みに変換しない。
- * @cleanup N/A: 実OS排他・子Process・Dockerを使わない。
+ * @boundary Sourceと有限依存のみ。実Home・Dockerは操作しない。
  */
-test("Home技術排他は既存namespaceと元Leaseを維持し不正入力でNativeを呼ばない", () => {
+test("Home技術排他は共通wx Requestと元Leaseを使用する", () => {
   const source = fs.readFileSync(
     new URL("../support/execution.ts", import.meta.url),
     "utf8",
   );
   const declaration = sourceDeclaration(source, "acquireHomeLease");
   let calls = 0;
-  let pipe = "";
-  let released = 0;
-  const lease = Object.freeze({
-    release: () => {
-      released++;
-      return true;
+  const lease = { release: () => true };
+  const home = path.resolve("synthetic", "ProviderHomes", "claude");
+  const acquire = runInNewContext(declaration + "\nacquireHomeLease", {
+    path,
+    acquireLock: (request: object) => {
+      calls++;
+      assert.deepEqual(JSON.parse(JSON.stringify(request)), {
+        directory: path.dirname(home),
+        name: `provider-home.${"a".repeat(64)}.lock`,
+        identity: `provider-home:${"a".repeat(64)}`,
+      });
+      return { status: "acquired", lock: lease };
     },
-  });
-  const bind = (platform: string, native: (name: string) => object | null) =>
-    runInNewContext(declaration + "\nacquireHomeLease", {
-      createHash,
-      process: { platform },
-      acquireNamedPipeKernelLock: native,
-    }) as (value: unknown) => typeof lease | null;
-  const acquire = bind("win32", (name) => {
-    calls++;
-    pipe = name;
-    return lease;
-  });
-  for (const value of [
-    null,
-    undefined,
-    {},
-    "a".repeat(63),
-    "a".repeat(65),
-    "A".repeat(64),
-    "g".repeat(64),
-  ])
-    assert.equal(acquire(value), null);
+  }) as (
+    hash: unknown,
+    home: string,
+  ) => import("../../../lock/src/index.ts").LockResult<typeof lease>;
+  for (const value of [null, undefined, {}, "a".repeat(63), "A".repeat(64)])
+    assert.equal(acquire(value, home).status, "blocked");
   assert.equal(calls, 0);
-  const hash = "a".repeat(64);
-  assert.equal(acquire(hash), lease);
+  const result = acquire("a".repeat(64), home);
+  assert.ok(result.status === "acquired");
+  assert.equal(result.lock, lease);
   assert.equal(calls, 1);
-  const identity = createHash("sha256")
-    .update("crdd-logical-provider-home-kernel-lock-v1\0")
-    .update(hash)
-    .digest("hex")
-    .slice(0, 32);
-  assert.equal(pipe, `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`);
-  assert.equal(lease.release(), true);
-  assert.equal(released, 1);
-  assert.equal(
-    bind("linux", () => {
-      throw Error("unexpected_native");
-    })(hash),
-    null,
-  );
-  assert.equal(bind("win32", () => null)(hash), null);
-  const failure = Error("synthetic_acquire_failure");
-  assert.throws(
-    () =>
-      bind("win32", () => {
-        throw failure;
-      })(hash),
-    (error) => error === failure,
-  );
 });
 
 /**

@@ -5,6 +5,8 @@
  * @trace ARCH-000008
  */
 
+import type { LockResult } from "../../../lock/src/index.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +54,7 @@ import {
   borrowRuntimeOwnedDevelopmentNativeObservation,
   inspectRuntimeOwnedDevelopmentOperationContext,
 } from "./diagnostics.ts";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";
+import { acquireProviderHomeLock } from "./kernel-lock.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
   verifyOwnedOperationManagementCapability,
@@ -3778,17 +3780,17 @@ function protectedRootBlocked(
  * @responsibility root Path 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
  * @input 既存Host環境だけを使用する。
- * @returns rootPathCandidateの計算結果を返す。
- * @precondition 「kind: "runtime_state"」がrootPathCandidateの入力契約を満たす。
- * @postcondition rootPathCandidateの責務を完了した結果だけを返す。
- * @effect rootPathCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: rootPathCandidateは独自の失敗分岐を所有しない。
- * @invariant rootPathCandidateは宣言した境界以外へEffectを拡張しない。
+ * @returns runtimeStateDirectoryCandidateの計算結果を返す。
+ * @precondition 「kind: "runtime_state"」がruntimeStateDirectoryCandidateの入力契約を満たす。
+ * @postcondition runtimeStateDirectoryCandidateの責務を完了した結果だけを返す。
+ * @effect runtimeStateDirectoryCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: runtimeStateDirectoryCandidateは独自の失敗分岐を所有しない。
+ * @invariant runtimeStateDirectoryCandidateは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security rootPathCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: rootPathCandidateは共有非同期状態を持たない同期処理である。
+ * @security runtimeStateDirectoryCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: runtimeStateDirectoryCandidateは共有非同期状態を持たない同期処理である。
  */
-function rootPathCandidate() {
+export function runtimeStateDirectoryCandidate() {
   const localAppData = process.env.LOCALAPPDATA;
   if (
     !isSupportedWindowsAbsolutePathCandidate(localAppData) ||
@@ -3830,7 +3832,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     return protectedRootBlocked(
       "runtime_state_windows_adapter_platform_unsupported",
     );
-  const rootPath = rootPathCandidate();
+  const rootPath = runtimeStateDirectoryCandidate();
   if (!rootPath)
     return protectedRootBlocked("runtime_state_windows_adapter_root_invalid");
   const native = observeWindowsRuntimeState(
@@ -6212,42 +6214,23 @@ const mountSourceCapabilities = new WeakMap<
   }>
 >();
 
-/**
- * runtime 所有 Provider Home Mount Source 候補を決定する。
- *
- * @responsibility runtime 所有 Provider Home Mount Source 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000010
- * @input provider: unknown
- * @returns runtimeOwnedProviderHomeMountSourceCandidateの計算結果を返す。
- * @precondition 「provider: unknown」がruntimeOwnedProviderHomeMountSourceCandidateの入力契約を満たす。
- * @postcondition runtimeOwnedProviderHomeMountSourceCandidateの責務を完了した結果だけを返す。
- * @effect runtimeOwnedProviderHomeMountSourceCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: runtimeOwnedProviderHomeMountSourceCandidateは独自の失敗分岐を所有しない。
- * @invariant runtimeOwnedProviderHomeMountSourceCandidateは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security runtimeOwnedProviderHomeMountSourceCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: runtimeOwnedProviderHomeMountSourceCandidateは共有非同期状態を持たない同期処理である。
- */
-function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
-  if (provider !== "codex" && provider !== "claude") return null;
+/** 上位の既存設定から共有Homeの親所在を求める。作成・権限付与はしない。 */
+export function providerHomesDirectoryCandidate(): string | null {
   const localAppData = process.env.LOCALAPPDATA;
   if (
     !isSupportedWindowsAbsolutePathCandidate(localAppData) ||
     path.win32.normalize(localAppData) !== localAppData
-  ) {
+  )
     return null;
-  }
-  const sourcePath = path.win32.join(
-    localAppData,
-    "Qual-Lab",
-    "CRDD",
-    "ProviderHomes",
-    provider,
-  );
-  return isSupportedWindowsAbsolutePathCandidate(sourcePath) &&
-    !sourcePath.includes(",")
-    ? sourcePath
-    : null;
+  return path.win32.join(localAppData, ...PROVIDER_HOME_ROOT_SEGMENTS);
+}
+
+/** 同じ設定の共有Home候補。実体・保護の確認は既存の観測Ownerが行う。 */
+function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
+  if (provider !== "codex" && provider !== "claude") return null;
+  const root = providerHomesDirectoryCandidate();
+  const source = root ? path.win32.join(root, provider) : null;
+  return source && !source.includes(",") ? source : null;
 }
 
 /**
@@ -7827,7 +7810,8 @@ type Dependencies = Readonly<{
   ) => IsolationExecution;
   acquireProviderHomeLock: (
     identityHash: string,
-  ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
+    directory: string,
+  ) => LockResult<Readonly<{ assertLive(): boolean; release(): boolean }>>;
   beginRecovery: (
     record: AuthenticationRecoveryRecord,
   ) =>
@@ -8426,7 +8410,7 @@ export function createProviderAuthenticationDependencies(): Dependencies {
     createManagementDirectory: createAuthenticationManagementDirectory,
     removeManagementDirectory: removeAuthenticationManagementDirectory,
     cleanupAuthentication: cleanupResources,
-    acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+    acquireProviderHomeLock: acquireProviderHomeLock,
     beginRecovery: beginProviderAuthenticationRecovery,
     setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
     completeRecovery: settleProviderAuthenticationRecovery,
@@ -8733,16 +8717,29 @@ export async function authenticateProvider(
       cleanupConfirmed: true,
       providerEffectIssued: false,
     });
-  const providerHomeLock = activeDependencies.acquireProviderHomeLock(
+  const acquisition = activeDependencies.acquireProviderHomeLock(
     stableLogicalHomeBindingHash,
+    path.dirname(providerHomeSourcePath),
   );
-  if (!providerHomeLock)
+  if (acquisition.status !== "acquired") {
+    if (!acquisition.descriptorClosed)
+      poisonRuntimeProcessAfterCleanupUnknown();
+    const retained =
+      acquisition.reference !== null || !acquisition.cleanupConfirmed;
     return Object.freeze({
       status: "blocked",
-      reason: "provider_authentication_provider_home_active_or_unknown",
-      cleanupConfirmed: true,
+      reason: !acquisition.descriptorClosed
+        ? "provider_authentication_home_lock_descriptor_close_unconfirmed"
+        : acquisition.reason === "lock_initialization_failed"
+          ? "provider_authentication_home_lock_initialization_failed"
+          : "provider_authentication_provider_home_active_or_unknown",
+      cleanupConfirmed: acquisition.cleanupConfirmed,
+      manualRecoveryRequired: retained,
+      processRestartRequired: !acquisition.descriptorClosed,
       providerEffectIssued: false,
     });
+  }
+  const providerHomeLock = acquisition.lock;
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
   let plan: RecordProjection<"authentication"> | null = null;
   let recovery: AuthenticationRecoveryRecord | null = null;

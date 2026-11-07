@@ -20,6 +20,7 @@ import {
   bytes,
   managementFixture,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
 
 const unavailable = {
@@ -202,6 +203,7 @@ test("読取りや清掃やLock解放の不明を無効ユーザーとして返�
     );
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.equal(
     readUserStatus(f.root, f.tokens.administrator, userId).status,

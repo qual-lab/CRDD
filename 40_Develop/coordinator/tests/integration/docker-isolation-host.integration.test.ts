@@ -1001,8 +1001,12 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
   const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
   const dependencies = createProviderAuthenticationDependencies();
-  const lock = dependencies.acquireProviderHomeLock(hash);
-  assert.ok(lock);
+  const acquisition = dependencies.acquireProviderHomeLock(
+    hash,
+    path.dirname(home),
+  );
+  assert.ok(acquisition.status === "acquired");
+  const lock = acquisition.lock;
   let complete = false;
   let released = false;
   try {

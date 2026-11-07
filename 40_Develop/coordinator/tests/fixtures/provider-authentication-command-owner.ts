@@ -5,6 +5,7 @@
  * @level IT
  * @scope 実記録・Kernel Lock、有限CLI／Process。実Docker・AIは使わない。
  */
+import type { Lock } from "../../../lock/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import readline from "node:readline";
@@ -13,7 +14,7 @@ import {
   createAuthenticationFixture,
   prepareAuthenticationProjection,
 } from "../support/authentication.ts";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
+import { acquireProviderHomeLock } from "../../src/execution/kernel-lock.ts";
 import {
   authenticateProvider,
   beginProviderAuthenticationRecovery,
@@ -53,8 +54,7 @@ const f = await createAuthenticationFixture(
 );
 const controls = readline.createInterface({ input: process.stdin });
 const input = controls[Symbol.asyncIterator]();
-let held: ReturnType<typeof acquireRuntimeOwnedLogicalProviderHomeKernelLock> =
-  null;
+let held: Lock | null = null;
 let waiting = false,
   receiptCalls = 0,
   recoveryCalls = 0;
@@ -86,9 +86,10 @@ f.f.waitGate = async (argv) => {
 const result = await authenticateProvider("claude", "login", home, hash, {
   ...f.dependencies,
   randomHex: () => token,
-  acquireProviderHomeLock: (value) => {
-    held = acquireRuntimeOwnedLogicalProviderHomeKernelLock(value);
-    return held;
+  acquireProviderHomeLock: (value, directory) => {
+    const result = acquireProviderHomeLock(value, directory);
+    if (result.status === "acquired") held = result.lock;
+    return result;
   },
   beginRecovery: beginProviderAuthenticationRecovery,
   setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,

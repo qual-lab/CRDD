@@ -395,7 +395,7 @@ test("実試験ToolとSymbol管理情報は現行Sourceへ接続する", () => {
     "utf8",
   );
   assert.match(host, /createExecutor\(request,/);
-  assert.doesNotMatch(host, /acquireNamedPipeKernelLock/);
+  assert.doesNotMatch(host, /acquireLock/);
   for (const pkg of ["executor", "docker-isolation"]) {
     const root = new URL("../../../" + pkg + "/", import.meta.url);
     const manifest = JSON.parse(

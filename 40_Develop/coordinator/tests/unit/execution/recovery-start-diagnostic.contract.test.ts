@@ -83,7 +83,7 @@ test("回復開始診断は全段階を一回通知し元結果とEffectを変�
           observationCapability: {},
         }),
         consumeRuntimeOwnedProviderHomeObservationCapability: () => home,
-        acquireRuntimeOwnedLogicalProviderHomeKernelLock: () => {
+        acquireProviderHomeLock: () => {
           throw Error("upper_must_not_acquire_executor_home");
         },
         verifyOwnedOperationManagementCapability: () => ({

@@ -1,7 +1,7 @@
 /**
  * 共通保存の短期Ownerと子Process終了を実確認する。
  * @packageDocumentation
- * @responsibility Root別競合・alias拒否・Owner終了後の再取得をDomainへ閉じる。
+ * @responsibility Root別競合・alias拒否・Crash残存と停止下再入場をDomainへ閉じる。
  * @trace PRL-IT-005
  * @level IT
  * @scope 自己生成Repositoryと今回の子Process。
@@ -47,9 +47,9 @@ function fixture(t: test.TestContext) {
  * @observation 取得結果、保持handleと子Processの終了を観測する。
  * @oracle 同Rootだけ拒否し、終了後に新しいhandleを取得できる。
  * @cleanup 子Processを終了確認し、全handle解放後にfixtureを回収する。
- * @boundary PRL-IT-005=Direct Boundary: Repository検証→Windows Named Pipe。
+ * @boundary PRL-IT-005=Direct Boundary: Repository検証→共通wx。
  */
-test("Host Windows: Snapshot排他は配下・case差を統一しOwner終了後に再取得できる", {
+test("Host Windows: Snapshot排他は配下・case差を統一しCrash後の残存を拒否する", {
   skip: process.platform !== "win32",
 }, async (t) => {
   const { root } = fixture(t);
@@ -98,18 +98,30 @@ test("Host Windows: Snapshot排他は配下・case差を統一しOwner終了後�
       await closed;
     }
   }
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = acquireCoordinatorSnapshotPilotLock(root);
-    assert.equal(result.status, "completed");
-    if (result.status === "completed") {
-      try {
-        assert.equal(result.value.assertLive(), true);
-      } finally {
-        assert.equal(result.value.release(), true);
-      }
-      assert.equal(result.value.assertLive(), false);
-    }
-  }
+  assert.equal(acquireCoordinatorSnapshotPilotLock(root).status, "blocked");
+  const lockDirectory = path.join(root, ".crdd");
+  const names = fs
+    .readdirSync(lockDirectory)
+    .filter((name) => /^current-state\.[a-f0-9]{64}\.lock$/u.test(name));
+  assert.equal(names.length, 1);
+  const name = names[0];
+  assert.ok(name);
+  const file = path.join(lockDirectory, name),
+    bytes = fs.readFileSync(file);
+  const record = JSON.parse(bytes.toString()),
+    stat = fs.lstatSync(file, { bigint: true });
+  assert.equal(record.owner.processId, child.pid);
+  assert.equal(record.schema, "crdd-lock/v1");
+  assert.match(record.generation, /^[a-f0-9-]{36}$/u);
+  // 唯一の子はjoin済み。停止下で今回の元実体だけを明示処置する。
+  const current = fs.lstatSync(file, { bigint: true });
+  assert.equal(current.dev, stat.dev);
+  assert.equal(current.ino, stat.ino);
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  fs.unlinkSync(file);
+  const next = acquireCoordinatorSnapshotPilotLock(root);
+  assert.equal(next.status, "completed");
+  if (next.status === "completed") assert.equal(next.value.release(), true);
   assert.equal(
     acquireCoordinatorSnapshotPilotLock(path.join(root, "missing")).status,
     "blocked",

@@ -170,14 +170,23 @@ export async function createAuthenticationFixture(
       acquireProviderHomeLock: () =>
         live && !released
           ? {
-              assertLive: () => live && !released,
-              release: () => {
-                events.push("release");
-                released = releaseConfirmed;
-                return releaseConfirmed;
+              status: "acquired",
+              lock: {
+                assertLive: () => live && !released,
+                release: () => {
+                  events.push("release");
+                  released = releaseConfirmed;
+                  return releaseConfirmed;
+                },
               },
             }
-          : null,
+          : {
+              status: "blocked",
+              reason: "lock_exists",
+              reference: null,
+              cleanupConfirmed: true,
+              descriptorClosed: true,
+            },
       beginRecovery: (record) => {
         events.push("begin");
         if (current?.state === "active")

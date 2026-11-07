@@ -681,10 +681,7 @@ function fixture(
     pauseOperationCleanup?: boolean;
     pauseRole?: "executor" | "reviewer";
     pauseRoleOccurrence?: number;
-    hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
-    shouldSignalHostLossBeforeCleanupReturn?: boolean;
     shouldAbandonOperationThrow?: boolean;
-    releaseDrainThrows?: boolean;
     isProcessPoisonedThrows?: boolean;
     isProcessPoisoned?: () => boolean;
     cancellationTerminationObserved?: boolean;
@@ -809,13 +806,8 @@ function fixture(
   let releasePausedProcess: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
   let releaseOperationCleanup: (() => void) | null = null;
-  let resolveHostGenerationLoss:
-    | ((outcome: "cleanup_confirmed_failure" | "cleanup_unknown") => void)
-    | null = null;
-  let resolveHostGenerationFailureDetected: (() => void) | null = null;
   let cancelProcessCount = 0;
   let poisonProcessCount = 0;
-  let releaseDrainCount = 0;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
   /**
@@ -946,24 +938,6 @@ function fixture(
         managementCapability,
         operationId: "OP-123456",
         hostRecoveryId: "host.fixture.recovery.record",
-        ...(options.hostGenerationLoss
-          ? {
-              hostGenerationFailureDetected: new Promise<void>((resolve) => {
-                resolveHostGenerationFailureDetected = resolve;
-              }),
-              hostGenerationLoss: new Promise<
-                "cleanup_confirmed_failure" | "cleanup_unknown"
-              >((resolve) => {
-                resolveHostGenerationLoss = resolve;
-              }),
-              releaseHostGenerationDrain: () => {
-                releaseDrainCount += 1;
-                if (options.releaseDrainThrows)
-                  throw new Error("fixture_release_drain_failed");
-                return true;
-              },
-            }
-          : {}),
       });
     },
     classifyOperationCreationFailure: (error: unknown) =>
@@ -994,13 +968,6 @@ function fixture(
         await new Promise<void>((resolve) => {
           releaseOperationCleanup = resolve;
         });
-      if (options.shouldSignalHostLossBeforeCleanupReturn) {
-        assert.ok(options.hostGenerationLoss);
-        assert.ok(resolveHostGenerationFailureDetected);
-        assert.ok(resolveHostGenerationLoss);
-        resolveHostGenerationFailureDetected();
-        resolveHostGenerationLoss(options.hostGenerationLoss);
-      }
       if (options.cleanupThrows) throw new Error("cleanup_failed");
       if (options.cleanupOperationOverride)
         await options.cleanupOperationOverride(candidate);
@@ -1714,7 +1681,6 @@ function fixture(
     candidateCaptureCount: () => candidateCaptureCount,
     cancelProcessCount: () => cancelProcessCount,
     poisonProcessCount: () => poisonProcessCount,
-    releaseDrainCount: () => releaseDrainCount,
     abandonOperationCount: () => abandonOperationCount,
     dockerIntentCount: () => dockerIntentCount,
     dockerReceiptCount: () => dockerReceiptCount,
@@ -1732,13 +1698,6 @@ function fixture(
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
       releasePausedProcess();
-    },
-    triggerHostGenerationLoss: () => {
-      assert.ok(resolveHostGenerationFailureDetected);
-      assert.ok(resolveHostGenerationLoss);
-      assert.ok(options.hostGenerationLoss);
-      resolveHostGenerationFailureDetected();
-      resolveHostGenerationLoss(options.hostGenerationLoss);
     },
   };
 }
@@ -4498,65 +4457,6 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
 });
 
 /**
- * Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しないを検証する。
- *
- * @responsibility Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しないの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明を区別し候補公開しない", async () => {
-  for (const outcome of [
-    "cleanup_confirmed_failure",
-    "cleanup_unknown",
-  ] as const) {
-    const isUnknown = outcome === "cleanup_unknown";
-    const harness = fixture({
-      hostCleanupWal: true,
-      hostGenerationLoss: outcome,
-      shouldSignalHostLossBeforeCleanupReturn: true,
-      cleanupProtocolFailure: !isUnknown,
-      cleanupThrows: isUnknown,
-    });
-    const result = await harness.runtime.start(request(), "C:\\repository")
-      .completion;
-    assert.equal(result.status, "blocked");
-    assert.equal(
-      result.reason,
-      isUnknown
-        ? "coordinator_task_operation_cleanup_unconfirmed"
-        : "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
-    );
-    assert.equal(result.manualRecoveryRequired, isUnknown);
-    assert.equal(result.processRestartRequired, isUnknown);
-    assert.equal(result.cleanupConfirmed, !isUnknown);
-    assert.equal(
-      harness.lifecycleStates.includes("STATE-RESULT-PUBLISHED"),
-      false,
-    );
-    if (isUnknown) {
-      assert.equal(harness.dockerFinalizeCount(), 0);
-      assert.equal(result.hostRecoveryId, "host.fixture.cleanup.intent");
-      assert.equal(result.dockerRecoveryIds?.length, 2);
-      assert.ok(harness.poisonProcessCount() > 0);
-    } else {
-      assert.equal(harness.dockerFinalizeCount(), 2);
-      assert.equal(result.hostRecoveryId, null);
-      assert.deepEqual(result.dockerRecoveryIds, []);
-      assert.equal(harness.poisonProcessCount(), 0);
-    }
-    assert.deepEqual(await harness.observeLastControlInvalid(), {
-      status: "blocked",
-      reason: "coordinator_task_control_invalid",
-    });
-  }
-});
-
-/**
  * 回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止するを検証する。
  *
  * @responsibility 回復保持処理も例外になったcleanup失敗は制御を失効しprocess再利用を禁止するの合否判定を所有する。
@@ -4937,180 +4837,6 @@ test("取消protocol failureと資源cleanup unknownは依存順を守り全acti
 });
 
 /**
- * ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否するを検証する。
- *
- * @responsibility ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
-  const harness = fixture({
-    pauseRole: "executor",
-    hostGenerationLoss: "cleanup_confirmed_failure",
-  });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  while (harness.processStartCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.triggerHostGenerationLoss();
-  while (harness.cancelProcessCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.releasePausedProcess();
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
-  );
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.manualRecoveryRequired, false);
-  assert.equal(result.hostRecoveryId, null);
-  assert.equal(harness.cancelProcessCount(), 1);
-  assert.equal(harness.cleanupCount(), 1);
-  assert.equal(harness.poisonProcessCount(), 0);
-  assert.equal(harness.releaseDrainCount(), 1);
-});
-
-/**
- * ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じるを検証する。
- *
- * @responsibility ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じるの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じる", async () => {
-  const harness = fixture({
-    pauseRole: "executor",
-    hostGenerationLoss: "cleanup_unknown",
-  });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  while (harness.processStartCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.triggerHostGenerationLoss();
-  while (harness.cancelProcessCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.releasePausedProcess();
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_host_generation_lost_cleanup_unknown_process_restart_required",
-  );
-  assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
-  assert.equal(harness.cancelProcessCount(), 1);
-  assert.equal(harness.cleanupCount(), 0);
-  assert.ok(harness.poisonProcessCount() >= 1);
-  assert.equal(harness.releaseDrainCount(), 1);
-});
-
-/**
- * Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持するを検証する。
- *
- * @responsibility Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持する", async () => {
-  const harness = fixture({
-    pauseRole: "executor",
-    processCleanupFailureRole: "executor",
-    hostGenerationLoss: "cleanup_confirmed_failure",
-  });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  while (harness.processStartCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.triggerHostGenerationLoss();
-  harness.releasePausedProcess();
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
-  assert.deepEqual(result.dockerRecoveryIds, [
-    fixtureDockerRecoveryId("executor.active"),
-  ]);
-  assert.equal(result.processRestartRequired, true);
-  assert.ok(harness.poisonProcessCount() >= 1);
-});
-
-/**
- * Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じるを検証する。
- *
- * @responsibility Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じるの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じる", async () => {
-  const harness = fixture({
-    pauseOperationCleanup: true,
-    hostGenerationLoss: "cleanup_confirmed_failure",
-  });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  while (harness.cleanupCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.triggerHostGenerationLoss();
-  harness.releaseOperationCleanup();
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.manualRecoveryRequired, false);
-  assert.equal(result.processRestartRequired, false);
-  assert.equal(result.candidateRecoveryId, null);
-  assert.equal(harness.poisonProcessCount(), 0);
-});
-
-/**
- * Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonするを検証する。
- *
- * @responsibility Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonするの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonするの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonする", async () => {
-  const harness = fixture({
-    pauseRole: "executor",
-    hostGenerationLoss: "cleanup_confirmed_failure",
-    cancellationTerminationObserved: false,
-  });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  while (harness.processStartCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.triggerHostGenerationLoss();
-  harness.releasePausedProcess();
-  const result = await started.completion;
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.processRestartRequired, true);
-  assert.ok(harness.poisonProcessCount() >= 1);
-});
-
-/**
  * 分類不能なopaque cleanup outcomeはcleanup unknownへ閉じるを検証する。
  *
  * @responsibility 分類不能なopaque cleanup outcomeはcleanup unknownへ閉じるの合否判定を所有する。
@@ -5461,45 +5187,6 @@ test("final poison観測例外でもControlを先に失効して保守的なResu
 });
 
 /**
- * Host drain解放例外でもControlとterminal observerをexactly onceへ閉じるを検証する。
- *
- * @responsibility Host drain解放例外でもControlとterminal observerをexactly onceへ閉じるの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host drain解放例外でもControlとterminal observerをexactly onceへ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Host drain解放例外でもControlとterminal observerをexactly onceへ閉じる", async () => {
-  let terminalCount = 0;
-  const harness = fixture({
-    hostGenerationLoss: "cleanup_unknown",
-    releaseDrainThrows: true,
-    pauseRole: "executor",
-    terminalObserver: () => {
-      terminalCount += 1;
-    },
-  });
-  const started = harness.runtime.start(request(), "C:\\repository");
-  while (harness.processStartCount() === 0)
-    await new Promise((resolve) => setImmediate(resolve));
-  harness.triggerHostGenerationLoss();
-  harness.releasePausedProcess();
-  const result = await started.completion;
-  assert.equal(
-    result.reason,
-    "coordinator_task_final_projection_failed_closed",
-  );
-  assert.equal(terminalCount, 1);
-  assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
-    status: "blocked",
-    reason: "coordinator_task_control_invalid",
-  });
-});
-
-/**
  * 外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げないを検証する。
  *
  * @responsibility 外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げないの合否判定を所有する。
@@ -5601,11 +5288,11 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   );
   assert.equal(
     contract.hostOperationGenerationReadiness,
-    "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
+    "synchronous_wx_acquisition_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
   );
   assert.equal(
-    contract.hostOperationSupervisorOutcomes,
-    "acquired_unavailable_cleanup_confirmed_failure_or_cleanup_unknown_with_exact_recovery_and_process_poison",
+    contract.hostOperationLockOutcomes,
+    "acquired_unavailable_initialization_residue_or_descriptor_close_unknown_with_exact_recovery_and_existing_process_poison",
   );
   assert.equal(
     contract.operationCreationCancellation,

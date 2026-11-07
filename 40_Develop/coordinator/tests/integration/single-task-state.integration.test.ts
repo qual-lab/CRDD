@@ -6,7 +6,7 @@
  * @trace CPR-IT-004
  * @level IT
  * @scope 単発Taskの保存と実排他。Provider／Dockerは使わない。
- * @boundary 実Git、Filesystem、既存Native排他。
+ * @boundary 実Git、Filesystem、共通wx排他。
  */
 
 import assert from "node:assert/strict";

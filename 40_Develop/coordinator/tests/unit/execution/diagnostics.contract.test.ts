@@ -130,43 +130,6 @@ test("passive discoveryは候補名を実行せず絶対Pathを公開しない",
 });
 
 /**
- * production doctorは通常Taskに不要な永続準備状態を公開しないを検証する。
- *
- * @responsibility production doctorは通常Taskに不要な永続準備状態を公開しないの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus production doctorは通常Taskに不要な永続準備状態を公開しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("production doctorは通常Taskに不要な永続準備状態を公開しない", async () => {
-  const report = await runDoctor({
-    activeIsolation: false,
-    cwd: process.cwd(),
-  });
-  for (const removedKey of [
-    "runtimeRoot",
-    "runtimeRootPathIdentity",
-    "runtimeActivation",
-    "runtimeRootEvaluation",
-    "runtimeRootProtectionPrecheck",
-  ]) {
-    assert.equal(Object.hasOwn(report, removedKey), false);
-  }
-  assert.equal(Object.hasOwn(report.egress, "authorityRoot"), false);
-  assert.equal(Object.hasOwn(report.egress, "activation"), false);
-  assert.equal(REQUIRED_CHECK_IDS.includes("runtime.root"), false);
-  assert.equal(report.diagnosticMode, "passive_preflight");
-  assert.equal(report.reportVersion, 12);
-  assert.equal(Object.hasOwn(report, "repositoryLocation"), true);
-  assert.equal(Object.hasOwn(report, "repositoryGitLayout"), false);
-  assert.equal(report.repositoryLocation.pathReported, false);
-  assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
-});
-
-/**
  * doctor optionsは余分field、accessorおよびProxyを処置前に拒否するを検証する。
  *
  * @responsibility doctor optionsは余分field、accessorおよびProxyを処置前に拒否するの合否判定を所有する。

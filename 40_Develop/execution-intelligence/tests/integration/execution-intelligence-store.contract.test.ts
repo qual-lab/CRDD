@@ -18,6 +18,13 @@ import fs from "node:fs";
 
 import path from "node:path";
 import test from "node:test";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import {
+  MutationBoundaryError,
+  blockedPublication,
+} from "../../src/storage/result.ts";
 import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import { recordCoordinatorExecutionEvent } from "../../../coordinator/src/task/dispatch.ts";
 
@@ -36,6 +43,76 @@ import {
   readExecutionIntelligenceWithRuntimeDataArea,
   writeExecutionIntelligenceEventWithRuntimeDataArea,
 } from "../../src/storage/store.ts";
+
+/** 共通取得の例外時に、後続Effectと実保存本文の結果相関を確認する。 @trace ERP-IT-001 */
+test("共通Lock取得例外はFile・待機・清掃を発行せず保存失敗を未発行として返す", () => {
+  const lockSource = fs.readFileSync(
+    new URL("../../src/storage/lock.ts", import.meta.url),
+    "utf8",
+  );
+  const lockBody = sourceDeclaration(lockSource, "acquireMutationLock").replace(
+    /^export\s+/u,
+    "",
+  );
+  const expected = new Error("fixture_acquisition_failure");
+  let acquisitions = 0,
+    effects = 0;
+  const effect = () => {
+    effects++;
+    throw new Error("unexpected_effect");
+  };
+  const acquire = runInNewContext(
+    `${stripTypeScriptTypes(lockBody)}\nacquireMutationLock`,
+    {
+      path,
+      acquireLock: () => {
+        acquisitions++;
+        throw expected;
+      },
+    },
+  );
+  assert.throws(
+    () => acquire({ lock: "/fixture/subject.lock" }),
+    (error) => error === expected,
+  );
+  const storeSource = fs.readFileSync(
+    new URL("../../src/storage/store.ts", import.meta.url),
+    "utf8",
+  );
+  const storeBody = sourceDeclaration(
+    storeSource,
+    "writeExecutionIntelligenceEventWithRuntimeDataArea",
+  ).replace(/^export\s+/u, "");
+  class UnusedAreaError extends Error {}
+  const write = runInNewContext(
+    stripTypeScriptTypes(storeBody) +
+      "\nwriteExecutionIntelligenceEventWithRuntimeDataArea",
+    {
+      inspectExecutionIntelligenceEvent: (value: unknown) => value,
+      storeLayout: () => ({ lock: "/fixture/subject.lock" }),
+      acquireMutationLock: acquire,
+      entryExists: effect,
+      fs: {
+        openSync: effect,
+        closeSync: effect,
+        writeFileSync: effect,
+        fsyncSync: effect,
+        unlinkSync: effect,
+      },
+      MutationBoundaryError,
+      RepositoryRuntimeDataAreaBlockedError: UnusedAreaError,
+      blockedPublication,
+    },
+  );
+  const result = write({}, { eventId: "fixture-event" }, () => {});
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "execution_event_store_unavailable");
+  assert.equal(result.effectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.deepEqual(result.residualArtifactIds, []);
+  assert.equal(result.recoveryReference, null);
+  assert.deepEqual({ acquisitions, effects }, { acquisitions: 2, effects: 0 });
+});
 
 const testingRepositoryRoot = path.resolve(
   execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -1761,11 +1838,27 @@ test("並行Processの同一Eventは冪等で、異なる内容は上書きし�
     runWriter(multipleRoot, "completed", "operation-three"),
   ]);
   assert.ok(
-    multipleResults.every(
+    multipleResults.some(
       (entry) => (entry.result as { status: string }).status === "completed",
     ),
     JSON.stringify(multipleResults),
   );
+  // 全子終了後の別の明示要求。製品内部でのLock再試行ではない。
+  for (const id of ["operation-one", "operation-two", "operation-three"]) {
+    const next = await runWriter(multipleRoot, "completed", id);
+    assert.equal((next.result as { status: string }).status, "completed");
+  }
+  for (const entry of multipleResults) {
+    const result = entry.result as {
+      status: string;
+      reason: string;
+      effectIssued: boolean;
+    };
+    if (result.status === "blocked") {
+      assert.equal(result.reason, "execution_store_lock_unavailable");
+      assert.equal(result.effectIssued, false);
+    }
+  }
   const shared = readExecutionIntelligence(verifiedRoot(multipleRoot));
   assert.equal(shared.status, "completed");
   if (shared.status === "completed")
@@ -1783,12 +1876,17 @@ test("並行Processの同一Eventは冪等で、異なる内容は上書きし�
     JSON.stringify(sameResults),
   );
   assert.ok(
-    sameResults.every(
+    sameResults.some(
       (entry) => (entry.result as { status: string }).status === "completed",
     ),
     JSON.stringify(sameResults),
   );
 
+  const repeated = await runWriter(sameRoot, "task_completed");
+  assert.equal(
+    (repeated.result as { reason: string }).reason,
+    "execution_event_already_recorded",
+  );
   const conflictRoot = fixture(t, true);
   const conflictResults = await waitForAllWriters([
     runWriter(conflictRoot, "task_completed_a"),
@@ -1950,7 +2048,7 @@ for (const fault of [
     const originalWrite = fs.writeFileSync;
     const originalRead = fs.readFileSync;
     const originalRename = fs.renameSync;
-    const originalUnlink = fs.unlinkSync;
+    const originalRm = fs.rmSync;
     let pendingDescriptor: number | null = null;
     let wasHistoryPublished = false;
     fs.openSync = ((target: fs.PathLike, ...args: unknown[]) => {
@@ -1992,14 +2090,14 @@ for (const fault of [
       originalRename(source, target);
       if (String(target) === historyPath) wasHistoryPublished = true;
     }) as typeof fs.renameSync;
-    fs.unlinkSync = ((target: fs.PathLike) => {
+    fs.rmSync = ((target: fs.PathLike) => {
       if (
         fault === "published_mismatch_cleanup" &&
         String(target).endsWith("history.lock")
       )
         throw new Error("injected_lock_cleanup_failure");
-      return originalUnlink(target);
-    }) as typeof fs.unlinkSync;
+      return originalRm(target);
+    }) as typeof fs.rmSync;
     let result: ReturnType<typeof writeExecutionIntelligenceEvent>;
     try {
       result = writeExecutionIntelligenceEvent(capability, created);
@@ -2008,7 +2106,7 @@ for (const fault of [
       fs.writeFileSync = originalWrite;
       fs.readFileSync = originalRead;
       fs.renameSync = originalRename;
-      fs.unlinkSync = originalUnlink;
+      fs.rmSync = originalRm;
     }
     assert.equal(result.status, "blocked");
     assert.equal(
@@ -2273,7 +2371,7 @@ test("所有不明の残存Lockを自動奪取しない", (t) => {
   assert.equal(result.reason, "execution_store_lock_unavailable");
   assert.equal(result.effectState, "no_effect");
   assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.retryAllowed, true);
+  assert.equal(result.retryAllowed, false);
   assert.equal(fs.existsSync(lockDirectory), true);
 });
 
@@ -2289,7 +2387,7 @@ test("所有不明の残存Lockを自動奪取しない", (t) => {
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
-test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => {
+test("Lock取得の観測不能は残存不明として停止する", (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
   const originalOpen = fs.openSync;
@@ -2305,10 +2403,10 @@ test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => 
     fs.openSync = originalOpen;
   }
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "execution_event_store_unavailable");
+  assert.equal(result.reason, "execution_store_lock_unavailable");
   assert.equal(result.effectState, "no_effect");
-  assert.equal(result.cleanupConfirmed, true);
-  assert.deepEqual(result.residualArtifactIds, []);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.deepEqual(result.residualArtifactIds, ["history.lock"]);
 });
 
 /**
@@ -2323,7 +2421,7 @@ test("Lock所有者の初期化失敗は回収済みとして閉じる", (t) => 
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-IT-001=Direct Boundary: execution-intelligence Test Source→対象契約
  */
-test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返す", (t) => {
+test("Lock初期化失敗は自動回収せず残存Lockを返す", (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
   assert.equal(
@@ -2331,21 +2429,14 @@ test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返
     "completed",
   );
   const originalFsync = fs.fsyncSync;
-  const originalUnlink = fs.unlinkSync;
   fs.fsyncSync = (() => {
     throw new Error("injected_lock_owner_flush_failure");
   }) as typeof fs.fsyncSync;
-  fs.unlinkSync = ((target: fs.PathLike) => {
-    if (path.basename(String(target)) === "history.lock")
-      throw new Error("injected_lock_owner_cleanup_failure");
-    return originalUnlink(target);
-  }) as typeof fs.unlinkSync;
   let result: ReturnType<typeof writeExecutionIntelligenceEvent>;
   try {
     result = writeExecutionIntelligenceEvent(capability, event());
   } finally {
     fs.fsyncSync = originalFsync;
-    fs.unlinkSync = originalUnlink;
   }
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "execution_store_lock_initialization_failed");
@@ -2369,16 +2460,19 @@ test("Lock所有者の初期化と回収が失敗した場合は残存Lockを返
 test("Lock解放不明はEvent成立と残存Lockを分けて返す", (t) => {
   const root = fixture(t);
   const capability = verifiedRoot(root);
-  const originalUnlink = fs.unlinkSync;
-  fs.unlinkSync = ((target: fs.PathLike) => {
+  const originalRm = fs.rmSync;
+  fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
     if (path.basename(String(target)) === "history.lock")
       throw new Error("injected_lock_release_failure");
-    return originalUnlink(target);
-  }) as typeof fs.unlinkSync;
-  t.after(() => {
-    fs.unlinkSync = originalUnlink;
-  });
-  const result = writeExecutionIntelligenceEvent(capability, event());
+    return originalRm(target, options);
+  }) as typeof fs.rmSync;
+  const result = (() => {
+    try {
+      return writeExecutionIntelligenceEvent(capability, event());
+    } finally {
+      fs.rmSync = originalRm;
+    }
+  })();
   assert.equal(result.status, "blocked");
   assert.equal(result.effectState, "settled");
   assert.equal(result.cleanupConfirmed, false);

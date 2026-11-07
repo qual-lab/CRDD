@@ -238,12 +238,22 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
   t.mock.module("../../../platform-access/src/index.ts", {
     namedExports: {
       ...platform,
-      acquireNamedPipeKernelLock: () => ({
-        release: () => {
-          released++;
-          return true;
+    },
+  });
+  t.mock.module(new URL("../../../lock/src/index.ts", import.meta.url).href, {
+    namedExports: {
+      ...(await import(
+        new URL("../../../lock/src/index.ts", import.meta.url).href
+      )),
+      acquireLock: () => ({
+        status: "acquired",
+        lock: {
+          release: () => {
+            released++;
+            return true;
+          },
+          assertLive: () => true,
         },
-        assertLive: () => true,
       }),
     },
   });

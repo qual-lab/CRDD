@@ -10,6 +10,7 @@
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
 
+import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
 import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
@@ -1707,10 +1708,12 @@ for (const producerMode of [
           target.host.currentToken,
           identity.initialHostRecoveryId,
         );
-      const releasedHome =
-        locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(
-          identity.stableLogicalHomeBindingHash,
-        );
+      const releasedHomeAcquisition = locks.acquireProviderHomeLock(
+        identity.stableLogicalHomeBindingHash,
+        providerHomesDirectoryCandidate(),
+      );
+      assert.ok(releasedHomeAcquisition.status === "acquired");
+      const releasedHome = releasedHomeAcquisition.lock;
       assert.ok(releasedHome);
       assert.equal(releasedHome.release(), true);
       for (const name of [
@@ -1961,9 +1964,12 @@ for (const producerMode of [
             } else
               assert.throws(() => fs.lstatSync(location), { code: "ENOENT" });
           }
-          const lease = locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+          const leaseAcquisition = locks.acquireProviderHomeLock(
             identity.stableLogicalHomeBindingHash,
+            providerHomesDirectoryCandidate(),
           );
+          assert.ok(leaseAcquisition.status === "acquired");
+          const lease = leaseAcquisition.lock;
           assert.ok(lease);
           assert.equal(lease.release(), true);
           for (const name of [
@@ -3196,8 +3202,9 @@ for (const { repeatCount, retained } of [
         assert.ok(!nonces.has(actualIdentity.operationNonce));
         nonces.add(actualIdentity.operationNonce);
         assert.equal(
-          locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash),
-          null,
+          locks.acquireProviderHomeLock(hash, providerHomesDirectoryCandidate())
+            .status,
+          "blocked",
         );
         const startedHost =
           hostRuntime.borrowOwnedHostRecoverySnapshot(management);
@@ -3344,8 +3351,12 @@ for (const { repeatCount, retained } of [
             true,
           );
         }
-        const reacquired =
-          locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(hash);
+        const reacquiredAcquisition = locks.acquireProviderHomeLock(
+          hash,
+          providerHomesDirectoryCandidate(),
+        );
+        assert.ok(reacquiredAcquisition.status === "acquired");
+        const reacquired = reacquiredAcquisition.lock;
         assert.ok(reacquired);
         assert.equal(reacquired.release(), true);
         const completedHost =
@@ -4046,10 +4057,13 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       {
         namedExports: {
           ...locks,
-          acquireRuntimeOwnedLogicalProviderHomeKernelLock: () => ({
-            release: () => {
-              releaseCalls++;
-              return isReleaseSucceeds;
+          acquireProviderHomeLock: () => ({
+            status: "acquired",
+            lock: {
+              release: () => {
+                releaseCalls++;
+                return isReleaseSucceeds;
+              },
             },
           }),
         },

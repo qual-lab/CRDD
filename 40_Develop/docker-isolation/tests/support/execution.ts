@@ -6,6 +6,7 @@
  * @trace ARCH-000008
  */
 
+import type { LockResult } from "../../../lock/src/index.ts";
 import type {
   DockerIsolationRuntimeOptions,
   HomeLease,
@@ -20,6 +21,7 @@ export type { DockerIsolationRuntimeOptions } from "../../../executor/src/lifecy
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { types } from "node:util";
 import type {
   DockerResourceCleanupObservation,
@@ -27,7 +29,7 @@ import type {
 } from "./cleanup.ts";
 import { planDockerRecoveryResourceExpectations } from "./cleanup.ts";
 import type { DockerIsolationCommandInput } from "../../../executor/src/lifecycle/types.ts";
-import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
+import { acquireLock } from "../../../lock/src/index.ts";
 import { cleanupDockerResource } from "../../src/cleanup/operations.ts";
 import {
   createDockerCliConfig,
@@ -81,7 +83,10 @@ export type DockerIsolationRuntimePlan = Readonly<{
  * @trace ARCH-000008
  */
 export type DockerIsolationRuntime = Readonly<{
-  acquireHomeLease: (bindingHash: string) => HomeLease | null;
+  acquireHomeLease: (
+    bindingHash: string,
+    homeSourcePath: string,
+  ) => LockResult<HomeLease>;
   startCommand: (
     purpose: DockerIsolationCommand["purpose"],
     plan: DockerIsolationRuntimePlan,
@@ -272,21 +277,24 @@ export function createDockerIsolationRuntime(
  * @effect 既存のWindows Named Pipe排他を取得する。
  * @invariant 名前空間とHash導出を変更しない。
  */
-function acquireHomeLease(bindingHash: string) {
-  if (
-    process.platform !== "win32" ||
-    typeof bindingHash !== "string" ||
-    !/^[a-f0-9]{64}$/u.test(bindingHash)
-  )
-    return null;
-  const identity = createHash("sha256")
-    .update("crdd-logical-provider-home-kernel-lock-v1\0")
-    .update(bindingHash)
-    .digest("hex")
-    .slice(0, 32);
-  return acquireNamedPipeKernelLock(
-    `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`,
-  );
+function acquireHomeLease(
+  bindingHash: string,
+  homeSourcePath: string,
+): LockResult<HomeLease> {
+  if (typeof bindingHash !== "string" || !/^[a-f0-9]{64}$/u.test(bindingHash))
+    return {
+      status: "blocked",
+      reason: "lock_input_invalid",
+      reference: null,
+      cleanupConfirmed: true,
+      descriptorClosed: true,
+    };
+  const result = acquireLock({
+    directory: path.dirname(homeSourcePath),
+    name: `provider-home.${bindingHash}.lock`,
+    identity: `provider-home:${bindingHash}`,
+  });
+  return result;
 }
 
 /**

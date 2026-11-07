@@ -707,7 +707,7 @@ test("Host Windows: 世代失効は上位で拒否し固定値から上位を再
   const kernelMock = mock.module(kernelUrl.href, {
     namedExports: {
       ...kernel,
-      acquireRuntimeOwnedHostOperationSupervisorLock: async () => ({
+      acquireHostOperationLock: async () => ({
         status: "acquired",
         lock: {
           assertLive: () => {

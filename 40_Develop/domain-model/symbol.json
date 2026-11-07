@@ -411,14 +411,6 @@
       ]
     },
     {
-      "symbolId": "crdd-domain-library.filesystem-store-kernel-lock-worker",
-      "kind": "module",
-      "path": "src/storage/kernel-lock-worker.ts",
-      "archIds": [
-        "ARCH-000009"
-      ]
-    },
-    {
       "symbolId": "crdd-domain-library.quality-change-control-entry",
       "kind": "module",
       "path": "src/index.ts",
@@ -510,14 +502,14 @@
       ]
     },
     {
-      "symbolId": "crdd-domain-library.test.unit.filesystem-store-root",
+      "symbolId": "crdd-domain-library.test.integration.filesystem-store-root",
       "kind": "test-suite",
-      "path": "tests/unit/storage/root-and-lock.contract.test.ts",
+      "path": "tests/integration/filesystem-store-lock.contract.test.ts",
       "qaIds": [
         "QA-000007"
       ],
       "localTestIds": [
-        "RFD-UT-006"
+        "RFD-IT-021"
       ],
       "verifies": [
         "crdd-domain-library.filesystem-store-root-entry"

@@ -170,13 +170,27 @@ test("公開開始は解決済み計画を渡し同じ終了結果を通知す�
       {
         Object,
         copyPlainDataRecord: (value: unknown) => value,
-        acquireHomeLease: () => null,
+        acquireHomeLease: () => ({
+          status: "blocked",
+          reason: "lock_exists",
+          reference: null,
+          cleanupConfirmed: true,
+          descriptorClosed: true,
+        }),
         readOwnDataProperty: (value: object, key: string) =>
           Object.getOwnPropertyDescriptor(value, key)?.value,
         createStartResult,
         types: { isPromise: () => false },
         createLifecycleControl,
-        createDockerIsolationRuntime: () => ({ acquireHomeLease: () => null }),
+        createDockerIsolationRuntime: () => ({
+          acquireHomeLease: () => ({
+            status: "blocked",
+            reason: "lock_exists",
+            reference: null,
+            cleanupConfirmed: true,
+            descriptorClosed: true,
+          }),
+        }),
         prepareIsolation: () => null,
         executeIsolation: () => {
           throw Error("must_not_call");

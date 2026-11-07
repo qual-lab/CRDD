@@ -504,12 +504,18 @@ export type RuntimeWriteResult<T> =
         | "target_missing"
         | "target_exists"
         | "state_unavailable"
-        | "lock_unavailable";
+        | "lock_unavailable"
+        | "lock_initialization_failed"
+        | "lock_descriptor_close_unconfirmed";
     }>
   | Readonly<{
       status: "unknown";
       value: null;
-      reason: "publication_unconfirmed" | "lock_release_unconfirmed";
+      reason:
+        | "publication_unconfirmed"
+        | "lock_release_unconfirmed"
+        | "lock_initialization_failed"
+        | "lock_descriptor_close_unconfirmed";
       publication: "not_published" | "unconfirmed" | "confirmed";
       recoveryReferences: readonly string[];
     }>;
@@ -534,5 +540,8 @@ export type RuntimeReadResult<T> =
         | "not_authorized"
         | "state_unavailable"
         | "lock_unavailable"
-        | "lock_release_unconfirmed";
+        | "lock_release_unconfirmed"
+        | "lock_initialization_failed"
+        | "lock_descriptor_close_unconfirmed";
+      recoveryReferences?: readonly string[];
     }>;

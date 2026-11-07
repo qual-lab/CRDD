@@ -196,7 +196,7 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 | `snapshot` | `completed`の場合だけ存在する操作別投影。`unavailable`には存在しない。空配列は確認済みの0件だけ |
 | `reason` | `unavailable`の場合だけ、認証不成立、参照拒否、Lock取得不可、回収確認待ち、観測不明、解放不明を区別。認証・参照拒否では対象の不存在と非許可を区別する情報を返さない |
 
-読取りは確認できたが解放が不明な場合、既知の読取事実は保存Owner内部に保持し、公開結果は`unavailable`・解放不明とする。読めたSnapshotを一般的な`value`や不完全な成功として返さない。raw Lock回復ID・Proof・Capability・内部Pathは外部結果へ含めず、exact回収は保存Ownerが処置する。公開失敗理由から非許可対象の存在・件数・名前を推定できる差を作らない。
+読取りは確認できたが解放が不明な場合、既知の読取事実は保存Owner内部に保持し、公開結果は`unavailable`・解放不明とする。読めたSnapshotを一般的な`value`や不完全な成功として返さない。raw Lock取得参照・Capability・内部Pathは外部結果へ含めず、残存は通常処理で回収しない。許可した担当者が全利用Process停止下の手順で対象を確認する。公開失敗理由から非許可対象の存在・件数・名前を推定できる差を作らない。
 
 `readCurrentAccess`の成功Snapshotは次の情報を分離する。
 
@@ -275,7 +275,7 @@ ExposureのRepository IDは既存登録を参照し、重複・孤立参照を�
 |---|---|---|
 | `resolveCrosRuntimeRoots` | Windowsはconfigとstateが同じRoot。Linuxは既定では別RootだがXDG設定により同じRootになり得る。Filesystemを検証しない | 現在状態のOwnerはstateとする候補。文字列解決だけから書込みCapabilityを生成しない |
 | `createFilesystemStoreRoot`／Path解決 | 既存DirectoryをCapability化し、対象Pathの既存chainを検証する | Host Rootの初回作成は所有しない。準備前後の検証をAM Adapterへ閉じ、作成後の失敗をEffect 0と表示しない |
-| `withFilesystemStoreLock` | 同じRoot・相対Lock Identityの協調Writerについて、同期callback全体をKernel排他へ閉じる | 現在read、認可・期待改訂、write、出版、read-backを同じcallbackに置く。非同期callbackや非協調Writerの保証へ広げない |
+| `withFilesystemStoreLock` | 同じRoot・相対Lock Identityの協調Writerについて、同期callback全体を共通wx排他へ閉じる | 現在read、認可・期待改訂、write、出版、read-backを同じcallbackに置く。非同期callbackや非協調Writerの保証へ広げない |
 | Lock解放・回収 | 操作完了とcleanup不明を別に返す。Owner消失後もLock記録は残り、既存の不存在観測・exact回収が必要 | AM Adapterの次回更新入口から既存回収へ接続する候補。Lockの回復参照を鍵交換Recoveryへ転用しない。close故障等でもAM側の既知出版事実を保持する |
 | `readStableBoundedFileSnapshot` | 上限付き読取りと実体同一性の確認を所有する | 書込み・置換・pending清掃の保証には使用しない |
 | 旧Credential File Adapter | 改訂Fileへの排他的hard linkとbyte読戻しを行う | 改訂積算と単一現在File置換は別方式。旧試験の成功を新方式の競合・故障保証へ流用しない |
@@ -300,7 +300,7 @@ Windows `10.0.26200.0`・C: NTFS・Node `v24.19.0`で、同Directoryの短命Fil
 | Lock外で`readStableBoundedFileSnapshot`を並行実行 | Writerのrenameが`EPERM`となる反例を2回観測。分類した実行は改訂41まで出版済み。次の置換がEPERMで不成立となり、pendingが残存。Reader成功は旧12回・新66回 | 正常な単独置換から並行Readerとの成立を推定しない。失敗から前41回の出版を取り消さない |
 | Readerも同じRoot・Lockの同期callbackへ入れた対照 | Writerは同じcallback内の100置換を完了。Readerは旧2回・新2回、Lock取得不可61回、`recovery_required`1回 | 100版全ての読取り、本番公開readの成立、待機時間・公平性 |
 
-全子Processの終了をjoinし、自己生成作業領域を回収した。試験用pendingの処置を、本番の削除Authorityや状態回復へ昇格しない。通常Writerのcleanup区間でも`recovery_required`を観測し得るため、それだけからOwner死亡・自動回収可能を推定しない。既存のexact ID→Owner不存在Proof→回収を維持し、Lockの回復参照を鍵交換Recoveryへ転用しない。
+全子Processの終了をjoinし、自己生成作業領域を回収した。試験用pendingの処置を、本番の削除Authorityや状態回復へ昇格しない。上表は旧方式時点の実測履歴である。現在のwx方式ではPID不存在Proofによるオンライン回復を廃止し、Crash後の残存は停止する。更新したITは全試験利用者の終了・exact File／世代を確認後、試験所有物を明示処置して再入場する。Lock取得参照を鍵交換Recoveryへ転用しない。
 
 並行Readerと置換の組合せには実反例があるため、公開readも同じ保存Owner・Root・Lockで短い同期区間へ閉じる方式を候補とする。新しい排他Frameworkや無制限の再試行は追加しない。Lockを使うreadは短命Lock記録等のFilesystem Effectを持つので、AMの内部保存Ownerが取得・解放・不明を処置し、外部へraw Capability・Path・Lock回復Authorityを渡さない。取得不可、回収確認待ち、読取り不明は空集合・未登録・正常成功へ畳まず、現在値を取得できなかった結果として扱う。
 
@@ -332,7 +332,7 @@ pendingの閉じたSchema、byte表現、上限と保護は実装前に固定す
 
 #### 再入場の判定
 
-以下は既存の完全検査済みcurrentと、同じRoot内の完全検査済みpendingがある場合だけ適用する。元のLock記録が残る場合は、既存部品でexact IdentityとOwner不存在を確認して回収した後、改めて同じLock下で読み直す。回収成功だけでは状態の出版やpending処置を証明しない。
+以下は既存の完全検査済みcurrentと、同じRoot内の完全検査済みpendingがある場合だけ適用する。元のLock Fileが残る場合は停止し、[全利用Process停止下の明示手順](../../../19_Workflows/01_Coordinator_Runtime.md#wx-lock-stopped-recovery)へ戻す。通常入口から自動回復・再取得をしない。再開して同じLockを取得できた後に改めて状態を読む。Lock回収だけでは状態の出版やpending処置を証明しない。
 
 | 現在の照合結果 | 処置候補 | 禁止する推定 |
 |---|---|---|
@@ -511,7 +511,7 @@ callbackは同期の認可評価とメモリ内候補構築だけに限定する
 | 初回／鍵由来pendingのcurrent=base | 材料を保持して停止。通常更新の自動破棄へ一般化しない |
 | replace単独、partial／Hash差、current不在／破損、双方不一致 | 保持停止。新初期化、再出版、自動merge、rollbackを行わない |
 
-Lockのexact回復参照は保存Owner内部だけで扱い、既存Owner不存在観測・回収が確認できた場合だけ一回再取得する。生存Owner・観測不能は停止し、無限Retryしない。最初の保存失敗理由と後続Lock解放不明は別fieldへ保持し、確認済み出版を後続Failureで未保存へ戻さない。材料・Lockが残る失敗では`cleanupConfirmed: false`とし、保存完了と材料回収を混同しない。
+Lock取得参照は保存Owner内部だけで扱う。wxのEEXIST・観測不能は停止し、PID・経過時間からStale判定せず、自動回復・再取得をしない。手動Recoveryは全利用者の停止と再起動抑止、対象Path・実体・Owner・Generationの一致が前提で、未知物は保全する。最初の保存失敗理由と後続Lock解放不明は別fieldへ保持し、確認済み出版を後続Failureで未保存へ戻さない。材料・Lockが残る失敗では`cleanupConfirmed: false`とし、保存完了と材料回収を混同しない。
 
 局所ITはRFD-IT-021の保存部分へ接続する。通常認可・六操作・公開縦断の全体Passではない。電源断耐久性や非協調Writer対策は新設せず、採用済み保証範囲を維持する。
 

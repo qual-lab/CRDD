@@ -7,6 +7,7 @@
  * @boundary DI共通Owner自体の保証はDIの共通Lifecycle試験で確認する。
  * @packageDocumentation
  */
+import type { LockResult } from "../../../lock/src/index.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -594,11 +595,14 @@ function fixture() {
   const state = {
     controls: new WeakMap(),
     acquireHomeLease: () => ({
-      assertLive: () => true,
-      release: () => {
-        releases++;
-        events.push("home");
-        return true;
+      status: "acquired" as const,
+      lock: {
+        assertLive: () => true,
+        release: () => {
+          releases++;
+          events.push("home");
+          return true;
+        },
       },
     }),
     prepareIsolation: context.prepareIsolation as typeof di.prepareIsolation,
@@ -620,6 +624,15 @@ function fixture() {
     transform: (value: typeof transform) => {
       transform = value;
     },
+    startWithAcquisition: (
+      outcome: LockResult<{ assertLive(): boolean; release(): boolean }>,
+    ) =>
+      boundary.start(
+        { ...state, callbacks: {}, acquireHomeLease: () => outcome },
+        plan,
+        management,
+        reference,
+      ),
     run: (
       callbacks: import("../../src/lifecycle/types.ts").AttemptCallbacks = {},
     ) => {
@@ -1274,4 +1287,32 @@ test("終端診断中の取消は成功内容を公開せず先行失敗と終�
       assert.equal(f.releases(), 1);
       assert.equal((await f.cancel()).status, "blocked");
     }
+});
+
+/** Home取得の失敗分類を開始拒否へ直接搬送し、DI Effectへ進まない。 @trace ERB-UT-023 */
+test("Home取得の競合・初期化失敗・descriptor不明は同じ回復参照で開始を拒否する", () => {
+  for (const mode of ["busy", "write", "close"] as const) {
+    const f = fixture();
+    const result = f.startWithAcquisition({
+      status: "blocked",
+      reason: mode === "busy" ? "lock_exists" : "lock_initialization_failed",
+      reference: null,
+      cleanupConfirmed: mode === "busy",
+      descriptorClosed: mode !== "close",
+    });
+    assert.equal(result.status, "blocked");
+    assert.ok(result.status === "blocked");
+    assert.equal(
+      result.reason,
+      mode === "busy"
+        ? "docker_process_controller_recovery_unavailable"
+        : mode === "write"
+          ? "docker_process_controller_home_lock_initialization_failed"
+          : "docker_process_controller_home_lock_descriptor_close_unconfirmed",
+    );
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.match(result.recoveryId ?? "", /^docker-task\./u);
+    assert.equal(f.calls(), 0);
+  }
 });

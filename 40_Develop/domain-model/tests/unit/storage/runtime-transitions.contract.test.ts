@@ -558,7 +558,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "  if (\n    !currentAuthenticationClosure &&",
   );
   const guardEnd = storeSource.indexOf(
-    "  const storageOwner = acquireCoordinatorStorageOwnerForRepository(repository);",
+    "  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);",
     guardStart,
   );
   assert.ok(

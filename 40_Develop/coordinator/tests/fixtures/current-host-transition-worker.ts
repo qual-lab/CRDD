@@ -136,14 +136,16 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assertRestartSiblingPhysical();
         assert.deepEqual(JSON.parse(fs.readFileSync(statePath)).operations.find(item => item.recoveryId === id).resources,initialResources);
         const kernel = await import(${JSON.stringify(new URL("../../src/execution/kernel-lock.ts", import.meta.url).href)});
+        const authority = await import(${JSON.stringify(new URL("../../src/execution/authority.ts", import.meta.url).href)});
         const acquired = [];
         try {
           for(const item of snapshot.operations) {
             const hostIdentity = runtimeDomain.parseHostRecoveryToken(item.host.currentToken);
-            const hostLock = kernel.acquireRuntimeOwnedHostOperationKernelLock(hostIdentity.rootName,hostIdentity.nonce); assert.ok(hostLock); acquired.push(hostLock);
-            const homeLock = kernel.acquireRuntimeOwnedLogicalProviderHomeKernelLock(item.recoveryId.split('.')[1]); assert.ok(homeLock); acquired.push(homeLock);
+            const exactRoot=JSON.parse(item.identityJson).hostPaths.root;
+            const hostLock = kernel.acquireHostOperationLock(exactRoot,hostIdentity.nonce); assert.equal(hostLock.status,'acquired'); acquired.push(hostLock.lock);
+            const homeLock = kernel.acquireProviderHomeLock(item.recoveryId.split('.')[1], authority.providerHomesDirectoryCandidate()); assert.equal(homeLock.status, 'acquired'); acquired.push(homeLock.lock);
           }
-          const stateLock = kernel.acquireRuntimeOwnedDockerRuntimeStateKernelLock(snapshot.repositoryBinding); assert.ok(stateLock); acquired.push(stateLock);
+          const stateLock = kernel.acquireRuntimeStateLock(snapshot.repositoryBinding, authority.runtimeStateDirectoryCandidate()); assert.equal(stateLock.status, 'acquired'); acquired.push(stateLock.lock);
           assert.ok(acquired.every(lock => lock.assertLive()));
         } finally { for(const lock of acquired.reverse()) assert.equal(lock.release(),true); }
         for(const file of ['state.pending.json','state.lock','history.pending.jsonl']) assert.throws(() => fs.lstatSync(path.join(path.dirname(statePath),file)),{code:'ENOENT'});

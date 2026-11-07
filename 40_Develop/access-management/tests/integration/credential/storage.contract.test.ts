@@ -37,6 +37,7 @@ import {
   managementFixture,
   prepare,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
 
 /**
@@ -387,6 +388,7 @@ test("提示前保存の故障は出力Bindingを返さず再表示も許可し�
       fs.renameSync = rename;
       fs.openSync = open;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     const state = JSON.parse(
       fs.readFileSync(path.join(f.directory, "access-management.json"), "utf8"),
@@ -660,6 +662,7 @@ test("通常鍵発行の保存・読戻し・清掃故障はSecretを返さな�
       fs.renameSync = rename;
       fs.openSync = open;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.equal(result.status, "unavailable");
     assert.equal(Object.hasOwn(result, "token"), false);
@@ -1018,6 +1021,7 @@ test("資格発行事実Readerは材料処置と解放不明で事実を返さ�
       );
     } finally {
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.deepEqual(fs.readFileSync(current), before);
     if (mode === "published")
@@ -1216,6 +1220,7 @@ test("資格発行事実Readerは先行出版と読取り・清掃故障で古�
     } finally {
       fs.openSync = open;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.deepEqual(fs.readFileSync(current), before);
     if (mode === "published_role") {

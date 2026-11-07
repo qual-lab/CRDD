@@ -4,6 +4,7 @@
  * @responsibility 上位の判断・永続化とDIの技術実行を再実装しない。
  * @trace ARCH-000008
  */
+import type { LockResult } from "../../../lock/src/index.ts";
 import type {
   IsolationRequest,
   IsolationExecutionResult,
@@ -400,7 +401,10 @@ export type ExecutionRecord = {
  * @compatibility RuntimeStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type RuntimeState = Readonly<{
-  acquireHomeLease(bindingHash: string): HomeLease | null;
+  acquireHomeLease(
+    bindingHash: string,
+    homeSourcePath: string,
+  ): LockResult<HomeLease>;
   prepareIsolation: typeof prepareIsolation;
   executeIsolation: typeof executeIsolation;
   callbacks: AttemptCallbacks;

@@ -27,6 +27,10 @@ await mock.module(
 );
 await mock.module("node:child_process", {
   namedExports: {
+    spawn: () => {
+      spawnCalls += 1;
+      throw new Error("native_helper_spawn_must_not_occur");
+    },
     spawnSync: () => {
       spawnCalls += 1;
       throw new Error("native_helper_spawn_must_not_occur");
@@ -37,10 +41,6 @@ await mock.module(
   new URL("../../../platform-access/src/index.ts", import.meta.url).href,
   {
     namedExports: {
-      acquireNamedPipeKernelLock: () => {
-        storageOwnerCalls += 1;
-        throw new Error("storage_owner_must_not_be_acquired");
-      },
       WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE:
         "fixed_test_environment_unavailable",
       describeProviderHomeObservationContract,
@@ -59,6 +59,17 @@ await mock.module(
     },
   },
 );
+mock.module(new URL("../../../lock/src/index.ts", import.meta.url).href, {
+  namedExports: {
+    ...(await import(
+      new URL("../../../lock/src/index.ts", import.meta.url).href
+    )),
+    acquireLock: () => {
+      storageOwnerCalls += 1;
+      throw new Error("storage_owner_must_not_be_acquired");
+    },
+  },
+});
 
 const authoritySource = readFileSync(
   new URL("../../src/execution/authority.ts", import.meta.url),
@@ -67,7 +78,9 @@ const authoritySource = readFileSync(
 const authorityDeclarations = [
   "rootCapabilities",
   "protectedRootBlocked",
-  "rootPathCandidate",
+  "runtimeStateDirectoryCandidate",
+  "providerHomesDirectoryCandidate",
+  "PROVIDER_HOME_ROOT_SEGMENTS",
   "inspectRuntimeOwnedWindowsProtectedRoot",
   "inspectRuntimeOwnedWindowsRuntimeState",
   "consumeRuntimeOwnedRuntimeStateRootCapability",

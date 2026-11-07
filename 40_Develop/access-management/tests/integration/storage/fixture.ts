@@ -33,7 +33,58 @@ import {
 import { saveExposure } from "../../../src/repository/exposure.ts";
 import { saveRepositoryRegistration } from "../../../src/repository/register.ts";
 import { parseAccessManagementState } from "../../../src/storage/parse.ts";
+import { readAccessManagementState } from "../../../src/storage/store.ts";
 import type { AccessManagementState } from "../../../src/storage/types.ts";
+
+/**
+ * 有限試験の既知取得を、通常処理の停止確認後に明示処置する。
+ * @precondition 同期保存はreturn済み。子ProcessのCaseはjoin済みで、新しい利用者はいない。
+ * @boundary 試験所有Rootのみ。製品RecoveryやPID不存在による自動削除ではない。
+ */
+export function removeKnownStoppedTestLock(
+  directory: string,
+  expectedPid: number,
+): void {
+  const parent = path.resolve(
+    import.meta.dirname,
+    "../../../../../.crdd/tests",
+  );
+  assert.equal(path.dirname(directory), parent);
+  const target = path.join(directory, "access-management.lock");
+  try {
+    fs.lstatSync(target);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    )
+      return;
+    throw error;
+  }
+  assert.equal(fs.realpathSync.native(directory), directory);
+  const before = fs.lstatSync(target, { bigint: true });
+  assert.equal(
+    before.isFile() && !before.isSymbolicLink() && before.nlink === 1n,
+    true,
+  );
+  const bytes = fs.readFileSync(target);
+  const record = JSON.parse(bytes.toString());
+  assert.equal(record.schema, "crdd-lock/v1");
+  assert.equal(record.owner.processId, expectedPid);
+  assert.match(record.generation, /^[a-f0-9-]{36}$/u);
+  assert.match(record.identity, /^filesystem-store:[a-f0-9]{64}$/u);
+  const root = createFilesystemStoreRoot(directory);
+  assert.ok(root);
+  assert.equal(readAccessManagementState(root).status, "unavailable");
+  const current = fs.lstatSync(target, { bigint: true });
+  assert.equal(current.dev, before.dev);
+  assert.equal(current.ino, before.ino);
+  assert.deepEqual(fs.readFileSync(target), bytes);
+  fs.unlinkSync(target);
+  assert.equal(fs.existsSync(target), false);
+}
 
 /**
  * 完了済み初回記録を持つ模擬現在状態を作る。

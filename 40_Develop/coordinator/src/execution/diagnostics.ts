@@ -2545,6 +2545,7 @@ const PACKAGES = [
   "docker-isolation",
   "domain-model",
   "execution-intelligence",
+  "lock",
   "mcp-server",
   "platform-access",
   "version-control",

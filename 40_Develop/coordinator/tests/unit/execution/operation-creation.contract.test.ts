@@ -14,13 +14,8 @@ import test from "node:test";
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createIsolatedCoordinatorOperationCreationCandidate,
-  createRuntimeOwnedCoordinatorOperation,
 } from "../../../src/execution/operation.ts";
-import {
-  cleanupOwnedOperationDirectories,
-  createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
-  getOwnedHostRecoveryId,
-} from "../../../src/execution/operation.ts";
+import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from "../../../src/execution/operation.ts";
 
 /**
  * fixtureのTest準備責務を実行する。
@@ -208,31 +203,6 @@ test("isolated transactionの正常形は取得済みIDとCapabilityを一括公
   assert.equal(created.hostRecoveryId, "host.fixture.operation");
   assert.equal(created.operationId, "OP-123456");
   assert.equal(h.getCleanupCount(), 0);
-});
-
-/**
- * production Operationは実Directory producerのexact Host Recovery IDを公開するを検証する。
- *
- * @responsibility production Operationは実Directory producerのexact Host Recovery IDを公開するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus production Operationは実Directory producerのexact Host Recovery IDを公開するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
- */
-test("production Operationは実Directory producerのexact Host Recovery IDを公開する", () => {
-  const created = createRuntimeOwnedCoordinatorOperation();
-  try {
-    assert.equal(getOwnedHostRecoveryId(created.owned), created.hostRecoveryId);
-    assert.match(
-      created.hostRecoveryId,
-      /^host\.[a-z0-9-]+\.[0-9a-f-]{36}\.[a-f0-9]{64}$/u,
-    );
-  } finally {
-    cleanupOwnedOperationDirectories(created.owned);
-  }
 });
 
 /**

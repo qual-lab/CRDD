@@ -5,6 +5,7 @@
  * @level UT
  * @scope 実Coordinator／Executor／DIと有限外部CLI・メモリ記録。実Docker・AIは使わない。
  */
+import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAuthenticationFixture } from "../support/authentication.ts";
@@ -159,7 +160,15 @@ test("認証準備例外とHome競合は実行前に停止し解放不明も保�
         {
           ...f.dependencies,
           ...(mode === "busy"
-            ? { acquireProviderHomeLock: () => null }
+            ? {
+                acquireProviderHomeLock: () => ({
+                  status: "blocked" as const,
+                  reason: "lock_exists" as const,
+                  reference: null,
+                  cleanupConfirmed: true,
+                  descriptorClosed: true,
+                }),
+              }
             : {
                 createAuthentication: () => {
                   throw Error("synthetic_prepare_failed");
@@ -629,4 +638,42 @@ test("認証出力はProvider差を共通三値へ閉じ、未知出力を未認
       .status,
     "unknown",
   );
+});
+
+/** 取得初期化失敗はProvider前で停止し、fd不明だけ既存Process停止へ接続する。 @trace ERB-UT-016 */
+test("認証Home取得は競合・初期化残存・descriptor不明を区別する", async (t) => {
+  const f = await createAuthenticationFixture(t);
+  for (const mode of ["busy", "write", "close"] as const) {
+    const result = await authenticateProvider(
+      "claude",
+      "login",
+      f.home,
+      f.hash,
+      {
+        ...f.dependencies,
+        acquireProviderHomeLock: () => ({
+          status: "blocked",
+          reason:
+            mode === "busy" ? "lock_exists" : "lock_initialization_failed",
+          reference: null,
+          cleanupConfirmed: mode === "busy",
+          descriptorClosed: mode !== "close",
+        }),
+      },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(f.f.calls.length, 0);
+    assert.equal(result.cleanupConfirmed, mode === "busy");
+    assert.equal(
+      "manualRecoveryRequired" in result && result.manualRecoveryRequired,
+      mode !== "busy",
+    );
+    assert.equal(
+      "processRestartRequired" in result && result.processRestartRequired,
+      mode === "close",
+    );
+    assert.equal(isRuntimeProcessPoisoned(), mode === "close");
+    assert.equal(JSON.stringify(result).includes(f.home), false);
+    assert.equal(f.events.includes("begin"), false);
+  }
 });

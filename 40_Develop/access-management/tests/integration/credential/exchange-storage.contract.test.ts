@@ -44,6 +44,7 @@ import {
   managementFixture,
   prepare,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
 
 /**
@@ -618,6 +619,7 @@ test("鍵交換保存は三出版の故障と確定済み段階を分離する",
         fs.renameSync = rename;
         fs.openSync = open;
         fs.rmSync = remove;
+        removeKnownStoppedTestLock(f.directory, process.pid);
         crypto.randomBytes = random;
       }
       assert.equal(result.status, "unavailable");
@@ -869,6 +871,7 @@ test("鍵交換保存は主Failureと解放不明を分離する", (t) => {
     } finally {
       fs.renameSync = rename;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.equal(result.status, "unavailable");
     assert.equal(Object.hasOwn(result, "token"), false);
@@ -1050,6 +1053,7 @@ test("鍵交換保存は別要求を現在別管理者またはHostだけで再�
       );
     } finally {
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.equal(failed.status, "unavailable");
     const before = fs
@@ -1206,6 +1210,9 @@ test("鍵交換保存は実Process喪失後も三段階のbaseとnextを分け�
       assert.equal(child.status, 71);
       assert.equal(child.error, undefined);
       assert.equal(child.stdout.byteLength, 0);
+      assert.ok(child.pid);
+      assert.equal(readAccessManagementState(f.root).status, "unavailable");
+      removeKnownStoppedTestLock(f.directory, child.pid);
       const current = path.join(f.directory, "access-management.json");
       const before = fs.readFileSync(current);
       const saved = JSON.parse(
@@ -1614,6 +1621,7 @@ test("鍵交換引継ぎは置換出版の故障前後で確定相関を保持�
     } finally {
       fs.renameSync = rename;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.equal(hit, true);
     assert.equal(result.status, "unavailable");
@@ -1925,6 +1933,7 @@ test("鍵交換終了は出版故障と後続解放不明を分離する", (t) =
       fs.renameSync = rename;
       fs.openSync = open;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.equal(hit, true);
     assert.ok(
@@ -2038,6 +2047,9 @@ test("鍵交換終了と引継ぎは実Process喪失後のbaseとnextを区別�
         assert.equal(child.error, undefined);
         assert.equal(child.status, 71);
         assert.equal(child.stdout, "");
+        assert.ok(child.pid);
+        assert.equal(readAccessManagementState(f.root).status, "unavailable");
+        removeKnownStoppedTestLock(f.directory, child.pid);
         const current = path.join(f.directory, "access-management.json");
         const before = JSON.parse(
           fs.readFileSync(current, "utf8"),
@@ -2698,6 +2710,7 @@ test("Host交換compositionは再観測の解放不明で清掃を保証しな�
     );
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.ok(result.status === "blocked");
   assert.equal(result.firstFailure, "observation");
@@ -2847,6 +2860,7 @@ test("交換状態Readerは三段階を非秘密の閉集合で返す", (t) => {
       );
     } finally {
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     const current = path.join(f.directory, "access-management.json");
     const before = fs.readFileSync(current);
@@ -3159,6 +3173,7 @@ test("交換状態Readerは観測清掃解放不明とcredential baseを保持�
     } finally {
       fs.openSync = open;
       fs.rmSync = remove;
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.deepEqual(fs.readFileSync(current), before);
     if (mode === "corrupt" || mode === "credential_base") {

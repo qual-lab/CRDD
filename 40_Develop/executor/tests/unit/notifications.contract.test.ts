@@ -69,7 +69,10 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
       ),
       acquireHomeLease: () => {
         acquisitions++;
-        return current.isolation.acquireHomeLease("d".repeat(64));
+        return current.isolation.acquireHomeLease(
+          "d".repeat(64),
+          "C:\\synthetic\\home",
+        );
       },
       prepareIsolation: (request: di.IsolationRequest) => {
         connection = bindLegacyTestIsolation(
@@ -354,12 +357,21 @@ function fixture(busy = false, providerOutput?: string) {
   const isolation: IsolationRuntime = {
     acquireHomeLease: () =>
       busy
-        ? null
+        ? {
+            status: "blocked",
+            reason: "lock_exists",
+            reference: null,
+            cleanupConfirmed: true,
+            descriptorClosed: true,
+          }
         : {
-            assertLive: () => true,
-            release: () => {
-              releases++;
-              return true;
+            status: "acquired",
+            lock: {
+              assertLive: () => true,
+              release: () => {
+                releases++;
+                return true;
+              },
             },
           },
     startExecution: (input, _reference, _owner, hooks) =>

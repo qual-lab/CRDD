@@ -25,6 +25,7 @@ import {
   managementFixture,
   prepare,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
 
 /**
@@ -104,6 +105,7 @@ test("通常接続認証は現在資格と完了状態だけを返す", (t) => {
     });
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.equal(
     authenticateNormalConnection(f.root, f.tokens.developer).status,
@@ -192,6 +194,7 @@ test("資格認証は失効・破損・排他不明を本人情報なしで拒�
     });
   } finally {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   }
   assert.equal(authenticateCredential(f.root, token).status, "completed");
   assert.deepEqual(fs.readFileSync(current), saved);
@@ -235,6 +238,7 @@ test("本人読取りは拒否・材料不明・解放不明でDTOを返さな�
   const remove = fs.rmSync;
   t.after(() => {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   });
   fs.rmSync = (target, options) => {
     if (String(target).endsWith("access-management.pending.json"))
@@ -246,6 +250,7 @@ test("本人読取りは拒否・材料不明・解放不明でDTOを返さな�
     reason: "current_access_cleanup_pending",
   });
   fs.rmSync = remove;
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(
     readCurrentAccessState(f.root, f.tokens.manager).status,
     "completed",
@@ -260,6 +265,7 @@ test("本人読取りは拒否・材料不明・解放不明でDTOを返さな�
     reason: "current_access_release_unknown",
   });
   fs.rmSync = remove;
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(
     readCurrentAccessState(f.root, f.tokens.manager).status,
     "completed",

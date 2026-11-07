@@ -37,7 +37,7 @@ import { createRepositoryTestDirectory } from "../../../domain-model/tests/suppo
  * @responsibility 公開Root注入口を増やさず、実Filesystemの反例を確認する。
  * @trace ERB-IT-004
  * @precondition 現行Source本文を読める。
- * @stimulus 固定9対象Packageと対象外の旧Coordinator一Directoryを最小Sourceで構成し、試験コピーのRoot定数だけを置き換える。
+ * @stimulus 固定10対象Packageと対象外の旧Coordinator一Directoryを最小Sourceで構成し、試験コピーのRoot定数だけを置き換える。
  * @observation 実本文の観測結果と自己生成Root。
  * @oracle 呼出し元が内容Hash・実体Hash・拒否を比較できる。
  * @cleanup 呼出し元のfinallyで自己生成Rootだけを削除する。
@@ -79,6 +79,7 @@ async function createSourceObservationFixture(readMutation = "") {
       "docker-isolation",
       "domain-model",
       "execution-intelligence",
+      "lock",
       "mcp-server",
       "orchestrator",
       "platform-access",
@@ -132,7 +133,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility Snapshotをコピー署名やRoot実体Hashと混同しないことを検証する。
    * @trace ERB-IT-004
-   * @precondition 固定9対象Packageと対象外の旧Coordinator一Directoryの通常Fileが存在する。
+   * @precondition 固定10対象Packageと対象外の旧Coordinator一Directoryの通常Fileが存在する。
    * @stimulus 対象外更新、config／schemasの追加・内容変更・削除、任意Scope追加、同内容File交換を行う。
    * @observation 各観測の内容Hashと実体Hash。
    * @oracle 対象外は不変、対象内追加・内容変更は内容差、同内容交換は実体差となる。
@@ -144,7 +145,7 @@ if (process.argv[2] !== "--probe") {
     try {
       const first = fixture.observe();
       assert.ok(first);
-      assert.equal(first.fileCount, 18);
+      assert.equal(first.fileCount, 20);
       assert.equal(first.scope, "crdd-development-source-snapshot/v2");
       assert.ok(Object.isFrozen(first));
       writeFileSync(
@@ -303,14 +304,14 @@ if (process.argv[2] !== "--probe") {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
       const extras = path.join(base, "extras");
       mkdirSync(extras);
-      for (let i = 0; i < 2030; i += 1)
+      for (let i = 0; i < 2028; i += 1)
         writeFileSync(path.join(extras, `${i}.ts`), "");
       assert.equal(fixture.observe()?.fileCount, 2048);
       writeFileSync(path.join(extras, "overflow.ts"), "");
       assert.equal(fixture.observe(), null);
       rmSync(extras, { recursive: true });
       mkdirSync(extras);
-      for (let i = 0; i < 2038; i += 1) mkdirSync(path.join(extras, String(i)));
+      for (let i = 0; i < 2037; i += 1) mkdirSync(path.join(extras, String(i)));
       assert.ok(fixture.observe());
       mkdirSync(path.join(extras, "overflow"));
       assert.equal(fixture.observe(), null);
@@ -1218,8 +1219,8 @@ async function runProbe(target: string, scenario: string) {
     "COMMIT",
     "developmentMeasurementSessionMAX_DURATION_MS",
     "sourceDistributionRoot",
-    "developmentMeasurementSessionProvider",
-    "developmentMeasurementSessionRole",
+    "DevelopmentMeasurementSessionProvider",
+    "DevelopmentMeasurementSessionRole",
     "Constraints",
     "TaskRequest",
     "Task",
@@ -1282,7 +1283,9 @@ async function runProbe(target: string, scenario: string) {
   const authorityDeclarations = [
     "rootCapabilities",
     "protectedRootBlocked",
-    "rootPathCandidate",
+    "runtimeStateDirectoryCandidate",
+    "providerHomesDirectoryCandidate",
+    "PROVIDER_HOME_ROOT_SEGMENTS",
     "inspectRuntimeOwnedWindowsProtectedRoot",
     "inspectRuntimeOwnedWindowsRuntimeState",
     "consumeRuntimeOwnedRuntimeStateRootCapability",

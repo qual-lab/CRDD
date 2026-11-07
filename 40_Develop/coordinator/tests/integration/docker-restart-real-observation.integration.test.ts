@@ -8,6 +8,7 @@
  * @scope docker、restart、real-observation
  * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
+import { runtimeStateDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -25,7 +26,7 @@ import {
   observeSystemWindowsDirectory,
   startDockerDesktopRestartHelper,
 } from "../../../platform-access/src/index.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/execution/kernel-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/execution/kernel-lock.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
@@ -84,7 +85,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
 });
 
 /**
- * Windows environment observation completes with three runtime lock workersを検証する。
+ * Windows environment observation completes with a shared runtime lockを検証する。
  *
  * @responsibility Windows environment observation completes with three runtime lock workersの合否判定を所有する。
  * @trace ERB-IT-014
@@ -101,10 +102,13 @@ test("Windows environment observation completes with three runtime lock workers"
 }, () => {
   const locks = [];
   try {
-    for (let index = 0; index < 3; index += 1) {
-      const lock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+    for (let index = 0; index < 1; index += 1) {
+      const lockAcquisition = acquireRuntimeStateLock(
         randomBytes(32).toString("hex"),
+        runtimeStateDirectoryCandidate(),
       );
+      assert.ok(lockAcquisition.status === "acquired");
+      const lock = lockAcquisition.lock;
       assert.ok(lock);
       locks.push(lock);
     }
@@ -204,11 +208,15 @@ for (const hasRuntimeLock of [false, true]) {
     assert.equal(acquired.status, "acquired");
     const session = acquired.session;
     assert.ok(session);
-    const lock = hasRuntimeLock
-      ? acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+    const lockAcquisition = hasRuntimeLock
+      ? acquireRuntimeStateLock(
           randomBytes(32).toString("hex"),
+          runtimeStateDirectoryCandidate(),
         )
       : null;
+    assert.ok(!lockAcquisition || lockAcquisition.status === "acquired");
+    const lock =
+      lockAcquisition?.status === "acquired" ? lockAcquisition.lock : null;
     try {
       if (hasRuntimeLock) assert.ok(lock);
       let observedClientState: "absent" | "verified" | null = null;

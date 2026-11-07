@@ -18,6 +18,7 @@ import { Writable } from "node:stream";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { planExecution } from "../../../ai-adapter/src/index.ts";
+import type { ResourceSnapshot } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/image/assets.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/tests/support/execution-plan.ts";
@@ -161,7 +162,34 @@ function createPlan(
     "start_provider_attached",
   ];
   return Object.freeze({
-    isolationRequest: attemptPlan().isolationRequest,
+    isolationRequest: {
+      ...attemptPlan().isolationRequest,
+      // 基本検査用fixtureは全てNetwork。実行結果を評価する本fixtureでは種別を正しく持つ。
+      resources: attemptPlan().isolationRequest.resources.map((resource) =>
+        resource.key.endsWith("_network")
+          ? resource
+          : {
+              kind: "container" as const,
+              key: resource.key,
+              name: resource.name,
+              ownershipLabel: resource.ownershipLabel,
+              image: `sha256:${"1".repeat(64)}`,
+              argv: ["fixture"],
+              environment: {},
+              mounts: [],
+              network: null,
+              networkAlias: null,
+              user: "65534:65534",
+              workingDirectory: "/",
+              entrypoint: "node",
+              tmpfsBytes: null,
+              interactive: false,
+              tty: false,
+              init: false,
+              seccomp: null,
+            },
+      ),
+    },
     provider: "claude" as const,
     consumer: "coordinator_cli" as const,
     operationId: "OP-123456",
@@ -814,6 +842,7 @@ function createFixture(
   const recoveryEvents: string[] = [];
   const recoveryConsumers: unknown[] = [];
   let recordedResourceObservations: unknown = null;
+  let recordedResourceSnapshot: ResourceSnapshot | null = null;
   const resourceObservations = Object.freeze([
     Object.freeze({
       purpose: "create_egress_network" as const,
@@ -939,8 +968,13 @@ function createFixture(
       return true;
     },
     verifyHomeLeaseRelease: () => true,
-    recordDockerAbsence: (_capability: object, observations: unknown) => {
+    recordDockerAbsence: (
+      _capability: object,
+      observations: unknown,
+      snapshot: ResourceSnapshot | null,
+    ) => {
       recordedResourceObservations = observations;
+      recordedResourceSnapshot = snapshot;
       recoveryEvents.push("docker-absence");
       return true;
     },
@@ -992,6 +1026,7 @@ function createFixture(
     getRecoveryEvents: () => [...recoveryEvents],
     getRecoveryConsumers: () => [...recoveryConsumers],
     getRecordedResourceObservations: () => recordedResourceObservations,
+    getRecordedResourceSnapshot: () => recordedResourceSnapshot,
     resourceObservations,
   };
 }
@@ -1348,12 +1383,22 @@ test("Home技術LeaseはExecutorが開始拒否・保存拒否・Owner終了ま�
     const fixture = createFixture({
       acquireHomeLease: () => {
         acquisitions++;
-        if (mode === "acquire_failed") return null;
+        if (mode === "acquire_failed")
+          return {
+            status: "blocked",
+            reason: "lock_exists",
+            reference: null,
+            cleanupConfirmed: true,
+            descriptorClosed: true,
+          };
         if (mode === "acquire_throw") throw Error("synthetic_home_acquire");
         return {
-          release: () => {
-            releases++;
-            return mode !== "release_false";
+          status: "acquired",
+          lock: {
+            release: () => {
+              releases++;
+              return mode !== "release_false";
+            },
           },
         };
       },
@@ -1650,6 +1695,9 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
           if (scenario === "receipt_throw") throw new Error("EPERM");
           return false;
         },
+        // 清掃throw時に、既定fixtureの肯定観測を別経路から補完しない。
+        verifyCleanupOutcome: (cleanup: { resourceObservations: unknown }) =>
+          cleanup.resourceObservations ?? null,
         cleanupOwnedResources: async () => {
           if (cleanupMode === "throw") throw new Error("secret-cleanup-error");
           return {
@@ -1676,8 +1724,16 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
       const terminal = fixture.readTerminal();
       if (cleanupMode === "throw") {
         assert.ok(terminal);
-        assert.equal(terminal.homeLeaseReleased, false);
-        assert.equal(terminal.containersAbsent, false);
+        assert.equal(
+          terminal.homeLeaseReleased,
+          false,
+          `${scenario}:${cleanupMode}`,
+        );
+        assert.equal(
+          terminal.containersAbsent,
+          false,
+          `${scenario}:${cleanupMode}`,
+        );
       } else {
         assert.ok(terminal);
         assert.equal(terminal.primaryFailure, primary);
@@ -4173,8 +4229,28 @@ for (const dockerCleanupConfirmed of [true, false]) {
     }
     assert.deepEqual(
       fixture.getRecordedResourceObservations(),
-      dockerCleanupConfirmed ? fixture.resourceObservations : null,
+      dockerCleanupConfirmed
+        ? fixture.plan.isolationRequest.resources.map((r) => ({
+            key: r.key,
+            observation: "absent",
+          }))
+        : null,
     );
+    if (dockerCleanupConfirmed) {
+      const snapshot = fixture.getRecordedResourceSnapshot();
+      assert.ok(snapshot);
+      for (const expected of fixture.resourceObservations) {
+        const resource: ResourceSnapshot["resources"][number] | undefined =
+          snapshot.resources.find((r) => r.key === expected.purpose);
+        assert.ok(resource);
+        assert.equal(resource.identity.name, expected.plannedResourceName);
+        assert.equal(resource.identity.dockerId, expected.dockerId);
+        assert.equal(
+          resource.identity.ownershipLabel,
+          fixture.plan.ownershipLabel,
+        );
+      }
+    } else assert.equal(fixture.getRecordedResourceSnapshot(), null);
     assert.equal(result.normalizedResult, null);
     processes.assertAbsent();
     assertCompletionAcceptedByAll(result, started.recoveryId);

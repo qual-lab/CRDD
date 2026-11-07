@@ -1,0 +1,76 @@
+{
+  "contract": "crdd/reality-symbol-manifest",
+  "contractRevision": 1,
+  "subsystem": "lock",
+  "symbols": [
+    {
+      "symbolId": "lock.test.integration.file-lock",
+      "kind": "test-suite",
+      "path": "tests/integration/file-lock.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "lock.source.operations",
+        "lock.source.types"
+      ]
+    },
+    {
+      "symbolId": "lock.source.index",
+      "kind": "file",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000006",
+        "ARCH-000008",
+        "ARCH-000011",
+        "ARCH-000013",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "lock.source.operations",
+      "kind": "file",
+      "path": "src/operations.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000006",
+        "ARCH-000008",
+        "ARCH-000011",
+        "ARCH-000013",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "lock.source.types",
+      "kind": "file",
+      "path": "src/types.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000006",
+        "ARCH-000008",
+        "ARCH-000011",
+        "ARCH-000013",
+        "ARCH-000018"
+      ]
+    },
+    {
+      "symbolId": "lock.test.integration.public-lock",
+      "kind": "test-suite",
+      "path": "tests/integration/public-lock.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "lock.source.operations",
+        "lock.source.types"
+      ]
+    }
+  ]
+}

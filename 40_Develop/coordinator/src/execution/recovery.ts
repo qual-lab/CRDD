@@ -5,6 +5,7 @@
  * @trace ARCH-000008
  */
 
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -106,6 +107,8 @@ import { readCurrentCoordinatorState } from "../state/query.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  providerHomesDirectoryCandidate,
+  runtimeStateDirectoryCandidate,
   readExecutionCancellation,
 } from "./authority.ts";
 import {
@@ -117,9 +120,9 @@ import {
   recoverDockerIsolationProbe,
 } from "./diagnostics.ts";
 import {
-  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
-  acquireRuntimeOwnedHostOperationKernelLock,
-  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+  acquireRuntimeStateLock,
+  acquireHostOperationLock,
+  acquireProviderHomeLock,
 } from "./kernel-lock.ts";
 import {
   acquireHostOperationRecoveryGeneration,
@@ -1620,22 +1623,34 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
         throw new Error(reason);
     }
     acquisitionPending = true;
-    const home = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+    const home = acquireProviderHomeLock(
       parsed.stableLogicalHomeBindingHash,
+      providerHomesDirectoryCandidate(),
     );
-    if (!home) {
-      reason = "docker_task_recovery_home_active_or_unknown";
+    if (home.status !== "acquired") {
+      cleanupConfirmed &&= home.cleanupConfirmed;
+      if (!home.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
+      reason =
+        home.reason === "lock_initialization_failed"
+          ? "docker_task_recovery_home_lock_initialization_failed"
+          : "docker_task_recovery_home_active_or_unknown";
       throw new Error(reason);
     }
-    locks.push(home);
-    const runtime = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+    locks.push(home.lock);
+    const runtime = acquireRuntimeStateLock(
       repository.repositoryBinding,
+      runtimeStateDirectoryCandidate(),
     );
-    if (!runtime) {
-      reason = "docker_task_recovery_runtime_active_or_unknown";
+    if (runtime.status !== "acquired") {
+      cleanupConfirmed &&= runtime.cleanupConfirmed;
+      if (!runtime.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
+      reason =
+        runtime.reason === "lock_initialization_failed"
+          ? "docker_task_recovery_runtime_lock_initialization_failed"
+          : "docker_task_recovery_runtime_active_or_unknown";
       throw new Error(reason);
     }
-    locks.push(runtime);
+    locks.push(runtime.lock);
     acquisitionPending = false;
     const publication = initial.hostCleanupPublication ?? null;
     let current = initial.resourcePublication
@@ -5079,25 +5094,57 @@ export function prepareRuntimeOwnedDockerRestart(
     for (const [, host] of [...hosts].sort(([left], [right]) =>
       left.localeCompare(right),
     )) {
-      const lock = acquireRuntimeOwnedHostOperationKernelLock(
-        host.rootName,
-        host.nonce,
-      );
-      if (!lock) throw new Error("docker_restart_host_active_or_unknown");
-      locks.push(lock);
+      const source = scoped.find((operation) => {
+        const token = parseHostRecoveryToken(operation.host.currentToken);
+        return token.rootName === host.rootName && token.nonce === host.nonce;
+      });
+      if (!source) throw Error("docker_restart_host_identity_unknown");
+      const hostRoot = JSON.parse(source.identityJson).hostPaths.root;
+      const acquired = acquireHostOperationLock(hostRoot, host.nonce);
+      if (acquired.status !== "acquired") {
+        observationCleanupConfirmed &&= acquired.cleanupConfirmed;
+        if (!acquired.descriptorClosed)
+          poisonRuntimeProcessAfterCleanupUnknown();
+        throw Error(
+          acquired.reason === "lock_initialization_failed"
+            ? "docker_restart_host_lock_initialization_failed"
+            : "docker_restart_host_active_or_unknown",
+        );
+      }
+      locks.push(acquired.lock);
     }
     for (const home of normalizeDockerRestartScope(
       identities.map((identity) => identity.home),
     )) {
-      const lock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(home);
-      if (!lock) throw new Error("docker_restart_home_active_or_unknown");
-      locks.push(lock);
+      const lock = acquireProviderHomeLock(
+        home,
+        providerHomesDirectoryCandidate(),
+      );
+      if (lock.status !== "acquired") {
+        observationCleanupConfirmed &&= lock.cleanupConfirmed;
+        if (!lock.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
+        throw Error(
+          lock.reason === "lock_initialization_failed"
+            ? "docker_restart_home_lock_initialization_failed"
+            : "docker_restart_home_active_or_unknown",
+        );
+      }
+      locks.push(lock.lock);
     }
-    const state = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+    const state = acquireRuntimeStateLock(
       repository.repositoryBinding,
+      runtimeStateDirectoryCandidate(),
     );
-    if (!state) throw new Error("docker_restart_state_active_or_unknown");
-    locks.push(state);
+    if (state.status !== "acquired") {
+      observationCleanupConfirmed &&= state.cleanupConfirmed;
+      if (!state.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
+      throw Error(
+        state.reason === "lock_initialization_failed"
+          ? "docker_restart_state_lock_initialization_failed"
+          : "docker_restart_state_active_or_unknown",
+      );
+    }
+    locks.push(state.lock);
     const current = readRuntimeOwnedCoordinatorRecoverySnapshot(rootCapability);
     observationCleanupConfirmed &&= current.lockReleased;
     const before = Buffer.from(
@@ -5159,6 +5206,9 @@ export function prepareRuntimeOwnedDockerRestart(
     });
   } catch (error) {
     const fixed = new Set([
+      "docker_restart_home_lock_initialization_failed",
+      "docker_restart_state_lock_initialization_failed",
+      "docker_restart_host_lock_initialization_failed",
       "docker_restart_id_invalid",
       "docker_restart_root_unverified",
       "docker_restart_scope_conflict",

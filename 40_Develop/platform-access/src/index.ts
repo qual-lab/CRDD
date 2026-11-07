@@ -2,14 +2,14 @@
  * Platform AccessのNode公開境界。
  *
  * @packageDocumentation
- * @responsibility 固定Native、Provider Home／Namespaceの技術搬送、共有PipeとOS／Profile差分の子Process環境を公開する。
+ * @responsibility 固定Native、Provider Home／Namespaceの技術搬送とOS／Profile差分の子Process環境を公開する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @trace ARCH-000010
  * @trace ARCH-000011
  * @trace ARCH-000014
  * @trace ARCH-000015
- * @boundary Filesystem読取り、固定Native Process、用途固定の環境導出と共有Pipe。権限・任意PathのI/O・任意環境builder・内部実体は公開しない。
+ * @boundary Filesystem読取り、固定Native Processと用途固定の環境導出。権限・任意PathのI/O・任意環境builder・内部実体は公開しない。
  */
 export {
   PLATFORM_ACCESS_TARGET,
@@ -32,14 +32,11 @@ export {
   type ChildTreeTerminationResult,
 } from "./process/termination.ts";
 export {
-  WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-  WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
   createChildProcessEnvironment,
   createWindowsHostTerminalHelperEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
-  describeWindowsChildEnvironmentContract,
 } from "./process/environment.ts";
 export {
   observeWindowsRuntimeState,
@@ -60,14 +57,3 @@ export {
   type DockerDesktopRepairHelperReleaseOutcome,
   type DockerDesktopRestartNativeHelperOutcome,
 } from "./docker-desktop/native-process.ts";
-
-export {
-  acquireNamedPipeKernelLock,
-  acquireNamedPipeKernelLockOutcome,
-  acquireNamedPipeSupervisorLock,
-} from "./lock/pipe.ts";
-export type {
-  HostOperationLockSupervisor,
-  HostOperationSupervisorLockOutcome,
-  InteractiveConsoleKernelLockOutcome,
-} from "./lock/lifecycle.ts";

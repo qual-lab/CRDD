@@ -733,7 +733,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(
     resolvesToForbiddenWindowsAsciiModule(
       runnerPath,
-      "../../platform-access/src/lock/worker.ts",
+      "../../platform-access/src/worker.ts",
       forbiddenConsoleModule,
     ),
     false,

@@ -52,8 +52,7 @@ import {
   classifyOwnedCoordinatorOperationCreationFailure,
   classifyOwnedOperationDirectoryCreationFailure,
   activateOwnedHostOperationGenerationLock,
-  confirmOwnedHostOperationGenerationLockReadiness,
-  observeOwnedHostOperationGenerationLoss,
+  assertOwnedHostOperationLock,
   createRuntimeOwnedCoordinatorOperation,
   bindRuntimeOwnedRepositoryOperation,
 } from "./operation.ts";
@@ -1064,9 +1063,6 @@ type Operation = Readonly<{
   managementCapability: object;
   operationId: string;
   hostRecoveryId: string;
-  hostGenerationFailureDetected?: Promise<void>;
-  hostGenerationLoss?: Promise<"cleanup_confirmed_failure" | "cleanup_unknown">;
-  releaseHostGenerationDrain?: () => boolean;
 }>;
 
 /**
@@ -1255,7 +1251,6 @@ function createProviderAdviceRuntime(
     let selectionCleanupConfirmed = true;
     let providerEffectIssued = false;
     let isOperationCleaned = false;
-    let hostGenerationFailed = false;
     let abortListener: (() => void) | null = null;
 
     try {
@@ -1476,10 +1471,6 @@ function createProviderAdviceRuntime(
       cancellationSignal.addEventListener("abort", abortListener, {
         once: true,
       });
-      operation.hostGenerationFailureDetected?.then(() => {
-        hostGenerationFailed = true;
-        abortListener?.();
-      });
 
       const result = (await completion) as RecordedAttemptResult;
       processControl = null;
@@ -1490,12 +1481,10 @@ function createProviderAdviceRuntime(
         );
       const providerCompletionReason = cancellationSignal.aborted
         ? "workbench_ai_advice_cancelled_after_provider_effect"
-        : hostGenerationFailed
-          ? "workbench_ai_advice_host_generation_lost"
-          : result.status === "completed"
-            ? null
-            : (stringValue(result.reason) ??
-              "workbench_ai_advice_provider_failed");
+        : result.status === "completed"
+          ? null
+          : (stringValue(result.reason) ??
+            "workbench_ai_advice_provider_failed");
       recoveryFinalizationCapability = objectValue(
         result.recoveryFinalizationCapability,
       );
@@ -1548,7 +1537,6 @@ function createProviderAdviceRuntime(
       recoveryCapability = null;
       recoveryFinalizationCapability = null;
       dockerRecoveryId = null;
-      operation.releaseHostGenerationDrain?.();
       if (hostCleanup === "protocol_failure_cleanup_confirmed")
         return blocked("workbench_ai_advice_host_generation_lost", true, true);
       if (providerCompletionReason !== null)
@@ -1632,7 +1620,6 @@ function createProviderAdviceRuntime(
         } catch {}
       }
       if (!cleanupConfirmed) dependencies.poisonAfterCleanupUnknown();
-      operation?.releaseHostGenerationDrain?.();
       const result = blocked(
         error instanceof AdviceRuntimeError
           ? error.reason
@@ -1842,17 +1829,8 @@ async function createProductionOperation(
       operation.managementCapability,
     );
     if (activation !== "activated") throw new Error("activation_failed");
-    const readiness = await dependencies.confirmReadiness(
-      operation.managementCapability,
-    );
-    if (readiness !== "ready") throw new Error("readiness_failed");
-    const loss = dependencies.observeLoss(operation.managementCapability);
-    return Object.freeze({
-      ...operation,
-      hostGenerationFailureDetected: loss.detected,
-      hostGenerationLoss: loss.outcome,
-      releaseHostGenerationDrain: loss.releaseDrain,
-    });
+    dependencies.assertLock(operation.managementCapability);
+    return operation;
   } catch {
     let cleanupConfirmed = false;
     try {
@@ -1889,8 +1867,7 @@ async function createProductionOperation(
 type OperationInitializationDependencies = Readonly<{
   create: () => Operation;
   activate: typeof activateOwnedHostOperationGenerationLock;
-  confirmReadiness: typeof confirmOwnedHostOperationGenerationLockReadiness;
-  observeLoss: typeof observeOwnedHostOperationGenerationLoss;
+  assertLock: typeof assertOwnedHostOperationLock;
   cleanup: typeof cleanupOwnedOperationDirectoriesAsync;
   classifyCleanup: typeof verifyOwnedOperationCleanupOutcome;
   poison: () => void;
@@ -1900,8 +1877,7 @@ const productionOperationInitialization: OperationInitializationDependencies =
   Object.freeze({
     create: createRuntimeOwnedCoordinatorOperation,
     activate: activateOwnedHostOperationGenerationLock,
-    confirmReadiness: confirmOwnedHostOperationGenerationLockReadiness,
-    observeLoss: observeOwnedHostOperationGenerationLoss,
+    assertLock: assertOwnedHostOperationLock,
     cleanup: cleanupOwnedOperationDirectoriesAsync,
     classifyCleanup: verifyOwnedOperationCleanupOutcome,
     poison: poisonRuntimeProcessAfterCleanupUnknown,

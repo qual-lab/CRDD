@@ -13,7 +13,7 @@ import type {
   IsolationCallbacks,
   IsolationRequest,
 } from "../../../docker-isolation/src/execution/types.ts";
-import { DIAGNOSTIC_IMAGE } from "../../../docker-isolation/src/image/assets.ts";
+import { describeIsolationConfiguration } from "../../../docker-isolation/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { createLifecycleControl } from "../../../executor/src/lifecycle/execute.ts";
 import { describeIsolationProbeProfile } from "../../../executor/src/lifecycle/probe.ts";
@@ -52,7 +52,7 @@ export function runInNewContext(
       types,
       AbortController,
       createLifecycleControl,
-      DIAGNOSTIC_IMAGE,
+      describeIsolationConfiguration,
       describeIsolationProbeProfile,
       classifyIsolationProbeExecution: () => observedFacts,
       prepareIsolation: (request: IsolationRequest) => {

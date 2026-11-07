@@ -682,10 +682,7 @@ export {
 } from "./storage/network-policy.ts";
 export {
   createFilesystemStoreRoot,
-  type FilesystemStoreLockOwnerAbsenceProof,
   type FilesystemStoreRoot,
-  observeFilesystemStoreLockOwnerAbsence,
-  recoverFilesystemStoreLock,
   resolveFilesystemStorePath,
   withFilesystemStoreLock,
 } from "./storage/root-and-lock.ts";

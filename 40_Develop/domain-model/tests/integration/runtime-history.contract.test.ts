@@ -787,10 +787,46 @@ test("Host Windows: fsyncとrename失敗後も履歴候補から再入場でき�
     );
     const before = fs.readFileSync(f.current);
     let hits = 0;
-    const mocked = t.mock.method(fs, method, () => {
-      hits += 1;
-      throw new Error("injected");
+    const pendingDescriptors = new Set<number>();
+    const open = fs.openSync;
+    const close = fs.closeSync;
+    const sync = fs.fsyncSync;
+    const rename = fs.renameSync;
+    const opened = t.mock.method(
+      fs,
+      "openSync",
+      (target: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
+        const descriptor = open(target, flags, mode);
+        if (String(target) === f.pending) pendingDescriptors.add(descriptor);
+        return descriptor;
+      },
+    );
+    const closed = t.mock.method(fs, "closeSync", (descriptor: number) => {
+      pendingDescriptors.delete(descriptor);
+      return close(descriptor);
     });
+    const synced = t.mock.method(fs, "fsyncSync", (descriptor: number) => {
+      if (method === "fsyncSync" && pendingDescriptors.has(descriptor)) {
+        hits += 1;
+        throw new Error("injected");
+      }
+      return sync(descriptor);
+    });
+    const renamed = t.mock.method(
+      fs,
+      "renameSync",
+      (from: fs.PathLike, to: fs.PathLike) => {
+        if (
+          method === "renameSync" &&
+          String(from) === f.pending &&
+          String(to) === f.current
+        ) {
+          hits += 1;
+          throw new Error("injected");
+        }
+        return rename(from, to);
+      },
+    );
     try {
       assert.equal(
         updateCoordinatorHistoryPilot(f.root, row("two"), referenceTime).status,
@@ -798,7 +834,10 @@ test("Host Windows: fsyncとrename失敗後も履歴候補から再入場でき�
       );
       assert.equal(hits, 1);
     } finally {
-      mocked.mock.restore();
+      renamed.mock.restore();
+      synced.mock.restore();
+      closed.mock.restore();
+      opened.mock.restore();
     }
     assert.deepEqual(fs.readFileSync(f.current), before);
     assert.equal(fs.existsSync(f.pending), true);

@@ -8,10 +8,9 @@
  * @boundary Provider Homeのmetadata／OS排他と試験記録。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import vm from "node:vm";
+import path from "node:path";
+import { homeLockRequest } from "../../scripts/verify-provider-home.ts";
 import test from "node:test";
 
 /**
@@ -70,16 +69,17 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
           localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:
             observations===2&&mode==='changed'?'e'.repeat(64):'d'.repeat(64)};
       },
-      acquireNamedPipeKernelLockOutcome:async name=>{
+      }});
+    mock.module(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}, {namedExports:{...await import(${JSON.stringify(new URL("../../../lock/src/index.ts", import.meta.url).href)}), acquireLock: name=>{
         acquisitions++;pipe=name;
         if(mode==='acquire_throw')throw Error('synthetic_acquire_throw');
-        if(mode==='acquire_unknown')return {status:'cleanup_unknown',lock:null};
-        if(mode==='unavailable')return {status:'unavailable',lock:null};
+        if(mode==='acquire_unknown')return {status:'blocked',cleanupConfirmed:false,descriptorClosed:false,reference:null};
+        if(mode==='unavailable')return {status:'blocked',cleanupConfirmed:true,descriptorClosed:true,reference:null};
         held=true;
-        return {status:'acquired',lock:{release:async()=>{
+        return {status:'acquired',lock:{release:()=>{
           releases++;held=false;
           if(mode==='release_throw')throw Error('synthetic_release_throw');
-          return mode==='release_unknown'?'cleanup_unknown':'released';
+          return mode!=='release_unknown';
         }}};
       }
     }});
@@ -106,7 +106,7 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
       const acquired=![...preRejected,'unavailable','acquire_unknown','acquire_throw'].includes(mode);
       assert.equal(releases,acquired?1:0,mode);
       assert.equal(acquisitions,preRejected.includes(mode)?0:1,mode);
-      if(pipe)assert.equal(pipe,${JSON.stringify("\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.")}+createHash('sha256').update('crdd-logical-provider-home-kernel-lock-v1\\0').update('d'.repeat(64)).digest('hex').slice(0,32));
+      if(pipe)assert.deepEqual(pipe,{directory:path.dirname(path.win32.join(process.env.LOCALAPPDATA,'Qual-Lab','CRDD','ProviderHomes',provider)), name:'provider-home.'+'d'.repeat(64)+'.lock', identity:'provider-home:'+'d'.repeat(64)});
       const unknown=['first_throw','second_throw','acquire_unknown','acquire_throw','release_unknown','release_throw','helper_unknown','filesystem_effect','first_native_unknown','second_native_unknown'].includes(mode);
       assert.equal(result.resourceCleanupConfirmed,!unknown,mode);
       const retained=unknown||mode==='save_throw';
@@ -144,75 +144,25 @@ test("Home事前確認は元Lockの終了と未知の保持を区別する", () 
 });
 
 /**
- * 試験用の排他名を既存製品の純粋導出と同じOracleで照合する。
- * @responsibility 同じ共有資源を別名のLockで代用しない。
+ * 試験側も元Home所在と同じ64hex Identityを使う。
  * @trace ERB-IT-004
- * @precondition Sourceだけを読み、Coordinator Moduleはロードしない。
- * @stimulus 代表Hashとdomain省略・prefix・slice変更を照合する。
- * @observation 固定のPipe名。
- * @oracle 正常式だけが製品式と全値一致する。
- * @cleanup N/A: 純粋VMだけ。
- * @boundary 名前の相互運用だけ。実Named Pipe取得は未実施。
+ * @boundary 純粋Request構築。実Home・Native・Lockは操作しない。
  */
-test("試験Home排他名は既存の導出と一致し式の変更を拒否する", () => {
-  const source = fs.readFileSync(
-    new URL("../../scripts/verify-provider-home.ts", import.meta.url),
-    "utf8",
-  );
-  const product = fs.readFileSync(
-    new URL(
-      "../../../coordinator/src/execution/kernel-lock.ts",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  const productStart = product.indexOf(
-    "export function acquireRuntimeOwnedLogicalProviderHomeKernelLock(",
-  );
-  const productFunction = product
-    .slice(productStart, product.indexOf("\n}", productStart) + 2)
-    .replace("export function", "function")
-    .replace(
-      "stableLogicalHomeBindingHash: unknown",
-      "stableLogicalHomeBindingHash",
-    );
-  const start = source.indexOf("function homePipeName(");
-  const actual = source
-    .slice(start, source.indexOf("\n}", start) + 2)
-    .replace("hash: string", "hash");
+test("Home排他RequestはHome親Directoryと元Bindingだけを使用する", () => {
+  const home = path.resolve("synthetic", "ProviderHomes", "claude");
   for (const hash of [
     "a".repeat(64),
     "b".repeat(64),
     "0123456789abcdef".repeat(4),
   ]) {
-    const expected = vm.runInNewContext(
-      `${productFunction}; acquireRuntimeOwnedLogicalProviderHomeKernelLock(input)`,
-      {
-        createHash,
-        input: hash,
-        process: { platform: "win32" },
-        acquireNamedPipeKernelLock: (name: string) => name,
-      },
-    );
-    const evaluate = (text: string) =>
-      vm.runInNewContext(`${text}; homePipeName(input)`, {
-        createHash,
-        input: hash,
-      });
-    assert.equal(evaluate(actual), expected);
-    for (const changed of [
-      actual.replace(
-        '.update("crdd-logical-provider-home-kernel-lock-v1\\0")',
-        "",
-      ),
-      actual.replace(
-        "CRDD.Coordinator.ProviderHome",
-        "CRDD.Other.ProviderHome",
-      ),
-      actual.replace(".slice(0, 32)", ".slice(0, 16)"),
-    ]) {
-      assert.notEqual(changed, actual);
-      assert.notEqual(evaluate(changed), expected);
-    }
+    assert.deepEqual(homeLockRequest(hash, home), {
+      directory: path.dirname(home),
+      name: `provider-home.${hash}.lock`,
+      identity: `provider-home:${hash}`,
+    });
   }
+  assert.throws(
+    () => homeLockRequest("A".repeat(64), home),
+    /home_hash_invalid/,
+  );
 });

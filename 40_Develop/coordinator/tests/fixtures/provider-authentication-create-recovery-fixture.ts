@@ -63,8 +63,9 @@ const input = {
 const prepared = prepareIsolation(input);
 assert.ok(prepared);
 const deps = createProviderAuthenticationDependencies(),
-  lock = deps.acquireProviderHomeLock(hash);
-assert.ok(lock);
+  acquisition = deps.acquireProviderHomeLock(hash, path.dirname(home));
+assert.ok(acquisition.status === "acquired");
+const lock = acquisition.lock;
 assert.equal(deps.beginRecovery(record), "created");
 let snapshot: ResourceSnapshot = prepared.resources;
 const last = input.steps.at(-1);

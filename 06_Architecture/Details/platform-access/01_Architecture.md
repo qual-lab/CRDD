@@ -1,5 +1,20 @@
 # Windowsネイティブ部品の設計
 
+## 現在の残存範囲 — 2026-11-07
+
+技術排他は共通Lockへ接続し、PAにはPipe／Supervisor／Leaseの取得・監視・回復処理を残さない。OS判定とPID観測はNode.js標準を各Ownerが使用する。子Process環境は実在する用途差分だけを構築し、本番利用のない固定記述関数`describeWindowsChildEnvironmentContract`と専用2定数は撤去した。実際の環境生成・子での観測・外部Effect前の拒否検査は維持する。
+
+| 残る機能と利用先 | Node.js標準だけへの置換で失うもの | 現在の処置 |
+|---|---|---|
+| Namespace初期化、Runtime State／Provider Home観測：Coordinator | 選択利用者SID、protected DACL、祖先Handle・Token照合 | 現Policyを維持。通常Directory作成は既存Node処理を使い、Native保護を暗黙に撤廃しない |
+| OS既定所在：子環境、DI修復 | System Windows API／Known Folder由来の確認。環境変数やhomedir合成とは同値でない | 読取り専用の固定Native搬送を維持。ambient値へのfallbackは追加しない |
+| Entry観測：DIの修復Directory処置 | reparse tag、Native File Identityとlink countの技術検査 | lstatだけへ置換しない。実処置OwnerはDI |
+| tree終端：DIと検証Script | Nodeのchild.killだけでは子孫Process終了を同等に扱えない | 既存taskkill接続を薄い共用処理として維持。元子のclose確認は利用側 |
+| Desktop Helper：DI | Job Objectによる割当・終了確認、Publisherと実行物の照合 | 技術実装を維持。DIへの単なる移動をNative撤去と扱わない |
+| Artifact照合：上記搬送の全利用側 | 固定配布物の前後同一性とProtocol相関 | Nativeが残る間は維持 |
+
+これらの残存Sourceには実利用があり、未使用ファイルとして削除しない。PA全廃には保護Policyと対応保証の人間判断が別途必要である。この整理でPolicy変更、新しいPackage・Manager・Store、代替の監視機構は追加しない。移管と検証の現在結果は[変更記録§15](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)を参照する。以下の日付付き節は各段階の判断履歴であり、旧Pipe記述を現行機能へ読み替えない。
+
 ## Namespaceの旧子撤去とNode.js統合の検討 — 2026-11-06
 
 旧終端記録用`terminal-v1`の作成・実体／ACL照合・専用観測を撤去した。既存の旧子は観測・移行・削除しない。通常回復用`crdd-coordinator-recovery-v1`の作成、選択利用者SID、protected DACL、祖先Handle保持、独立期待値と処置後照合、部分Receiptと初回closeは維持する。要求CRDDNC01／CRDDNI01は不変更。短命応答はCRDDNR02 revision 2の二実体・一Receiptへ縮小し、旧応答は受け付けない。通常HostRecovery保存DTOと公開関数の引数は変更しない。
@@ -72,9 +87,9 @@ Cargo rootとtarget位置を維持し、Buildは`src/native/build.rs`、実行�
 | `host-record` | `initializeWindowsHostRecordNamespace` | 用途固定の親照合・初期化と部分receipt。作成時点・清掃判断は上位 |
 | `docker-desktop` | `startDockerDesktopRepairHelper`、`startDockerDesktopRestartHelper` | 固定補助子・Protocol・stdio・終了処理。操作許可、Policy、Engine判断、CheckpointはDocker Isolation |
 | `process` | `startWindowsChildTreeTermination` | 所有子の終了結果。Process番号だけで別対象を停止しない |
-| `process` | `createChildProcessEnvironment`、`createWindowsHostTerminalHelperEnvironment`、`createWindowsPowerShellAuthenticodeEnvironment`、`deriveWindowsSystemDrive`、`describeWindowsChildEnvironmentContract` | 用途固定の環境値・契約。任意環境builderを公開しない |
+| `process` | `createChildProcessEnvironment`、`createWindowsHostTerminalHelperEnvironment`、`createWindowsPowerShellAuthenticodeEnvironment`、`deriveWindowsSystemDrive` | 用途固定の環境値。任意環境builderを公開しない |
 
-固定target・Protocol・Toolchain・容量・環境契約の定数と、各操作の型もRootから明示exportする。正確なexport集合は公開契約試験で固定し、用途内のdecoder・wire・内部Artifact tokenは含めない。
+固定target・Protocol・Toolchain・容量と、必要な環境provenance定数、各操作の型もRootから明示exportする。正確なexport集合は公開契約試験で固定し、用途内のdecoder・wire・内部Artifact tokenは含めない。未使用の環境契約記述と専用定数は含めない。
 
 
 ## v0.22 Node境界の追加（移管候補）
@@ -118,8 +133,7 @@ Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在
 | `src/filesystem/local-app-data.ts` | 固定Known Folderの`--local-app-data-directory`、CRDDLA01の厳密decodeと安定Directory確認 | 引数なし・非Authorityの所在観測。旧RuntimeState・環境fallbackなし。意図した利用者・Root Authority・処置許可は別確認 |
 | `src/process/environment.ts` | OS由来Directory／Profile検証、中立環境、Console／Supervisor／Native／Host終端／固定PowerShell初期化環境、純粋Drive検査 | 既存用途固定の操作だけを公開。任意additions builderはprivate。親環境をAuthorityにせず、Host終端だけTMP／TEMPを導出する。Docker用Home・config・Hints・修復用Drive付与とPublisher判断は所有しない |
 | Coordinator `src/execution/kernel-lock.ts`／`src/objective/execute.ts` | CoordinatorがNode.js標準APIを直接使用（PAの観測入口は撤去） | PIDだけをSignal 0で観測し、ESRCHだけabsent、EPERM等はunknown。不正PIDではOS照会0。世代結合・Lease入力・回復判断は上位。Platform familyは既存Windows対応だけを返し、未対応OSへfallbackしない |
-| `src/lock/pipe.ts`、`lifecycle.ts`、`worker.ts`、`supervisor.ts` | `acquireNamedPipeKernelLock`、`acquireNamedPipeKernelLockOutcome`、`acquireNamedPipeSupervisorLock`と結果型 | 既存Windows用途のPipeだけを取得し、Worker／共有状態・Supervisor／IPCと終了を所有する。用途別Hash・namespace導出・取得順・上位状態判断は呼出しOwner。Supervisor環境はPA自身が構築し、任意環境は受け付けない |
-| `src/process/child.ts` | PA内部の固定Worker・Supervisorの起動 | Package Rootへ汎用spawn／Worker factoryを公開しない。eval・shell拒否と固定execPathを維持する。Workerは無出力の既存Lock種別に限定し、親側stdout／stderrを閉じてunrefによる親終了を妨げない。Worker本体・共有状態・message・error／exitは維持し、stdio破棄を解放／終了成功へ換算しない。試験Toolの自己起動は所有しない |
+| NodeのOS排他・固定Worker／Supervisor | [共通Lock](../lock/01_Architecture.md)へ移管 | PAからの旧再export・互換Wrapperは残さない。用途別Identity・取得順・Owner判断は利用側。中立環境の構築は既存PA APIをCoordinatorが使い、共通Lockへ確定値として渡す |
 | `src/process/termination.ts` | 所有ChildProcessを対象とする固定taskkillの開始、有界結果待機、補助子の終了とclose観測 | 生存元子だけを対象とし、観測後も未終了を再確認する。任意PID・実行物・引数・環境builderは公開しない。補助開始／終了値／closeと元子closeは別の事実。Consumerが一度発行と元子closeを所有する |
 | `src/index.ts` | 上記の必要な意味操作を明示export | Coordinator／Docker Isolation等はRoot APIを使い、下位から上位import 0、旧Path／shim 0 |
 

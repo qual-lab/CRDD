@@ -1,20 +1,21 @@
 /**
  * 単独実試験前のProvider Home観測・共有排他だけを明示確認する。
  * @packageDocumentation
- * @responsibility 既存Native観測とNamed Pipeを接続し、認証内容・AI・Dockerを使わず終了を確認する。
+ * @responsibility 既存Native観測とwx排他を接続し、認証内容・AI・Dockerを使わず終了を確認する。
  * @trace ERB-IT-002
  * @trace ERB-IT-004
  * @boundary 試験専用。通常importと非AI単段検証からは実行しない。
  */
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { observeWindowsProviderHome } from "../../platform-access/src/index.ts";
 import {
-  observeWindowsProviderHome,
-  acquireNamedPipeKernelLockOutcome,
-} from "../../platform-access/src/index.ts";
+  acquireLock,
+  type Lock,
+  type LockRequest,
+} from "../../lock/src/index.ts";
 import {
   writeCommittedJson,
   readCommittedJson,
@@ -25,28 +26,30 @@ import {
 import { getRepository } from "../../version-control/src/index.ts";
 
 /**
- * 既存共有Home排他と同じPipe名を試験側で導出する。
+ * 既存共有Home排他と同じFile要求を試験側で導出する。
  * @responsibility 製品の既存排他と衝突する同一Identityを使用する。
  * @trace ERB-IT-004
  * @input 検証済み64hexの安定Home Hash。
- * @returns 固定ProviderHome用途のPipe名。
+ * @returns 固定ProviderHome用途のLock要求。
  * @precondition Nativeで検証済みの安定Home Hashを渡す。
  * @postcondition 既存ProviderHome排他と同じ名前だけを返す。
- * @effect N/A: 純粋なHash計算のみ。
+ * @effect N/A: 純粋な要求構築のみ。
  * @failure 不正Hashを取得前に拒否する。
  * @invariant 名前から認証・実行Authorityを生成しない。
  * @boundary 既存の排他名契約。Source Oracleで製品側との一致を検査する。
  * @security 名前をcheckpoint又は公開結果へ保存しない。
  * @concurrency N/A: 同期の局所計算だけ。
  */
-export function homePipeName(hash: string) {
+export function homeLockRequest(
+  hash: string,
+  homeSourcePath: string,
+): LockRequest {
   if (!/^[0-9a-f]{64}$/u.test(hash)) throw new Error("home_hash_invalid");
-  const identity = createHash("sha256")
-    .update("crdd-logical-provider-home-kernel-lock-v1\0")
-    .update(hash)
-    .digest("hex")
-    .slice(0, 32);
-  return `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`;
+  return Object.freeze({
+    directory: path.dirname(homeSourcePath),
+    name: `provider-home.${hash}.lock`,
+    identity: `provider-home:${hash}`,
+  });
 }
 
 /**
@@ -58,7 +61,7 @@ export function homePipeName(hash: string) {
  * @returns 観測一致、終了・清掃とexact試験Root。認証成立・実行許可は返さない。
  * @precondition 実Home観測・共有排他の一回取得が別途許可されている。
  * @postcondition 正常時は元Lock解放と自己生成Root不存在を確認する。
- * @effect Native metadata観測二回以下、Named Pipe取得一回以下、試験checkpoint保存。
+ * @effect Native metadata観測二回以下、wx排他取得一回以下、試験checkpoint保存。
  * @failure 観測不能・差替え・保存拒否・解放不明で停止し、再試行しない。
  * @invariant Credential本文、SID、ACL、Home Path、四Hashを保存・表示しない。
  * @boundary 既存Platform Accessと試験専用Filesystem。実AI・Dockerには接続しない。
@@ -125,9 +128,7 @@ export async function verifyProviderHomeBoundary(
   let nativeCleanupConfirmed = true;
   let leaseCleanupConfirmed = true;
   let fixtureCleanupConfirmed = false;
-  let lock: Awaited<
-    ReturnType<typeof acquireNamedPipeKernelLockOutcome>
-  >["lock"] = null;
+  let lock: Lock | null = null;
   /**
    * 非秘密の試験段階だけを既存確定JSONで保存・読戻しする。
    * @responsibility 本番Runtime stateやHome metadataを複製しない。
@@ -185,12 +186,11 @@ export async function verifyProviderHomeBoundary(
       primaryReason = "home_observation_unconfirmed";
     } else {
       leaseCleanupConfirmed = false;
-      const acquired = await acquireNamedPipeKernelLockOutcome(
-        homePipeName(first.stableLogicalHomeBindingHash),
+      const acquired = acquireLock(
+        homeLockRequest(first.stableLogicalHomeBindingHash, home),
       );
-      if (acquired.status !== "acquired" || !acquired.lock) {
-        leaseCleanupConfirmed =
-          acquired.status === "unavailable" && acquired.lock === null;
+      if (acquired.status !== "acquired") {
+        leaseCleanupConfirmed = acquired.cleanupConfirmed;
         primaryReason = leaseCleanupConfirmed
           ? "home_lock_unavailable"
           : "home_lock_cleanup_unknown";
@@ -219,7 +219,7 @@ export async function verifyProviderHomeBoundary(
           const current = lock;
           lock = null;
           try {
-            leaseCleanupConfirmed = (await current.release()) === "released";
+            leaseCleanupConfirmed = current.release();
           } catch {
             leaseCleanupConfirmed = false;
           }

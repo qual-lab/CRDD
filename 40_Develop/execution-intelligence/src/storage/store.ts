@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import type { Lock } from "../../../lock/src/index.ts";
 import {
   snapshotPlainRecord,
   inspectExecutionIntelligenceEvent,
@@ -28,19 +29,16 @@ import {
   type ExecutionIntelligencePublicationResult,
   blockedPublication,
 } from "./result.ts";
-import {
-  LOCK_ATTEMPTS,
-  waitArray,
-  LOCK_RETRY_MS,
-  entryExists,
-  type MutationLock,
-  acquireMutationLock,
-  releaseMutationLock,
-} from "./lock.ts";
+import { entryExists, acquireMutationLock } from "./lock.ts";
 
 const MAXIMUM_EVENTS = 10_000;
 
 const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;
+
+// Runtime領域の既存Reader待機。Lock取得の再試行ではない。
+const AREA_READ_ATTEMPTS = 200;
+const AREA_READ_RETRY_MS = 10;
+const AREA_READ_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 /**
  * 読取り期間の半開区間を定義する。
@@ -234,10 +232,10 @@ function storeLayout(
     let attempt = 0;
     observedArea?.status === "blocked" &&
     observedArea.retryAllowed &&
-    attempt < LOCK_ATTEMPTS;
+    attempt < AREA_READ_ATTEMPTS;
     attempt += 1
   ) {
-    Atomics.wait(waitArray, 0, 0, LOCK_RETRY_MS);
+    Atomics.wait(AREA_READ_WAIT, 0, 0, AREA_READ_RETRY_MS);
     observedArea = resolveArea(
       rootCapability as Repository,
       "execution-intelligence",
@@ -331,7 +329,7 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
   if (!event)
     return blockedPublication("execution_event_invalid", "no_effect", true, []);
   let layout: StoreLayout | null = null,
-    lock: MutationLock | null = null;
+    lock: Lock | null = null;
   let isPendingOwned = false,
     wasPublicationAttempted = false;
   let expected: Buffer | null = null;
@@ -346,7 +344,7 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
         "no_effect",
         false,
         ["history.lock"],
-        true,
+        false,
       );
     if (entryExists(layout.pending))
       throw new MutationBoundaryError("execution_store_pending_unresolved", [
@@ -465,7 +463,7 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
         isPendingOwned = true;
       }
     }
-    const released = lock === null || releaseMutationLock(lock);
+    const released = lock === null || lock.release();
     if (!released || isPendingOwned)
       result = blockedPublication(
         "execution_event_store_cleanup_unknown",

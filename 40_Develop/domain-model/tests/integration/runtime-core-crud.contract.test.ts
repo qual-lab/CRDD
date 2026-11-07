@@ -26,7 +26,7 @@ import {
   savePlan,
   updateTask,
 } from "../../src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 import { createRuntimeStorageSourceFixture } from "../support/runtime-storage-source.ts";
 
@@ -168,7 +168,15 @@ test("保存先切替は旧領域の存在と観測不能を空初期化へ変�
           assert.deepEqual(fs.readFileSync(pendingFile), pending);
           assert.equal(fs.existsSync(path.join(current, "state.json")), false);
         } else if (kind !== "absent") {
-          assert.equal(result.status, "blocked", JSON.stringify(result));
+          assert.equal(
+            result.status,
+            kind === "parent_changed" ? "unknown" : "blocked",
+            JSON.stringify(result),
+          );
+          if (kind === "parent_changed") {
+            assert.equal(result.reason, "lock_release_unconfirmed");
+            assert.equal(result.publication, "not_published");
+          }
           assert.equal(fs.existsSync(current), false);
           if (kind === "file")
             assert.equal(
@@ -490,19 +498,20 @@ test("一般CRUDは既存Writerの失敗・再入場・解放不明をそのま�
           }
           return readStableBoundedFileSnapshot(...args);
         },
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (
-          ...args: Parameters<
-            typeof acquireRuntimeOwnedCoordinatorStateKernelLock
-          >
+        acquireRuntimeStateLock: (
+          ...args: Parameters<typeof acquireRuntimeStateLock>
         ) => {
-          const lock = acquireRuntimeOwnedCoordinatorStateKernelLock(...args);
-          if (!lock || mode !== "release") return lock;
+          const lock = acquireRuntimeStateLock(...args);
+          if (lock.status !== "acquired" || mode !== "release") return lock;
           return {
             ...lock,
-            release: () => {
-              injected++;
-              assert.equal(lock.release(), true);
-              return false;
+            lock: {
+              ...lock.lock,
+              release: () => {
+                injected++;
+                assert.equal(lock.lock.release(), true);
+                return false;
+              },
             },
           };
         },

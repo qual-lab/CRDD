@@ -10,9 +10,6 @@ import os from "node:os";
 import path from "node:path";
 import { observeSystemWindowsDirectory } from "../filesystem/system-directory.ts";
 
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
-  "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 10;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "native_system_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -327,57 +324,4 @@ export function deriveWindowsSystemDrive(windowsDirectory: unknown) {
   )
     return null;
   return windowsDirectory.slice(0, 2);
-}
-
-/**
- * 用途固定環境の構成・Consumerとの照合契約を記述する。
- *
- * @responsibility 既存の環境Profileと非Authority境界を固定値で説明する。
- * @trace ARCH-000008
- * @input N/A: 固定契約を返す。
- * @returns 環境Profile・Consumer・非Authority条件の凍結した記述。
- * @precondition N/A: 動的状態を読み取らない。
- * @postcondition 実環境取得や実行成功を主張せず記述だけを返す。
- * @effect N/A: 固定値の構成だけ。
- * @failure N/A: 固定値を返し独立した失敗分岐を持たない。
- * @invariant 記述の存在を実観測・Authority・終了確認へ昇格しない。
- * @boundary 固定環境契約→照合用記述。
- * @security 秘密値・現在の所在・認証情報を記述へ含めない。
- * @concurrency N/A: 外部資源や共有状態を持たない同期処理。
- */
-export function describeWindowsChildEnvironmentContract() {
-  return Object.freeze({
-    contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
-    provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-    ambientNames: "fixed_neutral_values",
-    callerEnvironmentAccepted: false,
-    parentEnvironmentAuthority: false,
-    nativeHelperUserProfile: "os_user_info_validated_profile_path",
-    nativeHelperConsumers: Object.freeze([
-      "provider_home_observation",
-      "runtime_state_observation",
-      "runtime_state_initialization",
-      "docker_desktop_runtime_repair_native_helper",
-    ]),
-    nodeChildConsumers: Object.freeze(["host_operation_lock_supervisor"]),
-    dockerCliConsumers: Object.freeze([
-      "docker_effect_runtime",
-      "docker_recovery_runtime",
-      "docker_desktop_runtime_repair",
-    ]),
-    powerShellAuthenticodeConsumers: Object.freeze([
-      "docker_cli_authenticode_inspection",
-    ]),
-    powerShellAuthenticodeEnvironment:
-      "native_os_directory_and_validated_user_profile_minimal_powershell_initialization_block",
-    dockerDesktopLauncherConsumers: Object.freeze([]),
-    dockerRepairHelperSystemDrive:
-      "native_system_windows_directory_local_drive",
-    dockerDesktopLauncherEnvironment:
-      "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
-    userProfileEnvironmentAuthority: false,
-    userProfileInitializationAuthority: false,
-    actualChildObservationRequired: true,
-  });
 }

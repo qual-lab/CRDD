@@ -275,6 +275,8 @@ resolveVerifiedRepositoryRootは、Domain等のRepository-local保存や所在�
 
 今回SHA-256の操作対応は追加しない。既存Root入口のSHA-1限定を維持し、SHA-256 RepositoryはCapability発行前の拒否対照として確認する。内部のObject形式観測が可能なことを、公開操作全体のSHA-256対応と解釈しない。
 
+`getRepository()` は既存の読取り専用形式観測でSHA-256を確認できた場合に限り、`capability: null` のまま `repository_object_format_unsupported` と形式を返す。これは操作用Root検証の成立を意味しない。不整合・観測不能は `repository_root_invalid` を維持する。
+
 `readWorkingChanges`は4観測が全て成功した後、既存の文字順・重複排除で`changedPaths`を一度だけ集約する。独立した集約関数は公開せず、Workbenchの表示用変更集合は既存fieldだけを明示投影する。
 
 `readRepositorySnapshot`は検証済みRepositoryを受け、前後のRepository・改訂一致と中央のCommit／Tree対応を一つの実装で照合し、既存Fixed Revision Identity形式を返す。旧3入口と候補形式への中間変換は撤去する。保存値やHashの既存候補形式が必要な利用側は、その正本形式へ明示投影する。観測不能・差替えは既存のnull契約へ閉じる。CoordinatorのOperation Capabilityや40桁限定の実行許可は所有しない。Orchestratorの受付・採用・状態観測はCoordinatorの内部Git観測へ依存せず、この公開操作を利用する。

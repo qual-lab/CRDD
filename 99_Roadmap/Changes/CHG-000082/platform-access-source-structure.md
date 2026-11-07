@@ -1,5 +1,47 @@
 # Platform Accessの構造・Native接続再編
 
+## 現在の位置 — 2026-11-07
+
+共通Lockはwx方式の3 Sourceとなり、CurrentState・共有Home・Runtime状態・Host操作に続いてEI／Topic／Meeting／一時Operationも同じ取得・所有確認・解放へ接続した。PAのPipe／Supervisor／Leaseは残さない。PAの未使用環境契約記述と2定数も撤去した。現在の接続、独立是正と検証限界は[Lock変更記録§15](lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)を参照する。
+
+PA全廃は未完了である。残るNative保護・OS観測・Desktop技術処理の利用先と外した場合の影響は[PA設計](../../../06_Architecture/Details/platform-access/01_Architecture.md#現在の残存範囲--2026-11-07)を正本とする。以下は段階ごとの調査・判断履歴であり、候補を現行Sourceへ読み替えない。
+
+## 共通Lockのwx化候補 — 2026-11-07
+
+§13時点の記録: 信頼境界も人間が採用し、[変更記録§13](lock-boundary-design.md#13-wxの実装と汎用storeの限定切替--2026-11-07)で共通wx処理とDomain汎用Store／AMの切替を進めていた。旧PID不存在Proof・オンライン回復API・自動回復後再取得を撤去。不要になったendpoint取得APIとWorker 2 Sourceも撤去した。当時はCurrentState・共有Home・Host操作等の全Scope切替は未完了であり、当時の8 Sourceを最終構成とはしなかった。以下は判断・調査履歴として保持する。
+
+更新: A案（wx統一・残存時Fail Closed・全利用Process停止下の明示Recovery）は人間が採用した。ただし通常解放の最終照合→unlink間に非協調の置換が入る反証を確認し、[変更記録§12](lock-boundary-design.md#12-wx方式の採用と通常解放の境界--2026-11-07)の信頼境界だけを判断待ちとしている。製品方式変更はまだ開始していない。以下は採用前の候補整理として保持する。
+
+現行9 SourceはOS方式のOwner移管であり、wx統一は未実装。Caller・保持区間・回復条件・既存試験を再照合し、[変更記録§11](lock-boundary-design.md#11-wxへ寄せる範囲の再評価--2026-11-07)に候補を具体化した。短期保存が先行候補だが、Reader・回復・検証Scriptも同じScopeで切り替える必要がある。共有Homeの所在とHost世代の終了契約、Crash残存時に停止する運用は実装前の判断事項である。
+
+wxだけへ移せればWorker／Supervisor／固定子起動・監視を消し、3 Source程度へ縮小できる可能性がある。既存の即再取得保証を守るためだけの新監視や自動Recoveryは作らない。今回は設計調査のみで、製品方式・実AI・Docker・過去保持物は変更・操作していない。
+
+## 取得後ID生成例外の確認 — 2026-11-07
+
+[限定故障注入の結果](lock-boundary-design.md#9-取得後id生成例外の限定確認--2026-11-07)では、Domain／EIともUUID生成例外でopen descriptorと空Lock Fileが残ることを再現した。Domainは同scopeの再取得も拒否。EI保存本文の有限接続ではblockedの一方で清掃済み・残存なしへ誤分類する経路があった。自然発生頻度や公開保存API全体のE2Eは未評価である。
+
+上記は修正前の確認である。その後、ID生成を最初の資源Effect前へ移す最小是正を実施した。公開API・保存Schema・回復条件は変更していない。修正後の限定検証と、共通Lockがwx統一ではなく既存OS方式のOwner移管であることは[変更記録§10](lock-boundary-design.md#10-id生成の最小是正とlock構成の確認--2026-11-07)を現在値とする。実AI・Docker・過去保持物は操作していない。
+
+## File Lock群の移管評価 — 2026-11-07
+
+[利用側・回復・既存試験の対応](lock-boundary-design.md#file-lock-migration-assessment)を整理した。4系統はNode実装済みでPA廃止の直接障害ではなく、Domainの下位OS Guardも共通化済み。File型の公開APIを今すぐ増やす推奨は取り下げ、保存・回復プロトコルは各Ownerへ維持する。Topic／MeetingとEIの取得・終了処理は技術候補だが、現段階で単純移動の利点は小さい。
+
+一時OperationのLifecycle Lockは現在の製品srcに外部利用を確認できず、公開APIと試験が中心。共通Capabilityへの拡張や削除は行わない。Domain／EIの取得後ID生成が清掃try外にある区間、一時OperationのPID不明分類、最終照合→削除の交差を局所確認候補として記録した。今回は文書の静的照合のみで、製品・試験・回復方式・保持物は変更・操作していない。
+
+## Node OS排他の共通Lock移管 — 2026-11-07
+
+PAのPipe・非同期Worker／Supervisor・固定子起動と、DomainのFilesystem endpoint取得を`40_Develop/lock`へ移管した。旧PA再export・互換Wrapperは撤去し、利用側・Source Hash／コピーfixture・台帳・QA・Architectureを追従した。公開4入口と必要な7型は[共通Lock設計](../../../06_Architecture/Details/lock/01_Architecture.md)、保持区間・移管外・検証経過は[変更記録§7](lock-boundary-design.md#7-node-os排他の実装移管--2026-11-07)に置く。
+
+対象回帰はLock23・Coordinator198・Domain17・Checker11・PA75・Executor10件成功。独立レビュー後のコメント清掃も追加指摘なし。新品試験領域は回収・不存在確認済み。新Lockの標準npm testはオフラインの依存未取得で未実施だが、同じ静的3軸と試験本体は既存固定ツールで確認した。実AI・Docker・過去保持物は操作せず、File型・Domain回復・長期Lease・Native Mutexは残した。PA全廃・全OS・Repository全体E2Eの完成ではない。
+
+## 共通LockのPhase 1・2 — 2026-11-06、設計候補
+
+新規`lock`Packageと、異なる保護対象へ一貫した排他契約を提供する人間方針を受け、[全Consumer棚卸し・契約候補・回復案と移行Gate](lock-boundary-design.md)を整理した。PA共有PipeだけでなくDomain固有Worker／wx、Access Managementの回復利用、Coordinator長期Lease、ExecutorのRepository横断Home、EI履歴、Nativeのユーザー別修復Mutexを区別する。旧Owner再開時のLock削除・保存上書きを合成反例で確認し、製品Primitiveを取り去らずに比較区間から最終処置までの保証を検証する必要を記録した。
+
+今回は設計調査と新品の限定モデル実測だけで、製品Source・保存形式・PA依存・配布Nativeを変更しない。試験物は回収済み。実AI・Docker・過去保持物は操作しない。Phase 2の収束・新Package実装・Cross-platform成立・PA廃止は未完了であり、Consumer移行Gateは閉じている。
+
+続く[保持区間と既存試験の照合](lock-boundary-design.md#6-利用側の保持区間と移管範囲--2026-11-06追補)では、Topic／Meeting独自File Lockの棚卸し漏れと長期Leaseの排他Directoryの説明不足を是正した。第一候補は現行endpointを維持したNode OS排他の技術移管であり、Home用の新共有Directoryは不要。File型は次段階、業務回復・長期Lease・Native Mutexは現Ownerに残す。今回追補は静的照合だけで、製品試験の再実行や移管成立を主張しない。
+
 ## Namespace旧子の撤去・Node統合案 — 2026-11-06
 
 承認範囲は旧`terminal-v1`の新規作成・実体／ACL検査の撤去と、通常回復Directory初期化のNode統合案の整理である。保護Policy、通常HostRecovery保存DTO、既存保持物は変更しない。旧子用の固定再観測・専用fixture／Toolも退役し、親＋Recoveryの二実体・一Receiptへ縮小した。要求はCRDDNC01／CRDDNI01のまま、短命応答だけCRDDNR02 revision 2へ切り替え、旧応答fallbackはない。

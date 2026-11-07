@@ -5,6 +5,7 @@
  * @boundary CoordinatorのHost管理とExecutorの技術生涯の間。
  */
 
+import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { types } from "node:util";
 import type { Provider } from "../../../ai-adapter/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
@@ -644,6 +645,11 @@ function startRecordedAttempt(
     // 元completionを上位の終了保存へjoinし、開始済みの試行を未開始へ戻さない。
   }
   if (started.status !== "started") {
+    if (
+      started.reason ===
+      "docker_process_controller_home_lock_descriptor_close_unconfirmed"
+    )
+      poisonRuntimeProcessAfterCleanupUnknown();
     try {
       operations.recordUnstarted?.(
         recovery.recoveryCapability,

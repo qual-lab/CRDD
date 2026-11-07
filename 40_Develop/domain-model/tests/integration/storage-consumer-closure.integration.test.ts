@@ -18,6 +18,8 @@ const RESOLVER_PATH =
   "40_Develop/domain-model/src/repository/resolve-storage-paths.ts";
 const RUNTIME_STORAGE_OWNERS = new Set([
   "40_Develop/domain-model/src/storage/runtime-store.ts",
+  // CurrentState wxの固定所在だけを所有する。任意Consumerのraw Root利用は認めない。
+  "40_Develop/domain-model/src/storage/runtime-kernel-lock.ts",
   "40_Develop/domain-model/src/storage/ai-selection.ts",
   "40_Develop/domain-model/src/storage/network-policy.ts",
   RESOLVER_PATH,
@@ -81,6 +83,7 @@ const blockedMeaningFields = [
 ] as const;
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
+  "40_Develop/domain-model/src/storage/runtime-kernel-lock.ts",
   "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([
@@ -195,7 +198,11 @@ function violations(sources: SourceSet): string[] {
       /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(source) ||
       /["']\.["']\s*\+\s*["']crdd["']/u.test(source) ||
       /["']\.["']\s*,\s*["']crdd["']/u.test(source);
-    if (item !== RESOLVER_PATH && hasDirectRootConstruction)
+    if (
+      item !== RESOLVER_PATH &&
+      item !== "40_Develop/domain-model/src/storage/runtime-kernel-lock.ts" &&
+      hasDirectRootConstruction
+    )
       findings.push(`raw-root:${item}`);
     // Topic探索の固定除外式はPath構築ではない。同Fileの他のliteralは免除しない。
     const rootLiteralSource =

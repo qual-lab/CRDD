@@ -4,6 +4,7 @@
  * @trace ARCH-000004、ARCH-000008
  */
 
+import type { Lock } from "../../../lock/src/index.ts";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -175,10 +176,11 @@ import {
   inspectCoordinatorHistorySettlement,
   updateCoordinatorHistoryOwned,
 } from "./runtime-history.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "./runtime-kernel-lock.ts";
+import { acquireRuntimeStateLock } from "./runtime-kernel-lock.ts";
 import {
   acquireCoordinatorSnapshotPilotLock,
   acquireCoordinatorStorageOwnerForRepository,
+  storageLockFailure,
   borrowCoordinatorStorageOwner,
   type CoordinatorSnapshotOwner,
   type CoordinatorStorageOwner,
@@ -2096,15 +2098,19 @@ export function cleanupRuntimeOwnedCoordinatorStateMarker(
     lockReleased = true;
   let reason = "coordinator_state_marker_cleanup_unconfirmed";
   const repository = observeRuntimeRecoveryRepository(rootCapability);
-  let lock: ReturnType<typeof acquireRuntimeOwnedCoordinatorStateKernelLock> =
-    null;
+  let lock: Lock | null = null;
   try {
     if (!repository) throw new Error("root");
     lockReleased = false;
-    lock = acquireRuntimeOwnedCoordinatorStateKernelLock(
+    const acquisition = acquireRuntimeStateLock(
       repository.repositoryBinding,
+      repository.repositoryRoot,
     );
-    if (!lock) throw new Error("lock");
+    if (acquisition.status !== "acquired") {
+      reason = storageLockFailure(acquisition).reason;
+      throw new Error(reason);
+    }
+    lock = acquisition.lock;
     let boundary: string | null = null;
     let originalNames: string[] = [];
     const original = new Map<
@@ -2946,9 +2952,16 @@ export function readCoordinatorStateSnapshot(
     : null;
   if (storageOwner && !borrowedOwner)
     return blocked("coordinator_state_owner_invalid", false);
-  const ownedOwner = borrowedOwner
+  const acquisition = borrowedOwner
     ? null
     : acquireCoordinatorStorageOwnerForRepository(repository);
+  if (acquisition?.status === "blocked")
+    return {
+      ...blocked(acquisition.reason, false),
+      manualRecoveryRequired: acquisition.manualRecoveryRequired,
+      recoveryId: acquisition.recoveryId,
+    };
+  const ownedOwner = acquisition?.value ?? null;
   const lock =
     borrowedOwner?.lock ??
     (ownedOwner ? readCoordinatorStorageOwnerBinding(ownedOwner)?.lock : null);
@@ -4160,7 +4173,9 @@ function prepareCoordinatorStateInitialization(
       effectIssued: false,
       lockReleased: true,
     });
-  const storageOwner = acquireCoordinatorStorageOwnerForRepository(repository);
+  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);
+  const storageOwner =
+    acquisition.status === "completed" ? acquisition.value : null;
   const lock = storageOwner
     ? readCoordinatorStorageOwnerBinding(storageOwner)?.lock
     : null;
@@ -4407,10 +4422,17 @@ export function resumeRuntimeOwnedCoordinatorRepairPublication(
     }
   };
   if (!assertOwner() || !repository) return refused();
-  const lock = acquireRuntimeOwnedCoordinatorStateKernelLock(
+  const acquisition = acquireRuntimeStateLock(
     repository.repositoryBinding,
+    repository.repositoryRoot,
   );
-  if (!lock) return { ...refused(), lockReleased: false };
+  if (acquisition.status !== "acquired")
+    return {
+      ...refused(),
+      reason: storageLockFailure(acquisition).reason,
+      lockReleased: false,
+    };
+  const lock = acquisition.lock;
   let files: Map<
     string,
     ReturnType<typeof readStableBoundedFileSnapshot>
@@ -4965,7 +4987,9 @@ function prepareCoordinatorStateWrite(
         lockReleased: previousLockReleased,
       });
   }
-  const storageOwner = acquireCoordinatorStorageOwnerForRepository(repository);
+  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);
+  const storageOwner =
+    acquisition.status === "completed" ? acquisition.value : null;
   const lock = storageOwner
     ? readCoordinatorStorageOwnerBinding(storageOwner)?.lock
     : null;
@@ -4973,7 +4997,10 @@ function prepareCoordinatorStateWrite(
     return Object.freeze({
       ...attempt,
       status: "blocked",
-      reason: "coordinator_state_lock_unavailable",
+      reason:
+        acquisition.status === "blocked"
+          ? acquisition.reason
+          : "coordinator_state_lock_unavailable",
       filesystemEffectIssued: false,
       snapshotConfirmed: false,
       lockReleased: false,
@@ -8748,9 +8775,25 @@ function saveRuntimeDefinition<K extends keyof RuntimeDefinitionValues>(
   );
   if (!repository)
     return { status: "blocked", value: null, reason: "not_authorized" };
-  const owner = acquireCoordinatorStorageOwnerForRepository(repository);
-  if (!owner)
-    return { status: "blocked", value: null, reason: "lock_unavailable" };
+  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);
+  if (acquisition.status !== "completed") {
+    if (!acquisition.manualRecoveryRequired)
+      return { status: "blocked", value: null, reason: "lock_unavailable" };
+    return {
+      status: "unknown",
+      value: null,
+      reason:
+        acquisition.reason ===
+        "coordinator_state_lock_descriptor_close_unconfirmed"
+          ? "lock_descriptor_close_unconfirmed"
+          : "lock_initialization_failed",
+      publication: "not_published",
+      recoveryReferences: acquisition.recoveryId
+        ? [acquisition.recoveryId]
+        : [],
+    };
+  }
+  const owner = acquisition.value;
   let result: RuntimeWriteResult<RuntimeDefinitionValues[K]> = {
     status: "blocked",
     value: null,
@@ -9181,9 +9224,25 @@ export function initializeRuntimeState(
   );
   if (!repository)
     return { status: "blocked", value: null, reason: "not_authorized" };
-  const owner = acquireCoordinatorStorageOwnerForRepository(repository);
-  if (!owner)
-    return { status: "blocked", value: null, reason: "lock_unavailable" };
+  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);
+  if (acquisition.status !== "completed") {
+    if (!acquisition.manualRecoveryRequired)
+      return { status: "blocked", value: null, reason: "lock_unavailable" };
+    return {
+      status: "unknown",
+      value: null,
+      reason:
+        acquisition.reason ===
+        "coordinator_state_lock_descriptor_close_unconfirmed"
+          ? "lock_descriptor_close_unconfirmed"
+          : "lock_initialization_failed",
+      publication: "not_published",
+      recoveryReferences: acquisition.recoveryId
+        ? [acquisition.recoveryId]
+        : [],
+    };
+  }
+  const owner = acquisition.value;
   let result: RuntimeWriteResult<Readonly<{ intakeEpoch: string }>> = {
     status: "blocked",
     value: null,
@@ -9310,9 +9369,24 @@ function readRuntimeContent<K extends keyof RuntimeContentViews>(
   const repository = observeRuntimeContentRepository(access, operation, target);
   if (!repository)
     return { status: "blocked", value: null, reason: "not_authorized" };
-  const owner = acquireCoordinatorStorageOwnerForRepository(repository);
-  if (!owner)
-    return { status: "blocked", value: null, reason: "lock_unavailable" };
+  const acquisition = acquireCoordinatorStorageOwnerForRepository(repository);
+  if (acquisition.status !== "completed") {
+    if (!acquisition.manualRecoveryRequired)
+      return { status: "blocked", value: null, reason: "lock_unavailable" };
+    return {
+      status: "unknown",
+      value: null,
+      reason:
+        acquisition.reason ===
+        "coordinator_state_lock_descriptor_close_unconfirmed"
+          ? "lock_descriptor_close_unconfirmed"
+          : "lock_initialization_failed",
+      recoveryReferences: acquisition.recoveryId
+        ? [acquisition.recoveryId]
+        : [],
+    };
+  }
+  const owner = acquisition.value;
   let result: RuntimeReadResult<RuntimeContentViews[K]> = {
     status: "unknown",
     value: null,

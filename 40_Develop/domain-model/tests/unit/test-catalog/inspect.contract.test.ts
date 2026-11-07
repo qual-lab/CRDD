@@ -296,6 +296,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "domain-model",
       "execution-intelligence",
       "executor",
+      "lock",
       "mcp-server",
       "platform-access",
       "version-control",

@@ -86,6 +86,13 @@ export type RepositoryResult =
       status: "blocked";
       reason: "repository_root_invalid";
       capability: null;
+    }>
+  | Readonly<{
+      status: "blocked";
+      reason: "repository_object_format_unsupported";
+      capability: null;
+      /** 読取り専用の形式診断。操作用Rootの成立を表さない。 */
+      objectFormat: "sha256";
     }>;
 
 /** 現在Worktreeの四区分の変更観測。部分観測はこの型を返さない。 */

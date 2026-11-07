@@ -487,7 +487,7 @@ test("本文待機中の失効・交換・別改訂は同じ公開拒否へ閉�
  * @precondition 既存材料なしの初回HTTP。
  * @stimulus 確認保存でrename・readback・pending・Lockの故障を注入する。
  * @observation 同じ公開error、current、次要求tools/list、材料不存在または保持。
- * @oracle 未出版は次要求401、出版済みはexact清掃後通常一覧、確認成功応答は0。
+ * @oracle 未出版・Lock解放不明は次要求401。出版済みかつ解放済みはexact清掃後通常一覧。確認成功応答は0。
  * @cleanup hook復元、Server closeとfixture回収。
  * @boundary HTTP→実保存故障→次要求Resolver。
  */
@@ -550,14 +550,27 @@ test("初回HTTP保存故障は非開示で停止し次要求で出版事実を�
     }
     try {
       const before = fs.readFileSync(f.current);
+      const lockPath = path.join(f.directory, "access-management.lock");
+      const retainedLock =
+        failure === "lock" ? fs.readFileSync(lockPath) : null;
       const next = await fetch(url, {
         method: "POST",
         headers: headers(f.token, "tools/list"),
         body: JSON.stringify({ ...packet(), method: "tools/list" }),
       });
-      assert.equal(next.status, failure === "rename" ? 401 : 200);
+      assert.equal(
+        next.status,
+        failure === "rename" || failure === "lock" ? 401 : 200,
+      );
       const result = await next.json();
-      if (failure === "rename") {
+      if (failure === "lock") {
+        assert.ok(result.error);
+        assert.deepEqual(fs.readFileSync(lockPath), retainedLock);
+        assert.deepEqual(fs.readdirSync(f.directory).sort(), [
+          "access-management.json",
+          "access-management.lock",
+        ]);
+      } else if (failure === "rename") {
         assert.ok(result.error);
         assert.ok(
           fs.existsSync(

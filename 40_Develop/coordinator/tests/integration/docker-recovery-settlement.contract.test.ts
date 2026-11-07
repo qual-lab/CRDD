@@ -160,7 +160,7 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
     {
       ...versionControl.namedExports,
       ...results.namedExports,
-      readCoordinatorState:
+      readCurrentCoordinatorState:
         currentState.namedExports.readCurrentCoordinatorState,
       snapshotPlainRecord,
     },

@@ -52,6 +52,7 @@ import {
   managementFixture,
   prepare,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "./fixture.ts";
 
 /**
@@ -739,10 +740,10 @@ test("許可集合の不明は空成功や部分成功へ変換しない", (t) =
   t.after(() => {
     fs.rmSync = remove;
   });
-  fs.rmSync = (target, options) => {
+  fs.rmSync = (target) => {
     if (String(target).endsWith("access-management.lock"))
       throw new Error("injected private detail");
-    return remove(target, options);
+    return remove(target);
   };
   try {
     assert.deepEqual(
@@ -752,6 +753,11 @@ test("許可集合の不明は空成功や部分成功へ変換しない", (t) =
   } finally {
     fs.rmSync = remove;
   }
+  assert.equal(
+    resolveRepositoryAccessCollection(f.root, f.tokens.developer).status,
+    "unavailable",
+  );
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(
     resolveRepositoryAccessCollection(f.root, f.tokens.developer).status,
     "completed",
@@ -909,16 +915,18 @@ test("内容実体不成立と解放不明は能力非返却", (t) => {
   t.after(() => {
     fs.rmSync = remove;
   });
-  fs.rmSync = (target, options) => {
+  fs.rmSync = (target) => {
     if (String(target).endsWith("access-management.lock"))
       throw new Error("injected secret/path must not escape");
-    return remove(target, options);
+    return remove(target);
   };
   assert.deepEqual(request(), {
     status: "unavailable",
     reason: "repository_access_release_unknown",
   });
   fs.rmSync = remove;
+  assert.equal(request().status, "unavailable");
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(request().status, "completed");
   assert.equal(
     fs.existsSync(path.join(f.directory, "access-management.lock")),
@@ -1032,6 +1040,7 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
       if (String(target).endsWith(suffix)) throw new Error("injected");
       return originalRm(target, options);
     };
+
     try {
       const failed = saveUserName(
         f.root,
@@ -1061,6 +1070,10 @@ test("通常管理は先行材料と今回出版・清掃不明を分離する",
       );
     } finally {
       fs.rmSync = originalRm;
+    }
+    if (suffix === "access-management.lock") {
+      assert.equal(readAccessManagementState(f.root).status, "unavailable");
+      removeKnownStoppedTestLock(f.directory, process.pid);
     }
     assert.equal(readAccessManagementState(f.root).status, "completed");
     assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
@@ -1374,12 +1387,12 @@ test("rename失敗と出版後清掃失敗の事実を保持", (t) => {
 
 /**
  * 保存途中の子Process喪失から新Processで再入場する。
- * @responsibility 実Process終了・残存Lockのexact回収・base/nextの処置を接続する。
+ * @responsibility 実Process終了・残存による停止・全試験利用者停止下の明示処置・base/nextの再観測を接続する。
  * @trace RFD-IT-021
  * @precondition Repository-localな模擬状態と実子Processだけを使用する。
  * @stimulus pending flush後、replace flush後、rename後でexit(23)する。
  * @observation 終了code、残存材料、次読取りの改訂と清掃を確認する。
- * @oracle 前二者は改訂1のまま、後者は改訂2を保持。自動再出版0、子Processはjoin済み。
+ * @oracle 残存で一度停止し、自動回復0。明示処置後も前二者は改訂1、後者は改訂2を保持。子Processはjoin済み。
  * @cleanup 自己生成Rootと所有材料を削除し不存在を確認する。
  * @boundary Node子Process・Filesystem・既存Lockの直接保存境界。
  */
@@ -1418,6 +1431,16 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
     });
     assert.equal(child.error, undefined);
     assert.equal(child.status, 23, child.stderr);
+    const retained = fs.readFileSync(
+      path.join(f.directory, "access-management.lock"),
+    );
+    assert.equal(readAccessManagementState(f.root).status, "unavailable");
+    assert.deepEqual(
+      fs.readFileSync(path.join(f.directory, "access-management.lock")),
+      retained,
+    );
+    assert.ok(child.pid);
+    removeKnownStoppedTestLock(f.directory, child.pid);
     const result = readAccessManagementState(f.root);
     assert.equal(result.status, "completed");
     if (result.status !== "completed") continue;
@@ -1433,7 +1456,7 @@ test("実子Process喪失後にbase/nextとLockを再観測する", (t) => {
  * @precondition 自己生成Rootと不正候補を使用する。
  * @stimulus 候補拒否後のLock削除を失敗させ、復元後同じRootを読み直す。
  * @observation primary reason、secondary reason、回復参照、現状態を確認する。
- * @oracle 候補不正を保持・出版0・解放未確認。復元後既存exact回収で正常読取りできる。
+ * @oracle 候補不正を保持・出版0・解放未確認。復元後も残存で停止し、試験所有物の明示処置後だけ読み直せる。
  * @cleanup 差替えを復元し自己生成Rootを削除する。
  * @boundary AM保存結果と既存Lock回収の直接境界。
  */
@@ -1443,10 +1466,10 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
   t.after(() => {
     fs.rmSync = remove;
   });
-  fs.rmSync = (target, options) => {
+  fs.rmSync = (target) => {
     if (String(target).endsWith("access-management.lock"))
       throw new Error("injected");
-    return remove(target, options);
+    return remove(target);
   };
   const result = updateAccessManagementState(f.root, 1, () =>
     Buffer.from("{}"),
@@ -1462,6 +1485,8 @@ test("主失敗をLock清掃失敗で上書きしない", (t) => {
     result.secondaryReason,
     "filesystem_store_lock_operation_completed_cleanup_unknown",
   );
+  assert.equal(readAccessManagementState(f.root).status, "unavailable");
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(readAccessManagementState(f.root).status, "completed");
   assert.deepEqual(fs.readdirSync(f.directory), ["access-management.json"]);
 });

@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import type {
   TemporaryOperationCapability,
   TemporaryEvidencePromotionReceipt,
@@ -116,39 +117,6 @@ type TemporaryOperationDocument = Readonly<{
   terminalPaths: readonly string[];
   evidencePromotion: "required" | "not_required";
 }>;
-/**
- * temporary-operation-storeで使用するLifecycle Lockの値契約を定義する。
- *
- * @responsibility Lifecycle LockのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000011
- * @shape LifecycleLockが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LifecycleLockで宣言した値と責務の対応を維持する。
- * @boundary N/A: LifecycleLockの宣言は外部境界を開かない。
- * @security N/A: LifecycleLockはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility LifecycleLockの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type LifecycleLock = Readonly<{
-  path: string;
-  identity: string;
-}>;
-/**
- * temporary-operation-storeで使用するLifecycle Lock Documentの値契約を定義する。
- *
- * @responsibility Lifecycle Lock DocumentのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000011
- * @shape LifecycleLockDocumentが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LifecycleLockDocumentで宣言した値と責務の対応を維持する。
- * @boundary N/A: LifecycleLockDocumentの宣言は外部境界を開かない。
- * @security N/A: LifecycleLockDocumentはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility LifecycleLockDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type LifecycleLockDocument = Readonly<{
-  schema: "crdd/runtime-data/lifecycle-lock/v1";
-  identity: string;
-  ownerProcessId: number;
-  state: "active" | "released";
-}>;
-
 /**
  * Safe Directoryかを判定する。
  *
@@ -573,276 +541,36 @@ function processIsAlive(processId: number) {
   }
 }
 /**
- * Lock Documentを読み取る。
- *
- * @responsibility Lock Documentの読取り元、上限、読取不能時の結果境界を所有する。
+ * Operationごとの短い更新区間を共通wx排他へ接続する。
  * @trace ARCH-000011
- * @input target: string
- * @returns LifecycleLockDocument | nullを返す。
- * @precondition 「target: string」がreadLockDocumentの入力契約を満たす。
- * @postcondition readLockDocumentの責務を完了した結果だけを返す。
- * @effect readLockDocumentはFilesystemの読取りまたは書込みを実行する。
- * @failure readLockDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readLockDocumentは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: readLockDocumentはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: readLockDocumentは共有非同期状態を持たない同期処理である。
+ * @concurrency 既存FileはPID・内容によらず保持し、停止下の明示回復なしに再取得しない。
  */
-function readLockDocument(target: string): LifecycleLockDocument | null {
-  try {
-    const metadata = fs.lstatSync(target);
-    if (!metadata.isFile() || metadata.isSymbolicLink()) return null;
-    const value = JSON.parse(fs.readFileSync(target, "utf8")) as Record<
-      string,
-      unknown
-    >;
-    if (
-      Object.keys(value).sort().join("\n") !==
-        "identity\nownerProcessId\nschema\nstate" ||
-      value.schema !== "crdd/runtime-data/lifecycle-lock/v1" ||
-      typeof value.identity !== "string" ||
-      !ID.test(value.identity) ||
-      !Number.isSafeInteger(value.ownerProcessId) ||
-      Number(value.ownerProcessId) < 1 ||
-      !["active", "released"].includes(String(value.state))
-    )
-      return null;
-    return value as LifecycleLockDocument;
-  } catch {
-    return null;
-  }
-}
-/**
- * Lock Documentを公開する。
- *
- * @responsibility Lock Documentの公開条件、公開範囲、未確定内容の非公開境界を所有する。
- * @trace ARCH-000011
- * @input controlRoot: string、operationId: string、document: LifecycleLockDocument、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void
- * @returns stringを返す。
- * @precondition 「controlRoot: string、operationId: string、document: LifecycleLockDocument、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void」がpublishLockDocumentの入力契約を満たす。
- * @postcondition publishLockDocumentの責務を完了した結果だけを返す。
- * @effect publishLockDocumentはFilesystemの読取りまたは書込みを実行する。
- * @failure publishLockDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant publishLockDocumentは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: publishLockDocumentはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: publishLockDocumentは共有非同期状態を持たない同期処理である。
- */
-function publishLockDocument(
-  controlRoot: string,
-  operationId: string,
-  document: LifecycleLockDocument,
-  afterStagingLockCreated: () => void,
-  afterStagingLockWritten: () => void,
-  afterCanonicalLockLinked: () => void,
-): string {
-  const stagingDirectory = path.join(controlRoot, ".staging");
-  ensureDirectory(stagingDirectory);
-  const target = path.join(controlRoot, `${operationId}.lock`);
-  const temporary = path.join(
-    stagingDirectory,
-    `${operationId}.${document.identity}.lock.json`,
+function acquireLifecycleLock(controlRoot: string, operationId: string): Lock {
+  const result = acquireLock({
+    directory: controlRoot,
+    name: `${operationId}.lock`,
+    identity: `temporary-operation:${operationId}`,
+  });
+  if (result.status === "acquired") return result.lock;
+  throw new Error(
+    result.reason === "lock_exists"
+      ? "temporary_operation_lifecycle_busy"
+      : "temporary_operation_lock_initialization_failed",
+    { cause: result },
   );
-  if (fs.existsSync(temporary)) {
-    const staged = readLockDocument(temporary);
-    if (!staged) fs.rmSync(temporary);
-    else {
-      if (processIsAlive(staged.ownerProcessId))
-        throw new Error("temporary_operation_lifecycle_busy");
-      fs.rmSync(temporary);
-    }
-  }
-  const descriptor = fs.openSync(temporary, "wx", 0o600);
-  try {
-    afterStagingLockCreated();
-    fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
-    fs.fsyncSync(descriptor);
-  } finally {
-    fs.closeSync(descriptor);
-  }
-  afterStagingLockWritten();
-  try {
-    fs.linkSync(temporary, target);
-    afterCanonicalLockLinked();
-    const observed = readLockDocument(target);
-    if (
-      observed?.identity !== document.identity ||
-      observed.ownerProcessId !== document.ownerProcessId ||
-      observed.state !== document.state
-    )
-      throw new Error("temporary_operation_lock_publish_unconfirmed");
-  } finally {
-    if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
-  }
-  return target;
 }
-/**
- * Lock Fileを除去する。
- *
- * @responsibility Lock Fileの対象Identity、除去条件、終了後状態の境界を所有する。
- * @trace ARCH-000011
- * @input target: string
- * @returns N/A: removeLockFileは戻り値を返さない。
- * @precondition 「target: string」がremoveLockFileの入力契約を満たす。
- * @postcondition removeLockFileの責務を完了して呼出し元へ制御を戻す。
- * @effect removeLockFileはFilesystemの読取りまたは書込みを実行する。
- * @failure N/A: removeLockFileは独自の失敗分岐を所有しない。
- * @invariant removeLockFileは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: removeLockFileはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: removeLockFileは共有非同期状態を持たない同期処理である。
- */
-function removeLockFile(target: string): void {
-  fs.rmSync(target);
-}
-/**
- * Lock Documentを更新する。
- *
- * @responsibility Lock Documentの更新対象、競合条件、更新結果の境界を所有する。
- * @trace ARCH-000011
- * @input target: string、document: LifecycleLockDocument
- * @returns N/A: updateLockDocumentは戻り値を返さない。
- * @precondition 「target: string、document: LifecycleLockDocument」がupdateLockDocumentの入力契約を満たす。
- * @postcondition updateLockDocumentの責務を完了して呼出し元へ制御を戻す。
- * @effect updateLockDocumentはFilesystemの読取りまたは書込みを実行する。
- * @failure updateLockDocumentは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant updateLockDocumentは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: updateLockDocumentはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: updateLockDocumentは共有非同期状態を持たない同期処理である。
- */
-function updateLockDocument(
-  target: string,
-  document: LifecycleLockDocument,
-): void {
-  const directory = path.dirname(target);
-  const stagingDirectory = path.join(directory, ".staging");
-  ensureDirectory(stagingDirectory);
-  const temporary = path.join(
-    stagingDirectory,
-    `${path.basename(target, ".lock")}.${document.identity}.${document.state}.lock.json`,
+
+/** 共通Lockが返した初期化残存・descriptor終了不明を業務失敗でも失わない。 */
+function acquisitionCleanupUnconfirmed(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : null;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "status" in cause &&
+    cause.status === "blocked" &&
+    (("cleanupConfirmed" in cause && cause.cleanupConfirmed === false) ||
+      ("descriptorClosed" in cause && cause.descriptorClosed === false))
   );
-  if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
-  const descriptor = fs.openSync(temporary, "wx", 0o600);
-  try {
-    fs.writeFileSync(descriptor, `${JSON.stringify(document)}\n`, "utf8");
-    fs.fsyncSync(descriptor);
-  } finally {
-    fs.closeSync(descriptor);
-  }
-  try {
-    fs.renameSync(temporary, target);
-    const observed = readLockDocument(target);
-    if (
-      observed?.identity !== document.identity ||
-      observed.ownerProcessId !== document.ownerProcessId ||
-      observed.state !== document.state
-    )
-      throw new Error("temporary_operation_lock_publish_unconfirmed");
-  } finally {
-    if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
-  }
-}
-/**
- * Lockを取得する。
- *
- * @responsibility Lockの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000011
- * @input controlRoot: string、operationId: string、identity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void
- * @returns LifecycleLockを返す。
- * @precondition 「controlRoot: string、operationId: string、identity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void」がacquireLockの入力契約を満たす。
- * @postcondition acquireLockの責務を完了した結果だけを返す。
- * @effect acquireLockは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure acquireLockは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant acquireLockは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: acquireLockはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: acquireLockは共有非同期状態を持たない同期処理である。
- */
-function acquireLock(
-  controlRoot: string,
-  operationId: string,
-  identity: string,
-  afterStagingLockCreated: () => void = () => {},
-  afterStagingLockWritten: () => void = () => {},
-  afterCanonicalLockLinked: () => void = () => {},
-): LifecycleLock {
-  const lockPath = path.join(controlRoot, `${operationId}.lock`);
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      publishLockDocument(
-        controlRoot,
-        operationId,
-        Object.freeze({
-          schema: "crdd/runtime-data/lifecycle-lock/v1",
-          identity,
-          ownerProcessId: process.pid,
-          state: "active",
-        }),
-        afterStagingLockCreated,
-        afterStagingLockWritten,
-        afterCanonicalLockLinked,
-      );
-      return Object.freeze({ path: lockPath, identity });
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        /^temporary_operation_(boundary|lock_publish)_/u.test(error.message)
-      )
-        throw error;
-      const previous = readLockDocument(lockPath);
-      if (
-        !previous ||
-        (previous.state === "active" && processIsAlive(previous.ownerProcessId))
-      )
-        throw new Error("temporary_operation_lifecycle_busy");
-      try {
-        removeLockFile(lockPath);
-      } catch {
-        throw new Error("temporary_operation_lock_cleanup_unconfirmed");
-      }
-    }
-  }
-  throw new Error("temporary_operation_lifecycle_busy");
-}
-/**
- * Lockを解放する。
- *
- * @responsibility Lockの所有権、解放条件、終了後不存在の確認境界を所有する。
- * @trace ARCH-000011
- * @input lock: LifecycleLock、remove: (target: string) => void
- * @returns booleanを返す。
- * @precondition 「lock: LifecycleLock、remove: (target: string) => void」がreleaseLockの入力契約を満たす。
- * @postcondition releaseLockの責務を完了した結果だけを返す。
- * @effect releaseLockはFilesystemの読取りまたは書込みを実行する。
- * @failure releaseLockは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant releaseLockは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: releaseLockはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: releaseLockは共有非同期状態を持たない同期処理である。
- */
-function releaseLock(
-  lock: LifecycleLock,
-  remove: (target: string) => void = removeLockFile,
-): boolean {
-  try {
-    const current = readLockDocument(lock.path);
-    if (
-      !current ||
-      current.identity !== lock.identity ||
-      current.ownerProcessId !== process.pid ||
-      current.state !== "active"
-    )
-      return false;
-    updateLockDocument(
-      lock.path,
-      Object.freeze({ ...current, state: "released" }),
-    );
-    remove(lock.path);
-    return !fs.existsSync(lock.path);
-  } catch {
-    return false;
-  }
 }
 /**
  * Capabilityを発行する。
@@ -1122,9 +850,9 @@ export function createTemporaryOperationWithInterruptionForVerification(
  *
  * @responsibility resume Temporary Operation Internalの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void
+ * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterLockAcquired: () => void、afterNextGenerationPublished: () => void
  * @returns resumeTemporaryOperationInternalの計算結果を返す。
- * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterStagingLockCreated: () => void、afterStagingLockWritten: () => void、afterCanonicalLockLinked: () => void、afterNextGenerationPublished: () => void」がresumeTemporaryOperationInternalの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、afterLockAcquired: () => void、afterNextGenerationPublished: () => void」がresumeTemporaryOperationInternalの入力契約を満たす。
  * @postcondition resumeTemporaryOperationInternalの責務を完了した結果だけを返す。
  * @effect resumeTemporaryOperationInternalはFilesystemの読取りまたは書込みを実行する。
  * @failure resumeTemporaryOperationInternalは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1137,12 +865,10 @@ function resumeTemporaryOperationInternal(
   rootCapability: Repository,
   reference: TemporaryOperationRecoveryReference,
   nextIdentity: string,
-  afterStagingLockCreated: () => void,
-  afterStagingLockWritten: () => void,
-  afterCanonicalLockLinked: () => void,
+  afterLockAcquired: () => void,
   afterNextGenerationPublished: () => void,
 ) {
-  let lock: LifecycleLock | null = null;
+  let lock: Lock | null = null;
   let directory: string | null = null;
   let documentPath: string | null = null;
   let pendingRecoveryDocument: TemporaryOperationDocument | null = null;
@@ -1171,6 +897,8 @@ function resumeTemporaryOperationInternal(
     documentPath = path.join(controlRoot, `${reference.operationId}.json`);
     if (path.dirname(directory) !== paths.temporary)
       throw new Error("temporary_operation_boundary_invalid");
+    lock = acquireLifecycleLock(controlRoot, reference.operationId);
+    afterLockAcquired();
     if (!fs.existsSync(documentPath)) {
       const stagingDocumentPath = initialDocumentStagingPath(
         documentPath,
@@ -1201,14 +929,6 @@ function resumeTemporaryOperationInternal(
     } else {
       removeConfirmedInitialDocumentStagingAlias(documentPath, reference);
     }
-    lock = acquireLock(
-      controlRoot,
-      reference.operationId,
-      nextIdentity,
-      afterStagingLockCreated,
-      afterStagingLockWritten,
-      afterCanonicalLockLinked,
-    );
     let document = readDocument(documentPath);
     if (
       document.operationId !== reference.operationId ||
@@ -1273,7 +993,7 @@ function resumeTemporaryOperationInternal(
     pendingRecoveryDocument = resumed;
     writeDocument(documentPath, resumed);
     afterNextGenerationPublished();
-    if (!releaseLock(lock))
+    if (!lock.release())
       throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     lock = null;
     const issued = issueCapability(
@@ -1336,14 +1056,24 @@ function resumeTemporaryOperationInternal(
         }
       }
     }
-    if (lock !== null) releaseLock(lock);
+    const released =
+      lock === null ? !acquisitionCleanupUnconfirmed(error) : lock.release();
+    if (!released && recoveryReferenceValue === null && documentPath !== null) {
+      recoveryReferenceValue = Object.freeze({
+        operationId: reference.operationId,
+        owner: reference.owner,
+        identity: reference.identity,
+        generation: reference.generation,
+      });
+    }
     const reason =
       error instanceof Error &&
       /^temporary_operation_[a-z_]+$/u.test(error.message)
         ? error.message
         : "temporary_operation_resume_failed";
     const cleanupConfirmed =
-      reason === "temporary_operation_prepublication_cleanup_confirmed";
+      reason === "temporary_operation_prepublication_cleanup_confirmed" &&
+      released;
     return Object.freeze({
       status: "blocked" as const,
       reason,
@@ -1382,8 +1112,6 @@ export function resumeTemporaryOperation(
     nextIdentity,
     () => {},
     () => {},
-    () => {},
-    () => {},
   );
 }
 
@@ -1392,9 +1120,9 @@ export function resumeTemporaryOperation(
  *
  * @responsibility temporary-operation-storeの入力からresume Temporary Operation With Interruption For Verificationを導く規則と結果境界を所有する。
  * @trace ARCH-000011
- * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void
+ * @input rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_acquired" | "after_generation"、afterNextGenerationPublished: () => void
  * @returns resumeTemporaryOperationWithInterruptionForVerificationの計算結果を返す。
- * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_staging_created" | "after_lock_staging" | "after_lock_linked" | "after_generation"、afterNextGenerationPublished: () => void」がresumeTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
+ * @precondition 「rootCapability: Repository、reference: TemporaryOperationRecoveryReference、nextIdentity: string、phase: | "after_lock_acquired" | "after_generation"、afterNextGenerationPublished: () => void」がresumeTemporaryOperationWithInterruptionForVerificationの入力契約を満たす。
  * @postcondition resumeTemporaryOperationWithInterruptionForVerificationの責務を完了した結果だけを返す。
  * @effect N/A: resumeTemporaryOperationWithInterruptionForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resumeTemporaryOperationWithInterruptionForVerificationは独自の失敗分岐を所有しない。
@@ -1407,22 +1135,14 @@ export function resumeTemporaryOperationWithInterruptionForVerification(
   rootCapability: Repository,
   reference: TemporaryOperationRecoveryReference,
   nextIdentity: string,
-  phase:
-    | "after_lock_staging_created"
-    | "after_lock_staging"
-    | "after_lock_linked"
-    | "after_generation",
+  phase: "after_lock_acquired" | "after_generation",
   afterNextGenerationPublished: () => void,
 ) {
   return resumeTemporaryOperationInternal(
     rootCapability,
     reference,
     nextIdentity,
-    phase === "after_lock_staging_created"
-      ? afterNextGenerationPublished
-      : () => {},
-    phase === "after_lock_staging" ? afterNextGenerationPublished : () => {},
-    phase === "after_lock_linked" ? afterNextGenerationPublished : () => {},
+    phase === "after_lock_acquired" ? afterNextGenerationPublished : () => {},
     phase === "after_generation" ? afterNextGenerationPublished : () => {},
   );
 }
@@ -1630,9 +1350,9 @@ export function verifyTemporaryOperationEvidencePromotion(
  *
  * @responsibility Temporary Operation With Removalの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000011
- * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void
+ * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void
  * @returns settleTemporaryOperationWithRemovalの計算結果を返す。
- * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void」がsettleTemporaryOperationWithRemovalの入力契約を満たす。
+ * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void」がsettleTemporaryOperationWithRemovalの入力契約を満たす。
  * @postcondition settleTemporaryOperationWithRemovalの責務を完了した結果だけを返す。
  * @effect settleTemporaryOperationWithRemovalはFilesystemの読取りまたは書込みを実行する。
  * @failure settleTemporaryOperationWithRemovalは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1646,7 +1366,6 @@ function settleTemporaryOperationWithRemoval(
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",
   promotionReceipt: TemporaryEvidencePromotionReceipt | null,
   removeDirectory: (directory: string) => void,
-  removeLifecycleLock: (target: string) => void = removeLockFile,
 ) {
   const record = operations.get(capability);
   if (!record)
@@ -1665,10 +1384,10 @@ function settleTemporaryOperationWithRemoval(
       recoveryRequired: true,
       recoveryReference: recoveryReference(record),
     });
-  let lock: LifecycleLock | null = null;
+  let lock: Lock | null = null;
   let durableRecoveryConfirmed = false;
   try {
-    lock = acquireLock(record.controlRoot, record.operationId, record.identity);
+    lock = acquireLifecycleLock(record.controlRoot, record.operationId);
     const document = readDocument(record.documentPath);
     if (
       document.operationId !== record.operationId ||
@@ -1685,7 +1404,7 @@ function settleTemporaryOperationWithRemoval(
       );
       durableRecoveryConfirmed = true;
       operations.delete(capability);
-      const released = releaseLock(lock, removeLifecycleLock);
+      const released = lock.release();
       lock = null;
       if (!released)
         throw new Error("temporary_operation_lock_cleanup_unconfirmed");
@@ -1736,10 +1455,6 @@ function settleTemporaryOperationWithRemoval(
     );
     durableRecoveryConfirmed = true;
     operations.delete(capability);
-    const released = releaseLock(lock, removeLifecycleLock);
-    lock = null;
-    if (!released)
-      throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     removeDirectory(record.directory);
     if (fs.existsSync(record.directory))
       throw new Error("temporary_operation_cleanup_unconfirmed");
@@ -1759,6 +1474,10 @@ function settleTemporaryOperationWithRemoval(
     if (cleanupConfirmed) {
       if (promotionReceipt) promotionReceipts.delete(promotionReceipt);
     }
+    const released = lock.release();
+    lock = null;
+    if (!released)
+      throw new Error("temporary_operation_lock_cleanup_unconfirmed");
     return Object.freeze({
       status: cleanupConfirmed ? ("completed" as const) : ("blocked" as const),
       reason: cleanupConfirmed
@@ -1769,8 +1488,11 @@ function settleTemporaryOperationWithRemoval(
       recoveryReference: cleanupConfirmed ? null : recoveryReference(record),
     });
   } catch (error) {
-    const recoveryRequired = durableRecoveryConfirmed;
-    if (lock !== null) releaseLock(lock);
+    const released = lock === null || lock.release();
+    const recoveryRequired =
+      durableRecoveryConfirmed ||
+      !released ||
+      acquisitionCleanupUnconfirmed(error);
     const reason =
       error instanceof Error &&
       /^temporary_operation_[a-z_]+$/u.test(error.message)
@@ -1820,9 +1542,9 @@ export function settleTemporaryOperation(
  *
  * @responsibility Temporary Operation With Removal For Verificationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000011
- * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void
+ * @input capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void
  * @returns settleTemporaryOperationWithRemovalForVerificationの計算結果を返す。
- * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void、removeLifecycleLock: (target: string) => void」がsettleTemporaryOperationWithRemovalForVerificationの入力契約を満たす。
+ * @precondition 「capability: TemporaryOperationCapability、outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost"、promotionReceipt: TemporaryEvidencePromotionReceipt | null、removeDirectory: (directory: string) => void」がsettleTemporaryOperationWithRemovalForVerificationの入力契約を満たす。
  * @postcondition settleTemporaryOperationWithRemovalForVerificationの責務を完了した結果だけを返す。
  * @effect N/A: settleTemporaryOperationWithRemovalForVerificationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: settleTemporaryOperationWithRemovalForVerificationは独自の失敗分岐を所有しない。
@@ -1836,13 +1558,11 @@ export function settleTemporaryOperationWithRemovalForVerification(
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "parent_lost",
   promotionReceipt: TemporaryEvidencePromotionReceipt | null,
   removeDirectory: (directory: string) => void,
-  removeLifecycleLock: (target: string) => void = removeLockFile,
 ) {
   return settleTemporaryOperationWithRemoval(
     capability,
     outcome,
     promotionReceipt,
     removeDirectory,
-    removeLifecycleLock,
   );
 }

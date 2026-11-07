@@ -9,6 +9,7 @@ import path from "node:path";
 import type { Repository, RepositoryResult } from "./types.ts";
 import {
   type RepositoryGitLayout,
+  inspectRepositoryGitObjectFormat,
   resolveRepositoryGitLayout,
 } from "./layout.ts";
 
@@ -179,6 +180,18 @@ function issueCapability(root: string): Repository {
  */
 export function getRepository(candidate: unknown): RepositoryResult {
   const root = observeExactRepositoryLayout(candidate)?.root.realPath ?? null;
+  // 形式診断は操作用Root検証でもCapabilityでもない。SHA-1限定は維持する。
+  if (root === null && validAbsoluteDirectory(candidate)) {
+    const format = inspectRepositoryGitObjectFormat(path.resolve(candidate));
+    if (format?.objectFormat === "sha256") {
+      return Object.freeze({
+        status: "blocked",
+        reason: "repository_object_format_unsupported",
+        capability: null,
+        objectFormat: "sha256",
+      });
+    }
+  }
   return root === null
     ? Object.freeze({
         status: "blocked" as const,

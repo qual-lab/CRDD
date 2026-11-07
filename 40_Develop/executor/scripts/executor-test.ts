@@ -6,6 +6,7 @@
  * @boundary scripts/tests専用。実行許可や本番構成ではない。
  */
 
+import type { LockResult } from "../../lock/src/index.ts";
 import type {
   IsolationCommandResult,
   IsolationExecutionResult,
@@ -70,7 +71,10 @@ import type { ExecutorCallbacks } from "../src/lifecycle/types.ts";
 /** 旧有限Session Oracleだけが保持するCommand投影。製品Planへ戻さない。 */
 /** 旧有限試験の入力だけに使用する。製品API・実行契約ではない。 @trace ARCH-000008 */
 export interface IsolationRuntime {
-  acquireHomeLease(bindingHash: string): HomeLease | null;
+  acquireHomeLease(
+    bindingHash: string,
+    homeSourcePath: string,
+  ): LockResult<HomeLease>;
   startExecution(
     plan: ProductAttemptPlan,
     recovery: object,
@@ -579,7 +583,10 @@ type BlockedRecovery = Readonly<{
 
 type ExecutionServices = Readonly<{
   effectExecutorAvailable: boolean;
-  acquireHomeLease: (bindingHash: string) => HomeLease | null;
+  acquireHomeLease: (
+    bindingHash: string,
+    homeSourcePath: string,
+  ) => LockResult<HomeLease>;
   startCommand?: (
     command: DockerIsolationCommand,
     plan: AttemptPlan,
@@ -747,23 +754,27 @@ export function createExecutorTestCandidate(
         dependencies.acquireHomeLease ??
         (() =>
           Object.freeze({
-            // この有限代役は実OS Lockを取得せず、生存中の試験Leaseだけを表す。
-            assertLive: () => true,
-            release: () => {
-              if (!context || !dependencies.verifyHomeLeaseRelease) return true;
-              const r = context.recovery as {
-                recoveryCapability?: unknown;
-                recoveryId?: unknown;
-              } | null;
-              return (
-                dependencies.verifyHomeLeaseRelease(
-                  r?.recoveryCapability,
-                  context.management,
-                  context.plan.operationId,
-                  r?.recoveryId,
-                ) === true
-              );
-            },
+            status: "acquired",
+            lock: Object.freeze({
+              // この有限代役は実OS Lockを取得せず、生存中の試験Leaseだけを表す。
+              assertLive: () => true,
+              release: () => {
+                if (!context || !dependencies.verifyHomeLeaseRelease)
+                  return true;
+                const r = context.recovery as {
+                  recoveryCapability?: unknown;
+                  recoveryId?: unknown;
+                } | null;
+                return (
+                  dependencies.verifyHomeLeaseRelease(
+                    r?.recoveryCapability,
+                    context.management,
+                    context.plan.operationId,
+                    r?.recoveryId,
+                  ) === true
+                );
+              },
+            }),
           })),
     },
     false,

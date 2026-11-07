@@ -411,8 +411,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./filesystem/system-directory.ts",
       "./filesystem/entry.ts",
       "./filesystem/local-app-data.ts",
-      "./lock/pipe.ts",
-      "./lock/lifecycle.ts",
       "./process/termination.ts",
       "./process/environment.ts",
       "./filesystem/root.ts",
@@ -420,6 +418,10 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./docker-desktop/native-process.ts",
       "./filesystem/protection.ts",
     ],
+  },
+  {
+    relativePath: "40_Develop/lock/src/index.ts",
+    exportedModules: ["./operations.ts", "./types.ts"],
   },
   {
     relativePath: "40_Develop/visual-preview/src/index.ts",

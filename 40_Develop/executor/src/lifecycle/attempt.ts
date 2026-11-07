@@ -25,7 +25,7 @@ import {
   prepareIsolation,
   type IsolationCommandResult,
 } from "../../../docker-isolation/src/index.ts";
-import { acquireNamedPipeKernelLock } from "../../../platform-access/src/index.ts";
+import { acquireLock, type LockResult } from "../../../lock/src/index.ts";
 import { releaseHomeLease } from "./cleanup.ts";
 import { createLifecycleControl } from "./execute.ts";
 import type {
@@ -907,22 +907,32 @@ export function start(
     recoveryId: id.token,
     recoveryCapability: capability,
   });
-  let homeLease: HomeLease | null = null;
+  let acquisition: LockResult<HomeLease> | null = null;
   try {
-    homeLease = state.acquireHomeLease(plan.stableLogicalHomeBindingHash);
+    acquisition = state.acquireHomeLease(
+      plan.stableLogicalHomeBindingHash,
+      plan.providerHomeSourcePath,
+    );
   } catch {
     /* 取得不能を解放済みへ変換しない。 */
   }
-  if (!homeLease) {
+  if (acquisition?.status !== "acquired") {
     lifecycle.finish();
     return createStartResult({
       status: "blocked",
-      reason: "docker_process_controller_recovery_unavailable",
+      reason:
+        acquisition?.status === "blocked" && !acquisition.descriptorClosed
+          ? "docker_process_controller_home_lock_descriptor_close_unconfirmed"
+          : acquisition?.status === "blocked" &&
+              acquisition.reason === "lock_initialization_failed"
+            ? "docker_process_controller_home_lock_initialization_failed"
+            : "docker_process_controller_recovery_unavailable",
       recoveryId: id.token,
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
     });
   }
+  const homeLease = acquisition.lock;
   const controlCapability = Object.freeze({});
   const record: ExecutionRecord = {
     homeLease,
@@ -1515,24 +1525,27 @@ function createResourceNames(
  * @trace ARCH-000008
  * @input bindingHash: 上位が確定した論理HomeのSHA-256。
  * @returns 保持中Lease又はnull。
- * @effect 既存のWindows Named Pipe排他。
+ * @effect 既存Home親Directory内の固定Fileを共通wx排他で取得する。
  * @invariant 保存・Task判断・新しいLockを追加しない。
  */
-function acquireHomeLease(bindingHash: string): HomeLease | null {
-  if (
-    process.platform !== "win32" ||
-    typeof bindingHash !== "string" ||
-    !/^[a-f0-9]{64}$/u.test(bindingHash)
-  )
-    return null;
-  const identity = createHash("sha256")
-    .update("crdd-logical-provider-home-kernel-lock-v1\0")
-    .update(bindingHash)
-    .digest("hex")
-    .slice(0, 32);
-  return acquireNamedPipeKernelLock(
-    `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${identity}`,
-  );
+function acquireHomeLease(
+  bindingHash: string,
+  homeSourcePath: string,
+): LockResult<HomeLease> {
+  if (typeof bindingHash !== "string" || !/^[a-f0-9]{64}$/u.test(bindingHash))
+    return {
+      status: "blocked",
+      reason: "lock_input_invalid",
+      reference: null,
+      cleanupConfirmed: true,
+      descriptorClosed: true,
+    };
+  const result = acquireLock({
+    directory: path.dirname(homeSourcePath),
+    name: `provider-home.${bindingHash}.lock`,
+    identity: `provider-home:${bindingHash}`,
+  });
+  return result;
 }
 
 /**

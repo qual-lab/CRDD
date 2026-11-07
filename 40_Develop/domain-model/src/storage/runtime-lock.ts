@@ -1,6 +1,6 @@
 /**
  * Coordinatorの短期保存排他と実発行された保存Ownerを管理する。
- * @responsibility 同じRootの現在照合、Kernel保持、借用と解放を一つのOwnerへ結合する。
+ * @responsibility 同じRootの現在照合、wx保持、借用と解放を一つのOwnerへ結合する。
  * @trace ARCH-000004、ARCH-000008
  */
 
@@ -8,7 +8,8 @@ import {
   type Repository,
   getRepositoryFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "./runtime-kernel-lock.ts";
+import type { Lock, LockResult } from "../../../lock/src/index.ts";
+import { acquireRuntimeStateLock } from "./runtime-kernel-lock.ts";
 import {
   type observeRuntimeRecoveryRepository,
   observeRuntimeStorageRepository,
@@ -18,13 +19,13 @@ import { blocked, completed } from "./runtime-result.ts";
 
 /**
  * 同じ短期排他を読取りと保存確定で借用する私有Owner。
- * @responsibility 現在Repository結合とKernel保持を一つの実発行値へ結合する。
+ * @responsibility 現在Repository結合とwx保持を一つの実発行値へ結合する。
  * @trace ARCH-000004、ARCH-000008
  * @shape Root、物理結合、生存照合、解放操作。
  * @invariant JSONや同じProperty値からOwnerを再構成しない。
  * @boundary storage内の取得済みOwner借用。Package公開APIではない。
  * @security このOwnerはProvider実行・Docker処置のAuthorityを持たない。
- * @compatibility 既存Kernel primitiveと名前空間を使う。
+ * @compatibility CurrentStateのReader・Writerと同じwx Scopeを使う。
  */
 export type CoordinatorStorageOwner = Readonly<{
   repositoryRoot: string;
@@ -41,9 +42,7 @@ const storageOwners = new WeakMap<
       NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
       "repositoryRoot" | "repositoryBinding" | "revalidate"
     >;
-    lock: NonNullable<
-      ReturnType<typeof acquireRuntimeOwnedCoordinatorStateKernelLock>
-    >;
+    lock: Lock;
   }>
 >();
 
@@ -67,23 +66,23 @@ export function readCoordinatorStorageOwnerBinding(owner: object) {
 }
 
 /**
- * 検証済みRootの既存短期Kernel排他を取得する。
+ * 検証済みRootの短期wx排他を取得する。
  * @responsibility 保存Ownerの実発行、同Root再観測と解放を保持する。
  * @trace ARCH-000004、ARCH-000008
  * @input workingDirectory: 選択Repository内の起動位置。
- * @returns 保持中Owner、又はnull。
+ * @returns 保持中Owner、又は取得失敗と回復参照を持つ結果。
  * @precondition 呼出し側が短期処理後の解放を所有する。
- * @postcondition Root・Git Identity・Kernel保持を結合し、保存領域を初期化しない。
- * @effect Repository読取りと既存Kernel Lock取得。
- * @failure Root不正・観測不能・競合はnull。解放不明はfalse。
+ * @postcondition Root・Git Identity・wx保持を結合し、保存領域を初期化しない。
+ * @effect Repository読取りと共通wx Lock取得。
+ * @failure Root不正・観測不能・競合を拒否し、初期化失敗とdescriptor終了不明を区別する。
  * @invariant 新しいLock、Registry、永続状態を作らない。
  * @boundary 既存Root検証と保存短期排他。
  * @security 任意HashやCaller supplied handleを受け付けない。
- * @concurrency このOwnerの内部借用ではKernelを再取得しない。
+ * @concurrency このOwnerの内部借用ではLockを再取得しない。
  */
 export function acquireCoordinatorStorageOwner(
   workingDirectory: string | Repository,
-): CoordinatorStorageOwner | null {
+): StoreResult<CoordinatorStorageOwner> {
   const verified =
     typeof workingDirectory === "string"
       ? getRepositoryFromWorkingDirectory(workingDirectory)
@@ -96,7 +95,7 @@ export function acquireCoordinatorStorageOwner(
         : null;
   return repository
     ? acquireCoordinatorStorageOwnerForRepository(repository)
-    : null;
+    : blocked("coordinator_state_owner_invalid");
 }
 
 /**
@@ -104,11 +103,11 @@ export function acquireCoordinatorStorageOwner(
  * @responsibility 通常Reader・Writerと借用Ownerの取得経路を共有する。
  * @trace ARCH-000004、ARCH-000008
  * @input repository: 既存Ownerから取得したRoot・結合・現在照合。
- * @returns 保持中Owner、又はnull。
+ * @returns 保持中Owner、又は取得失敗と回復参照を持つ結果。
  * @precondition 外部入力を直接渡さず内部の検証済み借用だけを使う。
- * @postcondition 同じKernel名前空間・取得方法・生存条件を維持する。
- * @effect 既存Kernel排他の取得とRoot読取り。
- * @failure 不正Root、観測不能、競合はnull。
+ * @postcondition 同じwx Scopeと保持区間を維持する。
+ * @effect 共通wx排他の取得とRoot読取り。
+ * @failure 不正Root・競合と、新規残存・descriptor終了不明を区別する。
  * @invariant 新しいLock・永続Registry・保存資格を作らない。
  * @boundary 私有Repository結合と短期保存排他。
  * @security このOwnerだけでは候補の書込みを許可しない。
@@ -119,12 +118,14 @@ export function acquireCoordinatorStorageOwnerForRepository(
     NonNullable<ReturnType<typeof observeRuntimeRecoveryRepository>>,
     "repositoryRoot" | "repositoryBinding" | "revalidate"
   >,
-): CoordinatorStorageOwner | null {
-  if (!repository) return null;
-  const lock = acquireRuntimeOwnedCoordinatorStateKernelLock(
+): StoreResult<CoordinatorStorageOwner> {
+  if (!repository) return blocked("coordinator_state_owner_invalid");
+  const acquisition = acquireRuntimeStateLock(
     repository.repositoryBinding,
+    repository.repositoryRoot,
   );
-  if (!lock) return null;
+  if (acquisition.status !== "acquired") return storageLockFailure(acquisition);
+  const lock = acquisition.lock;
   const owner: CoordinatorStorageOwner = Object.freeze({
     repositoryRoot: repository.repositoryRoot,
     repositoryBinding: repository.repositoryBinding,
@@ -150,7 +151,7 @@ export function acquireCoordinatorStorageOwnerForRepository(
     },
   });
   storageOwners.set(owner, { repository, lock });
-  return owner;
+  return completed("coordinator_state_lock_acquired", owner);
 }
 
 /**
@@ -231,10 +232,12 @@ export function isLiveCoordinatorStorageOwner(
 export function acquireCoordinatorSnapshotPilotLock(
   workingDirectory: string | Repository,
 ): StoreResult<CoordinatorSnapshotOwner> {
-  const owner = acquireCoordinatorStorageOwner(workingDirectory);
-  return owner
-    ? completed("orchestrator_snapshot_lock_acquired", owner)
-    : blocked("orchestrator_snapshot_lock_unavailable", false);
+  const result = acquireCoordinatorStorageOwner(workingDirectory);
+  return result.status === "completed"
+    ? completed("orchestrator_snapshot_lock_acquired", result.value)
+    : result.reason === "coordinator_state_lock_unavailable"
+      ? blocked("orchestrator_snapshot_lock_unavailable", false)
+      : result;
 }
 
 /**
@@ -268,4 +271,22 @@ export function isLiveCoordinatorSnapshotOwner(
   owner: unknown,
 ): owner is CoordinatorSnapshotOwner {
   return isLiveCoordinatorStorageOwner(owner);
+}
+
+/** 取得失敗を公開可能な固定理由と非Authority参照へ投影し、PathやRecordを返さない。 */
+export function storageLockFailure<T>(result: LockResult): StoreResult<T> {
+  if (result.status === "acquired")
+    throw Error("storage_lock_failure_requires_blocked");
+  const retained = result.reference !== null || !result.cleanupConfirmed;
+  return blocked(
+    !result.descriptorClosed
+      ? "coordinator_state_lock_descriptor_close_unconfirmed"
+      : result.reason === "lock_initialization_failed"
+        ? "coordinator_state_lock_initialization_failed"
+        : "coordinator_state_lock_unavailable",
+    retained,
+    result.reference
+      ? `current-state-lock.${result.reference.generation}`
+      : null,
+  );
 }

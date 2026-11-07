@@ -14,24 +14,21 @@ const reference = JSON.parse(
   Buffer.from(encodedReference, "base64url").toString("utf8"),
 ) as TemporaryOperationRecoveryReference;
 const resumed =
-  mode === "before-return" ||
-  mode === "after-lock-staging" ||
-  mode === "after-lock-linked" ||
-  mode === "after-lock-staging-created"
+  mode === "before-return" || mode === "after-lock-acquired"
     ? resumeTemporaryOperationWithInterruptionForVerification(
         root.capability,
         reference,
         nextIdentity,
-        mode === "after-lock-staging-created"
-          ? "after_lock_staging_created"
-          : mode === "after-lock-staging"
-            ? "after_lock_staging"
-            : mode === "after-lock-linked"
-              ? "after_lock_linked"
-              : "after_generation",
+        mode === "after-lock-acquired"
+          ? "after_lock_acquired"
+          : "after_generation",
         () => process.exit(84),
       )
     : resumeTemporaryOperation(root.capability, reference, nextIdentity);
+if (mode === "observe-result") {
+  process.stdout.write(`${JSON.stringify(resumed)}\n`);
+  process.exit(0);
+}
 if (resumed.status !== "completed")
   throw new Error("temporary_operation_fixture_resume_failed");
 process.stdout.write(`${JSON.stringify(resumed.recoveryReference)}\n`);

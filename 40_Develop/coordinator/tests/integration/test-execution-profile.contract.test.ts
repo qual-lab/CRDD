@@ -16,9 +16,9 @@ const HOST_WINDOWS_PREFIX = "Host Windows:";
 const portableTestDirectories = ["unit", "integration", "system"] as const;
 const gateFiles = [
   {
-    file: "integration/kernel-lock.contract.test.ts",
-    prefixOccurrences: 7,
-    expandedCases: 7,
+    file: "integration/host-recovery-namespace.integration.test.ts",
+    prefixOccurrences: 2,
+    expandedCases: 2,
     expansion: /test\("Host Windows:/,
   },
   {
@@ -206,7 +206,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
   );
   assert.equal(
     scripts["test:host-windows"],
-    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/kernel-lock.contract.test.ts ./tests/integration/docker-effect-runtime.contract.test.ts ./tests/integration/coordinator-state-runtime.contract.test.ts ./tests/integration/docker-recovery-owner-reentry.contract.test.ts ./tests/integration/host-recovery-record.contract.test.ts ./tests/integration/current-host-transition.integration.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/codex-executor-sandbox.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/native-git-provenance.contract.test.ts ./tests/integration/task-durable-foundation.contract.test.ts ./tests/integration/runtime-repair-owner.contract.test.ts ./tests/integration/docker-auth-create-closure.contract.test.ts ./tests/integration/development-native-observation.integration.test.ts',
+    'node --experimental-test-module-mocks --test --test-concurrency=1 "--test-name-pattern=^Host Windows:" ./tests/integration/docker-effect-runtime.contract.test.ts ./tests/integration/coordinator-state-runtime.contract.test.ts ./tests/integration/docker-recovery-owner-reentry.contract.test.ts ./tests/integration/host-recovery-record.contract.test.ts ./tests/integration/current-host-transition.integration.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/integration/codex-executor-sandbox.integration.test.ts ./tests/integration/docker-process-controller.contract.test.ts ./tests/integration/native-git-provenance.contract.test.ts ./tests/integration/task-durable-foundation.contract.test.ts ./tests/integration/runtime-repair-owner.contract.test.ts ./tests/integration/docker-auth-create-closure.contract.test.ts ./tests/integration/development-native-observation.integration.test.ts ./tests/integration/host-recovery-namespace.integration.test.ts',
   );
   assert.equal(scripts.test, "npm run check && npm run test:run");
   assert.equal(scripts["test:run"], "npm run test:portable");
@@ -295,7 +295,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
     gateCount += expandedCases;
     assert.match(scripts["test:host-windows"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 94);
+  assert.equal(gateCount, 89);
 });
 
 /**

@@ -332,6 +332,8 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     rootValid = true,
     ownerLive = true,
     ownerThrows = false;
+  let initializationFailure: { id: string; descriptorClosed: boolean } | null =
+    null;
   let acquireFault: string | null = null,
     acquireNull: string | null = null,
     releaseFault: "false" | "throw" | null = null;
@@ -441,6 +443,28 @@ function fixture(mode: "restart" | "recovery" = "restart") {
         return !(releaseFault === "false" && released.length === 1);
       },
     };
+  };
+  const acquire = (id: string) => {
+    if (initializationFailure?.id === id) {
+      acquired.push(id);
+      return {
+        status: "blocked" as const,
+        reason: "lock_initialization_failed" as const,
+        reference: null,
+        cleanupConfirmed: false,
+        descriptorClosed: initializationFailure.descriptorClosed,
+      };
+    }
+    const held = lock(id);
+    return held
+      ? { status: "acquired" as const, lock: held }
+      : {
+          status: "blocked" as const,
+          reason: "lock_exists" as const,
+          reference: null,
+          cleanupConfirmed: true,
+          descriptorClosed: true,
+        };
   };
   const context = {
     Buffer,
@@ -658,12 +682,20 @@ function fixture(mode: "restart" | "recovery" = "restart") {
           : null,
       };
     },
-    acquireRuntimeOwnedHostOperationKernelLock: (name: string, nonce: string) =>
-      lock(`host:${name}:${nonce}`),
-    acquireRuntimeOwnedLogicalProviderHomeKernelLock: (home: string) =>
-      lock(`home:${home}`),
-    acquireRuntimeOwnedDockerRuntimeStateKernelLock: (binding: string) =>
-      lock(`state:${binding}`),
+    providerHomesDirectoryCandidate: () => path.resolve("ProviderHomes"),
+    runtimeStateDirectoryCandidate: () => path.resolve("RuntimeState"),
+    poisonRuntimeProcessAfterCleanupUnknown: () => {
+      events.push("process-poisoned");
+    },
+    acquireHostOperationLock: (name: string, nonce: string) => {
+      return acquire(`host:${path.basename(name)}:${nonce}`);
+    },
+    acquireProviderHomeLock: (home: string) => {
+      return acquire(`home:${home}`);
+    },
+    acquireRuntimeStateLock: (binding: string) => {
+      return acquire(`state:${binding}`);
+    },
     writeRuntimeOwnedCoordinatorRestartCheckpoint: (
       _repo: unknown,
       recoveryId: string,
@@ -862,6 +894,12 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     },
     set releaseFault(value: typeof releaseFault) {
       releaseFault = value;
+    },
+    set initializationFailure(value: {
+      id: string;
+      descriptorClosed: boolean;
+    } | null) {
+      initializationFailure = value;
     },
     set acquireFault(value: string | null) {
       acquireFault = value;
@@ -1718,4 +1756,25 @@ test("要求保存は同じ対象slotだけ更新し不明後に再発行しな�
   assert.equal(f.api.persist(prepared.capability, value), false);
   assert.equal(f.writes, writes);
   f.api.release(prepared.capability);
+});
+
+/** 後段の新規Lock残存を先行Lockの解放成功で消さない。 @trace ERB-IT-014 */
+test("再起動準備の後段初期化失敗は先行解放と未回収・Process停止を分離する", () => {
+  for (const descriptorClosed of [true, false]) {
+    const f = fixture();
+    f.initializationFailure = {
+      id: `state:${f.repository.repositoryBinding}`,
+      descriptorClosed,
+    };
+    const result = f.api.prepare(f.token, f.root);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(
+      result.primaryFailure,
+      "docker_restart_state_lock_initialization_failed",
+    );
+    assert.deepEqual(f.released, [...f.acquired.slice(0, -1)].reverse());
+    assert.equal(f.events.includes("process-poisoned"), !descriptorClosed);
+    assert.equal(f.writes, 0);
+  }
 });

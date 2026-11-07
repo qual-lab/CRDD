@@ -3,17 +3,57 @@
   "contractRevision": 1,
   "subsystem": "coordinator",
   "symbols": [
-    {"symbolId":"coordinator.workspace.git","kind":"file","path":"src/workspace/git.ts","archIds":["ARCH-000004","ARCH-000009"]},
+    {
+      "symbolId": "coordinator.workspace.git",
+      "kind": "file",
+      "path": "src/workspace/git.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000009"
+      ]
+    },
     {
       "symbolId": "coordinator.execution.files",
       "kind": "file",
       "path": "src/execution/files.ts",
-      "archIds": ["ARCH-000008", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000013"
+      ]
     },
-    { "symbolId": "coordinator.verification.probe", "kind": "file", "path": "scripts/probe-verification.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "coordinator.test.support.probe-executor", "kind": "file", "path": "tests/support/probe-executor.ts", "archIds": ["ARCH-000008"] },
-    { "symbolId": "coordinator.execution.preparation-types", "kind": "file", "path": "src/execution/types.ts", "archIds": ["ARCH-000008", "ARCH-000015"] },
-    { "symbolId": "coordinator.provider.preparation-lifecycle", "kind": "file", "path": "src/execution/preparation.ts", "archIds": ["ARCH-000015"] },
+    {
+      "symbolId": "coordinator.verification.probe",
+      "kind": "file",
+      "path": "scripts/probe-verification.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.support.probe-executor",
+      "kind": "file",
+      "path": "tests/support/probe-executor.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.execution.preparation-types",
+      "kind": "file",
+      "path": "src/execution/types.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "coordinator.provider.preparation-lifecycle",
+      "kind": "file",
+      "path": "src/execution/preparation.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
     {
       "symbolId": "coordinator.test.unit.attempt-preparation",
       "kind": "test-suite",
@@ -32,7 +72,14 @@
         "executor.attempt.validation"
       ]
     },
-    { "symbolId": "coordinator.verification.task-diagnostic", "kind": "file", "path": "scripts/task-diagnostic.ts", "archIds": ["ARCH-000008"] },
+    {
+      "symbolId": "coordinator.verification.task-diagnostic",
+      "kind": "file",
+      "path": "scripts/task-diagnostic.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
     {
       "symbolId": "coordinator.execution.provider-executor",
       "kind": "file",
@@ -536,7 +583,8 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "coordinator.source.src.security.coordinator.operation.creation.internal"
+        "coordinator.source.src.security.coordinator.operation.creation.internal",
+        "coordinator.source.src.core.doctor"
       ]
     },
     {
@@ -1900,20 +1948,6 @@
       "verifies": [
         "docker-isolation.network.policy",
         "coordinator.source.src.security.provider.isolation.profile"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.host-generation-loss-transition",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/generation-loss-transition.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.core.host.generation.loss.transition"
       ]
     },
     {
@@ -3990,7 +4024,10 @@
       "symbolId": "coordinator.test.advice-recovery-handoff",
       "kind": "test-suite",
       "path": "tests/integration/advice-recovery-handoff.integration.test.ts",
-      "qaIds": ["QA-000003","QA-000005"],
+      "qaIds": [
+        "QA-000003",
+        "QA-000005"
+      ],
       "localTestIds": [
         "CPR-IT-004",
         "PRL-IT-013"
@@ -4203,10 +4240,77 @@
         "ARCH-000008"
       ]
     },
-    {"symbolId":"coordinator.test.unit.authentication-management","kind":"test-suite","path":"tests/unit/authentication-management.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-016"],"verifies":["coordinator.provider-authority-runtime"]},
-    {"symbolId":"coordinator.test.unit.authentication-resource-record","kind":"test-suite","path":"tests/unit/authentication-resource-record.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-016"],"verifies":["coordinator.provider-authority-runtime","domain-model.src.attempt.crud"]},
-    {"symbolId":"coordinator.test.unit.host-resource-identity","kind":"test-suite","path":"tests/unit/host-resource-identity.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["coordinator.task-runtime"]},
-    {"symbolId":"coordinator.test.unit.decision.network-policy-catalog","kind":"test-suite","path":"tests/unit/decision/network-policy-catalog.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["coordinator.source.src.security.external.send.policy.runtime"]},
-    {"symbolId":"coordinator.test.unit.execution.recovery-start-diagnostic","kind":"test-suite","path":"tests/unit/execution/recovery-start-diagnostic.contract.test.ts","qaIds":["QA-000003"],"localTestIds":["PRL-UT-006"],"verifies":["coordinator.diagnostics.runtime-repair","coordinator.source.src.execution.validation"]}
+    {
+      "symbolId": "coordinator.test.unit.authentication-management",
+      "kind": "test-suite",
+      "path": "tests/unit/authentication-management.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-016"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.authentication-resource-record",
+      "kind": "test-suite",
+      "path": "tests/unit/authentication-resource-record.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-016"
+      ],
+      "verifies": [
+        "coordinator.provider-authority-runtime",
+        "domain-model.src.attempt.crud"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.host-resource-identity",
+      "kind": "test-suite",
+      "path": "tests/unit/host-resource-identity.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "coordinator.task-runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.decision.network-policy-catalog",
+      "kind": "test-suite",
+      "path": "tests/unit/decision/network-policy-catalog.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.external.send.policy.runtime"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.unit.execution.recovery-start-diagnostic",
+      "kind": "test-suite",
+      "path": "tests/unit/execution/recovery-start-diagnostic.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "coordinator.diagnostics.runtime-repair",
+        "coordinator.source.src.execution.validation"
+      ]
+    }
   ]
 }

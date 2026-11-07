@@ -9,6 +9,7 @@
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
  */
 
+import type { Lock } from "../../../lock/src/index.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -26,8 +27,11 @@ import {
   requireReadyRepositoryRuntimeDataArea,
   sameStableFileIdentity,
 } from "../../src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
-import { acquireCoordinatorStorageOwner } from "../../src/storage/runtime-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
+import {
+  acquireCoordinatorStorageOwner,
+  storageLockFailure,
+} from "../../src/storage/runtime-lock.ts";
 import { observeRuntimeRecoveryRepository } from "../../src/storage/runtime-repository.ts";
 import {
   cleanupRuntimeOwnedCoordinatorStateMarker,
@@ -86,6 +90,8 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     "identity_changed",
     "bytes_changed",
     "lock_unavailable",
+    "lock_write",
+    "lock_close",
     "lock_throw",
     "lock_dead",
     "release_false",
@@ -201,16 +207,32 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
                 },
               };
         },
-        acquireRuntimeOwnedCoordinatorStateKernelLock: (input: string) => {
+        storageLockFailure,
+        acquireRuntimeStateLock: (input: string) => {
           assert.equal(input, binding);
           if (scenario === "lock_throw") throw new Error("fixture");
-          if (scenario === "lock_unavailable") return null;
+          if (
+            ["lock_unavailable", "lock_write", "lock_close"].includes(scenario)
+          )
+            return {
+              status: "blocked",
+              reason:
+                scenario === "lock_unavailable"
+                  ? "lock_exists"
+                  : "lock_initialization_failed",
+              reference: null,
+              cleanupConfirmed: scenario === "lock_unavailable",
+              descriptorClosed: scenario !== "lock_close",
+            };
           return {
-            assertLive: () => scenario !== "lock_dead",
-            release() {
-              releases++;
-              if (scenario === "release_throw") throw new Error("fixture");
-              return scenario !== "release_false";
+            status: "acquired",
+            lock: {
+              assertLive: () => scenario !== "lock_dead",
+              release() {
+                releases++;
+                if (scenario === "release_throw") throw new Error("fixture");
+                return scenario !== "release_false";
+              },
             },
           };
         },
@@ -293,6 +315,8 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
       successful || ["release_false", "release_throw"].includes(scenario);
     const released = ![
       "lock_unavailable",
+      "lock_write",
+      "lock_close",
       "lock_throw",
       "release_false",
       "release_throw",
@@ -309,7 +333,13 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
               ? "coordinator_state_marker_absent"
               : "coordinator_state_marker_cleanup_confirmed"
             : "coordinator_state_lock_release_unconfirmed"
-          : "coordinator_state_marker_cleanup_unconfirmed",
+          : scenario === "lock_close"
+            ? "coordinator_state_lock_descriptor_close_unconfirmed"
+            : scenario === "lock_write"
+              ? "coordinator_state_lock_initialization_failed"
+              : scenario === "lock_unavailable"
+                ? "coordinator_state_lock_unavailable"
+                : "coordinator_state_marker_cleanup_unconfirmed",
         markerRemoved: afterUnlink,
         markerAbsentConfirmed: absentConfirmed,
         storageConfirmed,
@@ -324,7 +354,13 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     assert.equal(unlinks, issued ? 1 : 0, scenario);
     assert.equal(
       releases,
-      ["root_invalid", "lock_unavailable", "lock_throw"].includes(scenario)
+      [
+        "root_invalid",
+        "lock_unavailable",
+        "lock_write",
+        "lock_close",
+        "lock_throw",
+      ].includes(scenario)
         ? 0
         : 1,
       scenario,
@@ -365,8 +401,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
   );
   const root = fs.mkdtempSync(path.join(area.directory, "current-marker-"));
   const unlink = fs.unlinkSync;
-  let held: ReturnType<typeof acquireRuntimeOwnedCoordinatorStateKernelLock> =
-    null;
+  let held: Lock | null = null;
   try {
     execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
     execFileSync(
@@ -444,9 +479,12 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     assert.equal(fs.readFileSync(pending, "utf8"), "pending");
     assert.deepEqual(fs.readFileSync(marker), markerBytes);
     fs.unlinkSync(pending);
-    held = acquireRuntimeOwnedCoordinatorStateKernelLock(
+    const heldAcquisition = acquireRuntimeStateLock(
       repository.repositoryBinding,
+      repository.repositoryRoot,
     );
+    assert.ok(heldAcquisition.status === "acquired");
+    held = heldAcquisition.lock;
     assert.ok(held);
     assert.equal(held.assertLive(), true);
     const busy = cleanupRuntimeOwnedCoordinatorStateMarker(verified.capability);
@@ -493,8 +531,9 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       true,
     );
     assert.deepEqual(fs.readdirSync(storage.directory), ["state.json"]);
-    const owner = acquireCoordinatorStorageOwner(root);
-    assert.ok(owner);
+    const ownerAcquisition = acquireCoordinatorStorageOwner(root);
+    assert.ok(ownerAcquisition.status === "completed");
+    const owner = ownerAcquisition.value;
     try {
       assert.equal(owner.assertLive(), true);
       for (let read = 0; read < 2; read++) {
@@ -508,7 +547,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
             ?.payloadSha256,
         );
       }
-      assert.equal(acquireCoordinatorStorageOwner(root), null);
+      assert.equal(acquireCoordinatorStorageOwner(root).status, "blocked");
       let invoked = false;
       const fake = new Proxy(
         {},
@@ -532,8 +571,9 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
     assert.equal(owner.assertLive(), false);
     assert.equal(owner.release(), false);
     assert.equal(readCoordinatorStorageSnapshotOwned(owner).status, "blocked");
-    const nextOwner = acquireCoordinatorStorageOwner(root);
-    assert.ok(nextOwner);
+    const nextOwnerAcquisition = acquireCoordinatorStorageOwner(root);
+    assert.ok(nextOwnerAcquisition.status === "completed");
+    const nextOwner = nextOwnerAcquisition.value;
     assert.equal(nextOwner.release(), true);
     assert.deepEqual(fs.readFileSync(state), bytes);
   } finally {

@@ -23,9 +23,6 @@ import {
   createChildProcessEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
-  describeWindowsChildEnvironmentContract,
-  WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
 } from "../../../platform-access/src/index.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
@@ -163,38 +160,6 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   assert.equal(observedDocker.systemRoot, observedDocker.windir);
   assert.equal(typeof observedDocker.systemRoot, "string");
 
-  assert.deepEqual(describeWindowsChildEnvironmentContract(), {
-    contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 10,
-    provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-    ambientNames: "fixed_neutral_values",
-    callerEnvironmentAccepted: false,
-    parentEnvironmentAuthority: false,
-    nativeHelperUserProfile: "os_user_info_validated_profile_path",
-    nativeHelperConsumers: [
-      "provider_home_observation",
-      "runtime_state_observation",
-      "runtime_state_initialization",
-      "docker_desktop_runtime_repair_native_helper",
-    ],
-    nodeChildConsumers: ["host_operation_lock_supervisor"],
-    dockerCliConsumers: [
-      "docker_effect_runtime",
-      "docker_recovery_runtime",
-      "docker_desktop_runtime_repair",
-    ],
-    powerShellAuthenticodeConsumers: ["docker_cli_authenticode_inspection"],
-    powerShellAuthenticodeEnvironment:
-      "native_os_directory_and_validated_user_profile_minimal_powershell_initialization_block",
-    dockerDesktopLauncherConsumers: [],
-    dockerRepairHelperSystemDrive:
-      "native_system_windows_directory_local_drive",
-    dockerDesktopLauncherEnvironment:
-      "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
-    userProfileEnvironmentAuthority: false,
-    userProfileInitializationAuthority: false,
-    actualChildObservationRequired: true,
-  });
   assert.deepEqual(createDockerDesktopRepairHelperEnvironment(), {
     ...createChildProcessEnvironment({ platform: "win32", userProfile: true }),
     SYSTEMDRIVE: deriveWindowsSystemDrive(
@@ -629,6 +594,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
       path.join(coordinatorRoot, name),
     ),
     path.resolve(coordinatorRoot, "../platform-access/src"),
+    path.resolve(coordinatorRoot, "../lock/src"),
     path.resolve(coordinatorRoot, "../docker-isolation/src"),
   ]) {
     for (const file of sourceFiles(directory)) {
@@ -689,6 +655,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   const childProcessImportSources = [
     ...sourceFiles(path.join(coordinatorRoot, "src")),
     ...sourceFiles(path.resolve(coordinatorRoot, "../platform-access/src")),
+    ...sourceFiles(path.resolve(coordinatorRoot, "../lock/src")),
     ...sourceFiles(path.resolve(coordinatorRoot, "../docker-isolation/src")),
   ]
     .filter((file) =>
@@ -706,9 +673,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   assert.deepEqual(
     childProcessImportSources,
     [
-      "40_Develop/platform-access/src/process/child.ts",
-      "40_Develop/platform-access/src/lock/lifecycle.ts",
-      "40_Develop/platform-access/src/lock/pipe.ts",
       "40_Develop/platform-access/src/filesystem/root.ts",
       "40_Develop/platform-access/src/host-record/namespace.ts",
       "40_Develop/platform-access/src/filesystem/system-directory.ts",

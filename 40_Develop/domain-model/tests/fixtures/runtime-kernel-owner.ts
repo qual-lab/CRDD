@@ -7,9 +7,9 @@
  * @scope 固定Hashだけ。
  * @boundary 今回試験のProcessと既存OS排他。
  */
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/storage/runtime-kernel-lock.ts";
+import { acquireRuntimeStateLock } from "../../src/storage/runtime-kernel-lock.ts";
 
-const lock = acquireRuntimeOwnedCoordinatorStateKernelLock(process.argv[2]);
-if (!lock) process.exit(2);
+const lock = acquireRuntimeStateLock(process.argv[2], process.argv[3] ?? "");
+if (lock.status !== "acquired") process.exit(2);
 process.stdout.write("READY\n");
 setInterval(() => {}, 1000);

@@ -14,6 +14,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
+import { removeKnownStoppedTestLock } from "../storage/fixture.ts";
 import { createFilesystemStoreRoot } from "../../../../domain-model/src/index.ts";
 import {
   authenticateNormalConnection,
@@ -392,6 +393,7 @@ test("初回確認の故障後は未出版を保持し出版済みだけ再観�
         fs.renameSync = rename;
         fs.openSync = open;
         fs.rmSync = remove;
+        removeKnownStoppedTestLock(f.directory, process.pid);
       }
       const before = fs.readFileSync(f.current);
       if (entry === "connection") {
@@ -539,6 +541,8 @@ test("初回確認の実Process喪失はbase保持とnext再観測を分ける",
     });
     assert.equal(child.error, undefined);
     assert.equal(child.status, 23, child.stderr);
+    assert.ok(child.pid);
+    removeKnownStoppedTestLock(f.directory, child.pid);
     assert.equal(child.stdout, "");
     const before = fs.readFileSync(f.current);
     const retry = confirmInitialConnection(

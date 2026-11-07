@@ -32,6 +32,7 @@ import {
   managementFixture,
   prepare,
   prepareInitialUser,
+  removeKnownStoppedTestLock,
 } from "../storage/fixture.ts";
 
 /**
@@ -463,6 +464,7 @@ test("管理readは清掃・解放・観測不明で一覧を返さない", (t) 
   const remove = fs.rmSync;
   t.after(() => {
     fs.rmSync = remove;
+    removeKnownStoppedTestLock(f.directory, process.pid);
   });
   fs.rmSync = (target, options) => {
     if (String(target).endsWith("access-management.pending.json"))
@@ -477,6 +479,7 @@ test("管理readは清掃・解放・観測不明で一覧を返さない", (t) 
     },
   );
   fs.rmSync = remove;
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.deepEqual(
     readManagementStateSnapshot(f.root, f.tokens.manager, "exposure"),
     {
@@ -497,6 +500,7 @@ test("管理readは清掃・解放・観測不明で一覧を返さない", (t) 
     },
   );
   fs.rmSync = remove;
+  removeKnownStoppedTestLock(f.directory, process.pid);
   assert.equal(
     readManagementStateSnapshot(f.root, f.tokens.manager, "users").status,
     "completed",

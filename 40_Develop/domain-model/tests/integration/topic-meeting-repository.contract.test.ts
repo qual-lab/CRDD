@@ -1166,6 +1166,7 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
   const originalOpen = fs.openSync;
   const originalClose = fs.closeSync;
   const originalUnlink = fs.unlinkSync;
+  const originalRm = fs.rmSync;
   for (const mode of [
     "primary",
     "undefined",
@@ -1189,7 +1190,7 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
       fs.unlinkSync(lockPath);
       const primary = new Error("fixed_rename_failure");
       const closeFailure = new Error("fixed_close_failure");
-      const lockFailure = new Error("fixed_lock_unlink_failure");
+
       const temporaryFailure = new Error("fixed_temporary_unlink_failure");
       const attempts: string[] = [];
       const lockFails = ["lock", "nested", "published"].includes(mode);
@@ -1202,7 +1203,8 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         "openSync",
         (file: fs.PathLike, flags: fs.OpenMode, mode?: fs.Mode) => {
           const descriptor = originalOpen(file, flags, mode);
-          if (String(file) === lockPath) lockDescriptor = descriptor;
+          if (String(file) === lockPath && flags === "wx")
+            lockDescriptor = descriptor;
           return descriptor;
         },
       );
@@ -1229,9 +1231,16 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         (file: fs.PathLike) => {
           const lock = String(file).endsWith(".lock");
           attempts.push(lock ? "lock-unlink" : "temporary-unlink");
-          if (lock && lockFails) throw lockFailure;
           if (!lock && temporaryFails) throw temporaryFailure;
           return originalUnlink(file);
+        },
+      );
+      const removeMock = t.mock.method(
+        fs,
+        "rmSync",
+        (file: fs.PathLike, options?: fs.RmOptions) => {
+          if (String(file) === lockPath) attempts.push("lock-remove");
+          return originalRm(file, options);
         },
       );
       syncBuiltinESMExports();
@@ -1245,18 +1254,25 @@ test("保存とcleanupの失敗を上書きせず実改訂と照合する", (t) 
         openMock.mock.restore();
         closeMock.mock.restore();
         unlinkMock.mock.restore();
+        removeMock.mock.restore();
         syncBuiltinESMExports();
       }
       assert.ok(thrown, mode);
-      assert.deepEqual(attempts.slice(-2), ["close", "lock-unlink"]);
+      assert.equal(attempts.includes("close"), true);
+      assert.equal(attempts.includes("lock-remove"), !lockFails);
       if (mode === "primary" || mode === "temporary-absent")
         assert.equal(failure, primary);
       else if (mode === "undefined") assert.equal(failure, undefined);
       else {
         assert.ok(failure instanceof AggregateError);
-        if (lockFails)
-          assert.deepEqual(failure.errors, [closeFailure, lockFailure]);
-        else assert.deepEqual(failure.errors, [temporaryFailure]);
+        if (lockFails) {
+          assert.equal(failure.errors.length, 1);
+          assert.equal(
+            failure.errors[0].message,
+            "project_operation_record_lock_release_failed",
+          );
+          assert.equal(fs.existsSync(lockPath), true);
+        } else assert.deepEqual(failure.errors, [temporaryFailure]);
         if (mode === "published")
           assert.equal(
             Object.hasOwn(failure, "cause"),
@@ -1323,7 +1339,7 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
   const originalRename = fs.renameSync;
   const originalExists = fs.existsSync;
   const originalLstat = fs.lstatSync;
-  const originalUnlink = fs.unlinkSync;
+  const originalRm = fs.rmSync;
   for (const kind of ["topic", "meeting"] as const) {
     for (const operation of ["create", "update"] as const) {
       for (const mode of [
@@ -1422,13 +1438,13 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
               return observed;
             },
           );
-          const unlinkMock = t.mock.method(
+          const removeMock = t.mock.method(
             fs,
-            "unlinkSync",
-            (target: fs.PathLike) => {
+            "rmSync",
+            (target: fs.PathLike, options?: fs.RmOptions) => {
               if (mode === "cleanup" && String(target) === lock)
                 throw cleanupFailure;
-              return originalUnlink(target);
+              return originalRm(target, options);
             },
           );
           syncBuiltinESMExports();
@@ -1460,7 +1476,11 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
                 else if (mode === "cleanup") {
                   assert.ok(error instanceof AggregateError);
                   assert.equal(error.cause, readFailure);
-                  assert.deepEqual(error.errors, [cleanupFailure]);
+                  assert.equal(error.errors.length, 1);
+                  assert.equal(
+                    error.errors[0].message,
+                    "project_operation_record_lock_release_failed",
+                  );
                 } else {
                   assert.ok(error instanceof Error);
                   if (mode !== "parse")
@@ -1480,7 +1500,7 @@ test("登録・更新はLock内の同一読戻しを確認し保存後失敗を�
             renameMock.mock.restore();
             readMock.mock.restore();
             lstatMock.mock.restore();
-            unlinkMock.mock.restore();
+            removeMock.mock.restore();
             syncBuiltinESMExports();
           }
           assert.deepEqual(originalRead(file), Buffer.from(markdown));

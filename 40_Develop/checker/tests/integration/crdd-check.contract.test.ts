@@ -13727,6 +13727,11 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     path.join(source, "40_Develop", "platform-access", "src"),
     { recursive: true },
   );
+  fs.cpSync(
+    path.join(repositoryRoot, "40_Develop", "lock", "src"),
+    path.join(source, "40_Develop", "lock", "src"),
+    { recursive: true },
+  );
   assert.equal(
     spawnSync("git", ["init", "--quiet", source], { encoding: "utf8" }).status,
     0,

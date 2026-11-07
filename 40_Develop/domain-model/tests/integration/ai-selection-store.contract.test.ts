@@ -538,7 +538,7 @@ test("保存・公開・回収の故障を成功や不存在へ畳まない", (t
  * @boundary Storeの局所観測と既存Lock終了。
  */
 test("temp回収不明とLock終了失敗が重なっても先行参照を失わない", (t) => {
-  for (const lockCleanupFails of [false, true]) {
+  for (const lockFailure of ["close", "remove"] as const) {
     const f = fixture(t);
     fs.mkdirSync(f.directory, { recursive: true });
     let lockFd: number | null = null;
@@ -549,7 +549,10 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       new Proxy(fs.openSync, {
         apply(target, receiver, args) {
           const fd = Reflect.apply(target, receiver, args);
-          if (String(args[0]) === path.join(f.directory, "ai-selection.lock"))
+          if (
+            String(args[0]) === path.join(f.directory, "ai-selection.lock") &&
+            args[1] === "wx"
+          )
             lockFd = fd;
           return fd;
         },
@@ -561,7 +564,11 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       new Proxy(fs.closeSync, {
         apply(target, receiver, args) {
           const value = Reflect.apply(target, receiver, args);
-          if (args[0] === lockFd && closeFailures === 0) {
+          if (
+            lockFailure === "close" &&
+            args[0] === lockFd &&
+            closeFailures === 0
+          ) {
             closeFailures++;
             throw Error("fixture-close");
           }
@@ -593,16 +600,16 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
         },
       }),
     );
-    const rm = t.mock.method(
+    const remove = t.mock.method(
       fs,
       "rmSync",
       new Proxy(fs.rmSync, {
         apply(target, receiver, args) {
           if (
-            lockCleanupFails &&
+            lockFailure === "remove" &&
             String(args[0]) === path.join(f.directory, "ai-selection.lock")
           )
-            throw Error("fixture-lock-cleanup");
+            throw Error("fixture-lock-remove");
           return Reflect.apply(target, receiver, args);
         },
       }),
@@ -613,8 +620,9 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       () => true,
       getModelCatalog().catalog,
     );
-    for (const item of [open, close, rename, unlink, rm]) item.mock.restore();
-    assert.equal(closeFailures, 1);
+    for (const item of [open, close, rename, unlink, remove])
+      item.mock.restore();
+    assert.equal(closeFailures, lockFailure === "close" ? 1 : 0);
     assert.equal(result.status, "unknown", JSON.stringify(result));
     if (result.status !== "unknown") assert.fail("unknown required");
     assert.equal(result.publication, "unconfirmed");
@@ -625,9 +633,7 @@ test("temp回収不明とLock終了失敗が重なっても先行参照を失わ
       fs.lstatSync(temporary, { bigint: true }).ino.toString(),
       result.temporary.identity.ino,
     );
-    if (lockCleanupFails)
-      assert.match(result.recoveryId ?? "", /^filesystem-store-lock\./u);
-    else assert.equal(result.recoveryId, null);
+    assert.match(result.recoveryId ?? "", /^filesystem-store-lock\./u);
     assert.equal(fs.existsSync(f.file), false);
   }
 });
