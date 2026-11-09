@@ -12,7 +12,7 @@ export const dockerDesktopDistributionRoot = fileURLToPath(
 );
 import fs from "node:fs";
 import path from "node:path";
-import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../platform-access/src/index.ts";
+import { createWindowsPowerShellAuthenticodeEnvironment } from "./environment.ts";
 
 export const DOCKER_CLI_TRUST_CONTRACT = "crdd-coordinator/docker-cli-trust";
 export const DOCKER_CLI_TRUST_CONTRACT_REVISION = 1;

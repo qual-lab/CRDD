@@ -40,7 +40,7 @@ import {
   attemptSelection,
   executionSelection,
 } from "../fixtures/ai-selection.ts";
-import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
+import { createOwnedProcessFixture } from "../fixtures/docker-owned-process-test-support.ts";
 
 /**
  * 実行調整への値依存を照合Ownerへ戻さない。
@@ -4107,25 +4107,25 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
 });
 
 // OSのCtrl+C配送とDocker資源は未観測。CLI listener/Controllerの共有処理から
-// 本番共通のtaskkillへ接続し、固定Node子孫のclose/不存在を実観測する。
+// 本番共通のNode停止へ接続し、固定Node元子のclose/不存在を実観測する。
 for (const dockerCleanupConfirmed of [true, false]) {
   /**
-   * Host Windows: 取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}を検証する。
+   * Host Windows: 取消結合: 実元子終了後の模擬Docker cleanup=${dockerCleanupConfirmed}を検証する。
    *
-   * @responsibility Host Windows: 取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}の合否判定を所有する。
+   * @responsibility Host Windows: 取消結合: 実元子終了後の模擬Docker cleanup=${dockerCleanupConfirmed}の合否判定を所有する。
    * @trace ERB-IT-002
    * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus Host Windows: 取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}の対象操作を実行する。
+   * @stimulus Host Windows: 取消結合: 実元子終了後の模擬Docker cleanup=${dockerCleanupConfirmed}の対象操作を実行する。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
    * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
    */
-  test(`Host Windows: 取消結合: 実子孫終了後の模擬Docker cleanup=${dockerCleanupConfirmed}`, {
+  test(`Host Windows: 取消結合: 実元子終了後の模擬Docker cleanup=${dockerCleanupConfirmed}`, {
     skip: process.platform !== "win32",
     timeout: 20_000,
   }, async (t) => {
-    const processes = createOwnedProcessTreeFixture();
+    const processes = createOwnedProcessFixture();
     t.after(() => processes.dispose());
     let handle: OwnedCommandHandle | null = null;
     let terminationCount = 0;

@@ -10,7 +10,7 @@ import { startOwnedWindowsProcess } from "../../src/process/start.ts";
 
 /**
  * 診断attachの実行／終了観測Handle。
- * @responsibility ready、Process結果、終了補助子のcloseを独立に保持する。
+ * @responsibility ready、Process結果、元Processのcloseを独立に保持する。
  * @trace ARCH-000008
  * @shape started、ready、completion、終端操作と現在close観測。
  * @invariant ready成立をProcess完了や資源不存在へ読み替えない。
@@ -28,19 +28,19 @@ export type DockerAttachedProcess = Readonly<{
 }>;
 
 /**
- * 固定Treeだけに親子PIDの観測値を付与する返却型。
+ * 固定単一Processだけに元PIDの観測値を付与する返却型。
  * @responsibility 他のfixtureへ汎用stdoutやPID操作を公開しない。
  * @trace ARCH-000008
- * @shape 共通Handleとready_tree限定の二PID getter。
+ * @shape 共通Handleとready_process限定の単一PID getter。
  * @invariant PIDは観測専用で処置入力ではない。
  * @boundary 固定fixtureと試験Consumer。
  * @security 任意Script・argv・PIDを入力にしない。
  * @compatibility 既存三scenarioのHandle形状を維持する。
  */
 type AttachFixtureHandle<Scenario extends string> = DockerAttachedProcess &
-  (Scenario extends "ready_tree"
+  (Scenario extends "ready_process"
     ? Readonly<{
-        observedTreeProcessIds: () => readonly [number, number] | null;
+        observedProcessIds: () => readonly [number] | null;
       }>
     : object);
 
@@ -52,9 +52,9 @@ type AttachFixtureHandle<Scenario extends string> = DockerAttachedProcess &
  * @returns 開始・ready・結果と所有終端Handle。
  * @precondition この内部関数をPackage外へ公開しない。
  * @postcondition errorだけからclose成立を返さない。
- * @effect 固定Processを開始し、取消時にtree終端する。
+ * @effect 固定Processを開始し、取消時に元Process停止する。
  * @failure 出力超過・観測の不正返却・close不明は成功にしない。
- * @invariant actual spawnとtree終端は共通Ownerだけが実行する。
+ * @invariant actual spawnと元Process停止は共通Ownerだけが実行する。
  * @boundary 固定実行構成とWindows所有Process。
  * @security 捕捉出力は64KiB以内、Repository環境を継承しない。
  * @concurrency ready／結果／終端を同じHandleへ結合する。
@@ -168,20 +168,20 @@ export function startDockerProbeAttachedProcess(
  * @input scenario: 固定三故障。environment: 上位の最小環境。
  * @returns 共通Ownerのattach観測Handle。
  * @precondition 実Docker／Provider成功の根拠として使用しない。
- * @postcondition fixture自身の子と終了補助子を同じHandleで所有する。
+ * @postcondition fixtureの単一子Processを同じHandleで所有する。
  * @effect 固定Node Scriptを一つ起動する。
  * @failure 未知scenarioは開始前拒否、close不明は完了しない。
  * @invariant Script本文をCallerから受け取らない。
  * @boundary 固定試験Node子Processと下位Owner。
  * @security RepositoryのScript・環境を継承しない。
- * @concurrency 通常attachと同じready／close／tree終端を使用する。
+ * @concurrency 通常attachと同じready／close／元Process停止を使用する。
  */
 export function startOwnedAttachTerminationFixture<
   Scenario extends
     | "never_ready"
     | "ready_then_never_complete"
     | "output_overflow"
-    | "ready_tree",
+    | "ready_process",
 >(
   scenario: Scenario,
   environment: Readonly<Record<string, string>>,
@@ -192,19 +192,19 @@ export function startOwnedAttachTerminationFixture<
       'process.stdout.write("crdd-owned-attach-ready\\n"); setInterval(() => undefined, 1000);',
     output_overflow:
       'process.stdout.write("x".repeat(65537)); setInterval(() => undefined, 1000);',
-    ready_tree: String.raw`const {spawn}=require("node:child_process"); const child=spawn(process.execPath,["-e",${JSON.stringify('process.stdout.write("ready\\n");setInterval(()=>undefined,1000);setTimeout(()=>process.exit(99),30000);')}],{shell:false,env:process.env,stdio:["ignore","pipe","ignore"]}); child.stdout.once("data",()=>process.stdout.write("crdd-owned-attach-ready\n"+JSON.stringify([process.pid,child.pid])+"\n"));setInterval(()=>undefined,1000);setTimeout(()=>process.exit(99),30000);`,
+    ready_process: String.raw`process.stdout.write("crdd-owned-attach-ready\n"+JSON.stringify([process.pid])+"\n");setInterval(()=>undefined,1000);setTimeout(()=>process.exit(99),30000);`,
   };
   if (!Object.hasOwn(sources, scenario))
     throw new Error("docker_attach_fixture_scenario_invalid");
   let observation = Buffer.alloc(0);
   let invalid = false;
-  let observed: readonly [number, number] | null = null;
+  let observed: readonly [number] | null = null;
   const handle = startAttached(
     process.execPath,
     ["-e", sources[scenario]],
     captureDockerProcessEnvironment(environment),
     "crdd-owned-attach-ready\n",
-    scenario === "ready_tree"
+    scenario === "ready_process"
       ? (value) => {
           if (invalid) return;
           observation = Buffer.concat([observation, value]);
@@ -228,15 +228,11 @@ export function startOwnedAttachTerminationFixture<
             const ids: unknown = JSON.parse(lines[1] ?? "");
             if (
               !Array.isArray(ids) ||
-              ids.length !== 2 ||
-              !ids.every((id) => Number.isSafeInteger(id) && id > 0) ||
-              ids[0] === ids[1]
+              ids.length !== 1 ||
+              !ids.every((id) => Number.isSafeInteger(id) && id > 0)
             )
               throw new Error("fixture_pid_tuple_invalid");
-            observed = Object.freeze([ids[0], ids[1]]) as readonly [
-              number,
-              number,
-            ];
+            observed = Object.freeze([ids[0]]) as readonly [number];
           } catch {
             invalid = true;
             observed = null;
@@ -245,8 +241,8 @@ export function startOwnedAttachTerminationFixture<
       : undefined,
   );
   return Object.freeze(
-    scenario === "ready_tree"
-      ? { ...handle, observedTreeProcessIds: () => observed }
+    scenario === "ready_process"
+      ? { ...handle, observedProcessIds: () => observed }
       : handle,
   ) as AttachFixtureHandle<Scenario>;
 }

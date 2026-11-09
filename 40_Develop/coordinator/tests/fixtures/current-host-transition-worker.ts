@@ -11,10 +11,22 @@
  * @cleanup 呼出し元が生成Rootを所有し、本文は保持排他をfinallyで解放する。
  * @boundary ERB-IT-014=Related 2 Blocks: 子Process→Host／現在状態Writer。
  */
+import {
+  hostFixtureProcessBoundarySource,
+  savedAbsenceProcessProfileSource,
+} from "./current-authentication-recovery-cli.ts";
+
+/** 子の既定拒否下で、固定故障・再入場・Host清掃の実保存を実行する。
+ * @trace ERB-IT-014
+ * @trace PRL-IT-013
+ */
 export const currentHostTransitionWorkerSource = `(async () => {
       const assert = (await import('node:assert/strict')).default;
       const fs = (await import('node:fs')).default;
       const path = (await import('node:path')).default;
+      ${hostFixtureProcessBoundarySource}
+      let absenceProfile;
+      try {
       const { createHash } = await import('node:crypto');
       const authenticationUnknownRestart = process.argv[3] === 'restart_auth_cli_entry';
       const restartEntry = process.argv[3] === 'restart_cli_entry' || authenticationUnknownRestart;
@@ -71,6 +83,8 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const id = process.argv[2], verified = vc.getRepository(process.cwd());
+      const reentry=['recover_cleanup','recover_history','recover_delivery'].includes(process.argv[3]);
+      const expectedResources = JSON.parse(process.argv[reentry?5:4]);
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
       if(restartEntry) {
         const restart = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
@@ -91,7 +105,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.ok(target.resources);assert.equal(target.resources.checkpoints.filter(c=>c.submission==='intent_saved').length,1);
           assert.equal(target.resources.checkpoints.find(c=>c.key==='create_subscription_auth_probe').submission,'intent_saved');
           assert.ok(target.resources.checkpoints.every(c=>c.receiptSource===null && c.observation==='unobserved' && c.absenceEvidenceSha256===null));
-        }else assert.equal(target.resources,null);
+        }else assert.deepEqual(target.resources,expectedResources);
         const siblings = snapshot.operations.filter(item => item.recoveryId !== id);
         assert.equal(siblings.length,1);
         const siblingIdentity = JSON.parse(siblings[0].identityJson);
@@ -183,7 +197,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }
         if(handoffFailure) {
           assert.equal(identity.consumer, 'coordinator_cli');
-          assert.equal(target.resources,null);
+          assert.deepEqual(target.resources,expectedResources);
         }
         const prepared = handoffFailure ? recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability) : null;
         if(prepared) assert.equal(prepared.status, 'prepared');
@@ -206,49 +220,62 @@ export const currentHostTransitionWorkerSource = `(async () => {
         if(identifiedProvider) {
           const cp = (await import('node:child_process')).default;
           const {syncBuiltinESMExports} = await import('node:module');
+          const {PassThrough} = await import('node:stream');
           const originalSpawn = cp.spawnSync;
+          const originalAsyncSpawn = cp.spawn;
           const dockerId = 'c'.repeat(64);
           const selected = target.resources.snapshot.resources.find(item=>item.key==='create_provider');
           const checkpoint=target.resources.checkpoints.find(item=>item.key==='create_provider');
           assert.ok(selected && checkpoint);
           assert.equal(selected.request,'issued');assert.equal(selected.identity.dockerId,dockerId);
-          assert.deepEqual(checkpoint,{key:'create_provider',submission:'intent_saved',receiptSource:'docker_create_result',observation:'present',absenceEvidenceSha256:null});
+          assert.deepEqual(checkpoint,{key:'create_provider',submission:'intent_saved',receiptSource:'docker_create_result',observation:'unobserved',absenceEvidenceSha256:null});
           assert.ok(target.resources.checkpoints.filter(item=>item.key!=='create_provider').every(item=>item.submission==='none' && item.receiptSource===null && item.observation==='unobserved' && item.absenceEvidenceSha256===null));
           assert.equal(identity.provider, 'claude'); assert.equal(identity.operationMode, 'isolated_task');
           const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
           const nativeExe = path.resolve(path.dirname(cli), '../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
-          const nativeModes = ['--host-recovery-namespace-initialize','--host-recovery-namespace-observe','--local-app-data-directory','--system-windows-directory'];
+          const nativeModes = ['--local-app-data-directory','--system-windows-directory'];
           const expectedCommands = [
-            ['container','ls','--all','--no-trunc','--filter','id='+dockerId,'--format','{{.ID}}'],
+            ['version','--format','{{.Server.Os}}'],
             ['container','inspect',dockerId],
             ['container','rm','--force',dockerId],
             ['container','ls','--all','--no-trunc','--filter','id='+dockerId,'--format','{{.ID}}'],
             ['container','ls','--all','--no-trunc','--filter','name=^/'+resourceNames.create_provider+'$','--format','{{.ID}}'],
+            ['container','ls','--all','--no-trunc','--filter','label='+identity.ownershipLabel,'--format','{{.ID}}'],
           ];
           let calls = 0, trustCalls = 0, violation = false, config = null, configIdentity = null;
-          cp.spawnSync = function(executable, argv, options) {
+          const failureSites=[];
+          const syntheticChildren = [];
+          const classify = function(channel, executable, argv, options) {
             try {
               if(executable === nativeExe) {
+                assert.equal(channel,'sync');
                 assert.equal(argv.length, 1); assert.ok(nativeModes.includes(argv[0]));
-                assert.equal(options.shell, false); assert.equal(options.windowsHide, true);
+                assert.deepEqual({...options,cwd:path.resolve(options.cwd)},{env:{},cwd:path.resolve(path.dirname(nativeExe),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});
                 return originalSpawn(executable, argv, options);
               }
               let stdout = '';
               const powershell = path.win32.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
               if(executable.toLowerCase() === powershell.toLowerCase()) {
+                assert.equal(channel,'sync');
                 assert.equal(trustCalls++, 0);
                 const script = ["$ErrorActionPreference='Stop'", "$signature=Get-AuthenticodeSignature -LiteralPath '"+dockerExe+"'", "$certificate=$signature.SignerCertificate", "if(([string]$signature.Status -ne 'Valid') -or ($null -eq $certificate) -or ([string]$certificate.Subject -notmatch '(?:^|, )O=Docker Inc(?:,|$)')){exit 2}", "Write-Output 'CRDD_DOCKER_AUTHENTICODE_OK'"].join(';');
                 assert.deepEqual(argv, ['-NoLogo','-NoProfile','-NonInteractive','-Command',script]);
                 stdout = 'CRDD_DOCKER_AUTHENTICODE_OK\\r\\n';
               } else {
+                assert.equal(channel,'async');
                 assert.equal(executable, dockerExe);
                 assert.deepEqual(argv.slice(0,3), ['--host','npipe:////./pipe/dockerDesktopLinuxEngine','--config']);
                 assert.equal(options.shell, false); assert.equal(options.windowsHide, true);
-                assert.equal(options.timeout, 10000); assert.equal(options.maxBuffer, 1048576);
+                assert.deepEqual(options.stdio, ['ignore','pipe','pipe']);
+                assert.equal(options.cwd,path.win32.join(process.env.SystemRoot,'System32'));
+                assert.equal(options.timeout,undefined); assert.equal(options.maxBuffer,undefined);
+                for(const key of ['DOCKER_HOST','DOCKER_CONTEXT']) assert.equal(options.env[key],undefined);
+                for(const key of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY']) assert.equal(options.env[key],'');
                 if(config === null) {
                   config = argv[3];
-                  assert.ok(!path.relative(identity.hostPaths.root, config).startsWith('..'));
-                  assert.ok(path.basename(config).startsWith('docker-recovery-config-'));
+                  const relative = path.relative(identity.hostPaths.root,config);
+                  assert.ok(relative && !path.isAbsolute(relative) && relative!=='..' && !relative.startsWith('..'+path.sep));
+                  assert.equal(path.basename(config),'docker-cli-config');
                   const info = fs.lstatSync(config, {bigint:true});
                   assert.ok(info.isDirectory() && !info.isSymbolicLink());
                   configIdentity = [info.dev,info.ino,info.birthtimeNs].join(':');
@@ -258,7 +285,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
                 assert.equal([info.dev,info.ino,info.birthtimeNs].join(':'), configIdentity);
                 assert.deepEqual(fs.readdirSync(config), []);
                 assert.deepEqual(argv.slice(4), expectedCommands[calls]);
-                if(calls === 0) stdout = dockerId+'\\n';
+                if(calls === 0) stdout = 'linux\\n';
                 if(calls === 1) stdout = JSON.stringify([{
                   Id:dockerId, Name:'/'+resourceNames.create_provider,
                   Config:{Labels:{'crdd.coordinator.runtime':identity.ownershipLabel.split('=')[1]}, Image:selected.configuration.image, User:'65534:65534'},
@@ -278,21 +305,35 @@ export const currentHostTransitionWorkerSource = `(async () => {
                 calls++;
               }
               return {pid:1,status:0,signal:null,stdout,stderr:'',output:[null,stdout,'']};
-            } catch(error) { violation = true; throw error; }
+            } catch(error) { violation = true;const failure={channel,index:calls,site:/stdin.?:([0-9]+):([0-9]+)/u.exec(error.stack??'')?.slice(1)??null};failureSites.push(failure);throw new Error('host_fixture_classifier_rejected:'+JSON.stringify(failure)); }
+          };
+          cp.spawnSync = function(executable, argv, options) { return classify('sync',executable,argv,options); };
+          cp.spawn = function(executable, argv, options) {
+            const reply = classify('async',executable,argv,options);
+            const child = Object.assign(new cp.ChildProcess(),{pid:1234,stdin:null,stdout:new PassThrough(),stderr:new PassThrough(),kill:()=>{throw new Error('fixture_termination_forbidden');}});
+            const item = {child,spawn:0,exit:0,close:0,done:null};
+            item.done = new Promise(resolve=>child.once('close',resolve));
+            syntheticChildren.push(item);
+            queueMicrotask(()=>{item.spawn++;child.emit('spawn');child.stdout.end(reply.stdout);child.stderr.end(reply.stderr);setImmediate(()=>{child.exitCode=reply.status;child.signalCode=reply.signal;item.exit++;child.emit('exit',reply.status,reply.signal);item.close++;child.emit('close',reply.status,reply.signal);});});
+            return child;
           };
           syncBuiltinESMExports();
           try {
             report = await recovery.recoverRuntimeOwnedDockerTaskForCurrentConsumer(resolvedId, verified.capability, new AbortController().signal);
           } finally {
-            cp.spawnSync = originalSpawn; syncBuiltinESMExports();
+            cp.spawnSync = originalSpawn; cp.spawn = originalAsyncSpawn; syncBuiltinESMExports();
+            await Promise.all(syntheticChildren.map(item=>item.done));
+            for(const item of syntheticChildren){assert.deepEqual([item.spawn,item.exit,item.close],[1,1,1]);assert.equal(item.child.stdout.readableEnded,true);assert.equal(item.child.stderr.readableEnded,true);item.child.stdout.destroy();item.child.stderr.destroy();}
           }
-          assert.equal(violation, false); assert.equal(calls, expectedCommands.length); assert.equal(trustCalls, 1);
+          assert.equal(violation, false,JSON.stringify(failureSites)); assert.equal(calls, expectedCommands.length,JSON.stringify(report)); assert.equal(trustCalls, 1);
           assert.ok(config); assert.throws(() => fs.lstatSync(config), {code:'ENOENT'});
           assert.equal(report.reason, 'docker_task_recovery_durable_acceptance_pending');
         } else {
-          const authenticationSource = authenticationUnknownRestart ? (await import(${JSON.stringify(new URL("./current-authentication-recovery-cli.ts", import.meta.url).href)})).currentAuthenticationRecoveryCliSource : undefined;
-          const child = spawnSync(process.execPath, authenticationUnknownRestart ? ['--experimental-test-module-mocks','-',resolvedId] : [cli, 'recovery', 'resume', resolvedId, '--json'], {input:authenticationSource,cwd: process.cwd(), encoding: 'utf8', timeout: restartEntry ? 120000 : 60000, windowsHide: true});
-          assert.equal(child.error, undefined); assert.equal(child.signal, null); assert.equal(child.status, 0, child.stderr);
+          const cliSources = await import(${JSON.stringify(new URL("./current-authentication-recovery-cli.ts", import.meta.url).href)});
+          const authenticationSource = authenticationUnknownRestart ? cliSources.currentAuthenticationRecoveryCliSource : cliSources.currentRecoveryCliSource;
+          const cliChildTimeout = restartEntry || ['cli_entry_cli','cli_entry_workbench','cli_entry_orchestrator'].includes(process.argv[3]) ? 120000 : 60000;
+          const child = await launchHostFixture(['--experimental-test-module-mocks','-',resolvedId],authenticationSource,cliChildTimeout);
+          assert.equal(child.error, undefined); assert.equal(child.signal, null); assert.equal(child.status, 0, child.stdout+child.stderr);
           assert.ok(Number.isInteger(child.pid) && child.pid > 0); assert.notEqual(child.pid, process.pid);
           report = JSON.parse(child.stdout);
         }
@@ -437,8 +478,13 @@ export const currentHostTransitionWorkerSource = `(async () => {
         try {
           assert.equal(recovery.persistRuntimeOwnedDockerTaskRecoveryCheckpoint(prepared.capability, 'host', {}), false);
           assert.equal(recovery.confirmRuntimeOwnedDockerTaskHostAbsence(prepared.capability), false);
-          assert.equal(recovery.recoverRuntimeOwnedDockerTaskResources(prepared.capability, null).status, 'blocked');
-          assert.equal((await recovery.executeRuntimeOwnedDockerTaskResourceRecovery(prepared.capability, () => { throw new Error('unrelated Docker operation forbidden'); })).status, 'blocked');
+          let rejectedEffects=0;
+          const rejectEffect=()=>{rejectedEffects++;throw new Error('unrelated_docker_effect_forbidden');};
+          const refusedResources=await recovery.recoverRuntimeOwnedDockerTaskResources(prepared.capability,rejectEffect,rejectEffect);
+          assert.equal(refusedResources.status,'blocked');assert.equal(refusedResources.reason,'docker_task_recovery_owner_unconfirmed');
+          const refusedExecution=await recovery.executeRuntimeOwnedDockerTaskResourceRecovery(prepared.capability,new AbortController().signal);
+          assert.equal(refusedExecution.status,'blocked');assert.equal(refusedExecution.reason,'docker_task_recovery_owner_unconfirmed');
+          assert.equal(rejectedEffects,0);
           assert.equal(recovery.cleanupRuntimeOwnedDockerTaskHost(prepared.capability), true);
           const after = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
           assert.equal(after.status, 'completed'); assert.equal(after.lockReleased, true);
@@ -459,6 +505,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
         process.stdout.write('cleanup_publication_recovered'); return;
       }
       if(process.argv[3] === 'driver' || process.argv[3].startsWith('completion_')) {
+        absenceProfile=await ${savedAbsenceProcessProfileSource};
         const initial = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
         assert.equal(initial.status, 'completed'); assert.equal(initial.lockReleased, true); assert.ok(initial.value);
         const targets = initial.value.snapshot.operations.filter(item => item.recoveryId === id);
@@ -566,6 +613,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const targets = before.value.snapshot.operations.filter(item => item.recoveryId === id);
       assert.equal(targets.length, 1);
       const operation = targets[0], identity = JSON.parse(operation.identityJson);
+      assert.deepEqual(operation.resources,expectedResources);
       const loaded = record.loadHostRecoveryRecordByToken(operation.host.currentToken, identity.hostPaths.root);
       const expectedBytes = JSON.stringify({ ...loaded.record, state: 'docker_absent_confirmed' })+'\\n';
       const expectedToken = 'host.'+loaded.parsed.rootName+'.'+loaded.parsed.nonce+'.'+createHash('sha256').update(expectedBytes).digest('hex');
@@ -630,7 +678,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           fs.renameSync = rename; fs.openSync = open;
           const { spawnSync } = await import('node:child_process');
           const script = (await import(${JSON.stringify(new URL("./current-host-transition-worker.ts", import.meta.url).href)})).currentHostTransitionWorkerSource; assert.ok(script);
-          const child = spawnSync(process.execPath, ['-', id, 'recover_cleanup', publicationFault], { input: script, cwd: process.cwd(), encoding: 'utf8', timeout: 60000, windowsHide: true });
+          const child = await launchHostFixture(['-', id, 'recover_cleanup', publicationFault,JSON.stringify(expectedResources)],script,60000);
           assert.equal(child.error, undefined); assert.equal(child.signal, null); assert.equal(child.status, 0, child.stderr); assert.equal(child.stdout, 'cleanup_publication_recovered');
           assert.deepEqual(fs.readFileSync(statePath), cleanupFinalBytes);
         } else {
@@ -702,7 +750,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(versions.length, beforeRetryVersions); assert.deepEqual(fs.readFileSync(statePath), beforeRetry);
           const { spawnSync } = await import('node:child_process');
           const script = (await import(${JSON.stringify(new URL("./current-host-transition-worker.ts", import.meta.url).href)})).currentHostTransitionWorkerSource; assert.ok(script);
-          const resumed = spawnSync(process.execPath, ['-', id, 'recover_history', historyFault], { input: script, cwd: process.cwd(), encoding: 'utf8', timeout: 60000, windowsHide: true });
+          const resumed = await launchHostFixture(['-', id, 'recover_history', historyFault,JSON.stringify(expectedResources)],script,60000);
           assert.equal(resumed.error, undefined); assert.equal(resumed.signal, null); assert.equal(resumed.status, 0, resumed.stderr); assert.equal(resumed.stdout, 'history_publication_recovered');
         } else {
           assert.equal(history.status, 'completed', history.reason); assert.equal(history.historyConfirmed, true); assert.equal(history.lockReleased, true);
@@ -741,7 +789,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
             assert.equal(recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(capability).status, 'blocked');
             assert.deepEqual(fs.readFileSync(statePath), failureState); assert.equal(versions.length, failureVersions);
             const { spawnSync } = await import('node:child_process'), script = (await import(${JSON.stringify(new URL("./current-host-transition-worker.ts", import.meta.url).href)})).currentHostTransitionWorkerSource;
-            const resumed = spawnSync(process.execPath, ['-', id, 'recover_delivery', deliveryFault], { input: script, cwd: process.cwd(), encoding: 'utf8', timeout: 60000, windowsHide: true });
+            const resumed = await launchHostFixture(['-', id, 'recover_delivery', deliveryFault,JSON.stringify(expectedResources)],script,60000);
             assert.equal(resumed.error, undefined); assert.equal(resumed.status, 0, resumed.stderr); assert.equal(resumed.stdout, 'history_publication_recovered');
           } else {
             assert.equal(delivery.status, 'completed', delivery.reason);
@@ -801,4 +849,5 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(observed.status, 'blocked');
       }
       process.stdout.write('current_host_storage_verified');
+      } finally { try { await absenceProfile?.settle();absenceProfile?.assertComplete(); } finally { restoreHostFixtureProcesses(); } }
     })().catch(error => { console.error(error); process.exitCode = 1; });`;

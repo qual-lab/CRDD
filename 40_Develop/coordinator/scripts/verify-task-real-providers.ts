@@ -28,6 +28,7 @@ import {
   buildCoordinatorRealProviderReport,
   captureCanonicalRepositorySnapshot,
   type JsonRecord,
+  type PublicProcessObservation,
   observePublicMcpProcess,
   inspectPublishedCoordinatorIntakeEpoch,
 } from "./task-real-provider-contract.ts";
@@ -668,7 +669,7 @@ async function main() {
           event.provider === "claude";
         if (shouldTerminate)
           isParentTerminationRequestedAfterProcessStart = true;
-        return shouldTerminate ? "terminate_process_tree" : "continue";
+        return shouldTerminate ? "terminate_parent" : "continue";
       },
     },
   );
@@ -677,23 +678,37 @@ async function main() {
   );
   const parentLossObservation = await parentLossObservationPromise;
 
-  const reentryChild = startPublicMcpProcess(sourceRoot, repositoryRoot);
-  let isReentryInputClosed = false;
-  const reentryObservationPromise = observePublicMcpProcess(reentryChild, {
-    maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
-    timeoutMs: PROCESS_TIMEOUT_MS,
-    closeInputWhen: ({ stdout }) => {
-      const shouldClose =
-        !isReentryInputClosed &&
-        stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
-      if (shouldClose) isReentryInputClosed = true;
-      return shouldClose;
-    },
-  });
-  reentryChild.stdin.write(
-    mcpEnvelope("objective-recovery-reentry", recoveryRequest),
-  );
-  const reentryObservation = await reentryObservationPromise;
+  let reentryObservation: PublicProcessObservation | null = null;
+  if (
+    isParentTerminationRequestedAfterProcessStart &&
+    parentLossObservation.parentTerminationConfirmed &&
+    parentLossObservation.joined &&
+    !parentLossObservation.inputEofIssued &&
+    !parentLossObservation.timedOut &&
+    !parentLossObservation.streamFailure &&
+    parentLossObservation.outputWithinLimit &&
+    !parentLossObservation.parseFailure &&
+    !parentLossObservation.runtimeEventProtocolViolation &&
+    parentLossObservation.launchError === null
+  ) {
+    const reentryChild = startPublicMcpProcess(sourceRoot, repositoryRoot);
+    let isReentryInputClosed = false;
+    const reentryObservationPromise = observePublicMcpProcess(reentryChild, {
+      maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
+      timeoutMs: PROCESS_TIMEOUT_MS,
+      closeInputWhen: ({ stdout }) => {
+        const shouldClose =
+          !isReentryInputClosed &&
+          stdout.split(/\r?\n/u).filter(Boolean).length >= 1;
+        if (shouldClose) isReentryInputClosed = true;
+        return shouldClose;
+      },
+    });
+    reentryChild.stdin.write(
+      mcpEnvelope("objective-recovery-reentry", recoveryRequest),
+    );
+    reentryObservation = await reentryObservationPromise;
+  }
   const recoverySnapshotAfter =
     captureCanonicalRepositorySnapshot(repositoryRoot);
 

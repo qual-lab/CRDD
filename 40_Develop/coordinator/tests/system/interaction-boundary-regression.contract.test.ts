@@ -18,10 +18,10 @@ import { pathToFileURL } from "node:url";
 import {
   createDockerCliEnvironment,
   createDockerDesktopRepairHelperEnvironment,
+  createWindowsPowerShellAuthenticodeEnvironment,
 } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import {
   createChildProcessEnvironment,
-  createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
 } from "../../../platform-access/src/index.ts";
 import {
@@ -266,7 +266,10 @@ test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期
     path.join(profile, "AppData", "Local", "Temp"),
   );
   const moduleUrl = pathToFileURL(
-    path.join(coordinatorRoot, "../platform-access/src/index.ts"),
+    path.join(
+      coordinatorRoot,
+      "../docker-isolation/src/docker-cli/environment.ts",
+    ),
   ).href;
   const source = [
     'import { spawnSync } from "node:child_process";',
@@ -674,9 +677,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     childProcessImportSources,
     [
       "40_Develop/platform-access/src/filesystem/root.ts",
-      "40_Develop/platform-access/src/host-record/namespace.ts",
       "40_Develop/platform-access/src/filesystem/system-directory.ts",
-      "40_Develop/platform-access/src/process/termination.ts",
       "40_Develop/platform-access/src/filesystem/entry.ts",
       "40_Develop/platform-access/src/filesystem/local-app-data.ts",
       "40_Develop/docker-isolation/src/cleanup/execute.ts",

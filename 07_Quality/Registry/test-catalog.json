@@ -1327,7 +1327,9 @@
   "consumerBindings": [
     {
       "producerOwner": "lock",
-      "producerPaths": ["40_Develop/lock/src"],
+      "producerPaths": [
+        "40_Develop/lock/src"
+      ],
       "consumerOwner": "domain-model",
       "consumerStatic": true,
       "testIds": [
@@ -1337,24 +1339,36 @@
     },
     {
       "producerOwner": "lock",
-      "producerPaths": ["40_Develop/lock/src"],
+      "producerPaths": [
+        "40_Develop/lock/src"
+      ],
       "consumerOwner": "execution-intelligence",
       "consumerStatic": true,
-      "testIds": ["execution-intelligence:integration:store"]
+      "testIds": [
+        "execution-intelligence:integration:store"
+      ]
     },
     {
       "producerOwner": "lock",
-      "producerPaths": ["40_Develop/lock/src"],
+      "producerPaths": [
+        "40_Develop/lock/src"
+      ],
       "consumerOwner": "coordinator",
       "consumerStatic": true,
-      "testIds": ["coordinator:integration:kernel-lock"]
+      "testIds": [
+        "coordinator:integration:kernel-lock"
+      ]
     },
     {
       "producerOwner": "lock",
-      "producerPaths": ["40_Develop/lock/src"],
+      "producerPaths": [
+        "40_Develop/lock/src"
+      ],
       "consumerOwner": "executor",
       "consumerStatic": true,
-      "testIds": ["executor:integration:provider-home-boundary"]
+      "testIds": [
+        "executor:integration:provider-home-boundary"
+      ]
     },
     {
       "producerOwner": "domain-model",
@@ -1401,18 +1415,6 @@
       "testIds": [
         "executor:integration:public-boundary",
         "executor:unit:observation"
-      ]
-    },
-    {
-      "producerOwner": "platform-access",
-      "producerPaths": [
-        "40_Develop/platform-access/src/process/termination.ts",
-        "40_Develop/platform-access/src/index.ts"
-      ],
-      "consumerOwner": "coordinator",
-      "consumerStatic": true,
-      "testIds": [
-        "coordinator:system:orchestrator-real-provider-verification-script"
       ]
     },
     {
@@ -2579,27 +2581,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:integration:child-tree-termination",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/child-tree-termination.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "windows",
-        "process",
-        "termination",
-        "observation"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "child_process_joined",
-        "native_process_effect_zero"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "docker-isolation:integration:command-session",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/integration/command-session.contract.test.ts",
@@ -3708,50 +3689,6 @@
         "host_cleanup_publication_reentry_observed",
         "restart_checkpoint_to_fresh_cli_observed",
         "authentication_unknown_dedicated_writer_to_cli_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:native-tool-process",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/native-tool-process.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "native",
-        "verification-entry",
-        "process",
-        "artifact-selection"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "fixed_command_observed",
-        "unique_artifact_observed",
-        "close_wait_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:native-protection-entry",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/native-protection-entry.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "native",
-        "verification-entry",
-        "fixture",
-        "input-identity"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "previous_run_blocks_generation",
-        "ancestor_replacement_rejected",
-        "changed_or_unavailable_input_rejected"
       ],
       "mandatoryByDefault": true
     },
@@ -5307,16 +5244,13 @@
       "semanticTags": [
         "host",
         "namespace",
-        "protocol",
-        "native",
-        "git-provenance",
-        "partial-result",
-        "host-windows"
+        "node",
+        "filesystem",
+        "partial-result"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
+        "restricted_process"
       ],
       "externalProviderEffect": false,
       "humanInput": false,
@@ -9089,88 +9023,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:integration:host_namespace",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/host_namespace.rs",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "windows",
-        "filesystem",
-        "recovery"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": false
-    },
-    {
-      "id": "platform-access:integration:windows_protection",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/fixtures/windows_protection.rs",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "windows",
-        "filesystem",
-        "recovery"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": false
-    },
-    {
-      "id": "platform-access:integration:host_namespace_protocol",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/protocol/host_namespace.rs",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "namespace",
-        "protocol",
-        "partial-result"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:host_namespace_creation",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/fixtures/host_namespace_creation.rs",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "namespace",
-        "filesystem",
-        "protection"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": false
-    },
-    {
       "id": "platform-access:integration:windows-entry-diagnostic",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/integration/windows_entry_diagnostic.rs",
@@ -10772,29 +10624,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:integration:host-record-namespace",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/host-record-namespace.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "namespace",
-        "protocol",
-        "native",
-        "git-provenance",
-        "partial-result"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:unit:protected-root-protocol",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/unit/filesystem/protection.contract.test.ts",
@@ -10820,9 +10649,9 @@
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "host",
+        "platform",
         "environment",
-        "protection"
+        "profile"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

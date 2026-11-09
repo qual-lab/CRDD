@@ -597,8 +597,7 @@
       ],
       "verifies": [
         "docker-isolation.execution.owned-windows-process",
-        "docker-isolation.execution.attached-process",
-        "platform-access.source.child-tree-termination"
+        "docker-isolation.execution.attached-process"
       ]
     },
     {

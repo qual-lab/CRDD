@@ -5,11 +5,10 @@
  * @trace PRL-IT-013
  * @trace ERB-IT-003
  * @level IT
- * @scope 実Root・Host・Home排他・Writer。通常Host試験はHome観測と固定切断hookを模擬する。auth_create_failureはDocker代役と通常例外を確認し、明示したauth_create_unknownだけは専用承認Rootで固定Imageの停止Containerを一件作成する。
+ * @scope 実Root・Host・Writerと試験Root内の実wx排他。通常Host試験はHome観測と固定切断hookを模擬し、停止前Lock実体を通知して親の停止下明示処置へ接続する。auth_create_failureはDocker代役と通常例外を確認し、明示したauth_create_unknownだけは従来の所在・専用承認Rootで固定Imageの停止Containerを一件作成する。
  * @boundary 旧Owner Processの終了後の現在回復。専用モードの同期CLI終了は子孫tree／daemon queue終端の証明ではない。
  */
 
-import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -83,6 +82,34 @@ assert.equal(verified.status, "completed");
 assert.ok(verified.capability);
 assert.equal(vc.resolveVerifiedRepositoryRoot(verified.capability), root);
 const statePath = path.join(root, ".crdd", "domain-model", "state.json");
+// この有限な親子試験だけで共有する所在。実ユーザーHomeと保護Policyは触らない。
+const authority = await import("../../src/execution/authority.ts");
+const fixtureHomeDirectory =
+  mode === "auth_create_unknown"
+    ? authority.providerHomesDirectoryCandidate()
+    : path.join(root, ".crdd", "tests", "reentry-home-locks");
+const fixtureRuntimeDirectory = path.join(
+  root,
+  ".crdd",
+  "tests",
+  "reentry-runtime-locks",
+);
+if (mode !== "auth_create_unknown") {
+  assert.equal(typeof fixtureHomeDirectory, "string");
+  fs.mkdirSync(fixtureHomeDirectory as string, { recursive: true });
+  fs.mkdirSync(fixtureRuntimeDirectory, { recursive: true });
+  if (mode === "recovery")
+    mock.module(
+      new URL("../../src/execution/authority.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...authority,
+          providerHomesDirectoryCandidate: () => fixtureHomeDirectory,
+          runtimeStateDirectoryCandidate: () => fixtureRuntimeDirectory,
+        },
+      },
+    );
+}
 
 /**
  * 自己生成Coordinator領域の全実体と本文を捕捉する。
@@ -127,6 +154,36 @@ function captureCoordinatorFiles() {
         };
       }),
   };
+}
+
+/** 停止前の元Lock実体を親へ渡す。製品の回復許可や自動清掃には使用しない。 */
+function captureFixtureLocks() {
+  if (mode === "auth_create_unknown") return [];
+  const entries = [];
+  for (const directory of [
+    path.join(root, ".crdd", "tests"),
+    fixtureHomeDirectory,
+    fixtureRuntimeDirectory,
+  ]) {
+    assert.equal(typeof directory, "string");
+    for (const name of fs
+      .readdirSync(directory as string)
+      .filter((name) => name.endsWith(".lock"))) {
+      const file = path.join(directory as string, name);
+      const stat = fs.lstatSync(file, { bigint: true });
+      assert.equal(stat.isFile(), true);
+      assert.equal(stat.isSymbolicLink(), false);
+      assert.equal(stat.nlink, 1n);
+      const bytes = fs.readFileSync(file);
+      assert.equal(JSON.parse(bytes.toString()).owner.processId, process.pid);
+      entries.push({
+        path: path.relative(root, file),
+        identity: [stat.dev, stat.ino, stat.birthtimeNs].map(String),
+        bytes: bytes.toString("base64"),
+      });
+    }
+  }
+  return entries;
 }
 
 if (mode !== "recovery") {
@@ -247,7 +304,6 @@ if (mode !== "recovery") {
   );
   const observation = Object.freeze({});
   let observedPlan = plan;
-  let afterHomeAcquire: (() => void) | null = null;
   let afterStateRead: (() => void) | null = null;
   let hostStarts = 0;
   let startWrites = 0;
@@ -255,33 +311,19 @@ if (mode !== "recovery") {
     typeof store.readRuntimeOwnedCoordinatorStateSnapshot
   >[] = [];
   const admissionChecks: string[] = [];
-  const lockMock = mock.module(
-    new URL("../../src/execution/kernel-lock.ts", import.meta.url).href,
-    {
-      namedExports: {
-        ...locks,
-        acquireProviderHomeLock: (home: unknown, directory: string) => {
-          const lease = locks.acquireProviderHomeLock(home, directory);
-          if (lease.status === "acquired" && afterHomeAcquire) {
-            const hook = afterHomeAcquire;
-            afterHomeAcquire = null;
-            try {
-              hook();
-            } catch (error) {
-              assert.equal(lease.lock.release(), true);
-              throw error;
-            }
-          }
-          return lease;
-        },
-      },
-    },
-  );
   const homeMock = mock.module(
     new URL("../../src/execution/authority.ts", import.meta.url).href,
     {
       namedExports: {
         ...homes,
+        providerHomesDirectoryCandidate:
+          mode === "auth_create_unknown"
+            ? homes.providerHomesDirectoryCandidate
+            : () => fixtureHomeDirectory,
+        runtimeStateDirectoryCandidate:
+          mode === "auth_create_unknown"
+            ? homes.runtimeStateDirectoryCandidate
+            : () => fixtureRuntimeDirectory,
         inspectRuntimeOwnedWindowsProviderHomeCandidate: () => ({
           status: "candidate",
           observationCapability: observation,
@@ -338,6 +380,9 @@ if (mode !== "recovery") {
         recoveryId,
         phase: mode,
         hostStarts,
+        ...(mode === "auth_create_unknown"
+          ? {}
+          : { locks: captureFixtureLocks() }),
       }),
     );
     assert.equal(fs.writeSync(1, packet), packet.length);
@@ -832,7 +877,7 @@ if (mode !== "recovery") {
           assert.equal(abandonCalls, 0);
           crashArmed = true;
           const packet = Buffer.from(
-            `${JSON.stringify({ pid: process.pid, recoveryId: begun.recoveryId, phase: mode, hostStarts, operationRoot: root, cleanupObserved: false, authCreateDockerCalls: realDockerCalls })}\n`,
+            `${JSON.stringify({ pid: process.pid, recoveryId: begun.recoveryId, phase: mode, hostStarts, operationRoot: root, cleanupObserved: false, authCreateDockerCalls: realDockerCalls, locks: captureFixtureLocks() })}\n`,
           );
           assert.equal(fs.writeSync(1, packet), packet.length);
           if (mode === "parent_terminated") {
@@ -1003,12 +1048,12 @@ if (mode !== "recovery") {
               owner.abandonRuntimeOwnedDockerRecovery(
                 refused.recoveryCapability,
               ),
-              true,
+              false,
             );
           }
           const availableAcquisition = locks.acquireProviderHomeLock(
             hash,
-            providerHomesDirectoryCandidate(),
+            fixtureHomeDirectory,
           );
           assert.ok(availableAcquisition.status === "acquired");
           const available = availableAcquisition.lock;
@@ -1034,17 +1079,24 @@ if (mode !== "recovery") {
       const before = fs.readFileSync(statePath);
       const snapshot = host.borrowOwnedHostRecoverySnapshot(management);
       const marker = fs.readFileSync(snapshot.hostPaths.marker);
-      assert.equal(
-        locks.acquireProviderHomeLock(hash, providerHomesDirectoryCandidate())
-          .status,
-        "blocked",
+      // Coordinatorの開始記録はHomeを取得しない。実取得・解放はExecutorの責務。
+      const independentHome = locks.acquireProviderHomeLock(
+        hash,
+        fixtureHomeDirectory,
       );
+      assert.equal(
+        independentHome.status,
+        "acquired",
+        JSON.stringify(independentHome),
+      );
+      assert.ok(independentHome.status === "acquired");
+      assert.equal(independentHome.lock.release(), true);
       assert.equal(
         owner.abandonRuntimeOwnedDockerRecovery({ ...capability }),
         false,
       );
-      assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), true);
-      assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), true);
+      assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), false);
+      assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), false);
       assert.deepEqual(fs.readFileSync(statePath), before);
       assert.deepEqual(fs.readFileSync(snapshot.hostPaths.marker), marker);
       assert.equal(
@@ -1062,7 +1114,7 @@ if (mode !== "recovery") {
       );
       const reacquiredAcquisition = locks.acquireProviderHomeLock(
         hash,
-        providerHomesDirectoryCandidate(),
+        fixtureHomeDirectory,
       );
       assert.ok(reacquiredAcquisition.status === "acquired");
       const reacquired = reacquiredAcquisition.lock;
@@ -1086,7 +1138,7 @@ if (mode !== "recovery") {
       assert.deepEqual(fs.readFileSync(snapshot.hostPaths.marker), marker);
       const afterConflictAcquisition = locks.acquireProviderHomeLock(
         hash,
-        providerHomesDirectoryCandidate(),
+        fixtureHomeDirectory,
       );
       assert.ok(afterConflictAcquisition.status === "acquired");
       const afterConflict = afterConflictAcquisition.lock;
@@ -1110,7 +1162,7 @@ if (mode !== "recovery") {
       const readsBeforeInvalidation = stateReads.length;
       try {
         observedPlan = rootPlan;
-        afterHomeAcquire = () => {
+        afterStateRead = () => {
           fs.writeFileSync(head, "ref: refs/heads/unborn-fixture\n");
           invalidated++;
         };
@@ -1120,33 +1172,30 @@ if (mode !== "recovery") {
         );
         assert.ok(rootRefused && rootRefused.status === "blocked");
         assert.equal(invalidated, 1);
-        assert.equal(afterHomeAcquire, null);
+        assert.equal(afterStateRead, null);
         assert.equal("recoveryCapability" in rootRefused, false);
         assert.equal(hostStarts, startsBeforeConflict);
         assert.equal(startWrites, writesBeforeConflict);
         assert.equal(stateReads.length, readsBeforeInvalidation + 1);
-        assert.equal(stateReads.at(-1)?.status, "blocked");
-        assert.equal(stateReads.at(-1)?.value, null);
-        assert.equal(
-          stateReads.at(-1)?.reason,
-          "coordinator_state_owner_invalid",
-        );
+        // 読取り自体は完了。その直後の失効を保存前の再検査が拒否する。
+        assert.equal(stateReads.at(-1)?.status, "completed");
+        assert.ok(stateReads.at(-1)?.value);
         assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
         assert.deepEqual(fs.readFileSync(statePath), before);
         assert.deepEqual(fs.readFileSync(snapshot.hostPaths.marker), marker);
         const releasedAcquisition = locks.acquireProviderHomeLock(
           rootPlan.stableLogicalHomeBindingHash,
-          providerHomesDirectoryCandidate(),
+          fixtureHomeDirectory,
         );
         assert.ok(releasedAcquisition.status === "acquired");
         const released = releasedAcquisition.lock;
         assert.ok(released);
         assert.equal(released.release(), true);
         assert.deepEqual(captureCoordinatorFiles(), filesBeforeConflict);
-        admissionChecks.push("root_invalid_after_home_acquire");
+        admissionChecks.push("root_invalid_after_state_read");
       } finally {
         observedPlan = plan;
-        afterHomeAcquire = null;
+        afterStateRead = null;
         fs.writeFileSync(head, headBefore);
       }
       assert.equal(
@@ -1178,7 +1227,10 @@ if (mode !== "recovery") {
     try {
       if (owner && capability) {
         abandonCalls++;
-        assert.equal(owner.abandonRuntimeOwnedDockerRecovery(capability), true);
+        assert.equal(
+          owner.abandonRuntimeOwnedDockerRecovery(capability),
+          false,
+        );
       }
       if (!generationReleased) {
         assert.equal(
@@ -1217,10 +1269,7 @@ if (mode !== "recovery") {
           fs.readFileSync(currentPaths.marker),
           authHostBefore.marker,
         );
-        const lease = locks.acquireProviderHomeLock(
-          hash,
-          providerHomesDirectoryCandidate(),
-        );
+        const lease = locks.acquireProviderHomeLock(hash, fixtureHomeDirectory);
         assert.ok(lease.status === "acquired");
         assert.equal(lease.lock.release(), true);
         assert.equal(
@@ -1255,7 +1304,6 @@ if (mode !== "recovery") {
       }
     } finally {
       homeMock.restore();
-      lockMock.restore();
     }
   }
 } else {
@@ -1290,16 +1338,6 @@ if (mode !== "recovery") {
     "windows-x64",
     "crdd-platform-access.exe",
   );
-  const supervisor = fileURLToPath(
-    new URL("../../../platform-access/src/supervisor.ts", import.meta.url),
-  );
-  const generation = createHash("sha256")
-    .update("crdd-host-operation-generation-v1\0")
-    .update(identity.initialHostRecovery.record.rootName)
-    .update("\0")
-    .update(identity.initialHostRecoveryId.split(".")[2])
-    .digest("hex");
-  const supervisorPipe = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${generation.slice(0, 32)}`;
   const originals = new Map<string, unknown>();
   const violations: string[] = [];
   const calls: string[] = [];
@@ -1314,6 +1352,7 @@ if (mode !== "recovery") {
   let interruptionReached = 0;
   let finalWriterCalls = 0;
   let checkpointWriterCalls = 0;
+  const checkpointKinds: string[] = [];
   let actualCheckpointWriterCalls = 0;
   let underlyingFinalWriterCalls = 0;
   let hostRecoveryCalls = 0;
@@ -1344,11 +1383,13 @@ if (mode !== "recovery") {
         reached: interruptionReached,
         finalWriterCalls,
         checkpointWriterCalls,
+        checkpointKinds,
         actualCheckpointWriterCalls,
         underlyingFinalWriterCalls,
         hostRecoveryCalls,
         calls,
         violations,
+        locks: captureFixtureLocks(),
         observerRejectionConfirmed: true,
       }),
     );
@@ -1377,11 +1418,6 @@ if (mode !== "recovery") {
       const vector = Array.isArray(argv) ? argv : null;
       const isNative =
         file === native && vector !== null && vector.length === 0;
-      const isSupervisor =
-        file === process.execPath &&
-        vector?.length === 2 &&
-        vector[0] === supervisor &&
-        vector[1] === supervisorPipe;
       const cwd =
         options && typeof options === "object"
           ? (options as { cwd?: unknown }).cwd
@@ -1404,13 +1440,13 @@ if (mode !== "recovery") {
           ? (options as { shell?: unknown }).shell
           : undefined;
       if (
-        !(isNative || isSupervisor || isReadOnlyGit) ||
+        !(isNative || isReadOnlyGit) ||
         (shell !== undefined && shell !== false)
       ) {
         violations.push(name);
         throw new Error("abandon_fixture_unexpected_process_request");
       }
-      calls.push(isNative ? "native" : isSupervisor ? "supervisor" : "git");
+      calls.push(isNative ? "native" : "git");
       return Reflect.apply(original, cp, args);
     };
   }
@@ -1540,6 +1576,7 @@ if (mode !== "recovery") {
             ) => {
               assert.equal(args[1], id);
               checkpointWriterCalls++;
+              checkpointKinds.push(args[3]);
               if (
                 interruption === "pending_writer_blocked" &&
                 args[3] === "host"
@@ -1648,15 +1685,12 @@ if (mode !== "recovery") {
       );
     }
     // 実Storeの依存が通常namespaceを先に読むため、hook登録後の同じSourceを別namespaceで結合する。
-    const recovery =
-      interruption === undefined
-        ? await import("../../src/execution/recovery.ts")
-        : await import(
-            new URL(
-              "../../src/execution/recovery.ts?cleanup-interruption",
-              import.meta.url,
-            ).href
-          );
+    const recovery = await import(
+      new URL(
+        "../../src/execution/recovery.ts?cleanup-interruption",
+        import.meta.url,
+      ).href
+    );
     if (admissionVerification === "verify_admission") {
       const model = await import("../../../domain-model/src/index.ts");
       const baselineBytes = fs.readFileSync(statePath);
@@ -1821,6 +1855,7 @@ if (mode !== "recovery") {
           phase: interruption,
           reached: refusedWriterCalls,
           checkpointWriterCalls,
+          checkpointKinds,
           actualCheckpointWriterCalls,
           finalWriterCalls,
           underlyingFinalWriterCalls,

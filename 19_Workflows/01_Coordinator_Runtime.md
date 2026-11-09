@@ -54,25 +54,11 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 
 通常入口と検証入口は`40_Develop/platform-access/target/`をBuild cacheとして共有する。Coverageは今回Cargoが返した計測用実行物だけを使い、同じ`deps/`に残る過去の実行物を列挙して選ばない。計測profileと要約だけを`.crdd/tests/native-coverage-<一意suffix>/`へ生成し、正常終了後に回収する。失敗・中断時は小さな未処置領域を確認して清掃する。Native保護試験もBuild cacheを共有し、試験対象と結果だけをrun内に置く。実行前後の入力・実行物HashとDirectory Identityが変わった場合は成功を返さない。
 
-## 自己生成Native保存境界試験
+## 通常回復NamespaceのNode境界試験
 
-旧`terminal-v1`専用の三実体観測・19拒否例と、その専用起動Toolは退役した。現在の親・Recovery Directoryの作成／再利用／既存不適合拒否は、`host_namespace_creation_fixture`が自己生成領域だけで確認する。固定targetの今回Cargo出力一件を取得し、Repository Root・32桁の新品run識別子・未存在の`.crdd/tests/namespace-recovery-<run>`を固定して明示実行する。成功後は試験が自作対象だけをIdentity確認して非再帰回収し、不明・失敗時はそのexact領域を保持する。通常の実共有領域や既存`terminal-v1`を試験へ使わない。
+通常回復Namespaceは、承認済みのNode中心Policyに従い、Coordinatorの既存Directory生成処理を使う。専用Native保護Toolとfixture、旧observe／initialize modeは退役した。SID／DACL・祖先Handleの同等性は主張しない。専用TEMP保護はOS設定・運用の前提で、共有・保護不明ACLをNodeが自動拒否する保証はない。Provider Home／Runtimeの保護は別契約として維持する。
 
-専用のNative読取り・初期化応答はCRDDNR02 revision 2であり、親とRecoveryの二実体・一Receiptだけを返す。要求形式と、利用者SID／DACL／祖先Handle・処置後照合・初回終了の条件は維持する。Node.js統合や保護Policyの撤廃は、この試験の実行許可には含めない。
-
-## 自己生成Native保護試験の反復と終了処置
-
-この局所試験はRepository Rootから`npm run platform-access:verify-protection --prefix 40_Develop/coordinator`で起動する。型・Formatter・Lint確認後、入口がRust ClippyとBuildを先に実行する。署名・Provider・Docker操作は行わない。生成先は`.crdd/tests/native-protection-<UUID>/`で、`started.json`、必要な`result.json`と`tmp/`だけを持ち、Build一式をコピーしない。開始記録は秘密値やHost絶対Pathを含まない。
-
-試験実行を受理したフロントAIが保持と終了処置の責任者となる。前回runが一件でも残る、列挙できない、開始・結果記録が欠ける、破損または状態不明の場合は、新しいrunを生成せず処置へ戻す。入口の名前検出は停止条件だけであり、削除許可ではない。
-
-| 前回状態 | 必須処置 | 新規実行 |
-|---|---|---|
-| 正常結果あり | 判断に必要な結論・入力と実行物Hash・再現手順を現在CHGへ記録する。生結果は保存が必要な場合だけ正式Evidenceへ残す。参照、親／子終端、回復義務、非alias・非使用を確認し、exact runのtmp・不要結果を回収して不存在を確認する。共通Build cacheはこのrunの清掃対象ではない | 終了処置後だけ許可 |
-| Build失敗 | exact runと静的確認の失敗を記録する。Build Processの終端、必要診断、参照と非使用を確認するまで保存し、確認後だけ限定回収する | 処置前は停止 |
-| 中断・結果なし・観測不能 | startedまたは残存runのexact Identityと未確認範囲をOwnerの記録へ残す。終了を成功から推定せず、確認できない対象は保持する | 未確認が残る間は停止 |
-
-正式保存前に唯一の根拠を削除しない。名前・時刻だけで他run、旧verification、署名候補、Manifest、認証またはOS領域を回収しない。自動清掃や新しいRecovery Frameworkは追加しない。前回残存の拒否を、実中断後の回復成功または全体清掃の実測済み根拠とは扱わない。
+通常の反復確認はCoordinatorのhost-recovery-namespace.integration.test.tsとhost-recovery-record.contract.test.tsを使い、新品Repository-local領域で生成・再利用・不適合拒否・部分失敗・記録照合を確認する。各試験の自己生成領域だけを元実体・非使用確認後に回収し、不明・失敗時はexact対象を保持する。既存の共有Namespace、過去保持物、旧runの名前や時刻を削除根拠にしない。
 
 ## 目的・対象・実行前条件
 

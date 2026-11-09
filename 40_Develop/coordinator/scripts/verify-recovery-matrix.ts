@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  */
 import type { ChildProcess } from "node:child_process";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -289,6 +289,10 @@ async function verifyParentLossThenRecover() {
     },
   );
   let recoveryId: string | null = null;
+  let stopRequested = false;
+  const parentClosed = new Promise<void>((resolve) =>
+    child.once("close", resolve),
+  );
   try {
     const ready = await waitForChildReady(child);
     if (
@@ -306,26 +310,31 @@ async function verifyParentLossThenRecover() {
         "signed_recovery_matrix_parent_child_pid_missing",
         recoveryId,
       );
-    const killed = spawnSync(
-      path.join(
-        process.env.SystemRoot ?? "C:\\Windows",
-        "System32",
-        "taskkill.exe",
-      ),
-      ["/PID", String(child.pid), "/T", "/F"],
-      {
-        encoding: "utf8",
-        env: childEnvironment,
-        windowsHide: true,
-        timeout: CHILD_EXIT_TIMEOUT_MS,
-      },
-    );
-    if (killed.error || (killed.status !== 0 && child.exitCode === null))
+    stopRequested = true;
+    let stopAccepted = false;
+    try {
+      stopAccepted = child.kill("SIGKILL");
+    } catch {
       throw new RecoveryMatrixFailure(
         "signed_recovery_matrix_parent_child_kill_failed",
         recoveryId,
       );
-    if (!(await waitForChildExit(child)))
+    }
+    if (!stopAccepted)
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_parent_child_kill_failed",
+        recoveryId,
+      );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const joined = await Promise.race([
+      parentClosed.then(() => true),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(false), CHILD_EXIT_TIMEOUT_MS);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    if (!joined || child.signalCode !== "SIGKILL")
       throw new RecoveryMatrixFailure(
         "signed_recovery_matrix_parent_child_exit_unconfirmed",
         recoveryId,
@@ -348,7 +357,8 @@ async function verifyParentLossThenRecover() {
       manualRecoveryRequiredAfterRecovery: false,
     });
   } finally {
-    if (child.exitCode === null && child.signalCode === null) child.kill();
+    if (!stopRequested && child.exitCode === null && child.signalCode === null)
+      child.kill("SIGKILL");
   }
 }
 

@@ -185,7 +185,7 @@ export function describeDockerIsolationExecutionEnvironment() {
     }),
     engine: DOCKER_ENGINE,
     environment: "runtime_owned_minimal_replacement",
-    processTreeTermination: "taskkill_exact_pid_tree_then_close",
+    processTermination: "node_kill_owned_process_then_close",
   });
 }
 

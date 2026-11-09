@@ -13,7 +13,6 @@ import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
 
-import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
 import {
   inspectTaskStageDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
@@ -218,9 +217,9 @@ export type PublicProcessObservation = Readonly<{
   timedOut: boolean;
   inputEofIssued: boolean;
   forcedTerminationIssued: boolean;
-  processTreeTerminationAttempted: boolean;
-  processTreeTerminationConfirmed: boolean;
-  processTreeTerminationTriggerEvent: ProcessStartedRuntimeEvent | null;
+  parentTerminationAttempted: boolean;
+  parentTerminationConfirmed: boolean;
+  parentTerminationTriggerEvent: ProcessStartedRuntimeEvent | null;
   inputCloseTriggerEvent: VerifiedRuntimeEvent | null;
   joined: boolean;
   runtimeEventProtocolViolation: boolean;
@@ -748,15 +747,15 @@ function parseKnownDiagnosticLine(
  *
  * @responsibility Public Mcp Processの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
- * @input child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startWindowsChildTreeTermination; }>
+ * @input child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_parent"; }>
  * @returns Promise<PublicProcessObservation>を返す。
- * @precondition 「child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startWindowsChildTreeTermination; }>」がobservePublicMcpProcessの入力契約を満たす。
+ * @precondition 「child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_parent"; }>」がobservePublicMcpProcessの入力契約を満たす。
  * @postcondition observePublicMcpProcessの責務を完了した結果だけを返す。
- * @effect 所有子のstdin終了、必要時のchild.killと固定taskkill補助の起動・清掃を行う。新しいProvider依頼やDocker資源操作は行わない。
+ * @effect 所有親のstdin終了と必要時のNode.js標準killを行う。子孫探索・新しいProvider依頼・Docker資源操作は行わない。
  * @failure observePublicMcpProcessは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant observePublicMcpProcessは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 所有MCP子のstream・ProcessとPlatform Accessの固定終了補助。要求発行、補助成功、元子closeを別に観測する。
- * @security 呼出し元所有子だけを対象とし、補助成功をDocker清掃やProvider終了の証明にしない。全体判定は元子joinも要求する。
+ * @boundary 所有MCP親のstreamとNode.js標準Process停止。要求発行と元親closeを別に観測する。
+ * @security 呼出し元所有親だけを対象とし、親停止を子孫不存在・Docker清掃やProvider終了の証明にしない。全体判定は元親joinも要求する。
  * @concurrency observePublicMcpProcessは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function observePublicMcpProcess(
@@ -768,8 +767,7 @@ export async function observePublicMcpProcess(
     closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean;
     onVerifiedRuntimeEvent?: (
       event: VerifiedRuntimeEvent,
-    ) => "continue" | "close_input" | "terminate_process_tree";
-    startProcessTreeTermination?: typeof startWindowsChildTreeTermination;
+    ) => "continue" | "close_input" | "terminate_parent";
   }>,
 ): Promise<PublicProcessObservation> {
   let stdout = "";
@@ -778,14 +776,13 @@ export async function observePublicMcpProcess(
   let isTimedOut = false;
   let inputEofIssued = false;
   let forcedTerminationIssued = false;
-  let isProcessTreeTerminationAttempted = false;
-  let processTreeTerminationConfirmed = false;
-  let processTreeTerminationTriggerEvent: ProcessStartedRuntimeEvent | null =
-    null;
+  let killRequested = false;
+  let isParentTerminationAttempted = false;
+  let parentTerminationConfirmed = false;
+  let parentTerminationTriggerEvent: ProcessStartedRuntimeEvent | null = null;
   let inputCloseTriggerEvent: VerifiedRuntimeEvent | null = null;
   let isRuntimeEventProtocolViolation = false;
   let isStreamFailure = false;
-  let terminationCompletion: Promise<boolean> | null = null;
   const pidIssued = Number.isSafeInteger(child.pid) && Number(child.pid) > 0;
   const grace = options.terminationGraceMs ?? 5_000;
   const absoluteFinalDeadline = Date.now() + options.timeoutMs + grace * 2;
@@ -818,51 +815,17 @@ export async function observePublicMcpProcess(
       isStreamFailure = true;
     }
   };
-  const terminateProcessTree = (event: ProcessStartedRuntimeEvent) => {
-    if (
-      forcedTerminationIssued ||
-      isProcessTreeTerminationAttempted ||
-      !pidIssued
-    )
-      return;
-    isProcessTreeTerminationAttempted = true;
-    processTreeTerminationTriggerEvent = event;
-    terminationCompletion = (async () => {
-      try {
-        const killer = (
-          options.startProcessTreeTermination ??
-          startWindowsChildTreeTermination
-        )(child);
-        if (!killer) return false;
-        forcedTerminationIssued = await killer.started(
-          Math.min(grace, remainingToFinalDeadline()),
-        );
-        if (!forcedTerminationIssued) {
-          await killer.terminateAndWait(
-            Math.min(grace, remainingToFinalDeadline()),
-          );
-          return false;
-        }
-        const result = await killer.wait(
-          Math.min(grace, remainingToFinalDeadline()),
-        );
-        if (!result) {
-          await killer.terminateAndWait(
-            Math.min(grace, remainingToFinalDeadline()),
-          );
-          return false;
-        }
-        processTreeTerminationConfirmed =
-          result.status === 0 &&
-          result.signal === null &&
-          !result.outputExceeded &&
-          killer.closed();
-        return processTreeTerminationConfirmed;
-      } catch {
-        isStreamFailure = true;
-        return false;
-      }
-    })();
+  const terminateParent = (event: ProcessStartedRuntimeEvent) => {
+    if (killRequested || isParentTerminationAttempted || !pidIssued) return;
+    isParentTerminationAttempted = true;
+    parentTerminationTriggerEvent = event;
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    killRequested = true;
+    try {
+      forcedTerminationIssued = child.kill("SIGKILL");
+    } catch {
+      isStreamFailure = true;
+    }
   };
   const acceptDiagnosticLine = (line: string) => {
     const parsed = parseKnownDiagnosticLine(
@@ -898,7 +861,7 @@ export async function observePublicMcpProcess(
     if (
       isRuntimeEventProtocolViolation ||
       inputCloseTriggerEvent ||
-      processTreeTerminationTriggerEvent
+      parentTerminationTriggerEvent
     )
       return;
     try {
@@ -906,12 +869,12 @@ export async function observePublicMcpProcess(
       if (action === "close_input") {
         inputCloseTriggerEvent = event;
         closeInput();
-      } else if (action === "terminate_process_tree") {
+      } else if (action === "terminate_parent") {
         if (event.event !== "process_started") {
           isRuntimeEventProtocolViolation = true;
           return;
         }
-        terminateProcessTree(event);
+        terminateParent(event);
       }
     } catch {
       isStreamFailure = true;
@@ -948,7 +911,7 @@ export async function observePublicMcpProcess(
   const onStdoutData = (chunk: Buffer) => accept("stdout", chunk);
   const onStderrData = (chunk: Buffer) => accept("stderr", chunk);
   const onStreamError = () => {
-    if (!isProcessTreeTerminationAttempted) {
+    if (!isParentTerminationAttempted) {
       isStreamFailure = true;
       closeInput();
     }
@@ -1038,11 +1001,17 @@ export async function observePublicMcpProcess(
   });
   primaryTimer = setTimeout(() => {
     isTimedOut = true;
-    closeInput();
+    if (!isParentTerminationAttempted) closeInput();
     cleanupTimer = setTimeout(() => {
-      if (child.exitCode === null && child.signalCode === null) {
+      if (
+        !isParentTerminationAttempted &&
+        !killRequested &&
+        child.exitCode === null &&
+        child.signalCode === null
+      ) {
+        killRequested = true;
         try {
-          forcedTerminationIssued = child.kill();
+          forcedTerminationIssued = child.kill("SIGKILL");
         } catch {
           isStreamFailure = true;
         }
@@ -1054,20 +1023,11 @@ export async function observePublicMcpProcess(
     }, grace);
   }, options.timeoutMs);
   const exit = await closed;
-  if (terminationCompletion) {
-    const remaining = remainingToFinalDeadline();
-    if (remaining > 0) {
-      let helperDeadline: ReturnType<typeof setTimeout> | null = null;
-      await Promise.race([
-        terminationCompletion,
-        new Promise<boolean>((resolve) => {
-          helperDeadline = setTimeout(() => resolve(false), remaining);
-        }),
-      ]).finally(() => {
-        if (helperDeadline) clearTimeout(helperDeadline);
-      });
-    }
-  }
+  parentTerminationConfirmed =
+    isParentTerminationAttempted &&
+    forcedTerminationIssued &&
+    exit !== null &&
+    exit.signal === "SIGKILL";
   stdout += stdoutDecoder.end();
   const stderrEnd = stderrDecoder.end();
   stderrPending += stderrEnd;
@@ -1095,9 +1055,9 @@ export async function observePublicMcpProcess(
     timedOut: isTimedOut,
     inputEofIssued,
     forcedTerminationIssued,
-    processTreeTerminationAttempted: isProcessTreeTerminationAttempted,
-    processTreeTerminationConfirmed,
-    processTreeTerminationTriggerEvent,
+    parentTerminationAttempted: isParentTerminationAttempted,
+    parentTerminationConfirmed,
+    parentTerminationTriggerEvent,
     inputCloseTriggerEvent,
     joined: exit !== null,
     runtimeEventProtocolViolation: isRuntimeEventProtocolViolation,
@@ -1289,7 +1249,7 @@ type NormalObjectiveRun = Readonly<{
 type RecoverySettlementRun = Readonly<{
   parentLoss: PublicProcessObservation;
   parentTerminationRequestedAfterProcessStart: boolean;
-  reentry: PublicProcessObservation;
+  reentry: PublicProcessObservation | null;
   expected: ExpectedObjective;
   snapshotBefore: RepositorySnapshot;
   snapshotAfter: RepositorySnapshot;
@@ -1540,7 +1500,9 @@ export function buildCoordinatorRealProviderReport(
   // 親喪失試験では旧親の終了診断を仮定せず、後続の同一対象再入場で確認する。
   if (!providerBoundaryDiagnosticsMatch(input.cancellation, false, true))
     problems.push("cancellation_provider_boundary_mismatch");
-  processProblems("recovery_reentry", input.recoverySettlement.reentry);
+  if (input.recoverySettlement.reentry)
+    processProblems("recovery_reentry", input.recoverySettlement.reentry);
+  else problems.push("recovery_reentry_not_started");
   if (
     !providerBoundaryDiagnosticsMatch(
       input.recoverySettlement.parentLoss,
@@ -1548,7 +1510,10 @@ export function buildCoordinatorRealProviderReport(
     )
   )
     problems.push("recovery_parent_provider_boundary_mismatch");
-  if (!providerBoundaryDiagnosticsMatch(input.recoverySettlement.reentry, true))
+  if (
+    input.recoverySettlement.reentry &&
+    !providerBoundaryDiagnosticsMatch(input.recoverySettlement.reentry, true)
+  )
     problems.push("recovery_reentry_provider_boundary_mismatch");
   const normalResults = input.normalRuns.map((operationRun, index) => {
     const { observation, expected } = operationRun;
@@ -1749,13 +1714,13 @@ export function buildCoordinatorRealProviderReport(
     recovery.parentLoss.responses.length !== 0
   )
     problems.push("recovery_parent_loss_not_exercised");
-  if (!recovery.reentry.inputEofIssued)
+  if (!recovery.reentry?.inputEofIssued)
     problems.push("recovery_reentry_eof_not_issued");
   const recoveryResult = semanticResult(
-    recovery.reentry.responses[0],
+    recovery.reentry?.responses[0],
     recovery.expected.responseId,
   );
-  if (recovery.reentry.responses.length !== 1 || recoveryResult === null)
+  if (recovery.reentry?.responses.length !== 1 || recoveryResult === null)
     problems.push("recovery_reentry_response_envelope");
   const isRecoveryReentryResultMatched =
     recoveryResult?.status === "blocked" &&
@@ -1776,7 +1741,7 @@ export function buildCoordinatorRealProviderReport(
     problems.push("recovery_reentry_semantic_result");
   if (
     !recovery.expected.reviewerProvider ||
-    !runtimeEventsExactlyMatch(recovery.reentry.runtimeEvents, [
+    !runtimeEventsExactlyMatch(recovery.reentry?.runtimeEvents ?? [], [
       {
         event: "selection",
         taskRole: "executor",
@@ -1812,18 +1777,17 @@ export function buildCoordinatorRealProviderReport(
     "queue_settled",
     "retry_ready",
   ] as const;
-  const recoveryIds = recovery.reentry.recoveryEvents
+  const recoveryIds = (recovery.reentry?.recoveryEvents ?? [])
     .map((event) => event.recoveryId)
     .filter((value): value is string => value !== null);
   const exactRecoveryId = recoveryIds[0] ?? null;
   const exactRecoveryTaskId =
-    recovery.reentry.recoveryEvents[0]?.taskId ?? null;
+    (recovery.reentry?.recoveryEvents ?? [])[0]?.taskId ?? null;
   const exactProjectOperationId =
-    recovery.reentry.recoveryEvents[0]?.operationId ?? null;
+    (recovery.reentry?.recoveryEvents ?? [])[0]?.operationId ?? null;
   const exactRecoveryQueueId =
     typeof recoveryResult?.queueId === "string" ? recoveryResult.queueId : null;
-  const terminationTrigger =
-    recovery.parentLoss.processTreeTerminationTriggerEvent;
+  const terminationTrigger = recovery.parentLoss.parentTerminationTriggerEvent;
   const isRecoveryEventsCorrelated =
     lossProviderOperationIds.length === 1 &&
     terminationTrigger?.event === "process_started" &&
@@ -1838,8 +1802,9 @@ export function buildCoordinatorRealProviderReport(
     /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
       exactRecoveryId,
     ) &&
-    recovery.reentry.recoveryEvents.length === expectedRecoveryPhases.length &&
-    recovery.reentry.recoveryEvents.every((event, index) => {
+    (recovery.reentry?.recoveryEvents ?? []).length ===
+      expectedRecoveryPhases.length &&
+    (recovery.reentry?.recoveryEvents ?? []).every((event, index) => {
       const expectedPhase = expectedRecoveryPhases[index];
       const isItemPhase = index < 5;
       return (
@@ -1857,7 +1822,7 @@ export function buildCoordinatorRealProviderReport(
       );
     }) &&
     new Set(recoveryIds).size === 1 &&
-    recovery.reentry.recoveryEvents.every((event, index, events) => {
+    (recovery.reentry?.recoveryEvents ?? []).every((event, index, events) => {
       const previous = events.at(index - 1);
       return (
         index === 0 ||
@@ -1869,11 +1834,11 @@ export function buildCoordinatorRealProviderReport(
     isRecoveryEventsCorrelated &&
     recovery.parentTerminationRequestedAfterProcessStart &&
     recovery.parentLoss.forcedTerminationIssued &&
-    recovery.parentLoss.processTreeTerminationConfirmed &&
+    recovery.parentLoss.parentTerminationConfirmed &&
     recovery.parentLoss.joined &&
     !recovery.parentLoss.inputEofIssued &&
     isRecoveryReentryResultMatched &&
-    recovery.reentry.joined;
+    recovery.reentry?.joined === true;
   if (!isRecoverySettlementExercised)
     problems.push("recovery_settlement_lifecycle_mismatch");
   const recoveryChangedPaths = changedSnapshotPaths(
@@ -1901,7 +1866,7 @@ export function buildCoordinatorRealProviderReport(
     input.recoverySettlement.parentLoss.processStartEvents.map(
       (event) => event.operationId,
     ),
-    input.recoverySettlement.reentry.processStartEvents.map(
+    (input.recoverySettlement.reentry?.processStartEvents ?? []).map(
       (event) => event.operationId,
     ),
   ];
@@ -1937,7 +1902,7 @@ export function buildCoordinatorRealProviderReport(
     input.normalRuns.every((operationRun) => operationRun.observation.joined) &&
     input.cancellation.joined &&
     input.recoverySettlement.parentLoss.joined &&
-    input.recoverySettlement.reentry.joined &&
+    input.recoverySettlement.reentry?.joined === true &&
     isRecoverySettlementExercised &&
     publicResults.every((result) => result?.cleanupConfirmed === true);
   return Object.freeze({
@@ -1959,7 +1924,7 @@ export function buildCoordinatorRealProviderReport(
       ) ||
       !input.cancellation.joined ||
       !input.recoverySettlement.parentLoss.joined ||
-      !input.recoverySettlement.reentry.joined ||
+      input.recoverySettlement.reentry?.joined !== true ||
       publicResults.some((result) => result?.processRestartRequired !== false),
     effectState:
       isRecoverySettlementExercised &&
@@ -1988,7 +1953,7 @@ export function buildCoordinatorRealProviderReport(
         input.cancellation.joined &&
         input.recoverySettlement.parentLoss.pidIssued &&
         input.recoverySettlement.parentLoss.joined &&
-        input.recoverySettlement.reentry.pidIssued &&
+        input.recoverySettlement.reentry?.pidIssued === true &&
         input.recoverySettlement.reentry.joined,
       transport: "stdio",
       verifiedObjectiveCount: normalResults.filter(
@@ -2049,12 +2014,12 @@ export function buildCoordinatorRealProviderReport(
       processRestartRequired: recoveryResult?.processRestartRequired ?? null,
       effectState: recoveryResult?.effectState ?? null,
       parentProcessTerminationObserved:
-        recovery.parentLoss.forcedTerminationIssued &&
+        recovery.parentLoss.parentTerminationConfirmed &&
         recovery.parentLoss.joined,
       exactRecoveryReferenceObserved: exactRecoveryId !== null,
       recoveryReference: exactRecoveryId,
       lifecyclePhases: Object.freeze(
-        recovery.reentry.recoveryEvents.map((event) => event.phase),
+        (recovery.reentry?.recoveryEvents ?? []).map((event) => event.phase),
       ),
       freshPublicMcpReentryVerified: isRecoverySettlementExercised,
       canonicalRepositoryChanged: recoveryChangedPaths.length !== 0,

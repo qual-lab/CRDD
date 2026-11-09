@@ -12,6 +12,7 @@
 
 import { providerHomesDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
+import { acquireLock } from "../../../lock/src/index.ts";
 import { createResourceBookFixture } from "../../../domain-model/tests/support/resource-operation.ts";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -44,7 +45,6 @@ import {
   writeRuntimeOwnedCoordinatorRepairSnapshot,
 } from "../../../domain-model/src/index.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
 import { getRepository } from "../../../version-control/src/index.ts";
 import {
   requestInChild,
@@ -740,15 +740,15 @@ async function waitForOwnedProcessObservation(
 }
 
 /**
- * 同期readyを通知した自己生成子を、外部親が既存のtree終端処理で終了する。
- * @responsibility ready、生存、終了要求、補助close、元子closeとstdio終了を分離する。
+ * 同期readyを通知した自己生成子を、外部親がNode.js標準で停止する。
+ * @responsibility ready、生存、停止要求、元子closeとstdio終了を分離する。
  * @trace PRL-IT-013
  * @trace ERB-IT-003
  * @precondition 自己生成Repositoryと固定workerだけを渡す。
  * @stimulus 親から所有ChildProcessへ終了要求を一回だけ発行する。
- * @observation 同PIDの単一packet、終了値、元子と補助子のclose。
+ * @observation 同PIDの単一packet、終了Signal、元子のclose。
  * @oracle 生存readyと終端全確認の後だけ、呼出し元がfresh回復へ進める。
- * @cleanup 失敗時も同じ子・補助子を有界joinし、不明時はRootを保持する。
+ * @cleanup 失敗時も同じ元子を有界joinし、不明時はRootを保持する。
  * @boundary 実Windows Process。Docker・Providerは呼び出さない。
  */
 async function runExternallyTerminatedProducer(worker: string, root: string) {
@@ -779,7 +779,7 @@ async function runExternallyTerminatedProducer(worker: string, root: string) {
     pid: number | undefined;
     parentTerminationConfirmed: true;
   } | null = null;
-  let termination: ReturnType<typeof startWindowsChildTreeTermination> = null;
+  let terminationRequested = false;
   let terminationRequests = 0;
   let cleanupFallbackIssued = false;
   let cleanupFallbackAccepted: boolean | null = null;
@@ -867,17 +867,12 @@ async function runExternallyTerminatedProducer(worker: string, root: string) {
       packet.recoveryId,
       /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u,
     );
-    termination = startWindowsChildTreeTermination(child);
-    assert.ok(termination);
+    terminationRequested = true;
     terminationRequests++;
-    assert.equal(await termination.started(10_000), true);
-    const result = await termination.wait(10_000);
-    assert.ok(result);
-    assert.equal(result.status, 0);
-    assert.equal(result.signal, null);
-    assert.equal(result.outputExceeded, false);
-    assert.equal(termination.closed(), true);
+    assert.equal(child.kill("SIGKILL"), true);
     await waitForOwnedProcessObservation(() => closed, 10_000);
+    assert.equal(closed, true);
+    assert.equal(signal, "SIGKILL");
     assert.equal(child.stdout.readableEnded, true);
     assert.equal(child.stderr.readableEnded, true);
     assert.equal(processError, undefined);
@@ -898,36 +893,34 @@ async function runExternallyTerminatedProducer(worker: string, root: string) {
     try {
       if (
         !closed &&
-        !termination &&
+        !terminationRequested &&
         child.exitCode === null &&
         child.signalCode === null
       ) {
-        termination = startWindowsChildTreeTermination(child);
-        if (termination) terminationRequests++;
-      }
-      if (termination) {
-        assert.equal(await termination.terminateAndWait(10_000), true);
-        assert.equal(termination.closed(), true);
+        terminationRequested = true;
+        terminationRequests++;
+        cleanupFallbackIssued = true;
+        cleanupFallbackAccepted = child.kill("SIGKILL");
+        assert.equal(cleanupFallbackAccepted, true);
       }
     } catch (error) {
       cleanupFailure = error;
     }
     try {
-      if (!closed) {
-        cleanupFallbackIssued = true;
-        cleanupFallbackAccepted = child.kill("SIGKILL");
-        assert.equal(cleanupFallbackAccepted, true);
-      }
       await waitForOwnedProcessObservation(() => closed, 10_000);
       assert.equal(child.stdout.readableEnded, true);
       assert.equal(child.stderr.readableEnded, true);
     } catch (error) {
       cleanupFailure ??= error;
     } finally {
-      child.stdout.off("data", onOutput).off("error", onError);
-      child.stderr.off("data", onDiagnostic).off("error", onError);
-      child.off("error", onError);
-      child.off("close", onClose);
+      const releaseListeners = () => {
+        child.stdout.off("data", onOutput).off("error", onError);
+        child.stderr.off("data", onDiagnostic).off("error", onError);
+        child.off("error", onError);
+        child.off("close", onClose);
+      };
+      if (closed) releaseListeners();
+      else child.once("close", releaseListeners);
     }
   }
   if (cleanupFallbackIssued && primaryFailure === undefined)
@@ -952,7 +945,7 @@ async function runExternallyTerminatedProducer(worker: string, root: string) {
  * @trace PRL-IT-013
  * @trace ERB-IT-003
  * @precondition 実本文と既知の一故障だけを選ぶ。
- * @stimulus 補助の拒否・非0・timeout、元子close／stdio欠測、遅延closeを与える。
+ * @stimulus kill拒否・例外、元子close／stdio欠測、遅延closeを与える。
  * @observation 終端要求、fallback、同じ子、利用側への成功搬送とlistener数。
  * @oracle 不明な元子終了から成功を返さず、一次失敗と清掃失敗を保持する。
  * @cleanup VM・局所EventEmitterだけで実Processを作成しない。
@@ -961,12 +954,10 @@ async function runExternallyTerminatedProducer(worker: string, root: string) {
 async function evaluateParentTerminationScenario(
   mode:
     | "delayed_close"
-    | "helper_null"
-    | "helper_nonzero"
-    | "helper_timeout"
+    | "kill_false"
+    | "kill_throw"
     | "missing_close"
-    | "missing_stdio"
-    | "fallback_failure",
+    | "missing_stdio",
   source = stripTypeScriptTypes(runExternallyTerminatedProducer.toString()),
 ) {
   const output = Object.assign(new EventEmitter(), { readableEnded: false });
@@ -977,7 +968,7 @@ async function evaluateParentTerminationScenario(
   Object.assign(diagnostic, { setEncoding: () => diagnostic });
   const calls: string[] = [];
   let closed = false;
-  let fallbackCalls = 0;
+  let killCalls = 0;
   let freshConsumerCalls = 0;
   let observations = 0;
   const child = Object.assign(new EventEmitter(), {
@@ -986,41 +977,45 @@ async function evaluateParentTerminationScenario(
     signalCode: null as NodeJS.Signals | null,
     stdout: output,
     stderr: diagnostic,
-    kill: () => {
-      fallbackCalls++;
-      calls.push("fallback");
-      if (mode === "fallback_failure") return false;
-      finish(true);
+    kill: (signal: string) => {
+      killCalls++;
+      calls.push("kill");
+      assert.equal(signal, "SIGKILL");
+      if (mode === "kill_false") return false;
+      if (mode === "kill_throw") throw Error("synthetic_kill_failure");
+      if (mode === "missing_close") child.exitCode = 1;
       return true;
     },
   });
-  /**
-   * 模擬した元子のcloseとstdioを別々に通知する。
-   * @responsibility exitだけでcloseを成立させない。
-   * @trace ERB-IT-003
-   * @precondition この局所fixtureの子だけを対象とする。
-   * @stimulus stdioを指定状態へ設定後closeを通知する。
-   * @observation readableEnded、exitCode、close。
-   * @oracle stdio=falseはclose後も未完了として残る。
-   * @cleanup N/A: 実資源なし。
-   * @boundary EventEmitter内。
-   */
   function finish(stdio: boolean) {
     output.readableEnded = stdio;
     diagnostic.readableEnded = stdio;
-    child.exitCode = 1;
+    child.exitCode = null;
+    child.signalCode = "SIGKILL";
     closed = true;
-    child.emit("close", 1, null);
+    child.emit("close", null, "SIGKILL");
   }
   const candidate = runInNewContext(`(${source})`, {
     assert,
+    AggregateError,
     Buffer,
     process: { execPath: "fixed-node" },
     spawn: () => {
       queueMicrotask(() =>
         output.emit(
           "data",
-          `${JSON.stringify({ pid: child.pid, phase: "parent_terminated", operationRoot: "fixed-root", recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}` })}\n`,
+          JSON.stringify({
+            pid: child.pid,
+            phase: "parent_terminated",
+            operationRoot: "fixed-root",
+            recoveryId:
+              "docker-task." +
+              "a".repeat(64) +
+              "." +
+              "b".repeat(64) +
+              "." +
+              "c".repeat(64),
+          }) + "\n",
         ),
       );
       return child;
@@ -1029,29 +1024,9 @@ async function evaluateParentTerminationScenario(
       await Promise.resolve();
       observations++;
       calls.push(observations === 1 ? "wait_ready" : "wait_close");
-      if (mode === "delayed_close" && observations === 2) finish(true);
-      if (!observed()) throw new Error("fixture_observation_unconfirmed");
-    },
-    startWindowsChildTreeTermination: (value: unknown) => {
-      assert.equal(value, child);
-      calls.push("terminate");
-      if (mode === "helper_null") return null;
-      return {
-        started: async () => true,
-        wait: async () => {
-          calls.push("helper_wait");
-          if (mode === "helper_timeout") return null;
-          if (mode === "missing_stdio") finish(false);
-          if (mode === "missing_close") child.exitCode = 1;
-          return {
-            status: mode === "helper_nonzero" ? 1 : 0,
-            signal: null,
-            outputExceeded: false,
-          };
-        },
-        closed: () => true,
-        terminateAndWait: async () => true,
-      };
+      if (observations >= 2 && mode === "delayed_close") finish(true);
+      if (observations >= 2 && mode === "missing_stdio") finish(false);
+      if (!observed()) throw Error("fixture_observation_unconfirmed");
     },
   }) as typeof runExternallyTerminatedProducer;
   let result: Awaited<ReturnType<typeof candidate>> | null = null;
@@ -1062,78 +1037,57 @@ async function evaluateParentTerminationScenario(
   } catch (failure) {
     error = failure;
   }
+  // A late close is cleanup only and must not revise the settled failure.
+  if (!closed) finish(true);
   assert.deepEqual(child.eventNames(), []);
   assert.deepEqual(output.eventNames(), []);
   assert.deepEqual(diagnostic.eventNames(), []);
-  return { result, error, calls, closed, fallbackCalls, freshConsumerCalls };
+  return { result, error, calls, closed, killCalls, freshConsumerCalls };
 }
 
 /**
- * 親終了の成功証拠と負例時の清掃を独立に反証する。
- * @responsibility 補助成功・exitだけで元子closeや利用側再開を成立させない。
+ * 親終了の停止要求とclose／stdioを独立に反証する。
+ * @responsibility killの受理だけで元子終了やfresh回復を成立させない。
  * @trace PRL-IT-013
  * @trace ERB-IT-003
- * @precondition 実helper本文を同realmの局所通知へ接続する。
- * @stimulus 五拒否形、fallback失敗、遅延closeと二つの省略変異。
- * @observation 正常返却、元primary／cleanup、fallback回数、利用側到達とlistener終了。
- * @oracle 完全な遅延closeだけ成功、失敗後のfallback成功は非成功のまま。
- * @cleanup 実Process／Filesystem／Dockerを生成しない。
- * @boundary 親試験helperの局所反証。実Host結果とは分離する。
+ * @precondition 本文を局所Process通知へ接続する。
+ * @stimulus kill拒否・例外、close／stdio欠測、遅延closeと停止要求省略を与える。
+ * @observation 正常返却、一次／清掃失敗、停止回数と利用側到達。
+ * @oracle 正常な遅延closeだけ成功、拒否後に再要求せず後着closeで成功へ戻さない。
+ * @cleanup 実Process・Filesystem・Dockerを作成しない。
+ * @boundary 親停止試験の局所反証。実Host成功とは区別する。
  */
-test("親終了は補助失敗と元子close／stdio欠測を成功へ補完しない", async () => {
+test("親停止はkill失敗と元子close／stdio欠測を成功へ補完しない", async () => {
   const positive = await evaluateParentTerminationScenario("delayed_close");
   assert.ok(positive.result);
+  assert.equal(positive.result.status, null);
+  assert.equal(positive.result.signal, "SIGKILL");
   assert.equal(positive.error, undefined);
-  assert.equal(positive.fallbackCalls, 0);
+  assert.equal(positive.killCalls, 1);
   assert.equal(positive.freshConsumerCalls, 1);
-  assert.deepEqual(positive.calls, [
-    "wait_ready",
-    "terminate",
-    "helper_wait",
-    "wait_close",
-    "wait_close",
-  ]);
   for (const mode of [
-    "helper_null",
-    "helper_nonzero",
-    "helper_timeout",
+    "kill_false",
+    "kill_throw",
     "missing_close",
     "missing_stdio",
-    "fallback_failure",
   ] as const) {
-    const negative = await evaluateParentTerminationScenario(mode);
-    assert.equal(negative.result, null);
-    assert.ok(negative.error);
-    assert.equal(negative.freshConsumerCalls, 0);
-    assert.equal(negative.fallbackCalls, mode === "missing_stdio" ? 0 : 1);
-    assert.equal(negative.closed, mode !== "fallback_failure");
-    const errors = (negative.error as { errors: unknown[] }).errors;
-    assert.equal(
-      errors.length,
-      mode === "missing_stdio" || mode === "fallback_failure" ? 2 : 1,
-    );
+    const failed = await evaluateParentTerminationScenario(mode);
+    assert.equal(failed.result, null, mode);
+    assert.ok(failed.error instanceof AggregateError, mode);
+    assert.equal(failed.killCalls, 1, mode);
+    assert.equal(failed.freshConsumerCalls, 0, mode);
   }
   const source = stripTypeScriptTypes(
     runExternallyTerminatedProducer.toString(),
   );
-  const request = "termination = startWindowsChildTreeTermination(child);";
+  const request = 'assert.equal(child.kill("SIGKILL"), true);';
   assert.ok(source.includes(request));
-  const noRequest = await evaluateParentTerminationScenario(
+  const omitted = await evaluateParentTerminationScenario(
     "delayed_close",
-    source.replace(request, "termination = null;"),
+    source.replace(request, 'assert.fail("stop_request_omitted");'),
   );
-  assert.equal(noRequest.result, null);
-  assert.equal(noRequest.freshConsumerCalls, 0);
-  const close =
-    /await waitForOwnedProcessObservation\(\(\) => closed, 10_000\);\s*assert.equal\(child.stdout.readableEnded, true\);\s*assert.equal\(child.stderr.readableEnded, true\);/u;
-  assert.ok(close.test(source));
-  const noClose = await evaluateParentTerminationScenario(
-    "delayed_close",
-    source.replace(close, ""),
-  );
-  assert.equal(noClose.result, null);
-  assert.equal(noClose.freshConsumerCalls, 0);
-  assert.equal(noClose.fallbackCalls, 1);
+  assert.equal(omitted.result, null);
+  assert.equal(omitted.freshConsumerCalls, 0);
 });
 
 /**
@@ -1148,6 +1102,186 @@ test("親終了は補助失敗と元子close／stdio欠測を成功へ補完し�
  * @cleanup 両子と対象清掃の確認後に自己生成Rootだけを回収し、不明時は保持する。
  * @boundary Process喪失とfresh回復。Home観測だけを模擬し実Dockerは使わない。
  */
+/**
+ * join済みの固定子だけが保持した試験Lockを、停止下で明示回収する。
+ * @boundary 新品Root・有限な親子だけ。製品の自動Recoveryではない。
+ */
+function recoverStoppedFixtureLocks(root: string, pid: number, value: unknown) {
+  assert.ok(Array.isArray(value));
+  const removals: {
+    file: string;
+    identity: readonly string[];
+    bytes: Buffer;
+  }[] = [];
+  for (const entry of value) {
+    assert.equal(typeof entry.path, "string");
+    const file = path.resolve(root, entry.path);
+    const directory = path.dirname(file);
+    assert.ok(
+      [
+        path.join(root, ".crdd", "tests"),
+        path.join(root, ".crdd", "tests", "reentry-home-locks"),
+        path.join(root, ".crdd", "tests", "reentry-runtime-locks"),
+      ].includes(directory),
+    );
+    assert.equal(fs.realpathSync(directory), directory);
+    assert.match(
+      path.basename(file),
+      /^(?:host-operation\.[a-f0-9]{64}|provider-home\.[a-f0-9]{64}|docker-state)\.lock$/u,
+    );
+    const bytes = Buffer.from(entry.bytes, "base64");
+    const record = JSON.parse(bytes.toString());
+    assert.equal(record.schema, "crdd-lock/v1");
+    assert.equal(record.owner.processId, pid);
+    assert.match(record.owner.processIdentity, /^[a-f0-9-]{36}$/u);
+    assert.match(record.generation, /^[a-f0-9-]{36}$/u);
+    const name = path.basename(file);
+    assert.equal(
+      record.identity,
+      name === "docker-state.lock"
+        ? "docker-state:shared"
+        : name.slice(0, -5).replace(".", ":"),
+    );
+    const stat = fs.lstatSync(file, { bigint: true });
+    assert.equal(stat.isFile(), true);
+    assert.equal(stat.isSymbolicLink(), false);
+    assert.equal(stat.nlink, 1n);
+    assert.deepEqual(
+      [stat.dev, stat.ino, stat.birthtimeNs].map(String),
+      entry.identity,
+    );
+    assert.deepEqual(fs.readFileSync(file), bytes);
+    const blocked = acquireLock({
+      directory,
+      name: path.basename(file),
+      identity: record.identity,
+    });
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.reason, "lock_exists");
+    assert.equal(
+      removals.some((item) => item.file === file),
+      false,
+    );
+    removals.push({ file, identity: entry.identity, bytes });
+  }
+  for (const { file, identity, bytes } of removals) {
+    const current = fs.lstatSync(file, { bigint: true });
+    assert.equal(current.isFile(), true);
+    assert.equal(current.isSymbolicLink(), false);
+    assert.equal(current.nlink, 1n);
+    assert.deepEqual(
+      [current.dev, current.ino, current.birthtimeNs].map(String),
+      identity,
+    );
+    assert.deepEqual(fs.readFileSync(file), bytes);
+    // 元子はjoin済みで、次の子は未起動。親はこのScopeの取得を行っていない。
+    fs.unlinkSync(file);
+    assert.throws(() => fs.lstatSync(file), { code: "ENOENT" });
+  }
+}
+
+/** 停止下処置の照合失敗を、File削除0で確認する。実Filesystemは使わない。 */
+test("停止下Lock回収は元通知・Scope・実体が不一致なら削除しない", () => {
+  const source = fs.readFileSync(new URL(import.meta.url), "utf8");
+  const start = source.indexOf("function recoverStoppedFixtureLocks(");
+  const end = source.indexOf("\n/**", start);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(source.slice(start, end));
+  const factory = runInThisContext(
+    `(function(fs, path, acquireLock, assert) { ${body}; return recoverStoppedFixtureLocks; })`,
+  );
+  for (const fault of [
+    "none",
+    "owner",
+    "scope",
+    "generation",
+    "path",
+    "file",
+    "late_file",
+    "content",
+    "late_content",
+    "link",
+    "hardlink",
+    "nonfile",
+    "unobservable",
+    "duplicate",
+    "second_invalid",
+  ] as const) {
+    const root = path.resolve("fixture-root");
+    const record = {
+      schema: "crdd-lock/v1",
+      identity: `host-operation:${"a".repeat(64)}`,
+      owner: {
+        processId: 100,
+        processIdentity: "11111111-1111-4111-8111-111111111111",
+      },
+      generation: "22222222-2222-4222-8222-222222222222",
+    };
+    if (fault === "owner") record.owner.processId = 101;
+    if (fault === "scope") record.identity = `provider-home:${"a".repeat(64)}`;
+    if (fault === "generation") record.generation = "invalid";
+    const bytes = Buffer.from(JSON.stringify(record));
+    const entry = {
+      path: path.join(
+        ".crdd",
+        "tests",
+        `host-operation.${"a".repeat(64)}.lock`,
+      ),
+      identity: ["1", "2", "3"],
+      bytes: bytes.toString("base64"),
+    };
+    if (fault === "path") entry.path = "../foreign.lock";
+    let reads = 0,
+      deleted = 0;
+    const runtime = factory(
+      {
+        realpathSync: (value: string) => value,
+        lstatSync: () => {
+          if (deleted > 0)
+            throw Object.assign(new Error("absent"), { code: "ENOENT" });
+          if (fault === "unobservable")
+            throw new Error("observation unavailable");
+          reads++;
+          return {
+            dev: 1n,
+            ino:
+              fault === "file" || (fault === "late_file" && reads > 1)
+                ? 99n
+                : 2n,
+            birthtimeNs: 3n,
+            nlink: fault === "hardlink" ? 2n : 1n,
+            isFile: () => fault !== "nonfile",
+            isSymbolicLink: () => fault === "link",
+          };
+        },
+        readFileSync: () =>
+          fault === "content" || (fault === "late_content" && reads > 1)
+            ? Buffer.from("changed")
+            : bytes,
+        unlinkSync: () => {
+          deleted++;
+        },
+      },
+      path,
+      () => ({ status: "blocked", reason: "lock_exists" }),
+      assert,
+    );
+    const notices =
+      fault === "duplicate"
+        ? [entry, entry]
+        : fault === "second_invalid"
+          ? [entry, { ...entry, path: "../foreign.lock" }]
+          : [entry];
+    if (fault === "none") {
+      runtime(root, 100, notices);
+      assert.equal(deleted, 1);
+    } else {
+      assert.throws(() => runtime(root, 100, notices));
+      assert.equal(deleted, 0, fault);
+    }
+  }
+});
+
 for (const producerMode of [
   "producer",
   "state_saved",
@@ -1220,12 +1354,17 @@ for (const producerMode of [
               },
             );
       assert.equal(producer.error, undefined);
-      assert.equal(producer.signal, null);
+      assert.equal(
+        producer.signal,
+        producerMode === "parent_terminated" ? "SIGKILL" : null,
+      );
       assert.equal(
         producer.status,
-        producerMode === "producer" || producerMode === "cleanup_withheld"
-          ? 0
-          : 1,
+        producerMode === "parent_terminated"
+          ? null
+          : producerMode === "producer" || producerMode === "cleanup_withheld"
+            ? 0
+            : 1,
         producer.stderr,
       );
       const emitted = JSON.parse(producer.stdout);
@@ -1253,7 +1392,7 @@ for (const producerMode of [
           "unknown_entry",
           "same_home_after_read",
           "durable_same_home_after_abandon",
-          "root_invalid_after_home_acquire",
+          "root_invalid_after_state_read",
         ]);
       } else {
         assert.equal(emitted.phase, producerMode);
@@ -1708,9 +1847,11 @@ for (const producerMode of [
           target.host.currentToken,
           identity.initialHostRecoveryId,
         );
+      if (producerMode !== "producer")
+        recoverStoppedFixtureLocks(root, emitted.pid, emitted.locks);
       const releasedHomeAcquisition = locks.acquireProviderHomeLock(
         identity.stableLogicalHomeBindingHash,
-        providerHomesDirectoryCandidate(),
+        path.join(root, ".crdd", "tests", "reentry-home-locks"),
       );
       assert.ok(releasedHomeAcquisition.status === "acquired");
       const releasedHome = releasedHomeAcquisition.lock;
@@ -1858,24 +1999,19 @@ for (const producerMode of [
             packet.hostRecoveryCalls,
             interruption === "host_removed" ? 1 : 0,
           );
-          assert.equal(
-            packet.checkpointWriterCalls,
+          // 資源未要求なので資源Writerを発行しない。Owner失効とHost意図だけ。
+          const expectedKinds =
             interruption === "pending_writer_blocked"
-              ? 3
+              ? ["lifecycle", "host"]
               : interruption === "pending_saved"
-                ? 2
-                : interruption === "host_removed"
-                  ? 1
-                  : 0,
-          );
+                ? ["host"]
+                : [];
+          assert.deepEqual(packet.checkpointKinds, expectedKinds);
+          assert.equal(packet.checkpointWriterCalls, expectedKinds.length);
           assert.equal(
             packet.actualCheckpointWriterCalls,
-            interruption === "pending_writer_blocked" ||
-              interruption === "pending_saved"
-              ? 2
-              : interruption === "host_removed"
-                ? 1
-                : 0,
+            expectedKinds.length -
+              (interruption === "pending_writer_blocked" ? 1 : 0),
           );
           if (writerBlocked) {
             assert.equal(packet.report.status, "blocked");
@@ -1889,7 +2025,7 @@ for (const producerMode of [
           assert.deepEqual(packet.violations, []);
           assert.ok(
             packet.calls.every((call: string) =>
-              ["native", "supervisor", "git"].includes(call),
+              ["native", "git"].includes(call),
             ),
           );
           assert.throws(
@@ -1964,9 +2100,11 @@ for (const producerMode of [
             } else
               assert.throws(() => fs.lstatSync(location), { code: "ENOENT" });
           }
+          if (!writerBlocked)
+            recoverStoppedFixtureLocks(root, packet.pid, packet.locks);
           const leaseAcquisition = locks.acquireProviderHomeLock(
             identity.stableLogicalHomeBindingHash,
-            providerHomesDirectoryCandidate(),
+            path.join(root, ".crdd", "tests", "reentry-home-locks"),
           );
           assert.ok(leaseAcquisition.status === "acquired");
           const lease = leaseAcquisition.lock;
@@ -2024,7 +2162,7 @@ for (const producerMode of [
       );
       assert.ok(
         recovered.calls.every((call: string) =>
-          ["native", "supervisor", "git"].includes(call),
+          ["native", "git"].includes(call),
         ),
       );
       assert.equal(recovered.report.recoveryId, emitted.recoveryId);

@@ -322,7 +322,6 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   const toolIds = new Set(verificationTools.map(({ symbolId }) => symbolId));
   assert.equal(toolIds.size, verificationTools.length);
   for (const representative of [
-    "coordinator.verification.native-protection",
     "executor.verification.provider-real",
     "workbench-server.scripts.ai-verification-client",
   ])
@@ -336,7 +335,6 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
   const toolTestIds = new Set(toolTests.map(({ symbolId }) => symbolId));
   assert.equal(toolTestIds.size, toolTests.length);
   for (const representative of [
-    "coordinator.test.integration.native-protection-entry",
     "executor.test.integration.provider-real-cli",
     "workbench-server.test.integration.ai-verification-client",
   ])

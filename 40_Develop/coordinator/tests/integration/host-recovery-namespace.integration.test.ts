@@ -1,12 +1,12 @@
 /**
- * 共有境界の初期化搬送と停止時の部分結果を局所確認する。
+ * Node本番初期化と停止時の失敗保全を局所確認する。
  *
  * @packageDocumentation
- * @responsibility Native出所拒否、mode相関、部分作成と不明を同じ本体で反証する。
+ * @responsibility Nodeの本番接続と、試験子の失敗・終了不明時の保全を確認する。
  * @trace ERB-IT-003
  * @level IT
- * @scope 固定frameの局所搬送と、Host Windows枠の検証済み固定Native正常系。
- * @boundary Portableではmemory依存、Host Windowsでは専用TEMPと実Windows保護境界。
+ * @scope 通常作成のNode直接接続と自己生成領域での本番正常系。
+ * @boundary 失敗保全はmemory依存、本番入口は専用TEMPと実Node Filesystem境界。
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -18,21 +18,20 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 /**
- * 検証済み固定Nativeの正常系を、新規Repository-local領域と子Processに隔離する。
+ * 既存Node Ownerの正常系を、新規Repository-local領域と子Processに隔離する。
  * @trace ERB-IT-003
- * @precondition 適格なWindows対話ユーザーと検証済みNative配布物。
+ * @precondition Node.jsと自己生成Repository-local親。
  * @observation 子Process終了、用途別assertion、試験領域の不存在。
  * @cleanup 子Process終了後、今回作成したRootのIdentityを照合して回収する。
  */
-function runProtectedNativeCase(source: string): void {
-  assert.equal(process.platform, "win32");
+function runNodeNamespaceCase(source: string): void {
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");
   for (const directory of [path.join(repository, ".crdd"), parent]) {
     assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
     assert.equal(fs.realpathSync.native(directory), directory);
   }
-  const root = fs.mkdtempSync(path.join(parent, "native-contract-"));
+  const root = fs.mkdtempSync(path.join(parent, "node-namespace-"));
   const identity = fs.lstatSync(root);
   const result = spawnSync(
     process.execPath,
@@ -76,9 +75,9 @@ function runProtectedNativeCase(source: string): void {
  * @cleanup N/A: 実資源を生成しない。
  * @boundary 試験用Process境界の失敗保持。
  */
-test("Native試験は子失敗・終了不明・未知残存を削除せず保持する", () => {
+test("Namespace試験は子失敗・終了不明・未知残存を削除せず保持する", () => {
   const source = readFileSync(import.meta.filename, "utf8");
-  const body = sourceDeclaration(source, "runProtectedNativeCase").replaceAll(
+  const body = sourceDeclaration(source, "runNodeNamespaceCase").replaceAll(
     "import.meta.url",
     JSON.stringify(import.meta.url),
   );
@@ -131,19 +130,19 @@ test("Native試験は子失敗・終了不明・未知残存を削除せず保�
 });
 
 /**
- * 実Native正常系の結果契約を維持する。
+ * 実Node正常系の結果契約を維持する。
  * @trace ERB-IT-003
  * @precondition 固定Namespaceを事前作成しない専用TEMPを使用する。
  * @stimulus 本番入口を呼ぶ。診断は受動・Operationは実行なし。
  * @observation 公開結果とHost Recovery IDの相関。
  * @oracle 旧UTのassertionを同じ本番入口へ適用する。
- * @cleanup runProtectedNativeCaseが自己生成領域だけを回収する。
- * @boundary Coordinator→検証済み固定Native→Windows保護付きFilesystem。
+ * @cleanup runNodeNamespaceCaseが自己生成領域だけを回収する。
+ * @boundary Coordinator→既存Node Owner→Node Filesystem。
  */
-test("Host Windows: production doctorは通常Taskに不要な永続準備状態を公開しない", {
+test("production doctorは通常Taskに不要な永続準備状態を公開しない", {
   timeout: 120_000,
 }, () => {
-  runProtectedNativeCase(`
+  runNodeNamespaceCase(`
 import assert from "node:assert/strict";
 import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../src/execution/diagnostics.ts", import.meta.url).href)};
 
@@ -173,22 +172,23 @@ import { runDoctor, REQUIRED_CHECK_IDS } from ${JSON.stringify(new URL("../../sr
 });
 
 /**
- * 実Native正常系の結果契約を維持する。
+ * 実Node正常系の結果契約を維持する。
  * @trace ERB-IT-003
  * @precondition 固定Namespaceを事前作成しない専用TEMPを使用する。
  * @stimulus 本番入口を呼ぶ。診断は受動・Operationは実行なし。
  * @observation 公開結果とHost Recovery IDの相関。
  * @oracle 旧UTのassertionを同じ本番入口へ適用する。
- * @cleanup runProtectedNativeCaseが自己生成領域だけを回収する。
- * @boundary Coordinator→検証済み固定Native→Windows保護付きFilesystem。
+ * @cleanup runNodeNamespaceCaseが自己生成領域だけを回収する。
+ * @boundary Coordinator→既存Node Owner→Node Filesystem。
  */
-test("Host Windows: production Operationは実Directory producerのexact Host Recovery IDを公開する", {
+test("production Operationは実Directory producerのexact Host Recovery IDを公開する", {
   timeout: 120_000,
 }, () => {
-  runProtectedNativeCase(`
+  runNodeNamespaceCase(`
 import assert from "node:assert/strict";
 import { createRuntimeOwnedCoordinatorOperation, cleanupOwnedOperationDirectories, getOwnedHostRecoveryId } from ${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)};
 
+  for (let attempt = 0; attempt < 2; attempt++) {
   const created = createRuntimeOwnedCoordinatorOperation();
   try {
     assert.equal(getOwnedHostRecoveryId(created.owned), created.hostRecoveryId);
@@ -199,103 +199,87 @@ import { createRuntimeOwnedCoordinatorOperation, cleanupOwnedOperationDirectorie
   } finally {
     cleanupOwnedOperationDirectories(created.owned);
   }
+  }
 `);
 });
 
 /**
- * 本番作成入口の保護検証順序と失敗移送を同じ本体で確認する。
- *
- * @responsibility 出所拒否後のRoot作成と、下位負例の早期拒否への置換を防ぐ。
+ * 本番Node入口が固定childの不正実体を拒否し、部分生成を元の分類で回収する。
  * @trace ERB-IT-003
- * @precondition 現本体Sourceと非Authority依存のみ。実共有領域を使用しない。
- * @stimulus Windows正常・初期化停止・親不正・下位失敗と非Windowsを与える。
- * @observation 初期化→生成の順序、opaque失敗分類、渡した親。
- * @oracle Windows停止は生成0・清掃未確認・IDなし。非Windowsは既存primitiveだけ。
- * @cleanup N/A: 実OS Effectなし。
- * @boundary 通常作成Owner→出所照合初期化Adapter／下位primitiveの局所接続。
+ * @precondition 自己生成の専用TEMPだけを使用する。
+ * @stimulus 固定childのFile／junctionと、子Directory生成失敗を与える。
+ * @observation 本番作成失敗の分類、既存実体不変、記録・Rootの残存。
+ * @oracle 不正childは清掃未確認・IDなし、回収済み部分生成はclean。Nativeへ迂回しない。
+ * @cleanup 自作のFile／junction／空targetだけを元実体と照合して除去する。
+ * @boundary 本番Operation→実Node Filesystem。
  */
-test("通常producerはWindows保護検証をRoot・marker生成より先に行う", () => {
+test("production Operationは不正Namespaceと部分生成失敗を既存分類へ返す", {
+  timeout: 120_000,
+}, () => {
+  runNodeNamespaceCase(`
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createRuntimeOwnedCoordinatorOperation, classifyOwnedOperationDirectoryCreationFailure } from ${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)};
+const parent = fs.realpathSync(os.tmpdir());
+const directory = path.join(parent, "crdd-coordinator-recovery-v1");
+function reject(expected) {
+  assert.throws(() => createRuntimeOwnedCoordinatorOperation(), error => {
+    assert.deepEqual(classifyOwnedOperationDirectoryCreationFailure(error), expected);
+    return true;
+  });
+  assert.deepEqual(fs.readdirSync(parent).filter(name => name.startsWith("crdd-coordinator-doctor-")), []);
+}
+const refused = { cleanupConfirmed: false, manualRecoveryRequired: true, hostRecoveryId: null };
+fs.writeFileSync(directory, "owned-fixture", { flag: "wx" });
+const file = fs.lstatSync(directory);
+reject(refused);
+assert.equal(fs.readFileSync(directory, "utf8"), "owned-fixture");
+assert.equal(fs.lstatSync(directory).ino, file.ino);
+fs.unlinkSync(directory);
+const target = path.join(parent, "link-target");
+fs.mkdirSync(target);
+const targetIdentity = fs.lstatSync(target);
+fs.symlinkSync(target, directory, process.platform === "win32" ? "junction" : "dir");
+assert.equal(fs.lstatSync(directory).isSymbolicLink(), true);
+reject(refused);
+assert.equal(fs.realpathSync(directory), fs.realpathSync(target));
+fs.unlinkSync(directory);
+const currentTarget = fs.lstatSync(target);
+assert.equal(currentTarget.isDirectory() && !currentTarget.isSymbolicLink(), true);
+assert.equal(currentTarget.dev, targetIdentity.dev);
+assert.equal(currentTarget.ino, targetIdentity.ino);
+assert.deepEqual(fs.readdirSync(target), []);
+fs.rmdirSync(target);
+const mkdir = fs.mkdirSync;
+try {
+  fs.mkdirSync = (target, options) => {
+    if (path.basename(String(target)) === "management") throw new Error("fixture_child_creation");
+    return mkdir(target, options);
+  };
+  reject({ cleanupConfirmed: true, manualRecoveryRequired: false, hostRecoveryId: null });
+} finally {
+  fs.mkdirSync = mkdir;
+}
+assert.deepEqual(fs.readdirSync(directory), []);
+`);
+});
+
+/**
+ * 本番作成が既存Node Ownerへ直接接続しNative Namespaceへ依存しないことを確認する。
+ * @trace ERB-IT-003
+ * @boundary Source接続の確認。実Nodeの成立は本Suiteの本番Operation試験と保存試験で確認する。
+ */
+test("通常producerは既存NodeのDirectory Ownerへ直接接続する", () => {
   const source = readFileSync(
     new URL("../../src/execution/operation.ts", import.meta.url),
     "utf8",
   );
-  assert.match(
-    source,
-    /createDirectories: createProtectedRuntimeOwnedOperationDirectories,/u,
+  assert.match(source, /createDirectories: createOwnedOperationDirectories,/u);
+  assert.equal(source.includes("initializeWindowsHostRecordNamespace"), false);
+  assert.equal(
+    source.includes("createProtectedRuntimeOwnedOperationDirectories"),
+    false,
   );
-  const body = sourceDeclaration(
-    source,
-    "createProtectedRuntimeOwnedOperationDirectories",
-  );
-  for (const scenario of [
-    "normal",
-    "blocked",
-    "bad_parent",
-    "primitive_failure",
-    "non_windows",
-  ]) {
-    const events: string[] = [];
-    const root = Object.freeze({ fixture: "owned" });
-    const primitiveFailure = new Error("fixture_root_creation_failed");
-    let classification: {
-      cleanupConfirmed: boolean;
-      hostRecoveryId: string | null;
-    } | null = null;
-    const executeAdapter = runInNewContext(`(${body})`, {
-      process: { platform: scenario === "non_windows" ? "linux" : "win32" },
-      fs: {
-        realpathSync: () => "C:\\fixture\\parent",
-        lstatSync: () => ({
-          isDirectory: () => scenario !== "bad_parent",
-          isSymbolicLink: () => false,
-        }),
-      },
-      os: { tmpdir: () => "C:\\fixture\\parent" },
-      initializeWindowsHostRecordNamespace: (parent: string) => {
-        events.push("initialize");
-        assert.equal(parent, "C:\\fixture\\parent");
-        return { status: scenario === "blocked" ? "blocked" : "initialized" };
-      },
-      createOwnedOperationDirectories: (parent?: string) => {
-        events.push("create");
-        assert.equal(
-          parent,
-          scenario === "non_windows" ? undefined : "C:\\fixture\\parent",
-        );
-        if (scenario === "primitive_failure") throw primitiveFailure;
-        return root;
-      },
-      fail: (
-        cause: unknown,
-        cleanupConfirmed: boolean,
-        hostRecoveryId: string | null,
-      ) => {
-        classification = { cleanupConfirmed, hostRecoveryId };
-        throw cause;
-      },
-    }) as () => unknown;
-    if (["blocked", "bad_parent", "primitive_failure"].includes(scenario)) {
-      assert.throws(executeAdapter);
-      if (scenario === "primitive_failure") {
-        assert.equal(classification, null);
-      } else {
-        assert.deepEqual(classification, {
-          cleanupConfirmed: scenario === "bad_parent",
-          hostRecoveryId: null,
-        });
-      }
-    } else {
-      assert.equal(executeAdapter(), root);
-    }
-    assert.deepEqual(
-      events,
-      scenario === "bad_parent"
-        ? []
-        : scenario === "blocked"
-          ? ["initialize"]
-          : scenario === "non_windows"
-            ? ["create"]
-            : ["initialize", "create"],
-    );
-  }
 });

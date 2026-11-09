@@ -17,6 +17,7 @@ import {
 } from "../../src/attempt/crud.ts";
 import type { CoordinatorResourceBook } from "../../src/attempt/types.ts";
 import {
+  coordinatorTaskResourcesAreSettled,
   validateCoordinatorResourceBook,
   validateCoordinatorResourceBookTransition,
   validateCoordinatorOperationIdentity,
@@ -37,6 +38,53 @@ const CLEANUP = {
   unreceiptedAbsence: "observe",
   verifyLabelAbsence: true,
 } as const;
+
+/** 未発行の技術終端と、Host・Lease・結果の確定を混同しない。 */
+test("要求前の切断は資源終端だけを満たし、単独条件の欠測・不明を拒否する", () => {
+  const fixture = createResourceOperationFixture();
+  const decoded = decodeRuntimeDomainSnapshot(fixture.bytes, fixture.binding);
+  assert.ok(decoded);
+  const original = decoded.snapshot.operations[0];
+  assert.ok(original?.kind === "docker_task");
+  const stopped = {
+    ...original,
+    phase: "settling" as const,
+    execution: { ...original.execution, ownerEffect: "disabled" as const },
+  };
+  assert.equal(coordinatorTaskResourcesAreSettled(stopped), true);
+  assert.equal(stopped.host.cleanup, "not_requested");
+  assert.equal(stopped.lease, "held");
+  assert.equal(stopped.outcome, null);
+  for (const [label, change] of [
+    ["phase", { phase: "executing" }],
+    ["lease", { lease: "released" }],
+    ["resources_missing", { resources: undefined }],
+    [
+      "outcome",
+      {
+        outcome: { status: "blocked", reason: "test", cleanupConfirmed: false },
+      },
+    ],
+    ["primaryFailure", { primaryFailure: { reason: "test" } }],
+    ["summary", { summarySha256: "a".repeat(64) }],
+    ["history", { history: {} }],
+    ["restart", { dockerRestart: {} }],
+    ...["ownerEffect", "providerStart", "externalSend", "sharedWrite"].map(
+      (key) =>
+        [
+          key,
+          { execution: { ...stopped.execution, [key]: "unknown" } },
+        ] as const,
+    ),
+  ] as const) {
+    const value = { ...stopped, ...change } as unknown as typeof stopped;
+    assert.equal(
+      coordinatorTaskResourcesAreSettled(value),
+      false,
+      String(label),
+    );
+  }
+});
 
 /**
  * 初回Intent前のDI正規化Snapshotだけを構成する。

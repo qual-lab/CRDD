@@ -1,6 +1,6 @@
 /**
- * 上位取消試験へ下位の固定Node Tree診断だけを接続する。
- * @responsibility 実Node親子のcloseと不存在を独立に確認する。
+ * 上位取消試験へ下位の固定Node Process診断だけを接続する。
+ * @responsibility 実Node元子のcloseと不存在を独立に確認する。
  * @trace ERB-IT-002
  * @level IT
  * @scope Task Controller取消
@@ -33,27 +33,27 @@ function isPresent(pid: number) {
 }
 
 /**
- * 固定Tree診断を既存の上位所有Handleへ変換する。
- * @responsibility ready、close、親子不存在を別の事実として保持する。
+ * 固定単一Process診断を既存の上位所有Handleへ変換する。
+ * @responsibility ready、close、元子不存在を別の事実として保持する。
  * @trace ERB-IT-002
  * @precondition Windows Process制御profileだけで実行する。
- * @stimulus 固定ready_treeを開始し取消する。
- * @observation 元Handleと固定親子PID。
- * @oracle 両PID不存在と元Handle closeが必要。
- * @cleanup 元Handleのtree終端をjoinする。
+ * @stimulus 固定ready_processを開始し取消する。
+ * @observation 元Handleと固定元PID。
+ * @oracle 元PID不存在と元Handle closeが必要。
+ * @cleanup 元Handleの停止をjoinする。
  * @boundary 下位固定診断と上位Controller試験。
  */
-export function createOwnedProcessTreeFixture() {
+export function createOwnedProcessFixture() {
   let attached: ReturnType<
-    typeof startOwnedAttachTerminationFixture<"ready_tree">
+    typeof startOwnedAttachTerminationFixture<"ready_process">
   > | null = null;
-  let ids: readonly [number, number] | null = null;
+  let ids: readonly [number] | null = null;
   let owned: OwnedCommandHandle | null = null;
   return {
     start() {
       assert.equal(attached, null);
       const current = startOwnedAttachTerminationFixture(
-        "ready_tree",
+        "ready_process",
         createDockerProcessEnvironment(),
       );
       attached = current;
@@ -76,11 +76,11 @@ export function createOwnedProcessTreeFixture() {
       }
       assert.equal(await bounded(attached.ready, 5_000), true);
       const deadline = Date.now() + 5_000;
-      ids = attached.observedTreeProcessIds();
+      ids = attached.observedProcessIds();
       while (!ids) {
         assert.ok(Date.now() < deadline, "fixture_pid_observation_timeout");
         await new Promise((resolve) => setTimeout(resolve, 10));
-        ids = attached.observedTreeProcessIds();
+        ids = attached.observedProcessIds();
       }
       assert.ok(ids.every(isPresent));
       return [...ids];

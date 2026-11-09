@@ -444,7 +444,6 @@
         "coordinator.execution.provider-observation",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.state-storage.coordinator-state-runtime",
-        "platform-access.source.child-tree-termination",
         "coordinator.diagnostics.runtime-repair"
       ]
     },
@@ -3226,48 +3225,6 @@
       "archIds": [
         "ARCH-000004",
         "ARCH-000009"
-      ]
-    },
-    {
-      "symbolId": "coordinator.verification.native-protection",
-      "kind": "verification-tool",
-      "path": "scripts/verify-native-protection.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002"
-      ],
-      "verifies": []
-    },
-    {
-      "symbolId": "coordinator.test.integration.native-tool-process",
-      "kind": "test-suite",
-      "path": "tests/integration/native-tool-process.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002"
-      ],
-      "verifies": [
-        "coordinator.verification.native-protection"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.native-protection-entry",
-      "kind": "test-suite",
-      "path": "tests/integration/native-protection-entry.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001"
-      ],
-      "verifies": [
-        "coordinator.verification.native-protection"
       ]
     },
     {

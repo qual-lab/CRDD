@@ -155,54 +155,29 @@ fn local_app_data_mode_is_fixed_and_rejects_extra_arguments() {
     assert!(!refused.stdout.starts_with(b"CRDDLA01"));
 }
 
-/// 専用初期化CLIの不正・混用要求を実Processで拒否する。
-///
-/// @responsibility 新しいmodeの誤作成を取得前のframe拒否で反証する。
+/// 退役したNamespace modeを一般の不正要求として拒否する。
 /// @trace ERB-IT-003
-/// @precondition Cargo固定binary。正しい作成要求と実共有境界は使用しない。
-/// @stimulus 欠落、別modeの正しい読取りframe、余分argvを与える。
-/// @observation exit2、stderrなし、空実体・receipt・closeの専用拒否。
-/// @oracle 全不正要求は固定拒否であり作成・handle取得0。
-/// @cleanup child入力を閉じ、wait_with_outputでjoinする。
-/// @boundary 試験Process→固定CLI。不正入力以外のOS初期化は未確認。
+/// @precondition Cargo固定binary。実共有領域は操作しない。
+/// @stimulus 退役した二modeと余分argvを与える。
+/// @observation exit2、stderrなし、一般の固定拒否frame。
+/// @oracle Namespace専用受付へ配送しない。
+/// @cleanup outputで子Process終了を待つ。
 #[test]
-fn dedicated_namespace_modes_reject_before_os_effect() {
-    let mut capture = b"CRDDNC01".to_vec();
-    capture.extend_from_slice(&1_u16.to_le_bytes());
-    capture.extend_from_slice(&[7; 32]);
-    for (arguments, input) in [
-        (
-            vec!["--host-recovery-namespace-observe"],
-            b"CRDDNC01".as_slice(),
-        ),
-        (
-            vec!["--host-recovery-namespace-initialize"],
-            capture.as_slice(),
-        ),
-        (
-            vec!["--host-recovery-namespace-initialize", "extra"],
-            capture.as_slice(),
-        ),
+fn retired_namespace_modes_are_not_available() {
+    for arguments in [
+        vec!["--host-recovery-namespace-observe"],
+        vec!["--host-recovery-namespace-initialize"],
+        vec!["--host-recovery-namespace-initialize", "extra"],
     ] {
-        let mut child = Command::new(BINARY)
-            .args(&arguments)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+        let output = Command::new(BINARY)
+            .args(arguments)
+            .stdin(Stdio::null())
+            .output()
             .unwrap();
-        child.stdin.take().unwrap().write_all(input).unwrap();
-        let output = child.wait_with_output().unwrap();
         assert_eq!(output.status.code(), Some(2));
         assert!(output.stderr.is_empty());
-        if arguments.len() == 1 {
-            assert_eq!(&output.stdout[..8], b"CRDDNR02");
-            assert_eq!(&output.stdout[42..49], &[0, 34, 0, 0, 0, 0, 0]);
-            assert_eq!(&output.stdout[49..54], &[0, 0, 2, 0, 2]);
-            assert_eq!(&output.stdout[54..], b"terminal_namespace_request_invalid");
-        } else {
-            assert_eq!(&output.stdout[..8], b"CRDDPR03");
-        }
+        assert_eq!(&output.stdout[..8], b"CRDDPR03");
+        assert_eq!(output.stdout[11], 0);
     }
 }
 

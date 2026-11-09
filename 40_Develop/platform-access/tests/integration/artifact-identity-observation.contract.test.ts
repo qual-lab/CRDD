@@ -272,8 +272,7 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "PLATFORM_ACCESS_TARGET",
       "WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE",
       "createChildProcessEnvironment",
-      "createWindowsHostTerminalHelperEnvironment",
-      "createWindowsPowerShellAuthenticodeEnvironment",
+
       "deriveWindowsSystemDrive",
       "describeProviderHomeObservationContract",
       "observeNativeArtifact",
@@ -282,11 +281,9 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "observeWindowsFilesystemEntry",
       "observeWindowsLocalAppDataDirectory",
       "observeWindowsRuntimeState",
-      "initializeWindowsHostRecordNamespace",
       "startDockerDesktopRepairHelper",
       "startDockerDesktopRestartHelper",
       "observeWindowsProviderHome",
-      "startWindowsChildTreeTermination",
     ].sort(),
   );
   assert.equal(PLATFORM_ACCESS_TARGET, "x86_64-pc-windows-msvc");

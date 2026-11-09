@@ -1,5 +1,21 @@
 # QA-000006 外部実行境界の検証定義
 
+## 要求前切断とwx再入場の確認 — 2026-11-09
+
+資源未発行、Host回収、Home／Runtime／Host Lockの終了、最終結果確定を個別に確認する。Domainの未発行枝は必須条件を一つずつ崩す否定試験を持ち、20利用先の履歴・配送・操作除去・品質表示の独立条件を回帰する。未発行だけから全体Cleanup成功を表示しない。
+
+固定WorkerのHome／Runtime所在は新品試験Root内に限定し、実wxを使用する。子の終端、packet相関・違反要求0、保存／Host実体を確認した後だけ、停止前に捕捉したLockの元Owner・Generation・File Identity・本文とScopeを再照合し、停止下で明示回収する。異なる通知・実体・Scope、重複通知では削除0を局所反証し、残存を自動的に無効と扱わない。詳細な実行結果と保持物は変更トレースへ記録し、実AI／Docker E2Eへ昇格しない。
+
+## 親Process喪失の故障注入 — 2026-11-09
+
+MCP検証と回復記録の自己生成WorkerはNode.js標準のSIGKILLで元親だけを停止する。taskkillの専用実装・試験は退役し、子孫停止の同等置換とは扱わない。`PRL-ST-001`と`PRL-IT-013`／`ERB-IT-003`の局所反証は、停止要求一回、killのfalse・例外、exit先着／close欠測、stdio欠測、後着通知とListenerの終了責務を確認する。
+
+親の終了未確認・観測異常では再入場Processを開始しない。再入場未実施はnullとして報告し、空の成功観測を作らない。親のcloseから子孫不存在・Container清掃・Lock解放を推定せず、再入場側の現行Owner／Lock／Receipt／資源照合の拒否を維持する。元Recovery IDを取得した後の停止失敗は同IDを保持する。実AI・実Dockerの新しい親喪失E2Eは別途許可と実測が必要であり、合成試験や実Node単体の終了だけでは回復完走を成立させない。
+
+## 通常Docker CLIの停止範囲 — 2026-11-09
+
+通常DIは固定Engine・専用config・組込操作を対象とし、Host元CLIだけをNode.js標準で停止する。`ERB-IT-002`の通常Process試験は、kill一回、true／false／例外後の未close、不正期限、重複停止、自然終了後の追加要求0、errorとcloseの分離、出力超過、実Node単一Workerの終了を確認する。通常CLIを模す旧親子Workerは単一Workerへ変更し、子孫停止の成立根拠として用いない。Container側の停止・削除・不存在、終了未確認時の後続操作拒否は既存試験で確認する。後続の親Process喪失整理でPAのツリー停止は撤去し、公開MCP検証は親だけの停止へ変更した。BrowserとDesktopのJob Objectは別の必要性を持つ現方式として維持する。局所試験成功を実Docker・実AI・他OS成立へ拡大しない。
+
 ## 準備値生成のOwner移管
 
 乱数・資源名・認証Home環境の旧有限ケースをExecutorの構成Ownerへ移す。既存の構文木抽出で非公開の実宣言を選択し、本番exportや手書き代替実装を追加しない。二Providerの名前、Hash不正、63文字境界、Buffer型・exact長・一回取得・例外同一性、予約環境名とnull入力を維持する。Factory・構成・通常実行接続の既存試験も併走し、局所関数試験だけで実境界成立を主張しない。DIの安全な入力捕捉は撤去しない。
@@ -417,7 +433,7 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 | `ERB-IT-012` | 回復 | IT | Docker Repair Handoff | Coordinator→Repair Record→Platform Adapter | Related 2 Blocks | exact Repair Identity、旧Effect記録、署名検証済みorigin／adoption／handoff chain、同一Sessionで更新した現在Release、旧Continuation、fresh観測、手組みOperation、chain外tuple、現在境界未結合、別Session反例 | Record Storeが検証したchainと現在実行境界から旧Continuationの発行元を導出し、既存Repairを現在境界で継続可能なPlatform要求へ変換する | Repair Identity、Authority順序、同一SessionでのRelease更新、Continuationの発行元と追記元、fresh状態、Effect要求、拒否理由を記録する | Record Storeの検証結果だけをAuthorityとし、同一SessionのRelease更新では検証済み現在境界を末尾Authorityに加える。旧Effectを再発行せず同じRepair義務を現在境界から追記し、手組み・chain外・未結合はEffect 0で拒否する | Identity、chain、現在Release、Continuation sequence、追記tuple、状態、要求、Effect件数、判定 | 重複Effect 0、別Repair 0、未検証Authority 0 | Automated |
 ```
 
-存続する検証Toolはverify-native-protection.tsとverify-native-terminal-namespace.tsである。専用Host終端fixture群とそのoracleは退役し、Namespaceの値検査・保護付き作成・Directory共有拒否の診断と既存ignored条件を維持する。局所結果を実Native／Task／DockerやLocal Item全体のPassへ昇格しない。
+Namespace専用のNative保護Toolとfixtureは、2026-11-07の承認済みPolicy変更により退役した。通常回復Namespaceの新規生成・EEXIST再利用・非link実体確認・部分作成回収はCoordinatorのNode実境界試験へ接続する。SID／DACL・祖先Handle・主体事前拒否は採用範囲から外れたOracleであり、Nodeで成立したことにしない。Home／Runtime／Desktopの既存検証と通常回復記録の改変拒否は維持する。局所結果を実Native／Task／DockerやLocal Item全体のPassへ昇格しない。
 
 ## 1. 情報源と網羅条件
 
@@ -670,7 +686,11 @@ Coordinator所有範囲で終了・排他・清掃を閉じる設計では、上
 | `ERB-ST-030` | 公開入口へ接続する段階で、上記の取得・診断・通常回収・保守の母集団が同じ所有境界へ接続しているか確認する。OS全体の再起動や全Docker処理停止を暗黙に要求しない。 |
 | `ERB-UAT-007` | Coordinator所有の対象だけを提示し、元Taskとの対応が不明でも出所不明の任意フォルダと混同させない。実停止や削除には別の対象・影響確認が必要と理解できるか確認する。 |
 
-### 終端記録の保存・再入場で追加する反証
+<a id="終端記録の保存再入場で追加する反証"></a>
+
+### 終端記録の保存・再入場で追加した反証（退役仕様の履歴）
+
+この見出しから後続の「以下のHost終端専用CLI」で始まる履歴境界の直前まで（冷間観測・現在候補fixtureを含む）は、基準版での本番未接続Capabilityの設計・局所試験履歴である。2026-11-06に製品・専用fixtureとともに退役し、現在のOPEN義務・実行集合ではない。通常回復記録・Node Namespaceの後継Oracleへ流用しない。以下のLocal Item ID、件数、失敗記録、過去Evidenceは当時の意味のまま保持する。
 
 対象一式の私有Readerは[Platformの読取り契約](../../../06_Architecture/Details/platform-access/01_Architecture.md#対象一式の私有読取り接続)に従う。`ERB-IT-001`でnamespace三実体＋Root／marker／固定六childの十一実体、元marker全bytes／EOF／前後長とHash、独立Known照合、新八handleの逆順終了を確認する。`ERB-IT-002`で全位置の各五field・属性、全pair重複、種別／reparse、名前と利用者・Hash差、八取得位置の欠落、markerの0／65536／65537bytesを反証する。`ERB-IT-003`で途中取得・読取失敗とclose不明の併発、元理由・位置・取得数・個別終了保持、追加保存停止を確認する。実OS刺激と合成終了モデル、現在観測と独立期待値、対象Reader終了と外側guard／Process終了を分ける。既存8KiB記録Readerへの影響は同じ改訂版の実保存回帰で確認する。現在観測は原子的Snapshot、空状態・未知child不存在、非使用、`host_only`意味、正式承認または清掃成功を保証しない。Local Item数・全体観測数・品質状態は維持し、属性なしcodec、初期化、全legacy互換、公開Protocolと実残存処置は別の未成立条件として追跡する。
 
@@ -693,7 +713,7 @@ Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護
 | `ERB-IT-003` | Root・marker・leaseの共同終端後に、Evidence引渡し失敗、Receipt不一致、参照中、記録清掃の部分成功／観測不能を与える。 | 引渡し先の実bytes・Identity確認前は原記録削除0。清掃不明は同じ管理対象へ残し、元Task再開や清掃記録の再帰生成0。原記録／stageの直接不存在と管理用資源の終端を確認する。 |
 | `ERB-ST-030` | 全利用側移行後、公開入口の失敗結果から耐久参照、再入場、共同終端、Evidence引渡しへ追跡する。 | marker消失後も許可された利用側へ同じ非Authority参照を返す。境界外には対象の存在・参照を開示しない。内部試験だけで公開経路の成立を宣言しない。 |
 
-現在は全行OPENである。実装上の発生点と観測手段を固定してから実境界へ接続する。局所のSchema／順序試験は`PRL-UT-006`が所有し、ここで求める保護・Filesystem・Process喪失・公開入口の成立を代替しない。
+当時は全行OPENだった。実装上の発生点と観測手段を固定してから実境界へ接続する設計であり、局所のSchema／順序試験は`PRL-UT-006`が所有していた。そこで求めた保護・Filesystem・Process喪失・公開入口の成立を代替したとは扱わない。
 
 
 
@@ -724,7 +744,7 @@ Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護
 
 これは同一Processの現在観測とopaque bytes相関だけである。正規Schema／producer／対象binding、元file連続性、過去receipt、caller耐久再入場、別Process、ACL異常／reparse／OS観測故障／実close失敗、容量予約、Authority、実残存三件または全Recoveryを検証済みにしない。Local Item数・観測件数・停止Gateは維持する。File Relationの既存001／002／003と新Case／HelperのTrace和集合を別に照合する。
 
-以下のHost終端専用CLI・世代排他・対象fixture・保存frameの記述は、2026-11-06に退役した未接続Capabilityの過去検証記録であり、現在の実装・実行集合を示さない。現在は六つの旧CLI modeが標準の不正引数として拒否されることを確認する。Namespace初期化・保護・共有Pipeの試験と通常Recoveryは維持する。
+以下のHost終端専用CLI・世代排他・対象fixture・保存frameの記述は、2026-11-06に退役した未接続Capabilityの過去検証記録であり、現在の実装・実行集合を示さない。六つの旧CLI modeの標準不正引数としての拒否と、通常回復記録は維持する。Namespace専用保護Tool／fixtureと共有Pipeの旧Oracleは後続変更で退役した。現在のNamespace初期化はNode後継Oracleへ接続するが、SID／DACL・祖先Handleの保証を代替したとは扱わない。
 
 `ERB-IT-001`の旧Native CLI確認では、専用`--host-terminal-observe`の不正要求、余分argv、標準modeとの混用拒否を確認した。専用不正入力は実exit 2・phase 1・取得0・stderrなしを観測した。この過去の拒否試験は、正常な十一実体観測、署名配布物、回復Ownerの実呼出し、清掃または全Recoveryを証明しない。
 
@@ -758,11 +778,13 @@ wx切替後は、競合・初期化残存・descriptor終了不明の利用側�
 
 今回の実所在確認では、同じ固定Native・frameを通常環境、旧一般Native環境、新Host専用環境で読み取り専用に比較する。所在取得、取得したToken／Directory／対象handleと個別終了を共同で評価し、診断の停止理由を正常保存の結果へ読み替えない。新環境が通常環境と同じ親へ達しても、保存子Directory欠落、旧対象の非使用、初期化許可と正常Native保存は別の未成立事項として保持する。未署名の開発実行物による診断を署名Runtimeの検証へ昇格しない。
 
+以下三段落は基準版`53209fad7`以前の保護付き作成の検証履歴である。2026-11-07の承認済みNamespace Policy変更で専用Tool・fixture・SID／DACL・祖先HandleのOracleは退役した。現在のNode生成・実体検査・記録回収は別のOracleで確認し、旧保護の成功を引き継がない。過去の成立範囲と未観測条件は当時の記録として保持する。
+
 共有管理先の保護付き作成は`ERB-IT-003`の限定観測へ含める。作成前に同Tokenの選択利用者・独立親実体・全非reparse chainを確認し、固定Recovery／Terminalだけを作成時からprotected二ACEで作る。適合済み再利用は追加作成0、不適合ACL・同名fileは修復0で拒否する。作成競合後のfresh照合、部分作成・型／ACL拒否とchild close失敗の共同保持、親guard終了を観測する。既存ACL移行は通常作成と別に、開始抑止・終了・変更前後のchild Identity／bytes／保護・旧exact回復の維持を検証する。新Mutexや作成成功だけを非使用または移行許可にしない。
 
 `windows::terminal::host_namespace_creation_tests::host_namespace_creation_fixture`は、固定Repository-localの自己生成r2だけで新規作成、無変更再利用、既存不適合と同名fileの拒否、明示closeと終了後不存在を確認する専用実Windows Caseである。通常cargo testではignoredとし、固定cwd・run・通常選択利用者・先行静的検査を確認したOwnerが直接起動する。制限環境の選択利用者不明は拒否のまま保持し、保護条件を緩めない。作成競合・OS API／close故障刺激、通常producer、署名搬送、既存共有ACL移行と全Recoveryは別の未観測条件である。局所成功をLocal Item全体のPassへ自動昇格しない。[今回の範囲と原記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#保護付き作成部品の局所確認--2026-10-04)へ接続する。
 
-移管前producerの保護付き作成は、旧署名Nativeの親観測→独立期待値付き初期化→Root／marker生成の順序を処置した。`ERB-IT-003`の旧局所Caseは、`host-recovery-namespace.integration.test.ts`による署名拒否・mode相関・部分処置・transport不明・通常入口の順序と、Native専用r3による作成・再利用・親／利用者差・不適合拒否と個別終了の比較記録である。専用CLI不正要求の取得前拒否もその対象に限る。現在のOracleは、必要Native同一性確認→親実観測→独立期待値付き初期化→Root／marker生成とし、署名拒否で本来の負例を代替しない。未署名通常入口からの正常搬送・保存、ACL移行、作成競合とAPI／close故障、全Recoveryは未観測のままとする。[当時の接続と限界](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#通常作成入口と専用搬送の接続--2026-10-04)は保持し、Local Itemの全体Passや件数を変更しない。
+移管前producerの保護付き作成は、旧署名Nativeの親観測→独立期待値付き初期化→Root／marker生成の順序を処置した。`ERB-IT-003`の旧局所Caseは、`host-recovery-namespace.integration.test.ts`による署名拒否・mode相関・部分処置・transport不明・通常入口の順序と、Native専用r3による作成・再利用・親／利用者差・不適合拒否と個別終了の比較記録である。専用CLI不正要求の取得前拒否もその対象に限る。当時のOracleは、必要Native同一性確認→親実観測→独立期待値付き初期化→Root／marker生成とし、署名拒否で本来の負例を代替しない。未署名通常入口からの正常搬送・保存、ACL移行、作成競合とAPI／close故障、全Recoveryは未観測のままとする。[当時の接続と限界](../../../99_Roadmap/Changes/CHG-000082/Evidence/261002_host-orphan-recovery-design.md#通常作成入口と専用搬送の接続--2026-10-04)は保持し、Local Itemの全体Passや件数を変更しない。
 
 
 ## Docker回復・現在状態縮小の検証補強

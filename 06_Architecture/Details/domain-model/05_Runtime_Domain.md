@@ -32,6 +32,12 @@ DomainはCoordinator／Executorを実行値importしない。DomainとAI Adapter
 
 Core起動・CRUDはCoordinatorが読込み不能な構成でも成立させる。未解決Automation区画があっても、その保全可能なCore読取り・編集にDocker確認やProvider認証を追加しない。
 
+### 技術要求前の資源終端（2026-11-09）
+
+`coordinatorTaskResourcesAreSettled()`は、技術資源の要求が未発行または既に終端したという値の判定を所有する。新形式の`resources=null`でも、`settling`・Lease保持・Owner無効・Provider未開始・送信／共有書込み未発行、outcome／一次失敗／summary／historyなし、未解決の再起動なしをすべて満たす初期切断は、資源回収不要として扱う。nullだけを根拠に欠測・旧形式・不明を受理しない。
+
+この判定はHost実体不存在、Home解放、全体Cleanup成功またはTask成功を示さない。Host遷移・清掃・再入場の現在Owner／CAS／実体確認はCoordinatorと既存Writerが維持し、最終WriterがHost回収と排他解放を確認してからoutcomeを確定する。履歴・配送・操作除去・品質表示は既存のHost confirmed、Lease released、outcome.cleanupConfirmed等を独立して要求する。保存Schema・公開APIは変更しない。
+
 <a id="document-and-execution-ownership"></a>
 ### 1.1 CRDD文書・呼出し側・実行状態の責務
 

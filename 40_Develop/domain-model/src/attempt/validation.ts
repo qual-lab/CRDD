@@ -1483,8 +1483,17 @@ export function coordinatorTaskResourcesAreSettled(
       operation.execution.externalSend === "not_issued" &&
       operation.execution.sharedWrite === "not_issued" &&
       operation.execution.ownerEffect === "disabled" &&
-      operation.outcome?.status === "blocked" &&
-      operation.outcome.cleanupConfirmed
+      ((operation.outcome?.status === "blocked" &&
+        operation.outcome.cleanupConfirmed) ||
+        // 技術要求前の切断。Host回収・Lease解放・最終結果は別のOwnerが確定する。
+        (operation.resources === null &&
+          operation.phase === "settling" &&
+          operation.lease === "held" &&
+          operation.outcome === null &&
+          operation.primaryFailure === null &&
+          operation.summarySha256 === null &&
+          operation.history === null &&
+          isDockerRestartCheckpointSettled(operation.dockerRestart)))
     );
   if (book.checkpoints.every(coordinatorResourceIsSettled)) return true;
   const hash = coordinatorAuthenticationClosureEvidence(operation);

@@ -1154,8 +1154,8 @@ test("Docker Effect contractは発行者Trustと任意command禁止を公開す�
   assert.equal(contract.environment, "runtime_owned_minimal_replacement");
   assert.equal(contract.engine, "npipe:////./pipe/dockerDesktopLinuxEngine");
   assert.equal(
-    contract.processTreeTermination,
-    "taskkill_exact_pid_tree_then_close",
+    contract.processTermination,
+    "node_kill_owned_process_then_close",
   );
   assert.deepEqual(contract.dockerCli, {
     contract: "crdd-coordinator/docker-cli-trust",

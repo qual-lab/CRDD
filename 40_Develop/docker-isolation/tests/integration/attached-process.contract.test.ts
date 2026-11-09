@@ -1,7 +1,7 @@
 /**
  * 固定attachと対話stdioの所有Process接続を検証する。
  * @packageDocumentation
- * @responsibility readyとcloseを区別し、出力上限とtree終端の補助子を観測する。
+ * @responsibility readyとcloseを区別し、出力上限と元CLIの停止を観測する。
  * @trace ERB-IT-002
  * @level IT
  * @scope Process境界の模擬イベント。実Docker・実Windows成功は主張しない。
@@ -142,15 +142,15 @@ test("認証Factoryは初期観測と同snapshotの各実行前検証を下位�
 });
 
 /**
- * Dockerと終了補助のspawnを差し替える所有子イベントFixture。
- * @responsibility 元子と終了補助子、spawn構成を別々に観測する。
+ * 元CLIのspawnを差し替える所有子イベントFixture。
+ * @responsibility 元子のkillとclose、spawn構成を別々に観測する。
  * @trace ERB-IT-002
  * @precondition 同一Test内だけでBuiltin差替えを使う。
  * @stimulus 固定子イベントとstdoutを注入する。
  * @observation 実装が組み立てたargv・stdioとclose待機を取得する。
  * @oracle 呼出しTestが不存在と観測不能を区別できる。
  * @cleanup 元Builtinを戻し全模擬子をcloseする。
- * @boundary 模擬Processと実装Owner。Platform Accessの固定OS所在読取りは実観測し、tree成立の根拠にはしない。
+ * @boundary 模擬Processと実装Owner。実OSの停止成立とは区別する。
  */
 function processFixture(context: test.TestContext, interactive = false) {
   const child = Object.assign(new childProcess.ChildProcess(), {
@@ -159,26 +159,25 @@ function processFixture(context: test.TestContext, interactive = false) {
     stdout: interactive ? null : new PassThrough(),
     stderr: interactive ? null : new PassThrough(),
   });
-  const helper = Object.assign(new childProcess.ChildProcess(), {
-    pid: 5678,
-    stdout: new PassThrough(),
-    stderr: new PassThrough(),
-    kill: () => true,
-  });
+  const killSignals: (NodeJS.Signals | number | undefined)[] = [];
+  child.kill = (signal) => {
+    killSignals.push(signal);
+    return true;
+  };
   const calls: unknown[][] = [];
   const original = childProcess.spawn;
   childProcess.spawn = ((...args: unknown[]) => {
     calls.push(args);
-    return calls.length === 1 ? child : helper;
+    assert.equal(calls.length, 1);
+    return child;
   }) as typeof childProcess.spawn;
   syncBuiltinESMExports();
   context.after(() => {
     child.emit("close", null, null);
-    helper.emit("close", 0, null);
     childProcess.spawn = original;
     syncBuiltinESMExports();
   });
-  return { child, helper, calls };
+  return { child, calls, killSignals };
 }
 
 const binding = {
@@ -191,11 +190,11 @@ const binding = {
  * stdout観測の同期契約と元Processの終了待ちを確認する。
  * @responsibility 不正返却の拒否捕捉を既存の終了経路へ接続する。
  * @trace ERB-IT-002
- * @precondition 模擬子・模擬終了補助だけを使用する。
+ * @precondition 模擬元子だけを使用する。
  * @stimulus 同期void、throw、Promise成功・即時拒否・後着拒否・pending、値返却を渡す。
  * @observation 終了要求数、元close、出力失敗flag、後着後の不変。
  * @oracle 正常void以外は即時に終了要求し、close前に終了成立を返さない。
- * @cleanup 既存fixtureが両模擬子をcloseしBuiltinを復元する。
+ * @cleanup 既存fixtureが模擬元子をcloseしBuiltinを復元する。
  * @boundary 同期stdout搬送と所有Process。実Docker・実Processの成功は対象外。
  */
 test("stdout観測は非同期返却を待たず失敗にして後着拒否を捕捉する", async (t) => {
@@ -236,16 +235,16 @@ test("stdout観測は非同期返却を待たず失敗にして後着拒否を�
       fixture.child.stdout?.write("synthetic\n");
       assert.equal(handle.terminationRequested?.(), mode !== "normal");
       assert.equal(handle.closed(), false);
-      assert.equal(fixture.calls.length, mode === "normal" ? 1 : 2);
+      assert.equal(fixture.calls.length, 1);
+      assert.equal(fixture.killSignals.length, mode === "normal" ? 0 : 1);
       fixture.child.emit("close", 0, null);
-      fixture.helper.emit("close", 0, null);
       const result = await handle.wait(100);
       assert.ok(result);
       assert.equal(result.outputExceeded, mode !== "normal");
       assert.equal(handle.closed(), true);
       rejectLate?.(Error("synthetic_late_observer_reject"));
       await new Promise<void>((resolve) => setImmediate(resolve));
-      assert.equal(fixture.calls.length, mode === "normal" ? 1 : 2);
+      assert.equal(fixture.calls.length, 1);
       assert.equal(await handle.wait(100), result);
     });
   }
@@ -330,42 +329,41 @@ test("probe観測は不正返却を外側へ渡し同期readyだけを保持す�
 });
 
 /**
- * 固定TreeのPID観測を狭い閉集合として確認する。
+ * 固定単一ProcessのPID観測を狭い閉集合として確認する。
  * @responsibility 任意scenario、重複PID、余分な出力を拒否する。
  * @trace ERB-IT-002
  * @precondition 模擬所有子だけを使用する。
  * @stimulus 固定markerと正常・不正tupleを搬送する。
- * @observation PID tuple、元子と補助子のclose。
- * @oracle 二つの相異なる正safe integerだけを観測する。
- * @cleanup 両模擬子をcloseしBuiltinを戻す。
- * @boundary 固定Tree診断と元所有Handle。
+ * @observation 単一PID tuple、元子のclose。
+ * @oracle 一つの正safe integerだけを観測する。
+ * @cleanup 模擬元子をcloseしBuiltinを戻す。
+ * @boundary 固定単一Process診断と元所有Handle。
  */
-test("固定TreeのPID観測は二要素だけを受理し終了要求を重複発行しない", async (context) => {
+test("固定単一ProcessのPID観測は一要素だけを受理し停止要求を重複発行しない", async (context) => {
   const fixture = processFixture(context);
   assert.throws(() =>
     startOwnedAttachTerminationFixture(
-      "unknown" as "ready_tree",
+      "unknown" as "ready_process",
       binding.environment(),
     ),
   );
   assert.equal(fixture.calls.length, 0);
   const handle = startOwnedAttachTerminationFixture(
-    "ready_tree",
+    "ready_process",
     binding.environment(),
   );
   fixture.child.emit("spawn");
   fixture.child.stdout?.write("crdd-owned-");
-  fixture.child.stdout?.write("attach-ready\n[1234,");
-  fixture.child.stdout?.write("5678]");
+  fixture.child.stdout?.write("attach-ready\n[12");
+  fixture.child.stdout?.write("34]");
   fixture.child.stdout?.write("\n");
   assert.equal(await handle.ready, true);
-  assert.deepEqual(handle.observedTreeProcessIds(), [1234, 5678]);
+  assert.deepEqual(handle.observedProcessIds(), [1234]);
   const first = handle.terminateAndWait();
   const second = handle.terminateAndWait();
   assert.equal(first, second);
   fixture.child.emit("close", null, null);
-  assert.equal(handle.isClosed(), false);
-  fixture.helper.emit("close", 0, null);
+  assert.equal(handle.isClosed(), true);
   assert.ok(await first);
   assert.equal(handle.getTerminationRequestCount(), 1);
   assert.equal(handle.isClosed(), true);
@@ -373,6 +371,9 @@ test("固定TreeのPID観測は二要素だけを受理し終了要求を重複�
 
 for (const tuple of [
   "[1,1]",
+  "[0]",
+  "[]",
+  "[9007199254740992]",
   "[0,2]",
   "[1,2,3]",
   '[1,"2"]',
@@ -391,15 +392,15 @@ for (const tuple of [
    * @cleanup 模擬closeとBuiltin復元。
    * @boundary 固定診断出力と観測tuple。
    */
-  test(`固定Treeは不正PID tupleを拒否する: ${tuple}`, async (context) => {
+  test(`固定単一Processは不正PID tupleを拒否する: ${tuple}`, async (context) => {
     const fixture = processFixture(context);
     const handle = startOwnedAttachTerminationFixture(
-      "ready_tree",
+      "ready_process",
       binding.environment(),
     );
     fixture.child.emit("spawn");
     fixture.child.stdout?.write(`crdd-owned-attach-ready\n${tuple}\n`);
-    assert.equal(handle.observedTreeProcessIds(), null);
+    assert.equal(handle.observedProcessIds(), null);
     fixture.child.emit("close", 0, null);
     await handle.completion;
   });
@@ -641,17 +642,17 @@ test("認証固定Planは名前差替えと環境上書きとgetterを拒否す�
 });
 
 /**
- * 許可喪失を共通tree終端と両closeへ接続する。
+ * 許可喪失を元CLI停止とcloseへ接続する。
  * @responsibility 認証の上位意味を持たず技術終了を観測する。
  * @trace ERB-IT-002
  * @precondition 模擬Processと生成済みCommandだけを使用する。
- * @stimulus 開始後に許可観測をfalseへ切替え、元子と補助子をcloseする。
+ * @stimulus 開始後に許可観測をfalseへ切替え、元子をcloseする。
  * @observation 固定argv、終端要求、一次理由、終了確認。
- * @oracle 許可喪失を保持し、両close後だけ終了確認true。
+ * @oracle 許可喪失を保持し、元子close後だけ終了確認true。
  * @cleanup Fixture hookと実装のTimer回収。
  * @boundary 許可生存観測→所有Process。
  */
-test("認証Processは許可喪失後に元子と終端補助子をjoinする", async (context) => {
+test("認証Processは許可喪失後に元CLIへ一回停止要求しcloseを確認する", async (context) => {
   const fixture = processFixture(context);
   const plan = planDockerAuthenticationCommands(authenticationInput());
   const command = plan.commands[0];
@@ -665,9 +666,9 @@ test("認証Processは許可喪失後に元子と終端補助子をjoinする", 
   fixture.child.emit("spawn");
   live = false;
   await setTimeout(300);
-  assert.equal(fixture.calls.length, 2);
+  assert.equal(fixture.calls.length, 1);
+  assert.deepEqual(fixture.killSignals, ["SIGKILL"]);
   fixture.child.emit("close", null, "SIGTERM");
-  fixture.helper.emit("close", 0, null);
   const result = await resultPromise;
   assert.equal(result.error?.message, "docker_execution_permit_lost");
   assert.equal(result.processCompletionConfirmed, true);
@@ -982,17 +983,17 @@ test("attachは固定Engineと実IDを使いreadyとcloseを分離する", async
 });
 
 /**
- * errorを終了証明にせず補助子closeまで待つことを確認する。
- * @responsibility ready失敗・一次error・tree終端を独立に観測する。
+ * errorを終了証明にせず元子closeまで待つことを確認する。
+ * @responsibility ready失敗・一次error・元CLI停止を独立に観測する。
  * @trace ERB-IT-002
- * @precondition 模擬子と終了補助子を使用する。
- * @stimulus error、取消、元子close、補助子close。
+ * @precondition 模擬元子を使用する。
+ * @stimulus error、取消、元子close。
  * @observation 結果、closed、終端要求数。
- * @oracle errorでは未close、両close後に同じ失敗結果を返す。
+ * @oracle errorでは未close、元子close後に同じ失敗結果を返す。
  * @cleanup Fixture hook。
- * @boundary 元子とtaskkill補助子。
+ * @boundary 元子の停止要求と終了観測。
  */
-test("attach error後も元子と終端補助子のcloseを保持する", async (context) => {
+test("attach error後も元子のcloseを保持する", async (context) => {
   const fixture = processFixture(context);
   const handle = startDockerProbeAttachedProcess(
     binding,
@@ -1005,25 +1006,24 @@ test("attach error後も元子と終端補助子のcloseを保持する", async 
   assert.equal(handle.isClosed(), false);
   const termination = handle.terminateAndWait();
   fixture.child.emit("close", null, null);
-  assert.equal(handle.isClosed(), false);
-  fixture.helper.emit("close", 0, null);
+  assert.equal(handle.isClosed(), true);
   assert.equal((await termination)?.status, null);
   assert.equal(handle.isClosed(), true);
   assert.equal(handle.getTerminationRequestCount(), 1);
 });
 
 /**
- * 診断の64KiB上限から共通tree終端への接続を確認する。
+ * 診断の64KiB上限から元CLI停止への接続を確認する。
  * @responsibility 出力超過を成功または無制限捕捉にしない。
  * @trace ERB-IT-002
  * @precondition 模擬捕捉子を使用する。
- * @stimulus 64KiBを超すstdoutと両close。
+ * @stimulus 64KiBを超すstdoutと元子close。
  * @observation 出力、超過flag、終端回数。
  * @oracle 超過出力未保存、終端一回、全close。
  * @cleanup Fixture hook。
  * @boundary 出力搬送とProcess回収。
  */
-test("attach出力超過は保存せず共通tree終端へ接続する", async (context) => {
+test("attach出力超過は保存せず元CLI停止へ接続する", async (context) => {
   const fixture = processFixture(context);
   const handle = startDockerProbeAttachedProcess(
     binding,
@@ -1033,7 +1033,6 @@ test("attach出力超過は保存せず共通tree終端へ接続する", async (
   fixture.child.emit("spawn");
   fixture.child.stdout?.write(Buffer.alloc(64 * 1024 + 1, "x"));
   fixture.child.emit("close", null, "SIGTERM");
-  fixture.helper.emit("close", 0, null);
   const result = await handle.completion;
   assert.equal(result.outputExceeded, true);
   assert.equal(result.stdout, "");

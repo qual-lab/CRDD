@@ -1,15 +1,11 @@
 /**
- * 所有Windows子Processの開始・搬送・有界待機・tree終端を所有する。
+ * 所有Docker CLI Processの開始・搬送・有界待機・終了確認を所有する。
  *
- * @responsibility 子Process・stream・終了補助Processを同じ所有Handleへ結合する。
+ * @responsibility 元子Processとstreamを同じ所有Handleへ結合し、終了要求とcloseを区別する。
  * @trace ARCH-000008
  */
 import { spawn } from "node:child_process";
 
-import {
-  type ChildTreeTerminationHandle,
-  startWindowsChildTreeTermination,
-} from "../../../platform-access/src/index.ts";
 import {
   type CommandExecution,
   STDOUT_LIMIT_BYTES,
@@ -33,7 +29,7 @@ export type OwnedProcessCompletion = Readonly<{
 
 /**
  * 元の所有Handleだけを終了確認まで処理する。
- * @responsibility 認証と通常の短期操作で共通のtree終端・close観測を使う。
+ * @responsibility 認証と通常の短期操作で共通の元CLI停止・close観測を使う。
  * @trace ARCH-000008
  * @input handle: 元Handle、result: 先行結果、readFinal: 終了後の最終観測を必要とするか。
  * @returns 元結果と終了確認。必要時だけ終了後の一読取りを行う。
@@ -141,7 +137,7 @@ function bounded<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
  *
  * @responsibility 所有 Processの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000008
- * @input executable、argv、environment、stdin: 検証済み実行記述。固定tree終端環境はPlatform Accessが内部で導出する。
+ * @input executable、argv、environment、stdin: 固定Engine・専用configを使う組込Docker操作の検証済み実行記述。
  * @returns OwnedCommandHandleを返す。
  * @precondition 「executable: string、argv: readonly string[]、environment: Readonly<Record<string, string>>、stdin: string | null」がstartOwnedWindowsProcessの入力契約を満たす。
  * @postcondition startOwnedWindowsProcessの責務を完了した結果だけを返す。
@@ -191,7 +187,6 @@ export function startOwnedWindowsProcess(
   let exceeded = false;
   let closed = false;
   let terminationRequested = false;
-  let terminationHelper: ChildTreeTerminationHandle | null = null;
   const startCompletion = new Promise<boolean>((resolve) => {
     let settled = false;
     const settle = (isValue: boolean) => {
@@ -288,20 +283,20 @@ export function startOwnedWindowsProcess(
   });
 
   /**
-   * 所有元子と共通Windows終端補助を同じ期限内でjoinする。
+   * 元CLIへ一度だけ停止要求し、同じ期限内でcloseを確認する。
    *
-   * @responsibility 終端要求を一度だけ発行し、元子と補助子のcloseを別に観測する。
+   * @responsibility 停止要求の成功・失敗だけを終了根拠にせず、元子のcloseを待つ。
    * @trace ARCH-000008
    * @input graceMs: number
    * @returns terminateAndWaitの計算結果を返す。
    * @precondition 「graceMs: number」がterminateAndWaitの入力契約を満たす。
    * @postcondition terminateAndWaitの責務を完了した結果だけを返す。
-   * @effect Platform Accessを通じて所有子の固定tree終端を要求し、必要時に補助子を回収する。
-   * @failure 不正期限、元子または補助子のclose未確認はfalse。要求発行だけを終了根拠にしない。
+   * @effect Node.js標準のkillで所有元子だけへ強制停止を要求する。
+   * @failure 不正期限または元子のclose未確認はfalse。killの例外・falseもcloseを確認するまで成功にしない。
    * @invariant terminateAndWaitは宣言した境界以外へEffectを拡張しない。
-   * @boundary 所有Docker CLI子とPlatform Accessの固定Windows終了補助。
+   * @boundary 所有Docker CLIとNode.jsのProcess終了境界。Container内の停止・清掃は別Ownerが行う。
    * @security terminateAndWaitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
-   * @concurrency 重複呼出しも同じ元子と補助Handleを再観測し、新しい要求を発行しない。
+   * @concurrency 重複呼出しも同じ元子のcloseを再観測し、新しい停止要求を発行しない。
    */
   async function terminateAndWait(graceMs: number) {
     if (
@@ -314,23 +309,21 @@ export function startOwnedWindowsProcess(
     const remaining = () => Math.max(0, deadline - Date.now());
     if (!closed && !terminationRequested) {
       terminationRequested = true;
-      terminationHelper = startWindowsChildTreeTermination(child);
-    }
-    if (terminationHelper && !terminationHelper.closed()) {
-      await terminationHelper.wait(remaining());
-      if (!terminationHelper.closed())
-        await terminationHelper.terminateAndWait(remaining());
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // A failed request is not a close observation; keep waiting below.
+      }
     }
     await bounded(closeCompletion, remaining(), undefined);
-    return closed && (terminationHelper === null || terminationHelper.closed());
+    return closed;
   }
 
   return Object.freeze({
     started: (timeoutMs: number) => bounded(startCompletion, timeoutMs, false),
     wait: (timeoutMs: number) => bounded(completion, timeoutMs, null),
     terminateAndWait,
-    closed: () =>
-      closed && (terminationHelper === null || terminationHelper.closed()),
+    closed: () => closed,
     terminationRequested: () => terminationRequested,
   });
 }

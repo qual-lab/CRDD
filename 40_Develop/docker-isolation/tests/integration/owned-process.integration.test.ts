@@ -20,7 +20,6 @@ import {
 } from "../../src/execution/result.ts";
 import {
   createOwnedProcessTestEnvironment,
-  createOwnedProcessTreeFixture,
   ownedProcessWorker,
   startOwnedProcess,
   waitForCondition,
@@ -305,106 +304,86 @@ test("固定子: 入出力欠落・送信失敗・stream errorの後もcloseを�
 });
 
 /**
- * 固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しないを検証する。
- *
- * @responsibility 固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しないの合否判定を所有する。
+ * 元子の停止要求と終了確認を分離する。
+ * @responsibility killの正常・false・throwをclose観測へ読み替えない。
  * @trace ERB-IT-002
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-002=Direct Boundary: docker-isolation Test Source→対象契約
+ * @precondition 模擬子だけを使用し、実Process停止は発行しない。
+ * @stimulus kill受理・拒否・例外、重複停止、遅延closeを与える。
+ * @observation kill回数・Signal、元closeと終端結果。
+ * @oracle 停止はSIGKILL一回、close前false、close後だけtrue。補助Process起動0。
+ * @cleanup 模擬streamとBuiltinを復元する。
+ * @boundary 元CLIの停止要求と終了観測。
  */
-test("固定子: taskkill起動失敗・非0結果を元子の終了失敗と混同しない", async () => {
-  for (const failure of ["throw", "error", "nonzero"]) {
+test("固定子: killの受理・拒否・例外を終了へ読み替えず一回だけ要求する", async () => {
+  for (const mode of ["accepted", "false", "throw"]) {
     const child = createSyntheticChild();
     child.pid = 123456;
     child.stdout = new PassThrough();
     child.stderr = new PassThrough();
-    const killer = Object.assign(new childProcess.ChildProcess(), {
-      pid: 654321,
-      stdout: new PassThrough(),
-      stderr: new PassThrough(),
-      kill: () => true,
-    });
-    let spawnCount = 0;
+    let kills = 0;
+    child.kill = ((signal: NodeJS.Signals) => {
+      kills += 1;
+      assert.equal(signal, "SIGKILL");
+      if (mode === "throw") throw Error("synthetic_kill_failure");
+      return mode === "accepted";
+    }) as typeof child.kill;
+    let spawns = 0;
     await withSyntheticSpawn(
       (() => {
-        spawnCount += 1;
-        if (spawnCount === 1) return child;
-        if (failure === "throw") throw new Error("fixture_killer_failed");
-        queueMicrotask(() => {
-          if (failure === "error")
-            killer.emit("error", new Error("fixture_killer_failed"));
-          killer.emit("close", 1, null);
-        });
-        return killer;
+        spawns += 1;
+        assert.equal(spawns, 1);
+        return child;
       }) as unknown as typeof childProcess.spawn,
       async () => {
         const handle = startOwnedProcess("fixture", [], {}, null);
-        const termination = handle.terminateAndWait(100);
-        await new Promise<void>((resolve) => setImmediate(resolve));
-        child.emit("close", null, "SIGTERM");
-        assert.equal(await termination, true);
+        assert.equal(await handle.terminateAndWait(1), false);
+        assert.equal(handle.closed(), false);
+        assert.equal(handle.terminationRequested?.(), true);
+        const first = handle.terminateAndWait(100);
+        const second = handle.terminateAndWait(100);
+        child.emit("close", null, "SIGKILL");
+        assert.deepEqual(await Promise.all([first, second]), [true, true]);
         assert.equal(await handle.terminateAndWait(1), true);
-        assert.equal(spawnCount, 2);
+        assert.equal(kills, 1);
+        assert.equal(spawns, 1);
+        assert.equal((await handle.wait(1))?.signal, "SIGKILL");
       },
     );
     child.stdout.destroy();
     child.stderr.destroy();
-    killer.stdout.destroy();
-    killer.stderr.destroy();
   }
 });
 
 /**
- * 固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしないを検証する。
- *
- * @responsibility 固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしないの合否判定を所有する。
+ * 終了済み・不正期限で追加停止を発行しない。
  * @trace ERB-IT-002
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-002=Direct Boundary: docker-isolation Test Source→対象契約
+ * @precondition 模擬元子と同じ所有Handleを使う。
+ * @stimulus 不正期限、自然終了後の停止を要求する。
+ * @observation kill回数とclosed。
+ * @oracle 不正期限はfalseでEffect0、自然終了後はtrueで追加kill0。
+ * @cleanup 模擬streamとBuiltinを復元する。
+ * @boundary Node停止要求と元子close。
  */
-test("固定子: 元子がcloseしてもtaskkill補助子のclose不明を成功にしない", async () => {
+test("固定子: 不正期限と終了後の停止は追加killを発行しない", async () => {
   const child = createSyntheticChild();
-  child.pid = 123456;
-  child.stdout = new PassThrough();
-  child.stderr = new PassThrough();
-  const killer = Object.assign(new childProcess.ChildProcess(), {
-    pid: 654321,
-    stdout: new PassThrough(),
-    stderr: new PassThrough(),
-    kill: () => true,
-  });
-  let spawnCount = 0;
+  let kills = 0;
+  child.kill = () => {
+    kills += 1;
+    return true;
+  };
   await withSyntheticSpawn(
-    (() =>
-      ++spawnCount === 1
-        ? child
-        : killer) as unknown as typeof childProcess.spawn,
+    (() => child) as unknown as typeof childProcess.spawn,
     async () => {
       const handle = startOwnedProcess("fixture", [], {}, null);
-      const termination = handle.terminateAndWait(10);
-      killer.emit("error", new Error("fixture_killer_error"));
+      for (const duration of [-1, Number.NaN, Infinity, 2_147_483_648]) {
+        assert.equal(await handle.terminateAndWait(duration), false);
+        assert.equal(handle.terminationRequested?.(), false);
+      }
       child.emit("close", 0, null);
-      assert.equal(await termination, false);
-      assert.equal(handle.closed(), false);
-      const second = handle.terminateAndWait(100);
-      killer.emit("close", 1, null);
-      assert.equal(await second, true);
-      assert.equal(handle.closed(), true);
-      assert.equal(spawnCount, 2);
+      assert.equal(await handle.terminateAndWait(1), true);
+      assert.equal(kills, 0);
     },
   );
-  child.stdout.destroy();
-  child.stderr.destroy();
-  killer.stdout.destroy();
-  killer.stderr.destroy();
 });
 
 /**
@@ -459,13 +438,19 @@ test(
  * @boundary ERB-IT-002=Direct Boundary: docker-isolation Test Source→対象契約
  */
 test(
-  "Host Windows: 本番共通process: 待機期限は取消ではなく、重複取消後に実子孫とcloseを確認",
+  "Host Windows: 本番共通process: 待機期限は取消ではなく、重複取消後に元実子のcloseを確認",
   windowsOnly,
   async (t) => {
-    const fixture = createOwnedProcessTreeFixture();
-    t.after(() => fixture.dispose());
-    const handle = fixture.start();
-    await fixture.ready();
+    const handle = startOwnedProcess(
+      process.execPath,
+      [ownedProcessWorker, "leaf"],
+      createOwnedProcessTestEnvironment(),
+      null,
+    );
+    t.after(async () => {
+      assert.equal(await handle.terminateAndWait(5_000), true);
+    });
+    assert.equal(await handle.started(5_000), true);
     assert.equal(await handle.wait(10), null);
     assert.equal(handle.closed(), false);
     assert.deepEqual(
@@ -475,7 +460,8 @@ test(
       ]),
       [true, true],
     );
-    fixture.assertAbsent();
+    assert.equal(handle.closed(), true);
+    assert.equal((await handle.wait(1))?.signal, "SIGKILL");
     assert.equal(await handle.terminateAndWait(5_000), true);
   },
 );

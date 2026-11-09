@@ -41,6 +41,197 @@ const verificationScriptSource = fs.readFileSync(
   "utf8",
 );
 
+/**
+ * 再入場未実施を成功や空の完了観測へ置換しない。
+ * @trace PRL-ST-001
+ * @precondition 正常な合成報告入力の再入場だけをnullへする。
+ * @stimulus 親終了後でも再入場が未実施の入力を集計する。
+ * @observation blocked、清掃不明、手動回復と親終了の独立性。
+ * @oracle 未実施理由を保持し、回復完了・清掃成功にはしない。
+ * @cleanup N/A: メモリ内のみ。
+ * @boundary 検証報告の集計。
+ */
+test("再入場未実施は親終了と区別してblockedと回復義務を保持する", () => {
+  const base = buildInput();
+  const result = build({
+    recoverySettlement: { ...base.recoverySettlement, reentry: null },
+  });
+  assert.equal(result.status, "blocked");
+  assert.ok(result.problems.includes("recovery_reentry_not_started"));
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.effectState, "unknown");
+  assert.equal(
+    result.recoveryOperationAfterRun.parentProcessTerminationObserved,
+    true,
+  );
+  assert.equal(
+    result.recoveryOperationAfterRun.currentOperationFinalized,
+    false,
+  );
+});
+
+/**
+ * 本番Scriptの再入場Gateを合成の起動先へ接続する。
+ * @trace PRL-ST-001
+ * @precondition 親観測後から再入場結果までの実本文を使用する。
+ * @stimulus 各必須観測を一つずつ不成立へする。
+ * @observation 再入場Processの開始回数。
+ * @oracle 全条件成立時だけ一回開始し、不明時は開始0でnullを保持する。
+ * @cleanup 実Process・AI・Docker・Filesystemは使用しない。
+ * @boundary 実ScriptのEffect前Gateと有限起動代役。
+ */
+test("親終了未確認では再入場Processを起動しない", async () => {
+  const start = verificationScriptSource.indexOf("  let reentryObservation:");
+  const end = verificationScriptSource.indexOf(
+    "  const recoverySnapshotAfter",
+    start,
+  );
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(verificationScriptSource.slice(start, end));
+  const normal = {
+    parentTerminationConfirmed: true,
+    joined: true,
+    inputEofIssued: false,
+    timedOut: false,
+    streamFailure: false,
+    launchError: null,
+    outputWithinLimit: true,
+    parseFailure: false,
+    runtimeEventProtocolViolation: false,
+  };
+  for (const [key, value] of [
+    ["normal", null],
+    ["parentTerminationConfirmed", false],
+    ["joined", false],
+    ["inputEofIssued", true],
+    ["timedOut", true],
+    ["streamFailure", true],
+    ["launchError", "Error"],
+    ["outputWithinLimit", false],
+    ["parseFailure", true],
+    ["runtimeEventProtocolViolation", true],
+    ["trigger_not_requested", null],
+  ] as const) {
+    let starts = 0;
+    const invoke = runInNewContext(
+      `(async () => { ${body}; return reentryObservation; })`,
+      {
+        isParentTerminationRequestedAfterProcessStart:
+          key !== "trigger_not_requested",
+        parentLossObservation: {
+          ...normal,
+          ...(key === "normal" ? {} : { [key]: value }),
+        },
+        MAXIMUM_OUTPUT_BYTES: 4096,
+        PROCESS_TIMEOUT_MS: 100,
+        sourceRoot: "fixed-source",
+        repositoryRoot: "fixed-root",
+        startPublicMcpProcess: () => {
+          starts++;
+          return { stdin: { write: () => undefined } };
+        },
+        observePublicMcpProcess: async () => ({ joined: true }),
+        mcpEnvelope: () => "fixed-request",
+        recoveryRequest: {},
+      },
+    ) as () => Promise<unknown>;
+    const result = await invoke();
+    assert.equal(starts, key === "normal" ? 1 : 0, key);
+    if (key !== "normal") assert.equal(result, null, key);
+  }
+});
+
+/**
+ * 回復Matrixの親だけの停止を実本文で反証する。
+ * @trace PRL-ST-001
+ * @precondition Script本文を模擬ChildProcessへ接続する。
+ * @stimulus kill受理・拒否・例外、close欠落、別Signal。
+ * @observation 停止回数、回復呼出回数と元Recovery ID。
+ * @oracle 正常closeだけ回復へ進み、不成立は元IDを保持して停止する。
+ * @cleanup 実Process・Docker・Filesystem書込みは行わない。
+ * @boundary 回復検証Scriptの親停止Gate。
+ */
+test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを保持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("async function verifyParentLossThenRecover(");
+  const end = source.indexOf("\n/**", start);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(source.slice(start, end)).replaceAll(
+    "import.meta.url",
+    '"file:///fixed-script"',
+  );
+  class FixtureFailure extends Error {
+    readonly recoveryId: string | null;
+    constructor(message: string, recoveryId: string | null = null) {
+      super(message);
+      this.recoveryId = recoveryId;
+    }
+  }
+  for (const mode of ["normal", "false", "throw", "no_close", "wrong_signal"]) {
+    let kills = 0,
+      recoveries = 0;
+    const child = Object.assign(new EventEmitter(), {
+      pid: 12345,
+      exitCode: null,
+      signalCode: null as NodeJS.Signals | null,
+      kill: (signal: string) => {
+        kills++;
+        assert.equal(signal, "SIGKILL");
+        if (mode === "throw") throw Error("synthetic_kill_failure");
+        if (mode === "false") return false;
+        if (mode !== "no_close")
+          queueMicrotask(() => {
+            child.signalCode = mode === "wrong_signal" ? "SIGTERM" : "SIGKILL";
+            child.emit("close");
+          });
+        return true;
+      },
+    });
+    const invoke = runInNewContext(`(${body}\n)`, {
+      createRecoveryMatrixChildEnvironment: () => ({}),
+      spawn: () => child,
+      process: { execPath: "fixed-node", cwd: () => "fixed-root" },
+      fileURLToPath: () => "fixed-script",
+      INTERNAL_CHILD_ARGUMENT: "fixed-child",
+      CHILD_READY_CONTRACT: "fixed-ready",
+      CHILD_EXIT_TIMEOUT_MS: 5,
+      setTimeout,
+      clearTimeout,
+      RecoveryMatrixFailure: FixtureFailure,
+      waitForChildReady: async () => ({
+        contract: "fixed-ready",
+        status: "ready",
+        recoveryId: "fixed-recovery",
+        manualRecoveryRequired: true,
+        operationRoot: "fixed-root",
+      }),
+      recoverDockerIsolationProbe: () => {
+        recoveries++;
+        return {};
+      },
+      recoveryCompleted: () => true,
+    }) as () => Promise<unknown>;
+    let error: unknown;
+    try {
+      await invoke();
+    } catch (failure) {
+      error = failure;
+    }
+    assert.equal(kills, 1, mode);
+    assert.equal(recoveries, mode === "normal" ? 1 : 0, mode);
+    if (mode === "normal") assert.equal(error, undefined);
+    else {
+      assert.ok(error instanceof FixtureFailure);
+      assert.equal(error.recoveryId, "fixed-recovery");
+    }
+    child.emit("close");
+  }
+});
+
 /** 受動段階通知は実行Lifecycleへ数えず、不正field・役割矛盾は拒否する。
  * @trace PRL-ST-003
  * @boundary メモリ内の本番検証parser。AI・Docker・子Processなし。
@@ -481,9 +672,9 @@ const observation = (
     timedOut: false,
     inputEofIssued: true,
     forcedTerminationIssued: false,
-    processTreeTerminationAttempted: false,
-    processTreeTerminationConfirmed: false,
-    processTreeTerminationTriggerEvent: null,
+    parentTerminationAttempted: false,
+    parentTerminationConfirmed: false,
+    parentTerminationTriggerEvent: null,
     inputCloseTriggerEvent: null,
     joined: true,
     runtimeEventProtocolViolation: false,
@@ -683,9 +874,9 @@ const recoverySettlementFixture = () => ({
     exit: { code: 1, signal: null },
     inputEofIssued: false,
     forcedTerminationIssued: true,
-    processTreeTerminationAttempted: true,
-    processTreeTerminationConfirmed: true,
-    processTreeTerminationTriggerEvent: {
+    parentTerminationAttempted: true,
+    parentTerminationConfirmed: true,
+    parentTerminationTriggerEvent: {
       event: "process_started",
       taskRole: "executor",
       provider: "claude",
@@ -1527,6 +1718,7 @@ test("通常二経路はProcess Tree終了だけでは合格しない", () => {
 test("回復再入場はProcess Tree終了だけでは合格しない", () => {
   const base = buildInput();
   const observation = base.recoverySettlement.reentry;
+  assert.ok(observation);
   const result = build({
     recoverySettlement: {
       ...base.recoverySettlement,
@@ -1611,6 +1803,7 @@ test("取消Recovery義務の余分値と理由差を完了へ昇格しない", 
  */
 test("全公開経路はchild未joinを個別にblockedへ閉じる", () => {
   const base = buildInput();
+  assert.ok(base.recoverySettlement.reentry);
   /**
    * unjoinedのTest準備責務を実行する。
    *
@@ -1779,7 +1972,7 @@ test("clean観測だけ、欠落・順序違反・Identity不一致を回復実�
         ...base,
         parentLoss: {
           ...base.parentLoss,
-          processTreeTerminationTriggerEvent: {
+          parentTerminationTriggerEvent: {
             event: "process_started",
             taskRole: "executor",
             provider: "claude",
@@ -2167,7 +2360,7 @@ test("exit先着でclose未到達でも有限時間で未joinを返す", async (
   assert.ok(Date.now() - startedAt < 500);
   assert.equal(result.joined, false);
   assert.equal(result.exit, null);
-  assert.equal(result.processTreeTerminationConfirmed, false);
+  assert.equal(result.parentTerminationConfirmed, false);
   assert.equal(fixture.killCalls(), 0);
   fixture.child.emit("error", new Error("late_child_error"));
   fixture.child.emit("close", 0, null);
@@ -2275,7 +2468,7 @@ test("timeout後のfallback killをProcess-tree終了確認へ昇格しない", 
   assert.equal(fixture.killCalls(), 1);
   assert.equal(result.forcedTerminationIssued, true);
   assert.equal(result.joined, false);
-  assert.equal(result.processTreeTerminationConfirmed, false);
+  assert.equal(result.parentTerminationConfirmed, false);
   fixture.child.emit("close", null, "SIGTERM");
 });
 
@@ -2313,84 +2506,100 @@ test("close観測後は保有timerを解除し遅延killや結果変更を起こ
 });
 
 /**
- * helper永続pendingとchild close欠落が同時でも共通期限で未joinを返すを検証する。
- *
- * @responsibility helper永続pendingとchild close欠落が同時でも共通期限で未joinを返すの合否判定を所有する。
+ * 親だけの停止要求と終了確認を分離する。
+ * @responsibility kill受理・拒否・例外とclose欠落を確認し、子孫終了の証拠を作らない。
  * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus helper永続pendingとchild close欠落が同時でも共通期限で未joinを返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 合成親Processと固定開始通知を使う。
+ * @stimulus SIGKILLのtrue・false・throw、重複通知とclose欠落。
+ * @observation 停止回数、元親終了、凍結結果と後着通知。
+ * @oracle 一回だけ停止を要求し、未closeならparentTerminationConfirmed=false。
+ * @cleanup 実Process・Filesystem・Dockerを使用しない。
+ * @boundary MCP親停止の合成境界。
  */
-test("helper永続pendingとchild close欠落が同時でも共通期限で未joinを返す", async () => {
-  for (const pendingAt of ["started", "wait"] as const) {
-    let resolvePending!: (value: unknown) => void;
-    const pending = new Promise<unknown>((resolve) => {
-      resolvePending = resolve;
-    });
+test("親停止はkillの受理・拒否・例外を終了確認へ読み替えず一回だけ要求する", async () => {
+  for (const mode of ["accepted", "false", "throw"]) {
     const fixture = createSyntheticUnclosedChild(false, {
       emitStreamClose: false,
     });
-    const startedAt = Date.now();
+    let kills = 0;
+    fixture.child.kill = ((signal: NodeJS.Signals) => {
+      kills += 1;
+      assert.equal(signal, "SIGKILL");
+      if (mode === "throw") throw Error("synthetic_kill_failure");
+      return mode === "accepted";
+    }) as typeof fixture.child.kill;
     const resultPromise = observePublicMcpProcess(fixture.child, {
       maximumOutputBytes: 4096,
       timeoutMs: 20,
       terminationGraceMs: 20,
       onVerifiedRuntimeEvent: (event) =>
-        event.event === "process_started"
-          ? "terminate_process_tree"
-          : "continue",
-      startProcessTreeTermination: () =>
-        Object.freeze({
-          started: async () =>
-            pendingAt === "started" ? (pending as Promise<boolean>) : true,
-          wait: async () =>
-            pendingAt === "wait"
-              ? (pending as Promise<null>)
-              : Object.freeze({
-                  status: 0,
-                  signal: null,
-                  stdout: "",
-                  stderr: "",
-                  outputExceeded: false,
-                }),
-          terminateAndWait: async () => true,
-          closed: () => true,
-        }),
+        event.event === "process_started" ? "terminate_parent" : "continue",
     });
-    (fixture.child.stderr as PassThrough).write(
-      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "claude", operationId: "OP-700001" })}\n`,
-    );
+    const notice =
+      "[Coordinator lifecycle] " +
+      JSON.stringify({
+        event: "coordinator_provider_process_started",
+        taskRole: "executor",
+        provider: "claude",
+        operationId: "OP-700001",
+      }) +
+      "\n";
+    (fixture.child.stderr as PassThrough).write(notice);
+    (fixture.child.stderr as PassThrough).write(notice);
     const result = await resultPromise;
-    assert.ok(Date.now() - startedAt < 500, pendingAt);
-    assert.equal(fixture.killCalls(), 1, pendingAt);
-    assert.equal(result.joined, false, pendingAt);
-    assert.equal(result.exit, null, pendingAt);
-    assert.equal(result.processTreeTerminationConfirmed, false, pendingAt);
-    const frozenResult = JSON.stringify(result);
-    if (pendingAt === "started") resolvePending(true);
-    else resolvePending(null);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(JSON.stringify(result), frozenResult, pendingAt);
-    fixture.child.emit("close", 0, null);
+    assert.equal(kills, 1, mode);
+    assert.equal(result.parentTerminationAttempted, true, mode);
+    assert.equal(result.parentTerminationConfirmed, false, mode);
+    assert.equal(result.joined, false, mode);
+    assert.equal(result.exit, null, mode);
+    assert.equal(result.inputEofIssued, false, mode);
+    assert.equal(result.streamFailure, mode === "throw", mode);
+    const frozen = JSON.stringify(result);
+    fixture.child.emit("close", null, "SIGKILL");
+    assert.equal(JSON.stringify(result), frozen, mode);
   }
 });
 
 /**
- * 実子Processの終了を模擬tree補助へ接続して親喪失を観測するを検証する。
- *
- * @responsibility 実子Processの終了を模擬tree補助へ接続して親喪失を観測するの合否判定を所有する。
+ * 実Node親の終了を故障注入として確認する。
+ * @responsibility 親のcloseと強制終了を確認し、子孫やContainerの不存在とは区別する。
  * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実子Processの終了を模擬tree補助へ接続して親喪失を観測するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定Node fixtureのみを起動する。
+ * @stimulus Provider開始に見立てた固定通知の後に親SIGKILLを要求する。
+ * @observation 故障注入trigger、終了Signal、closeとEOF非発行。
+ * @oracle 元親終了だけが成立し、taskkill補助は起動しない。
+ * @cleanup 同じ子のcloseを確認する。
+ * @boundary 実Nodeの単一Process。実AI・Dockerは起動しない。
  */
-test("実子Processの終了を模擬tree補助へ接続して親喪失を観測する", async () => {
+test("期限後の停止に遅い開始通知が重なってもkillを再配送しない", async () => {
+  const fixture = createSyntheticUnclosedChild(false, {
+    emitStreamClose: false,
+  });
+  const pending = observePublicMcpProcess(fixture.child, {
+    maximumOutputBytes: 4096,
+    timeoutMs: 10,
+    terminationGraceMs: 100,
+    onVerifiedRuntimeEvent: (event) =>
+      event.event === "process_started" ? "terminate_parent" : "continue",
+  });
+  const deadline = Date.now() + 1_000;
+  while (fixture.killCalls() === 0 && Date.now() < deadline)
+    await new Promise<void>((resolve) => setTimeout(resolve, 1));
+  assert.equal(fixture.killCalls(), 1);
+  (fixture.child.stderr as PassThrough).write(
+    `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "claude", operationId: "OP-700001" })}\n`,
+  );
+  const result = await pending;
+  assert.equal(fixture.killCalls(), 1);
+  assert.equal(result.parentTerminationAttempted, false);
+  assert.equal(result.parentTerminationConfirmed, false);
+  assert.equal(result.joined, false);
+  const snapshot = JSON.stringify(result);
+  fixture.child.emit("close", null, "SIGKILL");
+  assert.equal(JSON.stringify(result), snapshot);
+});
+
+test("実Node親だけの強制終了をcloseとSIGKILLで確認する", async () => {
   const child = spawn(process.execPath, [fixture, "parent-loss"], {
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
@@ -2403,122 +2612,18 @@ test("実子Processの終了を模擬tree補助へ接続して親喪失を観測
       event.event === "process_started" &&
       event.taskRole === "executor" &&
       event.provider === "claude"
-        ? "terminate_process_tree"
+        ? "terminate_parent"
         : "continue",
-    startProcessTreeTermination: () => {
-      queueMicrotask(() => child.kill());
-      return Object.freeze({
-        started: async () => true,
-        wait: async () =>
-          Object.freeze({
-            status: 0,
-            signal: null,
-            stdout: "",
-            stderr: "",
-            outputExceeded: false,
-          }),
-        terminateAndWait: async () => true,
-        closed: () => true,
-      });
-    },
   });
   child.stdin.write('{"id":"objective-parent-loss"}\n');
   const result = await resultPromise;
   assert.equal(result.processStartEventObserved, true);
   assert.equal(result.forcedTerminationIssued, true);
-  assert.equal(result.processTreeTerminationAttempted, true);
-  assert.equal(result.inputEofIssued, false, JSON.stringify(result));
+  assert.equal(result.parentTerminationAttempted, true);
+  assert.equal(result.parentTerminationConfirmed, true);
+  assert.equal(result.inputEofIssued, false);
   assert.equal(result.joined, true);
-  assert.notEqual(result.exit, null);
-  assert.equal(result.exit?.code === 0 && result.exit.signal === null, false);
-});
-
-/**
- * Process-tree helperの不成立形を終了確認へ昇格しないを検証する。
- *
- * @responsibility Process-tree helperの不成立形を終了確認へ昇格しないの合否判定を所有する。
- * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Process-tree helperの不成立形を終了確認へ昇格しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Process-tree helperの不成立形を終了確認へ昇格しない", async (t) => {
-  const cases = [
-    { name: "started_false", started: false, result: null, closed: false },
-    { name: "wait_timeout", started: true, result: null, closed: false },
-    {
-      name: "nonzero",
-      started: true,
-      result: { status: 1, signal: null, outputExceeded: false },
-      closed: true,
-    },
-    {
-      name: "signal",
-      started: true,
-      result: { status: null, signal: "SIGTERM", outputExceeded: false },
-      closed: true,
-    },
-    {
-      name: "output_limit",
-      started: true,
-      result: { status: 0, signal: null, outputExceeded: true },
-      closed: true,
-    },
-    {
-      name: "close_unobserved",
-      started: true,
-      result: { status: 0, signal: null, outputExceeded: false },
-      closed: false,
-    },
-  ] as const;
-  for (const item of cases) {
-    await t.test(item.name, async () => {
-      const child = spawn(process.execPath, [fixture, "parent-loss"], {
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      const resultPromise = observePublicMcpProcess(child, {
-        maximumOutputBytes: 4096,
-        timeoutMs: 2_000,
-        terminationGraceMs: 100,
-        onVerifiedRuntimeEvent: (event) =>
-          event.event === "process_started" &&
-          event.taskRole === "executor" &&
-          event.provider === "claude"
-            ? "terminate_process_tree"
-            : "continue",
-        startProcessTreeTermination: () =>
-          Object.freeze({
-            started: async () => {
-              if (!item.started) queueMicrotask(() => child.kill());
-              return item.started;
-            },
-            wait: async () => {
-              queueMicrotask(() => child.kill());
-              return item.result === null
-                ? null
-                : Object.freeze({
-                    ...item.result,
-                    stdout: "",
-                    stderr: "",
-                  });
-            },
-            terminateAndWait: async () => {
-              queueMicrotask(() => child.kill());
-              return true;
-            },
-            closed: () => item.closed,
-          }),
-      });
-      child.stdin.write('{"id":"objective-parent-loss"}\n');
-      const result = await resultPromise;
-      assert.equal(result.joined, true);
-      assert.equal(result.processTreeTerminationConfirmed, false);
-    });
-  }
+  assert.equal(result.exit?.signal, "SIGKILL");
 });
 
 /**

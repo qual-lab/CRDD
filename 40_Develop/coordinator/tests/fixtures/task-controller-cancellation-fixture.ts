@@ -2,13 +2,13 @@
  * Task Controller取消のProcess構成を試験へ提供する。
  *
  * @packageDocumentation
- * @responsibility 自己生成Process Treeの開始・完了・取消をTask Controllerへ接続する。
+ * @responsibility 自己生成の単一Processの開始・完了・取消をTask Controllerへ接続する。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @trace ERB-IT-003
  * @level IT
  * @scope Task Controllerと所有Process
- * @boundary Task Controller→自己生成Process Tree。実ProviderやDocker Daemonを利用するFixtureではない。
+ * @boundary Task Controller→自己生成の単一Process。実ProviderやDocker Daemonを利用するFixtureではない。
  */
 import { executionSelection, attemptSelection } from "./ai-selection.ts";
 
@@ -21,7 +21,7 @@ import {
 } from "../../../executor/scripts/executor-test.ts";
 import { attemptPlan } from "../../../executor/tests/fixtures/attempt-plan.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
-import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
+import { createOwnedProcessFixture } from "./docker-owned-process-test-support.ts";
 
 // Only Node descendants are real. Docker, authentication and durable recovery
 // are explicit fixture contracts; no production Authority is issued.
@@ -31,7 +31,7 @@ export function createTaskControllerCancellationFixture(
   hostRecoveryId: string,
   dockerCleanupConfirmed: boolean,
 ) {
-  const processes = createOwnedProcessTreeFixture();
+  const processes = createOwnedProcessFixture();
   const preparedCapability = Object.freeze({});
   const activeMountCapability = Object.freeze({});
   const authorityUseCapability = Object.freeze({});

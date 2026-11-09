@@ -2,7 +2,7 @@
  * Platform AccessのNode公開境界。
  *
  * @packageDocumentation
- * @responsibility 固定Native、Provider Home／Namespaceの技術搬送とOS／Profile差分の子Process環境を公開する。
+ * @responsibility 固定Native、Provider Homeの技術搬送とOS／Profile差分の子Process環境を公開する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @trace ARCH-000010
@@ -27,15 +27,8 @@ export {
   type WindowsEntryObservation,
 } from "./filesystem/entry.ts";
 export {
-  startWindowsChildTreeTermination,
-  type ChildTreeTerminationHandle,
-  type ChildTreeTerminationResult,
-} from "./process/termination.ts";
-export {
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
   createChildProcessEnvironment,
-  createWindowsHostTerminalHelperEnvironment,
-  createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
 } from "./process/environment.ts";
 export {
@@ -48,7 +41,6 @@ export {
   describeProviderHomeObservationContract,
   type ProviderHomeObservationProvider,
 } from "./filesystem/protection.ts";
-export { initializeWindowsHostRecordNamespace } from "./host-record/namespace.ts";
 export {
   startDockerDesktopRepairHelper,
   startDockerDesktopRestartHelper,

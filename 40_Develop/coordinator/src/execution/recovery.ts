@@ -3035,15 +3035,10 @@ export async function recoverRuntimeOwnedDockerTaskResources(
       },
       onResourcesClosed: (snapshot, observations) => {
         const operation = current();
-        const preservesAuthenticationClosure =
-          coordinatorTaskResourcesAreSettled(operation) &&
-          operation.resources?.checkpoints.some(
-            (value) =>
-              value.key === "create_subscription_auth_probe" &&
-              value.receiptSource === null,
-          );
+        const requiresAuthenticationClosure =
+          coordinatorAuthenticationUnknownCanClose(operation);
         if (
-          !preservesAuthenticationClosure &&
+          !requiresAuthenticationClosure &&
           !persistRuntimeOwnedDockerTaskRecoveryCheckpoint(
             capability,
             "cleanup",

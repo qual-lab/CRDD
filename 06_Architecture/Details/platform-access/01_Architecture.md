@@ -2,28 +2,44 @@
 
 ## 現在の残存範囲 — 2026-11-07
 
+### 子Process環境の用途設定整理 — 2026-11-09
+
+共通のOS選択・親環境中立化・検証済みProfile付与はPAの`createChildProcessEnvironment()`一入口に維持する。PA自身のNative搬送とDI、Coordinatorが共用するため、DIへ移して逆依存を作らず、利用側ごとのコピーや新しい共通Packageも追加しない。共通入口のPA外への最終配置は未完了である。
+
+Dockerの署名確認専用PowerShell環境は、DIの既存`docker-cli/environment.ts`へ統合する。共通入口の検証済みWindows所在・Profileから固定五項目だけを投影し、親PATH・Proxy等は採用しない。OS所在・Profileの検査をDIで再実装しない。DI Rootの公開API、Docker操作、署名の判定・期限は不変更とする。
+
+本番利用のない`createWindowsHostTerminalHelperEnvironment()`は、専用試験とPA Root exportを撤去する。通常回復NamespaceのNode経路やProvider Home保護の代替を新設しない。`deriveWindowsSystemDrive()`はDIとPAのDesktop Helperの双方で利用するため現配置を維持する。
+
+環境整理時点ではProcessツリー停止はPAの一実装をDIと検証Scriptが共用していた。2026-11-09の通常CLI整理に続き、検証Scriptの故障注入もNode.js標準による元親だけの停止へ変更した。PAの固定taskkill入口・実装・専用試験は撤去済みである。子孫停止と同等の置換ではなく、親終了と残存資源の回復を別に評価する。BrowserとDesktop Job Objectの終了処理は変更しない。
+
 技術排他は共通Lockへ接続し、PAにはPipe／Supervisor／Leaseの取得・監視・回復処理を残さない。OS判定とPID観測はNode.js標準を各Ownerが使用する。子Process環境は実在する用途差分だけを構築し、本番利用のない固定記述関数`describeWindowsChildEnvironmentContract`と専用2定数は撤去した。実際の環境生成・子での観測・外部Effect前の拒否検査は維持する。
 
 | 残る機能と利用先 | Node.js標準だけへの置換で失うもの | 現在の処置 |
 |---|---|---|
-| Namespace初期化、Runtime State／Provider Home観測：Coordinator | 選択利用者SID、protected DACL、祖先Handle・Token照合 | 現Policyを維持。通常Directory作成は既存Node処理を使い、Native保護を暗黙に撤廃しない |
+| Runtime State／Provider Home観測：Coordinator | 選択利用者SID、protected DACL、祖先Handle・Token照合 | 現Policyを維持。通常回復Namespaceへの判断を認証Homeへ流用しない |
 | OS既定所在：子環境、DI修復 | System Windows API／Known Folder由来の確認。環境変数やhomedir合成とは同値でない | 読取り専用の固定Native搬送を維持。ambient値へのfallbackは追加しない |
 | Entry観測：DIの修復Directory処置 | reparse tag、Native File Identityとlink countの技術検査 | lstatだけへ置換しない。実処置OwnerはDI |
-| tree終端：DIと検証Script | Nodeのchild.killだけでは子孫Process終了を同等に扱えない | 既存taskkill接続を薄い共用処理として維持。元子のclose確認は利用側 |
 | Desktop Helper：DI | Job Objectによる割当・終了確認、Publisherと実行物の照合 | 技術実装を維持。DIへの単なる移動をNative撤去と扱わない |
+| Desktop修復／再起動のGlobal Mutex：DI経由のNative Helper | 選択利用者Hashに結合したRepository／Windows Session横断の排他とHelper終了時の解放 | 共通wxへの変更候補だが同値置換ではない。下記のScope・生涯・Crash時の意味を別に評価する |
 | Artifact照合：上記搬送の全利用側 | 固定配布物の前後同一性とProtocol相関 | Nativeが残る間は維持 |
 
 これらの残存Sourceには実利用があり、未使用ファイルとして削除しない。PA全廃には保護Policyと対応保証の人間判断が別途必要である。この整理でPolicy変更、新しいPackage・Manager・Store、代替の監視機構は追加しない。移管と検証の現在結果は[変更記録§15](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#15-file-lock群の共通化とpa残存機能の再評価--2026-11-07)を参照する。以下の日付付き節は各段階の判断履歴であり、旧Pipe記述を現行機能へ読み替えない。
 
-## Namespaceの旧子撤去とNode.js統合の検討 — 2026-11-06
+<a id="namespaceの旧子撤去とnodejs統合の検討--2026-11-06"></a>
+
+## Namespaceの旧子撤去（2026-11-06）とNode.js統合（2026-11-07）
 
 旧終端記録用`terminal-v1`の作成・実体／ACL照合・専用観測を撤去した。既存の旧子は観測・移行・削除しない。通常回復用`crdd-coordinator-recovery-v1`の作成、選択利用者SID、protected DACL、祖先Handle保持、独立期待値と処置後照合、部分Receiptと初回closeは維持する。要求CRDDNC01／CRDDNI01は不変更。短命応答はCRDDNR02 revision 2の二実体・一Receiptへ縮小し、旧応答は受け付けない。通常HostRecovery保存DTOと公開関数の引数は変更しない。
 
-### Node.js側への統合案（未実装）
+### Node.js側への統合（承認済み）
 
-Coordinatorの`operation.ts`にある`createProtectedRuntimeOwnedOperationDirectories()`と`ensureHostRecoveryDirectory()`の二段接続を整理し、既存の後者を通常回復Directory初期化のOwnerとする。Policy維持案では、WindowsだけNativeの保護付き作成・照合を先に完了し、その後Node.jsの実Path・Identity照合と通常Operation生成・記録へ進む。Nodeの通常mkdirで先に作成すると、継承ACLのDirectoryを現Nativeが正しく拒否し得るため、単純に作成順を逆転しない。新しいManager・Callback・Storeは不要だが、全呼出し元と試験用直接入口の整理は実装前に再確認する。
+人間の承認により通常回復NamespaceだけをNode中心へ変更した。Coordinatorの`operation.ts`の本番依存は既存`createOwnedOperationDirectories`へ直接接続し、Native先行初期化と私有Wrapperを撤去する。`ensureHostRecoveryDirectory()`の固定child、Path・非link・実体・EEXIST後の再照合、部分作成の回収と通常記録Writer／Readerは維持する。
 
-Policyを別途撤廃する場合は、既存`ensureHostRecoveryDirectory()`のmkdir・realpath・lstat・Identity・競合後再照合へ一本化できる。今回この変更は行わない。
+撤去対象はPAのNamespace TS入口、Rust専用module・Protocol・二つのCLI modeと専用検証Toolである。旧modeは一般の不正要求として拒否する。退役するSID／DACL・祖先Handle・主体事前検査のOracleはNode成功へ読み替えない。Provider Home／Runtime、Desktop、Artifact、通常記録の保存形式・Token／Hash・処置許可と排他は変更しない。
+
+この変更は保護Policyの明示的な変更であり、従来と同等のWindows保護を提供する整理ではない。service・restricted Token等のNative事前拒否もなくなるが、それらの実行形態が検証済みになったとは主張しない。PA全廃・Native全廃は未完了である。
+
+Node経路が観測する`os.tmpdir()`の正規Path・実体は、その所在が利用者専用または他SIDから書込み不能である証明ではない。専用TEMPの保護を前提とするNode中心案は、実行時に強制する保証ではなく、採用時に人間が受容する運用前提である。共有・保護不明のTEMPをNodeだけで自動検出して拒否できるとは表示しない。実行時の主体／DACL不適合拒否を必要とする場合はNative等の観測を維持する。その技術能力を既存Ownerへ移管してPAだけ廃止する経路は別に成立し得るため、強い保護を残すこととPA Package存続を同一視しない。
 
 | 外す保護 | 失う確認・影響 | Node.js側で維持できる範囲 |
 |---|---|---|
@@ -32,6 +48,21 @@ Policyを別途撤廃する場合は、既存`ensureHostRecoveryDirectory()`のm
 | 祖先DirectoryのHandle保持 | Native処理区間の祖先差替え防止を失い、Path確認と操作間の競合余地が増える | lstat／realpath・操作前後の実体再確認。ただし原子的な差替え排除ではない |
 
 現行もHandle保持はNative呼出し内に限り、戻った後のNode処理全体を連続保護しているわけではない。Node化の影響を過大にも過小にも評価しない。通常回復記録は維持し、Provider認証Homeの保護Policyをこの判断へ混ぜない。
+
+### Desktopの排他を共通Lockへ寄せる場合の境界
+
+Nativeの`repair.rs`は、修復・再起動の双方で選択利用者Hashに結合した`Global` Mutexを取得する。名前はRepositoryに依存せず、Helperが保持するOS handleが終了時に閉じられる。共通wxは指定DirectoryのFileを保持し、Crash後は残存によって停止するため、単なる実装交換ではない。
+
+| 比較する条件 | 現行Native Mutex | 共通wxへ寄せる場合に確定すること |
+|---|---|---|
+| 排他Scope | 同一選択利用者の修復／再起動。Repository・Windows Sessionを横断 | 両操作・全Repository・全対象Sessionが同一の既存管理領域／Identityへ到達すること |
+| 利用者結合 | Nativeが選択利用者Hashを取得 | NodeのPID・home文字列を同じ利用者の証明へ補完せず、必要なScopeを再定義または既存値で確定すること |
+| 保持区間 | 同じHelperの処置中にhandleを保持 | Node側の要求受付だけで解放せず、Helperの終了確認まで保持すること |
+| 競合・正常終了 | 同名Objectがあれば停止。元handleを閉じる | EEXISTで停止し、元Generation・File実体を照合して一回解放すること |
+| Crash後 | 最後のOS handleが閉じられるとObjectが解放される | File残存で停止する変更と、全利用者停止下の明示回復を人間が採用すること |
+| ACL・切替 | OS Objectのアクセス条件と選択利用者Scope | 管理Directoryのアクセス前提を定め、新旧方式を同時稼働させないこと |
+
+既存Host操作世代のLockはこのGlobal Scopeと同一とは限らない。重複だからという理由だけでMutexを削除しない。新しいRegistry・Store・自動回復は作らず、共通Lockの既存契約で成立するかを評価してから変更する。今回このPolicy・実装は変更しない。
 
 ## 本番未使用の端末・旧Root観測の退役 — 2026-11-06
 
@@ -61,7 +92,7 @@ OS判定はCoordinatorが`process.platform`を直接使う。PID観測は既存`
 
 TypeScriptは機能別Folderへ配置し、Rustは`src/native/<責務>/windows/`へ実装をまとめ、責務の`mod.rs`が`#[cfg(windows)]`でビルド時に選択する。共通化するのは必要な操作・結果・終了保証であってOS APIそのものではない。Linux／macOSの空実装・Factory・Registryは作らず、現行の非Windows拒否を維持する。既存Protocol・保存形式・失敗理由・同じ回復参照・同期／非同期方式は構造変更から変更しない。
 
-Namespaceの存続試験は`tests/integration/host_namespace.rs`へ接続する。`host_namespace::tests`の親・Recovery値契約と`host_namespace_creation_tests`／`protection_tests`のignored条件を維持し、専用記録の保存・容量・現在候補・Known処理は退役する。
+当時Namespaceの存続試験を`tests/integration/host_namespace.rs`へ接続したが、2026-11-07のNode中心Policy採用で専用Rust試験は退役した。現在の通常回復NamespaceはCoordinatorのNode実境界試験が所有し、旧保護試験の成立は引き継がない。
 
 PAから上位Packageを参照しない。開発観測の前後二回borrowとCapability判断は上位に残し、後確認が不成立なら発行しない。DI Policy Hashは上位が取得した用途固定入力であり、汎用raw argv／frame・任意実行物のAPIは公開しない。Rust側のWindows Publisher検証はCRDD署名の退役と別責務として維持する。
 
@@ -71,7 +102,7 @@ Native実行物の確認はPlatform Access内部へ閉じる。Root公開APIか�
 
 二APIは非Windowsを明示拒否し、観測候補または固定失敗区分・Process発行・終了・Artifact前後確認を返す。token・raw frame・実行物Path・Capabilityを返さない。Root用途・Home選択、鮮度10秒、Capability発行・消費・失効は従来の上位Ownerが維持する。純粋Protocolは`filesystem/protection.ts`へ移し、通常利用側へwire構築・解釈の手順を要求しない。
 
-`host-record/namespace.ts`の`initializeWindowsHostRecordNamespace`は、親の観測・期待Identity結合・保護付き初期化と固定Nativeの前後確認を所有する。上位は作成時点・失敗分類・清掃判断を所有する。観測と初期化の二要求、部分receiptとFilesystem Effectの不明値、個別終了・応答と終了値の相関を保持する。独立した観測APIや任意のwire入力は公開しない。純粋ProtocolとNative搬送の試験はPA、上位作成との結合試験はCoordinatorが所有し、別Packageの非公開Sourceを直接importしない。
+旧`host-record/namespace.ts`と`initializeWindowsHostRecordNamespace`は退役した。Namespaceの初期化はCoordinatorの既存Node処理へ直接接続し、PAへ代替API・互換Protocolを設けない。
 
 Cargo rootとtarget位置を維持し、Buildは`src/native/build.rs`、実行入口は`src/native/main.rs`、CLI結合試験は`tests/integration/native_cli.rs`へ明示接続する。[現物・Consumer対応表と検証範囲](../../../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)が移管結果と未実行範囲を所有する。
 
@@ -84,10 +115,8 @@ Cargo rootとtarget位置を維持し、Buildは`src/native/build.rs`、実行�
 | `artifact` | `observeNativeArtifact`、`observePlatformAccessArtifactCandidate` | 実体・内容の観測値。実行許可・Publisher真正性・tokenは返さない |
 | `filesystem` | `observeSystemWindowsDirectory`、`observeWindowsLocalAppDataDirectory`、`observeWindowsFilesystemEntry` | OS所在・対象一件の観測。削除許可は返さない |
 | `filesystem` | `observeWindowsRuntimeState`、`observeWindowsProviderHome`、`describeProviderHomeObservationContract` | 固定Nativeの技術観測と部分Effect。Capabilityの発行・鮮度判定は上位 |
-| `host-record` | `initializeWindowsHostRecordNamespace` | 用途固定の親照合・初期化と部分receipt。作成時点・清掃判断は上位 |
 | `docker-desktop` | `startDockerDesktopRepairHelper`、`startDockerDesktopRestartHelper` | 固定補助子・Protocol・stdio・終了処理。操作許可、Policy、Engine判断、CheckpointはDocker Isolation |
-| `process` | `startWindowsChildTreeTermination` | 所有子の終了結果。Process番号だけで別対象を停止しない |
-| `process` | `createChildProcessEnvironment`、`createWindowsHostTerminalHelperEnvironment`、`createWindowsPowerShellAuthenticodeEnvironment`、`deriveWindowsSystemDrive` | 用途固定の環境値。任意環境builderを公開しない |
+| `process` | `createChildProcessEnvironment`、`deriveWindowsSystemDrive` | 共通の中立環境とDrive導出。Docker署名確認用環境はDIが所有し、任意環境builderを公開しない |
 
 固定target・Protocol・Toolchain・容量と、必要な環境provenance定数、各操作の型もRootから明示exportする。正確なexport集合は公開契約試験で固定し、用途内のdecoder・wire・内部Artifact tokenは含めない。未使用の環境契約記述と専用定数は含めない。
 
@@ -134,10 +163,9 @@ Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在
 | `src/process/environment.ts` | OS由来Directory／Profile検証、中立環境、Console／Supervisor／Native／Host終端／固定PowerShell初期化環境、純粋Drive検査 | 既存用途固定の操作だけを公開。任意additions builderはprivate。親環境をAuthorityにせず、Host終端だけTMP／TEMPを導出する。Docker用Home・config・Hints・修復用Drive付与とPublisher判断は所有しない |
 | Coordinator `src/execution/kernel-lock.ts`／`src/objective/execute.ts` | CoordinatorがNode.js標準APIを直接使用（PAの観測入口は撤去） | PIDだけをSignal 0で観測し、ESRCHだけabsent、EPERM等はunknown。不正PIDではOS照会0。世代結合・Lease入力・回復判断は上位。Platform familyは既存Windows対応だけを返し、未対応OSへfallbackしない |
 | NodeのOS排他・固定Worker／Supervisor | [共通Lock](../lock/01_Architecture.md)へ移管 | PAからの旧再export・互換Wrapperは残さない。用途別Identity・取得順・Owner判断は利用側。中立環境の構築は既存PA APIをCoordinatorが使い、共通Lockへ確定値として渡す |
-| `src/process/termination.ts` | 所有ChildProcessを対象とする固定taskkillの開始、有界結果待機、補助子の終了とclose観測 | 生存元子だけを対象とし、観測後も未終了を再確認する。任意PID・実行物・引数・環境builderは公開しない。補助開始／終了値／closeと元子closeは別の事実。Consumerが一度発行と元子closeを所有する |
 | `src/index.ts` | 上記の必要な意味操作を明示export | Coordinator／Docker Isolation等はRoot APIを使い、下位から上位import 0、旧Path／shim 0 |
 
-固定tree終端は、要求直前に元子未終了と観測したPIDを対象とする。観測からOS受理までのPID再利用防止やOSのexact Process Identity保証は成立範囲に含めない。補助子成功だけでは元子終了を判定せず、Consumerが元子closeを別に確認する。未再現の可能性だけを理由に共有Registryや新しい管理機構を追加しない。
+PAはProcessツリー停止を提供しない。通常CLIと検証用の親Process停止は各既存OwnerがNode.js標準APIで行い、元親closeを確認する。親停止から子孫不存在やContainer清掃を推定せず、既存の回復Ownerが現在のLock・Receipt・資源を照合する。親の終了未確認時は再入場Processを開始しない。新しいRegistryや停止Managerは追加しない。
 
 観測はFilesystem読取りとProcess内Snapshot保持を伴い、純粋関数ではない。変更・実行Authorityを発行せず、Hashを署名／Publisher真正性／実行許可へ昇格しない。旧`SigningObservation`は暗号署名ではなかったため、Artifact観測へ名称を訂正する。既存のreason／statusは維持する。署名Manifest結合の記述は通常Runtimeの保証へ移植しない。
 
@@ -265,9 +293,6 @@ Rust受付・dispatch [src/native/main.rs]（以下のRust Pathはsrc/native基�
   │          └→ 保護・実体観測 [filesystem/windows/protection.rs]
   │                                         ↓
   │                                      Windows API
-  ├→ Host Namespace要求 [protocol/host_namespace.rs]
-  │     └→ 固定親・初期化 [host_record/windows/host_namespace.rs]
-  │          └→ 保護・実体観測 [host_record/windows/protected_file.rs]
   └→ Docker操作 [docker_desktop/windows/repair.rs]
         ├ 障害修復protocol
         ├ 検証付き再起動protocol（Source接続済み・実機未完了）
@@ -287,15 +312,12 @@ Platform Access側で技術相関を確認 → 上位の許可・診断／回復
 | Windows主体観測 | `src/native/process/windows/principal.rs` | Token／SID／認証Sessionと主体分類のOS観測 |
 | Windows保護・実体観測 | `src/native/filesystem/windows/protection.rs` | Handle・Descriptor所有、Directory Identity、固定入力のopen、ACL AccessCheckとhash resourceの解放 |
 | 固定Provider Home／Runtime State観測 | `src/native/filesystem/windows/protected_root.rs` | Provider Home／Runtime Stateの固定親、構成、Runtime Stateだけの限定初期化と主体・保護Bindingを照合する。旧Store値は現行Protocolで拒否する |
-| 保護付きFile操作 | `src/native/host_record/windows/protected_file.rs` | Namespaceに必要な同期handleのopen・close、実体・ACL照合とDescriptor構成 |
-| Host Namespace観測 | `src/native/host_record/windows/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求 |
-| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `host_record::host_namespace::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
 | Docker実体検証 | `src/native/docker_desktop/windows/identity.rs` | 固定artifactの署名・ハッシュ・同一実体とProcess Path・作成時刻・scope観測。停止・起動を所有しない |
 | Docker操作 | `src/native/docker_desktop/windows/repair.rs` | 用途別protocol、mutex、検証済みartifactとProcessを使う限定停止・開始・再起動 |
 | 発行元検証 | `src/docker-desktop/publisher.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
 | 停止CLIの子Process所有 | `src/process/owned_child.rs` | 停止前生成、Jobへの割当、実行、有限待機、取消と終了観測 |
 
-Host保護試験の反復入口は`40_Develop/coordinator/scripts/verify-native-protection.ts`とする。Repository Rootから起動し、Buildは`40_Develop/platform-access/target/`を共有し、検証済みRoot直下の`.crdd/tests/native-protection-<UUID>/`へ一時対象・結果だけを保存する。任意Path、実行物またはcommandを引数で受け付けず、旧診断実行物のsuffixや先頭Fileから対象を選ばない。親Case一件、閉じたNative結果、両Workerの役割別終了、明示handle終了、Source／実行物不変とfixture不存在の全条件を共同評価する。中断・未知・失敗は成功へ畳まずrunを保持する。旧残存の回収、OS固定保存場所、署名Runtime、本番回復と他Native試験の成立は対象外である。
+旧Host保護試験の反復入口`verify-native-protection.ts`はNamespace保護Policyの退役に合わせて撤去した。現在のNode初期化はCoordinatorの`host-recovery-namespace.integration.test.ts`と`host-recovery-record.contract.test.ts`で、新品Repository-local領域のみを用いて確認する。通常回復の記録・改変拒否・不明状態は維持するが、SID／DACL・祖先Handleの試験をNode試験へ置換済みとは扱わない。
 
 再起動protocolのSourceが存在することは、署名済み配布物への収載、耐久記録との接続または実機E2E完了を意味しない。操作許可、Directory退避、Task復旧、再起動完了の総合判定はこのbinaryへ移さず、Coordinator側に保持する。Linux／macOSの実装経路はない。
 
@@ -309,9 +331,11 @@ RootやHomeの観測結果は、用途別Adapterが同じOperationのRepository�
 
 ### 固定保存境界の私有観測
 
-Namespaceの親・Recovery Directoryの実体と保護確認だけを維持する。専用Host対象・終端記録のCurrent／Known観測、保存、読戻しとcaller Leaseは本番未接続のため退役した。旧形式の互換Reader、代替保存、過去保持物の移行・削除は提供しない。
+Namespaceの親・Recovery Directoryの固定child／Root範囲・非link・Path／実体確認と通常回復記録を維持する。SID／DACL・祖先Handleの専用保護確認は退役した。専用Host対象・終端記録のCurrent／Known観測、保存、読戻しとcaller Leaseも本番未接続のため退役した。Provider Home／Runtimeの保護、保存Schema・Token・Authority・Lockは変更しない。旧形式の互換Reader、代替保存、過去保持物の移行・削除は提供しない。
 
-### 共有管理フォルダの保護付き作成と限定移行
+### 共有管理フォルダの保護付き作成と限定移行（退役仕様の履歴）
+
+以下は基準版`53209fad7`までのNative仕様の履歴である。2026-11-07のNode中心Policy採用後は実装・試験入口として使用しない。現行のNamespace生成と運用前提は本書冒頭を正本とする。実共有DirectoryのACL変更・移行や過去保持物の処置は今回行わない。
 
 通常作成と既存権限の移行は別の処理である。通常作成は、明示不存在の場合だけ現在利用者とSYSTEMの非継承full-control二ACE、現在利用者owner、protected DACLを作成時に指定する。競合による既存化も、同じ保持chainから実体・型・fresh ACLを再確認する。既存不適合を修復せず停止し、失敗時に共有フォルダをrollbackで削除しない。
 
@@ -356,7 +380,7 @@ Namespaceの親・Recovery Directoryの実体と保護確認だけを維持す�
 
 ## 4. バイナリ境界
 
-Root／Homeは`protocol/access.rs`、Namespaceは`protocol/host_namespace.rs`、Docker環境操作は既存のDocker実装が正本である。
+Root／Homeは`protocol/access.rs`、Docker環境操作は既存のDocker実装が正本である。Namespace専用Protocolは退役し、CoordinatorのNode初期化を使用する。
 
 | protocol | 識別と長さ | 確認事項 |
 |---|---|---|
@@ -364,7 +388,7 @@ Root／Homeは`protocol/access.rs`、Namespaceは`protocol/host_namespace.rs`、
 | Provider Home／Runtime State | revision 3、`CRDDPH02`／`CRDDHO02`、要求76・応答182 bytes | provider、nonce、主体・保護・安定Identity。初期化flagはRuntime Stateだけ。旧Store値は拒否する |
 | Docker障害修復 | `CRDDDR05`、応答41 bytes | 現行公式成果物の署名・同一操作Identityを固定し、公式停止と残存Process終了を分離して返す |
 | 検証付き再起動 | `CRDDDS01`、応答41 bytes | 現行公式成果物の署名・同一操作Identityを固定する別mode。`S`だけが公式停止を許可し、`N`未発行／`T`exit 0と子回収確認／`P`発行後不明を返す |
-| Namespace | `--host-recovery-namespace-observe`／`--host-recovery-namespace-initialize`と既存CRDDNR02応答 | 親・固定childの実体、部分作成、保護と個別終了。専用記録の保存・読戻しは提供しない |
+| Namespace（退役） | 二つの旧Namespace modeは一般の不正要求として拒否 | 初期化はCoordinatorのNode処理。専用Native応答を提供しない |
 
 部分応答・nonce不一致・異常終了を成功へ補完せず、raw出力や秘密を公開しない。
 

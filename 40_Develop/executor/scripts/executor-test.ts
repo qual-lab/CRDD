@@ -2038,7 +2038,7 @@ export function describeIsolationContract() {
     taskInput: "runtime_owned_task_or_advice_stdin_only_not_docker_argv",
     cleanup:
       "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_and_name_absence",
-    processTreeTermination: environment.processTreeTermination,
+    processTermination: environment.processTermination,
     callerCommandAllowed: false,
     providerEffectAllowed: true,
   });

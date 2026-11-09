@@ -1,6 +1,6 @@
 /**
  * 生成済み認証操作を固定Docker Engineと共通Process Ownerで実行する。
- * @responsibility 同操作の明示取消を確認し、対話非捕捉・上限・tree終端を技術結果として返す。
+ * @responsibility 同操作の明示取消を確認し、対話非捕捉・上限・元Process停止を技術結果として返す。
  * @trace ARCH-000008
  */
 import {
@@ -69,10 +69,10 @@ export interface DockerAuthenticationRuntime {
  * @responsibility 固定Engineと元Commandを結合し、終了不明を上位へ返す。
  * @trace ARCH-000008
  * @input binding: fresh CLI／環境と固定cwd。command: 元Command。isActive: 同操作の明示取消状態の同期確認。
- * @returns 一次失敗と元子／補助子の終了観測。
+ * @returns 一次失敗と元CLIの終了観測。
  * @precondition 上位がHome許可・対話端末・Recovery Intentを確認済み。
  * @postcondition 終了不明を成功や次操作の許可にしない。
- * @effect 固定Docker CLIを開始し、取消／期限／明示取消時にtree終端する。
+ * @effect 固定Docker CLIを開始し、取消／期限／明示取消時に元Process停止する。
  * @failure 元Command欠落、環境／CLI不明は開始前拒否。終端不明は別fieldで返す。
  * @invariant 新State、Lock、認証／回復管理を作らない。
  * @boundary Docker CLIと同操作の取消状態。

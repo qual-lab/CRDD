@@ -72,6 +72,7 @@ const {
   createDockerCliEnvironment,
   createDockerDesktopRepairHelperEnvironment,
   createDockerProcessEnvironment,
+  createWindowsPowerShellAuthenticodeEnvironment,
 } = await import("../../src/docker-cli/environment.ts");
 
 for (const [dockerConfig, dockerHome] of [
@@ -140,6 +141,22 @@ if (scenario === "native_unknown" || scenario === "drive_unknown") {
     SYSTEMDRIVE: "D:",
   });
   assert.ok(Object.isFrozen(repair));
+}
+const authenticode = createWindowsPowerShellAuthenticodeEnvironment();
+if (scenario === "native_unknown") {
+  assert.equal(authenticode, null);
+} else {
+  assert.deepEqual(authenticode, {
+    SystemRoot: "D:\\Windows",
+    WINDIR: "D:\\Windows",
+    USERPROFILE: "D:\\Users\\fixture",
+    PATH: "D:\\Windows\\System32;D:\\Windows;D:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+    PATHEXT: ".COM;.EXE;.BAT;.CMD",
+  });
+  assert.ok(Object.isFrozen(authenticode));
+  assert.equal(Object.keys(authenticode).length, 5);
+  assert.equal("HTTPS_PROXY" in authenticode, false);
+  assert.equal("HOME" in authenticode, false);
 }
 assert.equal(processRequests, 0);
 process.stdout.write(

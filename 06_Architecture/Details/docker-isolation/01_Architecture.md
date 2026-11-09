@@ -586,11 +586,11 @@ Task Packet、モデル選定、送信同意、User Credential、業務結果は
 | 開始観測・待機 | 有界待機。開始通知、終了Status、出力超過と観測不能を区別する |
 | 取消・終了待機 | 所有Process treeと終了補助Processのcloseを確認する。取消要求だけを終了にしない |
 | 診断attach | 入力は構成確認済みの実Container IDと固定ready prefix。下位が固定Engineのstart --attachを組み立て、ready・一次失敗・元子close・終端補助子closeを分ける。64KiB出力上限と共通Process Ownerを使用する |
-| Windows子のtree終端 | 所有元子を既存Platform Accessの用途固定入口へ渡す。固定taskkill・OS所在・補助ProcessはPlatform Access、元Docker CLI子のstdioとclose・一度発行は本Packageが所有する。共通期限内で元子と補助子双方のcloseを確認し、補助成功だけをDocker資源清掃成功へ代用しない |
+| 通常Docker CLIの停止 | Node.js標準の`child.kill("SIGKILL")`で所有元子だけへ一回停止要求し、同じ猶予内で元子のcloseを待つ。killのtrue・false・例外を終了確認へ読み替えない。Host子孫停止は提供せず、Container内の処理は既存のContainer停止・削除・不存在確認で扱う |
 | 同期診断 | version、固定Python Probeのcreate、実IDのinspect／start／SIGTERM／remove、ID／固定名／Labelの不存在照合を閉じた用途から構築する。固定Probeの技術選択とDocker観測結果の技術分類は下位。回復記録・3Mountの利用許可・診断実施の業務判断は上位に維持し、共通結果を元Operationの業務状態へ相関する。新しい任意Script／argv Executorは公開しない |
 | 対話stdio | 対話許可は上位で判断する。下位のinherit方式は出力を捕捉せず、非対話callback／stdin搬送と同時指定しない。対話結果の意味・認証Authorityを下位へ移さない |
 | 認証用技術計画 | 上位が公式CLI・専用Home・固定Imageと操作を指定する。statusは通信なし・Home読取り専用のProbe一資源、loginだけがProxyと二Networkを含む既存五資源。status入力にProxy・token・login引数を含めない。Workspaceは受け取らず、HOME／Proxy等の隔離設定の上書き、getter／Proxy入力と暗黙文字列変換を拒否する。生成Commandの元object相関は技術照合であり、Home利用Authorityや認証成功を生成しない |
-| 認証Process | 元Commandだけを固定Engineへ発行する。上位の許可生存を開始前・実行中に観測し、喪失・非対話期限・出力超過で共通tree終端へ接続する。一次理由とprocessCompletionConfirmedを分け、未確認なら上位がin_flightを保持し後続操作・完了記録・Home解放を拒否する。新しい下位回復Stateは作らない |
+| 認証Process | 元Commandだけを固定Engineへ発行する。上位の許可生存を開始前・実行中に観測し、喪失・非対話期限・出力超過で共通の元CLI停止へ接続する。一次理由とprocessCompletionConfirmedを分け、未確認なら上位がin_flightを保持し後続操作・完了記録・Home解放を拒否する。新しい下位回復Stateは作らない |
 | 認証作成Receipt | create stdoutの実IDと直後の単一inspectを結合し、同digest Imageの既定Entrypoint／Cmd／Env／WorkingDirを含む認証構成を照合する。NetworkはDriver／Scope／Internal、Containerは実ID・名前・Label・Image・User・隔離条件・Network・Home bind・tmpfsを評価する。Proxy秘密値は耐久化せず固定形式と一意keyを検査する。結果が不明ならReceiptを返さず、上位の既存in_flight記録を保持する |
 | 認証資源清掃 | 操作別の元Receiptを同じ元Planへ結合し、実ID指定inspectで実ID・名前・所有Labelを確認後だけ元removal操作を一回実行する。ID欠測Receiptは名前の不存在だけを観測し、発見した資源を削除しない。ID不存在だけから同名資源の不存在を推定せず、事後に実IDと名前を確認する。Proxyの接続形状とtoken形式等の構成条件は作成Receipt・診断で検査し、既知元IDの削除条件にしない。別操作の資源集合を相互代用しない |
 
@@ -655,7 +655,7 @@ Coordinator／Orchestratorは、実行・取消・回収・診断・許可済み
 
 上位が保存・chain・fence・Authority・履歴の正本Ownerであることと、Desktop固有の旧Schemaを現在の制御へ残すことは同義ではない。現在の入力・結果・通知・状態判断は環境中立のprojectionだけを用い、Docker固有phaseの技術解釈は下位へ閉じる。旧Desktop Schema／namespaceは移行元の根拠に限定し、現在phaseや実行許可へ流用しない。既存の人間指示に従い、旧形式の移行・清掃はフロントAIが確認して行い、Runtimeへ互換Reader・二重Schema・移行Frameworkを追加しない。過去の正式Evidence・署名・Hashは変更しない。未移行・相関不明の現状態は新Effect前に停止し、新Schemaの具体化・利用側・exact Identity・移行入力と停止条件を固定候補前に照合する。
 
-実装は[40_Develop/docker-isolation](../../../40_Develop/docker-isolation)へ置く。既存のWindows Docker CLIの信頼観測、固定Engine、最小環境、shell禁止、出力上限、所有Process tree終端の保証を維持する。固定Path・Authenticode・同一実体Identityと環境は各spawn直前に既存Ownerへ再照合し、観測後の差替え・不明ではEffect前停止とする。初回のboolean／Hash／raw Pathを以後の実行許可へ流用しない。未検証OSへ自動fallbackしない。
+実装は[40_Develop/docker-isolation](../../../40_Develop/docker-isolation)へ置く。既存のWindows Docker CLIの信頼観測、固定Engine、最小環境、shell禁止、出力上限と元Processのclose確認を維持する。2026-11-09の通常CLI整理ではHost子孫までの停止から元CLIだけの停止へ範囲を限定した。同等のツリー停止保証とは扱わない。対象は専用configと`--pull=never`を使う組込Container／Network／version操作であり、Plugin・Build・SSH Transport・任意Host子孫生成を追加する場合は停止契約を再評価する。固定Path・Authenticode・同一実体Identityと環境は各spawn直前に既存Ownerへ再照合し、観測後の差替え・不明ではEffect前停止とする。初回のboolean／Hash／raw Pathを以後の実行許可へ流用しない。未検証OSへ自動fallbackしない。
 
 Package自身は永続State、Repository-local一時Root、新しい排他を新設しない。上位Coordinatorが既存Ownerで検査／借用した用途限定projection・workspace binding・生存観測・元結果だけを§2の閉じたcallbackで受ける。下位は現在State／回復recordを読書きせず、上位のRepository／Home保存Lockを取得／解放せず、借用元Capabilityから新しいAuthorityを生成しない。既存Native helperが所有する技術操作用Mutexの取得・保持・回収は、上記の選択利用者単位の限定契約に従う。既存の検証済みbinding配下にある実行専用Docker CLI configの作成・実体照合・回収は技術Ownerの対象とし、Root作成・上位記録操作とは区別する。意味のあるEvidenceと通常診断の保持Ownerは変更しない。任意正式配布の署名を行う場合だけ、その配布対象と新Packageの対応を照合する。旧Source位置に依存する固定検査は必要Artifact観測・任意配布・旧比較へ分け、通常Runtimeの署名閉包を維持する理由にしない。
 
@@ -753,7 +753,7 @@ Docker Isolationは保存成功・Task判断・Provider内容受理のACKを取�
 
 実行SessionのnotificationDeliveryConfirmedは、実際の通知試行がない場合null、全登録通知の完了時true、通知の例外・不正返却時falseとする。falseは同操作中に戻さず、失敗後のonFailureを含む通知を止める。Command自体の失敗をonFailureへ正常通知できた場合は、技術失敗と通知成功を区別する。どの値も耐久保存を保証しない。
 
-低位Processの`observeStdout`は同期voidの出力観測であり、任意の非同期通知へ変更しない。同期例外とundefined以外の返却は既存の観測失敗として扱い、後者のPromise拒否を捕捉してから既存の出力失敗flag・元Processの終端要求へ接続する。即時成功Promiseも同期完了ではないため受理しない。後着拒否は消費だけとし、追加終端や結果更新を行わない。probe内部の`observeFixtureOutput`は不正返却を隠さず外側へ返し、そのchunkから新たなreadyを成立させない。既に観測済みのreadyは巻き戻さず、元子・終了補助子のcloseは別に確認する。
+低位Processの`observeStdout`は同期voidの出力観測であり、任意の非同期通知へ変更しない。同期例外とundefined以外の返却は既存の観測失敗として扱い、後者のPromise拒否を捕捉してから既存の出力失敗flag・元Processの終端要求へ接続する。即時成功Promiseも同期完了ではないため受理しない。後着拒否は消費だけとし、追加終端や結果更新を行わない。probe内部の`observeFixtureOutput`は不正返却を隠さず外側へ返し、そのchunkから新たなreadyを成立させない。既に観測済みのreadyは巻き戻さず、元CLIのcloseを確認し、停止要求だけを終了成立へ換算しない。
 
 
 ## 共通入口整理の残件1〜5の確定境界（2026-11-02）

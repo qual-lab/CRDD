@@ -116,3 +116,43 @@ export function createDockerProcessEnvironment() {
   if (!environment) throw new Error("docker_effect_environment_unavailable");
   return environment;
 }
+
+/**
+ * Dockerの署名確認に必要なPowerShell環境を構成する。
+ * @responsibility 共通の検証済みOS所在から、署名確認専用の固定五項目だけを投影する。
+ * @trace ARCH-000008
+ * @input N/A: 呼出し側の環境値や所在を受け取らない。
+ * @returns 凍結した五項目の環境、または所在観測不能を示すnull。
+ * @precondition 共通環境のWindows所在・Profile検査が成立する。
+ * @postcondition 親PATH・Proxy・Node設定を継承せず、固定PATHとPATHEXTを返す。
+ * @effect 共通環境の固定Native／OS情報／Filesystem読取り。署名検査やDocker操作は行わない。
+ * @failure 非Windowsまたは共通環境の取得不能はnull。
+ * @invariant 所在観測と署名・実行許可の判断を分離する。
+ * @boundary 共通子環境からDocker署名確認用の環境への投影。
+ * @security 任意keyや親環境へのfallbackを追加しない。
+ * @concurrency 同期の値構築。Processの終了管理は署名確認Ownerが所有する。
+ */
+export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
+  Record<string, string>
+> | null {
+  const environment = createChildProcessEnvironment({
+    platform: "win32",
+    userProfile: true,
+  });
+  if (!environment) return null;
+  const windowsDirectory = environment.SystemRoot;
+  const userProfile = environment.USERPROFILE;
+  if (!windowsDirectory || !userProfile) return null;
+  const system32 = path.win32.join(windowsDirectory, "System32");
+  return Object.freeze({
+    SystemRoot: windowsDirectory,
+    WINDIR: windowsDirectory,
+    USERPROFILE: userProfile,
+    PATH: [
+      system32,
+      windowsDirectory,
+      path.win32.join(system32, "WindowsPowerShell", "v1.0"),
+    ].join(";"),
+    PATHEXT: ".COM;.EXE;.BAT;.CMD",
+  });
+}

@@ -12,10 +12,78 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { runInNewContext } from "node:vm";
 import * as dockerTrustOperations from "../../src/docker-cli/trust.ts";
 import * as dockerIsolation from "../../src/index.ts";
+
+/**
+ * 署名確認用投影が共通環境の欠測を補完しないことを反証する。
+ * @responsibility 共通環境の選択条件と専用五項目への投影を確認する。
+ * @trace ERB-IT-001
+ * @precondition 本番関数本文を合成の共通環境へ接続する。
+ * @stimulus 基礎環境null、Windows所在欠測、Profile欠測、余分な親設定を与える。
+ * @observation 選択引数、返却keyと凍結状態、元環境の不変性。
+ * @oracle 欠測時はnull、正常時は固定五項目のみで親設定を搬送しない。
+ * @cleanup N/A: メモリ内のみ。Process・Filesystem書込みは行わない。
+ * @boundary 投影部分の局所反証。実OSの成立を主張しない。
+ */
+test("署名確認環境は共通観測の欠測を補完せず固定五項目だけ返す", () => {
+  const source = readFileSync(
+    new URL("../../src/docker-cli/environment.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf(
+    "export function createWindowsPowerShellAuthenticodeEnvironment(",
+  );
+  assert.ok(start > 0);
+  const body = stripTypeScriptTypes(
+    source.slice(start).replace(/^export /u, ""),
+  );
+  for (const base of [
+    null,
+    Object.freeze({ USERPROFILE: "D:\\Users\\fixture" }),
+    Object.freeze({ SystemRoot: "D:\\Windows" }),
+    Object.freeze({
+      SystemRoot: "D:\\Windows",
+      USERPROFILE: "D:\\Users\\fixture",
+      PATH: "ambient-injected",
+      NODE_OPTIONS: "ambient-injected",
+    }),
+  ]) {
+    let calls = 0;
+    const create = runInNewContext(`(${body}\n)`, {
+      path,
+      createChildProcessEnvironment: (options: object) => {
+        calls += 1;
+        assert.deepEqual(JSON.parse(JSON.stringify(options)), {
+          platform: "win32",
+          userProfile: true,
+        });
+        return base;
+      },
+    }) as () => Readonly<Record<string, string>> | null;
+    const actual = create();
+    assert.equal(calls, 1);
+    if (!base || !("SystemRoot" in base) || !("USERPROFILE" in base)) {
+      assert.equal(actual, null);
+    } else {
+      assert.ok(actual);
+      assert.equal(Object.keys(actual).length, 5);
+      assert.equal(Object.isFrozen(actual), true);
+      assert.equal("NODE_OPTIONS" in actual, false);
+      assert.equal(
+        Object.getOwnPropertyDescriptor(base, "PATH")?.value,
+        "ambient-injected",
+      );
+      assert.notEqual(actual.PATH, "ambient-injected");
+    }
+  }
+});
 
 /**
  * Docker実行物の固定Trust契約と既存Native Policy Hashの一致を確認する。
@@ -50,7 +118,7 @@ test("実行物Trustは既存Policy Hashと操作内実体固定を維持する"
 
 /**
  * 固定構成と三観測不能を別Processで反証する。
- * @responsibility null pair、絶対Path、NUL、固定key、元環境不変と不明時の停止を判定する。
+ * @responsibility null pair、絶対Path、NUL、署名確認の固定五項目、元環境不変と不明時の停止を判定する。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @precondition 既存の用途固定PA観測だけをfixture内で差し替える。

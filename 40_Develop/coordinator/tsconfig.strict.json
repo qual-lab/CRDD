@@ -30,7 +30,6 @@
     "src/execution/advice.ts",
     "src/execution/diagnostics.ts",
     "bin/coordinator.ts",
-    "scripts/verify-native-protection.ts",
     "scripts/check-dynamic-fake-provider-coverage.ts",
     "scripts/check-provider-authority-coverage.ts",
     "scripts/check-provider-home-coverage.ts",
