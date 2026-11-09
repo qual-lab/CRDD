@@ -14,6 +14,10 @@ import fs from "node:fs";
 import { mock } from "node:test";
 import * as cliEnvironment from "../../src/docker-cli/environment.ts";
 import * as cliTrust from "../../src/docker-cli/trust.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 const purpose = process.argv[2];
 const scenario = process.argv[3];
@@ -55,7 +59,7 @@ await mock.module(
   {
     namedExports: {
       ...cliEnvironment,
-      createDockerCliEnvironment: (input: unknown) => {
+      createDockerCliEnvironment: (_settings: unknown, input: unknown) => {
         environments.push(input);
         return scenario === "environment" ? null : environment;
       },
@@ -136,12 +140,15 @@ const dockerInternalOperations = await import(
 );
 const observed =
   purpose === "runtime"
-    ? dockerInternalOperations.observeDockerEngine()
+    ? dockerInternalOperations.observeDockerEngine(ISOLATION_SETTINGS)
     : purpose === "repair"
-      ? dockerInternalOperations.observeDockerRepairEngine(configurationRoot)
+      ? dockerInternalOperations.observeDockerRepairEngine(
+          configurationRoot,
+          ISOLATION_SETTINGS,
+        )
       : (
           await import("../../src/docker-desktop/engine.ts")
-        ).observeDockerDesktopRepairEngine();
+        ).observeDockerDesktopRepairEngine(ISOLATION_SETTINGS);
 assert.equal("observeDockerDesktopRepairEngine" in api, false);
 const preRejected = ["environment", "publisher-before", "unsupported"].includes(
   String(scenario),

@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-PAのtaskkill接続は2026-11-09に撤去した。通常CLIと検証の故障注入は元ProcessだけのNode.js標準停止とし、親終了不明時の再入場は未実施として保持する。予定外Host試験からの最初の7領域は回収済み。その後に再現した4失敗を、Domainの厳密な資源未発行判定と試験のOwner／所在／停止下wx再入場へ是正し、元4件・認証代役5形・親停止1形が成功した。Domain全484件と周辺回帰も成功し、実装途中で今回作った8試験Rootと新品TEMPは全量照合後に回収して不存在を確認した。再現調査時の以前の4領域と過去保持物は不操作・保持のまま。Host全体回帰・実AI／Docker回復E2Eは今回未実施であり、回復Matrixのready前失敗時の終了確認も残件である。詳細は[今回の変更・試験と回収](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#taskkill接続の完全撤去と親だけの故障注入--2026-11-09)を参照する。
+DIの子Process環境は2026-11-10に明示初期化へ接続した。`windowsDirectory`／`userHomeDirectory`をオンメモリへ固定し、実行中のambient再取得を撤去した。DI407成功・5対象外、Executor114成功、Coordinator関連99成功と独立再レビューを確認。今回試験物5 Rootは回収済み。PA自身のNative保護と古い保持物は維持し、PA全廃・実AI／Docker E2E・全体QAの完成とはしない。[今回の範囲と保証変更](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#diの明示初期化と子process環境--2026-11-10)を参照する。
+
+PAのtaskkill接続は2026-11-09に撤去した。通常CLIと検証の故障注入は元ProcessだけのNode.js標準停止とし、親終了不明時の再入場は未実施として保持する。予定外Host試験からの最初の7領域は回収済み。その後に再現した4失敗を、Domainの厳密な資源未発行判定と試験のOwner／所在／停止下wx再入場へ是正し、元4件・認証代役5形・親停止1形が成功した。Domain全484件と周辺回帰も成功し、実装途中で今回作った8試験Rootと新品TEMPは全量照合後に回収して不存在を確認した。その後の人間承認で以前の再現調査4領域・60分中断回帰領域・空のWorkspace旧2領域も照合して回収し、全7領域の不存在を確認した。Docker影響未確認の古いHost試験物などは保持継続。Host全体回帰・実AI／Docker回復E2Eは今回未実施であり、回復Matrixのready前失敗時の終了確認も残件である。詳細は[最新の保持物回収と残件](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#承認済み保持物の限定回収--2026-11-09)を参照する。
 
 残るEI・Topic／Meeting・一時Operationの技術排他を共通Lockへ接続した。取得・所有照合・解放は一つのwx実装とし、保存・改訂・世代・根拠昇格は各Ownerに残す。EEXISTの自動待機・PID不在による削除・Lock専用staging/hardlink公開を撤去し、再入場の最初の変更前から終端清掃後まで必要な区間を保持する。先行13 Packageの旧試験・管理情報等7系統を最小是正し、関連再試験と独立再レビューが成功した。Coordinator通常回帰は成功1,726・失敗0・skip5で完走した。Repository Checkerは基準Commitの3,787件に対して今回追加17件を是正し、残る既存指摘は未解消。全体QA合格は未成立。実AI・Docker・過去保持物は操作していない。[現在の回帰・Checker差分と限界](99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#17-設計品質登録とchecker差分の閉包--2026-11-07)を参照する。
 

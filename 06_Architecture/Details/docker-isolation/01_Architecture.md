@@ -1,6 +1,6 @@
 # Docker隔離の詳細設計
 
-DI内部関数は技術責務の短い名前で扱う。環境観測はobserveBackendState／observeDockerEngine、再起動はrestartDesktop、修復はrunRepairSession→executeRepairSteps、修復DirectoryはobserveRepairDirectories／cleanupRepairDirectory、実行物の固定Trust記述はdescribeDockerArtifactTrustContractとする。純粋な検証はdecodeRepairCheckpoint／validateRepairCheckpointTransition等とし、同名だったDomain保存検証の宣言とは区別する。DIを使う試験のSource切出し・VM注入も同じ宣言名へ接続する。RootのinspectDockerEnvironment／restartDockerEnvironment等の7公開関数は維持し、内部関数・依存差替え入口は追加公開しない。改名に伴って保存形式・IPC識別子・固定TrustのHash入力・処理順序・期限・取消・回収条件を変更しない。
+DI内部関数は技術責務の短い名前で扱う。環境観測はobserveBackendState／observeDockerEngine、再起動はrestartDesktop、修復はrunRepairSession→executeRepairSteps、修復DirectoryはobserveRepairDirectories／cleanupRepairDirectory、実行物の固定Trust記述はdescribeDockerArtifactTrustContractとする。純粋な検証はdecodeRepairCheckpoint／validateRepairCheckpointTransition等とし、同名だったDomain保存検証の宣言とは区別する。DIを使う試験のSource切出し・VM注入も同じ宣言名へ接続する。RootのinspectDockerEnvironment／restartDockerEnvironment等とinitializeIsolationの8公開関数を提供し、内部関数・依存差替え入口は追加公開しない。改名に伴って保存形式・IPC識別子・固定TrustのHash入力・処理順序・期限・取消・回収条件を変更しない。
 
 WorkingDirは、要求で明示したパスを優先し、未指定時だけImage既定値を使う。取得済みImage構成でWorkingDir項目が省略されている場合は空文字既定として扱う。Container側のWorkingDir欠測・null・undefined・不正型を空へ補完せず、文字列の完全一致を要求する。Image側の明示undefined・null・不正型も、既定値として利用する場合は拒否する。非空パスの大小文字・末尾区切り・別パスを同一視せず、起動設定・Timeout・回収条件・公開IFは変更しない。
 
@@ -125,7 +125,7 @@ Model／CLIのThread数変化や通常のBuild・Testを独自固定値で妨げ
 
 Task／Advice／Probeの用途相関、固定Image選択、RoleとWorkspace権限、認証環境とSeccomp選択はExecutorの既存構築関数が所有する。旧`execution/binding.ts`と`bindProviderCommand`の公開は撤去する。DIは静的Catalogと技術Compilerを所有し、ModelやTaskの判断、Task状態・Operation・Authority・Recoveryを受け取らない。新しい状態・Lock・Registryは持たない。
 
-助言用のCommand wrapperと専用Hashは廃止し、Executorが上位の確定入力から固定Image・通信Policy・非共有条件を結合する。Commandを上位へ往復させず、実行許可・同意判断は上位に残す。Executorは固定済みIsolationRequestを一度構築し、DIの共通Compilerだけが本番argvを生成する。旧九操作のCompiler・Proxy逆投影・argv診断・全Command比較は本番SourceとRootから撤去し、過去の有限Oracleとしてtests/support/execution-plan.tsへ限定する。Image変更・Docker実行・保存形式の変更は行わない。観測・回収は共通Snapshotと技術入口へ接続済みであり、Rootは7関数・15型へ整理済みである。有限試験による接続確認と、実Docker・実AIの未実施範囲は区別する。
+助言用のCommand wrapperと専用Hashは廃止し、Executorが上位の確定入力から固定Image・通信Policy・非共有条件を結合する。Commandを上位へ往復させず、実行許可・同意判断は上位に残す。Executorは固定済みIsolationRequestを一度構築し、DIの共通Compilerだけが本番argvを生成する。旧九操作のCompiler・Proxy逆投影・argv診断・全Command比較は本番SourceとRootから撤去し、過去の有限Oracleとしてtests/support/execution-plan.tsへ限定する。Image変更・Docker実行・保存形式の変更は行わない。観測・回収は共通Snapshotと技術入口へ接続済みであり、Rootは初期化を含む8関数・16型を提供する。有限試験による接続確認と、実Docker・実AIの未実施範囲は区別する。
 
 今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
 
@@ -637,7 +637,7 @@ Consumerの表示・任意保存は資源回収の終了条件に入れない。
 
 Desktop停止・起動・待機・補助Process回収は、取得からreleaseまで一つの下位固定操作へ閉じる。Coordinatorは[再起動要求の現在状態契約](../coordinator/01_Architecture.md#再起動要求の現在状態と下位の短命状態)に従い、既存exact操作の単一要求記録と現在の許可／Scope確認だけを所有する。下位は生Session、停止／起動の個別phase、任意argvやOS処置callbackを上位へ公開しない。要求発行直前の耐久checkpointが不成立ならHost要求0とし、同じ稼働Ownerの受付／完了通知、取消と補助資源回収を区別する。fresh再入場は過去の要求を再発行せず、現在観測を過去成功へ変換しない。この契約は移管先の完成条件であり、上位Caller／Writerは接続済みだが、接続だけを実境界・Package完成の根拠にしない。
 
-Engine観測の実処理は`docker-desktop/engine.ts`へ置く。公開環境診断はinspectDockerEnvironmentへ統合し、これらの低位観測をRootへ公開しない。内部の固定観測は再起動用途の`observeDockerEngine()`と、上位が検証した構成領域を受ける修復用途の`observeDockerRepairEngine(configurationRoot)`だけとする。前者はconfigなし・16,384 bytes、後者は同一Rootのconfig／Home・4,096 bytesを固定し、5秒の観測期限、Publisher・前後同一性、既存の状態分類を維持する。修復用途のTimeoutは一時的な未起動として保持し、pipe不存在と観測不能・close不明を区別する。公開結果は共通状態と観測資源のcleanupだけで、生出力・Process・pipe・Pathを返さない。上位は操作ごとのclosureでcleanup不明を保持し、以後の観測0と最終blockedを保証する。元のexact IDとNative helper固有cleanup値は変更しない。再試行・待機は既存運用の責務であり、観測だけから修復や再起動の完了を主張しない。旧修復判定seamは既存試験依存の整理対象で、新しい本番観測の根拠にしない。
+Engine観測の実処理は`docker-desktop/engine.ts`へ置く。公開環境診断はinspectDockerEnvironmentへ統合し、これらの低位観測をRootへ公開しない。内部の固定観測は再起動用途の`observeDockerEngine(settings)`と、上位が検証した構成領域を受ける修復用途の`observeDockerRepairEngine(configurationRoot, settings)`だけとする。前者はconfigなし・16,384 bytes、後者は同一Rootのconfig／Home・4,096 bytesを固定し、5秒の観測期限、Publisher・前後同一性、既存の状態分類を維持する。修復用途のTimeoutは一時的な未起動として保持し、pipe不存在と観測不能・close不明を区別する。公開結果は共通状態と観測資源のcleanupだけで、生出力・Process・pipe・Pathを返さない。上位は操作ごとのclosureでcleanup不明を保持し、以後の観測0と最終blockedを保証する。元のexact IDとNative helper固有cleanup値は変更しない。再試行・待機は既存運用の責務であり、観測だけから修復や再起動の完了を主張しない。旧修復判定seamは既存試験依存の整理対象で、新しい本番観測の根拠にしない。
 
 Docker実行物の固定Trust条件は既存`docker-cli/trust.ts`へ集約する。`describeDockerArtifactTrustContract()`は固定条件と既存Native ProtocolのPolicy Hashだけを返し、実体検証成功・実行許可・CRDD署名資格を発行しない。上位の記録が保持するHashは操作の相関値であり、上位でDocker出所条件を再定義しない。操作をまたぐDocker更新は許容し、操作中のPublisher・Identity・Hash固定は維持する。
 
@@ -647,7 +647,11 @@ Coordinator／Orchestratorは、実行・取消・回収・診断・許可済み
 
 下位は環境を判別し、検証済みの内部実装だけを使用する。現時点の成立済み実環境はWindows／Docker Desktopであり、APIを中立化したことをLinux対応の成立根拠にしない。未対応環境は共通の未対応結果で新Effect前に停止し、未知のbackendや未検証コマンドへfallbackしない。新しいPlugin／Adapter Frameworkを作らず、実在する実装と必要な内部選択だけに限定する。
 
-子Process環境の共通OS観測はPlatform Accessを利用する。Docker用の`DOCKER_CONFIG`／`HOME`／`USERPROFILE`／`DOCKER_CLI_HINTS`の固定構成とDesktop明示修復専用の`SYSTEMDRIVE`付与は本Packageが所有する。任意keyや親ambient環境の追加は受け付けない。Docker CLIの固定実体・前後Identity／Hash・Docker Inc Publisherの検査も本Packageへ置き、固定PowerShell初期化環境だけをPlatform Accessから取得する。使い捨てProcessの技術処理と用途の許可を混同せず、新しい汎用Authenticode Frameworkは作らない。
+子Process環境の固定PolicyはDocker Isolationが所有する。利用開始時に`initializeIsolation({ windowsDirectory, userHomeDirectory })`を呼び、Node.jsのPath・実体検査を経た`IsolationSettings`をコピー・凍結して受け取る。`windowsDirectory`はWindows配置先、`userHomeDirectory`はHostのOSユーザーHomeであり、Provider Homeではない。DIは環境変数やOSユーザー情報への暗黙fallbackを持たず、設定をグローバル登録・永続化しない。初期化は読取りだけでNative・PowerShell・Dockerを起動しない。
+
+`prepareIsolation(request, settings)`、`inspectIsolation(target, settings, options?)`、`cleanupIsolation(target, settings, callbacks?)`、`inspectDockerEnvironment(settings)`、`restartDockerEnvironment(request, settings)`へ同じ設定を明示する。`executeIsolation(prepared, callbacks?)`は準備に捕捉した環境を使用する。個別の管理領域・一時Home・Provider Homeは要求側に残し、設定から推測しない。Docker CLIの固定実体・前後Identity／Hash・Docker Inc Publisherと既存の実行・取消・回収条件は維持する。親PATH・Proxy・Node設定は継承せず、固定PowerShell環境も同じ設定から投影する。
+
+Windows所在は呼出し元の設定を信頼する。Native APIによる独立した所在証明からNode.jsの基本的なPath・Link確認への保証変更であり、SID／DACL・祖先Handleの保護と同等とは主張しない。PA自身のNative Helper起動環境は現在の独立保護を維持し、PAからDIへの逆依存は作らない。新しいManager・Store・汎用環境Frameworkは設けない。
 
 通常実行はprepareIsolationとexecuteIsolationから開始し、上位確定の技術入力をown dataとして固定する。CLI・Directory元実体、環境、config、Process、受領ID、回収と終了は共通Ownerが所有する。上位の所在／Receipt Reader、任意Processの注入、旧固定九操作Runtimeへのfallbackを持たない。旧RuntimeとSessionは製品Source／Rootから撤去し、試験supportだけへ移管する。
 
@@ -758,7 +762,7 @@ Docker Isolationは保存成功・Task判断・Provider内容受理のACKを取�
 
 ## 共通入口整理の残件1〜5の確定境界（2026-11-02）
 
-DIの公開値は共通技術操作6件と固定構成照会1件の7入口に限定する。補助検査を減らすためだけの検査用APIや実環境観測は追加しない。
+DIの公開値は共通技術操作6件、固定構成照会1件と明示初期化1件の8入口に限定する。補助検査を減らすためだけの検査用APIや実環境観測は追加しない。
 
 | 契約 | 正本・利用側 |
 |---|---|
@@ -811,7 +815,7 @@ DIの実行・観測・回収はOperationのpurposeでは分岐しない。Execu
 | Mount・Network | 期待集合・読書き・伝播・指定時のsourceを照合する。source未指定は旧契約どおりsource非比較であり、存在不要の意味ではない |
 | Directory | 既存の固定用途・実体・廃棄条件を維持する |
 
-固定ImageのUser・Entrypoint・外部Network可否はimage/assets.tsの静的Catalogを正本とし、共通準備が読む。未知Imageや許可外の構成を拒否し、任意Imageへ開放しない。Catalogはprimary／alternateの技術配置を返し、Task／Adviceの選択はExecutorが行う。Catalog内のalternateIdentityはRuntime配置名であり、Build入力JSONの既存fieldを改名しない。Rootの7関数・15型は維持するが、discovery期待値の構造とCatalogの入れ子fieldは利用側も追従する契約変更である。
+固定ImageのUser・Entrypoint・外部Network可否はimage/assets.tsの静的Catalogを正本とし、共通準備が読む。未知Imageや許可外の構成を拒否し、任意Imageへ開放しない。Catalogはprimary／alternateの技術配置を返し、Task／Adviceの選択はExecutorが行う。Catalog内のalternateIdentityはRuntime配置名であり、Build入力JSONの既存fieldを改名しない。Rootは初期化を含む8関数・16型とするが、discovery期待値の構造とCatalogの入れ子fieldは利用側も追従する契約変更である。
 
 新用途の安全Label・相関keyによる共通実行と回収、構成field単独不一致、別Labelキー、別key探索候補、未知Image・User・Entrypoint・外部接続の負例を有限試験へ接続する。実Docker・実AIの成立はこの有限試験から推定しない。
 

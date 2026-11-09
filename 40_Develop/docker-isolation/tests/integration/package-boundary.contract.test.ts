@@ -30,6 +30,10 @@ import { classifyDockerCommandExecution } from "../../src/execution/result.ts";
 
 import type { DockerCommandExecutionClassification } from "../../src/execution/result.ts";
 import { createDockerIsolationRuntime } from "../support/execution.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 const sourceRoot = path.resolve(import.meta.dirname, "../../src");
 const platformAccessRoot = path.resolve(
@@ -49,6 +53,7 @@ const platformAccessRoot = path.resolve(
  */
 test("隔離の明示契約は必須構成と未観測分類を保持する", async () => {
   const options: DockerIsolationRuntimeOptions = {
+    settings: ISOLATION_SETTINGS,
     paths: { tmp: "synthetic", management: "synthetic" },
   };
   // @ts-expect-error 所在借用は必須。
@@ -456,18 +461,23 @@ test("共通公開型はmode・資源・操作と戻り値の対応を維持す�
     // @ts-expect-error Container入力をSnapshot入力にしない。
     const wrongSnapshot: ResourceTarget<"snapshot"> = container;
     const restarted: Promise<DockerEnvironmentResult<"restart">> =
-      restartDockerEnvironment(restart);
+      restartDockerEnvironment(restart, ISOLATION_SETTINGS);
     const repaired: Promise<DockerEnvironmentResult<"repair">> =
-      restartDockerEnvironment(repair);
+      restartDockerEnvironment(repair, ISOLATION_SETTINGS);
     const disposed: Promise<ResourceCleanupResult<"directory">> =
-      cleanupIsolation(disposal);
-    const cleaned: ResourceCleanupResult<"container"> =
-      cleanupIsolation(container);
-    const running: IsolationExecution = cleanupIsolation(snapshot);
+      cleanupIsolation(disposal, ISOLATION_SETTINGS);
+    const cleaned: ResourceCleanupResult<"container"> = cleanupIsolation(
+      container,
+      ISOLATION_SETTINGS,
+    );
+    const running: IsolationExecution = cleanupIsolation(
+      snapshot,
+      ISOLATION_SETTINGS,
+    );
     const observed: ResourceInspection<"directory"> = null;
     // @ts-expect-error Container回収を非同期結果と偽らない。
     const wrongPromise: Promise<ResourceCleanupResult<"container">> =
-      cleanupIsolation(container);
+      cleanupIsolation(container, ISOLATION_SETTINGS);
     void [
       selected,
       mixed,

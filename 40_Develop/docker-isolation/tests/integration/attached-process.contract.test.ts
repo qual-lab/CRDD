@@ -87,6 +87,7 @@ test("認証Factoryは初期観測と同snapshotの各実行前検証を下位�
             return { isDirectory: () => failure !== "cwd" };
           },
         },
+        ISOLATION_SETTINGS: {},
         observeTrustedDockerCli: () => {
           events.push("observe");
           if (failure === "cli") throw Error("cli_unavailable");

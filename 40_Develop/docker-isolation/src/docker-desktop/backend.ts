@@ -6,7 +6,10 @@
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { createChildProcessEnvironment } from "../../../platform-access/src/index.ts";
+import {
+  createDockerDesktopRepairHelperEnvironment,
+  type IsolationSettings,
+} from "../docker-cli/environment.ts";
 
 /**
  * 修復Ownerの要求で固定Docker Desktop backendだけを停止する。
@@ -23,14 +26,13 @@ import { createChildProcessEnvironment } from "../../../platform-access/src/inde
  * @security 任意argv・env・実行物を公開せず、Root APIへexportしない。
  * @concurrency 15秒・16KiBの既存上限を維持し、自動再要求しない。
  */
-export function terminateDockerDesktopBackendForRepair(): Readonly<{
+export function terminateDockerDesktopBackendForRepair(
+  settings: IsolationSettings,
+): Readonly<{
   issued: boolean;
   confirmation: "not_issued" | "confirmed" | "unknown";
 }> {
-  const environment = createChildProcessEnvironment({
-    platform: "win32",
-    userProfile: true,
-  });
+  const environment = createDockerDesktopRepairHelperEnvironment(settings);
   const systemRoot = environment?.SystemRoot;
   if (!environment || !systemRoot)
     return Object.freeze({ issued: false, confirmation: "not_issued" });
@@ -186,11 +188,11 @@ export function classifyDockerBackendLists(
  * @security 親環境・任意argv・任意実行物・Runtime署名Authorityを使用しない。
  * @concurrency 同期の有界観測。二つの一覧をatomic Snapshotとは扱わない。
  */
-export function observeBackendState(): BackendState {
+export function observeBackendState(settings: IsolationSettings): BackendState {
   if (process.platform !== "win32") return "unknown";
   try {
     const environment: Readonly<Record<string, string>> | null =
-      createChildProcessEnvironment({ platform: "win32", userProfile: true });
+      createDockerDesktopRepairHelperEnvironment(settings);
     if (!environment?.SystemRoot) return "unknown";
     const executable = path.win32.join(
       environment.SystemRoot,

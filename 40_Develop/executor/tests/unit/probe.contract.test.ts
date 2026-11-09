@@ -306,7 +306,13 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
     };
     const executor = createExecutor(
       { kind: "isolation_probe", probeId },
-      { mounts: mode === "prepare_throw" ? new Proxy(input, {}) : input },
+      {
+        ...{ mounts: mode === "prepare_throw" ? new Proxy(input, {}) : input },
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      },
     );
     if (mode === "prepare_throw" || mode === "prepare_invalid") {
       assert.equal(executor, null);
@@ -393,5 +399,20 @@ test("固定Probeは共通技術入口で構成・通知・取消・終了・回
       reason: "invalid",
     });
   }
+  let settingReads = 0;
+  const getterOptions = Object.defineProperty({ mounts }, "settings", {
+    get() {
+      settingReads++;
+      throw Error("getter");
+    },
+  });
+  assert.equal(
+    createExecutor(
+      { kind: "isolation_probe", probeId },
+      getterOptions as never,
+    ),
+    null,
+  );
+  assert.equal(settingReads, 0);
   await new Promise<void>((resolve) => setImmediate(resolve));
 });

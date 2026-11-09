@@ -55,6 +55,10 @@ export function createAttemptPreparation<P extends Provider>(
     const executor = createExecutor(
       request,
       {
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
         paths: {
           tmp: request.target.temporarySourcePath,
           management: "synthetic-management",

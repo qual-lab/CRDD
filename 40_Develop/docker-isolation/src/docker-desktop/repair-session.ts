@@ -5,6 +5,10 @@
  * @trace ARCH-000008
  * @boundary 元Sessionは同子を回収し、終了後回収・保持照合は新Repair Sessionを取得しない。現在の許可と真正Writerは上位Ownerが所有する。
  */
+import {
+  type IsolationSettings,
+  captureIsolationSettings,
+} from "../docker-cli/environment.ts";
 import type { RepairCheckpoint, RepairRetentionTargets } from "./types.ts";
 import {
   decodeRepairCheckpoint,
@@ -16,6 +20,14 @@ import type {
   DockerDesktopRepairHelperReleaseOutcome,
 } from "../../../platform-access/src/index.ts";
 import { types } from "node:util";
+import {
+  observeDockerDesktopRepairEngine,
+  awaitDockerRepairEngine,
+} from "./engine.ts";
+import {
+  observeBackendState,
+  terminateDockerDesktopBackendForRepair,
+} from "./backend.ts";
 import {
   dockerDesktopDistributionRoot,
   describeDockerArtifactTrustContract,
@@ -153,7 +165,9 @@ export type DirectoryCleanupResult = Readonly<{
  */
 export async function runRepairSession(
   value: RepairInput,
+  settings: IsolationSettings,
 ): Promise<RepairResult> {
+  settings = captureIsolationSettings(settings);
   let artifact: NonNullable<
     ReturnType<typeof observePlatformAccessArtifactCandidate>["artifact"]
   > | null = null;
@@ -199,6 +213,13 @@ export async function runRepairSession(
           directories,
           signal,
           live,
+          {
+            engine: () => observeDockerDesktopRepairEngine(settings),
+            backend: () => observeBackendState(settings),
+            terminateBackend: () =>
+              terminateDockerDesktopBackendForRepair(settings),
+            wait: awaitDockerRepairEngine,
+          },
         ),
       });
     },

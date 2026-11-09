@@ -24,6 +24,10 @@ import {
 import { prepareDockerNetworkPolicy } from "../../src/network/policy.ts";
 import { createNetworkPolicyDirectory } from "../fixtures/network-policy-directory.ts";
 
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 const enabled = process.env.CRDD_NETWORK_POLICY_REAL_TEST === "1";
 const imagePattern = /^sha256:[a-f0-9]{64}$/u;
 const resourcePattern = /^[a-f0-9]{64}$/u;
@@ -325,7 +329,7 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
     pins.proxySourceSha256,
     "proxy_build_source_changed",
   );
-  const trust = observeTrustedDockerCli();
+  const trust = observeTrustedDockerCli(ISOLATION_SETTINGS);
   const trial = randomBytes(12).toString("hex");
   const resources: {
     kind: "container" | "network";
@@ -346,7 +350,7 @@ test("Docker explicit: Repository追加通信先のnpm・pip・拒否・取消�
   });
   const home = path.join(root, "docker-home");
   fs.mkdirSync(home);
-  const observedEnvironment = createDockerCliEnvironment({
+  const observedEnvironment = createDockerCliEnvironment(ISOLATION_SETTINGS, {
     dockerConfig: home,
     dockerHome: home,
   });

@@ -88,7 +88,7 @@ export function createDockerProbeRuntimeBinding(
     throw new Error("docker_backend_platform_unsupported");
   let snapshot: ReturnType<typeof observeTrustedDockerCli>;
   try {
-    snapshot = observeTrustedDockerCli();
+    snapshot = observeTrustedDockerCli(ISOLATION_SETTINGS);
   } catch {
     throw new Error("docker_cli_untrusted");
   }
@@ -112,7 +112,10 @@ export function createDockerProbeRuntimeBinding(
   const dockerHome = path.join(management, "docker-home");
   fs.mkdirSync(dockerConfig, { recursive: true });
   fs.mkdirSync(dockerHome, { recursive: true });
-  const environment = createDockerCliEnvironment({ dockerConfig, dockerHome });
+  const environment = createDockerCliEnvironment(ISOLATION_SETTINGS, {
+    dockerConfig,
+    dockerHome,
+  });
   if (!environment) throw new Error("docker_runtime_environment_unavailable");
   return Object.freeze({
     verifyCli: () => {
@@ -292,6 +295,10 @@ signal.signal(signal.SIGTERM,cancelled)
 print(json.dumps({"marker":marker,"state":"ready"},separators=(",",":")),flush=True)
 while True: time.sleep(0.05)
 `;
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 const PROFILES = Object.freeze({
   normal: Object.freeze({ source: NORMAL_SOURCE, timeoutMs: 30_000 }),
   timeout: Object.freeze({

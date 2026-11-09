@@ -139,10 +139,16 @@ test("固定Task試験は両Providerの計画と実Fileの相関を検査する"
       const executor = (await import("../../src/index.ts")).createExecutor(
         request,
         {
-          paths: {
-            tmp: path.join(root, "tmp"),
-            management: path.join(root, "management"),
+          ...{
+            paths: {
+              tmp: path.join(root, "tmp"),
+              management: path.join(root, "management"),
+            },
           },
+          settings: Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
         },
       );
       assert.ok(executor);
@@ -336,7 +342,7 @@ test("単段CLIは正式Schemaから実Envelopeと内容検査まで照合する
     }});
     const purposes=['create_subscription_auth_probe','start_subscription_auth_probe_attached','create_internal_network','create_egress_network','create_proxy','connect_proxy_egress','create_provider','start_proxy','start_provider_attached'];
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
-      prepareIsolation:request=>{f.useRequest(captureIsolationRequest(request),fixture.provider);return f.api.prepareIsolation(request);},
+      prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),fixture.provider);return f.api.prepareIsolation(request,settings);},
       executeIsolation:f.api.executeIsolation
     }});
     f.waitGate=async argv=>{
@@ -411,7 +417,7 @@ test("単段CLI子は製品Executorの排他・再観測・取消・保持を確
  let mode='normal',observations=0,acquisitions=0,releases=0,live=false,controller=null;
  process.env.LOCALAPPDATA='C:\\\\fixture';
  mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
-   prepareIsolation:request=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request);},executeIsolation:f.api.executeIsolation
+   prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request,settings);},executeIsolation:f.api.executeIsolation
  }});
  mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,
    observeWindowsProviderHome:provider=>{observations++;if(mode==='unexpected_error')throw Error('private');if(observations===2)assert.equal(live,true);return {status:mode==='home_unknown'?'blocked':'candidate',provider,processEffectIssued:true,helperExitConfirmed:mode!=='home_unknown'&&!(observations===2&&mode==='helper_unknown'),artifactVerifiedBeforeAndAfter:true,filesystemEffectIssued:false,providerHomeIdentityHash:'a'.repeat(64),providerHomeProtectionHash:(observations===2&&mode==='changed'?'e':'b').repeat(64),localUserBindingHash:'c'.repeat(64),stableLogicalHomeBindingHash:'d'.repeat(64)};},

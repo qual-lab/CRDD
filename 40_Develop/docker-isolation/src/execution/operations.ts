@@ -27,7 +27,11 @@ import {
   observeDockerProtectedMountIdentity,
   verifyDockerCliConfig,
 } from "../docker-cli/config.ts";
-import { createDockerProcessEnvironment } from "../docker-cli/environment.ts";
+import {
+  type IsolationSettings,
+  captureIsolationSettings,
+  createDockerProcessEnvironment,
+} from "../docker-cli/environment.ts";
 import {
   type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
@@ -90,8 +94,10 @@ class IsolationPreparation implements PreparedIsolation {
 
   constructor(
     value: IsolationRequest | IsolationCleanupRequest,
+    settings: IsolationSettings,
     cleanupOnly = false,
   ) {
+    settings = captureIsolationSettings(settings);
     this.cleanupOnly = cleanupOnly;
     if (cleanupOnly) {
       const cleanup = captureIsolationCleanupRequest(
@@ -114,8 +120,8 @@ class IsolationPreparation implements PreparedIsolation {
       this.previouslyAbsent = [];
     }
     const request = this.request;
-    this.cli = observeTrustedDockerCli();
-    this.environment = createDockerProcessEnvironment();
+    this.cli = observeTrustedDockerCli(settings);
+    this.environment = createDockerProcessEnvironment(settings);
     if (
       !this.environment.SystemRoot ||
       !fs
@@ -192,9 +198,10 @@ Object.freeze(IsolationPreparation);
  */
 export function prepareIsolation(
   request: IsolationRequest,
+  settings: IsolationSettings,
 ): PreparedIsolation | null {
   try {
-    return new IsolationPreparation(request);
+    return new IsolationPreparation(request, settings);
   } catch {
     return null;
   }
@@ -230,12 +237,15 @@ export function executeIsolation(
  */
 export function cleanupIsolation(
   request: ResourceTarget<"directory", "cleanup">,
+  settings: import("../docker-cli/environment.ts").IsolationSettings,
 ): Promise<ResourceCleanupResult<"directory">>;
 export function cleanupIsolation(
   request: ResourceTarget<"container">,
+  settings: import("../docker-cli/environment.ts").IsolationSettings,
 ): ResourceCleanupResult<"container">;
 export function cleanupIsolation(
   request: ResourceTarget<"snapshot", "cleanup">,
+  settings: import("../docker-cli/environment.ts").IsolationSettings,
   callbacks?: IsolationCallbacks,
 ): IsolationExecution;
 export function cleanupIsolation(
@@ -243,6 +253,7 @@ export function cleanupIsolation(
     | IsolationCleanupRequest
     | ContainerResourceTarget
     | DirectoryResourceCleanupTarget,
+  settings: import("../docker-cli/environment.ts").IsolationSettings,
   callbacks: IsolationCallbacks = {},
 ):
   | IsolationExecution
@@ -264,9 +275,16 @@ export function cleanupIsolation(
     !types.isProxy(request) &&
     Object.getOwnPropertyDescriptor(request, "kind")?.value === "container"
   )
-    return cleanupContainerResources(request as ContainerResourceTarget);
+    return cleanupContainerResources(
+      request as ContainerResourceTarget,
+      settings,
+    );
   return runIsolation(
-    new IsolationPreparation(request as IsolationCleanupRequest, true),
+    new IsolationPreparation(
+      request as IsolationCleanupRequest,
+      settings,
+      true,
+    ),
     callbacks,
   );
 }

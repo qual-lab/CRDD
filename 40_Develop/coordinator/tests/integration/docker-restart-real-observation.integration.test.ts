@@ -27,6 +27,7 @@ import {
   startDockerDesktopRestartHelper,
 } from "../../../platform-access/src/index.ts";
 import { acquireRuntimeStateLock } from "../../src/execution/kernel-lock.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
@@ -59,7 +60,7 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
   ).href;
   const source = [
     `import { observeTrustedDockerCli } from ${JSON.stringify(moduleUrl)};`,
-    "try{const observed=observeTrustedDockerCli();process.stdout.write(JSON.stringify({status:'completed',trustBasis:observed.trustBasis,publisherOrganization:observed.publisherOrganization,bytesPositive:observed.bytes>0,sha256Length:observed.sha256.length}));}catch(error){process.stdout.write(JSON.stringify({status:'blocked',reason:error instanceof Error?error.message:String(error)}));process.exitCode=2;}",
+    "try{const observed=observeTrustedDockerCli(getIsolationSettings());process.stdout.write(JSON.stringify({status:'completed',trustBasis:observed.trustBasis,publisherOrganization:observed.publisherOrganization,bytesPositive:observed.bytes>0,sha256Length:observed.sha256.length}));}catch(error){process.stdout.write(JSON.stringify({status:'blocked',reason:error instanceof Error?error.message:String(error)}));process.exitCode=2;}",
   ].join("");
   const result = childProcess.spawnSync(
     process.execPath,
@@ -234,6 +235,7 @@ for (const hasRuntimeLock of [false, true]) {
         context.diagnostic(`native observation ${index + 1} completed`);
       }
       const machine = createDockerRestartMachine(
+        getIsolationSettings(),
         session,
         () => true,
         new AbortController().signal,

@@ -10,7 +10,11 @@
 import assert from "node:assert/strict";
 import * as childProcess from "node:child_process";
 import { mock } from "node:test";
-import * as platformAccess from "../../../platform-access/src/index.ts";
+import * as platformAccess from "../../src/docker-cli/environment.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 const scenario = process.argv[2];
 assert.ok(
@@ -35,11 +39,11 @@ const environment = Object.freeze({
 });
 let requests = 0;
 await mock.module(
-  new URL("../../../platform-access/src/index.ts", import.meta.url).href,
+  new URL("../../src/docker-cli/environment.ts", import.meta.url).href,
   {
     namedExports: {
       ...platformAccess,
-      createChildProcessEnvironment: () =>
+      createDockerDesktopRepairHelperEnvironment: () =>
         scenario === "environment" ? null : environment,
     },
   },
@@ -92,7 +96,7 @@ await mock.module("node:child_process", {
 const { observeBackendState } = await import(
   "../../src/docker-desktop/backend.ts"
 );
-const state = observeBackendState();
+const state = observeBackendState(ISOLATION_SETTINGS);
 assert.equal(
   state,
   scenario === "stopped" || scenario === "running" ? scenario : "unknown",

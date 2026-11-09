@@ -53,7 +53,13 @@ async function fixture(
       ...original,
       prepareIsolation: (request: IsolationRequest) => {
         f.useRequest(captureIsolationRequest(request), provider);
-        return f.api.prepareIsolation(request);
+        return f.api.prepareIsolation(
+          request,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        );
       },
       executeIsolation: f.api.executeIsolation,
     },
@@ -76,6 +82,10 @@ async function fixture(
       proxyToken: action === "login" ? "b".repeat(64) : null,
     },
     f.request.managementDirectory,
+    Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
   );
   assert.ok(executor);
   return { f, executor };

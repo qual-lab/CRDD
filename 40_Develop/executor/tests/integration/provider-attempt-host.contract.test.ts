@@ -30,7 +30,7 @@ test("単独Hostは公開Executorで実行し必要な保存とHome終了を接�
     const domain=await import(${JSON.stringify(url("../../../domain-model/src/index.ts"))});
     let mode='normal',live=false,releases=0,observations=0,failKind=null,activeHost=null,activeStarted=null,cancelPromise=null;
     mock.module(${JSON.stringify(url("../../../docker-isolation/src/index.ts"))},{namedExports:{...di,
-      prepareIsolation:request=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request);},
+      prepareIsolation:(request,settings)=>{f.useRequest(captureIsolationRequest(request),'claude');return f.api.prepareIsolation(request,settings);},
       executeIsolation:f.api.executeIsolation,
     }});
     mock.module(${JSON.stringify(url("../../../platform-access/src/index.ts"))},{namedExports:{...platform,

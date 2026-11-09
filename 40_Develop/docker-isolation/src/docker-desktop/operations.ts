@@ -6,6 +6,7 @@
  */
 
 import { types } from "node:util";
+import type { IsolationSettings } from "../docker-cli/environment.ts";
 import { observeBackendState } from "./backend.ts";
 import { observeDockerEngine } from "./engine.ts";
 import { runRepairSession } from "./repair-session.ts";
@@ -31,10 +32,12 @@ import type {
  * @security Repository・認証情報・任意コマンドを受け取らない。
  * @concurrency 逐次観測はatomicではない。新しい待機や再試行を追加しない。
  */
-export function inspectDockerEnvironment(): DockerEnvironmentStatus {
+export function inspectDockerEnvironment(
+  settings: IsolationSettings,
+): DockerEnvironmentStatus {
   return Object.freeze({
-    backend: observeBackendState(),
-    engine: observeDockerEngine(),
+    backend: observeBackendState(settings),
+    engine: observeDockerEngine(settings),
   });
 }
 
@@ -56,15 +59,19 @@ export function inspectDockerEnvironment(): DockerEnvironmentStatus {
 
 export function restartDockerEnvironment(
   request: DockerEnvironmentRequest<"restart">,
+  settings: IsolationSettings,
 ): Promise<DockerEnvironmentResult<"restart">>;
 export function restartDockerEnvironment(
   request: DockerEnvironmentRequest<"repair">,
+  settings: IsolationSettings,
 ): Promise<DockerEnvironmentResult<"repair">>;
 export function restartDockerEnvironment(
   request: DockerEnvironmentRequest,
+  settings: IsolationSettings,
 ): Promise<DockerEnvironmentResult>;
 export function restartDockerEnvironment(
   request: DockerEnvironmentRequest,
+  settings: IsolationSettings,
 ): Promise<DockerEnvironmentResult> {
   if (
     !request ||
@@ -77,7 +84,7 @@ export function restartDockerEnvironment(
   const input = Object.getOwnPropertyDescriptor(request, "input");
   if (!mode || !("value" in mode) || !input || !("value" in input))
     throw Error("docker_environment_mode_invalid");
-  if (mode.value === "restart") return restartDesktop(input.value);
-  if (mode.value === "repair") return runRepairSession(input.value);
+  if (mode.value === "restart") return restartDesktop(input.value, settings);
+  if (mode.value === "repair") return runRepairSession(input.value, settings);
   throw Error("docker_environment_mode_invalid");
 }

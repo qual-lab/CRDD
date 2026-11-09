@@ -30,6 +30,7 @@ import {
   encodeRuntimeStateValue,
 } from "../../../domain-model/src/index.ts";
 import { executionSelection } from "./ai-selection.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 const mode = process.argv[2];
 assert.ok(
@@ -553,7 +554,7 @@ if (mode !== "recovery") {
             unreceiptedAbsence: "retain",
             verifyLabelAbsence: true,
           };
-          const prepared = prepareIsolation(request);
+          const prepared = prepareIsolation(request, getIsolationSettings());
           assert.ok(prepared);
           const frame = {
             snapshot: prepared.resources,

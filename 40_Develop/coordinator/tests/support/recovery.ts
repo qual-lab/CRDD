@@ -26,6 +26,7 @@ import type {
   ResourceTarget,
   IsolationCallbacks,
 } from "../../../docker-isolation/src/index.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 export async function createRecoveryFixture(
   t: TestContext,
@@ -34,7 +35,7 @@ export async function createRecoveryFixture(
 ) {
   const f = await createIsolationFixture(t, resourceSet),
     base = createResourceOperationFixture();
-  const prepared = f.api.prepareIsolation(f.request);
+  const prepared = f.api.prepareIsolation(f.request, getIsolationSettings());
   assert.ok(prepared);
   const technical = await f.api.executeIsolation(prepared).completion;
   assert.equal(technical.cleanup.confirmed, true);
@@ -287,7 +288,8 @@ export async function createRecoveryFixture(
     run: (signal?: AbortSignal) =>
       api.run(
         capability,
-        (target, callbacks) => f.api.cleanupIsolation(target, callbacks),
+        (target, callbacks) =>
+          f.api.cleanupIsolation(target, getIsolationSettings(), callbacks),
         () => {
           throw Error("unexpected_inspection");
         },

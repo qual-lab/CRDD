@@ -70,6 +70,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   const create = runInNewContext(
     `${stripTypeScriptTypes(parts.join("\n"))}\ncreateTrustedDockerRecoveryExecutor`,
     {
+      captureIsolationSettings: (settings: unknown) => settings,
       observeTrustedDockerCli: () => {
         events.push("observe");
         if (observeFails) throw new Error("private-observe-error");
@@ -80,7 +81,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
         assert.equal(value, snapshot);
         if (verifyFails) throw new Error("private-verify-error");
       },
-      createDockerCliEnvironment: (input: unknown) => {
+      createDockerCliEnvironment: (_settings: unknown, input: unknown) => {
         events.push("environment");
         assert.deepEqual(JSON.parse(JSON.stringify(input)), {
           dockerConfig: null,
@@ -96,7 +97,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
         return result;
       },
     },
-  ) as (input: object) => (typeof lower)[number];
+  ) as (settings: object, input: object) => (typeof lower)[number];
   /**
    * 設定getter拒否の試験へ有効なOwner確認を供給する。
    * @responsibility 設定getter拒否の試験へ有効なOwner確認を供給する。
@@ -128,8 +129,8 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
       },
     },
   );
-  const first = create(input),
-    second = create(input);
+  const first = create({}, input),
+    second = create({}, input);
   assert.equal(first, lower[0]);
   assert.equal(second, lower[1]);
   assert.deepEqual(events, []);
@@ -183,7 +184,7 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   assert.equal(first.close(), true);
   verifyFails = false;
   environmentAvailable = true;
-  const third = create(input);
+  const third = create({}, input);
   third.binding.environment();
   third.binding.verifyCli();
   assert.deepEqual(events.slice(-2), ["environment", "verify"]);
@@ -195,12 +196,13 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
   const spread = runInNewContext(
     `${body.replace(needle, `${needle}\n...input,`)}\ncreateTrustedDockerRecoveryExecutor`,
     {
+      captureIsolationSettings: (settings: unknown) => settings,
       createDockerOperationRecoveryExecutor: () => {
         assert.fail("余剰getter拒否前に低位factoryへ到達した");
       },
     },
-  ) as (value: object) => unknown;
-  assert.throws(() => spread(input), /unexpected/u);
+  ) as (settings: object, value: object) => unknown;
+  assert.throws(() => spread({}, input), /unexpected/u);
   assert.equal(getterReads, 1);
 });
 

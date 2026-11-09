@@ -241,7 +241,7 @@ test("公開Factoryはdescriptorの継承valueを受理しない", () => {
       let reads = 0;
       const accessor = Object.defineProperty({management:"management"},"tmp",{get(){reads++;return "tmp";},enumerable:true});
       Object.prototype.value = "synthetic";
-      function accepts(paths){try{createDockerIsolationRuntime({paths});return true;}catch{return false;}}
+      function accepts(paths){try{createDockerIsolationRuntime({paths,settings:{windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}});return true;}catch{return false;}}
       [accepts({tmp:"tmp",management:"management"}),accepts(accessor),accepts({}),accepts({tmp:"tmp",management:"management",extra:"x"}),reads];
     `,
       ),
@@ -299,6 +299,10 @@ test("公開Factoryは上位のOS指定とgetterを受け付けない", () => {
     throw new Error("unexpected observation");
   }
   const base = {
+    settings: Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
     paths: { tmp: "synthetic", management: "synthetic" },
     readCli: forbiddenObservation,
     verifyCli: forbiddenObservation,
@@ -323,7 +327,13 @@ test("公開Factoryは上位のOS指定とgetterを受け付けない", () => {
   assert.equal(platformIsPublic, false);
   assert.equal(calls, 0);
   assert.equal(getterReads, 0);
-  const permitted = { paths: { tmp: "synthetic", management: "synthetic" } };
+  const permitted = {
+    settings: Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
+    paths: { tmp: "synthetic", management: "synthetic" },
+  };
   for (const key of [
     "readCli",
     "verifyCli",
@@ -1076,6 +1086,7 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
         Error,
         types,
         process: { platform: "win32" },
+        ISOLATION_SETTINGS: {},
         observeTrustedDockerCli: () => {
           events.push("observe");
           if (activeMode === "observe") throw new Error("raw observation");
@@ -1145,6 +1156,10 @@ test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", a
     ) as typeof createDockerIsolationRuntime;
     const receipts = { ...fixture.initialReceipts };
     const runtime = factory({
+      settings: Object.freeze({
+        windowsDirectory: "C:\\Windows",
+        userHomeDirectory: "C:\\Users\\test",
+      }),
       paths: {
         tmp: fixture.plan.configuration.temporarySourcePath,
         management: path.resolve("fixture-management"),

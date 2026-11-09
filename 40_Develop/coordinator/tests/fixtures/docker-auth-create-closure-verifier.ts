@@ -29,6 +29,7 @@ import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
 } from "../../../domain-model/src/index.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 const fixedImage =
   "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
@@ -454,11 +455,16 @@ async function executeApprovedAuthCreateClosure() {
     fs.mkdirSync(config);
     const configIdentity =
       recoveryOperations.observeDockerRecoveryConfigIdentity(config);
-    const trust = dockerTrustOperations.observeTrustedDockerCli();
-    const env = dockerEnvironmentOperations.createDockerCliEnvironment({
-      dockerConfig: null,
-      dockerHome: null,
-    });
+    const trust = dockerTrustOperations.observeTrustedDockerCli(
+      getIsolationSettings(),
+    );
+    const env = dockerEnvironmentOperations.createDockerCliEnvironment(
+      getIsolationSettings(),
+      {
+        dockerConfig: null,
+        dockerHome: null,
+      },
+    );
     assert.ok(env);
     const environment = env;
     /**
@@ -785,20 +791,23 @@ async function executeApprovedAuthCreateClosure() {
           ) => {
             restartCalls++;
             assert.equal(restartCalls, 1);
-            return dockerRestartOperations.restartDesktop({
-              ...input,
-              onRequesting: () => {
-                const result = input.onRequesting();
-                assert.equal(result, undefined);
-                restartEvents.push("before_request");
-                return result;
+            return dockerRestartOperations.restartDesktop(
+              {
+                ...input,
+                onRequesting: () => {
+                  const result = input.onRequesting();
+                  assert.equal(result, undefined);
+                  restartEvents.push("before_request");
+                  return result;
+                },
+                onEvent: (event) => {
+                  input.onEvent?.(event);
+                  restartEvents.push(event.event);
+                  currentTarget();
+                },
               },
-              onEvent: (event) => {
-                input.onEvent?.(event);
-                restartEvents.push(event.event);
-                currentTarget();
-              },
-            });
+              getIsolationSettings(),
+            );
           },
         },
       },
@@ -815,9 +824,15 @@ async function executeApprovedAuthCreateClosure() {
             input: Parameters<
               typeof recoveryOperations.createTrustedDockerRecoveryExecutor
             >[0],
+            request: Parameters<
+              typeof recoveryOperations.createTrustedDockerRecoveryExecutor
+            >[1],
           ) => {
             const created =
-              recoveryOperations.createTrustedDockerRecoveryExecutor(input);
+              recoveryOperations.createTrustedDockerRecoveryExecutor(
+                input,
+                request,
+              );
             if (created.status !== "ready") return created;
             return {
               ...created,

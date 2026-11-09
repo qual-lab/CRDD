@@ -1,12 +1,20 @@
 # Quality Integration
 
+## DIの明示初期化 — 2026-11-10
+
+DIの限定環境を`initializeIsolation`と`IsolationSettings`へ接続し、二所在のコピー・凍結、可変入力のコピー・固定とgetterの拒否、三用途・単独回収・Desktop操作の搬送を確認した。DI407成功・5対象外、Executor114成功、Coordinator限定8 File99成功。型・書式・警告検査と実行／Task設計対応検査、独立再レビューが成功した。今回の失敗試験が残した4合成Rootと専用TEMPは全量・実体照合後に回収し、全5 Rootの不存在を確認した。
+
+Native APIによる独立したWindows所在証明から、上位設定を信頼するNode.jsのPath確認への保証変更を明示する。PA自身のNative環境・Provider Home保護は維持する。実AI・実Docker、Host実境界、Coordinator全体回帰と全体QAの合格は今回の結果に含めない。[変更記録と回収照合](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#diの明示初期化と子process環境--2026-11-10)を参照する。
+
 ## Host回復4失敗の是正 — 2026-11-09
 
 Domainの資源未発行判定と、Coordinator試験の旧Home Owner・所在・wx停止下再入場を是正した。元4件は4成功、共有Workerの認証代役5形と親停止1形も成功。Domain全484件、Coordinator周辺26件、Executor Home境界2件、Lock14件、局所反証2件と型・書式・Lintが成功した。途中候補の失敗と、周辺試験のOS Temp準備失敗は履歴として分け、検査や保護Policyを緩めずに是正した。
 
-今回の修正中に作成した8試験Rootと専用TEMPは、元実体・Hash・関連Process停止を確認して回収し、全9 Rootの不存在を確認した。以前の再現調査4 Rootと過去保持物は不操作・保持のまま。実AI／実Docker・Coordinator全体回帰は今回未実施であり、先行120分回帰を変更後全体の根拠にしない。詳細と候補別結果は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#4失敗の是正と関連回帰--2026-11-09)を参照する。
+今回の修正中に作成した8試験Rootと専用TEMPは、元実体・Hash・関連Process停止を確認して回収し、全9 Rootの不存在を確認した。その後の人間承認で以前の再現調査4 Root、中断回帰1 Root、空のWorkspace旧2 Rootも回収・不存在確認した。古いHost試験物などDocker影響未確認分は保持継続。物理回収は当時の中断・失敗結果を成功へ変更しない。実AI／実Docker・Coordinator全体回帰は今回未実施であり、先行120分回帰を変更後全体の根拠にしない。詳細と候補別結果は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#4失敗の是正と関連回帰--2026-11-09)、現在の回収状況は[保持物の限定回収](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#承認済み保持物の限定回収--2026-11-09)を参照する。
 
-## Host限定fixture是正の停止 — 2026-11-07
+## Host限定fixture是正の停止 — 2026-11-07（履歴）
+
+以下は当時の経緯である。親120秒中断のWorkspace旧2領域と60分中断回帰領域は、その後の人間承認で回収済み。現在の限定回収状況は上記11月9日節と変更記録を参照し、当時の「未回収」を現在値として扱わない。
 
 最新候補は、人間の追加承認によりCoordinatorの認証限定終了を一般cleanup保存より先に選ぶ最小修正を適用した。Domain保護・DI／Executor製品Sourceは不変。関連メモリ12試験、Domainの一般Writer拒否1試験、関連回帰62件、型・書式・lintと限定独立Source再レビューが成功した。認証の改訂数期待値は一般保存を重ねない14更新へ追従し、一般cleanup保存0回も明示検査した。同じ候補でHost28形が成功し、各成功形の新品領域を回収・不存在確認した。前回の通常回帰は再開時に最終集計を回収できず結果不明となった。制限環境のrename／junction拒否のうち10件は通常権限下で同一試験成功を確認済みで、11月9日のWorkspace限定確認は22成功・約164秒で完走し、当該新品領域を回収した。通常回帰の一回取り直しは親集約枠60分で中断し、最終集計なし・全体結果不成立となった。過去実績74.3分を着手前に照合できていなかった実行計画の不備であり、製品不合格へは換算しない。Source1,133ファイルの不変を確認し、捕捉TAPと新しい領域を保全した。そのrunの自動再実行は行わなかった。続いて人間が承認した120分枠の新しい一回は、同Source・同母集団・非並行・新品TEMPで完走し、1,731成功・失敗0・取消0・skip5（約68.8分）となった。開始前後のSource1,133ファイルHashは一致した。結果記録・Process照合・Identity／閉集合／Hash再照合の後、今回Rootだけを回収しENOENTを確認した。結果・回収条件の独立再レビューは残指摘0。今回のHost Windows／Windows Process Gate除外portable通常回帰は完走した。一方、過去の二つの親120秒時間切れRootを含む旧保持試験物は未回収で、過去影響確認・全体QAは未完了。実AI・実Docker・全体QA合格は主張しない。以下は先行経緯であり、現在値は[変更記録](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#認証終了の保存順序是正現在)に集約する。
 

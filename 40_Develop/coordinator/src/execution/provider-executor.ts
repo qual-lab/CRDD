@@ -7,6 +7,7 @@
 
 import { poisonRuntimeProcessAfterCleanupUnknown } from "./process-safety-state.ts";
 import { types } from "node:util";
+import { getIsolationSettings } from "./configuration.ts";
 import type { Provider } from "../../../ai-adapter/src/index.ts";
 import { parseDockerTaskRecoveryId } from "../../../domain-model/src/index.ts";
 import {
@@ -77,7 +78,10 @@ const createAttemptExecutor = (
 ) =>
   createExecutor(
     request,
-    { paths: borrowOwnedDockerExecutionPaths(management) },
+    {
+      paths: borrowOwnedDockerExecutionPaths(management),
+      settings: getIsolationSettings(),
+    },
     random,
   );
 const codexPreparation = createAttemptPreparation(

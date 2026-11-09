@@ -8,6 +8,13 @@
  * @packageDocumentation
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import {
+  captureIsolationSettings,
+  type IsolationSettings,
+} from "../../../src/docker-cli/environment.ts";
 import test, { mock } from "node:test";
 import type { BackendState } from "../../../src/docker-desktop/backend.ts";
 import type { EngineObservation } from "../../../src/docker-desktop/engine.ts";
@@ -20,6 +27,66 @@ import type {
   RestartInput,
   RestartResult,
 } from "../../../src/docker-desktop/restart.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
+
+/**
+ * @responsibility Desktop待機中に元設定を変更しても、受付時の二所在が固定されることを反証する。
+ * @trace ERB-UT-023
+ * @precondition 下位入口はメモリ代役。Native・Dockerを起動しない。
+ * @stimulus 受付後・Machine構築前に元設定を変更する。
+ * @observation Machineへ渡ったコピーとPromiseの元結果。
+ * @oracle 二所在と凍結状態は受付時のまま。実Desktop操作の成立を主張しない。
+ * @cleanup メモリだけ。
+ */
+test("Desktop操作は非同期待機前に二所在を固定する", async () => {
+  const source = readFileSync(
+    new URL("../../../src/docker-desktop/restart.ts", import.meta.url),
+    "utf8",
+  );
+  const begin = source.indexOf("export function restartDesktop(");
+  const end = source.indexOf("\n/**", begin);
+  assert.ok(begin > 0 && end > begin);
+  const body = stripTypeScriptTypes(source.slice(begin, end))
+    .replace("export function", "function")
+    .replaceAll("import.meta.url", JSON.stringify(import.meta.url));
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let received: IsolationSettings | null = null;
+  const result = Object.freeze({ marker: "synthetic" });
+  const restart = runInNewContext(`${body};restartDesktop`, {
+    process: { platform: "win32" },
+    captureIsolationSettings,
+    createDockerRestartMachine: (settings: IsolationSettings) => {
+      received = settings;
+      return {};
+    },
+    restartDesktopForVerification: async (
+      _input: unknown,
+      dependencies: { createMachine: (...args: unknown[]) => unknown },
+    ) => {
+      await gate;
+      dependencies.createMachine({}, () => true, new AbortController().signal);
+      return result;
+    },
+  }) as (input: unknown, settings: IsolationSettings) => Promise<unknown>;
+  const settings = {
+    windowsDirectory: "C:\\Windows",
+    userHomeDirectory: "C:\\Users\\test",
+  };
+  const pending = restart({}, settings);
+  settings.windowsDirectory = "Z:\\changed";
+  settings.userHomeDirectory = "Z:\\changed-home";
+  release();
+  assert.equal(await pending, result);
+  assert.deepEqual(received, ISOLATION_SETTINGS);
+  assert.ok(Object.isFrozen(received));
+  assert.notEqual(received, settings);
+});
 
 /**
  * 診断と再起動を同じ有限下位代役で区別する。
@@ -117,7 +184,8 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
         for (const cleanup of ["confirmed", "unknown"] as const) {
           calls.length = 0;
           engine = Object.freeze({ state: observed, cleanup });
-          const observedResult = api.inspectDockerEnvironment();
+          const observedResult =
+            api.inspectDockerEnvironment(ISOLATION_SETTINGS);
           assert.equal(observedResult.backend, backend);
           assert.equal(observedResult.engine, engine);
           assert.ok(Object.isFrozen(observedResult));
@@ -151,7 +219,8 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
       },
     ]) {
       assert.throws(
-        () => api.restartDockerEnvironment(invalid as never),
+        () =>
+          api.restartDockerEnvironment(invalid as never, ISOLATION_SETTINGS),
         /docker_environment_mode_invalid/,
       );
     }
@@ -167,21 +236,30 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
       onEvent: () => undefined,
     });
     assert.equal(
-      api.restartDockerEnvironment({ mode: "restart", input: request }),
+      api.restartDockerEnvironment(
+        { mode: "restart", input: request },
+        ISOLATION_SETTINGS,
+      ),
       pending,
     );
     assert.equal(supplied, request);
     assert.equal(await pending, result);
     controller.abort();
     assert.equal(
-      api.restartDockerEnvironment({ mode: "restart", input: request }),
+      api.restartDockerEnvironment(
+        { mode: "restart", input: request },
+        ISOLATION_SETTINGS,
+      ),
       pending,
     );
     assert.equal(supplied, request);
     assert.equal(request.signal.aborted, true);
     reject = true;
     await assert.rejects(
-      api.restartDockerEnvironment({ mode: "restart", input: request }),
+      api.restartDockerEnvironment(
+        { mode: "restart", input: request },
+        ISOLATION_SETTINGS,
+      ),
       (error) => error === failure,
     );
     assert.equal(supplied, request);
@@ -196,7 +274,10 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     });
     const beforeRepair = calls.length;
     assert.equal(
-      api.restartDockerEnvironment({ mode: "repair", input: repair }),
+      api.restartDockerEnvironment(
+        { mode: "repair", input: repair },
+        ISOLATION_SETTINGS,
+      ),
       repaired,
     );
     assert.equal(repairSupplied, repair);
@@ -205,7 +286,10 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     assert.deepEqual(calls.slice(beforeRepair), ["repair"]);
     reject = true;
     await assert.rejects(
-      api.restartDockerEnvironment({ mode: "repair", input: repair }),
+      api.restartDockerEnvironment(
+        { mode: "repair", input: repair },
+        ISOLATION_SETTINGS,
+      ),
       (error) => error === failure,
     );
     assert.equal(repairSupplied, repair);

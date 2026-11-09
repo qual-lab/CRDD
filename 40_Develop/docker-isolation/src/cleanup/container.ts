@@ -11,7 +11,11 @@ import { dockerResourceLocatorIsValid } from "./validation.ts";
 import path from "node:path";
 import { types } from "node:util";
 import { observeDockerDirectoryIdentity } from "../docker-cli/config.ts";
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
+import {
+  type IsolationSettings,
+  captureIsolationSettings,
+  createDockerCliEnvironment,
+} from "../docker-cli/environment.ts";
 import {
   type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
@@ -61,12 +65,14 @@ export type DockerContainerBinding = Readonly<{
  */
 export function createDockerContainerBinding(
   management: string,
+  settings: IsolationSettings,
 ): DockerContainerBinding {
+  settings = captureIsolationSettings(settings);
   if (process.platform !== "win32")
     throw Error("docker_backend_platform_unsupported");
   let snapshot: DockerCliTrustSnapshot;
   try {
-    snapshot = observeTrustedDockerCli();
+    snapshot = observeTrustedDockerCli(settings);
   } catch {
     throw Error("docker_cli_untrusted");
   }
@@ -82,7 +88,10 @@ export function createDockerContainerBinding(
     dockerHome = path.join(management, "docker-home");
   fs.mkdirSync(dockerConfig, { recursive: true });
   fs.mkdirSync(dockerHome, { recursive: true });
-  const environment = createDockerCliEnvironment({ dockerConfig, dockerHome });
+  const environment = createDockerCliEnvironment(settings, {
+    dockerConfig,
+    dockerHome,
+  });
   if (!environment) throw Error("docker_runtime_environment_unavailable");
   return Object.freeze({
     verifyCli: () => {
@@ -499,8 +508,9 @@ export function cleanupDockerContainer(
  */
 export function inspectContainerResources(
   target: ContainerResourceTarget,
+  settings: IsolationSettings,
 ): ContainerResourceInspection {
-  const binding = containerRuntime(target),
+  const binding = containerRuntime(target, settings),
     c = target.configuration;
   const absent = observeDockerContainerAbsence(binding, {
     id: c.id,
@@ -532,9 +542,10 @@ export function inspectContainerResources(
  */
 export function cleanupContainerResources(
   target: ContainerResourceTarget,
+  settings: IsolationSettings,
 ): Readonly<{ confirmed: boolean; reason: string }> {
   return cleanupDockerContainer(
-    containerRuntime(target),
+    containerRuntime(target, settings),
     target.configuration,
     target.signal,
   );
@@ -551,10 +562,14 @@ export function cleanupContainerResources(
  */
 function containerRuntime(
   target: ContainerResourceTarget,
+  settings: IsolationSettings,
 ): DockerContainerBinding {
   if (types.isProxy(target)) throw Error("resource_target_invalid");
   target.signal?.throwIfAborted();
-  const binding = createDockerContainerBinding(target.managementDirectory);
+  const binding = createDockerContainerBinding(
+    target.managementDirectory,
+    settings,
+  );
   return Object.freeze({
     environment: binding.environment,
     verifyCli: () => {

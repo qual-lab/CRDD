@@ -11,11 +11,11 @@ import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-a
 import type { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 
 import type { executeRepairSteps } from "./repair.ts";
-import {
+import type {
   observeDockerDesktopRepairEngine,
   awaitDockerRepairEngine,
 } from "./engine.ts";
-import {
+import type {
   observeBackendState,
   terminateDockerDesktopBackendForRepair,
 } from "./backend.ts";
@@ -114,16 +114,13 @@ export function createDockerDesktopRepairOperations(
   signal: AbortSignal,
   canIssue: () => boolean,
   observations: Readonly<{
-    engine: typeof observeDockerDesktopRepairEngine;
-    backend: typeof observeBackendState;
-    terminateBackend: typeof terminateDockerDesktopBackendForRepair;
+    engine: () => ReturnType<typeof observeDockerDesktopRepairEngine>;
+    backend: () => ReturnType<typeof observeBackendState>;
+    terminateBackend: () => ReturnType<
+      typeof terminateDockerDesktopBackendForRepair
+    >;
     wait: typeof awaitDockerRepairEngine;
-  }> = {
-    engine: observeDockerDesktopRepairEngine,
-    backend: observeBackendState,
-    terminateBackend: terminateDockerDesktopBackendForRepair,
-    wait: awaitDockerRepairEngine,
-  },
+  }>,
 ) {
   let cleanupFailure: "observation_cleanup_unknown" | null = null;
   /**

@@ -29,6 +29,7 @@ import {
   prepareProviderAuthentication,
   type AuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 /** 構成だけを準備し、元投影とCoordinatorの短命結合を取得する。Docker要求はない。 */
 export function prepareAuthenticationProjection(
@@ -125,7 +126,7 @@ export async function createAuthenticationFixture(
       ...lower,
       prepareIsolation: (input: IsolationRequest) => {
         f.useRequest(captureIsolationRequest(input), provider);
-        return f.api.prepareIsolation(input);
+        return f.api.prepareIsolation(input, getIsolationSettings());
       },
       executeIsolation: f.api.executeIsolation,
       cleanupIsolation: f.api.cleanupIsolation,
@@ -161,7 +162,11 @@ export async function createAuthenticationFixture(
     {
       randomHex: (size) => "b".repeat(size * 2),
       createAuthentication: (request, options) =>
-        createAuthenticationExecutor(request, options.managementDirectory),
+        createAuthenticationExecutor(
+          request,
+          options.managementDirectory,
+          getIsolationSettings(),
+        ),
       createManagementDirectory: () => ({
         directory: f.request.managementDirectory,
         identity: "finite-management",
@@ -266,7 +271,8 @@ export async function createAuthenticationFixture(
         current && current.commandState === "idle"
           ? { resources: current.resources }
           : null,
-      cleanupAuthentication: f.api.cleanupIsolation,
+      cleanupAuthentication: (target, callbacks) =>
+        f.api.cleanupIsolation(target, getIsolationSettings(), callbacks),
       completeRecovery: () => {
         events.push("settle");
         if (!current || !live || current.commandState !== "idle") return false;

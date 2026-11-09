@@ -8,6 +8,7 @@ import {
   cleanupIsolation,
   inspectIsolation,
   type IsolationCallbacks,
+  type IsolationSettings,
   type IsolationExecution,
   type ResourceTarget,
   type ResourceInspection,
@@ -52,20 +53,28 @@ function validateResourceTarget(target: unknown): void {
  */
 export function inspectResources(
   target: ResourceTarget<"snapshot", "inspect">,
+  settings: IsolationSettings,
   options?: Readonly<{ signal?: AbortSignal; stopOnUnknownAbsence?: boolean }>,
 ): ResourceInspection<"snapshot">;
 export function inspectResources(
   target: ResourceTarget<"container">,
+  settings: IsolationSettings,
 ): ResourceInspection<"container">;
 export function inspectResources(
   target: ResourceTarget<"directory", "inspect">,
+  settings: IsolationSettings,
 ): ResourceInspection<"directory">;
 export function inspectResources(
   target: ResourceTarget,
+  settings: IsolationSettings,
   options?: Readonly<{ signal?: AbortSignal; stopOnUnknownAbsence?: boolean }>,
 ): ResourceInspection {
   validateResourceTarget(target);
-  return inspectIsolation(target as ResourceTarget<"snapshot">, options);
+  return inspectIsolation(
+    target as ResourceTarget<"snapshot">,
+    settings,
+    options,
+  );
 }
 
 /**
@@ -76,21 +85,29 @@ export function inspectResources(
  */
 export function cleanupResources(
   target: ResourceTarget<"snapshot">,
+  settings: IsolationSettings,
   callbacks?: IsolationCallbacks,
 ): IsolationExecution;
 export function cleanupResources(
   target: ResourceTarget<"container">,
+  settings: IsolationSettings,
 ): ResourceCleanupResult<"container">;
 export function cleanupResources(
   target: ResourceTarget<"directory", "cleanup">,
+  settings: IsolationSettings,
 ): Promise<ResourceCleanupResult<"directory">>;
 export function cleanupResources(
   target: ResourceTarget,
+  settings: IsolationSettings,
   callbacks: IsolationCallbacks = {},
 ):
   | IsolationExecution
   | ResourceCleanupResult<"container">
   | Promise<ResourceCleanupResult<"directory">> {
   validateResourceTarget(target);
-  return cleanupIsolation(target as ResourceTarget<"snapshot">, callbacks);
+  return cleanupIsolation(
+    target as ResourceTarget<"snapshot">,
+    settings,
+    callbacks,
+  );
 }

@@ -40,7 +40,13 @@ async function fixture(t: TestContext) {
       import.meta.url,
     ).href
   );
-  const prepared = f.api.prepareIsolation(f.request);
+  const prepared = f.api.prepareIsolation(
+    f.request,
+    Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
+  );
   assert.ok(prepared);
   const initial = await f.api.executeIsolation(prepared).completion;
   assert.equal(initial.cleanup.confirmed, true);
@@ -70,7 +76,13 @@ async function fixture(t: TestContext) {
 test("単独回収は元Snapshot・実IDで共通DIへ接続し技術結果を返す", async (t) => {
   const { f, api, target } = await fixture(t);
   f.ids.add(ID);
-  const result = await api.cleanupResources(target).completion;
+  const result = await api.cleanupResources(
+    target,
+    Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
+  ).completion;
   assert.equal(result.cleanup.confirmed, true);
   assert.equal(result.processTerminationConfirmed, true);
   assert.equal(result.resources.resources[0]?.identity.dockerId, ID);
@@ -120,7 +132,14 @@ test("発見実IDは保存通知完了後だけ削除し通知拒否では保持
                 assert.equal(saved, true);
               },
             };
-      const result = await api.cleanupResources(unknown, callbacks).completion;
+      const result = await api.cleanupResources(
+        unknown,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+        callbacks,
+      ).completion;
       assert.equal(result.cleanup.confirmed, mode === "saved");
       assert.equal(f.ids.has(ID), mode !== "saved");
       assert.equal(
@@ -147,12 +166,19 @@ test("回収前通知のthrow・Rejectでは元資源を処置しない", async 
     await t.test(String(asyncFailure), async (t) => {
       const { f, api, target } = await fixture(t);
       f.ids.add(ID);
-      const result = await api.cleanupResources(target, {
-        onCleanupSubmitting: () => {
-          if (asyncFailure) return Promise.reject(Error("intent_failed"));
-          throw Error("intent_failed");
+      const result = await api.cleanupResources(
+        target,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+        {
+          onCleanupSubmitting: () => {
+            if (asyncFailure) return Promise.reject(Error("intent_failed"));
+            throw Error("intent_failed");
+          },
         },
-      }).completion;
+      ).completion;
       assert.equal(result.cleanup.confirmed, false);
       assert.equal(f.ids.has(ID), true);
       assert.equal(result.resources.resources[0]?.identity.dockerId, ID);
@@ -173,7 +199,13 @@ test("回収前通知のthrow・Rejectでは元資源を処置しない", async 
 test("単独回収の取消は次の資源削除を止め元Sessionに完了を残す", async (t) => {
   const { f, api, target } = await fixture(t);
   f.ids.add(ID);
-  const session = api.cleanupResources(target);
+  const session = api.cleanupResources(
+    target,
+    Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
+  );
   const cancellation = await session.cancel();
   const result = await session.completion;
   assert.equal(cancellation.cancellationRequested, true);
@@ -200,6 +232,10 @@ test("config終了不明と通知不成立を物理回収成立から分離す�
       if (mode === "config") f.configObservation = "EACCES";
       const result = await api.cleanupResources(
         target,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
         mode === "notice"
           ? {
               onResourcesClosed: () => Promise.reject(Error("terminal_failed")),

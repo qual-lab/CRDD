@@ -5,6 +5,10 @@
  * @trace ARCH-000008
  * @boundary 現在許可・相関済みcheckpointと、用途固定Native／Docker操作。
  */
+import {
+  type IsolationSettings,
+  captureIsolationSettings,
+} from "../docker-cli/environment.ts";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
@@ -158,7 +162,11 @@ function confirmSynchronousRestartBoundary(confirm: () => unknown) {
  * @security 現在Artifactの同一性・Hashと固定Publisher条件を下位で照合する。
  * @concurrency 上位の既存排他を各Effect前に再確認し、取消後の資源joinを省略しない。
  */
-export function restartDesktop(input: RestartInput): Promise<RestartResult> {
+export function restartDesktop(
+  input: RestartInput,
+  settings: IsolationSettings,
+): Promise<RestartResult> {
+  settings = captureIsolationSettings(settings);
   return restartDesktopForVerification(input, {
     platform: process.platform,
     acquire: async () => {
@@ -171,7 +179,15 @@ export function restartDesktop(input: RestartInput): Promise<RestartResult> {
           )
         : Object.freeze({ status: "unavailable" as const, session: null });
     },
-    createMachine: createDockerRestartMachine,
+    createMachine: (session, boundary, signal, accepted, attempted) =>
+      createDockerRestartMachine(
+        settings,
+        session,
+        boundary,
+        signal,
+        accepted,
+        attempted,
+      ),
     now: () => performance.now(),
   });
 }
@@ -196,7 +212,13 @@ export async function restartDesktopForVerification(
   dependencies: Readonly<{
     platform: string;
     acquire: () => Promise<DockerDesktopRestartNativeHelperOutcome>;
-    createMachine: typeof createDockerRestartMachine;
+    createMachine: (
+      session: NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>,
+      boundary: () => boolean,
+      signal: AbortSignal,
+      accepted?: () => void,
+      attempted?: () => void,
+    ) => ReturnType<typeof createDockerRestartMachine>;
     now: () => number;
   }>,
 ): Promise<RestartResult> {

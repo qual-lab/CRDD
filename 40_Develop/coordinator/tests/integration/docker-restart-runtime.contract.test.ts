@@ -415,6 +415,11 @@ async function compose(fault: string = "normal") {
     now: () => 0,
   };
   const context = {
+    getIsolationSettings: () =>
+      Object.freeze({
+        windowsDirectory: "C:\\Windows",
+        userHomeDirectory: "C:\\Users\\test",
+      }),
     Object,
     Error,
     capability,

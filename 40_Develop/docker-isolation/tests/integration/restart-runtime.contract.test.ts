@@ -181,7 +181,7 @@ function fixture(
         : { status: "acquired" as const, session };
     },
     createMachine: (
-      current: Parameters<typeof createDockerRestartMachine>[0],
+      current: Parameters<typeof createDockerRestartMachine>[1],
       boundary: () => boolean,
       signal: AbortSignal,
       onAccepted?: () => void,

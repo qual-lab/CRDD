@@ -6,7 +6,10 @@
  */
 import { spawnSync } from "node:child_process";
 
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
+import {
+  type IsolationSettings,
+  createDockerCliEnvironment,
+} from "../docker-cli/environment.ts";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
@@ -350,10 +353,10 @@ function createMachine(ports: MachinePorts) {
  * @security queryContainersAbsentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: queryContainersAbsentは共有非同期状態を持たない同期処理である。
  */
-function queryContainersAbsent() {
+function queryContainersAbsent(settings: IsolationSettings) {
   try {
-    const cli = observeTrustedDockerCli();
-    const env = createDockerCliEnvironment({
+    const cli = observeTrustedDockerCli(settings);
+    const env = createDockerCliEnvironment(settings, {
       dockerConfig: null,
       dockerHome: null,
     });
@@ -407,6 +410,7 @@ function queryContainersAbsent() {
  * @concurrency createDockerRestartMachineは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export function createDockerRestartMachine(
+  settings: IsolationSettings,
   session: Session,
   boundary: () => boolean,
   signal: AbortSignal,
@@ -419,9 +423,9 @@ export function createDockerRestartMachine(
     signal,
     ...(onRequestAccepted ? { onRequestAccepted } : {}),
     ...(onRequestAttempted ? { onRequestAttempted } : {}),
-    observeBackend: observeBackendState,
-    observeEngine: observeDockerEngine,
-    containersAbsent: queryContainersAbsent,
+    observeBackend: () => observeBackendState(settings),
+    observeEngine: () => observeDockerEngine(settings),
+    containersAbsent: () => queryContainersAbsent(settings),
     now: Date.now,
     wait: () => new Promise((resolve) => setTimeout(resolve, 1_000)),
   });

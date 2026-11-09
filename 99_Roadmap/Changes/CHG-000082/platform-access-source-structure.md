@@ -1,5 +1,61 @@
 # Platform Accessの構造・Native接続再編
 
+## DIの明示初期化と子Process環境 — 2026-11-10
+
+状態: DIの明示初期化・利用側追従・限定回帰と独立再レビューを完了。実AI・実Docker・全体QAの成立を含めない。
+
+変更分類はDIの技術設定契約と利用側の接続変更。基準Commitは`197af14b6`。DIの環境PolicyをPAの一般環境生成から分離し、既存Executor／Coordinatorの起動Ownerへ設定の取得を限定する。PA自身のNative起動、SID／DACL、Job Object、Lock、保存形式、Timeout、Dockerの資源照合は変更対象外。外部AI・実Docker・過去保持物を操作しない。文書整合と利用側横断の影響を確認し、独立Sourceレビューを行う。標準準拠基準・公開／リリース判断は変えないため、それらの監査は発火しない。
+
+| 成立済みの機能 | 今回の所有者と接続 | 維持条件・検証 |
+|---|---|---|
+| Docker CLI／署名検査の限定環境 | DI `docker-cli/environment.ts`。`initializeIsolation`で二所在をコピー・凍結 | 親PATH・Proxy・Node設定は継承せず、同じ準備は同じ設定。合成Filesystemと子Process fixtureで反証 |
+| 通常実行・認証・Probe | 各Executor OptionsがDI設定を明示搬送 | 意図・Receipt通知、取消、Process終了、Cleanup、Home解放は既存契約を維持 |
+| 単独観測・回収／Desktop操作 | 既存入口のsettings引数で同じ設定を搬送 | 元Snapshotと保存順序を維持。可変値・getterと初期化不能を試験 |
+| Native Helper自身の環境 | PAに維持 | DIへの逆依存を作らない。Native環境全廃とは表示しない |
+
+`windowsDirectory`はWindowsの配置先、`userHomeDirectory`はHost OSユーザーHomeであり、Provider Homeではない。グローバルsetterや永続設定は追加せず、設定をSnapshot／Domain記録へ保存しない。Node標準のPath・Link・実体確認を使うが、Native APIによる独立したWindows所在証明と同等保証とは主張しない。この保証範囲の変更は人間が採用済み。グローバル登録案と操作ごとのambient再取得は、既存実行の設定を変えてしまうため採用しない。
+
+着手前の読取り確認で、署名・WSL・Engine・Desktop非同期処理、三用途Options、単独回収と試験注入までを閉包対象とした。最初の独立レビューで設定の可変参照、getter、`os.userInfo`の失敗範囲とimport配置を指摘し、是正後の再レビューは要修正指摘0件。DI本番Sourceに環境変数・OSユーザー情報・PA一般環境生成への暗黙接続が残っていないことも確認した。
+
+最終固定候補ではDI通常412項目中407成功・5対象外（19,108ms）、Executor114成功（80,849ms）、Coordinatorの認証・資源記録・Recovery・再起動・修復結果の限定8 Fileで99成功（10,124ms）。DI／Executor／Coordinator本番・試験の型検査、変更74 Fileと新規設定Sourceの整形・警告検査、既存二つの実行／Task設計対応検査、差分空白確認が成功した。Lintの既存Info12件はWarning／Errorではない。途中候補の失敗は、試験側の新引数未搬送、VM依存未注入、入れ子ScriptでのPath文字列escape、直接Constructor負例の旧引数に是正し、検査・期限を緩めなかった。実AI・実Docker、Host限定実境界、Coordinator全体回帰は実施しておらず、限定結果をそれらへ流用しない。
+
+### 今回の失敗試験の自己生成物
+
+途中候補の設定引数渡し忘れで、有限DI代役のNode試験子がassertion終了し、4 Rootの清掃末尾へ到達しなかった。各Rootは2026-11-09 15:20 UTCの今回の失敗実行に相関する。全Bookは`recovery_opened`／`recovery_handoff`だけで、試験の固定Operation・64桁dの合成Home Bindingとexact Path Hashが一致する。二つは失敗出力のexact回復IDとも一致し、他二つも同じ最初のnormal形の記録と試験順序に対応する。外部Process境界は有限代役であり、実AI・Docker・Native要求はない。未知の旧保持物を日時・prefixだけで選定しない。
+
+親は`C:\project\CRDD\.crdd\tests`、devは`1687905628`。全子のFile Identity・通常File／Directory・Linkなし・nlink1・全量Hashを捕捉した。読取り専用の独立確認後、全試験子の終了と同じ実体・全量Hash・未知の追加0を再確認し、Fileの個別unlinkと空Directoryのrmdirだけで回収した。専用TEMP `di-initialization-20261110-1`は今回exclusive作成した空Directory（ino `14073748836120688`、birthtimeNs `1794236884577908600`）だけを対象とした。16 File・15 Directoryを回収し、全5 RootでENOENTを確認した。旧保持物は対象外のまま維持した。
+
+| 今回の試験Root | ino | birthtimeNs | File/Directory | 全量SHA-256 |
+|---|---|---|---:|---|
+| `executor-host-contract-8kR48D` | `75153818783853652` | `1794237616968406200` | 4/4 | `d959367bf0ec7e5f3019398a75838a218eb1a8f4e6a7180dadc8cdf6226b58cc` |
+| `executor-host-contract-CGkzba` | `134263563893371413` | `1794237651909818800` | 4/4 | `bf5765d6153ab057152340df3c8399fd8c59c88b87ea5b139b3f0ab614c9986d` |
+| `executor-real-claude-fixture-7fce05ff-35f5-40a6-8151-774542307281` | `136796838683680094` | `1794237623649032600` | 4/3 | `ebf3836a7db77c295588eee947773605c0bd18f9bcf94ebde4d3589d49909fab` |
+| `executor-real-codex-fixture-bd9279de-ed4a-4cf9-9471-48b0dcd155fe` | `58828270133232293` | `1794237623068245600` | 4/3 | `aad88180288f617affc82b8f1adfb7a03f903e27a334fadece82920da51cbc4b` |
+
+## 承認済み保持物の限定回収 — 2026-11-09
+
+人間が「安全にすぐ回収できる以前の再現調査4領域と古い保持物」の回収を承認した。これは以前の不操作指示に対する、確認成立した対象だけの新しい許可であり、未知の残存物全体への削除許可ではない。変更分類は保持物の退役と記録の更新で、製品Source・保護Policy・期限は変更しない。実AI／Docker・再試験は実施せず、Root外期待値・実体・参照と停止下Lock処置の専門観点を着手前に照合した。独立した読取り確認は残Must-fix 0件。準拠／Release監査と製品回帰は、契約・実装を変更しないため追加しない。
+
+今回すぐ回収する対象は下表の7 Rootだけ。親は `C:\project\CRDD\.crdd\tests`、devは `1687905628`。再現調査4 Rootの元Identityは下記「失敗4件の限定再確認」節の保持記録と一致し、8管理Root／48子Directoryの記録Identityと7保存OperationのHost Path内包を確認した。これらは固定Workerの未要求切断を再現した自己生成試験物であり、実AI／Dockerの保持資源ではない。原因と結果は本変更記録へ移し、物理的な保存義務を終了する。
+
+中断回帰 `pa-portable-verification-20261109-1` は、外部記録に固定した元Identityとrun／outcome／TAPの3 File Hashが一致し、Namespaceは空。runはowner PID27432、子PID36708、Source 1,133 FileのHash一致、60分枠のETIMEDOUTで最終集計なしという結果を維持する。後続120分回帰の成功でこの中断を成功へ書き換えない。Workspace旧2 Rootも当時の120秒中断として記録済みであり、現在はFile0・空Namespaceのみ。名前や時刻だけではなく、今回採取した下表の実Identityと全量Hashを外部記録へ固定してから空Directoryだけを除去する。
+
+| 回収対象Root | ino | birthtimeNs | File/Directory数 | tree SHA-256 |
+|---|---|---|---:|---|
+| `abandon-owner-JOJj2Z` | `141863388263344720` | `1794229146523878100` | 28/33 | `9710752979c0cf60c94c4fceb1cebd2feb8587a8af2fb892a509482d7d0d52a3` |
+| `abandon-owner-NY0tmb` | `23080948090552893` | `1794229150252646500` | 29/33 | `f8a25b93aabd17a4ab40d5e570e97f6cb07e7514e4c5e440f3428266ea42a39b` |
+| `abandon-owner-6P7XUi` | `11258999070745980` | `1794229155974243400` | 29/33 | `72fba25222b3000f9fa0d259958aacffb60a250e30023d344f87fa27a7c75359` |
+| `abandon-owner-YoSz0u` | `22236523162936768` | `1794229166475201000` | 29/33 | `f14269100c2a2994db42f3bd40f0db3ea1fc47f6562a51481a3b2cf2277aaa75` |
+| `pa-portable-verification-20261109-1` | `23925373020587809` | `1794216399907425300` | 3/2 | `2c621c2a7cd10dd393803bbad163d63d4fbaef8fb5dd83657c541fce5b734984` |
+| `auth-closure-workspace-regression-20261107-1` | `64457769668830052` | `1794038365681913200` | 0/2 | `4998b386b9ae283f05a3ffccabbfc138d31d65fa1cd5fa14e2d1d9885ac0e7df` |
+| `auth-closure-workspace-regression-20261107-2` | `17732923534863761` | `1794038607218579500` | 0/2 | `83e817a6fd2616d913ada12f69064ca4391f3b495eaf66eeefa30559f852d4b9` |
+
+全treeの照合方式は本書の既存節と同じ相対Path・種別・ino・birthtimeNs・File SHA-256のJSON配列。全entryの非link・canonical Path、通常File・単一link、Namespace空、記録と全量Hashの一致を直前再確認する。元Lock所有者PID43376／24552／1904と既知試験PID系列、固定Worker／Workspace試験、7 Root参照Processの停止も確認する。条件成立後、既知Fileの個別unlinkと空Directory除去、各RootのENOENT確認だけを実施する。不一致・稼働・観測不能なら保持する。
+
+古いHost6 Root、Docker影響未確認の45 Root、さらに由来未確定の13 Root等は今回処置しない。経過時間・名前・PID不在だけで削除せず、技術影響・参照の確認を先に必要とする。今回はDockerの起動・観測・回収を許可へ含めない。
+
+削除直前の関連Process照会は一致0で、全7 Rootの元Identity／全量Hashと各entry条件を再照合した。118 Fileを個別unlinkし、138 Directoryを空確認後に除去し、全7 Rootで`lstat`の`ENOENT`を確認した。過去の4失敗や60分／120秒中断は成功へ書き換えず、結果と今回の照合値は本記録へ残す。以下の各節にある当時の保持記述は履歴であり、この7 Rootの現在状態は回収済みである。製品Sourceは変更していない。回収後の独立実読でも全7 Rootの不存在と集計・不明分保持を確認し、参照位置と履歴表示の軽微な追従を是正した。回収の残指摘は0件、差分空白検査も成功した。
+
 ## taskkill接続の完全撤去と親だけの故障注入 — 2026-11-09
 
 人間承認により、残るMCP検証の故障注入を親ProcessだけのSIGKILLへ変更する。全参照を調べ、回復記録ITの単一Node Workerと署名付き回復Matrixの生taskkill呼出も同じ範囲へ含めた。PAの`src/process/termination.ts`、専用fixture・IT、Rootの関数／型exportとSymbol／Catalog・利用側の旧参照は撤去する。Native binary・Protocol・製品の保存Schema・Owner／Lock／Receipt照合、BrowserとDesktop Job Objectは変更しない。

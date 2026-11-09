@@ -1050,7 +1050,21 @@ export function createAttemptExecutor(
   options: DockerIsolationRuntimeOptions,
   random: Readonly<{ randomBytes: (size: number) => Buffer }> = { randomBytes },
 ): Executor<"attempt"> | null {
-  const capturedOptions = copyPlainDataRecord(options, ["paths"]);
+  const capturedOptions = copyPlainDataRecord(options, ["paths", "settings"]);
+  const settings = copyPlainDataRecord(capturedOptions?.settings, [
+    "windowsDirectory",
+    "userHomeDirectory",
+  ]);
+  if (
+    !settings ||
+    typeof settings.windowsDirectory !== "string" ||
+    typeof settings.userHomeDirectory !== "string"
+  )
+    return null;
+  const isolationSettings = Object.freeze({
+    windowsDirectory: settings.windowsDirectory,
+    userHomeDirectory: settings.userHomeDirectory,
+  });
   const capturedPaths = copyPlainDataRecord(capturedOptions?.paths, [
     "tmp",
     "management",
@@ -1099,7 +1113,8 @@ export function createAttemptExecutor(
           {
             ...state,
             acquireHomeLease,
-            prepareIsolation,
+            prepareIsolation: (request) =>
+              prepareIsolation(request, isolationSettings),
             executeIsolation,
             callbacks,
           },

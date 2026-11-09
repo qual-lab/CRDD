@@ -108,18 +108,33 @@ test("公開型の既定Unionと用途別取消は入出力の相関を維持す
       void started;
     }
     if (request.kind === "attempt") {
-      const execution: Executor<"attempt"> | null = createExecutor(
-        request,
-        options,
-      );
+      const execution: Executor<"attempt"> | null = createExecutor(request, {
+        ...options,
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      });
       void execution;
     } else if (request.kind === "authentication") {
       const execution: Executor<"authentication"> | null = createExecutor(
         request,
-        { managementDirectory: "C:\\synthetic\\management" },
+        {
+          ...{ managementDirectory: "C:\\synthetic\\management" },
+          settings: Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        },
       );
       // @ts-expect-error 認証要求をAttempt用Overloadへ渡せない。
-      createExecutor(request, options);
+      createExecutor(request, {
+        ...options,
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      });
       void execution;
     }
     if (start.kind === "authentication" && start.status === "started") {
@@ -138,8 +153,13 @@ test("公開型の既定Unionと用途別取消は入出力の相関を維持す
       void original;
     } else {
       const original: RepairInput = environment.input;
-      const pending: Promise<RepairResult> =
-        restartDockerEnvironment(environment);
+      const pending: Promise<RepairResult> = restartDockerEnvironment(
+        environment,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      );
       void original;
       void pending;
     }
@@ -276,7 +296,13 @@ test("公開Factoryはkindの未知・欠測・矛盾を別用途へ配送しな
   ])
     assert.equal(
       createExecutor(request as never, {
-        managementDirectory: "C:\\synthetic\\management",
+        ...{
+          managementDirectory: "C:\\synthetic\\management",
+        },
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
       }),
       null,
     );
@@ -553,7 +579,16 @@ test("Attemptの欠測・accessor・内側Proxyは乱数取得前に非評価で
       createExecutor(
         request as ExecutorRequest<"attempt">,
         {
-          paths: { tmp: "C:/fixture/tmp", management: "C:/fixture/management" },
+          ...{
+            paths: {
+              tmp: "C:/fixture/tmp",
+              management: "C:/fixture/management",
+            },
+          },
+          settings: Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
         },
         {
           randomBytes: () => {

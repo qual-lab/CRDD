@@ -1,163 +1,108 @@
 /**
- * Docker環境構成を固定OS観測値へ接続する試験fixture。
+ * 明示設定からDocker専用環境を構築する有限fixture。
  * @packageDocumentation
- * @responsibility 下位の固定key構成と観測不能時の停止を実Native起動と区別して検証する。
+ * @responsibility 親環境・PA・Nativeに依存しない固定投影を確認する。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @level IT
- * @scope Platform Access観測は差替え。Docker・Provider・実Native操作0。
- * @boundary Docker環境構成→Platform Access公開観測の試験境界。
+ * @scope 別Node試験Process。Docker・Provider・実Native操作0。
+ * @boundary 設定値とDocker環境構築のみ。
  */
 import assert from "node:assert/strict";
 import { mock } from "node:test";
 
 const scenario = process.argv[2];
 assert.ok(
-  ["normal", "console_unknown", "native_unknown", "drive_unknown"].includes(
-    scenario ?? "",
-  ),
+  [
+    "normal",
+    "ambient_changed",
+    "native_unavailable",
+    "independent_settings",
+  ].includes(scenario ?? ""),
 );
-const neutral = Object.freeze(
-  Object.assign(Object.create(null), {
-    SystemRoot: "D:\\Windows",
-    WINDIR: "D:\\Windows",
-    HOME: "",
-    USERPROFILE: "",
-    HTTPS_PROXY: "",
-    SYSTEMDRIVE: "",
-  }),
-);
-let consoleObservations = 0;
 let processRequests = 0;
 await mock.module("node:child_process", {
   namedExports: {
     spawn: () => {
-      processRequests += 1;
-      throw new Error("environment_must_not_start_process");
+      processRequests++;
+      throw Error("unexpected_process");
     },
     spawnSync: () => {
-      processRequests += 1;
-      throw new Error("environment_must_not_start_process");
+      processRequests++;
+      throw Error("unexpected_process");
     },
     execFileSync: () => {
-      processRequests += 1;
-      throw new Error("environment_must_not_start_process");
+      processRequests++;
+      throw Error("unexpected_process");
     },
   },
 });
-await mock.module(
-  new URL("../../../platform-access/src/index.ts", import.meta.url).href,
-  {
-    namedExports: {
-      createChildProcessEnvironment: (options: {
-        platform: string;
-        userProfile?: boolean;
-      }) => {
-        assert.equal(options.platform, "win32");
-        if (options.userProfile)
-          return scenario === "native_unknown"
-            ? null
-            : Object.freeze({ ...neutral, USERPROFILE: "D:\\Users\\fixture" });
-        consoleObservations += 1;
-        return scenario === "console_unknown" ? null : neutral;
-      },
-      deriveWindowsSystemDrive: (directory: unknown) => {
-        assert.equal(directory, "D:\\Windows");
-        return scenario === "drive_unknown" ? null : "D:";
-      },
-    },
-  },
-);
 const {
   createDockerCliEnvironment,
   createDockerDesktopRepairHelperEnvironment,
   createDockerProcessEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
 } = await import("../../src/docker-cli/environment.ts");
-
+const settings = Object.freeze({
+  windowsDirectory: "D:\\Windows",
+  userHomeDirectory: "D:\\Users\\fixture",
+});
+if (scenario === "ambient_changed") {
+  process.env.SystemRoot = "Z:\\untrusted";
+  process.env.USERPROFILE = "Z:\\untrusted-home";
+  process.env.NODE_OPTIONS = "--ambient";
+  process.env.HTTPS_PROXY = "http://ambient";
+}
 for (const [dockerConfig, dockerHome] of [
   [null, "D:\\owned-home"],
   ["D:\\owned-config", null],
   ["relative", "D:\\owned-home"],
   ["D:\\owned-config", "relative"],
-  ["D:\\owned-config\0invalid", "D:\\owned-home"],
-  ["D:\\owned-config", "D:\\owned-home\0invalid"],
-] as const) {
-  const before = consoleObservations;
-  assert.equal(createDockerCliEnvironment({ dockerConfig, dockerHome }), null);
-  assert.equal(consoleObservations, before);
-}
-const defaultEnvironment = createDockerCliEnvironment({
-  dockerConfig: null,
-  dockerHome: null,
+  ["D:\\config\0bad", "D:\\owned-home"],
+] as const)
+  assert.equal(
+    createDockerCliEnvironment(settings, { dockerConfig, dockerHome }),
+    null,
+  );
+const base = createDockerProcessEnvironment(settings);
+assert.ok(Object.isFrozen(base));
+assert.equal(Object.getPrototypeOf(base), null);
+assert.equal(base.SystemRoot, "D:\\Windows");
+assert.equal(base.WINDIR, "D:\\Windows");
+assert.equal(base.HOME, "");
+assert.equal(base.USERPROFILE, "");
+assert.equal(base.NODE_OPTIONS, "");
+assert.equal(base.HTTPS_PROXY, "");
+assert.equal(base.DOCKER_CLI_HINTS, "false");
+const owned = createDockerCliEnvironment(settings, {
+  dockerConfig: "D:\\config",
+  dockerHome: "D:\\home",
 });
-if (scenario === "console_unknown") {
-  assert.equal(defaultEnvironment, null);
-  assert.throws(
-    () => createDockerProcessEnvironment(),
-    /docker_effect_environment_unavailable/u,
-  );
-} else {
-  assert.deepEqual(
-    defaultEnvironment,
-    Object.assign(Object.create(null), neutral, { DOCKER_CLI_HINTS: "false" }),
-  );
-  assert.ok(Object.isFrozen(defaultEnvironment));
-  assert.equal(Object.getPrototypeOf(defaultEnvironment), null);
-  assert.deepEqual(createDockerProcessEnvironment(), defaultEnvironment);
-  const owned = createDockerCliEnvironment({
-    dockerConfig: "D:\\owned-config",
-    dockerHome: "D:\\owned-home",
-  });
-  assert.deepEqual(
-    owned,
-    Object.assign(Object.create(null), neutral, {
-      DOCKER_CLI_HINTS: "false",
-      DOCKER_CONFIG: "D:\\owned-config",
-      HOME: "D:\\owned-home",
-      USERPROFILE: "D:\\owned-home",
-    }),
-  );
-  assert.ok(Object.isFrozen(owned));
-  assert.deepEqual(
-    Object.keys(neutral).sort(),
-    [
-      "HOME",
-      "HTTPS_PROXY",
-      "SYSTEMDRIVE",
-      "SystemRoot",
-      "USERPROFILE",
-      "WINDIR",
-    ].sort(),
-  );
-}
-const repair = createDockerDesktopRepairHelperEnvironment();
-if (scenario === "native_unknown" || scenario === "drive_unknown") {
-  assert.equal(repair, null);
-} else {
-  assert.deepEqual(repair, {
-    ...neutral,
-    USERPROFILE: "D:\\Users\\fixture",
-    SYSTEMDRIVE: "D:",
-  });
-  assert.ok(Object.isFrozen(repair));
-}
-const authenticode = createWindowsPowerShellAuthenticodeEnvironment();
-if (scenario === "native_unknown") {
-  assert.equal(authenticode, null);
-} else {
-  assert.deepEqual(authenticode, {
-    SystemRoot: "D:\\Windows",
-    WINDIR: "D:\\Windows",
-    USERPROFILE: "D:\\Users\\fixture",
-    PATH: "D:\\Windows\\System32;D:\\Windows;D:\\Windows\\System32\\WindowsPowerShell\\v1.0",
-    PATHEXT: ".COM;.EXE;.BAT;.CMD",
-  });
-  assert.ok(Object.isFrozen(authenticode));
-  assert.equal(Object.keys(authenticode).length, 5);
-  assert.equal("HTTPS_PROXY" in authenticode, false);
-  assert.equal("HOME" in authenticode, false);
-}
+assert.equal(owned?.DOCKER_CONFIG, "D:\\config");
+assert.equal(owned?.HOME, "D:\\home");
+assert.equal(owned?.USERPROFILE, "D:\\home");
+assert.equal(owned?.SystemRoot, settings.windowsDirectory);
+const repair = createDockerDesktopRepairHelperEnvironment(settings);
+assert.equal(repair.USERPROFILE, settings.userHomeDirectory);
+assert.equal(repair.SYSTEMDRIVE, "D:");
+const authenticode = createWindowsPowerShellAuthenticodeEnvironment(settings);
+assert.deepEqual(authenticode, {
+  SystemRoot: "D:\\Windows",
+  WINDIR: "D:\\Windows",
+  USERPROFILE: "D:\\Users\\fixture",
+  PATH: "D:\\Windows\\System32;D:\\Windows;D:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+  PATHEXT: ".COM;.EXE;.BAT;.CMD",
+});
+assert.ok(Object.isFrozen(authenticode));
+const other = Object.freeze({
+  windowsDirectory: "E:\\Windows",
+  userHomeDirectory: "E:\\Users\\other",
+});
+assert.equal(createDockerProcessEnvironment(other).SystemRoot, "E:\\Windows");
+assert.equal(
+  createDockerProcessEnvironment(settings).SystemRoot,
+  "D:\\Windows",
+);
 assert.equal(processRequests, 0);
 process.stdout.write(
   JSON.stringify({

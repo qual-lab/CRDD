@@ -1,5 +1,9 @@
 # Provider単段Executorの詳細設計
 
+## DI環境の明示設定 — 2026-11-10
+
+三用途のOptionsは、上位が`initializeIsolation({ windowsDirectory, userHomeDirectory })`で取得したDI正本の`IsolationSettings`を`settings`に受け取る。認証・通常AttemptはFactoryで値を捕捉し、Probeは準備で固定する。ExecutorはHostの環境変数やユーザー所在を再取得せず、Provider Home・管理領域・一時領域をこの設定から推測しない。`inspectResources(target, settings, options?)`／`cleanupResources(target, settings, callbacks?)`と環境操作にも同じ明示設定を渡す。設定をResourceSnapshot・保存投影へ追加しない。
+
 作成Receipt通知は、DIが成功応答の完全実IDを保持した後、実行前の実体・構成検査より前に上位へ搬送する。上位は既存のreceiptイベントで同じOperationへ保存し、存在観測・構成検査成功・AI実行開始へ昇格しない。構成拒否でも元IDは回収と最終Snapshotへ残す。通知拒否では後続実行を停止する。Receipt通知完了後にreceiptRecordedを更新し、通知拒否を保存済みと表示しない。応答後取消でも既知IDの通知は省略しない。
 
 PrimaryFailureDiagnosticの任意isolationFailureはDIの元failure型を再利用し、reason・stage・notification・kind・例外分類・要求／応答観測を保持する。既存の上位reasonとstageは利用側の分岐のため維持し、技術診断の集約で元停止点を消さない。後着のCleanup／通知失敗で一次技術診断を上書きしない。生例外・inspect本文・認証値は返さない。検証ToolのJSON受入れも同じ項目へ追従し、公開関数・Root Export・Domain保存Schemaは増減しない。
@@ -31,7 +35,7 @@ AttemptのCompletionResultは信頼した上位へ非秘密ResourceSnapshotを�
 
 固定Probeは用途固有の構成と結果解釈を`lifecycle/probe.ts`で所有する。`lifecycle/probe.ts`は同じDI元準備を一回実行し、技術操作を順に組み立てず、DI CompletionのProcess終了・回収・非秘密ResourceSnapshotを結果へ搬送する。開始前取消、必要通知の同期性、通知失敗後の前進停止、任意完了通知の失敗捕捉を維持する。結果観測後の取消で既存の失敗理由を取消成功へ上書きしない。
 
-認証の通常実行も共通DI入口へ接続する。公開Factoryは認証要求とAuthenticationOptionsのmanagementDirectoryを受け、Factoryでは固定値・投影だけを構成する。上位が記録を受け付け管理領域を用意した後のstartで、DIの元実体準備と一回実行へ接続する。statusはHome読取り専用・Networkなし、loginは従来のProxy・Home書込み・TTYを維持し、WorkspaceをMountしない。非対話30秒・対話無期限を変更しない。Completionは認証三値、Process終了、回収、非秘密ResourceSnapshotを分離して返す。終了1を受理するのはstatusかつ正規未ログインの場合だけで、終了1と認証済み出力の矛盾を成功にしない。
+認証の通常実行も共通DI入口へ接続する。公開Factoryは認証要求とAuthenticationOptionsのmanagementDirectoryとsettingsを受け、Factoryでは固定値・投影だけを構成する。上位が記録を受け付け管理領域を用意した後のstartで、DIの元実体準備と一回実行へ接続する。statusはHome読取り専用・Networkなし、loginは従来のProxy・Home書込み・TTYを維持し、WorkspaceをMountしない。非対話30秒・対話無期限を変更しない。Completionは認証三値、Process終了、回収、非秘密ResourceSnapshotを分離して返す。終了1を受理するのはstatusかつ正規未ログインの場合だけで、終了1と認証済み出力の矛盾を成功にしない。
 
 通常Attemptは同じprepareIsolation／executeIsolationへ五資源・九操作を接続する。認証単独Cleanupと資源集合の再入場はcleanupIsolationへ接続し、通常実行と同じDIの資源照合・回収・Process終了・config終了を利用する。Commandの再実行や上位への所在／Receipt逆照会は行わない。通常AttemptのCompletionもDI正本のResourceSnapshotを搬送する。旧固定Runtime／認証専用実行は製品から撤去し、旧有限試験の候補だけ試験側に隔離する。既存の実AI成功記録は保持し、新しい共通入口の実AI再成立の根拠にはしない。
 
@@ -106,7 +110,7 @@ DIの認証isActiveは同じ実行の明示取消Signalだけを確認する。D
 
 試験専用attempt-recovery-test.tsは現行の非同期cleanupObservedを備える有限DI代役だけを受ける。欠測を読取り専用recoverObservedへfallbackせず、処置未確認へ閉じる。製品Rootや技術処置の新しい差替えAPIは追加しない。
 
-認証はcreateExecutor({kind: "authentication", ...request}, {managementDirectory})から構成する。上位が既存Home LockとRecovery記録を確定し、管理領域をexclusive取得した後にstartへ進む。Factoryでは値だけ、startで共通DI準備・実行へ接続し、completionは認証三値・Process終了・Cleanup・非秘密Snapshotを分離する。認証情報本文・Repository・Workspace・任意CLIを入力に要求しない。同じProvider Imageを用途ごとのMount・通信・対話条件で使用する。
+認証はcreateExecutor({kind: "authentication", ...request}, {managementDirectory, settings})から構成する。上位が既存Home LockとRecovery記録を確定し、管理領域をexclusive取得した後にstartへ進む。Factoryでは値だけ、startで共通DI準備・実行へ接続し、completionは認証三値・Process終了・Cleanup・非秘密Snapshotを分離する。認証情報本文・Repository・Workspace・任意CLIを入力に要求しない。同じProvider Imageを用途ごとのMount・通信・対話条件で使用する。
 
 上位はHome選定・既存Home Lock、Recovery受付、Intent／Receipt／idle／settledの保存を所有する。Executorの同期void通知は各Commandの前、作成Receipt、終了後に発行し、上位は必要保存を完了してからreturnする。throw又は誤Promiseでは次Effectを止める。生出力を通知へ流さず、AI Adapterの正本Parserで認証三値へ変換する。ExecutorはOwnerや保存状態を逆照会しない。通常実行は元DI Planの固定資源列と通知完了済みReceiptを内部に保持し、単独回収は上位が読んだ同じ資源情報を値として受け取る。DIは元計画との順序・名前・種類・実IDを検査し、accessor・Proxy・欠測を拒否する。
 
@@ -118,9 +122,9 @@ DIの認証isActiveは同じ実行の明示取消Signalだけを確認する。D
 
 | 公開関数 | 契約 |
 |---|---|
-| `inspectDockerEnvironment(): DockerEnvironmentStatus` | backendとEngineの既存の有界読取りを逐次実行する。backendのunknown、Engineのknown_unavailable／unknownとcleanup未確認を保持する。起動・再起動・修復・Container作成を発行しない |
-| `restartDockerEnvironment({mode: "restart", input: request}): Promise<DockerEnvironmentResult<"restart">>` | 入力object・Signal・現在境界確認・同期通知と元Promiseを既存DIへ無変換で委譲する。DI正本の入力・結果・通知型を再利用し、deliveryを落とさない |
-| `restartDockerEnvironment({mode: "repair", input: request}): Promise<DockerEnvironmentResult<"repair">>` | 既存の固定修復Sessionへ無変換で委譲する。判断・保存・保持期限は上位へ残す |
+| `inspectDockerEnvironment(settings): DockerEnvironmentStatus` | backendとEngineの既存の有界読取りを逐次実行する。backendのunknown、Engineのknown_unavailable／unknownとcleanup未確認を保持する。起動・再起動・修復・Container作成を発行しない |
+| `restartDockerEnvironment({mode: "restart", input: request}, settings): Promise<DockerEnvironmentResult<"restart">>` | 入力object・Signal・現在境界確認・同期通知と元Promiseを既存DIへ無変換で委譲する。DI正本の入力・結果・通知型を再利用し、deliveryを落とさない |
+| `restartDockerEnvironment({mode: "repair", input: request}, settings): Promise<DockerEnvironmentResult<"repair">>` | 既存の固定修復Sessionへ無変換で委譲する。判断・保存・保持期限は上位へ残す |
 
 診断結果はatomicなSnapshotでも再起動許可でも全資源停止の証明でもない。診断の先行実行を再起動の条件にせず、既存DIの各Effect直前確認と通知待ちを維持する。Coordinatorの再起動本番接続はこの窓口を使用する。既存doctorの合成Container Probeは別Capabilityであり、環境読取りをdoctorへ自動追加しない。認証は上記の認証窓口へ接続済みである。合成隔離Probeの通常経路は上記の既存Executor入口へ接続する。実Docker境界の成立は今回の非AI検証から推測しない。修復・固定Directoryの観測／処置は以下の共通入口へ接続する。既存Runtime State LockはRepository単位であり、Host全体・別Repositoryの排他保証をこの移管で新設又は証明したとは扱わない。
 

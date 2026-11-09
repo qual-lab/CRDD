@@ -59,6 +59,10 @@ export {
 } from "./session.ts";
 
 import type { DockerExecutionCallbacks } from "../../../executor/scripts/executor-test.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 /**
  * 実行資源の技術計画。相関値は許可ではない。
@@ -133,7 +137,7 @@ const SHORT_COMMAND_TIMEOUT_MS = 10_000;
  */
 function readCliSnapshot(): DockerCliTrustSnapshot {
   try {
-    return observeTrustedDockerCli();
+    return observeTrustedDockerCli(ISOLATION_SETTINGS);
   } catch {
     throw new Error("docker_effect_cli_untrusted");
   }
@@ -220,7 +224,9 @@ export function createDockerIsolationRuntime(
   if (Object.hasOwn(descriptors, "platform"))
     throw new Error("docker_isolation_platform_input_forbidden");
   if (
-    Reflect.ownKeys(descriptors).length !== 1 ||
+    Reflect.ownKeys(descriptors).length !== 2 ||
+    !descriptors.settings ||
+    !Object.hasOwn(descriptors.settings, "value") ||
     !descriptors.paths ||
     !Object.hasOwn(descriptors.paths, "value")
   )
@@ -257,7 +263,7 @@ export function createDockerIsolationRuntime(
     platform: process.platform,
     readCli: readCliSnapshot,
     verifyCli: verifyCliSnapshot,
-    environment: createDockerProcessEnvironment,
+    environment: () => createDockerProcessEnvironment(dependencies.settings),
     createConfig: createDockerCliConfig,
     verifyConfig: verifyDockerCliConfig,
     configEntries: (directory) => fs.readdirSync(directory),

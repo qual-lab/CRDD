@@ -302,11 +302,14 @@ export function createIsolationProbe(
   )
     return null;
   const probeId = Object.getOwnPropertyDescriptor(request, "probeId")?.value;
+  const settings = Object.getOwnPropertyDescriptor(options, "settings");
   if (
     Object.getOwnPropertyDescriptor(request, "kind")?.value !==
       "isolation_probe" ||
     Reflect.ownKeys(request).length !== 2 ||
-    Reflect.ownKeys(options).length !== 1 ||
+    Reflect.ownKeys(options).length !== 2 ||
+    !settings ||
+    !("value" in settings) ||
     typeof probeId !== "string" ||
     !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(
       probeId,
@@ -319,70 +322,73 @@ export function createIsolationProbe(
       Object.getOwnPropertyDescriptor(options, "mounts")?.value,
     );
     const specification = describeIsolationProbeProfile(profile);
-    prepared = prepareIsolation({
-      managementDirectory: mounts.management,
-      resources: [
-        {
-          kind: "container",
-          key: "probe",
-          name: `crdd-coordinator-probe-${probeId}`,
-          ownershipLabel: `crdd.coordinator.probe=${probeId}`,
-          image: describeIsolationConfiguration().image,
-          argv: ["-c", specification.source],
-          environment: {
-            HOME: "/operation/provider-home",
-            TMPDIR: "/operation/tmp",
+    prepared = prepareIsolation(
+      {
+        managementDirectory: mounts.management,
+        resources: [
+          {
+            kind: "container",
+            key: "probe",
+            name: `crdd-coordinator-probe-${probeId}`,
+            ownershipLabel: `crdd.coordinator.probe=${probeId}`,
+            image: describeIsolationConfiguration().image,
+            argv: ["-c", specification.source],
+            environment: {
+              HOME: "/operation/provider-home",
+              TMPDIR: "/operation/tmp",
+            },
+            mounts: [
+              {
+                source: mounts.workspace,
+                target: "/operation/workspace",
+                readOnly: false,
+              },
+              {
+                source: mounts.providerHome,
+                target: "/operation/provider-home",
+                readOnly: false,
+              },
+              { source: mounts.tmp, target: "/operation/tmp", readOnly: false },
+            ],
+            network: null,
+            networkAlias: null,
+            user: "65532:65532",
+            workingDirectory: "/operation/workspace",
+            entrypoint: "python",
+            tmpfsBytes: null,
+            interactive: false,
+            tty: false,
+            init: false,
+            seccomp: null,
           },
-          mounts: [
-            {
-              source: mounts.workspace,
-              target: "/operation/workspace",
-              readOnly: false,
-            },
-            {
-              source: mounts.providerHome,
-              target: "/operation/provider-home",
-              readOnly: false,
-            },
-            { source: mounts.tmp, target: "/operation/tmp", readOnly: false },
-          ],
-          network: null,
-          networkAlias: null,
-          user: "65532:65532",
-          workingDirectory: "/operation/workspace",
-          entrypoint: "python",
-          tmpfsBytes: null,
-          interactive: false,
-          tty: false,
-          init: false,
-          seccomp: null,
-        },
-      ],
-      steps: [
-        {
-          key: "create_isolation_probe",
-          action: "create",
-          resource: "probe",
-          timeoutMs: 30_000,
-        },
-        {
-          key: "execute_isolation_probe",
-          action: "run",
-          resource: "probe",
-          mode: "captured",
-          stdin: null,
-          timeoutMs: specification.timeoutMs,
-          stdoutLimitBytes: 64 * 1024,
-          stderrLimitBytes: 64 * 1024,
-          acceptedExitCodes: [0, 7],
-          deadlineOrigin: "request",
-        },
-      ],
-      cleanupOrder: ["probe"],
-      setupTimeoutMs: 10_000,
-      unreceiptedAbsence: "retain",
-      verifyLabelAbsence: true,
-    });
+        ],
+        steps: [
+          {
+            key: "create_isolation_probe",
+            action: "create",
+            resource: "probe",
+            timeoutMs: 30_000,
+          },
+          {
+            key: "execute_isolation_probe",
+            action: "run",
+            resource: "probe",
+            mode: "captured",
+            stdin: null,
+            timeoutMs: specification.timeoutMs,
+            stdoutLimitBytes: 64 * 1024,
+            stderrLimitBytes: 64 * 1024,
+            acceptedExitCodes: [0, 7],
+            deadlineOrigin: "request",
+          },
+        ],
+        cleanupOrder: ["probe"],
+        setupTimeoutMs: 10_000,
+        unreceiptedAbsence: "retain",
+        verifyLabelAbsence: true,
+      },
+      settings.value,
+    );
   } catch {
     return null;
   }

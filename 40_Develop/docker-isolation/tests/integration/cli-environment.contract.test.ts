@@ -12,12 +12,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
+import fs from "node:fs";
+import {
+  initializeIsolation,
+  createWindowsPowerShellAuthenticodeEnvironment,
+} from "../../src/docker-cli/environment.ts";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
-import { runInNewContext } from "node:vm";
 import * as dockerTrustOperations from "../../src/docker-cli/trust.ts";
 import * as dockerIsolation from "../../src/index.ts";
 
@@ -32,57 +33,64 @@ import * as dockerIsolation from "../../src/index.ts";
  * @cleanup N/A: メモリ内のみ。Process・Filesystem書込みは行わない。
  * @boundary 投影部分の局所反証。実OSの成立を主張しない。
  */
-test("署名確認環境は共通観測の欠測を補完せず固定五項目だけ返す", () => {
-  const source = readFileSync(
-    new URL("../../src/docker-cli/environment.ts", import.meta.url),
-    "utf8",
-  );
-  const start = source.indexOf(
-    "export function createWindowsPowerShellAuthenticodeEnvironment(",
-  );
-  assert.ok(start > 0);
-  const body = stripTypeScriptTypes(
-    source.slice(start).replace(/^export /u, ""),
-  );
-  for (const base of [
+test("署名確認環境は明示設定から固定五項目だけ返し初期化はコピーする", (t) => {
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  assert.ok(platform);
+  Object.defineProperty(process, "platform", {
+    value: "win32",
+    configurable: true,
+  });
+  t.after(() => Object.defineProperty(process, "platform", platform));
+  let missing = false;
+  let link = false;
+  t.mock.method(fs, "lstatSync", ((value: unknown) => {
+    if (missing) throw Error("unobservable");
+    return {
+      isFile: () => String(value).endsWith("kernel32.dll"),
+      isDirectory: () => !String(value).endsWith("kernel32.dll"),
+      isSymbolicLink: () => link,
+    };
+  }) as never);
+  t.mock.method(fs.realpathSync, "native", (value: unknown) => String(value));
+  const input = {
+    windowsDirectory: "D:\\Windows",
+    userHomeDirectory: "D:\\Users\\fixture",
+  };
+  const settings = initializeIsolation(input);
+  assert.ok(settings);
+  assert.ok(Object.isFrozen(settings));
+  assert.notEqual(settings, input);
+  input.windowsDirectory = "Z:\\changed";
+  assert.equal(settings.windowsDirectory, "D:\\Windows");
+  const environment = createWindowsPowerShellAuthenticodeEnvironment(settings);
+  assert.ok(Object.isFrozen(environment));
+  assert.equal(Object.keys(environment).length, 5);
+  assert.equal(environment.SystemRoot, "D:\\Windows");
+  assert.equal(environment.USERPROFILE, "D:\\Users\\fixture");
+  assert.equal("NODE_OPTIONS" in environment, false);
+  let reads = 0;
+  assert.equal(
+    initializeIsolation(
+      Object.defineProperty({}, "windowsDirectory", {
+        get() {
+          reads++;
+          throw Error("getter");
+        },
+      }) as never,
+    ),
     null,
-    Object.freeze({ USERPROFILE: "D:\\Users\\fixture" }),
-    Object.freeze({ SystemRoot: "D:\\Windows" }),
-    Object.freeze({
-      SystemRoot: "D:\\Windows",
-      USERPROFILE: "D:\\Users\\fixture",
-      PATH: "ambient-injected",
-      NODE_OPTIONS: "ambient-injected",
-    }),
-  ]) {
-    let calls = 0;
-    const create = runInNewContext(`(${body}\n)`, {
-      path,
-      createChildProcessEnvironment: (options: object) => {
-        calls += 1;
-        assert.deepEqual(JSON.parse(JSON.stringify(options)), {
-          platform: "win32",
-          userProfile: true,
-        });
-        return base;
-      },
-    }) as () => Readonly<Record<string, string>> | null;
-    const actual = create();
-    assert.equal(calls, 1);
-    if (!base || !("SystemRoot" in base) || !("USERPROFILE" in base)) {
-      assert.equal(actual, null);
-    } else {
-      assert.ok(actual);
-      assert.equal(Object.keys(actual).length, 5);
-      assert.equal(Object.isFrozen(actual), true);
-      assert.equal("NODE_OPTIONS" in actual, false);
-      assert.equal(
-        Object.getOwnPropertyDescriptor(base, "PATH")?.value,
-        "ambient-injected",
-      );
-      assert.notEqual(actual.PATH, "ambient-injected");
-    }
-  }
+  );
+  assert.equal(reads, 0);
+  assert.equal(initializeIsolation(new Proxy(input, {}) as never), null);
+  assert.equal(
+    initializeIsolation({ ...input, windowsDirectory: "relative" }),
+    null,
+  );
+  missing = true;
+  assert.equal(initializeIsolation(input), null);
+  missing = false;
+  link = true;
+  assert.equal(initializeIsolation(input), null);
 });
 
 /**
@@ -132,6 +140,7 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
   const expectedExports = ["prepareIsolation", "executeIsolation"].sort();
   const actualExports = Object.keys(dockerIsolation).sort();
   expectedExports.push(
+    "initializeIsolation",
     "describeIsolationConfiguration",
     "inspectDockerEnvironment",
     "restartDockerEnvironment",
@@ -151,9 +160,9 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
   );
   for (const scenario of [
     "normal",
-    "console_unknown",
-    "native_unknown",
-    "drive_unknown",
+    "ambient_changed",
+    "native_unavailable",
+    "independent_settings",
   ]) {
     const observed = spawnSync(
       process.execPath,

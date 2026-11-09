@@ -709,7 +709,7 @@ test("backend修復停止は固定環境・argv・上限と発行分類を保つ
       `${body}; terminateDockerDesktopBackendForRepair`,
       {
         path,
-        createChildProcessEnvironment: () => environment,
+        createDockerDesktopRepairHelperEnvironment: () => environment,
         spawnSync(executable: string, argv: string[], options: object) {
           calls++;
           assert.equal(executable, "C:\\Windows\\System32\\wsl.exe");

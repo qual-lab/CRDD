@@ -15,6 +15,10 @@ import {
   observeIsolationIdentity,
 } from "../../src/cleanup/resource.ts";
 import type { ResourceSnapshot, ResourceTarget } from "../../src/index.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 const ID = "a".repeat(64);
 const LABEL = "crdd.coordinator.runtime=0123456789abcdef";
@@ -229,7 +233,7 @@ test("共通観測は用途なしのSnapshotと明示候補だけを使用する
       previouslyAbsent: [],
     };
     const input = request;
-    const result = api.inspectIsolation(input, {
+    const result = api.inspectIsolation(input, ISOLATION_SETTINGS, {
       signal: controller.signal,
       stopOnUnknownAbsence: mode.startsWith("retain"),
     });

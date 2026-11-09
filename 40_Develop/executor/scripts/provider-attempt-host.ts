@@ -9,6 +9,8 @@ import { PURPOSES, isAttemptFailureReason } from "../src/lifecycle/attempt.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { initializeIsolation } from "../../docker-isolation/src/index.ts";
 import { fileURLToPath } from "node:url";
 import {
   readCommittedJson,
@@ -59,7 +61,13 @@ export function createStandaloneProviderAttemptHost(
   )
     throw Error("standalone_host_root_invalid");
   const identity = fs.statSync(root, { bigint: true });
+  const settings = initializeIsolation({
+    windowsDirectory: process.env.SystemRoot ?? "",
+    userHomeDirectory: os.userInfo().homedir,
+  });
+  if (!settings) throw Error("isolation_settings_unavailable");
   const runtime = createExecutor(request, {
+    settings,
     paths: {
       tmp: path.join(root, "tmp"),
       management: path.join(root, "management"),

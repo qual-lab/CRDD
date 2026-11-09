@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { types } from "node:util";
+import { getIsolationSettings } from "./configuration.ts";
 import {
   getAuthenticationDefinition,
   resolveModelSelection,
@@ -8409,7 +8410,8 @@ export function createProviderAuthenticationDependencies(): Dependencies {
     createAuthentication: createExecutor,
     createManagementDirectory: createAuthenticationManagementDirectory,
     removeManagementDirectory: removeAuthenticationManagementDirectory,
-    cleanupAuthentication: cleanupResources,
+    cleanupAuthentication: (target, callbacks) =>
+      cleanupResources(target, getIsolationSettings(), callbacks),
     acquireProviderHomeLock: acquireProviderHomeLock,
     beginRecovery: beginProviderAuthenticationRecovery,
     setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
@@ -8451,7 +8453,10 @@ export function prepareProviderAuthentication(
     suffix,
     proxyToken,
   };
-  const authentication = prepare(request, { managementDirectory });
+  const authentication = prepare(request, {
+    managementDirectory,
+    settings: getIsolationSettings(),
+  });
   if (!authentication) return null;
   const projection = authentication.recordProjection;
   authenticationPreparations.set(projection, {

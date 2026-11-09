@@ -10,6 +10,7 @@ import {
   parseProviderResult,
 } from "../../../ai-adapter/src/index.ts";
 import {
+  type IsolationSettings,
   describeIsolationConfiguration,
   executeIsolation,
   type IsolationExecution,
@@ -276,7 +277,30 @@ function authenticationIsolationRequest(
 export function createAuthenticationExecutor(
   request: AuthenticationRequest,
   managementDirectory: string,
+  settings: IsolationSettings,
 ): Executor<"authentication"> | null {
+  if (
+    !settings ||
+    typeof settings !== "object" ||
+    types.isProxy(settings) ||
+    Reflect.ownKeys(settings).length !== 2
+  )
+    return null;
+  const windows = Object.getOwnPropertyDescriptor(settings, "windowsDirectory");
+  const home = Object.getOwnPropertyDescriptor(settings, "userHomeDirectory");
+  if (
+    !windows ||
+    !("value" in windows) ||
+    typeof windows.value !== "string" ||
+    !home ||
+    !("value" in home) ||
+    typeof home.value !== "string"
+  )
+    return null;
+  settings = Object.freeze({
+    windowsDirectory: windows.value,
+    userHomeDirectory: home.value,
+  });
   let input: IsolationRequest;
   try {
     input = authenticationIsolationRequest(request, managementDirectory);
@@ -329,7 +353,7 @@ export function createAuthenticationExecutor(
         }
       };
       try {
-        const prepared = prepareIsolation(input);
+        const prepared = prepareIsolation(input, settings);
         if (!prepared)
           throw Error("provider_authentication_preparation_failed");
         let resources: ResourcePreparation = Object.freeze({

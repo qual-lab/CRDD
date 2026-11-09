@@ -54,6 +54,7 @@ import {
   readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
 import { prepareAuthenticationProjection } from "../support/authentication.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 /**
  * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。
@@ -101,8 +102,8 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
   assert.equal(plan.status, "candidate");
   if (plan.status !== "candidate") throw new Error("probe_plan_unavailable");
   const image = describeDockerProviderAssets("codex").fixedImageDigest;
-  const snapshot = observeTrustedDockerCli();
-  const env = createDockerProcessEnvironment();
+  const snapshot = observeTrustedDockerCli(getIsolationSettings());
+  const env = createDockerProcessEnvironment(getIsolationSettings());
   /**
    * 信頼を前後再確認して固定Engineへ試験用Docker要求を出す。
    * @responsibility 信頼を前後再確認して固定Engineへ試験用Docker要求を出す。
@@ -744,8 +745,8 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
   const plan = planDockerAuthenticationCommands(input);
   const createRuntime = createDockerAuthenticationRuntimeFactory();
   const runtime = createRuntime(plan);
-  const snapshot = observeTrustedDockerCli();
-  const environment = createDockerProcessEnvironment();
+  const snapshot = observeTrustedDockerCli(getIsolationSettings());
+  const environment = createDockerProcessEnvironment(getIsolationSettings());
   const receipts: Array<{ kind: string; name: string; id: string }> = [];
   const freshPlan = planDockerAuthenticationCommands({
     ...input,
@@ -973,7 +974,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
     ),
   );
   const child = spawnSync(process.execPath, [fixture, directory, hash], {
-    env: createDockerProcessEnvironment(),
+    env: createDockerProcessEnvironment(getIsolationSettings()),
     shell: false,
     windowsHide: true,
     encoding: "utf8",
@@ -1027,6 +1028,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
         managementDirectory: path.join(directory, "management"),
         previouslyAbsent: [],
       },
+      getIsolationSettings(),
       {
         onCleanupSubmitting: (key) => {
           assert.ok(lock.assertLive());
@@ -1168,6 +1170,7 @@ test("Windows Process Gate: Docker Isolation本番Ownerが五資源を実IDで�
     },
   };
   const runtime = createDockerIsolationRuntime({
+    settings: getIsolationSettings(),
     paths: { tmp, management },
   });
   const fixtureRecord = path.join(directory, "resources.json");
@@ -1302,8 +1305,8 @@ test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で�
   };
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");
-  const snapshot = observeTrustedDockerCli();
-  const environment = createDockerProcessEnvironment();
+  const snapshot = observeTrustedDockerCli(getIsolationSettings());
+  const environment = createDockerProcessEnvironment(getIsolationSettings());
   fs.mkdirSync(parent, { recursive: true });
   const directory = fs.realpathSync(
     fs.mkdtempSync(path.join(parent, "advice-image-host-")),

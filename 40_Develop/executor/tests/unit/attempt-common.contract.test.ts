@@ -605,7 +605,9 @@ function fixture() {
         },
       },
     }),
-    prepareIsolation: context.prepareIsolation as typeof di.prepareIsolation,
+    prepareIsolation: context.prepareIsolation as (
+      request: di.IsolationRequest,
+    ) => di.PreparedIsolation | null,
     executeIsolation: context.executeIsolation,
   };
   return {

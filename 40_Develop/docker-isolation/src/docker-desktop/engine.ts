@@ -5,7 +5,10 @@
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
+import {
+  type IsolationSettings,
+  createDockerCliEnvironment,
+} from "../docker-cli/environment.ts";
 import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
@@ -317,12 +320,14 @@ export function classifyDockerEngineResult(
  * @security observeDockerEngineはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: observeDockerEngineは共有非同期状態を持たない同期処理である。
  */
-export function observeDockerEngine(): EngineObservation {
+export function observeDockerEngine(
+  settings: IsolationSettings,
+): EngineObservation {
   if (process.platform !== "win32")
     return Object.freeze({ state: "unknown", cleanup: "confirmed" });
   try {
-    const cli = observeTrustedDockerCli();
-    const env = createDockerCliEnvironment({
+    const cli = observeTrustedDockerCli(settings);
+    const env = createDockerCliEnvironment(settings, {
       dockerConfig: null,
       dockerHome: null,
     });
@@ -384,9 +389,10 @@ export type DockerRepairEngineObservation = Readonly<{
  */
 export function observeDockerRepairEngine(
   configurationRoot: string,
+  settings: IsolationSettings,
 ): DockerRepairEngineObservation {
   return typeof configurationRoot === "string"
-    ? observeRepairEngineUsingConfiguration(configurationRoot)
+    ? observeRepairEngineUsingConfiguration(settings, configurationRoot)
     : Object.freeze({ state: "unknown", cleanup: "confirmed" });
 }
 
@@ -405,8 +411,10 @@ export function observeDockerRepairEngine(
  * @security 任意argv・環境・設定Pathなし。Root非公開。
  * @concurrency 同期一回観測。
  */
-export function observeDockerDesktopRepairEngine(): DockerRepairEngineObservation {
-  return observeRepairEngineUsingConfiguration(null);
+export function observeDockerDesktopRepairEngine(
+  settings: IsolationSettings,
+): DockerRepairEngineObservation {
+  return observeRepairEngineUsingConfiguration(settings, null);
 }
 
 /**
@@ -425,17 +433,18 @@ export function observeDockerDesktopRepairEngine(): DockerRepairEngineObservatio
  * @concurrency 5秒で一回終了。
  */
 function observeRepairEngineUsingConfiguration(
+  settings: IsolationSettings,
   configurationRoot: string | null,
 ): DockerRepairEngineObservation {
   if (process.platform !== "win32")
     return Object.freeze({ state: "unknown", cleanup: "confirmed" });
   try {
-    const env = createDockerCliEnvironment({
+    const env = createDockerCliEnvironment(settings, {
       dockerConfig: configurationRoot,
       dockerHome: configurationRoot,
     });
     if (!env) return Object.freeze({ state: "unknown", cleanup: "confirmed" });
-    const cli = observeTrustedDockerCli();
+    const cli = observeTrustedDockerCli(settings);
     const result = spawnSync(
       cli.executablePath,
       [

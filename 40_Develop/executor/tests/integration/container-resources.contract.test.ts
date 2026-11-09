@@ -72,24 +72,80 @@ test("既存資源APIは単一Containerを用途判断なしで観測・回収�
       managementDirectory: "management",
       signal: controller.signal,
     };
-    assert.deepEqual(api.inspectResources(target), {
-      observation: "present",
-      runningConfirmed: true,
-      snapshot: { resources: [] },
-    });
+    assert.deepEqual(
+      api.inspectResources(
+        target,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ),
+      {
+        observation: "present",
+        runningConfirmed: true,
+        snapshot: { resources: [] },
+      },
+    );
     present = false;
-    assert.equal(api.inspectResources(target).observation, "unknown");
+    assert.equal(
+      api.inspectResources(
+        target,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ).observation,
+      "unknown",
+    );
     absent = true;
-    assert.equal(api.inspectResources(target).observation, "absent");
+    assert.equal(
+      api.inspectResources(
+        target,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ).observation,
+      "absent",
+    );
     calls.length = 0;
-    assert.equal(api.cleanupResources(target).confirmed, true);
+    assert.equal(
+      api.cleanupResources(
+        target,
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ).confirmed,
+      true,
+    );
     assert.deepEqual(calls, ["cleanup"]);
     assert.equal(closed, true);
     assert.ok(checks > 0);
     controller.abort();
     calls.length = 0;
-    assert.throws(() => api.inspectResources(target), { name: "AbortError" });
-    assert.throws(() => api.cleanupResources(target), { name: "AbortError" });
+    assert.throws(
+      () =>
+        api.inspectResources(
+          target,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
+      { name: "AbortError" },
+    );
+    assert.throws(
+      () =>
+        api.cleanupResources(
+          target,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
+      { name: "AbortError" },
+    );
     assert.equal(calls.length, 0);
     assert.equal(Object.hasOwn(target, "assertOwner"), false);
   } finally {

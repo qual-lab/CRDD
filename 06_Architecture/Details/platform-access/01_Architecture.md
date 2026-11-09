@@ -1,6 +1,12 @@
 # Windowsネイティブ部品の設計
 
-## 現在の残存範囲 — 2026-11-07
+## 現在の残存範囲 — 2026-11-10
+
+### DIの明示設定への分離 — 2026-11-10
+
+Docker Isolationが直接起動するDocker CLI・署名検査・固定WSL観測の環境はDIが所有し、`initializeIsolation`で上位確定の`windowsDirectory`／`userHomeDirectory`をオンメモリへ固定する。DIからPAの一般環境生成を呼ばず、Native APIによる独立した所在証明とNodeのPath確認の保証差を明示する。PA自身のNative搬送と、残るCoordinatorのNative用途は現在のPA処理を維持し、PAからDIへの逆依存は作らない。Provider Home・Local AppDataのNative保護、Desktop Job Object、保存形式・IPCは変更しない。
+
+以下の2026-11-09節は、DI分離前の共通化時点の履歴である。DIへの現在の接続は上記と[DI詳細設計](../docker-isolation/01_Architecture.md)を参照する。
 
 ### 子Process環境の用途設定整理 — 2026-11-09
 

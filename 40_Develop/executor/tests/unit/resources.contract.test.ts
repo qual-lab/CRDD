@@ -80,15 +80,25 @@ test("Snapshot入口は元DI入力・通知・取消とCompletionを直接搬送
     {
       namedExports: {
         ...original,
-        inspectIsolation: (input: unknown, received: unknown) => {
+        inspectIsolation: (
+          input: unknown,
+          settings: unknown,
+          received: unknown,
+        ) => {
           calls++;
           assert.equal(input, target);
+          assert.ok(settings);
           assert.equal(received, options);
           return observed;
         },
-        cleanupIsolation: (input: unknown, received: unknown) => {
+        cleanupIsolation: (
+          input: unknown,
+          settings: unknown,
+          received: unknown,
+        ) => {
           calls++;
           assert.equal(input, target);
+          assert.ok(settings);
           assert.equal(received, callbacks);
           return execution;
         },
@@ -100,8 +110,25 @@ test("Snapshot入口は元DI入力・通知・取消とCompletionを直接搬送
     new URL("../../src/lifecycle/cleanup.ts?snapshot-contract", import.meta.url)
       .href
   );
-  assert.equal(api.inspectResources(target, options), observed);
-  const returned = api.cleanupResources(target, callbacks);
+  assert.equal(
+    api.inspectResources(
+      target,
+      Object.freeze({
+        windowsDirectory: "C:\\Windows",
+        userHomeDirectory: "C:\\Users\\test",
+      }),
+      options,
+    ),
+    observed,
+  );
+  const returned = api.cleanupResources(
+    target,
+    Object.freeze({
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\test",
+    }),
+    callbacks,
+  );
   assert.equal(returned, execution);
   assert.equal((await returned.cancel()).processTerminationObserved, false);
   assert.equal(cancellations, 1);
@@ -166,11 +193,25 @@ test("Snapshot入口は元DI入力・通知・取消とCompletionを直接搬送
     proxy,
   ]) {
     assert.throws(
-      () => api.inspectResources(invalid as never),
+      () =>
+        api.inspectResources(
+          invalid as never,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
       /resource_target_invalid/u,
     );
     assert.throws(
-      () => api.cleanupResources(invalid as never),
+      () =>
+        api.cleanupResources(
+          invalid as never,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
       /resource_target_invalid/u,
     );
   }
@@ -196,11 +237,25 @@ test("旧用途別Targetは技術要求前に拒否する", async () => {
   for (const kind of ["resource_set", "authentication", "attempt", "unknown"]) {
     const target = { kind } as unknown as ResourceTarget;
     assert.throws(
-      () => inspectResources(target as ResourceTarget<"container">),
+      () =>
+        inspectResources(
+          target as ResourceTarget<"container">,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
       /resource_target_invalid/,
     );
     assert.throws(
-      () => cleanupResources(target as ResourceTarget<"container">),
+      () =>
+        cleanupResources(
+          target as ResourceTarget<"container">,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
       /resource_target_invalid/,
     );
   }
@@ -345,13 +400,25 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       canObserve: () => false,
     });
     assert.equal(
-      inspectResources({ kind: "docker_runtime_directory", input: inspect }),
+      inspectResources(
+        { kind: "docker_runtime_directory", input: inspect },
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ),
       null,
     );
     assert.equal(calls.at(-1), inspect);
     targets = Object.freeze({ primary: null, failed: null, auxiliary: null });
     assert.equal(
-      inspectResources({ kind: "docker_runtime_directory", input: inspect }),
+      inspectResources(
+        { kind: "docker_runtime_directory", input: inspect },
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ),
       targets,
     );
     const disposal: RepairDisposalInput = Object.freeze({
@@ -368,10 +435,16 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
         const result = Object.freeze({ request, absence });
         cleanup = Promise.resolve(result);
         assert.equal(
-          cleanupResources({
-            kind: "docker_runtime_directory",
-            input: disposal,
-          }),
+          cleanupResources(
+            {
+              kind: "docker_runtime_directory",
+              input: disposal,
+            },
+            Object.freeze({
+              windowsDirectory: "C:\\Windows",
+              userHomeDirectory: "C:\\Users\\test",
+            }),
+          ),
           cleanup,
         );
         assert.equal(calls.at(-1), disposal);
@@ -380,13 +453,25 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     }
     controller.abort();
     assert.equal(
-      cleanupResources({ kind: "docker_runtime_directory", input: disposal }),
+      cleanupResources(
+        { kind: "docker_runtime_directory", input: disposal },
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ),
       cleanup,
     );
     const failed = new Error("synthetic_lower_rejection");
     cleanup = Promise.reject(failed);
     await assert.rejects(
-      cleanupResources({ kind: "docker_runtime_directory", input: disposal }),
+      cleanupResources(
+        { kind: "docker_runtime_directory", input: disposal },
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ),
       (error) => error === failed,
     );
     const request: RepairInput = Object.freeze({
@@ -398,7 +483,13 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       onCheckpoint: unexpected,
     });
     assert.equal(
-      restartDockerEnvironment({ mode: "repair", input: request }),
+      restartDockerEnvironment(
+        { mode: "repair", input: request },
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      ),
       repaired,
     );
     assert.equal(calls.at(-1), request);
@@ -410,14 +501,54 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
         operationId: "o",
         recoveryId: "r",
       } as unknown as ResourceTarget<"container">;
-      assert.throws(() => inspectResources(bad), /resource_target_invalid/);
-      assert.throws(() => cleanupResources(bad), /resource_target_invalid/);
+      assert.throws(
+        () =>
+          inspectResources(
+            bad,
+            Object.freeze({
+              windowsDirectory: "C:\\Windows",
+              userHomeDirectory: "C:\\Users\\test",
+            }),
+          ),
+        /resource_target_invalid/,
+      );
+      assert.throws(
+        () =>
+          cleanupResources(
+            bad,
+            Object.freeze({
+              windowsDirectory: "C:\\Windows",
+              userHomeDirectory: "C:\\Users\\test",
+            }),
+          ),
+        /resource_target_invalid/,
+      );
     }
     const proxy = new Proxy({} as ResourceTarget<"container">, {
       get: unexpected,
     });
-    assert.throws(() => inspectResources(proxy), /resource_target_invalid/);
-    assert.throws(() => cleanupResources(proxy), /resource_target_invalid/);
+    assert.throws(
+      () =>
+        inspectResources(
+          proxy,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
+      /resource_target_invalid/,
+    );
+    assert.throws(
+      () =>
+        cleanupResources(
+          proxy,
+          Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        ),
+      /resource_target_invalid/,
+    );
     assert.equal(calls.length, before);
   } finally {
     lower.restore();

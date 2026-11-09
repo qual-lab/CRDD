@@ -81,16 +81,20 @@ export function createExecutor(
       options,
       "managementDirectory",
     );
+    const settings = Object.getOwnPropertyDescriptor(options, "settings");
     if (
-      Reflect.ownKeys(options).length !== 1 ||
+      Reflect.ownKeys(options).length !== 2 ||
       !descriptor ||
       !("value" in descriptor) ||
-      typeof descriptor.value !== "string"
+      typeof descriptor.value !== "string" ||
+      !settings ||
+      !("value" in settings)
     )
       return null;
     return createAuthenticationExecutor(
       request as ExecutorRequest<"authentication">,
       descriptor.value,
+      settings.value,
     );
   }
   if (Object.hasOwn(request, "action")) return null;

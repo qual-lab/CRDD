@@ -7,12 +7,16 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  type IsolationSettings,
+  createWindowsPowerShellAuthenticodeEnvironment,
+} from "./environment.ts";
+
 export const dockerDesktopDistributionRoot = fileURLToPath(
   new URL("../../../..", import.meta.url),
 );
-import fs from "node:fs";
-import path from "node:path";
-import { createWindowsPowerShellAuthenticodeEnvironment } from "./environment.ts";
 
 export const DOCKER_CLI_TRUST_CONTRACT = "crdd-coordinator/docker-cli-trust";
 export const DOCKER_CLI_TRUST_CONTRACT_REVISION = 1;
@@ -95,8 +99,8 @@ function filesystemIdentity(target: string, expected: "file" | "directory") {
  * @security inspectDockerAuthenticodeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: inspectDockerAuthenticodeは共有非同期状態を持たない同期処理である。
  */
-function inspectDockerAuthenticode() {
-  const environment = createWindowsPowerShellAuthenticodeEnvironment();
+function inspectDockerAuthenticode(settings: IsolationSettings) {
+  const environment = createWindowsPowerShellAuthenticodeEnvironment(settings);
   if (!environment) throw new Error("docker_cli_authenticode_unavailable");
   const systemRoot = environment.SystemRoot;
   if (typeof systemRoot !== "string" || systemRoot.length === 0)
@@ -205,11 +209,13 @@ function inspectDockerCliFile() {
  * @security observeTrustedDockerCliはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: observeTrustedDockerCliは共有非同期状態を持たない同期処理である。
  */
-export function observeTrustedDockerCli(): DockerCliTrustSnapshot {
+export function observeTrustedDockerCli(
+  settings: IsolationSettings,
+): DockerCliTrustSnapshot {
   if (process.platform !== "win32")
     throw new Error("docker_cli_platform_unsupported");
   const before = inspectDockerCliFile();
-  inspectDockerAuthenticode();
+  inspectDockerAuthenticode(settings);
   const after = inspectDockerCliFile();
   if (
     before.rootIdentity !== after.rootIdentity ||

@@ -59,7 +59,7 @@ test("Probe bindingは旧所在Queryを呼ばず拒否する", () => {
     process.on('unhandledRejection',()=>{unhandled++;});
     const factory=runInNewContext(${JSON.stringify(`${body};createDockerProbeRuntimeBinding`)},{
       process:{platform:'win32'},types,path,
-      observeTrustedDockerCli:()=>({}),verifyTrustedDockerCliSnapshot:()=> 'fixed',
+      ISOLATION_SETTINGS:{},observeTrustedDockerCli:()=>({}),verifyTrustedDockerCliSnapshot:()=> 'fixed',
       fs:{mkdirSync:()=>{mkdir++;}},createDockerCliEnvironment:()=>({}),
     });
     try { factory(()=>{
@@ -186,6 +186,7 @@ test("本番Probe bindingは固定所在の実体と同じCLI snapshotを維持�
         types,
         process: { platform: mode === "platform" ? "linux" : "win32" },
         path,
+        ISOLATION_SETTINGS: {},
         observeTrustedDockerCli: () => {
           events.push("observe");
           if (mode === "cli") throw new Error("raw_cli_failure");
@@ -213,10 +214,13 @@ test("本番Probe bindingは固定所在の実体と同じCLI snapshotを維持�
               throw new Error("fixed_mkdir_failure");
           },
         },
-        createDockerCliEnvironment: (options: {
-          dockerConfig: string;
-          dockerHome: string;
-        }) => {
+        createDockerCliEnvironment: (
+          _settings: unknown,
+          options: {
+            dockerConfig: string;
+            dockerHome: string;
+          },
+        ) => {
           events.push("environment");
           assert.equal(
             options.dockerConfig,

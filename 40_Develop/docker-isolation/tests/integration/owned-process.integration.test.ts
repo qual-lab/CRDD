@@ -25,6 +25,10 @@ import {
   waitForCondition,
 } from "../fixtures/owned-process-test-support.ts";
 import { startOwnedAttachTerminationFixture } from "../support/probe-process.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 const windowsOnly = { skip: process.platform !== "win32", timeout: 20_000 };
 
@@ -71,7 +75,7 @@ test(
   "Host Windows: Attach試験子の三故障は終了要求一回とcloseへ収束する",
   windowsOnly,
   async () => {
-    const environment = createDockerCliEnvironment({
+    const environment = createDockerCliEnvironment(ISOLATION_SETTINGS, {
       dockerConfig: null,
       dockerHome: null,
     });

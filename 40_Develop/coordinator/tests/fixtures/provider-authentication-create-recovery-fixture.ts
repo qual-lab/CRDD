@@ -23,6 +23,7 @@ import {
   createProviderAuthenticationDependencies,
   createProviderAuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 const [directory, hash] = process.argv.slice(2);
 assert.ok(directory && hash && /^[a-f0-9]{64}$/u.test(hash));
@@ -60,7 +61,7 @@ const input = {
   ...material.request,
   steps: material.request.steps.filter((step) => step.action !== "run"),
 };
-const prepared = prepareIsolation(input);
+const prepared = prepareIsolation(input, getIsolationSettings());
 assert.ok(prepared);
 const deps = createProviderAuthenticationDependencies(),
   acquisition = deps.acquireProviderHomeLock(hash, path.dirname(home));

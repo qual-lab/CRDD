@@ -7,9 +7,10 @@
 import type { LockResult } from "../../../lock/src/index.ts";
 import type {
   IsolationRequest,
+  IsolationSettings,
   IsolationExecutionResult,
   ResourceSnapshot,
-  prepareIsolation,
+  PreparedIsolation,
   executeIsolation,
 } from "../../../docker-isolation/src/index.ts";
 import type {
@@ -405,7 +406,7 @@ export type RuntimeState = Readonly<{
     bindingHash: string,
     homeSourcePath: string,
   ): LockResult<HomeLease>;
-  prepareIsolation: typeof prepareIsolation;
+  prepareIsolation: (request: IsolationRequest) => PreparedIsolation | null;
   executeIsolation: typeof executeIsolation;
   callbacks: AttemptCallbacks;
   controls: WeakMap<object, ExecutionRecord>;
@@ -901,6 +902,7 @@ export type AttemptRecordProjection = Readonly<{
  * @invariant Process primitiveやCLI構成を上位へ公開しない。
  */
 export type DockerIsolationRuntimeOptions = Readonly<{
+  settings: IsolationSettings;
   paths: Readonly<{ tmp: string; management: string }>;
 }>;
 
@@ -1024,7 +1026,10 @@ export type AuthenticationRequest = Readonly<{
 }>;
 
 /** 上位が排他を保持し、start前に実体を用意する借用管理領域。 */
-export type AuthenticationOptions = Readonly<{ managementDirectory: string }>;
+export type AuthenticationOptions = Readonly<{
+  managementDirectory: string;
+  settings: IsolationSettings;
+}>;
 
 /**
  * 上位記録に必要な認証資源の投影。
@@ -1177,6 +1182,7 @@ export type IsolationProbeMounts = Readonly<{
 
 /** 上位が利用許可を確認した固定四所在。 */
 export type IsolationProbeOptions = Readonly<{
+  settings: IsolationSettings;
   mounts: IsolationProbeMounts;
 }>;
 

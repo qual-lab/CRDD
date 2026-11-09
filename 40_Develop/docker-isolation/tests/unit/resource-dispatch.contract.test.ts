@@ -13,6 +13,10 @@ import { stripTypeScriptTypes } from "node:module";
 import test, { mock } from "node:test";
 import { types } from "node:util";
 import { runInNewContext } from "node:vm";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 /**
  * 移管したContainerの合成順序を実本文で確認する。
@@ -181,28 +185,43 @@ test("DI共通公開入口はContainer同期結果とDirectory元Promiseを保�
   );
   try {
     const api = await import("../../src/index.ts");
-    assert.equal(api.inspectIsolation(target as never), inspected);
-    assert.equal(api.cleanupIsolation(target as never), cleaned);
     assert.equal(
-      api.inspectIsolation({
-        kind: "docker_runtime_directory",
-        input,
-      } as never),
+      api.inspectIsolation(target as never, ISOLATION_SETTINGS),
+      inspected,
+    );
+    assert.equal(
+      api.cleanupIsolation(target as never, ISOLATION_SETTINGS),
+      cleaned,
+    );
+    assert.equal(
+      api.inspectIsolation(
+        {
+          kind: "docker_runtime_directory",
+          input,
+        } as never,
+        ISOLATION_SETTINGS,
+      ),
       null,
     );
     assert.equal(
-      api.cleanupIsolation({
-        kind: "docker_runtime_directory",
-        input,
-      } as never),
+      api.cleanupIsolation(
+        {
+          kind: "docker_runtime_directory",
+          input,
+        } as never,
+        ISOLATION_SETTINGS,
+      ),
       pending,
     );
     assert.equal(
       await pending,
-      await api.cleanupIsolation({
-        kind: "docker_runtime_directory",
-        input,
-      } as never),
+      await api.cleanupIsolation(
+        {
+          kind: "docker_runtime_directory",
+          input,
+        } as never,
+        ISOLATION_SETTINGS,
+      ),
     );
   } finally {
     second.restore();

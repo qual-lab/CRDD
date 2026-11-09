@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/process/start.ts";
 import { createDockerProcessEnvironment } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import { startOwnedAttachTerminationFixture } from "../../../docker-isolation/tests/support/probe-process.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 /**
  * 観測済みの自己生成PIDについて不存在を確認する。
@@ -54,7 +55,7 @@ export function createOwnedProcessFixture() {
       assert.equal(attached, null);
       const current = startOwnedAttachTerminationFixture(
         "ready_process",
-        createDockerProcessEnvironment(),
+        createDockerProcessEnvironment(getIsolationSettings()),
       );
       attached = current;
       owned = Object.freeze({

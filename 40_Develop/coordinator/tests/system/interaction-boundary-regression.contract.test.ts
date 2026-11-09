@@ -28,6 +28,7 @@ import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../../src/execution/diagnostics.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -119,7 +120,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       true,
     );
   }
-  const dockerEnvironment = createDockerCliEnvironment({
+  const dockerEnvironment = createDockerCliEnvironment(getIsolationSettings(), {
     dockerConfig: "C:\\runtime-owned\\docker-config",
     dockerHome: "C:\\runtime-owned\\docker-home",
   });
@@ -134,7 +135,10 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     ["C:\\owned-config", "C:\\owned-home\0invalid"],
   ] as const) {
     assert.equal(
-      createDockerCliEnvironment({ dockerConfig, dockerHome }),
+      createDockerCliEnvironment(getIsolationSettings(), {
+        dockerConfig,
+        dockerHome,
+      }),
       null,
     );
   }
@@ -160,13 +164,19 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   assert.equal(observedDocker.systemRoot, observedDocker.windir);
   assert.equal(typeof observedDocker.systemRoot, "string");
 
-  assert.deepEqual(createDockerDesktopRepairHelperEnvironment(), {
-    ...createChildProcessEnvironment({ platform: "win32", userProfile: true }),
-    SYSTEMDRIVE: deriveWindowsSystemDrive(
-      createChildProcessEnvironment({ platform: "win32", userProfile: true })
-        ?.SystemRoot,
-    ),
-  });
+  assert.deepEqual(
+    createDockerDesktopRepairHelperEnvironment(getIsolationSettings()),
+    {
+      ...createChildProcessEnvironment({
+        platform: "win32",
+        userProfile: true,
+      }),
+      SYSTEMDRIVE: deriveWindowsSystemDrive(
+        createChildProcessEnvironment({ platform: "win32", userProfile: true })
+          ?.SystemRoot,
+      ),
+    },
+  );
 });
 
 /**
@@ -186,7 +196,9 @@ test("Authenticode検査用PowerShellは親環境を継承せず最小OS環境�
     context.skip("Windows contract");
     return;
   }
-  const environment = createWindowsPowerShellAuthenticodeEnvironment();
+  const environment = createWindowsPowerShellAuthenticodeEnvironment(
+    getIsolationSettings(),
+  );
   assert.ok(environment);
   assert.deepEqual(Object.keys(environment).sort(), [
     "PATH",
@@ -275,7 +287,7 @@ test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期
     'import { spawnSync } from "node:child_process";',
     'import path from "node:path";',
     `import { createWindowsPowerShellAuthenticodeEnvironment } from ${JSON.stringify(moduleUrl)};`,
-    "const environment=createWindowsPowerShellAuthenticodeEnvironment();",
+    `const environment=createWindowsPowerShellAuthenticodeEnvironment(${JSON.stringify(getIsolationSettings())});`,
     "if(!environment)process.exit(3);",
     "const powershell=path.win32.join(environment.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');",
     "const result=spawnSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command',\"Get-Command Get-AuthenticodeSignature | Out-Null; Write-Output 'CRDD_NESTED_AUTHENTICODE_OK'\"],{cwd:environment.SystemRoot,env:environment,encoding:'utf8',windowsHide:true,timeout:5000});",
@@ -354,7 +366,9 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
   const before = process.env.SYSTEMDRIVE;
   try {
     process.env.SYSTEMDRIVE = "Z:";
-    const environment = createDockerDesktopRepairHelperEnvironment();
+    const environment = createDockerDesktopRepairHelperEnvironment(
+      getIsolationSettings(),
+    );
     assert.ok(environment);
     assert.equal(
       environment.SYSTEMDRIVE,

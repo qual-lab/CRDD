@@ -188,9 +188,9 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     const recoveryUrl = ${JSON.stringify(new URL("../../../docker-isolation/src/cleanup/execute.ts", import.meta.url).href)};
     const recoveryOperations = await import(recoveryUrl);
     recoveryMock = mock.module(recoveryUrl,{namedExports:{...recoveryOperations,
-      createTrustedDockerRecoveryExecutor: (input) => {
+      createTrustedDockerRecoveryExecutor: (settings,input) => {
         assert.equal(++factories,1);
-        const created = recoveryOperations.createTrustedDockerRecoveryExecutor(input);
+        const created = recoveryOperations.createTrustedDockerRecoveryExecutor(settings,input);
         assert.equal(created.status,'ready');
         return {...created,executor:{...created.executor,
           discoverSubmitted: (expectation) => {

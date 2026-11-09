@@ -7,7 +7,11 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { createDockerCliEnvironment } from "../docker-cli/environment.ts";
+import {
+  type IsolationSettings,
+  captureIsolationSettings,
+  createDockerCliEnvironment,
+} from "../docker-cli/environment.ts";
 import {
   type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
@@ -46,10 +50,10 @@ let recoveryDockerCliSnapshot: DockerCliTrustSnapshot | null = null;
  * @security 任意実行物や上位入力のCLI検証を採用しない。
  * @concurrency 同期確認でmodule内の同じsnapshotを共有する。
  */
-function verifyRecoveryDockerCli() {
+function verifyRecoveryDockerCli(settings: IsolationSettings) {
   try {
     if (recoveryDockerCliSnapshot === null) {
-      recoveryDockerCliSnapshot = observeTrustedDockerCli();
+      recoveryDockerCliSnapshot = observeTrustedDockerCli(settings);
     } else {
       verifyTrustedDockerCliSnapshot(recoveryDockerCliSnapshot);
     }
@@ -74,14 +78,16 @@ function verifyRecoveryDockerCli() {
  * @concurrency 取消確認・config回収・close一回性は既存低位factoryを変更しない。
  */
 export function createTrustedDockerRecoveryExecutor(
+  settings: IsolationSettings,
   input: Pick<DockerOperationRecoveryInput, "managementDirectory" | "signal">,
 ) {
+  settings = captureIsolationSettings(settings);
   return createDockerOperationRecoveryExecutor({
     managementDirectory: input.managementDirectory,
     ...(input.signal ? { signal: input.signal } : {}),
-    verifyCli: verifyRecoveryDockerCli,
+    verifyCli: () => verifyRecoveryDockerCli(settings),
     environment: () => {
-      const environment = createDockerCliEnvironment({
+      const environment = createDockerCliEnvironment(settings, {
         dockerConfig: null,
         dockerHome: null,
       });

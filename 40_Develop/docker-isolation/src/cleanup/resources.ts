@@ -3,6 +3,7 @@
  * @responsibility 実ID照合・明示探索・不存在・自作config終了だけを所有する。
  * @trace ARCH-000008
  */
+import type { IsolationSettings } from "../docker-cli/environment.ts";
 import { types } from "node:util";
 import { observeRepairDirectories } from "../docker-desktop/repair-session.ts";
 import type { RepairRetentionTargets } from "../docker-desktop/types.ts";
@@ -35,12 +36,15 @@ import type {
  */
 export function inspectIsolation(
   request: ResourceTarget<"directory", "inspect">,
+  settings: IsolationSettings,
 ): ResourceInspection<"directory">;
 export function inspectIsolation(
   request: ResourceTarget<"container">,
+  settings: IsolationSettings,
 ): ResourceInspection<"container">;
 export function inspectIsolation(
   request: ResourceTarget<"snapshot", "inspect">,
+  settings: IsolationSettings,
   options?: Readonly<{ signal?: AbortSignal; stopOnUnknownAbsence?: boolean }>,
 ): ResourceInspection<"snapshot">;
 export function inspectIsolation(
@@ -48,6 +52,7 @@ export function inspectIsolation(
     | IsolationCleanupRequest
     | ContainerResourceTarget
     | DirectoryResourceInspectionTarget,
+  settings: IsolationSettings,
   options: Readonly<{
     signal?: AbortSignal;
     stopOnUnknownAbsence?: boolean;
@@ -73,7 +78,10 @@ export function inspectIsolation(
     !types.isProxy(request) &&
     Object.getOwnPropertyDescriptor(request, "kind")?.value === "container"
   )
-    return inspectContainerResources(request as ContainerResourceTarget);
+    return inspectContainerResources(
+      request as ContainerResourceTarget,
+      settings,
+    );
   const resourceRequest = request as IsolationCleanupRequest;
   const { signal, stopOnUnknownAbsence = false } = options;
   const resources: Array<SnapshotResourceInspection["resources"][number]> = [];
@@ -92,7 +100,7 @@ export function inspectIsolation(
         (resource) => resource.request !== "not_issued",
       )
     ) {
-      const created = createTrustedDockerRecoveryExecutor({
+      const created = createTrustedDockerRecoveryExecutor(settings, {
         managementDirectory: input.managementDirectory,
         ...(signal ? { signal } : {}),
       });

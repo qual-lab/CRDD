@@ -24,6 +24,10 @@ import {
 } from "../../../src/process/start.ts";
 import { dockerAuthenticationResourceConfigurationMatches } from "./plan.ts";
 import { dockerResourceIdentityMatches } from "../../../src/cleanup/resource.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 /**
  * 認証操作のProcess終了観測。
@@ -386,8 +390,8 @@ export function createDockerAuthenticationRuntimeUsing(
  * @concurrency 各Runtimeの終了・回収・一回の削除確認は既存の所有者を維持する。
  */
 export function createDockerAuthenticationRuntimeFactory() {
-  const dockerCli = observeTrustedDockerCli();
-  const environment = createDockerProcessEnvironment();
+  const dockerCli = observeTrustedDockerCli(ISOLATION_SETTINGS);
+  const environment = createDockerProcessEnvironment(ISOLATION_SETTINGS);
   const systemRoot = environment.SystemRoot;
   if (!systemRoot)
     throw new Error("docker_effect_working_directory_unavailable");

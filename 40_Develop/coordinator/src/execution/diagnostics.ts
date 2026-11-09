@@ -23,6 +23,7 @@ import { performance } from "node:perf_hooks";
 import type { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
+import { getIsolationSettings } from "./configuration.ts";
 import {
   getAuthenticationDefinition,
   getBillingPolicy,
@@ -4971,6 +4972,7 @@ async function runDockerIsolationScenario(
     executor = create(
       { kind: "isolation_probe", probeId },
       {
+        settings: getIsolationSettings(),
         mounts: Object.freeze({
           management: mounts.management,
           workspace: mounts.workspace,
@@ -5363,7 +5365,7 @@ export function recoverDockerIsolationProbe(
         hostNonce,
       );
       loadDockerProbeRecoveryRecord(token, expectedRoot);
-      let observed = inspectResources(target);
+      let observed = inspectResources(target, getIsolationSettings());
       if (observed.observation !== "absent") {
         if (observed.observation !== "present")
           return {
@@ -5371,14 +5373,14 @@ export function recoverDockerIsolationProbe(
             reason: "docker_recovery_container_mismatch",
             recoveryId: token,
           };
-        const cleanup = cleanupResources(target);
+        const cleanup = cleanupResources(target, getIsolationSettings());
         if (!cleanup.confirmed)
           return {
             status: "blocked",
             reason: cleanup.reason,
             recoveryId: token,
           };
-        observed = inspectResources(target);
+        observed = inspectResources(target, getIsolationSettings());
         if (observed.observation !== "absent")
           return {
             status: "blocked",

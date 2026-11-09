@@ -4,6 +4,12 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.execution.isolation-configuration",
+      "kind": "file",
+      "path": "src/execution/configuration.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
       "symbolId": "coordinator.workspace.git",
       "kind": "file",
       "path": "src/workspace/git.ts",

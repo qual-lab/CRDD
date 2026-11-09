@@ -24,6 +24,11 @@ import {
 } from "../../src/docker-cli/trust.ts";
 import { executeRepairSteps } from "../../src/docker-desktop/repair.ts";
 import { createDockerDesktopRepairOperations } from "../../src/docker-desktop/repair-operations.ts";
+import {
+  captureIsolationSettings,
+  type IsolationSettings,
+} from "../../src/docker-cli/environment.ts";
+import { awaitDockerRepairEngine } from "../../src/docker-desktop/engine.ts";
 import { runRepairSessionWithDependencies } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition,
@@ -239,12 +244,12 @@ function fixture(
    * @security 実OS要求0。
    * @concurrency 同内部signalのlistenerを観測する。
    */
-  const connectOperations: typeof createDockerDesktopRepairOperations = (
-    sameSession,
-    sameAccess,
-    internalSignal,
-    live,
-  ) => {
+  const connectOperations = (
+    sameSession: Parameters<typeof createDockerDesktopRepairOperations>[0],
+    sameAccess: Parameters<typeof createDockerDesktopRepairOperations>[1],
+    internalSignal: AbortSignal,
+    live: () => boolean,
+  ): ReturnType<typeof createDockerDesktopRepairOperations> => {
     assert.equal(sameSession, session);
     assert.equal(sameAccess, access);
     assert.notEqual(internalSignal, controller.signal);
@@ -444,7 +449,7 @@ async function productionComposition(
     .replaceAll("export async function", "async function");
   const result = await f.execute(async (input, dependencies) => {
     const main = runInThisContext(
-      `((describeDockerArtifactTrustContract, types, decodeRepairCheckpoint, prepareRepairSessionCheckpoint, executeRepairSteps, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runRepairSession; })`,
+      `((describeDockerArtifactTrustContract, types, decodeRepairCheckpoint, prepareRepairSessionCheckpoint, executeRepairSteps, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations, captureIsolationSettings, awaitDockerRepairEngine) => { ${body}; return runRepairSession; })`,
     )(
       describeDockerArtifactTrustContract,
       types,
@@ -530,8 +535,11 @@ async function productionComposition(
         assert.equal(live(), true);
         return f.connectOperations(session, access, signal, live);
       },
+      captureIsolationSettings,
+      awaitDockerRepairEngine,
     ) as (
       value: unknown,
+      settings: IsolationSettings,
     ) => ReturnType<typeof runRepairSessionWithDependencies>;
     if (fault === "cancel_before_start") f.controller.abort();
     return main(
@@ -540,6 +548,7 @@ async function productionComposition(
         : fault === "fresh_invalid"
           ? { ...input, resume: {} }
           : input,
+      { windowsDirectory: "C:\\Windows", userHomeDirectory: "C:\\Users\\test" },
     );
   });
   return { result, f, events, counts };

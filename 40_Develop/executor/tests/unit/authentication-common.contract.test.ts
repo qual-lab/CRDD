@@ -20,6 +20,7 @@ import {
 } from "../../../docker-isolation/src/execution/preparation.ts";
 import type {
   IsolationCallbacks,
+  IsolationSettings,
   IsolationExecutionResult,
   IsolationRequest,
   PreparedIsolation,
@@ -92,7 +93,13 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
           ),
         };
       },
-      prepareIsolation(input: IsolationRequest): PreparedIsolation | null {
+      prepareIsolation(
+        input: IsolationRequest,
+        settings: IsolationSettings,
+      ): PreparedIsolation | null {
+        assert.equal(settings.windowsDirectory, "C:\\Windows");
+        assert.equal(settings.userHomeDirectory, "C:\\Users\\test");
+        assert.ok(Object.isFrozen(settings));
         prepareCalls++;
         const request = captureIsolationRequest(input);
         requests.push(request);
@@ -235,9 +242,18 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
         suffix: "a".repeat(16),
         proxyToken: action === "login" ? "b".repeat(64) : null,
       };
+      const settings = {
+        windowsDirectory: "C:\\Windows",
+        userHomeDirectory: "C:\\Users\\test",
+      };
       const executor = createExecutor(request, {
-        managementDirectory: "C:\\runtime\\management",
+        ...{
+          managementDirectory: "C:\\runtime\\management",
+        },
+        settings,
       });
+      settings.windowsDirectory = "Z:\\changed";
+      settings.userHomeDirectory = "Z:\\changed-home";
       assert.ok(executor);
       assert.equal(
         prepareCalls,
@@ -307,15 +323,21 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
         );
       }
       assert.equal(executor.start({}).status, "blocked");
-      const session = cleanupResources({
-        resources: result.resourceSnapshot,
-        managementDirectory: "C:\\runtime\\management",
-        cleanupOrder: input.cleanupOrder,
-        setupTimeoutMs: input.setupTimeoutMs,
-        unreceiptedAbsence: input.unreceiptedAbsence,
-        verifyLabelAbsence: input.verifyLabelAbsence,
-        previouslyAbsent: [],
-      });
+      const session = cleanupResources(
+        {
+          resources: result.resourceSnapshot,
+          managementDirectory: "C:\\runtime\\management",
+          cleanupOrder: input.cleanupOrder,
+          setupTimeoutMs: input.setupTimeoutMs,
+          unreceiptedAbsence: input.unreceiptedAbsence,
+          verifyLabelAbsence: input.verifyLabelAbsence,
+          previouslyAbsent: [],
+        },
+        Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
+      );
       const recovery = await session.completion;
       assert.equal(recovery.cleanup.confirmed, true);
       const cleanup = cleanupRequests.at(-1);
@@ -339,7 +361,13 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
           suffix: "a".repeat(16),
           proxyToken: null,
         },
-        { managementDirectory: "C:\\runtime\\management" },
+        {
+          ...{ managementDirectory: "C:\\runtime\\management" },
+          settings: Object.freeze({
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\test",
+          }),
+        },
       );
       assert.ok(executor);
       const start = executor.start({
@@ -402,7 +430,13 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
   ])
     assert.equal(
       createExecutor(request as never, {
-        managementDirectory: "C:\\runtime\\management",
+        ...{
+          managementDirectory: "C:\\runtime\\management",
+        },
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
       }),
       null,
     );
@@ -413,6 +447,12 @@ test("認証は上位管理領域と共通DIを使い非秘密Snapshotを返す"
     },
   });
   for (const options of [
+    Object.defineProperty({ managementDirectory: "x" }, "settings", {
+      get() {
+        effects++;
+        throw Error("getter");
+      },
+    }),
     getter,
     new Proxy({ managementDirectory: "x" }, {}),
     { managementDirectory: 7 },

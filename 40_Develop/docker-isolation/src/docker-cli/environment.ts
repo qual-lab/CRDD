@@ -1,115 +1,178 @@
 /**
- * Docker用途に限定したHost子Process環境を構成する。
- *
- * @packageDocumentation
- * @responsibility 共通OS観測とDocker固有の固定設定を分離し、任意環境入力を拒否する。
+ * Docker専用の子Process環境を明示したオンメモリ設定から構築する。
+ * @responsibility Host所在と固定環境Policyを分離する。
  * @trace ARCH-000008
- * @boundary Platform Accessの用途固定環境→Docker CLI／Desktop明示修復。実行許可は発行しない。
+ * @boundary 呼出し元の所在を信頼し、OSの独立した所在証明は行わない。
  */
+import fs from "node:fs";
 import path from "node:path";
-import {
-  createChildProcessEnvironment,
-  deriveWindowsSystemDrive,
-} from "../../../platform-access/src/index.ts";
+import { types } from "node:util";
+
+/** Hostの所在だけを保持する。Provider Home・一時領域ではない。 */
+export type IsolationSettings = Readonly<{
+  windowsDirectory: string;
+  userHomeDirectory: string;
+}>;
+
+const NEUTRAL_NAMES = [
+  "ALL_PROXY",
+  "APPDATA",
+  "COMSPEC",
+  "GIT_ASKPASS",
+  "GIT_CONFIG_GLOBAL",
+  "GIT_CONFIG_SYSTEM",
+  "GIT_SSH",
+  "GIT_SSH_COMMAND",
+  "HOME",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "LOCALAPPDATA",
+  "LOGONSERVER",
+  "NODE_EXTRA_CA_CERTS",
+  "NODE_OPTIONS",
+  "NODE_PATH",
+  "NODE_V8_COVERAGE",
+  "NO_PROXY",
+  "PATH",
+  "PATHEXT",
+  "SSH_AGENT_PID",
+  "SSH_AUTH_SOCK",
+  "SYSTEMDRIVE",
+  "TEMP",
+  "TMP",
+  "USERDOMAIN",
+  "USERNAME",
+  "USERPROFILE",
+] as const;
+
+/** 操作入口で二つの所在をコピーし、可変入力やgetterを実行中へ持ち越さない。 */
+export function captureIsolationSettings(
+  input: IsolationSettings,
+): IsolationSettings {
+  if (
+    !input ||
+    typeof input !== "object" ||
+    types.isProxy(input) ||
+    (Object.getPrototypeOf(input) !== Object.prototype &&
+      Object.getPrototypeOf(input) !== null) ||
+    Reflect.ownKeys(input).length !== 2
+  )
+    throw Error("isolation_settings_invalid");
+  const values: string[] = [];
+  for (const key of ["windowsDirectory", "userHomeDirectory"] as const) {
+    const descriptor = Object.getOwnPropertyDescriptor(input, key);
+    if (
+      !descriptor ||
+      !("value" in descriptor) ||
+      typeof descriptor.value !== "string" ||
+      !/^[a-z]:\\/iu.test(descriptor.value) ||
+      descriptor.value.includes("\0")
+    )
+      throw Error("isolation_settings_invalid");
+    const value = path.win32.normalize(descriptor.value);
+    if (value === path.win32.parse(value).root)
+      throw Error("isolation_settings_invalid");
+    values.push(value);
+  }
+  const windowsDirectory = values[0],
+    userHomeDirectory = values[1];
+  if (!windowsDirectory || !userHomeDirectory)
+    throw Error("isolation_settings_invalid");
+  return Object.freeze({ windowsDirectory, userHomeDirectory });
+}
 
 /**
- * Windows Docker Cli Environmentを構築する。
- *
- * @responsibility Windows Docker Cli Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input options: Readonly<{ dockerConfig: string | null; dockerHome: string | null; }>
- * @returns createDockerCliEnvironmentの計算結果を返す。
- * @precondition 「options: Readonly<{ dockerConfig: string | null; dockerHome: string | null; }>」がcreateDockerCliEnvironmentの入力契約を満たす。
- * @postcondition createDockerCliEnvironmentの責務を完了した結果だけを返す。
- * @effect 共通OS環境の固定Native／Filesystem読取り。Docker要求は発行しない。
- * @failure config／Homeの組合せ、絶対Path、NULまたは共通OS観測の不成立はnull。
- * @invariant createDockerCliEnvironmentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary Platform Accessの用途固定環境→Docker専用固定key構成。
- * @security 親ambient値や任意keyを追加せず、環境候補を実行許可へ昇格しない。
- * @concurrency N/A: createDockerCliEnvironmentは共有非同期状態を持たない同期処理である。
+ * 呼出し元が確定したHost所在を検査し、コピーして凍結する。
+ * @input windowsDirectory: Windows配置先、userHomeDirectory: HostユーザーHome。
+ * @returns 非Windows、不正入力、実体確認不能はnull。
+ * @effect Filesystem読取りのみ。環境変数・Native・Dockerを参照／起動しない。
+ * @invariant グローバル登録、永続化、Provider Homeの推測は行わない。
+ * @security NodeのPath・Link確認はSID／DACL・Native所在証明と同等ではない。
  */
+export function initializeIsolation(
+  input: IsolationSettings,
+): IsolationSettings | null {
+  try {
+    if (process.platform !== "win32") return null;
+    const settings = captureIsolationSettings(input);
+    for (const value of [
+      settings.windowsDirectory,
+      settings.userHomeDirectory,
+    ]) {
+      const info = fs.lstatSync(value);
+      if (
+        !info.isDirectory() ||
+        info.isSymbolicLink() ||
+        fs.realpathSync.native(value).toLowerCase() !== value.toLowerCase()
+      )
+        return null;
+    }
+    const { windowsDirectory, userHomeDirectory } = settings;
+    const kernel = path.win32.join(
+      windowsDirectory,
+      "System32",
+      "kernel32.dll",
+    );
+    const info = fs.lstatSync(kernel);
+    if (
+      !info.isFile() ||
+      info.isSymbolicLink() ||
+      fs.realpathSync.native(kernel).toLowerCase() !== kernel.toLowerCase()
+    )
+      return null;
+    return Object.freeze({ windowsDirectory, userHomeDirectory });
+  } catch {
+    return null;
+  }
+}
+
+/** Docker CLI用の固定環境。親環境を継承せず、個別管理領域だけ追加する。 */
 export function createDockerCliEnvironment(
-  options: Readonly<{
-    dockerConfig: string | null;
-    dockerHome: string | null;
-  }>,
+  settings: IsolationSettings,
+  options: Readonly<{ dockerConfig: string | null; dockerHome: string | null }>,
 ): Readonly<Record<string, string>> | null {
+  settings = captureIsolationSettings(settings);
   const { dockerConfig, dockerHome } = options;
   if (
     (dockerConfig === null) !== (dockerHome === null) ||
-    (dockerConfig !== null &&
-      (!path.win32.isAbsolute(dockerConfig) || dockerConfig.includes("\0"))) ||
-    (dockerHome !== null &&
-      (!path.win32.isAbsolute(dockerHome) || dockerHome.includes("\0")))
-  ) {
+    [dockerConfig, dockerHome].some(
+      (value) =>
+        value !== null &&
+        (!path.win32.isAbsolute(value) || value.includes("\0")),
+    )
+  )
     return null;
+  const result: Record<string, string> = Object.create(null);
+  for (const name of NEUTRAL_NAMES) result[name] = "";
+  result.SystemRoot = settings.windowsDirectory;
+  result.WINDIR = settings.windowsDirectory;
+  result.DOCKER_CLI_HINTS = "false";
+  if (dockerConfig !== null && dockerHome !== null) {
+    result.DOCKER_CONFIG = dockerConfig;
+    result.HOME = dockerHome;
+    result.USERPROFILE = dockerHome;
   }
-  const environment = createChildProcessEnvironment({ platform: "win32" });
-  if (!environment) return null;
-  const result: Record<string, string> = Object.assign(
-    Object.create(null),
-    environment,
-    {
-      DOCKER_CLI_HINTS: "false",
-      ...(dockerConfig === null || dockerHome === null
-        ? {}
-        : {
-            DOCKER_CONFIG: dockerConfig,
-            HOME: dockerHome,
-            USERPROFILE: dockerHome,
-          }),
-    },
-  );
   return Object.freeze(result);
 }
 
-/**
- * Windows Docker Desktop Repair Helper Environmentを構築する。
- *
- * @responsibility Windows Docker Desktop Repair Helper Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns Readonly< Record<string, string> > | nullを返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateDockerDesktopRepairHelperEnvironmentの入力契約を満たす。
- * @postcondition createDockerDesktopRepairHelperEnvironmentの責務を完了した結果だけを返す。
- * @effect 共通OS環境の固定Native／OS情報／Filesystem読取り。修復処置は発行しない。
- * @failure 一般Native環境またはローカルDriveが取得不能ならnull。
- * @invariant createDockerDesktopRepairHelperEnvironmentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary Platform Accessの一般Native環境→Desktop修復専用Drive付与。
- * @security 一般Native環境を変更せず、Drive候補を修復許可にしない。
- * @concurrency N/A: createDockerDesktopRepairHelperEnvironmentは共有非同期状態を持たない同期処理である。
- */
-export function createDockerDesktopRepairHelperEnvironment(): Readonly<
-  Record<string, string>
-> | null {
-  const environment = createChildProcessEnvironment({
-    platform: "win32",
-    userProfile: true,
+/** 固定WSL観測・停止に使用するHost HomeとDriveを投影する。 */
+export function createDockerDesktopRepairHelperEnvironment(
+  settings: IsolationSettings,
+): Readonly<Record<string, string>> {
+  return Object.freeze({
+    ...createDockerProcessEnvironment(settings),
+    USERPROFILE: settings.userHomeDirectory,
+    SYSTEMDRIVE: settings.windowsDirectory.slice(0, 2),
   });
-  if (!environment) return null;
-  const systemDrive = deriveWindowsSystemDrive(environment.SystemRoot);
-  if (!systemDrive) return null;
-  return Object.freeze({ ...environment, SYSTEMDRIVE: systemDrive });
 }
 
-/**
- * Docker Process Environmentを構築する。
- *
- * @responsibility Docker Process Environmentの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns createDockerProcessEnvironmentの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateDockerProcessEnvironmentの入力契約を満たす。
- * @postcondition createDockerProcessEnvironmentの責務を完了した結果だけを返す。
- * @effect 共通OS環境の固定Native／Filesystem読取り。Docker Processの起動は行わない。
- * @failure createDockerProcessEnvironmentは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createDockerProcessEnvironmentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createDockerProcessEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createDockerProcessEnvironmentは共有非同期状態を持たない同期処理である。
- */
-export function createDockerProcessEnvironment() {
-  const environment = createDockerCliEnvironment({
+/** 個別管理領域を持たないDocker Process用環境。 */
+export function createDockerProcessEnvironment(
+  settings: IsolationSettings,
+): Readonly<Record<string, string>> {
+  const environment = createDockerCliEnvironment(settings, {
     dockerConfig: null,
     dockerHome: null,
   });
@@ -117,37 +180,17 @@ export function createDockerProcessEnvironment() {
   return environment;
 }
 
-/**
- * Dockerの署名確認に必要なPowerShell環境を構成する。
- * @responsibility 共通の検証済みOS所在から、署名確認専用の固定五項目だけを投影する。
- * @trace ARCH-000008
- * @input N/A: 呼出し側の環境値や所在を受け取らない。
- * @returns 凍結した五項目の環境、または所在観測不能を示すnull。
- * @precondition 共通環境のWindows所在・Profile検査が成立する。
- * @postcondition 親PATH・Proxy・Node設定を継承せず、固定PATHとPATHEXTを返す。
- * @effect 共通環境の固定Native／OS情報／Filesystem読取り。署名検査やDocker操作は行わない。
- * @failure 非Windowsまたは共通環境の取得不能はnull。
- * @invariant 所在観測と署名・実行許可の判断を分離する。
- * @boundary 共通子環境からDocker署名確認用の環境への投影。
- * @security 任意keyや親環境へのfallbackを追加しない。
- * @concurrency 同期の値構築。Processの終了管理は署名確認Ownerが所有する。
- */
-export function createWindowsPowerShellAuthenticodeEnvironment(): Readonly<
-  Record<string, string>
-> | null {
-  const environment = createChildProcessEnvironment({
-    platform: "win32",
-    userProfile: true,
-  });
-  if (!environment) return null;
-  const windowsDirectory = environment.SystemRoot;
-  const userProfile = environment.USERPROFILE;
-  if (!windowsDirectory || !userProfile) return null;
+/** 署名検査用の固定五項目だけを投影する。親PATH・Proxy等は継承しない。 */
+export function createWindowsPowerShellAuthenticodeEnvironment(
+  settings: IsolationSettings,
+): Readonly<Record<string, string>> {
+  settings = captureIsolationSettings(settings);
+  const windowsDirectory = settings.windowsDirectory;
   const system32 = path.win32.join(windowsDirectory, "System32");
   return Object.freeze({
     SystemRoot: windowsDirectory,
     WINDIR: windowsDirectory,
-    USERPROFILE: userProfile,
+    USERPROFILE: settings.userHomeDirectory,
     PATH: [
       system32,
       windowsDirectory,

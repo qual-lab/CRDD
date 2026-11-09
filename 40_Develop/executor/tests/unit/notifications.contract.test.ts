@@ -118,10 +118,16 @@ test("Requestを受ける公開Factoryは内部Planで一回実行し同じContr
     const executor = createExecutor(
       request,
       {
-        paths: {
-          tmp: "C:/synthetic/tmp",
-          management: "C:/synthetic/management",
+        ...{
+          paths: {
+            tmp: "C:/synthetic/tmp",
+            management: "C:/synthetic/management",
+          },
         },
+        settings: Object.freeze({
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        }),
       },
       { randomBytes: (size: number) => Buffer.alloc(size, 1) },
     );
@@ -763,7 +769,13 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
               (_, i) => `ref-${i}`,
             ),
           },
-          options,
+          {
+            ...options,
+            settings: Object.freeze({
+              windowsDirectory: "C:\\Windows",
+              userHomeDirectory: "C:\\Users\\test",
+            }),
+          },
           random,
         ),
       );
@@ -805,8 +817,21 @@ test("不正な選定・参照は乱数と隔離構築より前に拒否する",
     for (const candidate of invalid) {
       randoms = 0;
       runtimes = 0;
-      // @ts-expect-error 故障用unknownを公開入力境界へ搬送する。
-      assert.equal(createExecutor(candidate, options, random), null);
+      assert.equal(
+        createExecutor(
+          // @ts-expect-error 故障用unknownを公開入力境界へ搬送する。
+          candidate,
+          {
+            ...options,
+            settings: Object.freeze({
+              windowsDirectory: "C:\\Windows",
+              userHomeDirectory: "C:\\Users\\test",
+            }),
+          },
+          random,
+        ),
+        null,
+      );
       assert.equal(randoms, 0);
       assert.equal(runtimes, 0);
       assert.equal(homes, 0);

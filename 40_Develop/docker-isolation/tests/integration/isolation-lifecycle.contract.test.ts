@@ -17,6 +17,10 @@ import {
   applyCoordinatorResourceCleanup,
   type CoordinatorResourceBook,
 } from "../../../domain-model/src/index.ts";
+const ISOLATION_SETTINGS = Object.freeze({
+  windowsDirectory: "C:\\Windows",
+  userHomeDirectory: "C:\\Users\\test",
+});
 
 /**
  * 作成Receiptを構成検査より先に記録し、失敗・取消でも同じIDを回収まで保持する。
@@ -43,7 +47,7 @@ test("作成Receiptは構成検査前に確定し拒否・取消後も回収記�
   ] as const)
     await t.test(mode, async (t) => {
       const f = await createIsolationFixture(t);
-      const prepared = f.api.prepareIsolation(f.request);
+      const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
       assert.ok(prepared);
       const cleanup = {
         cleanupOrder: f.request.cleanupOrder,
@@ -174,7 +178,7 @@ test("config終了はENOENTだけを不存在とし再出現・観測不能・�
     ])
       await t.test(`${mode}:${observation}`, async (t) => {
         const f = await createIsolationFixture(t);
-        const prepared = f.api.prepareIsolation(f.request);
+        const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
         assert.ok(prepared);
         if (mode === "normal") {
           f.configObservation = observation;
@@ -185,15 +189,18 @@ test("config終了はENOENTだけを不存在とし再出現・観測不能・�
           assert.equal(result.cleanup.confirmed, true);
           f.configObservation = observation;
           if (observation === "remove_failed") f.configCloseError = "EACCES";
-          result = await f.api.cleanupIsolation({
-            managementDirectory: f.request.managementDirectory,
-            resources: result.resources,
-            cleanupOrder: ["container"],
-            setupTimeoutMs: 10_000,
-            unreceiptedAbsence: "retain",
-            verifyLabelAbsence: false,
-            previouslyAbsent: [],
-          }).completion;
+          result = await f.api.cleanupIsolation(
+            {
+              managementDirectory: f.request.managementDirectory,
+              resources: result.resources,
+              cleanupOrder: ["container"],
+              setupTimeoutMs: 10_000,
+              unreceiptedAbsence: "retain",
+              verifyLabelAbsence: false,
+              previouslyAbsent: [],
+            },
+            ISOLATION_SETTINGS,
+          ).completion;
         }
         assert.equal(
           result.cleanup.configCleanupConfirmed,
@@ -262,7 +269,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
       ...di,
       prepareIsolation: (request: IsolationRequest) => {
         f.useRequest(captureIsolationRequest(request), selected);
-        return f.api.prepareIsolation(request);
+        return f.api.prepareIsolation(request, ISOLATION_SETTINGS);
       },
       executeIsolation: f.api.executeIsolation,
     },
@@ -339,6 +346,7 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
                   additionalHosts: [],
                 },
                 {
+                  settings: ISOLATION_SETTINGS,
                   paths: {
                     tmp: target.temporarySourcePath,
                     management: "C:\\fixture\\management",
@@ -359,10 +367,16 @@ test("両Providerの通常Attemptは実Executorから実DIの共通Ownerと有�
                   },
                 },
                 {
-                  paths: {
-                    tmp: target.temporarySourcePath,
-                    management: "C:\\fixture\\management",
+                  ...{
+                    paths: {
+                      tmp: target.temporarySourcePath,
+                      management: "C:\\fixture\\management",
+                    },
                   },
+                  settings: Object.freeze({
+                    windowsDirectory: "C:\\Windows",
+                    userHomeDirectory: "C:\\Users\\test",
+                  }),
                 },
               );
         assert.ok(executor);
@@ -509,7 +523,7 @@ test("開始時の再検証失敗はDI結果へ分類し要求を発行しない
   ]) {
     await t.test(code, async (t) => {
       const f = await createIsolationFixture(t);
-      const prepared = f.api.prepareIsolation(f.request);
+      const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
       assert.ok(prepared);
       if (code === "directory_changed") f.directoryIdentity = "replacement";
       else f.cliFailure = code;
@@ -563,7 +577,7 @@ test("開始時の再検証失敗はDI結果へ分類し要求を発行しない
 test("共通入口は元準備を一回だけ実行し非秘密Snapshotと回収結果を返す", async (t) => {
   const f = await createIsolationFixture(t),
     notices: string[] = [];
-  const prepared = f.api.prepareIsolation(f.request);
+  const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   assert.equal(JSON.stringify(prepared).includes("synthetic-secret"), false);
   assert.equal(f.calls.length, 0);
@@ -616,7 +630,7 @@ test("共通入口は元準備を一回だけ実行し非秘密Snapshotと回収
  */
 test("共通入口はService開始と資源集合Snapshot・逆順回収を同じOwnerで確定する", async (t) => {
   const f = await createIsolationFixture(t, true);
-  const prepared = f.api.prepareIsolation(f.request);
+  const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const receipts: string[] = [],
     cleanup: string[] = [];
@@ -659,7 +673,7 @@ test("共通入口はService開始と資源集合Snapshot・逆順回収を同�
  */
 test("通常と単独Cleanupは同じ元Snapshot・技術回収を使い再実行しない", async (t) => {
   const f = await createIsolationFixture(t),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const first = await f.api.executeIsolation(prepared).completion;
   assert.equal(first.cleanup.confirmed, true);
@@ -675,15 +689,18 @@ test("通常と単独Cleanupは同じ元Snapshot・技術回収を使い再実�
       },
     })),
   };
-  const result = await f.api.cleanupIsolation({
-    managementDirectory: f.request.managementDirectory,
-    resources,
-    cleanupOrder: ["container"],
-    setupTimeoutMs: 10_000,
-    unreceiptedAbsence: "retain",
-    verifyLabelAbsence: false,
-    previouslyAbsent: [],
-  }).completion;
+  const result = await f.api.cleanupIsolation(
+    {
+      managementDirectory: f.request.managementDirectory,
+      resources,
+      cleanupOrder: ["container"],
+      setupTimeoutMs: 10_000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: false,
+      previouslyAbsent: [],
+    },
+    ISOLATION_SETTINGS,
+  ).completion;
   assert.equal(result.cleanup.confirmed, true);
   assert.equal(
     result.resources.resources[0]?.identity.dockerId,
@@ -710,21 +727,24 @@ test("通常と単独Cleanupは同じ元Snapshot・技術回収を使い再実�
  */
 test("単独Cleanupは既不存在Checkpointと現在残存の矛盾で削除しない", async (t) => {
   const f = await createIsolationFixture(t, true),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const first = await f.api.executeIsolation(prepared).completion;
   f.ids.add("a".repeat(64));
   f.ids.add("b".repeat(64));
   const removals = f.calls.filter((a) => a.includes("rm")).length;
-  const result = await f.api.cleanupIsolation({
-    managementDirectory: f.request.managementDirectory,
-    resources: first.resources,
-    cleanupOrder: ["container", "service"],
-    setupTimeoutMs: 10_000,
-    unreceiptedAbsence: "retain",
-    verifyLabelAbsence: false,
-    previouslyAbsent: ["container"],
-  }).completion;
+  const result = await f.api.cleanupIsolation(
+    {
+      managementDirectory: f.request.managementDirectory,
+      resources: first.resources,
+      cleanupOrder: ["container", "service"],
+      setupTimeoutMs: 10_000,
+      unreceiptedAbsence: "retain",
+      verifyLabelAbsence: false,
+      previouslyAbsent: ["container"],
+    },
+    ISOLATION_SETTINGS,
+  ).completion;
   assert.equal(result.cleanup.confirmed, false);
   assert.equal(f.calls.filter((a) => a.includes("rm")).length, removals);
   assert.equal(f.ids.size, 2);
@@ -743,7 +763,7 @@ test("単独Cleanupは既不存在Checkpointと現在残存の矛盾で削除し
  */
 test("単独Cleanupは取消後の次資源を削除せずconfig終了を確認する", async (t) => {
   const f = await createIsolationFixture(t, true),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const first = await f.api.executeIsolation(prepared).completion;
   f.ids.add("a".repeat(64));
@@ -759,6 +779,7 @@ test("単独Cleanupは取消後の次資源を削除せずconfig終了を確認�
       verifyLabelAbsence: false,
       previouslyAbsent: [],
     },
+    ISOLATION_SETTINGS,
     {
       onCleanupCompleted: async (key) => {
         if (key === "container") await execution.cancel();
@@ -831,6 +852,7 @@ test("単独Cleanupは構成差を識別不一致にせず発見通知欠測で�
           verifyLabelAbsence: false,
           previouslyAbsent: [],
         },
+        ISOLATION_SETTINGS,
         mode === "missing_notice"
           ? {}
           : {
@@ -873,7 +895,7 @@ test("単独Cleanupは構成差を識別不一致にせず発見通知欠測で�
  */
 test("共通入口は開始前取消でDocker要求0を維持する", async (t) => {
   const f = await createIsolationFixture(t),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const execution = f.api.executeIsolation(prepared);
   assert.equal((await execution.cancel()).cancellationRequested, true);
@@ -896,13 +918,13 @@ test("共通入口は開始前取消でDocker要求0を維持する", async (t) 
  */
 test("共通準備は全構築入口で検査し疎配列とconfig省略を拒否する", async (t) => {
   const f = await createIsolationFixture(t),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const missingConfig = {
     ...f.request,
     managementDirectory: null,
   } as unknown as IsolationRequest;
-  assert.equal(f.api.prepareIsolation(missingConfig), null);
+  assert.equal(f.api.prepareIsolation(missingConfig, ISOLATION_SETTINGS), null);
   const resource = f.request.resources[0];
   assert.ok(resource?.kind === "container");
   const wrongImage = {
@@ -910,7 +932,8 @@ test("共通準備は全構築入口で検査し疎配列とconfig省略を拒�
     resources: [{ ...resource, image: "unknown" }],
   };
   assert.throws(
-    () => Reflect.construct(prepared.constructor, [wrongImage]),
+    () =>
+      Reflect.construct(prepared.constructor, [wrongImage, ISOLATION_SETTINGS]),
     /isolation_container_invalid/u,
   );
   assert.equal(Object.isFrozen(Object.getPrototypeOf(prepared)), true);
@@ -928,10 +951,13 @@ test("共通準備は全構築入口で検査し疎配列とconfig省略を拒�
     enumerable: true,
   });
   assert.equal(
-    f.api.prepareIsolation({
-      ...f.request,
-      resources: [{ ...resource, argv: sparse }],
-    }),
+    f.api.prepareIsolation(
+      {
+        ...f.request,
+        resources: [{ ...resource, argv: sparse }],
+      },
+      ISOLATION_SETTINGS,
+    ),
     null,
   );
   assert.equal(f.calls.length, 0);
@@ -957,7 +983,10 @@ test("起動要求起算の期限は開始観測待機でリセットしない",
       ? { ...s, timeoutMs: 250, deadlineOrigin: "request" as const }
       : s,
   );
-  const prepared = f.api.prepareIsolation({ ...f.request, steps });
+  const prepared = f.api.prepareIsolation(
+    { ...f.request, steps },
+    ISOLATION_SETTINGS,
+  );
   assert.ok(prepared);
   let notices = 0;
   const result = await f.api.executeIsolation(prepared, {
@@ -989,7 +1018,10 @@ test("要求起算でも観測できた開始は一回通知する", async (t) =
   const steps = f.request.steps.map((s) =>
     s.action === "run" ? { ...s, deadlineOrigin: "request" as const } : s,
   );
-  const prepared = f.api.prepareIsolation({ ...f.request, steps });
+  const prepared = f.api.prepareIsolation(
+    { ...f.request, steps },
+    ISOLATION_SETTINGS,
+  );
   assert.ok(prepared);
   let notices = 0;
   const result = await f.api.executeIsolation(prepared, {
@@ -1018,7 +1050,10 @@ test("要求起算の開始通知失敗は捕捉され回収結果へ接続さ�
   const steps = f.request.steps.map((s) =>
     s.action === "run" ? { ...s, deadlineOrigin: "request" as const } : s,
   );
-  const prepared = f.api.prepareIsolation({ ...f.request, steps });
+  const prepared = f.api.prepareIsolation(
+    { ...f.request, steps },
+    ISOLATION_SETTINGS,
+  );
   assert.ok(prepared);
   const result = await f.api.executeIsolation(prepared, {
     onStarted: () => {
@@ -1042,7 +1077,7 @@ test("要求起算の開始通知失敗は捕捉され回収結果へ接続さ�
  */
 test("共通入口はReceipt通知失敗後に前進せず元IDだけを回収する", async (t) => {
   const f = await createIsolationFixture(t),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const result = await f.api.executeIsolation(prepared, {
     onCreated: async () => {
@@ -1074,7 +1109,7 @@ test("共通入口はReceipt通知失敗後に前進せず元IDだけを回収�
  */
 test("共通入口は回収前通知の失敗を削除許可へ変換しない", async (t) => {
   const f = await createIsolationFixture(t),
-    prepared = f.api.prepareIsolation(f.request);
+    prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const result = await f.api.executeIsolation(prepared, {
     onCleanupSubmitting: () => {
@@ -1105,7 +1140,7 @@ test("共通入口の実行中取消は終了確認と回収可否を分離す�
       const f = await createIsolationFixture(t);
       f.pendingRun = true;
       f.processTermination = confirmed;
-      const prepared = f.api.prepareIsolation(f.request);
+      const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
       assert.ok(prepared);
       let ready: () => void = () => undefined;
       const started = new Promise<void>((resolve) => {
@@ -1204,7 +1239,7 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
     await t.test(c.name, async (t) => {
       const f = await createIsolationFixture(t);
       f.observation = c.value;
-      const prepared = f.api.prepareIsolation(f.request);
+      const prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
       assert.ok(prepared);
       let observed = false;
       const result = await f.api.executeIsolation(prepared, {
@@ -1240,7 +1275,7 @@ test("共通観測通知は出力分類と終了分類を保持し通知失敗�
   for (const mode of ["throw", "promise"])
     await t.test(mode, async (t) => {
       const f = await createIsolationFixture(t),
-        prepared = f.api.prepareIsolation(f.request);
+        prepared = f.api.prepareIsolation(f.request, ISOLATION_SETTINGS);
       assert.ok(prepared);
       const result = await f.api.executeIsolation(prepared, {
         onObserved: (step) => {
@@ -1284,7 +1319,7 @@ test("用途一覧の変更なしで新しい相関key・Labelを実行回収す
     cleanupOrder: ["utility"],
   };
   f.useRequest(request, "codex");
-  const prepared = f.api.prepareIsolation(request);
+  const prepared = f.api.prepareIsolation(request, ISOLATION_SETTINGS);
   assert.ok(prepared);
   const result = await f.api.executeIsolation(prepared).completion;
   assert.equal(result.failure, null);

@@ -27,6 +27,7 @@ import {
   writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
 } from "../../../domain-model/src/index.ts";
+import { getIsolationSettings } from "../../src/execution/configuration.ts";
 
 const [root, operationId, recoveryId, scenario] = process.argv.slice(2);
 assert.ok(root && operationId && recoveryId && scenario);
@@ -118,7 +119,7 @@ f.useRequest(
   },
   "codex",
 );
-const prepared = f.api.prepareIsolation(f.request);
+const prepared = f.api.prepareIsolation(f.request, getIsolationSettings());
 assert.ok(prepared);
 const created = await f.api.executeIsolation(prepared).completion;
 assert.equal(created.cleanup.confirmed, true);
