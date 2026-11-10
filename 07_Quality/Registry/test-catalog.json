@@ -873,7 +873,6 @@
       "lifecycleProfile": "external_effect_operation",
       "testIds": [
         "platform-access:integration:cli",
-        "platform-access:unit:windows_owned_child",
         "docker-isolation:integration:restart-machine",
         "docker-isolation:integration:restart-runtime",
         "coordinator:integration:docker-restart-runtime"
@@ -4495,6 +4494,29 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "version-control:integration:git-user",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/git-user.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "version-control",
+        "git-user",
+        "principal",
+        "cli",
+        "worktree"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "git_configuration_read_only",
+        "principal_not_authentication",
+        "fixture_cleanup_confirmed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "version-control:integration:repository-location",
       "owner": "version-control",
       "path": "40_Develop/version-control/tests/integration/repository-location.integration.test.ts",
@@ -5149,31 +5171,6 @@
         "bounded-source-snapshot",
         "read-only-cli",
         "git-provenance"
-      ],
-      "environment": "local_component_boundary",
-      "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
-      ],
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:desktop-helper",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/desktop-helper.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "docker",
-        "desktop",
-        "repair",
-        "native-helper"
       ],
       "environment": "local_component_boundary",
       "executionProfiles": [
@@ -6511,26 +6508,6 @@
         "authority",
         "trust",
         "loader"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:candidate-store-windows-adapter",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/protected-root.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "candidate",
-        "store",
-        "windows",
-        "adapter"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -8943,25 +8920,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:docker_repair",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/docker_desktop/windows/repair.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "docker",
-        "repair"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:unit:protected-root",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/src/native/filesystem/windows/protected_root.rs",
@@ -9383,25 +9341,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:docker_authenticode",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/docker_desktop/windows/publisher.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "docker",
-        "authenticode"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:unit:windows_directory",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/src/native/filesystem/windows/windows_directory.rs",
@@ -9418,26 +9357,6 @@
       "postconditions": [
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:unit:windows_owned_child",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/process/windows/owned_child.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "windows",
-        "owned",
-        "child"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "native_process_result_observed",
-        "owned_handles_settled_or_reported"
       ],
       "mandatoryByDefault": true
     },
@@ -11379,6 +11298,26 @@
         "cleanup_not_blocked_by_notice",
         "content_after_notice_success_only",
         "exact_recovery_reference_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:integration:desktop-command",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/integration/desktop-command.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "desktop",
+        "cli",
+        "cancellation",
+        "lock"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
       ],
       "mandatoryByDefault": true
     }

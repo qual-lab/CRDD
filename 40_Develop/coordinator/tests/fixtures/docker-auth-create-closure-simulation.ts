@@ -873,8 +873,12 @@ export async function simulateAuthCreateClosure(
           assert.equal(value, trustedCli);
           return executable;
         },
-        createDockerCliEnvironment: (value: unknown) => {
+        createDockerCliEnvironment: (settings: unknown, value: unknown) => {
           environmentCreations++;
+          assert.deepEqual(settings, {
+            windowsDirectory: "C:\\Windows",
+            userHomeDirectory: "C:\\Users\\fixture",
+          });
           assert.deepEqual(value, { dockerConfig: null, dockerHome: null });
           return { SystemRoot: "C:\\Windows" };
         },
@@ -909,7 +913,7 @@ export async function simulateAuthCreateClosure(
                 fault === "restart_blocked" ? "engine_unconfirmed" : null,
               startFailure:
                 fault === "restart_start_blocked"
-                  ? "client_processes_unconfirmed"
+                  ? "desktop_status_unconfirmed"
                   : null,
             };
           }
@@ -1335,6 +1339,7 @@ export async function simulateAuthCreateClosure(
   };
   const factory = runInThisContext(`(function(context) {
     const { assert, cp, execFileSync, createHash, fs, path, mock, setTimeout, setImmediate, fileURLToPath, fixedImage, fixedImageId, endpoint, fixtureUrl, process, AbortController, loadFixtureModule, technicalOperations, Buffer, URL, Object, manifestCompleted } = context;
+    const getIsolationSettings = () => Object.freeze({ windowsDirectory: "C:\\\\Windows", userHomeDirectory: "C:\\\\Users\\\\fixture" });
     let spawnSync = cp.spawnSync;
     const syncBuiltinESMExports = () => { spawnSync = cp.spawnSync; context.synced(); };
     context.observeNamed(() => spawnSync);

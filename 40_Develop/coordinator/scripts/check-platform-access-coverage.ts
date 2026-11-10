@@ -69,22 +69,6 @@ const expectedSources = new Set(
       "windows",
       "windows_directory.rs",
     ),
-    path.join(
-      crateRoot,
-      "src",
-      "native",
-      "docker_desktop",
-      "windows",
-      "repair.rs",
-    ),
-    path.join(
-      crateRoot,
-      "src",
-      "native",
-      "docker_desktop",
-      "windows",
-      "identity.rs",
-    ),
     path.join(crateRoot, "tests", "integration", "native_cli.rs"),
   ].map(path.normalize),
 );

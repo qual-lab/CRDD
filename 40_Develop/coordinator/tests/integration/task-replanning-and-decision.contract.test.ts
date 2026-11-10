@@ -543,6 +543,7 @@ test("human decision capability is one-time, principal-bound and finalized after
   }));
   assert.equal(escalated.reason, "orchestrator_human_decision_required");
   const records = new Map<string, CoordinatorDecisionRecord>();
+  let comparisons = 0;
   const store = {
     create(record: CoordinatorDecisionRecord) {
       if (records.has(record.recordId)) return { status: "blocked" };
@@ -557,6 +558,7 @@ test("human decision capability is one-time, principal-bound and finalized after
       expected: CoordinatorDecisionRecord,
       next: CoordinatorDecisionRecord,
     ) {
+      comparisons += 1;
       const current = records.get(expected.recordId);
       if (JSON.stringify(current) !== JSON.stringify(expected))
         return { status: "blocked" };
@@ -567,7 +569,7 @@ test("human decision capability is one-time, principal-bound and finalized after
   const commonFields = {
     ...input,
     ...decisionApplicationDependencies(root),
-    principalId: "principal-a",
+    principalId: "local.email.fixture@example.invalid",
     store,
   };
   const state = readCoordinatorState(root, "binding-a", "project-a");
@@ -596,6 +598,24 @@ test("human decision capability is one-time, principal-bound and finalized after
     },
   );
   assert.equal(wrongPrincipal.status, "blocked");
+  const wrongPrincipalExpired = submitCoordinatorHumanDecision(
+    { ...commonFields, principalId: "principal-b" },
+    {
+      decisionId: "decision-a",
+      recordId: issued.recordId,
+      repositoryRevision: revision,
+      generation: state.value.generation,
+      selectedOption: "resume",
+      continuationCapability: issued.continuationCapability,
+      nowEpochMs: 62_000,
+    },
+  );
+  assert.equal(
+    wrongPrincipalExpired.reason,
+    "orchestrator_decision_binding_mismatch_or_expired",
+  );
+  assert.equal(comparisons, 0);
+  assert.equal(records.get(issued.recordId)?.disposition, "pending");
   const applied = submitCoordinatorHumanDecision(commonFields, {
     decisionId: "decision-a",
     recordId: issued.recordId,
@@ -669,7 +689,7 @@ test("Human Decisionは対象・Revision・世代・Authorityが一致する要�
   const commonFields = {
     ...input,
     ...decisionApplicationDependencies(root),
-    principalId: "principal-a",
+    principalId: "local.email.fixture@example.invalid",
     store,
   };
   const before = readCoordinatorState(root, "binding-a", "project-a");
@@ -768,7 +788,7 @@ test("prepared human decision is reconciled from durable Project state without r
   const commonFields = {
     ...input,
     ...decisionApplicationDependencies(root),
-    principalId: "principal-a",
+    principalId: "local.email.fixture@example.invalid",
     store,
   };
   const before = readCoordinatorState(root, "binding-a", "project-a");
@@ -870,7 +890,7 @@ test("explicit replacement invalidates the former capability before issuing one 
   const commonFields = {
     ...input,
     ...decisionApplicationDependencies(root),
-    principalId: "principal-a",
+    principalId: "local.email.fixture@example.invalid",
     store,
   };
   const issued = issueCoordinatorHumanDecision(commonFields, {
@@ -960,7 +980,7 @@ test("parent lifecycle invalidation requires a fresh changed generation", async 
   const commonFields = {
     ...input,
     ...decisionApplicationDependencies(root),
-    principalId: "principal-a",
+    principalId: "local.email.fixture@example.invalid",
     store,
   };
   const issued = issueCoordinatorHumanDecision(commonFields, {
@@ -1030,7 +1050,7 @@ test("issuance and expiry uncertainty persist an exact independent recovery inte
     {
       ...input,
       ...decisionApplicationDependencies(root),
-      principalId: "principal-a",
+      principalId: "local.email.fixture@example.invalid",
       recoveryStore,
       store: {
         create: () => ({ status: "blocked" }),
@@ -1077,7 +1097,7 @@ test("issuance and expiry uncertainty persist an exact independent recovery inte
   const commonFields = {
     ...input,
     ...decisionApplicationDependencies(root),
-    principalId: "principal-a",
+    principalId: "local.email.fixture@example.invalid",
     store,
     recoveryStore,
   };

@@ -634,14 +634,14 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
   assert.equal(result.status, 0, result.stderr);
   const value = JSON.parse(result.stdout);
   assert.equal(value.contract, "crdd-coordinator/capabilities");
-  assert.equal(value.contractRevision, 5);
+  assert.equal(value.contractRevision, 6);
   assert.equal(value.executionAuthorityIssued, false);
   assert.deepEqual(
     value.commands.map((c: { invocation: string }) => c.invocation),
     [
-      "task run --request-stdin --json",
+      "task run --request-stdin --json --principal-id <local.email.address>",
       "project init --json",
-      "project run --request-stdin --json",
+      "project run --request-stdin --json --principal-id <local.email.address>",
       "doctor check [--json]",
       "doctor isolation [--json]",
       "recovery resume <id> [--json]",
@@ -676,7 +676,7 @@ test("template toolsの安定入口はCoordinator共通Launcherへ同一Process�
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
   assert.equal(output.contract, "crdd-coordinator/capabilities");
-  assert.equal(output.contractRevision, 5);
+  assert.equal(output.contractRevision, 6);
   assert.equal(
     output.commands.some(
       (entry: { command?: string }) => entry.command === "mcp",
@@ -781,7 +781,15 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
   for (const entry of [coordinatorExecutable, publicCoordinatorLauncher]) {
     const ambiguous = spawnSync(
       process.execPath,
-      [entry, "task", "run", "--request-stdin", "--json"],
+      [
+        entry,
+        "task",
+        "run",
+        "--request-stdin",
+        "--json",
+        "--principal-id",
+        "local.email.fixture@example.invalid",
+      ],
       {
         input: '{"frontProvider":"codex","frontProvider":"claude"}',
         encoding: "utf8",
@@ -805,6 +813,8 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
         "run",
         "--request-stdin",
         "--json",
+        "--principal-id",
+        "local.email.fixture@example.invalid",
       ],
       {
         cwd: root,

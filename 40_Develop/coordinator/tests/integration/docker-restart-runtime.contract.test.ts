@@ -207,11 +207,10 @@ async function compose(fault: string = "normal") {
   let checkpoint: unknown = null,
     saves = 0,
     permitted = true,
-    processes = true,
     running = true,
     ready = true;
   let released = false;
-  let clientInspections = 0;
+  let statusReads = 0;
   const binding = "a".repeat(64);
   const nonce = "b".repeat(64);
   const hostRecord = {
@@ -337,69 +336,64 @@ async function compose(fault: string = "normal") {
     assert.deepEqual(afterSections, beforeSections);
     currentBytes = candidate;
   };
-  const session = {
-    assertLive: () => true,
-    verifyArtifacts: async () => "verified" as const,
-    inspectClientProcesses: async () =>
-      fault === "start_guard" && ++clientInspections === 3
-        ? ("verified" as const)
-        : ("absent" as const),
-    inspectProcesses: async () =>
-      processes ? ("verified" as const) : ("absent" as const),
-    stopDesktop: async () => {
-      calls.push("stop");
-      if (fault === "stop_unknown") return "outcome_unknown" as const;
-      processes = false;
-      running = false;
-      ready = false;
-      if (fault === "cancel_after_stop") controller.abort();
-      return "command_completed" as const;
-    },
-    launchDesktop: async () => {
-      calls.push("start");
-      processes = true;
-      running = true;
-      ready = true;
-      return "started" as const;
-    },
-    terminateProcesses: async () => {
-      throw new Error("forced termination forbidden");
-    },
-    release: async () => {
-      calls.push("helper_release");
+  const desktop = {
+    verify: () => true,
+    command: async (action: "status" | "stop" | "start") => {
+      if (action === "status")
+        return {
+          issued: true,
+          completed: true,
+          cleanupConfirmed: true,
+          status:
+            fault === "start_guard" && ++statusReads === 3
+              ? ("unknown" as const)
+              : running
+                ? ("running" as const)
+                : ("stopped" as const),
+        };
+      calls.push(action);
+      if (action === "stop") {
+        if (fault === "stop_unknown")
+          return {
+            issued: true,
+            completed: false,
+            cleanupConfirmed: true,
+            status: "unknown" as const,
+          };
+        running = false;
+        ready = false;
+        if (fault === "cancel_after_stop") controller.abort();
+      } else {
+        running = true;
+        ready = true;
+      }
       return {
-        cleanup:
-          fault === "cleanup_unknown"
-            ? ("unknown" as const)
-            : ("confirmed" as const),
-        protocol: "completed" as const,
+        issued: true,
+        completed: true,
+        cleanupConfirmed: true,
+        status: "unknown" as const,
       };
     },
-    abort: async () => {
-      calls.push("helper_abort");
-      return {
-        cleanup: "confirmed" as const,
-        protocol: "not_applicable" as const,
-      };
+    close: async () => {
+      calls.push("desktop_close");
+      return fault !== "cleanup_unknown";
     },
-    failureDetected: new Promise<void>(() => {}),
-    onFailureDetected: () => () => {},
   };
   const dependencies = {
     platform: "win32",
     acquire: async () => {
       calls.push("acquire");
-      return { status: "acquired" as const, session };
+      return { cleanupConfirmed: true, operations: desktop };
     },
     createMachine: (
-      _session: unknown,
+      _desktop: unknown,
       boundary: () => boolean,
       signal: AbortSignal,
       onAccepted?: () => void,
       onAttempted?: () => void,
     ) =>
       createDockerRestartMachineForVerification({
-        session,
+        desktop,
         boundary,
         signal,
         ...(onAccepted ? { onRequestAccepted: onAccepted } : {}),
@@ -572,7 +566,7 @@ test("本番組立ては現在要求保存後だけDI固定操作へ委譲する
     "stop",
     "save:3",
     "start",
-    "helper_release",
+    "desktop_close",
     "save:4",
     "lock_release",
     "finalize",
@@ -642,7 +636,7 @@ test("本番組立てのaccepted_save拒否で後続Effectを止める", async (
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
   assert.equal(calls.includes("acquire"), true);
   assert.equal(calls.includes("start"), false);
-  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
 });
 /**
  * 保存不明後の追加Effectを拒否し元要求を保持する。
@@ -663,7 +657,7 @@ test("本番組立てのterminal_save拒否で後続Effectを止める", async (
   assert.equal(result.cleanupFailure, null);
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
   assert.equal(calls.includes("acquire"), true);
-  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
 });
 
 /**
@@ -705,7 +699,7 @@ test("本番組立てはstop_unknownの技術結果を上書きしない", async
   assert.equal(result.primaryFailure, "docker_restart_stop_unconfirmed");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.cleanupFailure, null);
-  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
   assert.equal(calls.includes("start"), false);
 });
@@ -726,7 +720,7 @@ test("本番組立てはcleanup_unknownの技術結果を上書きしない", as
   assert.equal(result.primaryFailure, null);
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.cleanupFailure, "docker_restart_cleanup_unconfirmed");
-  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
 });
 /**
@@ -746,7 +740,7 @@ test("本番組立てはcancel_after_stopの技術結果を上書きしない", 
   assert.equal(result.primaryFailure, "docker_restart_cancelled");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.cleanupFailure, null);
-  assert.equal(calls.filter((call) => call === "helper_abort").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
   assert.equal(calls.includes("start"), false);
 });
@@ -772,7 +766,7 @@ test("本番組立てはlock_falseの技術結果を上書きしない", async (
     (checkpoint as { result: { status: string } }).result.status,
     "blocked",
   );
-  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
 });
 /**
@@ -797,7 +791,7 @@ test("本番組立てはlock_throwの技術結果を上書きしない", async (
     (checkpoint as { result: { status: string } }).result.status,
     "blocked",
   );
-  assert.equal(calls.filter((call) => call === "helper_release").length, 1);
+  assert.equal(calls.filter((call) => call === "desktop_close").length, 1);
   assert.equal(calls.filter((call) => call === "lock_release").length, 1);
 });
 
@@ -867,7 +861,7 @@ test("起動前拒否の診断を上位へ搬送し保存契約を増やさな�
   const { result, calls, checkpoint } = await compose("start_guard");
   assert.equal(result.status, "blocked");
   assert.equal(result.primaryFailure, "docker_restart_start_unconfirmed");
-  assert.equal(result.startFailure, "client_processes_unconfirmed");
+  assert.equal(result.startFailure, "desktop_status_unconfirmed");
   assert.equal(result.stopFailure, null);
   assert.equal(result.effectOutcomeUnknown, false);
   assert.equal(result.cleanupConfirmed, true);

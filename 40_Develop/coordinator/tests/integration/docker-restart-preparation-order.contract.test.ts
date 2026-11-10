@@ -693,8 +693,8 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     acquireProviderHomeLock: (home: string) => {
       return acquire(`home:${home}`);
     },
-    acquireRuntimeStateLock: (binding: string) => {
-      return acquire(`state:${binding}`);
+    acquireRuntimeStateLock: (_directory: string) => {
+      return acquire(`state:${repository.repositoryBinding}`);
     },
     writeRuntimeOwnedCoordinatorRestartCheckpoint: (
       _repo: unknown,

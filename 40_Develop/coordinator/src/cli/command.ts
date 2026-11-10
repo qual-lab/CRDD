@@ -7,6 +7,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getCapabilities, isSupportedNodeRuntime } from "../api.ts";
+import { isPrincipalId } from "../../../domain-model/src/index.ts";
 import { runAuthenticationCommand } from "./authentication.ts";
 import { runDoctorCommand } from "./doctor.ts";
 import { runProjectCommand, runSingleTaskCommand } from "./request.ts";
@@ -87,9 +88,12 @@ export function resolveCoordinatorLaunch(
       init
         ? tail.length !== 1 || tail[0] !== "--json"
         : action !== "run" ||
-          tail.length !== 2 ||
+          tail.length !== 4 ||
           tail[0] !== "--request-stdin" ||
-          tail[1] !== "--json"
+          tail[1] !== "--json" ||
+          tail[2] !== "--principal-id" ||
+          !isPrincipalId(tail[3]) ||
+          !tail[3].startsWith("local.email.")
     )
       return blocked("coordinator_launch_arguments_invalid");
     if (!init && observation.stdoutIsTty)

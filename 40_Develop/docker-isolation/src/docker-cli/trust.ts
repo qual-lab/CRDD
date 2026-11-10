@@ -25,6 +25,12 @@ export const DOCKER_CLI_ROOT =
   "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 export const DOCKER_CLI_EXECUTABLE = `${DOCKER_CLI_ROOT}\\docker.exe`;
 
+const DESKTOP_CLI_EXECUTABLE =
+  "C:\\Program Files\\Docker\\Docker\\resources\\cli-plugins\\docker-desktop.exe";
+type FixedExecutable =
+  | typeof DOCKER_CLI_EXECUTABLE
+  | typeof DESKTOP_CLI_EXECUTABLE;
+
 const MAXIMUM_DOCKER_CLI_BYTES = 256 * 1024 * 1024;
 const AUTHENTICODE_TIMEOUT_MS = 10_000;
 const AUTHENTICODE_SUCCESS = "CRDD_DOCKER_AUTHENTICODE_OK";
@@ -99,7 +105,10 @@ function filesystemIdentity(target: string, expected: "file" | "directory") {
  * @security inspectDockerAuthenticodeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: inspectDockerAuthenticodeは共有非同期状態を持たない同期処理である。
  */
-function inspectDockerAuthenticode(settings: IsolationSettings) {
+function inspectDockerAuthenticode(
+  settings: IsolationSettings,
+  executable: FixedExecutable,
+) {
   const environment = createWindowsPowerShellAuthenticodeEnvironment(settings);
   if (!environment) throw new Error("docker_cli_authenticode_unavailable");
   const systemRoot = environment.SystemRoot;
@@ -122,7 +131,7 @@ function inspectDockerAuthenticode(settings: IsolationSettings) {
   }
   const script = [
     "$ErrorActionPreference='Stop'",
-    `$signature=Get-AuthenticodeSignature -LiteralPath '${DOCKER_CLI_EXECUTABLE.replaceAll("'", "''")}'`,
+    `$signature=Get-AuthenticodeSignature -LiteralPath '${executable.replaceAll("'", "''")}'`,
     "$certificate=$signature.SignerCertificate",
     `if(([string]$signature.Status -ne 'Valid') -or ($null -eq $certificate) -or ([string]$certificate.Subject -notmatch '(?:^|, )O=${DOCKER_PUBLISHER_ORGANIZATION}(?:,|$)')){exit 2}`,
     `Write-Output '${AUTHENTICODE_SUCCESS}'`,
@@ -166,14 +175,17 @@ function inspectDockerAuthenticode(settings: IsolationSettings) {
  * @security inspectDockerCliFileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: inspectDockerCliFileは共有非同期状態を持たない同期処理である。
  */
-function inspectDockerCliFile() {
+function inspectDockerCliFile(
+  executable: FixedExecutable = DOCKER_CLI_EXECUTABLE,
+) {
+  const root = path.win32.dirname(executable);
   if (
-    fs.realpathSync.native(DOCKER_CLI_ROOT) !== DOCKER_CLI_ROOT ||
-    fs.realpathSync.native(DOCKER_CLI_EXECUTABLE) !== DOCKER_CLI_EXECUTABLE
+    fs.realpathSync.native(root) !== root ||
+    fs.realpathSync.native(executable) !== executable
   ) {
     throw new Error("docker_cli_path_untrusted");
   }
-  const metadata = fs.lstatSync(DOCKER_CLI_EXECUTABLE);
+  const metadata = fs.lstatSync(executable);
   if (
     !metadata.isFile() ||
     metadata.isSymbolicLink() ||
@@ -183,11 +195,11 @@ function inspectDockerCliFile() {
     throw new Error("docker_cli_file_untrusted");
   }
   return Object.freeze({
-    rootIdentity: filesystemIdentity(DOCKER_CLI_ROOT, "directory"),
-    executableIdentity: filesystemIdentity(DOCKER_CLI_EXECUTABLE, "file"),
+    rootIdentity: filesystemIdentity(root, "directory"),
+    executableIdentity: filesystemIdentity(executable, "file"),
     bytes: metadata.size,
     sha256: createHash("sha256")
-      .update(fs.readFileSync(DOCKER_CLI_EXECUTABLE))
+      .update(fs.readFileSync(executable))
       .digest("hex")
       .toUpperCase(),
   });
@@ -212,11 +224,23 @@ function inspectDockerCliFile() {
 export function observeTrustedDockerCli(
   settings: IsolationSettings,
 ): DockerCliTrustSnapshot {
+  return observeExecutable(settings, DOCKER_CLI_EXECUTABLE);
+}
+
+/** 固定Desktop Pluginを直接実行するための既存署名・実体検証。任意Pathは受けない。 */
+export function observeTrustedDesktopCli(settings: IsolationSettings) {
+  return observeExecutable(settings, DESKTOP_CLI_EXECUTABLE);
+}
+
+function observeExecutable<E extends FixedExecutable>(
+  settings: IsolationSettings,
+  executable: E,
+) {
   if (process.platform !== "win32")
     throw new Error("docker_cli_platform_unsupported");
-  const before = inspectDockerCliFile();
-  inspectDockerAuthenticode(settings);
-  const after = inspectDockerCliFile();
+  const before = inspectDockerCliFile(executable);
+  inspectDockerAuthenticode(settings, executable);
+  const after = inspectDockerCliFile(executable);
   if (
     before.rootIdentity !== after.rootIdentity ||
     before.executableIdentity !== after.executableIdentity ||
@@ -226,10 +250,10 @@ export function observeTrustedDockerCli(
     throw new Error("docker_cli_changed_during_trust_observation");
   }
   return Object.freeze({
-    executablePath: DOCKER_CLI_EXECUTABLE,
+    executablePath: executable,
     ...after,
     publisherOrganization: DOCKER_PUBLISHER_ORGANIZATION,
-    trustBasis: "windows_authenticode_valid_docker_inc_publisher",
+    trustBasis: "windows_authenticode_valid_docker_inc_publisher" as const,
   });
 }
 
@@ -252,9 +276,25 @@ export function observeTrustedDockerCli(
 export function verifyTrustedDockerCliSnapshot(
   snapshot: DockerCliTrustSnapshot,
 ) {
-  const current = inspectDockerCliFile();
+  return verifyExecutable(snapshot, DOCKER_CLI_EXECUTABLE);
+}
+
+/** 元の固定Desktop Plugin以外へ実行先を拡張しない。 */
+export function verifyTrustedDesktopCliSnapshot(
+  snapshot: ReturnType<typeof observeTrustedDesktopCli>,
+) {
+  return verifyExecutable(snapshot, DESKTOP_CLI_EXECUTABLE);
+}
+
+function verifyExecutable<E extends FixedExecutable>(
+  snapshot: Omit<DockerCliTrustSnapshot, "executablePath"> & {
+    executablePath: E;
+  },
+  executable: E,
+) {
+  const current = inspectDockerCliFile(executable);
   if (
-    snapshot.executablePath !== DOCKER_CLI_EXECUTABLE ||
+    snapshot.executablePath !== executable ||
     snapshot.publisherOrganization !== DOCKER_PUBLISHER_ORGANIZATION ||
     snapshot.trustBasis !== "windows_authenticode_valid_docker_inc_publisher" ||
     current.rootIdentity !== snapshot.rootIdentity ||
@@ -264,7 +304,7 @@ export function verifyTrustedDockerCliSnapshot(
   ) {
     throw new Error("docker_cli_replaced");
   }
-  return DOCKER_CLI_EXECUTABLE;
+  return executable;
 }
 
 /**
@@ -295,40 +335,5 @@ export function describeDockerCliTrustContract() {
     exactHashRequiredAcrossOperations: false,
     sameIdentityAndHashRequiredWithinOperation: true,
     unknownOrInvalidSignatureEffect: "fail_closed_before_docker_effect",
-  });
-}
-
-const RUNTIME_ARTIFACT_TRUST_POLICY =
-  "CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs";
-const runtimeArtifactTrustPolicySha256 = createHash("sha256")
-  .update(RUNTIME_ARTIFACT_TRUST_POLICY, "ascii")
-  .digest("hex");
-
-/**
- * Docker実行物の出所・操作中同一性の固定契約を返す。
- *
- * @responsibility Docker更新を許容する範囲と、同一操作内の実体固定条件を所有する。
- * @trace ARCH-000014
- * @input N/A: 実行時引数を受け取らない。
- * @returns 固定検査条件と既存Native Protocolに対応するPolicy Hash。
- * @precondition N/A: 入力や実環境観測を必要としない。
- * @postcondition 固定契約を凍結した値として返す。
- * @effect N/A: 外部資源・Authority・共有状態を変更しない。
- * @failure N/A: 固定値を返し、実環境の検証を実行しない。
- * @invariant Policy本文とHashは既存Native Protocolの値を維持する。
- * @boundary N/A: Process内の固定契約の参照だけを行う。
- * @security この値の取得は実行許可やArtifact検証成功を意味しない。CRDDのRuntime署名Gateとは独立する。
- * @concurrency N/A: 共有非同期状態を持たない。
- */
-export function describeDockerArtifactTrustContract() {
-  return Object.freeze({
-    policySha256: runtimeArtifactTrustPolicySha256,
-    officialFixedPathsRequired: true,
-    publisherOrganization: "Docker Inc",
-    authenticodeRequired: true,
-    revocationMode: "cache_only",
-    exactVersionRequired: false,
-    exactHashRequiredAcrossOperations: false,
-    sameIdentityAndHashRequiredWithinOperation: true,
   });
 }

@@ -34,7 +34,7 @@ type TrialResult = Readonly<{
   cleanupConfirmed: boolean;
   releaseConfirmed: boolean;
   terminalSaved: boolean;
-  nativeCleanupConfirmed: boolean;
+  operationCleanupConfirmed: boolean;
   contentConfirmed: boolean;
   resultSha256: string | null;
   resultBytes: number;
@@ -286,7 +286,7 @@ export async function runStandaloneProviderTrial(
   await onRoot(root);
   let reason: string | null = null,
     recoveryId: string | null = null,
-    nativeCleanupConfirmed = true,
+    operationCleanupConfirmed = true,
     releaseConfirmed = false,
     terminalSaved = false,
     cleanupConfirmed = false,
@@ -335,9 +335,9 @@ export async function runStandaloneProviderTrial(
       "ProviderHomes",
       spec.provider,
     );
-    nativeCleanupConfirmed = false;
+    operationCleanupConfirmed = false;
     const first = observeWindowsProviderHome(spec.provider, homePath);
-    nativeCleanupConfirmed =
+    operationCleanupConfirmed =
       (!first.processEffectIssued || first.helperExitConfirmed) &&
       first.filesystemEffectIssued === false;
     if (
@@ -374,7 +374,7 @@ export async function runStandaloneProviderTrial(
       if (signal.aborted) cancel();
       const result = await started.completion;
       diagnostic = host.readDiagnostic();
-      nativeCleanupConfirmed &&= host.nativeCleanupConfirmed;
+      operationCleanupConfirmed &&= host.operationCleanupConfirmed;
       releaseConfirmed = host.releaseConfirmed;
       if (host.homeFailure) reason ??= host.homeFailure;
       if (cancellation) await cancellation;
@@ -472,7 +472,7 @@ export async function runStandaloneProviderTrial(
   }
   if (signal.aborted) reason ??= "trial_cancelled";
   if (!releaseConfirmed) reason ??= "trial_home_release_unconfirmed";
-  if (!nativeCleanupConfirmed) reason ??= "trial_native_cleanup_unconfirmed";
+  if (!operationCleanupConfirmed) reason ??= "trial_native_cleanup_unconfirmed";
   return Object.freeze({
     mode,
     fixtureReceipt,
@@ -483,7 +483,7 @@ export async function runStandaloneProviderTrial(
       cleanupConfirmed &&
       releaseConfirmed &&
       terminalSaved &&
-      nativeCleanupConfirmed &&
+      operationCleanupConfirmed &&
       contentConfirmed
         ? "completed"
         : signal.aborted ||
@@ -498,7 +498,7 @@ export async function runStandaloneProviderTrial(
     cleanupConfirmed,
     releaseConfirmed,
     terminalSaved,
-    nativeCleanupConfirmed,
+    operationCleanupConfirmed,
     contentConfirmed,
     resultSha256,
     resultBytes,
@@ -622,7 +622,7 @@ function trialResult(
       "cleanupConfirmed",
       "releaseConfirmed",
       "terminalSaved",
-      "nativeCleanupConfirmed",
+      "operationCleanupConfirmed",
       "contentConfirmed",
       "resultSha256",
       "resultBytes",
@@ -660,7 +660,7 @@ function trialResult(
       "cleanupConfirmed",
       "releaseConfirmed",
       "terminalSaved",
-      "nativeCleanupConfirmed",
+      "operationCleanupConfirmed",
       "contentConfirmed",
     ].some((key) => typeof v[key] !== "boolean")
   )
@@ -675,7 +675,7 @@ function trialResult(
         "cleanupConfirmed",
         "releaseConfirmed",
         "terminalSaved",
-        "nativeCleanupConfirmed",
+        "operationCleanupConfirmed",
         "contentConfirmed",
       ].some((key) => v[key] !== true))
   )
@@ -766,7 +766,7 @@ export function cleanupStandaloneTrialRoot(
         result.cleanupConfirmed,
         result.releaseConfirmed,
         result.terminalSaved,
-        result.nativeCleanupConfirmed,
+        result.operationCleanupConfirmed,
       ].every((v) => v === true)
     )
       return false;

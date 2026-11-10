@@ -7,6 +7,7 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
+import { isPrincipalId } from "../identity/validation.ts";
 import type { ProjectResultAcceptance } from "./types.ts";
 import { snapshotRuntimeStateRecord } from "../state/validation.ts";
 import type { CoordinatorState } from "../state/types.ts";
@@ -653,7 +654,8 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
       value.phase === "accepted")
   )
     return null;
-  for (const key of ["principalId", "taskId", "attemptId", "operationId"])
+  if (!isPrincipalId(value.principalId)) return null;
+  for (const key of ["taskId", "attemptId", "operationId"])
     if (typeof value[key] !== "string" || !ID.test(value[key])) return null;
   if (
     typeof value.mode !== "string" ||

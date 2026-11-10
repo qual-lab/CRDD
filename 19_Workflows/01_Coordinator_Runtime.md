@@ -76,10 +76,15 @@ Source／Session／結果搬送の新接続は限定確認済みで、旧署名A
 
 ## 毎回の起動方法を組み立てない
 
+ローカル要求主体はGitメール由来の`local.email.<user.email>`であり、本人認証の証明ではない。フロントAIが対象Repositoryを現在Directoryにして、VCの読取り専用binからメールを取得する。Coordinatorは自動取得・補完せず、未設定・不正なら停止する。メールを変更すると別主体になり、既存記録へ自動再帰属しない。名前は表示用でIDには使わない。AM接続ではこのローカル方式へfallbackせず、認証済みAMユーザーIDを入口から渡す。
+
 通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task run`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" task run --request-stdin --json
+$gitUser = & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\version-control\bin\version-control.ts" read-git-user --json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $gitUser.status -ne "completed" -or [string]::IsNullOrWhiteSpace($gitUser.email)) { throw "Git user.emailを確認してください。" }
+$principalId = "local.email.$($gitUser.email)"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" task run --request-stdin --json --principal-id $principalId
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" doctor check --json
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-route-matrix.ts"
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-recovery-matrix.ts"
@@ -146,13 +151,13 @@ Coordinator／Orchestrator／Dockerの短命な実行記録は、長期の互換
 |---|---|---|
 | 利用者・呼出し元が準備を調べる | `doctor check`／`doctor check --json` | Providerを起動しない事前診断。一時領域の生成・回収を伴う。表示された候補を認証・隔離・実行許可の成立へ読み替えない |
 | 呼出し元が利用可能な入口を調べる | `capabilities --json` | Local Personalで成立する公開commandだけを機械可読に返す |
-| 許可された一般Taskを実行する | `task run --request-stdin` | 選択したCheckout・Repository・同意・Authority・Providerの各検査が必要。CRDD署名は不要。候補と回収結果を確認する |
+| 許可された一般Taskを実行する | `task run --request-stdin --json --principal-id <local-principal-id>` | 選択したCheckout・Repository・同意・Authority・Providerの各検査が必要。CRDD署名は不要。候補と回収結果を確認する |
 | Workspaceの候補を固定・採用・不採用にする | Workbench／MCPの既存Workspace操作 | Coordinator CLIに旧Bundle／Storeのexport・discard・recover-storeはない。固定とGit統合・採用を区別する |
 | 復旧担当が残存資源を処置する | `recovery resume <id>` | exact IDと所有・状態が一致する場合だけ。通常Taskの自動再試行にしない。作成結果不明のDocker Taskは、後発の検証済みDocker Desktop再起動を明示結合できる専用形だけを使う |
 | 保守担当が隔離を検証する | `doctor isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
 | 開発・配布担当が検証する | 下記の固定Task検証と任意配布検査 | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
 
-CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\coordinator.ts task run --request-stdin --json`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
+CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\coordinator.ts task run --request-stdin --json --principal-id $principalId`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
 
 以下の絶対Node placeholderは、version 24.12.0以上と実体を確認したNodeへ置き換える。Coordinator CLI、Release鍵生成、Release manifest署名および正式署名一般Task Runnerは、未対応Nodeを対話入力、Release検証またはEffectより前に拒否し、PATH上の別Nodeへfallbackしない。package scriptを使う検証では、親のnpmだけでなくscript内の`node`とその子Processも同じ検証済みNodeへ解決されることを確認する。親だけを絶対Pathで起動し、子がPATH上の旧Nodeへ戻る状態を検証済みと扱わない。Sourceや試験のPathは、現在DirectoryをRepository Identityとして意図的に使う公開契約を除き、module基準の絶対Pathへ固定する。
 
@@ -163,7 +168,10 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor isolation --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" capabilities --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" recovery resume <recovery-id> --json
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" task run --request-stdin --json
+$gitUser = & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\version-control\bin\version-control.ts" read-git-user --json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $gitUser.status -ne "completed" -or [string]::IsNullOrWhiteSpace($gitUser.email)) { throw "Git user.emailを確認してください。" }
+$principalId = "local.email.$($gitUser.email)"
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" task run --request-stdin --json --principal-id $principalId
 ```
 
 実行Pathを表す各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。現在の診断は検証済みRootから既存Git観測と局所診断へ接続する。診断が作る一時領域と回収も確認し、厳密なEffect 0とは扱わない。廃止したRelease manifest署名を通常手順へ戻さない。

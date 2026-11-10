@@ -19,7 +19,8 @@ export type LockReference = LockRequest &
 export type Lock = Readonly<{
   reference: LockReference;
   assertLive(): boolean;
-  release(): boolean;
+  /** trueは取得descriptorだけを閉じ、未完了操作のLock Fileを保全する。 */
+  release(retainFile?: boolean): boolean;
 }>;
 
 /** 既存Fileは自動削除せず停止する。初期化失敗の残存も同じ取得参照で保持する。 */

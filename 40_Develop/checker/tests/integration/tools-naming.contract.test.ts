@@ -290,6 +290,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./configuration/validate-declarations.ts",
       "./decision/types.ts",
       "./decision/validation.ts",
+      "./identity/validation.ts",
       "./meeting/create-operations.ts",
       "./meeting/markdown.ts",
       "./meeting/types.ts",
@@ -413,7 +414,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./filesystem/entry.ts",
       "./process/environment.ts",
       "./filesystem/root.ts",
-      "./docker-desktop/native-process.ts",
       "./filesystem/protection.ts",
     ],
   },
@@ -448,6 +448,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./worktree/types.ts",
       "./repository/ignore.ts",
       "./repository/location.ts",
+      "./repository/user.ts",
     ],
   },
 ]);

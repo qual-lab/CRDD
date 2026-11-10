@@ -621,7 +621,7 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
 test("Docker TrustとRoot変更は下位技術と上位利用側を選ぶ", () => {
   for (const changedPath of [
     "40_Develop/docker-isolation/src/docker-cli/trust.ts",
-    "40_Develop/platform-access/src/docker-desktop/native-process.ts",
+    "40_Develop/docker-isolation/src/docker-desktop/command.ts",
     "40_Develop/docker-isolation/src/docker-desktop/restart-state.ts",
     "40_Develop/docker-isolation/src/index.ts",
   ]) {
@@ -630,8 +630,8 @@ test("Docker TrustとRoot変更は下位技術と上位利用側を選ぶ", () =
       selected.some(
         (entry) =>
           entry.id ===
-          (changedPath.startsWith("40_Develop/platform-access/")
-            ? "platform-access:integration:desktop-helper"
+          (changedPath.endsWith("command.ts")
+            ? "docker-isolation:integration:desktop-command"
             : "docker-isolation:integration:restart-runtime"),
       ),
     );

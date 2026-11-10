@@ -16,6 +16,7 @@ import {
   getRepository,
 } from "../../../version-control/src/index.ts";
 import {
+  isPrincipalId,
   parseRepositoryProjectContextMarkdown,
   readStableBoundedFileSnapshot,
 } from "../../../domain-model/src/index.ts";
@@ -54,10 +55,13 @@ export async function runProjectCommand(args: readonly string[]) {
     return;
   }
   if (
-    args.length !== 3 ||
+    args.length !== 5 ||
     args[0] !== "run" ||
     args[1] !== "--request-stdin" ||
-    args[2] !== "--json"
+    args[2] !== "--json" ||
+    args[3] !== "--principal-id" ||
+    !isPrincipalId(args[4]) ||
+    !args[4].startsWith("local.email.")
   ) {
     process.stdout.write(
       `${JSON.stringify(
@@ -105,7 +109,9 @@ export async function runProjectCommand(args: readonly string[]) {
   try {
     result =
       binding.status === "bound"
-        ? await runObjective(request, controller.signal)
+        ? await runObjective(request, controller.signal, process.cwd(), {
+            principalId: args[4],
+          })
         : {
             status: "blocked",
             reason: "project_cli_cancellation_binding_failed",
@@ -145,7 +151,7 @@ export async function runProjectCommand(args: readonly string[]) {
  * @responsibility 明示Workspace、Repository別の固定選定、取消joinと結果公開。
  * @trace ARCH-000004
  * @trace ARCH-000012
- * @input --request-stdin --jsonと共通SingleTaskCommand。
+ * @input --request-stdin --json --principal-idと共通SingleTaskCommand。
  * @returns 終端を一回出力する。
  * @effect 既存Ownerの受付・保存・AI実行。入力拒否では開始しない。
  * @failure 対象省略、旧Task形式、Root／Context不明は開始前停止。
@@ -154,10 +160,13 @@ export async function runProjectCommand(args: readonly string[]) {
  */
 export async function runSingleTaskCommand(args: readonly string[]) {
   if (
-    args.length !== 3 ||
+    args.length !== 5 ||
     args[0] !== "run" ||
     args[1] !== "--request-stdin" ||
-    args[2] !== "--json"
+    args[2] !== "--json" ||
+    args[3] !== "--principal-id" ||
+    !isPrincipalId(args[4]) ||
+    !args[4].startsWith("local.email.")
   ) {
     process.stdout.write(
       `${JSON.stringify({ command: "task", status: "blocked", reason: "task_arguments_invalid" }, null, 2)}\n`,
@@ -200,7 +209,7 @@ export async function runSingleTaskCommand(args: readonly string[]) {
         {
           rootCapability: verified.capability,
           projectId: context.projectId,
-          principalId: "local-cli-user",
+          principalId: args[4],
           authorize: () =>
             resolveVerifiedRepositoryRootFromWorkingDirectory(root) === root,
           consumer: "coordinator_cli",

@@ -267,7 +267,7 @@ export async function resumeRuntimeOwnedExecution(
         retentionReviewAfter: null,
         historyConfirmed: false,
         completionConfirmed: false,
-        nativeCleanupConfirmed: false,
+        operationCleanupConfirmed: false,
       });
     return Object.freeze({
       status: "blocked" as const,
@@ -1638,10 +1638,7 @@ export function prepareRuntimeOwnedDockerTaskRecovery(
       throw new Error(reason);
     }
     locks.push(home.lock);
-    const runtime = acquireRuntimeStateLock(
-      repository.repositoryBinding,
-      runtimeStateDirectoryCandidate(),
-    );
+    const runtime = acquireRuntimeStateLock(runtimeStateDirectoryCandidate());
     if (runtime.status !== "acquired") {
       cleanupConfirmed &&= runtime.cleanupConfirmed;
       if (!runtime.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
@@ -5131,10 +5128,7 @@ export function prepareRuntimeOwnedDockerRestart(
       }
       locks.push(lock.lock);
     }
-    const state = acquireRuntimeStateLock(
-      repository.repositoryBinding,
-      runtimeStateDirectoryCandidate(),
-    );
+    const state = acquireRuntimeStateLock(runtimeStateDirectoryCandidate());
     if (state.status !== "acquired") {
       observationCleanupConfirmed &&= state.cleanupConfirmed;
       if (!state.descriptorClosed) poisonRuntimeProcessAfterCleanupUnknown();
@@ -5807,7 +5801,7 @@ export async function repairRuntimeOwnedDockerRuntime(
   let preparedCalls = 0;
   let bytes: Buffer | null = null;
   let target: CoordinatorStateRepairOperation | null = null;
-  let nativeCleanupConfirmed = false;
+  let operationCleanupConfirmed = false;
   let finalCheckpointConfirmed = false;
   let outcomeConfirmed = false;
   let retentionConfirmed = false;
@@ -5861,7 +5855,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       completionConfirmed,
       completionEffectIssued,
       completionLockReleased,
-      nativeCleanupConfirmed,
+      operationCleanupConfirmed,
       stateMarkerCleanup,
       statePublication,
     });
@@ -6042,8 +6036,6 @@ export async function repairRuntimeOwnedDockerRuntime(
     const identityJson = target.identityJson;
     const identity = JSON.parse(identityJson) as {
       operationNonce: string;
-      ownerBindingSha256: string;
-      scopeSha256: string;
     };
     const writes = {
       primary: "disposal_primary",
@@ -6140,8 +6132,6 @@ export async function repairRuntimeOwnedDockerRuntime(
           kind: "docker_runtime_directory",
           input: {
             operationNonce: identity.operationNonce,
-            ownerBindingSha256: identity.ownerBindingSha256,
-            scopeSha256: identity.scopeSha256,
             checkpoint: target.checkpoint,
             purpose,
             signal,
@@ -6264,8 +6254,8 @@ export async function repairRuntimeOwnedDockerRuntime(
         retentionReviewAfter = recordedDeadline;
         outcomeConfirmed = true;
         finalCheckpointConfirmed = operation.checkpoint !== null;
-        nativeCleanupConfirmed =
-          nativeCleanupConfirmed ||
+        operationCleanupConfirmed =
+          operationCleanupConfirmed ||
           operation.checkpoint?.cleanup === "confirmed";
         if (!publication.needsWrite) {
           historyConfirmed = operation.history?.confirmed === true;
@@ -6368,7 +6358,7 @@ export async function repairRuntimeOwnedDockerRuntime(
         // 現在操作が読める場合だけ、既確定結果の個別事実を投影する。
         outcomeConfirmed = true;
         finalCheckpointConfirmed = true;
-        nativeCleanupConfirmed = true;
+        operationCleanupConfirmed = true;
         historyConfirmed = true;
         writing = true;
         completionLockReleased = null;
@@ -6596,8 +6586,6 @@ export async function repairRuntimeOwnedDockerRuntime(
                 kind: "docker_runtime_directory",
                 input: {
                   operationNonce: identity.operationNonce,
-                  ownerBindingSha256: identity.ownerBindingSha256,
-                  scopeSha256: identity.scopeSha256,
                   checkpoint: target.checkpoint,
                   signal,
                   canObserve: currentOwner,
@@ -6632,7 +6620,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           retentionConfirmed = true;
           outcomeConfirmed = true;
           finalCheckpointConfirmed = true;
-          nativeCleanupConfirmed = true;
+          operationCleanupConfirmed = true;
           if (!settleHistory() || !settleCompletion()) return stopped();
           return Object.freeze({
             ...stopped(),
@@ -6648,7 +6636,8 @@ export async function repairRuntimeOwnedDockerRuntime(
         ) {
           outcomeConfirmed = true;
           finalCheckpointConfirmed = target.checkpoint !== null;
-          nativeCleanupConfirmed = target.checkpoint?.cleanup === "confirmed";
+          operationCleanupConfirmed =
+            target.checkpoint?.cleanup === "confirmed";
           if (
             !(await settleDisposal()) ||
             !settleHistory() ||
@@ -6666,7 +6655,8 @@ export async function repairRuntimeOwnedDockerRuntime(
           if (target?.outcome) {
             outcomeConfirmed = true;
             finalCheckpointConfirmed = target.checkpoint !== null;
-            nativeCleanupConfirmed = target.checkpoint?.cleanup === "confirmed";
+            operationCleanupConfirmed =
+              target.checkpoint?.cleanup === "confirmed";
             if (
               prepareCoordinatorRepairHistorySummary(
                 bytes,
@@ -6711,7 +6701,7 @@ export async function repairRuntimeOwnedDockerRuntime(
           )
             return stopped();
           // 記録の確定だけであり、新しいNative／Docker処置を開始しない。
-          nativeCleanupConfirmed = savedCheckpoint.cleanup === "confirmed";
+          operationCleanupConfirmed = savedCheckpoint.cleanup === "confirmed";
           finalCheckpointConfirmed = true;
           if (
             !save(
@@ -6726,7 +6716,7 @@ export async function repairRuntimeOwnedDockerRuntime(
                   outcome: {
                     status: "blocked",
                     reason: savedFailure.reason,
-                    cleanupConfirmed: nativeCleanupConfirmed,
+                    cleanupConfirmed: operationCleanupConfirmed,
                   },
                 },
                 repository.repositoryBinding,
@@ -6752,7 +6742,7 @@ export async function repairRuntimeOwnedDockerRuntime(
             historyConfirmed,
             historyEffectIssued,
             historyLockReleased,
-            nativeCleanupConfirmed,
+            operationCleanupConfirmed,
             completionConfirmed,
             completionEffectIssued,
             completionLockReleased,
@@ -6776,8 +6766,6 @@ export async function repairRuntimeOwnedDockerRuntime(
         : (JSON.parse(target.identityJson) as {
             operationNonce: string;
             operationId: string;
-            ownerBindingSha256: string;
-            scopeSha256: string;
           });
     const nonce =
       previousIdentity?.operationNonce ?? randomBytes(32).toString("hex");
@@ -6792,28 +6780,14 @@ export async function repairRuntimeOwnedDockerRuntime(
         input: {
           operationNonce: nonce,
           signal,
-          resume:
-            target?.checkpoint && previousIdentity
-              ? {
-                  ownerBindingSha256: previousIdentity.ownerBindingSha256,
-                  scopeSha256: previousIdentity.scopeSha256,
-                  checkpoint: target.checkpoint,
-                }
-              : null,
+          resume: target?.checkpoint ?? null,
           canIssueEffect: () => !signal.aborted && currentOwner(),
           onPrepared: (value) => {
             preparedCalls++;
             if (preparedCalls !== 1 || !currentOwner() || signal.aborted)
               throw new Error("docker_repair_record_unconfirmed");
-            if (
-              previousIdentity &&
-              (previousIdentity.ownerBindingSha256 !==
-                value.ownerBindingSha256 ||
-                previousIdentity.scopeSha256 !== value.scopeSha256)
-            )
-              throw new Error("docker_repair_record_unconfirmed");
             if (target === null) {
-              const identityJson = `${JSON.stringify({ schema: "crdd-coordinator/runtime-repair-identity/v1", kind: "runtime_repair", operationNonce: nonce, operationId, repositoryBinding: repository.repositoryBinding, ownerBindingSha256: value.ownerBindingSha256, scopeSha256: value.scopeSha256, consumer: "coordinator_cli" })}\n`;
+              const identityJson = `${JSON.stringify({ schema: "crdd-coordinator/runtime-repair-identity/v2", kind: "runtime_repair", operationNonce: nonce, operationId, repositoryBinding: repository.repositoryBinding, consumer: "coordinator_cli" })}\n`;
               recoveryId = `docker-runtime-repair.${nonce}.${createHash("sha256").update(identityJson).digest("hex")}`;
               if (
                 !save(
@@ -6847,13 +6821,13 @@ export async function repairRuntimeOwnedDockerRuntime(
               if (
                 !preparedTarget ||
                 encodeRuntimeStateValue(preparedTarget.checkpoint) !==
-                  encodeRuntimeStateValue(value.checkpoint) ||
+                  encodeRuntimeStateValue(value) ||
                 !save(candidate, "session_begin")
               )
                 throw new Error("docker_repair_record_unconfirmed");
             } else {
               prepared = true;
-              if (!checkpoint(value.checkpoint)) {
+              if (!checkpoint(value)) {
                 prepared = false;
                 throw new Error("docker_repair_record_unconfirmed");
               }
@@ -6869,7 +6843,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       },
       getIsolationSettings(),
     );
-    nativeCleanupConfirmed = result.lifecycle?.cleanup.cleanup === "confirmed";
+    operationCleanupConfirmed = result.lifecycle?.cleanupConfirmed === true;
     const primaryFailure = result.machine?.primaryFailure
       ? { stage: "repair" as const, reason: result.machine.primaryFailure }
       : null;
@@ -6887,7 +6861,7 @@ export async function repairRuntimeOwnedDockerRuntime(
     const clean =
       result.checkpoint.cleanup === "confirmed" &&
       result.checkpoint.cleanupFailure === null &&
-      lifecycle?.cleanup.protocol === "completed";
+      lifecycle?.cleanupConfirmed === true;
     const complete =
       technical?.status === "recovered" &&
       result.checkpoint.engine === "ready" &&
@@ -7001,7 +6975,7 @@ export async function repairRuntimeOwnedDockerRuntime(
       completionConfirmed,
       completionEffectIssued,
       completionLockReleased,
-      nativeCleanupConfirmed,
+      operationCleanupConfirmed,
       stateMarkerCleanup,
       statePublication,
       technicalStatus: result.machine?.status ?? null,
@@ -7502,7 +7476,7 @@ export function projectRuntimeRepairObservation(
       retentionReviewAfter: null,
       historyConfirmed: false,
       completionConfirmed: false,
-      nativeCleanupConfirmed: false,
+      operationCleanupConfirmed: false,
     });
   return Object.freeze({
     status: result.status,
@@ -7514,7 +7488,7 @@ export function projectRuntimeRepairObservation(
     retentionReviewAfter: result.retentionReviewAfter,
     historyConfirmed: result.historyConfirmed,
     completionConfirmed: result.completionConfirmed,
-    nativeCleanupConfirmed: result.nativeCleanupConfirmed,
+    operationCleanupConfirmed: result.operationCleanupConfirmed,
   });
 }
 

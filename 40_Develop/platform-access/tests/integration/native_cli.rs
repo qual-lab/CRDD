@@ -212,6 +212,8 @@ fn retired_root_and_appcontainer_inputs_are_rejected() {
 #[test]
 fn retired_terminal_modes_are_not_available() {
     for mode in [
+        "--docker-desktop-repair-helper",
+        "--docker-desktop-restart-helper",
         "--host-terminal-observe",
         "--host-terminal-save",
         "--host-terminal-read",

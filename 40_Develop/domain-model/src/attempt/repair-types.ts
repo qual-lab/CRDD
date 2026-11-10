@@ -12,7 +12,7 @@ import type { RUNTIME_REPAIR_DIRECTORIES } from "./repair-validation.ts";
 
 /**
  * 修復Machineが所有し保存Ownerへ渡す技術状態。
- * @responsibility 固定九処置と三用途の世代実体、現在結果と回収失敗を保持する。
+ * @responsibility 固定8処置と三用途の世代実体、現在結果と回収失敗を保持する。
  * @trace ARCH-000008
  * @shape actions、directories、engine、stale、hostSafety、cleanup、cleanupFailure。
  * @invariant 人間の保持判断・Task/Home/Provider・任意Pathは含めない。
@@ -39,8 +39,7 @@ export type DockerRuntimeRepairCheckpoint = Readonly<{
   hostSafety: "safe" | "manual_recovery_required" | "unknown";
   cleanup: "not_requested" | "pending" | "confirmed" | "unknown";
   cleanupFailure:
-    | "helper_cleanup_unknown"
-    | "helper_protocol_failed"
+    | "operation_cleanup_unknown"
     | "observation_cleanup_unknown"
     | null;
 }>;
@@ -53,7 +52,7 @@ export type DockerRuntimeRepairCheckpoint = Readonly<{
  * @invariant 過去の要求不明を現在の不存在確認で消さない。
  * @boundary DIの純粋技術値と上位の専用保存Owner。
  * @security 実体、Scope、Path、Authority、保持判断を複製しない。
- * @compatibility 元の九処置checkpointとは別の最新値契約。
+ * @compatibility 元の8処置checkpointとは別の最新値契約。
  */
 export type DockerRuntimeRepairDisposalCheckpoint = Readonly<{
   directories: Readonly<

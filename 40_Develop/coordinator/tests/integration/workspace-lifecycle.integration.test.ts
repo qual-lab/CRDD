@@ -389,12 +389,9 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
           principalId: "principal-a",
         };
         if (!separate)
-          return executeCoordinatorPublicAcceptanceDecision(
-            () => ({ status: "completed", principalId: "principal-a" }),
-            input,
-            f.root,
-            { principalId: "principal-a" },
-          );
+          return executeCoordinatorPublicAcceptanceDecision(input, f.root, {
+            principalId: "principal-a",
+          });
         const entry = pathToFileURL(
           path.resolve(import.meta.dirname, "../../src/decision/acceptance.ts"),
         ).href;
@@ -404,7 +401,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
               process.execPath,
               [
                 "-e",
-                `import {executeCoordinatorPublicAcceptanceDecision as run} from ${JSON.stringify(entry)}; console.log(JSON.stringify(run(()=>({status:'completed',principalId:'principal-a'}),${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
+                `import {executeCoordinatorPublicAcceptanceDecision as run} from ${JSON.stringify(entry)}; console.log(JSON.stringify(run(${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
               ],
               { encoding: "utf8", windowsHide: true, timeout: 30_000 },
             )
@@ -551,7 +548,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
       const accepted = await decide(isolated);
       assert.equal(accepted.status, "completed", JSON.stringify(accepted));
       const query = executeCoordinatorPublicStateQuery(
-        () => ({ status: "completed", principalId: "principal-a" }) as never,
+        () => ({ status: "completed" }) as never,
         {
           requestId: "query-after-adoption",
           projectId: "project-a",

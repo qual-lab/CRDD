@@ -3,6 +3,7 @@
   "version": "0.0.0-development",
   "private": true,
   "type": "module",
+  "bin": { "crdd-version-control": "./bin/version-control.ts" },
   "exports": {
     ".": "./src/index.ts"
   },

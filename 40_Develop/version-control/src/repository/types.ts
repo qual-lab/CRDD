@@ -11,6 +11,14 @@ import type {
   LOCAL_CHANGE_SET_CONTRACT_REVISION,
 } from "./working-directory.ts";
 
+/** Git設定の読取り結果。未設定と観測不能を区別し、認証主体とは扱わない。 */
+export type GitUserResult =
+  | Readonly<{ status: "completed"; name: string | null; email: string | null }>
+  | Readonly<{
+      status: "blocked" | "unknown";
+      reason: "repository_root_invalid" | "git_user_configuration_unavailable";
+    }>;
+
 /** 対象Worktreeと操作する相対Path集合を指定する。 */
 export type PathsRequest = Readonly<{ paths: readonly string[] }>;
 /** 現在の変更からCommitするPath集合とメッセージを指定する。 */

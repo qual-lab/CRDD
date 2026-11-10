@@ -32,7 +32,6 @@ import { getRepository } from "../../../version-control/src/index.ts";
 import * as bindings from "../../src/execution/operation.ts";
 
 let acquireCount = 0;
-let scope = "c".repeat(64);
 let observeCount = 0;
 let stateFile = "";
 let delayedCheckpoint:
@@ -42,7 +41,6 @@ let lastCheckpoint: model.DockerRuntimeRepairCheckpoint | null = null;
 let lastRuntimeResult: Awaited<
   ReturnType<typeof runRepairSessionWithDependencies>
 > | null = null;
-const owner = "b".repeat(64);
 let observeMode: "ready" | "incomplete" | "effect_unknown" | "retained" =
   "incomplete";
 let runtimeEntries = 0;
@@ -191,33 +189,17 @@ const isolationModule = {
         acquire: async () => {
           acquireCount++;
           return {
-            status: "acquired",
-            ownerBindingSha256: owner,
-            session: {
-              assertLive: () => true,
-              failureDetected: new Promise(() => {}),
-              onFailureDetected: () => () => {},
-              verifyArtifacts: async () => "verified",
-              inspectProcesses: async () => "verified",
-              terminateProcesses: async () => {
+            cleanupConfirmed: true,
+            operations: {
+              verify: () => true,
+              command: async () => {
                 throw new Error("unexpected_effect");
               },
-              launchDesktop: async () => {
-                throw new Error("unexpected_effect");
-              },
-              release: async () => ({
-                cleanup: "confirmed",
-                protocol: "completed",
-              }),
-              abort: async () => ({
-                cleanup: "confirmed",
-                protocol: "completed",
-              }),
+              close: async () => true,
             },
           };
         },
         prepare: async () => ({
-          scopeSha256: scope,
           cleanupFailure: () => null,
           technical: {
             observe: async (checkpoint) => {
@@ -226,8 +208,10 @@ const isolationModule = {
               assert.ok(current.revision >= 2);
               assert.equal(current.operations[0].checkpoint.cleanup, "pending");
               assert.equal(
-                current.operations[0].identityJson.includes(owner),
-                true,
+                current.operations[0].identityJson.includes(
+                  "ownerBindingSha256",
+                ),
+                false,
               );
               lastCheckpoint = checkpoint;
               if (observeMode === "incomplete")
@@ -422,7 +406,7 @@ function createRepairOwnerFixture() {
       `missing fixture dependency: ${name}`,
     );
   return runInThisContext(
-    `(function(deps){ const {${names.join(",")}} = deps; const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
+    `(function(deps){ const {${names.join(",")}} = deps; const getIsolationSettings = () => ({windowsDirectory:"C:/Windows",userHomeDirectory:"C:/Users/test"}); const restartDockerEnvironment = request => runRepairSession(request.input); const inspectResources = target => observeRepairDirectories(target.input); const cleanupResources = target => cleanupRepairDirectory(target.input); ${body}; return repairRuntimeOwnedDockerRuntime; })`,
   )(
     dependencies,
   ) as typeof import("../../src/execution/recovery.ts").repairRuntimeOwnedDockerRuntime;
@@ -492,7 +476,6 @@ function prepareRepairOwnerFixture(t: TestContext) {
   lastRepairCompletionBefore = null;
   faultHits = 0;
   faultedAt = 0;
-  scope = "c".repeat(64);
   lastCheckpoint = null;
   delayedCheckpoint = null;
   lastRuntimeResult = null;
@@ -1203,7 +1186,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   );
   assert.equal(duplicate.completionConfirmed, true);
   assert.equal(duplicate.finalCheckpointConfirmed, false);
-  assert.equal(duplicate.nativeCleanupConfirmed, false);
+  assert.equal(duplicate.operationCleanupConfirmed, false);
   fs.writeFileSync(stateFile, original);
   const history = fs.readFileSync(historyFile);
   const otherRow = JSON.parse(history.toString("utf8"));
@@ -1440,7 +1423,7 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   );
   assert.equal(first.status, "observed");
   assert.equal(first.finalCheckpointConfirmed, true);
-  assert.equal(first.nativeCleanupConfirmed, true);
+  assert.equal(first.operationCleanupConfirmed, true);
   assert.equal(acquireCount, 1);
   assert.ok(observeCount > 0);
   assert.ok(first.recoveryId);
@@ -1474,16 +1457,6 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
     snapshot.operations[0].identityJson,
   );
   assert.ok(nextSnapshot.revision > snapshot.revision);
-  const priorObservations = observeCount;
-  scope = "d".repeat(64);
-  const mismatch = await repairRuntimeOwnedDockerRuntime(
-    verified.capability,
-    new AbortController().signal,
-    first.recoveryId,
-  );
-  assert.equal(mismatch.status, "blocked");
-  assert.equal(observeCount, priorObservations);
-  assert.ok(fs.readFileSync(stateFile).equals(nextBytes));
   const acquired = acquireCount;
   fs.writeFileSync(
     path.join(path.dirname(stateFile), "state.pending.json"),
@@ -1498,7 +1471,6 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   assert.equal(acquireCount, acquired);
   assert.ok(fs.readFileSync(stateFile).equals(nextBytes));
   fs.unlinkSync(path.join(path.dirname(stateFile), "state.pending.json"));
-  scope = "c".repeat(64);
   observeMode = "ready";
   const completed = await repairRuntimeOwnedDockerRuntime(
     verified.capability,
@@ -1744,7 +1716,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
         assert.equal(duplicate.retentionConfirmed, true);
         assert.equal(duplicate.retentionReviewAfter, savedReceipt.reviewAfter);
         assert.equal(duplicate.finalCheckpointConfirmed, false);
-        assert.equal(duplicate.nativeCleanupConfirmed, false);
+        assert.equal(duplicate.operationCleanupConfirmed, false);
         assert.equal(retentionReads, observed);
         assert.equal(acquireCount, acquired);
         assert.equal(runtimeEntries, entries);
@@ -1788,7 +1760,7 @@ test("Host Windows: 修復保存の各切断窓で未確認を成功へ補完し
         assert.equal(result.status, "blocked");
         assert.equal(result.finalCheckpointConfirmed, false);
         assert.equal(result.outcomeConfirmed, false);
-        assert.equal(result.nativeCleanupConfirmed, true);
+        assert.equal(result.operationCleanupConfirmed, true);
         assert.equal(observeCount, stage === "cleanup" ? 1 : 0);
         assert.equal(acquireCount, 1);
         const before = fs.existsSync(stateFile)
@@ -1866,7 +1838,7 @@ test("Host Windows: 保存済み一次失敗はNative再取得なしに記録だ
   );
   assert.equal(result.status, "observed");
   assert.equal(result.outcomeConfirmed, true);
-  assert.equal(result.nativeCleanupConfirmed, true);
+  assert.equal(result.operationCleanupConfirmed, true);
   assert.equal(runtimeEntries, entries);
   assert.equal(acquireCount, acquired);
   assert.equal(observeCount, observed);
@@ -2210,22 +2182,6 @@ test("Host Windows: 修復の未出版pendingをexact本文だけ確定する", 
       assert.throws(() => fs.lstatSync(marker), { code: "ENOENT" });
       assert.equal(acquireCount, acquired);
       assert.equal(runtimeEntries, entries);
-      if (stage === "identity") {
-        scope = "d".repeat(64);
-        const observed = observeCount,
-          writes = writeCalls;
-        const mismatch = await repairRuntimeOwnedDockerRuntime(
-          f.capability,
-          new AbortController().signal,
-          first.recoveryId,
-        );
-        assert.equal(mismatch.status, "blocked");
-        assert.equal(acquireCount, acquired + 1);
-        assert.equal(observeCount, observed);
-        assert.equal(writeCalls, writes);
-        assert.ok(fs.readFileSync(stateFile).equals(finalExpected));
-        scope = "c".repeat(64);
-      }
     });
   }
 });

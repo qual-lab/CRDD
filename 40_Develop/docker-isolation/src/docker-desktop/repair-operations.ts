@@ -1,5 +1,5 @@
 /**
- * 修復Machineを同じNative子と固定Docker操作へ接続する。
+ * 修復Machineを同じCLI操作と固定Docker操作へ接続する。
  * @packageDocumentation
  * @responsibility OS固有の前提・発行・結果と観測回収不明を下位へ閉じる。
  * @trace ARCH-000008
@@ -7,7 +7,7 @@
  */
 import type { RepairCheckpoint } from "./types.ts";
 import { decodeRepairCheckpoint } from "./validation.ts";
-import type { DockerDesktopRepairNativeHelperSession } from "../../../platform-access/src/index.ts";
+import type { DesktopOperations } from "./types.ts";
 import type { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 
 import type { executeRepairSteps } from "./repair.ts";
@@ -21,7 +21,7 @@ import type {
 } from "./backend.ts";
 
 /**
- * 同じScopeへ固定済みのDirectory技術境界。
+ * 同じ固定対象へ固定済みのDirectory技術境界。
  * @responsibility 任意PathをAdapterへ渡さない。
  * @trace ARCH-000008
  * @shape 既存factoryの非null返値。
@@ -32,10 +32,10 @@ import type {
  */
 type Access = Pick<
   NonNullable<ReturnType<typeof createDockerDesktopRepairDirectoryAccess>>,
-  "scopeSha256" | "verify" | "observe" | "lock" | "retain"
+  "verify" | "observe" | "lock" | "retain"
 >;
 /**
- * Machineの固定九用途契約。
+ * Machineの固定八処置契約。
  * @responsibility Adapterの入出力を既存契約に一致させる。
  * @trace ARCH-000008
  * @shape Machine第二引数。
@@ -94,12 +94,12 @@ function sameIdentity(left: Identity, right: Identity) {
 }
 
 /**
- * 同じ子と固定対象へ九処置の技術Adapterを閉じ込める。
+ * 同じ子と固定対象へ八処置の技術Adapterを閉じ込める。
  * @responsibility 実観測を前提・発行・結果へ接続し回収不明を保持する。
  * @trace ARCH-000008
  * @input session、directories: 同取得の境界。signal、canIssue: 現在許可。observations: 内部試験境界。
  * @returns 固定技術Adapterと純粋cleanup Reader。
- * @precondition 外側runtimeが同じNative子の取得・joinを所有する。
+ * @precondition 外側runtimeが同じCLI操作の取得・joinを所有する。
  * @postcondition 許可喪失後の新Effect0、発行事実は取消後も返す。
  * @effect 固定Engine、Backend、Native、Directory観測と限定処置。
  * @failure 不明前提はunknown、発行後不明は未発行へ戻さない。
@@ -109,7 +109,7 @@ function sameIdentity(left: Identity, right: Identity) {
  * @concurrency 読取りawaitは前後で境界を照合し、Effect await後は取得済み結果を返して後続Effectだけ停止する。
  */
 export function createDockerDesktopRepairOperations(
-  session: DockerDesktopRepairNativeHelperSession,
+  desktop: DesktopOperations,
   directories: Access,
   signal: AbortSignal,
   canIssue: () => boolean,
@@ -143,35 +143,40 @@ export function createDockerDesktopRepairOperations(
       return (
         cleanupFailure === null &&
         !signal.aborted &&
-        session.assertLive() &&
+        desktop.verify() &&
         canIssue() === true &&
         !signal.aborted &&
-        session.assertLive()
+        desktop.verify()
       );
     } catch {
       return false;
     }
   };
   /**
-   * 同Artifactと捕捉済みScopeをfresh確認する。
+   * 同Artifactと捕捉済み固定対象をfresh確認する。
    * @responsibility await中の失効を処置前に検出する。
    * @trace ARCH-000008
    * @input N/A: 同Sessionと同Directory Access。
    * @returns 全条件成立だけtrue。
    * @precondition 読取りのみ。
    * @postcondition Artifact不明を不要に変えない。
-   * @effect Native検証とScope読取り。
+   * @effect Native検証と固定対象読取り。
    * @failure 不明・失効はfalse。
    * @invariant 別Sessionを取得しない。
-   * @boundary 同Native子と固定対象。
+   * @boundary 同CLI操作と固定対象。
    * @security Artifactの署名資格を新設しない。
    * @concurrency await前後を確認。
    */
+  const desktopState = async () => {
+    const result = await desktop.command("status");
+    if (!result.cleanupConfirmed)
+      cleanupFailure = "observation_cleanup_unknown";
+    return live() && result.completed && result.cleanupConfirmed
+      ? result.status
+      : "unknown";
+  };
   const boundary = async () =>
-    live() &&
-    (await session.verifyArtifacts()) === "verified" &&
-    live() &&
-    directories.verify();
+    live() && desktop.verify() && live() && directories.verify();
   /**
    * Engine結果とその観測回収を同時に確認する。
    * @responsibility cleanup不明をreadyや未起動に隠さない。
@@ -249,15 +254,15 @@ export function createDockerDesktopRepairOperations(
    * @invariant transientをknownへ変換しない。
    * @boundary 初回失敗と追加停止の前提。
    * @security 別Pathへ探索しない。
-   * @concurrency Native await後に同Scopeを再確認する。
+   * @concurrency Native await後に同固定対象を再確認する。
    */
   const failedLaunch = async (checkpoint: RepairCheckpoint) => {
     if (!(await boundary())) return null;
     const state = engine();
     if (state !== "known_unavailable" && state !== "transient_unavailable")
       return null;
-    const processes = await session.inspectProcesses();
-    if (!live() || !directories.verify() || processes === "unknown")
+    const desktopStatus = await desktopState();
+    if (!live() || !directories.verify() || desktopStatus === "unknown")
       return null;
     const original = directories.observe("initial");
     const failed = directories.observe("failed");
@@ -322,12 +327,12 @@ export function createDockerDesktopRepairOperations(
       }
       if (!(await boundary())) throw new Error("repair_boundary_unavailable");
       const state = engine();
-      const processes = await session.inspectProcesses();
+      const desktopStatus = await desktopState();
       if (
         !live() ||
         !directories.verify() ||
-        processes === "unknown" ||
-        (state === "ready" && processes !== "verified")
+        desktopStatus === "unknown" ||
+        (state === "ready" && desktopStatus !== "running")
       )
         throw new Error("repair_observation_unknown");
       const pair = directories.observe("initial");
@@ -408,9 +413,7 @@ export function createDockerDesktopRepairOperations(
       );
       if (
         state === "ready" &&
-        ((await session.verifyArtifacts()) !== "verified" ||
-          !live() ||
-          engine() !== "ready")
+        (!desktop.verify() || !live() || engine() !== "ready")
       )
         throw new Error("repair_observation_unknown");
       for (const sample of samples) {
@@ -438,11 +441,9 @@ export function createDockerDesktopRepairOperations(
     },
     precondition: async (action, checkpoint) => {
       if (!(await boundary())) return "unknown";
-      // Repair06は公式停止命令を持たない。実失敗のfallbackではない。
-      if (action === "stop_runtime") return "not_required";
       const state = engine();
-      const processes = await session.inspectProcesses();
-      if (!live() || !directories.verify() || processes === "unknown")
+      const desktopStatus = await desktopState();
+      if (!live() || !directories.verify() || desktopStatus === "unknown")
         return "unknown";
       const original = directories.observe("initial");
       const originalSource = sourceMatches(
@@ -455,7 +456,7 @@ export function createDockerDesktopRepairOperations(
       );
       if (
         state === "ready" &&
-        processes === "verified" &&
+        desktopStatus === "running" &&
         (originalSource ||
           (originalRetained &&
             original?.source.state === "present" &&
@@ -465,16 +466,14 @@ export function createDockerDesktopRepairOperations(
             )))
       )
         return "not_required";
-      if (action === "terminate_runtime")
+      if (action === "stop_runtime")
         return state === "known_unavailable" && originalSource
-          ? processes === "absent"
-            ? "not_required"
-            : "proceed"
+          ? "proceed"
           : "unknown";
       if (action === "stop_backend") {
         if (
           state !== "known_unavailable" ||
-          processes !== "absent" ||
+          desktopStatus !== "stopped" ||
           !originalSource
         )
           return "unknown";
@@ -489,7 +488,7 @@ export function createDockerDesktopRepairOperations(
       }
       if (action === "retain_runtime")
         return state === "known_unavailable" &&
-          processes === "absent" &&
+          desktopStatus === "stopped" &&
           originalSource &&
           ["confirmed", "not_required"].includes(
             checkpoint.actions.stop_backend.result,
@@ -500,7 +499,7 @@ export function createDockerDesktopRepairOperations(
           : "unknown";
       if (action === "start_runtime")
         return state === "known_unavailable" &&
-          processes === "absent" &&
+          desktopStatus === "stopped" &&
           originalRetained &&
           original?.source.state === "confirmed_absent"
           ? "proceed"
@@ -530,11 +529,13 @@ export function createDockerDesktopRepairOperations(
             checkpoint.directories.auxiliary.expected,
           ) &&
           live()
-          ? processes === "absent"
-            ? "not_required"
-            : "proceed"
+          ? "proceed"
           : "unknown";
-      if (state !== "known_unavailable" || processes !== "absent")
+      if (
+        state !== "known_unavailable" ||
+        desktopStatus !== "stopped" ||
+        observations.backend() !== "stopped"
+      )
         return "unknown";
       if (action === "retain_failed_runtime")
         return failedSource &&
@@ -584,41 +585,35 @@ export function createDockerDesktopRepairOperations(
         !directories.verify()
       )
         return unissued;
-      if (action === "terminate_runtime" || action === "stop_failed_runtime") {
-        const result = await session.terminateProcesses();
+      if (action === "stop_runtime" || action === "stop_failed_runtime") {
+        const result = await desktop.command("stop");
+        if (!result.cleanupConfirmed)
+          cleanupFailure = "observation_cleanup_unknown";
+        const stopped =
+          result.completed && live() && (await desktopState()) === "stopped";
         return {
-          issued:
-            result === "terminated" || result === "partial_or_unknown"
-              ? true
-              : result === "absent" || result === "not_issued_unknown"
-                ? false
-                : null,
-          confirmation:
-            result === "terminated"
-              ? "confirmed"
-              : result === "absent"
-                ? "not_issued"
-                : "unknown",
+          issued: result.issued,
+          confirmation: stopped
+            ? "confirmed"
+            : result.issued === false
+              ? "not_issued"
+              : "unknown",
           observation: checkpoint,
         };
       }
       if (action === "stop_backend")
         return { ...observations.terminateBackend(), observation: checkpoint };
       if (action === "start_runtime" || action === "restart_runtime") {
-        const result = await session.launchDesktop();
+        const result = await desktop.command("start");
+        if (!result.cleanupConfirmed)
+          cleanupFailure = "observation_cleanup_unknown";
         return {
-          issued:
-            result === "started" || result === "partial_or_unknown"
-              ? true
-              : result === "not_started"
-                ? false
-                : null,
-          confirmation:
-            result === "started"
-              ? "confirmed"
-              : result === "not_started"
-                ? "not_issued"
-                : "unknown",
+          issued: result.issued,
+          confirmation: result.completed
+            ? "confirmed"
+            : result.issued === false
+              ? "not_issued"
+              : "unknown",
           observation: checkpoint,
         };
       }

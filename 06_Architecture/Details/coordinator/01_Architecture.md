@@ -1,5 +1,52 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Desktop修復の技術境界更新 — 2026-11-10
+
+実施判断・現在Owner・Intent／結果保存はCoordinatorに維持し、Desktop停止・起動はExecutor経由でDIの公式CLI／既存Node.js処理へ委譲する。技術終了の返却fieldは`operationCleanupConfirmed`とし、Native終了という旧意味を持ち込まない。修復Identity v2と8処置の保存へ追従し、旧所有Hash・Scope Hashを復元しない。具体的な停止・Directory・排他条件と基点変更の運用条件は[DI設計](../docker-isolation/01_Architecture.md#desktop-helperの退役と公式cliへの接続--2026-11-10)を参照する。
+
+## Runtime StateのNode.js初期化と実体照合 — 2026-11-10
+
+判断記録の保存先はCoordinatorの`decision/store.ts`が所有する。Windowsでは起動元の`LOCALAPPDATA`設定から既存の固定末尾`Qual-Lab/CRDD/RuntimeState`を組み立てる。設定はOS Known Folderによる独立証明ではなく、ローカル単一ユーザーの信頼された起動設定として扱う。要求主体は上位から渡される別の値であり、保存先やOSユーザーから導出しない。
+
+| 処理 | 現行の保証と範囲 |
+|---|---|
+| 所在確認 | 絶対正規形を要求し、Drive Rootから各段をDirectory・非リンク・realpathで確認する。祖先のJunction・別名Pathも拒否する |
+| 初期化 | baseは既存を必須とし、固定末尾三段だけを一段ずつ作る。EEXISTは同じ実体検査を通す。途中失敗では既作成段を保全し、既存物の自動修復・削除はしない |
+| 実体の再照合 | dev・ino・作成時刻による各段のIdentityを保持し、既存wx Lock取得後にも照合する。不一致・観測不能は保存しない |
+| 記録・排他 | 既存の世代・Hash連続性・CASと固定共有wx Lockを維持する。Lock残存は自動奪取しない。Root生成確認のための別途の書込み・読戻しは追加しない |
+| 保証対象外 | SID・protected DACL・Token・固定Volumeの独立検証、非協調Processによる確認後のPath差替えを原子的に防ぐこと。Node.js化を同等のNative保護と表現しない |
+
+Runtime専用のNative観測呼出し、Root CapabilityのWeakMapと保護Hashの再包装、未使用の開発Context引数を撤去する。祖先Handle保持をNode.jsで再現する新しい管理層は設けない。Provider HomeのNative観測・Handle・保護は別対象として維持する。旧Runtime観測のNative内部Protocol・固定配布物の退役はPAの残存整理として未完了であり、本変更だけでPA全廃とはしない。保存Schema・既存記録・過去保持物の移行は行わず、Linux／macOS対応も主張しない。
+
+## 要求主体とOS実行主体の分離 — 2026-11-10
+
+| 概念 | 所有者と扱い |
+|---|---|
+| 要求主体（Principal Identity） | AM接続では認証済みユーザーID、信頼されたローカル入口では対象RepositoryのGitメールに由来するID。入口が確定し、Coordinatorは既存Contextで受け取りDM・判断記録へ伝播する |
+| OS実行主体（Execution Identity） | 実際にFilesystem・Docker等を操作するOSアカウント・権限。技術Ownerが必要な範囲で確認し、要求主体へ読み替えない |
+
+Decision Storeは保存操作と利用可否だけを返し、主体の探索・補完・置換を行わない。同じOS実行主体で複数のAMユーザーの要求を処理し得るため、両Identityの一致を要求しない。Runtime Directoryの実体照合・wx排他・保存世代の確認は別の技術境界として維持する。
+
+### ローカル入口と明示搬送
+
+ローカル要求主体は`local.email.<Git user.emailの値>`とする。入口はVCの`readGitUser()`で有効なGit設定を取得し、DMの純粋な`createLocalPrincipalId()`で組み立てる。メールの大小文字をそのまま保持し、OSユーザー・Home・ログオンHash・Commit履歴・Author環境値から補完しない。メール未設定・不正・取得不能なら停止する。名前は表示情報でありIDの材料にしない。
+
+フロントAIはVCのbinで取得したメールを確認し、明示的にCoordinatorへ渡す。
+
+```text
+node 40_Develop/version-control/bin/version-control.ts read-git-user --json
+node template/tools/crdd-coordinator.ts project run --request-stdin --json --principal-id local.email.alice@example.invalid
+node template/tools/crdd-coordinator.ts task run --request-stdin --json --principal-id local.email.alice@example.invalid
+```
+
+メールは例であり、実際には取得した値を使う。CoordinatorのCLIはローカル形式のIDだけを受け付け、Git設定やOS情報を自動取得しない。引数は秘密のCredentialではないがメールを含む。Workbench／MCPの単体構成は各入口がVCを直接利用する。AM構成は従来の認証・認可済みユーザーIDを渡し、Gitメールへfallbackしない。旧`observeClientPrincipal()`と固定`local-*-user`による補完は撤去する。
+
+### 信頼・保存と移行
+
+GitメールとID文字列は本人認証の証明ではない。v0.22の直接CLI・単体入口は信頼されたローカル実行を前提とし、その前提を共有サーバーやRemote APIへ適用しない。Remoteの入口は既存AM認証・認可結果を使い、外部要求の自由入力IDを信頼済みContextへ昇格しない。
+
+`isPrincipalId()`は既存opaque IDとメール主体の値検査だけを所有する。予約prefixは先に検査し、不正なメール形式を既存IDとして受理しない。他のTask／Operation等のID検査は変えない。メール由来IDは既存`principalId`へ可読な値で記録し、許可された利用側にだけ公開する。同じメールは同じローカル主体、メール変更は別主体となる。旧OS由来ID・入口ラベルとの一致は推測せず、既存記録を自動移行・再帰属しない。新Store・共通Context型・自動ID発行・AMのCLI必須依存は追加しない。この主体分離作業の時点ではRuntime StateのNode.js化・Native保護撤去は対象外だった。後続のNode.js接続は本書冒頭を正本とする。実AI／Docker E2E・全体回帰は引き続き保留する。
+
 ## 回復Matrixの失敗時終了確認 — 2026-11-10
 
 親喪失子と清掃不明子は、spawn直後からcloseを監視する。ready取得前のtimeout・不正応答・早期終了も、未要求なら元子だけへ停止を一回要求し、既存10秒枠でcloseを確認して返す。kill受理やexitCodeをcloseへ換算しない。停止拒否・例外・close不明でも一次理由と取得済exact Recovery IDを保持し、Recoveryを自動発行しない。子発行後の失敗は、資源有無を証明できないためID未取得でも手動確認要とする。ready待機・close待機のtimerと購読は解除する。
@@ -395,7 +442,7 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 
 再開可能なEngine観測不明や準備中断は、今回の診断・技術観測と、既存の循環する運用履歴へ保持し、操作全体の不可逆な一次失敗へ自動昇格しない。`primaryFailure`は再発行不能なEffect不明等の最初の終端失敗に限定する。再入場可能な中間返却では`repairing`／outcome=nullを維持し、failed-launchの期待された追加四処置を失敗終端にしない。失敗／取消履歴の候補接続は局所・修正版実Hostと独立再レビューで限定確認済みである。後日の回復観測、保持物処置と失敗操作の終了整理は未完了であり、履歴確認や返却表示だけでこれらを完成としない。
 
-未リリースの`runtime_repair` IdentityはNativeのprincipal identity hashを`ownerBindingSha256`として保持する。既存Taskおよび移管前の修復記録の`localUserBindingHash`はtoken／認証Sessionを含む別計算であり変更しない。新修復Identityは旧keyを受理せず、同じ正規JSONからIdentity Hashと回復IDを算出する。相関値だけをWriter資格として扱わず、同じ呼出しの現在Ownerと既存Writerの元版・読戻し・排他確認へ結合する。
+未リリースの`runtime_repair` Identity v2はnonce、Operation ID、Repository binding、consumerを保持し、Native principal由来の`ownerBindingSha256`と修復Scope Hashを持たない。同じ正規JSONから内容完全性Hashと回復IDを算出する。既存Taskの`localUserBindingHash`は別契約であり、この変更では変更しない。旧修復Identityを自動読替えせず、相関値だけをWriter資格として扱わない。同じ呼出しの現在Ownerと既存Writerの元版・読戻し・排他確認へ結合する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -537,7 +584,7 @@ Coordinator ─×→ Orchestrator / Workbench Server / MCP Server
 
 | command | 利用目的 | 主なEffect |
 |---|---|---|
-| `task run --request-stdin --json` | 一般Taskの委譲・独立確認・限定是正 | Provider送信、隔離候補作成 |
+| `task run --request-stdin --json --principal-id <local-principal-id>` | 一般Taskの委譲・独立確認・限定是正 | Provider送信、隔離候補作成 |
 | `doctor` | 診断、Docker Task回復、Docker Desktop最終復旧 | 既定は観測。明示復旧だけ限定Effect |
 | `capabilities --json` | 現行Profileと公開Capabilityの機械確認 | Effectなし |
 

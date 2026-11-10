@@ -8,7 +8,6 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../request/snapshot.ts";
-
 import {
   callKeys,
   discoverKeys,
@@ -21,6 +20,22 @@ import {
   protocolError,
   type McpResponse,
 } from "../request/validation.ts";
+import {
+  isPrincipalId,
+  inspectCoordinatorDecisionRequest,
+  inspectCoordinatorObjectiveRequest,
+  inspectCoordinatorWorkspaceResults,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  type CoordinatorProjection,
+} from "../../../domain-model/src/index.ts";
 
 export const MCP_COORDINATOR_ADAPTER_CONTRACT =
   "crdd-mcp/coordinator-adapter/v4" as const;
@@ -828,7 +843,7 @@ export async function handleMcpCoordinatorRequest(
   );
   if (
     authenticationSnapshot?.status !== "verified" ||
-    !stable(authenticationSnapshot.principalId)
+    !isPrincipalId(authenticationSnapshot.principalId)
   )
     return protocolComplete(request.id, {
       content: Object.freeze([
@@ -1208,19 +1223,3 @@ export function getMcpCoordinatorToolDefinitions() {
     ),
   ]);
 }
-
-import {
-  inspectCoordinatorDecisionRequest,
-  inspectCoordinatorObjectiveRequest,
-  inspectCoordinatorWorkspaceResults,
-  inspectCoordinatorStateQuery,
-  inspectCoordinatorStateQueryResult,
-  isCoordinatorObjectiveProjectionCorrelationValid,
-  isCoordinatorProjectionSemanticallyValid,
-  COORDINATOR_HUMAN_DECISION_CONTRACT,
-  COORDINATOR_MAXIMUM_OBJECTIVES,
-  COORDINATOR_MAXIMUM_TASKS,
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-  type CoordinatorProjection,
-} from "../../../domain-model/src/index.ts";

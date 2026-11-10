@@ -13,9 +13,30 @@ import type { RepairInput, RepairResult } from "./repair-session.ts";
 import type { RestartInput, RestartResult } from "./restart.ts";
 import type { actions, directories } from "./validation.ts";
 
+/** CLIの要求発行、正常完了、元子closeを分けた内部観測。Process不存在ではない。 */
+export type DesktopCommandResult = Readonly<{
+  issued: boolean | null;
+  completed: boolean;
+  cleanupConfirmed: boolean;
+  status: "running" | "stopped" | "unknown";
+}>;
+
+/** 固定Desktop操作と同じwx取得の解放。Native Session互換・永続Stateは持たない。 */
+export interface DesktopOperations {
+  verify(): boolean;
+  command(action: "status" | "stop" | "start"): Promise<DesktopCommandResult>;
+  close(): Promise<boolean>;
+}
+
+/** wx取得の途中失敗による残存を、操作未取得と別に保持する。 */
+export type DesktopAcquisition = Readonly<{
+  operations: DesktopOperations | null;
+  cleanupConfirmed: boolean;
+}>;
+
 /**
  * 修復Machineが所有し保存Ownerへ渡す技術状態。
- * @responsibility 固定九処置と三用途の世代実体、現在結果と回収失敗を保持する。
+ * @responsibility 固定8処置と三用途の世代実体、現在結果と回収失敗を保持する。
  * @trace ARCH-000008
  * @shape actions、directories、engine、stale、hostSafety、cleanup、cleanupFailure。
  * @invariant 人間の保持判断・Task/Home/Provider・任意Pathは含めない。
@@ -40,8 +61,7 @@ export type RepairCheckpoint = Readonly<{
   hostSafety: "safe" | "manual_recovery_required" | "unknown";
   cleanup: "not_requested" | "pending" | "confirmed" | "unknown";
   cleanupFailure:
-    | "helper_cleanup_unknown"
-    | "helper_protocol_failed"
+    | "operation_cleanup_unknown"
     | "observation_cleanup_unknown"
     | null;
 }>;
@@ -54,7 +74,7 @@ export type RepairCheckpoint = Readonly<{
  * @invariant 過去の要求不明を現在の不存在確認で消さない。
  * @boundary DIの純粋技術値と上位の専用保存Owner。
  * @security 実体、Scope、Path、Authority、保持判断を複製しない。
- * @compatibility 元の九処置checkpointとは別の最新値契約。
+ * @compatibility 元の8処置checkpointとは別の最新値契約。
  */
 export type RepairDisposalCheckpoint = Readonly<{
   directories: Readonly<

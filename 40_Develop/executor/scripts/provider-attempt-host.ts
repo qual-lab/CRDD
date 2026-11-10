@@ -88,7 +88,7 @@ export function createStandaloneProviderAttemptHost(
     closed = false,
     terminalAttempted = false,
     homeChecked = false;
-  let nativeCleanupConfirmed = true,
+  let operationCleanupConfirmed = true,
     homeFailure: string | null = null;
   let resources: CoordinatorResourceBook | null = null;
   let lastPayloadSha256 = requestHash;
@@ -150,12 +150,12 @@ export function createStandaloneProviderAttemptHost(
       // Executorが同じHomeの排他を取得した後、最初の資源Effectより前に再観測する。
       if (!homeChecked) {
         homeChecked = true;
-        nativeCleanupConfirmed = false;
+        operationCleanupConfirmed = false;
         const observed = observeWindowsProviderHome(
           provider,
           request.target.providerHomeSourcePath,
         );
-        nativeCleanupConfirmed =
+        operationCleanupConfirmed =
           (!observed.processEffectIssued || observed.helperExitConfirmed) &&
           observed.filesystemEffectIssued === false;
         if (
@@ -266,8 +266,8 @@ export function createStandaloneProviderAttemptHost(
     runtime,
     management,
     recoveryId,
-    get nativeCleanupConfirmed() {
-      return nativeCleanupConfirmed;
+    get operationCleanupConfirmed() {
+      return operationCleanupConfirmed;
     },
     get releaseConfirmed() {
       return released;

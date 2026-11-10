@@ -17,7 +17,7 @@ import test from "node:test";
 import { pathToFileURL } from "node:url";
 import {
   createDockerCliEnvironment,
-  createDockerDesktopRepairHelperEnvironment,
+  createDesktopCommandEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
 } from "../../../docker-isolation/src/docker-cli/environment.ts";
 import {
@@ -164,19 +164,17 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   assert.equal(observedDocker.systemRoot, observedDocker.windir);
   assert.equal(typeof observedDocker.systemRoot, "string");
 
-  assert.deepEqual(
-    createDockerDesktopRepairHelperEnvironment(getIsolationSettings()),
-    {
-      ...createChildProcessEnvironment({
-        platform: "win32",
-        userProfile: true,
-      }),
-      SYSTEMDRIVE: deriveWindowsSystemDrive(
-        createChildProcessEnvironment({ platform: "win32", userProfile: true })
-          ?.SystemRoot,
-      ),
-    },
-  );
+  assert.deepEqual(createDesktopCommandEnvironment(getIsolationSettings()), {
+    ...createChildProcessEnvironment({
+      platform: "win32",
+      userProfile: true,
+    }),
+    SYSTEMDRIVE: deriveWindowsSystemDrive(
+      createChildProcessEnvironment({ platform: "win32", userProfile: true })
+        ?.SystemRoot,
+    ),
+    DOCKER_CLI_HINTS: "false",
+  });
 });
 
 /**
@@ -366,9 +364,7 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
   const before = process.env.SYSTEMDRIVE;
   try {
     process.env.SYSTEMDRIVE = "Z:";
-    const environment = createDockerDesktopRepairHelperEnvironment(
-      getIsolationSettings(),
-    );
+    const environment = createDesktopCommandEnvironment(getIsolationSettings());
     assert.ok(environment);
     assert.equal(
       environment.SYSTEMDRIVE,
@@ -391,7 +387,7 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
       process.execPath,
       [
         "-e",
-        "process.stdout.write(JSON.stringify({drive:process.env.SYSTEMDRIVE,neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR','USERPROFILE','SYSTEMDRIVE'].includes(k.toUpperCase())).every(([,v])=>v==='')}))",
+        "process.stdout.write(JSON.stringify({drive:process.env.SYSTEMDRIVE,hints:process.env.DOCKER_CLI_HINTS,neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR','USERPROFILE','SYSTEMDRIVE','DOCKER_CLI_HINTS'].includes(k.toUpperCase())).every(([,v])=>v==='')}))",
       ],
       {
         env: environment,
@@ -404,6 +400,7 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
     assert.equal(result.status, 0);
     assert.deepEqual(JSON.parse(result.stdout), {
       drive: environment.SYSTEMDRIVE,
+      hints: "false",
       neutral: true,
     });
   } finally {
@@ -577,7 +574,7 @@ test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, "");
   assert.deepEqual(JSON.parse(result.stdout), {
-    outcomes: 3,
+    outcomes: 1,
     spawnCalls: 0,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
@@ -699,8 +696,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
       "40_Develop/docker-isolation/src/process/start.ts",
       "40_Develop/docker-isolation/src/docker-desktop/backend.ts",
       "40_Develop/docker-isolation/src/docker-desktop/engine.ts",
-      "40_Develop/platform-access/src/docker-desktop/protocol.ts",
-      "40_Develop/platform-access/src/docker-desktop/native-process.ts",
       "40_Develop/docker-isolation/src/docker-desktop/restart-state.ts",
     ].sort(),
   );

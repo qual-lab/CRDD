@@ -6,8 +6,5 @@
 //! @boundary Native WorkerとWindows APIの間。
 
 #[cfg(windows)]
-#[path = "windows/owned_child.rs"]
-pub(crate) mod owned_child;
-#[cfg(windows)]
 #[path = "windows/principal.rs"]
 pub(crate) mod principal;

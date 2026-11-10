@@ -12,6 +12,12 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Docker Desktop Helperを退役し、Executor経由のDIで公式CLI・既存Node.js処理・共通wxを使う構成へ統合した。Native由来の修復所有Hash・重複Scope Hashは撤去し、基点を変えない運用条件と既存Directory実体検査を維持する。限定回帰・実Writer結合・独立再レビューは完了した。全体回帰、実Docker停止／起動／退避、残存Provider Home等のNative整理は未完了。[現在の結果と保証変更](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#desktop-helperの公式cli統合--2026-11-10)を参照する。
+
+Runtime Stateの本番初期化・実体照合をCoordinatorの既存Node Storeへ統合し、Runtime専用のNative呼出し・公開入口・Capability再包装を撤去した。各段の非リンク・所在・実体確認、既存wx排他・保存世代・CASは維持するが、SID／DACL等の独立保証とは同等としない。限定回帰155件・型検査3構成と独立再レビューが成功した。Provider Home、Native内部Protocol・配布物の退役、全体回帰は残る。実AI・Docker・過去保持物は操作していない。[現在の変更と残存範囲](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#runtime-stateのnodejs接続と祖先handle保持の削減--2026-11-10)を参照する。
+
+ローカル要求主体はGitメール由来とする方針を採用し、VCの読取りAPI・bin、Coordinatorへの明示--principal-id搬送、Workbench／MCP単体入口を接続した。Coordinatorは主体を自動取得せず、上位主体の欠測・不正を保存先初期化前に拒否する。AMユーザーとOS実行主体を区別し、メールを本人認証とは扱わない。限定回帰78件・型検査7構成と独立再レビューが成功した。既存記録移行・全体回帰は未実施。[現在の変更と境界](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#gitメールによる要求主体と明示cli搬送--2026-11-10)を参照する。
+
 Local AppData専用TS API・Native CLI／frameを退役し、固定配布物とBootstrap Hashを同期した。共用のNative保護／Helper内部取得は維持する。回復Matrixの両子はready前失敗も停止後closeを待ち、元理由・IDと停止／終了観測を分ける。局所18件・型／静的検査と独立レビューが成功。全体回帰は保留、実Matrix・実AI／Docker・Native保護／修復実境界は未実施、過去保持物は不変更。[限定完了と未実施範囲](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#local-appdata専用入口退役とmatrix失敗時の終了確認--2026-11-10)を参照する。
 
 DIの共通設定と任意Desktop管理設定を分離した。上位が起動時に確定した`desktop.userDataDirectory`を修復・Directory観測／回収へ搬送し、PAの所在再取得を撤去した。Desktop未指定は通常初期化を妨げず、Desktop管理操作だけ発行前に拒否する。DI関連68件・Executor9件・Coordinator関連29件と型／静的検査、独立レビューが成功。全体回帰は保留、他OS／Engine単独は未対応、PA Nativeと過去保持物は不変更。[現在の変更と保証境界](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#任意desktop管理設定の分離--2026-11-10)を参照する。

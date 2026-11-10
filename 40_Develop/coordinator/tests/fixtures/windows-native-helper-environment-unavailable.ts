@@ -50,12 +50,6 @@ await mock.module(
         processEffectIssued: false,
         helperExitConfirmed: false,
       }),
-      observeWindowsRuntimeState: () => ({
-        status: "blocked",
-        reason: "environment_unavailable",
-        processEffectIssued: false,
-        helperExitConfirmed: false,
-      }),
     },
   },
 );
@@ -76,15 +70,9 @@ const authoritySource = readFileSync(
   "utf8",
 );
 const authorityDeclarations = [
-  "rootCapabilities",
-  "protectedRootBlocked",
   "runtimeStateDirectoryCandidate",
   "providerHomesDirectoryCandidate",
   "PROVIDER_HOME_ROOT_SEGMENTS",
-  "inspectRuntimeOwnedWindowsProtectedRoot",
-  "inspectRuntimeOwnedWindowsRuntimeState",
-  "consumeRuntimeOwnedRuntimeStateRootCapability",
-  "describeRuntimeStateWindowsAdapterContract",
   "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT",
   "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION",
   "HELPER_TIMEOUT_MS",
@@ -115,20 +103,15 @@ const authorityImports = [
   'import path from "node:path";',
   'import { performance } from "node:perf_hooks";',
   `import { snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
-  `import { observeWindowsProviderHome, observeWindowsRuntimeState, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${new URL("../../../platform-access/src/index.ts", import.meta.url).href}";`,
+  `import { observeWindowsProviderHome, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${new URL("../../../platform-access/src/index.ts", import.meta.url).href}";`,
   `import { borrowRuntimeOwnedDevelopmentNativeObservation } from "${new URL("../../src/execution/diagnostics.ts", import.meta.url).href}";`,
 ].join("\n");
 const providerAdapter = await import(
-  `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, inspectRuntimeOwnedWindowsRuntimeState };`).toString("base64")}`
+  `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate };`).toString("base64")}`
 );
-const candidateAdapter = providerAdapter;
 const providerOutcome =
   providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
-const candidateOutcomes = [
-  candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(false),
-  candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(true),
-];
-const outcomes = [providerOutcome, ...candidateOutcomes];
+const outcomes = [providerOutcome];
 
 for (const outcome of outcomes) {
   assert.equal(outcome.status, "blocked");
@@ -148,10 +131,6 @@ assert.equal(providerOutcome.runtimeOwnedObservationCapabilityIssued, false);
 assert.equal(providerOutcome.mountGrantIssued, false);
 assert.equal(providerOutcome.operationCapabilityIssued, false);
 assert.equal(providerOutcome.manualRecoveryRequired, false);
-for (const outcome of candidateOutcomes) {
-  assert.equal(outcome.rootCapability, null);
-  assert.equal(outcome.manualRecoveryRequired, false);
-}
 assert.equal(spawnCalls, 0);
 assert.equal(storageOwnerCalls, 0);
 
@@ -159,8 +138,7 @@ const isCapabilityIssued =
   providerOutcome.observationCapability !== null ||
   providerOutcome.runtimeOwnedObservationCapabilityIssued ||
   providerOutcome.mountGrantIssued ||
-  providerOutcome.operationCapabilityIssued ||
-  candidateOutcomes.some((outcome) => outcome.rootCapability !== null);
+  providerOutcome.operationCapabilityIssued;
 const isManualRecoveryRequired = outcomes.some(
   (outcome) => outcome.manualRecoveryRequired,
 );

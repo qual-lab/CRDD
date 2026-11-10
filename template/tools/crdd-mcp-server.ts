@@ -29,9 +29,13 @@ import {
 } from "../../40_Develop/domain-model/src/index.ts";
 import {
   getRepository,
+  readGitUser,
   resolveVerifiedRepositoryRoot,
 } from "../../40_Develop/version-control/src/index.ts";
-import { createMeetingOperations } from "../../40_Develop/domain-model/src/index.ts";
+import {
+  createMeetingOperations,
+  createLocalPrincipalId,
+} from "../../40_Develop/domain-model/src/index.ts";
 import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
 import {
@@ -92,16 +96,32 @@ function printHelp(): void {
  * @concurrency 各要求のSignalと認証Contextを要求単位で保持する。
  */
 async function coordinatorDependencies(): Promise<McpCoordinatorDependencies> {
-  const { observeClientPrincipal, runObjective, submitDecision, queryState } =
-    await import("../../40_Develop/coordinator/src/index.ts");
+  const { runObjective, submitDecision, queryState } = await import(
+    "../../40_Develop/coordinator/src/index.ts"
+  );
   if (
-    ![observeClientPrincipal, runObjective, submitDecision, queryState].every(
+    ![runObjective, submitDecision, queryState].every(
       (value) => typeof value === "function",
     )
   )
     throw new Error("mcp_automation_unavailable");
   return {
-    authenticateClient: observeClientPrincipal,
+    authenticateClient: () => {
+      const repository = getRepository(
+        resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+      );
+      const user =
+        repository.status === "completed"
+          ? readGitUser(repository.capability)
+          : null;
+      const principalId =
+        user?.status === "completed"
+          ? createLocalPrincipalId(user.email)
+          : null;
+      return principalId
+        ? { status: "verified", principalId }
+        : { status: "unknown" };
+    },
     runObjective: (request, signal, authentication) =>
       runObjective(request, signal, process.cwd(), authentication),
     submitDecision: async (request, authentication) =>
@@ -213,9 +233,15 @@ async function createRequestRoutingDependencies(
       if (!access) return null;
       const verified = getRepository(access.ownerRoot);
       if (verified.status !== "completed") return null;
+      const gitUser = readGitUser(verified.capability);
+      const principalId =
+        gitUser.status === "completed"
+          ? createLocalPrincipalId(gitUser.email)
+          : null;
+      if (!principalId) return null;
       return {
         root: verified.capability,
-        principalId: "local-mcp-user",
+        principalId,
         revalidate: (operation, target) =>
           !signal.aborted &&
           ["definition.read", "definition.write"].includes(operation) &&

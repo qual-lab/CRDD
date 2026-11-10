@@ -20,6 +20,8 @@ import { readExecutionCancellation } from "../../src/execution/authority.ts";
 import * as coordinator from "../../src/index.ts";
 import {
   readRepositoryAiSelection,
+  isPrincipalId,
+  createLocalPrincipalId,
   saveRepositoryAiSelection,
 } from "../../../domain-model/src/index.ts";
 
@@ -135,7 +137,7 @@ test("認証とProjectは解除throwと非releasedでも一次結果と回復参
    const options=await import(${JSON.stringify(options)});mock.module(${JSON.stringify(options)},{exports:{...options,readBoundedTaskRequestFromStdin:()=>({})}});
    mock.module(${JSON.stringify(cancellation)},{exports:{bindTaskCliCancellationSignals:()=>({status:"bound",unbind:()=>{if(${JSON.stringify(failure)}==="throw")throw Error("PRIVATE_DETAIL");return {status:"unknown"};}})}});
    const cli=await import(${JSON.stringify(entry)});
-   if(${JSON.stringify(target)}==="auth")await cli.runAuthenticationCommand(["status","codex","--json"]);else await cli.runProjectCommand(["run","--request-stdin","--json"]);
+   if(${JSON.stringify(target)}==="auth")await cli.runAuthenticationCommand(["status","codex","--json"]);else await cli.runProjectCommand(["run","--request-stdin","--json","--principal-id","local.email.fixture@example.invalid"]);
    if(calls!==1)throw Error("incorrect_call_count");`;
       const child = spawnSync(
         process.execPath,
@@ -193,7 +195,7 @@ test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持す�
       reason: "project_arguments_invalid",
     },
     {
-      call: 'await runProjectCommand(["run", "--request-stdin", "--json"]);',
+      call: 'await runProjectCommand(["run", "--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);',
       input: "{",
       reason: "task_request_invalid_json",
     },
@@ -395,17 +397,75 @@ test("単発操作は受付後の待機・終了例外でも元依頼IDを保持
 });
 
 /**
- * 業務操作と単発実行が単一Coordinator Rootから明示公開されることを確認する。
- *
- * @responsibility 公開値の完全集合とPackageの業務入口を照合する。
+ * CLIが明示した要求主体を搬送し、保存先・Git・OSから補完しないことを照合する。
  * @trace PRL-IT-012
- * @precondition 統合後の単一公開Moduleを読込み済みである。
- * @stimulus 公開値とPackage exportsを列挙する。
- * @observation Export名、関数型と業務入口の解決先を取得する。
- * @oracle 宣言済み37実行値とexact一致し、設定保存はDomainだけが公開する。
- * @cleanup N/A: Sourceを読み取るだけで実行、書込みや資源取得を発行しない。
- * @boundary PRL-IT-012=Direct Boundary: 公開ModuleとPackage設定。
+ * @precondition 統合後の公開Moduleを読み込む。
+ * @stimulus 明示メール主体、欠測、AM形式や不正な主体を渡す。
+ * @observation stdin読取りとCore呼出し回数、搬送した主体を取得する。
+ * @oracle 正しいローカル要求だけを渡し、要求本文のIDを採用しない。
+ * @cleanup 外部資源を作成しない。
+ * @boundary 公開ModuleとPackage設定。
  */
+test("CLIは明示したローカル要求主体だけを渡し、欠測時に自動取得しない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/cli/request.ts", import.meta.url),
+    "utf8",
+  );
+  const body = sourceDeclaration(source, "runProjectCommand");
+  for (const principal of [
+    "local.email.Alice+dev@Example.invalid",
+    "administrator",
+    "e909d4c0-3fbb-42c5-8877-e35f9f73f617",
+    undefined,
+  ]) {
+    let reads = 0,
+      calls = 0;
+    const request = { principalId: "untrusted-body-user" };
+    const execute = runInNewContext(`${body};runProjectCommand`, {
+      AbortController,
+      isPrincipalId,
+      process: {
+        stdout: { write: () => {} },
+        cwd: () => "fixture-root",
+        exitCode: 0,
+      },
+      readBoundedTaskRequestFromStdin: () => {
+        reads++;
+        return request;
+      },
+      bindTaskCliCancellationSignals: () => ({
+        status: "bound",
+        unbind: () => ({ status: "released" }),
+      }),
+      runObjective: async (
+        raw: unknown,
+        _signal: AbortSignal,
+        root: string,
+        context: { principalId: string },
+      ) => {
+        calls++;
+        assert.equal(raw, request);
+        assert.equal(root, "fixture-root");
+        assert.equal(context.principalId, principal);
+        return { status: "blocked", reason: "fixture" };
+      },
+    });
+    const args = [
+      "run",
+      "--request-stdin",
+      "--json",
+      ...(principal ? ["--principal-id", principal] : []),
+    ];
+    await execute(args);
+    assert.equal(calls, principal?.startsWith("local.email.") ? 1 : 0);
+    assert.equal(reads, calls);
+  }
+  assert.doesNotMatch(
+    body,
+    /observeClientPrincipal|readGitUser|userInfo|local-cli-user/u,
+  );
+});
+
 test("統合Rootは業務操作と単発実行の明示公開集合を保持する", () => {
   assert.deepEqual(Object.keys(coordinator).sort(), [
     "COORDINATOR_HUMAN_DECISION_CONTRACT",
@@ -431,7 +491,6 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     "isCoordinatorObjectiveProjectionCorrelationValid",
     "isCoordinatorProjectionSemanticallyValid",
     "isSupportedNodeRuntime",
-    "observeClientPrincipal",
     "openTaskSession",
     "parseRuntimeActivityObservation",
     "queryActivity",
@@ -454,7 +513,6 @@ test("統合Rootは業務操作と単発実行の明示公開集合を保持す�
     coordinator.submitDecision,
     coordinator.acceptResult,
     coordinator.queryState,
-    coordinator.observeClientPrincipal,
   ])
     assert.equal(typeof value, "function");
   for (const entry of [
@@ -537,22 +595,50 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   );
   const cases = [
     {
-      args: ["project", "run", "--request-stdin", "--json"],
+      args: [
+        "project",
+        "run",
+        "--request-stdin",
+        "--json",
+        "--principal-id",
+        "local.email.fixture@example.invalid",
+      ],
       input: "{",
       reason: "task_request_invalid_json",
     },
     {
-      args: ["project", "run", "--request-stdin", "--json"],
+      args: [
+        "project",
+        "run",
+        "--request-stdin",
+        "--json",
+        "--principal-id",
+        "local.email.fixture@example.invalid",
+      ],
       input: "{",
       reason: "task_request_invalid_json",
     },
     {
-      args: ["project", "run", "--request-stdin", "--json"],
+      args: [
+        "project",
+        "run",
+        "--request-stdin",
+        "--json",
+        "--principal-id",
+        "local.email.fixture@example.invalid",
+      ],
       input: Buffer.from([255]),
       reason: "task_request_invalid_utf8",
     },
     {
-      args: ["project", "run", "--request-stdin", "--json"],
+      args: [
+        "project",
+        "run",
+        "--request-stdin",
+        "--json",
+        "--principal-id",
+        "local.email.fixture@example.invalid",
+      ],
       input: "x".repeat(128 * 1024 + 1),
       reason: "task_request_too_large",
     },
@@ -574,8 +660,22 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   );
   assert.doesNotMatch(commandSource, /orchestrator\/src/);
   for (const args of [
-    ["task", "run", "--request-stdin", "--json"],
-    ["task", "run", "--request-stdin", "--json"],
+    [
+      "task",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    [
+      "task",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
   ]) {
     for (const input of [
       { objective: "legacy Bundle request" },
@@ -604,8 +704,22 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   }
   // Node拒否は表示形式にかかわらず操作前に停止する。
   for (const args of [
-    ["project", "run", "--request-stdin", "--json"],
-    ["task", "run", "--request-stdin", "--json"],
+    [
+      "project",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    [
+      "task",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
   ]) {
     const script = `Object.defineProperty(process.versions,"node",{value:"24.11.0"});process.argv=[process.execPath,${JSON.stringify(launcher)},...${JSON.stringify(args)}];await import(${JSON.stringify(pathToFileURL(launcher).href)});`;
     const result = spawnSync(
@@ -617,4 +731,25 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     assert.equal(result.stdout, "");
     assert.match(result.stderr, /coordinator_node_version_unsupported/u);
   }
+});
+test("ローカル要求主体は可読なメールを保持し、予約prefixから旧形式へfallbackしない", () => {
+  assert.equal(
+    createLocalPrincipalId("Alice+dev@Example.invalid"),
+    "local.email.Alice+dev@Example.invalid",
+  );
+  for (const value of [
+    "",
+    "bad",
+    "x@@y",
+    "x@y\n",
+    "x y@z",
+    " x@y",
+    `${"a".repeat(255)}@x`,
+  ])
+    assert.equal(createLocalPrincipalId(value), null);
+  assert.equal(isPrincipalId("local.email.invalid"), false);
+  assert.equal(isPrincipalId("local.email.a@b"), true);
+  assert.equal(isPrincipalId("operator-a"), true);
+  assert.equal(isPrincipalId("e909d4c0-3fbb-42c5-8877-e35f9f73f617"), true);
+  assert.equal(isPrincipalId("a@b"), false);
 });

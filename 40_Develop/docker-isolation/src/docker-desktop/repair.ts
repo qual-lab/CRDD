@@ -1,9 +1,9 @@
 /**
- * 固定九処置の修復順序と事実通知を所有する。
+ * 固定八処置の修復順序と事実通知を所有する。
  * @packageDocumentation
  * @responsibility 技術処置と保存意図を結合し、保存失敗・取消後の追加発行を止める。
  * @trace ARCH-000008
- * @boundary Package内部。Native取得・回収、上位状態・Path・保存実装は所有しない。
+ * @boundary Package内部。CLI取得・終了、上位状態・Path・保存実装は所有しない。
  */
 import type { RepairCheckpoint } from "./types.ts";
 import { decodeRepairCheckpoint } from "./validation.ts";
@@ -13,7 +13,6 @@ import type { DockerRepairEngineState } from "./engine.ts";
 
 const actions = [
   "stop_runtime",
-  "terminate_runtime",
   "stop_backend",
   "retain_runtime",
   "start_runtime",
@@ -30,7 +29,7 @@ const actions = [
  * @shape checkpoint、取消、現在境界の同期観測と同期void通知。
  * @invariant 保存済み意図をfreshでの再発行許可にしない。
  * @boundary 内部runtimeとMachine。
- * @security Native Session・任意Path・保存実装を含めない。
+ * @security Desktop操作・任意Path・保存実装を含めない。
  * @compatibility Root非公開。
  */
 type MachineInput = Readonly<{
@@ -44,11 +43,11 @@ type MachineInput = Readonly<{
  * 固定修復Adapterの技術観測と処置。
  * @responsibility 既存技術操作だけを内部試験で差替え可能にする。
  * @trace ARCH-000008
- * @shape fresh観測、九処置の前提・発行結果、Engine待機。
+ * @shape fresh観測、八処置の前提・発行結果、Engine待機。
  * @invariant preconditionだけが明示不要を返し、発行失敗を不要にしない。
  * @boundary DI内部のMachineと用途固定Adapter。
  * @security 公開入力として任意の実行処理を受け付けない。
- * @compatibility Native lifecycleは外側runtimeが所有。
+ * @compatibility CLI終了は外側runtimeが所有。
  */
 type TechnicalBoundary = Readonly<{
   observe: (
@@ -175,14 +174,14 @@ function canResumeRepairContinuation(checkpoint: RepairCheckpoint): boolean {
     checkpoint.actions.retain_runtime.result !== "confirmed" ||
     checkpoint.actions.start_runtime.result !== "confirmed" ||
     !actions
-      .slice(0, 5)
+      .slice(0, 4)
       .every((name) =>
         ["confirmed", "not_required"].includes(checkpoint.actions[name].result),
       )
   )
     return false;
   let suffix = false;
-  for (const name of actions.slice(5)) {
+  for (const name of actions.slice(4)) {
     const action = checkpoint.actions[name];
     if (["confirmed", "not_required"].includes(action.result)) {
       if (suffix) return false;
@@ -215,17 +214,17 @@ function canResumeRepairContinuation(checkpoint: RepairCheckpoint): boolean {
 }
 
 /**
- * 固定九処置を保存意図から結果まで直列実行する。
+ * 固定八処置を保存意図から結果まで直列実行する。
  * @responsibility 新規発行の許可、事実保存、未確定意図と既発行の扱いを分離する。
  * @trace ARCH-000008
  * @input input: 保存済み技術値と確認、technical: 内部用途固定Adapter。
  * @returns 凍結技術結果。cleanup確定や上位outcomeは含まない。
- * @precondition runtimeが同じNative子と対象実体へAdapterを固定済み。
+ * @precondition runtimeが同じCLI操作と対象実体へAdapterを固定済み。
  * @postcondition 通知失敗後・取消後の新技術Effectは0。
- * @effect 固定Adapterの観測と最大九処置、用途限定事実通知。
+ * @effect 固定Adapterの観測と最大八処置、用途限定事実通知。
  * @failure 保存拒否・不明発行・観測不能・取消を区別する。
  * @invariant freshの保存済み意図・unknownを再発行せず、実行済みを不要へ戻さない。
- * @boundary 上位の通知Consumerと下位技術順序。Native取得・joinは外側。
+ * @boundary 上位の通知Consumerと下位技術順序。CLI取得・closeは外側。
  * @security Rootへ公開せず、任意コマンド・Pathを受けない。
  * @concurrency 一つの呼出しだけで直列化し、返却後通知0。
  */
@@ -339,7 +338,7 @@ export async function executeRepairSteps(
    * 一つの固定処置slotだけを更新候補へ置換する。
    * @responsibility 他slotと技術観測を保持する。
    * @trace ARCH-000008
-   * @input action: 固定九用途、value: その処置の次値。
+   * @input action: 固定八処置、value: その処置の次値。
    * @returns 未検証候補またはnull。
    * @precondition 呼出し後に実codecと遷移検査へ通す。
    * @postcondition 元値を変更しない。
@@ -393,7 +392,7 @@ export async function executeRepairSteps(
    * @trace ARCH-000008
    * @input phase: 通常観測または初回起動失敗世代の固定。
    * @returns 観測・許可再確認・事実通知が成立すればtrue。
-   * @precondition Native取得は外側runtimeが所有する。
+   * @precondition CLI取得は外側runtimeが所有する。
    * @postcondition 許可喪失後に通知へ進まない。
    * @effect 読取り観測と用途限定通知。
    * @failure 不正値・観測不能・通知拒否はfalse。
@@ -520,7 +519,7 @@ export async function executeRepairSteps(
       resumingContinuation &&
       current?.engine === "ready" &&
       Object.values(current.actions)
-        .slice(5)
+        .slice(4)
         .some(
           (action) => !["confirmed", "not_required"].includes(action.result),
         )
@@ -535,7 +534,7 @@ export async function executeRepairSteps(
       if (prior.result === "confirmed" || prior.result === "not_required")
         continue;
       if (!issueAllowed()) return stopped();
-      if (index >= 5 && !continuationObserved) {
+      if (index >= 4 && !continuationObserved) {
         const waited = await technical.awaitEngine(
           "after_initial_start",
           current,
@@ -575,7 +574,7 @@ export async function executeRepairSteps(
         if (continuationReady) {
           if (
             Object.values(current?.actions ?? {})
-              .slice(5)
+              .slice(4)
               .some((value) => value.request !== "not_issued") ||
             !(await observe("failed_launch"))
           )
@@ -589,7 +588,7 @@ export async function executeRepairSteps(
         }
         continuationObserved = true;
       }
-      const unnecessary = index >= 5 && current.engine === "ready";
+      const unnecessary = index >= 4 && current.engine === "ready";
       const precondition = unnecessary
         ? "not_required"
         : await technical.precondition(action, current);
@@ -695,7 +694,7 @@ export async function executeRepairSteps(
           "runtime_repair_effect_unknown",
         );
       if (!issueAllowed()) return stopped();
-      if (index === 8) {
+      if (action === "restart_runtime") {
         continuationEngineWaited = true;
         const waited = await technical.awaitEngine(
           "after_continuation_restart",

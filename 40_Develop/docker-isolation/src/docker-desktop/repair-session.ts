@@ -1,19 +1,12 @@
 /**
- * 修復Native子の生涯と、終了後の固定退避物回収・保持照合を所有する。
+ * 公式CLI操作の生涯と、終了後の固定退避物回収・保持照合を所有する。
  * @packageDocumentation
- * @responsibility 元Sessionの取消・終了と、終了後の同Scope回収を分離する。
+ * @responsibility CLIの取消・終了と、指定基点の固定対象回収を分離する。
  * @trace ARCH-000008
  * @boundary 元Sessionは同子を回収し、終了後回収・保持照合は新Repair Sessionを取得しない。現在の許可と真正Writerは上位Ownerが所有する。
  */
+import { acquireDesktopOperations } from "./command.ts";
 import { types } from "node:util";
-import {
-  type DockerDesktopRepairNativeHelperOutcome,
-  type DockerDesktopRepairNativeHelperSession,
-  type DockerDesktopRepairHelperReleaseOutcome,
-  startDockerDesktopRepairHelper,
-  observePlatformAccessArtifactCandidate,
-  observeNativeArtifact,
-} from "../../../platform-access/src/index.ts";
 import {
   type IsolationSettings,
   captureIsolationSettings,
@@ -27,15 +20,16 @@ import {
   terminateDockerDesktopBackendForRepair,
 } from "./backend.ts";
 import {
-  dockerDesktopDistributionRoot,
-  describeDockerArtifactTrustContract,
-} from "../docker-cli/trust.ts";
-import {
   decodeRepairCheckpoint,
   isRepairCheckpointSettled,
   prepareRepairSessionCheckpoint,
 } from "./validation.ts";
-import type { RepairCheckpoint, RepairRetentionTargets } from "./types.ts";
+import type {
+  RepairCheckpoint,
+  RepairRetentionTargets,
+  DesktopOperations,
+  DesktopAcquisition,
+} from "./types.ts";
 import { executeRepairSteps, type RepairMachineResult } from "./repair.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 import { createDockerDesktopRepairOperations } from "./repair-operations.ts";
@@ -51,13 +45,7 @@ import { createDockerDesktopRepairOperations } from "./repair-operations.ts";
  * @compatibility 最新checkpointだけ。
  */
 export interface RepairCallbacks {
-  onPrepared(
-    value: Readonly<{
-      ownerBindingSha256: string;
-      scopeSha256: string;
-      checkpoint: RepairCheckpoint;
-    }>,
-  ): void;
+  onPrepared(checkpoint: RepairCheckpoint): void;
   onCheckpoint(value: RepairCheckpoint): void;
 }
 
@@ -74,48 +62,38 @@ export interface RepairCallbacks {
 export type RepairInput = Readonly<{
   operationNonce: string;
   signal: AbortSignal;
-  resume: Readonly<{
-    ownerBindingSha256: string;
-    scopeSha256: string;
-    checkpoint: RepairCheckpoint;
-  }> | null;
+  resume: RepairCheckpoint | null;
   canIssueEffect: () => unknown;
 }> &
   RepairCallbacks;
 
 /**
  * 修復Sessionの技術結果。上位の永続保存確定を意味しない。
- * @responsibility 一次結果・Native終了・観測資源終了とcheckpoint候補を分離する。
+ * @responsibility 一次結果・CLI終了・観測資源終了とcheckpoint候補を分離する。
  * @trace ARCH-000008
- * @shape 準備分類、Machine、Native生涯、checkpoint候補と相関Hash。
+ * @shape 準備分類、Machine、CLI終了、checkpoint候補。
  * @invariant finalCheckpointConfirmedは常にfalse。保存Ownerだけが確定する。
  * @boundary DIの固定修復Sessionから上位へ返す技術結果。
  * @security 生Session・Path・秘密情報を含めない。
  * @compatibility 既存の無名結果と同形で、値やSchemaを変更しない。
  */
 export type RepairResult = Readonly<{
-  preparation:
-    | "input_rejected"
-    | "boundary_unavailable"
-    | "correlation_mismatch"
-    | "prepared";
+  preparation: "input_rejected" | "boundary_unavailable" | "prepared";
   machine: RepairMachineResult | null;
   lifecycle: Readonly<{
-    failure: RepairSessionResult<unknown>["failure"];
-    cleanup: DockerDesktopRepairHelperReleaseOutcome;
+    failure: "cancelled" | "operations_unavailable" | "execution_failed" | null;
+    cleanupConfirmed: boolean;
     observationCleanupFailure: "observation_cleanup_unknown" | null;
   }> | null;
   checkpoint: RepairCheckpoint | null;
   finalCheckpointConfirmed: false;
-  ownerBindingSha256: string | null;
-  scopeSha256: string | null;
 }>;
 
 /**
  * 固定三用途のDirectory観測入力。
  * @responsibility 元修復相関と現在の読取り許可を結合する。
  * @trace ARCH-000008
- * @shape nonce・Scope・checkpoint・Signalと同期Query。
+ * @shape nonce・checkpoint・Signalと同期Query。
  * @invariant 保持判断や任意Pathを含めない。
  * @boundary 上位から固定Directoryの二読取り。
  * @security 保存値だけで現在の許可を復元しない。
@@ -123,8 +101,6 @@ export type RepairResult = Readonly<{
  */
 export type DirectoryInspectionInput = Readonly<{
   operationNonce: string;
-  ownerBindingSha256: string;
-  scopeSha256: string;
   checkpoint: RepairCheckpoint;
   signal: AbortSignal;
   canObserve: () => unknown;
@@ -146,14 +122,14 @@ export type DirectoryCleanupResult = Readonly<{
 }>;
 
 /**
- * 固定配布物・同じNative子・初期化済み所在から修復Sessionを組み立てる。
+ * 公式CLI・共通wx排他・初期化済み所在から修復Sessionを組み立てる。
  * @responsibility 任意の技術境界を受け取らず実Adapterへ接続する。
  * @trace ARCH-000008
  * @input value: 同exact操作の技術入力と保存確認。
- * @returns Native join後の技術結果と未保存候補。
+ * @returns CLI close後の技術結果と未保存候補。
  * @precondition 上位の真正Root・Revision・排他・意図保存は別途必要。
- * @postcondition 入力拒否時はArtifact観測・Native取得0、取得後拒否は同子abort／join。
- * @effect 固定Artifact観測、Repair Native取得、明示所在のScope観測、実修復。
+ * @postcondition 入力拒否時はCLI要求0、取得後拒否は同じ操作のclose。
+ * @effect 公式CLI検証、wx取得、明示所在の実体観測、実修復。
  * @failure 準備不能は新処置0で停止し生Pathを返さない。
  * @invariant 同じArtifact値・H・nonce・Sessionを全接続で維持する。
  * @boundary 固定SessionだけをPackage Rootへ公開し、真正Writer／CLIは上位が接続する。
@@ -167,58 +143,28 @@ export async function runRepairSession(
   settings = captureIsolationSettings(settings);
   if (!settings.desktop) throw Error("docker_desktop_settings_unavailable");
   const local = settings.desktop.userDataDirectory;
-  let artifact: NonNullable<
-    ReturnType<typeof observePlatformAccessArtifactCandidate>["artifact"]
-  > | null = null;
   return runRepairSessionWithDependencies(value, {
-    acquire: async () => {
-      const candidate = observePlatformAccessArtifactCandidate(
-        dockerDesktopDistributionRoot,
-      );
-      if (candidate.status !== "candidate" || candidate.artifact === null)
-        return Object.freeze({
-          status: "unavailable" as const,
-          session: null,
-          ownerBindingSha256: null,
-        });
-      artifact = Object.freeze({ ...candidate.artifact });
-      return startDockerDesktopRepairHelper(
-        artifact,
-        describeDockerArtifactTrustContract().policySha256,
-      );
-    },
-    prepare: async (session, owner, nonce, signal, live) => {
-      if (!artifact || !live()) return null;
+    acquire: async (signal) => acquireDesktopOperations(settings, signal),
+    prepare: async (desktop, nonce, signal, live) => {
+      if (!live()) return null;
       const directories = createDockerDesktopRepairDirectoryAccess(
         local,
         nonce,
-        owner,
-        artifact.sha256,
       );
-      if (
-        !directories ||
-        !live() ||
-        (await session.verifyArtifacts()) !== "verified" ||
-        !live() ||
-        !directories.verify()
-      )
-        return null;
-      return Object.freeze({
-        scopeSha256: directories.scopeSha256,
-        ...createDockerDesktopRepairOperations(
-          session,
-          directories,
-          signal,
-          live,
-          {
-            engine: () => observeDockerDesktopRepairEngine(settings),
-            backend: () => observeBackendState(settings),
-            terminateBackend: () =>
-              terminateDockerDesktopBackendForRepair(settings),
-            wait: awaitDockerRepairEngine,
-          },
-        ),
-      });
+      if (!directories || !live() || !directories.verify()) return null;
+      return createDockerDesktopRepairOperations(
+        desktop,
+        directories,
+        signal,
+        live,
+        {
+          engine: () => observeDockerDesktopRepairEngine(settings),
+          backend: () => observeBackendState(settings),
+          terminateBackend: () =>
+            terminateDockerDesktopBackendForRepair(settings),
+          wait: awaitDockerRepairEngine,
+        },
+      );
     },
   });
 }
@@ -227,7 +173,7 @@ export async function runRepairSession(
  * 終了済み修復の固定一用途を回収する入力。
  * @responsibility 元Hを相関だけに使い現在の処置許可と分離する。
  * @trace ARCH-000008
- * @shape 元nonce／H／Scope／checkpoint、用途、取消、保存意図を含む現在確認。
+ * @shape 元nonce／checkpoint、用途、取消、保存意図を含む現在確認。
  * @invariant Path・代替Adapter・新Sessionを受け取らない。
  * @boundary 上位保存Ownerと固定回収composition。
  * @security canIssueEffectは同用途の意図保存・読戻し・排他解放も確認する。
@@ -235,8 +181,6 @@ export async function runRepairSession(
  */
 export type RepairDisposalInput = Readonly<{
   operationNonce: string;
-  ownerBindingSha256: string;
-  scopeSha256: string;
   checkpoint: RepairCheckpoint;
   purpose: "primary" | "failed" | "auxiliary";
   signal: AbortSignal;
@@ -245,18 +189,18 @@ export type RepairDisposalInput = Readonly<{
 
 /**
  * 元修復の終了後、同じ固定対象だけを回収へ接続する。
- * @responsibility 元Scopeのfresh一致と用途の保存意図確認後だけ物理回収する。
+ * @responsibility 固定対象のfresh一致と用途の保存意図確認後だけ物理回収する。
  * @trace ARCH-000008
  * @input value: 元修復相関、終了checkpoint、固定用途と現在Owner確認。
  * @returns 今回要求の到達と現在不存在。保存確定は返さない。
  * @precondition 上位が同exact操作の回収判断・用途意図の保存と解放を確認済み。
- * @postcondition 元checkpointを変更せず、新Repair Native Sessionを取得しない。
- * @effect 固定Artifact／明示所在のScope読取り、条件成立時だけ旧target回収。
- * @failure 入力・終了・Scope・現在許可不明はDriver0。部分処置はunknownを保持。
+ * @postcondition 元checkpointを変更せず、新しいDesktop操作を取得しない。
+ * @effect 明示所在の実体読取り、条件成立時だけ旧target回収。
+ * @failure 入力・終了・実体・現在許可不明はDriver0。部分処置はunknownを保持。
  * @invariant 元H・保存値だけで現在Authorityを復元しない。
  * @boundary 固定公開composition→内部factory／Driver。真正Writerは上位所有。
  * @security 任意Path・Command・新Store／Lock・再起動を提供しない。
- * @concurrency Driver待機後にもArtifact・Scope・取消・現在Ownerを再確認する。
+ * @concurrency Driver待機後にもDirectory実体・取消・現在Ownerを再確認する。
  */
 export async function cleanupRepairDirectory(
   value: RepairDisposalInput,
@@ -272,8 +216,6 @@ export async function cleanupRepairDirectory(
     if (!settings.desktop) return unavailable;
     const fields = repairData(value, [
       "operationNonce",
-      "ownerBindingSha256",
-      "scopeSha256",
       "checkpoint",
       "purpose",
       "signal",
@@ -283,11 +225,7 @@ export async function cleanupRepairDirectory(
     if (
       !fields ||
       !checkpoint ||
-      ![
-        fields.operationNonce,
-        fields.ownerBindingSha256,
-        fields.scopeSha256,
-      ].every(
+      ![fields.operationNonce].every(
         (hash) => typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash),
       ) ||
       !["primary", "failed", "auxiliary"].includes(fields.purpose as string) ||
@@ -304,18 +242,14 @@ export async function cleanupRepairDirectory(
     )
       return unavailable;
     const signal = fields.signal;
-    const artifact = observeNativeArtifact(dockerDesktopDistributionRoot);
-    if (!artifact || signal.aborted || !confirmRepair(fields.canIssueEffect))
+    if (signal.aborted || !confirmRepair(fields.canIssueEffect))
       return unavailable;
     const local = settings.desktop.userDataDirectory;
     const directories = createDockerDesktopRepairDirectoryAccess(
       local,
       fields.operationNonce,
-      fields.ownerBindingSha256,
-      artifact.artifact.sha256,
     );
-    if (!directories || directories.scopeSha256 !== fields.scopeSha256)
-      return unavailable;
+    if (!directories) return unavailable;
     const purpose = fields.purpose as "primary" | "failed" | "auxiliary";
     handedOff = true;
     return await directories.dispose(
@@ -323,10 +257,7 @@ export async function cleanupRepairDirectory(
       checkpoint.directories[purpose].expected,
       () =>
         !signal.aborted &&
-        observeNativeArtifact(
-          dockerDesktopDistributionRoot,
-          artifact.identitySha256,
-        ) !== null &&
+        directories.verify() &&
         confirmRepair(fields.canIssueEffect),
     );
   } catch {
@@ -340,16 +271,16 @@ export async function cleanupRepairDirectory(
  * 固定保持先を処置せず元修復の実体と再照合する。
  * @responsibility 消失・別実体・観測不能を保持引渡しの肯定へ変換しない。
  * @trace ARCH-000008
- * @input value: 元nonce／H／Scope、終端checkpoint、取消、同期現在確認。
+ * @input value: 元nonce、終端checkpoint、取消、同期現在確認。
  * @returns 全三用途を二読取りした凍結照合値、または失敗のnull。
  * @precondition 上位が明示保持の意思と同じ現在操作を確認する。
- * @postcondition 入力を変更せず、新Repair Native Sessionを取得しない。
- * @effect 固定Artifact・明示所在のScope・固定三対象の読取りだけ。
+ * @postcondition 入力を変更せず、新しいDesktop操作を取得しない。
+ * @effect 明示所在の実体・固定三対象の読取りだけ。
  * @failure 元結果不正、失効、観測差、保持物消失は全体null。
  * @invariant 用途内nullは元から保持不要かつ二回の明示不存在だけ。
  * @boundary 固定公開読取り→既存Directory factory。保存・期限・終了は上位所有。
  * @security 任意Path・依存差替え・削除・再起動・保存能力を公開しない。
- * @concurrency 各読取り前後に同じ取消・Owner・Artifact・Scopeを再確認する。
+ * @concurrency 各読取り前後に同じ取消・Owner・Directory実体を再確認する。
  */
 export function observeRepairDirectories(
   value: DirectoryInspectionInput,
@@ -360,8 +291,6 @@ export function observeRepairDirectories(
     if (!settings.desktop) return null;
     const fields = repairData(value, [
       "operationNonce",
-      "ownerBindingSha256",
-      "scopeSha256",
       "checkpoint",
       "signal",
       "canObserve",
@@ -370,11 +299,7 @@ export function observeRepairDirectories(
     if (
       !fields ||
       !checkpoint ||
-      ![
-        fields.operationNonce,
-        fields.ownerBindingSha256,
-        fields.scopeSha256,
-      ].every(
+      ![fields.operationNonce].every(
         (hash) => typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash),
       ) ||
       types.isProxy(fields.signal) ||
@@ -390,17 +315,13 @@ export function observeRepairDirectories(
     )
       return null;
     const signal = fields.signal;
-    const artifact = observeNativeArtifact(dockerDesktopDistributionRoot);
-    if (!artifact || signal.aborted || !confirmRepair(fields.canObserve))
-      return null;
+    if (signal.aborted || !confirmRepair(fields.canObserve)) return null;
     const local = settings.desktop.userDataDirectory;
     const access = createDockerDesktopRepairDirectoryAccess(
       local,
       fields.operationNonce,
-      fields.ownerBindingSha256,
-      artifact.artifact.sha256,
     );
-    if (!access || access.scopeSha256 !== fields.scopeSha256) return null;
+    if (!access) return null;
     const targets: {
       -readonly [P in keyof RepairRetentionTargets]: RepairRetentionTargets[P];
     } = { primary: null, failed: null, auxiliary: null };
@@ -409,10 +330,6 @@ export function observeRepairDirectories(
         if (
           signal.aborted ||
           !confirmRepair(fields.canObserve) ||
-          !observeNativeArtifact(
-            dockerDesktopDistributionRoot,
-            artifact.identitySha256,
-          ) ||
           !access.verify()
         )
           return null;
@@ -432,10 +349,6 @@ export function observeRepairDirectories(
           !observed ||
           signal.aborted ||
           !confirmRepair(fields.canObserve) ||
-          !observeNativeArtifact(
-            dockerDesktopDistributionRoot,
-            artifact.identitySha256,
-          ) ||
           !access.verify()
         )
           return null;
@@ -549,7 +462,7 @@ function confirmRepair(callback: unknown, value?: unknown): boolean {
  * @trace ARCH-000008
  * @input N/A: 固定初期値。
  * @returns 実codecで受理したcheckpoint。
- * @precondition Native子取得後の準備通知だけで使用。
+ * @precondition wx取得後の準備通知だけで使用。
  * @postcondition 全処置・実体が未観測。
  * @effect N/A: 値生成。
  * @failure 内部固定値不正はnull。
@@ -563,7 +476,6 @@ function initialRepairCheckpoint() {
     actions: Object.fromEntries(
       [
         "stop_runtime",
-        "terminate_runtime",
         "stop_backend",
         "retain_runtime",
         "start_runtime",
@@ -595,87 +507,33 @@ function initialRepairCheckpoint() {
 }
 
 /**
- * 同じNative子、準備保存、実Machineを内部で接続する。
- * @responsibility 保存拒否前の処置0と、join後の未保存候補を分離する。
+ * 公式CLI操作の取得からwx解放までを同じ修復要求で所有する。
+ * @responsibility 必須通知完了前のEffectを止め、close後に最終候補を構築する。
  * @trace ARCH-000008
- * @input value: 固定入力、dependencies: DI内部の取得・準備境界。
- * @returns 準備分類、実Machine結果、Native結果と未保存checkpoint候補。
- * @precondition 上位のRoot・改訂・排他・未終端確認は別途必要。
- * @postcondition join後のcallback 0、最終候補は未保存として返す。
- * @effect 内部取得、準備、事実通知、実Machine、同子回収。
- * @failure 入力拒否・準備拒否・Native失敗を別々に返す。
- * @invariant cleanupだけをjoin結果で更新しMachine一次結果を変更しない。
- * @boundary DI内部依存接続。技術依存は固定wrapperが組み立て、真正保存Ownerは上位が所有する。
- * @security 任意AdapterをRoot公開しない。
- * @concurrency await前後と通知後に生存・取消・現在許可を照合する。
+ * @boundary 実Filesystem／CLIは本番構成が接続する。依存差替えは内部試験だけ。
  */
 export async function runRepairSessionWithDependencies(
   value: RepairInput,
   dependencies: Readonly<{
-    acquire: () => Promise<DockerDesktopRepairNativeHelperOutcome>;
+    acquire: (signal: AbortSignal) => Promise<DesktopAcquisition>;
     prepare: (
-      session: DockerDesktopRepairNativeHelperSession,
-      owner: string,
+      desktop: DesktopOperations,
       nonce: string,
       signal: AbortSignal,
       canIssueEffect: () => boolean,
     ) => Promise<Readonly<{
-      scopeSha256: string;
       technical: Parameters<typeof executeRepairSteps>[1];
       cleanupFailure: () => "observation_cleanup_unknown" | null;
     }> | null>;
   }>,
 ): Promise<RepairResult> {
-  let preparation:
-    | "input_rejected"
-    | "boundary_unavailable"
-    | "correlation_mismatch"
-    | "prepared" = "input_rejected";
-  let notifiedCheckpoint: RepairCheckpoint | null = null;
-  let ownerBindingSha256: string | null = null;
-  let scopeSha256: string | null = null;
-  let observationCleanupFailure: "observation_cleanup_unknown" | null = null;
-  let inspectObservationCleanup: (() => unknown) | null = null;
-  /**
-   * 同じAdapterの観測回収不明をstickyに捕捉する。
-   * @responsibility 後着Native成功で観測失敗を消さない。
-   * @trace ARCH-000008
-   * @input N/A: prepareが固定した局所値Readerだけ。
-   * @returns N/A: 呼出し内の固定失敗値を更新する。
-   * @precondition Readerは新観測や処置を行わない。
-   * @postcondition 一度不明なら同呼出しで解除しない。
-   * @effect メモリ内Readerだけ。
-   * @failure 不正関数・非同期・throwは観測回収不明。
-   * @invariant 既保存失敗より強い優先順位を持たない。
-   * @boundary Adapterとruntimeの最終統合。
-   * @security 任意のthenableを実行しない。
-   * @concurrency awaitせずjoin後も値だけを読む。
-   */
-  function recordObservationCleanup() {
-    if (
-      inspectObservationCleanup === null ||
-      observationCleanupFailure !== null
-    )
-      return;
-    try {
-      if (
-        types.isProxy(inspectObservationCleanup) ||
-        types.isAsyncFunction(inspectObservationCleanup)
-      )
-        throw new Error();
-      const result = inspectObservationCleanup();
-      if (types.isPromise(result))
-        void Promise.prototype.then.call(
-          result,
-          () => undefined,
-          () => undefined,
-        );
-      if (result !== null)
-        observationCleanupFailure = "observation_cleanup_unknown";
-    } catch {
-      observationCleanupFailure = "observation_cleanup_unknown";
-    }
-  }
+  const rejected: RepairResult = {
+    preparation: "input_rejected",
+    machine: null,
+    lifecycle: null,
+    checkpoint: null,
+    finalCheckpointConfirmed: false,
+  };
   const fields = repairData(value, [
     "operationNonce",
     "signal",
@@ -684,393 +542,136 @@ export async function runRepairSessionWithDependencies(
     "onPrepared",
     "onCheckpoint",
   ]);
-  let input: RepairInput | null = null;
   if (
-    fields &&
-    typeof fields.operationNonce === "string" &&
-    /^[a-f0-9]{64}$/u.test(fields.operationNonce) &&
-    !types.isProxy(fields.signal) &&
-    fields.signal instanceof AbortSignal &&
-    [fields.canIssueEffect, fields.onPrepared, fields.onCheckpoint].every(
-      (callback) => typeof callback === "function",
+    !fields ||
+    typeof fields.operationNonce !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(fields.operationNonce) ||
+    types.isProxy(fields.signal) ||
+    !(fields.signal instanceof AbortSignal) ||
+    ![fields.canIssueEffect, fields.onPrepared, fields.onCheckpoint].every(
+      (f) => typeof f === "function",
     )
-  ) {
-    let resume: RepairInput["resume"] = null;
-    if (fields.resume !== null) {
-      const prior = repairData(fields.resume, [
-        "ownerBindingSha256",
-        "scopeSha256",
-        "checkpoint",
-      ]);
-      const checkpoint = decodeRepairCheckpoint(prior?.checkpoint);
-      if (
-        prior &&
-        checkpoint &&
-        [prior.ownerBindingSha256, prior.scopeSha256].every(
-          (hash) => typeof hash === "string" && /^[a-f0-9]{64}$/u.test(hash),
-        ) &&
-        checkpoint.cleanup === "confirmed" &&
-        checkpoint.cleanupFailure === null &&
-        Object.values(checkpoint.actions).every(
-          (action) =>
-            action.request !== "unknown" &&
-            action.result !== "unknown" &&
-            !(action.intent === "saved" && action.result === "unobserved"),
-        )
-      ) {
-        resume = Object.freeze({
-          ownerBindingSha256: prior.ownerBindingSha256 as string,
-          scopeSha256: prior.scopeSha256 as string,
-          checkpoint,
-        });
-      } else
-        return Object.freeze({
-          preparation,
-          machine: null,
-          lifecycle: null,
-          checkpoint: null,
-          finalCheckpointConfirmed: false as const,
-          ownerBindingSha256,
-          scopeSha256,
-        });
-    }
-    input = Object.freeze({ ...fields, resume }) as RepairInput;
-  }
-  if (!input)
-    return Object.freeze({
-      preparation,
-      machine: null,
-      lifecycle: null,
-      checkpoint: null,
-      finalCheckpointConfirmed: false as const,
-      ownerBindingSha256,
-      scopeSha256,
-    });
-  const captured = input;
-  preparation = "boundary_unavailable";
-  if (captured.signal.aborted || !confirmRepair(captured.canIssueEffect))
-    return Object.freeze({
-      preparation,
-      machine: null,
-      lifecycle: null,
-      checkpoint: null,
-      finalCheckpointConfirmed: false as const,
-      ownerBindingSha256,
-      scopeSha256,
-    });
-  const lifecycle = await ownDockerRepairNativeSession(
-    captured.signal,
-    dependencies.acquire,
-    async (session, owner, signal) => {
-      /**
-       * 同じ子と現在の処置許可を再照合する。
-       * @responsibility awaitと事実通知後の失効を止める。
-       * @trace ARCH-000008
-       * @input N/A: 捕捉済み子・signal・確認。
-       * @returns 三条件すべて成立時だけtrue。
-       * @precondition Native取得済み。
-       * @postcondition 生存不明は許可しない。
-       * @effect 固定生存と現在許可の確認。
-       * @failure 失効・取消はfalse。
-       * @invariant Hashから許可を作らない。
-       * @boundary 準備とMachine開始。
-       * @security 新Authorityなし。
-       * @concurrency 同期確認。
-       */
-      const live = () => {
-        if (signal.aborted || !session.assertLive()) return false;
-        const allowed = confirmRepair(captured.canIssueEffect);
-        return allowed && session.assertLive() && !signal.aborted;
-      };
-      if (!live()) return { value: null, abortRequired: true };
-      const prepared = await dependencies.prepare(
-        session,
-        owner,
-        captured.operationNonce,
-        signal,
-        live,
-      );
-      if (prepared) {
-        inspectObservationCleanup = prepared.cleanupFailure;
-        recordObservationCleanup();
-      }
-      if (
-        !live() ||
-        !prepared ||
-        observationCleanupFailure !== null ||
-        typeof prepared.scopeSha256 !== "string" ||
-        !/^[a-f0-9]{64}$/u.test(prepared.scopeSha256)
-      )
-        return { value: null, abortRequired: true };
-      if (
-        captured.resume &&
-        (captured.resume.ownerBindingSha256 !== owner ||
-          captured.resume.scopeSha256 !== prepared.scopeSha256)
-      ) {
-        preparation = "correlation_mismatch";
-        return { value: null, abortRequired: true };
-      }
-      ownerBindingSha256 = owner;
-      scopeSha256 = prepared.scopeSha256;
-      const checkpoint = captured.resume
-        ? prepareRepairSessionCheckpoint(captured.resume.checkpoint)
-        : initialRepairCheckpoint();
-      if (
-        !checkpoint ||
-        !live() ||
-        !confirmRepair(
-          captured.onPrepared,
-          Object.freeze({
-            ownerBindingSha256: owner,
-            scopeSha256,
-            checkpoint,
-          }),
-        )
-      )
-        return { value: null, abortRequired: true };
-      notifiedCheckpoint = checkpoint;
-      preparation = "prepared";
-      if (!live()) return { value: null, abortRequired: true };
-      const machine = await executeRepairSteps(
-        {
-          checkpoint,
-          signal,
-          canIssueEffect: live,
-          onCheckpoint: captured.onCheckpoint,
-        },
-        prepared.technical,
-      );
-      recordObservationCleanup();
-      return {
-        value: machine,
-        abortRequired:
-          !machine.checkpointNotificationCompleted ||
-          observationCleanupFailure !== null ||
-          machine.status === "failed" ||
-          machine.status === "cancelled",
-      };
-    },
-  );
-  recordObservationCleanup();
-  const machine = lifecycle.value;
-  const last = machine
-    ? decodeRepairCheckpoint(machine.checkpoint)
-    : notifiedCheckpoint;
-  const checkpoint = last
-    ? decodeRepairCheckpoint({
-        ...last,
-        cleanup:
-          observationCleanupFailure !== null
-            ? "unknown"
-            : lifecycle.cleanup.cleanup,
-        cleanupFailure:
-          last.cleanupFailure ??
-          observationCleanupFailure ??
-          (lifecycle.cleanup.cleanup === "unknown"
-            ? "helper_cleanup_unknown"
-            : lifecycle.cleanup.protocol === "failed"
-              ? "helper_protocol_failed"
-              : null),
-      })
-    : null;
-  return Object.freeze({
-    preparation,
-    machine,
-    lifecycle: Object.freeze({
-      failure: lifecycle.failure,
-      cleanup: lifecycle.cleanup,
-      observationCleanupFailure,
-    }),
-    checkpoint,
-    finalCheckpointConfirmed: false as const,
-    ownerBindingSha256,
-    scopeSha256,
-  });
-}
-
-/**
- * 修復実行とNative回収の個別結果。
- * @responsibility 一次結果を回収失敗で上書きしない。
- * @trace ARCH-000008
- * @shape 実行値、停止理由、回収分類。
- * @invariant valueの存在を回収成功へ読み替えない。
- * @boundary 内部の修復composition。
- * @security Sessionと秘密値を返さない。
- * @compatibility Root非公開。
- */
-type RepairSessionResult<T> = Readonly<{
-  value: T | null;
-  failure:
-    | "cancelled"
-    | "helper_unavailable"
-    | "helper_failed"
-    | "execution_failed"
-    | null;
-  cleanup: DockerDesktopRepairHelperReleaseOutcome;
-}>;
-
-/**
- * 用途固定の修復実行を同じNative子の生涯内へ閉じる。
- * @responsibility 遅延取得、取消、Native喪失、正常終了の全経路でjoinする。
- * @trace ARCH-000008
- * @input signal: 人間取消。acquire: 内部固定取得。execute: 同じ子へ固定する内部修復。
- * @returns 一次結果と回収結果の不変値。
- * @precondition 呼出し側が入力・Scope・現在Ownerを取得前に検査済み。
- * @postcondition 取得した子のclose完了を待ち、通知購読を解除して返す。
- * @effect 固定取得、内部修復、同じ子のabortまたはrelease。
- * @failure 取得throw・Native失敗・実行throw・回収不明を分離する。
- * @invariant Native失敗を人間取消として返さず、closeの再試行をしない。
- * @boundary DI内部の試験可能な取得・生涯管理。任意処理をRootへ公開しない。
- * @security 生Sessionを上位Consumerへ渡さない。
- * @concurrency 取消中の遅延取得も待ち、終了後の通知を無効化する。
- */
-export async function ownDockerRepairNativeSession<T>(
-  signal: AbortSignal,
-  acquire: () => Promise<DockerDesktopRepairNativeHelperOutcome>,
-  execute: (
-    session: DockerDesktopRepairNativeHelperSession,
-    ownerBindingSha256: string,
-    signal: AbortSignal,
-  ) => Promise<Readonly<{ value: T; abortRequired: boolean }>>,
-): Promise<RepairSessionResult<T>> {
-  const controller = new AbortController();
-  let ended = false;
-  let stopReason: "cancelled" | "helper_failed" | null = null;
-  let unsubscribe: (() => void) | null = null;
-  let session: DockerDesktopRepairNativeHelperSession | null = null;
-  let closePromise: Promise<DockerDesktopRepairHelperReleaseOutcome> | null =
-    null;
-  let value: T | null = null;
-  let failure: RepairSessionResult<T>["failure"] = null;
-  let abortRequired = true;
-  let cleanup: DockerDesktopRepairHelperReleaseOutcome = Object.freeze({
-    cleanup: "confirmed",
-    protocol: "not_applicable",
-  });
-  /**
-   * 人間取消だけを内部signalへ搬送する。
-   * @responsibility 終了後の通知を無効化する。
-   * @trace ARCH-000008
-   * @input N/A: 捕捉済みsignal。
-   * @returns N/A: 通知のみ。
-   * @precondition 実行中だけ有効。
-   * @postcondition 新処置を停止する。
-   * @effect 内部signalのabort。
-   * @failure N/A: 状態通知のみ。
-   * @invariant Native失敗分類を変更しない。
-   * @boundary 外部取消と内部Machine。
-   * @security Authorityを生成しない。
-   * @concurrency ended後はEffect 0。
-   */
-  function cancel() {
-    if (!ended) {
-      stopReason ??= "cancelled";
-      controller.abort();
-    }
-  }
-  /**
-   * Native喪失を人間取消と区別して停止する。
-   * @responsibility 同じ子の失敗だけを記録する。
-   * @trace ARCH-000008
-   * @input N/A: 用途固定購読。
-   * @returns N/A: 内部状態更新のみ。
-   * @precondition session取得済み。
-   * @postcondition 後続処置を停止する。
-   * @effect 内部signalのabort。
-   * @failure N/A: 固定通知。
-   * @invariant ended後に結果を変更しない。
-   * @boundary Native生存と修復実行。
-   * @security 生出力を保存しない。
-   * @concurrency 同期通知にも対応する。
-   */
-  function failNative() {
-    if (!ended) {
-      stopReason ??= "helper_failed";
-      controller.abort();
-    }
-  }
-  signal.addEventListener("abort", cancel, { once: true });
+  )
+    return rejected;
+  const resume =
+    fields.resume === null ? null : decodeRepairCheckpoint(fields.resume);
+  if (
+    fields.resume !== null &&
+    (resume?.cleanup !== "confirmed" ||
+      resume.cleanupFailure !== null ||
+      Object.values(resume.actions).some(
+        (action) =>
+          action.request === "unknown" ||
+          action.result === "unknown" ||
+          (action.intent === "saved" && action.result === "unobserved"),
+      ))
+  )
+    return rejected;
+  const input = fields as RepairInput;
+  const signal = input.signal;
+  let desktop: DesktopOperations | null = null;
+  let cleanupConfirmed = true;
+  let failure: NonNullable<RepairResult["lifecycle"]>["failure"] = null;
+  let preparation: RepairResult["preparation"] = "boundary_unavailable";
+  let machine: RepairMachineResult | null = null;
+  let checkpoint: RepairCheckpoint | null = null;
+  let observationCleanupFailure: "observation_cleanup_unknown" | null = null;
+  let observeCleanup: (() => unknown) | null = null;
+  const live = () =>
+    !signal.aborted &&
+    desktop !== null &&
+    desktop.verify() &&
+    confirmRepair(input.canIssueEffect) &&
+    !signal.aborted &&
+    desktop.verify();
   try {
-    if (signal.aborted) {
-      cancel();
-      failure = stopReason;
-    } else {
-      const acquired = await acquire();
-      session = acquired.session;
-      if (
-        acquired.status !== "acquired" ||
-        !session ||
-        !acquired.ownerBindingSha256 ||
-        !/^[a-f0-9]{64}$/u.test(acquired.ownerBindingSha256)
-      ) {
-        failure = stopReason ?? "helper_unavailable";
-        cleanup = Object.freeze({
-          cleanup:
-            acquired.status === "cleanup_unknown" ||
-            acquired.status === "acquired"
-              ? "unknown"
-              : "confirmed",
-          protocol:
-            acquired.status === "protocol_failed" ? "failed" : "not_applicable",
-        });
-      } else {
-        unsubscribe = session.onFailureDetected(failNative);
-        if (!session.assertLive()) failNative();
-        if (!controller.signal.aborted) {
-          const executed = await execute(
-            session,
-            acquired.ownerBindingSha256,
-            controller.signal,
-          );
-          value = executed.value;
-          abortRequired = executed.abortRequired;
+    if (signal.aborted || !confirmRepair(input.canIssueEffect))
+      failure = signal.aborted ? "cancelled" : "operations_unavailable";
+    else {
+      cleanupConfirmed = false;
+      const acquired = await dependencies.acquire(signal);
+      desktop = acquired.operations;
+      cleanupConfirmed = acquired.cleanupConfirmed;
+      if (!desktop || !cleanupConfirmed)
+        failure = signal.aborted ? "cancelled" : "operations_unavailable";
+      else if (live()) {
+        const prepared = await dependencies.prepare(
+          desktop,
+          input.operationNonce,
+          signal,
+          live,
+        );
+        if (prepared) observeCleanup = prepared.cleanupFailure;
+        if (prepared && live() && prepared.cleanupFailure() === null) {
+          checkpoint = resume
+            ? prepareRepairSessionCheckpoint(resume)
+            : initialRepairCheckpoint();
+          if (
+            checkpoint &&
+            live() &&
+            confirmRepair(input.onPrepared, checkpoint)
+          ) {
+            preparation = "prepared";
+            machine = await executeRepairSteps(
+              {
+                checkpoint,
+                canIssueEffect: live,
+                signal,
+                onCheckpoint(next) {
+                  checkpoint = decodeRepairCheckpoint(next);
+                  if (
+                    !live() ||
+                    !checkpoint ||
+                    !confirmRepair(input.onCheckpoint, checkpoint) ||
+                    !live()
+                  )
+                    throw Error("repair_checkpoint_unconfirmed");
+                },
+              },
+              prepared.technical,
+            );
+            checkpoint = decodeRepairCheckpoint(machine.checkpoint);
+          }
         }
-        failure = stopReason;
       }
     }
   } catch {
-    failure ??= stopReason ?? "execution_failed";
-    if (!session)
-      cleanup = Object.freeze({
-        cleanup: "unknown",
-        protocol: "not_applicable",
-      });
+    failure = signal.aborted ? "cancelled" : "execution_failed";
   } finally {
-    if (session) {
+    if (desktop) {
       try {
-        closePromise ??=
-          abortRequired || controller.signal.aborted || failure !== null
-            ? session.abort()
-            : session.release();
-        cleanup = await closePromise;
+        cleanupConfirmed = (await desktop.close()) && cleanupConfirmed;
       } catch {
-        cleanup = Object.freeze({ cleanup: "unknown", protocol: "failed" });
+        cleanupConfirmed = false;
       }
-      failure ??= stopReason;
     }
-    ended = true;
-    signal.removeEventListener("abort", cancel);
-    try {
-      unsubscribe?.();
-    } catch {
-      cleanup = Object.freeze({ cleanup: "unknown", protocol: "failed" });
+    if (observeCleanup) {
+      try {
+        if (observeCleanup() !== null)
+          observationCleanupFailure = "observation_cleanup_unknown";
+      } catch {
+        observationCleanupFailure = "observation_cleanup_unknown";
+      }
     }
-    unsubscribe = null;
-    session = null;
+    if (signal.aborted) failure ??= "cancelled";
   }
+  if (checkpoint)
+    checkpoint = decodeRepairCheckpoint({
+      ...checkpoint,
+      cleanup:
+        cleanupConfirmed && observationCleanupFailure === null
+          ? "confirmed"
+          : "unknown",
+      cleanupFailure:
+        checkpoint.cleanupFailure ??
+        observationCleanupFailure ??
+        (cleanupConfirmed ? null : "operation_cleanup_unknown"),
+    });
   return Object.freeze({
-    value,
-    failure,
-    cleanup: Object.freeze({ ...cleanup }),
+    preparation,
+    machine,
+    checkpoint,
+    finalCheckpointConfirmed: false,
+    lifecycle: { failure, cleanupConfirmed, observationCleanupFailure },
   });
 }
-/**
- * 修復の相関・取消・借用元生存と事実通知を結合する。
- * @responsibility 保存結果を受け取らず、同じ修復の技術入力だけを保持する。
- * @trace ARCH-000008
- * @shape nonce、元checkpoint、Signal、生存観測と同期void通知。
- * @invariant 永続保存はCoordinatorが所有する。
- * @boundary 上位Ownerから固定修復Sessionへの入力。
- * @security 任意Path・OS処置・Store操作を含めない。
- * @compatibility checkpointのSchemaとexact相関は不変。
- */

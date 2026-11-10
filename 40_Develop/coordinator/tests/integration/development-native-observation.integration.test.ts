@@ -757,7 +757,7 @@ if (process.argv[2] !== "--probe") {
   });
 }
 
-const targets = ["codex", "claude", "state", "state-init"];
+const targets = ["codex", "claude"];
 const scenarios = [
   "normal",
   "pre-artifact",
@@ -1053,7 +1053,7 @@ async function runProbe(target: string, scenario: string) {
   ) => {
     publicObservationCalls += 1;
     assert.equal(typeof rootPath, "string");
-    assert.equal(initialize, target === "state-init");
+    assert.equal(initialize, false);
     if (provider !== null) assert.equal(provider, target);
     /**
      * 固定された公開失敗結果を構築する。
@@ -1182,11 +1182,6 @@ async function runProbe(target: string, scenario: string) {
         homePath: string,
         reader?: Parameters<typeof observeNativeResult>[3],
       ) => observeNativeResult(provider, homePath, false, reader),
-      observeWindowsRuntimeState: (
-        rootPath: string,
-        initialize: boolean,
-        reader?: Parameters<typeof observeNativeResult>[3],
-      ) => observeNativeResult(null, rootPath, initialize, reader),
       describeProviderHomeObservationContract,
     },
   });
@@ -1281,15 +1276,9 @@ async function runProbe(target: string, scenario: string) {
     "utf8",
   );
   const authorityDeclarations = [
-    "rootCapabilities",
-    "protectedRootBlocked",
     "runtimeStateDirectoryCandidate",
     "providerHomesDirectoryCandidate",
     "PROVIDER_HOME_ROOT_SEGMENTS",
-    "inspectRuntimeOwnedWindowsProtectedRoot",
-    "inspectRuntimeOwnedWindowsRuntimeState",
-    "consumeRuntimeOwnedRuntimeStateRootCapability",
-    "describeRuntimeStateWindowsAdapterContract",
     "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT",
     "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION",
     "HELPER_TIMEOUT_MS",
@@ -1320,13 +1309,12 @@ async function runProbe(target: string, scenario: string) {
     'import path from "node:path";',
     'import { performance } from "node:perf_hooks";',
     `import { snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
-    `import { observeWindowsProviderHome, observeWindowsRuntimeState, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${moduleUrl("native-artifact-observation")}";`,
+    `import { observeWindowsProviderHome, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${moduleUrl("native-artifact-observation")}";`,
     `import { borrowRuntimeOwnedDevelopmentNativeObservation } from "${diagnosticsUrl}";`,
   ].join("\n");
   const provider = await import(
-    `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, inspectRuntimeOwnedWindowsRuntimeState, consumeRuntimeOwnedProviderHomeObservationCapability, consumeRuntimeOwnedProviderHomeMountSourceCapability, revokeRuntimeOwnedProviderHomeMountSourceCapability, consumeRuntimeOwnedRuntimeStateRootCapability };`).toString("base64")}`
+    `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, consumeRuntimeOwnedProviderHomeObservationCapability, consumeRuntimeOwnedProviderHomeMountSourceCapability, revokeRuntimeOwnedProviderHomeMountSourceCapability };`).toString("base64")}`
   );
-  const store = provider;
   const tasks = (["codex", "claude"] as const).map((executor) => ({
     taskExecutionSelections: taskExecutionSelections(executor),
     objective: "Bounded fixture",
@@ -1435,29 +1423,23 @@ async function runProbe(target: string, scenario: string) {
   if (scenario.endsWith("expiry")) simulatedTime = expiresAtMs + 1;
   nativeCalls = 0;
   isArmed = true;
-  const result =
-    target === "codex" || target === "claude"
-      ? provider.inspectRuntimeOwnedWindowsProviderHomeCandidate(
-          target,
-          context,
-        )
-      : store.inspectRuntimeOwnedWindowsRuntimeState(
-          target.endsWith("-init"),
-          context,
-        );
+  const result = provider.inspectRuntimeOwnedWindowsProviderHomeCandidate(
+    target,
+    context,
+  );
   const shouldReturnCandidate =
     scenario === "checkout-normal" ||
     scenario === "normal" ||
     scenario === "post-source" ||
     scenario === "post-native" ||
     scenario === "post-repository" ||
-    ((scenario === "cleanup-cancel" || scenario === "cleanup-expiry") &&
-      !target.endsWith("-init"));
+    scenario === "cleanup-cancel" ||
+    scenario === "cleanup-expiry";
   assert.equal(result.status, shouldReturnCandidate ? "candidate" : "blocked");
   assert.equal(
     result.filesystemEffectIssued,
-    target === "state-init" && nativeEffectObservations > 0,
-    "初期化を要求した公開結果のEffectは失敗時も上位へ保持する",
+    false,
+    "Provider Home観測はDirectory初期化を行わない",
   );
   const adapterNativeCalls = nativeCalls;
   if (
@@ -1494,10 +1476,7 @@ async function runProbe(target: string, scenario: string) {
       assert.equal("releaseIdentityVerified" in result, false);
       assert.equal("nativeReleaseIdentityVerified" in result, false);
     }
-    const capability =
-      "observationCapability" in result
-        ? result.observationCapability
-        : result.rootCapability;
+    const capability = result.observationCapability;
     assert.ok(capability);
     if (
       scenario === "post-source" ||
@@ -1519,10 +1498,7 @@ async function runProbe(target: string, scenario: string) {
     assert.equal(nativeEffectObservations, isAfterSpawn ? 1 : 0);
     assert.equal(result.manualRecoveryRequired, isAfterSpawn);
     assert.equal(result.helperExitConfirmed, isAfterSpawn);
-    const capability =
-      "observationCapability" in result
-        ? result.observationCapability
-        : result.rootCapability;
+    const capability = result.observationCapability;
     assert.equal(capability, null);
     if (isCheckout) {
       assert.equal(provenanceCalls, 0);

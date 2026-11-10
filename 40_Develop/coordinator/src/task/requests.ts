@@ -10,6 +10,7 @@ import { setImmediate } from "node:timers/promises";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import type { AiSelectionChoice } from "../../../domain-model/src/index.ts";
 import {
+  isPrincipalId,
   type ExecutionSelection,
   initializeCoordinatorSnapshot,
   inspectExecutionSelection,
@@ -1202,6 +1203,8 @@ function snapshotSingleTaskOutcome(
  */
 export function openTaskSession(context: TaskSessionContext) {
   const { rootCapability, projectId, principalId, authorize } = context;
+  if (!isPrincipalId(principalId))
+    throw new Error("orchestrator_task_principal_invalid");
   const consumer = context.consumer ?? "workbench";
   const root = resolveVerifiedRepositoryRoot(rootCapability);
   if (root === null) throw new Error("orchestrator_task_root_invalid");

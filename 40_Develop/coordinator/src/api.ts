@@ -396,7 +396,6 @@ export type { CoordinatorObjectiveRequest } from "../../domain-model/src/index.t
 export type { CoordinatorDecisionRequest } from "../../domain-model/src/index.ts";
 export type { CoordinatorStateQuery } from "../../domain-model/src/index.ts";
 export type { CoordinatorStateQueryResult } from "../../domain-model/src/index.ts";
-export { observeClientPrincipal } from "./decision/lifecycle.ts";
 export {
   isSupportedNodeRuntime,
   getCapabilities,

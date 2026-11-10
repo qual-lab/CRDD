@@ -299,27 +299,13 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
   const authenticationStore =
     createCoordinatorWindowsDecisionStoreTestingAdapter(decisionRoot);
   /**
-   * System試験用の認証済みPrincipalを返す。
+   * 状態照会用のDecision Storeを返す。
    *
-   * @responsibility Acceptance Decision公開入口へ固定Principalを決定論的に供給する。
-   * @trace PRL-ST-009
-   * @precondition Test Fixtureがoperator-aを判断主体として使用する。
-   * @stimulus 公開入口から認証Callbackを呼び出す。
-   * @observation completed状態とPrincipal IDを返す。
-   * @oracle Principal IDがoperator-aで固定される。
-   * @cleanup N/A: 外部資源または状態を作成しない。
-   * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
-   */
-  const authenticate = () =>
-    Object.freeze({ status: "completed" as const, principalId: "operator-a" });
-  /**
-   * 状態照会用の認証済みPrincipalとDecision Storeを返す。
-   *
-   * @responsibility 状態投影へ同じPrincipalと耐久Storeを決定論的に供給する。
+   * @responsibility 操作主体を返さず状態投影へ耐久Storeを供給する。
    * @trace PRL-ST-009
    * @precondition Test Fixtureが作成したauthenticationStoreを保持している。
-   * @stimulus 状態照会公開入口から認証Callbackを呼び出す。
-   * @observation completed状態、Principal IDおよびStoreを返す。
+   * @stimulus 状態照会公開入口からStoreを開く。
+   * @observation completed状態とStoreを返す。
    * @oracle 判断記録と状態投影が同じStoreを参照する。
    * @cleanup N/A: Storeのcleanupは親Test Caseが所有する。
    * @boundary PRL-ST-009=Direct Boundary: coordinator Test Source→対象契約
@@ -327,7 +313,6 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
   const openStateQueryAuthentication = () =>
     Object.freeze({
       status: "completed" as const,
-      principalId: "operator-a",
       store: authenticationStore,
     });
 
@@ -354,7 +339,6 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       "objective",
     );
     const accepted = executeCoordinatorPublicAcceptanceDecision(
-      authenticate,
       objectiveRequest,
       repository.root,
       Object.freeze({ principalId: "operator-a" }),
@@ -378,7 +362,6 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
       `milestone-${decision}`,
     );
     const result = executeCoordinatorPublicAcceptanceDecision(
-      authenticate,
       milestoneRequest,
       repository.root,
       Object.freeze({ principalId: "operator-a" }),
@@ -386,7 +369,6 @@ test("公開入口からObjective受入後のMilestone三判断を一度だけ�
     assert.equal(result.status, "completed", result.reason);
     assert.equal(
       executeCoordinatorPublicAcceptanceDecision(
-        authenticate,
         milestoneRequest,
         repository.root,
         Object.freeze({ principalId: "operator-a" }),

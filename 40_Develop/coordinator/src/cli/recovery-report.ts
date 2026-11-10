@@ -139,7 +139,7 @@ export function renderDockerRecoveryDoctorReport(
       "retentionConfirmed",
       "historyConfirmed",
       "completionConfirmed",
-      "nativeCleanupConfirmed",
+      "operationCleanupConfirmed",
       "cliCleanupConfirmed",
       "cliCleanupReason",
       "retentionReviewAfter",
@@ -196,7 +196,7 @@ export function renderDockerRecoveryDoctorReport(
         safe.status === "observed" &&
         (!safe.outcomeConfirmed ||
           !safe.finalCheckpointConfirmed ||
-          !safe.nativeCleanupConfirmed)) ||
+          !safe.operationCleanupConfirmed)) ||
       (safe.historyConfirmed && safe.recoveryId === null)
     )
       throw new Error("diagnostic_failed");
@@ -213,7 +213,7 @@ export function renderDockerRecoveryDoctorReport(
       safe.historyConfirmed &&
       safe.outcomeConfirmed &&
       safe.finalCheckpointConfirmed &&
-      safe.nativeCleanupConfirmed;
+      safe.operationCleanupConfirmed;
     const awaitingDisposition =
       recovered &&
       !safe.completionConfirmed &&
@@ -221,7 +221,7 @@ export function renderDockerRecoveryDoctorReport(
       !safe.historyConfirmed &&
       safe.outcomeConfirmed &&
       safe.finalCheckpointConfirmed &&
-      safe.nativeCleanupConfirmed;
+      safe.operationCleanupConfirmed;
     const stopped =
       safe.reason !== "runtime_repair_recovered" && !safe.completionConfirmed;
     if (!(completeState || retained || awaitingDisposition || stopped))

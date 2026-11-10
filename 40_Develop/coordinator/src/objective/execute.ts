@@ -8,6 +8,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { getModelCatalog } from "../../../ai-adapter/src/index.ts";
 import {
+  isPrincipalId,
   type CoordinatorState,
   inspectTaskExecutionSelections,
   type ProjectTaskRecoveryObligation,
@@ -364,7 +365,7 @@ export async function executeCoordinatorObjective(
     );
   if (
     !(cancellationSignal instanceof AbortSignal) ||
-    !validId(dependencies.authenticatedPrincipalId)
+    !isPrincipalId(dependencies.authenticatedPrincipalId)
   )
     return blocked(request, "orchestrator_objective_request_invalid");
   const plan = dependencies.plan;
@@ -1727,6 +1728,18 @@ export async function executeCoordinatorPublicObjective(
       status: "blocked",
       reason: "orchestrator_explicit_workspace_adoption_required",
     });
+  if (
+    authenticationContext === undefined ||
+    !isPrincipalId(authenticationContext.principalId)
+  )
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_authenticated_principal_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
   let repositoryRoot: string;
   try {
     repositoryRoot =
@@ -1744,12 +1757,8 @@ export async function executeCoordinatorPublicObjective(
   const identity = readRepositorySnapshot(
     getRepository(repositoryRoot).capability,
   );
-  const authenticated = runtimeDependencies.openDecisionStore();
-  if (
-    authenticated.status !== "completed" ||
-    (authenticationContext !== undefined &&
-      authenticationContext.principalId !== authenticated.principalId)
-  )
+  const decisionStore = runtimeDependencies.openDecisionStore();
+  if (decisionStore.status !== "completed")
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
@@ -1782,7 +1791,7 @@ export async function executeCoordinatorPublicObjective(
   };
   const execution = await runCoordinatorObjective(
     {
-      authenticatedPrincipalId: authenticated.principalId,
+      authenticatedPrincipalId: authenticationContext.principalId,
       resolveTaskSelections(request) {
         const root = getRepository(repositoryRoot);
         if (root.status !== "completed")
@@ -2112,7 +2121,7 @@ export async function runCoordinatorObjective(
   if (
     !request ||
     !(cancellationSignal instanceof AbortSignal) ||
-    !validId(dependencies.authenticatedPrincipalId)
+    !isPrincipalId(dependencies.authenticatedPrincipalId)
   )
     return blocked(
       Object.freeze({

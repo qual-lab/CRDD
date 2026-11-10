@@ -195,6 +195,7 @@ function assertDependencyBoundary(file: string, text: string) {
     const relative = path.relative(sourceRoot, resolved);
     assert.ok(
       resolved === platformAccessRoot ||
+        resolved === path.resolve(sourceRoot, "../../lock/src/index.ts") ||
         (relative !== ".." &&
           !relative.startsWith(`..${path.sep}`) &&
           !path.isAbsolute(relative)),

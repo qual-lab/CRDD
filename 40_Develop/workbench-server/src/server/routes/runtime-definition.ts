@@ -12,6 +12,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { resolveRuntimeContentAccess } from "../../../../access-management/src/index.ts";
 import {
   initializeRuntimeState,
+  createLocalPrincipalId,
   savePlan,
   queryPlan,
   queryObjectives,
@@ -30,6 +31,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
+  readGitUser,
   type Repository,
 } from "../../../../version-control/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
@@ -173,9 +175,15 @@ export async function handleRuntimeDefinition({
       const root = resolveVerifiedRepositoryRoot(capability);
       if (repositoryId !== null || root === null)
         throw new Error("runtime_access_unavailable");
+      const gitUser = readGitUser(capability);
+      const principalId =
+        gitUser.status === "completed"
+          ? createLocalPrincipalId(gitUser.email)
+          : null;
+      if (!principalId) throw new Error("runtime_access_unavailable");
       access = {
         root: capability,
-        principalId: "local-workbench-user",
+        principalId,
         revalidate: (operation) =>
           !requestSignal.aborted &&
           ["definition.read", "definition.write"].includes(operation) &&

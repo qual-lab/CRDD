@@ -60,7 +60,7 @@ test("認証create試験器は起動診断を停止診断と分離する", async
   assert.equal(report.status, "blocked");
   assert.equal(report.automaticRetryIssued, false);
   assert.equal(diagnostic.restartStopFailure, null);
-  assert.equal(diagnostic.restartStartFailure, "client_processes_unconfirmed");
+  assert.equal(diagnostic.restartStartFailure, "desktop_status_unconfirmed");
 });
 
 /**
@@ -288,7 +288,7 @@ test("認証create親のspyは実停止判定の固定読取りを透過する",
     ),
     "utf8",
   );
-  const queryStart = machineSource.indexOf("function queryContainersAbsent()");
+  const queryStart = machineSource.indexOf("function queryContainersAbsent(");
   const queryEnd = machineSource.indexOf("\n/**", queryStart);
   assert.ok(queryStart > 0 && queryEnd > queryStart);
   const querySource = stripTypeScriptTypes(
@@ -377,27 +377,18 @@ test("認証create親のspyは実停止判定の固定読取りを透過する",
         },
       ) as { spy: (...args: unknown[]) => unknown; query: () => boolean };
       const machine = createDockerRestartMachineForVerification({
-        session: {
-          assertLive: () => true,
-          verifyArtifacts: async () => "verified",
-          inspectClientProcesses: async () => "absent",
-          inspectProcesses: async () => "verified",
-          stopDesktop: async () => {
-            stopCalls++;
-            return "not_issued";
+        desktop: {
+          verify: () => true,
+          command: async (action) => {
+            if (action === "stop") stopCalls++;
+            return {
+              issued: false,
+              completed: action === "status",
+              cleanupConfirmed: true,
+              status: action === "status" ? "running" : "unknown",
+            };
           },
-          terminateProcesses: async () => "terminated",
-          launchDesktop: async () => "started",
-          release: async () => ({
-            cleanup: "confirmed",
-            protocol: "completed",
-          }),
-          abort: async () => ({
-            cleanup: "confirmed",
-            protocol: "not_applicable",
-          }),
-          failureDetected: new Promise<void>(() => {}),
-          onFailureDetected: () => () => {},
+          close: async () => true,
         },
         observeBackend: () => "running",
         observeEngine: () => "ready",
@@ -484,7 +475,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
     "utf8",
   );
   const engineStart = engineText.indexOf(
-    "export function observeDockerEngine()",
+    "export function observeDockerEngine(",
   );
   const engineEnd = engineText.indexOf("\n/**", engineStart);
   assert.ok(engineStart > 0 && engineEnd > engineStart);
@@ -498,7 +489,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
     ),
     "utf8",
   );
-  const queryStart = machineText.indexOf("function queryContainersAbsent()");
+  const queryStart = machineText.indexOf("function queryContainersAbsent(");
   const queryEnd = machineText.indexOf("\n/**", queryStart);
   assert.ok(queryStart > 0 && queryEnd > queryStart);
   const querySource = stripTypeScriptTypes(
@@ -536,7 +527,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
       "invalid_json",
       "throw",
       "nonzero",
-      "native_absent",
+      "desktop_stopped",
     ]) {
       let versionCalls = 0,
         listCalls = 0,
@@ -619,31 +610,26 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
         spy: (...args: unknown[]) => unknown;
       };
       const machine = createDockerRestartMachineForVerification({
-        session: {
-          assertLive: () => true,
-          verifyArtifacts: async () => "verified",
-          inspectClientProcesses: async () => "absent",
-          inspectProcesses: async () =>
-            response === "native_absent" || stops > 0 ? "absent" : "verified",
-          stopDesktop: async () => {
-            stops++;
-            return "command_completed";
+        desktop: {
+          verify: () => true,
+          command: async (action) => {
+            if (action === "stop") stops++;
+            return {
+              issued: true,
+              completed: true,
+              cleanupConfirmed: true,
+              status:
+                action === "status"
+                  ? response === "desktop_stopped" || stops > 0
+                    ? "stopped"
+                    : "running"
+                  : "unknown",
+            };
           },
-          terminateProcesses: async () => "terminated",
-          launchDesktop: async () => "started",
-          release: async () => ({
-            cleanup: "confirmed",
-            protocol: "completed",
-          }),
-          abort: async () => ({
-            cleanup: "confirmed",
-            protocol: "not_applicable",
-          }),
-          failureDetected: new Promise<void>(() => {}),
-          onFailureDetected: () => () => {},
+          close: async () => true,
         },
         observeBackend: () =>
-          response === "native_absent" || stops > 0 ? "stopped" : "running",
+          response === "desktop_stopped" || stops > 0 ? "stopped" : "running",
         observeEngine: runtime.engine,
         containersAbsent: runtime.query,
         now: Date.now,
@@ -652,7 +638,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
       const result = await machine.stop();
       const accepted =
         (variant === "original" || variant === "broad_version") &&
-        response === "ready";
+        (response === "ready" || response === "desktop_stopped");
       assert.equal(result, accepted ? "stopped" : "unknown");
       assert.equal(stops, accepted ? 1 : 0);
       assert.equal(optionsFailures, variant === "replace_options" ? 1 : 0);
@@ -661,14 +647,14 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
         variant === "omit_version"
           ? 0
           : accepted ||
-              (response === "native_absent" && variant !== "replace_options")
+              (response === "desktop_stopped" && variant !== "replace_options")
             ? 2
             : 1,
       );
       assert.equal(
         listCalls,
         accepted ||
-          (response === "native_absent" &&
+          (response === "desktop_stopped" &&
             variant !== "omit_version" &&
             variant !== "replace_options")
           ? 1

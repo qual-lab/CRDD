@@ -1,5 +1,73 @@
 # Platform Accessの構造・Native接続再編
 
+## 最終漏れ確認とCommit／Push準備 — 2026-11-11
+
+同じ未Commit候補を再確認し、検証器の旧Session代役2箇所・設定搬送、PA／DI設計本文の旧Helper・Mutex・Scope Hash・9処置の説明、未整形4ファイルと未使用2箇所を是正した。製品ロジックは変更せず、8処置のヘッダー、試験・文書の現行契約への追従だけを行った。基点の読取り範囲検査は削らず再接続し、不正入力のFilesystem要求0と固定退避IDの既存encodingを確認した。
+
+Coordinator製品／試験、DI、PA、Domain Model、VC、Workbench、MCP本体／配布入口の9型検査が成功。変更106 TS／JSONの書式、warning禁止Lint、差分空白検査が成功し、情報レベル40件は別区分として保持する。今回是正を含むCoordinator関連74件、台帳・境界・Directory・checkpoint・Artifact関連36件が通過し、台帳426件valid、配布物／Bootstrap Hash一致を確認した。先行の限定回帰・実Writer・Native検証を全体回帰へ読み替えない。独立再レビューの必須残指摘は0件。全体回帰・実AI・実Docker・過去保持物の操作は行わず、PA全廃・実修復・Release成立は未完了のまま、ユーザーが許可したCommit／Pushへ進む。
+
+## Desktop Helperの公式CLI統合 — 2026-11-10
+
+状態: 実装・利用側・保存契約・試験・管理情報・文書の追従、限定回帰、独立再レビューを完了。全体回帰・実Docker・実AI・過去保持物の操作は行っていない。
+
+人間が承認した停止契約への変更として、PA Desktop Helperを退役し、DIの既存Process処理・CLI検証・共通wxへ統合する。独自Process不存在保証、Native所有Hash・Helper実行物Hash・重複Scope Hashを撤去する。基点変更は運用注意とし、代替記録・自動移行・自動回復を追加しない。正本はDI／PA詳細設計、利用側はCoordinator修復・DM Identity v2、試験と管理台帳へ伝播する。技術・資源終了・保存相関・文書の独立レビューを行う。準拠基準・権限・リリースを変更しないため、準拠／リリース監査は実施しない。
+
+基準版のHelperが担った停止・起動・排他・Directory処置を、新しいCLI／wx／既存Directory実装へ対応付ける。独立確認で取消Signal再読取り、失敗起動後Backend再観測、CLI起動受付とready待機、終了不明時のLock descriptor終了を是正する。残るCLI版・実停止／退避境界の確認は未実施Gateとして維持する。
+
+検証: 関連回帰299件、PAの残存契約10件、Rust単体8件・CLI6件、型検査4構成、変更範囲の書式・warning禁止Lint、Rust書式・Clippy、台帳426件valid、差分空白検査が成功した。実Writer全fileでは旧Scope差用oracleの残存1系統だけが失敗し、その不要な期待を撤去して同じ親試験4項目を再実行し全件成功した。他の必要なexact本文・実体差・遅延Writer・nonce／Operation相関は維持し、独立再確認の必須残指摘はない。試験が作ったRepository-local領域は各fixtureの境界確認後に回収した。
+
+配布Nativeを同じSourceから再buildし、Desktop専用実装・依存feature・不要になった所在取得関数を撤去した167,936bytesの実行物へ同期した。Bootstrapと有限fixtureのHashは`dd8e9fa705d9e6ab0bf5fa487cb74fc80a11b7e539fe5d783bd8c2636100f909`で一致する。これは残存するProvider Home／Filesystem用途の配布物更新であり、Desktop修復の実境界成立・PA全体の廃止・リリースを意味しない。
+
+## Runtime StateのNode.js接続と祖先Handle保持の削減 — 2026-11-10
+
+状態: 実装・限定回帰・独立再レビューを完了。全体回帰は保留。
+
+人間が承認したRuntime StateのNode.js化を、要求主体分離後の保存先へ接続する。変更分類は保護方式を変更する実装保守であり、Coordinator／PAの詳細設計、保存Consumer、Native接続試験、台帳へ伝播する。着手前の独立確認で、Native由来HashはDecision Envelopeに保存されず、Root再照合にのみ使用されること、Runtime用Lockのbinding引数は固定共有Scopeを変えないことを確認した。Provider Home・DI・Executor・AD・保存Schemaは対象外。技術・品質・文書の独立レビューと影響追跡を実施し、準拠基準・決定権限・リリースを変更しないため準拠監査／リリース監査は実施しない。新たな人間判断は必要ない。
+
+StoreのRoot情報をPathとNode実体Identityへ限定し、既存wx Lockと世代・Hash連続性・CASは維持する。Native Runtime観測の上位API、PA公開入口、Capability WeakMap、保護Hash再包装、未使用Contextを削除する。Provider HomeのNative搬送・故障検証は残し、Runtime専用試験は実Filesystem境界を使う既存Storeの統合試験へ移管する。未使用のRuntime Lock binding引数も利用側と同時に削除し、固定共有LockのScopeは変えない。
+
+SID／DACL／Token・固定Volumeの独立検証を保証対象から外す。祖先Handleは新たな管理層へ移植せず、Drive Rootからの各段の非リンク・所在・実体確認とLock後再照合へ整理する。既存NativeもFILE_SHARE_DELETEを許可しており、Handle保持だけからPath差替え防止を主張しない。Nodeの確認後の非協調Processによる差替えは原子的に防止しない。従来より上位祖先のJunctionも拒否するため、同じ入力受理条件とは主張しない。途中作成段は失敗時も保全し、自動修復・削除・旧記録移行はしない。旧Runtime Native内部Protocol／固定配布物は後続のPA整理として残り、PA全廃とは表示しない。
+
+限定回帰は11ファイル155件が成功した。PA公開搬送・Artifact、Provider開発Native結合、開発Session、Docker Recoveryが100件。Node Store・共有Lock、公開操作、人間判断、Host境界の45件から重複するPA搬送1件を除き44件。公開Owner境界11件を加えた。失敗後の再実行や同じ試験の再実行は重複計上していない。Node Storeの7追加ケースを含め、試験物は新品Repository-local領域だけに作成し、各試験の清掃で回収した。
+
+広めに確認した既存Host試験2件は、既存DIの固定`DOCKER_CLI_HINTS=false`に期待値が追従していなかった。HEADの製品処理とNode子の実観測を照合し、試験の完全一致期待と子の固定値検査だけを是正した。残る任意環境の中立化検査、製品Source、期限は変更せず、当該12件の再実行が成功した。最初の実行環境付加という仮説は、空envのNode子による反証で棄却した。Docker自体は実行していない。
+
+Coordinator製品・試験とPAの3構成で型検査が成功した。変更対象の書式・Lintと差分空白を確認し、既存の情報レベル指摘は是正対象を広げず維持した。独立レビューで未使用Context、部分mkdir失敗の反証、旧試験分岐、台帳、保証説明・ヘッダーを是正し、固定差分の最終再レビューは追加指摘0件。全体回帰、実AI・Docker、過去保持物操作、旧記録移行、Native配布物の再Buildは行っていない。
+
+## Gitメールによる要求主体と明示CLI搬送 — 2026-11-10
+
+状態: 実装・限定回帰・独立再レビューを完了。全体回帰は保留。
+
+人間がGitユーザーメールをローカル要求主体に用い、VC APIとフロントAI用binを提供し、Coordinatorは自動取得せず明示入力だけを使う方針を承認した。VCにreadGitUser／GitUserResultと読取り専用bin、DMに値検査・ローカルメールID構築を追加し、Project／Task CLIは--principal-idを必須とした。Workbench／MCP単体入口と検証ScriptはVCを呼び、AM入口は既存ユーザーIDを維持する。
+
+local.email.予約prefixはメール検査より前に識別し、不正時に旧opaque ID検査へfallbackしない。既存の一般ID検査は緩めず、Decision／SingleTask／Objective／MCPのPrincipal検査だけを同じ正本へ接続する。Git Root・Linked管理Directory・既存の設定形式拒否・shell非使用・期限・出力上限は維持し、user.name/email以外や生stderrを返さない。未設定はGit読取りではnull、主体構築では停止とする。
+
+メールは認証証明ではなく、ローカル構成上の帰属である。名前は表示用、メールの大小文字は保持する。メール変更は別主体となり、旧Native ID・固定入口ラベルからの自動移行・再帰属は行わない。新Store・共通Context型・AM必須依存・OS主体の追加観測はない。NativeのRuntime保護・Home保護・wx排他は不変更。下の先行54件は先行版の根拠であり、本版の根拠は別に記録する。実AI・Docker・過去保持物は操作しない。
+
+本版の限定回帰は10ファイル78件が成功した。内訳はVCの実Git・bin 4件、公開Owner境界11件、Coordinatorの公開操作・判断・保存21件、Workbench／MCPの定義6件、Workbench検証接続17件、CLI構文・起動契約19件である。修正後の再実行を重複計上していない。VC試験の未対応設定形式に関する仮定、検証用mockの新API欠測、旧CLI引数の2試験を是正し、既存Root検査は緩めず該当試験を再実行した。
+
+VC、DM、Coordinator製品・試験、Workbench、MCP製品・起動部の7構成で型検査が成功した。変更36ファイルの書式検査、警告・エラー検査、差分空白検査も成功した。既存の情報レベル指摘7件は対象外として維持する。独立レビューの文書・CLI利用側、契約改訂、import配置の指摘を是正し、最終再レビューは追加指摘0件。試験Rootの範囲確認を追加した最終差分も独立確認済みである。試験物は各試験の清掃で回収した。実AI・Docker・過去保持物は操作せず、全体回帰は人間の指示どおり保留した。
+
+## 要求主体とOS実行主体の分離方針 — 2026-11-10
+
+状態: 責務分離の方針を採用。ローカル要求主体IDの設定・欠測時の運用は人間判断待ちで、製品Sourceはこの段階で変更しない。
+
+人間が要求主体とOS実行主体の区別、入口での主体確定、Coordinatorによる伝播、CLIへのAM依存を追加しない方針を承認した。現在のOS由来ID・入口固定ラベルを独立したローカル要求主体の正本とみなさない。既存設定に独立した正本がないことをSourceと読み取り専用確認で照合した。OSからの自動生成は再結合、新しい永続プロフィールは仕組みの追加になるため先行実装しない。
+
+推奨は既存の起動設定による明示IDである。可読な`local.alice`等を各入口へ伝播し、未設定時は停止、変更時は別主体とする運用の採否を確認する。AMユーザーと別のID空間を使用し、IDの文字列を本人認証の証拠としない。現行の保存分離・既存記録の主体照合・Nativeの技術保護・wx排他は維持する。実AI・Docker・過去保持物は操作せず、前段の54件成功を新しい主体方式の検証成功へ読み替えない。[責務と未決事項](../../../06_Architecture/Details/coordinator/01_Architecture.md#要求主体とos実行主体の分離--2026-11-10)を参照する。
+
+## 操作主体とRuntime State保存先の分離 — 2026-11-10
+
+状態: 実装・限定回帰・独立再レビューを完了。全体回帰は保留。
+
+基準は`43b64b96c`。ユーザーの「分離して」に基づき、操作主体を保存処理から取得する経路を撤去する。Decision Storeの戻り値は利用可否とStoreに限定し、Objective／Decision／State／受入判断は上位が確定した`authenticationContext.principalId`を使う。受入判断のStore由来認証Callbackは廃止する。`observeClientPrincipal()`は配布MCPが実際に使用するため公開IFを維持し、保存先を開かない既存Native観測へ接続してauthorityへ移管する。AMへの新規依存、新認証方式、Node.jsによる主体生成、保存Schema・旧記録の移行、Runtime／Provider HomeのNative保護、既存wx排他は変更しない。
+
+主体欠測・不正はCoreのStore初期化前に拒否する。Project CLIは入力検査・採用拒否・取消binding成立の確認後、既存Nativeで同値のローカル主体を上位から明示搬送する。配布MCPの単体Automationも従来と同じローカルOS主体を使い、固定`local-mcp-user`を本人確認済みとして流用しない。Task CLI・ローカルWorkbench／MCP内容操作の既存固定主体は別契約で、全入口のAM認証統一は主張しない。既存記録の主体を新IDへ読み替えたり、保存内容から本人を復元したりしない。
+
+着手前確認と配布利用側の再照合で、保存先の利用可否と本人認証を分離しつつ既存ローカル入口のCapabilityを維持する方針へ具体化した。独立レビューで別主体の期限切れ記録をCASできる既存の処置順序を検出し、主体照合を期限処置より前へ移した。確認対象は、上位IDの保存、欠測・形式不正のEffect前拒否、要求と上位主体の不一致拒否、他主体の期限切れ記録のCAS 0・元記録不変、Store非依存のローカル主体観測、CLI搬送・配布MCP型検査、既存保存世代・受入判断・Worktree結合である。実AI・Docker・過去保持物は操作しない。
+
+既存5ファイルの回帰40件、是正後の公開操作・人間判断19件、追加入口回帰11件、MCP定義3件が全成功した。同じ公開操作10件・入口9件の再実行を重複計上せず、異なる検証項目は7ファイル54件（Coordinator51・MCP3）。型検査はCoordinator製品／試験、Workbench、MCP本体／配布入口の5構成が成功。書式・警告検査も成功し、既存の情報レベル指摘6件は今回変更外のため維持した。独立レビューでCLIの不正Root時にNative観測が先行する点も是正し、Root拒否の元理由とNative 0／実行0を確認した。最終再レビューの追加指摘は0件。試験物は各試験のcleanupで回収し、実Nativeの保護観測・認証、実AI・Docker、過去保持物の操作と全体回帰は行っていない。
+
 ## Local AppData専用入口退役とMatrix失敗時の終了確認 — 2026-11-10
 
 状態: 実装・局所検証・独立レビューを完了。全体回帰は人間の指示で保留する。

@@ -970,3 +970,7 @@ export {
   validWorkspaceCandidateRequest,
   isWorkspaceCommitId,
 } from "./workspace/validation.ts";
+export {
+  createLocalPrincipalId,
+  isPrincipalId,
+} from "./identity/validation.ts";

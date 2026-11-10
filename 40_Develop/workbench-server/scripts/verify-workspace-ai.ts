@@ -27,6 +27,7 @@ import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/stat
 import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import {
+  createLocalPrincipalId,
   decodeCoordinatorHistoryRows,
   observeRepositoryRuntimeDataArea,
   RUNTIME_STATE_MAXIMUM_BYTES,
@@ -37,6 +38,7 @@ import {
   saveRepositoryAiSelection,
 } from "../../domain-model/src/index.ts";
 import {
+  readGitUser,
   resolveVerifiedRepositoryRoot,
   getRepository,
 } from "../../version-control/src/index.ts";
@@ -240,10 +242,16 @@ async function verify(
       contextHash &&
     readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
       .snapshot?.identity === configIdentity;
+  const gitUser = readGitUser(verified.capability);
+  const principalId =
+    gitUser.status === "completed"
+      ? createLocalPrincipalId(gitUser.email)
+      : null;
+  if (!principalId) throw new Error("local_git_user_unavailable");
   const owner = openTaskSession({
     rootCapability: verified.capability,
     projectId,
-    principalId: "local-workbench-user",
+    principalId,
     authorize: permitted,
   });
   const workspaceId = randomUUID();
@@ -406,7 +414,7 @@ async function verify(
       assert.equal(queue.singleTask.phase, "settled", "task_state_nonterminal");
       assert.equal(
         queue.singleTask.principalId,
-        "local-workbench-user",
+        principalId,
         "task_state_principal_mismatch",
       );
       for (const key of ["taskId", "attemptId", "operationId"] as const)
@@ -823,7 +831,7 @@ function assessFixtureRemoval(
           ] as const)
             assert.equal(queue[key], null);
           const task = queue.singleTask;
-          assert.equal(task.principalId, "local-workbench-user");
+          assert.equal(task.principalId, "local.email.test@example.invalid");
           assert.equal(task.mode, "workspace_edit");
           assert.equal(task.phase, "settled");
           assert.equal(task.status, "completed");

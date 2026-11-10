@@ -110,7 +110,7 @@ export async function runDoctorCommand(
               retentionReviewAfter: null,
               historyConfirmed: false,
               completionConfirmed: false,
-              nativeCleanupConfirmed: false,
+              operationCleanupConfirmed: false,
             }
           : {}),
       };

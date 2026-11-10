@@ -1,5 +1,17 @@
 # Docker隔離の詳細設計
 
+## Desktop Helperの退役と公式CLIへの接続 — 2026-11-10
+
+Desktop再起動・修復は、PAの専用Native Helperを使用せず、既存のCLI検証・子Process所有処理と公式`docker desktop`操作へ接続する。Rootの公開関数は増減しない。停止は同期`stop --timeout 30`の正常終了と`status --format json`の停止状態を別に確認する。起動は`start --detach`の受理後に既存Engine待機へ進む。停止のCLI待機35秒、状態観測5秒、元CLI終了確認5秒、既存Engine待機期限を有限に保つ。未対応CLI・非0・取消・観測不能を成功へ補完しない。
+
+検査した固定Desktop Pluginを直接起動し、ユーザー設定のPlugin探索に実行先を委ねない。Engine CLIと同じ署名・内容Hash・操作内実体検査を共用するが、そのHashを修復記録へ追加しない。全Desktop／Backend Processの不存在、全Directoryアクセス終了、Nativeの実行物群・deny-share Handle・Job Object・SID Mutexと同等の保証は主張しない。Backend停止は既存のWSL登録実体の稼働一覧観測であり、Process不存在やAPI接続失敗ではない。初回・失敗起動後とも、Directory処置の直前にEngine・Desktop status・WSL Backendを必要条件として再確認する。独自の強制終了fallbackは設けない。
+
+Directoryは既存の固定対象、Link拒否、元実体・退避先実体の前後照合、元Path再出現の拒否を維持する。部分処置・不明・終了未確認は既存checkpointへ保持する。修復記録からNative所有Hash・Helper実行物Hash・重複Scope Hashを除き、Identity v2はnonce・Operation ID・Repository binding・consumerと既存の内容完全性Hashで相関する。nonce由来の固定退避名は維持する。旧Identity v1や旧9処置を自動読替え・移行せず保全する。
+
+Desktop排他は共通wx処理を用い、設定済み`desktop.userDataDirectory`直下の`.crdd-docker-desktop.lock`、Identity `docker-desktop:shared`とする。上位のstate排他→Desktop排他の順で取得する。CLI終了不明ではLock Fileを保全し、取得descriptorだけを閉じる。これはcleanup成功ではない。Crash残存は自動回復せず、全利用Process停止下で対象を確認する既存の手順へ戻す。
+
+運用条件: 同じDesktopを扱う全Consumerは同じ基点を使用し、未完了修復・未処置の退避物がある間は起動設定の基点を変更しない。別基点への変更検出用の記録・Hash・Registryは追加しない。旧Native方式とwx方式を並走させない。実Dockerの停止・起動・退避と対象CLI版での検証は別Gateであり、有限代役の試験成功から実境界の成立を主張しない。
+
 ## 共通設定と任意Desktop管理設定 — 2026-11-10
 
 `IsolationSettings`は共通の`windowsDirectory`／`userHomeDirectory`と、任意の`desktop: { userDataDirectory }`を持つ。`userDataDirectory`はユーザー単位のアプリデータ基点で、現在のWindowsでは上位が確定したLocal AppDataを渡す。Docker固有の相対配置・Scope導出はDIが所有する。他OSで同じ相対配置が成立するとは仮定しない。
@@ -10,7 +22,7 @@
 
 選択は上位、選択された環境の技術処理はDIが所有する。通常実行にDesktop管理設定を必須化しないが、現在のWindows専用初期化・固定Engine接続は維持する。Linux／macOS、Engine単独接続・起動／修復は今回実装せず、未対応とする。新しいruntimeフラグ・Manager・Store・公開関数／型は追加しない。
 
-DI内部関数は技術責務の短い名前で扱う。環境観測はobserveBackendState／observeDockerEngine、再起動はrestartDesktop、修復はrunRepairSession→executeRepairSteps、修復DirectoryはobserveRepairDirectories／cleanupRepairDirectory、実行物の固定Trust記述はdescribeDockerArtifactTrustContractとする。純粋な検証はdecodeRepairCheckpoint／validateRepairCheckpointTransition等とし、同名だったDomain保存検証の宣言とは区別する。DIを使う試験のSource切出し・VM注入も同じ宣言名へ接続する。RootのinspectDockerEnvironment／restartDockerEnvironment等とinitializeIsolationの8公開関数を提供し、内部関数・依存差替え入口は追加公開しない。改名に伴って保存形式・IPC識別子・固定TrustのHash入力・処理順序・期限・取消・回収条件を変更しない。
+DI内部関数は技術責務の短い名前で扱う。環境観測はobserveBackendState／observeDockerEngine、再起動はrestartDesktop、修復はrunRepairSession→executeRepairSteps、修復DirectoryはobserveRepairDirectories／cleanupRepairDirectory、実行物検証はEngine CLIと固定Desktop Pluginの共通Trust処理とする。純粋な検証はdecodeRepairCheckpoint／validateRepairCheckpointTransition等とし、同名だったDomain保存検証の宣言とは区別する。DIを使う試験のSource切出し・VM注入も同じ宣言名へ接続する。RootのinspectDockerEnvironment／restartDockerEnvironment等とinitializeIsolationの8公開関数を提供し、内部関数・依存差替え入口は追加公開しない。改名に伴って保存形式・IPC識別子・固定TrustのHash入力・処理順序・期限・取消・回収条件を変更しない。
 
 WorkingDirは、要求で明示したパスを優先し、未指定時だけImage既定値を使う。取得済みImage構成でWorkingDir項目が省略されている場合は空文字既定として扱う。Container側のWorkingDir欠測・null・undefined・不正型を空へ補完せず、文字列の完全一致を要求する。Image側の明示undefined・null・不正型も、既定値として利用する場合は拒否する。非空パスの大小文字・末尾区切り・別パスを同一視せず、起動設定・Timeout・回収条件・公開IFは変更しない。
 
@@ -383,9 +395,9 @@ Probeのinspect構成と三つのbind mountの実体照合は、DIの`cleanup/co
 
 単一Containerの現在構成観測と限定回収は`cleanup/container.ts`が所有する。構成一致時はRunningの肯定事実と非秘密ResourceSnapshotを返し、falseを停止・不存在と解釈しない。元Receiptの回収は過去の観測を再利用せず、同じ呼出しで実ID・名前・所有Labelの再確認→完全実IDの削除→実ID・名前・Labelの三軸不存在を順次確認する。不存在だけの観測は削除を発行しない。上位は私有Container参照を照合し、成功時だけ元のCLI・Host・Root・実IDに結合した私有不存在参照を登録する。下位の戻り値を外部から再投入する入口や新しいAuthority管理機構は設けない。作成・start・attach・取消全体と旧回復記録の移行は、この観測・回収単位の完成とは別に確認する。
 
-停止前拒否の診断は、既存Machineが実際に得た判定から固定の`stopFailure`を返す。初回の信頼確認、Client Process、Desktop Process、backend、Engine、Container不存在、境界失効、停止要求、停止待機、最終停止観測、例外を区別する。追加の観測や再試行は発行せず、既存の短絡順序・期限・要求数を維持する。停止成功・停止未実施・起動側失敗ではnullとし、次のstop開始時に前回値を破棄する。Runtime返却とsettled通知へ同じ値を搬送し、cleanup不明でも停止失敗の詳細を消さない。これは非Authorityの診断であり、既存reason／primaryFailure、耐久checkpoint、回復可否、終了条件は変更しない。Sourceと反証の完了前は実装済みと扱わない。
+停止前拒否の診断は、既存Machineが実際に得た判定から固定の`stopFailure`を返す。初回の信頼確認、公式Desktop状態、backend、Engine、Container不存在、境界失効、停止要求、停止待機、最終停止観測、例外を区別する。追加の観測や再試行は発行せず、既存の短絡順序・期限・要求数を維持する。停止成功・停止未実施・起動側失敗ではnullとし、次のstop開始時に前回値を破棄する。Runtime返却とsettled通知へ同じ値を搬送し、cleanup不明でも停止失敗の詳細を消さない。これは非Authorityの診断であり、既存reason／primaryFailure、耐久checkpoint、回復可否、終了条件は変更しない。Sourceと反証の完了前は実装済みと扱わない。
 
-修復準備の`ownerBindingSha256`は、同じNative Mutexに用いる選択利用者のprincipal identity hashである。Task／旧修復記録の認証Session等を含む`localUserBindingHash`とは別計算で、同値を要求しない。現在の相関取得をWriter Authorityへ昇格せず、修復Identityの新fieldと真正Ownerへの接続を別に確認する。
+修復Identity v2はNative所有Hashを保持しない。nonce・Operation ID・Repository binding・consumerを内容Hashと回復IDへ結合する保存相関は上位Ownerの責務であり、DIはその値から処置許可を導出しない。
 
 Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技術Ownerである。通常隔離に加え、診断と、上位が許可した実行環境の停止・開始・限定修復の実処理を所有する。Containerを復元して継続するのではなく、所有資源の終端状態を確認し、上位が新しい実行を開始できる状態へ戻す。独立Server、CLI、履歴Store、共有Registry、Lock Frameworkは設けない。
 
@@ -441,13 +453,13 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 ### Desktop修復の内部Host操作
 
-保存前の技術準備では、同じNative子の初期RとArtifact再確認Vの後、Repair06専用Hで同じ選択利用者のHashを取得する。NativeがMutex名へ使った捕捉値と同じ値を返し、Nodeは元子・command順序と有界frameへ結合する。これは非Authorityの相関であり、保存Ownerや実処置許可の代用ではない。旧RuntimeState Rootから利用者を逆算しない。上位への本番準備通知と保存専用Ownerは接続済みだが、Hの取得だけで全体完成としない。
+保存前の技術準備は固定Desktop Pluginの検証・共通wx取得・固定Directory対象の捕捉とする。既存の同期void通知を完了してから処置へ進み、Native補助子・H取得・Scope Hashを使わない。現在の詳細は後述の「修復Machineの本番接続契約」に従う。
 
-技術checkpointの純粋契約・局所遷移はDomain Modelの`attempt/repair-validation.ts`が所有する。Docker IsolationのMachineはDomain Rootから値検査を利用し、旧`docker-desktop/repair-state.ts`と五つの局所遷移APIのDI Root公開を撤去した。既存の型・厳格decoder・終端predicateの公開は維持し、値検査は処置を実行しない。固定九処置を意図保存・発行観測・結果観測に分け、初回／起動失敗世代／補助領域の期待実体とsource／retainedの四状態を持つ。生Path、任意用途、Provider／Home、署名履歴、人間の保持判断は持たない。上位は同じ保存モデルの修復variantにこのDTOを保持するが、DIのkey・遷移を再実装しない。unknown・確定結果・保持済み実体を巻き戻さず、前処置の結果不明のまま後続Effect用の意図を受理しない。現在cleanupと最初のcleanup失敗は別に保持する。codec単独の成立は実Writer・同Session保持・OS処置・実修復の証明ではない。現在はDI内部固定wrapperから全Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
+技術checkpointの値契約と局所遷移はDIの`docker-desktop/types.ts`／`validation.ts`が所有し、Domain Modelは保存境界で同じ意味を独立に検査する。DIからDomain Modelへ依存しない。固定8処置を意図保存・発行・結果に分け、三用途の期待実体とsource／retainedの状態を保持する。前処置不明で後続意図を受理せず、一次失敗・cleanup・最初のcleanup失敗を混同しない。値検査の成功だけから実Writer・OS処置・修復成功を主張しない。
 
-既存Native helperは、選択利用者のIdentity hashへ結合した同じGlobal MutexをRepair／Restartのコマンドループ全期間で保持する。新しい共有Lockを追加せず、同じ選択利用者に属する協調的CRDD helper間の競合拒否を再利用する。別利用者を含むHost全体、手動Docker／WSL操作や他実装との排他ではない。Nodeの`assertLive()`はhelper子の生存・未解放・pipe writableの確認であり、Kernel Mutex所有やDirectory renameとの原子性を直接証明しない。全Machineでは一回取得した同じSessionを最終の技術Effectとその結果checkpointまで保持し、その後release／abortをjoinしてcleanup結果を上位の別checkpoint／終端判定へ保存する。喪失・Protocol不明の後は追加Effectを発行せず、release不明をcleanup不明として残す。fresh取得だけから過去Effectの結果を確定しない。この既存機構の再利用を、新しいHost排他の成立主張にしない。
+Desktop技術排他は共通wxの`.crdd-docker-desktop.lock`へ統合した。同じDesktopを扱う全Consumerが同じ設定基点を使用する運用前提で、取得した同じLockを最後の処置・結果候補まで保持する。元CLI終了不明ではFileを保全してdescriptorだけを閉じる。手動Docker／WSL操作や非協調Process、異なる基点の旧方式との並走を排除する保証ではない。新しいLock Framework・自動回復・監視は設けない。
 
-公式停止はPAが返した既存sessionの`stopDesktop()`能力とDI内の用途固定処理、固定Docker backend停止は`docker-desktop/backend.ts`、Directory退避は`docker-desktop/directory.ts`が所有する。操作許可・保存・境界判断はDI内部へ閉じ、Native補助子の固定Protocol・stdio・終了はPAへ委譲し、Coordinatorからのdeep importは撤去済み。個別Host操作をRoot公開集合へ追加しない。WSL停止単独公開の保留は維持する。全修復Machineは下位が所有し、上位は意図保存・排他・境界／取消確認と結果保存・ledgerを維持する。
+公式停止・状態・起動受付はDI内部`docker-desktop/command.ts`、固定Backend停止は`backend.ts`、Directory退避は`directory.ts`が所有する。判断・Intent／結果保存は上位に維持する。個別Host操作・内部差替え入口をRootへ公開せず、WSL停止だけの公開APIも新設しない。
 
 初回run退避はlocalAppData・操作ID・期待Identity、Continuation退避はさらに`failed_launch_run`／`secrets_engine`の固定用途だけを受ける。下位が固定source／targetを導出し、任意Path間の移動や削除を提供しない。Windows・正規絶対Path・32桁操作ID・三値Identityを確認し、Proxy／Accessor・余分keyを実行前に拒否する。元実体一致と退避先不存在をrename直前に再確認し、親実体の保持、rename後の退避先一致と元の明示不存在を要求する。同じ利用者の敵対的なPath差替えを原子的に排除する保証は追加しない。
 
@@ -459,12 +471,12 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 通常は修復成功後の不要な退避物を使い捨てる。Docker Isolationは固定三用途の物理回収を所有し、Coordinatorは同じ修復操作への意図・観測保存と終了整理を所有する。Image・Volume・Provider Home・認証領域、任意Hostフォルダ、新しい再起動は対象外である。新Store・Registry・Lock・汎用回収Frameworkを追加しない。
 
-元の修復checkpointは退避した事実の正本として保持する。後から削除しても、確定した退避実体・九処置・`stale=retained`・一次失敗を上書きしない。既存`cleanup`はNative子と観測資源の回収であり、退避物の削除確認へ読み替えない。後続処置の保存・履歴・引渡しは[Coordinator詳細](../coordinator/01_Architecture.md#repair-directory-disposition)に従う。
+元の修復checkpointは退避した事実の正本として保持する。後から削除しても、確定した退避実体・8処置・`stale=retained`・一次失敗を上書きしない。既存`cleanup`は元CLIと観測資源の回収であり、退避物の削除確認へ読み替えない。後続処置の保存・履歴・引渡しは[Coordinator詳細](../coordinator/01_Architecture.md#repair-directory-disposition)に従う。
 
 | 境界 | 必要な確認・処置 |
 |---|---|
-| 対象固定 | 同じ修復nonce・Owner・Scopeから既存三退避先だけを導出する。生Path・任意basenameを公開入力にしない。期待実体は元checkpointを参照し、別の正本へ複製しない。 |
-| 発行前 | 元修復の成功・技術終端、現在Owner、同じArtifact・LocalAppData・Scopeを照合する。用途別の回収意図が保存・読戻し・排他解放まで確認されてから物理処置へ進む。 |
+| 対象固定 | 確定した基点と同じ修復nonceから既存三退避先だけを導出する。生Path・任意basenameを公開入力にしない。期待実体は元checkpointを参照し、別の正本へ複製しない。 |
+| 発行前 | 元修復の成功・技術終端、現在Owner、確定した基点・固定対象の現在実体を照合する。用途別の回収意図が保存・読戻し・排他解放まで確認されてから物理処置へ進む。 |
 | 非使用と対象実体 | 旧世代の停止、現在sourceの別実体、固定Scopeと退避先の期待実体を共同確認する。Engine ready・rename成功・lock観測のnullだけから非使用を推定しない。OS全handle不存在や敵対的な同利用者の差替え排除を追加保証にしない。 |
 | 削除対象型 | 非reparseの通常file（linkCount=1）、非reparseのDirectory、既知tag `0x80000023`の非Directory AF_UNIX端点だけを候補にする。未知tag、symlink／junction／mount等、属性矛盾、hardlink、不明実体、範囲超過は新規削除0。子は有界列挙し各実体を同じ手順で確認する。無条件の再帰削除は使わない。製品Driverは公開compositionまで接続済み。真正Writer・物理回収・後続終了整理は接続済み。ただしWindows実物での自動削除成立は未実証であり、今回の失敗と保守処置を区別する。 |
 | 処置と終端 | 対象・親の直前実体を再確認し、対象だけを回収する。fresh観測で対象の明示不存在、親と現在sourceの保全を確認する。不明・部分成功は用途別に残し、成功へ畳まない。 |
@@ -481,9 +493,9 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 調査用の明示保持は既定7日とし、期限は判断時刻から算出する。期限到来は削除・延長の判断時点であり、自動削除許可ではない。対象・期限・利用者管理責任の引渡し成立を、保持判断だけから推定しない。通常回収と期限付き引渡しは既存上位Ownerへ接続し、実境界でのWindows自動回収未成立と区別する。
 
-明示保持の照合情報は、追加Hashではなく既存Node実体の`dev/ino/birthtimeNs`を用途別に直接比較する。`observeRepairDirectories`は元nonce／H／Scope、終端checkpoint、取消と同期の現在確認に加えて初期化済みsettingsを受け、固定Artifact・ユーザーデータ基点・元Scopeを照合して三退避先を二読取りする。元retained presentは対応処置がsaved／issued／confirmedで、expected・元retained・fresh二回の実体が一致する場合だけ実体の独立コピーを返す。元retained absentは対応処置がnot_issued／not_requiredで、fresh二回もabsentの場合だけ用途内nullを返す。この場合expectedは元source実体を表し得るためnullに限定しない。新しいlive sourceの存在は保持先との照合を妨げない。
+明示保持の照合情報は、追加Hashではなく既存Node実体の`dev/ino/birthtimeNs`を用途別に直接比較する。`observeRepairDirectories`は元nonce、終端checkpoint、取消と同期の現在確認に加えて初期化済みsettingsを受け、ユーザーデータ基点と固定対象実体を照合して三退避先を二読取りする。元retained presentは対応処置がsaved／issued／confirmedで、expected・元retained・fresh二回の実体が一致する場合だけ実体の独立コピーを返す。元retained absentは対応処置がnot_issued／not_requiredで、fresh二回もabsentの場合だけ用途内nullを返す。この場合expectedは元source実体を表し得るためnullに限定しない。新しいlive sourceの存在は保持先との照合を妨げない。
 
-返却全体のnullは観測不成立、三用途内のnullは正規に保持対象なしという別の意味である。各読取り前後のOwner・取消・Artifact・Scope不明、元保持物の消失、別実体、用途交換、不完全な三用途は全体拒否とする。新Repair Native Session・保存・削除・再起動を行わず、結果は削除Authorityではない。明示保持に限り、この非秘密metadataを既存一行履歴へ投影する例外を認める。生Path・Owner・Scopeは投影しない。後日は上位が確定したユーザーデータ基点とnonceから下位で固定先を導出し、実体を直接再照合する。照合不能は元対象の不存在を意味しない。
+返却全体のnullは観測不成立、三用途内のnullは正規に保持対象なしという別の意味である。各読取り前後のOwner・取消・対象実体不明、元保持物の消失、別実体、用途交換、不完全な三用途は全体拒否とする。Desktop操作の取得・保存・削除・再起動を行わず、結果は削除Authorityではない。明示保持に限り、この非秘密metadataを既存一行履歴へ投影する例外を認める。生Path・Ownerは投影しない。後日は上位が確定したユーザーデータ基点とnonceから下位で固定先を導出し、実体を直接再照合する。照合不能は元対象の不存在を意味しない。
 
 上位の保持receiptは判断時刻・exact7日後の再判断期限・三用途照合情報を同じ操作と履歴一行へ固定する。receiptの存在は明示CLIによる利用者管理への引渡し意思を表し、追加の責任者Registryを作らない。履歴は少なくとも期限前の期間整理から保護し、保存・読戻し・排他解放・履歴確認・終了整理の共同成立後だけRuntimeの追跡を終える。旧既出版値へreceiptを補完しない。この読取りから上位receipt保存・CLI説明・履歴保護・終了・fresh Taskへの接続は実装・局所確認済みである。
 
@@ -491,13 +503,13 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 内部回収DriverはRoot込み256 entry・Root深さ0から最大8段へ限定し、全preflightが成立してから一件ずつ処置する。削除直前には処置経路の祖先DirectoryだけについてNative実体と直下の期待残存名を再確認する。集合差・中間Directory差替え・観測不能は追加要求を停止し、Nativeの明示不存在後だけ同呼出しの残存集合から除く。Root外の親内容や未走査別枝の全域変化を原子的に保証する仕組みではない。
 
-内部composition `cleanupRepairDirectory`（公開はcleanupIsolationのDirectory overload）は、元checkpointの全九処置終端、Engine ready、Host safe、元Native cleanup confirmedと退避ありを実decoderで確認する。元nonce・H・保存Scopeと初期化済みsettingsを一度捕捉し、fresh固定Artifactとユーザーデータ基点の親実体から同じScopeを再導出する。元Hは相関材料であり、現在の処置許可ではない。新しいRepair Native Sessionは取得せず、元修復Machineへdispose能力を追加しない。Artifactと現在Owner／保存意図の同期確認は、Driverの待機後・処置前にも適用する。委譲前拒否は未発行、委譲後の想定外例外は要求不明として返し、未発行へ戻さない。単一entry観測の既存Native Processは使用する。
+内部composition `cleanupRepairDirectory`（公開はcleanupIsolationのDirectory overload）は、元checkpointの8処置終端、Engine ready、Host safe、操作cleanup confirmedと退避ありを確認する。元nonce・初期化済みsettingsから既存の固定対象を捕捉し、期待実体を直接照合する。Desktop操作・Helper Artifact・保存Scopeの取得／再構築はしない。現在Owner／保存意図と固定対象の同期確認をDriverの待機後・処置前にも適用し、委譲前拒否は未発行、委譲後例外は要求不明とする。単一entryの既存Filesystem Native観測は維持する。
 
 この入口は今回の要求事実と現在不存在を返すだけで、上位Writerの保存や終了整理を確定しない。用途別意図の保存・読戻し・排他解放は現在確認callbackの前提であり、保存代役の成功を真正保存の成立根拠にはしない。上位は進捗保存失敗後に次用途へ進まず、過去のrequest unknownを現在のissued／not_issuedで置換しない。
 
 Windowsの曖昧componentは固定Native入口が拒否し、Driverは全entryのpresent観測を要求する。同じ名検査を別実装として複製しない。今回の物理要求到達はsyscall直前にのみ`issued`とし、事前拒否を発行済みへ変換しない。同期確認の真正Promiseは拒否を処理して停止し、thenableは実行しない。内部Driver・固定factoryと、保存意図・旧OwnerのEffect不能・Session・後続結果・上位終了の本番接続を確認済みである。実物の削除結果は冒頭表の限界を維持する。
 
-Platform Accessは単一entryの属性・reparse tag・実体・linkCountを、非追従handleから読取り専用で観測する。内容読取り、削除、ACL変更、処置許可は提供しない。Docker Isolationは既存三target、保存済み実体、Owner／Scope、非使用条件と有界な列挙を所有し、fresh観測後にNodeの単発unlink／空Directoryのrmdirを使う。Repair Sessionへ可変Path Protocolやnonce／Scope導出を重複実装せず、Native tree削除や新Lockを追加しない。
+Platform Accessは単一entryの属性・reparse tag・実体・linkCountを、非追従handleから読取り専用で観測する。内容読取り、削除、ACL変更、処置許可は提供しない。Docker Isolationは既存三target、保存済み実体、現在Owner・固定対象、非使用条件と有界な列挙を所有し、fresh観測後にNodeの単発unlink／空Directoryのrmdirを使う。下位Nativeへ可変Path Protocolやnonce導出を重複実装せず、Native tree削除や新しいLock方式を追加しない。
 
 一要求一Native Process・exact絶対Path一件・固定応答一件を、固定Artifactの前後確認と正常終了へ結合する。専用の要求nonceは追加しない。Native実体のvolume serial／file index／creation FILETIMEと、Node実体のdev／ino／birthtimeNsは別単位のまま各々前後比較し、未実証の変換で同値と扱わない。Native handleの明示close成功後だけ応答を確定する。FILE_NOT_FOUND／PATH_NOT_FOUND以外の失敗、frame欠測・余剰・stderr・非0終了は観測不能である。対象不存在の採用には親／Rootの現在確認も必要であり、親消失を対象不存在へ丸めない。
 
@@ -519,48 +531,34 @@ Platform Accessは単一entryの属性・reparse tag・実体・linkCountを、�
 
 ### 修復Machineの本番接続契約
 
-操作全体のScopeは、domain `crdd/docker-desktop-repair-scope/v1`、protocol `CRDDDR06`、64桁nonce、同じNative取得の実H、固定Artifact SHA-256、初期化済みユーザーデータ基点のcanonical Pathと安定実体、そこから導出した固定対象Pathの順で結合する。同じ基点・実体なら従来と同じHash入力であり、保存形式は変更しない。固定domain・NUL・UTF-8 payloadのbyte長UInt32LE・固定field順JSONをHash入力とし、文字数や曖昧連結を使わない。Directory名用の32桁IDは別domain `crdd/docker-desktop-repair-directory/v1`とnonceの同じencodingから下位で導出する。nonceの先頭をそのまま切り出したり、上位から任意IDを追加指定しない。
+現行の技術接続は`runRepairSession(value, settings)`が所有する。閉じた入力を捕捉し、確定した取消Signalを`acquireDesktopOperations`へ渡す。固定Desktop Pluginの署名・内容・実体を既存CLI検査で確認し、共通wxを取得する。Native補助子・H・Helper Artifact・修復Scope Hashは使わない。取消・不正入力・設定欠測は処置前に拒否し、取得途中の不明を未取得の成功清掃へ変換しない。
 
-Scope準備はLocalAppDataのlstat／realpath／再lstatが一致した場合だけ進む。可変なDocker親、run、退避先、secretsの現在実体はScope材料にせず、各actionで照合する。Docker親不存在はScope準備の失敗ではない。一度捕捉したcanonical Localと固定targetsを凍結し、Scopeと実Adapterで共有する。生PathをRoot結果へ出さず、Hashだけを所有・許可の証明にしない。初回はresume期待値なしで実取得から相関を生成し、freshでは保存済みowner／scopeとの完全一致を要求する。
-
-`createDockerDesktopRepairDirectoryAccess`は同じ準備材料からScopeを一度捕捉し、そのtargetsを観測・lock確認・退避のclosureへ閉じ込める。各呼出しで安定LocalのScopeを再確認しても、実操作対象は元targetsを使い、再観測で得た別対象へ差し替えない。三用途以外、期待実体不正、Local差替え・観測不能ではrenameしない。初回の同実体退避先は未発行retained、継続の先既存はunknownという既存分類と、rename前後の親・元・先の照合を維持する。現在は内部技術APIとして、同じNative子・Scope・実Operationsへの固定wrapper接続まで確認済みである。最下位を模擬する接続試験と各技術境界の個別根拠を組み合わせ、真正上位Owner／Writer／CLIは接続済みで、実境界の成立・限界は冒頭表で別評価する。
-
-Native取得の既存R→V→Hを重複実行しない。開始取消、不正相関、cleanup pending／unknown、cleanup失敗、保存済み未確定意図・未確定issued・unknownがあるfreshはNative取得前に停止する（初回の未保存・未発行・未観測slotは含めない）。取得待ち取消では遅れて得た同じ子を回収してから返す。未確認checkpoint、取消、Native喪失、Effect／protocol不明ではabort＋join、確認済み非終端観測または正常技術終端だけrelease可能とする。closeは同じPromise一回に結合し、cleanup unknownを`helper_cleanup_unknown`、cleanup confirmedかつprotocol failedを`helper_protocol_failed`として保持する。Native喪失を利用者取消へ読み替えず、一次失敗と回収失敗を分離する。このruntime接続はDI内部固定wrapperへ実装・接続済みである。真正上位Owner／Writer／CLIは接続済みだが、内部接続試験だけで実境界や全体完成を表示しない。
-
-修復は、既存の一つのNative補助子を取得してから、通常処置・起動失敗後の限定継続・補助子回収までを下位の一呼出しで所有する。上位へOS、Host Path、Native Sessionを公開せず、操作相関、取消、現在許可、保存済み技術checkpointと用途固定の保存確認だけを受ける。
+`observeRepairDirectoryTargets`は、初期化済みユーザーデータ基点のlstat／realpath／再lstatによる安定実体と、nonce由来の固定三対象を捕捉する。Directory名用の32桁IDは既存domain `crdd/docker-desktop-repair-directory/v1`、NUL、UTF-8 payloadのbyte長UInt32LE、固定field順JSONから導出する。このIDは退避名の相関であり所有・処置許可ではない。可変run／Docker親／退避先の実体は各処置で確認し、基点・対象の再観測結果で元targetsを差し替えない。基点変更は冒頭の運用条件に従い、検出用の記録や代替Hashは追加しない。
 
 | 境界 | 必要な保証 |
 |---|---|
-| 準備 | 固定Artifact、同じ補助子のV／H、固定OS所在と対象実体を確認する。`ownerBindingSha256`と固定ScopeのHashは相関値で、許可ではない。準備資源の部分取得失敗も同じ呼出しで回収する。 |
-| 初回保存 | `onPrepared`へ不変の準備事実を一回通知する。同期voidの完了だけを確認する。上位は同Ownerの検査・保存・状態Lock解放を自身で行い、失敗時はthrowする。通知完了前に九処置を発行しない。 |
-| 実処置 | 各Effect直前に現在許可、取消、同じ補助子と実体を再確認する。意図と結果を同期`onCheckpoint`で通知する。上位が必要な保存を行い、Promise／thenable、例外、void以外の戻り値では後続Effectを止め、同一呼出し内で失敗した通知を再利用しない。呼出し間の再入・並行実行の拒否は、外側runtimeの同じSession Ownerへ接続する。 |
-| 再入場 | 保存済みexact操作・主体相関・Scopeと三用途Directoryの実体を再照合する。九slotのunknownを再発行許可にしない。保存途中では技術Effectを発行せず、上位が同じ合法pendingの確定を確認してから続ける。 |
-| 終了 | 最終技術checkpointはcleanup未確定・最終outcome未確定のまま保存する。同じ子のrelease／abortとstdioをjoinし、cleanup・一次失敗を分けた最終値を返す。上位はこの返却から別版を保存し、失敗した通知callbackを再利用しない。 |
-| 喪失・取消 | 新しい技術Effectは0。同じ呼出しの生存する保存Ownerが記録できる場合だけ、単調なunknown・cleanup・一次失敗を記録する。Native失効を保存Ownerの失効と同一視しない。 |
+| 準備・初回保存 | DIが初期checkpointまたは合法な再入場候補を作り、`onPrepared`へ一回通知する。同期voidの完了前に修復Effectを発行しない。上位が現在Owner・保存・状態Lock解放を確認し、失敗時はthrowする。 |
+| 処置 | 通常四処置はDesktop同期停止、必要なBackend停止、元run退避、Desktop起動受付。限定継続四処置は失敗起動後のDesktop停止、失敗run退避、secrets退避、再起動受付である。全8slotは固定集合で、旧強制終了slotは受理しない。 |
+| 意図・発行・確認 | `intent=saved`の通知完了後にだけ処置し、発行を試みた事実と完了を分けて保存候補へ返す。発行後の取消・失敗・通知拒否でも既発行事実を未発行へ戻さない。 |
+| 停止・起動 | 同期stop正常終了と公式status停止を別に確認する。Engine／WSL Backendも別に観測し、失敗起動後のDirectory処置前にも現在のBackend停止を要求する。startの受付は既存Engine待機の成功ではない。 |
+| 終了 | 元CLIの終了・wx解放とEngine観測資源の終了を区別する。CLI終了不明ではdescriptorを閉じLock Fileを保全し、cleanup=falseを維持する。一次失敗・観測回収不明を後続close成功で消さない。 |
+| 結果・保存 | DIの最終候補と上位の耐久保存確認を分離する。任意のPath・argv・保存能力・SessionをRootへ公開しない。試験依存差替えは内部入口に限定する。 |
 
-通知は直列・同期の閉じたDTOとし、下位は上位Storeを呼ばない。最終返却後はcallbackを呼ばない。通知・保存の失敗を技術処理の再実行で解消せず、現在のexact参照と一次失敗を返す。正常五処置、failed-launch追加四処置、三Directory、保持判断・履歴・返却までの接続と新しい検証が揃うまでは、旧実装を置換済みとは扱わない。
+開始済みの現在呼出しでは、未保存・未発行・未観測のslotだけを進める。発行後の不正な観測や通知拒否では、合法なunknown候補と同じexact相関を保ち、通知成功・未発行・明示不要へ補完しない。freshの未確定意図、未確定issued、unknown、cleanup pending／unknown、cleanup失敗では新Effectを発行しない。
 
-cleanupは当該Sessionの技術資源回収を集約する。Native補助子とEngine観測のいずれかがunknownなら最終候補もunknownとする。Native固有のcleanup／protocolはlifecycle結果へ別に残す。既存cleanupFailureがある場合はそれを保全し、同呼出しの新失敗は観測資源の`observation_cleanup_unknown`、次にNative cleanup／protocol理由の固定優先順位で選ぶ。これは時間順の最初の失敗を保証する調停機構ではない。観測close不明は実Adapterでsticky保持して即時停止し、以後の技術Effectは0、通常Machine観測でcleanupを書換えない。runtimeは同Adapterの局所失敗Readerから値を捕捉し、abort／join後の未保存最終候補へだけ反映する。補助子の正常終了で観測失敗を消さず、観測回収理由がある候補のcleanup confirmedをcodecで拒否する。
+cleanな未終端修復のfresh再入場だけは、保存済みconfirmedからpendingへ移す準備候補を使う。8処置・三実体・観測・一次失敗を全文保持し、候補の保存拒否では取得した操作をcloseして返す。新しい永続Session世代や履歴Storeは作らない。元checkpointの退避事実は、後の廃棄・保持判断で書き換えない。
 
-通常checkpointの巻戻しは禁止するが、cleanな未終端修復のfresh再入場だけは、固定のSession開始候補で`confirmed → pending`を許す。候補は下位が生成し、cleanup以外の九処置・三実体・観測・失敗を全文保持する。既存cleanupがpending／unknown、cleanup失敗あり、または修復outcome確定済みの場合、新しい補助子の取得成功で過去の回収を補完しない。この準備候補の保存拒否では取得した子をabort／joinし、新技術Effectは発行しない。新しい永続Session世代や履歴Storeは作らない。
+Engine待機は`awaitEngine(stage, checkpoint)`で初回起動後と限定継続再起動後を区別する。`startup_timeout`単独では追加処置へ進まない。初回退避・起動の確認、旧退避実体との一致、新run／secretsの別実体・lock、公式Desktop状態、現在Engineのknown／transient観測などが同じ呼出しで成立した場合だけ、非永続のcontinuationを返す。transientをknownへ変更せず、保存Engineのunknownを保つ。追加停止後はEngine known・公式status stopped・Backend stoppedと各対象実体をfresh確認する。継続再起動後の待機ではcontinuation非nullを拒否する。
 
-処置前の`canIssueEffect`（取消・借用元の現在生存・技術境界）と事実通知を分ける。保存Owner・Scopeの検査は上位の通知ハンドラーが自身で行い、下位から保存可否を問い合わせない。取消後も既発生事実は記録できるが、新しい処置は発行しない。発行後は`issued/unobserved`と確定結果の二段で保存し、最初の保存が失敗した場合は同じcallbackを再利用せず、耐久元版から合法な`unknown/unknown`を返す。未発行確定や不要へ戻さない。
-
-fresh呼出しで既存の`saved/not_issued/unobserved`へ遭遇しても、未発行を証明したことにはならない。発行可能なのは同じ呼出しが意図保存を確認した直後だけとし、freshの未確定意図・issued未確定・unknownでは再発行しない。既存unknownから後続の技術観測・通知・処置へ進まない。前提観測不能は処置不要と区別する。Engine readyでは未使用slotを明示不要にし、九slotの未評価を残して回復成功としない。
-
-内部のEngine待機は`awaitEngine(stage, checkpoint)`とし、初回起動後と限定継続再起動後を明示する。返値は元待機分類`state`と、初回だけの非永続`continuation`を分ける。初回の`startup_timeout`単独では追加四処置へ進まない。初回起動・元世代退避がconfirmed、旧退避実体一致、新runが別世代、run／secrets両lock、Processがabsentまたはverified、現在Engineがknownまたはtransientという完全fresh条件を実Adapterが照合した場合だけ、同じ呼出し内で継続停止へ進める。生Engineのtransientをknownへ変えず、待機stateはstartup_timeout、保存Engineはunknownのままとする。追加停止後の退避前には、Engine knownとProcess absent、両lock・対象実体・先行結果をfresh確認する。再起動後の待機ではcontinuation非nullを拒否する。完全fresh判定は保存値・終端根拠・fresh再入場許可へ再利用しない。実Adapterの完全fresh判定はDI内部固定wrapperへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。真正Coordinator Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
-
-起動失敗世代の固定は、内部`observe(checkpoint, phase)`の必須二用途`current`／`failed_launch`で分離する。通常観測はfailed／auxiliaryの期待Identityを新規設定しない。初回timeoutと完全継続値が成立し、追加四処置が未発行の場合だけ、両世代を一つの候補へ固定する。両sourceが期待実体としてpresent、両retainedがabsent、二実体と旧primaryが相互に別実体であることを要求し、primary・engine unknown・処置・cleanupその他を維持する。欠測・別世代・相関不明・保存拒否では停止意図と追加Effectを発行しない。実codec・遷移検査と同期保存成功が、停止意図と発行に先行する。保存後取消・Owner喪失でも新Effectは0とする。実Adapterによる同じ実体の再照合はDI内部固定wrapperへ接続済みである。保存後crashからの部分継続は内部接続・限定独立確認済みであり、下段の同exact部分継続契約に従う。この限定停止を最終完成とは扱わず、真正上位保存Owner／CLIと実Docker E2Eも別に確認する。
-
-固定本番組立ては内部`runRepairSession(value, settings)`が所有する。Native取得側と同じPackage内部の配布Rootを共用し、入力検査成功後のacquire内でだけPAのArtifact候補を一回捕捉する。同じ凍結descriptorをRepair Native取得へ渡し、取得した同Session・H、既存nonce、初期化済みユーザーデータ基点、同Artifact SHAからDirectory Accessを一回作る。その後Artifact・現在許可・Scopeを再確認して実Operationsを組み立てる。設定欠測・入力拒否・開始前取消では下位観測0、取得後の準備拒否は同じ子のabort／joinを待つ。`runRepairSessionWithDependencies`はこの内部接続の試験境界であり、Root公開はrestartDockerEnvironmentのrepair modeと必要な入力型だけとし、依存差替え入口・低位固定入口・配布Root・個別Host処置は非公開を維持する。真正Coordinator Owner／Writer／CLIとfresh部分継続の最終確認は、内部組立ての成立とは別に確認する。
+失敗起動世代の固定は`observe(checkpoint, phase)`の`current`／`failed_launch`で分離する。通常観測はfailed／auxiliaryの期待実体を新規設定しない。限定継続が成立し、追加四処置が未発行のときだけ、両sourceのpresent、両retainedのabsent、旧primaryを含む三実体の相互分離を一候補へ固定する。実codec・遷移検査・同期保存完了を停止意図と追加Effectに先行させ、欠測・別世代・取消・Owner喪失では新Effectを止める。
 
 ### 同exact修復の部分継続契約
 
-部分継続は新しい回復機構ではなく、同じcheckpointの確定済みprefixを再発行しない再入場とする。failed／auxiliaryの期待実体は両方未固定または両方固定だけを認め、固定時は旧primaryを含む三実体の相互分離、通常五処置の終端、初回退避・起動confirmed、primaryの退避実体一致、安全性確認を要求する。追加四処置は確定済みの連続prefixと未保存・未発行・未観測のsuffixに限り、gap・片側固定・未確定意図・unknownは新Effect前に停止する。freshでは初回timeout markerやfailed_launch固定観測を再取得せず、保存済み期待実体をcurrent観測で同じ固定対象へ再照合する。未退避は元一致＋先不存在、退避confirmed後は先一致と、次Effectが残る間の元Path明示不存在を必要とする。再起動confirmed後の同名新世代は、保存した三実体と異なることを確認し、旧実体を上書きしない。再起動confirmed後はHost処置を再発行せず、必要なら継続再起動後のEngine待機だけを行う。初回起動confirmed・pair未固定の再入場は初回待機へ戻り、同呼出しの完全fresh条件が成立した場合だけ新pairを固定する。観測・保存拒否・取消・Owner喪失後の新Effect0と、既発行事実の保持は既存契約を維持する。
+部分継続は同じcheckpointの確定済みprefixを再発行しない再入場であり、新しい回復機構ではない。failed／auxiliaryは両方未固定または両方固定だけを認める。固定時は三実体の相互分離、通常四処置の終端、初回退避・起動confirmed、primaryの退避実体一致と現在の安全条件を必要とする。追加四処置は確定済みの連続prefixと未保存・未発行・未観測のsuffixに限り、gap・片側固定・未確定意図・unknownでは停止する。
 
-修復の実技術接続はDI内部`docker-desktop/repair-operations.ts`へ置く。同じNative Session、捕捉済みDirectory Access、内部取消と現在許可を固定し、固定Engine／Backend観測・終了・起動・三用途退避だけへ接続する。技術前提は読取り専用であり、Machineの二回確認とは別にexecute直前でもArtifact／Scope／生存と操作固有条件を再確認する。発行後の取消で取得済み発行事実を捨てない。Engineのcleanup不明は局所sticky値へ記録して直ちに停止し、純粋Readerで外側runtimeへ返す。同期OS要求は既存の有界時間で戻るもので、即時取消可能とは主張しない。通常観測で旧primaryの退避後に新世代runを観測しても、旧primaryへ新世代を上書きしない。保存済みの旧元不存在は過去の確認値として維持し、現在Path不存在の主張へ使わず、処置直前のPath／Identity照合はDirectory Accessで別に行う。試験差替えはDI内部に限り、RootへSession・Path・argv・技術callbackを公開しない。実Adapterの本番入口接続と全体成立は、Source・試験・利用側の接続確認後に判定する。
+freshでは保存済み期待実体をcurrent観測で同じ固定対象へ再照合する。未退避は元一致・先不存在、退避confirmed後は先一致と、次Effectが残る間の元Path明示不存在を要求する。再起動confirmed後の同名新世代を保存済み三実体へ上書きせず、Host処置を再発行しない。必要なら継続再起動後のEngine待機だけを進める。初回起動confirmed・pair未固定の再入場では初回待機へ戻り、同呼出しのfresh条件成立後だけ新pairを固定する。
 
-起動待機のreadyだけを保存済み成功へ変換しない。実Machineは同じ現在観測を再取得し、Engine ready、Process verified、run present、保持済み実体一致、現在許可・Artifact・Scopeの継続成立を確認してからreadyを通知する。Directoryは再照合まで同じ実体であることを要求し、旧実体とは異なる二つの新世代間の差替えも拒否する。再起動confirmedのfreshで既にreadyの場合はHost処置・待機を再発行しない。この内部実装は部分継続・最終観測の接続試験と契約・品質の限定独立確認が成功している。真正上位保存Owner／CLIは接続済みだが、内部成立を実境界や全体完成へ拡張しない。
+`repair-operations.ts`は捕捉済みDesktop操作・Directory Access・Signal・現在許可を固定し、実行直前にも操作固有の前提を確認する。観測資源の終了不明はstickyに保持し、旧元不存在の保存事実から現在Path不存在を推定しない。同期OS要求は有界であって即時取消可能ではない。Source・有限代役・実Writerの限定検証と、未実施の実Docker境界・全体成立は区別する。
 
 ### 隔離用の静的資産
 
@@ -625,9 +623,9 @@ Task Packet、モデル選定、送信同意、User Credential、業務結果は
 
 Consumerの表示・任意保存は資源回収の終了条件に入れない。Candidateと必要な失敗根拠の保存は各Ownerが担当する。Orchestratorの耐久ACKもDocker資源回収とは独立する。
 
-修復のNative生涯所有は`docker-desktop/repair-session.ts`へ置く。取得待ちの取消でも遅れて取得した同じ子を回収し、その終了待機前に返却しない。取消とNative喪失は最初の停止理由を固定し、後着事象を一次理由へ上書きしない。正常終了はrelease、取消・失敗・未確定処置はabortを一回だけ選択し、実行値とcleanup／protocolを分離する。終了後は購読解除と終了gateで通知を無効化する。この所有部品単独は上位保存の成立を代替しない。現在はDI内部固定wrapperから同じNative子・Scope・実Adapter・Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。技術依存差替えと個別Host処置は非公開を維持し、真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
+修復の短命な操作所有は`docker-desktop/repair-session.ts`へ置く。確定済みSignal、同じCLI操作とwx、固定Directory対象を最後の処置・結果候補まで保持し、取得後の拒否・取消でもcloseを待つ。技術依存差替えと個別Host処置は非公開とし、上位保存や実Docker成立をこの内部接続だけから主張しない。詳細は「修復Machineの本番接続契約」に従う。
 
-同Moduleの内部接続は、取得前に初回／fresh入力を捕捉・復号し、freshのcleanup未確認、失敗記録、unknownと保存済み未確定意図を拒否する。取得後は同じHとScopeを照合し、準備のawait前後、準備通知直前・直後に取消・生存・現在許可を再確認する。`onPrepared`の同期void完了を一回確認してから実Machineへ進み、拒否時はMachine未開始を明示して同じ子をabort／joinする。最後のMachine結果は不変更とし、join結果のcleanupだけを反映した最終checkpoint候補は`finalCheckpointConfirmed:false`で返す。Root・Revision・未終端・真正Ownerの確認は上位Ownerの責務であり、Hashやこの内部接続では代替しない。Using単独の検証では技術Adapterを模擬して内部通知契約を確認する。固定wrapperの組立て試験は実Operations・Machineへ接続し、差し替えたDirectory factoryのScope出力の搬送を確認する。実factoryのScope導出・実Filesystem要求は別の個別試験で確認し、組立て試験が実factoryを一体実行した根拠とはしない。真正上位Owner／Writer／CLI、実Docker E2Eの完成とは区別する。
+同Moduleは初回／fresh入力を捕捉・復号し、freshのcleanup未確認・失敗・unknown・未確定意図を取得前に拒否する。取得後は同じ操作・取消・現在許可と固定対象を準備・通知の前後で確認する。onPreparedの同期void完了前にはMachineを開始しない。Machineの一次結果を後続closeで書き換えず、技術終了を反映した最終候補はfinalCheckpointConfirmed=falseとして返す。Root・Revision・耐久保存・Owner確認は上位の責務であり、Hashや下位結果から補完しない。有限代役の内部試験、実Writer結合、未実施の実Docker E2Eを分ける。
 
 ## 4. 配置・保存・実行環境
 
@@ -671,11 +669,11 @@ Windows所在は呼出し元の設定を信頼する。Native APIによる独立
 
 実装は[40_Develop/docker-isolation](../../../40_Develop/docker-isolation)へ置く。既存のWindows Docker CLIの信頼観測、固定Engine、最小環境、shell禁止、出力上限と元Processのclose確認を維持する。2026-11-09の通常CLI整理ではHost子孫までの停止から元CLIだけの停止へ範囲を限定した。同等のツリー停止保証とは扱わない。対象は専用configと`--pull=never`を使う組込Container／Network／version操作であり、Plugin・Build・SSH Transport・任意Host子孫生成を追加する場合は停止契約を再評価する。固定Path・Authenticode・同一実体Identityと環境は各spawn直前に既存Ownerへ再照合し、観測後の差替え・不明ではEffect前停止とする。初回のboolean／Hash／raw Pathを以後の実行許可へ流用しない。未検証OSへ自動fallbackしない。
 
-Package自身は永続State、Repository-local一時Root、新しい排他を新設しない。上位Coordinatorが既存Ownerで検査／借用した用途限定projection・workspace binding・生存観測・元結果だけを§2の閉じたcallbackで受ける。下位は現在State／回復recordを読書きせず、上位のRepository／Home保存Lockを取得／解放せず、借用元Capabilityから新しいAuthorityを生成しない。既存Native helperが所有する技術操作用Mutexの取得・保持・回収は、上記の選択利用者単位の限定契約に従う。既存の検証済みbinding配下にある実行専用Docker CLI configの作成・実体照合・回収は技術Ownerの対象とし、Root作成・上位記録操作とは区別する。意味のあるEvidenceと通常診断の保持Ownerは変更しない。任意正式配布の署名を行う場合だけ、その配布対象と新Packageの対応を照合する。旧Source位置に依存する固定検査は必要Artifact観測・任意配布・旧比較へ分け、通常Runtimeの署名閉包を維持する理由にしない。
+Package自身は永続State、Repository-local一時Root、新しいLock Frameworkを設けない。上位Coordinatorが既存Ownerで検査／借用した用途限定projection・workspace binding・生存観測・元結果だけを§2の閉じたcallbackで受ける。下位は現在State／回復recordを読書きせず、上位のRepository／Home保存Lockを取得／解放せず、借用元Capabilityから新しいAuthorityを生成しない。Desktop技術排他は上記の共通wx契約に従う。既存の検証済みbinding配下にある実行専用Docker CLI configの作成・実体照合・回収は技術Ownerの対象とし、Root作成・上位記録操作とは区別する。意味のあるEvidenceと通常診断の保持Ownerは変更しない。任意正式配布の署名を行う場合だけ、その配布対象と新Packageの対応を照合する。旧Source位置に依存する固定検査は必要Artifact観測・任意配布・旧比較へ分け、通常Runtimeの署名閉包を維持する理由にしない。
 
 ## 5. Qualityへの引渡しと完成条件
 
-純粋な修復checkpointの終端判定は、厳格復号後に九処置の結果がすべて確認済み／明示不要であることだけを判定する。Engine・現在安全性・清掃・人間判断の総合判定や実操作の許可ではない。清掃は未要求→保留／確認／不明、保留→確認／不明、不明→確認だけの前進を許し、確認後は固定する。最初の清掃失敗は不明または後着確認と併存し、清掃未要求へ戻して消さない。
+純粋な修復checkpointの終端判定は、厳格復号後に8処置の結果がすべて確認済み／明示不要であることだけを判定する。Engine・現在安全性・清掃・人間判断の総合判定や実操作の許可ではない。清掃は未要求→保留／確認／不明、保留→確認／不明、不明→確認だけの前進を許し、確認後は固定する。最初の清掃失敗は不明または後着確認と併存し、清掃未要求へ戻して消さない。
 
 既存のCoordinator隔離・取消・回復義務を移管後の実Ownerへ接続する。移管を理由にLocal Itemを重複新設せず、既存義務、Test Symbol、実観測の対応を更新する。
 

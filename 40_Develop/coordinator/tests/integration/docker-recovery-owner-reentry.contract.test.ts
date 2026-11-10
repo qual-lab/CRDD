@@ -2648,33 +2648,17 @@ for (const { repeatCount, retained } of [
                   acquire: async () => {
                     acquisitions++;
                     return {
-                      status: "acquired",
-                      ownerBindingSha256: "b".repeat(64),
-                      session: {
-                        assertLive: () => true,
-                        failureDetected: new Promise(() => {}),
-                        onFailureDetected: () => () => {},
-                        verifyArtifacts: async () => "verified",
-                        inspectProcesses: async () => "verified",
-                        terminateProcesses: async () => {
-                          throw new Error("unexpected_repair_effect");
+                      cleanupConfirmed: true,
+                      operations: {
+                        verify: () => true,
+                        command: async () => {
+                          throw Error("unexpected_repair_effect");
                         },
-                        launchDesktop: async () => {
-                          throw new Error("unexpected_repair_effect");
-                        },
-                        release: async () => ({
-                          cleanup: "confirmed",
-                          protocol: "completed",
-                        }),
-                        abort: async () => ({
-                          cleanup: "confirmed",
-                          protocol: "completed",
-                        }),
+                        close: async () => true,
                       },
                     };
                   },
                   prepare: async () => ({
-                    scopeSha256: "c".repeat(64),
                     cleanupFailure: () => null,
                     technical: {
                       observe: async (checkpoint) => {

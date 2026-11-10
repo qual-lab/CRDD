@@ -14,7 +14,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../docker-cli/trust.ts";
-import type { DockerDesktopRestartNativeHelperOutcome } from "../../../platform-access/src/index.ts";
+import type { DesktopOperations } from "./types.ts";
 import {
   type EngineState,
   type EngineObservation,
@@ -22,18 +22,6 @@ import {
 } from "./engine.ts";
 import { type BackendState, observeBackendState } from "./backend.ts";
 
-/**
- * docker-restart-machineで使用するSessionの値契約を定義する。
- *
- * @responsibility SessionのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000008
- * @shape Sessionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Sessionで宣言した値と責務の対応を維持する。
- * @boundary N/A: Sessionの宣言は外部境界を開かない。
- * @security SessionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Sessionの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Session = NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>;
 /**
  * 停止処理がunknownを返した位置だけを表す非Authorityの診断。
  * @responsibility 観測不能を資源の存在・不存在へ読み替えない固定語彙を所有する。
@@ -46,8 +34,7 @@ type Session = NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>;
  */
 export type DockerRestartStopFailure =
   | "initial_trust_unconfirmed"
-  | "client_processes_unconfirmed"
-  | "desktop_processes_unconfirmed"
+  | "desktop_status_unconfirmed"
   | "backend_unconfirmed"
   | "engine_unconfirmed"
   | "containers_absence_unconfirmed"
@@ -70,8 +57,7 @@ export type DockerRestartStopFailure =
 export type DockerRestartStartFailure =
   | "stop_not_confirmed"
   | "initial_trust_unconfirmed"
-  | "client_processes_unconfirmed"
-  | "desktop_processes_unconfirmed"
+  | "desktop_status_unconfirmed"
   | "engine_unconfirmed"
   | "backend_unconfirmed"
   | "final_trust_unconfirmed"
@@ -92,7 +78,7 @@ export type DockerRestartStartFailure =
  * @compatibility MachinePortsの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type MachinePorts = Readonly<{
-  session: Session;
+  desktop: DesktopOperations;
   observeBackend: () => BackendState;
   observeEngine: () => EngineState | EngineObservation;
   containersAbsent: () => boolean;
@@ -121,32 +107,26 @@ type MachinePorts = Readonly<{
  * @concurrency createMachineは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 function createMachine(ports: MachinePorts) {
-  const { session } = ports;
+  const { desktop } = ports;
   let stopConfirmed = false;
   let stopFailure: DockerRestartStopFailure | null = null;
   let startFailure: DockerRestartStartFailure | null = null;
   let isEffectOutcomeUnknown = false;
   let isEngineObservationCleanupUnknown = false;
-  let abortOutcome: ReturnType<Session["abort"]> | null = null;
-  let releaseOutcome: ReturnType<Session["release"]> | null = null;
+  let abortOutcome: Promise<boolean> | null = null;
+  let releaseOutcome: Promise<boolean> | null = null;
   const cancel = () => {
     if (abortOutcome || releaseOutcome) return;
     // Start asynchronously so synchronous adapter failures are joined as well.
     abortOutcome = Promise.resolve()
-      .then(() => session.abort())
-      .catch(() => ({
-        cleanup: "unknown" as const,
-        protocol: "failed" as const,
-      }));
+      .then(() => desktop.close())
+      .catch(() => false);
   };
   ports.signal?.addEventListener("abort", cancel, { once: true });
   if (ports.signal?.aborted) cancel();
   const live = () =>
-    !ports.signal?.aborted &&
-    (ports.boundary?.() ?? true) &&
-    session.assertLive();
-  const trusted = async () =>
-    live() && (await session.verifyArtifacts()) === "verified" && live();
+    !ports.signal?.aborted && (ports.boundary?.() ?? true) && desktop.verify();
+  const trusted = async () => live();
   const observeEngine = () => {
     const observed = ports.observeEngine();
     if (typeof observed === "string") return observed;
@@ -160,10 +140,8 @@ function createMachine(ports: MachinePorts) {
       return false;
     };
     if (!(await trusted())) return refuse("initial_trust_unconfirmed");
-    if ((await session.inspectClientProcesses()) !== "absent")
-      return refuse("client_processes_unconfirmed");
-    if ((await session.inspectProcesses()) !== "absent")
-      return refuse("desktop_processes_unconfirmed");
+    if ((await desktop.command("status")).status !== "stopped")
+      return refuse("desktop_status_unconfirmed");
     if (observeEngine() !== "known_unavailable")
       return refuse("engine_unconfirmed");
     if (ports.observeBackend() !== "stopped")
@@ -191,13 +169,9 @@ function createMachine(ports: MachinePorts) {
           stopFailure = "initial_trust_unconfirmed";
           return "unknown";
         }
-        if ((await session.inspectClientProcesses()) !== "absent") {
-          stopFailure = "client_processes_unconfirmed";
-          return "unknown";
-        }
-        const processes = await session.inspectProcesses();
-        if (processes === "unknown") {
-          stopFailure = "desktop_processes_unconfirmed";
+        const status = await desktop.command("status");
+        if (!status.completed || status.status === "unknown") {
+          stopFailure = "desktop_status_unconfirmed";
           return "unknown";
         }
         if (!live()) {
@@ -216,7 +190,7 @@ function createMachine(ports: MachinePorts) {
         if (
           (beforeEngine === "ready" ||
             beforeBackend === "running" ||
-            processes === "verified") &&
+            status.status === "running") &&
           !ports.containersAbsent()
         ) {
           stopFailure = "containers_absence_unconfirmed";
@@ -226,17 +200,17 @@ function createMachine(ports: MachinePorts) {
           stopFailure = "boundary_unconfirmed";
           return "unknown";
         }
-        if (processes === "verified" || beforeBackend === "running") {
+        {
           if (!(await trusted())) {
             stopFailure = "request_trust_unconfirmed";
             return "unknown";
           }
           isEffectOutcomeUnknown = true;
           ports.onRequestAttempted?.();
-          const result = await session.stopDesktop();
-          if (result === "command_completed") ports.onRequestAccepted?.();
-          if (result === "not_issued") isEffectOutcomeUnknown = false;
-          if (result !== "command_completed") {
+          const result = await desktop.command("stop");
+          if (result.completed) ports.onRequestAccepted?.();
+          if (result.issued === false) isEffectOutcomeUnknown = false;
+          if (!result.completed) {
             stopFailure = "stop_request_unconfirmed";
             return "unknown";
           }
@@ -244,7 +218,7 @@ function createMachine(ports: MachinePorts) {
             stopFailure = "boundary_unconfirmed";
             return "unknown";
           }
-          // CLI completion can precede Desktop process exit. Observe, never infer it.
+          // 同期stopの完了後も公式statusとEngine/WSLを別に観測する。
           const deadline = ports.now() + 30_000;
           for (let attempt = 0; attempt < 30; attempt += 1) {
             if (!live()) {
@@ -270,10 +244,8 @@ function createMachine(ports: MachinePorts) {
             await ports.wait();
           }
         }
-        stopConfirmed = await stopped();
-        if (stopConfirmed) isEffectOutcomeUnknown = false;
-        else stopFailure = "stopped_state_unconfirmed";
-        return stopConfirmed ? "stopped" : "unknown";
+        stopFailure = "stop_wait_unconfirmed";
+        return "unknown";
       } catch {
         stopFailure = "exception";
         return "unknown";
@@ -294,7 +266,7 @@ function createMachine(ports: MachinePorts) {
         }
         isEffectOutcomeUnknown = true;
         ports.onRequestAttempted?.();
-        if ((await session.launchDesktop()) !== "started") {
+        if (!(await desktop.command("start")).completed) {
           startFailure = "launch_request_unconfirmed";
           return "unknown";
         }
@@ -326,11 +298,9 @@ function createMachine(ports: MachinePorts) {
       if (releaseOutcome) return releaseOutcome;
       ports.signal?.removeEventListener("abort", cancel);
       const underlying =
-        abortOutcome ?? Promise.resolve().then(() => session.release());
+        abortOutcome ?? Promise.resolve().then(() => desktop.close());
       releaseOutcome = Promise.resolve(underlying).then((outcome) =>
-        isEngineObservationCleanupUnknown
-          ? Object.freeze({ ...outcome, cleanup: "unknown" as const })
-          : outcome,
+        isEngineObservationCleanupUnknown ? false : outcome,
       );
       return releaseOutcome;
     },
@@ -400,7 +370,7 @@ function queryContainersAbsent(settings: IsolationSettings) {
  * @trace ARCH-000008
  * @input session: 取得済みSession、boundary: 現在確認、signal: 取消、onRequestAccepted: Native実受付、onRequestAttempted: Native要求試行直前の内部通知。
  * @returns createDockerRestartMachineの計算結果を返す。
- * @precondition 「session: Session、boundary: () => boolean、signal: AbortSignal」がcreateDockerRestartMachineの入力契約を満たす。
+ * @precondition 「desktop: DesktopOperations、boundary: () => boolean、signal: AbortSignal」がcreateDockerRestartMachineの入力契約を満たす。
  * @postcondition createDockerRestartMachineの責務を完了した結果だけを返す。
  * @effect N/A: createDockerRestartMachineは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createDockerRestartMachineは独自の失敗分岐を所有しない。
@@ -411,14 +381,14 @@ function queryContainersAbsent(settings: IsolationSettings) {
  */
 export function createDockerRestartMachine(
   settings: IsolationSettings,
-  session: Session,
+  desktop: DesktopOperations,
   boundary: () => boolean,
   signal: AbortSignal,
   onRequestAccepted?: () => void,
   onRequestAttempted?: () => void,
 ) {
   return createMachine({
-    session,
+    desktop,
     boundary,
     signal,
     ...(onRequestAccepted ? { onRequestAccepted } : {}),

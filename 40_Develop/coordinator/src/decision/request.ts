@@ -6,9 +6,10 @@
  */
 
 import type { CoordinatorAcceptanceDecisionAuthorityPort } from "./types.ts";
-import type {
-  CoordinatorAcceptanceTarget,
-  CoordinatorAcceptanceDecision,
+import {
+  isPrincipalId,
+  type CoordinatorAcceptanceTarget,
+  type CoordinatorAcceptanceDecision,
 } from "../../../domain-model/src/index.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -20,19 +21,19 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
  * @trace ARCH-000005
  * @input authenticatedPrincipalId: Transportが検証したPrincipal Identity。
  * @returns CoordinatorAcceptanceDecisionAuthorityPortを返す。
- * @precondition PrincipalはRuntime-owned認証境界で検証済みである。
+ * @precondition Principalは上位の呼出し側で認証・認可済みである。
  * @postcondition 同じPrincipal、SPEC-000002および有効な対象Bindingだけを許可する。
  * @effect N/A: Authorityの比較だけを行い、CapabilityやEffectを発行しない。
  * @failure 不正PrincipalまたはBindingはfalseへ閉じる。
  * @invariant 読取り投影、Task完了またはProvider結果からAuthorityを生成しない。
- * @boundary Runtime-owned認証PrincipalとCoordinator Authority Portの境界。
+ * @boundary 上位で確定した操作主体とCoordinator Authority Portの境界。
  * @security Principalを拡張せず、秘密値を生成・保存・公開しない。
  * @concurrency N/A: 不変値の同期比較だけを行う。
  */
 export function createCoordinatorAcceptanceAuthorityAdapter(
   authenticatedPrincipalId: string,
 ): CoordinatorAcceptanceDecisionAuthorityPort {
-  if (!ID.test(authenticatedPrincipalId))
+  if (!isPrincipalId(authenticatedPrincipalId))
     throw new Error("orchestrator_acceptance_principal_invalid");
   return Object.freeze({
     verify: (binding) =>
@@ -100,6 +101,7 @@ export function validRequest(
     return false;
   const candidate = input as Partial<CoordinatorAcceptanceDecisionRequest>;
   return (
+    isPrincipalId(candidate.principalId) &&
     candidate.contract === COORDINATOR_ACCEPTANCE_DECISION_CONTRACT &&
     candidate.sourceSpecId === "SPEC-000002" &&
     [
@@ -107,7 +109,6 @@ export function validRequest(
       candidate.projectId,
       candidate.milestoneId,
       candidate.targetId,
-      candidate.principalId,
     ].every(
       (value) => typeof value === "string" && recordAcceptanceID.test(value),
     ) &&

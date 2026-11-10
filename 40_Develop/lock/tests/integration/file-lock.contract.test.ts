@@ -14,6 +14,27 @@ import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
 import { acquireLock } from "../../src/index.ts";
 
+test("未完了操作はdescriptorを閉じLock Fileを保全し再取得を拒否する", (t) => {
+  const request = fixture(t);
+  const result = acquireLock(request);
+  assert.equal(result.status, "acquired");
+  if (result.status !== "acquired") return;
+  const target = path.join(request.directory, request.name);
+  const before = fs.readFileSync(target);
+  const close = fs.closeSync;
+  let closes = 0;
+  t.mock.method(fs, "closeSync", (fd: number) => {
+    closes++;
+    close(fd);
+  });
+  assert.equal(result.lock.release(true), true);
+  assert.ok(closes >= 1);
+  assert.equal(result.lock.assertLive(), false);
+  assert.equal(result.lock.release(), false);
+  assert.ok(fs.readFileSync(target).equals(before));
+  assert.equal(acquireLock(request).status, "blocked");
+});
+
 function fixture(t: TestContext) {
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");

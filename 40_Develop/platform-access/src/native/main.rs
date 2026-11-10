@@ -10,9 +10,6 @@ mod protocol;
 #[cfg(windows)]
 mod filesystem;
 
-#[cfg(windows)]
-mod docker_desktop;
-
 #[allow(dead_code)]
 #[cfg(windows)]
 mod process;
@@ -138,8 +135,6 @@ enum InvocationMode {
     WindowsDirectory,
     FilesystemEntry(std::ffi::OsString),
     Standard,
-    DockerDesktopRepair,
-    DockerDesktopRestart,
 }
 
 /// Native Worker入口のinvocation mode責務を実行する。
@@ -172,20 +167,6 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     if mode == OsStr::new("--system-windows-directory") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::WindowsDirectory)
-        } else {
-            Err(())
-        };
-    }
-    if mode == OsStr::new("--docker-desktop-repair-helper") {
-        return if arguments.next().is_none() {
-            Ok(InvocationMode::DockerDesktopRepair)
-        } else {
-            Err(())
-        };
-    }
-    if mode == OsStr::new("--docker-desktop-restart-helper") {
-        return if arguments.next().is_none() {
-            Ok(InvocationMode::DockerDesktopRestart)
         } else {
             Err(())
         };
@@ -233,26 +214,6 @@ fn main() {
         }
         Ok(InvocationMode::Standard) => execute(&mut std::io::stdin(), &mut std::io::stdout()),
 
-        Ok(InvocationMode::DockerDesktopRepair) => {
-            #[cfg(windows)]
-            {
-                docker_desktop::repair::run(&mut std::io::stdin(), &mut std::io::stdout())
-            }
-            #[cfg(not(windows))]
-            {
-                2
-            }
-        }
-        Ok(InvocationMode::DockerDesktopRestart) => {
-            #[cfg(windows)]
-            {
-                docker_desktop::repair::run_restart(&mut std::io::stdin(), &mut std::io::stdout())
-            }
-            #[cfg(not(windows))]
-            {
-                2
-            }
-        }
         Err(()) => {
             let _ = write_response_to(&mut std::io::stdout());
             2

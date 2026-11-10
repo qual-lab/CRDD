@@ -3,21 +3,16 @@
  * @packageDocumentation
  * @responsibility 上位の現在許可と保存確認だけを受け、OS固有の補助資源と停止・起動を内部に閉じる。
  * @trace ARCH-000008
- * @boundary 現在許可・相関済みcheckpointと、用途固定Native／Docker操作。
+ * @boundary 現在許可・相関済みcheckpointと、用途固定公式CLI／Docker操作。
  */
 import {
   type IsolationSettings,
   captureIsolationSettings,
 } from "../docker-cli/environment.ts";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
 import { types } from "node:util";
-import { describeDockerArtifactTrustContract } from "../docker-cli/trust.ts";
-import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
-import {
-  startDockerDesktopRestartHelper,
-  type DockerDesktopRestartNativeHelperOutcome,
-} from "../../../platform-access/src/index.ts";
+import { acquireDesktopOperations } from "./command.ts";
+import type { DesktopOperations, DesktopAcquisition } from "./types.ts";
 import {
   createDockerRestartMachine,
   type DockerRestartStopFailure,
@@ -119,7 +114,7 @@ export type RestartInput = Readonly<{
  * 同期の確認だけをbooleanとして消費する。
  * @responsibility 非同期確認を待機や実行許可へ変換しない。
  * @trace ARCH-000008
- * @input confirm: 借用元の現在Owner・Scope・取消の確認。
+ * @input confirm: 借用元の現在Owner・固定対象・取消の確認。
  * @returns 同期trueだけ。その他はfalse。
  * @precondition 実処置前の閉じた確認にだけ使用する。
  * @postcondition 拒否したPromiseを保存成功や許可へ昇格しない。
@@ -153,9 +148,9 @@ function confirmSynchronousRestartBoundary(confirm: () => unknown) {
  * @trace ARCH-000008
  * @input input: 元要求と上位の同期確認・通知。
  * @returns 技術観測と通知配送の個別評価。
- * @precondition 上位Ownerが現在の人間許可、Scopeと既存排他を確認する。
- * @postcondition 補助Processの終了確認まで待ってから一度だけ結果を返す。
- * @effect 固定Native補助ProcessとDocker停止・起動・観測・回収。
+ * @precondition 上位Ownerが現在の人間許可、固定対象と既存排他を確認する。
+ * @postcondition 操作資源の終了確認まで待ってから一度だけ結果を返す。
+ * @effect 固定公式CLI操作資源とDocker停止・起動・観測・回収。
  * @failure 未対応環境、確認拒否、取消、実処置不明と回収不明を区別する。
  * @invariant 通常Runtime署名、過去phaseや現在readyから許可を生成しない。
  * @boundary 上位の相関済み状態と下位技術運用。
@@ -170,20 +165,11 @@ export function restartDesktop(
   if (!settings.desktop) throw Error("docker_desktop_settings_unavailable");
   return restartDesktopForVerification(input, {
     platform: process.platform,
-    acquire: async () => {
-      const root = fileURLToPath(new URL("../../../..", import.meta.url));
-      const observed = observePlatformAccessArtifactCandidate(root);
-      return observed.status === "candidate"
-        ? startDockerDesktopRestartHelper(
-            observed.artifact,
-            describeDockerArtifactTrustContract().policySha256,
-          )
-        : Object.freeze({ status: "unavailable" as const, session: null });
-    },
-    createMachine: (session, boundary, signal, accepted, attempted) =>
+    acquire: async (signal) => acquireDesktopOperations(settings, signal),
+    createMachine: (desktop, boundary, signal, accepted, attempted) =>
       createDockerRestartMachine(
         settings,
-        session,
+        desktop,
         boundary,
         signal,
         accepted,
@@ -212,9 +198,9 @@ export async function restartDesktopForVerification(
   input: RestartInput,
   dependencies: Readonly<{
     platform: string;
-    acquire: () => Promise<DockerDesktopRestartNativeHelperOutcome>;
+    acquire: (signal: AbortSignal) => Promise<DesktopAcquisition>;
     createMachine: (
-      session: NonNullable<DockerDesktopRestartNativeHelperOutcome["session"]>,
+      desktop: DesktopOperations,
       boundary: () => boolean,
       signal: AbortSignal,
       accepted?: () => void,
@@ -299,7 +285,7 @@ export async function restartDesktopForVerification(
   let delivery: "not_requested" | "confirmed" | "unknown" = notification
     ? "confirmed"
     : "not_requested";
-  let session: DockerDesktopRestartNativeHelperOutcome["session"] = null;
+  let desktop: DesktopOperations | null = null;
   let machine: ReturnType<typeof createDockerRestartMachine> | null = null;
   let closed = false;
   let reason = "docker_restart_execution_failed";
@@ -365,17 +351,17 @@ export async function restartDesktopForVerification(
     notification = undefined;
   };
   /**
-   * Nativeの停止受理または起動受理を同じ要求へ一回だけ通知する。
-   * @responsibility 補助Processの準備完了から要求受理を推定しない。
+   * 公式CLIの停止受理または起動受理を同じ要求へ一回だけ通知する。
+   * @responsibility 操作資源の準備完了から要求受理を推定しない。
    * @trace ARCH-000008
-   * @input N/A: Nativeの実受付後にMachineが呼ぶ。
+   * @input N/A: 公式CLIの実受付後にMachineが呼ぶ。
    * @returns N/A: 要求状態と固定通知を更新する。
-   * @precondition command_completedまたはstartedのNative応答を確認済み。
+   * @precondition command_completedまたはstartedの公式CLI応答を確認済み。
    * @postcondition 停止と起動の両応答が来ても受付通知は一回。
    * @effect 同期通知closureだけ。新しいHost要求を発行しない。
    * @failure 配送不成立は通知Ownerが別に保持する。
    * @invariant readyやSession取得だけでissuedへ進めない。
-   * @boundary Native受付の技術事実から上位相関への搬送。
+   * @boundary 公式CLI受付の技術事実から上位相関への搬送。
    * @security 受付は実行完了・Task成功・新しい許可を意味しない。
    * @concurrency 同じMachineから同期直列で呼ぶ。
    */
@@ -419,11 +405,12 @@ export async function restartDesktopForVerification(
           ? "docker_restart_cancelled"
           : "docker_restart_boundary_unconfirmed",
       );
-    const acquired = await dependencies.acquire();
-    session = acquired.session;
-    cleanupConfirmed = acquired.status !== "cleanup_unknown" && !session;
-    if (acquired.status !== "acquired" || !session)
-      throw new Error("docker_restart_helper_unavailable");
+    cleanupConfirmed = false;
+    const acquired = await dependencies.acquire(captured.signal);
+    desktop = acquired.operations;
+    cleanupConfirmed = acquired.cleanupConfirmed;
+    if (!desktop || !cleanupConfirmed)
+      throw new Error("docker_restart_operations_unavailable");
     if (!live())
       throw new Error(
         signal.aborted
@@ -431,7 +418,7 @@ export async function restartDesktopForVerification(
           : "docker_restart_boundary_unconfirmed",
       );
     machine = dependencies.createMachine(
-      session,
+      desktop,
       live,
       signal,
       accepted,
@@ -479,11 +466,11 @@ export async function restartDesktopForVerification(
       "docker_restart_cancelled",
       "docker_restart_boundary_unconfirmed",
       "docker_restart_record_unconfirmed",
-      "docker_restart_helper_unavailable",
+      "docker_restart_operations_unavailable",
       "docker_restart_stop_unconfirmed",
       "docker_restart_start_unconfirmed",
     ]);
-    // Native受付のcallbackが変更した操作内状態を再読取りする。
+    // 公式CLI受付のcallbackが変更した操作内状態を再読取りする。
     if (
       (delivery as "not_requested" | "confirmed" | "unknown") === "unknown" &&
       !signal.aborted
@@ -498,14 +485,12 @@ export async function restartDesktopForVerification(
     }
   } finally {
     effectOutcomeUnknown = machine?.getEffectOutcomeUnknown() ?? false;
-    if (session) {
+    if (desktop) {
       try {
         const released = machine
           ? await machine.release()
-          : signal.aborted
-            ? await session.abort()
-            : await session.release();
-        cleanupConfirmed = released.cleanup === "confirmed";
+          : await desktop.close();
+        cleanupConfirmed = released && cleanupConfirmed;
       } catch {
         cleanupConfirmed = false;
       }
@@ -514,7 +499,7 @@ export async function restartDesktopForVerification(
       cleanupFailure = "docker_restart_cleanup_unconfirmed";
       reason = cleanupFailure;
     }
-    session = null;
+    desktop = null;
     machine = null;
   }
   const observation: RestartObservation = Object.freeze({

@@ -39,7 +39,7 @@ await mock.module("node:child_process", {
 });
 const {
   createDockerCliEnvironment,
-  createDockerDesktopRepairHelperEnvironment,
+  createDesktopCommandEnvironment,
   createDockerProcessEnvironment,
   createWindowsPowerShellAuthenticodeEnvironment,
 } = await import("../../src/docker-cli/environment.ts");
@@ -82,7 +82,7 @@ assert.equal(owned?.DOCKER_CONFIG, "D:\\config");
 assert.equal(owned?.HOME, "D:\\home");
 assert.equal(owned?.USERPROFILE, "D:\\home");
 assert.equal(owned?.SystemRoot, settings.windowsDirectory);
-const repair = createDockerDesktopRepairHelperEnvironment(settings);
+const repair = createDesktopCommandEnvironment(settings);
 assert.equal(repair.USERPROFILE, settings.userHomeDirectory);
 assert.equal(repair.SYSTEMDRIVE, "D:");
 const authenticode = createWindowsPowerShellAuthenticodeEnvironment(settings);

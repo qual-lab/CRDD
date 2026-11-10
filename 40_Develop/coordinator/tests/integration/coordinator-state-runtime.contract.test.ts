@@ -4142,13 +4142,11 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   );
   assert.ok(repository);
   const identity = {
-    schema: "crdd-coordinator/runtime-repair-identity/v1",
+    schema: "crdd-coordinator/runtime-repair-identity/v2",
     kind: "runtime_repair",
     operationNonce: "a".repeat(64),
     operationId: "OP-123456",
     repositoryBinding: repository.repositoryBinding,
-    ownerBindingSha256: "b".repeat(64),
-    scopeSha256: "c".repeat(64),
     consumer: "coordinator_cli",
   };
   const first = prepareCoordinatorStateRepairSnapshot(
@@ -4204,7 +4202,6 @@ test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使
   assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
   const actionNames = [
     "stop_runtime",
-    "terminate_runtime",
     "stop_backend",
     "retain_runtime",
     "start_runtime",

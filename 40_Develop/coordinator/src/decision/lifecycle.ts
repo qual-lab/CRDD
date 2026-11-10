@@ -7,6 +7,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import {
+  isPrincipalId,
   type CoordinatorDecisionRecord,
   type CoordinatorDecisionRecoveryIntent,
   createCoordinatorAcceptanceDecision,
@@ -425,9 +426,9 @@ export function issueCoordinatorHumanDecision(
       commonFields.projectId,
       commonFields.milestoneId,
       commonFields.queueId,
-      commonFields.principalId,
       input.decisionId,
     ].every(validId) ||
+    !isPrincipalId(commonFields.principalId) ||
     !REVISION.test(input.repositoryRevision) ||
     !Number.isSafeInteger(input.expectedGeneration) ||
     input.expectedGeneration < 1 ||
@@ -521,10 +522,10 @@ export function submitCoordinatorHumanDecision(
       commonFields.projectId,
       commonFields.milestoneId,
       commonFields.queueId,
-      commonFields.principalId,
       input.decisionId,
       input.recordId,
     ].every(validId) ||
+    !isPrincipalId(commonFields.principalId) ||
     !REVISION.test(input.repositoryRevision) ||
     !Number.isSafeInteger(input.generation) ||
     input.generation < 1 ||
@@ -546,6 +547,8 @@ export function submitCoordinatorHumanDecision(
   } catch {
     return blocked("orchestrator_decision_store_observation_unknown", true);
   }
+  if (record.principalId !== commonFields.principalId)
+    return blocked("orchestrator_decision_binding_mismatch_or_expired");
   const now = input.nowEpochMs ?? Date.now();
   if (record.disposition === "finalized")
     return blocked("orchestrator_decision_already_consumed");
@@ -570,7 +573,6 @@ export function submitCoordinatorHumanDecision(
     record.queueId !== commonFields.queueId ||
     record.repositoryRevision !== input.repositoryRevision ||
     record.expectedGeneration !== input.generation ||
-    record.principalId !== commonFields.principalId ||
     !record.allowedOptions.includes(input.selectedOption) ||
     record.capabilityHash !==
       commonFields.capability.hash(input.continuationCapability)
@@ -1028,32 +1030,6 @@ export function recoverCoordinatorHumanDecision(
 }
 
 /**
- * Runtime所有の判断Storeを開き、Client Principalを観測する。
- *
- * @responsibility 保護Storeの確認結果をPrincipal観測結果へ投影する。
- * @trace ARCH-000004
- * @input N/A: 呼出し引数を受け取らない。
- * @returns 検証できたPrincipal ID、またはunknownを返す。
- * @precondition Runtime所有Storeを確認できる実行環境である。
- * @postcondition 下位Storeがcompletedの場合だけverifiedを返す。
- * @effect 下位Adapterを通じて保護Storeと実行環境を確認し、既存契約に従い未作成Storeを初期化し得る。
- * @failure Storeを確認できなければunknownを返し、検証済みと扱わない。
- * @invariant 観測不能を不存在または認証成功へ変換しない。
- * @boundary 保護された判断Storeから公開Principal観測への境界。
- * @security 秘密値や判断Authorityは返さず、検証済みPrincipal IDだけを公開する。
- * @concurrency 下位Storeの排他・検証契約を変更せず、呼出しごとに観測する。
- */
-export function observeClientPrincipal() {
-  const observed = openRuntimeOwnedWindowsProjectDecisionStore();
-  return observed.status === "completed"
-    ? Object.freeze({
-        status: "verified" as const,
-        principalId: observed.principalId,
-      })
-    : Object.freeze({ status: "unknown" as const });
-}
-
-/**
  * Coordinator Public Decisionを実行する。
  *
  * @responsibility Coordinator Public Decisionの実行条件、Effect範囲、終了結果の境界を所有する。
@@ -1086,6 +1062,18 @@ export function executeCoordinatorPublicDecision(
       effectState: "no_effect" as const,
     });
   const { decisionId, projectId, milestoneId } = request;
+  if (
+    authenticationContext === undefined ||
+    !isPrincipalId(authenticationContext.principalId)
+  )
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_authenticated_principal_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
   let repositoryRoot: string;
   try {
     repositoryRoot =
@@ -1101,11 +1089,7 @@ export function executeCoordinatorPublicDecision(
     });
   }
   const protectedStore = openDecisionStore();
-  if (
-    protectedStore.status !== "completed" ||
-    (authenticationContext !== undefined &&
-      authenticationContext.principalId !== protectedStore.principalId)
-  )
+  if (protectedStore.status !== "completed")
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
@@ -1128,6 +1112,7 @@ export function executeCoordinatorPublicDecision(
   const record = observed?.status === "completed" ? observed.value : null;
   if (
     !record ||
+    record.principalId !== authenticationContext.principalId ||
     typeof record.queueId !== "string" ||
     typeof record.repositoryRevision !== "string"
   )
@@ -1143,7 +1128,7 @@ export function executeCoordinatorPublicDecision(
     projectId,
     milestoneId,
     queueId: record.queueId,
-    principalId: protectedStore.principalId,
+    principalId: authenticationContext.principalId,
     store: protectedStore.store,
     recoveryStore: createCoordinatorSnapshotDecisionRecoveryStore(
       repositoryRoot,

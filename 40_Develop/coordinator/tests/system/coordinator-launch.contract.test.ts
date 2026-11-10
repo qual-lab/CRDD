@@ -36,8 +36,22 @@ const terminal = {
  */
 test("新文法は対象と操作を一意に解決し機械出力条件を維持する", () => {
   for (const args of [
-    ["task", "run", "--request-stdin", "--json"],
-    ["project", "run", "--request-stdin", "--json"],
+    [
+      "task",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    [
+      "project",
+      "run",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
   ]) {
     assert.equal(resolveCoordinatorLaunch(args, terminal).status, "blocked");
     const result = resolveCoordinatorLaunch(args, {
@@ -52,7 +66,15 @@ test("新文法は対象と操作を一意に解決し機械出力条件を維�
     "ready",
   );
   for (const args of [
-    ["task", "--request-stdin", "--json"],
+    [
+      "task",
+      "--request-stdin",
+      "--json",
+      "--principal-id",
+      "local.email.fixture@example.invalid",
+    ],
+    ["task", "run", "--request-stdin", "--json"],
+    ["project", "run", "--request-stdin", "--json"],
     ["project", "--initialize", "--json"],
     ["automation", "capabilities", "--json"],
     ["interactive", "doctor"],
@@ -131,7 +153,7 @@ test("公開helpと能力一覧は新文法だけを案内する", () => {
   );
   assert.equal(child.status, 0, child.stderr);
   const value = JSON.parse(child.stdout);
-  assert.equal(value.contractRevision, 5);
+  assert.equal(value.contractRevision, 6);
   assert.equal(value.executionAuthorityIssued, false);
   assert.ok(value.operations.includes("runTask"));
   assert.ok(
@@ -226,7 +248,7 @@ test("同一Processの配送はPID・引数・stdin・cwdを維持し例外を�
   for (const fail of [false, true]) {
     const script = `import {mock} from"node:test";
  mock.module(${JSON.stringify(request)},{namedExports:{runProjectCommand:async()=>{},runSingleTaskCommand:async(args)=>{if(${fail})throw Error("PRIVATE_FIXTURE_DETAIL");const chunks=[];for await(const c of process.stdin)chunks.push(c);console.log(JSON.stringify({pid:process.pid,args,cwd:process.cwd(),input:Buffer.concat(chunks).toString("hex")}));process.exitCode=37;}}});
- const {runCoordinatorCommand}=await import(${JSON.stringify(command)});await runCoordinatorCommand(["task","run","--request-stdin","--json"]);`;
+ const {runCoordinatorCommand}=await import(${JSON.stringify(command)});await runCoordinatorCommand(["task","run","--request-stdin", "--json", "--principal-id", "local.email.fixture@example.invalid"]);`;
     const input = Buffer.from('{"text":"日本語"}\n');
     const child = spawnSync(
       process.execPath,
@@ -247,7 +269,13 @@ test("同一Processの配送はPID・引数・stdin・cwdを維持し例外を�
     } else
       assert.deepEqual(JSON.parse(child.stdout), {
         pid: child.pid,
-        args: ["run", "--request-stdin", "--json"],
+        args: [
+          "run",
+          "--request-stdin",
+          "--json",
+          "--principal-id",
+          "local.email.fixture@example.invalid",
+        ],
         cwd: root,
         input: input.toString("hex"),
       });

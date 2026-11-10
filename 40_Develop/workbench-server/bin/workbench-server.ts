@@ -23,7 +23,9 @@ import {
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   getRepository,
+  readGitUser,
 } from "../../version-control/src/index.ts";
+import { createLocalPrincipalId } from "../../domain-model/src/index.ts";
 
 /**
  * 単体Repositoryの既存AI・Candidateを構成してWorkbenchを起動する。
@@ -51,11 +53,17 @@ async function startRepositoryWorkbench(
   if (verified.status !== "completed")
     throw new Error("verified_repository_root_required");
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
+  const gitUser = readGitUser(verified.capability);
+  const principalId =
+    gitUser.status === "completed"
+      ? createLocalPrincipalId(gitUser.email)
+      : null;
+  if (!principalId) throw new Error("local_git_user_unavailable");
   const { openTaskSession } = await import("../../coordinator/src/index.ts");
   const aiRequests = openTaskSession({
     rootCapability: verified.capability,
     projectId: surface.context.projectId,
-    principalId: "local-workbench-user",
+    principalId,
     authorize: () =>
       resolveVerifiedRepositoryRootFromWorkingDirectory(repositoryRoot) ===
       repositoryRoot,

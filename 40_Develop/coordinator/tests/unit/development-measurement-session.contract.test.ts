@@ -13,7 +13,6 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { inspectRuntimeOwnedWindowsRuntimeState } from "../../src/execution/authority.ts";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/execution/controller.ts";
 import {
   createIsolatedDevelopmentMeasurementSessionCandidate,
@@ -756,8 +755,6 @@ test("試験sessionのtokenは本番Task・native Home・Store・Runtime State�
   assertPresent(taskCapability);
   for (const outcome of [
     inspectRuntimeOwnedWindowsProviderHomeCandidate("codex", taskCapability),
-    inspectRuntimeOwnedWindowsRuntimeState(true, taskCapability),
-    inspectRuntimeOwnedWindowsRuntimeState(true, taskCapability),
   ]) {
     assert.equal(outcome.status, "blocked");
     assert.match(outcome.reason, /development_context_invalid$/u);

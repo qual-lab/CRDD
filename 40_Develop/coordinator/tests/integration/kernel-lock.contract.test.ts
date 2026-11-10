@@ -69,23 +69,14 @@ test("HomeはRepository横断で同一対象を排他し、Executorと同じRequ
 
 test("共有RuntimeStateはRepository・Homeキーが違っても同じ所在で排他する", (t) => {
   const directory = fixture(t);
-  const firstAcquisition = acquireRuntimeStateLock(
-    randomBytes(32).toString("hex"),
-    directory,
-  );
+  const firstAcquisition = acquireRuntimeStateLock(directory);
   assert.ok(firstAcquisition.status === "acquired");
   const first = firstAcquisition.lock;
   assert.ok(first);
-  assert.equal(
-    acquireRuntimeStateLock(randomBytes(32).toString("hex"), directory).status,
-    "blocked",
-  );
+  assert.equal(acquireRuntimeStateLock(directory).status, "blocked");
   assert.equal(first.assertLive(), true);
   assert.equal(first.release(), true);
-  const nextAcquisition = acquireRuntimeStateLock(
-    randomBytes(32).toString("hex"),
-    directory,
-  );
+  const nextAcquisition = acquireRuntimeStateLock(directory);
   assert.ok(nextAcquisition.status === "acquired");
   const next = nextAcquisition.lock;
   assert.ok(next);

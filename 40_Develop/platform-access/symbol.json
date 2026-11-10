@@ -217,32 +217,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.source.docker-desktop",
-      "kind": "module",
-      "path": "src/native/docker_desktop/mod.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000014"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.docker-repair",
-      "kind": "module",
-      "path": "src/native/docker_desktop/windows/repair.rs",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.docker-identity",
-      "kind": "module",
-      "path": "src/native/docker_desktop/windows/identity.rs",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "platform-access.native-entry",
       "kind": "module",
       "path": "src/native/main.rs",
@@ -264,24 +238,6 @@
       ],
       "verifies": [
         "platform-access.native-entry"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.docker-repair",
-      "kind": "test-suite",
-      "path": "src/native/docker_desktop/windows/repair.rs",
-      "qaIds": [
-        "QA-000003",
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-037",
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "platform-access.native-entry",
-        "platform-access.source.docker-repair",
-        "platform-access.source.docker-identity"
       ]
     },
     {
@@ -343,20 +299,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.test.unit.docker-authenticode",
-      "kind": "test-suite",
-      "path": "src/native/docker_desktop/windows/publisher.rs",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-UT-005"
-      ],
-      "verifies": [
-        "platform-access.native-entry"
-      ]
-    },
-    {
       "symbolId": "platform-access.test.unit.windows-directory",
       "kind": "test-suite",
       "path": "src/native/filesystem/windows/windows_directory.rs",
@@ -371,20 +313,6 @@
       "verifies": [
         "platform-access.native-entry",
         "platform-access.source.windows-directory"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.unit.windows-owned-child",
-      "kind": "test-suite",
-      "path": "src/native/process/windows/owned_child.rs",
-      "qaIds": [
-        "QA-000008"
-      ],
-      "localTestIds": [
-        "RDL-UT-005"
-      ],
-      "verifies": [
-        "platform-access.native-entry"
       ]
     },
     {
@@ -413,38 +341,6 @@
       ],
       "verifies": [
         "platform-access.source.windows-child-environment"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.desktop-helper",
-      "kind": "module",
-      "path": "src/docker-desktop/native-process.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.desktop-protocol",
-      "kind": "module",
-      "path": "src/docker-desktop/protocol.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.desktop-helper",
-      "kind": "test-suite",
-      "path": "tests/integration/desktop-helper.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001"
-      ],
-      "verifies": [
-        "platform-access.source.desktop-helper",
-        "platform-access.source.desktop-protocol",
-        "docker-isolation.execution.cli-trust"
       ]
     }
   ]

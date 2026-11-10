@@ -50,17 +50,8 @@ function fixture(transform: (source: string) => string = (source) => source) {
       | "incomplete"
       | "retained"
       | "cancel"
-      | "helper_then_cancel"
-      | "cancel_then_helper"
       | "effect_unknown",
-    close: "clean" as
-      | "clean"
-      | "cancel"
-      | "helper"
-      | "unknown"
-      | "protocol"
-      | "cancel_unknown"
-      | "cancel_protocol",
+    close: "clean" as "clean" | "cancel" | "unknown" | "cancel_unknown",
     fault: "none" as "none" | "cleanup" | "outcome",
     faultKind: "reject" as "reject" | "confirmation" | "release" | "throw",
     faultHits: 0,
@@ -135,7 +126,6 @@ function fixture(transform: (source: string) => string = (source) => source) {
       | "after_effect",
   };
   const saved: Buffer[] = [];
-  let failure: (() => void) | null = null;
   let late: Input["onCheckpoint"] | null = null;
   /**
    * 専用Readerの値分類を実モデルから構成する。
@@ -645,48 +635,23 @@ function fixture(transform: (source: string) => string = (source) => source) {
       const close = async () => {
         state.joined++;
         if (state.close.startsWith("cancel")) controller.abort();
-        if (state.close === "helper") failure?.();
-        return {
-          cleanup:
-            state.close === "unknown" || state.close === "cancel_unknown"
-              ? ("unknown" as const)
-              : ("confirmed" as const),
-          protocol:
-            state.close === "protocol" || state.close === "cancel_protocol"
-              ? ("failed" as const)
-              : ("completed" as const),
-        };
+        return state.close !== "unknown" && state.close !== "cancel_unknown";
       };
       return runRepairSessionWithDependencies(input, {
         acquire: async () => {
           state.acquired++;
           return {
-            status: "acquired",
-            ownerBindingSha256: "b".repeat(64),
-            session: {
-              assertLive: () => true,
-              failureDetected: new Promise(() => {}),
-              onFailureDetected: (callback) => {
-                failure = callback;
-                return () => {
-                  failure = null;
-                };
-              },
-              verifyArtifacts: async () => "verified",
-              inspectProcesses: async () => "verified",
-              terminateProcesses: async () => {
+            cleanupConfirmed: true,
+            operations: {
+              verify: () => true,
+              command: async () => {
                 throw new Error("unexpected_effect");
               },
-              launchDesktop: async () => {
-                throw new Error("unexpected_effect");
-              },
-              release: close,
-              abort: close,
+              close,
             },
           };
         },
         prepare: async () => ({
-          scopeSha256: "c".repeat(64),
           cleanupFailure: () =>
             state.observationCleanupUnknown && state.observed > 0
               ? "observation_cleanup_unknown"
@@ -780,14 +745,6 @@ function fixture(transform: (source: string) => string = (source) => source) {
                     },
                   },
                 };
-              if (state.mode === "helper_then_cancel") {
-                failure?.();
-                controller.abort();
-              }
-              if (state.mode === "cancel_then_helper") {
-                controller.abort();
-                failure?.();
-              }
               if (state.mode === "cancel") controller.abort();
               return state.mode === "effect_unknown"
                 ? {
@@ -976,13 +933,8 @@ test("修復履歴接続: 成功・保持・取消後のexact確定を分ける"
  * @boundary compositionの履歴接続。実物保存はHost試験。
  */
 test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しない", async () => {
-  for (const mode of [
-    "cancel",
-    "helper_then_cancel",
-    "cancel_then_helper",
-    "effect_unknown",
-  ] as const)
-    for (const close of ["clean", "unknown", "protocol"] as const) {
+  for (const mode of ["cancel", "effect_unknown"] as const)
+    for (const close of ["clean", "unknown"] as const) {
       const f = fixture();
       f.state.mode = mode;
       f.state.close = close;
@@ -993,7 +945,7 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       assert.equal(first.reason, operation.outcome.reason);
       assert.equal(first.historyConfirmed, true, `${mode}:${close}`);
       assert.equal(
-        first.nativeCleanupConfirmed,
+        first.operationCleanupConfirmed,
         operation.checkpoint?.cleanup === "confirmed",
       );
       assert.equal(first.completionConfirmed, false);
@@ -1016,7 +968,10 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       assert.equal(again.reason, first.reason);
       assert.equal(again.historyConfirmed, true);
       assert.equal(again.completionConfirmed, false);
-      assert.equal(again.nativeCleanupConfirmed, first.nativeCleanupConfirmed);
+      assert.equal(
+        again.operationCleanupConfirmed,
+        first.operationCleanupConfirmed,
+      );
       assert.ok(f.state.bytes?.equals(original));
       assert.deepEqual(
         {
@@ -1047,7 +1002,7 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       assert.equal(failed.reason, "runtime_repair_effect_unknown");
       assert.equal(failed.outcomeConfirmed, true);
       assert.equal(failed.historyConfirmed, false);
-      assert.equal(failed.nativeCleanupConfirmed, false);
+      assert.equal(failed.operationCleanupConfirmed, false);
       assert.equal(failed.completionConfirmed, false);
       assert.equal(f.state.historyWrites, stage);
       assert.equal(f.state.completionWrites, 0);
@@ -1064,7 +1019,7 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
     }
   const retained = fixture();
   retained.state.mode = "retained";
-  retained.state.close = "helper";
+  retained.state.close = "unknown";
   const pending = await retained.run();
   const operation = retained.snapshot()?.operations[0];
   assert.ok(operation?.kind === "runtime_repair");
@@ -1090,8 +1045,8 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
     const f = fixture((source) => {
       if (!mutant) return source;
       const changed = source.replace(
-        /nativeCleanupConfirmed =\s*nativeCleanupConfirmed \|\|\s*(operation\.checkpoint\?\.cleanup === "confirmed");/u,
-        "nativeCleanupConfirmed = $1;",
+        /operationCleanupConfirmed =\s*operationCleanupConfirmed \|\|\s*(operation\.checkpoint\?\.cleanup === "confirmed");/u,
+        "operationCleanupConfirmed = $1;",
       );
       assert.notEqual(changed, source);
       return changed;
@@ -1119,7 +1074,8 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
      * @cleanup N/A: 同期の値確認だけ。
      * @boundary 個別回収と集約回収の区別。
      */
-    const checkKnown = () => assert.equal(first.nativeCleanupConfirmed, true);
+    const checkKnown = () =>
+      assert.equal(first.operationCleanupConfirmed, true);
     if (mutant) {
       assert.throws(checkKnown);
       continue;
@@ -1131,7 +1087,7 @@ test("修復失敗履歴: 既知Native回収と集約不明を別に保持する
     f.controller.abort();
     const fresh = await f.run(first.recoveryId);
     assert.equal(fresh.reason, first.reason);
-    assert.equal(fresh.nativeCleanupConfirmed, false);
+    assert.equal(fresh.operationCleanupConfirmed, false);
     assert.equal(fresh.historyConfirmed, true);
     assert.equal(fresh.completionConfirmed, false);
     assert.ok(f.state.bytes?.equals(before));
@@ -1183,7 +1139,7 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
   assert.equal(duplicate.completionConfirmed, true);
   assert.equal(duplicate.historyConfirmed, true);
   assert.equal(duplicate.outcomeConfirmed, false);
-  assert.equal(duplicate.nativeCleanupConfirmed, false);
+  assert.equal(duplicate.operationCleanupConfirmed, false);
   assert.equal(duplicate.finalCheckpointConfirmed, false);
   assert.equal(duplicate.completionEffectIssued, false);
   assert.deepEqual(
@@ -1343,7 +1299,7 @@ test("修復履歴接続: 保存失敗でも技術結果と保持判断を失わ
         assert.equal(result.outcomeConfirmed, true);
         assert.equal(result.retentionConfirmed, retained);
         assert.equal(result.historyConfirmed, false);
-        assert.equal(result.nativeCleanupConfirmed, true);
+        assert.equal(result.operationCleanupConfirmed, true);
         assert.equal(result.finalCheckpointConfirmed, true);
         const target = f.snapshot()?.operations[0];
         assert.ok(target?.kind === "runtime_repair");
@@ -1596,7 +1552,7 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
     assert.equal(duplicate.status, "observed");
     assert.equal(duplicate.completionConfirmed, true);
     assert.equal(duplicate.retentionReviewAfter, result.retentionReviewAfter);
-    assert.equal(duplicate.nativeCleanupConfirmed, false);
+    assert.equal(duplicate.operationCleanupConfirmed, false);
     assert.equal(duplicate.finalCheckpointConfirmed, false);
     assert.equal(f.state.retentionReads, reads);
     assert.equal(f.state.dateReads, dates);
@@ -1680,7 +1636,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
     assert.equal(stopped.retentionReviewAfter, completed.retentionReviewAfter);
     assert.equal(stopped.completionConfirmed, false);
     assert.equal(stopped.finalCheckpointConfirmed, false);
-    assert.equal(stopped.nativeCleanupConfirmed, false);
+    assert.equal(stopped.operationCleanupConfirmed, false);
     const report = renderDockerRecoveryDoctorReport(
       {
         ...stopped,
@@ -1853,20 +1809,10 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
     "incomplete",
     "retained",
     "cancel",
-    "helper_then_cancel",
-    "cancel_then_helper",
     "effect_unknown",
   ] as const) {
     for (const close of mode === "ready"
-      ? ([
-          "clean",
-          "cancel",
-          "helper",
-          "unknown",
-          "protocol",
-          "cancel_unknown",
-          "cancel_protocol",
-        ] as const)
+      ? (["clean", "cancel", "unknown", "cancel_unknown"] as const)
       : mode === "effect_unknown"
         ? (["clean", "unknown"] as const)
         : (["clean"] as const)) {
@@ -1905,7 +1851,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
           : mode === "retained" ||
               (mode === "ready" && ["clean", "cancel"].includes(close))
             ? "recovered"
-            : mode === "cancel" || mode === "cancel_then_helper"
+            : mode === "cancel"
               ? "cancelled"
               : "blocked";
       assert.equal(
@@ -1972,19 +1918,16 @@ function assertRepairResultFields(
   close: ReturnType<typeof fixture>["state"]["close"],
 ) {
   const unknown = close === "unknown" || close === "cancel_unknown";
-  const protocol = close === "protocol" || close === "cancel_protocol";
   const reason =
     mode === "incomplete"
       ? "runtime_repair_observation_unknown"
       : mode === "effect_unknown"
         ? "runtime_repair_effect_unknown"
-        : mode === "cancel" || mode === "cancel_then_helper"
+        : mode === "cancel"
           ? "runtime_repair_cancelled"
-          : mode === "helper_then_cancel" || close === "helper"
-            ? "runtime_repair_boundary_unavailable"
-            : unknown || protocol
-              ? "runtime_repair_cleanup_unknown"
-              : "runtime_repair_recovered";
+          : unknown
+            ? "runtime_repair_cleanup_unknown"
+            : "runtime_repair_recovered";
   const status =
     mode === "incomplete"
       ? null
@@ -1999,7 +1942,7 @@ function assertRepairResultFields(
     "outcome_reason_mismatch",
   );
   assert.equal(
-    result.nativeCleanupConfirmed,
+    result.operationCleanupConfirmed,
     !unknown,
     "native_cleanup_mismatch",
   );
@@ -2018,11 +1961,7 @@ function assertRepairResultFields(
   assert.equal(target.checkpoint?.cleanup, unknown ? "unknown" : "confirmed");
   assert.equal(
     target.checkpoint?.cleanupFailure,
-    unknown
-      ? "helper_cleanup_unknown"
-      : protocol
-        ? "helper_protocol_failed"
-        : null,
+    unknown ? "operation_cleanup_unknown" : null,
   );
 }
 
@@ -2043,17 +1982,17 @@ test("修復結果: 回収確認と理由の誤返却を共同Oracleで検出す
       const mutated =
         field === "native"
           ? source.replaceAll(
-              /^(\s*)nativeCleanupConfirmed,$/gmu,
-              "$1nativeCleanupConfirmed: true,",
+              /^(\s*)operationCleanupConfirmed,$/gmu,
+              "$1operationCleanupConfirmed: true,",
             )
           : source.replaceAll(
-              '"runtime_repair_boundary_unavailable"',
+              '"runtime_repair_cleanup_unknown"',
               '"runtime_repair_failed_closed"',
             );
       assert.notEqual(mutated, source);
       return mutated;
     });
-    f.state.close = field === "native" ? "unknown" : "helper";
+    f.state.close = "unknown";
     const result = await f.run();
     const target = f.snapshot()?.operations[0];
     assert.equal(target?.kind, "runtime_repair");
@@ -2160,7 +2099,7 @@ test("修復結果: 最終二保存の片側不成立を成功へ補完しない
       assert.equal(result.status, "blocked");
       assert.equal(result.outcomeConfirmed, false);
       assert.equal(result.finalCheckpointConfirmed, stage === "outcome");
-      assert.equal(result.nativeCleanupConfirmed, true);
+      assert.equal(result.operationCleanupConfirmed, true);
       const target = f.snapshot()?.operations[0];
       assert.equal(target?.kind, "runtime_repair");
       if (target?.kind !== "runtime_repair") throw new Error("wrong_target");
@@ -2247,7 +2186,7 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
     assert.equal(result.reason, "runtime_repair_effect_unknown");
     assert.equal(result.finalCheckpointConfirmed, true);
     assert.equal(result.outcomeConfirmed, true);
-    assert.equal(result.nativeCleanupConfirmed, close === "clean");
+    assert.equal(result.operationCleanupConfirmed, close === "clean");
     assert.equal(f.state.entries, counts.entries);
     assert.equal(f.state.acquired, counts.acquired);
     assert.equal(f.state.effects, counts.effects);

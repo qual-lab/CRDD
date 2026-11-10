@@ -26,7 +26,6 @@ export {
   queryActivity,
   type WorkspaceView,
   readRepositoryNetworkHosts,
-  observeClientPrincipal,
   isSupportedNodeRuntime,
   getCapabilities,
   getAuthenticationStatus,

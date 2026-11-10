@@ -231,8 +231,6 @@ test("環境診断は読取りのみ、再起動は元要求と元Promiseをそ�
     lifecycle: null,
     checkpoint: null,
     finalCheckpointConfirmed: false,
-    ownerBindingSha256: null,
-    scopeSha256: null,
   });
   const repaired = Promise.resolve(repairResult);
   let repairSupplied: RepairInput | null = null;

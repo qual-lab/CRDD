@@ -5,6 +5,7 @@
  * @trace ARCH-000004、ARCH-000005、ARCH-000008
  * @boundary Domain内の値検査。Coordinator・Provider・OSへの依存なし。
  */
+import { isPrincipalId } from "../identity/validation.ts";
 import type {
   CoordinatorAcceptanceDecisionRecord,
   CoordinatorDecisionRecord,
@@ -100,7 +101,7 @@ export function isCoordinatorDecisionRecord(
       COORDINATOR_DECISION_REVISION.test(value.repositoryRevision) &&
       Number.isSafeInteger(value.expectedGeneration) &&
       value.expectedGeneration >= 1 &&
-      isDecisionId(value.principalId) &&
+      isPrincipalId(value.principalId) &&
       Array.isArray(value.allowedOptions) &&
       value.allowedOptions.length > 0 &&
       value.allowedOptions.every(
@@ -163,8 +164,8 @@ function validCoordinatorAcceptanceDecisionRecord(
       record.projectId,
       record.milestoneId,
       record.targetId,
-      record.principalId,
     ].every((item) => typeof item === "string" && ID.test(item)) &&
+    isPrincipalId(record.principalId) &&
     record.sourceSpecId === "SPEC-000002" &&
     typeof record.repositoryRevision === "string" &&
     /^[0-9a-f]{40,64}$/u.test(record.repositoryRevision) &&

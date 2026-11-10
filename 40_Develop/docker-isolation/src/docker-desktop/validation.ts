@@ -17,7 +17,7 @@ import type { RepairRetentionTargets } from "./types.ts";
 
 /**
  * 有限な修復checkpointを独立した凍結DTOへ復号する。
- * @responsibility 意図・発行・結果・九処置順序と退避実体を共同検証する。
+ * @responsibility 意図・発行・結果・8処置順序と退避実体を共同検証する。
  * @trace ARCH-000008
  * @input value: 未信頼の技術checkpoint。
  * @returns 完全な固定DTO、またはnull。
@@ -60,8 +60,7 @@ export function decodeRepairCheckpoint(
     ) ||
     ![
       null,
-      "helper_cleanup_unknown",
-      "helper_protocol_failed",
+      "operation_cleanup_unknown",
       "observation_cleanup_unknown",
     ].includes(record.cleanupFailure as null | string)
   )
@@ -245,7 +244,7 @@ export function isRepairDisposalSettled(value: unknown): boolean {
 }
 
 /**
- * 九処置が確認済みまたは明示不要であるかを検査する。
+ * 8処置が確認済みまたは明示不要であるかを検査する。
  * @responsibility 未観測を処置完了へ畳まず、技術処置の終端だけを返す。
  * @trace ARCH-000008
  * @input value: 保存または通知された技術checkpoint候補。
@@ -269,7 +268,6 @@ export function isRepairCheckpointSettled(value: unknown): boolean {
 
 export const actions = Object.freeze([
   "stop_runtime",
-  "terminate_runtime",
   "stop_backend",
   "retain_runtime",
   "start_runtime",

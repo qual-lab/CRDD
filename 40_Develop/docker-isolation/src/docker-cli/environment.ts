@@ -198,7 +198,7 @@ export function createDockerCliEnvironment(
 }
 
 /** 固定WSL観測・停止に使用するHost HomeとDriveを投影する。 */
-export function createDockerDesktopRepairHelperEnvironment(
+export function createDesktopCommandEnvironment(
   settings: IsolationSettings,
 ): Readonly<Record<string, string>> {
   return Object.freeze({

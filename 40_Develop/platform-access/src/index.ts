@@ -31,7 +31,6 @@ export {
   deriveWindowsSystemDrive,
 } from "./process/environment.ts";
 export {
-  observeWindowsRuntimeState,
   observeWindowsProviderHome,
   type DevelopmentNativeSource,
   type DevelopmentNativeSourceReader,
@@ -40,11 +39,3 @@ export {
   describeProviderHomeObservationContract,
   type ProviderHomeObservationProvider,
 } from "./filesystem/protection.ts";
-export {
-  startDockerDesktopRepairHelper,
-  startDockerDesktopRestartHelper,
-  type DockerDesktopRepairNativeHelperOutcome,
-  type DockerDesktopRepairNativeHelperSession,
-  type DockerDesktopRepairHelperReleaseOutcome,
-  type DockerDesktopRestartNativeHelperOutcome,
-} from "./docker-desktop/native-process.ts";

@@ -117,7 +117,7 @@ test("修復Host操作は独立したRoot APIとして公開しない", () => {
     "terminateDockerDesktopBackendForRepair",
     "retainDockerDesktopRepairRunDirectory",
     "retainDockerDesktopRepairContinuationDirectory",
-    "observeDockerDesktopRepairScope",
+    "observeRepairDirectoryTargets",
     "createDockerDesktopRepairDirectoryAccess",
     "createDockerDesktopRepairOperations",
     "runRepairSessionWithDependencies",
@@ -241,12 +241,7 @@ test("修復Directoryアクセスは同じScope対象だけを観測・退避す
     closes++;
     assert.fail("no acquired handle");
   });
-  const access = createDockerDesktopRepairDirectoryAccess(
-    localAppData,
-    nonce,
-    "2".repeat(64),
-    "3".repeat(64),
-  );
+  const access = createDockerDesktopRepairDirectoryAccess(localAppData, nonce);
   assert.ok(access);
   assert.ok(Object.isFrozen(access));
   for (const purpose of ["initial", "failed", "auxiliary"] as const) {
@@ -316,12 +311,7 @@ test("修復Directoryアクセスは同じScope対象だけを観測・退避す
     `${body}; createDockerDesktopRepairDirectoryAccess`,
     { fs, createHash, Buffer, path, types, process: { platform: "win32" } },
   ) as typeof createDockerDesktopRepairDirectoryAccess;
-  const discarded = factory(
-    localAppData,
-    nonce,
-    "2".repeat(64),
-    "3".repeat(64),
-  );
+  const discarded = factory(localAppData, nonce);
   assert.ok(discarded);
   locked = true;
   const openStart = opens;
@@ -386,17 +376,17 @@ function assertLocalRealpathRequests(
 }
 
 /**
- * 修復Scopeの固定材料、byte encodingと一回捕捉した対象を確認する。
- * @responsibility 可変Docker親実体をScopeへ固定せず、Local親の観測不明を拒否する。
+ * 基点の読取り範囲、固定退避名のIDと捕捉対象を確認する。
+ * @responsibility 可変Docker親を事前に読まず、基点実体の不明を拒否する。
  * @trace ERB-IT-014
  * @precondition 本番Module本文と模擬Local親の読取りだけ。
  * @stimulus 同材料、各材料差、Path表現差、親変更・不明・不正入力を与える。
- * @observation Hash、下位32桁ID、固定targets、全Filesystem要求。
- * @oracle 独立UTF-8長付き期待Hashと一致し、未知親・不正値は準備拒否。
+ * @observation nonce派生32桁ID、固定targets、基点のFilesystem要求。
+ * @oracle 固定退避名のIDは既存encodingと一致し、Scope Hashは返さず不正値を拒否する。
  * @cleanup N/A: 実Filesystem／Native／Docker変更0。
  * @boundary 修復Scope読取りの合成Filesystem境界。
  */
-test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", () => {
+test("修復対象は設定済み基点とnonceだけから固定しHashを返さない", () => {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
       new URL("../../src/docker-desktop/directory.ts", import.meta.url),
@@ -405,262 +395,92 @@ test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", 
   )
     .replace(/^import[\s\S]*?;\r?\n/gmu, "")
     .replace(/^export /gmu, "");
-  const canonical = "C:\\Users\\使用者\\AppData\\Local";
-  const nonce = "1".repeat(64),
-    owner = "2".repeat(64),
-    artifact = "3".repeat(64);
-  const stable = { dev: "1", ino: "2", birthtimeNs: "3" };
-  const data = Buffer.from(JSON.stringify({ operationNonce: nonce }), "utf8");
-  const length = Buffer.alloc(4);
-  length.writeUInt32LE(data.length);
-  const directoryId = createHash("sha256")
-    .update("crdd/docker-desktop-repair-directory/v1", "ascii")
-    .update(Buffer.from([0]))
-    .update(length)
-    .update(data)
-    .digest("hex")
-    .slice(0, 32);
-  const run = path.win32.join(canonical, "Docker", "run");
-  const secrets = path.win32.join(canonical, "docker-secrets-engine");
-  const targets = {
-    initial: {
-      source: run,
-      target: `${run}.crdd-stale-${directoryId}`,
-      parent: path.win32.dirname(run),
-    },
-    failed: {
-      source: run,
-      target: `${run}.crdd-stale-${directoryId}-restart`,
-      parent: path.win32.dirname(run),
-    },
-    auxiliary: {
-      source: secrets,
-      target: `${secrets}.crdd-stale-${directoryId}`,
-      parent: canonical,
-    },
-  };
-  const payload = {
-    protocol: "CRDDDR06",
-    operationNonce: nonce,
-    ownerBindingSha256: owner,
-    artifactSha256: artifact,
-    localAppData: { path: canonical, identity: stable },
-    targets,
-  };
-  const bytes = Buffer.from(JSON.stringify(payload), "utf8");
-  assert.ok(bytes.length > JSON.stringify(payload).length);
-  const header = Buffer.alloc(4);
-  header.writeUInt32LE(bytes.length);
-  const expected = createHash("sha256")
-    .update("crdd/docker-desktop-repair-scope/v1", "ascii")
-    .update(Buffer.from([0]))
-    .update(header)
-    .update(bytes)
-    .digest("hex");
-  const mutant = source.replace(
-    "length.writeUInt32LE(bytes.length)",
-    "length.writeUInt32LE(JSON.stringify(payload).length)",
-  );
-  assert.notEqual(mutant, source);
-  for (const changed of [false, true]) {
-    for (const scenario of [
-      "normal",
-      "case",
-      "prefix",
-      "nonce",
-      "owner",
-      "artifact",
-      "identity",
-      "path",
-      "changed",
-      "link",
-      "file",
-      "unknown",
-      "realpath_unknown",
-      "alias",
-      "non_windows",
-      "invalid",
-      "proxy",
-      "getter",
-    ] as const) {
-      let reads = 0,
-        traps = 0;
-      const realpaths: string[] = [];
-      const root =
-        scenario === "path"
-          ? canonical.replace("使用者", "別利用者")
-          : canonical;
-      const functions = runInNewContext(
-        `${changed ? mutant : source}; ({scope:observeDockerDesktopRepairScope})`,
-        {
-          Buffer,
-          path,
-          types,
-          createHash,
-          process: { platform: scenario === "non_windows" ? "linux" : "win32" },
-          fs: {
-            lstatSync(target: string) {
-              reads++;
-              // Docker親やrunが存在しなくても、Scopeはそこを観測しない。
-              assert.equal(
-                target.toLocaleLowerCase("en-US"),
-                root.toLocaleLowerCase("en-US"),
-              );
-              if (scenario === "unknown") throw new Error("unobserved");
-              return {
-                dev: 1n,
-                ino:
-                  scenario === "identity" ||
-                  (scenario === "changed" && reads > 1)
-                    ? 99n
-                    : 2n,
-                birthtimeNs: 3n,
-                isDirectory: () => scenario !== "file",
-                isSymbolicLink: () => scenario === "link",
-              };
-            },
-            realpathSync: {
-              native(target: string) {
-                realpaths.push(target);
-                if (scenario === "realpath_unknown")
-                  throw new Error("unobserved");
-                return scenario === "alias"
-                  ? `${root}Other`
-                  : scenario === "prefix"
-                    ? `\\\\?\\${root}`
-                    : root;
-              },
-            },
-          },
-        },
-      ) as {
-        scope: (...values: unknown[]) => {
-          scopeSha256: string;
-          directoryId: string;
-          targets: unknown;
-        } | null;
-      };
-      const result = functions.scope(
-        scenario === "case"
-          ? root.replace("Users", "users")
-          : scenario === "invalid"
-            ? "C:\\..\\invalid"
-            : root,
-        scenario === "nonce" ? "4".repeat(64) : nonce,
-        scenario === "owner"
-          ? "5".repeat(64)
-          : scenario === "proxy"
-            ? new Proxy(
-                {},
-                {
-                  get() {
-                    traps++;
-                    return owner;
-                  },
-                },
-              )
-            : scenario === "getter"
-              ? {
-                  get value() {
-                    traps++;
-                    return owner;
-                  },
-                }
-              : owner,
-        scenario === "artifact" ? "6".repeat(64) : artifact,
-      );
-      assert.equal(traps, 0);
-      assertLocalRealpathRequests(
-        realpaths,
-        root,
-        [
-          "non_windows",
-          "invalid",
-          "proxy",
-          "getter",
-          "link",
-          "file",
-          "unknown",
-        ].includes(scenario)
-          ? 0
-          : 1,
-      );
-      if (
-        [
-          "changed",
-          "link",
-          "file",
-          "unknown",
-          "realpath_unknown",
-          "alias",
-          "non_windows",
-          "invalid",
-          "proxy",
-          "getter",
-        ].includes(scenario)
-      ) {
-        assert.equal(result, null, scenario);
-        if (["non_windows", "invalid", "proxy", "getter"].includes(scenario)) {
-          assert.equal(reads, 0);
-          assert.equal(realpaths.length, 0);
-        }
-      } else {
-        assert.ok(result);
-        if (["normal", "case", "prefix"].includes(scenario)) {
-          assert.equal(result.scopeSha256 === expected, !changed, scenario);
-          assert.equal(result.directoryId, directoryId);
-          assert.deepEqual(JSON.parse(JSON.stringify(result.targets)), targets);
-          assert.ok(Object.isFrozen(result.targets));
-        } else assert.notEqual(result.scopeSha256, expected);
-        assert.match(result.directoryId, /^[a-f0-9]{32}$/u);
-        if (scenario === "nonce")
-          assert.notEqual(result.directoryId, directoryId);
-        else assert.equal(result.directoryId, directoryId);
-        assert.equal(reads, 2);
-      }
-    }
-  }
-  const wrongRealpath = source.replace(
-    ".native(localAppData)",
-    '.native(path.win32.join(localAppData, "Docker"))',
-  );
-  assert.notEqual(wrongRealpath, source);
-  for (const text of [source, wrongRealpath]) {
+  const root = "C:\\Users\\利用者\\AppData\\Local";
+  const nonce = "a".repeat(64);
+  for (const scenario of [
+    "normal",
+    "case",
+    "nonce",
+    "unknown",
+    "link",
+    "file",
+    "changed",
+    "alias",
+    "invalid",
+    "non_windows",
+  ]) {
+    let reads = 0;
     const realpaths: string[] = [];
-    const functions = runInNewContext(
-      `${text}; ({scope:observeDockerDesktopRepairScope})`,
-      {
-        Buffer,
-        path,
-        types,
-        createHash,
-        process: { platform: "win32" },
-        fs: {
-          lstatSync() {
-            return {
-              dev: 1n,
-              ino: 2n,
-              birthtimeNs: 3n,
-              isDirectory: () => true,
-              isSymbolicLink: () => false,
-            };
-          },
-          realpathSync: {
-            native(target: string) {
-              realpaths.push(target);
-              return canonical;
-            },
+    const target = runInNewContext(source + "; observeRepairDirectoryTargets", {
+      Buffer,
+      types,
+      createHash,
+      path,
+      process: { platform: scenario === "non_windows" ? "linux" : "win32" },
+      fs: {
+        lstatSync(request: string) {
+          reads++;
+          assert.equal(request.toLowerCase(), root.toLowerCase());
+          if (scenario === "unknown") throw new Error("unknown");
+          return {
+            dev: 1n,
+            ino: scenario === "changed" && reads > 1 ? 9n : 2n,
+            birthtimeNs: 3n,
+            isDirectory: () => scenario !== "file",
+            isSymbolicLink: () => scenario === "link",
+          };
+        },
+        realpathSync: {
+          native(request: string) {
+            realpaths.push(request);
+            return scenario === "alias" ? root + "Other" : root;
           },
         },
       },
-    ) as { scope: (...args: unknown[]) => unknown };
-    assert.ok(functions.scope(canonical, nonce, owner, artifact));
-    if (text === source) assertLocalRealpathRequests(realpaths, canonical, 1);
-    else
-      assert.throws(
-        () => assertLocalRealpathRequests(realpaths, canonical, 1),
-        /scope_realpath_target/u,
+    }) as (
+      ...args: unknown[]
+    ) => { directoryId: string; targets: object; identity: object } | null;
+    const result = target(
+      scenario === "invalid"
+        ? "C:\\..\\bad"
+        : scenario === "case"
+          ? root.replace("Users", "users")
+          : root,
+      scenario === "nonce" ? "b".repeat(64) : nonce,
+    );
+    assertLocalRealpathRequests(
+      realpaths,
+      root,
+      ["unknown", "link", "file", "invalid", "non_windows"].includes(scenario)
+        ? 0
+        : 1,
+    );
+    if (scenario === "invalid" || scenario === "non_windows")
+      assert.equal(reads, 0);
+    if (["normal", "case", "nonce"].includes(scenario)) {
+      assert.ok(result, scenario);
+      assert.match(result.directoryId, /^[a-f0-9]{32}$/u);
+      const payload = Buffer.from(
+        JSON.stringify({
+          operationNonce: scenario === "nonce" ? "b".repeat(64) : nonce,
+        }),
+        "utf8",
       );
+      const length = Buffer.alloc(4);
+      length.writeUInt32LE(payload.length);
+      const expectedId = createHash("sha256")
+        .update("crdd/docker-desktop-repair-directory/v1", "ascii")
+        .update(Buffer.from([0]))
+        .update(length)
+        .update(payload)
+        .digest("hex")
+        .slice(0, 32);
+      assert.equal(result.directoryId, expectedId);
+      assert.equal("scopeSha256" in result, false);
+      assert.equal("ownerBindingSha256" in result, false);
+      assert.ok(Object.isFrozen(result.targets));
+      assert.equal(reads, 2);
+    } else assert.equal(result, null, scenario);
   }
 });
 
@@ -709,7 +529,7 @@ test("backend修復停止は固定環境・argv・上限と発行分類を保つ
       `${body}; terminateDockerDesktopBackendForRepair`,
       {
         path,
-        createDockerDesktopRepairHelperEnvironment: () => environment,
+        createDesktopCommandEnvironment: () => environment,
         spawnSync(executable: string, argv: string[], options: object) {
           calls++;
           assert.equal(executable, "C:\\Windows\\System32\\wsl.exe");

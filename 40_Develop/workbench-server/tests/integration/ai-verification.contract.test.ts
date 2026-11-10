@@ -19,6 +19,7 @@ import path, { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { createLocalPrincipalId } from "../../../domain-model/src/index.ts";
 
 /**
  * UIを起動せず公開Package API・実Git・Domain保存の事前確認を結合する。
@@ -429,6 +430,7 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
       path,
       mode: "direct",
       root: "synthetic-root",
+      principalId: "local.email.test@example.invalid",
       parent: "synthetic-parent",
       base: "base",
       preflight: false,
@@ -458,7 +460,9 @@ test("Workspace試験はHTTPなしでOwner終了とDomainを照合し失敗時�
         if (scenario === "state-blocked") return { status: "blocked" };
         const singleTask = {
           principalId:
-            scenario === "state-principal" ? "other" : "local-workbench-user",
+            scenario === "state-principal"
+              ? "other"
+              : "local.email.test@example.invalid",
           taskId: scenario === "state-task" ? "other" : snapshot.taskId,
           attemptId:
             scenario === "state-attempt" ? "other" : snapshot.attemptId,
@@ -1231,7 +1235,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const isAi = scenario.startsWith("ai-") || scenario.includes("isolated-ai");
     if (isAi) {
       const singleTask = {
-        principalId: "local-workbench-user",
+        principalId: "local.email.test@example.invalid",
         mode: "workspace_edit",
         phase: scenario === "ai-phase" ? "running" : "settled",
         status: scenario === "ai-status" ? "blocked" : "completed",
@@ -2280,6 +2284,12 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
           }
         },
         readFileSync: () => Buffer.from("synthetic context"),
+        readGitUser: () => ({
+          status: "completed",
+          name: "Fixture",
+          email: "test@example.invalid",
+        }),
+        createLocalPrincipalId,
         getRepository,
         readRepositoryNetworkHosts,
         readRepositoryAiSelection: () => ({
@@ -2622,7 +2632,7 @@ for (const transport of ["tool-child-process"] as const) {
       root,
       binding,
       projectId: "project.synthetic-http",
-      principalId: "local-workbench-user",
+      principalId: "local.email.test@example.invalid",
       authorize: () => true,
       resolveSelection: () => ({
         primary: executionSelection("advice"),

@@ -43,7 +43,7 @@ await mock.module(
   {
     namedExports: {
       ...platformAccess,
-      createDockerDesktopRepairHelperEnvironment: () =>
+      createDesktopCommandEnvironment: () =>
         scenario === "environment" ? null : environment,
     },
   },

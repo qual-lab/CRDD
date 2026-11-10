@@ -20,9 +20,7 @@ import {
 import { createChildProcessEnvironment } from "../process/environment.ts";
 import {
   createProviderHomeObservationRequest,
-  createRuntimeStateObservationRequest,
   evaluateProviderHomeObservationResponseCandidate,
-  evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
 } from "./protection.ts";
 
@@ -238,79 +236,6 @@ function invokeRootObservation(
     executionSourceKind: development
       ? ("fixed_development_candidate" as const)
       : ("fixed_bootstrap_native_artifact" as const),
-  });
-}
-
-/**
- * 選択済みRuntime State Rootを固定Nativeで観測する。
- * @responsibility 固定用途の要求構築・搬送・応答検査を型付き結果として返す。
- * @trace ARCH-000008
- * @trace ARCH-000015
- * @input 上位の選択Root、既存初期化指定、任意の開発観測Reader。
- * @returns 観測候補または失敗区分とProcess・Artifact確認結果。
- * @precondition 上位は初期化許可と開発実行の採用を確認する。
- * @postcondition Root Capabilityを発行せずraw frameを返さない。
- * @effect Native観測と、許可済み指定時だけ既存Root初期化。
- * @failure 不正要求はReader・Process前に拒否し、応答不正を候補にしない。
- * @invariant 原因・発行事実・終了確認を同一視しない。
- * @boundary TypeScript APIから固定Rust要求。
- * @security Pathは対象相関用であり、入力だけを操作許可とみなさない。
- * @concurrency 同期実行。Readerは初回と必要な後確認だけに使用する。
- */
-export function observeWindowsRuntimeState(
-  rootPath: unknown,
-  initializeIfMissing: unknown,
-  readDevelopmentSource?: DevelopmentNativeSourceReader,
-) {
-  if (process.platform !== "win32")
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "platform_unsupported",
-      processEffectIssued: false,
-      helperExitConfirmed: false,
-      artifactVerifiedBeforeAndAfter: false,
-      filesystemEffectIssued: false,
-    });
-  const request = createRuntimeStateObservationRequest(
-    rootPath,
-    initializeIfMissing,
-  );
-  if (!request)
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "root_invalid",
-      processEffectIssued: false,
-      helperExitConfirmed: false,
-      artifactVerifiedBeforeAndAfter: false,
-      filesystemEffectIssued: false,
-    });
-  const result = invokeRootObservation(request, readDevelopmentSource);
-  if (result.status === "blocked")
-    return Object.freeze({
-      ...result,
-      filesystemEffectIssued:
-        initializeIfMissing === true && result.processEffectIssued,
-    });
-  const observation = evaluateRuntimeStateObservationResponseCandidate(
-    result.response,
-    request.nonce,
-  );
-  if (observation.status !== "candidate")
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "response_invalid",
-      processEffectIssued: true,
-      helperExitConfirmed: true,
-      artifactVerifiedBeforeAndAfter: true,
-      filesystemEffectIssued: initializeIfMissing === true,
-    });
-  return Object.freeze({
-    ...observation,
-    processEffectIssued: true,
-    helperExitConfirmed: true,
-    artifactVerifiedBeforeAndAfter: true,
-    filesystemEffectIssued: initializeIfMissing === true,
-    executionSourceKind: result.executionSourceKind,
   });
 }
 

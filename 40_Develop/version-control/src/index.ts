@@ -86,3 +86,5 @@ export type {
   FixedRevisionIdentity,
   RepositoryRevisionObservation,
 } from "./repository/revision.ts";
+export { readGitUser } from "./repository/user.ts";
+export type { GitUserResult } from "./repository/types.ts";

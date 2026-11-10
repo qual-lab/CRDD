@@ -664,16 +664,12 @@ export function validCoordinatorRepairOperation(
         "operationNonce",
         "operationId",
         "repositoryBinding",
-        "ownerBindingSha256",
-        "scopeSha256",
         "consumer",
       ]) ||
-      identity.schema !== "crdd-coordinator/runtime-repair-identity/v1" ||
+      identity.schema !== "crdd-coordinator/runtime-repair-identity/v2" ||
       identity.kind !== operation.kind ||
       identity.repositoryBinding !== repositoryBinding ||
       !isSha256Hex(identity.operationNonce) ||
-      !isSha256Hex(identity.ownerBindingSha256) ||
-      !isSha256Hex(identity.scopeSha256) ||
       typeof identity.operationId !== "string" ||
       !/^OP-[0-9]{6,}$/u.test(identity.operationId) ||
       identity.consumer !== "coordinator_cli" ||
@@ -2111,7 +2107,6 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
     return false;
   const names = [
     "stop_runtime",
-    "terminate_runtime",
     "stop_backend",
     "retain_runtime",
     "start_runtime",
@@ -2170,8 +2165,7 @@ export function validCoordinatorRepairSummary(value: unknown): boolean {
       ["confirmed", "unknown"].includes(technical.cleanup as string) &&
       [
         null,
-        "helper_cleanup_unknown",
-        "helper_protocol_failed",
+        "operation_cleanup_unknown",
         "observation_cleanup_unknown",
       ].includes(technical.cleanupFailure as string | null) &&
       (technical.cleanupFailure !== "observation_cleanup_unknown" ||

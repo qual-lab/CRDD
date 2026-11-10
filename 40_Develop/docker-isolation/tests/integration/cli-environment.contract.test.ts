@@ -20,7 +20,6 @@ import {
 } from "../../src/docker-cli/environment.ts";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import * as dockerTrustOperations from "../../src/docker-cli/trust.ts";
 import * as dockerIsolation from "../../src/index.ts";
 
 /**
@@ -157,34 +156,82 @@ test("署名確認環境は明示設定から固定五項目だけ返し初期�
 });
 
 /**
- * Docker実行物の固定Trust契約と既存Native Policy Hashの一致を確認する。
- * @responsibility 更新許容と操作中同一性を、通常Runtime署名Gateと区別して検証する。
+ * Engine CLIと固定Desktop Pluginへ同じ出所・操作内同一性検査を適用する。
  * @trace ERB-IT-001
- * @precondition 固定公開APIだけを読み、実環境検証は実行しない。
- * @stimulus 契約を取得し、既存ProtocolのPolicy本文からHashを独立計算する。
- * @observation 契約の全fieldと凍結状態を観測する。
- * @oracle 出所検査は維持し、操作をまたぐ版・Hash固定は要求しない。
- * @cleanup N/A: Process・Filesystem・Docker資源を作成しない。
- * @boundary Package Root→固定契約。実Publisher検査や実操作の成立は主張しない。
+ * @precondition 実体・署名・内容読取りを有限代役へ接続する。実Dockerは起動しない。
+ * @oracle 固定Pluginを直接選び、別Path・別内容を同じSnapshotとして受理しない。
  */
-test("実行物Trustは既存Policy Hashと操作内実体固定を維持する", () => {
-  const contract = dockerTrustOperations.describeDockerArtifactTrustContract();
-  assert.deepEqual(contract, {
-    policySha256: createHash("sha256")
-      .update(
-        "CRDD_DOCKER_RESTART_TRUST_V1|official-fixed-paths|Docker Inc|cache-only|deny-write-delete|optional-dev-envs",
-        "ascii",
-      )
-      .digest("hex"),
-    officialFixedPathsRequired: true,
-    publisherOrganization: "Docker Inc",
-    authenticodeRequired: true,
-    revocationMode: "cache_only",
-    exactVersionRequired: false,
-    exactHashRequiredAcrossOperations: false,
-    sameIdentityAndHashRequiredWithinOperation: true,
-  });
-  assert.equal(Object.isFrozen(contract), true);
+test("固定CLIとDesktop Pluginは共通の署名・内容検査を使用する", async () => {
+  const { stripTypeScriptTypes } = await import("node:module");
+  const { runInNewContext } = await import("node:vm");
+  const { default: path } = await import("node:path");
+  const source = stripTypeScriptTypes(
+    fs.readFileSync(
+      new URL("../../src/docker-cli/trust.ts", import.meta.url),
+      "utf8",
+    ),
+  )
+    .replace(/^import[\s\S]*?;\r?\n/gmu, "")
+    .replace(/^export /gmu, "")
+    .replaceAll("import.meta.url", '"file:///fixed/trust.ts"');
+  let content = "original";
+  const signatures: string[] = [];
+  const functions = runInNewContext(
+    source +
+      "; ({cli: observeTrustedDockerCli, desktop: observeTrustedDesktopCli, verify: verifyTrustedDesktopCliSnapshot})",
+    {
+      process: { platform: "win32" },
+      path,
+      createHash,
+      URL,
+      fileURLToPath: () => "fixed-distribution",
+      createWindowsPowerShellAuthenticodeEnvironment: () => ({
+        SystemRoot: "C:\\Windows",
+      }),
+      fs: {
+        realpathSync: { native: (value: string) => value },
+        lstatSync: () => ({
+          isFile: () => true,
+          isDirectory: () => true,
+          isSymbolicLink: () => false,
+          size: 8,
+          dev: 1n,
+          ino: 2n,
+          birthtimeNs: 3n,
+        }),
+        readFileSync: () => Buffer.from(content),
+      },
+      spawnSync(_exe: string, argv: string[]) {
+        signatures.push(argv.at(-1) ?? "");
+        return {
+          status: 0,
+          signal: null,
+          stdout: "CRDD_DOCKER_AUTHENTICODE_OK\r\n",
+          stderr: "",
+        };
+      },
+    },
+  ) as {
+    cli(value: object): object;
+    desktop(value: object): { executablePath: string };
+    verify(value: object): string;
+  };
+  functions.cli({});
+  const snapshot = functions.desktop({});
+  assert.equal(
+    snapshot.executablePath,
+    "C:\\Program Files\\Docker\\Docker\\resources\\cli-plugins\\docker-desktop.exe",
+  );
+  assert.ok(signatures[0]?.includes("resources\\bin\\docker.exe"));
+  assert.ok(signatures[1]?.includes(snapshot.executablePath));
+  assert.equal(functions.verify(snapshot), snapshot.executablePath);
+  assert.throws(
+    () =>
+      functions.verify({ ...snapshot, executablePath: "C:\\untrusted.exe" }),
+    /docker_cli_replaced/u,
+  );
+  content = "changed";
+  assert.throws(() => functions.verify(snapshot), /docker_cli_replaced/u);
 });
 
 /**

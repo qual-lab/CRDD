@@ -162,6 +162,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   let shouldBlockExecutionPublication = false;
   let shouldThrowFromPublicationObserver = false;
   const publicationObservations: object[] = [];
+  let storeOpens = 0;
   const runtime = createDevelopmentCoordinatorPublicObjectiveCandidate({
     captureResultDelivery: () =>
       Object.freeze({
@@ -274,13 +275,64 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       if (shouldThrowFromPublicationObserver)
         throw new Error("publication_diagnostic_test_failure");
     },
-    openDecisionStore: () =>
-      Object.freeze({
+    openDecisionStore: () => {
+      storeOpens += 1;
+      return Object.freeze({
         status: "completed" as const,
-        principalId: "local-user-test-user",
         store: decisionStore,
-      }),
+      });
+    },
   });
+  // 主体欠測・不正は保存先の観測・初期化より前に拒否する。
+  for (const context of [
+    undefined,
+    { principalId: "" },
+    { principalId: " bad" },
+  ]) {
+    const denied = runtime.runStateQuery(
+      {
+        requestId: "query-no-principal",
+        projectId: "project-public-runtime",
+        repositoryRevision: revision,
+      },
+      root,
+      context,
+    );
+    assert.equal(
+      denied.reason,
+      "orchestrator_authenticated_principal_not_verified",
+    );
+    assert.equal(storeOpens, 0);
+    const decisionDenied = runtime.runDecision(
+      {
+        decisionId: "decision-no-principal",
+        projectId: "project-public-runtime",
+        milestoneId: "milestone-public-runtime",
+        generation: 1,
+        repositoryRevision: revision,
+        selectedOption: "cancel",
+        continuationCapability: "fixture-capability",
+      },
+      root,
+      context,
+    );
+    assert.equal(
+      decisionDenied.reason,
+      "orchestrator_authenticated_principal_not_verified",
+    );
+    assert.equal(storeOpens, 0);
+    const acceptanceDenied = executeCoordinatorPublicAcceptanceDecision(
+      {},
+      root,
+      context,
+    );
+    assert.equal(
+      acceptanceDenied.reason,
+      "orchestrator_authenticated_principal_not_verified",
+    );
+    assert.ok("effectState" in acceptanceDenied);
+    assert.equal(acceptanceDenied.effectState, "no_effect");
+  }
   const before = runtime.runStateQuery(
     {
       requestId: "query-before",
@@ -288,7 +340,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       repositoryRevision: revision,
     },
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(before.status, "completed");
   assert.equal(before.observationState, "absent");
@@ -311,7 +363,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     }),
     new AbortController().signal,
     root,
-    Object.freeze({ principalId: "local-user-test-user" }),
+    Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(result.status, "blocked", JSON.stringify(result));
   assert.equal(result.reason, "orchestrator_quality_acceptance_required");
@@ -334,7 +386,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     }),
     new AbortController().signal,
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(
     resumedPending.reason,
@@ -350,7 +402,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       repositoryRevision: revision,
     },
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(pending.status, "completed");
   if (!("projection" in pending) || pending.projection === null)
@@ -358,23 +410,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   const objectiveId = pending.projection.objectiveTaskSummaries[0]?.objectiveId;
   assert.ok(objectiveId);
   let expectedGeneration = pending.projection.generation;
-  /**
-   * 受入判断用の認証済みPrincipalを返す。
-   *
-   * @responsibility 明示的な受入判断を実行する認証主体を固定する。
-   * @trace PRL-IT-008
-   * @precondition 試験用Principalが受入判断Authorityを持つ。
-   * @stimulus 受入判断入口から認証処理を呼び出す。
-   * @observation completed状態とPrincipal IDを返す。
-   * @oracle 未認証または別Principalへ置き換えない。
-   * @cleanup N/A: 認証状態を永続化しない。
-   * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
-   */
-  const authenticate = () =>
-    Object.freeze({
-      status: "completed" as const,
-      principalId: "local-user-test-user",
-    });
   /**
    * 指定対象へ明示的な受入判断を記録する。
    *
@@ -392,9 +427,9 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     targetId: string,
     decisionId: string,
     evidenceId: string,
+    principalId = "local.email.fixture@example.invalid",
   ) =>
     executeCoordinatorPublicAcceptanceDecision(
-      authenticate,
       {
         contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
         decisionId,
@@ -407,11 +442,24 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
         targetId,
         decision: "accept",
         criterionEvidenceIds: [evidenceId],
-        principalId: "local-user-test-user",
+        principalId: "local.email.fixture@example.invalid",
       },
       root,
-      { principalId: "local-user-test-user" },
+      { principalId },
     );
+  const differentUser = decide(
+    "objective",
+    objectiveId,
+    "decision-wrong-user",
+    "evidence-objective",
+    "other-user",
+  );
+  assert.equal(
+    differentUser.reason,
+    "orchestrator_authenticated_principal_not_verified",
+  );
+  assert.ok("effectState" in differentUser);
+  assert.equal(differentUser.effectState, "no_effect");
   assert.equal(
     decide(
       "objective",
@@ -428,7 +476,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       repositoryRevision: revision,
     },
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   if (!("projection" in pending) || pending.projection === null)
     throw new Error("objective_accepted_projection_missing");
@@ -449,7 +497,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       repositoryRevision: revision,
     },
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(after.status, "completed");
   assert.equal(after.observationState, "observed");
@@ -485,7 +533,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     }),
     new AbortController().signal,
     root,
-    Object.freeze({ principalId: "local-user-test-user" }),
+    Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(
     cleanupBlocked.reason,
@@ -539,7 +587,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     }),
     new AbortController().signal,
     root,
-    Object.freeze({ principalId: "local-user-test-user" }),
+    Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(replay.status, "completed", JSON.stringify(replay));
   assert.equal(replay.reason, "orchestrator_objective_already_accepted");
@@ -565,7 +613,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     }),
     new AbortController().signal,
     root,
-    Object.freeze({ principalId: "local-user-test-user" }),
+    Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(publicationBlocked.status, "blocked");
   assert.equal(
@@ -598,7 +646,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     }),
     new AbortController().signal,
     root,
-    Object.freeze({ principalId: "local-user-test-user" }),
+    Object.freeze({ principalId: "local.email.fixture@example.invalid" }),
   );
   assert.equal(diagnosticFailed.status, "blocked");
   assert.equal(
@@ -662,11 +710,30 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       },
     ],
   };
+  const opensBeforeDeniedObjectives = storeOpens;
+  for (const context of [
+    undefined,
+    { principalId: "" },
+    { principalId: " bad" },
+  ]) {
+    const denied = await runtime.run(
+      graphRequest,
+      new AbortController().signal,
+      root,
+      context,
+    );
+    assert.equal(
+      denied.reason,
+      "orchestrator_authenticated_principal_not_verified",
+    );
+    assert.equal(storeOpens, opensBeforeDeniedObjectives);
+    assert.equal(taskStarts, 3);
+  }
   const graphResult = await runtime.run(
     graphRequest,
     new AbortController().signal,
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(
     graphResult.reason,
@@ -692,7 +759,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     graphRequest,
     new AbortController().signal,
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(graphReplay.reason, "orchestrator_quality_acceptance_required");
   assert.equal(taskStarts, 5);
@@ -705,7 +772,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     },
     new AbortController().signal,
     root,
-    { principalId: "local-user-test-user" },
+    { principalId: "local.email.fixture@example.invalid" },
   );
   assert.equal(changedGraph.status, "blocked");
   assert.equal(changedGraph.reason, "orchestrator_intake_epoch_retired");

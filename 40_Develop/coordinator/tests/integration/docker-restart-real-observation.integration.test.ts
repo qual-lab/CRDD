@@ -11,20 +11,17 @@
 import { runtimeStateDirectoryCandidate } from "../../src/execution/authority.ts";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
-import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { describeDockerArtifactTrustContract } from "../../../docker-isolation/src/docker-cli/trust.ts";
+import { acquireDesktopOperations } from "../../../docker-isolation/src/docker-desktop/command.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import {
   createChildProcessEnvironment,
-  observePlatformAccessArtifactCandidate,
   observeSystemWindowsDirectory,
-  startDockerDesktopRestartHelper,
 } from "../../../platform-access/src/index.ts";
 import { acquireRuntimeStateLock } from "../../src/execution/kernel-lock.ts";
 import { getIsolationSettings } from "../../src/execution/configuration.ts";
@@ -105,7 +102,6 @@ test("Windows environment observation completes with three runtime lock workers"
   try {
     for (let index = 0; index < 1; index += 1) {
       const lockAcquisition = acquireRuntimeStateLock(
-        randomBytes(32).toString("hex"),
         runtimeStateDirectoryCandidate(),
       );
       assert.ok(lockAcquisition.status === "acquired");
@@ -183,56 +179,41 @@ test("Windows directory bootstrap rejects incomplete or failed native results", 
 // Explicit, read-only real-environment IT. No stop/start or Provider invocation.
 for (const hasRuntimeLock of [false, true]) {
   /**
-   * real Native and WSL observation with runtime lock=${hasRuntimeLock}を検証する。
+   * real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}を検証する。
    *
-   * @responsibility real Native and WSL observation with runtime lock=${hasRuntimeLock}の合否判定を所有する。
+   * @responsibility real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}の合否判定を所有する。
    * @trace ERB-IT-014
    * @precondition Test Fileが構築するfixtureと入力を使用する。
-   * @stimulus real Native and WSL observation with runtime lock=${hasRuntimeLock}の対象操作を実行する。
+   * @stimulus real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}の対象操作を実行する。
    * @observation 結果、状態、Effectおよび終了後条件を観測する。
    * @oracle Test本文のassertionが期待条件を満たす。
    * @cleanup Test本文または登録済みhookが作成資源を清掃する。
    * @boundary ERB-IT-014=Direct Boundary: coordinator Test Source→対象契約
    */
-  test(`real Native and WSL observation with runtime lock=${hasRuntimeLock}`, {
+  test(`real Desktop CLI and WSL observation with runtime lock=${hasRuntimeLock}`, {
     skip: process.env.CRDD_REAL_DOCKER_OBSERVATION !== "1",
     timeout: 60_000,
   }, async (context) => {
     assert.equal(process.platform, "win32");
-    const root = fileURLToPath(new URL("../../../../", import.meta.url));
-    const artifact = observePlatformAccessArtifactCandidate(root);
-    assert.equal(artifact.status, "candidate");
-    const acquired = await startDockerDesktopRestartHelper(
-      artifact.artifact,
-      describeDockerArtifactTrustContract().policySha256,
+    const acquired = acquireDesktopOperations(
+      getIsolationSettings(),
+      new AbortController().signal,
     );
-    assert.equal(acquired.status, "acquired");
-    const session = acquired.session;
+    const session = acquired.operations;
     assert.ok(session);
     const lockAcquisition = hasRuntimeLock
-      ? acquireRuntimeStateLock(
-          randomBytes(32).toString("hex"),
-          runtimeStateDirectoryCandidate(),
-        )
+      ? acquireRuntimeStateLock(runtimeStateDirectoryCandidate())
       : null;
     assert.ok(!lockAcquisition || lockAcquisition.status === "acquired");
     const lock =
       lockAcquisition?.status === "acquired" ? lockAcquisition.lock : null;
     try {
       if (hasRuntimeLock) assert.ok(lock);
-      let observedClientState: "absent" | "verified" | null = null;
-      let observedProcessState: "absent" | "verified" | null = null;
       for (let index = 0; index < 3; index += 1) {
-        assert.equal(await session.verifyArtifacts(), "verified");
-        const clientState = await session.inspectClientProcesses();
-        const processState = await session.inspectProcesses();
-        if (clientState === "unknown" || processState === "unknown")
-          assert.fail("native process observation must be determinate");
-        observedClientState ??= clientState;
-        observedProcessState ??= processState;
-        assert.equal(clientState, observedClientState);
-        assert.equal(processState, observedProcessState);
-        context.diagnostic(`native observation ${index + 1} completed`);
+        assert.equal(session.verify(), true);
+        const status = await session.command("status");
+        assert.equal(status.completed, true);
+        assert.notEqual(status.status, "unknown");
       }
       const machine = createDockerRestartMachine(
         getIsolationSettings(),
@@ -240,7 +221,7 @@ for (const hasRuntimeLock of [false, true]) {
         () => true,
         new AbortController().signal,
       );
-      context.diagnostic("entering composed Native/Engine/WSL observation");
+      context.diagnostic("entering composed CLI/Engine/WSL observation");
       const wslState = machine.observeBackendState();
       assert.notEqual(wslState, "unknown");
       context.diagnostic(`observed WSL backend state: ${wslState}`);
@@ -262,10 +243,9 @@ for (const hasRuntimeLock of [false, true]) {
       );
       context.diagnostic("composed observation completed");
     } finally {
-      const released = await session.release();
+      const released = await session.close();
       if (lock) assert.equal(lock.release(), true);
-      assert.equal(released.cleanup, "confirmed");
-      assert.equal(released.protocol, "completed");
+      assert.equal(released, true);
     }
   });
 }

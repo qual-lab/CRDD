@@ -4,7 +4,7 @@
  * @responsibility 値の成立をOS処置や実回収の証明と区別する。
  * @trace ERB-UT-036
  * @level UT
- * @scope 固定九処置、三用途実体、発行と確認の相関、元修復と分離した回収進捗の純粋値。
+ * @scope 固定八処置、三用途実体、発行と確認の相関、元修復と分離した回収進捗の純粋値。
  * @boundary N/A: メモリ内の固定値だけ。
  */
 import assert from "node:assert/strict";
@@ -83,7 +83,6 @@ test("保持対象codecは閉じた三用途を独立コピーする", () => {
 
 const actionNames = [
   "stop_runtime",
-  "terminate_runtime",
   "stop_backend",
   "retain_runtime",
   "start_runtime",
@@ -425,7 +424,7 @@ test("修復checkpoint: 観測回収不明は成功や別理由へ畳まない",
   assert.equal(
     validateDockerRuntimeRepairCheckpointTransition(failed, {
       ...failed,
-      cleanupFailure: "helper_cleanup_unknown",
+      cleanupFailure: "operation_cleanup_unknown",
     }),
     false,
   );
@@ -478,10 +477,7 @@ test("修復checkpoint: cleanなfresh Session準備だけを別遷移にする",
       false,
     );
   }
-  for (const cleanupFailure of [
-    "helper_cleanup_unknown",
-    "helper_protocol_failed",
-  ]) {
+  for (const cleanupFailure of ["operation_cleanup_unknown"]) {
     assert.equal(
       prepareDockerRuntimeRepairSessionCheckpoint({
         ...before,
@@ -493,7 +489,7 @@ test("修復checkpoint: cleanなfresh Session準備だけを別遷移にする",
   for (const changed of [
     { ...after, engine: "ready" },
     { ...after, hostSafety: "safe" },
-    { ...after, cleanupFailure: "helper_cleanup_unknown" },
+    { ...after, cleanupFailure: "operation_cleanup_unknown" },
     {
       ...after,
       actions: {
@@ -518,7 +514,7 @@ test("修復checkpoint: cleanなfresh Session準備だけを別遷移にする",
  * @responsibility 毎Caseが独立した可変入力を使う。
  * @trace ERB-UT-036
  * @precondition メモリ内の固定値だけ。
- * @stimulus 九処置と三用途の初期値を構成する。
+ * @stimulus 八処置と三用途の初期値を構成する。
  * @observation 呼出し側が返却値を検査する。
  * @oracle 発行・観測を捏造しない初期値。
  * @cleanup N/A: 外部資源なし。
@@ -561,17 +557,17 @@ function initial() {
 }
 
 /**
- * 九処置の意図保存、発行、確認と退避実体を順に接続する。
+ * 八処置の意図保存、発行、確認と退避実体を順に接続する。
  * @responsibility 全固定slotの肯定経路と凍結コピーを観測する。
  * @trace ERB-UT-036
  * @precondition 固定初期値と自己生成Identity。
  * @stimulus 各slotを意図保存→発行→結果確定へ進める。
  * @observation 各前後の復号・遷移と元値の不変性。
- * @oracle 九slotすべて正順序だけで確定し、退避はsource不存在とtarget同実体を要求する。
+ * @oracle 八slotすべて正順序だけで確定し、退避はsource不存在とtarget同実体を要求する。
  * @cleanup N/A: メモリ内だけ。
  * @boundary N/A: 純粋codec。
  */
-test("修復checkpoint: 九処置の保存意図・発行・確認を分ける", () => {
+test("修復checkpoint: 八処置の保存意図・発行・確認を分ける", () => {
   let current = initial();
   const first = decodeDockerRuntimeRepairCheckpoint(current);
   assert.ok(first);
@@ -579,7 +575,7 @@ test("修復checkpoint: 九処置の保存意図・発行・確認を分ける",
   current.actions.stop_runtime.intent = "saved";
   assert.equal(first.actions.stop_runtime.intent, "not_saved");
   current = initial();
-  for (const [index, key] of actionNames.entries()) {
+  for (const key of actionNames) {
     let next = structuredClone(current);
     next.actions[key].intent = "saved";
     assert.ok(
@@ -597,11 +593,11 @@ test("修復checkpoint: 九処置の保存意図・発行・確認を分ける",
     next = structuredClone(current);
     next.actions[key].result = "confirmed";
     const purpose =
-      index === 3
+      key === "retain_runtime"
         ? "primary"
-        : index === 6
+        : key === "retain_failed_runtime"
           ? "failed"
-          : index === 7
+          : key === "retain_auxiliary_runtime"
             ? "auxiliary"
             : null;
     if (purpose) {
@@ -634,13 +630,13 @@ test("修復checkpoint: 九処置の保存意図・発行・確認を分ける",
  * @responsibility 部分完了と清掃巻戻しを終端へ昇格しない。
  * @trace ERB-UT-036
  * @precondition 外部資源なしの固定checkpoint。
- * @stimulus 九slotの未観測、全不要、4×4清掃遷移と失敗相関を与える。
+ * @stimulus 八slotの未観測、全不要、4×4清掃遷移と失敗相関を与える。
  * @observation decoder、技術終端predicate、遷移validatorの結果。
  * @oracle 初期値は復号可だが非終端。清掃不明後は確認への収束だけを許す。
  * @cleanup N/A: 値のみ。
  * @boundary N/A: 実清掃の証明ではない。
  */
-test("修復checkpoint: 九処置の終端と清掃の単調matrix", () => {
+test("修復checkpoint: 八処置の終端と清掃の単調matrix", () => {
   assert.ok(decodeDockerRuntimeRepairCheckpoint(initial()));
   assert.equal(dockerRuntimeRepairCheckpointIsSettled(initial()), false);
   assert.equal(dockerRuntimeRepairCheckpointIsSettled({}), false);
@@ -678,7 +674,7 @@ test("修復checkpoint: 九処置の終端と清掃の単調matrix", () => {
     const value = {
       ...initial(),
       cleanup,
-      cleanupFailure: "helper_cleanup_unknown",
+      cleanupFailure: "operation_cleanup_unknown",
     };
     assert.equal(
       decodeDockerRuntimeRepairCheckpoint(value) !== null,
@@ -837,7 +833,7 @@ test("修復checkpoint: unknown再発行と既知結果の巻戻しを拒否す�
   );
   const failed = initial();
   failed.cleanup = "unknown";
-  failed.cleanupFailure = "helper_cleanup_unknown";
+  failed.cleanupFailure = "operation_cleanup_unknown";
   const recovered = structuredClone(failed);
   recovered.cleanup = "confirmed";
   assert.ok(validateDockerRuntimeRepairCheckpointTransition(failed, recovered));

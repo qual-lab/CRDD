@@ -1,5 +1,15 @@
 # Version Control境界
 
+## Gitユーザー設定の読取り — 2026-11-10
+
+`readGitUser(repository)`と`GitUserResult`を公開する。検証済みRepositoryで有効な`user.name`／`user.email`だけを取得し、未設定は`completed`のnull、Root拒否は`blocked`、Git失敗・不正出力は`unknown`として区別する。Gitの既存設定優先順位と末尾の有効値を使用し、名前・メールの自動補完・小文字化・ハッシュ化をしない。メールの本人確認やPrincipal生成はVCの責務ではない。
+
+Git実行は既存`executeGit`を再利用し、shell非使用・非対話・親`GIT_*`の分離・30秒期限・8KiB出力上限を維持する。Git管理Directoryは既存Layoutから解決し、Linkedの`.git` FileをDirectoryとして渡さない。既存のRepository-local include・未対応extension等の拒否は緩めず、その範囲でsystem/global/local設定とglobal側includeを読む。Author環境値・Commit履歴・OSユーザーへfallbackしない。設定元Path・生stderr・他のGit設定は返さない。
+
+フロントAI用入口は`node 40_Develop/version-control/bin/version-control.ts read-git-user --json`、Package bin名は`crdd-version-control`とする。対象は現在Directoryから検証したRepositoryに限定し、任意Git Commandや設定変更を受け付けない。成功0、不正引数64、取得不能2でJSONを一件返す。Library入口は起動せず、binだけが明示的に実行する。
+
+上位入口が取得済みメールからローカル要求主体を確定し、Coordinatorへ明示搬送する。VCはDM・AM・Coordinatorを参照しない。APIとbinの結果には個人情報となる名前・メールが含まれるため、利用側は許可された要求・記録・表示に限定する。
+
 ## 保存Identity観測の重複探索統合
 
 `repository/location.ts`のPackage内部観測は、私有WeakMapで検証済みCapabilityを照合し、exact Rootの絶対Directory・実PathとfreshなGit配置を一回の探索で返す。Package Rootの公開APIには追加せず、観測結果をcache・Authority・永続状態にしない。`readRepositoryStorageIdentity`はこの観測をbefore／afterで一回ずつ実行し、Root、配置種別、common directory由来の論理IdentityとRoot由来の実体Identityの一致だけを既存shapeで返す。どちらかの観測が不正・不明又は不一致ならnullとする。
@@ -40,7 +50,7 @@ src/
    └ objects.ts             Object読取り・解析
 ```
 
-旧 `workspace/`・`publication/`・用途別Adapter／Factoryは撤去する。単に別Sourceの旧経路を呼ぶFacadeにはしない。Main／Linkedの内容操作は同じ実装を使い、MergeのHEAD／Index／MERGE_HEADは入力Worktree固有とする。CLI・新しいLock・Store・互換Readerは追加しない。
+旧 `workspace/`・`publication/`・用途別Adapter／Factoryは撤去する。単に別Sourceの旧経路を呼ぶFacadeにはしない。Main／Linkedの内容操作は同じ実装を使い、MergeのHEAD／Index／MERGE_HEADは入力Worktree固有とする。汎用Git CLI・新しいLock・Store・互換Readerは追加しない。
 
 移行比較の`inspectMigrationSystemClosure`・`MigrationConsumerObservation`はRuntime公開から撤去する。合成配列の比較を実Consumer移行の成立根拠にしない。`version-control.contract-migration-closure`の確認義務とQA-000001の`RCM-ST-012`はOPENを維持し、Root観測・固定Snapshot・実際の利用側閉包を使って必要な入力を提供する。公開・Release・Recoveryを含む実System全体の成立は別途観測し、削除した合成試験の成功を流用しない。過去Evidenceは変更しない。
 

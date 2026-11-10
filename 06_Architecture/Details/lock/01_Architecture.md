@@ -6,6 +6,10 @@
 Owner: Qual-Lab
 Last Updated: 2026-11-07
 
+### 未完了操作の終了処理 — 2026-11-10
+
+`release()`は従来どおり元取得の実体・世代を照合してFileを削除する。`release(true)`は同じ取得を一回終端化し、descriptorを閉じたうえでLock Fileを保全する。元実体不一致・close失敗はfalse、再解放はfalse、終了後の`assertLive()`もfalseとする。保全の成功はFile不存在や対象操作のcleanup成功ではない。残存Fileによる再取得拒否と、全利用Process停止下での明示回復は従来どおり維持する。正規Callerは保持中のFileを置換・清掃せず、非協調Processとの最終照合後の置換競合は保証対象外である。
+
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |

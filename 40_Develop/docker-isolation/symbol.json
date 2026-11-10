@@ -856,14 +856,149 @@
         "ARCH-000008"
       ]
     },
-    {"symbolId":"docker-isolation.src.cleanup.operations","kind":"file","path":"src/cleanup/operations.ts","archIds":["ARCH-000008"]},
-    {"symbolId":"docker-isolation.test.integration.cleanup-common","kind":"test-suite","path":"tests/integration/cleanup-common.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-IT-004"],"verifies":["docker-isolation.src.cleanup.operations","docker-isolation.cleanup.resource-configuration"]},
-    {"symbolId":"docker-isolation.test.unit.capabilities","kind":"test-suite","path":"tests/unit/capabilities.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["ai-adapter.codex.advice-distribution"]},
-    {"symbolId":"docker-isolation.src.docker-desktop.operations","kind":"file","path":"src/docker-desktop/operations.ts","archIds":["ARCH-000008"]},
-    {"symbolId":"docker-isolation.test.unit.docker-desktop.environment","kind":"test-suite","path":"tests/unit/docker-desktop/environment.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["docker-isolation.src.docker-desktop.operations"]},
-    {"symbolId":"docker-isolation.test.unit.resource-dispatch","kind":"test-suite","path":"tests/unit/resource-dispatch.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["docker-isolation.execution.probe-container","docker-isolation.execution.command-session"]},
-    {"symbolId":"docker-isolation.test.unit.resource-inspection","kind":"test-suite","path":"tests/unit/resource-inspection.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["docker-isolation.cleanup.resource-configuration","docker-isolation.cleanup.recovery-executor"]},
-    {"symbolId":"docker-isolation.test.unit.resource-snapshot","kind":"test-suite","path":"tests/unit/resource-snapshot.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["docker-isolation.execution.probe-configuration","docker-isolation.cleanup.resource-configuration","docker-isolation.execution.binding"]},
-    {"symbolId":"docker-isolation.test.unit.proxy-configuration","kind":"test-suite","path":"tests/unit/proxy-configuration.contract.test.ts","qaIds":["QA-000006"],"localTestIds":["ERB-UT-023"],"verifies":["docker-isolation.execution.binding","ai-adapter.codex.advice-distribution"]}
+    {
+      "symbolId": "docker-isolation.src.cleanup.operations",
+      "kind": "file",
+      "path": "src/cleanup/operations.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.integration.cleanup-common",
+      "kind": "test-suite",
+      "path": "tests/integration/cleanup-common.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.src.cleanup.operations",
+        "docker-isolation.cleanup.resource-configuration"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.capabilities",
+      "kind": "test-suite",
+      "path": "tests/unit/capabilities.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "ai-adapter.codex.advice-distribution"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.src.docker-desktop.operations",
+      "kind": "file",
+      "path": "src/docker-desktop/operations.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.docker-desktop.environment",
+      "kind": "test-suite",
+      "path": "tests/unit/docker-desktop/environment.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.src.docker-desktop.operations"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.resource-dispatch",
+      "kind": "test-suite",
+      "path": "tests/unit/resource-dispatch.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-container",
+        "docker-isolation.execution.command-session"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.resource-inspection",
+      "kind": "test-suite",
+      "path": "tests/unit/resource-inspection.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.cleanup.resource-configuration",
+        "docker-isolation.cleanup.recovery-executor"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.resource-snapshot",
+      "kind": "test-suite",
+      "path": "tests/unit/resource-snapshot.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-configuration",
+        "docker-isolation.cleanup.resource-configuration",
+        "docker-isolation.execution.binding"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.unit.proxy-configuration",
+      "kind": "test-suite",
+      "path": "tests/unit/proxy-configuration.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.execution.binding",
+        "ai-adapter.codex.advice-distribution"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.source.desktop-command",
+      "kind": "file",
+      "path": "src/docker-desktop/command.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "docker-isolation.test.integration.desktop-command",
+      "kind": "test-suite",
+      "path": "tests/integration/desktop-command.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.source.desktop-command",
+        "docker-isolation.desktop.restart-runtime",
+        "docker-isolation.desktop.repair-runtime"
+      ]
+    }
   ]
 }

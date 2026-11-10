@@ -43,15 +43,8 @@ export function acquireProviderHomeLock(
 }
 
 /** 同じRuntime状態と回復処理を、Ownerが確定した既存RuntimeState内で排他する。 */
-export function acquireRuntimeStateLock(
-  binding: unknown,
-  directory: unknown,
-): LockResult {
-  if (
-    typeof binding !== "string" ||
-    !/^[0-9a-f]{64}$/u.test(binding) ||
-    typeof directory !== "string"
-  )
+export function acquireRuntimeStateLock(directory: unknown): LockResult {
+  if (typeof directory !== "string")
     return Object.freeze({
       status: "blocked",
       reason: "lock_input_invalid",

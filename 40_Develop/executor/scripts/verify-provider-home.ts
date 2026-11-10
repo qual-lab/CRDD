@@ -125,7 +125,7 @@ export async function verifyProviderHomeBoundary(
   const names: string[] = [];
   let primaryReason: string | null = null;
   let observationMatched = false;
-  let nativeCleanupConfirmed = true;
+  let operationCleanupConfirmed = true;
   let leaseCleanupConfirmed = true;
   let fixtureCleanupConfirmed = false;
   let lock: Lock | null = null;
@@ -177,9 +177,9 @@ export async function verifyProviderHomeBoundary(
     value.filesystemEffectIssued === false;
   try {
     checkpoint("started", false);
-    nativeCleanupConfirmed = false;
+    operationCleanupConfirmed = false;
     const first = observeWindowsProviderHome(provider, home);
-    nativeCleanupConfirmed =
+    operationCleanupConfirmed =
       (!first.processEffectIssued || first.helperExitConfirmed) &&
       first.filesystemEffectIssued === false;
     if (!valid(first) || first.status !== "candidate") {
@@ -197,9 +197,9 @@ export async function verifyProviderHomeBoundary(
       } else {
         lock = acquired.lock;
         try {
-          nativeCleanupConfirmed = false;
+          operationCleanupConfirmed = false;
           const second = observeWindowsProviderHome(provider, home);
-          nativeCleanupConfirmed =
+          operationCleanupConfirmed =
             (!second.processEffectIssued || second.helperExitConfirmed) &&
             second.filesystemEffectIssued === false;
           observationMatched =
@@ -230,7 +230,7 @@ export async function verifyProviderHomeBoundary(
     primaryReason ??= "home_boundary_operation_failed";
   }
   const resourceCleanupConfirmed =
-    nativeCleanupConfirmed && leaseCleanupConfirmed;
+    operationCleanupConfirmed && leaseCleanupConfirmed;
   if (resourceCleanupConfirmed) {
     try {
       const current = fs.statSync(root, { bigint: true });

@@ -380,13 +380,13 @@ export function createDevelopmentExecutionTiming(
 export function getCapabilities() {
   return Object.freeze({
     contract: "crdd-coordinator/capabilities",
-    contractRevision: 5,
+    contractRevision: 6,
     profile: "local_personal",
     commands: Object.freeze(
       [
-        "task run --request-stdin --json",
+        "task run --request-stdin --json --principal-id <local.email.address>",
         "project init --json",
-        "project run --request-stdin --json",
+        "project run --request-stdin --json --principal-id <local.email.address>",
         "doctor check [--json]",
         "doctor isolation [--json]",
         "recovery resume <id> [--json]",

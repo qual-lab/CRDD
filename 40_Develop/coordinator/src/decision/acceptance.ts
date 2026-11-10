@@ -6,6 +6,8 @@
  */
 
 import {
+  isPrincipalId,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   type CoordinatorAcceptanceDecisionRecord,
   RepositoryRuntimeDataAreaBlockedError,
 } from "../../../domain-model/src/index.ts";
@@ -26,7 +28,6 @@ import {
   createCoordinatorAcceptanceAuthorityAdapter,
   validRequest,
 } from "./request.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "./store.ts";
 import { applyCoordinatorAcceptanceDecision } from "./transition.ts";
 import type {
   CoordinatorAcceptanceDecisionAuthorityBinding,
@@ -326,14 +327,23 @@ export function recordCoordinatorAcceptanceDecision(
  * @concurrency State世代とDecision Recordの排他的世代作成で競合を拒否する。
  */
 export function executeCoordinatorPublicAcceptanceDecision(
-  authenticate: () =>
-    | Readonly<{ status: "completed"; principalId: string }>
-    | Readonly<{ status: "blocked"; principalId: null }>,
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   try {
+    if (
+      authenticationContext === undefined ||
+      !isPrincipalId(authenticationContext.principalId)
+    )
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_authenticated_principal_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
     let repositoryRoot: string;
     try {
       repositoryRoot =
@@ -387,12 +397,8 @@ export function executeCoordinatorPublicAcceptanceDecision(
         manualRecoveryRequired: false,
         effectState: "no_effect" as const,
       });
-    const authenticated = authenticate();
     if (
-      authenticated.status !== "completed" ||
-      authenticationContext === undefined ||
-      authenticationContext.principalId !== authenticated.principalId ||
-      candidate.principalId !== authenticated.principalId ||
+      candidate.principalId !== authenticationContext.principalId ||
       typeof candidate.projectId !== "string"
     )
       return Object.freeze({
@@ -412,7 +418,7 @@ export function executeCoordinatorPublicAcceptanceDecision(
           repositoryBindingId,
         ).state,
         authority: createCoordinatorAcceptanceAuthorityAdapter(
-          authenticated.principalId,
+          authenticationContext.principalId,
         ),
         store: createCoordinatorSnapshotAcceptanceDecisionStore(
           repositoryRoot,
@@ -451,19 +457,19 @@ export function executeCoordinatorPublicAcceptanceDecision(
 }
 
 /**
- * Production認証境界を用いてPublic Acceptance Decisionを実行する。
+ * 上位で確定した操作主体をPublic Acceptance Decisionへ渡す。
  *
- * @responsibility Runtime-owned Principal観測を公開Acceptance Decision入口へ固定する。
+ * @responsibility 上位の操作主体と要求内の主体の一致を確認する入口を提供する。
  * @trace ARCH-000005
  * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
  * @returns executeCoordinatorPublicAcceptanceDecisionの結果を返す。
- * @precondition Runtime-owned Windows Decision StoreがLocal Principalを検証できる。
- * @postcondition Production入口は検証済みPrincipalだけをCoreへ渡す。
+ * @precondition 呼出し側が操作主体の認証・認可を完了している。
+ * @postcondition StoreやOSから操作主体を取得・補完しない。
  * @effect Acceptance Decision Recordと必要なCoordinator Stateだけを更新する。
- * @failure 認証またはRuntime Data観測不能を理由付き停止へ変換する。
- * @invariant Test専用認証をProduction入口へ使用しない。
+ * @failure 操作主体未指定・要求との不一致またはRuntime Data観測不能を理由付き停止へ変換する。
+ * @invariant 保存先の利用可否を本人認証として扱わない。
  * @boundary Local TransportとProduction Composition Rootの境界。
- * @security Store自体を公開せずPrincipal観測結果だけをAuthorityへ渡す。
+ * @security 外部要求のprincipalIdだけを信頼せず、上位の操作主体と照合する。
  * @concurrency 下位Storeの世代制御を維持する。
  */
 export function acceptResult(
@@ -472,19 +478,8 @@ export function acceptResult(
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
   return executeCoordinatorPublicAcceptanceDecision(
-    () => {
-      const observed = openRuntimeOwnedWindowsProjectDecisionStore();
-      return observed.status === "completed"
-        ? Object.freeze({
-            status: "completed" as const,
-            principalId: observed.principalId,
-          })
-        : Object.freeze({ status: "blocked" as const, principalId: null });
-    },
     rawRequest,
     workingDirectory,
     authenticationContext,
   );
 }
-
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../../domain-model/src/index.ts";

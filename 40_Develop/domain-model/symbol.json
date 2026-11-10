@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "domain-model",
   "symbols": [
+    {"symbolId":"domain-model.identity.validation","kind":"file","path":"src/identity/validation.ts","archIds":["ARCH-000004"]},
     {
       "symbolId": "domain-model.test.unit.workspace-technical-contract",
       "kind": "test-suite",

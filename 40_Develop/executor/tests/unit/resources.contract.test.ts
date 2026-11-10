@@ -285,8 +285,6 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     lifecycle: null,
     checkpoint: null,
     finalCheckpointConfirmed: false,
-    ownerBindingSha256: null,
-    scopeSha256: null,
   });
   const repaired = Promise.resolve(repairResult);
   /**
@@ -355,7 +353,6 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
       actions: Object.fromEntries(
         [
           "stop_runtime",
-          "terminate_runtime",
           "stop_backend",
           "retain_runtime",
           "start_runtime",
@@ -393,8 +390,6 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     };
     const inspect: DirectoryInspectionInput = Object.freeze({
       operationNonce: "a".repeat(64),
-      ownerBindingSha256: "b".repeat(64),
-      scopeSha256: "c".repeat(64),
       checkpoint,
       signal: controller.signal,
       canObserve: () => false,
@@ -423,8 +418,6 @@ test("共通資源APIは固定DI入力と対象別の同期性を保持する", 
     );
     const disposal: RepairDisposalInput = Object.freeze({
       operationNonce: inspect.operationNonce,
-      ownerBindingSha256: inspect.ownerBindingSha256,
-      scopeSha256: inspect.scopeSha256,
       checkpoint,
       purpose: "primary",
       signal: controller.signal,

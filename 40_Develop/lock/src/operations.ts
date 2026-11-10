@@ -190,7 +190,7 @@ export function acquireLock(request: LockRequest): LockResult {
   const lock: Lock = Object.freeze({
     reference,
     assertLive,
-    release() {
+    release(retainFile = false) {
       if (released) return false;
       const matched = assertLive();
       released = true;
@@ -201,6 +201,7 @@ export function acquireLock(request: LockRequest): LockResult {
         return false;
       }
       if (!matched || !matchesPath()) return false;
+      if (retainFile) return true;
       // 正規Callerは保持中に置換しない。非協調の最終照合後置換は保証対象外。
       try {
         fs.rmSync(target);

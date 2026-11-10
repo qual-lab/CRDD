@@ -6,6 +6,7 @@
  */
 
 import {
+  isPrincipalId,
   type CoordinatorState,
   RepositoryRuntimeDataAreaBlockedError,
   readCoordinatorCurrentState,
@@ -142,6 +143,18 @@ export function executeCoordinatorPublicStateQuery(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
+  if (
+    authenticationContext === undefined ||
+    !isPrincipalId(authenticationContext.principalId)
+  )
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_authenticated_principal_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
   let repositoryRoot: string;
   try {
     repositoryRoot =
@@ -197,12 +210,8 @@ export function executeCoordinatorPublicStateQuery(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const authenticated = openDecisionStore();
-  if (
-    authenticated.status !== "completed" ||
-    (authenticationContext !== undefined &&
-      authenticationContext.principalId !== authenticated.principalId)
-  )
+  const decisionStore = openDecisionStore();
+  if (decisionStore.status !== "completed")
     return Object.freeze({
       contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,

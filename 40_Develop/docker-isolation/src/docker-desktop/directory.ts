@@ -128,7 +128,7 @@ function repairDirectoryTargets(
 
 /**
  * 退避対象の期待実体をown dataから捕捉する。
- * @responsibility 既存退避とScope固定退避で同じ入力検査を使う。
+ * @responsibility 既存退避と固定退避で同じ入力検査を使う。
  * @trace ARCH-000008
  * @input expectedIdentity: 三値の実体候補。
  * @returns 凍結実体、またはnull。
@@ -176,7 +176,7 @@ function captureRepairDirectoryIdentity(expectedIdentity: unknown) {
 
 /**
  * 三つの固定修復用途から同じ親の対象Pathを導出する。
- * @responsibility Scopeと既存退避処理の対象名を一つの規則に揃える。
+ * @responsibility 対象導出と既存退避処理の対象名を一つの規則に揃える。
  * @trace ARCH-000008
  * @input localAppData: 検証したOS所在、operationId: 下位32桁ID、purpose: 固定用途。
  * @returns 凍結したsource／target／parent、またはnull。
@@ -185,7 +185,7 @@ function captureRepairDirectoryIdentity(expectedIdentity: unknown) {
  * @effect N/A: 純粋なPath導出のみ。
  * @failure 未対応OS、不正Path／ID／用途はnull。
  * @invariant Path一致を操作Authorityにしない。
- * @boundary DI内部のScopeとFilesystem Adapter。
+ * @boundary DI内部の対象導出とFilesystem Adapter。
  * @security Rootへ公開しない。
  * @concurrency N/A: 共有状態なし。
  */
@@ -235,7 +235,7 @@ function repairDirectoryPaths(
  * @security payloadやPathをログへ出さない。
  * @concurrency N/A: 共有状態なし。
  */
-function hashRepairScopeValue(domain: string, payload: unknown): string {
+function hashDirectoryIdentifier(domain: string, payload: unknown): string {
   const bytes = Buffer.from(JSON.stringify(payload), "utf8");
   const length = Buffer.alloc(4);
   length.writeUInt32LE(bytes.length);
@@ -248,30 +248,28 @@ function hashRepairScopeValue(domain: string, payload: unknown): string {
 }
 
 /**
- * 上位確定の安定したユーザーデータ基点実体と固定Pathへ修復Scopeを結合する。
- * @responsibility 可変run世代を操作全体Scopeへ混入させない。
+ * 上位確定の安定したユーザーデータ基点実体と固定Pathから修復対象を導出する。
+ * @responsibility 基点実体と固定対象を一回の操作内で照合する。
  * @trace ARCH-000008
- * @input localAppData: 上位確定の初期化済みユーザーデータ基点、operationNonce: 64hex、ownerBindingSha256: 実H、artifactSha256: 固定実行物。
- * @returns Scope Hash、下位Directory ID、canonical Localと同一の凍結targets、またはnull。
+ * @input localAppData: 上位確定の初期化済みユーザーデータ基点、operationNonce: 64hex。
+ * @returns Directory ID、canonical Localと同一の凍結targets、またはnull。
  * @precondition 本番runtimeが同じ取得結果のH／Artifactと初期化済みユーザーデータ基点を渡す。
- * @postcondition Local以外の可変DirectoryをScope生成で観測・作成しない。
+ * @postcondition Local以外の可変Directoryを対象導出で観測・作成しない。
  * @effect Localのlstat／realpath前後観測だけ。
  * @failure 入力不正、link、Path差、実体差、観測不能はnull。
- * @invariant Scope Hashだけで所有・Root・Revision・現在許可を推定しない。
+ * @invariant Directory IDだけで実体・現在許可を推定しない。
  * @boundary DI内部runtimeの準備と技術Adapter。
  * @security 生PathをRoot APIへ返さず、任意Rootの処置能力を発行しない。
  * @concurrency 同じ安定Localを再観測し、可変対象は各actionで別照合する。
  */
-export function observeDockerDesktopRepairScope(
+export function observeRepairDirectoryTargets(
   localAppData: unknown,
   operationNonce: unknown,
-  ownerBindingSha256: unknown,
-  artifactSha256: unknown,
 ) {
   if (
     process.platform !== "win32" ||
     !isRepairLocalAppDataPath(localAppData) ||
-    [operationNonce, ownerBindingSha256, artifactSha256].some(
+    [operationNonce].some(
       (value) => typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value),
     )
   )
@@ -294,7 +292,7 @@ export function observeDockerDesktopRepairScope(
       fs.lstatSync(canonicalLocal, { bigint: true }),
     );
     if (!after || !sameDirectoryIdentity(before, after)) return null;
-    const directoryId = hashRepairScopeValue(
+    const directoryId = hashDirectoryIdentifier(
       "crdd/docker-desktop-repair-directory/v1",
       {
         operationNonce,
@@ -317,19 +315,8 @@ export function observeDockerDesktopRepairScope(
     );
     if (!initial || !failed || !auxiliary) return null;
     const targets = Object.freeze({ initial, failed, auxiliary });
-    const scopeSha256 = hashRepairScopeValue(
-      "crdd/docker-desktop-repair-scope/v1",
-      {
-        protocol: "CRDDDR06",
-        operationNonce,
-        ownerBindingSha256,
-        artifactSha256,
-        localAppData: Object.freeze({ path: canonicalLocal, identity: after }),
-        targets,
-      },
-    );
     return Object.freeze({
-      scopeSha256,
+      identity: after,
       directoryId,
       localAppData: canonicalLocal,
       targets,
@@ -340,65 +327,63 @@ export function observeDockerDesktopRepairScope(
 }
 
 /**
- * 一度捕捉したScope対象へDirectory操作を固定する。
+ * 一度捕捉した固定対象対象へDirectory操作を固定する。
  * @responsibility 相関した同じtargetsを観測・lock確認・退避に使う。
  * @trace ARCH-000008
- * @input localAppData、operationNonce、ownerBindingSha256、artifactSha256: 同取得の準備材料。
- * @returns Scope相関と三用途固定操作、またはnull。
- * @precondition Native生存と現在Ownerは呼出し側が各Effect前に確認する。
- * @postcondition 可変Docker親を全体Scopeへ固定しない。
- * @effect Local親のScope観測。返却処理は固定Filesystem操作だけ。
- * @failure Scope不成立はnull、各操作の不明はunknown。
+ * @input localAppData、operationNonce: 同取得の準備材料。
+ * @returns 固定対象相関と三用途固定操作、またはnull。
+ * @precondition CLI操作の有効性と現在Ownerは呼出し側が各Effect前に確認する。
+ * @postcondition 可変Docker親を全体固定対象へ固定しない。
+ * @effect Local親の固定対象観測。返却処理は固定Filesystem操作だけ。
+ * @failure 固定対象不成立はnull、各操作の不明はunknown。
  * @invariant 保存・再起動・任意Path操作を所有せず、回収は固定旧targetだけに限定する。
  * @boundary DI内部の実技術Adapter。Root非公開。
  * @security 生Pathを操作結果へ返さない。
- * @concurrency Scopeをfresh照合しても処置対象は元targetsのまま。
+ * @concurrency 固定対象をfresh照合しても処置対象は元targetsのまま。
  */
 export function createDockerDesktopRepairDirectoryAccess(
   localAppData: unknown,
   operationNonce: unknown,
-  ownerBindingSha256: unknown,
-  artifactSha256: unknown,
 ) {
-  const scope = observeDockerDesktopRepairScope(
-    localAppData,
-    operationNonce,
-    ownerBindingSha256,
-    artifactSha256,
-  );
+  const scope = observeRepairDirectoryTargets(localAppData, operationNonce);
   if (!scope) return null;
   /**
    * 安定Local親の現在相関を再照合する。
    * @responsibility 親の差替え後に処置しない。
    * @trace ARCH-000008
    * @input N/A: 同取得の材料だけ。
-   * @returns Scope一致時だけtrue。
-   * @precondition 初回Scope捕捉済み。
+   * @returns 固定対象一致時だけtrue。
+   * @precondition 初回固定対象捕捉済み。
    * @postcondition 元targetsを置換しない。
    * @effect Local親の読取りのみ。
    * @failure 観測不能・実体差はfalse。
-   * @invariant Hash一致をAuthorityへ昇格しない。
+   * @invariant 基点一致だけでAuthorityを推定しない。
    * @boundary 安定親と固定操作。
    * @security Pathを返さない。
    * @concurrency 操作ごとにfresh確認。
    */
-  const verify = () =>
-    observeDockerDesktopRepairScope(
+  const verify = () => {
+    const current = observeRepairDirectoryTargets(
       scope.localAppData,
       operationNonce,
-      ownerBindingSha256,
-      artifactSha256,
-    )?.scopeSha256 === scope.scopeSha256;
+    );
+    return (
+      current !== null &&
+      current.localAppData === scope.localAppData &&
+      sameDirectoryIdentity(current.identity, scope.identity)
+    );
+  };
+
   /**
    * 固定用途の元と退避先を読取り観測する。
    * @responsibility 不存在と観測不能を分離する。
    * @trace ARCH-000008
    * @input purpose: 初回・失敗起動・補助領域。
    * @returns 元と退避先の技術観測、またはnull。
-   * @precondition Scopeが現在一致する。
+   * @precondition 固定対象が現在一致する。
    * @postcondition 任意Pathを探索しない。
    * @effect 同じtargetsのlstatだけ。
-   * @failure 不正用途・Scope差はnull。
+   * @failure 不正用途・固定対象差はnull。
    * @invariant 観測から退避許可を作らない。
    * @boundary 固定対象と実Filesystem。
    * @security 生Pathなし。
@@ -419,7 +404,7 @@ export function createDockerDesktopRepairDirectoryAccess(
    * @trace ARCH-000008
    * @input purpose: 固定三用途。
    * @returns lock実体またはnull。
-   * @precondition Scope現在一致。
+   * @precondition 固定対象現在一致。
    * @postcondition 別対象へfallbackしない。
    * @effect 固定元の有界open／close観測。
    * @failure 不正用途・不明はnull。
@@ -439,10 +424,10 @@ export function createDockerDesktopRepairDirectoryAccess(
    * @trace ARCH-000008
    * @input purpose: 固定用途、expected: 保存Ownerに結合した実体。
    * @returns 発行・確認・保持状態。
-   * @precondition 意図保存とNative／現在許可は別途確認済み。
+   * @precondition 意図保存とCLI／現在許可は別途確認済み。
    * @postcondition 元・先を削除せず先既存を上書きしない。
    * @effect 同じ固定targets間のrename一回。
-   * @failure 不正入力・Scope差・既存不明はunknown。
+   * @failure 不正入力・固定対象差・既存不明はunknown。
    * @invariant 初回と継続の既存退避先分類を維持する。
    * @boundary DI内部の退避実処理。
    * @security 任意Pathと任意basenameを受けない。
@@ -469,7 +454,7 @@ export function createDockerDesktopRepairDirectoryAccess(
     );
   };
   /**
-   * 同じScopeの固定旧targetだけを有界回収へ渡す。
+   * 同じ固定対象の固定旧targetだけを有界回収へ渡す。
    * @responsibility 任意Path・別用途・不正実体・現在許可不明の要求を拒否する。
    * @trace ARCH-000008
    * @input purpose: 三用途、expected: 元checkpoint実体またはnull、canIssue: 現在Owner確認。
@@ -477,11 +462,11 @@ export function createDockerDesktopRepairDirectoryAccess(
    * @precondition 上位が保存済み回収意図と旧OwnerのEffect不能を共同確認する。
    * @postcondition Root APIへPathや依存差替えを公開しない。
    * @effect 固定対象の読取りと条件成立時だけ有界回収。
-   * @failure 不正値・Scope／Owner不明は要求0・absence unknown。
+   * @failure 不正値・固定対象／Owner不明は要求0・absence unknown。
    * @invariant 元checkpointや現在sourceを変更しない。
    * @boundary DI内部の固定factoryと実回収Driver。
    * @security 任意Host Rootや別basenameを受け取らない。
-   * @concurrency Driver内でも同じScopeと現在許可をfresh確認する。
+   * @concurrency Driver内でも同じ固定対象と現在許可をfresh確認する。
    */
   const dispose = async (
     purpose: "initial" | "failed" | "auxiliary",
@@ -505,7 +490,6 @@ export function createDockerDesktopRepairDirectoryAccess(
     );
   };
   return Object.freeze({
-    scopeSha256: scope.scopeSha256,
     verify,
     observe,
     lock,

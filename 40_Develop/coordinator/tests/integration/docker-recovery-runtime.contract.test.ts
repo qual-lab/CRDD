@@ -471,8 +471,6 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
       ...(await import("../../src/execution/authority.ts")),
       inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
       consumeRuntimeOwnedProviderHomeObservationCapability: observe,
-      inspectRuntimeOwnedWindowsRuntimeState: observe,
-      consumeRuntimeOwnedRuntimeStateRootCapability: observe,
     },
   });
   try {

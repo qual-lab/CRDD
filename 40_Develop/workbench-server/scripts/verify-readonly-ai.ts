@@ -12,10 +12,12 @@ import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { openTaskSession } from "../../coordinator/src/index.ts";
 import {
+  createLocalPrincipalId,
   type AiSelectionChoice,
   readRepositoryAiSelection,
 } from "../../domain-model/src/index.ts";
 import {
+  readGitUser,
   readRepositoryRevision,
   getRepository,
 } from "../../version-control/src/index.ts";
@@ -94,10 +96,16 @@ async function main() {
     readRepositoryAiSelection(verified.capability, getModelCatalog().catalog)
       .snapshot?.identity === configHash;
   const surface = await readWorkbenchProjectSurface(root);
+  const gitUser = readGitUser(verified.capability);
+  const principalId =
+    gitUser.status === "completed"
+      ? createLocalPrincipalId(gitUser.email)
+      : null;
+  if (!principalId) throw new Error("local_git_user_unavailable");
   const owner = openTaskSession({
     rootCapability: verified.capability,
     projectId: surface.context.projectId,
-    principalId: "local-workbench-user",
+    principalId,
     authorize: permitted,
   });
   const timing = createReadonlyVerificationTiming();

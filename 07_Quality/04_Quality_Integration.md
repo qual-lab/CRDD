@@ -1,5 +1,21 @@
 # Quality Integration
 
+## Runtime StateのNode.js接続 — 2026-11-10
+
+Runtime専用の本番Native呼出しと公開入口を撤去し、固定保存先のNode初期化・実体再照合を既存Storeへ統合した。旧Native保護3試験の成功を流用せず、正常／未作成、途中File、Junction、Root置換、残存Lock、相対設定、部分作成失敗の7追加ケースを実Filesystemで確認した。Provider HomeのNative故障試験は維持する。限定回帰は重複を除き11ファイル155件が成功し、型検査3構成、書式・警告検査、独立再レビューも成功した。既存Host試験2件の固定環境値の期待漏れは試験だけを是正し、検査を緩めず再実行した。試験物は各試験の清掃で回収した。全体回帰・実AI・Docker・過去保持物操作は実施していない。Native内部Protocol・配布物は残存し、PA全廃とはしない。[変更と保証境界](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#runtime-stateのnodejs接続と祖先handle保持の削減--2026-11-10)を参照する。
+
+## Gitメール由来の要求主体 — 2026-11-10
+
+VCの実Git・bin、DMのメール主体検査、Coordinatorの明示CLI引数、Workbench／MCPのローカル入口を接続した。Git設定の実効値・Main／Linked・global include・未設定／不正設定・CLI JSON、メールの大小文字保持と予約prefix不正の拒否を限定試験で確認する。一般のID検査、Native保護・wx排他・保存形式は不変更。メールを本人認証と扱わず、AM入口は既存認証IDを維持する。
+
+本版の限定回帰は10ファイル78件、型検査は7構成で成功した。修正後の再実行は重複計上せず、先行版の54件も流用していない。書式・警告・エラー・差分空白検査が成功し、独立レビュー指摘の是正後、最終再レビューは追加指摘0件。試験物は各試験の清掃で回収した。全体回帰は保留し、実AI・Docker・過去保持物は操作していない。[変更と検証範囲](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#gitメールによる要求主体と明示cli搬送--2026-11-10)を参照する。
+
+## 操作主体とRuntime State保存先の分離 — 2026-11-10
+
+Decision Storeから操作主体の返却を撤去し、上位の主体を判断・実行記録へ伝播する。公開操作・人間判断の是正後回帰19件が成功し、主体欠測・不正でStore open 0、要求との主体不一致拒否、別主体の期限切れ記録のCAS 0と元記録維持を確認した。Coordinatorの製品／試験、Workbench、MCPの型検査と変更Sourceの書式・警告検査が成功。独立レビューの指摘を是正し、再レビューで追加指摘0件。
+
+配布利用側まで再照合し、既存ローカル主体観測を保存非依存へ移管してProject CLIから明示搬送した。不正RootではNative観測・実行とも0、元のRoot拒否理由を維持する。追加入口11件、Worktree・受入等を含む先行40件、MCP定義3件も成功し、再実行の重複を除く7ファイル54件が成功した。配布入口を含む5構成の型検査と最終独立再レビューが成功し、追加指摘0件。試験物は各試験のcleanupで回収した。全体回帰は保留し、実Native保護・実AI・Docker・過去保持物は操作していない。Native保護・既存保存形式は変更せず、AMユーザーへ全入口が統一されたとは主張しない。[変更範囲と制約](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#操作主体とruntime-state保存先の分離--2026-11-10)を参照する。
+
 ## Local AppData専用入口退役とMatrixの終了確認 — 2026-11-10
 
 未使用のLocal AppData専用TS API・試験とNative専用mode／frameを撤去した。共用Known Folder取得は保護／Helper内部で維持し、公開一覧・台帳・旧Host代役を追従した。明示targetのNative release Build、固定配布exe、Bootstrap Hashを同期し、公開観測のbootstrapVerified:trueを確認した。配布物は独立した読取り確認でもHash・サイズが一致した。

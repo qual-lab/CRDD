@@ -7,7 +7,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import {
-  createDockerDesktopRepairHelperEnvironment,
+  createDesktopCommandEnvironment,
   type IsolationSettings,
 } from "../docker-cli/environment.ts";
 
@@ -32,7 +32,7 @@ export function terminateDockerDesktopBackendForRepair(
   issued: boolean;
   confirmation: "not_issued" | "confirmed" | "unknown";
 }> {
-  const environment = createDockerDesktopRepairHelperEnvironment(settings);
+  const environment = createDesktopCommandEnvironment(settings);
   const systemRoot = environment?.SystemRoot;
   if (!environment || !systemRoot)
     return Object.freeze({ issued: false, confirmation: "not_issued" });
@@ -192,7 +192,7 @@ export function observeBackendState(settings: IsolationSettings): BackendState {
   if (process.platform !== "win32") return "unknown";
   try {
     const environment: Readonly<Record<string, string>> | null =
-      createDockerDesktopRepairHelperEnvironment(settings);
+      createDesktopCommandEnvironment(settings);
     if (!environment?.SystemRoot) return "unknown";
     const executable = path.win32.join(
       environment.SystemRoot,

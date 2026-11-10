@@ -121,7 +121,7 @@ test("現在CLIは正式APIを一度待機しRootと取消を結合する", asyn
           retentionReviewAfter: null,
           historyConfirmed: false,
           completionConfirmed: false,
-          nativeCleanupConfirmed: false,
+          operationCleanupConfirmed: false,
         };
       };
       const context = {
@@ -255,7 +255,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
     retentionReviewAfter: null,
     historyConfirmed: true,
     completionConfirmed: true,
-    nativeCleanupConfirmed: true,
+    operationCleanupConfirmed: true,
     cliCleanupConfirmed: true,
     cliCleanupReason: null,
   };
@@ -304,7 +304,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
     completionConfirmed: true,
     outcomeConfirmed: false,
     finalCheckpointConfirmed: false,
-    nativeCleanupConfirmed: false,
+    operationCleanupConfirmed: false,
   };
   assert.equal(
     renderDockerRecoveryDoctorReport(retainedComplete, false).exitCode,
@@ -337,7 +337,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
     "historyConfirmed",
     "outcomeConfirmed",
     "finalCheckpointConfirmed",
-    "nativeCleanupConfirmed",
+    "operationCleanupConfirmed",
   ])
     assert.throws(() =>
       renderDockerRecoveryDoctorReport({ ...retained, [key]: false }, true),
@@ -345,7 +345,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
   for (const key of [
     "outcomeConfirmed",
     "finalCheckpointConfirmed",
-    "nativeCleanupConfirmed",
+    "operationCleanupConfirmed",
   ])
     assert.throws(() =>
       renderDockerRecoveryDoctorReport({ ...waiting, [key]: false }, true),
@@ -362,7 +362,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
         ...waiting,
         outcomeConfirmed: false,
         finalCheckpointConfirmed: false,
-        nativeCleanupConfirmed: false,
+        operationCleanupConfirmed: false,
       },
       true,
     ),
@@ -385,7 +385,7 @@ test("現在修復診断は固定fieldと相関だけを表示する", () => {
         ...value,
         outcomeConfirmed: false,
         finalCheckpointConfirmed: false,
-        nativeCleanupConfirmed: false,
+        operationCleanupConfirmed: false,
       },
       true,
     ).exitCode,
@@ -498,7 +498,7 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
       retentionReviewAfter: null,
       historyConfirmed: false,
       completionConfirmed: false,
-      nativeCleanupConfirmed: false,
+      operationCleanupConfirmed: false,
       statePublication: { private: "PRIVATE_FIXTURE_DETAIL" },
       stateMarkerCleanup: { private: "PRIVATE_FIXTURE_DETAIL" },
       checkpoints: ["PRIVATE_FIXTURE_DETAIL"],
@@ -517,7 +517,7 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
       "retentionReviewAfter",
       "historyConfirmed",
       "completionConfirmed",
-      "nativeCleanupConfirmed",
+      "operationCleanupConfirmed",
     ].sort(),
   );
   assert.equal(value.reason, "primary_fixture_failure");
@@ -543,7 +543,7 @@ test("修復の公開投影は内部保存checkpointを返さない", () => {
     "retentionConfirmed",
     "historyConfirmed",
     "completionConfirmed",
-    "nativeCleanupConfirmed",
+    "operationCleanupConfirmed",
   ])
     assert.equal(mismatch[key], false);
   assert.equal(mismatch.retentionReviewAfter, null);
@@ -1167,7 +1167,7 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
           retentionReviewAfter: "2026-11-01T00:00:00.000Z",
           historyConfirmed: true,
           completionConfirmed: true,
-          nativeCleanupConfirmed: true,
+          operationCleanupConfirmed: true,
         };
       },
     };
@@ -1192,7 +1192,7 @@ test("修復保持再入場の三入口は別IDの成功を元要求へ転用し
       "retentionConfirmed",
       "historyConfirmed",
       "completionConfirmed",
-      "nativeCleanupConfirmed",
+      "operationCleanupConfirmed",
     ])
       assert.equal(result[key], false);
     assert.equal(JSON.stringify(result).includes(other), false);

@@ -3,6 +3,9 @@
   "contractRevision": 1,
   "subsystem": "version-control",
   "symbols": [
+    {"symbolId":"version-control.test.integration.git-user","kind":"test-suite","path":"tests/integration/git-user.integration.test.ts","qaIds":["QA-000003","QA-000007"],"localTestIds":["RFD-IT-001","PRL-IT-012"],"verifies":["version-control.repository.user"]},
+    {"symbolId":"version-control.repository.user","kind":"file","path":"src/repository/user.ts","archIds":["ARCH-000002"]},
+    {"symbolId":"version-control.bin","kind":"file","path":"bin/version-control.ts","archIds":["ARCH-000002"]},
     {"symbolId":"version-control.worktree.types","kind":"file","path":"src/worktree/types.ts","archIds":["ARCH-000009"]},
     {
       "symbolId": "version-control.repository.reference",

@@ -1,5 +1,5 @@
 /**
- * Coordinatorの保護された判断記録・世代・Hash連続性を保存する。
+ * Coordinatorの判断記録を、保存先実体・排他・世代・Hash連続性を確認して保存する。
  *
  * @responsibility VerifiedRootを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
@@ -15,10 +15,7 @@ import {
   readCommittedJson,
   writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
-import {
-  consumeRuntimeOwnedRuntimeStateRootCapability,
-  inspectRuntimeOwnedWindowsRuntimeState,
-} from "../execution/authority.ts";
+import { runtimeStateDirectoryCandidate } from "../execution/authority.ts";
 import { acquireRuntimeStateLock } from "../execution/kernel-lock.ts";
 import type { CoordinatorDecisionStore } from "./types.ts";
 
@@ -38,9 +35,7 @@ const ENTRY = /^project-decision-([0-9a-f]{40})-([0-9]{8})\.json$/u;
  * @security VerifiedRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility VerifiedRootの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type VerifiedRoot = NonNullable<
-  ReturnType<typeof consumeRuntimeOwnedRuntimeStateRootCapability>
->;
+type VerifiedRoot = Readonly<{ rootPath: string; identity: string }>;
 /**
  * windows-decision-storeで使用するEnvelopeの値契約を定義する。
  *
@@ -97,13 +92,7 @@ function hash(value: string) {
  * @concurrency N/A: sameRootは共有非同期状態を持たない同期処理である。
  */
 function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
-  return (
-    left.rootPath === right.rootPath &&
-    left.runtimeStateIdentityHash === right.runtimeStateIdentityHash &&
-    left.runtimeStateProtectionHash === right.runtimeStateProtectionHash &&
-    left.localUserBindingHash === right.localUserBindingHash &&
-    left.stableLogicalHomeBindingHash === right.stableLogicalHomeBindingHash
-  );
+  return left.rootPath === right.rootPath && left.identity === right.identity;
 }
 
 /**
@@ -162,36 +151,82 @@ function entryName(recordId: string, generation: number) {
 }
 
 /**
- * Rootを観測する。
- *
- * @responsibility Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000004
- * @input shouldInitialize: boolean、developmentContext: object
- * @returns inspectRootの計算結果を返す。
- * @precondition 「shouldInitialize: boolean、developmentContext: object」がinspectRootの入力契約を満たす。
- * @postcondition inspectRootの責務を完了した結果だけを返す。
- * @effect N/A: inspectRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectRootは独自の失敗分岐を所有しない。
- * @invariant inspectRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security inspectRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: inspectRootは共有非同期状態を持たない同期処理である。
+ * 起動設定から固定Runtime保存先を確認する。
+ * @responsibility Windowsの絶対正規形とDirectory実体を照合する。
+ * @trace ARCH-000015
+ * @input shouldInitialize: 固定末尾三段の作成を許可するか。
+ * @effect 許可時のみ欠測Directoryを一段ずつ作成する。既存物を修復・削除しない。
+ * @failure 設定不正、非対応OS、Link、不一致、観測不能はnullで停止する。
+ * @boundary Node.js Filesystem。要求主体・SID・DACLの証明には使用しない。
  */
-function inspectRoot(shouldInitialize: boolean, developmentContext?: object) {
-  const observation = inspectRuntimeOwnedWindowsRuntimeState(
-    shouldInitialize,
-    developmentContext,
-  );
-  const root = consumeRuntimeOwnedRuntimeStateRootCapability(
-    observation.rootCapability,
-  );
-  return observation.status === "candidate" &&
-    observation.selectedUserBindingVerified === true &&
-    observation.protectionVerified === true &&
-    observation.stableIdentityObserved === true &&
-    root
-    ? root
-    : null;
+function inspectRoot(shouldInitialize: boolean): VerifiedRoot | null {
+  if (process.platform !== "win32") return null;
+  const rootPath = runtimeStateDirectoryCandidate();
+  if (!rootPath) return null;
+  return inspectDirectory(rootPath, shouldInitialize);
+}
+
+/**
+ * 固定保存先までを一段ずつ確認し、最後の三段だけを必要時に作成する。
+ * @responsibility 非リンク・正規所在とDirectory実体を確認し、観測不能は拒否する。
+ * @trace ARCH-000015
+ * @boundary Node.js Filesystem。SID・DACL・差替え競合の原子的な防止は保証しない。
+ * @effect 許可時のみQual-Lab/CRDD/RuntimeStateを作成。既存物の修復・削除はしない。
+ */
+function inspectDirectory(
+  rootPath: string,
+  initialize: boolean,
+): VerifiedRoot | null {
+  try {
+    if (!path.isAbsolute(rootPath) || path.normalize(rootPath) !== rootPath)
+      return null;
+    const paths: string[] = [];
+    for (let current = rootPath; ; current = path.dirname(current)) {
+      paths.unshift(current);
+      if (path.dirname(current) === current) break;
+    }
+    const identities: string[] = [];
+    for (let index = 0; index < paths.length; index++) {
+      const current = paths[index];
+      if (current === undefined) return null;
+      try {
+        fs.lstatSync(current);
+      } catch (error) {
+        if (
+          !initialize ||
+          (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+          index < paths.length - 3
+        )
+          return null;
+        // 祖先を再確認した後、再帰作成せず一段だけ作る。競合EEXISTも後で同じ検査を通す。
+        if (
+          inspectDirectory(path.dirname(current), false)?.identity !==
+          JSON.stringify(identities)
+        )
+          return null;
+        try {
+          fs.mkdirSync(current, { mode: 0o700 });
+        } catch (creationError) {
+          if ((creationError as NodeJS.ErrnoException).code !== "EEXIST")
+            return null;
+        }
+      }
+      const metadata = fs.lstatSync(current, { bigint: true });
+      if (
+        !metadata.isDirectory() ||
+        metadata.isSymbolicLink() ||
+        fs.realpathSync.native(current) !== current ||
+        metadata.ino === 0n
+      )
+        return null;
+      identities.push(
+        `${metadata.dev}:${metadata.ino}:${metadata.birthtimeNs}`,
+      );
+    }
+    return Object.freeze({ rootPath, identity: JSON.stringify(identities) });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -295,11 +330,11 @@ function unknown() {
  *
  * @responsibility with Lockの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input expectedRoot: VerifiedRoot、acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null、reobserve: () => VerifiedRoot | null、operation: (root: VerifiedRoot) => T
+ * @input expectedRoot: VerifiedRoot、acquire: (directory: string) => LockResult、reobserve: () => VerifiedRoot | null、operation: (root: VerifiedRoot) => T
  * @returns T | nullを返す。
- * @precondition 「expectedRoot: VerifiedRoot、acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null、reobserve: () => VerifiedRoot | null、operation: (root: VerifiedRoot) => T」がwithLockの入力契約を満たす。
+ * @precondition 「expectedRoot: VerifiedRoot、acquire: (directory: string) => LockResult、reobserve: () => VerifiedRoot | null、operation: (root: VerifiedRoot) => T」がwithLockの入力契約を満たす。
  * @postcondition withLockの責務を完了した結果だけを返す。
- * @effect N/A: withLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect wx Lockを取得し、Root再観測後に操作を行い、正常・失敗とも元Lockの解放を確認する。
  * @failure withLockは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant withLockは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -308,17 +343,11 @@ function unknown() {
  */
 function withLock<T>(
   expectedRoot: VerifiedRoot,
-  acquire: (
-    bindingHash: string,
-    directory: string,
-  ) => LockResult<Readonly<{ release(): boolean }>>,
+  acquire: (directory: string) => LockResult<Readonly<{ release(): boolean }>>,
   reobserve: () => VerifiedRoot | null,
   operation: (root: VerifiedRoot) => T,
 ): T | null {
-  const acquisition = acquire(
-    expectedRoot.stableLogicalHomeBindingHash,
-    expectedRoot.rootPath,
-  );
+  const acquisition = acquire(expectedRoot.rootPath);
   if (acquisition.status !== "acquired") {
     if (!acquisition.descriptorClosed)
       poisonRuntimeProcessAfterCleanupUnknown();
@@ -348,11 +377,11 @@ function withLock<T>(
  *
  * @responsibility Storeの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input root: VerifiedRoot、acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null、reobserve: () => VerifiedRoot | null
+ * @input root: VerifiedRoot、acquire: (directory: string) => LockResult、reobserve: () => VerifiedRoot | null
  * @returns createStoreの計算結果を返す。
- * @precondition 「root: VerifiedRoot、acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null、reobserve: () => VerifiedRoot | null」がcreateStoreの入力契約を満たす。
+ * @precondition 「root: VerifiedRoot、acquire: (directory: string) => LockResult、reobserve: () => VerifiedRoot | null」がcreateStoreの入力契約を満たす。
  * @postcondition createStoreの責務を完了した結果だけを返す。
- * @effect N/A: createStoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 構築時はI/Oなし。返す各操作はwithLockを介して記録を読み書きする。
  * @failure N/A: createStoreは独自の失敗分岐を所有しない。
  * @invariant createStoreは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -361,10 +390,7 @@ function withLock<T>(
  */
 function createStore(
   root: VerifiedRoot,
-  acquire: (
-    bindingHash: string,
-    directory: string,
-  ) => LockResult<Readonly<{ release(): boolean }>>,
+  acquire: (directory: string) => LockResult<Readonly<{ release(): boolean }>>,
   reobserve: () => VerifiedRoot | null,
 ) {
   const store: CoordinatorDecisionStore = Object.freeze({
@@ -482,46 +508,30 @@ function createStore(
 }
 
 /**
- * Runtime 所有 Windows Project Decision Storeを開始状態で開く。
- *
- * @responsibility Runtime 所有 Windows Project Decision Storeの開始条件、所有Resource、開始失敗境界を所有する。
+ * 固定Runtime保存先を確認し、判断記録Storeを開く。
+ * @responsibility 保存先の実体と操作ごとのwx排他・再照合を接続する。
  * @trace ARCH-000004
- * @input options: Readonly<{ developmentContext?: object; initializeIfMissing?: boolean; }>
- * @returns | Readonly<{ status: "completed"; store: CoordinatorDecisionStore; principalId: string; }> | Readonly<{ status: "blocked"; store: null; principalId: null }>を返す。
- * @precondition 「options: Readonly<{ developmentContext?: object; initializeIfMissing?: boolean; }>」がopenRuntimeOwnedWindowsProjectDecisionStoreの入力契約を満たす。
- * @postcondition openRuntimeOwnedWindowsProjectDecisionStoreの責務を完了した結果だけを返す。
- * @effect N/A: openRuntimeOwnedWindowsProjectDecisionStoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: openRuntimeOwnedWindowsProjectDecisionStoreは独自の失敗分岐を所有しない。
- * @invariant openRuntimeOwnedWindowsProjectDecisionStoreは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security openRuntimeOwnedWindowsProjectDecisionStoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: openRuntimeOwnedWindowsProjectDecisionStoreは共有非同期状態を持たない同期処理である。
+ * @input initializeIfMissing: falseならDirectoryを作成しない。
+ * @effect 既定では固定末尾三段の欠測Directoryだけを作成する。
+ * @failure 不正・観測不能はblocked。途中作成段を自動削除しない。
+ * @boundary ローカル単一ユーザーのWindows。主体は上位が別に伝播する。
  */
 export function openRuntimeOwnedWindowsProjectDecisionStore(
   options: Readonly<{
-    developmentContext?: object;
     initializeIfMissing?: boolean;
   }> = Object.freeze({}),
 ):
   | Readonly<{
       status: "completed";
       store: CoordinatorDecisionStore;
-      principalId: string;
     }>
-  | Readonly<{ status: "blocked"; store: null; principalId: null }> {
+  | Readonly<{ status: "blocked"; store: null }> {
   const shouldInitializeIfMissing = options.initializeIfMissing !== false;
-  const root = inspectRoot(
-    shouldInitializeIfMissing,
-    options.developmentContext,
-  );
-  if (!root)
-    return Object.freeze({ status: "blocked", store: null, principalId: null });
+  const root = inspectRoot(shouldInitializeIfMissing);
+  if (!root) return Object.freeze({ status: "blocked", store: null });
   return Object.freeze({
     status: "completed",
-    store: createStore(root, acquireRuntimeStateLock, () =>
-      inspectRoot(false, options.developmentContext),
-    ),
-    principalId: root.localUserBindingHash,
+    store: createStore(root, acquireRuntimeStateLock, () => inspectRoot(false)),
   });
 }
 
@@ -550,10 +560,7 @@ export function createCoordinatorWindowsDecisionStoreTestingAdapter(
     throw new Error("decision_store_testing_root_invalid");
   const root = Object.freeze({
     rootPath: resolved,
-    runtimeStateIdentityHash: "a".repeat(64),
-    runtimeStateProtectionHash: "b".repeat(64),
-    localUserBindingHash: "c".repeat(64),
-    stableLogicalHomeBindingHash: "d".repeat(64),
+    identity: "testing-only",
   });
   return createStore(
     root,
@@ -585,8 +592,8 @@ export function createCoordinatorWindowsDecisionStoreTestingAdapter(
 export function describeCoordinatorWindowsDecisionStoreContract() {
   return Object.freeze({
     contract: COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT,
-    root: "runtime_owned_os_managed_protected_runtime_state",
-    mutation: "immutable_generation_chain_under_kernel_lock",
+    root: "configured_runtime_state_non_link_directory_identity",
+    mutation: "immutable_generation_chain_under_wx_lock",
     rawCapabilityPersisted: false,
     callerSuppliedPathAccepted: false,
     unsupportedPlatformFallback: "none",

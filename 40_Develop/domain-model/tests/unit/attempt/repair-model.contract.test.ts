@@ -60,19 +60,16 @@ import { coordinatorRepairCanComplete } from "../../../src/index.ts";
 
 const binding = "a".repeat(64);
 const identity = {
-  schema: "crdd-coordinator/runtime-repair-identity/v1",
+  schema: "crdd-coordinator/runtime-repair-identity/v2",
   kind: "runtime_repair",
   operationNonce: "e".repeat(64),
   operationId: "OP-123456",
   repositoryBinding: binding,
-  ownerBindingSha256: "6".repeat(64),
-  scopeSha256: "7".repeat(64),
   consumer: "coordinator_cli",
 };
 const text = `${JSON.stringify(identity)}\n`;
 const names = [
   "stop_runtime",
-  "terminate_runtime",
   "stop_backend",
   "retain_runtime",
   "start_runtime",
@@ -169,7 +166,7 @@ function update(
  * 全技術終端の修復を各phaseの反証入力として作る。
  * @responsibility phaseの拒否とcodec不正の拒否を分離する。
  * @trace ERB-UT-036
- * @precondition 正規の固定Identityと九処置。
+ * @precondition 正規の固定Identityと八処置。
  * @stimulus 比較対象のphase。
  * @observation 実decode成功と正規本文。
  * @oracle 各phaseの独立した合法Snapshotを返す。
@@ -1712,7 +1709,9 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     { checkpoint: { ...technical, engine: "unknown" } },
     { checkpoint: { ...technical, hostSafety: "unknown" } },
     { checkpoint: { ...technical, cleanup: "unknown" } },
-    { checkpoint: { ...technical, cleanupFailure: "helper_cleanup_unknown" } },
+    {
+      checkpoint: { ...technical, cleanupFailure: "operation_cleanup_unknown" },
+    },
     ...names.map((name) => ({
       checkpoint: {
         ...technical,
@@ -1775,8 +1774,6 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
   assert.deepEqual(value.technical.actions, f.operation.checkpoint?.actions);
   for (const key of [
     "directories",
-    "ownerBindingSha256",
-    "scopeSha256",
     "identityJson",
     "execution",
     "lease",
@@ -1922,7 +1919,7 @@ test("修復履歴: 専用要約と初回時刻を固定し確認だけを進め
  * @responsibility 不明な処置・回収と一次失敗を固定したまま記録する。
  * @trace ERB-UT-036
  * @precondition 実codecで確認した失敗Snapshot。
- * @stimulus 全失敗理由、回収不明、九処置の各不明、判断待ちと要約破損。
+ * @stimulus 全失敗理由、回収不明、八処置の各不明、判断待ちと要約破損。
  * @observation canonical履歴の復号、Hash固定、現在操作の保全。
  * @oracle 履歴確認後も失敗操作を除去せず、不正相関と未決判断は出版しない。
  * @cleanup N/A: メモリのみ。
@@ -2090,17 +2087,17 @@ test("修復失敗履歴: 未知値を保持し成功と終了へ昇格しない
 });
 
 /**
- * 修復履歴の自己完結するschema・結果・九処置を厳格に検査する。
+ * 修復履歴の自己完結するschema・結果・八処置を厳格に検査する。
  * @responsibility 未確認slotと機密／Authority情報の混入を拒否する。
  * @trace ERB-UT-036
  * @precondition 実encoderのcanonical履歴行。
- * @stimulus 全field単独差、九slotの各不正組合せ、未知／交差schema、余剰field。
+ * @stimulus 全field単独差、八slotの各不正組合せ、未知／交差schema、余剰field。
  * @observation 行全体の拒否、元本文不変。
  * @oracle 一行破損でも混在全文を拒否する。
  * @cleanup N/A: メモリだけ。
  * @boundary 履歴値。実保存の検証ではない。
  */
-test("修復履歴: schemaと九処置の不正を単独で拒否する", () => {
+test("修復履歴: schemaと八処置の不正を単独で拒否する", () => {
   const f = retentionFixture("settling");
   const bytes = prepareCoordinatorRepairHistorySnapshot(
     f.bytes,
@@ -2146,17 +2143,13 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
     {
       technical: {
         ...row.summary.technical,
-        cleanupFailure: "helper_cleanup_unknown",
+        cleanupFailure: "operation_cleanup_unknown",
       },
     },
     { technical: { ...row.summary.technical, stale: "absent" } },
-    ...[
-      "directories",
-      "path",
-      "ownerBindingSha256",
-      "scopeSha256",
-      "execution",
-    ].map((key) => ({ [key]: "forbidden" })),
+    ...["directories", "path", "execution"].map((key) => ({
+      [key]: "forbidden",
+    })),
   ];
   for (const change of changes) {
     const bad = Buffer.from(
@@ -2238,13 +2231,7 @@ test("修復履歴: schemaと九処置の不正を単独で拒否する", () => 
       Buffer.from(`${encodeRuntimeStateValue(noRetained)}\n`),
     ),
   );
-  for (const key of [
-    "directories",
-    "path",
-    "ownerBindingSha256",
-    "scopeSha256",
-    "execution",
-  ])
+  for (const key of ["directories", "path", "execution"])
     assert.equal(
       decodeCoordinatorHistoryRows(
         Buffer.from(
@@ -3195,11 +3182,10 @@ test("修復variant: v2-onlyとIdentity／IDの相関", () => {
     prepareCoordinatorStateRepairSnapshot(bytes, text, binding),
     null,
   );
-  const { ownerBindingSha256, ...withoutOwner } = identity;
   assert.equal(
     prepareCoordinatorStateRepairSnapshot(
       null,
-      `${JSON.stringify({ ...withoutOwner, localUserBindingHash: ownerBindingSha256 })}\n`,
+      `${JSON.stringify({ ...identity, ownerBindingSha256: "a".repeat(64) })}\n`,
       binding,
     ),
     null,
@@ -3308,7 +3294,7 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
       checkpoint: {
         ...initial,
         cleanup: "confirmed",
-        cleanupFailure: "helper_cleanup_unknown",
+        cleanupFailure: "operation_cleanup_unknown",
       },
     },
     {
@@ -3374,17 +3360,17 @@ test("修復variant: fresh Sessionは専用候補だけでcleanupを再開する
 });
 
 /**
- * 全九処置と周辺観測の共同成立を回復結果へ要求する。
+ * 全八処置と周辺観測の共同成立を回復結果へ要求する。
  * @responsibility 未実施、正常修復、自然回復、継続修復を区別する。
  * @trace ERB-UT-036
  * @precondition 外部資源を持たない修復Snapshot。
- * @stimulus 正常五処置・全不要・九処置の肯定と各slot未観測を構成する。
+ * @stimulus 正常五処置・全不要・八処置の肯定と各slot未観測を構成する。
  * @observation 総合回復結果の厳格復号。
  * @oracle ready・安全・清掃だけでは回復済みにならない。
  * @cleanup N/A: メモリ内だけ。
  * @boundary N/A: 実修復やWriter接続ではない。
  */
-test("修復variant: 回復結果は全九処置の確認または明示不要を要求する", () => {
+test("修復variant: 回復結果は全八処置の確認または明示不要を要求する", () => {
   const { observed, operation } = fixture();
   for (const confirmedCount of [0, 5, 9]) {
     const technical = structuredClone(initial);
@@ -3657,7 +3643,7 @@ test("修復variant: 後続清掃の確定は一次結果を上書きしない",
   const failedCheckpoint = {
     ...initial,
     cleanup: "unknown",
-    cleanupFailure: "helper_cleanup_unknown",
+    cleanupFailure: "operation_cleanup_unknown",
   };
   const primaryFailure = {
     stage: "repair",

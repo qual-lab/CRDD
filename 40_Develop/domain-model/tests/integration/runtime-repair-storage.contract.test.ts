@@ -36,13 +36,11 @@ import { createRepositoryTestDirectory } from "../support/repository-test-direct
 test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完しない", () => {
   const binding = "a".repeat(64);
   const identity = {
-    schema: "crdd-coordinator/runtime-repair-identity/v1",
+    schema: "crdd-coordinator/runtime-repair-identity/v2",
     kind: "runtime_repair",
     operationNonce: "e".repeat(64),
     operationId: "OP-123456",
     repositoryBinding: binding,
-    ownerBindingSha256: "b".repeat(64),
-    scopeSha256: "c".repeat(64),
     consumer: "coordinator_cli",
   };
   const started = model.prepareCoordinatorStateRepairSnapshot(
@@ -54,7 +52,6 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
   const raw = JSON.parse(started.toString());
   const actionNames = [
     "stop_runtime",
-    "terminate_runtime",
     "stop_backend",
     "retain_runtime",
     "start_runtime",
@@ -307,13 +304,11 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", {
   assert.ok(borrowed);
   const identityJson =
     JSON.stringify({
-      schema: "crdd-coordinator/runtime-repair-identity/v1",
+      schema: "crdd-coordinator/runtime-repair-identity/v2",
       kind: "runtime_repair",
       operationNonce: "a".repeat(64),
       operationId: "OP-123456",
       repositoryBinding: borrowed.repositoryBinding,
-      ownerBindingSha256: "b".repeat(64),
-      scopeSha256: "c".repeat(64),
       consumer: "coordinator_cli",
     }) + "\n";
   const initial = model.prepareCoordinatorStateRepairSnapshot(

@@ -858,7 +858,6 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.platform-access.protected-root-windows-adapter",
         "coordinator.source.src.security.development.measurement.session",
         "coordinator.source.task.development-source-observation",
         "coordinator.source.src.security.provider.home.windows.adapter"
@@ -1692,21 +1691,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.candidate-store-windows-adapter",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/protected-root.contract.test.ts",
-      "qaIds": [
-        "QA-000004"
-      ],
-      "localTestIds": [
-        "PPR-UT-014"
-      ],
-      "verifies": [
-        "platform-access.source.windows-child-environment",
-        "coordinator.platform-access.protected-root-windows-adapter"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.claude-docker-runtime-adapter",
       "kind": "test-suite",
       "path": "tests/unit/execution/claude-preparation.contract.test.ts",
@@ -1848,7 +1832,6 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.platform-access.protected-root-windows-adapter",
         "coordinator.source.src.security.development.measurement.session",
         "coordinator.source.src.security.provider.home.windows.adapter",
         "coordinator.task-runtime"
@@ -2638,14 +2621,6 @@
       "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
-      ]
-    },
-    {
-      "symbolId": "coordinator.platform-access.protected-root-windows-adapter",
-      "kind": "file",
-      "path": "src/execution/authority.ts",
-      "archIds": [
-        "ARCH-000015"
       ]
     },
     {
