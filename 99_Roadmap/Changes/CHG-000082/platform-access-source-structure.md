@@ -1,5 +1,19 @@
 # Platform Accessの構造・Native接続再編
 
+## 退避Root全体の標準削除と単一entry Native退役 — 2026-11-11
+
+変更分類: 人間承認済みの回収契約簡素化。対象全体の廃棄に子の種類・個別Identityを要求する過剰条件を削除する。DIを変更する理由は既存の実処置OwnerにNode標準削除を接続するため。公開IF・保存Schema・元checkpoint・上位許可／非使用・保存順序は変更しない。PA単一entry API／TS／Rust／Protocol・専用診断・試験を代替なしで撤去し、Provider Home保護・Windows所在観測の共用Nativeを維持する。着手前に既存Root・子・部分成功・取消の保証を照合し、Node標準の実行意味と失敗を公式Sourceへ接続した。技術・資源終了・利用側・文書の独立レビューを行い、準拠基準・権限・リリースは不変のため準拠／リリース監査は行わない。
+
+保持する条件は固定退避Rootの保存dev／ino／birthtimeNs・正規Path・非Link・親とsourceの現在実体・現在許可である。子のSocket分類・nlink選別・直下集合照合・256件／深さ8・個別取消は撤去する。awaitで一回のfs.promises.rm({recursive:true,force:false,maxRetries:0})をjoinし、開始後の取消・部分失敗・後観測不明はissued／unknownを保持する。新しいStore／Lock／自動回復／保持fallbackは追加しない。全子を消す前の不明拒否保証とは等価としない。
+
+着手前の新品Windows実測ではread-only hardlinkの削除が成功し、外側sourceの内容・存在・modeは不変だった。外側aliasのopen中も同様、削除側aliasをFileShare.ReadWrite（delete共有なし）で保持した場合はEBUSY・Root残存でmode不変だった。取得した子Processをjoinし今回Rootを回収した。ただしNode内部にはEPERM時chmod補正があり、maxRetries=0から内部補正0を推定せず、全外側metadata不変を保証しない。敵対的Path差替えを原子的に防ぐ保証もない。
+
+新品Repository-localの深さ10・260file・外側へのjunction／symlink／hardlinkを含むtreeをNode標準で削除し、外側内容・存在の保全とRoot不存在を確認した。Root自体のjunctionは削除要求0で拒否した。有限代役では要求前不一致・取消・許可拒否、rm一回・途中取消の完了待機、部分失敗・後観測失敗・Root再出現を確認した。特殊Socket実物や実Dockerでの回収成功は未実施で、過去Native実測を新方式の成立へ流用しない。
+
+PAの残存Provider Home／所在向け固定配布物をSourceから再Buildし、143,360bytes、SHA256 `0c5d944c22115e81f3888f847e6e132c286345fd969c06e9f7544bbf39994116`へBootstrap／有限fixtureを同期した。DI・PA関連47件、公開境界・台帳11件、coverage境界9件、Rust単体7件・CLI5件が成功。DI／PA／Coordinator製品・試験の4型構成、Rust書式・Clippy、変更TSの書式・warning禁止Lintと台帳423件validを確認した。専用3試験登録を削除した減少であり、必要なRoot・失敗・取消の反証は新しいDriver試験へ対応付けた。巨大なCoordinator Host統合試験全体は未再実行で、旧Native代役許可の撤去は型・Sourceで確認した。
+
+独立レビューでは製品・試験に必須問題なし。PA文書の旧接続中表記を退役履歴へ是正し、現行DIへの参照を接続した。Commit前に再確認し、撤去したNativeへの現行Source参照なし、配布物・Build結果・固定Hash一致、関連47件・台帳423件valid・変更範囲Lintと差分空白検査の再成功を確認した。追加是正は不要と判断した。新品試験物は各fixtureで回収した。全体回帰・実AI・実Docker・特殊Socket実物・過去保持物操作は未実施で、実修復・PA全廃・Release成立を主張しない。ユーザーが許可したCommit／Pushへ進む。
+
 ## 通常Filesystem実体のNode.js統一と特殊Socketの評価 — 2026-11-11
 
 変更分類: 承認済みの観測方式整理。DIをFix後に変更する理由は、PAとの通常実体二重確認を廃止し、既存の実処置Ownerへ観測を集約するためである。公開IF・保存Schema・判定期限・Root／対象選定・現在許可・保存順序は変更しない。通常経路のNative呼出しと重複比較を削除し、Provider Home保護、PA Native実装・固定配布物、Executor／ADは変更しない。着手前に既存Capability・実測・全走査／部分成功／回収後条件を照合し、技術・失敗影響・文書の独立確認へ接続する。準拠基準・権限・リリース変更はないため準拠／リリース監査は実施しない。

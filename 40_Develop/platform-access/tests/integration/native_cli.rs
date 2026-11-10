@@ -10,121 +10,6 @@
 
 #![cfg(windows)]
 
-/// raw entry modeの通常値・不存在と不正入力を実CLIで区別する。
-/// @responsibility 非追従観測を内容読取りや変更へ拡張しない。
-/// @trace ERB-IT-001
-/// @precondition Cargoが生成した固定Native実行物と既存Source Directory。
-/// @stimulus 通常file・Directory・不存在と不正Path／余分引数。
-/// @observation exit、完全frame、raw属性、tagとNative実体。
-/// @oracle 正常だけpresent、不存在だけzero payload、その他は拒否。
-/// @cleanup 同期outputで子Processをjoin。試験物は作成しない。
-/// @boundary ERB-IT-001=Direct Boundary: 固定CLI→Windows entry観測。
-#[test]
-fn filesystem_entry_observation_has_fixed_frame_and_no_path_fallback() {
-    use std::os::windows::fs::OpenOptionsExt;
-    use std::os::windows::io::IntoRawHandle;
-    use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_TAG_INFO, FILE_FLAG_BACKUP_SEMANTICS,
-        FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
-        FileAttributeTagInfo, GetFileInformationByHandle, GetFileInformationByHandleEx,
-    };
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let source = root.join("Cargo.toml");
-    let before = std::fs::read(&source).unwrap();
-    let mut identities = Vec::new();
-    for (directory, target) in [(false, source.as_path()), (true, root)] {
-        let output = Command::new(BINARY)
-            .arg("--filesystem-entry")
-            .arg(target)
-            .output()
-            .unwrap();
-        assert_eq!(output.status.code(), Some(0));
-        assert!(output.stderr.is_empty());
-        assert_eq!(output.stdout.len(), 41);
-        assert_eq!(&output.stdout[..9], b"CRDDFE01P");
-        assert_eq!(&output.stdout[13..17], &[0; 4]);
-        assert!(output.stdout[17..21].iter().any(|b| *b != 0));
-        assert!(output.stdout[21..29].iter().any(|b| *b != 0));
-        assert!(output.stdout[29..37].iter().any(|b| *b != 0));
-        assert!(output.stdout[37..41].iter().any(|b| *b != 0));
-        let handle = std::fs::OpenOptions::new()
-            .access_mode(FILE_READ_ATTRIBUTES)
-            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
-            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
-            .open(target)
-            .unwrap()
-            .into_raw_handle();
-        // SAFETY: Win32 output structures permit zero initialization; test owns this independent handle.
-        let (mut info, mut tag): (BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_TAG_INFO) =
-            unsafe { (std::mem::zeroed(), std::mem::zeroed()) };
-        // SAFETY: both writable buffers have exact sizes and the handle remains open through the queries.
-        let observed = unsafe {
-            GetFileInformationByHandle(handle, &mut info) != 0
-                && GetFileInformationByHandleEx(
-                    handle,
-                    FileAttributeTagInfo,
-                    (&mut tag as *mut FILE_ATTRIBUTE_TAG_INFO).cast(),
-                    std::mem::size_of::<FILE_ATTRIBUTE_TAG_INFO>() as u32,
-                ) != 0
-        };
-        // SAFETY: this test owns the handle and closes it once even after a failed query.
-        let closed = unsafe { CloseHandle(handle) } != 0;
-        assert!(observed && closed);
-        assert_eq!(info.dwFileAttributes, tag.FileAttributes);
-        assert_eq!(info.dwFileAttributes & 0x10 != 0, directory);
-        let mut expected = Vec::from(*b"CRDDFE01P");
-        expected.extend_from_slice(&info.dwFileAttributes.to_le_bytes());
-        expected.extend_from_slice(&tag.ReparseTag.to_le_bytes());
-        expected.extend_from_slice(&info.dwVolumeSerialNumber.to_le_bytes());
-        expected.extend_from_slice(
-            &((u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow)).to_le_bytes(),
-        );
-        expected.extend_from_slice(
-            &((u64::from(info.ftCreationTime.dwHighDateTime) << 32)
-                | u64::from(info.ftCreationTime.dwLowDateTime))
-            .to_le_bytes(),
-        );
-        expected.extend_from_slice(&info.nNumberOfLinks.to_le_bytes());
-        assert_eq!(output.stdout, expected);
-        let repeated = Command::new(BINARY)
-            .arg("--filesystem-entry")
-            .arg(target)
-            .output()
-            .unwrap();
-        assert_eq!(repeated.status.code(), Some(0));
-        assert!(repeated.stderr.is_empty());
-        assert_eq!(repeated.stdout, output.stdout);
-        identities.push(output.stdout[17..37].to_vec());
-    }
-    assert_ne!(identities[0], identities[1]);
-    let absent = root
-        .join("src")
-        .join(format!("crdd-entry-absent-{}", std::process::id()));
-    assert!(!absent.exists());
-    let output = Command::new(BINARY)
-        .arg("--filesystem-entry")
-        .arg(absent)
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(0));
-    assert_eq!(&output.stdout[..9], b"CRDDFE01A");
-    assert_eq!(&output.stdout[9..], &[0; 32]);
-    for args in [
-        vec!["--filesystem-entry"],
-        vec!["--filesystem-entry", "C:\\NUL"],
-        vec!["--filesystem-entry", "relative"],
-        vec!["--filesystem-entry", "C:\\path\\entry:stream"],
-        vec!["--filesystem-entry", "C:\\path\\.\\entry"],
-        vec!["--filesystem-entry", "C:\\path\\entry", "extra"],
-    ] {
-        let output = Command::new(BINARY).args(args).output().unwrap();
-        assert_eq!(output.status.code(), Some(2));
-        assert!(!output.stdout.starts_with(b"CRDDFE01"));
-    }
-    assert_eq!(std::fs::read(source).unwrap(), before);
-}
-
 /// 退役したLocalAppData専用modeを読取り前に拒否する。
 /// @responsibility 共用Known Folder処理を公開CLIへ露出しない。
 /// @trace ERB-IT-001
@@ -212,6 +97,7 @@ fn retired_root_and_appcontainer_inputs_are_rejected() {
 #[test]
 fn retired_terminal_modes_are_not_available() {
     for mode in [
+        "--filesystem-entry",
         "--docker-desktop-repair-helper",
         "--docker-desktop-restart-helper",
         "--host-terminal-observe",

@@ -6,9 +6,6 @@
 //! @boundary Native WorkerとWindows APIの間。
 
 #[cfg(windows)]
-#[path = "windows/entry_observation.rs"]
-pub(crate) mod entry_observation;
-#[cfg(windows)]
 #[path = "windows/protected_root.rs"]
 pub(crate) mod protected_root;
 #[cfg(windows)]

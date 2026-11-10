@@ -40,52 +40,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.test.unit.entry-observation",
-      "kind": "test-suite",
-      "path": "src/native/filesystem/windows/entry_observation.rs",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-039"
-      ],
-      "verifies": [
-        "platform-access.source.native-entry-observation"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.entry-observation",
-      "kind": "module",
-      "path": "src/filesystem/entry.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.source.native-entry-observation",
-      "kind": "module",
-      "path": "src/native/filesystem/windows/entry_observation.rs",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.entry-observation",
-      "kind": "test-suite",
-      "path": "tests/integration/entry-observation.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002"
-      ],
-      "verifies": [
-        "platform-access.source.entry-observation",
-        "platform-access.source.public-api"
-      ]
-    },
-    {
       "symbolId": "platform-access.source.windows-child-environment",
       "kind": "module",
       "path": "src/process/environment.ts",
@@ -269,20 +223,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.test.integration.windows-entry-diagnostic",
-      "kind": "test-suite",
-      "path": "tests/integration/windows_entry_diagnostic.rs",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001"
-      ],
-      "verifies": [
-        "platform-access.source.native-entry-observation"
-      ]
-    },
-    {
       "symbolId": "platform-access.test.integration.cli",
       "kind": "test-suite",
       "path": "tests/integration/native_cli.rs",
@@ -294,8 +234,7 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "platform-access.native-entry",
-        "platform-access.source.native-entry-observation"
+        "platform-access.native-entry"
       ]
     },
     {

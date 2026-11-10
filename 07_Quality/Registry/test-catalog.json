@@ -2319,26 +2319,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:unit:entry_observation",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/src/native/filesystem/windows/entry_observation.rs",
-      "level": "unit",
-      "kind": "unit",
-      "semanticTags": [
-        "windows",
-        "observation",
-        "settlement"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "filesystem_effect_zero",
-        "unknown_not_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:integration:root-observation",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/integration/root-observation.contract.test.ts",
@@ -2357,31 +2337,6 @@
         "process_effect_zero",
         "callback_not_retained",
         "raw_frame_not_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:entry-observation",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/entry-observation.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "observation",
-        "process",
-        "filesystem"
-      ],
-      "environment": "local_component_boundary",
-      "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
-      ],
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "owned_fixture_absence_confirmed",
-        "unknown_not_observed"
       ],
       "mandatoryByDefault": true
     },
@@ -8960,25 +8915,6 @@
         "no_external_effect"
       ],
       "mandatoryByDefault": true
-    },
-    {
-      "id": "platform-access:integration:windows-entry-diagnostic",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/windows_entry_diagnostic.rs",
-      "level": "integration",
-      "kind": "integration",
-      "semanticTags": [
-        "filesystem",
-        "diagnostic"
-      ],
-      "environment": "windows_rust_runtime",
-      "externalProviderEffect": false,
-      "humanInput": true,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_handles_settled_or_reported"
-      ],
-      "mandatoryByDefault": false
     },
     {
       "id": "platform-access:integration:cli",

@@ -14,10 +14,6 @@ path = "src/native/main.rs"
 name = "cli"
 path = "tests/integration/native_cli.rs"
 
-[[test]]
-name = "windows-entry-diagnostic"
-path = "tests/integration/windows_entry_diagnostic.rs"
-
 [dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false }
 windows-sys = { version = "=0.61.2", features = [

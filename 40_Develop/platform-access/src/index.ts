@@ -22,10 +22,6 @@ export {
 } from "./artifact/identity.ts";
 export { observeSystemWindowsDirectory } from "./filesystem/system-directory.ts";
 export {
-  observeWindowsFilesystemEntry,
-  type WindowsEntryObservation,
-} from "./filesystem/entry.ts";
-export {
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
   createChildProcessEnvironment,
   deriveWindowsSystemDrive,

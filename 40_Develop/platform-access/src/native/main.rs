@@ -133,7 +133,6 @@ fn execute(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
 /// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 enum InvocationMode {
     WindowsDirectory,
-    FilesystemEntry(std::ffi::OsString),
     Standard,
 }
 
@@ -156,14 +155,6 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     let Some(mode) = arguments.next() else {
         return Ok(InvocationMode::Standard);
     };
-    if mode == OsStr::new("--filesystem-entry") {
-        let path = arguments.next().ok_or(())?;
-        return if arguments.next().is_none() {
-            Ok(InvocationMode::FilesystemEntry(path))
-        } else {
-            Err(())
-        };
-    }
     if mode == OsStr::new("--system-windows-directory") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::WindowsDirectory)
@@ -191,17 +182,6 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
 /// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn main() {
     let exit_code = match invocation_mode() {
-        Ok(InvocationMode::FilesystemEntry(path)) => {
-            #[cfg(windows)]
-            {
-                filesystem::entry_observation::run(&path, &mut std::io::stdout())
-            }
-            #[cfg(not(windows))]
-            {
-                let _ = path;
-                2
-            }
-        }
         Ok(InvocationMode::WindowsDirectory) => {
             #[cfg(windows)]
             {

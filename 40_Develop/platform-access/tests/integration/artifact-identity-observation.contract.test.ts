@@ -278,7 +278,6 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "observeNativeArtifact",
       "observePlatformAccessArtifactCandidate",
       "observeSystemWindowsDirectory",
-      "observeWindowsFilesystemEntry",
       "observeWindowsProviderHome",
     ].sort(),
   );

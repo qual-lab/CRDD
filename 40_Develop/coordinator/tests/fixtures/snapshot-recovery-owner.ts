@@ -16,7 +16,6 @@ import { runInThisContext } from "node:vm";
 import { getRepository } from "../../../version-control/src/index.ts";
 import { createIsolationFixture } from "../../../docker-isolation/tests/support/isolation.ts";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
-import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../../platform-access/src/index.ts";
 import {
   decodeRuntimeDomainSnapshot,
   encodeRuntimeStateValue,
@@ -274,11 +273,6 @@ f.calls.push = (...items: string[][]): number => {
 };
 // 追加不存在の同期CLI端だけを有限化する。未知要求は実CLIへ委譲しない。
 const originalSpawnSync = childProcess.spawnSync;
-const fixedNativeExecutable = path.resolve(
-  import.meta.dirname,
-  "../../../..",
-  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-);
 const spawn = mock.method(
   childProcess,
   "spawnSync",
@@ -290,15 +284,10 @@ const spawn = mock.method(
       assert.ok(Array.isArray(input));
       assert.ok(options && typeof options === "object");
       assert.equal((options as { shell?: unknown }).shell, false);
-      if (executable === "git") {
-        assert.equal(input[0], "-C");
-        assert.equal(input[1], repositoryRoot);
-        assert.equal(input[2], "rev-parse");
-      } else {
-        assert.equal(executable, fixedNativeExecutable);
-        assert.equal(input[0], "--filesystem-entry");
-        assert.equal(input.length, 2);
-      }
+      assert.equal(executable, "git");
+      assert.equal(input[0], "-C");
+      assert.equal(input[1], repositoryRoot);
+      assert.equal(input[2], "rev-parse");
       // Domain/VCが元々行う固定読取りだけを元の境界へ戻す。
       return Reflect.apply(originalSpawnSync, childProcess, [
         executable,

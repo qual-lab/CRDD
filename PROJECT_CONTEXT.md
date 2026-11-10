@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-退避Directory回収の通常File／Directory・不存在確認をDIのNode.js観測へ統一し、通常対象のNative二重照合を撤去した。特殊AF_UNIX候補だけは既存Nativeへ限定接続し、自動回収の最終採否は未決。試験子の残存実測はあるが本番必須根拠は不足しており、discard開始後には既存保持引渡しへ切り替えられない制約を確認した。関連限定回帰・独立確認を実施し、全体回帰・実AI・実Docker・過去保持物操作は保留する。[実装範囲・保証差・次判断](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#通常filesystem実体のnodejs統一と特殊socketの評価--2026-11-11)を参照する。
+退避Directoryは保存済みRoot実体・親・現在source・廃棄許可を照合してNode標準で全体削除する方式へ整理した。子のSocket種別・個別実体照合・独自上限を撤去し、PA単一entryのNative API／実装／専用試験・診断も削除した。開始後取消は削除処理の完了を待ち、部分失敗・後観測不明を保持する。新品treeと外側Link先保全を限定確認し、特殊Socket実物・実Dockerでの新方式成立は未実施。Provider Home・Windows所在のNativeは残る。全体回帰・実AI・実Docker・過去保持物操作は行わない。[実装範囲・保証差・検証状態](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#退避root全体の標準削除と単一entry-native退役--2026-11-11)を参照する。
 
 Docker Desktop Helperを退役し、Executor経由のDIで公式CLI・既存Node.js処理・共通wxを使う構成へ統合した。Native由来の修復所有Hash・重複Scope Hashは撤去し、基点を変えない運用条件と既存Directory実体検査を維持する。限定回帰・実Writer結合・独立再レビューは完了した。全体回帰、実Docker停止／起動／退避、残存Provider Home等のNative整理は未完了。[現在の結果と保証変更](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#desktop-helperの公式cli統合--2026-11-10)を参照する。
 
