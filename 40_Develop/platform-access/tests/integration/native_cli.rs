@@ -5,7 +5,7 @@
 //! @trace ERB-IT-001
 //! @trace ERB-IT-003
 //! @level IT
-//! @scope Provider Home観測Protocolの正常・不正・旧版拒否と、専用管理フォルダ初期化要求の不正・混用を取得前に拒否する確認。正常な共有フォルダ初期化、Host限定回復やProvider実行は対象外。
+//! @scope Provider Home観測Protocolの正常・不正・旧版拒否と、退役したStore／Runtime State・初期化要求のEffect前拒否。Host限定回復やProvider実行は対象外。
 //! @boundary Native試験Process→固定CLI→Windows観測。Job終端、全handle不存在および例外時清掃は証明しない。
 
 #![cfg(windows)]
@@ -294,26 +294,28 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
     assert_eq!(provider_home.stdout[10], 2);
     assert_eq!(&provider_home.stdout[12..44], &nonce);
 
-    // 廃止したStore種別3は初期化・Known Folder観測へ到達せず拒否する。
-    let retired_store = invoke(&provider_home_request(3, nonce));
-    assert_eq!(retired_store.status.code(), Some(2));
-    assert!(retired_store.stderr.is_empty());
-    assert_eq!(retired_store.stdout.len(), 182);
-    assert_eq!(&retired_store.stdout[..8], b"CRDDHO02");
-    assert_eq!(
-        u16::from_le_bytes(retired_store.stdout[44..46].try_into().unwrap()),
-        2
-    );
-
-    let mut invalid_provider_home = provider_home_request(5, nonce);
-    invalid_provider_home[11] = 1;
-    let invalid_provider_home = invoke(&invalid_provider_home);
-    assert_eq!(invalid_provider_home.status.code(), Some(2));
-    assert!(invalid_provider_home.stderr.is_empty());
-    assert_eq!(invalid_provider_home.stdout.len(), 182);
-    assert_eq!(&invalid_provider_home.stdout[..8], b"CRDDHO02");
-    assert_eq!(
-        u16::from_le_bytes(invalid_provider_home.stdout[44..46].try_into().unwrap()),
-        2
-    );
+    // 旧種別と初期化要求を、OS観測・Directory作成前に拒否する。
+    for (provider, flags) in [
+        (3, &[0, 1][..]),
+        (4, &[0, 1][..]),
+        (5, &[0, 1][..]),
+        (1, &[1, 2, u8::MAX][..]),
+        (2, &[1, 2, u8::MAX][..]),
+    ] {
+        for flag in flags {
+            let mut request = provider_home_request(provider, nonce);
+            request[11] = *flag;
+            let rejected = invoke(&request);
+            assert_eq!(rejected.status.code(), Some(2));
+            assert!(rejected.stderr.is_empty());
+            assert_eq!(rejected.stdout.len(), 182);
+            assert_eq!(&rejected.stdout[..8], b"CRDDHO02");
+            assert_eq!(rejected.stdout[11], 0);
+            assert_eq!(
+                u16::from_le_bytes(rejected.stdout[44..46].try_into().unwrap()),
+                2
+            );
+            assert!(rejected.stdout[46..].iter().all(|byte| *byte == 0));
+        }
+    }
 }

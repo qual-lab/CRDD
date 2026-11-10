@@ -1,4 +1,4 @@
-//! 固定Provider HomeとRuntime所有NamespaceをWindows APIで観測する。
+//! 固定Provider HomeをWindows APIで観測する。
 //!
 //! @responsibility 固定親、実体、保護条件と主体Bindingを照合し、用途限定の観測結果だけを返す。
 //! @trace ARCH-000008
@@ -9,7 +9,7 @@ use crate::filesystem::protection::{
     OBJECT_INHERIT_ACE, OwnedHandle, access_allowed, bounded_ace_sid, directory_identity,
     directory_identity_bytes, open_directory, root_information, security_descriptor, sha256,
 };
-use crate::filesystem::windows_directory::{MAXIMUM_KNOWN_FOLDER_CODE_UNITS, local_app_data_path};
+use crate::filesystem::windows_directory::local_app_data_path;
 use crate::process::principal::{
     TokenBindingObservation, copy_sid_bytes, local_system_sid_bytes, local_user_binding_hash,
     process_tokens, selected_user_token_binding, token_user_sid_bytes,
@@ -26,23 +26,18 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr::null_mut;
-use windows_sys::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
+use windows_sys::Win32::Foundation::HANDLE;
 use windows_sys::Win32::Security::{
-    ACCESS_ALLOWED_ACE, ACL, ACL_REVISION, ACL_SIZE_INFORMATION, AclSizeInformation,
-    AddAccessAllowedAceEx, GENERIC_MAPPING, GetAce, GetAclInformation,
-    GetSecurityDescriptorControl, GetSecurityDescriptorDacl, GetSecurityDescriptorOwner,
-    InitializeAcl, InitializeSecurityDescriptor, MapGenericMask, PSECURITY_DESCRIPTOR,
-    SE_DACL_PROTECTED, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, SetSecurityDescriptorControl,
-    SetSecurityDescriptorDacl, SetSecurityDescriptorOwner,
+    ACCESS_ALLOWED_ACE, ACL_SIZE_INFORMATION, AclSizeInformation, GENERIC_MAPPING, GetAce,
+    GetAclInformation, GetSecurityDescriptorControl, GetSecurityDescriptorDacl,
+    GetSecurityDescriptorOwner, MapGenericMask, PSECURITY_DESCRIPTOR, SE_DACL_PROTECTED,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateDirectoryW, FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
-    FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, GetDriveTypeW,
-    GetFinalPathNameByHandleW,
+    FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_GENERIC_EXECUTE,
+    FILE_GENERIC_READ, FILE_GENERIC_WRITE, GetDriveTypeW, GetFinalPathNameByHandleW,
 };
 
 const PROVIDER_HOME_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "ProviderHomes"];
-const RUNTIME_STATE_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "RuntimeState"];
 pub(crate) const DRIVE_FIXED: u32 = 3;
 const MAXIMUM_SECURITY_DESCRIPTOR_BYTES: usize = 65_536;
 
@@ -122,119 +117,6 @@ fn blocked_provider_home(
     }
 }
 
-/// Windows Root・Provider Home観測のinitialize runtime owned directory if missing責務を実行する。
-///
-/// @responsibility Windows Root・Provider Home観測のinitialize runtime owned directory if missing責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
-/// @trace ARCH-000011
-/// @input 宣言された引数を、呼出し側が固定した値またはHandleとして受け取る。
-/// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
-/// @precondition 呼出し側が入力の範囲、Identityおよびlifetimeを検証している。
-/// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
-/// @effect OS APIからread-only観測を取得する。
-/// @failure 不正入力、OS API失敗または観測不能を成功値へ畳まず、拒否または失敗として返す。
-/// @invariant 検証していないPath、Handle、PublisherまたはProcessへAuthorityを拡張しない。
-/// @boundary Native Worker→Windows Identity／ACL API。
-/// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
-/// @concurrency N/A: 共有可変状態を持たない同期処理である。
-fn initialize_runtime_owned_directory_if_missing(
-    primary_token: HANDLE,
-    segments: &[&str; 3],
-) -> bool {
-    let mut runtime_directory = match local_app_data_path() {
-        Some(value) => value,
-        None => return false,
-    };
-    for segment in segments {
-        runtime_directory.push(segment);
-    }
-    let user_sid = match token_user_sid_bytes(primary_token) {
-        Some(value) => value,
-        None => return false,
-    };
-    let system_sid = match local_system_sid_bytes() {
-        Some(value) => value,
-        None => return false,
-    };
-    let ace_bytes = |sid_length: usize| {
-        size_of::<ACCESS_ALLOWED_ACE>()
-            .checked_sub(size_of::<u32>())?
-            .checked_add(sid_length)
-    };
-    let acl_bytes = match size_of::<ACL>()
-        .checked_add(ace_bytes(user_sid.len()).unwrap_or(usize::MAX))
-        .and_then(|value| value.checked_add(ace_bytes(system_sid.len()).unwrap_or(usize::MAX)))
-    {
-        Some(value) if value <= MAXIMUM_SECURITY_DESCRIPTOR_BYTES => value,
-        _ => return false,
-    };
-    let mut acl_storage = vec![0_u32; acl_bytes.div_ceil(size_of::<u32>())];
-    let acl = acl_storage.as_mut_ptr().cast::<ACL>();
-    let acl_length = match u32::try_from(acl_bytes) {
-        Ok(value) => value,
-        Err(_) => return false,
-    };
-    // SAFETY: acl points to an aligned writable allocation of acl_length bytes.
-    if unsafe { InitializeAcl(acl, acl_length, ACL_REVISION) } == 0 {
-        return false;
-    }
-    let ace_flags = u32::from(OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE);
-    // SAFETY: both SID buffers contain values copied from validated Windows token/well-known SID
-    // sources and remain alive through CreateDirectoryW.
-    if unsafe {
-        AddAccessAllowedAceEx(
-            acl,
-            ACL_REVISION,
-            ace_flags,
-            FILE_ALL_ACCESS,
-            user_sid.as_ptr().cast_mut().cast(),
-        )
-    } == 0
-        || unsafe {
-            AddAccessAllowedAceEx(
-                acl,
-                ACL_REVISION,
-                ace_flags,
-                FILE_ALL_ACCESS,
-                system_sid.as_ptr().cast_mut().cast(),
-            )
-        } == 0
-    {
-        return false;
-    }
-    let mut descriptor = SECURITY_DESCRIPTOR::default();
-    let descriptor_pointer = (&raw mut descriptor).cast::<c_void>();
-    // SAFETY: descriptor is a writable absolute security descriptor and all referenced buffers
-    // remain alive until the synchronous CreateDirectoryW call returns.
-    if unsafe { InitializeSecurityDescriptor(descriptor_pointer, 1) } == 0
-        || unsafe {
-            SetSecurityDescriptorOwner(descriptor_pointer, user_sid.as_ptr().cast_mut().cast(), 0)
-        } == 0
-        || unsafe { SetSecurityDescriptorDacl(descriptor_pointer, 1, acl, 0) } == 0
-        || unsafe {
-            SetSecurityDescriptorControl(descriptor_pointer, SE_DACL_PROTECTED, SE_DACL_PROTECTED)
-        } == 0
-    {
-        return false;
-    }
-    let mut wide: Vec<u16> = runtime_directory.as_os_str().encode_wide().collect();
-    if wide.is_empty() || wide.len() >= MAXIMUM_KNOWN_FOLDER_CODE_UNITS {
-        return false;
-    }
-    wide.push(0);
-    let attributes = SECURITY_ATTRIBUTES {
-        nLength: u32::try_from(size_of::<SECURITY_ATTRIBUTES>()).unwrap_or(0),
-        lpSecurityDescriptor: descriptor_pointer,
-        bInheritHandle: 0,
-    };
-    // SAFETY: wide and attributes are valid for the duration of this synchronous call.
-    if unsafe { CreateDirectoryW(wide.as_ptr(), &raw const attributes) } != 0 {
-        return true;
-    }
-    // An existing object is never repaired here. The following read-only observation must prove
-    // that it is the exact protected directory before any caller may use it.
-    (unsafe { GetLastError() }) == ERROR_ALREADY_EXISTS
-}
-
 /// provider home chainを固定Identityで開く。
 ///
 /// @responsibility provider home chainを固定Identityで開く責務を所有し、観測不能または不正な入力を成功へ畳まない。
@@ -256,23 +138,12 @@ fn open_provider_home_chain(
         local_app_data_path().ok_or(ProviderHomeChainError::KnownFolderUnavailable)?;
     let mut paths = Vec::with_capacity(PROVIDER_HOME_SEGMENTS.len() + 2);
     paths.push(current.clone());
-    if matches!(
-        request.provider,
-        crate::protocol::access::Provider::RuntimeState
-    ) {
-        let segments = &RUNTIME_STATE_SEGMENTS;
-        for segment in segments {
-            current.push(segment);
-            paths.push(current.clone());
-        }
-    } else {
-        for segment in PROVIDER_HOME_SEGMENTS {
-            current.push(segment);
-            paths.push(current.clone());
-        }
-        current.push(request.provider.directory_name());
-        paths.push(current);
+    for segment in PROVIDER_HOME_SEGMENTS {
+        current.push(segment);
+        paths.push(current.clone());
     }
+    current.push(request.provider.directory_name());
+    paths.push(current);
     let mount_source_hash = paths
         .last()
         .and_then(|path| provider_home_mount_source_hash(request, path))
@@ -645,15 +516,6 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
     else {
         return blocked_provider_home(request, ProviderHomeReason::PrincipalNotSelectedLocalUser);
     };
-    if request.initialize_if_missing {
-        let segments = match request.provider {
-            crate::protocol::access::Provider::RuntimeState => &RUNTIME_STATE_SEGMENTS,
-            _ => return blocked_provider_home(request, ProviderHomeReason::InvalidRequest),
-        };
-        if !initialize_runtime_owned_directory_if_missing(primary_token.0, segments) {
-            return blocked_provider_home(request, ProviderHomeReason::HomeUnavailable);
-        }
-    }
     let chain = match open_provider_home_chain(request) {
         Ok(value) => value,
         Err(ProviderHomeChainError::KnownFolderUnavailable) => {
@@ -739,13 +601,11 @@ mod preserved_contract_tests {
     fn provider_home_hash_domains_bind_provider_identity_and_login_session() {
         let codex = ProviderHomeRequest {
             provider: crate::protocol::access::Provider::Codex,
-            initialize_if_missing: false,
             nonce: [1_u8; 32],
             mount_source_hash: [2_u8; 32],
         };
         let claude = ProviderHomeRequest {
             provider: crate::protocol::access::Provider::Claude,
-            initialize_if_missing: false,
             nonce: [1_u8; 32],
             mount_source_hash: [2_u8; 32],
         };

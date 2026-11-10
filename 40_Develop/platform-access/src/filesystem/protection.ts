@@ -1,5 +1,5 @@
 /**
- * Provider Home、Runtime Stateの保護Root観測Protocolを定義する。
+ * Provider Homeの保護Root観測Protocolを定義する。
  *
  * @responsibility 固定Root観測の要求・応答・相関Hashを生成し、未確認・不正な応答を拒否する。
  * @packageDocumentation
@@ -18,7 +18,6 @@ export const PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES = 182;
 const requestMagic = Buffer.from("CRDDPH02", "ascii");
 const responseMagic = Buffer.from("CRDDHO02", "ascii");
 const PROVIDERS = Object.freeze({ codex: 1, claude: 2 } as const);
-const RUNTIME_STATE_PROVIDER_VALUE = 4;
 const RESPONSE_STATUS_CANDIDATE = 1;
 const OBSERVATION_CANDIDATE_REASON = 100;
 const mountSourceHashDomainBytes = Buffer.from(
@@ -370,57 +369,6 @@ export function createProviderHomeObservationRequest(
 }
 
 /**
- * Runtime 状態 Observation Requestを構築する。
- *
- * @responsibility Runtime 状態 Observation Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000010
- * @input mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer
- * @returns createRuntimeStateObservationRequestの計算結果を返す。
- * @precondition 「mountSourcePath: unknown、initializeIfMissing: unknown、nonceSource: () => Buffer」がcreateRuntimeStateObservationRequestの入力契約を満たす。
- * @postcondition createRuntimeStateObservationRequestの責務を完了した結果だけを返す。
- * @effect N/A: createRuntimeStateObservationRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure createRuntimeStateObservationRequestは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createRuntimeStateObservationRequestは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createRuntimeStateObservationRequestはProcess内の同一Subsystemで完結する。
- * @security createRuntimeStateObservationRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createRuntimeStateObservationRequestは共有非同期状態を持たない同期処理である。
- */
-export function createRuntimeStateObservationRequest(
-  mountSourcePath: unknown,
-  initializeIfMissing: unknown,
-  nonceSource: () => Buffer = () => randomBytes(32),
-) {
-  try {
-    if (
-      typeof mountSourcePath !== "string" ||
-      mountSourcePath.length === 0 ||
-      mountSourcePath.length > 32_767 ||
-      mountSourcePath.includes("\0") ||
-      typeof initializeIfMissing !== "boolean"
-    ) {
-      return null;
-    }
-    const nonce = snapshotBuffer(nonceSource(), 32);
-    if (!nonce) return null;
-    const mountSourceHash = createHash("sha256")
-      .update(mountSourceHashDomainBytes)
-      .update(Buffer.from([RUNTIME_STATE_PROVIDER_VALUE]))
-      .update(Buffer.from(mountSourcePath, "utf16le"))
-      .digest();
-    const request = Buffer.alloc(PROVIDER_HOME_OBSERVATION_REQUEST_BYTES);
-    requestMagic.copy(request, 0);
-    request.writeUInt16LE(PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION, 8);
-    request[10] = RUNTIME_STATE_PROVIDER_VALUE;
-    request[11] = initializeIfMissing ? 1 : 0;
-    nonce.copy(request, 12);
-    mountSourceHash.copy(request, 44);
-    return Object.freeze({ nonce, request });
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Provider Home Observation Response 候補を評価する。
  *
  * @responsibility Provider Home Observation Response 候補の評価入力、判定規則、判断不能結果の境界を所有する。
@@ -538,90 +486,6 @@ export function evaluateProviderHomeObservationResponseCandidate(
 }
 
 /**
- * Runtime 状態 Observation Response 候補を評価する。
- *
- * @responsibility Runtime 状態 Observation Response 候補の評価入力、判定規則、判断不能結果の境界を所有する。
- * @trace ARCH-000010
- * @input rawResponse: unknown、expectedNonce: unknown
- * @returns evaluateRuntimeStateObservationResponseCandidateの計算結果を返す。
- * @precondition 「rawResponse: unknown、expectedNonce: unknown」がevaluateRuntimeStateObservationResponseCandidateの入力契約を満たす。
- * @postcondition evaluateRuntimeStateObservationResponseCandidateの責務を完了した結果だけを返す。
- * @effect N/A: evaluateRuntimeStateObservationResponseCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure evaluateRuntimeStateObservationResponseCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant evaluateRuntimeStateObservationResponseCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: evaluateRuntimeStateObservationResponseCandidateはProcess内の同一Subsystemで完結する。
- * @security evaluateRuntimeStateObservationResponseCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: evaluateRuntimeStateObservationResponseCandidateは共有非同期状態を持たない同期処理である。
- */
-export function evaluateRuntimeStateObservationResponseCandidate(
-  rawResponse: unknown,
-  expectedNonce: unknown,
-) {
-  try {
-    const response = snapshotBuffer(
-      rawResponse,
-      PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
-    );
-    const nonce = snapshotBuffer(expectedNonce, 32);
-    if (
-      !response ||
-      !nonce ||
-      !matchesBytes(response, 0, responseMagic) ||
-      readUInt16LittleEndian(response, 8) !==
-        PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION ||
-      readByte(response, 10) !== RUNTIME_STATE_PROVIDER_VALUE ||
-      readByte(response, 11) !== RESPONSE_STATUS_CANDIDATE ||
-      !matchesBytes(response, 12, nonce) ||
-      readUInt16LittleEndian(response, 44) !== OBSERVATION_CANDIDATE_REASON
-    ) {
-      return blocked("runtime_state_observation_response_invalid");
-    }
-    const principalFlags = readUInt32LittleEndian(response, 46);
-    const homeFlags = readUInt32LittleEndian(response, 50);
-    if (
-      (principalFlags & ~KNOWN_PRINCIPAL_FLAGS) !== 0 ||
-      (principalFlags & REQUIRED_PRINCIPAL_FLAGS) !==
-        REQUIRED_PRINCIPAL_FLAGS ||
-      (principalFlags & FORBIDDEN_PRINCIPAL_FLAGS) !== 0 ||
-      homeFlags !== REQUIRED_HOME_FLAGS
-    ) {
-      return blocked("runtime_state_observation_response_invalid");
-    }
-    const runtimeStateIdentityHash = nonzeroHash(response, 54);
-    const runtimeStateProtectionHash = nonzeroHash(response, 86);
-    const localUserBindingHash = nonzeroHash(response, 118);
-    const stableLogicalHomeBindingHash = nonzeroHash(response, 150);
-    if (
-      !runtimeStateIdentityHash ||
-      !runtimeStateProtectionHash ||
-      !localUserBindingHash ||
-      !stableLogicalHomeBindingHash
-    ) {
-      return blocked("runtime_state_observation_response_invalid");
-    }
-    return Object.freeze({
-      status: "candidate" as const,
-      reason: "runtime_owned_runtime_state_observed_candidate",
-      runtimeStateIdentityHash,
-      runtimeStateProtectionHash,
-      localUserBindingHash,
-      stableLogicalHomeBindingHash,
-      selectedUserBindingVerified: true,
-      protectionVerified: true,
-      stableIdentityObserved: true,
-      pathReported: false,
-      principalReported: false,
-      aclReported: false,
-      filesystemEffectIssued: false,
-      networkEffectIssued: false,
-      runtimeAuthorityIssued: false,
-    });
-  } catch {
-    return blocked("runtime_state_observation_response_invalid");
-  }
-}
-
-/**
  * Provider Home Observation 契約の公開契約を記述する。
  *
  * @responsibility Provider Home Observation 契約の公開field、非公開境界、互換性を所有する。
@@ -651,11 +515,6 @@ export function describeProviderHomeObservationContract() {
     requestPrincipalField: false,
     nativeRootSource: "windows_known_folder_local_app_data",
     fixedSegments: Object.freeze(["Qual-Lab", "CRDD", "ProviderHomes"]),
-    runtimeStateFixedSegments: Object.freeze([
-      "Qual-Lab",
-      "CRDD",
-      "RuntimeState",
-    ]),
     selectedUserBinder:
       "native_current_primary_local_interactive_token_sid_authentication_luid_and_flags",
     stableLogicalHomeBinder:

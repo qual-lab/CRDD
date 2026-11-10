@@ -48,7 +48,6 @@ pub const PROVIDER_HOME_SYSTEM_FULL_CONTROL: u32 = 1 << 8;
 pub enum Provider {
     Codex = 1,
     Claude = 2,
-    RuntimeState = 4,
 }
 
 impl Provider {
@@ -70,7 +69,6 @@ impl Provider {
         match value {
             1 => Some(Self::Codex),
             2 => Some(Self::Claude),
-            4 => Some(Self::RuntimeState),
             _ => None,
         }
     }
@@ -93,7 +91,6 @@ impl Provider {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
-            Self::RuntimeState => "RuntimeState",
         }
     }
 }
@@ -110,7 +107,6 @@ impl Provider {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProviderHomeRequest {
     pub provider: Provider,
-    pub initialize_if_missing: bool,
     pub nonce: [u8; 32],
     pub mount_source_hash: [u8; 32],
 }
@@ -207,22 +203,16 @@ pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> 
     if bytes.len() != PROVIDER_HOME_REQUEST_BYTES
         || bytes.get(..8)? != PROVIDER_HOME_REQUEST_MAGIC
         || read_u16(bytes, 8)? != PROVIDER_HOME_PROTOCOL_REVISION
+        || *bytes.get(11)? != 0
     {
         return None;
     }
     let request = ProviderHomeRequest {
         provider: Provider::parse(*bytes.get(10)?)?,
-        initialize_if_missing: match *bytes.get(11)? {
-            0 => false,
-            1 => true,
-            _ => return None,
-        },
         nonce: bytes.get(12..44)?.try_into().ok()?,
         mount_source_hash: bytes.get(44..76)?.try_into().ok()?,
     };
-    (request.mount_source_hash != [0_u8; 32]
-        && (!request.initialize_if_missing || matches!(request.provider, Provider::RuntimeState)))
-    .then_some(request)
+    (request.mount_source_hash != [0_u8; 32]).then_some(request)
 }
 
 /// provider home responseを固定Protocolへ符号化する。
@@ -363,17 +353,17 @@ mod tests {
     fn provider_home_request_accepts_only_fixed_provider_and_frame() {
         let request = parse_provider_home_request(&provider_home_request_bytes(2)).unwrap();
         assert_eq!(request.provider, Provider::Claude);
-        assert!(!request.initialize_if_missing);
         assert_eq!(request.nonce, [6_u8; 32]);
         assert_eq!(request.mount_source_hash, [7_u8; 32]);
-        // 旧Store値3はRuntime Stateの4へ詰め替えず、Effect前に拒否する。
-        assert!(parse_provider_home_request(&provider_home_request_bytes(3)).is_none());
-        let mut runtime_state = provider_home_request_bytes(4);
-        runtime_state[11] = 1;
-        let runtime_state = parse_provider_home_request(&runtime_state).unwrap();
-        assert_eq!(runtime_state.provider, Provider::RuntimeState);
-        assert!(runtime_state.initialize_if_missing);
-        for provider in [0, 3, 5, u8::MAX] {
+        // 退役したStore・Runtime State値は再解釈せず、初期化bitも拒否する。
+        for provider in [1, 2, 3, 4] {
+            for flag in [1, 2, u8::MAX] {
+                let mut request = provider_home_request_bytes(provider);
+                request[11] = flag;
+                assert!(parse_provider_home_request(&request).is_none());
+            }
+        }
+        for provider in [0, 3, 4, 5, u8::MAX] {
             assert!(parse_provider_home_request(&provider_home_request_bytes(provider)).is_none());
         }
         let mut trailing = provider_home_request_bytes(1).to_vec();

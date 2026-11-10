@@ -1,5 +1,17 @@
 # Platform Accessの構造・Native接続再編
 
+## 旧Runtime State Native処理の撤去 — 2026-11-11
+
+変更分類: 承認済みNode移管後の旧実装退役。基準版`4d8b1990e`で残ったRust値4・初期化分岐、TSの未使用要求生成・応答解析・契約表示を削除する。Coordinatorの既存Node初期化、保存Schema、wx、Provider Homeの保護Policy、DI／Executor／AI Adapterは変更しない。新しい代替・互換処理、記録移行は追加しない。
+
+着手前の独立確認で、初期化専用Win32処理とProvider Home共用ACL／Token／SID／Known Folder／祖先Handleを分離した。旧Store値3／Runtime値4、Provider Homeの非0予約byteは入力解析で拒否し、OS観測・Directory作成へ進めない。存続する値1／2、要求76bytes・応答182bytes、revision・magic・nonce／Hash位置は不変とする。技術・利用側・文書の独立レビューを実施し、準拠基準・権限・リリースを変更しないため準拠／リリース監査は実施しない。
+
+固定toolchainでSourceから配布実行物を再Buildし、165,376bytes、SHA256 `981d8078cf2b77418115160a489d2e09a03f2f94c600cf7bdab65b2e2daa2b53`へBootstrap／有限fixtureを同期した。PA全廃ではなく、Provider HomeとFilesystem観測用Nativeは存続する。
+
+限定検証: Rust単体8件・実CLI6件、PAのProtocol・公開搬送・配布Artifact・実entry観測13件、Coordinatorの開発Native・出所・退役・coverage関連82件、公開境界・台帳関連11件が成功。配布release実行物自身も退役要求・非0予約byteの14組を拒否し、完全拒否frame・正常観測情報の非発行を確認した。PA／Coordinator製品・試験の3型検査、Rust書式・Clippy、変更TSの書式・warning禁止Lint、台帳426件valid、差分空白検査も成功。
+
+独立レビューで、PA設計の現行図・wire・責務表に旧Runtime初期化とDesktop Helperの説明が残っていたため是正し、存続機能と退役履歴を分離した。最終再レビューの必須残指摘0件。Commit前の追加確認でも残存Source参照なし、配布物・Build結果・固定Hash一致、Native14件・PA13件の再成功、台帳426件validと差分空白検査を確認し、追加是正は不要と判断した。新品試験領域は各fixtureの清掃を用い、過去保持物は操作していない。全体回帰・実AI・実Dockerは未実施で、PA全廃・Release成立とは表示しない。ユーザーが許可したCommit／Pushへ進む。
+
 ## 最終漏れ確認とCommit／Push準備 — 2026-11-11
 
 同じ未Commit候補を再確認し、検証器の旧Session代役2箇所・設定搬送、PA／DI設計本文の旧Helper・Mutex・Scope Hash・9処置の説明、未整形4ファイルと未使用2箇所を是正した。製品ロジックは変更せず、8処置のヘッダー、試験・文書の現行契約への追従だけを行った。基点の読取り範囲検査は削らず再接続し、不正入力のFilesystem要求0と固定退避IDの既存encodingを確認した。
