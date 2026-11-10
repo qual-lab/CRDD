@@ -268,6 +268,7 @@ export function cleanupIsolation(
   )
     return cleanupRepairDirectory(
       (request as DirectoryResourceCleanupTarget).input,
+      settings,
     );
   if (
     request &&

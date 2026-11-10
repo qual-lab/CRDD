@@ -1,5 +1,21 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 回復Matrixの失敗時終了確認 — 2026-11-10
+
+親喪失子と清掃不明子は、spawn直後からcloseを監視する。ready取得前のtimeout・不正応答・早期終了も、未要求なら元子だけへ停止を一回要求し、既存10秒枠でcloseを確認して返す。kill受理やexitCodeをcloseへ換算しない。停止拒否・例外・close不明でも一次理由と取得済exact Recovery IDを保持し、Recoveryを自動発行しない。子発行後の失敗は、資源有無を証明できないためID未取得でも手動確認要とする。ready待機・close待機のtimerと購読は解除する。
+
+検証Scriptの契約revision 3では、失敗結果の`childProcessTerminationObserved`と`childProcessStopFailure`でclose事実・停止不成立を一次理由と分ける。nullは当該観測なし、falseは終了未確認。これらをDocker回収確認に使わない。通常Task Schema・永続保存・IPCと各Timeoutは変更せず、実Matrix・全体回帰は実施していない。
+
+## Desktop管理設定の明示搬送 — 2026-11-10
+
+起動Ownerの`configuration.ts`が共通Host所在に加えて、設定済みの`LOCALAPPDATA`を`desktop.userDataDirectory`へ一度だけ搬送する。欠測時はdesktop自体を省略し、通常初期化の必須条件にしない。設定の検査・入れ子コピー・凍結はDIが所有し、操作中に親環境やKnown Folderを再取得しない。Desktopの使用判断と再起動／修復要求は上位に残し、設定だけで実操作を発行しない。明示した不正設定は初期化不能として停止する。現在のWindows実装をLinux／macOS・Engine単独対応の成立とは表示しない。
+
+## 旧子環境導出口の撤去（2026-11-10）
+
+Windows Adapterの`deriveChildEnvironment`と専用結果型、`native_helper`／`host_operation_supervisor`の選択口は本番利用がないため撤去した。Platform技術契約改訂2でも`process_cancellation`の分類と必要保証は維持するが、必須操作集合は空であり、全保証を宣言するAdapterでも解決しない。環境値を返すだけの操作を取消対応として表示せず、Windows側の操作groupと環境保証の部分充足宣言も撤去する。保存Schema・IPCと既存失敗reasonは変更しない。
+
+回復Matrixの固定Node子環境は同Scriptが所有する。既存のオンメモリ設定からWindows所在、Node.jsから現行と同じ検査済みTEMPを取得し、PAの一般環境生成を呼ばない。明示値はSystemRoot／WINDIR／TEMP／TMPとし、Nodeのcoverage補充、Windows起動時のHost情報8項目の補完は空文字で抑止する。親PATH・Proxy・任意Node設定を渡さず、固定process.execPath・shell:false・既存期限を維持する。Node 24.19.0／libuv 1.52.1で外部操作のないNode子を実測した根拠であり、全OSや実回復成立へ一般化しない。全体回帰は人間の指示により後続整理後へ保留する。
+
 ## 技術未発行の切断と停止下再入場（2026-11-09）
 
 初回資源Intentより前の切断は、Domainの厳密な未発行判定を用いて技術資源の回収不要を確認する。Hostのtoken／初期全文一致または状態遷移の相関、現在Ownerと元版、Host実体の回収・不存在は別に確認する。資源未発行だけでHost清掃・Home解放・Task終了を確定しない。最終WriterはHost回収と排他解放の確認後にだけ結果を保存する。

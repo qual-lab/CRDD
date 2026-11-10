@@ -30,18 +30,106 @@ import type {
 const ISOLATION_SETTINGS = Object.freeze({
   windowsDirectory: "C:\\Windows",
   userHomeDirectory: "C:\\Users\\test",
+  desktop: Object.freeze({
+    userDataDirectory: "C:\\Users\\test\\AppData\\Local",
+  }),
 });
 
 /**
- * @responsibility Desktop待機中に元設定を変更しても、受付時の二所在が固定されることを反証する。
+ * Desktopを選ばない共通設定から、修復の外部Effectが始まらないことを確認する。
+ * @trace ERB-UT-023
+ * @precondition 実Sourceの入口だけをメモリ内へ取り出す。
+ * @stimulus Desktop設定なしの修復要求。
+ * @observation 既存内部Runnerへの到達数と拒否理由。
+ * @oracle 拒否はRunner・Artifact・Native取得より前。
+ * @cleanup メモリだけ。実Process・Filesystem書込みなし。
+ */
+test("Desktop未設定の修復は内部取得前に拒否する", async () => {
+  const source = readFileSync(
+    new URL("../../../src/docker-desktop/repair-session.ts", import.meta.url),
+    "utf8",
+  );
+  const begin = source.indexOf("export async function runRepairSession(");
+  const end = source.indexOf("\n/**", begin);
+  assert.ok(begin > 0 && end > begin);
+  const body = stripTypeScriptTypes(source.slice(begin, end)).replace(
+    "export async function",
+    "async function",
+  );
+  let effects = 0;
+  const run = runInNewContext(`${body};runRepairSession`, {
+    captureIsolationSettings,
+    runRepairSessionWithDependencies: () => {
+      effects++;
+      throw Error("must not acquire");
+    },
+  }) as (input: unknown, settings: IsolationSettings) => Promise<unknown>;
+  await assert.rejects(
+    run(
+      {},
+      {
+        windowsDirectory: "C:\\Windows",
+        userHomeDirectory: "C:\\Users\\test",
+      },
+    ),
+    /docker_desktop_settings_unavailable/u,
+  );
+  assert.equal(effects, 0);
+});
+
+/**
+ * @trace ERB-UT-023
+ * @precondition 公開資源入口の実本文をメモリで実行する。
+ * @stimulus Directory観測・回収に同じ設定を渡す。
+ * @observation 下位へ届く入力と設定の参照。
+ * @oracle 再入場にも設定が無変換で届く。実I/Oなし。
+ * @cleanup メモリだけ。
+ */
+test("Directoryの公開資源入口は明示Desktop設定を再入場へ搬送する", () => {
+  for (const [file, name, lower] of [
+    ["cleanup/resources.ts", "inspectIsolation", "observeRepairDirectories"],
+    ["execution/operations.ts", "cleanupIsolation", "cleanupRepairDirectory"],
+  ] as const) {
+    const source = readFileSync(
+      new URL(`../../../src/${file}`, import.meta.url),
+      "utf8",
+    );
+    const begin = source.indexOf(`export function ${name}(`);
+    const next = source.indexOf("\n/**", begin);
+    assert.ok(begin >= 0);
+    const body = stripTypeScriptTypes(
+      source.slice(begin, next < 0 ? undefined : next),
+    ).replaceAll("export function", "function");
+    const input = {};
+    const result = {};
+    let calls = 0;
+    const run = runInNewContext(`${body};${name}`, {
+      types: { isProxy: () => false },
+      [lower]: (received: unknown, settings: unknown) => {
+        calls++;
+        assert.equal(received, input);
+        assert.equal(settings, ISOLATION_SETTINGS);
+        return result;
+      },
+    }) as (request: unknown, settings: IsolationSettings) => unknown;
+    assert.equal(
+      run({ kind: "docker_runtime_directory", input }, ISOLATION_SETTINGS),
+      result,
+    );
+    assert.equal(calls, 1);
+  }
+});
+
+/**
+ * @responsibility Desktop待機中に元設定を変更しても、受付時の共通所在・Desktop所在が固定されることを反証する。
  * @trace ERB-UT-023
  * @precondition 下位入口はメモリ代役。Native・Dockerを起動しない。
  * @stimulus 受付後・Machine構築前に元設定を変更する。
  * @observation Machineへ渡ったコピーとPromiseの元結果。
- * @oracle 二所在と凍結状態は受付時のまま。実Desktop操作の成立を主張しない。
+ * @oracle 共通所在・Desktop所在と凍結状態は受付時のまま。実Desktop操作の成立を主張しない。
  * @cleanup メモリだけ。
  */
-test("Desktop操作は非同期待機前に二所在を固定する", async () => {
+test("Desktop操作は非同期待機前に共通所在とDesktop所在を固定する", async () => {
   const source = readFileSync(
     new URL("../../../src/docker-desktop/restart.ts", import.meta.url),
     "utf8",
@@ -77,15 +165,29 @@ test("Desktop操作は非同期待機前に二所在を固定する", async () =
   const settings = {
     windowsDirectory: "C:\\Windows",
     userHomeDirectory: "C:\\Users\\test",
+    desktop: { userDataDirectory: "C:\\Users\\test\\AppData\\Local" },
   };
   const pending = restart({}, settings);
   settings.windowsDirectory = "Z:\\changed";
   settings.userHomeDirectory = "Z:\\changed-home";
+  settings.desktop.userDataDirectory = "Z:\\changed-data";
   release();
   assert.equal(await pending, result);
   assert.deepEqual(received, ISOLATION_SETTINGS);
   assert.ok(Object.isFrozen(received));
   assert.notEqual(received, settings);
+  assert.ok(Object.isFrozen((received as IsolationSettings | null)?.desktop));
+  assert.throws(
+    () =>
+      restart(
+        {},
+        {
+          windowsDirectory: "C:\\Windows",
+          userHomeDirectory: "C:\\Users\\test",
+        },
+      ),
+    /docker_desktop_settings_unavailable/u,
+  );
 });
 
 /**

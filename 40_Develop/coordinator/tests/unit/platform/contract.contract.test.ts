@@ -115,7 +115,7 @@ function syntheticAdapter(
 test("Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開する", () => {
   assert.deepEqual(describeCoordinatorPlatformContract(), {
     contract: "crdd-coordinator/orchestrator-platform-contract",
-    contractRevision: 1,
+    contractRevision: 2,
     boundaries: [
       "principal_provider_home",
       "filesystem_repository",
@@ -128,7 +128,7 @@ test("Platform契約は境界母集団・操作名対応・非fallbackを閉集�
       principal_provider_home: ["observeProviderHomeCandidate"],
       filesystem_repository: ["resolveRepositoryRoot"],
       lock_lease: ["observeLeaseOwner"],
-      process_cancellation: ["deriveChildEnvironment"],
+      process_cancellation: [],
       container_host: ["observeContainerHostRecoveryState"],
       runtime_root_recovery: ["compileRootObservationCandidate"],
     },
@@ -604,7 +604,6 @@ test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
       "principal_provider_home",
       "filesystem_repository",
       "lock_lease",
-      "process_cancellation",
       "container_host",
       "runtime_root_recovery",
     ]);
@@ -685,4 +684,42 @@ test("解決後は検証済みoperation参照を固定し元Adapterの差替え�
       status: "original",
     });
   }
+});
+
+/**
+ * @responsibility 空操作集合を全保証の宣言や旧関数で充足済みにしないことを反証する。
+ * @trace PRL-UT-014
+ * @precondition 合成Adapterは取消境界と必要保証すべての対応を宣言する。
+ * @stimulus 空groupと廃止した環境導出groupをそれぞれ渡す。
+ * @observation blockedと操作呼出し0。
+ * @oracle 空集合は自明な対応済みではなく、旧口も復活しない。
+ * @cleanup メモリのみ。外部操作なし。
+ */
+test("取消境界の空操作集合は全保証を宣言しても解決できない", () => {
+  let calls = 0;
+  for (const group of [
+    {},
+    {
+      deriveChildEnvironment: () => {
+        calls++;
+      },
+    },
+  ]) {
+    const adapter = syntheticAdapter("windows", ["process_cancellation"], {
+      process_cancellation: group,
+    });
+    assert.deepEqual(
+      resolveCoordinatorPlatformAdapter(
+        "windows",
+        [adapter],
+        ["process_cancellation"],
+      ),
+      {
+        status: "blocked",
+        reason: "platform_boundary_unsupported",
+        unsupportedBoundaries: ["process_cancellation"],
+      },
+    );
+  }
+  assert.equal(calls, 0);
 });

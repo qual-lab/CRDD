@@ -248,12 +248,12 @@ function hashRepairScopeValue(domain: string, payload: unknown): string {
 }
 
 /**
- * 安定したKnownFolder実体と固定Pathへ修復Scopeを結合する。
+ * 上位確定の安定したユーザーデータ基点実体と固定Pathへ修復Scopeを結合する。
  * @responsibility 可変run世代を操作全体Scopeへ混入させない。
  * @trace ARCH-000008
- * @input localAppData: OS観測済み所在、operationNonce: 64hex、ownerBindingSha256: 実H、artifactSha256: 固定実行物。
+ * @input localAppData: 上位確定の初期化済みユーザーデータ基点、operationNonce: 64hex、ownerBindingSha256: 実H、artifactSha256: 固定実行物。
  * @returns Scope Hash、下位Directory ID、canonical Localと同一の凍結targets、またはnull。
- * @precondition 本番runtimeが同じ取得結果のH／ArtifactとKnownFolderを渡す。
+ * @precondition 本番runtimeが同じ取得結果のH／Artifactと初期化済みユーザーデータ基点を渡す。
  * @postcondition Local以外の可変DirectoryをScope生成で観測・作成しない。
  * @effect Localのlstat／realpath前後観測だけ。
  * @failure 入力不正、link、Path差、実体差、観測不能はnull。

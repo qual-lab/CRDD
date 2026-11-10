@@ -86,31 +86,6 @@
       ]
     },
     {
-      "symbolId": "platform-access.source.local-app-data",
-      "kind": "module",
-      "path": "src/filesystem/local-app-data.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "platform-access.test.integration.local-app-data",
-      "kind": "test-suite",
-      "path": "tests/integration/local-app-data.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002"
-      ],
-      "verifies": [
-        "platform-access.source.local-app-data",
-        "platform-access.source.windows-directory",
-        "platform-access.source.public-api"
-      ]
-    },
-    {
       "symbolId": "platform-access.source.windows-child-environment",
       "kind": "module",
       "path": "src/process/environment.ts",

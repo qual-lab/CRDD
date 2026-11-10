@@ -4,30 +4,29 @@
  * @responsibility RuntimeRecordを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { ChildProcess } from "node:child_process";
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getIsolationSettings } from "../src/execution/configuration.ts";
 import {
   isSupportedNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
+  recoverDockerIsolationProbe,
 } from "../src/execution/diagnostics.ts";
+import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
+import { createDynamicFakeProviderRecoverableResidue } from "./probe-verification.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
-import { createChildProcessEnvironment } from "../../platform-access/src/index.ts";
-import { recoverDockerIsolationProbe } from "../src/execution/diagnostics.ts";
-import { createDynamicFakeProviderRecoverableResidue } from "./probe-verification.ts";
-import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 import { verifyDynamicFakeProviderCancellation } from "./verify-dynamic-fake-provider-cancellation.ts";
 import { verifyDynamicFakeProviderFailures } from "./verify-dynamic-fake-provider-failures.ts";
 
 export const SIGNED_RECOVERY_MATRIX_CONTRACT =
   "crdd-coordinator/signed-recovery-matrix-verification";
-export const SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION = 2;
+export const SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION = 3;
 
 const INTERNAL_CHILD_ARGUMENT = "--internal-parent-loss-child";
 const INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT =
@@ -66,7 +65,10 @@ type RuntimeRecord = Readonly<Record<string, unknown>>;
  */
 class RecoveryMatrixFailure extends Error {
   readonly recoveryId: string | null;
-  readonly manualRecoveryRequired: boolean;
+  manualRecoveryRequired: boolean;
+  childProcessTerminationObserved: boolean | null = null;
+  childProcessStopFailure: "stop_request_failed" | "close_unconfirmed" | null =
+    null;
 
   constructor(
     reason: string,
@@ -143,17 +145,17 @@ function recoveryCompleted(result: RuntimeRecord | null) {
  * @returns NodeJS.ProcessEnv | nullを返す。
  * @precondition 「N/A: 実行時引数を受け取らない。」がcreateRecoveryMatrixChildEnvironmentの入力契約を満たす。
  * @postcondition createRecoveryMatrixChildEnvironmentの責務を完了した結果だけを返す。
- * @effect createRecoveryMatrixChildEnvironmentはFilesystemの読取りまたは書込みを実行する。
+ * @effect 既存オンメモリ設定とNode.jsのユーザー所在・Directory実体を読む。Native・Process起動・書込みは行わない。
  * @failure createRecoveryMatrixChildEnvironmentは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant createRecoveryMatrixChildEnvironmentは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: createRecoveryMatrixChildEnvironmentはAuthority、秘密値または信頼判断を扱わない。
+ * @security 固定Node子だけの環境を明示し、親PATH・Proxy・任意Node設定を搬送しない。coverageとWindowsのHost情報補完を空文字で抑止する。
  * @concurrency N/A: createRecoveryMatrixChildEnvironmentは共有非同期状態を持たない同期処理である。
  */
 function createRecoveryMatrixChildEnvironment(): NodeJS.ProcessEnv | null {
-  const observedEnvironment = createChildProcessEnvironment();
-  if (!observedEnvironment || process.platform !== "win32") return null;
+  if (process.platform !== "win32") return null;
   try {
+    const { windowsDirectory } = getIsolationSettings();
     const profile = fs.realpathSync.native(os.userInfo().homedir);
     const temporary = fs.realpathSync.native(
       path.join(profile, "AppData", "Local", "Temp"),
@@ -166,7 +168,18 @@ function createRecoveryMatrixChildEnvironment(): NodeJS.ProcessEnv | null {
     )
       return null;
     return {
-      ...observedEnvironment,
+      SystemRoot: windowsDirectory,
+      WINDIR: windowsDirectory,
+      NODE_V8_COVERAGE: "",
+      // Windowsの子Processに補完されるHost情報を、親の値で埋め戻させない。
+      HOMEDRIVE: "",
+      HOMEPATH: "",
+      LOGONSERVER: "",
+      PATH: "",
+      SYSTEMDRIVE: "",
+      USERDOMAIN: "",
+      USERNAME: "",
+      USERPROFILE: "",
       TEMP: temporary,
       TMP: temporary,
     };
@@ -198,63 +211,115 @@ function waitForChildReady(child: ChildProcess): Promise<RuntimeRecord> {
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
+      cleanup();
       reject(new Error("signed_recovery_matrix_parent_child_timeout"));
     }, CHILD_READY_TIMEOUT_MS);
     child.stdout?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk: string) => {
+    const onData = (chunk: string) => {
       if (settled) return;
       output += chunk;
       const newline = output.indexOf("\n");
       if (newline < 0) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       try {
         resolve(JSON.parse(output.slice(0, newline)) as RuntimeRecord);
       } catch {
         reject(new Error("signed_recovery_matrix_parent_child_output_invalid"));
       }
-    });
-    child.once("error", (error) => {
+    };
+    const onError = (error: Error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       reject(error);
-    });
-    child.once("exit", () => {
+    };
+    const onExit = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       reject(new Error("signed_recovery_matrix_parent_child_exited_early"));
-    });
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      child.stdout?.removeListener("data", onData);
+      child.removeListener("error", onError);
+      child.removeListener("exit", onExit);
+      child.removeListener("close", onExit);
+    };
+    child.stdout?.on("data", onData);
+    child.once("error", onError);
+    child.once("exit", onExit);
+    child.once("close", onExit);
   });
 }
 
 /**
- * For Child Exitを完了まで待機する。
- *
- * @responsibility For Child Exitの待機条件、完了観測、Timeout境界を所有する。
+ * spawn直後から監視した元子のcloseを、既存10秒枠で確認する。
+ * @responsibility close観測と待機Timeoutを区別し、待機timerを必ず解除する。
  * @trace ARCH-000008
- * @input child: ChildProcess
- * @returns Promise<boolean>を返す。
- * @precondition 「child: ChildProcess」がwaitForChildExitの入力契約を満たす。
- * @postcondition waitForChildExitの責務を完了した結果だけを返す。
- * @effect N/A: waitForChildExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: waitForChildExitは独自の失敗分岐を所有しない。
- * @invariant waitForChildExitは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: waitForChildExitはProcess内の同一Subsystemで完結する。
- * @security N/A: waitForChildExitはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency waitForChildExitは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @input closed: 元子のcloseだけで完了するPromise。
+ * @returns close確認はtrue、時間切れはfalse。
+ * @invariant exitCode・停止要求受理をclose確認へ読み替えない。
+ * @effect Process操作なし。観測待機だけ。
  */
-function waitForChildExit(child: ChildProcess): Promise<boolean> {
-  if (child.exitCode !== null || child.signalCode !== null)
-    return Promise.resolve(true);
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(false), CHILD_EXIT_TIMEOUT_MS);
-    child.once("exit", () => {
-      clearTimeout(timer);
-      resolve(true);
-    });
+function waitForChildClose(closed: Promise<void>): Promise<boolean> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
+    closed.then(() => true),
+    new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), CHILD_EXIT_TIMEOUT_MS);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
   });
+}
+
+/**
+ * 失敗した元子だけを停止し、一次失敗・取得済みIDと終了確認を分離する。
+ * @trace ARCH-000008
+ * @effect 未要求時の停止要求一回と、既存10秒枠のclose待機。
+ * @failure 停止拒否・例外・close不明は一次理由を上書きせず副次結果に残す。
+ * @invariant exit・kill受理からcloseや資源回収成功を推定しない。Recoveryは発行しない。
+ */
+async function finishFailedChild(
+  child: ChildProcess,
+  closed: Promise<void>,
+  error: unknown,
+  recoveryId: string | null,
+  stopRequested = false,
+  terminationObserved?: boolean,
+): Promise<RecoveryMatrixFailure> {
+  const failure =
+    error instanceof RecoveryMatrixFailure
+      ? error
+      : new RecoveryMatrixFailure(
+          error instanceof Error && /^[a-z0-9_]+$/u.test(error.message)
+            ? error.message
+            : "signed_recovery_matrix_failed_closed",
+          recoveryId,
+        );
+  failure.manualRecoveryRequired = true;
+  if (stopRequested && failure.message.endsWith("_kill_failed"))
+    failure.childProcessStopFailure = "stop_request_failed";
+  if (
+    terminationObserved !== true &&
+    !stopRequested &&
+    child.exitCode === null &&
+    child.signalCode === null
+  ) {
+    try {
+      if (!child.kill("SIGKILL"))
+        failure.childProcessStopFailure = "stop_request_failed";
+    } catch {
+      failure.childProcessStopFailure = "stop_request_failed";
+    }
+  }
+  failure.childProcessTerminationObserved =
+    terminationObserved ?? (await waitForChildClose(closed));
+  if (!failure.childProcessTerminationObserved)
+    failure.childProcessStopFailure ??= "close_unconfirmed";
+  return failure;
 }
 
 /**
@@ -290,9 +355,19 @@ async function verifyParentLossThenRecover() {
   );
   let recoveryId: string | null = null;
   let stopRequested = false;
-  const parentClosed = new Promise<void>((resolve) =>
-    child.once("close", resolve),
-  );
+  let terminationObserved: boolean | undefined;
+  let resolveClose = () => {};
+  let childClosed = false;
+  const parentClosed = new Promise<void>((resolve) => {
+    resolveClose = resolve;
+  });
+  const onClose = () => {
+    childClosed = true;
+    resolveClose();
+  };
+  const onError = () => {};
+  child.once("close", onClose);
+  child.on("error", onError);
   try {
     const ready = await waitForChildReady(child);
     if (
@@ -325,16 +400,8 @@ async function verifyParentLossThenRecover() {
         "signed_recovery_matrix_parent_child_kill_failed",
         recoveryId,
       );
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const joined = await Promise.race([
-      parentClosed.then(() => true),
-      new Promise<boolean>((resolve) => {
-        timer = setTimeout(() => resolve(false), CHILD_EXIT_TIMEOUT_MS);
-      }),
-    ]).finally(() => {
-      if (timer) clearTimeout(timer);
-    });
-    if (!joined || child.signalCode !== "SIGKILL")
+    terminationObserved = await waitForChildClose(parentClosed);
+    if (!terminationObserved || child.signalCode !== "SIGKILL")
       throw new RecoveryMatrixFailure(
         "signed_recovery_matrix_parent_child_exit_unconfirmed",
         recoveryId,
@@ -356,9 +423,18 @@ async function verifyParentLossThenRecover() {
       freshRecoveryCompleted: true,
       manualRecoveryRequiredAfterRecovery: false,
     });
+  } catch (error) {
+    throw await finishFailedChild(
+      child,
+      parentClosed,
+      error,
+      recoveryId,
+      stopRequested,
+      childClosed ? true : terminationObserved,
+    );
   } finally {
-    if (!stopRequested && child.exitCode === null && child.signalCode === null)
-      child.kill("SIGKILL");
+    child.removeListener("close", onClose);
+    child.removeListener("error", onError);
   }
 }
 
@@ -396,41 +472,67 @@ async function verifyCleanupUnknownThenRecover() {
     },
   );
   let recoveryId: string | null = null;
-  const ready = await waitForChildReady(child);
-  if (
-    ready.contract !== CHILD_READY_CONTRACT ||
-    ready.status !== "ready" ||
-    typeof ready.recoveryId !== "string" ||
-    ready.manualRecoveryRequired !== true
-  )
-    throw new RecoveryMatrixFailure(
-      "signed_recovery_matrix_cleanup_child_contract_invalid",
-    );
-  recoveryId = ready.recoveryId;
-  if (!(await waitForChildExit(child)))
-    throw new RecoveryMatrixFailure(
-      "signed_recovery_matrix_cleanup_child_exit_unconfirmed",
-      recoveryId,
-    );
-  const recovered = recoverDockerIsolationProbe(
-    recoveryId,
-    ready.operationRoot,
-  ) as RuntimeRecord | null;
-  if (!recoveryCompleted(recovered))
-    throw new RecoveryMatrixFailure(
-      "signed_recovery_matrix_cleanup_unknown_recovery_failed",
-      recoveryId,
-    );
-  recoveryId = null;
-  return Object.freeze({
-    scenario: "cleanup_observation_unknown_then_recover",
-    initialStatus: "blocked",
-    initialReason: "cleanup_observation_intentionally_withheld",
-    initialManualRecoveryRequired: true,
-    exactRecoveryIdReturned: true,
-    freshRecoveryCompleted: true,
-    residualOperationDirectory: false,
+  let resolveClose = () => {};
+  let childClosed = false;
+  const parentClosed = new Promise<void>((resolve) => {
+    resolveClose = resolve;
   });
+  const onClose = () => {
+    childClosed = true;
+    resolveClose();
+  };
+  const onError = () => {};
+  child.once("close", onClose);
+  child.on("error", onError);
+  try {
+    const ready = await waitForChildReady(child);
+    if (
+      ready.contract !== CHILD_READY_CONTRACT ||
+      ready.status !== "ready" ||
+      typeof ready.recoveryId !== "string" ||
+      ready.manualRecoveryRequired !== true
+    )
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_cleanup_child_contract_invalid",
+      );
+    recoveryId = ready.recoveryId;
+    if (!(await waitForChildClose(parentClosed)))
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_cleanup_child_exit_unconfirmed",
+        recoveryId,
+      );
+    const recovered = recoverDockerIsolationProbe(
+      recoveryId,
+      ready.operationRoot,
+    ) as RuntimeRecord | null;
+    if (!recoveryCompleted(recovered))
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_cleanup_unknown_recovery_failed",
+        recoveryId,
+      );
+    recoveryId = null;
+    return Object.freeze({
+      scenario: "cleanup_observation_unknown_then_recover",
+      initialStatus: "blocked",
+      initialReason: "cleanup_observation_intentionally_withheld",
+      initialManualRecoveryRequired: true,
+      exactRecoveryIdReturned: true,
+      freshRecoveryCompleted: true,
+      residualOperationDirectory: false,
+    });
+  } catch (error) {
+    throw await finishFailedChild(
+      child,
+      parentClosed,
+      error,
+      recoveryId,
+      false,
+      childClosed ? true : undefined,
+    );
+  } finally {
+    child.removeListener("close", onClose);
+    child.removeListener("error", onError);
+  }
 }
 
 /**
@@ -549,6 +651,9 @@ export async function runSignedRecoveryMatrixVerification() {
           cleanupConfirmed: false,
           manualRecoveryRequired: error.manualRecoveryRequired,
           recoveryId: error.recoveryId,
+          childProcessTerminationObserved:
+            error.childProcessTerminationObserved,
+          childProcessStopFailure: error.childProcessStopFailure,
         }),
       );
     return blocked(

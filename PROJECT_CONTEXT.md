@@ -12,9 +12,15 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Local AppData専用TS API・Native CLI／frameを退役し、固定配布物とBootstrap Hashを同期した。共用のNative保護／Helper内部取得は維持する。回復Matrixの両子はready前失敗も停止後closeを待ち、元理由・IDと停止／終了観測を分ける。局所18件・型／静的検査と独立レビューが成功。全体回帰は保留、実Matrix・実AI／Docker・Native保護／修復実境界は未実施、過去保持物は不変更。[限定完了と未実施範囲](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#local-appdata専用入口退役とmatrix失敗時の終了確認--2026-11-10)を参照する。
+
+DIの共通設定と任意Desktop管理設定を分離した。上位が起動時に確定した`desktop.userDataDirectory`を修復・Directory観測／回収へ搬送し、PAの所在再取得を撤去した。Desktop未指定は通常初期化を妨げず、Desktop管理操作だけ発行前に拒否する。DI関連68件・Executor9件・Coordinator関連29件と型／静的検査、独立レビューが成功。全体回帰は保留、他OS／Engine単独は未対応、PA Nativeと過去保持物は不変更。[現在の変更と保証境界](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#任意desktop管理設定の分離--2026-11-10)を参照する。
+
+PA外の本番子Process環境生成と未使用のCoordinator診断口を2026-11-10に整理した。回復Matrixは既存設定OwnerとNode.jsへ接続し、取消境界は未対応のまま誤成立を防ぐ。局所19件・型／静的検査と独立レビューが成功。全体回帰は人間の指示で他の残件整理後へ保留している。PA自身のNative保護・旧Host／Native試験の利用は残り、実AI・Docker・過去保持物は操作していない。[今回の範囲と残件](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#pa外の子環境と旧診断口の整理--2026-11-10)を参照する。
+
 DIの子Process環境は2026-11-10に明示初期化へ接続した。`windowsDirectory`／`userHomeDirectory`をオンメモリへ固定し、実行中のambient再取得を撤去した。DI407成功・5対象外、Executor114成功、Coordinator関連99成功と独立再レビューを確認。今回試験物5 Rootは回収済み。PA自身のNative保護と古い保持物は維持し、PA全廃・実AI／Docker E2E・全体QAの完成とはしない。[今回の範囲と保証変更](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#diの明示初期化と子process環境--2026-11-10)を参照する。
 
-PAのtaskkill接続は2026-11-09に撤去した。通常CLIと検証の故障注入は元ProcessだけのNode.js標準停止とし、親終了不明時の再入場は未実施として保持する。予定外Host試験からの最初の7領域は回収済み。その後に再現した4失敗を、Domainの厳密な資源未発行判定と試験のOwner／所在／停止下wx再入場へ是正し、元4件・認証代役5形・親停止1形が成功した。Domain全484件と周辺回帰も成功し、実装途中で今回作った8試験Rootと新品TEMPは全量照合後に回収して不存在を確認した。その後の人間承認で以前の再現調査4領域・60分中断回帰領域・空のWorkspace旧2領域も照合して回収し、全7領域の不存在を確認した。Docker影響未確認の古いHost試験物などは保持継続。Host全体回帰・実AI／Docker回復E2Eは今回未実施であり、回復Matrixのready前失敗時の終了確認も残件である。詳細は[最新の保持物回収と残件](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#承認済み保持物の限定回収--2026-11-09)を参照する。
+PAのtaskkill接続は2026-11-09に撤去した。通常CLIと検証の故障注入は元ProcessだけのNode.js標準停止とし、親終了不明時の再入場は未実施として保持する。予定外Host試験からの最初の7領域は回収済み。その後に再現した4失敗を、Domainの厳密な資源未発行判定と試験のOwner／所在／停止下wx再入場へ是正し、元4件・認証代役5形・親停止1形が成功した。Domain全484件と周辺回帰も成功し、実装途中で今回作った8試験Rootと新品TEMPは全量照合後に回収して不存在を確認した。その後の人間承認で以前の再現調査4領域・60分中断回帰領域・空のWorkspace旧2領域も照合して回収し、全7領域の不存在を確認した。Docker影響未確認の古いHost試験物などは保持継続。Host全体回帰・実AI／Docker回復E2Eは未実施である。当時残件だった回復Matrixのready前失敗時の終了確認は、上記11月10日の変更で是正済み。詳細は[最新の保持物回収と残件](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#承認済み保持物の限定回収--2026-11-09)を参照する。
 
 残るEI・Topic／Meeting・一時Operationの技術排他を共通Lockへ接続した。取得・所有照合・解放は一つのwx実装とし、保存・改訂・世代・根拠昇格は各Ownerに残す。EEXISTの自動待機・PID不在による削除・Lock専用staging/hardlink公開を撤去し、再入場の最初の変更前から終端清掃後まで必要な区間を保持する。先行13 Packageの旧試験・管理情報等7系統を最小是正し、関連再試験と独立再レビューが成功した。Coordinator通常回帰は成功1,726・失敗0・skip5で完走した。Repository Checkerは基準Commitの3,787件に対して今回追加17件を是正し、残る既存指摘は未解消。全体QA合格は未成立。実AI・Docker・過去保持物は操作していない。[現在の回帰・Checker差分と限界](99_Roadmap/Changes/CHG-000082/lock-boundary-design.md#17-設計品質登録とchecker差分の閉包--2026-11-07)を参照する。
 

@@ -279,7 +279,6 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "observePlatformAccessArtifactCandidate",
       "observeSystemWindowsDirectory",
       "observeWindowsFilesystemEntry",
-      "observeWindowsLocalAppDataDirectory",
       "observeWindowsRuntimeState",
       "startDockerDesktopRepairHelper",
       "startDockerDesktopRestartHelper",

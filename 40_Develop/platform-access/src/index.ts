@@ -21,7 +21,6 @@ export {
   observePlatformAccessArtifactCandidate,
 } from "./artifact/identity.ts";
 export { observeSystemWindowsDirectory } from "./filesystem/system-directory.ts";
-export { observeWindowsLocalAppDataDirectory } from "./filesystem/local-app-data.ts";
 export {
   observeWindowsFilesystemEntry,
   type WindowsEntryObservation,

@@ -125,34 +125,30 @@ fn filesystem_entry_observation_has_fixed_frame_and_no_path_fallback() {
     assert_eq!(std::fs::read(source).unwrap(), before);
 }
 
-/// LocalAppData固定modeの余分引数を読取り前に拒否する。
-/// @responsibility 任意Known FolderやPath指定へ入口を拡張しない。
+/// 退役したLocalAppData専用modeを読取り前に拒否する。
+/// @responsibility 共用Known Folder処理を公開CLIへ露出しない。
 /// @trace ERB-IT-001
 /// @precondition Cargoが生成した固定Native実行物。
-/// @stimulus 正常modeと余分なselectorを実Processへ渡す。
+/// @stimulus 退役modeと余分なselectorを実Processへ渡す。
 /// @observation exit、stderr、用途magicと有界frame長。
-/// @oracle 正常だけLocalAppData frame、余分引数はexit2で同frameを返さない。
+/// @oracle 全例exit2で専用frameを返さない。
 /// @cleanup 同期outputで子Processをjoinする。
 /// @boundary ERB-IT-001=Direct Boundary: 固定CLI→Windows Known Folder。
 #[test]
-fn local_app_data_mode_is_fixed_and_rejects_extra_arguments() {
-    let observed = Command::new(BINARY)
-        .arg("--local-app-data-directory")
-        .output()
-        .unwrap();
-    assert_eq!(observed.status.code(), Some(0));
-    assert!(observed.stderr.is_empty());
-    assert_eq!(&observed.stdout[..8], b"CRDDLA01");
-    let length = u32::from_le_bytes(observed.stdout[8..12].try_into().unwrap()) as usize;
-    assert!(length > 0 && length < 32_768);
-    assert_eq!(observed.stdout.len(), 12 + length * 2);
-    let refused = Command::new(BINARY)
-        .args(["--local-app-data-directory", "extra"])
-        .output()
-        .unwrap();
-    assert_eq!(refused.status.code(), Some(2));
-    assert!(refused.stderr.is_empty());
-    assert!(!refused.stdout.starts_with(b"CRDDLA01"));
+fn retired_local_app_data_mode_is_not_available() {
+    for arguments in [
+        vec!["--local-app-data-directory"],
+        vec!["--local-app-data-directory", "extra"],
+    ] {
+        let refused = Command::new(BINARY)
+            .args(arguments)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        assert_eq!(refused.status.code(), Some(2));
+        assert!(refused.stderr.is_empty());
+        assert!(!refused.stdout.starts_with(b"CRDDLA01"));
+    }
 }
 
 /// 退役したNamespace modeを一般の不正要求として拒否する。

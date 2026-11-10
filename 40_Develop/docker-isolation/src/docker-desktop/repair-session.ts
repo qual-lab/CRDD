@@ -5,21 +5,19 @@
  * @trace ARCH-000008
  * @boundary 元Sessionは同子を回収し、終了後回収・保持照合は新Repair Sessionを取得しない。現在の許可と真正Writerは上位Ownerが所有する。
  */
+import { types } from "node:util";
+import {
+  type DockerDesktopRepairNativeHelperOutcome,
+  type DockerDesktopRepairNativeHelperSession,
+  type DockerDesktopRepairHelperReleaseOutcome,
+  startDockerDesktopRepairHelper,
+  observePlatformAccessArtifactCandidate,
+  observeNativeArtifact,
+} from "../../../platform-access/src/index.ts";
 import {
   type IsolationSettings,
   captureIsolationSettings,
 } from "../docker-cli/environment.ts";
-import type { RepairCheckpoint, RepairRetentionTargets } from "./types.ts";
-import {
-  decodeRepairCheckpoint,
-  isRepairCheckpointSettled,
-} from "./validation.ts";
-import type {
-  DockerDesktopRepairNativeHelperOutcome,
-  DockerDesktopRepairNativeHelperSession,
-  DockerDesktopRepairHelperReleaseOutcome,
-} from "../../../platform-access/src/index.ts";
-import { types } from "node:util";
 import {
   observeDockerDesktopRepairEngine,
   awaitDockerRepairEngine,
@@ -32,16 +30,15 @@ import {
   dockerDesktopDistributionRoot,
   describeDockerArtifactTrustContract,
 } from "../docker-cli/trust.ts";
-import { prepareRepairSessionCheckpoint } from "./validation.ts";
+import {
+  decodeRepairCheckpoint,
+  isRepairCheckpointSettled,
+  prepareRepairSessionCheckpoint,
+} from "./validation.ts";
+import type { RepairCheckpoint, RepairRetentionTargets } from "./types.ts";
 import { executeRepairSteps, type RepairMachineResult } from "./repair.ts";
-import { startDockerDesktopRepairHelper } from "../../../platform-access/src/index.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";
 import { createDockerDesktopRepairOperations } from "./repair-operations.ts";
-import {
-  observePlatformAccessArtifactCandidate,
-  observeWindowsLocalAppDataDirectory,
-  observeNativeArtifact,
-} from "../../../platform-access/src/index.ts";
 
 /**
  * 一回の修復準備と事実通知の内部入力。
@@ -149,14 +146,14 @@ export type DirectoryCleanupResult = Readonly<{
 }>;
 
 /**
- * 固定配布物・同じNative子・KnownFolderから修復Sessionを組み立てる。
+ * 固定配布物・同じNative子・初期化済み所在から修復Sessionを組み立てる。
  * @responsibility 任意の技術境界を受け取らず実Adapterへ接続する。
  * @trace ARCH-000008
  * @input value: 同exact操作の技術入力と保存確認。
  * @returns Native join後の技術結果と未保存候補。
  * @precondition 上位の真正Root・Revision・排他・意図保存は別途必要。
  * @postcondition 入力拒否時はArtifact観測・Native取得0、取得後拒否は同子abort／join。
- * @effect 固定Artifact観測、Repair Native取得、KnownFolderとScope観測、実修復。
+ * @effect 固定Artifact観測、Repair Native取得、明示所在のScope観測、実修復。
  * @failure 準備不能は新処置0で停止し生Pathを返さない。
  * @invariant 同じArtifact値・H・nonce・Sessionを全接続で維持する。
  * @boundary 固定SessionだけをPackage Rootへ公開し、真正Writer／CLIは上位が接続する。
@@ -168,6 +165,8 @@ export async function runRepairSession(
   settings: IsolationSettings,
 ): Promise<RepairResult> {
   settings = captureIsolationSettings(settings);
+  if (!settings.desktop) throw Error("docker_desktop_settings_unavailable");
+  const local = settings.desktop.userDataDirectory;
   let artifact: NonNullable<
     ReturnType<typeof observePlatformAccessArtifactCandidate>["artifact"]
   > | null = null;
@@ -190,8 +189,6 @@ export async function runRepairSession(
     },
     prepare: async (session, owner, nonce, signal, live) => {
       if (!artifact || !live()) return null;
-      const local = observeWindowsLocalAppDataDirectory();
-      if (local === null || !live()) return null;
       const directories = createDockerDesktopRepairDirectoryAccess(
         local,
         nonce,
@@ -254,7 +251,7 @@ export type RepairDisposalInput = Readonly<{
  * @returns 今回要求の到達と現在不存在。保存確定は返さない。
  * @precondition 上位が同exact操作の回収判断・用途意図の保存と解放を確認済み。
  * @postcondition 元checkpointを変更せず、新Repair Native Sessionを取得しない。
- * @effect 固定Artifact／KnownFolder／Scope読取り、条件成立時だけ旧target回収。
+ * @effect 固定Artifact／明示所在のScope読取り、条件成立時だけ旧target回収。
  * @failure 入力・終了・Scope・現在許可不明はDriver0。部分処置はunknownを保持。
  * @invariant 元H・保存値だけで現在Authorityを復元しない。
  * @boundary 固定公開composition→内部factory／Driver。真正Writerは上位所有。
@@ -263,6 +260,7 @@ export type RepairDisposalInput = Readonly<{
  */
 export async function cleanupRepairDirectory(
   value: RepairDisposalInput,
+  settings: IsolationSettings,
 ): Promise<DirectoryCleanupResult> {
   let handedOff = false;
   const unavailable = Object.freeze({
@@ -270,6 +268,8 @@ export async function cleanupRepairDirectory(
     absence: "unknown",
   } as const);
   try {
+    settings = captureIsolationSettings(settings);
+    if (!settings.desktop) return unavailable;
     const fields = repairData(value, [
       "operationNonce",
       "ownerBindingSha256",
@@ -307,8 +307,7 @@ export async function cleanupRepairDirectory(
     const artifact = observeNativeArtifact(dockerDesktopDistributionRoot);
     if (!artifact || signal.aborted || !confirmRepair(fields.canIssueEffect))
       return unavailable;
-    const local = observeWindowsLocalAppDataDirectory();
-    if (local === null) return unavailable;
+    const local = settings.desktop.userDataDirectory;
     const directories = createDockerDesktopRepairDirectoryAccess(
       local,
       fields.operationNonce,
@@ -345,7 +344,7 @@ export async function cleanupRepairDirectory(
  * @returns 全三用途を二読取りした凍結照合値、または失敗のnull。
  * @precondition 上位が明示保持の意思と同じ現在操作を確認する。
  * @postcondition 入力を変更せず、新Repair Native Sessionを取得しない。
- * @effect 固定Artifact・KnownFolder・Scope・固定三対象の読取りだけ。
+ * @effect 固定Artifact・明示所在のScope・固定三対象の読取りだけ。
  * @failure 元結果不正、失効、観測差、保持物消失は全体null。
  * @invariant 用途内nullは元から保持不要かつ二回の明示不存在だけ。
  * @boundary 固定公開読取り→既存Directory factory。保存・期限・終了は上位所有。
@@ -354,8 +353,11 @@ export async function cleanupRepairDirectory(
  */
 export function observeRepairDirectories(
   value: DirectoryInspectionInput,
+  settings: IsolationSettings,
 ): RepairRetentionTargets | null {
   try {
+    settings = captureIsolationSettings(settings);
+    if (!settings.desktop) return null;
     const fields = repairData(value, [
       "operationNonce",
       "ownerBindingSha256",
@@ -391,8 +393,7 @@ export function observeRepairDirectories(
     const artifact = observeNativeArtifact(dockerDesktopDistributionRoot);
     if (!artifact || signal.aborted || !confirmRepair(fields.canObserve))
       return null;
-    const local = observeWindowsLocalAppDataDirectory();
-    if (local === null) return null;
+    const local = settings.desktop.userDataDirectory;
     const access = createDockerDesktopRepairDirectoryAccess(
       local,
       fields.operationNonce,

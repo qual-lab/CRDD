@@ -62,7 +62,7 @@ test("固定Worker回復Matrixは通常Task入力へFault注入面を追加し�
   assert.equal(contract.paidApiFallbackAllowed, false);
   assert.equal(contract.signatureRequired, false);
   assert.equal(contract.packageVerification, "not_required");
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
 });
 
 /**
@@ -195,7 +195,7 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
         "parent",
       ]);
       assert.equal(result.status, "completed");
-      assert.equal(result.contractRevision, 2);
+      assert.equal(result.contractRevision, 3);
       assert.equal(result.packageVerification, "not_required");
       assert.equal(result.signatureRequired, false);
       assert.deepEqual(
@@ -214,7 +214,7 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
       assert.deepEqual(events, ["node", "failures", "cancel", "cleanup"]);
       assert.deepEqual(result, {
         contract: SIGNED_RECOVERY_MATRIX_CONTRACT,
-        contractRevision: 2,
+        contractRevision: 3,
         status: "blocked",
         reason:
           failure === "recovery"
@@ -225,7 +225,13 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
         rawProviderOutputReported: false,
         hostPathReported: false,
         credentialReported: false,
-        ...(failure === "recovery" ? { recoveryId: id } : {}),
+        ...(failure === "recovery"
+          ? {
+              recoveryId: id,
+              childProcessTerminationObserved: null,
+              childProcessStopFailure: null,
+            }
+          : {}),
       });
     }
   };

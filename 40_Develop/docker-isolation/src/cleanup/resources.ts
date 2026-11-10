@@ -71,6 +71,7 @@ export function inspectIsolation(
   )
     return observeRepairDirectories(
       (request as DirectoryResourceInspectionTarget).input,
+      settings,
     );
   if (
     request &&

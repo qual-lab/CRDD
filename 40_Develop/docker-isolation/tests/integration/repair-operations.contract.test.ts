@@ -424,7 +424,6 @@ async function productionComposition(
   const counts = {
     artifact: 0,
     acquire: 0,
-    folder: 0,
     factory: 0,
     operations: 0,
   };
@@ -449,7 +448,7 @@ async function productionComposition(
     .replaceAll("export async function", "async function");
   const result = await f.execute(async (input, dependencies) => {
     const main = runInThisContext(
-      `((describeDockerArtifactTrustContract, types, decodeRepairCheckpoint, prepareRepairSessionCheckpoint, executeRepairSteps, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations, captureIsolationSettings, awaitDockerRepairEngine) => { ${body}; return runRepairSession; })`,
+      `((describeDockerArtifactTrustContract, types, decodeRepairCheckpoint, prepareRepairSessionCheckpoint, executeRepairSteps, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations, captureIsolationSettings, awaitDockerRepairEngine) => { ${body}; return runRepairSession; })`,
     )(
       describeDockerArtifactTrustContract,
       types,
@@ -472,15 +471,6 @@ async function productionComposition(
         assert.deepEqual(observed, artifact);
         if (fault === "acquire_throw") throw new Error("acquire");
         return dependencies.acquire();
-      },
-      () => {
-        counts.folder++;
-        events.push("folder");
-        if (fault === "folder_throw") throw new Error("folder");
-        if (fault === "folder_null") return null;
-        if (fault === "folder_cancel") f.controller.abort();
-        if (fault === "folder_owner_lost") f.state.permission = false;
-        return local;
       },
       (folder: unknown, nonce: unknown, owner: unknown, hash: unknown) => {
         counts.factory++;
@@ -548,7 +538,11 @@ async function productionComposition(
         : fault === "fresh_invalid"
           ? { ...input, resume: {} }
           : input,
-      { windowsDirectory: "C:\\Windows", userHomeDirectory: "C:\\Users\\test" },
+      {
+        windowsDirectory: "C:\\Windows",
+        userHomeDirectory: "C:\\Users\\test",
+        desktop: { userDataDirectory: local },
+      },
     );
   });
   return { result, f, events, counts };
@@ -585,14 +579,12 @@ function assertProductionComposition(
   assert.deepEqual(value.counts, {
     artifact: 1,
     acquire: 1,
-    folder: 1,
     factory: 1,
     operations: 1,
   });
-  assert.deepEqual(value.events.slice(0, 7), [
+  assert.deepEqual(value.events.slice(0, 6), [
     "artifact",
     "acquire",
-    "folder",
     "factory",
     "artifact_verified",
     "scope_verified",
@@ -633,10 +625,6 @@ test("修復本番組立て: 同Artifact・H・nonce・Scopeを実Adapterまで�
     "fresh_invalid",
     "artifact_blocked",
     "acquire_throw",
-    "folder_throw",
-    "folder_null",
-    "folder_cancel",
-    "folder_owner_lost",
     "factory_null",
     "factory_cancel",
     "verify_failure",
@@ -655,11 +643,10 @@ test("修復本番組立て: 同Artifact・H・nonce・Scopeを実Adapterまで�
     if (["invalid", "cancel_before_start", "fresh_invalid"].includes(fault))
       assert.deepEqual(
         value.counts,
-        { artifact: 0, acquire: 0, folder: 0, factory: 0, operations: 0 },
+        { artifact: 0, acquire: 0, factory: 0, operations: 0 },
         fault,
       );
     if (
-      fault.startsWith("folder") ||
       fault.startsWith("factory") ||
       fault.startsWith("verify") ||
       fault === "scope_failure"

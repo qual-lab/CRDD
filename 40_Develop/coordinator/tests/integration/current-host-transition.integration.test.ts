@@ -921,7 +921,7 @@ test("全Host子入口: 未知Processを既定拒否しNative読取りだけ固�
     const childTimeout = reentryMode ? 60000 : 120000;
     const stimulus =
       scenario === "native"
-        ? "for(const mode of ['--system-windows-directory','--local-app-data-directory'])cp.spawnSync(boundaryNative,[mode],{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});"
+        ? "cp.spawnSync(boundaryNative,['--system-windows-directory'],{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});"
         : scenario === "native_options"
           ? "for(const change of [{env:{EXTRA:'1'}},{cwd:'C:\\\\other'},{encoding:'utf8'},{timeout:5001},{extra:true}])assert.throws(()=>cp.spawnSync(boundaryNative,['--system-windows-directory'],{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer',...change}));"
           : scenario === "node_source"
@@ -1226,13 +1226,11 @@ test("回収子の技術代役は現行Moduleへ接続し旧Rootへ注入しな�
     assert.doesNotMatch(source, /docker-isolation\/src\/index\.ts/u);
     assert.doesNotMatch(source, /createDockerTaskRecoveryExecutor/u);
     assert.doesNotMatch(source, /--host-terminal-/u);
-    for (const mode of [
-      "--local-app-data-directory",
-      "--system-windows-directory",
-    ]) {
+    for (const mode of ["--system-windows-directory"]) {
       assert.ok(source.includes(mode));
     }
     assert.doesNotMatch(source, /--host-recovery-namespace-/u);
+    assert.doesNotMatch(source, /--local-app-data-directory/u);
   }
   assert.match(
     currentAuthenticationRecoveryCliSource,
@@ -1454,10 +1452,7 @@ test("Docker代役は同期・非同期の未知要求を発行前に拒否し�
         },
         dockerExe,
         nativeExe,
-        nativeModes: [
-          "--local-app-data-directory",
-          "--system-windows-directory",
-        ],
+        nativeModes: ["--system-windows-directory"],
         dockerId,
         identity: {
           ownershipLabel,

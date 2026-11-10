@@ -15,6 +15,9 @@ const isolationSettings = (() => {
     return initializeIsolation({
       windowsDirectory: process.env.SystemRoot ?? "",
       userHomeDirectory: os.userInfo().homedir,
+      ...(process.env.LOCALAPPDATA
+        ? { desktop: { userDataDirectory: process.env.LOCALAPPDATA } }
+        : {}),
     });
   } catch {
     return null;

@@ -153,6 +153,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
   {
     relativePath: "40_Develop/docker-isolation/src/index.ts",
     exportedModules: [
+      "./docker-cli/environment.ts",
       "./docker-desktop/types.ts",
       "./docker-desktop/restart.ts",
       "./docker-desktop/operations.ts",
@@ -410,7 +411,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./artifact/identity.ts",
       "./filesystem/system-directory.ts",
       "./filesystem/entry.ts",
-      "./filesystem/local-app-data.ts",
       "./process/environment.ts",
       "./filesystem/root.ts",
       "./docker-desktop/native-process.ts",

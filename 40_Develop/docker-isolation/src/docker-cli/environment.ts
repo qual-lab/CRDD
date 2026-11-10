@@ -8,10 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
 
-/** Hostの所在だけを保持する。Provider Home・一時領域ではない。 */
+/** Host所在と任意のDesktop管理設定。userDataDirectoryはユーザーアプリデータの基点で、Provider HomeやDocker専用データそのものではない。 */
 export type IsolationSettings = Readonly<{
   windowsDirectory: string;
   userHomeDirectory: string;
+  desktop?: Readonly<{ userDataDirectory: string }>;
 }>;
 
 const NEUTRAL_NAMES = [
@@ -47,7 +48,7 @@ const NEUTRAL_NAMES = [
   "USERPROFILE",
 ] as const;
 
-/** 操作入口で二つの所在をコピーし、可変入力やgetterを実行中へ持ち越さない。 */
+/** 操作入口で共通所在と任意Desktop設定をコピーし、可変入力やgetterを持ち越さない。 */
 export function captureIsolationSettings(
   input: IsolationSettings,
 ): IsolationSettings {
@@ -57,7 +58,12 @@ export function captureIsolationSettings(
     types.isProxy(input) ||
     (Object.getPrototypeOf(input) !== Object.prototype &&
       Object.getPrototypeOf(input) !== null) ||
-    Reflect.ownKeys(input).length !== 2
+    Reflect.ownKeys(input).some(
+      (key) =>
+        !["windowsDirectory", "userHomeDirectory", "desktop"].includes(
+          key as string,
+        ),
+    )
   )
     throw Error("isolation_settings_invalid");
   const values: string[] = [];
@@ -80,12 +86,45 @@ export function captureIsolationSettings(
     userHomeDirectory = values[1];
   if (!windowsDirectory || !userHomeDirectory)
     throw Error("isolation_settings_invalid");
-  return Object.freeze({ windowsDirectory, userHomeDirectory });
+  const descriptor = Object.getOwnPropertyDescriptor(input, "desktop");
+  if (!descriptor)
+    return Object.freeze({ windowsDirectory, userHomeDirectory });
+  if (!("value" in descriptor)) throw Error("isolation_settings_invalid");
+  const desktop = descriptor.value;
+  if (
+    !desktop ||
+    typeof desktop !== "object" ||
+    types.isProxy(desktop) ||
+    (Object.getPrototypeOf(desktop) !== Object.prototype &&
+      Object.getPrototypeOf(desktop) !== null) ||
+    Reflect.ownKeys(desktop).length !== 1
+  )
+    throw Error("isolation_settings_invalid");
+  const location = Object.getOwnPropertyDescriptor(
+    desktop,
+    "userDataDirectory",
+  );
+  if (
+    !location ||
+    !("value" in location) ||
+    typeof location.value !== "string" ||
+    !/^[a-z]:\\/iu.test(location.value) ||
+    location.value.includes("\0")
+  )
+    throw Error("isolation_settings_invalid");
+  const userDataDirectory = path.win32.normalize(location.value);
+  if (userDataDirectory === path.win32.parse(userDataDirectory).root)
+    throw Error("isolation_settings_invalid");
+  return Object.freeze({
+    windowsDirectory,
+    userHomeDirectory,
+    desktop: Object.freeze({ userDataDirectory }),
+  });
 }
 
 /**
  * 呼出し元が確定したHost所在を検査し、コピーして凍結する。
- * @input windowsDirectory: Windows配置先、userHomeDirectory: HostユーザーHome。
+ * @input windowsDirectory: Windows配置先、userHomeDirectory: HostユーザーHome。desktopは管理を使う場合だけ指定し、そのuserDataDirectoryは現在WindowsのLocal AppData基点。
  * @returns 非Windows、不正入力、実体確認不能はnull。
  * @effect Filesystem読取りのみ。環境変数・Native・Dockerを参照／起動しない。
  * @invariant グローバル登録、永続化、Provider Homeの推測は行わない。
@@ -100,6 +139,7 @@ export function initializeIsolation(
     for (const value of [
       settings.windowsDirectory,
       settings.userHomeDirectory,
+      ...(settings.desktop ? [settings.desktop.userDataDirectory] : []),
     ]) {
       const info = fs.lstatSync(value);
       if (
@@ -109,7 +149,7 @@ export function initializeIsolation(
       )
         return null;
     }
-    const { windowsDirectory, userHomeDirectory } = settings;
+    const { windowsDirectory } = settings;
     const kernel = path.win32.join(
       windowsDirectory,
       "System32",
@@ -122,7 +162,7 @@ export function initializeIsolation(
       fs.realpathSync.native(kernel).toLowerCase() !== kernel.toLowerCase()
     )
       return null;
-    return Object.freeze({ windowsDirectory, userHomeDirectory });
+    return settings;
   } catch {
     return null;
   }

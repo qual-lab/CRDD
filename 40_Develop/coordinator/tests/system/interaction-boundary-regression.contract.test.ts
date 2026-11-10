@@ -693,7 +693,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
       "40_Develop/platform-access/src/filesystem/root.ts",
       "40_Develop/platform-access/src/filesystem/system-directory.ts",
       "40_Develop/platform-access/src/filesystem/entry.ts",
-      "40_Develop/platform-access/src/filesystem/local-app-data.ts",
       "40_Develop/docker-isolation/src/cleanup/execute.ts",
       "40_Develop/docker-isolation/src/cleanup/container.ts",
       "40_Develop/docker-isolation/src/docker-cli/trust.ts",

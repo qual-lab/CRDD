@@ -1024,7 +1024,6 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
   );
   const adapterNames = new Set([
     "createCoordinatorWindowsPlatformAdapter",
-    "deriveChildEnvironment",
     "resolveRepositoryRoot",
   ]);
   const config = path

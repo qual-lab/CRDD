@@ -5,7 +5,7 @@
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @level IT
- * @scope 実本文・実decoderと模擬Artifact／KnownFolder／factory。
+ * @scope 実本文・実decoderと模擬Artifact／明示設定／factory。
  * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 固定composition→技術factory。
  */
 import {
@@ -128,6 +128,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
         allowed = true,
         artifactCurrent = true;
       const run = runInNewContext(`${body}; cleanupRepairDirectory`, {
+        captureIsolationSettings: (settings: unknown) => settings,
         Object,
         Buffer,
         Promise,
@@ -155,12 +156,6 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
                 },
               };
         },
-        observeWindowsLocalAppDataDirectory: () =>
-          scenario === "local_missing"
-            ? null
-            : scenario === "local_changed"
-              ? "changed-local"
-              : "fixed-local",
         startDockerDesktopRepairHelper: () => {
           acquired++;
           throw new Error("must_not_acquire");
@@ -206,23 +201,35 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
             },
           };
         },
-      }) as (value: unknown) => Promise<unknown>;
-      const result = await run({
-        operationNonce: (scenario === "nonce" ? "e" : "a").repeat(64),
-        ownerBindingSha256: (scenario === "h" ? "e" : "b").repeat(64),
-        scopeSha256: (scenario === "scope" ? "e" : "c").repeat(64),
-        checkpoint,
-        purpose,
-        signal: controller.signal,
-        canIssueEffect: () => {
-          calls++;
-          if (scenario === "owner_throw") throw new Error("fixture_owner");
-          if (scenario === "owner_promise") return Promise.resolve(true);
-          if (scenario === "owner_reject")
-            return Promise.reject(new Error("fixture_owner"));
-          return scenario !== "owner_false" && allowed;
+      }) as (value: unknown, settings: unknown) => Promise<unknown>;
+      const result = await run(
+        {
+          operationNonce: (scenario === "nonce" ? "e" : "a").repeat(64),
+          ownerBindingSha256: (scenario === "h" ? "e" : "b").repeat(64),
+          scopeSha256: (scenario === "scope" ? "e" : "c").repeat(64),
+          checkpoint,
+          purpose,
+          signal: controller.signal,
+          canIssueEffect: () => {
+            calls++;
+            if (scenario === "owner_throw") throw new Error("fixture_owner");
+            if (scenario === "owner_promise") return Promise.resolve(true);
+            if (scenario === "owner_reject")
+              return Promise.reject(new Error("fixture_owner"));
+            return scenario !== "owner_false" && allowed;
+          },
         },
-      });
+        scenario === "local_missing"
+          ? {}
+          : {
+              desktop: {
+                userDataDirectory:
+                  scenario === "local_changed"
+                    ? "changed-local"
+                    : "fixed-local",
+              },
+            },
+      );
       const reached = [
         "normal",
         "cancel_during",
@@ -259,7 +266,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
  * @responsibility 元保持物の消失と元から対象なしを混同しない。
  * @trace ERB-IT-001
  * @trace ERB-IT-002
- * @precondition 実本文・実decoder、Artifact／KnownFolder／Directoryだけ模擬。
+ * @precondition 実本文・実decoder、Artifact／初期化済み所在／Directoryだけ模擬。
  * @stimulus 実体・用途・処置tuple・二読取り・現在確認の一軸差。
  * @observation 固定六読取り、全三用途の独立期待、凍結と入力不変。
  * @oracle 共同成立時だけ全体receipt。不明・差は全体null、追加処置0。
@@ -478,6 +485,7 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
         candidateBody.slice(end);
     }
     const run = runInNewContext(`${candidateBody}; observeRepairDirectories`, {
+      captureIsolationSettings: (settings: unknown) => settings,
       Object,
       Buffer,
       Promise,
@@ -493,8 +501,6 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
               artifact: { sha256: "d".repeat(64) },
               identitySha256: "a".repeat(64),
             },
-      observeWindowsLocalAppDataDirectory: () =>
-        scenario === "local" ? null : "fixed-local",
       startDockerDesktopRepairHelper: () => {
         native++;
         throw new Error("unexpected_native");
@@ -575,21 +581,28 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
           };
         },
       }),
-    }) as (value: unknown) => unknown;
-    const result = run({
-      operationNonce: (scenario === "nonce" ? "e" : "a").repeat(64),
-      ownerBindingSha256: (scenario === "owner_binding" ? "e" : "b").repeat(64),
-      scopeSha256: (scenario === "scope" ? "e" : "c").repeat(64),
-      checkpoint,
-      signal: controller.signal,
-      canObserve: () => {
-        if (scenario === "owner_throw") throw new Error("fixture_owner");
-        if (scenario === "owner_promise") return Promise.resolve(true);
-        if (scenario === "owner_reject")
-          return Promise.reject(new Error("fixture_owner"));
-        return scenario !== "owner_false" && allowed;
+    }) as (value: unknown, settings: unknown) => unknown;
+    const result = run(
+      {
+        operationNonce: (scenario === "nonce" ? "e" : "a").repeat(64),
+        ownerBindingSha256: (scenario === "owner_binding" ? "e" : "b").repeat(
+          64,
+        ),
+        scopeSha256: (scenario === "scope" ? "e" : "c").repeat(64),
+        checkpoint,
+        signal: controller.signal,
+        canObserve: () => {
+          if (scenario === "owner_throw") throw new Error("fixture_owner");
+          if (scenario === "owner_promise") return Promise.resolve(true);
+          if (scenario === "owner_reject")
+            return Promise.reject(new Error("fixture_owner"));
+          return scenario !== "owner_false" && allowed;
+        },
       },
-    });
+      scenario === "local"
+        ? {}
+        : { desktop: { userDataDirectory: "fixed-local" } },
+    );
     const positive = [
       "normal",
       "source_present",

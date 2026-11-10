@@ -167,6 +167,7 @@ export function restartDesktop(
   settings: IsolationSettings,
 ): Promise<RestartResult> {
   settings = captureIsolationSettings(settings);
+  if (!settings.desktop) throw Error("docker_desktop_settings_unavailable");
   return restartDesktopForVerification(input, {
     platform: process.platform,
     acquire: async () => {

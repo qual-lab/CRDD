@@ -13,10 +13,16 @@
 
 import assert from "node:assert/strict";
 import { withCallerPlan } from "../../../domain-model/tests/fixtures/execution-plan.ts";
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  type ChildProcessWithoutNullStreams,
+  spawn,
+  spawnSync,
+} from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
 import { PassThrough } from "node:stream";
 import test from "node:test";
@@ -40,6 +46,50 @@ const verificationScriptSource = fs.readFileSync(
   ),
   "utf8",
 );
+
+/**
+ * @trace PRL-ST-001
+ * @precondition 起動設定の実本文だけをメモリで実行し、DI初期化は有限代役にする。
+ * @stimulus Desktop所在の有無と、起動後の親環境変更。
+ * @observation 初期化回数と渡された共通設定・任意Desktop設定。
+ * @oracle 欠測時はdesktop自体を省略し、設定は起動時に一回だけ搬送する。
+ * @cleanup メモリだけ。Native・Docker・試験Fileは作成しない。
+ */
+test("起動設定はDesktop所在を任意搬送し操作中に環境を再取得しない", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/execution/configuration.ts", import.meta.url),
+    "utf8",
+  );
+  const body = stripTypeScriptTypes(
+    source.slice(source.indexOf("const isolationSettings =")),
+  ).replace("export function", "function");
+  for (const local of [undefined, "C:\\Users\\fixture\\AppData\\Local"]) {
+    const env = { SystemRoot: "C:\\Windows", LOCALAPPDATA: local };
+    let calls = 0;
+    let supplied: unknown;
+    const settings = {};
+    const get = runInNewContext(`${body};getIsolationSettings`, {
+      process: { env },
+      os: { userInfo: () => ({ homedir: "C:\\Users\\fixture" }) },
+      initializeIsolation: (input: unknown) => {
+        calls++;
+        supplied = input;
+        return settings;
+      },
+    }) as () => unknown;
+    const expected = {
+      windowsDirectory: "C:\\Windows",
+      userHomeDirectory: "C:\\Users\\fixture",
+      ...(local ? { desktop: { userDataDirectory: local } } : {}),
+    };
+    assert.deepEqual(JSON.parse(JSON.stringify(supplied)), expected);
+    env.LOCALAPPDATA = "Z:\\changed";
+    assert.equal(get(), settings);
+    assert.equal(get(), settings);
+    assert.equal(calls, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(supplied)), expected);
+  }
+});
 
 /**
  * 再入場未実施を成功や空の完了観測へ置換しない。
@@ -143,6 +193,131 @@ test("親終了未確認では再入場Processを起動しない", async () => {
 });
 
 /**
+ * 回復MatrixのNode子環境をPAや実Matrixから独立して確認する。
+ * @trace PRL-ST-001
+ * @precondition 実Helper本文だけをメモリ上の所在へ接続する。
+ * @stimulus 所在・観測の欠測、非対応OS、必要所在と中立化値を与える。
+ * @observation null、限定envと有界Node子の選択済み環境だけ。
+ * @oracle 親PATH・Proxy・任意Node設定を継承せず、coverage出力も抑止する。
+ * @cleanup 子の同期終了を確認。File・Native・AI・Docker・保持物は操作しない。
+ * @boundary Helperの値契約と固定Node子のenv搬送だけ。実回復成立を主張しない。
+ */
+test("回復Matrixの固定Node子は必要所在だけを搬送しWindowsの暗黙補完を中立化する", () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    "utf8",
+  );
+  const begin = source.indexOf(
+    "function createRecoveryMatrixChildEnvironment(",
+  );
+  const end = source.indexOf("\n/**", begin);
+  assert.ok(begin > 0 && end > begin);
+  assert.equal(source.includes("createChildProcessEnvironment"), false);
+  const body = stripTypeScriptTypes(source.slice(begin, end));
+  const windowsDirectory = process.env.SystemRoot ?? "C:\\Windows";
+  const profile = "C:\\Users\\fixture";
+  const temporary = path.win32.join(profile, "AppData", "Local", "Temp");
+  const locations = {
+    SystemRoot: windowsDirectory,
+    WINDIR: windowsDirectory,
+    TEMP: temporary,
+    TMP: temporary,
+  };
+  const neutral = {
+    HOMEDRIVE: "",
+    HOMEPATH: "",
+    LOGONSERVER: "",
+    PATH: "",
+    SYSTEMDRIVE: "",
+    USERDOMAIN: "",
+    USERNAME: "",
+    USERPROFILE: "",
+  };
+  const expected = { ...locations, NODE_V8_COVERAGE: "", ...neutral };
+  let normal: NodeJS.ProcessEnv | undefined;
+  for (const mode of [
+    "normal",
+    "settings",
+    "user",
+    "realpath",
+    "stat",
+    "link",
+    "file",
+    "root",
+    "platform",
+  ]) {
+    const create = runInNewContext(`(${body})`, {
+      process: { platform: mode === "platform" ? "linux" : "win32" },
+      path: path.win32,
+      getIsolationSettings: () => {
+        if (mode === "settings") throw Error("unavailable");
+        return { windowsDirectory };
+      },
+      os: {
+        userInfo: () => {
+          if (mode === "user") throw Error("unavailable");
+          return { homedir: profile };
+        },
+      },
+      fs: {
+        realpathSync: {
+          native: (value: string) => {
+            if (mode === "realpath") throw Error("unavailable");
+            return mode === "root" ? "C:\\" : value;
+          },
+        },
+        lstatSync: () => {
+          if (mode === "stat") throw Error("unavailable");
+          return {
+            isDirectory: () => mode !== "file",
+            isSymbolicLink: () => mode === "link",
+          };
+        },
+      },
+    }) as () => NodeJS.ProcessEnv | null;
+    const environment = create();
+    if (mode !== "normal") {
+      assert.equal(environment, null, mode);
+      continue;
+    }
+    assert.ok(environment);
+    assert.deepEqual({ ...environment }, expected);
+    normal = environment;
+  }
+  assert.ok(normal);
+  const child = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    const selected={};for(const key of ['SystemRoot','WINDIR','TEMP','TMP','NODE_V8_COVERAGE'])selected[key]=process.env[key];
+    const forbidden=['NODE_OPTIONS','NODE_PATH','HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY'].filter(key=>Object.hasOwn(process.env,key));
+    const unneutralized=${JSON.stringify(Object.keys(neutral))}.filter(key=>process.env[key]!=='');
+    process.stdout.write(JSON.stringify({selected,forbidden,unneutralized,keys:Object.keys(process.env).sort()}));
+  `,
+    ],
+    {
+      env: normal,
+      shell: false,
+      windowsHide: true,
+      encoding: "utf8",
+      timeout: 5000,
+      maxBuffer: 16384,
+    },
+  );
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 0);
+  assert.deepEqual(JSON.parse(child.stdout), {
+    selected: { ...locations, NODE_V8_COVERAGE: "" },
+    forbidden: [],
+    unneutralized: [],
+    keys: Object.keys(expected).sort(),
+  });
+});
+
+/**
  * 回復Matrixの親だけの停止を実本文で反証する。
  * @trace PRL-ST-001
  * @precondition Script本文を模擬ChildProcessへ接続する。
@@ -163,6 +338,14 @@ test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを
   const body = stripTypeScriptTypes(source.slice(start, end)).replaceAll(
     "import.meta.url",
     '"file:///fixed-script"',
+  );
+  const helperStart = source.indexOf("function waitForChildClose(");
+  const helperEnd = source.indexOf("\n/**", helperStart);
+  const failureStart = source.indexOf("async function finishFailedChild(");
+  const failureEnd = source.indexOf("\n/**", failureStart);
+  const helpers = stripTypeScriptTypes(
+    source.slice(helperStart, helperEnd) +
+      source.slice(failureStart, failureEnd),
   );
   class FixtureFailure extends Error {
     readonly recoveryId: string | null;
@@ -191,30 +374,33 @@ test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを
         return true;
       },
     });
-    const invoke = runInNewContext(`(${body}\n)`, {
-      createRecoveryMatrixChildEnvironment: () => ({}),
-      spawn: () => child,
-      process: { execPath: "fixed-node", cwd: () => "fixed-root" },
-      fileURLToPath: () => "fixed-script",
-      INTERNAL_CHILD_ARGUMENT: "fixed-child",
-      CHILD_READY_CONTRACT: "fixed-ready",
-      CHILD_EXIT_TIMEOUT_MS: 5,
-      setTimeout,
-      clearTimeout,
-      RecoveryMatrixFailure: FixtureFailure,
-      waitForChildReady: async () => ({
-        contract: "fixed-ready",
-        status: "ready",
-        recoveryId: "fixed-recovery",
-        manualRecoveryRequired: true,
-        operationRoot: "fixed-root",
-      }),
-      recoverDockerIsolationProbe: () => {
-        recoveries++;
-        return {};
+    const invoke = runInNewContext(
+      `${helpers};${body};verifyParentLossThenRecover`,
+      {
+        createRecoveryMatrixChildEnvironment: () => ({}),
+        spawn: () => child,
+        process: { execPath: "fixed-node", cwd: () => "fixed-root" },
+        fileURLToPath: () => "fixed-script",
+        INTERNAL_CHILD_ARGUMENT: "fixed-child",
+        CHILD_READY_CONTRACT: "fixed-ready",
+        CHILD_EXIT_TIMEOUT_MS: 5,
+        setTimeout,
+        clearTimeout,
+        RecoveryMatrixFailure: FixtureFailure,
+        waitForChildReady: async () => ({
+          contract: "fixed-ready",
+          status: "ready",
+          recoveryId: "fixed-recovery",
+          manualRecoveryRequired: true,
+          operationRoot: "fixed-root",
+        }),
+        recoverDockerIsolationProbe: () => {
+          recoveries++;
+          return {};
+        },
+        recoveryCompleted: () => true,
       },
-      recoveryCompleted: () => true,
-    }) as () => Promise<unknown>;
+    ) as () => Promise<unknown>;
     let error: unknown;
     try {
       await invoke();
@@ -229,6 +415,312 @@ test("回復Matrixは親kill失敗・close欠落で回復を発行せず元IDを
       assert.equal(error.recoveryId, "fixed-recovery");
     }
     child.emit("close");
+  }
+});
+
+/**
+ * 両固定子のready前失敗を、実待機・清掃本文と有限イベントで反証する。
+ * @trace PRL-ST-001
+ * @precondition 子ProcessはEventEmitter、I/Oはメモリstream。
+ * @stimulus timeout、不正JSON／契約、早期exit、error、停止拒否／throw、close遅延／欠落。
+ * @observation 一次理由、停止回数、close事実、元ID、回復件数、終了後の購読。
+ * @oracle close未確認を成功にせず、一次理由を清掃失敗で上書きしない。
+ * @cleanup 実Process・Filesystem・Docker資源は作らない。全購読・timerを解除。
+ */
+test("回復Matrixの両子はready前失敗でも停止後closeを確認し一次理由を保持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = (name: string) => {
+    const start = source.indexOf(name);
+    const end = source.indexOf("\n/**", start);
+    assert.ok(start > 0 && end > start, name);
+    return stripTypeScriptTypes(source.slice(start, end)).replaceAll(
+      "import.meta.url",
+      '"file:///fixed-script"',
+    );
+  };
+  const shared = [
+    "class RecoveryMatrixFailure",
+    "function waitForChildReady(",
+    "function waitForChildClose(",
+    "async function finishFailedChild(",
+  ]
+    .map(declaration)
+    .join("\n");
+  for (const name of [
+    "verifyParentLossThenRecover",
+    "verifyCleanupUnknownThenRecover",
+  ]) {
+    const body = declaration(`async function ${name}(`);
+    for (const mode of [
+      "timeout",
+      "json",
+      "contract",
+      "early_exit",
+      "early_close",
+      "error",
+      "kill_false",
+      "kill_throw",
+      "no_close",
+      "exit_without_close",
+      "late_error",
+      "recovery_throw",
+    ]) {
+      let kills = 0,
+        recoveries = 0;
+      const stdout = new PassThrough();
+      const child = Object.assign(new EventEmitter(), {
+        pid: 12345,
+        stdout,
+        exitCode: null as number | null,
+        signalCode: null as NodeJS.Signals | null,
+        kill: () => {
+          kills++;
+          if (mode === "kill_throw") throw Error("synthetic_stop_failed");
+          if (mode === "kill_false") return false;
+          if (mode === "late_error")
+            child.emit("error", Error("late_stop_error"));
+          if (mode !== "no_close" && mode !== "exit_without_close")
+            queueMicrotask(() => {
+              child.signalCode = "SIGKILL";
+              child.emit("close");
+            });
+          else if (mode === "exit_without_close") {
+            child.signalCode = "SIGKILL";
+            child.emit("exit");
+          }
+          return true;
+        },
+      });
+      const ready = {
+        contract: "fixed-ready",
+        status: "ready",
+        recoveryId: "fixed-recovery",
+        manualRecoveryRequired: true,
+        operationRoot: "fixed-root",
+      };
+      const invoke = runInNewContext(`${shared};${body};${name}`, {
+        Error,
+        AbortController,
+        setTimeout,
+        clearTimeout,
+        CHILD_READY_TIMEOUT_MS: 5,
+        CHILD_EXIT_TIMEOUT_MS: 5,
+        CHILD_READY_CONTRACT: "fixed-ready",
+        INTERNAL_CHILD_ARGUMENT: "fixed-child",
+        INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT: "fixed-cleanup-child",
+        createRecoveryMatrixChildEnvironment: () => ({}),
+        process: { execPath: "fixed-node", cwd: () => "fixed-root" },
+        fileURLToPath: () => "fixed-script",
+        spawn: () => {
+          queueMicrotask(() => {
+            if (mode === "early_close") {
+              child.emit("close");
+            } else if (mode === "early_exit") {
+              child.exitCode = 1;
+              child.emit("exit");
+              queueMicrotask(() => child.emit("close"));
+            } else if (mode === "error") {
+              child.emit("error", Error("synthetic_spawn_failed"));
+              queueMicrotask(() => child.emit("close"));
+            } else if (mode === "json") stdout.emit("data", "{invalid\n");
+            else if (mode === "contract")
+              stdout.emit(
+                "data",
+                `${JSON.stringify({ ...ready, contract: "other" })}\n`,
+              );
+            else if (mode === "recovery_throw") {
+              stdout.emit("data", `${JSON.stringify(ready)}\n`);
+              if (name === "verifyCleanupUnknownThenRecover")
+                queueMicrotask(() => {
+                  child.exitCode = 0;
+                  child.emit("close");
+                });
+            }
+          });
+          return child;
+        },
+        recoverDockerIsolationProbe: () => {
+          recoveries++;
+          throw Error("synthetic_recovery_failed");
+        },
+        recoveryCompleted: () => false,
+      }) as () => Promise<unknown>;
+      let error:
+        | {
+            message: string;
+            recoveryId: string | null;
+            manualRecoveryRequired: boolean;
+            childProcessTerminationObserved: boolean;
+            childProcessStopFailure: string | null;
+          }
+        | undefined;
+      try {
+        await invoke();
+      } catch (caught) {
+        error = caught as typeof error;
+      }
+      assert.ok(error, `${name}:${mode}`);
+      assert.equal(error.manualRecoveryRequired, true);
+      assert.equal(
+        error.recoveryId,
+        mode === "recovery_throw" ? "fixed-recovery" : null,
+      );
+      assert.equal(recoveries, mode === "recovery_throw" ? 1 : 0);
+      assert.equal(
+        kills,
+        ["early_exit", "early_close"].includes(mode) ||
+          (mode === "recovery_throw" &&
+            name === "verifyCleanupUnknownThenRecover")
+          ? 0
+          : 1,
+      );
+      assert.equal(
+        error.childProcessTerminationObserved,
+        ![
+          "kill_false",
+          "kill_throw",
+          "no_close",
+          "exit_without_close",
+        ].includes(mode),
+      );
+      assert.equal(
+        error.childProcessStopFailure,
+        ["kill_false", "kill_throw"].includes(mode)
+          ? "stop_request_failed"
+          : ["no_close", "exit_without_close"].includes(mode)
+            ? "close_unconfirmed"
+            : null,
+      );
+      if (
+        [
+          "timeout",
+          "kill_false",
+          "kill_throw",
+          "no_close",
+          "exit_without_close",
+          "late_error",
+        ].includes(mode)
+      )
+        assert.equal(
+          error.message,
+          "signed_recovery_matrix_parent_child_timeout",
+        );
+      if (mode === "json")
+        assert.equal(
+          error.message,
+          "signed_recovery_matrix_parent_child_output_invalid",
+        );
+      if (["early_exit", "early_close"].includes(mode))
+        assert.equal(
+          error.message,
+          "signed_recovery_matrix_parent_child_exited_early",
+        );
+      if (mode === "error")
+        assert.equal(error.message, "synthetic_spawn_failed");
+      if (mode === "recovery_throw")
+        assert.equal(error.message, "synthetic_recovery_failed");
+      assert.equal(child.listenerCount("close"), 0);
+      assert.equal(child.listenerCount("error"), 0);
+      assert.equal(child.listenerCount("exit"), 0);
+      assert.equal(stdout.listenerCount("data"), 0);
+    }
+  }
+});
+
+/**
+ * @trace PRL-ST-001
+ * @precondition 実Node子は固定の不正JSON一行と2秒以内の自発終了だけ。
+ * @stimulus Matrixの実ready待機・停止・close確認を固定子へ接続する。
+ * @observation 元子のclose、Signal、購読解除、元失敗理由。
+ * @oracle Recoveryを発行せず、実子のclose後にだけ失敗が返る。
+ * @cleanup 元子はclose確認済み。File・Native・Docker資源なし。
+ */
+test("回復Matrixのready前拒否は固定Node実子のcloseを待って返る", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
+    "utf8",
+  );
+  const declaration = (name: string) => {
+    const start = source.indexOf(name);
+    const end = source.indexOf("\n/**", start);
+    assert.ok(start > 0 && end > start);
+    return stripTypeScriptTypes(source.slice(start, end)).replaceAll(
+      "import.meta.url",
+      '"file:///fixed-script"',
+    );
+  };
+  const shared = [
+    "class RecoveryMatrixFailure",
+    "function waitForChildReady(",
+    "function waitForChildClose(",
+    "async function finishFailedChild(",
+  ]
+    .map(declaration)
+    .join("\n");
+  for (const name of [
+    "verifyParentLossThenRecover",
+    "verifyCleanupUnknownThenRecover",
+  ]) {
+    let child: ChildProcess | null = null;
+    let closed = false;
+    const invoke = runInNewContext(
+      `${shared};${declaration(`async function ${name}(`)};${name}`,
+      {
+        Error,
+        setTimeout,
+        clearTimeout,
+        CHILD_READY_TIMEOUT_MS: 60000,
+        CHILD_EXIT_TIMEOUT_MS: 10000,
+        CHILD_READY_CONTRACT: "fixed-ready",
+        INTERNAL_CHILD_ARGUMENT: "fixed-child",
+        INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT: "fixed-cleanup-child",
+        process: { execPath: process.execPath, cwd: () => process.cwd() },
+        fileURLToPath: () => "fixed-script",
+        createRecoveryMatrixChildEnvironment: () => ({
+          SystemRoot: process.env.SystemRoot,
+          WINDIR: process.env.SystemRoot,
+          NODE_V8_COVERAGE: "",
+        }),
+        spawn: (_exe: string, _args: string[], options: object) => {
+          child = spawn(
+            process.execPath,
+            [
+              "-e",
+              'process.stdout.write("{invalid\\n");setTimeout(()=>{},2000);',
+            ],
+            options,
+          );
+          child.once("close", () => {
+            closed = true;
+          });
+          return child;
+        },
+        recoverDockerIsolationProbe: () => {
+          throw Error("must_not_recover");
+        },
+      },
+    ) as () => Promise<unknown>;
+    await assert.rejects(invoke(), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(
+        error.message,
+        "signed_recovery_matrix_parent_child_output_invalid",
+      );
+      assert.equal(
+        (error as Error & { childProcessTerminationObserved: boolean })
+          .childProcessTerminationObserved,
+        true,
+      );
+      return true;
+    });
+    assert.ok(closed);
+    assert.ok(child);
+    assert.equal((child as ChildProcess).signalCode, "SIGKILL");
+    assert.equal((child as ChildProcess).listenerCount("close"), 0);
+    assert.equal((child as ChildProcess).listenerCount("error"), 0);
   }
 });
 

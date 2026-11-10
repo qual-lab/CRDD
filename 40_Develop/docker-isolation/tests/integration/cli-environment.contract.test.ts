@@ -16,6 +16,7 @@ import fs from "node:fs";
 import {
   initializeIsolation,
   createWindowsPowerShellAuthenticodeEnvironment,
+  captureIsolationSettings,
 } from "../../src/docker-cli/environment.ts";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -60,6 +61,67 @@ test("署名確認環境は明示設定から固定五項目だけ返し初期�
   assert.ok(settings);
   assert.ok(Object.isFrozen(settings));
   assert.notEqual(settings, input);
+  assert.equal(settings.desktop, undefined);
+  const configured = {
+    ...input,
+    desktop: { userDataDirectory: "D:\\Users\\fixture\\AppData\\Local" },
+  };
+  const captured = initializeIsolation(configured);
+  assert.ok(captured?.desktop);
+  assert.ok(Object.isFrozen(captured.desktop));
+  assert.notEqual(captured.desktop, configured.desktop);
+  configured.desktop.userDataDirectory = "Z:\\changed";
+  assert.equal(
+    captured.desktop.userDataDirectory,
+    "D:\\Users\\fixture\\AppData\\Local",
+  );
+  assert.equal(
+    "LOCALAPPDATA" in createWindowsPowerShellAuthenticodeEnvironment(captured),
+    false,
+  );
+  for (const desktop of [
+    undefined,
+    null,
+    {},
+    { userDataDirectory: "relative" },
+    { userDataDirectory: "D:\\" },
+    { userDataDirectory: "D:\\data", extra: true },
+    new Proxy({ userDataDirectory: "D:\\data" }, {}),
+    Object.defineProperty({}, "userDataDirectory", {
+      get() {
+        throw Error("getter must not run");
+      },
+    }),
+  ])
+    assert.equal(initializeIsolation({ ...input, desktop } as never), null);
+  let desktopReads = 0;
+  assert.throws(
+    () =>
+      captureIsolationSettings(
+        Object.defineProperty({ ...input }, "desktop", {
+          get() {
+            desktopReads++;
+            throw Error("getter");
+          },
+        }) as never,
+      ),
+    /isolation_settings_invalid/u,
+  );
+  assert.equal(desktopReads, 0);
+  let nestedReads = 0;
+  assert.equal(
+    initializeIsolation({
+      ...input,
+      desktop: Object.defineProperty({}, "userDataDirectory", {
+        get() {
+          nestedReads++;
+          return "D:\\data";
+        },
+      }),
+    } as never),
+    null,
+  );
+  assert.equal(nestedReads, 0);
   input.windowsDirectory = "Z:\\changed";
   assert.equal(settings.windowsDirectory, "D:\\Windows");
   const environment = createWindowsPowerShellAuthenticodeEnvironment(settings);
@@ -88,6 +150,7 @@ test("署名確認環境は明示設定から固定五項目だけ返し初期�
   );
   missing = true;
   assert.equal(initializeIsolation(input), null);
+  assert.equal(initializeIsolation(configured), null);
   missing = false;
   link = true;
   assert.equal(initializeIsolation(input), null);

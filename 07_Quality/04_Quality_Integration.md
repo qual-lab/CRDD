@@ -1,5 +1,25 @@
 # Quality Integration
 
+## Local AppData専用入口退役とMatrixの終了確認 — 2026-11-10
+
+未使用のLocal AppData専用TS API・試験とNative専用mode／frameを撤去した。共用Known Folder取得は保護／Helper内部で維持し、公開一覧・台帳・旧Host代役を追従した。明示targetのNative release Build、固定配布exe、Bootstrap Hashを同期し、公開観測のbootstrapVerified:trueを確認した。配布物は独立した読取り確認でもHash・サイズが一致した。
+
+Matrix両子はready前失敗も元子停止→既存10秒枠のclose確認を経て返る。一次理由と取得済IDを保持し、停止失敗・close事実を別fieldで返すScript契約revision 3へ追従した。ID未取得の子発行後失敗も手動確認要とし、終了未確認でRecoveryを発行しない。局所18件（Rust3、PA3、Checker2、Coordinator10）が成功。固定Node実子2つのSIGKILL・closeと購読解除も含む。型・整形・Warning検査、Rust Clippy／書式、独立レビューは成功し必須残指摘0件。合成Artifact試験物は当該試験のfinallyで回収した。
+
+全体回帰は人間の指示で保留。実Matrix・実AI／Docker・Native保護／修復実境界は未実施であり、PA全廃や全体QAの合格とはしない。過去保持物は操作していない。[変更・配布・検証境界](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#local-appdata専用入口退役とmatrix失敗時の終了確認--2026-11-10)を参照する。
+
+## 任意Desktop管理設定の分離 — 2026-11-10
+
+共通のWindows所在・ユーザーHomeに任意の`desktop.userDataDirectory`を追加した。Desktop未指定の通常初期化、入れ子の捕捉・コピー・凍結、欠測時のDesktop操作発行前拒否と、単独Directory二入口の設定搬送を確認した。修復三経路のPA Known Folder再取得を撤去し、上位が確定した所在を信頼する保証変更を明記した。Path・実体・Scope・保存／IPC・Helper・期限の条件は維持する。
+
+DI関連68件、Executor接続9件、Coordinator起動／Matrix対象3件とメモリ修復結果26件が成功。各型検査、変更Sourceの書式・警告検査、実行／Task設計対応検査が成功し、独立レビューの動作上の必須残指摘は0件。試験Filesystem資源・Native・実AI／Docker資源は作成していない。全体回帰は人間の指示で保留し、Linux／macOS・Engine単独対応、実Windows Desktopの成立、PA全廃を主張しない。[変更・検証と限界](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#任意desktop管理設定の分離--2026-11-10)を参照する。
+
+## PA外の子環境と旧診断口 — 2026-11-10
+
+未使用のCoordinator環境導出口・専用型・二Profileを撤去し、取消分類と必要保証は維持した。空の必須操作集合は既存resolverが拒否し、全保証を宣言したAdapterでも取消対応を誤成立させない。回復Matrixの固定Node子は既存Coordinator設定とNode.jsの所在確認へ接続し、Windowsの自動補完を空値で中立化した13項目だけを搬送する。
+
+局所19件、Coordinator本番・試験の型検査、整形・警告検査、実行／Task設計対応検査が成功し、独立レビューは必須残指摘0件。実子の環境要約確認では秘密値や試験Fileを作成・保存していない。全体回帰は人間の指示により他の残件整理後まで保留。実Matrix・実AI・Docker・過去保持物は操作せず、PA自身のNative保護と旧Host／Native試験のPA利用は残す。全体QA・PA全廃の完了ではない。[変更・結果と限界](../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#pa外の子環境と旧診断口の整理--2026-11-10)を参照する。
+
 ## DIの明示初期化 — 2026-11-10
 
 DIの限定環境を`initializeIsolation`と`IsolationSettings`へ接続し、二所在のコピー・凍結、可変入力のコピー・固定とgetterの拒否、三用途・単独回収・Desktop操作の搬送を確認した。DI407成功・5対象外、Executor114成功、Coordinator限定8 File99成功。型・書式・警告検査と実行／Task設計対応検査、独立再レビューが成功した。今回の失敗試験が残した4合成Rootと専用TEMPは全量・実体照合後に回収し、全5 Rootの不存在を確認した。

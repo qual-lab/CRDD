@@ -24,7 +24,7 @@ export const hostFixtureProcessBoundarySource = `
   boundaryCp.spawnSync=function(executable,argv,options){
     try{
     if(executable===boundaryNative){
-      assert.equal(argv.length,1);assert.ok(['--system-windows-directory','--local-app-data-directory'].includes(argv[0]));
+      assert.equal(argv.length,1);assert.equal(argv[0],'--system-windows-directory');
       assert.deepEqual({...options,cwd:path.resolve(options.cwd)},{env:{},cwd:path.resolve(path.dirname(boundaryNative),'../../../..'),shell:false,windowsHide:true,timeout:5000,maxBuffer:65548,encoding:'buffer'});
       return boundaryOriginal.spawnSync(executable,argv,options);
     }
@@ -96,7 +96,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
   assert.deepEqual(target.dockerRestart.result,{status:'completed',reason:'docker_restart_settled',request:'confirmed',effectOutcomeUnknown:false});
   const dockerExe = 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin\\\\docker.exe';
   const nativeExe = path.resolve(path.dirname(cli),'../../../template/tools/coordinator/windows-x64/crdd-platform-access.exe');
-  const nativeModes = ['--local-app-data-directory','--system-windows-directory'];
+  const nativeModes = ['--system-windows-directory'];
   const list = ['container','ls','--all','--no-trunc','--filter','name=^/'+authResource.identity.name+'$'];
   const name = [...list,'--format','{{.ID}}'];
   const labelled = [...list,'--filter','label='+identity.ownershipLabel,'--format','{{.ID}}'];

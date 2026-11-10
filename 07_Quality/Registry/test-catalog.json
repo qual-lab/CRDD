@@ -2387,29 +2387,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "platform-access:integration:local-app-data",
-      "owner": "platform-access",
-      "path": "40_Develop/platform-access/tests/integration/local-app-data.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "platform",
-        "known-folder",
-        "observation",
-        "process",
-        "filesystem"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "child_process_joined",
-        "filesystem_effect_zero",
-        "unknown_not_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "docker-isolation:integration:repair-host-operations",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/integration/repair-host-operations.contract.test.ts",

@@ -13,7 +13,6 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { createChildProcessEnvironment } from "../../../platform-access/src/index.ts";
 import { resolveCoordinatorPlatformAdapter } from "../../src/execution/diagnostics.ts";
 import { createCoordinatorWindowsPlatformAdapter } from "../../src/execution/diagnostics.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
@@ -93,7 +92,7 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
   const adapter = createCoordinatorWindowsPlatformAdapter();
   assert.deepEqual(adapter.describe(), {
     contract: "crdd-coordinator/orchestrator-platform-contract",
-    contractRevision: 1,
+    contractRevision: 2,
     platformFamily: "windows",
     supportedBoundaries: ["principal_provider_home", "lock_lease"],
     satisfiedGuarantees: {
@@ -113,7 +112,6 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
         "repository_root_identity",
         "bounded_path_resolution",
       ],
-      process_cancellation: ["environment"],
       runtime_root_recovery: [
         "managed_root",
         "protection",
@@ -127,7 +125,6 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
     "filesystem_repository",
     "lock_lease",
     "principal_provider_home",
-    "process_cancellation",
     "runtime_root_recovery",
   ]);
 });
@@ -243,63 +240,39 @@ test("Repository Root解決は既存実装と同じ受理・拒否を閉結果�
 });
 
 /**
- * 子Process環境の導出は既存Profileと同一の値を閉結果で返すを検証する。
- *
- * @responsibility 子Process環境の導出は既存Profileと同一の値を閉結果で返すの合否判定を所有する。
+ * @responsibility 廃止した環境導出口を復活させず、取消境界を未対応として拒否する。
  * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 子Process環境の導出は既存Profileと同一の値を閉結果で返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition Windows Adapterと既存resolverだけを使う。
+ * @stimulus 取消境界を要求する。
+ * @observation 操作group・保証宣言の不存在とblocked。
+ * @oracle 操作集合が空でも対応済みにならない。
+ * @cleanup メモリだけ。Native・子Processを起動しない。
  */
-test("子Process環境の導出は既存Profileと同一の値を閉結果で返す", () => {
-  const group = operations("process_cancellation");
-  const deriveChildEnvironment = group.deriveChildEnvironment as (
-    request: unknown,
-  ) => Readonly<Record<string, unknown>>;
-  const nativeDirect = createChildProcessEnvironment({
-    platform: "win32",
-    userProfile: true,
-  });
-  const nativeRouted = deriveChildEnvironment({ profile: "native_helper" });
-  if (nativeDirect === null)
-    assert.deepEqual(nativeRouted, {
-      status: "blocked",
-      reason: "windows_child_environment_unavailable",
-    });
-  else
-    assert.deepEqual(nativeRouted, {
-      status: "derived",
-      profile: "native_helper",
-      environment: nativeDirect,
-    });
-  for (const invalid of [
-    null,
-    {},
-    { profile: "unknown_profile" },
-    { profile: "docker_desktop_repair_helper" },
-    { profile: "docker_cli", dockerConfig: null, dockerHome: null },
+test("旧子環境導出を公開せず取消境界を未対応で拒否する", () => {
+  const adapter = createCoordinatorWindowsPlatformAdapter();
+  assert.equal(
+    Object.hasOwn(adapter.operations, "process_cancellation"),
+    false,
+  );
+  assert.equal(
+    Object.hasOwn(
+      adapter.describe().satisfiedGuarantees,
+      "process_cancellation",
+    ),
+    false,
+  );
+  assert.deepEqual(
+    resolveCoordinatorPlatformAdapter(
+      "windows",
+      [adapter],
+      ["process_cancellation"],
+    ),
     {
-      profile: "docker_cli",
-      dockerConfig: "C:\\docker-config",
-      dockerHome: "C:\\docker-home",
-    },
-    { profile: "native_helper", extra: true },
-    { profile: "docker_cli", dockerConfig: "C:\\only-config" },
-    {
-      profile: "docker_cli",
-      dockerConfig: "C:\\only-config",
-      dockerHome: null,
-    },
-    { profile: "docker_cli", dockerConfig: null, dockerHome: "C:\\only-home" },
-    { profile: "docker_cli", dockerConfig: 7, dockerHome: "C:\\home" },
-  ])
-    assert.deepEqual(deriveChildEnvironment(invalid), {
       status: "blocked",
-      reason: "windows_child_environment_request_invalid",
-    });
+      reason: "platform_boundary_unsupported",
+      unsupportedBoundaries: ["process_cancellation"],
+    },
+  );
 });
 
 /**

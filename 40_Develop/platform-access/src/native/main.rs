@@ -136,7 +136,6 @@ fn execute(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
 /// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 enum InvocationMode {
     WindowsDirectory,
-    LocalAppDataDirectory,
     FilesystemEntry(std::ffi::OsString),
     Standard,
     DockerDesktopRepair,
@@ -173,13 +172,6 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     if mode == OsStr::new("--system-windows-directory") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::WindowsDirectory)
-        } else {
-            Err(())
-        };
-    }
-    if mode == OsStr::new("--local-app-data-directory") {
-        return if arguments.next().is_none() {
-            Ok(InvocationMode::LocalAppDataDirectory)
         } else {
             Err(())
         };
@@ -233,16 +225,6 @@ fn main() {
             #[cfg(windows)]
             {
                 filesystem::windows_directory::run(&mut std::io::stdout())
-            }
-            #[cfg(not(windows))]
-            {
-                2
-            }
-        }
-        Ok(InvocationMode::LocalAppDataDirectory) => {
-            #[cfg(windows)]
-            {
-                filesystem::windows_directory::run_local_app_data(&mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {

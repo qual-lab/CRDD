@@ -6,7 +6,7 @@
 
 use std::ffi::{OsString, c_void};
 use std::io::Write;
-use std::os::windows::ffi::{OsStrExt, OsStringExt};
+use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::ptr::null_mut;
 use windows_sys::Win32::Foundation::HANDLE;
@@ -38,28 +38,7 @@ pub fn run(writer: &mut impl Write) -> i32 {
     write_directory_frame(b"CRDDWD01", units, writer)
 }
 
-/// 固定LocalAppDataをOS Known Folderから読取り専用frameへ変換する。
-/// @responsibility 既存Known Folder取得を使い、環境値や旧RuntimeStateへ依存しない。
-/// @trace ARCH-000008
-/// @input writer: 固定応答の出力先。利用者・GUID・Pathは指定不可。
-/// @returns 0はframe完了、2は観測不能、3は出力失敗。
-/// @precondition 現在Processの利用者をOSが識別する。
-/// @postcondition Path取得はRoot Authorityや意図した利用者との一致を保証しない。
-/// @effect SHGetKnownFolderPathの読取りと応答出力のみ。
-/// @failure 観測失敗・不正UTF-16・出力失敗は非0。
-/// @invariant Directory作成・ACL変更・環境fallbackを行わない。
-/// @boundary Nativeの固定modeとWindows Known Folder API。
-/// @security 任意GUIDや利用者tokenを受け取らない。
-/// @concurrency 同期読取りのみで共有Runtime状態を保持しない。
-pub fn run_local_app_data(writer: &mut impl Write) -> i32 {
-    let Some(directory) = local_app_data_path() else {
-        return 2;
-    };
-    let units: Vec<u16> = directory.as_os_str().encode_wide().collect();
-    write_directory_frame(b"CRDDLA01", &units, writer)
-}
-
-/// 二つの固定Directory観測の有界応答を出力する。
+/// 固定System Directory観測の有界応答を出力する。
 /// @responsibility 用途magic・UTF-16単位数・全本文を一つのframeとして確定する。
 /// @trace ARCH-000008
 /// @input magic: 内部固定用途、units: OS観測、writer: 応答出力。
@@ -312,18 +291,18 @@ mod tests {
         for units in [vec![], vec![0], vec![0xd800], vec![b'a' as u16; 32_768]] {
             let mut output = Vec::new();
             assert_eq!(
-                super::write_directory_frame(b"CRDDLA01", &units, &mut output),
+                super::write_directory_frame(b"CRDDWD01", &units, &mut output),
                 2
             );
             assert!(output.is_empty());
         }
         let mut output = Vec::new();
         assert_eq!(
-            super::write_directory_frame(b"CRDDLA01", &vec![b'a' as u16; 32_767], &mut output),
+            super::write_directory_frame(b"CRDDWD01", &vec![b'a' as u16; 32_767], &mut output),
             0
         );
         assert_eq!(output.len(), 65_546);
-        assert_eq!(&output[..8], b"CRDDLA01");
+        assert_eq!(&output[..8], b"CRDDWD01");
         assert_eq!(&output[8..12], &32_767_u32.to_le_bytes());
         assert!(
             output[12..]
@@ -332,12 +311,12 @@ mod tests {
         );
         let mut no_capacity: &mut [u8] = &mut [];
         assert_eq!(
-            super::write_directory_frame(b"CRDDLA01", &[b'a' as u16], &mut no_capacity),
+            super::write_directory_frame(b"CRDDWD01", &[b'a' as u16], &mut no_capacity),
             3
         );
         let mut flush_failure = std::io::BufWriter::with_capacity(1024, no_capacity);
         assert_eq!(
-            super::write_directory_frame(b"CRDDLA01", &[b'a' as u16], &mut flush_failure),
+            super::write_directory_frame(b"CRDDWD01", &[b'a' as u16], &mut flush_failure),
             3
         );
     }

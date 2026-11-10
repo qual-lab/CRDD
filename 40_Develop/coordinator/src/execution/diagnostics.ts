@@ -45,10 +45,7 @@ import {
   inspectResources,
   type ResourceTarget,
 } from "../../../executor/src/index.ts";
-import {
-  createChildProcessEnvironment,
-  observeNativeArtifact,
-} from "../../../platform-access/src/index.ts";
+import { observeNativeArtifact } from "../../../platform-access/src/index.ts";
 import {
   getRepositoryFromWorkingDirectory,
   readRepositorySnapshot,
@@ -6199,7 +6196,7 @@ export function writeCoordinatorExecutionIntelligenceDiagnostic(
 export const COORDINATOR_PLATFORM_CONTRACT =
   "crdd-coordinator/orchestrator-platform-contract" as const;
 
-export const COORDINATOR_PLATFORM_CONTRACT_REVISION = 1;
+export const COORDINATOR_PLATFORM_CONTRACT_REVISION = 2;
 
 /**
  * CoordinatorのIF-PLATFORM境界群。
@@ -6232,7 +6229,7 @@ export type CoordinatorPlatformBoundary =
   (typeof COORDINATOR_PLATFORM_BOUNDARIES)[number];
 
 /**
- * Closed operation-name population per boundary for contract revision 1.
+ * Closed operation-name population per boundary for contract revision 2.
  * Boundary support is resolved by exact match against this population, so a
  * family whose required set is empty is unresolvable by every adapter — an
  * empty set means "cannot resolve", never "trivially satisfied". Adding
@@ -6243,7 +6240,7 @@ export const COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS = Object.freeze({
   principal_provider_home: Object.freeze(["observeProviderHomeCandidate"]),
   filesystem_repository: Object.freeze(["resolveRepositoryRoot"]),
   lock_lease: Object.freeze(["observeLeaseOwner"]),
-  process_cancellation: Object.freeze(["deriveChildEnvironment"]),
+  process_cancellation: Object.freeze([]),
   container_host: Object.freeze(["observeContainerHostRecoveryState"]),
   runtime_root_recovery: Object.freeze(["compileRootObservationCandidate"]),
 } as const satisfies Readonly<
@@ -6838,83 +6835,6 @@ export function describeCoordinatorPlatformContract() {
 
 const COORDINATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 
-const CHILD_ENVIRONMENT_PROFILES = new Set([
-  "native_helper",
-  "host_operation_supervisor",
-]);
-
-/**
- * windows-platform-adapterで使用するCoordinator Windows Child Environment 結果の値契約を定義する。
- *
- * @responsibility Coordinator Windows Child Environment 結果のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorWindowsChildEnvironmentResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorWindowsChildEnvironmentResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorWindowsChildEnvironmentResultの宣言は外部境界を開かない。
- * @security CoordinatorWindowsChildEnvironmentResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility CoordinatorWindowsChildEnvironmentResultの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorWindowsChildEnvironmentResult =
-  | Readonly<{
-      status: "derived";
-      profile: string;
-      environment: Readonly<Record<string, string>>;
-    }>
-  | Readonly<{ status: "blocked"; reason: string }>;
-
-/**
- * derive Child Environmentを決定する。
- *
- * @responsibility derive Child Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input rawRequest: unknown
- * @returns CoordinatorWindowsChildEnvironmentResultを返す。
- * @precondition 「rawRequest: unknown」がderiveChildEnvironmentの入力契約を満たす。
- * @postcondition deriveChildEnvironmentの責務を完了した結果だけを返す。
- * @effect N/A: deriveChildEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: deriveChildEnvironmentは独自の失敗分岐を所有しない。
- * @invariant deriveChildEnvironmentは入力から導いた結果以外の共有状態を変更しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security deriveChildEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: deriveChildEnvironmentは共有非同期状態を持たない同期処理である。
- */
-function deriveChildEnvironment(
-  rawRequest: unknown,
-): CoordinatorWindowsChildEnvironmentResult {
-  const blocked = (reason: string) =>
-    Object.freeze({ status: "blocked" as const, reason });
-  if (
-    !rawRequest ||
-    typeof rawRequest !== "object" ||
-    Array.isArray(rawRequest)
-  )
-    return blocked("windows_child_environment_request_invalid");
-  const request = rawRequest as Readonly<Record<string, unknown>>;
-  const profile = request.profile;
-  if (typeof profile !== "string" || !CHILD_ENVIRONMENT_PROFILES.has(profile))
-    return blocked("windows_child_environment_request_invalid");
-  let environment: Readonly<Record<string, string>> | null = null;
-  if (profile === "native_helper") {
-    if (Object.keys(request).length !== 1)
-      return blocked("windows_child_environment_request_invalid");
-    environment = createChildProcessEnvironment({
-      platform: "win32",
-      userProfile: true,
-    });
-  } else if (profile === "host_operation_supervisor") {
-    if (Object.keys(request).length !== 1)
-      return blocked("windows_child_environment_request_invalid");
-    environment = createChildProcessEnvironment({ platform: "win32" });
-  }
-  if (environment === null)
-    return blocked("windows_child_environment_unavailable");
-  return Object.freeze({
-    status: "derived" as const,
-    profile,
-    environment,
-  });
-}
-
 /**
  * Project lease acquisition remains owned by the durable foundation.  This
  * adapter owns only the OS observation used when a later process reconciles a
@@ -6947,7 +6867,6 @@ const SATISFIED_GUARANTEES = Object.freeze({
     "repository_root_identity",
     "bounded_path_resolution",
   ]),
-  process_cancellation: Object.freeze(["environment"]),
   runtime_root_recovery: Object.freeze([
     "managed_root",
     "protection",
@@ -7052,9 +6971,6 @@ export function createCoordinatorWindowsPlatformAdapter(): CoordinatorPlatformAd
       }),
       filesystem_repository: Object.freeze({
         resolveRepositoryRoot,
-      }),
-      process_cancellation: Object.freeze({
-        deriveChildEnvironment,
       }),
       runtime_root_recovery: Object.freeze({
         compileRootObservationCandidate: (rawObservation: unknown) =>

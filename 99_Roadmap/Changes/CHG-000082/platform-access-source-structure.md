@@ -1,5 +1,57 @@
 # Platform Accessの構造・Native接続再編
 
+## Local AppData専用入口退役とMatrix失敗時の終了確認 — 2026-11-10
+
+状態: 実装・局所検証・独立レビューを完了。全体回帰は人間の指示で保留する。
+
+変更分類は未使用専用APIの退役と検証Toolの失敗時資源終了。基準は`2cbbfd271`と先行未Commitの環境・Desktop設定差分。ユーザーが残件1・2の実装を承認した。実AI・Docker、過去保持物、Provider Home／Runtimeの保護Policy、存続Native Protocol、既存の各期限、共通Lock、保存Schemaは変更しない。Source／利用側・配布・QAを独立レビューへ渡し、標準準拠基準やRelease・外部公開判断の全面監査は発火しない。
+
+| 変更対象 | 処置と維持する境界 | 局所検証 |
+|---|---|---|
+| Local AppData専用取得 | TS入口・Source／専用試験、Rust専用argv分岐・dispatch・frame出力を撤去。共用`local_app_data_path()`は保護／Helper内部で維持 | 退役mode拒否と、存続System Directory／frame出力試験 |
+| 公開・管理情報・旧Host代役 | Root export、Symbol、Test Catalog、Checker期待値、旧mode許可／要求列を追従。互換入口・代替なし | 公開一覧、成果物関係、固定代役Source境界 |
+| Matrixの両固定子 | spawn直後から元closeを観測。ready前失敗・契約拒否でも未要求の停止を一回だけ出し、既存10秒枠でcloseを確認 | timeout、不正JSON／契約、早期exit／close、error、停止拒否／throw、close欠落、ID取得後例外と購読解除 |
+| 失敗結果 | 一次理由と取得済exact IDを保持し、停止失敗とclose事実を別fieldで返す。子発行後失敗は手動確認要。終了未確認でRecoveryを発行しない | Script技術契約revision 3。通常Task Schema・保存・IPCは不変更 |
+
+着手前の独立読取りで、清掃不明子にもfinallyがなく、従来のexit待機ではcloseを証明しないこと、共用Known Folder取得を残すこと、Native配布物の同期義務を照合して反映した。ready待機のtimer・data／error／exit／close購読とclose待機timerは終端で解除する。明示停止後に既に待機した結果を使い、同じ停止を自動再試行しない。close確認をDocker資源回収成立へ読み替えない。ready前にexact IDが届かなかった場合はIDを捏造せず、手動確認要と未確認を返す。
+
+Nativeは明示targetのrelease Buildで再生成した。配布更新前に同名Native Processが存在しないことを読取り確認し、固定配布先へ同一成果物を配置、Bootstrap定数と合成fixtureを同期した。新SHA-256は`0cc503a6dd5ea63e813f3b92e43efff51c7259b47a8d2f98cc20987bcb229a6f`、byte長238080。公開Artifact観測でbootstrapVerified:trueを確認した。通常Runtimeをtarget実行へ向けず、過去の署名Manifest・Evidence・保持物は変更しない。Cargo cacheは既存Build領域を使い、過去のcacheを清掃しない。
+
+固定候補のSource・利用側・管理情報・配布・設計の独立レビューは必須残指摘0件。実行物のHash・サイズと定数の一致も読取り確認された。共用保護Sourceの維持を、変更後Nativeの保護／修復の実境界成功とは表示しない。全体回帰・実Matrix・実AI／Docker・Native保護／修復実境界は未実施で、先行試験の成功を流用しない。
+
+局所結果はRustの退役CLI拒否1件とSystem Directory単体2件、PAの公開／System Directory／環境3件、Checkerの公開Module・成果物関係2件、CoordinatorのMatrix境界4件・Script契約4件・Host代役／Shell搬送の静的2件が成功した。Matrix境界には、固定Node実子2つを不正JSONで拒否し、SIGKILLと実close・購読解除を確認する試験を含む。実Matrix・Docker・Native修復／保護操作は実行せず、単なるMock成功へ実境界全体を読み替えない。途中候補の失敗は新fieldの試験期待と先行DI初期化公開ModuleのChecker追従漏れを是正した。PA／Coordinatorの型検査、変更TSの整形・Warning検査、Rust Clippy／書式を確認した。Checker既存Lint Info 1件はWarning／Errorではない。PA公開試験の合成Artifactは既存finallyで当該Rootを回収する。全体回帰・PA全廃・実Docker／AI E2Eは未成立のままである。
+
+## 任意Desktop管理設定の分離 — 2026-11-10
+
+状態: 実装・局所検証・独立レビューを完了。全体回帰は人間指示で他の残件整理後へ保留する。
+
+基準は`2cbbfd271`と先行未CommitのPA外環境整理差分。変更分類はDI設定契約・所在取得境界とCoordinatorの搬送変更。DIを変更する理由は、PAの既定所在再取得を減らし、Desktop管理を通常実行の必須設定から分離するため。ユーザーは上位確定所在への信頼変更を採用した。Windows専用の通常実行・固定Engine接続は変更せず、Linux／macOS・Engine単独対応、Native保護撤去、保存／IPC・Timeout・実AI／Docker・過去保持物操作は対象外とする。
+
+既存の`IsolationSettings`へ任意の`desktop: { userDataDirectory }`を追加し、新しい公開関数・型・runtimeフラグは作らない。基点の意味はユーザー単位のアプリデータで、現在WindowsではLOCALAPPDATAを上位の既存起動Ownerが一度だけ渡す。欠測時はdesktop自体を省略し、通常初期化を止めない。明示した不正設定は初期化全体を拒否する。入れ子もdata propertyだけをコピー・凍結し、getter・Proxy・未知field・不正Pathを拒否する。設定だけではDesktopを起動しない。
+
+| 既存の機能・境界 | 変更後の接続 | 維持する条件と局所反証 |
+|---|---|---|
+| 通常CLI・Container実行 | 共通二所在。Desktop設定なしも成立 | 既存の環境投影・固定CLI・Path・資源検査は維持 |
+| Desktop再起動・修復 | settings.desktop必須。欠測は固定例外で発行前拒否 | 意図通知・Artifact観測・Native取得0。元Helper・取消・join・期限は維持 |
+| 修復Directory観測／回収 | 既存公開settingsを同内部入口へ搬送 | 元Scope・checkpoint・固定Path・実体確認とunknown/nullを維持。新Native Sessionなし |
+| Windows既定所在の証明 | Native再取得でなく上位設定を信頼 | 同等保証とは主張しない。初期化と各処置の実体照合は維持 |
+
+着手前の独立した読取り照合で、単独Directory二入口のsettings未搬送と、LOCALAPPDATA欠測時に共通初期化を止めない条件を確認して反映した。Source／利用側・設計の独立レビューは動作上の必須残指摘0件。所在の保証起源を表すコメントと重複した説明節を追従した。標準準拠基準や外部公開・Release判断は変更しないため、それらの全面監査は発火しない。PAの旧Local AppData APIとNative modeは旧試験が使うため今回残す。Artifact／Job Object等の存廃判断と全体回帰は別の残件である。
+
+局所検証はDIの設定・公開境界・修復組立て／単独回収24件、既存再起動／修復Lifecycle44件、Executorの薄い接続・共通Lifecycle9件、Coordinatorの起動設定／Matrix対象3件とメモリ内修復結果26件が成功した。DI・ExecutorとCoordinator本番／試験の型検査、変更Sourceの書式・警告検査が成功。修復試験の旧Known Folder呼出し故障注入は撤去し、明示設定欠測／不正・入れ子変更・再入場搬送の試験へ追従した。実Process確認は既存の固定Node環境要約だけで、Filesystem試験物・Native／実AI／Docker資源は作成していない。全体回帰・実Windows Desktop境界の成立とは区別する。
+
+## PA外の子環境と旧診断口の整理 — 2026-11-10
+
+状態: 実装・局所検証・独立レビューを完了。人間の指示により全体回帰は他の残件整理後へ保留する。
+
+基準版は`2cbbfd271`。変更分類は未使用の技術操作撤去と検証Scriptの依存整理。`deriveChildEnvironment`の本番呼出しはなく、実利用はPlatform試験だけだった。関数・専用結果型・二ProfileとWindows操作groupを撤去し、`process_cancellation`の分類と必要保証は維持する。必須操作集合は空集合とし、既存resolverの「空集合は常に解決不能」を使う。閉じた操作集合の技術契約改訂は2へ更新するが、保存Schema・IPC・旧失敗reasonは変更しない。
+
+回復Matrixの固定Node子がPA一般環境生成の最後の外部本番利用だった。既存のCoordinator設定OwnerからWindows所在を取得し、Script自身がSystemRoot／WINDIR、現行と同じ検査済みTEMP／TMPを搬送する。Node 24の組込みchild_process Sourceで親coverage設定の補充を確認し、`NODE_V8_COVERAGE: ""`を維持する。Windows／Node 24.19の固定Node子を局所観測すると、env省略ではHOMEDRIVE／HOMEPATH／LOGONSERVER／PATH／SYSTEMDRIVE／USERDOMAIN／USERNAME／USERPROFILEも補完されたため、この8項目も空文字で中立化する。これは旧PA環境と同じ空値を必要分だけ維持する処置で、親値の継承を許可しない。固定process.execPath・shell:false、親Proxy・任意Node設定の不継承を維持する。PA自身のNative環境・SID／DACL・Provider Home・Desktop保護には触らない。
+
+読取り専用確認者が利用側、操作集合の空判定、技術契約改訂、Nodeの実行意味と試験を照合した。局所契約・型・書式・警告検査、Source／文書の独立レビューを行う。実Matrix、全体回帰、実AI・Docker・旧保持物操作は実施しない。標準準拠基準、リリース・外部公開判断は変えず、それらの監査は発火しない。ready前失敗時の終了確認は別残件とし、この環境整理の完成へ混同しない。
+
+局所結果はPlatform契約13件、Windows Adapterの対象3件、回復Matrix環境・終了確認の対象2件、Source境界1件の計19件成功。実子の確認は固定Nodeの非秘密な環境要約だけで、Matrix本体・Native・実AI・Dockerを起動していない。Coordinator本番・試験の型検査、変更Sourceの整形・警告検査、実行／Task設計対応検査、差分空白検査が成功した。途中候補で判明したWindowsの環境補完は8空値を明示して是正した。独立レビューは必須残指摘0件で、環境補完の説明コメント1箇所を追従した。PA外の製品Source／Scriptから一般環境生成への参照はなく、旧Host／Native試験とPA自身の利用は残る。今回の試験でFilesystem試験物は作成していない。全体回帰・Host実境界・実Matrixの成功やPA全廃は主張しない。
+
 ## DIの明示初期化と子Process環境 — 2026-11-10
 
 状態: DIの明示初期化・利用側追従・限定回帰と独立再レビューを完了。実AI・実Docker・全体QAの成立を含めない。

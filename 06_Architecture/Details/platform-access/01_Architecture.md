@@ -2,6 +2,18 @@
 
 ## 現在の残存範囲 — 2026-11-10
 
+### Local AppData専用公開入口の退役 — 2026-11-10
+
+本番利用のなくなった`observeWindowsLocalAppDataDirectory`、専用TS Source／試験、Rust専用CLI modeと`CRDDLA01`出力処理を撤去した。旧Host fixtureの許可／要求集合、公開一覧、Symbol・Test Catalogも追従する。共用`local_app_data_path()`はRuntime／Provider Home保護とDesktop Helperの内部利用に必要なため維持する。専用入口の代替や互換modeは追加しない。Native Source・固定配布exe・Bootstrap Hashは同じ変更へ同期し、存続APIのProtocol・保護Policyは変更しない。
+
+### Desktop所在の初期化設定への統合 — 2026-11-10
+
+DIの修復・修復後Directory観測／回収は、上位が初期化した`desktop.userDataDirectory`を使い、`observeWindowsLocalAppDataDirectory`を呼ばない。Native Known Folderによる所在独立取得から上位設定信頼へ移るが、Directoryの実体・Scope・処置条件は維持する。PAの同API・Native modeは旧Host／Native試験に残るため、この単位では削除しない。PA自身の環境生成・Provider Home保護・Desktop Helper・Artifact・Protocolは変更しない。全体回帰と実境界成立は保留する。
+
+### PA外の一般環境生成の終了 — 2026-11-10
+
+Coordinatorの未使用な子環境診断口を撤去し、回復Matrixの固定Node子は既存Coordinator設定とNode.jsだけで限定環境を構築する。本番SourceでPAの`createChildProcessEnvironment`を使うのはPA自身のNative搬送だけとなる。PAのNative環境生成・Windows所在の独立観測・Provider Home保護は維持し、上位へのコピーやDIへの逆依存は作らない。Node子のWindows補完値は必要な空値だけで抑止し、汎用環境builderを別Packageへ再設置しない。全体回帰は後続整理後へ保留する。
+
 ### DIの明示設定への分離 — 2026-11-10
 
 Docker Isolationが直接起動するDocker CLI・署名検査・固定WSL観測の環境はDIが所有し、`initializeIsolation`で上位確定の`windowsDirectory`／`userHomeDirectory`をオンメモリへ固定する。DIからPAの一般環境生成を呼ばず、Native APIによる独立した所在証明とNodeのPath確認の保証差を明示する。PA自身のNative搬送と、残るCoordinatorのNative用途は現在のPA処理を維持し、PAからDIへの逆依存は作らない。Provider Home・Local AppDataのNative保護、Desktop Job Object、保存形式・IPCは変更しない。
@@ -119,7 +131,7 @@ Cargo rootとtarget位置を維持し、Buildは`src/native/build.rs`、実行�
 | 責務Folder | 公開操作 | 返すもの・所有しない判断 |
 |---|---|---|
 | `artifact` | `observeNativeArtifact`、`observePlatformAccessArtifactCandidate` | 実体・内容の観測値。実行許可・Publisher真正性・tokenは返さない |
-| `filesystem` | `observeSystemWindowsDirectory`、`observeWindowsLocalAppDataDirectory`、`observeWindowsFilesystemEntry` | OS所在・対象一件の観測。削除許可は返さない |
+| `filesystem` | `observeSystemWindowsDirectory`、`observeWindowsFilesystemEntry` | OS所在・対象一件の観測。削除許可は返さない |
 | `filesystem` | `observeWindowsRuntimeState`、`observeWindowsProviderHome`、`describeProviderHomeObservationContract` | 固定Nativeの技術観測と部分Effect。Capabilityの発行・鮮度判定は上位 |
 | `docker-desktop` | `startDockerDesktopRepairHelper`、`startDockerDesktopRestartHelper` | 固定補助子・Protocol・stdio・終了処理。操作許可、Policy、Engine判断、CheckpointはDocker Isolation |
 | `process` | `createChildProcessEnvironment`、`deriveWindowsSystemDrive` | 共通の中立環境とDrive導出。Docker署名確認用環境はDIが所有し、任意環境builderを公開しない |
@@ -151,7 +163,9 @@ privateな同期関数だけがopen→query→close→write→flushを直列化�
 
 一要求一Process・exact argv・完全frame・Artifact前後確認を`src/filesystem/entry.ts`で結合し、新nonceやRepair Session Protocol変更は追加しない。Native実体の単位をNode実体へ未実証で変換しない。Nodeのraw観測は未知tagも意味を保持して返し、削除可否はDIだけが判断する。2026-10-17の開発Buildでは自己生成AF_UNIXのhandleを閉じて残した端点のP応答・tag0x80000023を取得し、Node unlink後のA応答と専用Root不存在を確認した。子PowerShellを使う試験は環境の起動拒否で未到達だったため、この成功へ含めない。異常終了子の方式選択実測とは別の実測である。同期故障反証の限定レビュー後、既存固定配布Nativeとbootstrap Hashを`a85d46241ba5cb4d771d2b6c493254262492935e3a5e9d20fea2bd486acc9cc9`へ更新した。公開API経由のfile／Directory／hardlink／junction／不存在と旧Known Folder二用途は限定確認済み。Host専用試験は制限内のhardlink EPERMを成功へ丸めず別profileで実施し、自己生成物の清掃と不存在を確認する。既存保護API・Repair Protocol・過去の署名Manifestは不変更である。退役した署名Package方式は現在の完成条件にせず、歴史記録として保持する。現在のDI実回収・三用途終端と必要な実境界の成立は未完了である。
 
-### 修復対象のLocalAppData所在観測
+### 修復対象のLocalAppData所在観測（退役前の履歴）
+
+以下は追加当時の設計記録である。2026-11-10の初期化設定統合後、本番利用がなくなった専用Source・公開API・CLI mode・frameは撤去した。共用Known Folder取得は存続するNative保護だけが使う。
 
 Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在を得ない。`src/filesystem/local-app-data.ts`の引数なし`observeWindowsLocalAppDataDirectory()`が、固定Native mode `--local-app-data-directory`と既存Rustの`local_app_data_path()`を使い、現在Processの利用者のKnown Folderを観測する。任意GUID／利用者／Path、環境値fallback、Directory作成・ACL変更・Authorityを提供しない。
 
@@ -165,7 +179,6 @@ Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在
 |---|---|---|
 | `src/artifact/identity.ts` | 固定NativeのRoot／file実体、同handleの有界Hash、前後再観測、Process内の非Authority Snapshot | Root公開は`observeNativeArtifact`／`observePlatformAccessArtifactCandidate`と必要定数。begin／verify・token・実体内部はPA内部。descriptorはfinallyでclose |
 | `src/filesystem/system-directory.ts` | 固定Nativeの`--system-windows-directory`、CRDDWD01の有界・厳密decode | 固定Hashと前後同一性、閉じたargv・環境・cwd・待機上限を維持。不明・不正・非Windowsは取得不能。これは資源不存在の観測ではない |
-| `src/filesystem/local-app-data.ts` | 固定Known Folderの`--local-app-data-directory`、CRDDLA01の厳密decodeと安定Directory確認 | 引数なし・非Authorityの所在観測。旧RuntimeState・環境fallbackなし。意図した利用者・Root Authority・処置許可は別確認 |
 | `src/process/environment.ts` | OS由来Directory／Profile検証、中立環境、Console／Supervisor／Native／Host終端／固定PowerShell初期化環境、純粋Drive検査 | 既存用途固定の操作だけを公開。任意additions builderはprivate。親環境をAuthorityにせず、Host終端だけTMP／TEMPを導出する。Docker用Home・config・Hints・修復用Drive付与とPublisher判断は所有しない |
 | Coordinator `src/execution/kernel-lock.ts`／`src/objective/execute.ts` | CoordinatorがNode.js標準APIを直接使用（PAの観測入口は撤去） | PIDだけをSignal 0で観測し、ESRCHだけabsent、EPERM等はunknown。不正PIDではOS照会0。世代結合・Lease入力・回復判断は上位。Platform familyは既存Windows対応だけを返し、未対応OSへfallbackしない |
 | NodeのOS排他・固定Worker／Supervisor | [共通Lock](../lock/01_Architecture.md)へ移管 | PAからの旧再export・互換Wrapperは残さない。用途別Identity・取得順・Owner判断は利用側。中立環境の構築は既存PA APIをCoordinatorが使い、共通Lockへ確定値として渡す |
