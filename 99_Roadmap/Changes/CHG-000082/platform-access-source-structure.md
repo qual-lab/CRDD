@@ -1,5 +1,27 @@
 # Platform Accessの構造・Native接続再編
 
+## 通常Filesystem実体のNode.js統一と特殊Socketの評価 — 2026-11-11
+
+変更分類: 承認済みの観測方式整理。DIをFix後に変更する理由は、PAとの通常実体二重確認を廃止し、既存の実処置Ownerへ観測を集約するためである。公開IF・保存Schema・判定期限・Root／対象選定・現在許可・保存順序は変更しない。通常経路のNative呼出しと重複比較を削除し、Provider Home保護、PA Native実装・固定配布物、Executor／ADは変更しない。着手前に既存Capability・実測・全走査／部分成功／回収後条件を照合し、技術・失敗影響・文書の独立確認へ接続する。準拠基準・権限・リリース変更はないため準拠／リリース監査は実施しない。
+
+通常File／DirectoryはNodeのlstat・realpath・dev／ino／birthtimeNsへ統一する。通常Fileはnlink=1、Directoryは正のnlinkとし、子Directoryの正当な削除でlink数が変わることを別実体へ読み替えない。ENOENTだけを明示不存在にする。Rootの保存実体、親／source／祖先と直下集合、256entry／深さ8、事前全走査、取消・同期許可、発行後unknownを維持する。曖昧Windows名は列挙時に拒否する。Node型判定は全raw reparse属性を独立確認する同等保証ではなく、確認後の敵対的差替えも原子的に防がない。
+
+既存の特殊Socket自動回収は今回黙って削除しない。ただしNative存続を前提にせず、Nodeの権限エラー・非通常型の候補だけを既存exact AF_UNIX観測へ限定する。明示Link・hardlink・別Pathは救済せず、Native不存在でNode権限エラーを不存在へ変換しない。Node／Nativeの観測経路が変わったら同一実体としない。
+
+### 特殊Socketの必要性・代替と制約
+
+| 問い | 現在の根拠・評価 |
+|---|---|
+| 実際に残るか | 2026-10-17に自己生成試験子の異常終了で残存を観測。Node lstatはEACCES、Nativeのexact tagでAF_UNIXと確認しNode unlinkした。本番Docker修復で必ず残る・頻発する根拠ではない |
+| 自動回収は何に必要か | 明示廃棄を選んだ固定退避先の不存在を成立させ、同じ回復処理を終了させるため。Desktop起動や通常Attemptそのものの技術要件ではない |
+| 既存保持で代替できるか | 回収判断前には期限付き保持引渡しを選べる。ただしDMはawaiting_disposition・pending_human_decision・disposal=nullを要求するため、discard確定後／部分処置後の自動切替はできない |
+| Nativeを撤去すると何が残るか | 特殊物のあるtreeは全走査でunknown・削除0となる。既にdiscardへ進んだ記録は未完了のまま残り、停止下の対象確認・明示清掃等を完了するまで通常終了へ進めない |
+| 推奨する次判断 | 本番必須とする根拠は現状不足。特殊物の自動回収は削減候補とするが、廃棄判断前の保持導線と、既にdiscard中の記録の明示再入場を同時に確定してから撤去する。Nativeを別Packageへ移すだけの代替は作らない |
+
+今回、保持・廃棄のDomain遷移や過去記録を変更しない。必要性評価を既存自動回収の削除承認へ読み替えず、特殊経路の最終採否は未決とする。
+
+限定検証: 新品Repository-localの通常tree回収・Hardlink／Junction拒否・不存在確認でNative呼出0を確認。既存の全走査・祖先差替え・取消・部分要求・上限・故障注入を新観測へ追従し、特殊Nativeの不在／tag／device／型／link数・経路変化の拒否を追加した。関連DI4ファイル40件と公開境界・台帳関連11件が成功。DI型検査、変更TSの書式・warning禁止Lint、台帳426件valid、差分空白検査を確認した。新品Windows試験の実行区分を既存台帳へ追従し、fixtureが今回のRootを回収する。独立レビューは必須残指摘0件。Commit前の再確認でSourceコメントの旧非reparse保証表現をNode観測範囲へ追従し、同じ関連40件と台帳の再成功を確認した。全体回帰・実AI・実Docker・過去保持物操作は行わず、ユーザーが許可したCommit／Pushへ進む。
+
 ## 旧Runtime State Native処理の撤去 — 2026-11-11
 
 変更分類: 承認済みNode移管後の旧実装退役。基準版`4d8b1990e`で残ったRust値4・初期化分岐、TSの未使用要求生成・応答解析・契約表示を削除する。Coordinatorの既存Node初期化、保存Schema、wx、Provider Homeの保護Policy、DI／Executor／AI Adapterは変更しない。新しい代替・互換処理、記録移行は追加しない。

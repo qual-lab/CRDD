@@ -5,17 +5,110 @@
  * @trace ERB-IT-001
  * @trace ERB-IT-002
  * @level IT
- * @scope 内部Driverと固定factoryの接続。保存・Session・実Hostは別確認。
- * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 実Driver→模擬Node／Native観測・削除。
+ * @scope 内部Driverと固定factory、通常Node実体の新品Host試験。保存・Session・実Dockerは別確認。
+ * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 実Driver→新品Node実体、または模擬Node／特殊Native観測・削除。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
 import { createHash } from "node:crypto";
-import { types } from "node:util";
+import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import path from "node:path";
 import test from "node:test";
+import { types } from "node:util";
 import { runInNewContext } from "node:vm";
+import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
+
+/**
+ * 新品の通常実体をNodeだけで回収し、Linkは全削除前に拒否する。
+ * @responsibility 模擬Nativeの成功を実Filesystem成立の根拠にしない。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition Windows上のRepository-local新品試験Rootだけ。
+ * @stimulus 通常tree、hardlink、junctionと回収後の不存在を渡す。
+ * @observation 元sourceの保全、回収結果、Native呼出回数と対象実体。
+ * @oracle 通常だけ回収・不存在、Linkは要求0、全ケースNative呼出0。
+ * @cleanup fixtureが今回作ったRootだけを回収し不存在確認する。
+ * @boundary 実Driver→Node Filesystem。Docker・過去保持物には接続しない。
+ */
+test("Host Windows: 通常実体の回収・Link拒否・不存在確認はNativeを呼ばない", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  const fixture = createRepositoryTestDirectory("node-directory-disposal-");
+  t.after(() => fixture.cleanup());
+  const parent = fixture.path;
+  const source = path.join(parent, "run");
+  fs.mkdirSync(source);
+  fs.writeFileSync(path.join(source, "preserved"), "source");
+  const text = fs.readFileSync(
+    new URL("../../src/docker-desktop/dispose.ts", import.meta.url),
+    "utf8",
+  );
+  const body = stripTypeScriptTypes(
+    text.slice(text.indexOf("const maximumEntries")).replace(/^export /gmu, ""),
+  );
+  let nativeCalls = 0;
+  const run = runInNewContext(`${body}; disposeDockerRepairDirectory`, {
+    fs,
+    path,
+    types,
+    setImmediate: () => new Promise<void>((resolve) => setImmediate(resolve)),
+    observeWindowsFilesystemEntry: () => {
+      nativeCalls++;
+      throw new Error("ordinary_entry_must_not_use_native");
+    },
+  }) as (
+    targets: { source: string; target: string },
+    expected: { dev: string; ino: string; birthtimeNs: string },
+    boundary: () => boolean,
+  ) => Promise<{ request: string; absence: string }>;
+  for (const [index, scenario] of [
+    "normal",
+    "hardlink",
+    "junction",
+  ].entries()) {
+    const target = path.join(
+      parent,
+      `run.crdd-stale-${String(index).padStart(32, "a")}`,
+    );
+    fs.mkdirSync(path.join(target, "nested"), { recursive: true });
+    fs.writeFileSync(path.join(target, "nested", "value"), "value");
+    if (scenario === "hardlink")
+      fs.linkSync(path.join(source, "preserved"), path.join(target, "linked"));
+    if (scenario === "junction")
+      fs.symlinkSync(source, path.join(target, "linked"), "junction");
+    const stat = fs.lstatSync(target, { bigint: true });
+    const expected = {
+      dev: String(stat.dev),
+      ino: String(stat.ino),
+      birthtimeNs: String(stat.birthtimeNs),
+    };
+    const result = await run({ source, target }, expected, () => true);
+    assert.deepEqual(
+      JSON.parse(JSON.stringify(result)),
+      scenario === "normal"
+        ? { request: "issued", absence: "confirmed_absent" }
+        : { request: "not_issued", absence: "unknown" },
+    );
+    assert.equal(
+      fs.readFileSync(path.join(source, "preserved"), "utf8"),
+      "source",
+    );
+    if (scenario === "normal") {
+      assert.throws(() => fs.lstatSync(target), { code: "ENOENT" });
+      const absent = await run({ source, target }, expected, () => true);
+      assert.deepEqual(JSON.parse(JSON.stringify(absent)), {
+        request: "not_issued",
+        absence: "confirmed_absent",
+      });
+    } else {
+      assert.equal(
+        fs.readFileSync(path.join(target, "nested", "value"), "utf8"),
+        "value",
+      );
+    }
+    assert.equal(nativeCalls, 0, scenario);
+  }
+});
 
 /**
  * 試験内の物理entryを模擬する。
@@ -35,6 +128,91 @@ type FixtureEntry = {
   attributes?: number;
   tag?: number;
 };
+
+/**
+ * 通常観測失敗を任意Native fallbackや不存在へ読み替えない。
+ * @responsibility 権限エラーと特殊型だけを既存Socket照合へ限定する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition 実観測関数本文とメモリ値だけ。
+ * @stimulus 通常値・明示Link・hardlink・各失敗と特殊Native各属性を与える。
+ * @observation 返却区分・Native呼出回数。
+ * @oracle ENOENTだけ不存在。明示拒否を救済せず、特殊は全条件を要求する。
+ * @cleanup N/A: 外部Effectなし。
+ * @boundary 実局所関数→模擬Filesystem観測。
+ */
+test("Nodeの通常観測と特殊候補の境界を混同しない", () => {
+  const text = fs.readFileSync(
+    new URL("../../src/docker-desktop/dispose.ts", import.meta.url),
+    "utf8",
+  );
+  const body = stripTypeScriptTypes(
+    text.slice(text.indexOf("const maximumEntries")).replace(/^export /gmu, ""),
+  );
+  const native = {
+    status: "present",
+    attributes: 0x420,
+    reparseTag: 0x80000023,
+    linkCount: 1,
+    identity: { volumeSerialNumber: 77, fileIndex: "1", creationTime: "2" },
+  };
+  for (const [mode, observation, expected, calls] of [
+    ["file", native, "node", 0],
+    ["directory", native, "node", 0],
+    ["link", native, null, 0],
+    ["hardlink", native, null, 0],
+    ["EIO", native, null, 0],
+    ["ENOENT", native, "confirmed_absent", 0],
+    ["EACCES", { status: "confirmed_absent" }, null, 1],
+    ["EACCES", null, null, 1],
+    ["EACCES", { ...native, attributes: 0x20, reparseTag: 0 }, null, 1],
+    ["EACCES", { ...native, attributes: 0x430 }, null, 1],
+    ["EACCES", { ...native, attributes: 0x460 }, null, 1],
+    ["EACCES", { ...native, reparseTag: 0x80000024 }, null, 1],
+    ["EACCES", { ...native, linkCount: 2 }, null, 1],
+    ["EACCES", native, "socket", 1],
+    ["EPERM", native, "socket", 1],
+    ["special", native, "socket", 1],
+    ["realpath_unknown", native, null, 0],
+    ["realpath_changed", native, null, 0],
+  ] as const) {
+    let nativeCalls = 0;
+    const observe = runInNewContext(`${body}; observeEntry`, {
+      fs: {
+        lstatSync: () => {
+          if (/^E/u.test(mode))
+            throw Object.assign(new Error(mode), { code: mode });
+          return {
+            dev: 1n,
+            ino: 2n,
+            birthtimeNs: 3n,
+            nlink: mode === "hardlink" ? 2n : 1n,
+            isSymbolicLink: () => mode === "link",
+            isDirectory: () => mode === "directory",
+            isFile: () => !["special", "directory"].includes(mode),
+          };
+        },
+        realpathSync: {
+          native: (value: string) => {
+            if (mode === "realpath_unknown") throw new Error("fixture_unknown");
+            return mode === "realpath_changed" ? `${value}-other` : value;
+          },
+        },
+      },
+      observeWindowsFilesystemEntry: () => {
+        nativeCalls++;
+        return observation;
+      },
+    }) as (target: string) => { status: string; source?: string } | null;
+    const result = observe("C:\\fixture\\entry");
+    assert.equal(
+      result?.status === "present" ? result.source : (result?.status ?? null),
+      expected,
+      mode,
+    );
+    assert.equal(nativeCalls, calls, mode);
+  }
+});
 
 /**
  * 回収の全preflightと処置・後観測を独立した要求列で検査する。
@@ -88,11 +266,9 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
       "absent",
       "absent_source_unknown",
       "absent_source_noncanonical",
-      "absent_native_unknown",
-      "absent_node_present",
       "absent_node_denied",
+      "absent_node_io_error",
       "absent_parent_changed",
-      "absent_parent_native_changed",
       "absent_owner_lost",
       "absent_owner_throw",
       "wrong_expected",
@@ -109,13 +285,15 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
       "guard_promise",
       "guard_rejected_promise",
       "guard_thenable",
-      "native_name_rejected",
+      "ambiguous_name",
       "junction",
       "device",
       "directory_socket",
       "late_identity",
       "late_tag",
       "late_links",
+      "late_socket_node",
+      "socket_native_absent",
       "late_ancestor",
       "late_intermediate",
       "cancel_preflight",
@@ -168,13 +346,12 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
           entries.set(current, { kind: "directory", ino: BigInt(depth + 10) });
         }
       }
-      if (scenario.startsWith("absent") && scenario !== "absent_node_present")
-        entries.delete(root);
+      if (scenario.startsWith("absent")) entries.delete(root);
       if (scenario === "root_type")
         entries.set(root, { kind: "unknown", ino: 3n });
       if (scenario === "source_same")
         entries.set(source, { kind: "directory", ino: 3n });
-      if (scenario === "native_name_rejected") {
+      if (scenario === "ambiguous_name") {
         entries.delete(`${root}\\value`);
         entries.set(`${root}\\foo.`, { kind: "file", ino: 4n });
       }
@@ -196,7 +373,6 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
         opens = 0,
         closes = 0;
       let sourceReads = 0,
-        parentNativeReads = 0,
         ownerReads = 0;
       const calls: [string, string][] = [];
       const run = runInNewContext(`${program}; disposeDockerRepairDirectory`, {
@@ -214,6 +390,7 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
               if (scenario === "late_identity") leaf.ino = 999n;
               if (scenario === "late_tag") leaf.tag = 0x80000024;
               if (scenario === "late_links") leaf.links = 2;
+              if (scenario === "late_socket_node") leaf.kind = "file";
             }
           }
           if (scenario === "late_ancestor" && effects === 1)
@@ -229,23 +406,11 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
             entries.set(root, { kind: "directory", ino: 8n });
         },
         observeWindowsFilesystemEntry(target: string) {
-          if (target === source) sourceReads++;
-          if (target === parent) parentNativeReads++;
-          if (target === root && scenario === "absent_node_present")
-            return { status: "confirmed_absent" };
-          if (target === root && scenario === "absent_native_unknown")
-            return null;
-          if (target === root && scenario === "absent_parent_changed")
-            entries.set(parent, { kind: "directory", ino: 999n });
-          if (scenario === "native_name_rejected" && target.endsWith("foo."))
-            return null;
           if (
-            (scenario === "parent_unknown" && target === parent) ||
-            (["source_unknown", "absent_source_unknown"].includes(scenario) &&
-              target === source) ||
-            (scenario === "post_unknown" && effects > 0)
+            scenario === "socket_native_absent" &&
+            target.endsWith("endpoint.sock")
           )
-            return null;
+            return { status: "confirmed_absent" };
           const entry = entries.get(target);
           if (!entry) return { status: "confirmed_absent" };
           return {
@@ -266,12 +431,7 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
                   : 0),
             identity: {
               volumeSerialNumber: 77,
-              fileIndex:
-                scenario === "absent_parent_native_changed" &&
-                target === parent &&
-                parentNativeReads > 1
-                  ? "999"
-                  : String(entry.ino),
+              fileIndex: String(entry.ino),
               creationTime: "99999",
             },
             linkCount: entry.links ?? 1,
@@ -280,6 +440,18 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
         fs: {
           lstatSync(target: string) {
             if (target === source) sourceReads++;
+            if (target === root && scenario === "absent_parent_changed")
+              entries.set(parent, { kind: "directory", ino: 999n });
+            if (
+              (scenario === "parent_unknown" && target === parent) ||
+              (["source_unknown", "absent_source_unknown"].includes(scenario) &&
+                target === source) ||
+              (scenario === "post_unknown" && effects > 0) ||
+              (scenario === "absent_node_io_error" && target === root)
+            )
+              throw Object.assign(new Error("fixture_unknown"), {
+                code: "EIO",
+              });
             if (target === root && scenario === "absent_node_denied")
               throw Object.assign(new Error("fixture_denied"), {
                 code: "EACCES",
@@ -297,8 +469,11 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
               dev: 1n,
               ino: entry.ino,
               birthtimeNs: 3n,
+              nlink: BigInt(entry.links ?? 1),
               isDirectory: () => entry.kind === "directory",
-              isSymbolicLink: () => entry.kind === "unknown",
+              isFile: () => entry.kind === "file" && !entry.attributes,
+              isSymbolicLink: () =>
+                entry.kind === "unknown" || !!((entry.attributes ?? 0) & 0x400),
             };
           },
           realpathSync: {
@@ -483,10 +658,8 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
   const noPermission = body.replace("return value === true;", "return true;");
   assert.notEqual(noPermission, body);
   await assert.rejects(() => runCases(noPermission), assert.AssertionError);
-  const ancestorIdentity = `!sameNative(
-            observeWindowsFilesystemEntry(directory),
-            expectedNode.observed,
-          )`;
+  const ancestorIdentity =
+    "!sameEntry(observeEntry(directory), expectedNode.observed)";
   assert.equal(body.split(ancestorIdentity).length, 2);
   await assert.rejects(
     () => runCases(body.replace(ancestorIdentity, "false")),

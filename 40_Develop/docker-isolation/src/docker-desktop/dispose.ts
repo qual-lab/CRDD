@@ -5,8 +5,6 @@
  * @trace ARCH-000008
  * @boundary DI内部。固定factory由来の対象だけを扱いRoot公開APIにはしない。
  */
-import type { RepairCheckpoint } from "./types.ts";
-
 import fs from "node:fs";
 import path from "node:path";
 import { setImmediate } from "node:timers/promises";
@@ -15,114 +13,127 @@ import {
   observeWindowsFilesystemEntry,
   type WindowsEntryObservation,
 } from "../../../platform-access/src/index.ts";
+import type { RepairCheckpoint } from "./types.ts";
 
 const maximumEntries = 256;
 const maximumDepth = 8;
 
 /**
- * Nativeのpresent観測だけを保持する内部型。
- * @responsibility 不存在・不明を実体値へ補完しない。
+ * 同じ観測経路の実体だけを比較する局所値。
+ * @responsibility Node通常実体とNative特殊端点の単位を混用しない。
  * @trace ARCH-000008
- * @shape Platform Accessのpresent variant。
- * @invariant Native固有の実体単位を維持する。
- * @boundary DI内部の観測比較。
- * @security Authorityを持たない。
- * @compatibility 現行Platform Access契約だけ。
+ * @invariant 経路変更・不明・不存在を同一実体にしない。
  */
-type Present = Extract<WindowsEntryObservation, { status: "present" }>;
+type Present =
+  | Readonly<{
+      status: "present";
+      source: "node";
+      kind: "directory" | "leaf";
+      stat: fs.BigIntStats;
+    }>
+  | Readonly<{
+      status: "present";
+      source: "socket";
+      kind: "leaf";
+      native: Extract<WindowsEntryObservation, { status: "present" }>;
+    }>;
+type EntryObservation = Present | Readonly<{ status: "confirmed_absent" }>;
 
 /**
- * Nativeの実体・型・tag・link数を全fieldで比較する。
- * @responsibility 観測不能同士を一致にしない。
+ * 同じ経路の前後実体を比較する。
+ * @responsibility NodeとNativeの識別値を変換せず、欠測を一致にしない。
  * @trace ARCH-000008
- * @input left、right: 同じ固定Pathの前後観測。
- * @returns 両方presentで全field一致の場合だけtrue。
- * @precondition 固定Nativeの閉じた観測値を使う。
- * @postcondition 入力と単位を変更しない。
- * @effect N/A: 値比較だけ。
- * @failure 欠測・不存在・差はfalse。
- * @invariant Node実体と混用しない。
- * @boundary DI内部。
- * @security 一致は削除許可ではない。
- * @concurrency 同期比較だけ。
+ * @effect N/A: 値比較のみ。
  */
-function sameNative(
-  left: WindowsEntryObservation | null,
-  right: WindowsEntryObservation | null,
+function sameEntry(
+  left: EntryObservation | null,
+  right: EntryObservation | null,
 ): boolean {
+  if (left?.status !== "present" || right?.status !== "present") return false;
+  if (left.source === "node" && right.source === "node")
+    return (
+      left.kind === right.kind &&
+      left.stat.dev === right.stat.dev &&
+      left.stat.ino === right.stat.ino &&
+      left.stat.birthtimeNs === right.stat.birthtimeNs &&
+      (left.kind === "directory" || left.stat.nlink === right.stat.nlink)
+    );
+  if (left.source !== "socket" || right.source !== "socket") return false;
   return (
-    left?.status === "present" &&
-    right?.status === "present" &&
-    left.attributes === right.attributes &&
-    left.reparseTag === right.reparseTag &&
-    left.linkCount === right.linkCount &&
-    left.identity.volumeSerialNumber === right.identity.volumeSerialNumber &&
-    left.identity.fileIndex === right.identity.fileIndex &&
-    left.identity.creationTime === right.identity.creationTime
+    left.native.attributes === right.native.attributes &&
+    left.native.reparseTag === right.native.reparseTag &&
+    left.native.linkCount === right.native.linkCount &&
+    left.native.identity.volumeSerialNumber ===
+      right.native.identity.volumeSerialNumber &&
+    left.native.identity.fileIndex === right.native.identity.fileIndex &&
+    left.native.identity.creationTime === right.native.identity.creationTime
   );
 }
 
 /**
- * 許可する物理entryの型だけを分類する。
- * @responsibility AF_UNIX以外のreparseやhardlinkを通常fileへfallbackしない。
+ * 通常実体はNodeだけで観測し、特殊候補だけ既存AF_UNIX観測へ渡す。
+ * @responsibility 明示Link・hardlink・別Path・不明を通常実体へ救済しない。
  * @trace ARCH-000008
- * @input value: 固定Native観測。
- * @returns directory、leaf、または不許可のnull。
- * @precondition 対象Scope・実体・Ownerは別確認。
- * @postcondition tagや実体を補完しない。
- * @effect N/A: raw属性の分類だけ。
- * @failure 未観測・device・未知tag・非DirectoryのlinkCount不一致はnull。
- * @invariant AF_UNIXは正確なtag・非Directory・linkCount1だけ。
- * @boundary raw観測とDIの許可集合。
- * @security 型の許可だけでは削除しない。
- * @concurrency 同期比較だけ。
+ * @input target: 固定Rootまたは検証した直下名から導出したPath。
+ * @returns 実体・明示不存在、または観測不能のnull。
+ * @effect lstat／realpath。権限エラーまたは非通常型に限り固定Native読取り。
+ * @failure ENOENT以外の失敗を不存在へ変換しない。
+ * @security raw reparse属性の網羅検査や観測後の差替え防止は保証しない。
  */
-function entryKind(
-  value: WindowsEntryObservation | null,
-): "directory" | "leaf" | null {
-  if (value?.status !== "present" || (value.attributes & 0x40) !== 0)
-    return null;
-  if ((value.attributes & 0x10) !== 0)
-    return value.reparseTag === 0 && (value.attributes & 0x400) === 0
-      ? "directory"
-      : null;
-  if (value.linkCount !== 1) return null;
-  return (value.reparseTag === 0 && (value.attributes & 0x400) === 0) ||
-    (value.reparseTag === 0x80000023 && (value.attributes & 0x400) !== 0)
-    ? "leaf"
-    : null;
-}
-
-/**
- * 通常DirectoryのNode実体とcanonical Pathを観測する。
- * @responsibility link・file・不正実体・別PathをDirectoryへ補完しない。
- * @trace ARCH-000008
- * @input target: factoryが導出したPath。
- * @returns 正の実体を持つDirectory stat。
- * @precondition Runtime内で対象は固定済み。
- * @postcondition 実体の単位を変更しない。
- * @effect lstat／realpath読取りだけ。
- * @failure 不明・型差・Path差ではthrowし外側が処置を停止する。
- * @invariant Node実体はNode同士で比較する。
- * @boundary DIとFilesystem。
- * @security 任意PathをRoot APIへ公開しない。
- * @concurrency 各境界でfreshに呼ぶ。
- */
-function nodeDirectory(target: string): fs.BigIntStats {
-  const stat = fs.lstatSync(target, { bigint: true });
+function observeEntry(target: string): EntryObservation | null {
+  let stat: fs.BigIntStats | null = null;
+  try {
+    stat = fs.lstatSync(target, { bigint: true });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return Object.freeze({ status: "confirmed_absent" });
+    if (code !== "EACCES" && code !== "EPERM") return null;
+  }
+  if (stat) {
+    if (stat.isSymbolicLink()) return null;
+    if (stat.isDirectory() || stat.isFile()) {
+      if (
+        stat.dev <= 0n ||
+        stat.ino <= 0n ||
+        stat.birthtimeNs <= 0n ||
+        stat.nlink <= 0n ||
+        (!stat.isDirectory() && stat.nlink !== 1n)
+      )
+        return null;
+      try {
+        if (
+          fs.realpathSync
+            .native(target)
+            .replace(/^\\\\\?\\/u, "")
+            .toLocaleLowerCase("en-US") !== target.toLocaleLowerCase("en-US")
+        )
+          return null;
+      } catch {
+        return null;
+      }
+      return Object.freeze({
+        status: "present",
+        source: "node",
+        kind: stat.isDirectory() ? "directory" : "leaf",
+        stat,
+      });
+    }
+  }
+  const native = observeWindowsFilesystemEntry(target);
   if (
-    !stat.isDirectory() ||
-    stat.isSymbolicLink() ||
-    stat.dev <= 0n ||
-    stat.ino <= 0n ||
-    stat.birthtimeNs <= 0n ||
-    fs.realpathSync
-      .native(target)
-      .replace(/^\\\\\?\\/u, "")
-      .toLocaleLowerCase("en-US") !== target.toLocaleLowerCase("en-US")
+    native?.status !== "present" ||
+    (native.attributes & (0x40 | 0x10)) !== 0 ||
+    (native.attributes & 0x400) === 0 ||
+    native.reparseTag !== 0x80000023 ||
+    native.linkCount !== 1
   )
-    throw new Error("repair_directory_identity_unknown");
-  return stat;
+    return null;
+  return Object.freeze({
+    status: "present",
+    source: "socket",
+    kind: "leaf",
+    native,
+  });
 }
 
 /**
@@ -137,7 +148,7 @@ function nodeDirectory(target: string): fs.BigIntStats {
  * @failure 初期不明は削除0。部分処置／後観測不明はabsence unknown。
  * @invariant 任意Root・再帰rm・新しい共有状態／排他を作らない。
  * @boundary Root非公開の内部技術処理。保存・Session・上位終端は別に接続する。
- * @security 親／Root／sourceを前後再確認し未知tag・hardlink・別実体を拒否する。
+ * @security 親／Root／sourceを前後再確認し、明示Link・hardlink・別実体を拒否する。特殊端点だけ既知tagを要求する。
  * @concurrency entry間で取消を受付け、Native同期最大5秒中の即時取消は保証しない。
  */
 export async function disposeDockerRepairDirectory(
@@ -188,46 +199,38 @@ export async function disposeDockerRepairDirectory(
       !permitted()
     )
       throw new Error("repair_disposal_scope_unknown");
-    const parentNode = nodeDirectory(parent);
-    const parentNative = observeWindowsFilesystemEntry(parent);
-    if (entryKind(parentNative) !== "directory")
+    const parentObservation = observeEntry(parent);
+    if (
+      parentObservation?.status !== "present" ||
+      parentObservation.source !== "node" ||
+      parentObservation.kind !== "directory"
+    )
       throw new Error("repair_disposal_parent_unknown");
     // 無処置の不存在確認に、別Pathの稼働中sourceの成立を要求しない。
-    if (
-      observeWindowsFilesystemEntry(targets.target)?.status ===
-      "confirmed_absent"
-    ) {
+    if (observeEntry(targets.target)?.status === "confirmed_absent") {
       try {
         fs.lstatSync(targets.target);
         throw new Error("repair_disposal_absence_mismatch");
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
-      const currentParent = nodeDirectory(parent);
-      if (
-        currentParent.dev !== parentNode.dev ||
-        currentParent.ino !== parentNode.ino ||
-        currentParent.birthtimeNs !== parentNode.birthtimeNs ||
-        !sameNative(observeWindowsFilesystemEntry(parent), parentNative) ||
-        !permitted()
-      )
+      if (!sameEntry(observeEntry(parent), parentObservation) || !permitted())
         throw new Error("repair_disposal_boundary_unknown");
       return Object.freeze({ request, absence: "confirmed_absent" });
     }
-    let sourceNode: fs.BigIntStats | null;
-    try {
-      sourceNode = nodeDirectory(targets.source);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      sourceNode = null;
-    }
-    const sourceNative = observeWindowsFilesystemEntry(targets.source);
+    const sourceObservation = observeEntry(targets.source);
     if (
-      sourceNode
-        ? entryKind(sourceNative) !== "directory"
-        : sourceNative?.status !== "confirmed_absent"
+      !sourceObservation ||
+      (sourceObservation.status === "present" &&
+        (sourceObservation.source !== "node" ||
+          sourceObservation.kind !== "directory"))
     )
       throw new Error("repair_disposal_source_unknown");
+    const sourceNode =
+      sourceObservation.status === "present" &&
+      sourceObservation.source === "node"
+        ? sourceObservation.stat
+        : null;
     /**
      * 親と現在sourceの前後不変を確認する。
      * @responsibility 保存された旧target以外へ処置を広げない。
@@ -236,7 +239,7 @@ export async function disposeDockerRepairDirectory(
      * @returns 同期の全条件肯定だけtrue。
      * @precondition 初回の親／source観測が成立済み。
      * @postcondition 元観測を更新しない。
-     * @effect 親・sourceのNode／Native読取り。
+     * @effect 親・sourceのNode読取り。
      * @failure 不明・例外・Promise・差は外側で停止。
      * @invariant sourceを削除集合へ追加しない。
      * @boundary 固定Scopeと現在許可。
@@ -245,44 +248,19 @@ export async function disposeDockerRepairDirectory(
      */
     const baseGuard = () => {
       if (!permitted()) return false;
-      const currentParent = nodeDirectory(parent);
+      if (!sameEntry(observeEntry(parent), parentObservation)) return false;
+      const currentSource = observeEntry(targets.source);
       if (
-        currentParent.dev !== parentNode.dev ||
-        currentParent.ino !== parentNode.ino ||
-        currentParent.birthtimeNs !== parentNode.birthtimeNs ||
-        !sameNative(observeWindowsFilesystemEntry(parent), parentNative)
+        sourceNode
+          ? !sameEntry(currentSource, sourceObservation)
+          : currentSource?.status !== "confirmed_absent"
       )
         return false;
-      if (sourceNode) {
-        const currentSource = nodeDirectory(targets.source);
-        if (
-          currentSource.dev !== sourceNode.dev ||
-          currentSource.ino !== sourceNode.ino ||
-          currentSource.birthtimeNs !== sourceNode.birthtimeNs ||
-          !sameNative(
-            observeWindowsFilesystemEntry(targets.source),
-            sourceNative,
-          )
-        )
-          return false;
-      } else {
-        try {
-          fs.lstatSync(targets.source);
-          return false;
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        }
-        if (
-          observeWindowsFilesystemEntry(targets.source)?.status !==
-          "confirmed_absent"
-        )
-          return false;
-      }
       return permitted();
     };
     if (!baseGuard()) throw new Error("repair_disposal_boundary_unknown");
-    const rootNative = observeWindowsFilesystemEntry(targets.target);
-    if (rootNative?.status === "confirmed_absent") {
+    const rootObservation = observeEntry(targets.target);
+    if (rootObservation?.status === "confirmed_absent") {
       try {
         fs.lstatSync(targets.target);
         throw new Error("repair_disposal_absence_mismatch");
@@ -292,14 +270,19 @@ export async function disposeDockerRepairDirectory(
       if (!baseGuard()) throw new Error("repair_disposal_boundary_unknown");
       return Object.freeze({ request, absence: "confirmed_absent" });
     }
-    const rootNode = nodeDirectory(targets.target);
+    if (
+      rootObservation?.status !== "present" ||
+      rootObservation.source !== "node" ||
+      rootObservation.kind !== "directory"
+    )
+      throw new Error("repair_disposal_root_unknown");
+    const rootNode = rootObservation.stat;
     if (
       !expected ||
       String(rootNode.dev) !== expected.dev ||
       String(rootNode.ino) !== expected.ino ||
       String(rootNode.birthtimeNs) !== expected.birthtimeNs ||
-      entryKind(rootNative) !== "directory" ||
-      sameNative(rootNative, sourceNative) ||
+      sameEntry(rootObservation, sourceObservation) ||
       (sourceNode &&
         rootNode.dev === sourceNode.dev &&
         rootNode.ino === sourceNode.ino)
@@ -316,11 +299,11 @@ export async function disposeDockerRepairDirectory(
      * @trace ARCH-000008
      * @input target: 固定Rootか実列挙した子、depth: Rootを0とする深さ。
      * @returns 全対象が許可集合内なら完了。
-     * @precondition 親の非reparse Directory観測が成立済み。
+     * @precondition 親がNodeの通常Directory・正規Pathとして観測済み。
      * @postcondition Rootを含め256entry／深さ8を超えて処置しない。
-     * @effect 有界opendir/read/closeとNative読取り、local待機だけ。
+     * @effect 有界opendir/read/closeと実体読取り、local待機だけ。
      * @failure 不明・列挙／close失敗・上限超過ではthrow。
-     * @invariant Node Direntの型をNative型の代用にしない。
+     * @invariant Direntの型だけでは処置せず、各entryを改めて観測する。
      * @boundary 固定Root配下のpreflight。
      * @security 相対名・case重複・範囲外Pathを拒否する。
      * @concurrency entry間待機後も現在条件を確認する。
@@ -333,8 +316,8 @@ export async function disposeDockerRepairDirectory(
         !baseGuard()
       )
         throw new Error("repair_disposal_preflight_unknown");
-      const observed = observeWindowsFilesystemEntry(target);
-      const kind = entryKind(observed);
+      const observed = observeEntry(target);
+      const kind = observed?.status === "present" ? observed.kind : null;
       if (!kind || observed?.status !== "present")
         throw new Error("repair_disposal_type_unknown");
       nodes.push({ target, observed, kind });
@@ -352,7 +335,11 @@ export async function disposeDockerRepairDirectory(
             !name ||
             name === "." ||
             name === ".." ||
-            /[\\/:]/u.test(name) ||
+            /[\\/\u0000-\u001f\u007f:<>"|?*]/u.test(name) ||
+            /[. ]$/u.test(name) ||
+            /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)/iu.test(
+              name,
+            ) ||
             names.has(name.toLocaleLowerCase("en-US"))
           )
             throw new Error("repair_disposal_name_unknown");
@@ -377,11 +364,11 @@ export async function disposeDockerRepairDirectory(
      * @returns Rootまでの祖先が一致する場合だけtrue。
      * @precondition 全preflightと固定Rootの照合済み。
      * @postcondition 既存観測と残存集合を変更しない。
-     * @effect 有界列挙とNative読取りだけ。
+     * @effect 有界列挙とNode実体読取りだけ。
      * @failure 不明・集合差・close失敗は停止。
      * @invariant Root外・未走査別枝の全域保証へ広げない。
      * @boundary 同呼出しの一時集合とFilesystem。
-     * @security 各祖先のreparse差替えを拒否する。
+     * @security 各祖先の明示Link・実体差替えを拒否する。全raw reparse属性の検査は主張しない。
      * @concurrency 各待機後・要求前に使用する。
      */
     const ancestorsMatch = (target: string) => {
@@ -393,10 +380,7 @@ export async function disposeDockerRepairDirectory(
         const expectedNode = observedNodes.get(directory);
         if (
           expectedNode?.kind !== "directory" ||
-          !sameNative(
-            observeWindowsFilesystemEntry(directory),
-            expectedNode.observed,
-          )
+          !sameEntry(observeEntry(directory), expectedNode.observed)
         )
           return false;
         const expected = new Set(
@@ -426,20 +410,10 @@ export async function disposeDockerRepairDirectory(
     };
     for (const node of nodes.reverse()) {
       await setImmediate();
-      const currentRoot = nodeDirectory(targets.target);
       if (
         !baseGuard() ||
-        currentRoot.dev !== rootNode.dev ||
-        currentRoot.ino !== rootNode.ino ||
-        currentRoot.birthtimeNs !== rootNode.birthtimeNs ||
-        !sameNative(
-          observeWindowsFilesystemEntry(targets.target),
-          rootNative,
-        ) ||
-        !sameNative(
-          observeWindowsFilesystemEntry(node.target),
-          node.observed,
-        ) ||
+        !sameEntry(observeEntry(targets.target), rootObservation) ||
+        !sameEntry(observeEntry(node.target), node.observed) ||
         !ancestorsMatch(node.target) ||
         !permitted()
       )
@@ -461,8 +435,7 @@ export async function disposeDockerRepairDirectory(
         fs.unlinkSync(node.target);
       }
       if (
-        observeWindowsFilesystemEntry(node.target)?.status !==
-          "confirmed_absent" ||
+        observeEntry(node.target)?.status !== "confirmed_absent" ||
         !baseGuard()
       )
         throw new Error("repair_disposal_absence_unknown");

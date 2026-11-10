@@ -478,11 +478,11 @@ Desktop技術排他は共通wxの`.crdd-docker-desktop.lock`へ統合した。�
 | 対象固定 | 確定した基点と同じ修復nonceから既存三退避先だけを導出する。生Path・任意basenameを公開入力にしない。期待実体は元checkpointを参照し、別の正本へ複製しない。 |
 | 発行前 | 元修復の成功・技術終端、現在Owner、確定した基点・固定対象の現在実体を照合する。用途別の回収意図が保存・読戻し・排他解放まで確認されてから物理処置へ進む。 |
 | 非使用と対象実体 | 旧世代の停止、現在sourceの別実体、固定Scopeと退避先の期待実体を共同確認する。Engine ready・rename成功・lock観測のnullだけから非使用を推定しない。OS全handle不存在や敵対的な同利用者の差替え排除を追加保証にしない。 |
-| 削除対象型 | 非reparseの通常file（linkCount=1）、非reparseのDirectory、既知tag `0x80000023`の非Directory AF_UNIX端点だけを候補にする。未知tag、symlink／junction／mount等、属性矛盾、hardlink、不明実体、範囲超過は新規削除0。子は有界列挙し各実体を同じ手順で確認する。無条件の再帰削除は使わない。製品Driverは公開compositionまで接続済み。真正Writer・物理回収・後続終了整理は接続済み。ただしWindows実物での自動削除成立は未実証であり、今回の失敗と保守処置を区別する。 |
+| 削除対象型 | 通常対象はNodeが通常File（nlink=1）／Directory、非Symbolic link、正規Path・正の実体と確認したもの。Directoryにnlink=1は要求しない。特殊候補は既存Nativeがexact AF_UNIX tag `0x80000023`・reparse属性・非Directory・非device・linkCount=1を共同確認した端点だけ。明示Link、hardlink、不明実体、範囲超過は全走査で新規削除0。Nodeでraw reparse属性全体を同等に検査するとは主張しない。実物の自動回収・真正保存との全体成立は未実証。 |
 | 処置と終端 | 対象・親の直前実体を再確認し、対象だけを回収する。fresh観測で対象の明示不存在、親と現在sourceの保全を確認する。不明・部分成功は用途別に残し、成功へ畳まない。 |
 | 中断再入場 | 同じexact ID・保存意図・固定対象で再観測する。不在なら不存在確認だけを進め、過去の削除発行を捏造しない。同名別実体や観測不能では削除せず、取消・Owner喪失後の追加処置を止める。 |
 
-固定targetがWindows Nativeの明示不存在とNodeのENOENTで一致する場合は、削除要求を発行せず、親のNode／Native実体と現在Ownerを前後確認して現在不存在だけを返す。この無処置経路は、別Pathの現在sourceを観測・正規化せず、source保全や削除成功を主張しない。targetが存在する場合のsource正規Path・実体・非alias・処置前後保全条件は維持する。片方だけの不存在、観測不能、親差、Owner不明は不存在へ補完しない。
+固定targetがNodeのlstatでENOENTとなる場合は、削除要求を発行せず、親のNode実体・正規Pathと現在Ownerを前後確認して現在不存在だけを返す。この無処置経路は別Pathの現在sourceを観測せず、source保全や削除成功を主張しない。targetが存在する場合のsource正規Path・実体・非alias・処置前後保全条件は維持する。権限エラー、その他の観測不能、親差、Owner不明は不存在へ補完しない。特殊候補のNative不存在でNodeの権限エラーを不存在へ変換しない。
 
 | 代表例 | 期待する結果 |
 |---|---|
@@ -501,17 +501,19 @@ Desktop技術排他は共通wxの`.crdd-docker-desktop.lock`へ統合した。�
 
 #### Windows実体観測と回収の分担
 
-内部回収DriverはRoot込み256 entry・Root深さ0から最大8段へ限定し、全preflightが成立してから一件ずつ処置する。削除直前には処置経路の祖先DirectoryだけについてNative実体と直下の期待残存名を再確認する。集合差・中間Directory差替え・観測不能は追加要求を停止し、Nativeの明示不存在後だけ同呼出しの残存集合から除く。Root外の親内容や未走査別枝の全域変化を原子的に保証する仕組みではない。
+内部回収DriverはRoot込み256 entry・Root深さ0から最大8段へ限定し、全preflightが成立してから一件ずつ処置する。削除直前には処置経路の祖先DirectoryのNode実体・正規Pathと直下の期待残存名を再確認する。集合差・中間Directory差替え・観測不能は追加要求を停止し、NodeのENOENTと親／source保全の再確認後だけ同呼出しの残存集合から除く。Root外の親内容や未走査別枝の全域変化を原子的に保証する仕組みではない。
 
-内部composition `cleanupRepairDirectory`（公開はcleanupIsolationのDirectory overload）は、元checkpointの8処置終端、Engine ready、Host safe、操作cleanup confirmedと退避ありを確認する。元nonce・初期化済みsettingsから既存の固定対象を捕捉し、期待実体を直接照合する。Desktop操作・Helper Artifact・保存Scopeの取得／再構築はしない。現在Owner／保存意図と固定対象の同期確認をDriverの待機後・処置前にも適用し、委譲前拒否は未発行、委譲後例外は要求不明とする。単一entryの既存Filesystem Native観測は維持する。
+内部composition `cleanupRepairDirectory`（公開はcleanupIsolationのDirectory overload）は、元checkpointの8処置終端、Engine ready、Host safe、操作cleanup confirmedと退避ありを確認する。元nonce・初期化済みsettingsから既存の固定対象を捕捉し、期待実体を直接照合する。Desktop操作・Helper Artifact・保存Scopeの取得／再構築はしない。現在Owner／保存意図と固定対象の同期確認をDriverの待機後・処置前にも適用し、委譲前拒否は未発行、委譲後例外は要求不明とする。通常実体はNode観測だけを使い、既存Filesystem Native観測は特殊候補だけに限定する。
 
 この入口は今回の要求事実と現在不存在を返すだけで、上位Writerの保存や終了整理を確定しない。用途別意図の保存・読戻し・排他解放は現在確認callbackの前提であり、保存代役の成功を真正保存の成立根拠にはしない。上位は進捗保存失敗後に次用途へ進まず、過去のrequest unknownを現在のissued／not_issuedで置換しない。
 
-Windowsの曖昧componentは固定Native入口が拒否し、Driverは全entryのpresent観測を要求する。同じ名検査を別実装として複製しない。今回の物理要求到達はsyscall直前にのみ`issued`とし、事前拒否を発行済みへ変換しない。同期確認の真正Promiseは拒否を処理して停止し、thenableは実行しない。内部Driver・固定factoryと、保存意図・旧OwnerのEffect不能・Session・後続結果・上位終了の本番接続を確認済みである。実物の削除結果は冒頭表の限界を維持する。
+Windowsの曖昧component（末尾dot／space、予約device名、制御文字等）は固定Root内の列挙名検査で拒否する。通常実体はNodeのlstat・realpath・dev／ino／birthtimeNsへ統一する。通常Fileはnlink=1、Directoryは正のnlinkを要求する。親・source・Root・祖先と通常leafにNativeを呼ばず、二つの実体単位を重複照合しない。Rootの保存実体、同期許可・取消、単発unlink／空Directory rmdir、事前全走査・上限・部分要求後unknownは維持する。
 
-Platform Accessは単一entryの属性・reparse tag・実体・linkCountを、非追従handleから読取り専用で観測する。内容読取り、削除、ACL変更、処置許可は提供しない。Docker Isolationは既存三target、保存済み実体、現在Owner・固定対象、非使用条件と有界な列挙を所有し、fresh観測後にNodeの単発unlink／空Directoryのrmdirを使う。下位Nativeへ可変Path Protocolやnonce導出を重複実装せず、Native tree削除や新しいLock方式を追加しない。
+Nodeが明示Link・hardlink・別Pathと観測した対象はNativeで救済しない。NodeのEACCES／EPERMまたは非通常型の候補だけを既存exact AF_UNIX観測へ渡す。Node通常実体とNative特殊実体は別に保持し、単位変換・観測経路変更を一致扱いしない。特殊観測の固定Artifact・完全応答・正常終了は維持する。これは既存自動回収能力を無断で削らないための限定接続であり、Native存続の最終判断ではない。
 
-一要求一Native Process・exact絶対Path一件・固定応答一件を、固定Artifactの前後確認と正常終了へ結合する。専用の要求nonceは追加しない。Native実体のvolume serial／file index／creation FILETIMEと、Node実体のdev／ino／birthtimeNsは別単位のまま各々前後比較し、未実証の変換で同値と扱わない。Native handleの明示close成功後だけ応答を確定する。FILE_NOT_FOUND／PATH_NOT_FOUND以外の失敗、frame欠測・余剰・stderr・非0終了は観測不能である。対象不存在の採用には親／Rootの現在確認も必要であり、親消失を対象不存在へ丸めない。
+Nodeの型・実体・Path検査はWindows raw属性／全reparse tagの独立検証と同等ではなく、未知のWindows拡張を網羅的に排除する保証や、確認後の敵対的Path差替えを原子的に防ぐ保証を持たない。旧Nativeも観測Handleを閉じてからNodeが削除しており、原子的な観測・削除を保証していなかった。
+
+特殊Socketの自動回収必要性は、技術的に観測・削除できることと分けて評価する。上位の期限付き保持引渡しは判断待ち・未廃棄の状態からだけ受け付け、discard確定後や部分回収後は切り替えられない。単に特殊回収を削除しても既存保持導線へ戻れるとは扱わない。[今回の必要性評価](../../../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#通常filesystem実体のnodejs統一と特殊socketの評価--2026-11-11)を参照する。
 
 2026-10-17の自己生成Host試験では、異常終了した試験子のAF_UNIX端点が残り、raw tag `0x80000023`、Node Direntのlink=true、lstatのEACCESを観測した。Node unlink後の明示不存在と専用試験Root不存在を確認した。正常closeでは端点自体が消え、sandbox内のbindは拒否されたため、これらを残存端点の削除成功とは数えない。この実測は方式選択の根拠に限り、製品Driver・保存前後・三用途全体・実Docker修復の成立根拠ではない。
 

@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+退避Directory回収の通常File／Directory・不存在確認をDIのNode.js観測へ統一し、通常対象のNative二重照合を撤去した。特殊AF_UNIX候補だけは既存Nativeへ限定接続し、自動回収の最終採否は未決。試験子の残存実測はあるが本番必須根拠は不足しており、discard開始後には既存保持引渡しへ切り替えられない制約を確認した。関連限定回帰・独立確認を実施し、全体回帰・実AI・実Docker・過去保持物操作は保留する。[実装範囲・保証差・次判断](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#通常filesystem実体のnodejs統一と特殊socketの評価--2026-11-11)を参照する。
+
 Docker Desktop Helperを退役し、Executor経由のDIで公式CLI・既存Node.js処理・共通wxを使う構成へ統合した。Native由来の修復所有Hash・重複Scope Hashは撤去し、基点を変えない運用条件と既存Directory実体検査を維持する。限定回帰・実Writer結合・独立再レビューは完了した。全体回帰、実Docker停止／起動／退避、残存Provider Home等のNative整理は未完了。[現在の結果と保証変更](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#desktop-helperの公式cli統合--2026-11-10)を参照する。
 
 Runtime Stateの本番初期化・実体照合をCoordinatorの既存Node Storeへ統合し、Runtime専用のNative呼出し・公開入口・Capability再包装を撤去した。各段の非リンク・所在・実体確認、既存wx排他・保存世代・CASは維持するが、SID／DACL等の独立保証とは同等としない。続いて旧Native値4・初期化処理・未使用TS契約を撤去し、配布物を同期した。Provider Homeの保護とFilesystem観測は残存する。今回の限定検証と独立再レビューは完了、全体回帰は保留する。実AI・Docker・過去保持物は操作していない。[現在の変更と残存範囲](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#旧runtime-state-native処理の撤去--2026-11-11)を参照する。

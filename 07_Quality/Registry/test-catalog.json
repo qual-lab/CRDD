@@ -2442,6 +2442,10 @@
         "cleanup"
       ],
       "environment": "local_component_boundary",
+      "executionProfiles": [
+        "restricted_process",
+        "windows_process_control"
+      ],
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [

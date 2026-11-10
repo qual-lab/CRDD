@@ -47,7 +47,7 @@ Dockerの署名確認専用PowerShell環境は、DIの既存`docker-cli/environm
 | Runtime State初期化：Coordinator | SID／DACL・祖先Handleの独立確認 | 本番は既存Node Storeへ移管済み。旧Native内部Protocolと初期化処理も削除済み |
 | Provider Home観測：Coordinator | 選択利用者SID、protected DACL、祖先Handle・Token照合 | Native Policyを維持。Runtime Stateの判断を認証Homeへ流用しない |
 | OS既定所在：Native自身の搬送 | System Windows API由来の独立観測 | PA自身に必要なSystem Windows観測は維持。DIの所在は上位確定設定へ移管し、Local AppData専用入口は退役済み |
-| Entry観測：DIの修復Directory処置 | reparse tag、Native File Identityとlink countの技術検査 | lstatだけへ置換しない。実処置OwnerはDI |
+| Entry観測：DIの修復Directory処置 | 特殊AF_UNIX候補のexact reparse tag・Native実体検査 | 通常File／Directory・不存在はDIのNode観測へ統一。特殊候補だけ既存Nativeに接続し、自動回収の必要性とNative撤去は別判断。実処置OwnerはDI |
 | Desktop Helper：退役 | 独自Process不存在・Native Handle／Job等の保証 | 公式CLIと既存Node処理へ統合済み。同等保証とは扱わず、現行条件はDI設計を参照する |
 | Desktop技術排他：DI | 旧SID Mutexの区分・Crash時自動解放 | 共通wxへ移行済み。同じ基点の運用・残存時のFail Closed・停止下明示回復とし、旧方式とは並走しない |
 | Artifact照合：上記搬送の全利用側 | 固定配布物の前後同一性とProtocol相関 | Nativeが残る間は維持 |
