@@ -35,6 +35,10 @@ import {
   savePlan,
   saveCoordinatorManagedProject,
   saveCoordinatorIntegrationRecord,
+  hashRuntimeStateValueText,
+  readCoordinatorLeaseOwnerLoss,
+  reserveCoordinatorLeaseRecovery,
+  settleCoordinatorLeaseRecovery,
 } from "../../../domain-model/src/index.ts";
 import {
   readRepositoryStorageIdentity,
@@ -49,6 +53,7 @@ import {
   acquireCoordinatorSnapshotLease,
   inspectCoordinatorSnapshotLeaseAcquisitionOwner,
   reconcileCoordinatorSnapshotLeaseOwnerLoss,
+  borrowCoordinatorActiveLease,
 } from "../../src/execution/lease.ts";
 import { verifyRuntimePersistenceRepository } from "../../src/execution/persistence.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
@@ -209,10 +214,10 @@ for (const fault of ["unobservable", "alias"] as const) {
    * @responsibility Owner blockedと物理Identity/Recovery Identityの保持を判定する。
    * @trace PRL-IT-012
    * @precondition 新版の実Leaseと取得intentがある。
-   * @stimulus tmpの観測不能またはjunction置換後にreleaseを呼ぶ。
+   * @stimulus tmpの観測不能又は親移動・junction置換を試行する。OS拒否時はalias未成立を明示する。
    * @observation 停止結果、回復ID、Lock実体と保存bytesを取得する。
-   * @oracle 手動回復を要求し同じLockと回復参照を残す。
-   * @cleanup 親と注入関数を復元し同じLeaseを解放後fixtureを清掃する。
+   * @oracle 置換成立時だけ解放拒否と同じLock・回復参照を確認する。OSが親移動を拒否した場合は元実体・保存不変と正常解放を確認する。
+   * @cleanup OS拒否時は正常解放、置換成立時は親を復元し終了したdescriptorの元回復IDで既存回復を行い、fixtureを清掃する。
    * @boundary opaque Lease→Runtime Data Owner→Filesystem cleanup。
    */
   test(`tmp親境界の${fault}はLeaseを不存在にせず削除を拒否する`, (t) => {
@@ -251,7 +256,27 @@ for (const fault of ["unobservable", "alias"] as const) {
     const beforeBytes = fs.readFileSync(statePath);
     const original = fs.lstatSync;
     if (fault === "alias") {
-      fs.renameSync(temporary, moved);
+      try {
+        fs.renameSync(temporary, moved);
+      } catch (error) {
+        // Windowsが保持中fdの祖先移動を拒否した場合、aliasは成立していない。
+        assert.ok(
+          ["EPERM", "EACCES", "EBUSY"].includes(
+            (error as NodeJS.ErrnoException).code ?? "",
+          ),
+        );
+        assert.equal(fs.existsSync(moved), false);
+        const current = fs.lstatSync(lockPath);
+        assert.equal(current.dev, lockMetadata.dev);
+        assert.equal(current.ino, lockMetadata.ino);
+        assert.deepEqual(fs.readFileSync(statePath), beforeBytes);
+        assert.equal(acquired.value.release().status, "completed");
+        assert.equal(fs.existsSync(lockPath), false);
+        t.diagnostic(
+          "OSが保持中Leaseの親移動を拒否。aliasを作成したSource反証とは区別する。",
+        );
+        return;
+      }
       fs.symlinkSync(moved, temporary, "junction");
     } else {
       Reflect.set(fs, "lstatSync", ((
@@ -282,7 +307,17 @@ for (const fault of ["unobservable", "alias"] as const) {
     assert.equal(actual.ino, lockMetadata.ino);
     assert.equal(actual.birthtimeMs, lockMetadata.birthtimeMs);
     assert.deepEqual(fs.readFileSync(statePath), beforeBytes);
-    assert.equal(acquired.value.release().status, "completed");
+    assert.equal(
+      reconcileCoordinatorSnapshotLeaseOwnerLoss(
+        root,
+        "binding-a",
+        "project-a",
+        "canonical",
+        "canonical-adoption",
+        (owner) => ({ ...owner, status: "absent" }),
+      ).status,
+      "completed",
+    );
     assert.equal(fs.existsSync(lockPath), false);
   });
 }
@@ -850,10 +885,9 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
     }
     const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
     const lock = path.join(locks, fs.readdirSync(locks)[0] as string);
-    if (mode === "nonempty")
-      fs.writeFileSync(path.join(lock, "in-use"), "fixture");
+    if (mode === "nonempty") fs.appendFileSync(lock, "fixture");
     if (mode === "unbound_absent" || mode === "unbound_no_parent")
-      fs.rmdirSync(lock);
+      fs.unlinkSync(lock);
     if (mode === "unbound_no_parent") {
       fs.rmdirSync(locks);
       fs.rmdirSync(path.dirname(locks));
@@ -878,17 +912,21 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
         return Reflect.apply(originalRename, fs, args);
       },
     );
-    const originalLoad = Atomics.load;
+    const originalRelease = fs.rmSync;
     const isReleaseUnknown = mode === "initial_release_unknown";
     const releasing = t.mock.method(
-      Atomics,
-      "load",
-      (...args: Parameters<typeof originalLoad>) => {
-        const value = Reflect.apply(originalLoad, Atomics, args);
-        if (isReleaseUnknown && Number(value) === 2) {
-          return 3;
-        }
-        return value;
+      fs,
+      "rmSync",
+      (...args: Parameters<typeof originalRelease>) => {
+        if (
+          isReleaseUnknown &&
+          path.dirname(String(args[0])) === path.join(root, ".crdd") &&
+          /^current-state\.[0-9a-f]{64}\.lock$/u.test(
+            path.basename(String(args[0])),
+          )
+        )
+          throw Error("injected_initial_snapshot_release_unknown");
+        return Reflect.apply(originalRelease, fs, args);
       },
     );
     let isCallbackObserved = false;
@@ -1096,19 +1134,21 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
     const directory = path.join(root, ".crdd", "domain-model");
     const current = path.join(directory, "state.json");
     if (failure === "intent_release_confirmation") {
-      const original = Atomics.load;
+      const original = fs.rmSync;
       const mock = t.mock.method(
-        Atomics,
-        "load",
+        fs,
+        "rmSync",
         (...args: Parameters<typeof original>) => {
-          const observed = Reflect.apply(original, Atomics, args);
           if (
-            Number(observed) === 2 &&
+            path.dirname(String(args[0])) === path.join(root, ".crdd") &&
+            /^current-state\.[0-9a-f]{64}\.lock$/u.test(
+              path.basename(String(args[0])),
+            ) &&
             JSON.parse(fs.readFileSync(current, "utf8")).leaseIntents.length ===
               1
           )
-            return 3;
-          return observed;
+            throw Error("injected_intent_lock_release_unknown");
+          return Reflect.apply(original, fs, args);
         },
       );
       try {
@@ -1256,10 +1296,10 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
       assert.equal(acquired.status, "completed");
       if (acquired.status !== "completed")
         throw new Error("lease_fixture_failed");
-      const original = fs.rmdirSync;
+      const original = fs.rmSync;
       const mock = t.mock.method(
         fs,
-        "rmdirSync",
+        "rmSync",
         (...args: Parameters<typeof original>) => {
           if (String(args[0]).includes("orchestrator-leases"))
             throw new Error("injected_release_failure");
@@ -2264,16 +2304,16 @@ function fixture(t: test.TestContext) {
  * @cleanup 呼出し元のfixture hookが自己所有Rootを回収する。
  * @boundary 子Process試験の入力準備から現在Snapshot保存。
  */
-function currentQueueFixture(t: test.TestContext) {
+function currentQueueFixture(t: test.TestContext, binding = "binding-a") {
   const { root, state } = fixture(t);
   assert.equal(
     initializeCoordinatorSnapshot(
       verifyRuntimePersistenceRepository(root),
-      "binding-a",
+      binding,
     ).status,
     "completed",
   );
-  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  const ports = createCurrentCoordinatorPersistencePorts(root, binding);
   assert.equal(ports.state.writeState(state, 0).status, "completed");
   assert.equal(
     ports.state.enqueueOperation({
@@ -3617,11 +3657,11 @@ test("PR-A-04 実排他の清掃失敗は現行解放意図と回復参照を保
   assert.equal(typeof lockName, "string");
   if (lockName === undefined) throw new Error("lease_resource_missing");
   const lock = path.join(locks, lockName);
-  const original = fs.rmdirSync;
+  const original = fs.rmSync;
   let isInjected = false;
   const mock = t.mock.method(
     fs,
-    "rmdirSync",
+    "rmSync",
     (...args: Parameters<typeof original>) => {
       if (String(args[0]) === lock) {
         isInjected = true;
@@ -3689,13 +3729,13 @@ test("PR-A-04 reconciles release intent created before Queue ownership", (t) => 
 import { acquireCoordinatorSnapshotLease } from ${JSON.stringify(moduleUrl)};
 const lease = acquireCoordinatorSnapshotLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "project-operation");
 if (lease.status !== "completed") process.exit(20);
-const original = fs.rmdirSync;
-fs.rmdirSync = (...args) => {
+const original = fs.rmSync;
+fs.rmSync = (...args) => {
   if (String(args[0]).includes("orchestrator-leases")) throw new Error("injected_lease_release_failure");
   return Reflect.apply(original, fs, args);
 };
 const release = lease.value.release();
-fs.rmdirSync = original;
+fs.rmSync = original;
 if (release.status !== "blocked" || !release.manualRecoveryRequired) process.exit(21);`,
     ],
     { windowsHide: true },
@@ -4427,4 +4467,407 @@ test("PR-D-A-01 rejects generic recovery resume without advancing generation", (
   );
   assert.equal(ports.state.readQueue("queue-a").value?.generation, 3);
   assert.equal(fs.existsSync(queueDirectory(root)), false);
+});
+
+/**
+ * 遅延回復者はfresh照合で拒否され、新しいOwnerのFileを処置しない。
+ * @trace PRL-IT-012
+ * @boundary Coordinator→Domain短期排他→自己生成Filesystem。実AI・Dockerを起動しない。
+ * @oracle 回復Bの物理処置0、新Ownerのbytes・世代不変。fixtureが今回Rootを回収する。
+ */
+test("長期wx Leaseの遅延回復は新Ownerを削除しない", (t) => {
+  const { root, ports } = currentQueueFixture(t);
+  const old = ports.lease.acquire("project-a", "queue-a", "project-operation");
+  assert.equal(old.status, "completed");
+  if (old.status !== "completed") throw Error("fixture");
+  const active = borrowCoordinatorActiveLease(old.value);
+  assert.ok(active);
+  // 実Process終了と同じくdescriptorだけを閉じ、元FileとIntentを残す。
+  assert.equal(active.physicalLock.release(true), true);
+  const observeRoot = (repositoryRoot: string) => {
+    const s = fs.lstatSync(repositoryRoot);
+    return {
+      repositoryRoot,
+      rootIdentity: hashRuntimeStateValueText(
+        JSON.stringify([s.dev, s.ino, s.birthtimeMs]),
+      ),
+    };
+  };
+  const inspected = readCoordinatorLeaseOwnerLoss(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+    { observeRoot },
+  );
+  assert.equal(inspected.status, "completed");
+  if (inspected.status !== "completed") throw Error("fixture");
+  const initial = inspected.value,
+    own = initial.intents,
+    first = own[0];
+  assert.ok(first);
+  const pending = {
+    ...first,
+    phase: "recovery_pending" as const,
+    physicalIdentity: active.snapshotPhysicalIdentity ?? null,
+  };
+  const reserved = reserveCoordinatorLeaseRecovery(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+    initial,
+    own,
+    pending,
+    first.recoveryId,
+    { observeRoot },
+  );
+  assert.equal(reserved.status, "completed");
+  // Aは同じpendingへ再入場して回収・保存し、その後新Ownerが取得する。
+  assert.equal(
+    ports.lease.reconcileOperationOwnerLoss(
+      "project-a",
+      "queue-a",
+      (owner) => ({ ...owner, status: "absent" }),
+    ).status,
+    "completed",
+  );
+  const next = ports.lease.acquire("project-a", "queue-a", "project-operation");
+  assert.equal(next.status, "completed");
+  if (next.status !== "completed") throw Error("fixture");
+  const nextActive = borrowCoordinatorActiveLease(next.value);
+  assert.ok(nextActive);
+  const before = fs.readFileSync(nextActive.lock);
+  let physicalCalls = 0;
+  const delayed = settleCoordinatorLeaseRecovery(
+    verifyRuntimePersistenceRepository(root),
+    "binding-a",
+    "binding-a",
+    "project-a",
+    "queue-a",
+    "project-operation",
+    initial,
+    own,
+    pending,
+    first,
+    first.recoveryId,
+    {
+      observeRoot,
+      recoverResources: () => {
+        physicalCalls++;
+        fs.unlinkSync(nextActive.lock);
+        return true;
+      },
+      resourcesAbsent: () => true,
+    },
+  );
+  assert.equal(delayed.status, "blocked");
+  assert.equal(physicalCalls, 0);
+  assert.deepEqual(fs.readFileSync(nextActive.lock), before);
+  assert.notEqual(next.value.ownerGeneration, old.value.ownerGeneration);
+  assert.equal(next.value.release().status, "completed");
+});
+
+/**
+ * 同期回収の不成立と不存在不明を保存成功にしない。
+ * @trace PRL-IT-012
+ * @oracle Promise／false／throw／不存在不明で元File・pending・回復IDを保全し、開始を拒否する。
+ * @boundary Domain短期Owner→用途固定回収Callback。fixture以外の保持物は操作しない。
+ */
+test("長期Lease回復は同期処置と明示不存在の両方を要求する", (t) => {
+  for (const mode of [
+    "promise",
+    "false",
+    "throw",
+    "absence_unknown",
+  ] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const old = ports.lease.acquire(
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    assert.equal(old.status, "completed");
+    if (old.status !== "completed") throw Error("fixture");
+    const active = borrowCoordinatorActiveLease(old.value);
+    assert.ok(active);
+    assert.equal(active.physicalLock.release(true), true);
+    const observeRoot = (repositoryRoot: string) => {
+      const s = fs.lstatSync(repositoryRoot);
+      return {
+        repositoryRoot,
+        rootIdentity: hashRuntimeStateValueText(
+          JSON.stringify([s.dev, s.ino, s.birthtimeMs]),
+        ),
+      };
+    };
+    const inspected = readCoordinatorLeaseOwnerLoss(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "project-operation",
+      { observeRoot },
+    );
+    if (inspected.status !== "completed") throw Error("fixture");
+    const initial = inspected.value,
+      own = initial.intents,
+      first = own[0];
+    assert.ok(first);
+    const pending = {
+      ...first,
+      phase: "recovery_pending" as const,
+      physicalIdentity: active.snapshotPhysicalIdentity ?? null,
+    };
+    assert.equal(
+      reserveCoordinatorLeaseRecovery(
+        verifyRuntimePersistenceRepository(root),
+        "binding-a",
+        "project-a",
+        "queue-a",
+        "project-operation",
+        initial,
+        own,
+        pending,
+        first.recoveryId,
+        { observeRoot },
+      ).status,
+      "completed",
+    );
+    const stateFile = path.join(root, ".crdd", "domain-model", "state.json"),
+      before = fs.readFileSync(stateFile),
+      physical = fs.readFileSync(active.lock);
+    let calls = 0;
+    const result = settleCoordinatorLeaseRecovery(
+      verifyRuntimePersistenceRepository(root),
+      "binding-a",
+      "binding-a",
+      "project-a",
+      "queue-a",
+      "project-operation",
+      initial,
+      own,
+      pending,
+      first,
+      first.recoveryId,
+      {
+        observeRoot,
+        recoverResources: () => {
+          calls++;
+          if (mode === "throw") throw Error("injected");
+          return mode === "promise"
+            ? (Promise.resolve(true) as never)
+            : mode === "absence_unknown";
+        },
+        resourcesAbsent: () => Promise.resolve(true) as never,
+      },
+    );
+    assert.equal(result.status, "blocked", mode);
+    assert.equal(calls, 1, mode);
+    assert.deepEqual(fs.readFileSync(stateFile), before, mode);
+    assert.deepEqual(fs.readFileSync(active.lock), physical, mode);
+    assert.equal(
+      ports.lease.acquire("project-a", "queue-a", "project-operation").status,
+      "blocked",
+      mode,
+    );
+    assert.equal(
+      ports.lease.reconcileOperationOwnerLoss(
+        "project-a",
+        "queue-a",
+        (owner) => ({ ...owner, status: "absent" }),
+      ).status,
+      "completed",
+      mode,
+    );
+    assert.equal(fs.existsSync(active.lock), false, mode);
+  }
+});
+/**
+ * 既存の有効ID域で取得・通常解放・実Process終了後の回復を維持する。
+ * @trace PRL-IT-012
+ * @oracle 長い単一名・連続dotをTraversalと誤認せず、元世代の回収後に新取得できる。
+ * @boundary 自己生成Repositoryと子Processだけ。Fixture hookでRootを回収する。
+ */
+test("長期Leaseの既存ID域はwx取得・通常解放・Crash回復で維持する", (t) => {
+  for (const binding of ["a..b", "b".repeat(120)]) {
+    const { root, ports } = currentQueueFixture(t, binding);
+    const held = ports.lease.acquire(
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    assert.equal(held.status, "completed");
+    if (held.status !== "completed") throw Error("fixture");
+    assert.equal(held.value.release().status, "completed");
+    const url = new URL("../../src/execution/lease.ts", import.meta.url).href;
+    execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `import {acquireCoordinatorSnapshotLease} from ${JSON.stringify(url)};const r=acquireCoordinatorSnapshotLease(${JSON.stringify(root)},${JSON.stringify(binding)},"project-a","queue-a","project-operation");if(r.status!=="completed")process.exit(20);`,
+      ],
+      { windowsHide: true },
+    );
+    const recovered = ports.lease.reconcileOperationOwnerLoss(
+      "project-a",
+      "queue-a",
+      (owner) => ({ ...owner, status: "absent" }),
+    );
+    assert.equal(recovered.status, "completed", JSON.stringify(recovered));
+    const next = ports.lease.acquire(
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    assert.equal(next.status, "completed");
+    if (next.status === "completed")
+      assert.equal(next.value.release().status, "completed");
+  }
+});
+
+/**
+ * 初回保持観測拒否とRepository再検証例外でも元descriptorを終了する。
+ * @trace PRL-IT-012
+ * @oracle 例外を漏らさず同じ回復ID・元bytesを保全し、descriptorはEBADF、同ID回復で閉じる。
+ * @boundary 共通Lockの元fdとCoordinatorの解放・回復。自己生成Root以外は操作しない。
+ */
+test("長期Leaseの解放前拒否はdescriptorを閉じ同じ回復参照を保持する", (t) => {
+  for (const mode of ["observation", "repository"] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const open = fs.openSync;
+    let descriptor = -1;
+    const opening = t.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof open>) => {
+        const fd = Reflect.apply(open, fs, args);
+        if (String(args[0]).includes("orchestrator-leases") && args[1] === "wx")
+          descriptor = fd;
+        return fd;
+      },
+    );
+    const held = ports.lease.acquire(
+      "project-a",
+      "queue-a",
+      "project-operation",
+    );
+    opening.mock.restore();
+    if (held.status !== "completed") throw Error("fixture");
+    assert.ok(descriptor >= 0);
+    const active = borrowCoordinatorActiveLease(held.value);
+    assert.ok(active);
+    const before = fs.readFileSync(active.lock);
+    const prior = readFixtureSnapshot(root, "binding-a").value?.leaseIntents[0]
+      ?.recoveryId;
+    const stat = fs.lstatSync;
+    let injected = false;
+    const injection = t.mock.method(
+      fs,
+      "lstatSync",
+      (...args: Parameters<typeof stat>) => {
+        const selected =
+          mode === "observation"
+            ? String(args[0]) === active.lock
+            : new Error().stack?.includes(
+                "verifyRuntimePersistenceRepository",
+              ) === true;
+        if (selected) {
+          injected = true;
+          throw Error("injected_release_boundary");
+        }
+        return Reflect.apply(stat, fs, args);
+      },
+    );
+    let result: ReturnType<typeof held.value.release>;
+    try {
+      result = held.value.release();
+    } finally {
+      injection.mock.restore();
+    }
+    assert.equal(injected, true, mode);
+    assert.equal(result.status, "blocked", mode);
+    assert.equal(result.recoveryId, prior, mode);
+    assert.throws(() => fs.fstatSync(descriptor), { code: "EBADF" });
+    assert.deepEqual(fs.readFileSync(active.lock), before);
+    const recovered = ports.lease.reconcileOperationOwnerLoss(
+      "project-a",
+      "queue-a",
+      (owner) => ({ ...owner, status: "absent" }),
+    );
+    assert.equal(recovered.status, "completed", JSON.stringify(recovered));
+  }
+});
+
+/**
+ * File観測はopen後の置換・読取り中増大でも上限+1byte以内で停止する。
+ * @trace PRL-IT-012
+ * @oracle 取得不明と元回復IDを保持し、read上限・fd終了・残存保全を直接観測する。
+ * @boundary 新品FixtureのFile故障注入。過去保持物の回収は行わない。
+ */
+test("長期Lease File観測はopened実体を先に検査し固定上限で読む", (t) => {
+  for (const mode of ["grow-at-open", "grow-at-read"] as const) {
+    const { root, ports } = currentQueueFixture(t);
+    const open = fs.openSync,
+      read = fs.readSync;
+    let descriptor = -1,
+      requested = 0,
+      injected = false;
+    const opening = t.mock.method(
+      fs,
+      "openSync",
+      (...args: Parameters<typeof open>) => {
+        const fd = Reflect.apply(open, fs, args);
+        if (
+          String(args[0]).includes("orchestrator-leases") &&
+          args[1] === "r" &&
+          new Error().stack?.includes("observePhysicalLeaseFile")
+        ) {
+          descriptor = fd;
+          if (mode === "grow-at-open") {
+            injected = true;
+            fs.appendFileSync(String(args[0]), "x".repeat(4096));
+          }
+        }
+        return fd;
+      },
+    );
+    const reading = t.mock.method(fs, "readSync", (...args: unknown[]) => {
+      if (
+        args[0] === descriptor &&
+        descriptor >= 0 &&
+        new Error().stack?.includes("observePhysicalLeaseFile")
+      ) {
+        assert.equal(typeof args[3], "number");
+        requested += Number(args[3]);
+        if (!injected && mode === "grow-at-read") {
+          injected = true;
+          const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+          fs.appendFileSync(
+            path.join(locks, fs.readdirSync(locks)[0]!),
+            "x".repeat(4096),
+          );
+        }
+      }
+      return Reflect.apply(read, fs, args);
+    });
+    let result: ReturnType<typeof ports.lease.acquire>;
+    try {
+      result = ports.lease.acquire("project-a", "queue-a", "project-operation");
+    } finally {
+      opening.mock.restore();
+      reading.mock.restore();
+    }
+    assert.equal(injected, true, mode);
+    assert.equal(result.status, "blocked", mode);
+    assert.ok(result.recoveryId, mode);
+    assert.ok(requested <= 2049, mode);
+    if (mode === "grow-at-open") assert.equal(requested, 0);
+    assert.throws(() => fs.fstatSync(descriptor), { code: "EBADF" });
+    const locks = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    assert.equal(fs.readdirSync(locks).length, 1);
+  }
 });

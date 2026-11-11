@@ -1,5 +1,23 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+<a id="long-lease-common-lock"></a>
+
+## 長期Leaseの共通File排他への接続 — 2026-11-11
+
+長期Task／採用Leaseの物理取得・保持・通常解放は既存共通Lockのwx／assertLive／releaseへ接続する。Leaseの取得・解放Intent、Owner世代、Queue CAS、終了証拠、Owner喪失判断と再入場はCoordinator／Domainの現Ownerへ残す。共通Lockの取得世代とLeaseの業務世代は同一視しない。保存Schema・公開Lease操作・既存の回復ID・固定所在を変更しない。physicalIdentityは新規取得した通常Fileの実体＋元内容Hashを表す不透明値とする。
+
+通常取得はIntent保存→wx取得→元File照合→取得確認保存とし、取得後の検査・confirm失敗でもdescriptorを閉じ元Fileを保全する。通常解放は解放Intent→元共通Lock解放→明示不存在→終了保存の順を維持する。
+
+解放の初回保持観測拒否・Repository再検証例外を含む失敗では、descriptorを閉じ、失敗Leaseを再利用せず同じ回復IDへ接続する。元Fileや観測不能な所在を削除して終了としない。共通Lockの名前検査は従来Leaseの有効な単一名を扱える255 ASCII文字までとし、区切り文字・先頭の二連dot・固定親逸脱を拒否する。途中の連続dotはPath Traversalではなく有効IDの一部として保持する。
+
+close自体が失敗した場合はdescriptor終了を確定扱いせず、解放不明と元回復参照を保全する。Ownerが存続又は生死不明のまま回収を進めない。
+
+既存のOwner喪失回復は、Ownerの明示不在→Recovery Intent保存→既存短期保存Lock→fresh Root／Queue／Intent／世代／終了証拠の全照合と候補構築→Coordinatorの固定同期File回収→明示不存在→同じLockで保存、とする。短期排他の外で先にFileを削除しない。後発回復者はfresh不一致で処置0、回収後の保存失敗ではIntentと元回復IDを残し新取得を拒否する。Promiseの返却を処置完了へ変換しない。
+
+physicalIdentity未確定時は、取得前に不存在を確認した唯一のacquisition_reserved、同じOwner・世代・回復IDとOwner明示不在を一体の協調根拠とする。正規固定親・非リンクのbounded通常単一Link Fileだけをcaptureし、そのstat＋内容Hashを保存した回復Intentへ結合して、全fresh照合後・削除直前に再照合する。これは任意残存の一般adoptionではない。旧Directory・別実体・内容差・観測不能は保全停止し、旧方式のfallbackを作らない。実運用で旧方式と並走せず、既存保持物の移行・処置は別許可とする。
+
+検証は[PRL-IT-012](../../../07_Quality/Definitions/QA-000003/quality_definition.md#長期leaseの共通lock接続)に接続し、[変更記録](../../../99_Roadmap/Changes/CHG-000082/lock-boundary-design.md)で追跡する。全体回帰・実AI／Docker・過去保持物を今回操作しない。
+
 ## PA退役後のSource／Git照合 — 2026-11-11
 
 開発実行は固定Sourceの内容・実体、Repositoryの改訂・Treeを照合し、前後Repository一致とSessionの期限・取消・実行回数・元Identity比較を維持する。Native成果物Hash・借用API・専用出所照合は対象成果物とともに撤去した。Source根拠は元Identityへ保持する。Source観測scopeは`crdd-development-source-snapshot/v3`。以下の過去段階のNative実装記述を現行要件へ読み替えない。既存保存field名に残るNative表記は、この整理を理由に変更しない。

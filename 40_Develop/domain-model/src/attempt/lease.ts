@@ -550,7 +550,6 @@ export function prepareCoordinatorLeaseRecoverySettlement(
       repositoryRoot: string;
       rootIdentity: string;
     }>;
-    resourcesAbsent: () => boolean;
   }>,
 ) {
   const root = observeLeaseRoot(observations.observeRoot);
@@ -576,8 +575,7 @@ export function prepareCoordinatorLeaseRecoverySettlement(
         ownIntents.some((item) => item.phase === "recovery_pending")
           ? ownIntents
           : [...ownIntents, pending],
-      ) ||
-    observations.resourcesAbsent() !== true
+      )
   )
     return blocked(
       "orchestrator_lease_recovery_state_mismatch",

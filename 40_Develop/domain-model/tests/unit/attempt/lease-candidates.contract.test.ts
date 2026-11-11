@@ -718,7 +718,7 @@ test("回復確定はunknown取得を成功へ変えず終了証拠と対象Queu
     const o = observations();
     const result = run(current, o.ops);
     assert.equal(result.status, "completed");
-    assert.deepEqual(o.calls, ["root", "absent"]);
+    assert.deepEqual(o.calls, ["root"]);
     if (result.status !== "completed") throw Error("fixture");
     assertEvidence(
       result.value.next.leaseEvidence.at(-1),
@@ -749,18 +749,7 @@ test("回復確定はunknown取得を成功へ変えず終了証拠と対象Queu
       "blocked",
     );
     assert.deepEqual(stale.calls, ["root"]);
-    const unavailable = observations();
-    assert.equal(
-      run(current, {
-        ...unavailable.ops,
-        resourcesAbsent: () => {
-          unavailable.calls.push("absent");
-          return Promise.resolve(true) as never;
-        },
-      }).status,
-      "blocked",
-    );
-    assert.deepEqual(unavailable.calls, ["root", "absent"]);
+    // 資源処置・不存在の同期完了は保存Ownerの結合試験で確認する。
     assert.equal(
       run({
         ...result.value.next,

@@ -106,6 +106,7 @@ import {
 } from "../state/transition.ts";
 import type {
   CoordinatorSnapshot,
+  LeaseKind,
   CoordinatorState,
   CoordinatorStateSnapshot,
   HistoryRow,
@@ -8299,35 +8300,59 @@ export function reserveCoordinatorLeaseRecovery(
   );
 }
 
+/** 保存候補の全照合後、同じ短期Owner内で一度だけ呼ぶCoordinatorの同期回収操作。 */
+type CoordinatorLeaseRecoveryInput = [
+  binding: string,
+  projectId: string,
+  queueId: string,
+  kind: LeaseKind,
+  initial: Readonly<{
+    repositoryRoot: string;
+    rootIdentity: string;
+    queue: ProjectQueueEntry | null;
+  }>,
+  ownIntents: CoordinatorSnapshot["leaseIntents"],
+  pending: CoordinatorSnapshot["leaseIntents"][number],
+  first: CoordinatorSnapshot["leaseIntents"][number],
+  recoveryId: string,
+  operations: Readonly<{
+    observeRoot: (repositoryRoot: string) => Readonly<{
+      repositoryRoot: string;
+      rootIdentity: string;
+    }>;
+    recoverResources: (repositoryRoot: string) => boolean;
+    resourcesAbsent: (repositoryRoot: string) => boolean;
+  }>,
+];
+
 /**
- * 実資源確認後にLease回復の保存を確定する。
+ * 全fresh照合・候補構築後にCoordinatorの同期回収と不存在を確認し、同じ排他内で保存する。
  * @responsibility 元集合・Root・資源不存在を照合して同じQueueと終了証拠だけを更新する。
  * @trace ARCH-000004、ARCH-000008
  * @input workingDirectory、binding: 検証対象と既存結合。元状態、intent集合、元取得、pending、回復IDとRoot限定観測。
  * @returns 元の候補結果を保存・解放確認後に返す。
  * @precondition 操作認可は呼出し側が現在確認している。
  * @postcondition 未知・元参照・候補外区画を保つ。
- * @effect 既存の読取りと必要な候補保存だけ。
+ * @effect 既存保存Lock内で用途固定の同期物理処置を一度呼び、明示不存在後に候補を保存する。
  * @failure 競合・観測不能・例外・解放不明は元の停止へ返す。
  * @invariant 生Owner・任意Snapshot callbackを公開しない。
  * @boundary 固定操作と唯一の短期保存Owner。
  * @security 観測関数を保存又は登録しない。
- * @concurrency 実行側の物理処置へ短期Lockを持ち越さない。
+ * @concurrency Root・Queue・Intent・終了証拠の検査から同期処置・保存まで同じ短期Lock。外部待機は持ち込まない。
  */
+
 export function settleCoordinatorLeaseRecovery(
   workingDirectory: Repository,
   binding: string,
-  ...input: CoordinatorRootObservedInput<
-    Parameters<typeof prepareCoordinatorLeaseRecoverySettlement>
-  >
+  ...input: CoordinatorLeaseRecoveryInput
 ) {
   return withCoordinatorSnapshotOperation<
     Extract<
       ReturnType<typeof prepareCoordinatorLeaseRecoverySettlement>,
       { status: "completed" }
     >["value"]["value"]
-  >(workingDirectory, binding, (current, owner) =>
-    prepareCoordinatorLeaseRecoverySettlement(
+  >(workingDirectory, binding, (current, owner) => {
+    const prepared = prepareCoordinatorLeaseRecoverySettlement(
       current,
       input[0],
       input[1],
@@ -8340,10 +8365,22 @@ export function settleCoordinatorLeaseRecovery(
       input[8],
       {
         observeRoot: () => input[9].observeRoot(owner.repositoryRoot),
-        resourcesAbsent: () => input[9].resourcesAbsent(owner.repositoryRoot),
       },
-    ),
-  );
+    );
+    if (prepared.status !== "completed") return prepared;
+    // Root・Queue・Intent・終了証拠を全照合した後だけ物理処置する。
+    // Promise/thenableを成功へ畳まず、同期完了と明示不存在を両方要求する。
+    if (
+      input[9].recoverResources(owner.repositoryRoot) !== true ||
+      input[9].resourcesAbsent(owner.repositoryRoot) !== true
+    )
+      return blocked(
+        "orchestrator_lease_recovery_state_mismatch",
+        true,
+        input[8],
+      );
+    return prepared;
+  });
 }
 
 /**

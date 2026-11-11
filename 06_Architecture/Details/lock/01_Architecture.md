@@ -4,7 +4,7 @@
 詳細設計領域: lock
 状態: Candidate（協調する単一Hostの契約。全体QA・実運用切替の成立とは分ける）
 Owner: Qual-Lab
-Last Updated: 2026-11-07
+Last Updated: 2026-11-11
 
 ### 未完了操作の終了処理 — 2026-11-10
 
@@ -47,7 +47,7 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 | Resource Lifecycle | PASS | descriptorと元Fileの終了を分け、close不明時は削除しない | [失敗と回復](#失敗と回復) |
 | External Boundary | PASS | Filesystem要求の発行と不存在確認を区別する | [状態と順序](#状態と順序) |
 | State／Consistency | PASS | Lock保持と業務CAS・保存確定を相互代替しない | [責務](#責務と公開契約) |
-| Failure／Recovery | PASS | 不明時は保全し、全関係Process停止下の明示処置に限定する | [失敗と回復](#失敗と回復) |
+| Failure／Recovery | PASS | 不明時は保全し、Primitive自身は回復しない。一般処置は停止下、既存長期Leaseは専用Ownerプロトコルで同期する | [失敗と回復](#失敗と回復) |
 | Observability | PASS | 元世代参照とcleanupConfirmed／descriptorClosedを保持する | [状態と順序](#状態と順序) |
 | Security／Trust | PASS | 任意Path清掃・自動回復・認可の発行を提供しない | [信頼境界](#信頼境界と運用制約) |
 
@@ -79,7 +79,7 @@ Coveredは上記の局所責務の設計接続を表す。各ARCH全体の完成
 | Topic／Meeting | Domain Model | 既存種別Rootの`.TOPIC-xxxxxx.lock`／`.MTG-xxxxxx.lock`。改訂確認から保存／削除・読戻しまで保持 |
 | 一時Operation | Domain Model | 既存`.operations/<operationId>.lock`。再入場の最初の変更前から公開・読戻しまで、終端では文書・資源回収まで保持 |
 
-EI、Topic／Meeting、一時Operationも同じ`acquireLock`を利用する。別のFile排他方式・PID判定・自動奪取を持たない。各OwnerにはScope、保持区間、保存・世代・一次失敗と終了不明の合成だけを残す。固定名は旧所在を維持するため大文字と先頭dotも許すが、単一basename、長さ、`.lock`終端、`..`・区切り文字拒否は維持する。
+EI、Topic／Meeting、一時OperationとCoordinator長期Leaseも同じ`acquireLock`を利用する。別のFile排他方式・PID判定だけの自動奪取を持たない。各OwnerにはScope、保持区間、保存・世代・一次失敗と終了不明の合成を残す。固定名は既存の有効ID域を維持するため大文字・先頭dot・途中の連続dotを許す。単一ASCII basenameの255文字上限、`.lock`終端、先頭の二連dot・区切り文字拒否と固定親境界を維持する。
 
 一時Operationの業務文書のstaging／hardlink公開は保存処理として残す。Lock専用のstaging、active／released文書、hardlink公開、PID不在による自動削除は撤去する。Lock解放だけが失敗した場合、資源回収済みを巻き戻して資源や業務文書を再生成しない。同じOperation参照でLock残存を示し、停止下の明示処置後に直接不存在を確認する。
 
@@ -116,7 +116,7 @@ EI、Topic／Meeting、一時Operationも同じ`acquireLock`を利用する。�
 | close失敗 | 元Fileは削除せずfalse／descriptor終了不明を保持 | 未知descriptorを再closeしない |
 | 元File・Record・親の不一致 | 保持を肯定せず、解放時もPathを削除しない | 同名の別世代を自己資源として扱わない |
 | 削除失敗・事後観測不能 | release=false。Ownerが業務結果と別に回復必要を保持 | 削除要求の成功を不存在確認へ読み替えない |
-| Crash残存 | 再取得はEEXIST。全利用者停止と再起動抑止下で対象・元世代・実体を確認する | Owner PID不在だけで回復許可を生成しない |
+| Crash残存 | 再取得はEEXIST。一般処置は全利用者停止下。長期Leaseは下記の既存Ownerプロトコルで同じ保存排他を保持する | Owner PID不在だけで回復許可を生成しない |
 
 ## Implementation Structure
 
@@ -144,7 +144,9 @@ Source接続と過去の検証結果は[変更トレース](../../../99_Roadmap/
 
 ## 信頼境界と運用制約
 
-全Consumer・Recovery・清掃Toolが共通の協調プロトコルを守り、保持中に置換・奪取しないことが前提である。wxは作成の排他性を提供するが、最終所有確認とPath指定削除は原子的な条件付き操作ではない。非協調Processによる最終照合後の置換は保証しない。正規Recoveryは全関係Processを停止し、再起動も防止した状態に限定する。通常処理から残存を消すAPIは提供しない。
+全Consumer・Recovery・清掃Toolが共通の協調プロトコルを守り、保持中に置換・奪取しないことが前提である。wxは作成の排他性を提供するが、最終所有確認とPath指定削除は原子的な条件付き操作ではない。非協調Processによる最終照合後の置換は保証しない。共通Lock自体のRecovery APIは提供せず、一般の明示処置は全関係Processを停止し再起動も防止した状態に限定する。
+
+Coordinatorの長期Leaseは既存の用途固定回復を維持する。Ownerの明示不在だけで削除せず、取得前不存在を確認したIntent・同一世代・Queue・終了証拠をDomainのfresh値へ全照合し、同じ短期保存Lock内で元File処置・明示不存在・保存まで行う。新取得も同じDomain排他と未完了Intentを確認するため、正規の二回復者・新Ownerをその区間で競合させない。これは共有Home等への一般的な自動Recoveryの追加ではない。条件と検証は[Coordinator長期Lease](../coordinator/01_Architecture.md#long-lease-common-lock)が所有する。
 
 単一Host・ローカルFilesystemの保証であり、ネットワーク共有・複数Hostへ拡張しない。Crash後は残存Fileにより処理を拒否する。PIDや時刻を削除許可へ昇格しない。保存CAS、Home排他の取得区間、Effect前記録とDIの終了確認は各Ownerに残す。
 

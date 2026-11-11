@@ -640,3 +640,43 @@ Repository全体Checkerも別途実行したが、3,804件で不合格。内訳�
 補助の通常権限再試験ではJunction作成がEPERMとなり、11件中1件不合格だった。このrunを成功へ書き換えない。自己生成Rootは試験終了処置後にexact Pathの不存在を確認した。TEMP等を新品Repository-local領域へ限定し、既存の必要権限で別runを行い11件成功、専用Rootも境界・非link確認後に回収して不存在を確認した。検査やPolicyは緩めておらず、通常権限での成功とは表示しない。
 
 全是正後のChecker再実行も3,787件・exit1で、上記の基準指摘集合SHA-256と一致し追加0だった。この結果を共通入力として、文書監査と不足／影響監査は今回の差分に限定してPass、残指摘0と判定した。現在、この範囲で追加の人間判断は必要ない。既存3,787件、全体QA、実運用切替、Releaseの合格は意味しない。Commit／Pushは実施していない。
+
+<a id="long-lease-common-lock-change"></a>
+
+## 長期Leaseの物理排他統合 — 2026-11-11
+
+状態: 実装と限定回帰・独立再レビューを確認。人間承認によりCoordinatorの既存回復経路を維持し、mkdir取得・保持・通常解放だけを既存共通Lockへ寄せる。業務LeaseのIntent・Owner世代・Queue CAS・証拠はCoordinator／Domainの現Ownerへ残す。上段の先行段階にある長期Directoryの対象外記述は当時の範囲である。全体回帰・実運用切替・Releaseの成立は主張しない。
+
+着手前に基準ad6b9f975の取得・解放・Owner喪失回復、PRL-IT-005／012／013の実Process・故障試験、Domain候補処理と共通Lockを照合し、独立の読取り専用整合確認を行った。変更分類は技術排他の置換と回復競合の局所是正。利用側・試験・Architecture・QAへの伝播、限定回帰、Source／保存境界の独立レビューを行う。準拠基準・Releaseを変更しないため、その全面監査は対象外。全体回帰・実AI・Docker・過去保持物を操作しない。
+
+| 基準Capability | 新接続と保持条件 |
+|---|---|
+| 取得Intent→物理取得→取得確認 | 同じ所在・Identityのwx取得へ置換。取得失敗・confirm失敗では同じ回復IDを保持し、取得descriptorを閉じFileを保全 |
+| 保持・通常解放 | 元共通LockのassertLive／releaseを利用。解放Intent・不存在・終了証拠の保存順は維持 |
+| Owner喪失回復 | reserve後、settleの既存短期保存Lock内でfresh Root／Queue／Intent／世代／終了証拠を全照合し候補構築。その後Coordinatorの固定同期回収→明示不存在→同じOwnerで保存。外側の先行削除は撤去 |
+| 取得途中の回復 | 取得予約時の不存在確認、唯一のacquisition_reserved、同じOwner／世代／回復ID、明示Owner不在を一体の協調根拠とする。正規固定親のbounded通常単一Link Fileをcaptureし、同じ保存Lock内でstat＋内容Hashを削除直前に再照合。任意残存の一般adoption・旧Directoryのfallbackは行わない |
+| 保存失敗・再入場 | 元Intent／回復参照を保全し、新取得を拒否。二回復者の後発はfresh不一致で物理処置0。非協調Processの最終照合後置換は既存と同じく保証対象外 |
+
+回復は共通Lock自体の機能へ追加せず、Coordinatorの既存プロトコルとDomainの短期保存排他で成立させる。新Manager／Registry／Store／監視機構は作らない。旧方式との並走を実運用で許可せず、今回の実装・新品fixture検証を既存保持物の移行許可へ拡張しない。
+
+### 限定検証と是正結果
+
+| 観点 | 観測・処置・限界 |
+|---|---|
+| 取得・保持・通常解放 | 共通wx／assertLive／releaseへ接続。confirm例外を含む失敗では元Fileを保全してdescriptor終了を試行し、同じ回復IDへ接続。終了確認不能は不明として保持 |
+| 独立レビュー4指摘 | 初回保持拒否／Root例外時のdescriptor終了、2KiB観測の実上限、従来の合法な長ID／連続dotの受理、新契約の明示Tuple化を是正。Sourceと契約・試験・文書の再レビューは必須残指摘0 |
+| 共通Lockの最小追加変更 | API・3ファイル構成は不変。単一ASCII名255文字まで、先頭二連dot・区切り文字・固定親逸脱は拒否。途中dotをTraversalと誤認せず旧Leaseの有効IDを維持。最終再確認の共通Lock14試験成功（先行集計の15件を訂正） |
+| 初回の既存限定回帰 | Coordinator保存・LeaseとDomain候補の49件は46成功・3失敗（約24分）。このrunを成功へ書換えない。失敗は親移動をWindowsが拒否したfixtureと、旧Kernel向けの解放故障注入2箇所であり、現実境界へ試験を追従 |
+| 失敗3件の再確認 | aliasケースは元実体不変・正常解放を確認し、OS拒否でalias未成立と明示。旧解放注入は保存markerのstate.lockでなく、実際の `.crdd/current-state.<64hex>.lock`へ固定親付きで実施。最新版のOwner喪失／取得解放2ケースとaliasケースは成功。関連する取得直後停止・読戻し故障・清掃失敗3ケースも成功 |
+| 新規反証5ケース | 遅延Bの処置0と新Owner保全、同期処置／不存在不明、長IDの通常解放・実子Process終了後回復、解放前拒否のEBADFとexact回復参照、opened前照合と2049B bounded読取りを確認。試験組立ての初期不整合・広すぎるread注入も是正後に成功。複数runでの確認であり、単一runの全件緑としない |
+| その他の限定確認 | Domain候補8、Domain保存Root4、Coordinator Core独立6は成功。台帳409 valid。書式・Lint・Domain／Coordinator strict・tests／Workbench／MCP型検査を確認。Lockは既存Coordinator依存のtypeRootsで型検査し、依存再取得を行わない |
+| 別の既存失敗 | Domain公開境界13試験のうち12成功・1失敗。未変更のindex.tsにあるcreateLocalPrincipalIdと、未変更の公開集合試験の期待値が不一致。今回のLease変更によるExport増減ではなく、無関係な公開面の採否を本変更で決めない |
+| 終了後条件 | 各fixtureがexact Rootを回収。全実行終了後、今回日のcrdd-project-durable-* Root残存0を確認。過去の残存は読替え・移行・削除しない。実AI・Docker・全体回帰は未実施 |
+
+失敗Leaseはdescriptor終了を試行して元Fileと参照を保全し、同じinstanceの再利用でなく既存Owner喪失回復へ接続する。回復の成立条件自体をPID不在だけへ緩めない。全Consumerの実運用移行・停止下切替・他領域の既存QA不整合は別Gateとして残す。
+
+### 公開集合試験の追従是正 — 2026-11-11
+
+上記で区別したDomain公開集合試験の既存失敗を、人間の指示で追加是正した。既存の主体分離で公開済みの`createLocalPrincipalId`と`isPrincipalId`が、実行時集合・型を含むSource集合の期待値から漏れていた。Coordinator詳細設計の主体契約とWorkbench入口／Coordinator判断処理の本番利用を確認し、両期待値へ2関数を明示追加した。製品Source、公開API、保存形式、集合の完全一致検査は変更しない。公開境界13試験とCoordinatorのローカル主体1試験は成功し、書式・警告禁止Lint・差分空白検査も成功した。読取り専用の独立レビューは指摘0で、既存契約への追従と完全一致検査の維持を確認した。初回の既存失敗記録は保持し、今回の成功で全体回帰の成立を主張しない。
+
+Commit前の再確認では共通Lock14・Domain Lease候補8・Domain公開境界13の計35試験が全件成功し、DomainおよびCoordinatorのstrict／tests型検査、差分空白検査も成功した。Coordinator型検査の初回指定は存在しないtsconfig.jsonのため起動不成立となり、既存の正式設定2件へ訂正して確認した。回復確定入口の全利用元と差分全15ファイルを再照合し、追加のコード是正は不要だった。全体回帰・実AI・Docker・過去保持物の操作は行っていない。

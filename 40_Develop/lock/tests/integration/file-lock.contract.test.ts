@@ -60,6 +60,8 @@ test("既存Ownerの大文字・隠し固定名を保ちPath逸脱を許さな�
     ".TOPIC-000001.lock",
     ".MTG-000001.lock",
     `${"a".repeat(128)}.lock`,
+    `${"a".repeat(250)}.lock`,
+    "owner-a..b.lock",
   ]) {
     const result = acquireLock({ ...request, name });
     assert.equal(result.status, "acquired");
@@ -71,6 +73,7 @@ test("既存Ownerの大文字・隠し固定名を保ちPath逸脱を許さな�
     "child/subject.lock",
     "child\\subject.lock",
     ".lock",
+    `${"a".repeat(251)}.lock`,
   ]) {
     const result = acquireLock({ ...request, name });
     assert.equal(result.status, "blocked");

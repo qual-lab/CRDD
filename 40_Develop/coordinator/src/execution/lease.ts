@@ -1,12 +1,13 @@
 /**
  * 長期実行排他の取得・回復・解放を管理する。
- * @responsibility 実発行Leaseと証拠の寿命を所有し、既存の保存・Kernel排他へ接続する。
+ * @responsibility 実発行Leaseと証拠の寿命を所有し、既存の保存・共通File排他へ接続する。
  * @trace ARCH-000004、ARCH-000008
  */
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { acquireLock, type Lock } from "../../../lock/src/index.ts";
 import {
   confirmCoordinatorLeaseAcquisition,
   hashRuntimeStateValueText,
@@ -70,6 +71,7 @@ export type ActiveLease = Readonly<{
   evidenceDirectory: string;
   identity: string;
   snapshotPhysicalIdentity?: string;
+  physicalLock: Lock;
 }>;
 
 const activeLeases = new WeakMap<CoordinatorLease, ActiveLease>();
@@ -111,7 +113,7 @@ export function borrowCoordinatorActiveLease(lease: CoordinatorLease) {
  */
 export function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
-    assertDirectory(activeLease.lock);
+    if (!activeLease.physicalLock.assertLive()) return false;
     if (activeLease.snapshotPhysicalIdentity !== undefined) {
       const paths = resolveCoordinatorNamedPaths(activeLease.repositoryRoot);
       if (!paths) return false;
@@ -128,17 +130,13 @@ export function activeLeaseIsObserved(activeLease: ActiveLease) {
         assertDirectory(directory);
         if (fs.realpathSync.native(directory) !== directory) return false;
       }
-      const metadata = fs.lstatSync(activeLease.lock);
+      const physicalIdentity = observePhysicalLeaseFile(activeLease.lock);
       assertCoordinatorAreaUnchanged(
         activeLease.repositoryRoot,
         "tmp",
         boundary,
       );
-      return (
-        hashRuntimeStateValueText(
-          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-        ) === activeLease.snapshotPhysicalIdentity
-      );
+      return physicalIdentity === activeLease.snapshotPhysicalIdentity;
     }
     return !fs.existsSync(activeLease.recoveryMarker);
   } catch {
@@ -182,7 +180,7 @@ export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
  * @returns 実排他を取得したLease、またはexact取得回復参照付き停止。
  * @precondition v2保存と対象Project／Queueがある。
  * @postcondition 意図と取得証拠の確定後にだけLeaseを返す。
- * @effect 取得意図を保存し、Repository内tmpへ短命な排他Directoryを作成する。
+ * @effect 取得意図を保存し、Repository内tmpの固定名を共通wx Lockで取得する。
  * @failure 部分取得は意図を保全し、未取得や清掃済みへ丸めない。
  * @invariant 短期保存排他を長期実行や外部待機へ持ち越さない。
  * @boundary 現在状態、実Filesystem排他、Process内opaque Lease。
@@ -264,6 +262,7 @@ export function acquireCoordinatorSnapshotLease(
     `${identity}.lock`,
   );
   let physicalIdentity: string;
+  let physicalLock: Lock | null = null;
   try {
     const resolved = resolveCoordinatorNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(repositoryRoot);
@@ -292,52 +291,70 @@ export function acquireCoordinatorSnapshotLease(
     const boundary = assertCoordinatorArea(repositoryRoot, "tmp", temporary);
     const locks = ensureDirectory(temporary, "orchestrator-leases");
     assertDirectory(locks);
-    fs.mkdirSync(lock, { mode: 0o700 });
+    const acquiredLock = acquireLock({
+      directory: locks,
+      name: path.basename(lock),
+      identity,
+    });
+    if (acquiredLock.status !== "acquired") {
+      // 初期化途中・descriptor終了不明も既存Intentと同じ回復IDで保全する。
+      return blocked(
+        "orchestrator_lease_acquisition_recovery_required",
+        true,
+        recoveryId,
+      );
+    }
+    physicalLock = acquiredLock.lock;
     assertDirectory(locks);
-    assertDirectory(lock);
-    const metadata = fs.lstatSync(lock);
-    physicalIdentity = hashRuntimeStateValueText(
-      JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-    );
+    physicalIdentity = observePhysicalLeaseFile(lock);
     assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
   } catch {
+    physicalLock?.release(true);
     return blocked(
       "orchestrator_lease_acquisition_recovery_required",
       true,
       recoveryId,
     );
   }
-  const acquired = confirmCoordinatorLeaseAcquisition(
-    verifyRuntimePersistenceRepository(workingDirectory),
-    binding,
-    binding,
-    projectId,
-    queueId,
-    kind,
-    ownerGeneration,
-    intent,
-    physicalIdentity,
-    recoveryId,
-    process.pid,
-    {
-      physicalIdentityMatches: () => {
-        const metadata = fs.lstatSync(lock);
-        return (
-          metadata.isDirectory() &&
-          !metadata.isSymbolicLink() &&
-          hashRuntimeStateValueText(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ) === physicalIdentity
-        );
+  let acquired: ReturnType<typeof confirmCoordinatorLeaseAcquisition>;
+  try {
+    acquired = confirmCoordinatorLeaseAcquisition(
+      verifyRuntimePersistenceRepository(workingDirectory),
+      binding,
+      binding,
+      projectId,
+      queueId,
+      kind,
+      ownerGeneration,
+      intent,
+      physicalIdentity,
+      recoveryId,
+      process.pid,
+      {
+        physicalIdentityMatches: () => {
+          return (
+            physicalLock?.assertLive() === true &&
+            observePhysicalLeaseFile(lock) === physicalIdentity
+          );
+        },
       },
-    },
-  );
-  if (acquired.status !== "completed")
+    );
+  } catch {
+    physicalLock.release(true);
     return blocked(
       "orchestrator_lease_acquisition_recovery_required",
       true,
       recoveryId,
     );
+  }
+  if (acquired.status !== "completed") {
+    physicalLock.release(true);
+    return blocked(
+      "orchestrator_lease_acquisition_recovery_required",
+      true,
+      recoveryId,
+    );
+  }
   let released = false;
   let lease!: CoordinatorLease;
   lease = Object.freeze({
@@ -351,7 +368,7 @@ export function acquireCoordinatorSnapshotLease(
      * @returns 解放確定またはexact回復参照付き停止。
      * @precondition 同じ実体を保持するLeaseである。
      * @postcondition 成功時は実排他が不在でintentが終了している。
-     * @effect 同じ排他Directoryを解放し保存を更新する。
+     * @effect 元共通Lockのdescriptor・Fileを解放し保存を更新する。
      * @failure 別実体、観測不能、保存失敗を保全停止する。
      * @invariant 要求発行を解放完了にしない。
      * @boundary opaque Lease、Filesystem、統合保存。
@@ -360,20 +377,18 @@ export function acquireCoordinatorSnapshotLease(
      */
     release(): StoreResult<Readonly<{ released: true }>> {
       if (released) return blocked("orchestrator_lease_already_released");
-      const active = activeLeases.get(lease);
-      if (!active || !activeLeaseIsObserved(active))
-        return blocked("orchestrator_lease_release_unknown", true, recoveryId);
-      const pending = saveCoordinatorLeaseReleaseIntent(
-        verifyRuntimePersistenceRepository(workingDirectory),
-        binding,
-        intent,
-        physicalIdentity,
-      );
-      if (pending.status !== "completed") {
-        activeLeases.delete(lease);
-        return blocked("orchestrator_lease_release_unknown", true, recoveryId);
-      }
       try {
+        const active = activeLeases.get(lease);
+        if (!active || !activeLeaseIsObserved(active))
+          throw new Error("lease_identity_changed");
+        const pending = saveCoordinatorLeaseReleaseIntent(
+          verifyRuntimePersistenceRepository(workingDirectory),
+          binding,
+          intent,
+          physicalIdentity,
+        );
+        if (pending.status !== "completed")
+          throw new Error("lease_release_intent_unknown");
         if (!activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
         const boundary = assertCoordinatorArea(
@@ -381,27 +396,30 @@ export function acquireCoordinatorSnapshotLease(
           "tmp",
           leasePaths.temporary,
         );
-        fs.rmdirSync(lock);
+        if (!physicalLock.release())
+          throw new Error("lease_release_unconfirmed");
         assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
         if (!coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity))
           throw new Error("lease_release_unconfirmed");
-      } catch {
         activeLeases.delete(lease);
+        const settled = settleCoordinatorLeaseRelease(
+          verifyRuntimePersistenceRepository(workingDirectory),
+          binding,
+          binding,
+          intent,
+          physicalIdentity,
+          process.pid,
+        );
+        if (settled.status !== "completed")
+          throw new Error("lease_release_settlement_unknown");
+        released = true;
+        return settled;
+      } catch {
+        // 失敗したLeaseは再利用せず、descriptorを閉じて元Fileと回復参照を保全する。
+        activeLeases.delete(lease);
+        physicalLock.release(true);
         return blocked("orchestrator_lease_release_unknown", true, recoveryId);
       }
-      activeLeases.delete(lease);
-      const settled = settleCoordinatorLeaseRelease(
-        verifyRuntimePersistenceRepository(workingDirectory),
-        binding,
-        binding,
-        intent,
-        physicalIdentity,
-        process.pid,
-      );
-      if (settled.status !== "completed")
-        return blocked("orchestrator_lease_release_unknown", true, recoveryId);
-      released = true;
-      return settled;
     },
   });
   activeLeases.set(lease, {
@@ -418,6 +436,7 @@ export function acquireCoordinatorSnapshotLease(
     evidenceDirectory: "",
     identity,
     snapshotPhysicalIdentity: physicalIdentity,
+    physicalLock,
   });
   return completed("orchestrator_lease_acquired", lease);
 }
@@ -430,12 +449,12 @@ export function acquireCoordinatorSnapshotLease(
  * @returns 終了後のQueueと回復参照、または同じ参照付き停止。
  * @precondition v2現在状態と対象の取得意図が検証できる。
  * @postcondition 回収確認だけでTask成功や採用成功を表示しない。
- * @effect 回収意図を保存し、同じ空の実排他を解放して終了を保存する。
+ * @effect 回収意図を保存し、fresh照合後の短期保存Lock内で元Fileを処置・不存在確認して終了を保存する。
  * @failure Owner存続、観測不能、対象変更、由来未確定実体では処置しない。
  * @invariant 取得未確定を取得成功へ書き換えない。
  * @boundary Snapshot、Process観測、Repository内の実排他。
  * @security 他Owner、他Root、候補と保護判断へ処置を広げない。
- * @concurrency 外部観測を短期排他の外で行い、対象を再照合する。
+ * @concurrency Owner生存観測は短期排他外、物理処置は全fresh照合後の同じ保存Lock内で同期実行する。
  */
 export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   workingDirectory: string,
@@ -630,17 +649,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
           leasePaths.temporary,
         );
         assertDirectory(path.dirname(lock));
-        assertDirectory(lock);
-        const metadata = fs.lstatSync(lock);
-        if (fs.readdirSync(lock).length !== 0)
-          return blocked(
-            "orchestrator_lease_physical_identity_unconfirmed",
-            true,
-            recoveryId,
-          );
-        physicalIdentity = hashRuntimeStateValueText(
-          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-        );
+        physicalIdentity = observePhysicalLeaseFile(lock);
         assertCoordinatorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
       }
     } catch {
@@ -680,63 +689,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   );
   if (reserved.status !== "completed")
     return blocked(reserved.reason, true, recoveryId);
-  try {
-    const resolved = resolveCoordinatorNamedPaths(workingDirectory);
-    const rootMetadata = fs.lstatSync(initial.repositoryRoot);
-    if (
-      !resolved ||
-      resolved.repositoryRoot !== initial.repositoryRoot ||
-      !rootMetadata.isDirectory() ||
-      rootMetadata.isSymbolicLink() ||
-      fs.realpathSync.native(initial.repositoryRoot) !==
-        initial.repositoryRoot ||
-      hashRuntimeStateValueText(
-        JSON.stringify([
-          rootMetadata.dev,
-          rootMetadata.ino,
-          rootMetadata.birthtimeMs,
-        ]),
-      ) !== initial.rootIdentity
-    )
-      throw new Error("lease_root_changed");
-    // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
-    if (
-      !coordinatorSnapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
-    ) {
-      const boundary = assertCoordinatorArea(
-        initial.repositoryRoot,
-        "tmp",
-        leasePaths.temporary,
-      );
-      assertDirectory(path.dirname(lock));
-      assertDirectory(lock);
-      const metadata = fs.lstatSync(lock);
-      if (
-        physicalIdentity === null ||
-        hashRuntimeStateValueText(
-          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-        ) !== physicalIdentity ||
-        fs.readdirSync(lock).length !== 0
-      )
-        return blocked(
-          "orchestrator_lease_physical_identity_unconfirmed",
-          true,
-          recoveryId,
-        );
-      fs.rmdirSync(lock);
-      assertCoordinatorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
-    }
-    if (
-      !coordinatorSnapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
-    )
-      throw new Error("lease_release_unconfirmed");
-  } catch {
-    return blocked(
-      "orchestrator_lease_recovery_observation_unknown",
-      true,
-      recoveryId,
-    );
-  }
+  let recoveryFailureReason: string | null = null;
   const settled = settleCoordinatorLeaseRecovery(
     verifyRuntimePersistenceRepository(workingDirectory),
     binding,
@@ -759,13 +712,82 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
           ),
         };
       },
+      recoverResources: () => {
+        try {
+          const resolved = resolveCoordinatorNamedPaths(workingDirectory);
+          const rootMetadata = fs.lstatSync(initial.repositoryRoot);
+          if (
+            !resolved ||
+            resolved.repositoryRoot !== initial.repositoryRoot ||
+            !rootMetadata.isDirectory() ||
+            rootMetadata.isSymbolicLink() ||
+            fs.realpathSync.native(initial.repositoryRoot) !==
+              initial.repositoryRoot ||
+            hashRuntimeStateValueText(
+              JSON.stringify([
+                rootMetadata.dev,
+                rootMetadata.ino,
+                rootMetadata.birthtimeMs,
+              ]),
+            ) !== initial.rootIdentity
+          )
+            throw new Error("lease_root_changed");
+          // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
+          if (
+            !coordinatorSnapshotLeaseResourcesAbsent(
+              initial.repositoryRoot,
+              identity,
+            )
+          ) {
+            const boundary = assertCoordinatorArea(
+              initial.repositoryRoot,
+              "tmp",
+              leasePaths.temporary,
+            );
+            assertDirectory(path.dirname(lock));
+            const observedIdentity = observePhysicalLeaseFile(lock);
+            if (
+              physicalIdentity === null ||
+              observedIdentity !== physicalIdentity
+            )
+              throw new Error(
+                "orchestrator_lease_physical_identity_unconfirmed",
+              );
+            if (observePhysicalLeaseFile(lock) !== observedIdentity)
+              throw new Error(
+                "orchestrator_lease_physical_identity_unconfirmed",
+              );
+            fs.unlinkSync(lock);
+            assertCoordinatorAreaUnchanged(
+              initial.repositoryRoot,
+              "tmp",
+              boundary,
+            );
+          }
+          if (
+            !coordinatorSnapshotLeaseResourcesAbsent(
+              initial.repositoryRoot,
+              identity,
+            )
+          )
+            throw new Error("lease_release_unconfirmed");
+          return true;
+        } catch (error) {
+          recoveryFailureReason =
+            error instanceof Error &&
+            error.message === "orchestrator_lease_physical_identity_unconfirmed"
+              ? error.message
+              : "orchestrator_lease_recovery_observation_unknown";
+          return false;
+        }
+      },
       resourcesAbsent: (repositoryRoot: string) =>
         coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity),
     },
   );
   return settled.status === "completed"
     ? settled
-    : blocked(settled.reason, true, recoveryId);
+    : blocked(recoveryFailureReason ?? settled.reason, true, recoveryId);
 }
 /**
  * Directoryを表明どおりか検査する。
@@ -791,6 +813,69 @@ function assertDirectory(directory: string) {
     fs.realpathSync.native(directory) !== directory
   ) {
     throw new Error("orchestrator_storage_boundary_invalid");
+  }
+}
+
+/**
+ * 固定Lease Fileの実体と元内容を一つの不透明な照合値へ固定する。
+ * 通常File・単一Link・2KiB上限と同じdescriptor／Pathを照合し、共通Lockのwireを再解釈しない。
+ * 旧Directory・alias・観測不能は拒否する。descriptorは成功・失敗とも閉じる。
+ */
+function observePhysicalLeaseFile(file: string): string {
+  const before = fs.lstatSync(file, { bigint: true });
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.nlink !== 1n ||
+    before.size > 2048n
+  )
+    throw new Error("lease_file_invalid");
+  const descriptor = fs.openSync(file, "r");
+  try {
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    const same = (s: fs.BigIntStats) =>
+      s.isFile() &&
+      !s.isSymbolicLink() &&
+      s.nlink === 1n &&
+      s.dev === before.dev &&
+      s.ino === before.ino &&
+      s.birthtimeNs === before.birthtimeNs &&
+      s.size === before.size;
+    if (!same(opened) || opened.size > 2048n)
+      throw new Error("lease_file_changed");
+    const buffer = Buffer.alloc(2049);
+    let length = 0;
+    while (length < buffer.length) {
+      const read = fs.readSync(
+        descriptor,
+        buffer,
+        length,
+        buffer.length - length,
+        length,
+      );
+      if (read === 0) break;
+      length += read;
+    }
+    const content = buffer.subarray(0, length);
+    const finished = fs.fstatSync(descriptor, { bigint: true });
+    const after = fs.lstatSync(file, { bigint: true });
+    if (
+      !same(finished) ||
+      !same(after) ||
+      content.length > 2048 ||
+      BigInt(content.length) !== before.size
+    )
+      throw new Error("lease_file_changed");
+    return hashRuntimeStateValueText(
+      JSON.stringify([
+        before.dev.toString(),
+        before.ino.toString(),
+        before.birthtimeNs.toString(),
+        hashRuntimeStateValueText(content.toString("hex")),
+      ]),
+    );
+  } finally {
+    fs.closeSync(descriptor);
   }
 }
 

@@ -32,15 +32,17 @@ if (
   throw new Error("orchestrator_lease_interleaving_probe_input_invalid");
 
 if (mode === "pause-before-publish") {
-  const originalMkdirSync = fs.mkdirSync;
-  fs.mkdirSync = ((
+  const originalOpenSync = fs.openSync;
+  fs.openSync = ((
     target: fs.PathLike,
-    options?: fs.MakeDirectoryOptions & { recursive?: boolean },
+    flags: string | number,
+    mode?: fs.Mode,
   ) => {
-    const result = originalMkdirSync(target, options);
+    const result = originalOpenSync(target, flags, mode);
     if (
       String(target).includes("orchestrator-leases") &&
-      String(target).endsWith(".lock")
+      String(target).endsWith(".lock") &&
+      flags === "wx"
     ) {
       fs.writeFileSync(signalPath, "ready\n", "utf8");
       const deadline = Date.now() + 10_000;
@@ -50,7 +52,7 @@ if (mode === "pause-before-publish") {
       }
     }
     return result;
-  }) as typeof fs.mkdirSync;
+  }) as typeof fs.openSync;
 }
 
 const foundation = await import("../../src/execution/lease.ts");

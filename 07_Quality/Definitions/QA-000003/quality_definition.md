@@ -1,5 +1,13 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 長期Leaseの共通Lock接続
+
+PRL-IT-012の既存取得・解放・Owner喪失回復に、wx Fileへの接続と二回復者の反証を追加する。新Local IDや正式Pass数は増やさない。対象は[長期Lease設計](../../../06_Architecture/Details/coordinator/01_Architecture.md#long-lease-common-lock)とDomainのfresh候補・短期保存境界である。
+
+取得途中の実Process停止、confirm失敗、内容／実体／親差、通常解放・二重解放、close／削除／保存不明を同じ元回復IDへ結合する。唯一の未確定取得Intentからの回復は、取得前不存在・Owner明示不在・世代・固定親・bounded通常単一Link File・stat＋元内容Hashの再照合を全て成立条件とする。条件不足や旧Directoryは削除0。同期回収false／throw／Promise・不存在不明は成功保存しない。
+
+同じIntentを観測した回復AとBを交錯させ、A回収後に新Ownerを取得してから遅延Bを再入場させる。Bの物理処置0、新OwnerのFile bytes・世代不変、元Queue／終了証拠のfresh不一致を観測する。回収後の保存不明はIntentを残し再取得を拒否する。既存の実Process取得競合試験と、決定的な割込み点の結合試験を区別する。fixture所有Rootだけを回収し、全体回帰・実AI／Docker・過去保持物は操作しない。Source・限定実行・独立レビューの結果は変更記録へ接続する。
+
 ### Core公開入口の分離確認 — 2026-10-28
 
 共通保存先の切替は既存`PRL-IT-012`／`PRL-IT-013`へ接続する。自己生成Rootで旧領域のDirectory・File・junction・観測不能・親実体差を用意し、空初期化の処置前拒否を確認する。初回出版中の後発出現はunknownと同じmarker／pendingを保持し、再入場の上書き零・両本文不変・正本不存在を観測する。新正本成立後の通常Reader／Writerは旧領域を探索せず、Schema・CAS・Kernel排他・一回使用証拠を維持する。これは実データ移行・旧保持物の回収試験ではない。

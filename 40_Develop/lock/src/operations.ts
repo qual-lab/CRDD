@@ -38,8 +38,8 @@ function targetPath(request: LockRequest): string | null {
       !path.isAbsolute(request.directory) ||
       path.resolve(request.directory) !== request.directory ||
       typeof request.name !== "string" ||
-      !/^[a-zA-Z0-9.][a-zA-Z0-9._-]{0,127}\.lock$/u.test(request.name) ||
-      request.name.includes("..") ||
+      !/^[a-zA-Z0-9.][a-zA-Z0-9._-]{0,249}\.lock$/u.test(request.name) ||
+      request.name.startsWith("..") ||
       typeof request.identity !== "string" ||
       !/^[a-zA-Z0-9][a-zA-Z0-9:._-]{0,255}$/u.test(request.identity)
     )

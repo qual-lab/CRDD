@@ -432,6 +432,8 @@ Rust packageを移設した後は、旧配置から持ち越した`target`を検
 
 対象は[共通Lock設計](../06_Architecture/Details/lock/01_Architecture.md)でwx接続済みとしたScopeのみ。Crash後にFileが残り自動再開しないことは意図的な運用制約である。未切替のPipe／Supervisorと新wxのProcessを同じ保護対象で並走させない。今回のSource変更だけで既存Runtimeを再起動・回復済みとは扱わない。
 
+Coordinatorの長期Task／採用Leaseは、既存のOwner喪失回復経路を維持する。取得Intent・Owner明示不在・同一世代・fresh Queue／終了証拠を確認し、同じDomain保存排他内で元File回収・不存在・記録確定を行う専用プロトコルである。一般のLock残存にPID判定だけで適用しない。解放失敗時は元Fileと回復IDを保持してdescriptorを閉じ、失敗Leaseを再利用せず既存回復へ進む。確認できない場合は停止を維持する。条件・検証は[長期Lease設計](../06_Architecture/Details/coordinator/01_Architecture.md#long-lease-common-lock)を参照する。
+
 | 理由 | 利用者への意味と処置 |
 |---|---|
 | `lock_exists`／`filesystem_store_lock_exists` | Lock Fileが存在するため停止した。稼働OwnerかCrash残存かはこの結果だけでは判断できない。自動削除・再試行をしない |
