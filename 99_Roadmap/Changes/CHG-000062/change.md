@@ -1,5 +1,7 @@
 # 変更トレース: 実行知の最小基盤
 
+参照保守（2026-11-11）: EI関連の削除済みSourceリンクは、削除直前に実在したCommitへ固定した参照案内である。各Evidenceの対象改訂版との同一性や現行契約の成立を示さない。当時の検証対象は各Evidenceに従い、本文・過去結論は変更しない。
+
 変更ID: `CHG-000062`
 状態: `Released`
 担当責任者: Qual-Lab
@@ -92,7 +94,7 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - [`40_Develop/coordinator/bin/coordinator.ts`](<../../../40_Develop/coordinator/bin/coordinator.ts>)
 - `40_Develop/coordinator/runtime/project-runtime-design-traceability.json`（削除または旧Path）
 - [`40_Develop/coordinator/src/composition/project-runtime-composition-root.ts`](<../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts>)
-- [`40_Develop/coordinator/src/security/execution-intelligence-adapter.ts`](<../../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts>)
+- [`40_Develop/coordinator/src/security/execution-intelligence-adapter.ts`](https://github.com/qual-lab/CRDD/blob/bfe6d43e13c6a484dd58a447bc6f2a9566d3cfc9/40_Develop/coordinator/src/security/execution-intelligence-adapter.ts)
 - [`40_Develop/coordinator/src/security/project-runtime-execution-authorization-adapter.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-execution-authorization-adapter.ts>)
 - `40_Develop/coordinator/src/security/project-runtime-execution.ts`（削除または旧Path）
 - [`40_Develop/coordinator/src/security/project-runtime-objective-intake.ts`](<../../../40_Develop/coordinator/src/security/project-runtime-objective-intake.ts>)
@@ -111,13 +113,13 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 - [`40_Develop/execution-intelligence/package-lock.json`](<../../../40_Develop/execution-intelligence/package-lock.json>)
 - [`40_Develop/execution-intelligence/package.json`](<../../../40_Develop/execution-intelligence/package.json>)
 - `40_Develop/execution-intelligence/README.md`（削除または旧Path）
-- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](<../../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts>)
-- [`40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts`](<../../../40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts>)
-- [`40_Develop/execution-intelligence/src/core/execution-intelligence.ts`](<../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts>)
+- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts)
+- [`40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts)
+- [`40_Develop/execution-intelligence/src/core/execution-intelligence.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/core/execution-intelligence.ts)
 - [`40_Develop/execution-intelligence/src/index.ts`](<../../../40_Develop/execution-intelligence/src/index.ts>)
-- [`40_Develop/execution-intelligence/src/boundary/plain-data-snapshot.ts`](<../../../40_Develop/execution-intelligence/src/boundary/plain-data-snapshot.ts>)
-- [`40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts`](<../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts>)
-- [`40_Develop/execution-intelligence/src/store/verified-repository-root.ts`](<../../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts>)
+- [`40_Develop/execution-intelligence/src/boundary/plain-data-snapshot.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/boundary/plain-data-snapshot.ts)
+- [`40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)
+- [`40_Develop/execution-intelligence/src/store/verified-repository-root.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/store/verified-repository-root.ts)
 - [`40_Develop/execution-intelligence/tests/fixtures/execution-intelligence-store-writer.ts`](<../../../40_Develop/execution-intelligence/tests/fixtures/execution-intelligence-store-writer.ts>)
 - [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts>)
 - [`40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts>)
@@ -169,13 +171,13 @@ CRDDへ明示的に結合したAI実行を、Project／Milestone／Objective／T
 
 - [進捗管理](../../../15_Progress.md#execution-intelligence-observation): CRDD共通の観測、評価、昇格および清掃候補境界。
 - [実行知のアーキテクチャ](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md): 共通Event、Store、集約、利用側Adapter、改善候補、保持および完成境界。
-- [共通Eventと集約](../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts): Provider／Runtime非依存の閉Schema、欠測表現、集約、非Authority改善候補。
-- [限定分散の統合結果評価](../../../40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts): 予定Task、実Attempt、統合結果および効用測定を同じ評価Identityへ結合する閉契約。
+- [共通Eventと集約](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/core/execution-intelligence.ts): Provider／Runtime非依存の閉Schema、欠測表現、集約、非Authority改善候補。
+- [限定分散の統合結果評価](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/core/bounded-integrated-result-evaluation.ts): 予定Task、実Attempt、統合結果および効用測定を同じ評価Identityへ結合する閉契約。
 - [公開入口](../../../40_Develop/execution-intelligence/src/index.ts): CRDD採用Repositoryや各Runtimeの薄いAdapterが利用するexport。
-- [組込みRecorder](../../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts): TypeScriptアプリケーションをexact Repository Rootへ一度結合し、Event生成・保存・読取りを公開APIだけで扱うFacade。入力生成の拒否だけをEffect 0へ分類し、生成後のStore結果または契約外例外を入力不正へ変換しない。
-- [Execution Store](../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts): Repository-local不変保存、改変検知、bounded読取り。保持期間に基づく物理削除は提供しない。
-- [Repository Root検証](../../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts): exact worktree RootだけからStoreの実行時能力を発行し、任意Path、linkまたは構造的な偽造を拒否する。
-- [Coordinator Adapter](../../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts): Single Task Runtime固有結果を共通Eventへ変換する唯一の接続部。
+- [組込みRecorder](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts): TypeScriptアプリケーションをexact Repository Rootへ一度結合し、Event生成・保存・読取りを公開APIだけで扱うFacade。入力生成の拒否だけをEffect 0へ分類し、生成後のStore結果または契約外例外を入力不正へ変換しない。
+- [Execution Store](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts): Repository-local不変保存、改変検知、bounded読取り。保持期間に基づく物理削除は提供しない。
+- [Repository Root検証](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/store/verified-repository-root.ts): exact worktree RootだけからStoreの実行時能力を発行し、任意Path、linkまたは構造的な偽造を拒否する。
+- [Coordinator Adapter](https://github.com/qual-lab/CRDD/blob/bfe6d43e13c6a484dd58a447bc6f2a9566d3cfc9/40_Develop/coordinator/src/security/execution-intelligence-adapter.ts): Single Task Runtime固有結果を共通Eventへ変換する唯一の接続部。
 - [Project実行](../../../40_Develop/project-runtime/src/application/project-runtime-execution.ts): Task Attempt終了Eventの発行。
 - [公開Runtime構成](../../../40_Develop/coordinator/src/composition/project-runtime-composition-root.ts): 検証済みRepository RootのStoreへの接続。
 

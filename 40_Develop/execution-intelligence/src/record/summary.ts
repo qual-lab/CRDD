@@ -1,4 +1,9 @@
-/** 同じ検索対象から事実だけを集計する。欠測、単位、推定値を混同しない。 */
+/**
+ * 同じ検索母集合から、欠測と単位を分離した事実集計を返す。
+ * @responsibility 取得済み0・未観測・非該当、費用／Credit・報告額／推定額を混同しない。
+ * @trace ARCH-000007
+ * @boundary 品質評価や改善提案を生成せず、入力履歴を変更しない。
+ */
 import { selectExecutions } from "./query.ts";
 import type {
   ExecutionQuery,
@@ -7,6 +12,11 @@ import type {
   ReadResult,
   StoreOptions,
 } from "./types.ts";
+/**
+ * ページ分割前の全検索対象を集計する。open／unknownを成功率の分母へ入れない。
+ * @failure Storeや検索が不成立ならblocked。合算の非有限値・安全上限超過も拒否する。
+ * @effect 読取りだけを行い、読取りdescriptorはStoreで終了する。
+ */
 export function summarizeExecutions(
   store: StoreOptions,
   query: ExecutionQuery = {},

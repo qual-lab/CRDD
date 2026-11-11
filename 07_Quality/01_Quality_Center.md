@@ -1,5 +1,9 @@
 # CRDD内部ツールの品質の現在状態
 
+## EIの正式項目登録と現在の設計集合 — 2026-11-11
+
+EIのGroup保持・検索集計・Coordinator計測接続をQA-000012の正式項目ERP-IT-006／007／008へ登録した。全13定義の正式検証項目を重複なく再計数した現在値は203項目（QA-000012は10項目）。以下の199／198等の日付付き件数は当時の集合であり、現在値として加算・転用しない。設計項目登録はPass数・実行数ではなく、上位ST／UAT・全体品質の未評価を維持する。[登録範囲と結果](../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)を参照する。
+
 人間承認により通常回復Namespaceを既存Node初期化へ統合し、専用Native保護・Protocolを撤去した。専用TEMP保護は運用前提であり、厳密SID／DACL・祖先Handleの同等性は主張しない。Home／Runtimeの保護は維持する。[今回の限定確認](04_Quality_Integration.md#namespaceのnode統合--2026-11-07)を参照する。過去保持物は不変更で、今回対象の限定独立レビューは完了した。Host限定fixture是正と今回試験物の回収は残件である。
 
 本番未使用の端末・確認コード・旧Root観測を退役した。共用処理の限定回帰と台帳整合は成功し、Windows保護やPA全体の撤去完了とはしない。[現在の限定結果](04_Quality_Integration.md#本番未使用の端末旧root観測の退役2026-11-06)を参照する。
@@ -161,7 +165,7 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 199 |
+| Local Item数 | 203 |
 
 ## 集計の履歴と現在への適用
 

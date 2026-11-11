@@ -4,6 +4,18 @@
   "subsystem": "execution-intelligence",
   "symbols": [
     {
+      "symbolId": "execution-intelligence.source.record.operations",
+      "kind": "file",
+      "path": "src/record/operations.ts",
+      "archIds": ["ARCH-000018"]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.validation",
+      "kind": "file",
+      "path": "src/record/validation.ts",
+      "archIds": ["ARCH-000007", "ARCH-000018"]
+    },
+    {
       "symbolId": "execution-intelligence.public-api",
       "kind": "module",
       "path": "src/index.ts",
@@ -91,6 +103,8 @@
       "verifies": [
         "execution-intelligence.source.storage.store",
         "execution-intelligence.source.storage.lock",
+        "execution-intelligence.source.record.validation",
+        "execution-intelligence.source.record.operations",
         "execution-intelligence.source.record.execution"
       ]
     },
@@ -106,6 +120,7 @@
       ],
       "verifies": [
         "execution-intelligence.source.record.group",
+        "execution-intelligence.source.record.operations",
         "execution-intelligence.source.storage.store"
       ]
     },
@@ -121,6 +136,7 @@
       ],
       "verifies": [
         "execution-intelligence.source.record.query",
+        "execution-intelligence.source.record.validation",
         "execution-intelligence.source.record.summary"
       ]
     },
@@ -136,6 +152,7 @@
       ],
       "verifies": [
         "execution-intelligence.public-api",
+        "execution-intelligence.source.record.validation",
         "execution-intelligence.source.record.types"
       ]
     }

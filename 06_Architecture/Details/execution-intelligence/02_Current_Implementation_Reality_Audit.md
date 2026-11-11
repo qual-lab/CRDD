@@ -1,8 +1,8 @@
-# Execution Intelligence現行実装のReality Audit
+# Execution Intelligence基準版Capabilityの監査記録
 
 ## 2026-10-06の変更候補と基準版の区別
 
-以下の既存監査本文はv0.20.1／v0.21の基準版CapabilityとEvidenceを保持するものであり、v0.22の新保存方式を実装済み・Passとする根拠ではない。現在のCanonical契約は[詳細設計の新形式](01_Architecture.md#10-実行知の共通観測と保存契約)および[③の変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md)を参照する。
+以下はv0.20.1／v0.21及び2026-10-06時点のCapabilityとEvidenceを保全する監査記録である。本文の「現在」「現行」は各基準版の時点を指し、現v0.22のAPI・配置・成功件数を案内するものではない。現在の契約は[詳細設計](01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)、現在の結果・未実施範囲は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)を参照する。[2026-10-06のEvidence](../../../99_Roadmap/Changes/CHG-000082/Evidence/261006_execution-intelligence-phase3.md)を新方式の検証根拠へ転用しない。
 
 | 意味 | v0.22変更候補 | 確認状態 |
 |---|---|---|
@@ -72,7 +72,7 @@
 
 実行知（Execution Intelligence）は、CRDDへ明示的に結合した仕事について、実行時に観測できた事実をProject、Milestone、Objective、TaskおよびAttemptへ接続し、改善判断に使える形で保持する。Coordinator専用品ではなく、AI APIを利用するTypeScriptアプリケーションや別Runtimeから組み込めるProvider非依存ライブラリを第一の利用境界とする。LLM監視製品、会話履歴、推論全文、Project Stateの第二正本または自動最適化機構は作らない。
 
-[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。現在のSource配置は[公開入口](../../../40_Develop/execution-intelligence/src/index.ts)、[Event構築](../../../40_Develop/execution-intelligence/src/record/event.ts)、[記録検査](../../../40_Develop/execution-intelligence/src/record/validation.ts)、[集約](../../../40_Develop/execution-intelligence/src/record/summary.ts)、[Repository-local Store](../../../40_Develop/execution-intelligence/src/storage/store.ts)である。この配置案内は過去の評価・件数・Evidenceを新版の検証根拠へ更新するものではない。CoordinatorのTask／Objective担当は[実行記録接続](../../../40_Develop/coordinator/src/task/dispatch.ts)と[保存接続](../../../40_Develop/coordinator/src/objective/composition.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
+[進捗管理](../../../15_Progress.md#execution-intelligence-observation)がCRDD共通の意味と評価境界を所有する。本書は実行知そのもののEvent、保存、集約、保持、利用側Adapterおよび完成境界を所有する。以下はEI再構成前のSource参照としてCommit f78c3bdcaへ固定した案内であり、各基準版監査の対象改訂版又はEvidenceとの同一性を示すものではない。当時の対象版は各Evidenceに従う。再構成前の配置参照は[公開入口](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/execution-intelligence/src/index.ts)、[Event構築](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/execution-intelligence/src/record/event.ts)、[記録検査](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/execution-intelligence/src/record/validation.ts)、[集約](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/execution-intelligence/src/record/summary.ts)、[Repository-local Store](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/execution-intelligence/src/storage/store.ts)である。この配置案内は過去の評価・件数・Evidenceを新版の検証根拠へ更新するものではない。CoordinatorのTask／Objective担当は[実行記録接続](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/coordinator/src/task/dispatch.ts)と[保存接続](https://github.com/qual-lab/CRDD/blob/f78c3bdca5c403df3369bff74bd9b9105f235835/40_Develop/coordinator/src/objective/composition.ts)から接続し、共通SchemaへSingle Task Runtime固有の意味を持ち込まない。
 
 ```text
 Coordinator / MCP / HTTP / 外部AI APIを使う採用Repository

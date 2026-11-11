@@ -1,4 +1,11 @@
-/** AI実行と任意グループの観測記録・検索・集計。実行命令や認可を提供しない。 */
+/**
+ * AI実行と任意Groupの記録・検索・集計を公開する。
+ * @packageDocumentation
+ * @responsibility 完成した9操作と入力・観測・結果型だけを公開し、検査や保存内部を公開しない。
+ * @trace ARCH-000007
+ * @trace ARCH-000018
+ * @boundary 明示Storeを渡す利用側とEI。AI実行命令・認可・品質評価は提供しない。
+ */
 export { createExecution, completeExecution } from "./record/execution.ts";
 export { createGroup, completeGroup } from "./record/group.ts";
 export {

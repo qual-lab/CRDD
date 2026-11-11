@@ -2,7 +2,7 @@
 
 ## v0.22の記録モデルと限定検証 — 2026-11-11
 
-採用済みの[EI再構成](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)に合わせ、検証対象をアプリケーション非依存のExecution／ExecutionGroupへ切り替える。下段のTask専用Event・Recorder・旧Schemaの表現は移行前の設計・基準版Evidenceと区別する。旧永続履歴はフロントAIが別途移行し、本変更の試験で操作しない。
+採用済みの[EI再構成](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)に合わせ、現行の局所検証はアプリケーション非依存のExecution／ExecutionGroupを対象とする。正式Source由来のLocal ItemとST／UAT義務は維持し、現EIでの実装・評価がない項目を、別の局所成功で合格へ置換しない。旧永続履歴はフロントAIが別途移行し、本変更の試験で操作しない。
 
 | 項目 | 現在の検証義務 | 主な確認先 |
 |---|---|---|
@@ -27,12 +27,12 @@ Quality ID: `QA-000012`
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
-| [REQ-000004](../../../01_Discovery/Definitions/REQ-000004/requirement.md) | `req-000004.qa-000012` | Requirement Definition（成立条件・失敗・検証意図） | タスクの識別情報、実行者、時刻、結果、利用量等の観測事実を相関できる。別実行基盤またはTypeScriptアプリから同じ契約で記録・読取りできる。観測値、推定、改善候補、人間の採用判断を別状態として保つ。複数作成側、再試行、部分記録、並行書込み、途中失敗を与え、事実の同一性、欠測、保存後の比較可能性を観測する。生出力、秘密情報または不要な個人情報を一律収集しない | IT／UAT | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-IT-005`、`ERP-UAT-007` |
-| [UX-000032](../../../02_UX/Definitions/UX-000032/ux_definition.md) | `ux-000032.qa-000012` | UX Definition（利用者成果・重要場面・重要な失敗） | 作成側が同じ実行、情報源、観測時点、観測状態および記録試行を対応付けて一度だけ依頼する。複数作成側、再送、並行書込みまたは途中失敗でも誤統合せず、結果不明では同じ実行と試行を再観測する。生出力、秘密情報または不要な個人情報を無条件に含めない | IT／ST／UAT | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UAT-007` |
-| [IA-000022](../../../03_IA/Definitions/IA-000022/ia_definition.md) | `ia-000022.qa-000012` | IA Definition（情報・関係・状態・見つけ方） | 実行、情報源、観測、記録試行、公開結果を別対象として結び、prepared／publishing／recorded／not_recorded／unknownを区別する。unknownでは同じExecution IDとAttempt IDを保持して再観測し、許可外内容を診断へ複製しない | IT／ST | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005` |
-| [UI-000020](../../../04_UI/Definitions/UI-000020/ui_definition.md) | `ui-000020.qa-000012` | UI Definition（認識・操作・Feedback・失敗表示） | 記録対象と許可範囲を確認して一度依頼し、recorded／not_recorded／unknownを同じExecution IDとAttempt IDへ結び付ける。unknownでは再発行せず再観測へ進み、秘密情報・生出力・不要な個人情報をFeedbackへ複製しない | IT／ST／UAT | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UAT-007` |
+| [REQ-000004](../../../01_Discovery/Definitions/REQ-000004/requirement.md) | `req-000004.qa-000012` | Requirement Definition（成立条件・失敗・検証意図） | タスクの識別情報、実行者、時刻、結果、利用量等の観測事実を相関できる。別実行基盤またはTypeScriptアプリから同じ契約で記録・読取りできる。観測値、推定、改善候補、人間の採用判断を別状態として保つ。複数作成側、再試行、部分記録、並行書込み、途中失敗を与え、事実の同一性、欠測、保存後の比較可能性を観測する。生出力、秘密情報または不要な個人情報を一律収集しない | IT／UAT | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-IT-005`、`ERP-UAT-007`、`ERP-IT-007` |
+| [UX-000032](../../../02_UX/Definitions/UX-000032/ux_definition.md) | `ux-000032.qa-000012` | UX Definition（利用者成果・重要場面・重要な失敗） | 作成側が同じ実行、情報源、観測時点、観測状態および記録試行を対応付けて一度だけ依頼する。複数作成側、再送、並行書込みまたは途中失敗でも誤統合せず、結果不明では同じ実行と試行を再観測する。生出力、秘密情報または不要な個人情報を無条件に含めない | IT／ST／UAT | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UAT-007`、`ERP-IT-008` |
+| [IA-000022](../../../03_IA/Definitions/IA-000022/ia_definition.md) | `ia-000022.qa-000012` | IA Definition（情報・関係・状態・見つけ方） | 実行、情報源、観測、記録試行、公開結果を別対象として結び、prepared／publishing／recorded／not_recorded／unknownを区別する。unknownでは同じExecution IDとAttempt IDを保持して再観測し、許可外内容を診断へ複製しない | IT／ST | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-IT-006` |
+| [UI-000020](../../../04_UI/Definitions/UI-000020/ui_definition.md) | `ui-000020.qa-000012` | UI Definition（認識・操作・Feedback・失敗表示） | 記録対象と許可範囲を確認して一度依頼し、recorded／not_recorded／unknownを同じExecution IDとAttempt IDへ結び付ける。unknownでは再発行せず再観測へ進み、秘密情報・生出力・不要な個人情報をFeedbackへ複製しない | IT／ST／UAT | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UAT-007`、`ERP-IT-008` |
 | [SPEC-000030](../../../05_SPEC/Definitions/SPEC-000030/spec_definition.md) | `spec-000030.qa-000012` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 異なる作成側から同じ契約で記録し、取得側が意味を変えず比較できる。境界: 同一再送、複数作成側、並行書込み、部分記録を別Executionや完成記録へ誤統合しない。失敗: 途中失敗または衝突で中間物を完成記録として公開せず、別記録を上書きしない。観測不能: 保存Effect不明をnot_recordedへ丸めず、同じIdentityで再観測可能にする。副作用: 許可された実行記録領域への不変な記録だけで、Task、Provider、評価または他Sourceを変更しない。生Provider出力、秘密情報または不要な個人情報を一律に記録しない | IT／ST | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005` |
-| [ARCH-000018](../../../06_Architecture/Definitions/ARCH-000018/architecture_definition.md) | `arch-000018.qa-000012` | Architecture Definition（責務・境界・状態・故障） | 異なる実行基盤またはTypeScriptアプリから受け取った観測事実をCanonical契約で検査し、並行書込みと途中失敗を安全に扱って不変に公開する。所有する責務: Canonical Event検査、同一性、並行公開、衝突再読取り、Effect不明時の回復参照。所有しない責務: Provider実行、Task状態更新、評価採用、読取りProjection、保存内容からの品質断定。SchemaまたはIdentity不一致と許可外情報はEffect前に拒否する。並行Writerは完成記録を上書きせず、途中失敗では一時物を公開しない。Effect不明では自動再発行せず、同じExecution IdentityとAttemptで再観測する。完了時はWriter handle、lock、一時物が残らない | UT／IT／ST | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UT-006` |
+| [ARCH-000018](../../../06_Architecture/Definitions/ARCH-000018/architecture_definition.md) | `arch-000018.qa-000012` | Architecture Definition（責務・境界・状態・故障） | 異なる実行基盤またはTypeScriptアプリから受け取った観測事実をCanonical契約で検査し、並行書込みと途中失敗を安全に扱って不変に公開する。所有する責務: Canonical Event検査、同一性、並行公開、衝突再読取り、Effect不明時の回復参照。所有しない責務: Provider実行、Task状態更新、評価採用、読取りProjection、保存内容からの品質断定。SchemaまたはIdentity不一致と許可外情報はEffect前に拒否する。並行Writerは完成記録を上書きせず、途中失敗では一時物を公開しない。Effect不明では自動再発行せず、同じExecution IdentityとAttemptで再観測する。完了時はWriter handle、lock、一時物が残らない | UT／IT／ST | `ERP-IT-001`、`ERP-IT-002`、`ERP-IT-003`、`ERP-ST-004`、`ERP-IT-005`、`ERP-UT-006`、`ERP-IT-006`、`ERP-IT-008` |
 ### Architecture詳細設計入力
 
 | 詳細設計領域 | 受け取る成立条件 |
@@ -57,7 +57,7 @@ Execution Identity、Source Identity、Observed At、観測状態、記録先の
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | ERP-IT-001 | 通常の成立経路を独立して確認する。 |
-| 境界 | Required | ERP-IT-002、ERP-IT-005、ERP-UT-006、ERP-UAT-007 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
+| 境界 | Required | ERP-IT-002、ERP-IT-005、ERP-UT-006、ERP-UAT-007、ERP-IT-006、ERP-IT-007、ERP-IT-008 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | N/A | - | 継続可能な分岐または保留状態を持たない。 |
 | 異常 | N/A | - | 独立した異常条件を持たない。 |
 | 回復 | Required | ERP-IT-003、ERP-ST-004 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
@@ -73,6 +73,9 @@ Execution Identity、Source Identity、Observed At、観測状態、記録先の
 | `ERP-IT-005` | 境界 | IT | Security／Data Minimization | Event入口→Policy→Store | Adjacent 1 Block | Secret、生出力、不要な個人情報、許可外Sourceを含む各Event | 各Eventの記録をEffect前の入口へ要求する | ERP-IT-005として、「各Eventの記録をEffect前の入口へ要求する」前後のEvent入口→Policy→Storeについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 記録Effect前に拒否または許可された最小情報へ限定し、内容を診断へ複製しない | ERP-IT-005、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「記録Effect前に拒否または許可された最小情報へ限定し、内容を診断へ複製しない」および終了後条件「許可外Store Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 許可外Store Effect 0 | Automated |
 | `ERP-UT-006` | 境界 | UT | Contract／Identity | Canonical Eventの検査・Identity生成規則 | N/A | 正常Eventと、Schema不一致、Identity不足、許可外分類の各入力 | 保存処理へ渡す前に入力を検査する | ERP-UT-006として、「保存処理へ渡す前に入力を検査する」前後のCanonical Eventの検査・Identity生成規則について、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 正常値だけをCanonical化し、不正値を理由別に拒否する | ERP-UT-006、固定入力「正常Eventと、Schema不一致、Identity不足、許可外分類の各入力」、観測した差分と理由code、Oracle判定「正常値だけをCanonical化し、不正値を理由別に拒否する」および終了後条件「Writer・Filesystem Effect 0」を保存する | Writer・Filesystem Effect 0 | Automated |
 | `ERP-UAT-007` | 境界 | UAT | Acceptance／Provenance | 公開記録→外部アプリ利用者 | User Acceptance | 異なる実行基盤の記録、欠測、観測不能、異なる観測時点 | 利用者が記録を比較し再利用可否を判断する | ERP-UAT-007として、利用者の選択、判断理由、参照した根拠、理解できなかった項目および未判断範囲を記録する | 事実・未観測・評価候補と出所を区別し、再探索なしに根拠へ戻れる | ERP-UAT-007、固定した参加条件と入力、利用者の選択・理由・参照根拠、未判断範囲、Oracle判定「事実・未観測・評価候補と出所を区別し、再探索なしに根拠へ戻れる」および終了後条件「記録・対象Task・Provider Effect 0」を保存する | 記録・対象Task・Provider Effect 0 | Manual |
+| `ERP-IT-006` | 境界 | IT | Persistence／Retention | Group→Execution参照→Store | Direct Boundary | Groupなし・未知・終了済みGroup、期限超過Groupとopen／unknown／unresolved／通常終了の子 | 開始・終了・同内容再送・異内容競合と期限整理を公開APIから行う | Groupと子の状態、ID、保持前後の記録集合、拒否理由 | Group終了で子を自動終了・成功化しない。未知Groupを補完せず、保持対象子と参照Groupを保全する | 固定改訂版・新品Store・入力ID・前後の集合・理由と各Oracleを記録。本文・Credential・絶対Pathは記録しない | 対象外記録不変。fixtureが自己生成Rootだけを削除し、削除失敗は試験失敗 | Automated |
+| `ERP-IT-007` | 境界 | IT | Query／Aggregation | Reader→Query／Summary | Direct Boundary | exact条件・半開期間・ページを跨ぐ記録と、欠測／非該当／取得済み0、異なる費用単位・出所 | get／list／summarizeを正常・不正条件で実行する | 該当ID・件数・分母・欠測件数・単位別集計と保存bytes | 別対象を混入せず、ページだけを集計しない。未完了・unknownを成功率の分母から分離し、欠測・0・通貨・Credit・報告額・推定額を混ぜない | 固定改訂版・入力集合・検索条件・観測値・保存前後bytesの一致を記録。秘密や本文は含めない | Readerによる記録変更0。自己生成Rootだけをfixtureで回収 | Automated |
+| `ERP-IT-008` | 境界 | IT | Producer Integration／Timing | Coordinator→EI→Store | Related 2 Blocks | 固定時計、元Completion、Host後処理結果、複数AI、EI保存拒否と元回復参照 | Provider要求直前・元Completion・上位最終判定へ通知し、保存失敗も注入する | 開始／終了日時・EI ID・AI結果とTask診断・呼出し回数・元Effect／回復参照 | 準備や後段待機をAI計測へ混ぜず、元Completionの欠測を補完しない。AI結果とTask結果を別保持し、一回保存する。EI失敗を新しいAI停止条件にせず、同じIDと元境界参照を保持する | 固定改訂版・時計と刺激・保存記録・呼出し回数・同じ記録IDと元参照を記録。実AI／Dockerを使用しない | 必須Recovery通知の停止条件は不変。fixture所有Rootだけを回収し、既存履歴は不変更 | Automated |
 
 ## 5. 評価
 
@@ -104,21 +107,17 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
-## 実行知v2・履歴保存刷新の検証条件
+## 現行保存契約と上位義務の評価境界
 
-情報源は[実行知の共通観測と保存契約](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#10-実行知の共通観測と保存契約)。既存の検証目標と局所項目へ次の意味ケースを接続する。表の存在やSchema適合を実Provider観測・品質受入の根拠にしない。
+情報源は[現行EI詳細設計](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md#v022採用済み再構成--executionとexecutiongroup)。検証はExecution／Group、v3 JSONL、明示Storeを対象とし、旧Recorder・Task専用Event・Repository能力の試験成功を継承しない。過去のv2方式と件数は[基準版監査](../../../06_Architecture/Details/execution-intelligence/02_Current_Implementation_Reality_Audit.md)と当時Evidenceに保全する。
 
-| 意味ケース | 対応Local Item | 観測とOracle | 終了後条件 |
-|---|---|---|---|
-| Task／一般Operation、Profileと実際割当、補正の親参照 | ERP-UT-006／ERP-IT-001 | 存在しないTaskを作らず、実績未観測を予定Profileで補わない。新Executionは旧Eventを変更しない | 入力不変、拒否時Effect 0 |
-| 閉じた診断、拒否・打切り・Schema不正と取得済みusage | ERP-UT-006／ERP-IT-001 | 許可済み診断と使用量が保存・読取りで一致する。生の本文・message・Header・秘密sentinelは拒否する。費用欠測を0へ変換しない | 不正入力の保存0、Reader Effect 0 |
-| 部分usage、取得済み0、完全性・非該当の分母 | ERP-UT-006 | 集計対象と観測件数が一致し、not_observedとnot_applicableを別々に処置する | 推定課金・品質採用0 |
-| 同一履歴の複数Process更新と再送 | ERP-IT-002 | 同内容再送は一件、異内容同IDは拒否、別IDの並行成功記録を失わない。全Process終了後の共有履歴を再観測する | Lock・pending・handle 0または同じ未解決参照 |
-| 短い書込み・flush・公開・readback・cleanup故障 | ERP-IT-003 | 公開済み／未公開／不明とcleanupを分け、部分JSONLや破損を正常履歴として返さない | 旧確定履歴保全、残存はexact参照 |
-| 期間境界と設定変更・不正設定 | ERP-IT-005／ERP-UT-006 | 既定30日と二つの独立設定を確認する。境界直前・一致・直後を処置し、未解決記録・正式Evidenceを期限だけで消さない。不正時は停止し、過去の整理証拠を現在設定で再解釈しない | state／キュー／未受理結果への削除Effect 0 |
-| 公開Recorder→Store→Reader、Task専用利用側 | ERP-IT-001／ERP-ST-004 | 一般Operationを保持するがTask専用画面へ架空Taskとして表示しない。実Provider・採用先Adapterの未接続を明示する | Source不変、Authority発行0 |
+入力固定・構造検査はrecord/validation.ts、遷移・Group参照・保持はrecord/operations.ts、物理保存・排他・終了はstorageが担当する。分離後もfresh履歴の遷移・保持判定を同じLock内で実行する。旧形式の取得前拒否と取得後の競合検査は別の保証として試験する。
 
-PT／LTは今回の有限契約確認では非該当。人間が対象と上限を指定した場合だけ別途実行する。性能上限の受理試験を性能試験成立と表示しない。
+冒頭の局所検証義務と、本文の正式Source由来義務を区別する。ERP-ST-004／ERP-UAT-007を局所成功や台帳validで合格へ変更しない。旧仕様の「Writer・Filesystem Effect 0」は、現WriteResultのno_effect（履歴出版前）だけでは証明できない。一般shape検査は保存排他の取得後にも行うため、全Filesystem一時Effect 0を主張せず、正式義務との差を未評価として残す。
+
+メタデータの未知Secret不存在は構造検査で保証しない。CRDDのProducerは固定ID・分類・技術観測だけを投影し、Prompt・自由な応答・Credentialを渡さない。外部アプリケーションは自分の情報分類を所有する。設定・所在は上位が確定し、EIに旧DM／VC依存を戻さない。
+
+PT／LT、実Provider、旧データ移行、全体回帰、System／UATは別Gate。今回の限定契約確認は、その成立を含まない。
 
 ## Checklist
 

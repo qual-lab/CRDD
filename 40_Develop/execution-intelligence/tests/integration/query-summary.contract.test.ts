@@ -1,4 +1,12 @@
-/** 検索・ページと集計母集合、欠測・単位の分離。業務評価は行わない。 */
+/**
+ * 実記録の検索・ページと集計母集合、欠測・単位の分離を確認する。
+ * @packageDocumentation
+ * @responsibility 完全一致・半開期間・欠測／非該当／0・異単位を検証し、品質評価を推定しない。
+ * @trace ERP-IT-007
+ * @level IT
+ * @scope EI公開API・実Store・検索と集計。
+ * @boundary 自己生成Storeへ固定記録を保存して照会する。fixture終了時にexact Rootを回収する。
+ */
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -9,6 +17,9 @@ import {
   type ExecutionQuery,
 } from "../../src/index.ts";
 import { fixture, startedAt, completion } from "../fixtures/store.ts";
+/** 複数記録の絞込み・ページと全母集合の集計値を対照し、入力履歴を変更しない。
+ * @trace ERP-IT-007
+ */
 test("外部Context・Providerで絞り込み、Summaryはページに限定しない", (t) => {
   const s = fixture(t);
   for (const id of ["a", "b", "c"]) {
@@ -64,6 +75,9 @@ test("外部Context・Providerで絞り込み、Summaryはページに限定し�
     assert.equal(summary.value.measurements.providerDurationMs?.total, null);
   }
 });
+/** 異なる単位・費用種別・出所の値を保存し、別集計になることを確認する。
+ * @trace ERP-IT-007
+ */
 test("通貨・Credit・報告額・推定額を混ぜない", (t) => {
   const s = fixture(t);
   const values = [
@@ -105,6 +119,9 @@ for (const query of [
   { unknown: true },
   [],
 ]) {
+  /** 不正な条件を渡し、条件無視による全件取得ではなくblockedになることを確認する。
+   * @trace ERP-IT-007
+   */
   test("検索の不正入力で対象を全件へ拡張しない", (t) => {
     assert.equal(
       listExecutions(fixture(t), query as unknown as ExecutionQuery).status,
@@ -112,6 +129,9 @@ for (const query of [
     );
   });
 }
+/** 未指定・欠測・非該当・取得済み0を対照し、それぞれの件数と合計を確認する。
+ * @trace ERP-IT-007
+ */
 test("費用の未指定・未観測・非該当・実測0を別々に集計する", (t) => {
   const s = fixture(t);
   const costs = [

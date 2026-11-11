@@ -1,8 +1,8 @@
-# 実行記録の読取りと評価候補の詳細設計
+# AI実行記録・検索・集計の詳細設計
 
 ## v0.22採用済み再構成 — ExecutionとExecutionGroup
 
-状態: 実装・限定検証・独立レビュー済みの候補（2026-11-11）。本節が現在の責務を所有する。下段のTask／Attempt専用イベント、評価候補、Repository結合は旧実装・旧設計の記述である。製品切替・検証の現在値は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)を参照する。旧データの移行、全体回帰、Release成立は含めない。
+状態: v0.22採用済み契約。2026-11-11の責務配置・文書整理は限定検証中。本書は現行の2モデル・9操作を所有する。過去方式と当時Evidenceは[基準版監査](02_Current_Implementation_Reality_Audit.md)、現在の検証結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)で区別する。旧データ移行、全体回帰、Release成立は含めない。
 
 ### 責務と公開操作
 
@@ -56,6 +56,8 @@ Group終了は子Executionの終了・成功を表さない。Groupが終了し�
 src/
 ├─ index.ts
 ├─ record/
+│  ├─ validation.ts
+│  ├─ operations.ts
 │  ├─ types.ts
 │  ├─ execution.ts
 │  ├─ group.ts
@@ -75,294 +77,162 @@ src/
 
 ## 基本設計との関係
 
-正本境界の再確認（2026-10-21）: Taskの現在状態・進行・採用済み判断はOrchestrator、技術実行・失敗・回復の正本記録はCoordinator／Docker Isolationが所有する。Execution Intelligenceはそれらの作成側が観測した事実・欠測を実績イベントへ写し、傾向・時間的出所・改善候補を返す。履歴の`current`は対象Revisionに対する新鮮さであり、現在Taskの状態ではない。履歴欠測から現在Task不存在を推定しない。
-
-EIの保存結果にある`manualRecoveryRequired`／`recoveryReference`はEI自身の記録公開失敗の処置参照であり、Task／Container回復のAuthorityではない。イベント内の未回収・Effect不明は作成側の観測事実として保持保護へ使うが、EIは技術回復を実行せず、改善候補を採用済み判断へ昇格しない。既存Store・状態・保存先は分割・統合しない。
-
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 利用可能な実行記録を読取り、欠測を保った事実と非Authorityな評価候補を返す。 | Covered |
-| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source Revision、観測時点および評価候補の時間的出所を、現在値と履歴を混同せず解決する。 | Covered |
-| [ARCH-000018](../../Definitions/ARCH-000018/architecture_definition.md) | 異なる作成側のCanonical Eventを検査し、並行書込みと途中失敗を扱って不変に公開する。 | Covered |
+| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 記録の参照・検索・欠測を保つ事実集計。評価候補は現EIから撤去済みで、上位義務を免除せず未実装として保持する | Partial |
+| [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | EIの日時は実行観測値に限定。旧鮮度分類は退役し、時間的出所・現在意図の既存Ownerと未評価義務を維持する | Partial |
+| [ARCH-000018](../../Definitions/ARCH-000018/architecture_definition.md) | 入力検査・同一性・競合・一回終了遷移・保存不明を具体化。全Filesystem Effect 0とSystem／UATの未評価範囲は残る | Partial |
+
+Taskの状態・採否・Recovery判断はCoordinator／Domain Modelが所有する。EIの手動回復表示や記録IDは保存失敗の処置参照であり、TaskやContainerを操作するAuthorityではない。
+
+## 1. Component Model
+
+| Source | 所有する処理 | 所有しない処理 |
+|---|---|---|
+| record/types.ts | 公開値契約と内部記録集合 | Runtime処理 |
+| record/validation.ts | 入力固定、ID・日時・構造・観測・状態相関の検査 | 遷移、Filesystem、Lock |
+| record/operations.ts | create／complete・冪等・競合、Group参照、保持対象の変更 | 時計取得、保存、Lock取得 |
+| record/execution.ts・group.ts | 用途別の公開記録入口 | 独立Store、AI実行 |
+| record/query.ts・summary.ts | 条件検索、ページ、欠測・単位を分けた集計 | 状態更新、品質採用 |
+| storage/store.ts | v3 Row、JSONL、実体・上限、fresh読取り、保存確認、失敗・回収結果 | Task知識、モデル規則の再実装 |
+| storage/lock.ts | 固定Lock名・Identityの共通Lock接続 | 独自回復、Directory作成 |
+
+依存はvalidation→types、operations→validation／types、storage→validation／operations／types、公開記録入口→validation／storage、query→validation／storage、summary→query／typesとする。検査から保存への逆参照、循環依存、Manager／Registry／汎用Runnerは作らない。
+
+## 2. Interface Model
+
+| 操作 | 入力・返却の中心 |
+|---|---|
+| createExecution／completeExecution | StoreOptions、ExecutionCreateInput／ExecutionCompleteInput、WriteResult |
+| createGroup／completeGroup | StoreOptions、GroupCreateInput／GroupCompleteInput、WriteResult |
+| getExecution／getGroup | StoreOptionsとID、ReadResultの記録又はnull |
+| listExecutions／listGroups | StoreOptionsとQuery、ReadResultの指定ページと全該当件数 |
+| summarizeExecutions | StoreOptionsとExecutionQuery、ReadResultのExecutionSummary |
+
+ReadResultのblockedは、記録不存在や空集合ではない。WriteResultはstatus、effectState、effectIssued、effectStateUnknown、cleanupConfirmed、同じrecordIdと残存参照を組合せて読む。no_effectは履歴出版前の拒否を表し、Lock等の一時Filesystem操作が一切なかったという意味ではない。
+
+## 3. Data Flow
+
+呼出し側の観測→入力固定→Store確認→共通Lock→fresh履歴→記録遷移・Group参照→保持対象整理→v3 JSONL→pending／fsync／確認→rename／確認→終了処置→結果とする。
+
+検索は入力固定・Query検査→Store観測→完全履歴の検査→条件抽出→指定ページ、又は全抽出対象の集計とする。読取りによって記録や保存先を作らない。
+
+## 4. State Model
+
+Execution／Groupはopen又はclosedで、openのcompletionはnull。completeは既存IDへ一度適用し、同内容再送以外の終了書換えを拒否する。Groupの終了と子の終了は独立である。
+
+結果のcompleted／failed／blocked／cancelled／unknown、値のobserved／not_observed／not_applicable、保存処理の結果は別軸とする。openやunknownを自動失敗・成功へ変換しない。
+
+## 5. Sequence
+
+1. 旧形式・未知残存をLock／pending取得前にも拒否する。
+2. 共通Lock取得後に履歴を読み直す。遷移・冪等・Group参照・保持判定は、このfresh集合へ同じ排他区間で適用する。
+3. 一回の現在時刻と保持設定を用い、未完了・未解決と参照Groupを保護する。当該操作で作成・終了した対象はその出版に残す。
+4. 固定pendingをwx取得し、書込み・fsync・元実体の読戻し後に同じ履歴名へrenameする。出版後も内容と実体を確認する。
+5. 今回の元pendingとLockだけを終了処置する。不明や置換があれば保全し、同じ記録IDで結果を返す。
+
+記録規則の別File化を理由に、2の判定をLock前へ移さない。旧形式の先行拒否と、取得後の競合検査は異なる保証なので併存させる。
+
+## 6. Failure／Recovery
+
+| 条件 | 処置 |
+|---|---|
+| 入力不正、同ID異内容、開始欠測、未知／終了Group | 記録更新を拒否。未知対象を補完しない |
+| Lock・pending・未知Fileが残存 | 空Storeやstaleと推定せず保全停止 |
+| 旧形式・混在・破損・重複・Group参照欠落 | Store全体を拒否し、行を読み飛ばさない |
+| 出版試行後の例外・読戻し不明 | 未記録と断定せず、同じIDの保存不明を返す |
+| 保存成立後の解放不明 | 保存事実と回収未確認を両方保持する |
+| 元Root／pendingの置換、close不明 | 別実体を削除しない。自分の残存だけを参照へ保持 |
+| 診断・EI保存の拒否 | 上位の必須Recovery通知とは別。AIの新しい停止条件にしない |
+
+EIはPIDや時間からLockを奪取せず、自動回復・保存不明の自動再送を追加しない。保存先準備のDM境界失敗はCoordinatorが元Effect・元回復参照と別のEI記録IDを保持する。
+
+## 7. Deployment
+
+Node.jsのライブラリであり、独立Process・HTTP Serverは持たない。Storeは上位が確定・準備した既存Directory。CRDDのRepository所在・Git除外・保持設定はCoordinatorがDM／VCの既存Ownerを利用して渡す。EI自体はRepository、設定File、OSユーザーを探索しない。
+
+## 8. Observability
+
+検索・集計は取得済み0、欠測、非該当を別件数で返す。成功率はcompleted／failed／blocked／cancelledを分母とし、open／unknownを除外する。経過時間とProvider実測時間、金額／Credit、単位、reported／estimatedを分ける。日時・設定値から実測や因果を推定しない。
+
+## 9. Security Boundary
+
+任意メタデータの情報分類・Storeアクセス許可は利用側が所有する。構造検査で未知Secret不存在を証明しない。EIはPrompt・応答本文・Credential・任意環境全体を専用入力として要求しない。
+
+Storeは非リンク実体・通常File・単一Link・32MiB／10,000行上限を検査する。確認後の非協調Processによる差替えを原子的に防ぐ保証は主張しない。共通Lockの単一Host・協調Process前提を継承する。
+
+## 10. 実行知の共通観測と保存契約
+
+保存形式はexecution-intelligence/history/v3のJSONLで、一行はExecution又はGroupの現在記録である。新規はopen、終了保存で同じIDをclosedへ置換する。終了済み内容の変更と、履歴全体を永久保存することは別である。
+
+保持日数はStoreOptionsの必須値。CRDDではCoordinatorがDMから既定30日を含む設定を取得する。EIへ既定値・Git設定Reader・旧形式Readerを追加しない。古い履歴の不存在から過去実行なしを推定しない。
 
 ## 詳細成果物の適用判断
 
 | 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
 |---|---|---|---|
-| Component Model | Required | Record Port／Writer／StoreとQuery／Reader／Projectionを分ける。 | [§1](#1-component-model) |
-| Interface Model | Required | 記録Portと読取りPortを別のAuthority／Effect境界に置く。 | [§2](#2-interface-model) |
-| Data Flow | Required | 観測から不変記録、記録から事実・欠測・評価候補へ至る変換を追跡する。 | [§3](#3-data-flow) |
-| State Model | Required | 記録Attemptとrecorded／not_recorded／unknown、読取りのobserved／not_observed／unknownを区別する。 | [§4](#4-state-model) |
-| Sequence | Required | 記録と読取りそれぞれの検査、公開、確認、投影の順序を固定する。 | [§5](#5-sequence) |
-| Failure／Recovery | Required | 並行衝突、途中失敗、Effect不明、Source欠落、破損、相関不一致を扱う。 | [§6](#6-failurerecovery) |
-| Deployment | Required | 複数ProcessのWriterが同じ検証済みRepository Rootへ公開し、API／CLI／MCP等のReaderが同じStoreを参照する配置条件を固定する。 | [§7](#7-deployment) |
-| Observability | Required | 記録Attempt、公開確認、読取り結果と欠測理由を同じExecution Identityで相関可能にする。 | [§8](#8-observability) |
-| Security Boundary | Required | 記録権限と読取り権限を分け、いずれも変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
-| Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
+| Component Model | Required | 値検査・遷移・物理保存のOwnerを分ける | [§1](#1-component-model) |
+| Interface Model | Required | 明示Storeと9操作の入出力・結果を固定する | [§2](#2-interface-model) |
+| Data Flow | Required | 入力から記録・検索・集計までを追跡する | [§3](#3-data-flow) |
+| State Model | Required | open／closed、実行結果、保存結果を分ける | [§4](#4-state-model) |
+| Sequence | Required | fresh履歴・排他・出版・終了の順序を固定する | [§5](#5-sequence) |
+| Failure／Recovery | Required | 出版前拒否・保存不明・回収不明を区別する | [§6](#6-failurerecovery) |
+| Deployment | Required | 呼出し元と同Hostの複数Writer・Filesystem境界を固定する | [§7](#7-deployment) |
+| Observability | Required | 同じID・欠測・単位・元回復参照を保持する | [§8](#8-observability) |
+| Security Boundary | Required | 構造検査と情報分類・実行許可を分ける | [§9](#9-security-boundary) |
+| Implementation Structure | Required | 差分・共通契約・状態・資源Ownerを分ける | [構造](#implementation-structure) |
 
 ## Engineering Concern評価
 
 | Concern | Result | Rationale | Evidence／Related ID |
 |---|---|---|---|
-| Concurrency | PASS | Writerは不変公開と衝突後再読取りを用い、Readerは一つのSnapshot内で異なる観測時点を混在させない。 | [§4](#4-state-model) |
-| Timing | PASS | 観測時点とSource Revisionを結果へ保持し、古い値を現在値として返さない。 | [§4](#4-state-model) |
-| Resource Lifecycle | PASS | WriterのLock、一時物、Handleを公開確認または失敗settlement後に回収し、ReaderのHandleも終了時に残さない。 | [§5](#5-sequence) |
-| External Boundary | PASS | 作成側入力の受理／公開と、ReaderのSource取得不能／記録不存在をそれぞれ別状態で返す。 | [§6](#6-failurerecovery) |
-| Failure／Recovery | PASS | 公開Effect不明は同じExecution IdentityのAttemptへ再入場し、読取り不能時は状態を推測せず再取得可能な参照と理由だけを返す。 | [§6](#6-failurerecovery) |
-| State／Consistency | PASS | 記録Attemptとrecorded／not_recorded／unknown、読取りのobserved／not_observed／unknownを区別する。 | [§4](#4-state-model) |
-| Observability | PASS | 記録Attempt、公開確認、読取り結果と欠測理由を同じExecution Identityで相関可能にする。 | [§8](#8-observability) |
-| Security／Trust | PASS | 記録権限と読取り権限を分け、いずれも変更・採用・実行Authorityへ昇格させない。 | [§9](#9-security-boundary) |
+| Concurrency | PASS | 同じLock取得後のfresh履歴へ遷移・保持を適用する | [§5](#5-sequence) |
+| Timing | PASS | 後処理込み経過時間とProvider実時間・欠測を分ける | [計測](#計測と状態) |
+| Resource Lifecycle | PASS | 元descriptor・pending・Lockの終了又は同じIDの未解決を返す | [§6](#6-failurerecovery) |
+| External Boundary | PASS | 入力・保存・結果搬送と上位の実行判断を分ける | [§2](#2-interface-model) |
+| State／Consistency | PASS | open／closed、同内容再送、異内容競合、Group参照を区別する | [§4](#4-state-model) |
+| Failure／Recovery | PASS | 保存不明を未実施へ戻さず、未知残存を自動回収しない | [§6](#6-failurerecovery) |
+| Observability | PASS | 記録ID・元参照・欠測・単位・集計分母を保持する | [§8](#8-observability) |
+| Security／Trust | PASS | 情報分類と認可は呼出し側が所有し、構造検査をSecret不存在証明にしない | [§9](#9-security-boundary) |
 
-結果語彙は次の意味に限定する。
-
-- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済みを意味しない。
+- `PASS`: 詳細設計上の処置と根拠節が揃った状態。実装済み・試験済み・正式義務全体の成立を意味しない。
 - `N/A`: Architecture上、そのConcern自体が存在しない状態。未検討や後工程送りを意味しない。
 - `OPEN`: 未解決の設計事項が残る状態。
-- `FAIL`: 必須設計と矛盾する、または必要な設計が未充足の状態。
+- `FAIL`: 必須設計と矛盾する、又は必要な設計が未充足の状態。
 
 ## Qualityへの引渡し
 
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
-| `execution-intelligence.record-read` | Interface／Flow | Query／Reader | 許可されたSourceのexact記録だけを返す | 別Task混入、破損黙殺、欠測補完 | UT／IT | Direct Boundary | Source ID、Task ID、Revision、読取り結果 | 書込みEffect 0、Handle 0 | 外部Source別の実在性 |
-| `execution-intelligence.state-projection` | Flow／Consistency | Aggregator／Projection | observed／not_observed／unknownを区別する | unknownを空値や正常へ畳む | UT／IT | Adjacent 1 Block | 状態、reason、observed at | 入力記録不変、Authority発行0 | 利用側表示の理解可能性 |
-| `execution-intelligence.temporal-provenance` | Flow／Consistency | Revision／Observed At | 現在値と履歴を区別できる | 古い記録を現行として表示 | UT／IT | Adjacent 1 Block | source revision、observed at | 履歴変更0 | Clock差の実境界 |
-| `execution-intelligence.evaluation-candidate` | Interface／Transition | 事実と評価候補 | 両者を別結果として返す | 候補を事実・採用判断へ昇格 | UT／IT | Adjacent 1 Block | fact、candidate、basis | 採用Effect 0 | 人間判断後の下流処置 |
-| `execution-intelligence.record-publication` | Sequence／Lifecycle Ownership | Record Port／Writer／Store | Canonical Eventを同じExecution Identityで不変公開する | 並行上書き、部分公開、重複事実、Effect不明の自動再発行 | IT／ST | Related 2 Blocks | Execution ID、Attempt、publish結果、再読取り | Lock／一時物／Handle 0、または同じIdentityの回復義務 | 複数作成側の実境界 |
-
-導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
+| `execution-intelligence.record-read` | Interface／Flow | Query／Summary | exact条件と欠測を保つ結果 | 別対象混入、欠測補完、ページだけの集計 | UT／IT | Direct Boundary | ID、件数、観測状態、単位 | 読取りによる書込み0 | 外部アプリと表示の理解可能性 |
+| `execution-intelligence.state-projection` | Flow／Consistency | Coordinator Activity | 明示した最終Task判定だけを投影 | AI成功からTask成功を推測 | UT／IT | Adjacent 1 Block | metadata、Task結果、不明理由 | EI記録不変、Task変更0 | 上位義務全体・UAT。旧EI専用投影は退役 |
+| `execution-intelligence.temporal-provenance` | Flow／Consistency | 上位の時間的出所 | 現在意図と履歴を区別 | 過去を現在へ昇格 | UT／IT | Adjacent 1 Block | 対象改訂・観測時点・分類 | 過去根拠不変 | 現EIは実装しない。ARCH-000016既存Ownerで別評価 |
+| `execution-intelligence.evaluation-candidate` | Interface／Transition | 上位評価候補 | 事実と未採用候補を区別 | 候補を事実・採用判断へ昇格 | UT／IT | Adjacent 1 Block | 事実、候補、根拠 | 採用Effect 0 | ARCH-000007上位義務は未実装。新Queryで代替しない |
+| `execution-intelligence.record-publication` | Sequence／Lifecycle Ownership | 開始・終了保存 | 同じIDの一回遷移・冪等 | 異内容上書き、部分出版、元参照欠落 | IT／ST | Related 2 Blocks | ID、保存段階、Effect、回収 | 元Lock・pending・descriptorの終了又は同じ未解決参照 | System／UATと全Filesystem Effect 0の正式義務 |
 
 ## 現行実装との照合
 
-v0.20.1にはEvent生成、Recorder、Store Writerおよび不変保存の成立済みCapabilityがある。これらは[ARCH-000018](../../Definitions/ARCH-000018/architecture_definition.md)の現行照合対象として[現行実装のReality Audit](02_Current_Implementation_Reality_Audit.md)で比較する。基準版実装の存在だけをCanonical設計の成立根拠にはしない。
-
-## 1. Component Model
-
-```text
-実行Runtime／外部Application
-          │ Canonical Event
-          ▼
-      Record Port
-          ↓
-  Schema／Identity検査
-          ↓
-        Writer
-          ↓ 不変公開
-       Record Store
-          ↑
-        Reader
-          ↑
-         Query
-          ↑
-Workbench／MCP／CLI／TS API
-
-Reader → 検査・相関・Aggregation → Read-only Projection
-                                      ├─ 観測事実
-                                      ├─ 欠測／不明
-                                      └─ 非Authority評価候補
-```
-
-Writerだけが検証済みRecord PortからStoreへの公開Effectを所有する。ReaderとProjectionは入力Sourceを変更しない。いずれもTask状態、Project状態、実行許可または評価採用を所有しない。
-
-実装配置は次のとおりとする。Package公開入口は`src/index.ts`に限定し、改善候補の採用や実行は追加しない。
-
-```text
-src/
-├ index.ts                    既存の公開操作・型を実Ownerから明示公開
-├ record/
-│  ├ types.ts                 Event・構築入力・要約の共有型
-│  ├ validation.ts            通常データ抽出、構造・Identity・観測整合の検査
-│  ├ event.ts                 観測値とTask／Operation Eventの構築
-│  ├ summary.ts               検査済み記録の実績・欠測集計
-│  └ recorder.ts              Root検証と記録操作・保存先の接続
-├ storage/
-│  ├ store.ts                 保存・読戻し・保持期間・公開結果の編成
-│  ├ lock.ts                  既存Lockの取得・所有確認・解放と存在観測
-│  └ result.ts                保存結果と残存を保持する共通失敗契約
-├ projection/
-│  ├ execution.ts             対象Project／Attemptの事実と評価候補の投影
-│  └ temporal.ts              Revision・観測時点の分類と時間投影
-└ evaluation/
-   ├ integrated-result.ts      Task群と統合結果の評価
-   └ improvement-candidates.ts 根拠に基づく非Authorityの改善候補
-```
-
-`event`と`summary`は`validation`の検査を利用し、検査側からEvent構築へ逆依存しない。通常データ抽出には任意キー、Array上限・返却shape等でDomainの汎用抽出と異なる現行契約があるため、転送Fileを残さず`record/validation.ts`へ集約する。Domainの汎用契約を今回拡張しない。
-
-実行時のEvent契約定数は検査を所有する`record/validation.ts`へ置く。型専用の`types.ts`は同じliteral型だけを宣言し、実行時定数や検査実装へ依存しない。Rootの公開名・値・Event shapeは維持する。
-
-`storage/result.ts`はLockだけでなくpending・保持設定・保存確認・読取りが共有する既存の具体的な失敗契約であり、新しいError Frameworkではない。既存の`history.lock`と保持区間、保存後読戻し位置、Effectとcleanupの相関を維持する。取得・所有確認・解放は共通Lockが所有し、独自UUID Recordと200回のLock再試行は撤去する。EEXISTは未発行で停止し、初期化残存・解放不明を保存成立へ読み替えない。Runtime領域Readerの既存の有限待機は別の意味として残す。保存Path・JSONL・保持設定と期間は変更しない。
-
-独立Repository検証Fileは廃止するが、公開`verifyExecutionIntelligenceRepositoryRoot`と`VerifiedExecutionRepositoryRoot`はrecorderへ同居し、既存のreason／root shapeを維持する。実際のRoot検証・解決はVersion Controlが所有し、Storageはその型と解決操作を直接利用する。`classifyTemporalProvenance`も独立公開操作のまま`temporal.ts`へ同居する。公開操作・型の名前、引数、理由、結果shapeは変更せず、利用側へ変換処理を複製しない。
-
-## 2. Interface Model
-
-本書の`recorded`等は設計上の概念状態であり、公開APIの返却literalではない。公開Writerの成功判定は`ExecutionIntelligencePublicationResult`の`status: "completed"`を使用し、[利用手順](../../../19_Workflows/03_Execution_Intelligence.md#runtime-adapterからの利用)に従ってEffectと回収結果も確認する。
-
-記録Portは、作成側Identity、Execution Identity、Attempt、Canonical Event、Schema Revisionおよび相関情報を受け取る。Writerは入力を再解釈せず検査し、公開結果を`recorded`、`not_recorded`、`unknown`で返す。`unknown`には同じAttemptへ再入場する非Authorityな回復参照を含められる。
-
-読取りPortは、許可されたSource識別、対象Task、取得条件とSnapshot条件を受け取る。結果は、観測状態、事実、評価候補、Source Revision、観測時点および欠測理由を返す。どちらのPortもFilesystem Pathや内部Store表現を公開契約へ漏らさない。
-
-## 3. Data Flow
-
-```text
-Runtime event
-   ↓ schema・producer・execution identity検査
-Validated canonical event
-   ↓ attempt単位の一時保存と排他
-Immutable publish
-   ↓ publish結果の再読取り確認
-Canonical execution record
-   ↓ task・revision・time相関
-Observed facts + missing/unknown
-   ↓ 評価候補を別fieldへ導出
-Read-only result
-```
-
-要求値、観測値および評価値を相互に代用しない。Sourceが返さない値は未観測として保持する。
-
-## 4. State Model
-
-| 状態 | 意味 | 禁止する短絡 |
-|---|---|---|
-| `prepared` | 入力と対象Rootを検査し、まだ公開Effectを発行していない | 記録済みとみなさない |
-| `publishing` | 同じAttemptで不変公開を試行している | timeoutを未記録へ畳まない |
-| `recorded` | 公開後の同一内容をStoreから再読取り確認できた | 別Attemptや別内容の成功へ流用しない |
-| `not_recorded` | 公開Effect前に拒否または失敗し、対象不存在を確認できた | `unknown`を含めない |
-| `publication_unknown` | Effect有無または公開内容を確認できない | 新しいAttemptで自動再発行しない |
-| `observed` | 許可されたSourceから対象記録を検査できた | 現在有効・採用済みとみなさない |
-| `not_observed` | Sourceは読めたが対象記録がない | 正常値や0へ補完しない |
-| `unknown` | Sourceまたは相関を検査できない | `not_observed`へ畳まない |
-
-一つの結果は単一Snapshot条件を持つ。異なるRevisionや観測時点の結果を、同じ現在状態へ暗黙統合しない。
-
-## 5. Sequence
-
-```text
-【記録】
-Canonical Eventと対象Rootを検査
-      ↓
-同じExecution Identity／Attemptで排他取得
-      ↓
-一時保存 → flush → immutable publish
-      ↓
-公開内容を再読取り確認
-      ↓
-recordedを返す ──失敗／不明──→ 同じAttemptの回復義務を保持
-      ↓
-Lock／一時物／Handleを回収
-
-【読取り】
-取得条件を検査
-      ↓
-Sourceを読取る
-      ↓
-Schema／Identity／Revisionを検査
-      ↓
-事実・欠測・評価候補を分離
-      ↓
-根拠付きProjectionを返す
-```
-
-記録Sequenceの公開以外ではStoreへの書込みEffectを行わない。読取りSequenceでは書込みEffectを行わず、両経路ともTask更新、候補採用または実行Authority発行を行わない。
-
-## 6. Failure／Recovery
-
-- 入力拒否、公開前失敗、公開済み、公開Effect不明を分ける。
-- 同じExecution Identityへの同内容再送は再読取りで収束させ、異なる内容との衝突は上書きせず拒否する。
-- 並行Writerは一方の不変公開後に他方が同内容を再読取りできる場合だけ同じ結果へ収束する。
-- 一時保存、flush、renameまたは公開確認の途中失敗では、対象不存在を確認できない限り`not_recorded`を返さない。
-- 公開Effect不明時は同じAttemptと回復参照を保持し、新しいIdentityや拡大Authorityを発行しない。
-- Source不存在とSource観測不能を分ける。
-- 記録破損、Schema不一致、Identity不一致またはRevision競合を黙って除外しない。
-- 部分的に読めた結果を完全な履歴として返さない。
-- 再取得可能な場合は、秘密情報を含まないSource参照、Snapshot条件と失敗理由を返す。
-- 回復処置そのものは所有せず、再取得後も同じ対象Identityを用いる。
-
-## 7. Deployment
-
-Record PortとQueryはTypeScript APIとして同じ契約を公開し、CLI、MCPまたはWorkbenchはAdapterとして利用する。Writerが別Processに分かれても、検証済みRepository Root、Store Schema、Execution Identityおよび不変公開規則は変えない。複数ProcessのWriterが同じStoreへ到達する場合はprocess間排他を使用する。共有Serverでの接続認証とRepository ExposureはCROS／Transport側が所有する。
-
-## 8. Observability
-
-診断結果には、Execution Identity、Attempt、作成側種別、公開段階、公開確認、対象Task、Source種別、Source Revision、観測時点、観測状態、欠測理由および評価根拠を含める。Raw provider出力、資格情報または許可されていないPathを診断目的で複製しない。
-
-## 9. Security Boundary
-
-- 記録Portの利用資格を、Task実行、評価採用、別Executionへの記録または回復Authorityとして扱わない。
-- Sourceを読めることを、Source変更、Task実行、評価採用または回復Authorityとして扱わない。
-- 開示不可Sourceの存在やIdentityを境界外へ漏らさない。
-- 評価候補は非Authorityであり、明示した決定権限者の判断を代替しない。
-- CanonicalなTask Identity、Revisionおよび観測時点を利用側で再解釈しない。
-
-## 10. 実行知の共通観測と保存契約
-
-### 10.1. Eventと観測値
-
-公開入口は`40_Develop/execution-intelligence/src/index.ts`とし、Provider固有Resultの取得・安全化は利用側Adapterが所有する。共有Event契約はv2とし、次の二種を同じStore／Reader／集計へ接続する。旧v1の保存ReaderやRuntime内変換は持たない。
-
-| 種別 | 必須Identity | 対象 |
-|---|---|---|
-| `task_attempt_settled` | Project／Milestone／Objective／Task／Attempt／Operation | OrchestratorのTask試行 |
-| `operation_settled` | Project／Operation／Execution | 生成・評価・画像・補正等の一般Operation。Taskを捏造しない |
-
-共通の役割、Provider、Model、所要時間、使用量、実行結果、品質観測に、Profile ID／Revision、推論量、個別上書き有無、親Executionと安全化した診断の観測状態を接続する。補正やModel変更は新しいExecutionとして記録し、旧Eventを改変しない。Profile指定と実際のModel観測は別の根拠であり、設定値から実績を補完しない。
-
-診断はHTTP、拒否、打切り、JSON解析、Schema検査、対象一致、意味検査等の閉じた段階・分類と許可済み識別値だけを受理する。任意のmessage、param、応答本文、Header一式、値を含むSchema位置、認証情報を受理しない。未対応の詳細は未観測とし、失われた実応答の原因を後から推定しない。任意のSchema位置や要求相関Headerの搬送は、Producerの安全化・許可集合・情報分類を定義するまで未対応とする。
-
-使用量の完全性は取得済み・欠測・非該当のfield集合から導出する。取得済み0と未観測を分け、Token取得済み／費用欠測を無課金や完全観測へ丸めない。応答後の成果物拒否でも取得済み使用量は保持する。Operationの直接診断は元Runtimeが所有し、実行知が利用不能でも現在の停止理由を判断できる契約を維持する。
-
-### 10.2. Schema責務と利用側
-
-| 契約 | Owner／Writer | Reader／試験 | 所有しないもの |
-|---|---|---|---|
-| 共通Eventと閉じた観測 | Execution Intelligence。利用側Adapterが実測値から構成する | 公開Recorder、Store、集計、閉Schema・欠測・不正値試験 | Provider実行、承認、認証、課金、品質採用 |
-| Task試行 | Orchestrator／Coordinator Adapter | Task専用Projection・統合評価・Workbench Activity | 一般Operationに架空Taskを付与すること |
-| 一般Operation | 採用RuntimeのAdapterと`recordOperation` | 公開Reader・集計・保存往復試験 | Communicationへの接続済み・実Provider検証済みの主張 |
-| 履歴保存 | Storeの単一履歴排他 | 不変内容、競合、途中故障、Reader Effect 0の試験 | Taskキュー、実行Authority、回復状態DB |
-
-同じfieldが別層へ搬送されたことを、その利用側の保存・表示成立とはみなさない。Task専用画面は一般OperationをTaskとして表示せず、一般Operationを表示する追加UIは未接続と明示する。
-
-### 10.3. 保存と保持
-
-```text
-<verified-repository-root>/.crdd/execution-intelligence/
-├ history.jsonl
-├ history.lock
-└ history.pending.jsonl
-```
-
-`history.jsonl`は1行1Eventの構造化記録である。Eventの内容は不変とし、同一ID同内容の再送は再読取りで収束、異内容は拒否する。Repository内の履歴全体を一つの`history.lock`で排他し、完成した履歴を`history.pending.jsonl`へ書込み・flushした後、atomic replaceと再読取りで保存確定を確認する。短い書込み、公開済み／未公開／不明、cleanup不明を分け、所有不明のLockやpendingを時刻だけで奪取しない。ReaderはLock・pendingを作成せず、完全なSnapshotを読取り、部分JSONL・重複・破損・更新不明を完全履歴として返さない。
-
-通常記録の既定保持期間は人間が採用した30日とする。Execution Intelligenceは`<verified-repository-root>/.crdd/config/execution-intelligence.json`、Taskと技術実行を統合したCoordinatorは別の`coordinator.json`を用いる。各Toolは自分の設定だけを読み、もう一方や旧`orchestrator.json`の設定状態に依存しない。非秘密の設定はGit管理し、未設定は各30日、不正設定や観測不能は当該Toolの整理を停止する。設定の読取り・構造検査はDomain Model、何を削除できるかは各履歴Ownerが所有する。
-
-回収未確認、手動回復が必要、Effect不明または再起動が必要な記録を、期限だけで削除しない。正式Evidenceは履歴ではなく品質／CHGのOwner成果物として保全する。期間外の通常Eventを新規公開・再公開せず、期限による未記録を明示する。期間抽出は物理削除ではない。結果には観測した範囲と欠測を保持し、古い記録がないことを実行なしへ変換しない。
-
-旧`.crdd/execution/`はフロントAIが、旧Producer停止、必要情報・参照・未解決義務の確認、新形式への移行結果確認後に清掃する。Runtime内に旧形式Reader、Fallback、二重書込みを残さない。移行前の必要記録を無条件に削除しない。
+[基準版監査](02_Current_Implementation_Reality_Audit.md)は当時のCapability・Evidenceの資料で、現方式の成立根拠ではない。現候補の限定試験・独立レビュー・未実施範囲は[変更計画](../../../99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)で追跡する。全体回帰、旧データ移行、実AI／Docker、System／UAT、Releaseの完了は主張しない。
 
 ## Implementation Structure
 
 | 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
 |---|---|---|---|---|---|---|
-| Variation | Required | この観点を成立させる構造と責務が存在するため。 | Qualityへの引渡しで責務差を別の設計項目として固定する。 | 具象差を一つの分岐へ畳まず、各導出キーの正常条件と反証条件を保つ。 | 新しい具象を追加した場合、対応する導出キーと利用側の再確認が必要になる。 | `execution-intelligence.record-read`<br>`execution-intelligence.state-projection`<br>`execution-intelligence.temporal-provenance`<br>`execution-intelligence.evaluation-candidate`<br>`execution-intelligence.record-publication` |
-| Common Contract | Required | この観点を成立させる構造と責務が存在するため。 | 実行Record、状態Projection、時系列根拠と評価候補を、観測値・推定・未観測を分ける共通契約へ揃える。 | ReaderやProjectionが異なってもSource、Observed At、Freshnessおよび欠測を保持する。 | 新しいRecord種別が独自の現在値や欠測表現を持ち、古い値を現在値へ畳む。 | `execution-intelligence.record-read`<br>`execution-intelligence.state-projection`<br>`execution-intelligence.temporal-provenance` |
-| Creation／Selection | N/A | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 本領域は独立した具象生成・選択責務を持たず、上位から固定入力を受ける。 | 生成・選択判断を本領域へ追加しない。 | 将来生成・選択責務を追加する場合に再評価する。 | N/A |
-| State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | 入力・処理中・完了・失敗・観測不能を区別して振る舞いを決める。 | 状態を空値や成功へ畳まず、同じIdentityで終了条件まで追跡する。 | 状態追加・統合はRecoveryと観測契約へ波及する。 | `execution-intelligence.record-read` |
-| Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | 複数の局所責務を公開結果へ合成し、部分成立と全体成立を分ける。 | 各局所結果を保持し、必要な全要素が揃うまで上位完成を表示しない。 | 構成要素の追加時は完成条件と全Consumerを再確認する。 | `execution-intelligence.record-read`<br>`execution-intelligence.state-projection`<br>`execution-intelligence.temporal-provenance`<br>`execution-intelligence.evaluation-candidate`<br>`execution-intelligence.record-publication` |
-| Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Process、Handle、一時物、秘密または公開SnapshotのOwnerと終了条件を固定する。 | 成功・失敗・取消の全経路で資源回収または同一Identityの回復義務を残す。 | Owner変更は取消、Recovery、終了後条件へ波及する。 | `execution-intelligence.record-publication` |
-| External Boundary | Required | この観点を成立させる構造と責務が存在するため。 | 外部境界ごとに要求、受理、Effect、結果搬送および終了後状態を分ける。 | 境界の成功を要求発行だけから推定せず、段階に応じた観測を必須にする。 | 境界変更は直接境界からSystem／E2Eまでの検証範囲へ波及する。 | `execution-intelligence.record-publication` |
+| Variation | Required | ExecutionとGroupの値・遷移条件が異なる | 記録種別と各検査 | CRDD用途分岐を持たない | 新種別は検査・遷移・Readerへ波及 | execution-intelligence.record-publication |
+| Common Contract | Required | 記録・観測・結果を全操作で共有する | typesとvalidation | 欠測・単位・同一性を維持 | 契約変更は全Producer／Readerへ波及 | execution-intelligence.record-read |
+| Creation／Selection | Required | createとcompleteが記録を構築する | execution／groupとoperations | AIやStoreを生成せず、既存IDへ一回遷移する | 冪等・競合と開始欠測を再確認 | execution-intelligence.record-publication |
+| State-dependent Behavior | Required | open／closedと保存段階で振る舞いが異なる | operationsとstorage結果 | 同内容再送以外の終了書換えを拒否 | 状態変更は保持・回収へ波及 | execution-intelligence.record-publication |
+| Composition／Recursion | Required | Groupと子、Queryと集計を合成する | Group参照とSummary | Group終了は子を終了させず、再帰Groupは作らない | 参照欠落・欠測・分母を再確認 | execution-intelligence.record-read |
+| Lifecycle Ownership | Required | Lock・pending・descriptorを取得する | storageと共通Lock | 元実体だけを終了処置する | 失敗時は同じ記録IDと残存を保持 | execution-intelligence.record-publication |
+| External Boundary | Required | Filesystem・複数Writer・呼出し側と接続する | 明示Storeと完成API | 実行許可・Task状態・旧移行を所有しない | 境界変更はConsumerと保存異常へ波及 | execution-intelligence.record-publication |
 
-同じ責務へ二つ目の具象実装を追加する場合は、共通契約へ昇格するかを評価する。昇格しない場合は、同じ責務ではない、または局所分岐の方が単純で影響が小さい理由を記録する。特定のDesign Pattern名は必須にしない。
+値検査・記録操作・物理保存を別Ownerにし、共有のRecordsだけを排他区間内で受け渡す。再帰Group、追加Store、空Hookや用途別保存Runnerは作らない。二つ目の同責務の具象実装は現時点で存在しない。追加時は共通契約への昇格又は非昇格理由を評価する。
 
 ## 上流UI／SPEC Detailとの関係
 
-| Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
-|---|---|---|---|---|
-| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000007、ARCH-000016、ARCH-000018のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+PRT-000005.spec-000008、PRT-000017.spec-000022、PRT-000020.spec-000030の安定IDと元の検証義務を維持する。現EIが実装しない評価・時系列意図の義務は部分対応又は未実装であり、全面Coveredや正式QA Passへ昇格しない。
 
-担当Interaction Relation: `PRT-000005.spec-000008`、`PRT-000017.spec-000022`、`PRT-000020.spec-000030`
-
-本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
+OPEN: ARCH-000007の評価候補、ARCH-000016の時間的出所、System／UATと全Filesystem Effect 0の正式義務は本候補の限定成功から成立としない。Architecture Readyは主張しない。
 
 ## Checklist
 

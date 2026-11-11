@@ -1,4 +1,11 @@
-/** AI実行と任意集約の公開契約。Task、Repository、実行Authorityを所有しない。 */
+/**
+ * AI実行・Groupと、記録・検索・集計の値契約を定義する。
+ * @responsibility 用途に依存しないIdentity・欠測・結果・未解決保持を表現する。
+ * @trace ARCH-000007
+ * @trace ARCH-000018
+ * @boundary Task、Repository、実行Authorityを所有せず、メタデータの情報分類は利用側に残す。
+ */
+/** 取得済み値とその出所、未観測、非該当を区別し、欠測を0へ補完しない。 */
 export type Observation<T> =
   | Readonly<{ state: "observed"; value: T; source: string }>
   | Readonly<{ state: "not_observed" | "not_applicable"; reason: string }>;
@@ -60,22 +67,27 @@ export type ExecutionCompleteInput = Readonly<{
   /** 未解決は期限整理しない。Recoveryの許可ではない。 */
   retention: "standard" | "unresolved";
 }>;
+/** 一回の論理実行の開始値と終了観測。openではcompletion=nullを要求する。 */
 export type Execution = ExecutionCreateInput &
   Readonly<{
     state: "open" | "closed";
     completion: ExecutionCompleteInput | null;
   }>;
+/** 呼出し側が定める任意集約単位。Task階層や実行順序を表さない。 */
 export type GroupCreateInput = Context &
   Readonly<{ groupId: string; startedAt: string }>;
+/** Group自身の終端。子Executionを自動終了させる指示ではない。 */
 export type GroupCompleteInput = Readonly<{
   endedAt: string;
   status: "completed" | "failed" | "cancelled";
 }>;
+/** Group自身の終了観測。closedでも子Executionの完了・成功を保証しない。 */
 export type ExecutionGroup = GroupCreateInput &
   Readonly<{
     state: "open" | "closed";
     completion: GroupCompleteInput | null;
   }>;
+/** 実行集合の完全一致条件と開始時刻の半開区間。ページ指定は集計母集合を狭めない。 */
 export type ExecutionQuery = Context &
   Readonly<{
     groupId?: string;
@@ -86,6 +98,7 @@ export type ExecutionQuery = Context &
     limit?: number;
     offset?: number;
   }>;
+/** Group自身の属性・状態による検索条件。子の状態からGroup状態を推定しない。 */
 export type GroupQuery = Context &
   Readonly<{
     status?: "open" | GroupCompleteInput["status"];
@@ -93,6 +106,7 @@ export type GroupQuery = Context &
     limit?: number;
     offset?: number;
   }>;
+/** 検索母集合の事実集計。成功率の分母、欠測、非該当、費用単位・出所を分離する。 */
 export type ExecutionSummary = Readonly<{
   executionCount: number;
   openCount: number;
@@ -142,3 +156,6 @@ export type WriteResult = Readonly<{
   residualArtifactIds: readonly string[];
   recoveryReference: string | null;
 }>;
+
+/** 保存Ownerが一回の排他区間で専有する記録集合。Root公開しない内部契約。 */
+export type Records = { executions: Execution[]; groups: ExecutionGroup[] };

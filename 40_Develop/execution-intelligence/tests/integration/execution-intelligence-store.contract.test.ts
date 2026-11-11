@@ -1,4 +1,15 @@
-/** 新9操作の実Filesystem保存・不明・競合・回収を確認する。 */
+/**
+ * 実Filesystemで記録遷移・保存不明・競合・今回資源の回収を反証する。
+ * @packageDocumentation
+ * @responsibility 旧形式保全、段階別故障、元実体照合、複数ProcessとCrash残存を検証する。
+ * @trace ERP-IT-001
+ * @trace ERP-IT-002
+ * @trace ERP-IT-003
+ * @trace ERP-IT-005
+ * @level IT
+ * @scope EI公開保存API、共通Lock、Node Filesystemと今回起動する有限試験Process。
+ * @boundary 試験生成Storeだけを操作し、失敗注入を復元後に自己生成Rootを回収する。実AI・Dockerは使わない。
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,6 +25,9 @@ import {
 } from "../../src/index.ts";
 import { fixture, completion, startedAt } from "../fixtures/store.ts";
 
+/** 同じIDの開始・終了・再送・競合を実履歴で確認し、終了内容の上書きを拒否する。
+ * @trace ERP-IT-001
+ */
 test("開始・終了は同じIDへ一度だけ保存し、同一再送だけを受理する", (t) => {
   const s = fixture(t),
     input = { executionId: "e", startedAt };
@@ -40,7 +54,10 @@ test("開始・終了は同じIDへ一度だけ保存し、同一再送だけを
     assert.equal(r.value?.completion?.outcome.status, "completed");
   assert.deepEqual(fs.readdirSync(s.directory), ["history.jsonl"]);
 });
-test("開始のない終了・未知field・逆行時間はEffect前に拒否", (t) => {
+/** 開始欠測・未知field・逆行日時を渡し、履歴出版前の拒否を確認する。一時Lock作成0は主張しない。
+ * @trace ERP-IT-001
+ */
+test("開始のない終了・未知field・逆行時間は履歴出版前に拒否", (t) => {
   const s = fixture(t);
   assert.equal(
     completeExecution(s, "none", completion()).reason,
@@ -71,6 +88,9 @@ for (const contents of [
   "{}",
   "\n",
 ]) {
+  /** 旧Schema・混在・破損行を渡し、拒否後も元byteが不変であることを確認する。
+   * @trace ERP-IT-005
+   */
   test("旧形式・混在・破損・不完全行を読み飛ばさずbytesを保全", (t) => {
     const s = fixture(t),
       history = path.join(s.directory, "history.jsonl");
@@ -89,6 +109,9 @@ for (const residual of [
   "history.pending.jsonl",
   "unknown.json",
 ]) {
+  /** 未知残存を配置し、通常保存がそれを削除・奪取しないことを確認する。
+   * @trace ERP-IT-003
+   */
   test(`未所有残存${residual}を削除・奪取しない`, (t) => {
     const s = fixture(t);
     fs.writeFileSync(path.join(s.directory, residual), "owned elsewhere");
@@ -108,6 +131,9 @@ for (const fault of [
   "afterRename",
   "release",
 ] as const) {
+  /** 対象段階へ故障を注入し、Effect分類と回収結果・同じ参照を確認する。差替えは終了hookで復元する。
+   * @trace ERP-IT-003
+   */
   test(`保存故障${fault}のEffect段階と回収結果を保持`, (t) => {
     const s = fixture(t);
     const originalWrite = fs.writeFileSync,
@@ -186,6 +212,9 @@ for (const fault of [
     }
   });
 }
+/** 不存在と不正Store設定を正常空集合へ変えないことを公開結果で確認する。
+ * @trace ERP-IT-005
+ */
 test("Directory不存在と観測不能を正常空履歴へ変換しない", (t) => {
   const s = fixture(t);
   assert.equal(
@@ -196,6 +225,9 @@ test("Directory不存在と観測不能を正常空履歴へ変換しない", (t
   assert.equal(listExecutions({ ...s, retentionDays: 0 }).status, "blocked");
 });
 for (const replaced of ["directory", "pending"] as const) {
+  /** 元実体の差とpending置換を注入し、別実体を後始末で削除しないことを確認する。
+   * @trace ERP-IT-003
+   */
   test(`出版前の${replaced}置換では別実体を後始末で削除しない`, (t) => {
     const s = fixture(t),
       originalOpen = fs.openSync,
@@ -254,6 +286,9 @@ for (const replaced of ["directory", "pending"] as const) {
     );
   });
 }
+/** open後のFile増大を注入し、上限外の本文読取りより前に拒否することを確認する。
+ * @trace ERP-IT-005
+ */
 test("open後のFile増大を本文読取り前に拒否する", (t) => {
   const s = fixture(t);
   createExecution(s, { executionId: "e", startedAt });
@@ -285,6 +320,9 @@ test("open後のFile増大を本文読取り前に拒否する", (t) => {
   assert.equal(listExecutions(s).status, "blocked");
   assert.equal(reads, 0);
 });
+/** 複数の専用子Processを競合させ、全終了後に一件出版・異内容上書きなしを実履歴で確認する。
+ * @trace ERP-IT-002
+ */
 test("正規Writerの複数Processは一件だけを出版し競合内容を上書きしない", async (t) => {
   const s = fixture(t),
     script = fileURLToPath(
@@ -340,6 +378,9 @@ test("正規Writerの複数Processは一件だけを出版し競合内容を上�
   assert.equal(r.status, "completed");
   if (r.status === "completed") assert.equal(r.value.total, 1);
 });
+/** readyを確認した今回子Processだけを終了し、Lock残存と再入場拒否を確認後にfixtureを回収する。
+ * @trace ERP-IT-002
+ */
 test("WriterのCrash残存は自動回収せず再入場を拒否する", async (t) => {
   const s = fixture(t),
     script = fileURLToPath(

@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+EIの責務分離と文書・Header追従は限定228試験・利用側型検査・独立再レビューを確認し、追加の正式QA3項目とEI関連旧リンク48件も是正した。QA-000012は10項目、全13定義は203 unique。追加限定64試験、EI関連の文書構造・QA／Symbol参照・リンクの検査と独立再レビューは指摘0。入力検査はvalidation、遷移・保持はoperations、物理保存はstoreとし、公開契約・保存形式・安全判定は不変。他領域の既存不整合と上位未評価は残り、全体PassやArchitecture Readyは主張しない。長期Task Leaseは変更していない。全体回帰・実AI・Docker・過去保持物は操作しない。[現在の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-qa-link-closure)を参照する。
+
 EIを汎用Execution／ExecutionGroupと明示Storeの9操作へ再構成した。Task固有IDはCoordinatorのメタデータへ移し、EIのDM／VC依存・旧Factory・評価／改善提案を撤去。下位AIの計測確定とHost清掃後の保存確定を分離し、未解決保持と活動表示を維持する候補は限定回帰・独立レビュー済み。保存先準備の元Effect・回復参照もCoordinator診断へ保持する。旧永続データ移行はフロントAIの別作業。PAはFixを維持し、全体回帰・実AI・Docker・過去保持物の操作は行わない。[現在の範囲と結果](99_Roadmap/Changes/CHG-000082/runtime-responsibility-realignment-plan.md#ei-execution-group-realignment)を参照する。
 
 PAの残存機能を整理し、製品Source・Rust crate・固定配布exe・専用Build／計測入口を撤去した。開発実行はNative HashなしでSource／Gitの前後照合、観測根拠、Session期限・取消・実行回数を維持する。共有LCOV解析だけは既存利用Toolへ残し、固定Source scopeはv3へ更新。台帳はPA Ownerを退役して410件valid。選択した限定回帰と独立完成レビューを確認した。全体回帰・実AI・実Docker・過去保持物は操作していない。[現状](06_Architecture/Details/platform-access/01_Architecture.md#現在の構成--2026-11-11)を参照。以下のNative残存記述は先行段階の状態であり、この現在値を優先する。

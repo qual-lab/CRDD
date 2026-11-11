@@ -1,5 +1,11 @@
-/** 参照と完全一致検索。観測不能・未知Schemaを空結果にしない。 */
-import { assertId, instant, readRecords, snapshot } from "../storage/store.ts";
+/**
+ * ExecutionとGroupの単件参照・完全一致検索を提供する。
+ * @responsibility 検索条件・期間・ページを検査し、観測不能と正常な不存在を区別する。
+ * @trace ARCH-000007
+ * @boundary 認可・Store選択は上位。履歴・Lock・Directoryを作成又は変更しない。
+ */
+import { readRecords } from "../storage/store.ts";
+import { assertId, instant, snapshot } from "./validation.ts";
 import type {
   Execution,
   ExecutionGroup,
@@ -135,6 +141,7 @@ export function selectExecutions(
     return { status: "blocked", reason: "query_invalid" };
   }
 }
+/** 検索母集合の件数と指定ページを返す。入力不正やStore不明を正常空集合へ変換しない。 */
 export function listExecutions(
   store: StoreOptions,
   query: ExecutionQuery = {},
@@ -157,6 +164,7 @@ export function listExecutions(
     return { status: "blocked", reason: "query_invalid" };
   }
 }
+/** Group自身の属性で検索する。子の状態を推測せず、Store拒否はblockedのまま返す。 */
 export function listGroups(
   store: StoreOptions,
   query: GroupQuery = {},
@@ -183,6 +191,7 @@ export function listGroups(
     return { status: "blocked", reason: "query_invalid" };
   }
 }
+/** 指定IDの実行を読む。正常な不存在はnull、ID不正・読取り不能はblockedとして区別する。 */
 export function getExecution(
   store: StoreOptions,
   id: string,
@@ -200,6 +209,7 @@ export function getExecution(
     return { status: "blocked", reason: "execution_id_invalid" };
   }
 }
+/** 指定IDのGroupを読む。正常な不存在はnull、観測不能はblockedとし、子から補完しない。 */
 export function getGroup(
   store: StoreOptions,
   id: string,

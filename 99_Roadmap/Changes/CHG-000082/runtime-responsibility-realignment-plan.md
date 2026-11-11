@@ -1,5 +1,61 @@
 # 基盤機能中心のRuntime責務再編計画
 
+<a id="ei-qa-link-closure"></a>
+
+## EIの正式QA登録と旧リンクの是正 — 2026-11-11
+
+状態: 人間の追加指示により、先行整理で残した正式項目未登録とEI関連旧リンクを是正し、限定確認・独立再レビューを完了。新しい製品処理・公開API・検査緩和・過去Evidenceの上書きは行わない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+変更分類は検証設計の登録漏れと参照の追従。初回編集前にQA-000012の正式表、上位Source条件、現行EI／Coordinator試験、中央Quality関係・件数、全追跡MarkdownのEI関連リンクを照合し、独立の読取り専用整合確認を行った。3項目の入力・刺激・観測・Oracle・終了条件を正式13列表へ接続し、対応SourceとAnalysisを同時更新する。文書・品質の独立レビューと局所の既存Checker検査、限定回帰を行う。全体品質・準拠基準・Releaseの採否は変更しないため、全面準拠／Release監査は対象外。
+
+| 是正対象 | 処置・不変条件 |
+|---|---|
+| ERP-IT-006／007／008 | Group保持、Query／Summary、Coordinator計測・保存境界を正式登録。既存のST／UAT・情報分類・Effect 0義務を免除しない |
+| 現在の設計集合 | 元の記述199へ3を加算せず、13定義の正式表を再計数。基準の実数200から203へ。Suite台帳409件・歴史Pass数とは別集合 |
+| 歴史的な変更記録の旧Sourceリンク | EI関連48リンクだけを削除直前の実在Commit／Pathへ固定。各Evidenceの対象改訂版と同一とは主張せず、歴史本文・結論を現在実装へ置換しない |
+
+最終確認結果:
+
+| 確認 | 結果・限界 |
+|---|---|
+| 正式QA | QA-000012は既存7＋追加3のexact10項目、本文検査指摘0。全13定義は203 unique。Suite台帳は409 validのまま |
+| 関係・構造 | QA定義・Analysis・中央Local一覧・現在件数を同期。Handoffの5キーにbacktickの片側欠落も見つけて同一化し、詳細設計本文・EI関連Quality診断・EI関連Symbol診断は0。義務・試験段階・判定を緩和せず、参照だけを接続 |
+| EI関連リンク | 全追跡MarkdownのEI／QA-000012参照とEI詳細・Workflow・QA-000012の全outboundを既存Checkerで確認。169 local links・61 anchorsに指摘0。48変更リンク＋先行7の計55固定Source参照をGitのCommit／Path実在へ照合 |
+| 限定回帰 | EI公開・保存・Group・Query、Coordinator計測、DomainのQuality定義／分析の64件成功。先行の責務分離228件と分けて扱い、重複加算や全体回帰成功を主張しない |
+| 独立レビュー | QA登録・伝播と歴史リンク・影響を別担当が確認。キー表記復元後の再レビューも必須残指摘0。歴史10 CHGは注記と48 URL以外の本文・結論が基準と同一 |
+| 対象外の残存 | 既存CheckerのQuality診断6件、Symbol診断2件は他領域の既存不整合。EI関連は0だが、全Repository文書・全203項目・Architecture Ready・Releaseの成立とはしない |
+
+この確認は後続の全体回帰・実境界検証の代替ではない。下段の先行段階にあるERP未登録の記述は本節で解消済みであり、再度未解決として数えない。上位評価・時間的出所・ST／UAT・全Filesystem Effect 0の未評価は維持する。
+
+## EIの責務分離・文書とHeader追従 — 2026-11-11
+
+状態: EIの責務分離・Header・現行文書の追従を実装し、限定回帰と独立再レビューを完了。基準はeb514eb51。公開9操作・13型、v3保存形式、保持条件、結果・失敗分類は変更しない。全Repository文書の合格・Architecture Ready・Releaseは主張しない。長期Task Leaseの方式判断は別件として保留し、本変更ではlease.ts・共通Lockの本番Sourceを変更しない。全体回帰・実AI・Docker・過去保持物は操作しない。
+
+変更分類は内部責務配置と現行設計／手順の追従。初回編集前にEIの基準版Capability・42試験・利用側、Architecture／Quality・規約§4.3を照合し、読み取り専用の独立整合確認を実施した。変えるのは検査・記録規則の所有場所であり、状態・認可・安全判定の緩和ではない。上位ARCH／QAの安定IDや評価・時系列の正式義務を削除しない。準拠基準・Releaseは変更しないため、その全面監査は対象外。Source・Headerと文書／影響伝播の独立レビュー、限定回帰・文書参照確認を行う。
+
+| 棚卸し項目 | 是正 | 保持する保証と検証 |
+|---|---|---|
+| Storageが入力検査・遷移・保持を所有 | 入力捕捉・構造検査はrecord/validation.ts、遷移・Group参照・保持はrecord/operations.tsへ。広すぎるmodel.tsは撤去 | 遷移・冪等・Group参照・保持判定は同じLock取得後のfresh履歴へ適用。ID／入力固定・Root確認と旧形式先行拒否は取得前にも行い、取得後の競合検査と区別する。出版順序・元実体回収は維持 |
+| Source／試験のHeader不足 | 全EI Production Fileに責務・実在ARCH参照、公開入口にpackageDocumentation。共有・保存Symbolは失敗・不明・終了条件、TestはQA Local Itemへ接続 | tag数だけでなく意味を独立レビュー。局所Helperへ架空のAuthority／Recoveryを作らない |
+| 現行説明と旧設計の同居 | 詳細設計とWorkflowを現9操作・2モデル・明示Storeへ統一。Reality Auditの過去結果は保全し、現在案内と再構成前Source参照を分離 | 旧Evidenceや件数を新方式の成功へ引き継がない。旧Recorder等を実行案内に残さない |
+| Quality・上流・DMの追従不足 | 現Query／Summary・Coordinator搬送を対応付け、退役したEI評価／時系列／Task投影を全面Coveredとしない | 上位の未実装・未評価はOPEN／Partial。別能力の試験で免除しない |
+
+最初の分離途中に共有guardのimport不足で型検査・局所試験が失敗した。依存をvalidationへ明示して是正し、現validation／operations版のEI42件を含む限定228件が成功した。保存結果のno_effectは履歴出版前の分類であり、全Filesystem一時Effect 0の正式義務まで成立したとは主張しない。責務配置自体は実装固有の整理として上位知識還元N/A、上位義務との未評価差はQA-000012と品質統合へ明示する。
+
+最終確認結果:
+
+| 確認 | 結果と範囲 |
+|---|---|
+| EI静的検査 | format・型検査・lint成功。既存のuseTemplate情報表示1件は失敗ではない |
+| 利用側型検査 | Coordinator strict／tests、Workbench Server、MCP Server成功 |
+| 限定回帰 | EI42件、Coordinator通知・結果／有限Controller・Advice／Domain・VC利用側を含む228件成功。実AI・Dockerは起動しない |
+| 台帳 | 409件valid。台帳の成立を試験・上位品質の全面合格へ読み替えない |
+| 独立レビュー | Source／Headerと文書／影響伝播を別担当が確認。説明の4指摘を是正し、再レビュー必須残指摘0件 |
+| 文書構造 | 初回の拡張文書走査で詳細設計の表・Checklist欠落も検出。既存形式を現責務へ復元し、inspectArchitectureDetailは指摘0、Quality引渡しは既存5キーexact。固定した歴史Sourceリンク7件のCommit／Path実在を確認 |
+| 既存の文書不整合 | 拡張走査には旧リンク・上位Quality閉包等の不整合が残る。ERP-IT-006／007／008の正式Local Item未登録は基準HEADにも存在し、局所一覧や台帳validで正式義務を充足したとは扱わない。全Repository文書Passは未成立 |
+
+store.tsは670行から410行へ、入力固定・構造検査253行はvalidation.ts、専有集合の遷移・保持114行はoperations.tsへ分離した。検査前倒しや新しい保存経路は追加せず、model.tsと現行参照は残さない。
+
 <a id="ei-execution-group-realignment"></a>
 
 ## EIのExecution／Group再構成と開始・終了接続 — 2026-11-11

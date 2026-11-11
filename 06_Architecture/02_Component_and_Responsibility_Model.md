@@ -117,7 +117,7 @@ Last Updated: 2026-10-11
 | `ai-adapter` | Profile解決・管理、Provider別CLI／入力／出力／認証差 | 実行Authority、Docker資源、共通実行履歴Writerを所有しない。 |
 | `domain-model` | Artifact／Context／Topic／Meeting／品質変更の意味とCRUD、Repository観測・保存・設定の共通部品 | 業務状態のOwnerは各用途に残す。CRUDからGit Commit／PushやProvider Effectを発行しない。 |
 | `access-management` | 最小ユーザー・Role詳細権限・Credential、要求毎認可、接続／公開情報、限定鍵交換 | Domain情報やTransport／Taskを所有せず、管理能力から内容閲覧を生成しない。新IAM／汎用Registryを作らない。Source移管・公開入口は未接続。 |
-| `execution-intelligence` | 実行記録の保存・読取り・評価候補 | Coordinator内Executionの実行観測とTaskのAttempt観測を区別する。Event内容の不変性を永久保持と解釈しない。 |
+| `execution-intelligence` | 用途非依存のExecution／Groupの記録・検索・欠測を保つ集計 | CoordinatorがCRDD IDと最終診断をmetadataへ投影する。品質評価・改善提案・Task状態は現EIの責務外。上位評価義務の成立は別に扱う。 |
 | `version-control` | Root／Revisionの検証と明示されたGit操作 | Domainの保存をCommitへ自動変換しない。 |
 | `platform-access` | OS固有のProcess・Filesystem・ACL・Protocol保証 | Nodeで成立する共通処理やCoordinatorの業務状態を移管しない。 |
 

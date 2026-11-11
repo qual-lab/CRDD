@@ -1,5 +1,7 @@
 # 変更トレース: Project Operation Context
 
+参照保守（2026-11-11）: EI関連の削除済みSourceリンクは、削除直前に実在したCommitへ固定した参照案内である。各Evidenceの対象改訂版との同一性や現行契約の成立を示さない。当時の検証対象は各Evidenceに従い、本文・過去結論は変更しない。
+
 変更ID: `CHG-000067`
 状態: `In Progress`
 担当責任者: Qual-Lab
@@ -233,7 +235,7 @@ Project Operation Context
 - [`40_Develop/coordinator/src/security/docker-recovery-public-projection.ts`](<../../../40_Develop/coordinator/src/security/docker-recovery-public-projection.ts>)
 - [`40_Develop/coordinator/src/security/docker-restart-continuation-record.ts`](<../../../40_Develop/coordinator/src/security/docker-restart-continuation-record.ts>)
 - [`40_Develop/coordinator/src/security/execution-environment.ts`](<../../../40_Develop/coordinator/src/security/execution-environment.ts>)
-- [`40_Develop/coordinator/src/security/execution-intelligence-adapter.ts`](<../../../40_Develop/coordinator/src/security/execution-intelligence-adapter.ts>)
+- [`40_Develop/coordinator/src/security/execution-intelligence-adapter.ts`](https://github.com/qual-lab/CRDD/blob/bfe6d43e13c6a484dd58a447bc6f2a9566d3cfc9/40_Develop/coordinator/src/security/execution-intelligence-adapter.ts)
 - [`40_Develop/coordinator/src/security/external-send-policy-runtime.ts`](<../../../40_Develop/coordinator/src/security/external-send-policy-runtime.ts>)
 - [`40_Develop/coordinator/src/security/platform-key-storage-policy.ts`](<../../../40_Develop/coordinator/src/security/platform-key-storage-policy.ts>)
 - [`40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts`](<../../../40_Develop/coordinator/src/security/platform-provisioner-package-filesystem.ts>)
@@ -267,9 +269,9 @@ Project Operation Context
 - [`40_Develop/coordinator/tests/unit/doctor.contract.test.ts`](<../../../40_Develop/coordinator/tests/unit/doctor.contract.test.ts>)
 - [`40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts`](<../../../40_Develop/coordinator/tests/unit/project-runtime-windows-platform-adapter.contract.test.ts>)
 - [`40_Develop/coordinator/tsconfig.strict.json`](<../../../40_Develop/coordinator/tsconfig.strict.json>)
-- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](<../../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts>)
-- [`40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts`](<../../../40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts>)
-- [`40_Develop/execution-intelligence/src/store/verified-repository-root.ts`](<../../../40_Develop/execution-intelligence/src/store/verified-repository-root.ts>)
+- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts)
+- [`40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/store/execution-intelligence-store.ts)
+- [`40_Develop/execution-intelligence/src/store/verified-repository-root.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/store/verified-repository-root.ts)
 - [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts>)
 - [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](<../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts>)
 - [`40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts`](<../../../40_Develop/mcp/tests/unit/project-runtime-adapter.contract.test.ts>)

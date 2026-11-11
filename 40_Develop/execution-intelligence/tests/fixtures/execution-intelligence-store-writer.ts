@@ -1,4 +1,12 @@
-/** 新品試験Rootだけを使う有限な別Process Writer。AI・Git・Dockerを起動しない。 */
+/**
+ * 競合出版とCrash残存を親試験へ観測させる別Process入口。
+ * @packageDocumentation
+ * @responsibility 親が渡した新品Rootで一件保存、又はready通知後にLock保持して親の終了要求を待つ。
+ * @trace ERP-IT-002
+ * @level IT
+ * @scope 親試験が起動・終了・回収する専用Process。AI・Git・Dockerは起動しない。
+ * @boundary stdoutは有限結果又はreadyだけ。Crash時のLock残存は親が観測し、exact Rootを回収する。
+ */
 import { createExecution } from "../../src/index.ts";
 import { acquireLock } from "../../../lock/src/index.ts";
 const directory = process.argv[2];

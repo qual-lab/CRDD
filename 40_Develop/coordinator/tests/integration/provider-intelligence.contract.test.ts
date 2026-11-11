@@ -1,4 +1,12 @@
-/** Coordinatorの実保存接続を限定確認する。AI・Dockerは実行しない。 */
+/**
+ * Coordinatorの開始・終了観測と上位最終判定をEIの実保存へ接続して確認する。
+ * @packageDocumentation
+ * @responsibility 計測・AI結果・Task結果の分離と、元回復参照・記録ID・保存失敗の非干渉を反証する。
+ * @trace ERP-IT-008
+ * @level IT
+ * @scope 合成Git Repository、EI実Store、既存Sourceの有限境界注入。
+ * @boundary 実AI・Dockerは実行せず、各fixtureの自己生成Rootだけを終了hookで回収する。
+ */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +34,9 @@ import {
   finishProviderExecutionRecording,
   getExecutionIntelligenceStore,
 } from "../../src/execution/intelligence.ts";
+/** 新品Git Repositoryを既存fixtureへ結合し、Root検証後だけ返す。回収はfixture hookが所有する。
+ * @trace ERP-IT-008
+ */
 function repository(t: TestContext): Repository {
   const s = fixture(t);
   execFileSync("git", ["init", "--quiet", s.directory], { windowsHide: true });
@@ -35,6 +46,9 @@ function repository(t: TestContext): Repository {
   return r.capability;
 }
 
+/** 実SourceのGroup開始区間へ有限な拒否を注入し、同一IDで一回診断して上位へ戻ることを確認する。
+ * @trace ERP-IT-008
+ */
 test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断し実行へ戻る", () => {
   const source = fs.readFileSync(
     new URL("../../src/objective/execute.ts", import.meta.url),
@@ -88,6 +102,9 @@ test("Group開始の保存先拒否・例外・保存拒否は同じIDを診断�
 });
 
 for (const kind of ["execution", "group"] as const) {
+  /** DMの準備失敗を実Error契約で渡し、元Effect・回復参照と別EI ID、出版0、非throwを確認する。
+   * @trace ERP-IT-008
+   */
   test(`保存先の既知Effectと元回復参照を別の${kind} IDとともに保持する`, () => {
     const source = fs.readFileSync(
       new URL("../../src/execution/intelligence.ts", import.meta.url),
@@ -193,6 +210,9 @@ for (const [lower, upper, expected] of [
   [undefined, false, false],
   [undefined, undefined, null],
 ] as const) {
+  /** 下位・上位の真偽と欠測を対照し、下位trueを消さず、欠測をfalseへ補完しないことを確認する。
+   * @trace ERP-IT-008
+   */
   test(`Process再起動の観測を失わず欠測と区別する: ${lower}/${upper}`, (t) => {
     const r = repository(t),
       recording = beginProviderExecutionRecording(
@@ -227,6 +247,9 @@ for (const [lower, upper, expected] of [
     );
   });
 }
+/** 実保存へ開始・終了を接続し、選定設定とProvider実測欠測を別の根拠として確認する。
+ * @trace ERP-IT-008
+ */
 test("要求直前のIDをCompletionへ接続し、Provider実時間は欠測を保つ", (t) => {
   const r = repository(t);
   assert.equal(getExecutionIntelligenceStore(r, false), null);
@@ -275,6 +298,9 @@ test("要求直前のIDをCompletionへ接続し、Provider実時間は欠測を
     assert.equal(read.value?.completion?.retention, "standard");
   }
 });
+/** 未開始と旧形式拒否を対照し、既存履歴の保全と記録失敗の非伝播を確認する。
+ * @trace ERP-IT-008
+ */
 test("AI未要求では記録しない。EIの旧形式拒否・例外は通知へ伝播しない", (t) => {
   const r = repository(t),
     store = getExecutionIntelligenceStore(r, true);
@@ -298,6 +324,9 @@ test("AI未要求では記録しない。EIの旧形式拒否・例外は通知�
   assert.equal(fs.readFileSync(history, "utf8"), old);
   assert.deepEqual(fs.readdirSync(store.directory), ["history.jsonl"]);
 });
+/** 下位清掃不明とCompletion欠測を対照し、未解決保持とopenが残ることを確認する。
+ * @trace ERP-IT-008
+ */
 test("Cleanup未確認の結果は保持し、Completion欠測はopenのまま残す", (t) => {
   const r = repository(t),
     first = beginProviderExecutionRecording(r, "first", "claude"),
@@ -353,6 +382,9 @@ for (const final of [
     processRestartRequired: true,
   },
 ]) {
+  /** 下位AI成功後の上位結果を変え、AI時刻とTask判定を混ぜず一回保存することを確認する。
+   * @trace ERP-IT-008
+   */
   test(`AI成功後の${final.name}を計測と分けて最終保存する`, (t) => {
     const r = repository(t),
       recording = beginProviderExecutionRecording(r, final.name, "codex");
@@ -398,6 +430,9 @@ for (const final of [
     assert.deepEqual(fs.readFileSync(history), bytes);
   });
 }
+/** 複数AIの個別結果と共通Task診断を別々に読み戻し、未観測の終了を創作しないことを確認する。
+ * @trace ERP-IT-008
+ */
 test("複数AIの個別結果と共通Task結果を混同せず、capture欠測はopenを保つ", (t) => {
   const r = repository(t),
     a = beginProviderExecutionRecording(r, "executor", "codex"),

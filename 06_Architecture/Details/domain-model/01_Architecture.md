@@ -562,8 +562,8 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | `createTopicOperations`（内部の共通Repository／ApplicationからTopic操作だけを公開） | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。Access Managementは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
 | `createMeetingOperations`、`MeetingOutcomeCommandResult` | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はAccess Managementの現在認可と利用側Routingが成立するまで発行しない |
 | `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | `src/index.ts`の該当Symbol | 明示した宣言／検査結果 | CROS、Checker、各設定利用側 | 宣言の検証のみ。既存Schemaの移管をTrust Policy Framework採用と扱わない |
-| `readCoordinatorConfig`、`readExecutionIntelligenceConfig` | `src/index.ts`の該当Symbol | 検証済みRootと当該Tool／検証済み設定Snapshot | Coordinator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止。旧Orchestrator設定は探索しない |
-| `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `src/index.ts`の該当Symbol | 検証済みRoot／用途別Pathと境界観測 | Runtime各Owner、Execution Intelligence、診断 | 読取りだけ。`not_observed`と`blocked`を区別し、Rootを逆算しない |
+| `readCoordinatorConfig`、`readExecutionIntelligenceConfig` | `src/index.ts`の該当Symbol | 検証済みRootと当該Tool／検証済み設定Snapshot | Coordinator | 設定読取り。EIにはCoordinatorが所在とretentionDaysを渡し、EIからDMを参照しない。不在だけ既定30日、不正・読取り不能は停止。旧Orchestrator設定は探索しない |
+| `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `src/index.ts`の該当Symbol | 検証済みRoot／用途別Pathと境界観測 | Coordinator等のRuntime Owner、診断 | 読取りだけ。EIにはCoordinatorが観測した所在を明示搬送する。`not_observed`と`blocked`を区別し、Rootを逆算しない |
 | `ensureRepositoryRuntimeDataArea`、`createCoordinatorRuntimeDataArea`、`createTemporaryOperation`／`resumeTemporaryOperation`／`settleTemporaryOperation` | `src/index.ts`の該当Symbol | 許可Root、用途、exact Identity／保存Capability・終了／回復結果 | Coordinator、Orchestrator、試験・署名準備 | 宣言用途だけ作成・回収。由来不明・使用中・観測不能ではEffect前停止 |
 
 `createTopicMeetingOperations`の共通実体は一つとし、Topic／Meeting公開面は許可された操作だけを返す。既存型の意味を変えず、全APIの巨大再公開や別実装を作らない。File名・型名の具体化は段階3の公開Symbol全数照合で固定する。

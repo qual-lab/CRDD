@@ -1,4 +1,12 @@
-/** Group終了と子の未完了・保持を独立に扱う実Filesystem試験。 */
+/**
+ * Group終了と子の未完了・期限保護を実Filesystemで確認する。
+ * @packageDocumentation
+ * @responsibility 終了Groupと保持対象の子の参照を保全し、状態を自動伝播しないことを反証する。
+ * @trace ERP-IT-006
+ * @level IT
+ * @scope EI公開記録・検索、今回作成するStore。
+ * @boundary 公開APIから実Storeまで。AI・Dockerは使わずfixture終了時に自己生成Rootを回収する。
+ */
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -13,6 +21,9 @@ import {
 } from "../../src/index.ts";
 import { fixture, startedAt, completion } from "../fixtures/store.ts";
 
+/** Groupなし・未知Group・終了Groupを対照し、許可された参照だけ保存されることを確認する。
+ * @trace ERP-IT-006
+ */
 test("Groupなし実行を許可し、未知Groupと終了済みGroupへの追加を拒否", (t) => {
   const s = fixture(t);
   assert.equal(
@@ -37,6 +48,9 @@ test("Groupなし実行を許可し、未知Groupと終了済みGroupへの追�
   );
 });
 for (const mode of ["open", "unresolved", "unknown", "standard"] as const) {
+  /** 期限をまたぐ子の状態を変え、保持対象の子とGroupの参照が残ることを確認する。
+   * @trace ERP-IT-006
+   */
   test(`終了Groupの期限超過時も${mode}子との参照条件を守る`, (t) => {
     const s = { ...fixture(t), retentionDays: 1 };
     createGroup(s, { groupId: "g", startedAt });
@@ -81,6 +95,9 @@ for (const mode of ["open", "unresolved", "unknown", "standard"] as const) {
     }
   });
 }
+/** 同内容再送と異内容競合、一覧拒否を対照し、既存内容の不変性を確認する。
+ * @trace ERP-IT-006
+ */
 test("Groupの再送は同一内容だけを許可し、一覧の失敗条件を維持", (t) => {
   const s = fixture(t),
     g = { groupId: "g", startedAt };

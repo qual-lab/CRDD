@@ -1,5 +1,7 @@
 # 変更トレース: Project状態参照とローカルMCP HTTP
 
+参照保守（2026-11-11）: EI関連の削除済みSourceリンクは、削除直前に実在したCommitへ固定した参照案内である。各Evidenceの対象改訂版との同一性や現行契約の成立を示さない。当時の検証対象は各Evidenceに従い、本文・過去結論は変更しない。
+
 変更ID: `CHG-000064`
 状態: `Released`
 担当責任者: Qual-Lab
@@ -86,8 +88,8 @@ HTTPはMCP 2026-07-28のstatelessなPOST単位Transportとして実装する。I
 - [`40_Develop/coordinator/tests/integration/cli-options.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts>)
 - [`40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts`](<../../../40_Develop/coordinator/tests/integration/platform-provisioner-package-filesystem.contract.test.ts>)
 - [`40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts`](<../../../40_Develop/coordinator/tests/integration/project-runtime-composition-root.integration.test.ts>)
-- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](<../../../40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts>)
-- [`40_Develop/execution-intelligence/src/core/execution-intelligence.ts`](<../../../40_Develop/execution-intelligence/src/core/execution-intelligence.ts>)
+- [`40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/application/execution-intelligence-recorder.ts)
+- [`40_Develop/execution-intelligence/src/core/execution-intelligence.ts`](https://github.com/qual-lab/CRDD/blob/b8fad5349f3882d89c4dbbc31a86a2cced05f3d8/40_Develop/execution-intelligence/src/core/execution-intelligence.ts)
 - [`40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/integration/execution-intelligence-store.contract.test.ts>)
 - [`40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts`](<../../../40_Develop/execution-intelligence/tests/unit/execution-intelligence.contract.test.ts>)
 - [`40_Develop/mcp/src/adapters/project-runtime-adapter.ts`](<../../../40_Develop/mcp/src/adapters/project-runtime-adapter.ts>)

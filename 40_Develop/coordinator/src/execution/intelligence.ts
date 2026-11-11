@@ -1,4 +1,10 @@
-/** Coordinatorが確定した保存先と外部ContextをEIへ搬送する。実行許可・Recoveryは所有しない。 */
+/**
+ * CoordinatorのAI観測と最終判定をEIの記録へ接続する。
+ * @responsibility 保存先・Contextを上位Ownerで確定し、開始・終了捕捉・最終保存と元境界の失敗診断を搬送する。
+ * @trace ARCH-000004
+ * @trace ARCH-000018
+ * @boundary EI保存・診断を必須Recovery通知の失敗へ昇格せず、AIの実行許可・回復判断を持たない。
+ */
 import {
   ensureRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
@@ -39,6 +45,7 @@ export function getExecutionIntelligenceStore(
     retentionDays: config.config.historyRetentionDays,
   };
 }
+/** 同じAI実行の開始と終了捕捉を一回の最終保存へ結ぶ短命な値。SessionやAuthorityは保持しない。 */
 export type ProviderExecutionRecording = Readonly<{
   store: StoreOptions;
   executionId: string;

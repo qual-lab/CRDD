@@ -486,7 +486,7 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 共通設定ReaderはDomain Modelの設定部品が所有し、各履歴Ownerが自分の設定だけを利用する。現在の配置は`.crdd/config/execution-intelligence.json`と`.crdd/config/coordinator.json`である。保存統合BではTaskと技術実行の履歴をCoordinatorの同一設定へ接続し、旧Orchestrator専用Reader・設定例・Schemaを撤去する。Coordinatorの現在状態・回復・終了要約の条件は[Coordinator詳細の縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)を正本とし、本節で再定義しない。
 
-履歴所有者が通常履歴を整理するときは、`readExecutionIntelligenceConfig`または`readCoordinatorConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にせず、旧`orchestrator.json`も探索しない。
+CRDDのCoordinatorが`readExecutionIntelligenceConfig`又は`readCoordinatorConfig`で対象Tool設定を読む。EIには準備済み所在と保持日数を明示して渡し、EIからDMを参照しない。Runtime Dataは設定の検証と読取りだけを所有し、記録の整理判断は各履歴Ownerが行う。他Toolの設定は読取り条件にせず、旧`orchestrator.json`も探索しない。
 
 | 項目 | 契約 |
 |---|---|
